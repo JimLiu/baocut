@@ -1,0 +1,28 @@
+#!/bin/sh
+# baocut — run the BaoCut CLI bundled inside the installed macOS app.
+# Shipped with the BaoCut agent skill (github.com/JimLiu/baocut).
+# Symlink onto your PATH if you like:  ln -sfn "$PWD/bin/baocut" /usr/local/bin/baocut
+set -eu
+
+# macOS only.
+if [ "$(uname -s)" != "Darwin" ]; then
+  echo "baocut: BaoCut is macOS-only — this skill needs the BaoCut Mac app." >&2
+  exit 1
+fi
+
+# Resolve the CLI: $BAOCUT_CLI override -> installed app -> a baocut-cli on PATH.
+for BIN in \
+    "${BAOCUT_CLI:-}" \
+    "/Applications/BaoCut.app/Contents/MacOS/baocut-cli" \
+    "$HOME/Applications/BaoCut.app/Contents/MacOS/baocut-cli"; do
+    [ -n "$BIN" ] && [ -x "$BIN" ] && exec "$BIN" "$@"
+done
+if command -v baocut-cli >/dev/null 2>&1; then exec baocut-cli "$@"; fi
+
+cat >&2 <<'EOF'
+baocut: BaoCut app not found.
+Install BaoCut for Mac from https://baocut.app, then retry. Expected the CLI at:
+  /Applications/BaoCut.app/Contents/MacOS/baocut-cli
+(or set BAOCUT_CLI to the baocut-cli path).
+EOF
+exit 1
