@@ -10,6 +10,24 @@ if [ "$(uname -s)" != "Darwin" ]; then
   exit 1
 fi
 
+# Tell the CLI which skill is driving it, so it can enforce the version contract.
+# Resolve this script through any PATH symlink to find the sibling SKILL.md.
+SELF="$0"
+while [ -L "$SELF" ]; do
+  link="$(readlink "$SELF")"
+  case "$link" in
+    /*) SELF="$link" ;;
+    *) SELF="$(dirname "$SELF")/$link" ;;
+  esac
+done
+SKILL_MD="$(cd "$(dirname "$SELF")/.." 2>/dev/null && pwd)/SKILL.md"
+if [ -f "$SKILL_MD" ]; then
+  v="$(sed -n 's/^version:[[:space:]]*//p' "$SKILL_MD" | head -1)"
+  ma="$(sed -n 's/^minAppVersion:[[:space:]]*//p' "$SKILL_MD" | head -1)"
+  [ -n "$v" ] && export BAOCUT_SKILL_VERSION="$v"
+  [ -n "$ma" ] && export BAOCUT_SKILL_MIN_APP="$ma"
+fi
+
 # Resolve the CLI: $BAOCUT_CLI override -> installed app -> a baocut-cli on PATH.
 for BIN in \
     "${BAOCUT_CLI:-}" \

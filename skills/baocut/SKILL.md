@@ -1,5 +1,7 @@
 ---
 name: baocut
+version: 0.1.0
+minAppVersion: 0.1.0
 description: >-
   Drive BaoCut from the CLI to transcribe local media or supported video URLs,
   polish transcripts through Agent workers, create/translate subtitles, review
@@ -27,6 +29,18 @@ whenever you parse output — always do when scripting.
 drives the BaoCut app's bundled CLI. If `baocut` is not found, or a command
 reports the app is missing, tell the user to install BaoCut for Mac from
 https://baocut.app — the skill cannot run without it.
+
+**Version compatibility.** The frontmatter above pins this skill's `version` and
+the oldest BaoCut app it needs (`minAppVersion`). When you run `baocut` through
+this skill's wrapper it passes both to the CLI, which enforces the contract:
+- app older than `minAppVersion` → the CLI stops (exit 3) and asks the user to
+  update BaoCut at https://baocut.app — this is a **required** app upgrade;
+- this skill older than the CLI supports → the CLI stops (exit 3) and asks the
+  user to update the skill: `npx skills add JimLiu/baocut`;
+- a newer skill or app merely available → a one-line stderr note, work continues.
+
+`--help` and `--version` always run so you can diagnose. If you hit an exit-3
+version block, relay the printed instruction — don't route around it.
 
 You are the **orchestrator**. The LLM pipeline stages (segment / polish /
 repunct / translate / align) run inside a background worker process that asks
