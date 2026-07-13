@@ -5,6 +5,30 @@ most of these have one correct next command. (JSON errors arrive as
 `{"status":"error","error":"…"}`; submit lint rejections as
 `{"status":"rejected",…}`.)
 
+## Version compatibility (M83a)
+
+**`This BaoCut app (vX) is older than the baocut skill needs (vY+)…`** (exit 3,
+JSON `{"status":"error","mustUpdate":"app","action":"https://baocut.app"}`)
+The installed app/CLI is older than this skill's `minAppVersion`. The skill's
+instructions assume CLI features this app lacks.
+→ Tell the user to update BaoCut for Mac from https://baocut.app (the in-app
+updater under Settings › About, or the sidebar update icon, does app + CLI in one
+step). This is a REQUIRED upgrade — do not route around it or fall back to an
+older command form.
+
+**`This baocut skill (vX) is older than this CLI supports (vY+)…`** (exit 3,
+JSON `{"status":"error","mustUpdate":"skill",…}`)
+The installed skill predates the current CLI contract.
+→ Update the skill: `npx skills add JimLiu/baocut` (or re-clone per the repo
+README). Then retry.
+
+**A one-line stderr note `a newer BaoCut app may be available…`** (NOT an error;
+exit 0, the command still ran)
+The skill is newer than the app shipped with — a soft heads-up only. Continue;
+mention the optional update if the user asks.
+
+Only `--help` and `--version` bypass these checks (so you can always diagnose).
+
 ## Task protocol
 
 **`{"status":"rejected","problems":[…],"triesLeft":N}`** (task submit)
