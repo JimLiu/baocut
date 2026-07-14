@@ -22,12 +22,45 @@ baocut project repair <pid>              # fix an orphan status (see below)
 ```
 
 `task report` is the performance record; `audit` is the quality record;
-`finish-check` is the **router** — it runs audit + polishQuality + attention +
-export preconditions and returns `{ready, blockers, warnings, next[]}`, always
-exit 0 so it chains (`finish-check && export`). Work its `next[]`, re-run it.
+`finish-check` is the **timed-delivery router** — it runs audit, polishQuality,
+attention, and export preconditions and returns `{ready, blockers, warnings,
+next[]}`. It always exits 0, so parse `ready`; never shell-chain it to export.
+`next[]` is advisory, not a queue to drain.
 Audit never writes the project and returns exit 0 for PASS/WARN, exit 2 for FAIL
-(exit 1 is command/input failure); use `finish-check` in a `&&` chain, `audit`
-as the strict gate.
+(exit 1 is command/input failure). Inspect the failing sections against the
+requested completion mode instead of treating every exit 2 alike.
+
+## Completion gates and the one-repair budget
+
+Use these categories after the initial task reaches terminal:
+
+- **Content/structure blockers:** source loss or duplicate coverage; missing,
+  extra, empty, or stale translation; source-stamp mismatch; missing locked
+  terms; adjacent duplicate target content; term/source coverage mismatch;
+  boundary/semantic rebind corruption; broken pins; duplicate/empty words; or
+  non-finite, negative, regressing, and otherwise invalid core timing. These
+  block Project, Markdown, and timed delivery.
+- **Presentation blockers:** source/target flash, `prc.cps`, projected width,
+  line-count/unsafe-layout, punctuation-projection, mergeable/splittable
+  grouping, and similar reading-layout findings. They block SRT/VTT/ASS and
+  captioned video, but NOT a content-sound Project or Markdown export.
+
+Project mode runs `audit` once, reports presentation debt without repairing it,
+and asks the user whether to export. Timed delivery runs `audit` plus
+`finish-check` and requires the full verdict to be ready.
+
+Across post-terminal verification, allow at most ONE targeted repair workflow
+and at most ONE Agent task. Before mutating, run `version list` and record the
+current branch tip. A deterministic local mutation may be paired with its
+required incremental refresh, but do not start a second Agent task. Re-audit
+once. If a blocker remains, stop and ask the user; if content coverage, source
+fidelity, pins, or timing regresses, restore the recorded version before asking.
+Spend no repair budget unless the selected local action plausibly addresses the
+blocking samples. In particular, target `align` cannot repair `source-flash`;
+when mixed blockers have no single safe local fix, report them immediately.
+Never recursively execute `next[]`, re-segment a translated project, run a full
+re-translation, or repeat align solely for presentation findings without
+explicit user approval.
 
 New M81 audit codes and their fix: `polish-introduced-zero-duration` /
 `zero-duration-words` / `cleanup-filler-zero-duration` → `baocut timing repair
@@ -40,8 +73,8 @@ Read the audit JSON by section:
 - `polishQuality`: structured evidence from `ai/polish-quality.json` — page
   retries, alignment recovery, fallback pages/sentences and analysis-confirmed
   residual term variants. WARN is not content loss, but it blocks a claim that
-  the transcript is polished; rerun the full `task start polish` with precise
-  instructions (there is no sentence-only polish mutation).
+  the transcript is polished; prefer `terms fix` or `task start polish
+  --from-audit` inside the one-repair budget. Do not default to a full rerun.
 
 - `source` / `translations`: current reading-time flash counts, width maxima,
   target missing/extra/empty/stale coverage and source-stamp consistency;
@@ -68,11 +101,12 @@ Read the audit JSON by section:
   that crossed a Phase-1 sentence, evidence-backed but worth a look),
   `termSourceCoverageMismatchCount` (FAIL — a protected target term whose
   normalized source words sit in the NEIGHBOR group, the p788 "OpenCode"
-  defect). The repair for every M71 seam FAIL is
-  `task start align <pid> --lang <L> --from pristine`, then re-audit;
+  defect). For timed delivery, `task start align <pid> --lang <L> --from
+  pristine` may be the single repair when no narrower supported repair exists;
+  otherwise report the blocker instead of starting a broad run;
   M72 gates: `adjacentDuplicateCount` (FAIL — adjacent groups carrying the
   same normalized translation, the smoking gun of a mis-keyed subset apply;
-  re-run the align/translate apply on the fixed build) and
+  report it unless one bounded repair can safely correct it) and
   `target-flash-complete-sentence` (WARN — a complete short CJK sentence kept
   deliberately because both merges are sentence-blocked; the reading-time
   repair never welds across 。？！ anymore). `mergeableFragmentCount` also
@@ -97,10 +131,12 @@ violations and missing locked glossary targets are FAIL; an edge `、` or an
 ambiguous straight quote is WARN. `punctuationProjectionEnabled:false` is a
 FAIL for strict delivery even though the UI may intentionally preview literal
 punctuation with its Display toggle off. Use `topIssues` codes prefixed `prc.`
-to locate the exact group, then fix/re-align it and run audit again.
+to locate the exact group; for timed delivery, spend the single repair budget
+only when a local fix exists, then re-audit once.
 
-Flash lines are FAIL because they are unreadable at the stored timing;
-zero-duration words are WARN when other timing invariants remain valid. In a
+Flash lines are FAIL for timed delivery because they are unreadable at the
+stored timing; they are presentation debt, not a Project-mode blocker.
+Zero-duration words are WARN when other timing invariants remain valid. In a
 controlled A/B, pre-existing flash/zero-duration counts may be classified as
 baseline debt, but they must be recorded and must not increase or acquire new
 samples. A baseline FAIL is never converted to PASS by comparison alone.

@@ -25,8 +25,10 @@ zh [--groups …] [--from current|pristine]` redoes ONLY the "Splitting &
 aligning" phase — the translation text stays (reviewer rewrites excepted), the
 source didn't change, so re-align never flips staleness and stale counts never
 demand it. Each applied run lands as a restorable "Re-aligned N lines" version
-snapshot. Use it when `audit`/`align list` show over-long lines, not when
-`version list` shows stale ones.
+snapshot. Use it only when a requested timed deliverable's `audit`/`align list`
+shows over-long lines and align is the one selected repair; presentation debt
+does not trigger it in Project mode. Do not use it when `version list` shows
+stale ones.
 
 **Branches (parallel versions, git-like).** A change that alters the paragraph
 partition — **re-transcribe** OR **re-segment** (`task start segment` on an

@@ -1,6 +1,6 @@
 ---
 name: baocut
-version: 0.1.0
+version: 0.1.1
 minAppVersion: 0.1.0
 description: >-
   Drive BaoCut from the CLI to transcribe local media or supported video URLs,
@@ -36,7 +36,7 @@ this skill's wrapper it passes both to the CLI, which enforces the contract:
 - app older than `minAppVersion` → the CLI stops (exit 3) and asks the user to
   update BaoCut at https://baocut.app — this is a **required** app upgrade;
 - this skill older than the CLI supports → the CLI stops (exit 3) and asks the
-  user to update the skill: `npx skills add JimLiu/baocut`;
+  user to update the global skill: `npx skills add JimLiu/baocut -g -a claude-code codex -y`;
 - a newer skill or app merely available → a one-line stderr note, work continues.
 
 `--help` and `--version` always run so you can diagnose. If you hit an exit-3
@@ -73,6 +73,38 @@ context — prompt bodies live in files; you pass file paths around.
 
 A plain transcription/translation run needs ONLY orchestration.md — don't read
 the speaker/version/export docs until the task actually calls for them.
+
+## Choose the completion mode first
+
+Classify the user's requested deliverable BEFORE starting. Do not infer a timed
+subtitle export from the words "transcribe" or "translate":
+
+- **Project mode (the default):** a request that only asks to transcribe,
+  polish, correct, or translate is complete when the result is safely stored in
+  the BaoCut Project. At terminal, run `task report`, `project show`, and ONE
+  read-only `audit` for content/structure evidence. Require source fidelity,
+  translation coverage/staleness/stamps, locked terms, pins, and core word
+  timing to be sound; `polishQuality` must PASS when polished/corrected text was
+  promised. Source/target flash, CPS, wrapping, line-width, and other delivery
+  layout findings do NOT block Project completion. Report the project id,
+  languages, and quality summary, then ask whether the user wants to open it or
+  export SRT/VTT/ASS/Markdown/video. **STOP that turn.** Before their answer,
+  do not run `finish-check`, export, start another task, or repair a
+  presentation-only finding.
+- **Document export:** an explicit Markdown request uses the same content gate
+  as Project mode, then writes only the requested document. Timed presentation
+  findings do not block Markdown.
+- **Timed delivery:** an explicit SRT/VTT/ASS, caption burn-in, final video, or
+  other ready-to-use timed subtitle ask requires the full strict `audit` plus a
+  parsed `finish-check` verdict before export. Read export.md and recovery.md;
+  here presentation findings are blockers.
+- **Talking-head editing:** keep the rough-cut and layering checkpoints below;
+  an edit request does not inherit Project mode's early stop when the user
+  explicitly asked for an end-to-end deliverable.
+
+Audit categories and the bounded recovery policy live in recovery.md. A
+post-terminal repair may use at most ONE targeted repair workflow / Agent task,
+followed by ONE re-audit. Never recursively execute `finish-check.next[]`.
 
 ## Quick start: one command, one loop
 
@@ -202,7 +234,7 @@ Older projects can be back-filled with the M56 CJK autocorrect pass:
 `baocut autocorrect <pid>|--all [--dry-run]` (each changed project gets a
 restorable "Autocorrect" version snapshot).
 
-Before delivery, run the read-only quality gate:
+Before a timed delivery, run the read-only quality gate:
 `baocut --json audit <pid> [--lang zh]`. `task report` measures performance;
 `audit` measures subtitle quality/invariants — including source-content loss
 and duplicate coverage against the current branch's transcription ancestor,
@@ -215,16 +247,21 @@ means the terms are re-polishable WITHOUT a full rerun (see below).
 
 ## Fix problems without a full rerun (M81)
 
-When `audit`/`project show` flag a specific problem, converge on it — don't
-re-run the whole stage:
+When a mode-blocking `audit`/`project show` problem has a supported local fix,
+spend the single repair budget on that exact problem — don't re-run the whole
+stage:
 
 ```bash
 baocut --json finish-check <pid> [--lang zh]   # ONE verdict: {ready, blockers, warnings, next}
 ```
 
 `finish-check` aggregates status + audit + polishQuality + attention + export
-preconditions and ALWAYS exits 0 (the verdict is `ready`), so it chains:
-`finish-check <pid> && export …`. Work its `next[]` list, then re-run it.
+preconditions and ALWAYS exits 0. Parse its `ready` field; never use shell exit
+status or `finish-check && export` as the gate. Its `next[]` list is advisory:
+select at most one targeted action, record the current version first, run it,
+then re-audit once. If the blocker remains, keep the sound result and ask the
+user how to proceed. Restore the recorded version only if content/coverage/
+pins/timing regressed. Do not start a second repair task automatically.
 
 - **Wrong ASR term** (克拉克→Claude Code, Grab→grep…): `baocut terms fix <pid>
   --map "克拉克=Claude Code,Grab=grep" [--dry-run]` rewrites the source in place
@@ -245,6 +282,11 @@ preconditions and ALWAYS exits 0 (the verdict is `ready`), so it chains:
   names from self-intro/invitation cues + analysis entities (never auto-applies).
 - **Watch a long run** instead of polling: `baocut task watch <taskId>
   [--jsonl]` streams one line per state change until terminal.
+
+Do not re-segment an already translated project, run a full re-translation, or
+repeat `align` merely to clear flash/CPS/width warnings without explicit user
+approval. In Project mode, presentation-only findings consume NO repair budget:
+leave them for a later export request.
 
 ## Project metadata: title, description, speaker names
 
@@ -271,16 +313,17 @@ Title + description ride into EVERY LLM stage as grounding context
 
 ## Ground rules
 
-- **A successful submit/exit-0 is not verification.** Before declaring a run
-  done, re-read the outcome: `baocut --json audit <pid> --lang <l>` for
-  translation quality (exit 2 = FAIL), `finish-check <pid>` for the aggregate
-  verdict, `project show` for doc stats, or re-parse the exported SRT. Report
-  what the evidence shows, not what the commands returned.
-- **Pipeline verification vs formal edit.** A verification/benchmark run may go
-  all the way to `audit`/`finish-check` autonomously, but must NOT export a
-  deliverable without the user. A formal talking-head edit still stops after the
-  rough cut for a human checkpoint (see editing.md) unless the user asked for
-  end-to-end.
+- **A successful submit/exit-0 is not verification.** Re-read the evidence for
+  the chosen completion mode. Project/Markdown mode uses `project show` plus
+  one `audit`, while timed delivery additionally parses `finish-check.ready`
+  and may re-parse the exported sidecar. `audit` exit 2 can be presentation-only
+  and therefore non-blocking in Project mode; inspect the failing sections.
+  Report what the evidence shows, not only what the commands returned.
+- **Pipeline verification vs formal edit.** A benchmark may run its declared
+  acceptance gate autonomously, but a bare transcription/translation stops at
+  Project completion and must NOT export or chase presentation findings. A
+  formal talking-head edit still stops after the rough cut for a human
+  checkpoint (see editing.md) unless the user asked for end-to-end.
 - **Polish is CLI-orchestrated Agent work.** Never hand-edit `doc.json`, apply
   global search/replace, or treat ASR output as polished. Analysis/polish/
   repunct calls must be drained through `task claim` + `task submit --next`.

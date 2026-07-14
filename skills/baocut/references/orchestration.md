@@ -41,6 +41,15 @@ callIds, never re-polls per answer, never bookkeeps slots.
    EXISTING project fix metadata BEFORE `task start polish|translate` so the
    run benefits (MediaContext re-reads the project at each stage start).
 
+**Terminal is a delivery boundary, not permission to start another run.** For
+a bare transcription/translation request, collect `task report`, `project
+show`, and one `audit`, then apply the Project-mode gate in SKILL.md. If the
+content is sound, report the project and ask whether the user wants an export;
+stop before `finish-check`, export, re-segmentation, re-translation, or layout
+repair. Presentation-only flash/CPS/width findings are deferred until a timed
+deliverable is explicitly requested. A requested timed deliverable gets at most
+one post-terminal targeted repair workflow / Agent task and one re-audit.
+
 Worker template (give each a name and ONLY the ids/paths below — a worker
 needs no conversation history and no skill text beyond this template):
 
@@ -333,8 +342,14 @@ WARN, beyond hard is FAIL. A missing cached brief makes the protected-term
 audit explicitly unavailable/WARN; it is never reported as a clean zero. See
 recovery.md for field interpretation.
 For CLI polish, `task report` also surfaces `polishQuality`; recovery,
-fallback, or residual terms are WARN and require a full Agent polish rerun
-before delivery.
+fallback, or residual terms are WARN and block a polished-result claim. Prefer
+the bounded local repairs in transcript-quality.md; do not default to a full
+Agent polish rerun.
+
+Interpret that verdict against the requested completion mode: presentation
+FAILs block timed subtitle/video delivery, but do not block a content-sound
+Project or Markdown result. Never turn the audit into an unbounded remediation
+loop; recovery.md defines the single repair budget.
 
 ## Scientific A/B acceptance for speed changes
 

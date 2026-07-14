@@ -20,11 +20,11 @@ Works with **Claude Code**, **Codex**, and any [skills.sh](https://skills.sh)-co
 ### Recommended — skills.sh
 
 ```sh
-npx skills add JimLiu/baocut
+npx skills add JimLiu/baocut -g -a claude-code codex -y
 ```
 
-This installs the skill to `~/.agents/skills/baocut` and links it for detected
-agents (e.g. Claude Code at `~/.claude/skills/baocut`).
+This installs the skill globally to `~/.agents/skills/baocut` and links it for
+Claude Code and Codex.
 
 ### Manual (no Node.js)
 

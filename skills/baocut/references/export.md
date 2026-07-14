@@ -1,5 +1,19 @@
 # Export & open
 
+## Export is opt-in
+
+A bare "transcribe" / "translate" request ends with the completed BaoCut
+Project. Report the project id and content-quality evidence, then ask whether
+the user wants to open the Project or export translated/bilingual SRT, VTT,
+ASS, Markdown, or video. Wait for that answer; do not guess a format or create
+an artifact in advance.
+
+For an explicit Markdown export, require the Project-mode content/structure
+gate from SKILL.md; timed flash/CPS/width findings do not block it. For
+SRT/VTT/ASS or captioned video, run the timed-delivery gate and parse
+`finish-check.ready` before exporting. `finish-check` always exits 0, so never
+write `finish-check && export` and assume the shell protected the export.
+
 ```bash
 baocut export <pid> --srt -o out.srt               # --vtt / --ass · --speakers · --no-style
 baocut export <pid> --srt --translated --lang zh -o zh.srt   # translation only

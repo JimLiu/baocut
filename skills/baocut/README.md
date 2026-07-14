@@ -6,4 +6,4 @@ command line. See [`SKILL.md`](SKILL.md) for the full agent instructions and
 
 - **Requires:** macOS + the BaoCut app (`bin/baocut` resolves the CLI inside
   `/Applications/BaoCut.app`).
-- **Install:** `npx skills add JimLiu/baocut` — see the [repo README](../../README.md).
+- **Install:** `npx skills add JimLiu/baocut -g -a claude-code codex -y` — see the [repo README](../../README.md).

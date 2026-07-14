@@ -92,8 +92,10 @@ A `polishQuality` WARN whose only issue is residual terms does NOT require a
 
 ## Acceptance evidence
 
-Before reporting a polished/edited result — or just run `finish-check <pid>`,
-which aggregates all of these into `{ready, blockers, warnings, next}`:
+Before reporting a polished/edited result, apply the completion mode in
+SKILL.md. Project mode checks the content fields below without running
+`finish-check`; a timed/edited deliverable additionally parses
+`finish-check <pid>` and its `{ready, blockers, warnings, next}` verdict:
 
 - `polishQuality.status == PASS` (or residual-only WARN cleared via `terms fix`);
 - no `polish-residual-term` / `polish-introduced-zero-duration` findings;

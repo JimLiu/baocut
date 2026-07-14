@@ -19,8 +19,8 @@ older command form.
 **`This baocut skill (vX) is older than this CLI supports (vY+)…`** (exit 3,
 JSON `{"status":"error","mustUpdate":"skill",…}`)
 The installed skill predates the current CLI contract.
-→ Update the skill: `npx skills add JimLiu/baocut` (or re-clone per the repo
-README). Then retry.
+→ Update the global skill: `npx skills add JimLiu/baocut -g -a claude-code codex -y`
+(or re-clone per the repo README). Then retry.
 
 **A one-line stderr note `a newer BaoCut app may be available…`** (NOT an error;
 exit 0, the command still ran)
@@ -127,14 +127,17 @@ check `--source-lang` if the language was forced wrong.
 
 **`baocut audit` exits 2 (FAIL)**
 Not a crash — the report names each failing check (boundary drift, seam moves,
-flashes, coverage…). → Read the JSON report's failing counters; recovery.md
-maps each counter to its repair (usually `task start align --from pristine`
-or a stale re-run), then re-audit to 0.
+flashes, coverage…). → Read the JSON report's failing counters and apply the
+completion mode from SKILL.md. Presentation-only FAILs do not block Project or
+Markdown completion. For a requested timed deliverable, recovery.md permits at
+most one targeted repair workflow / Agent task followed by one re-audit; if it
+still fails, stop and ask instead of chasing exit 0.
 
 **`baocut audit … && <next>` never runs `<next>`** (M81)
 `audit` exits 2 on FAIL by design, so `&&` short-circuits. → For a chainable
-gate use `baocut finish-check <pid> && <next>` (finish-check always exits 0
-and carries the verdict in `ready`), or separate with `;` and read the JSON.
+diagnostic use `baocut finish-check <pid>` (it always exits 0), but parse its
+JSON `ready` field before taking any action. Never use `finish-check && export`:
+the shell would export even when `ready` is false.
 
 **polish reported PASS but a user-specified term (子A证 / 克拉克 / Manus) is still
 wrong** (M81)
