@@ -7,10 +7,11 @@ CLAIMABLE: `task claim` atomically leases one call to a named worker, and
 parallel subagents pull work themselves — the root never hand-dispatches
 callIds, never re-polls per answer, never bookkeeps slots.
 
-## The recommended shape (3 persistent workers)
+## The recommended shape (3 persistent workers, four-way align packing)
 
-1. **Root:** start the run (`baocut --json auto … --align-concurrency 3`) and
-   immediately spawn 3 persistent answer workers (names w1/w2/w3). Do not wait
+1. **Root:** start the run (`baocut --json auto …`; align concurrency defaults
+   to 4) and immediately spawn 3 persistent answer workers (names w1/w2/w3).
+   Do not wait
    for the first prompt first: `task claim --timeout 240` safely blocks through
    transcription, and having the pool warm removes the first-call queue/spin-up
    gap. Pass `--title`/`--desc` at `auto` time when you already know the
@@ -91,11 +92,15 @@ needs no conversation history and no skill text beyond this template):
 Priority is built in: `claim` hands out problems-bearing retries before fresh
 work, oldest first — a hard retry never queues behind optional work.
 
-**Worker count = `--align-concurrency`.** The worker process holds that many
-calls in flight; answer workers beyond it just idle in claim-wait, and one
-fewer leaves a slot permanently queued. 3 is the sweet spot in most agent
-environments; pass `--align-concurrency 3` at `auto`/`task start` time to
-match (max 8 if you can genuinely run more workers).
+**Worker count and `--align-concurrency` are related but not identical.** The
+worker process holds that many calls in flight, and the value also determines
+how align work is packed. Three persistent answer workers are the practical
+sweet spot in most agent environments; leave four-way packing at its default.
+One request can wait briefly, but the smaller prompts beat exact three-way
+packing in the same-video benchmark because model tail latency dominated. A
+`concurrencyHint` is informational under this intentional 3-worker/4-packing
+shape. Use `--align-concurrency 1` with one worker; raise it only when the real
+pool and model capacity support the extra calls (max 8).
 
 **Give workers a minimal profile.** They need `Bash` (to run `baocut`) and
 `Read` (contract + payload files) — nothing else, no conversation history.
@@ -103,6 +108,15 @@ Fixed context is paid per worker per cache write; a lean profile cuts the
 floor several-fold. Long-lived workers are ALSO the prompt-caching win: the
 system prompt and the contract file are written to cache once and then every
 turn is a cheap cache read. Never spawn one subagent per call.
+
+**Context safety is a hard requirement.** The root orchestrator must not act as
+an answer worker for a media pipeline. Even sequential execution accumulates
+every stage contract, payload, rejected draft and corrected answer in the root
+conversation; several 8–15K-char align calls can exhaust the model context
+before the project reaches terminal. If three workers are unavailable, use one
+lean persistent worker with `--align-concurrency 1`. If delegation itself is
+unavailable, pause and request it before starting/continuing the LLM stages;
+never paste prompt or answer bodies into root commentary or tool output.
 
 ## Model tiering
 

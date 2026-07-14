@@ -1,7 +1,7 @@
 ---
 name: baocut
-version: 0.1.1
-minAppVersion: 0.1.0
+version: 0.1.2
+minAppVersion: 0.1.7
 description: >-
   Drive BaoCut from the CLI to transcribe local media or supported video URLs,
   polish transcripts through Agent workers, create/translate subtitles, review
@@ -142,10 +142,12 @@ are irrelevant, pass `--no-speakers`. Never use this shortcut for rough-cut,
 interview, podcast, dialogue, or other multi-person work;
 it can always be added later (`speakers reidentify`, see speakers.md).
 
-**Set `--align-concurrency` to the number of answer workers you will actually
-run** (see orchestration.md — usually 3). The default 4 leaves one request
-permanently queued when only 3 workers answer, and its growing `ageSec` looks
-like a slow agent.
+**Start 3 persistent answer workers and normally leave the CLI's four-way
+align packing at its default** (see orchestration.md). `--align-concurrency`
+also changes request packing: forcing it to 3 creates fewer but larger prompts,
+which measured slower on the same-video benchmark because model tail latency
+dominated the brief fourth-request queue. Override it to 1 for a single-worker
+recovery, or match a larger pool only when those workers really exist.
 
 Then drive it (full strategy in orchestration.md). Start the persistent pool
 immediately after `auto` returns — `task claim --timeout` safely waits through
@@ -172,7 +174,7 @@ in editing.md.
 
 ```bash
 # Quality-first: finalize Agent polish before changing A-roll timing.
-baocut --json auto talk.mp4 --align-concurrency 3       # qwen3-asr-0.6b → Agent polish
+baocut --json auto talk.mp4                             # qwen3-asr-0.6b → Agent polish
 baocut --json task report <taskId>
 baocut --json audit p7                                  # polishQuality must PASS
 baocut --json task start cleanup p7 --cleanup-level standard
@@ -341,5 +343,9 @@ Title + description ride into EVERY LLM stage as grounding context
   submitted answers on CJK projects — that's the M56 autocorrect normalizer,
   not a lint failure.
 - If your environment needs authorization to spawn parallel subagents, ask
-  ONCE up front, not per batch. If parallel subagents are unavailable, run
-  the worker loop inline sequentially — slower but correct.
+  ONCE up front, not per batch. Do not drain a media pipeline inline in the
+  orchestrator: prompt/answer history accumulates across stages and large align
+  payloads can exhaust the orchestrator's context. When parallel workers are
+  unavailable, request authorization for ONE lean persistent answer worker and
+  set `--align-concurrency 1`; if delegation is unavailable, pause before the
+  LLM stages instead of loading their prompt files into the root context.
