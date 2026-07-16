@@ -1,5 +1,20 @@
 # Export & open
 
+## Open the Project in BaoCut
+
+After the user confirms they want to open a completed Project, use the installed
+app's URL scheme. Substitute the real project id; do not merely print the link:
+
+```bash
+open 'baocut://project/<pid>'
+```
+
+The URL opens an existing Project in either a cold or already-running BaoCut
+app. If `open` reports that no application handles the URL (for example, an
+older or unpackaged development build), fall back to
+`baocut project open <pid>`. A running editor may ask the user to confirm before
+switching projects.
+
 ## Export is opt-in
 
 A bare "transcribe" / "translate" request ends with the completed BaoCut
@@ -25,7 +40,6 @@ baocut export <pid> --markdown --translated --lang zh --output zh.md   # or --bi
 baocut export <pid> --video --output out.mp4 --res 1080  # --quality high · --format mp4|mov ·
                                                      # --lang zh · --compress ·
                                                      # --no-subs (clean video) · --no-texts (no title overlays)
-baocut project open <pid>                          # open in the GUI for the user
 ```
 
 Subtitles and markdown share the three content modes: original (default),

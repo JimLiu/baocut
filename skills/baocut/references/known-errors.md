@@ -116,6 +116,12 @@ inputs need a dot-host and a path, e.g. `www.youtube.com/watch?v=…`).
 → Ask the user to `brew install yt-dlp` (or install it if you may), then rerun.
 The binary resolves from `/opt/homebrew/bin`, `/usr/local/bin`, or PATH.
 
+**`ffmpeg is required to merge URL video and audio — run “brew install ffmpeg”, then retry`**
+BaoCut resolves ffmpeg independently of the Finder/Dock process PATH and passes
+its absolute location to yt-dlp. → Ask the user to `brew install ffmpeg` (or
+install it if you may), then rerun. BaoCut will not accept yt-dlp's separate
+`source.fNNN` format fragments as a completed media download.
+
 **`yt-dlp: ERROR: …`** (metadata probe or download)
 The site refused (age gate, region lock, removed video, outdated yt-dlp).
 Metadata failures abort BEFORE any project is created. A mid-download failure
@@ -123,6 +129,17 @@ leaves the project in `error` → retry with
 `baocut transcribe --project <pid>` (re-downloads from the recorded URL);
 if the error mentions signatures/format extraction, suggest
 `brew upgrade yt-dlp` first.
+
+**`Sign in to confirm you're not a bot. Use --cookies-from-browser or --cookies`**
+(YouTube)
+BaoCut automatically retries that yt-dlp call once with
+`--cookies-from-browser <default-browser>` when the macOS default browser is a
+stable yt-dlp-supported browser. The cookie jar stays in the browser; BaoCut
+does not export it. If the retry also fails, the error names the browser that
+was already tried → sign in to YouTube in that browser, then use **Re-download**
+in the app or `baocut transcribe --project <pid>`. An unsupported default
+browser (for example Arc or Chrome Canary) keeps the original error rather than
+reading a different browser's cookie store.
 
 ## Transcription & models
 
@@ -133,6 +150,13 @@ use a local id (default `qwen3-asr-0.6b`).
 **`MLX shader library missing next to the app binary — run scripts/build-metallib.sh after swift build.`**
 Fresh checkout/config without the metallib. → `./scripts/build-metallib.sh debug`
 (cheap re-run; needs the Xcode Metal Toolchain).
+
+**`Local transcription in this BaoCut build is not compatible with macOS …`**
+The installed app contains an MLX metallib compiled for a newer Metal language
+than this macOS release can load. → Update BaoCut, then retry. Current packages
+pin the library to Metal 3.2 for macOS 15 compatibility; the GUI keeps the
+failure window open and the CLI returns a normal error instead of exiting the
+process.
 
 **`No speech detected in the audio.`**
 VAD found nothing (wrong file, silent track). → Verify the media has speech;

@@ -18,7 +18,12 @@ callIds, never re-polls per answer, never bookkeeps slots.
    content — the run's own polish/translate then get them as context.
 2. Let those same 3 workers run until the task is terminal.
    The same 3 workers carry the whole run — analysis → polish → repunct →
-   brief → translate → align — so nothing cold-starts at the align tail
+   brief → translate → align — so nothing cold-starts at the align tail.
+   **Single-page docs (M102): analysis folds into the polish call and brief
+   into the translate call** — expect two fewer serial calls; the merged
+   contracts (`polish-N.md`/`translate-N.md`) ask for the superset answer
+   shapes in the contracts table below, and `--no-merged-stages` restores
+   the classic staged shape for A/B baselines
    (the p768 run burned spin-ups re-reading a 575-line skill per align agent).
    Translation itself is two big phases: **Translating** (whole natural
    sentences, 1:1, natural target word order) then **Splitting & aligning** —
@@ -108,8 +113,12 @@ sweet spot in most agent environments; leave four-way packing at its default.
 One request can wait briefly, but the smaller prompts beat exact three-way
 packing in the same-video benchmark because model tail latency dominated. A
 `concurrencyHint` is informational under this intentional 3-worker/4-packing
-shape. Use `--align-concurrency 1` with one worker; raise it only when the real
-pool and model capacity support the extra calls (max 8).
+shape. Since M101 the align wave packing self-clamps to the worker pool
+actually observed on the task (distinct claim/answer worker ids), so a short
+single-wave job no longer packs a request that must queue behind a full model
+call when fewer workers joined than `--align-concurrency` declares. Use
+`--align-concurrency 1` with one worker; raise it only when the real pool and
+model capacity support the extra calls (max 8).
 
 **Give workers a minimal profile.** They need `Bash` (to run `baocut`) and
 `Read` (contract + payload files) — nothing else, no conversation history.
@@ -160,8 +169,8 @@ source; scale roughly with duration):
 |---|---|---|
 | transcribe (local ASR) | minutes, progress-only | no prompts until the first LLM stage |
 | speaker diarization | ~4–5 min extra | skip with `--no-speakers` when safe |
-| polish (all pages) | ~10–20 min | many claim/submit round-trips |
-| translate + align | ~10–20 min | two phases; align dominates the tail |
+| polish (all pages) | ~10–20 min | many claim/submit round-trips; single-page docs run analysis+polish as ONE merged call (M102) |
+| translate + align | ~10–20 min | two phases; align dominates the tail; single-page docs run brief+translate as ONE merged call (M102) |
 | single model answer | up to the claim lease | adaptive lease: 600s ≤8K / 900s ≤20K / 1800s >20K chars |
 
 A quiet terminal is NOT a hang signal: piped CLI stdout is block-buffered, so a
@@ -222,10 +231,10 @@ contract file the call NAMES, never an assumed path.
 |---|---|
 | `analysis` | `{"summary":…,"terms":[…],"namedEntities":[…]}` — terms pre-scan |
 | `segment` | `{"paragraphs":["…"]}` — input VERBATIM, punctuation only |
-| `polish` | `{"paragraphs":[{"sentences":["corrected…"]}]}` — apply known term variants, make minimal fixes, cover every word once in order; submit lint runs the engine's 70% atom-LCS gate |
+| `polish` | `{"paragraphs":[{"sentences":["corrected…"]}]}` — apply known term variants, make minimal fixes, cover every word once in order; submit lint runs the engine's 70% atom-LCS gate. **M102 merged (single-page docs):** the contract additionally asks for the analysis fields — answer the SUPERSET `{"summary":…,"terms":[…],"namedEntities":[…],"paragraphs":[…]}` in ONE object; a missing analysis section is rejected by name (`analysis section`) |
 | `repunct` | `{"segs":[{"id":N,"cuts":[{"id":"c…","m":"，"}]}]}` — copy ids from each segment's `cm` seam map; never echo text/anchors (M60) |
 | `brief` | `{"summary":…,"glossary":[{"source":…,"target":…,"locked":false}],"namedEntities":[…],"styleGuide":…,"difficulties":[…]}` — generated terms are preferred; only a user-edited `locked:true` becomes a hard wire requirement (legacy missing `locked` keeps its MUST-use prompt wording but is never hard-gated — M74a) |
-| `translate` | request `{"lang"?:…,"lines":[{"id":…,"source":…,"maxChars":…,"rt"?:[…]}]}` → answer `{"translations":{"<id>":"<translation>"}}`; emit every id and every locked `rt` verbatim |
+| `translate` | request `{"lang"?:…,"lines":[{"id":…,"source":…,"maxChars":…,"rt"?:[…]}]}` → answer `{"translations":{"<id>":"<translation>"}}`; emit every id and every locked `rt` verbatim. **M102 merged (single-page docs, brief cache miss):** the contract additionally asks for the brief fields — answer the SUPERSET `{"summary":…,"glossary":[…],"namedEntities":[…],"styleGuide":…,"difficulties":[…],"translations":{…}}` in ONE object (derive the brief FIRST, then translate grounded on it); a missing brief section is rejected by name (`brief section`) |
 | `align` | REVIEW a draft (below) — changed pairs only; copy compact seam ids, never echo canonical text |
 | `cleanup` | `{"cuts":[{"a":first,"b":last,"cat":"retake\|falseStart\|filler","alt":[first,last],"reason":"…"}]}` — page-local indices, `a..b` is the span to CUT, retakes carry `alt` = the kept take (M79; decision rules in editing.md) |
 | `broll` | `{"suggestions":[{"start":"<wordId>","end":"<wordId>","mode":"fullscreen\|pip","query":"…","reason":"…"}]}` — copy ids verbatim; spans 1.5–20s, ≥3s from either end, no overlaps (M80) |
