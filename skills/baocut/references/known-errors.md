@@ -5,6 +5,14 @@ most of these have one correct next command. (JSON errors arrive as
 `{"status":"error","error":"…"}`; submit lint rejections as
 `{"status":"rejected",…}`.)
 
+**Environment-shaped failures → run `baocut --json doctor` FIRST.** Missing
+models, no yt-dlp/ffmpeg, an unwritable data dir, a broken version contract,
+orphan projects and stalled tasks all surface as one read-only report where
+every failing check carries a `fix` command. Exit 0 = healthy (warnings
+allowed), exit 1 = at least one hard failure. `doctor` runs even when the
+version contract itself is broken (it reports the contract as a check instead
+of blocking), so it is always a safe first move.
+
 ## Version compatibility (M83a)
 
 **`This BaoCut app (vX) is older than the baocut skill needs (vY+)…`** (exit 3,
@@ -28,6 +36,13 @@ The skill is newer than the app shipped with — a soft heads-up only. Continue;
 mention the optional update if the user asks.
 
 Only `--help` and `--version` bypass these checks (so you can always diagnose).
+
+**`unknown command 'subtitle'`**
+The installed BaoCut app/CLI predates the subtitle-row command introduced in
+BaoCut 0.2.0, usually because the CLI was invoked directly and therefore did
+not receive the skill compatibility environment variables.
+→ Update BaoCut for Mac from https://baocut.app, then retry through this skill's
+`bin/baocut` wrapper. Do not edit `doc.json` as a fallback.
 
 ## Task protocol
 
@@ -135,9 +150,10 @@ still fails, stop and ask instead of chasing exit 0.
 
 **`baocut audit … && <next>` never runs `<next>`** (M81)
 `audit` exits 2 on FAIL by design, so `&&` short-circuits. → For a chainable
-diagnostic use `baocut finish-check <pid>` (it always exits 0), but parse its
-JSON `ready` field before taking any action. Never use `finish-check && export`:
-the shell would export even when `ready` is false.
+diagnostic use `baocut finish-check <pid>` and parse its JSON `ready` field
+before taking any action. The default form exits 0 even when not ready; use
+`finish-check <pid> --for <kind> --strict && export …` only when a shell gate is
+actually wanted.
 
 **polish reported PASS but a user-specified term (子A证 / 克拉克 / Manus) is still
 wrong** (M81)

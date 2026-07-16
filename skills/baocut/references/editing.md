@@ -12,6 +12,10 @@
 - Words/translations are untouched by cuts (AV-level edit): captions retime at
   export through the same kept-span map as the picture, so they can never
   desynchronize.
+- Hiding a subtitle row is not a cut: `baocut subtitle hide` suppresses only
+  displayed/exported text and keeps AV duration intact. See
+  [subtitles.md](subtitles.md); reverse it with `subtitle restore`, not
+  `cut restore`.
 
 ## Order of execution + checkpoints
 
@@ -33,8 +37,9 @@ step, **one checkpoint per turn**:
 ## Deterministic pass — `cut detect`
 
 ```bash
-baocut --json cut detect <pid> [--dry-run] [--min-pause 0.8] [--compress-to 300]
+baocut --json cut detect <pid> [--dry-run] [--min-pause 0.8] [--compress-to 300ms]
          [--no-pauses|--no-fillers] [--filler-lang auto|en|zh] [--fillers a,b]
+         [--max-gap 3.0] [--trim-chapter-starts]
 ```
 
 Applies soft cuts directly (`--dry-run` proposes only). Defaults follow the
@@ -44,7 +49,7 @@ talking-head editing standards:
   Sentence-final boundaries keep ~0.4s; pauses > 3s are protected as
   deliberate beats (`--max-gap`).
 - User thresholds always win: "only pauses over 1s, keep at least 0.5s" →
-  `--min-pause 1 --compress-to 500`.
+  `--min-pause 1 --compress-to 500ms` (or `0.5s`; explicit units are preferred).
 - Fillers: the FIXED hesitation sounds cut by list (um/uh/er/ah/呃/额 — M81:
   zh hard list is now ONLY 呃/额); soft phrases ("you know", "那个"…) only when
   punctuation-isolated.
@@ -94,9 +99,11 @@ sentences, glued rhythm) is the worse failure; cutting > 40% of a page warns.
 ## Review & verification loop
 
 ```bash
-baocut --json cut list <pid>            # every cut + kind/reason/excerpt
+baocut --json cut list <pid> [--kind silence|filler|badTake|manual]
+                                        # every cut + kind/reason/excerpt
 baocut --json cut restore <pid> <ids|--all>
 baocut --json cut add <pid> --start A --end B     # manual; snaps to word edges
+                                        # (or --words wA..wB; --note "…" records why)
 baocut --json audit <pid>               # edits section: FAIL on partition
                                           # breaks / mid-word boundaries;
                                           # WARN on >40% removal, no provenance
@@ -121,17 +128,22 @@ A successful command is not verification: after applying cuts, `cut list` +
    reasoning and skip it; never fabricate an asset path.
 3. Attach per adopted suggestion:
    `baocut --json broll add <pid> --file shot.png --suggestion bs1`
-   (or `--at/--start --end`; `--mode fullscreen|pip`, `--rect "x,y,w"` = PiP
-   center-% + width-%, `--fit cover|contain`, `--bg blur|black`). Defaults:
-   images → pip 4s, videos → fullscreen ≤8s.
+   (or `--at <t> [--dur <d>]` / `--start A --end B`; `--mode fullscreen|pip`,
+   `--rect "x,y,w"` = PiP center-% + width-%, `--fit cover|contain`,
+   `--bg blur|black`, `--src-start <t>` = where playback starts inside a video
+   asset, `--radius N` PiP corner radius, `--name "…"` display label). Defaults:
+   images → pip 4s, videos → fullscreen ≤8s. `broll update <pid> <brId>` takes
+   the same placement flags (plus `--file`) to adjust in place.
 4. Placement rules (PiP): pick the largest low-information rectangle — avoid
    the speaker's face/gestures, the caption band, existing overlays. Any
    readable text/logo in the SOURCE must survive the fit: aspect-mismatched
    sources use `--fit contain` (blurred backdrop), never blind cover.
 5. **Verify EVERY placement** before reporting it done:
    `baocut --json broll preview <pid> --at <midpoint>` renders the exact
-   export composite (same compositor). An attached asset is not proof it
-   renders. `audit` gates the rest: missing assets, out-of-bounds rects,
+   export composite (same compositor); `--at` takes a comma list, `--tile`
+   grids them into one image, `--size N` sets width, `--no-subs` drops the
+   caption layer, `--output/-o <dir>` picks the destination. An attached asset
+   is not proof it renders. `audit` gates the rest: missing assets, out-of-bounds rects,
    B-roll buried inside a cut, overlapping cutaways (FAIL); first/last-3s
    intrusion, <1.5s flash cutaways (WARN).
 

@@ -1,6 +1,8 @@
 # Lifecycle, diagnostics & recovery
 
 ```bash
+baocut --json doctor                     # environment health: version contract, models,
+                                           #   yt-dlp/ffmpeg, data dir, orphans, stalled tasks
 baocut task status <taskId>              # progress / phase / pending / oldestPendingSec / elapsedSec
 baocut task list [<pid>]                 # all tasks
 baocut task resume <taskId>              # respawn a stalled/dead worker (page checkpoints — no re-asking)
@@ -15,7 +17,8 @@ baocut --json audit <pid> [--lang L]      # read-only quality: source/target fla
                                            #   stale/width/pins/timing/pipeline evidence
 baocut logs <pid>                        # list the project's LLM audit files
 baocut logs <pid> --kind align-diag --pair g16.0   # per-pair engine decisions (why rejected/retried)
-baocut finish-check <pid> [--lang L]      # M81: aggregate acceptance verdict (always exit 0)
+baocut finish-check <pid> [--lang L] [--for srt|vtt|ass|markdown|video] [--strict]
+                                          # aggregate acceptance verdict; default target srt
 baocut timing repair <pid> [--dry-run]    # M81: re-fit zero/negative-duration words (never stale)
 baocut task watch <taskId> [--jsonl]      # M81: follow a run to terminal, one line per change
 baocut project repair <pid>              # fix an orphan status (see below)
@@ -24,7 +27,8 @@ baocut project repair <pid>              # fix an orphan status (see below)
 `task report` is the performance record; `audit` is the quality record;
 `finish-check` is the **timed-delivery router** — it runs audit, polishQuality,
 attention, and export preconditions and returns `{ready, blockers, warnings,
-next[]}`. It always exits 0, so parse `ready`; never shell-chain it to export.
+next[]}`. It exits 0 by default, so parse `ready`; `--strict` exits 2 when not
+ready and is the only form safe to shell-chain to export.
 `next[]` is advisory, not a queue to drain.
 Audit never writes the project and returns exit 0 for PASS/WARN, exit 2 for FAIL
 (exit 1 is command/input failure). Inspect the failing sections against the
@@ -47,7 +51,7 @@ Use these categories after the initial task reaches terminal:
 
 Project mode runs `audit` once, reports presentation debt without repairing it,
 and asks the user whether to export. Timed delivery runs `audit` plus
-`finish-check` and requires the full verdict to be ready.
+`finish-check --for <requested-kind>` and requires the full verdict to be ready.
 
 Across post-terminal verification, allow at most ONE targeted repair workflow
 and at most ONE Agent task. Before mutating, run `version list` and record the
@@ -79,8 +83,9 @@ Read the audit JSON by section:
 - `source` / `translations`: current reading-time flash counts, width maxima,
   target missing/extra/empty/stale coverage and source-stamp consistency;
   `mergeableFragmentCount` is an unnecessary seam between short groups, while
-  `splittableOverAimCount` is the inverse defect — an over-aim group for which
-  the production splitter can still find a safe, natural, balanced seam (M71:
+  `splittableOverAimCount` is the inverse defect — an over-FIT group (over the
+  one-line capacity; groups at or under fit are deliberately kept whole) for
+  which the production splitter can still find a safe, natural, balanced seam (M71:
   a seam whose half has less than one second of real speech is NOT counted —
   that is an evidence-backed reading-time merge, not debt; delivery CPS stays
   a separate quality signal). Both

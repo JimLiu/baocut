@@ -4,6 +4,8 @@ Use this reference for any job that promises a corrected transcript, polished
 captions, or a rough-cut video. The default speech model remains
 `qwen3-asr-0.6b`; transcript correctness comes from the CLI/Agent polish loop,
 not from silently swapping ASR models or editing `doc.json` by hand.
+For a bounded correction after the pipeline, use `baocut subtitle set` and read
+[subtitles.md](subtitles.md) for cue/group addressing, reindexing, and staleness.
 
 ## Quality-first sequence
 
@@ -80,7 +82,9 @@ A `polishQuality` WARN whose only issue is residual terms does NOT require a
 - `baocut terms fix <pid> --map "克拉克=Claude Code,Grab=grep"` — deterministic
   in-place source rewrite (ids/timings preserved, integrity-gated), LOCKS the
   terms, flips the residual gate; then `task start translate <pid> --lang zh
-  --stale-only` since the source changed.
+  --stale-only` since the source changed. `--map-file <f>` feeds a
+  `--terms-file` (`canonical = v1 | v2`) as the fix map; `--dry-run` reports
+  every occurrence without writing.
 - `baocut task start polish <pid> --from-audit` — re-polish ONLY the paragraphs
   carrying residual variants (or `--ranges`/`--terms`).
 - `--terms-file <f>` on transcribe/auto/polish/translate locks terms up front

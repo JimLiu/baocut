@@ -21,14 +21,23 @@ callIds, never re-polls per answer, never bookkeeps slots.
    brief → translate → align — so nothing cold-starts at the align tail
    (the p768 run burned spin-ups re-reading a 575-line skill per align agent).
    Translation itself is two big phases: **Translating** (whole natural
-   sentences, 1:1) then **Splitting & aligning**. The M68 `align` flow
-   (`task start align <pid> --lang zh [--groups k1,k2] [--from current|pristine]`)
+   sentences, 1:1, natural target word order) then **Splitting & aligning** —
+   Phase 2 is sentence-scoped and reviews ONLY sentences over the one-line
+   **fit** capacity (`budgets.f`, default 16 for CJK, style-derived,
+   `--align-fit` overrides); fitting sentences stay whole with zero calls even
+   across several source cues. Reading speed (CPS) and the 14-char aim are
+   advisory during align (recorded, never retried); `audit`/`finish-check`
+   gate them at delivery. The second look defaults to `semantic` (only
+   mistranslation/omission rewrites re-checked). The M68 `align` flow
+   (`task start align <pid> --lang zh [--groups k1,k2] [--from current|pristine]
+   [--align-fit 8-32] [--align-local]`)
    redoes ONLY the second phase against an existing translation — it emits
    `align`-kind prompts exclusively (same claim/submit loop, same review
    contract below, typically far fewer calls), never re-translates whole
    sentences (reviewer rewrites excepted), and its subset apply keeps every
    untouched line byte-identical. `baocut --json align list <pid> --lang zh`
-   names the over-aim candidates whose keys feed `--groups`.
+   names the over-fit candidates whose keys feed `--groups`; `--align-local`
+   lands clean deterministic drafts without any agent call.
 3. **Root afterwards:** stay out of the data path. Check in occasionally with
    `task status` / `task wait --timeout 60` for liveness (below), and collect
    the final state. `task report <taskId>` gives the postmortem numbers.
@@ -144,6 +153,21 @@ The pool is uniform, so it runs at the tier the STRICTEST stage needs:
 
 ## Liveness
 
+**Expect these magnitudes before suspecting a hang** (a ~30-min talking-head
+source; scale roughly with duration):
+
+| Stage | Typical wall-clock | Notes |
+|---|---|---|
+| transcribe (local ASR) | minutes, progress-only | no prompts until the first LLM stage |
+| speaker diarization | ~4–5 min extra | skip with `--no-speakers` when safe |
+| polish (all pages) | ~10–20 min | many claim/submit round-trips |
+| translate + align | ~10–20 min | two phases; align dominates the tail |
+| single model answer | up to the claim lease | adaptive lease: 600s ≤8K / 900s ≤20K / 1800s >20K chars |
+
+A quiet terminal is NOT a hang signal: piped CLI stdout is block-buffered, so a
+healthy worker can look silent for minutes. Judge liveness by the signals
+below, never by output silence.
+
 Subagents can die silently mid-call (two drains once hung a run 40 minutes).
 Signals: every `task wait` row carries `ageSec` and
 `claimedBy`/`claimAgeSec`/`leaseId`; `task status`/`report` report `waitingOn`,
@@ -158,7 +182,8 @@ means capacity is missing; `claimed-answers` means workers own all prompts;
 
 **Follow a long run hands-free** with `baocut task watch <taskId> [--jsonl]`:
 one line per state change (phase/pct/pending/claims/stalled/quality) until
-terminal, then a final full status. Exit 0 on done/review, 2 on
+terminal, then a final full status. `--jsonl` is real JSON Lines: each physical
+line is one compact, independently parseable object. Exit 0 on done/review, 2 on
 failed/cancelled/stalled — so `task watch <id> && baocut export …` gates
 cleanly. Prefer it over polling `task status` in a sleep loop.
 
@@ -204,6 +229,7 @@ contract file the call NAMES, never an assumed path.
 | `align` | REVIEW a draft (below) — changed pairs only; copy compact seam ids, never echo canonical text |
 | `cleanup` | `{"cuts":[{"a":first,"b":last,"cat":"retake\|falseStart\|filler","alt":[first,last],"reason":"…"}]}` — page-local indices, `a..b` is the span to CUT, retakes carry `alt` = the kept take (M79; decision rules in editing.md) |
 | `broll` | `{"suggestions":[{"start":"<wordId>","end":"<wordId>","mode":"fullscreen\|pip","query":"…","reason":"…"}]}` — copy ids verbatim; spans 1.5–20s, ≥3s from either end, no overlaps (M80) |
+| `chapters` | NDJSON — one `{"title":"…","startSeg":"<segment id>"}` object per line, nothing else (no fences/prose/wrapping array); copy `startSeg` verbatim from the payload's `[<segId> · mm:ss]` lines, chronological, first chapter = first segment, titles non-empty and distinct; submit lint blocks unknown ids/empty titles/zero lines, duplicate titles only warn |
 
 ### Repunct fast path: patch first, let lint measure
 
@@ -249,20 +275,29 @@ source-word range**, not one shared bilingual display line. Source cues keep
 their own wrapping and a target group may span several of them. Treat the
 source budget shown in the payload as a layout hint only: never split a
 natural target sentence merely because its source span exceeds that value.
-For Simplified Chinese, 14 characters is the actual grouping aim and 20 is a
-tolerance ceiling. A 15–20-character span with a natural, safe, reasonably
-balanced semantic seam should be split there even when it is one complete
-grammatical sentence; a sentence may continue across consecutive target
-groups. Keep a 15–20-character span whole only when no safe balanced cut exists
-(for example, an atomic/protected phrase). Anything over 20 must be split or
-rewritten more compactly. Source wrapping never creates a target cut.
-The delivered `zh` projection is a separate hard gate: at most 9 visible
-non-whitespace characters/second, 32 visual cells (16 fullwidth characters)
-per display row, and two rows. Keep natural commas and periods in rewrite text;
-the display/export projection replaces those marks with spaces non-destructively
-and performs deterministic bottom-heavy wrapping. If the payload names a
-presentation problem, recut at a safe target seam or rewrite more compactly;
-never insert a newline yourself.
+Budgets ride the payload as `{s, t, f}`. `f` is the one-line FIT capacity
+(default 16 for Simplified Chinese; style-derived): a pair is in review
+because its target exceeds `f` or carries a named problem, and a target at or
+under `f` should normally stay ONE unit even when its source spans several
+cues. The engine measures "over `f`" on the delivery projection (halfwidth
+Latin glyphs weigh half a cell, projected-away punctuation weighs nothing),
+so a mixed-script target above `f` raw characters may legitimately have been
+kept whole — do not split it just to satisfy a character count. `t` (14 for zh) is the preferred AIM per unit when a span does split —
+cut at punctuation seams first, semantic boundaries only where punctuation
+still leaves a span too long; a 15–20-character span with a natural balanced
+seam MAY split there, but keeping it whole is also acceptable. Anything over
+20 (the hard ceiling) must be split or rewritten more compactly. Source
+wrapping never creates a target cut.
+The delivered `zh` projection is `audit`/`finish-check`'s delivery gate, not
+an align retry trigger: at most 9 visible non-whitespace characters/second,
+32 visual cells (16 fullwidth characters) per display row, and two rows —
+align records CPS findings as advisory only. Keep natural commas and periods
+in rewrite text; the display/export projection replaces those marks with
+spaces non-destructively and performs deterministic bottom-heavy wrapping. If
+the payload names a presentation problem, recut at a safe target seam or
+rewrite more compactly; never insert a newline yourself. Optional `ctx` on a
+pair carries clipped neighbor-sentence translations, read-only — never cut or
+return them.
 
 On full apply, exact word-alignment seams are normalized onto the existing
 source-cue grid inside each paragraph and speaker run. This keeps source cue
@@ -289,17 +324,24 @@ Every returned pair declares exactly one compact action:
   `cuts` is the complete, strictly ordered list of interior boundaries. Use
   `[]` for one unit. The app slices canonical strings locally, so a recut
   cannot change spelling, spacing, names or numbers.
-- `"rewrite"` — only for a REAL defect, and (M71) `reasonCode` is REQUIRED:
-  `{"id":"…","action":"rewrite","reasonCode":"mistranslation|omission|terminology|grammar|translationese","reason":"…","pieces":[{"through":"0","t":"…"},{"through":"end","t":"…"}]}`.
+- `"rewrite"` — for a REAL defect or a natural reorder, and (M71) `reasonCode`
+  is REQUIRED:
+  `{"id":"…","action":"rewrite","reasonCode":"mistranslation|omission|terminology|grammar|translationese|reorder","reason":"…","pieces":[{"through":"0","t":"…"},{"through":"end","t":"…"}]}`.
   Any text change without a valid `reasonCode` — including an action-less
-  answer whose text drifted — is rejected with a named problem. Alignment
-  convenience is deliberately not a legal class: never rewrite a correct
-  natural translation into source-language word order to make units map
-  monotonically (the p788 ALN-004 failure) — recut the crossing clauses into
-  ONE larger unit instead. Copy source candidate ids; emit only new target
-  text; the final piece must use `end`. Rewrites get one second look, and the
-  second-look advisory now embeds the PRISTINE pre-rewrite text for word-order
-  comparison. Under the default `--second-look targeted`, recuts made from
+  answer whose text drifted — is rejected with a named problem. `reorder` is
+  the one non-defect class: a meaning-preserving word-order adjustment that
+  follows the source clause order better AND still reads as natural target
+  prose — encouraged when it improves alignment, never second-looked.
+  Rewriting into STIFF source-order phrasing merely to make units map
+  monotonically remains illegal (the p788 ALN-004 failure) — recut the
+  crossing clauses into ONE larger unit instead (when the target fits `f`),
+  or split the target proportionally by content share when it cannot reorder
+  and exceeds `f`. Copy source candidate ids; emit only new target
+  text; the final piece must use `end`. Under the default
+  `--second-look semantic`, only rewrites declaring mistranslation/omission
+  get a second look (the advisory embeds the PRISTINE pre-rewrite text for
+  word-order comparison). Under the opt-in `--second-look targeted`, every
+  rewrite is re-checked and recuts made from
   raw-character/proportional drafts also get a mandatory semantic audit:
   omission is not approval, so the worker must explicitly return unchanged
   cuts or a correction; rejected/omitted checks retry before the accepted patch

@@ -1,7 +1,7 @@
 ---
 name: baocut
-version: 0.1.2
-minAppVersion: 0.1.7
+version: 0.3.0
+minAppVersion: 0.3.0
 description: >-
   Drive BaoCut from the CLI to transcribe local media or supported video URLs,
   polish transcripts through Agent workers, create/translate subtitles, review
@@ -47,6 +47,25 @@ repunct / translate / align) run inside a background worker process that asks
 YOU for each model answer. Never read prompt or answer text into your own
 context — prompt bodies live in files; you pass file paths around.
 
+The main pipeline, end to end:
+
+```
+transcribe → polish → translate → align → (cuts / B-roll) → export
+└────────── one `auto` task ──────────┘
+```
+
+Route by job — entry command and the reference to read first:
+
+| Job | Entry command | Read first |
+|---|---|---|
+| Transcribe / translate / captions | `auto <file\|url> [--lang zh]` | orchestration.md |
+| 剪口播 / rough cut / B-roll | `cut detect` · `task start cleanup\|broll` | editing.md |
+| Fix transcript or caption text | `subtitle find/set/replace` · `terms fix` | subtitles.md, transcript-quality.md |
+| Speaker review / naming | `speakers show/view/…` | speakers.md |
+| Re-run one stage, staleness | `task start <flow>` · `version list` | versions.md |
+| Deliver SRT/VTT/ASS/MD/video | `export <pid> --…` | export.md |
+| Anything errored or stuck | `doctor` · `task status/log` · `project repair` | known-errors.md, recovery.md |
+
 **Read the reference for the part of the job you're doing** (same directory):
 - [references/orchestration.md](references/orchestration.md) — the answer-worker
   pool (claim → answer → submit --next), contracts table, model tiering,
@@ -59,6 +78,9 @@ context — prompt bodies live in files; you pass file paths around.
 - [references/transcript-quality.md](references/transcript-quality.md) — ASR
   model policy, Agent-driven polish, `PolishQuality`, Speaker routing and
   cleanup levels. **Read before promising corrected captions or rough cuts.**
+- [references/subtitles.md](references/subtitles.md) — inspect/correct original
+  cue or translated group text, cue-id reindexing/staleness, and reversible
+  subtitle-only hide/restore (distinct from AV cuts).
 - [references/speakers.md](references/speakers.md) — reviewing & fixing speaker
   identification, naming speakers, the evidence loop (show / view / frames).
 - [references/versions.md](references/versions.md) — staleness, incremental
@@ -124,8 +146,17 @@ fast (metadata is probed before anything persists). Common knobs (details in
 `--model qwen3-asr-0.6b` · `--title X` · `--desc "…"` · `--instructions "…"` · `--tone formal` ·
 `--speakers N` / `--no-speakers` · `--no-polish` · `--no-autocorrect` ·
 `--save-dir <dir>` · `--align-batch N` · `--align-concurrency N` ·
-`--second-look targeted|retranslated|off` (`targeted` is the quality default;
-use `off` only for an explicitly latency-first run).
+`--second-look semantic|targeted|retranslated|off` (`semantic` is the default:
+only rewrites declaring mistranslation/omission are re-checked; `targeted`
+restores the legacy every-rewrite + risky-recut audit; use `off` only for an
+explicitly latency-first run) ·
+`--align-fit 8-32` (one-line capacity that triggers Phase-2 splitting; default
+derives from the project's bilingual subtitle style — 16 for CJK) ·
+`--align-local` (accept clean deterministic drafts with zero agent calls;
+problem/risky drafts still get reviewed) ·
+`--line-length short|standard|long|16-200` (display-width budget 32/42/56; also
+on `task start`) · `--reply-timeout S` (max wait per model answer, default
+1800) · `--page-budget N` (experimental page size in chars, ≥ 500).
 
 **Language flags (M78, everywhere):** `--lang` is always the TRANSLATE TARGET;
 the source language is `--source-lang` (transcribe/auto/project edit).
@@ -133,7 +164,9 @@ the source language is `--source-lang` (transcribe/auto/project edit).
 `"ok"`, `"error"`, `"rejected"` (submit lint), or a richer state
 (`"prompt"`/`"claimed"`/`"done"`/`"stalled"`…); action results reference their
 project as `projectId` (the old `"ok": true/false` booleans and bare-`id` keys
-are gone).
+are gone). Core workflow and mutating commands reject unknown, duplicated,
+missing-value, and extra positional arguments; treat any such error as a command
+bug to fix, never as a warning that can be ignored.
 
 **Confirmed single-speaker subtitle-only ask? Skip diarization.** Speaker identification is ON by
 default and costs ~4-5 minutes of local compute. When the user only wants
@@ -186,7 +219,7 @@ baocut --json audit p7                    # edits section must be clean
 baocut --json task start broll p7
 baocut --json broll add p7 --file shot.png --suggestion bs1
 baocut --json broll preview p7 --at 63    # composite proof BEFORE reporting placed
-baocut export p7 --video -o final.mp4     # cuts + B-roll apply by default
+baocut export p7 --video --output final.mp4  # cuts + B-roll apply by default
 ```
 
 Cuts are SOFT (skipped at playback, filtered at export; `--include-cuts`
@@ -204,23 +237,61 @@ baocut --json transcribe --project p7      # re-transcribe from the project's ow
                                              # (REBUILDS the doc; auto-forks a branch;
                                              # a URL project re-downloads if its file is gone)
 baocut --json task start segment|polish|translate|align <pid> [--lang zh --stale-only …]
+baocut --json task start chapters <pid> [--target N] [--title-style short|descriptive|keywords]
 ```
 
 `task start` spawns the same kind of worker — same claim/submit loop.
 `translate` runs + APPLIES polish first by default (skip: `--no-polish`);
 `--stale-only` refreshes only out-of-date paragraphs (versions.md).
+`chapters` generates/replaces chapter titles (an unsegmented doc runs the
+segment stage first); a later re-polish flips a non-blocking `chapters-stale`
+attention hint — re-run the flow to refresh titles.
 
 Translation runs as TWO big phases: **Translating** (whole natural sentences,
-1:1 source↔translation) then **Splitting & aligning** (over-long pairs are
-split & re-aligned). The `align` flow (M68) redoes ONLY Phase 2 against an
-existing translation — no re-translation, only `align`-kind prompts:
+1:1 source↔translation, natural target word order — long sentences allowed)
+then **Splitting & aligning** (ONLY sentences over the one-line **fit**
+capacity are split & re-aligned; a fitting sentence stays whole even when its
+source spans several cues — many-to-one is the native model). Phase-2 budgets
+ride every align payload as `budgets: {s, t, f}` — `f` = fit (one-line trigger,
+default 16 for CJK, style-derived, `--align-fit` overrides; measured on the
+delivery projection, so halfwidth Latin glyphs weigh half a cell and projected
+punctuation weighs nothing — a mixed-script line can hold more raw characters
+than `f` and still fit), `t` = the 14-char
+aim per piece when splitting (soft: an aim-to-hard span may stay whole), 20 =
+the hard ceiling (blocking). Reading speed (CPS) and aim-band width are
+recorded as advisory during translate/align and gated at delivery by
+`baocut audit` / `finish-check` — they never trigger align retries. The
+`align` flow (M68) redoes ONLY Phase 2 against an existing translation — no
+re-translation, only `align`-kind prompts:
 
 ```bash
-baocut --json align list <pid> --lang zh   # over-aim lines (keys, seams, overHard)
-baocut --json task start align <pid> --lang zh [--groups k1,k2] [--from current|pristine]
+baocut --json align list <pid> --lang zh [--fit 8-32]  # over-FIT lines (keys, seams, overHard, fitChars echoed)
+baocut --json task start align <pid> --lang zh [--groups k1,k2] [--from current|pristine] \
+    [--align-fit 8-32] [--align-local]
 ```
 
-`--groups` (keys from `align list`) scopes the redo to those lines' paragraphs;
+The efficient targeted loop: `align list` returns ONLY the over-fit sentences
+(with seam previews and a ready-made `next` command); start the align task
+scoped with `--groups`; several persistent workers claim/submit the pairs in
+parallel; `task submit` lints each answer and the apply writes the results
+back. `--align-local` lands clean deterministic drafts without any agent call
+(drafts with measured problems or mechanically risky cuts still get one
+review).
+
+**Repeat align runs must be `--groups`-targeted.** A full re-align re-reviews
+every over-fit sentence at the same cost as the original align phase and does
+NOT converge the residual over-fit count (p809 A/B: 32 calls again, quality
+statistically unchanged, over-fit residual wobbled 59→69) — most re-reviews
+just confirm the existing cuts. Repeat the phase only scoped to the lines you
+actually want changed, or with `--align-local` when presentation-metric drift
+is acceptable (p809: −38% calls, −23% chars in; CPS/flash/term-neighbor counts
+wobbled slightly upward).
+
+`--groups` (keys from `align list`) scopes the redo to those lines. Keys are
+first-word ids, so a re-align or edit that moves a boundary changes them; the
+flow resolves such stale keys to the group that contains the word today (see
+`log --kind align-diag` for the remaps) and fails only when the word id no
+longer exists at all — re-run `align list` for fresh keys in that case.
 `--from current` (default) re-aligns the doc's translations as they stand
 (manual edits survive; untouched groups stay byte-identical), `--from pristine`
 restores the last FULL translate's Phase-1 sentence texts from
@@ -254,12 +325,14 @@ spend the single repair budget on that exact problem — don't re-run the whole
 stage:
 
 ```bash
-baocut --json finish-check <pid> [--lang zh]   # ONE verdict: {ready, blockers, warnings, next}
+baocut --json finish-check <pid> --for srt [--lang zh] [--strict]
+                                                # ONE verdict: {ready, blockers, warnings, next}
 ```
 
-`finish-check` aggregates status + audit + polishQuality + attention + export
-preconditions and ALWAYS exits 0. Parse its `ready` field; never use shell exit
-status or `finish-check && export` as the gate. Its `next[]` list is advisory:
+`finish-check` aggregates status + audit + polishQuality + attention + the
+selected export's preconditions. It exits 0 by default for polling; parse its
+`ready` field. `--strict` exits 2 when not ready, so only
+`finish-check … --strict && export` is a real shell gate. Its `next[]` list is advisory:
 select at most one targeted action, record the current version first, run it,
 then re-audit once. If the blocker remains, keep the sound result and ask the
 user how to proceed. Restore the recorded version only if content/coverage/
@@ -283,7 +356,8 @@ pins/timing regressed. Do not start a second repair task automatically.
 - **Placeholder speaker names**: `baocut speakers propose-names <pid>` suggests
   names from self-intro/invitation cues + analysis entities (never auto-applies).
 - **Watch a long run** instead of polling: `baocut task watch <taskId>
-  [--jsonl]` streams one line per state change until terminal.
+  [--jsonl]` streams one compact, independently parseable JSON object per state
+  change until terminal.
 
 Do not re-segment an already translated project, run a full re-translation, or
 repeat `align` merely to clear flash/CPS/width warnings without explicit user
@@ -291,6 +365,20 @@ approval. In Project mode, presentation-only findings consume NO repair budget:
 leave them for a later export request.
 
 ## Project metadata: title, description, speaker names
+
+Find a project by metadata or reconstructed document text before inspecting it
+(`baocut --json project list` enumerates every project when you just need ids):
+
+```bash
+baocut --json project search "launch plan"
+baocut --json project search "Claude Code" --limit 20 --match-limit 5
+```
+
+Search is case-insensitive and literal, matching the GUI across project/source
+metadata, transcript, every translation language, chapters, speakers, and
+on-screen text. Results are ranked like the GUI and report `total` separately
+from the bounded `returned` project/match rows. For find/replace inside one
+project, read subtitles.md; never hand-edit or globally rewrite `doc.json`.
 
 Title + description ride into EVERY LLM stage as grounding context
 (`--no-media-context` opts out), so keep them real — **proactively**:
@@ -332,6 +420,8 @@ Title + description ride into EVERY LLM stage as grounding context
 - **Write your answer/scratch files to a temp directory** (e.g. `$TMPDIR` or a
   dedicated scratch dir), NEVER the repo/cwd — `task submit --file` takes any
   path, and stray `*.json` drafts in a repo root end up in commits.
+- **Destructive project deletion is explicit:** only run `baocut project delete
+  <pid> --yes` when the user actually requested permanent deletion.
 - The BaoCut GUI may stay open — never ask the user to close it; it picks up
   CLI writes live, and the worker streams phase/progress into it (M58), so a
   stalled run is user-visible. Keep workers fed; `task resume` promptly.
