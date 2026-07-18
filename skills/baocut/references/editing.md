@@ -9,6 +9,9 @@
 - **B-roll items** live on `doc.broll`: local image/video assets composited
   between the video and the captions — `fullscreen` (cutaway replaces the
   talking head) or `pip` (picture-in-picture keeps the speaker visible).
+  In the app UI this row is labeled the **Media** track and manual insertion
+  is Add → Image / Video; "B-roll" remains the CLI/agent term (`broll` commands,
+  `task start broll`), so mirror the user's wording when talking to them.
 - Words/translations are untouched by cuts (AV-level edit): captions retime at
   export through the same kept-span map as the picture, so they can never
   desynchronize.

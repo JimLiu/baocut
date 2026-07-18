@@ -32,8 +32,9 @@ Title + description ride into EVERY LLM stage as grounding context
   `--title`/`--desc` on `auto`/`transcribe` so the run's OWN polish/translate
   already have the context.
 - `--json project show <pid>` returns `attention` hints when metadata is
-  missing: a filename-ish title, no description, or placeholder "Speaker N"
-  names. Act on them, don't just relay them.
+  missing. Act on them, but do not treat the array as exhaustive: derived
+  placeholder labels can be absent. On a speakers-on run, `speakers show` is
+  the authoritative terminal check for real names.
 - Backfilling: read the transcript (`export --markdown`, or what you already
   saw answering the analysis call — its summary is a ready-made source), then
   `baocut project edit <pid> --title "…" --desc "…"`. The description is
@@ -42,6 +43,26 @@ Title + description ride into EVERY LLM stage as grounding context
   project do this BEFORE `task start polish|translate`; after an `auto` run
   do it at terminal (the worker holds the project lock while running, so
   metadata edits must wait).
-- Name the speakers the content identifies — batch form, one save:
-  `baocut speakers rename <pid> s1="Ada Lovelace" s2=Host`. Only
-  high-confidence names; evidence rules in speakers.md.
+- Speaker naming is a DEFAULT step of every speakers-on transcribe/translate
+  run, not just explicit speaker asks: "who the speakers are" is part of the
+  analysis deliverable. At terminal, always run `speakers show <pid>` and map
+  every placeholder to its turn before reporting. On URL imports (YouTube etc.)
+  the project auto-seeds title/desc from the video's own metadata — a
+  description that names the host/guests is prime evidence, and it (plus the
+  channel/uploader) also rides into analysis. For each placeholder:
+  1. Read the named people/roles in `project show` metadata.
+  2. Inspect adjacent cues in that speaker's turn for self-introduction or
+     direct address. Join consecutive same-speaker fragments mentally; names
+     often follow split text such as "I'm cofounder" / "and CEO" / "Name".
+  3. Run `baocut speakers propose-names <pid>` as a suggestion source, not a
+     gate. It never applies a rename, and an empty list does not overrule the
+     metadata/transcript evidence.
+  4. Batch-apply high-confidence mappings in one save, for example
+     `baocut speakers rename <pid> s1="Ada Lovelace" s2=Host`, then run
+     `speakers show` again and report the final map.
+
+  A single-speaker URL whose description names the speaker and whose transcript
+  contains a matching self-introduction/role is high confidence without frame
+  extraction. If the evidence conflicts or only names an off-screen/quoted
+  person, leave the placeholder and report why. Finish naming before audit and
+  final reporting, even if quality review later blocks another deliverable.

@@ -28,6 +28,29 @@ Pure subtitle/translation tasks may use `--no-speakers` when the recording is
 confirmed single-speaker and speaker labels/boundaries are irrelevant. Never
 apply that shortcut to rough-cut, interview, podcast, or dialogue work.
 
+## Cloud transcription models
+
+`--model` also accepts cloud stt ids (`baocut model list` shows them with a
+`cloud · connected` / `cloud · no key` state). The audio is compressed and
+uploaded; progress is staged (compress → upload → processing), not streamed.
+Word-timestamp fidelity differs by provider — it decides how much the forced
+timing downstream can trust:
+
+- ElevenLabs `scribe_v1/v2` — word-level timestamps + speaker labels (best).
+- OpenAI `whisper-1`/`gpt-4o-transcribe`, Volcano `bigmodel-asr` /
+  `bigmodel-asr-flash` (极速版, synchronous — no polling) — segment
+  timestamps; per-word timing is synthesized by char weight.
+- DashScope `qwen3-asr-flash` — text per fixed 30 s window; the coarsest
+  timing of the set.
+- Custom providers — OpenAI-compatible `POST {base}/audio/transcriptions`
+  with `verbose_json` segments.
+
+When a cloud provider returns no speakers and identification is on, local
+diarization runs afterwards (same speaker model as local runs). A cloud
+failure keeps the project in error status — retry with the same model or
+fall back to a local model via `--project <pid> --model qwen3-asr-0.6b`
+(the GUI offers the same cross-engine retry buttons).
+
 ## What the Agent must do
 
 `analysis.json` supplies canonical terms plus exact `observedVariants` found in

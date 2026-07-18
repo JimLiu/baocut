@@ -6,19 +6,26 @@ is authoritative when a flag here looks stale.
 ## `auto` knobs
 
 The positional accepts a local media file or any yt-dlp-supported URL (M78) —
-the video downloads first ("Fetching video" phase), lands in `~/Downloads`
-named after its title (`--save-dir` overrides), and the project auto-seeds
-title/desc from the video metadata. URL sources need `yt-dlp` on PATH
+the video downloads first ("Fetching video" phase), lands in the URL download
+location configured in BaoCut Settings (initially `~/Downloads`) and is named
+after its title (`--save-dir` overrides). The project auto-seeds title/desc from
+the video metadata. URL sources need `yt-dlp` on PATH
 (`brew install yt-dlp`); a bad URL fails fast (metadata is probed before
 anything persists).
 
 - `--source-lang X` — transcription language (see language flags below).
-- `--model qwen3-asr-0.6b` — ASR model (policy in transcript-quality.md).
+- `--model qwen3-asr-0.6b` — ASR model, local or cloud (policy + cloud notes
+  in transcript-quality.md). Cloud stt ids (`baocut model list` shows them
+  with their connected state) upload the audio to the provider; keys come
+  from the app's Keychain, or `BAOCUT_API_KEY_<PROVIDERID>` for headless
+  sessions (Volcano keys are `APPID:AccessToken`). No key → fast fail with
+  the project kept in error status for retry.
 - `--title X` · `--desc "…"` · `--instructions "…"` · `--tone formal` —
   grounding context for every LLM stage (see metadata.md).
 - `--speakers N` / `--no-speakers` — diarization control.
 - `--no-polish` · `--no-autocorrect`.
-- `--save-dir <dir>` — where a URL download lands.
+- `--save-dir <dir>` — override the URL download location from BaoCut Settings
+  for this command.
 - `--align-batch N` · `--align-concurrency N` — see worker-pool sizing below.
 - `--second-look semantic|targeted|retranslated|off` — `semantic` is the
   default: only rewrites declaring mistranslation/omission are re-checked;

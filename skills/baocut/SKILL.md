@@ -1,6 +1,6 @@
 ---
 name: baocut
-version: 0.3.2
+version: 0.5.0
 minAppVersion: 0.3.2
 description: >-
   Drive BaoCut from the CLI to transcribe local media or supported video URLs,
@@ -120,11 +120,17 @@ subtitle export from the words "transcribe" or "translate":
   translation coverage/staleness/stamps, locked terms, pins, and core word
   timing to be sound; `polishQuality` must PASS when polished/corrected text was
   promised. Source/target flash, CPS, wrapping, line-width, and other delivery
-  layout findings do NOT block Project completion. Report the project id,
-  languages, and quality summary, then ask whether the user wants to open it or
-  export SRT/VTT/ASS/Markdown/video. **STOP that turn.** Before their answer,
-  do not run `finish-check`, export, start another task, or repair a
-  presentation-only finding. If they answer "open", run
+  layout findings do NOT block Project completion. An audit FAIL is evidence,
+  not a claim that the whole result is unusable: quote the exact count and
+  bounded samples. When a user has inspected those disclosed findings and
+  explicitly accepts them, mark Project mode complete **with known findings**;
+  do not pretend the audit passed, auto-repair, or roll back an accepted result.
+  That acceptance applies only to Project/Markdown use and does not silently
+  waive a later timed-delivery gate. Report the project id, languages, and
+  quality summary, then ask whether the user wants to open it or export
+  SRT/VTT/ASS/Markdown/video. **STOP that turn.** Before their answer, do not
+  run `finish-check`, export, start another task, or repair a presentation-only
+  finding. If they answer "open", run
   `open 'baocut://project/<pid>'`; do not merely print the URL. If macOS reports
   that no app handles the URL, fall back to `baocut project open <pid>`.
 - **Document export:** an explicit Markdown request uses the same content gate
@@ -142,15 +148,16 @@ Audit categories and the bounded recovery policy live in recovery.md. A
 post-terminal repair may use at most ONE targeted repair workflow / Agent task,
 followed by ONE re-audit. Never recursively execute `finish-check.next[]`.
 
-**Finish with a copyable viewer-first media card.** At every successful user-facing
-completion of a video/media task with usable spoken or on-screen content
-(project, document, timed delivery, and completed editing workflows — not
-progress, failure/blocker, or BaoCut code-maintenance reports), include one
-fenced `markdown` block containing useful verified media metadata and a brief
-3–5-paragraph content summary in the user's language, after the delivery and
-quality facts and before the next-step question. Read content-summary.md right
-before writing it — it defines the sourcing rules, metadata fields, exact
-output shape, and style.
+**Finish with a copyable viewer-first media card.** At every TERMINAL user-facing
+report of a video/media task that produced usable spoken or on-screen content,
+include the card even when the quality verdict is WARN, FAIL, needs review, or
+blocked. Quality facts stay outside the card. Omit it only for non-terminal
+progress, a run that produced no usable content, or BaoCut code-maintenance
+reports. The fenced `markdown` block contains useful verified media metadata
+and a brief 3–5-paragraph content summary in the user's language, after the
+delivery/quality facts and before the next-step question. Read
+content-summary.md right before writing it — it defines the sourcing rules,
+metadata fields, exact output shape, and style.
 
 ## Quick start: one command, one loop
 
@@ -213,6 +220,11 @@ baocut --json transcribe <file|url|--project p7>   # no LLM; details in commands
 baocut --json task start segment|polish|translate|align|chapters <pid> [--lang zh --stale-only …]
 ```
 
+`transcribe --model` accepts local ids AND cloud stt ids (Volcano, ElevenLabs,
+DashScope, OpenAI, custom — `baocut model list` shows connected state; keys
+come from the app or `BAOCUT_API_KEY_<PROVIDERID>`). Cloud runs upload the
+audio and poll — no live transcript stream; details in transcript-quality.md.
+
 `task start` spawns the same kind of worker — same claim/submit loop.
 `translate` runs + APPLIES polish first by default (skip: `--no-polish`);
 `--stale-only` refreshes only out-of-date paragraphs (versions.md).
@@ -242,9 +254,14 @@ corrected transcript also require `polishQuality.status == PASS` (WARN means
 the terms are re-polishable without a full rerun — transcript-quality.md).
 
 When a mode-blocking finding has a supported local fix, spend the single
-repair budget on that exact problem — never re-run the whole stage. `next[]`
-is advisory: record the current version, run at most ONE targeted action,
-re-audit once, then stop and ask if the blocker remains. The audit-code → fix
+repair budget on that exact problem — never re-run the whole stage. In Project
+mode, disclose bounded findings before mutation when human review can decide
+whether they matter; an informed user acceptance ends the repair path. Do not
+bundle several unrelated deterministic edits plus an Agent task and call them
+one repair: mixed blocker classes without one supported action must be reported
+before mutation. `next[]` is advisory: record the current version, run at most
+ONE targeted action, re-audit once, then stop and ask if the blocker remains.
+The audit-code → fix
 table (`terms fix --map`, `task start polish --from-audit`, `timing repair`,
 `speakers propose-names`, …) and the full budget policy live in recovery.md
 and transcript-quality.md. Do not re-segment an already translated project,
@@ -261,8 +278,20 @@ keep title and ID together in user-visible prompts. Title + description ride
 into EVERY LLM stage as grounding context, so keep them real — proactively:
 pass `--title`/`--desc` up front when you know the content, act on
 `project show` `attention` hints, and backfill with `project edit` (on an
-existing project BEFORE `task start`; after an `auto` run at terminal). Name
-speakers only with high confidence. The full workflow is in metadata.md.
+existing project BEFORE `task start`; after an `auto` run at terminal).
+**Speaker naming rides the default flow:** diarization is on by default, and
+"who the speakers are" is part of the analysis deliverable. At terminal, run
+`speakers show <pid>` whenever speaker identification ran — do not rely on
+`project show.attention` to reveal placeholders. For every "Speaker N", read
+the URL metadata and adjacent same-speaker self-intro cues, then run
+`speakers propose-names <pid>`. That command is heuristic and never applies a
+rename; an empty candidate list is NOT evidence that the speaker is unknown.
+Batch-rename a high-confidence identity supported by metadata plus transcript
+or direct self-identification, including an introduction split across adjacent
+cues, then re-run `speakers show` to verify. Finish this naming pass before the
+quality/audit boundary, even if the result later needs review. Best-effort,
+never a gate: leave genuinely ambiguous voices as placeholders and say so. The
+full workflow is in metadata.md and speakers.md.
 
 ## Ground rules
 

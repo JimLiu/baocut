@@ -46,24 +46,38 @@ callIds, never re-polls per answer, never bookkeeps slots.
 3. **Root afterwards:** stay out of the data path. Check in occasionally with
    `task status` / `task wait --timeout 60` for liveness (below), and collect
    the final state. `task report <taskId>` gives the postmortem numbers.
-4. **Metadata backfill at terminal (M62):** `--json project show <pid>` — act
-   on any `attention` hints. A filename-ish title / missing description ⇒
-   `project edit <pid> --title "…" --desc "…"` (the analysis summary you
-   already drained is a ready-made source; 2–4 plain sentences). Placeholder
-   speaker names the content identifies ⇒
-   `speakers rename <pid> s1=Name …` (batch; evidence rules in speakers.md).
+4. **Metadata + speaker backfill at terminal (M62):** `--json project show
+   <pid>` — act on any `attention` hints. A filename-ish title / missing
+   description ⇒ `project edit <pid> --title "…" --desc "…"` (the analysis summary you
+   already drained is a ready-made source; 2–4 plain sentences). On every
+   speakers-on run, ALSO run `speakers show <pid>`; `project show.attention`
+   is advisory and may omit a derived "Speaker N" label. For each placeholder,
+   inspect the URL title/description and adjacent same-speaker introduction
+   cues, then run `speakers propose-names <pid>`. The proposer is a heuristic:
+   it never applies names, and `candidates:[]` is not negative identity
+   evidence. A direct self-identification may be split across cues (for example
+   "I'm cofounder" / "and CEO" / "Zhengyao Jiang"). Metadata naming the same
+   person plus that transcript evidence is high confidence; batch-apply
+   `speakers rename <pid> s1=Name …`, then re-run `speakers show` to verify.
+   Best-effort by design — no confident identity ⇒ leave the placeholder and
+   note it; never a blocker or repair-budget spend. Complete this pass before
+   auditing so a later quality blocker cannot suppress speaker naming.
    These edits need the project lock, so they come AFTER terminal — but on an
    EXISTING project fix metadata BEFORE `task start polish|translate` so the
    run benefits (MediaContext re-reads the project at each stage start).
 
 **Terminal is a delivery boundary, not permission to start another run.** For
-a bare transcription/translation request, collect `task report`, `project
-show`, and one `audit`, then apply the Project-mode gate in SKILL.md. If the
-content is sound, report the project and ask whether the user wants an export;
-stop before `finish-check`, export, re-segmentation, re-translation, or layout
-repair. Presentation-only flash/CPS/width findings are deferred until a timed
-deliverable is explicitly requested. A requested timed deliverable gets at most
-one post-terminal targeted repair workflow / Agent task and one re-audit.
+a bare transcription/translation request, finish metadata/speaker naming,
+collect `task report`, `project show`, and one `audit`, then apply the
+Project-mode gate in SKILL.md. If bounded findings need human judgment, report
+their exact samples and ask whether to accept or repair; do not mutate first.
+An informed acceptance completes Project mode with known findings while the
+machine verdict remains unchanged. In every terminal report with usable media,
+include the viewer-first media card even on WARN/FAIL/needs-review. Stop before
+`finish-check`, export, re-segmentation, re-translation, or layout repair.
+Presentation-only flash/CPS/width findings are deferred until a timed
+deliverable is explicitly requested. A requested timed deliverable gets at
+most one post-terminal targeted repair workflow / Agent task and one re-audit.
 
 Worker template (give each a name and ONLY the ids/paths below — a worker
 needs no conversation history and no skill text beyond this template):

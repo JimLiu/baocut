@@ -43,15 +43,26 @@ Use these categories after the initial task reaches terminal:
   terms; adjacent duplicate target content; term/source coverage mismatch;
   boundary/semantic rebind corruption; broken pins; duplicate/empty words; or
   non-finite, negative, regressing, and otherwise invalid core timing. These
-  block Project, Markdown, and timed delivery.
+  technically block Project/Markdown until repaired or explicitly accepted as
+  disclosed known findings; they block timed delivery by default.
 - **Presentation blockers:** source/target flash, `prc.cps`, projected width,
   line-count/unsafe-layout, punctuation-projection, mergeable/splittable
   grouping, and similar reading-layout findings. They block SRT/VTT/ASS and
   captioned video, but NOT a content-sound Project or Markdown export.
 
+The machine verdict and the user's acceptance decision are separate facts. An
+audit FAIL does not mean the entire transcript/translation is unusable. For a
+bounded Project/Markdown content finding, quote the exact count, timestamp and
+text sample, label it as a technical FAIL, and let a user who inspected the
+result accept it as a known finding. Their informed acceptance completes that
+mode without changing the audit verdict. It does not waive missing/stale data
+for a future timed export, and it never authorizes the agent to claim PASS.
+
 Project mode runs `audit` once, reports presentation debt without repairing it,
-and asks the user whether to export. Timed delivery runs `audit` plus
-`finish-check --for <requested-kind>` and requires the full verdict to be ready.
+and surfaces bounded content findings for acceptance BEFORE mutation. Do not
+spend repair budget merely because the word FAIL appeared. Timed delivery runs
+`audit` plus `finish-check --for <requested-kind>` and requires the full verdict
+to be ready; a Project-mode acceptance does not carry over implicitly.
 
 Across post-terminal verification, allow at most ONE targeted repair workflow
 and at most ONE Agent task. Before mutating, run `version list` and record the
@@ -62,6 +73,10 @@ fidelity, pins, or timing regresses, restore the recorded version before asking.
 Spend no repair budget unless the selected local action plausibly addresses the
 blocking samples. In particular, target `align` cannot repair `source-flash`;
 when mixed blockers have no single safe local fix, report them immediately.
+Several unrelated subtitle edits plus a translate/align task are NOT one
+targeted workflow just because they share a final re-audit. Never auto-repair
+or roll back a version after the user explicitly accepted its disclosed Project
+findings; preserve that accepted state and wait for a new instruction.
 Never recursively execute `next[]`, re-segment a translated project, run a full
 re-translation, or repeat align solely for presentation findings without
 explicit user approval.

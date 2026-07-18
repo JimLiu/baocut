@@ -49,8 +49,15 @@ propose-names <pid>` reads self-intro ("我是宝玉"/"I'm Ada") and invitation 
 cross-checks the captured names against the analysis `namedEntities`, and prints
 apply-ready `speakers rename` commands with per-candidate evidence
 (cueId + quote + confidence). It NEVER auto-applies — verify (show/view/frames)
-before renaming. The naming job is not done while `project show` still lists
-placeholder "Speaker N" names (its attention hint points here).
+before renaming. It is a narrow heuristic, not the identity authority: an empty
+candidate list can mean the self-introduction was split across cues or phrased
+as a role plus name. Always inspect `speakers show` plus project metadata before
+concluding that a placeholder is unknown. The naming job is not done while
+`speakers show` still lists a high-confidence "Speaker N" identity; do not rely
+on `project show.attention` to surface it. On a default transcribe/translate run
+this check runs at terminal whenever identification ran. Applying NOTHING is a
+valid outcome only when the combined evidence remains ambiguous — naming is
+best-effort, never a completion gate.
 
 Then fix what you found — atomic edits for spot problems, a re-run for
 systemic ones:
@@ -172,10 +179,22 @@ complete until the obvious main speakers are renamed.
 
 Evidence sources, strongest first:
 - on-screen lower thirds, titles, or video branding (via `frames`)
-- the show/project title
+- the project title/description — URL imports (YouTube etc.) auto-seed them
+  from the video's own metadata, which often names host and guests outright;
+  read them (`project show`) before hunting the transcript (the video's
+  channel/uploader also rides the LLM prompt context, so channel names
+  surface in the analysis `namedEntities`)
 - direct address in the transcript, e.g. "Xie Miao, how are you?"
 - stable role evidence, e.g. a host introduction or recurring host name
 - visual confirmation from `frames` when needed
+
+Treat consecutive same-speaker cues inside one turn as one introduction. A
+sequence such as "I'm cofounder" → "and CEO" → "Zhengyao Jiang" is direct
+self-identification even though no individual cue matches "I'm <name>". For a
+single-speaker URL, a metadata `Speakers` entry plus a matching transcript role
+or self-introduction is sufficient to rename without frames. Conversely, a
+name appearing only in metadata or quoted speech is not enough when several
+on-screen voices could match it.
 
 ```bash
 baocut speakers rename p7 s1="Jet Li" s3="Xie Miao"   # batch: one save
@@ -183,10 +202,11 @@ baocut speakers rename p7 s2 "Interviewer"            # classic single form
 # or fold naming into the reidentify run: --seed s1="Jet Li",s3="Xie Miao"
 ```
 
-Naming is part of every job, not just explicit speaker asks: `project show`
-flags placeholder "Speaker N" names in its `attention` hints — when the
-transcript, title/description, or frames identify a voice with confidence,
-rename it proactively.
+Naming is part of every job, not just explicit speaker asks. Run `speakers
+show` at terminal even when `project show.attention` contains no speaker hint;
+when the transcript, title/description, or frames identify a voice with
+confidence, rename it proactively. `propose-names` returning no rows does not
+cancel that obligation.
 
 Rename only high-confidence speakers. Do NOT invent names for ambiguous,
 tiny, off-screen, dubbed, or clip-only voices — leave them "Speaker N", or
@@ -196,9 +216,12 @@ with the evidence for each name.
 
 ## Before reporting done
 
-- Run `speakers show` and verify the main speakers' turns look correct.
+- On every speakers-on run, run `speakers show` and verify the main speakers'
+  turns and names, regardless of `project show.attention`.
 - Rename high-confidence main speakers (see above); leave uncertain short
   voices unnamed.
+- Re-run `speakers show` after renaming; do not report a metadata name that was
+  never mapped onto a speaker id.
 - Report the final speaker map: id → name → rough duration/cues, plus any
   ranges you could not resolve.
 

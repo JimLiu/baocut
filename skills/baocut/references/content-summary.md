@@ -1,7 +1,9 @@
 # The viewer-first media card
 
-Read this right before writing the completion summary (the trigger — when a
-completion requires one — is defined in SKILL.md).
+Read this right before every TERMINAL user-facing media report that has usable
+spoken or on-screen content. A WARN, FAIL, needs-review, or blocker verdict does
+not suppress the card; put those quality facts before it. Omit the card only
+for non-terminal progress, a run with no usable content, or code maintenance.
 
 Base the summary on the verified transcript or translation. If the root has
 not seen the content, inspect it read-only with `subtitle list` in the user's
@@ -19,6 +21,12 @@ the titles or languages are the same. Add only useful verified fields such as
 creator/channel, publication date, named speaker or reliable speaker count,
 chapter count, or subtitle languages. Omit unavailable fields and placeholder
 speaker names rather than guessing.
+
+On a speakers-on run, build the Speakers field only after the terminal
+`speakers show` → evidence → rename → `speakers show` loop. A person named in
+the description is useful identity evidence, but do not print that name as the
+speaker unless it was mapped to the actual speaker id. If a high-confidence
+mapping exists, finish the rename instead of silently omitting the field.
 
 Put the metadata and introduction together in ONE fenced `markdown` code block.
 Localize field labels and the introduction heading to the user's language:
