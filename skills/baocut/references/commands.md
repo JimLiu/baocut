@@ -9,7 +9,10 @@ The positional accepts a local media file or any yt-dlp-supported URL (M78) —
 the video downloads first ("Fetching video" phase), lands in the URL download
 location configured in BaoCut Settings (initially `~/Downloads`) and is named
 after its title (`--save-dir` overrides). The project auto-seeds title/desc from
-the video metadata. URL sources need `yt-dlp` on PATH
+extractor metadata, but that is not sufficient for generic/HTML5 media pages:
+run the preflight in url-metadata.md, override weak fields with verified
+`--title`/`--desc`, and persist the page digest through `project edit --notes`
+at terminal. URL sources need `yt-dlp` on PATH
 (`brew install yt-dlp`); a bad URL fails fast (metadata is probed before
 anything persists).
 
@@ -21,7 +24,9 @@ anything persists).
   sessions (Volcano keys are `APPID:AccessToken`). No key → fast fail with
   the project kept in error status for retry.
 - `--title X` · `--desc "…"` · `--instructions "…"` · `--tone formal` —
-  grounding context for every LLM stage (see metadata.md).
+  grounding context for every LLM stage (see metadata.md). `auto` has no
+  `--notes`; save page notes after the project lock is released with
+  `project edit <pid> --notes "…" --url "…"` (see url-metadata.md).
 - `--speakers N` / `--no-speakers` — diarization control.
 - `--no-polish` · `--no-autocorrect`.
 - `--save-dir <dir>` — override the URL download location from BaoCut Settings
@@ -82,7 +87,10 @@ baocut --json task start chapters <pid> [--target N] [--title-style short|descri
 ```
 
 `task start` spawns the same kind of worker — same claim/submit loop.
-`translate` runs + APPLIES polish first by default (skip: `--no-polish`);
+`translate` runs + APPLIES polish first by default (skip: `--no-polish`) —
+unless the transcript has manual edits since transcription (M107): then the
+default flips to translating the edits as-is, with no chained re-segmentation
+(`--polish` forces the full prerequisite anyway).
 `--stale-only` refreshes only out-of-date paragraphs (versions.md).
 `chapters` generates/replaces chapter titles (an unsegmented doc runs the
 segment stage first); a later re-polish flips a non-blocking `chapters-stale`

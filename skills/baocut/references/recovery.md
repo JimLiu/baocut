@@ -5,7 +5,8 @@ baocut --json doctor                     # environment health: version contract,
                                            #   yt-dlp/ffmpeg, data dir, orphans, stalled tasks
 baocut task status <taskId>              # progress / phase / pending / oldestPendingSec / elapsedSec
 baocut task list [<pid>]                 # all tasks
-baocut task resume <taskId>              # respawn a stalled/dead worker (page checkpoints — no re-asking)
+baocut task resume <taskId>              # respawn a stalled/dead worker (task checkpoints +
+                                           #   exact accepted-answer replay; only unanswered work requeues)
 baocut task cancel <taskId>              # kill the run
 baocut task log <taskId> [--tail N]      # worker output, timestamped (errors, progress)
 baocut task calls <taskId>               # every request: kind, attempt, workClass, answered?,
@@ -169,8 +170,14 @@ samples. A baseline FAIL is never converted to PASS by comparison alone.
   prints a hint when it sees this state.
 - "model not installed" → `baocut model download <id>` (ASR ids also fetch aligner + VAD;
   the speaker model downloads itself whenever identification needs it).
-- A worker that dies mid-run resumes from page checkpoints via `task resume` —
-  completed pages are never re-asked.
+- A worker that dies mid-run resumes from task-local stage checkpoints via
+  `task resume`; exact contract/payload/attempt matches replay accepted answers
+  locally, so only calls which never received an accepted response requeue.
+  `task report` separates `replayedCalls`, `supersededCalls`,
+  `wastedActiveSec`, and wasted input/output characters from normal calls.
+  A non-empty `replayDrift` row means a resume left recorded answers unused
+  while paying for fresh calls of the same kind — report it as a bug (the
+  regenerated prompts drifted), don't just re-run.
 - An ANSWER worker (your subagent) that dies mid-claim is self-healing: its
   lease expires (default 1800s) and the call becomes claimable again — the
   surviving workers absorb it; respawn a replacement when you notice.

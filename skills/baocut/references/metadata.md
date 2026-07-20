@@ -1,4 +1,4 @@
-# Project metadata: resolution, title, description, speaker names
+# Project metadata: resolution, title, description, notes, speaker names
 
 ## Resolving a project from natural language
 
@@ -23,10 +23,11 @@ on-screen text. Results are ranked like the GUI and report `total` separately
 from the bounded `returned` project/match rows. For find/replace inside one
 project, read subtitles.md; never hand-edit or globally rewrite `doc.json`.
 
-## Title, description, speaker names — keep them real, proactively
+## Title, description, notes, speaker names — keep them real, proactively
 
 Title + description ride into EVERY LLM stage as grounding context
-(`--no-media-context` opts out), so keep them real:
+(`--no-media-context` opts out); notes stay searchable beside the project and
+preserve richer source facts. Keep them real:
 
 - Know the content up front (the user described it, a video title, …)? Pass
   `--title`/`--desc` on `auto`/`transcribe` so the run's OWN polish/translate
@@ -37,19 +38,23 @@ Title + description ride into EVERY LLM stage as grounding context
   the authoritative terminal check for real names.
 - Backfilling: read the transcript (`export --markdown`, or what you already
   saw answering the analysis call — its summary is a ready-made source), then
-  `baocut project edit <pid> --title "…" --desc "…"`. The description is
-  2–4 plain sentences on what the recording is about (people, products,
-  topics) — background context, never copied into subtitles. On an EXISTING
-  project do this BEFORE `task start polish|translate`; after an `auto` run
-  do it at terminal (the worker holds the project lock while running, so
-  metadata edits must wait).
+  `baocut project edit <pid> --title "…" --desc "…" --notes "…"`. The
+  description is 2–4 plain sentences on what the recording is about (people,
+  products, topics) — background context, never copied into subtitles. Notes
+  hold useful structured source facts, timelines, and links; do not dump page
+  boilerplate. On an EXISTING project do this BEFORE `task start
+  polish|translate`; after an `auto` run do it at terminal (the worker holds
+  the project lock while running, so metadata edits must wait).
+- For any webpage-backed URL, follow url-metadata.md before starting. A generic
+  HTML5 extractor result is only a media locator, not proof that title, date,
+  people, description, or chapters were captured correctly.
 - Speaker naming is a DEFAULT step of every speakers-on transcribe/translate
   run, not just explicit speaker asks: "who the speakers are" is part of the
   analysis deliverable. At terminal, always run `speakers show <pid>` and map
-  every placeholder to its turn before reporting. On URL imports (YouTube etc.)
-  the project auto-seeds title/desc from the video's own metadata — a
-  description that names the host/guests is prime evidence, and it (plus the
-  channel/uploader) also rides into analysis. For each placeholder:
+  every placeholder to its turn before reporting. On URL imports, use both the
+  extractor metadata and the verified page facts saved in project notes. A
+  description or page that names the host/guests is prime evidence, and the
+  concise title/description also ride into analysis. For each placeholder:
   1. Read the named people/roles in `project show` metadata.
   2. Inspect adjacent cues in that speaker's turn for self-introduction or
      direct address. Join consecutive same-speaker fragments mentally; names

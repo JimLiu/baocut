@@ -9,8 +9,11 @@ callIds, never re-polls per answer, never bookkeeps slots.
 
 ## The recommended shape (3 persistent workers, four-way align packing)
 
-1. **Root:** start the run (`baocut --json auto …`; align concurrency defaults
-   to 4) and immediately spawn 3 persistent answer workers (names w1/w2/w3).
+1. **Root:** for a webpage URL, finish the url-metadata.md preflight first;
+   pass its verified `--title`/`--desc` to `auto` and retain the structured
+   notes draft outside the repo. Then start the run (`baocut --json auto …`;
+   align concurrency defaults to 4) and immediately spawn 3 persistent answer
+   workers (names w1/w2/w3).
    Do not wait
    for the first prompt first: `task claim --timeout 240` safely blocks through
    transcription, and having the pool warm removes the first-call queue/spin-up
@@ -45,9 +48,18 @@ callIds, never re-polls per answer, never bookkeeps slots.
    lands clean deterministic drafts without any agent call.
 3. **Root afterwards:** stay out of the data path. Check in occasionally with
    `task status` / `task wait --timeout 60` for liveness (below), and collect
-   the final state. `task report <taskId>` gives the postmortem numbers.
-4. **Metadata + speaker backfill at terminal (M62):** `--json project show
-   <pid>` — act on any `attention` hints. A filename-ish title / missing
+   the final state. Treat each answer worker's lifecycle/final notification as
+   the PRIMARY liveness signal: if a worker exits while the BaoCut task is not
+   terminal, immediately restore the pool to its target size using the
+   lease-safe replacement sequence below. `task status.workers` lists current
+   lease owners, not every healthy idle Agent, so it is supporting evidence,
+   never the complete worker roster. `task report <taskId>` gives the
+   postmortem numbers (redirect to a file and `jq` the fields — see Root
+   context hygiene below).
+4. **Metadata + speaker backfill at terminal (M62):** once the task releases
+   the project lock, persist any webpage draft with `project edit <pid>
+   --notes "…" --url "<canonical>"`, then run `--json project show <pid>` —
+   act on any `attention` hints. A filename-ish title / missing
    description ⇒ `project edit <pid> --title "…" --desc "…"` (the analysis summary you
    already drained is a ready-made source; 2–4 plain sentences). On every
    speakers-on run, ALSO run `speakers show <pid>`; `project show.attention`
@@ -62,9 +74,30 @@ callIds, never re-polls per answer, never bookkeeps slots.
    Best-effort by design — no confident identity ⇒ leave the placeholder and
    note it; never a blocker or repair-budget spend. Complete this pass before
    auditing so a later quality blocker cannot suppress speaker naming.
-   These edits need the project lock, so they come AFTER terminal — but on an
-   EXISTING project fix metadata BEFORE `task start polish|translate` so the
-   run benefits (MediaContext re-reads the project at each stage start).
+   These edits need the project lock, so they come AFTER terminal. For a
+   webpage URL, verify `project show` returns the saved notes and
+   canonical URL before auditing; a successful media download alone is not
+   complete URL ingestion. On an EXISTING project, fix metadata BEFORE `task
+   start polish|translate` so the run benefits (MediaContext re-reads the
+   project at each stage start).
+
+**Root context hygiene:** the root conversation shares the session token
+budget with every worker, and anything read into it is re-billed on every
+later turn. Redirect any `--json` output that can exceed ~10 KB (`task
+report`, `task calls`, `audit`, `finish-check`) to a temp file and pull only
+the fields you need with `jq`:
+
+```bash
+baocut --json task report <id> > /tmp/rpt.json
+jq '{wallSec,lintRejects,replayedCalls,supersededCalls,wastedActiveSec,replayDrift}' /tmp/rpt.json
+jq '.kinds[] | {kind,calls,spanSec}' /tmp/rpt.json     # per-phase spans, not slowestCalls bodies
+jq '{status,topIssues:(.topIssues[:5])}' /tmp/audit.json   # sample findings, never the whole report
+```
+
+Never read `result.json`, `payloads/*`, `responses/*`, or contract bodies into
+the root context — result.json alone reaches ~1 MB on a long video (hundreds
+of thousands of tokens); apply and review consume it through the CLI, and only
+answer workers read contracts/payloads.
 
 **Terminal is a delivery boundary, not permission to start another run.** For
 a bare transcription/translation request, finish metadata/speaker naming,
@@ -84,10 +117,14 @@ needs no conversation history and no skill text beyond this template):
 
 > You are persistent answer worker `<name>` for BaoCut task `<taskId>`.
 > Contracts live in `<contractsDir>`. Run every `baocut` command in the
-> FOREGROUND and wait for it — `task claim --timeout 240` is a normal
+> FOREGROUND with the Bash/tool-call timeout set to AT LEAST 600000 ms (600s),
+> and wait for it — `task claim --timeout 240` is a normal
 > foreground command that blocks up to 240s, NOT a long-running job to
 > background; never use `run_in_background`, `&`, or a detached shell (that
 > drops the worker off and the run stalls with a claimed-but-unanswered call).
+> If the harness nevertheless returns a background/session handle, actively
+> wait or poll that SAME handle until the command exits, then continue this
+> loop. "I'll wait for the completion notification" is never a final reply.
 > Loop:
 > 1. `baocut --json task claim <taskId> --worker <name> --timeout 240`
 >    - `{"status":"already-claimed", heldCallId, heldLeaseId, …}` → you already
@@ -104,7 +141,7 @@ needs no conversation history and no skill text beyond this template):
 >    shell command: a truncated terminal chops a multibyte character mid-byte
 >    and it decodes to `�` (U+FFFD), which corrupts the transcript. Submit with
 >    `--file`, never by piping the text on the command line.
-> 4. `baocut --json task submit <taskId> --call <callId> --lease-id <leaseId> --file <tmp> --next`
+> 4. `baocut --json task submit <taskId> --call <callId> --lease-id <leaseId> --file <tmp> --next --timeout 240`
 >    - `{"status":"rejected","problems":[…]}` → fix EXACTLY the named problems
 >      in your answer file and resubmit with the SAME `--lease-id` and `--next`
 >      (≤3 tries). A lint rejection does not consume or renew the claim.
@@ -228,6 +265,23 @@ Root tail-recovery sequence:
    `baocut --json task release <taskId> --call <callId> --lease-id <leaseId> --reason "worker interrupted"`.
 4. Only after a successful release should a surviving/replacement pull worker
    call `task claim`. A stale release token changes nothing.
+
+Root worker-replacement sequence (mandatory on every child-Agent exit
+notification):
+
+1. Read `task status`. If the BaoCut task is terminal, do not replace anyone.
+2. Confirm the exited Agent is no longer running or able to submit. Never use
+   `task status.workers` alone for this decision: an idle healthy Agent holds no
+   lease and is absent from that list.
+3. If the exited Agent still owns a current lease, re-read its exact `callId`
+   and `leaseId`, then `task release` by the tail-recovery sequence above. If it
+   owns no lease, no release is needed.
+4. Spawn one fresh persistent worker with a NEW unique name and the same lean
+   template, restoring the original target pool size immediately. Do not wait
+   for `stalledClaimCount`, a lease expiry, or the whole task to stall.
+5. Keep the root's roster from Agent lifecycle notifications; use
+   `pendingCount`, `waitingOn`, `slowClaims`, claim ownership and lease expiry
+   from `task status` only to reconcile queue state and safe handoff.
 
 If nobody intervenes, an actually dead worker's lease eventually expires and
 the call becomes claimable. Final submit is a fenced CAS: only the current

@@ -1,9 +1,11 @@
 ---
 name: baocut
-version: 0.5.0
+version: 0.5.1
 minAppVersion: 0.3.2
 description: >-
-  Drive BaoCut from the CLI to transcribe local media or supported video URLs,
+  Drive BaoCut from the CLI to transcribe local media or supported media URLs,
+  including podcast and generic HTML5 audio pages, while preserving useful
+  source-page metadata and show notes with the project,
   polish transcripts through Agent workers, create/translate subtitles, review
   speaker diarization, edit one talking-head source with reversible pause/filler/
   retake cuts and B-roll attachments, and export SRT/VTT/ASS/Markdown/video.
@@ -54,6 +56,7 @@ Route by job — entry command and the reference to read first:
 | Job | Entry command | Read first |
 |---|---|---|
 | Transcribe / translate / captions | `auto <file\|url> [--lang zh]` | orchestration.md |
+| URL / HTML5 media-page metadata | inspect page → `auto <url>` → `project edit --notes` | url-metadata.md |
 | 剪口播 / rough cut / B-roll | `cut detect` · `task start cleanup\|broll` | editing.md |
 | Fix transcript or caption text | `subtitle find/set/replace` · `terms fix` | subtitles.md, transcript-quality.md |
 | Fix line splits / re-align | `align list` · `task start align` | alignment.md |
@@ -91,8 +94,12 @@ Route by job — entry command and the reference to read first:
 - [references/versions.md](references/versions.md) — staleness, incremental
   re-translate, branches, benchmark cloning.
 - [references/metadata.md](references/metadata.md) — resolving projects from
-  natural language (`project search`), title/desc grounding + backfill,
+  natural language (`project search`), title/desc/notes grounding + backfill,
   speaker naming.
+- [references/url-metadata.md](references/url-metadata.md) — URL preflight and
+  persistence for podcast, article-hosted, generic, and HTML5 audio/video
+  pages. **Read this before starting any URL run whose media is embedded in a
+  webpage, especially a generic/HTML5 yt-dlp fallback.**
 - [references/export.md](references/export.md) — SRT/VTT/ASS/markdown/video
   export, bilingual modes, time-range clipping.
 - [references/recovery.md](references/recovery.md) — diagnostics (`task log` /
@@ -104,9 +111,10 @@ Route by job — entry command and the reference to read first:
 - [references/content-summary.md](references/content-summary.md) — how to write
   the viewer-first completion summary. **Read right before writing one.**
 
-A plain transcription/translation run needs ONLY orchestration.md (plus
-commands.md if you deviate from defaults) — don't read the
-speaker/version/export docs until the task actually calls for them.
+A plain local-file transcription/translation run needs ONLY orchestration.md
+(plus commands.md if you deviate from defaults). A URL run also needs
+url-metadata.md before `auto`; don't read the speaker/version/export docs until
+the task actually calls for them.
 
 ## Choose the completion mode first
 
@@ -168,6 +176,15 @@ baocut --json auto talk.mp4 --lang zh    # -> {"taskId":"t-…","projectId":"p7"
 baocut --json auto "https://www.youtube.com/watch?v=…" --lang zh
 ```
 
+**Webpage-backed URL rule:** before `auto`, inspect the extractor metadata. If
+yt-dlp reports `html5` / `HTML5MediaEmbed` / a generic fallback, or returns
+missing, truncated, entity-encoded, or suspicious fields, read the rendered
+source page itself. Pass the verified title and concise description into
+`auto`, retain a structured page-facts draft in a temp file, and save it to the
+project's searchable `notes` field at terminal. Never treat the fetch timestamp
+as the publication date or silently discard an explicit episode timeline. The
+exact field map and verification gate are in url-metadata.md.
+
 Common knobs: `--source-lang X` · `--title X --desc "…"` · `--instructions` ·
 `--speakers N` / `--no-speakers` · `--no-polish` · `--lang` is always the
 TRANSLATE TARGET. The full knob list (align fit/packing, `--second-look`,
@@ -190,8 +207,8 @@ orchestration.md). Start the pool immediately after `auto` returns —
 analysis call no longer pays agent spin-up:
 
 ```bash
-# workers: baocut --json task claim <taskId> --worker w1
-#          … answer … task submit <taskId> --call <id> --lease-id <leaseId> --file a.json --next
+# workers: baocut --json task claim <taskId> --worker w1 --timeout 240
+#          … answer … task submit <taskId> --call <id> --lease-id <leaseId> --file a.json --next --timeout 240
 # root: baocut --json task status <taskId>  # observe waitingOn + queue ownership
 ```
 
@@ -226,7 +243,10 @@ come from the app or `BAOCUT_API_KEY_<PROVIDERID>`). Cloud runs upload the
 audio and poll — no live transcript stream; details in transcript-quality.md.
 
 `task start` spawns the same kind of worker — same claim/submit loop.
-`translate` runs + APPLIES polish first by default (skip: `--no-polish`);
+`translate` runs + APPLIES polish first by default (skip: `--no-polish`) —
+unless the transcript has manual edits since transcription (M107): then the
+default flips to translating the edits as-is, with no chained re-segmentation
+(`--polish` forces the full prerequisite anyway).
 `--stale-only` refreshes only out-of-date paragraphs (versions.md).
 
 Translation runs as two phases — whole-sentence translating, then splitting &
@@ -269,16 +289,19 @@ run a full re-translation, or repeat `align` merely to clear flash/CPS/width
 warnings without explicit user approval. In Project mode, presentation-only
 findings consume NO repair budget: leave them for a later export request.
 
-## Project metadata: title, description, speaker names
+## Project metadata: title, description, notes, speaker names
 
 When no exact project ID is supplied, resolve it first with
 `baocut --json project search "<keyword>"` (matches metadata, transcript,
 translations, chapters, speakers) and use the returned `projectId` everywhere;
 keep title and ID together in user-visible prompts. Title + description ride
-into EVERY LLM stage as grounding context, so keep them real — proactively:
-pass `--title`/`--desc` up front when you know the content, act on
+into EVERY LLM stage as grounding context, while searchable `notes` preserve
+source-page facts, timelines, and useful links beside the transcript. Keep all
+three real: pass `--title`/`--desc` up front when you know the content, act on
 `project show` `attention` hints, and backfill with `project edit` (on an
-existing project BEFORE `task start`; after an `auto` run at terminal).
+existing project BEFORE `task start`; after an `auto` run at terminal). For a
+webpage URL, follow url-metadata.md and verify `project show` returns the
+canonical `url`, extracted `notes`, title, and description before auditing.
 **Speaker naming rides the default flow:** diarization is on by default, and
 "who the speakers are" is part of the analysis deliverable. At terminal, run
 `speakers show <pid>` whenever speaker identification ran — do not rely on

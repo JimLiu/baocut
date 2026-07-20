@@ -179,11 +179,10 @@ complete until the obvious main speakers are renamed.
 
 Evidence sources, strongest first:
 - on-screen lower thirds, titles, or video branding (via `frames`)
-- the project title/description — URL imports (YouTube etc.) auto-seed them
-  from the video's own metadata, which often names host and guests outright;
-  read them (`project show`) before hunting the transcript (the video's
-  channel/uploader also rides the LLM prompt context, so channel names
-  surface in the analysis `namedEntities`)
+- the project title/description/notes — URL imports may seed weak extractor
+  metadata, while url-metadata.md preserves verified page identities, roles,
+  and show notes; read them (`project show`) before hunting the transcript
+  (the concise title/description ride into LLM context)
 - direct address in the transcript, e.g. "Xie Miao, how are you?"
 - stable role evidence, e.g. a host introduction or recurring host name
 - visual confirmation from `frames` when needed

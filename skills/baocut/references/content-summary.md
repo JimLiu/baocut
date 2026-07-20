@@ -12,9 +12,12 @@ full duration for long media. Never read worker prompt/answer files, export
 solely to obtain a summary, or invent a number or claim that the content does
 not support.
 
-Build the metadata from already verified `project show`, `task report`, source,
-and subtitle evidence. Always include title, source URL (or source filename for
-local media), duration normalized to `MM:SS` or `HH:MM:SS`, and languages. For a
+Build the metadata from already verified `project show` (including saved
+source-page `notes`), `task report`, source, and subtitle evidence. For a
+webpage-backed source, verify the page facts through url-metadata.md; do not
+reuse a known generic-extractor timestamp or truncated description. Always
+include title, source URL (or source filename for local media), duration
+normalized to `MM:SS` or `HH:MM:SS`, and languages. For a
 translation, translate the source title naturally into the target/user language
 and show both as `<target-language title> / <source title>`; show it once when
 the titles or languages are the same. Add only useful verified fields such as
