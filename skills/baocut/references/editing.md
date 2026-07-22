@@ -72,6 +72,35 @@ and context — and `audit` never FAILs on a normal "嗯。". Examples:
 - "然后我们再看第二点" → KEEP `然后` (sequence).
 - "It's, like, really hard" → isolated hesitation → cut.
 
+## Content-addressed pass — `cut match` (M109)
+
+Cut (or keep only) spans by what is SPOKEN, deterministically:
+
+```bash
+baocut --json cut match <pid> --query "sponsor" --dry-run       # substring, case-insensitive
+baocut --json cut match <pid> --query "优惠码|折扣码" --regex --dry-run
+baocut --json cut match <pid> --query "sponsor" --scope para    # whole enclosing paragraph
+baocut --json cut match <pid> --query "coupon" --action keep    # keep ONLY matches, cut the rest
+```
+
+- Matching runs over transcript paragraphs with the editor's find engine
+  (`--regex` / `--whole-word` / `--case-sensitive`; default substring,
+  case-insensitive — the right default for CJK, where `--whole-word` cannot
+  match inside a CJK run). Spans snap to whole words.
+- Same reversible soft-cut path as `cut add`; provenance lands in `cut list`
+  as kind `match` (`--note "…"` overrides the reason). Spans already inside a
+  cut are skipped, so re-runs are idempotent.
+- **Run `--dry-run` first and review the match list** (count + excerpts)
+  before applying — a broad substring can over-match ("so" hits "also").
+  `--action keep` with zero matches refuses rather than cutting everything.
+- A one-word mention rarely bounds the removable region: for "delete every
+  sponsor segment", dry-run with `--scope para` to see the paragraphs, then
+  cut. **Semantic selection is YOUR job, not a flag**: for "remove sections
+  discussing X", read the transcript (`export --md` / `subtitle find`), decide
+  the spans, then drive `cut match` (exact phrases) or `cut add --words`
+  (arbitrary ranges). After applying, verify like any edit: `cut list` +
+  `audit`.
+
 ## LLM rough cut — `task start cleanup`
 
 `baocut --json task start cleanup <pid>` (or fold into the pipeline with
@@ -102,11 +131,16 @@ sentences, glued rhythm) is the worse failure; cutting > 40% of a page warns.
 ## Review & verification loop
 
 ```bash
-baocut --json cut list <pid> [--kind silence|filler|badTake|manual]
+baocut --json cut list <pid> [--kind silence|filler|badTake|manual|match]
                                         # every cut + kind/reason/excerpt
 baocut --json cut restore <pid> <ids|--all>
 baocut --json cut add <pid> --start A --end B     # manual; snaps to word edges
                                         # (or --words wA..wB; --note "…" records why)
+                                        # ids must be in document order — reversed or
+                                        # unknown ids error with "--words expects
+                                        # <firstWordId>..<lastWordId> in document order";
+                                        # mixing --words with --start/--end errors with
+                                        # "pick one cut range"
 baocut --json audit <pid>               # edits section: FAIL on partition
                                           # breaks / mid-word boundaries;
                                           # WARN on >40% removal, no provenance

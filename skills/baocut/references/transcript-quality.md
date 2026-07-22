@@ -67,6 +67,22 @@ fix the named coverage problem with the same lease. Do not respond to a drift
 problem by copying the source unchanged — retain coverage AND apply known term
 corrections.
 
+A sentence below the similarity threshold receives one narrow semantic second
+look with its previous attempt, neighboring transcript text, media context,
+analysis, and user instructions. The threshold is a safety signal, not evidence
+that the previous answer was wrong. Reproduce a still-correct homophone or word-
+boundary repair exactly — including one token becoming several spoken words
+(`Camelot → came a lot`) — so the engine can accept two independent matching
+answers. Revert only when context shows the first correction changed what was
+spoken. Never add a global term mapping for a sentence-local pun when the same
+surface form is legitimate elsewhere.
+
+When an accepted correction changes the token count, BaoCut preserves the
+enclosing source-word time window and distributes it across the replacement
+tokens by semantic character count (letters/numbers/apostrophes; punctuation
+has no weight; every token keeps a minimum share). Do not invent or return word
+timestamps in the Agent answer.
+
 ## PolishQuality gate
 
 The latest CLI polish writes `ai/polish-quality.json`; `task status/report`,

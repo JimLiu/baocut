@@ -96,6 +96,32 @@ default flips to translating the edits as-is, with no chained re-segmentation
 segment stage first); a later re-polish flips a non-blocking `chapters-stale`
 attention hint — re-run the flow to refresh titles.
 
+## Recipes — common one-liners
+
+```bash
+# Single-speaker talk → zh subtitles, skip diarization (saves ~4-5 min local compute)
+baocut --json auto talk.mp4 --lang zh --no-speakers
+
+# End-to-end with a rough cut folded in (cuts land BEFORE translate)
+baocut --json auto talk.mp4 --rough-cut --lang zh
+
+# URL run with verified page metadata (url-metadata.md preflight first)
+baocut --json auto "https://…" --lang zh --title "…" --desc "…"
+
+# Refresh only out-of-date paragraphs after an upstream edit
+baocut --json task start translate p7 --lang zh --stale-only
+
+# Preview sponsor-segment removal, then apply (editing.md: cut match)
+baocut --json cut match p7 --query "sponsor" --scope para --dry-run
+
+# Strict delivery gate → export, as one shell gate
+baocut --json finish-check p7 --for srt --lang zh --strict \
+  && baocut export p7 --srt --translated --lang zh --output zh.srt
+
+# Signature watermark on the final render (elements.md)
+baocut --json watermark add p7 --text "@yourname" --opacity 0.5
+```
+
 ## Misc
 
 - Older projects can be back-filled with the M56 CJK autocorrect pass:

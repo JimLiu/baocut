@@ -20,8 +20,9 @@ switching projects.
 A bare "transcribe" / "translate" request ends with the completed BaoCut
 Project. Report the project id and content-quality evidence, then ask whether
 the user wants to open the Project or export translated/bilingual SRT, VTT,
-ASS, Markdown, or video. Wait for that answer; do not guess a format or create
-an artifact in advance.
+ASS, Markdown, video, or an editable project for CapCut, Premiere Pro,
+DaVinci Resolve, Final Cut Pro, Shotcut, or Kdenlive. Wait for that answer;
+do not guess a format or create an artifact in advance.
 
 For an explicit Markdown export, require the Project-mode content/structure
 gate from SKILL.md; timed flash/CPS/width findings do not block it. For
@@ -40,12 +41,100 @@ baocut export <pid> --markdown --translated --lang zh --output zh.md   # or --bi
 baocut export <pid> --video --output out.mp4 --res 1080  # --quality high · --format mp4|mov ·
                                                      # --lang zh · --compress ·
                                                      # --no-subs (clean video) · --no-texts (no title overlays)
+baocut export <pid> --capcut --install --open          # CapCut 8.7 local draft (Beta)
+baocut export <pid> --capcut --output out-capcut       # portable folder; media copied
+baocut export <pid> --premiere --output edit-premiere.xml
+baocut export <pid> --resolve --output edit-resolve.fcpxml
+baocut export <pid> --final-cut-pro --output edit-final-cut-pro.fcpxml
+baocut export <pid> --shotcut --output edit-shotcut.mlt
+baocut export <pid> --kdenlive --output edit-kdenlive.kdenlive
 ```
+
+## Editable editor projects (Beta)
+
+All six targets share BaoCut's projected editable timeline: main video, source
+in-points, reviewed cuts, constant speed, B-roll/image overlays, independent
+audio, basic transforms/opacity, free text, watermarks, and
+original/translated subtitle lanes. Unsupported visible element kinds block
+the export; use `--allow-lossy` only after reviewing the returned `warnings[]`
+and `omitted[]`. `missing-media` and `empty-output` always block.
+
+Before a delivery, run the target-specific gate:
+
+```bash
+baocut --json finish-check <pid> --for capcut --lang zh --strict
+baocut --json finish-check <pid> --for premiere --lang zh --strict
+baocut --json finish-check <pid> --for resolve --lang zh --strict
+baocut --json finish-check <pid> --for final-cut-pro --lang zh --strict
+baocut --json finish-check <pid> --for shotcut --lang zh --strict
+baocut --json finish-check <pid> --for kdenlive --lang zh --strict
+baocut --json export <pid> --capcut --install --open --bilingual --lang zh
+```
+
+The single-file targets reference original media and never launch an editor:
+
+```bash
+# Premiere Pro: Final Cut Pro 7 XML
+baocut --json export <pid> --premiere --output talk-premiere.xml
+
+# Resolve: FCPXML by default; FCP7 is the explicit legacy interchange
+baocut --json export <pid> --resolve --output talk-resolve.fcpxml
+baocut --json export <pid> --resolve --interchange fcp7 --output talk-resolve.xml
+
+# Final Cut Pro: current 1.10 by default, with an optional event name
+baocut --json export <pid> --final-cut-pro --fcpxml-version 1.9 \
+  --event-name "Interview" --output talk-final-cut-pro.fcpxml
+
+# MLT-based targets
+baocut --json export <pid> --shotcut --profile source --output talk-shotcut.mlt
+baocut --json export <pid> --kdenlive --profile canvas \
+  --bin-layout flat --output talk-kdenlive.kdenlive
+```
+
+The selector flags are mutually exclusive. The five single-file writers share
+`--name`, `--start/--end`, `--lang`, `--translated`/`--bilingual`,
+`--no-subs`, `--no-texts`, `--no-broll`, `--no-watermark`, `--no-audio`,
+`--ratio`, `--res`, `--include-cuts`, and `--allow-lossy`. Omit the extension
+and BaoCut adds the target's required one; supply the wrong explicit extension
+and the command rejects it. Resolve legacy requires `.xml`, not `.fcpxml`.
+
+Successful JSON returns `format`, `interchange`, `path`, `laneCount`,
+`segmentCount`, `warnings`, `omitted`, and `lossy`. CapCut additionally returns
+`capcutVersion`. Do not infer a format from the display name; the stable tokens
+are `capcut`, `premiere`, `resolve`, `final-cut-pro`, `shotcut`, and `kdenlive`.
+
+### CapCut-specific destination behavior
+
+Install mode references original media by default. Add `--media copy` for a
+self-contained installed draft. Folder export always copies and hashes media,
+uses relative paths, and refuses to overwrite its destination. Transfer and
+register a portable folder on another Mac with:
+
+```bash
+baocut --json capcut install ./out-capcut --open
+```
+
+Use `--drafts-dir DIR` only for a custom CapCut drafts root. Installation is
+allowed while CapCut is running: BaoCut validates the draft in staging, then
+publishes it as an atomic new folder without editing CapCut's project index.
+Return to CapCut's home screen or reopen it if the draft does not appear
+immediately. Installation remains version-gated to CapCut 8.7.x;
+`--allow-untested-version` is an explicit compatibility override. `--ratio`
+accepts `original` or `W:H`, and the usual range/content switches plus
+`--no-subs`, `--no-texts`, `--no-broll`, `--no-watermark`, and `--no-audio`
+select what transfers.
 
 Subtitles and markdown share the three content modes: original (default),
 `--translated` (translation only — untranslated cues/paragraphs fall back to
 the source), or `--bilingual`. Both require `--lang`, and that translation must
-already exist. Video also uses `--lang` for bilingual burn-in (`--trans-lang`
+already exist.
+
+**Export-only style override.** `--style <styleId|name>` (SRT/VTT/ASS and
+video, not markdown) renders THIS export with a saved style while the project
+keeps its own look. A `--bilingual` sidecar and a video that burns a
+translation need a `set` record; every other export takes a `line` record —
+the CLI rejects a wrong-kind style instead of healing it. Resolve ids with
+`baocut style list`; details in [styles.md](styles.md). Video also uses `--lang` for bilingual burn-in (`--trans-lang`
 remains a compatibility alias). `--output` is canonical; `-o` remains shorthand.
 Rows hidden with `baocut subtitle hide` are omitted from timed sidecars and
 burned-in video without removing AV time. Transcript Markdown remains literal.
@@ -69,7 +158,7 @@ Speaker names/labels are omitted on a project whose speakers were never
 identified (M69 — `speakers show` says `"identified": false`); an explicit
 `--speakers` prints a stderr note pointing at `speakers reidentify`.
 
-## Clip a time range (video · subtitles · markdown)
+## Clip a time range (video · subtitles · markdown · editable projects)
 
 `--start A --end B` (seconds or `mm:ss`/`h:mm:ss`) exports just that window; the
 output rebases to 0 (video `0…B−A`, sidecar cue #1 at `00:00:00`). Works with
