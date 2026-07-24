@@ -186,7 +186,7 @@ inventing watermark-like defaults. It writes a normal queue block with
 `span.source:"manual"`; `apply` then creates the same canonical
 `ai.op:"screentext"` text element as an OCR block. Because that interval was
 explicitly measured by a person, default `apply` preserves it rather than
-shortening it to the automatic one-second hint.
+shortening it to the automatic three-second hint.
 
 **Manual spans must follow the picture cut.** Inspect a frame just before and
 just after the proposed `--start`/`--end`; never reuse one generous slide-level
@@ -211,10 +211,10 @@ stays legible on any footage and briefly buries the source text underneath. Its
 an edge, and otherwise the script's natural direction (Arabic/Hebrew right, the rest
 left).
 
-**Default timing is a one-second hint.** For automatic OCR blocks, `apply`
-centers a one-second window on the queue frame and clamps it inside the stored
+**Default timing is a three-second hint.** For automatic OCR blocks, `apply`
+centers a three-second window on the queue frame and clamps it inside the stored
 source span. The original text becomes visible again after the hint instead of
-being covered for the whole slide. A source span shorter than one second stays
+being covered for the whole slide. A source span shorter than three seconds stays
 shorter. `--duration N` requests another number of seconds (still clamped to the
 source picture); `--duration source` uses the full detected interval. Manual
 `insert` spans are preserved by default. Skipped and untranslated blocks are
@@ -257,7 +257,7 @@ retime, or `--hidden on` a bad block — instead of re-running the whole scan.
 
 Exit-0 is not proof. `screentext show` / `screentext list` is the state re-read.
 For a composite proof render the queue frame plus frames immediately around a
-representative element's own `start` and `end`. Confirm the one-second hint
+representative element's own `start` and `end`. Confirm the three-second hint
 appears at the queue frame, disappears at `element.end`, and is absent later on
 the same long-lived slide. For `--duration source` or a manual span, also check
 the source transition at `span.end - 0.1` and `span.end + 0.1`.

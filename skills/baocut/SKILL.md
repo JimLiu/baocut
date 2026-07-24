@@ -1,6 +1,6 @@
 ---
 name: baocut
-version: 0.8.1
+version: 0.8.2
 minAppVersion: 0.8.1
 description: >-
   Drive BaoCut from the CLI: transcribe local media or media URLs, polish
@@ -344,8 +344,8 @@ backfill, and naming workflows are in metadata.md and speakers.md.
   `screentext scan`'s precise span refinement enabled (the default): that source
   span is the hard boundary every automatically generated duration must respect
   (a later human retime is an explicit override).
-- **Applied screen-text translations are one-second hints by default.**
-  `screentext apply` centers that one second on the queued frame and clamps it
+- **Applied screen-text translations are three-second hints by default.**
+  `screentext apply` centers those three seconds on the queued frame and clamps them
   inside the source span, so the translated plate does not cover the original
   for an entire slide. Use `--duration N` only when the user asks for another
   length, or `--duration source` when they explicitly want full-span
