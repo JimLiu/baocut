@@ -66,6 +66,27 @@ anything persists).
 - Core workflow and mutating commands reject unknown, duplicated,
   missing-value, and extra positional arguments; treat any such error as a
   command bug to fix, never as a warning that can be ignored.
+- `{"status":"error"}` results may also carry a machine-readable `kind`.
+  Branch on it instead of matching the message text:
+
+  | `kind` | Meaning | What to do |
+  | --- | --- | --- |
+  | `not_found` | The named project/element/style/item does not exist | Re-read the matching `list` command |
+  | `ambiguous` | The reference matched several objects (candidates are in the message) | Retry with a longer prefix or the full id |
+  | `invalid_arg` | An option or positional failed validation; nothing ran | Fix the invocation — never retry unchanged |
+  | `conflict` | The argument is well-formed but the project's current state forbids it | Advance the project first (transcribe, add content), then retry |
+  | `stale` | Ids or indexes shifted under you | Re-read, then reissue against fresh ids |
+  | `unsupported` | The operation does not apply to this kind of target | Use the command named in the message |
+  | `io` | Filesystem, network, or decode failure | Surface it; `doctor` diagnoses the environment-shaped ones |
+
+  A missing `kind` means the failure predates this taxonomy — fall back to
+  reading the message. Never treat an absent `kind` as success; `status` is
+  the success discriminator.
+- Write commands report **what changed**, so you do not need to re-read
+  between your own edits: `changed` (flags actually applied), the mutated
+  object itself, ids that shifted or were created, and a `next` command when
+  there is an obvious follow-up. Re-read when you need to confirm something a
+  receipt does not cover, not as a reflex after every write.
 
 ## Worker-pool sizing & align packing
 

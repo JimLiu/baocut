@@ -16,6 +16,16 @@ baocut --json element list <pid>
 
 Always list first — every edit below is addressed by the element `id`.
 
+`element set` / `element remove` also accept a **unique id prefix** or a
+**unique element name** (case-insensitive) in place of the full id, so a CLI-
+minted id like `el-mfz3k9q1a0q7x` can be typed as `el-mfz`. Resolution order is
+exact id → unique prefix → unique name. A token matching several elements fails
+with `kind: "ambiguous"` rather than picking one; the message reports the match
+count and a few example ids (not all of them — a captioned project carries one
+text element per line, so matches run into the hundreds). Narrow it with a
+longer prefix or the full id. Track ids (`tr-wm-el-101`) never resolve; address
+the element, not its lane.
+
 ## Edit anything — `element set`
 
 ```bash
@@ -40,7 +50,11 @@ stay on `broll update`.
 
 ```bash
 baocut --json element remove <pid> <elId>    # drops its lane when it empties
+# → {projectId, removed, kind, trackRemoved}
 ```
+
+`removed` is the element's own id, not the token you passed — when a prefix or
+name resolved it, that field is how you learn which element actually went.
 
 ## Watermarks — `watermark add`
 
@@ -50,6 +64,10 @@ baocut --json watermark add <pid> --file logo.png --x 15 --y 15 --w 12
 baocut --json watermark add <pid> --text "内部资料" --tile on --opacity 0.3
 ```
 
+- **Never use a watermark to translate text already visible in the video.**
+  Slides, signs, labels, lower-thirds and burned-in captions belong to the
+  `screentext` queue. If OCR misses a visible label, use `screentext insert`
+  with explicit geometry and timing; see screentext.md.
 - Text items get the GUI's signature look (transparent background, slim
   stroke); font/color edits are panel/prototype work, not CLI flags.
 - Image assets are copied into the project (`media/watermark/`), so the

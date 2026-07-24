@@ -146,6 +146,12 @@ baocut --json audit <pid>               # edits section: FAIL on partition
                                           # WARN on >40% removal, no provenance
 ```
 
+`cut add` returns `{cut{start,end,removedSec,snapped}, cutId, clipIds, next}`.
+`clipIds` are the clips the cut produced — `cut restore` takes clip ids, so
+they are what undoes the edit you just made, and `next` spells that command
+out. One cut can yield several clips (or none, if it snapped away to nothing),
+so read the array rather than assuming a single id.
+
 A successful command is not verification: after applying cuts, `cut list` +
 `audit` before reporting; spot-check a suspicious boundary with
 `export --video --start A --end B --preview`.
@@ -170,7 +176,11 @@ A successful command is not verification: after applying cuts, `cut list` +
    `--bg blur|black`, `--src-start <t>` = where playback starts inside a video
    asset, `--radius N` PiP corner radius, `--name "…"` display label). Defaults:
    images → pip 4s, videos → fullscreen ≤8s. `broll update <pid> <brId>` takes
-   the same placement flags (plus `--file`) to adjust in place.
+   the same placement flags (plus `--file`) to adjust in place, and returns
+   `{broll, changed, next}` — `changed` lists the flags it applied, so a
+   re-read is only needed for what the row does not already show. `--src-start`
+   is source time (an offset inside the asset); every other time flag here is
+   timeline time.
 4. Placement rules (PiP): pick the largest low-information rectangle — avoid
    the speaker's face/gestures, the caption band, existing overlays. Any
    readable text/logo in the SOURCE must survive the fit: aspect-mismatched

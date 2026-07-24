@@ -1,7 +1,7 @@
 ---
 name: baocut
-version: 0.8.0
-minAppVersion: 0.8.0
+version: 0.8.1
+minAppVersion: 0.8.1
 description: >-
   Drive BaoCut from the CLI: transcribe local media or media URLs, polish
   transcripts through Agent workers, translate/correct subtitles, pick or save
@@ -35,6 +35,16 @@ which enforces the contract and stops with exit 3 + a printed update
 instruction when either side is too old (`--help`/`--version` always run).
 Relay that instruction — don't route around it; the exact recipes are in
 known-errors.md.
+
+**Time is always seconds — in two different coordinate systems.** Every
+`--start` / `--end` / `--at` on the CLI surface is **timeline time**: where a
+moment sits in the edited video. Two stored fields are **source time**, an
+offset into the underlying asset — `clip.src` (the main track maps timeline to
+source as `src + (t - start)`) and `broll.srcStart` (a B-roll video's trim-in).
+Because both are seconds, mixing them raises no error; the edit just lands in
+the wrong place, and only in projects that already have cuts or appended
+sources. Never do that conversion by hand: read the mapped value back from
+`clip list` / `broll list`, and pass timeline seconds to every command flag.
 
 You are the **orchestrator**. The LLM pipeline stages (segment / polish /
 repunct / translate / align) run inside a background worker process that asks
@@ -326,6 +336,23 @@ backfill, and naming workflows are in metadata.md and speakers.md.
   to copy the ASR.** Reproduce a still-correct homophone/word-boundary fix
   exactly; revert only when context shows it changed what was spoken. The full
   rule (and how BaoCut redistributes word timing) is in transcript-quality.md.
+- **Never turn baked-in slide/sign/caption text into a watermark.** It remains
+  screen text even when OCR misses it: use `screentext insert` with explicit
+  geometry and timing, then `screentext apply`. Watermarks are only for content
+  the user intends to add independently of the source picture.
+- **Screen-text source timing follows picture cuts, not narration.** Keep
+  `screentext scan`'s precise span refinement enabled (the default): that source
+  span is the hard boundary every automatically generated duration must respect
+  (a later human retime is an explicit override).
+- **Applied screen-text translations are one-second hints by default.**
+  `screentext apply` centers that one second on the queued frame and clamps it
+  inside the source span, so the translated plate does not cover the original
+  for an entire slide. Use `--duration N` only when the user asks for another
+  length, or `--duration source` when they explicitly want full-span
+  replacement. A manual `insert --start/--end` and an element later retimed by
+  a person keep their timing on a default re-apply. For OCR misses, still
+  measure each label's own visible interval instead of reusing one broad
+  slide-level guess.
 - **Write your answer/scratch files to a temp directory** (e.g. `$TMPDIR` or a
   dedicated scratch dir), NEVER the repo/cwd — `task submit --file` takes any
   path, and stray `*.json` drafts in a repo root end up in commits.

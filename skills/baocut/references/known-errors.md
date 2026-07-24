@@ -2,8 +2,16 @@
 
 Literal error → cause → recovery. Check here BEFORE improvising a workaround —
 most of these have one correct next command. (JSON errors arrive as
-`{"status":"error","error":"…"}`; submit lint rejections as
-`{"status":"rejected",…}`.)
+`{"status":"error","error":"…"}`, most now with a `kind` —
+`not_found` / `ambiguous` / `invalid_arg` / `conflict` / `stale` /
+`unsupported` / `io` — see the table in `commands.md`; submit lint rejections
+as `{"status":"rejected",…}`.)
+
+Branch on `kind` before matching message text: it is stable, the wording is
+not. The two that change what you do next most often: `invalid_arg` means
+nothing ran and retrying unchanged will fail identically, while `conflict`
+means the command was well-formed but the project is not ready for it — fix
+the project, not the invocation.
 
 **Environment-shaped failures → run `baocut --json doctor` FIRST.** Missing
 models, no yt-dlp/ffmpeg, an unwritable data dir, a broken version contract,
