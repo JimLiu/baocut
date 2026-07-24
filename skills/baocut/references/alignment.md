@@ -6,9 +6,13 @@ Read this before any align / re-align / line-splitting work.
 
 Translation runs as TWO big phases: **Translating** (whole natural sentences,
 1:1 source↔translation, natural target word order — long sentences allowed)
-then **Splitting & aligning** (ONLY sentences over the one-line **fit**
-capacity are split & re-aligned; a fitting sentence stays whole even when its
-source spans several cues — many-to-one is the native model).
+then **Splitting & aligning** (sentences over the one-line **fit** capacity are
+split & re-aligned; a fitting sentence normally stays whole even when its
+source spans several cues — many-to-one is the native model). The narrow
+zero-LLM exception is a Latin target above its aim with a safe balanced target
+seam, a compatible internal source sentence/semicolon/colon/dash seam, and at
+least one second of speech on both sides. Ordinary source commas and cue edges
+never trigger it.
 
 Phase-2 budgets ride every align payload as `budgets: {s, t, f}`:
 
@@ -17,9 +21,11 @@ Phase-2 budgets ride every align payload as `budgets: {s, t, f}`:
   halfwidth Latin glyphs weigh half a cell and projected punctuation weighs
   nothing — a mixed-script line can hold more raw characters than `f` and
   still fit.
-- `t` = the 14-char aim per piece when splitting (soft: an aim-to-hard span
-  may stay whole).
-- 20 = the hard ceiling (blocking).
+- `t` = the aim per piece when splitting (soft: an aim-to-hard span may stay
+  whole). 14 for CJK, 30 for Latin targets.
+- hard ceiling (blocking): 20 for CJK, 42 for Latin (aim × 1.4). Latin fit
+  stays 42, so its old 42–58 "never blocking" tolerance band is gone: any
+  Latin unit over 42 chars must be split or rewritten.
 
 Reading speed (CPS) and aim-band width are recorded as advisory during
 translate/align and gated at delivery by `baocut audit` / `finish-check` —

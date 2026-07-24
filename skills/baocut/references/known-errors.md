@@ -144,8 +144,9 @@ reading a different browser's cookie store.
 ## Transcription & models
 
 **`cloud model 'X' is GUI-only — pick a local model`**
-The CLI cannot run cloud STT (no key/consent flow). → `baocut model list`,
-use a local id (default `qwen3-asr-0.6b`).
+This command requires a local speech model. → `baocut model list`, then retry
+with an installed local id via `--model`; normally omit `--model` so the command
+follows the local default selected in BaoCut Settings.
 
 **`MLX shader library missing next to the app binary — run scripts/build-metallib.sh after swift build.`**
 Fresh checkout/config without the metallib. → `./scripts/build-metallib.sh debug`

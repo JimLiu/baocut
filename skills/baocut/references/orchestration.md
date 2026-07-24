@@ -247,6 +247,12 @@ line is one compact, independently parseable object. Exit 0 on done/review, 2 on
 failed/cancelled/stalled — so `task watch <id> && baocut export …` gates
 cleanly. Prefer it over polling `task status` in a sleep loop.
 
+The task's `--reply-timeout` is a queue-inactivity guard (default 1800s), not
+an absolute cap from request creation: a claim/renewal/release or lint
+rejection restarts it, and time in system sleep does not consume it. This
+keeps a late-claimed request in the recommended 3-worker/4-call shape from
+being killed by time it spent waiting behind another answer.
+
 The default claim lease is adaptive to payload size: **600s at ≤8K chars,
 900s at ≤20K, 1800s above 20K**. `--lease N` is an explicit override and is
 carried across that worker's `submit --next`; without an override, every next

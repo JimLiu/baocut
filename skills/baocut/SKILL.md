@@ -1,7 +1,7 @@
 ---
 name: baocut
-version: 0.7.0
-minAppVersion: 0.7.0
+version: 0.8.0
+minAppVersion: 0.8.0
 description: >-
   Drive BaoCut from the CLI: transcribe local media or media URLs, polish
   transcripts through Agent workers, translate/correct subtitles, pick or save
@@ -56,7 +56,9 @@ Route by job — entry command and the reference to read first:
 | URL / HTML5 media-page metadata | inspect page → `auto <url>` → `project edit --notes` | url-metadata.md |
 | 剪口播 / rough cut / B-roll | `cut detect` · `task start cleanup\|broll` | editing.md |
 | Cut/keep spans by spoken text | `cut match --query … [--dry-run]` | editing.md |
+| 追加的视频没有字幕 / transcribe appended media | `clip list` → `clip transcribe --clip <id>` | editing.md |
 | Watermarks / overlay elements | `element list/set/remove` · `watermark add` | elements.md |
+| 画面文字 / on-screen text / slides / signs translation | `screentext show/scan` → `translate` → `apply` | screentext.md |
 | Fix transcript or caption text | `subtitle find/set/replace` · `terms fix` | subtitles.md, transcript-quality.md |
 | 字幕样式 / subtitle look & style presets | `style list/apply/save/edit` · `export --style` | styles.md |
 | Fix line splits / re-align | `align list` · `task start align` | alignment.md |
@@ -76,7 +78,8 @@ Route by job — entry command and the reference to read first:
   **Read before composing any non-default command line.**
 - [references/editing.md](references/editing.md) — talking-head video editing:
   the cleanup decision rules (fillers/retakes/pauses), cut review, the
-  cleanup/broll LLM stages, B-roll sourcing & placement, edit verification.
+  cleanup/broll LLM stages, B-roll sourcing & placement, edit verification,
+  and per-clip transcription of appended media (`clip list/transcribe`).
   **Read this before any 剪口播 / rough-cut / B-roll job.**
 - [references/transcript-quality.md](references/transcript-quality.md) — ASR
   model policy, Agent-driven polish, `PolishQuality`, term locking/fixing,
@@ -97,6 +100,12 @@ Route by job — entry command and the reference to read first:
   inspect/edit/remove any element by id (transform, timing, effects, mask,
   audio, hidden), add text/image watermarks. **Read before any watermark or
   overlay-element request.**
+- [references/screentext.md](references/screentext.md) — translate text baked
+  INTO the video picture (slides, signs, burned-in captions): OCR one located
+  frame or scan the whole clip, hand the frame PNG + OCR JSON to the Agent to
+  translate, then back-fill the results as positioned on-screen text elements
+  (`annotate` beside the source, or `replace` over a plate). **Read before any
+  on-screen / in-video / slide text translation request.**
 - [references/speakers.md](references/speakers.md) — reviewing & fixing speaker
   identification, naming speakers, the evidence loop (show / view / frames).
 - [references/versions.md](references/versions.md) — staleness, incremental
@@ -188,6 +197,13 @@ merged stages, timeouts, URL/yt-dlp details) and the JSON-envelope rules are
 in commands.md. Every `--json` result carries a string `status`; mutating
 commands reject malformed arguments — treat such an error as a command bug to
 fix, never as a warning to ignore.
+
+**Inherit the user's speech-model choice.** Do NOT add `--model` unless the
+user explicitly requests a model override for this task. With the flag omitted,
+`auto` and `transcribe` read the default selected in BaoCut Settings; only an
+installation with no saved user choice uses the factory fallback
+`qwen3-asr-0.6b`. This omission is intentional and keeps Agent runs synchronized
+when the user changes the App default.
 
 **Confirmed single-speaker subtitle-only ask? Skip diarization.** Speaker
 identification is ON by default and costs ~4-5 minutes of local compute; pass

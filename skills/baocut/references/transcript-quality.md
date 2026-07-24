@@ -1,9 +1,10 @@
 # Transcript quality: ASR → Agent polish → cleanup
 
 Use this reference for any job that promises a corrected transcript, polished
-captions, or a rough-cut video. The default speech model remains
-`qwen3-asr-0.6b`; transcript correctness comes from the CLI/Agent polish loop,
-not from silently swapping ASR models or editing `doc.json` by hand.
+captions, or a rough-cut video. Omit `--model` to inherit the user's current
+default from BaoCut Settings; `qwen3-asr-0.6b` is only the factory fallback
+when no user choice exists. Transcript correctness comes from the CLI/Agent
+polish loop, not from silently swapping ASR models or editing `doc.json` by hand.
 For a bounded correction after the pipeline, use `baocut subtitle set` and read
 [subtitles.md](subtitles.md) for cue/group addressing, reindexing, and staleness.
 
@@ -130,8 +131,9 @@ A `polishQuality` WARN whose only issue is residual terms does NOT require a
   (`canonical = variant1 | variant2`, authoritative, always residual-checked) —
   the real fix for the "term misheard, polish couldn't correct it" loop.
 - Content-aware ASR: a term-heavy `--desc`/`--terms-file` makes `auto`/`transcribe`
-  suggest `--model qwen3-asr-1.7b` (`modelHint` in the JSON) — the 0.6b default
-  mishears code-switched technical terms.
+  suggest `--model qwen3-asr-1.7b` (`modelHint` in the JSON) when the inherited
+  choice is the 0.6b factory model, which often mishears code-switched technical
+  terms.
 
 ## Acceptance evidence
 

@@ -118,8 +118,14 @@ Use `--drafts-dir DIR` only for a custom CapCut drafts root. Installation is
 allowed while CapCut is running: BaoCut validates the draft in staging, then
 publishes it as an atomic new folder without editing CapCut's project index.
 Return to CapCut's home screen or reopen it if the draft does not appear
-immediately. Installation remains version-gated to CapCut 8.7.x;
-`--allow-untested-version` is an explicit compatibility override. `--ratio`
+immediately. Installation remains version-gated to CapCut 8.7.x/9.0.x;
+`--allow-untested-version` is an explicit compatibility override. Install-mode
+media defaults to `--media reference`: originals stay in place, and CapCut's
+sandbox can only read them under `~/Movies` — for anything else CapCut shows
+its Link media dialog once and the user relinks there. Opt-in `--media auto`
+copies exactly the files CapCut cannot read (reported under the
+`media-copied` warning) and `--media copy` embeds everything; both grow the
+drafts folder, so never choose them on the user's behalf. `--ratio`
 accepts `original` or `W:H`, and the usual range/content switches plus
 `--no-subs`, `--no-texts`, `--no-broll`, `--no-watermark`, and `--no-audio`
 select what transfers.

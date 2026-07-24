@@ -17,8 +17,11 @@ at terminal. URL sources need `yt-dlp` on PATH
 anything persists).
 
 - `--source-lang X` — transcription language (see language flags below).
-- `--model qwen3-asr-0.6b` — ASR model, local or cloud (policy + cloud notes
-  in transcript-quality.md). Cloud stt ids (`baocut model list` shows them
+- `--model <id>` — explicit ASR override, local or cloud (policy + cloud notes
+  in transcript-quality.md). Omit this flag unless the user requests an
+  override: omission follows the default selected in BaoCut Settings; only
+  when no user choice exists does it use the factory fallback
+  `qwen3-asr-0.6b`. Cloud stt ids (`baocut model list` shows them
   with their connected state) upload the audio to the provider; keys come
   from the app's Keychain, or `BAOCUT_API_KEY_<PROVIDERID>` for headless
   sessions (Volcano keys are `APPID:AccessToken`). No key → fast fail with
@@ -46,7 +49,9 @@ anything persists).
   call and brief into the translate call, two fewer serial round-trips.
 - `--line-length short|standard|long|16-200` — display-width budget 32/42/56;
   also on `task start`.
-- `--reply-timeout S` — max wait per model answer, default 1800.
+- `--reply-timeout S` — max answer-queue inactivity, default 1800. A new
+  claim/lease or lint correction restarts the window, and system sleep does
+  not consume it; this is not a cap on queue wait plus model runtime.
 - `--page-budget N` — experimental page size in chars, ≥ 500.
 
 ## Language flags & JSON envelope (M78)

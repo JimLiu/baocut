@@ -184,6 +184,43 @@ A successful command is not verification: after applying cuts, `cut list` +
    B-roll buried inside a cut, overlapping cutaways (FAIL); first/last-3s
    intrusion, <1.5s flash cutaways (WARN).
 
+## Appended media — transcribe the new clip, not the project (M113)
+
+When a second video is spliced onto the main track (the app's Add → Video, or
+a project handed to you after the user did it), the appended range arrives with
+**no words**. Re-running `transcribe --project <pid>` is not the fix you want by
+reflex: it re-recognizes everything and discards the polish already done on the
+first part. Transcribe just the new clip:
+
+```
+baocut --json clip list <pid>                       # id · range · words · source
+baocut --json clip transcribe <pid> --clip <clipId> # replaces ONLY that range
+```
+
+- `clip list` is how you spot the gap: an appended clip shows `words: 0` while
+  its neighbours do not. Never quote clip ids to the user — say "the second
+  video" / the spoken content, as with cut ids.
+- Only words whose midpoint falls inside the clip are replaced; every edit,
+  polish, translation and cut outside the range survives. The dominant speaker
+  of the replaced range carries over (a clip pass never re-diarizes) — fix
+  attribution afterwards with `speakers assign` if the new footage is someone
+  else.
+- **A clip pass runs locally.** Pass `--model` with a local model
+  (`baocut model list`). A whole-timeline `transcribe --project <pid>` does
+  accept a cloud model on a spliced project — it uploads one request per
+  segment — but a per-clip pass stays local so a single command can't turn into
+  a paid API call by surprise.
+- **Mixed video+audio timelines:** if the video row is muted and a voiceover
+  covers the clip, the pass reads the voiceover automatically. Override with
+  `--audio-source main|<elementId>` (ids from `element list <pid>`); the same
+  flag exists on `transcribe --project <pid>` for a whole-timeline re-run, and
+  the pick is remembered on the document. One source per pass — mixing two
+  voices into a single recognition produces unusable words.
+- Then continue downstream as usual: the added words are unpolished and
+  untranslated, so `task start polish|translate` (with `--stale-only` where the
+  flow supports it) before exporting. An SRT exported before the appended clip
+  was transcribed is stale — re-export.
+
 ## Captions & export
 
 Burn-in and translation come AFTER cuts are final. On a translation job,
