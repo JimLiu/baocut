@@ -1,7 +1,7 @@
 ---
 name: baocut
-version: 0.8.2
-minAppVersion: 0.8.1
+version: 0.9.0
+minAppVersion: 0.8.3
 description: >-
   Drive BaoCut from the CLI: transcribe local media or media URLs, polish
   transcripts through Agent workers, translate/correct subtitles, pick or save
@@ -68,9 +68,11 @@ Route by job — entry command and the reference to read first:
 | Cut/keep spans by spoken text | `cut match --query … [--dry-run]` | editing.md |
 | 追加的视频没有字幕 / transcribe appended media | `clip list` → `clip transcribe --clip <id>` | editing.md |
 | Watermarks / overlay elements | `element list/set/remove` · `watermark add` | elements.md |
+| 元素动画 / entrance, exit, loop on an overlay | `animation list/apply/clear` | animation.md |
 | 画面文字 / on-screen text / slides / signs translation | `screentext show/scan` → `translate` → `apply` | screentext.md |
 | Fix transcript or caption text | `subtitle find/set/replace` · `terms fix` | subtitles.md, transcript-quality.md |
 | 字幕样式 / subtitle look & style presets | `style list/apply/save/edit` · `export --style` | styles.md |
+| Designed captions / 特效字幕 / karaoke / 让字幕动起来 | `caption catalog/plan/apply/validate/preview` · `export --caption` | captions.md |
 | Fix line splits / re-align | `align list` · `task start align` | alignment.md |
 | Speaker review / naming | `speakers show/view/…` | speakers.md |
 | Re-run one stage, staleness | `task start <flow>` · `version list` | versions.md |
@@ -106,10 +108,20 @@ Route by job — entry command and the reference to read first:
   (shared with the app): list/apply built-in or custom looks, edit a project's
   live style, save/update preferred styles, export-only `--style` overrides.
   **Read before any 字幕样式 / caption-look request.**
+- [references/captions.md](references/captions.md) — native Designed Captions:
+  the 16-style catalogue, CJK-aware selection, stable-word emphasis plans,
+  validation, real-frame preview and burned-video delivery. **Read before any
+  特效字幕 / karaoke / word-level caption-motion request.**
 - [references/elements.md](references/elements.md) — timeline overlay elements:
   inspect/edit/remove any element by id (transform, timing, effects, mask,
   audio, hidden), add text/image watermarks. **Read before any watermark or
   overlay-element request.**
+- [references/animation.md](references/animation.md) — entrances, exits and
+  loops on overlay elements: the frozen preset catalogue, batch selectors,
+  strength/duration knobs, the mirrored-exit default, and what editable-project
+  export drops. **Read before animating anything** — it opens with the rules
+  that keep motion from reading as a rendering glitch (nothing under 0.6s, at
+  most three loops on screen, strength over stacked presets).
 - [references/screentext.md](references/screentext.md) — translate text baked
   INTO the video picture (slides, signs, burned-in captions): OCR one located
   frame or scan the whole clip, hand the frame PNG + OCR JSON to the Agent to

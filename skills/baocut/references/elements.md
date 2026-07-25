@@ -46,6 +46,11 @@ on watermark/sticker/shape/audio lanes; Media and text overlays need concrete
 ends. B-roll placement fields beyond these (PiP rect, fit, bg, src-start)
 stay on `broll update`.
 
+`element set` also carries the animation shorthand (`--anim-in pop
+--anim-in-dur 0.4 --anim-out fade --anim-loop pulse`); the catalogue, batch
+selectors and strength knobs are `baocut animation`. Read animation.md before
+using either — it opens with the rules for when NOT to animate.
+
 ## Remove — `element remove`
 
 ```bash

@@ -171,6 +171,31 @@ process.
 VAD found nothing (wrong file, silent track). → Verify the media has speech;
 check `--source-lang` if the language was forced wrong.
 
+## Designed Captions
+
+**`caption plan has a stale word anchor` / `caption.override.orphan`**
+The transcript changed after the plan was created, so a stable word id or its
+anchor text no longer matches. → Do not patch ids manually. Regenerate with
+`baocut --json caption plan <pid> <styleId> --output <temp-file>`, make the
+semantic emphasis edits again, then apply the new plan.
+
+**`caption style … is not installed` / `caption.asset.missing`**
+The plan names a recipe version or bundled texture unavailable to this app
+build. → Run `caption catalog` and pick an installed id. For a missing bundled
+asset, update/reinstall BaoCut; never silently replace the effect with a plain
+subtitle.
+
+**`--line trans is unsupported` / `caption.content.translated`**
+Designed Captions require original word timestamps. Translation strings have
+group timing only. → Apply to `--line orig`; a bilingual video can keep the
+original line animated while its translation line remains static. Do not invent
+target-word timings.
+
+**`caption.contrast.neon` warning**
+Neon can wash out on bright footage. → Inspect `caption preview` and either
+change `--accent`, lower intensity, or choose highlight/pill/difference. This is
+a visual warning, not a reason to rerun transcription.
+
 ## Quality gate
 
 **`baocut audit` exits 2 (FAIL)**

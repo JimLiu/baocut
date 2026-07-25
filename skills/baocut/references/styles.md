@@ -6,6 +6,12 @@ style saved in the GUI is applicable from the CLI and vice versa). Styles are
 LOOKS: applying one never moves the subtitle on screen and never changes the
 wrap/punctuation delivery policy.
 
+Designed Captions are a separate motion layer. `style apply` changes the static
+font/plate/look and preserves any active Designed Caption; `caption apply`
+changes word-level motion and preserves the static style plus its Basic
+word-animation settings. For karaoke, kinetic, emoji, glitch, or other
+`caption-*` requests, read [captions.md](captions.md).
+
 Two record kinds, mirroring the app:
 
 - **line** — ONE line's look: style + word animation + entrance. Built-in ids
