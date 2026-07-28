@@ -140,14 +140,14 @@ if the error mentions signatures/format extraction, suggest
 
 **`Sign in to confirm you're not a bot. Use --cookies-from-browser or --cookies`**
 (YouTube)
-BaoCut automatically retries that yt-dlp call once with
-`--cookies-from-browser <default-browser>` when the macOS default browser is a
-stable yt-dlp-supported browser. The cookie jar stays in the browser; BaoCut
-does not export it. If the retry also fails, the error names the browser that
-was already tried → sign in to YouTube in that browser, then use **Re-download**
-in the app or `baocut transcribe --project <pid>`. An unsupported default
-browser (for example Arc or Chrome Canary) keeps the original error rather than
-reading a different browser's cookie store.
+BaoCut automatically retries that yt-dlp call with
+`--cookies-from-browser chrome`, then `--cookies-from-browser safari`. Chrome
+and Safari are both attempted even when Chrome's retry changes to a different
+error, because either browser may hold the signed-in YouTube session. The
+cookie jars stay in the browsers; BaoCut does not export them. If both retries
+fail, the error includes the Chrome and Safari results → sign in to YouTube in
+one of those browsers, then use **Re-download** in the app or
+`baocut transcribe --project <pid>`.
 
 ## Transcription & models
 
