@@ -1,6 +1,6 @@
 ---
 name: baocut
-version: 0.9.5
+version: 0.9.6
 minAppVersion: 0.8.3
 description: >-
   Drive BaoCut from the CLI: transcribe local media or media URLs, polish

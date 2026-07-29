@@ -135,8 +135,10 @@ The site refused (age gate, region lock, removed video, outdated yt-dlp).
 Metadata failures abort BEFORE any project is created. A mid-download failure
 leaves the project in `error` → retry with
 `baocut transcribe --project <pid>` (re-downloads from the recorded URL);
-if the error mentions signatures/format extraction, suggest
-`brew upgrade yt-dlp` first.
+if the error mentions signatures/format extraction or "Requested format is
+not available", run `baocut doctor`, then `brew upgrade yt-dlp` when an update
+is available. Full YouTube format support also needs Deno; BaoCut resolves its
+absolute Homebrew/standard-install path instead of relying on the shell PATH.
 
 **`Sign in to confirm you're not a bot. Use --cookies-from-browser or --cookies`**
 (YouTube)
@@ -145,9 +147,15 @@ BaoCut automatically retries that yt-dlp call with
 and Safari are both attempted even when Chrome's retry changes to a different
 error, because either browser may hold the signed-in YouTube session. The
 cookie jars stay in the browsers; BaoCut does not export them. If both retries
-fail, the error includes the Chrome and Safari results → sign in to YouTube in
-one of those browsers, then use **Re-download** in the app or
-`baocut transcribe --project <pid>`.
+fail, the error includes the Chrome and Safari results plus `→` advice lines
+naming the actual fix → sign in to YouTube in one of those browsers, then use
+**Re-download** in the app or `baocut transcribe --project <pid>`. Two advice
+cases are detected automatically: Safari's `Operation not permitted` means the
+reading process (BaoCut GUI, or the terminal host for the CLI) needs Full Disk
+Access — prefer a signed-in Chrome session when that permission is not
+appropriate; `Requested format is not available` after a cookie retry means
+the sign-in gate was already passed and the fix is Deno + a current yt-dlp,
+not another sign-in.
 
 ## Transcription & models
 
