@@ -3,11 +3,19 @@
 ## Resolving a project from natural language
 
 Natural-language prompts may identify an existing project by its exact title,
-ID, or any remembered content keyword. When no exact ID is supplied, resolve it
-first with `project search`, then use the returned `projectId` for every
-project-scoped command. In user-visible prompts and confirmations, keep the
-project title and ID together (for example, `Launch plan (project ID: p42)`),
-never as a detached ID at the end of the instruction.
+ID, or any remembered content keyword. First trim the supplied reference:
+
+- A value matching `^p[0-9]+$`, or an explicitly labeled project-ID token in
+  the user's language inside a longer prompt (for example `project ID: p106` or
+  `项目 ID：p106`), supplies an exact project ID. Pass that ID straight to the
+  requested project-scoped command (`project show p42`, `project open p42`,
+  `task start … p42`, etc.); NEVER send it through `project search`.
+- Any other value is natural language. Resolve it with `project search`, then
+  use the returned `projectId` for every project-scoped command.
+
+In user-visible prompts and confirmations, keep the project title and ID
+together (for example, `Launch plan (project ID: p42)`), never as a detached ID
+at the end of the instruction.
 
 Find a project by metadata or reconstructed document text before inspecting it
 (`baocut --json project list` enumerates every project when you just need ids):
@@ -18,10 +26,12 @@ baocut --json project search "Claude Code" --limit 20 --match-limit 5
 ```
 
 Search is case-insensitive and literal, matching the GUI across project/source
-metadata, transcript, every translation language, chapters, speakers, and
-on-screen text. Results are ranked like the GUI and report `total` separately
-from the bounded `returned` project/match rows. For find/replace inside one
-project, read subtitles.md; never hand-edit or globally rewrite `doc.json`.
+metadata (including project ID), transcript, every translation language,
+chapters, speakers, and on-screen text. An exact project-ID match ranks above
+partial ID matches as a safety net, but agents should still use exact IDs
+directly. Results are ranked like the GUI and report `total` separately from
+the bounded `returned` project/match rows. For find/replace inside one project,
+read subtitles.md; never hand-edit or globally rewrite `doc.json`.
 
 ## Title, description, notes, speaker names — keep them real, proactively
 

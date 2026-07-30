@@ -1,6 +1,6 @@
 ---
 name: baocut
-version: 0.9.6
+version: 0.9.7
 minAppVersion: 0.8.3
 description: >-
   Drive BaoCut from the CLI: transcribe local media or media URLs, polish
@@ -317,7 +317,13 @@ mutating anything post-terminal.
 
 ## Project metadata: title, description, notes, speaker names
 
-When no exact project ID is supplied, resolve it first with
+Treat any trimmed value matching `^p[0-9]+$`, or any explicitly labeled
+project-ID token in the user's language (for example `project ID: p106` or
+`项目 ID：p106`), as an exact project ID. Pass that ID straight to the requested
+project-scoped command (`project show`, `project open`, `task start`, etc.);
+NEVER feed an exact ID to `project search`.
+
+When no exact project ID is supplied, resolve the project first with
 `baocut --json project search "<keyword>"` and use the returned `projectId`
 everywhere. Title + description ride into EVERY LLM stage as grounding
 context: pass `--title`/`--desc` up front when you know the content, and
