@@ -1,0 +1,7 @@
+interface:
+  display_name: "BaoCut"
+  short_description: "Transcribe, edit timelines, animate, and export with BaoCut"
+  brand_color: "#295AC2"
+  default_prompt: "Use $baocut to transcribe or edit this project and produce the requested verified deliverables."
+policy:
+  allow_implicit_invocation: true

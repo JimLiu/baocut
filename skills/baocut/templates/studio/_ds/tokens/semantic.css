@@ -1,0 +1,31 @@
+/* Friendly semantic aliases on top of the canonical Spectrum 2 token names.
+   Use these for everyday work; fall back to the canonical names for precision. */
+:root {
+  /* text */
+  --text-body: var(--neutral-content-color-default);
+  --text-heading: var(--gray-900);
+  --text-subdued: var(--neutral-subdued-content-color-default);
+  --text-disabled: var(--disabled-content-color);
+  --text-accent: var(--accent-content-color-default);
+  --text-negative: var(--negative-content-color-default);
+  --text-link: var(--accent-content-color-default);
+
+  /* surfaces */
+  --surface-base: var(--background-base-color);       /* app frame / pasteboard */
+  --surface-layer-1: var(--background-layer-1-color); /* panels */
+  --surface-layer-2: var(--background-layer-2-color); /* cards, popovers */
+  --surface-elevated: var(--background-elevated-color);
+
+  /* borders */
+  --border-default: var(--gray-300);
+  --border-strong: var(--gray-400);
+  --border-field: var(--gray-500);
+
+  /* focus */
+  --focus-ring: 0 0 0 var(--focus-indicator-thickness) var(--focus-indicator-color);
+
+  /* shadows (box-shadow values) */
+  --shadow-emphasized: var(--drop-shadow-emphasized);
+  --shadow-elevated: var(--drop-shadow-elevated);
+  --shadow-dragged: var(--drop-shadow-dragged);
+}

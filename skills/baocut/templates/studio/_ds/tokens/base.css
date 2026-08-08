@@ -1,0 +1,43 @@
+/* Spectrum 2 base styles — theme switching + page defaults. */
+
+:root {
+  color-scheme: light;
+  --s2-container-bg: var(--background-base-color);
+}
+
+/* Opt into dark mode by adding .spectrum-dark to <html>, <body>, or any subtree.
+   All light-dark() tokens flip automatically. */
+.spectrum-dark {
+  color-scheme: dark;
+}
+.spectrum-light {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family-sans);
+  font-size: var(--body-size-s);
+  font-weight: var(--regular-font-weight);
+  line-height: var(--body-line-height);
+  color: var(--text-body);
+  background: var(--surface-base);
+  -webkit-font-smoothing: antialiased;
+}
+
+.s2-heading {
+  font-family: var(--font-family-sans);
+  font-weight: var(--heading-font-weight);
+  line-height: var(--heading-line-height);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.s2-code {
+  font-family: var(--font-family-code);
+  font-size: var(--code-size-s);
+}
+
+::selection {
+  background: var(--blue-300);
+}

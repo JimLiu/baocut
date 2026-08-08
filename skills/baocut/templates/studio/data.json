@@ -1,0 +1,86 @@
+{
+ "bcutStudio": "0.1",
+ "rev": 0,
+ "contentFingerprint": null,
+ "meta": {
+  "title": "BaoCut Subtitle Studio",
+  "duration": 0,
+  "sourceLang": {
+   "code": "und",
+   "name": "—",
+   "short": "—"
+  },
+  "targetLang": null,
+  "model": "",
+  "media": null
+ },
+ "status": {
+  "phase": "empty",
+  "pct": 0,
+  "detail": "等待 CLI 同步项目数据…"
+ },
+ "speakers": {},
+ "chapters": [],
+ "style": {
+  "bcutStudioStyle": "0.1",
+  "preset": "classic",
+  "mode": "bi",
+  "punct": true,
+  "fontFamily": "system",
+  "fontSize": 30,
+  "fontColor": "#FFFFFF",
+  "bold": true,
+  "outline": true,
+  "background": false,
+  "backgroundColor": "#000000B3",
+  "backgroundPadding": 10,
+  "backgroundStyle": "wrap",
+  "backgroundMode": "separate",
+  "borderRadius": 15,
+  "x": 50,
+  "y": 86,
+  "width": 80,
+  "scale": 1,
+  "rotation": 0,
+  "gap": 6,
+  "order": "trans",
+  "align": "center",
+  "lineHeight": 1.2,
+  "letterSpacing": 0,
+  "bilingualOrigScale": 0.5333333333,
+  "transScale": 1.375,
+  "textOutline": {
+   "on": true,
+   "color": "#000000",
+   "width": 14
+  },
+  "dropShadow": {
+   "on": true,
+   "blur": 0.12,
+   "distance": 0.08,
+   "rotation": 45,
+   "color": "#000000",
+   "opacity": 0.9
+  },
+  "wordAnimation": {
+   "animationId": "magic-wbw",
+   "animationName": "Color",
+   "spoken": {},
+   "active": {
+    "color": "#18E1D6"
+   },
+   "unspoken": {}
+  },
+  "transition": {
+   "transitionId": "none",
+   "transitionSpeed": 50
+  },
+  "displayTiming": {
+   "leadIn": 0.5,
+   "tail": 1.0
+  }
+ },
+ "cues": [],
+ "sentences": [],
+ "transCues": []
+}

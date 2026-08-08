@@ -1,252 +1,80 @@
-# Talking-head video editing (M79 soft cuts + M80 B-roll)
+# Timeline editing
 
-## The model
+Keep the two edit layers distinct:
 
-- **Cuts are SOFT**: `Clip.cut` regions on the timeline — reversible,
-  reviewable, previewed by playback (skip-cuts), applied at export. Nothing is
-  destructive until an export renders a file. `cut restore` undoes any cut;
-  every mutating command snapshots a version.
-- **B-roll items** live on `doc.broll`: local image/video assets composited
-  between the video and the captions — `fullscreen` (cutaway replaces the
-  talking head) or `pip` (picture-in-picture keeps the speaker visible).
-  In the app UI this row is labeled the **Media** track and manual insertion
-  is Add → Image / Video; "B-roll" remains the CLI/agent term (`broll` commands,
-  `task start broll`), so mirror the user's wording when talking to them.
-- Words/translations are untouched by cuts (AV-level edit): captions retime at
-  export through the same kept-span map as the picture, so they can never
-  desynchronize.
-- Hiding a subtitle row is not a cut: `baocut subtitle hide` suppresses only
-  displayed/exported text and keeps AV duration intact. See
-  [subtitles.md](subtitles.md); reverse it with `subtitle restore`, not
-  `cut restore`.
+- `cut` writes reversible source-local omissions. Its plain `--start/--end`
+  values are source time; `--view` opts into that source's cut-collapsed media
+  view. `--words` avoids manual time conversion.
+- `clip` arranges kept media on the OUTPUT main track. `clip add/trim --in/--out`
+  use the source's cut-collapsed media view. `clip split --at` and export windows
+  use OUTPUT time.
+- `element`, `broll`, `watermark`, `animation`, `frames`, and `screentext` use
+  OUTPUT time. Prefer `--at-word` when a visual must follow speech.
 
-## Order of execution + checkpoints
+Never derive one clock from another yourself. Read mapped values and ids from
+`cut list`, `clip list`, and `source list`.
 
-Finalize Agent polish (`polishQuality` PASS) → speech timing (cuts) → visual
-layers (B-roll) → captions/translation/export last. Never place B-roll or
-export captions against pre-cut timing —
-an upstream change forces redoing everything downstream.
+Every committed edit is journaled. If a requested change must be rolled back,
+inspect `project log`, then use `project undo` / `project redo`; use
+`project restore <seq>` only after confirming the exact history entry. When
+undo reports an external change, re-read the project and repeat only if that
+external edit is also meant to be undone.
 
-When driving for a user (not an explicit "run end-to-end"), confirm at each
-step, **one checkpoint per turn**:
-1. After the rough cut: report N cuts / old → new duration, quote the notable
-   removals AS SPOKEN CONTENT (never `wN`/`clip-N`/cut ids — those are your
-   addresses, meaningless to the user), wait for approval.
-2. Before B-roll: confirm fullscreen vs PiP once if not implied, and confirm
-   sourcing (below).
-3. After placement: show the `broll preview` composite.
-4. Before the final export: confirm target (res / language / burn-in).
+## Reversible source cuts
 
-## Deterministic pass — `cut detect`
+Preview automatic cleanup before committing it:
 
 ```bash
-baocut --json cut detect <pid> [--dry-run] [--min-pause 0.8] [--compress-to 300ms]
-         [--no-pauses|--no-fillers] [--filler-lang auto|en|zh] [--fillers a,b]
-         [--max-gap 3.0] [--trim-chapter-starts]
+bin/baocut cut detect "/path/demo.bcut" --dry-run --json
+bin/baocut cut detect "/path/demo.bcut" --json
+bin/baocut cut list "/path/demo.bcut" --src main --json
 ```
 
-Applies soft cuts directly (`--dry-run` proposes only). Defaults follow the
-talking-head editing standards:
-- Pauses ≥ 0.8s **compress to ~0.3s — never zero out** (`--compress-to` keeps
-  that much of the ORIGINAL silence at that spot; it never invents silence).
-  Sentence-final boundaries keep ~0.4s; pauses > 3s are protected as
-  deliberate beats (`--max-gap`).
-- User thresholds always win: "only pauses over 1s, keep at least 0.5s" →
-  `--min-pause 1 --compress-to 500ms` (or `0.5s`; explicit units are preferred).
-- Fillers: the FIXED hesitation sounds cut by list (um/uh/er/ah/呃/额 — M81:
-  zh hard list is now ONLY 呃/额); soft phrases ("you know", "那个"…) only when
-  punctuation-isolated.
-
-**The two-category filler rule.** Category 1 (above) is safe for the
-deterministic pass — pure hesitation only (um/uh/er/ah/呃/额). Category 2 —
-`so, like, 然后, 就是, 嗯, 啊, 那个, 那, 对, 所以, 但是` — must NEVER be removed by
-word list; it belongs to the LLM cleanup stage, which keeps any instance
-carrying sequence, continuation, contrast, cause, reference, response,
-acknowledgement, emphasis or natural tone. **嗯/啊 are Category 2** (M81 moved
-them out of the hard list): they double as responses/acknowledgements
-("嗯。" = "mm-hm"), so cut them only as pure hesitation, judged by speaker turn
-and context — and `audit` never FAILs on a normal "嗯。". Examples:
-- "um, I think this solves it" → cut `um`.
-- "It works like a checklist" → KEEP `like` (comparison).
-- "The upload failed, so we retried" → KEEP `so` (cause/effect).
-- "然后我们再看第二点" → KEEP `然后` (sequence).
-- "It's, like, really hard" → isolated hesitation → cut.
-
-## Content-addressed pass — `cut match` (M109)
-
-Cut (or keep only) spans by what is SPOKEN, deterministically:
+Match spoken text on whole-word boundaries and inspect before applying:
 
 ```bash
-baocut --json cut match <pid> --query "sponsor" --dry-run       # substring, case-insensitive
-baocut --json cut match <pid> --query "优惠码|折扣码" --regex --dry-run
-baocut --json cut match <pid> --query "sponsor" --scope para    # whole enclosing paragraph
-baocut --json cut match <pid> --query "coupon" --action keep    # keep ONLY matches, cut the rest
+bin/baocut cut match "/path/demo.bcut" --query "take that again" \
+  --whole-word --dry-run --json
+bin/baocut cut match "/path/demo.bcut" --query "take that again" \
+  --whole-word --action cut --json
 ```
 
-- Matching runs over transcript paragraphs with the editor's find engine
-  (`--regex` / `--whole-word` / `--case-sensitive`; default substring,
-  case-insensitive — the right default for CJK, where `--whole-word` cannot
-  match inside a CJK run). Spans snap to whole words.
-- Same reversible soft-cut path as `cut add`; provenance lands in `cut list`
-  as kind `match` (`--note "…"` overrides the reason). Spans already inside a
-  cut are skipped, so re-runs are idempotent.
-- **Run `--dry-run` first and review the match list** (count + excerpts)
-  before applying — a broad substring can over-match ("so" hits "also").
-  `--action keep` with zero matches refuses rather than cutting everything.
-- A one-word mention rarely bounds the removable region: for "delete every
-  sponsor segment", dry-run with `--scope para` to see the paragraphs, then
-  cut. **Semantic selection is YOUR job, not a flag**: for "remove sections
-  discussing X", read the transcript (`export --md` / `subtitle find`), decide
-  the spans, then drive `cut match` (exact phrases) or `cut add --words`
-  (arbitrary ranges). After applying, verify like any edit: `cut list` +
-  `audit`.
-
-## LLM rough cut — `task start cleanup`
-
-`baocut --json task start cleanup <pid>` (or fold into the pipeline with
-`auto <file> --rough-cut` — it runs after polish, before translate). Same
-claim/submit worker loop; the `cleanup` contract carries indexed word tokens
-with gap marks (`·1.4s·`) and already-cut `⌫word⌫` markers. The worker
-auto-applies as soft cuts and records provenance in `ai/cuts.json`.
-For quality-first work prefer the separate command with
-`--cleanup-level standard`; the one-task `auto --rough-cut` form cannot pause
-between polish quality review and cleanup.
-
-Answering cleanup calls — the retake decision path:
-1. Is it really a retake (several attempts at the SAME intended idea)? Not
-   intentional emphasis, rhetoric, or a second pass adding information.
-2. Define the complete version to keep — a lead-in, connector, subject or
-   setup is NOT filler when the kept content depends on it.
-3. Cut only the failed/covered part, starting at the failure point, not at
-   earlier useful setup the kept take doesn't repeat.
-4. Prefer the later complete attempt, never mechanically — keep the earlier
-   attempt's unrepeated setup. Never stitch fragments of different attempts
-   into one artificial sentence.
-
-Conservative-boundary principle: remove defects without changing meaning;
-prefer small local cuts over whole sentences; **when unsure whether a cut
-harms meaning, logic or listening flow — do not cut.** Over-cleaning (chopped
-sentences, glued rhythm) is the worse failure; cutting > 40% of a page warns.
-
-## Review & verification loop
+For a known source range or word span:
 
 ```bash
-baocut --json cut list <pid> [--kind silence|filler|badTake|manual|match]
-                                        # every cut + kind/reason/excerpt
-baocut --json cut restore <pid> <ids|--all>
-baocut --json cut add <pid> --start A --end B     # manual; snaps to word edges
-                                        # (or --words wA..wB; --note "…" records why)
-                                        # ids must be in document order — reversed or
-                                        # unknown ids error with "--words expects
-                                        # <firstWordId>..<lastWordId> in document order";
-                                        # mixing --words with --start/--end errors with
-                                        # "pick one cut range"
-baocut --json audit <pid>               # edits section: FAIL on partition
-                                          # breaks / mid-word boundaries;
-                                          # WARN on >40% removal, no provenance
+bin/baocut cut add "/path/demo.bcut" --start 12.4 --end 13.1 --json
+bin/baocut cut add "/path/demo.bcut" --words 'g12.0..g12.3' --json
+bin/baocut cut restore "/path/demo.bcut" <cut-id> --json
 ```
 
-`cut add` returns `{cut{start,end,removedSec,snapped}, cutId, clipIds, next}`.
-`clipIds` are the clips the cut produced — `cut restore` takes clip ids, so
-they are what undoes the edit you just made, and `next` spells that command
-out. One cut can yield several clips (or none, if it snapped away to nothing),
-so read the array rather than assuming a single id.
+Use `cut restore --all --src <srcId>` only when the requested scope is explicit.
 
-A successful command is not verification: after applying cuts, `cut list` +
-`audit` before reporting; spot-check a suspicious boundary with
-`export --video --start A --end B --preview`.
+## OUTPUT clip arrangement
 
-## B-roll workflow
-
-1. `baocut --json task start broll <pid>` — the suggestion stage writes
-   `ai/broll-suggestions.json` and NEVER touches the doc. Rules baked into the
-   contract: never inside the first/last 3s; a dense jump-cut cluster gets ONE
-   long covering cutaway; spans 1.5–20s; no overlaps.
-2. **Source footage yourself — BaoCut never downloads it.** In preference
-   order: (a) the video itself — `baocut frames <pid> --at t` extracts
-   stills natively, `export --video --start A --end B` cuts a clip; (b) files
-   the user provides — ask at the B-roll checkpoint; (c) your OWN tools if the
-   environment has web/stock search or image generation — download to a temp
-   dir, then attach. If none is available for a suggestion, report it with its
-   reasoning and skip it; never fabricate an asset path.
-3. Attach per adopted suggestion:
-   `baocut --json broll add <pid> --file shot.png --suggestion bs1`
-   (or `--at <t> [--dur <d>]` / `--start A --end B`; `--mode fullscreen|pip`,
-   `--rect "x,y,w"` = PiP center-% + width-%, `--fit cover|contain`,
-   `--bg blur|black`, `--src-start <t>` = where playback starts inside a video
-   asset, `--radius N` PiP corner radius, `--name "…"` display label). Defaults:
-   images → pip 4s, videos → fullscreen ≤8s. `broll update <pid> <brId>` takes
-   the same placement flags (plus `--file`) to adjust in place, and returns
-   `{broll, changed, next}` — `changed` lists the flags it applied, so a
-   re-read is only needed for what the row does not already show. `--src-start`
-   is source time (an offset inside the asset); every other time flag here is
-   timeline time.
-4. Placement rules (PiP): pick the largest low-information rectangle — avoid
-   the speaker's face/gestures, the caption band, existing overlays. Any
-   readable text/logo in the SOURCE must survive the fit: aspect-mismatched
-   sources use `--fit contain` (blurred backdrop), never blind cover.
-5. **Verify EVERY placement** before reporting it done:
-   `baocut --json broll preview <pid> --at <midpoint>` renders the exact
-   export composite (same compositor); `--at` takes a comma list, `--tile`
-   grids them into one image, `--size N` sets width, `--no-subs` drops the
-   caption layer, `--output/-o <dir>` picks the destination. An attached asset
-   is not proof it renders. `audit` gates the rest: missing assets, out-of-bounds rects,
-   B-roll buried inside a cut, overlapping cutaways (FAIL); first/last-3s
-   intrusion, <1.5s flash cutaways (WARN).
-
-## Appended media — transcribe the new clip, not the project (M113)
-
-When a second video is spliced onto the main track (the app's Add → Video, or
-a project handed to you after the user did it), the appended range arrives with
-**no words**. Re-running `transcribe --project <pid>` is not the fix you want by
-reflex: it re-recognizes everything and discards the polish already done on the
-first part. Transcribe just the new clip:
-
-```
-baocut --json clip list <pid>                       # id · range · words · source
-baocut --json clip transcribe <pid> --clip <clipId> # replaces ONLY that range
+```bash
+bin/baocut clip list "/path/demo.bcut" --json
+bin/baocut clip split "/path/demo.bcut" --at 18.2 --json
+bin/baocut clip add "/path/demo.bcut" --file "/path/insert.mp4" \
+  --in 2 --out 9 --at-end --json
+bin/baocut clip trim "/path/demo.bcut" <clip-id> --in 2.5 --out 8.5 --json
+bin/baocut clip move "/path/demo.bcut" <clip-id> --before <other-id> --json
 ```
 
-- `clip list` is how you spot the gap: an appended clip shows `words: 0` while
-  its neighbours do not. Never quote clip ids to the user — say "the second
-  video" / the spoken content, as with cut ids.
-- Only words whose midpoint falls inside the clip are replaced; every edit,
-  polish, translation and cut outside the range survives. The dominant speaker
-  of the replaced range carries over (a clip pass never re-diarizes) — fix
-  attribution afterwards with `speakers assign` if the new footage is someone
-  else.
-- **A clip pass runs locally.** Pass `--model` with a local model
-  (`baocut model list`). A whole-timeline `transcribe --project <pid>` does
-  accept a cloud model on a spliced project — it uploads one request per
-  segment — but a per-clip pass stays local so a single command can't turn into
-  a paid API call by surprise.
-- **Mixed video+audio timelines:** if the video row is muted and a voiceover
-  covers the clip, the pass reads the voiceover automatically. Override with
-  `--audio-source main|<elementId>` (ids from `element list <pid>`); the same
-  flag exists on `transcribe --project <pid>` for a whole-timeline re-run, and
-  the pick is remembered on the document. One source per pass — mixing two
-  voices into a single recognition produces unusable words.
-- Then continue downstream as usual: the added words are unpolished and
-  untranslated, so `task start polish|translate` (with `--stale-only` where the
-  flow supports it) before exporting. An SRT exported before the appended clip
-  was transcribed is stale — re-export.
+`clip remove` is a true main-track deletion, unlike `cut restore`; confirm the
+target ids from `clip list` first. A file passed to `clip add` registers its
+source. Use `source remove <srcId> --yes` only after `source list` proves nothing
+still references it.
 
-## Captions & export
+An appended spoken source has its own transcript:
 
-Burn-in and translation come AFTER cuts are final. On a translation job,
-prefer `auto <file> --rough-cut --lang zh` (cuts land before translate), or
-run cleanup before `task start translate`. Export applies cuts + B-roll by
-default; `--include-cuts` / `--no-broll` opt out; SRT/VTT/ASS retime to the
-edited output (a wholly-cut cue drops with continuous numbering). Sidecars
-exported BEFORE a cut are stale — re-export.
+```bash
+bin/baocut clip transcribe "/path/demo.bcut" --src <srcIdA>,<srcIdB> --jsonl
+```
 
-## Known failure modes
+`--src` 接受一个 source id，也接受逗号分隔的多个 id；批量转录只启动一次 CLI，
+默认 Qwen/Whisper pipeline 在该命令内复用同一份 ASR、VAD 与对齐器模型（每个源仍重置
+VAD 流状态），并在全部 source 写入后统一刷新 Studio 投影。
 
-- Over-cleaning: category-2 fillers removed by list; a retake's unrepeated
-  setup deleted; sentences glued ("…time to. | To build…"). Keep when unsure.
-- Reporting word ids / cut ids / suggestion ids to the user.
-- Placing B-roll, then restoring cuts underneath it — re-verify with
-  `broll preview` (audit's `broll-inside-cut` catches the worst case).
-- Skipping `broll preview` and shipping a PiP over the speaker's face or the
-  caption band.
-- Exporting with a stale pre-cut SRT next to a cut video.
+Do not pass `--model` unless the user asked to override their configured model.
+After structural edits, re-run `clip list`, then inspect representative OUTPUT
+times with `frames` before adding visual layers.

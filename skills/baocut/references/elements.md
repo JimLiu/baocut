@@ -1,91 +1,65 @@
-# Timeline elements & watermarks (M110)
+# Elements, B-roll, and watermarks
 
-The unified element model: every overlay is a `TimelineElement` on a track —
-Media/B-roll (`tr-broll`), text overlays (`tr-text`), one track per watermark
-(`tr-wm-*`), free sticker/shape lanes (`tr-el-*`), audio lanes (`tr-au-*`).
-The subtitle track and the main video are NOT elements: subtitles are managed
-by `baocut subtitle` / `baocut style`, the main video by `baocut cut`.
+Elements are canonical `text`, `image`, `video`, or `audio` items on OUTPUT-time
+tracks. Use role facades for `broll`, `watermark`, and `screentext`; they still
+write the same element truth.
 
-## Inspect — `element list`
+## Inspect and add
 
 ```bash
-baocut --json element list <pid>
-# → rows: {id, kind, role, track, start, end (null = video end), x/y/w,
-#          scale, rot, opacity, fx, mask, mode, text/name/path, hidden}
+bin/baocut element list "/path/demo.bcut" --json
+bin/baocut element add "/path/demo.bcut" --kind text --text "Chapter 2" \
+  --start 12 --end 16 --rect '50,15,60' --json
+bin/baocut element add "/path/demo.bcut" --kind image --file "/path/chart.png" \
+  --at-word g42.0 --role broll --mode pip --json
 ```
 
-Always list first — every edit below is addressed by the element `id`.
+`--rect` is `x,y,w` in canvas percentages. A media file is registered as a
+source; `--src <srcId>` reuses an existing source. For video/audio, use
+`--src-start`, `--rate`, `--muted`, and `--volume` only when requested.
 
-`element set` / `element remove` also accept a **unique id prefix** or a
-**unique element name** (case-insensitive) in place of the full id, so a CLI-
-minted id like `el-mfz3k9q1a0q7x` can be typed as `el-mfz`. Resolution order is
-exact id → unique prefix → unique name. A token matching several elements fails
-with `kind: "ambiguous"` rather than picking one; the message reports the match
-count and a few example ids (not all of them — a captioned project carries one
-text element per line, so matches run into the hundreds). Narrow it with a
-longer prefix or the full id. Track ids (`tr-wm-el-101`) never resolve; address
-the element, not its lane.
-
-## Edit anything — `element set`
+For normal B-roll defaults and role-safe operations:
 
 ```bash
-baocut --json element set <pid> <elId> --x 30 --y 70 --scale 1.2 --rot -5
-baocut --json element set <pid> <elId> --opacity 0.4 --hidden on
-baocut --json element set <pid> <elId> --start 12 --end 20     # or --end none
-baocut --json element set <pid> <elId> --grayscale on --blur 3 --brightness -0.2
-baocut --json element set <pid> <elId> --mask ellipse          # or none
-baocut --json element set <pid> <elId> --volume 0.5 --muted off
-baocut --json element set <pid> <elId> --text "@newname"       # text elements
+bin/baocut broll add "/path/demo.bcut" --file "/path/cutaway.mp4" \
+  --start 20 --end 26 --mode fullscreen --json
+bin/baocut broll list "/path/demo.bcut" --json
+bin/baocut broll update "/path/demo.bcut" <element-id-1>,<element-id-2> \
+  --start 21 --end 25 --json
+bin/baocut broll preview "/path/demo.bcut" <element-id> --output "/tmp/broll" --json
 ```
 
-Flags are **capability-gated** per element kind (the app's own rules): fx/mask
-apply to video/image only, volume/muted to video/audio, text to text elements;
-a wrong flag errors with the kind named — that error means "wrong element",
-not "retry differently". `--end none` (= to the end of the video) exists only
-on watermark/sticker/shape/audio lanes; Media and text overlays need concrete
-ends. B-roll placement fields beyond these (PiP rect, fit, bg, src-start)
-stay on `broll update`.
-
-`element set` also carries the animation shorthand (`--anim-in pop
---anim-in-dur 0.4 --anim-out fade --anim-loop pulse`); the catalogue, batch
-selectors and strength knobs are `baocut animation`. Read animation.md before
-using either — it opens with the rules for when NOT to animate.
-
-## Remove — `element remove`
+Add a full-duration watermark with exactly one of `--text` or `--file`:
 
 ```bash
-baocut --json element remove <pid> <elId>    # drops its lane when it empties
-# → {projectId, removed, kind, trackRemoved}
+bin/baocut watermark add "/path/demo.bcut" --text "ACME" \
+  --rect '88,92,18' --opacity 0.55 --json
+bin/baocut watermark add "/path/demo.bcut" --file "/path/logo.png" \
+  --rect '90,90,14' --json
 ```
 
-`removed` is the element's own id, not the token you passed — when a prefix or
-name resolved it, that field is how you learn which element actually went.
-
-## Watermarks — `watermark add`
+## Focused changes
 
 ```bash
-baocut --json watermark add <pid> --text "@yourname" [--x 85 --y 10 --w 22]
-baocut --json watermark add <pid> --file logo.png --x 15 --y 15 --w 12
-baocut --json watermark add <pid> --text "内部资料" --tile on --opacity 0.3
+bin/baocut element set "/path/demo.bcut" <element-id-1>,<element-id-2> \
+  --x 52 --y 20 --w 48 --opacity 0.9 --json
+bin/baocut element style "/path/demo.bcut" --id <element-id> \
+  --patch '{"fontSize":48,"color":"#ffffff"}' --json
 ```
 
-- **Never use a watermark to translate text already visible in the video.**
-  Slides, signs, labels, lower-thirds and burned-in captions belong to the
-  `screentext` queue. If OCR misses a visible label, use `screentext insert`
-  with explicit geometry and timing; see screentext.md.
-- Text items get the GUI's signature look (transparent background, slim
-  stroke); font/color edits are panel/prototype work, not CLI flags.
-- Image assets are copied into the project (`media/watermark/`), so the
-  source file can be a temp path. Non-image files are rejected.
-- Defaults: top-right (85/10), w 22%, opacity 0.6, whole video; `--start/--end`
-  makes it timed. `--tile on` repeats the stamp across the frame.
-- Everything after creation is `element set` / `element remove` on the
-  returned id (one watermark per lane; role `watermark` in `element list`).
+Use `--patch` only with fields confirmed by `spec.timelineSchema`; unknown or
+kind-invalid fields are rejected. `element set`, `element remove`, `broll
+update`, and `broll remove` accept one selector or a comma-separated list. Each
+batch is one history transaction and is atomic: if any selector is missing,
+ambiguous, duplicated, or has the wrong role, nothing is written. Removal is a
+true deletion, so list and confirm every id first.
 
-## Verify like any visual edit
+## Visual verification
 
-An exit-0 set is not proof. `element list` re-read is the state check; for a
-composite proof render a frame the same way B-roll verification does:
-`export --video --start A --end B --preview` (or `broll preview --at t`, which
-composites ALL overlay layers, watermarks included). The GUI picks up CLI
-writes live — never ask the user to close it.
+```bash
+bin/baocut frames "/path/demo.bcut" --at 12,15.9,16.1 \
+  --tile --output "/tmp/demo-frames" --json
+```
+
+Inspect frames just before, during, and after an element window. Re-read the
+element afterward; do not treat a successful write as proof of composition.

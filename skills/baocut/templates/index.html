@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BaoCut Subtitle Studio</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%233b63f3'/%3E%3Crect x='3' y='9.5' width='10' height='2' rx='1' fill='white'/%3E%3Crect x='5.5' y='4.5' width='5' height='2' rx='1' fill='white' opacity='0.85'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="studio/_ds/tokens/fonts.css">
+<link rel="stylesheet" href="studio/_ds/tokens/colors.css">
+<link rel="stylesheet" href="studio/_ds/tokens/semantic-colors.css">
+<link rel="stylesheet" href="studio/_ds/tokens/typography.css">
+<link rel="stylesheet" href="studio/_ds/tokens/layout.css">
+<link rel="stylesheet" href="studio/_ds/tokens/semantic.css">
+<link rel="stylesheet" href="studio/_ds/tokens/base.css">
+<link rel="stylesheet" href="studio/_ds/components/components.css">
+<link rel="stylesheet" href="studio/_ds/components/icons.css">
+<link rel="stylesheet" href="studio/_ds/styles.css">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- subtitle preset fonts (rendered video content — user-chosen families) -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat:400,700,800|Lexend+Deca:400,700|Bebas+Neue&display=swap">
+<link rel="stylesheet" href="studio/app.css">
+<link rel="stylesheet" href="studio/editor.css">
+<link rel="stylesheet" href="studio/dialogs.css">
+<link rel="stylesheet" href="studio/translate.css">
+<link rel="stylesheet" href="studio/subtitle.css">
+<link rel="stylesheet" href="studio/studio.css">
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/konva@10.3.0/konva.min.js" integrity="sha384-0J5jG861IV4dbTNYz2dMoeFDc1s4wgpL1jPYCFnyz1vJmVikJ3dERasAfv2Xjeo2" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<!-- bcut serve 从 skill 逐请求读取并发送 no-store，刷新即拉最新版本 -->
+<!-- 首/末两个 inline babel 脚本夹出整条 JSX 管线（取回 + 转译 + 求值）的耗时，
+     用来判断运行时转译是否需要换成 serve 端预转译。 -->
+<script type="text/babel">performance.mark('bcs:jsx-start');</script>
+<script src="studio/caret-offset.js"></script>
+<script type="text/babel" src="studio/util.jsx"></script>
+<script src="studio/timeline-mapping.js"></script>
+<script src="studio/progress-status.js"></script>
+<script src="studio/export-delta.js"></script>
+<script src="studio/virtual-list.js"></script>
+<script type="text/babel" src="studio/store.jsx"></script>
+<script type="text/babel" src="studio/media-cache.jsx"></script>
+<script type="text/babel" src="studio/agent.jsx"></script>
+<script src="studio/subtitle-rendering.js"></script>
+<script src="studio/stage-click-policy.js"></script>
+<script type="text/babel" src="studio/canvas-stage.jsx"></script>
+<script type="text/babel" src="studio/stage.jsx"></script>
+<script type="text/babel" src="studio/timeline.jsx"></script>
+<script type="text/babel" src="studio/virtual-list.jsx"></script>
+<script type="text/babel" src="studio/panes.jsx"></script>
+<script type="text/babel" src="studio/style-pane.jsx"></script>
+<script type="text/babel" src="studio/main.jsx"></script>
+<script type="text/babel">
+performance.measure('bcs:jsx', 'bcs:jsx-start');
+console.info('[bcut] JSX 管线 ' + Math.round(performance.getEntriesByName('bcs:jsx').pop().duration) + 'ms');
+</script>
+</body>
+</html>

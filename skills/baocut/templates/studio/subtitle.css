@@ -1,0 +1,97 @@
+/* BaoCut — Subtitle tab (M76). One card per derived cue, sharing the
+   Translate tab's card language (.tg / .tr-chip / .tr-statbar in translate.css)
+   and the transcript chrome (.vk-transcript__toolbar, .vk-findbar, .vk-chapter).
+   Spectrum 2 tokens only. */
+
+/* pane shell — mirrors .vk-transcript / .vk-translate */
+.vk-subtitle { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; position: relative; }
+.vk-subtitle__scroll { flex: 1; overflow-y: auto; padding: 0 14px; }
+
+/* 虚拟列表（virtual-list.jsx）：行一律绝对定位，进出窗口不重建 DOM 节点，
+   contentEditable 的光标才不会被回收掉。绝对定位下 margin 不再折叠，所以行距
+   改由 wrapper 的 padding 负责，逐行实测的高度才等于排版用的高度。
+   章节头也因此失去原生 sticky —— 由 .vk-vrow--stuck 浮层复现。 */
+.vk-vlist { position: relative; }
+.vk-vrow { padding-bottom: 8px; }
+.vk-vrow--para { padding-top: 12px; }          /* + 上一行的 8px = 原 .sb--para-start 的 20px */
+.vk-vrow--head { padding: 16px 0 4px; }        /* 原 .vk-chapter 的 margin-top + 头部间距 */
+.vk-vrow > .sb { margin: 0; }
+.vk-vrow .vk-chapter__head { position: static; margin-bottom: 0; }
+.vk-vrow--stuck { background: var(--surface-layer-1); pointer-events: none; }
+
+/* one cue card — a denser single-column cousin of .tg */
+.sb {
+  position: relative; border-left: 3px solid var(--gray-400);
+  border-radius: 0 10px 10px 0; margin: 8px 0; padding: 6px 12px 7px 13px;
+  background: var(--surface-elevated, #fff); border-top: 1px solid var(--gray-200);
+  border-right: 1px solid var(--gray-200); border-bottom: 1px solid var(--gray-200);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  transition: box-shadow 130ms, background 130ms;
+}
+.sb--active { box-shadow: 0 0 0 2px var(--accent-color-800); }
+.sb--para-start { margin-top: 20px; }
+/* Hidden is a subtitle-only state: lighter than a cut, with a dashed edge. */
+.sb--hidden { background: var(--gray-50); border-right-style: dashed; border-bottom-style: dashed; }
+/* M79: cue fully inside a cut clip — grayed, dropped from exports */
+.sb--cut { opacity: 0.55; background: var(--gray-75); border-left-color: var(--gray-300); }
+/* a cut cue un-dims on hover so its Restore pill (and struck text) read clearly */
+.sb--cut:hover { opacity: 1; }
+.sb__cutchip {
+  font-size: 9.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 1px 6px; border-radius: 999px; color: var(--text-subdued);
+  background: color-mix(in srgb, var(--gray-500) 18%, transparent);
+}
+.sb__hiddenchip {
+  font-size: 9.5px; font-weight: 700; padding: 0 6px; border-radius: 999px;
+  color: var(--text-subdued); border: 1px dashed var(--gray-400); background: var(--surface-elevated);
+}
+/* M79: strike + dim cut words (.vk-cutword parity with the transcript pane) —
+   scoped so it wins over the karaoke .tr-w color */
+.sb-text .vk-cutword {
+  color: var(--text-disabled, var(--gray-500));
+  text-decoration: line-through; text-decoration-thickness: 1.5px;
+  text-decoration-color: var(--text-disabled, var(--gray-500));
+  background: none !important;
+}
+/* Subtitle-only + AV actions share one hover-revealed flex row. */
+.sb__actions {
+  position: absolute; bottom: -9px; right: 12px; z-index: 4;
+  display: flex; align-items: center; gap: 6px;
+  opacity: 0; pointer-events: none; transition: opacity 110ms;
+}
+.sb:hover .sb__actions,
+.sb:focus-within .sb__actions { opacity: 1; pointer-events: auto; }
+.sb__actionbtn {
+  display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0 8px 0 5px;
+  border-radius: 999px; border: 1px solid var(--gray-300); background: var(--surface-elevated, #fff);
+  color: var(--text-subdued); font: inherit; font-size: 10px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+.sb__hidebtn:hover, .sb__hidebtn--show:hover { border-color: var(--accent-color-700); color: var(--accent-color-900); }
+.sb__cutbtn--restore:hover { border-color: var(--accent-color-700); color: var(--accent-color-900); }
+.sb__cutbtn--cut:hover { border-color: var(--negative-visual-color); color: var(--negative-visual-color); }
+.sb__actionbtn .s2-icon { color: currentColor; }
+/* the shared merge-up pill (defined in translate.css) opens on card hover */
+.sb:hover .tg-mergeup { opacity: 1; pointer-events: auto; }
+
+.sb__head { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+.sb__num { font-size: 10px; font-weight: 700; color: var(--text-subdued); opacity: 0.75; min-width: 16px; }
+.sb__sp { font-size: 11.5px; font-weight: 800; letter-spacing: 0.01em; }
+.sb__play.vk-seg__play { margin: 0; }
+.sb__time {
+  border: 0; padding: 1px 4px; margin: 0 -4px; border-radius: 4px; background: transparent;
+  font-size: 10.5px; color: var(--text-subdued); cursor: pointer;
+}
+.sb__time:hover { background: var(--gray-100); color: var(--text-body); }
+
+/* cue text — the editor surface (states mirror .tg-trans) */
+.sb-text {
+  font-size: 13.5px; line-height: 1.5; color: var(--text-heading); cursor: text;
+  outline: none; min-height: 21px; border-radius: 6px; padding: 2px 4px; margin: 0 -4px;
+}
+.sb-text:hover { background: color-mix(in oklch, var(--gray-100) 55%, transparent); }
+.sb-text[data-search-readonly="true"] { cursor: pointer; }
+.sb-text[data-search-readonly="true"]:hover { background: color-mix(in oklch, var(--gray-100) 70%, transparent); }
+.sb-text[contenteditable="true"] { background: color-mix(in oklch, var(--accent-color-900) 5%, transparent); }
+.sb-text[contenteditable="true"]:focus { box-shadow: 0 0 0 2px var(--accent-color-800); background: var(--surface-elevated, #fff); }
+.sb-text--karaoke { cursor: default; }

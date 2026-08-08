@@ -1,0 +1,211 @@
+/* BaoCut Subtitle Studio — project-local styles on Spectrum 2 tokens
+   (everything else reuses app.css / editor.css / translate.css / subtitle.css) */
+
+/* boot / error state */
+.bcs-boot {
+  height: 100vh; display: flex; flex-direction: column; gap: 10px;
+  align-items: center; justify-content: center;
+  color: var(--text-body); font-size: var(--font-size-100);
+  background: var(--surface-base);
+}
+
+/* stage helpers */
+.bcs-stagebar__hint { font-size: 12px; }
+.bcs-stagebadge {
+  z-index: 4;
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(0,0,0,0.6); color: rgba(255,255,255,0.92);
+  font-size: 13px; font-weight: 700; letter-spacing: 0.02em;
+  padding: 8px 14px; border-radius: 999px;
+}
+.bcs-stagebadge .vk-spin { border-color: rgba(255,255,255,0.35); border-top-color: #8caaff; }
+
+/* agent request queue chip (tab bar / titlebar) */
+.bcs-queue {
+  display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px 0 8px;
+  border: 1px solid light-dark(var(--accent-color-400), var(--accent-color-600));
+  border-radius: 999px;
+  background: light-dark(#eef3ff, #1d2c52); color: var(--text-accent);
+  font-size: 12px; font-weight: 700; cursor: pointer; flex-shrink: 0;
+  transition: background 130ms cubic-bezier(0.45,0,0.4,1);
+}
+.bcs-queue:hover { background: light-dark(#e2ebff, #24356a); }
+.bcs-queue .s2-icon { color: var(--text-accent); }
+.bcs-queue__row { display: flex; align-items: center; gap: 8px; padding: 6px 4px; font-size: 12.5px; color: var(--text-body); }
+.bcs-queue__row .s2-icon { color: var(--text-subdued); }
+.bcs-queue__label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* AI dialog */
+.bcs-aimark {
+  width: 26px; height: 26px; border-radius: 8px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--accent-color-900), var(--accent-color-1100, var(--accent-color-1000)));
+}
+.bcs-aimark .s2-icon { color: #fff; }
+.bcs-cmd {
+  display: flex; align-items: center; gap: 8px; margin-top: 12px;
+  padding: 8px 6px 8px 12px; border-radius: 8px;
+  background: var(--gray-100); border: 1px solid var(--gray-200);
+  font-size: 12.5px; color: var(--text-body);
+}
+.bcs-cmd .vk-mono { flex: 1; min-width: 0; word-break: break-all; }
+
+/* "已编辑" chip on locally-edited cues */
+.bcs-editchip {
+  font-size: 9.5px; font-weight: 800; letter-spacing: 0.04em;
+  padding: 1px 7px; border-radius: 999px; flex-shrink: 0;
+  color: light-dark(#274dea, #99b3ff); background: light-dark(#e6ecfe, #1d2c52);
+}
+
+/* ===== Style tab ===== */
+.bcs-style .vk-transcript__scroll { padding: 4px 0 0; }
+.bcs-stsec {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-subdued); padding: 16px 14px 7px;
+}
+.bcs-presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 14px; }
+.bcs-preset {
+  display: flex; flex-direction: column; gap: 0; overflow: hidden;
+  border: 1px solid var(--gray-200); border-radius: 10px; background: var(--surface-elevated);
+  padding: 0; cursor: pointer; text-align: center;
+  transition: border-color 130ms cubic-bezier(0.45,0,0.4,1), box-shadow 130ms;
+}
+.bcs-preset:hover { border-color: var(--gray-400); }
+.bcs-preset:active { transform: scale(0.97); }
+.bcs-preset--on { border-color: var(--accent-color-800); box-shadow: 0 0 0 1px var(--accent-color-800); }
+.bcs-preset__demo {
+  height: 52px; display: flex; align-items: center; justify-content: center;
+  /* rendered video stand-in — literal colors, identical in light & dark */
+  background: linear-gradient(140deg, oklch(0.40 0.09 252), oklch(0.22 0.06 300));
+}
+.bcs-preset__name { font-size: 11px; font-weight: 600; color: var(--text-body); padding: 5px 4px 6px; }
+.bcs-preset--on .bcs-preset__name { color: var(--text-accent); font-weight: 700; }
+
+.bcs-strow { display: flex; flex-direction: column; gap: 6px; padding: 4px 14px 10px; }
+.bcs-strow__label { font-size: 12px; font-weight: 600; color: var(--text-body); }
+.bcs-strow__ctl { display: flex; flex-direction: column; gap: 4px; }
+
+/* phases row fallback (mirrors dialogs.css .vk-phase if absent) */
+.vk-airun__phases { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.vk-phase {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 600; color: var(--text-subdued);
+  padding: 2.5px 9px; border-radius: 999px; background: var(--gray-100);
+}
+.vk-phase--cur { color: var(--text-accent); background: light-dark(#e6ecfe, #1d2c52); }
+.vk-phase--done { color: var(--text-body); }
+.vk-phase .s2-icon { color: currentColor; }
+
+/* ── 项目运行时新增（模板版独有） ── */
+
+/* Konva Canvas preview. The media element stays mounted for decoding and audio,
+   but only the Canvas surface is visible and interactive. */
+.bcs-media-source {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  left: -2px;
+  top: -2px;
+  opacity: 0;
+  pointer-events: none;
+}
+.bcs-konva-preview {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: #000;
+  outline: none;
+  touch-action: none;
+}
+.bcs-konva-preview:focus-visible {
+  box-shadow: inset 0 0 0 2px #8caaff;
+}
+.bcs-konva-preview canvas { display: block; }
+.bcs-canvas-editor {
+  position: absolute;
+  z-index: 6;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 4px 6px;
+  overflow: hidden;
+  resize: none;
+  border: 1.5px solid #3b63fb;
+  border-radius: 6px;
+  outline: none;
+  background: rgba(0, 0, 0, 0.68);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.28), 0 4px 18px rgba(0,0,0,0.42);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+}
+.bcs-canvas-a11y {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.vk-frame__label--overlay {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  right: 12px;
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* 版本历史 popover */
+.bcs-hist {
+  max-height: 380px;
+  overflow-y: auto;
+  margin: 2px -4px 0;
+}
+.bcs-hist__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+.bcs-hist__row:hover { background: var(--gray-75, rgba(128,128,128,0.08)); }
+.bcs-hist__row--cur { background: var(--accent-color-100, rgba(80,120,255,0.10)); }
+.bcs-hist__seq { color: var(--gray-500); font-size: 11px; width: 32px; flex: none; }
+.bcs-hist__kind {
+  flex: none;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+.bcs-hist__kind--external { background: var(--informative-color-100, #e0eaff); color: var(--informative-color-900, #3b63dd); }
+.bcs-hist__kind--restore { background: var(--notice-color-100, #fdf0dc); color: var(--notice-color-900, #a96b0c); }
+.bcs-hist__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bcs-hist__ts { flex: none; font-size: 10.5px; }
+.bcs-hist__now { flex: none; font-size: 11px; color: var(--accent-color-900); font-weight: 600; padding: 0 6px; }
+
+/* 空状态（Translate 未配置等） */
+.bcs-empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px;
+  text-align: center;
+  color: var(--gray-600);
+}
+.bcs-empty b { font-size: 14px; color: var(--gray-800); }
+.bcs-empty .vk-dim { font-size: 12.5px; max-width: 320px; line-height: 1.6; }

@@ -1,0 +1,78 @@
+/* Spectrum 2 typography tokens — generated from spectrum-design-data.
+   Adobe Clean (proprietary) is substituted with Source Sans 3 / Source Code Pro (Adobe's open-source fonts). */
+:root {
+  /* families (Adobe Clean -> Source Sans 3 substitution) */
+  --font-family-sans: 'Source Sans 3', 'Adobe Clean', ui-sans-serif, system-ui, -apple-system, 'Helvetica Neue', sans-serif;
+  --font-family-serif: 'Source Serif 4', 'Adobe Clean Serif', Georgia, serif;
+  --font-family-code: 'Source Code Pro', 'Adobe Clean Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* weights */
+  --light-font-weight: 300;
+  --regular-font-weight: 400;
+  --medium-font-weight: 500;
+  --bold-font-weight: 700;
+  --extra-bold-font-weight: 800;
+  --black-font-weight: 900;
+  --heading-font-weight: var(--extra-bold-font-weight);
+
+  /* line heights */
+  --line-height-100: 1.3;
+  --line-height-200: 1.5;
+  --body-line-height: var(--line-height-200);
+  --heading-line-height: var(--line-height-100);
+
+  /* core font size scale (desktop) */
+  --font-size-25: 10px;
+  --font-size-50: 11px;
+  --font-size-75: 12px;
+  --font-size-100: 14px;
+  --font-size-200: 16px;
+  --font-size-300: 18px;
+  --font-size-400: 20px;
+  --font-size-500: 22px;
+  --font-size-600: 25px;
+  --font-size-700: 28px;
+  --font-size-800: 32px;
+  --font-size-900: 36px;
+  --font-size-1000: 40px;
+  --font-size-1100: 45px;
+  --font-size-1200: 51px;
+  --font-size-1300: 58px;
+  --font-size-1400: 65px;
+  --font-size-1500: 73px;
+
+  /* heading sizes */
+  --heading-size-xxxxl: 73px;
+  --heading-size-xxxl: 58px;
+  --heading-size-xxl: 45px;
+  --heading-size-xl: 36px;
+  --heading-size-l: 28px;
+  --heading-size-m: 22px;
+  --heading-size-s: 20px;
+  --heading-size-xs: 18px;
+  --heading-size-xxs: 14px;
+
+  /* body sizes */
+  --body-size-xxxl: 25px;
+  --body-size-xxl: 22px;
+  --body-size-xl: 20px;
+  --body-size-l: 18px;
+  --body-size-m: 16px;
+  --body-size-s: 14px;
+  --body-size-xs: 12px;
+  --body-size-xxs: 11px;
+
+  /* detail sizes */
+  --detail-size-xl: 18px;
+  --detail-size-l: 16px;
+  --detail-size-m: 14px;
+  --detail-size-s: 12px;
+  --detail-size-xs: 11px;
+
+  /* code sizes */
+  --code-size-xl: 20px;
+  --code-size-l: 18px;
+  --code-size-m: 16px;
+  --code-size-s: 14px;
+  --code-size-xs: 12px;
+}

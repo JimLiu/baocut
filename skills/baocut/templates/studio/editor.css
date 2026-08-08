@@ -1,0 +1,749 @@
+/* BaoCut — editor styles: transcript, stage, timeline */
+
+.vk-editor { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.vk-editor__top { flex: 1; display: flex; min-height: 0; }
+.vk-editor--full { background: black; position: fixed; inset: 0; z-index: 500; }
+.vk-editor--full > :not(.vk-editor__top),
+.vk-editor--full .vk-rsplit,
+.vk-editor--full .vk-rpane { display: none; }
+.vk-editor--full .vk-editor__top { height: 100%; }
+
+/* ===================== right side pane (Transcript / Subtitle / Translate) ===================== */
+.vk-rpane {
+  width: 44%; min-width: 360px; flex-shrink: 0;
+  background: var(--surface-layer-1);
+  display: flex; flex-direction: column; min-height: 0;
+  position: relative;   /* the style layer's containing block (M89) */
+}
+.vk-rpane__tabs { padding: 0 14px; border-bottom: 1px solid var(--gray-200); flex-shrink: 0; display: flex; align-items: center; }
+.vk-rpane__views { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.vk-rpane__view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.vk-rpane__view--hidden { display: none; }
+
+/* ===================== style slide-over (M89) =====================
+   Covers the WHOLE pane, tab bar included. Non-modal and no focus trap on
+   purpose: the entire premise is that the stage stays clickable while you
+   style, so this is role="region", not a dialog. The covered content is taken
+   out of the tab order with `inert` instead.
+
+   It also drops PAST the pane's bottom edge to cover the timeline: the control
+   list is long, and the timeline is not what you are looking at while styling
+   (the preview's own "From video" + cue stepper is). Extending downward rather
+   than restructuring the editor into columns keeps the pane's width for free and
+   follows the timeline's live resize with no measurement — --vk-style-drop is
+   just its height, set on .vk-rpane, and 0 when the timeline is hidden.
+
+   z-index must clear .vk-timeline-resize (25), whose 8px strip spans the full
+   width and would otherwise punch a row-resize band through the panel. Nothing
+   above it can co-occur: .vk-groupbar (30) needs an 'allsubs' selection and this
+   layer needs a 'sub' one, and the full-screen chrome (40) hides the pane. */
+.vk-stylelayer {
+  position: absolute; top: 0; left: 0; right: 0;
+  bottom: calc(-1 * var(--vk-style-drop, 0px));
+  z-index: 30;
+  background: var(--surface-layer-1);
+  display: flex; flex-direction: column; min-height: 0;
+  box-shadow: var(--drop-shadow-elevated, 0 3px 12px rgba(0, 0, 0, 0.2));
+  transform: translateX(24px); opacity: 0;
+  visibility: hidden; pointer-events: none;
+  transition:
+    transform 130ms cubic-bezier(0.45, 0, 0.4, 1),
+    opacity 130ms cubic-bezier(0.45, 0, 0.4, 1),
+    visibility 0s linear 130ms;   /* stay hit-testable through the fade-out */
+}
+/* A ~500px slide in 130ms is not motion, it is a smear — the layer reads as a
+   layer from its elevation and the back arrow, not from travel distance. */
+.vk-stylelayer--open {
+  transform: none; opacity: 1;
+  visibility: visible; pointer-events: auto;
+  transition-delay: 0s;
+}
+@media (prefers-reduced-motion: reduce) { .vk-stylelayer { transition-duration: 1ms; } }
+.vk-stylelayer__head {
+  display: flex; align-items: center; gap: 7px; padding: 8px 8px 8px 14px;
+  border-bottom: 1px solid var(--gray-200); flex-shrink: 0;
+}
+.vk-stylelayer__head > .s2-icon { color: var(--text-subdued); }
+.vk-stylelayer__title { flex: 1; font-size: 13px; font-weight: 800; color: var(--text-heading); }
+/* video-area show/hide toggle at the right of the tab bar */
+.vk-rpane__tabs-actions { margin-left: auto; display: flex; align-items: center; }
+/* when the video stage is hidden, the side pane fills the whole content row */
+.vk-editor--no-stage .vk-rpane { flex: 1; width: auto; min-width: 0; }
+
+/* draggable splitter between stage and side pane */
+.vk-rsplit {
+  width: 7px; flex-shrink: 0; cursor: col-resize; position: relative; z-index: 20;
+  background: linear-gradient(to right, var(--gray-100) 3px, var(--surface-layer-1) 3px);
+  touch-action: none;
+}
+.vk-rsplit::before {
+  content: ''; position: absolute; left: 3px; top: 0; bottom: 0; width: 1px;
+  background: var(--gray-300);
+  transition: background 130ms cubic-bezier(0.45, 0, 0.4, 1);
+}
+.vk-rsplit:hover::before, .vk-rsplit--drag::before { left: 2px; width: 3px; border-radius: 2px; background: var(--accent-color-700); }
+
+/* ===================== transcript ===================== */
+.vk-transcript { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; position: relative; }
+
+/* floating "jump to current word" pill — appears when the playing line scrolls
+   out of view and auto-follow has been disengaged. Click re-engages follow. */
+.vk-followpill {
+  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+  z-index: 8; display: inline-flex; align-items: center; gap: 4px;
+  height: 26px; padding: 0 11px 0 8px; border-radius: 999px;
+  font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.1px;
+  color: light-dark(#fff, var(--gray-900));
+  background: light-dark(var(--accent-color-900), var(--accent-color-800));
+  border: none; cursor: pointer; white-space: nowrap;
+  box-shadow: var(--drop-shadow-elevated, 0 3px 12px rgba(0,0,0,0.2));
+  transition: background 130ms cubic-bezier(0.45,0,0.4,1), transform 130ms cubic-bezier(0.45,0,0.4,1);
+  animation: vk-followpill-in 160ms cubic-bezier(0.45,0,0.4,1);
+}
+.vk-followpill .s2-icon { color: currentColor; opacity: 0.85; }
+.vk-followpill:hover { background: light-dark(var(--accent-color-1000), var(--accent-color-900)); }
+.vk-followpill:active { background: light-dark(var(--accent-color-1100), var(--accent-color-1000)); transform: translateX(-50%) scale(0.96); }
+.vk-followpill:focus-visible { outline: 2px solid var(--accent-color-800); outline-offset: 2px; }
+@keyframes vk-followpill-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) { .vk-followpill { animation: none; } }
+.vk-transcript__toolbar { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--gray-200); }
+.vk-transcript__scroll { flex: 1; overflow-y: auto; padding: 4px 14px 0 14px; }
+
+/* find bar */
+.vk-findbar { padding: 8px 12px; background: var(--gray-100); border-bottom: 1px solid var(--gray-200); }
+.vk-findbar__count { font-size: 11px; color: var(--text-subdued); min-width: 56px; text-align: right; }
+.vk-findbar__opt {
+  width: 28px; height: 26px; border: 1px solid var(--gray-300); border-radius: 6px;
+  background: var(--surface-elevated); color: var(--text-subdued);
+  font-size: 11px; font-weight: 700; font-family: var(--font-family-code);
+}
+.vk-findbar__opt--on { background: var(--gray-800); border-color: var(--gray-800); color: var(--gray-25); }
+.vk-mark { background: light-dark(#fff3b0, #6b5d12); color: inherit; border-radius: 3px; padding: 0 1px; }
+.vk-mark--cur { background: light-dark(#ffd43b, #a8881a); outline: 2px solid light-dark(#e8a33d, #ffd43b); }
+
+/* AI review banner */
+.vk-aibanner {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-bottom: 1px solid light-dark(#cfdcfb, #2c3f6e);
+  background: light-dark(#eef3ff, #1a2440);
+  position: sticky; top: 0; z-index: 5;
+}
+.vk-aibanner .s2-icon { color: var(--text-accent); }
+.vk-aibanner__count { font-size: var(--font-size-75); color: var(--text-body); }
+
+/* chapters */
+.vk-chapter { margin-top: 16px; }
+.vk-chapter__head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; position: sticky; top: 0; background: var(--surface-layer-1); z-index: 3; padding: 6px 0; }
+.vk-chapter__title { font-size: var(--font-size-300); font-weight: 800; color: var(--text-heading); }
+.vk-chapter__range { font-size: var(--font-size-50); }
+.vk-group { border-left: 3px solid; padding: 2px 0 2px 12px; margin: 10px 0; }
+.vk-group__sp { display: inline-block; font-size: var(--font-size-75); font-weight: 700; margin-bottom: 2px; color: inherit; }
+
+/* segment rows */
+.vk-seg {
+  display: flex; flex-direction: column; align-items: stretch; gap: 1px;
+  padding: 5px 8px 6px 0; border-radius: 8px; margin: 1px 0;
+  position: relative;
+}
+.vk-seg__head { display: flex; align-items: center; gap: 7px; }
+.vk-seg:hover .vk-segtext { background: var(--gray-100); }
+.vk-seg--active .vk-segtext { background: light-dark(#eef3ff, #1d2c52); }
+.vk-seg--sel { outline: 2px solid var(--accent-color-700); outline-offset: -2px; }
+.vk-seg__idx { font-size: 11px; color: var(--text-subdued); flex-shrink: 0; }
+.vk-seg__sp { font-size: 11px; font-weight: 700; }
+.vk-segtext {
+  flex: 1; font-size: var(--font-size-100); line-height: 1.55; color: var(--text-body);
+  border-radius: 5px; padding: 1px 4px; margin-left: -4px; outline: none; min-width: 0;
+  text-wrap: pretty;
+}
+.vk-segtext:hover:not(.vk-segtext--ro):not(.vk-segtext--diff) { background: light-dark(rgba(255,255,255,0.85), rgba(255,255,255,0.06)); box-shadow: inset 0 0 0 1px var(--gray-300); cursor: text; }
+.vk-segtext:focus { background: var(--surface-elevated); box-shadow: inset 0 0 0 1.5px var(--accent-color-700); }
+.vk-seg__play {
+  border: none; background: none; color: var(--gray-400); padding: 3px 4px; border-radius: 6px;
+  display: flex; align-items: center; flex-shrink: 0; opacity: 0; transition: opacity 130ms;
+  margin-left: auto;
+}
+.vk-seg:hover .vk-seg__play, .vk-seg__play--on { opacity: 1; }
+.vk-seg__play:hover { background: var(--gray-200); color: var(--text-accent); }
+.vk-seg__pause { display: flex; gap: 2.5px; padding: 1.5px 0; }
+.vk-seg__pause span { width: 2px; height: 10px; border-radius: 1px; background: currentColor; }
+/* paragraphs (Descript-style free editing over word atoms) */
+.vk-group__head { display: flex; align-items: center; gap: 8px; }
+.vk-group__time { border: none; background: none; font-size: 10.5px; padding: 1px 5px; border-radius: 5px; color: var(--text-subdued); cursor: pointer; }
+.vk-group__time:hover { background: var(--gray-200); color: var(--text-accent); }
+/* time + play/pause stay visible at rest in paragraph heads */
+.vk-group__head .vk-seg__play { opacity: 1; }
+/* the playing paragraph reads via a soft accent OUTER FRAME — not a full-text
+   background wash (the karaoke word colors already carry reading progress) */
+.vk-para--active {
+  border-radius: 7px;
+  box-shadow: 0 0 0 1.5px color-mix(in oklab, var(--accent-color-700) 50%, transparent);
+}
+
+/* word chips in the clean-up review's read-only word view (M76: the cue-break
+   mode that also used these is retired — per-cue editing lives in the Subtitle tab) */
+.vk-bw { border-radius: 3px; padding: 1.5px 2px; background: light-dark(rgba(59, 99, 251, 0.07), rgba(86, 129, 255, 0.13)); }
+
+/* cue shading in the normal editing view — a neutral zebra marks where one
+   subtitle cue ends and the next begins (toggle via Tweaks): each cue gets a
+   cool-slate fill, the next is left transparent, so the boundary reads clearly
+   while editing. Blue stays reserved for playback/selection. */
+.vk-cue {
+  border-radius: 3px; padding: 1.5px 1px;
+  background: light-dark(rgba(100, 116, 139, 0.13), rgba(150, 168, 204, 0.15));
+  box-decoration-break: clone; -webkit-box-decoration-break: clone;
+}
+.vk-cue--alt { background: transparent; }
+
+/* word-level playback highlight (karaoke follow) */
+.vk-segtext--words .vk-w {
+  border-radius: 4px;
+  opacity: 0.45;
+  cursor: pointer;
+}
+.vk-segtext--words .vk-w--spoken { opacity: 1; }
+.vk-segtext--words .vk-w--cur {
+  opacity: 1;
+  background: light-dark(var(--accent-color-300), var(--accent-color-400));
+  color: light-dark(var(--accent-color-1000), #fff);
+  box-shadow: 0 0 0 2.5px light-dark(var(--accent-color-300), var(--accent-color-400));
+}
+.vk-segtext--words .vk-w:hover { opacity: 1; text-decoration: underline; text-underline-offset: 0.18em; }
+/* M79: a cut word in the karaoke view shows its own dim color + strike at full
+   opacity (the base .vk-w 0.45 dim is for un-played words, not cut ones) */
+.vk-segtext--words .vk-w.vk-cutword { opacity: 1; }
+
+/* cue-break optimization review */
+.vk-cuebadge { font-size: 10px; font-weight: 700; padding: 1.5px 8px; border-radius: 999px; flex-shrink: 0; }
+.vk-cuebadge--split { color: light-dark(#274dea, #99b3ff); background: light-dark(#e6ecfe, #1d2c52); }
+.vk-cuebadge--merge { color: light-dark(#945104, #ffc466); background: light-dark(#fdefd8, #4a3414); }
+.vk-cuechg { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 8px; font-size: 12.5px; }
+.vk-cuechg:hover { background: var(--gray-100); }
+.vk-cuechg__txt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-body); }
+.vk-cuemark { font-weight: 800; padding: 0 3px; }
+.vk-cuemark--add { color: light-dark(#274dea, #99b3ff); }
+.vk-cuemark--rm { color: light-dark(#c8362a, #ff8c7a); text-decoration: line-through; }
+
+/* Polish review rows (M23 — review lives in the AI window, PRD §9.1) */
+.vk-polrev { padding: 6px 8px 8px; border-radius: 8px; }
+.vk-polrev:hover { background: var(--gray-100); }
+.vk-polrev__head { display: flex; align-items: center; gap: 8px; }
+.vk-polrev__diff { margin-top: 4px; padding-left: 24px; font-size: 12.5px; line-height: 1.45; color: var(--text-body); }
+.vk-polrev--off .vk-polrev__diff { opacity: 0.45; }
+
+/* AI inline diff */
+.vk-segtext--diff { background: light-dark(#fbfcff, #181d2c); box-shadow: inset 0 0 0 1px light-dark(#cfdcfb, #2c3f6e); padding: 6px 8px; }
+.vk-diff-del { color: light-dark(#c8362a, #ff8c7a); background: light-dark(#fde5e3, #4a1d18); text-decoration: line-through; border-radius: 3px; padding: 0 2px; }
+.vk-diff-ins { color: light-dark(#177233, #7adf93); background: light-dark(#e2f4e5, #1f3a25); text-decoration: none; border-radius: 3px; padding: 0 2px; margin-left: 2px; }
+.vk-diff-actions { display: flex; align-items: center; gap: 6px; margin-top: 7px; }
+.vk-diff-cat {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 2px 7px; border-radius: 4px; margin-right: auto;
+  background: var(--gray-100); color: var(--text-subdued);
+}
+.vk-diff-cat--filler { background: light-dark(#fef4e4, #3a2e16); color: light-dark(#a36807, #e8a33d); }
+.vk-diff-cat--typo { background: light-dark(#fde5e3, #4a1d18); color: light-dark(#c8362a, #ff8c7a); }
+.vk-diff-cat--punct { background: light-dark(#e3ecfd, #1d2c52); color: light-dark(#2253c8, #8caaf8); }
+.vk-diff-cat--wordy { background: light-dark(#f1e6fd, #321d52); color: light-dark(#7326d3, #b88af8); }
+.vk-diff-cat--term { background: light-dark(#e0f3f5, #143a3e); color: light-dark(#0e7385, #6fd0dd); }
+.vk-diff-cat--grammar { background: light-dark(#e2f4e5, #1f3a25); color: light-dark(#177233, #7adf93); }
+
+/* versions */
+.vk-versions-dialog {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - var(--spacing-900));
+}
+.vk-versions__scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-right: var(--spacing-75);
+  margin-right: calc(-1 * var(--spacing-75));
+}
+.vk-versions-dialog > .vk-dialog__footer { flex: none; }
+.vk-versions { display: flex; flex-direction: column; gap: 4px; }
+.vk-version { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--gray-200); }
+.vk-version--cur { border-color: var(--accent-color-700); background: light-dark(#f4f7ff, #1a2440); }
+.vk-version__name { font-weight: 700; color: var(--text-heading); display: flex; align-items: center; }
+.vk-version__meta { font-size: var(--font-size-50); color: var(--text-subdued); margin-top: 1px; }
+/* M53 Phase 2: branch switcher above the version list */
+.vk-versions__section { font-size: 10px; font-weight: 800; letter-spacing: 0.04em; color: var(--text-subdued); margin: 12px 2px 6px; text-transform: uppercase; }
+.vk-versions__section:first-child { margin-top: 0; }
+.vk-branches { display: flex; flex-direction: column; gap: 4px; }
+.vk-branch { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--gray-200); }
+.vk-branch--cur { border-color: var(--accent-color-700); background: light-dark(#f4f7ff, #1a2440); }
+.vk-branch__name { font-weight: 700; color: var(--text-heading); display: flex; align-items: center; font-size: 13px; }
+.vk-branch__meta { font-size: var(--font-size-50); color: var(--text-subdued); margin-top: 1px; }
+
+/* ===================== stage ===================== */
+.vk-stage { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; background: var(--gray-100); }
+.vk-stage--full { height: 100%; background: #000; }
+.vk-stage--full .vk-stage__area { background: #000; }
+.vk-stage--full .vk-frame { border-radius: 0; box-shadow: none; }
+.vk-stage--full .vk-stagebar { display: none; }
+.vk-stage--idle, .vk-stage--idle * { cursor: none !important; }
+.vk-stage__area { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; position: relative; }
+.vk-frame { position: relative; border-radius: 10px; overflow: hidden; box-shadow: 0 6px 24px light-dark(rgba(0,0,0,0.18), rgba(0,0,0,0.45)); }
+.vk-frame__art { position: absolute; inset: 0; }
+/* M-transform: base-video canvas fill + its selectable transform box */
+.vk-canvasfill { position: absolute; inset: 0; z-index: 0; }
+.vk-mainbox { position: absolute; left: 50%; top: 50%; width: 100%; height: 100%; z-index: 0; }
+.vk-mainbox--sel { outline: 2px solid var(--vk-canvas-accent, #4b7bff); outline-offset: -2px; cursor: grab; }
+.vk-mainbox--sel:active { cursor: grabbing; }
+/* M87 — the strip cell standing in for the decoded frame. Rendered video
+   content, so these are literal colours, identical in light and dark. */
+.vk-frame__art--cached { background-color: #000; }
+.vk-frame__cached {
+  position: absolute; right: 3%; top: 5%;
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(0,0,0,0.6); color: rgba(255,255,255,0.9);
+  font-size: 11px; font-weight: 600; letter-spacing: 0.03em;
+  padding: 3px 8px; border-radius: 5px;
+}
+.vk-frame__cached .s2-icon { color: rgba(255,255,255,0.9); }
+.vk-frame__grid {
+  position: absolute; inset: 0; opacity: 0.25;
+  background-image: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18), transparent 55%),
+    repeating-linear-gradient(0deg, transparent 0 46px, rgba(255,255,255,0.05) 46px 47px),
+    repeating-linear-gradient(90deg, transparent 0 46px, rgba(255,255,255,0.05) 46px 47px);
+}
+.vk-frame__label {
+  position: absolute; left: 4%; top: 5%;
+  display: flex; align-items: center; gap: 10px;
+  color: rgba(255,255,255,0.85);
+}
+.vk-frame__chip { background: rgba(0,0,0,0.35); border-radius: 999px; padding: 0.2em 0.9em; font-size: 0.85em; }
+.vk-frame__ep {
+  position: absolute; left: 4%; bottom: 6%;
+  font-weight: 800; letter-spacing: 0.14em; color: rgba(255,255,255,0.3);
+}
+.vk-frame__ep span { font-weight: 400; letter-spacing: 0.02em; font-size: 0.5em; vertical-align: middle; margin-left: 0.8em; color: rgba(255,255,255,0.25); }
+/* Canvas chrome — selection / transform affordances composited over the video
+   frame. CLAUDE.md "Exemption: rendered video content": the frame does not change
+   with the theme, so a light-dark() token would be legible in one appearance and
+   vanish in the other against IDENTICAL pixels. These are deliberately literal and
+   must NOT use theme tokens. This is the complete, closed set — do not add colors
+   outside it. (Panel-side mirrors of these controls stay fully themed.) */
+.vk-frame {
+  --vk-canvas-accent: #3b63fb;   /* selection ring, guides, target line */
+  --vk-canvas-chrome: #fff;      /* handles, pill surface */
+  --vk-canvas-ink: #1d1d1d;      /* text / icons on chrome */
+  --vk-canvas-focus: #8caaff;    /* focus ring over video */
+  --vk-canvas-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+}
+
+/* subtitle / overlay objects */
+.vk-sub {
+  position: absolute; left: 50%; transform: translate(-50%, -50%);
+  text-align: center; white-space: pre-wrap; user-select: none; cursor: grab;
+  /* Explicit max-content width avoids absolute-position shrink-to-fit treating
+     left:50% as only half a frame of available width. max-width still caps long
+     subtitle lines, while short lines keep their natural width. */
+  width: max-content; max-width: 80%; box-sizing: border-box;
+}
+/* selection grammar: SOLID = the current target · DASHED = another region you
+   can click. Whole stack when 'both' is targeted, a single line otherwise. */
+.vk-sub--sel { outline: 2px solid var(--vk-canvas-accent); outline-offset: 3px; }
+.vk-sub--sel-line { outline: 1px dashed color-mix(in srgb, var(--vk-canvas-accent) 55%, transparent); outline-offset: 3px; }
+/* bilingual stack: independent line boxes by default, or one shared background */
+.vk-sub--stack { display: flex; flex-direction: column; align-items: center; gap: 0.2em; }
+.vk-sub__line { max-width: 100%; box-sizing: border-box; }
+.vk-sub__line--target { outline: 2px solid var(--vk-canvas-accent); outline-offset: 2px; border-radius: 2px; }
+.vk-sub--sel .vk-sub__line--pick:hover,
+.vk-sub--sel-line .vk-sub__line--pick:not(.vk-sub__line--target):hover {
+  outline: 1px dashed color-mix(in srgb, var(--vk-canvas-accent) 55%, transparent); outline-offset: 2px;
+}
+
+/* on-stage target pill (Original · Translation · Both) — canvas chrome, so it
+   reuses the Segmented component and overrides ONLY its palette.
+   TfHandles rotate AND orbit with the box by design (CapCut-style). A text
+   control must do neither: at 180° it would read upside-down, and — worse — a
+   pill anchored in the stack's local frame ORBITS, so a rotated low subtitle
+   swings it clean off the video. So anchor it to the stack's CENTRE
+   (left/top 50%, transform-origin 0 0) and counter-rotate about that point:
+   the stack's own rotate() then cancels, leaving a fixed SCREEN-space offset
+   straight above (or below) the subtitle, always upright and always on frame.
+   --vk-sub-pilloff is set inline from the measured stack height. */
+.vk-subpill {
+  position: absolute; left: 50%; top: 50%; z-index: 7;
+  transform-origin: 0 0;
+  transform: rotate(calc(-1 * var(--vk-sub-rot, 0deg)))
+             translateY(var(--vk-sub-pilloff, -40px))
+             translate(-50%, -50%);
+  white-space: nowrap; cursor: default;
+}
+.vk-subpill .vk-segc {
+  background: var(--vk-canvas-chrome); box-shadow: var(--vk-canvas-shadow);
+  border-radius: 999px; padding: 2px;
+}
+.vk-subpill .vk-segc__btn { color: var(--vk-canvas-ink); border-radius: 999px; font-weight: 600; }
+.vk-subpill .vk-segc__btn:hover { background: rgba(0, 0, 0, 0.07); }
+.vk-subpill .vk-segc__btn:active { transform: scale(0.96); }
+.vk-subpill .vk-segc__btn--on { background: var(--vk-canvas-accent); color: var(--vk-canvas-chrome); box-shadow: none; }
+.vk-subpill .vk-segc__btn:focus-visible { outline: 2px solid var(--vk-canvas-focus); outline-offset: 2px; }
+
+/* on-stage transform handles (selected subtitle / title) — rotate with the box */
+.vk-th {
+  position: absolute; top: 50%; width: 9px; height: 24px; margin-top: -12px;
+  border-radius: 5px; background: var(--vk-canvas-chrome); border: 1px solid rgba(0, 0, 0, 0.22);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  cursor: ew-resize; z-index: 6; user-select: none;
+}
+.vk-th::before { content: ''; position: absolute; inset: -8px; }
+.vk-th--l { left: -10px; }
+.vk-th--r { right: -10px; }
+.vk-th:hover { background: #e8eeff; }
+.vk-th__rot {
+  position: absolute; left: 50%; bottom: -40px; transform: translateX(-50%);
+  width: 28px; height: 28px; border-radius: 50%; border: none; padding: 0;
+  background: var(--vk-canvas-chrome); color: var(--vk-canvas-ink);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+  cursor: grab; z-index: 6;
+}
+.vk-th__rot:active { cursor: grabbing; }
+.vk-th__rot .s2-icon { color: var(--vk-canvas-ink); }
+.vk-th__rot::before { content: ''; position: absolute; inset: -7px; border-radius: 50%; }
+.vk-th__rot--top { bottom: auto; top: -40px; }
+/* corner handles (uniform scale) — CapCut transform box */
+.vk-thc {
+  position: absolute; width: 12px; height: 12px; border-radius: 3px;
+  background: var(--vk-canvas-chrome); border: 1px solid rgba(0, 0, 0, 0.22);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); z-index: 6; user-select: none;
+}
+.vk-thc::before { content: ''; position: absolute; inset: -8px; }
+.vk-thc:hover { background: #e8eeff; }
+.vk-thc--tl { left: -6px; top: -6px; cursor: nwse-resize; }
+.vk-thc--tr { right: -6px; top: -6px; cursor: nesw-resize; }
+.vk-thc--bl { left: -6px; bottom: -6px; cursor: nesw-resize; }
+.vk-thc--br { right: -6px; bottom: -6px; cursor: nwse-resize; }
+/* inset variant — for a box that fills a clipping frame (the base video) */
+.vk-thc--in.vk-thc--tl { left: 7px; top: 7px; }
+.vk-thc--in.vk-thc--tr { right: 7px; top: 7px; }
+.vk-thc--in.vk-thc--bl { left: 7px; bottom: 7px; }
+.vk-thc--in.vk-thc--br { right: 7px; bottom: 7px; }
+
+/* center alignment guides */
+.vk-guide { position: absolute; z-index: 9; pointer-events: none; background: var(--vk-canvas-accent); box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.45); }
+.vk-guide--v { left: 50%; top: 0; bottom: 0; width: 1px; margin-left: -0.5px; }
+.vk-guide--h { top: 50%; left: 0; right: 0; height: 1px; margin-top: -0.5px; }
+.vk-overlay-text { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; user-select: none; cursor: grab; }
+.vk-tfph { opacity: 0.55; font-style: italic; }
+/* P4c: the entrance transitions used to live here as keyframes. They are now
+   `f(t)` inline styles from VK_SUBTRANSITION — a CSS timeline cannot be seeked,
+   so this set could only be retriggered by remounting the stack, which is why
+   scrubbing into an entrance never showed one. */
+.vk-sub__edit {
+  display: block; font: inherit; color: inherit; text-align: inherit; white-space: inherit;
+  background: rgba(0,0,0,0.35); border: 1.5px solid #3b63fb; border-radius: 6px; outline: none;
+  padding: 0.1em 0.4em; margin: calc(-0.1em - 1.5px) calc(-0.4em - 1.5px);
+  min-width: 2ch; cursor: text; user-select: text;
+}
+
+/* format toolbar — replaced by the docked style panel (subtitle-panel.css) */
+
+/* swatches */
+.vk-swatch { width: 16px; height: 16px; border-radius: 5px; border: 1px solid rgba(0,0,0,0.2); display: inline-block; padding: 0; }
+.vk-swatch--lg { width: 26px; height: 26px; border-radius: 7px; }
+.vk-swatch--sel { outline: 2px solid var(--accent-color-800); outline-offset: 1.5px; }
+.vk-swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; justify-items: center; }
+.vk-swatches--row { display: flex; gap: 5px; }
+
+/* stage transport bar */
+.vk-stagebar {
+  display: flex; align-items: center; gap: 6px; padding: 7px 12px;
+  background: transparent;
+}
+.vk-stagebar .s2-action-btn { color: var(--text-body); }
+.vk-stagebar .s2-action-btn:hover:not(:disabled) { background: var(--gray-200); }
+.vk-stagebar .s2-action-btn--selected { background: var(--gray-300); color: var(--text-heading); }
+.vk-stagebar__btn {
+  display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 9px;
+  border: none; background: none; border-radius: 7px;
+  font-size: 12px; font-weight: 600; color: var(--text-body);
+}
+.vk-stagebar__btn:hover { background: var(--gray-200); }
+.vk-stagebar__btn--on { background: var(--gray-300); color: var(--text-heading); }
+.vk-stagebar__btn .s2-icon { color: var(--text-subdued); }
+.vk-stagebar__btn--on .s2-icon { color: var(--text-heading); }
+.vk-timeline .vk-stagebar__btn { color: var(--text-body); }
+.vk-timeline .vk-stagebar__btn:hover { background: var(--gray-200); }
+.vk-timeline .vk-stagebar__btn .s2-icon { color: var(--text-subdued); }
+
+/* Full-screen player chrome is a rendered-video viewing surface: it stays fixed
+   dark so the same frame has identical contrast in light and dark app themes.
+   Literal colors are intentional here. */
+.vk-fsbar {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 40;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 46px 24px 16px;
+  color: #fff;
+  background: linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,0.34) 30%, rgba(0,0,0,0.78) 100%);
+  opacity: 1; transition: opacity 130ms cubic-bezier(0.45,0,0.4,1);
+}
+.vk-fsbar--hidden { opacity: 0; pointer-events: none; }
+.vk-fsbar__seek {
+  height: 18px; display: flex; align-items: center;
+  cursor: pointer; touch-action: none; outline: none;
+}
+.vk-fsbar__track {
+  position: relative; width: 100%; height: 4px; border-radius: 2px;
+  background: rgba(255,255,255,0.34);
+  transition: height 130ms cubic-bezier(0.45,0,0.4,1);
+}
+.vk-fsbar__seek:hover .vk-fsbar__track,
+.vk-fsbar__seek:focus-visible .vk-fsbar__track,
+.vk-fsbar__seek--dragging .vk-fsbar__track { height: 6px; }
+.vk-fsbar__fill { height: 100%; border-radius: inherit; background: #8caaff; }
+.vk-fsbar__thumb {
+  position: absolute; top: 50%; width: 12px; height: 12px;
+  border-radius: 50%; background: #8caaff;
+  transform: translate(-50%, -50%) scale(0.75); opacity: 0;
+  transition: opacity 130ms cubic-bezier(0.45,0,0.4,1), transform 130ms cubic-bezier(0.45,0,0.4,1);
+}
+.vk-fsbar__seek:hover .vk-fsbar__thumb,
+.vk-fsbar__seek:focus-visible .vk-fsbar__thumb,
+.vk-fsbar__seek--dragging .vk-fsbar__thumb { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.vk-fsbar__seek:focus-visible { outline: 2px solid #8caaff; outline-offset: 3px; border-radius: 3px; }
+.vk-fsbar__controls { height: 38px; display: flex; align-items: center; gap: 4px; }
+.vk-fsbar__btn {
+  width: 36px; height: 36px; flex: 0 0 36px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; border-radius: 8px; padding: 0;
+  background: transparent; color: #fff;
+  transition: background 130ms cubic-bezier(0.45,0,0.4,1), transform 130ms cubic-bezier(0.45,0,0.4,1);
+}
+.vk-fsbar__btn .s2-icon { color: #fff; }
+.vk-fsbar__btn:hover { background: rgba(255,255,255,0.16); }
+.vk-fsbar__btn:active { background: rgba(255,255,255,0.22); transform: scale(0.96); }
+.vk-fsbar__btn:focus-visible { outline: 2px solid #8caaff; outline-offset: 2px; }
+.vk-fsbar__btn--selected { background: rgba(140,170,255,0.26); }
+.vk-fsbar__btn.vk-fsbar__speed {
+  width: auto; min-width: 44px; flex-basis: auto; padding: 0 10px;
+  font-family: var(--font-family-sans); font-size: 12px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.vk-fsbar__pause { display: flex; align-items: center; justify-content: center; gap: 5px; }
+.vk-fsbar__pause i { width: 4px; height: 17px; border-radius: 2px; background: #fff; }
+.vk-fsbar__time { margin-left: 5px; color: #fff; font-size: 12px; font-variant-numeric: tabular-nums; }
+.vk-fsbar__time span { color: rgba(255,255,255,0.72); }
+/* The Pop is portalled to body, so its fixed-dark viewing treatment needs its
+   own class instead of relying on .vk-fsbar ancestry. */
+.vk-pop.vk-fsbar__volpop,
+.vk-pop.vk-fsbar__speedpop {
+  color: #fff; background: rgba(20,20,20,0.96);
+  border-color: rgba(255,255,255,0.18);
+  box-shadow: 0 8px 26px rgba(0,0,0,0.52);
+}
+.vk-fsbar__volpop .s2-action-btn { color: #fff; }
+.vk-fsbar__volpop .s2-action-btn:hover:not(:disabled) { background: rgba(255,255,255,0.16); }
+.vk-fsbar__volpop input[type="range"] { flex: 1; min-width: 0; accent-color: #8caaff; }
+.vk-fsbar__volpop .vk-mono { color: rgba(255,255,255,0.74); }
+.vk-fsbar__speedpop .vk-menu__item { color: #fff; }
+.vk-fsbar__speedpop .vk-menu__item:hover:not(.vk-menu__item--disabled) { background: rgba(255,255,255,0.16); }
+.vk-fsbar__speedpop .vk-menu__suffix { color: #8caaff; font-weight: 700; }
+
+/* ===================== timeline ===================== */
+.vk-timeline { border-top: 1px solid var(--gray-200); background: var(--surface-base); flex-shrink: 0; display: flex; flex-direction: column; }
+/* resizable / auto-hiding timeline host: fixed height (drag from the top edge),
+   the timeline + its track body stretch to fill it. Mirrors the sidebar seam handle. */
+.vk-timeline-host { position: relative; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; max-height: 80%; }
+.vk-timeline-host .vk-timeline { flex: 1 1 auto; min-height: 0; }
+.vk-timeline-host .vk-tlbody { flex: 1; min-height: 0; }
+.vk-timeline-resize { position: absolute; top: -3px; left: 0; right: 0; height: 8px; z-index: 25; cursor: row-resize; touch-action: none; }
+.vk-timeline-resize::before { content: ''; position: absolute; top: 3px; left: 0; right: 0; height: 1px; background: transparent; transition: background 130ms cubic-bezier(0.45,0,0.4,1); }
+.vk-timeline-resize:hover::before, .vk-timeline-resize--drag::before { top: 2px; height: 3px; border-radius: 2px; background: var(--accent-color-700); }
+
+/* chapter scrubber */
+.vk-scrub { display: flex; gap: 3px; padding: 8px 14px 4px; position: relative; cursor: pointer; }
+.vk-scrub__seg { height: 5px; border-radius: 3px; background: var(--gray-300); overflow: hidden; transition: height 100ms; }
+.vk-scrub:hover .vk-scrub__seg { height: 7px; }
+.vk-scrub__fill { height: 100%; background: var(--accent-color-900); border-radius: 3px; }
+.vk-scrub__preview {
+  position: absolute; bottom: 16px; transform: translateX(-50%);
+  background: var(--surface-elevated); border: 1px solid var(--gray-200); border-radius: 10px;
+  box-shadow: var(--shadow-elevated); padding: 6px; z-index: 40; pointer-events: none;
+  display: flex; flex-direction: column; gap: 4px; align-items: center;
+}
+/* A modal owns the window: never let a stale scrub hover surface through it. */
+body:has(.vk-overlay) .vk-scrub__preview { display: none; }
+.vk-scrub__thumb {
+  width: 118px; aspect-ratio: 16/9; border-radius: 6px;
+  display: flex; align-items: flex-end; justify-content: flex-start; padding: 5px;
+  color: white; font-size: 11px;
+}
+.vk-scrub__name { font-size: 11px; font-weight: 600; color: var(--text-heading); max-width: 118px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* transport */
+.vk-transport { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; padding: 4px 14px 6px; }
+.vk-transport__side { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.vk-transport__side--l { justify-content: flex-start; }
+.vk-transport__side--r { justify-content: flex-end; }
+.vk-transport__center { display: flex; align-items: center; gap: 8px; }
+.vk-transport__center .vk-stagebar__btn { min-width: var(--vk-speedw, 62px); justify-content: center; }
+.vk-transport__ghost { width: var(--vk-speedw, 62px); flex-shrink: 0; }
+.vk-transport__time { font-size: 12px; color: var(--text-heading); min-width: 104px; }
+.vk-playbtn {
+  width: 36px; height: 36px; border-radius: 50%; border: none;
+  background: var(--accent-color-900);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 130ms cubic-bezier(0.45,0,0.4,1), background 130ms;
+}
+.vk-playbtn:hover { background: var(--accent-color-1000); }
+.vk-playbtn:active { transform: scale(0.94); }
+.vk-playbtn__pause { display: flex; gap: 4px; }
+.vk-playbtn__pause span { width: 4px; height: 14px; background: white; border-radius: 2px; }
+.vk-zoom { width: 90px; accent-color: var(--accent-color-900); }
+
+/* tracks */
+/* overflow-y auto: with per-watermark lanes (M105 follow-up) the track stack can
+   outgrow the user-set timeline height — heads + tracks scroll together */
+.vk-tlbody { position: relative; display: flex; align-items: stretch; border-top: 1px solid var(--gray-200); background: var(--surface-layer-1); overflow-y: auto; }
+.vk-theads { flex: none; width: 60px; border-right: 1px solid var(--gray-200); }
+.vk-thead { display: flex; align-items: center; justify-content: center; color: var(--text-subdued); }
+/* M-clip: audio-capable rows show [kind icon][speaker toggle] side by side (CapCut) */
+.vk-thead--duo { gap: 2px; }
+.vk-thead__mute { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: none; border-radius: 6px; background: transparent; color: var(--text-subdued); cursor: pointer; padding: 0; }
+.vk-thead__mute:hover { background: var(--gray-200); }
+.vk-thead__mute--on { color: var(--negative-visual-color); }
+.vk-thead__mute .s2-icon { width: 13px; height: 13px; }
+.vk-thead--ruler { border-bottom: 1px solid var(--gray-200); }
+.vk-thead__ic { display: flex; align-items: center; justify-content: center; }
+.vk-thead__btn { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; background: transparent; border: none; border-radius: 8px; color: var(--text-subdued); cursor: pointer; transition: background 130ms cubic-bezier(0.45, 0, 0.4, 1), color 130ms cubic-bezier(0.45, 0, 0.4, 1); }
+.vk-thead__btn:hover { background: var(--gray-100); color: var(--text-body); }
+.vk-thead__btn:active { transform: scale(0.96); }
+.vk-thead__btn--on { background: color-mix(in oklab, var(--accent-color-900) 15%, transparent); color: var(--accent-color-1000); }
+.vk-tracks { flex: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; position: relative; }
+.vk-tracks__inner { position: relative; padding-bottom: 8px; }
+.vk-ruler { position: relative; height: 22px; cursor: ew-resize; border-bottom: 1px solid var(--gray-200); }
+.vk-ruler__tick { position: absolute; top: 12px; bottom: 0; width: 1px; background: var(--gray-300); }
+.vk-ruler__label { position: absolute; bottom: 7px; left: 3px; font-size: 9.5px; color: var(--text-subdued); white-space: nowrap; }
+.vk-track { position: relative; margin-top: 5px; }
+
+/* video clips (CapCut-style: filmstrip + waveform fused into one block) */
+.vk-track--clips { cursor: ew-resize; }
+.vk-clip { position: absolute; top: 0; border-radius: 8px; overflow: hidden; background: var(--gray-700); border: 1px solid light-dark(var(--gray-400), var(--gray-600)); cursor: pointer; }
+.vk-clip--sel { outline: 2px solid var(--accent-color-800); outline-offset: 0; z-index: 3; }
+.vk-clip__film { position: absolute; inset: 0; }
+.vk-clip__cell { position: absolute; top: 0; bottom: 0; }
+.vk-clip__waveband { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1); }
+.vk-clip__wave { display: block; --wave-base: rgba(255, 255, 255, 0.5); --wave-played: var(--accent-color-900); }
+.vk-clip__dur { position: absolute; top: 3px; left: 5px; font-size: 9.5px; line-height: 1; padding: 3px 5px; border-radius: 4px; background: rgba(0, 0, 0, 0.5); color: #fff; opacity: 0; pointer-events: none; transition: opacity 130ms cubic-bezier(0.45, 0, 0.4, 1); }
+.vk-clip:hover .vk-clip__dur, .vk-clip--sel .vk-clip__dur { opacity: 1; }
+.vk-clip__handle { position: absolute; top: 0; bottom: 0; width: 11px; cursor: ew-resize; z-index: 4; opacity: 0; transition: opacity 130ms cubic-bezier(0.45, 0, 0.4, 1); }
+.vk-clip__handle--l { left: 0; }
+.vk-clip__handle--r { right: 0; }
+.vk-clip__handle::after { content: ''; position: absolute; top: 50%; transform: translateY(-50%); height: 38%; width: 3px; border-radius: 2px; background: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35); }
+.vk-clip__handle--l::after { left: 3px; }
+.vk-clip__handle--r::after { right: 3px; }
+.vk-clip:hover .vk-clip__handle, .vk-clip--sel .vk-clip__handle { opacity: 1; }
+/* M-clip: pinned source label on wide clips (CapCut: filename · length) */
+.vk-clip__name { position: absolute; top: 3px; left: 5px; z-index: 2; display: inline-flex; align-items: center; gap: 5px; max-width: calc(100% - 14px); font-size: 9.5px; line-height: 1; padding: 3px 5px; border-radius: 4px; background: rgba(0, 0, 0, 0.5); color: #fff; pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vk-clip__namedur { opacity: 0.75; }
+/* M-clip: resident '+' chip after the last clip — the main track's add affordance */
+.vk-clipadd { position: absolute; top: 0; width: 44px; display: flex; align-items: center; justify-content: center; border: 1.5px dashed light-dark(var(--gray-400), var(--gray-600)); border-radius: 8px; background: light-dark(var(--gray-100), rgba(255, 255, 255, 0.05)); color: var(--text-subdued); cursor: pointer; transition: border-color 130ms cubic-bezier(0.45, 0, 0.4, 1), color 130ms cubic-bezier(0.45, 0, 0.4, 1); }
+.vk-clipadd:hover { border-color: var(--accent-color-800); color: var(--accent-color-900); }
+/* M-clip: drop hints for the cross-track drag session */
+.vk-dropseam { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--accent-color-800); border-radius: 1px; z-index: 6; pointer-events: none; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25); }
+.vk-track--drop { outline: 2px solid var(--accent-color-800); outline-offset: -2px; border-radius: 6px; background: light-dark(rgba(59, 99, 251, 0.08), rgba(90, 130, 255, 0.12)); }
+.vk-track--muted .vk-block { opacity: 0.55; }
+.vk-dragghost { position: fixed; z-index: 1000; display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 7px; background: light-dark(rgba(255, 255, 255, 0.92), rgba(30, 30, 36, 0.92)); border: 1px solid var(--gray-300); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28); pointer-events: none; font-size: 11px; color: var(--text-color); }
+.vk-dragghost__art { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 18px; border-radius: 4px; background: var(--gray-700); color: #fff; flex: none; }
+.vk-dragghost__label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+.vk-clip__scrim { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 11px; }
+.vk-clip__bar { width: 60%; max-width: 150px; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.25); overflow: hidden; }
+.vk-clip__bar i { display: block; height: 100%; border-radius: 2px; background: var(--accent-color-700); }
+
+/* group subtitle selection bar */
+.vk-groupbar { position: absolute; top: 30px; left: 50%; transform: translateX(-50%); z-index: 30; display: flex; align-items: center; gap: 7px; padding: 5px 7px 5px 11px; border-radius: 10px; background: var(--surface-elevated); border: 1px solid var(--gray-200); box-shadow: var(--drop-shadow-elevated); font-size: 12px; color: var(--text-body); white-space: nowrap; }
+.vk-groupbar__sep { width: 1px; height: 16px; background: var(--gray-200); }
+.vk-groupbar__num { width: 60px; height: 26px; border-radius: 8px; border: 1px solid var(--gray-500); background: transparent; color: var(--text-body); padding: 0 6px; font: inherit; font-size: 12px; }
+.vk-groupbar__num:focus { outline: 2px solid var(--accent-color-800); outline-offset: 1px; }
+.vk-track--segs { cursor: ew-resize; }
+
+/* blocks */
+.vk-block {
+  position: absolute; top: 2px; border-radius: 6px;
+  background: color-mix(in oklab, var(--blk) 28%, var(--surface-elevated));
+  border: 1px solid color-mix(in oklab, var(--blk) 55%, transparent);
+  display: flex; align-items: center; overflow: hidden;
+  cursor: grab; user-select: none;
+}
+.vk-block:hover { border-color: var(--blk); }
+.vk-block--sel { outline: 2px solid var(--accent-color-800); outline-offset: 0px; z-index: 3; }
+.vk-block--text { background: color-mix(in oklab, var(--blk) 20%, var(--surface-elevated)); border-style: dashed; }
+.vk-block--wm { background: color-mix(in oklab, var(--blk) 22%, var(--surface-elevated)); }
+.vk-block--wm .vk-block__label { display: inline-flex; align-items: center; gap: 4px; }
+.vk-block__label {
+  flex: 1; font-size: 10.5px; color: var(--text-body); padding: 0 6px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none;
+}
+.vk-block__handle { width: 7px; align-self: stretch; cursor: ew-resize; flex-shrink: 0; position: relative; }
+.vk-block__handle::after { content: ''; position: absolute; top: 25%; bottom: 25%; left: 2.5px; width: 2px; border-radius: 1px; background: color-mix(in oklab, var(--blk) 70%, transparent); }
+/* §10.2 element animation, drawn on the clip: a ramp over the stretch the
+   entrance or exit occupies. The triangle is decoration and takes no pointer —
+   the outer 7px belongs to the trim handle, and the grip below starts past it.
+   The block's own `overflow: hidden` trims a wedge that outgrows its clip. */
+.vk-block__wedge {
+  position: absolute; top: 0; bottom: 0; z-index: 2; pointer-events: none;
+  background: color-mix(in oklab, var(--blk) 58%, transparent);
+}
+.vk-block__wedge--in { clip-path: polygon(0 100%, 100% 0, 100% 100%); }
+.vk-block__wedge--out { clip-path: polygon(0 0, 0 100%, 100% 100%); }
+.vk-block__animgrip {
+  position: absolute; top: 0; bottom: 0; z-index: 4; cursor: ew-resize;
+  transition: background 130ms cubic-bezier(0.45, 0, 0.4, 1);
+}
+.vk-block__animgrip:hover { background: color-mix(in oklab, var(--blk) 22%, transparent); }
+/* the clip is too short to read a triangle in, let alone aim at one — a bar
+   still says "something happens at this end", which is the whole job */
+.vk-block__animbar {
+  position: absolute; top: 0; bottom: 0; width: 2px; z-index: 2;
+  pointer-events: none; background: var(--blk);
+}
+.vk-block__loop {
+  position: absolute; right: 9px; top: 0; z-index: 3; pointer-events: none;
+  font-size: 11px; line-height: 1.1; color: color-mix(in oklab, var(--blk) 75%, var(--text-body));
+}
+.vk-block:hover .vk-block__handle::after { background: var(--blk); }
+
+/* P5b — the keyframe diamond row. Replaces the wedges (an element with `tracks`
+   reports no slot segments), so it may own the block's bottom band outright. */
+.vk-block__keys {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 9px; z-index: 4;
+  pointer-events: none;
+  background: color-mix(in oklab, var(--blk) 14%, transparent);
+}
+.vk-block__key {
+  position: absolute; bottom: 2px; width: 5px; height: 5px; margin-left: -2.5px;
+  background: var(--blk); rotate: 45deg; border-radius: 1px;
+}
+/* a track whose keys are packed tighter than KEY_MIN_PX: they are there, they
+   are just not aimable at this zoom */
+.vk-block__keydense {
+  position: absolute; bottom: 3px; height: 3px; border-radius: 1.5px;
+  background: repeating-linear-gradient(90deg,
+    var(--blk) 0 1.5px, transparent 1.5px 3px);
+}
+.vk-block__keygrab {
+  position: absolute; top: 0; bottom: 0; cursor: ew-resize; pointer-events: auto;
+  transition: background 130ms cubic-bezier(0.45, 0, 0.4, 1);
+}
+.vk-block__keygrab:hover { background: color-mix(in oklab, var(--blk) 30%, transparent); }
+
+/* playhead */
+.vk-playhead { position: absolute; top: 0; bottom: 0; width: 1.5px; background: light-dark(#e23b30, #ff7b69); z-index: 10; pointer-events: none; }
+.vk-playhead__grab {
+  position: absolute; top: 0; left: -5.5px; width: 12px; height: 14px;
+  background: light-dark(#e23b30, #ff7b69); border-radius: 3px 3px 6px 6px;
+  cursor: ew-resize; pointer-events: auto;
+}
+
+/* compact density */
+.vk-timeline--compact .vk-transport { padding-top: 2px; padding-bottom: 4px; }
+.vk-timeline--compact .vk-block__label { font-size: 9.5px; }

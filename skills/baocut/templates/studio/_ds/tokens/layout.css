@@ -1,0 +1,67 @@
+/* Spectrum 2 layout tokens (desktop scale) — generated from spectrum-design-data. */
+:root {
+  --s2-scale: 1; /* @kind other */ /* 1.25 on touch */
+
+  /* spacing */
+  --spacing-25: 1px;
+  --spacing-50: 2px;
+  --spacing-75: 4px;
+  --spacing-85: 6px;
+  --spacing-100: 8px;
+  --spacing-200: 12px;
+  --spacing-300: 16px;
+  --spacing-350: 20px;
+  --spacing-400: 24px;
+  --spacing-500: 32px;
+  --spacing-600: 40px;
+  --spacing-700: 48px;
+  --spacing-800: 64px;
+  --spacing-900: 80px;
+  --spacing-1000: 96px;
+
+  /* corner radius */
+  --corner-radius-none: 0px;
+  --corner-radius-small-default: 4px;
+  --corner-radius-medium-default: 8px;
+  --corner-radius-large-default: 10px;
+  --corner-radius-extra-large-default: 16px;
+  --corner-radius-full: 9999px;
+
+  /* border width */
+  --border-width-100: 1px;
+  --border-width-200: 2px;
+  --border-width-400: 4px;
+
+  /* component heights (desktop) */
+  --component-height-50: 20px;
+  --component-height-75: 24px;
+  --component-height-100: 32px;
+  --component-height-200: 40px;
+  --component-height-300: 48px;
+  --component-height-400: 56px;
+  --component-height-500: 64px;
+
+  /* workflow icon sizes (desktop) */
+  --workflow-icon-size-50: 14px;
+  --workflow-icon-size-75: 16px;
+  --workflow-icon-size-100: 20px;
+  --workflow-icon-size-200: 22px;
+  --workflow-icon-size-300: 26px;
+
+  /* focus ring */
+  --focus-indicator-thickness: 2px;
+  --focus-ring-gap: 2px;
+
+  /* text spacing helpers (desktop) */
+  --text-to-visual-50: 5px;
+  --text-to-visual-75: 5px;
+  --text-to-visual-100: 6px;
+  --text-to-visual-200: 7px;
+  --text-to-visual-300: 8px;
+  --text-to-control-75: 9px;
+  --text-to-control-100: 10px;
+  --component-edge-to-text-75: 9px;
+  --component-edge-to-text-100: 12px;
+  --component-edge-to-text-200: 15px;
+  --component-edge-to-text-300: 18px;
+}

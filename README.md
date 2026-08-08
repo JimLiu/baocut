@@ -1,17 +1,22 @@
 # BaoCut agent skill
 
 Give your AI coding agent the power to drive **[BaoCut](https://baocut.app)** —
-transcribe, add & translate subtitles, review speakers, clean up talking-head
-video, and export — all from natural language. This is the open-source
-[Agent Skill](https://skills.sh) that wraps the `baocut` command-line tool.
+transcribe, add and translate subtitles, review speakers, edit timelines and
+overlays, and export — all from natural language. This is the open-source
+[Agent Skill](https://skills.sh) for BaoCut's local `bcut` CLI and browser-based
+Subtitle Studio.
 
 Works with **Claude Code**, **Codex**, and any [skills.sh](https://skills.sh)-compatible agent.
 
 ## Requirements
 
-- **macOS** — BaoCut is a Mac app.
-- **The BaoCut app** — install it from **[baocut.app](https://baocut.app)**. The
-  skill drives the CLI bundled inside `BaoCut.app`; it does not ship the engines.
+- **macOS** — install BaoCut from **[baocut.app](https://baocut.app)**. The skill
+  uses the CLI bundled in `BaoCut.app`; on Apple silicon it can also download
+  the signed standalone CLI pinned to the skill release.
+- **Windows** — provide a local `bcut` executable through `BAOCUT_CLI`,
+  `BCUT_EXECUTABLE`, or `PATH`. The skill operates the project through the
+  browser-based Subtitle Studio; a pinned Windows CLI download is not included
+  yet.
 - **Node.js** — only for the one-command install below
   ([download](https://nodejs.org/en/download)). The manual steps need no Node.
 
@@ -44,16 +49,15 @@ Once installed, just ask your agent — for example:
   Chinese," or the Chinese equivalent 转写并翻译字幕. You can also type `/baocut`.
 - **Codex** — reference the baocut skill in your prompt; it drives the `baocut` CLI.
 
-Under the hood the agent runs commands like:
+Under the hood the agent uses the bundled resolver to run commands like:
 
 ```sh
-baocut --json auto talk.mp4 --lang zh    # transcribe -> polish -> translate
-baocut export <projectId> --srt --translated --lang zh
+skills/baocut/bin/baocut --json auto talk.mp4 --lang zh
+skills/baocut/bin/baocut export <projectId> --srt --translated --lang zh
 ```
 
-If `baocut` is not on your PATH, use the bundled resolver
-`skills/baocut/bin/baocut` (it points at `/Applications/BaoCut.app/Contents/MacOS/baocut-cli`
-and tells you to install the app if it is missing).
+The resolver honors an explicit CLI path, development builds, the CLI inside
+BaoCut.app, `bcut` on `PATH`, and the release-pinned CLI cache in that order.
 
 ## Layout
 
@@ -61,7 +65,9 @@ and tells you to install the app if it is missing).
 skills/baocut/
   SKILL.md          # agent entry point (router)
   references/       # per-task guides (orchestration, editing, export, …)
-  bin/baocut        # resolves the CLI inside the installed BaoCut.app
+  templates/        # browser-based Subtitle Studio
+  cli-release.json  # immutable standalone CLI pin
+  bin/baocut        # resolves, verifies, and runs the matching CLI
 ```
 
 ## Links

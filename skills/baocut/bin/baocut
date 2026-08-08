@@ -1,46 +1,281 @@
 #!/bin/sh
-# baocut — run the BaoCut CLI bundled inside the installed macOS app.
-# Shipped with the BaoCut agent skill (github.com/JimLiu/baocut).
-# Symlink onto your PATH if you like:  ln -sfn "$PWD/bin/baocut" /usr/local/bin/baocut
 set -eu
 
-# macOS only.
-if [ "$(uname -s)" != "Darwin" ]; then
-  echo "baocut: BaoCut is macOS-only — this skill needs the BaoCut Mac app." >&2
-  exit 1
+skill_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+skill_md="$skill_root/SKILL.md"
+cli_release_json="$skill_root/cli-release.json"
+required_spec='>=1.11,<2.0'
+
+metadata_value() {
+    key=$1
+    sed -n "s/^[[:space:]]*$key:[[:space:]]*[\"']*\\([^\"']*\\)[\"']*[[:space:]]*$/\\1/p" "$skill_md" | head -n 1
+}
+
+# cli-release.json is a flat, one-key-per-line object written by the release
+# builder, so a prefix strip is enough; no python or jq dependency.
+cli_release_value() {
+    sed -n "s/^[[:space:]]*\"$1\"[[:space:]]*:[[:space:]]*//p" "$cli_release_json" \
+        | head -n 1 \
+        | sed 's/,[[:space:]]*$//; s/^"//; s/"$//'
+}
+
+skill_version=$(metadata_value version)
+min_app_version=$(metadata_value minAppVersion)
+test -n "$skill_version" && test -n "$min_app_version" || {
+    echo "BaoCut skill metadata is incomplete; reinstall the baocut skill." >&2
+    exit 3
+}
+
+# CLI resolution order:
+#   1. Explicit override: BAOCUT_CLI / BCUT_EXECUTABLE / BAOCUT_BIN.
+#   2. Development checkout: when this skill directory lives inside a BaoCut
+#      source tree, use the workspace build (newest of release/debug), or run
+#      the sources directly through `cargo run` if nothing is built yet.
+#   3. Released install: the CLI embedded in BaoCut.app (system or per-user
+#      Applications; every App release ships its matching baocut-cli).
+#   4. A `bcut` on PATH.
+#   5. The cached CLI pinned by this skill's cli-release.json.
+#   6. Download that pinned CLI (SHA-256 verified) into the cache. Disable with
+#      BAOCUT_SKILL_NO_DOWNLOAD=1.
+# An explicit override or a development checkout is never silently replaced by
+# a download: those choices are deliberate, so a failure there must be fixed
+# where it was made.
+cli=
+cargo_manifest=
+cli_source=
+for variable in BAOCUT_CLI BCUT_EXECUTABLE BAOCUT_BIN; do
+    case "$variable" in
+        BAOCUT_CLI) candidate=${BAOCUT_CLI:-} ;;
+        BCUT_EXECUTABLE) candidate=${BCUT_EXECUTABLE:-} ;;
+        BAOCUT_BIN) candidate=${BAOCUT_BIN:-} ;;
+    esac
+    if test -n "$candidate" && test -x "$candidate"; then
+        cli=$candidate
+        cli_source=env
+        break
+    fi
+done
+if test -z "$cli" && test "${BAOCUT_SKILL_NO_DEV:-0}" != 1; then
+    dev_root=$skill_root
+    while test "$dev_root" != / && test -n "$dev_root"; do
+        if test -f "$dev_root/core/Cargo.toml" && test -d "$dev_root/apps/cli"; then
+            release=$dev_root/core/target/release/bcut
+            debug=$dev_root/core/target/debug/bcut
+            # Use the newest workspace binary so Agent discovery never reads a
+            # stale contract after a debug-only development build.
+            if test -x "$debug" && { ! test -x "$release" || test "$debug" -nt "$release"; }; then
+                cli=$debug
+                echo "baocut skill: WARNING using debug build; transcription will be much slower. Build release with scripts/dev/prepare-bcut.sh" >&2
+            elif test -x "$release"; then
+                cli=$release
+            elif command -v cargo >/dev/null 2>&1; then
+                cargo_manifest=$dev_root/core/Cargo.toml
+            fi
+            if test -n "$cli$cargo_manifest"; then
+                cli_source=dev
+                echo "baocut skill: development checkout detected at $dev_root" >&2
+            fi
+            break
+        fi
+        dev_root=$(dirname "$dev_root")
+    done
+fi
+if test -z "$cli$cargo_manifest"; then
+    for app_cli in \
+        /Applications/BaoCut.app/Contents/MacOS/baocut-cli \
+        "${HOME:-/nonexistent}/Applications/BaoCut.app/Contents/MacOS/baocut-cli"
+    do
+        if test -x "$app_cli"; then
+            cli=$app_cli
+            cli_source=app
+            break
+        fi
+    done
+fi
+if test -z "$cli$cargo_manifest" && command -v bcut >/dev/null 2>&1; then
+    cli=$(command -v bcut)
+    cli_source=path
 fi
 
-# Tell the CLI which skill is driving it, so it can enforce the version contract.
-# Resolve this script through any PATH symlink to find the sibling SKILL.md.
-SELF="$0"
-while [ -L "$SELF" ]; do
-  link="$(readlink "$SELF")"
-  case "$link" in
-    /*) SELF="$link" ;;
-    *) SELF="$(dirname "$SELF")/$link" ;;
-  esac
-done
-SKILL_MD="$(cd "$(dirname "$SELF")/.." 2>/dev/null && pwd)/SKILL.md"
-if [ -f "$SKILL_MD" ]; then
-  v="$(sed -n 's/^version:[[:space:]]*//p' "$SKILL_MD" | head -1)"
-  ma="$(sed -n 's/^minAppVersion:[[:space:]]*//p' "$SKILL_MD" | head -1)"
-  [ -n "$v" ] && export BAOCUT_SKILL_VERSION="$v"
-  [ -n "$ma" ] && export BAOCUT_SKILL_MIN_APP="$ma"
+cli_release_version=
+cli_release_build=
+cli_release_url=
+cli_release_sha=
+cli_release_entry=bcut
+cache_dir=
+cache_bin=
+if test -f "$cli_release_json"; then
+    cli_release_version=$(cli_release_value version)
+    cli_release_build=$(cli_release_value build)
+    cli_release_url=$(cli_release_value url)
+    cli_release_sha=$(cli_release_value sha256)
+    entry=$(cli_release_value entry)
+    test -z "$entry" || cli_release_entry=$entry
+    cache_home=${XDG_CACHE_HOME:-}
+    if test -z "$cache_home" && test -n "${HOME:-}"; then
+        cache_home=$HOME/.cache
+    fi
+    if test -n "$cli_release_version" && test -n "$cli_release_url" \
+        && test -n "$cli_release_sha" && test -n "$cache_home"
+    then
+        # Key on version *and* build: the marketing version stays put while the
+        # build number moves, and the handshake cannot tell two builds apart.
+        cache_dir=$cache_home/baocut/cli/$cli_release_version-build.$cli_release_build
+        cache_bin=$cache_dir/bcut
+    fi
+fi
+if test -z "$cli$cargo_manifest" && test -n "$cache_bin" && test -x "$cache_bin"; then
+    cli=$cache_bin
+    cli_source=cache
 fi
 
-# Resolve the CLI: $BAOCUT_CLI override -> installed app -> a baocut-cli on PATH.
-for BIN in \
-    "${BAOCUT_CLI:-}" \
-    "/Applications/BaoCut.app/Contents/MacOS/baocut-cli" \
-    "$HOME/Applications/BaoCut.app/Contents/MacOS/baocut-cli"; do
-    [ -n "$BIN" ] && [ -x "$BIN" ] && exec "$BIN" "$@"
-done
-if command -v baocut-cli >/dev/null 2>&1; then exec baocut-cli "$@"; fi
+run_cli() {
+    if test -n "$cargo_manifest"; then
+        cargo run --quiet --locked --manifest-path "$cargo_manifest" -p bcut -- "$@"
+    else
+        "$cli" "$@"
+    fi
+}
 
-cat >&2 <<'EOF'
-baocut: BaoCut app not found.
-Install BaoCut for Mac from https://baocut.app, then retry. Expected the CLI at:
-  /Applications/BaoCut.app/Contents/MacOS/baocut-cli
-(or set BAOCUT_CLI to the baocut-cli path).
-EOF
-exit 1
+version_at_least() {
+    awk -v current="$1" -v minimum="$2" 'BEGIN {
+        split(current, a, /[.-]/); split(minimum, b, /[.-]/)
+        for (i = 1; i <= 3; i++) {
+            av = a[i] + 0; bv = b[i] + 0
+            if (av > bv) exit 0
+            if (av < bv) exit 1
+        }
+        exit 0
+    }'
+}
+
+app_version=
+handshake_failure=
+handshake_exit=3
+handshake() {
+    handshake_failure=
+    handshake_exit=3
+    handshake_json=$(
+        BAOCUT_SKILL_VERSION="$skill_version" \
+        BAOCUT_SKILL_MIN_APP="$min_app_version" \
+        run_cli --require-spec "$required_spec" --json version
+    ) || {
+        handshake_exit=$?
+        handshake_failure=spec
+        return 1
+    }
+    app_version=$(printf '%s\n' "$handshake_json" | sed -n 's/.*"appVersion":"\([^"]*\)".*/\1/p')
+    if test -z "$app_version"; then
+        handshake_failure=legacy
+        return 1
+    fi
+    if ! version_at_least "$app_version" "$min_app_version"; then
+        handshake_failure=old
+        return 1
+    fi
+    return 0
+}
+
+report_failure() {
+    case "$handshake_failure" in
+        missing)
+            echo "BaoCut CLI was not found. Install BaoCut.app or set BAOCUT_CLI to a bcut executable." >&2
+            ;;
+        legacy)
+            echo "This BaoCut CLI predates the skill handshake. Update BaoCut.app or the standalone bcut CLI." >&2
+            ;;
+        old)
+            echo "BaoCut skill v$skill_version requires BaoCut App >= $min_app_version; found $app_version. Update BaoCut.app." >&2
+            ;;
+    esac
+    if test -n "$cli_release_url"; then
+        echo "baocut skill: the CLI pinned by this skill is $cli_release_url" >&2
+        echo "baocut skill: download it, unzip its '$cli_release_entry' entry, then set BAOCUT_CLI to that file." >&2
+    fi
+}
+
+download_pinned_cli() {
+    for tool in curl unzip shasum; do
+        command -v "$tool" >/dev/null 2>&1 || {
+            echo "baocut skill: $tool is required to download the pinned BaoCut CLI." >&2
+            report_failure
+            exit 3
+        }
+    done
+    mkdir -p "$cache_dir" || {
+        echo "baocut skill: cannot create the CLI cache directory $cache_dir" >&2
+        report_failure
+        exit 3
+    }
+    # Stage inside the cache directory so the final move is a same-filesystem
+    # rename rather than a cross-device copy.
+    download_zip=$cache_dir/.bcut-download.$$.zip
+    download_bin=$cache_dir/.bcut-extract.$$
+    trap 'rm -f "$download_zip" "$download_bin"' EXIT HUP INT TERM
+    echo "baocut skill: downloading BaoCut CLI $cli_release_version (build $cli_release_build) from $cli_release_url to $cache_bin" >&2
+    curl -fsSL "$cli_release_url" -o "$download_zip" || {
+        echo "baocut skill: download failed: $cli_release_url" >&2
+        report_failure
+        exit 3
+    }
+    actual_sha=$(shasum -a 256 "$download_zip" | awk '{print $1}')
+    if test "$actual_sha" != "$cli_release_sha"; then
+        rm -f "$download_zip"
+        echo "baocut skill: SHA-256 mismatch for $cli_release_url" >&2
+        echo "baocut skill: expected $cli_release_sha but got $actual_sha; the download was deleted." >&2
+        exit 3
+    fi
+    unzip -p "$download_zip" "$cli_release_entry" > "$download_bin" 2>/dev/null || {
+        echo "baocut skill: cannot extract '$cli_release_entry' from the downloaded CLI archive." >&2
+        report_failure
+        exit 3
+    }
+    test -s "$download_bin" || {
+        echo "baocut skill: the downloaded CLI archive has no '$cli_release_entry' entry." >&2
+        report_failure
+        exit 3
+    }
+    rm -f "$download_zip"
+    chmod 755 "$download_bin"
+    mv -f "$download_bin" "$cache_bin" || {
+        echo "baocut skill: cannot install the downloaded CLI at $cache_bin" >&2
+        report_failure
+        exit 3
+    }
+    trap - EXIT HUP INT TERM
+    cli=$cache_bin
+    cargo_manifest=
+    cli_source=download
+}
+
+if test -n "$cli$cargo_manifest"; then
+    handshake || true
+else
+    handshake_failure=missing
+fi
+if test -n "$handshake_failure"; then
+    case "$cli_source" in
+        env|dev)
+            report_failure
+            exit "$handshake_exit"
+            ;;
+    esac
+    if test -z "$cache_bin" || test "${BAOCUT_SKILL_NO_DOWNLOAD:-0}" = 1; then
+        report_failure
+        exit "$handshake_exit"
+    fi
+    download_pinned_cli
+    handshake || true
+    if test -n "$handshake_failure"; then
+        report_failure
+        exit "$handshake_exit"
+    fi
+fi
+
+export BAOCUT_SKILL_VERSION="$skill_version"
+export BAOCUT_SKILL_MIN_APP="$min_app_version"
+if test -n "$cargo_manifest"; then
+    exec cargo run --quiet --locked --manifest-path "$cargo_manifest" -p bcut -- \
+        --require-spec "$required_spec" "$@"
+fi
+exec "$cli" --require-spec "$required_spec" "$@"

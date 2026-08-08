@@ -1,0 +1,352 @@
+/* BaoCut — Translate tab. Lives in the editor side pane next to Transcript &
+   Style and reuses the transcript's chrome (.vk-transcript__toolbar, .vk-findbar,
+   .vk-chapter, .vk-group, .vk-seg__play). Spectrum 2 tokens only. */
+
+/* pane shell — mirrors .vk-transcript so the three tabs feel identical */
+.vk-translate { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; position: relative; container-type: inline-size; container-name: translate-pane; }
+.vk-translate__scroll { flex: 1; overflow-y: auto; padding: 0 14px 0 14px; }
+.tr-mono { font-variant-numeric: tabular-nums; }
+
+/* Find & replace: Transcript parity plus a compact replace-scope picker. */
+.tr-findbar__replace { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.tr-findbar__replacebox { flex: 1 1 120px; min-width: 0; }
+.tr-findscope {
+  width: 132px; height: 26px; flex: 0 0 132px; padding: 0 8px 0 10px;
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+}
+.tr-findbar__opts, .tr-findbar__actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+@container translate-pane (max-width: 520px) {
+  .tr-findbar__replace {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "replace actions" "scope opts"; row-gap: 6px;
+  }
+  .tr-findbar__replacebox { grid-area: replace; width: 100%; }
+  .tr-findscope { grid-area: scope; }
+  .tr-findbar__opts { grid-area: opts; justify-self: end; }
+  .tr-findbar__actions { grid-area: actions; justify-self: end; }
+}
+
+/* column header strip (left = original, right = translation) */
+.tr-colhead {
+  display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 0;
+  position: sticky; top: 0; z-index: 4; background: var(--surface-layer-1, var(--gray-50));
+  padding: 9px 4px 6px 17px; margin: 0 -14px; padding-left: 31px; padding-right: 18px;
+}
+.tr-colhead span {
+  font-size: 9.5px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-subdued);
+}
+.tr-colhead__t { padding-left: 12px; }
+
+/* ===================== toolbar: language switcher ===================== */
+.tr-langbtn {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px 0 6px;
+  border: 1px solid var(--gray-300); border-radius: 8px; background: var(--surface-elevated, #fff);
+  font: inherit; font-size: 12.5px; font-weight: 600; color: var(--text-body); cursor: pointer;
+  transition: background 130ms cubic-bezier(0.45,0,0.4,1), border-color 130ms;
+}
+.tr-langbtn:hover { background: var(--gray-100); border-color: var(--gray-400); }
+.tr-langbtn:active { transform: scale(0.97); }
+.tr-langbtn__src { font-size: 11px; font-weight: 700; color: var(--text-subdued); letter-spacing: 0.03em; }
+.tr-langbtn .s2-icon { color: var(--text-subdued); }
+.tr-langbtn__chip {
+  width: 19px; height: 19px; border-radius: 5px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 800; color: #fff;
+  background: linear-gradient(135deg, var(--accent-color-900), var(--accent-color-1100, var(--accent-color-1000)));
+}
+.tr-langbtn__name { color: var(--text-heading); }
+
+/* ===================== live run header (.tr-live, M58) =====================
+   the retired M26 running dialog + .tr-runchip pill, folded into the tab:
+   phase chips, %, counts, model-activity disclosure, cancel / CLI notice */
+.tr-live {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 10px 12px; border-bottom: 1px solid var(--gray-200); background: var(--surface-layer-1, var(--gray-25));
+}
+.tr-live--slim { flex-direction: row; align-items: center; padding: 6px 12px; }
+.tr-live__row1 { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.tr-live__title { font-size: 13px; font-weight: 800; color: var(--text-heading); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tr-live__sub { font-size: 11.5px; color: var(--text-subdued); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tr-live__counts { font-size: 11.5px; color: var(--text-subdued); font-variant-numeric: tabular-nums; }
+.vk-prog__fill--indeterminate {
+  animation: bcs-progress-indeterminate 1.15s ease-in-out infinite;
+  transform-origin: left center;
+}
+@keyframes bcs-progress-indeterminate {
+  0% { transform: translateX(-105%); }
+  55% { transform: translateX(115%); }
+  100% { transform: translateX(265%); }
+}
+.tr-live__feedtoggle {
+  display: flex; align-items: center; gap: 6px; width: 100%; height: 24px; padding: 0 4px;
+  border: 0; border-radius: 6px; background: transparent; cursor: pointer;
+  font: inherit; font-size: 11.5px; font-weight: 600; color: var(--text-heading);
+}
+.tr-live__feedtoggle:hover { background: var(--gray-100); }
+.tr-live__feedtoggle .vk-mono { font-size: 10px; }
+.tr-live__feed { max-height: 180px; overflow-y: auto; }
+.tr-live__error {
+  display: flex; align-items: flex-start; gap: 8px;
+  font-size: 11.5px; font-weight: 600; color: var(--orange-900, #bd5b00);
+}
+.tr-live__error span { flex: 1; }
+
+/* preview card while a run streams (.tg--preview, M58) — read-only row:
+   time + state chip, source over the incoming translation */
+.tg--preview { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; cursor: pointer; }
+.tg--preview .tg__time { flex-shrink: 0; margin-top: 2px; }
+.tg-preview__col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.tg-preview__src { font-size: 11px; color: var(--text-subdued); }
+.tg-preview__txt { font-size: 13px; font-weight: 600; color: var(--text-heading); }
+.tg-preview__txt--pending { color: var(--text-subdued); font-weight: 400; }
+.tg--preview .vk-chip-rec { align-self: flex-start; flex-shrink: 0; }
+
+/* ===================== stat / progress strip ===================== */
+.tr-statbar {
+  display: flex; align-items: center; gap: 14px;
+  padding: 7px 14px; border-bottom: 1px solid var(--gray-200); background: var(--gray-75, var(--gray-50));
+}
+/* stats take the remaining width and clip; the indicator (flex:none) is pinned
+   right, so a crowded row never overlaps the progress/check */
+.tr-statbar__stats { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1; overflow: hidden; }
+.tr-stat { display: flex; align-items: baseline; gap: 5px; font-size: 11.5px; color: var(--text-subdued); white-space: nowrap; flex: none; }
+.tr-stat b { font-size: 13px; font-weight: 800; color: var(--text-heading); }
+.tr-stat--warn b { color: var(--orange-900, #bd5b00); }
+/* M53: the "out of date" stat is a click affordance (re-translate) */
+.tr-stat--action { cursor: pointer; color: var(--orange-900, #bd5b00); }
+.tr-stat--action:hover { text-decoration: underline; }
+.tr-prog { display: flex; align-items: center; gap: 8px; flex: none; }
+.tr-prog__track { width: 90px; height: 6px; border-radius: 999px; background: var(--gray-200); overflow: hidden; }
+.tr-prog__fill { height: 100%; border-radius: 999px; background: var(--accent-color-900); transition: width 240ms cubic-bezier(0.45,0,0.4,1); }
+.tr-prog__pct { font-size: 11.5px; font-weight: 700; color: var(--text-body); }
+/* fully translated → a single blue check instead of a full progress bar */
+.tr-prog--done { color: var(--accent-color-900); }
+
+/* ===================== one bilingual group card ===================== */
+/* M50: compact card — the "N lines" footer chip + Auto-split split-button are
+   retired, so the card is just head + interlinear body (tighter vertical pad) */
+.tg {
+  position: relative; border-left: 3px solid var(--gray-400);
+  border-radius: 0 10px 10px 0; margin: 10px 0; padding: 8px 12px 8px 13px;
+  background: var(--surface-elevated, #fff); border-top: 1px solid var(--gray-200);
+  border-right: 1px solid var(--gray-200); border-bottom: 1px solid var(--gray-200);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  transition: box-shadow 130ms, background 130ms;
+}
+.tg--active { box-shadow: 0 0 0 2px var(--accent-color-800); }
+.tg--untrans { background: var(--gray-50); }
+/* M53: out-of-date translation — dim the stale target text */
+.tg--stale .tg-trans { opacity: 0.5; }
+.tg--para-start { margin-top: 22px; }
+
+.tg__head { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.tg__sp { font-size: 11.5px; font-weight: 800; letter-spacing: 0.01em; }
+.tg__time { font-size: 10.5px; color: var(--text-subdued); }
+.tg__play.vk-seg__play { margin: 0; }
+
+/* side-by-side correspondence body: original | translation */
+.tg-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); margin-top: 0; }
+.tg-orig {
+  display: flex; flex-direction: column; gap: 3px; min-width: 0;
+  padding-right: 12px; align-self: start;
+  border-right: 2px solid color-mix(in oklch, var(--rail, var(--gray-400)) 55%, var(--gray-200));
+}
+.tg-transcol { display: flex; flex-direction: column; justify-content: center; gap: 7px; min-width: 0; padding-left: 12px; }
+.tg-pairs { display: flex; flex-direction: column; }
+.tg-pair {
+  position: relative;
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  padding: 5px 0; border-top: 1px solid var(--gray-100);
+}
+.tg-pair:first-child { border-top: 0; padding-top: 0; }
+.tg-pair:last-child { padding-bottom: 0; }
+.tg-pair--active { background: color-mix(in oklch, var(--accent-color-900) 4%, transparent); }
+.tg-orig__line {
+  font-size: 13px; line-height: 1.5; color: var(--text-subdued); cursor: pointer;
+  border-radius: 5px; padding: 1px 3px; margin: 0 -3px;
+}
+.tg-orig__line:hover { background: color-mix(in oklch, var(--gray-100) 70%, transparent); color: var(--text-body); }
+.tg-orig__line--active { color: var(--text-body); cursor: default; background: transparent; }
+.tg-orig__line--active:hover { background: transparent; }
+/* 分段源侧：外层只做容器，可点击/悬停单位下沉到每个源 cue 分组（part），
+   part 内部才是纯宽度折行的子行（subline）。单 part 时几何与非分段行一致。 */
+.tg-orig__line--segmented { display: flex; flex-direction: column; gap: 2px; padding: 0; margin: 0; cursor: default; }
+.tg-orig__line--segmented:hover { background: transparent; color: var(--text-subdued); }
+.tg-orig__line--segmented.tg-orig__line--active:hover { color: var(--text-body); }
+.tg-orig__part {
+  display: flex; flex-direction: column; gap: 2px; cursor: pointer;
+  border-radius: 5px; padding: 1px 3px; margin: 0 -3px;
+}
+.tg-orig__part:hover { background: color-mix(in oklch, var(--gray-100) 70%, transparent); color: var(--text-body); }
+.tg-orig__line--active .tg-orig__part { cursor: default; }
+.tg-orig__line--active .tg-orig__part:hover { background: transparent; }
+.tg-orig__part--empty { cursor: default; }
+/* 多对一：一条译文覆盖多条源字幕时，cue 边界用比 pair 分隔更轻的虚线提示 —
+   实线＝换一片译文，虚线＝同一片译文里换一条源字幕。 */
+.tg-orig__line--multicue { gap: 5px; }
+.tg-orig__line--multicue .tg-orig__part + .tg-orig__part {
+  padding-top: 5px;
+  border-top: 1px dashed color-mix(in oklch, var(--gray-300) 60%, transparent);
+}
+.tg-orig__subline { display: block; text-wrap: pretty; }
+/* 行级 cps 提示：只在 warn/bad 时出现，靠右悬浮在译文行上方 */
+.tg-pair__cps { align-self: flex-end; line-height: 1; margin-bottom: -2px; }
+.tr-w { border-radius: 3px; padding: 0 0.5px; transition: background 90ms, color 90ms; }
+.tr-w--spoken { color: var(--gray-500); }
+.tr-w--cur { background: var(--accent-color-900); color: #fff; }
+
+/* connector chip removed in side-by-side layout */
+
+/* translation text (editable) */
+.tg-trans {
+  font-size: 14.5px; line-height: 1.5; color: var(--text-heading); cursor: text;
+  outline: none; min-height: 22px; border-radius: 6px; padding: 2px 4px; margin: 0 -4px;
+}
+.tg-trans:hover { background: color-mix(in oklch, var(--gray-100) 55%, transparent); }
+.tg-trans[data-search-readonly="true"] { cursor: pointer; }
+.tg-trans[data-search-readonly="true"]:hover { background: color-mix(in oklch, var(--gray-100) 70%, transparent); }
+.tg-trans[contenteditable="true"] { background: color-mix(in oklch, var(--accent-color-900) 5%, transparent); }
+.tg-trans[contenteditable="true"]:focus { box-shadow: 0 0 0 2px var(--accent-color-800); background: var(--surface-elevated, #fff); }
+.tg-trans--empty { cursor: text; }
+.tg-trans--empty::before { content: attr(data-ph); color: var(--text-subdued); font-style: italic; }
+
+/* split point — small circle on the original/translation boundary */
+.tg-splitpt {
+  align-self: flex-end; width: 18px; height: 18px; padding: 0; margin-right: -9px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; border: 1.5px dashed var(--gray-400); background: var(--surface-elevated, #fff);
+  color: var(--text-subdued); cursor: pointer; opacity: 0;
+  transition: opacity 120ms, border-color 120ms, color 120ms, transform 120ms;
+}
+.tg:hover .tg-splitpt { opacity: 0.65; }
+.tg-splitpt:hover { opacity: 1; border-style: solid; border-color: var(--accent-color-800); color: var(--accent-color-900); transform: scale(1.15); }
+.tg-splitpt .s2-icon { color: currentColor; }
+
+/* merge-up handle on a same-speaker group */
+.tg-mergeup {
+  position: absolute; top: -9px; left: 14px; z-index: 4;
+  display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0 8px 0 5px;
+  border-radius: 999px; border: 1px solid var(--gray-300); background: var(--surface-elevated, #fff);
+  color: var(--text-subdued); font: inherit; font-size: 10px; font-weight: 700; cursor: pointer;
+  opacity: 0; pointer-events: none; box-shadow: 0 1px 3px rgba(0,0,0,0.12); transition: opacity 110ms;
+}
+.tg:hover .tg-mergeup { opacity: 1; pointer-events: auto; }
+.tg-mergeup:hover { border-color: var(--accent-color-700); color: var(--accent-color-900); }
+.tg-mergeup .s2-icon { color: currentColor; }
+.tg .tg-mergeup--piece { left: 3px; }
+
+/* ===================== chips ===================== */
+.tr-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10.5px; font-weight: 600; color: var(--text-subdued);
+  padding: 2px 7px; border-radius: 999px; background: var(--gray-100);
+}
+.tr-chip .s2-icon { color: currentColor; }
+.tr-chip--cps { font-variant-numeric: tabular-nums; }
+.tr-chip--cps b { font-weight: 800; }
+.tr-chip--cps i { font-style: normal; opacity: 0.7; margin-left: 1px; }
+.tr-chip--warn { background: var(--orange-200, #ffe0bf); color: var(--orange-1100, #8a4000); }
+.tr-chip--bad { background: var(--red-200, #ffd9d6); color: var(--red-1100, #b71d18); }
+.tr-chip--untrans { background: var(--gray-100); color: var(--text-subdued); }
+
+/* ===================== search highlight ===================== */
+.tr-mark { background: light-dark(#fff3b0, #6b5d12); border-radius: 2px; color: inherit; padding: 0 1px; }
+.tr-mark--cur { background: light-dark(#ffd43b, #a8881a); outline: 2px solid light-dark(#e8a33d, #ffd43b); }
+
+/* ===================== empty / untranslated state ===================== */
+.tr-empty {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  padding: 40px 26px 30px; gap: 6px; max-width: 360px; margin: 18px auto 0;
+}
+.tr-empty__art { width: 116px; height: 116px; margin-bottom: 8px; }
+.tr-empty__title { font-size: 18px; font-weight: 800; color: var(--text-heading); letter-spacing: -0.01em; }
+.tr-empty__sub { font-size: 12.5px; line-height: 1.5; color: var(--text-subdued); text-wrap: pretty; }
+.tr-empty__row { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+.tr-empty__lang { height: 34px; gap: 6px; }
+
+/* ===================== language popover (toolbar + empty state) ===================== */
+.tr-langpop { padding: 6px; max-height: 440px; display: flex; flex-direction: column; }
+.tr-langsearch {
+  display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 9px; margin-bottom: 4px;
+  border-radius: 8px; border: 1px solid var(--gray-300); background: var(--surface-elevated, #fff); flex-shrink: 0;
+}
+.tr-langsearch .s2-icon { color: var(--text-subdued); }
+.tr-langsearch .vk-input { border: 0; outline: 0; background: transparent; flex: 1; font: inherit; font-size: 13px; height: 30px; padding: 0; }
+.tr-langsearch .vk-input::placeholder { font-style: italic; color: var(--text-disabled); }
+.tr-langpop__scroll { overflow-y: auto; flex: 1; min-height: 0; }
+.tr-langpop__grp {
+  font-size: 9.5px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--text-subdued); padding: 9px 8px 4px;
+}
+.tr-langrow {
+  display: flex; align-items: center; gap: 9px; width: 100%; height: 38px; padding: 0 8px;
+  border: 0; border-radius: 8px; background: transparent; cursor: pointer; font: inherit; text-align: left;
+}
+.tr-langrow:hover { background: var(--gray-100); }
+.tr-langrow--on { background: color-mix(in oklch, var(--accent-color-900) 9%, transparent); }
+.tr-langrow__chip {
+  width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; color: #fff;
+  background: linear-gradient(135deg, var(--accent-color-900), var(--accent-color-1100, var(--accent-color-1000)));
+}
+.tr-langrow__txt { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.tr-langrow__txt b { font-size: 13px; font-weight: 700; color: var(--text-heading); }
+.tr-langrow__txt i { font-size: 11px; font-style: normal; color: var(--text-subdued); }
+.tr-langrow__pct { font-size: 11px; font-weight: 700; color: var(--text-subdued); font-variant-numeric: tabular-nums; }
+.tr-langrow .s2-icon { color: var(--accent-color-900); }
+.tr-langpop__foot { border-top: 1px solid var(--gray-200); padding-top: 6px; margin-top: 4px; flex-shrink: 0; }
+.tr-langpop__foot .s2-btn { width: 100%; justify-content: center; }
+
+/* ============== setup dialog: language dropdown (ai.jsx, M32) ============== */
+/* trigger — doubles as the "English → {dst}" pair display + Re-translate chip */
+.vk-langtrigger {
+  display: flex; align-items: center; gap: 9px; width: 100%; height: 44px; padding: 0 13px;
+  border-radius: 8px; border: 1px solid var(--border-color-field, var(--gray-300));
+  background: var(--surface-elevated, #fff); cursor: pointer; font: inherit; text-align: left;
+  transition: border-color 120ms;
+}
+.vk-langtrigger:hover { border-color: var(--gray-500); }
+.vk-langtrigger .s2-icon { color: var(--text-subdued); flex-shrink: 0; }
+.vk-langtrigger__src { font-size: 13px; font-weight: 700; color: var(--text-body); flex-shrink: 0; }
+.vk-langtrigger__dst { font-size: 14px; font-weight: 800; color: var(--text-heading); display: flex; align-items: baseline; gap: 7px; min-width: 0; white-space: nowrap; overflow: hidden; }
+.vk-langtrigger__dst i { font-size: 11.5px; font-style: normal; font-weight: 500; color: var(--text-subdued); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* searchable popover: filter field over a scrollable, usage-ordered list */
+.vk-langdrop { padding: 8px; }
+.vk-langdrop__search {
+  display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; margin-bottom: 8px;
+  border-radius: 8px; border: 1px solid var(--gray-300); background: var(--surface-elevated, #fff);
+}
+.vk-langdrop__search:focus-within { border-color: var(--accent-color-800); box-shadow: 0 0 0 1px var(--accent-color-800); }
+.vk-langdrop__search .s2-icon { color: var(--text-subdued); flex-shrink: 0; }
+.vk-langdrop__search .vk-input { border: 0; outline: 0; background: transparent; flex: 1; font: inherit; font-size: 13px; height: 30px; padding: 0; }
+.vk-langdrop__search .vk-input::placeholder { font-style: italic; color: var(--text-disabled); }
+.vk-langdrop__list { max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; }
+.vk-langdrop__row {
+  display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; min-width: 0;
+  border: 0; border-radius: 6px; background: transparent; cursor: pointer; font: inherit; text-align: left;
+}
+.vk-langdrop__row:hover { background: var(--gray-100); }
+.vk-langdrop__native { font-size: 13.5px; font-weight: 700; color: var(--text-heading); white-space: nowrap; flex-shrink: 0; }
+.vk-langdrop__name { font-size: 11.5px; color: var(--text-subdued); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vk-langdrop__row .s2-icon { color: var(--accent-color-900); flex-shrink: 0; }
+.vk-langdrop__empty { font-size: 12px; color: var(--text-subdued); text-align: center; padding: 14px 0; }
+
+/* timeline translation track blocks */
+.vk-block--trans { cursor: pointer; }
+.vk-block--transempty { background: var(--gray-100); border-style: dashed; }
+.vk-block--transempty .vk-block__label { color: var(--text-subdued); }
+.vk-block--transactive { outline: 2px solid var(--accent-color-800); outline-offset: 0; z-index: 2; }
+
+/* spinner reuse */
+.vk-translate .vk-spin {
+  width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent;
+  border-radius: 50%; display: inline-block; animation: vk-spin 0.7s linear infinite;
+}
+@keyframes vk-spin { to { transform: rotate(360deg); } }
+
+/* v0.3 — 句内展示片（transAlign pieces）逐行编辑。片时间由卡片总时窗 +
+   原文行 hover 提示承载，不在右栏占据译文排版宽度。 */
+/* 整句上屏块（时间轴译文轨 kind=sentence） */
+.vk-block--transwhole { opacity: 0.85; border-style: dashed; }
