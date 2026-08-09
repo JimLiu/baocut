@@ -1,10 +1,11 @@
 {
-  "build": "35",
+  "build": "36",
   "entry": "bcut",
+  "metallib": "mlx.metallib",
   "schema": 1,
-  "sha256": "2140fa38cfd6d3058d26f8bf66adbf41d2c69c45409957339ae493f7c944a8ca",
-  "size": 30602537,
+  "sha256": "6d9f4e2ebfe638b803caf83e3327a8266d5cdc788c773cb61d1e8fd0234465e1",
+  "size": 62643014,
   "target": "aarch64-apple-darwin",
-  "url": "https://github.com/JimLiu/baocut/releases/download/baocut-v1.0.0-build.35/bcut-1.0.0-build.35-aarch64-apple-darwin.zip",
-  "version": "1.0.0"
+  "url": "https://github.com/JimLiu/baocut/releases/download/baocut-v1.0.1-build.36/bcut-1.0.1-build.36-aarch64-apple-darwin.zip",
+  "version": "1.0.1"
 }

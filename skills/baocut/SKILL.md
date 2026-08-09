@@ -2,8 +2,8 @@
 name: baocut
 description: Drive BaoCut's local CLI for transcription, subtitle and timeline editing, source cuts, clip arrangement, overlays, B-roll, watermarks, animation, on-screen-text translation, review, quality checks, rendered output, and editable projects for CapCut, Premiere Pro, DaVinci Resolve, Final Cut Pro, Shotcut, or Kdenlive. Use whenever the user asks to operate a .bcut project or produce these BaoCut deliverables.
 metadata:
-  version: "1.0.0"
-  minAppVersion: "1.0.0"
+  version: "1.0.1"
+  minAppVersion: "1.0.1"
 ---
 
 # BaoCut
@@ -36,12 +36,14 @@ If nothing above resolves, or the resolved CLI is older than
 `metadata.minAppVersion`, the resolver downloads the CLI pinned by this
 skill's `cli-release.json` — the standalone release archive built from the
 same commit as the matching App. It verifies the archive's SHA-256 against
-the pin before extracting anything, unpacks the single `bcut` entry into the
-cache, and reruns the full contract and version handshake against the
-downloaded binary. Any failure exits 3 with the manual download URL. The
-download carries no `com.apple.quarantine` attribute and the Developer ID
-signature lives in the binary itself, so the cached CLI runs without a
-Gatekeeper prompt.
+the pin before extracting anything, unpacks `bcut` and its co-located
+`mlx.metallib` into the cache, and reruns the full contract and version
+handshake against the downloaded binary. Any failure exits 3 with the manual
+download URL. The download carries no `com.apple.quarantine` attribute and the
+Developer ID signature lives in the binary itself, so the cached CLI runs
+without a Gatekeeper prompt. The resolver exports the packaged Metal library
+path before executing the cached CLI, so local MLX transcription never depends
+on a metallib left behind on the release build machine.
 
 Two deliberate exceptions never trigger the download: an explicit
 `BAOCUT_CLI`-style override and a development checkout. Both are chosen on

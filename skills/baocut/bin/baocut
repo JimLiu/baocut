@@ -102,8 +102,10 @@ cli_release_build=
 cli_release_url=
 cli_release_sha=
 cli_release_entry=bcut
+cli_release_metallib=
 cache_dir=
 cache_bin=
+cache_metallib=
 if test -f "$cli_release_json"; then
     cli_release_version=$(cli_release_value version)
     cli_release_build=$(cli_release_value build)
@@ -111,6 +113,7 @@ if test -f "$cli_release_json"; then
     cli_release_sha=$(cli_release_value sha256)
     entry=$(cli_release_value entry)
     test -z "$entry" || cli_release_entry=$entry
+    cli_release_metallib=$(cli_release_value metallib)
     cache_home=${XDG_CACHE_HOME:-}
     if test -z "$cache_home" && test -n "${HOME:-}"; then
         cache_home=$HOME/.cache
@@ -122,9 +125,14 @@ if test -f "$cli_release_json"; then
         # build number moves, and the handshake cannot tell two builds apart.
         cache_dir=$cache_home/baocut/cli/$cli_release_version-build.$cli_release_build
         cache_bin=$cache_dir/bcut
+        if test -n "$cli_release_metallib"; then
+            cache_metallib=$cache_dir/mlx.metallib
+        fi
     fi
 fi
-if test -z "$cli$cargo_manifest" && test -n "$cache_bin" && test -x "$cache_bin"; then
+if test -z "$cli$cargo_manifest" && test -n "$cache_bin" && test -x "$cache_bin" \
+    && { test -z "$cache_metallib" || test -s "$cache_metallib"; }
+then
     cli=$cache_bin
     cli_source=cache
 fi
@@ -190,7 +198,11 @@ report_failure() {
     esac
     if test -n "$cli_release_url"; then
         echo "baocut skill: the CLI pinned by this skill is $cli_release_url" >&2
-        echo "baocut skill: download it, unzip its '$cli_release_entry' entry, then set BAOCUT_CLI to that file." >&2
+        if test -n "$cli_release_metallib"; then
+            echo "baocut skill: download it, unzip '$cli_release_entry' and '$cli_release_metallib' together, then set BAOCUT_CLI to '$cli_release_entry'." >&2
+        else
+            echo "baocut skill: download it, unzip its '$cli_release_entry' entry, then set BAOCUT_CLI to that file." >&2
+        fi
     fi
 }
 
@@ -211,7 +223,8 @@ download_pinned_cli() {
     # rename rather than a cross-device copy.
     download_zip=$cache_dir/.bcut-download.$$.zip
     download_bin=$cache_dir/.bcut-extract.$$
-    trap 'rm -f "$download_zip" "$download_bin"' EXIT HUP INT TERM
+    download_metallib=$cache_dir/.mlx-metallib-extract.$$
+    trap 'rm -f "$download_zip" "$download_bin" "$download_metallib"' EXIT HUP INT TERM
     echo "baocut skill: downloading BaoCut CLI $cli_release_version (build $cli_release_build) from $cli_release_url to $cache_bin" >&2
     curl -fsSL "$cli_release_url" -o "$download_zip" || {
         echo "baocut skill: download failed: $cli_release_url" >&2
@@ -235,8 +248,28 @@ download_pinned_cli() {
         report_failure
         exit 3
     }
+    if test -n "$cli_release_metallib"; then
+        unzip -p "$download_zip" "$cli_release_metallib" > "$download_metallib" 2>/dev/null || {
+            echo "baocut skill: cannot extract '$cli_release_metallib' from the downloaded CLI archive." >&2
+            report_failure
+            exit 3
+        }
+        test -s "$download_metallib" || {
+            echo "baocut skill: the downloaded CLI archive has no '$cli_release_metallib' entry." >&2
+            report_failure
+            exit 3
+        }
+    fi
     rm -f "$download_zip"
     chmod 755 "$download_bin"
+    if test -n "$cli_release_metallib"; then
+        chmod 644 "$download_metallib"
+        mv -f "$download_metallib" "$cache_metallib" || {
+            echo "baocut skill: cannot install the MLX runtime at $cache_metallib" >&2
+            report_failure
+            exit 3
+        }
+    fi
     mv -f "$download_bin" "$cache_bin" || {
         echo "baocut skill: cannot install the downloaded CLI at $cache_bin" >&2
         report_failure
@@ -277,5 +310,9 @@ export BAOCUT_SKILL_MIN_APP="$min_app_version"
 if test -n "$cargo_manifest"; then
     exec cargo run --quiet --locked --manifest-path "$cargo_manifest" -p bcut -- \
         --require-spec "$required_spec" "$@"
+fi
+cli_metallib=$(dirname "$cli")/mlx.metallib
+if test -z "${PMETAL_METALLIB_PATH:-}" && test -s "$cli_metallib"; then
+    export PMETAL_METALLIB_PATH="$cli_metallib"
 fi
 exec "$cli" --require-spec "$required_spec" "$@"
