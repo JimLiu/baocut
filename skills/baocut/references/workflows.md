@@ -80,9 +80,18 @@ bin/baocut translate "/path/demo.bcut" --lang zh-Hans --review --jsonl
 downmix, so never pre-extract a WAV. On a 9 GB / 96-minute 4K source that decode
 costs about 34 s and reports continuous progress; the run is dominated by the
 model instead. `--model moss-transcribe-diarize` measures around 5–6× realtime
-on Apple Silicon (900 s of audio in 151 s) and is the only local model with
-speaker diarization, so budget on the order of 20 minutes for a 96-minute
-source. The default `qwen3-asr-0.6b` is several times faster without speakers.
+on Apple Silicon (900 s of audio in 151 s), so budget on the order of 20 minutes
+for a 96-minute source. The default `qwen3-asr-0.6b` is several times faster.
+
+Speaker labels no longer require MOSS. Any local model plus `--speakers N` uses
+the `speaker-diarization` package — Pyannote segmentation (~5.7 MB) plus
+WeSpeaker voiceprint embeddings (~26.5 MB), about 32 MB total, both repos
+required — so pick a model for its transcription quality and speed, not to get
+diarization, and skip the 1.7 GB MOSS download unless you want its built-in
+labels. On that path `--speakers N` caps the number of voiceprint clusters. The
+package is fetched alongside the main model during decode; with `--offline` a
+missing package fails immediately with `invalid_arg` instead of after the ASR
+pass, so pre-download it with `bin/baocut model download speaker-diarization`.
 
 Before accepting a review, inspect its diff and preview from `review list`. Use
 `review reject` when the candidate changes meaning or timing intent.

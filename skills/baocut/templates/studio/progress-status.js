@@ -102,8 +102,18 @@
     const status = { ...(base || {}) };
     const phases = (progress && progress.phases) || status.phases || [];
     const fingerprint = (progress && progress.contentFingerprint) || status.contentFingerprint;
+    if (!job) {
+      // 任务中枢明确说本项目没有在跑的任务时，旧 progress/data 快照都不能
+      // 制造运行态。尤其不要让一次迟到写入留下的旧指纹永久显示 syncing。
+      return {
+        ...status,
+        active: false,
+        phases,
+        contentFingerprint: dataFingerprint || status.contentFingerprint || fingerprint,
+      };
+    }
     // progress 缺指纹（旧版/残缺写入）时不判失同步——只有两侧都带指纹且确实
-    // 不同才是"正文投影落后于阶段状态"。
+    // 不同且确有活动任务时，才是"正文投影落后于阶段状态"。
     const outOfSync = Boolean(
       dataFingerprint
       && progress && progress.contentFingerprint
@@ -119,11 +129,6 @@
         phases: phases.map((phase) => ({ ...phase, state: 'pending' })),
         contentFingerprint: progress.contentFingerprint,
       };
-    }
-    if (!job) {
-      // 中枢说本项目没有在跑的任务 —— data.json 里那份 status 快照可能还带着
-      // 半路复制来的 active:true，必须压掉。
-      return { ...status, active: false, phases, contentFingerprint: fingerprint };
     }
     // jobs 条目的 pct 恒为数字（progress.json 的 null 到这里是 0），同阶段的
     // progress.json 说"没有确定进度"时按不确定进度条呈现。

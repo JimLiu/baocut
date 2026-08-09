@@ -2,17 +2,24 @@
 name: baocut
 description: Drive BaoCut's local CLI for transcription, subtitle and timeline editing, source cuts, clip arrangement, overlays, B-roll, watermarks, animation, on-screen-text translation, review, quality checks, rendered output, and editable projects for CapCut, Premiere Pro, DaVinci Resolve, Final Cut Pro, Shotcut, or Kdenlive. Use whenever the user asks to operate a .bcut project or produce these BaoCut deliverables.
 metadata:
-  version: "1.0.1"
-  minAppVersion: "1.0.1"
+  version: "1.0.2"
+  minAppVersion: "1.0.2"
 ---
 
 # BaoCut
 
-Use the bundled resolver for every command:
+Use the bundled resolver for every command. On macOS/Linux:
 
 ```bash
 BAOCUT_SKILL_ROOT="<this-skill-directory>"
 "$BAOCUT_SKILL_ROOT/bin/baocut" --json version
+```
+
+On Windows, run the native PowerShell resolver (WSL is not required):
+
+```powershell
+$env:BAOCUT_SKILL_ROOT = "<this-skill-directory>"
+& "$env:BAOCUT_SKILL_ROOT\bin\baocut.ps1" --json version
 ```
 
 The resolver locates the right CLI on its own — never call `bcut` directly:
@@ -28,6 +35,16 @@ The resolver locates the right CLI on its own — never call `bcut` directly:
 - Then a `bcut` on PATH.
 - Then the cached CLI this skill pinned earlier, under
   `${XDG_CACHE_HOME:-~/.cache}/baocut/cli/<version>-build.<build>/bcut`.
+
+On Windows, `bin/baocut.ps1` uses the same explicit overrides,
+development-checkout build, and PATH lookup first. If none is usable, it finds
+the newest stable `baocut-v<version>-build.<build>` GitHub Release that includes
+`windows-cli-release.json`, downloads its x64 Windows archive, verifies the
+manifest-pinned SHA-256, and caches `bcut.exe` under
+`%LOCALAPPDATA%\BaoCut\cli\<version>-build.<build>\bcut.exe`. The Windows
+archive is currently an unsigned preview, so SmartScreen, Smart App Control,
+or enterprise policy may warn about or block it; SHA-256 proves download
+integrity, not publisher identity.
 
 The resolver then checks the CLI contract and minimum BaoCut App version
 before it runs the requested command.
@@ -54,10 +71,6 @@ binary. Set `BAOCUT_SKILL_NO_DOWNLOAD=1` to disable the download entirely;
 
 The skill copy bundled inside BaoCut.app has no `cli-release.json`, because an
 App install always ships its own matching CLI beside it.
-
-On Windows this automatic resolution does not apply: there is no installed-App
-path convention yet and no pinned Windows archive, so provide the CLI through
-`BAOCUT_CLI` / `BCUT_EXECUTABLE` or a `bcut` on PATH.
 
 If the resolver exits 3, follow its guidance instead of bypassing the check.
 
@@ -90,6 +103,9 @@ If the resolver exits 3, follow its guidance instead of bypassing the check.
   [references/exports.md](references/exports.md).
 - For granular project edits, discover the installed surface with `spec` and
   command `--help`; do not infer commands from older BaoCut releases.
+- For checking whether this skill or the CLI has a newer release, verifying
+  skill/CLI version consistency, or helping the user update, read
+  [references/updates.md](references/updates.md).
 
 ## Optional completion accounting
 
@@ -175,6 +191,10 @@ resolver warns that it selected a debug build. Run
 binary is selected. For an Agent-backed AI pipeline, pass `--llm agent`
 explicitly; this prevents a stale `BCUT_LLM_DEFAULT` from silently selecting a
 provider that has no usable key.
+
+When the resolver reports a version or handshake problem, or the user asks
+about updates, follow [references/updates.md](references/updates.md). That
+check is advisory and never blocks the requested work.
 
 Use `spec` as the machine-readable source of supported commands and flags. Keep
 project paths quoted and use BCP-47 language tags such as `zh-Hans`, `en`, or

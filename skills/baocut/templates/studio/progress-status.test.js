@@ -63,6 +63,22 @@ test('projectStatus 无任务时压掉 data.json 的陈旧 active', () => {
   assert.equal(status.phase, 'translating');   // 阶段文案不改写，只是不再"进行中"
 });
 
+test('无任务时陈旧 progress 指纹不伪造 syncing', () => {
+  const base = {
+    active: true, phase: 'aligning', detail: '正在提交阶段成果',
+    contentFingerprint: 'old',
+  };
+  const progress = {
+    active: true, phase: 'aligning', detail: '拆分并对齐双语字幕',
+    contentFingerprint: 'old', phases: [{ label: '拆分对齐', state: 'active' }],
+  };
+  const status = P.projectStatus(base, null, progress, 'current');
+  assert.equal(status.active, false);
+  assert.equal(status.phase, 'aligning');
+  assert.equal(status.contentFingerprint, 'current');
+  assert.notEqual(status.detail, '正在同步字幕内容');
+});
+
 test('projectStatus 用任务覆盖阶段/进度/细节与计数', () => {
   const base = { active: false, phase: 'ready', pct: 100, detail: '完成', linesTotal: 9 };
   const status = P.projectStatus(base, job({ linesDone: 3, linesTotal: 12 }), null, null);
