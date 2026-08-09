@@ -20,6 +20,9 @@ bin/baocut export "/path/demo.bcut" --to json -o "/path/demo.json" --force --jso
 bin/baocut export "/path/demo.bcut" --to markdown -o "/path/demo.md" --force --json
 bin/baocut export "/path/demo.bcut" --to mp4 -o "/path/demo.mp4" \
   --mode bilingual --lang zh-Hans --force --jsonl
+# 只烧录译文；个别未翻译句组会回退原文，不会留下无字幕空档
+bin/baocut export "/path/demo.bcut" --to mp4 -o "/path/demo.zh-Hans.mp4" \
+  --mode translated --lang zh-Hans --force --jsonl
 ```
 
 Editable project exports all consume one resolved OUTPUT-time plan:
@@ -57,8 +60,9 @@ default for every language; switch the style pane to visible first when the
 user wants verbatim punctuation. JSON/Markdown and the transcript always keep
 the full text (see [studio.md](studio.md)).
 
-For text exports, select `--mode original`, `translated`, or `bilingual`; translated
-modes require `--lang`. `--lang` accepts a comma list; multi-language text/JSON/MP4
-exports insert the BCP-47 tag before the extension and preflight every output before
-writing any of them. MP4 uses the same resolved subtitle render plan as BaoCut's preview,
-so do not replace it with browser screenshots or native text overlays.
+Select `--mode original`, `translated`, or `bilingual`; translated modes require
+`--lang`. In translated mode, sidecars and MP4 fall back each untranslated sentence
+group to its source cues. `--lang` accepts a comma list; multi-language
+text/JSON/MP4 exports insert the BCP-47 tag before the extension and preflight every
+output before writing any of them. MP4 uses the same resolved subtitle render plan as
+BaoCut's preview, so do not replace it with browser screenshots or native text overlays.

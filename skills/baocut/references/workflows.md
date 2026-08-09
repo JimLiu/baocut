@@ -4,8 +4,31 @@
 
 ## Start a transcription/translation task
 
-Always follow this order: create the project in the shared library, start the
-preview server, then run the pipeline.
+Always follow this order: preflight the environment once, create the project in
+the shared library, start and verify preview, explicitly prepare a missing
+model, re-check preview, run the pipeline, then verify preview once more.
+
+### 0. Preflight once; request one install approval when needed
+
+For URL inputs on Windows, calculate a read-only dependency plan first:
+
+```powershell
+& ".\bin\prepare-url-deps.ps1" -Mode Plan
+```
+
+If `packages` is non-empty, show that single combined plan and obtain explicit
+user approval. Only after approval run:
+
+```powershell
+& ".\bin\prepare-url-deps.ps1" -Mode Install -Confirmed
+```
+
+The helper installs the smallest applicable winget package set, refreshes this
+process's PATH, and treats the final `doctor --url-only` result as truth. A
+winget “already installed/no upgrade” exit by itself is not failure. If the
+user declines, stop and report the planned commands; do not continue the long
+task. On other platforms, run `doctor --url-only --json` and request approval
+before installing any missing external package.
 
 ### 1. Create the project in the shared projects library
 
@@ -19,7 +42,7 @@ bin/baocut --json project create "<dir>/My Talk.bcut" --media "/path/input.mp4"
 immediately. Keep the returned `data.project.id` — it is the preview route id.
 For a video URL, pass the URL as `--media`; the pipeline downloads it later.
 
-### 2. Start the preview server and share the URL
+### 2. Start, verify, and share the preview URL
 
 ```bash
 bin/baocut --json serve --background
@@ -34,7 +57,27 @@ browser. `--background` manages the server lifecycle; never keep it alive with
 shell `&`. Registered projects are served without extra flags; `serve --status`
 reports the actual port when the default one was taken.
 
-### 3. Run the pipeline
+After reading the actual URL, require HTTP 200 from the project page. If status
+or HTTP verification fails, rerun the same idempotent `serve --background`,
+read status again, and use the newly reported URL. This is task-to-task
+self-healing; do not register a Windows service or startup item.
+
+### 3. Explicitly prepare a missing model
+
+Read `model list --json`. When the selected model (default
+`qwen3-asr-0.6b`) is not installed and verified, download it in its own
+observable command before `auto`:
+
+```bash
+bin/baocut model list --json
+bin/baocut model download qwen3-asr-0.6b --jsonl
+```
+
+The download preserves a valid partial when cancelled or disconnected and
+reports resumed/network bytes. When it finishes—or whenever an Agent task is
+continued—repeat step 2 and verify the project page before proceeding.
+
+### 4. Run the pipeline
 
 ```bash
 bin/baocut auto "<dir>/My Talk.bcut" --llm agent --jsonl
@@ -66,6 +109,11 @@ show the same live progress. URL connections use bounded yt-dlp retries; if a
 CDN is unreachable the command now fails with a diagnostic instead of waiting
 on operating-system TCP timeouts indefinitely.
 
+The CLI still auto-prepares models for direct `auto`/`transcribe` compatibility;
+the explicit command above keeps a first multi-gigabyte download out of the
+pipeline timeout window. After `auto` returns, repeat step 2 one final time and
+hand off the verified current URL.
+
 ## Explicit stages
 
 ```bash
@@ -81,17 +129,19 @@ downmix, so never pre-extract a WAV. On a 9 GB / 96-minute 4K source that decode
 costs about 34 s and reports continuous progress; the run is dominated by the
 model instead. `--model moss-transcribe-diarize` measures around 5–6× realtime
 on Apple Silicon (900 s of audio in 151 s), so budget on the order of 20 minutes
-for a 96-minute source. The default `qwen3-asr-0.6b` is several times faster.
+for a 96-minute source. MOSS is the default so speaker labels are produced
+without an extra flag; choose `qwen3-asr-0.6b` explicitly when speed matters
+more than integrated diarization.
 
-Speaker labels no longer require MOSS. Any local model plus `--speakers N` uses
-the `speaker-diarization` package — Pyannote segmentation (~5.7 MB) plus
-WeSpeaker voiceprint embeddings (~26.5 MB), about 32 MB total, both repos
-required — so pick a model for its transcription quality and speed, not to get
-diarization, and skip the 1.7 GB MOSS download unless you want its built-in
-labels. On that path `--speakers N` caps the number of voiceprint clusters. The
-package is fetched alongside the main model during decode; with `--offline` a
-missing package fails immediately with `invalid_arg` instead of after the ASR
-pass, so pre-download it with `bin/baocut model download speaker-diarization`.
+MOSS identifies speakers by default; use `--no-speakers` only when labels are
+unwanted. On MOSS, `--speakers N` is an optional expected-count hint. Qwen and
+Whisper use `--speakers N` to enable the separate `speaker-diarization` package —
+Pyannote segmentation (~5.7 MB) plus WeSpeaker voiceprint embeddings (~26.5 MB),
+about 32 MB total, both repos required — and N caps the number of voiceprint
+clusters. The package is fetched alongside the main model during decode; with
+`--offline` a missing package fails immediately with `invalid_arg` instead of
+after the ASR pass, so pre-download it with
+`bin/baocut model download speaker-diarization`.
 
 Before accepting a review, inspect its diff and preview from `review list`. Use
 `review reject` when the candidate changes meaning or timing intent.

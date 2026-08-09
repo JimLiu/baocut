@@ -5,7 +5,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$requiredSpec = ">=1.11,<2.0"
+$requiredSpec = ">=1.14,<2.0"
 $skillRoot = Split-Path -Parent $PSScriptRoot
 $skillMarkdown = Join-Path $skillRoot "SKILL.md"
 $publicRepository = "JimLiu/baocut"
@@ -72,6 +72,39 @@ function Resolve-DevelopmentCli {
             return $null
         }
         $directory = $directory.Parent
+    }
+    return $null
+}
+
+function Resolve-CachedCli {
+    $cacheRoot = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { [Environment]::GetFolderPath("LocalApplicationData") }
+    if (-not $cacheRoot) { return $null }
+    $cliRoot = Join-Path $cacheRoot "BaoCut\cli"
+    if (-not (Test-Path -LiteralPath $cliRoot -PathType Container)) { return $null }
+
+    $candidates = Get-ChildItem -LiteralPath $cliRoot -Directory -ErrorAction SilentlyContinue |
+        ForEach-Object {
+            if ($_.Name -match '^(?<Version>\d+\.\d+\.\d+)-build\.(?<Build>\d+)$') {
+                $executable = Join-Path $_.FullName "bcut.exe"
+                if (Test-Path -LiteralPath $executable -PathType Leaf) {
+                    [pscustomobject]@{
+                        Version = [version]$Matches.Version
+                        Build = [int64]$Matches.Build
+                        Executable = $executable
+                    }
+                }
+            }
+        } | Sort-Object -Property @{ Expression = "Version"; Descending = $true },
+            @{ Expression = "Build"; Descending = $true }
+
+    foreach ($candidate in $candidates) {
+        try {
+            Invoke-BaoCutHandshake $candidate.Executable
+            Write-Verbose "Using compatible cached BaoCut CLI $($candidate.Version)-build.$($candidate.Build)"
+            return $candidate.Executable
+        } catch {
+            Write-Verbose "Ignoring incompatible cached BaoCut CLI $($candidate.Executable): $_"
+        }
     }
     return $null
 }
@@ -154,6 +187,9 @@ try {
             Write-Verbose $_
             $cli = $null
         }
+    }
+    if (-not $cli) {
+        $cli = Resolve-CachedCli
     }
     if (-not $cli) {
         $cli = Install-LatestWindowsCli

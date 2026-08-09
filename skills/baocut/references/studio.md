@@ -32,6 +32,10 @@ curl -fsS -X POST "${URL}__bcut/mount" -d '{"id":"<name>","path":"<abs project p
   waits for the health check, reuses a live same-root server on repeat runs,
   and restores prior mounts after a restart. Do not substitute shell `&` or
   `nohup`, and do not kill a port's owner without confirming the process.
+- At every Agent task continuation, after an explicit model download, and
+  before final handoff, run `serve --background` idempotently, re-read
+  `serve --status`, and require HTTP 200 from the current project URL. If the
+  port changed, discard the stale URL and report the newly discovered one.
 - If `mount` returns 409 (id already used by another path), pick a different
   id instead of taking over an existing mount.
 - Prefer reusing an existing browser tab with the same URL; without a built-in

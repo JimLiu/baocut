@@ -2,8 +2,8 @@
 name: baocut
 description: Drive BaoCut's local CLI for transcription, subtitle and timeline editing, source cuts, clip arrangement, overlays, B-roll, watermarks, animation, on-screen-text translation, review, quality checks, rendered output, and editable projects for CapCut, Premiere Pro, DaVinci Resolve, Final Cut Pro, Shotcut, or Kdenlive. Use whenever the user asks to operate a .bcut project or produce these BaoCut deliverables.
 metadata:
-  version: "1.0.2"
-  minAppVersion: "1.0.2"
+  version: "1.0.3"
+  minAppVersion: "1.0.3"
 ---
 
 # BaoCut
@@ -37,7 +37,9 @@ The resolver locates the right CLI on its own — never call `bcut` directly:
   `${XDG_CACHE_HOME:-~/.cache}/baocut/cli/<version>-build.<build>/bcut`.
 
 On Windows, `bin/baocut.ps1` uses the same explicit overrides,
-development-checkout build, and PATH lookup first. If none is usable, it finds
+development-checkout build, and PATH lookup first. It then checks cached
+`<version>-build.<build>` CLIs newest-first and compatibility-checks them
+locally. Only when no compatible cache exists does it find
 the newest stable `baocut-v<version>-build.<build>` GitHub Release that includes
 `windows-cli-release.json`, downloads its x64 Windows archive, verifies the
 manifest-pinned SHA-256, and caches `bcut.exe` under
