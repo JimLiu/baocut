@@ -23,12 +23,117 @@ function Test-VersionAtLeast([string] $Current, [string] $Minimum) {
     try { return [version]$Current -ge [version]$Minimum } catch { return $false }
 }
 
+function ConvertTo-WindowsCommandLineArgument([AllowEmptyString()][string] $Value) {
+    if ($Value.Length -gt 0 -and $Value -notmatch '[\s"]') { return $Value }
+
+    # ProcessStartInfo.ArgumentList is unavailable in Windows PowerShell 5.1.
+    # Quote argv with the CommandLineToArgvW rules so paths, quotes, empty values,
+    # and trailing backslashes survive the no-window ProcessStartInfo launch.
+    $quoted = [System.Text.StringBuilder]::new()
+    [void]$quoted.Append('"')
+    $backslashes = 0
+    foreach ($character in $Value.ToCharArray()) {
+        if ($character -eq '\') {
+            $backslashes++
+            continue
+        }
+        if ($character -eq '"') {
+            [void]$quoted.Append(('\' * ($backslashes * 2 + 1)))
+            [void]$quoted.Append('"')
+        } else {
+            if ($backslashes -gt 0) { [void]$quoted.Append(('\' * $backslashes)) }
+            [void]$quoted.Append($character)
+        }
+        $backslashes = 0
+    }
+    if ($backslashes -gt 0) { [void]$quoted.Append(('\' * ($backslashes * 2))) }
+    [void]$quoted.Append('"')
+    return $quoted.ToString()
+}
+
+function New-BaoCutProcessStartInfo([string] $Executable, [string[]] $Arguments) {
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $Executable
+    $startInfo.Arguments = (($Arguments | ForEach-Object {
+        ConvertTo-WindowsCommandLineArgument ([string]$_)
+    }) -join ' ')
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.WorkingDirectory = $ExecutionContext.SessionState.Path.CurrentFileSystemLocation.Path
+    return $startInfo
+}
+
+function Invoke-BaoCutCapturedProcess([string] $Executable, [string[]] $Arguments) {
+    $startInfo = New-BaoCutProcessStartInfo $Executable $Arguments
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    try {
+        if (-not $process.Start()) { throw "Failed to start BaoCut CLI: $Executable" }
+        $stdout = $process.StandardOutput.ReadToEndAsync()
+        $stderr = $process.StandardError.ReadToEndAsync()
+        $process.WaitForExit()
+        return [pscustomobject]@{
+            ExitCode = $process.ExitCode
+            Stdout = $stdout.GetAwaiter().GetResult()
+            Stderr = $stderr.GetAwaiter().GetResult()
+        }
+    } finally {
+        $process.Dispose()
+    }
+}
+
+function Invoke-BaoCutProcess(
+    [string] $Executable,
+    [string[]] $Arguments,
+    [ref] $ExitCode
+) {
+    $startInfo = New-BaoCutProcessStartInfo $Executable $Arguments
+    $startInfo.RedirectStandardInput = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $startInfo.StandardOutputEncoding = [System.Text.UTF8Encoding]::new($false)
+    $startInfo.StandardErrorEncoding = [System.Text.UTF8Encoding]::new($false)
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    try {
+        if (-not $process.Start()) { throw "Failed to start BaoCut CLI: $Executable" }
+        # A no-window child cannot inherit usable console handles from every
+        # Codex host. Keep stdout on PowerShell's success pipeline (so callers
+        # can still capture JSON), drain stderr concurrently, and forward stdin
+        # asynchronously for JSONL cancellation.
+        $stderr = $process.StandardError.ReadToEndAsync()
+        $stdin = [Console]::OpenStandardInput().CopyToAsync($process.StandardInput.BaseStream)
+        $closeInput = [System.Delegate]::CreateDelegate(
+            [System.Action], $process.StandardInput, "Close"
+        )
+        $stdin.GetAwaiter().OnCompleted($closeInput)
+        while (($line = $process.StandardOutput.ReadLine()) -ne $null) {
+            Write-Output $line
+        }
+        $process.WaitForExit()
+        $stderrText = $stderr.GetAwaiter().GetResult()
+        if ($stderrText) { [Console]::Error.Write($stderrText) }
+        $process.StandardInput.Close()
+        $ExitCode.Value = $process.ExitCode
+    } finally {
+        $process.Dispose()
+    }
+}
+
 function Invoke-BaoCutHandshake([string] $Executable) {
     $env:BAOCUT_SKILL_VERSION = $skillVersion
     $env:BAOCUT_SKILL_MIN_APP = $minimumAppVersion
-    $raw = & $Executable --require-spec $requiredSpec --json version
-    if ($LASTEXITCODE -ne 0) { throw "BaoCut CLI compatibility handshake failed (exit $LASTEXITCODE)." }
-    $version = $raw | ConvertFrom-Json
+    $result = Invoke-BaoCutCapturedProcess $Executable @(
+        "--require-spec", $requiredSpec, "--json", "version"
+    )
+    if ($result.ExitCode -ne 0) {
+        $detail = $result.Stderr.Trim()
+        if ($detail) { throw "BaoCut CLI compatibility handshake failed (exit $($result.ExitCode)): $detail" }
+        throw "BaoCut CLI compatibility handshake failed (exit $($result.ExitCode))."
+    }
+    $version = $result.Stdout | ConvertFrom-Json
     if (-not $version.appVersion) { throw "This BaoCut CLI predates the skill handshake." }
     if (-not (Test-VersionAtLeast ([string]$version.appVersion) $minimumAppVersion)) {
         throw "BaoCut skill v$skillVersion requires BaoCut App >= $minimumAppVersion; found $($version.appVersion)."
@@ -198,8 +303,9 @@ try {
 
     $env:BAOCUT_SKILL_VERSION = $skillVersion
     $env:BAOCUT_SKILL_MIN_APP = $minimumAppVersion
-    & $cli --require-spec $requiredSpec @CliArgs
-    exit $LASTEXITCODE
+    $exitCode = 3
+    Invoke-BaoCutProcess $cli (@("--require-spec", $requiredSpec) + $CliArgs) ([ref]$exitCode)
+    exit $exitCode
 } catch {
     Write-Error $_
     exit 3

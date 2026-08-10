@@ -90,9 +90,15 @@ bin/baocut auto "<dir>/My Talk.bcut" --llm agent \
   --lang zh-Hans --lang en --jsonl
 ```
 
-For a video URL whose downloaded media must live in a specific directory, keep
-the registered project created in step 1 but pass the URL again as the pipeline
-input. Supply `--download-dir` on this first pipeline run:
+Default-path rule: when the user has not named a download directory, use the
+project-path form above and omit `--download-dir`. Never synthesize a sibling
+`downloads` directory or an App Support path. Omitting the flag makes the CLI
+honor the shared `download.dir` setting; only when that setting is absent does
+it fall back to `<project>/media`.
+
+Only when the user explicitly names a one-off directory, keep the registered
+project created in step 1 but pass the URL again as the pipeline input and
+supply that exact directory on the first run:
 
 ```bash
 bin/baocut doctor --url-only --json

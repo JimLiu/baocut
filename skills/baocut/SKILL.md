@@ -2,8 +2,8 @@
 name: baocut
 description: Drive BaoCut's local CLI for transcription, subtitle and timeline editing, source cuts, clip arrangement, overlays, B-roll, watermarks, animation, on-screen-text translation, review, quality checks, rendered output, and editable projects for CapCut, Premiere Pro, DaVinci Resolve, Final Cut Pro, Shotcut, or Kdenlive. Use whenever the user asks to operate a .bcut project or produce these BaoCut deliverables.
 metadata:
-  version: "1.0.3"
-  minAppVersion: "1.0.3"
+  version: "1.0.4"
+  minAppVersion: "1.0.4"
 ---
 
 # BaoCut
@@ -143,6 +143,10 @@ If the resolver exits 3, follow its guidance instead of bypassing the check.
   `"$BAOCUT_SKILL_ROOT/bin/baocut" --json project dir` (macOS default:
   `~/Library/Application Support/BaoCut/projects`); create projects there with
   `project create` unless the user names another location.
+- For URL media, never invent or derive a `--download-dir`. Omit the flag unless
+  the user explicitly names a one-off destination; the CLI then honors the
+  shared `download.dir` setting and falls back to `<project>/media` only when
+  that setting is absent.
 - Progress is shared state: the App, the browser preview, and other CLI
   sessions all observe the same project registry and per-project progress
   files. A transcription started from this skill shows up — with live
