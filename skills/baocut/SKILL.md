@@ -2,8 +2,8 @@
 name: baocut
 description: Drive BaoCut's local CLI for transcription, subtitle and timeline editing, source cuts, clip arrangement, overlays, B-roll, watermarks, animation, on-screen-text translation, review, quality checks, rendered output, and editable projects for CapCut, Premiere Pro, DaVinci Resolve, Final Cut Pro, Shotcut, or Kdenlive. Use whenever the user asks to operate a .bcut project or produce these BaoCut deliverables.
 metadata:
-  version: "1.0.4"
-  minAppVersion: "1.0.4"
+  version: "1.0.5"
+  minAppVersion: "1.0.5"
 ---
 
 # BaoCut
@@ -21,6 +21,30 @@ On Windows, run the native PowerShell resolver (WSL is not required):
 $env:BAOCUT_SKILL_ROOT = "<this-skill-directory>"
 & "$env:BAOCUT_SKILL_ROOT\bin\baocut.ps1" --json version
 ```
+
+## Mandatory startup version gate
+
+Run this gate once at the start of every BaoCut task, before `spec`, `doctor`,
+any project command, or reuse of an existing `bcut serve`:
+
+1. Explicitly run the platform resolver's `--json version` command above and
+   retain its `appVersion` and `commit`. A successful resolver handshake, a
+   compatible `spec`, `doctor`, or `serve --status` is not an update check.
+2. Immediately read and execute [references/updates.md](references/updates.md):
+   fetch the published appcast and compare its version numerically with the
+   local `appVersion`. Only an unavailable appcast may be reported as skipped.
+3. When the appcast is newer, update the standalone skill and let its refreshed
+   resolver download, verify, and cache the pinned CLI before continuing. Do
+   not merely report the update or keep using the compatible old CLI. Never
+   overwrite a development checkout or an App-bundled skill; use the supported
+   source/App update path documented in the reference instead.
+4. After any CLI update, run the refreshed resolver with `serve --background`,
+   then `serve --status`. This idempotent start replaces an older same-root
+   service, restores its mounts, and must report the refreshed CLI's
+   `appVersion` and `commit`; also require HTTP 200 from its health endpoint.
+   Discard any URL discovered before the restart.
+
+Only after this gate may capability preflight and the requested work begin.
 
 The resolver locates the right CLI on its own — never call `bcut` directly:
 
@@ -145,8 +169,12 @@ If the resolver exits 3, follow its guidance instead of bypassing the check.
   `project create` unless the user names another location.
 - For URL media, never invent or derive a `--download-dir`. Omit the flag unless
   the user explicitly names a one-off destination; the CLI then honors the
-  shared `download.dir` setting and falls back to `<project>/media` only when
-  that setting is absent.
+  shared `download.dir` setting. When it is absent, Windows uses the user's
+  system Downloads known folder; other platforms fall back to `<project>/media`.
+- After any URL-media run downloads or reuses a video, read its actual path from
+  `data.media` in a `transcribe` result or from
+  `--json project show <project>` at `data.manifest.media.path`. Tell the user
+  that exact path explicitly; do not merely say that the download completed.
 - Progress is shared state: the App, the browser preview, and other CLI
   sessions all observe the same project registry and per-project progress
   files. A transcription started from this skill shows up — with live
@@ -191,6 +219,8 @@ If the resolver exits 3, follow its guidance instead of bypassing the check.
 "$BAOCUT_SKILL_ROOT/bin/baocut" doctor --quick --json
 ```
 
+Complete the mandatory startup version gate before running this preflight.
+
 In a development checkout, do not start a long local transcription while the
 resolver warns that it selected a debug build. Run
 `scripts/dev/prepare-bcut.sh` once, then repeat the preflight so the release
@@ -198,9 +228,9 @@ binary is selected. For an Agent-backed AI pipeline, pass `--llm agent`
 explicitly; this prevents a stale `BCUT_LLM_DEFAULT` from silently selecting a
 provider that has no usable key.
 
-When the resolver reports a version or handshake problem, or the user asks
-about updates, follow [references/updates.md](references/updates.md). That
-check is advisory and never blocks the requested work.
+When the resolver reports a version or handshake problem, follow
+[references/updates.md](references/updates.md) and do not bypass the refreshed
+CLI handshake.
 
 Use `spec` as the machine-readable source of supported commands and flags. Keep
 project paths quoted and use BCP-47 language tags such as `zh-Hans`, `en`, or

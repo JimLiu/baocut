@@ -244,6 +244,174 @@ test('explicit per-line styles bypass the compatibility font ratios', () => {
   assert.equal(subtitle.lineFontSize(style, true, true), 24);
 });
 
+const LINE_ENTRIES = [
+  { line: 'trans', width: 400, height: 60 },
+  { line: 'orig', width: 300, height: 40 },
+];
+const LINE_OPTIONS = { frameWidth: 1000, frameHeight: 500, gap: 12, padH: 0, padV: 0 };
+
+test('line layout without overrides reproduces the anchor stack math', () => {
+  const plan = subtitle.planLineLayout(LINE_ENTRIES, { ...LINE_OPTIONS, style: { x: 50, y: 80 } });
+  assert.equal(plan.detached.length, 0);
+  assert.equal(plan.stackWidth, 400);
+  assert.equal(plan.stackHeight, 112);
+  assert.deepEqual(plan.anchor, { x: 500, y: 400 });
+  assert.deepEqual(plan.stacked.map((item) => [item.line, item.x, item.y]), [
+    ['trans', 0, 0],
+    ['orig', 50, 72],
+  ]);
+  // 推导中心 = 锚点 + 行在堆栈内的中心相对堆栈中心的偏移
+  assert.deepEqual(plan.stacked[0].center, { x: 500, y: 374 });
+  assert.deepEqual(plan.stacked[1].center, { x: 500, y: 436 });
+});
+
+test('shared background padding wraps the stack exactly as before', () => {
+  const plan = subtitle.planLineLayout(LINE_ENTRIES, {
+    ...LINE_OPTIONS, padH: 10, padV: 6, style: {},
+  });
+  assert.equal(plan.stackWidth, 420);
+  assert.equal(plan.stackHeight, 124);
+  assert.deepEqual(plan.stacked.map((item) => [item.x, item.y]), [[10, 6], [60, 78]]);
+  assert.deepEqual(plan.anchor, { x: 500, y: 430 });
+});
+
+test('a detached line leaves the stack and the rest re-centers on the anchor', () => {
+  const style = { x: 50, y: 80, transStyle: { x: 20, y: 30 } };
+  const plan = subtitle.planLineLayout(LINE_ENTRIES, { ...LINE_OPTIONS, style });
+  assert.deepEqual(
+    plan.detached.map((item) => [item.line, item.center.x, item.center.y]),
+    [['trans', 200, 150]],
+  );
+  assert.equal(plan.stacked.length, 1);
+  assert.equal(plan.stackWidth, 300);
+  assert.equal(plan.stackHeight, 40);
+  // 只剩一行时堆栈退化为单行居中于锚点，与既有单行数学一致
+  assert.deepEqual(plan.stacked[0].center, { x: 500, y: 400 });
+  // 绘制顺序仍按行序，独立行不会被排到末尾
+  assert.deepEqual(plan.placements.map((item) => item.line), ['trans', 'orig']);
+});
+
+test('both lines can detach, and a single-line context ignores line positions', () => {
+  const style = { x: 50, y: 80, origStyle: { x: 10, y: 10 }, transStyle: { x: 90, y: 90 } };
+  const plan = subtitle.planLineLayout(LINE_ENTRIES, { ...LINE_OPTIONS, style });
+  assert.equal(plan.stacked.length, 0);
+  assert.equal(plan.stackWidth, 0);
+  assert.equal(plan.stackHeight, 0);
+  assert.equal(plan.detached.length, 2);
+
+  const single = subtitle.planLineLayout([LINE_ENTRIES[1]], { ...LINE_OPTIONS, style });
+  assert.equal(single.detached.length, 0);
+  assert.deepEqual(single.stacked[0].center, { x: 500, y: 400 });
+});
+
+test('bilingual mode keeps the override even when only one line has content', () => {
+  // 导出端 line_position_override 只看 mode：双语模式下某条 cue 缺译文时，
+  // 剩下的那行仍按覆盖浮动。预览用 bilingual 开关表达同一判据。
+  const style = { x: 50, y: 80, origStyle: { x: 10, y: 10 } };
+  const floating = subtitle.planLineLayout([LINE_ENTRIES[1]], {
+    ...LINE_OPTIONS, style, bilingual: true,
+  });
+  assert.equal(floating.stacked.length, 0);
+  assert.deepEqual(
+    floating.detached.map((item) => [item.line, item.center.x, item.center.y]),
+    [['orig', 100, 50]],
+  );
+
+  const monolingual = subtitle.planLineLayout([LINE_ENTRIES[1]], {
+    ...LINE_OPTIONS, style, bilingual: false,
+  });
+  assert.equal(monolingual.detached.length, 0);
+  assert.deepEqual(monolingual.stacked[0].center, { x: 500, y: 400 });
+});
+
+test('a line position needs both axes and stays absent by default', () => {
+  assert.equal(subtitle.linePosition({}, 'orig'), null);
+  assert.equal(subtitle.linePosition({ origStyle: { x: 20 } }, 'orig'), null);
+  assert.equal(subtitle.linePosition({ origStyle: { x: 20, y: null } }, 'orig'), null);
+  assert.equal(subtitle.linePosition({ origStyle: null }, 'orig'), null);
+  assert.equal(subtitle.linePosition({ origStyle: { x: NaN, y: 30 } }, 'orig'), null);
+  assert.equal(subtitle.linePosition({ origStyle: { x: Infinity, y: 30 } }, 'orig'), null);
+  // 与导出端 as_f64() 对齐：非数字类型不算覆盖，别靠 Number() 强转救回来。
+  assert.equal(subtitle.linePosition({ origStyle: { x: '20', y: '30' } }, 'orig'), null);
+  assert.equal(subtitle.linePosition({ origStyle: { x: true, y: 30 } }, 'orig'), null);
+  assert.deepEqual(
+    subtitle.linePosition({ origStyle: { x: 20, y: 30 } }, 'orig'),
+    { x: 20, y: 30 },
+  );
+  assert.deepEqual(subtitle.linePosition({ transStyle: { x: 0, y: 0 } }, true), { x: 0, y: 0 });
+});
+
+test('line position patches keep other line keys and clear only x/y', () => {
+  assert.deepEqual(
+    subtitle.lineStylePatch({ origStyle: { fontSize: 18 } }, 'orig', { x: 20.34, y: 30.06 }),
+    { origStyle: { fontSize: 18, x: 20.3, y: 30.1 } },
+  );
+  assert.deepEqual(
+    subtitle.lineStylePatch({ origStyle: { fontSize: 18, x: 1, y: 2 } }, 'orig', null),
+    { origStyle: { fontSize: 18 } },
+  );
+  // 覆盖只剩位置时写 null：既盖住 data.json 的同名键，又不会留下空对象
+  assert.deepEqual(
+    subtitle.lineStylePatch({ transStyle: { x: 1, y: 2 } }, 'trans', null),
+    { transStyle: null },
+  );
+  assert.equal(
+    subtitle.lineFontSize({ fontSize: 30, transStyle: null }, true, true),
+    subtitle.lineFontSize({ fontSize: 30 }, true, true),
+  );
+});
+
+test('whole-stack moves shift existing line overrides by the same delta', () => {
+  const style = {
+    x: 50,
+    y: 86,
+    origStyle: { fontSize: 18, x: 20, y: 30 },
+    transStyle: { x: 80.4, y: 70 },
+  };
+  assert.deepEqual(subtitle.shiftLineOverrides(style, -5.5, 2.2), {
+    origStyle: { fontSize: 18, x: 14.5, y: 32.2 },
+    transStyle: { x: 74.9, y: 72.2 },
+  });
+  assert.deepEqual(subtitle.shiftLineOverrides({ x: 50, y: 86 }, 3, 3), {});
+});
+
+test('line selection narrows on a plain click and extends to the whole stack on shift', () => {
+  assert.deepEqual(
+    subtitle.nextLineSelection(null, 'c1', 'orig', false),
+    { cueId: 'c1', line: 'orig' },
+  );
+  assert.deepEqual(
+    subtitle.nextLineSelection({ cueId: 'c1', line: 'orig' }, 'c1', 'trans', false),
+    { cueId: 'c1', line: 'trans' },
+  );
+  assert.deepEqual(
+    subtitle.nextLineSelection({ cueId: 'c1', line: 'orig' }, 'c1', 'trans', true),
+    { cueId: 'c1', line: null },
+  );
+  // Shift 点同一行不改变现状；跨字幕的 Shift 只切到新字幕的那一行
+  assert.deepEqual(
+    subtitle.nextLineSelection({ cueId: 'c1', line: 'orig' }, 'c1', 'orig', true),
+    { cueId: 'c1', line: 'orig' },
+  );
+  assert.deepEqual(
+    subtitle.nextLineSelection({ cueId: 'c1', line: 'orig' }, 'c2', 'trans', true),
+    { cueId: 'c2', line: 'trans' },
+  );
+  assert.deepEqual(
+    subtitle.nextLineSelection({ cueId: 'c1' }, 'c1', 'orig', true),
+    { cueId: 'c1', line: null },
+  );
+});
+
+test('selection membership treats a missing line as the whole stack', () => {
+  assert.equal(subtitle.isLineSelected({ cueId: 'c1' }, 'c1', 'orig'), true);
+  assert.equal(subtitle.isLineSelected({ cueId: 'c1' }, 'c1', 'trans'), true);
+  assert.equal(subtitle.isLineSelected({ cueId: 'c1', line: 'orig' }, 'c1', 'trans'), false);
+  assert.equal(subtitle.isLineSelected({ cueId: 'c1', line: 'orig' }, 'c1', 'orig'), true);
+  assert.equal(subtitle.isLineSelected({ cueId: 'c1' }, 'c2', 'orig'), false);
+  assert.equal(subtitle.isLineSelected(null, 'c1', 'orig'), false);
+});
+
 test('word animation state merges spoken, active, and unspoken layers', () => {
   const animation = subtitle.normalizeWordAnimation({
     wordAnimation: {

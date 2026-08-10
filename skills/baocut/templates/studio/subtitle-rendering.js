@@ -399,6 +399,149 @@
     };
   }
 
+  // 行级位置覆盖：origStyle.x/y 与 transStyle.x/y 是帧百分比，含义是该行文本块的
+  // 中心点。x、y 必须同时存在才算覆盖；只写一半视为未覆盖，该行继续参与锚点堆栈。
+  function lineStyleKey(line) {
+    return line === true || line === 'trans' ? 'transStyle' : 'origStyle';
+  }
+
+  function roundPercent(value) {
+    return Math.round(finite(value, 0) * 10) / 10;
+  }
+
+  function linePosition(style, line) {
+    const override = (style || {})[lineStyleKey(line)];
+    if (!override || typeof override !== 'object') return null;
+    // 只认真正的数字，不做字符串强转：导出端用 serde 的 as_f64()，"20" / true / []
+    // 在那边一律不算覆盖，预览端若宽松就会出现"预览浮动、导出回堆栈"的分叉。
+    const { x, y } = override;
+    if (typeof x !== 'number' || typeof y !== 'number') return null;
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    return { x, y };
+  }
+
+  // 生成写回 style 的补丁。position 为 null 表示清除覆盖：只删 x/y，该行其余
+  // 排版键原样保留；整个覆盖对象空掉时写 null（而不是 {}），既能覆盖住 data.json
+  // 里的同名键、又不会让 nestedLineStyle 把空对象当成"存在显式行样式"。
+  function lineStylePatch(style, line, position) {
+    const key = lineStyleKey(line);
+    const base = (style || {})[key];
+    const next = { ...(base && typeof base === 'object' ? base : {}) };
+    if (position && Number.isFinite(Number(position.x)) && Number.isFinite(Number(position.y))) {
+      next.x = roundPercent(position.x);
+      next.y = roundPercent(position.y);
+    } else {
+      delete next.x;
+      delete next.y;
+    }
+    return { [key]: Object.keys(next).length ? next : null };
+  }
+
+  // 整体拖拽：锚点位移多少，已有的行覆盖同步位移多少（契约 §2）。
+  function shiftLineOverrides(style, dx, dy) {
+    const patch = {};
+    ['orig', 'trans'].forEach((line) => {
+      const position = linePosition(style, line);
+      if (!position) return;
+      Object.assign(patch, lineStylePatch(style, line, {
+        x: roundPercent(position.x + finite(dx, 0)),
+        y: roundPercent(position.y + finite(dy, 0)),
+      }));
+    });
+    return patch;
+  }
+
+  // 纯布局：把行分成"参与堆栈"和"独立摆放"两组。堆栈部分完全沿用既有公式，
+  // 因此在没有任何行级覆盖时排布与历史行为逐像素一致。
+  function planLineLayout(entries, options) {
+    const opts = options || {};
+    const style = opts.style || {};
+    const frameWidth = finite(opts.frameWidth, 0);
+    const frameHeight = finite(opts.frameHeight, 0);
+    const gap = Math.max(0, finite(opts.gap, 0));
+    const padH = Math.max(0, finite(opts.padH, 0));
+    const padV = Math.max(0, finite(opts.padV, 0));
+    const list = (entries || []).map((entry, index) => ({
+      line: entry.line,
+      index,
+      width: Math.max(0, finite(entry.width, 0)),
+      height: Math.max(0, finite(entry.height, 0)),
+    }));
+    const anchor = {
+      x: frameWidth * (finite(style.x, 50) / 100),
+      y: frameHeight * (finite(style.y, 86) / 100),
+    };
+    // 行级 x/y 只在双语上下文生效，判据是"当前模式排了两行"，不是"这一刻真的画
+    // 出了两行"——某条 cue 缺译文时导出端仍会让带覆盖的行浮动（apps/cli
+    // line_position_override 只看 mode），预览必须同样处理。调用方不传时退回按
+    // 实际行数判断，纯函数单测因此不必都写这个开关。
+    const detachable = opts.bilingual == null ? list.length > 1 : Boolean(opts.bilingual);
+    const stacked = [];
+    const detached = [];
+    list.forEach((entry) => {
+      const position = detachable ? linePosition(style, entry.line) : null;
+      if (position) detached.push({ ...entry, percent: position });
+      else stacked.push(entry);
+    });
+
+    const stackWidth = stacked.length
+      ? Math.max(...stacked.map((entry) => entry.width)) + padH * 2
+      : 0;
+    const contentHeight = stacked.reduce((sum, entry) => sum + entry.height, 0)
+      + gap * Math.max(0, stacked.length - 1);
+    const stackHeight = stacked.length ? contentHeight + padV * 2 : 0;
+    let cursor = padV;
+    const stackedPlacements = stacked.map((entry) => {
+      const x = (stackWidth - entry.width) / 2;
+      const y = cursor;
+      cursor += entry.height + gap;
+      return {
+        ...entry,
+        detached: false,
+        x,
+        y,
+        center: {
+          x: anchor.x + x + entry.width / 2 - stackWidth / 2,
+          y: anchor.y + y + entry.height / 2 - stackHeight / 2,
+        },
+      };
+    });
+    const detachedPlacements = detached.map((entry) => ({
+      ...entry,
+      detached: true,
+      center: {
+        x: frameWidth * (entry.percent.x / 100),
+        y: frameHeight * (entry.percent.y / 100),
+      },
+    }));
+    return {
+      anchor,
+      stackWidth,
+      stackHeight,
+      stacked: stackedPlacements,
+      detached: detachedPlacements,
+      placements: [...stackedPlacements, ...detachedPlacements]
+        .sort((a, b) => a.index - b.index),
+    };
+  }
+
+  // 选中语义：sel.line 缺失/为空 = 整体选中；'orig' / 'trans' = 只选中该行。
+  function isLineSelected(sel, cueId, line) {
+    if (!sel || cueId == null || sel.cueId !== cueId) return false;
+    return sel.line == null || sel.line === line;
+  }
+
+  function nextLineSelection(sel, cueId, line, extend) {
+    if (cueId == null) return sel || null;
+    const target = line === 'orig' || line === 'trans' ? line : null;
+    if (!target) return { cueId, line: null };
+    const sameCue = Boolean(sel) && sel.cueId === cueId;
+    if (!extend || !sameCue) return { cueId, line: target };
+    const current = sel.line === 'orig' || sel.line === 'trans' ? sel.line : null;
+    // Shift 点另一行 → 两行都选中（等价整体）；Shift 点同一行不改变现状。
+    return current === target ? { cueId, line: target } : { cueId, line: null };
+  }
+
   function parseColor(value) {
     const input = String(value || '').trim();
     if (!input || input === 'transparent') return { r: 0, g: 0, b: 0, a: 0 };
@@ -828,6 +971,13 @@
     nestedLineStyle,
     lineFontSize,
     layoutMetrics,
+    lineStyleKey,
+    linePosition,
+    lineStylePatch,
+    shiftLineOverrides,
+    planLineLayout,
+    isLineSelected,
+    nextLineSelection,
     parseColor,
     isTransparent,
     colorWithAlpha,

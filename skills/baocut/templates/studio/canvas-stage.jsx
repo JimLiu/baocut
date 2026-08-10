@@ -329,20 +329,47 @@ function applyTransition(transition, t, suppressed, wordChanged) {
       transition.canvasScale,
       30,
     );
-  const stack = transition.stack;
-  stack.opacity(pose.opacity);
-  stack.scale({ x: pose.scaleX, y: pose.scaleY });
-  if (pose.blur > 0.05 && K.Filters && K.Filters.Blur) {
-    if (wordChanged || !stack.isCached()) {
-      stack.clearCache();
-      stack.cache({ pixelRatio: Math.min(2, window.devicePixelRatio || 1) });
+  // 姿态节点是两行共享的父节点 root，它的 offset 就是全局锚点，因此独立摆放的
+  // 行也随整体一起围绕锚点缩放，而不是各自围绕自己的中心。
+  (transition.nodes || []).forEach((node) => {
+    node.opacity(pose.opacity);
+    node.scale({ x: pose.scaleX, y: pose.scaleY });
+    if (pose.blur > 0.05 && K.Filters && K.Filters.Blur) {
+      if (wordChanged || !node.isCached()) {
+        node.clearCache();
+        node.cache({ pixelRatio: Math.min(2, window.devicePixelRatio || 1) });
+      }
+      node.filters([K.Filters.Blur]);
+      node.blurRadius(pose.blur);
+    } else {
+      node.filters([]);
+      if (node.isCached()) node.clearCache();
     }
-    stack.filters([K.Filters.Blur]);
-    stack.blurRadius(pose.blur);
-  } else {
-    stack.filters([]);
-    if (stack.isCached()) stack.clearCache();
-  }
+  });
+}
+
+// 选中投影：整体选中拖 root（锚点位移），单行选中拖该行自己的 Group。
+function bindSelection(nodes, state) {
+  if (!nodes || !nodes.transformer) return;
+  const { root, stack, lineNodes, detachedNodes, transformer } = nodes;
+  // 选中行可能因为模式切换而不在当前渲染行里，此时退回整体选中。
+  const active = state.selectedLine && lineNodes[state.selectedLine]
+    ? state.selectedLine
+    : null;
+  const draggable = Boolean(state.selected) && !state.playing && !state.editingLine;
+  root.draggable(draggable && !active);
+  Object.keys(lineNodes).forEach((line) => {
+    lineNodes[line].draggable(draggable && active === line);
+  });
+  // 单行选中显示该行包围框；整体选中沿用堆栈框，只有确有行脱离堆栈时才并入
+  // 独立行——否则 Transformer 会从跟随 stack 旋转的框变成轴对齐并集框。
+  const targets = active
+    ? [lineNodes[active]]
+    : detachedNodes.length
+      ? (stack ? [stack, ...detachedNodes] : detachedNodes)
+      : (stack ? [stack] : []);
+  transformer.nodes(targets);
+  transformer.visible(Boolean(state.selected) && !state.editingLine && targets.length > 0);
 }
 
 function placeholderPalette(hue) {
@@ -441,27 +468,28 @@ function KonvaPreview({
   playing,
   displayStart,
   selected,
+  selectedLine,
   showSubs,
   transcribing,
   editingLine,
   onCanvasPress,
   onSelectLine,
   onEditLine,
-  onMove,
+  onMoveBy,
+  onMoveLine,
 }) {
   const hostRef = useRef(null);
   const sceneRef = useRef(null);
   const actionRef = useRef(null);
   const wordAnimationRef = useRef(null);
   const transitionRef = useRef(null);
-  const stackRef = useRef(null);
-  const transformerRef = useRef(null);
+  const nodesRef = useRef(null);
   const lastClickActionRef = useRef(null);
   const editSuppressedUntilRef = useRef(0);
   const [fontReady, setFontReady] = useState(false);
   actionRef.current = {
-    onCanvasPress, onSelectLine, onEditLine, onMove,
-    playing, selected,
+    onCanvasPress, onSelectLine, onEditLine, onMoveBy, onMoveLine,
+    playing, selected, selectedLine,
   };
 
   useEffect(() => {
@@ -591,8 +619,8 @@ function KonvaPreview({
     overlayLayer.destroyChildren();
     wordAnimationRef.current = null;
     transitionRef.current = null;
-    stackRef.current = null;
-    transformerRef.current = null;
+    nodesRef.current = null;
+    window.BCS_LINE_CENTERS = null;
     if (!showSubs || transcribing || (!cue && !tcue)) {
       overlayLayer.draw();
       return;
@@ -616,81 +644,55 @@ function KonvaPreview({
       return;
     }
 
-    const stack = new K.Group({ draggable: selected && !playing && !editingLine });
     const sharedBackground = st.backgroundMode === 'shared';
     const compactOriginal = lines.includes('trans');
-    const made = defs.map((def) => ({
-      ...def,
-      rendered: makeSubtitleLine({
-        text: def.text,
-        cue: def.cue,
-        st,
-        width,
-        height,
-        isTrans: def.isTrans,
-        language: def.language,
-        compactOriginal,
-        separateBackground: !sharedBackground,
-      }),
-    }));
+    // 行级 x/y 只在双语上下文生效，判据是模式排了两行而不是这一刻画出了两行：
+    // 缺译文的那条 cue 在导出端仍按覆盖浮动，预览要一致。
+    const detachable = lines.length > 1;
+    const made = defs.map((def) => {
+      const override = detachable ? R.linePosition(st, def.line) : null;
+      return {
+        ...def,
+        override,
+        rendered: makeSubtitleLine({
+          text: def.text,
+          cue: def.cue,
+          st,
+          width,
+          height,
+          isTrans: def.isTrans,
+          language: def.language,
+          compactOriginal,
+          // 独立摆放的行离开共享底板，必须自带底板才不会失去背景。
+          separateBackground: !sharedBackground || Boolean(override),
+        }),
+      };
+    });
     const canvasScale = R.referenceScale(width, height) * Math.max(0.05, Number(st.scale) || 1);
     const gap = Math.max(0, Number(st.gap == null ? 6 : st.gap)) * canvasScale;
-    const sharedMetrics = made[0].rendered.metrics;
-    const sharedPadH = sharedBackground ? sharedMetrics.padH : 0;
-    const sharedPadV = sharedBackground ? sharedMetrics.padV : 0;
-    const stackWidth = Math.max(...made.map((item) => item.rendered.width)) + sharedPadH * 2;
-    const contentHeight = made.reduce((sum, item) => sum + item.rendered.height, 0)
-      + gap * Math.max(0, made.length - 1);
-    const stackHeight = contentHeight + sharedPadV * 2;
-    if (sharedBackground) {
-      const sharedStyle = sharedMetrics.lineStyle;
-      stack.add(new K.Rect({
-        width: stackWidth,
-        height: stackHeight,
-        fill: sharedMetrics.backgroundOn
-          ? canvasColor(sharedStyle.backgroundColor || st.backgroundColor, '#000000cc')
-          : 'rgba(0,0,0,0.001)',
-        cornerRadius: sharedMetrics.backgroundOn ? sharedMetrics.borderRadius : 0,
-        listening: false,
-      }));
-    }
-    let y = sharedPadV;
-    made.forEach((item) => {
-      const rendered = item.rendered;
-      rendered.group.position({ x: (stackWidth - rendered.width) / 2, y });
-      rendered.group.on('click tap', (e) => {
-        e.cancelBubble = true;
-        const action = actionRef.current.onCanvasPress({
-          hasTarget: true,
-          targetSelected: actionRef.current.selected,
-          select: () => actionRef.current.onSelectLine(item.line),
-        });
-        lastClickActionRef.current = action;
-        if (action !== 'passThrough') editSuppressedUntilRef.current = performance.now() + 500;
-        if (action === 'passThrough') actionRef.current.onSelectLine(item.line);
-      });
-      rendered.group.on('dblclick dbltap', (e) => {
-        e.cancelBubble = true;
-        if (lastClickActionRef.current !== 'passThrough'
-          || actionRef.current.playing
-          || !actionRef.current.selected
-          || performance.now() < editSuppressedUntilRef.current) return;
-        const rect = rendered.group.getClientRect({ relativeTo: stage, skipShadow: true });
-        actionRef.current.onEditLine(item.line, rect, rendered.metrics);
-      });
-      if (editingLine === item.line) rendered.group.visible(false);
-      stack.add(rendered.group);
-      if (rendered.animation) wordAnimationRef.current = rendered.animation;
-      y += rendered.height + gap;
-    });
-    stack.offset({ x: stackWidth / 2, y: stackHeight / 2 });
-    const preferredX = width * ((st.x == null ? 50 : st.x) / 100);
-    const preferredY = height * ((st.y == null ? 86 : st.y) / 100);
-    stack.position({
-      x: preferredX,
-      y: preferredY,
-    });
-    stack.rotation(Number(st.rotation) || 0);
+    const stackedItems = made.filter((item) => !item.override);
+    const sharedMetrics = (stackedItems[0] || made[0]).rendered.metrics;
+    const sharedPadH = sharedBackground && stackedItems.length ? sharedMetrics.padH : 0;
+    const sharedPadV = sharedBackground && stackedItems.length ? sharedMetrics.padV : 0;
+    const plan = R.planLineLayout(
+      made.map((item) => ({
+        line: item.line,
+        width: item.rendered.width,
+        height: item.rendered.height,
+      })),
+      {
+        style: st,
+        frameWidth: width,
+        frameHeight: height,
+        gap,
+        padH: sharedPadH,
+        padV: sharedPadV,
+        bilingual: detachable,
+      },
+    );
+    const rotation = Number(st.rotation) || 0;
+    const pctX = (value) => Math.round((value / width) * 1000) / 10;
+    const pctY = (value) => Math.round((value / height) * 1000) / 10;
 
     const vGuide = new K.Line({
       points: [width / 2, 0, width / 2, height],
@@ -706,52 +708,189 @@ function KonvaPreview({
       visible: false,
       listening: false,
     });
-    overlayLayer.add(vGuide);
-    overlayLayer.add(hGuide);
-    overlayLayer.add(stack);
-    stack.dragBoundFunc((pos) => ({
+    const boundCenter = (pos) => ({
       x: clamp(Math.abs(pos.x - width / 2) < 8 ? width / 2 : pos.x, width * 0.03, width * 0.97),
       y: clamp(Math.abs(pos.y - height / 2) < 8 ? height / 2 : pos.y, height * 0.04, height * 0.96),
-    }));
-    stack.on('mouseenter', () => {
-      stage.container().style.cursor = selected && !playing && !editingLine ? 'grab' : 'default';
     });
-    stack.on('mouseleave', () => {
-      stage.container().style.cursor = 'default';
-    });
-    stack.on('dragstart', () => {
-      stage.container().style.cursor = 'grabbing';
-    });
-    stack.on('dragmove', () => {
-      vGuide.visible(Math.abs(stack.x() - width / 2) < 1);
-      hGuide.visible(Math.abs(stack.y() - height / 2) < 1);
-    });
-    stack.on('dragend', () => {
+    const showGuides = (cx, cy) => {
+      vGuide.visible(Math.abs(cx - width / 2) < 1);
+      hGuide.visible(Math.abs(cy - height / 2) < 1);
+    };
+    const endDrag = () => {
       vGuide.hide();
       hGuide.hide();
       stage.container().style.cursor = 'grab';
-      actionRef.current.onMove(
-        Math.round((stack.x() / width) * 1000) / 10,
-        Math.round((stack.y() / height) * 1000) / 10,
-      );
+    };
+
+    // root 是两行共享的父变换：支点固定在全局锚点，整组 scale/rotation 与入场
+    // 转场都作用在它身上，独立摆放的浮动行因此仍随整体一起变换。它同时承载整体
+    // 拖拽，"两行都独立摆放"时也总有可拖的对象；子节点一律用画面坐标。
+    const root = new K.Group({
+      x: plan.anchor.x,
+      y: plan.anchor.y,
+      offsetX: plan.anchor.x,
+      offsetY: plan.anchor.y,
+      rotation,
+    });
+    // 行级拖拽写回的是画面坐标，需要先剥掉 root 的旋转/缩放。
+    const toFrame = (point) => root.getAbsoluteTransform().copy().invert().point(point);
+    const stack = plan.stacked.length ? new K.Group() : null;
+    if (stack) {
+      root.add(stack);
+      if (sharedBackground) {
+        const sharedStyle = sharedMetrics.lineStyle;
+        stack.add(new K.Rect({
+          width: plan.stackWidth,
+          height: plan.stackHeight,
+          fill: sharedMetrics.backgroundOn
+            ? canvasColor(sharedStyle.backgroundColor || st.backgroundColor, '#000000cc')
+            : 'rgba(0,0,0,0.001)',
+          cornerRadius: sharedMetrics.backgroundOn ? sharedMetrics.borderRadius : 0,
+          listening: false,
+        }));
+      }
+    }
+
+    const byLine = {};
+    made.forEach((item) => { byLine[item.line] = item; });
+    const lineNodes = {};
+    const detachedNodes = [];
+    plan.placements.forEach((placement) => {
+      const item = byLine[placement.line];
+      if (!item) return;
+      const rendered = item.rendered;
+      const group = rendered.group;
+      // 每个行 Group 都以自身中心为原点，这样 Konva 的绝对位置（dragBoundFunc
+      // 的入参、getAbsolutePosition 的返回）在堆栈内、独立摆放两种情况下都是
+      // 该行的可见中心，写回百分比时无需再分情况换算。
+      group.offset({ x: placement.width / 2, y: placement.height / 2 });
+      if (placement.detached) {
+        group.position(placement.center);
+        root.add(group);
+        detachedNodes.push(group);
+      } else {
+        group.position({
+          x: placement.x + placement.width / 2,
+          y: placement.y + placement.height / 2,
+        });
+        stack.add(group);
+      }
+      lineNodes[placement.line] = group;
+
+      group.on('click tap', (e) => {
+        e.cancelBubble = true;
+        const state = actionRef.current;
+        const extend = Boolean(e.evt && e.evt.shiftKey);
+        const action = state.onCanvasPress({
+          hasTarget: true,
+          targetSelected: state.selected
+            && (state.selectedLine == null || state.selectedLine === item.line),
+          select: () => state.onSelectLine(item.line, extend),
+        });
+        lastClickActionRef.current = action;
+        if (action !== 'passThrough') editSuppressedUntilRef.current = performance.now() + 500;
+        if (action === 'passThrough') state.onSelectLine(item.line, extend);
+      });
+      group.on('dblclick dbltap', (e) => {
+        e.cancelBubble = true;
+        if (lastClickActionRef.current !== 'passThrough'
+          || actionRef.current.playing
+          || !actionRef.current.selected
+          || performance.now() < editSuppressedUntilRef.current) return;
+        const rect = group.getClientRect({ relativeTo: stage, skipShadow: true });
+        actionRef.current.onEditLine(item.line, rect, rendered.metrics);
+      });
+      group.dragBoundFunc(boundCenter);
+      group.on('dragstart', () => {
+        stage.container().style.cursor = 'grabbing';
+      });
+      group.on('dragmove', () => {
+        const center = toFrame(group.getAbsolutePosition());
+        showGuides(center.x, center.y);
+      });
+      group.on('dragend', () => {
+        endDrag();
+        const center = toFrame(group.getAbsolutePosition());
+        actionRef.current.onMoveLine(item.line, pctX(center.x), pctY(center.y));
+        overlayLayer.batchDraw();
+      });
+      if (editingLine === item.line) group.visible(false);
+      if (rendered.animation) wordAnimationRef.current = rendered.animation;
+    });
+
+    if (stack) {
+      stack.offset({ x: plan.stackWidth / 2, y: plan.stackHeight / 2 });
+      stack.position(plan.anchor);
+    }
+    overlayLayer.add(vGuide);
+    overlayLayer.add(hGuide);
+    overlayLayer.add(root);
+
+    // 整体拖拽的参照中心：有堆栈时就是锚点，全部独立摆放时退化为各行中心均值，
+    // 让吸附线与边界钳制仍作用在可见内容上。
+    const baseCenter = plan.stacked.length || !plan.detached.length
+      ? plan.anchor
+      : {
+        x: plan.detached.reduce((sum, item) => sum + item.center.x, 0) / plan.detached.length,
+        y: plan.detached.reduce((sum, item) => sum + item.center.y, 0) / plan.detached.length,
+      };
+    // root 的位置就是锚点位置，拖动量 = 当前位置 - 初始锚点。吸附与边界仍作用在
+    // 可见内容的参照中心上，因此先把位移映射过去再钳制。
+    const rootDelta = () => ({ x: root.x() - plan.anchor.x, y: root.y() - plan.anchor.y });
+    root.dragBoundFunc((pos) => {
+      const dx = pos.x - plan.anchor.x;
+      const dy = pos.y - plan.anchor.y;
+      const bounded = boundCenter({ x: baseCenter.x + dx, y: baseCenter.y + dy });
+      return {
+        x: plan.anchor.x + (bounded.x - baseCenter.x),
+        y: plan.anchor.y + (bounded.y - baseCenter.y),
+      };
+    });
+    root.on('mouseenter', () => {
+      const state = actionRef.current;
+      stage.container().style.cursor = state.selected && !state.playing && !editingLine
+        ? 'grab'
+        : 'default';
+    });
+    root.on('mouseleave', () => {
+      stage.container().style.cursor = 'default';
+    });
+    root.on('dragstart', () => {
+      stage.container().style.cursor = 'grabbing';
+    });
+    root.on('dragmove', () => {
+      const delta = rootDelta();
+      showGuides(baseCenter.x + delta.x, baseCenter.y + delta.y);
+    });
+    root.on('dragend', () => {
+      endDrag();
+      const delta = rootDelta();
+      actionRef.current.onMoveBy(pctX(delta.x), pctY(delta.y));
       overlayLayer.batchDraw();
     });
 
     const transformer = new K.Transformer({
-      nodes: [stack],
+      nodes: [],
       enabledAnchors: [],
       rotateEnabled: false,
       borderStroke: '#3b63fb',
       borderStrokeWidth: 2,
       padding: 6,
-      visible: selected && !editingLine,
+      visible: false,
       listening: false,
     });
     overlayLayer.add(transformer);
-    stackRef.current = stack;
-    transformerRef.current = transformer;
+    nodesRef.current = { root, stack, lineNodes, detachedNodes, transformer };
+    bindSelection(nodesRef.current, { selected, selectedLine, playing, editingLine });
+    // 样式面板「独立摆放」需要该行当前的推导中心作为起点；中心依赖实测文本尺寸，
+    // 只能由画布产出。这里只是一次只读快照，不参与订阅。
+    window.BCS_LINE_CENTERS = plan.placements.reduce((acc, placement) => {
+      acc[placement.line] = { x: pctX(placement.center.x), y: pctY(placement.center.y) };
+      return acc;
+    }, {});
     transitionRef.current = {
-      stack,
+      // 入场转场作用在共享父节点上，支点即全局锚点：浮动行与堆栈一起进场。
+      nodes: [root],
       style: st,
       displayStart: displayStart == null ? t : displayStart,
       canvasScale,
@@ -775,15 +914,15 @@ function KonvaPreview({
     displayStart,
   ]);
 
+  // 行级选中变化不重建节点：sel.line 只改拖拽目标与包围框，双击窗口因此不会被
+  // 第一次点击打断。
   useEffect(() => {
-    const transformer = transformerRef.current;
-    const stack = stackRef.current;
-    if (!transformer || !stack) return;
-    transformer.nodes([stack]);
-    transformer.visible(selected && !editingLine);
-    stack.draggable(selected && !playing && !editingLine);
-    transformer.getLayer().batchDraw();
-  }, [selected, playing, editingLine, cueKey]);
+    const nodes = nodesRef.current;
+    if (!nodes) return;
+    bindSelection(nodes, { selected, selectedLine, playing, editingLine });
+    const layer = nodes.transformer.getLayer();
+    if (layer) layer.batchDraw();
+  }, [selected, selectedLine, playing, editingLine, cueKey]);
 
   // Word animation and the entrance pose are both pure functions of the
   // playhead. Seeking and playback therefore paint the same Canvas state.
@@ -793,7 +932,7 @@ function KonvaPreview({
     if (!transition && !animation) return;
     const wordChanged = updateWordAnimation(animation, t);
     applyTransition(transition, t, selected || Boolean(editingLine), wordChanged);
-    const layer = (transition && transition.stack.getLayer())
+    const layer = (transition && transition.nodes[0] && transition.nodes[0].getLayer())
       || (animation && animation.nodes[0] && animation.nodes[0].node.getLayer());
     if (layer) layer.batchDraw();
   }, [t, selected, editingLine, cueKey, transKey]);
@@ -804,7 +943,7 @@ function KonvaPreview({
       className="bcs-konva-preview"
       role="group"
       tabIndex="0"
-      aria-label="Canvas 视频与字幕预览：单击画面播放或暂停；暂停后可选中字幕；已选中且暂停时可拖拽或双击编辑"
+      aria-label="Canvas 视频与字幕预览：单击画面播放或暂停；暂停后单击原文行或译文行可单独选中，Shift 单击另一行整体选中；已选中且暂停时可拖拽该行或双击编辑"
     />
   );
 }

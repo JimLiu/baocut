@@ -4,6 +4,8 @@
 (() => {
 const { useState, useRef } = React;
 const { Ic, Segmented, useApp, toast } = window;
+const R = window.BCS_SUBTITLE;
+const LINE_LABELS = [{ line: 'orig', label: '原文' }, { line: 'trans', label: '译文' }];
 
 const PRESETS = [
   { id: 'classic', name: '经典描边', style: {
@@ -56,6 +58,14 @@ function StylePane() {
   const { doc } = app;
   const st = doc.style;
   const set = (patch) => app.setStyle(patch);
+  // 行的推导中心依赖实测文本尺寸，只有画布知道；这里读画布留下的只读快照，
+  // 让「独立摆放」从当前所见位置起步，读不到时退回锚点。
+  const seedLinePosition = (line) => {
+    const center = (window.BCS_LINE_CENTERS || {})[line];
+    return center && Number.isFinite(center.x) && Number.isFinite(center.y)
+      ? center
+      : { x: st.x == null ? 50 : st.x, y: st.y == null ? 86 : st.y };
+  };
 
   return (
     <div className="vk-transcript bcs-style" data-screen-label="Style">
@@ -150,6 +160,43 @@ function StylePane() {
           <input type="range" min="0.8" max="1.6" step="0.025" value={st.transScale || 1.375} style={{ width: '100%', accentColor: 'var(--accent-color-900)' }}
             onChange={(e) => set({ transScale: parseFloat(e.target.value) })} aria-label="译文字号倍率" />
         </Row>
+
+        {st.mode === 'bi' ? LINE_LABELS.map(({ line, label }) => {
+          const position = R.linePosition(st, line);
+          if (!position) {
+            return (
+              <Row key={line} label={label + '行位置'}>
+                <button className="s2-btn s2-btn--S s2-btn--secondary"
+                  onClick={() => {
+                    set(R.lineStylePatch(st, line, seedLinePosition(line)));
+                    toast(label + '行已脱离堆栈，可单独摆放', { variant: 'positive' });
+                  }}>独立摆放</button>
+              </Row>
+            );
+          }
+          const move = (patch) => set(R.lineStylePatch(st, line, { ...position, ...patch }));
+          return (
+            <React.Fragment key={line}>
+              <Row label={label + '行位置 · 独立'}>
+                <button className="s2-btn s2-btn--S s2-btn--secondary"
+                  onClick={() => {
+                    set(R.lineStylePatch(st, line, null));
+                    toast(label + '行已恢复联动', { variant: 'neutral' });
+                  }}>重置位置</button>
+              </Row>
+              <Row label={label + ' 水平 · ' + position.x + '%'}>
+                <input type="range" min="3" max="97" step="0.5" value={position.x} style={{ width: '100%', accentColor: 'var(--accent-color-900)' }}
+                  onChange={(e) => move({ x: parseFloat(e.target.value) })}
+                  aria-label={label + '行水平位置'} />
+              </Row>
+              <Row label={label + ' 垂直 · ' + position.y + '%'}>
+                <input type="range" min="4" max="96" step="0.5" value={position.y} style={{ width: '100%', accentColor: 'var(--accent-color-900)' }}
+                  onChange={(e) => move({ y: parseFloat(e.target.value) })}
+                  aria-label={label + '行垂直位置'} />
+              </Row>
+            </React.Fragment>
+          );
+        }) : null}
 
         <div className="bcs-stsec">动画</div>
         <Row label="逐词动画">

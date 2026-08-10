@@ -93,8 +93,9 @@ bin/baocut auto "<dir>/My Talk.bcut" --llm agent \
 Default-path rule: when the user has not named a download directory, use the
 project-path form above and omit `--download-dir`. Never synthesize a sibling
 `downloads` directory or an App Support path. Omitting the flag makes the CLI
-honor the shared `download.dir` setting; only when that setting is absent does
-it fall back to `<project>/media`.
+honor the shared `download.dir` setting. When that setting is absent, Windows
+uses the user's system Downloads known folder; other platforms fall back to
+`<project>/media`.
 
 Only when the user explicitly names a one-off directory, keep the registered
 project created in step 1 but pass the URL again as the pipeline input and
@@ -118,7 +119,17 @@ on operating-system TCP timeouts indefinitely.
 The CLI still auto-prepares models for direct `auto`/`transcribe` compatibility;
 the explicit command above keeps a first multi-gigabyte download out of the
 pipeline timeout window. After `auto` returns, repeat step 2 one final time and
-hand off the verified current URL.
+hand off the verified current URL. For every URL-media run, also read the
+authoritative downloaded video path and report that exact path to the user:
+
+```bash
+bin/baocut --json project show "<dir>/My Talk.bcut"
+# → data.manifest.media.path
+```
+
+Use `data.media` directly when the terminal command was `transcribe`. Confirm
+the path from command output even when the video was reused; do not infer it
+from the title or merely say that the download completed.
 
 ## Explicit stages
 

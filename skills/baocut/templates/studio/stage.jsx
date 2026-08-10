@@ -171,14 +171,22 @@ function StagePane() {
         transDisplay ? transDisplay.displayStart : Number.POSITIVE_INFINITY,
       );
   const transcribing = doc.status.phase === 'transcribing';
-  const selected = !!(subtitleCue && app.sel
-    && app.sel.cueId === (subtitleCue.sourceItemId || subtitleCue.id));
+  const selKey = subtitleCue ? (subtitleCue.sourceItemId || subtitleCue.id) : null;
+  const selected = !!(selKey && app.sel && app.sel.cueId === selKey);
+  // sel.line 缺失 = 整体选中；'orig' / 'trans' = 只选中该行。
+  const selectedLine = selected && (app.sel.line === 'orig' || app.sel.line === 'trans')
+    ? app.sel.line
+    : null;
   const cueRef = useRef(subtitleCue);
   const tcueRef = useRef(tcue);
   const tabRef = useRef(app.tab);
+  const selRef = useRef(app.sel);
+  const styleRef = useRef(st);
   cueRef.current = subtitleCue;
   tcueRef.current = tcue;
   tabRef.current = app.tab;
+  selRef.current = app.sel;
+  styleRef.current = st;
 
   useEffect(() => {
     setEditing(null);
@@ -209,18 +217,25 @@ function StagePane() {
     return action;
   }, [player.playing, app.sel, app.setPlayer, app.setSel, app.togglePlay]);
 
-  const selectLine = useCallback((line) => {
+  const selectLine = useCallback((line, extend) => {
     const current = cueRef.current;
     const currentTrans = tcueRef.current;
     if (line === 'orig' && !current) return;
     if (line === 'trans' && !currentTrans) return;
     if (current && (!current.sourceId || current.sourceId === 'main')) {
-      app.setSel({ cueId: current.sourceItemId || current.id });
+      app.setSel(R.nextLineSelection(
+        selRef.current,
+        current.sourceItemId || current.id,
+        line,
+        Boolean(extend),
+      ));
     }
+    clearTimeout(selectTimerRef.current);
+    // Shift 扩展只改选区，不改样式目标：两行都选中时没有唯一的目标面板。
+    if (extend) return;
     // Delay the panel switch until the double-click window closes. Switching
     // from translated-only to bilingual preview would otherwise rebuild the
     // Canvas node between the first and second click.
-    clearTimeout(selectTimerRef.current);
     selectTimerRef.current = setTimeout(() => {
       app.setTab(line === 'trans' ? 'translate' : 'subtitle');
     }, 350);
@@ -237,7 +252,12 @@ function StagePane() {
     // can never write the visibly different cue that merely overlaps in time.
     if (line === 'orig' && tabRef.current === 'translate') {
       if (!current.sourceId || current.sourceId === 'main') {
-        app.setSel({ cueId: current.sourceItemId || current.id });
+        app.setSel(R.nextLineSelection(
+          selRef.current,
+          current.sourceItemId || current.id,
+          line,
+          false,
+        ));
       }
       app.setTab('subtitle');
       if (mediaElRef.current) mediaElRef.current.pause();
@@ -283,8 +303,21 @@ function StagePane() {
     }
   }, [app.editCue, app.editTrans]);
 
-  const moveSubtitle = useCallback((x, y) => {
-    app.setStyle({ x, y });
+  // 整体拖拽写锚点位移。delta 先取到 0.1% 再加，行覆盖用同一个 delta 平移，
+  // 保证多次拖拽后各行相对几何不漂移。行覆盖不再二次钳制到画面内边界，
+  // 否则贴边的行会被拉回，破坏与锚点的相对关系。
+  const moveSubtitleBy = useCallback((dx, dy) => {
+    const style = styleRef.current || {};
+    const round = (value) => Math.round(value * 10) / 10;
+    app.setStyle({
+      x: round((style.x == null ? 50 : style.x) + dx),
+      y: round((style.y == null ? 86 : style.y) + dy),
+      ...R.shiftLineOverrides(style, dx, dy),
+    });
+  }, [app.setStyle]);
+
+  const moveLine = useCallback((line, x, y) => {
+    app.setStyle(R.lineStylePatch(styleRef.current || {}, line, { x, y }));
   }, [app.setStyle]);
 
   const a11yText = [
@@ -337,13 +370,15 @@ function StagePane() {
             playing={player.playing}
             displayStart={Number.isFinite(displayStart) ? displayStart : t}
             selected={selected}
+            selectedLine={selectedLine}
             showSubs={player.showSubs}
             transcribing={transcribing}
             editingLine={editing && editing.line}
             onCanvasPress={routeCanvasPress}
             onSelectLine={selectLine}
             onEditLine={editLine}
-            onMove={moveSubtitle}
+            onMoveBy={moveSubtitleBy}
+            onMoveLine={moveLine}
           />
 
           {editing ? (
@@ -373,7 +408,7 @@ function StagePane() {
       </div>
 
       <div className="vk-stagebar">
-        <span className="bcs-stagebar__hint vk-dim">Canvas 预览 · 单击画面播放/暂停 · 暂停后选中字幕 · 选中后可拖拽或双击编辑</span>
+        <span className="bcs-stagebar__hint vk-dim">Canvas 预览 · 单击画面播放/暂停 · 暂停后点原文或译文行单独选中 · Shift 点另一行整体选中 · 选中后可拖拽或双击编辑</span>
         <span className="vk-spacer"></span>
         <QBtn
           icon="captions"
