@@ -348,11 +348,17 @@
       : rootStyle;
   }
 
+  // 「显式行级字号」只认 partial 自身写下的数值 fontSize：nestedLineStyle 的合并包
+  // 必然从根继承 fontSize，拿它做判据会让任何 partial（哪怕只含 x/y）都跳过双语
+  // compact 与 transScale 缩放，与烧录端 resolve_line_style 分叉。typeof 纪律同
+  // linePosition：字符串 '18'、null、true 一律视为缺席，对齐 serde as_f64。
   function lineFontSize(style, isTranslation, compactOriginal) {
     const rootStyle = style || {};
-    const lineStyle = nestedLineStyle(rootStyle, isTranslation);
-    const explicitLineSize = lineStyle !== rootStyle && Number.isFinite(Number(lineStyle.fontSize));
-    if (explicitLineSize) return Math.max(1, Number(lineStyle.fontSize));
+    const override = isTranslation ? rootStyle.transStyle : rootStyle.origStyle;
+    const explicitLineSize = override && typeof override === 'object'
+      ? override.fontSize
+      : undefined;
+    if (Number.isFinite(explicitLineSize)) return Math.max(1, explicitLineSize);
     const base = Math.max(1, finite(rootStyle.fontSize, 30));
     const bilingualScale = Math.max(
       0.1,
@@ -399,10 +405,96 @@
     };
   }
 
-  // 行级位置覆盖：origStyle.x/y 与 transStyle.x/y 是帧百分比，含义是该行文本块的
-  // 中心点。x、y 必须同时存在才算覆盖；只写一半视为未覆盖，该行继续参与锚点堆栈。
+  // 「真实背景」判据：开关开着**且**颜色不是近全透明，镜像 Mac
+  // StyleFX.bgOn(style) && !VKColor.isTransparent(...) 与 CLI 的
+  // has_real_background(line.style.background_on && a > 2)。不能只看 backgroundOn：
+  // 显式 background:true 配一个 rgba(...,0) 在 layoutMetrics 里仍是 true，两端会分叉。
+  // 颜色缺失/无法解析时 isTransparent 返回 false，即按"落回不透明默认色"处理，
+  // 与 canvas 端 fill 兜底 #000000cc 一致。
+  function hasRealBackground(metrics) {
+    if (!metrics || !metrics.backgroundOn) return false;
+    const lineStyle = metrics.lineStyle || {};
+    return !isTransparent(lineStyle.backgroundColor);
+  }
+
+  // 共享底板只跟**一行**走：padding/圆角/颜色一律取源行（orig）的 spec，只有当源
+  // 行没有真实背景、而译文行有时才 fallback 到译文行；另一行的 backgroundPadding
+  // 被完全忽略。不能取"堆栈里的第一行"—— transTop 时译文行排在前面，而
+  // origStyle/transStyle 又能各自覆盖 backgroundPadding，那样预览与烧录端会分叉。
+  // 对应 Mac SubtitleFrameDrawing.sharedBackgroundSpec 与 CLI render_plan 的
+  // plate_line。entries: [{ line, metrics }]，返回其中一项或 null。
+  function sharedPlateLine(entries) {
+    const list = (entries || []).filter(Boolean);
+    const source = list.find((entry) => entry.line !== 'trans') || null;
+    const trans = list.find((entry) => entry.line === 'trans') || null;
+    if (source && trans) {
+      return !hasRealBackground(source.metrics) && hasRealBackground(trans.metrics)
+        ? trans
+        : source;
+    }
+    return source || trans || null;
+  }
+
+  // 行级位置覆盖：origStyle.x/y 与 transStyle.x/y 是帧百分比。x、y 必须同时存在
+  // 才算覆盖；只写一半视为未覆盖，该行继续参与锚点堆栈。
+  //
+  // y 钉住文本块的哪条边由 verticalAlign 决定：'top' = 顶边（换行向下生长）、
+  // 'center' = 中心（缺省，历史行为）、'bottom' = 底边（换行向上生长）。
   function lineStyleKey(line) {
     return line === true || line === 'trans' ? 'transStyle' : 'origStyle';
+  }
+
+  const VERTICAL_ALIGNS = ['top', 'center', 'bottom'];
+
+  // 严格白名单：只认这三个字符串字面量，'Top' / 'middle' / 数字 / 布尔 / 数组 /
+  // 对象一律视为缺席。烧录端用 serde 的 as_str() 做同样匹配，预览端若宽松就会
+  // 出现"预览按锚边、导出按中心"的分叉（同 linePosition 的 typeof 纪律）。
+  function verticalAlignValue(value) {
+    return typeof value === 'string' && VERTICAL_ALIGNS.indexOf(value) >= 0 ? value : null;
+  }
+
+  // 块级锚点：读根级 style.verticalAlign，缺席 = center（历史行为）。
+  function blockVerticalAlign(style) {
+    return verticalAlignValue((style || {}).verticalAlign);
+  }
+
+  // 行级锚点：与 x/y 一样只读 partial，不走 nestedLineStyle 的 merged 结果。
+  // 根级 verticalAlign 是块级语义，铺进 merged 会把整栈锚点误当成行锚点。
+  function lineVerticalAlign(style, line) {
+    const override = (style || {})[lineStyleKey(line)];
+    if (!override || typeof override !== 'object') return null;
+    return verticalAlignValue(override.verticalAlign);
+  }
+
+  // 在 [slotTop, slotTop + slot] 的槽位里摆一段高 height 的内容。
+  function alignWithin(slotTop, slot, height, align) {
+    if (align === 'top') return slotTop;
+    if (align === 'bottom') return slotTop + slot - height;
+    return slotTop + (slot - height) / 2;
+  }
+
+  // 锚点 anchor 是这块内容的哪条边，返回顶边坐标。
+  function anchorBlock(anchor, height, align) {
+    return alignWithin(anchor, 0, height, align);
+  }
+
+  // 双语堆叠的结构性默认：钉住接缝——上行贴槽底（向上生长）、下行贴槽顶（向下
+  // 生长），于是任一行折行时两行之间的缝隙纹丝不动。单行栈退回 center。
+  function seamAlign(rank, count) {
+    if (count < 2) return 'center';
+    if (rank === 0) return 'bottom';
+    if (rank + 1 === count) return 'top';
+    return 'center';
+  }
+
+  // 落位中心 → 写回 style 的 y（锚边坐标），是 anchorBlock + height/2 的逆运算。
+  // 拖拽与「独立摆放」写回都必须走它，否则锚点不是 center 的行一存就跳。
+  function lineAnchorFromCenter(centerY, height, align) {
+    const value = finite(centerY, 0);
+    const size = Math.max(0, finite(height, 0));
+    if (align === 'top') return value - size / 2;
+    if (align === 'bottom') return value + size / 2;
+    return value;
   }
 
   function roundPercent(value) {
@@ -420,9 +512,13 @@
     return { x, y };
   }
 
-  // 生成写回 style 的补丁。position 为 null 表示清除覆盖：只删 x/y，该行其余
-  // 排版键原样保留；整个覆盖对象空掉时写 null（而不是 {}），既能覆盖住 data.json
-  // 里的同名键、又不会让 nestedLineStyle 把空对象当成"存在显式行样式"。
+  // 生成写回 style 的补丁。position 为 null 表示清除覆盖：删掉 x/y 与
+  // verticalAlign（回堆栈后锚点由接缝默认承担），该行其余排版键原样保留；整个
+  // 覆盖对象空掉时写 null（而不是 {}），既能覆盖住 data.json 里的同名键、又不会
+  // 让 nestedLineStyle 把空对象当成"存在显式行样式"。
+  //
+  // verticalAlign 只在 position 显式带这个键时才动：滑杆等只改 x/y 的调用照旧
+  // 不带，已有锚点不会被顺手抹掉。带上非法值等同于清除。
   function lineStylePatch(style, line, position) {
     const key = lineStyleKey(line);
     const base = (style || {})[key];
@@ -430,9 +526,15 @@
     if (position && Number.isFinite(Number(position.x)) && Number.isFinite(Number(position.y))) {
       next.x = roundPercent(position.x);
       next.y = roundPercent(position.y);
+      if (Object.prototype.hasOwnProperty.call(position, 'verticalAlign')) {
+        const align = verticalAlignValue(position.verticalAlign);
+        if (align) next.verticalAlign = align;
+        else delete next.verticalAlign;
+      }
     } else {
       delete next.x;
       delete next.y;
+      delete next.verticalAlign;
     }
     return { [key]: Object.keys(next).length ? next : null };
   }
@@ -451,8 +553,17 @@
     return patch;
   }
 
-  // 纯布局：把行分成"参与堆栈"和"独立摆放"两组。堆栈部分完全沿用既有公式，
-  // 因此在没有任何行级覆盖时排布与历史行为逐像素一致。
+  // 纯布局：把行分成"参与堆栈"和"独立摆放"两组。
+  //
+  // 堆栈走槽位：双语时每行的槽位高 = 单行参考高 entry.reference（fontSize ×
+  // lineHeight，不含折行），栈总高按槽位累加；实际内容再在自己的槽位里按行级
+  // 锚点落位，缺省用接缝锚点。于是任一行折行只会往远离接缝的方向生长，另一行
+  // 不动。entry 不带 reference 时槽位退回实际高度 —— 每行都只有 1 行时槽位 ==
+  // 实际高，alignWithin 三态全部退化为恒等，逐比特还原改造前的数学（等价性
+  // 验收线，见 tests 里的 "单行等价" 用例）。
+  //
+  // 整栈几何（stackHeight / stackCenter / 共享底板）从落位后的实际 extent 反推，
+  // 不再用 total/2 从锚点反推：折行时底板随内容扩张，两行文本也不再互相侵入。
   function planLineLayout(entries, options) {
     const opts = options || {};
     const style = opts.style || {};
@@ -461,12 +572,18 @@
     const gap = Math.max(0, finite(opts.gap, 0));
     const padH = Math.max(0, finite(opts.padH, 0));
     const padV = Math.max(0, finite(opts.padV, 0));
-    const list = (entries || []).map((entry, index) => ({
-      line: entry.line,
-      index,
-      width: Math.max(0, finite(entry.width, 0)),
-      height: Math.max(0, finite(entry.height, 0)),
-    }));
+    const list = (entries || []).map((entry, index) => {
+      const height = Math.max(0, finite(entry.height, 0));
+      return {
+        line: entry.line,
+        index,
+        width: Math.max(0, finite(entry.width, 0)),
+        height,
+        reference: entry.reference == null
+          ? height
+          : Math.max(0, finite(entry.reference, height)),
+      };
+    });
     const anchor = {
       x: frameWidth * (finite(style.x, 50) / 100),
       y: frameHeight * (finite(style.y, 86) / 100),
@@ -480,44 +597,83 @@
     const detached = [];
     list.forEach((entry) => {
       const position = detachable ? linePosition(style, entry.line) : null;
-      if (position) detached.push({ ...entry, percent: position });
-      else stacked.push(entry);
+      // 行级锚点与 x/y 同门控：非双语上下文一律不读行级覆盖。
+      const align = detachable ? lineVerticalAlign(style, entry.line) : null;
+      if (position) detached.push({ ...entry, percent: position, align });
+      else stacked.push({ ...entry, align });
     });
 
-    const stackWidth = stacked.length
+    const count = stacked.length;
+    // 只有真的在堆两行以上时才用参考高做槽位；单行栈用实际高，保证"剩余单行 =
+    // 天生单行"的跨端契约（方案 §8 决定 5）。
+    const slotOf = (entry) => (count >= 2 ? entry.reference : entry.height);
+    const stackWidth = count
       ? Math.max(...stacked.map((entry) => entry.width)) + padH * 2
       : 0;
-    const contentHeight = stacked.reduce((sum, entry) => sum + entry.height, 0)
-      + gap * Math.max(0, stacked.length - 1);
-    const stackHeight = stacked.length ? contentHeight + padV * 2 : 0;
-    let cursor = padV;
-    const stackedPlacements = stacked.map((entry) => {
+    // 区块垂直锚点钉的是**共享底板的边**，不是字形 span：锚定总高要含底板上下
+    // padding，落笔游标再让开一个 padV。于是 top 时底板顶边压在锚线上、bottom 时
+    // 底板底边压在锚线上，与 apps/cli raster.rs stacked_extent/place_lines 及 Mac
+    // 的 stackedSize 同构。center 恒等不变（-total/2 - padV + padV 抵消），separate
+    // 模式 padV=0 也原样不动。
+    const totalHeight = stacked.reduce((sum, entry) => sum + slotOf(entry), 0)
+      + gap * Math.max(0, count - 1)
+      + padV * 2;
+    let cursor = anchorBlock(anchor.y, totalHeight, blockVerticalAlign(style) || 'center') + padV;
+    const placedStack = stacked.map((entry, rank) => {
+      const slot = slotOf(entry);
+      const align = entry.align || seamAlign(rank, count);
+      const top = alignWithin(cursor, slot, entry.height, align);
+      cursor += slot + gap;
+      return { ...entry, align, top };
+    });
+    const spanTop = count ? Math.min(...placedStack.map((entry) => entry.top)) : 0;
+    const spanBottom = count
+      ? Math.max(...placedStack.map((entry) => entry.top + entry.height))
+      : 0;
+    const stackHeight = count ? spanBottom - spanTop + padV * 2 : 0;
+    const boxTop = spanTop - padV;
+    const stackedPlacements = placedStack.map((entry) => {
       const x = (stackWidth - entry.width) / 2;
-      const y = cursor;
-      cursor += entry.height + gap;
       return {
         ...entry,
         detached: false,
         x,
-        y,
+        y: entry.top - boxTop,
         center: {
           x: anchor.x + x + entry.width / 2 - stackWidth / 2,
-          y: anchor.y + y + entry.height / 2 - stackHeight / 2,
+          y: entry.top + entry.height / 2,
         },
       };
     });
-    const detachedPlacements = detached.map((entry) => ({
-      ...entry,
-      detached: true,
-      center: {
-        x: frameWidth * (entry.percent.x / 100),
-        y: frameHeight * (entry.percent.y / 100),
-      },
-    }));
+    const detachedPlacements = detached.map((entry) => {
+      const top = anchorBlock(
+        frameHeight * (entry.percent.y / 100),
+        entry.height,
+        entry.align || 'center',
+      );
+      return {
+        ...entry,
+        align: entry.align || 'center',
+        detached: true,
+        top,
+        center: {
+          x: frameWidth * (entry.percent.x / 100),
+          y: top + entry.height / 2,
+        },
+      };
+    });
     return {
       anchor,
       stackWidth,
       stackHeight,
+      // 整栈盒子的中心（含 padV）。锚点缺省且无折行时它等于 anchor，非 center 的
+      // 块级锚点或折行槽位下则不等——渲染端必须用它定位共享底板与堆栈组。
+      stackCenter: {
+        x: anchor.x,
+        y: count ? boxTop + stackHeight / 2 : anchor.y,
+      },
+      // 落位后的纯文本 extent（不含 padV），共享底板/吸附的反推依据。
+      stackSpan: count ? { top: spanTop, bottom: spanBottom } : null,
       stacked: stackedPlacements,
       detached: detachedPlacements,
       placements: [...stackedPlacements, ...detachedPlacements]
@@ -971,10 +1127,19 @@
     nestedLineStyle,
     lineFontSize,
     layoutMetrics,
+    hasRealBackground,
+    sharedPlateLine,
     lineStyleKey,
     linePosition,
     lineStylePatch,
     shiftLineOverrides,
+    VERTICAL_ALIGNS,
+    blockVerticalAlign,
+    lineVerticalAlign,
+    alignWithin,
+    anchorBlock,
+    seamAlign,
+    lineAnchorFromCenter,
     planLineLayout,
     isLineSelected,
     nextLineSelection,

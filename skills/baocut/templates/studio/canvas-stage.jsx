@@ -6,18 +6,11 @@
 const { useEffect, useRef, useState } = React;
 const K = window.Konva;
 const R = window.BCS_SUBTITLE;
+const FONT_CATALOG = window.BCS_FONT_CATALOG;
 
 if (!K) throw new Error('Konva failed to load');
 if (!R) throw new Error('subtitle-rendering.js failed to load');
-
-const FONTS = {
-  system: '"Noto Sans SC", sans-serif',
-  montserrat: '"Montserrat", "Noto Sans SC", sans-serif',
-  bebas: '"Bebas Neue", "Noto Sans SC", sans-serif',
-  lexend: '"Lexend Deca", "Noto Sans SC", sans-serif',
-  serif: '"Source Serif 4", "Noto Sans SC", serif',
-};
-window.BCS_FONTS = FONTS;
+if (!FONT_CATALOG) throw new Error('font-catalog.js failed to load');
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -30,8 +23,7 @@ function canvasColor(value, fallback) {
 }
 
 function canvasFontFamily(value) {
-  const family = value && typeof value === 'object' ? value.fontFamily : value;
-  return FONTS[family] || family || FONTS.system;
+  return FONT_CATALOG.stackFor(value);
 }
 
 function lineMetrics(st, width, height, isTrans, compactOriginal) {
@@ -269,6 +261,11 @@ function makeSubtitleLine({
     group,
     width,
     height,
+    // 单行参考高：双语堆栈用它做槽位，折行只改 height 不改 reference，接缝因此
+    // 不动。这里含底板 padding（模板的 height 一贯含 padV），与 CLI 烧录端
+    // LineBox.reference 的纯字形高差一圈 padding —— 仅 backgroundPadding > 0 时
+    // 可见，是先于本次存在的跨端差异（方案 §6.2 第 7 条），另立任务统一。
+    reference: m.fontSize * m.lineHeight + padV * 2,
     metrics: m,
     animation: !isTrans && animatedNodes.length ? {
       cue,
@@ -583,7 +580,7 @@ function KonvaPreview({
         x: width * 0.04,
         y: height * 0.82,
         text: hasAudio ? '音频项目' : '无媒体预览',
-        fontFamily: FONTS.system,
+        fontFamily: FONT_CATALOG.stackFor('system'),
         fontSize: Math.max(18, 24 * scale),
         fontStyle: 'bold',
         letterSpacing: 4,
@@ -671,7 +668,14 @@ function KonvaPreview({
     const canvasScale = R.referenceScale(width, height) * Math.max(0.05, Number(st.scale) || 1);
     const gap = Math.max(0, Number(st.gap == null ? 6 : st.gap)) * canvasScale;
     const stackedItems = made.filter((item) => !item.override);
-    const sharedMetrics = (stackedItems[0] || made[0]).rendered.metrics;
+    // 共享底板的 padding / 圆角 / 颜色只跟一行走，且那一行由 sharedPlateLine 按
+    // 「源行优先，源行无真背景才退到译文行」选出——不能拿 stackedItems[0]：
+    // transTop 时排在前面的是译文行，而 origStyle/transStyle 又能各自覆盖
+    // backgroundPadding，取首行会让预览与 CLI/Mac 的底板尺寸分叉。
+    const sharedPlate = R.sharedPlateLine(
+      stackedItems.map((item) => ({ line: item.line, metrics: item.rendered.metrics })),
+    );
+    const sharedMetrics = sharedPlate ? sharedPlate.metrics : made[0].rendered.metrics;
     const sharedPadH = sharedBackground && stackedItems.length ? sharedMetrics.padH : 0;
     const sharedPadV = sharedBackground && stackedItems.length ? sharedMetrics.padV : 0;
     const plan = R.planLineLayout(
@@ -679,6 +683,7 @@ function KonvaPreview({
         line: item.line,
         width: item.rendered.width,
         height: item.rendered.height,
+        reference: item.rendered.reference,
       })),
       {
         style: st,
@@ -811,7 +816,12 @@ function KonvaPreview({
       group.on('dragend', () => {
         endDrag();
         const center = toFrame(group.getAbsolutePosition());
-        actionRef.current.onMoveLine(item.line, pctX(center.x), pctY(center.y));
+        // 写回的 y 是锚边坐标，不是中心：读显式行锚点（缺席 = center），因为
+        // lineStylePatch 不带 verticalAlign 键时会原样保留已有锚点。堆栈行被拖成
+        // 独立行时锚点仍缺席，换算退化为恒等，落点零跳动。
+        const align = R.lineVerticalAlign(st, item.line) || 'center';
+        const anchorY = R.lineAnchorFromCenter(center.y, placement.height, align);
+        actionRef.current.onMoveLine(item.line, pctX(center.x), pctY(anchorY));
         overlayLayer.batchDraw();
       });
       if (editingLine === item.line) group.visible(false);
@@ -820,7 +830,9 @@ function KonvaPreview({
 
     if (stack) {
       stack.offset({ x: plan.stackWidth / 2, y: plan.stackHeight / 2 });
-      stack.position(plan.anchor);
+      // 堆栈盒子的中心不再恒等于锚点：折行的槽位与块级锚点都会让它偏移，必须用
+      // 落位后反推的 stackCenter，否则共享底板会和文字错开。
+      stack.position(plan.stackCenter);
     }
     overlayLayer.add(vGuide);
     overlayLayer.add(hGuide);
@@ -883,9 +895,14 @@ function KonvaPreview({
     nodesRef.current = { root, stack, lineNodes, detachedNodes, transformer };
     bindSelection(nodesRef.current, { selected, selectedLine, playing, editingLine });
     // 样式面板「独立摆放」需要该行当前的推导中心作为起点；中心依赖实测文本尺寸，
-    // 只能由画布产出。这里只是一次只读快照，不参与订阅。
+    // 只能由画布产出。h 是该行的百分比高度，面板据它把中心换算成锚边坐标。
+    // 这里只是一次只读快照，不参与订阅。
     window.BCS_LINE_CENTERS = plan.placements.reduce((acc, placement) => {
-      acc[placement.line] = { x: pctX(placement.center.x), y: pctY(placement.center.y) };
+      acc[placement.line] = {
+        x: pctX(placement.center.x),
+        y: pctY(placement.center.y),
+        h: pctY(placement.height),
+      };
       return acc;
     }, {});
     transitionRef.current = {

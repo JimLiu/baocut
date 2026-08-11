@@ -5,6 +5,18 @@
 @font-face { font-family: "Bebas Neue"; src: url("fonts/BebasNeue-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
 @font-face { font-family: "Lexend Deca"; src: url("fonts/LexendDeca.ttf") format("truetype"); font-weight: 100 900; font-display: swap; }
 @font-face { font-family: "Source Serif 4"; src: url("fonts/SourceSerif4.ttf") format("truetype"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Source Sans 3"; src: url("_ds/assets/fonts/SourceSans3VF-Upright.woff2") format("woff2"); font-style: normal; font-weight: 200 900; font-display: swap; }
+@font-face { font-family: "Source Sans 3"; src: url("_ds/assets/fonts/SourceSans3VF-Italic.woff2") format("woff2"); font-style: italic; font-weight: 200 900; font-display: swap; }
+@font-face { font-family: "Source Code Pro"; src: url("_ds/assets/fonts/SourceCodeVF-Upright.woff2") format("woff2"); font-weight: 200 900; font-display: swap; }
+@font-face { font-family: "Alata"; src: url("fonts/Alata-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Archivo Black"; src: url("fonts/ArchivoBlack-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Bangers"; src: url("fonts/Bangers-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Carter One"; src: url("fonts/CarterOne-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Dancing Script"; src: url("fonts/DancingScript.ttf") format("truetype"); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: "Fredoka One"; src: url("fonts/FredokaOne-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Paytone One"; src: url("fonts/PaytoneOne-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Permanent Marker"; src: url("fonts/PermanentMarker-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Press Start 2P"; src: url("fonts/PressStart2P-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
 
 * { box-sizing: border-box; }
 html, body { height: 100%; }

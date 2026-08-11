@@ -32,6 +32,12 @@ test('shared Rust/preview subtitle contract fixtures stay stable', () => {
       row.expected,
     );
   }
+  for (const row of contract.lineFontSizes) {
+    const metrics = subtitle.layoutMetrics(
+      row.style, row.frame.width, row.frame.height, row.line === 'trans', row.compactOriginal,
+    );
+    assert.ok(Math.abs(metrics.fontSize - row.expected) < 1e-9, row.name);
+  }
 });
 
 test('Canvas scale and frame fit use the 540 px short-edge contract', () => {
@@ -244,6 +250,34 @@ test('explicit per-line styles bypass the compatibility font ratios', () => {
   assert.equal(subtitle.lineFontSize(style, true, true), 24);
 });
 
+test('a line override without fontSize keeps the bilingual compact ratios', () => {
+  // 「独立摆放」只写 x/y/verticalAlign。合并包必然从根继承 fontSize，用它做
+  // 判据会让原文行从 compact 跳回全尺寸，而烧录端仍按 compact。
+  const style = {
+    fontSize: 30,
+    origStyle: { x: 20, y: 30 },
+    transStyle: { x: 80, y: 70, verticalAlign: 'top' },
+  };
+  assert.equal(subtitle.lineFontSize(style, false, true), 16);
+  assert.equal(subtitle.lineFontSize(style, true, true), 22);
+  assert.equal(subtitle.lineFontSize(style, false, false), 30);
+  assert.equal(subtitle.layoutMetrics(style, 1920, 1080, false, true).fontSize, 32);
+  assert.equal(subtitle.layoutMetrics(style, 1920, 1080, true, true).fontSize, 44);
+});
+
+test('only a numeric per-line fontSize counts as explicit', () => {
+  const explicit = { fontSize: 30, origStyle: { fontSize: 18, x: 20, y: 30 } };
+  assert.equal(subtitle.lineFontSize(explicit, false, true), 18);
+  // 烧录端 as_f64 只认 JSON 数字：字符串、布尔、null 一律视为未写
+  assert.equal(subtitle.lineFontSize({ fontSize: 30, origStyle: { fontSize: '18' } }, false, true), 16);
+  assert.equal(subtitle.lineFontSize({ fontSize: 30, origStyle: { fontSize: true } }, false, true), 16);
+  assert.equal(subtitle.lineFontSize({ fontSize: 30, origStyle: { fontSize: null } }, false, true), 16);
+  assert.equal(subtitle.lineFontSize({ fontSize: 30, origStyle: { fontSize: NaN } }, false, true), 16);
+  // Rust 的 size.max(1.0)：0 和负数夹到 1，而不是回落到缩放
+  assert.equal(subtitle.lineFontSize({ fontSize: 30, origStyle: { fontSize: 0 } }, false, true), 1);
+  assert.equal(subtitle.lineFontSize({ fontSize: 30, origStyle: { fontSize: -5 } }, false, true), 1);
+});
+
 const LINE_ENTRIES = [
   { line: 'trans', width: 400, height: 60 },
   { line: 'orig', width: 300, height: 40 },
@@ -273,6 +307,65 @@ test('shared background padding wraps the stack exactly as before', () => {
   assert.equal(plan.stackHeight, 124);
   assert.deepEqual(plan.stacked.map((item) => [item.x, item.y]), [[10, 6], [60, 78]]);
   assert.deepEqual(plan.anchor, { x: 500, y: 430 });
+});
+
+test('the block anchor pins the shared plate edge, not the glyph span', () => {
+  // 与 apps/cli raster.rs 同构：锚定总高含底板上下 padding，top 时底板顶边压在
+  // 锚线上、bottom 时底板底边压在锚线上；center 与既有结果逐值一致。
+  const shared = { ...LINE_OPTIONS, padH: 10, padV: 6 };
+  const top = subtitle.planLineLayout(LINE_ENTRIES, {
+    ...shared, style: { x: 50, y: 80, verticalAlign: 'top' },
+  });
+  const boxTop = (plan) => plan.stackCenter.y - plan.stackHeight / 2;
+  assert.deepEqual(top.anchor, { x: 500, y: 400 });
+  assert.equal(top.stackHeight, 124);
+  assert.deepEqual(top.stackSpan, { top: 406, bottom: 518 });
+  assert.equal(boxTop(top), 400);
+
+  const bottom = subtitle.planLineLayout(LINE_ENTRIES, {
+    ...shared, style: { x: 50, y: 80, verticalAlign: 'bottom' },
+  });
+  assert.equal(bottom.stackHeight, 124);
+  assert.deepEqual(bottom.stackSpan, { top: 282, bottom: 394 });
+  assert.equal(boxTop(bottom) + bottom.stackHeight, 400);
+
+  // center 不受影响：-total/2 - padV + padV 抵消
+  const center = subtitle.planLineLayout(LINE_ENTRIES, {
+    ...shared, style: { x: 50, y: 80, verticalAlign: 'center' },
+  });
+  assert.deepEqual(center.stackSpan, { top: 344, bottom: 456 });
+  assert.deepEqual(center.stackCenter, center.anchor);
+  assert.deepEqual(center.stacked.map((item) => [item.x, item.y]), [[10, 6], [60, 78]]);
+  // separate 模式（padV 0）逐值不动
+  const separate = subtitle.planLineLayout(LINE_ENTRIES, {
+    ...LINE_OPTIONS, style: { x: 50, y: 80, verticalAlign: 'top' },
+  });
+  assert.deepEqual(separate.stackSpan, { top: 400, bottom: 512 });
+});
+
+test('the shared plate follows the source line spec, not the first stacked line', () => {
+  // 共享底板只跟一行走：源行优先，只有源行没有真实背景而译文行有时才退到译文行。
+  // 镜像 Mac sharedBackgroundSpec 与 CLI render_plan 的 plate_line。
+  const metrics = (style) => subtitle.layoutMetrics(style, 1000, 500, false, false);
+  const withBg = { line: 'orig', metrics: metrics({ backgroundColor: '#000000cc' }) };
+  const transBg = { line: 'trans', metrics: metrics({ backgroundColor: '#ff0000ff' }) };
+  const noBg = { line: 'orig', metrics: metrics({ background: false }) };
+  const clearBg = { line: 'orig', metrics: metrics({ background: true, backgroundColor: 'rgba(0,0,0,0)' }) };
+
+  // transTop 时译文行排在前面，取首行会分叉
+  assert.equal(subtitle.sharedPlateLine([transBg, withBg]), withBg);
+  assert.equal(subtitle.sharedPlateLine([withBg, transBg]), withBg);
+  // 源行背景关 → 退到译文行
+  assert.equal(subtitle.sharedPlateLine([transBg, noBg]), transBg);
+  // 源行开着但颜色近全透明，同样不算真实背景
+  assert.equal(subtitle.sharedPlateLine([transBg, clearBg]), transBg);
+  assert.equal(subtitle.hasRealBackground(clearBg.metrics), false);
+  assert.equal(subtitle.hasRealBackground(withBg.metrics), true);
+  // 两行都没有真背景时留在源行（Mac 基线），单行/空栈按原样返回
+  const clearTrans = { line: 'trans', metrics: metrics({ background: false }) };
+  assert.equal(subtitle.sharedPlateLine([clearTrans, noBg]), noBg);
+  assert.equal(subtitle.sharedPlateLine([transBg]), transBg);
+  assert.equal(subtitle.sharedPlateLine([]), null);
 });
 
 test('a detached line leaves the stack and the rest re-centers on the anchor', () => {
@@ -322,6 +415,166 @@ test('bilingual mode keeps the override even when only one line has content', ()
   });
   assert.equal(monolingual.detached.length, 0);
   assert.deepEqual(monolingual.stacked[0].center, { x: 500, y: 400 });
+});
+
+// 垂直锚点：数值全部抄自 Rust 烧录端 apps/cli/src/cmd/studio_export/tests.rs 的
+// place_lines 用例（PLACE_ANCHOR (500,860)、PLACE_FRAME 1000×1000、PLACE_GAP 6），
+// 逐条对拍。预览与烧录一旦分叉，这里先红。
+test('vertical anchors and seam stacking match the Rust burn-in placements', () => {
+  for (const row of contract.verticalAligns) {
+    assert.equal(
+      subtitle.lineVerticalAlign({ origStyle: { verticalAlign: row.value } }, 'orig'),
+      row.expected,
+      JSON.stringify(row.value),
+    );
+    assert.equal(
+      subtitle.blockVerticalAlign({ verticalAlign: row.value }),
+      row.expected,
+      JSON.stringify(row.value),
+    );
+  }
+  // 键整个缺席，以及覆盖对象本身不存在
+  assert.equal(subtitle.lineVerticalAlign({ origStyle: { x: 1, y: 2 } }, 'orig'), null);
+  assert.equal(subtitle.lineVerticalAlign({}, 'trans'), null);
+  assert.equal(subtitle.blockVerticalAlign({}), null);
+
+  for (const row of contract.seamAligns) {
+    assert.equal(subtitle.seamAlign(row.rank, row.count), row.expected);
+  }
+
+  for (const row of contract.linePlacements) {
+    const style = { x: row.anchor.x, y: row.anchor.y };
+    if (row.blockAlign) style.verticalAlign = row.blockAlign;
+    row.lines.forEach((line) => {
+      if (!line.over && !line.align) return;
+      const bag = {};
+      if (line.over) Object.assign(bag, line.over);
+      if (line.align) bag.verticalAlign = line.align;
+      style[subtitle.lineStyleKey(line.line)] = bag;
+    });
+    const plan = subtitle.planLineLayout(row.lines, {
+      style,
+      frameWidth: row.frame.width,
+      frameHeight: row.frame.height,
+      gap: row.gap,
+      padH: 0,
+      // platePadV 缺席即 separate 语义（0），带 platePadV 的行对拍共享底板锚定。
+      padV: row.platePadV || 0,
+      bilingual: true,
+    });
+    assert.deepEqual(
+      plan.placements.map((item) => item.top),
+      row.expected.tops,
+      row.name,
+    );
+    assert.deepEqual(plan.stackSpan, row.expected.span, row.name);
+  }
+});
+
+test('single row lines keep the pre-anchor stack output bit for bit', () => {
+  // 等价性硬义务：reference 缺席（== 实际高）时槽位退化为实际高，三态 alignWithin
+  // 全部变成恒等，整份输出与改造前逐值一致。
+  const flat = subtitle.planLineLayout(LINE_ENTRIES, { ...LINE_OPTIONS, style: { x: 50, y: 80 } });
+  const explicit = subtitle.planLineLayout(
+    LINE_ENTRIES.map((entry) => ({ ...entry, reference: entry.height })),
+    { ...LINE_OPTIONS, style: { x: 50, y: 80 } },
+  );
+  assert.deepEqual(explicit, flat);
+  assert.equal(flat.stackHeight, 112);
+  assert.deepEqual(flat.stackCenter, flat.anchor);
+  assert.deepEqual(flat.stacked.map((item) => [item.x, item.y]), [[0, 0], [50, 72]]);
+});
+
+test('wrapped stack lines expand the shared background instead of each other', () => {
+  const wrapped = [
+    { line: 'trans', width: 400, height: 120, reference: 60 },
+    { line: 'orig', width: 300, height: 40, reference: 40 },
+  ];
+  const plan = subtitle.planLineLayout(wrapped, {
+    ...LINE_OPTIONS, padV: 6, style: { x: 50, y: 80 },
+  });
+  // 槽位仍是 60 + 12 + 40 = 112，接缝停在原处；上行只向上生长
+  assert.deepEqual(plan.stacked.map((item) => item.top), [284, 416]);
+  assert.deepEqual(plan.stackSpan, { top: 284, bottom: 456 });
+  // 底板从落位后的实际 extent 反推（172 + 2×padV），不再是 total/2 反推
+  assert.equal(plan.stackHeight, 184);
+  assert.deepEqual(plan.stackCenter, { x: 500, y: 370 });
+  // 局部坐标仍以底板左上角为原点
+  assert.deepEqual(plan.stacked.map((item) => [item.x, item.y]), [[0, 6], [50, 138]]);
+  // 下行不因上行折行而移动
+  const flat = subtitle.planLineLayout(
+    [{ line: 'trans', width: 400, height: 60, reference: 60 }, wrapped[1]],
+    { ...LINE_OPTIONS, padV: 6, style: { x: 50, y: 80 } },
+  );
+  assert.equal(flat.stacked[1].top, plan.stacked[1].top);
+});
+
+test('the stack centre stays the anchor unless the block anchor moves it', () => {
+  const style = { x: 50, y: 80, verticalAlign: 'bottom' };
+  const plan = subtitle.planLineLayout(LINE_ENTRIES, { ...LINE_OPTIONS, style });
+  assert.deepEqual(plan.stacked.map((item) => item.top), [288, 360]);
+  assert.deepEqual(plan.stackCenter, { x: 500, y: 344 });
+  // 块级锚点是根级语义，不能被当成行锚点铺进堆栈里的每一行
+  assert.equal(subtitle.lineVerticalAlign(style, 'orig'), null);
+});
+
+test('line anchors round-trip through the write-back conversion without jumping', () => {
+  const height = 40;
+  for (const align of ['top', 'center', 'bottom']) {
+    const y = subtitle.lineAnchorFromCenter(300, height, align);
+    assert.equal(subtitle.anchorBlock(y, height, align) + height / 2, 300, align);
+  }
+  assert.equal(subtitle.lineAnchorFromCenter(300, 40, 'top'), 280);
+  assert.equal(subtitle.lineAnchorFromCenter(300, 40, 'bottom'), 320);
+  assert.equal(subtitle.lineAnchorFromCenter(300, 40, undefined), 300);
+});
+
+test('line style patches carry the vertical anchor only when asked', () => {
+  assert.deepEqual(
+    subtitle.lineStylePatch({}, 'orig', { x: 20, y: 30, verticalAlign: 'bottom' }),
+    { origStyle: { x: 20, y: 30, verticalAlign: 'bottom' } },
+  );
+  // 只改 x/y 的调用（滑杆、整体位移）不带这个键，已写入的锚点原样保留
+  assert.deepEqual(
+    subtitle.lineStylePatch(
+      { origStyle: { x: 20, y: 30, verticalAlign: 'bottom' } },
+      'orig',
+      { x: 40, y: 50 },
+    ),
+    { origStyle: { x: 40, y: 50, verticalAlign: 'bottom' } },
+  );
+  // 非法值等同于清除，绝不落进 style
+  assert.deepEqual(
+    subtitle.lineStylePatch(
+      { origStyle: { x: 20, y: 30, verticalAlign: 'bottom' } },
+      'orig',
+      { x: 20, y: 30, verticalAlign: 'Middle' },
+    ),
+    { origStyle: { x: 20, y: 30 } },
+  );
+  // 回堆栈时锚点随 x/y 一起清掉，交还给接缝默认
+  assert.deepEqual(
+    subtitle.lineStylePatch({ origStyle: { x: 20, y: 30, verticalAlign: 'top' } }, 'orig', null),
+    { origStyle: null },
+  );
+  assert.deepEqual(
+    subtitle.shiftLineOverrides({ transStyle: { x: 20, y: 30, verticalAlign: 'top' } }, 5, -5),
+    { transStyle: { x: 25, y: 25, verticalAlign: 'top' } },
+  );
+});
+
+test('line anchors stay inert outside a bilingual context', () => {
+  const style = { x: 50, y: 80, origStyle: { x: 20, y: 30, verticalAlign: 'top' } };
+  const entries = [{ line: 'orig', width: 300, height: 80, reference: 40 }];
+  const mono = subtitle.planLineLayout(entries, { ...LINE_OPTIONS, style, bilingual: false });
+  assert.equal(mono.detached.length, 0);
+  assert.equal(mono.stacked[0].align, 'center');
+  assert.equal(mono.stacked[0].top, 360);
+  const bi = subtitle.planLineLayout(entries, { ...LINE_OPTIONS, style, bilingual: true });
+  assert.equal(bi.stacked.length, 0);
+  assert.equal(bi.detached[0].align, 'top');
+  assert.equal(bi.detached[0].top, 150);
+  assert.deepEqual(bi.detached[0].center, { x: 200, y: 190 });
 });
 
 test('a line position needs both axes and stays absent by default', () => {

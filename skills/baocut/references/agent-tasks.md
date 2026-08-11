@@ -5,17 +5,21 @@ process alive and answer through its leased task queue.
 
 Worker discipline (violations observed to waste whole worker turns):
 
-- Start the worker pool **before** launching the pipeline command, not after an
-  event arrives. The producer's `task` event and its first `batch-dispatch`
-  land at essentially the same moment, so a pool started on that signal is
-  already late by a full worker startup. Workers launched ahead of time simply
-  sit in a blocking `task claim --timeout <s>` until work exists; that wait is
-  a lock-free prescan costing one directory stat per poll, so idle workers do
-  not contend with the producer. Measured on a 21-minute talk: the first
-  `analysis` call waited `queueMs 201408` against `workerMs 85939` — 201s of
-  pure queue latency, more than twice the answer time — purely because the
-  pool was started after the dispatch was observed. With the pool prewarmed,
-  every later call in the same run claimed in 50–75ms.
+- Stage worker warmup instead of blocking a fresh `auto` run on the full pool.
+  Before launching a fresh `auto` producer, start one unfiltered catch-all
+  worker; its first AI stages are serial. Launch the producer as soon as that
+  worker is polling, then warm the remaining translate/align-filtered workers
+  while media and serial stages run. For a command whose first dispatch is
+  already known to be parallel (for example direct translate, align-only, or
+  a resumed parallel stage), prewarm that stage's workers before the producer.
+  In every case the reported `suggestedWorkers` must be ready before a parallel
+  batch is drained. Workers launched ahead of work simply sit in a blocking
+  `task claim --timeout <s>`; that wait is a lock-free prescan costing one
+  directory stat per poll, so idle workers do not contend with the producer.
+  Measured on a 21-minute talk: starting no worker until dispatch made the first
+  `analysis` call wait `queueMs 201408` against `workerMs 85939`; staged warmup
+  removes that queue delay without putting full-pool startup on the critical
+  path.
 - Each `batch-dispatch` event carries a structured `workerPlan` (`execution`,
   `suggestedWorkers`, `claimKinds`, and `poolKey`). Assign that many warm
   workers immediately, and do not let a generic loop steal a serial stage.
@@ -83,6 +87,11 @@ Worker discipline (violations observed to waste whole worker turns):
   have caught. A worker that runs past its lease loses the call to a
   replacement and its finished answer is discarded, so an over-careful worker
   costs the batch a whole duplicated page.
+- Translate pages stay at the 16-line fast cap for short batches. When the
+  configured worker pool would still need at least four waves, the producer
+  uses a 21-line compact cap to remove repeated contract, brief, and glossary
+  prefixes. Do not split a compact page manually or start an extra worker for
+  part of it; its lease and item count already reflect the larger bounded page.
 - One caveat on how far that reassurance reaches: a translate answer's inline
   `alignments` draft is never rejected at submit. The align stage re-checks it
   with the same validator worker answers face, and a failing draft is dropped
@@ -95,8 +104,10 @@ Worker discipline (violations observed to waste whole worker turns):
   that produced them pushed two workers to 570s and 1043s on pages the same
   batch had been finishing in 149–496s.
 
-1. Prewarm the pool at the `task` event, then inspect the dispatch/status plan
-   and assign workers before claiming:
+1. Stage the warm pool, then inspect the dispatch/status plan and assign
+   workers before claiming. For a fresh `auto`, start one catch-all before the
+   producer and bring up the stage-filtered pool concurrently with media and
+   serial work. For a direct parallel command, prewarm its matching pool first:
 
    ```bash
    bin/baocut task status "/path/demo.bcut" --json

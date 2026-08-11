@@ -171,5 +171,245 @@
     {"id":"magic-fade","speed":50,"displayStart":1.5,"time":1.5,"scale":2.0,"fps":30.0,"expected":{"opacity":0.0,"scaleX":1.0,"scaleY":1.0,"blur":12.0,"active":true}},
     {"id":"magic-pop","speed":50,"displayStart":2.0,"time":2.0,"scale":1.0,"fps":30.0,"expected":{"opacity":1.0,"scaleX":0.7,"scaleY":0.7,"blur":0.0,"active":true}},
     {"id":"magic-flip","speed":50,"displayStart":2.0,"time":2.0,"scale":1.0,"fps":30.0,"expected":{"opacity":1.0,"scaleX":1.0,"scaleY":0.0,"blur":0.0,"active":true}}
+  ],
+  "verticalAligns": [
+    {"value":"top","expected":"top"},
+    {"value":"center","expected":"center"},
+    {"value":"bottom","expected":"bottom"},
+    {"value":"middle","expected":null},
+    {"value":"Top","expected":null},
+    {"value":"BOTTOM","expected":null},
+    {"value":"","expected":null},
+    {"value":1,"expected":null},
+    {"value":true,"expected":null},
+    {"value":null,"expected":null},
+    {"value":{"value":"top"},"expected":null},
+    {"value":["top"],"expected":null}
+  ],
+  "seamAligns": [
+    {"rank":0,"count":1,"expected":"center"},
+    {"rank":0,"count":2,"expected":"bottom"},
+    {"rank":1,"count":2,"expected":"top"},
+    {"rank":0,"count":3,"expected":"bottom"},
+    {"rank":1,"count":3,"expected":"center"},
+    {"rank":2,"count":3,"expected":"top"}
+  ],
+  "lineFontSizes": [
+    {"name":"position-only override keeps the compact original scale","style":{"fontSize":30,"origStyle":{"x":20,"y":30}},"line":"orig","compactOriginal":true,"frame":{"width":960,"height":540},"expected":16.0},
+    {"name":"position-only override keeps the translation ratio","style":{"fontSize":30,"transStyle":{"x":20,"y":30,"verticalAlign":"top"}},"line":"trans","compactOriginal":true,"frame":{"width":960,"height":540},"expected":22.0},
+    {"name":"an explicit per-line size bypasses the compact original scale","style":{"fontSize":30,"origStyle":{"fontSize":18,"x":20,"y":30}},"line":"orig","compactOriginal":true,"frame":{"width":960,"height":540},"expected":18.0},
+    {"name":"an explicit per-line size bypasses the translation ratio","style":{"fontSize":30,"transStyle":{"fontSize":24}},"line":"trans","compactOriginal":true,"frame":{"width":960,"height":540},"expected":24.0},
+    {"name":"a standalone original keeps the root size","style":{"fontSize":30},"line":"orig","compactOriginal":false,"frame":{"width":960,"height":540},"expected":30.0},
+    {"name":"a zero per-line size clamps to one","style":{"fontSize":30,"origStyle":{"fontSize":0}},"line":"orig","compactOriginal":true,"frame":{"width":960,"height":540},"expected":1.0},
+    {"name":"a negative per-line size clamps to one","style":{"fontSize":30,"origStyle":{"fontSize":-5}},"line":"orig","compactOriginal":true,"frame":{"width":960,"height":540},"expected":1.0},
+    {"name":"a string per-line size is absent, not explicit","style":{"fontSize":30,"origStyle":{"fontSize":"18"}},"line":"orig","compactOriginal":true,"frame":{"width":960,"height":540},"expected":16.0},
+    {"name":"a null per-line override is absent","style":{"fontSize":30,"transStyle":null},"line":"trans","compactOriginal":true,"frame":{"width":960,"height":540},"expected":22.0},
+    {"name":"the canvas scale multiplies the compact original size","style":{"fontSize":30,"origStyle":{"x":1,"y":2}},"line":"orig","compactOriginal":true,"frame":{"width":1920,"height":1080},"expected":32.0}
+  ],
+  "linePlacements": [
+    {
+      "name": "single row lines reproduce the pre-anchor stack math bit for bit",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": null,
+      "lines": [
+        {"line":"trans","width":400,"height":40,"reference":40,"over":null,"align":null},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[827,873],"span":{"top":827,"bottom":893}}
+    },
+    {
+      "name": "the upper line wraps and grows away from the seam",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": null,
+      "lines": [
+        {"line":"trans","width":400,"height":80,"reference":40,"over":null,"align":null},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[787,873],"span":{"top":787,"bottom":893}}
+    },
+    {
+      "name": "the lower line wraps and grows away from the seam",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": null,
+      "lines": [
+        {"line":"trans","width":400,"height":40,"reference":40,"over":null,"align":null},
+        {"line":"orig","width":300,"height":40,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[827,873],"span":{"top":827,"bottom":913}}
+    },
+    {
+      "name": "both lines wrap and the shared background spans the placed lines",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": null,
+      "lines": [
+        {"line":"trans","width":400,"height":80,"reference":40,"over":null,"align":null},
+        {"line":"orig","width":300,"height":40,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[787,873],"span":{"top":787,"bottom":913}}
+    },
+    {
+      "name": "a lone wrapped line still centers on the anchor",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": null,
+      "lines": [
+        {"line":"trans","width":400,"height":80,"reference":40,"over":null,"align":null}
+      ],
+      "expected": {"tops":[820],"span":{"top":820,"bottom":900}}
+    },
+    {
+      "name": "the block anchor hangs the whole stack off the anchor line (top)",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": "top",
+      "lines": [
+        {"line":"trans","width":400,"height":40,"reference":40,"over":null,"align":null},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[860,906],"span":{"top":860,"bottom":926}}
+    },
+    {
+      "name": "the block anchor hangs the whole stack off the anchor line (bottom)",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": "bottom",
+      "lines": [
+        {"line":"trans","width":400,"height":40,"reference":40,"over":null,"align":null},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[794,840],"span":{"top":794,"bottom":860}}
+    },
+    {
+      "name": "a lone wrapped line follows the block anchor (top)",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": "top",
+      "lines": [
+        {"line":"trans","width":400,"height":80,"reference":40,"over":null,"align":null}
+      ],
+      "expected": {"tops":[860],"span":{"top":860,"bottom":940}}
+    },
+    {
+      "name": "a lone wrapped line follows the block anchor (bottom)",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": "bottom",
+      "lines": [
+        {"line":"trans","width":400,"height":80,"reference":40,"over":null,"align":null}
+      ],
+      "expected": {"tops":[780],"span":{"top":780,"bottom":860}}
+    },
+    {
+      "name": "a line anchor overrides the seam default",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": null,
+      "lines": [
+        {"line":"trans","width":400,"height":80,"reference":40,"over":null,"align":"top"},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[827,873],"span":{"top":827,"bottom":907}}
+    },
+    {
+      "name": "a detached line without an anchor keeps the historical centre semantics",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": null,
+      "lines": [
+        {"line":"trans","width":400,"height":40,"reference":40,"over":{"x":20,"y":30},"align":null},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[280,850],"span":{"top":850,"bottom":870}}
+    },
+    {
+      "name": "a detached line pins its stored y to the top edge",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": null,
+      "lines": [
+        {"line":"trans","width":400,"height":40,"reference":40,"over":{"x":20,"y":30},"align":"top"},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[300,850],"span":{"top":850,"bottom":870}}
+    },
+    {
+      "name": "a detached line pins its stored y to the bottom edge",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": null,
+      "lines": [
+        {"line":"trans","width":400,"height":40,"reference":40,"over":{"x":20,"y":30},"align":"bottom"},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[260,850],"span":{"top":850,"bottom":870}}
+    },
+    {
+      "name": "every line detaches and the stack span disappears",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": null,
+      "lines": [
+        {"line":"trans","width":400,"height":40,"reference":40,"over":{"x":20,"y":30},"align":"bottom"},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":{"x":80,"y":70},"align":"top"}
+      ],
+      "expected": {"tops":[260,700],"span":null}
+    },
+    {
+      "name": "the shared plate top edge is what a top block anchor pins",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "platePadV": 12,
+      "blockAlign": "top",
+      "lines": [
+        {"line":"trans","width":400,"height":40,"reference":40,"over":null,"align":null},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[872,918],"span":{"top":872,"bottom":938}}
+    },
+    {
+      "name": "the shared plate bottom edge is what a bottom block anchor pins",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "platePadV": 12,
+      "blockAlign": "bottom",
+      "lines": [
+        {"line":"trans","width":400,"height":40,"reference":40,"over":null,"align":null},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[782,828],"span":{"top":782,"bottom":848}}
+    },
+    {
+      "name": "a centered block anchor is unchanged by the shared plate padding",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "platePadV": 12,
+      "blockAlign": "center",
+      "lines": [
+        {"line":"trans","width":400,"height":40,"reference":40,"over":null,"align":null},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[827,873],"span":{"top":827,"bottom":893}}
+    }
   ]
 }

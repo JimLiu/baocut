@@ -2,8 +2,8 @@
 name: baocut
 description: Drive BaoCut's local CLI for transcription, subtitle and timeline editing, source cuts, clip arrangement, overlays, B-roll, watermarks, animation, on-screen-text translation, review, quality checks, rendered output, and editable projects for CapCut, Premiere Pro, DaVinci Resolve, Final Cut Pro, Shotcut, or Kdenlive. Use whenever the user asks to operate a .bcut project or produce these BaoCut deliverables.
 metadata:
-  version: "1.0.5"
-  minAppVersion: "1.0.5"
+  version: "1.0.6"
+  minAppVersion: "1.0.6"
 ---
 
 # BaoCut
