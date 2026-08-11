@@ -710,6 +710,24 @@ test('line ordering follows the subtitle context', () => {
   assert.deepEqual(subtitle.resolveModeLines('bi', 'orig'), ['orig', 'trans']);
 });
 
+test('an untranslated sentence leaves the translated lane empty instead of borrowing the source', () => {
+  // 译文单行模式只排一条 trans 行，这条行的内容只能来自译文 cue。
+  assert.deepEqual(subtitle.resolveModeLines('trans'), ['trans']);
+
+  // canvas-stage 的行门：`tcue && tcue.text`，投影后再按 trim 过滤。缺译（没有
+  // transCue，或有但正文是空/全空白）在这一步就被整行丢掉，于是那一段既没有文字
+  // 也没有背景框——绝不用原文顶替译文行。
+  const laneText = (tcue) => subtitle.projectPunctuation(
+    (tcue && tcue.text) || '', 'zh', true).trim();
+  assert.equal(laneText(null), '');
+  assert.equal(laneText({ id: 't1', sid: 's-w1', text: '' }), '');
+  assert.equal(laneText({ id: 't1', sid: 's-w1', text: '   ' }), '');
+  assert.equal(laneText({ id: 't1', sid: 's-w1', text: '阿尔法一。' }), '阿尔法一');
+
+  // 回退助手已被移除：任何一个表面重新引入它都会让预览与烧录再次分叉。
+  assert.equal(subtitle.translatedLaneFallback, undefined);
+});
+
 test('punctuation projection covers every language, stays optional, and is non-destructive', () => {
   const source = '你好，版本 1.2 真的可以吗？';
   assert.equal(subtitle.projectPunctuation(source, 'zh'), '你好 版本 1.2 真的可以吗？');

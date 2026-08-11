@@ -20,7 +20,8 @@ bin/baocut export "/path/demo.bcut" --to json -o "/path/demo.json" --force --jso
 bin/baocut export "/path/demo.bcut" --to markdown -o "/path/demo.md" --force --json
 bin/baocut export "/path/demo.bcut" --to mp4 -o "/path/demo.mp4" \
   --mode bilingual --lang zh-Hans --force --jsonl
-# 只烧录译文；个别未翻译句组会回退原文，不会留下无字幕空档
+# 只交付译文；未翻译的句子一律留空、不回退原文（MP4 画面不烧，srt/vtt/ass 不产出
+# 该条事件，markdown 不出该段），缺译数见信封 missingTranslations 与 partial-translation
 bin/baocut export "/path/demo.bcut" --to mp4 -o "/path/demo.zh-Hans.mp4" \
   --mode translated --lang zh-Hans --force --jsonl
 ```
@@ -61,8 +62,12 @@ user wants verbatim punctuation. JSON/Markdown and the transcript always keep
 the full text (see [studio.md](studio.md)).
 
 Select `--mode original`, `translated`, or `bilingual`; translated modes require
-`--lang`. In translated mode, sidecars and MP4 fall back each untranslated sentence
-group to its source cues. `--lang` accepts a comma list; multi-language
+`--lang`. In translated mode, an untranslated sentence group is left blank instead
+of falling back to its source cues: MP4 burns nothing for it, srt/vtt/ass emit no
+event at all (numbering closes the gap), and markdown drops the paragraph. In
+bilingual mode the source line stays and only the translation line is missing. The
+count comes back as `missingTranslations` plus a `partial-translation` warning.
+`--lang` accepts a comma list; multi-language
 text/JSON/MP4 exports insert the BCP-47 tag before the extension and preflight every
 output before writing any of them. MP4 uses the same resolved subtitle render plan as
 BaoCut's preview, so do not replace it with browser screenshots or native text overlays.

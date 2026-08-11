@@ -47,10 +47,16 @@ function lineMetrics(st, width, height, isTrans, compactOriginal) {
     align: lineStyle.textAlign || lineStyle.align || st.align || 'center',
     textDecoration: lineStyle.underline ? 'underline' : '',
     stroke: effects.outlineOn ? canvasColor(effects.outlineColor, '#000') : undefined,
-    // Konva centers the stroke on the glyph outline. VoiceInk's persisted
-    // percentage describes the visible half, so the Canvas stroke is doubled.
+    // Two separate steps, easy to conflate:
+    // 1. The persisted `textOutline.width` is a percentage of the type size
+    //    describing the VISIBLE OUTWARD growth: w / 400 * fontSize.
+    // 2. Konva centers the stroke on the glyph outline, so only half of it is
+    //    visible outside — the stroke has to be twice that outward growth:
+    //    w / 200 * fontSize, written below as `fontSize * w / 100 * 0.5`.
+    // Mac's `StagePaneView` (`.strokeWidth = -width * 0.5`, a font-size
+    // percentage) and the CLI burn-in resolve to the same line width.
     strokeWidth: effects.outlineOn
-      ? Math.max(0.5, layout.fontSize * effects.outlineWidth / 100)
+      ? Math.max(0.5, layout.fontSize * effects.outlineWidth / 100 * 0.5)
       : 0,
     shadowEnabled: effects.glowOn || effects.shadowOn,
     shadowColor: effects.glowOn

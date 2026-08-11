@@ -334,6 +334,9 @@
     });
   }
 
+  // 译文单行模式下缺译句留空：`trans` 行没有内容就什么都不画（连背景框也不画），
+  // 绝不用原文顶替译文行。烧录端同样如此（render_plan.rs），缺译的可见性由导出信
+  // 封的 missingTranslations / partial-translation 负责，而不是靠悄悄换成原文。
   function resolveModeLines(mode, order = 'trans') {
     if (mode === 'orig') return ['orig'];
     if (mode === 'trans') return ['trans'];

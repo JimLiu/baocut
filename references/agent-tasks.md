@@ -5,24 +5,29 @@ process alive and answer through its leased task queue.
 
 Worker discipline (violations observed to waste whole worker turns):
 
-- Stage worker warmup instead of blocking a fresh `auto` run on the full pool.
-  Before launching a fresh `auto` producer, start one unfiltered catch-all
-  worker; its first AI stages are serial. Launch the producer as soon as that
-  worker is polling, then warm the remaining translate/align-filtered workers
-  while media and serial stages run. For a command whose first dispatch is
-  already known to be parallel (for example direct translate, align-only, or
-  a resumed parallel stage), prewarm that stage's workers before the producer.
-  In every case the reported `suggestedWorkers` must be ready before a parallel
-  batch is drained. Workers launched ahead of work simply sit in a blocking
-  `task claim --timeout <s>`; that wait is a lock-free prescan costing one
-  directory stat per poll, so idle workers do not contend with the producer.
-  Measured on a 21-minute talk: starting no worker until dispatch made the first
-  `analysis` call wait `queueMs 201408` against `workerMs 85939`; staged warmup
-  removes that queue delay without putting full-pool startup on the critical
-  path.
+- Start workers on demand, never ahead of work. Launch exactly one unfiltered
+  catch-all worker alongside the producer, whatever the command is — fresh
+  `auto`, direct translate, align-only, or a resumed parallel stage. That one
+  worker is the baseline, not a pool: it answers whatever the first stage
+  dispatches without any advance guess about its kind. Every further worker is
+  started only after real pending work is visible in the event stream or in
+  `task status`, and only for as long as that work lasts — for a command whose
+  very first dispatch is already a wide parallel batch, such as align-only, the
+  top-up simply follows within seconds. An idle worker occupies a whole model
+  session for the rest of the run, while a call that waits for the next top-up
+  costs only seconds. Measured
+  on a 21-minute talk: starting *no* worker at all until dispatch made the first
+  `analysis` call wait `queueMs 201408` against `workerMs 85939` — what removes
+  that delay is the single baseline worker running from the start, not a
+  pre-started group.
 - Each `batch-dispatch` event carries a structured `workerPlan` (`execution`,
-  `suggestedWorkers`, `claimKinds`, and `poolKey`). Assign that many warm
-  workers immediately, and do not let a generic loop steal a serial stage.
+  `suggestedWorkers`, `claimKinds`, and `poolKey`), and `task status` reports
+  the same grouping under `workerPlans[]`. When one of them shows N pending
+  independent calls, top the running workers up to
+  `min(pendingCount, subagent slots you can actually run)` for that
+  `claimKinds`. `suggestedWorkers` is computed from the pending count and is an
+  upper-bound hint — a ceiling to aim at while work is queued, never a floor to
+  fill before the work exists. Do not let a generic loop steal a serial stage.
 - Cover every kind the engines can dispatch, not just the common ones. The full
   set is `analysis`, `polish`, `polish-retry`, `segment`, `segment-index`,
   `chapters`, `translate-brief`, `translate`, `align`, `cleanup`, `broll`.
@@ -32,24 +37,24 @@ Worker discipline (violations observed to waste whole worker turns):
   a stalled queue is indistinguishable from a quiet one in the event stream.
   Keep one worker claiming with **no** `--kinds` filter as the catch-all, and
   watch the event stream for staleness rather than only for error events.
-- Inspect `task status` before the first claim. When `suggestedWorkers` is
-  greater than one and the host exposes parallel subagents, this skill
-  explicitly requires delegating independent queue workers: start
-  `min(suggestedWorkers, available worker slots)` workers before draining the
-  batch. Never start fewer than `suggestedWorkers` when slots are free — the
-  producer already sized it against the pending batch, and a worker short of
-  the batch count turns answer time into queue time (a 230-sentence talk once
-  left two translate pages queued 736s and 1110s behind a four-worker cap).
-  The root keeps the producer session alive and owns the final quality gate; it
-  must not serially claim the whole batch while independent workers are
-  available. If parallel workers are unavailable, run one loop and report that
-  limitation instead of pretending the queue was parallel.
+- The root notices the backlog; workers do not appear by themselves. Watch the
+  producer's `--jsonl` event stream, or poll `task status`, and own the top-up
+  decision there. When a batch is wide and the running workers are clearly
+  fewer than its pending calls, top up instead of grinding through it alone —
+  a 230-sentence talk once left two translate pages queued 736s and 1110s
+  behind a four-worker cap, and one worker serially draining a wide parallel
+  batch remains the largest observed time waste. The root keeps the producer
+  session alive and owns the final quality gate; it must not serially claim a
+  whole parallel batch while subagent slots sit unused. If parallel workers are
+  unavailable, run one loop and report that limitation instead of pretending
+  the queue was parallel.
 - `export BCUT_LLM_MAX_WORKERS=<worker slots you can actually run>` before
-  starting `bcut`, whenever that number differs from the default 8. The
-  producer uses it for both `suggestedWorkers` and translate page sizing: pages
-  are rounded up to a whole multiple of it so every wave runs full. Leaving it
-  at 8 while only 7 slots exist splits a 12-page batch into 7 + 5 and makes the
-  second wave idle for most of one answer time.
+  starting `bcut`, whenever that number differs from the default 3. It is a
+  concurrency ceiling, not a target to staff up to. The producer uses it for
+  both `suggestedWorkers` and translate page sizing: it decides whether the
+  compact page cap can save a wave. Page counts are no
+  longer rounded up to a whole multiple of it — rounding only paid for extra
+  fixed prefixes without removing a wave.
 - Give every worker process a unique `--worker` id. One process should reuse
   its own id serially for the whole flow, but two concurrent processes must
   never share an id — a second claim with an active id renews the first lease
@@ -58,21 +63,30 @@ Worker discipline (violations observed to waste whole worker turns):
   `--kinds translate,align`). Without it, a worker loop left over from a
   previous stage claims the next stage's calls and answers them without the
   orchestrator's quality context.
-- Keep workers alive across the initial batch, its global repair call, and a
-  following `refine-align`. A momentary `pendingCount:0` while the producer is
-  aggregating a batch is not a terminal condition; stop only after the
-  pipeline emits its terminal event or `studio/worker_stop` appears.
-- Size the pool from `task status`: a single worker draining parallel batches
-  serially is the largest observed time waste. Long-video align typically
-  takes 3–4 workers, batch translate 2–3; polish carries context across pages
-  and analysis/`translate-brief`/brief merge are serial stages, so keep those
-  single-worker. Give
-  every delegated worker the same project path and `--kinds`, a distinct
-  worker id, and responsibility for the complete claim → inspect → answer →
-  submit `--next` loop. Workers use bounded claim timeouts and stay available
-  through momentary empty queues; after the producer reaches a terminal event,
-  the root explicitly tells every delegated worker to stop and waits for them
-  before running the quality gate.
+- Chain, then exit — do not idle. A worker submits with `--next` (or claims
+  again with a bounded timeout), so the same session carries straight from its
+  page into the batch's global repair call and a following `refine-align`
+  without another startup delay. A momentary `pendingCount:0` while the
+  producer aggregates a batch is still not a terminal condition, but what
+  covers it is that `--next` chain plus the producer's terminal event, not a
+  resident set of pollers. When a claim times out on an empty queue, the worker
+  reports and exits; that is a normal ending, not an error, and the root does
+  not respawn it until a new dispatch needs it. Restarting a worker costs one
+  startup; keeping an idle one costs a full model session for the whole
+  remaining run.
+- Give every delegated worker the same project path, a `--kinds` filter
+  matching the batch it was started for, a distinct worker id, and
+  responsibility for the complete claim → inspect → answer → submit `--next`
+  loop. Whether a group may be topped up at all is decided by
+  `workerPlan.execution` and its `pendingCount`, never by a memorized list of
+  stage names — `analysis` and `translate-brief` dispatch as `parallel` even
+  though they often carry a single pending call, and a merge step is serial. A
+  group reported as `serial` stays single-worker; polish stays single-worker
+  even with several pages pending, because it carries context across them.
+  Before running the quality gate, the root waits for
+  every outstanding claim to drain — after the pipeline emits its terminal
+  event or `studio/worker_stop` appears, tell any worker still running to stop
+  and wait for it, so no answer is still in flight while the gate runs.
 - A Sonnet-tier worker model is enough; do not use the highest tier as a
   worker unless the user asks (the orchestrator taking over a stubborn call
   is the exception). Claim, answer, and submit within the lease — read the
@@ -87,10 +101,10 @@ Worker discipline (violations observed to waste whole worker turns):
   have caught. A worker that runs past its lease loses the call to a
   replacement and its finished answer is discarded, so an over-careful worker
   costs the batch a whole duplicated page.
-- Translate pages stay at the 16-line fast cap for short batches. When the
-  configured worker pool would still need at least four waves, the producer
-  uses a 21-line compact cap to remove repeated contract, brief, and glossary
-  prefixes. Do not split a compact page manually or start an extra worker for
+- Translate pages stay at the 16-line fast cap by default. The compact 21-line
+  cap engages only when it actually removes a worker wave, and page counts are
+  never rounded up to a whole multiple of the worker slots; the compact cap
+  removes repeated contract, brief, and glossary prefixes. Do not split a compact page manually or start an extra worker for
   part of it; its lease and item count already reflect the larger bounded page.
 - One caveat on how far that reassurance reaches: a translate answer's inline
   `alignments` draft is never rejected at submit. The align stage re-checks it
@@ -104,36 +118,42 @@ Worker discipline (violations observed to waste whole worker turns):
   that produced them pushed two workers to 570s and 1043s on pages the same
   batch had been finishing in 149–496s.
 
-1. Stage the warm pool, then inspect the dispatch/status plan and assign
-   workers before claiming. For a fresh `auto`, start one catch-all before the
-   producer and bring up the stage-filtered pool concurrently with media and
-   serial work. For a direct parallel command, prewarm its matching pool first:
+1. Launch the producer together with one catch-all worker, then top up from the
+   dispatch/status plan once a parallel batch actually exists. The baseline is
+   the same for every command; watch the producer's `--jsonl` event stream, or
+   poll status, for the first `batch-dispatch`:
 
    ```bash
    bin/baocut task status "/path/demo.bcut" --json
    ```
 
    `workerPlans[]` groups pending work by task and kind. For independent calls,
-   assign the reported `suggestedWorkers` from the warm pool now. Do not wait
-   for one worker to finish before assigning the next. Each worker claims from
-   the shared queue with its own id and the exact `claimKinds` filter:
+   bring the workers running for that group up to
+   `min(pendingCount, available subagent slots)` now. Do not wait for one
+   worker to finish before starting the next, and do not start workers for a
+   group that has no pending calls. Each worker claims from the shared queue
+   with its own id and the exact `claimKinds` filter:
 
    ```bash
    bin/baocut task claim "/path/demo.bcut" --worker codex-1 --timeout 30 \
      --kinds align --json
    ```
 
-   Keep the pool warm across the stage boundary. The align batch dispatches
-   seconds after the last translate submit, so a pool that has already exited
-   leaves those calls sitting unclaimed — one run lost 212s that way. Either
-   brief the pool on both contracts up front and claim
-   `--kinds translate,align`, or spawn the align workers before the translate
-   batch drains. Never widen `--kinds` without the briefing: that is the case
-   the filter exists to prevent, where a still-spinning worker grabs the next
-   stage's call holding only the previous stage's contract.
+   Stage boundaries need no advance staffing. The align batch dispatches
+   seconds after the last translate submit, and a worker that submits its
+   translate page with `--next` claims straight into it — brief the workers on
+   both contracts up front and let them claim `--kinds translate,align`, and
+   the boundary closes inside the sessions already running. Chaining with
+   `--next` is what makes this work: workers that submitted and exited without
+   a chain once left the align batch waiting 212s for fresh sessions. Never
+   widen
+   `--kinds` without the briefing: that is the case the filter exists to
+   prevent, where a still-spinning worker grabs the next stage's call holding
+   only the previous stage's contract. Workers that already exited on an empty
+   queue are simply started again against the new batch.
 
    Translation pages are deliberately sized so large jobs can checkpoint and
-   run in parallel. The root may handle a stubborn repair call after the pool
+   run in parallel. The root may handle a stubborn repair call after the queue
    drains, but should not compete with healthy workers for ordinary calls.
 
 2. Follow the returned prompt and response schema exactly. Write only the
@@ -245,10 +265,15 @@ Worker discipline (violations observed to waste whole worker turns):
    problems, rerun the shape and boundary checks, and resubmit. Do not reclaim
    the call or start a replacement task.
 
-5. Continue until the pipeline emits its terminal event. Keep at least one
-   `align` worker polling through batch aggregation so a global repair call is
-   claimed immediately. Use `task status` or `task watch` when the producer
-   appears stalled.
+5. Continue until the pipeline emits its terminal event. Have the last worker
+   to submit chain one bounded `--next` claim, so the batch's global repair
+   call is picked up without a restart; beyond that nobody needs to sit
+   polling. Use `task status` or `task watch` when the producer appears
+   stalled. Under on-demand staffing, `task watch` exiting 3 with `needAnswer`
+   is usually not a failure: it is the expected signal at the start of a new
+   batch, when calls are pending and no worker has been topped up yet. Treat it
+   as a spawn trigger and only investigate the producer when starting workers
+   does not clear it.
 
 `task status` also reports `requestChars`, `estimatedCost`, and `items` for
 pending and completed translate/align calls. Use these together with
@@ -287,10 +312,12 @@ any worker reported a `stale` submit.
   CLI retries lock contention internally (bounded window, default 120s). If a
   command still fails `busy`, wait a few seconds and retry the same command once.
 - Idle `claim` polling no longer takes the project write lock, so a worker
-  waiting on an empty queue costs the producer nothing. Before this fix a pool
-  of idle long-pollers could starve a running producer out of its own final
-  write and kill the whole stage — if you are on an older CLI, keep the pool
-  sized to the actual batch rather than leaving spare workers spinning.
+  waiting on an empty queue costs the producer nothing in contention terms —
+  which is why a worker started slightly late cannot starve the producer, and
+  why the reason to let an idle worker exit is the model session it holds, not
+  the lock. Before this fix a set of idle long-pollers could starve a running
+  producer out of its own final write and kill the whole stage — on an older
+  CLI, never leave spare workers spinning.
 
 ## Close the quality loop after translate
 
@@ -360,5 +387,6 @@ For a long Agent-backed job, read `task status` once after the producer exits.
 Report the accepted call count and elapsed wall time from the earliest
 `createdAtMs` to the latest `answeredAtMs`. `timings.queueMs` is the sum of each
 call's wait and double-counts overlapping queue time; never present it as user
-elapsed time. Use `workerMs` to compare answer effort, and call out when a
-single worker serially drained a batch that requested more workers.
+elapsed time. Use `workerMs` to compare answer effort, and call out when a wide
+parallel batch stayed with a single worker throughout while subagent slots were
+free.

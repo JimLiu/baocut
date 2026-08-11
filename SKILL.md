@@ -2,8 +2,8 @@
 name: baocut
 description: Drive BaoCut's local CLI for transcription, subtitle and timeline editing, source cuts, clip arrangement, overlays, B-roll, watermarks, animation, on-screen-text translation, review, quality checks, rendered output, and editable projects for CapCut, Premiere Pro, DaVinci Resolve, Final Cut Pro, Shotcut, or Kdenlive. Use whenever the user asks to operate a .bcut project or produce these BaoCut deliverables.
 metadata:
-  version: "1.0.6"
-  minAppVersion: "1.0.6"
+  version: "1.0.7"
+  minAppVersion: "1.0.7"
 ---
 
 # BaoCut
@@ -108,8 +108,9 @@ If the resolver exits 3, follow its guidance instead of bypassing the check.
 - For a complete local pipeline, use `auto`; read
   [references/workflows.md](references/workflows.md).
 - For an Agent-backed AI stage with pending calls, immediately read and follow
-  [references/agent-tasks.md](references/agent-tasks.md). Its worker-pool and
-  consolidated-repair rules are execution requirements, not optional tuning.
+  [references/agent-tasks.md](references/agent-tasks.md). Its on-demand worker
+  and consolidated-repair rules are execution requirements, not optional
+  tuning.
 - For the Subtitle Studio browser preview — serving and mounting projects,
   applying page edits, page requests, history recovery, punctuation display,
   or preview troubleshooting — read
