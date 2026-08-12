@@ -153,6 +153,26 @@ function Resolve-Override {
     return $null
 }
 
+function Test-LongLocalInference {
+    $longInference = $CliArgs | Where-Object { $_ -in @("auto", "transcribe") } | Select-Object -First 1
+    $introspection = $CliArgs | Where-Object { $_ -in @("spec", "version", "doctor", "-h", "--help") } | Select-Object -First 1
+    return [bool]$longInference -and -not [bool]$introspection
+}
+
+function Build-DevelopmentReleaseCli([string] $Root, [string] $Release) {
+    $cargo = Get-Command cargo.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $cargo) { $cargo = Get-Command cargo -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1 }
+    if (-not $cargo) {
+        throw "An optimized release CLI is required for local transcription, but cargo was not found."
+    }
+    Write-Warning "Preparing optimized release CLI for local transcription."
+    & $cargo.Source build --manifest-path (Join-Path $Root "core\Cargo.toml") -p bcut --locked --release --target-dir (Join-Path $Root "core\target")
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $Release -PathType Leaf)) {
+        throw "Failed to prepare the optimized BaoCut release CLI."
+    }
+    return (Resolve-Path -LiteralPath $Release).Path
+}
+
 function Resolve-DevelopmentCli {
     if ($env:BAOCUT_SKILL_NO_DEV -eq "1") { return $null }
     $directory = Get-Item -LiteralPath $skillRoot
@@ -162,9 +182,13 @@ function Resolve-DevelopmentCli {
             $release = Join-Path $directory.FullName "core\target\release\bcut.exe"
             $debug = Join-Path $directory.FullName "core\target\debug\bcut.exe"
             $candidate = $null
-            if ((Test-Path $debug) -and
+            $debugIsNewest = (Test-Path $debug) -and
                 ((-not (Test-Path $release)) -or
-                 ((Get-Item $debug).LastWriteTimeUtc -gt (Get-Item $release).LastWriteTimeUtc))) {
+                 ((Get-Item $debug).LastWriteTimeUtc -gt (Get-Item $release).LastWriteTimeUtc))
+            if ((Test-LongLocalInference) -and $env:BAOCUT_ALLOW_DEBUG_INFERENCE -ne "1" -and
+                ($debugIsNewest -or -not (Test-Path $release))) {
+                $candidate = Build-DevelopmentReleaseCli $directory.FullName $release
+            } elseif ($debugIsNewest) {
                 $candidate = $debug
                 Write-Warning "Using debug build; transcription will be much slower. Build the release CLI first."
             } elseif (Test-Path $release) {
@@ -206,7 +230,7 @@ function Resolve-CachedCli {
         try {
             Invoke-BaoCutHandshake $candidate.Executable
             Write-Verbose "Using compatible cached BaoCut CLI $($candidate.Version)-build.$($candidate.Build)"
-            return $candidate.Executable
+            return $candidate
         } catch {
             Write-Verbose "Ignoring incompatible cached BaoCut CLI $($candidate.Executable): $_"
         }
@@ -214,27 +238,63 @@ function Resolve-CachedCli {
     return $null
 }
 
+# The handshake only reports the marketing version, so two builds of the same
+# version look identical to it. Every comparison that decides which CLI to run
+# must therefore carry the build number alongside the version.
+function Test-CliNewer($Candidate, $Baseline) {
+    if (-not $Baseline) { return $true }
+    if ($Candidate.Version -gt $Baseline.Version) { return $true }
+    return ($Candidate.Version -eq $Baseline.Version -and $Candidate.Build -gt $Baseline.Build)
+}
+
 function Get-LatestWindowsRelease {
     $headers = @{ Accept = "application/vnd.github+json"; "User-Agent" = "baocut-skill/$skillVersion" }
-    $releases = Invoke-RestMethod -Uri $releaseApi -Headers $headers
-    foreach ($release in $releases) {
-        if ($release.draft -or $release.prerelease -or $release.tag_name -notmatch '^baocut-v\d+\.\d+\.\d+-build\.\d+$') { continue }
-        $manifestAsset = $release.assets | Where-Object name -eq "windows-cli-release.json" | Select-Object -First 1
+    $releases = Invoke-RestMethod -Uri $releaseApi -Headers $headers -TimeoutSec 30
+    # Windows assets are appended to an already-published Mac release, so the
+    # API's creation order does not track version/build order. Rank by the tag.
+    $ranked = $releases | ForEach-Object {
+        if ($_.draft -or $_.prerelease) { return }
+        if ($_.tag_name -match '^baocut-v(?<Version>\d+\.\d+\.\d+)-build\.(?<Build>\d+)$') {
+            [pscustomobject]@{
+                Release = $_
+                Version = [version]$Matches.Version
+                Build = [int64]$Matches.Build
+            }
+        }
+    } | Sort-Object -Property @{ Expression = "Version"; Descending = $true },
+        @{ Expression = "Build"; Descending = $true }
+
+    foreach ($entry in $ranked) {
+        $manifestAsset = $entry.Release.assets | Where-Object name -eq "windows-cli-release.json" | Select-Object -First 1
         if (-not $manifestAsset) { continue }
-        $manifest = Invoke-RestMethod -Uri $manifestAsset.browser_download_url -Headers $headers
+        $manifest = Invoke-RestMethod -Uri $manifestAsset.browser_download_url -Headers $headers -TimeoutSec 30
         $target = $manifest.targets.'x86_64-pc-windows-msvc'
-        if ($manifest.schema -eq 1 -and $target.supportTier -eq "stable" -and $target.entry -eq "bcut.exe") {
-            return @{ Release = $release; Manifest = $manifest; Target = $target; Headers = $headers }
+        if ($manifest.schema -ne 1 -or $target.supportTier -ne "stable" -or $target.entry -ne "bcut.exe") { continue }
+        # The release tooling copies `version` and `build` straight out of the
+        # tag, so they must round-trip. A mismatch means a stray asset, and the
+        # cache directory would then lie about which build it holds.
+        $manifestTag = "baocut-v$($manifest.version)-build.$($manifest.build)"
+        if ($manifestTag -ne [string]$entry.Release.tag_name) {
+            Write-Verbose "Skipping $($entry.Release.tag_name): its manifest declares $manifestTag"
+            continue
+        }
+        return [pscustomobject]@{
+            Release = $entry.Release
+            Manifest = $manifest
+            Target = $target
+            Headers = $headers
+            Version = $entry.Version
+            Build = $entry.Build
         }
     }
     throw "No published BaoCut release with a Windows x64 CLI was found at https://github.com/$publicRepository/releases."
 }
 
-function Install-LatestWindowsCli {
+function Install-LatestWindowsCli($KnownRelease) {
     if ($env:BAOCUT_SKILL_NO_DOWNLOAD -eq "1") {
         throw "BaoCut CLI was not found and BAOCUT_SKILL_NO_DOWNLOAD=1 disables automatic installation."
     }
-    $resolved = Get-LatestWindowsRelease
+    $resolved = if ($KnownRelease) { $KnownRelease } else { Get-LatestWindowsRelease }
     $manifest = $resolved.Manifest
     $target = $resolved.Target
     $archiveName = [string]$target.cli.file
@@ -247,9 +307,16 @@ function Install-LatestWindowsCli {
 
     $cacheRoot = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { [Environment]::GetFolderPath("LocalApplicationData") }
     if (-not $cacheRoot) { throw "Windows LocalApplicationData directory is unavailable." }
+    # Key on version *and* build so a same-version rebuild lands in its own
+    # directory instead of being mistaken for the copy already cached.
     $cacheDirectory = Join-Path $cacheRoot "BaoCut\cli\$($manifest.version)-build.$($manifest.build)"
     $cacheExecutable = Join-Path $cacheDirectory "bcut.exe"
-    if (Test-Path -LiteralPath $cacheExecutable -PathType Leaf) { return $cacheExecutable }
+    $installed = [pscustomobject]@{
+        Version = $resolved.Version
+        Build = $resolved.Build
+        Executable = $cacheExecutable
+    }
+    if (Test-Path -LiteralPath $cacheExecutable -PathType Leaf) { return $installed }
 
     New-Item -ItemType Directory -Force -Path $cacheDirectory | Out-Null
     $temporaryArchive = Join-Path $cacheDirectory ".bcut-download-$PID.zip"
@@ -269,7 +336,29 @@ function Install-LatestWindowsCli {
         Remove-Item -LiteralPath $temporaryArchive -Force -ErrorAction SilentlyContinue
         Remove-Item -LiteralPath $temporaryDirectory -Recurse -Force -ErrorAction SilentlyContinue
     }
-    return $cacheExecutable
+    return $installed
+}
+
+# A cached CLI that passes the handshake normally ends the search, so a rebuild
+# published under the same marketing version would never be picked up. Nothing
+# local announces such a rebuild — the skill ships no Windows pin and
+# `--json version` exposes no build number — so detecting it requires the
+# network. Keep that opt-in: unset, this path stays entirely offline.
+function Update-CachedCli($Cached) {
+    if ($env:BAOCUT_SKILL_CLI_UPDATE_CHECK -ne "1") { return $null }
+    if ($env:BAOCUT_SKILL_NO_DOWNLOAD -eq "1") { return $null }
+    try {
+        $resolved = Get-LatestWindowsRelease
+        if (-not (Test-CliNewer $resolved $Cached)) { return $null }
+        Write-Verbose "Cached BaoCut CLI $($Cached.Version)-build.$($Cached.Build) is superseded by $($resolved.Version)-build.$($resolved.Build)"
+        $installed = Install-LatestWindowsCli $resolved
+        Invoke-BaoCutHandshake $installed.Executable
+        return $installed
+    } catch {
+        # An update check must never break an otherwise working cached CLI.
+        Write-Verbose "Keeping the cached BaoCut CLI; update check failed: $_"
+        return $null
+    }
 }
 
 try {
@@ -294,10 +383,15 @@ try {
         }
     }
     if (-not $cli) {
-        $cli = Resolve-CachedCli
+        $cached = Resolve-CachedCli
+        if ($cached) {
+            $upgraded = Update-CachedCli $cached
+            if ($upgraded) { $cached = $upgraded }
+            $cli = $cached.Executable
+        }
     }
     if (-not $cli) {
-        $cli = Install-LatestWindowsCli
+        $cli = (Install-LatestWindowsCli).Executable
         Invoke-BaoCutHandshake $cli
     }
 

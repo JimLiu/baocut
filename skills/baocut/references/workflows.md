@@ -40,7 +40,8 @@ bin/baocut --json project create "<dir>/My Talk.bcut" --media "/path/input.mp4"
 
 `project create` registers the project globally, so the BaoCut App lists it
 immediately. Keep the returned `data.project.id` — it is the preview route id.
-For a video URL, pass the URL as `--media`; the pipeline downloads it later.
+For a media URL, pass the URL as `--media`; video and audio-only sources are
+both supported, and the pipeline downloads them later.
 
 ### 2. Start, verify, and share the preview URL
 

@@ -563,7 +563,7 @@ function KonvaPreview({
         cleanups.push(() => mediaEl.removeEventListener(name, fit));
       });
       fit();
-    } else {
+    } else if (!hasAudio) {
       const colors = placeholderPalette(hue);
       layer.add(new K.Rect({
         width,
@@ -585,7 +585,7 @@ function KonvaPreview({
       layer.add(new K.Text({
         x: width * 0.04,
         y: height * 0.82,
-        text: hasAudio ? '音频项目' : '无媒体预览',
+        text: '无媒体预览',
         fontFamily: FONT_CATALOG.stackFor('system'),
         fontSize: Math.max(18, 24 * scale),
         fontStyle: 'bold',

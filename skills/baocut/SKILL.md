@@ -2,8 +2,8 @@
 name: baocut
 description: Drive BaoCut's local CLI for transcription, subtitle and timeline editing, source cuts, clip arrangement, overlays, B-roll, watermarks, animation, on-screen-text translation, review, quality checks, rendered output, and editable projects for CapCut, Premiere Pro, DaVinci Resolve, Final Cut Pro, Shotcut, or Kdenlive. Use whenever the user asks to operate a .bcut project or produce these BaoCut deliverables.
 metadata:
-  version: "1.0.7"
-  minAppVersion: "1.0.7"
+  version: "1.0.8"
+  minAppVersion: "1.0.8"
 ---
 
 # BaoCut
@@ -62,15 +62,27 @@ The resolver locates the right CLI on its own — never call `bcut` directly:
 
 On Windows, `bin/baocut.ps1` uses the same explicit overrides,
 development-checkout build, and PATH lookup first. It then checks cached
-`<version>-build.<build>` CLIs newest-first and compatibility-checks them
-locally. Only when no compatible cache exists does it find
-the newest stable `baocut-v<version>-build.<build>` GitHub Release that includes
-`windows-cli-release.json`, downloads its x64 Windows archive, verifies the
-manifest-pinned SHA-256, and caches `bcut.exe` under
-`%LOCALAPPDATA%\BaoCut\cli\<version>-build.<build>\bcut.exe`. The Windows
+`<version>-build.<build>` CLIs newest-first — by version *and* build, because
+the handshake only reports the marketing version and cannot tell two builds
+apart — and compatibility-checks them locally. Only when no compatible cache
+exists does it find the newest stable `baocut-v<version>-build.<build>` GitHub
+Release that includes `windows-cli-release.json`, downloads its x64 Windows
+archive, verifies the manifest-pinned SHA-256, and caches `bcut.exe` under
+`%LOCALAPPDATA%\BaoCut\cli\<version>-build.<build>\bcut.exe`. "Newest" is the
+highest `<version>`/`<build>` parsed from the release tags, not the first entry
+the API returns: Windows assets are appended to an already-published macOS
+release, so creation order does not track build order. The Windows
 archive is currently an unsigned preview, so SmartScreen, Smart App Control,
 or enterprise policy may warn about or block it; SHA-256 proves download
 integrity, not publisher identity.
+
+A compatible cache normally ends the search, so a rebuild published under the
+same marketing version is not picked up on its own — nothing local announces
+it, since the Windows skill ships no CLI pin and `--json version` carries no
+build number. Set `BAOCUT_SKILL_CLI_UPDATE_CHECK=1` to let the cache path
+compare against the newest release and adopt a higher build; unset, that path
+stays entirely offline, and any failed check silently keeps the cached CLI.
+`BAOCUT_SKILL_NO_DOWNLOAD=1` still wins over this opt-in.
 
 The resolver then checks the CLI contract and minimum BaoCut App version
 before it runs the requested command.
@@ -222,12 +234,13 @@ If the resolver exits 3, follow its guidance instead of bypassing the check.
 
 Complete the mandatory startup version gate before running this preflight.
 
-In a development checkout, do not start a long local transcription while the
-resolver warns that it selected a debug build. Run
-`scripts/dev/prepare-bcut.sh` once, then repeat the preflight so the release
-binary is selected. For an Agent-backed AI pipeline, pass `--llm agent`
-explicitly; this prevents a stale `BCUT_LLM_DEFAULT` from silently selecting a
-provider that has no usable key.
+In a development checkout, long local `transcribe` and `auto` commands require
+an optimized CLI. When only a debug build is current, the resolver runs
+`scripts/dev/prepare-bcut.sh` before continuing instead of silently accepting
+roughly 2x slower inference. Set `BAOCUT_ALLOW_DEBUG_INFERENCE=1` only for an
+intentional debugger/profiler run. For an Agent-backed AI pipeline, pass
+`--llm agent` explicitly; this prevents a stale `BCUT_LLM_DEFAULT` from
+silently selecting a provider that has no usable key.
 
 When the resolver reports a version or handshake problem, follow
 [references/updates.md](references/updates.md) and do not bypass the refreshed

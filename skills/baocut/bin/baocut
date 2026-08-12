@@ -29,8 +29,9 @@ test -n "$skill_version" && test -n "$min_app_version" || {
 # CLI resolution order:
 #   1. Explicit override: BAOCUT_CLI / BCUT_EXECUTABLE / BAOCUT_BIN.
 #   2. Development checkout: when this skill directory lives inside a BaoCut
-#      source tree, use the workspace build (newest of release/debug), or run
-#      the sources directly through `cargo run` if nothing is built yet.
+#      source tree, use the workspace build. Long local inference commands
+#      automatically prepare an optimized release build instead of running a
+#      newer debug binary; other commands use the newest release/debug build.
 #   3. Released install: the CLI embedded in BaoCut.app (system or per-user
 #      Applications; every App release ships its matching baocut-cli).
 #   4. A `bcut` on PATH.
@@ -43,6 +44,17 @@ test -n "$skill_version" && test -n "$min_app_version" || {
 cli=
 cargo_manifest=
 cli_source=
+long_local_inference=0
+introspection_command=0
+for argument in "$@"; do
+    case "$argument" in
+        auto|transcribe) long_local_inference=1 ;;
+        spec|version|doctor|-h|--help) introspection_command=1 ;;
+    esac
+done
+if test "$introspection_command" = 1; then
+    long_local_inference=0
+fi
 for variable in BAOCUT_CLI BCUT_EXECUTABLE BAOCUT_BIN; do
     case "$variable" in
         BAOCUT_CLI) candidate=${BAOCUT_CLI:-} ;;
@@ -61,9 +73,26 @@ if test -z "$cli" && test "${BAOCUT_SKILL_NO_DEV:-0}" != 1; then
         if test -f "$dev_root/core/Cargo.toml" && test -d "$dev_root/apps/cli"; then
             release=$dev_root/core/target/release/bcut
             debug=$dev_root/core/target/debug/bcut
-            # Use the newest workspace binary so Agent discovery never reads a
-            # stale contract after a debug-only development build.
+            debug_is_newest=0
             if test -x "$debug" && { ! test -x "$release" || test "$debug" -nt "$release"; }; then
+                debug_is_newest=1
+            fi
+            # Use the newest workspace binary so Agent discovery never reads a
+            # stale contract after a debug-only development build. Local ML
+            # inference is the exception: debug Rust roughly doubles runtime,
+            # so prepare the release CLI before a long media command.
+            if test "$long_local_inference" = 1 \
+                && test "${BAOCUT_ALLOW_DEBUG_INFERENCE:-0}" != 1 \
+                && { test "$debug_is_newest" = 1 || ! test -x "$release"; }
+            then
+                prepare=$dev_root/scripts/dev/prepare-bcut.sh
+                if ! test -x "$prepare"; then
+                    echo "baocut skill: optimized release CLI is required for local transcription, but $prepare is unavailable" >&2
+                    exit 3
+                fi
+                echo "baocut skill: preparing optimized release CLI for local transcription" >&2
+                cli=$("$prepare")
+            elif test "$debug_is_newest" = 1; then
                 cli=$debug
                 echo "baocut skill: WARNING using debug build; transcription will be much slower. Build release with scripts/dev/prepare-bcut.sh" >&2
             elif test -x "$release"; then
