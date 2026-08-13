@@ -473,6 +473,8 @@ function SentenceCard({ s, num }) {
             // 一片译文的源词区间常跨多条源字幕：源侧按 cue 边界分组成子行，
             // 「多对一」才看得见。分组是渲染期投影，不写回 transAlign，也不
             // 参与对齐决策；拿不到 cue 词表时自动退回纯宽度折行。
+            // M122：≤2 词的碎片子行会并进相邻子行（mergeShortRuns），因此一个
+            // part 可能跨 cue 边界——data-cue-id 取其首个 cue，纯展示用途。
             const sourceParts = window.BCS_SUBTITLE.sourceCueParts(tc, doc.cues, sourceLang, 42);
             const multiCue = sourceParts.length > 1;
             const rowDur = Math.max(0.1, tc.end - tc.start);

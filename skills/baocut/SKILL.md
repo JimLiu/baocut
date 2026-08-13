@@ -1,9 +1,20 @@
 ---
 name: baocut
-description: Drive BaoCut's local CLI for transcription, subtitle and timeline editing, source cuts, clip arrangement, overlays, B-roll, watermarks, animation, on-screen-text translation, review, quality checks, rendered output, and editable projects for CapCut, Premiere Pro, DaVinci Resolve, Final Cut Pro, Shotcut, or Kdenlive. Use whenever the user asks to operate a .bcut project or produce these BaoCut deliverables.
+description: >-
+  BaoCut-only operator for the installed `bcut` CLI and `.bcut` projects.
+  Implicitly trigger only when the request explicitly names BaoCut or `bcut`,
+  targets a `.bcut` project or BaoCut Subtitle Studio, or continues a BaoCut
+  workflow already established in the conversation. Do not trigger solely for
+  generic audio or video, transcription, subtitles, translation, editing,
+  animation, review, rendering or export, FFmpeg, or another NLE. Once
+  triggered, execute and verify the requested BaoCut transcription, subtitle or
+  timeline, overlay, review, render, or export workflow. Being inside the
+  BaoCut source repository is not itself a trigger; ordinary code and
+  documentation tasks follow repository instructions unless they also operate
+  the product or a `.bcut` project.
 metadata:
-  version: "1.0.8"
-  minAppVersion: "1.0.8"
+  version: "1.0.9"
+  minAppVersion: "1.0.9"
 ---
 
 # BaoCut
@@ -114,7 +125,7 @@ If the resolver exits 3, follow its guidance instead of bypassing the check.
 
 ## Choose the workflow
 
-- For transcription and translation, create the project in the shared
+- For transcription, polish, and translation, create the project in the shared
   projects library first, start the preview server, then run the pipeline;
   read [references/workflows.md](references/workflows.md).
 - For a complete local pipeline, use `auto`; read
@@ -218,6 +229,11 @@ If the resolver exits 3, follow its guidance instead of bypassing the check.
   cancellation is one stdin line: `{"cmd":"cancel"}`.
 - AI `--review` output is only a candidate. Inspect it, then explicitly run
   `review accept` or `review reject`.
+- A successful polish is not the end of a named multi-speaker task while
+  placeholder labels remain. After accepting any polish review, follow
+  [the confirmed-speaker sync](references/workflows.md#sync-confirmed-speaker-names-after-polish):
+  apply only evidence-backed identities with `speakers rename`, preserve
+  ambiguous labels, and report every unresolved speaker id.
 - Run `check --strict` before claiming a deliverable is ready. Exit 2 means the
   quality gate found unresolved work; exit 3 means a compatibility or worker
   handoff condition.

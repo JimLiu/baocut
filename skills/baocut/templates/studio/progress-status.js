@@ -96,6 +96,15 @@
     if (source && source[key] != null) target[key] = source[key];
   }
 
+  // CLI 的细阶段（model/decode/vad/transcribe/write）都属于 Studio 已有的
+  // transcribing 页面；保留原始 job.phase 给进度匹配，UI 路由只看该归一值。
+  function projectPhase(job, fallback) {
+    if (job && (job.stage === 'transcribe'
+      || job.kind === 'transcribe'
+      || job.kind === 'clip-transcribe')) return 'transcribing';
+    return (job && job.phase) || fallback;
+  }
+
   // status 投影：base = data.json 的 status（CLI 派生的 ready/empty/transcribing
   // 基线），job = WS 选中的任务，progress = studio/poll 带来的 progress.json。
   function projectStatus(base, job, progress, dataFingerprint) {
@@ -137,9 +146,10 @@
     const next = {
       ...status,
       active: true,
-      phase: job.phase || status.phase,
+      phase: projectPhase(job, status.phase),
       pct,
       detail: job.detail || '',
+      liveSegments: Array.isArray(job.liveSegments) ? job.liveSegments : [],
       phases,
       contentFingerprint: fingerprint,
       updatedAt: job.updatedAt,
@@ -164,6 +174,7 @@
     resolveProjectPath,
     selectJob,
     projectStatus,
+    projectPhase,
     isActive,
   };
 });

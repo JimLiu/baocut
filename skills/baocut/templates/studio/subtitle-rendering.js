@@ -202,6 +202,49 @@
     return index;
   }
 
+  // Absorb orphan runs (M122). A piece whose span starts or ends mid-cue
+  // produced 1–2 word stubs ("of a", "then") on a line of their own — visual
+  // litter that says nothing about the alignment. A run of **≤ 2 words merges
+  // into an adjacent run**:
+  //
+  //   * the FIRST run merges forward (into the next one),
+  //   * the LAST run merges backward (into the previous one),
+  //   * a MIDDLE run merges into the SHORTER neighbour, **ties → previous**,
+  //   * a piece with a single run is left alone,
+  //   * merging CASCADES: if the merged run is still ≤ 2 words it merges again.
+  //
+  // One left-to-right pass over the current array (so the neighbour lengths a
+  // decision sees are post-merge ones), re-examining the run just merged. The
+  // merged run keeps the EARLIER run's cueId.
+  //
+  // A merged run may therefore SPAN a source cue boundary — a deliberate display
+  // compromise: no data changes, the piece still owns exactly the same words,
+  // the panel just stops showing hairline-separated stubs.
+  // `OrigLineView.mergeShortRuns` (apps/mac) and `translate-model.js`
+  // (designs/baocut-mac) carry the mirrored implementation; the three must stay
+  // rule-for-rule identical.
+  function mergeShortRuns(runs, minWords = 3) {
+    if (!Array.isArray(runs) || runs.length < 2) return Array.isArray(runs) ? runs : [];
+    const out = runs.slice();
+    let i = 0;
+    while (out.length > 1 && i < out.length) {
+      if (out[i].words.length >= minWords) { i += 1; continue; }
+      let target;
+      if (i === 0) target = 1;
+      else if (i === out.length - 1) target = i - 1;
+      else target = out[i - 1].words.length <= out[i + 1].words.length ? i - 1 : i + 1;
+      const keep = Math.min(i, target);
+      const drop = Math.max(i, target);
+      out[keep] = {
+        cueId: out[keep].cueId,
+        words: out[keep].words.concat(out[drop].words),
+      };
+      out.splice(drop, 1);
+      i = keep;   // the merged run may still be short — cascade
+    }
+    return out;
+  }
+
   // DISPLAY LAYER ONLY. A translation piece owns one semantic source span, and
   // that span routinely covers several source subtitle cues — that is the
   // visible many-to-one shape. Group the piece's source words into runs by
@@ -235,7 +278,7 @@
     });
 
     const parts = [];
-    runs.forEach((run, runIndex) => {
+    mergeShortRuns(runs).forEach((run, runIndex) => {
       const lines = sourceDisplayLines(run.words, language, fit);
       if (!lines.length) return;
       const covered = lines.flatMap((line) => line.words);
@@ -271,61 +314,13 @@
     }];
   }
 
-  // Translate preview is paired by the independent translation cue. Its source
-  // line is the complete transAlign word span; the active source Subtitle cue
-  // is only a fallback for an unaligned whole-sentence projection.
-  function translationSourceCue(transCue, fallbackCue = null, sourceLanguage = '') {
-    if (!transCue) return fallbackCue;
-    const sourceText = String(transCue.sourceText || '').trim();
-    if (!sourceText) return fallbackCue;
-
-    const start = intervalStart(transCue);
-    const end = intervalEnd(transCue);
-    const sourceStart = finite(transCue.sourceStart, start);
-    const sourceEnd = Math.max(sourceStart, finite(transCue.sourceEnd, end));
-    const sourceDuration = sourceEnd - sourceStart;
-    const timelineDuration = end - start;
-    const mapTime = (value, fallback) => {
-      const sourceTime = finite(value, fallback);
-      if (sourceDuration <= 0 || timelineDuration <= 0) return start;
-      return clamp(
-        start + ((sourceTime - sourceStart) / sourceDuration) * timelineDuration,
-        start,
-        end,
-      );
-    };
-    const allSourceWords = Array.isArray(transCue.sourceWords) ? transCue.sourceWords : [];
-    if (!allSourceWords.length && fallbackCue) return fallbackCue;
-    const text = sourceText || joinSourceWords(allSourceWords, sourceLanguage);
-    const words = allSourceWords
-      .map((word, index) => {
-        const wordStart = finite(word && word.start, finite(word && word.t0, sourceStart));
-        const wordEnd = Math.max(
-          wordStart,
-          finite(word && word.end, finite(word && word.t1, wordStart)),
-        );
-        return {
-          id: (word && word.id) || `${transCue.id || 'translation'}:source:${index}`,
-          text: String((word && word.text) || ''),
-          t0: mapTime(wordStart, sourceStart),
-          t1: mapTime(wordEnd, wordStart),
-        };
-      })
-      .filter((word) => word.text);
-    const cueStart = words.length ? words[0].t0 : start;
-    const cueEnd = words.length ? words[words.length - 1].t1 : end;
-
-    return {
-      id: `translation-source:${transCue.id || 'active'}`,
-      kind: 'translation-source',
-      sourceId: transCue.sourceId,
-      sourceItemId: transCue.sourceItemId,
-      text,
-      start: cueStart,
-      end: cueEnd,
-      words,
-    };
-  }
+  // M122: `translationSourceCue()` lived here — it wrapped a translation
+  // piece's whole aligned source span in a synthetic cue so the canvas could
+  // draw it as the ORIGINAL line. It is gone. On the canvas the original line
+  // follows the active source Cue and the translation line its own piece: two
+  // independent time streams that never narrow each other, exactly what the
+  // burn-in does (`render_plan.rs::active_layouts`). The merged span survives
+  // only in the panel, as `sourceCueParts()` display parts.
 
   function displayDurations(items, timing = DEFAULT_TIMING) {
     return (items || []).map((_, index) => {
@@ -1123,8 +1118,8 @@
     displayDurations,
     activeIndex,
     activeTimedItem,
-    translationSourceCue,
     sourceDisplayLines,
+    mergeShortRuns,
     sourceCueParts,
     resolveModeLines,
     nestedLineStyle,

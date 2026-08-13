@@ -155,21 +155,23 @@ function StagePane() {
   const tcue = transDisplay && transDisplay.item;
   const sourceLanguage = doc.meta.sourceLang && doc.meta.sourceLang.code;
   const targetLanguage = doc.meta.targetLang && doc.meta.targetLang.code;
-  const cue = app.tab === 'translate'
-    ? R.translationSourceCue(tcue, subtitleCue, sourceLanguage)
-    : subtitleCue;
+  // 画布上的原文行永远跟随「当前源 Cue」，译文行跟随它自己的译片：两条互不收窄的
+  // 独立时间流，与烧录端 render_plan.rs::active_layouts 同构。Translate tab 曾把
+  // 译片的整段对齐词 span 合成一条假 Cue 当原文画，于是画面出现横跨数条 Cue 的
+  // 超长行，而导出的视频里从来没有这一行。
+  const cue = subtitleCue;
   const chapter = app.chapterOf(doc, t);
   const chapterIndex = doc.chapters.indexOf(chapter);
   const hue = [252, 152, 28, 200][chapterIndex % 4] || 252;
   const st = doc.style;
   const mode = app.tab === 'translate' ? 'bi' : st.mode;
   const lines = R.resolveModeLines(mode, st.order);
-  const displayStart = app.tab === 'translate'
-    ? (transDisplay ? transDisplay.displayStart : Number.POSITIVE_INFINITY)
-    : Math.min(
-        cueDisplay ? cueDisplay.displayStart : Number.POSITIVE_INFINITY,
-        transDisplay ? transDisplay.displayStart : Number.POSITIVE_INFINITY,
-      );
+  // 入场姿态取两条流里更早的那个：Translate tab 的原文行现在由 cueDisplay 驱动，
+  // 只看 transDisplay 会让原文在译片边界上重新入场。
+  const displayStart = Math.min(
+    cueDisplay ? cueDisplay.displayStart : Number.POSITIVE_INFINITY,
+    transDisplay ? transDisplay.displayStart : Number.POSITIVE_INFINITY,
+  );
   const transcribing = doc.status.phase === 'transcribing';
   const selKey = subtitleCue ? (subtitleCue.sourceItemId || subtitleCue.id) : null;
   const selected = !!(selKey && app.sel && app.sel.cueId === selKey);
@@ -247,9 +249,10 @@ function StagePane() {
     if (line === 'orig' && !current) return;
     if (line === 'trans' && !currentTrans) return;
     clearTimeout(selectTimerRef.current);
-    // The Translate source line is a read-only projection of aligned words,
-    // not a Subtitle cue. Move to Subtitle before editing so a double-click
-    // can never write the visibly different cue that merely overlaps in time.
+    // The Translate tab's original line IS the active Subtitle cue now, but it
+    // stays read-only here: editing the original belongs to the Subtitle tab, so
+    // move there (selecting the same cue) rather than opening an editor on the
+    // tab whose job is the translation.
     if (line === 'orig' && tabRef.current === 'translate') {
       if (!current.sourceId || current.sourceId === 'main') {
         app.setSel(R.nextLineSelection(

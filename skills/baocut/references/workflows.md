@@ -164,6 +164,46 @@ after the ASR pass, so pre-download it with
 Before accepting a review, inspect its diff and preview from `review list`. Use
 `review reject` when the candidate changes meaning or timing intent.
 
+### Sync confirmed speaker names after polish
+
+`polish` returns `data.speakerNames` as evidence-backed candidates; it does not
+silently apply them. Do not finish a named multi-speaker task with `S01`, `s1`,
+or similar placeholder labels when the available evidence can identify them.
+
+For `--review`, accept the polish candidate before renaming speakers. Review
+acceptance replaces the staged transcript, so a rename made first can be
+overwritten by the candidate.
+
+1. Retain `data.speakerNames` from the terminal polish/auto event, then run the
+   current installed command as a fresh read after acceptance:
+
+   ```bash
+   bin/baocut speakers propose-names "/path/demo.bcut" --json
+   ```
+
+2. Verify each mapping against the candidate quote, project/source metadata,
+   and speaker turns in the Studio transcript. A self-introduction, an
+   explicit address followed by that speaker's response, or a unique
+   first-person fact that matches the source metadata is usable evidence. A
+   participant list, speaking order, voice-label number, or topic alone is not.
+3. A `high` candidate may be applied only after its quote is checked. A
+   `medium` candidate needs independent corroboration. An empty candidate list
+   means the narrow automatic heuristic found no self-introduction; it does not
+   waive the speaker review when the title or description names participants.
+4. Diarization can split one person across multiple speaker ids. Assign the
+   same real name to each id only when each mapping has evidence;
+   `speakers rename` changes labels but does not merge voice clusters.
+5. Apply every confirmed mapping in one command, then re-read state and verify
+   the refreshed Studio preview:
+
+   ```bash
+   bin/baocut speakers rename "/path/demo.bcut" \
+     "s1=Confirmed Name" "s2=Other Name" --json
+   ```
+
+Never guess an ambiguous identity. Leave its placeholder intact and report the
+unresolved speaker id and the missing evidence to the user.
+
 Stage order is enforced, not advisory: a full first translation runs on the
 polished transcript. If a polish candidate is still pending, `translate` stops
 with a `conflict` envelope and hands you the `review accept` command — rerunning
@@ -210,9 +250,10 @@ The preview page code is served live from this skill's `templates/`
 directory; projects store only Studio data. After browser edits, use
 `studio apply` rather than editing generated projection files — and apply
 pending page edits before starting any polish, translate, or align stage.
-For a live transcript view during transcription, use the command's JSONL
-output together with `studio sync --live-jsonl`. Run the command's `--help`
-for the exact current arguments.
+Local transcriptions started through the shared service stream confirmed text
+into Studio automatically. For a standalone JSONL command that is not supervised
+by the service, use its output together with `studio sync --live-jsonl`. Run the
+command's `--help` for the exact current arguments.
 
 For service reuse, mounting out-of-library projects, page requests, history
 recovery, punctuation display rules, and preview troubleshooting, read

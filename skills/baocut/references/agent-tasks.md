@@ -176,8 +176,13 @@ Worker discipline (violations observed to waste whole worker turns):
 
    Most sentences arrive with a usable draft and answer `{"key":…,
    "useDraft":true}` alone, so the gate must branch on it — a gate that always
-   reads `.target` fails with `split(null)` on the common path, and
-   `useDraft` alongside `sourceBreaks`/`target` is rejected by the engine.
+   reads `.target` fails with `split(null)` on the common path. Sending
+   `sourceBreaks`/`target` alongside `useDraft` is not an engine error — the
+   extra fields are silently ignored and the draft wins — but keep the gate
+   strict anyway: the fields are wasted work and mask intent. What the engine
+   *does* reject is `useDraft` on a sentence whose payload says
+   `draftReady=false`; those sentences need an explicit answer that fixes the
+   listed `draftBlockers`.
 
    Then compare every proposed break with the current payload:
 
@@ -216,6 +221,13 @@ Worker discipline (violations observed to waste whole worker turns):
      an over-dense paired row, split only at the complete target-language seam
      it identifies; `、` is allowed there only between complete parallel
      actions, not inside an ordinary noun list.
+   - Never regress the worst paired source row. `draftWorstSourceUnits` /
+     `draftWorstSourceSeconds` report the incoming draft's widest and longest
+     paired source row. An answer that still leaves a row past the paired-row
+     ceiling AND wider or longer than that worst row is rejected. Cut the
+     offending wide row itself; adding a cheap cut elsewhere (for example right
+     after the first word, to reach `pieceCount.min`) while leaving a huge tail
+     row is strictly worse than keeping the draft's boundaries.
    - Do not leave a Chinese piece ending with an incomplete classifier or
      determiner phrase such as `我们有一个 | 想改变的系统`.
    - A Chinese piece that ends without punctuation must not end on a form that
@@ -261,9 +273,21 @@ Worker discipline (violations observed to waste whole worker turns):
    id is not — `--next` then claims on behalf of another worker and two workers
    end up fighting the one-worker-one-lease rule.
 
+   `--next` output shapes: when the submit is accepted and a new call is
+   available, the output is the next call's claim envelope with the acceptance
+   merged in — `submitted` (plus `late: true` for a late-accepted answer, or
+   `alreadyAnswered` when someone else's answer won) — so no extra status query
+   is needed to confirm the answer landed. When the queue is empty it prints
+   `{"status":"ok","submitted":<callId>,"next":"empty"}`.
+
    If submit returns `rejected`, keep the same lease, fix only the reported
    problems, rerun the shape and boundary checks, and resubmit. Do not reclaim
-   the call or start a replacement task.
+   the call or start a replacement task. The lint budget is 3 tries per call
+   and lease: each rejection reports `triesLeft`, and the 3rd submit under the
+   same lease is force-passed to engine acceptance instead of being rejected
+   again (the engine's own validation still applies). The budget is counted
+   per `callId+leaseId`, so a replacement worker on a new lease starts with a
+   fresh budget — a predecessor's exhausted tries do not carry over.
 
 5. Continue until the pipeline emits its terminal event. Have the last worker
    to submit chain one bounded `--next` claim, so the batch's global repair
@@ -282,19 +306,34 @@ pending and completed translate/align calls. Use these together with
 answer-generation time when diagnosing a slow run.
 
 When `queueMs` comes out bimodal — some calls around 100s and others around
-1000s in the same batch — suspect lease expiry rather than batch imbalance.
-A worker that overruns its lease has its answer rejected as `stale`, and a
-second worker redoes the whole page, so the call's queue time absorbs the first
-worker's entire effort. Confirm it by checking whether the long-queue calls were
-credited to a different worker than the one that first claimed them, and whether
-any worker reported a `stale` submit.
+1000s in the same batch — do not jump straight to "a page got redone". The
+producer writes the whole batch to disk up front, so whenever pages outnumber
+worker slots (say 8 pages on 4 workers), the second half's queue time simply
+absorbs the first half's full answer time: a purely arithmetic bimodal split
+with zero redone work. Attribute rework only after confirming the opposite
+pattern: a long-queue call credited to a different worker than its first
+claimant, more than one `claims/` record per callId, `attempt` above 1, or a
+worker reporting a `stale` submit. If every callId has a single claim record,
+the crediting worker matches the claimer, and no `stale` was reported, it is
+queueing arithmetic. Note that overrunning a lease alone no longer forfeits
+the answer: a late submit that passes lint is accepted (`late: true`, first
+valid answer wins); only a lint-failing late submit reports `stale`.
 
 ## What to expect from calls
 
-- Call kinds are open-ended — `analysis`, `polish`, `translate`, `align`,
-  retry variants such as `polish-2`, and future kinds all flow through the
-  same claim/submit loop. Always read the call's own contract and payload;
-  do not assume the shape from a previous kind.
+- Call kinds are open-ended — `analysis`, `polish`, `translate`, `align`, and
+  future kinds all flow through the same claim/submit loop. Retry rounds reuse
+  the base kind: a name like `polish-2` is only the retry round's contract
+  *filename*, while the call's `kind` stays `polish` — filter with
+  `--kinds polish`, never `--kinds polish-2`, which matches no call at all.
+  Always read the call's own contract and payload; do not assume the shape
+  from a previous kind.
+- Retry structure is bounded, and knowing the bounds helps budget effort:
+  `align` runs exactly one global repair round after the first wave (fanned
+  out in batches within that round — there is no second repair round), and a
+  `translate`/`translate-brief` call has an engine-level retry cap of 3. A
+  retry call's `problems` list is the whole remaining chance; fix exactly
+  those items.
 - The payload file extension is `.json`, but the content may be plain text or
   a composite document depending on the kind; the contract describes the
   expected answer format. Retry calls carry a `problems` list explaining what
@@ -305,9 +344,22 @@ any worker reported a `stale` submit.
   any missing value in `problems[]`; fix the translation rather than editing
   or weakening the glossary. `translate-brief` is a one-call serial stage, so
   assign it to one worker even when later translate pages run in parallel.
+- A claimed call may carry `hedge: true` (with `hedgeOf` naming the original
+  call). It is a tail-latency duplicate the producer dispatched because the
+  original has been in flight far longer than the rest of its batch: answer it
+  normally — same contract, same payload shape, no penalty attached. The first
+  answer wins; the losing call is settled automatically, so the slower worker's
+  late submit reports `status: "already-answered"` — that is a success, not an
+  error. Do not skip a call or change your answer because it is a hedge.
 - Answered calls survive producer restarts: if the pipeline dies and is rerun,
   calls whose content is unchanged reuse the stored answers automatically
   (`call-reused` events); only unanswered or changed calls come back.
+- A `polish` worker returns transcript paragraphs only; it must not invent or
+  embed speaker-name metadata in that answer. After the producer's terminal
+  event and any `review accept`, the root must complete
+  [the confirmed-speaker sync](workflows.md#sync-confirmed-speaker-names-after-polish)
+  before the final quality gate whenever named participants still have
+  placeholder labels.
 - Transient `busy` responses around submit are normal under concurrency; the
   CLI retries lock contention internally (bounded window, default 120s). If a
   command still fails `busy`, wait a few seconds and retry the same command once.
@@ -318,6 +370,14 @@ any worker reported a `stale` submit.
   the lock. Before this fix a set of idle long-pollers could starve a running
   producer out of its own final write and kill the whole stage — on an older
   CLI, never leave spare workers spinning.
+- Provider mode is the no-worker alternative: with
+  `--llm provider:<vendor>/<model>` there is no task directory and no claim
+  loop — the CLI calls the provider API directly.
+  `BCUT_PROVIDER_MAX_LANES` (default 8, `0` = unlimited) sets both the
+  concurrent lanes and the translate page shape, so changing it changes how
+  the batch is paged, not just how fast it runs. The provider path also has
+  no submit-lint buffer: a malformed answer goes straight to engine
+  validation and consumes one of the engine's bounded retries.
 
 ## Close the quality loop after translate
 

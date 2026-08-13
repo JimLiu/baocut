@@ -115,17 +115,19 @@ function LiveHeader({ status, title }) {
 function TranscribingPane() {
   const app = useApp();
   const { doc } = app;
+  const liveSegments = Array.isArray(doc.status.liveSegments) ? doc.status.liveSegments : [];
+  const rows = liveSegments.length ? liveSegments : doc.cues;
   const scrollRef = useRef(null);
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [doc.cues.length]);
+  }, [rows.length]);
   return (
     <div className="vk-transcript" data-screen-label="Transcribing">
       <LiveHeader status={doc.status} title={'转录中 · ' + (doc.meta.model || '')} />
       <div className="vk-transcript__scroll" ref={scrollRef}>
-        {doc.cues.map((c) => (
-          <div key={c.id} className="tg tg--preview" onClick={() => app.seekSource('main', c.start)}>
+        {rows.map((c) => (
+          <div key={c.id || (c.start + '|' + c.text)} className="tg tg--preview" onClick={() => app.seekSource('main', c.start)}>
             <span className="tg__time vk-mono">{fmt(c.start)}</span>
             <span className="tg-preview__col">
               <span className="tg-preview__txt">{c.text}</span>

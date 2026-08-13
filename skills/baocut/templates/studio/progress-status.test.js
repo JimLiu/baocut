@@ -91,6 +91,15 @@ test('projectStatus 用任务覆盖阶段/进度/细节与计数', () => {
   assert.equal(status.updatedAt, 100);
 });
 
+test('本地转录细阶段归一为转录页并透传有界实时文本', () => {
+  const liveSegments = [{ start: 1.25, end: 2.5, text: 'hello' }];
+  const status = P.projectStatus({}, job({
+    kind: 'transcribe', stage: 'transcribe', phase: 'vad', liveSegments,
+  }), null, null);
+  assert.equal(status.phase, 'transcribing');
+  assert.deepEqual(status.liveSegments, liveSegments);
+});
+
 test('progress.json 只贡献 phases / contentFingerprint / pct 的不确定性', () => {
   const phases = [{ label: '润色', state: 'done' }, { label: '翻译', state: 'active' }];
   const progress = {

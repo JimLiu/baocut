@@ -78,65 +78,34 @@ test('long gaps receive the full 0.5 second lead-in and 1 second tail', () => {
   assert.equal(subtitle.activeTimedItem(cues, 4.5), null);
 });
 
-test('Translate preview shows the complete aligned source span independent of source cues', () => {
-  const fallback = {
-    id: 'subtitle-q2', text: 'agentic engineering allows us to shift', start: 10, end: 12,
-    words: [
-      { id: 'w0', text: 'us', t0: 10, t1: 10.5 },
-      { id: 'w1', text: 'to', t0: 10.5, t1: 11 },
-      { id: 'w2', text: 'shift', t0: 11, t1: 12 },
-    ],
-  };
-  const cue = subtitle.translationSourceCue({
-    id: 's1#1',
-    sourceText: 'to shift away from deterministic logic',
-    sourceWords: [
-      { id: 'w1', text: 'to', start: 127, end: 128 },
-      { id: 'w2', text: 'shift', start: 128, end: 129 },
-      { id: 'w3', text: 'away', start: 129, end: 130 },
-      { id: 'w4', text: 'from deterministic logic', start: 130, end: 131 },
-    ],
-    sourceStart: 127,
-    sourceEnd: 131,
-    start: 20,
-    end: 22,
-  }, fallback, 'en');
+test('the canvas draws the original per source cue while the translation stays on its own piece', () => {
+  const timing = subtitle.DEFAULT_TIMING;
+  const cues = [
+    { id: 'q-a', start: 0, end: 2, text: 'agentic engineering allows' },
+    { id: 'q-b', start: 2, end: 4, text: 'us to shift' },
+  ];
+  // 一片译文横跨上面两条源 Cue —— 对齐契约下这是常态，不是异常
+  const pieces = [{
+    id: 's1#1', start: 0, end: 4, text: '智能体工程让我们得以转变',
+    sourceText: 'agentic engineering allows us to shift',
+  }];
+  const at = (t) => ({
+    orig: (subtitle.activeTimedItem(cues, t, timing) || {}).item,
+    trans: (subtitle.activeTimedItem(pieces, t, timing) || {}).item,
+  });
 
-  assert.equal(cue.text, 'to shift away from deterministic logic');
-  assert.notEqual(cue.text, fallback.text);
-  assert.equal(cue.start, 20);
-  assert.equal(cue.end, 22);
-  assert.deepEqual(
-    cue.words.map(({ text, t0, t1 }) => ({ text, t0, t1 })),
-    [
-      { text: 'to', t0: 20, t1: 20.5 },
-      { text: 'shift', t0: 20.5, t1: 21 },
-      { text: 'away', t0: 21, t1: 21.5 },
-      { text: 'from deterministic logic', t0: 21.5, t1: 22 },
-    ],
-  );
-});
+  // 原文行随源 Cue 切换，译文行始终是同一片：两条互不收窄的独立时间流，
+  // 与烧录端 render_plan.rs::active_layouts 同构。
+  assert.equal(at(1).orig.text, 'agentic engineering allows');
+  assert.equal(at(3).orig.text, 'us to shift');
+  assert.equal(at(1).trans.id, at(3).trans.id);
+  assert.equal(at(3).trans.text, '智能体工程让我们得以转变');
 
-test('Translate preview ignores a non-overlapping active source cue', () => {
-  const cue = subtitle.translationSourceCue({
-    id: 'translation', sourceText: 'to shift', start: 1, end: 2,
-    sourceWords: [{ id: 'w2', text: 'shift', start: 1, end: 2 }],
-  }, {
-    id: 'subtitle', text: 'next cue', start: 2, end: 3,
-    words: [{ id: 'w3', text: 'next', t0: 2, t1: 3 }],
-  }, 'en');
-  assert.equal(cue.text, 'to shift');
-  assert.equal(cue.start, 1);
-  assert.equal(cue.end, 2);
-});
-
-test('Translate preview keeps the Subtitle cue only when no aligned source exists', () => {
-  const fallback = { id: 'subtitle-q1', text: 'fallback', start: 1, end: 2 };
-  assert.equal(subtitle.translationSourceCue(null, fallback), fallback);
-  assert.equal(subtitle.translationSourceCue({ id: 'translation', text: '译文' }, fallback), fallback);
-  assert.equal(subtitle.translationSourceCue({
-    id: 'sentence', sourceText: 'whole sentence', text: '整句', start: 1, end: 4,
-  }, fallback), fallback);
+  // 画布上绝不出现「整片对齐词 span」拼成的超长原文行
+  assert.notEqual(at(1).orig.text, pieces[0].sourceText);
+  assert.notEqual(at(3).orig.text, pieces[0].sourceText);
+  // 合成该长行的 translationSourceCue() 投影已随 M122 删除
+  assert.equal(subtitle.translationSourceCue, undefined);
 });
 
 test('long aligned source spans wrap visually without changing their word coverage', () => {
@@ -161,17 +130,18 @@ test('long aligned source spans wrap visually without changing their word covera
 test('a translation piece shows one source part per source cue it covers', () => {
   const cues = [
     { id: 'q-a', words: [{ id: 'w0' }, { id: 'w1' }, { id: 'w2' }] },
-    { id: 'q-b', words: [{ id: 'w3' }, { id: 'w4' }] },
-    { id: 'q-c', words: [{ id: 'w5' }] },
+    { id: 'q-b', words: [{ id: 'w3' }, { id: 'w4' }, { id: 'w5' }] },
+    { id: 'q-c', words: [{ id: 'w6' }, { id: 'w7' }, { id: 'w8' }] },
   ];
-  const words = ['Production', 'deployments', 'have', 'seen', 'fifty', 'percent']
+  const words = ['Production', 'deployments', 'have', 'seen', 'fifty', 'percent',
+    'fewer', 'rollbacks', 'overall']
     .map((text, index) => ({ id: `w${index}`, text, start: index, end: index + 1 }));
   const parts = subtitle.sourceCueParts({ sourceWords: words }, cues, 'en', 42);
   assert.deepEqual(parts.map((part) => part.cueId), ['q-a', 'q-b', 'q-c']);
   assert.deepEqual(parts.map((part) => part.text), [
-    'Production deployments have', 'seen fifty', 'percent',
+    'Production deployments have', 'seen fifty percent', 'fewer rollbacks overall',
   ]);
-  assert.deepEqual(parts.map((part) => [part.start, part.end]), [[0, 3], [3, 5], [5, 6]]);
+  assert.deepEqual(parts.map((part) => [part.start, part.end]), [[0, 3], [3, 6], [6, 9]]);
   // 顺序拼接不变量：子行覆盖的词与片源词逐个相等，一个都不能丢
   assert.deepEqual(
     parts.flatMap((part) => part.lines.flatMap((line) => line.words.map((word) => word.id))),
@@ -182,17 +152,18 @@ test('a translation piece shows one source part per source cue it covers', () =>
 test('an over-wide source part still wraps by width inside its own cue group', () => {
   const long = "It seems like each advancement we've had in the complexity of the way we write code"
     .split(/\s+/);
+  const tail = ['right', 'about', 'here.'];
   const cues = [
     { id: 'q-a', words: long.map((_, index) => ({ id: `w${index}` })) },
-    { id: 'q-b', words: [{ id: 'tail' }] },
+    { id: 'q-b', words: tail.map((_, index) => ({ id: `tail${index}` })) },
   ];
   const words = long.map((text, index) => ({ id: `w${index}`, text, start: index, end: index + 1 }))
-    .concat([{ id: 'tail', text: 'here.', start: 99, end: 100 }]);
+    .concat(tail.map((text, index) => ({ id: `tail${index}`, text, start: 99 + index, end: 100 + index })));
   const parts = subtitle.sourceCueParts({ sourceWords: words }, cues, 'en', 42);
   assert.equal(parts.length, 2);
   assert.ok(parts[0].lines.length > 1);
   assert.ok(parts[0].lines.every((line) => Array.from(line.text).length <= 42));
-  assert.deepEqual(parts[1].lines.map((line) => line.text), ['here.']);
+  assert.deepEqual(parts[1].lines.map((line) => line.text), ['right about here.']);
 });
 
 test('source grouping degrades to plain width wrapping when cue words are missing', () => {
@@ -213,6 +184,66 @@ test('source grouping degrades to plain width wrapping when cue words are missin
     words.map((word) => word.id),
   );
   assert.equal(partial.length, 1);
+});
+
+// MARK: 碎片子行合并（与 apps/mac OrigLineView.mergeShortRuns 规则逐条一致）
+
+// 只关心「每段几个词」，词本身用占位
+const runsOf = (lengths) => lengths.map((length, index) => ({
+  cueId: `q-${index}`,
+  words: Array.from({ length }, (_, i) => ({ id: `r${index}w${i}` })),
+}));
+const lengthsOf = (runs) => runs.map((run) => run.words.length);
+
+test('an orphan first run merges forward and an orphan last run merges backward', () => {
+  assert.deepEqual(lengthsOf(subtitle.mergeShortRuns(runsOf([2, 5]))), [7]);
+  assert.deepEqual(lengthsOf(subtitle.mergeShortRuns(runsOf([5, 2]))), [7]);
+  assert.deepEqual(lengthsOf(subtitle.mergeShortRuns(runsOf([1, 4, 3]))), [5, 3]);
+  // 合并后保留靠前那段的 cueId：子行可以跨 cue，这是刻意的展示妥协
+  assert.deepEqual(subtitle.mergeShortRuns(runsOf([2, 5])).map((run) => run.cueId), ['q-0']);
+});
+
+test('an orphan middle run merges into the shorter neighbour, ties going to the previous', () => {
+  assert.deepEqual(lengthsOf(subtitle.mergeShortRuns(runsOf([5, 1, 3]))), [5, 4]);
+  assert.deepEqual(lengthsOf(subtitle.mergeShortRuns(runsOf([3, 1, 5]))), [4, 5]);
+  assert.deepEqual(lengthsOf(subtitle.mergeShortRuns(runsOf([3, 1, 3]))), [4, 3]);
+});
+
+test('merging cascades, and a single run is never merged', () => {
+  assert.deepEqual(lengthsOf(subtitle.mergeShortRuns(runsOf([1, 1, 1, 4]))), [3, 4]);
+  assert.deepEqual(lengthsOf(subtitle.mergeShortRuns(runsOf([2, 2, 2]))), [6]);
+  assert.deepEqual(lengthsOf(subtitle.mergeShortRuns(runsOf([1]))), [1]);
+  assert.deepEqual(subtitle.mergeShortRuns([]), []);
+});
+
+test('a piece starting mid-cue shows no one-or-two word orphan subline', () => {
+  // 「of a」是上一条源 Cue 的尾巴，译片从这里开始 —— 不能单独占一行
+  const cues = [
+    { id: 'q-a', words: [{ id: 'w0' }, { id: 'w1' }] },
+    { id: 'q-b', words: [{ id: 'w2' }, { id: 'w3' }, { id: 'w4' }, { id: 'w5' }, { id: 'w6' }] },
+  ];
+  const words = ['of', 'a', 'much', 'larger', 'system', 'that', 'works']
+    .map((text, index) => ({ id: `w${index}`, text, start: index, end: index + 1 }));
+  const parts = subtitle.sourceCueParts({ sourceWords: words }, cues, 'en', 42);
+  assert.equal(parts.length, 1);
+  assert.equal(parts[0].text, 'of a much larger system that works');
+  assert.equal(parts[0].cueId, 'q-a');
+  assert.deepEqual([parts[0].start, parts[0].end], [0, 7]);
+  // 合并只动展示，词一个不少、顺序不变
+  assert.deepEqual(parts[0].words.map((word) => word.id), words.map((word) => word.id));
+});
+
+test('a piece ending mid-cue absorbs the trailing orphan into the previous part', () => {
+  // 「and the」是这条译片在下一条源 Cue 里啃到的两个词
+  const cues = [
+    { id: 'q-a', words: [{ id: 'w0' }, { id: 'w1' }, { id: 'w2' }, { id: 'w3' }] },
+    { id: 'q-b', words: [{ id: 'w4' }, { id: 'w5' }] },
+  ];
+  const words = ['renewable', 'sources', 'keep', 'growing', 'and', 'the']
+    .map((text, index) => ({ id: `w${index}`, text, start: index, end: index + 1 }));
+  const parts = subtitle.sourceCueParts({ sourceWords: words }, cues, 'en', 42);
+  assert.deepEqual(parts.map((part) => part.text), ['renewable sources keep growing and the']);
+  assert.deepEqual(parts.map((part) => part.cueId), ['q-a']);
 });
 
 test('a piece without source words falls back to its source text, and an empty piece to nothing', () => {
