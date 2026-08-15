@@ -13,8 +13,8 @@ description: >-
   documentation tasks follow repository instructions unless they also operate
   the product or a `.bcut` project.
 metadata:
-  version: "1.0.9"
-  minAppVersion: "1.0.9"
+  version: "1.0.10"
+  minAppVersion: "1.0.10"
 ---
 
 # BaoCut
@@ -95,6 +95,17 @@ compare against the newest release and adopt a higher build; unset, that path
 stays entirely offline, and any failed check silently keeps the cached CLI.
 `BAOCUT_SKILL_NO_DOWNLOAD=1` still wins over this opt-in.
 
+Setting `BAOCUT_VARIANT=cuda13` switches the whole Windows resolution to the
+GPU variant: the handshake additionally requires backend `candle-cuda`, the
+cache directory gains a `-cuda13` suffix, and downloads use the release's
+`windows-cli-cuda-release.json` and `…-x86_64-pc-windows-msvc-cuda13.zip`
+asset, extracting the bundled CUDA runtime DLLs next to `bcut.exe`. This is an
+explicit opt-in — the resolver never probes for a GPU. It requires an NVIDIA
+GPU with compute capability 8.0+ (Ampere / RTX 30 series or newer) and driver
+>= 580; no CUDA Toolkit install is needed, and without a compatible GPU the
+CLI falls back to CPU inference. If no release ships the CUDA asset yet, the
+resolver fails with a clear message instead of silently using the CPU build.
+
 The resolver then checks the CLI contract and minimum BaoCut App version
 before it runs the requested command.
 
@@ -132,8 +143,12 @@ If the resolver exits 3, follow its guidance instead of bypassing the check.
   [references/workflows.md](references/workflows.md).
 - For an Agent-backed AI stage with pending calls, immediately read and follow
   [references/agent-tasks.md](references/agent-tasks.md). Its on-demand worker
-  and consolidated-repair rules are execution requirements, not optional
-  tuning.
+  rules — pool sized from the page plan (`ceil(source words / 2200)` per
+  stage, capped by real slots), per-stage worker tiers (mid-tier for
+  translate/polish, high-reasoning tier for align and repair), hand-written
+  align answers with no scripted cutting and no unchanged resubmits — and its
+  consolidated-repair rules (including what `refine-align --only-hard` really
+  dispatches) are execution requirements, not optional tuning.
 - For the Subtitle Studio browser preview — serving and mounting projects,
   applying page edits, page requests, history recovery, punctuation display,
   or preview troubleshooting — read
@@ -249,6 +264,13 @@ If the resolver exits 3, follow its guidance instead of bypassing the check.
 ```
 
 Complete the mandatory startup version gate before running this preflight.
+
+Do not treat a `missing` ffmpeg/ffprobe in the doctor report as a blocker and
+do not preinstall them. They are on-demand, task-level dependencies: common
+workflows (transcription, waveforms, single continuous main-media export) run
+without them, and the tasks that do need them (URL download merging, complex
+timeline flattening, BCF video encoding) fail at the point of use with a clear
+error — install only when such a task actually asks for it.
 
 In a development checkout, long local `transcribe` and `auto` commands require
 an optimized CLI. When only a debug build is current, the resolver runs

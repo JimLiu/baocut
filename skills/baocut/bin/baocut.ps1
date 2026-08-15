@@ -11,6 +11,12 @@ $skillMarkdown = Join-Path $skillRoot "SKILL.md"
 $publicRepository = "JimLiu/baocut"
 $releaseApi = "https://api.github.com/repos/$publicRepository/releases?per_page=20"
 
+# 显式 opt-in 的 CLI 变体（不自动探测 GPU）：cpu（默认）或 cuda13。
+# cuda13 自带 CUDA 13 运行时，要求 NVIDIA Ampere+（RTX 30 系及更新）与 >=580 驱动。
+$variant = if ($env:BAOCUT_VARIANT) { $env:BAOCUT_VARIANT.ToLowerInvariant() } else { "cpu" }
+$variantSuffix = if ($variant -eq "cuda13") { "-cuda13" } else { "" }
+$requiredBackend = if ($variant -eq "cuda13") { "candle-cuda" } else { $null }
+
 function Get-SkillMetadataValue([string] $Name) {
     $pattern = "^\s*$([regex]::Escape($Name)):\s*[`"']?([^`"'\s]+)[`"']?\s*$"
     foreach ($line in Get-Content -LiteralPath $skillMarkdown) {
@@ -138,6 +144,9 @@ function Invoke-BaoCutHandshake([string] $Executable) {
     if (-not (Test-VersionAtLeast ([string]$version.appVersion) $minimumAppVersion)) {
         throw "BaoCut skill v$skillVersion requires BaoCut App >= $minimumAppVersion; found $($version.appVersion)."
     }
+    if ($requiredBackend -and [string]$version.backend -ne $requiredBackend) {
+        throw "BAOCUT_VARIANT=$variant requires a BaoCut CLI with backend '$requiredBackend'; found '$($version.backend)': $Executable"
+    }
 }
 
 function Resolve-Override {
@@ -211,9 +220,10 @@ function Resolve-CachedCli {
     $cliRoot = Join-Path $cacheRoot "BaoCut\cli"
     if (-not (Test-Path -LiteralPath $cliRoot -PathType Container)) { return $null }
 
+    $cachePattern = '^(?<Version>\d+\.\d+\.\d+)-build\.(?<Build>\d+)' + [regex]::Escape($variantSuffix) + '$'
     $candidates = Get-ChildItem -LiteralPath $cliRoot -Directory -ErrorAction SilentlyContinue |
         ForEach-Object {
-            if ($_.Name -match '^(?<Version>\d+\.\d+\.\d+)-build\.(?<Build>\d+)$') {
+            if ($_.Name -match $cachePattern) {
                 $executable = Join-Path $_.FullName "bcut.exe"
                 if (Test-Path -LiteralPath $executable -PathType Leaf) {
                     [pscustomobject]@{
@@ -249,6 +259,15 @@ function Test-CliNewer($Candidate, $Baseline) {
 
 function Get-LatestWindowsRelease {
     $headers = @{ Accept = "application/vnd.github+json"; "User-Agent" = "baocut-skill/$skillVersion" }
+    if ($variant -eq "cuda13") {
+        $manifestName = "windows-cli-cuda-release.json"
+        $targetKey = "x86_64-pc-windows-msvc-cuda13"
+        $expectedTier = "preview"
+    } else {
+        $manifestName = "windows-cli-release.json"
+        $targetKey = "x86_64-pc-windows-msvc"
+        $expectedTier = "stable"
+    }
     $releases = Invoke-RestMethod -Uri $releaseApi -Headers $headers -TimeoutSec 30
     # Windows assets are appended to an already-published Mac release, so the
     # API's creation order does not track version/build order. Rank by the tag.
@@ -265,11 +284,11 @@ function Get-LatestWindowsRelease {
         @{ Expression = "Build"; Descending = $true }
 
     foreach ($entry in $ranked) {
-        $manifestAsset = $entry.Release.assets | Where-Object name -eq "windows-cli-release.json" | Select-Object -First 1
+        $manifestAsset = $entry.Release.assets | Where-Object name -eq $manifestName | Select-Object -First 1
         if (-not $manifestAsset) { continue }
         $manifest = Invoke-RestMethod -Uri $manifestAsset.browser_download_url -Headers $headers -TimeoutSec 30
-        $target = $manifest.targets.'x86_64-pc-windows-msvc'
-        if ($manifest.schema -ne 1 -or $target.supportTier -ne "stable" -or $target.entry -ne "bcut.exe") { continue }
+        $target = $manifest.targets.$targetKey
+        if ($manifest.schema -ne 1 -or $target.supportTier -ne $expectedTier -or $target.entry -ne "bcut.exe") { continue }
         # The release tooling copies `version` and `build` straight out of the
         # tag, so they must round-trip. A mismatch means a stray asset, and the
         # cache directory would then lie about which build it holds.
@@ -287,6 +306,9 @@ function Get-LatestWindowsRelease {
             Build = $entry.Build
         }
     }
+    if ($variant -eq "cuda13") {
+        throw "No published BaoCut release with a Windows x64 CUDA CLI was found at https://github.com/$publicRepository/releases. Unset BAOCUT_VARIANT to use the CPU build."
+    }
     throw "No published BaoCut release with a Windows x64 CLI was found at https://github.com/$publicRepository/releases."
 }
 
@@ -298,7 +320,8 @@ function Install-LatestWindowsCli($KnownRelease) {
     $manifest = $resolved.Manifest
     $target = $resolved.Target
     $archiveName = [string]$target.cli.file
-    if ($archiveName -notmatch '^bcut-[0-9.]+-build\.\d+-x86_64-pc-windows-msvc\.zip$' -or
+    $archivePattern = '^bcut-[0-9.]+-build\.\d+-x86_64-pc-windows-msvc' + [regex]::Escape($variantSuffix) + '\.zip$'
+    if ($archiveName -notmatch $archivePattern -or
         [string]$target.cli.sha256 -notmatch '^[0-9a-f]{64}$') {
         throw "The Windows CLI release manifest has an invalid archive record."
     }
@@ -307,9 +330,8 @@ function Install-LatestWindowsCli($KnownRelease) {
 
     $cacheRoot = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { [Environment]::GetFolderPath("LocalApplicationData") }
     if (-not $cacheRoot) { throw "Windows LocalApplicationData directory is unavailable." }
-    # Key on version *and* build so a same-version rebuild lands in its own
-    # directory instead of being mistaken for the copy already cached.
-    $cacheDirectory = Join-Path $cacheRoot "BaoCut\cli\$($manifest.version)-build.$($manifest.build)"
+    # Key on version/build, and keep variants isolated so CPU and CUDA caches never collide.
+    $cacheDirectory = Join-Path $cacheRoot "BaoCut\cli\$($manifest.version)-build.$($manifest.build)$variantSuffix"
     $cacheExecutable = Join-Path $cacheDirectory "bcut.exe"
     $installed = [pscustomobject]@{
         Version = $resolved.Version
@@ -331,6 +353,13 @@ function Install-LatestWindowsCli($KnownRelease) {
         Expand-Archive -LiteralPath $temporaryArchive -DestinationPath $temporaryDirectory
         $extracted = Join-Path $temporaryDirectory "bcut.exe"
         if (-not (Test-Path -LiteralPath $extracted -PathType Leaf)) { throw "The archive has no bcut.exe entry." }
+        # 先搬运行时依赖（CUDA 变体的 DLL 等），bcut.exe 最后落位：缓存里
+        # 一旦出现 bcut.exe 即代表目录完整可用。
+        Get-ChildItem -LiteralPath $temporaryDirectory -File |
+            Where-Object Name -ne "bcut.exe" |
+            ForEach-Object {
+                Move-Item -LiteralPath $_.FullName -Destination (Join-Path $cacheDirectory $_.Name) -Force
+            }
         Move-Item -LiteralPath $extracted -Destination $cacheExecutable -Force
     } finally {
         Remove-Item -LiteralPath $temporaryArchive -Force -ErrorAction SilentlyContinue
@@ -362,6 +391,9 @@ function Update-CachedCli($Cached) {
 }
 
 try {
+    if ($variant -notin @("cpu", "cuda13")) {
+        throw "BAOCUT_VARIANT must be 'cpu' or 'cuda13'; found '$($env:BAOCUT_VARIANT)'."
+    }
     $skillVersion = Get-SkillMetadataValue "version"
     $minimumAppVersion = Get-SkillMetadataValue "minAppVersion"
     $cli = Resolve-Override

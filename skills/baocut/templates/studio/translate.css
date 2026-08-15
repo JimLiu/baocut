@@ -56,9 +56,13 @@
 }
 .tr-langbtn__name { color: var(--text-heading); }
 
-/* ===================== live run header (.tr-live, M58) =====================
-   the retired M26 running dialog + .tr-runchip pill, folded into the tab:
-   phase chips, %, counts, model-activity disclosure, cancel / CLI notice */
+/* ===================== live run surface (.tr-live, M58) ====================
+   While an AI pipeline is active this surface owns the editor-side content
+   area, so a stale tab body or empty state never competes with task progress. */
+.bcs-pipeline-pane {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+}
+.bcs-pipeline-pane > .tr-live { flex: 1; min-height: 0; }
 .tr-live {
   display: flex; flex-direction: column; gap: 8px;
   padding: 10px 12px; border-bottom: 1px solid var(--gray-200); background: var(--surface-layer-1, var(--gray-25));
@@ -77,14 +81,6 @@
   55% { transform: translateX(115%); }
   100% { transform: translateX(265%); }
 }
-.tr-live__feedtoggle {
-  display: flex; align-items: center; gap: 6px; width: 100%; height: 24px; padding: 0 4px;
-  border: 0; border-radius: 6px; background: transparent; cursor: pointer;
-  font: inherit; font-size: 11.5px; font-weight: 600; color: var(--text-heading);
-}
-.tr-live__feedtoggle:hover { background: var(--gray-100); }
-.tr-live__feedtoggle .vk-mono { font-size: 10px; }
-.tr-live__feed { max-height: 180px; overflow-y: auto; }
 .tr-live__error {
   display: flex; align-items: flex-start; gap: 8px;
   font-size: 11.5px; font-weight: 600; color: var(--orange-900, #bd5b00);

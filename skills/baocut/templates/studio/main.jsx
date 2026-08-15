@@ -306,11 +306,14 @@ function Editor() {
               {app.tasksLink === 'connecting' ? '任务状态连接中…' : '任务状态不可用'}
             </div>
           ) : null}
-          {pipelineActive ? <window.LiveHeader status={doc.status} title={phaseTitle} /> : null}
           <div className="vk-rpane__views">
             {/* 只挂载当前 tab：四个 Pane 同时在 DOM 里时，隐藏的三个仍会订阅
                 播放时钟、参与布局与重排。滚动位置存在 app.paneScroll，切回来恢复。 */}
-            {transcribing ? <window.TranscribingPane /> : (
+            {pipelineActive ? (
+              <div className="bcs-pipeline-pane" data-screen-label="AI progress">
+                <window.LiveHeader status={doc.status} title={phaseTitle} />
+              </div>
+            ) : transcribing ? <window.TranscribingPane /> : (
               <div className="vk-rpane__view">
                 {tab === 'transcript' ? <window.TranscriptPane /> : null}
                 {tab === 'subtitle' ? <window.SubtitlePane /> : null}

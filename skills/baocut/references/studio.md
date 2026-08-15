@@ -114,8 +114,9 @@ the `ffmpeg` found on PATH. The first Linux release returns `unsupported`.
   inputs, rerun the original `transcribe "<URL>" --project …` to reuse or
   complete the download. For a moved local file, relink it through BaoCut's
   project media entry point; do not hand-edit `project.json`.
-- Timeline thumbnails/waveform missing: `ffmpeg` must be on the serve
-  process's PATH; derived caches live in `<project>/cache/` and can be safely
+- Timeline thumbnails missing: thumbnails need `ffmpeg` on the serve
+  process's PATH (waveforms do not — they fall back to a pure-Rust decoder
+  automatically); derived caches live in `<project>/cache/` and can be safely
   deleted — the page rebuilds them. An old serve process lacks these
   endpoints; restart serve to pick up the new binary (the page falls back to
   gradient placeholders on an old server, which is not a fault).

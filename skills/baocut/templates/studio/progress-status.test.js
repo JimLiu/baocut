@@ -100,6 +100,24 @@ test('本地转录细阶段归一为转录页并透传有界实时文本', () =>
   assert.deepEqual(status.liveSegments, liveSegments);
 });
 
+test('外层 transcribe kind 不覆盖 auto 已前进到的翻译与对齐阶段', () => {
+  const aligning = P.projectStatus({}, job({
+    kind: 'transcribe', stage: 'align', phase: 'aligning', detail: '拆分并对齐双语字幕',
+  }), null, null);
+  assert.equal(aligning.phase, 'aligning');
+  assert.equal(aligning.detail, '拆分并对齐双语字幕');
+
+  const translating = P.projectStatus({}, job({
+    kind: 'transcribe', stage: 'translate', phase: '', detail: '整句翻译',
+  }), null, null);
+  assert.equal(translating.phase, 'translating', 'phase 缺失时由具体 stage 兜底');
+
+  const ready = P.projectStatus({}, job({
+    kind: 'transcribe', stage: 'ready', phase: 'ready', pct: 100,
+  }), null, null);
+  assert.equal(ready.phase, 'ready', '收尾心跳也不得倒退成转录中');
+});
+
 test('progress.json 只贡献 phases / contentFingerprint / pct 的不确定性', () => {
   const phases = [{ label: '润色', state: 'done' }, { label: '翻译', state: 'active' }];
   const progress = {

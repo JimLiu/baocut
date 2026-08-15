@@ -23,6 +23,16 @@
   // 排队中的任务尚未开跑（pid 哨兵 0），但它确实是本项目待办的活，按"进行中"
   // 呈现；终态（done/error/cancelled）在中枢里还会保留 30s，不进状态条。
   const ACTIVE_JOB_STATUS = ['running', 'queued'];
+  const UI_PHASES = [
+    'empty', 'transcribing', 'polishing', 'translating', 'aligning', 'syncing', 'ready',
+  ];
+  const PIPELINE_PHASE_BY_STAGE = {
+    polish: 'polishing',
+    translate: 'translating',
+    align: 'aligning',
+    'refine-align': 'aligning',
+    sync: 'syncing',
+  };
   // URL 末段的 tab 名不是项目 id（见 store.jsx 的 TAB_PATH_RE）。
   const TAB_SEGMENTS = ['subtitle', 'transcript', 'translation', 'translate', 'style'];
 
@@ -96,13 +106,18 @@
     if (source && source[key] != null) target[key] = source[key];
   }
 
-  // CLI 的细阶段（model/decode/vad/transcribe/write）都属于 Studio 已有的
-  // transcribing 页面；保留原始 job.phase 给进度匹配，UI 路由只看该归一值。
+  // 具体 phase/stage 优先于外层 kind：`auto` 从转录一路跑到对齐时，注册表
+  // 条目的 kind 可能仍是 transcribe，但 stage/phase 会随流水线前进。只有拿不到
+  // 更具体的 UI 阶段时，才用 transcribe kind 把 model/decode/vad/write 等细阶段
+  // 归入 Studio 的 transcribing 页面。
   function projectPhase(job, fallback) {
-    if (job && (job.stage === 'transcribe'
+    if (!job) return fallback;
+    if (UI_PHASES.includes(job.phase)) return job.phase;
+    if (PIPELINE_PHASE_BY_STAGE[job.stage]) return PIPELINE_PHASE_BY_STAGE[job.stage];
+    if (job.stage === 'transcribe'
       || job.kind === 'transcribe'
-      || job.kind === 'clip-transcribe')) return 'transcribing';
-    return (job && job.phase) || fallback;
+      || job.kind === 'clip-transcribe') return 'transcribing';
+    return job.phase || fallback;
   }
 
   // status 投影：base = data.json 的 status（CLI 派生的 ready/empty/transcribing
@@ -158,6 +173,10 @@
     copyCount(next, job, 'linesTotal');
     copyCount(next, job, 'callsDone');
     copyCount(next, job, 'callsTotal');
+    // 在飞数是瞬时值，不跨快照沿用：任务行缺席（agent 路径 / 阶段切换清空）
+    // 就回到未知，不能让上一阶段的并发数一直挂着。
+    next.callsActive = null;
+    copyCount(next, job, 'callsActive');
     return next;
   }
 

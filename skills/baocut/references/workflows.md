@@ -142,8 +142,10 @@ bin/baocut review accept "/path/demo.bcut" polish --json
 bin/baocut translate "/path/demo.bcut" --lang zh-Hans --review --jsonl
 ```
 
-`transcribe` takes any container ffmpeg can decode and does its own 16 kHz mono
-downmix, so never pre-extract a WAV. On a 9 GB / 96-minute 4K source that decode
+`transcribe` takes any common media container and does its own 16 kHz mono
+downmix, so never pre-extract a WAV. Decoding prefers `ffmpeg` when present and
+falls back to a built-in pure-Rust decoder (WAV/MP4/AAC/MP3/FLAC and other
+common formats) when it is not, so do not install ffmpeg just to transcribe. On a 9 GB / 96-minute 4K source that decode
 costs about 34 s and reports continuous progress; the run is dominated by the
 model instead. `--model moss-transcribe-diarize` measures around 5–6× realtime
 on Apple Silicon (900 s of audio in 151 s), so budget on the order of 20 minutes
@@ -222,7 +224,12 @@ pending candidate; accept it, or state an intent with `--polish` (discard the
 candidate and polish again) or `--no-polish`.
 
 The first translation for a target language creates
-`ai/brief-<lang>.json`. Check its glossary before a large rerun; user edits to
+`ai/brief-<lang>.json`, and the same brief is also written as
+the Markdown context document `ai/context.<lang>.md` (with `ai/context.md` on the
+source side). That document — not the JSON — is what the next run reads back;
+the JSON stays written so the app and every JSON-era reader keep working. Edit
+the Markdown document, since that is what the next run will read.
+Check its glossary before a large rerun; user edits to
 the glossary or style guide are preserved while the transcript, analysis, and
 instruction fingerprints still match. Set `locked:true` only for target terms
 that must appear verbatim. Useful controls are:

@@ -29,10 +29,12 @@ Worker discipline (violations observed to waste whole worker turns):
   upper-bound hint — a ceiling to aim at while work is queued, never a floor to
   fill before the work exists. Do not let a generic loop steal a serial stage.
 - Cover every kind the engines can dispatch, not just the common ones. The full
-  set is `analysis`, `polish`, `polish-retry`, `segment`, `segment-index`,
-  `chapters`, `translate-brief`, `translate`, `align`, `cleanup`, `broll`.
-  `polish-retry` (dispatched when a polish page trips the similarity gate) and
-  `segment-index` are the ones a hand-written `--kinds` list usually forgets:
+  set is `analysis`, `polish`, `polish-retry`, `segment-repair`, `segment`,
+  `segment-index`, `chapters`, `translate-brief`, `translate`, `align`,
+  `cleanup`, `broll`. `polish-retry` (dispatched when a polish page trips the
+  similarity gate), `segment-repair` (dispatched after the polish wave for
+  paragraphs that came back over-long) and `segment-index` are the ones a
+  hand-written `--kinds` list usually forgets:
   if no worker can claim them the producer blocks with no further output, and
   a stalled queue is indistinguishable from a quiet one in the event stream.
   Keep one worker claiming with **no** `--kinds` filter as the catch-all, and
@@ -48,13 +50,22 @@ Worker discipline (violations observed to waste whole worker turns):
   whole parallel batch while subagent slots sit unused. If parallel workers are
   unavailable, run one loop and report that limitation instead of pretending
   the queue was parallel.
-- `export BCUT_LLM_MAX_WORKERS=<worker slots you can actually run>` before
-  starting `bcut`, whenever that number differs from the default 3. It is a
-  concurrency ceiling, not a target to staff up to. The producer uses it for
-  both `suggestedWorkers` and translate page sizing: it decides whether the
-  compact page cap can save a wave. Page counts are no
-  longer rounded up to a whole multiple of it — rounding only paid for extra
-  fixed prefixes without removing a wave.
+- Size the worker pool from the page plan, not from a fixed number. Agent-mode
+  translate and align pages are 2000 source words each (+10% slack, balanced
+  boundaries), so a document of W source words dispatches about
+  `ceil(W / 2200)` independent calls per stage; polish pages are ~2200 core
+  words and follow the same arithmetic. That count is the most workers a stage
+  can ever use — a 3500-word talk yields 2 pages, a 10 000-word talk 5, and
+  staffing beyond it only parks idle sessions. Take the smaller of that page
+  count and the subagent slots you can really run, and
+  `export BCUT_LLM_MAX_WORKERS=<that number>` before starting `bcut`
+  whenever it differs from the default 3. It is a concurrency ceiling the
+  producer folds into `suggestedWorkers`, never a target to staff up to, and
+  it does not change page shape. Do not carry a habitual "6 workers" over from
+  older runs: with the 2000-word pages most talks under 20 minutes never have
+  6 pending calls at once. Provider mode (`--llm provider:<vendor>/<model>`)
+  runs the same 2000-word pages on the CLI's own lanes and needs no workers
+  at all.
 - Give every worker process a unique `--worker` id. One process should reuse
   its own id serially for the whole flow, but two concurrent processes must
   never share an id — a second claim with an active id renews the first lease
@@ -81,17 +92,47 @@ Worker discipline (violations observed to waste whole worker turns):
   `workerPlan.execution` and its `pendingCount`, never by a memorized list of
   stage names — `analysis` and `translate-brief` dispatch as `parallel` even
   though they often carry a single pending call, and a merge step is serial. A
-  group reported as `serial` stays single-worker; polish stays single-worker
-  even with several pages pending, because it carries context across them.
+  group reported as `serial` stays single-worker. Polish pages are independent
+  and dispatch `parallel`; only a historical task produced by an older json-v0
+  CLI still reports polish as `serial` — read the plan, never a memorized rule
+  about polish.
   Before running the quality gate, the root waits for
   every outstanding claim to drain — after the pipeline emits its terminal
   event or `studio/worker_stop` appears, tell any worker still running to stop
   and wait for it, so no answer is still in flight while the gate runs.
-- A Sonnet-tier worker model is enough; do not use the highest tier as a
-  worker unless the user asks (the orchestrator taking over a stubborn call
-  is the exception). Claim, answer, and submit within the lease — read the
-  contract and payload in the same step as the claim rather than studying
-  every payload before writing.
+- Pick the worker tier per stage, not one tier for the whole run:
+  - `translate` (and `polish`, `analysis`, `translate-brief`) workers: a
+    mid-tier model at medium reasoning (Sonnet class, `terra medium`, or the
+    host's equivalent) is enough — they are contract filling against a
+    validator, measured at zero submit rejections on 2000-word pages, and the
+    top tier buys no measurable quality while it costs lease time and slots.
+  - `align`, its global repair call, and `refine-align` workers: a **high
+    reasoning tier** (`terra high`, `sol medium`, Opus class, or the host's
+    equivalent). Cutting bilingual pieces at legal seams under a hard width is
+    the one stage where the tier shows: two `terra medium` align workers each
+    burned all three lint tries on the same 2000-word pages that a high-tier
+    worker passed first time, and the residue then cost a global repair, an
+    `--align-only` pass and a `refine-align` — more wall clock than the tier
+    difference could ever save.
+  - Reserve the very top tier for the orchestrator's own gate and for taking
+    over a stubborn call the user asked to fix by hand.
+  Claim, answer, and submit within the lease — read the contract and payload
+  in the same step as the claim rather than studying every payload before
+  writing.
+- Align and repair answers are written by reading, never by a script. Do not
+  generate pieces with a helper that cuts every N characters or at the next
+  punctuation mark: such output lands on banned seams and over-hard pieces
+  wholesale (an observed worker produced a 76-unit first piece and 24
+  `align-illegal-seam` problems per page this way), and it cannot converge
+  because the script does not know what a legal seam is. Fix each rejected
+  sentence by hand from the `problems[]` list. Never resubmit the same answer
+  unchanged: submit lint hashes the last rejected answer per lease and returns
+  `rejected` with `unchanged:true` without spending a try or letting it
+  through — resubmitting is not a retry, it is a no-op. The third-try
+  force-pass exists only for a sentence that has **no** legal cut point after
+  a real attempt: keep the best legal split you found for every other
+  sentence and mark only the truly uncuttable one with
+  `data-unsplittable="true"` in that submission.
 - Budget against the `leaseSec` the claim reports, divided by the call's
   `items`. Identical translate pages have been measured at 6.7s and 27.4s per
   line by different workers on the same batch — the spread is working style,
@@ -101,11 +142,23 @@ Worker discipline (violations observed to waste whole worker turns):
   have caught. A worker that runs past its lease loses the call to a
   replacement and its finished answer is discarded, so an over-careful worker
   costs the batch a whole duplicated page.
-- Translate pages stay at the 16-line fast cap by default. The compact 21-line
-  cap engages only when it actually removes a worker wave, and page counts are
-  never rounded up to a whole multiple of the worker slots; the compact cap
-  removes repeated contract, brief, and glossary prefixes. Do not split a compact page manually or start an extra worker for
-  part of it; its lease and item count already reflect the larger bounded page.
+- Translate and align pages use one language-aware source-word metric: Latin
+  words and individual CJK characters each count as one, attached punctuation
+  is free, and the page budget is 2000 in agent mode (a document only slightly
+  over one budget — up to 10% slack, so 2200 — still stays on one page, and
+  multi-page splits balance word counts across pages; provider mode is
+  declared separately and currently also 2000 — measured on DeepSeek
+  v4-flash, 2000-word pages finished ~1.7× sooner than 4000-word pages on
+  both a 3.5k- and a 9.8k-word talk because per-call latency scales with
+  page words while the lanes run in parallel). Sentence count,
+  serialized characters, targeted/full mode, and worker slots never split a
+  page. Do not split a page manually or start an extra worker for part of it;
+  its lease and item count already reflect the complete bounded page. The
+  smaller agent page is deliberate: a 5000-word page cost one worker ~5 min to
+  translate and ~11 min to align, and a 3571-word talk stayed on a single page
+  with every other worker slot idle; at 2000 the same talk runs as two pages in
+  parallel. `BCUT_LLM_PAGE_WORDS=<n>` overrides both stages' budget for A/B
+  runs only — leave it unset in normal work.
 - One caveat on how far that reassurance reaches: a translate answer's inline
   `alignments` draft is never rejected at submit. The align stage re-checks it
   with the same validator worker answers face, and a failing draft is dropped
@@ -156,51 +209,25 @@ Worker discipline (violations observed to waste whole worker turns):
    run in parallel. The root may handle a stubborn repair call after the queue
    drains, but should not compete with healthy workers for ordinary calls.
 
-2. Follow the returned prompt and response schema exactly. Write only the
-   requested answer to a temporary file outside the project. Its name must be
-   unique per worker and call (for example
-   `/tmp/baocut-align-codex-1-c0001.json`) so concurrent workers cannot
+2. Follow the call's contract exactly. Write only the requested answer to a
+   temporary file outside the project, using the claim's `outputExtension`. Its
+   name must be unique per worker and call (for example
+   `/tmp/baocut-align-codex-1-c0001.html`) so concurrent workers cannot
    overwrite one another.
 
-3. For an `align` answer, run a local shape gate before submitting:
-
-   ```bash
-   jq -e '(.sentences | type == "array") and all(.sentences[];
-     (.key | type == "string") and
-     (if .useDraft == true
-      then (has("sourceBreaks") | not) and (has("target") | not)
-      else ((.sourceBreaks | length) + 1 == (.target | split(" | ") | length))
-      end))' \
-     /tmp/baocut-align-codex-1-c0001.json
-   ```
-
-   Most sentences arrive with a usable draft and answer `{"key":…,
-   "useDraft":true}` alone, so the gate must branch on it — a gate that always
-   reads `.target` fails with `split(null)` on the common path. Sending
-   `sourceBreaks`/`target` alongside `useDraft` is not an engine error — the
-   extra fields are silently ignored and the draft wins — but keep the gate
-   strict anyway: the fields are wasted work and mask intent. What the engine
-   *does* reject is `useDraft` on a sentence whose payload says
-   `draftReady=false`; those sentences need an explicit answer that fixes the
-   listed `draftBlockers`.
-
-   Then compare every proposed break with the current payload:
+3. For an `align` answer the carrier is the file-v1 HTML table described in
+   "File-contract calls" below — there is no JSON shape gate, no `useDraft`,
+   no `sourceBreaks`. The segmentation judgement below still applies when
+   cutting a group into rows:
 
    - Decide the target-language pieces first from the complete natural target,
      its fit/hard budget, and protected terms; freeze those pieces before
-     choosing any `sourceBreaks`. Source hints may map fixed pieces to word
-     ranges but must never create, remove, or move a target cut.
-   - When the payload says `targetFrozen:true`, copy `draftTarget` exactly with
-     every existing separator and change only `sourceBreaks`; do not return
-     `useDraft` or `reordered` for that sentence. `pieceCount.min` does not
-     apply to such a sentence — never add a target cut to satisfy it.
-   - Original subtitle cues and `breaks` are deliberately absent. Never infer
-     or imitate them. If monotonic mapping is difficult, preserve the frozen
-     target pieces and use the contract's reorder/crossing path.
-   - Never use a `sourceBreakHint` marked `risky` or `blocked`; `bN left^right`
-     means the cut is between `left` and `right`. A `blocked(...)` boundary is
-     a hard syntax constraint even when the payload also reports a pause/seam.
-   - Keep every `bilingualAnchors` source phrase and its target phrase in the
+     choosing any source cut. Source cuts may map fixed pieces to word ranges
+     but must never create, remove, or move a target cut.
+   - Original subtitle cues and their breaks are deliberately absent. Never
+     infer or imitate them. If monotonic mapping is difficult, preserve the
+     frozen target pieces and use the contract's reorder/crossing path.
+   - Keep every bilingual anchor's source phrase and its target phrase in the
      same paired piece. Submit lint treats an unacknowledged mismatch as a hard
      error; use the declared crossing path only for genuine word-order crossing.
    - Keep bound phrases, connectives, particles, list punctuation, product
@@ -215,19 +242,11 @@ Worker discipline (violations observed to waste whole worker turns):
      CJK/Latin boundary is not a seam (`担心 | AI 会抢走…` cuts a verb from its
      object clause). An over-fit piece with no free seam stays whole; rewrite
      the translation shorter instead of forcing a cut that trades an over-wide
-     row for a dangling tail. `draftBlockers` names both sides of the seam when
-     one exists.
-   - Source length alone does not create a target cut. If `draftBlockers` names
-     an over-dense paired row, split only at the complete target-language seam
-     it identifies; `、` is allowed there only between complete parallel
-     actions, not inside an ordinary noun list.
-   - Never regress the worst paired source row. `draftWorstSourceUnits` /
-     `draftWorstSourceSeconds` report the incoming draft's widest and longest
-     paired source row. An answer that still leaves a row past the paired-row
-     ceiling AND wider or longer than that worst row is rejected. Cut the
-     offending wide row itself; adding a cheap cut elsewhere (for example right
-     after the first word, to reach `pieceCount.min`) while leaving a huge tail
-     row is strictly worse than keeping the draft's boundaries.
+     row for a dangling tail.
+   - Source length alone does not create a target cut. When an over-dense
+     paired row genuinely needs one, split only at a complete target-language
+     seam; `、` is allowed there only between complete parallel actions, not
+     inside an ordinary noun list.
    - Do not leave a Chinese piece ending with an incomplete classifier or
      determiner phrase such as `我们有一个 | 想改变的系统`.
    - A Chinese piece that ends without punctuation must not end on a form that
@@ -242,7 +261,7 @@ Worker discipline (violations observed to waste whole worker turns):
      `剩余的 35% 得 | 支撑…` or `输出质量在数学上 | 与…相同`; move the cut one or
      two words later, or keep the piece whole. Words that merely end in one of
      these characters (心得, 以上, 即将, 把握) are exempt.
-   - Never cut before the coordinators 和/及/与 — never
+   - Never cut before the coordinators 和/及/与/或 (including 或者/或是) — never
      `它们是 KV 缓存 | 和 PagedAttention`. A coordinator may open a piece only
      when the previous piece ends on punctuation. The mirror image is banned
      too: never cut after the second coordinated item and strand its head noun
@@ -264,7 +283,7 @@ Worker discipline (violations observed to waste whole worker turns):
    ```bash
    bin/baocut task submit "/path/demo.bcut" \
      --task "<task>" --call "<call>" --lease-id "<leaseId>" \
-     --worker codex-1 --file "/tmp/baocut-align-codex-1-c0001.json" \
+     --worker codex-1 --file "/tmp/baocut-align-codex-1-c0001.html" \
      --next --json
    ```
 
@@ -283,11 +302,16 @@ Worker discipline (violations observed to waste whole worker turns):
    If submit returns `rejected`, keep the same lease, fix only the reported
    problems, rerun the shape and boundary checks, and resubmit. Do not reclaim
    the call or start a replacement task. The lint budget is 3 tries per call
-   and lease: each rejection reports `triesLeft`, and the 3rd submit under the
-   same lease is force-passed to engine acceptance instead of being rejected
-   again (the engine's own validation still applies). The budget is counted
-   per `callId+leaseId`, so a replacement worker on a new lease starts with a
-   fresh budget — a predecessor's exhausted tries do not carry over.
+   and lease: each rejection reports `triesLeft`, and the 3rd **changed**
+   submit under the same lease is force-passed to engine acceptance instead of
+   being rejected again (the engine's own validation still applies). A submit
+   whose content is byte-identical (after trimming) to the last rejected
+   answer on the same lease does not count: it comes back `rejected` with
+   `unchanged: true`, `triesLeft` unchanged, and it is never force-passed —
+   only an answer you actually edited can spend a try or reach the third-try
+   pass. The budget is counted per `callId+leaseId`, so a replacement worker
+   on a new lease starts with a fresh budget — a predecessor's exhausted
+   tries (and its last answer hash) do not carry over.
 
 5. Continue until the pipeline emits its terminal event. Have the last worker
    to submit chain one bounded `--next` claim, so the batch's global repair
@@ -303,7 +327,12 @@ Worker discipline (violations observed to waste whole worker turns):
 pending and completed translate/align calls. Use these together with
 `completedCalls[].queueMs`, `workerMs`, and `totalMs` plus the aggregate
 `timings` object to distinguish worker startup delay, batch imbalance, and
-answer-generation time when diagnosing a slow run.
+answer-generation time when diagnosing a slow run. Each completed call also
+carries its submit-lint history: `lintTries` (rejected rounds under the last
+accounted lease) and `lintProblems` (the final rejected round's problems,
+retained even when the call was force-through accepted). `0` / `[]` means no
+rejection was recorded — note this differs from `pendingCalls[].problems`,
+which is the producer's retry reason for the request itself.
 
 When `queueMs` comes out bimodal — some calls around 100s and others around
 1000s in the same batch — do not jump straight to "a page got redone". The
@@ -333,7 +362,10 @@ valid answer wins); only a lint-failing late submit reports `stale`.
   out in batches within that round — there is no second repair round), and a
   `translate`/`translate-brief` call has an engine-level retry cap of 3. A
   retry call's `problems` list is the whole remaining chance; fix exactly
-  those items.
+  those items. An align repair call's `problems` names only the sentences
+  present in its own payload (plus problems naming no sentence); a trailing
+  count line notes how many further problems belong to sentences repaired in
+  parallel calls — never go looking for those sentences in your table.
 - The payload file extension is `.json`, but the content may be plain text or
   a composite document depending on the kind; the contract describes the
   expected answer format. Retry calls carry a `problems` list explaining what
@@ -344,6 +376,13 @@ valid answer wins); only a lint-failing late submit reports `stale`.
   any missing value in `problems[]`; fix the translation rather than editing
   or weakening the glossary. `translate-brief` is a one-call serial stage, so
   assign it to one worker even when later translate pages run in parallel.
+- In a target context document's `Translated Summary` and `Translation Style`
+  sections, use fullwidth punctuation (`，` `：` `；`) inside CJK text. These
+  sections are echoed verbatim into every downstream translate prompt, so
+  halfwidth marks would spread into the whole translation. The engine also
+  normalizes at acceptance (ASCII `,` `:` `;` next to a CJK character becomes
+  fullwidth; numbers, clock times, and URLs are untouched), so a slip is not
+  fatal — but write it correctly rather than leaning on the cleanup.
 - A claimed call may carry `hedge: true` (with `hedgeOf` naming the original
   call). It is a tail-latency duplicate the producer dispatched because the
   original has been in flight far longer than the rest of its batch: answer it
@@ -373,11 +412,200 @@ valid answer wins); only a lint-failing late submit reports `stale`.
 - Provider mode is the no-worker alternative: with
   `--llm provider:<vendor>/<model>` there is no task directory and no claim
   loop — the CLI calls the provider API directly.
-  `BCUT_PROVIDER_MAX_LANES` (default 8, `0` = unlimited) sets both the
-  concurrent lanes and the translate page shape, so changing it changes how
-  the batch is paged, not just how fast it runs. The provider path also has
+  The `llm.maxConcurrent` config key (`bcut config set llm.maxConcurrent <N>`,
+  default 8, `0` = unlimited; env `BCUT_PROVIDER_MAX_LANES` overrides the
+  stored value entirely) sets the concurrent
+  lanes only; page shape follows the provider budget (declared separately
+  from Agent mode, currently the same 2000 source words per translate/align
+  page) and is not affected by the lane count.
+  The provider path also has
   no submit-lint buffer: a malformed answer goes straight to engine
   validation and consumes one of the engine's bounded retries.
+
+## File-contract calls (`file-v1`)
+
+`translate`, `polish`, `segment-repair`, `align`, `analysis`, and
+`translate-brief` calls always use a document carrier: an HTML page, a fenced
+plain-text page, an HTML table, or a Markdown context document. (There is no
+`--contract` flag — file-v1 is the only protocol for these six kinds.) The
+claim → answer → submit loop, the
+lease rules, `--next` chaining, hedging, and the lint budget are all unchanged
+from the JSON kinds. What changes is what you read and what you write.
+
+**Decide the protocol from the envelope, never from the content.** A
+file-contract call's claim envelope carries `protocolVersion: "file-v1"`; its
+absence means `json-v0`, which today appears only on the single-round JSON
+kinds (`polish-retry`, `segment`, `segment-index`, `chapters`, `cleanup`,
+`broll`) — and on historical tasks written by an older CLI, whose submits the
+current CLI accepts without lint. The CLI itself routes submit-time lint on
+that field alone and never sniffs the payload, so a worker that guesses from
+the file extension or from the kind will eventually guess wrong. Both
+protocols appear in the same project and even in the same worker loop — see
+the mixed-protocol note below.
+
+Fields that only a `file-v1` envelope carries:
+
+| Field | Meaning |
+|---|---|
+| `protocolVersion` | `file-v1`. Absent = `json-v0`. |
+| `input` | Path of the document to edit. Today it is the same path as `payload`; treat `payload` as its alias, not as a second file. |
+| `inputFormat` | Media type of that document: `text/html`, `text/plain`, or `text/markdown`. |
+| `outputExtension` | `html`, `txt`, or `md` — the extension to give your answer file. |
+
+`contract` and `payload` are **paths, not content**, in both protocols, and they
+are written exactly as the producer's own project path — a producer started with
+a relative path yields relative paths in the envelope, resolved against the
+producer's working directory. Do not assume they are absolute.
+
+The contract file is `contracts/<kind>.md` (`<kind>-2.md`, `-3.md` on later
+attempts, with identical content) and holds the stage's complete instruction
+set: the carrier's grammar, the permitted edits, and the output rules. **It is
+the authority; this section only describes the loop around it.** Read it on
+every call — the four carriers have genuinely different rules, and a retry's
+contract is not where the new information lives (that is `problems[]`).
+
+The working shape:
+
+1. Claim, then read `contract` and `input` in the same step.
+2. Copy the input document to a temp file outside the project, named uniquely
+   per worker and call, using `outputExtension` (for example
+   `/tmp/baocut-translate-codex-1-c0007.html`).
+3. Edit only what the contract allows, in place, leaving everything else byte
+   for byte as it arrived.
+4. `task submit --file <that file> --next`.
+
+Answer discipline shared by all four carriers:
+
+- The answer is the **whole edited document**, not a diff, not a summary, and
+  not JSON. Submit reads the file as UTF-8 text and stores it verbatim; the file
+  extension is never inspected, so `outputExtension` is a convention for you,
+  not a check.
+- **Submit it bare.** No markdown code fence, no preamble, no closing remark, no
+  headings you were not given. A single, fully closed, unlabelled outer fence
+  with nothing around it is stripped for free, but anything less tidy — an
+  opening ```` ```html ```` with a labelled closer, a stray fence line anywhere
+  in an align table, one sentence of explanation before the document — becomes
+  `document-wrapped` and costs the page a round trip.
+- **Preserve every anchor verbatim**: ids, fence lines, table headers, frontmatter.
+  They are how the parser maps your text back onto the transcript; a rewritten
+  anchor reads as missing data, not as a formatting choice.
+- Never introduce control characters, zero-width marks, or bidi overrides, and
+  do not indent the sentinel fence lines — they are matched at the line start.
+- There is a hard output ceiling of four times the input size (minimum 4096
+  characters). Hitting it (`document-oversize`) means the answer stopped being a
+  revision of the page, and the whole answer is discarded.
+
+What each carrier expects, in one line each — the contract has the rest:
+
+| Kind | Carrier | Your answer |
+|---|---|---|
+| `translate` | `<article>` of `<section>`/`<p id="s-…">` (`text/html`) | The same document with each `<p>`'s text replaced by the translation. Every id present exactly once, unchanged, and every attribute kept — `data-rt` lists target terms that must appear in that sentence, `data-budget` its reading budget. Sentences marked `data-editable="false"` are frozen: copy their existing `data-translation` back byte for byte. The read-only `<!-- context-before/after -->` comments are input only; never echo them. |
+| `polish` | Plain text between four sentinel fence lines (`text/plain`) | All four fence lines reproduced verbatim and once, both read-only regions character for character, edits only between `<<<EDIT-BEGIN>>>` and `<<<EDIT-END>>>`. A blank line is a paragraph break; a single newline means nothing, and `<<<HARD-CUT>>>` is not one. Paragraphing is mandatory, not optional: keep every paragraph at or under 300 words (500 characters for Chinese/Japanese/Korean) — spoken-language paragraphs run 2–6 sentences, so an editable region of real length always contains several. An over-long paragraph does not fail submit lint; the page is accepted and that paragraph comes back to you later as a `segment-repair` call, which is extra work you avoid by segmenting properly the first time. Never copy the `⏸`/`⏹` markers into the answer. |
+| `segment-repair` | One or more over-long paragraphs, each between its own `<<<PARAGRAPH-BEGIN>>>` / `<<<PARAGRAPH-END>>>` pair, one sentence per line (`text/plain`) | Every paragraph reproduced with its fence lines, in order, every sentence line verbatim — the only change allowed is inserting blank lines between lines (a blank line = a new paragraph). Split every paragraph at each topic turn so no resulting paragraph exceeds the per-language cap. Paragraphs are accepted one by one: a rewritten, merged, dropped or reordered line rejects that paragraph as `source-drift`, a paragraph returned without any blank line is `paragraph-oversize`, and both are sent back on the next round with the verdict in `problems[]`; the other paragraphs in the same payload land regardless. Nothing outside the fences — no preamble, no code block wrapper. |
+| `align` | One HTML table, one `<tbody data-sid>` per sentence (`text/html`) | The same table back, one `<tr>` per display piece inside each group, `data-sid` byte for byte. Splitting a sentence into N pieces means N rows. The source cells rejoined must reproduce the input sentence — the source column may only be cut, never reworded — and the target cells rejoined must reproduce the sentence translation unless you mark the group `data-reordered="true"`. A group carrying `class="ctx"` — read-only context the current build does not yet emit — is returned unchanged and never cut. |
+| `analysis`, `translate-brief` | Markdown context document (`text/markdown`) | The document with its `---` frontmatter and its `# Canonical Terms` / `# Bilingual Glossary` table intact, and no sections added. Table headers must read exactly `Source \| Category \| Variants \| Note \| Lock \| Origin` and `Source \| Target \| Note \| Lock \| Origin`. `Lock` and `Origin` are the user's channel: whatever a model writes there is downgraded to `Origin=analyzed, Lock=no`. Each `Target` is exactly one on-screen literal — slash alternatives fail the whole round unless the source term itself contains a slash. |
+
+**A translate page is subtitles, not prose.** Every sentence you write is cut
+into narrow display rows later — roughly 16 display cells per row for Chinese,
+Japanese and Korean, about 42 characters for Latin scripts — and each row has to
+be readable while the speaker is still talking. Length is part of correctness
+there, so the carrier states it per sentence: `data-budget="整句≤42字"` is that
+sentence's reading budget, `floor(display seconds × target-language reading
+speed)` counted in reading units, not raw characters: whitespace and ordinary
+commas and periods are free, and in CJK target languages a Latin letter or digit
+costs about half a unit — so a required `data-rt` term is far cheaper than its
+letter count. The unit label switches with the target language. It appears only on editable sentences; a frozen one is a
+verbatim copy and carries none. Treat it as the tie-breaker between two faithful
+wordings — drop filler, restated subjects, and redundant connectives first — not
+as a ceiling to cut meaning against. **The budget never outranks meaning**: when
+a sentence genuinely needs the length, take the length, and never drop a
+negation, qualification, number, name, register, or an explicit causal /
+contrastive / conditional / result relation to fit. A later stage can split a
+complete translation but cannot recover a clause you left out. Do not put ` | `
+or any other segmentation mark inside a `<p>` either — the file contract has no
+draft-cut channel, and the align stage decides the rows.
+
+**The align table is a table, not a JSON payload in HTML clothing.** Its only
+columns are the id `<th>`, `td.src`, and `td.tgt`; there is no `draftTarget`, no
+`useDraft`, no `sourceBreaks`, no `draftBlockers`, no hint list — do not run a
+`jq` gate or emit any draft-era field against a table. What matters is the
+segmentation judgement
+itself: decide the target pieces first, keep bound phrases and bilingual anchors
+whole, cut only at seams that really exist in the text, and leave an over-fit
+piece whole rather than trading it for a dangling fragment. The budget that
+judgement needs is on the carrier: `data-fit` / `data-hard` on the `<table>`,
+`data-max-lines` and a human-readable `data-budget` on each group. Three flags
+you may add to a group, and only these: `data-reordered="true"` to declare that
+the target was deliberately rewritten out of source order (this replaces the
+rejoin check with a rewrite-extent limit), `data-crossing="true"` for genuine
+word-order crossing (mutually exclusive with `reordered`, which wins), and
+`data-unsplittable="true"` to state that no legal cut exists — it does not
+silence any lint; what it does is tell the engine that an over-wide row stayed
+whole on purpose, so the group is accepted as-is instead of being sent back
+once for a targeted re-cut. Leave `data-soft`
+and every other attribute exactly as you found it; the `rowspan` on the id cell
+is redundant bookkeeping, and a stale one costs you nothing.
+
+Two things the table's own contract spells out and reviewers still see missed.
+**The source side has a floor, not only a width ceiling.** In a group of two or
+more rows, never hang a target piece on a crumb of one or two source words —
+"So,", "and then", "I mean," — whose combined width is well under one row. Merge
+the crumb into the row that continues its clause (forward when it is a leading
+connective, adverbial or conditional opener, backward when it is a trailing
+tail) and move the target cut with it, rather than leaving a target piece
+stranded on two words. The floor is waived only when the sentence genuinely has
+too few source words to give every row that much — then keep the shape you have.
+**`data-crossing="true"` is a declaration, not an escape hatch.** Set it only
+when the target order really crosses the source order and no monotonic mapping
+survives: first look for cuts that keep the rows aligned, then prefer rewriting
+the target into source clause order with `data-reordered="true"`, and reach for
+`crossing` only when neither works. It does not license anchors landing in the
+wrong row, a crumb source range, or a cut you did not want to justify — it
+suppresses the bilingual-anchor check, so using it to quiet a warning hides the
+defect instead of fixing it.
+
+Rejections work exactly as in the JSON protocol, with the same
+three-tries-per-`callId+leaseId` budget, the same force-pass on the third
+**changed** submit, and the same `unchanged: true` no-op for a resubmitted
+identical answer. What differs is the shape of `problems[]`: each entry reads
+`[<code>] <detail>`, or `[<code>] <sentence-id>: <detail>` when the defect is
+one sentence's. The codes are a closed set; these are the ones worth
+recognizing on sight:
+
+| Code | What it means and what to do |
+|---|---|
+| `document-wrapped` | Fences or prose around the document. Resubmit the bare document. |
+| `document-truncated` | The answer stops early — a missing tail of ids, or a missing/duplicated/out-of-order sentinel fence. Reproduce the complete page. |
+| `document-oversize` | Answer above the 4× ceiling. Revise the page instead of regenerating it. |
+| `missing-id` / `empty-translation` | A sentence is absent or translated to nothing. Add exactly those. |
+| `duplicate-id` | The same id twice — the page cannot be scored. Emit each id once. |
+| `unknown-id` | An id that was not in the input. Advisory for editable pages; do not invent ids. |
+| `frozen-modified` | A frozen sentence changed. Restore it byte for byte. |
+| `source-drift` | A read-only region was edited (polish context regions, an align source cell, or a `segment-repair` sentence line that was rewritten, dropped or truncated — the detail says which paragraph and line). Restore it. |
+| `glossary-missing` | A locked target term is absent from a translation. Put the exact spelling back. |
+| `paragraph-move` | A sentence moved between paragraphs. |
+| `paragraph-oversize` | A `segment-repair` paragraph came back with no blank line inserted — still one paragraph over the per-language cap (300 Latin words / 500 CJK characters). Re-read that paragraph and insert blank lines at every topic turn (2–6 sentences each); change nothing else. On a later round the request's `problems[]` names the paragraph by its position in the payload (`第 k 段：…`); a paragraph you split that is still over the cap comes back the same way, so cut it into more pieces rather than fewer. |
+| `align-content-drift` | A group's pieces do not rejoin the input sentence or its translation. Re-cut that group, or declare `data-reordered="true"` if the rewrite was deliberate. |
+| `align-over-hard` / `align-illegal-seam` | A piece is over the hard width, or cuts at a banned seam. These two are quality codes that never fail a whole page; submit lint still reports them, so re-cut every listed group by hand where a legal cut exists (moving one boundary is usually enough), and only for a sentence that genuinely has none keep it whole and declare `data-unsplittable="true"` — that changed answer is what the third submit lets through; resubmitting the same file three times does not (it is `unchanged`, no try spent). When the engine also finds no legal re-split of its own for an over-hard piece, it keeps your answer as a fallback and sends **that one sentence** back once in the repair round with a `… over the absolute hard ceiling … move a boundary … or declare data-unsplittable="true"` detail — move the cut, or declare `data-unsplittable="true"` if the source truly has no legal seam. |
+| `context-invalid` | The context document lost its frontmatter, a required section, or an exact table header. |
+
+Codes not in that list do not exist; anything the engine merely notices —
+collapsed blank lines, a stripped wrapper, a stale `rowspan`, an echoed `⏸` —
+is recorded as a warning and never reaches `problems[]` or the retry budget.
+
+One mixed-protocol trap, real in a single run:
+
+- A file-v1 polish still falls back to `polish-retry` calls for
+  low-similarity sentences, and **`polish-retry` is always `json-v0` with a JSON
+  payload and a JSON answer**. A worker filtering `--kinds polish` never sees
+  them and the producer blocks; a worker filtering `--kinds polish,polish-retry`
+  must branch per call on `protocolVersion`.
+
+One thing that looks like trouble and is not: under the file contract, translate
+repairs come back as fresh `attempt: 1` calls against `contracts/translate.md`
+with a smaller payload and fewer sentences, not as an `attempt: 2` of your page.
+A second, thinner translate batch arriving after the first is the repair wave
+doing its job.
 
 ## Close the quality loop after translate
 
@@ -417,12 +645,46 @@ bin/baocut translate "/path/demo.bcut" --lang zh --align-only \
   --llm agent --jsonl
 ```
 
-When the complete residual set is hard-only, prefer the built-in bounded
-refinement; it runs one round, rechecks, and reports residuals without looping:
+When you want one bounded sweep over every objective alignment defect the
+check still reports, use the built-in refinement; it runs one round, rechecks,
+and reports residuals without looping:
 
 ```bash
 bin/baocut refine-align "/path/demo.bcut" --lang zh-Hans --only-hard
 ```
+
+Know what that command actually dispatches before you choose it — its name
+undersells the payload:
+
+- `--only-hard` skips exactly one class: `align-overfit` sentences that are
+  over fit but under hard (the 16–20 gray band). Every other objective
+  hotspot is still collected — `align-stale`, `align-source-ceiling`,
+  `align-source-seam`, `align-target-seam`, `align-source-fragment`,
+  `align-paired-density`, `align-bilingual-anchor`,
+  `align-degraded-fallback` (each capped at 40 sentences per round) and
+  `translation-overflow`. So a check that lists 2 hard sentences routinely
+  becomes a 55-sentence `refine-align` payload; that is by design, not a bug.
+- The payload is one `translate --align-only --sentences <all hotspots>`
+  call with per-sentence diagnosis attached to the align contract; every
+  sentence in it is there because check flagged it, so the worker must re-cut
+  **every** row, not only the ones it recognizes as hard. Answering the two
+  hard rows and echoing the other 53 unchanged gets the whole answer sent
+  back with 53 `align-over-hard`/seam problems and burns a lint try. Staff it
+  with a high-tier worker (see the tier note above).
+- One round is the rule; the engine adds at most one extra round on its own,
+  and only when the first round did no work (idle, or truncated by the 40-per
+  -class caps). Sentences still flagged after that are reported in
+  `remaining[]` for the root to judge, not re-queued.
+- If the goal is narrower — clear only the strict hard blockers and leave the
+  other hotspots alone — do not reach for `refine-align --only-hard`. Name the
+  sentences yourself with the same entry point refine-align uses internally:
+
+  ```bash
+  bin/baocut translate "/path/demo.bcut" --lang zh-Hans --align-only \
+    --sentences s-g4.0,s-g12.3 \
+    --instructions "只处理这两句的硬超宽：在自然语义缝补一刀；其余不动" \
+    --llm agent --jsonl
+  ```
 
 Run `check --strict` once after that consolidated repair. Do not create separate
 translate tasks for one- or two-sentence leftovers between checks. Only if the

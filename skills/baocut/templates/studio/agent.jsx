@@ -79,6 +79,15 @@ function AgentQueue() {
 
 // ---------- live progress headers (agent-driven status) ----------
 // status: { phase:'translating', pct, detail, phases:[{label,state}], linesDone, linesTotal }
+
+// callsActive 是 provider 并发泳道的在飞调用数（agent 路径不报）。
+// 只有 ≥2 才值得标注——单发是常态，不用占字。
+function inFlightText(status) {
+  return Number.isFinite(status.callsActive) && status.callsActive > 1
+    ? ' · ' + status.callsActive + ' 个请求并发中'
+    : '';
+}
+
 function LiveHeader({ status, title }) {
   const determinate = Number.isFinite(status.pct);
   return (
@@ -103,9 +112,9 @@ function LiveHeader({ status, title }) {
           ))}
         </div>
       ) : null}
-      {status.linesTotal ? <div className="tr-live__counts">{status.linesDone || 0} / {status.linesTotal} 句 · CLI 实时写入</div>
-        : status.callsTotal ? <div className="tr-live__counts">已完成 {status.callsDone || 0}/{status.callsTotal} 次模型调用 · CLI 实时写入</div>
-        : status.callsDone ? <div className="tr-live__counts">已完成 {status.callsDone} 次模型调用 · CLI 实时写入</div> : null}
+      {status.linesTotal ? <div className="tr-live__counts">{status.linesDone || 0} / {status.linesTotal} 句{inFlightText(status)} · CLI 实时写入</div>
+        : status.callsTotal ? <div className="tr-live__counts">已完成 {status.callsDone || 0}/{status.callsTotal} 次模型调用{inFlightText(status)} · CLI 实时写入</div>
+        : status.callsDone ? <div className="tr-live__counts">已完成 {status.callsDone} 次模型调用{inFlightText(status)} · CLI 实时写入</div> : null}
     </div>
   );
 }

@@ -61,9 +61,11 @@ bin/baocut clip move "/path/demo.bcut" <clip-id> --before <other-id> --json
 ```
 
 `clip remove` is a true main-track deletion, unlike `cut restore`; confirm the
-target ids from `clip list` first. A file passed to `clip add` registers its
-source. Use `source remove <srcId> --yes` only after `source list` proves nothing
-still references it.
+target ids from `clip list` first. Its OUTPUT interval is ripple-deleted across
+numeric-time overlay elements as one transaction; word-anchored elements keep
+their source references. A file passed to `clip add` registers its source. Use
+`source remove <srcId> --yes` only after `source list` proves nothing still
+references it.
 
 An appended spoken source has its own transcript:
 
