@@ -13,10 +13,11 @@ Works with **Claude Code**, **Codex**, and any [skills.sh](https://skills.sh)-co
 - **macOS** — install BaoCut from **[baocut.app](https://baocut.app)**. The skill
   uses the CLI bundled in `BaoCut.app`; on Apple silicon it can also download
   the signed standalone CLI pinned to the skill release.
-- **Windows** — provide a local `bcut` executable through `BAOCUT_CLI`,
-  `BCUT_EXECUTABLE`, or `PATH`. The skill operates the project through the
-  browser-based Subtitle Studio; a pinned Windows CLI download is not included
-  yet.
+- **Windows x64** — the resolver installs a verified unsigned-preview CLI when
+  no compatible override, `PATH` entry, or cache exists. It uses `nvidia-smi`
+  to select the bundled CUDA 13 build for an NVIDIA GPU with compute capability
+  8.0+ and driver 580+, otherwise it selects the CPU build. No CUDA Toolkit is
+  required.
 - **Node.js** — only for the one-command install below
   ([download](https://nodejs.org/en/download)). The manual steps need no Node.
 
@@ -57,7 +58,8 @@ skills/baocut/bin/baocut export <projectId> --srt --translated --lang zh
 ```
 
 The resolver honors an explicit CLI path, development builds, the CLI inside
-BaoCut.app, `bcut` on `PATH`, and the release-pinned CLI cache in that order.
+BaoCut.app, `bcut` on `PATH`, and verified release caches/downloads in that
+order.
 
 ## Layout
 
@@ -68,6 +70,8 @@ skills/baocut/
   templates/        # browser-based Subtitle Studio
   cli-release.json  # immutable standalone CLI pin
   bin/baocut        # resolves, verifies, and runs the matching CLI
+  bin/baocut.ps1    # native Windows resolver
+  bin/detect-windows-cli-variant.ps1 # CPU/CUDA environment probe
 ```
 
 ## Links

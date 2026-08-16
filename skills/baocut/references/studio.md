@@ -46,6 +46,10 @@ curl -fsS -X POST "${URL}__bcut/mount" -d '{"id":"<name>","path":"<abs project p
 - The project stores only Studio data, never page code.
 - `transcript.json` and generated Studio data are CLI-managed; do not
   hand-edit them.
+- Prefer `transcript find` / `transcript replace` for deterministic text
+  lookup and replacement. Use `--scope all` for a lexical replacement across
+  cue content and speaker names, and protect mutations with the `total` from
+  `find` via `--expect`. Do not open the page merely to search or type text.
 - Page edits live in a project overlay and are written back with
   `studio apply`.
 - Styles are a display projection. The comma/period option also applies to
@@ -68,6 +72,20 @@ Apply pending page edits before running any polish, translate, or align
 stage. After applying, read the JSON output's applied items, skip reasons,
 and suggested actions; when an edit invalidates later AI results, re-run only
 the affected stages as reported — never patch generated files directly.
+
+For a non-interactive replacement, use the shorter CLI transaction instead:
+
+```bash
+bin/baocut transcript find "/path/demo.bcut" "old" --scope all --json
+bin/baocut transcript replace "/path/demo.bcut" "old" "new" \
+  --scope all --expect 2 --json
+bin/baocut transcript find "/path/demo.bcut" "old" --scope all --json
+```
+
+`replace` updates `words[]` through the Transcript data model, records project
+history, refreshes Studio, and fails without writing when `--expect` no longer
+matches. Browser editing is reserved for an explicitly interactive or visual
+operation that has no CLI equivalent.
 
 ## Page requests
 
@@ -121,6 +139,10 @@ the `ffmpeg` found on PATH. The first Linux release returns `unsupported`.
   endpoints; restart serve to pick up the new binary (the page falls back to
   gradient placeholders on an old server, which is not a fault).
 - Page content stale: run `studio sync`, then re-check the page.
+- Page remains at “syncing” after a short edit: first restart the current
+  `serve --background` generation and refresh. Current builds exclude
+  synchronous page transactions from the long-task registry, so a persistent
+  sync job indicates an old server process or a real active CLI flow.
 - Edits not applied: run `studio apply` and read the skip reasons in the
   JSON.
 - Video export fails: verify `project.json.media.path` still points to a

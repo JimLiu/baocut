@@ -38,9 +38,32 @@ $script:developmentRoot = $null
 $publicRepository = "JimLiu/baocut"
 $releaseApi = "https://api.github.com/repos/$publicRepository/releases?per_page=20"
 
-# 显式 opt-in 的 CLI 变体（不自动探测 GPU）：cpu（默认）或 cuda13。
+# 在读取缓存或 release manifest 前先探测 GPU；显式变量只保留为强制覆盖入口。
+function Resolve-AutomaticVariant {
+    $detector = Join-Path $PSScriptRoot "detect-windows-cli-variant.ps1"
+    if (-not (Test-Path -LiteralPath $detector -PathType Leaf)) {
+        Write-Verbose "Windows CLI variant detector is missing; using the CPU build."
+        return "cpu"
+    }
+    try {
+        $probe = & $detector | ConvertFrom-Json
+        if ($probe.schema -ne 1 -or $probe.variant -notin @("cpu", "cuda13")) {
+            throw "unexpected detector result"
+        }
+        Write-Verbose "Windows CLI variant detector selected '$($probe.variant)' ($($probe.reason))."
+        return [string]$probe.variant
+    } catch {
+        Write-Verbose "Windows CLI variant detection failed; using the CPU build: $_"
+        return "cpu"
+    }
+}
+
 # cuda13 自带 CUDA 13 运行时，要求 NVIDIA Ampere+（RTX 30 系及更新）与 >=580 驱动。
-$variant = if ($env:BAOCUT_VARIANT) { $env:BAOCUT_VARIANT.ToLowerInvariant() } else { "cpu" }
+$variant = if ($env:BAOCUT_VARIANT) {
+    $env:BAOCUT_VARIANT.ToLowerInvariant()
+} else {
+    Resolve-AutomaticVariant
+}
 $variantSuffix = if ($variant -eq "cuda13") { "-cuda13" } else { "" }
 $requiredBackend = if ($variant -eq "cuda13") { "candle-cuda" } else { $null }
 

@@ -95,16 +95,19 @@ compare against the newest release and adopt a higher build; unset, that path
 stays entirely offline, and any failed check silently keeps the cached CLI.
 `BAOCUT_SKILL_NO_DOWNLOAD=1` still wins over this opt-in.
 
-Setting `BAOCUT_VARIANT=cuda13` switches the whole Windows resolution to the
-GPU variant: the handshake additionally requires backend `candle-cuda`, the
-cache directory gains a `-cuda13` suffix, and downloads use the release's
-`windows-cli-cuda-release.json` and `…-x86_64-pc-windows-msvc-cuda13.zip`
-asset, extracting the bundled CUDA runtime DLLs next to `bcut.exe`. This is an
-explicit opt-in — the resolver never probes for a GPU. It requires an NVIDIA
-GPU with compute capability 8.0+ (Ampere / RTX 30 series or newer) and driver
->= 580; no CUDA Toolkit install is needed, and without a compatible GPU the
-CLI falls back to CPU inference. If no release ships the CUDA asset yet, the
-resolver fails with a clear message instead of silently using the CPU build.
+Before choosing a Windows cache or release, the resolver runs
+`bin/detect-windows-cli-variant.ps1`. The detector uses `nvidia-smi` and selects
+`cuda13` only when at least one NVIDIA GPU has compute capability 8.0+ (Ampere /
+RTX 30 series or newer) and the installed driver is >= 580; a missing or failed
+probe and an incompatible GPU select `cpu`. The CUDA choice additionally
+requires backend `candle-cuda`, gives the cache directory a `-cuda13` suffix,
+and downloads the release's `windows-cli-cuda-release.json` and
+`…-x86_64-pc-windows-msvc-cuda13.zip` asset, extracting the bundled CUDA runtime
+DLLs next to `bcut.exe`. No CUDA Toolkit install is needed. If no release ships
+the selected CUDA asset yet, the resolver fails clearly instead of silently
+using a different build. `BAOCUT_VARIANT=cpu|cuda13` remains an explicit force
+override for troubleshooting and controlled environments; normal installs do
+not need it.
 
 The resolver then checks the CLI contract and minimum BaoCut App version
 before it runs the requested command.
@@ -169,6 +172,15 @@ If the resolver exits 3, follow its guidance instead of bypassing the check.
   [references/exports.md](references/exports.md).
 - For granular project edits, discover the installed surface with `spec` and
   command `--help`; do not infer commands from older BaoCut releases.
+- For deterministic Transcript lookup, replacement, or lexical name fixes,
+  use the CLI before opening Subtitle Studio: run `transcript find`, then
+  `transcript replace --expect <count>`. Use `--scope all` when the same text
+  must change in both cue content and speaker display names; use
+  `speakers rename` for an id-based speaker-only rename. Re-read with
+  `transcript find` after the mutation. Do not search or type through the page
+  when the CLI exposes the operation; the browser is for visual review and
+  user-driven interactive edits. If `spec` lacks `transcript find/replace`,
+  update the CLI instead of silently falling back to DOM editing.
 - For checking whether this skill or the CLI has a newer release, verifying
   skill/CLI version consistency, or helping the user update, read
   [references/updates.md](references/updates.md).

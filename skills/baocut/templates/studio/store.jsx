@@ -563,6 +563,17 @@ function AppStore({ children }) {
         const content = JSON.stringify(next, null, 2);
         const base = baseText == null ? 'new' : await sha256(baseText);
         let resp, j = {};
+        // 确定性失败（网络不可达、4xx/5xx 非 stale）不能留着 pendingMuts 让 finally
+        // 每 400ms 重试一次并刷一条负面 toast：丢弃这批变换并回退到服务器已知
+        // 状态，让用户明确知道刚才的改动没有落地（与 Mac 「已回退」语义一致）。
+        const abandon = (message) => {
+          pendingMuts.current.length = 0;
+          let server = EMPTY_OV;
+          try { server = ovServerText.current ? JSON.parse(ovServerText.current) : EMPTY_OV; } catch (e) {}
+          ovRef.current = server;
+          setOv(server);
+          toast(message, { variant: 'negative' });
+        };
         try {
           resp = await fetch(PUT_URL, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -570,11 +581,11 @@ function AppStore({ children }) {
           });
           j = await resp.json().catch(() => ({}));
         } catch (e) {
-          toast('保存失败（需要 bcut serve 服务本页）', { variant: 'negative' });
+          abandon('保存失败（需要 bcut serve 服务本页），改动已回退');
           break;
         }
         if (resp.status === 409 && j.reason === 'stale') continue;   // 与 Agent 竞写：重拉重放
-        if (!resp.ok || !j.ok) { toast('保存失败：' + (j.error || resp.status), { variant: 'negative' }); break; }
+        if (!resp.ok || !j.ok) { abandon('保存失败，改动已回退：' + (j.error || resp.status)); break; }
         pendingMuts.current.splice(0, muts.length);
         ovServerText.current = content;
         ovRef.current = next;
