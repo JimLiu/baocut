@@ -1,13 +1,40 @@
 [CmdletBinding()]
 param(
     [Parameter(ValueFromRemainingArguments = $true)]
-    [string[]] $CliArgs
+    [object[]] $RawCliArgs
 )
 
 $ErrorActionPreference = "Stop"
+
+# PowerShell parses a bare `translate,align` in argument mode as an array. A
+# `[string[]]` remaining-arguments parameter would then stringify that nested
+# array with `$OFS` (a space), and bcut would receive one token
+# `"translate align"` — `--kinds translate,align`, `--langs zh,en`, and every
+# other comma-delimited flag silently turn into a value that matches nothing.
+# bcut's list flags are comma-delimited, so rejoin nested arrays with a comma to
+# hand the CLI exactly what the caller typed.
+function ConvertTo-CliArgumentList([object[]] $Arguments) {
+    $flattened = New-Object System.Collections.Generic.List[string]
+    foreach ($argument in $Arguments) {
+        if ($null -eq $argument) { continue }
+        if ($argument -is [string]) {
+            $flattened.Add($argument)
+        } elseif ($argument -is [System.Collections.IEnumerable]) {
+            $parts = @($argument | ForEach-Object { [string]$_ })
+            $flattened.Add(($parts -join ','))
+        } else {
+            $flattened.Add([string]$argument)
+        }
+    }
+    return ,$flattened.ToArray()
+}
+
+[string[]] $CliArgs = ConvertTo-CliArgumentList $RawCliArgs
 $requiredSpec = ">=1.14,<2.0"
 $skillRoot = Split-Path -Parent $PSScriptRoot
 $skillMarkdown = Join-Path $skillRoot "SKILL.md"
+# Set by Resolve-DevelopmentCli so handshake failures can name the right remedy.
+$script:developmentRoot = $null
 $publicRepository = "JimLiu/baocut"
 $releaseApi = "https://api.github.com/repos/$publicRepository/releases?per_page=20"
 
@@ -142,7 +169,12 @@ function Invoke-BaoCutHandshake([string] $Executable) {
     $version = $result.Stdout | ConvertFrom-Json
     if (-not $version.appVersion) { throw "This BaoCut CLI predates the skill handshake." }
     if (-not (Test-VersionAtLeast ([string]$version.appVersion) $minimumAppVersion)) {
-        throw "BaoCut skill v$skillVersion requires BaoCut App >= $minimumAppVersion; found $($version.appVersion)."
+        # The remedy depends on where the CLI came from: a stale development
+        # build must be rebuilt (updating BaoCut.app changes nothing for it).
+        if ($script:developmentRoot -and $Executable.StartsWith($script:developmentRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw "BaoCut skill v$skillVersion requires BaoCut App >= $minimumAppVersion; the development CLI at $Executable reports $($version.appVersion). Rebuild it: 'cargo build -p bcut --locked --release' in $(Join-Path $script:developmentRoot 'core')."
+        }
+        throw "BaoCut skill v$skillVersion requires BaoCut App >= $minimumAppVersion; found $($version.appVersion). Update BaoCut.app."
     }
     if ($requiredBackend -and [string]$version.backend -ne $requiredBackend) {
         throw "BAOCUT_VARIANT=$variant requires a BaoCut CLI with backend '$requiredBackend'; found '$($version.backend)': $Executable"
@@ -205,6 +237,7 @@ function Resolve-DevelopmentCli {
             }
             if ($candidate) {
                 Write-Verbose "BaoCut development checkout detected at $($directory.FullName)"
+                $script:developmentRoot = $directory.FullName
                 return (Resolve-Path -LiteralPath $candidate).Path
             }
             return $null

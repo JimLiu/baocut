@@ -166,6 +166,15 @@ after the ASR pass, so pre-download it with
 Before accepting a review, inspect its diff and preview from `review list`. Use
 `review reject` when the candidate changes meaning or timing intent.
 
+A polish that exits `ok` is not necessarily a polish that touched every
+sentence: `data.fallbackSentences > 0` (or `fallbackPages > 0`) means the
+engine gave up on those sentences and kept the ASR text verbatim, and
+`bcut check` reports them as the blocker `polish-fallback` with a
+`bcut polish <project> --paragraphs <p-…>` fix that re-polishes only the affected
+paragraphs (the artifact merges, so run the fix as many times as it takes and
+recheck). Do not proceed to translate over a `polish-fallback` blocker; the
+untouched sentences would be translated from raw ASR.
+
 ### Sync confirmed speaker names after polish
 
 `polish` returns `data.speakerNames` as evidence-backed candidates; it does not

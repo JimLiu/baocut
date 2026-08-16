@@ -222,7 +222,21 @@ report_failure() {
             echo "This BaoCut CLI predates the skill handshake. Update BaoCut.app or the standalone bcut CLI." >&2
             ;;
         old)
-            echo "BaoCut skill v$skill_version requires BaoCut App >= $min_app_version; found $app_version. Update BaoCut.app." >&2
+            # The remedy depends on where the CLI came from: a stale development
+            # build must be rebuilt (updating BaoCut.app changes nothing for it),
+            # an explicit override must be repointed, everything else updates
+            # the app.
+            case "$cli_source" in
+                dev)
+                    echo "BaoCut skill v$skill_version requires BaoCut App >= $min_app_version; the development CLI at $cli reports $app_version. Rebuild it: $dev_root/scripts/dev/prepare-bcut.sh (or 'cargo build -p bcut --release' in $dev_root/core)." >&2
+                    ;;
+                env)
+                    echo "BaoCut skill v$skill_version requires BaoCut App >= $min_app_version; the CLI at $cli (from BAOCUT_CLI/BCUT_EXECUTABLE/BAOCUT_BIN) reports $app_version. Point the override at a newer bcut or unset it." >&2
+                    ;;
+                *)
+                    echo "BaoCut skill v$skill_version requires BaoCut App >= $min_app_version; found $app_version. Update BaoCut.app." >&2
+                    ;;
+            esac
             ;;
     esac
     if test -n "$cli_release_url"; then

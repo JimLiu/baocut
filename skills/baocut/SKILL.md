@@ -13,8 +13,8 @@ description: >-
   documentation tasks follow repository instructions unless they also operate
   the product or a `.bcut` project.
 metadata:
-  version: "1.0.10"
-  minAppVersion: "1.0.10"
+  version: "1.0.11"
+  minAppVersion: "1.0.11"
 ---
 
 # BaoCut
@@ -143,8 +143,9 @@ If the resolver exits 3, follow its guidance instead of bypassing the check.
   [references/workflows.md](references/workflows.md).
 - For an Agent-backed AI stage with pending calls, immediately read and follow
   [references/agent-tasks.md](references/agent-tasks.md). Its on-demand worker
-  rules — pool sized from the page plan (`ceil(source words / 2200)` per
-  stage, capped by real slots), per-stage worker tiers (mid-tier for
+  rules — pool sized from the actual page plan (translate uses
+  `ceil(source words / 2200)`; align also enforces at most 40 items and a
+  complexity budget, all capped by real slots), per-stage worker tiers (mid-tier for
   translate/polish, high-reasoning tier for align and repair), hand-written
   align answers with no scripted cutting and no unchanged resubmits — and its
   consolidated-repair rules (including what `refine-align --only-hard` really
