@@ -1,0 +1,106 @@
+/* BaoCut Subtitle Studio — 导出对话框（studio/export-dialog.jsx）。
+   移植自原型 designs/baocut-mac/app/export.css + flashfix.css 的 .vk-ffrow 组。
+   对话框壳（.vk-aidlg / .vk-set__row / .vk-aisec）已在 dialogs.css，不重复。 */
+
+.vk-exp-meta { margin-left: 10px; font-size: var(--font-size-75); font-weight: 400; color: var(--text-subdued); }
+.vk-export__body {
+  display: flex; min-height: 380px; max-height: calc(100vh - 230px);
+  transition: opacity 130ms cubic-bezier(0.45, 0, 0.4, 1);
+}
+.vk-export__body--busy { opacity: 0.55; pointer-events: none; }
+
+/* 类别列 */
+.vk-export__types {
+  width: 204px; flex-shrink: 0; padding: 14px;
+  display: flex; flex-direction: column; gap: 7px;
+  border-right: 1px solid var(--gray-200); background: var(--surface-layer-1);
+}
+.vk-exptype {
+  display: flex; align-items: flex-start; gap: 9px; text-align: left;
+  border: 1px solid var(--gray-200); border-radius: 10px;
+  background: var(--surface-elevated); padding: 10px 11px;
+  transition: border-color 130ms cubic-bezier(0.45, 0, 0.4, 1), background 130ms cubic-bezier(0.45, 0, 0.4, 1);
+}
+.vk-exptype:hover { border-color: var(--gray-400); }
+.vk-exptype--on { border-color: var(--accent-color-800); background: light-dark(#f4f7ff, #1a2440); }
+.vk-exptype__ic {
+  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  background: var(--gray-100); color: var(--text-subdued);
+  display: flex; align-items: center; justify-content: center;
+  transition: background 130ms cubic-bezier(0.45, 0, 0.4, 1);
+}
+.vk-exptype--on .vk-exptype__ic { background: var(--accent-color-900); color: white; }
+.vk-exptype__main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.vk-exptype__name { font-size: 13px; font-weight: 700; color: var(--text-heading); }
+.vk-exptype__sub { font-size: 10.5px; color: var(--text-subdued); margin-top: 1px; line-height: 1.35; }
+
+/* 选项面板 */
+.vk-export__pane { flex: 1; min-width: 0; padding: 4px 18px 14px; overflow-y: auto; }
+.vk-exp-row--off { opacity: 0.45; pointer-events: none; }
+.vk-exp-hint {
+  display: flex; align-items: center; gap: 7px; margin-top: 10px;
+  font-size: var(--font-size-75); color: var(--text-subdued);
+  background: var(--gray-100); border-radius: 8px; padding: 8px 11px;
+}
+.vk-exp-hint > .s2-icon { flex: none; }
+
+/* 视频预览：真实播放头 + 与画布同一个字幕呈现内核，画在导出画幅里 */
+.vk-exp-video {
+  height: 286px; margin: 0 0 10px; overflow: hidden;
+  border: 1px solid var(--gray-200); border-radius: 10px;
+  background: var(--surface-layer-1);
+}
+.vk-exp-video__well {
+  height: 236px; padding: 12px;
+  display: flex; align-items: center; justify-content: center;
+}
+.vk-exp-video__frame {
+  position: relative; flex: none; overflow: hidden; border-radius: 8px;
+  background: #080b13; box-shadow: 0 1px 4px rgb(0 0 0 / 32%);
+}
+/* 媒体元素只做解码源（几何见 studio.css 的 .bcs-media-source），画面由 Konva 取帧绘制。 */
+.vk-exp-video__timecode {
+  position: absolute; top: 8px; left: 9px; padding: 2px 5px; z-index: 5;
+  border-radius: 4px; background: rgb(0 0 0 / 45%); color: rgb(255 255 255 / 82%);
+  font: 10px/1.2 var(--font-family-code, ui-monospace, Menlo, monospace);
+}
+.vk-exp-video__controls {
+  height: 49px; padding: 0 12px; display: flex; align-items: center; gap: 10px;
+  border-top: 1px solid var(--gray-200);
+}
+.vk-exp-video__scrubber { min-width: 0; flex: 1; accent-color: var(--accent-color-900); }
+.vk-exp-video__time {
+  flex: none; color: var(--text-subdued);
+  font: 10.5px/1 var(--font-family-code, ui-monospace, Menlo, monospace);
+}
+
+/* 光速修正行（原型 flashfix.css） */
+.vk-ffrow {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; margin-bottom: 4px;
+  border-radius: 8px; background: var(--orange-100, #fff1e0);
+  font-size: 12px; line-height: 1.45; color: var(--text-body);
+}
+.vk-ffrow > .s2-icon { flex: none; color: var(--orange-900, #bd5b00); }
+.vk-ffrow__text { flex: 1; min-width: 0; }
+.vk-ffrow__text b { font-weight: 800; }
+.vk-ffrow .s2-btn { flex: none; }
+.vk-ffrow--clean { background: var(--gray-75, #f8f8f8); color: var(--text-subdued); }
+.vk-ffrow--clean > .s2-icon { color: var(--positive-visual-color); }
+
+/* 文本预览 */
+.vk-exp-prevhead { display: flex; align-items: center; gap: 8px; margin: 14px 0 7px; }
+.vk-exp-prevhead__n { font-size: 11px; color: var(--text-subdued); }
+.vk-exp-preview {
+  margin: 0; border: 1px solid var(--gray-200); border-radius: 10px;
+  background: var(--surface-layer-1); padding: 10px 12px;
+  font-family: var(--font-family-code, ui-monospace, Menlo, monospace);
+  font-size: 11px; line-height: 1.55; color: var(--text-body);
+  white-space: pre-wrap; overflow-wrap: break-word;
+  overflow-y: auto; max-height: 168px;
+}
+
+/* 底部文件名 */
+.vk-exp-file { display: flex; align-items: center; gap: 7px; font-size: var(--font-size-75); color: var(--text-subdued); min-width: 0; }
+.vk-exp-file .vk-mono { color: var(--text-body); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vk-exp-phase { font-size: var(--font-size-75); font-weight: var(--medium-font-weight); color: var(--text-body); }

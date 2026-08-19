@@ -417,8 +417,9 @@ function modelDownloadSubtitle(dl) {
 
 // ---------- AI stepper (Set up → Running → Review) ----------
 function AiStepper({ stage, apply }) {
-  // flows that apply their result directly (translate, speakers) have no
-  // accept/reject step — the last stop reads "Apply", not "Review"
+  // Flows whose final confirmation applies a structured result (translate,
+  // speakers) label the last stop "Apply"; the result is still pending until
+  // that explicit confirmation.
   const steps = [{ id: 'setup', label: 'Set up' }, { id: 'running', label: 'Running' }, { id: 'review', label: apply ? 'Apply' : 'Review' }];
   const idx = steps.findIndex((s) => s.id === stage);
   return (
@@ -651,6 +652,6 @@ Object.assign(window, { vkWordTimes, vkWordIdxAt, vkCaretOffset, vkCaretRangeAt,
 Object.assign(window, {
   fmt, fmtT, fmtDur, parseTc, Ic, useEsc, QBtn, CopyBtn, Segmented, Pop, Menu, Overlay, SubWindow,
   ConfirmDialog, toast, ToastHost, ProgressCluster, AiStepper, EditableText, TimecodeChip,
-  spHue, spHueBg, useDrag, useClickOutside, simulate,
+  spHue, spHueBg, useDrag, useClickOutside, simulate, writeClipboard,
   ModelPicker, EffortControl, EFFORT_LEVELS, modelDownloadSubtitle,
 });

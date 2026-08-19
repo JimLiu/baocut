@@ -99,6 +99,23 @@ test('scrollTopFor 只在目标出视口时给新位置', () => {
   assert.equal(V.scrollTopFor(offs, 99, 0, 400, 8), 2000 - 400);
 });
 
+test('centerScrollTop 首尾钳制并使用整像素中心', () => {
+  const offs = V.offsets([20, 20, 20, 20, 20]);
+  assert.equal(V.centerScrollTop(offs, 0, 60, 0), 0);
+  assert.equal(V.centerScrollTop(offs, 2, 60, 0), 20);
+  assert.equal(V.centerScrollTop(offs, 4, 60, 0), 40);
+  assert.equal(V.centerScrollTop(offs, 4, 60, 20), 60);
+  assert.equal(V.centerScrollTop(offs, -1, 60, 0), null);
+});
+
+test('offscreenDirection 只在整行越过十二像素舒适边界时返回方向', () => {
+  const offs = [0, 20, 40, 60, 80, 100];
+  assert.equal(V.offscreenDirection(offs, 0, 32, 40, 12), 'up');
+  assert.equal(V.offscreenDirection(offs, 2, 32, 40, 12), null);
+  assert.equal(V.offscreenDirection(offs, 4, 20, 40, 12), 'down');
+  assert.equal(V.offscreenDirection(offs, 2, 20, 40, 12), null);
+});
+
 test('高度缓存按指纹命中，文本变化即失效', () => {
   const store = V.createHeightStore({
     estimate: () => 64,

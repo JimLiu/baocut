@@ -12,8 +12,12 @@ browser refresh is enough to load the new page.
 
 Projects created with `project create` in the shared projects library are
 registered globally and served automatically at `<url>/projects/<id>/` (see
-[workflows.md](workflows.md)). For a project outside the library, mount it
-explicitly:
+[workflows.md](workflows.md)). `<url>/projects/` itself is the "My projects"
+list page — the same single-page app, showing every project the server can see
+as cards or a table with search, status, and a video thumbnail. The page's
+sidebar lists the same projects, so once a project is registered or mounted the
+user can switch to it from any project page. For a project outside the library,
+mount it explicitly:
 
 ```bash
 bin/baocut serve --background
@@ -57,10 +61,33 @@ curl -fsS -X POST "${URL}__bcut/mount" -d '{"id":"<name>","path":"<abs project p
   JSON, or Markdown exports. By default the preview and subtitle exports hide
   plain commas and periods in both the original and the translation while
   keeping question marks, exclamation marks, ellipses, and punctuation inside
-  data tokens; switch "commas / periods" to visible in the style pane when
-  the user wants verbatim punctuation.
+  data tokens; switch "commas / periods" to visible in the style panel when
+  the user wants verbatim punctuation. The style panel is not a tab — it slides
+  over the side pane, opened from the stage toolbar's subtitle-style button or
+  the `/style` deep link.
 - When the page and the CLI work at the same time, the CLI's conflict and
   skip reports are authoritative.
+
+## Stage selection and overlay elements
+
+- Clicking the canvas is a transport control first: while playing, a click
+  pauses and opens a two-second selection window; a second click inside that
+  window selects the subtitle. Clicking a paused stage with nothing selected
+  just resumes playback. To select the on-screen subtitle directly, press the
+  stage toolbar's subtitle-style button — it selects the subtitle and opens the
+  style panel in one step, and the selection survives the playhead crossing cue
+  boundaries. Escape clears the selection.
+- The Transcript and Subtitle tabs always preview the original text only; the
+  bilingual/translated/original display mode belongs to the Translate tab.
+- Text, image, and watermark overlays live on the timeline, not in the
+  transcript. Add them from the transport bar's "Add" menu, or from the stage
+  toolbar's Watermark button for a whole-video watermark. Selecting one opens
+  its inspector (watermarks open the watermark panel), where content, time
+  window, transform, position, text style, and tiling are edited; the timeline
+  shows one row per overlay lane, and blocks can be dragged or trimmed. Page
+  and CLI write the same element truth and the same project history — the CLI
+  equivalents are in [elements.md](elements.md). B-roll video overlays are not
+  available on the page yet.
 
 ## Applying page edits
 
@@ -96,7 +123,8 @@ bypass the CLI to rewrite the transcript.
 
 ## History and recovery
 
-Prefer the page's history UI to restore a version, then run:
+Prefer the page's version history — the clock button in the Transcript panel's
+tool row — to restore a version, then run:
 
 ```bash
 bin/baocut studio sync "/path/demo.bcut" --json

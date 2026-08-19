@@ -422,7 +422,7 @@ function CanvasTextEditor({ edit, frameWidth, frameHeight, onCommit, onCancel })
       className="bcs-canvas-editor"
       defaultValue={edit.value}
       spellCheck={false}
-      aria-label={edit.line === 'trans' ? '编辑译文字幕' : '编辑原文字幕'}
+      aria-label={edit.label || (edit.line === 'trans' ? '编辑译文字幕' : '编辑原文字幕')}
       style={{
         left,
         top,
@@ -480,6 +480,14 @@ function KonvaPreview({
   onEditLine,
   onMoveBy,
   onMoveLine,
+  // 叠加元素（文本 / 图片 / 水印）：几何与绘制在 elements-stage.jsx，这里只接线。
+  elements,
+  elementsKey,
+  selectedElementId,
+  editingElementId,
+  onElementSelect,
+  onElementMove,
+  onElementEdit,
 }) {
   const hostRef = useRef(null);
   const sceneRef = useRef(null);
@@ -490,8 +498,11 @@ function KonvaPreview({
   const lastClickActionRef = useRef(null);
   const editSuppressedUntilRef = useRef(0);
   const [fontReady, setFontReady] = useState(false);
+  const elementsRef = useRef(null);
+  const [elementRepaint, setElementRepaint] = useState(0);
   actionRef.current = {
     onCanvasPress, onSelectLine, onEditLine, onMoveBy, onMoveLine,
+    onElementSelect, onElementMove, onElementEdit,
     playing, selected, selectedLine,
   };
 
@@ -513,10 +524,14 @@ function KonvaPreview({
     const stage = new K.Stage({ container: hostRef.current, width, height });
     const mediaLayer = new K.Layer();
     const overlayLayer = new K.Layer();
+    // 元素层在字幕层之上：§3.6 的合成序是 主画面 → overlay 轨 → 水印，字幕不占轨道
+    // 而是垫在所有 overlay 之下。要把某个元素压到字幕之下就得改合成序，不在本层解决。
+    const elementLayer = new K.Layer();
     stage.add(mediaLayer);
     stage.add(overlayLayer);
+    stage.add(elementLayer);
     const animation = new K.Animation(() => {}, mediaLayer);
-    sceneRef.current = { stage, mediaLayer, overlayLayer, animation };
+    sceneRef.current = { stage, mediaLayer, overlayLayer, elementLayer, animation };
     return () => {
       animation.stop();
       stage.destroy();
@@ -937,6 +952,36 @@ function KonvaPreview({
     displayStart,
   ]);
 
+  // 叠加元素层：可见元素集合、几何、选中/编辑态变化时整层重建（元素以个位数计，
+  // 逐帧 diff 不值得）。elementsKey 由舞台按"影响画面的字段"算出，播放头每帧变化
+  // 但元素没变时不重建。
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    // 回调一律经 actionRef 取当前值：层不因为父组件换了闭包就重建。
+    elementsRef.current = window.BCSElements.renderElements({
+      layer: scene.elementLayer,
+      stage: scene.stage,
+      elements: elements || [],
+      width,
+      height,
+      selectedId: selectedElementId,
+      editingId: editingElementId,
+      playing,
+      mediaURL: (srcId) => (window.BCS_TIMELINE
+        ? window.BCS_TIMELINE.mediaURL(srcId)
+        : '__bcut/media?src=' + encodeURIComponent(srcId)),
+      actions: {
+        press: (options) => actionRef.current.onCanvasPress(options),
+        select: (element) => actionRef.current.onElementSelect(element),
+        move: (element, dx, dy) => actionRef.current.onElementMove(element, dx, dy),
+        edit: (element, rect, metrics) => actionRef.current.onElementEdit(element, rect, metrics),
+        // 图片解码完成后再画一次：首帧拿不到自然尺寸，几何就还算不出来。
+        onImageReady: () => setElementRepaint((value) => value + 1),
+      },
+    });
+  }, [elementsKey, width, height, selectedElementId, editingElementId, playing, elementRepaint]);
+
   // 行级选中变化不重建节点：sel.line 只改拖拽目标与包围框，双击窗口因此不会被
   // 第一次点击打断。
   useEffect(() => {
@@ -966,7 +1011,7 @@ function KonvaPreview({
       className="bcs-konva-preview"
       role="group"
       tabIndex="0"
-      aria-label="Canvas 视频与字幕预览：单击画面播放或暂停；暂停后单击原文行或译文行可单独选中，Shift 单击另一行整体选中；已选中且暂停时可拖拽该行或双击编辑"
+      aria-label="Canvas 视频、字幕与叠加元素预览：单击画面播放或暂停；暂停后单击原文行或译文行可单独选中，Shift 单击另一行整体选中；也可点传输条的「字幕样式」按钮直接选中画面上的字幕；已选中且暂停时可拖拽该行或双击编辑；文本、图片与水印元素同样单击选中、拖拽移动，文本元素双击可改文字，⌫ 删除"
     />
   );
 }
@@ -975,6 +1020,9 @@ window.BCSCanvas = {
   KonvaPreview,
   CanvasTextEditor,
   lineMetrics,
+  // textAttrs 给 elements-stage.jsx 用：文本元素的字形属性（字体/描边/阴影/字距）
+  // 必须与字幕行同一份推导，否则同一套 style 在两处画出两种样子。
+  textAttrs,
   canvasColor,
   karaokeProgress,
 };

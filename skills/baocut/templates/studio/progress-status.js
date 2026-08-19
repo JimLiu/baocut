@@ -33,7 +33,8 @@
     'refine-align': 'aligning',
     sync: 'syncing',
   };
-  // URL 末段的 tab 名不是项目 id（见 store.jsx 的 TAB_PATH_RE）。
+  // URL 末段的 tab 名不是项目 id（见 style-route.js 的 PATH_RE；style 仍是有效深链，
+  // 它现在解释为「transcript + 打开样式层」）。
   const TAB_SEGMENTS = ['subtitle', 'transcript', 'translation', 'translate', 'style'];
 
   // 路径比较：jobs.json 记的是 CLI 拿到的原样路径（未 canonicalize），

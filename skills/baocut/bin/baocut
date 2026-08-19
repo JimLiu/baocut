@@ -32,6 +32,9 @@ test -n "$skill_version" && test -n "$min_app_version" || {
 #      source tree, use the workspace build. Long local inference commands
 #      automatically prepare an optimized release build instead of running a
 #      newer debug binary; other commands use the newest release/debug build.
+#      Only builds for the host architecture count (core/target/{release,debug}
+#      and core/target/<host-triple>/{release,debug}); a foreign-architecture
+#      build such as an x86_64 binary on Apple Silicon is never picked up.
 #   3. Released install: the CLI embedded in BaoCut.app (system or per-user
 #      Applications; every App release ships its matching baocut-cli).
 #   4. A `bcut` on PATH.
@@ -44,8 +47,50 @@ test -n "$skill_version" && test -n "$min_app_version" || {
 cli=
 cargo_manifest=
 cli_source=
+dev_root_found=
 long_local_inference=0
 introspection_command=0
+
+# Host architecture, normalized to the Rust target-arch spelling so it can be
+# compared with the `target` reported by `bcut --json version`.
+host_arch=$(uname -m 2>/dev/null || echo unknown)
+case "$host_arch" in
+    arm64|aarch64) host_arch=aarch64 ;;
+    x86_64|amd64) host_arch=x86_64 ;;
+esac
+host_os=$(uname -s 2>/dev/null || echo unknown)
+case "$host_os" in
+    Darwin) host_triple=$host_arch-apple-darwin ;;
+    Linux) host_triple=$host_arch-unknown-linux-gnu ;;
+    *) host_triple= ;;
+esac
+
+# cargo is frequently absent from a non-interactive shell's PATH even though
+# rustup is installed (observed: the resolver fell back to an outdated
+# BaoCut.app CLI and reported "Update BaoCut.app" inside a source checkout).
+# Look in the standard rustup/homebrew locations before giving up on it.
+ensure_cargo_on_path() {
+    command -v cargo >/dev/null 2>&1 && return 0
+    for cargo_dir in \
+        "${CARGO_HOME:-${HOME:-/nonexistent}/.cargo}/bin" \
+        /opt/homebrew/opt/rustup/bin \
+        /usr/local/opt/rustup/bin
+    do
+        if test -x "$cargo_dir/cargo"; then
+            PATH="$cargo_dir:$PATH"
+            export PATH
+            return 0
+        fi
+    done
+    for toolchain_bin in "${RUSTUP_HOME:-${HOME:-/nonexistent}/.rustup}"/toolchains/stable-*/bin; do
+        if test -x "$toolchain_bin/cargo"; then
+            PATH="$toolchain_bin:$PATH"
+            export PATH
+            return 0
+        fi
+    done
+    return 1
+}
 for argument in "$@"; do
     case "$argument" in
         auto|transcribe) long_local_inference=1 ;;
@@ -71,12 +116,28 @@ if test -z "$cli" && test "${BAOCUT_SKILL_NO_DEV:-0}" != 1; then
     dev_root=$skill_root
     while test "$dev_root" != / && test -n "$dev_root"; do
         if test -f "$dev_root/core/Cargo.toml" && test -d "$dev_root/apps/cli"; then
+            dev_root_found=$dev_root
             release=$dev_root/core/target/release/bcut
             debug=$dev_root/core/target/debug/bcut
+            # `cargo build --target <host-triple>` lands under a triple
+            # subdirectory; accept those too, but only for the host triple —
+            # a foreign-architecture build is not a usable workspace CLI.
+            if test -n "$host_triple"; then
+                triple_release=$dev_root/core/target/$host_triple/release/bcut
+                triple_debug=$dev_root/core/target/$host_triple/debug/bcut
+                if test -x "$triple_release" && { ! test -x "$release" || test "$triple_release" -nt "$release"; }; then
+                    release=$triple_release
+                fi
+                if test -x "$triple_debug" && { ! test -x "$debug" || test "$triple_debug" -nt "$debug"; }; then
+                    debug=$triple_debug
+                fi
+            fi
             debug_is_newest=0
             if test -x "$debug" && { ! test -x "$release" || test "$debug" -nt "$release"; }; then
                 debug_is_newest=1
             fi
+            # Both `cargo run` and scripts/dev/prepare-bcut.sh need cargo.
+            ensure_cargo_on_path || true
             # Use the newest workspace binary so Agent discovery never reads a
             # stale contract after a debug-only development build. Local ML
             # inference is the exception: debug Rust roughly doubles runtime,
@@ -99,6 +160,9 @@ if test -z "$cli" && test "${BAOCUT_SKILL_NO_DEV:-0}" != 1; then
                 cli=$release
             elif command -v cargo >/dev/null 2>&1; then
                 cargo_manifest=$dev_root/core/Cargo.toml
+                echo "baocut skill: no workspace CLI is built under $dev_root/core/target; running the sources via 'cargo run' (a full compile can take many minutes — build once with $dev_root/scripts/dev/prepare-bcut.sh, or point BAOCUT_CLI at a native bcut, to skip it)" >&2
+            else
+                echo "baocut skill: development checkout detected at $dev_root, but no workspace CLI is built (core/target/{release,debug}/bcut) and cargo is not available; falling back to the installed BaoCut CLI. Build with $dev_root/scripts/dev/prepare-bcut.sh or set BAOCUT_CLI to use the checkout." >&2
             fi
             if test -n "$cli$cargo_manifest"; then
                 cli_source=dev
@@ -210,7 +274,41 @@ handshake() {
         handshake_failure=old
         return 1
     fi
+    cli_target=$(printf '%s\n' "$handshake_json" | sed -n 's/.*"target":"\([^"]*\)".*/\1/p')
+    # `rosetta` is reported by current CLIs; older ones omit it and the
+    # target-vs-host comparison alone still catches the foreign build.
+    case "$handshake_json" in
+        *'"rosetta":true'*) cli_rosetta=true ;;
+        *) cli_rosetta=false ;;
+    esac
     return 0
+}
+
+# A CLI built for another architecture still runs on macOS (Rosetta 2) but
+# local ASR/VAD inference under binary translation is an order of magnitude
+# slower and it cannot use MLX: an x86_64 debug build once sat 40+ minutes in
+# VAD on a 100-second clip that the native build finished in about three.
+# Refuse long local inference on such a binary unless the user opts in; warn
+# for every other command so the mismatch is visible in the transcript.
+cli_target=
+cli_rosetta=
+check_cli_architecture() {
+    cli_arch=
+    case "$cli_target" in
+        aarch64-*|arm64-*) cli_arch=aarch64 ;;
+        x86_64-*) cli_arch=x86_64 ;;
+        *) return 0 ;;
+    esac
+    if test "$cli_arch" = "$host_arch" && test "$cli_rosetta" != true; then
+        return 0
+    fi
+    origin=$cli
+    test -n "$cargo_manifest" && origin="cargo run ($cargo_manifest)"
+    if test "$long_local_inference" = 1 && test "${BAOCUT_ALLOW_FOREIGN_ARCH:-0}" != 1; then
+        echo "baocut skill: refusing local inference on a $cli_target bcut ($origin) — this host is $host_arch$( test "$cli_rosetta" = true && printf ' and the CLI is running under Rosetta' ). Use a native build (BaoCut.app's bundled CLI, core/target/{release,debug}/bcut from a native cargo build, or the pinned release CLI), or set BAOCUT_ALLOW_FOREIGN_ARCH=1 to run it anyway (expect >10x slower transcription)." >&2
+        exit 3
+    fi
+    echo "baocut skill: WARNING the resolved bcut ($origin) targets $cli_target but this host is $host_arch; local inference on it would be very slow. Prefer a native build." >&2
 }
 
 report_failure() {
@@ -235,6 +333,9 @@ report_failure() {
                     ;;
                 *)
                     echo "BaoCut skill v$skill_version requires BaoCut App >= $min_app_version; found $app_version. Update BaoCut.app." >&2
+                    if test -n "$dev_root_found"; then
+                        echo "baocut skill: (a development checkout at $dev_root_found was detected but had no usable workspace CLI; build it with $dev_root_found/scripts/dev/prepare-bcut.sh or set BAOCUT_CLI to a native bcut instead of updating the App)" >&2
+                    fi
                     ;;
             esac
             ;;
@@ -347,6 +448,7 @@ if test -n "$handshake_failure"; then
         exit "$handshake_exit"
     fi
 fi
+check_cli_architecture
 
 export BAOCUT_SKILL_VERSION="$skill_version"
 export BAOCUT_SKILL_MIN_APP="$min_app_version"

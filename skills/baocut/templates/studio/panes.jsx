@@ -5,27 +5,363 @@
 //                     一个事务，撤销时是一步），外加时间码编辑与逐句播放。
 //   · Translate tab — per-cue translation editing, untranslated / out-of-date
 //                     chips, AI actions routed to the Agent.
-//   · Transcript tab — read & seek view (paragraph projection, karaoke follow);
-//                     text edits live in the Subtitle tab.
+//   · Transcript tab — paragraph projection with whole-paragraph editing;
+//                     Enter splits, edge ⌫/⌦ merges, and live text rides in the
+//                     same sourceParagraph transaction.
 (() => {
 const { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } = React;
-const { Ic, QBtn, Menu, useApp, usePlayer, useActive, fmt, toast, TimecodeChip, LiveHeader, spHue } = window;
+const { Ic, QBtn, Menu, useApp, usePlayer, useActive, fmt, toast, EditableText, TimecodeChip, LiveHeader, spHue } = window;
 const V = window.BCS_VLIST;
+const F = window.BCS_FIND;
+if (!F) throw new Error('find-replace.js failed to load');
+const TP = window.BCS_TRANSLATE_PANE;
+if (!TP) throw new Error('translate-pane.js failed to load');
 
 const fmtRange = (a, b) => fmt(a) + '–' + fmt(b);
 
-// scroll the selected/active card into view inside a pane scroller
-function useFollow(scrollRef, attr, activeId, deps) {
+// 三面板共用播放跟随：每个稳定 item 变更时居中；Transcript 还可传入词级
+// focusSelector/focusKey，让同一段落只在当前词跨换行时再次居中。
+function usePlaybackFollow(scrollRef, attr, activeId, playing, virtualHandle, focusSelector, focusKey, clock) {
+  const [following, setFollowing] = useState(true);
+  const [offDir, setOffDir] = useState(null);
+  const followingRef = useRef(true); followingRef.current = following;
+  const playingRef = useRef(playing); playingRef.current = playing;
+  const wasPlaying = useRef(false);
+  const lastClock = useRef(clock);
+  const lastTarget = useRef(null);
+
+  const activeElement = useCallback(() => {
+    const c = scrollRef.current;
+    if (!c || !activeId || !attr) return null;
+    const row = c.querySelector('[' + attr + '="' + activeId + '"]');
+    return row && focusSelector ? (row.querySelector(focusSelector) || row) : row;
+  }, [scrollRef, attr, activeId, focusSelector]);
+
+  const center = useCallback((smooth) => {
+    if (!activeId) return false;
+    const handle = virtualHandle && virtualHandle.current;
+    if (handle && handle.centerKey) return handle.centerKey(activeId, smooth);
+    const c = scrollRef.current, el = activeElement();
+    if (!c || !el) return false;
+    const cr = c.getBoundingClientRect(), er = el.getBoundingClientRect();
+    const target = c.scrollTop + (er.top - cr.top) - cr.height / 2 + er.height / 2;
+    const maximum = Math.max(0, c.scrollHeight - c.clientHeight);
+    const clamped = Math.floor(Math.max(0, Math.min(maximum, target)));
+    // 当前词在同一视觉换行内时 target 不变；不要每个词都重启动 CSS smooth。
+    if (smooth && lastTarget.current != null && Math.abs(lastTarget.current - clamped) < 1) return true;
+    lastTarget.current = clamped;
+    c.scrollTo({ top: clamped, behavior: smooth ? 'smooth' : 'auto' });
+    return true;
+  }, [scrollRef, virtualHandle, activeId, activeElement]);
+
+  const recompute = useCallback(() => {
+    if (!activeId) { setOffDir(null); return; }
+    const handle = virtualHandle && virtualHandle.current;
+    if (handle && handle.directionForKey) {
+      setOffDir(handle.directionForKey(activeId, 12));
+      return;
+    }
+    const c = scrollRef.current, el = activeElement();
+    if (!c || !el) { setOffDir(null); return; }
+    const cr = c.getBoundingClientRect(), er = el.getBoundingClientRect();
+    if (er.bottom <= cr.top + 12) setOffDir('up');
+    else if (er.top >= cr.bottom - 12) setOffDir('down');
+    else setOffDir(null);
+  }, [scrollRef, virtualHandle, activeId, activeElement]);
+
+  useEffect(() => {
+    if (playing && !wasPlaying.current) {
+      followingRef.current = true;
+      setFollowing(true);
+      lastTarget.current = null;
+    }
+    wasPlaying.current = playing;
+  }, [playing]);
+
+  useEffect(() => {
+    const previous = lastClock.current;
+    lastClock.current = clock;
+    if (!playing || clock == null || previous == null) return;
+    const delta = clock - previous;
+    if (delta >= 0 && delta <= 0.75) return;
+    followingRef.current = true;
+    setFollowing(true);
+    lastTarget.current = null;
+  }, [clock, playing]);
+
+  useEffect(() => {
+    if (!playing || !followingRef.current || !activeId) return;
+    center(true);
+    const raf = requestAnimationFrame(recompute);
+    return () => cancelAnimationFrame(raf);
+  }, [activeId, focusKey, playing, following, center, recompute]);
+
   useEffect(() => {
     const c = scrollRef.current;
-    if (!c || !activeId) return;
-    const el = c.querySelector('[' + attr + '="' + activeId + '"]');
+    if (!c) return;
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => { raf = 0; recompute(); });
+    };
+    const onUserScroll = () => {
+      if (!playingRef.current || !followingRef.current) return;
+      followingRef.current = false;
+      setFollowing(false);
+    };
+    c.addEventListener('scroll', onScroll, { passive: true });
+    c.addEventListener('wheel', onUserScroll, { passive: true });
+    c.addEventListener('touchmove', onUserScroll, { passive: true });
+    return () => {
+      c.removeEventListener('scroll', onScroll);
+      c.removeEventListener('wheel', onUserScroll);
+      c.removeEventListener('touchmove', onUserScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [scrollRef, recompute]);
+
+  useEffect(() => { recompute(); }, [activeId, focusKey, playing, recompute]);
+
+  const jumpToCurrent = useCallback(() => {
+    followingRef.current = true;
+    setFollowing(true);
+    center(false);
+    setOffDir(null);
+  }, [center]);
+
+  return { following, offDir, jumpToCurrent };
+}
+
+function FollowPill({ direction, title, onClick, top }) {
+  if (!direction) return null;
+  return (
+    <button className={'vk-followpill' + (top ? ' vk-followpill--top' : '')}
+      onClick={onClick} aria-label={title}>
+      <Ic name={direction === 'up' ? 'chevron-up' : 'chevron-down'} size={16} />
+      {title}
+    </button>
+  );
+}
+
+// ---------- shared: find & replace（原型 transcript/subtitle/translate 三面板同款） ----------
+// 一份匹配列表同时驱动计数、导航、高亮与替换（纯逻辑在 studio/find-replace.js）。
+// 替换走的仍是各面板既有写路径：editParagraph / editCue / editTrans —— 查找栏
+// 不新开第二条文本真相，也不碰派生投影。
+const NO_MARKS = [];
+
+function Highlight({ text, matches, curStart }) {
+  const body = String(text == null ? '' : text);
+  if (!matches || !matches.length) return body;
+  const out = [];
+  let last = 0;
+  matches.forEach((m) => {
+    if (m.start > last) out.push(body.slice(last, m.start));
+    const isCur = curStart === m.start;
+    out.push(
+      <mark key={m.start} className={'vk-mark' + (isCur ? ' vk-mark--cur' : '')}
+        data-match-cur={isCur ? '1' : undefined}>{body.slice(m.start, m.end)}</mark>,
+    );
+    last = m.end;
+  });
+  if (last < body.length) out.push(body.slice(last));
+  return out;
+}
+
+// items 必须由调用方 memo 住（[{ key, text, …自带字段 }]）。
+function useFind(items) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const [rq, setRq] = useState('');
+  const [opts, setOpts] = useState(F.DEFAULT_OPTS);
+  const [idx, setIdx] = useState(0);
+  const inputRef = useRef(null);
+  const query = open ? q.trim() : '';
+  const matches = useMemo(() => F.collect(items, query, opts), [items, query, opts]);
+  const byKey = useMemo(() => F.groupByKey(matches), [matches]);
+  const cur = F.currentOf(matches, idx);
+  useEffect(() => { setIdx(0); }, [query, opts]);
+  useEffect(() => { if (open && inputRef.current) inputRef.current.focus(); }, [open]);
+  const close = useCallback(() => setOpen(false), []);
+  const goto = useCallback((dir) => setIdx((i) => F.cycle(i, matches.length, dir)), [matches.length]);
+  return {
+    open, setOpen, close, toggle: () => setOpen((v) => !v), goto, inputRef,
+    q, setQ, rq, setRq, opts, setOpts, idx, query,
+    matches, byKey, cur,
+    marksFor: (key) => byKey.get(key) || NO_MARKS,
+    curStartIn: (key) => (cur && cur.key === key ? cur.start : null),
+    // 当前匹配的稳定标识：面板拿它做滚动依赖，光标停在同一处就不重复滚。
+    curKey: cur ? cur.key + ':' + cur.start : null,
+  };
+}
+
+// apply(entry) 把一条 replacePlan 结果写回（entry.item 带着调用方塞进 items 的字段）。
+function useReplace(find, apply) {
+  const run = (matches, single) => {
+    const plan = F.replacePlan(matches, find.rq);
+    if (!plan.length) { toast('没有可替换的内容', { variant: 'neutral' }); return; }
+    const hits = plan.reduce((sum, entry) => sum + entry.changed, 0);
+    plan.forEach(apply);
+    // 每条目一次编辑事务：整批替换在版本历史里是 plan.length 步，不是一步。
+    toast(single ? '已替换 1 处'
+      : '已替换 ' + hits + ' 处' + (plan.length > 1 ? '（' + plan.length + ' 条，可逐条撤销）' : ''),
+      { variant: 'positive' });
+  };
+  return [
+    () => { if (find.cur) run([find.cur], true); },
+    () => run(find.matches, false),
+  ];
+}
+
+// accessory：Translate 面板把「替换范围」选择器装在第二行（Mac
+// `FindReplaceBarView.accessory` + `layoutWithAccessory`，位置在替换框与
+// Aa/W/.* 之间）。其它面板没有这个控件，保持原来的两行布局。
+function FindBar({ find, placeholder, onReplace, onReplaceAll, accessory }) {
+  const { matches, opts, setOpts } = find;
+  const opt = (key, label, tip) => (
+    <button className={'vk-findbar__opt' + (opts[key] ? ' vk-findbar__opt--on' : '')}
+      data-tip={tip} aria-label={tip} aria-pressed={!!opts[key]}
+      onClick={() => setOpts((o) => ({ ...o, [key]: !o[key] }))}>{label}</button>
+  );
+  const replaceInput = (className, style) => (
+    <input className={className} style={style} placeholder="替换为"
+      value={find.rq} aria-label="替换为" onChange={(e) => find.setRq(e.target.value)}
+      onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); find.close(); } }} />
+  );
+  const optButtons = (
+    <>
+      {opt('caseSens', 'Aa', '区分大小写')}
+      {opt('word', 'W', '全词匹配')}
+      {opt('regex', '.*', '正则表达式')}
+    </>
+  );
+  const actions = (
+    <>
+      <button className="s2-btn s2-btn--S s2-btn--secondary" disabled={!find.cur} onClick={onReplace}>替换</button>
+      <button className="s2-btn s2-btn--S s2-btn--secondary" disabled={!matches.length} onClick={onReplaceAll}>全部</button>
+    </>
+  );
+  return (
+    <div className={'vk-findbar' + (accessory ? ' tr-findbar' : '')} data-screen-label="Find and replace">
+      <div className="vk-row">
+        <div className="vk-search" style={{ flex: 1 }}>
+          <Ic name="search" size={13} />
+          <input ref={find.inputRef} className="vk-input" style={{ height: 26 }} placeholder={placeholder}
+            value={find.q} aria-label="查找" onChange={(e) => find.setQ(e.target.value)}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === 'Enter') { e.preventDefault(); find.goto(e.shiftKey ? -1 : 1); }
+              if (e.key === 'Escape') { e.preventDefault(); find.close(); }
+            }} />
+        </div>
+        <span className="vk-findbar__count vk-mono">{F.countLabel(find.query, matches, find.idx)}</span>
+        <QBtn icon="chevron-up" size="S" tip="上一个匹配" disabled={!matches.length} onClick={() => find.goto(-1)} />
+        <QBtn icon="chevron-down" size="S" tip="下一个匹配" disabled={!matches.length} onClick={() => find.goto(1)} />
+        <QBtn icon="close" size="S" tip="关闭查找" onClick={find.close} />
+      </div>
+      {accessory ? (
+        <div className="tr-findbar__replace">
+          {replaceInput('vk-input tr-findbar__replacebox', { height: 26 })}
+          {accessory}
+          <div className="tr-findbar__opts">{optButtons}</div>
+          <div className="tr-findbar__actions">{actions}</div>
+        </div>
+      ) : (
+        <div className="vk-row" style={{ marginTop: 6 }}>
+          {replaceInput('vk-input', { height: 26, flex: 1 })}
+          {optButtons}
+          {actions}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Translate 专属：查找栏里的「替换范围」选择器（Mac
+// `TranslatePaneFindBar.openScopeMenu()`；原型 translate.jsx 的 `tr-findscope`）。
+function ScopePicker({ scope, onPick }) {
+  const [open, setOpen] = useState(false);
+  const btn = useRef(null);
+  const info = TP.scopeInfo(scope);
+  const tip = info.tip;
+  return (
+    <>
+      <button ref={btn} className="vk-input vk-pickerbtn tr-findscope" data-tip={tip} aria-label={tip}
+        aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(true)}>
+        <span>{info.short}</span><Ic name="chevron-down" size={12} />
+      </button>
+      {open ? (
+        <Menu anchorRef={btn} onClose={() => setOpen(false)} align="start" width={258}
+          items={TP.SCOPES.map((it) => ({
+            label: it.label,
+            suffix: it.id === scope ? '已选' : undefined, suffixAccent: it.id === scope,
+            onClick: () => onPick(it.id),
+          }))} />
+      ) : null}
+    </>
+  );
+}
+
+// 把当前匹配滚进视口中央（虚拟列表先把目标行滚出来，再对准 <mark> 本身）。
+function centerMatch(scrollRef, virtualHandle, cur) {
+  if (!cur) return;
+  const handle = virtualHandle && virtualHandle.current;
+  if (handle && handle.centerKey) handle.centerKey(cur.key, true);
+  requestAnimationFrame(() => {
+    const c = scrollRef.current;
+    if (!c) return;
+    const el = c.querySelector('[data-match-cur]');
     if (!el) return;
     const cr = c.getBoundingClientRect(), er = el.getBoundingClientRect();
-    if (er.top < cr.top + 8 || er.bottom > cr.bottom - 8) {
-      c.scrollTo({ top: c.scrollTop + (er.top - cr.top) - cr.height / 2 + er.height / 2, behavior: 'smooth' });
-    }
-  }, deps);
+    if (er.top >= cr.top + 8 && er.bottom <= cr.bottom - 8) return;   // 已经在视口里
+    const target = c.scrollTop + (er.top - cr.top) - cr.height / 2 + er.height / 2;
+    const maximum = Math.max(0, c.scrollHeight - c.clientHeight);
+    c.scrollTo({ top: Math.floor(Math.max(0, Math.min(maximum, target))), behavior: 'smooth' });
+  });
+}
+
+// 版本历史入口（原型 transcript.jsx 工具行的 clock 按钮 = Versions & branches）。
+function HistoryBtn() {
+  const [open, setOpen] = useState(false);
+  const btn = useRef(null);
+  return (
+    <>
+      <QBtn icon="clock" size="S" tip="版本历史" selected={open} refEl={btn} onClick={() => setOpen(true)} />
+      {open ? <window.HistoryPop anchorRef={btn} onClose={() => setOpen(false)} /> : null}
+    </>
+  );
+}
+
+// AI 工具（原型工具行右端的方形 accent 按钮）。Studio 的 AI 动作一律由 Agent
+// 执行：点菜单项 = 往 edits.json 的 requests[] 入队并弹说明对话框（agent.jsx 的
+// useAgentAction），标题栏的 AgentQueue 随后显示待处理请求、可撤回。
+// 只列 Studio 有对应 Agent/CLI 流程的动作；item.tab 会先把面板切过去，让请求的
+// 结果落在用户正看着的 tab 上。
+// 例外：带 item.onClick 的项是纯前端动作（目前只有「复制全部译文」，Mac
+// `TranslatePaneActions.copyAll()` 同样不经 AI 流程），点它不入队、不弹说明框。
+function AiMenuBtn({ items, run, disabled }) {
+  const app = useApp();
+  const [open, setOpen] = useState(false);
+  const btn = useRef(null);
+  return (
+    <>
+      <button ref={btn} className="s2-btn s2-btn--S s2-btn--accent bcs-aibtn" disabled={disabled}
+        data-tip="AI 工具" aria-label="AI 工具" aria-haspopup="menu" aria-expanded={open}
+        onClick={() => setOpen(true)}>
+        <Ic name="ai-sparkle" size={16} />
+      </button>
+      {open ? (
+        <Menu anchorRef={btn} onClose={() => setOpen(false)} width={248}
+          items={items.map((it) => (it === '-' ? '-' : {
+            icon: it.icon, label: it.label, disabled: it.disabled,
+            onClick: () => {
+              if (it.onClick) { it.onClick(); return; }
+              if (it.tab) app.setTab(it.tab);
+              run(it.action, it.label, it.params);
+            },
+          }))} />
+      ) : null}
+    </>
+  );
 }
 
 // Pane 现在按 tab 条件挂载，切走即卸载。滚动位置存在 store 的可变对象里，
@@ -48,7 +384,7 @@ function usePaneScroll(ref, key) {
 // onKeyOps 的处理函数返回 true 表示"结构事务已发出"，此时才取消 blur 提交
 // （文本已经作为同一事务的第一个 op 一起发走了）；返回 false 表示没做动作，
 // 编辑框原样留着，用户输入不丢。
-function EditableBlock({ value, placeholder, className, lang, onCommit, onKeyOps, caretAt, onCaretDone, onEditingChange }) {
+function EditableBlock({ value, viewValue, placeholder, className, lang, onCommit, onKeyOps, caretAt, onCaretDone, onEditingChange }) {
   const [editing, setEditing] = useState(false);
   const [caretSeq, setCaretSeq] = useState(0);
   const ref = useRef(null), cancel = useRef(false);
@@ -131,7 +467,7 @@ function EditableBlock({ value, placeholder, className, lang, onCommit, onKeyOps
     <div key="view" className={className + (empty ? ' tg-trans--empty' : '')} data-ph={placeholder} lang={lang}
       onMouseDown={(e) => { point.current = { x: e.clientX, y: e.clientY }; }}
       onClick={() => setEditing(true)}>
-      {value}
+      {viewValue == null ? value : viewValue}
     </div>
   );
 }
@@ -198,6 +534,25 @@ function byChapter(doc, rows, startOf) {
   return out.filter((c) => c.rows.length);
 }
 
+// Normal transcript body: neutral cue zebra + durable cut-word strikes. The
+// edit branch remains plain text, so display-only attributes never leak into
+// sourceParagraph commits.
+function TranscriptRichText({ paragraph, cuts }) {
+  const TW = window.BCS_TRANSCRIPT_WORDS;
+  return paragraph.cues.map((cue, cueIndex) => (
+    <React.Fragment key={cue.id}>
+      {cueIndex ? ' ' : ''}
+      <span className={'vk-cue' + (cueIndex % 2 ? ' vk-cue--alt' : '')}>
+        {TW.cueRuns(cue, cuts).map((run, runIndex) => (
+          run.wordId ? (
+            <span key={run.wordId} className={run.cut ? 'vk-cutword' : undefined}>{run.text}</span>
+          ) : <React.Fragment key={'raw-' + runIndex}>{run.text}</React.Fragment>
+        ))}
+      </span>
+    </React.Fragment>
+  ));
+}
+
 // ===================== Transcript =====================
 function TranscriptPane() {
   const app = useApp();
@@ -206,50 +561,125 @@ function TranscriptPane() {
   const player = usePlayer();   // Transcript 是词级卡拉 OK，本来就要逐帧
   usePaneScroll(scrollRef, 'transcript');
   const paras = useMemo(() => app.paragraphs(doc), [doc]);
+  const cuts = useMemo(() => (((doc.timeline || {}).views || {}).main || {}).cuts || [], [doc]);
+  const paraIndex = useMemo(
+    () => new Map(paras.map((paragraph, index) => [paragraph.id, index])),
+    [paras],
+  );
   const active = paras.find((p) => player.t >= p.start && player.t < p.end);
-  useFollow(scrollRef, 'data-para', active && active.id, [active && active.id, player.playing]);
+  let activeWordKey = active && active.id;
+  if (active) {
+    for (let cueIndex = 0; cueIndex < active.cues.length; cueIndex++) {
+      const cue = active.cues[cueIndex];
+      if (player.t < cue.start || player.t >= cue.end) continue;
+      const words = window.vkWordTimes(cue);
+      activeWordKey = cue.id + ':' + window.vkWordIdxAt(words, player.t);
+      break;
+    }
+  }
+  const follow = usePlaybackFollow(
+    scrollRef, 'data-para', active && active.id, player.playing, null,
+    '.vk-w--cur', activeWordKey, player.t,
+  );
+
+  // 查找与替换：段落是转写的编辑单位，替换整段落文本走 editParagraph。
+  const findItems = useMemo(() => paras.map((p) => ({ key: p.id, text: p.text, para: p })), [paras]);
+  const find = useFind(findItems);
+  const [replaceOne, replaceAll] = useReplace(find, (entry) => app.editParagraph(entry.item.para, entry.text));
+  useEffect(() => { centerMatch(scrollRef, null, find.cur); }, [find.curKey]);
+  const [runAgent, agentDialog] = window.useAgentAction();
+  // M69：还没识别过说话人的文档，这条流程的文案是"第一次识别"。Mac 读
+  // `doc.speakersIdentified`，其真实投影就是"说话人多于一个"
+  // （Adapters/ShellProjectAdapter.swift:2722 `speakersIdentified: speakers.count > 1`），
+  // 而 studio/data.json 的 `speakers` 表正是同一份数据，所以判据直接照搬。
+  const speakersIdentified = Object.keys(doc.speakers || {}).length > 1;
 
   return (
     <div className="vk-transcript" data-screen-label="Transcript">
       <div className="vk-transcript__toolbar">
-        <span className="vk-dim" style={{ fontSize: 12 }}>逐句编辑在 Subtitle 标签 · 点击词语跳转</span>
+        <QBtn icon="search" size="S" tip="查找和替换" selected={find.open} onClick={find.toggle} />
+        <HistoryBtn />
+        <span className="vk-spacer"></span>
+        <window.StylePicker ctx="sub" />
+        {/* 顺序对齐 Mac TranscriptPaneToolbar.swift:46-87：语义分段（最基础的
+            那一段坐在 AI 组最上面）→ 润色文稿 → 生成章节标题 → 识别说话人 →
+            分隔线 → 翻译字幕。Mac 在分隔线前还有「清理音频 / 建议 B-roll」，
+            Studio 没有对应流程，按 §3.9 直接省略而不是留占位项。 */}
+        <AiMenuBtn items={[
+          { icon: 'text-lines', label: '语义分段', action: 'segment' },
+          { icon: 'edit', label: '润色文稿', action: 'polish' },
+          { icon: 'bookmark', label: '生成章节标题', action: 'chapters' },
+          { icon: 'user-group', label: speakersIdentified ? '重新识别说话人' : '识别说话人', action: 'speakers' },
+          '-',
+          { icon: 'comment', label: '翻译字幕', action: 'translate', tab: 'translate' },
+        ]} run={runAgent} />
       </div>
+      {find.open ? (
+        <FindBar find={find} placeholder="在转写中查找" onReplace={replaceOne} onReplaceAll={replaceAll} />
+      ) : null}
+      {agentDialog}
       <div className="vk-transcript__scroll" ref={scrollRef}>
         {byChapter(doc, paras, (p) => p.start).map((c) => (
           <section className="vk-chapter" key={c.ci}>
-            <div className="vk-chapter__head">
-              <span className="vk-chapter__title">{c.ch.title}</span>
-              <span className="vk-mono vk-dim vk-chapter__range">{fmtRange(c.ch.start, c.ch.end)}</span>
-            </div>
+            <ChapterHead ch={c.ch} />
             {c.rows.map((p) => {
               const sp = doc.speakers[p.sp] || { name: p.sp, hue: 240 };
               const isActive = player.t >= p.start && player.t < p.end;
+              const index = paraIndex.get(p.id);
+              const previous = index > 0 ? paras[index - 1] : null;
+              const next = index + 1 < paras.length ? paras[index + 1] : null;
+              const mergeUp = previous && previous.sp === p.sp && previous.ch === p.ch
+                ? (caret) => app.mergeParagraph(p, caret.text, -1) : null;
+              const mergeDown = next && next.sp === p.sp && next.ch === p.ch
+                ? (caret) => app.mergeParagraph(p, caret.text, 1) : null;
+              // 命中的段落让位给高亮视图：卡拉 OK 与 cue 斑马纹此刻都让路，
+              // 否则 <mark> 会被逐词 span 切碎（原型 ParaBody §8.6 同序）。
+              const marks = find.marksFor(p.id);
               return (
                 <div key={p.id} data-para={p.id} className={'vk-group vk-para' + (isActive ? ' vk-para--active' : '')}
                   style={{ borderLeftColor: spHue(sp.hue) }}>
                   <div className="vk-group__head">
-                    <span className="vk-group__sp" style={{ color: `oklch(0.5 0.14 ${sp.hue})` }}>{sp.name}</span>
+                    <span className="vk-group__sp" style={{ color: `oklch(0.5 0.14 ${sp.hue})` }}>
+                      <EditableText value={sp.name} onCommit={(value) => app.editSpeaker(p.sp, value)}
+                        className="vk-group__sp-name" placeholder={p.sp} />
+                    </span>
                     <button className="vk-group__time vk-mono" data-tip="跳转到此处" onClick={() => app.seekSource('main', p.start)}>{fmtRange(p.start, p.end)}</button>
                     <PlayCueBtn cue={p} active={isActive} playing={player.playing} />
                   </div>
-                  <div className="vk-segtext vk-segtext--ro vk-segtext--words">
-                    {p.cues.map((cue, ci2) => {
-                      const wt = window.vkWordTimes({ text: cue.text, start: cue.start, end: cue.end });
-                      const playing = player.playing && player.t >= cue.start && player.t < cue.end;
-                      const cur = playing ? window.vkWordIdxAt(wt, player.t) : -1;
-                      return (
-                        <React.Fragment key={cue.id}>
-                          {ci2 ? ' ' : ''}
-                          {wt.map((w, i) => (
-                            <React.Fragment key={i}>{i ? ' ' : ''}
-                              <span className={'vk-w' + (cur >= 0 ? (i < cur ? ' vk-w--spoken' : i === cur ? ' vk-w--cur' : '') : ' vk-w--spoken')}
-                                onClick={() => app.seekSource('main', w.start)}>{w.w}</span>
-                            </React.Fragment>
-                          ))}
-                        </React.Fragment>
-                      );
-                    })}
-                  </div>
+                  {player.playing && isActive && !marks.length ? (
+                    <div className="vk-segtext vk-segtext--ro vk-segtext--words">
+                      {p.cues.map((cue, ci2) => {
+                        const wt = window.vkWordTimes({ text: cue.text, start: cue.start, end: cue.end });
+                        const playing = player.playing && player.t >= cue.start && player.t < cue.end;
+                        const cur = playing ? window.vkWordIdxAt(wt, player.t) : -1;
+                        return (
+                          <React.Fragment key={cue.id}>
+                            {ci2 ? ' ' : ''}
+                            {wt.map((w, i) => (
+                              <React.Fragment key={i}>{i ? ' ' : ''}
+                                <span className={'vk-w'
+                                  + (cur >= 0 ? (i < cur ? ' vk-w--spoken' : i === cur ? ' vk-w--cur' : '') : ' vk-w--spoken')
+                                  + (window.BCS_TRANSCRIPT_WORDS.wordIsCut(w, cuts) ? ' vk-cutword' : '')}
+                                  onClick={() => app.seekSource('main', w.start)}>{w.w}</span>
+                              </React.Fragment>
+                            ))}
+                          </React.Fragment>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <EditableBlock value={p.text} placeholder="输入转写段落…"
+                      className="vk-segtext vk-segtext--words"
+                      viewValue={marks.length
+                        ? <Highlight text={p.text} matches={marks} curStart={find.curStartIn(p.id)} />
+                        : <TranscriptRichText paragraph={p} cuts={cuts} />}
+                      onCommit={(value) => app.editParagraph(p, value)}
+                      onKeyOps={{
+                        split: (caret) => app.splitParagraphAtCaret(p, caret.text, caret.offset),
+                        mergeUp,
+                        mergeDown,
+                      }} />
+                  )}
                 </div>
               );
             })}
@@ -257,6 +687,10 @@ function TranscriptPane() {
         ))}
         <div style={{ height: 60 }}></div>
       </div>
+      {!follow.following && player.playing ? (
+        <FollowPill direction={follow.offDir} title="Jump to current word"
+          onClick={follow.jumpToCurrent} />
+      ) : null}
     </div>
   );
 }
@@ -264,7 +698,7 @@ function TranscriptPane() {
 // ===================== Subtitle =====================
 // React.memo：字幕表是全应用最长的列表，doc 不变时 cue 引用稳定（store 的 doc
 // 是 useMemo 出来的），所以只有 active 真的翻转的那一两张卡会重渲染。
-const CueCard = React.memo(function CueCard({ cue, num, prev, next, active, playing, caretAt, onCaretDone, onEditingChange }) {
+const CueCard = React.memo(function CueCard({ cue, num, prev, next, active, playing, caretAt, onCaretDone, onEditingChange, marks = NO_MARKS, curStart = null }) {
   const app = useApp();
   const { doc } = app;
   const sp = doc.speakers[cue.sp] || { name: cue.sp, hue: 240 };
@@ -313,8 +747,10 @@ const CueCard = React.memo(function CueCard({ cue, num, prev, next, active, play
         <span className="vk-spacer"></span>
         <CpsChip text={cue.text} dur={dur} lang={(doc.meta.sourceLang || {}).code} />
       </div>
-      {playing && active ? <Karaoke cue={cue} /> : (
+      {/* 命中的字幕让位给高亮视图（原型：查找期读态高亮压过卡拉 OK） */}
+      {playing && active && !marks.length ? <Karaoke cue={cue} /> : (
         <EditableBlock value={cue.text} placeholder="输入字幕文本…" className="sb-text"
+          viewValue={marks.length ? <Highlight text={cue.text} matches={marks} curStart={curStart} /> : undefined}
           caretAt={caretAt} onCaretDone={onCaretDone} onEditingChange={editingChange}
           onCommit={(v) => { app.editCue(cue.id, 'text', v); toast('字幕已更新', { variant: 'positive' }); }}
           onKeyOps={{ split, mergeUp, mergeDown }} />
@@ -323,11 +759,32 @@ const CueCard = React.memo(function CueCard({ cue, num, prev, next, active, play
   );
 });
 
+// 章节头。标题缺省时（Agent 还没写过标题）本章第一句站位上屏，斜体表示"这不是
+// 正式标题"，旁边给一条把 chapters 流程交给 Agent 的链接（原型 transcript.jsx §9.3）。
 function ChapterHead({ ch }) {
+  const app = useApp();
+  const { doc } = app;
+  const [runAgent, agentDialog] = window.useAgentAction();
+  const titled = !!String(ch.title || '').trim();
+  const standIn = useMemo(() => {
+    if (titled) return '';
+    const cues = doc.cues || [];
+    const first = cues.find((c) => c.start >= ch.start && c.start < ch.end)
+      || cues.find((c) => c.end > ch.start);
+    const text = String((first && first.text) || '').trim();
+    return text.length > 48 ? text.slice(0, 48) + '…' : text;
+  }, [titled, doc.cues, ch.start, ch.end]);
   return (
     <div className="vk-chapter__head">
-      <span className="vk-chapter__title">{ch.title}</span>
+      <EditableText value={ch.title} placeholder={standIn || '未命名章节'}
+        className={'vk-chapter__title' + (titled ? '' : ' vk-chapter__title--placeholder')}
+        onCommit={(value) => app.editChapter(ch.id, value)} />
       <span className="vk-mono vk-dim vk-chapter__range">{fmtRange(ch.start, ch.end)}</span>
+      {!titled ? (
+        <button className="vk-linkbtn vk-chapter__writetitles" data-tip="让 Agent 为所有章节生成标题"
+          aria-label="用 AI 写章节标题" onClick={() => runAgent('chapters', '生成章节标题')}>用 AI 写标题</button>
+      ) : null}
+      {agentDialog}
     </div>
   );
 }
@@ -370,9 +827,15 @@ function SubtitlePane() {
     if (on) setLastEditKey(key);
   }, []);
   useEffect(() => { setLastEditKey(null); }, [cues]);
+
+  // 查找与替换：字幕的编辑单位就是 cue，替换整条文本走 editCue。
+  const findItems = useMemo(() => cues.map((cue) => ({ key: cue.id, text: cue.text })), [cues]);
+  const find = useFind(findItems);
+  const [replaceOne, replaceAll] = useReplace(find, (entry) => app.editCue(entry.key, 'text', entry.text));
+  // 当前匹配所在的行必须钉住：虚拟列表回收它就滚不到、也高亮不出来。
   const pinned = useMemo(
-    () => [editKey, lastEditKey, caretKey].filter(Boolean),
-    [editKey, lastEditKey, caretKey],
+    () => [editKey, lastEditKey, caretKey, find.cur && find.cur.key].filter(Boolean),
+    [editKey, lastEditKey, caretKey, find.cur],
   );
 
   const rows = useMemo(() => cues.map((cue, i) => ({ cue, i })), [cues]);
@@ -383,10 +846,12 @@ function SubtitlePane() {
 
   // 播放/选中跟随：不能再靠 querySelector 找 DOM（目标很可能根本没渲染），
   // 改成问虚拟列表要它的偏移。
-  const followKey = (app.sel && app.sel.cueId) || (playing && activeId) || null;
+  const selectedKey = app.sel && app.sel.cueId;
   useEffect(() => {
-    if (followKey && listRef.current) listRef.current.scrollToKey(followKey);
-  }, [followKey]);
+    if (!playing && selectedKey && listRef.current) listRef.current.scrollToKey(selectedKey);
+  }, [selectedKey, playing]);
+  const follow = usePlaybackFollow(scrollRef, null, activeId, playing, listRef);
+  useEffect(() => { centerMatch(scrollRef, listRef, find.cur); }, [find.curKey]);
 
   const renderRow = useCallback((row) => {
     if (row.kind === 'head') return <ChapterHead ch={row.ch} />;
@@ -395,23 +860,36 @@ function SubtitlePane() {
       <CueCard cue={cue} num={i + 1} prev={cues[i - 1]} next={cues[i + 1]}
         active={cue.id === activeId} playing={playing}
         caretAt={caretKey === cue.id ? pc.offset : null}
+        marks={find.marksFor(cue.id)} curStart={find.curStartIn(cue.id)}
         onCaretDone={clearPendingCaret} onEditingChange={onEditingChange} />
     );
-  }, [cues, activeId, playing, caretKey, pc, clearPendingCaret, onEditingChange]);
+  }, [cues, activeId, playing, caretKey, pc, clearPendingCaret, onEditingChange, find.byKey, find.curKey]);
 
   return (
     <div className="vk-subtitle" data-screen-label="Subtitle">
       <div className="vk-transcript__toolbar">
-        <span className="vk-dim" style={{ fontSize: 12 }}>点击文本编辑 · Enter 拆分 · 行首 ⌫ / 行尾 ⌦ 合并</span>
+        <QBtn icon="search" size="S" tip="查找和替换" selected={find.open} onClick={find.toggle} />
+        <span className="vk-spacer"></span>
+        <window.StylePicker ctx="sub" />
       </div>
+      {find.open ? (
+        <FindBar find={find} placeholder="在字幕中查找" onReplace={replaceOne} onReplaceAll={replaceAll} />
+      ) : null}
+      {/* tr-statbar 是 Studio 独有的统计条（原型没有 cps/本地编辑计数），保留 */}
       <div className="tr-statbar">
-        <span className="tr-stat"><b>{cues.length}</b> 条字幕</span>
-        {fastCount ? <span className="tr-stat tr-stat--warn" data-tip="超出舒适阅读速度的字幕"><b>{fastCount}</b> 条语速过快</span> : null}
-        {doc._pendingEdits ? <span className="tr-stat" data-tip="本地编辑待 Agent 应用到数据"><b>{doc._pendingEdits}</b> 处本地编辑</span> : null}
+        <div className="tr-statbar__stats">
+          <span className="tr-stat"><b>{cues.length}</b> 条字幕</span>
+          {fastCount ? <span className="tr-stat tr-stat--warn" data-tip="超出舒适阅读速度的字幕"><b>{fastCount}</b> 条语速过快</span> : null}
+          {doc._pendingEdits ? <span className="tr-stat" data-tip="本地编辑待 Agent 应用到数据"><b>{doc._pendingEdits}</b> 处本地编辑</span> : null}
+        </div>
       </div>
       <window.VirtualList className="vk-subtitle__scroll" scrollRef={scrollRef} handle={listRef}
         rows={vrows} estimate={V.estimateSubtitleRow} fingerprint={V.subtitleFingerprint}
         rowClass={subtitleRowClass} pinnedKeys={pinned} renderRow={renderRow} />
+      {!follow.following && playing ? (
+        <FollowPill direction={follow.offDir} title="Jump to current cue"
+          onClick={follow.jumpToCurrent} />
+      ) : null}
     </div>
   );
 }
@@ -420,23 +898,57 @@ function SubtitlePane() {
 // v0.3：翻译的单位是句（sentence）——源句 1:1 译句；句内展示切分（pieces）
 // 是 transAlign 覆盖层。整句改写走 sentence 通道（改写后降级整句上屏，由
 // Agent 重切）；逐行微调走 piece 通道（拼接不变量由 store 维护）。
-function SentenceCard({ s, num }) {
+// 一句译文的展示形态由 transCues 决定：没有切分片（或只有一片 sentence 片）时
+// 整句上屏，否则逐片配对。查找栏与卡片共用这两个投影，免得两处各判一次。
+const sentencePiecesOf = (doc, sentenceId) => TP.sentencePieces(doc.transCues, sentenceId);
+const sentenceIsWhole = TP.sentenceIsWhole;
+
+function SentenceCard({ s, num, prev, next, find, srcIndex }) {
   const app = useApp();
   const { doc } = app;
-  const first = doc.cues.find((c) => c.id === (s.cueIds || [])[0]) || {};
+  const first = srcIndex.cueById.get((s.cueIds || [])[0]) || {};
   const sp = doc.speakers[first.sp] || { name: first.sp || '', hue: 240 };
   const { t, playing } = usePlayer();
   const active = t >= s.start && t < s.end;
   const dur = Math.max(0.1, s.end - s.start);
   const empty = !(s.trans || '').trim();
   const translating = doc.status.phase === 'translating';
-  const pieces = (doc.transCues || []).filter((tc) => tc.sid === s.id);
-  const whole = empty || !pieces.length || (pieces.length === 1 && pieces[0].kind === 'sentence');
+  const pieces = sentencePiecesOf(doc, s.id);
+  const whole = sentenceIsWhole(s, pieces);
+  // 对齐块层（对齐块设计 §7）：`correspondence: sentence` → 「整句对应」芯片；
+  // `textBasis: display` → 「已为字幕改写」芯片，可展开看自然译句 `trans`；
+  // 有 `blocks` 时每个配对行下画块刻度（片内块边界 = 合法拆分点）。
+  const AB = window.BCS_ALIGN_BLOCKS;
+  const chips = AB ? AB.cardChips(s) : { sentenceLevel: !!s.crossing, rewritten: false };
+  const hasBlocks = !!(AB && AB.hasBlocks(s));
+  const orderedPieces = AB ? AB.sentencePieces(doc.transCues, s.id) : pieces;
+  const [showNatural, setShowNatural] = useState(false);
+  const canSplitWhole = !empty && Array.isArray(s.sourceWordIds) && s.sourceWordIds.length >= 2;
+  // 原文侧的查找条目键是 cue（源文本的编辑单位），见 translate-pane.js。
+  const sourceCues = (s.cueIds || []).map((id) => srcIndex.cueById.get(id)).filter(Boolean);
+  const srcMarksFor = useCallback((cueId) => find.marksFor(TP.sourceKey(cueId)), [find.byKey]);
+  const srcCurFor = useCallback((cueId) => find.curStartIn(TP.sourceKey(cueId)), [find.curKey]);
+  const srcHighlight = (text, words) => (find.query
+    ? TP.lineHighlight(text, words, srcIndex.wordCue, srcMarksFor, srcCurFor) : null);
+  const canMergePrev = app.canMergeTransParagraph(prev, s);
+  const canMergeNext = app.canMergeTransParagraph(s, next);
+  const mergeParagraph = (up, reference, caret) => {
+    const upper = up ? prev : s, lower = up ? s : next;
+    if (!app.mergeTransParagraph(upper, lower, s.id, reference, caret && caret.text)) return false;
+    toast(up ? '已与上一句译文合并' : '已与下一句译文合并', { variant: 'neutral' });
+    return true;
+  };
 
   return (
     <div className={'tg' + (active ? ' tg--active' : '') + (empty ? ' tg--untrans' : '') + (s.stale ? ' tg--stale' : '') + (s.paraStart ? ' tg--para-start' : '')}
       data-tg={s.id} data-screen-label={'Translate · #' + num}
       style={{ borderLeftColor: spHue(sp.hue), '--rail': spHue(sp.hue) }}>
+      {canMergePrev ? (
+        <button className="tg-mergeup tg-mergeup--card" data-tip="移除段落边界并与上一句译文合并"
+          aria-label="向上合并译文句" onClick={() => mergeParagraph(true, null, null)}>
+          <Ic name="merge-lines" size={12} />向上合并
+        </button>
+      ) : null}
       <div className="tg__head">
         <span className="tg__sp" style={{ color: `oklch(0.5 0.14 ${sp.hue})` }}>{sp.name}</span>
         <PlayCueBtn cue={{ start: s.start, end: s.end }} active={active} playing={playing} />
@@ -444,8 +956,12 @@ function SentenceCard({ s, num }) {
         {s._editedTrans ? <span className="bcs-editchip" data-tip="本地修改，待 Agent 应用">已编辑</span> : null}
         {!empty && whole && !s.aligned
           ? <span className="tr-chip tr-chip--warn" data-tip="译文切法缺失或失效，当前临时整句显示；请 Agent 定向重对齐">对齐待修</span> : null}
-        {!empty && !whole && s.crossing
-          ? <span className="tr-chip" data-tip="中英语序交叉：为保持译文自然，行间语义有意不一一对应，这不是对齐错误">语序交叉</span> : null}
+        {!empty && !whole && chips.sentenceLevel
+          ? <span className="tr-chip" data-tip="整句对应：源、译共用整句时窗，不宣称逐行一一对应（语序交叉或低置信对齐时的稳妥显示），这不是对齐错误">整句对应</span> : null}
+        {!empty && chips.rewritten
+          ? <button type="button" className={'tr-chip tr-chip--btn' + (showNatural ? ' tr-chip--on' : '')}
+              data-tip={showNatural ? '收起自然译句' : '为满足字幕行长按原文语序改写了译文；点击查看自然译句'}
+              aria-pressed={showNatural} onClick={() => setShowNatural((v) => !v)}>已为字幕改写</button> : null}
         <span className="vk-spacer"></span>
         {empty
           ? (translating ? <span className="tr-chip tr-chip--warn"><span className="vk-spin"></span>翻译中…</span> : <span className="tr-chip tr-chip--untrans">未翻译</span>)
@@ -453,16 +969,44 @@ function SentenceCard({ s, num }) {
           ? <span className="tr-chip tr-chip--warn" data-tip="原文在翻译后被修改过 — 请 Agent 重新翻译此句">已过期</span>
           : <CpsChip text={s.trans} dur={dur} lang={(doc.meta.targetLang || {}).code} />}
       </div>
+      {chips.rewritten && showNatural ? (
+        <div className="tg-natural" data-screen-label="Natural translation">
+          <span className="tg-natural__label">自然译句</span>
+          <span className="tg-natural__text" lang="zh">{s.trans}</span>
+        </div>
+      ) : null}
       {whole ? (
         <div className="tg-body">
           <div className="tg-orig">
             <div className={'tg-orig__line' + (playing && active ? ' tg-orig__line--active' : '')} onClick={() => app.seekSource('main', s.start)}>
-              {s.text}
+              {/* 查找命中原文时让位给逐 cue 高亮视图：整句文本就是本句各 cue
+                  文本按空格拼起来的，逐条画出来与直接画 s.text 同形，但每条的
+                  偏移正好是 editCue 的口径。没命中就还是一整段文本。 */}
+              {sourceCues.some((cue) => find.marksFor(TP.sourceKey(cue.id)).length)
+                ? sourceCues.map((cue, index) => (
+                    <React.Fragment key={cue.id}>{index ? ' ' : ''}
+                      <Highlight text={cue.text} matches={find.marksFor(TP.sourceKey(cue.id))}
+                        curStart={find.curStartIn(TP.sourceKey(cue.id))} />
+                    </React.Fragment>
+                  ))
+                : s.text}
             </div>
           </div>
           <div className="tg-transcol">
             <EditableBlock value={s.trans || ''} placeholder="添加翻译…" className="tg-trans" lang="zh"
-              onCommit={(v) => { app.editTrans(s.id, 'sentence', v); toast('翻译已更新', { variant: 'positive' }); }} />
+              viewValue={find.marksFor(s.id).length
+                ? <Highlight text={s.trans || ''} matches={find.marksFor(s.id)} curStart={find.curStartIn(s.id)} />
+                : undefined}
+              onCommit={(v) => { app.editTrans(s.id, 'sentence', v); toast('翻译已更新', { variant: 'positive' }); }}
+              onKeyOps={(canSplitWhole || canMergePrev || canMergeNext) ? {
+                split: canSplitWhole ? (c) => {
+                  if (!app.splitTransPieceAtCaret(s.id, c.offset, c.text)) return false;
+                  toast('已从光标处分割译文', { variant: 'neutral' });
+                  return true;
+                } : null,
+                mergeUp: canMergePrev ? (caret) => mergeParagraph(true, s.id, caret) : null,
+                mergeDown: canMergeNext ? (caret) => mergeParagraph(false, s.id, caret) : null,
+              } : null} />
           </div>
         </div>
       ) : (
@@ -482,11 +1026,16 @@ function SentenceCard({ s, num }) {
             const rowCpsLevel = app.cpsLevel(tc.text, rowDur, rowLang);
             const canStructure = s.mode === 'manyToOne'
               && Number.isInteger(tc.wordFrom) && Number.isInteger(tc.wordTo);
-            const mergeUp = () => {
+            const segments = hasBlocks && canStructure ? AB.pieceSegments(s, orderedPieces, tc) : [];
+            const mergeUp = (caret) => {
+              if (pieceIndex === 0) return canMergePrev
+                ? mergeParagraph(true, tc.id, caret) : false;
               if (!app.mergeTransPieces(pieces[pieceIndex - 1], tc)) return false;
               toast('已与上一译文片合并', { variant: 'neutral' });
               return true;
             };
+            const mergeDown = pieceIndex + 1 === pieces.length && canMergeNext
+              ? (caret) => mergeParagraph(false, tc.id, caret) : null;
             return (
               <div key={tc.id} className={'tg-pair' + (rowActive ? ' tg-pair--active' : '')}>
                 {canStructure && pieceIndex > 0 ? (
@@ -505,9 +1054,18 @@ function SentenceCard({ s, num }) {
                         data-cue-id={part.cueId || undefined}
                         data-tip={fmtRange(part.start, part.end)}
                         onClick={() => app.seekSource('main', part.start)}>
-                        {part.lines.map((line, index) => (
-                          <span className="tg-orig__subline" key={`${tc.id}:${part.key}:${index}`}>{line.text}</span>
-                        ))}
+                        {/* 原文侧的匹配偏移是相对整条 cue.text 的，这里画的却是
+                            M122 的词区间子行（还可能跨 cue）——lineHighlight 逐词
+                            把偏移换算过来，换算不成立就退回纯文本，绝不画错位置
+                            的 <mark>。 */}
+                        {part.lines.map((line, index) => {
+                          const hl = srcHighlight(line.text, line.words);
+                          return (
+                            <span className="tg-orig__subline" key={`${tc.id}:${part.key}:${index}`}>
+                              {hl ? <Highlight text={line.text} matches={hl.marks} curStart={hl.curStart} /> : line.text}
+                            </span>
+                          );
+                        })}
                       </div>
                     )) : <div className="tg-orig__part tg-orig__part--empty">—</div>}
                   </div>
@@ -517,17 +1075,41 @@ function SentenceCard({ s, num }) {
                     ? <span className="tg-pair__cps"><CpsChip text={tc.text} dur={rowDur} lang={rowLang} /></span>
                     : null}
                   <EditableBlock value={tc.text} placeholder="…" className="tg-trans" lang="zh"
+                    viewValue={find.marksFor(tc.id).length
+                      ? <Highlight text={tc.text} matches={find.marksFor(tc.id)} curStart={find.curStartIn(tc.id)} />
+                      : undefined}
                     onCommit={(v) => { app.editTrans(tc.id, 'piece', v); toast('译文行已更新', { variant: 'positive' }); }}
-                    onKeyOps={canStructure ? {
-                      // 译文片的拆合仍走单 op 事务：未提交文本会被丢弃（对齐覆盖层
-                      // 的 baseText 语义与字幕不同，合并事务另议）。
-                      split: (c) => {
-                        if (!app.splitTransPieceAtCaret(tc.id, c.offset)) return false;
-                        toast('已从光标处分割译文', { variant: 'neutral' });
+                    onKeyOps={(canStructure || (pieceIndex === 0 && canMergePrev) || mergeDown) ? {
+                      // 跨句合并会把未提交文本折进整卡 value；句内结构合并仍沿用
+                      // translationStructure 的逐片 CAS。
+                      split: canStructure ? (c) => {
+                        if (!app.splitTransPieceAtCaret(tc.id, c.offset, c.text)) {
+                          if (segments.length === 1) toast('这一片只有一个对齐块，不能再拆', { variant: 'neutral' });
+                          return false;
+                        }
+                        toast(hasBlocks ? '已在最近的对齐块边界分割译文' : '已从光标处分割译文', { variant: 'neutral' });
                         return true;
-                      },
-                      mergeUp,
+                      } : null,
+                      mergeUp: pieceIndex > 0 || canMergePrev ? mergeUp : null,
+                      mergeDown,
                     } : null} />
+                  {segments.length ? (
+                    <div className="tg-blockstrip" aria-hidden="true"
+                      data-tip={segments.length > 1 ? '对齐块刻度：Enter 拆分会吸附到刻度间隙' : '对齐块刻度：这一片是一个整块'}>
+                      {segments.map((seg) => (
+                        <span key={seg.key}
+                          className={'tg-blockstrip__seg'
+                            + (seg.flags.includes('weak') ? ' tg-blockstrip__seg--weak' : '')
+                            + (seg.flags.includes('local-reorder') ? ' tg-blockstrip__seg--reorder' : '')}
+                          style={{ flexGrow: Math.max(1, seg.chars) }}>
+                          {seg.flags.includes('local-reorder')
+                            ? <i className="tg-blockstrip__flag" title="块内局部换序">换序</i> : null}
+                          {seg.flags.includes('weak')
+                            ? <i className="tg-blockstrip__flag" title="仅软对齐边支撑，置信度低">弱</i> : null}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             );
@@ -572,7 +1154,37 @@ function TranslateBody() {
   const translating = doc.status.phase === 'translating';
   const player = usePlayer();
   const active = app.sentenceAt(doc, player.t);
-  useFollow(scrollRef, 'data-tg', (player.playing && active && active.id), [active && active.id, player.playing]);
+  const follow = usePlaybackFollow(
+    scrollRef, 'data-tg', active && active.id, player.playing, null,
+    null, null, player.t,
+  );
+
+  // cue 表 + 词 id → cue 的索引：卡片用它取说话人、画原文行、换算原文高亮偏移。
+  const srcIndex = useMemo(() => TP.sourceIndex(doc.cues), [doc.cues]);
+
+  // 查找与替换：这一栏两侧都能搜（Mac TranslatePaneFindBar.swift:22-40 的
+  // `TrReplaceScope`）。范围在一次扫描里是不变量，所以在建条目时就裁掉；
+  // 译文条目的键是 editTrans 的 key（整句 / 逐行片），原文条目的键是 cue
+  // （源文本的编辑单位，写路径 editCue），两个命名空间靠 `src:` 前缀分开。
+  const [scope, setScope] = useState(TP.DEFAULT_SCOPE);
+  const findItems = useMemo(() => TP.findItems(doc, scope),
+    [sentences, doc.transCues, doc.cues, scope]);
+  const find = useFind(findItems);
+  const [replaceOne, replaceAll] = useReplace(find, (entry) => {
+    if (entry.item.kind === 'cue') app.editCue(entry.item.cueId, 'text', entry.text);
+    else app.editTrans(entry.key, entry.item.kind, entry.text);
+  });
+  useEffect(() => { centerMatch(scrollRef, null, find.cur); }, [find.curKey]);
+  const [runAgent, agentDialog] = window.useAgentAction();
+
+  // 「复制全部译文」是纯前端动作，不入 Agent 队列（Mac
+  // TranslatePaneActions.swift:94-106 的 copyAll：一行一个投递片，空行丢掉）。
+  const copyLines = TP.deliveryLines(doc);
+  const copyAll = () => {
+    window.writeClipboard(copyLines.join('\n')).then((ok) =>
+      toast(ok ? '已复制 ' + copyLines.length + ' 行' + dst.native : '无法复制 — 请检查剪贴板权限',
+        { variant: ok ? 'positive' : 'negative' }));
+  };
 
   const rows = sentences.map((s, i) => ({ s, i }));
   return (
@@ -590,9 +1202,28 @@ function TranslateBody() {
             { label: dst.native, sub: dst.name, suffix: '✓', onClick: () => {} },
           ]} />
         ) : null}
+        <QBtn icon="search" size="S" tip="查找和替换" selected={find.open} onClick={find.toggle} />
         <span className="vk-spacer"></span>
-        <span className="vk-dim" style={{ fontSize: 12 }}>点击译文可直接修改</span>
+        <window.StylePicker ctx="bi" />
+        {/* Mac TranslatePaneActions.swift:38-63 的 AI 菜单是「翻译新语言… /
+            重新翻译 X… / 重新对齐 X 行… / 分隔线 / 复制全部译文」。「翻译新
+            语言…」在 Web 不做：入队协议（§6 的 requests[]）里 params 是自由
+            对象，没有目标语言字段，data.json 也只投影单一 meta.targetLang，
+            没有可选语言表能撑起选择器；剩下三项与 Web 现有两项一一对应。 */}
+        <AiMenuBtn items={[
+          { icon: 'comment', label: '翻译字幕', action: 'translate' },
+          { icon: 'split-lines', label: '重新对齐双语字幕', action: 'align' },
+          '-',
+          { icon: 'copy', label: '复制全部译文', disabled: !copyLines.length, onClick: copyAll },
+        ]} run={runAgent} />
       </div>
+
+      {find.open ? (
+        <FindBar find={find} placeholder="在原文或译文中查找"
+          accessory={<ScopePicker scope={scope} onPick={setScope} />}
+          onReplace={replaceOne} onReplaceAll={replaceAll} />
+      ) : null}
+      {agentDialog}
 
       <div className="tr-statbar">
         <div className="tr-statbar__stats">
@@ -618,15 +1249,17 @@ function TranslateBody() {
         </div>
         {byChapter(doc, rows, (r) => r.s.start).map((c) => (
           <section className="vk-chapter" key={c.ci}>
-            <div className="vk-chapter__head">
-              <span className="vk-chapter__title">{c.ch.title}</span>
-              <span className="vk-mono vk-dim vk-chapter__range">{fmtRange(c.ch.start, c.ch.end)}</span>
-            </div>
-            {c.rows.map(({ s, i }) => <SentenceCard key={s.id} s={s} num={i + 1} />)}
+            <ChapterHead ch={c.ch} />
+            {c.rows.map(({ s, i }) => <SentenceCard key={s.id} s={s} num={i + 1}
+              prev={sentences[i - 1]} next={sentences[i + 1]} find={find} srcIndex={srcIndex} />)}
           </section>
         ))}
         <div style={{ height: 60 }}></div>
       </div>
+      {!follow.following && player.playing ? (
+        <FollowPill direction={follow.offDir} title="Jump to current line"
+          onClick={follow.jumpToCurrent} top={follow.offDir === 'up'} />
+      ) : null}
     </div>
   );
 }

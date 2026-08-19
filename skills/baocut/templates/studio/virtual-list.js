@@ -111,6 +111,26 @@
     return Math.max(0, Math.min(offs[n] - viewH, top - viewH / 2 + h / 2));
   }
 
+  // 把第 index 行中心放到视口中心；首尾按可滚范围钳制。
+  function centerScrollTop(offs, index, viewH, tailPad) {
+    const n = offs.length - 1;
+    if (index < 0 || index >= n) return null;
+    const top = offs[index], h = offs[index + 1] - offs[index];
+    const max = Math.max(0, offs[n] + (tailPad || 0) - viewH);
+    return Math.floor(Math.max(0, Math.min(max, top - viewH / 2 + h / 2)));
+  }
+
+  // Mac JumpPill 的 12pt 舒适边界：整行越过边界才显示方向。
+  function offscreenDirection(offs, index, scrollTop, viewH, margin) {
+    const n = offs.length - 1;
+    if (index < 0 || index >= n || viewH <= 0) return null;
+    const m = margin == null ? 12 : margin;
+    const top = offs[index], bottom = offs[index + 1];
+    if (bottom <= scrollTop + m) return 'up';
+    if (top >= scrollTop + viewH - m) return 'down';
+    return null;
+  }
+
   // ---------- 高度缓存 ----------
   // estimate(row, width) 给未测量行的占位高度；fingerprint(row) 是内容指纹。
   function createHeightStore(opts) {
@@ -196,6 +216,7 @@
 
   return {
     flatten, indexByKey, offsets, findIndexAt, visibleRange, renderPlan, stickyAt,
-    scrollTopFor, createHeightStore, estimateSubtitleRow, subtitleFingerprint, SB,
+    scrollTopFor, centerScrollTop, offscreenDirection,
+    createHeightStore, estimateSubtitleRow, subtitleFingerprint, SB,
   };
 }));

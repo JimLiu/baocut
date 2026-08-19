@@ -12,7 +12,16 @@
 const { useState, useEffect, useRef, useContext, useCallback, useMemo, createContext } = React;
 const { toast } = window;
 const T = window.BCS_TIMELINE;
+const TR = window.BCS_TRANSPORT;  // tab → 样式上下文（transport.js styleCtx）
 const PS = window.BCS_PROGRESS;   // 任务状态投影（progress-status.js）
+const TP = window.BCS_TRANSLATION_PARAGRAPH;
+const SCE = window.BCS_SOURCE_CUE_EDIT;
+const SPE = window.BCS_SOURCE_PARAGRAPH_EDIT;
+const SNE = window.BCS_SPEAKER_NAME_EDIT;
+const CTE = window.BCS_CHAPTER_TITLE_EDIT;
+const PANELS = window.BCS_PANELS;   // 外壳面板状态（panels.js）
+const ELEMENT_ACTIONS = window.BCS_ELEMENT_ACTIONS;   // 叠加元素动作（element-actions.jsx）
+const ET = window.BCS_ELEMENT_TIME;                   // 元素窗口/补丁语义（element-time.js）
 
 const DATA_URL = 'studio/data.json';
 const EDITS_FILE = 'studio/edits.json';
@@ -20,6 +29,7 @@ const HEALTHZ_URL = '/__bcut/healthz';
 const WS_PATH = '/__bcut/ws';
 const PUT_URL = '__bcut/put';
 const TRANSCRIPT_APPLY_URL = '__bcut/transcript/apply';
+const TIMELINE_APPLY_URL = '__bcut/timeline/apply';
 const UNDO_URL = '__bcut/undo';
 const REDO_URL = '__bcut/redo';
 const LS_TIME = 'bcs:playhead';     // 播放头是观看状态而非编辑，留在 localStorage
@@ -37,6 +47,11 @@ async function sha256(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
+
+// 写事务的传输层重试（apply-fetch.js；与 Mac / GPUI 客户端同款语义）：serve
+// 被接管/重启的瞬间 fetch 会直接抛 TypeError，这不是对这笔写的裁决，先重试
+// 再报「保存失败」。服务端给了状态码（含 409/413）都是最终答复，不重发。
+const fetchApply = window.BCS_APPLY_FETCH.fetchApply;
 
 // ---------- overlay merge（纯函数：不匹配的条目忽略，不在页面侧删除） ----------
 function applyOverlays(data, ov) {
@@ -104,7 +119,8 @@ function applyOverlays(data, ov) {
     }
   });
 
-  // 译文结构覆盖：manyToOne 展示片可沿源词边界拆分，也可与上一片合并。
+  // 译文结构覆盖：manyToOne 展示片可沿源词边界拆分，也可与上一片合并；
+  // seedUnaligned 的整句 split 会从 Sentence 的完整源词跨度建立第一版分片。
   // 操作只重放在发起时的 data.rev 上；每步都用源词跨度 + base 文本校验，
   // 因此 Agent 重切后不会把旧 UI 操作误套到新切法上。
   const transStruct = (ov && ov.transStruct) || null;
@@ -113,15 +129,31 @@ function applyOverlays(data, ov) {
       const rows = doc.transCues.filter((tc) => tc.sid === op.sid && tc.kind === 'piece')
         .sort((a, b) => (a.wordFrom || 0) - (b.wordFrom || 0));
       if (op.kind === 'split') {
-        const tc = rows.find((row) => row.wordFrom === op.from && row.wordTo === op.to
+        let tc = rows.find((row) => row.wordFrom === op.from && row.wordTo === op.to
           && row.text === op.baseText);
+        if (!tc && op.seedUnaligned === true) {
+          const sentence = doc.sentences.find((row) => row.id === op.sid);
+          const whole = doc.transCues.find((row) => row.sid === op.sid
+            && row.kind === 'sentence' && row.text === op.baseText);
+          const wordsById = new Map(doc.cues.flatMap((cue) => (cue.words || []).map((word) => [
+            word.id,
+            { id: word.id, text: word.text, start: word.start ?? word.t0, end: word.end ?? word.t1 },
+          ])));
+          const words = (sentence && sentence.sourceWordIds || []).map((id) => wordsById.get(id))
+            .filter(Boolean);
+          if (whole && words.length >= 2 && op.from === 0 && op.to === words.length - 1) {
+            tc = { ...whole, wordFrom: 0, wordTo: words.length - 1, sourceWords: words };
+          }
+        }
         if (!tc || !Array.isArray(tc.sourceWords) || op.at < tc.wordFrom || op.at >= tc.wordTo) return;
         const pos = op.at - tc.wordFrom + 1;
         const wordsA = tc.sourceWords.slice(0, pos), wordsB = tc.sourceWords.slice(pos);
         if (!wordsA.length || !wordsB.length || !op.textA || !op.textB) return;
-        const at = doc.transCues.indexOf(tc);
+        const at = doc.transCues.findIndex((row) => row === tc
+          || (row.id === tc.id && row.sid === tc.sid && row.text === tc.text));
+        if (at < 0) return;
         const make = (words, from, to, text) => ({
-          ...tc, text, wordFrom: from, wordTo: to,
+          ...tc, kind: 'piece', text, wordFrom: from, wordTo: to,
           start: words[0].start, end: words[words.length - 1].end,
           sourceWords: words, sourceWordIds: words.map((w) => w.id),
           sourceText: words.map((w) => w.text).join(' '),
@@ -130,6 +162,13 @@ function applyOverlays(data, ov) {
         doc.transCues.splice(at, 1,
           make(wordsA, tc.wordFrom, op.at, op.textA),
           make(wordsB, op.at + 1, tc.wordTo, op.textB));
+        const sentence = doc.sentences.find((row) => row.id === op.sid);
+        if (sentence) {
+          sentence.aligned = true;
+          sentence.mode = 'manyToOne';
+          sentence.correspondence = 'block';
+          sentence.blocks = [];
+        }
         live++;
       } else if (op.kind === 'merge') {
         const upper = rows.find((row) => row.wordFrom === op.upperFrom && row.wordTo === op.upperTo
@@ -175,7 +214,21 @@ function applyOverlays(data, ov) {
   });
 
   const st = ov && ov.style;
-  if (st && st.base === JSON.stringify(data.style)) doc.style = { ...doc.style, ...st.value };
+  const stylePatch = st && st.base === JSON.stringify(data.style) ? st.value : null;
+  if (stylePatch) doc.style = { ...doc.style, ...stylePatch };
+  // 舞台与样式层按 tab 取「上下文样式」：`style.voiceInkContexts` 是 Mac 的无损
+  // 真相，扁平根键只是最后被编辑的那个 set 的投影（见 subtitle-rendering.js
+  // `contextStyle` 的注释）。解析顺序固定为
+  //   data.json style → 按 tab 的 voiceInkContexts 上下文 → edits.json 覆盖层
+  // —— 覆盖层必须最后盖，否则用户在 Web 里改的字号/模式会被 contexts 压回去。
+  // contexts 缺席时 `contextStyle` 逐比特返回原对象，ctxStyle 两支就等于 doc.style。
+  // R 在这里懒取：subtitle-rendering.js 在 index.html 里排在 store.jsx 之后，
+  // 但 applyOverlays 只在渲染期跑，那时它一定已经注册。
+  const R = window.BCS_SUBTITLE;
+  doc.ctxStyle = R ? {
+    sub: R.applyStylePatch(R.contextStyle(data.style, 'sub'), stylePatch),
+    bi: R.applyStylePatch(R.contextStyle(data.style, 'bi'), stylePatch),
+  } : { sub: doc.style, bi: doc.style };
   doc._pendingEdits = live;
   return doc;
 }
@@ -211,6 +264,17 @@ function splitTextAt(text, fraction, exactOffset) {
   return a && b ? [a, b] : null;
 }
 
+function translationSplitTarget(doc, reference) {
+  const piece = (doc.transCues || []).find((row) => row.id === reference && row.kind === 'piece');
+  if (piece) return { ...piece, seedUnaligned: false };
+  const whole = (doc.transCues || []).find((row) => row.id === reference && row.kind === 'sentence');
+  const sentence = whole && (doc.sentences || []).find((row) => row.id === whole.sid);
+  const wordCount = sentence && Array.isArray(sentence.sourceWordIds)
+    ? sentence.sourceWordIds.length : 0;
+  if (!whole || wordCount < 2) return null;
+  return { ...whole, wordFrom: 0, wordTo: wordCount - 1, seedUnaligned: true };
+}
+
 // ---------- derived projections ----------
 function paragraphs(doc) {
   const chOf = (t) => { const i = doc.chapters.findIndex((c) => t >= c.start && t < c.end); return i < 0 ? doc.chapters.length - 1 : i; };
@@ -224,7 +288,9 @@ function paragraphs(doc) {
       last.end = c.end; last.cues.push(c);
       last.text = (last.text + ' ' + c.text).replace(/\s+/g, ' ').trim();
     } else {
-      out.push({ id: paraId ? `${paraId}:${c.id}` : ('p' + out.length), paraId, sp: c.sp, ch, start: c.start, end: c.end, cues: [c], text: c.text });
+      const fallbackId = String(c.id || '').startsWith('q-')
+        ? 'p-' + String(c.id).slice(2) : null;
+      out.push({ id: paraId || fallbackId || ('p-' + out.length), paraId: paraId || fallbackId, sp: c.sp, ch, start: c.start, end: c.end, cues: [c], text: c.text });
     }
   });
   return out;
@@ -247,25 +313,10 @@ function cpsLevel(text, dur, lang) {
 }
 
 // ---------- SRT export ----------
-const srtTime = (t) => {
-  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = Math.floor(t % 60), ms = Math.round((t % 1) * 1000);
-  const p = (n, w) => String(n).padStart(w, '0');
-  return `${p(h, 2)}:${p(m, 2)}:${p(s, 2)},${p(ms, 3)}`;
-};
+// 单一真相在 export-text.js（导出对话框与 Agent API `bcsStudio.exportSRT` 共用），
+// 事件构造与 CLI `render_subtitle_events` 同构。
 function exportSRT(doc, mode) {
-  const cues = doc.timelineCues || doc.cues || [];
-  const transCues = doc.timelineTransCues || doc.transCues || [];
-  if (mode === 'trans') {
-    // 译文单语：行 = 译文自己的展示流（independent 时即目标语行边界）。
-    return transCues.map((tc, i) =>
-      `${i + 1}\n${srtTime(tc.start)} --> ${srtTime(tc.end)}\n${tc.text}\n`).join('\n');
-  }
-  return cues.map((c, i) => {
-    const mid = (c.start + c.end) / 2;
-    const tc = mode === 'bi' ? transCues.find((item) => mid >= item.start && mid < item.end) : null;
-    const lines = mode === 'bi' ? [c.text, tc && tc.text].filter(Boolean) : [c.text];
-    return `${i + 1}\n${srtTime(c.start)} --> ${srtTime(c.end)}\n${lines.join('\n')}\n`;
-  }).join('\n');
+  return window.BCS_EXPORT_TEXT.subtitles(doc, { content: mode, format: 'srt' });
 }
 
 // ---------- store ----------
@@ -291,21 +342,13 @@ function ActiveProvider({ doc, children }) {
   return <ActiveCtx.Provider value={value}>{children}</ActiveCtx.Provider>;
 }
 
-// tab 深链:URL 末段 ↔ 内部 tab 名(对外规范名是 translation,内部是 translate)。
-// 服务器对这些路径做 SPA fallback(返回本页面),这里按 location 还原选中 tab。
-const TAB_FROM_URL = {
-  transcript: 'transcript', subtitle: 'subtitle',
-  translation: 'translate', translate: 'translate', style: 'style',
-};
-const URL_FROM_TAB = {
-  transcript: 'transcript', subtitle: 'subtitle',
-  translate: 'translation', style: 'style',
-};
-const TAB_PATH_RE = /\/(subtitle|transcript|translation|translate|style)$/;
-function tabFromLocation() {
-  const m = location.pathname.match(TAB_PATH_RE);
-  return (m && TAB_FROM_URL[m[1]]) || 'transcript';
-}
+// tab 与样式层的深链解释在 style-route.js（纯函数 + 单测）：服务器对
+// `/(transcript|subtitle|translation|translate|style)` 一律 SPA fallback 回本页面，
+// 语义全在前端。`/style` 不再是第四个 tab（M89 之后样式是覆盖右侧 pane 的层），
+// 它解释为「tab=transcript + 打开样式层」。
+const ROUTE = window.BCS_STYLE_ROUTE;
+if (!ROUTE) throw new Error('style-route.js failed to load');
+if (!ELEMENT_ACTIONS) throw new Error('element-actions.jsx failed to load');
 
 function AppStore({ children }) {
   const [data, setData] = useState(null);     // Agent 文档（studio/data.json）
@@ -317,10 +360,20 @@ function AppStore({ children }) {
   const [tasks, setTasks] = useState({ link: 'connecting', job: null });
   const [ov, setOv] = useState(EMPTY_OV);     // 用户覆盖层（studio/edits.json）
   const [err, setErr] = useState(null);
+  // rate = 走带倍速（与 clip 自身的 rate 相乘），fullscreen = 舞台全屏（stage.jsx 驱动）。
   const [player, setPlayer] = useState(() => ({
     t: lsGet(LS_TIME, 0), playing: false, showSubs: true, vol: 0.8, muted: false, ratio: 'Original',
+    rate: 1, fullscreen: false,
   }));
-  const [sel, setSel] = useState(null);
+  const [sel, setSelState] = useState(null);
+  // 选中的「第几次」：同一个对象被再选一次时 sel 本身不变，但那仍然是一次选中动作
+  // （例如层被关掉之后再点同一个元素块，应该把它的面板重新打开）。所以副作用挂在这个
+  // 计数上，而不是只挂在 sel 的值上。
+  const [selSeq, setSelSeq] = useState(0);
+  const setSel = useCallback((next) => {
+    setSelState(next);
+    setSelSeq((seq) => seq + 1);
+  }, []);
   // 光速修正的导出基线（export-delta.js 快照）。持久化在 localStorage：
   // serve 的 doc 是服务器真相，刷新后基线仍应指向磁盘上那个已导出文件。
   const [exportBaseline, setExportBaseline] = useState(() => {
@@ -333,22 +386,87 @@ function AppStore({ children }) {
     setExportBaseline(base);
     try { localStorage.setItem('bcs:export-baseline', JSON.stringify(base)); } catch { /* 私有模式等场景忽略 */ }
   }, []);
-  const [tab, setTabState] = useState(tabFromLocation);
-  // 切 tab 时把 URL 末段推进历史;pushState 不带尾斜杠,相对 fetch 基准目录不变。
+  const initialRoute = ROUTE.routeFromPath(location.pathname);
+  const [tab, setTabState] = useState(initialRoute.tab);
+  // 样式层（原型 M89）：styleOpen 是层的开合真相，styleCtx 只决定层头部的标题
+  // （'sub' 字幕样式 / 'bi' 翻译样式）。深链一律给字幕样式：ctx 不进 URL。
+  const [styleOpen, setStyleOpen] = useState(initialRoute.styleOpen);
+  const [styleCtx, setStyleCtx] = useState('sub');
+  // 右侧 pane 上还有另外两个同款 slide-over（原型 M-transform / M105）：元素检查器
+  // 与水印层。三层互斥（打开一个关掉另两个）—— 它们占同一个位置，同时开只会互相
+  // 盖住，而且「当前编辑的是哪个对象」必须唯一。
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [wmOpen, setWmOpen] = useState(false);
+  const wmOpenRef = useRef(wmOpen); wmOpenRef.current = wmOpen;
+  // 元素补丁的本地草稿（滑块拖动期间的即时预览）：{ id, set, label }。
+  // 叠在投影上，400ms 后合并成一条 patchElement 事务写出去，见 patchElementLive。
+  const [elDraft, setElDraft] = useState(null);
+  const tabRef = useRef(tab); tabRef.current = tab;
+  const styleOpenRef = useRef(styleOpen); styleOpenRef.current = styleOpen;
+  // URL 末段跟着 tab / 层走;pushState 不带尾斜杠,相对 fetch 基准目录不变。
+  // 目标路径与当前相同时不推历史,免得同一个 tab 点两次留下两条一样的记录。
+  const pushRoute = useCallback((nextTab, nextStyleOpen) => {
+    if (!window.history || !window.history.pushState) return;
+    const next = ROUTE.pathFor(location.pathname, nextTab, nextStyleOpen);
+    if (next === location.pathname) return;
+    try { history.pushState(null, '', next); } catch { /* file:// 等场景忽略 */ }
+  }, []);
   const setTab = useCallback((next) => {
     setTabState(next);
-    const url = URL_FROM_TAB[next];
-    if (!url || !window.history || !window.history.pushState) return;
-    const base = location.pathname.replace(TAB_PATH_RE, '').replace(/\/*$/, '/');
-    try { history.pushState(null, '', base + url); } catch { /* file:// 等场景忽略 */ }
-  }, []);
+    // 层打开时末段恒为 style（层盖着 tab 栏，URL 指向被盖住的 tab 刷新后自相矛盾）。
+    pushRoute(next, styleOpenRef.current);
+  }, [pushRoute]);
   useEffect(() => {
-    const onPop = () => setTabState(tabFromLocation());
+    const onPop = () => {
+      const route = ROUTE.routeFromPath(location.pathname);
+      setTabState(route.tab);
+      setStyleOpen(route.styleOpen);
+    };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
+  // 外壳面板显隐（侧栏 · 右侧 pane · 时间轴 · 舞台）。语义与限幅都在
+  // panels.js（纯函数 + 单测），这里只做 React 接线与持久化。
+  const [panels, setPanels] = useState(() => PANELS.loadPanels(window.localStorage));
+  const setPanel = useCallback((name, on) => {
+    setPanels((cur) => {
+      const next = PANELS.setPanel(cur, name, on);
+      PANELS.savePanels(window.localStorage, next);
+      return next;
+    });
+  }, []);
+  // 样式层的开合。入口可能在 pane 外（舞台工具条 / 样式选择器 / 深链），
+  // 所以打开时先确保右侧 pane 在场，否则层没有容身之处。
+  const openStyle = useCallback((ctx) => {
+    setPanel('rpane', true);
+    setStyleCtx(ctx === 'bi' ? 'bi' : 'sub');
+    setStyleOpen(true);
+    setInspectorOpen(false);
+    setWmOpen(false);
+    pushRoute(tabRef.current, true);
+  }, [setPanel, pushRoute]);
+  const closeStyle = useCallback(() => {
+    setStyleOpen(false);
+    pushRoute(tabRef.current, false);
+  }, [pushRoute]);
+  // 元素检查器 / 水印层：与样式层同一个位置、同一套互斥规则。只有样式层进 URL
+  // （深链 /style 早就在契约里），这两层是选中态的附属面板，不改路由。
+  const openInspector = useCallback(() => {
+    setPanel('rpane', true);
+    setInspectorOpen(true);
+    setWmOpen(false);
+    if (styleOpenRef.current) closeStyle();
+  }, [setPanel, closeStyle]);
+  const closeInspector = useCallback(() => setInspectorOpen(false), []);
+  const openWatermark = useCallback(() => {
+    setPanel('rpane', true);
+    setWmOpen(true);
+    setInspectorOpen(false);
+    if (styleOpenRef.current) closeStyle();
+  }, [setPanel, closeStyle]);
+  const closeWatermark = useCallback(() => setWmOpen(false), []);
   const playerRef = useRef(player); playerRef.current = player;
-  // 各 Pane 的滚动位置：Pane 现在按 tab 条件挂载（隐藏的那三个不再进 DOM，
+  // 各 Pane 的滚动位置：Pane 现在按 tab 条件挂载（隐藏的那两个不再进 DOM，
   // 也就不再逐帧参与布局），切回来时靠这里恢复视口。可变对象、不触发渲染。
   const paneScroll = useRef({}).current;
   const dataRef = useRef(data); dataRef.current = data;
@@ -374,6 +492,10 @@ function AppStore({ children }) {
             chapters: next.chapters || [],
           },
         };
+        // 元素草稿叠在投影上：拖滑块 / 拖时间轴块时画布与面板立刻跟手，真正的
+        // patchElement 事务 400ms 后才发（否则每帧一次事务）。ET.mergePatch 与
+        // 服务端 merge_patch 同语义，所以「拖着看到的」就是「写进去的」。
+        if (elDraft && ET) projection.tracks = ET.applyDraftToTracks(projection.tracks, elDraft);
         next.timelineProjection = projection;
         next.timelineCues = T.projectTimedItems(sourceDocs, projection, 'cues');
         next.timelineSentences = T.projectTimedItems(sourceDocs, projection, 'sentences');
@@ -384,7 +506,7 @@ function AppStore({ children }) {
       }
     }
     return next;
-  }, [data, ov, progress, tasks]);
+  }, [data, ov, progress, tasks, elDraft]);
   const docRef = useRef(doc); docRef.current = doc;
   // 已导出视频落后于当前字幕的差异（null = 尚无基线或基线属于其它项目）。
   const exportDelta = useMemo(() => {
@@ -542,6 +664,20 @@ function AppStore({ children }) {
     };
   }, []);
 
+  // ----- 项目历史的可撤销/可重做位 -----
+  // 服务端每一条写路径（transcript apply、undo/redo、覆盖层 put）的应答都带这两个
+  // 字段，统一在 noteHistory 里收口 —— 两个写路径各记一份 flags 迟早分叉。初值给
+  // canUndo=true：刷新页面时前端并不知道磁盘上的历史深度，宁可先亮着按钮、由 409
+  // empty 应答自我纠正，也不要一进来就把有历史的项目的撤销按钮画成灰的。
+  const [histFlags, setHistFlags] = useState({ canUndo: true, canRedo: false });
+  const noteHistory = useCallback((result) => {
+    if (!result || typeof result !== 'object') return;
+    setHistFlags((h) => ({
+      canUndo: typeof result.canUndo === 'boolean' ? result.canUndo : h.canUndo,
+      canRedo: typeof result.canRedo === 'boolean' ? result.canRedo : h.canRedo,
+    }));
+  }, []);
+
   // ----- 覆盖层持久化：本地乐观更新 → 去抖 → CAS 写回（失配即拉最新重放） -----
   const pendingMuts = useRef([]);             // 待落盘的变换 (ov) => ov
   const savingRef = useRef(false);
@@ -587,6 +723,11 @@ function AppStore({ children }) {
         if (resp.status === 409 && j.reason === 'stale') continue;   // 与 Agent 竞写：重拉重放
         if (!resp.ok || !j.ok) { abandon('保存失败，改动已回退：' + (j.error || resp.status)); break; }
         pendingMuts.current.splice(0, muts.length);
+        // 覆盖层的写也进项目历史（服务端 put 会记一条），所以撤销按钮必须跟着亮：
+        // 拖字幕、改样式走的都是这条路，过去撤销按钮一直是灰的。缺省值兼容还不带
+        // canUndo/canRedo 的旧服务端 —— 刚写完必然有可撤销的一步，重做栈则被这一步
+        // 顶掉；应答里带了字段就以服务端为准。
+        noteHistory({ canUndo: true, canRedo: false, ...j });
         ovServerText.current = content;
         ovRef.current = next;
         setOv(next);
@@ -606,23 +747,12 @@ function AppStore({ children }) {
   }, [flush]);
 
   // ----- Transcript 唯一写路径：Web / Mac / Agent 共用 CAS + history 事务 -----
-  // 项目历史的可撤销/可重做位；apply 与 undo/redo 的应答（含错误应答）都带这两个
-  // 字段，统一在 noteHistory 里收口。初值给 canUndo=true：刷新页面时前端并不知道
-  // 磁盘上的历史深度，宁可先亮着按钮、由 409 empty 应答自我纠正，也不要一进来就
-  // 把有历史的项目的撤销按钮画成灰的。
-  const [histFlags, setHistFlags] = useState({ canUndo: true, canRedo: false });
-  const noteHistory = useCallback((result) => {
-    if (!result || typeof result !== 'object') return;
-    setHistFlags((h) => ({
-      canUndo: typeof result.canUndo === 'boolean' ? result.canUndo : h.canUndo,
-      canRedo: typeof result.canRedo === 'boolean' ? result.canRedo : h.canRedo,
-    }));
-  }, []);
-
+  // apply 与 undo/redo 的应答（含错误应答）都带 canUndo/canRedo，收口见上面的
+  // noteHistory。
   const applyTranscriptOps = useCallback((ops, label, requestFields) => {
     const run = async () => {
       const current = dataRef.current || {};
-      const response = await fetch(TRANSCRIPT_APPLY_URL, {
+      const response = await fetchApply(TRANSCRIPT_APPLY_URL, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           baseRev: current.rev || 0,
@@ -684,6 +814,159 @@ function AppStore({ children }) {
   const undoDoc = useCallback(() => historyStep(false), [historyStep]);
   const redoDoc = useCallback(() => historyStep(true), [historyStep]);
 
+  // ----- 剪辑域（叠加元素）唯一写路径：POST __bcut/timeline/apply（设计 §5.3）-----
+  // 与 Transcript 事务同构但**另一条队列**：两份文档各有独立 rev，串在一起只会让
+  // 其中一个的 baseRev 被另一个的应答带偏。
+  const timelineQueueRef = useRef(Promise.resolve());
+  const timelineRevRef = useRef(null);
+  // baseRev 取「已知最大值」：poll 推回来的投影 rev 与上一笔事务应答里的 rev 都可能
+  // 更新（rev 单调），落后的那个会撞 409。老服务端没有 timeline 节时从 0 起。
+  const timelineRev = useCallback(() => {
+    const projection = (docRef.current || {}).timelineProjection;
+    const projected = projection && Number.isInteger(projection.rev) ? projection.rev : 0;
+    const local = Number.isInteger(timelineRevRef.current) ? timelineRevRef.current : 0;
+    return Math.max(projected, local);
+  }, []);
+  const applyTimelineOps = useCallback((ops, label) => {
+    const run = async () => {
+      const response = await fetchApply(TIMELINE_APPLY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ baseRev: timelineRev(), ops, label: label || '编辑时间轴' }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (Number.isInteger(result.rev)) timelineRevRef.current = result.rev;
+      if (response.status === 423) {
+        toast('项目正被其他任务占用，稍后再试', { variant: 'neutral' });
+        return null;
+      }
+      if (response.status === 409 && result.reason === 'stale') {
+        // rev 已经就地纠正，poll 也会推回新投影：让用户重做这一步，而不是拿旧
+        // baseRev 自动重放（自动重放会把别人刚写的改动当成自己的前提）。
+        throw new Error('时间轴已被其他改动更新，请重试');
+      }
+      if (!response.ok || result.ok === false) {
+        throw new Error(result.error || result.reason || ('HTTP ' + response.status));
+      }
+      // 逐条 base 校验失败是 200 + `skipped[]`（不是错误）。一条都没落地时必须说出来，
+      // 否则用户看到的是"点了没反应"。
+      const skipped = Array.isArray(result.skipped) ? result.skipped : [];
+      const applied = Array.isArray(result.applied) ? result.applied : [];
+      if (skipped.length && !applied.length) {
+        toast('数据已被其他改动更新，这一步没有生效', { variant: 'neutral' });
+        return null;
+      }
+      // 应答不带 canUndo/canRedo：timeline.json 进的是同一个 .bcut/history journal，
+      // 所以刚写完必然有可撤销的一步、重做栈被这一步顶掉（与覆盖层 put 同款兜底）。
+      noteHistory({ canUndo: true, canRedo: false, ...result });
+      // 正文不用自己重拉：服务端事务里已经重跑 studio 投影并推进 data.json 的 rev，
+      // 长轮询会在 250ms 内把新 timeline 投影推回来。
+      return result;
+    };
+    const queued = timelineQueueRef.current.then(run, run);
+    timelineQueueRef.current = queued.catch((error) => {
+      toast('保存编辑失败：' + (error.message || String(error)), { variant: 'negative' });
+      return null;
+    });
+    return timelineQueueRef.current;
+  }, [noteHistory, timelineRev]);
+
+  // 投影里的元素（含求值后的 start/end）。面板/键盘/画布都用它按 id 取当前值。
+  const findElement = useCallback((elementId) => {
+    if (!elementId) return null;
+    const tracks = ((docRef.current || {}).timelineProjection || {}).tracks || [];
+    for (const track of tracks) {
+      const found = (track.elements || []).find((element) => element.id === elementId);
+      if (found) return { ...found, trackId: track.id || null };
+    }
+    return null;
+  }, []);
+
+  // 产品动作（新建文本/图片/水印、移动、改字、删除）在 element-actions.jsx：
+  // 它们是这条管道之上的纯组合，store 只负责管道本身。
+  const elementActions = ELEMENT_ACTIONS.useElementActions({
+    applyTimelineOps, findElement, docRef, playerRef, setSel, undo: undoDoc,
+  });
+
+  // ----- 面板改元素：本地草稿 + 400ms 合并写（与覆盖层 mutate 同款节奏）-----
+  // 检查器与水印层的滑块/色板/开关全部走这里：草稿让画布立刻跟手，事务合并成一条，
+  // 一次拖动因此也只占一步撤销。草稿在**新投影推回来之后**才撤（应答落地 → 等
+  // data 的下一次变化），否则 250ms 的轮询延迟会让控件回跳一次。
+  const elDraftRef = useRef(null);
+  const elFlushTimer = useRef(0);
+  const elDraftPending = useRef(false);
+  const writeDraft = useCallback((next) => {
+    elDraftRef.current = next;
+    setElDraft(next);
+  }, []);
+  const flushElementDraft = useCallback(() => {
+    window.clearTimeout(elFlushTimer.current);
+    const draft = elDraftRef.current;
+    if (!draft || !draft.set) return Promise.resolve(null);
+    return applyTimelineOps(
+      [{ kind: 'patchElement', elId: draft.id, set: draft.set }],
+      draft.label || ('修改元素 ' + draft.id),
+    ).then((result) => {
+      // 没落地（409 重试 / 全跳 / 失败）就地丢掉草稿：控件弹回服务端真值，
+      // 比继续显示一个没写进去的数字诚实。
+      if (!result) { writeDraft(null); return null; }
+      elDraftPending.current = true;
+      return result;
+    });
+  }, [applyTimelineOps, writeDraft]);
+  const patchElementLive = useCallback((element, set, options) => {
+    const elId = typeof element === 'string' ? element : (element && element.id);
+    if (!elId || !set || !ET) return;
+    const current = elDraftRef.current;
+    // 换了对象就先把上一个草稿写出去 —— 直接丢会静默吞掉刚拖的那一下。
+    if (current && current.id !== elId) flushElementDraft();
+    const base = current && current.id === elId ? current.set : null;
+    writeDraft({
+      id: elId,
+      set: ET.mergePatch(base, set),
+      label: (options && options.label) || (current && current.id === elId ? current.label : null),
+    });
+    window.clearTimeout(elFlushTimer.current);
+    elFlushTimer.current = window.setTimeout(() => flushElementDraft(), 400);
+  }, [flushElementDraft, writeDraft]);
+  // 投影已经带上这一步（服务端事务里已重跑投影、data.rev 前进）：撤草稿，回到真值。
+  useEffect(() => {
+    if (!elDraftPending.current) return;
+    elDraftPending.current = false;
+    writeDraft(null);
+  }, [data, writeDraft]);
+
+  // 选中即开对应的层。这张表就是 Mac `Editor/EditorPageView.swift:130-141` 的
+  // `.sel` 观察者（M89）与原型 `designs/baocut-mac/app/editor.jsx:203-214` 的
+  // `useEffect([selKind, selId])`：
+  //   · { kind:'sub' }（舞台上的字幕对象 / 单行，Mac 的 .sub / .subLine）→ 样式层，
+  //     上下文按当前 tab 取（Mac `styleSubjectForTab`：Transcript/Subtitle → sub，
+  //     Translate → bi）。选中字幕就该看到它的样式面板，而不是把人拽去 Style tab。
+  //   · { kind:'el' } role watermark → 水印层（列表 + 同一份编辑区，水印的家在那里）
+  //   · { kind:'el' } 其它元素      → 检查器
+  //     角色还未知（刚新建，投影要等 250ms）→ 先开检查器；水印层已经在场时不抢，
+  //     免得「舞台工具条新建水印」被检查器截走。角色落地后这个 effect 会再跑一次。
+  //   · 其余（null 清选中、{ cueId } 时间轴块/右侧面板点选）→ 关样式层与检查器，
+  //     对应 Mac 的 default 分支。
+  // 角色：null = 还不知道（投影里没有这个 id），'' = 知道且没有 role。
+  const selectedElement = sel && sel.kind === 'el' ? findElement(sel.id) : null;
+  const selectedRole = selectedElement ? (selectedElement.role || '') : null;
+  useEffect(() => {
+    // 挂载不是一次「选中变化」：深链 /style 带着层进来时 sel 恒为 null，跑 default
+    // 分支会把刚开的层当场关掉。Mac 的观察者同理，只在 .sel 事件上触发。
+    if (selSeq === 0) return;
+    if (sel && sel.kind === 'el') {
+      if (selectedRole === 'watermark') { openWatermark(); return; }
+      if (selectedRole == null && wmOpenRef.current) return;
+      openInspector();
+      return;
+    }
+    setInspectorOpen(false);
+    // 手动关层不清 sel、也不重开：副作用挂在 selSeq 上，下一次选中动作才再判一次。
+    if (sel && sel.kind === 'sub') { openStyle(TR.styleCtx(tabRef.current)); return; }
+    if (styleOpenRef.current) closeStyle();
+  }, [sel, selSeq, selectedRole, openInspector, openWatermark, openStyle, closeStyle]);
+
   // ----- 播放：有真实媒体时元素是时钟主人，否则回退模拟时钟 -----
   const attachMedia = useCallback((el) => {
     mediaRef.current = el;
@@ -699,7 +982,7 @@ function AppStore({ children }) {
         try { el.currentTime = Math.max(0, t0); } catch (e) {}
       }
       const clip = position && projection.clips.find((item) => item.id === position.clipId);
-      el.playbackRate = clip ? clip.rate : 1;
+      el.playbackRate = (clip ? clip.rate : 1) * (playerRef.current.rate || 1);
       if (playerRef.current.playing) el.play().catch(() => {});
     }
   }, []);
@@ -707,6 +990,18 @@ function AppStore({ children }) {
     const el = mediaRef.current;
     if (el) { el.volume = player.vol; el.muted = player.muted; }
   }, [player.vol, player.muted]);
+  // 走带倍速改动后重算 playbackRate。clip 的 rate 仍是底数：媒体元素按 clip 换
+  // key 重挂，attachMedia 会在换 clip 时重新乘一次，这里只管 rate 这一维。
+  useEffect(() => {
+    const el = mediaRef.current;
+    if (!el) return;
+    const projection = docRef.current && docRef.current.timelineProjection;
+    const position = projection && T
+      ? T.timelineToSource(projection, playerRef.current.t || 0, 'following')
+      : null;
+    const clip = position && projection.clips.find((item) => item.id === position.clipId);
+    el.playbackRate = (clip ? clip.rate : 1) * (player.rate || 1);
+  }, [player.rate]);
   useEffect(() => {
     if (!player.playing || mediaRef.current) return;
     let raf, last = performance.now();
@@ -718,7 +1013,8 @@ function AppStore({ children }) {
       last = now;
       setPlayer((p) => {
         const dur = (docRef.current && docRef.current.meta.duration) || 0;
-        const nt = p.t + dt;
+        // 没有媒体元素时由模拟时钟走带，倍速要自己乘进 dt。
+        const nt = p.t + dt * (p.rate || 1);
         return nt >= dur ? { ...p, t: dur, playing: false } : { ...p, t: nt };
       });
       raf = requestAnimationFrame(tick);
@@ -795,18 +1091,24 @@ function AppStore({ children }) {
     );
   }, [applyTranscriptOps]);
 
-  const splitTransPiece = useCallback((pieceId, afterWord, charOffset) => {
+  const splitTransPiece = useCallback((pieceId, afterWord, charOffset, liveText) => {
     const d = docRef.current || {};
-    const tc = (d.transCues || []).find((row) => row.id === pieceId && row.kind === 'piece');
+    const tc = translationSplitTarget(d, pieceId);
     if (!tc || !Number.isInteger(tc.wordFrom) || !Number.isInteger(tc.wordTo)
       || afterWord < tc.wordFrom || afterWord >= tc.wordTo) return false;
+    // 有块层时片边界只能落在块边界上（对齐块设计 §5）；apply 侧还会再验一次。
+    const AB = window.BCS_ALIGN_BLOCKS;
+    const sentence = (d.sentences || []).find((row) => row.id === tc.sid);
+    if (!tc.seedUnaligned && AB && sentence && !AB.isBlockBoundary(sentence, afterWord)) return false;
     const wordFrac = (afterWord - tc.wordFrom + 1) / (tc.wordTo - tc.wordFrom + 1);
-    const texts = splitTextAt(tc.text, wordFrac, charOffset);
+    const targetText = typeof liveText === 'string' ? liveText : tc.text;
+    const texts = splitTextAt(targetText, wordFrac, charOffset);
     if (!texts) return false;
     const sid = tc.sid;
     const op = {
       kind: 'split', sid, from: tc.wordFrom, to: tc.wordTo, at: afterWord,
       baseText: tc.text, textA: texts[0], textB: texts[1],
+      ...(tc.seedUnaligned ? { seedUnaligned: true } : {}),
     };
     applyTranscriptOps(
       [{ kind: 'translationStructure', operation: op }],
@@ -815,15 +1117,31 @@ function AppStore({ children }) {
     return true;
   }, [applyTranscriptOps]);
 
-  const splitTransPieceAtCaret = useCallback((pieceId, charOffset) => {
+  const splitTransPieceAtCaret = useCallback((pieceId, charOffset, liveText) => {
     const d = docRef.current || {};
-    const tc = (d.transCues || []).find((row) => row.id === pieceId && row.kind === 'piece');
+    const tc = translationSplitTarget(d, pieceId);
+    const targetText = tc && typeof liveText === 'string' ? liveText : tc && tc.text;
     if (!tc || !Number.isInteger(tc.wordFrom) || !Number.isInteger(tc.wordTo)
-      || tc.wordFrom >= tc.wordTo || !tc.text) return false;
-    const frac = Math.max(0.01, Math.min(0.99, charOffset / tc.text.length));
+      || tc.wordFrom >= tc.wordTo || !targetText) return false;
+    // 块层：光标吸附到最近的片内块边界（词边界与字符切点同时由块给出）；
+    // 单块片没有合法拆分点，直接拒绝。无块层走下面按比例估词的旧路径。
+    const AB = window.BCS_ALIGN_BLOCKS;
+    const sentence = (d.sentences || []).find((row) => row.id === tc.sid);
+    if (!tc.seedUnaligned && AB && sentence && AB.hasBlocks(sentence)) {
+      // 块的 tgt 按码点计（对拍 Rust chars()），光标偏移是 UTF-16 单位：两头换算。
+      const current = { ...tc, text: targetText };
+      const siblings = AB.sentencePieces(d.transCues, tc.sid)
+        .map((piece) => piece.id === tc.id ? current : piece);
+      const caretCp = Array.from(targetText.slice(0, Math.max(0, charOffset | 0))).length;
+      const snap = AB.snapSplit(sentence, siblings, current, caretCp);
+      if (!snap || !snap.ok) return false;
+      const cutUtf16 = Array.from(targetText).slice(0, snap.cut).join('').length;
+      return splitTransPiece(pieceId, snap.afterWord, cutUtf16, targetText);
+    }
+    const frac = Math.max(0.01, Math.min(0.99, charOffset / targetText.length));
     const count = tc.wordTo - tc.wordFrom + 1;
     const afterWord = tc.wordFrom + Math.max(0, Math.min(count - 2, Math.round(frac * count) - 1));
-    return splitTransPiece(pieceId, afterWord, charOffset);
+    return splitTransPiece(pieceId, afterWord, charOffset, targetText);
   }, [splitTransPiece]);
 
   const mergeTransPieces = useCallback((upperRef, lowerRef) => {
@@ -849,6 +1167,34 @@ function AppStore({ children }) {
     return true;
   }, [applyTranscriptOps]);
 
+  const canMergeTransParagraph = useCallback((upperRef, lowerRef) => {
+    const d = dataRef.current || {};
+    if (!TP || !upperRef || !lowerRef) return false;
+    const upper = (d.sentences || []).find((sentence) => sentence.id === upperRef.id);
+    const lower = (d.sentences || []).find((sentence) => sentence.id === lowerRef.id);
+    return TP.canMerge(d, upper, lower);
+  }, []);
+
+  // 跨 Sentence 合并：正在编辑的 piece / 整句先折成当前整卡 value，再与 paragraph
+  // pin 删除一起提交。服务端用 upperBase/lowerBase 做双 CAS，并折叠所有语言真相。
+  const mergeTransParagraph = useCallback((upperRef, lowerRef, editedSid, editedRef, liveText) => {
+    const d = dataRef.current || {};
+    if (!TP || !upperRef || !lowerRef) return false;
+    const upper = (d.sentences || []).find((sentence) => sentence.id === upperRef.id);
+    const lower = (d.sentences || []).find((sentence) => sentence.id === lowerRef.id);
+    if (!upper || !lower) return false;
+    let upperValue = TP.sentenceText(d, upper), lowerValue = TP.sentenceText(d, lower);
+    if (editedSid === upper.id && typeof liveText === 'string') {
+      upperValue = TP.sentenceTextReplacing(d, upper, editedRef, liveText);
+    } else if (editedSid === lower.id && typeof liveText === 'string') {
+      lowerValue = TP.sentenceTextReplacing(d, lower, editedRef, liveText);
+    }
+    const op = TP.operation(d, upper, lower, upperValue, lowerValue);
+    if (!op) return false;
+    applyTranscriptOps([op], '合并译文段落 ' + lower.id);
+    return true;
+  }, [applyTranscriptOps]);
+
   const retimeCue = useCallback((cueId, s, e) => {
     const base = ((dataRef.current || {}).cues || []).find((c) => c.id === cueId);
     if (!base) return;
@@ -857,6 +1203,77 @@ function AppStore({ children }) {
       '改时间码 ' + cueId,
     );
   }, [applyTranscriptOps]);
+
+  const deleteOriginalCue = useCallback((cue) => {
+    const op = SCE && SCE.operation(cue);
+    if (!op) return false;
+    applyTranscriptOps(
+      [op],
+      '删除原文字幕 ' + op.cueId,
+    ).then((result) => {
+      if (!result) return;
+      setSel((current) => current && current.cueId === op.cueId ? null : current);
+      toast('Subtitle cue deleted', {
+        variant: 'neutral', action: { label: 'Undo', onClick: () => historyStep(false) },
+      });
+    });
+    return true;
+  }, [applyTranscriptOps, historyStep]);
+
+  const editParagraph = useCallback((paragraph, value) => {
+    const op = SPE && SPE.operation('edit', paragraph, value);
+    if (!op || value === paragraph.text) return false;
+    applyTranscriptOps([op], '改转写段落 ' + op.operation.id);
+    return true;
+  }, [applyTranscriptOps]);
+
+  const editSpeaker = useCallback((speakerId, value) => {
+    const speaker = (((dataRef.current || {}).speakers || {})[speakerId]);
+    const op = SNE && SNE.operation(speakerId, speaker, value);
+    if (!op || value.trim() === String((speaker && speaker.name) || '').trim()) return false;
+    applyTranscriptOps([op], '重命名说话人 ' + speakerId).then((result) => {
+      if (!result) return;
+      toast('Renamed speaker everywhere', {
+        variant: 'neutral', action: { label: 'Undo', onClick: () => historyStep(false) },
+      });
+    });
+    return true;
+  }, [applyTranscriptOps, historyStep]);
+
+  const editChapter = useCallback((chapterId, value) => {
+    const chapters = (docRef.current || dataRef.current || {}).chapters || [];
+    const chapter = chapters.find((item) => item.id === chapterId);
+    const op = CTE && CTE.operation(chapters, chapterId, value);
+    if (!op || value.trim() === String((chapter && chapter.title) || '').trim()) return false;
+    applyTranscriptOps([op], '重命名章节 ' + chapterId);
+    return true;
+  }, [applyTranscriptOps]);
+
+  const splitParagraphAtCaret = useCallback((paragraph, value, charOffset) => {
+    const offset = Array.from(String(value || '').slice(0, Math.max(0, charOffset | 0))).length;
+    const op = SPE && SPE.operation('split', paragraph, value, offset);
+    if (!op) return false;
+    applyTranscriptOps([op], '拆分转写段落 ' + op.operation.id).then((result) => {
+      if (!result) return;
+      toast('Split paragraph', {
+        variant: 'neutral', action: { label: 'Undo', onClick: () => historyStep(false) },
+      });
+    });
+    return true;
+  }, [applyTranscriptOps, historyStep]);
+
+  const mergeParagraph = useCallback((paragraph, value, direction) => {
+    const kind = direction < 0 ? 'mergeUp' : 'mergeDown';
+    const op = SPE && SPE.operation(kind, paragraph, value);
+    if (!op) return false;
+    applyTranscriptOps([op], '合并转写段落 ' + op.operation.id).then((result) => {
+      if (!result) return;
+      toast(direction < 0 ? 'Merged with previous paragraph' : 'Merged with next paragraph', {
+        variant: 'neutral', action: { label: 'Undo', onClick: () => historyStep(false) },
+      });
+    });
+    return true;
+  }, [applyTranscriptOps, historyStep]);
 
   // ----- 字幕拆 / 合：未提交文本与结构改动合成一个事务 -----
   // 拆合之前编辑框里可能有还没 blur 提交的文本。旧实现直接丢弃它再拆，用户输入
@@ -928,11 +1345,17 @@ function AppStore({ children }) {
     );
   }, [structTx]);
 
-  const setStyle = useCallback((patch) => {
+  // ctx（'sub' | 'bi'）是给 `bcut studio apply` 的上下文提示：覆盖层是一份扁平
+  // 补丁，服务端把其中的键下沉回 style.voiceInkContexts 时要知道它属于哪个上下文
+  // （不带提示时按扁平 mode 判定，bi 上下文切到「仅原文」会与 sub 撞车）。覆盖层
+  // 只有一个 style 对象，所以记的是最后一次写入的上下文（后写者胜）。
+  const setStyle = useCallback((patch, ctx) => {
     const baseStyle = JSON.stringify((dataRef.current || {}).style || {});
     mutate((o) => {
-      const value = { ...(((o.style || {}).base === baseStyle && (o.style || {}).value) || {}), ...patch };
-      return { ...o, style: { base: baseStyle, value } };
+      const prev = ((o.style || {}).base === baseStyle && o.style) || {};
+      const value = { ...(prev.value || {}), ...patch };
+      const hint = ctx === 'sub' || ctx === 'bi' ? ctx : prev.ctx;
+      return { ...o, style: hint ? { base: baseStyle, value, ctx: hint } : { base: baseStyle, value } };
     }, '改样式');
   }, [mutate]);
   const resetStyle = useCallback(() => { mutate((o) => ({ ...o, style: null }), '重置样式'); }, [mutate]);
@@ -978,9 +1401,17 @@ function AppStore({ children }) {
   // 依赖顺序与下面的字段顺序一一对应，漏一个就是难查的过期闭包。
   const value = useMemo(() => ({
     data, doc, err, setPlayer, playerRef, paneScroll, seek, seekSource, togglePlay, attachMedia,
-    sel, setSel, tab, setTab,
+    sel, setSel, tab, setTab, panels, setPanel,
+    styleOpen, styleCtx, openStyle, closeStyle,
+    inspectorOpen, openInspector, closeInspector,
+    wmOpen, openWatermark, closeWatermark,
     editCue, editTrans, splitTransPiece, splitTransPieceAtCaret, mergeTransPieces,
-    retimeCue, splitCueAtCaret, mergeCues, setStyle, resetStyle,
+    canMergeTransParagraph, mergeTransParagraph,
+    retimeCue, deleteOriginalCue, editParagraph, editSpeaker, editChapter, splitParagraphAtCaret, mergeParagraph,
+    splitCueAtCaret, mergeCues, setStyle, resetStyle,
+    // 叠加元素（文本 / 图片 / 水印）：写路径全部经 applyTimelineOps，
+    // 动作层见 element-actions.jsx。
+    applyTimelineOps, findElement, ...elementActions, patchElementLive, flushElementDraft,
     history: histFlags, undoDoc, redoDoc, pendingCaret, clearPendingCaret,
     reqs, request, dropRequest,
     exportBaseline, exportDelta, stampExport,   // 光速修正
@@ -988,9 +1419,15 @@ function AppStore({ children }) {
     paragraphs, cueAt, transCueAt, sentenceAt, chapterOf, cps, cpsLevel, exportSRT,
   }), [
     data, doc, err, setPlayer, seek, seekSource, togglePlay, attachMedia,
-    sel, setSel, tab, setTab,
+    sel, setSel, tab, setTab, panels, setPanel,
+    styleOpen, styleCtx, openStyle, closeStyle,
+    inspectorOpen, openInspector, closeInspector,
+    wmOpen, openWatermark, closeWatermark,
     editCue, editTrans, splitTransPiece, splitTransPieceAtCaret, mergeTransPieces,
-    retimeCue, splitCueAtCaret, mergeCues, setStyle, resetStyle,
+    canMergeTransParagraph, mergeTransParagraph,
+    retimeCue, deleteOriginalCue, editParagraph, editSpeaker, editChapter, splitParagraphAtCaret, mergeParagraph,
+    splitCueAtCaret, mergeCues, setStyle, resetStyle,
+    applyTimelineOps, findElement, elementActions, patchElementLive, flushElementDraft,
     histFlags, undoDoc, redoDoc, pendingCaret, clearPendingCaret,
     reqs, request, dropRequest,
     exportBaseline, exportDelta, stampExport, tasks.link,

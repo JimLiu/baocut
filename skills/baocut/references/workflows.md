@@ -40,6 +40,12 @@ bin/baocut --json project create "<dir>/My Talk.bcut" --media "/path/input.mp4"
 
 `project create` registers the project globally, so the BaoCut App lists it
 immediately. Keep the returned `data.project.id` — it is the preview route id.
+Projects created under a temporary or scratch directory (`/tmp`, `$TMPDIR`,
+`/var/folders`, `%TEMP%`) are deliberately not registered — they would leave a
+dead entry in the App once the directory is wiped. The response reports
+`data.registered: false` with a `data.warnings` entry. Always create work the
+user keeps under `project dir`; run `project register <path>` only when the user
+explicitly wants a scratch project in the library.
 For a media URL, pass the URL as `--media`; video and audio-only sources are
 both supported, and the pipeline downloads them later.
 
@@ -94,9 +100,9 @@ bin/baocut auto "<dir>/My Talk.bcut" --llm agent \
 Default-path rule: when the user has not named a download directory, use the
 project-path form above and omit `--download-dir`. Never synthesize a sibling
 `downloads` directory or an App Support path. Omitting the flag makes the CLI
-honor the shared `download.dir` setting. When that setting is absent, Windows
-uses the user's system Downloads known folder; other platforms fall back to
-`<project>/media`.
+honor the shared `download.dir` setting. When that setting is absent, the video
+lands in the user's system download folder (Windows Downloads Known Folder,
+`~/Downloads` on macOS and Linux) — never inside the project.
 
 Only when the user explicitly names a one-off directory, keep the registered
 project created in step 1 but pass the URL again as the pipeline input and
@@ -116,6 +122,23 @@ stream on stdout and mirror into the project, so the App and the preview page
 show the same live progress. URL connections use bounded yt-dlp retries; if a
 CDN is unreachable the command now fails with a diagnostic instead of waiting
 on operating-system TCP timeouts indefinitely.
+
+Run it in the background with `--jsonl` redirected to a log file and watch
+that file with one `Monitor`/tail; the events to wake on are `batch-dispatch`
+(an Agent call is pending — go answer it, see
+[agent-tasks.md](agent-tasks.md)), `error`, and the terminal `done`. Know
+what "normal" looks like so a stall is recognized early instead of after a
+monitor timeout: on native Apple Silicon a 2-minute clip downloads, checks
+models, and transcribes with `qwen3-asr-0.6b` in about 3 minutes, emitting a
+`progress` event at least every minute or so (`media-download`, model
+`download`/`verify`, `transcribing` percent). If a short clip shows no new
+event for 3 minutes, treat it as stalled: check `--json version` — a `target`
+that does not match the machine, `rosetta: true`, or `backend: candle-cpu` on
+a Mac means the wrong CLI build (the resolver now refuses these for `auto`,
+but an explicit `BAOCUT_CLI` override can still reach the CLI's own gate) —
+and `ps -o pid,cputime,command -p <pid>`; kill and restart with the correct
+CLI rather than waiting. `auto` resumes finished stages, so nothing already
+completed is repeated.
 
 The CLI still auto-prepares models for direct `auto`/`transcribe` compatibility;
 the explicit command above keeps a first multi-gigabyte download out of the
@@ -163,17 +186,65 @@ clusters. The package is fetched alongside the main model during decode; with
 after the ASR pass, so pre-download it with
 `bin/baocut model download speaker-diarization`.
 
+### Transcribe on another machine on the local network
+
+`--model remote:<alias>/<model>` runs the transcription on a paired machine on
+the same local network instead of this one. The project, `transcript.json`, and
+every other artifact are still written here — only the audio and the model
+parameters go to the node, and only rows come back.
+
+The other machine runs `bcut worker` and shows a 6-digit pairing code; pair once
+from this machine, then use the model id like any other:
+
+```bash
+bin/baocut --json remote list
+bin/baocut --json remote add mac-studio.local --code 123456
+bin/baocut transcribe "/path/input.mp4" --project "/path/demo.bcut" \
+  --model remote:mac-studio/moss-transcribe-diarize --jsonl
+```
+
+`remote list --json` reports each node's `status` and available `models`; use it
+before assuming a node is reachable. If the node is offline, too old, or missing
+the model, the command fails **before** decoding with a clear `kind` and does
+**not** silently fall back to this machine — re-run with a local model when that
+is what the user wants. Everything else (progress events, cancellation, review
+flow, `check --strict`) is identical to a local run.
+
 Before accepting a review, inspect its diff and preview from `review list`. Use
 `review reject` when the candidate changes meaning or timing intent.
 
+Whole-document speaker re-identification is also proposal-only. Inspect and
+close it explicitly; accepting applies all speaker moves in one undoable edit,
+and may re-split existing translated lines at the new speaker boundaries without
+re-translating them. Speaker proposals do not support partial `--items` accepts.
+
+```bash
+bin/baocut speakers reidentify "/path/demo.bcut" --review --json
+bin/baocut review list "/path/demo.bcut" --json
+bin/baocut review accept "/path/demo.bcut" speakers --json
+# or: bin/baocut review reject "/path/demo.bcut" speakers --json
+```
+
 A polish that exits `ok` is not necessarily a polish that touched every
-sentence: `data.fallbackSentences > 0` (or `fallbackPages > 0`) means the
+sentence: `data.fallbackSentences > 0` (or `fallbackPages > 0` — its unit is now
+a page *or a half page*, since a page that fails twice is re-split in half and
+each half retried once, counted in `data.splitRetryPages`) means the
 engine gave up on those sentences and kept the ASR text verbatim, and
 `bcut check` reports them as the blocker `polish-fallback` with a
 `bcut polish <project> --paragraphs <p-…>` fix that re-polishes only the affected
 paragraphs (the artifact merges, so run the fix as many times as it takes and
 recheck). Do not proceed to translate over a `polish-fallback` blocker; the
 untouched sentences would be translated from raw ASR.
+
+`data.surfaceArtifactSentences > 0` is a different, softer signal: those
+sentences kept the model's polished text but still carry a surface defect (a
+false dangling sentence end, or a run-together Latin phrase). They are not
+fallbacks and never block — `bcut check` surfaces them as the warnings
+`polish-false-sentence-end` / `polish-surface-artifact`, with the same targeted
+`--paragraphs` fix if you want them cleaned up. `data.analysis.pagesFailed` /
+`data.analysis.termsDropped` (also on `bcut translate`) report the pre-polish
+analysis pass: a failed page only loses that page's terms, and the merged
+glossary is truncated at 400 rows. Both are observability, not blockers.
 
 ### Sync confirmed speaker names after polish
 

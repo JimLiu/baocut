@@ -1,16 +1,9 @@
 /* BaoCut Subtitle Studio — project-local styles on Spectrum 2 tokens
    (everything else reuses app.css / editor.css / translate.css / subtitle.css) */
 
-/* boot / error state */
-.bcs-boot {
-  height: 100vh; display: flex; flex-direction: column; gap: 10px;
-  align-items: center; justify-content: center;
-  color: var(--text-body); font-size: var(--font-size-100);
-  background: var(--surface-base);
-}
+/* boot / error state：见 editor.css 的 .bcs-boot-page + .vk-project-loading（与原型同款占位） */
 
 /* stage helpers */
-.bcs-stagebar__hint { font-size: 12px; }
 .bcs-stagebadge {
   z-index: 4;
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
@@ -58,63 +51,219 @@
   color: light-dark(#274dea, #99b3ff); background: light-dark(#e6ecfe, #1d2c52);
 }
 
-/* ===== Style tab ===== */
-.bcs-style .vk-transcript__scroll { padding: 4px 0 0; }
-.bcs-stsec {
-  font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--text-subdued); padding: 16px 14px 7px;
+/* ===== 样式 slide-over（原型 app/style-panel.css 的 Studio 子集） =====
+   层壳（.vk-stylelayer*）在 editor.css；这里是层里的样片、分区、行与底部条。
+   类名与原型同源，控件密度也照抄：一行 = 64px 标签 + 控件 + 46px 数值。 */
+
+/* 样片：内核 layoutMetrics 用一个 16:9 小画框算出来的近似渲染。字面色值，
+   浅色/深色模式一致（画面内容不是 UI）。 */
+.vk-spp {
+  position: relative; margin: 12px 14px 0; border-radius: 10px; overflow: hidden; flex-shrink: 0;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: 16px 12px 12px; min-height: 112px; box-sizing: border-box;
 }
-.bcs-presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 14px; }
-.bcs-preset {
-  display: flex; flex-direction: column; gap: 0; overflow: hidden;
-  border: 1px solid var(--gray-200); border-radius: 10px; background: var(--surface-elevated);
-  padding: 0; cursor: pointer; text-align: center;
-  transition: border-color 130ms cubic-bezier(0.45,0,0.4,1), box-shadow 130ms;
+.vk-spp__stack {
+  display: flex; flex-direction: column; align-items: center; max-width: 100%; box-sizing: border-box;
 }
-.bcs-preset:hover { border-color: var(--gray-400); }
-.bcs-preset:active { transform: scale(0.97); }
-.bcs-preset--on { border-color: var(--accent-color-800); box-shadow: 0 0 0 1px var(--accent-color-800); }
-.bcs-preset__demo {
-  height: 52px; display: flex; align-items: center; justify-content: center;
+.vk-spp__line { display: inline-block; max-width: 100%; white-space: pre-wrap; }
+/* 单行被选为目标时：那一行描一圈虚线，另一行变淡 —— 「现在只在写这一行」的样子
+   （Mac refreshPreview 的 editingLayer / 原型 .vk-spp__sub--editing|--dim）。 */
+.vk-spp__line--dim { opacity: 0.4; }
+.vk-spp__line--editing { outline: 1.5px dashed rgba(255,255,255,0.75); outline-offset: 4px; border-radius: 3px; }
+
+/* 样片来源条（示例 / 来自视频 + 字幕步进） */
+.vk-spbar { display: flex; align-items: center; gap: 10px; padding: 9px 14px 2px; flex-shrink: 0; }
+.vk-spbar .vk-segc { flex-shrink: 0; }
+.vk-spbar__step { display: flex; align-items: center; gap: 2px; }
+.vk-spbar__cue { font-size: 11px; color: var(--text-subdued); min-width: 50px; text-align: center; }
+.vk-spbar__hint { font-size: 11px; color: var(--text-subdued); flex: 1; min-width: 0; text-align: right; }
+
+/* 面包屑：陈述控件在写哪一行，右端是回到两行的唯一动作。钉在 tab 条上方，
+   因为 tab 的内容随目标变 —— 它必须读起来是 tab 的上级，也不能被滚走。 */
+.vk-sp__crumb {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 14px 6px; flex-shrink: 0;
+  font-size: 11.5px; color: var(--text-subdued);
+}
+.vk-sp__crumb b { color: var(--text-heading); font-weight: 700; }
+.vk-sp__crumb-up { margin-left: auto; flex-shrink: 0; }
+
+/* 子 tab + 滚动区 */
+.vk-sp__tabs { padding: 10px 14px 8px; flex-shrink: 0; }
+.vk-sp__tabs .vk-segc { width: 100%; }
+.vk-sp__scroll { flex: 1; overflow-y: auto; min-height: 0; padding-bottom: 14px; }
+.vk-sp__sec { padding: 8px 14px 4px; }
+.vk-sp__sec--first { padding-top: 2px; }
+.vk-sp__sechead {
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--text-subdued); margin: 6px 0; padding-top: 10px; border-top: 1px solid var(--gray-200);
+}
+.vk-sp__sec--first > .vk-sp__sechead { border-top: none; padding-top: 0; }
+
+/* 行 */
+.vk-sp__row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; min-height: 26px; }
+.vk-sp__lab { width: 64px; flex-shrink: 0; color: var(--text-body); }
+.vk-sp__row input[type="range"] { flex: 1; accent-color: var(--accent-color-900); min-width: 0; }
+.vk-sp__row input[type="range"]:disabled { opacity: 0.4; }
+.vk-sp__rowfill { flex: 1; min-width: 0; }
+.vk-sp__rowsub { font-size: 11px; color: var(--text-subdued); }
+.vk-sp__sw { position: relative; flex-shrink: 0; }
+.vk-sp__hint { font-size: 11px; color: var(--text-subdued); margin-top: 5px; line-height: 1.45; }
+/* 分区之外的领读句（动画 tab 的「动画只播放在原文行」）：自己带滚动区的左右留白 */
+.vk-sp__hint--lead { padding: 8px 14px 0; margin-top: 0; }
+
+/* 路标：「其余的在哪」+ 一次点击就能过去。比分区安静，比 hint 响亮。 */
+.vk-sp__signpost {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 10px 14px 4px; padding: 9px 10px;
+  border-radius: 8px; background: var(--gray-100);
+  font-size: 11.5px; line-height: 1.45; color: var(--text-subdued);
+}
+.vk-sp__signpost > span:first-child { flex: 1; min-width: 120px; }
+.vk-sp__signpost-acts { display: flex; gap: 6px; flex-shrink: 0; }
+/* 分区脚下的单个按钮（「从原文复制样式」） */
+.vk-sp__foot { padding: 10px 14px 0; }
+.vk-sp__swatches { display: flex; flex-wrap: wrap; gap: 5px; flex: 1; }
+/* 滑块数值可直接输入（↑/↓ 步进，Esc 还原） */
+.vk-sp__valin {
+  width: 48px; flex-shrink: 0; height: 22px; box-sizing: border-box;
+  border: 1px solid transparent; border-radius: 5px; background: none;
+  font-size: 11px; text-align: right; color: var(--text-subdued);
+  padding: 0 4px; outline: none;
+}
+.vk-sp__row:hover .vk-sp__valin { border-color: var(--gray-300); background: var(--surface-elevated); }
+.vk-sp__valin:focus {
+  border-color: var(--accent-color-800); background: var(--surface-elevated);
+  color: var(--text-body); box-shadow: 0 0 0 1px var(--accent-color-800);
+}
+.vk-sp__valin:disabled { opacity: 0.4; }
+
+/* B / I / U 与大小写 */
+.vk-sp__fmt { display: flex; gap: 3px; }
+.vk-sp__fmtbtn {
+  width: 28px; height: 26px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--gray-300); border-radius: 6px; background: var(--surface-elevated);
+  font-size: 12px; font-weight: 700; color: var(--text-body); cursor: pointer;
+  transition: all 130ms cubic-bezier(0.45, 0, 0.4, 1);
+}
+.vk-sp__fmtbtn:hover { background: var(--gray-100); }
+.vk-sp__fmtbtn:active { transform: scale(0.96); }
+.vk-sp__fmtbtn--on { background: var(--gray-800); border-color: var(--gray-800); color: var(--gray-25); }
+.vk-sp__fmtbtn--on:hover { background: var(--gray-900); }
+
+/* 可开关的效果分区：开关 · 标题 · 重置 · 折叠。关掉只是跳过效果，数值留着，
+   所以正文变淡而不是消失。 */
+.vk-ts__head { display: flex; align-items: center; gap: 7px; }
+.vk-ts__chk { flex-shrink: 0; }
+.vk-ts__ttl {
+  flex: 1; min-width: 0; text-align: left; border: none; background: none; padding: 0;
+  display: flex; align-items: center; min-height: 14px;
+  font: inherit; line-height: 14px; color: inherit; text-transform: inherit; letter-spacing: inherit; cursor: pointer;
+}
+.vk-ts__acts { display: flex; align-items: center; gap: 1px; flex-shrink: 0; }
+.vk-ts__body--off { opacity: 0.45; pointer-events: none; }
+
+/* 动画：逐词 chips + 入场四宫格 */
+.vk-sp__chips { display: flex; flex-wrap: wrap; gap: 5px; padding: 2px 0 4px; }
+.vk-sp__chip {
+  border: 1px solid var(--gray-300); background: none; border-radius: 999px;
+  font-size: 11.5px; font-weight: 600; color: var(--text-body); padding: 4px 11px; cursor: pointer;
+  transition: all 130ms cubic-bezier(0.45, 0, 0.4, 1);
+}
+.vk-sp__chip:hover { background: var(--gray-100); }
+.vk-sp__chip:active { transform: scale(0.96); }
+.vk-sp__chip--on { background: var(--gray-800); border-color: var(--gray-800); color: var(--gray-25); }
+.vk-sp__trgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; padding: 2px 0 4px; }
+.vk-sp__tr {
+  border: 1px solid var(--gray-300); background: none; border-radius: 8px;
+  font-size: 11.5px; font-weight: 600; color: var(--text-body); padding: 7px 0; cursor: pointer;
+  transition: all 130ms cubic-bezier(0.45, 0, 0.4, 1);
+}
+.vk-sp__tr:hover { background: var(--gray-100); }
+.vk-sp__tr:active { transform: scale(0.96); }
+.vk-sp__tr--on { background: var(--gray-800); border-color: var(--gray-800); color: var(--gray-25); }
+
+/* 预设画廊 */
+.vk-sp__grp {
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--text-subdued); margin: 10px 2px 6px; padding: 0 14px;
+}
+.vk-sp__grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(126px, 1fr)); gap: 8px;
+  padding: 0 14px;
+}
+.vk-sp-preset {
+  position: relative; display: flex;
+  border: 1px solid var(--gray-200); border-radius: 10px; background: none; padding: 0;
+  overflow: hidden;
+  transition: border-color 130ms cubic-bezier(0.45, 0, 0.4, 1);
+}
+.vk-sp-preset:hover { border-color: var(--gray-400); }
+.vk-sp-preset:active { transform: scale(0.98); }
+.vk-sp-preset--sel { border-color: var(--accent-color-800); outline: 1px solid var(--accent-color-800); }
+.vk-sp-preset__btn {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px;
+  padding: 0; border: none; background: none; color: inherit; font: inherit; cursor: pointer;
+}
+.vk-sp-preset__demo {
+  height: 54px; width: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden;
   /* rendered video stand-in — literal colors, identical in light & dark */
-  background: linear-gradient(140deg, oklch(0.40 0.09 252), oklch(0.22 0.06 300));
+  background: linear-gradient(135deg, #3a3f4a, #20242c);
 }
-.bcs-preset__name { font-size: 11px; font-weight: 600; color: var(--text-body); padding: 5px 4px 6px; }
-.bcs-preset--on .bcs-preset__name { color: var(--text-accent); font-weight: 700; }
+.vk-sp-preset__demo > span { white-space: nowrap; }
+.vk-sp-preset__name {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  font-size: 10.5px; font-weight: 600; color: var(--text-subdued); padding: 5px 3px 6px;
+}
+.vk-sp-preset--sel .vk-sp-preset__name { color: var(--text-accent); }
+.vk-sp__presethint { font-size: 11.5px; color: var(--text-subdued); padding: 10px 14px 4px; line-height: 1.45; }
 
-.bcs-strow { display: flex; flex-direction: column; gap: 6px; padding: 4px 14px 10px; }
-.bcs-strow__label { font-size: 12px; font-weight: 600; color: var(--text-body); }
-.bcs-strow__ctl { display: flex; flex-direction: column; gap: 4px; }
+/* 底部常驻条：当前预设名 + 恢复 Agent 样式（原型这里是「保存为样式…」，
+   Studio 没有样式库，见 style-layer.jsx 的省略说明）。 */
+.vk-sp__savebar {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  padding: 8px 14px; border-top: 1px solid var(--gray-200);
+  background: var(--surface-layer-1);
+}
+.vk-sp__savebar__cur {
+  flex: 1; min-width: 0; font-size: 11.5px; color: var(--text-subdued);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.vk-sp__savebar__cur b { font-weight: 700; color: var(--text-body); }
+.vk-sp__savebar__cur i { font-style: normal; color: var(--text-subdued); }
+.vk-sp__savebar .s2-btn { flex-shrink: 0; gap: 4px; }
 
-.bcs-fontpick { display: flex; flex-direction: column; gap: 6px; }
+/* ===== 字体选择器（触发器是一行控件，列表在 Pop 弹层里） ===== */
+.vk-sp__row > .bcs-fontpick__button { flex: 1; min-width: 0; }
 .bcs-fontpick__button {
-  width: 100%; min-height: 32px; display: grid; grid-template-columns: 42px minmax(0, 1fr) 16px;
-  align-items: center; gap: 7px; padding: 0 10px 0 6px;
-  border: 1px solid var(--gray-500); border-radius: 8px;
+  min-height: 28px; display: grid; grid-template-columns: 34px minmax(0, 1fr) 16px;
+  align-items: center; gap: 7px; padding: 0 8px 0 5px;
+  border: 1px solid var(--gray-300); border-radius: 8px;
   background: var(--surface-elevated); color: var(--text-body); cursor: pointer; text-align: left;
   transition: border-color 130ms cubic-bezier(0.45,0,0.4,1), background 130ms cubic-bezier(0.45,0,0.4,1);
 }
-.bcs-fontpick__button:hover { border-color: var(--gray-700); background: var(--gray-75); }
+.bcs-fontpick__button:hover { border-color: var(--gray-500); background: var(--gray-75); }
 .bcs-fontpick__button:active { transform: scale(0.99); }
 .bcs-fontpick__button:focus-visible,
 .bcs-fontpick__search:focus-visible {
   outline: 2px solid var(--accent-color-800); outline-offset: 2px;
 }
 .bcs-fontpick__button > .s2-icon { color: var(--text-subdued); transition: transform 130ms cubic-bezier(0.45,0,0.4,1); }
-.bcs-fontpick--open .bcs-fontpick__button > .s2-icon { transform: rotate(180deg); }
+.bcs-fontpick__button--open > .s2-icon { transform: rotate(180deg); }
 .bcs-fontpick__sample {
   width: 42px; min-width: 42px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
   border-radius: 6px; background: var(--gray-100); color: var(--text-heading);
   font-size: 17px; font-weight: 500; line-height: 1; white-space: nowrap;
 }
+/* 触发器比列表行矮一档，才和同一分区里的其它行等高 */
+.bcs-fontpick__button .bcs-fontpick__sample {
+  width: 34px; min-width: 34px; height: 22px; font-size: 15px;
+}
 .bcs-fontpick__value, .bcs-fontpick__name {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .bcs-fontpick__value { font-size: 12.5px; font-weight: 600; }
-.bcs-fontpick__panel {
-  overflow: hidden; border: 1px solid var(--gray-300); border-radius: 10px;
-  background: var(--surface-elevated); box-shadow: var(--drop-shadow-elevated);
-}
+.bcs-fontpick__pop { padding: 0; overflow: hidden; display: flex; flex-direction: column; max-height: 420px; }
 .bcs-fontpick__searchbox { padding: 8px; border-bottom: 1px solid var(--gray-200); }
 .bcs-fontpick__search {
   width: 100%; height: 32px; border: 1px solid var(--gray-500); border-radius: 8px;
@@ -122,7 +271,7 @@
   font: inherit; font-size: 12px;
 }
 .bcs-fontpick__search::placeholder { color: var(--text-subdued); font-style: italic; }
-.bcs-fontpick__list { max-height: 286px; overflow-y: auto; padding: 4px; }
+.bcs-fontpick__list { flex: 1; min-height: 0; max-height: 286px; overflow-y: auto; padding: 4px; }
 .bcs-fontpick__group {
   padding: 8px 8px 4px; color: var(--text-subdued);
   font-size: 10px; font-weight: 800; letter-spacing: 0.045em; text-transform: uppercase;
@@ -275,3 +424,149 @@
 }
 .bcs-empty b { font-size: 14px; color: var(--gray-800); }
 .bcs-empty .vk-dim { font-size: 12.5px; max-width: 320px; line-height: 1.6; }
+
+/* ===================== 面板工具行：样式选择器触发器 =====================
+   取自原型 designs/baocut-mac/app/style-panel.css 的 .vk-stylebtn：与 Translate
+   工具行上的 .tr-langbtn 并排，所以形状、字号与 chevron 都跟它对齐。宽度上限是
+   刻意的 —— 工具行里的其它控件 nowrap 不收缩，自定义样式名必须省略号收尾而不是
+   把语言按钮挤下界。 */
+.vk-stylebtn {
+  display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto;
+  height: 28px; padding: 0 6px 0 9px; max-width: 132px;
+  border: 1px solid var(--gray-300); border-radius: 8px;
+  background: var(--surface-elevated, #fff);
+  font: inherit; font-size: 12.5px; font-weight: 600; color: var(--text-body); cursor: pointer;
+  transition: background 130ms cubic-bezier(0.45, 0, 0.4, 1), border-color 130ms cubic-bezier(0.45, 0, 0.4, 1);
+}
+.vk-stylebtn:hover:not(:disabled) { background: var(--gray-100); border-color: var(--gray-400); }
+.vk-stylebtn:active:not(:disabled) { transform: scale(0.97); }
+.vk-stylebtn:disabled { opacity: 0.4; cursor: default; }
+.vk-stylebtn:focus-visible { outline: 2px solid var(--accent-color-800); outline-offset: 2px; }
+.vk-stylebtn__lab { color: var(--text-heading); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vk-stylebtn .s2-icon { color: var(--text-subdued); }
+
+/* AI 工具：方形 accent 按钮（原型工具行同款，图标即标签） */
+.bcs-aibtn { padding: 0; aspect-ratio: 1; }
+
+/* 章节头里的"用 AI 写标题"链接（原型 skill.css 的 .vk-linkbtn） */
+.vk-linkbtn { border: none; background: none; padding: 0; color: var(--text-link, var(--accent-color-1000)); font-size: inherit; cursor: pointer; }
+.vk-linkbtn:hover { text-decoration: underline; }
+
+/* ===================== 元素检查器 / 水印层（WP-K2） =====================
+   层壳与分区/行/滑块全部沿用上面样式层那一套（.vk-stylelayer* 在 editor.css，
+   .vk-sp__* 在本文件）；这里只补三样原型里独有的东西：
+     · .vk-tf__*  —— 位置的数值框与六格对齐（原型 app/style-panel.css 的 M-transform 段）
+     · .bcs-elp__* —— 内容/时间分区里的多行文本、图片预览、时间码与双把手范围滑块
+                      （原型 app/watermark.css 的 .vk-wmp__* 段，改成 Studio 前缀）
+     · .bcs-wmrow* —— 水印列表行
+   类名对齐原型的地方保留原名（.vk-tf__*），新增的走 bcs- 前缀，与本文件其它
+   Studio 独有规则一致。 */
+
+.vk-sp__sechead-aside { margin-left: 6px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--text-subdued); opacity: 0.75; }
+
+/* 位置：X/Y 数值框 + 六格对齐 */
+.vk-tf__posrow .vk-tf__nums { display: flex; gap: 6px; flex: 1; min-width: 0; }
+.vk-tf__num {
+  display: flex; align-items: center; gap: 5px; flex: 1; min-width: 0;
+  border: 1px solid var(--gray-300); border-radius: 8px; background: var(--surface-elevated);
+  padding: 0 7px; height: 28px; box-sizing: border-box;
+}
+.vk-tf__num:focus-within { border-color: var(--accent-color-800); box-shadow: 0 0 0 1px var(--accent-color-800); }
+.vk-tf__numlab { font-size: 11px; font-weight: 700; color: var(--text-subdued); flex-shrink: 0; }
+.vk-tf__num input {
+  flex: 1; min-width: 0; width: 100%; border: none; background: transparent; outline: none;
+  font-size: 12px; color: var(--text-body); text-align: right; padding: 0;
+}
+.vk-tf__alignrow .vk-tf__aligns { display: flex; gap: 4px; flex: 1; }
+.vk-tf__align {
+  position: relative; width: 26px; height: 26px; flex-shrink: 0;
+  border: 1px solid var(--gray-300); border-radius: 6px; background: var(--surface-elevated);
+  cursor: pointer; transition: background 130ms cubic-bezier(0.45, 0, 0.4, 1), border-color 130ms cubic-bezier(0.45, 0, 0.4, 1);
+}
+.vk-tf__align:hover { background: var(--gray-100); border-color: var(--gray-400); }
+.vk-tf__align:active { transform: scale(0.94); }
+.vk-tf__align:focus-visible { outline: 2px solid var(--accent-color-800); outline-offset: 2px; }
+.vk-tf__align::before { content: ''; position: absolute; background: var(--text-body); border-radius: 1px; }
+.vk-tf__align--al::before { left: 6px; top: 7px; bottom: 7px; width: 2px; }
+.vk-tf__align--ac::before { left: 50%; top: 7px; bottom: 7px; width: 2px; margin-left: -1px; }
+.vk-tf__align--ar::before { right: 6px; top: 7px; bottom: 7px; width: 2px; }
+.vk-tf__align--at::before { top: 6px; left: 7px; right: 7px; height: 2px; }
+.vk-tf__align--am::before { top: 50%; left: 7px; right: 7px; height: 2px; margin-top: -1px; }
+.vk-tf__align--ab::before { bottom: 6px; left: 7px; right: 7px; height: 2px; }
+
+/* 内容分区 */
+.bcs-elp__text {
+  width: 100%; box-sizing: border-box; min-height: 62px; resize: vertical;
+  font-size: 12.5px; line-height: 1.5; padding: 7px 9px;
+}
+.bcs-elp__imgprev {
+  height: 76px; background: var(--layer-1); border: 1px solid var(--gray-200); border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.bcs-elp__imgprev img { max-width: 90%; max-height: 64px; object-fit: contain; }
+.bcs-elp__addrow { display: flex; gap: 8px; padding-top: 8px; }
+.bcs-elp__addrow .s2-btn { display: inline-flex; align-items: center; gap: 5px; }
+
+/* 时间分区：开始/结束时间码 + 取播放头 */
+.bcs-elp__times {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto minmax(0, 1fr) auto;
+  align-items: center; gap: var(--spacing-75); padding: 2px 0 4px;
+}
+.bcs-elp__times .vk-sp__lab { width: auto; white-space: nowrap; }
+.bcs-elp__tc { width: 100%; min-width: 0; box-sizing: border-box; padding-inline: var(--spacing-75); text-align: center; }
+.bcs-elp__tc:disabled { color: var(--text-disabled, var(--gray-500)); background: var(--layer-1); cursor: default; }
+
+/* 双把手范围滑块（原型 WmRange）：粗调用它，精确值用上面的时间码 */
+.bcs-elp__range { position: relative; height: 18px; margin: 6px 9px 4px; }
+.bcs-elp__range::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 4px;
+  transform: translateY(-50%); background: var(--gray-300); border-radius: 2px;
+}
+.bcs-elp__rangefill {
+  position: absolute; top: 50%; height: 4px; transform: translateY(-50%);
+  background: var(--accent-color-800); border-radius: 2px;
+}
+.bcs-elp__rangemid { position: absolute; top: 50%; height: 14px; transform: translateY(-50%); cursor: grab; touch-action: none; }
+.bcs-elp__rangeh {
+  position: absolute; top: 50%; width: 14px; height: 14px;
+  transform: translate(-50%, -50%); border-radius: 50%; touch-action: none;
+  background: var(--surface-elevated); border: 2px solid var(--accent-color-800); cursor: grab;
+}
+.bcs-elp__rangeh:active, .bcs-elp__rangemid:active { cursor: grabbing; }
+.bcs-elp__range--dis .bcs-elp__rangefill { background: var(--gray-300); }
+.bcs-elp__range--dis .bcs-elp__rangeh { border-color: var(--gray-300); cursor: default; }
+.bcs-elp__range--dis .bcs-elp__rangemid { cursor: default; }
+
+/* 水印列表行 */
+.bcs-wmrow {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 0 -8px;
+  border-radius: 8px; cursor: default;
+}
+.bcs-wmrow:hover { background: var(--layer-1); }
+.bcs-wmrow:focus-visible { outline: 2px solid var(--accent-color-800); outline-offset: -2px; }
+.bcs-wmrow--sel {
+  background: color-mix(in srgb, var(--accent-color-900) 12%, transparent);
+  box-shadow: inset 2px 0 0 var(--accent-color-800);
+}
+.bcs-wmrow--sel:hover { background: color-mix(in srgb, var(--accent-color-900) 16%, transparent); }
+.bcs-wmrow__thumb {
+  width: 30px; height: 22px; border-radius: 4px; background: var(--layer-2);
+  display: inline-flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;
+}
+.bcs-wmrow__thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.bcs-wmrow__aa { font-size: 12px; font-weight: 800; }
+.bcs-wmrow__name { flex: 1; min-width: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bcs-wmrow__badge { color: var(--text-subdued); display: inline-flex; }
+.bcs-wmrow__chip {
+  font-size: 11px; color: var(--text-subdued); background: var(--layer-1);
+  border-radius: 999px; padding: 2px 8px; flex-shrink: 0;
+}
+.bcs-wmrow--sel .bcs-wmrow__chip { background: var(--base); }
+.bcs-wmempty { font-size: 12px; color: var(--text-subdued); padding: 4px 0 8px; }
+.bcs-wmhint { font-size: 12px; color: var(--text-subdued); padding: 12px 16px; }
+
+/* 时间轴上的「整片」标记：投影里 end 已被求值成片尾，所以块本身画满全片，
+   这个 ∞ 是唯一能区分「整片」与「刚好铺满全片的区间」的记号。 */
+.bcs-block__whole { margin-left: 4px; opacity: 0.8; font-weight: 700; }
+/* 文字块的标签也带图标（原型只给水印块加了这条），图标与文字因此不叠在一起 */
+.vk-block--text .vk-block__label { display: inline-flex; align-items: center; gap: 4px; }

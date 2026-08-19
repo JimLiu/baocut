@@ -3,7 +3,48 @@
 AI stages using `--llm agent` may pause with a pending call. Keep the pipeline
 process alive and answer through its leased task queue.
 
-Worker discipline (violations observed to waste whole worker turns):
+## Short-job fast path
+
+Most of this document is about staffing wide parallel batches. A short clip
+(under ~15 minutes; a transcript that fits one 2200-source-word page) never has
+one: every stage dispatches exactly one call, serially, and the observed chain
+for a 100-second clip was `analysis` → `polish` → `translate-brief` →
+`translate` → `align-edges` → `align-rewrite` (one over-hard chunk) → one
+closing `align-edges` repair from `auto`'s refine pass — seven calls, about
+nine minutes of answering. For that shape:
+
+1. Start `auto … --llm agent --jsonl` in the background, writing to a log
+   file, and put one `Monitor`/tail on it that wakes on `batch-dispatch`,
+   `error`, and `done`. Do not launch worker subagents and do not create a
+   task tracker for the pipeline steps.
+2. On the first dispatch, claim in the orchestrating session with a unique
+   `--worker` id and no `--kinds` filter:
+   `task claim <project> --worker <id> --timeout 60 --json`.
+3. Read the claim's `contract` and `input` files in the same step (one
+   parallel batch of reads), write the answer to a unique temp file, and
+   `task submit … --file <answer> --next --json`. `--next` waits up to 20 s
+   for the engine to write the following call and returns it inline; when it
+   returns `next:"empty"` with `producerAlive:true`, one bounded
+   `task claim --timeout 60` picks it up. Read each `contract` path once: a
+   retry in the same task directory only needs its payload and `problems[]`,
+   while a call from a new task directory (for example the closing repair)
+   gets its contract read again — it may embed that task's context.
+4. Stop claiming after the JSONL `done` (or `error`) event. `claim` and
+   `submit --next` also return `empty` on their own, within a second, once no
+   producer process is alive, so a stray claim after the terminal event no
+   longer hangs — but it is still a wasted round.
+
+Two hard limits apply in every shape:
+
+- Keep `--timeout` on `task claim` below the shell tool's own kill limit
+  (with a 120 s tool timeout, use ≤ 90 s); a claim killed by the tool leaves
+  no useful output. Long waits belong in the `Monitor`, not in the claim.
+- Bash tool calls that block for the whole timeout are the most expensive
+  way to wait: `submit --next` and the event stream cover the ordinary
+  stage boundaries, and `producerAlive:false` means stop.
+
+Worker discipline for wide batches (violations observed to waste whole worker
+turns):
 
 - Start workers on demand, never ahead of work. Launch exactly one unfiltered
   catch-all worker alongside the producer, whatever the command is — fresh
@@ -40,14 +81,21 @@ Worker discipline (violations observed to waste whole worker turns):
   while the other kinds report `medium`. Do not let a generic loop steal a
   serial stage.
 - Cover every kind the engines can dispatch, not just the common ones. The full
-  set is `analysis`, `polish`, `polish-retry`, `punct-repair`, `segment-repair`,
-  `segment`, `segment-index`, `chapters`, `translate-brief`, `translate`,
-  `align`, `cleanup`, `broll`. `polish-retry` (dispatched when a polish page
-  trips the similarity gate), `punct-repair` (dispatched after the polish wave
-  for sentences that came back over-long without sentence-ending punctuation),
-  `segment-repair` (dispatched after that for paragraphs that came back
-  over-long) and `segment-index` are the ones a hand-written `--kinds` list
-  usually forgets:
+  set is `analysis`, `speaker-repair`, `polish`, `polish-retry`, `punct-repair`,
+  `seam-repair`, `segment-repair`, `segment`, `segment-index`, `chapters`,
+  `chapters-outline`, `translate-brief`, `translate`, `align`, `cleanup`,
+  `broll`. `speaker-repair` (dispatched **before** the polish pages on
+  multi-speaker projects, to let the model reassign diarization fragments —
+  a particle or a few words that grammatically continue the neighbouring
+  speaker's sentence — before ⏹ becomes a hard sentence/paragraph boundary;
+  single-speaker projects never dispatch it), `polish-retry`
+  (dispatched when a polish page trips the similarity gate), `punct-repair`
+  (dispatched after the polish wave for sentences that came back over-long
+  without sentence-ending punctuation), `seam-repair` (dispatched after that
+  to decide whether each page seam — last paragraph of page k + first
+  paragraph of page k+1 — is a real paragraph boundary), `segment-repair`
+  (dispatched after that for paragraphs that came back over-long) and
+  `segment-index` are the ones a hand-written `--kinds` list usually forgets:
   if no worker can claim them the producer blocks with no further output, and
   a stalled queue is indistinguishable from a quiet one in the event stream.
   Keep one worker claiming with **no** `--kinds` filter as the catch-all, and
@@ -108,8 +156,13 @@ Worker discipline (violations observed to waste whole worker turns):
   now says whether that is worth waiting for: `producerAlive:true` with
   `activeTasks:[…]` means a producer process is still running — usually a
   serial stage or engine-side work between parallel waves — so make one more
-  bounded `claim --timeout 300` before giving up; `producerAlive:false` means
-  nothing will dispatch again and the worker reports and exits. Both are
+  bounded claim (`--timeout 300` from a subagent that owns its own clock; from
+  a shell tool with a 120 s kill limit, `--timeout 90`) before giving up;
+  `producerAlive:false` means nothing will dispatch again and the worker
+  reports and exits. A bounded claim also returns `empty` early — within about
+  a second — once every producer recorded in the project's `tasks/` has
+  exited, so a worker no longer sits out its full `--timeout` after the
+  pipeline's terminal event. Both are
   normal endings, not errors, and the root does not respawn a worker until a
   new dispatch needs it. Restarting a worker costs one startup; keeping an
   idle one costs a full model session for the whole remaining run.
@@ -226,7 +279,9 @@ Worker discipline (violations observed to waste whole worker turns):
 
    Stage boundaries need no advance staffing. The align batch dispatches
    seconds after the last translate submit, and a worker that submits its
-   translate page with `--next` claims straight into it — brief the workers on
+   translate page with `--next` claims straight into it (`--next` holds the
+   claim open for up to 20 s, which covers the engine's checkpoint and
+   next-page write even on a debug build) — brief the workers on
    both contracts up front and let them claim `--kinds translate,align`, and
    the boundary closes inside the sessions already running. Chaining with
    `--next` is what makes this work: workers that submitted and exited without
@@ -453,9 +508,10 @@ valid answer wins); only a lint-failing late submit reports `stale`.
 - Provider mode is the no-worker alternative: with
   `--llm provider:<vendor>/<model>` there is no task directory and no claim
   loop — the CLI calls the provider API directly.
-  The `llm.maxConcurrent` config key (`bcut config set llm.maxConcurrent <N>`,
-  default 8, `0` = unlimited; env `BCUT_PROVIDER_MAX_LANES` overrides the
-  stored value entirely) sets the concurrent
+  Concurrent lanes come from `--llm-concurrency <N>` (this run only) falling
+  back to env `BCUT_PROVIDER_MAX_LANES`, then the `llm.maxConcurrent` config key
+  (`bcut config set llm.maxConcurrent <N>`), then 4; `0` = unlimited. That sets
+  the concurrent
   lanes only; page shape follows the provider budget (declared separately
   from Agent mode: translate uses 2000 source words, while align adds the same
   40-item and complexity guards described above) and is not affected by the
@@ -466,10 +522,11 @@ valid answer wins); only a lint-failing late submit reports `stale`.
 
 ## File-contract calls (`file-v1`)
 
-`translate`, `polish`, `punct-repair`, `segment-repair`, `align`, `analysis`,
-and `translate-brief` calls always use a document carrier: an HTML page, a
-fenced plain-text page, an HTML table, or a Markdown context document. (There
-is no `--contract` flag — file-v1 is the only protocol for these seven kinds.) The
+`translate`, `speaker-repair`, `polish`, `punct-repair`, `seam-repair`, `segment-repair`,
+`align-edges`, `align-rewrite`, `align`, `analysis`, `translate-brief`,
+`chapters`, and `chapters-outline` calls always use a document carrier: an HTML page, a fenced
+plain-text page, an HTML table, or a Markdown context document. (There is no
+`--contract` flag — file-v1 is the only protocol for these kinds.) The
 claim → answer → submit loop, the
 lease rules, `--next` chaining, hedging, and the lint budget are all unchanged
 from the JSON kinds. What changes is what you read and what you write.
@@ -477,9 +534,10 @@ from the JSON kinds. What changes is what you read and what you write.
 **Decide the protocol from the envelope, never from the content.** A
 file-contract call's claim envelope carries `protocolVersion: "file-v1"`; its
 absence means `json-v0`, which today appears only on the single-round JSON
-kinds (`polish-retry`, `segment`, `segment-index`, `chapters`, `cleanup`,
-`broll`) — and on historical tasks written by an older CLI, whose submits the
-current CLI accepts without lint. The CLI itself routes submit-time lint on
+kinds (`polish-retry`, `segment`, `segment-index`, `cleanup`, `broll`) — and on
+historical tasks written by an older CLI, whose submits the current CLI accepts
+without lint (historical `json-v0` `chapters` tasks keep their old NDJSON
+`{title,startSeg}` line lint). The CLI itself routes submit-time lint on
 that field alone and never sniffs the payload, so a worker that guesses from
 the file extension or from the kind will eventually guess wrong. Both
 protocols appear in the same project and even in the same worker loop — see
@@ -502,9 +560,14 @@ producer's working directory. Do not assume they are absolute.
 The contract file is `contracts/<kind>.md` (`<kind>-2.md`, `-3.md` on later
 attempts, with identical content) and holds the stage's complete instruction
 set: the carrier's grammar, the permitted edits, and the output rules. **It is
-the authority; this section only describes the loop around it.** Read it on
-every call — the four carriers have genuinely different rules, and a retry's
-contract is not where the new information lives (that is `problems[]`).
+the authority; this section only describes the loop around it.** Read it once
+per `contract` path — the four carriers have genuinely different rules, and a
+contract can embed task-specific context (the translate contract carries the
+brief's summary and glossary; a repair task's may carry diagnosis), so a new
+task directory means a new read. Within one task directory the retry copies
+`<kind>-2.md`, `-3.md` are identical to `<kind>.md`, and a retry's new
+information lives in `problems[]`, not in the contract — do not re-read for
+a retry.
 
 The working shape:
 
@@ -533,19 +596,26 @@ Answer discipline shared by all four carriers:
   anchor reads as missing data, not as a formatting choice.
 - Never introduce control characters, zero-width marks, or bidi overrides, and
   do not indent the sentinel fence lines — they are matched at the line start.
-- There is a hard output ceiling of four times the input size (minimum 4096
+- There is a hard output ceiling of eight times the input size (minimum 4096
   characters). Hitting it (`document-oversize`) means the answer stopped being a
-  revision of the page, and the whole answer is discarded.
+  revision of the page, and the whole answer is discarded. The ceiling only asks
+  whether the payload is still worth parsing; a merely long but structurally
+  intact answer is handled by the per-unit rules below, not by this guard.
 
 What each carrier expects, in one line each — the contract has the rest:
 
 | Kind | Carrier | Your answer |
 |---|---|---|
-| `translate` | `<article>` of `<section>`/`<p id="s-…">` (`text/html`) | The same document with each `<p>`'s text replaced by the translation. Every id present exactly once, unchanged, and every attribute kept — `data-rt` lists target terms that must appear in that sentence, `data-budget` its reading budget. When empty `data-align-target` / `data-align-breaks` placeholders are present, first finish the natural sentence text, then optionally fill them with an exact ` | `-marked copy and matching `bN` JSON boundaries; a bad draft is ignored but never excuses a bad translation. Sentences marked `data-editable="false"` are frozen: copy their existing `data-translation` back byte for byte. The read-only `<!-- context-before/after -->` comments are input only; never echo them. |
-| `polish` | Plain text between four sentinel fence lines (`text/plain`) | All four fence lines reproduced verbatim and once, both read-only regions character for character, edits only between `<<<EDIT-BEGIN>>>` and `<<<EDIT-END>>>`. A blank line is a paragraph break; a single newline means nothing, and `<<<HARD-CUT>>>` is not one. Sentence boundaries come only from real sentence-ending punctuation: close each complete thought with `.?!` / `。？！` as you go, so that no mapped sentence covers more than 1200 source characters or 300 seconds and no corrected sentence exceeds 300 Latin words / 500 CJK characters. An over-long sentence does not fail submit lint — the page is accepted for its wording, but that sentence comes back to you as a `punct-repair` call, which is extra work you avoid by punctuating properly the first time; extra newlines, commas, or pause markers never substitute for real sentence-ending punctuation. Paragraphing is mandatory, not optional: keep every paragraph at or under the same cap — spoken-language paragraphs run 2–6 sentences, so an editable region of real length always contains several. An over-long paragraph does not fail submit lint; the page is accepted and that paragraph comes back to you later as a `segment-repair` call, which is extra work you avoid by segmenting properly the first time. Never copy the `⏸`/`⏹` markers into the answer, reinterpret UTF-8, or introduce control characters. |
+| `translate` | `<article>` of `<section>`/`<p id="s-…">` (`text/html`) | The same document with each `<p>`'s text replaced by the translation. Every id present exactly once, unchanged, and every attribute kept — `data-rt` lists target terms that must appear in that sentence, `data-budget` its reading budget. When `data-align-words` (`[1]I [2]didn't …`, the source words with 1-based ordinals) is present, first write the natural translation, then wrap it inside the same `<p>` in `<span data-src="…">chunk</span>` chunks (see `align-edges` below for the micro-format); the spans are transparent — their texts concatenated are the translation — and a bad annotation is ignored but never excuses a bad translation. Sentences marked `data-editable="false"` are frozen: copy their existing `data-translation` back byte for byte. The read-only `<!-- context-before/after -->` comments are input only; never echo them. |
+| `speaker-repair` | One or more windows of a raw multi-speaker transcript, each between `<<<WINDOW k \| n lines \| speakers S1,S2 \| current: 1-13 S1, 14-14 S2, 15-31 S1>>>` and `<<<WINDOW-END>>>`, **one word (one CJK character) per line**, every line prefixed with its 1-based number (`12\| 的`) and followed by `⏸` pause marks where the source pauses; the header lists the speakers present in the window and the current attribution as line ranges (`text/plain`) | **Line-number ranges plus a label only, never the words.** For every window, in order: `<<<WINDOW k>>>`, then one `a-b LABEL` per line (one range = one turn), then `<<<WINDOW-END>>>`. Ranges start at 1, are contiguous and end at the window's last line; every label must be one of the header's `speakers`; after merging adjacent same-label ranges the number of turns must not exceed the number in `current:` — you may merge a fragment into its neighbours or move an existing speaker change by a few words, never invent a new speaker change. Decide by meaning and grammar first, then timing: reassign a fragment that obviously completes the neighbouring speaker's clause (a particle like 的/了/吗, the head or tail of a phrase) when the pause around it is tiny; keep short turns that are real utterances (acknowledgements 嗯/对/哦/yeah, questions, answers). The transcript is raw — punctuation may be missing or inconsistent, do not rely on it; when unsure, repeat the current attribution. Windows are accepted one by one: a missing window or a broken range list is `range-invalid` and comes back on the next round with the verdict in `problems[]`; the other windows in the same payload land regardless. A valid answer that relabels more than a fragment (over 12 words in the window, or a run over 8 words / 2.5 s) is silently ignored by the engine — only fragments and small boundary shifts are in scope. Nothing outside the fences. |
+| `polish` | Plain text between four sentinel fence lines (`text/plain`) | All four fence lines reproduced verbatim and once, both read-only regions character for character, edits only between `<<<EDIT-BEGIN>>>` and `<<<EDIT-END>>>`. A blank line is a paragraph break; a single newline means nothing, and `<<<HARD-CUT>>>` is not one. Page seam: if the first sentence of the editable region starts a new paragraph rather than continuing the last paragraph shown in `<<<CONTEXT-BEFORE …>>>`, put exactly one blank line right after `<<<EDIT-BEGIN>>>` before it; otherwise start the text directly (that leading blank line is the only one with meaning, and it means nothing on the first page). Seams you do not flag are settled later by a `seam-repair` call. Sentence boundaries come only from real sentence-ending punctuation: close each complete thought with `.?!` / `。？！` as you go, so that no mapped sentence covers more than 1200 source characters or 300 seconds and no corrected sentence exceeds 300 Latin words / 500 CJK characters. An over-long sentence does not fail submit lint — the page is accepted for its wording, but that sentence comes back to you as a `punct-repair` call, which is extra work you avoid by punctuating properly the first time; extra newlines, commas, or pause markers never substitute for real sentence-ending punctuation. Paragraphing is mandatory, not optional: keep every paragraph at or under the same cap — spoken-language paragraphs run 2–6 sentences, so an editable region of real length always contains several. An over-long paragraph does not fail submit lint; the page is accepted and that paragraph comes back to you later as a `segment-repair` call, which is extra work you avoid by segmenting properly the first time. Never copy the `⏸`/`⏹` markers into the answer (a `⏹` may carry the incoming speaker's label, as in `⏹S2` — the label is part of the marker, not a word), reinterpret UTF-8, or introduce control characters. |
 | `punct-repair` | One or more over-long sentences, each between its own `<<<SENTENCE-BEGIN id=sNN min-sentences=K>>>` / `<<<SENTENCE-END id=sNN>>>` pair, the text carrying `⏸`/`⏸⏸`/`⏸⏸⏸` pause hints projected from the source timeline (`text/plain`) | Every item reproduced with its fence lines and the same id — the only change allowed is adding sentence-ending punctuation (`.?!` / `。？！`) where a complete thought ends, at least `min-sentences` sentences per item. Do not fix typos, wording, or spacing, do not merge, split, add or drop words, do not copy the `⏸` hints, and do not create conflicting marks (`。，` `，。` `，，` `,,` `..` `.,`) or a false sentence end at a dangling connector. Items are independent and accepted one by one: a rewritten item is `source-drift`, an item returned without any new sentence end is `sentence-oversize`, and both come back on the next round with the verdict in `problems[]`; the other items in the same payload land regardless. Nothing outside the fences. |
-| `segment-repair` | One or more over-long paragraphs, each between its own `<<<PARAGRAPH-BEGIN>>>` / `<<<PARAGRAPH-END>>>` pair, one sentence per line (`text/plain`) | Every paragraph reproduced with its fence lines, in order, every sentence line verbatim — the only change allowed is inserting blank lines between lines (a blank line = a new paragraph). Split every paragraph at each topic turn so no resulting paragraph exceeds the per-language cap. Paragraphs are accepted one by one: a rewritten, merged, dropped or reordered line rejects that paragraph as `source-drift`, a paragraph returned without any blank line is `paragraph-oversize`, and both are sent back on the next round with the verdict in `problems[]`; the other paragraphs in the same payload land regardless. Nothing outside the fences — no preamble, no code block wrapper. |
-| `align` | One HTML table, one `<tbody data-sid>` per sentence (`text/html`) | The same table back, one `<tr>` per display piece inside each group, `data-sid` byte for byte. Splitting a sentence into N pieces means N rows. The source cells rejoined must reproduce the input sentence — the source column may only be cut, never reworded — and the target cells rejoined must reproduce the sentence translation unless you mark the group `data-reordered="true"`. A group carrying `class="ctx"` — read-only context the current build does not yet emit — is returned unchanged and never cut. |
+| `segment-repair` | One or more over-long paragraphs, each a block between `<<<BLOCK k \| n sentences \| c words/characters \| at least m paragraphs>>>` and `<<<BLOCK-END>>>`, one sentence per line, every line prefixed with its 1-based number (`12\| …`) (`text/plain`) | **Line-number ranges only, never the sentence text.** For every block, in order: `<<<BLOCK k>>>`, then one range `a-b` per line (one range = one paragraph), then `<<<BLOCK-END>>>`. Ranges start at 1, are contiguous (each starts right after the previous one ends) and end at the block's last line — no gaps, overlaps or numbers outside the block. Break at every topic turn (2–6 sentences each) so no paragraph exceeds the per-language cap, and give at least the number of paragraphs the header asks for. Blocks are accepted one by one: a missing block or a broken range list is `range-invalid`, a block answered with a single range while still over the cap is `paragraph-oversize`, and both are sent back on the next round with the verdict in `problems[]`; the other blocks in the same payload land regardless. Nothing outside the fences — no sentence text, no preamble, no code block wrapper. |
+| `seam-repair` | One or more blocks in the same numbered-line shape as `segment-repair` (`text/plain`). Each block is a window around a page seam: the last sentences of one polish page's final paragraph followed by the first sentences of the next page's first paragraph; the header names the seam (`page seam before line N` — the previous page ended with line N-1, the next page began with line N; a chained block lists several) | Line-number ranges only, same fences as `segment-repair`. The window may begin and end mid-paragraph — that is expected; what matters is where paragraph boundaries fall inside it. If the sentence at the seam continues the thought before it, do not start a range there — let one range span the seam (a single range covering the whole block is a valid answer). Start a range at the seam only when a new topic, question, example or story really begins there; a boundary a few lines before/after the seam is welcome when the topic actually turns there. Only the range that contains the seam line is acted on (its start and end inside the window become the paragraph boundaries); a rejected block (`range-invalid`) keeps the original break. |
+| `align-edges` (default align carrier) | One HTML table `data-bcut-format="align-edges/1"`, one `<tbody data-sid>` per sentence: `td.src` holds the source words each prefixed with its 1-based ordinal (`[1]I [2]didn't [3]go …`), `td.tgt` the natural translation (`text/html`) | The same table back, `data-sid` and `td.src` byte for byte; only the **contents of `td.tgt`** change: the translation rewritten as a sequence of `<span data-src="…">chunk</span>` elements whose texts concatenated reproduce the translation exactly (punctuation stays with the chunk it ends; text left outside a span counts as an unattributed chunk). Chunk into the smallest natural semantic chunks in the translation's own order — never reorder or merge chunks to imitate the source. `data-src` is a whitespace/comma-separated list of source ordinals and ranges (`4-7`, `1 2 3`, `1-3,9`), any order, non-contiguous ok, `data-src=""` for a chunk with no source word; every ordinal at most once per sentence, unassigned function words are fine. Numbers, names, URLs and glossary terms sit in the chunk of their source ordinal. You do not cut rows and never rewrite the translation — the engine merges chunks into monotonic blocks and cuts the rows. |
+| `align-rewrite` | Same table shape, `data-bcut-format="align-rewrite/1"`; each `<tbody>` carries `data-over-hard` naming the aligned chunk (source ordinal range, reading units) that cannot fit one subtitle row (`text/html`) | `td.tgt` replaced by the translation **rewritten** so its clause order follows the source clause order and every chunk fits the hard budget, already annotated with the same `<span data-src>` chunks (nothing outside spans). Keep every fact, negation, number, name, URL and locked term; only reorder clauses and adjust connectives, particles and punctuation. A rewrite that drifts more than ~25% in reading units, or drops a number/URL/Latin anchor, is rejected and that sentence falls back to whole-sentence correspondence — there is no repair round. If it cannot be reordered naturally, return the translation unchanged and annotate it anyway. |
+| `align` (review/repair carrier, `--align-carrier table`) | One HTML table `align-table/1`, one `<tbody data-sid>` per sentence (`text/html`) | The same table back, one `<tr>` per display piece inside each group, `data-sid` byte for byte. Splitting a sentence into N pieces means N rows. The source cells rejoined must reproduce the input sentence — the source column may only be cut, never reworded — and the target cells rejoined must reproduce the sentence translation unless you mark the group `data-reordered="true"` (the rewrite then becomes the display text; the natural translation is kept). `data-crossing="true"` yields whole-sentence correspondence. A group carrying `class="ctx"` — read-only context the current build does not yet emit — is returned unchanged and never cut. |
+| `chapters` (one part of the recording), `chapters-outline` (the whole recording's topic-unit outline) | `<article data-bcut-format="chapters-source/1">` of `<p id="p-…" data-at="HH:MM:SS">paragraph</p>` — or, for `chapters-outline`, `<h2 data-at>` / `<p class="summary">` / `<p id>` units with `<hr data-seam>` where two parts were cut (`text/html`) | Not the document back: only the chapter list, in order, each chapter exactly `<h2>title</h2>`, `<p class="summary">one sentence</p>`, `<p id="…">opening words of that paragraph</p>` — the `id` copied verbatim from the input paragraph (or unit) where the chapter starts, the opening words quoted from it. No timestamps, no end anchors, nothing else. The root's `data-aim` is the approximate chapter count; on a non-first `data-part` the beginning may just continue the previous part's topic, so the first chapter need not sit on the first paragraph. In `chapters-outline`, merge units that continue one topic (especially across a seam), keep the count near `data-aim`, and give an empty `<h2 data-untitled="true">` unit a title from context or merge it into a neighbour. Lint rejects an anchor id that does not exist in the payload (`unknown-id`; a mangled id whose opening words uniquely match a paragraph is repaired instead), an empty title (`empty-title`), and an answer with no anchored heading (`missing-id`). |
 | `analysis`, `translate-brief` | Markdown context document (`text/markdown`) | The document with its `---` frontmatter and its `# Canonical Terms` / `# Bilingual Glossary` table intact, and no sections added. Table headers must read exactly `Source \| Category \| Variants \| Note \| Lock \| Origin` and `Source \| Target \| Note \| Lock \| Origin`. `Lock` and `Origin` are the user's channel: whatever a model writes there is downgraded to `Origin=analyzed, Lock=no`. Each `Target` is exactly one on-screen literal — slash alternatives fail the whole round unless the source term itself contains a slash. |
 
 **A translate page is subtitles, not prose.** Every sentence you write is cut
@@ -619,17 +689,21 @@ recognizing on sight:
 |---|---|
 | `document-wrapped` | Fences or prose around the document. Resubmit the bare document. |
 | `document-truncated` | The answer stops early — a missing tail of ids, or a missing/duplicated/out-of-order sentinel fence. Reproduce the complete page. |
-| `document-oversize` | Either the answer is above the 4× ceiling, a sentence ends at a dangling connector/preposition, adjacent punctuation conflicts (`。，` / `，。` / `，，`), or a Chinese transcript still has an obvious 20+ letter run-together English phrase (in `punct-repair` the same dangling/conflicting checks apply per item). Read the detail: shorten a bloated answer in the first case; remove a false dangling end; keep exactly one intended punctuation mark; or restore spaces inside the spoken English phrase without translating or guessing content. Newlines and blank lines do not end sentences. |
+| `document-oversize` | The answer is above the 8× output ceiling — it stopped being a revision of the page. Shorten it to the page it was asked to revise. Surface-level defects no longer report under this code. |
+| `surface-artifact` | A sentence ends at a dangling connector/preposition, or a Chinese transcript still has an obvious 20+ letter run-together English phrase. **This never rejects a page**: on a main polish page it is only a warning, and the engine sends those sentences to a short `polish-retry` wave afterwards; in `punct-repair` it is reported per item. When you do see it, remove the false dangling end and join the sentences, or restore spaces inside the spoken English phrase without translating or guessing content. Newlines and blank lines do not end sentences. Conflicting adjacent punctuation (`。，` / `，。` / `，，`) is not in this code at all — the engine normalises it silently. |
 | `missing-id` / `empty-translation` | A sentence is absent or translated to nothing. Add exactly those. |
 | `duplicate-id` | The same id twice — the page cannot be scored. Emit each id once. |
 | `unknown-id` | An id that was not in the input. Advisory for editable pages; do not invent ids. |
-| `frozen-modified` | A frozen sentence changed. Restore it byte for byte. |
-| `source-drift` | A read-only region was edited (polish context regions, an align source cell, a `segment-repair` sentence line that was rewritten, dropped or truncated, or a `punct-repair` item whose words — anything other than punctuation — were changed, added or dropped), or a polish answer introduced an illegal control character (usually UTF-8 mojibake). Restore the named region; for mojibake, reopen the UTF-8 payload and reproduce the intended punctuation normally. |
+| `frozen-modified` | A frozen sentence changed. Restore it byte for byte. (In translate the engine now ignores the model's text for frozen sentences and keeps the stored translation, recording a `frozen-ignored` warning instead of rejecting the page — but reproducing frozen sentences verbatim is still the contract.) |
+| `source-drift` | A read-only region was edited (polish context regions, an align source cell, a `punct-repair` item whose words — anything other than punctuation — were changed, added or dropped), or a polish answer introduced an illegal control character (usually UTF-8 mojibake). Restore the named region; for mojibake, reopen the UTF-8 payload and reproduce the intended punctuation normally. |
 | `glossary-missing` | A locked target term is absent from a translation. Put the exact spelling back. |
 | `paragraph-move` | A sentence moved between paragraphs. |
 | `sentence-oversize` | A `punct-repair` item came back with no new sentence-ending punctuation (or the punctuation you added could not be mapped back onto the source words) — still one sentence over 1200 source characters / 300 seconds or the 300 Latin words / 500 CJK characters cap. Re-read that item and add `.?!` / `。？！` wherever a complete thought ends (the `⏸` hints mark long pauses, `min-sentences` is the minimum count); change nothing else. On a later round the request's `problems[]` names the item by its `sNN` id; a sentence you split that is still over the cap comes back the same way, so cut it into more pieces rather than fewer. |
-| `paragraph-oversize` | A `segment-repair` paragraph came back with no blank line inserted — still one paragraph over the per-language cap (300 Latin words / 500 CJK characters). Re-read that paragraph and insert blank lines at every topic turn (2–6 sentences each); change nothing else. On a later round the request's `problems[]` names the paragraph by its position in the payload (`第 k 段：…`); a paragraph you split that is still over the cap comes back the same way, so cut it into more pieces rather than fewer. |
-| `align-content-drift` | A group's pieces do not rejoin the input sentence or its translation. Re-cut that group, or declare `data-reordered="true"` if the rewrite was deliberate. |
+| `paragraph-oversize` | A `segment-repair` block came back as a single range while still over the per-language cap (300 Latin words / 500 CJK characters). Re-read that block and split it into at least the number of ranges the verdict names, breaking at every topic turn (2–6 sentences each). On a later round the request's `problems[]` names the block by its position in the payload (`第 k 块：…`); a block you split whose pieces are still far over the cap comes back the same way, so cut it into more pieces rather than fewer. |
+| `range-invalid` | A `segment-repair` / `seam-repair` block (or a `speaker-repair` window) is missing from the answer, or its range list does not start at 1, is not contiguous, does not reach the block's last line, or names lines outside the block; for `speaker-repair` also a label that is not one of the window's `speakers`, or more turns than `current:` lists. The verdict names the first defect (`第 k 行没有被任何区间覆盖`, `重叠`, `越界`, `段数不得增加`…). Answer every block with `<<<BLOCK k>>>` … `<<<BLOCK-END>>>` (`<<<WINDOW k>>>` … `<<<WINDOW-END>>>` for speaker-repair) and a range list that covers exactly lines 1..n once. |
+| `align-edge-ordinal` | An `align-edges`/`align-rewrite` chunk's `data-src` is unreadable, names an ordinal beyond the source word count, or reuses an ordinal already claimed by another chunk in that sentence. Fix that sentence's `data-src` lists (1-based, each ordinal at most once). |
+| `align-edge-text` | An `align-edges` sentence's span texts concatenated do not reproduce the translation. Wrap the translation exactly — never add, drop, reorder or normalize a character. |
+| `align-content-drift` | In `align`: a group's pieces do not rejoin the input sentence or its translation — re-cut that group, or declare `data-reordered="true"` if the rewrite was deliberate. In `align-rewrite`: the rewrite drifted more than ~25% in reading units or lost a number/URL/Latin anchor — reorder without compressing, and keep every anchor. |
 | `align-over-hard` / `align-illegal-seam` | A piece is over the hard width, or cuts at a banned seam. These two are quality codes that never fail a whole page; submit lint still reports them, so re-cut every listed group by hand where a legal cut exists (moving one boundary is usually enough). The over-hard detail tells you how: `可切为「…」｜「…」` names a legal cut inside that piece — split the target there and cut its source segment at the matching place (one more row); `片内无标点/空白缝，请在词边界处切开` means the piece has no punctuation or space seam, so choose a word boundary yourself; `片内无合法切点，需连同相邻片一起重切` (often with `整句可重切为…`) means the fix is moving neighbouring boundaries, not splitting that piece alone. A piece whose translation has **no** legal cut at all (a giant identifier, or every seam is a banned seam) is no longer rejected at submit — it passes as a warning and the engine hard-cuts it — so never pad or rewrite just to satisfy the width. Only for a sentence whose **source** genuinely has no seam keep it whole and declare `data-unsplittable="true"` — that changed answer is what the third submit lets through; resubmitting the same file three times does not (it is `unchanged`, no try spent). When the engine also finds no legal re-split of its own for an over-hard piece, it keeps your answer as a fallback and sends **that one sentence** back once in the repair round with a `… over the absolute hard ceiling … move a boundary … or declare data-unsplittable="true"` detail — move the cut, or declare `data-unsplittable="true"` if the source truly has no legal seam. |
 | `context-invalid` | The context document lost its frontmatter, a required section, or an exact table header. |
 
@@ -639,15 +713,20 @@ is recorded as a warning and never reaches `problems[]` or the retry budget.
 
 One mixed-protocol trap, real in a single run:
 
-- A file-v1 polish still falls back to `polish-retry` calls for
-  low-similarity sentences, and **`polish-retry` is always `json-v0` with a JSON
-  payload and a JSON answer**. A worker filtering `--kinds polish` never sees
-  them and the producer blocks; a worker filtering `--kinds polish,polish-retry`
-  must branch per call on `protocolVersion`.
+- A file-v1 polish still falls back to `polish-retry` calls for low-similarity
+  sentences **and for sentences the page carried a `surface-artifact` on** (each
+  item names which, via `reason`), and **`polish-retry` is always `json-v0` with
+  a JSON payload and a JSON answer**. A worker filtering `--kinds polish` never
+  sees them and the producer blocks; a worker filtering `--kinds polish,polish-retry`
+  must branch per call on `protocolVersion`. The wave is at most two rounds; the
+  second round carries a per-sentence `retry_reason`.
 - A `polish-retry` answer must not reintroduce a dangling connector/preposition
   sentence end, conflicting adjacent punctuation, or a run-together Latin phrase
   that the file-v1 page already repaired. Preserve the page's corrected surface;
   the engine keeps that locally confirmed page correction if the JSON retry regresses it.
+  After the two rounds, a still-unfixed low-similarity sentence falls back to the
+  raw ASR words, while a still-unfixed `surface-artifact` sentence **keeps your
+  text** and is only counted — so a rough surface is always better than a refusal.
 
 One thing that looks like trouble and is not: under the file contract, translate
 repairs come back as fresh `attempt: 1` calls against `contracts/translate.md`

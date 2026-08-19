@@ -85,6 +85,110 @@
         {"id":"q-c0","start":0.0,"end":2.1,"sp":"s1","text":"字幕系统需要在中文字符之间保持自然换行规则","wordIds":["c0","c1","c2","c3","c4","c5","c6","c7","c8","c9","c10","c11","c12","c13","c14","c15","c16","c17","c18","c19","c20"]},
         {"id":"q-c21","start":2.1,"end":2.2,"sp":"s1","text":"稳","wordIds":["c21"]}
       ]
+    },
+    {
+      "name": "auto pins from autoBreaks[default] apply and a user break pin overrides the same key",
+      "note": "0.4：派生用 pins = autoBreaks[layoutProfile || 'default'] ⊕ breaks（同键以 breaks 为准）。w1 的自动 break 被用户 nobreak 压掉，w3 的自动 break 生效。",
+      "words": [
+        {"id":"w0","t0":0.0,"t1":1.0,"text":"one","sp":"s1"},
+        {"id":"w1","t0":1.0,"t1":2.0,"text":"two","sp":"s1"},
+        {"id":"w2","t0":2.0,"t1":3.0,"text":"three","sp":"s1"},
+        {"id":"w3","t0":3.0,"t1":4.0,"text":"four","sp":"s1"},
+        {"id":"w4","t0":4.0,"t1":5.0,"text":"five","sp":"s1"},
+        {"id":"w5","t0":5.0,"t1":6.0,"text":"six.","sp":"s1"}
+      ],
+      "breaks": {"w1":"nobreak"},
+      "autoBreaks": {"default": {"w1":"break","w3":"break"}},
+      "hidden": {},
+      "expected": [
+        {"id":"q-w0","start":0.0,"end":4.0,"sp":"s1","text":"one two three four","wordIds":["w0","w1","w2","w3"]},
+        {"id":"q-w4","start":4.0,"end":6.0,"sp":"s1","text":"five six.","wordIds":["w4","w5"]}
+      ]
+    },
+    {
+      "name": "autoBreaks are keyed by layoutProfile; other profiles' pins are ignored",
+      "words": [
+        {"id":"w0","t0":0.0,"t1":1.0,"text":"one","sp":"s1"},
+        {"id":"w1","t0":1.0,"t1":2.0,"text":"two","sp":"s1"},
+        {"id":"w2","t0":2.0,"t1":3.0,"text":"three","sp":"s1"},
+        {"id":"w3","t0":3.0,"t1":4.0,"text":"four","sp":"s1"},
+        {"id":"w4","t0":4.0,"t1":5.0,"text":"five","sp":"s1"},
+        {"id":"w5","t0":5.0,"t1":6.0,"text":"six.","sp":"s1"}
+      ],
+      "breaks": {},
+      "autoBreaks": {"default": {"w1":"break"}, "portrait": {"w3":"break"}},
+      "layoutProfile": "portrait",
+      "hidden": {},
+      "expected": [
+        {"id":"q-w0","start":0.0,"end":4.0,"sp":"s1","text":"one two three four","wordIds":["w0","w1","w2","w3"]},
+        {"id":"q-w4","start":4.0,"end":6.0,"sp":"s1","text":"five six.","wordIds":["w4","w5"]}
+      ]
+    }
+  ],
+  "lineBreaks": [
+    {
+      "name": "a span that fits the width stays on one line",
+      "words": ["Which","means","when","I","find","a","need"],
+      "language": "en",
+      "fit": 42,
+      "maxLines": 2,
+      "expected": [[0,1,2,3,4,5,6]]
+    },
+    {
+      "name": "a three-line Latin span balances toward the ideal width",
+      "words": ["It","seems","like","each","advancement","we've","had","in","the","complexity","of","the","way","we","write","code","to","interact","with","these","models"],
+      "language": "en",
+      "fit": 42,
+      "maxLines": 3,
+      "expected": [[0,1,2,3,4,5],[6,7,8,9,10,11,12,13],[14,15,16,17,18,19,20]]
+    },
+    {
+      "name": "the boundary penalty pulls a line end onto a comma when the balance cost allows",
+      "words": ["so","the","humans","don't","get","distracted","paying","attention","to","that","in","reviews,","stuff","like","that."],
+      "language": "en",
+      "fit": 42,
+      "maxLines": 3,
+      "expected": [[0,1,2,3,4,5],[6,7,8,9,10],[11,12,13,14]]
+    },
+    {
+      "name": "two lines split near the middle rather than at the first comma",
+      "words": ["First","clause","ends","here,","and","the","second","clause","runs","a","bit","longer","than","the","first."],
+      "language": "en",
+      "fit": 42,
+      "maxLines": 2,
+      "expected": [[0,1,2,3,4,5,6],[7,8,9,10,11,12,13,14]]
+    },
+    {
+      "name": "a narrow fit yields evenly filled lines",
+      "words": ["one","two","three","four","five","six","seven","eight","nine","ten","eleven"],
+      "language": "en",
+      "fit": 20,
+      "maxLines": 3,
+      "expected": [[0,1,2,3],[4,5,6,7],[8,9,10]]
+    },
+    {
+      "name": "CJK words join without separators and count code points",
+      "words": ["我们","今天","要","讲","的","是","字幕","切分","的","四层","分离","模型","以及","它","的","实现"],
+      "language": "zh",
+      "fit": 12,
+      "maxLines": 3,
+      "expected": [[0,1,2,3,4,5],[6,7,8,9,10],[11,12,13,14,15]]
+    },
+    {
+      "name": "a sentence end inside the span does not force the line break there",
+      "words": ["and","how","AI","is","beginning","to","reshape","the","environment.","Modern","workflows","changed."],
+      "language": "en",
+      "fit": 42,
+      "maxLines": 2,
+      "expected": [[0,1,2,3,4,5,6,7],[8,9,10,11]]
+    },
+    {
+      "name": "an over-wide single word owns its own line and never blocks the DP",
+      "words": ["Supercalifragilisticexpialidocious","is","a","very","long","word","indeed"],
+      "language": "en",
+      "fit": 20,
+      "maxLines": 4,
+      "expected": [[0],[1,2,3,4],[5,6]]
     }
   ],
   "splitBoundaries": [

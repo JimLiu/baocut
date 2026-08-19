@@ -38,6 +38,18 @@ test('shared Rust/preview subtitle contract fixtures stay stable', () => {
     );
     assert.ok(Math.abs(metrics.fontSize - row.expected) < 1e-9, row.name);
   }
+  // 行内换行 DP 与 Rust `layout_profile::line_break_plan`（源 Cue 优化器的两行
+  // 失衡分）共用同一份夹具：任一实现漂移都在这里失败。
+  for (const row of contract.lineBreaks) {
+    const lines = subtitle.sourceDisplayLines(
+      row.words.map((text) => ({ text })), row.language, row.fit,
+    );
+    assert.deepEqual(
+      lines.map((line) => line.words.map((_, offset) => line.from + offset)),
+      row.expected,
+      row.name,
+    );
+  }
 });
 
 test('Canvas scale and frame fit use the 540 px short-edge contract', () => {
@@ -660,30 +672,33 @@ test('whole-stack moves shift existing line overrides by the same delta', () => 
 });
 
 test('line selection narrows on a plain click and extends to the whole stack on shift', () => {
+  // 画布点选一律写「字幕对象」形态（Mac .sub / .subLine，原型 kind:'sub'）
   assert.deepEqual(
-    subtitle.nextLineSelection(null, 'c1', 'orig', false),
-    { cueId: 'c1', line: 'orig' },
+    subtitle.nextLineSelection(null, 'orig', false),
+    { kind: 'sub', line: 'orig' },
   );
   assert.deepEqual(
-    subtitle.nextLineSelection({ cueId: 'c1', line: 'orig' }, 'c1', 'trans', false),
-    { cueId: 'c1', line: 'trans' },
+    subtitle.nextLineSelection({ kind: 'sub', line: 'orig' }, 'trans', false),
+    { kind: 'sub', line: 'trans' },
   );
   assert.deepEqual(
-    subtitle.nextLineSelection({ cueId: 'c1', line: 'orig' }, 'c1', 'trans', true),
-    { cueId: 'c1', line: null },
+    subtitle.nextLineSelection({ kind: 'sub', line: 'orig' }, 'trans', true),
+    { kind: 'sub', line: null },
   );
-  // Shift 点同一行不改变现状；跨字幕的 Shift 只切到新字幕的那一行
+  // Shift 点同一行不改变现状
   assert.deepEqual(
-    subtitle.nextLineSelection({ cueId: 'c1', line: 'orig' }, 'c1', 'orig', true),
-    { cueId: 'c1', line: 'orig' },
+    subtitle.nextLineSelection({ kind: 'sub', line: 'orig' }, 'orig', true),
+    { kind: 'sub', line: 'orig' },
   );
+  // 没有选中过时 Shift 不扩展，只选中被点的那一行
   assert.deepEqual(
-    subtitle.nextLineSelection({ cueId: 'c1', line: 'orig' }, 'c2', 'trans', true),
-    { cueId: 'c2', line: 'trans' },
+    subtitle.nextLineSelection(null, 'trans', true),
+    { kind: 'sub', line: 'trans' },
   );
+  // 整行以外的命中（拖整栈）= 整体选中
   assert.deepEqual(
-    subtitle.nextLineSelection({ cueId: 'c1' }, 'c1', 'orig', true),
-    { cueId: 'c1', line: null },
+    subtitle.nextLineSelection({ kind: 'sub', line: 'orig' }, null, false),
+    { kind: 'sub', line: null },
   );
 });
 
@@ -694,6 +709,201 @@ test('selection membership treats a missing line as the whole stack', () => {
   assert.equal(subtitle.isLineSelected({ cueId: 'c1', line: 'orig' }, 'c1', 'orig'), true);
   assert.equal(subtitle.isLineSelected({ cueId: 'c1' }, 'c2', 'orig'), false);
   assert.equal(subtitle.isLineSelected(null, 'c1', 'orig'), false);
+});
+
+test('the subtitle-object selection is cue independent', () => {
+  assert.equal(subtitle.isSubObjectSel({ kind: 'sub', line: null }), true);
+  assert.equal(subtitle.isSubObjectSel({ cueId: 'c1' }), false);
+  assert.equal(subtitle.isSubObjectSel(null), false);
+  // 不绑 cue：任何 cueId 下都算选中，播放头跨 cue 边界后选中框不掉
+  assert.equal(subtitle.isLineSelected({ kind: 'sub', line: null }, 'c1', 'orig'), true);
+  assert.equal(subtitle.isLineSelected({ kind: 'sub', line: null }, 'c9', 'trans'), true);
+  assert.equal(subtitle.isLineSelected({ kind: 'sub', line: null }, null, 'orig'), true);
+  assert.equal(subtitle.isLineSelected({ kind: 'sub', line: 'trans' }, 'c1', 'orig'), false);
+  assert.equal(subtitle.isLineSelected({ kind: 'sub', line: 'trans' }, 'c1', 'trans'), true);
+  assert.equal(subtitle.selectedLineOf({ kind: 'sub', line: 'trans' }), 'trans');
+  assert.equal(subtitle.selectedLineOf({ kind: 'sub', line: null }), null);
+  assert.equal(subtitle.selectedLineOf({ kind: 'sub', line: 'both' }), null);
+  assert.equal(subtitle.selectedLineOf(null), null);
+});
+
+test('clicking a line keeps the selection on the subtitle object, never on a cue', () => {
+  // 普通点击：对象选中 → 仍是对象形态，只窄到被点的那一行
+  assert.deepEqual(
+    subtitle.nextLineSelection({ kind: 'sub', line: null }, 'trans', false),
+    { kind: 'sub', line: 'trans' },
+  );
+  // Shift 扩展：整体 → 仍是整体（两行）
+  assert.deepEqual(
+    subtitle.nextLineSelection({ kind: 'sub', line: null }, 'orig', true),
+    { kind: 'sub', line: null },
+  );
+  // 对象选中已窄到 trans 行，Shift 点 orig → 两行都选中
+  assert.deepEqual(
+    subtitle.nextLineSelection({ kind: 'sub', line: 'trans' }, 'orig', true),
+    { kind: 'sub', line: null },
+  );
+  // 先从时间轴选了 cue（{cueId} 形态），再在画布上 Shift 点另一行：算同一条字幕，
+  // 扩展到两行，并且落回对象形态（画布选中不再绑 cue）。
+  assert.deepEqual(
+    subtitle.nextLineSelection({ cueId: 'c1', line: 'orig' }, 'trans', true),
+    { kind: 'sub', line: null },
+  );
+  assert.deepEqual(
+    subtitle.nextLineSelection({ cueId: 'c1', line: 'orig' }, 'orig', false),
+    { kind: 'sub', line: 'orig' },
+  );
+  // 元素选中不是字幕选中：Shift 不扩展
+  assert.deepEqual(
+    subtitle.nextLineSelection({ kind: 'el', id: 'e1' }, 'orig', true),
+    { kind: 'sub', line: 'orig' },
+  );
+});
+
+test('stage display mode is pinned to the original outside the bilingual context', () => {
+  // sub 上下文（Transcript / Subtitle tab）：恒为原文，忽略 style.mode
+  assert.equal(subtitle.stageMode('sub', 'bi'), 'orig');
+  assert.equal(subtitle.stageMode('sub', 'trans'), 'orig');
+  assert.equal(subtitle.stageMode('transcript', 'bi'), 'orig');
+  assert.equal(subtitle.stageMode('subtitle', 'trans'), 'orig');
+  // bi 上下文（Translate tab）：读 style.mode
+  assert.equal(subtitle.stageMode('bi', 'bi'), 'bi');
+  assert.equal(subtitle.stageMode('bi', 'trans'), 'trans');
+  assert.equal(subtitle.stageMode('bi', 'orig'), 'orig');
+  assert.equal(subtitle.stageMode('translate', 'trans'), 'trans');
+  // 缺省 / 非法值回到双语
+  assert.equal(subtitle.stageMode('bi', undefined), 'bi');
+  assert.equal(subtitle.stageMode('bi', 'nonsense'), 'bi');
+  // 与 resolveModeLines 串起来：sub 上下文永远只排一行原文
+  assert.deepEqual(subtitle.resolveModeLines(subtitle.stageMode('sub', 'bi'), 'trans'), ['orig']);
+  assert.deepEqual(subtitle.resolveModeLines(subtitle.stageMode('bi', 'bi'), 'trans'), ['trans', 'orig']);
+});
+
+// 逐字复刻 p-97e0e88d2f777a83 的 studio/style.json：扁平根是从 bi 上下文（mode
+// 'trans'，所以根就是译文行 29）拍平出来的，sub 上下文自己的原文行是 30。
+function contextsFixture() {
+  const lineStyle = (size, weight) => ({
+    backgroundColor: '#000000B3',
+    backgroundPadding: 10,
+    backgroundStyle: 'wrap',
+    bgOn: false,
+    borderRadius: 15,
+    dropShadow: { blur: 0.12, color: '#000000', distance: 0.08, on: true, opacity: 0.9, rotation: 45 },
+    fontColor: '#FFFFFF',
+    fontFamily: { fontFamily: 'Montserrat', type: 'default' },
+    fontSize: size,
+    fontStyle: 'normal',
+    fontWeight: weight,
+    italic: false,
+    letterSpacing: 0,
+    lineHeight: 1.2,
+    textAlign: 'center',
+    textOutline: { color: '#000000', on: true, width: 14 },
+    textTransform: 'none',
+    underline: false,
+    // contexts 里的历史死字段：块级锚点在 set 上，这个键绝不能被读进扁平根。
+    verticalAlign: 'bottom',
+  });
+  const anim = (id) => ({ animationId: id, animationName: id === 'none' ? 'None' : 'Color', active: {}, spoken: {}, unspoken: {} });
+  const set = (mode, origSize, transSize) => ({
+    backgroundMode: 'separate',
+    gap: 6,
+    mode,
+    order: 'trans',
+    punct: true,
+    rotation: 0,
+    scale: 1,
+    transition: { transitionId: 'none', transitionSpeed: 50 },
+    width: 80,
+    x: 50,
+    y: 86,
+    orig: { anim: anim('magic-wbw'), style: lineStyle(origSize, 'bold') },
+    trans: { anim: anim('none'), style: lineStyle(transSize, 'normal') },
+  });
+  return {
+    bcutStudioStyle: '0.1',
+    displayTiming: { leadIn: 0.5, tail: 1 },
+    fontSize: 29,                       // 扁平根 = bi 上下文的译文行
+    bilingualOrigScale: 0.5517241378965517,
+    transScale: 1.8125000001132812,
+    mode: 'trans',
+    x: 50,
+    y: 86,
+    voiceInkContexts: { sub: set('orig', 30, 22), bi: set('trans', 16, 29) },
+  };
+}
+
+test('contextStyle 让每个上下文拿到自己的字号，而不是扁平根那一份', () => {
+  const style = contextsFixture();
+  // sub 上下文（Transcript / Subtitle tab）：原文 30，而扁平根是 29
+  assert.equal(subtitle.lineFontSize(subtitle.contextStyle(style, 'sub'), false, false), 30);
+  // bi 上下文：译文 29、压缩原文 16
+  assert.equal(subtitle.lineFontSize(subtitle.contextStyle(style, 'bi'), true, true), 29);
+  assert.equal(subtitle.lineFontSize(subtitle.contextStyle(style, 'bi'), false, true), 16);
+  // 扁平根照旧（没有人重写 doc.style）
+  assert.equal(style.fontSize, 29);
+});
+
+test('contextStyle 在没有 voiceInkContexts 时逐比特返回原对象', () => {
+  const flat = { fontSize: 29, mode: 'bi' };
+  assert.strictEqual(subtitle.contextStyle(flat, 'sub'), flat);
+  assert.strictEqual(subtitle.contextStyle(flat, 'bi'), flat);
+  assert.strictEqual(subtitle.contextStyle({ voiceInkContexts: null }, 'bi').voiceInkContexts, null);
+});
+
+test('contextStyle 的 sub 上下文恒为单行原文，且不产出行级摆放', () => {
+  const style = contextsFixture();
+  style.voiceInkContexts.bi.orig.x = 50;
+  style.voiceInkContexts.bi.orig.y = 50;
+  style.voiceInkContexts.sub.orig.x = 10;   // 手改/导入的脏数据，sub 不该消费
+  style.voiceInkContexts.sub.orig.y = 10;
+  const sub = subtitle.contextStyle(style, 'sub');
+  assert.equal(sub.mode, 'orig');
+  assert.equal(subtitle.linePosition(sub, 'orig'), null);
+  assert.deepEqual(subtitle.resolveModeLines(subtitle.stageMode('sub', sub.mode), sub.order), ['orig']);
+  // bi 上下文才读行级摆放，对齐 Mac SubtitleStyleContexts.lineGeom 的 guard ctx == .bi
+  const bi = subtitle.contextStyle(style, 'bi');
+  assert.equal(bi.mode, 'trans');
+  assert.deepEqual(subtitle.linePosition(bi, 'orig'), { x: 50, y: 50 });
+  assert.equal(subtitle.linePosition(bi, 'trans'), null);
+});
+
+test('contextStyle 按 mergeFlat 的映射摊平外观，不把行样式的 verticalAlign 当块锚点', () => {
+  const style = contextsFixture();
+  const sub = subtitle.contextStyle(style, 'sub');
+  assert.equal(sub.fontFamily, 'Montserrat');   // {type,fontFamily} → 字符串
+  assert.equal(sub.bold, true);                 // fontWeight 'bold'
+  assert.equal(sub.background, false);          // bgOn
+  assert.equal(sub.outline, true);              // textOutline.on
+  assert.equal(sub.align, 'center');            // textAlign
+  assert.equal(sub.italic, undefined);          // 条件键：没开就不出现
+  // 块级锚点只认 set 上的 verticalAlign；行样式里那个是死字段
+  assert.equal(sub.verticalAlign, undefined);
+  assert.equal(sub.transStyle.bold, false);     // 译文行 fontWeight 'normal'
+  assert.equal(sub.origStyle.fontSize, undefined);   // 尺寸走比例链，不写显式行字号
+  // 译文行的逐字动画跟着自己那一行走
+  assert.equal(sub.origStyle.wordAnimation.animationId, 'magic-wbw');
+  assert.equal(sub.transStyle.wordAnimation.animationId, 'none');
+});
+
+test('覆盖层盖在上下文样式之上，行级 partial 只做一层深合并', () => {
+  const style = contextsFixture();
+  const patched = subtitle.applyStylePatch(
+    subtitle.contextStyle(style, 'bi'),
+    { mode: 'bi', fontSize: 40, origStyle: { x: 20, y: 30 } },
+  );
+  // 用户在 Web 里改的模式/字号赢过 contexts
+  assert.equal(patched.mode, 'bi');
+  assert.equal(subtitle.lineFontSize(patched, false, true), 40);
+  // 行级 patch 只写 x/y，那一行的外观仍然来自 contexts
+  assert.deepEqual(subtitle.linePosition(patched, 'orig'), { x: 20, y: 30 });
+  assert.equal(patched.origStyle.fontColor, '#FFFFFF');
+  assert.equal(patched.origStyle.align, 'center');
+  // 显式 null 仍然是「清除该行覆盖」
+  const cleared = subtitle.applyStylePatch(patched, { origStyle: null });
+  assert.equal(subtitle.linePosition(cleared, 'orig'), null);
+  // 没有 patch 时原样返回
+  assert.strictEqual(subtitle.applyStylePatch(patched, null), patched);
 });
 
 test('word animation state merges spoken, active, and unspoken layers', () => {

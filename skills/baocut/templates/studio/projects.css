@@ -1,0 +1,79 @@
+/* BaoCut Subtitle Studio — My projects 项目列表页。
+   规则逐条对齐产品原型 designs/baocut-mac/app/views.css（.vk-projects* / .vk-grid /
+   .vk-card* / .vk-table* / .vk-badge*）；.vk-thumb 基础几何、.vk-search、.vk-input、
+   .vk-spin、.vk-mono / .vk-dim / .vk-spacer 已在 studio/app.css，不重复。 */
+
+/* ===== 状态徽标（浅填充，一套词汇） ===== */
+.vk-badge {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 8px;
+  border-radius: 5px; font-size: var(--font-size-50); font-weight: var(--medium-font-weight);
+  white-space: nowrap;
+}
+.vk-badge--complete { background: light-dark(#e2f4e5, #1f3a25); color: light-dark(#177233, #7adf93); }
+.vk-badge--queued { background: var(--gray-100); color: var(--text-subdued); border: 1px dashed var(--gray-300); }
+
+/* 来源徽标：第二套词汇（状态说"转录到哪一步"，来源说"这个项目从哪来"），
+   比状态填充安静，两者永不争抢。 */
+.vk-badge--shape { height: 18px; padding: 0 6px; flex-shrink: 0; }
+.vk-badge--shape-subtitle { background: var(--gray-100); color: var(--text-subdued); }
+
+/* ===== 页面 ===== */
+.vk-projects { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.vk-projects__toolbar { display: flex; align-items: center; gap: 10px; padding: 14px 20px 12px; }
+.vk-projects__count { font-size: var(--font-size-75); font-variant-numeric: tabular-nums; }
+.vk-projects__empty {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; color: var(--text-subdued); font-size: var(--font-size-200); padding-bottom: 60px;
+}
+/* 空态的第二行：怎么造出第一个项目。命令名用等宽，正文比标题小一档。 */
+.vk-projects__hint { font-size: var(--font-size-100); max-width: 440px; text-align: center; line-height: 1.6; }
+.vk-projects__hint code { font-size: var(--font-size-75); color: var(--text-body); background: var(--gray-100); padding: 1px 5px; border-radius: 4px; }
+
+/* ===== 网格 ===== */
+.vk-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(264px, 1fr));
+  grid-auto-rows: max-content; align-content: start; flex: 1;
+  gap: 16px; padding: 4px 20px 24px; overflow-y: auto;
+}
+.vk-card {
+  background: var(--surface-elevated); border-radius: 12px;
+  border: 1px solid var(--gray-200);
+  overflow: hidden; cursor: default;
+  transition: box-shadow 130ms cubic-bezier(0.45,0,0.4,1), transform 130ms cubic-bezier(0.45,0,0.4,1);
+}
+.vk-card:hover { box-shadow: var(--shadow-emphasized); }
+.vk-card:active { transform: scale(0.99); }
+.vk-card:focus-visible { outline: 2px solid var(--focus-indicator-color); outline-offset: 2px; }
+.vk-card__info { padding: 10px 12px 9px; }
+.vk-card__title { font-weight: var(--bold-font-weight); color: var(--text-heading); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vk-card__path { font-size: var(--font-size-50); color: var(--text-subdued); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.vk-card__bottom { display: flex; align-items: center; gap: 8px; margin-top: 9px; }
+.vk-card__time { font-size: var(--font-size-50); color: var(--text-subdued); white-space: nowrap; }
+
+/* ===== 缩略图（列表页专属层） =====
+   studio/app.css 里的 .vk-thumb 只有基础几何与类型占位；这里补抽帧封面与时长角标。 */
+.vk-thumb__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.vk-thumb__dur {
+  position: absolute; right: 7px; bottom: 7px;
+  background: rgba(0,0,0,0.6); color: white; font-size: 11px;
+  padding: 1px 6px; border-radius: 4px;
+}
+.vk-thumb--mini .vk-thumb__dur { display: none; }
+
+/* ===== 列表 ===== */
+.vk-table { overflow-y: auto; padding: 0 20px 24px; flex: 1; align-content: start; }
+.vk-table__head, .vk-table__row {
+  display: grid; grid-template-columns: minmax(220px, 1.6fr) minmax(160px, 1.2fr) 130px 76px 110px 40px;
+  gap: 12px; align-items: center; padding: 7px 10px;
+}
+.vk-table__head {
+  font-size: var(--font-size-50); font-weight: var(--bold-font-weight); text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--text-subdued);
+  border-bottom: 1px solid var(--gray-200); position: sticky; top: 0; background: var(--surface-layer-1); z-index: 2;
+}
+.vk-table__row { border-radius: 8px; cursor: default; }
+.vk-table__row:hover { background: var(--gray-100); }
+.vk-table__row:focus-visible { outline: 2px solid var(--focus-indicator-color); outline-offset: -2px; }
+.vk-table__name { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.vk-table__title { font-weight: var(--medium-font-weight); color: var(--text-heading); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vk-table__path { font-size: var(--font-size-75); color: var(--text-subdued); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

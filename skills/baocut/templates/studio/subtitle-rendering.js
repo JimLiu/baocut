@@ -338,6 +338,174 @@
     return order === 'orig' ? ['orig', 'trans'] : ['trans', 'orig'];
   }
 
+  // 「画面上现在该排哪几行」的唯一判据，两个上下文各自回答：
+  //   sub（Transcript / Subtitle tab）恒为 'orig' —— 这两个 tab 编辑的是独立原文，
+  //     画面上出现译文行会与它们正在编辑的对象脱节；上下文本身没有模式控件。
+  //   bi （Translate tab）才读 style.mode（bi / trans / orig，缺省双语）。
+  // 与原型 designs/baocut-mac/app/style-model.js `modeOf(doc, ctx)` 和 Mac
+  // `SubtitleStyleContexts.mode(_:_:)` 同一条规则。style.mode 仍是导出默认值与
+  // Translate tab 的显示模式，这里只解释它，不改它的写路径。
+  // 入参可以直接给 tab 名（'translate'）或 ctx（'bi'），省得调用方各写一次映射。
+  const MODES = ['bi', 'trans', 'orig'];
+  function stageMode(ctxOrTab, styleMode) {
+    const bilingual = ctxOrTab === 'bi' || ctxOrTab === 'translate';
+    if (!bilingual) return 'orig';
+    return MODES.indexOf(styleMode) >= 0 ? styleMode : 'bi';
+  }
+
+  // ---------- 上下文样式：voiceInkContexts → 等价扁平样式 ----------
+  //
+  // `style.voiceInkContexts` 是 Mac 的**无损真相**（`ProductSubtitleStyleAdapter`
+  // 开头那句注释：contexts is the authoritative round-trip payload），扁平根键只是
+  // 「最后被编辑的那个 set」拍平出来的**单上下文投影**。舞台只读扁平根键时，
+  // Transcript / Subtitle tab（ctx sub）会拿到从 bi 上下文拍平的字号与外观 ——
+  // 用户在 Mac 上单独调过的 sub 上下文全部丢失。
+  //
+  // 这里把 contexts 反向摊回一份「等价扁平样式」，字段映射逐条镜像 Mac 的
+  // `mergeFlat` / `linePartial`（ProductSubtitleStyleAdapter.swift:222-365）：
+  // contexts 里 `fontFamily` 是 `{type, fontFamily}` 对象、`fontWeight:"bold"` /
+  // `fontStyle:"italic"` / `bgOn` / `textAlign` 都要换成扁平侧的
+  // `bold` / `italic` / `background` / `align`。
+  //
+  // **没有 contexts 时逐比特返回原对象**（旧项目 / 纯 Web 项目零变化）。
+  const CONTEXT_KEYS = { sub: 'sub', bi: 'bi' };
+  function contextSetOf(style, ctx) {
+    const contexts = (style || {}).voiceInkContexts;
+    if (!contexts || typeof contexts !== 'object') return null;
+    const set = contexts[CONTEXT_KEYS[ctx] || 'sub'];
+    return set && typeof set === 'object' ? set : null;
+  }
+
+  // contexts 的 fontFamily 是 { type, fontFamily }，扁平侧是字符串。
+  function familyName(value) {
+    if (value && typeof value === 'object') return value.fontFamily;
+    return typeof value === 'string' ? value : undefined;
+  }
+
+  // Mac `StyleFX.bgOn` / `strokeOn` 的缺省推断：布尔缺席时看颜色 / 描边宽度。
+  function contextBgOn(lineStyle) {
+    const value = lineStyle || {};
+    return typeof value.bgOn === 'boolean' ? value.bgOn : !isTransparent(value.backgroundColor);
+  }
+  function contextStrokeOn(lineStyle) {
+    const outline = (lineStyle || {}).textOutline || {};
+    if (typeof outline.on === 'boolean') return outline.on;
+    return finite(outline.width, 0) > 0 && !isTransparent(outline.color);
+  }
+
+  function prune(object) {
+    Object.keys(object).forEach((key) => { if (object[key] === undefined) delete object[key]; });
+    return object;
+  }
+
+  // 一行的「样子」拍成扁平 partial —— Mac `linePartial` 的镜像：同一批键、同样的
+  // 条件键（italic / underline / textTransform / glow 只在真的开着时出现），
+  // **fontSize 故意缺席**（尺寸由 bilingualOrigScale / transScale 承担，写进 partial
+  // 会变成绕过比例链的显式行级字号，见 `lineFontSize` 的注释）。
+  //
+  // 行级摆放 x/y/verticalAlign 只有双语上下文产出，对齐 Mac
+  // `SubtitleStyleContexts.lineGeom` 的 `guard ctx == .bi`；注意 `style.verticalAlign`
+  // 是 contexts 里的历史死字段（块级锚点在 set 上），这里绝不能顺手读进来，
+  // 否则整栈锚点会被误当成 'bottom'。
+  function contextLinePartial(record, bilingual) {
+    const line = record || {};
+    const value = line.style || {};
+    const partial = prune({
+      fontFamily: familyName(value.fontFamily),
+      fontColor: value.fontColor,
+      bold: value.fontWeight === 'bold' || value.fontWeight === '700',
+      outline: contextStrokeOn(value),
+      background: contextBgOn(value),
+      backgroundColor: value.backgroundColor,
+      backgroundPadding: value.backgroundPadding,
+      backgroundStyle: value.backgroundStyle,
+      borderRadius: value.borderRadius,
+      align: value.textAlign,
+      lineHeight: value.lineHeight,
+      letterSpacing: value.letterSpacing,
+      textOutline: value.textOutline,
+      dropShadow: value.dropShadow,
+      wordAnimation: line.anim,
+    });
+    if (value.italic === true || value.fontStyle === 'italic') partial.italic = true;
+    if (value.underline === true) partial.underline = true;
+    if (value.textTransform && value.textTransform !== 'none') {
+      partial.textTransform = value.textTransform;
+    }
+    if (value.glow) partial.glow = value.glow;
+    if (bilingual && typeof line.x === 'number' && typeof line.y === 'number'
+      && Number.isFinite(line.x) && Number.isFinite(line.y)) {
+      partial.x = line.x;
+      partial.y = line.y;
+      const align = verticalAlignValue(line.verticalAlign);
+      if (align) partial.verticalAlign = align;
+    }
+    return partial;
+  }
+
+  function contextStyle(style, ctx) {
+    const root = style || {};
+    const set = contextSetOf(root, ctx);
+    if (!set) return style;
+    const bilingual = ctx === 'bi';
+    const orig = set.orig || {};
+    const trans = set.trans || {};
+    // 根字号取该上下文 orig 行的**实际**字号，于是压缩比恒为 1：既让 bi 上下文的
+    // compactOriginal 不再二次缩小（orig 已经是压缩后的真值），也让 transScale
+    // 直接表达两行的真实比值。`lineFontSize` 的算式因此原样成立：
+    //   orig = fontSize × bilingualOrigScale = orig.fontSize
+    //   trans = fontSize × bilingualOrigScale × transScale = trans.fontSize
+    const origSize = Math.max(1, finite((orig.style || {}).fontSize, 30));
+    const transSize = Math.max(
+      1,
+      finite((trans.style || {}).fontSize, origSize * DEFAULT_TRANSLATION_RATIO),
+    );
+    // 先摊 orig 行的外观做根（扁平根键本来就代表「某一行」），再覆盖 set 级字段。
+    const out = { ...root, ...contextLinePartial(orig, false) };
+    out.fontSize = origSize;
+    out.bilingualOrigScale = 1;
+    out.transScale = transSize / origSize;
+    // sub 上下文按构造是单行（Mac `SubtitleStyleContexts.mode` 的
+    // `guard ctx == .bi else { return .orig }`），它的 set.mode 不携带意图。
+    out.mode = bilingual ? (MODES.indexOf(set.mode) >= 0 ? set.mode : 'bi') : 'orig';
+    out.order = set.order === 'orig' ? 'orig' : 'trans';
+    out.backgroundMode = set.backgroundMode === 'shared' ? 'shared' : 'separate';
+    if (typeof set.punct === 'boolean') out.punct = set.punct;
+    out.gap = finite(set.gap, finite(root.gap, 6));
+    out.x = finite(set.x, finite(root.x, 50));
+    out.y = finite(set.y, finite(root.y, 86));
+    out.width = finite(set.width, finite(root.width, 80));
+    out.scale = finite(set.scale, finite(root.scale, 1));
+    out.rotation = finite(set.rotation, finite(root.rotation, 0));
+    // 块级锚点是 set 上的键（M120），缺席 = center，必须删干净而不是留旧值。
+    const blockAlign = verticalAlignValue(set.verticalAlign);
+    if (blockAlign) out.verticalAlign = blockAlign; else delete out.verticalAlign;
+    if (set.transition && typeof set.transition === 'object') out.transition = set.transition;
+    out.origStyle = contextLinePartial(orig, bilingual);
+    out.transStyle = contextLinePartial(trans, bilingual);
+    return out;
+  }
+
+  // 覆盖层（studio/edits.json 的扁平 patch）盖在上下文样式之上 —— 顺序是
+  // data.json style → 按 tab 的 voiceInkContexts 上下文 → 覆盖层，否则用户在 Web
+  // 里改的字号 / 模式会被 contexts 原地压回去。
+  //
+  // origStyle / transStyle 做**一层深合并**：Web 的行级 patch 只写 x/y/verticalAlign
+  // （`lineStylePatch`），浅覆盖会把上下文带来的那一行整套外观抹掉。patch 显式写
+  // `null` 仍然表示「清除该行覆盖」，照旧浅覆盖。
+  function applyStylePatch(style, patch) {
+    if (!patch || typeof patch !== 'object') return style;
+    const out = { ...(style || {}), ...patch };
+    ['origStyle', 'transStyle'].forEach((key) => {
+      if (!Object.prototype.hasOwnProperty.call(patch, key)) return;
+      const value = patch[key];
+      if (!value || typeof value !== 'object') return;
+      const base = (style || {})[key];
+      out[key] = base && typeof base === 'object' ? { ...base, ...value } : { ...value };
+    });
+    return out;
+  }
+
   function nestedLineStyle(style, isTranslation) {
     const rootStyle = style || {};
     const override = isTranslation ? rootStyle.transStyle : rootStyle.origStyle;
@@ -679,21 +847,45 @@
     };
   }
 
-  // 选中语义：sel.line 缺失/为空 = 整体选中；'orig' / 'trans' = 只选中该行。
+  // 选中语义。两种形态并存：
+  //   { kind: 'sub', line }  —— 「当前画面上的字幕对象」，不绑 cue：**画布点选**与
+  //     舞台工具条的「字幕样式」按钮都写它，播放头跨过 cue 边界后选中框不会掉。
+  //     等价于 Mac 的 `.sub` / `.subLine(line)`（Store/Selection）与原型
+  //     `designs/baocut-mac/app/stage.jsx` 的 `setSel({kind:'sub', id: hit|'both'})`。
+  //   { cueId, line }        —— 绑定到某条具体 Cue：时间轴块与右侧面板写它，
+  //     等价于 Mac 的 `.seg(id)`（时间轴高亮、⌫ 删除只认这一形态）。
+  // 两者的 line 语义相同：缺失/为空 = 整体（原型的 'both'），'orig' / 'trans' =
+  // 只选中该行。
+  function isSubObjectSel(sel) {
+    return Boolean(sel) && sel.kind === 'sub';
+  }
+
+  function selectedLineOf(sel) {
+    if (!sel) return null;
+    return sel.line === 'orig' || sel.line === 'trans' ? sel.line : null;
+  }
+
   function isLineSelected(sel, cueId, line) {
-    if (!sel || cueId == null || sel.cueId !== cueId) return false;
+    if (!sel) return false;
+    if (isSubObjectSel(sel)) return sel.line == null || sel.line === line;
+    if (cueId == null || sel.cueId !== cueId) return false;
     return sel.line == null || sel.line === line;
   }
 
-  function nextLineSelection(sel, cueId, line, extend) {
-    if (cueId == null) return sel || null;
+  // 画布点选写的是「字幕对象」形态，不绑 cue —— 与原型
+  // `app.setSel({kind:'sub', id: both ? 'both' : hit})` / Mac `.sub` `.subLine`
+  // 逐字对应：舞台上选中的是「这一刻画面上的那条字幕」，播放头跨过 cue 边界后
+  // 选中框、整体拖拽与样式层目标都留着。
+  function nextLineSelection(sel, line, extend) {
     const target = line === 'orig' || line === 'trans' ? line : null;
-    if (!target) return { cueId, line: null };
-    const sameCue = Boolean(sel) && sel.cueId === cueId;
-    if (!extend || !sameCue) return { cueId, line: target };
-    const current = sel.line === 'orig' || sel.line === 'trans' ? sel.line : null;
+    if (!target) return { kind: 'sub', line: null };
+    // 之前是否已经选中着这条字幕：对象形态自然是，cue 绑定形态（时间轴/面板点选）
+    // 也算 —— 原型的 `subSelected` 对两者都为真，Shift 扩展因此不被当成换了目标。
+    const subSelected = Boolean(sel) && (isSubObjectSel(sel) || sel.cueId != null);
+    if (!extend || !subSelected) return { kind: 'sub', line: target };
+    const current = selectedLineOf(sel);
     // Shift 点另一行 → 两行都选中（等价整体）；Shift 点同一行不改变现状。
-    return current === target ? { cueId, line: target } : { cueId, line: null };
+    return current === target ? { kind: 'sub', line: target } : { kind: 'sub', line: null };
   }
 
   function parseColor(value) {
@@ -1122,6 +1314,9 @@
     mergeShortRuns,
     sourceCueParts,
     resolveModeLines,
+    stageMode,
+    contextStyle,
+    applyStylePatch,
     nestedLineStyle,
     lineFontSize,
     layoutMetrics,
@@ -1139,6 +1334,8 @@
     seamAlign,
     lineAnchorFromCenter,
     planLineLayout,
+    isSubObjectSel,
+    selectedLineOf,
     isLineSelected,
     nextLineSelection,
     parseColor,

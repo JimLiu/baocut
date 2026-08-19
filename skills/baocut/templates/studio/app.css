@@ -30,10 +30,15 @@ body {
 body.vk-dark-pasteboard { background: #232427; }
 button { font-family: inherit; }
 
+/* export action (prototype app/export.css) */
+.vk-export-btn { display: inline-flex; align-items: center; gap: 6px; }
 /* The titlebar export action becomes its own determinate progress bar while the
-   native backend renders. A fixed width prevents the percentage from shifting
-   the history/task controls as it moves from one to three digits. */
-.bcs-export-btn { width: 112px; overflow: hidden; isolation: isolate; }
+   native backend renders. At rest it is content-sized like the prototype's
+   Export button; the fixed width applies only while running, so the percentage
+   moving from one to three digits still can't shift the view toggles next to it.
+   Sized for "导出中 100%" at the S type size. */
+.bcs-export-btn { overflow: hidden; isolation: isolate; }
+.bcs-export-btn--running { width: 108px; }
 .bcs-export-btn__content {
   position: relative; z-index: 1; display: inline-flex; align-items: center;
   justify-content: center; gap: 0.43em; font-variant-numeric: tabular-nums;
@@ -155,6 +160,9 @@ input.vk-titlebar__title.vk-editable__input { width: 100%; box-sizing: border-bo
 .vk-side-item--on:hover { background: var(--gray-200); }
 .vk-side-item .s2-icon { color: var(--text-subdued); }
 .vk-side-item--on .s2-icon { color: var(--text-heading); }
+/* Web 版侧栏条目是真链接（整页跳转到 /projects/<id>/），去掉浏览器默认下划线与链接色 */
+a.vk-side-item { box-sizing: border-box; text-decoration: none; color: var(--text-body); }
+a.vk-side-item--on { color: var(--text-heading); }
 .vk-side-label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
 .vk-side-suffix { font-size: var(--font-size-50); color: var(--text-subdued); }
 /* Background-tasks count badge — a live-activity signal, distinct from the plain
@@ -182,6 +190,20 @@ input.vk-titlebar__title.vk-editable__input { width: 100%; box-sizing: border-bo
    mirror of the at-rest state. */
 .vk-side-scroll::-webkit-scrollbar { width: 0; }
 .vk-side-scroll { scrollbar-width: none; }
+
+/* RECENT 的加载/空状态：与条目同一缩进，不撑出滚动区 */
+.vk-side-empty { display: flex; align-items: center; gap: 7px; padding: 6px 9px; font-size: var(--font-size-75); }
+/* 缩略图位。Web 版不做媒体缩略图缓存（那是原型的 mock 与 Mac 端的本地缓存），
+   只按媒体类型放一个占位图标 —— 一个空的深色矩形比一张假封面更诚实。 */
+.vk-thumb {
+  position: relative; aspect-ratio: 16 / 9; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--gray-300);
+}
+.vk-thumb--kind .s2-icon { color: var(--text-subdued); }
+.vk-thumb--mini { width: 56px; border-radius: 6px; flex-shrink: 0; }
+.vk-thumb--side { width: 38px; border-radius: 5px; }
+.vk-thumb--card { width: 76px; border-radius: 6px; flex-shrink: 0; }
 
 /* recent items: two-line (title + meta) */
 .vk-side-item--recent { padding-top: 5px; padding-bottom: 5px; }
@@ -256,6 +278,9 @@ input.vk-titlebar__title.vk-editable__input { width: 100%; box-sizing: border-bo
 .s2-icon--split-lines { -webkit-mask-image: url('icons/split-lines.svg'); mask-image: url('icons/split-lines.svg'); }
 .s2-icon--merge-lines { -webkit-mask-image: url('icons/merge-lines.svg'); mask-image: url('icons/merge-lines.svg'); }
 .s2-icon--eyedropper { -webkit-mask-image: url('icons/eyedropper.svg'); mask-image: url('icons/eyedropper.svg'); }
+.s2-icon--flash { -webkit-mask-image: url('icons/flash.svg'); mask-image: url('icons/flash.svg'); }
+.s2-icon--pause { -webkit-mask-image: url('icons/pause.svg'); mask-image: url('icons/pause.svg'); }
+.s2-icon--template { -webkit-mask-image: url('icons/template.svg'); mask-image: url('icons/template.svg'); }
 .s2-icon--volume { -webkit-mask-image: url('icons/volume.svg'); mask-image: url('icons/volume.svg'); }
 .s2-icon--volume-med { -webkit-mask-image: url('icons/volume-med.svg'); mask-image: url('icons/volume-med.svg'); }
 .s2-icon--volume-low { -webkit-mask-image: url('icons/volume-low.svg'); mask-image: url('icons/volume-low.svg'); }

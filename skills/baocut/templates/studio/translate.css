@@ -187,6 +187,40 @@
 .tg-orig__subline { display: block; text-wrap: pretty; }
 /* 行级 cps 提示：只在 warn/bad 时出现，靠右悬浮在译文行上方 */
 .tg-pair__cps { align-self: flex-end; line-height: 1; margin-bottom: -2px; }
+/* 对齐块刻度（对齐块设计 §7）：译文行下一条 3px 细条，每块一段、按字符数分宽，
+   段间 3px 空隙就是块边界 = 合法拆分点。weak = 点线段，local-reorder = 强调色段。
+   只是刻度，不接管交互（拆分仍走 Enter，吸附由 store 完成）。 */
+.tg-blockstrip {
+  display: flex; gap: 3px; height: 3px; margin: 3px 0 1px; padding: 0 4px 0 0;
+  opacity: 0.55; transition: opacity 130ms cubic-bezier(0.45, 0, 0.4, 1);
+}
+.tg:hover .tg-blockstrip, .tg-pair--active .tg-blockstrip { opacity: 1; }
+.tg-blockstrip__seg {
+  position: relative; flex: 1 1 0; min-width: 6px; height: 3px; border-radius: 2px;
+  background: var(--gray-400);
+}
+.tg-blockstrip__seg--weak {
+  background: repeating-linear-gradient(90deg, var(--gray-400) 0 3px, transparent 3px 6px);
+}
+.tg-blockstrip__seg--reorder { background: var(--accent-color-800); }
+.tg-blockstrip__flag {
+  position: absolute; right: 0; top: 4px; font-style: normal; font-size: 9px; line-height: 1;
+  font-weight: 700; color: var(--text-subdued); letter-spacing: 0.02em; white-space: nowrap;
+}
+.tg-blockstrip__seg--reorder .tg-blockstrip__flag { color: var(--accent-color-900); }
+/* 只有带 flag 的段需要给标签留高度：段容器本身不撑高，标签绝对定位到条下 */
+.tg-transcol:has(.tg-blockstrip__flag) .tg-blockstrip { margin-bottom: 12px; }
+/* 「已为字幕改写」展开的自然译句：只读参考，不参与编辑 */
+.tg-natural {
+  display: flex; gap: 8px; align-items: baseline; margin: 0 0 6px; padding: 5px 8px;
+  border-radius: 6px; background: var(--gray-50); font-size: 12.5px; line-height: 1.5;
+  color: var(--text-body);
+}
+.tg-natural__label { flex: none; font-size: 10.5px; font-weight: 700; color: var(--text-subdued); }
+.tg-natural__text { min-width: 0; }
+.tr-chip--btn { cursor: pointer; border: 0; font: inherit; font-size: 10.5px; font-weight: 600; }
+.tr-chip--btn:hover { background: var(--gray-200); }
+.tr-chip--on { background: color-mix(in oklch, var(--accent-color-900) 14%, transparent); color: var(--accent-color-1000); }
 .tr-w { border-radius: 3px; padding: 0 0.5px; transition: background 90ms, color 90ms; }
 .tr-w--spoken { color: var(--gray-500); }
 .tr-w--cur { background: var(--accent-color-900); color: #fff; }
@@ -230,6 +264,11 @@
 .tg-mergeup:hover { border-color: var(--accent-color-700); color: var(--accent-color-900); }
 .tg-mergeup .s2-icon { color: currentColor; }
 .tg .tg-mergeup--piece { left: 3px; }
+/* 编辑中的行必须用行首/行尾键盘命令把 live text 原子带进合并；禁止另一个
+   card pill 先触发 blur 文本事务，避免两笔 CAS 竞跑。 */
+.vk-translate:has(.tg-trans[contenteditable]) .tg-mergeup--card {
+  opacity: 0; pointer-events: none;
+}
 
 /* ===================== chips ===================== */
 .tr-chip {

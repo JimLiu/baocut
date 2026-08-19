@@ -8,7 +8,8 @@ const main = fs.readFileSync(path.join(root, 'main.jsx'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'translate.css'), 'utf8');
 
 test('active AI progress owns the pane instead of stacking above a tab body', () => {
-  const views = main.indexOf('<div className="vk-rpane__views">');
+  // 不钉整行：样式层落地后这个 div 还带了 inert（层在场时盖住的内容退出 tab 序）
+  const views = main.indexOf('className="vk-rpane__views"');
   const liveHeader = main.indexOf('<window.LiveHeader');
 
   assert.ok(views >= 0);

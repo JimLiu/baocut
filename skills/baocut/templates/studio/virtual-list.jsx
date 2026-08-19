@@ -97,7 +97,25 @@ function VirtualList({
       sc.scrollTo({ top: to, behavior: far ? 'auto' : 'smooth' });
       return true;
     },
-  }), [byKey, offs, viewH, el]);
+    centerKey(key, smooth) {
+      const sc = el.current;
+      const i = byKey.get(key);
+      if (!sc || i == null) return false;
+      const to = V.centerScrollTop(offs, i, sc.clientHeight || viewH, tailPad);
+      if (to == null) return false;
+      sc.scrollTo({ top: to, behavior: smooth ? 'smooth' : 'auto' });
+      return true;
+    },
+    directionForKey(key, margin) {
+      const sc = el.current;
+      const i = byKey.get(key);
+      if (!sc || i == null) return null;
+      return V.offscreenDirection(
+        offs, i, sc.scrollTop, sc.clientHeight || viewH,
+        margin == null ? 12 : margin,
+      );
+    },
+  }), [byKey, offs, viewH, el, tailPad]);
 
   return (
     <div className={className} style={style} ref={el}>

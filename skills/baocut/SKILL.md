@@ -13,8 +13,8 @@ description: >-
   documentation tasks follow repository instructions unless they also operate
   the product or a `.bcut` project.
 metadata:
-  version: "1.0.11"
-  minAppVersion: "1.0.11"
+  version: "1.1.0"
+  minAppVersion: "1.1.0"
 ---
 
 # BaoCut
@@ -60,10 +60,19 @@ Only after this gate may capability preflight and the requested work begin.
 The resolver locates the right CLI on its own — never call `bcut` directly:
 
 - An explicit `BAOCUT_CLI` (or `BCUT_EXECUTABLE` / `BAOCUT_BIN`) override wins.
+  Point it only at a CLI built for this machine's architecture — see the
+  architecture guard below.
 - In a BaoCut development checkout (this skill directory inside the source
-  tree) it uses the workspace build — newest of release/debug — or runs the
-  sources via `cargo run` when nothing is built yet. It prints a
-  `development checkout detected` note to stderr in that case.
+  tree) it uses the workspace build — newest of release/debug, under
+  `core/target/{release,debug}/bcut` or `core/target/<host-triple>/…` — or
+  runs the sources via `cargo run` when nothing is built yet (it looks for
+  `cargo` in `~/.cargo/bin`, Homebrew's rustup, and `~/.rustup/toolchains`
+  when PATH lacks it). It prints a `development checkout detected` note to
+  stderr in that case, and a separate note when it must compile from source
+  or when it falls back to the installed App CLI because nothing is built and
+  `cargo` is unavailable — read those notes instead of guessing why a version
+  gate failed. A foreign-architecture build in the tree (for example
+  `core/target/x86_64-apple-darwin/…` on Apple Silicon) is never selected.
 - In a released install it uses the CLI embedded in BaoCut.app, in either
   `/Applications` or `~/Applications`; every App release ships with its
   matching `baocut-cli`, so App and CLI versions always move together.
@@ -110,7 +119,17 @@ override for troubleshooting and controlled environments; normal installs do
 not need it.
 
 The resolver then checks the CLI contract and minimum BaoCut App version
-before it runs the requested command.
+before it runs the requested command, and finally checks the CLI's
+architecture against the host: `--json version` reports `target` (and, on
+current CLIs, `rosetta`), and a CLI built for another architecture — typically an
+x86_64 `bcut` on Apple Silicon, which macOS silently runs under Rosetta 2 with
+`backend: candle-cpu` — is refused for `auto` / `transcribe` (exit 3) and only
+warned about for other commands. Do not work around that refusal by setting
+`BAOCUT_ALLOW_FOREIGN_ARCH=1` (or the CLI's own `BCUT_ALLOW_ROSETTA=1`); a
+100-second clip once sat 40+ minutes in VAD on such a binary while the native
+build finished the whole pipeline in about three. Resolve it by choosing a
+native CLI: BaoCut.app's bundled CLI, a native workspace build, or the pinned
+release CLI.
 
 If nothing above resolves, or the resolved CLI is older than
 `metadata.minAppVersion`, the resolver downloads the CLI pinned by this
@@ -144,8 +163,13 @@ If the resolver exits 3, follow its guidance instead of bypassing the check.
   read [references/workflows.md](references/workflows.md).
 - For a complete local pipeline, use `auto`; read
   [references/workflows.md](references/workflows.md).
+- To run transcription on another machine on the same local network instead of
+  this one, read the remote-node note in
+  [references/workflows.md](references/workflows.md).
 - For an Agent-backed AI stage with pending calls, immediately read and follow
-  [references/agent-tasks.md](references/agent-tasks.md). Its on-demand worker
+  [references/agent-tasks.md](references/agent-tasks.md). For a short clip
+  its "short-job fast path" is the whole procedure (see "Right-size the run"
+  below). For long media its on-demand worker
   rules — pool sized from the actual page plan (translate uses
   `ceil(source words / 2200)`; align also enforces at most 40 items and a
   complexity budget, all capped by real slots), per-stage worker tiers (mid-tier for
@@ -218,11 +242,16 @@ If the resolver exits 3, follow its guidance instead of bypassing the check.
   library so the BaoCut App sees them immediately. Resolve it with
   `"$BAOCUT_SKILL_ROOT/bin/baocut" --json project dir` (macOS default:
   `~/Library/Application Support/BaoCut/projects`); create projects there with
-  `project create` unless the user names another location.
+  `project create` unless the user names another location. Projects created in a
+  temporary or scratch directory are not added to the library (they would leave
+  a dead entry once the directory is wiped); the CLI reports
+  `data.registered: false` and warns. Use `project register <path>` only when
+  the user explicitly wants such a project listed.
 - For URL media, never invent or derive a `--download-dir`. Omit the flag unless
   the user explicitly names a one-off destination; the CLI then honors the
-  shared `download.dir` setting. When it is absent, Windows uses the user's
-  system Downloads known folder; other platforms fall back to `<project>/media`.
+  shared `download.dir` setting. When it is absent, the video lands in the
+  user's system download folder (Windows Downloads Known Folder, `~/Downloads`
+  on macOS and Linux) — never inside the project.
 - After any URL-media run downloads or reuses a video, read its actual path from
   `data.media` in a `transcribe` result or from
   `--json project show <project>` at `data.manifest.media.path`. Tell the user
@@ -288,10 +317,50 @@ error — install only when such a task actually asks for it.
 In a development checkout, long local `transcribe` and `auto` commands require
 an optimized CLI. When only a debug build is current, the resolver runs
 `scripts/dev/prepare-bcut.sh` before continuing instead of silently accepting
-roughly 2x slower inference. Set `BAOCUT_ALLOW_DEBUG_INFERENCE=1` only for an
-intentional debugger/profiler run. For an Agent-backed AI pipeline, pass
+roughly 2x slower inference. Weigh that against the media length: a release
+build of the workspace costs many minutes, while debug inference on a clip
+under about 15 minutes costs seconds to a few minutes more than release — so
+for such a short clip, when only a *native* debug build is current, export
+`BAOCUT_ALLOW_DEBUG_INFERENCE=1` and run it rather than compiling first. Let
+the resolver prepare the release CLI for long media, and keep the flag off for
+anything else. For an Agent-backed AI pipeline, pass
 `--llm agent` explicitly; this prevents a stale `BCUT_LLM_DEFAULT` from
 silently selecting a provider that has no usable key.
+
+## Right-size the run
+
+Decide the shape of the run from the media length *before* starting anything,
+and keep the shape fixed. For a media file or URL, `yt-dlp --print
+duration_string` / `ffprobe` or `project show` tells you the duration up front.
+
+- **Short clip (under ~15 minutes, transcript on one page — up to ~2200 source
+  words):** the Agent-backed pipeline is a fixed serial chain of five to seven
+  calls — `analysis` → `polish` → `translate-brief` → `translate` →
+  `align-edges`, plus `align-rewrite` only if a chunk is over the hard width
+  and one closing `align-edges` repair call from `auto`'s refine pass. Every
+  call has exactly one pending item, so there is nothing to parallelize:
+  answer them yourself in the orchestrating session, one after another,
+  claim → read contract and payload in the same step → write → `submit
+  --next`. Do not start worker subagents, do not spawn a task-tracker of
+  seven pipeline steps, and do not read the fleet-sizing rules of
+  [references/agent-tasks.md](references/agent-tasks.md) as instructions for
+  this case — its "short-job fast path" section is what applies. Expected
+  wall clock on native hardware: transcription of a 2-minute clip finishes
+  within about 3 minutes including model checks, and each AI call takes about
+  one minute of your own answering; the whole task should be over in roughly
+  10 minutes with under 40 tool calls.
+- **Long media (a talk, a lecture):** follow the on-demand worker rules in
+  [references/agent-tasks.md](references/agent-tasks.md) — pool size from the
+  `workerPlan`, tiers per stage, `--next` chaining.
+
+Whatever the size, watch the JSONL event stream through one `Monitor` (or
+one background tail) rather than polling, and apply a stall budget: on a
+short clip, no new `progress` event for 3 minutes during `transcribe` means
+something is wrong — check `--json version` (`target`, `backend`, `rosetta`),
+`ps` for the process's CPU time, and the project's progress file — do not
+wait for a 20-minute monitor timeout. Read the JSONL's `event:"done"` (or an
+`error` event) as the terminal signal: after it, do not `task claim` again;
+run `check --strict`, `project show`, and the preview verification.
 
 When the resolver reports a version or handshake problem, follow
 [references/updates.md](references/updates.md) and do not bypass the refreshed
