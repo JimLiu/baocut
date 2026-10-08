@@ -1,0 +1,2000 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BaoCut 架构互动教程 · Architecture Interactive Tutorial</title>
+<style>
+  :root {
+    --bg-0: #0b0d12;
+    --bg-1: #12151d;
+    --bg-2: #1a1f2b;
+    --bg-3: #222938;
+    --border: #2e3648;
+    --text-0: #e8ecf3;
+    --text-1: #b5bed0;
+    --text-2: #7f88a0;
+    --accent: #7c5cff;
+    --accent-2: #3ec9ff;
+    --accent-3: #ff6b9a;
+    --good: #4ade80;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --ts-color: #3178c6;
+    --rust-color: #dea584;
+    --wasm-color: #654ff0;
+    --electron-color: #47848f;
+    --node-color: #83cd29;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg-0);
+    color: var(--text-0);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: linear-gradient(180deg, rgba(11,13,18,0.98), rgba(11,13,18,0.92));
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  header .progress {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text-2);
+  }
+  header .progress-bar {
+    width: 160px;
+    height: 6px;
+    background: var(--bg-2);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  header .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    width: 0%;
+    transition: width 0.4s ease;
+    border-radius: 999px;
+  }
+  main {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 0;
+    min-height: calc(100vh - 57px);
+  }
+  nav.sidebar {
+    border-right: 1px solid var(--border);
+    background: var(--bg-1);
+    padding: 20px 0;
+    position: sticky;
+    top: 57px;
+    height: calc(100vh - 57px);
+    overflow-y: auto;
+  }
+  nav.sidebar ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  nav.sidebar li {
+    margin: 2px 0;
+  }
+  nav.sidebar a {
+    display: block;
+    padding: 10px 20px;
+    text-decoration: none;
+    color: var(--text-1);
+    font-size: 14px;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+  nav.sidebar a:hover {
+    background: var(--bg-2);
+    color: var(--text-0);
+  }
+  nav.sidebar a.active {
+    background: var(--bg-2);
+    color: var(--text-0);
+    border-left-color: var(--accent);
+    font-weight: 500;
+  }
+  nav.sidebar a .num {
+    display: inline-block;
+    width: 22px;
+    color: var(--text-2);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+  }
+  nav.sidebar a.active .num {
+    color: var(--accent-2);
+  }
+  nav.sidebar a.done .num::after {
+    content: " ✓";
+    color: var(--good);
+  }
+  .content {
+    padding: 36px 48px 80px;
+    max-width: 980px;
+  }
+  section.chapter {
+    display: none;
+    animation: fade 0.4s ease;
+  }
+  section.chapter.active {
+    display: block;
+  }
+  @keyframes fade {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  h2.chapter-title {
+    font-size: 28px;
+    margin: 0 0 8px;
+    letter-spacing: 0.2px;
+  }
+  .chapter-subtitle {
+    color: var(--text-2);
+    font-size: 14px;
+    margin-bottom: 28px;
+  }
+  h3 {
+    font-size: 18px;
+    margin: 28px 0 12px;
+    color: var(--text-0);
+  }
+  h4 {
+    font-size: 15px;
+    margin: 18px 0 8px;
+    color: var(--text-0);
+  }
+  p, li {
+    color: var(--text-1);
+    font-size: 14.5px;
+  }
+  .lead {
+    font-size: 16px;
+    color: var(--text-0);
+    background: linear-gradient(135deg, rgba(124,92,255,0.12), rgba(62,201,255,0.10));
+    border: 1px solid rgba(124,92,255,0.25);
+    padding: 18px 22px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+  }
+  .card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 14px 0;
+  }
+  .card-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 10px;
+    color: var(--text-0);
+  }
+  .tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+  .tag.ts { background: rgba(49,120,198,0.15); color: #6aa7e6; border: 1px solid rgba(49,120,198,0.3); }
+  .tag.rust { background: rgba(222,165,132,0.15); color: #e8bfa1; border: 1px solid rgba(222,165,132,0.3); }
+  .tag.wasm { background: rgba(101,79,240,0.15); color: #a397ff; border: 1px solid rgba(101,79,240,0.3); }
+  .tag.node { background: rgba(131,205,41,0.13); color: #b5e27f; border: 1px solid rgba(131,205,41,0.28); }
+  .tag.electron { background: rgba(71,132,143,0.15); color: #7bbbc6; border: 1px solid rgba(71,132,143,0.3); }
+  .tag.react { background: rgba(97,218,251,0.15); color: #61dafb; border: 1px solid rgba(97,218,251,0.3); }
+  .tag.p0 { background: rgba(248,113,113,0.12); color: var(--danger); }
+  .tag.good { background: rgba(74,222,128,0.12); color: var(--good); }
+  .tag.warn { background: rgba(251,191,36,0.12); color: var(--warn); }
+
+  /* ====== Interactive diagram ====== */
+  .diagram {
+    background: radial-gradient(ellipse at top, rgba(124,92,255,0.08), transparent 60%), var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px;
+    margin: 18px 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .layer {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin: 18px 0;
+    position: relative;
+  }
+  .layer-label {
+    text-align: center;
+    color: var(--text-2);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    margin: 12px 0 4px;
+  }
+  .node {
+    position: relative;
+    min-width: 150px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: var(--bg-2);
+    border: 1.5px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+  }
+  .node:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+    box-shadow: 0 8px 24px rgba(124,92,255,0.15);
+  }
+  .node.active {
+    border-color: var(--accent-2);
+    background: linear-gradient(135deg, rgba(62,201,255,0.10), rgba(124,92,255,0.10));
+    box-shadow: 0 0 0 2px rgba(62,201,255,0.25), 0 8px 24px rgba(62,201,255,0.18);
+  }
+  .node.highlight {
+    border-color: var(--accent-3);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,107,154,0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(255,107,154,0); }
+  }
+  .node .title {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-0);
+    margin-bottom: 4px;
+  }
+  .node .sub {
+    font-size: 11.5px;
+    color: var(--text-2);
+  }
+  .node .badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+  }
+  .arrow-down {
+    text-align: center;
+    color: var(--text-2);
+    font-size: 20px;
+    line-height: 1;
+    margin: -4px 0;
+  }
+  .arrow-down::after {
+    content: "▼";
+    opacity: 0.6;
+  }
+  .connector-line {
+    width: 2px;
+    height: 24px;
+    background: linear-gradient(180deg, var(--border), rgba(124,92,255,0.5));
+    margin: 0 auto;
+  }
+  .node-detail {
+    margin-top: 22px;
+    padding: 20px;
+    background: var(--bg-0);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: none;
+  }
+  .node-detail.active {
+    display: block;
+    animation: slideDown 0.3s ease;
+  }
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .node-detail h4 {
+    margin-top: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .detail-rows {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 10px 16px;
+    margin-top: 12px;
+  }
+  .detail-rows .k { color: var(--text-2); font-size: 13px; }
+  .detail-rows .v { color: var(--text-0); font-size: 13.5px; }
+
+  /* ====== Repo tree ====== */
+  .repo-tree {
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    line-height: 1.75;
+  }
+  .repo-tree .folder > .name {
+    cursor: pointer;
+    user-select: none;
+  }
+  .repo-tree .folder > .name:hover {
+    color: var(--accent-2);
+  }
+  .repo-tree .folder > .name::before {
+    content: "▸ ";
+    color: var(--text-2);
+    display: inline-block;
+    transition: transform 0.15s;
+  }
+  .repo-tree .folder.open > .name::before {
+    transform: rotate(90deg);
+  }
+  .repo-tree .children {
+    padding-left: 20px;
+    display: none;
+    border-left: 1px dashed var(--border);
+    margin-left: 6px;
+  }
+  .repo-tree .folder.open > .children {
+    display: block;
+  }
+  .repo-tree .item .name {
+    color: var(--text-1);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .repo-tree .item.dir .name { color: #b5c9ff; }
+  .repo-tree .item.file .name { color: #d8dce4; }
+  .repo-tree .item:hover > .name {
+    background: var(--bg-2);
+    border-radius: 4px;
+    padding: 0 4px;
+  }
+  .repo-tree .badge-inline {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: -apple-system, sans-serif;
+    font-weight: 600;
+  }
+
+  /* ====== Process flow ====== */
+  .flow-steps {
+    position: relative;
+    padding-left: 28px;
+    margin: 16px 0;
+  }
+  .flow-steps::before {
+    content: "";
+    position: absolute;
+    left: 10px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: linear-gradient(180deg, var(--accent), var(--accent-2), var(--accent-3));
+    border-radius: 2px;
+  }
+  .flow-step {
+    position: relative;
+    margin: 16px 0;
+    padding: 14px 18px;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .flow-step:hover {
+    border-color: var(--accent);
+  }
+  .flow-step.current {
+    border-color: var(--accent-2);
+    background: linear-gradient(135deg, rgba(62,201,255,0.08), rgba(124,92,255,0.05));
+  }
+  .flow-step .step-num {
+    position: absolute;
+    left: -32px;
+    top: 16px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--bg-2);
+    border: 2px solid var(--accent);
+    color: var(--text-0);
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .flow-step.current .step-num {
+    background: var(--accent-2);
+    border-color: var(--accent-2);
+    color: #050810;
+    animation: pulseRing 1.4s infinite;
+  }
+  @keyframes pulseRing {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(62,201,255,0.5); }
+    50% { box-shadow: 0 0 0 6px rgba(62,201,255,0); }
+  }
+  .flow-step h4 {
+    margin: 0 0 4px;
+    font-size: 15px;
+  }
+  .flow-step p {
+    margin: 4px 0 0;
+    font-size: 13.5px;
+  }
+  .flow-step .flow-detail {
+    display: none;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+    font-size: 13px;
+  }
+  .flow-step.open .flow-detail {
+    display: block;
+  }
+
+  /* ====== Quiz ====== */
+  .quiz {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+    margin: 20px 0;
+  }
+  .quiz h4 {
+    margin: 0 0 6px;
+    font-size: 15px;
+  }
+  .quiz .question {
+    font-size: 14.5px;
+    color: var(--text-0);
+    margin: 12px 0 14px;
+    line-height: 1.55;
+  }
+  .quiz-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .quiz-option {
+    padding: 10px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-2);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-size: 13.5px;
+    color: var(--text-1);
+    text-align: left;
+    width: 100%;
+    font-family: inherit;
+  }
+  .quiz-option:hover {
+    border-color: var(--accent);
+    background: var(--bg-3);
+  }
+  .quiz-option.correct {
+    border-color: var(--good);
+    background: rgba(74,222,128,0.10);
+    color: var(--text-0);
+  }
+  .quiz-option.wrong {
+    border-color: var(--danger);
+    background: rgba(248,113,113,0.10);
+  }
+  .quiz-feedback {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    display: none;
+  }
+  .quiz-feedback.show { display: block; }
+  .quiz-feedback.good {
+    background: rgba(74,222,128,0.10);
+    border: 1px solid rgba(74,222,128,0.3);
+    color: var(--good);
+  }
+  .quiz-feedback.bad {
+    background: rgba(248,113,113,0.10);
+    border: 1px solid rgba(248,113,113,0.3);
+    color: var(--danger);
+  }
+
+  /* ====== Tables ====== */
+  table.grid {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 13.5px;
+  }
+  table.grid th, table.grid td {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  table.grid th {
+    background: var(--bg-2);
+    color: var(--text-0);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.2px;
+  }
+  table.grid td { color: var(--text-1); }
+  table.grid tr:hover td { background: rgba(124,92,255,0.04); }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    background: var(--bg-3);
+    padding: 1.5px 6px;
+    border-radius: 5px;
+    color: #d4c6ff;
+    border: 1px solid var(--border);
+  }
+  pre {
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    background: var(--bg-0);
+    border: 1px solid var(--border);
+    padding: 14px 18px;
+    border-radius: 10px;
+    overflow-x: auto;
+    line-height: 1.65;
+    color: var(--text-1);
+  }
+
+  /* ====== Nav buttons ====== */
+  .chapter-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+  .btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1.5px solid var(--border);
+    background: var(--bg-2);
+    color: var(--text-0);
+    transition: all 0.15s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: inherit;
+  }
+  .btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    background: var(--bg-3);
+  }
+  .btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+  .btn.primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    border-color: transparent;
+    color: #fff;
+  }
+  .btn.primary:hover:not(:disabled) {
+    box-shadow: 0 6px 20px rgba(124,92,255,0.3);
+    transform: translateY(-1px);
+  }
+  .btn.small { padding: 6px 12px; font-size: 12px; }
+
+  /* ====== Tip callout ====== */
+  .callout {
+    padding: 14px 18px;
+    border-radius: 10px;
+    margin: 16px 0;
+    font-size: 13.5px;
+    border-left: 4px solid;
+  }
+  .callout.info {
+    background: rgba(62,201,255,0.08);
+    border-color: var(--accent-2);
+    color: var(--text-1);
+  }
+  .callout.info strong { color: var(--accent-2); }
+  .callout.warn {
+    background: rgba(251,191,36,0.08);
+    border-color: var(--warn);
+  }
+  .callout.warn strong { color: var(--warn); }
+  .callout.key {
+    background: rgba(124,92,255,0.08);
+    border-color: var(--accent);
+  }
+  .callout.key strong { color: var(--accent); }
+
+  /* ====== Decision cards ====== */
+  .decision-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+    margin: 16px 0;
+  }
+  .decision-card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .decision-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+  .decision-card.open {
+    border-color: var(--accent-2);
+    background: linear-gradient(135deg, rgba(62,201,255,0.06), rgba(124,92,255,0.04));
+  }
+  .decision-id {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--accent-2);
+    margin-bottom: 6px;
+  }
+  .decision-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-0);
+    margin-bottom: 6px;
+  }
+  .decision-body {
+    display: none;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+    font-size: 13px;
+    color: var(--text-1);
+  }
+  .decision-card.open .decision-body { display: block; }
+
+  /* ====== Legend ====== */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 12px 0 4px;
+    font-size: 12px;
+  }
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-2);
+  }
+  .legend-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+  }
+
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+    nav.sidebar {
+      position: relative;
+      top: 0;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
+    .content { padding: 24px; }
+    .detail-rows { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏗️ BaoCut 架构 · 互动教程</h1>
+  <div class="progress">
+    <span id="progressText">0 / 7</span>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <button class="btn small" id="resetBtn" title="重置进度">重置</button>
+  </div>
+</header>
+
+<main>
+  <nav class="sidebar">
+    <ol id="navList">
+      <li><a href="#ch-1"><span class="num">1</span>项目概览</a></li>
+      <li><a href="#ch-2"><span class="num">2</span>系统分层架构</a></li>
+      <li><a href="#ch-3"><span class="num">3</span>进程树与生命周期</a></li>
+      <li><a href="#ch-4"><span class="num">4</span>数据流转：从命令到成片</a></li>
+      <li><a href="#ch-5"><span class="num">5</span>仓库目录地图</a></li>
+      <li><a href="#ch-6"><span class="num">6</span>关键架构决策</a></li>
+      <li><a href="#ch-7"><span class="num">7</span>测验与总结</a></li>
+    </ol>
+  </nav>
+
+  <div class="content">
+
+    <!-- ===================== Chapter 1 ===================== -->
+    <section class="chapter active" id="ch-1">
+      <h2 class="chapter-title">1. 项目概览</h2>
+      <p class="chapter-subtitle">了解 BaoCut 是什么、解决什么问题，以及它的技术选型理念。</p>
+
+      <div class="lead">
+        <strong>BaoCut</strong> 是一个「以可编辑视频为中心」的 AI 视频智能体。<br>
+        它的核心哲学是：<em>视频是真理之源</em>（The video is the source of truth）。
+        所有转录、翻译、字幕、配音、章节、动效都落在<strong>可编辑时间线</strong>上，
+        用户可以随时接管并精确修改任何一行、任何一帧，而不是拿到一个一次性 MP4 后重头再来。
+      </div>
+
+      <h3>🎯 一句话定位</h3>
+      <p>用户用自然语言下达任务 → 智能体转录、翻译、配音、剪辑、生成动效 →
+      所有结果进入<strong>共享的可编辑时间线</strong> → 用户随时接管精修 → 导出成片。</p>
+
+      <h3>🧱 技术栈</h3>
+      <div class="legend">
+        <span class="legend-item"><span class="legend-swatch" style="background:#3178c6"></span>TypeScript</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:#dea584"></span>Rust</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:#654ff0"></span>WebAssembly</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:#47848f"></span>Electron</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:#83cd29"></span>Node.js</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:#61dafb"></span>React + Spectrum 2</span>
+      </div>
+
+      <table class="grid">
+        <thead>
+          <tr><th>层</th><th>技术</th><th>负责</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>界面</td><td><span class="tag react">React</span> + Spectrum 2 + Zustand</td><td>Home / Space / 编辑器 UI、用户交互、预览 WASM</td></tr>
+          <tr><td>外壳</td><td><span class="tag electron">Electron 44</span></td><td>窗口、菜单、系统权限、更新、Runtime 监管</td></tr>
+          <tr><td>业务 Runtime</td><td><span class="tag node">Node.js</span> <span class="tag ts">TS</span></td><td>协议网关、Agent Harness、VideoService、Models、Jobs、Storage</td></tr>
+          <tr><td>视频引擎</td><td><span class="tag rust">Rust</span></td><td>时间语义、剪辑校验、事务/撤销、VideoStore 单写</td></tr>
+          <tr><td>预览</td><td><span class="tag wasm">WASM</span> + Canvas</td><td>在浏览器/Renderer 里对时间线做帧级预测与交互预览</td></tr>
+          <tr><td>推理/导出</td><td><span class="tag rust">Rust</span> 原生 Workers</td><td>本地 ASR / TTS / 图像 / 音分 · 成片导出</td></tr>
+        </tbody>
+      </table>
+
+      <h3>🛤️ 四条入口，同一个 Runtime</h3>
+      <div class="card">
+        <div class="card-title">🖥️ 四端统一</div>
+        <ul>
+          <li><strong>桌面应用（Electron）</strong> — 主力工作界面：Home 创作模板、Space 浏览、全功能时间线编辑器</li>
+          <li><strong>CLI（<code>baocut</code>）</strong> — 脚本/终端调用；可管道化，退出码语义化</li>
+          <li><strong>MCP 服务 + BaoCut Skill</strong> — 外部智能体（Claude Code、Codex、Cursor…）通过同一套工具目录驱动</li>
+          <li><strong>Web 客户端</strong> — 一次性链接在浏览器打开某个视频的编辑器，方便远程智能体展示工作</li>
+        </ul>
+        <div class="callout info" style="margin-top:12px">
+          <strong>核心理念：</strong>所有入口走<strong>同一套协议</strong>、编辑<strong>同一部视频</strong>、经过<strong>同一个 Node Runtime</strong>。
+          没有第二份业务逻辑，没有第二个写入方。
+        </div>
+      </div>
+
+      <h3>🧩 核心领域对象速览</h3>
+      <p>先熟悉这些概念，后面会反复出现：</p>
+      <table class="grid">
+        <thead><tr><th>对象</th><th>一句话</th><th>权威方</th></tr></thead>
+        <tbody>
+          <tr><td><code>Project</code></td><td>项目目录；可包含多个 Video；也是智能体的工作目录</td><td>目录自身 + Runtime Store</td></tr>
+          <tr><td><code>Video / Revision</code></td><td>可编辑的时间线及其已提交版本</td><td>Rust <code>VideoEngine / VideoStore</code></td></tr>
+          <tr><td><code>Task</code></td><td>用户交付给智能体的一次结果委托</td><td>Runtime Store</td></tr>
+          <tr><td><code>Job</code></td><td>一次具体计算（转录、生成、渲染等）</td><td>Job Ledger</td></tr>
+          <tr><td><code>Artifact</code></td><td>Job 发布的<strong>不可变</strong>结果产物</td><td>Artifact / Blob Store</td></tr>
+          <tr><td><code>Application</code></td><td>把某个 Artifact 应用到视频的动作（带幂等键和回执）</td><td>Job Ledger → VideoEngine</td></tr>
+          <tr><td><code>ChangeSet</code></td><td>待提交的修改；经校验后原子地变成 Transaction</td><td>VideoEngine</td></tr>
+        </tbody>
+      </table>
+
+      <div class="chapter-nav">
+        <button class="btn" disabled>◀ 上一章</button>
+        <button class="btn primary" onclick="goChapter(2)">2. 系统分层架构 ▶</button>
+      </div>
+    </section>
+
+    <!-- ===================== Chapter 2 ===================== -->
+    <section class="chapter" id="ch-2">
+      <h2 class="chapter-title">2. 系统分层架构</h2>
+      <p class="chapter-subtitle">点击架构图中的每个节点，查看职责、技术栈、写入边界和状态归属。</p>
+
+      <div class="lead">
+        <strong>一个对外业务入口，一个视频写入方。</strong><br>
+        Node Runtime 承接所有客户端；Rust 视频引擎独占视频的事务与持久化。<br>
+        <em>—— 架构设计 §1</em>
+      </div>
+
+      <h3>🗺️ 互动架构图（点击任意方块查看详情）</h3>
+      <div class="diagram" id="archDiagram">
+
+        <div class="layer-label">Clients 客户端层</div>
+        <div class="layer">
+          <div class="node" data-node="desktop">
+            <span class="badge"><span class="tag electron">Electron</span></span>
+            <div class="title">桌面应用</div>
+            <div class="sub">Home · Space · 编辑器</div>
+          </div>
+          <div class="node" data-node="cli">
+            <span class="badge"><span class="tag node">CLI</span></span>
+            <div class="title">baocut CLI</div>
+            <div class="sub">终端 · 脚本化</div>
+          </div>
+          <div class="node" data-node="mcp">
+            <span class="badge"><span class="tag ts">MCP</span></span>
+            <div class="title">Agent 面</div>
+            <div class="sub">MCP 服务 + Skill</div>
+          </div>
+          <div class="node" data-node="web">
+            <span class="badge"><span class="tag react">Web</span></span>
+            <div class="title">Web 客户端</div>
+            <div class="sub">浏览器远程查看</div>
+          </div>
+        </div>
+
+        <div class="arrow-down"></div>
+        <div class="layer-label">@baocut/client · WebSocket（Command / Query / Subscribe）</div>
+        <div class="connector-line"></div>
+        <div class="arrow-down"></div>
+
+        <div class="layer-label">Runtime 业务层（Node.js · TypeScript）</div>
+        <div class="layer">
+          <div class="node" data-node="gateway">
+            <div class="title">协议网关</div>
+            <div class="sub">Auth · Policy · Wire</div>
+          </div>
+          <div class="node" data-node="harness">
+            <span class="badge"><span class="tag warn">核心</span></span>
+            <div class="title">Agent Harness</div>
+            <div class="sub">会话 · 任务 · 工具 · 审批</div>
+          </div>
+          <div class="node" data-node="video-svc">
+            <span class="badge"><span class="tag warn">核心</span></span>
+            <div class="title">Video Service</div>
+            <div class="sub">命令外观 · 预览 · 导出</div>
+          </div>
+          <div class="node" data-node="models">
+            <div class="title">Models</div>
+            <div class="sub">能力路由 · Provider</div>
+          </div>
+          <div class="node" data-node="jobs">
+            <div class="title">Jobs &amp; Storage</div>
+            <div class="sub">账本 · 调度 · Blob</div>
+          </div>
+        </div>
+
+        <div class="arrow-down"></div>
+        <div class="layer-label">Worker / Host 执行层（Rust 原生进程）</div>
+        <div class="connector-line"></div>
+        <div class="arrow-down"></div>
+
+        <div class="layer">
+          <div class="node" data-node="engine">
+            <span class="badge"><span class="tag rust">单写</span></span>
+            <div class="title">Engine Host</div>
+            <div class="sub">VideoEngine · VideoStore</div>
+          </div>
+          <div class="node" data-node="model-worker">
+            <span class="badge"><span class="tag rust">本地推理</span></span>
+            <div class="title">Model Worker</div>
+            <div class="sub">ASR · TTS · 图像 · 音分</div>
+          </div>
+          <div class="node" data-node="export">
+            <span class="badge"><span class="tag rust">原生</span></span>
+            <div class="title">Export Worker</div>
+            <div class="sub">成片 MP4 · 导出</div>
+          </div>
+          <div class="node" data-node="speech">
+            <span class="badge"><span class="tag rust">原生</span></span>
+            <div class="title">Speech Worker</div>
+            <div class="sub">转录后处理 · 对齐</div>
+          </div>
+          <div class="node" data-node="code-rt">
+            <span class="badge"><span class="tag wasm">Browser</span></span>
+            <div class="title">Code Runtime</div>
+            <div class="sub">动效代码包 · 帧烘焙</div>
+          </div>
+        </div>
+
+        <div class="node-detail" id="nodeDetail">
+          <h4>👆 点击上方任意节点查看详情</h4>
+          <p style="color:var(--text-2);font-size:13px">提示：Runtime 的业务模块通过进程内接口直接调用，不为形式一致而套内部 HTTP。
+          Engine Host 是 Video Service 私有的基础设施，不是界面要连接的第二个后端。</p>
+        </div>
+      </div>
+
+      <h3>📋 模块职责表（严格分工，不双写）</h3>
+      <table class="grid">
+        <thead><tr><th>模块</th><th>唯一职责</th><th>不承担</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Agent Harness</strong></td>
+            <td>用户任务、会话、上下文、工具调用、审批协调、交付整理</td>
+            <td>精确切点与取整、视频数据库写入、模型权重执行</td>
+          </tr>
+          <tr>
+            <td><strong>Video Service</strong></td>
+            <td>视频命令外观、修改审阅、引擎连接、预览、导出、素材引用</td>
+            <td>智能体原生会话、模型供应商协议</td>
+          </tr>
+          <tr>
+            <td><strong>Models</strong></td>
+            <td>能力目录、路由、Provider 适配、模型安装与执行计划</td>
+            <td>直接改时间线、宣告视频已交付</td>
+          </tr>
+          <tr>
+            <td><strong>VideoEngine / VideoStore</strong></td>
+            <td>领域校验、时间与编辑语义、视频锁、事务、回执、视频事件（<em>唯一写入方</em>）</td>
+            <td>聊天、费用购买、网络模型请求</td>
+          </tr>
+          <tr>
+            <td><strong>JobManager</strong></td>
+            <td>执行账本、应用账本、输入冻结、重试与对账、资源准入</td>
+            <td>把模型文本当任务真相、长期锁住视频</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>🔐 状态所有权：每份状态只有一个权威</h3>
+      <div class="callout key">
+        <strong>原则：</strong>Node 不凭缓存副本独立增加视频版本；Rust 不把模型任务状态复制成第二份账本。
+        任务产物入库与视频应用之间用<strong>幂等回执对账</strong>，不要求跨数据库的分布式事务。
+      </div>
+
+      <div class="chapter-nav">
+        <button class="btn" onclick="goChapter(1)">◀ 1. 项目概览</button>
+        <button class="btn primary" onclick="goChapter(3)">3. 进程树与生命周期 ▶</button>
+      </div>
+    </section>
+
+    <!-- ===================== Chapter 3 ===================== -->
+    <section class="chapter" id="ch-3">
+      <h2 class="chapter-title">3. 进程树与生命周期</h2>
+      <p class="chapter-subtitle">从 Electron 启动到 Runtime 优雅退出，理解每个进程的职责与停止顺序。</p>
+
+      <div class="lead">
+        BaoCut 采用多进程架构：界面轻薄、业务集中、计算隔离。
+        每个视频持有一把<strong>操作系统文件锁</strong>，保证在跨窗口、跨 Home 的场景下也只有一个写入者。
+      </div>
+
+      <h3>🌳 进程树</h3>
+      <pre>
+Electron Main                          ← 窗口 / 菜单 / 更新 / 监管
+├─ Renderer(s) : React + WASM 预测预览  ← 每窗口一个
+└─ BaoCut Supervisor（可脱离界面运行）  ← 启动/重启/停止 Worker
+   └─ Runtime Worker（Node）            ← 三个业务模块：Harness · Video · Models
+      ├─ Engine Host（Rust）            ← 视频单写方，每个视频独立加锁
+      ├─ Agent 进程                     ← 按会话：Claude Code / Codex / Pi / OpenCode …
+      ├─ Render / Media Workers         ← 按任务池复用
+      ├─ Model Workers                  ← 每个常驻模型包一个进程，按需启动
+      └─ Browser / Remotion Workers     ← 代码动效帧烘焙，按隔离域复用</pre>
+
+      <h3>⏱️ 生命周期关键事件（点击展开细节）</h3>
+      <div class="flow-steps">
+        <div class="flow-step current" data-flow="launch">
+          <div class="step-num">1</div>
+          <h4>🚀 启动发现</h4>
+          <p>Electron 检查发现文件（<code>instanceId / home / endpoint / runtimeVersion</code>），识别已有 Runtime 或创建新 Supervisor。</p>
+          <div class="flow-detail">
+            启动阶段：<code>acquiring-lock → starting → ready / degraded / failed</code>。
+            进程存在 ≠ 可以接收业务，必须进入 <code>ready</code> 才发业务请求。
+            一个 <code>BAOCUT_HOME</code> 对应一个 Supervisor，多个窗口复用同一 Runtime。
+          </div>
+        </div>
+
+        <div class="flow-step" data-flow="supervise">
+          <div class="step-num">2</div>
+          <h4>🛡️ Supervisor 监管</h4>
+          <p>拉起 Runtime Worker、发布 ready、处理崩溃重启与退避。</p>
+          <div class="flow-detail">
+            运行期崩溃可以有界重启；启动失败则报告错误，不无限拉起。
+            <strong>替代者取得写入权之前</strong>必须验证旧 Worker + Engine Host 已确认失去写入与执行能力。
+            PID、启动身份和代（generation）三者一起验证。
+          </div>
+        </div>
+
+        <div class="flow-step" data-flow="lock">
+          <div class="step-num">3</div>
+          <h4>🔒 Engine Host 所有权屏障</h4>
+          <p>每个视频持有 OS 文件锁；每次打开获得 <code>ownerGeneration</code>。</p>
+          <div class="flow-detail">
+            Runtime 与 Engine Host 之间使用<strong>私有 IPC / 受限套接字</strong>，不开公共产品端口。
+            Runtime 失联时，Engine Host 停止接受新修改并进入受限关闭。
+            替代宿主<strong>不得</strong>仅因租约超时抢写同一文件：必须先证明旧进程已退出或撤销其写能力。
+          </div>
+        </div>
+
+        <div class="flow-step" data-flow="cli">
+          <div class="step-num">4</div>
+          <h4>⌨️ CLI 拉起的 Runtime</h4>
+          <p>CLI 找不到运行中的 Runtime 时，默认后台拉起一个空闲自动退出的实例。</p>
+          <div class="flow-detail">
+            带参数：<code>--launched-by cli --idle-exit</code>。
+            空闲满 <code>runtime.idleExitMinutes</code>（默认 10 分钟）自动停止。
+            条件：<em>无活动连接 · 无排队/运行任务 · 无开着的对外服务</em>。
+            <code>runtime.stop</code> 只停 CLI 自己拉起的那一个：非本人 → <code>RUNTIME_NOT_OWNED</code>；还有人用 → <code>RUNTIME_IN_USE</code>。
+          </div>
+        </div>
+
+        <div class="flow-step" data-flow="stop">
+          <div class="step-num">5</div>
+          <h4>🛑 正常停止顺序（可中断的有序关闭）</h4>
+          <p>严格按顺序执行，避免留下「待对账」或「半应用」的视频状态。</p>
+          <div class="flow-detail">
+            <ol>
+              <li>停止接纳新业务，把 Task / Run 标为 <code>stopping</code></li>
+              <li>结算仍在提交边界内的视频事务（不丢已在管线内的写入）</li>
+              <li>请求取消 / 中断本地 Job 与 Agent Turn</li>
+              <li>持久化任务、候选、审批、外部任务 ID（用于下次启动对账）</li>
+              <li>关闭执行器（ModelWorker、Engine Host、CodeRuntime…）</li>
+              <li>Worker 退出，Supervisor 释放实例锁</li>
+            </ol>
+            超过优雅退出期限 → 升级为进程树强杀，但保留「未确认取消 / 待对账」记录。
+          </div>
+        </div>
+
+        <div class="flow-step" data-flow="update">
+          <div class="step-num">6</div>
+          <h4>📦 应用更新</h4>
+          <p>Electron Main 负责：检查 → 下载 → 校验签名与 SHA256 → 等应用退出 → 替换文件。</p>
+          <div class="flow-detail">
+            <ul>
+              <li>一个版本一套二进制：<code>engine-host</code>、<code>model-worker</code>、Runtime 同版发布</li>
+              <li>安装前必须先过「停止屏障」（按步骤 5 执行正常停止）</li>
+              <li><strong>退出即安装，从不自动重启</strong>：下次用户手动打开就是新版本</li>
+              <li>版本不一致时不混跑：外壳只读取、提示重启服务，不发业务命令</li>
+              <li>支持按 <code>rolloutHours + releasedAt</code> 做灰度分批推送</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <strong>易错点：</strong>
+        <ul style="margin:6px 0 0 18px">
+          <li>关闭视图 / 断开连接 <strong>≠ 取消任务</strong>。退出应用时才会让用户选择。</li>
+          <li>Agent Turn 结束 <strong>≠ 撤销已应用的修改</strong>。已提交的事务独立存在。</li>
+          <li>Runtime 关闭 <strong>≠ 远端云任务必然取消</strong>。界面必须明确显示仍可能在计费的任务。</li>
+        </ul>
+      </div>
+
+      <div class="chapter-nav">
+        <button class="btn" onclick="goChapter(2)">◀ 2. 系统分层架构</button>
+        <button class="btn primary" onclick="goChapter(4)">4. 数据流转 ▶</button>
+      </div>
+    </section>
+
+    <!-- ===================== Chapter 4 ===================== -->
+    <section class="chapter" id="ch-4">
+      <h2 class="chapter-title">4. 数据流转：从命令到成片</h2>
+      <p class="chapter-subtitle">以「帮我把这段口播视频剪成 60 秒，加双语字幕并导出 MP4」为例，
+      追踪每一步通过哪些模块、读写哪些状态。</p>
+
+      <div class="lead">
+        这次旅程有 9 个站点，每一站都明确<strong>输入、执行方、输出、权威状态方</strong>。
+        点击下方步骤，观察它们在架构图中的高亮路径。
+      </div>
+
+      <div class="legend" style="margin:8px 0 18px">
+        <span class="legend-item"><span class="legend-swatch" style="background:#ff6b9a"></span>当前步骤涉及的模块</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:#3ec9ff"></span>已经过的模块</span>
+      </div>
+
+      <div id="flowTraceDiagram" class="diagram" style="padding:18px 14px">
+        <div class="layer-label" style="margin-top:0">输入 / 执行 / 输出</div>
+        <div id="flowTraceContent" style="padding:12px 6px 4px">
+          <p style="text-align:center;color:var(--text-2);font-size:13px;margin:0">
+            👇 从下方步骤列表选择一个站点查看路径追踪
+          </p>
+        </div>
+      </div>
+
+      <h3>🛤️ 流程站点（点击某一步）</h3>
+      <div class="flow-steps">
+        <div class="flow-step" data-trace="1">
+          <div class="step-num">1</div>
+          <h4>💬 用户输入自然语言指令</h4>
+          <p>「帮我把这段口播视频剪成 60 秒，加双语字幕，导出 MP4。」</p>
+        </div>
+        <div class="flow-step" data-trace="2">
+          <div class="step-num">2</div>
+          <h4>📝 TaskContract 创建</h4>
+          <p>Runtime 解析范围、目标、交付物（<code>video-change:committed + video-file:published</code>）、预算、保护范围，写入 <code>Runtime Store</code>。</p>
+        </div>
+        <div class="flow-step" data-trace="3">
+          <div class="step-num">3</div>
+          <h4>🤖 Agent Harness 启动会话 + 回合</h4>
+          <p>Driver 启动对应 Agent 进程（如 Claude Code），注入上下文摘要 + BaoCut 工具目录，开始 <code>startTurn</code>。</p>
+        </div>
+        <div class="flow-step" data-trace="4">
+          <div class="step-num">4</div>
+          <h4>🔧 工具：<code>transcribe</code> 提交 Job</h4>
+          <p>智能体调用工具，Runtime 把 Job 登记到 Job Ledger，提交给 <code>Model Worker</code> 做本地 Whisper 或云端 ASR。</p>
+        </div>
+        <div class="flow-step" data-trace="5">
+          <div class="step-num">5</div>
+          <h4>📄 Artifact 入库 + Application 应用</h4>
+          <p>转录结果（<code>baocut.asr-result/v1</code>）存入 Artifact Store，Application 提交给 <code>Engine Host</code> →
+          <code>VideoEngine</code> 事务校验 → 原子写入 VideoStore（Revision +1，事件落盘）。</p>
+        </div>
+        <div class="flow-step" data-trace="6">
+          <div class="step-num">6</div>
+          <h4>🌐 翻译 + 双语字幕层</h4>
+          <p>Models 能力路由到文本 Provider，译文按句级 <code>alignment</code> 与原文对齐，
+          经 <code>captions_create</code> 计算切条 → 再进 VideoEngine 建两层字幕实例。</p>
+        </div>
+        <div class="flow-step" data-trace="7">
+          <div class="step-num">7</div>
+          <h4>✂️ 口播剪辑（去口头禅/长停顿）</h4>
+          <p>智能体根据转写 + 填充词检测，生成编辑操作 → <code>edits.apply</code> →
+          VideoEngine 做时间语义校验（精确有理数、帧量化）、版本冲突检测 → 提交。</p>
+        </div>
+        <div class="flow-step" data-trace="8">
+          <div class="step-num">8</div>
+          <h4>🎬 用户审阅 + 调整时长 → 精确到 60s</h4>
+          <p>用户拖拽时间线（Renderer 内纯本地操作 + WASM 交互预测）；确认提交时走同一命令网关，进入同一个事务与撤销栈。</p>
+        </div>
+        <div class="flow-step" data-trace="9">
+          <div class="step-num">9</div>
+          <h4>📤 Export Worker 成片导出</h4>
+          <p><code>export</code> Job 启动 Export Worker：RenderGraph 排帧 →
+          render-raster 光栅化 → ffmpeg 编码 MP4（烧录字幕）→ 发布 Artifact → 用户下载。</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:26px">
+        <div class="card-title">🔑 记住这三个保证</div>
+        <ul>
+          <li><strong>单写：</strong>所有视频版本变化 <em>唯一</em> 来自 VideoEngine 的事务提交。</li>
+          <li><strong>幂等：</strong>每个 Application 都有独立幂等键，失败重试不会双写。</li>
+          <li><strong>阶段独立：</strong>Job 完成 ≠ 视频已改；Artifact 就绪 ≠ 已交付；交付阶段由 TaskContract 的 <code>requiredStage</code> 明确判定。</li>
+        </ul>
+      </div>
+
+      <div class="chapter-nav">
+        <button class="btn" onclick="goChapter(3)">◀ 3. 进程与生命周期</button>
+        <button class="btn primary" onclick="goChapter(5)">5. 仓库目录地图 ▶</button>
+      </div>
+    </section>
+
+    <!-- ===================== Chapter 5 ===================== -->
+    <section class="chapter" id="ch-5">
+      <h2 class="chapter-title">5. 仓库目录地图</h2>
+      <p class="chapter-subtitle">理解 BaoCut 为何这样布局，而不是常见的 frontend/backend 分离。</p>
+
+      <div class="lead">
+        <strong>按职责划分，不按语言或前后端划分。</strong>
+        两个 workspace 并存、各管各的依赖：
+        <span class="tag node">npm workspaces</span>（apps/* + packages/*）与
+        <span class="tag rust">Cargo workspace</span>（crates/* + bindings/*）。
+      </div>
+
+      <h3>🌲 互动仓库树（点击目录展开/折叠）</h3>
+      <div class="repo-tree" id="repoTree"></div>
+
+      <h3>📖 顶层目录规则速记</h3>
+      <table class="grid">
+        <thead><tr><th>目录</th><th>放什么</th><th>示例</th></tr></thead>
+        <tbody>
+          <tr><td><code>apps/</code></td><td><strong>能启动的程序</strong>（只做进程生命周期、窗口、装配、参数解析；业务逻辑不在这里）</td><td>desktop · runtime · cli · web</td></tr>
+          <tr><td><code>packages/</code></td><td><strong>TypeScript 业务包</strong>，按领域拆</td><td>protocol · client · runtime-core · harness · jobs · ui · nodes · providers · models</td></tr>
+          <tr><td><code>crates/</code></td><td><strong>Rust crate</strong>，按领域拆（Worker 二进制 crate 也放这里）</td><td>video-engine · timeline · motion · speech-doc · engine-host · model-worker · export-worker</td></tr>
+          <tr><td><code>bindings/</code></td><td><strong>TS ↔ Rust 边界入口</strong>（WASM 等）</td><td>preview-wasm · editor-wasm</td></tr>
+          <tr><td><code>tools/</code></td><td>构建与代码生成脚本，被根 package.json scripts 调用</td><td>build-engine.mjs · i18n-scan.mjs · rust-messages.mjs</td></tr>
+          <tr><td><code>docs/</code></td><td>产品、架构、格式、协议<strong>规范文档</strong>（中文；一事一处、一个主题一篇）</td><td>architecture/ · spec/ · acceptance/ · design/</td></tr>
+          <tr><td><code>designs/</code></td><td>界面原型（UI 改动先到这里做原型再落到 Electron &amp; Web）</td><td>designs/baocut/</td></tr>
+          <tr><td><code>templates/</code></td><td>内置创作模板，一个模板一个目录，随应用分发</td><td>promo-ad · vlog-edit · data-story · launch-film</td></tr>
+          <tr><td><code>skills/</code></td><td>内置 Agent craft skills（<em>怎么做</em>），Runtime 整体加载</td><td>subtitle-workflow · talking-head-cut · motion-graphics</td></tr>
+          <tr><td><code>agent-skills/</code></td><td>给外部 Agent 用的 BaoCut skill（<em>怎么调用 BaoCut</em>），CLI + MCP 同一起源渲染</td><td>agent-skills/baocut/SKILL.md</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout info">
+        <strong>💡 放置哲学：</strong>
+        <ul style="margin:6px 0 0 18px">
+          <li><strong>App 要薄：</strong><code>apps/</code> 里的代码只做装配，<em>业务逻辑</em>进 <code>packages/</code> 或 <code>crates/</code>。</li>
+          <li><strong>按领域拆：</strong>不用 <code>utils</code>、<code>common</code>、<code>helpers</code>；文件用领域名（<code>seek.ts</code>、<code>video-store.ts</code>）。</li>
+          <li><strong>依赖不成环：</strong>TS 不直接 <code>import</code> Rust 内部，只经 <code>bindings/</code>（WASM）或 Worker 的 stdio JSON。</li>
+          <li><strong>只经公开入口引用：</strong>包外部只允许 <code>@baocut/&lt;名&gt;</code> 或 <code>exports</code> 声明过的子路径。</li>
+          <li><strong>生成物不进 git：</strong>构建产物进 <code>.gitignore</code>，由 <code>tools/</code> 生成。</li>
+        </ul>
+      </div>
+
+      <h3>🏗️ 典型依赖方向（箭头 = 被依赖 → 依赖方）</h3>
+      <pre>
+apps/*
+   │   装配层：组装 runtime-core、ui、client
+   ▼
+packages/  ←───────  npm workspace（TS）
+  ├─ client                  连接·请求·订阅·重连
+  ├─ protocol                Wire·Method·Domain·I18n
+  ├─ runtime-core            WebSocket 网关·请求处理·装配
+  ├─ harness                 Session·Task·Driver ABI
+  ├─ jobs / models / nodes   业务能力包
+  ├─ code-runtime / ui
+  │    │      TS/Rust 边界 ─────────────────┐
+  │    ▼                                     ▼
+  └─ bindings/preview-wasm  editor-wasm   ←─┘
+         │       (wasm32-unknown-unknown)
+         ▼
+crates/  ←───────  Cargo workspace（Rust）
+  ├─ editor-semantics · video-model · timeline · motion
+  ├─ render-graph · speech-doc · waveform · audio-dsp
+  ├─ frame-render · render-raster · subtitle-render
+  ├─ video-engine（事务+单写）
+  └─ engine-host · export-worker · model-worker · speech-worker
+            （原生二进制：aarch64-apple-darwin / x86_64-pc-windows-msvc …）</pre>
+
+      <div class="chapter-nav">
+        <button class="btn" onclick="goChapter(4)">◀ 4. 数据流转</button>
+        <button class="btn primary" onclick="goChapter(6)">6. 关键架构决策 ▶</button>
+      </div>
+    </section>
+
+    <!-- ===================== Chapter 6 ===================== -->
+    <section class="chapter" id="ch-6">
+      <h2 class="chapter-title">6. 关键架构决策（D01 – D17）</h2>
+      <p class="chapter-subtitle">BaoCut 架构中最有重量的 17 个决定。点击卡片查看它为何这么做、约束了什么。</p>
+
+      <div class="lead">
+        这些决定是「红线」。违反它们的 PR 或实现通常需要单独的设计讨论，
+        而不是在局部代码里悄悄绕开。
+      </div>
+
+      <div class="decision-grid" id="decisionGrid">
+        <!-- Cards rendered by JS -->
+      </div>
+
+      <div class="callout key" style="margin-top:24px">
+        <strong>📌 记住最重要的三条（D01 · D02 · D12）：</strong>
+        <ol style="margin:8px 0 0 20px">
+          <li><strong>D01 单入口 + 单写：</strong>Node 的 VideoService 是唯一对外入口；Rust 的 VideoEngine 是唯一写入权威。</li>
+          <li><strong>D02 Engine Host 私有：</strong>它是 VideoService 私有的宿主，不是界面要直连的第二个后端。</li>
+          <li><strong>D12 「完成」由交付阶段判定：</strong>
+            预览任务交 candidate；应用任务必须有回执；成片任务必须有校验后发布的文件。
+            不得把「Job 成功返回」直接等同于「用户任务已完成」。</li>
+        </ol>
+      </div>
+
+      <div class="chapter-nav">
+        <button class="btn" onclick="goChapter(5)">◀ 5. 仓库目录地图</button>
+        <button class="btn primary" onclick="goChapter(7)">7. 测验与总结 ▶</button>
+      </div>
+    </section>
+
+    <!-- ===================== Chapter 7 ===================== -->
+    <section class="chapter" id="ch-7">
+      <h2 class="chapter-title">7. 测验与总结</h2>
+      <p class="chapter-subtitle">5 道题检验你是否真正掌握了 BaoCut 的架构心智模型。</p>
+
+      <div class="lead" id="finalLead">
+        先做题，再查看你的掌握度分析 🎯
+      </div>
+
+      <!-- Quiz 1 -->
+      <div class="quiz" data-quiz="1">
+        <h4>📝 第 1 题 · 单写原则</h4>
+        <div class="question">
+          BaoCut 架构中，<strong>谁是视频实体（Video / Revision / Transaction）的唯一写入权威</strong>？
+        </div>
+        <div class="quiz-options">
+          <button class="quiz-option" data-answer="false">A. Node.js 的 Video Service（<code>packages/runtime-core</code>）</button>
+          <button class="quiz-option" data-answer="true">B. Rust 的 VideoEngine / VideoStore，在 Engine Host 进程中</button>
+          <button class="quiz-option" data-answer="false">C. Electron Renderer 中 Zustand store</button>
+          <button class="quiz-option" data-answer="false">D. 每个客户端缓存 + 乐观更新，最终一致</button>
+        </div>
+        <div class="quiz-feedback"></div>
+      </div>
+
+      <!-- Quiz 2 -->
+      <div class="quiz" data-quiz="2">
+        <h4>📝 第 2 题 · 任务建模拆分</h4>
+        <div class="question">
+          D03 要求把 Task、Run、Turn、Job、Application 分别建模。<br>
+          关于它们的关系，<strong>哪一句是正确的</strong>？
+        </div>
+        <div class="quiz-options">
+          <button class="quiz-option" data-answer="false">A. Job 完成 = Task 交付完成</button>
+          <button class="quiz-option" data-answer="false">B. Turn 是一个 Job 的子类型</button>
+          <button class="quiz-option" data-answer="true">C. Application 是把 Artifact 应用到视频的动作，自带幂等键与回执</button>
+          <button class="quiz-option" data-answer="false">D. 一个 Run 只能产生一个 Job</button>
+        </div>
+        <div class="quiz-feedback"></div>
+      </div>
+
+      <!-- Quiz 3 -->
+      <div class="quiz" data-quiz="3">
+        <h4>📝 第 3 题 · 进程与生命周期</h4>
+        <div class="question">
+          用户关闭桌面应用窗口时，以下哪种行为符合 BaoCut 的设计（D11）？
+        </div>
+        <div class="quiz-options">
+          <button class="quiz-option" data-answer="false">A. 立即停止所有任务并释放 Runtime</button>
+          <button class="quiz-option" data-answer="true">B. 如果有活动任务，由用户选择「继续后台」或「停止服务及本地执行」</button>
+          <button class="quiz-option" data-answer="false">C. 自动把正在执行的任务移到云端以确保完成</button>
+          <button class="quiz-option" data-answer="false">D. 关闭窗口会取消所有正在执行的 Agent Turn，但保留本地 Job</button>
+        </div>
+        <div class="quiz-feedback"></div>
+      </div>
+
+      <!-- Quiz 4 -->
+      <div class="quiz" data-quiz="4">
+        <h4>📝 第 4 题 · 四端统一</h4>
+        <div class="question">
+          「四端统一」是 BaoCut 的核心理念之一。它具体指什么？
+        </div>
+        <div class="quiz-options">
+          <button class="quiz-option" data-answer="false">A. 四端分别维护自己独立的业务逻辑，但视觉风格统一</button>
+          <button class="quiz-option" data-answer="true">B. Desktop / CLI / MCP+Skill / Web 四端走同一套协议、同一个 Node Runtime、编辑同一部视频</button>
+          <button class="quiz-option" data-answer="false">C. 四端都直接连接 Rust Engine Host，绕过 Node 业务层</button>
+          <button class="quiz-option" data-answer="false">D. 同一用户可同时在四个设备上使用不同版本的 App 协作编辑</button>
+        </div>
+        <div class="quiz-feedback"></div>
+      </div>
+
+      <!-- Quiz 5 -->
+      <div class="quiz" data-quiz="5">
+        <h4>📝 第 5 题 · 仓库约定</h4>
+        <div class="question">
+          关于 BaoCut 的代码放置约定，<strong>下列哪一条是错误的</strong>？
+        </div>
+        <div class="quiz-options">
+          <button class="quiz-option" data-answer="false">A. 按职责划目录，不按语言或前后端划分（没有 frontend/ backend/ 这样的目录）</button>
+          <button class="quiz-option" data-answer="false">B. apps/ 只做进程生命周期与装配，业务逻辑放 packages/ 或 crates/</button>
+          <button class="quiz-option" data-answer="false">C. TypeScript 不直接 import Rust 内部，只经 bindings/ 的 WASM 或 Worker stdio JSON</button>
+          <button class="quiz-option" data-answer="true">D. 每个 crate 对应一个独立的 npm 包，TS 可以跨 workspace 直接 depend 对应 crate</button>
+        </div>
+        <div class="quiz-feedback"></div>
+      </div>
+
+      <h3 id="scoreTitle" style="margin-top:36px">🏆 掌握度</h3>
+      <div class="card" id="scoreCard" style="text-align:center">
+        <div style="font-size:14px;color:var(--text-2);margin-bottom:10px">做完所有题后查看结果</div>
+        <div style="font-size:48px;font-weight:800;letter-spacing:1px;background:linear-gradient(90deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent" id="scoreNum">– / 5</div>
+        <div style="margin-top:6px;color:var(--text-1);font-size:14px" id="scoreMsg">答完以上 5 题试试吧～</div>
+      </div>
+
+      <h3 style="margin-top:36px">🗺️ 架构心智模型 · 一页总结</h3>
+      <div class="card">
+        <ol style="margin:0 0 0 20px;padding:0;line-height:1.95;font-size:14px">
+          <li><strong>一个 Runtime 承接所有入口。</strong>桌面 / CLI / MCP / Web 都经 Node Runtime 的 WS 网关。</li>
+          <li><strong>一个 Rust 引擎单写所有视频。</strong>事务、版本、撤销、事件 outbox 都在 VideoEngine。</li>
+          <li><strong>Node 做编排，Rust 做状态与计算。</strong>两者绝不双写，交接通过「幂等回执 + Artifact Store」对账。</li>
+          <li><strong>Task → Run → Turn / Job → Application → Transaction。</strong>每一层单独建模、独立 ID、独立状态。</li>
+          <li><strong>每份状态唯一权威：</strong>视频→Rust；会话/任务→Runtime Store；计算→Job Ledger；bytes→不可变 Artifact Store。</li>
+          <li><strong>仓库按职责，不按语言。</strong>npm workspaces（apps+packages）与 Cargo workspaces（crates+bindings）并立。</li>
+          <li><strong>四端同构但 App 轻薄：</strong>apps/ 只做装配与生命周期，逻辑都下放到 packages/ 与 crates/。</li>
+          <li><strong>关闭视图 ≠ 取消任务。</strong>退出时才让用户选后台继续或停止；版本不一致时绝不混发业务命令。</li>
+        </ol>
+      </div>
+
+      <div class="chapter-nav">
+        <button class="btn" onclick="goChapter(6)">◀ 6. 关键架构决策</button>
+        <button class="btn primary" onclick="restartAll()" id="finishBtn">🔁 再学一遍</button>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<script>
+/* ================== 导航与进度 ================== */
+const totalChapters = 7;
+let current = 1;
+const readChapters = new Set([1]);
+const answered = new Set();
+
+function save() {
+  try {
+    localStorage.setItem('baocut-arch-tutorial', JSON.stringify({
+      read: [...readChapters],
+      answered: [...answered],
+      current
+    }));
+  } catch(e){}
+}
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem('baocut-arch-tutorial') || 'null');
+    if (!s) return;
+    s.read.forEach(x => readChapters.add(x));
+    s.answered.forEach(x => answered.add(x));
+    if (s.current) goChapter(s.current, false);
+  } catch(e){}
+}
+
+function updateProgress() {
+  // 进度按「读过的章节 + 答题」合并估算
+  const chProgress = readChapters.size;
+  document.getElementById('progressText').textContent = `${chProgress} / ${totalChapters}`;
+  document.getElementById('progressFill').style.width = `${(chProgress / totalChapters) * 100}%`;
+  // 侧边栏
+  document.querySelectorAll('#navList a').forEach((a, idx) => {
+    const n = idx + 1;
+    a.classList.toggle('active', n === current);
+    a.classList.toggle('done', readChapters.has(n) && n !== current);
+  });
+  save();
+}
+
+function goChapter(n, addRead = true) {
+  current = n;
+  if (addRead) readChapters.add(n);
+  document.querySelectorAll('.chapter').forEach(c => c.classList.remove('active'));
+  document.getElementById('ch-' + n).classList.add('active');
+  updateProgress();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+document.querySelectorAll('#navList a').forEach((a, idx) => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    goChapter(idx + 1);
+  });
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  if (!confirm('确定要重置教程进度吗？')) return;
+  readChapters.clear(); answered.clear(); current = 1;
+  localStorage.removeItem('baocut-arch-tutorial');
+  location.reload();
+});
+
+/* ================== Chapter 2 · 架构图节点详情 ================== */
+const nodeData = {
+  desktop: {
+    title: '🖥️ 桌面应用（Electron）',
+    rows: [
+      ['技术栈', 'Electron 44 · React · Spectrum 2 · Zustand'],
+      ['入口', 'apps/desktop/'],
+      ['主进程职责', '窗口管理 · 系统菜单 · 权限请求 · 应用更新 · Runtime 发现/监管'],
+      ['Renderer 职责', 'Home / Space / 编辑器 UI · WASM 预览交互 · 拖拽/选区/播放头等本地状态'],
+      ['状态权威', '只持有 UI 草稿态；所有视频持久状态都在 Rust 侧'],
+      ['写入方式', '经 WS 调用 Runtime 的 edits.* / videos.* 方法，自己不直接落盘']
+    ]
+  },
+  cli: {
+    title: '⌨️ CLI（baocut）',
+    rows: [
+      ['技术栈', 'Node.js · TypeScript'],
+      ['入口', 'apps/cli/'],
+      ['职责', '终端与脚本化入口；参数解析；可管道化输出 JSON；退出码语义化（0 ok / 1 fail / 2 user-action / 3 runtime-unavailable / 4 bad-args）'],
+      ['Runtime 管理', '连不上 Runtime 时自己后台拉起一个，空闲自动退出'],
+      ['同构点', '工具目录与 MCP、Agent 面完全同源 — ToolCatalog 一个来源派生三面']
+    ]
+  },
+  mcp: {
+    title: '🤖 Agent 面（MCP 服务 + BaoCut Skill）',
+    rows: [
+      ['包含', 'MCP Server + 给外部 Agent 的 SKILL.md（同源渲染）'],
+      ['作用', '让 Claude Code / Codex / Cursor / Gemini CLI / Pi / OpenCode …在自己的会话里调用 BaoCut 完成视频工作'],
+      ['工具目录', 'videos.* · edits.* · speak · transcribe · translate · dub · export · jobs.* · tasks.* 等'],
+      ['权限模型', '每个对外服务有独立的监听面、认证与访问策略，默认关闭（D15）'],
+      ['Skill vs skills/', 'agent-skills/ 是「怎么用 BaoCut」；skills/ 是 BaoCut 内部 craft「怎么做字幕/剪辑/动效」']
+    ]
+  },
+  web: {
+    title: '🌐 Web 客户端',
+    rows: [
+      ['技术栈', 'React · Vite'],
+      ['入口', 'apps/web/；由 Runtime 的 web service 托管'],
+      ['用途', '一次性链接在浏览器打开某个视频的编辑器，方便远端 Agent 给非本机用户展示其工作'],
+      ['安全', '视频范围和授权严格收敛；legacy import 等本机路径相关功能不在白名单里'],
+      ['状态归属', '仍然连接同一个 Node Runtime，走同一个命令入口']
+    ]
+  },
+  gateway: {
+    title: '🚦 协议网关（Runtime API Gateway）',
+    rows: [
+      ['技术', 'packages/protocol（信封/方法/事件/域类型/校验） + packages/client（连接/请求/订阅/重连）'],
+      ['传输', 'WebSocket：Command / Query / Subscribe 三类消息'],
+      ['职责', 'Auth 鉴权 · Policy 访问模式 · Wire 序列化反序列化 · Schema 校验 · 幂等键去重 · 错误合同'],
+      ['关键原则', 'actor 只由可信 Runtime 注入，客户端不能伪造身份（D06）'],
+      ['版本号', 'eventSeq / version 用十进制字符串，避免 JSON 64 位精度丢失（D06）']
+    ]
+  },
+  harness: {
+    title: '🧠 Agent Harness',
+    rows: [
+      ['职责', '会话 / TaskContract / Context / ToolCatalog / ApprovalService / Driver ABI / VideoMemory'],
+      ['包位置', 'packages/harness（Session·Task·Driver ABI·TopicLog·Scratch…）'],
+      ['Driver ABI', 'createSession / startTurn / steer / interrupt / respondToApproval / subscribe / close'],
+      ['内置 Driver', 'Codex · Claude Code · Pi · OpenCode · 以及 ACP 统一实现（Copilot / Gemini CLI / Cursor / Grok / Kimi / 自定义）'],
+      ['任务分层', 'Task（用户委托） → Run（一次执行尝试） → Turn（一模型回合）→ Tool 调用 / Job'],
+      ['保护范围', 'ProtectionRef（video / entity / property / interval）在视频提交时由引擎在事务前校验，触碰整笔拒绝（TASK_PROTECTED）']
+    ]
+  },
+  'video-svc': {
+    title: '🎬 Video Service（视频命令外观）',
+    rows: [
+      ['职责', 'videos.* · timeline.* · edits.* · previews.* · captions.* · export 外观；连接 Engine Host；预览素材帧；素材引用管理'],
+      ['注意', '不直接写视频实体，只把合法的 EditOperation 打包成 ChangeSet 提交给 Engine Host'],
+      ['预览通道', 'bindings/preview-wasm：纯语义 WASM 在 Renderer 做交互预测，不取得写入权'],
+      ['编辑操作族', 'putDocument / importAsset / addItem / setChapters / removeAssets …… 编译成同一 edits.apply 提交路径'],
+      ['导出', '委托 Export Worker 生成 Artifact，应用户下载或进入 Artifact Store']
+    ]
+  },
+  models: {
+    title: '🧩 Models（能力 · 路由 · Provider）',
+    rows: [
+      ['能力维度', 'transcribe · speak · generateText · generateImage · separateAudio'],
+      ['包位置', 'packages/models（能力目录/默认值/账本） + packages/providers（在线 Provider） + Rust model-worker（本地推理）'],
+      ['路由', '用户配置能力 → Provider → 具体模型；支持本地 + 在线混配'],
+      ['Provider', 'OpenAI · Anthropic · Google · ElevenLabs · DeepSeek · Moonshot · Qwen · Zhipu · MiniMax · Volcengine · xAI · Mistral · Groq · OpenRouter · SiliconFlow · 任何 OpenAI-compatible'],
+      ['本地推理', 'Apple Silicon 走 MLX/CoreML；Windows 走 whisper.cpp + candle（CUDA / Vulkan / CPU 三档）'],
+      ['节点共享', 'LAN 下一台机器可把本地模型作为 nodes 服务共享给其他 BaoCut 实例（packages/nodes）']
+    ]
+  },
+  jobs: {
+    title: '📒 Jobs &amp; Storage',
+    rows: [
+      ['Job', '具体的一次计算（转录/渲染/导出…）；由 Job Ledger 登记状态/预算/重试/外部ID'],
+      ['Application', '把结果应用到视频的独立动作；幂等键 + 回执，对账不依赖分布式事务'],
+      ['Artifact Store', '所有 Job 发布的不可变结果 bytes（blob），用内容摘要引用'],
+      ['Runtime Store', '会话、Task、Run、审批、授权、偏好设置、Space 用户标记（收藏/回收）'],
+      ['输入冻结', 'Job 接纳的输入被冻结为不可变；运行中不随合同修订而换内容'],
+      ['非 Agent 计算', '工具页/对外服务/固定流程的计算也走 JobManager（D17），规则不变']
+    ]
+  },
+  engine: {
+    title: '⚙️ Engine Host（Rust · 视频单写方）',
+    rows: [
+      ['crate', 'crates/engine-host/（进程入口） · crates/video-engine/（领域核心）'],
+      ['内部组件', 'VideoEngine（校验+语义） · VideoStore（事务+持久化+事件outbox+撤销）'],
+      ['关键保证', '每个视频持有 OS 文件锁 + ownerGeneration；Runtime 失联时 Engine Host 进入受限关闭'],
+      ['时间语义', 'editor-semantics：精确有理数、帧量化、Time-01 – Time-08 规则'],
+      ['通信', 'Runtime ↔ Engine Host 之间私有 IPC / 受限套接字，不开公共产品端口（D02）'],
+      ['crate 协作', 'timeline / render-graph / speech-doc / scene-primitives / video-model 等纯语义 + 纯 IO 拆分']
+    ]
+  },
+  'model-worker': {
+    title: '🧠 Model Worker（Rust · 本地推理）',
+    rows: [
+      ['crate', 'crates/model-worker/'],
+      ['能力', 'ASR（Whisper large-v3 / v3-turbo · Qwen3-ASR · MOSS 带说话人分离） · TTS（OmniVoice 克隆/预置） · 图像（Qwen-Image） · 人声-背景分离（HTDemucs）'],
+      ['启动策略', '每个常驻模型包一个独立进程，按需启动（避免重复加载权重）'],
+      ['平台后端', 'Apple Silicon → MLX + CoreML；Windows/CPU → candle + whisper.cpp；CUDA → RTX 30+；Vulkan → AMD/Intel 或旧 NVIDIA'],
+      ['协议', '通过 stdio JSON 行与 Runtime 通讯（见 Model Worker 协议规范）'],
+      ['注意', '模型 weights 可能携带非商用许可，UI 在选择前必须明确展示']
+    ]
+  },
+  export: {
+    title: '🎞️ Export Worker（Rust · 成片导出）',
+    rows: [
+      ['crate', 'crates/export-worker/'],
+      ['流程', 'RenderGraph 排帧 → render-raster 光栅化（tiny-skia） → 平台编解码（media-native / media-core + ffmpeg）→ MP4 / SRT / WebVTT / 音频 stems / .baocut 便携包'],
+      ['可导出的', '烧录或 sidecar 字幕的 MP4；SRT/VTT；Transcript；音频 Stems；.baocut 便携包（跨机器带完整历史）'],
+      ['性能模式', '独立优化的 release profile；光栅化核心 crate 强制 opt-level 3（dev 下也是），避免一帧慢一个数量级']
+    ]
+  },
+  speech: {
+    title: '📝 Speech Worker（Rust · 转录后处理）',
+    rows: [
+      ['crate', 'crates/speech-worker/ 调用 crates/speech-doc/'],
+      ['功能', '转写后处理：LCS 对齐、字幕切分、句子原子化、layout、说话人、翻译行修复、脚本化、分页、seam 接缝、增量编辑'],
+      ['输入', 'ASR 原始结果'],
+      ['输出', 'baocut.speech/v3 / baocut.translation/v2 符合规范的文档结构，对齐信息到 word 级']
+    ]
+  },
+  'code-rt': {
+    title: '🎨 Code Runtime（浏览器 · 动效烘焙）',
+    rows: [
+      ['类型', 'composition：由代码画出来的画面，持久实例类型统一（D09）'],
+      ['支持合同', 'baocut/1 · hyperframes/1'],
+      ['组件', 'packages/code-runtime（适配器） + 浏览器 Worker（或 Remotion）做帧烘焙'],
+      ['流程', '智能体写自包含 HTML 合成 → 作为代码包导入 → bake 逐帧 → 放入时间线'],
+      ['用途', 'lower-third、数字强调、callout、品牌片头、动效排版等一切「由代码画出来的画面」']
+    ]
+  }
+};
+
+document.querySelectorAll('#archDiagram .node').forEach(n => {
+  n.addEventListener('click', () => {
+    document.querySelectorAll('#archDiagram .node').forEach(x => x.classList.remove('active'));
+    n.classList.add('active');
+    const key = n.dataset.node;
+    const d = nodeData[key];
+    const box = document.getElementById('nodeDetail');
+    box.classList.add('active');
+    let rowsHtml = '';
+    d.rows.forEach(([k, v]) => {
+      rowsHtml += `<div class="k">${k}</div><div class="v">${v}</div>`;
+    });
+    box.innerHTML = `<h4>${d.title}</h4><div class="detail-rows">${rowsHtml}</div>`;
+  });
+});
+
+/* ================== Chapter 3 · 生命周期步骤展开 ================== */
+document.querySelectorAll('.flow-step').forEach(s => {
+  s.addEventListener('click', e => {
+    // Don't toggle if it has an inner button (none currently), but keep simple toggle
+    s.classList.toggle('open');
+    // For the flow-steps in ch-3, also show current marker on the clicked one
+    const parent = s.parentElement;
+    if (parent && parent.classList.contains('flow-steps') && s.closest('#ch-3')) {
+      parent.querySelectorAll('.flow-step').forEach(x => x.classList.remove('current'));
+      s.classList.add('current');
+    }
+  });
+});
+
+/* ================== Chapter 4 · 流程追踪 ================== */
+const traceData = {
+  1: {
+    title: '① 用户输入自然语言指令',
+    nodes: ['desktop'],
+    text: '用户在 Desktop 编辑器的对话面板输入指令。这是用户与 Agent Harness 之间的一次对话起点。状态还没写入视频。',
+    side: [
+      ['输入', '自然语言（文本或语音转录）'],
+      ['涉及模块', 'Electron Renderer UI → WS 网关'],
+      ['写入状态', '仅 Renderer 草稿（本地态）；尚未提交']
+    ]
+  },
+  2: {
+    title: '② TaskContract 写入 Runtime Store',
+    nodes: ['gateway', 'harness', 'jobs'],
+    text: '网关接收到 conversations.send 或 tasks.create。Harness 构造 TaskContract（目标、范围、交付物、权限、预算、保护范围等），写入 Runtime Store。',
+    side: [
+      ['权威状态方', 'Runtime Store（会话、Task、Run）'],
+      ['版本字段', 'contract revision 从 1 起，只追加不覆盖'],
+      ['关键', '默认 autonomy=ask，用户可改为 auto/plan/fullAccess']
+    ]
+  },
+  3: {
+    title: '③ 启动 Agent Session + Turn',
+    nodes: ['harness'],
+    text: 'Harness 通过所选 Driver（如 Claude Code / Codex / Pi / OpenCode / ACP 族）创建或恢复 AgentSession，注入上下文摘要、工具目录、开发者指导，调用 startTurn 开始第一回合。',
+    side: [
+      ['Driver ABI', 'startTurn(AgentInput, RunContext) → turnId + subscribe 事件流'],
+      ['上下文', 'ContextBuilder 按需要范围：不默认把全文本/全视频外发'],
+      ['会话分离', '每个 Session 一个独立 Agent 进程；会话结束可以保留恢复句柄（persistence handle）']
+    ]
+  },
+  4: {
+    title: '④ 工具 transcribe：提交转录 Job',
+    nodes: ['harness', 'models', 'jobs', 'model-worker', 'speech'],
+    text: '智能体在回合里调用 transcribe（一级动词）。Models 路由到默认 ASR Provider：本地 → 提交给 Model Worker；在线 → 调用云 API。',
+    side: [
+      ['Job 账本', 'Job Ledger 登记提交者、预算预留、Provider/模型、输入冻结'],
+      ['本地推理', 'Model Worker 进程（Rust）按模型常驻，结果流式返回'],
+      ['转录后处理', 'Speech Worker（speech-doc）做对齐、切句、layout']
+    ]
+  },
+  5: {
+    title: '⑤ Artifact 入库 → Application 应用 → VideoEngine 事务',
+    nodes: ['jobs', 'video-svc', 'engine'],
+    text: '转录完成 → Artifact Store 落盘（不可变）→ Application（带幂等键）把 speech 文档应用到视频 → Engine Host 内 VideoEngine 校验 ChangeSet → 原子事务：Revision+1、事件 outbox 与事务同落盘。',
+    side: [
+      ['对账', 'Application 结果回执由 Job Ledger 记录；失败可重试、不双写'],
+      ['单写原则', '任何版本变化唯一来自 VideoEngine 的事务提交'],
+      ['事件', 'eventSeq 十进制字符串，与事务同时落盘']
+    ]
+  },
+  6: {
+    title: '⑥ 翻译 + 建双语字幕层',
+    nodes: ['harness', 'models', 'video-svc', 'engine'],
+    text: '智能体调用 translate 或自己翻译（documents_read → 自译 → documents_put）。captions_create 计算 planCaptionLayer：按显示宽度切条、按句级 alignment 对齐原文时间 → 一次可撤销事务在视频上建两层字幕实例（原文 + 译文）并放置到字幕轨。',
+    side: [
+      ['对齐', 'sourceSentenceId / alignment 块到 word 级'],
+      ['层样式', '字幕样式按项目记忆，双语时共享同一新建样式'],
+      ['撤销', '一次事务，撤销时两层一起撤']
+    ]
+  },
+  7: {
+    title: '⑦ 口播剪辑（去口头禅 / 长停顿 / 重拍）',
+    nodes: ['harness', 'video-svc', 'engine'],
+    text: '智能体生成编辑操作（removeWordAt / cutInterval / ducking …）→ edits.apply。VideoEngine 做时间语义校验（精确有理数、帧量化）、版本 readSet 冲突检查、保护范围检查 → 原子提交。',
+    side: [
+      ['编辑语义 crate', 'editor-semantics + timeline + video-model'],
+      ['冲突策略 D05', 'P0 严格校验版本冲突，不自动重基'],
+      ['回执', '每次提交返回 transactionId + revision + touched entities']
+    ]
+  },
+  8: {
+    title: '⑧ 用户审阅拖拽 → 精确到 60s',
+    nodes: ['desktop', 'video-svc', 'engine'],
+    text: '用户在 Renderer 里拖拽剪辑点、字幕条、播放头。渲染侧 + preview-wasm 做交互预测（纯语义，不写盘）。用户松手或确认后，同一 WS 网关 → edits.apply → 同一 VideoEngine 事务 + 同一撤销栈。',
+    side: [
+      ['预览 WASM', 'bindings/preview-wasm + bindings/editor-wasm'],
+      ['人机共享编辑器', '人和 Agent 走同一命令网关、同一事务、同一撤销栈（产品核心卖点）'],
+      ['草稿态', '拖拽、选区、播放头只在 Renderer 态；确认才提交']
+    ]
+  },
+  9: {
+    title: '⑨ Export Worker 成片导出 MP4',
+    nodes: ['video-svc', 'jobs', 'export'],
+    text: 'export Job 启动 Export Worker：RenderGraph 排帧 → render-raster 光栅化（tiny-skia + 平台字体/媒体）→ ffmpeg/平台编码烧录字幕 → MP4 + SRT 等 Artifact 发布 → 用户下载/进入 Space。',
+    side: [
+      ['RenderGraph', '预览与导出共用同一份排帧计划（crates/render-graph）'],
+      ['光栅化', 'crates/render-raster + frame-render + subtitle-render'],
+      ['交付判定 D12', '成片任务必须到达 published 阶段 + 校验通过，TaskContract 才标完成']
+    ]
+  }
+};
+
+document.querySelectorAll('[data-trace]').forEach(step => {
+  step.addEventListener('click', () => {
+    const n = step.dataset.trace;
+    const trace = traceData[n];
+    // Mark current in list
+    document.querySelectorAll('[data-trace]').forEach(s => s.classList.remove('current'));
+    step.classList.add('current');
+    step.classList.toggle('open');
+    // Build highlight info box
+    const box = document.getElementById('flowTraceContent');
+    const nodesHtml = trace.nodes
+      .map(k => {
+        const label = {
+          desktop:'🖥️ 桌面应用', cli:'⌨️ CLI', mcp:'🤖 Agent 面', web:'🌐 Web',
+          gateway:'🚦 协议网关', harness:'🧠 Agent Harness', 'video-svc':'🎬 Video Service',
+          models:'🧩 Models', jobs:'📒 Jobs & Storage', engine:'⚙️ Engine Host',
+          'model-worker':'🧠 Model Worker', export:'🎞️ Export Worker', speech:'📝 Speech Worker', 'code-rt':'🎨 Code Runtime'
+        }[k] || k;
+        return `<span class="node highlight" style="min-width:auto;padding:8px 12px;margin:4px;cursor:default;animation:none;border-color:var(--accent-3)">
+                  <span class="title" style="font-size:13px">${label}</span>
+                </span>`;
+      }).join('');
+    const rows = trace.side.map(([k, v]) => `<div class="k">${k}</div><div class="v">${v}</div>`).join('');
+    box.innerHTML = `
+      <h4 style="margin:0 0 8px;color:var(--accent-2)">${trace.title}</h4>
+      <div style="margin:8px 0 14px">${nodesHtml}</div>
+      <p style="margin:0 0 12px;color:var(--text-1);font-size:13.5px">${trace.text}</p>
+      <div class="detail-rows" style="grid-template-columns: 140px 1fr">${rows}</div>
+    `;
+  });
+});
+
+/* ================== Chapter 5 · 仓库树 ================== */
+const repoStructure = [
+  { name: 'apps/', type: 'dir', tag: '<span class="badge-inline tag node">启动程序</span>', children: [
+    { name: 'desktop/', type: 'dir', tag: '<span class="badge-inline tag electron">Electron</span>', children: [
+      { name: 'src/main/', type: 'dir', desc: '主进程：窗口、菜单、Runtime 监管、更新' },
+      { name: 'src/preload/', type: 'dir', desc: '安全 API 桥接' },
+      { name: 'src/renderer/', type: 'dir', desc: 'UI 入口（引用 packages/ui）' },
+    ]},
+    { name: 'runtime/', type: 'dir', tag: '<span class="badge-inline tag node">Runtime 入口</span>', children: [
+      { name: 'src/main.ts', type: 'file', desc: 'Runtime Worker 启动文件（装配 runtime-core）' },
+    ]},
+    { name: 'cli/', type: 'dir', tag: '<span class="badge-inline tag node">CLI</span>', children: [
+      { name: 'src/main.ts', type: 'file', desc: 'baocut 命令入口' },
+      { name: 'src/catalog/', type: 'dir', desc: 'help · run · spec · snapshot' },
+      { name: 'src/admin/', type: 'dir', desc: '所有 admin 子命令：jobs / models / nodes / space / tasks / web …' },
+    ]},
+    { name: 'web/', type: 'dir', tag: '<span class="badge-inline tag react">Web</span>', children: [
+      { name: 'src/main.tsx', type: 'file', desc: '远程编辑器 Web 客户端入口' },
+    ]},
+  ]},
+  { name: 'packages/', type: 'dir', tag: '<span class="badge-inline tag ts">npm workspaces</span>', children: [
+    { name: 'protocol/', type: 'dir', desc: '信封 / 方法 / 域类型 / 校验 / i18n 目录' },
+    { name: 'client/', type: 'dir', desc: '连接 · 请求 · 订阅 · 重连 · 镜像缩减' },
+    { name: 'runtime-core/', type: 'dir', desc: 'WS 网关 · 请求处理 · 装配' },
+    { name: 'harness/', type: 'dir', tag: '<span class="badge-inline tag warn">核心</span>', desc: 'Session · Task · Driver ABI · TopicLog · Scratch' },
+    { name: 'jobs/', type: 'dir', desc: 'Job Ledger · JobManager · 固定流程 pipelines · media-probe' },
+    { name: 'models/', type: 'dir', desc: '能力目录 · 模型 bundles · 使用账本' },
+    { name: 'providers/', type: 'dir', desc: '在线 Provider 适配器（adapter.ts 统一接口）' },
+    { name: 'nodes/', type: 'dir', desc: '局域网能力共享（node-server · pairing · share-store）' },
+    { name: 'code-runtime/', type: 'dir', desc: '代码包适配与帧烘焙' },
+    { name: 'ui/', type: 'dir', tag: '<span class="badge-inline tag react">UI</span>', desc: 'React UI（Spectrum 2 + Zustand）：app.tsx / model/* / components / copy.*.ts' },
+    { name: 'runtime-core/', type: 'dir', desc: '（再次出现表示在本层常被依赖）' },
+    { name: 'process-host/', type: 'dir', desc: '找 bundled 二进制、启动并监管 Worker 进程' },
+    { name: 'editor-wasm/', type: 'dir', desc: 'bindings/editor-wasm 的 TS 侧 loader' },
+  ]},
+  { name: 'crates/', type: 'dir', tag: '<span class="badge-inline tag rust">Cargo workspace</span>', children: [
+    { name: 'video-engine/', type: 'dir', tag: '<span class="badge-inline tag warn">单写</span>', desc: 'VideoEngine + VideoStore：事务 / 撤销 / 事件 outbox / OS 锁' },
+    { name: 'timeline/', type: 'dir', desc: '时间线与元素模型（元素、轨道、动画、关键帧、screentext…）' },
+    { name: 'motion/', type: 'dir', desc: '动效：flow graph / text_motion / effects / program 降低' },
+    { name: 'editor-semantics/', type: 'dir', desc: '时间语义（精确有理数、帧量化、TIME-01…TIME-08）' },
+    { name: 'video-model/', type: 'dir', desc: '视频互通 DTO（cut_set · ducking · speech · effect …）' },
+    { name: 'speech-doc/', type: 'dir', desc: '转写、翻译、字幕、对齐、layout、句子原子化' },
+    { name: 'render-graph/', type: 'dir', desc: '预览与导出共用的帧排程计划（含 ducking 音频侧链）' },
+    { name: 'render-raster/', type: 'dir', desc: '光栅化：assets · audio · drawop · fonts · media · svg · video' },
+    { name: 'frame-render/', type: 'dir', desc: '帧组装：census · effects · element' },
+    { name: 'subtitle-render/', type: 'dir', desc: '字幕渲染（字幕轨 + layout → 栅格）' },
+    { name: 'timeline-render/', type: 'dir', desc: '时间线 UI 的绘制辅助' },
+    { name: 'audio-dsp/', type: 'dir', desc: 'EQ / 压缩 / 混响 / FFT / 响度 / truepeak / resample…' },
+    { name: 'waveform/', type: 'dir', desc: 'BCW1 / BCS1 波形格式、beats、DSP' },
+    { name: 'media-core / media-native / media-probe/', type: 'dir', desc: '媒体编解码（ffmpeg 子进程 + 平台原生加速 + ffprobe/native 探测）' },
+    { name: 'font-files / message-ref / model-runtime / scene-primitives/', type: 'dir', desc: '字体管理 · 本地化消息引用 · 模型运行时数据结构 · 场景图元' },
+    { name: 'engine-host/', type: 'dir', tag: '<span class="badge-inline tag rust">二进制</span>', desc: 'Engine Host 进程入口' },
+    { name: 'export-worker/', type: 'dir', tag: '<span class="badge-inline tag rust">二进制</span>', desc: '成片导出 Worker' },
+    { name: 'model-worker/', type: 'dir', tag: '<span class="badge-inline tag rust">二进制</span>', desc: '本地推理 Worker（ASR/TTS/图像/音分）' },
+    { name: 'speech-worker/', type: 'dir', tag: '<span class="badge-inline tag rust">二进制</span>', desc: '转录后处理 Worker' },
+  ]},
+  { name: 'bindings/', type: 'dir', tag: '<span class="badge-inline tag wasm">WASM 边界</span>', children: [
+    { name: 'preview-wasm/', type: 'dir', desc: '编辑器预览的 WASM 入口（lib.rs → wasm32）' },
+    { name: 'editor-wasm/', type: 'dir', desc: '共享编辑语义的 WASM 入口' },
+  ]},
+  { name: 'tools/', type: 'dir', desc: '构建与代码生成脚本：build-engine · build-wasm · i18n-scan · rust-messages · s2-styles · catalog-snapshot · sync-agent-skill 等' },
+  { name: 'docs/', type: 'dir', tag: '<span class="badge-inline tag good">规范文档</span>', children: [
+    { name: 'architecture/architecture-design.md', type: 'file', desc: '系统架构设计（本教程主要来源）' },
+    { name: 'product/product-design.md', type: 'file', desc: '产品设计：界面·工作流·发布路线' },
+    { name: 'spec/', type: 'dir', desc: '视频格式 / 命令协议 / 代码包 / Model Worker / Node / 模板 规范' },
+    { name: 'design/', type: 'dir', desc: '字幕 / 时间线 / Agent 面 / 品牌 设计记录' },
+    { name: 'acceptance/', type: 'dir', desc: '验收与测试策略 + 端到端验收记录' },
+  ]},
+  { name: 'designs/baocut/', type: 'dir', desc: '界面原型（UI 改动先到这里 → 确认后同步到 Electron 与 Web）' },
+  { name: 'templates/', type: 'dir', desc: '内置创作模板：promo-ad / vlog-edit / launch-film / data-story 等 24+ 套' },
+  { name: 'skills/', type: 'dir', desc: '内置 Agent craft skills：subtitle-workflow · talking-head-cut · motion-graphics · narration …' },
+  { name: 'agent-skills/baocut/', type: 'dir', desc: '给外部 Agent 的 BaoCut skill（SKILL.md），CLI + MCP 同源渲染' },
+  { name: 'scripts/legacy-import/', type: 'dir', desc: '一次性 v1/v2 → v3 迁移脚本（不进产品 workspace）' },
+  { name: 'Cargo.toml · Cargo.lock', type: 'file', desc: 'Rust workspace 根配置（crates/* + bindings/*）' },
+  { name: 'package.json · package-lock.json', type: 'file', desc: 'npm workspace 根配置（apps/* + packages/*）' },
+  { name: 'tsconfig.json · vitest.config.ts', type: 'file', desc: 'TS + Vitest 配置（TypeScript 侧测试）' },
+  { name: 'AGENTS.md', type: 'file', desc: '编码代理通用规则（本仓库的编码护栏）' },
+];
+
+function buildTree(items, parentEl, openTop = false) {
+  items.forEach(item => {
+    const hasChildren = item.children && item.children.length > 0;
+    const wrap = document.createElement('div');
+    wrap.className = 'item ' + (hasChildren ? 'folder dir' : (item.type === 'dir' ? 'dir' : 'file'));
+    const name = document.createElement('span');
+    name.className = 'name';
+    const tagHtml = item.tag ? ' ' + item.tag : '';
+    const descHtml = item.desc ? `<span style="opacity:.55;font-size:11.5px;margin-left:6px;color:var(--text-2)">— ${item.desc}</span>` : '';
+    name.innerHTML = `${item.name}${tagHtml}${descHtml}`;
+    wrap.appendChild(name);
+    if (hasChildren) {
+      const ch = document.createElement('div');
+      ch.className = 'children';
+      buildTree(item.children, ch);
+      wrap.appendChild(ch);
+      if (openTop) wrap.classList.add('open');
+      name.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wrap.classList.toggle('open');
+      });
+    }
+    parentEl.appendChild(wrap);
+  });
+}
+buildTree(repoStructure, document.getElementById('repoTree'), true);
+
+/* ================== Chapter 6 · 关键决策卡片 ================== */
+const decisions = [
+  { id:'D01', t:'Node 单入口 + Rust 单写', b:'Node 的 VideoService 是唯一对外业务入口；Rust 的 VideoEngine/VideoStore 是唯一的视频事务与持久化权威。Node 不直接写视频实体，也不自行增加版本。' },
+  { id:'D02', t:'Engine Host 是 Runtime 私有宿主', b:'Engine Host 不向界面或 CLI 暴露平级产品 API；每个视频独立加锁，按需驻留。它是 VideoService 私有的基础设施，不是第二个后端。' },
+  { id:'D03', t:'Task / Run / Turn / Job / Application 分别建模', b:'结果委托、执行尝试、模型回合、计算、结果应用各有自己的 ID 与状态，不把「Job 成功」直接当「任务完成」。' },
+  { id:'D04', t:'主停止按钮 = tasks.stop', b:'先禁止新调用与自动提交，再请求取消子 Job；agents.interrupt 与 jobs.cancel 是明确的次级操作，不是一键乱杀。' },
+  { id:'D05', t:'P0 严格视频版本冲突，不自动重基', b:'保留 readSet；P1 只对已验证相互独立的修改开放重基。冲突时让用户显式调解，不静默覆盖。' },
+  { id:'D06', t:'十进制版本号 + 公共幂等键 + Runtime 注入 actor', b:'避免 64 位整数 JSON 丢精度；commandId 作为公共幂等键；actor 不得由客户端伪造，只能可信网关注入。' },
+  { id:'D07', t:'Job / Artifact / Application 各自独立记录', b:'渲染与纯分析可以没有视频应用；一个 Artifact 可应用到多个视频。三者之间靠 Application 的幂等回执对账，不要分布式事务。' },
+  { id:'D08', t:'P0 至少一个完整双闭环 Driver', b:'多 Driver 的能力边界保留；其余 Driver 按验证程度开放，不伪称功能等价。Claude Code + Codex 是目前验证双闭环的。' },
+  { id:'D09', t:'由代码画出的画面持久实例一律 composition', b:'浏览器合同与 Remotion 分别适配；框架名称只是提示，不扩张实例类型。动效导入后统一是 composition。' },
+  { id:'D10', t:'新视频格式不依赖任何旧格式', b:'旧项目导入是独立单向转换；不存在长期双写或兼容层。转换完了就是新格式。' },
+  { id:'D11', t:'关闭视图 ≠ 取消任务', b:'退出桌面应用时明确选择「继续后台」或「停止服务及本地执行」，并显示仍可能在远端运行或计费的任务。' },
+  { id:'D12', t:'「完成」由 TaskContract 指定的交付阶段判定', b:'预览任务交 candidate-ready；应用任务必须 committed + 回执；成片任务必须有校验后 published 的文件。禁止用 Job 成功直接冒充交付。' },
+  { id:'D13', t:'Home 与 Space 是同一 Runtime 同一批对象的两个视图', b:'两边修改走同一命令入口，遵守同样的版本检查、保护与权限；不存在两套业务逻辑。（另见 D14：Space 条目是派生索引，不是第二份存储。）' },
+  { id:'D14', t:'Space 目录是派生索引，不是第二份存储', b:'条目来自 VideoStore + Artifact Store + Job Ledger；索引可随时重建；删除服从引用图。收藏/回收等用户标记存在 Runtime Store。' },
+  { id:'D15', t:'对外入口都是 Runtime 里受管的「对外服务」', b:'每个面（MCP、Web、LAN nodes…）各有自己的监听面、认证与访问策略，默认关闭。外部请求以服务主体进入同一命令入口，不另设业务逻辑。' },
+  { id:'D16', t:'用户库进视频时拷贝，库后续变化不影响已有视频', b:'跨视频复用的用户数据进入视频时复制副本；之后库里条目删改不改变任何已有视频。视频是快照，不是引用。' },
+  { id:'D17', t:'非 Agent 发起的计算也是 Job', b:'工具页、对外服务、固定流程提交的计算都走同一个 JobManager，只是没有 Task。冻结、校验、发布、应用的规则不变。' },
+];
+
+const dGrid = document.getElementById('decisionGrid');
+decisions.forEach(d => {
+  const el = document.createElement('div');
+  el.className = 'decision-card';
+  el.innerHTML = `
+    <div class="decision-id">${d.id}</div>
+    <div class="decision-title">${d.t}</div>
+    <div class="decision-body">${d.b}</div>
+  `;
+  el.addEventListener('click', () => el.classList.toggle('open'));
+  dGrid.appendChild(el);
+});
+
+/* ================== Chapter 7 · 测验 ================== */
+const quizExplanations = {
+  1: { correct:'B 正确。这是架构设计 D01 的核心。', wrong:Node },
+  2: { correct:'D03 + D07：Job 执行、Artifact 就绪、Application 应用三者各自独立记录。Application 带幂等键和回执。', wrong:null },
+  3: { correct:'D11：关闭视图 ≠ 取消任务。退出时询问用户。', wrong:null },
+  4: { correct:'所有入口 → 同一协议 → 同一 Node Runtime → 同一 VideoEngine 编辑同一视频。', wrong:null },
+  5: { correct:'错误项是 D。crate 归 Cargo workspace，不存在「crate 对应一个 npm 包、TS 跨 workspace depend」。TS 只经 bindings/WASM 或 Worker stdio 与 Rust 交互。', wrong:null }
+};
+
+document.querySelectorAll('.quiz').forEach(quizEl => {
+  const qid = quizEl.dataset.quiz;
+  const opts = quizEl.querySelectorAll('.quiz-option');
+  const fb = quizEl.querySelector('.quiz-feedback');
+  opts.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (answered.has(qid)) return;
+      answered.add(qid);
+      const ok = btn.dataset.answer === 'true';
+      btn.classList.add(ok ? 'correct' : 'wrong');
+      if (!ok) {
+        // Mark the correct one
+        opts.forEach(o => {
+          if (o.dataset.answer === 'true') o.classList.add('correct');
+        });
+      }
+      fb.classList.add('show', ok ? 'good' : 'bad');
+      fb.innerHTML = ok
+        ? `✅ 正确！${quizExplanations[qid].correct}`
+        : `❌ 不对。<strong>正确解释：</strong>${quizExplanations[qid].correct}`;
+      updateScore();
+      save();
+    });
+  });
+});
+
+function updateScore() {
+  const total = 5;
+  let score = 0;
+  document.querySelectorAll('.quiz').forEach(q => {
+    const rightBtn = q.querySelector('.quiz-option.correct');
+    const selectedRight = q.querySelector('.quiz-option.correct');
+    const pickedWrong = q.querySelector('.quiz-option.wrong');
+    // Score 1 iff question answered AND the 'correct'-marked user-pick exists (i.e., no .wrong)
+    if (answered.has(q.dataset.quiz) && !pickedWrong) score++;
+  });
+  document.getElementById('scoreNum').textContent = `${score} / ${total}`;
+  let msg = '';
+  if (answered.size < total) {
+    msg = '继续做完所有题吧～';
+  } else if (score === 5) {
+    msg = '🎉 满分！你可以向其他同事讲解 BaoCut 架构了。';
+  } else if (score >= 4) {
+    msg = '👍 很棒！个别点再回头确认一下即可。';
+  } else if (score >= 2) {
+    msg = '🤔 基础不错，建议回头看第 2/4/6 三章。';
+  } else {
+    msg = '📚 基础还需巩固，建议从第 2 章重新精读一遍节点详情。';
+  }
+  document.getElementById('scoreMsg').textContent = msg;
+}
+
+function restartAll() {
+  if (!confirm('从头开始？进度和答题会被清空。')) return;
+  readChapters.clear(); answered.clear();
+  localStorage.removeItem('baocut-arch-tutorial');
+  location.reload();
+}
+
+/* ================== 启动 ================== */
+updateProgress();
+updateScore();
+load();
+
+</script>
+</body>
+</html>
