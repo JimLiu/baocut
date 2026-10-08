@@ -415,14 +415,15 @@
 
     /** 发一句话：写入 user 消息，按脚本推进。 */
     /* `reference`：输入框里的 Space 条目引用（product-design §4.7），随这条消息发出 */
-    const sendAgent = useCallback((sid, text, fresh, attachments = [], reference = null) => {
+    const sendAgent = useCallback((sid, text, fresh, attachments = [], reference = null, artifactIds = []) => {
       const t = String(text || '').trim();
       if (!t && !attachments.length && !reference) return;
       const sess = sessionsRef.current.find((x) => x.id === sid) || fresh;
       if (!sess) return;
       const title = sess.title || AG.sessionTitle(t || attachments[0]?.name || (reference && reference.name) || '图片');
       const plan = agentSim.planFor(t, !!sess.project, sess);
-      appendMsg(sid, {role: 'user', text: t, attachments, ...(reference ? {reference} : {}), startedAt: Date.now()});
+      appendMsg(sid, {role: 'user', text: t, attachments, ...(reference ? {reference} : {}),
+        ...(artifactIds.length ? {artifactIds} : {}), startedAt: Date.now()});
       patchSession(sid, {title, status: 'running', draft: '', activeModel: null});
       // 原型用 fixture 模拟 CLI 握手：只在回报模型后展示具体名字，目录默认不冒充运行值。
       const h = harnessList.find((item) => item.id === sess.harness);

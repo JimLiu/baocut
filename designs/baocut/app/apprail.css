@@ -201,17 +201,19 @@
 .movie-workspace__editor { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; position: relative; container: movie / inline-size; }
 .movie-conversation { display: flex; flex-direction: column; min-height: 0; min-width: 320px; max-width: 45%; flex: none; }
 .movie-conversation .hhd { padding-inline: 16px; }
-/* 悬浮会话（product-design §5.1）：默认是一枚输入框，发送后线程就地向上展开；最小化成一颗图标。 */
+/* 悬浮会话（product-design §5.1）：默认是一枚输入框，发送后进入 Home；最小化成一颗图标。 */
 .movie-quickchat { position: absolute; right: 24px; bottom: 24px; z-index: 20; }
 .movie-quickchat__trigger { position: relative; display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%; background: var(--gray-25); box-shadow: var(--sh-elev); color: var(--gray-800); }
 .movie-quickchat__dot { position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 50%; background: var(--blue-900); box-shadow: 0 0 0 2px var(--gray-25); }
 .movie-quickchat__dot.is-waiting { background: var(--orange-900); }
 /* 展开时让开右侧的工具 rail（48px 宽），线程再高也不盖住 Tab */
 .movie-quickchat.is-open { right: calc(48px + 24px); width: 400px; max-width: calc(100% - 96px); max-height: calc(100% - 48px); border-radius: 16px; background: var(--gray-25); box-shadow: var(--sh-elev); display: flex; flex-direction: column; overflow: hidden; }
-.movie-quickchat.has-thread { height: 560px; }
-.movie-quickchat__head { display: flex; align-items: center; gap: 4px; padding: 8px 8px 0 16px; font-size: 12px; font-weight: 700; color: var(--gray-700); }
+.movie-quickchat__head { display: flex; align-items: center; gap: 4px; padding: 12px 16px 0; font-size: 12px; font-weight: 700; color: var(--gray-700); }
 /* 还没说第一句话：只留输入框，问候语与示例收起，浮层尽量不挡编辑器 */
-.movie-quickchat:not(.has-thread) .ath__scroll { display: none; }
+.movie-quickchat .ath__scroll { display: none; }
+.movie-quickchat .acomp { padding: 12px 16px 8px; }
+/* S2 始终生成 disclaimer 段落；此宿主没有脚注，空段落不占底部留白。 */
+.movie-quickchat .bc-ai-prompt > div > p:empty { display: none; }
 @container movie (max-width: 600px) {
   .moviebar { padding: 8px; gap: 8px; flex-wrap: wrap; }
   .moviebar__title { flex-basis: 100%; }

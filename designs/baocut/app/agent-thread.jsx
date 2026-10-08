@@ -404,7 +404,7 @@
   /* ---------- 线程 ----------
      `sid` 为空 = 新会话：第一句话才真的建会话（然后 onCreated 把宿主切过去）。
      这样侧栏「新会话」点十次不会长出十条空会话。 */
-  function AgentThread({sid, project, dir, compact, onCreated, autoFocus}) {
+  function AgentThread({sid, project, dir, compact, onCreated, onSent, videoCard, autoFocus}) {
     const app = useApp();
     const sess = sid ? app.sessionById(sid) : null;
     const [draftSess, setDraftSess] = useState(() => ({
@@ -452,11 +452,18 @@
       /* 2026-10-01：选了写入目标的会话仍住在 Home——视频从消息卡片打开（第 110 轮「搬进项目编辑器」退场） */
     };
     const send = (text, attachments = [], reference = null) => {
-      if (sess) { app.sendAgent(sess.id, text, undefined, attachments, reference); return; }
+      // product-design §5.1：Space 首条消息带当前视频卡，随后进入 Home 会话。
+      const artifacts = videoCard && !cur.messages.length && cur.project ? [cur.project] : [];
+      if (sess) {
+        app.sendAgent(sess.id, text, undefined, attachments, reference, artifacts);
+        if (onSent) onSent(sess);
+        return;
+      }
       const s = app.newSession({project: draftSess.project, dir: draftSess.dir, harness: draftSess.harness, model: draftSess.model,
         effort: draftSess.effort, mode: draftSess.mode});
-      app.sendAgent(s.id, text, s, attachments, reference);
+      app.sendAgent(s.id, text, s, attachments, reference, artifacts);
       if (onCreated) onCreated(s);
+      if (onSent) onSent(s);
     };
     const chips = cur.project ? D.agent.chips.editor : D.agent.chips.home;
     const proj = cur.project ? app.projById(cur.project) : null;

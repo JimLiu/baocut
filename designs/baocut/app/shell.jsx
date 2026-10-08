@@ -115,7 +115,7 @@
   }
 
   /* 悬浮会话（product-design §5.1）：从 Space 打开的视频没有左侧会话栏，会话浮在编辑器右下角。
-     默认展开成输入框——收成图标是用户自己点的，记在偏好里；发送后线程就地展开，不离开编辑器。
+     默认展开成输入框——收成图标是用户自己点的，记在偏好里；发送后进入 Home 新会话。
      不抢焦点：编辑器的快捷键（空格播放）不能因为输入框默认在场就失效。 */
   function MovieQuickChat({editor}) {
     const app = useApp();
@@ -132,15 +132,15 @@
         {live ? <i className={cx('movie-quickchat__dot', sess.status === 'waiting' && 'is-waiting')} /> : null}
       </BCAction>
     </aside>;
-    return <aside className={cx('movie-quickchat is-open', sess && 'has-thread')} aria-label="视频会话">
+    return <aside className="movie-quickchat is-open" aria-label="视频会话">
       <div className="movie-quickchat__head">
         <span className="t-truncate grow">{sess ? sess.title || '新会话' : '新会话'}</span>
         {sess ? <IconBtn icon="plus" size="s" tip="新会话" onClick={() => app.setMovieChat(editor.projectId, null)} /> : null}
         {sess ? <IconBtn icon="sidebar" size="s" tip="在左侧展开会话" onClick={() => app.go(window.BC_APP_IA.movieChatRoute(app.route, sid))} /> : null}
         <IconBtn icon="minus" size="s" tip="最小化" onClick={() => setMin(true)} />
       </div>
-      <window.AgentThread key={sid || 'draft'} sid={sid} project={editor.projectId} compact autoFocus={restored.current}
-        onCreated={s => app.setMovieChat(editor.projectId, s.id)} />
+      <window.AgentThread key={sid || editor.projectId} sid={sid} project={editor.projectId} compact videoCard autoFocus={restored.current}
+        onSent={s => { app.setMovieChat(editor.projectId, null); app.go({r: 'agent', id: s.id}); }} />
     </aside>;
   }
 

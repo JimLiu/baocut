@@ -32,6 +32,21 @@ const sessions = [
   S('f', {ago: 700, pinned: true}),
 ];
 
+test('Space 首条消息的视频卡跟随当前视频，无项目会话落入最近', () => {
+  const unbound = {id: 'm4', title: '未绑定的视频'};
+  const allMovies = [...movies, unbound];
+  const items = allMovies.map(movie => ({...movie, kind: 'movie'}));
+  for (const movie of [movies[0], unbound]) {
+    const sess = S('new-' + movie.id, {project: movie.id, harness: 'codex', model: 'model-a', mode: 'auto',
+      messages: [{id: 'first', role: 'user', text: '帮我精剪这段视频', artifactIds: [movie.id]}]});
+    const cards = P.sessionArtifacts(sess, items);
+    assert.deepEqual(cards.map(card => [card.id, card.messageId]), [[movie.id, 'first']]);
+    const tree = P.tree({dirs, movies: allMovies, sessions: [sess]});
+    if (movie.dir) assert.deepEqual(tree.projects.find(project => project.dir.id === movie.dir).sessions, [sess]);
+    else assert.deepEqual(tree.loose, [sess]);
+  }
+});
+
 test('会话状态：在跑 / 等批准 / 失败 / 待审阅 / 未读；没状态是 null', () => {
   assert.deepEqual(sessions.map(P.sessionStatus), ['running', 'review', 'waiting', 'failed', 'unread', null]);
   assert.equal(P.statusInfo('waiting').label, '等待批准');
