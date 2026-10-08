@@ -431,12 +431,15 @@ describe('任务合同', () => {
     session.finish();
     await until(() => harness.agentRun(conversation.id).taskId === null);
     await harness.shutdown();
-    // 去掉合同，模拟早先的记录。
-    const file = path.join(home.conversationsDir, `${conversation.id}.json`);
-    const record = JSON.parse(await fs.readFile(file, 'utf8'));
+    // 去掉合同，模拟早先的记录：写成旧格式的整份 `<id>.json`，读入时迁移。
+    const log = path.join(home.conversationsDir, `${conversation.id}.jsonl`);
+    const store = new ConversationStore(home.conversationsDir);
+    await store.load();
+    const record = JSON.parse(JSON.stringify(store.get(conversation.id)));
     delete record.tasks;
     for (const item of record.items) delete item.contract;
-    await fs.writeFile(file, JSON.stringify(record));
+    await fs.rm(log);
+    await fs.writeFile(path.join(home.conversationsDir, `${conversation.id}.json`), JSON.stringify(record));
 
     budgets.policies.clear();
     harness = await open();

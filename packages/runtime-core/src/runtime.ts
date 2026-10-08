@@ -594,7 +594,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     });
     const harness = await Harness.open({
       home,
-      conversations: new ConversationStore(home.conversationsDir),
+      conversations: new ConversationStore(home.conversationsDir, { log: log.child('conversations') }),
       prefs: new AgentPrefsStore(home.agentPrefsFile),
       projects: new ProjectStore(home.projectsFile),
       drivers,
