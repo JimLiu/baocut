@@ -44,7 +44,7 @@
 
 ## 5. 写进视频
 
-用 `baocut edits apply` 的 setChapters 一次写入整份章节列表（at 是上面取到的秒数，按时间严格递增；title、summary 照写）。只改一两章时用 upsertChapter 或 removeChapter。章节固定在时间线的时刻上，之后再剪辑不会跟着移动：剪辑改了时长时提醒用户章节可能要重新对一遍。
+用 `baocut edits apply` 的 setChapters 一次写入整份章节列表（at 是上面取到的秒数，按时间严格递增；title、summary 照写）。只改一两章时用 upsertChapter 或 removeChapter。章节固定在时间线的时刻上：剪口播（addCuts、接受剪辑建议、恢复剪口）会让章节跟着内容走，别的剪辑（移动、删除片段、波纹删除）不会，这类剪辑改了时长时提醒用户章节可能要重新对一遍。
 
 ## 6. 交付
 

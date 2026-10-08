@@ -1,7 +1,10 @@
 //! 章节（视频格式规范 §3.13）：序列上 `kind: 'chapter'` 的标记。
 //!
 //! 章节固定在序列帧上，不跟着实例移动、裁剪或删除；一章从它的开始帧持续到下一章的开始帧，最后一章到序列结尾。
+//! 例外是剪口（§6.7）：应用与恢复剪口时章节跟着内容走（[`close_spans`]、[`open_gap`]）。
 //! 章节不受轨道与实例的锁定约束。
+
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -252,4 +255,49 @@ fn thumbnail(state: &VideoState, target: &AssetTarget, ctx: &EditContext<'_>) ->
         id: asset.id.clone(),
         revision: asset.current_revision.clone(),
     })
+}
+
+/// 应用剪口时序列上拿掉了几段帧（§6.7 重排）：章节跟着内容走——段后的章前移，落在段里的回到段首。几章落到同一帧时只留
+/// 原来起点最晚的那一章（它的内容还在，前面几章整章都剪掉了），其余删掉。`spans` 是拿掉之前的帧区间 `[f0, f1)`，按起点排好、
+/// 互不重叠。
+pub(crate) fn close_spans(state: &mut VideoState, sequence_id: &str, spans: &[(i64, i64)]) {
+    let shifted = |frame: i64| {
+        spans.iter().rev().fold(frame, |at, &(f0, f1)| {
+            if at >= f1 {
+                at - (f1 - f0)
+            } else if at > f0 {
+                f0
+            } else {
+                at
+            }
+        })
+    };
+    let mut chapters: Vec<(i64, Id)> = state
+        .markers
+        .values()
+        .filter(|m| m.sequence_id == sequence_id && m.value.is_chapter())
+        .map(|m| (m.value.frame, m.value.id.clone()))
+        .collect();
+    chapters.sort();
+    let mut landed: BTreeMap<i64, Id> = BTreeMap::new();
+    for (frame, id) in chapters {
+        if let Some(earlier) = landed.insert(shifted(frame), id) {
+            state.markers.remove(&earlier);
+        }
+    }
+    for (frame, id) in landed {
+        if let Some(placed) = state.markers.get_mut(&id) {
+            placed.value.frame = frame;
+        }
+    }
+}
+
+/// 恢复剪口时在序列的 `frame` 处放回 `count` 帧（§6.7 恢复的接缝）：这一帧之后的章节后移；正在这一帧上的不动——它可能是
+/// 剪掉开头的那一章，也可能是剪口之后被挪到接缝上的那一章，留在原地不会让序列开头没有章。
+pub(crate) fn open_gap(state: &mut VideoState, sequence_id: &str, frame: i64, count: i64) {
+    for placed in state.markers.values_mut() {
+        if placed.sequence_id == sequence_id && placed.value.is_chapter() && placed.value.frame > frame {
+            placed.value.frame += count;
+        }
+    }
 }

@@ -125,7 +125,7 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 - **自己分的章节**：`setChapters` 整个替换章节列表（按时间严格递增，第一章通常在 0）；只改一章用 `upsertChapter`。怎么分见 {{skill:video-chapters}}。
 - **作者的章节或用户贴的大纲**：{{tool:chapters_adopt}}，不手工对时间。给 {{arg:video}}（可给 {{arg:asset}}、{{arg:document}}）时取素材的作者章节（`assets[].source.chapters`）；给 {{arg:outline}}（`[{ at, title }]` 或大纲原文）时用用户的大纲。它把每条吸到文稿最近的段落或句子起点（段落、句子、字幕条、词依次退），清洗标题后以 `setChapters` 写入；{{arg:dryRun}} 只看结果不写。回执的 `sourceChapters` 给出 `entries`、`matched`、`ambiguous`（附近几个起点，取了离作者时间最近的）、`snapped`、`unanchored`（对不上，保留原时间）与逐条的 `rows`，没对上的告诉用户。`NO_SOURCE_CHAPTERS`：没有作者章节，改按 {{skill:video-chapters}} 自己分；`ASSET_NOT_PLACED`：素材不在时间线上。
 
-章节固定在时间线的时刻上，不跟着片段移动：剪辑之后要重新核对。
+章节固定在时间线的时刻上，不跟着片段移动：移动、删除片段或波纹删除之后要重新核对。剪口播例外：`addCuts`、`acceptCutSuggestions` 与 `restoreCut` 让章节跟着内容走（剪掉的段后面的章前移，整章都剪掉的删掉；恢复时接缝之后的后移）。
 
 ### 撤销与历史
 

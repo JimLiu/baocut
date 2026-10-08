@@ -603,6 +603,122 @@ fn a_cut_without_a_seam_is_restored_in_the_set_only() {
     assert!(cut_set(&t.video, &t.asset).unwrap().2["cuts"].as_array().unwrap().is_empty());
 }
 
+// ---- 章节（§3.13 的例外、§6.7）：应用与恢复剪口时跟着内容走 ----
+
+fn set_chapters(video: &mut Video, starts: &[(&str, i64)]) {
+    let s = video.state().root_sequence_id.clone();
+    let chapters: Vec<Value> = starts
+        .iter()
+        .map(|(title, frame)| json!({ "at": { "unit": "frames", "value": frame }, "title": title }))
+        .collect();
+    apply(
+        video,
+        "cmd_chapters",
+        vec![json!({ "type": "setChapters", "sequenceId": s, "alignment": "exact-frame", "chapters": chapters })],
+    )
+    .unwrap();
+}
+
+/// 章节的标题与开始帧，按帧排。
+fn chapters(video: &Video) -> Vec<(String, i64)> {
+    let mut out: Vec<(String, i64)> = video
+        .state()
+        .markers
+        .values()
+        .filter(|m| m.value.is_chapter())
+        .map(|m| (m.value.label.clone(), m.value.frame))
+        .collect();
+    out.sort_by_key(|c| c.1);
+    out
+}
+
+fn owned(chapters: &[(&str, i64)]) -> Vec<(String, i64)> {
+    chapters.iter().map(|(title, frame)| (title.to_string(), *frame)).collect()
+}
+
+fn cut_ids(video: &Video, asset: &str) -> Vec<String> {
+    cut_set(video, asset).unwrap().2["cuts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["id"].as_str().unwrap().to_string())
+        .collect()
+}
+
+#[test]
+fn chapters_follow_cuts_and_restores() {
+    let Some(mut t) = setup() else { return };
+    let start = [("开场", 0), ("一", 120), ("二", 150), ("三", 200), ("四", 250), ("五", 300)];
+    set_chapters(&mut t.video, &start);
+    // 源 [4, 6) 与 [8, 9) 落在帧 [120, 180) 与 [240, 270)：段后的章前移；「一」「二」都落到段首，留起点最晚的「二」，
+    // 整章都剪掉的「一」删掉；段里的「四」回到段首。
+    let cut = add_cuts(
+        &mut t.video,
+        "cmd_cut",
+        &t.asset,
+        json!([{ "from": "4", "to": "6" }, { "from": "8", "to": "9" }]),
+    )
+    .unwrap();
+    let after_cut = owned(&[("开场", 0), ("二", 120), ("三", 140), ("四", 180), ("五", 210)]);
+    assert_eq!(chapters(&t.video), after_cut);
+    // 一步撤销：章节与实例一起回去。
+    undo(&mut t.video, "cmd_undo", &cut);
+    assert_eq!(chapters(&t.video), owned(&start));
+
+    add_cuts(
+        &mut t.video,
+        "cmd_recut",
+        &t.asset,
+        json!([{ "from": "4", "to": "6" }, { "from": "8", "to": "9" }]),
+    )
+    .unwrap();
+    assert_eq!(chapters(&t.video), after_cut);
+    let ids = cut_ids(&t.video, &t.asset);
+    // 恢复：接缝之后的章后移；正在接缝上的不动（原来在段里的「四」「二」回不到段里）。
+    restore(&mut t.video, "cmd_restore_late", &t.asset, &ids[1]).unwrap();
+    assert_eq!(
+        chapters(&t.video),
+        owned(&[("开场", 0), ("二", 120), ("三", 140), ("四", 180), ("五", 240)])
+    );
+    restore(&mut t.video, "cmd_restore_early", &t.asset, &ids[0]).unwrap();
+    assert_eq!(
+        chapters(&t.video),
+        owned(&[("开场", 0), ("二", 120), ("三", 200), ("四", 240), ("五", 300)])
+    );
+}
+
+#[test]
+fn a_restored_opening_keeps_the_first_chapter_at_the_start() {
+    let Some(mut t) = setup() else { return };
+    set_chapters(&mut t.video, &[("片头", 0), ("开场", 30), ("正文", 90)]);
+    add_cuts(&mut t.video, "cmd_cut", &t.asset, json!([{ "from": "0", "to": "2" }])).unwrap();
+    assert_eq!(chapters(&t.video), owned(&[("开场", 0), ("正文", 30)]));
+    let ids = cut_ids(&t.video, &t.asset);
+    restore(&mut t.video, "cmd_restore", &t.asset, &ids[0]).unwrap();
+    assert_eq!(chapters(&t.video), owned(&[("开场", 0), ("正文", 90)]));
+}
+
+#[test]
+fn retiming_a_cut_moves_chapters_by_the_difference() {
+    let Some(mut t) = setup() else { return };
+    set_chapters(&mut t.video, &[("开场", 0), ("正文", 240)]);
+    add_cuts(&mut t.video, "cmd_cut", &t.asset, json!([{ "from": "4", "to": "6" }])).unwrap();
+    assert_eq!(chapters(&t.video), owned(&[("开场", 0), ("正文", 180)]));
+    // 文稿里拖短剪口：一笔事务里先恢复、再剪新的范围，章只差剪短的那 30 帧。
+    let id = cut_ids(&t.video, &t.asset).remove(0);
+    let s = t.video.state().root_sequence_id.clone();
+    apply(
+        &mut t.video,
+        "cmd_retime",
+        vec![
+            json!({ "type": "restoreCut", "sequenceId": s, "assetId": t.asset, "cutId": id }),
+            json!({ "type": "addCuts", "sequenceId": s, "assetId": t.asset, "cuts": [{ "from": "4", "to": "5" }] }),
+        ],
+    )
+    .unwrap();
+    assert_eq!(chapters(&t.video), owned(&[("开场", 0), ("正文", 210)]));
+}
+
 // ---- 语义锚（§3.16 的 speech-anchor）：按与按文稿闪避相同的词投影求值，剪口之后重新摆放 ----
 
 /// 素材的转写：毫秒刻度。w2 在剪口 [4, 6) 里，w3、w4 在剪口之后，句子 s1 是 w3–w4。返回文档与一条新的画面轨道。

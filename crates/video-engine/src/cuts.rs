@@ -4,6 +4,7 @@
 //! - 剪口集合的实例（`scopeItemIds` 与由它们拆出来的实例）：剪口经它们的源时钟映射到序列上，量化到最近的帧；
 //!   在这些实例所在的轨道上按 `removeRange` 波纹删除，恢复时在接缝处插回、把两边接上。
 //! - 其余轨道上的实例按 `followPolicy`：`follow-cuts` 按 §3.16 移动、缩短或删掉，其余不动。
+//! - 章节跟着内容走（§3.13 的例外）：剪掉时按拿掉的帧前移，恢复时接缝之后的后移（`chapters::close_spans`、`open_gap`）。
 //! - 加入剪口按 `timeline::cuts` 的规则合并（间隔不超过 [`CUT_MERGE_GAP`] 的并成一个，保留靠前那个的 ID 与出处），
 //!   时刻用精确有理数比较；合并之后的集合再用 [`CutSet::new`] 核对结构。
 
@@ -514,8 +515,9 @@ pub(crate) fn add_cut_ranges(
     }
     let existing = sequence_item_ids(state, &sequence_id);
     let regions = newly_removed(&loaded.cuts, &before);
+    let planned = removals(&scope, &regions, fps)?;
     // 从后往前删：前面的区间位置不受后面的影响。
-    for removal in removals(&scope, &regions, fps)?.iter().rev() {
+    for removal in planned.iter().rev() {
         let tracks: Vec<Id> = removal.tracks.iter().cloned().collect();
         remove_range(
             state,
@@ -528,6 +530,8 @@ pub(crate) fn add_cut_ranges(
         )?;
         follow_removal(state, &sequence_id, removal, fps, ctx)?;
     }
+    let spans: Vec<(i64, i64)> = planned.iter().map(|r| (r.f0, r.f1)).collect();
+    crate::chapters::close_spans(state, &sequence_id, &spans);
     let now = sequence_item_ids(state, &sequence_id);
     let mut removed: Vec<Id> = existing.difference(&now).cloned().collect();
     removed.sort();
@@ -750,6 +754,7 @@ pub(crate) fn restore_cut(
     // 从后往前插：前面的接缝位置不受后面的影响。
     for insertion in plan.iter().rev() {
         insert_gap(state, &sequence_id, insertion, fps)?;
+        crate::chapters::open_gap(state, &sequence_id, insertion.frame, insertion.frames);
         let (at, count) = (insertion.frame, insertion.frames);
         for seam in &insertion.seams {
             match seam {

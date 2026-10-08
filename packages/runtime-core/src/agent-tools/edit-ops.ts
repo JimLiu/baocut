@@ -409,7 +409,7 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
     type: 'setChapters',
     family: 'chapters-and-ducking',
     doc: [
-      '- {"type":"setChapters","chapters":[{"chapterId"?,"at":秒,"title","summary"?,"thumbnail"?:"图片素材 ID"}]}：整个替换章节列表（按时间严格递增，第一章通常在 0）。章节固定在时间线的时刻上，不跟着片段移动。',
+      '- {"type":"setChapters","chapters":[{"chapterId"?,"at":秒,"title","summary"?,"thumbnail"?:"图片素材 ID"}]}：整个替换章节列表（按时间严格递增，第一章通常在 0）。章节固定在时间线的时刻上，不跟着片段移动；剪口（addCuts、restoreCut）例外，章节跟着内容走。',
     ],
     schema: op('setChapters', {
       chapters: z
@@ -510,7 +510,7 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
     type: 'addCuts',
     family: 'speech',
     doc: [
-      '- {"type":"addCuts","assetId":"被剪的素材 ID","cuts":[{"from":秒,"to":秒,"ref"?:"建议 ID"}]}：口播剪辑——在这个素材的剪口集合里记下删掉的源区间（素材自己的时钟上的秒，不是时间线上的秒），并按剪口重排：播放这个素材的视频、音频片段在剪口处拆开、删掉中间，它们所在轨道上之后的内容前移；其他轨道上跟随剪口（followPolicy 为 follow-cuts，新建片段的缺省；要固定在时间线上先用 updateItem 改成 sequence-fixed）的片段一起移动、缩短，整个落在剪掉范围里的删掉（回执的 removedByCuts）。与已有剪口间隔不超过 0.02 秒的合并。剪口集合的文档列在视频的 documents 里（kind 为 cut-set）。',
+      '- {"type":"addCuts","assetId":"被剪的素材 ID","cuts":[{"from":秒,"to":秒,"ref"?:"建议 ID"}]}：口播剪辑——在这个素材的剪口集合里记下删掉的源区间（素材自己的时钟上的秒，不是时间线上的秒），并按剪口重排：播放这个素材的视频、音频片段在剪口处拆开、删掉中间，它们所在轨道上之后的内容前移；其他轨道上跟随剪口（followPolicy 为 follow-cuts，新建片段的缺省；要固定在时间线上先用 updateItem 改成 sequence-fixed）的片段一起移动、缩短，整个落在剪掉范围里的删掉（回执的 removedByCuts）；章节跟着内容前移，落在剪掉范围里的回到剪口处，整章都剪掉的删掉。与已有剪口间隔不超过 0.02 秒的合并。剪口集合的文档列在视频的 documents 里（kind 为 cut-set）。',
     ],
     schema: op('addCuts', {
       assetId: idOf('被剪的素材 ID'),
@@ -532,7 +532,7 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
     type: 'restoreCut',
     family: 'speech',
     doc: [
-      '- {"type":"restoreCut","assetId":"素材 ID","cutId":"剪口 ID"}：恢复一个剪口，把删掉的部分放回接缝处、之后的内容后移；找不到接缝时只从剪口集合里去掉（回执的 cutsNotRelaid）。',
+      '- {"type":"restoreCut","assetId":"素材 ID","cutId":"剪口 ID"}：恢复一个剪口，把删掉的部分放回接缝处、之后的内容与章节后移（正在接缝上的章不动）；找不到接缝时只从剪口集合里去掉（回执的 cutsNotRelaid）。',
     ],
     schema: op('restoreCut', {
       assetId: idOf('素材 ID'),

@@ -22,8 +22,8 @@ export type ChaptersMessages = typeof en;
 const M = defineMessages(en, { 'zh-Hans': zhHans, 'zh-Hant': zhHant, ja, ko, es, fr, de, nl, 'pt-BR': ptBR, it, ru, pl, tr, vi });
 
 /**
- * 章节（视频格式规范 §3.13）：序列上 `kind: 'chapter'` 的标记，固定在序列帧上，不跟着实例移动；一章从它的起点到下一章的起点，
- * 最后一章到序列结尾（标记自己带时长时到时长为止，与导出页 `chapterPieces` 同一口径）。
+ * 章节（视频格式规范 §3.13）：序列上 `kind: 'chapter'` 的标记，固定在序列帧上，不跟着实例移动（应用与恢复剪口时由引擎跟着内容挪，
+ * §6.7）；一章从它的起点到下一章的起点，最后一章到序列结尾（标记自己带时长时到时长为止，与导出页 `chapterPieces` 同一口径）。
  *
  * 这里是编辑器里章节的纯模型：时间线章节条的分段（设计稿 model-timeline.js `playbackSpans`）、播放头在哪一章、上一章 / 下一章
  * （`prevChapterStart` / `nextChapterStart`，0.05 秒容差）、拖起点的帧范围、文稿按章分组（model-chapters.js `chapterOfPara`
