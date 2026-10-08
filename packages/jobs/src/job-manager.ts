@@ -142,7 +142,7 @@ import { publishFile } from './pipelines/transcode.ts';
  * （§7.5，`job-recovery.ts`）处理还没终结的任务：不续跑执行，没开始的重新校验后排队，结果不明的外发调用等用户对账。
  *
  * 执行与应用分开（§7.1–§7.3）：产物发布之后，「应用到视频」是另一条记录（`ApplicationRecord`，应用账本
- * `applications.json`），先落账再提交事务、提交后记回执；重启后先按记下的 `commandId` 查回执，不重复写。
+ * `applications.jsonl`），先落账再提交事务、提交后记回执；重启后先按记下的 `commandId` 查回执，不重复写。
  * 外发调用的预算在产物发布时结算：之后应用成不成功都不影响预算，补做应用不重新调用、不重复计费。
  *
  * Provider 由注册表决定（`ModelServices`）：本机（`local`）每个模型包一个队列、一次一个；已配对的局域网节点
@@ -275,7 +275,7 @@ export interface FileJobObserver {
 type JobTarget = { kind: 'video' } | { kind: 'file'; resultFile: string; observer: FileJobObserver };
 
 export interface JobManagerPaths {
-  /** `<home>/store/jobs.json` */
+  /** `<home>/store/jobs.jsonl`；应用账本是同目录的 `applications.jsonl`。 */
   jobsFile: string;
   /** `<home>/staging`；每个任务在 `jobs/<jobId>/` */
   stagingDir: string;
@@ -482,14 +482,14 @@ export class JobManager {
     this.#catalog = options.catalog;
     this.#videos = options.videos;
     this.#log = options.log ?? silentLog;
-    this.#ledger = new JobLedger(options.paths.jobsFile);
+    this.#ledger = new JobLedger(options.paths.jobsFile, { log: this.#log });
     this.#artifacts = new ArtifactStore(options.paths.artifactsDir);
     this.#router = options.router;
     this.#maxRetained = options.maxRetainedJobs ?? 200;
     this.#maxRetainedRetryable = options.maxRetainedRetryablePipelines ?? 50;
     this.#probe = options.probe ?? unavailableProbe;
     this.#resources = options.resources ?? new ResourceScheduler({ log: this.#log });
-    this.#applications = new ApplicationLedger(path.join(path.dirname(options.paths.jobsFile), 'applications.json'));
+    this.#applications = new ApplicationLedger(path.join(path.dirname(options.paths.jobsFile), 'applications.jsonl'), { log: this.#log });
     this.#runner = new ApplicationRunner({
       ledger: this.#applications,
       videos: this.#videos,

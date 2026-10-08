@@ -14,6 +14,14 @@ name: desktop-windows
 on:
   workflow_dispatch:
     inputs:
+      source_ref:
+        description: Frozen product source ref; empty uses the workflow commit
+        type: string
+        default: ""
+      include_cpu:
+        description: Build the standard CPU variant
+        type: boolean
+        default: true
       include_cuda:
         description: Also build the CUDA variant (NVIDIA only, Ampere or newer; candle and Whisper both on CUDA; Whisper on CUDA untested)
         type: boolean
@@ -54,12 +62,15 @@ jobs:
         variant: [cpu, cuda, vulkan]
     env:
       CARGO_INCREMENTAL: "0"
+      CARGO_TARGET_DIR: D:\bt
+      CMAKE_GENERATOR: Ninja
     steps:
       - name: Skip the CUDA or Vulkan variant when not requested
         id: gate
         shell: pwsh
         run: |
-          $skip = ('${{ matrix.variant }}' -eq 'cuda' -and '${{ inputs.include_cuda }}' -ne 'true') -or
+          $skip = ('${{ matrix.variant }}' -eq 'cpu' -and '${{ inputs.include_cpu }}' -ne 'true') -or
+            ('${{ matrix.variant }}' -eq 'cuda' -and '${{ inputs.include_cuda }}' -ne 'true') -or
             ('${{ matrix.variant }}' -eq 'vulkan' -and '${{ inputs.include_vulkan }}' -ne 'true')
           "skip=$($skip.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
 
@@ -68,6 +79,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
+          ref: ${{ inputs.source_ref || github.sha }}
 
       # candle 的 CUDA 构建与链接会超出 runner 默认的提交上限，先把页面文件调大（同 v2 的 Windows 构建）；ggml-cuda 的 nvcc 同样吃内存。
       - name: Enlarge pagefile
@@ -101,7 +113,7 @@ jobs:
         if: steps.gate.outputs.skip != 'true'
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
         with:
-          key: desktop-${{ matrix.variant }}-ggml-avx2
+          key: desktop-${{ matrix.variant }}-ggml-avx2-short-ninja
 
       # nvcc 与 whisper.cpp 的 CMake 构建需要 cl.exe 在 PATH（rustc 自己找得到 MSVC，这些构建脚本找不到；同 v2 的 Windows 构建）。
       - name: Enter the MSVC developer environment
@@ -152,6 +164,10 @@ jobs:
             if (-not (Test-Path (Join-Path $runtime "vulkan-1.dll"))) { throw "vulkan-1.dll missing under $runtime" }
             $runtime | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
           }
+
+      - name: Check Ninja
+        if: steps.gate.outputs.skip != 'true'
+        run: ninja --version
 
       # npm run build 先编 WASM（prebuild），再出 Electron 的 out/；build:web 出 Runtime 托管的 Web 客户端。
       - name: Build the Electron app and the Web client
@@ -224,6 +240,19 @@ jobs:
           Expand-Archive -LiteralPath $zip.FullName -DestinationPath $dest -Force
           node apps/desktop/tools/check-packaged-app.mjs $dest
           if ($LASTEXITCODE -ne 0) { throw "zip self-check failed" }
+
+      - name: Record frozen product and workflow commits
+        if: steps.gate.outputs.skip != 'true'
+        shell: pwsh
+        run: |
+          $sourceCommit = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0) { throw "git source lookup failed" }
+          $report = Get-ChildItem apps/desktop/dist/${{ matrix.variant }}/BaoCut-*-release.json -File | Select-Object -First 1
+          if (-not $report) { throw "release report missing" }
+          $metadata = Get-Content -Raw -LiteralPath $report.FullName | ConvertFrom-Json
+          $metadata | Add-Member -NotePropertyName sourceCommit -NotePropertyValue $sourceCommit -Force
+          $metadata | Add-Member -NotePropertyName workflowCommit -NotePropertyValue $env:GITHUB_SHA -Force
+          $metadata | ConvertTo-Json -Depth 20 | Set-Content -Encoding utf8 -LiteralPath $report.FullName
 
       - name: Upload the packages
         if: steps.gate.outputs.skip != 'true'

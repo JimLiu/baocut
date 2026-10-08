@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RpcError, type JobRecord } from '@baocut/protocol';
+import { JobLedger } from '../job-ledger.ts';
 import type { JobManager, JobManagerOptions } from '../job-manager.ts';
 import { testJobManager } from '../testing/pipeline-jobs.ts';
 import { PipelineStepError, type PipelineDefinition, type StepResult } from './pipeline.ts';
@@ -384,9 +385,7 @@ describe('PipelineRunner', () => {
     // 等账本写下「第二步在执行」（落盘带 fsync，时长不定）；旧的 JobManager 与流程就此丢下，不再写账本。
     await vi.waitFor(
       async () => {
-        const ledger = JSON.parse(await fs.readFile(path.join(dir, 'store', 'jobs.json'), 'utf8')) as {
-          jobs: Array<{ record: JobRecord }>;
-        };
+        const ledger = { jobs: await new JobLedger(path.join(dir, 'store', 'jobs.jsonl')).load() };
         const steps = ledger.jobs.find((job) => job.record.jobId === jobId)?.record.pipeline?.steps ?? [];
         expect(steps.map((s) => s.status).slice(0, 2)).toEqual(['completed', 'running']);
       },

@@ -1,0 +1,46 @@
+name: desktop-windows-publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_run_id:
+        description: Completed desktop-windows run with native validation
+        type: string
+        required: true
+      release_tag:
+        description: Existing immutable Mac release tag
+        type: string
+        required: true
+      variants:
+        description: Validated variants to publish (cpu,cuda,vulkan)
+        type: string
+        default: cpu
+
+permissions: {}
+
+concurrency:
+  group: desktop-windows-publish-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Verify, publish immutable Windows assets and update feeds
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          VARIANTS: ${{ inputs.variants }}
+        run: node apps/desktop/tools/windows-release.mjs

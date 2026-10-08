@@ -6,7 +6,7 @@ import path from 'node:path';
  * 原子写：先写同目录的临时文件再 rename，崩溃时不会留下半个 JSON。
  *
  * `durable`：临时文件 fsync 之后再 rename，rename 之后再 fsync 所在目录——兑现时内容与改名都已经交给了磁盘，
- * 断电之后读到的是这次写入或更早的完整版本，不会回到更早。只给任务、应用与授权三本账用（架构设计 §7.3、§7.8）：
+ * 断电之后读到的是这次写入或更早的完整版本，不会回到更早。给授权账本用（架构设计 §7.8；任务与应用两本账改成了只追加的 JSONL，见 `jsonl-file.ts`）：
  * 每次多两次 fsync。macOS 上 Node 的 fsync 不是 `F_FULLFSYNC`，不保证磁盘自己的写缓存也清空。
  */
 export async function writeJsonAtomic(file: string, value: unknown, options: { mode?: number; durable?: boolean } = {}): Promise<void> {
@@ -37,7 +37,7 @@ export async function writeJsonAtomic(file: string, value: unknown, options: { m
 }
 
 /** fsync 一个目录（让其中的 rename 落盘）。不支持打开或同步目录的平台（Windows）上跳过。 */
-async function syncDir(dir: string): Promise<void> {
+export async function syncDir(dir: string): Promise<void> {
   let handle: fs.FileHandle;
   try {
     handle = await fs.open(dir, 'r');
