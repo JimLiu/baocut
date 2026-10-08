@@ -21,6 +21,9 @@
 | 首次目标版本 | `3.0.0`；应用版本与证书有效期独立 |
 | Apple Developer Team ID | `22FY8U8BF9` |
 | 签名证书类型 | `Developer ID Application`，供 Mac App Store 外分发 |
+| 当前签名证书 SHA-1 | `CCD56C43C3C9CC9764C50E1D47D368E957353AD6` |
+| 当前签名证书 SHA-256 | `3A7F430A27E13AFC6109E475B56F739EB64D1F329D5BB5FE902F53687EA4231D` |
+| 当前证书有效期截止 | `2031-09-17T00:00:00Z`（本地日期依时区显示） |
 | 公证钥匙串 profile | `${BAOCUT_NOTARY_PROFILE:-baocut-notary}`；名字可迁移，里面的凭据需在新机器重新配置 |
 
 Bundle ID 不是证书名称。不同证书可拥有相同的显示名称；要求复用**同一张证书**时，签名前必须比对完整指纹，不能仅凭 `Developer ID Application: Chunli XIe (22FY8U8BF9)` 选中其中任意一张。新证书签发后将其 SHA-1、SHA-256、序列号、有效期与保存文件名写入仓库外的 `signing-inventory.json`。

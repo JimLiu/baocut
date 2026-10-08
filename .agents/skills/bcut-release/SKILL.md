@@ -69,8 +69,8 @@ must identify the exact build commit, not a different remote branch HEAD.
 1. Inspect existing tags/assets. Preserve immutable bytes; differing bytes require
    a new build. Identical assets may be skipped during a retry.
 2. Once the build commit is remote, create a draft `baocut-v<VERSION>-build.<BUILD>`
-   targeting it, with `--latest=false`. Attach its URL to this chat immediately
-   with `attach_artifact`. Write notes through a body file, including new Bundle ID,
+   targeting it, with `--latest=false`. Retain its actual URL for the final report
+   and open it in the Codex browser when useful. Write notes through a body file, including new Bundle ID,
    architecture, signing/notarization and verified dependencies. Preserve the old
    skill's GitHub Latest.
 3. Upload ZIP, DMG, checksums, sanitized report and appcast. Remove local-only paths
