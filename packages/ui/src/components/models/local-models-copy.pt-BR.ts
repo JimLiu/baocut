@@ -8,7 +8,7 @@ export const ptBR: LocalModelsMessages = {
     componentLine: (state: 'installed' | 'missing', size: string | null) => state === 'installed' ? `Instalado${size ? ` · ${size}` : ''}` : `Ausente${size ? ` · ${size}` : ''}`,
     sharedWith: (ids: string[]) => `Compartilhado com ${ids.join(', ')}`, noComponents: 'Este Runtime não informou detalhes dos componentes.',
     installTitle: (id: string) => `Baixar ${id}`, repairTitle: (id: string) => `Reparar “${id}”?`, completeTitle: (id: string) => `Completar ${id}`, planning: 'Calculando o que baixar…', verifying: 'Procurando arquivos danificados ou ausentes. Pode demorar com arquivos grandes…',
-    planFailed: 'Não foi possível obter o plano de download', upToDate: 'Todos os arquivos estão presentes e verificados. Nada para baixar.', completeNote: 'O modelo já está instalado. Só os componentes opcionais que faltam são baixados; os arquivos instalados não são alterados.', repairUpToDate: 'Todos os arquivos estão intactos. Nada para baixar novamente.',
+    planFailed: 'Não foi possível obter o plano de download', upToDate: 'Todos os arquivos estão presentes e verificados. Nada para baixar.', completeNote: 'Só os componentes que faltam são baixados; os arquivos instalados não são alterados.', repairUpToDate: 'Todos os arquivos estão intactos. Nada para baixar novamente.',
     repairThenCheck: 'Só arquivos danificados ou ausentes são baixados novamente; os intactos permanecem. A verificação é refeita automaticamente após o reparo.',
     replanned: 'O tamanho do download acabou de mudar. Este é o novo plano; confirme novamente.', source: (url: string) => `Fonte do download: ${url}`,
     confirmInstall: (size: string) => `Baixar ${size}`, confirmRepair: 'Reparar', cancel: 'Cancelar', close: 'Fechar',

@@ -15,7 +15,7 @@ import {
   rpcProblem,
   separationDownload,
 } from './models-install.ts';
-import { isBundleInstalled, localGroups } from './models-local.ts';
+import { installingPlacement, isBundleInstalled, localGroups } from './models-local.ts';
 import { bundle } from './models-test-fixtures.ts';
 import { fmtSize } from './task-facts.ts';
 
@@ -183,15 +183,33 @@ describe('删除估算', () => {
 });
 
 describe('分组与每行能做什么', () => {
-  it('组件都装好才算已安装：第一次下载与补齐组件中的在可下载，修复中的留在已安装', () => {
+  it('自己的文件在盘上就在已安装：修复中的、权重在缺组件的都是；第一次下载中的、只有别人装上的公共组件的在可下载', () => {
     const fresh = bundle('a@mlx', { state: 'downloading', components: [component('x', { state: 'missing', bytes: null })] });
     const repairing = bundle('b@mlx', { state: 'downloading', components: [component('y')] });
-    const partial = bundle('c@mlx', { state: 'not-installed', reason: 'incomplete', components: [component('y'), component('z', { state: 'missing' })] });
+    const partial = bundle('c@mlx', { state: 'not-installed', reason: 'incomplete', components: [component('c'), component('z', { state: 'missing' })] });
     const unsupported = bundle('d@candle', { state: 'error', reason: 'unsupported', components: [component('w', { state: 'missing' })] });
-    const groups = localGroups([fresh, repairing, partial, unsupported], 'asr');
-    expect(groups.installed.map((b) => b.bundleId)).toEqual(['b@mlx']);
-    expect(groups.available.map((b) => b.bundleId)).toEqual(['a@mlx', 'c@mlx', 'd@candle']);
-    expect(isBundleInstalled(bundle('e@mlx', { state: 'downloading' }))).toBe(false);
+    // y 是 b 装上的公共组件，e 自己的 v 还没下。
+    const borrowed = bundle('e@mlx', { state: 'not-installed', reason: 'incomplete', components: [component('y'), component('v', { state: 'missing' })] });
+    const groups = localGroups([fresh, repairing, partial, unsupported, borrowed], 'asr');
+    expect(groups.installed.map((b) => b.bundleId)).toEqual(['b@mlx', 'c@mlx']);
+    expect(groups.available.map((b) => b.bundleId)).toEqual(['a@mlx', 'd@candle', 'e@mlx']);
+    expect(isBundleInstalled(partial)).toBe(false);
+    expect(isBundleInstalled(bundle('f@mlx', { state: 'downloading' }))).toBe(false);
+  });
+
+  it('下载中的行不换组：按记着的那一组放，下载结束再按文件归组', () => {
+    const running = { jobId: 'j', state: 'downloading' as const, receivedBytes: 5, totalBytes: 10 };
+    const start = bundle('a@mlx', { state: 'downloading', install: running, components: [component('w', { state: 'missing' }), component('v', { state: 'missing' })] });
+    const placed = installingPlacement(localGroups([start], 'asr'));
+    expect(placed).toEqual(new Map([['a@mlx', false]]));
+    // 权重先装上了：还在可下载，不在下载途中跳组。
+    const midway = { ...start, components: [component('w'), component('v', { state: 'missing' })] };
+    expect(localGroups([midway], 'asr').installed.map((b) => b.bundleId)).toEqual(['a@mlx']);
+    expect(localGroups([midway], 'asr', placed).available.map((b) => b.bundleId)).toEqual(['a@mlx']);
+    // 下完了：不再看记着的。
+    const done = bundle('a@mlx', { state: 'installed', components: [component('w'), component('v')] });
+    expect(localGroups([done], 'asr', placed).installed.map((b) => b.bundleId)).toEqual(['a@mlx']);
+    expect(installingPlacement(localGroups([done], 'asr', placed))).toEqual(new Map());
   });
 
   it('没装：能下载；暂停：继续或丢掉；在装：只能停下', () => {
@@ -235,6 +253,31 @@ describe('分组与每行能做什么', () => {
     // 必需组件缺：没装好，走「下载」，不是补齐
     const partial = bundle(QWEN, { state: 'not-installed', reason: 'incomplete', components: [component('w', { state: 'missing' }), aligner] });
     expect(bundleActions(partial)).toMatchObject({ complete: false, install: true });
+  });
+
+  it('权重在、缺公共组件（ownFiles）：给补齐不给下载，能修复、删除；只有别人装上的公共组件的走下载、不给删', () => {
+    const vad = component('silero/vad', { component: 'vad', state: 'missing', bytes: null });
+    const half = bundle(QWEN, { state: 'not-installed', reason: 'incomplete', components: [component('w'), vad] });
+    expect(bundleActions(half, true)).toEqual({
+      install: false,
+      complete: true,
+      resume: false,
+      stop: false,
+      discard: false,
+      repair: true,
+      remove: true,
+    });
+    // 不给 ownFiles 时按装好没有算。
+    expect(bundleActions(half)).toMatchObject({ install: true, complete: false, repair: false, remove: false });
+    // 跑不了的不给补齐、修复，照样能删。
+    expect(bundleActions({ ...half, state: 'error', reason: 'worker-missing' }, true)).toMatchObject({
+      install: false,
+      complete: false,
+      repair: false,
+      remove: true,
+    });
+    const borrowed = bundle(QWEN, { state: 'not-installed', reason: 'incomplete', components: [component('w', { state: 'missing' }), { ...vad, state: 'installed' }] });
+    expect(bundleActions(borrowed, false)).toMatchObject({ install: true, complete: false, repair: false, remove: false });
   });
 });
 

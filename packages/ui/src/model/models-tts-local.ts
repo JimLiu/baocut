@@ -100,9 +100,9 @@ export function licenseBrief(license: ModelLicense): string {
   return license.commercialUse ? M.licenseCommercial(license.name) : M.licenseNonCommercial(license.name, licenseOwner(license));
 }
 
-/** 合成模型包一行的标签：默认、Worker 状态，再加「仅限非商用」。 */
-export function ttsChips(bundle: ModelBundleStatus, isDefault: boolean): ModelChip[] {
-  const chips = bundleChips(bundle, isDefault);
+/** 合成模型包一行的标签：默认、Worker 状态、缺的组件（`ownFiles` 同 `bundleChips`），再加「仅限非商用」。 */
+export function ttsChips(bundle: ModelBundleStatus, isDefault: boolean, ownFiles?: boolean): ModelChip[] {
+  const chips = bundleChips(bundle, isDefault, ownFiles);
   if (nonCommercial(bundle.license)) chips.push({ label: M.nonCommercialChip, tone: 'notice' });
   return chips;
 }

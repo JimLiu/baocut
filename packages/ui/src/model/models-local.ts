@@ -10,7 +10,8 @@ import type { ModelCategory } from './settings-nav.ts';
 import { M } from './models-local-copy.ts';
 
 /**
- * 模型 › 本地模型（设计稿 settings-local.jsx）：`models` 主题里的模型包按类分「已安装 / 可下载」，加上默认模型菜单。
+ * 模型 › 本地模型（设计稿 settings-local.jsx）：`models` 主题里的模型包按类分「已安装 / 可下载」（自己的文件在不在盘上，见
+ * `localGroups`），加上默认模型菜单。
  * 安装、修复与删除的确认、进度和补救在 models-install.ts，检查在 model-check.ts。
  */
 
@@ -45,8 +46,8 @@ export interface LocalGroups {
 }
 
 /**
- * 模型包装好了没有：各组件都装好（含加载失败、停用、校验不符的）就算；没有组件信息时按状态，`not-installed` 与第一次下载中的不算。
- * 修复中的模型包组件仍在，留在「已安装」；第一次下载、补齐组件中的在「可下载」，进度显示在那一行。
+ * 模型包装好了没有（能用）：必需组件都装好（含加载失败、停用、校验不符的）就算；没有组件信息时按状态，`not-installed` 与第一次
+ * 下载中的不算。分组不看它：权重在、缺公共组件的也在「已安装」（`localGroups`）。
  */
 export function isBundleInstalled(bundle: Pick<ModelBundleStatus, 'state' | 'components'>): boolean {
   const required = bundle.components?.filter((c) => !c.optional);
@@ -55,12 +56,17 @@ export function isBundleInstalled(bundle: Pick<ModelBundleStatus, 'state' | 'com
 }
 
 /**
- * 装好了、但还缺的可选组件（对齐器、说话人模型）：模型包照常可用，补上之后多出词级时间、跨块合并说话人（设计稿 settings-local.jsx 的
- * `half`）。`models.install` 只下载缺的这几件。没装好的、这台电脑跑不了的模型包不算（前者走「下载」，后者补了也用不上）。
+ * 「补齐」要下载的组件（设计稿 settings-local.jsx 的 `half`）：模型包自己的文件在盘上（`ownFiles`，见 `hasOwnFiles`；默认按装好
+ * 没有算），还缺的组件。装好了的只会缺可选组件（对齐器、说话人模型），照常可用，补上之后多出词级时间、跨块合并说话人；权重在、缺
+ * 公共组件的补上才能用。`models.install` 只下载缺的这几件。自己的文件不在的、这台电脑跑不了的不算（前者走「下载」，后者补了也
+ * 用不上）。
  */
-export function missingParts(bundle: Pick<ModelBundleStatus, 'state' | 'reason' | 'components'>): ModelComponentStatus[] {
-  if (!isBundleInstalled(bundle) || bundle.reason === 'unsupported' || bundle.reason === 'worker-missing') return [];
-  return (bundle.components ?? []).filter((c) => c.optional && c.state === 'missing');
+export function missingParts(
+  bundle: Pick<ModelBundleStatus, 'state' | 'reason' | 'components'>,
+  ownFiles = isBundleInstalled(bundle),
+): ModelComponentStatus[] {
+  if (!ownFiles || bundle.reason === 'unsupported' || bundle.reason === 'worker-missing') return [];
+  return (bundle.components ?? []).filter((c) => c.state === 'missing');
 }
 
 /** 组件给人看的名字；没列的用组件名。 */
@@ -73,10 +79,28 @@ export function componentDesc(component: string): string | null {
   return M.componentDesc[component] ?? null;
 }
 
-/** 这一类的模型包，按装好没有分组（见 `isBundleInstalled`）。 */
-export function localGroups(bundles: readonly ModelBundleStatus[], category: ModelCategory): LocalGroups {
+/**
+ * 这一类的模型包分「已安装 / 可下载」（设计稿 model-local-models.js `catalog`）：自己的文件在盘上的（`hasOwnFiles`）在「已安装」，
+ * 权重在、缺公共组件的也是，行上「补齐」。`placed`：下载中的模型包上一次在哪一组（true 为「已安装」）。Runtime 每装好一个组件
+ * 就更新一次状态，第一次下载时权重先到，行会在下载途中跳进「已安装」；记着的按记着的放，下载结束（或丢掉）再按文件归组。
+ */
+export function localGroups(
+  bundles: readonly ModelBundleStatus[],
+  category: ModelCategory,
+  placed?: ReadonlyMap<string, boolean>,
+): LocalGroups {
   const mine = bundles.filter((b) => bundleCategory(b) === category).sort((a, b) => a.bundleId.localeCompare(b.bundleId));
-  return { installed: mine.filter(isBundleInstalled), available: mine.filter((b) => !isBundleInstalled(b)) };
+  const shared = sharedComponents(bundles, category);
+  const installed = (b: ModelBundleStatus) => (b.install ? placed?.get(b.bundleId) : undefined) ?? hasOwnFiles(b, shared);
+  return { installed: mine.filter(installed), available: mine.filter((b) => !installed(b)) };
+}
+
+/** 下载中的模型包这一次在哪一组：交给下一次 `localGroups` 的 `placed`。 */
+export function installingPlacement(groups: LocalGroups): Map<string, boolean> {
+  const placed = new Map<string, boolean>();
+  for (const b of groups.installed) if (b.install) placed.set(b.bundleId, true);
+  for (const b of groups.available) if (b.install) placed.set(b.bundleId, false);
+  return placed;
 }
 
 export type ChipTone = 'accent' | 'positive' | 'notice' | 'negative' | 'neutral';
@@ -85,8 +109,11 @@ export interface ModelChip {
   tone: ChipTone;
 }
 
-/** 一行模型包的标签：默认、Worker 状态、不可用的原因。只是「已安装、没加载」时不加标签。 */
-export function bundleChips(bundle: ModelBundleStatus, isDefault: boolean): ModelChip[] {
+/**
+ * 一行模型包的标签：默认、Worker 状态、不可用的原因，缺的组件（`missingParts`，`ownFiles` 同它）。只是「已安装、没加载」时不加
+ * 标签；正在下载的不写缺什么。
+ */
+export function bundleChips(bundle: ModelBundleStatus, isDefault: boolean, ownFiles = isBundleInstalled(bundle)): ModelChip[] {
   const chips: ModelChip[] = isDefault ? [{ label: M.chipDefault, tone: 'accent' }] : [];
   switch (bundle.state) {
     case 'loading':
@@ -105,13 +132,16 @@ export function bundleChips(bundle: ModelBundleStatus, isDefault: boolean): Mode
       chips.push({ label: bundle.reason ? M.reason[bundle.reason] : M.chipUnavailable, tone: 'negative' });
       break;
     case 'not-installed':
-      // 装过但文件不对的给个提示；从没装过的不加标签。
-      if (bundle.reason && bundle.reason !== 'missing-manifest') chips.push({ label: M.reason[bundle.reason], tone: 'notice' });
+      // 装过但文件不对的给个提示；从没装过的不加标签。缺组件（`incomplete`）的由下面「缺 …」说清楚是哪几件，别人装上了
+      // 公共组件、自己一件没有的也不算装过。
+      if (bundle.reason && bundle.reason !== 'missing-manifest' && bundle.reason !== 'incomplete') {
+        chips.push({ label: M.reason[bundle.reason], tone: 'notice' });
+      }
       break;
     case 'installed':
       break;
   }
-  const missing = missingParts(bundle);
+  const missing = bundle.install && bundle.install.state !== 'paused' ? [] : missingParts(bundle, ownFiles);
   if (missing.length) chips.push({ label: M.chipMissing(missing.map((c) => componentLabel(c.component))), tone: 'notice' });
   return chips;
 }
@@ -259,13 +289,13 @@ export function sharedComponents(bundles: readonly ModelBundleStatus[], category
 }
 
 /**
- * 模型包自己的文件在盘上（设计稿的 `on[m.id]`）：装好了，或者除公共组件以外有装好的组件——权重在、缺公共组件的（`incomplete`）也算。
- * 只是公共组件被别的模型装上了的不算。
+ * 模型包自己的文件在盘上（设计稿的 `on[m.id]`，权重在）：装好了，或者公共组件、可选组件以外有装好的组件——权重在、缺公共组件的
+ * （`incomplete`）也算。只是公共组件被别的模型装上了的、只有可选组件的不算。
  */
 export function hasOwnFiles(bundle: ModelBundleStatus, shared: readonly SharedComponent[]): boolean {
   if (isBundleInstalled(bundle)) return true;
   const keys = new Set(shared.map((c) => c.key));
-  return (bundle.components ?? []).some((c) => c.state === 'installed' && !keys.has(componentKey(c)));
+  return (bundle.components ?? []).some((c) => c.state === 'installed' && !c.optional && !keys.has(componentKey(c)));
 }
 
 /**

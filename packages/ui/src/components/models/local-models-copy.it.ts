@@ -8,7 +8,7 @@ export const it: LocalModelsMessages = {
     componentLine: (state: 'installed' | 'missing', size: string | null) => state === 'installed' ? `Installato${size ? ` · ${size}` : ''}` : `Mancante${size ? ` · ${size}` : ''}`,
     sharedWith: (ids: string[]) => `Condiviso con ${ids.join(', ')}`, noComponents: 'Questo Runtime non ha riportato dettagli sui componenti.',
     installTitle: (id: string) => `Scarica ${id}`, repairTitle: (id: string) => `Riparare «${id}»?`, completeTitle: (id: string) => `Completa ${id}`, planning: 'Calcolo di cosa scaricare…', verifying: 'Ricerca di file danneggiati o mancanti. Può richiedere tempo con file grandi…',
-    planFailed: 'Impossibile ottenere il piano di download', upToDate: 'Tutti i file sono presenti e verificati. Nulla da scaricare.', completeNote: 'Il modello è già installato. Vengono scaricati solo i componenti facoltativi mancanti; i file installati restano invariati.', repairUpToDate: 'Tutti i file sono integri. Nulla da scaricare di nuovo.',
+    planFailed: 'Impossibile ottenere il piano di download', upToDate: 'Tutti i file sono presenti e verificati. Nulla da scaricare.', completeNote: 'Vengono scaricati solo i componenti mancanti; i file installati restano invariati.', repairUpToDate: 'Tutti i file sono integri. Nulla da scaricare di nuovo.',
     repairThenCheck: 'Vengono scaricati di nuovo solo i file danneggiati o mancanti; quelli integri rimangono invariati. La verifica viene ripetuta automaticamente dopo la riparazione.',
     replanned: 'La dimensione del download è appena cambiata. Ecco il nuovo piano; conferma di nuovo.', source: (url: string) => `Origine del download: ${url}`,
     confirmInstall: (size: string) => `Scarica ${size}`, confirmRepair: 'Ripara', cancel: 'Annulla', close: 'Chiudi',

@@ -27,7 +27,7 @@ export const zhHant: LocalModelsMessages = {
     verifying: '正在尋找損壞或缺少的檔案。檔案很大時可能需要一段時間…',
     planFailed: '無法取得下載計畫',
     upToDate: '所有檔案都已齊全並通過驗證，不需要下載。',
-    completeNote: '模型已經裝好，只下載缺少的選用元件，裝好的檔案不動。',
+    completeNote: '只下載缺少的元件，裝好的檔案不動。',
     repairUpToDate: '所有檔案都完好，不需要重新下載。',
     repairThenCheck: '只會重新下載損壞或缺少的檔案，完好的檔案不受影響。修復後會自動再檢查一次。',
     replanned: '要下載的大小剛剛變了。以下是新的計畫，請再確認一次。',

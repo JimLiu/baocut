@@ -28,7 +28,7 @@ export const de: LocalModelsMessages = {
     verifying: "Beschädigte oder fehlende Dateien werden gesucht. Bei großen Dateien kann dies dauern…",
     planFailed: "Downloadplan konnte nicht abgerufen werden",
     upToDate: "Alle Dateien vorhanden und geprüft. Nichts herunterzuladen.",
-    completeNote: "Das Modell ist bereits installiert. Nur die fehlenden optionalen Komponenten werden heruntergeladen; installierte Dateien bleiben unverändert.",
+    completeNote: "Nur die fehlenden Komponenten werden heruntergeladen; installierte Dateien bleiben unverändert.",
     repairUpToDate: "Alle Dateien sind intakt. Nichts erneut herunterzuladen.",
     repairThenCheck: "Nur beschädigte oder fehlende Dateien werden erneut heruntergeladen; intakte bleiben unverändert. Nach der Reparatur wird automatisch erneut geprüft.",
     replanned: "Die Downloadgröße wurde gerade geändert. Hier ist der neue Plan; erneut bestätigen.",

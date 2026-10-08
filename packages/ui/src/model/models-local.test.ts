@@ -47,7 +47,7 @@ describe('localGroups', () => {
     expect(bundleFacts(bundles[1]!)).toMatch(/^分离 · MLX/);
   });
 
-  it('可选组件缺了不影响已安装；必需组件缺了仍在可下载里', () => {
+  it('可选组件缺了不影响已安装；权重没下、只有可选组件的仍在可下载里', () => {
     const component = (name: string, state: 'installed' | 'missing', optional = false) => ({
       component: name,
       repo: `test/${name}`,
@@ -65,6 +65,8 @@ describe('localGroups', () => {
     });
     expect(isBundleInstalled(withOptional)).toBe(true);
     expect(isBundleInstalled(missingRequired)).toBe(false);
+    expect(localGroups([withOptional, missingRequired], 'asr').available.map((b) => b.bundleId)).toEqual(['whisper@coreml']);
+    expect(localGroups([missingRequired], 'asr').available.map((b) => b.bundleId)).toEqual(['whisper@coreml']);
     expect(bundleFacts(missingRequired)).toBe('转写 · Core ML · metal');
   });
 
@@ -325,6 +327,21 @@ describe('公共组件', () => {
     expect(hasOwnFiles(moss(), shared)).toBe(true);
     expect(hasOwnFiles(whisper(), shared)).toBe(true);
     expect(hasOwnFiles(qwen(), shared)).toBe(false);
+  });
+
+  it('分组看自己的文件：权重在、缺必需分词器的 Whisper 在已安装，只有别人装上 VAD 的 Qwen 与说话人区分包在可下载', () => {
+    const groups = localGroups([moss(), whisper(), qwen(), pack], 'asr');
+    expect(groups.installed.map((b) => b.bundleId)).toEqual(['moss@mlx', 'whisper@coreml']);
+    expect(groups.available.map((b) => b.bundleId)).toEqual(['qwen@mlx', 'speaker-diarization@mlx']);
+  });
+
+  it('权重在、缺组件的行：补齐的是缺的全部，只挂一个「缺 …」标签；在下载的不挂，自己一件没有的不挂', () => {
+    expect(missingParts(whisper(), true).map((c) => c.component)).toEqual(['aligner', 'tokenizer']);
+    expect(missingParts(whisper())).toEqual([]);
+    expect(bundleChips(whisper(), false, true)).toEqual([{ label: '缺 Forced aligner、分词器', tone: 'notice' }]);
+    const running = { jobId: 'job_1', state: 'downloading' as const, receivedBytes: 1, totalBytes: 10 };
+    expect(bundleChips({ ...whisper(), install: running }, false, true)).toEqual([]);
+    expect(bundleChips(qwen({ reason: 'incomplete' }), false, false)).toEqual([]);
   });
 
   it('装齐还要下多少：缺的组件之和，可选的也算；有不知道大小的或没有组件信息时为 null', () => {

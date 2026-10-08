@@ -28,7 +28,7 @@ export const fr: LocalModelsMessages = {
     verifying: "Recherche des fichiers endommagés ou manquants. Peut prendre du temps pour les gros fichiers…",
     planFailed: "Impossible de récupérer le plan de téléchargement",
     upToDate: "Tous les fichiers sont présents et vérifiés. Rien à télécharger.",
-    completeNote: "Le modèle est déjà installé. Seuls les composants facultatifs manquants sont téléchargés ; les fichiers installés ne sont pas modifiés.",
+    completeNote: "Seuls les composants manquants sont téléchargés ; les fichiers installés ne sont pas modifiés.",
     repairUpToDate: "Tous les fichiers sont intacts. Rien à retélécharger.",
     repairThenCheck: "Seuls les fichiers endommagés ou manquants sont retéléchargés. Ceux intacts restent inchangés. Vérification automatique après réparation.",
     replanned: "La taille vient de changer. Voici le nouveau plan ; confirmez à nouveau.",

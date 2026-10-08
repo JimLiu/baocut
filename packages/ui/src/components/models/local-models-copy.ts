@@ -46,7 +46,7 @@ const en = {
     verifying: 'Looking for damaged or missing files. This can take a while for large files…',
     planFailed: 'Couldn’t get the download plan',
     upToDate: 'All files are present and verified. Nothing to download.',
-    completeNote: 'The model is already installed. Only the missing optional components are downloaded; installed files are left alone.',
+    completeNote: 'Only the missing components are downloaded; installed files are left alone.',
     repairUpToDate: 'All files are intact. Nothing to download again.',
     repairThenCheck: 'Only damaged or missing files are downloaded again; intact ones are left alone. It’s checked again automatically after the repair.',
     replanned: 'The download size just changed. Here’s the new plan; please confirm again.',

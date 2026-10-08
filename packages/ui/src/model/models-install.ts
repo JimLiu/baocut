@@ -270,7 +270,7 @@ export function removedToast(bundleId: string, result: { removed: string[]; kept
 // ---- 每行能做什么 ----
 
 export interface BundleActions {
-  /** 下载（没装齐，且没在装、没暂停）。 */
+  /** 下载（自己的文件不在盘上，且没在装、没暂停）。 */
   install: boolean;
   /** 继续下载（暂停着）。 */
   resume: boolean;
@@ -278,27 +278,29 @@ export interface BundleActions {
   stop: boolean;
   /** 丢掉已下载的部分（暂停着）。 */
   discard: boolean;
-  /** 补齐：装好了、还缺可选组件（`missingParts`），只下载缺的那几件（没在装、没暂停）。 */
+  /** 补齐：自己的文件在盘上、还缺组件（`missingParts`），只下载缺的那几件（没在装、没暂停）。 */
   complete: boolean;
-  /** 修复：装好的逐个文件校验一遍、只重下坏的。能不能检查见 model-check.ts 的 `checkRoute`。 */
+  /** 修复：盘上的逐个文件校验一遍、只重下坏的与缺的。能不能检查见 model-check.ts 的 `checkRoute`。 */
   repair: boolean;
-  /** 删除：有装好的东西、没有在装的。 */
+  /** 删除：自己的文件在盘上、没有在装的。 */
   remove: boolean;
 }
 
-export function bundleActions(bundle: ModelBundleStatus): BundleActions {
+/**
+ * 一行模型包能做什么（设计稿 settings-local.jsx）。`ownFiles`：模型包自己的文件在不在盘上（models-local.ts `hasOwnFiles`，要整类的
+ * 公共组件才算得出；默认按装好没有算）。在盘上、还缺组件的（`half`）给「补齐」不给「下载」，照样能修复、删除。
+ */
+export function bundleActions(bundle: ModelBundleStatus, ownFiles = isBundleInstalled(bundle)): BundleActions {
   const installing = !!bundle.install && bundle.install.state !== 'paused';
   const paused = bundle.install?.state === 'paused';
-  const installed = isBundleInstalled(bundle);
-  const hasFiles = installed || !!bundle.components?.some((c) => c.state === 'installed');
   const cannotRun = bundle.reason === 'unsupported' || bundle.reason === 'worker-missing';
   return {
-    install: !installed && !bundle.install && bundle.reason !== 'unsupported',
-    complete: !bundle.install && missingParts(bundle).length > 0,
+    install: !ownFiles && !bundle.install && bundle.reason !== 'unsupported',
+    complete: !bundle.install && missingParts(bundle, ownFiles).length > 0,
     resume: paused && bundle.reason !== 'unsupported',
     stop: installing,
     discard: paused,
-    repair: installed && !installing && !cannotRun,
-    remove: hasFiles && !installing,
+    repair: ownFiles && !installing && !cannotRun,
+    remove: ownFiles && !installing,
   };
 }

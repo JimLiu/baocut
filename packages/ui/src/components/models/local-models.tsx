@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ImageModelInfo, JobRecord, ModelBundleStatus, ModelComponentStatus, SpeechModelInfo } from '@baocut/protocol';
 import {
   ActionButton,
@@ -48,6 +48,8 @@ import {
   canReenable,
   componentDesc,
   componentLabel,
+  hasOwnFiles,
+  installingPlacement,
   isBundleInstalled,
   licenseLines,
   licenseLineText,
@@ -55,6 +57,7 @@ import {
   localGroups,
   localImageModels,
   LOCAL_PROVIDER,
+  missingParts,
   needBytes,
   sharedAction,
   sharedComponents,
@@ -135,8 +138,9 @@ type Confirm = { kind: 'remove' | 'discard'; bundle: ModelBundleStatus };
 type Install = { bundle: ModelBundleStatus; mode: InstallMode; note?: string };
 
 /**
- * 模型 › 本地模型（设计稿 settings-local.jsx:200-308）：`models` 主题里的模型包按「已安装 / 可下载」分组，顶上是默认模型，
- * 下面是折叠的「公共组件」（这一类两只及以上模型共用的组件；缺的借一只用到它的模型补齐）。
+ * 模型 › 本地模型（设计稿 settings-local.jsx:200-308）：`models` 主题里的模型包按「已安装 / 可下载」分组（权重在、缺公共组件的
+ * 也在「已安装」，行上「补齐」），顶上是默认模型，下面是折叠的「公共组件」（这一类两只及以上模型共用的组件；缺的借一只用到它的
+ * 模型补齐）。
  * 下载与修复先看计划再确认（install-dialog.tsx）；进度、检查结论与模型包状态都从 `models` / `jobs` 主题读，
  * 这里不轮询、不在本地改状态。现在语音识别、语音合成、图像生成与音源分离有本机模型包，其余类给空态。
  * 音源分离的默认模型与语音识别一样有「自动选择」（配音的分离一步用它）；行与语音识别一样在行上露「检查」。
@@ -166,6 +170,12 @@ function LocalPage({ category, kind }: { category: ModelCategory; kind: LocalDef
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   // 公共组件区：没动过时有待补全的就展开（设计稿 settings-local.jsx `sharedExpanded`）。
   const [sharedOpen, setSharedOpen] = useState<boolean | null>(null);
+  // 下载中的行不换组（`localGroups` 的 `placed`）：每次画完记下它们这一次在哪一组。
+  const placed = useRef<ReadonlyMap<string, boolean>>(new Map());
+  const groups = localGroups(bundles, category, placed.current);
+  useEffect(() => {
+    placed.current = installingPlacement(groups);
+  });
   const speech = useMemo(() => (kind === 'synthesize' ? localSpeechModels(view) : new Map<string, SpeechModelInfo>()), [kind, view]);
   const images = useMemo(() => (kind === 'image' ? localImageModels(view) : new Map<string, ImageModelInfo>()), [kind, view]);
   const quickOpen = useTtsQuick((s) => s.open);
@@ -177,7 +187,6 @@ function LocalPage({ category, kind }: { category: ModelCategory; kind: LocalDef
 
   const synth = kind === 'synthesize';
   const picker = localDefaultPicker(view, bundles, kind);
-  const groups = localGroups(bundles, category);
   const shared = sharedComponents(bundles, category);
   const repair = sharedRepair(shared).length;
   const current = view?.[VIEW_CAPABILITY[kind]].default;
@@ -247,6 +256,7 @@ function LocalPage({ category, kind }: { category: ModelCategory; kind: LocalDef
       bundles={bundles}
       jobs={jobs}
       isDefault={bundle.bundleId === defaultId}
+      ownFiles={hasOwnFiles(bundle, shared)}
       kind={kind}
       speech={synth ? { model: speech.get(bundle.bundleId) ?? null, cloneNames } : null}
       image={kind === 'image' ? (images.get(bundle.bundleId) ?? null) : null}
@@ -482,6 +492,7 @@ function BundleRow({
   bundles,
   jobs,
   isDefault,
+  ownFiles,
   kind,
   speech,
   image,
@@ -497,6 +508,8 @@ function BundleRow({
   bundles: readonly ModelBundleStatus[];
   jobs: readonly JobRecord[];
   isDefault: boolean;
+  /** 模型包自己的文件在盘上（`hasOwnFiles`）：权重在、缺组件的给「补齐」不给「下载」。 */
+  ownFiles: boolean;
   kind: LocalDefaultCapability;
   /** 语音合成的行：本机列出的模型（没装好时可能没有）与装好了的克隆模型名；语音识别的行为 null。 */
   speech: { model: SpeechModelInfo | null; cloneNames: readonly string[] } | null;
@@ -513,8 +526,13 @@ function BundleRow({
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<'pause' | null>(null);
   const [trying, setTrying] = useState(false);
-  const actions = bundleActions(bundle);
-  const check = useBundleCheck(bundle, kind, jobs);
+  const actions = bundleActions(bundle, ownFiles);
+  const check = useBundleCheck(bundle, kind, jobs, ownFiles);
+  // 缺组件的（设计稿 settings-local.jsx 的 `half`）自动展开详情，看得到缺的是哪几件、各多大。
+  const half = missingParts(bundle, ownFiles).length > 0;
+  useEffect(() => {
+    if (half) setOpen(true);
+  }, [half]);
   // 这一行发起的修复在跑：进度与取消写在检查那一条状态里，不再另起一条下载进度。
   const repairing = check.state.phase === 'repairing';
   const checkBusy = repairing || check.state.phase === 'checking' || check.starting;
@@ -579,7 +597,8 @@ function BundleRow({
   // 下载与补齐的按钮写上还要下多少（设计稿 settings-local.jsx「补齐 {大小}」）；有组件不知道大小时只写动作。
   const need = needBytes(bundle);
   const needSize = need !== null && need > 0 ? fmtSize(need) : null;
-  // 装好了、缺可选组件（对齐器、说话人模型）：「补齐」只下载缺的那几件（设计稿 settings-local.jsx 的 `half`）。
+  // 自己的文件在盘上、还缺组件（装好了缺可选的对齐器、说话人模型，或权重在、缺公共组件）：「补齐」只下载缺的那几件，不再给「下载」
+  // （设计稿 settings-local.jsx 的 `half`）。
   if (actions.complete) {
     buttons.push(
       <Button key="complete" variant="accent" size="S" onPress={() => onInstall('complete')}>
@@ -598,7 +617,7 @@ function BundleRow({
   }
   if (actions.resume) {
     buttons.push(
-      <Button key="resume" variant="accent" size="S" onPress={() => onInstall(isBundleInstalled(bundle) ? 'complete' : 'install')}>
+      <Button key="resume" variant="accent" size="S" onPress={() => onInstall(ownFiles ? 'complete' : 'install')}>
         <DownloadIcon />
         <Text>{INSTALL.resume}</Text>
       </Button>,
@@ -681,7 +700,7 @@ function BundleRow({
         <div className={modelMain}>
           <div className={modelName}>
             <span className={modelId}>{name}</span>
-            <Chips chips={kind !== 'transcribe' ? ttsChips(bundle, isDefault) : bundleChips(bundle, isDefault)} />
+            <Chips chips={kind !== 'transcribe' ? ttsChips(bundle, isDefault, ownFiles) : bundleChips(bundle, isDefault, ownFiles)} />
           </div>
           {brief ? <div className={modelSummary}>{brief.summary}</div> : null}
           <div className={modelFacts}>

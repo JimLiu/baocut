@@ -28,7 +28,7 @@ export const pl: LocalModelsMessages = {
     verifying: "Szukanie uszkodzonych lub brakujących plików. Duże pliki mogą wymagać czasu…",
     planFailed: "Nie udało się uzyskać planu pobierania",
     upToDate: "Wszystkie pliki są obecne i zweryfikowane. Nic do pobrania.",
-    completeNote: "Model jest już zainstalowany. Pobierane są tylko brakujące komponenty opcjonalne; zainstalowane pliki pozostają bez zmian.",
+    completeNote: "Pobierane są tylko brakujące komponenty; zainstalowane pliki pozostają bez zmian.",
     repairUpToDate: "Wszystkie pliki są poprawne. Nic do ponownego pobrania.",
     repairThenCheck: "Ponownie pobierane są tylko uszkodzone lub brakujące pliki; poprawne pozostają bez zmian. Po naprawie następuje automatyczna weryfikacja.",
     replanned: "Rozmiar pobierania właśnie się zmienił. Oto nowy plan; potwierdź ponownie.",
