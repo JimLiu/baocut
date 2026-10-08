@@ -4,11 +4,12 @@
 //! 滤镜（stderr），与 stdout 上的帧一一对应；`-copyts` 保留素材自己的时间戳，减去素材的 PTS 原点就是源时刻。
 //! 取帧的规则与预览的媒体元素一致：取时间戳不晚于目标时刻的最后一帧（目标在第一帧之前时取第一帧，读到末尾之后停在最后一帧）。
 //! 倒退或向前跳得很远时重开解码流，从目标前的关键帧开始。ffmpeg 按旋转元数据自动转正。
+//! 每条流有一个读帧线程，把管道里的帧读在取帧前面（有界的几帧），取帧时 ffmpeg 已经解好的帧不用再等管道。
 
 use std::io::{BufRead, BufReader, ErrorKind, Read};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdout, Command, Stdio};
-use std::sync::mpsc::{Receiver, channel};
+use std::sync::mpsc::{Receiver, Sender, SyncSender, channel, sync_channel};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
@@ -20,26 +21,65 @@ const EPSILON: f64 = 1e-4;
 const JUMP_SECONDS: f64 = 5.0;
 /// 重开时从目标之前这么多秒的位置找关键帧。
 const SEEK_MARGIN: f64 = 0.05;
+/// 读帧线程最多读在前面这么多帧（每帧一个缓冲，1080p 的 RGBA 一帧 8.3 MB）。
+const READ_AHEAD: usize = 2;
 
 struct Timed {
     seconds: f64,
     picture: Picture,
 }
 
+/// 读帧线程交出来的：一帧（像素与 `showinfo` 的原始时间戳）、流读完了、或读失败。
+enum Chunk {
+    Frame(Vec<u8>, f64),
+    End,
+    Failed(String),
+}
+
 struct Stream {
     child: Child,
-    stdout: ChildStdout,
-    times: Receiver<f64>,
+    /// 读帧线程读在前面的帧（有界）。
+    frames: Option<Receiver<Chunk>>,
+    /// 用过的帧缓冲送回读帧线程。
+    recycle: Sender<Vec<u8>>,
     log: Arc<Mutex<String>>,
+    /// 读 stderr（`showinfo` 的时间戳与日志）的线程。
     reader: Option<JoinHandle<()>>,
+    /// 读 stdout 帧的线程。
+    puller: Option<JoinHandle<()>>,
 }
 
 impl Stream {
     fn stop(&mut self) {
         let _ = self.child.kill();
         let _ = self.child.wait();
+        // 读帧线程可能卡在队列满的发送上：先丢掉接收端，再等它。
+        drop(self.frames.take());
+        if let Some(puller) = self.puller.take() {
+            let _ = puller.join();
+        }
         if let Some(reader) = self.reader.take() {
             let _ = reader.join();
+        }
+    }
+}
+
+/// 读帧线程：从 ffmpeg 的 stdout 一帧一帧读满，配上 stderr 线程给的时间戳，读在合成前面最多 [`READ_AHEAD`] 帧。
+fn pull_frames(mut stdout: ChildStdout, times: Receiver<f64>, spares: Receiver<Vec<u8>>, frames: SyncSender<Chunk>, len: usize) {
+    loop {
+        let mut data = spares.try_recv().unwrap_or_default();
+        data.resize(len, 0);
+        let chunk = match stdout.read_exact(&mut data) {
+            Ok(()) => match times.recv() {
+                Ok(pts) => Chunk::Frame(data, pts),
+                Err(_) => Chunk::Failed("解码的帧没有时间戳".into()),
+            },
+            Err(e) if e.kind() == ErrorKind::UnexpectedEof => Chunk::End,
+            Err(e) => Chunk::Failed(format!("读解码输出失败：{e}")),
+        };
+        let last = !matches!(chunk, Chunk::Frame(..));
+        if frames.send(chunk).is_err() || last {
+            break;
         }
     }
 }
@@ -60,8 +100,11 @@ pub struct VideoDecoder {
     stream: Option<Stream>,
     current: Option<Timed>,
     next: Option<Timed>,
+    /// 没有解码流时留着的一个帧缓冲，下一条流先用它。
     spare: Vec<u8>,
     ended: bool,
+    /// 启动过解码流：之后再启动（倒退、远跳、关掉之后再用到）都算重开。
+    started: bool,
     restarts: u32,
 }
 
@@ -79,11 +122,13 @@ impl VideoDecoder {
             next: None,
             spare: Vec::new(),
             ended: false,
+            started: false,
             restarts: 0,
         }
     }
 
-    /// 重新定位的次数（第一次启动不算）。顺序导出里应当是 0。
+    /// 重开解码流的次数：第一次启动不算，倒退、远跳与闲置关掉（[`close`](Self::close)）之后再用到都算。
+    /// 顺序导出里应当是 0。
     pub fn restarts(&self) -> u32 {
         self.restarts
     }
@@ -94,7 +139,7 @@ impl VideoDecoder {
         let behind = self.current.as_ref().is_some_and(|c| target < c.seconds);
         let far = self.next.as_ref().is_some_and(|n| seconds - n.seconds > JUMP_SECONDS);
         if self.stream.is_none() && !self.ended || behind || far {
-            if self.stream.is_some() || self.ended {
+            if self.started {
                 self.restarts += 1;
             }
             self.start(seconds)?;
@@ -113,7 +158,7 @@ impl VideoDecoder {
                 Some(next) if next.seconds <= target || self.current.is_none() => {
                     let next = self.next.take().expect("上面看过");
                     if let Some(old) = self.current.replace(next) {
-                        self.spare = old.picture.data;
+                        self.recycle(old.picture.data);
                     }
                 }
                 _ => break,
@@ -147,6 +192,7 @@ impl VideoDecoder {
         }
         self.next = None;
         self.ended = false;
+        self.started = true;
         let seek = seconds - SEEK_MARGIN;
         let mut command = Command::new(&self.tools.ffmpeg);
         command.args(["-hide_banner", "-nostdin", "-nostats", "-loglevel", "info"]);
@@ -188,27 +234,48 @@ impl VideoDecoder {
                 }
             }
         });
+        let (frames, pulled) = sync_channel(READ_AHEAD);
+        let (recycle, spares) = channel();
+        let spare = std::mem::take(&mut self.spare);
+        if !spare.is_empty() {
+            let _ = recycle.send(spare);
+        }
+        let len = Picture::byte_len(self.width, self.height);
+        let puller = std::thread::spawn(move || pull_frames(stdout, times, spares, frames, len));
         self.stream = Some(Stream {
             child,
-            stdout,
-            times,
+            frames: Some(pulled),
+            recycle,
             log,
             reader: Some(reader),
+            puller: Some(puller),
         });
         Ok(())
     }
 
-    /// 读下一帧；流结束时为 `None`。进程失败、一帧都没有时报错。
+    /// 用过的帧缓冲：有解码流时送回读帧线程，否则留一个给下一条流。
+    fn recycle(&mut self, data: Vec<u8>) {
+        match &self.stream {
+            Some(stream) => {
+                let _ = stream.recycle.send(data);
+            }
+            None => self.spare = data,
+        }
+    }
+
+    /// 读下一帧（读帧线程读好了就不等）；流结束时为 `None`。进程失败、一帧都没有时报错。
     fn read(&mut self) -> Result<Option<Timed>, MediaError> {
         let Some(stream) = self.stream.as_mut() else {
             return Ok(None);
         };
-        let mut data = std::mem::take(&mut self.spare);
-        data.resize(Picture::byte_len(self.width, self.height), 0);
-        match stream.stdout.read_exact(&mut data) {
-            Ok(()) => {}
-            Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
+        let chunk = stream.frames.as_ref().and_then(|frames| frames.recv().ok()).unwrap_or(Chunk::End);
+        let (data, pts) = match chunk {
+            Chunk::Frame(data, pts) => (data, pts),
+            Chunk::End => {
                 let status = stream.child.wait().ok();
+                if let Some(puller) = stream.puller.take() {
+                    let _ = puller.join();
+                }
                 if let Some(reader) = stream.reader.take() {
                     let _ = reader.join();
                 }
@@ -220,17 +287,10 @@ impl VideoDecoder {
                         format!("解码 {} 失败：{}", self.path.display(), tail(&log, 3)),
                     ));
                 }
-                self.spare = data;
                 return Ok(None);
             }
-            Err(e) => {
-                return Err(MediaError::new("EXPORT_DECODE_FAILED", format!("读解码输出失败：{e}")));
-            }
-        }
-        let pts = stream
-            .times
-            .recv()
-            .map_err(|_| MediaError::new("EXPORT_DECODE_FAILED", "解码的帧没有时间戳"))?;
+            Chunk::Failed(message) => return Err(MediaError::new("EXPORT_DECODE_FAILED", message)),
+        };
         let seconds = if pts.is_finite() {
             pts - self.origin
         } else {

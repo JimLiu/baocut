@@ -88,6 +88,12 @@ fn decoder_walks_forward_and_restarts_on_backward_jumps() {
     // 向前跳得很远也重开（从目标前的关键帧开始），不一路解过去。
     assert!(is_blue(center(decoder.frame_at(9.0).unwrap())));
     assert_eq!(decoder.restarts(), 2);
+    // 闲置关掉之后再用到：重开解码流，也算一次。
+    decoder.close();
+    assert!(is_blue(center(decoder.frame_at(1.2).unwrap())));
+    assert_eq!(decoder.restarts(), 3);
+    assert!(is_blue(center(decoder.frame_at(1.3).unwrap())));
+    assert_eq!(decoder.restarts(), 3);
 }
 
 #[test]
