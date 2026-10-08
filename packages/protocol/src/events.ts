@@ -2,6 +2,7 @@ import type { ApprovalOutcome, PendingApproval } from './access.ts';
 import type { AgentSetupRun, Conversation, Id, Project, Seq, SpaceEntry, SpaceScanIssue, TaskSummary, TimelineItem } from './domain.ts';
 import type { GrantsEvent, GrantsSnapshot } from './grants.ts';
 import type { JobsEvent, JobsSnapshot } from './jobs.ts';
+import type { LegacyImportEvent, LegacyImportSnapshot } from './legacy-import.ts';
 import type { LibraryEvent, LibrarySnapshot } from './library.ts';
 import type { AgentsView } from './methods.ts';
 import type { ModelsEvent, ModelsSnapshot } from './models.ts';
@@ -24,6 +25,7 @@ import type { VideoTopicEvent, VideoTopicSnapshot } from './video.ts';
  * - `agent-setup`：应用内运行的 Agent 安装与升级命令（`agents.runSetup`，架构设计 §12.9）的状态与输出。
  * - `agents`：Agent（Driver）的探测结果与偏好（`agents.list` 的视图，架构设计 §3.11）；快照是上次的结果（启动时来自磁盘缓存），
  *   每个 Driver 的后台探测完成、偏好变化时送 `agents.updated`。
+ * - `legacy-import`：旧版项目的导入询问（架构设计 §2.7，`legacy-import.ts`）；快照是等回答的询问，出现或消失时送 `prompt.updated`。
  * - `conversation:<id>`：一个会话的内容（卡片投影）。
  * - `video:<id>`：一个已打开的视频的投影（命令与协议规范 §10）。
  *
@@ -41,6 +43,7 @@ export type Topic =
   | 'grants'
   | 'agent-setup'
   | 'agents'
+  | 'legacy-import'
   | `conversation:${Id}`
   | `video:${Id}`;
 
@@ -147,6 +150,7 @@ export interface TopicMap {
   grants: { snapshot: GrantsSnapshot; event: GrantsEvent };
   'agent-setup': { snapshot: AgentSetupSnapshot; event: AgentSetupEvent };
   agents: { snapshot: AgentsSnapshot; event: AgentsEvent };
+  'legacy-import': { snapshot: LegacyImportSnapshot; event: LegacyImportEvent };
   conversation: { snapshot: ConversationSnapshot; event: ConversationEvent };
   video: { snapshot: VideoTopicSnapshot; event: VideoTopicEvent };
 }
@@ -173,7 +177,9 @@ export type SnapshotOf<T extends Topic> = T extends 'directory'
                     ? AgentSetupSnapshot
                     : T extends 'agents'
                       ? AgentsSnapshot
-                      : T extends `video:${string}`
+                      : T extends 'legacy-import'
+                        ? LegacyImportSnapshot
+                        : T extends `video:${string}`
                         ? VideoTopicSnapshot
                         : ConversationSnapshot;
 export type EventOf<T extends Topic> = T extends 'directory'
@@ -198,7 +204,9 @@ export type EventOf<T extends Topic> = T extends 'directory'
                     ? AgentSetupEvent
                     : T extends 'agents'
                       ? AgentsEvent
-                      : T extends `video:${string}`
+                      : T extends 'legacy-import'
+                        ? LegacyImportEvent
+                        : T extends `video:${string}`
                         ? VideoTopicEvent
                         : ConversationEvent;
 

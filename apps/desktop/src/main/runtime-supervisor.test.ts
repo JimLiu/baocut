@@ -40,6 +40,7 @@ it.each([true, false].flatMap((enabled) => [
     credentialStore: 'file',
     resources: null,
     downloadsDir: null,
+    documentsDir: null,
     systemLanguages: () => ['en'],
   });
   await supervisor.connection();

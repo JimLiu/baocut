@@ -52,4 +52,8 @@ export const zhHans: RcRuntimeMessages = {
   runtimeInUse: (p) =>
     `这个 Runtime 还有人在用（桌面端 ${p.desktop}、其他 CLI ${p.cli}、没结束的任务 ${p.activeJobs}）：等它们结束或关掉再停`,
   stopNotSupported: '这个 Runtime 不能经网关停下',
+  legacyPromptGone: "这个导入询问已经回答过，或者已经不在了",
+  legacyImportFolderReserved: "请选一个不在 BaoCut 及旧版数据目录里的文件夹",
+  legacyImportFolderUnwritable: "这个文件夹建不了或写不了",
+  legacyImportLocalOnly: "导入旧版项目的询问只能由桌面界面或本机 CLI 回答",
 };

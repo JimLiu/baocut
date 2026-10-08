@@ -8,6 +8,8 @@ import {
   type AgentSetupEvent,
   type AgentsEvent,
   type AgentsSnapshot,
+  type LegacyImportEvent,
+  type LegacyImportSnapshot,
   type AgentSetupSnapshot,
   type ClientKind,
   type ConversationEvent,
@@ -199,6 +201,11 @@ export class BaoCutClient {
   /** Agent 的探测结果与偏好（`agents.list` 的视图）：快照先来，后台探测完成后逐个送新视图。 */
   subscribeAgents(handlers: TopicHandlers<AgentsSnapshot, AgentsEvent>): () => void {
     return this.subscribe('agents', handlers);
+  }
+
+  /** 旧版项目的导入询问（架构设计 §2.7）：快照是等回答的询问，出现或消失时整体替换。只给桌面界面。 */
+  subscribeLegacyImport(handlers: TopicHandlers<LegacyImportSnapshot, LegacyImportEvent>): () => void {
+    return this.subscribe('legacy-import', handlers);
   }
 
   subscribeSpace(handlers: TopicHandlers<SpaceSnapshot, SpaceEvent>): () => void {

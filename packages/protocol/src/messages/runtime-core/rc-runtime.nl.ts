@@ -52,4 +52,8 @@ export const nl: RcRuntimeMessages = {
   runtimeInUse: (p: { desktop: number; cli: number; activeJobs: number }) =>
     `Deze Runtime is nog in gebruik (desktop-app: ${p.desktop}, andere CLI-verbindingen: ${p.cli}, onvoltooide taken: ${p.activeJobs}). Wacht tot die klaar zijn of sluit ze, en stop daarna de Runtime`,
   stopNotSupported: "Deze Runtime kan niet worden gestopt via de gateway",
+  legacyPromptGone: "Deze importvraag is al beantwoord of staat niet meer open",
+  legacyImportFolderReserved: "Kies een map buiten de gegevensmappen van BaoCut en eerdere versies",
+  legacyImportFolderUnwritable: "Deze map kan niet worden gemaakt of beschreven",
+  legacyImportLocalOnly: "Alleen de desktop-app en de lokale CLI kunnen de vraag over het importeren van eerdere projecten beantwoorden",
 };

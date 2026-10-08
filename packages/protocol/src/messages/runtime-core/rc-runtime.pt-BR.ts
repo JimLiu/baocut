@@ -52,4 +52,8 @@ export const ptBR: RcRuntimeMessages = {
   runtimeInUse: (p: { desktop: number; cli: number; activeJobs: number }) =>
     `Este Runtime ainda está em uso (aplicativo desktop: ${p.desktop}, outras conexões CLI: ${p.cli}, tarefas inacabadas: ${p.activeJobs}). Espere concluir ou feche, depois pare`,
   stopNotSupported: "Este Runtime não pode ser parado pelo gateway",
+  legacyPromptGone: "Esta pergunta de importação já foi respondida ou não está mais aberta",
+  legacyImportFolderReserved: "Escolha uma pasta fora das pastas de dados do BaoCut e de versões anteriores",
+  legacyImportFolderUnwritable: "Não é possível criar esta pasta nem gravar nela",
+  legacyImportLocalOnly: "Só o aplicativo para desktop e a CLI local podem responder à pergunta sobre importar projetos anteriores",
 };

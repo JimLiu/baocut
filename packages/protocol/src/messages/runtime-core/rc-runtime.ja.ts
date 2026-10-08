@@ -55,4 +55,8 @@ export const ja: RcRuntimeMessages = {
   runtimeInUse: (p) =>
     `この Runtime はまだ使用中です（デスクトップアプリ：${p.desktop}、ほかの CLI 接続：${p.cli}、未完了のタスク：${p.activeJobs}）。これらが終わるのを待つか閉じてから停止してください`,
   stopNotSupported: 'この Runtime はゲートウェイ経由では停止できません',
+  legacyPromptGone: "このインポートの確認にはすでに回答済みか、もう有効ではありません",
+  legacyImportFolderReserved: "BaoCut と旧バージョンのデータフォルダー以外のフォルダーを選んでください",
+  legacyImportFolderUnwritable: "このフォルダーを作成できないか、書き込めません",
+  legacyImportLocalOnly: "以前のプロジェクトの読み込みについての確認には、デスクトップアプリかローカルの CLI からしか回答できません",
 };

@@ -36,6 +36,11 @@ export interface RuntimeSupervisorOptions {
    * 已知文件夹与 Linux 的 XDG 目录（例如 `~/下载`），Runtime 自己只能猜 `~/Downloads`。取不到时为 null。
    */
   downloadsDir: string | null;
+  /**
+   * 系统的文稿 / 文档文件夹（`app.getPath('documents')`）：旧版项目导入询问的默认目录在它下面（架构设计 §2.7）。取不到时为
+   * null，Runtime 用 `~/Documents`。
+   */
+  documentsDir: string | null;
   /** 操作系统的首选语言（BCP 47，按优先顺序）：界面语言跟随系统时 Runtime 按它选语言。拉起时才取。 */
   systemLanguages: () => readonly string[];
 }
@@ -81,7 +86,8 @@ export class RuntimeSupervisor {
   }
 
   #spawn(): Promise<void> {
-    const { home, script, allowedOrigins, echoLogs, credentialStore, resources, downloadsDir, systemLanguages } = this.#options;
+    const { home, script, allowedOrigins, echoLogs, credentialStore, resources, downloadsDir, documentsDir, systemLanguages } =
+      this.#options;
     const args = [script, ...(echoLogs ? [] : ['--quiet']), '--credential-store', credentialStore];
     const child = spawn(process.execPath, args, {
       env: {
@@ -95,6 +101,8 @@ export class RuntimeSupervisor {
         ...(resources ? packagedResourceEnv(resources) : {}),
         // 系统的下载文件夹；环境里已经给了（测试指到临时目录）时不覆盖。
         ...(downloadsDir && !process.env.BAOCUT_DOWNLOADS_DIR ? { BAOCUT_DOWNLOADS_DIR: downloadsDir } : {}),
+        // 系统的文稿文件夹：同上。
+        ...(documentsDir && !process.env.BAOCUT_DOCUMENTS_DIR ? { BAOCUT_DOCUMENTS_DIR: documentsDir } : {}),
         // 从桌面启动的进程多半没有 LANG：系统语言由主进程告诉它。
         BAOCUT_SYSTEM_LANGUAGES: systemLanguages().join(','),
       },

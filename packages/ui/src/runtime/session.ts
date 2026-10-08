@@ -448,6 +448,21 @@ export class RuntimeSession {
     return this.client.request('nodes.share.setCapability', { capability, enabled });
   }
 
+  /**
+   * 旧版项目的导入询问（架构设计 §2.7）：只有桌面界面订阅，Web 服务不开放这个主题。断线重连后客户端重新订阅、重取快照，
+   * Runtime 换了（重启）时询问的标识跟着换。
+   */
+  watchLegacyImport(onPrompt: (prompt: import('@baocut/protocol').LegacyImportPrompt | null) => void): () => void {
+    return this.client.subscribeLegacyImport({
+      snapshot: (snapshot) => onPrompt(snapshot.prompt),
+      event: (event) => onPrompt(event.prompt),
+    });
+  }
+
+  async answerLegacyImport(answer: import('@baocut/protocol').LegacyImportAnswer): Promise<void> {
+    await this.client.request('legacyImport.answer', answer);
+  }
+
   /** 在局域网里找开着共享的节点（不含这台电脑）。 */
   async discoverNodes(timeoutMs?: number): Promise<import('@baocut/protocol').DiscoveredNode[]> {
     const { nodes } = await this.client.request('nodes.discover', timeoutMs === undefined ? {} : { timeoutMs });

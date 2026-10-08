@@ -10,6 +10,7 @@ import { useHelp } from '../state/help-store.ts';
 import { HOME, hasSidebar, routeVideo, useShell } from '../state/shell-store.ts';
 import { useVideo } from '../state/video-store.ts';
 import { AppUpdateHost } from './app-update/app-update-host.tsx';
+import { LegacyImportHost } from './legacy-import/legacy-import-host.tsx';
 import { ConnectionBanner } from './connection-banner.tsx';
 import { HelpCenter } from './help/help-center.tsx';
 import { HomePage } from './home-page.tsx';
@@ -133,6 +134,8 @@ export function AppShell({ platform }: { platform: string }) {
         <HelpCenter platform={platform} />
         {/* 应用更新：离开设置页照样收主进程的状态、弹 toast；更新窗与停止屏障也挂在这里。 */}
         <AppUpdateHost />
+        {/* 启动时的旧版项目导入询问：Runtime 发现还没导入的旧版项目、又没有记下决定时问一次（Web 不问）。 */}
+        <LegacyImportHost />
       </div>
     </ShellPeekProvider>
   );

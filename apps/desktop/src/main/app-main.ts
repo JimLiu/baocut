@@ -49,6 +49,8 @@ export function startDesktopApp(): void {
     resources: app.isPackaged ? packagedResources(process.resourcesPath) : null,
     // 从链接导入的默认下载目录：系统的下载文件夹（Windows 的已知文件夹、Linux 的 XDG 目录），取不到时 Runtime 用 ~/Downloads。
     downloadsDir: systemDownloadsDir(),
+    // 旧版项目导入询问的默认目录在系统的文稿 / 文档文件夹下（Windows 的已知文件夹可能被移到别的盘）。
+    documentsDir: systemDocumentsDir(),
     systemLanguages: () => app.getPreferredSystemLanguages(),
   });
 
@@ -261,6 +263,14 @@ export function startDesktopApp(): void {
 function systemDownloadsDir(): string | null {
   try {
     return app.getPath('downloads');
+  } catch {
+    return null;
+  }
+}
+
+function systemDocumentsDir(): string | null {
+  try {
+    return app.getPath('documents');
   } catch {
     return null;
   }

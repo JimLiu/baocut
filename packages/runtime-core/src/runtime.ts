@@ -857,6 +857,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       agentSkillsDir,
       activity,
       requestStop: options.requestStop ?? null,
+      legacyUpgrade,
     };
     // Web 服务（§4.8）用同一组处理函数，只把媒体句柄换成它自己的（同源地址、要会话）；白名单在它的网关入口上。
     services.web.bind({ runtime: info, handlers: createHandlers({ ...handlerDeps, media: services.web.media }) });

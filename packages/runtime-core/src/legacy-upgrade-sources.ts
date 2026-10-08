@@ -126,6 +126,33 @@ export async function discoverLegacyProjects(source: LegacySource, platform = pr
   return [...projects].map(([path, entry]) => ({ path, entry }));
 }
 
+/**
+ * 导入询问里的一行（§2.7）：旧标题取索引条目，没有时读 v2 的 `project.json`，再没有用目录名；上次编辑是项目文件的修改时间。
+ * 只在询问时读，读不到不算错。
+ */
+export async function summarizeLegacyProject(
+  dir: string,
+  entry: LegacyObject,
+  platform = process.platform,
+): Promise<{ path: string; title: string; editedAt: string | null }> {
+  const named = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : '');
+  let title = named(entry.title);
+  let editedAt: string | null = null;
+  for (const name of platform === 'win32' ? ['project.json'] : ['project.json', 'doc.json']) {
+    const file = path.join(dir, name);
+    try {
+      const stat = await fs.stat(file);
+      if (!stat.isFile()) continue;
+      editedAt = stat.mtime.toISOString();
+      if (!title && name === 'project.json') title = named((await readJson<LegacyObject>(file))?.title);
+      break;
+    } catch {
+      /* 读不到就用目录名、不给时间 */
+    }
+  }
+  return { path: dir, title: title || path.basename(dir), editedAt };
+}
+
 /** plutil supports XML and binary plists; never export or log secret-bearing preferences. */
 export async function readV1Preferences(file: string): Promise<LegacyObject> {
   if (!(await isFile(file))) return {};

@@ -1,10 +1,19 @@
 import fs from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { constants as fsConstants, existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import type { Logger } from '@baocut/harness';
+import { TopicLog, type Logger } from '@baocut/harness';
+import {
+  RpcError,
+  type LegacyImportAnswer,
+  type LegacyImportEvent,
+  type LegacyImportPrompt,
+  type LegacyImportSnapshot,
+  type LegacyProjectSummary,
+} from '@baocut/protocol';
+import { RcRuntime } from '@baocut/protocol/messages/runtime-core';
 import type { ModelServiceStore } from '@baocut/models';
 import { SettingsStore, readJson, writeJsonAtomic, type RuntimeHome } from '@baocut/runtime-storage';
 import { importLegacySettings } from './legacy-upgrade-settings.ts';
@@ -18,6 +27,7 @@ import {
   discoverLegacyProjects,
   readLegacySource,
   readV1Preferences,
+  summarizeLegacyProject,
   type LegacyObject,
   type LegacySource,
 } from './legacy-upgrade-sources.ts';
@@ -35,9 +45,12 @@ interface SourceState {
   pending: string[];
   unsupported: string[];
 }
+/** 用户对项目导入的回答（§2.7）：`import` 带导入后的项目目录。更早的版本写的标记没有它。 */
+type ProjectDecision = { decision: 'import'; directory: string } | { decision: 'never' };
 interface UpgradeState {
   schemaVersion: 1;
   complete?: true;
+  projectImport?: ProjectDecision;
   sources: Record<string, SourceState>;
 }
 export interface ImportRequest {
@@ -61,6 +74,20 @@ export interface LegacyUpgradeOptions {
 }
 const key = (value: string) => createHash('sha256').update(value).digest('hex').slice(0, 16);
 
+/**
+ * 导入询问的默认目录：系统「文稿 / 文档」文件夹下的 `BaoCut`。桌面端经 `BAOCUT_DOCUMENTS_DIR` 给出主机的已知文件夹
+ * （Windows 可能被 OneDrive 之类重定向，不硬拼 `%USERPROFILE%\Documents`）；没有时是主目录下的 `Documents`。
+ */
+export function defaultLegacyImportDirectory(env: NodeJS.ProcessEnv = process.env, userHome = os.homedir()): string {
+  return path.join(env.BAOCUT_DOCUMENTS_DIR || path.join(userHome, 'Documents'), 'BaoCut');
+}
+
+/** `dir` 是 `root` 本身或在它里面。 */
+function within(root: string, dir: string): boolean {
+  const rel = path.relative(root, dir);
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel));
+}
+
 /** Runs under the Runtime's instance lock. No old file is ever modified. */
 export class LegacyUpgrade {
   readonly #options: LegacyUpgradeOptions;
@@ -71,10 +98,90 @@ export class LegacyUpgrade {
   #primaryRoot: string | null = null;
   #abort = new AbortController();
   #running: Promise<void> | null = null;
+  /** 等用户回答的导入询问（`legacy-import` 主题）与回答之后继续的去处。 */
+  #prompt: LegacyImportPrompt | null = null;
+  #answered: ((decision: ProjectDecision) => void) | null = null;
+  #answering = false;
+  /** 在迁移或导入（算作后台任务，CLI 拉起的 Runtime 不空闲退出）；等回答时不算。 */
   active = false;
+  readonly topic = new TopicLog<LegacyImportSnapshot, LegacyImportEvent>(() => ({ prompt: this.#prompt }), '0');
   constructor(options: LegacyUpgradeOptions) {
     this.#options = options;
     this.#file = path.join(options.home.root, 'store', 'legacy-upgrade.json');
+  }
+
+  /** 此刻等回答的导入询问（`legacyImport.get`）。 */
+  prompt(): LegacyImportPrompt | null {
+    return this.#prompt;
+  }
+
+  /** `legacyImport.answer`：先校验并记下回答，再让等着的这一轮继续。 */
+  async answer(answer: LegacyImportAnswer): Promise<void> {
+    const resolve = this.#answered;
+    if (!this.#prompt || this.#prompt.promptId !== answer.promptId || !resolve || this.#answering) {
+      throw new RpcError('not-found', RcRuntime.legacyPromptGone());
+    }
+    this.#answering = true;
+    try {
+      const decision: ProjectDecision =
+        answer.decision === 'never' ? { decision: 'never' } : { decision: 'import', directory: await this.#importDirectory(answer.directory) };
+      this.#state.projectImport = decision;
+      try {
+        await this.#save();
+      } catch (error) {
+        delete this.#state.projectImport;
+        throw error;
+      }
+      this.#options.log.info('Legacy project import answered', { decision: decision.decision });
+      // 这一轮接着跑完（导入，或者只是记完成）才算结束。
+      this.active = true;
+      this.#answered = null;
+      this.#setPrompt(null);
+      resolve(decision);
+    } finally {
+      this.#answering = false;
+    }
+  }
+
+  /** 导入目录：绝对路径，不在 Runtime Home 与旧版数据目录里；不存在时建好，并且要能写。 */
+  async #importDirectory(directory: string): Promise<string> {
+    if (!path.isAbsolute(directory)) throw new RpcError('invalid-request', RcRuntime.folderPathInvalid());
+    const dir = path.resolve(directory);
+    if ([this.#options.home.root, ...Object.keys(this.#state.sources)].some((root) => within(path.resolve(root), dir))) {
+      throw new RpcError('invalid-request', RcRuntime.legacyImportFolderReserved());
+    }
+    try {
+      await fs.mkdir(dir, { recursive: true });
+      await fs.access(dir, fsConstants.W_OK);
+    } catch {
+      throw new RpcError('invalid-request', RcRuntime.legacyImportFolderUnwritable());
+    }
+    return dir;
+  }
+
+  #setPrompt(prompt: LegacyImportPrompt | null): void {
+    this.#prompt = prompt;
+    this.topic.publish({ type: 'prompt.updated', prompt });
+  }
+
+  /** 发出询问并等回答；Runtime 停下时不记任何决定（下次启动再问），返回 null。等的时候不算后台任务。 */
+  #ask(projects: LegacyProjectSummary[]): Promise<ProjectDecision | null> {
+    if (this.#abort.signal.aborted) return Promise.resolve(null);
+    this.active = false;
+    this.#options.log.info('Legacy project import awaiting an answer', { projects: projects.length });
+    return new Promise((resolve) => {
+      const stop = () => {
+        this.#answered = null;
+        this.#setPrompt(null);
+        resolve(null);
+      };
+      this.#abort.signal.addEventListener('abort', stop, { once: true });
+      this.#answered = (decision) => {
+        this.#abort.signal.removeEventListener('abort', stop);
+        resolve(decision);
+      };
+      this.#setPrompt({ promptId: randomUUID(), projects, defaultDirectory: defaultLegacyImportDirectory() });
+    });
   }
   async #save(): Promise<void> {
     for (const state of Object.values(this.#state.sources)) {
@@ -239,6 +346,7 @@ export class LegacyUpgrade {
 
   async #run(deps: Parameters<LegacyUpgrade['start']>[0]): Promise<void> {
     await new Promise<void>((resolve) => setImmediate(resolve));
+    const discovered: LegacySource[] = [];
     for (const prepared of this.#sources) {
       let source = prepared;
       const state = this.#state.sources[source.root]!;
@@ -309,6 +417,11 @@ export class LegacyUpgrade {
         await this.#save();
         continue;
       }
+      // 说过不再提醒：不再发现、不再导入项目，其余迁完就算完成。
+      if (this.#state.projectImport?.decision === 'never') {
+        await this.#finishPass(source.root, state);
+        continue;
+      }
       try {
         const inventory = path.join(this.#options.home.root, 'store', 'legacy-upgrade', `${key(source.root)}.json`);
         const cached = await readJson<{ projects: LegacySource['projects'] }>(inventory);
@@ -316,9 +429,9 @@ export class LegacyUpgrade {
           if (!Array.isArray(cached.projects)) throw new Error('Invalid legacy inventory');
           source.projects = cached.projects;
         } else {
-          const discovered = await readLegacySource(source.root, this.#options.platform, { discoverProjects: false });
-          if (!discovered && !source.v1PreferenceFiles?.length) throw new Error('Legacy source unavailable');
-          source.projects = discovered ? await discoverLegacyProjects(discovered, this.#options.platform) : [];
+          const current = await readLegacySource(source.root, this.#options.platform, { discoverProjects: false });
+          if (!current && !source.v1PreferenceFiles?.length) throw new Error('Legacy source unavailable');
+          source.projects = current ? await discoverLegacyProjects(current, this.#options.platform) : [];
           await writeJsonAtomic(inventory, { projects: source.projects }, { mode: 0o600 });
         }
       } catch {
@@ -326,80 +439,138 @@ export class LegacyUpgrade {
         await this.#save();
         continue;
       }
-      const completed = new Set(
-        Object.values(this.#state.sources).flatMap((s) =>
-          Object.entries(s.projects)
-            .filter(([, p]) => p.complete)
-            .map(([p]) => p),
-        ),
-      );
+      discovered.push(source);
+    }
+    if (!discovered.length) return;
+    // 项目先问再导入（§2.7）：所有来源的发现合成一次询问。更早的版本已经自动导入过（有项目记录）时沿用原来的放置，不再问。
+    let decision = this.#state.projectImport ?? null;
+    if (!decision && Object.values(this.#state.sources).some((s) => Object.keys(s.projects).length)) {
+      decision = this.#state.projectImport = { decision: 'import', directory: path.join(this.#options.home.projectsDir, 'Imported') };
+      await this.#save();
+    }
+    if (!decision) {
+      const projects = await this.#pendingProjects(discovered);
+      if (projects.length) {
+        decision = await this.#ask(projects);
+        if (!decision) return;
+      }
+    }
+    for (const source of discovered) {
+      const state = this.#state.sources[source.root]!;
+      if (decision?.decision !== 'never' && !(await this.#importProjects(source, decision?.directory ?? null, deps))) return;
+      await this.#finishPass(source.root, state);
+    }
+  }
+
+  /** 已经导入完成的旧项目（各来源合在一起，按真实路径）。 */
+  #completedProjects(): Set<string> {
+    return new Set(
+      Object.values(this.#state.sources).flatMap((s) =>
+        Object.entries(s.projects)
+          .filter(([, p]) => p.complete)
+          .map(([p]) => p),
+      ),
+    );
+  }
+
+  /** 询问里列出的：还在、还没导入的旧项目，跨来源按真实路径去重，最近编辑的在前。 */
+  async #pendingProjects(sources: LegacySource[]): Promise<LegacyProjectSummary[]> {
+    const completed = this.#completedProjects();
+    const seen = new Set<string>();
+    const projects: LegacyProjectSummary[] = [];
+    for (const source of sources) {
       for (const project of source.projects) {
+        if (this.#abort.signal.aborted) return [];
         if (completed.has(project.path)) continue;
-        if (!(await this.#waitForIdle(deps.isBusy))) return;
-        try {
-          const canonical = await fs.realpath(project.path);
-          if (completed.has(canonical)) continue;
-          const record = (state.projects[canonical] ??= {
-            target: path.join(this.#options.home.projectsDir, 'Imported', `legacy-${key(canonical)}`),
-            videoDirectory: true,
-          });
-          if (record.complete) continue;
-          const previous = await readJson<{ assets?: { missing?: string[] } }>(path.join(record.target, 'import-report.json'));
-          if (previous?.assets?.missing?.length) {
-            let unavailable = false;
-            for (const file of previous.assets.missing) {
-              if (
-                !(await fs.access(file).then(
-                  () => true,
-                  () => false,
-                ))
-              ) {
-                unavailable = true;
-                break;
-              }
-            }
-            if (unavailable) {
-              state.pending.push(`project:${project.path}`);
-              continue;
+        const canonical = await fs.realpath(project.path).catch(() => null);
+        if (!canonical || completed.has(canonical) || seen.has(canonical)) continue;
+        seen.add(canonical);
+        projects.push(await summarizeLegacyProject(canonical, project.entry, this.#options.platform));
+      }
+    }
+    return projects.sort((a, b) => (b.editedAt ?? '').localeCompare(a.editedAt ?? ''));
+  }
+
+  /**
+   * 逐个导入一个来源的项目。`directory` 是回答里的导入目录（导入后的项目）；已有记录的沿用原来的目标。
+   * 没有回答（询问之后才出现的项目）时不建新记录，留到下次。Runtime 停下时返回 false。
+   */
+  async #importProjects(source: LegacySource, directory: string | null, deps: Parameters<LegacyUpgrade['start']>[0]): Promise<boolean> {
+    const state = this.#state.sources[source.root]!;
+    const completed = this.#completedProjects();
+    for (const project of source.projects) {
+      if (completed.has(project.path)) continue;
+      if (!(await this.#waitForIdle(deps.isBusy))) return false;
+      try {
+        const canonical = await fs.realpath(project.path);
+        if (completed.has(canonical)) continue;
+        const record =
+          state.projects[canonical] ??
+          (directory ? (state.projects[canonical] = { target: path.join(directory, `legacy-${key(canonical)}`), videoDirectory: true }) : null);
+        if (!record) {
+          state.pending.push(`project:${project.path}`);
+          continue;
+        }
+        if (record.complete) continue;
+        const previous = await readJson<{ assets?: { missing?: string[] } }>(path.join(record.target, 'import-report.json'));
+        if (previous?.assets?.missing?.length) {
+          let unavailable = false;
+          for (const file of previous.assets.missing) {
+            if (
+              !(await fs.access(file).then(
+                () => true,
+                () => false,
+              ))
+            ) {
+              unavailable = true;
+              break;
             }
           }
-          const version = await legacyProjectVersion(canonical, this.#options.platform);
-          if (!version || !deps.engine) throw new Error('import-unavailable');
-          await this.#save();
-          const request: ImportRequest = {
-            source: canonical,
-            version,
-            entry: project.entry,
-            target: record.target,
-            engine: deps.engine,
-            ...(record.videoDirectory ? { videoDirectory: true } : {}),
-          };
-          if (this.#options.importProject) await this.#options.importProject(request, this.#abort.signal);
-          else await runProjectImport(request, await deps.env(), this.#abort.signal);
-          if (this.#abort.signal.aborted) return;
-          const report = await readJson<{ name?: string }>(path.join(record.target, 'import-report.json'));
-          await deps.openProject(
-            record.videoDirectory ? path.dirname(record.target) : record.target,
-            record.videoDirectory ? undefined : report?.name ?? project.entry.title,
-          );
-          record.complete = true;
-          completed.add(canonical);
-          await this.#save();
-        } catch {
-          state.pending.push(`project:${project.path}`);
-          this.#options.log.warn('Legacy project import deferred', { source: project.path });
-          await this.#save();
+          if (unavailable) {
+            state.pending.push(`project:${project.path}`);
+            continue;
+          }
         }
+        const version = await legacyProjectVersion(canonical, this.#options.platform);
+        if (!version || !deps.engine) throw new Error('import-unavailable');
+        await this.#save();
+        const request: ImportRequest = {
+          source: canonical,
+          version,
+          entry: project.entry,
+          target: record.target,
+          engine: deps.engine,
+          ...(record.videoDirectory ? { videoDirectory: true } : {}),
+        };
+        if (this.#options.importProject) await this.#options.importProject(request, this.#abort.signal);
+        else await runProjectImport(request, await deps.env(), this.#abort.signal);
+        if (this.#abort.signal.aborted) return false;
+        const report = await readJson<{ name?: string }>(path.join(record.target, 'import-report.json'));
+        await deps.openProject(
+          record.videoDirectory ? path.dirname(record.target) : record.target,
+          record.videoDirectory ? undefined : report?.name ?? project.entry.title,
+        );
+        record.complete = true;
+        completed.add(canonical);
+        await this.#save();
+      } catch {
+        state.pending.push(`project:${project.path}`);
+        this.#options.log.warn('Legacy project import deferred', { source: project.path });
+        await this.#save();
       }
-      if (!state.pending.length && state.settings && state.cloud && state.services && state.nodes) state.complete = true;
-      await this.#save();
-      this.#options.log.info('Legacy upgrade pass finished', {
-        source: source.root,
-        complete: !!state.complete,
-        pending: state.pending.length,
-        unsupported: state.unsupported,
-      });
     }
+    return true;
+  }
+
+  async #finishPass(root: string, state: SourceState): Promise<void> {
+    if (!state.pending.length && state.settings && state.cloud && state.services && state.nodes) state.complete = true;
+    await this.#save();
+    this.#options.log.info('Legacy upgrade pass finished', {
+      source: root,
+      complete: !!state.complete,
+      pending: state.pending.length,
+      unsupported: state.unsupported,
+    });
   }
 }
 

@@ -53,6 +53,7 @@ import { PackageImporter } from './videos/package-import.ts';
 import { RcRuntime } from '@baocut/protocol/messages/runtime-core';
 import type { ToolCatalog } from './agent-tools/tool-catalog.ts';
 import type { RuntimeActivity } from './runtime-activity.ts';
+import type { LegacyUpgrade } from './legacy-upgrade.ts';
 import { catalogMethods } from './agent-tools/catalog-methods.ts';
 
 type MethodHandler<M extends RpcMethod> = (params: RpcParams<M>, principal: TrustedPrincipal) => RpcResult<M> | Promise<RpcResult<M>>;
@@ -110,6 +111,8 @@ export interface HandlerDeps {
   activity: RuntimeActivity;
   /** `runtime.stop` 的去处（入口停下 Runtime）；嵌入式的 Runtime（测试）没有。 */
   requestStop: (() => void) | null;
+  /** 历史版本的启动迁移（§2.7）：旧版项目的导入询问（`legacyImport.*` 与 `legacy-import` 主题）。 */
+  legacyUpgrade: LegacyUpgrade;
 }
 
 /** 文件目标定位到来源目录与文件（Space 条目、会话工作目录或项目目录里的路径）。目录内的检查在媒体通道（或视频服务）里做。 */
@@ -179,6 +182,7 @@ export function createHandlers({
   agentSkillsDir,
   activity,
   requestStop,
+  legacyUpgrade,
 }: HandlerDeps): RpcHandlers {
   const { catalog, jobs, services, pipelines } = models;
   const packages = new PackageImporter(videos);
@@ -248,6 +252,13 @@ export function createHandlers({
         if (!requestStop) throw new RpcError('unsupported', RcRuntime.stopNotSupported());
         setTimeout(requestStop, 50);
         return { stopping: true as const };
+      },
+      'legacyImport.get': () => ({ prompt: legacyUpgrade.prompt() }),
+      // 导入到哪、要不要导入是本机用户的决定：Agent 与对外服务的连接不能替用户回答。
+      'legacyImport.answer': async (p, principal) => {
+        if (principal.kind !== 'cli' && principal.kind !== 'desktop') throw new RpcError('forbidden', RcRuntime.legacyImportLocalOnly());
+        await legacyUpgrade.answer(p);
+        return {};
       },
       'agents.list': () => harness.agents(),
       // 「重新检测」：强制探测（给了 driverId 只探那一个），探完再返回（§3.11）。
@@ -547,6 +558,7 @@ export function createHandlers({
       if (topic === 'library') return library.topic.subscribe(afterSeq, listener) as TopicSubscription<unknown, unknown>;
       if (topic === 'grants') return models.grants.topic.subscribe(afterSeq, listener) as TopicSubscription<unknown, unknown>;
       if (topic === 'agent-setup') return setup.subscribe(afterSeq, listener) as TopicSubscription<unknown, unknown>;
+      if (topic === 'legacy-import') return legacyUpgrade.topic.subscribe(afterSeq, listener) as TopicSubscription<unknown, unknown>;
       const videoId = parseVideoTopic(topic);
       if (videoId) return videos.subscribe(videoId, afterSeq, listener);
       return harness.subscribe(topic, afterSeq, listener);

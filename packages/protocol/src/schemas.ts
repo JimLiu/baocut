@@ -38,6 +38,7 @@ const topic = z.union([
   z.literal('grants'),
   z.literal('agent-setup'),
   z.literal('agents'),
+  z.literal('legacy-import'),
   z.string().regex(/^conversation:[A-Za-z0-9_-]+$/),
   z.string().regex(/^video:[A-Za-z0-9_-]+$/),
 ]);
@@ -626,6 +627,11 @@ export const methodParamSchemas = {
   'runtime.info': empty,
   'runtime.status': empty,
   'runtime.stop': empty,
+  'legacyImport.get': empty,
+  'legacyImport.answer': z.discriminatedUnion('decision', [
+    z.object({ promptId: id, decision: z.literal('import'), directory: filePath }).strict(),
+    z.object({ promptId: id, decision: z.literal('never') }).strict(),
+  ]),
   'agents.list': empty,
   'agents.detect': z.object({ driverId: driverId.optional() }),
   'agents.configure': z.object({

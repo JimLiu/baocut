@@ -128,6 +128,7 @@ import type {
   ServiceStatus,
 } from './services.ts';
 import type { WebAccessLink, WebSession } from './web.ts';
+import type { LegacyImportAnswer, LegacyImportSnapshot } from './legacy-import.ts';
 import type { Seq } from './domain.ts';
 import type { PlaybackCodec } from './limits.ts';
 import type {
@@ -160,6 +161,13 @@ export interface RpcMethods {
    * （`details.code: 'RUNTIME_NOT_OWNED'`），有桌面端连着时 `conflict`（`RUNTIME_IN_USE`）。响应先回，随后按停止顺序收尾。
    */
   'runtime.stop': { params: Record<string, never>; result: { stopping: true } };
+  /** 旧版项目的导入询问（架构设计 §2.7）：此刻等回答的询问，与 `legacy-import` 主题的快照相同。不在 Web 服务的白名单里。 */
+  'legacyImport.get': { params: Record<string, never>; result: LegacyImportSnapshot };
+  /**
+   * 回答导入询问：`import` 记下目录并开始在后台导入，`never` 记下以后不再导入。`promptId` 不是正在等的询问时 `not-found`；
+   * `directory` 不是绝对路径、落在旧版或 Runtime 自己的数据目录里、建不了或写不了时 `invalid-request`。
+   */
+  'legacyImport.answer': { params: LegacyImportAnswer; result: Record<string, never> };
 
   /** Agent 列表与偏好（设置 › Agent 提供方）。探测结果短时缓存。 */
   'agents.list': { params: Record<string, never>; result: AgentsView };

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { silentLogger } from '@baocut/harness';
 import { ModelServiceStore } from '@baocut/models';
 import { FileCredentialStore, SettingsStore, readJson, resolveRuntimeHome, writeJsonAtomic } from '@baocut/runtime-storage';
-import { LegacyUpgrade } from './legacy-upgrade.ts';
+import { LegacyUpgrade, defaultLegacyImportDirectory } from './legacy-upgrade.ts';
 import { legacyRoots, readLegacySource } from './legacy-upgrade-sources.ts';
 import { importLegacyCloud } from './legacy-upgrade-cloud.ts';
 import { importLegacySettings } from './legacy-upgrade-settings.ts';
@@ -21,9 +21,21 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 const secret = 'sk-fixture-legacy-key-123456';
-async function setup() {
+/**
+ * 旧版数据、新 Home 与模型目录。`decided`（缺省）预先记下「导入到 `imported`」，迁移机制的用例不必每次回答询问；
+ * 询问本身的用例传 false。
+ */
+async function setup({ decided = true }: { decided?: boolean } = {}) {
   const root = path.join(dir, 'legacy');
   const home = resolveRuntimeHome({ BAOCUT_HOME: path.join(dir, 'new') });
+  const imported = path.join(dir, 'Documents', 'BaoCut');
+  if (decided) {
+    await writeJsonAtomic(path.join(home.root, 'store', 'legacy-upgrade.json'), {
+      schemaVersion: 1,
+      projectImport: { decision: 'import', directory: imported },
+      sources: {},
+    });
+  }
   const log = silentLogger;
   await writeJsonAtomic(path.join(root, 'config.json'), {
     values: { 'models.dir': path.join(dir, 'models'), 'download.dir': path.join(dir, 'downloads') },
@@ -33,10 +45,14 @@ async function setup() {
   await writeJsonAtomic(path.join(root, 'projects', 'old', 'doc.json'), { words: [] });
   const models = await ModelServiceStore.open(home, new FileCredentialStore(home.modelCredentialsFile));
   const openProject = vi.fn(async () => {});
-  return { root, home, log, models, openProject, deps: { models, engine: '/fixture/engine', openProject, env: async () => ({}) } };
+  return { root, home, log, models, openProject, imported, deps: { models, engine: '/fixture/engine', openProject, env: async () => ({}) } };
 }
 async function finish(upgrade: LegacyUpgrade) {
   await vi.waitFor(() => expect(upgrade.active).toBe(false));
+}
+async function prompted(upgrade: LegacyUpgrade) {
+  await vi.waitFor(() => expect(upgrade.prompt()).not.toBeNull());
+  return upgrade.prompt()!;
 }
 
 describe('legacy startup upgrade', () => {
@@ -180,7 +196,7 @@ it.skipIf(
   'wires startup migration into the real Runtime and reopens without reimporting',
   async () => {
     const { startRuntime } = await import('./runtime.ts');
-    const { root, home } = await setup();
+    const { root, home, imported } = await setup();
     await fs.rm(path.join(root, 'projects'), { recursive: true });
     await writeJsonAtomic(path.join(root, 'projects', 'blank', 'project.json'), { formatVersion: '0.1', title: 'Imported title' });
     await writeJsonAtomic(path.join(root, 'projects', 'second', 'project.json'), { formatVersion: '0.1', title: 'Second video' });
@@ -200,8 +216,8 @@ it.skipIf(
         );
         expect(runtime.harness.listProjects()).toHaveLength(1);
         const project = runtime.harness.listProjects()[0]!;
-        expect(project.name).toBe('Imported');
-        expect(project.path).toBe(await fs.realpath(path.join(home.projectsDir, 'Imported')));
+        expect(project.name).toBe('BaoCut');
+        expect(project.path).toBe(await fs.realpath(imported));
         const videos = (await fs.readdir(project.path)).filter((name) => name.startsWith('legacy-'));
         expect(videos).toHaveLength(2);
         for (const video of videos) await fs.access(path.join(project.path, video, 'video.db'));
@@ -294,7 +310,13 @@ it('detects legacy data in the default desktop development home without a legacy
     const upgrade = new LegacyUpgrade({ home, log: silentLogger, platform: 'darwin', importProject, allowKeychain: false });
     await upgrade.prepare();
     upgrade.start({ models, engine: 'fixture-engine', openProject: async () => {}, env: async () => ({}) });
+    if (i === 0) {
+      const prompt = await prompted(upgrade);
+      expect(prompt.defaultDirectory).toBe(path.join(dir, 'Documents', 'BaoCut'));
+      await upgrade.answer({ promptId: prompt.promptId, decision: 'import', directory: prompt.defaultDirectory });
+    }
     await finish(upgrade);
+    expect(upgrade.prompt()).toBeNull();
     const settings = new SettingsStore(home.settingsFile);
     await settings.load();
     expect(settings.get('models.dir')).toBe(modelsDir);
@@ -422,11 +444,11 @@ it('groups distinct sources in the same project with stable, separate video path
   expect(new Set(requests.map(([request]) => request.target)).size).toBe(2);
   for (const [request] of requests) {
     expect(request.videoDirectory).toBe(true);
-    expect(path.dirname(request.target)).toBe(path.join(s.home.projectsDir, 'Imported'));
+    expect(path.dirname(request.target)).toBe(s.imported);
   }
   expect(s.openProject.mock.calls).toEqual([
-    [path.join(s.home.projectsDir, 'Imported'), undefined],
-    [path.join(s.home.projectsDir, 'Imported'), undefined],
+    [s.imported, undefined],
+    [s.imported, undefined],
   ]);
 });
 
@@ -501,3 +523,195 @@ it.skipIf(process.platform === 'win32' ||
   },
   30_000,
 );
+
+describe('legacy project import prompt', () => {
+  const markerOf = (s: { home: { root: string } }) => path.join(s.home.root, 'store', 'legacy-upgrade.json');
+
+  it.skipIf(process.platform === 'win32')('asks before importing projects, then imports into the chosen folder and never asks again', async () => {
+    const s = await setup({ decided: false });
+    await writeJsonAtomic(path.join(s.root, 'projects', 'v2', 'project.json'), { title: 'V2 title' });
+    const importProject = vi.fn(async (_request: { target: string }) => {});
+    const options = { ...s, roots: [s.root], v1Preferences: null, importProject, platform: 'darwin' as const, allowKeychain: false };
+    const first = new LegacyUpgrade(options);
+    await first.prepare();
+    const events: unknown[] = [];
+    first.topic.subscribe(undefined, (sequenced) => events.push(sequenced.event));
+    first.start(s.deps);
+    const prompt = await prompted(first);
+    // 设置与云凭据不等回答；等回答不算后台任务（CLI 拉起的 Runtime 照常空闲退出）。
+    expect(await s.models.credential('openai')).toBe(secret);
+    expect(first.active).toBe(false);
+    expect(importProject).not.toHaveBeenCalled();
+    expect(prompt.projects.map((project) => project.title).sort()).toEqual(['V2 title', 'old']);
+    expect(prompt.projects.every((project) => project.editedAt && !Number.isNaN(Date.parse(project.editedAt)))).toBe(true);
+    expect(events).toEqual([{ type: 'prompt.updated', prompt }]);
+
+    await expect(first.answer({ promptId: 'stale', decision: 'never' })).rejects.toMatchObject({ code: 'not-found' });
+    const refused = async (directory: string) =>
+      expect(first.answer({ promptId: prompt.promptId, decision: 'import', directory })).rejects.toMatchObject({ code: 'invalid-request' });
+    await refused('relative/BaoCut');
+    await refused(path.join(s.root, 'Imported'));
+    await refused(path.join(s.home.root, 'Imported'));
+    await fs.writeFile(path.join(dir, 'not-a-folder'), '');
+    await refused(path.join(dir, 'not-a-folder', 'BaoCut'));
+    expect(first.prompt()).toEqual(prompt);
+
+    const chosen = path.join(dir, 'Chosen', 'BaoCut');
+    await first.answer({ promptId: prompt.promptId, decision: 'import', directory: chosen });
+    await finish(first);
+    expect(first.prompt()).toBeNull();
+    expect(events.at(-1)).toEqual({ type: 'prompt.updated', prompt: null });
+    expect(importProject).toHaveBeenCalledTimes(2);
+    for (const [request] of importProject.mock.calls) expect(path.dirname(request.target)).toBe(chosen);
+    expect(s.openProject.mock.calls).toEqual([
+      [chosen, undefined],
+      [chosen, undefined],
+    ]);
+    const marker = await readJson<any>(markerOf(s));
+    expect(marker.projectImport).toEqual({ decision: 'import', directory: chosen });
+    expect(marker.complete).toBe(true);
+    await expect(first.answer({ promptId: prompt.promptId, decision: 'never' })).rejects.toMatchObject({ code: 'not-found' });
+
+    const again = new LegacyUpgrade(options);
+    await again.prepare();
+    again.start(s.deps);
+    await finish(again);
+    expect(again.prompt()).toBeNull();
+    expect(importProject).toHaveBeenCalledTimes(2);
+  });
+
+  it('records nothing when the prompt goes unanswered, and asks again on the next launch', async () => {
+    const s = await setup({ decided: false });
+    const importProject = vi.fn(async () => {});
+    const options = { ...s, roots: [s.root], v1Preferences: null, importProject, platform: 'darwin' as const, allowKeychain: false };
+    const first = new LegacyUpgrade(options);
+    await first.prepare();
+    first.start(s.deps);
+    const prompt = await prompted(first);
+    await first.stop();
+    expect(first.prompt()).toBeNull();
+    await expect(first.answer({ promptId: prompt.promptId, decision: 'never' })).rejects.toMatchObject({ code: 'not-found' });
+    const marker = await readJson<any>(markerOf(s));
+    expect(marker.projectImport).toBeUndefined();
+    expect(marker.complete).toBeUndefined();
+    expect(marker.sources[s.root]).toMatchObject({ settings: true, cloud: true });
+
+    const again = new LegacyUpgrade(options);
+    await again.prepare();
+    again.start(s.deps);
+    const next = await prompted(again);
+    expect(next.promptId).not.toBe(prompt.promptId);
+    expect(next.projects).toEqual(prompt.projects);
+    await again.stop();
+    expect(importProject).not.toHaveBeenCalled();
+  });
+
+  it('never imports after "don\'t remind me", and later launches read only the marker', async () => {
+    const s = await setup({ decided: false });
+    const importProject = vi.fn(async () => {});
+    const options = { ...s, roots: [s.root], v1Preferences: null, importProject, platform: 'darwin' as const, allowKeychain: false };
+    const first = new LegacyUpgrade(options);
+    await first.prepare();
+    first.start(s.deps);
+    const prompt = await prompted(first);
+    await first.answer({ promptId: prompt.promptId, decision: 'never' });
+    await finish(first);
+    const markerFile = markerOf(s);
+    const marker = await readJson<any>(markerFile);
+    expect(marker.projectImport).toEqual({ decision: 'never' });
+    expect(marker.complete).toBe(true);
+    expect(importProject).not.toHaveBeenCalled();
+    expect(existsSync(path.join(dir, 'Documents', 'BaoCut'))).toBe(false);
+
+    const read = vi.spyOn(fs, 'readFile');
+    const scan = vi.spyOn(fs, 'readdir');
+    const again = new LegacyUpgrade(options);
+    await again.prepare();
+    again.start(s.deps);
+    await finish(again);
+    expect(again.prompt()).toBeNull();
+    expect(read.mock.calls.map(([file]) => String(file))).toEqual([markerFile]);
+    expect(scan).not.toHaveBeenCalled();
+    expect(importProject).not.toHaveBeenCalled();
+  });
+
+  it('keeps importing a migration started by an earlier build into its original layout without asking', async () => {
+    const s = await setup({ decided: false });
+    await writeJsonAtomic(path.join(s.root, 'projects', 'v2', 'project.json'), { title: 'Later' });
+    const started = await fs.realpath(path.join(s.root, 'projects', 'old'));
+    const earlierTarget = path.join(s.home.projectsDir, 'Imported', 'legacy-earlier');
+    await writeJsonAtomic(markerOf(s), {
+      schemaVersion: 1,
+      sources: {
+        [s.root]: {
+          settings: true, cloud: true, services: true, nodes: true, credentials: [], pending: [], unsupported: [],
+          projects: { [started]: { target: earlierTarget, videoDirectory: true } },
+        },
+      },
+    });
+    const importProject = vi.fn(async (_request: { source: string; target: string }) => {});
+    const upgrade = new LegacyUpgrade({ ...s, roots: [s.root], v1Preferences: null, importProject, platform: 'darwin', allowKeychain: false });
+    await upgrade.prepare();
+    const events: unknown[] = [];
+    upgrade.topic.subscribe(undefined, (sequenced) => events.push(sequenced.event));
+    upgrade.start(s.deps);
+    await finish(upgrade);
+    expect(events).toEqual([]);
+    const targets = Object.fromEntries(importProject.mock.calls.map(([request]) => [path.basename(request.source), request.target]));
+    expect(targets.old).toBe(earlierTarget);
+    expect(path.dirname(targets.v2!)).toBe(path.join(s.home.projectsDir, 'Imported'));
+    expect((await readJson<any>(markerOf(s))).projectImport).toEqual({
+      decision: 'import',
+      directory: path.join(s.home.projectsDir, 'Imported'),
+    });
+  });
+
+  it('defaults to BaoCut in the host documents folder', () => {
+    expect(defaultLegacyImportDirectory({ BAOCUT_DOCUMENTS_DIR: path.join(dir, 'OneDrive', 'Documents') }, dir)).toBe(
+      path.join(dir, 'OneDrive', 'Documents', 'BaoCut'),
+    );
+    expect(defaultLegacyImportDirectory({}, dir)).toBe(path.join(dir, 'Documents', 'BaoCut'));
+  });
+
+  it('serves the prompt over the gateway, and only the desktop app and the CLI can answer it', async () => {
+    const { startRuntime } = await import('./runtime.ts');
+    const { BaoCutClient } = await import('@baocut/client');
+    const s = await setup({ decided: false });
+    await writeJsonAtomic(path.join(s.root, 'projects', 'v2', 'project.json'), { title: 'V2 title' });
+    vi.stubEnv('BAOCUT_LEGACY_ROOT', s.root);
+    vi.stubEnv('BAOCUT_HOME', s.home.root);
+    const runtime = await startRuntime({ home: s.home, drivers: () => [], modelWorker: null, engineHost: null, watchSpace: false });
+    const clients: InstanceType<typeof BaoCutClient>[] = [];
+    const connect = async (kind: 'desktop' | 'agent') => {
+      const { endpoint, token } = runtime.discovery;
+      const client = new BaoCutClient({ resolve: async () => ({ endpoint, token }), client: { kind, name: 'test', version: '0' }, reconnect: false });
+      await client.connect();
+      clients.push(client);
+      return client;
+    };
+    try {
+      const desktop = await connect('desktop');
+      const seen: unknown[] = [];
+      desktop.subscribeLegacyImport({ snapshot: (snapshot) => seen.push(snapshot.prompt), event: (event) => seen.push(event.prompt) });
+      await vi.waitFor(async () => expect((await desktop.request('legacyImport.get', {})).prompt).not.toBeNull());
+      const prompt = (await desktop.request('legacyImport.get', {})).prompt!;
+      expect(prompt.projects.map((project) => project.title)).toContain('V2 title');
+      await vi.waitFor(() => expect(seen.at(-1)).toEqual(prompt));
+
+      const agent = await connect('agent');
+      await expect(agent.request('legacyImport.answer', { promptId: prompt.promptId, decision: 'never' })).rejects.toMatchObject({
+        code: 'forbidden',
+      });
+      expect((await desktop.request('legacyImport.get', {})).prompt).toEqual(prompt);
+
+      await desktop.request('legacyImport.answer', { promptId: prompt.promptId, decision: 'never' });
+      await vi.waitFor(() => expect(seen.at(-1)).toBeNull());
+      await vi.waitFor(async () => expect((await readJson<any>(markerOf(s))).complete).toBe(true));
+      expect((await readJson<any>(markerOf(s))).projectImport).toEqual({ decision: 'never' });
+      expect(runtime.harness.listProjects()).toEqual([]);
+    } finally {
+      for (const client of clients) client.close();
+      await runtime.close();
+    }
+  }, 30_000);
+});
