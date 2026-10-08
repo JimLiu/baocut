@@ -87,16 +87,21 @@ export function problemText(problem: ToolProblem, withRemedy = false): string {
 
 /**
  * 这个工具此刻为什么按不了（以 `tools.list` 为准）：不可用时第一条原因；执行它的流程（按输入种类，`executionByInput`）
- * 不在 `pipelines.list` 里时写 `pipelineMissing()`。能用、或状态还没到时 null。`pipelines` 为 null 时不判断流程。
+ * 不在 `pipelines.list` 里时写 `pipelineMissing()`。`requiredCapabilities` 把本次选中的可选能力限制也算进来。
+ * 能用、或状态还没到时 null。`pipelines` 为 null 时不判断流程。
  */
 export function toolBlock(
   status: ToolStatus | null | undefined,
   pipelines: readonly PipelineInfo[] | null,
   input?: ToolInputKind,
   withRemedy = false,
+  requiredCapabilities: readonly ModelServiceCapability[] = [],
 ): string | null {
   if (!status) return null;
   if (!status.available) return status.problems[0] ? problemText(status.problems[0], withRemedy) : M.pipelineMissing;
+  // 下载本身不要求转录模型；用户要同时转录时，对应的可选能力限制就是提交的阻碍。
+  const missing = status.limitations.find((problem) => problem.capability && requiredCapabilities.includes(problem.capability));
+  if (missing) return problemText(missing, withRemedy);
   const execution = (input && status.executionByInput?.[input]) || status.execution;
   if (pipelines && execution.kind === 'pipeline' && !pipelines.some((p) => p.name === execution.pipeline)) return M.pipelineMissing;
   return null;

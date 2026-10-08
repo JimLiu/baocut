@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { create } from 'zustand';
-import type { PipelineInfo, ToolInputKind, ToolStatus } from '@baocut/protocol';
+import type { ModelServiceCapability, PipelineInfo, ToolInputKind, ToolStatus } from '@baocut/protocol';
 import type { ToolId } from '../../model/tool-catalog.ts';
 import { toolBlock } from '../../model/tools-gallery.ts';
 import type { RuntimeSession } from '../../runtime/session.ts';
@@ -80,9 +80,14 @@ export function useToolStatus(): ToolStatusView {
  * 这个工具从这种输入开始时为什么按不了：`tools.list` 的第一条原因（带补救），或执行它的流程不在 `pipelines.list` 里。
  * 能用时 null；状态还没到时 undefined。
  */
-export function blockOf(status: ToolStatusView, id: ToolId, input?: ToolInputKind): string | null | undefined {
+export function blockOf(
+  status: ToolStatusView,
+  id: ToolId,
+  input?: ToolInputKind,
+  requiredCapabilities: readonly ModelServiceCapability[] = [],
+): string | null | undefined {
   if (!status.ready) return undefined;
   const one = status.byId.get(id);
   if (!one) return FORM_COPY.notInRuntime;
-  return toolBlock(one, status.pipelines, input, true);
+  return toolBlock(one, status.pipelines, input, true, requiredCapabilities);
 }

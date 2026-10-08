@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { YtDlpTool } from '../pipelines/yt-dlp.ts';
 
 /** 假的 yt-dlp 脚本（`fake-yt-dlp.ts`）的绝对路径。 */
 export const FAKE_YT_DLP = fileURLToPath(new URL('./fake-yt-dlp.ts', import.meta.url));
@@ -8,6 +9,8 @@ export const FAKE_YT_DLP = fileURLToPath(new URL('./fake-yt-dlp.ts', import.meta
 export interface FakeYtDlp {
   /** 可执行的包装（`<dir>/yt-dlp`）。 */
   command: string;
+  /** 直接用当前 Node 运行，供跨平台的进程测试使用（Windows 不能直接启动 sh 包装）。 */
+  nodeTool: YtDlpTool;
   /** 每次调用追加一行 `{ argv }`。 */
   log: string;
   /** 读出记下的调用。 */
@@ -33,6 +36,11 @@ export async function writeFakeYtDlp(dir: string, options: { version?: string; n
   await fs.writeFile(command, lines.join('\n'), { mode: 0o755 });
   return {
     command,
+    nodeTool: {
+      command: process.execPath,
+      args: [FAKE_YT_DLP],
+      env: { FAKE_YTDLP_LOG: log, ...(options.version ? { FAKE_YTDLP_VERSION: options.version } : {}) },
+    },
     log,
     async calls() {
       const text = await fs.readFile(log, 'utf8').catch(() => '');
