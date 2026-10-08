@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -160,6 +161,35 @@ describe.skipIf(!engine || !ffmpeg)('视频（真实引擎）', () => {
     sequences.set(opened.ref.videoId, opened.snapshot.video.rootSequenceId);
     return opened;
   }
+
+  it('关闭视频时清理 blobs/：没有引用的 blob 删掉，仍被引用的与新鲜的 staging 留着；还有租约时不关闭也不清理', async () => {
+    const { ref, snapshot } = await create(client, 'GC');
+    await client.request('edits.apply', {
+      videoId: ref.videoId,
+      commandId: newId('cmd'),
+      expectedRevision: snapshot.video.revision,
+      operations: [{ type: 'importAsset', path: clip, storage: 'managed' }],
+    });
+    const blobs = path.join(ref.path, 'blobs');
+    const [managed] = await fs.readdir(blobs).then((names) => names.filter((name) => name !== '.staging'));
+    const orphan = path.join(blobs, `${'a'.repeat(64)}.mp4`);
+    const fresh = path.join(blobs, '.staging', 'import_fresh');
+    await fs.writeFile(orphan, 'orphan');
+    await fs.writeFile(fresh, 'being written');
+
+    // 有租约：打开者走了也不关闭，不清理。
+    runtime.videos.retain(ref.videoId);
+    await client.request('videos.close', { videoId: ref.videoId });
+    expect(runtime.videos.mirror(ref.videoId)).not.toBeNull();
+    await expect(fs.stat(orphan)).resolves.toBeTruthy();
+
+    // 租约放下后按宽限期关闭，关闭前清理。
+    runtime.videos.release(ref.videoId);
+    await until(() => runtime.videos.mirror(ref.videoId) === null);
+    await until(() => !existsSync(orphan));
+    expect(existsSync(path.join(blobs, managed!))).toBe(true);
+    expect(existsSync(fresh)).toBe(true);
+  });
 
   it('新建、导入并添加；回执到达时镜像已经应用了事件，与引擎重新读出的快照一致', async () => {
     const { ref, snapshot } = await create(client, '第一部');

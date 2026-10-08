@@ -13,6 +13,7 @@ use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use message_ref::msg;
 use video_engine::error::kinds;
+use video_engine::gc::STAGING_GRACE;
 use video_engine::model::{Actor, ActorKind, Id};
 
 use video_engine::{
@@ -333,6 +334,27 @@ impl Host {
                 result["videoId"] = json!(video_id);
                 Ok(result)
             }
+            "videos.gcBlobs" => {
+                // 视频目录 `blobs/` 的 GC（架构设计 §5.2、§5.5）：要写锁。开着的视频就地做；没开的临时取写锁，
+                // 别的进程锁着时照常以 `VIDEO_LOCKED` 拒绝。还有冻结任务租约、导出或便携包导入时由 Runtime 决定不调用。
+                let p: PathParams = params(value)?;
+                let dir = canonical(&absolute(&p.path)?)?;
+                let report = match self.by_path.get(&dir).and_then(|id| self.videos.get(id)) {
+                    Some(video) => video.gc_blobs(STAGING_GRACE)?,
+                    None => Video::open(&dir, OpenMode::Write, &self.ffprobe)?.gc_blobs(STAGING_GRACE)?,
+                };
+                if !report.removed.is_empty() || !report.staging_removed.is_empty() || !report.failed.is_empty() {
+                    eprintln!(
+                        "engine-host: {} 的 GC 删掉 {} 个 blob、{} 个 staging 残留，释放 {} 字节，{} 个删不掉",
+                        dir.display(),
+                        report.removed.len(),
+                        report.staging_removed.len(),
+                        report.freed_bytes,
+                        report.failed.len()
+                    );
+                }
+                Ok(serde_json::to_value(report).expect("能序列化"))
+            }
             "videos.inspect" => {
                 let p: PathParams = params(value)?;
                 let dir = canonical(&absolute(&p.path)?)?;
@@ -629,6 +651,46 @@ mod tests {
             .handle("videos.claimProject", json!({ "path": copy, "projectId": "proj_b" }), &mut |_| {})
             .unwrap();
         assert_eq!(same, json!({ "outcome": "unchanged", "videoId": opened["videoId"] }));
+    }
+
+    #[test]
+    fn gc_blobs_runs_on_open_and_closed_videos_but_not_on_locked_ones() {
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join("m");
+        let mut host = host();
+        let params = json!({ "path": dir, "name": "GC", "fps": { "num": 30, "den": 1 }, "width": 1280, "height": 720 });
+        let created = host.handle("videos.create", params, &mut |_| {}).unwrap();
+        let orphan = |n: &str| {
+            let path = dir.join("blobs").join(format!("{}.png", n.repeat(64)));
+            std::fs::write(&path, b"orphan").unwrap();
+            path
+        };
+
+        // 开着的视频就地做。
+        let first = orphan("a");
+        let report = host.handle("videos.gcBlobs", json!({ "path": dir }), &mut |_| {}).unwrap();
+        assert!(!first.exists());
+        assert_eq!(report["removed"][0]["path"], json!(format!("blobs/{}.png", "a".repeat(64))));
+        assert_eq!(report["freedBytes"], json!(6));
+
+        // 别的进程（这里是另一个 Host）锁着时拒绝，什么都不删。
+        let second = orphan("b");
+        let mut other = Host::new(PathBuf::from("ffprobe"));
+        let err = other.handle("videos.gcBlobs", json!({ "path": dir }), &mut |_| {}).unwrap_err();
+        assert_eq!(err.code, "VIDEO_LOCKED");
+        assert!(second.exists());
+
+        // 关闭之后临时取写锁来做，做完放下。
+        host.handle("videos.close", json!({ "videoId": created["videoId"] }), &mut |_| {})
+            .unwrap();
+        other.handle("videos.gcBlobs", json!({ "path": dir }), &mut |_| {}).unwrap();
+        assert!(!second.exists());
+        host.handle("videos.open", json!({ "path": dir }), &mut |_| {})
+            .expect("GC 放下了锁");
+        assert!(
+            host.handle("videos.gcBlobs", json!({ "path": dir, "extra": 1 }), &mut |_| {})
+                .is_err()
+        );
     }
 
     #[test]
