@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "target": "x86_64-pc-windows-msvc",
+  "variant": "cuda",
+  "version": "3.0.0",
+  "build": 60,
+  "date": "2026-10-08",
+  "notes": "",
+  "notesLocalized": {},
+  "app": {
+    "format": "exe",
+    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.0.0-build.60/BaoCut-3.0.0-build.60-win-x64-cuda-setup.exe",
+    "size": 749295179,
+    "sha256": "73c88b16f25199b12d3bcbc0ee086793ce062303092b1ca2545b0150bfff2525"
+  }
+}
