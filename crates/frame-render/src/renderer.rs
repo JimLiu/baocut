@@ -651,6 +651,8 @@ impl FrameRenderer {
             .map_err(RenderError::render)?;
             // 画出的层不读 DrawOp 指纹：动态栅格的资源名不必逐帧哈希整帧像素。
             plan.set_dynamic_asset_names(DynamicAssetNames::Slot);
+            // 源画面每次画前注入、画完清空：计划可以独占它，不再复制一份。
+            plan.set_consume_injected_sources(true);
             self.elements = Some(plan);
         }
         Ok(self.elements.as_mut().expect("刚编好"))

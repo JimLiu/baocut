@@ -1439,6 +1439,7 @@ impl OverlayRenderPlan {
             chrome_error: None,
             sequence,
             dynamic_asset_names: DynamicAssetNames::default(),
+            consume_injected_sources: false,
         })
     }
 
@@ -2413,6 +2414,14 @@ impl OverlayRenderPlan {
     /// 见 [`DynamicAssetNames`]。
     pub fn set_dynamic_asset_names(&mut self, names: DynamicAssetNames) {
         self.dynamic_asset_names = names;
+    }
+
+    /// 媒体元素画完就从 `media.injected` 里拿走它用的源画面（缺省不拿）。
+    ///
+    /// 只给每帧重新注入、画一次就清空注入表的宿主（frame-render 一次画一个实例）：没有效果要烘时，
+    /// 计划独占的源画面直接当局部画布用，省一次整幅复制。像素不变。
+    pub fn set_consume_injected_sources(&mut self, consume: bool) {
+        self.consume_injected_sources = consume;
     }
 
     /// 这一帧第 `slot` 个动态栅格的资源名（[`DynamicAssetNames`]）。
@@ -5427,11 +5436,25 @@ impl OverlayRenderPlan {
             let source = self.whiteboard_source_at(source_id, &source, target);
             self.whiteboard_source_frame(element, source_id, &source, time)?
         } else {
-            let mut filtered = Pixmap::from_vec(
-                source.data().to_vec(),
-                IntSize::from_wh(source.width(), source.height()).context("媒体元素尺寸非法")?,
-            )
-            .context("媒体元素 RGBA 尺寸非法")?;
+            // 宿主声明注入的源画面只用这一次、又没有效果要烘时，从注入表拿走：计划独占它就不必复制。
+            if self.consume_injected_sources
+                && element.fx.is_none()
+                && self
+                    .media
+                    .injected
+                    .get(source_id)
+                    .is_some_and(|injected| Arc::ptr_eq(injected, &source))
+            {
+                self.media.injected.remove(source_id);
+            }
+            let mut filtered = match Arc::try_unwrap(source) {
+                Ok(owned) => owned,
+                Err(shared) => Pixmap::from_vec(
+                    shared.data().to_vec(),
+                    IntSize::from_wh(shared.width(), shared.height()).context("媒体元素尺寸非法")?,
+                )
+                .context("媒体元素 RGBA 尺寸非法")?,
+            };
             apply_media_effects(
                 &mut filtered,
                 element.fx.as_ref(),
@@ -6467,7 +6490,7 @@ impl OverlayRenderPlan {
             // `draw_op_fingerprint` 表示，两者不可互相顶替。
             subtitle_key: subtitle.map(|subtitle| subtitle.key),
             draw_op_fingerprint,
-            rgba: pixmap.data().to_vec(),
+            rgba: pixmap.take(),
             next_change,
         })
     }
