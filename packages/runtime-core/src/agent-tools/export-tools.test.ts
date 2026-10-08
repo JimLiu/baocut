@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { BaoCutClient } from '@baocut/client';
+import { JobLedger } from '@baocut/jobs';
 import { newId, type AgentMode, type Autonomy, type Id, type Project } from '@baocut/protocol';
 import { resolveRuntimeHome } from '@baocut/runtime-storage';
 import { resolveEngineHostCommand } from '../videos/engine-host.ts';
@@ -205,7 +206,7 @@ describe.skipIf(!engine || !ffmpeg)('导出工具（真实引擎）', () => {
     const record = await client.request('exports.get', { jobId: submitted.body.jobId });
     expect(record.export?.settings.purpose).toBe('preview');
     expect(await fs.readFile(job.outputs[0].path, 'utf8')).toContain('Hello there.');
-    const stored = JSON.parse(await fs.readFile(path.join(dir, 'store', 'jobs.json'), 'utf8'));
+    const stored = { jobs: (await new JobLedger(path.join(dir, 'store', 'jobs.jsonl')).load()) as Loose[] };
     expect(stored.jobs.find((j: Loose) => j.record.jobId === record.jobId).record.export.settings.purpose).toBe('preview');
   });
 

@@ -20,6 +20,7 @@ import {
   type TranscribeRun,
   type TranscribeSink,
 } from '@baocut/models';
+import { JobLedger } from './job-ledger.ts';
 import { JobManager, type FileJobOutput, type FileTranscribeRequest, type JobVideos } from './job-manager.ts';
 import { LocalTranscribeProvider } from './local-provider.ts';
 import { FAKE_MODEL_WORKER } from './index.ts';
@@ -272,7 +273,7 @@ describe('JobManager（假 Model Worker）', () => {
   beforeEach(async () => {
     dir = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-jobs-'));
     paths = {
-      jobsFile: path.join(dir, 'store', 'jobs.json'),
+      jobsFile: path.join(dir, 'store', 'jobs.jsonl'),
       stagingDir: path.join(dir, 'staging'),
       artifactsDir: path.join(dir, 'artifacts'),
       diagnosticsDir: path.join(dir, 'logs', 'diagnostics'),
@@ -367,8 +368,8 @@ describe('JobManager（假 Model Worker）', () => {
     expect(events.some((e) => e.progress?.unit === 'segments' && e.progress.total === 3)).toBe(true);
 
     // 账本
-    const ledger = JSON.parse(await fs.readFile(paths.jobsFile, 'utf8'));
-    expect(ledger.jobs[0].record).toMatchObject({ jobId: job.jobId, state: 'completed' });
+    const ledger = { jobs: await new JobLedger(paths.jobsFile).load() };
+    expect(ledger.jobs[0]!.record).toMatchObject({ jobId: job.jobId, state: 'completed' });
     expect(manager.list('mov_1').map((j) => j.jobId)).toEqual([job.jobId]);
     expect(manager.list('other')).toEqual([]);
   });
@@ -648,9 +649,11 @@ describe('JobManager（假 Model Worker）', () => {
       hint: null,
       outputContract: 'baocut.asr-result/v1',
     };
+    // 旧格式的 `jobs.json`：启动时导入成 `jobs.jsonl`，旧文件改名为 `.migrated`。
+    const legacy = path.join(path.dirname(paths.jobsFile), 'jobs.json');
     await fs.mkdir(path.dirname(paths.jobsFile), { recursive: true });
     await fs.writeFile(
-      paths.jobsFile,
+      legacy,
       JSON.stringify({
         formatVersion: 1,
         jobs: [
@@ -667,8 +670,10 @@ describe('JobManager（假 Model Worker）', () => {
     expect(manager.inspect('job_running')).toMatchObject({ state: 'interrupted', error: { code: 'JOB_INTERRUPTED' } });
     expect(manager.inspect('job_done').state).toBe('completed');
     for (const name of ['job_running', 'job_done', 'job_unknown']) expect(await exists(stagingOf(name))).toBe(false);
-    const ledger = JSON.parse(await fs.readFile(paths.jobsFile, 'utf8'));
-    expect(ledger.jobs.map((j: { record: JobRecord }) => j.record.state)).toEqual(['interrupted', 'completed']);
+    expect(await exists(legacy)).toBe(false);
+    expect(await exists(`${legacy}.migrated`)).toBe(true);
+    const jobs = await new JobLedger(paths.jobsFile).load();
+    expect(jobs.map((j) => j.record.state)).toEqual(['interrupted', 'completed']);
   });
 
   it('停止：在途任务标为中断，Worker 进程退出', async () => {

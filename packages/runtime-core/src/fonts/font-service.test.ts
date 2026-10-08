@@ -176,7 +176,7 @@ describe('按需下载的字体（FontService）', () => {
     server = await fakeFonts();
     jobs = new JobManager({
       paths: {
-        jobsFile: path.join(dir, 'store', 'jobs.json'),
+        jobsFile: path.join(dir, 'store', 'jobs.jsonl'),
         stagingDir: path.join(dir, 'staging'),
         artifactsDir: path.join(dir, 'artifacts'),
         diagnosticsDir: path.join(dir, 'logs', 'diagnostics'),

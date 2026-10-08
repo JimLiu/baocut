@@ -44,7 +44,7 @@ describe('不经模型的任务（JobManager.submitTask）', () => {
   beforeEach(async () => {
     dir = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-task-jobs-'));
     paths = {
-      jobsFile: path.join(dir, 'store', 'jobs.json'),
+      jobsFile: path.join(dir, 'store', 'jobs.jsonl'),
       stagingDir: path.join(dir, 'staging'),
       artifactsDir: path.join(dir, 'artifacts'),
       diagnosticsDir: path.join(dir, 'logs', 'diagnostics'),

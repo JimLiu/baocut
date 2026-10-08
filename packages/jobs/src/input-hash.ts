@@ -56,7 +56,7 @@ export interface GenerationInputSpec {
 
 /**
  * 不经模型的任务（导出，架构设计 §9.11）的规格：执行所需的一切在冻结快照的产物里，账本只记它的 ID，
- * 不把大的计划写进 `jobs.json`。执行者只在内存里（Runtime 重启后这类任务标为 `interrupted`，不续跑）。
+ * 不把大的计划写进 `jobs.jsonl`。执行者只在内存里（Runtime 重启后这类任务标为 `interrupted`，不续跑）。
  * 模型包的安装、修复与自检（§6.3）也是这类任务：账本只记模型包与要做的事。
  */
 export type TaskInputSpec =

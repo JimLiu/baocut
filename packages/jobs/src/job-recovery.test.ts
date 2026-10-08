@@ -25,7 +25,8 @@ import {
 import { JobManager, type JobVideos, type TranscribeRouter } from './job-manager.ts';
 import type { JobAdmission } from './job-admission.ts';
 import type { AppliedReceipt, ApplicationRun, JobFaultPoint } from './job-application.ts';
-import type { StoredJob } from './job-ledger.ts';
+import { ApplicationLedger } from './application-ledger.ts';
+import { JobLedger, type StoredJob } from './job-ledger.ts';
 import { cancellationFacts, recoveryAction, type RemoteTaskQuery, type RemoteTaskStatus } from './job-recovery.ts';
 import { reconcileChoices } from './job-reconcile.ts';
 
@@ -295,7 +296,7 @@ describe('重启恢复与对账（JobManager）', () => {
   beforeEach(async () => {
     dir = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-job-recovery-'));
     paths = {
-      jobsFile: path.join(dir, 'store', 'jobs.json'),
+      jobsFile: path.join(dir, 'store', 'jobs.jsonl'),
       stagingDir: path.join(dir, 'staging'),
       artifactsDir: path.join(dir, 'artifacts'),
       diagnosticsDir: path.join(dir, 'logs', 'diagnostics'),
@@ -321,17 +322,15 @@ describe('重启恢复与对账（JobManager）', () => {
   }
 
   async function stored(jobId: string): Promise<JobRecord | undefined> {
-    const text = await fs.readFile(paths.jobsFile, 'utf8').catch(() => '{"jobs":[]}');
-    const data = JSON.parse(text) as { jobs: StoredJob[] };
-    return data.jobs.find((job) => job.record.jobId === jobId)?.record;
+    const jobs = await new JobLedger(paths.jobsFile).load();
+    return jobs.find((job) => job.record.jobId === jobId)?.record;
   }
 
   /** 应用账本（权威）里这个任务的应用：崩溃之后内存里的投影不再更新，看磁盘。 */
   async function ledgerApps(jobId: string): Promise<NonNullable<JobRecord['applications']>> {
-    const data = JSON.parse(await fs.readFile(path.join(dir, 'store', 'applications.json'), 'utf8')) as {
-      applications: Array<{ record: NonNullable<JobRecord['applications']>[number] }>;
-    };
-    return data.applications.map((item) => item.record).filter((app) => app.jobId === jobId);
+    const ledger = new ApplicationLedger(path.join(dir, 'store', 'applications.jsonl'));
+    await ledger.load();
+    return ledger.forJob(jobId).map((item) => item.record);
   }
 
   /** 发布时按完成结算，之后无论应用怎样都不再结算。 */
@@ -510,7 +509,7 @@ describe('重启恢复与对账（JobManager）', () => {
     const before = await speak();
     expect(before).toMatchObject({ state: 'running', phase: 'publishing', result: null });
     expect(before).not.toHaveProperty('applications');
-    const ledger = JSON.parse(await fs.readFile(paths.jobsFile, 'utf8')) as { jobs: StoredJob[] };
+    const ledger = { jobs: await new JobLedger(paths.jobsFile).load() };
     const intent = ledger.jobs.find((j) => j.record.jobId === before.jobId)!.publishing!;
     expect(intent).toMatchObject({ artifactIds: [expect.stringMatching(/^sha256:/)], targetRefs: ['output1'] });
 
@@ -525,7 +524,7 @@ describe('重启恢复与对账（JobManager）', () => {
     expectSettledOnce(job);
     expect(videos.leases).toBe(0);
     // 意图在结果与应用记下之后清掉。
-    const after = JSON.parse(await fs.readFile(paths.jobsFile, 'utf8')) as { jobs: StoredJob[] };
+    const after = { jobs: await new JobLedger(paths.jobsFile).load() };
     expect(after.jobs.find((j) => j.record.jobId === before.jobId)).not.toHaveProperty('publishing');
   });
 
@@ -693,13 +692,14 @@ describe('重启恢复与对账（JobManager）', () => {
     }
     generator.release();
     // 给记录补上远端任务 ID（现有的适配器都没有，这里模拟一个支持查询的 Provider），恢复成崩溃时在跑的样子。
-    const data = JSON.parse(await fs.readFile(paths.jobsFile, 'utf8')) as { jobs: StoredJob[] };
+    const edit = new JobLedger(paths.jobsFile);
+    const data = { jobs: await edit.load() };
     expect(data.jobs.map((j) => j.record.state)).toEqual(['needs-reconciliation', 'needs-reconciliation', 'needs-reconciliation']);
     for (const job of data.jobs) {
       Object.assign(job.record, { state: 'running', error: null, endedAt: null });
       job.remoteTaskId = `remote_${ids.indexOf(job.record.jobId)}`;
     }
-    await fs.writeFile(paths.jobsFile, JSON.stringify(data));
+    await edit.save(data.jobs);
     const statuses: RemoteTaskStatus[] = [{ status: 'failed', message: '远端失败' }, { status: 'not-found' }, { status: 'running' }];
     const queried: string[] = [];
     remoteTasks = {
