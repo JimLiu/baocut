@@ -36,6 +36,7 @@ Bundle ID 不是证书名称。不同证书可拥有相同的显示名称；要�
 | `developer-id-<SHA1>.p12` | 密码保护的 PKCS#12，包含目标证书和匹配的私钥；仓库外与加密离线备份各一份 | 另一台 Mac 或 CI 使用相同签名身份 |
 | `developer-id-<SHA1>.cer` 或 `.pem` | 公共证书，与 `.p12` 一起保存 | 核对证书身份；单独不能签名 |
 | CSR `.certSigningRequest` | 保存申请所用请求 | 申请追溯；不包含私钥 |
+| `developer-id-private-key.encrypted.pem`（OpenSSL 申请路径） | 仅保存加密 PEM，解密密码另存 | 证书签发后与私钥组合成 `.p12`；不能单独当作完整签名身份 |
 | `.p12` 密码 | 密码管理器单独保存，与备份文件分开 | 解密签名身份 |
 | 公证凭据 | App Store Connect API 私钥 `.p8` + Key ID + Issuer ID，或 Apple ID + Team ID + app-specific password | `notarytool` 提交与查询 |
 | `signing-inventory.json` | 不含密码与私钥，记录 Bundle ID、Team、证书两种指纹、序列号、有效期、备份文件摘要和恢复验证状态 | 防止拿错证书或把待备份误报为已备份 |
@@ -48,10 +49,20 @@ Apple 只提供公共证书下载，不保存可重新下载的签名私钥。�
 ## 3. 新证书签发与恢复演练
 
 1. 在本机生成 CSR 与对应私钥。在 Apple Developer 选择 `Developer ID Application` 并提交 CSR，下载签发后的 `.cer`。保留旧证书，不能为申请新证书而撤销正在出货的身份。
-2. 将 `.cer` 导入生成私钥的同一台 Mac。在 Xcode › Settings › Accounts › Manage Certificates，选择**新签发且指纹匹配**的证书，使用 Export Certificate 导出加密 `.p12`；也可在 Keychain Access 的 My Certificates 中导出对应身份。密码由持有人在系统安全输入框输入，不发送到聊天。
+2. 若 CSR 由 Xcode / Keychain Access 生成，将 `.cer` 导入生成私钥的同一台 Mac。在 Xcode › Settings › Accounts › Manage Certificates，选择**新签发且指纹匹配**的证书，使用 Export Certificate 导出加密 `.p12`；也可在 Keychain Access 的 My Certificates 中导出对应身份。密码由持有人在系统安全输入框输入，不发送到聊天。
 3. 保存公共证书、CSR、加密 `.p12` 和清单。清单先把 `privateKeyBackupVerified` 设为 `false`；公共证书备份不能把此值改成 `true`。
 4. 将 `.p12` 导入一个临时钥匙串，用其中的身份签一个临时二进制并验证。确认 SHA-1 与 SHA-256 对上目标证书，才将 `privateKeyBackupVerified` 设为 `true`。演练不能只检查 `.p12` 文件存在或能读到证书。
 5. 将加密备份复制到第二处安全存储，解密密码单独保存。记录恢复演练结果与备份位置的提示，不把真实秘密写入清单。
+
+若使用 OpenSSL 生成 CSR 与加密 PEM 私钥，私钥不会自动进入钥匙串。收到 `.cer` 后先转换为 PEM，核对证书公钥与 CSR 公钥匹配，再组合成加密 `.p12`，最后导入钥匙串。不能只导入 `.cer` 就宣称获得签名身份：
+
+```bash
+openssl x509 -inform DER -in developer-id.cer -out developer-id.pem
+openssl pkcs12 -export -inkey developer-id-private-key.encrypted.pem \
+  -in developer-id.pem -out developer-id.p12
+```
+
+命令会分别提示私钥解密密码和 `.p12` 导出密码。自动准备的请求放在本机目录的 `request-<唯一 ID>/`，`request-inventory.json` 记录加密私钥、CSR 摘要与密码的钥匙串定位信息。自动生成的随机密码存入本机钥匙串的 `com.baocut.release.signing` service，account 由清单指定；生成器应通过进程管道读取，不将密码作为日志或聊天输出。持有人可在 Keychain Access 中找到该项，再将密码另存到密码管理器。仅本机钥匙串有密码时，异地恢复仍为未验证。
 
 查看本机可用身份（只显示公共名称和 SHA-1）：
 
