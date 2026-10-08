@@ -41,6 +41,7 @@ import {
   bundleFacts,
   bundleName,
   canReenable,
+  componentLabel,
   isBundleInstalled,
   licenseLines,
   licenseLineText,
@@ -645,7 +646,7 @@ function BundleRow({
           {bundle.components?.length ? (
             bundle.components.map((c) => (
               <li key={`${c.component}:${c.repo}`} className={detailLine}>
-                <span>{c.component}</span>
+                <span>{componentLabel(c.component)}</span>
                 <span className={detailRepo}>
                   {c.repo}@{c.revision.slice(0, 7)}
                 </span>
