@@ -17,3 +17,6 @@ dist/
 packages/ui/src/render/generated/
 packages/editor-wasm/src/generated/
 apps/cli/src/generated/
+# 编码代理的 worktree 与 worktree 专用的 Cargo target 目录（开发流程 §5）
+.claude/worktrees/
+/target-*/
