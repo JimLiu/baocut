@@ -5,6 +5,8 @@ export const zhHant: LocalModelsMessages = {
     availableNote: '下載前會先顯示要下載多少，以及磁碟還剩多少空間。下載可以暫停；已下載的部分會保留，下次接著下載。',
     download: '下載',
     complete: '補齊',
+    downloadSize: (size: string) => `下載 ${size}`,
+    completeSize: (size: string) => `補齊 ${size}`,
     resume: '繼續下載',
     pause: '暫停',
     cancelDownload: '取消下載',
@@ -14,7 +16,7 @@ export const zhHant: LocalModelsMessages = {
     more: (id: string) => `更多 · ${id}`,
     details: '詳細資訊',
     hideDetails: '隱藏詳細資訊',
-    componentLine: (state: 'installed' | 'missing', size: string | null) => (state === 'installed' ? `已安裝${size ? ` · ${size}` : ''}` : '缺少'),
+    componentLine: (state: 'installed' | 'missing', size: string | null) => (state === 'installed' ? `已安裝${size ? ` · ${size}` : ''}` : `缺少${size ? ` · ${size}` : ''}`),
     sharedWith: (ids: string[]) => `與 ${ids.join('、')} 共用`,
     noComponents: '這個 Runtime 沒有回報元件的詳細資訊。',
     // 确认对话框
@@ -45,5 +47,15 @@ export const zhHant: LocalModelsMessages = {
     stopFailed: (text: string) => `無法停止：${text}`,
     removeFailed: (text: string) => `無法刪除：${text}`,
     installFailed: (text: string) => `上次的下載沒有完成：${text}`,
+  },
+  shared: {
+    title: '共用元件',
+    note: '這一類的多個模型共用，安裝一次就夠；最後一個使用它的模型刪除時一併回收。',
+    summaryRepair: (n: number) => `${n} 個元件待補齊`,
+    summaryCount: (n: number) => `${n} 個共用元件`,
+    usage: (live: number, all: number) => `${live} 個已安裝模型在用 · 共 ${all} 個需要`,
+    usageNone: (all: number) => `${all} 個模型會用到 · 尚無已安裝`,
+    withModel: (size: string | null) => `安裝模型時一併下載${size ? ` · ${size}` : ''}`,
+    completeNote: (name: string) => `共用元件隨使用它的模型下載：這次只補上「${name}」缺少的部分，已安裝的檔案不動。`,
   },
 };

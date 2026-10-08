@@ -6,6 +6,8 @@ export const ko: LocalModelsMessages = {
       '다운로드 전에 내려받을 용량과 남은 디스크 공간을 보여 드립니다. 다운로드는 일시정지할 수 있으며, 이미 받은 부분은 남겨 두었다가 다음에 이어서 받습니다.',
     download: '다운로드',
     complete: '보완',
+    downloadSize: (size: string) => `${size} 다운로드`,
+    completeSize: (size: string) => `${size} 보완`,
     resume: '다운로드 재개',
     pause: '일시정지',
     cancelDownload: '다운로드 취소',
@@ -15,7 +17,7 @@ export const ko: LocalModelsMessages = {
     more: (id: string) => `더 보기 · ${id}`,
     details: '세부 정보',
     hideDetails: '세부 정보 숨기기',
-    componentLine: (state: 'installed' | 'missing', size: string | null) => (state === 'installed' ? `설치됨${size ? ` · ${size}` : ''}` : '없음'),
+    componentLine: (state: 'installed' | 'missing', size: string | null) => (state === 'installed' ? `설치됨${size ? ` · ${size}` : ''}` : `없음${size ? ` · ${size}` : ''}`),
     sharedWith: (ids: string[]) => `${ids.join(', ')}와(과) 공유`,
     noComponents: '이 Runtime은 구성 요소 세부 정보를 보고하지 않았습니다.',
     // 确认对话框
@@ -46,5 +48,15 @@ export const ko: LocalModelsMessages = {
     stopFailed: (text: string) => `중지하지 못했습니다: ${text}`,
     removeFailed: (text: string) => `삭제하지 못했습니다: ${text}`,
     installFailed: (text: string) => `지난 다운로드를 완료하지 못했습니다: ${text}`,
+  },
+  shared: {
+    title: '공통 구성 요소',
+    note: '이 범주의 여러 모델이 함께 사용합니다. 한 번만 설치하면 되고, 이를 사용하는 마지막 모델을 삭제할 때 함께 정리됩니다.',
+    summaryRepair: (n: number) => `보완할 구성 요소 ${n}개`,
+    summaryCount: (n: number) => `공통 구성 요소 ${n}개`,
+    usage: (live: number, all: number) => `설치된 모델 ${live}개가 사용 중 · 총 ${all}개가 필요`,
+    usageNone: (all: number) => `모델 ${all}개가 사용 예정 · 아직 설치된 모델 없음`,
+    withModel: (size: string | null) => `모델을 설치할 때 함께 다운로드${size ? ` · ${size}` : ''}`,
+    completeNote: (name: string) => `공통 구성 요소는 이를 사용하는 모델과 함께 다운로드됩니다. 이번에는 “${name}”에 없는 부분만 받고, 설치된 파일은 그대로 둡니다.`,
   },
 };

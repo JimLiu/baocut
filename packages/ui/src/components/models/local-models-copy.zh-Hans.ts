@@ -5,6 +5,8 @@ export const zhHans: LocalModelsMessages = {
     availableNote: '下载前先给你看要下载多少、磁盘还剩多少。下载中可以暂停，已经下载的部分留着，下次接着下。',
     download: '下载',
     complete: '补齐',
+    downloadSize: (size: string) => `下载 ${size}`,
+    completeSize: (size: string) => `补齐 ${size}`,
     resume: '继续下载',
     pause: '暂停',
     cancelDownload: '取消下载',
@@ -14,7 +16,7 @@ export const zhHans: LocalModelsMessages = {
     more: (id: string) => `更多 · ${id}`,
     details: '详情',
     hideDetails: '收起详情',
-    componentLine: (state: 'installed' | 'missing', size: string | null) => (state === 'installed' ? `已装${size ? ` · ${size}` : ''}` : '缺'),
+    componentLine: (state: 'installed' | 'missing', size: string | null) => (state === 'installed' ? `已装${size ? ` · ${size}` : ''}` : `缺${size ? ` · ${size}` : ''}`),
     sharedWith: (ids: string[]) => `与 ${ids.join('、')} 共用`,
     noComponents: '这个 Runtime 没有报告组件明细。',
     // 确认对话框
@@ -45,5 +47,15 @@ export const zhHans: LocalModelsMessages = {
     stopFailed: (text: string) => `没能停下：${text}`,
     removeFailed: (text: string) => `没能删除：${text}`,
     installFailed: (text: string) => `上次下载没有完成：${text}`,
+  },
+  shared: {
+    title: '公共组件',
+    note: '这一类的多只模型共用，装一次就够；最后一只用它的模型删除时一起回收。',
+    summaryRepair: (n: number) => `${n} 个组件待补全`,
+    summaryCount: (n: number) => `${n} 个共享组件`,
+    usage: (live: number, all: number) => `${live} 个已装模型在用 · 共 ${all} 个需要`,
+    usageNone: (all: number) => `${all} 个模型会用到 · 暂无已装`,
+    withModel: (size: string | null) => `装模型时一起下载${size ? ` · ${size}` : ''}`,
+    completeNote: (name: string) => `公共组件跟着用到它的模型下载：这次只补上「${name}」缺的部分，装好的文件不动。`,
   },
 };

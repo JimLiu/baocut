@@ -6,6 +6,8 @@ export const fr: LocalModelsMessages = {
       "Avant téléchargement, taille et espace libre sont affichés. Vous pouvez suspendre ; les fichiers reçus sont conservés et repris la prochaine fois.",
     download: "Télécharger",
     complete: "Compléter",
+    downloadSize: (size: string) => `Télécharger ${size}`,
+    completeSize: (size: string) => `Compléter ${size}`,
     resume: "Reprendre le téléchargement",
     pause: "Pause",
     cancelDownload: "Annuler le téléchargement",
@@ -15,7 +17,7 @@ export const fr: LocalModelsMessages = {
     more: (id: string) => `Plus · ${id}`,
     details: "Détails",
     hideDetails: "Masquer les détails",
-    componentLine: (state: 'installed' | 'missing', size: string | null) => (state === 'installed' ? `Installé${size ? ` · ${size}` : ""}` : "Manquant"),
+    componentLine: (state: 'installed' | 'missing', size: string | null) => (state === 'installed' ? `Installé${size ? ` · ${size}` : ""}` : `Manquant${size ? ` · ${size}` : ""}`),
     sharedWith: (ids: string[]) => `Partagé avec ${ids.join(", ")}`,
     noComponents: "Ce Runtime n’a pas fourni les détails des composants.",
 
@@ -46,5 +48,15 @@ export const fr: LocalModelsMessages = {
     stopFailed: (text: string) => `Impossible d’arrêter : ${text}`,
     removeFailed: (text: string) => `Impossible de supprimer : ${text}`,
     installFailed: (text: string) => `Le dernier téléchargement n’a pas abouti : ${text}`,
+  },
+  shared: {
+    title: "Composants partagés",
+    note: "Plusieurs modèles de cette catégorie les utilisent. Chacun s’installe une seule fois et est supprimé avec le dernier modèle qui l’utilise.",
+    summaryRepair: (n: number) => (n > 1 ? `${n} composants à compléter` : `${n} composant à compléter`),
+    summaryCount: (n: number) => (n > 1 ? `${n} composants partagés` : `${n} composant partagé`),
+    usage: (live: number, all: number) => `${live > 1 ? `${live} modèles installés l’utilisent` : `${live} modèle installé l’utilise`} · ${all} en ont besoin`,
+    usageNone: (all: number) => `${all} modèles l’utiliseront · aucun installé pour l’instant`,
+    withModel: (size: string | null) => `Téléchargé avec le premier modèle installé${size ? ` · ${size}` : ""}`,
+    completeNote: (name: string) => `Les composants partagés se téléchargent avec un modèle qui les utilise. Seul ce qui manque à « ${name} » est ajouté ; les fichiers installés restent intacts.`,
   },
 };

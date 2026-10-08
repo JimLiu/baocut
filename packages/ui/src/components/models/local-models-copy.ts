@@ -24,6 +24,8 @@ const en = {
       'Before downloading, you’ll see how much will be downloaded and how much disk space is left. You can pause a download; what’s already downloaded is kept and resumes next time.',
     download: 'Download',
     complete: 'Complete',
+    downloadSize: (size: string) => `Download ${size}`,
+    completeSize: (size: string) => `Complete ${size}`,
     resume: 'Resume download',
     pause: 'Pause',
     cancelDownload: 'Cancel download',
@@ -33,7 +35,7 @@ const en = {
     more: (id: string) => `More · ${id}`,
     details: 'Details',
     hideDetails: 'Hide details',
-    componentLine: (state: 'installed' | 'missing', size: string | null) => (state === 'installed' ? `Installed${size ? ` · ${size}` : ''}` : 'Missing'),
+    componentLine: (state: 'installed' | 'missing', size: string | null) => (state === 'installed' ? `Installed${size ? ` · ${size}` : ''}` : `Missing${size ? ` · ${size}` : ''}`),
     sharedWith: (ids: string[]) => `Shared with ${ids.join(', ')}`,
     noComponents: 'This Runtime didn’t report component details.',
     // 确认对话框
@@ -65,6 +67,20 @@ const en = {
     removeFailed: (text: string) => `Couldn't delete: ${text}`,
     installFailed: (text: string) => `The last download didn't finish: ${text}`,
   },
+  shared: {
+    title: 'Shared components',
+    note: 'Several models in this category use these. Each is installed once and removed along with the last model that uses it.',
+    /** 折叠时的副题：有要补的写几件待补，否则写一共几件。 */
+    summaryRepair: (n: number) => (n === 1 ? '1 component to complete' : `${n} components to complete`),
+    summaryCount: (n: number) => (n === 1 ? '1 shared component' : `${n} shared components`),
+    /** 一行的副题：文件在盘上的模型几只在用、一共几只需要（总数至少 2）。 */
+    usage: (live: number, all: number) => `${live === 1 ? '1 installed model uses it' : `${live} installed models use it`} · ${all} need it`,
+    usageNone: (all: number) => `${all} models will use it · none installed yet`,
+    /** 没有能借来补齐的模型：装模型时一起下载。 */
+    withModel: (size: string | null) => `Downloads with the first model you install${size ? ` · ${size}` : ''}`,
+    /** 从公共组件那一行补齐某只模型时，对话框里换掉 `install.completeNote` 的那一句。 */
+    completeNote: (name: string) => `Shared components download with a model that uses them. This only adds what ${name} is missing; installed files are left alone.`,
+  },
 };
 
 export type LocalModelsMessages = typeof en;
@@ -72,3 +88,6 @@ export type LocalModelsMessages = typeof en;
 const M = defineMessages(en, { 'zh-Hans': zhHans, 'zh-Hant': zhHant, ja, ko, es, fr, de, nl, 'pt-BR': ptBR, it, ru, pl, tr, vi });
 
 export const LOCAL_INSTALL_COPY = live(() => M.install);
+
+/** 本地模型页的「公共组件」区（设计稿 settings-local.jsx `SharedCard`）。 */
+export const LOCAL_SHARED_COPY = live(() => M.shared);

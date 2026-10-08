@@ -50,8 +50,26 @@ const en = {
   auto: 'Automatic',
   /** 存着的默认指向一只没装的模型包。 */
   notInstalled: (name: string) => `${name} (not installed)`,
-  /** 带自己许可的组件给人看的名字；没列的用组件名。 */
-  componentName: { aligner: 'Forced aligner', speaker: 'Speaker embedding', vad: 'VAD (voice activity detection)' } as Record<string, string>,
+  /** 组件给人看的名字（许可、缺件标签、公共组件）；没列的用组件名。 */
+  componentName: {
+    aligner: 'Forced aligner',
+    speaker: 'Speaker embedding',
+    vad: 'VAD (voice activity detection)',
+    tokenizer: 'Tokenizer',
+    segmentation: 'Speaker segmentation',
+    codec: 'Speech codec',
+    aux: 'Auxiliary models',
+  } as Record<string, string>,
+  /** 公共组件那一行写它做什么；没列的不写。 */
+  componentDesc: {
+    vad: 'Finds the stretches where someone is speaking',
+    aligner: 'Aligns the text to word-level timing',
+    tokenizer: 'Converts between text and the model’s tokens',
+    speaker: 'Tells speakers apart',
+    segmentation: 'Finds where each speaker starts and stops talking',
+    codec: 'Turns acoustic tokens back into a waveform',
+    aux: 'Extra models the main model needs',
+  } as Record<string, string>,
   weights: 'Model weights',
 };
 

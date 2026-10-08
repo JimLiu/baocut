@@ -1,3 +1,4 @@
+import { pluralForm } from '@baocut/protocol';
 import type { LocalModelsMessages } from './local-models-copy.ts';
 
 export const ru: LocalModelsMessages = {
@@ -5,6 +6,8 @@ export const ru: LocalModelsMessages = {
     availableNote: "Перед скачиванием будет показан размер и свободное место на диске. Можно приостановить скачивание; скачанная часть сохраняется и будет использована при продолжении.",
     download: "Скачать",
     complete: "Дополнить",
+    downloadSize: (size: string) => `Скачать ${size}`,
+    completeSize: (size: string) => `Дополнить ${size}`,
     resume: "Продолжить скачивание",
     pause: "Пауза",
     cancelDownload: "Отменить скачивание",
@@ -14,7 +17,7 @@ export const ru: LocalModelsMessages = {
     more: (id: string) => `Ещё · ${id}`,
     details: "Подробности",
     hideDetails: "Скрыть подробности",
-    componentLine: (state: 'installed' | 'missing', size: string | null) => (state === 'installed' ? `Установлено${size ? ` · ${size}` : ""}` : "Отсутствует"),
+    componentLine: (state: 'installed' | 'missing', size: string | null) => (state === 'installed' ? `Установлено${size ? ` · ${size}` : ""}` : `Отсутствует${size ? ` · ${size}` : ""}`),
     sharedWith: (ids: string[]) => `Общее с ${ids.join(", ")}`,
     noComponents: "Этот Runtime не сообщил сведения о компонентах.",
 
@@ -45,5 +48,15 @@ export const ru: LocalModelsMessages = {
     stopFailed: (text: string) => `Не удалось остановить: ${text}`,
     removeFailed: (text: string) => `Не удалось удалить: ${text}`,
     installFailed: (text: string) => `Последнее скачивание не завершено: ${text}`,
+  },
+  shared: {
+    title: "Общие компоненты",
+    note: "Их используют несколько моделей этой категории. Каждый устанавливается один раз и удаляется вместе с последней моделью, которая его использует.",
+    summaryRepair: (n: number) => `Нужно дополнить: ${pluralForm("ru", n, { one: `${n} компонент`, few: `${n} компонента`, many: `${n} компонентов`, other: `${n} компонента` })}`,
+    summaryCount: (n: number) => pluralForm("ru", n, { one: `${n} общий компонент`, few: `${n} общих компонента`, many: `${n} общих компонентов`, other: `${n} общего компонента` }),
+    usage: (live: number, all: number) => `Используют установленные модели: ${live} · нужен моделям: ${all}`,
+    usageNone: (all: number) => `Понадобится моделям: ${all} · пока ни одна не установлена`,
+    withModel: (size: string | null) => `Скачивается вместе с первой установленной моделью${size ? ` · ${size}` : ""}`,
+    completeNote: (name: string) => `Общие компоненты скачиваются вместе с моделью, которая их использует. Дополняется только то, чего не хватает «${name}»; установленные файлы не меняются.`,
   },
 };

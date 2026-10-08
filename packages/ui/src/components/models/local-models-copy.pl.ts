@@ -1,3 +1,4 @@
+import { pluralForm } from '@baocut/protocol';
 import type { LocalModelsMessages } from './local-models-copy.ts';
 
 export const pl: LocalModelsMessages = {
@@ -5,6 +6,8 @@ export const pl: LocalModelsMessages = {
     availableNote: "Przed pobieraniem zobaczysz rozmiar i wolne miejsce na dysku. Możesz wstrzymać pobieranie; pobrana część zostaje zachowana i jest wznawiana następnym razem.",
     download: "Pobierz",
     complete: "Uzupełnij",
+    downloadSize: (size: string) => `Pobierz ${size}`,
+    completeSize: (size: string) => `Uzupełnij ${size}`,
     resume: "Wznów pobieranie",
     pause: "Wstrzymaj",
     cancelDownload: "Anuluj pobieranie",
@@ -14,7 +17,7 @@ export const pl: LocalModelsMessages = {
     more: (id: string) => `Więcej · ${id}`,
     details: "Szczegóły",
     hideDetails: "Ukryj szczegóły",
-    componentLine: (state: 'installed' | 'missing', size: string | null) => (state === 'installed' ? `Zainstalowany${size ? ` · ${size}` : ""}` : "Brak"),
+    componentLine: (state: 'installed' | 'missing', size: string | null) => (state === 'installed' ? `Zainstalowany${size ? ` · ${size}` : ""}` : `Brak${size ? ` · ${size}` : ""}`),
     sharedWith: (ids: string[]) => `Współdzielone z ${ids.join(", ")}`,
     noComponents: "Ten Runtime nie zgłosił szczegółów komponentów.",
 
@@ -45,5 +48,15 @@ export const pl: LocalModelsMessages = {
     stopFailed: (text: string) => `Nie udało się zatrzymać: ${text}`,
     removeFailed: (text: string) => `Nie udało się usunąć: ${text}`,
     installFailed: (text: string) => `Ostatnie pobieranie nie zostało ukończone: ${text}`,
+  },
+  shared: {
+    title: "Wspólne komponenty",
+    note: "Korzysta z nich kilka modeli tej kategorii. Każdy instaluje się raz i jest usuwany razem z ostatnim modelem, który go używa.",
+    summaryRepair: (n: number) => `Do uzupełnienia: ${pluralForm("pl", n, { one: `${n} komponent`, few: `${n} komponenty`, many: `${n} komponentów`, other: `${n} komponentu` })}`,
+    summaryCount: (n: number) => pluralForm("pl", n, { one: `${n} wspólny komponent`, few: `${n} wspólne komponenty`, many: `${n} wspólnych komponentów`, other: `${n} wspólnego komponentu` }),
+    usage: (live: number, all: number) => `Używany przez zainstalowane modele: ${live} · potrzebny modelom: ${all}`,
+    usageNone: (all: number) => `Potrzebny modelom: ${all} · żaden nie jest jeszcze zainstalowany`,
+    withModel: (size: string | null) => `Pobierany razem z pierwszym instalowanym modelem${size ? ` · ${size}` : ""}`,
+    completeNote: (name: string) => `Wspólne komponenty pobierają się razem z modelem, który ich używa. Uzupełniane jest tylko to, czego brakuje modelowi „${name}”; zainstalowane pliki pozostają bez zmian.`,
   },
 };

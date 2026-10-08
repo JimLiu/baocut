@@ -5,6 +5,9 @@ import {
   bundleChips,
   bundleFacts,
   canReenable,
+  componentDesc,
+  componentLabel,
+  hasOwnFiles,
   isBundleInstalled,
   licenseLines,
   licenseLineText,
@@ -12,6 +15,11 @@ import {
   localDefaultPicker,
   localGroups,
   missingParts,
+  needBytes,
+  sharedAction,
+  sharedComponents,
+  sharedRepair,
+  sharedUsage,
 } from './models-local.ts';
 import type { ModelComponentStatus, ModelLicense } from '@baocut/protocol';
 import { bundle, fixtureView } from './models-test-fixtures.ts';
@@ -234,5 +242,135 @@ describe('许可行', () => {
     expect(two.map((l) => licenseLineText(l, two.length))).toEqual(['模型权重 · MIT · 可商用', '声纹嵌入 · CC-BY-4.0 · 须署名']);
     const onlyComp = licenseLines(bundle('c', { components: [comp('speaker', lic('CC-BY-4.0', '须署名'))] }), null);
     expect(onlyComp.map((l) => licenseLineText(l, onlyComp.length))).toEqual(['声纹嵌入 · CC-BY-4.0 · 须署名']);
+  });
+});
+
+describe('公共组件', () => {
+  const part = (component: string, state: 'installed' | 'missing', patch: Partial<ModelComponentStatus> = {}): ModelComponentStatus => ({
+    component,
+    repo: `test/${component}`,
+    revision: 'r1',
+    state,
+    bytes: state === 'installed' ? 10 : null,
+    estimatedBytes: 10,
+    sharedWith: [],
+    ...patch,
+  });
+  // MOSS 装好了、缺可选的对齐器与声纹；Whisper 权重在、缺必需的分词器（incomplete）；Qwen 只有别人装上的 VAD；
+  // 说话人区分包一件自己的都没有。
+  const moss = (patch: Partial<Parameters<typeof bundle>[1]> = {}) =>
+    bundle('moss@mlx', {
+      components: [
+        part('asr', 'installed', { repo: 'test/moss' }),
+        part('vad', 'installed', { bytes: 2 }),
+        part('aligner', 'missing', { optional: true, estimatedBytes: 300 }),
+        part('speaker', 'missing', { optional: true, estimatedBytes: 50 }),
+      ],
+      ...patch,
+    });
+  const whisper = (tokenizer: number | null = 5) =>
+    bundle('whisper@coreml', {
+      backend: 'coreml',
+      state: 'not-installed',
+      reason: 'incomplete',
+      components: [
+        part('asr', 'installed', { repo: 'test/whisper' }),
+        part('vad', 'installed', { bytes: 2 }),
+        part('aligner', 'missing', { optional: true, estimatedBytes: 300 }),
+        part('tokenizer', 'missing', { estimatedBytes: tokenizer }),
+      ],
+    });
+  const qwen = (patch: Partial<Parameters<typeof bundle>[1]> = {}) =>
+    bundle('qwen@mlx', {
+      state: 'not-installed',
+      components: [
+        part('asr', 'missing', { repo: 'test/qwen', estimatedBytes: 1000 }),
+        part('vad', 'installed', { bytes: 2 }),
+        part('aligner', 'missing', { optional: true, estimatedBytes: 300 }),
+      ],
+      ...patch,
+    });
+  const pack = bundle('speaker-diarization@mlx', {
+    capability: 'diarize',
+    state: 'not-installed',
+    components: [part('segmentation', 'missing'), part('speaker', 'missing', { estimatedBytes: 50 })],
+  });
+  const byComponent = (shared: ReturnType<typeof sharedComponents>, name: string) => shared.find((c) => c.component === name)!;
+
+  it('同一类里两只及以上声明的组件才算公共，按 VAD、对齐器、声纹的顺序；只有一只用的不算', () => {
+    const shared = sharedComponents([whisper(), pack, qwen(), moss()], 'asr');
+    expect(shared.map((c) => c.component)).toEqual(['vad', 'aligner', 'speaker']);
+    expect(byComponent(shared, 'aligner').users.map((b) => b.bundleId)).toEqual(['moss@mlx', 'qwen@mlx', 'whisper@coreml']);
+    // 装好的写占了多少，缺的写要下多少。
+    expect(byComponent(shared, 'vad')).toMatchObject({ installed: true, bytes: 2 });
+    expect(byComponent(shared, 'aligner')).toMatchObject({ installed: false, bytes: 300 });
+    // 别的类、没有组件信息的旧快照没有公共组件。
+    expect(sharedComponents([moss(), qwen()], 'tts')).toEqual([]);
+    expect(sharedComponents([bundle('a'), bundle('b')], 'asr')).toEqual([]);
+  });
+
+  it('同一个仓库换了角色或版本不算同一个组件（IndexTTS2 的权重与 IndexTTS 2.5 借来的辅助件）', () => {
+    const v2 = bundle('index-tts2', { capability: 'synthesize', components: [part('tts', 'installed', { repo: 'IndexTeam/IndexTTS-2' })] });
+    const v25 = bundle('index-tts2.5', {
+      capability: 'synthesize',
+      components: [part('tts', 'installed', { repo: 'IndexTeam/IndexTTS-2.5' }), part('aux', 'installed', { repo: 'IndexTeam/IndexTTS-2' })],
+    });
+    expect(sharedComponents([v2, v25], 'tts')).toEqual([]);
+    const old = bundle('old', { components: [part('vad', 'installed', { revision: 'r0' })] });
+    expect(sharedComponents([old, moss()], 'asr')).toEqual([]);
+  });
+
+  it('自己的文件在盘上：装好了，或者公共组件以外有装好的组件；只有别人装上的公共组件不算', () => {
+    const shared = sharedComponents([moss(), whisper(), qwen()], 'asr');
+    expect(hasOwnFiles(moss(), shared)).toBe(true);
+    expect(hasOwnFiles(whisper(), shared)).toBe(true);
+    expect(hasOwnFiles(qwen(), shared)).toBe(false);
+  });
+
+  it('装齐还要下多少：缺的组件之和，可选的也算；有不知道大小的或没有组件信息时为 null', () => {
+    expect(needBytes(moss())).toBe(350);
+    expect(needBytes(whisper())).toBe(305);
+    expect(needBytes(whisper(null))).toBeNull();
+    expect(needBytes(bundle('a'))).toBeNull();
+    expect(needBytes(bundle('b', { components: [part('asr', 'installed')] }))).toBe(0);
+  });
+
+  it('缺的组件借一只文件在盘上、用到它的模型补齐，挑要下得最少的；一样多按 ID，大小不知道的排后面', () => {
+    const pick = (bundles: Parameters<typeof sharedComponents>[0], name: string) => {
+      const shared = sharedComponents(bundles, 'asr');
+      const action = sharedAction(byComponent(shared, name), shared);
+      return action.kind === 'get' ? `get:${action.target.bundleId}` : action.kind === 'running' ? `running:${action.bundle.bundleId}` : action.kind;
+    };
+    expect(pick([moss(), whisper(), qwen()], 'vad')).toBe('installed');
+    // 权重在、缺必需分词器的 Whisper 也能借；它要下的更少。没有自己文件的 Qwen 不借。
+    expect(pick([moss(), whisper(), qwen()], 'aligner')).toBe('get:whisper@coreml');
+    expect(pick([moss(), whisper(50), qwen()], 'aligner')).toBe('get:moss@mlx');
+    expect(pick([moss(), whisper(null), qwen()], 'aligner')).toBe('get:moss@mlx');
+    expect(pick([moss(), pack], 'speaker')).toBe('get:moss@mlx');
+    // 跑不了的不借；没有能借的就等装模型时一起下载。
+    expect(pick([moss({ reason: 'unsupported' }), pack], 'speaker')).toBe('later');
+    const bare = bundle('x@mlx', { state: 'not-installed', components: [part('vad', 'installed', { bytes: 2 }), part('aligner', 'missing')] });
+    expect(pick([qwen(), bare], 'aligner')).toBe('later');
+    // 用到它的模型正在下载：显示它的进度；停在一半的不算。
+    const downloading = { jobId: 'job_1', state: 'downloading' as const, receivedBytes: 1, totalBytes: 10 };
+    expect(pick([moss(), whisper(), qwen({ install: downloading })], 'aligner')).toBe('running:qwen@mlx');
+    expect(pick([moss(), whisper(), qwen({ install: { ...downloading, jobId: null, state: 'paused' } })], 'aligner')).toBe('get:whisper@coreml');
+  });
+
+  it('副题数文件在盘上的模型；缺着又有这种模型要用的算待补全', () => {
+    const shared = sharedComponents([moss(), whisper(), qwen(), pack], 'asr');
+    expect(sharedUsage(byComponent(shared, 'aligner'), shared)).toEqual({ live: 2, all: 3 });
+    expect(sharedUsage(byComponent(shared, 'speaker'), shared)).toEqual({ live: 1, all: 2 });
+    expect(sharedRepair(shared).map((c) => c.component)).toEqual(['aligner', 'speaker']);
+    const fresh = sharedComponents([qwen(), pack, bundle('y@mlx', { state: 'not-installed', components: [part('speaker', 'missing')] })], 'asr');
+    expect(sharedUsage(byComponent(fresh, 'speaker'), fresh)).toEqual({ live: 0, all: 2 });
+    expect(sharedRepair(fresh)).toEqual([]);
+  });
+
+  it('组件名与说明：列了的给译名与一句说明，没列的用组件名、不写说明', () => {
+    expect(componentLabel('tokenizer')).toBe('分词器');
+    expect(componentDesc('vad')).toBe('切出有人说话的段落');
+    expect(componentLabel('mystery')).toBe('mystery');
+    expect(componentDesc('mystery')).toBeNull();
   });
 });

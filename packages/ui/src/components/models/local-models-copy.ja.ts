@@ -6,6 +6,8 @@ export const ja: LocalModelsMessages = {
       'ダウンロード前に、ダウンロード量とディスクの空き容量が表示されます。ダウンロードは一時停止でき、ダウンロード済みの部分は残して次回そこから再開します。',
     download: 'ダウンロード',
     complete: '補完',
+    downloadSize: (size: string) => `${size} をダウンロード`,
+    completeSize: (size: string) => `${size} を補完`,
     resume: 'ダウンロードを再開',
     pause: '一時停止',
     cancelDownload: 'ダウンロードをキャンセル',
@@ -15,7 +17,7 @@ export const ja: LocalModelsMessages = {
     more: (id: string) => `その他 · ${id}`,
     details: '詳細',
     hideDetails: '詳細を隠す',
-    componentLine: (state: 'installed' | 'missing', size: string | null) => (state === 'installed' ? `インストール済み${size ? ` · ${size}` : ''}` : '不足'),
+    componentLine: (state: 'installed' | 'missing', size: string | null) => (state === 'installed' ? `インストール済み${size ? ` · ${size}` : ''}` : `不足${size ? ` · ${size}` : ''}`),
     sharedWith: (ids: string[]) => `${ids.join('、')} と共用`,
     noComponents: 'この Runtime はコンポーネントの詳細を報告していません。',
     // 确认对话框
@@ -46,5 +48,15 @@ export const ja: LocalModelsMessages = {
     stopFailed: (text: string) => `停止できませんでした：${text}`,
     removeFailed: (text: string) => `削除できませんでした：${text}`,
     installFailed: (text: string) => `前回のダウンロードは完了しませんでした：${text}`,
+  },
+  shared: {
+    title: '共通コンポーネント',
+    note: 'このカテゴリの複数のモデルが共用します。インストールは一度で済み、使っている最後のモデルを削除するときに一緒に削除されます。',
+    summaryRepair: (n: number) => `補完が必要なコンポーネント ${n} 件`,
+    summaryCount: (n: number) => `共通コンポーネント ${n} 件`,
+    usage: (live: number, all: number) => `インストール済みの ${live} モデルが使用中 · 計 ${all} モデルが必要`,
+    usageNone: (all: number) => `${all} モデルが使用予定 · インストール済みはまだなし`,
+    withModel: (size: string | null) => `モデルのインストール時に一緒にダウンロード${size ? ` · ${size}` : ''}`,
+    completeNote: (name: string) => `共通コンポーネントは、それを使うモデルと一緒にダウンロードされます。今回は「${name}」に足りない分だけを補い、インストール済みのファイルはそのままです。`,
   },
 };

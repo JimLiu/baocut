@@ -61,6 +61,7 @@ export function InstallDialog({
   license = null,
   licenseUse = TTS.licenseUse,
   mode,
+  note,
   onClose,
   onStarted,
   onRecheck,
@@ -72,6 +73,8 @@ export function InstallDialog({
   /** 不许商用时那一句「用它做出的东西也只能……」，默认是语音合成的说法。 */
   licenseUse?: string;
   mode: InstallMode;
+  /** 补齐时换掉默认那一句（从公共组件那一行借这只模型补齐时，说清只补它缺的）。 */
+  note?: string;
   onClose: () => void;
   /** 提交了任务（修复时由行记下，修完自动检查；给了它就不再弹「开始下载」）。 */
   onStarted?: (jobId: string) => void;
@@ -146,7 +149,7 @@ export function InstallDialog({
                   ) : (
                     <>
                       {phase.kind === 'plan' && phase.replanned ? <p className={problem}>{COPY.replanned}</p> : null}
-                      {mode === 'complete' ? <p className={text}>{COPY.completeNote}</p> : null}
+                      {mode === 'complete' ? <p className={text}>{note ?? COPY.completeNote}</p> : null}
                       <p className={lead}>{view.size}</p>
                       {view.resumed ? <p className={text}>{view.resumed}</p> : null}
                       {view.space ? <p className={text}>{view.space}</p> : null}
