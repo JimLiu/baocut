@@ -21,6 +21,7 @@ import {
   rulerStep,
   snapFrame,
   snapTargets,
+  timelineRows,
   trackAccepts,
   trackRows,
   videoSlots,
@@ -142,6 +143,18 @@ describe('编辑器模型', () => {
   it('轨道行：引擎默认的 V1、A1 代号不当名字', () => {
     const seq = sequence([track('v1', 0, 'visual', { name: 'V1' }), track('a1', 1, 'audio', { name: 'A1' })], []);
     expect(trackRows(seq).map((r) => r.label)).toEqual(['画面', '音频']);
+  });
+
+  it('时间线行：没有名字也没有实例的音频轨不画（视频自带声音），有实例或有名字的照画', () => {
+    const bare = sequence([track('v1', 0, 'visual', { name: 'V1' }), track('a1', 1, 'audio', { name: 'A1' })], []);
+    expect(timelineRows(bare).map((r) => r.label)).toEqual(['画面']);
+    const music = { ...itemBase, id: 'm', trackId: 'a2', type: 'audio' } as unknown as SequenceItem;
+    const seq = sequence(
+      [track('v1', 0, 'visual'), track('a1', 1, 'audio', { name: 'A1' }), track('a2', 2, 'audio'), track('a3', 3, 'audio', { name: '旁白' })],
+      [music],
+    );
+    expect(timelineRows(seq).map((r) => r.label)).toEqual(['画面', '音频 2', '音频 · 旁白']);
+    expect(trackRows(seq)).toHaveLength(4);
   });
 
   it('实例进哪类轨道：字幕只进字幕轨道，文字、图形、合成进视觉轨道', () => {

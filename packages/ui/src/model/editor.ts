@@ -98,6 +98,18 @@ export function trackRows(sequence: Sequence): TrackRow[] {
   return [...picture, ...audio];
 }
 
+/**
+ * 时间线画出来的行：视频自带声音，原声画在视频行里；引擎给每个视频默认建的那条音频轨在放进音频之前是空的，不另画一行。
+ * 没有名字（或只有 A1 这类代号）、也没有实例的音频轨不画，有名字的照画（用户或配音建的）。放音频时照样落到它上面
+ * （`placeAsset`；拖到别的行上由引擎挑第一条音频轨），放进去之后这一行就出现。行头名字与 `trackRows` 相同。
+ */
+export function timelineRows(sequence: Sequence): TrackRow[] {
+  const used = new Set(sequence.items.map((item) => item.trackId));
+  return trackRows(sequence).filter(
+    ({ track }) => track.kind !== 'audio' || used.has(track.id) || (!!track.name && !TRACK_CODE.test(track.name)),
+  );
+}
+
 export function rootSequence(video: VideoSnapshot): Sequence | null {
   return video.sequences[video.rootSequenceId] ?? null;
 }

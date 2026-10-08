@@ -42,7 +42,7 @@ import {
   rulerStep,
   snapTargets,
   stackingGroup,
-  trackRows,
+  timelineRows,
   type ClipKind,
 } from '../../model/editor.ts';
 import { importAndPlace, isPlaceable, moveOperation, placeAsset, trimBounds, trimOperation } from '../../model/editor-ops.ts';
@@ -416,7 +416,7 @@ export function Timeline({
   const [dropTrack, setDropTrack] = useState<Id | null>(null);
   const fps = sequence.fps;
   const perSecond = fps.num / fps.den;
-  const rows = useMemo(() => trackRows(sequence), [sequence]);
+  const rows = useMemo(() => timelineRows(sequence), [sequence]);
   const duration = durationSeconds(sequence);
   const laneWidth = Math.max(viewport - HEAD, PAD * 2 + (duration + 30) * pps);
   const tracks = useMemo(() => new Map(sequence.tracks.map((t) => [t.id, t])), [sequence.tracks]);
