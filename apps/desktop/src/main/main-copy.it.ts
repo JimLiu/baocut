@@ -7,5 +7,6 @@ export const it: MainMessages = {
   openProjectTitle: 'Apri cartella del progetto', open: 'Apri', choose: 'Scegli', importAssetsTitle: 'Importa materiali', importButton: 'Importa', mediaFilter: 'Video, audio e immagini', allFilesFilter: 'Tutti i file', openFileTitle: 'Apri file', save: 'Salva',
   runtimeNoDiscovery: 'Il Runtime è partito ma non ha scritto il file di rilevamento', runtimeTimeout: 'Il Runtime ha impiegato troppo tempo ad avviarsi',
   runtimeExited: (code: number | null) => `Il Runtime non è riuscito ad avviarsi (codice di uscita ${code})`,
+  runtimeQuitting: 'L’app si sta chiudendo',
   webCreateNotWindow: 'Solo le finestre dell’app possono creare schede web', webTooManyTabs: 'Troppe schede web aperte', webTabMissing: 'Questa scheda web non esiste più', webClearNotWindow: 'Solo le finestre dell’app possono cancellare dati web', webOpenNotWindow: 'Solo le finestre dell’app possono aprire link esterni', webOpenScheme: 'Si possono aprire solo URL http e https',
 };

@@ -26,6 +26,9 @@ function credentialStoreKind(value: string): 'file' | 'keychain' {
  * 有问题时退出码 1。打包产物的检查（`apps/desktop/tools/check-packaged-app.mjs`）用它。
  */
 async function main(): Promise<void> {
+  // stdout 只送就绪消息：读它的一端（桌面端主进程）不在了就送不到，不让写入失败（EPIPE）成为未捕获的异常。stderr 上的
+  // 回显由日志自己处理（`createFileLogger`）。
+  process.stdout.on('error', () => {});
   const { values } = parseArgs({
     options: {
       host: { type: 'string', default: '127.0.0.1' },

@@ -50,6 +50,7 @@ export const fr: MainMessages = {
   runtimeNoDiscovery: "Le Runtime a démarré sans écrire son fichier de découverte",
   runtimeTimeout: "Le démarrage du Runtime a pris trop de temps",
   runtimeExited: (code: number | null) => `Le démarrage du Runtime a échoué (code de sortie ${code})`,
+  runtimeQuitting: 'L’application se ferme',
 
   webCreateNotWindow: "Seules les fenêtres de l’application peuvent créer des onglets web",
   webTooManyTabs: "Trop d’onglets web ouverts",

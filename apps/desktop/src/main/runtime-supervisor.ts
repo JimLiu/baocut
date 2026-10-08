@@ -57,13 +57,19 @@ export class RuntimeSupervisor {
   readonly #options: RuntimeSupervisorOptions;
   #child: ChildProcess | null = null;
   #ensuring: Promise<ConnectionTarget> | null = null;
+  /** 应用开始退出（调过 `stop`）之后不再拉起 Runtime。 */
+  #stopped = false;
 
   constructor(options: RuntimeSupervisorOptions) {
     this.#options = options;
   }
 
-  /** 渲染进程每次（重新）连接前调用；Runtime 不在了就再起一个。 */
+  /**
+   * 渲染进程每次（重新）连接前调用；Runtime 不在了就再起一个。应用退出途中不起：自己的 Runtime 停下后窗口还开着，界面会按
+   * 重连退避再来要连接，这时起的 Runtime 没人再停，主进程退出后成了孤儿。
+   */
   connection(): Promise<ConnectionTarget> {
+    if (this.#stopped) return Promise.reject(new Error(M.runtimeQuitting));
     this.#ensuring ??= this.#ensure().finally(() => {
       this.#ensuring = null;
     });
@@ -73,6 +79,8 @@ export class RuntimeSupervisor {
   async #ensure(): Promise<ConnectionTarget> {
     const existing = await this.#discover();
     if (existing) return existing;
+    // 读发现文件期间可能开始了退出。
+    if (this.#stopped) throw new Error(M.runtimeQuitting);
     await this.#spawn();
     const started = await this.#discover();
     if (!started) throw new Error(M.runtimeNoDiscovery);
@@ -141,10 +149,11 @@ export class RuntimeSupervisor {
   }
 
   /**
-   * 只停自己起的 Runtime；连上的别人的 Runtime 不动。经 IPC 通道请它按停止顺序收尾（各平台一样，Windows 上没有能被处理的
-   * SIGTERM），超过 `timeoutMs` 强杀。Runtime 自己另有 15 秒的兜底退出。
+   * 应用退出时调。只停自己起的 Runtime；连上的别人的 Runtime 不动。经 IPC 通道请它按停止顺序收尾（各平台一样，Windows 上
+   * 没有能被处理的 SIGTERM），超过 `timeoutMs` 强杀。Runtime 自己另有 15 秒的兜底退出。此后 `connection` 不再拉起 Runtime。
    */
   async stop(timeoutMs = 8_000): Promise<void> {
+    this.#stopped = true;
     const child = this.#child;
     if (!child) return;
     await stopChild(child, timeoutMs);

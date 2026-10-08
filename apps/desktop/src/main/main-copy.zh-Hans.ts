@@ -49,6 +49,7 @@ export const zhHans: MainMessages = {
   runtimeNoDiscovery: 'Runtime 已启动，但没有写出发现信息',
   runtimeTimeout: 'Runtime 启动超时',
   runtimeExited: (code: number | null) => `Runtime 启动失败（退出码 ${code}）`,
+  runtimeQuitting: '应用正在退出',
 
   webCreateNotWindow: '只能由应用窗口创建网页标签',
   webTooManyTabs: '网页标签太多了',
