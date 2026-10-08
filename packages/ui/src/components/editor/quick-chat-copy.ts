@@ -17,16 +17,10 @@ import { vi } from './quick-chat-copy.vi.ts';
 /** 视频右下角悬浮会话的文案。译文在 `quick-chat-copy.zh-Hans.ts`。 */
 const en = {
   label: 'This video’s session',
-  open: 'Open this video’s session',
+  expand: 'Expand session',
   fresh: 'New session',
-  expand: 'Expand session on the left',
   minimize: 'Minimize',
-  about: (name: string) => `About “${name}”`,
   placeholder: 'What do you want to do with this video? Type / for tools',
-  hint: 'The Agent works on it right here',
-  failed: (message: string) => `Couldn’t send: ${message}`,
-  untitled: 'Video',
-  send: 'Send',
 };
 
 export type QuickChatMessages = typeof en;

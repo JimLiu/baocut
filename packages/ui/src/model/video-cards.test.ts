@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { JobRecord, ModelCapabilitiesView, PipelineStepState, SpaceEntry, TimelineItem } from '@baocut/protocol';
+import { conversationOutputs } from './conversation-outputs.ts';
 import { buildThread } from './thread.ts';
 import {
   asrFacts,
@@ -332,6 +333,38 @@ describe('threadCards：一条会话一部视频一张卡（产品设计 §3.2.2
     expect(conversationVideoJobs('mov_1', jobs, CONV)).toEqual([tx.jobId, ex.jobId]);
     const f = foldRows(cardRows([tx.jobId, ex.jobId], jobs).map((j) => jobRowView(j, jobs, 0)));
     expect([f.shown.map((r) => r.jobId), f.earlier.map((r) => r.jobId)]).toEqual([[ex.jobId], [tx.jobId]]);
+  });
+});
+
+describe('threadCards：随第一句话带进来的视频（产品设计 §3.2.2、§5.1）', () => {
+  const opened = (id: string, taskId: string, sent: number, videoId = 'mov_1'): TimelineItem => ({
+    kind: 'user-message',
+    id,
+    createdAt: at(sent),
+    taskId,
+    text: '把口癖剪掉',
+    context: { videoId, videoName: '访谈第一集', videoPath: 'videos/访谈第一集', revision: '3', selection: [], playheadSeconds: 0 },
+  });
+
+  it('第一条消息带着编辑器状态：视频卡挂在这条消息后面，名字取消息里的', () => {
+    const items = [opened('u1', 't1', 10), reply('a1', 't1')];
+    expect(cards(items, [])).toEqual({ u1: ['video:mov_1[]'] });
+    const card = [...threadCards({ blocks: buildThread(items), items, jobs: [], conversationId: CONV, entries: [] }).values()][0]![0]!;
+    expect(card.kind === 'video' ? card.video : null).toMatchObject({ name: '访谈第一集', at: at(10) });
+  });
+
+  it('智能体后来改了这部视频：仍是一张卡，挪到最后的引用', () => {
+    expect(cards([opened('u1', 't1', 10), change('x1', 'mov_1', 't1'), reply('a1', 't1')], [])).toEqual({ 'change/x1': ['video:mov_1[]'] });
+  });
+
+  it('只认第一条：之后的消息带着编辑器状态不出卡，也不挪卡', () => {
+    expect(cards([user('u1', 't1', 10), reply('a1', 't1'), opened('u2', 't2', 20), reply('a2', 't2')], [])).toEqual({});
+    expect(cards([opened('u1', 't1', 10), reply('a1', 't1'), opened('u2', 't2', 20), reply('a2', 't2')], [])).toEqual({ u1: ['video:mov_1[]'] });
+  });
+
+  it('会话摘要的产物里也列这部视频', () => {
+    const outputs = conversationOutputs({ id: CONV, projectId: 'p1' }, [opened('u1', 't1', 10), reply('a1', 't1')], [], Infinity, []);
+    expect(outputs.map((o) => [o.kind, o.id, o.name])).toEqual([['video', 'mov_1', '访谈第一集']]);
   });
 });
 

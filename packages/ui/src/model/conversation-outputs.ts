@@ -10,7 +10,7 @@ import {
 } from '@baocut/protocol';
 import { videoTargetOf } from './space.ts';
 import { changedFiles } from './thread.ts';
-import { conversationJobVideos, isVideoAt, videoOutput } from './video-cards.ts';
+import { conversationJobVideos, isVideoAt, openingVideo, videoOutput } from './video-cards.ts';
 import { isPreviewExport } from './export-job.ts';
 
 /** 会话头「产物」里的一项（产品设计 §3.2 用户修订）：这条会话新建、改过或在上面做过活的视频，或它工作目录里的文件。 */
@@ -55,7 +55,8 @@ function fileTasks(items: readonly TimelineItem[], cwd: string | undefined): Map
 
 /**
  * 这条会话的产物，最近的在前：智能体新建（`video-created`）或经视频引擎改过（变更卡）的视频，智能体在上面做过活的视频
- * （转录、导出、从链接导入新建的……，`jobs` 里这条会话提交的），加上不属于项目的会话自己工作目录里的文件。
+ * （转录、导出、从链接导入新建的……，`jobs` 里这条会话提交的），随第一句话带进来的视频（`openingVideo`），
+ * 加上不属于项目的会话自己工作目录里的文件。
  * 项目会话的其它文件没有记录是哪条会话产生的，不列；进了回收站的不列。`cwd` 用来把文件对回改它的任务。
  * 会话头只列最近 30 项；按回复分组时不截断（`limit: Infinity`）。
  */
@@ -86,6 +87,9 @@ export function conversationOutputs(
   for (const videoId of conversationJobVideos(jobs, conversation.id)) {
     if (!videos.has(videoId)) videos.set(videoId, videoOutput(videoId, items, entries, jobs));
   }
+  // 随第一句话带进来的视频：线程里有它的卡，会话摘要里也列（同一张卡，产品设计 §3.2.2）。
+  const opening = openingVideo(items);
+  if (opening && !videos.has(opening.videoId)) videos.set(opening.videoId, videoOutput(opening.videoId, items, entries, jobs));
   const outputs = [...videos.values()].filter((output) => !output.entry?.user.trashedAt);
   if (!conversation.projectId) {
     const normalize = (path: string) => path.replace(/\\/g, '/');

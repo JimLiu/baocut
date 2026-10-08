@@ -1,2 +1,2 @@
 import type { QuickChatMessages } from './quick-chat-copy.ts';
-export const nl: QuickChatMessages = { label: 'Sessie van deze video', open: 'Sessie van deze video openen', fresh: 'Nieuwe sessie', expand: 'Sessie links uitvouwen', minimize: 'Minimaliseren', about: (name) => `Over ‘${name}’`, placeholder: 'Wat wil je met deze video doen? Typ / voor tools', hint: 'De agent werkt hier aan de video', failed: (message) => `Kan niet verzenden: ${message}`, untitled: 'Video', send: 'Verzenden' };
+export const nl: QuickChatMessages = { label: 'Sessie van deze video', expand: 'Sessie uitklappen', fresh: 'Nieuwe sessie', minimize: 'Minimaliseren', placeholder: 'Wat wil je met deze video doen? Typ / voor tools' };

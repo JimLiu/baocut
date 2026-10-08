@@ -128,7 +128,10 @@ export interface ShellStore {
   draftAgents: Record<string, AgentChoice>;
   /** 每条会话忙时排队、等当前任务结束再发的消息。 */
   queues: Record<Id, QueuedMessage[]>;
-  /** Space 里打开的视频右下角那条悬浮会话（按视频的 `targetKey`）；只在这次运行里记着，重开后从新会话开始。 */
+  /**
+   * Space 里打开的视频右下角悬浮会话最近发起的那条会话（按视频的 `targetKey`）：最小化图标的状态点看它，工具页「交给 Agent」接着它。
+   * 输入框本身每次都是新会话（产品设计 §5.1）。只在这次运行里记着。
+   */
   videoChats: Record<string, Id>;
   /** 悬浮会话最小化成图标；默认展开，最小化后记在本机。 */
   videoChatMin: boolean;

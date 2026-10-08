@@ -36,8 +36,9 @@ import { jobErrorText, jobWaitText } from './localized-text.ts';
  * 会话线程里的视频卡与下载卡（产品设计 §3.2.2、§6.5；原型 model-agent-cards.js、model-agent-projects.js `sessionArtifacts`）。
  * 纯函数：卡片内容只从会话条目（`video-created`、`video-change`）与智能体提交的 Job 记录算，不读回复正文。
  *
- * - **一条会话一部视频一张卡**。一部视频「被引用」：会话里有它的 `video-created` / `video-change`，或某一轮的任务提交了
- *   指向它的 Job（转录、导出、翻译、从链接导入到它；Job 的引用落在这个任务最后一组步骤上）。卡挂在下面两处里靠后的那一处：
+ * - **一条会话一部视频一张卡**。一部视频「被引用」：会话里有它的 `video-created` / `video-change`，某一轮的任务提交了
+ *   指向它的 Job（转录、导出、翻译、从链接导入到它；Job 的引用落在这个任务最后一组步骤上），或第一条用户消息带着它的编辑器状态
+ *   （`openingVideo`：从开着的视频说起的会话，视频随第一句话带进来）。卡挂在下面两处里靠后的那一处：
  *   (a) 最后一个引用它的块后面；(b) 卡上的活在后面的回合开始时还没结束（在跑或排队）：这件活结束之前开始的最后一轮
  *   （还在跑时就是最新一轮）的最后一个块后面。先后只比活的 `endedAt` 与那一轮用户消息的 `createdAt`；活结束后卡不再挪，
  *   也不挪回去。卡挪走后前面的回合不再有它。卡上列这条会话在这部视频上的全部活，与「产物」弹层的那张一样。
@@ -102,6 +103,8 @@ export function videoOutput(
       (i.kind === 'video-change' || i.kind === 'video-created') && i.videoId === videoId,
   );
   const change = items.findLast((i): i is Item<'video-change'> => i.kind === 'video-change' && i.videoId === videoId);
+  // 只随第一句话带进来的视频（`openingVideo`）：名字与时刻取那条消息。
+  const said = items.find((i): i is Item<'user-message'> => i.kind === 'user-message' && i.context?.videoId === videoId);
   const entry =
     entries.find((e) => e.kind === 'video' && e.ref && 'videoId' in e.ref && e.ref.videoId === videoId) ??
     (last ? entries.find((e) => isVideoAt(e, last.target)) : undefined) ??
@@ -114,13 +117,22 @@ export function videoOutput(
   return {
     id: videoId,
     kind: 'video',
-    name: entry?.name ?? last?.videoName ?? linkName ?? VIDEO_CARD_COPY.download.fallbackName,
+    name: entry?.name ?? last?.videoName ?? said?.context?.videoName ?? linkName ?? VIDEO_CARD_COPY.download.fallbackName,
     video: last?.target ?? (entry ? videoTargetOf(entry) : null),
     entry,
     durationSeconds: change?.durationSeconds.after ?? entry?.media?.durationSec ?? null,
-    at: last?.createdAt ?? latest?.createdAt ?? '',
+    at: last?.createdAt ?? latest?.createdAt ?? said?.createdAt ?? '',
     taskId: last?.taskId ?? null,
   };
+}
+
+/**
+ * 随第一句话带进会话的视频（产品设计 §3.2.2、§5.1）：第一条用户消息带着编辑器状态时（Space 的悬浮会话、开着视频的起始页发出的），
+ * 这部视频在那条消息后面出一张视频卡，点「打开编辑器」回到它。只认第一条：之后的消息带着编辑器状态不挪卡，卡照常跟着智能体的引用走。
+ */
+export function openingVideo(items: readonly TimelineItem[]): { videoId: Id; itemId: Id } | null {
+  const first = items.find((i): i is Item<'user-message'> => i.kind === 'user-message');
+  return first?.context ? { videoId: first.context.videoId, itemId: first.id } : null;
 }
 
 /** 活什么时候结束：还没结束（排队、在跑、崩溃后在重跑）是 Infinity；结束了却没记时间的是 -Infinity（不跟到后面的回合）。 */
@@ -215,6 +227,10 @@ export function threadCards(input: {
     ref.last = Math.max(ref.last, at);
     if (jobId && !ref.jobTurns.has(jobId)) ref.jobTurns.set(jobId, blockTurn[at]!);
   };
+
+  const opening = openingVideo(items);
+  const openingAt = opening ? anchorOf.get(opening.itemId) : undefined;
+  if (opening && openingAt !== undefined) refer(opening.videoId, openingAt);
 
   for (const item of items) {
     if (item.kind !== 'video-change' && item.kind !== 'video-created') continue;
