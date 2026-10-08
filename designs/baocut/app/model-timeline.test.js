@@ -13,6 +13,16 @@ test('显式空轨集保持为空：新建空白项目与拿下最后一条字�
   assert.equal(TL.rows([], {}).rows.filter(row => row.kind === 'subs').length, 1);
 });
 
+test('只读文稿行：转录过却没有字幕轨时占字幕行的位置；有字幕轨或没传 transcript 时不出', () => {
+  const only = TL.rows([], {subTracks: [], transcript: true, audio: false, music: false}).rows;
+  assert.deepStrictEqual(only.map((r) => [r.key, r.kind, r.h]), [['transcript', 'transcript', TL.ROW_H.subs]]);
+  assert.equal(TL.headLabel(only[0]), '文稿');
+  assert.equal(TL.laneSwitch(only[0]), null, '它不是轨：没有启停开关');
+  const withTrack = TL.rows([], {subTracks: [{id: 'zh', name: '中文'}], transcript: true, audio: false, music: false}).rows;
+  assert.deepStrictEqual(withTrack.map((r) => r.key), ['subs:zh'], '有字幕轨时文稿就在字幕里，不再另起一行');
+  assert.deepStrictEqual(TL.rows([], {subTracks: [], transcript: false}).rows.filter((r) => r.kind === 'transcript'), []);
+});
+
 test('空白项目开放尾巴：显示时长 = 内容末端 + 10s，有主素材时原样', () => {
   assert.equal(TL.BLANK_TAIL, 10);
   assert.equal(TL.displayDuration(0, true), 10, '零内容也要有 10s 可落播放头');

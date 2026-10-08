@@ -203,7 +203,7 @@
       setMuted(f.muted); setDubOff(f.dubOff); setBedOff(f.bedOff);
     }, [dubs, dubOff]);
     const [speed, setSpeed] = useState(1);
-    const [subsOn, setSubsOn] = useState(initiallyEmpty ? false : localMedia ? localMedia.subs : setup.transcript);
+    const [subsOn, setSubsOn] = useState(initiallyEmpty ? false : localMedia ? localMedia.subs : setup.transcript && setup.captions !== false);
     const [fs, setFs] = useState(false);
     /* 舞台的平台安全区（2026-09-27）：编辑态，不进文档；新建页按 Shorts 做的项目默认开着。 */
     const [safeArea, setSafeArea] = useState(window.BC_SHORTS.isShorts(proj));
@@ -299,7 +299,8 @@
       tracks: cutTracks(bilingual ? D.subtitle.defaults.tracks
         : D.subtitle.defaults.tracks.filter((t) => t.role === 'source')),
     }), subtitlePrefs.current);
-    const [subStyle, setSubStyleState] = useState(() => initiallyEmpty || awaitingTranscript || !setup.transcript
+    /* `captions: false`（2026-10-08）：转录过却没建字幕的视频——有文稿、零条字幕轨，时间轴画只读文稿行 */
+    const [subStyle, setSubStyleState] = useState(() => initiallyEmpty || awaitingTranscript || !setup.transcript || setup.captions === false
       ? {...subDoc(false), tracks: []} : subDoc(setup.entry.canvas === 'bi'));
     const hadPendingTranscript = useRef(awaitingTranscript);
     useEffect(() => {

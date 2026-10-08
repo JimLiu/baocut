@@ -1081,6 +1081,9 @@ body { font-size: 14px; }
    识别到的最后一条 cue 末尾挂一根呼吸光标（整句到达，没有写到一半的句子，第 243 轮）；转录位置到片尾铺一条
    「转录中」待定带：低对比斜纹 ＋ 前缘一道 2px 蓝线（= 文稿面板正流到的位置）＋ 呼吸点，
    宽度够时写「转录中 · 还剩 mm:ss」。带不是块：不可选中、hover 不变色，点它只落播放头。 */
+/* 只读文稿行的块（2026-10-08）：中性灰底深字，与字幕蓝分开——它不上画面、不进导出；hover 只加深一档，没有选中态 */
+.ttx { background: var(--gray-200); color: var(--gray-800); padding: 0; align-items: stretch; cursor: pointer; }
+.ttx:hover { background: var(--gray-300); }
 .tcue__cur { display: inline-block; width: 1px; height: 10px; margin-left: 2px; vertical-align: -1px; background: var(--gray-25); animation: bc-live 1s ease-in-out infinite; }
 .tpend { position: absolute; display: flex; align-items: center; gap: 6px; padding: 0 8px 0 10px; border-radius: 5px; overflow: hidden; white-space: nowrap; font-size: 10px; color: var(--gray-700); background: var(--gray-100); background-image: repeating-linear-gradient(-45deg, transparent, transparent 4px, var(--gray-200) 4px, var(--gray-200) 5px); box-shadow: inset 2px 0 0 var(--blue-900); cursor: default; user-select: none; }
 .tpend__dot { flex: none; width: 6px; height: 6px; border-radius: 9999px; background: var(--blue-900); animation: bc-live 1.4s ease-in-out infinite; }

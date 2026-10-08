@@ -105,7 +105,7 @@
      App 与 Agent 开的任务归本进程管，默认能取消；命令行的任务在别的进程里，
      只有记录明确说它接受叫停（控制文件）时才给钮——摆一颗按不动的取消钮是假承诺。 */
   function canCancel(job) {
-    if (!job) return false;
+    if (!job || selfRun(job)) return false;
     if (sourceKind(job) === 'cli') return job.cancellable === true;
     return job.cancellable !== false;
   }
@@ -123,6 +123,13 @@
     return m ? m[1] : null;
   }
 
+  /* 智能体自己翻译（product-design §5.7；正式应用的 JobKind `agentTranslate`）：会话里的智能体读文稿时声明了目标语，
+     在自己那一轮里逐句翻，译完一次写进视频。记录上没有百分比、没有四段步骤，也不归这个面板取消——
+     运行态头与压缩条只写「翻译中」、画不确定的进度条，正文不流式出句子。 */
+  function selfRun(job) {
+    return !!(job && job.byAgent);
+  }
+
   /* 压缩版运行态那一行字（只看原文时的进度条、轨条尾巴共用一套口径）：
      排队中不写「翻译中」——它还没开始。 */
   function stripText(job, srcAbbr, langName) {
@@ -132,5 +139,5 @@
   }
 
   window.BC_TRUN = {TRANS_STAGES, STAGE_ENDS, stage, frac, runSlice, counts, activity,
-    findJob, sourceKind, canCancel, jumpsList, sessionTitle, stripText};
+    findJob, sourceKind, canCancel, jumpsList, sessionTitle, stripText, selfRun};
 })();

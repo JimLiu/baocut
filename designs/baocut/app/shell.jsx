@@ -562,7 +562,8 @@
                 <div className="tweaks__val t-mono">{job.pct}%</div>
               </div>
             ) : null}
-            {tjob ? (
+            {/* 智能体自己翻译没有百分比，没有可拖的进度 */}
+            {tjob && !window.BC_TRUN.selfRun(tjob) ? (
               <div className="tweaks__sec">
                 <div className="tweaks__lb">翻译进度<em>四段各不一样，拖着逐段看</em></div>
                 <BCSliderInput className="tweaks__rng" type="range" min="0" max="100" value={tjob.pct}

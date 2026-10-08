@@ -142,7 +142,13 @@
 .chat-movie__sample { position: absolute; top: 12px; left: 12px; font-size: 11px; color: var(--gray-300); }
 .chat-movie__captions { position: absolute; left: 8%; right: 8%; bottom: 20%; display: flex; flex-direction: column; gap: 4px; color: var(--gray-25); text-align: center; font-size: 11px; line-height: 1.4; }
 .chat-movie__captions > span:first-child { font-weight: 600; }
-.chat-movie__open { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 9999px; background: var(--gray-25); color: var(--gray-900); box-shadow: var(--sh-pop); }
+/* 播放钮默认不画，指针移上去或键盘聚焦时才出现（product-design §3.2.2 视频卡）；没有悬停的设备一直显示 */
+.chat-movie__open { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 9999px; background: var(--gray-25); color: var(--gray-900); box-shadow: var(--sh-pop); opacity: 0; transition: opacity 150ms cubic-bezier(0.45,0,0.4,1); }
+.chat-movie__preview-action:is(:hover, [data-hovered], :focus-visible, [data-focus-visible]) .chat-movie__open { opacity: 1; }
+@media (hover: none) { .chat-movie__open { opacity: 1; } }
+/* 卡里原地播：播放器占预览图的位置，画面 16:9，控制条在画面下面；卡的边框就是它的边框 */
+.chat-movie__player .media-video { border: 0; border-radius: 0; }
+.chat-movie__player .media-video video { aspect-ratio: 16 / 9; max-height: none; background: var(--gray-75); }
 .chat-movie__duration { position: absolute; right: 8px; bottom: 8px; padding: 4px 6px; border-radius: 4px; background: var(--gray-900); color: var(--gray-25); font: 11px var(--mono); }
 .chat-movie__empty { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: var(--gray-600); }
 .chat-movie__actions { display: flex; flex: none; align-self: flex-start; }

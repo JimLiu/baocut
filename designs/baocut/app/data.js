@@ -262,6 +262,15 @@
        ],
      },
      meta: {speakers: 1, chapters: 3, cues: 62}, sample: true},
+    /* 转录时没建字幕的视频（2026-10-08，§12.6）：智能体从链接导入、转录（不建字幕层），接着在会话里逐句翻译（s24）。
+       `captions: false`：有文稿、没有字幕轨——时间轴上是只读的「文稿」行，不是空的；字幕 Tab 的运行态头是智能体自己翻译那一版。 */
+    {id: 'p13', title: '口播 · 本机优先（链接导入）', dir: 'd3', folder: '口播-链接导入', status: 'complete', entry: 'clean', bare: true, captions: false,
+     src: {name: 'local-first-talk.mp4', path: '~/BaoCut/Imports/local-first-talk.mp4', format: 'MP4 · H.264', res: '1920×1080', state: 'ok'},
+     duration: DUR, lang: '中文', model: 'moss-transcribe', modified: '1 分钟前', mtime: 1, otime: 2, ctime: 30, hue: 32,
+     desc: '智能体从链接导入并转录的口播；转录时没建字幕，正在会话里译成英语。',
+     notes: '转录时没建字幕：时间轴上是只读的文稿行，点一句落播放头。',
+     toast: '链接导入的口播 · 有文稿、还没有字幕轨 · 智能体正在翻译',
+     content: {}, meta: {speakers: 1, chapters: 0, cues: 62}, sample: true},
     {id: 'p1', title: '中 → EN · 科浪访谈双语版', dir: 'd1', folder: '中译英双语版', status: 'complete', entry: 'trans', bare: true,
      src: {name: 'kelang-ep42-master.mp4', path: '~/Movies/播客/kelang-ep42-master.mp4', format: 'MP4 · H.264', res: '1920×1080', bytes: 88080384, state: 'ok'},
      duration: DUR, lang: '中文', model: 'moss-transcribe', modified: '2 小时前', mtime: 120, otime: 0, ctime: 12960, hue: 252,
@@ -777,6 +786,14 @@
      source: 'agent', session: 's23', started: '1 分钟前', cancellable: true, drive: 'on-view', paceStep: 0.15,
      jobPhase: 'transcribing', model: 'moss-transcribe', runsOn: '本机', lang: '英语', langCode: 'en', diarize: true,
      mediaSec: 52, elapsedMs: 100800, leftMs: 151200, undoBody: '这一份文稿会被移除，视频回到没有文稿的状态。原片与时间轴不动。'},
+    /* 智能体自己翻译（product-design §3.2.2 视频卡；正式应用的 JobKind `agentTranslate`）：s24 的智能体读文稿时声明
+       要译成英语（documents_read 的 translateTo），在自己这一轮里逐句翻，译完一次写进视频。没有逐句进度与百分比：
+       视频卡头写「翻译中」、那一行是不确定的细条，字幕 Tab 的运行态头与压缩条也是；卡上不给取消，要停就停那条会话。 */
+    {id: 'ag24l', kind: 'translate', project: 'p13', title: '翻译 · 口播 · 本机优先（链接导入） · 中 → 英语',
+     sub: 'Claude Code · Sonnet · 会话「把这条口播翻成英语字幕」', status: 'running', pct: null, byAgent: true, phase: '智能体逐句翻译',
+     source: 'agent', session: 's24', started: '1 分钟前', cancellable: false, target: 'en',
+     from: '中文', lang: '英语', model: 'Claude Code · Sonnet', linesTotal: 62, elapsedMs: 48000,
+     undoBody: '这一门语言的译文会被移除。原文一个字不动。'},
     /* Agent 会话里放行后跑的活也是**任务**（第 109 轮）：同一条记录，会话里的
        工具行、后台任务页、侧栏迷你条读的都是它；撤销位也在这里，收据与任务页同源。
        source: 'agent' ＋ session 指回那条会话。 */
@@ -1901,6 +1918,14 @@
          {id: 'm4', role: 'tool', tool: 'models_transcribe', args: {model: 'moss-transcribe', duration: 52}, status: 'run', taskId: 'ag23t'},
          {id: 'm5', role: 'assistant', text: '转录在后台跑，还要一会儿。先问一句：字幕要按说话人分开标出来，还是只要一条字幕？'},
        ]},
+      /* 智能体自己翻译（ag24l）：读文稿时声明目标语，在这一轮里逐句翻，译完一次写进视频 */
+      {id: 's24', title: '把这条口播翻成英语字幕', project: 'p13', harness: 'claude', model: 'sonnet', effort: 'mid',
+       status: 'running', ago: 1,
+       messages: [
+         {id: 'm1', role: 'user', text: '把这条口播翻成英语字幕。', ...turnLive(52)},
+         {id: 'm2', role: 'assistant', text: '好。文稿 62 句，我直接逐句翻，译完一次写成英语译文，再按译文出字幕。'},
+         {id: 'm3', role: 'tool', tool: 'documents_read', args: {document: '文稿', sentences: 62, translateTo: 'en'}, status: 'done', took: '0.1s', taskId: 'ag24l'},
+       ]},
       /* 未绑定项目的会话再补 7 条：侧栏这一段首屏只露 5 条、每次再加载 5 条，少于 6 条演示不出来 */
       {id: 's7', title: '把 3 段竖屏素材拼成一条 60 秒短片', project: null, harness: 'claude', model: 'sonnet', effort: 'mid',
        status: 'done', ago: 1800,
@@ -2429,7 +2454,7 @@
       ...(movie ? {url: proj.preview.url, poster: proj.preview.poster, meta: proj.src.format} : {})};
     return {
       entry, tab: movie ? 'video' : elementLab ? 'elements' : entry.tab,
-      transcript: !elementLab && !movie, music: !proj.bare, score: proj.score || [],
+      transcript: !elementLab && !movie, captions: proj.captions !== false, music: !proj.bare, score: proj.score || [],
       duration: movie ? proj.duration : DUR,
       clips: movie ? [{id: 'k1', start: 0, end: proj.duration, src: 0}] : clips,
       chapters: elementLab || movie ? [] : proj.entry === 'clean'

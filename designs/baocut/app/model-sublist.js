@@ -44,8 +44,10 @@
       /* 正在翻的那门已经落了轨（重翻）：条目不换态——轨在画面上、列表照旧能看，
          只在它身上挂进度；还没落轨的才是一条独立的「翻译中」候选。 */
       const had = out.find((o) => o.code === running.code);
-      if (had) { had.pct = running.pct || 0; had.running = true; }
-      else add(running.code, running.name, 'running', {pct: running.pct || 0});
+      /* 智能体自己翻译没有百分比：pct 留 null，后缀只写「翻译中」 */
+      const pct = running.pct == null ? null : running.pct;
+      if (had) { had.pct = pct; had.running = true; }
+      else add(running.code, running.name, 'running', {pct});
     }
     return out;
   }
@@ -78,7 +80,7 @@
 
   /** 下拉里一门语言的后缀：状态不是 `on` 才说，画面上有的不用标。 */
   function suffix(o) {
-    if (o.state === 'running' || o.running) return '翻译中 ' + Math.round(o.pct) + '%';
+    if (o.state === 'running' || o.running) return o.pct == null ? '翻译中' : '翻译中 ' + Math.round(o.pct) + '%';
     if (o.state === 'shelved') return '已拿下';
     if (o.state === 'off') return '已停用';
     return '';

@@ -35,9 +35,10 @@
       <div className="mjob__head">
         <Ic n={r.state === 'failed' ? 'alert' : r.icon} className="ic--14 mjob__ic" />
         <span className={cx('mjob__name', r.state === 'running' && 'is-shimmer')}>{r.name}</span>
-        <span className="mjob__tail">{r.tail}</span>
+        {r.tail ? <span className="mjob__tail">{r.tail}</span> : null}
       </div>
-      {full && r.pct != null ? <Progress value={r.pct} thin label={`${r.name} · ${r.line || r.tail}`} /> : null}
+      {/* 运行中没有百分比（智能体自己翻译）时是不确定的细条 */}
+      {full && (r.pct != null || r.state === 'running') ? <Progress value={r.pct} indeterminate={r.pct == null} thin label={`${r.name} · ${r.line || r.tail || ''}`} /> : null}
       {full && r.line ? <span className="mjob__line">{r.line}</span> : null}
       {full && r.facts.length ? <span className="mjob__facts">{r.facts.join(' · ')}</span> : null}
       {full && r.asr ? <span className="mjob__asr" title={r.asr}>{r.asr}</span> : null}

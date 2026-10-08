@@ -4,13 +4,16 @@
    头上一枚状态（BADGE 词表），下面是这部视频上的活（agent-cards.jsx 的 MovieJobRows）：只摊开正在进行的，
    都结束了只摊开最后一件，其余收进「之前的 N 项」展开才看到，里面有失败待处理的那一行写「N 项待处理」（BC_AGENT_CARDS.foldRows，§3.2.2）。
    线程里一条会话一部视频一张卡（锚点见 BC_AGENT_PROJECTS.sessionArtifacts），与「会话摘要」弹层里那张一样算整条会话的活。
-   内容从视频记录与任务记录算（BC_AGENT_CARDS.movieCard）。 */
+   内容从视频记录与任务记录算（BC_AGENT_CARDS.movieCard）。
+   预览图（§3.2.2 视频卡）：默认不画播放钮；能在卡里播的视频（有可播放的预览源、源文件在），指针移上去或键盘聚焦时
+   中间出现播放钮，点一下就在卡里原地播，带播放控制（media-preview-video.jsx 的 MediaVideoSurface），不离开会话；
+   不能播的点预览图照旧打开编辑器。播的是视频的原片，不是剪过的版本。 */
 (function () {
   const {useState} = React;
   const AP = window.BC_AGENT_PROJECTS;
 
   // product-design §3.2.7: a visual delivery card opens the movie in the right pane.
-  function SessionMoviePreview({movie, duration}) {
+  function SessionMoviePreview({movie, duration, playable}) {
     const [failedPoster, setFailedPoster] = useState(null);
     const poster = movie?.preview?.poster;
     const hasPoster = poster && failedPoster !== poster;
@@ -28,7 +31,7 @@
             <span>{sample[sourceLang].line}</span>
           </span>
         </span> : <span className="chat-movie__empty"><Ic n={missing ? 'alert' : 'film'} />{missing ? '找不到源文件' : '暂无缩略图'}</span>}
-      {(hasPoster || demo) && !missing && <span className="chat-movie__open"><Ic n="play" className="ic--20" /></span>}
+      {playable && hasPoster && <span className="chat-movie__open"><Ic n="play" className="ic--20" /></span>}
       {duration > 0 && <span className="chat-movie__duration">{window.BC_TIME.timecode(duration, {decimals: 0})}</span>}
     </span>;
   }
@@ -47,11 +50,20 @@
       else { onOpen?.(); app.openWorkspaceFile(item.id, sess.id); }
     };
     const dur = project ? project.duration : item.dur;
+    /* 卡里原地播：开合只是这张卡自己的事（局部 useState）。播放器在 App 入口里晚于本文件加载，渲染时再取。 */
+    const [playing, setPlaying] = useState(false);
+    const preview = project && project.preview;
+    const playable = !!(preview && preview.url && preview.poster && project.src?.state !== 'missing' && window.MediaVideoSurface);
+    const Player = window.MediaVideoSurface;
     return <>
       {movie ? <div className="chat-output chat-output--movie">
-        <BCAction className="chat-movie__preview-action" aria-label={`打开视频「${item.name}」`} onClick={open}>
-          <SessionMoviePreview movie={project} duration={dur} />
-        </BCAction>
+        {playing && playable ? <div className="chat-movie__player">
+          <Player file={{id: `movie:${project.id}`, name: item.name, previewSrc: preview.url, poster: preview.poster}}
+            initial={{time: 0, volume: 1, muted: false, rate: 1, paused: false}} />
+        </div> : <BCAction className="chat-movie__preview-action" aria-label={playable ? `播放视频「${item.name}」` : `打开视频「${item.name}」`}
+          onClick={playable ? () => setPlaying(true) : open}>
+          <SessionMoviePreview movie={project} duration={dur} playable={playable} />
+        </BCAction>}
         <div className="chat-movie__footer"><div className="chat-output__body"><strong title={item.name}>{item.name}</strong>
           <span className="chat-movie__meta"><Chip tone={card.badge.tone}>{card.badge.text}</Chip>
             <span>视频{dur ? ` · ${window.BC_TIME.duration(dur)}` : ''}</span></span></div>

@@ -91,6 +91,12 @@
 .runstrip.is-queued { background: var(--gray-100); }
 .runstrip.is-queued .livehd__dot { background: var(--gray-500); animation: none; }
 .runstrip.is-queued .runstrip__bar i { background: var(--gray-500); }
+/* 智能体自己翻译没有百分比（product-design §5.7）：压缩条底边一段来回走的细条，运行态头用不确定的进度条 */
+.runstrip__bar.is-indeterminate { overflow: hidden; }
+.runstrip__bar.is-indeterminate i { width: 32%; animation: bc-runstrip-sweep 1.4s cubic-bezier(0.45,0,0.4,1) infinite; }
+@keyframes bc-runstrip-sweep { from { transform: translateX(-100%); } to { transform: translateX(320%); } }
+@media (prefers-reduced-motion: reduce) { .runstrip__bar.is-indeterminate i { width: 100%; animation: none; opacity: 0.5; } }
+.livehd__pg { margin-top: 8px; }
 /* 第 152 轮：正在翻、还没落轨的那门语言——虚线 chip 但可选中（选中 = 列表换成翻译中那一屏） */
 .subtrk--run { color: var(--blue-900); border-color: var(--blue-700); }
 .subtrk--run.is-on { border-style: solid; border-color: var(--blue-800); background: var(--blue-200); color: var(--blue-1000); }

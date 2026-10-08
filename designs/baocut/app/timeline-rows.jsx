@@ -440,6 +440,30 @@
     }
     return out;
   }
+  /* ---------- 只读的文稿行（2026-10-08，§12.6） ----------
+     转录过、却一条字幕轨都没有时，文稿一句一块落在字幕行的位置上（`TL.rows` 的 `transcript`）。
+     块是中性灰、不是字幕蓝：它不上画面、不进导出；不可选中、不可裁，点一句只把播放头落到句首。
+     剪掉的段照样从块里抠掉（与字幕块同一套 `keptPieces`）。 */
+  function TranscriptRow({ctx, row, pxps}) {
+    const cuts = ctx.cuts || [];
+    const out = [];
+    ctx.cues.forEach((cu) => {
+      CUT.keptPieces(cuts, cu.start, cu.end).forEach((pc, i) => {
+        const w = Math.max(2, vw(ctx, pc.start, pc.end, pxps) - 2);
+        const lb = TL.cueLabel(Object.assign({}, cu, {start: pc.start, end: pc.end}), w, false);
+        out.push(
+          <div key={cu.id + ':' + i} className="tblk ttx"
+            style={{left: vx(ctx, pc.start, pxps), width: w, top: 5, height: row.h - 10}}
+            onClick={(e) => { e.stopPropagation(); ctx.seek(pc.start); }}
+            title={`${cu.text} · 文稿（只读）`}>
+            {lb ? <span className="tcue__t">{lb.text}</span> : null}
+          </div>
+        );
+      });
+    });
+    return out;
+  }
+
   /* 主轨 `VideoClip` 已退役（2026-09-16）：项目原片是普通视频元素，走上面的 `ElementBlock`
      （`telb--media`，同样的「上半缩略图带 + 下半波形」两层）。 */
   /* ---------- 音频 / 音乐块 ----------
@@ -519,6 +543,6 @@
     );
   }
 
-  Object.assign(window, {stops, MediaBody, ImportBody, ElementBlock, MemberBlock, SubsRow, TemplateBlock,
+  Object.assign(window, {stops, MediaBody, ImportBody, ElementBlock, MemberBlock, SubsRow, TranscriptRow, TemplateBlock,
     AudioBlock, timelineModsOf: modsOf, pickTimelineBlock: pickBlock});
 })();

@@ -19,7 +19,7 @@
   const SEL = window.BC_SELECT;
   /* 块与行在 `timeline-rows.jsx`（第 115 轮拆出去，这一份原本 671 行）——
      `BaoCut.html` 里它排在本文件之前，所以这里可以在 IIFE 顶上解构。 */
-  const {ElementBlock, MemberBlock, SubsRow, AudioBlock, TemplateBlock} = window;
+  const {ElementBlock, MemberBlock, SubsRow, TranscriptRow, AudioBlock, TemplateBlock} = window;
   /* 剪口带（空槽带 / 建议带，含拖两缘改范围）在 `timeline-cutbands.jsx`（2026-10-01 拆出），同样排在本文件之前 */
   const {CutBands} = window;
   const VE = window.BC_VIDEO_EDIT;
@@ -316,7 +316,7 @@
        下层视频画面整幅看不见——每件视频元素算一份 `coverSpans`，缩略带上压斜纹带（[timeline-whiteboard.jsx](timeline-whiteboard.jsx)）。 */
     const coverOf = (el) => TL.coverSpans(el, ctx.elements, ctx.elDocs, ctx.elStyleOf);
     const {rows, height: laneH} = TL.rows(ctx.elements,
-      {subTracks: ctx.subStyle.tracks, textMembers: D.textGroup.members,
+      {subTracks: ctx.subStyle.tracks, transcript: ctx.cues.length > 0 && ctx.liveAt == null, textMembers: D.textGroup.members,
         audio: ctx.hasAudio, music: ctx.hasMusic, mainAudio: ctx.audioProject,
         hiddenEls, audioMuted: ctx.muted, musicMuted: ctx.musicMuted,
         dubs: ctx.dubs, dubOff: ctx.dubOff, bedOff: ctx.bedOff, score: ctx.score, scoreOff: ctx.scoreOff});
@@ -510,6 +510,9 @@
                     <window.DubHead row={r} ctx={ctx} onOpen={setDubMenu} open={!!dubMenu && dubMenu.lang === (r.dub || {}).lang} />
                   ) : r.kind === 'score' ? (
                     <window.ScoreHead row={r} ctx={ctx} onOpen={setScoreMenu} open={!!scoreMenu && scoreMenu.bus === r.bus} />
+                  ) : r.kind === 'transcript' ? (
+                    <><Ic n="transcript" className="ic--14" />
+                      <span className="thd__label" title="文稿 · 只读 · 这条视频还没有字幕轨，在字幕 Tab 生成">{TL.headLabel(r)}</span></>
                   ) : (
                     <>
                       {r.member ? <Ic n={r.member.icon} className="ic--14" />
@@ -547,6 +550,8 @@
                     ))
                   ) : r.kind === 'subs' ? (
                     <SubsRow ctx={ctx} row={r} pxps={pxps} />
+                  ) : r.kind === 'transcript' ? (
+                    <TranscriptRow ctx={ctx} row={r} pxps={pxps} />
                   ) : r.kind === 'music' ? (
                     <AudioBlock kind="music" name={D.sources.audio[0].name} ctx={ctx}
                       start={0} end={D.sources.audio[0].dur} pxps={pxps} h={r.h} muted={!!ctx.musicMuted} />

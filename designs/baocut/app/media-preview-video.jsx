@@ -348,4 +348,6 @@
     );
   }
   window.MediaVideoPreview = MediaVideoPreview;
+  /* 会话里的视频卡在卡里原地播（home-session.jsx）：只要播放器本身，不要展开与标签页。 */
+  window.MediaVideoSurface = VideoSurface;
 })();

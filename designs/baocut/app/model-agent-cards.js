@@ -5,7 +5,7 @@
    - 视频卡（home-session.jsx 的 SessionArtifactCard）：视频记录一存在就出现，「打开编辑器」始终可用。
      一条会话一部视频一张，挂在最后一条引用它的消息后面；卡上的活在后一轮开始时还在跑，就跟到最新一轮
      （BC_AGENT_PROJECTS.sessionArtifacts）。列这条会话在它上面的全部活。
-     头上一枚状态（BADGE 词表：未转录 / 已转录 / 转录中 / 排队中 / 失败，`badge`），下面是这部视频上的活（`jobRow`）：
+     头上一枚状态（BADGE 词表：未转录 / 已转录 / 转录中 / 排队中 / 失败，翻译在跑时是「翻译中」，`badge`），下面是这部视频上的活（`jobRow`）：
      转录、重新转录、翻译、导出，运行中是阶段 + 百分比 + 计数 + 已用与剩余 + 取消，
      完成后那一行换成结果事实，失败写原因与去处，取消写已取消。§4.2：进行中的生成以占位出现，完成后原位变成结果。
      卡上只摊开正在进行的活（可能几件同时在跑），都结束了就只摊开最后结束的那一件；别的收进一行「之前的 N 项」，
@@ -18,7 +18,7 @@
    任务记录在原型里的字段（正式应用的 JobRecord 对照见交付说明）：
    - 通用：kind、project（视频 id）、session、status（queued / running / done / error）、outcome、canceled、pct、
      elapsedMs、leftMs、model、runsOn、error、errorCode、cancellable、queuePos
-   - 阶段：转录与导出是 Job 阶段 `jobPhase`，翻译是流程步骤 `step`
+   - 阶段：转录与导出是 Job 阶段 `jobPhase`，翻译是流程步骤 `step`；智能体自己翻译（`byAgent`）没有步骤与百分比
    - 计数：转录 `mediaSec`（按 pct 折算已识别的时长）、翻译 `linesDone / linesTotal`、导出 `framesDone / framesTotal`、
      下载 `sizeMB`（按 pct 折算已下）
    - 结果：转录 `result`（句数、说话人数、警告）、翻译 `lang` 与 `result`（条数、过期、未对齐）、导出 `files` 与 `checks`、
@@ -97,16 +97,20 @@
   function phaseLabel(task) {
     if (task.status === 'queued') return task.queuePos ? `排队中 · 第 ${task.queuePos} 位` : '排队中';
     if (task.kind === 'download') return task.pct >= 100 ? '验证媒体' : '下载中';
+    if (task.kind === 'translate' && task.byAgent) return '智能体逐句翻译';
     if (task.kind === 'translate') return TRANSLATE_STEP[task.step] || '准备中';
     if (task.kind === 'export' && task.jobPhase === 'generating') return '编码中';
     if (task.kind === 'export' && task.jobPhase === 'publishing') return '保存文件';
     return PHASE_LABEL[task.jobPhase] || '准备中';
   }
 
-  /** 计数那一句：已识别 11:58 / 26:00、已译 38 / 62 句、已画 2,719 / 6,180 帧、已下 86 / 320 MB。 */
+  /** 计数那一句：已识别 11:58 / 26:00、已译 38 / 62 句、已画 2,719 / 6,180 帧、已下 86 / 320 MB。
+      智能体自己翻译（`byAgent`）没有逐句进度，只写一共多少句。 */
   function countLabel(task) {
     switch (task.kind) {
-      case 'translate': return has(task.linesTotal) ? `已译 ${task.linesDone || 0} / ${task.linesTotal} 句` : null;
+      case 'translate':
+        if (task.byAgent) return has(task.linesTotal) ? `共 ${task.linesTotal} 句` : null;
+        return has(task.linesTotal) ? `已译 ${task.linesDone || 0} / ${task.linesTotal} 句` : null;
       case 'export': return has(task.framesTotal) ? `已画 ${num(task.framesDone)} / ${num(task.framesTotal)} 帧` : null;
       case 'download': return has(task.sizeMB) ? `已下 ${num(Math.round(task.sizeMB * pctOf(task) / 100))} / ${num(task.sizeMB)} MB` : null;
       case 'transcribe': case 'retranscribe':
@@ -150,13 +154,25 @@
 
   /* ---------- 视频卡 ---------- */
 
+  /** 翻译在跑时卡头的状态（product-design §3.2.2 视频卡）。只是这张卡上的一枚状态，不进 BADGE 词表：
+      BADGE 是视频自己的转录状态，Space 与视频选择器也读它，翻译不改视频的转录状态。 */
+  const TRANSLATING = {label: '翻译中', tone: 'accent'};
+
   /** 视频卡头上的状态（BADGE 的键与说法，data.js；Space 的视频状态同一套字，model-space.js）。
-      视频记录是底；指向它的转录任务在跑 / 排队时，以任务为准（一份真相：进度只在任务记录上）。 */
+      视频记录是底；指向它的转录任务在跑 / 排队时，以任务为准（一份真相：进度只在任务记录上）。
+      转录没在跑、有翻译在跑（任何会话、App 或智能体自己译的都算）时写「翻译中」：只有一件、知道百分比时带上它；
+      智能体自己翻译没有百分比。 */
   function badge(movie, tasks) {
     const B = (root.BC_DATA && root.BC_DATA.BADGE) || {};
     const mine = (tasks || []).filter((t) => movie && t.project === movie.id && TRANSCRIBE_KINDS.indexOf(t.kind) >= 0);
     const run = mine.find((t) => t.status === 'running');
     const queued = mine.find((t) => t.status === 'queued');
+    const translating = run || queued ? [] : (tasks || []).filter((t) => movie && t.project === movie.id && t.kind === 'translate' && t.status === 'running');
+    if (translating.length) {
+      const one = translating.length === 1 && !translating[0].byAgent ? pctOf(translating[0]) : null;
+      return {k: 'translating', label: TRANSLATING.label, tone: TRANSLATING.tone,
+        text: one != null ? `${TRANSLATING.label} · ${one}%` : TRANSLATING.label};
+    }
     const k = run ? 'transcribing' : queued ? 'queued' : movie && B[movie.status] ? movie.status : 'ready';
     const b = B[k] || {label: k, tone: 'neutral'};
     const pct = run ? pctOf(run) : k === 'transcribing' && movie.progress != null ? movie.progress : null;
@@ -199,8 +215,12 @@
     const running = s === 'running';
     const fix = s === 'failed' ? remedy(task) : null;
     const done = s === 'done';
+    /* 智能体自己翻译（`byAgent`，正式应用的 JobKind `agentTranslate`）：没有逐句进度，进度条是不确定的；
+       卡上不给取消——译文是智能体这一轮在写，要停就停那条会话（后台任务页的「停止」）。 */
+    const self = task.kind === 'translate' && !!task.byAgent;
+    const pct = running && !self ? pctOf(task) : null;
     const actions = [];
-    if ((running || s === 'queued') && task.cancellable !== false) actions.push({k: 'cancel', label: '取消'});
+    if ((running || s === 'queued') && task.cancellable !== false && !self) actions.push({k: 'cancel', label: '取消'});
     if (fix) actions.push({k: fix.k, label: fix.label, route: fix.route});
     const outs = done && task.kind === 'export' ? task.files || [] : [];
     if (outs.length && PLAYABLE.test(outs[0].name || '')) actions.push({k: 'play', label: '播放'});
@@ -208,9 +228,10 @@
     return {
       id: task.id, kind: task.kind, icon: k.icon, state: s,
       name: task.kind === 'translate' && task.lang ? `${k.name} · ${task.lang}` : k.name,
-      /* 头上的右侧：运行中是百分比，其余一个状态词 */
-      tail: running ? `${pctOf(task)}%` : s === 'queued' ? '排队中' : s === 'canceled' ? '已取消' : s === 'failed' ? '失败' : '完成',
-      pct: running ? pctOf(task) : null,
+      /* 头上的右侧：运行中是百分比（没有百分比时不写），其余一个状态词 */
+      tail: running ? (pct != null ? `${pct}%` : null) : s === 'queued' ? '排队中' : s === 'canceled' ? '已取消' : s === 'failed' ? '失败' : '完成',
+      /* 运行中没有百分比时是 null：画不确定的细条 */
+      pct,
       asr: asrLine(task),
       line: running ? [phaseLabel(task), countLabel(task)].filter(Boolean).join(' · ') : s === 'queued' ? phaseLabel(task) : null,
       time: running ? timeLabel(task) : null,

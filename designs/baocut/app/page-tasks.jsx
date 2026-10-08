@@ -285,7 +285,7 @@
           : F.taskTitle(t, k.label)}</div>
         <div className="t-detail" style={{marginTop: 4}}>{[k.label, t.sub, t.started].filter(Boolean).join(' · ')}</div>
 
-        {t.status === 'running' ? <div style={{maxWidth: 420, marginTop: 16}}><Progress value={t.pct} /></div> : null}
+        {t.status === 'running' ? <div style={{maxWidth: 420, marginTop: 16}}><Progress value={t.pct} indeterminate={t.pct == null} /></div> : null}
         {/* 执行方那一句 `detail`（「第 1 行 · Codex 正在画 · 15 秒」）：此前只在 jobs 帧里、界面不画。
             所有种类通用；没有 detail 时退回阶段短语。只在运行中写。 */}
         {t.status === 'running' && (t.detail || t.phase)

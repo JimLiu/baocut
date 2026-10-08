@@ -281,6 +281,7 @@
      是假承诺。计数只在有总数时出（同 App v2 的 when 门控）。 */
   function TransRunHead({job, lang, slice, onCancel}) {
     const app = useApp();
+    if (R.selfRun(job)) return <SelfRunHead job={job} lang={lang} />;
     const queued = job.status === 'queued';
     const cur = slice.stage;
     const c = R.counts(job.pct, D.translate.liveTotals, queued);
@@ -335,6 +336,30 @@
     );
   }
 
+  /* ---------- 智能体自己翻译的运行态头（product-design §5.7，`BC_TRUN.selfRun`） ----------
+     没有百分比、没有四段阶梯：标题 + 不确定的进度条 + 一共几句 + 指回会话。不给取消钮——
+     译文是会话里那一轮在写，要停就到会话里停；这里摆一颗取消只会停掉记录、停不下智能体。 */
+  function SelfRunHead({job, lang}) {
+    const app = useApp();
+    const sessTitle = R.sessionTitle(job);
+    return (
+      <div className="livehd">
+        <div className="livehd__t">
+          <span className="livehd__dot" />
+          <b className="grow">{'翻译中 · ' + D.srcLang.abbr + ' → ' + (lang ? lang.name : job.lang || job.target)}</b>
+        </div>
+        <Progress indeterminate thin className="livehd__pg" label={'翻译中 · ' + (lang ? lang.name : job.lang || job.target)} />
+        <div className="livehd__m">
+          <span>{job.linesTotal ? '共 ' + job.linesTotal + ' 句 · ' : ''}智能体逐句翻译，译完一次写进视频</span>
+        </div>
+        <div className="livehd__m">
+          <span className="t-truncate">Agent 会话正在翻译{sessTitle ? ' · 会话「' + sessTitle + '」' : ''}</span>
+          {job.session && window.BC_SURFACE.agent ? <BCAction className="stlink" onClick={() => app.openSession(job.session)}>查看会话</BCAction> : null}
+        </div>
+      </div>
+    );
+  }
+
   /* ---------- 翻译中：正文按阶段换 ----------
      四段各有各的样子，理由逐条写在 model-trans-run.js 顶部。这里只负责画。 */
   const QUEUED_NOTE = <>排在别的任务后面——轮到它才开始读文稿。现在还没有任何模型在动。</>;
@@ -370,6 +395,15 @@
   }
 
   function RunView({ctx, lang, slice}) {
+    /* 智能体自己翻译：译文一次写进来，写进来之前没有句子可流，只说清楚在等什么 */
+    if (R.selfRun(ctx.transJob)) return (
+      <>
+        <TransRunHead job={ctx.transJob} lang={lang} slice={slice} onCancel={ctx.cancelTrans} />
+        <div className="pscroll bc-scroll">
+          <div className="signpost">智能体在会话里逐句翻译，译完一次写进视频——写进来之前这里还没有译文可看。原文列表照常可读可改。</div>
+        </div>
+      </>
+    );
     return (
       <>
         <TransRunHead job={ctx.transJob} lang={lang} slice={slice} onCancel={ctx.cancelTrans} />
@@ -765,13 +799,15 @@
      这一跑压在哪门语言上、跑到哪儿了，看一眼就知道。点「查看进度」才切到那门语言的运行态。 */
   function TransRunStrip({job, lang, onOpen}) {
     const queued = job.status === 'queued';
+    /* 智能体自己翻译没有百分比：不写数字，底边是来回走的不确定细条 */
+    const self = R.selfRun(job);
     return (
       <div className={cx('runstrip', queued && 'is-queued')} role="status">
         <span className="livehd__dot" />
         <span className="runstrip__t t-truncate">{R.stripText(job, D.srcLang.abbr, lang ? lang.name : job.target)}</span>
-        <span className="t-mono runstrip__pct">{Math.round(job.pct)}%</span>
+        {self ? null : <span className="t-mono runstrip__pct">{Math.round(job.pct)}%</span>}
         <BCAction className="stlink" onClick={onOpen}>查看进度</BCAction>
-        <div className="runstrip__bar"><i style={{width: job.pct + '%'}} /></div>
+        <div className={cx('runstrip__bar', self && 'is-indeterminate')}><i style={self ? undefined : {width: job.pct + '%'}} /></div>
       </div>
     );
   }

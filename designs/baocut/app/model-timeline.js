@@ -40,6 +40,7 @@
     const code = String(lang || '').split(/[-_]/)[0].toLowerCase();
     const language = ({zh:'中文', en:'英文', ja:'日文', ko:'韩文', fr:'法文', de:'德文', es:'西文'})[code] || languageBadge(lang);
     if (r.kind === 'subs') return language ? '字幕 · ' + language : '字幕';
+    if (r.kind === 'transcript') return '文稿';
     if (r.kind === 'dub') return (r.dub?.role === 'narration' ? '旁白' : '配音') + (language ? ' · ' + language : '');
     if (r.member) return r.member.name || '文字';
     const kind = r.elKind || r.el?.kind || r.kind;
@@ -344,6 +345,13 @@
     subTracks.forEach((t) => {
       out.push({key: 'subs:' + t.id, kind: 'subs', track: t, h: ROW_H.subs, label: t.name, off: !!t.hidden});
     });
+    /* 只读的「文稿」行（2026-10-08，§12.6）：视频转录过、却一条字幕轨都没有（转录时没建字幕，
+       或把字幕都拿下了）——文稿照样落在时间轴上，占字幕行的位置，看得见哪里在说话、点一句落播放头。
+       它不是轨：没有开关、不进导出、不可选中。调用方显式传 `transcript` 才出这一行，
+       所以「显式空轨集」的旧语义（新建空白项目不补虚构轨）不变。 */
+    if (o.transcript && !subTracks.length) {
+      out.push({key: 'transcript', kind: 'transcript', h: ROW_H.subs, label: '文稿'});
+    }
     /* 没有 `clips` 行（2026-09-16）：项目原片是普通 `video` 元素，走上面的同类共道；
        时间轴上所有轨平等，没有「主视频」。 */
     /* 翻译配音（2026-09-11，§12.6；2026-09-14 改成**一种语言一组**）：一组 = 配音行 + 它自己的
