@@ -155,6 +155,10 @@
   }
   /** 话里的第一条网页链接（http / https）；没有返回 null。Home 据此不先建空白视频，直接交给 Agent 去下载。 */
   const LINK_RE = /https?:\/\/[^\s，。、；）)」]+/i;
+  /** 这句话要处理一条现成的视频或音频（「给这个视频加上字幕」「把这段音频做成视频」）：Home 没附素材也不先建空白视频，
+      由会话里的 Agent 来要。认不出的说法按做新视频处理（照旧先建空白视频）。 */
+  const SOURCE_RE = /[这那](个|段|条|部|支)?(视频|音频|录音|播客|片子)|\b(this|that)\s+(video|audio|recording|clip|podcast)\b/i;
+  function wantsSource(text) { return SOURCE_RE.test(String(text || '')); }
   function linkIn(text) {
     const m = LINK_RE.exec(String(text || ''));
     return m ? m[0] : null;
@@ -397,7 +401,7 @@
     return g ? {entry: g.entry, goal: g.k} : {entry: 'agent'};
   }
 
-  const API = {homePrompt, homeStarters, starter, starterTarget, linkIn, lengthLabel, lengthSeconds, ENTRIES, GOALS, RATIOS, RECENT_MAX, goal, goalsOf, flowGroups, kinds, SCENES, scene, sceneText, autoRange, syncAuto, stripAuto, applyScene, specLine, route, routeNote, BLANK, pipeline, aiGate, gateGuide,
+  const API = {homePrompt, homeStarters, starter, starterTarget, linkIn, wantsSource, lengthLabel, lengthSeconds, ENTRIES, GOALS, RATIOS, RECENT_MAX, goal, goalsOf, flowGroups, kinds, SCENES, scene, sceneText, autoRange, syncAuto, stripAuto, applyScene, specLine, route, routeNote, BLANK, pipeline, aiGate, gateGuide,
     oneShotNote, cta, canStart, chainOf, seed, remember, targetGroups, lastTemplate, presetOf};
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   if (typeof window !== 'undefined') Object.assign(window, {BC_NEW: API});

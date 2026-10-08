@@ -389,7 +389,7 @@
     if (!hasProject) {
       return Object.assign({}, hit, {
         write: null, task: null,
-        summary: '这条会话还没选视频。把视频拖进来，或者在下面选一部视频，我就能开始。',
+        summary: '这条会话还没选视频。把视频拖进来、贴上视频链接，或者在下面选一部视频，我就能开始。',
         close: null,
       });
     }
