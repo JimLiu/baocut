@@ -42,7 +42,9 @@
     ['时间轴放大 / 缩小 / 100%', '⌘= / ⌘− / ⌘0'],
     ['时间轴适应窗口 / 当前片段 / 播放头 / 所选', '⌥⌘1 / ⌥⌘2 / ⌥⌘3 / ⌥⌘4'],
     ['在播放头处分割', 'S'],
-    ['进入全屏播放', 'F'],
+    ['进入全屏播放（没选中元素时）', 'F'],
+    ['选中的画面元素移到最前 / 移到最后', 'F / B'],
+    ['选中的画面元素前移 / 后移一层', '⌘↑ / ⌘↓'],
     ['跳到片头 / 片尾', 'Home / End'],
     ['打开编辑器快捷键清单', '?'],
   ];
@@ -183,6 +185,11 @@
           /* 时间轴缩放：⌘= / ⌘− / ⌘0、⌥⌘1–4（菜单提示的同一组），动作与菜单共用 `timelineZoom`。 */
           const zk = TL.zoomKey(e);
           if (zk) { stop(); window.timelineZoom(c, zk, app.toast); return; }
+          /* ⌘↑ / ⌘↓：选中的一件画面元素前移 / 后移一层（画布「层级」的两行，timeline-trackorder.jsx） */
+          if ((k === 'ArrowUp' || k === 'ArrowDown') && !e.shiftKey && !e.altKey) {
+            if (elIds.length === 1) { stop(); window.arrangeElement(c, elIds[0], k === 'ArrowUp' ? 'forward' : 'backward', app.toast); }
+            return;
+          }
           if (low === 'z') {
             stop();
             const ok = e.shiftKey ? c.history.redo() : c.history.undo();
@@ -236,7 +243,11 @@
         /* 进全屏与退全屏是同一个键（退在 player.jsx 那侧接）。**必须在这一拍里**向
            浏览器要全屏：`requestFullscreen` 只认瞬时用户激活，按键就是那个手势，挪进
            effect 里发就晚了——与舞台工具条那颗钮同一条路。 */
+        /* F：选中一件画面元素时是「移到最前」，没选中时进全屏；B：选中的画面元素移到最后。 */
+        const arrangeOne = (dir) => elIds.length === 1 && c.sels.length === 1 && window.arrangeElement(c, elIds[0], dir, app.toast);
+        if (low === 'f' && !e.altKey && !e.shiftKey && elIds.length === 1 && c.sels.length === 1) { stop(); arrangeOne('front'); return; }
         if (low === 'f') { stop(); window.enterFullscreen(); c.setFs(true); return; }
+        if (low === 'b' && !e.altKey && !e.shiftKey) { if (arrangeOne('back')) stop(); return; }
         if (low === 's') { stop(); c.split(); return; }
         if (k === 'Home') { stop(); c.seek(0); return; }
         if (k === 'End') { stop(); c.seek(D.DUR); return; }

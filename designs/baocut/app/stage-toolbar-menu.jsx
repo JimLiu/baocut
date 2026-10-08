@@ -57,29 +57,34 @@
   }
 
   /* 层级飞出。图标按方向分两枚：往前的两行一枚、往后的两行一枚；
-     此前四行共用一枚 `elements`，读不出方向。 */
-  function OrderSub({style}) {
+     此前四行共用一枚 `elements`，读不出方向。四行与快捷键和 App 的画布「层级」一致
+     （F / ⌘↑ / ⌘↓ / B）；落到轨道次序上（timeline-trackorder.jsx `arrangeElement`），
+     走到同类轨道的最上 / 最下就灰掉。 */
+  function OrderSub({el, ctx, style}) {
     const app = useApp();
     const rows = [
-      {n: '移到最前', k: 'f', ic: 'layerup', off: true},
-      {n: '前移一层', k: '⌘ ↑', ic: 'layerup', off: true},
-      {n: '后移一层', k: '⌘ ↓', ic: 'layerdown'},
-      {n: '移到最后', k: 'b', ic: 'layerdown'},
+      {d: 'front', n: '移到最前', k: 'F', ic: 'layerup'},
+      {d: 'forward', n: '前移一层', k: '⌘↑', ic: 'layerup'},
+      {d: 'backward', n: '后移一层', k: '⌘↓', ic: 'layerdown'},
+      {d: 'back', n: '移到最后', k: 'B', ic: 'layerdown'},
     ];
     return (
       <div className="msub" style={style} onMouseDown={(e) => e.stopPropagation()}>
-        {rows.map((r, i) => (
-          <React.Fragment key={r.n}>
-            {/* 往前的两行与往后的两行之间一条线（第 82.1 轮补） */}
-            {i === 2 ? <div className="mprule" /> : null}
-            <BCAction size="M" disabled={r.off} className="mpi"
-              title={r.off ? '已经在最顶层' : undefined}
-              onClick={() => !r.off && app.toast(`已${r.n}`)}>
-              <Ic n={r.ic} className="ic--14" />
-              <span className="nm">{r.n}</span><i className="kbd">{r.k}</i>
-            </BCAction>
-          </React.Fragment>
-        ))}
+        {rows.map((r, i) => {
+          const off = !window.canArrange(ctx, el.id, r.d);
+          return (
+            <React.Fragment key={r.n}>
+              {/* 往前的两行与往后的两行之间一条线（第 82.1 轮补） */}
+              {i === 2 ? <div className="mprule" /> : null}
+              <BCAction size="M" disabled={off} className="mpi"
+                title={off ? (i < 2 ? '已经在同类轨道的最上面' : '已经在同类轨道的最下面') : undefined}
+                onClick={() => !off && window.arrangeElement(ctx, el.id, r.d, app.toast)}>
+                <Ic n={r.ic} className="ic--14" />
+                <span className="nm">{r.n}</span><i className="kbd">{r.k}</i>
+              </BCAction>
+            </React.Fragment>
+          );
+        })}
       </div>
     );
   }
@@ -242,7 +247,7 @@
 
     // 二级菜单仍保留 DOM 父子关系，顶层绘制让它不受父菜单的滚动裁切。
     const subOf = (id) => (
-      id === 'arrange' ? <OrderSub />
+      id === 'arrange' ? <OrderSub el={el} ctx={ctx} />
       : id === 'adjust-timing' ? <TimingSub el={el} ctx={ctx} />
       /* 行高与字距走 `K()`（第 102 轮）：字幕轨里这两个键叫 `lh` / `spacing`（核心的
          键名），量纲也不同——行高是 **90–200%** 而不是 0.8–3 倍，字距下限是 −10

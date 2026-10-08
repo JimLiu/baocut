@@ -260,6 +260,7 @@
       "app/timeline-score.jsx",
       "app/timeline-menu.jsx",
       "app/timeline-cutbands.jsx",
+      "app/timeline-trackorder.jsx",
       "app/timeline.jsx",
       "app/panel-shared.jsx",
       "app/font-library-store.jsx",
@@ -405,9 +406,9 @@
       "app/legacy-import.css",
       "app/subtitle-motion.css"
     ],
-    "js": "generated/app.js?v=558b0cce97ad",
-    "css": "generated/app.css?v=79fcd023c015",
-    "bytes": 3761813
+    "js": "generated/app.js?v=2a1785d62964",
+    "css": "generated/app.css?v=58986c4513fb",
+    "bytes": 3768064
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -553,6 +554,7 @@
       "app/timeline-score.jsx",
       "app/timeline-menu.jsx",
       "app/timeline-cutbands.jsx",
+      "app/timeline-trackorder.jsx",
       "app/timeline.jsx",
       "app/panel-shared.jsx",
       "app/font-library-store.jsx",
@@ -635,9 +637,9 @@
       "app/font-library.css",
       "app/subtitle-motion.css"
     ],
-    "js": "generated/web.js?v=2b9eccbabf1c",
-    "css": "generated/web.css?v=292ed043c621",
-    "bytes": 2315878
+    "js": "generated/web.js?v=4e20ff957576",
+    "css": "generated/web.css?v=75e41bbcd450",
+    "bytes": 2322073
   },
   "components": {
     "file": "Components.html",
@@ -663,7 +665,7 @@
       "app/spectrum.css"
     ],
     "js": "generated/components.js?v=6452bc166565",
-    "css": "generated/components.css?v=a20328515032",
+    "css": "generated/components.css?v=ffe7ef9af6bd",
     "bytes": 113863
   }
 }

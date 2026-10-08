@@ -3349,3 +3349,10 @@ html.is-col-resize, html.is-col-resize * { cursor: col-resize !important; }
 .media-source-tabs__panel > .pscroll > .media-library-drop:first-child { margin-top: 0; }
 
 .media-source-tabs__panel.is-detail { padding-top: 0; }
+/* 轨道换序（2026-10-08，timeline-trackorder.jsx）：能拖的行头给抓手光标；拖着的行半透明、压在别的行上；
+   落点线是目标轨上沿或下沿一根 2px 蓝线。 */
+.trow__hd--grab { cursor: grab; }
+.trow--drag { z-index: 16; opacity: 0.85; pointer-events: none; }
+.trow__drop { position: absolute; left: 0; right: 0; z-index: 16; height: 2px; background: var(--blue-800); pointer-events: none; }
+.trow__drop--above { top: -1px; }
+.trow__drop--below { bottom: -1px; }

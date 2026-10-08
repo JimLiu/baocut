@@ -764,3 +764,75 @@ test('播放头横坐标取整到设备像素：1× 落整数、2× 落半像素
   assert.strictEqual(TL.devicePx(152.3, 0), 152);
   assert.strictEqual(TL.devicePx(152.3, undefined), 152);
 });
+
+/* ---------- 轨道换序（2026-10-08） ---------- */
+const orderFixture = (trackOrder) => TL.rows([
+  {id: 'img', kind: 'image', start: 0, end: 5},
+  {id: 'stk', kind: 'sticker', start: 0, end: 5},
+  {id: 'vid', kind: 'video', start: 0, end: 20},
+], {subTracks: [{id: 'zh'}, {id: 'en'}], music: true, audio: false,
+  dubs: [{lang: 'ja', bed: true, blocks: []}], trackOrder}).rows;
+const keys = (rows) => rows.map((r) => r.key);
+
+test('轨道换序：只在同类之间换，落点不变时不提交', () => {
+  const rows = orderFixture();
+  assert.deepStrictEqual(keys(rows), ['el:sticker@0', 'el:image@0', 'el:video@0', 'subs:zh', 'subs:en', 'dub:ja', 'bed:ja', 'music']);
+  assert.equal(TL.trackClass(rows[0]), 'picture');
+  assert.equal(TL.trackClass(rows[6]), null, '背景声是随行，不是独立的轨');
+  // 落到紧挨着的下一行的上半 / 上一行的下半：位置不变
+  assert.equal(TL.trackDropChanges(rows, 'el:sticker@0', {key: 'el:image@0', position: 'above'}), false);
+  assert.equal(TL.trackDropChanges(rows, 'el:image@0', {key: 'el:sticker@0', position: 'below'}), false);
+  assert.equal(TL.trackDropChanges(rows, 'el:sticker@0', {key: 'el:image@0', position: 'below'}), true);
+  // 指针落在别类的行上没有落点
+  const subs = rows.find((r) => r.key === 'subs:zh');
+  assert.equal(TL.trackDropAt(rows, 'el:sticker@0', subs.y + 2), null);
+  const vid = rows.find((r) => r.key === 'el:video@0');
+  assert.deepStrictEqual(TL.trackDropAt(rows, 'el:sticker@0', vid.y + vid.h - 1), {key: 'el:video@0', position: 'below'});
+});
+
+test('轨道换序：画面按 order 降序显示，声音按升序，声音行的上下翻成模型的 below / above', () => {
+  assert.equal(TL.trackPlacement('picture', 'above'), 'above');
+  assert.equal(TL.trackPlacement('subs', 'below'), 'below');
+  assert.equal(TL.trackPlacement('audio', 'above'), 'below');
+  assert.equal(TL.trackPlacement('audio', 'below'), 'above');
+  assert.deepStrictEqual(TL.moveTrack(['a', 'b', 'c'], 'a', 'c', 'above'), ['b', 'c', 'a']);
+  assert.deepStrictEqual(TL.moveTrack(['a', 'b', 'c'], 'c', 'a', 'below'), ['c', 'a', 'b']);
+  assert.equal(TL.moveTrack(['a', 'b'], 'a', 'a', 'above'), null);
+
+  const rows = orderFixture();
+  // 把视频拖到最上面：画面的模型序（升序）最后一个是它
+  const pic = TL.trackOrderAfterDrop(rows, {}, 'el:video@0', {key: 'el:sticker@0', position: 'above'});
+  assert.deepStrictEqual(pic.picture, ['el:image@0', 'el:sticker@0', 'el:video@0']);
+  assert.deepStrictEqual(keys(orderFixture(pic)).slice(0, 3), ['el:video@0', 'el:sticker@0', 'el:image@0']);
+  // 把音乐拖到配音组上面：显示上在上 = 模型里 order 更小
+  const au = TL.trackOrderAfterDrop(rows, {}, 'music', {key: 'dub:ja', position: 'above'});
+  assert.deepStrictEqual(au.audio, ['music', 'dub:ja']);
+  assert.deepStrictEqual(keys(orderFixture(au)).slice(5), ['music', 'dub:ja', 'bed:ja'], '背景声跟着配音行走');
+  // 没变化的落点原样返回
+  assert.equal(TL.trackOrderAfterDrop(rows, au, 'el:sticker@0', {key: 'el:image@0', position: 'above'}), au);
+});
+
+test('轨道换序：同类只有一条、随行、锁着的不能拖；表里没有的行留在派生位置', () => {
+  const rows = orderFixture();
+  assert.equal(TL.canDragTrack(rows, 'el:sticker@0'), true);
+  assert.equal(TL.canDragTrack(rows, 'bed:ja'), false);
+  assert.equal(TL.canDragTrack(rows, 'el:sticker@0', () => true), false);
+  const lone = TL.rows([{id: 'img', kind: 'image', start: 0, end: 5}], {subTracks: [{id: 'zh'}], music: true}).rows;
+  assert.equal(TL.canDragTrack(lone, 'el:image@0'), false);
+  assert.equal(TL.canDragTrack(lone, 'subs:zh'), false);
+  const stale = keys(orderFixture({picture: ['el:gone@0', 'el:sticker@0', 'el:image@0']}));
+  assert.deepStrictEqual(stale.slice(0, 3), ['el:image@0', 'el:sticker@0', 'el:video@0']);
+});
+
+test('层级四项：独占一轨时与相邻同类轨换位，走到边为 null，共轨时报 split', () => {
+  const rows = orderFixture();
+  assert.equal(TL.arrangePlan(rows, 'stk', 'front'), null);
+  assert.equal(TL.arrangePlan(rows, 'stk', 'forward'), null);
+  assert.deepStrictEqual(TL.arrangePlan(rows, 'stk', 'backward'), {key: 'el:sticker@0', drop: {key: 'el:image@0', position: 'below'}});
+  assert.deepStrictEqual(TL.arrangePlan(rows, 'img', 'back'), {key: 'el:image@0', drop: {key: 'el:video@0', position: 'below'}});
+  assert.equal(TL.arrangePlan(rows, 'vid', 'back'), null);
+  assert.deepStrictEqual(TL.arrangePlan(rows, 'vid', 'front'), {key: 'el:video@0', drop: {key: 'el:sticker@0', position: 'above'}});
+  const shared = TL.rows([{id: 'a', kind: 'image', start: 0, end: 2}, {id: 'b', kind: 'image', start: 3, end: 5}],
+    {subTracks: [], music: false}).rows;
+  assert.deepStrictEqual(TL.arrangePlan(shared, 'a', 'front'), {split: true});
+});

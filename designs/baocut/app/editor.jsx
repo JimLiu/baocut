@@ -94,6 +94,9 @@
     const [vol, setVol] = useState(80);
     const [muted, setMuted] = useState(false);
     const [musicMuted, setMusicMuted] = useState(false);   // 音乐行的停用位（第 120 轮）
+    /* 轨道换序（2026-10-08）：拖行头 / 画布「层级」换过的次序，按类存模型序（`BC_TL.trackOrderAfterDrop`）；
+       字幕轨的次序就是 `subStyle.tracks`，不记在这里。 */
+    const [trackOrder, setTrackOrder] = useState({});
     /* 翻译配音（§15.4 / §15.6；2026-09-14 改成一种语言一**组**）：`dubs` 是写进时间轴的结果，一种语言
        一组（语言、按句的块、有没有自己的背景声、原声处置），同语言重跑替换那一组；组的停用位
        `dubOff[lang]`（关了配音与它的背景声一起灰），背景声自己另有一份 `bedOff[lang]`——背景声不跨组共用，
@@ -366,6 +369,7 @@
       setSubsOn(e.canvas !== 'empty' && e.canvas !== 'wave' ? true : e.canvas === 'wave');
       // 入口决定这个项目已经走到哪一步，也就决定 timeline 上有几条字幕轨
       setSubStyleState(empty ? {...subDoc(false), tracks: []} : subDoc(e.canvas === 'bi'));
+      setTrackOrder({});
       setClips(empty ? [] : setup.clips);
       setChapters(empty ? [] : setup.chapters);
       setAiReq(null);
@@ -1137,7 +1141,7 @@
       canvasBg: window.BC_KF.bgFill(mainBg,
         localMedia ? localMedia.bg : ent.canvas === 'wave' ? window.BC_MEDIA.bgToken('gray') : null),
       mainBg, setMainBg,
-      ratio, setRatio: setRatioGuarded, ratioLock: tpl.ratioLock, vol, setVol, muted, setMuted, musicMuted, setMusicMuted, setLaneOn, speed, setSpeed,
+      ratio, setRatio: setRatioGuarded, ratioLock: tpl.ratioLock, vol, setVol, muted, setMuted, musicMuted, setMusicMuted, trackOrder, setTrackOrder, setLaneOn, speed, setSpeed,
       score: scoreStore.score, scoreOff: scoreStore.scoreOff, scoreJob: scoreStore.scoreJob, regenScore: scoreStore.regenScore,
       dub, dubs, dubOff, bedOff, dubReadings, setDubReadings, applyDub, clearDub, restoreDubs, dubMuted, bedMuted, stretchDub, setDubSource,
       dubSel, pickDub, clearDubSel, updateDub, muteDubBlocks, deleteDubBlocks, regenDubBlocks, restoreDubTake, pruneDubArchive, clearDubArchive, openDubSentence,
