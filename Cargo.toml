@@ -80,6 +80,22 @@ opt-level = 3
 opt-level = 3
 [profile.dev.package.frame-render]
 opt-level = 3
+# 成片导出的其余逐帧路径：Worker 本身（搬帧、预乘）、解码与编码的管道读写、求计划，以及排版用的 cosmic-text / swash / rustybuzz；
+# 开发态（`npm run dev` 用 debug 的 Worker）不优化时导出比 release 慢两倍以上。
+[profile.dev.package.export-worker]
+opt-level = 3
+[profile.dev.package.media-core]
+opt-level = 3
+[profile.dev.package.render-graph]
+opt-level = 3
+[profile.dev.package.cosmic-text]
+opt-level = 3
+[profile.dev.package.swash]
+opt-level = 3
+[profile.dev.package.rustybuzz]
+opt-level = 3
+[profile.dev.package.serde_json]
+opt-level = 3
 
 # candle 后端（`backend-candle`）的 CPU 张量运算与矩阵乘：不优化时真权重的识别测试要慢上百倍。
 [profile.dev.package.candle-core]
