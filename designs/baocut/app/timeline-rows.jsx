@@ -55,7 +55,7 @@
      主轨的 clip 与 B-roll 视频元素共用这一份——它们本来就是同一套视觉，
      B-roll 只在块上多一枚角标。 */
   function MediaBody({w, h, seed, pxps, hue = 'blue', muted}) {
-    const waveH = 24;
+    const waveH = 16;   // 视频块自带的波形条：读得出有没有声音就够，不撑高整行（2026-10-08）
     /* 缩略帧的配方在 [model-timeline.js](model-timeline.js)——全屏进度条上的悬停预览
        读的是同一份，两处各画各的话，同一秒在两个地方就是两张画面。帧号按**秒**取
        （`left / pxps` 换回源秒数），所以放大时间轴只会把同一张帧铺得更宽。 */
@@ -392,7 +392,8 @@
     const paint = (cu, tail) => {
       const pieces = CUT.keptPieces(cuts, cu.start, cu.end);
       if (!pieces.length) return;
-      const on = sel && sel.kind === 'cue' && sel.id === cu.id && sel.trackId === track.id;
+      /* 框选能一次选中多条（2026-10-08），所以高亮读整组选中，不只读主选 */
+      const on = (ctx.sels || (sel ? [sel] : [])).some((s) => s.kind === 'cue' && s.id === cu.id && s.trackId === track.id);
       const text = isSrc ? cu.text : cu.trans;
       const stale = !isSrc && !!CUT.transStale(cuts, cu);
       pieces.forEach((pc, i) => {

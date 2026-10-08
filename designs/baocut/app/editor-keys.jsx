@@ -22,9 +22,12 @@
   const TL = window.BC_TL;
   const SUB = window.BC_SUB;
   const PL = window.BC_PLAYER;
+  const RP = window.BC_RIPPLE;
+  const secs = (n) => (n < 60 ? (Math.round(n * 10) / 10) + ' 秒' : window.BC_TIME.duration(n));
 
   const SHEET = [
-    ['删除选中', 'Delete'],
+    ['删除选中（所有轨道都空了的那段自动合拢）', 'Delete'],
+    ['从所有轨道删除所选这一段（后面的内容前移）', '⇧Delete'],
     ['取消选中 / 关闭弹层', 'Esc'],
     ['播放 / 暂停', 'Space / K'],
     ['撤销 / 重做', '⌘Z / ⇧⌘Z'],
@@ -86,7 +89,7 @@
       const n = (genRef.current += 1);
       c.history.begin();
       const made = items.map(({el, doc}) => {
-        const span = SEL.pasteSpan({start: doc.start, end: el.endAnchor ? null : doc.end}, c.playT, D.DUR);
+        const span = SEL.pasteSpan({start: doc.start, end: el.endAnchor ? null : doc.end}, c.playT, c.openEnded ? null : c.duration);
         const pose = SEL.pasteOffset(POSE.poseOf(doc), n);
         /* 成员 id 一起换：文本组照抄成员 id 的话，两组会写进同一份成员文档。 */
         const mem = (doc.members || el.members || null);
@@ -131,12 +134,54 @@
           {label: '撤销', undo: true, run: () => track && c.addSubTrackBack(track)});
         return;
       }
+      /* 元素与字幕一起删（2026-10-08，框选能同时选中两种）。删完看删掉的那几段：
+         所有轨道都空了的部分合拢、后面的内容前移、总长变短（`BC_RIPPLE`）；还有别的轨
+         占着就留空隙。删除与合拢是**同一条**历史，撤销一步回到删除之前。 */
       const ids = target.ids;
+      const cueIds = target.cues || [];
+      const own = c.elements.filter((e) => e.kind !== 'tpl');
+      const span = (x) => ({start: x.start, end: x.end == null ? c.duration : x.end});
+      const deleted = own.filter((e) => ids.indexOf(e.id) >= 0).map(span)
+        .concat(c.cues.filter((cu) => cueIds.indexOf(cu.id) >= 0).map(span));
+      const gaps = RP.gapsAfterDelete(deleted, cover(c, ids, cueIds));
       c.history.begin();
-      c.removeElements(ids);
+      const closed = c.ripple(gaps, {ids, cues: cueIds});
       c.history.commit();
       c.clearSel();
-      app.toast(ids.length > 1 ? `已删除 ${ids.length} 个元素` : '已删除元素', 'positive', undoAction());
+      const what = [ids.length ? (ids.length > 1 || cueIds.length ? ` ${ids.length} 个元素` : '元素') : null,
+        cueIds.length ? (ids.length ? '' : ' ') + `${cueIds.length} 条字幕` : null].filter(Boolean).join('、');
+      app.toast(`已删除${what}` + (closed ? ` · 空出的 ${secs(closed)}已合拢` : ''), 'positive', undoAction());
+    };
+
+    /* 删完以后还占着时间的东西（判断哪段「所有轨道都空了」）。跟着全片走的不算占位：
+       模板行、末端锚在片尾的元素；音乐 / 配乐 / 原声这些整片音频行也不算——它们画的就是全片，
+       跟着总长变。纯音频项目的主音频是内容本身，算整段占着。配音块不随波纹移动（原型的简化），
+       算占着，免得合拢时从它底下抽走。 */
+    const cover = (c, ids, cueIds) => {
+      const els = c.elements.filter((e) => e.kind !== 'tpl' && !e.endAnchor && e.end != null
+        && ids.indexOf(e.id) < 0);
+      const cues = c.subStyle.tracks.length ? RP.cueCover(c.cues, cueIds, c.duration) : [];
+      const dubs = (c.dubs || []).flatMap((d) => d.blocks || []);
+      return els.concat(cues, dubs, c.audioProject ? [{start: 0, end: c.duration}] : []);
+    };
+
+    /* 从所有轨道删除一段（2026-10-08）：所选的块与字幕盖住的时间，从每一条轨上拿掉——
+       跨在边上的裁掉落在段里的部分，整段落在一件视频里的切成两件，后面的内容前移。
+       右键菜单与 ⇧Delete 走这一条。 */
+    const removeRange = () => {
+      const c = ref.current;
+      if (c.stopEdit) c.stopEdit();
+      const spans = c.sels.map((s) => {
+        const x = s.kind === 'element' ? c.elements.find((e) => e.id === s.id && e.kind !== 'tpl')
+          : s.kind === 'cue' ? c.cues.find((cu) => cu.id === s.id) : null;
+        return x ? {start: x.start, end: x.end == null ? c.duration : x.end} : null;
+      }).filter(Boolean);
+      if (!spans.length) { app.toast('先在时间轴上选中一段（块或字幕），再从所有轨道删除'); return; }
+      c.history.begin();
+      const closed = c.ripple(RP.merge(spans));
+      c.history.commit();
+      c.clearSel();
+      app.toast(`已从所有轨道删除 ${secs(closed)} · 后面的内容已前移`, 'positive', undoAction());
     };
 
     const paste = () => {
@@ -163,7 +208,7 @@
       app.toast(n > 1 ? `已再制 ${n} 个元素` : '已再制元素', 'positive', undoAction());
     };
 
-    const clipboard = {copy, cut, paste, duplicate, remove: del, openSheet: () => setSheet(true)};
+    const clipboard = {copy, cut, paste, duplicate, remove: del, removeRange, openSheet: () => setSheet(true)};
 
     useEffect(() => {
       const onKey = (e) => {
@@ -238,7 +283,7 @@
           else c.clearSel();
           return;
         }
-        if (k === 'Delete' || k === 'Backspace') { stop(); del(); return; }
+        if (k === 'Delete' || k === 'Backspace') { stop(); if (e.shiftKey) removeRange(); else del(); return; }
         if (k === '?') { stop(); setSheet(true); return; }
         /* 进全屏与退全屏是同一个键（退在 player.jsx 那侧接）。**必须在这一拍里**向
            浏览器要全屏：`requestFullscreen` 只认瞬时用户激活，按键就是那个手势，挪进
@@ -250,7 +295,7 @@
         if (low === 'b' && !e.altKey && !e.shiftKey) { if (arrangeOne('back')) stop(); return; }
         if (low === 's') { stop(); c.split(); return; }
         if (k === 'Home') { stop(); c.seek(0); return; }
-        if (k === 'End') { stop(); c.seek(D.DUR); return; }
+        if (k === 'End') { stop(); c.seek(c.duration); return; }
 
         if (/^Arrow(Left|Right|Up|Down)$/.test(k)) {
           const dx = k === 'ArrowLeft' ? -1 : k === 'ArrowRight' ? 1 : 0;
@@ -276,7 +321,7 @@
               const doc = c.elDocs[id] || {};
               const start = Math.max(0, (doc.start || 0) + d);
               const shift = start - (doc.start || 0);
-              c.setElDoc(id, {start, end: doc.end == null ? null : Math.min(D.DUR, doc.end + shift)});
+              c.setElDoc(id, {start, end: doc.end == null ? null : Math.min(c.filmEnd, doc.end + shift)});
             });
             c.history.commit('nudge-time');
             return;
@@ -296,7 +341,7 @@
             if (dy) { stop(); stepVol(-dy); return; }
             if (!e.shiftKey) { stop(); jumpOut(dx * 5); return; }
           }
-          if (dx) { stop(); c.seek(SEL.frameStep(c.playT, dx, {shift: e.shiftKey, dur: D.DUR})); }
+          if (dx) { stop(); c.seek(SEL.frameStep(c.playT, dx, {shift: e.shiftKey, dur: c.openEnded ? null : c.duration})); }
         }
       };
       window.addEventListener('keydown', onKey);

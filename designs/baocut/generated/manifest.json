@@ -22,6 +22,7 @@
       "app/model-llm-tools.js",
       "app/model-newproject.js",
       "app/model-timeline.js",
+      "app/model-ripple.js",
       "app/model-cut.js",
       "app/model-export.js",
       "app/model-task-pill.js",
@@ -261,6 +262,7 @@
       "app/timeline-menu.jsx",
       "app/timeline-cutbands.jsx",
       "app/timeline-trackorder.jsx",
+      "app/timeline-heads.jsx",
       "app/timeline.jsx",
       "app/panel-shared.jsx",
       "app/font-library-store.jsx",
@@ -406,9 +408,9 @@
       "app/legacy-import.css",
       "app/subtitle-motion.css"
     ],
-    "js": "generated/app.js?v=a2e65657375e",
-    "css": "generated/app.css?v=d1fcadd68bfe",
-    "bytes": 3768883
+    "js": "generated/app.js?v=0b2b6b2485df",
+    "css": "generated/app.css?v=c5ea98c48440",
+    "bytes": 3775806
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -429,6 +431,7 @@
       "app/model-prompt-slots.js",
       "app/model-newproject.js",
       "app/model-timeline.js",
+      "app/model-ripple.js",
       "app/model-cut.js",
       "app/model-export.js",
       "app/model-task-pill.js",
@@ -555,6 +558,7 @@
       "app/timeline-menu.jsx",
       "app/timeline-cutbands.jsx",
       "app/timeline-trackorder.jsx",
+      "app/timeline-heads.jsx",
       "app/timeline.jsx",
       "app/panel-shared.jsx",
       "app/font-library-store.jsx",
@@ -637,9 +641,9 @@
       "app/font-library.css",
       "app/subtitle-motion.css"
     ],
-    "js": "generated/web.js?v=63f0bc4a530e",
-    "css": "generated/web.css?v=ff6884e7b0c1",
-    "bytes": 2322797
+    "js": "generated/web.js?v=0d143ef0b741",
+    "css": "generated/web.css?v=604f45f95982",
+    "bytes": 2329585
   },
   "components": {
     "file": "Components.html",
@@ -665,7 +669,7 @@
       "app/spectrum.css"
     ],
     "js": "generated/components.js?v=6452bc166565",
-    "css": "generated/components.css?v=6ed3fa676d69",
+    "css": "generated/components.css?v=27b99f0e5ce8",
     "bytes": 113863
   }
 }

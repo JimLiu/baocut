@@ -1022,18 +1022,22 @@ body { font-size: 14px; }
 
 .trow__hd--video .thd__tog { top: 12px; }
 .trow__hd--video > .tipw { position: static; }
-.trow__hd .thd__mute { position: absolute; right: 4px; top: 46px; }
+.trow__hd .thd__mute { position: absolute; right: 4px; top: 42px; }   /* 对齐视频块底部 16px 的自带波形条 */
 .trow.is-off .trow__hd { color: var(--gray-400); }
 .trow__hd--main { color: var(--blue-1000); font-weight: 700; }   /* 纯音频项目的主轨行头（第 225 轮） */
 /* 清晰的轨道行头：类别常显，更多操作在悬停或键盘焦点时出现。 */
 .trow__hd > .ic { flex: none; }
 .thd__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 字幕与配音行头的语言标签（2026-10-08）：ZH、EN、PT-BR 这样的短标签，任何界面语言下都放得下；全名在悬停说明里 */
+.thd__lang { flex: none; padding: 0 4px; border-radius: 4px; background: var(--gray-200); color: var(--gray-800); font-size: 11px; font-weight: 700; line-height: 16px; letter-spacing: 0.02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.trow.is-on .thd__lang { background: var(--blue-200); color: var(--blue-1000); }
+.trow.is-off .thd__lang { background: var(--gray-100); color: var(--gray-400); }
 .trow__hd:has(.thd__more):hover .thd__label,
 .trow__hd:has(.thd__more):focus-within .thd__label { padding-right: 24px; }
 .trow__hd:focus-within .thd__more { opacity: 1; }
 .trow__hd--video { align-items: flex-start; padding-top: 16px; }
-.thd__audio-label { position: absolute; left: 32px; top: 50px; color: var(--gray-600); font-size: 11px; }
-.trow__hd--video .thd__split { position: absolute; right: 8px; top: 50px; }
+.thd__audio-label { position: absolute; left: 32px; top: 46px; color: var(--gray-600); font-size: 11px; }
+.trow__hd--video .thd__split { position: absolute; right: 8px; top: 48px; }
 
 .trow.is-off .trow__body { opacity: 0.38; }
 /* 同类共道（2026-09-11）：一行多件时只停用其中一件，那一块自己灰下去；整行都停用走上面那条 */

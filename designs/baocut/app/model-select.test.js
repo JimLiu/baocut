@@ -33,11 +33,14 @@ test('add 追加、toggle 反选', () => {
   assert.deepEqual(S.keys(S.apply(two, EL('a'), {add: true})), ['element:a', 'element:b']);
 });
 
-test('只有 element 能多选（2026-09-16 起没有 clip），其余退化单选', () => {
-  assert.ok(S.canMulti('element') && !S.canMulti('clip'));
-  assert.ok(!S.canMulti('cue') && !S.canMulti('subs') && !S.canMulti('member'));
-  const mixed = S.apply([EL('a')], {kind: 'cue', id: 'c1'}, {add: true});
-  assert.deepEqual(S.keys(mixed), ['cue:c1']);
+test('element 与 cue 能多选（2026-09-16 起没有 clip），其余退化单选', () => {
+  assert.ok(S.canMulti('element') && S.canMulti('cue') && !S.canMulti('clip'));
+  assert.ok(!S.canMulti('subs') && !S.canMulti('member'));
+  /* 元素与字幕条可以混选（时间轴框选跨轨） */
+  const mixed = S.apply([EL('a')], {kind: 'cue', id: 'c1', trackId: 'zh'}, {add: true});
+  assert.deepEqual(S.keys(mixed), ['element:a', 'cue:c1:zh']);
+  /* 不能多选的那类仍退化单选 */
+  assert.deepEqual(S.keys(S.apply([EL('a')], {kind: 'member', id: 'm1'}, {add: true})), ['member:m1']);
   /* 反过来：选着字幕轨再 shift 点元素，字幕轨被请出去 */
   const back = S.apply([{kind: 'subs', trackId: 't1'}], EL('a'), {add: true});
   assert.deepEqual(S.keys(back), ['element:a']);
@@ -163,14 +166,17 @@ test('seekForSel：end 为 null 铺到片尾，超短块不越过自己的终点
   assert.equal(S.seekForSel(null, 5, 206), null);
 });
 
-test('removeTarget：与 Delete 键同一条判据，元素优先、其次字幕轨，字幕条与空选不删', () => {
+test('removeTarget：与 Delete 键同一条判据，元素与字幕条优先、其次字幕轨，空选不删', () => {
   const el = (id) => ({kind: 'element', id, elKind: 'text'});
   const subs = {kind: 'subs', trackId: 'src'};
   const cue = {kind: 'cue', id: 'c3'};
-  assert.deepEqual(S.removeTarget([el('a'), el('b')], el('b')), {kind: 'elements', ids: ['a', 'b']});
+  assert.deepEqual(S.removeTarget([el('a'), el('b')], el('b')), {kind: 'elements', ids: ['a', 'b'], cues: []});
   assert.deepEqual(S.removeTarget([subs], subs), {kind: 'subs', trackId: 'src'});
-  assert.deepEqual(S.removeTarget([subs, el('a')], subs), {kind: 'elements', ids: ['a']});   // 混选：元素先
-  assert.equal(S.removeTarget([cue], cue), null);
+  assert.deepEqual(S.removeTarget([subs, el('a')], subs), {kind: 'elements', ids: ['a'], cues: []});   // 混选：元素先
+  assert.deepEqual(S.removeTarget([cue], cue), {kind: 'elements', ids: [], cues: [cue.id]});
+  /* 同一条字幕在原文、译文两行都框中：只删一次 */
+  assert.deepEqual(S.removeTarget([cue, Object.assign({}, cue, {trackId: 'other'}), el('a')], cue),
+    {kind: 'elements', ids: ['a'], cues: [cue.id]});
   assert.equal(S.removeTarget([], null), null);
   assert.equal(S.removeTarget(null, undefined), null);
 });

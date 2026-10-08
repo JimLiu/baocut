@@ -26,8 +26,13 @@
 
   // subs 恒为展开态 46（要放得下两行译文）。第 39.3 轮做的「合并带 34 ↔ 展开 46」
   // 两态于第 105 轮退役：时间轴不随右栏 Tab 改变，这条不变式优先。
-  /* 没有 `clips` 行（2026-09-16）：项目原片是普通视频元素，走 `video` 那一档。 */
-  const ROW_H = {element: 30, video: 74, text: 34, member: 24, template: 30, subs: 46, audio: 56, music: 30, dub: 40, bed: 30};
+  /* 没有 `clips` 行（2026-09-16）：项目原片是普通视频元素，走 `video` 那一档。
+     行高两档（2026-10-08）：靠缩略图传达内容的视频 / 白板行高一档（缩略图带 + 一条 16px 的自带波形），
+     其余各类——元素、文字、模板、音频、音乐、配音、背景声——与字幕行同高；波形不再单独撑高一行。
+     文本组的成员行是组内的子泳道，保持矮一档。 */
+  const LANE_H = 46;
+  const ROW_H = {element: LANE_H, video: 66, text: LANE_H, member: 24, template: LANE_H, subs: LANE_H,
+    audio: LANE_H, music: LANE_H, dub: LANE_H, bed: LANE_H};
   const languageBadge = (lang) => {
     const code = String(lang || '').split(/[-_]/)[0].toUpperCase();
     return code === 'JA' ? 'JP' : code.slice(0, 3);
@@ -46,6 +51,35 @@
     const kind = r.elKind || r.el?.kind || r.kind;
     return ({video:'视频', image:'图片', text:'文字', textgroup:'文字组', template:'模板', tpl:'模板',
       sticker:'贴纸', whiteboard:'白板', music:'音乐', bed:'背景声', audio:r.split ? '原声' : '音频'})[kind] || r.label || r.el?.name || '元素';
+  }
+
+  /* 字幕与配音行头的短标签（2026-10-08）：行头只有 144px，「字幕 · 简体中文」这类全名在别的
+     界面语言里更长，放不下。行头改写语言标签——完整 BCP-47 标签大写（zh-Hans → ZH-HANS、
+     pt-BR → PT-BR），哪种界面语言都是同一个写法、同样短；同类两条轨同一种语言时按行序加序号。
+     原文与译文由行头图标区分，全名进 `headTitle`（悬停说明）。没有语言的轨退回 `headLabel`。 */
+  const langTag = (lang) => String(lang || '').trim().replace(/_/g, '-').toUpperCase();
+  const tagLang = (r) => (r.kind === 'subs' ? r.track?.lang : r.kind === 'dub' ? r.dub?.lang : null);
+  function headTags(rows) {
+    const out = {};
+    const seen = {};
+    const count = {};
+    (rows || []).forEach((r) => {
+      const tag = langTag(tagLang(r));
+      if (tag) count[r.kind + ':' + tag] = (count[r.kind + ':' + tag] || 0) + 1;
+    });
+    (rows || []).forEach((r) => {
+      const tag = langTag(tagLang(r));
+      if (!tag) return;
+      const k = r.kind + ':' + tag;
+      seen[k] = (seen[k] || 0) + 1;
+      out[r.key] = count[k] > 1 ? tag + ' ' + seen[k] : tag;
+    });
+    return out;
+  }
+  function headTitle(row) {
+    const r = row || {};
+    if (r.kind !== 'subs') return headLabel(r);
+    return headLabel(r) + ' · ' + (r.track?.role === 'translation' ? '译文' : '原文');
   }
 
   const px = (t, pxps) => PAD + t * pxps;
@@ -889,7 +923,7 @@
   }
 
   window.BC_TL = {
-    languageBadge, headLabel,
+    languageBadge, headLabel, langTag, headTags, headTitle,
     PAD, PXPS_DEFAULT, PXPS_MAX, PXPS_FIT_206, ZOOM_FACTOR, PXPS_PLAYHEAD,
     TICK_STEPS, TICK_MIN_PX, HEADS_W, RULER_H, CHAPTER_BAND_H, TRANSPORT_H,
     TRACKS_ORIGIN_Y, MIN_HEIGHT, DEFAULT_HEIGHT, ROW_H, CLASS_RANK,

@@ -242,6 +242,10 @@
        Timeline 章节条、舞台模板的 SegmentRail、Elements 的章节 chip 必须当场跟着变。
        三处读同一份真相，才不会出现「面板改了、时间轴还是旧标题」。 */
     const [chapters, setChapters] = useState(initiallyEmpty || localMedia ? [] : setup.chapters);
+    /* 时间轴的底长（2026-10-08）：有主素材的项目，时长 = max(底长, 元素末端)。底长起初是素材时长，
+       波纹删除（`ripple`，删空所有轨的那几段合拢 / 从所有轨道删除一段）每合拢一段就减去那段——
+       总长跟着变短。它进撤销快照，撤销一步回到原长。空白项目不读它（时长 = 内容末端）。 */
+    const [durBase, setDurBase] = useState(initiallyEmpty ? 0 : localMedia ? proj.duration : setup.duration);
     const [pop, setPop] = useState(null);          // 单值互斥的弹层键
     /* AI 下单意图：{tool, scope}。文稿面板按章/按段下单，AI Tools 面板接单——
        范围不塞进 AI Tools 的局部 state，是因为下单方是 Transcript，
@@ -372,6 +376,7 @@
       setTrackOrder({});
       setClips(empty ? [] : setup.clips);
       setChapters(empty ? [] : setup.chapters);
+      setDurBase(empty ? 0 : setup.duration);
       setAiReq(null);
       setLiveOn(!!e.live);
       setTransOn(!!e.transLive);
@@ -531,6 +536,7 @@
       const next = CH.renameChapter(chapters, id, title);
       if (!next) return;
       const was = chapters.find((c) => c.id === id);
+      history.mark();   // 章节进了撤销快照（2026-10-08，波纹删除要一起撤）
       setChapters(next);
       app.toast('已改章节名 · 时间轴章节条与模板段已同步', 'positive',
         {label: '撤销', undo: true, run: () => { setChapters(chapters); app.toast(`已还原「${was.title}」`); }});
@@ -543,6 +549,7 @@
       const to = r.chapters[r.to];
       const b = dir < 0 ? to.end : to.start;
       const prev = chapters;
+      history.mark();
       setChapters(r.chapters);
       app.toast(`已把 ${r.moved} 段移到「${to.title}」· 章节边界 → ${T.timecode(b, {decimals: 0})}`, 'positive',
         {label: '撤销', undo: true, run: () => { setChapters(prev); app.toast('已还原章节边界'); }});
@@ -979,8 +986,12 @@
       doc: subStyle, commitRef: subCommitRef,
       restore: (doc) => {setSubStyleState(doc); setPeekRaw(null);},
     }, {sources, commitRef: sourceCommitRef, restore: setSources}, {
-      doc: {cues, translations, cuts: cutStore.cuts},
-      restore: doc => {setCues(doc.cues); setTranslations(doc.translations); cutStore.setCuts(doc.cuts || []);},
+      doc: {cues, translations, cuts: cutStore.cuts, chapters, durBase},
+      restore: doc => {
+        setCues(doc.cues); setTranslations(doc.translations); cutStore.setCuts(doc.cuts || []);
+        if (doc.chapters) setChapters(doc.chapters);
+        if (doc.durBase != null) setDurBase(doc.durBase);
+      },
     }, {doc: {ratio}, restore: doc => setRatio(doc.ratio)});
     cutStore.historyRef.current = history;
     /* ---- 智能裁剪（§15.9）：会话在 store，编辑器只负责接线 ---- */
@@ -1082,7 +1093,7 @@
       preview.current = {win: null, snap: null};
     };
     const duration = entry === 'blank' ? Math.max(0, ...els.elements.map(e => e.end || 0))
-      : Math.max(localMedia ? proj.duration : setup.duration, ...els.elements.map(e => e.end || 0));
+      : Math.max(durBase, ...els.elements.map(e => e.end || 0));
     durationRef.current = duration;
     /* 空白项目开放式时长（第 216 轮）：时长 = 内容末端，随元素占用延长；新元素按
        完整默认长度落在播放头上（`filmEnd = Infinity`，永不裁短、永不回推）；播放头
@@ -1130,6 +1141,48 @@
         {label: '撤销', undo: true, run: () => history.undo()});
     };
 
+    /* 波纹删除（2026-10-08）：把 `spans` 这几段从所有轨道上拿掉、后面的内容前移、总长变短。
+       算式在 model-ripple.js（与内核 `removeRange` 同一口径）；这里只把结果写回各份状态。
+       `gone` 是同一下要删掉的元素 / 字幕（Delete）——必须在这里一起算：这一拍里的 `cues`、
+       `els.elements` 还是删之前的，先删再波纹会被波纹的整表写入盖回去。`spans` 为空时只删。
+       **不开自己的历史批**——调用方把它包进 `history.begin()` / `commit()`，撤销一步回到删除之前。 */
+    const ripple = (spans, gone) => {
+      const RP = window.BC_RIPPLE;
+      const dropIds = (gone && gone.ids) || [];
+      const dropCues = (gone && gone.cues) || [];
+      const own = els.elements.filter((e) => e.kind !== 'tpl' && dropIds.indexOf(e.id) < 0)
+        .map((e) => (e.end == null ? Object.assign({}, e, {end: duration}) : e));
+      const kept = cues.filter((cu) => dropCues.indexOf(cu.id) < 0);
+      const r = RP.removeSpans({elements: own, cues: kept, chapters}, spans || [],
+        {splitId: (el) => el.id + '-r' + els.nextSeq()});
+      const before = {};
+      own.forEach((e) => { before[e.id] = e; });
+      r.elements.forEach((e) => {
+        const was = before[e.id];
+        if (!was) {
+          const right = Object.assign({}, e, {added: true});
+          delete right.endAnchor; delete right.members;
+          els.addElement(right, {quiet: true});
+          return;
+        }
+        const patch = {};
+        if (e.start !== was.start) patch.start = e.start;
+        if (e.end !== was.end) patch.end = e.end;
+        if (e.srcStart !== was.srcStart) patch.srcStart = e.srcStart;
+        if (Object.keys(patch).length) els.setElDoc(e.id, patch);
+      });
+      const removed = dropIds.concat(r.removed);
+      if (removed.length) els.removeElements(removed);
+      if (dropCues.length || r.closed) setCues(r.cues);
+      if (!r.closed) return 0;
+      setChapters(r.chapters);
+      setDurBase((d) => Math.max(0, Math.round((d - r.closed) * 1000) / 1000));
+      // 播放头跟着内容走：落在拿掉的段里回到段首，段后的前移
+      const at = RP.shiftTime(playT, spans);
+      if (at !== playT) seek(at);
+      return r.closed;
+    };
+
     const ctx = {
       retainLocalVideoUrl,
       proj, tab, setTab, playT, seek, playing, setPlaying, pxps, setPxps, tlBodyRef, tlScrollReq, requestTlScroll: (left) => setTlScrollReq({left}), sources, addSource, removeSource, duration,
@@ -1145,7 +1198,7 @@
       score: scoreStore.score, scoreOff: scoreStore.scoreOff, scoreJob: scoreStore.scoreJob, regenScore: scoreStore.regenScore,
       dub, dubs, dubOff, bedOff, dubReadings, setDubReadings, applyDub, clearDub, restoreDubs, dubMuted, bedMuted, stretchDub, setDubSource,
       dubSel, pickDub, clearDubSel, updateDub, muteDubBlocks, deleteDubBlocks, regenDubBlocks, restoreDubTake, pruneDubArchive, clearDubArchive, openDubSentence,
-      subsOn, setSubsOn, fs, setFs, safeArea, setSafeArea, clips, setClips, split, canSplit, pop, setPop,
+      subsOn, setSubsOn, fs, setFs, safeArea, setSafeArea, clips, setClips, split, canSplit, ripple, pop, setPop,
       sel, sels, pick, pickSub, clearSel, isSel, selKeys: selection.selKeys,
       pickMany: selection.pickMany, selectAll: selection.selectAll, history,
       editing: selection.editing, startEdit: selection.startEdit, stopEdit: selection.stopEdit,

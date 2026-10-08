@@ -15,13 +15,14 @@
   const D = window.BC_DATA;
   const TL = window.BC_TL;
   const T = window.BC_TIME;
-  const S = window.BC_SUB;
   const SEL = window.BC_SELECT;
   /* 块与行在 `timeline-rows.jsx`（第 115 轮拆出去，这一份原本 671 行）——
      `BaoCut.html` 里它排在本文件之前，所以这里可以在 IIFE 顶上解构。 */
   const {ElementBlock, MemberBlock, SubsRow, TranscriptRow, AudioBlock, TemplateBlock} = window;
   /* 剪口带（空槽带 / 建议带，含拖两缘改范围）在 `timeline-cutbands.jsx`（2026-10-01 拆出），同样排在本文件之前 */
   const {CutBands} = window;
+  /* 行头（字幕语言标签、启停开关、原声喇叭、字幕行头菜单）在 `timeline-heads.jsx`（2026-10-08 拆出），同样排在本文件之前 */
+  const {SubsHead, LaneToggle, VideoMute, SubsHeadMenu} = window;
   const VE = window.BC_VIDEO_EDIT;
   const PL = window.BC_PLAYER;
   const PLAY_TIP = {play: '播放 · Space', pause: '暂停 · Space', replay: '重播'};
@@ -183,116 +184,6 @@
   }
 
 
-  /* ---------- 字幕行的行头菜单：拿下 / 放回（第 108 轮） ----------
-     产品裁决：**文档只和 timeline 相关，timeline 上有什么字幕轨就显示什么**。所以
-     「画面上是哪几条字幕」这件事的入口就该在这里——此前四个写入口（属性页页头那颗
-     垃圾桶、字幕 / 翻译两个语言弹层、样式画廊的卡）没有一个在时间轴上，而时间轴是
-     唯一把「现在有哪几条」一眼画全的地方：拿下一条，这一行当场就没了。
-
-     行头只有 60px（`TL.HEADS_W`），所以菜单钮**平时不占位**：压在行名右端，
-     hover 或菜单开着时才现身（`.thd__more`）。判据与 toast 走共用 hook
-     （`subtrack.jsx`）——拒绝最后一条、放回第三条时问一次，与语言入口同一份。
-
-     弹层不挂在行头里：`.tlbody` 是滚动区（`overflow: auto`），挂在里面的浮层会被
-     裁成一条缝（实测只剩最下面那两行）。所以行头只报一个屏幕矩形上去，菜单由
-     `TimelineView` 在 `.tl` 根上用一个 `position: fixed` 的 0 尺寸锚渲染。 */
-  function SubsHead({row, open, onOpen, ctx}) {
-    const track = row.track || {};
-    /* 第 220 轮：转录中的行头挂一枚呼吸点——与文稿面板运行态头同一颗（`.livehd__dot` 的
-       `bc-live`），告诉人「这条轨还在长」；百分比不写在 60px 的行头里，进 tip。 */
-    const live = ctx.liveAt != null && ctx.liveJob;
-    /* 第 243 轮：识别做完、进入保存阶段后不再呼吸（`BC_TX.liveSaving`；真实界面只在识别进行时画点）。 */
-    const recognizing = live && !window.BC_TX.liveSaving(live);
-    return (
-      <>
-        <Ic n="captions" className="ic--14" /><span className="thd__label" title={track.name || row.label}>{TL.headLabel(row)}</span>
-        {recognizing ? <i className="thd__live" title={`转录中 ${Math.round(live.pct)}% · 已转录到 ${window.BC_TIME.timecode(ctx.liveAt, {decimals: 0})}`} /> : null}
-        <LaneToggle row={row} ctx={ctx} className="thd__tog" />
-        <IconBtn icon="more" size="xs" className="thd__more" on={open}
-          tip={'「' + (track.name || '字幕') + '」这条轨'}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (open) { onOpen(null); return; }
-            const r = e.currentTarget.closest('.trow__hd').getBoundingClientRect();
-            onOpen({id: track.id, x: r.left, y: r.top, w: r.width, h: r.height});
-          }} />
-      </>
-    );
-  }
-
-  /* 行头的启停开关（第 120 轮，§12.6）。字幕 / 元素行是一只眼睛，音频 / 音乐行是喇叭；
-     hover 现身，关着的那一行**常显**——不然一条灰掉的行说不清是为什么灰的。
-     真相不在这里：拧下去走 `ctx.setLaneOn`，字幕轨写 `track.hidden`、元素写
-     `elDocs[id].hidden`、音频 / 音乐写两个 muted 位，导出弹层的清单读的是同一份。 */
-  function LaneToggle({row, ctx, className}) {
-    const sw = TL.laneSwitch(row);
-    if (!sw || !ctx.setLaneOn) return null;
-    const audio = sw.kind === 'audio' || sw.kind === 'music' || sw.kind === 'dub' || sw.kind === 'bed' || sw.kind === 'score';
-    const icon = audio ? (row.off ? 'vol0' : 'vol2') : (row.off ? 'eyeoff' : 'eye');
-    const name = TL.headLabel(row);
-    /* 组里的背景声行（2026-09-14）：整组关着时它跟着灰，这只喇叭拧的是**组**——不然点亮了背景声、组还关着，
-       什么都听不见。组开着时才拧它自己那一份 `bedOff[lang]`。 */
-    const grp = row.grouped && row.groupOff ? {kind: 'dub', id: row.lang} : null;
-    const tip = grp ? '整组已停用 · 启用「配音 · ' + ((row.dub || {}).langName || row.lang) + '」'
-      : row.off ? '启用「' + name + '」'
-      : '停用「' + name + '」 · ' + (sw.kind === 'dub' && row.group ? '连同它的背景声 · ' : '') + '画面与导出都跳过';
-    /* 配乐轨的喇叭只在时间轴上关掉这一路，不改动画稿（剧情短片 §5.5）——说明挂在 tip 上 */
-    const tipFull = sw.kind === 'score' ? tip + ' · ' + window.BC_SCORE.MUTE_NOTE : tip;
-    return (
-      <IconBtn icon={icon} size="xs" className={cx(className, row.off && 'is-off')}
-        tip={tipFull}
-        onClick={(e) => { e.stopPropagation(); ctx.setLaneOn(grp || sw, !!row.off); }} />
-    );
-  }
-
-  function VideoMute({row, ctx}) {
-    const list = TL.rowEls(row);
-    const muted = list.length ? list.every((e) => !!e.muted) : !!ctx.muted;
-    /* 有配音组时（2026-09-14）源片视频行不再带声音：它的原始声道整个剥到「原声」行去了（别的视频各有各的声音，不受影响），这里只留一枚说明性的
-       静音标，拧不动——要听原声去原声行拨喇叭，要合回去就移除全部配音。判据是**元素绑着转录源**（`fromSource`），
-       不是「主轨」——2026-09-16 起没有 clips 行。 */
-    const isMain = list.some((e) => e.kind === 'video' && e.fromSource);
-    if (isMain && (ctx.dubs || []).length) {
-      return <Ic n="vol0" className="ic--12 thd__split" title="声音已剥离到「原声」行 · 移除全部配音就合回视频" />;
-    }
-    return <IconBtn icon={muted ? 'vol0' : 'vol2'} size="xs" className="thd__mute"
-      on={muted} tip={muted ? '取消视频静音' : '视频静音'}
-      onClick={(e) => { e.stopPropagation(); if (list.length) list.forEach((el) => ctx.setElDoc(el.id, {muted: !muted})); else ctx.setMuted(!muted); }} />;
-  }
-
-  /** 行头菜单本体。挂在滚动区外面，靠 `at`（行头的屏幕矩形）定位。 */
-  function SubsHeadMenu({ctx, at, ops, onClose}) {
-    if (!at) return null;
-    const track = S.byId(ctx.subStyle, at.id) || {};
-    const shelved = ctx.availableSubTracks ? ctx.availableSubTracks() : [];
-    const off = !!track.hidden;
-    const live = ctx.liveAt != null;
-    return (
-      <div className="tl__popanchor" style={{left: at.x, top: at.y, width: at.w, height: at.h}}>
-        <Popover open onClose={onClose} align="left" dir="up" width={210}>
-          <Menu>
-            <MenuHead>{track.name}</MenuHead>
-            {/* 停用 ≠ 拿下（第 120 轮）：停用的轨还在时间轴上，只是画面与导出跳过它；
-                拿下是把它从轨集里请出去。两条并列，各说各的后果。 */}
-            <MenuItem icon={off ? 'eye' : 'eyeoff'} label={off ? '启用这条轨' : '停用这条轨'}
-              sub={off ? '回到画面与导出里' : '留在时间轴上 · 画面与导出都跳过'}
-              onClick={() => { onClose(); ctx.setLaneOn({kind: 'subs', id: at.id}, off); }} />
-            {/* 第 220 轮：转录中不动轨集——那条轨还在长，拿下 / 放回等它落盘（停用照旧可点，
-                它只翻一位不碰数据） */}
-            <MenuItem icon="trash" label="从画面上拿下" sub={live ? '转录完成后再拿下' : '不删数据 · 随时放回来'}
-              disabled={live} onClick={() => { onClose(); ops.drop(at.id); }} />
-            {shelved.length ? <MenuRule /> : null}
-            {shelved.map((t) => (
-              <MenuItem key={t.id} icon="plus" label={'放回「' + t.name + '」'}
-                sub={live ? '转录完成后再放回' : t.role === 'source' ? '源语言' : '有译文，还没放上去'}
-                disabled={live} onClick={() => { ops.put(t); onClose(); }} />
-            ))}
-          </Menu>
-        </Popover>
-      </div>
-    );
-  }
-
   function TimelineView({ctx, height}) {
     const {playT, seek, playing, pxps} = ctx;
     const narrow = ctx.geo.stageW < 520;
@@ -316,6 +207,7 @@
        下层视频画面整幅看不见——每件视频元素算一份 `coverSpans`，缩略带上压斜纹带（[timeline-whiteboard.jsx](timeline-whiteboard.jsx)）。 */
     const coverOf = (el) => TL.coverSpans(el, ctx.elements, ctx.elDocs, ctx.elStyleOf);
     const {rows, height: laneH} = window.timelineRows(ctx, hiddenEls);
+    const tags = TL.headTags(rows);   // 字幕 / 配音行头的语言标签（timeline-heads.jsx）
     /* 空白项目（第 216 轮）：零泳道——不预埋任何轨，第一条轨随第一个元素出现。
        零泳道时画一条 64px 的占位行（不是泳道：没有行头、不进 rows、不参与吸附），
        点它等于点空处：清选区并把播放头落过去。时长开放：标尺与滚动区在内容末端
@@ -434,15 +326,18 @@
         setBox(null);
         if (!live) { if (!add) { ctx.clearSel(); if (ctx.setCutSel) ctx.setCutSel(null); } return; }
         const rects = rows.flatMap((x) => TL.rowEls(x).map((el) => ({
-          id: el.id,
+          id: el.id, pick: {kind: 'element', id: el.id, elKind: el.kind},
           x: TL.HEADS_W + X(el.start),
           y: TL.RULER_H + x.y,
-          w: W(el.start, el.end == null ? D.DUR : el.end),
+          w: W(el.start, el.end == null ? ctx.duration : el.end),
           h: x.h,
-        })));
+        })).concat(x.kind === 'subs' ? ctx.cues.map((cu) => ({
+          /* 字幕行的字幕条也框得中（2026-10-08）：跨所有轨框选后删除，字幕要一起走 */
+          id: 'cue:' + cu.id + ':' + x.track.id, pick: {kind: 'cue', id: cu.id, trackId: x.track.id},
+          x: TL.HEADS_W + X(cu.start), y: TL.RULER_H + x.y, w: W(cu.start, cu.end), h: x.h,
+        })) : []));
         const hit = SEL.hitRect(rects, live);
-        const byId = (id) => rows.flatMap(TL.rowEls).find((el) => el.id === id);
-        const picks = hit.map((id) => ({kind: 'element', id, elKind: byId(id).kind}));
+        const picks = hit.map((id) => rects.find((r) => r.id === id).pick);
         ctx.pickMany(SEL.dedupe((add ? ctx.sels : []).concat(picks)));
       };
       window.addEventListener('mousemove', move);
@@ -515,10 +410,10 @@
                   r.main && 'trow__hd--main')}
                   style={{height: r.h}} onMouseDown={(e) => trackDrag.down(e, r)}>
                   {r.kind === 'subs' ? (
-                    <SubsHead row={r} ctx={ctx} onOpen={setSubMenu}
+                    <SubsHead row={r} tag={tags[r.key]} ctx={ctx} onOpen={setSubMenu}
                       open={!!subMenu && subMenu.id === (r.track || {}).id} />
                   ) : r.kind === 'dub' ? (
-                    <window.DubHead row={r} ctx={ctx} onOpen={setDubMenu} open={!!dubMenu && dubMenu.lang === (r.dub || {}).lang} />
+                    <window.DubHead row={r} tag={tags[r.key]} ctx={ctx} onOpen={setDubMenu} open={!!dubMenu && dubMenu.lang === (r.dub || {}).lang} />
                   ) : r.kind === 'score' ? (
                     <window.ScoreHead row={r} ctx={ctx} onOpen={setScoreMenu} open={!!scoreMenu && scoreMenu.bus === r.bus} />
                   ) : r.kind === 'transcript' ? (
@@ -543,7 +438,7 @@
                     </>
                   )}
                 </div>
-                <div className="trow__body" style={{left: 0}}>
+                <div className="trow__body">
                   {r.member ? (
                     <MemberBlock group={r.el} member={r.member} row={r} pxps={pxps} ctx={ctx} draft={draft} />
                   ) : r.kind === 'template' ? (
@@ -565,7 +460,7 @@
                     <TranscriptRow ctx={ctx} row={r} pxps={pxps} />
                   ) : r.kind === 'music' ? (
                     <AudioBlock kind="music" name={D.sources.audio[0].name} ctx={ctx}
-                      start={0} end={D.sources.audio[0].dur} pxps={pxps} h={r.h} muted={!!ctx.musicMuted} />
+                      start={0} end={Math.min(D.sources.audio[0].dur, ctx.duration)} pxps={pxps} h={r.h} muted={!!ctx.musicMuted} />
                   ) : r.kind === 'score' ? (
                     <AudioBlock kind="music" name={r.label + (r.stale ? ' · 已过期' : '')} ctx={ctx}
                       start={0} end={ctx.duration} pxps={pxps} h={r.h} muted={!!r.off} />
@@ -625,5 +520,5 @@
     );
   }
 
-  Object.assign(window, {LaneToggle, TimelineView, SubsHead, SubsHeadMenu, ChapterBand, Transport, timelineZoom});
+  Object.assign(window, {TimelineView, ChapterBand, Transport, timelineZoom});
 })();

@@ -264,8 +264,8 @@ test('行序：字幕 → 元素按类别 → 音乐，没有 clips 行也没有
     ['subs:subs', 'el:c', 'el:sticker@0', 'el:wave@0', 'el:d', 'music'], '字幕与画面同一叠，默认在画面行上面');
   assert.equal(rows[0].y, 0);
   assert.equal(rows[1].y, 46, '字幕行恒展开 46');
-  assert.equal(rows[2].y, 46 + 34, '文本行 34 高');
-  assert.equal(height, 34 + 30 + 30 + 30 + 46 + 30, '字幕行恒展开 46');
+  assert.equal(rows[2].y, 46 + 46, '文本行与字幕行同高（2026-10-08）');
+  assert.equal(height, 46 * 6, '没有缩略图的行一律与字幕行同高 46');
 });
 
 test('剪口不新增轨：fromSource 的每段 clip 仍是自己的元素行，剪口只在各自行内分割（第 196 轮）', () => {
@@ -288,12 +288,32 @@ test('剪口不新增轨：fromSource 的每段 clip 仍是自己的元素行，
   assert.equal(TL.rowOfEl(rows, 'nope'), null);
 });
 
-test('视频预览保留 42px 画面和 24px 波形，字幕行头使用语言缩写', () => {
-  assert.equal(TL.ROW_H.video - 8, 42 + 24);
+test('视频预览保留 42px 画面和 16px 波形，字幕行头使用语言缩写', () => {
+  assert.equal(TL.ROW_H.video - 8, 42 + 16);
+  ['element', 'text', 'template', 'audio', 'music', 'dub', 'bed'].forEach((k) => {
+    assert.equal(TL.ROW_H[k], TL.ROW_H.subs, k + ' 行与字幕行同高（2026-10-08）');
+  });
   assert.equal(TL.ROW_H.clips, undefined, '没有 clips 行（2026-09-16）');
   assert.equal(TL.languageBadge('en-US'), 'EN');
   assert.equal(TL.languageBadge('ja'), 'JP');
   assert.equal(TL.languageBadge('zh_Hant'), 'ZH');
+});
+
+test('行头语言标签：完整 BCP-47 大写，同类同语言加序号；全名与原文 / 译文进悬停说明（2026-10-08）', () => {
+  assert.equal(TL.langTag('zh-Hans'), 'ZH-HANS');
+  assert.equal(TL.langTag('pt_BR'), 'PT-BR');
+  assert.equal(TL.langTag(''), '');
+  const rows = [
+    {key: 'subs:a', kind: 'subs', track: {lang: 'en', role: 'source', name: '字幕 · 英文'}},
+    {key: 'subs:b', kind: 'subs', track: {lang: 'zh-Hans', role: 'translation', name: '字幕 · 简体中文'}},
+    {key: 'subs:c', kind: 'subs', track: {lang: 'zh-Hans', role: 'translation', name: '字幕 · 简体中文'}},
+    {key: 'subs:d', kind: 'subs', track: {name: '字幕'}},
+    {key: 'dub:zh-Hans', kind: 'dub', dub: {lang: 'zh-Hans'}},
+  ];
+  assert.deepEqual(TL.headTags(rows), {'subs:a': 'EN', 'subs:b': 'ZH-HANS 1', 'subs:c': 'ZH-HANS 2', 'dub:zh-Hans': 'ZH-HANS'},
+    '配音与字幕各数各的；没有语言的轨不出标签，退回 headLabel');
+  assert.equal(TL.headTitle(rows[1]), TL.headLabel(rows[1]) + ' · 译文');
+  assert.equal(TL.headTitle(rows[0]), TL.headLabel(rows[0]) + ' · 原文');
 });
 
 test('时间轴最小高 = 章节条 13 + transport 46 + 边线 1', () => {
@@ -597,7 +617,7 @@ test('纯音频项目：音频行是主轨（第 225 轮）；视频项目没有
   const {rows} = TL.rows([], {subTracks: [], mainAudio: true, music: false});
   assert.deepStrictEqual(rows.map(r => r.kind), ['audio']);
   assert.equal(rows[0].main, true);
-  assert.equal(rows[0].h, 56);
+  assert.equal(rows[0].h, TL.ROW_H.subs, '音频行不再因波形撑高（2026-10-08）');
   const video = TL.rows([{id: 'v', kind: 'video', start: 0, end: 10}], {subTracks: [], music: false}).rows;
   assert.deepStrictEqual(video.map(r => r.kind), ['element'], '视频元素自己的行带着声音');
   assert.equal(video[0].h, TL.ROW_H.video);
@@ -620,10 +640,10 @@ test('修边热区：窄块也留得下中间那一段，宽块封顶 7px（第 
 });
 
 /* ---------- 白板手绘行与「被盖住」带（2026-09-11） ---------- */
-test('白板手绘行与视频行同高（74）：两层内容装不进 30px 的元素行', () => {
+test('白板手绘行与视频行同高（66）：两层内容装不进 46px 的元素行', () => {
   const r = TL.rows([{id: 'wb', kind: 'whiteboard', start: 80, end: 92}, {id: 'st', kind: 'sticker', start: 0, end: 3}],
     {subTracks: [], audio: false, music: false}).rows;
-  assert.deepEqual(r.map((x) => [x.key, x.h]), [['el:sticker@0', 30], ['el:whiteboard@0', TL.ROW_H.video]]);
+  assert.deepEqual(r.map((x) => [x.key, x.h]), [['el:sticker@0', TL.ROW_H.element], ['el:whiteboard@0', TL.ROW_H.video]]);
   assert.ok(TL.isMediaKind('whiteboard') && TL.isMediaKind('video') && !TL.isMediaKind('image'));
 });
 
@@ -681,7 +701,7 @@ test('同类共道：同一类别不重叠坐一道，重叠才叠道，且 firs
     ['el:sticker@0', ['a', 'c']],
     ['el:shape@0', ['e']],
   ], '高道在上、0 道贴近字幕；行数 = 最大同时重叠数');
-  assert.equal(height, 30 * 3);
+  assert.equal(height, TL.ROW_H.element * 3);
   assert.equal(rows[0].elKind, 'sticker');
   assert.equal(rows[0].lane, 1);
   assert.equal(rows[0].el.id, 'b', 'row.el 是这一道的头一件');

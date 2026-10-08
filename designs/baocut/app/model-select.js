@@ -9,12 +9,13 @@
    保留调用方挂上来的其它字段（`panel-elements.jsx` 的 `seed` 就骑在 sel 上走）。
    `key()` 给出可比较的字符串键：`kind:id[:trackId]`。
 
-   多选只对 kind = element 开放（§1；2026-09-16 起没有 clip——项目原片是普通视频元素）：cue / subs / member 各自都带着
-   "钻进去改这一件" 的语义，选两条没有对应的批量动作，一律退化成单选。
+   多选对 kind = element 与 cue 开放（§1；2026-09-16 起没有 clip——项目原片是普通视频元素；2026-10-08 起
+   时间轴框选也拾取字幕条，跨轨删除要连字幕一起删）：subs / member 各自都带着 "钻进去改这一件" 的语义，
+   选两条没有对应的批量动作，一律退化成单选。
    ============================================================================ */
 (function () {
-  /* 允许多选的只有元素；其余 kind 在 add/toggle 下也只会落成单选。 */
-  const MULTI_KINDS = ['element'];
+  /* 允许多选的是元素与字幕条；其余 kind 在 add/toggle 下也只会落成单选。 */
+  const MULTI_KINDS = ['element', 'cue'];
   /* 帧步进：原型统一按 30fps 说话（§12.3 的时间码也是这一档）。 */
   const FRAME = 1 / 30;
   /* 粘贴每重复一次再偏 2%（§4）。 */
@@ -150,12 +151,14 @@
     : {sels: (prev && prev.sels) || [], editing: (prev && prev.editing) || null});
 
   /* ---------- 删除的对象 ----------
-     Delete 键与 transport 的删除钮共用这一条判据：选中里有元素就删元素（多件一并），
-     否则主选是字幕轨就拿下那条轨；字幕条（cue）与空选都不删。返回 null 表示没有可删的。
-     文稿剪辑的选区不在 sels 里（product-design §5.7：同一个删除键不跨模式生效）。 */
+     Delete 键与 transport 的删除钮共用这一条判据：选中里有元素或字幕条就删它们（多件一并，
+     `cues` 是字幕条 id，同一条在几行上都选中只记一次），否则主选是字幕轨就拿下那条轨；空选不删。
+     返回 null 表示没有可删的。文稿剪辑的选区不在 sels 里（product-design §5.7：同一个删除键不跨模式生效）。 */
   const removeTarget = (sels, primarySel) => {
     const ids = (sels || []).filter((s) => s.kind === 'element').map((s) => s.id);
-    if (ids.length) return {kind: 'elements', ids};
+    const cues = (sels || []).filter((s) => s.kind === 'cue').map((s) => s.id)
+      .filter((id, i, all) => all.indexOf(id) === i);
+    if (ids.length || cues.length) return {kind: 'elements', ids, cues};
     const s = primarySel;
     if (s && s.kind === 'subs') return {kind: 'subs', trackId: s.trackId};
     return null;

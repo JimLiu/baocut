@@ -106,13 +106,16 @@
   }
 
   /** 行头：语言徽章 ＋ 喇叭 ＋ ⋯（菜单挂在滚动区外，见 timeline.jsx 的 `.tl__popanchor`） */
-  function DubHead({row, ctx, open, onOpen}) {
+  function DubHead({row, tag, ctx, open, onOpen}) {
     const d = row.dub || {};
     const cnt = DUB.blockCounts(d.blocks || []);
+    /* 行头写语言标签（2026-10-08，与字幕行头同一套 `TL.headTags`），「配音 · 英文」全名进悬停说明 */
+    const title = `${row.label} · ${DUB.trackLine(d.blocks || [])}${d.bed ? ' · 下面是这组自己的背景声' : ''}`;
     return (
       <>
-        <Ic n="wave" className="ic--14" />
-        <span className="thd__label" title={`${row.label} · ${DUB.trackLine(d.blocks || [])}${d.bed ? ' · 下面是这组自己的背景声' : ''}`}>{TL.headLabel(row)}</span>
+        <Ic n="wave" className="ic--14" title={title} />
+        {tag ? <span className="thd__lang" title={title}>{tag}</span>
+          : <span className="thd__label" title={title}>{TL.headLabel(row)}</span>}
         {cnt.fast || cnt.failed ? <i className="thd__fast" title={DUB.trackLine(d.blocks || [])} /> : null}
         <window.LaneToggle row={row} ctx={ctx} className="thd__tog" />
         <IconBtn icon="more" size="xs" className="thd__more" on={open}
