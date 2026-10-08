@@ -39,8 +39,10 @@
   font-variant-numeric: tabular-nums;
   color: var(--media-muted);
 }
+/* 用 flex 而非 block：S2 的轨道行是 inline-flex，放进 block 会落入行盒、底部多出行高空隙，轨道比同排按钮偏上。 */
 .bc-media-slider {
-  display: block;
+  display: flex;
+  flex-direction: column;
   width: 100%;
   min-width: 0;
 }

@@ -57,8 +57,9 @@
 .media-control-button svg { width: var(--bc-icon-compact); height: var(--bc-icon-compact); }
 .media-control-time { flex-shrink: 0; font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--gray-600); line-height: 1.5; }
 .media-control-seek { flex: 1; min-width: 32px; padding-inline: 8px; box-sizing: border-box; }
-/* S2 1.7.1 媒体样式适配：细轨、紧凑滑块与隐藏数值行；保留 S2 的输入、键盘和焦点环，不依赖哈希类。 */
-.media-control-slider { display: block; width: 100%; min-width: 0; }
+/* S2 1.7.1 媒体样式适配：细轨、紧凑滑块与隐藏数值行；保留 S2 的输入、键盘和焦点环，不依赖哈希类。
+   滑块用 flex 而非 block：S2 的轨道行是 inline-flex，放进 block 会落入行盒、底部多出行高空隙，轨道比同排按钮偏上。 */
+.media-control-slider { display: flex; flex-direction: column; width: 100%; min-width: 0; }
 .media-control-slider > div:has(output), .media-control-slider output { display: none; }
 .media-control-slider > div:not(:has(output)) { width: 100%; min-width: 0; }
 .media-volume-popover { display: flex; align-items: center; gap: 8px; width: 192px; padding: 12px; box-sizing: border-box; }
