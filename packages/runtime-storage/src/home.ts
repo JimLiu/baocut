@@ -11,8 +11,9 @@ import path from 'node:path';
  *   store/projects.json   项目登记
  *   store/space.json      Space 的用户标记（收藏、显示名、回收站）与删除的视频
  *   store/space-artifacts.json  Space 的产物记录：产出产物的任务的派生用事实，不随 Job Ledger 的修剪丢失
- *   store/conversations/<id>.json
- *   store/jobs.json       后台任务账本（转写等）
+ *   store/conversations/<id>.jsonl  会话：只追加的日志，文件头 + 快照 + item/meta 行，膨胀后压缩（架构设计 §3.10）
+ *   store/jobs.jsonl      后台任务账本（转写等）：只追加，每次追加 fsync，膨胀后压缩（架构设计 §7.3）
+ *   store/applications.jsonl 应用账本：任务结果应用到视频的记录，格式同上
  *   store/node-share.json 共享这台电脑：开关、节点身份、已配对客户端的令牌哈希（0600）
  *   store/nodes.json      用别的电脑：本机的 clientId 与已配对节点（令牌在凭据存储里）（0600）
  *   store/model-services.json   模型服务配置：各 Provider 的开关与端点、各能力的默认值（0600）
@@ -27,7 +28,7 @@ import path from 'node:path';
  *   models/<org>/<repo>/  本地模型文件的缺省位置（设置 `models.dir` 可以改，`BAOCUT_MODELS_DIR` 优先）
  *   scratch/<id>/         无项目会话的工作目录
  *   cache/media/<摘要>/    素材的分析结果（波形峰值、缩略图），按内容摘要存，删掉会重新生成
- *   cache/content-index/<摘要>.json 跨视频检索的内容索引，每个视频一个（架构设计 §5.11），删掉会重新读
+ *   cache/content-index/index.db 跨视频检索的内容索引：SQLite + FTS5（架构设计 §5.11），删掉会重新读
  *   library/<glossaries|voices|brand>/<id>/ 用户库的条目（架构设计 §5.9）：条目头、各版本的内容与按摘要命名的文件
  *   logs/runtime.log
  * ```
