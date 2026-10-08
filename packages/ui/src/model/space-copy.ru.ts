@@ -15,7 +15,7 @@ export const ru: SpaceMessages = {
   categoryAll: "Все",
   favorite: "Избранное",
   trash: "Корзина",
-  sort: { recent: "Недавняя активность", name: "Название", kind: "Тип" },
+  sort: { created: 'Дата создания', updated: 'Дата обновления', recent: "Недавняя активность", name: "Название", kind: "Тип" },
   status: {
     generating: "Генерация",
     candidate: "Вариант",

@@ -244,3 +244,17 @@ test('来源：工具的结果写「工具 · <工具名>」，属于项目时�
   assert.equal(SP.toolName({toolId: 'nope'}), null);
   delete global.window.BC_TOOLS;
 });
+
+test('创建与更新时间倒序：投影保留创建时间，两种次序独立，未知时间在末尾', () => {
+  const list = SP.items({movies: [
+    {id: 'old', title: '旧视频', ctime: 100, mtime: 0},
+    {id: 'new', title: '新视频', ctime: 10, mtime: 5},
+    {id: 'tie', title: '同时间', ctime: 10, mtime: 5},
+    {id: 'unknown', title: '未知时间'},
+  ], outputs: [{id: 'out', kind: 'doc', name: '新文档', ctime: 0, mtime: 10}]});
+  assert.deepEqual(SP.view(list, {sort: 'created'}).map((x) => x.id), ['out', 'new', 'tie', 'old', 'unknown']);
+  assert.deepEqual(SP.view(list, {sort: 'updated'}).map((x) => x.id), ['old', 'new', 'tie', 'out', 'unknown']);
+  const output = list.find((x) => x.id === 'out');
+  assert.equal(SP.newVersion(output, list, 'out-v2', {}).ctime, 0);
+  assert.equal(SP.assetRecord({name: 'a.png'}, null, 'asset').ctime, 0);
+});

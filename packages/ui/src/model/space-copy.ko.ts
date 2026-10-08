@@ -15,7 +15,7 @@ export const ko: SpaceMessages = {
   categoryAll: '전체',
   favorite: '즐겨찾기',
   trash: '휴지통',
-  sort: { recent: '최근 활동', name: '이름', kind: '유형' },
+  sort: { created: '생성 시간', updated: '수정 시간', recent: '최근 활동', name: '이름', kind: '유형' },
   status: {
     generating: '생성 중',
     candidate: '후보',

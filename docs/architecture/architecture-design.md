@@ -1019,9 +1019,13 @@ interface SpaceEntry {
   media?: { duration?: MediaTime; width?: number; height?: number };
   previewRef?: Id;
   lastActivityAt: string;
+  createdAt?: string | null;              // 文件 / 视频数据库的 birthtime；生成结果用完成时间，占位用任务创建时间
+  updatedAt?: string | null;              // 文件 / 视频数据库（含 WAL）的 mtime；占位用任务更新时间
   user: { favorite: boolean; displayName?: string; trashedAt?: string };
 }
 ```
+
+创建与更新时间由 Runtime 派生，客户端各自按所选时间倒序展示。创建时间不可用时返回 null，不使用文件状态变更时间（ctime）或修改时间代替；旧 Runtime 可省略两个字段，客户端把未知时间放在末尾。来源目录之外的结果在文件不可用时用任务完成时间；缺失的导入文件保留登记时间作为创建时间，更新时间未知；回收站视频记录尚未保存这两项时间，均返回 null。
 
 **数据来源**
 

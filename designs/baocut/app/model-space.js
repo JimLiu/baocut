@@ -39,7 +39,7 @@
     failed:     {k: 'failed',     label: '失败',    tone: 'negative'},
   };
 
-  const SORTS = [{k: 'recent', label: '最近活动'}, {k: 'name', label: '名称'}, {k: 'kind', label: '类型'}];
+  const SORTS = [{k: 'recent', label: '最近活动'}, {k: 'created', label: '创建时间'}, {k: 'updated', label: '更新时间'}, {k: 'name', label: '名称'}, {k: 'kind', label: '类型'}];
 
   /** 视频的状态：转录在跑 / 排队 → 生成中；源文件找不到 → 缺失；转录失败 → 失败；其余是普通的工作稿（无状态）。 */
   function movieStatus(m) {
@@ -85,6 +85,7 @@
       const it = {
         id: m.id, kind: 'movie', name: m.title, dir: m.dir || null, movie: m.id, session: null, task: null,
         status: movieStatus(m), dur: m.duration || 0, res: m.src ? m.src.res : '', bytes: (m.src && m.src.bytes) || null,
+        ctime: m.ctime != null ? m.ctime : null,
         transcribe: transcribeAction(m), mtime: m.mtime != null ? m.mtime : m.ctime != null ? m.ctime : null,   // 刚建的视频只有 ctime
         origin: m.origin ? m.origin.project : null, queuePos: m.status === 'queued' ? m.queuePos || null : null,
         hue: m.hue, folder: m.folder || null, ver: null, parent: null,
@@ -140,11 +141,13 @@
     if (q) rows = rows.filter((it) => lc(it.name).indexOf(q) >= 0 || lc(it.file).indexOf(q) >= 0);
     const sort = opt.sort || 'recent';
     const idx = new Map(rows.map((r, i) => [r, i]));
-    const t = (it) => (it.mtime == null ? Infinity : it.mtime);
+    // 演示时间是距今的分钟数：数值越小，实际时间越新（§4.3，时间倒序）。
+    const t = (it, key = 'mtime') => (Number.isFinite(it[key]) ? it[key] : Infinity);
     return rows.slice().sort((a, b) => {
       let d = 0;
       if (sort === 'name') d = String(a.name).localeCompare(String(b.name), 'zh-Hans-CN');
       else if (sort === 'kind') d = (KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind)) || (t(a) - t(b));
+      else if (sort === 'created') d = t(a, 'ctime') - t(b, 'ctime');
       else d = t(a) - t(b);
       return d || (idx.get(a) - idx.get(b));
     });
@@ -322,7 +325,7 @@
     const origin = vs[0] || it;
     const rec = {
       id: newId, kind: it.kind, name: versionName(origin.name, ver), dir: it.dir || null, movie: it.movie || null,
-      session: it.session || null, task: null, status: 'candidate', mtime: 0, parent: rootOf(it), ver,
+      session: it.session || null, task: null, status: 'candidate', ctime: 0, mtime: 0, parent: rootOf(it), ver,
       dur: it.dur, res: it.res, lines: it.lines, hue: it.hue, text: it.text,
       file: it.file ? versionName(it.file, ver) : '',
     };
@@ -347,7 +350,7 @@
     const kind = kindOfFile(file && file.name, file && file.type);
     if (!kind || !id) return null;
     return {id, kind, name: file.name, dir: dirId || null, movie: null, session: null, task: null, status: null,
-      mtime: 0, file: '素材/' + file.name, hue: 200};
+      ctime: 0, mtime: 0, file: '素材/' + file.name, hue: 200};
   }
 
   /** 输入框「+ › 最近的视频」：最近活动的 n 部（缺省 8），不含归档的；每项带「项目名 · 相对时间」。 */

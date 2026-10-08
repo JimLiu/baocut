@@ -15,7 +15,7 @@ export const zhHant: SpaceMessages = {
   categoryAll: '全部',
   favorite: '收藏',
   trash: '垃圾桶',
-  sort: { recent: '最近活動', name: '名稱', kind: '類型' },
+  sort: { created: '建立時間', updated: '更新時間', recent: '最近活動', name: '名稱', kind: '類型' },
   status: {
     generating: '生成中',
     candidate: '候選',

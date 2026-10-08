@@ -30,7 +30,7 @@ const en = {
   categoryAll: 'All',
   favorite: 'Favorites',
   trash: 'Trash',
-  sort: { recent: 'Recent activity', name: 'Name', kind: 'Type' },
+  sort: { created: 'Date created', updated: 'Date updated', recent: 'Recent activity', name: 'Name', kind: 'Type' },
   status: {
     generating: 'Generating',
     candidate: 'Candidate',
