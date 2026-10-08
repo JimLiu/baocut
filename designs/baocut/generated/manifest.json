@@ -122,6 +122,7 @@
       "app/model-tool-cookies.js",
       "app/model-tool-save-dir.js",
       "app/model-legacy-import.js",
+      "app/model-legacy-import-run.js",
       "app/model-tool-handover.js",
       "app/model-tool-space-input.js",
       "app/model-tool-extract.js",
@@ -173,6 +174,7 @@
       "app/page-projects.jsx",
       "app/project-info.jsx",
       "app/legacy-import.jsx",
+      "app/legacy-import-task.jsx",
       "app/home-templates.jsx",
       "app/composer-insert-menu.jsx",
       "app/new-agent.jsx",
@@ -403,9 +405,9 @@
       "app/legacy-import.css",
       "app/subtitle-motion.css"
     ],
-    "js": "generated/app.js?v=68de708f4d94",
-    "css": "generated/app.css?v=13dbd77cffee",
-    "bytes": 3740193
+    "js": "generated/app.js?v=635da3ea5dab",
+    "css": "generated/app.css?v=79fcd023c015",
+    "bytes": 3760160
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -633,9 +635,9 @@
       "app/font-library.css",
       "app/subtitle-motion.css"
     ],
-    "js": "generated/web.js?v=1c2e5bf507e9",
+    "js": "generated/web.js?v=b4c3ea463d73",
     "css": "generated/web.css?v=292ed043c621",
-    "bytes": 2315033
+    "bytes": 2315374
   },
   "components": {
     "file": "Components.html",

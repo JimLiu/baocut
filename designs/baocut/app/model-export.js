@@ -603,7 +603,7 @@
     crop: '智能裁剪', 'shorts-cut': '剪成短视频',
     transcribe: '转录', export: '导出', translate: '翻译', polish: '润色文稿', chapters: '生成章节',
     speakers: '识别说话人', retranscribe: '重新转录', cleanup: '找可剪的口', stale: '刷新过期译文',
-    image: '生成图片', download: '下载视频',
+    image: '生成图片', download: '下载视频', 'legacy-import': '导入旧版项目',
   };
 
   /** 任务停下来等人时的说法：智能裁剪等人检查构图，剪成短视频等人挑片段。 */

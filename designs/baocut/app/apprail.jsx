@@ -110,8 +110,9 @@
             <R.SideNavHeader>{g.label} · {g.items.length}</R.SideNavHeader>
             {g.items.map(t => {
               const label = window.BC_TASK_FACTS.taskTitle(t, (window.BC_TASK_KINDS[t.kind] || {}).label || '任务');
-              const state = t.canceled ? '已取消' : t.status === 'running' ? '进行中' : t.status === 'queued' ? '排队中' : t.status === 'error' ? '失败' : '已完成';
-              return row(t.id, label, {r: 'task', id: t.id}, t.status === 'error' && !t.canceled ? 'AlertTriangle' : g.id === 'active' ? 'Clock' : 'CheckmarkCircle',
+              const attention = t.status === 'done' && !t.canceled && t.attention;
+              const state = t.canceled ? '已取消' : t.status === 'running' ? '进行中' : t.status === 'queued' ? '排队中' : t.status === 'error' ? '失败' : attention || '已完成';
+              return row(t.id, label, {r: 'task', id: t.id}, (t.status === 'error' && !t.canceled) || attention ? 'AlertTriangle' : g.id === 'active' ? 'Clock' : 'CheckmarkCircle',
                 t.status === 'running' ? <span className="utility-nav__progress" aria-hidden="true"><R.ProgressCircle size="S" isIndeterminate aria-label="进行中" /></span> : null,
                 `${label} · ${state}${t.pct == null ? '' : ` · ${t.pct}%`}`);
             })}

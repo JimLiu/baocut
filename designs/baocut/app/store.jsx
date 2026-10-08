@@ -131,8 +131,13 @@
       if (LIVE_ST.includes(patch.status)) return {endedAt: null};
       return LIVE_ST.includes(t.status) ? {endedAt: Date.now()} : null;
     };
+    /* `patch` 也可以是函数（拿到最新那条记录、返回要合并的字段）：toast 上的「撤销」这类晚到的操作用它，免得拿旧的一帧去覆盖 */
     const patchTask = useCallback((id, patch) =>
-      setTasks((ts) => ts.map((t) => (t.id === id ? {...t, ...patch, ...endStamp(t, patch)} : t))), []);
+      setTasks((ts) => ts.map((t) => {
+        if (t.id !== id) return t;
+        const p = typeof patch === 'function' ? patch(t) : patch;
+        return {...t, ...p, ...endStamp(t, p)};
+      })), []);
     /* 每一次 AI run 都落一条任务记录——**跑完的收据与撤销都挂在它身上**。
        不落记录的后果是：关掉那条绿横幅，这一跑就再也找不到了，
        后台任务页也看不见它跑过。写作三工具不落（§15.3：它们不写文稿、没有撤销）。 */

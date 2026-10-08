@@ -207,6 +207,8 @@
     return (
       <Page fluid>
         <div className="newp home-create">
+          {/* 旧版项目导入在跑 / 留了没导入的（legacy-import-task.jsx，只在 App） */}
+          {window.LegacyImportBanner ? <window.LegacyImportBanner /> : null}
           <div className="newp__hd newp__hd--hero">
             <div className="greet">想做个什么视频？</div>
           </div>
