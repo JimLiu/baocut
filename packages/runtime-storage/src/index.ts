@@ -7,6 +7,7 @@ export * from './project-store.ts';
 export * from './project-marker.ts';
 export * from './space-marks.ts';
 export * from './space-artifacts.ts';
+export * from './cache-limit.ts';
 export * from './settings-store.ts';
 export * from './credential-store.ts';
 export * from './file-credential-store.ts';

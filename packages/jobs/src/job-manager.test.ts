@@ -676,6 +676,51 @@ describe('JobManager（假 Model Worker）', () => {
     expect(jobs.map((j) => j.record.state)).toEqual(['interrupted', 'completed']);
   });
 
+  it('产物引用：账本里任何状态的任务的结果、输出与冻结的规格里出现的产物 id 都算', async () => {
+    const result = `sha256:${'a'.repeat(64)}`;
+    const output = `sha256:${'b'.repeat(64)}`;
+    const inSpec = `sha256:${'c'.repeat(64)}`;
+    const base = {
+      kind: 'transcribe',
+      phase: 'transcribing',
+      progress: null,
+      videoId: 'mov_1',
+      assetId: 'ast_1',
+      assetRevision: '1',
+      contentHash: 'sha256:x',
+      bundleId: 'fake@cpu',
+      providerId: 'local',
+      modelId: 'fake@cpu',
+      inputHash: 'sha256:y',
+      submitter: { kind: 'connection', id: 'c' },
+      attempt: 1,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      startedAt: null,
+      endedAt: '2026-01-01T00:00:00.000Z',
+      error: null,
+      warnings: [],
+    };
+    const spec = { contentHash: 'sha256:x', track: 0, range: null, language: { mode: 'prefer', tag: null }, bundleId: 'fake@cpu' };
+    await fs.mkdir(path.dirname(paths.jobsFile), { recursive: true });
+    await fs.writeFile(
+      path.join(path.dirname(paths.jobsFile), 'jobs.json'),
+      JSON.stringify({
+        formatVersion: 1,
+        jobs: [
+          {
+            record: { ...base, jobId: 'job_done', state: 'completed', result: { documentId: null, artifactId: result, outputs: [{ artifactId: output }] } },
+            spec,
+            workerVersion: null,
+          },
+          { record: { ...base, jobId: 'job_failed', state: 'failed', result: null }, spec: { ...spec, reference: inSpec }, workerVersion: null },
+        ],
+      }),
+    );
+    await start();
+    expect([...manager.referencedArtifactIds()].sort()).toEqual([result, output, inSpec]);
+  });
+
   it('停止：在途任务标为中断，Worker 进程退出', async () => {
     await start();
     const { jobId } = await submit('fake@cpu#slow');

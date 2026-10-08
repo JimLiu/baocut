@@ -24,6 +24,7 @@ export const ja: SettingDescriptionMessages = {
   'fonts.fileEndpoint': 'フォントファイルのベース URL（ミラー、https://。ファイルはこの配下からのみ取得）。null は https://fonts.gstatic.com',
   'space.trashRetentionDays':
     'Space のゴミ箱に項目を保持する日数（1〜3650）：これより古い、参照されていない項目と削除された動画は定期的に完全に削除されます',
+  'cache.maxSizeMiB': 'データフォルダのキャッシュの上限サイズ（MiB、256–1048576）：超えると古いキャッシュファイル（素材の解析、再生用の変換）から削除し、上限の 90% まで下げます。動画をまたぐ検索インデックスは削除しません',
   'resources.capacity':
     '詳細：リソースのスケジューリングに使うマシンの容量 { memoryMiB, gpuMemoryMiB, cpuThreads }。null にした項目は自動で検出します。null はすべて自動検出（メモリと CPU はシステムから取得し、Apple シリコンの GPU メモリはユニファイドメモリから推定）',
   'runtime.idleExitMinutes':

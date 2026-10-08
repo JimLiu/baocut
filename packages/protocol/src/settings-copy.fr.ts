@@ -25,6 +25,7 @@ export const fr: SettingDescriptionMessages = {
   'fonts.fileEndpoint': "URL de base des fichiers de police (miroir, https:// ; fichiers récupérés seulement sous cette URL) ; null utilise https://fonts.gstatic.com",
   'space.trashRetentionDays':
     "Jours de conservation dans la corbeille Space (1–3650) : éléments sans référence et vidéos supprimées plus anciens effacés définitivement périodiquement",
+  'cache.maxSizeMiB': 'Taille maximale du cache du dossier de données, en Mio (256–1048576) : au-delà, les fichiers de cache les plus anciens (analyse des médias, copies de lecture) sont supprimés jusqu’à revenir à 90 %. L’index de recherche entre vidéos n’est jamais supprimé',
   'resources.capacity':
     "Avancé : capacité pour la planification { memoryMiB, gpuMemoryMiB, cpuThreads } ; null détecte une valeur automatiquement ; null global détecte tout (mémoire et CPU du système, mémoire GPU Apple silicon estimée depuis la mémoire unifiée)",
   'runtime.idleExitMinutes':

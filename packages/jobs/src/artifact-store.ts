@@ -31,6 +31,33 @@ export const ARTIFACT_EXTENSIONS = [
 ] as const;
 export type ArtifactExtension = (typeof ARTIFACT_EXTENSIONS)[number];
 
+/** 清扫产物库时的宽限期：修改时间在这之内的文件不删（刚发布、还没记账的产物，写到一半的临时文件）。 */
+export const ARTIFACT_SWEEP_GRACE_MS = 60 * 60 * 1000;
+
+const ARTIFACT_FILE = new RegExp(`^([0-9a-f]{64})\\.(?:${ARTIFACT_EXTENSIONS.join('|')})$`);
+
+/** 一轮清扫的结果：看过的产物文件数、删掉的产物与临时文件、释放的字节、删不掉的个数。 */
+export interface ArtifactSweepResult {
+  scanned: number;
+  removed: number;
+  removedBytes: number;
+  temporaryRemoved: number;
+  failed: number;
+}
+
+/** 在一个值（任务记录、冻结的规格、发布意图、产物记录）里找出全部 `sha256:<hex>`，加进 `into`。 */
+export function collectArtifactIds(value: unknown, into: Set<string> = new Set()): Set<string> {
+  const text = JSON.stringify(value);
+  if (text === undefined) return into;
+  for (const match of text.matchAll(/sha256:([0-9a-f]{64})/g)) into.add(`sha256:${match[1]}`);
+  return into;
+}
+
+async function touch(file: string): Promise<void> {
+  const now = new Date();
+  await fs.utimes(file, now, now).catch(() => {});
+}
+
 /** 一段内容的产物 ID（`sha256:<hex>`）：写进产物库之前就算得出，发布意图据此先落账（§7.3）。 */
 export function artifactIdOf(bytes: Uint8Array): string {
   return `sha256:${sha256Hex(bytes)}`;
@@ -38,9 +65,75 @@ export function artifactIdOf(bytes: Uint8Array): string {
 
 export class ArtifactStore {
   readonly dir: string;
+  /** 清扫进行期间写入（或命中已有文件）的摘要：这一轮不删它们，即使开始时算的引用集合里没有。 */
+  #touched = new Set<string>();
+  #sweeping = false;
 
   constructor(dir: string) {
     this.dir = dir;
+  }
+
+  /**
+   * 删掉没有引用的产物（架构设计 §7.3）。`referenced` 是 `sha256:<hex>` 或裸的 hex。
+   *
+   * - 名字是 `<64 位 hex>.<已知扩展名>` 的文件：不在引用集合里、修改时间早于宽限期（默认 1 小时）时删除。产物先写进库、
+   *   之后才记账，刚发布的文件可能还没有任何引用；`put` 命中已有内容时会刷新修改时间，宽限期因此对重新发布的内容也成立。
+   * - 写到一半留下的 `*.tmp`：修改时间早于宽限期时删除。
+   * - 其他文件与子目录不动。
+   *
+   * 删除前再看一次修改时间，清扫期间被 `put` 过的不删。同一实例同一时间只跑一轮，重入时返回 null。
+   */
+  async sweep(
+    referenced: ReadonlySet<string>,
+    options: { graceMs?: number; now?: number } = {},
+  ): Promise<ArtifactSweepResult | null> {
+    if (this.#sweeping) return null;
+    this.#sweeping = true;
+    this.#touched = new Set();
+    const graceMs = options.graceMs ?? ARTIFACT_SWEEP_GRACE_MS;
+    const cutoff = (options.now ?? Date.now()) - graceMs;
+    const keep = new Set<string>();
+    for (const id of referenced) {
+      const match = /^(?:sha256:)?([0-9a-f]{64})$/.exec(id);
+      if (match) keep.add(match[1]!);
+    }
+    const result: ArtifactSweepResult = { scanned: 0, removed: 0, removedBytes: 0, temporaryRemoved: 0, failed: 0 };
+    try {
+      const names = await fs.readdir(this.dir).catch((error: NodeJS.ErrnoException) => {
+        if (error.code === 'ENOENT') return [] as string[];
+        throw error;
+      });
+      for (const name of names) {
+        const artifact = ARTIFACT_FILE.exec(name);
+        const temporary = !artifact && name.endsWith('.tmp');
+        if (!artifact && !temporary) continue;
+        if (artifact) {
+          result.scanned++;
+          if (keep.has(artifact[1]!)) continue;
+        }
+        const file = path.join(this.dir, name);
+        const stat = await fs.lstat(file).catch(() => null);
+        if (!stat?.isFile() || stat.mtimeMs > cutoff) continue;
+        if (artifact && this.#touched.has(artifact[1]!)) continue;
+        try {
+          await fs.unlink(file);
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') result.failed++;
+          continue;
+        }
+        if (artifact) {
+          result.removed++;
+          result.removedBytes += stat.size;
+        } else {
+          result.temporaryRemoved++;
+          result.removedBytes += stat.size;
+        }
+      }
+      return result;
+    } finally {
+      this.#sweeping = false;
+      this.#touched = new Set();
+    }
   }
 
   async put(bytes: Uint8Array, extension: ArtifactExtension = 'json'): Promise<{ artifactId: string; path: string }> {
@@ -50,12 +143,13 @@ export class ArtifactStore {
       (s) => s.isFile() && s.size === bytes.length,
       () => false,
     );
+    this.#touched.add(hex);
     if (!exists) {
       await fs.mkdir(this.dir, { recursive: true });
       const tmp = `${file}.${randomUUID()}.tmp`;
       await fs.writeFile(tmp, bytes, { mode: 0o644 });
       await fs.rename(tmp, file);
-    }
+    } else await touch(file);
     return { artifactId: `sha256:${hex}`, path: file };
   }
 
@@ -73,13 +167,14 @@ export class ArtifactStore {
       (s) => s.isFile() && s.size === byteLength,
       () => false,
     );
+    this.#touched.add(hex);
     if (!exists) {
       await fs.mkdir(this.dir, { recursive: true });
       const tmp = `${file}.${randomUUID()}.tmp`;
       await fs.copyFile(source, tmp, constants.COPYFILE_FICLONE);
       await fs.chmod(tmp, 0o644);
       await fs.rename(tmp, file);
-    }
+    } else await touch(file);
     return { artifactId: `sha256:${hex}`, path: file, byteLength };
   }
 

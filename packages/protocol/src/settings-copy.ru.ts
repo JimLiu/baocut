@@ -21,6 +21,7 @@ export const ru: SettingDescriptionMessages = {
   'fonts.cssEndpoint': "Базовый URL CSS API шрифтов (зеркало, https://); null использует https://fonts.googleapis.com",
   'fonts.fileEndpoint': "Базовый URL файлов шрифтов (зеркало, https://; файлы только из-под него); null использует https://fonts.gstatic.com",
   'space.trashRetentionDays': "Дни хранения в корзине Space (1–3650): записи без ссылок и удалённые видео старше срока периодически удаляются навсегда",
+  'cache.maxSizeMiB': 'Предельный размер кэша в папке данных, МиБ (256–1048576): при превышении удаляются самые старые файлы кэша (анализ медиа, копии для воспроизведения), пока размер не опустится до 90 %. Индекс поиска по всем видео не удаляется',
   'resources.capacity':
     "Расширенное: ресурсы машины для планирования { memoryMiB, gpuMemoryMiB, cpuThreads }; null у поля определяет автоматически; null у всего определяет всё (память и CPU из системы, GPU на Apple silicon по объединённой памяти)",
   'runtime.idleExitMinutes':

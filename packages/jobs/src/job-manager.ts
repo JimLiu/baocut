@@ -77,7 +77,7 @@ import {
   type WorkerFootprint,
 } from '@baocut/models';
 import { ApplicationLedger, type StoredApplication, type VideoPlace } from './application-ledger.ts';
-import { ArtifactStore, artifactIdOf, type ArtifactExtension } from './artifact-store.ts';
+import { ArtifactStore, artifactIdOf, collectArtifactIds, type ArtifactExtension } from './artifact-store.ts';
 import { generatedImportOperation } from './generated-import.ts';
 import { JobsManager as J } from '@baocut/protocol/messages/jobs/job-manager.ts';
 import { LocalizedError, asLocalized, errorText, jobError, jobWarning, withCause, type JobText } from './job-text.ts';
@@ -463,6 +463,7 @@ export class JobManager {
   readonly #running = new Set<Promise<void>>();
   readonly #listeners = new Set<(job: JobRecord) => void>();
   readonly #segmentListeners = new Set<(update: LiveSegmentsUpdate) => void>();
+  readonly #pruneListeners = new Set<(evicted: ReadonlySet<Id>) => void>();
   readonly #maxRetained: number;
   readonly #maxRetainedRetryable: number;
   readonly #probe: MediaProbe;
@@ -647,6 +648,28 @@ export class JobManager {
   onSegments(listener: (update: LiveSegmentsUpdate) => void): () => void {
     this.#segmentListeners.add(listener);
     return () => this.#segmentListeners.delete(listener);
+  }
+
+  /** 账本的上限淘汰了任务之后（`evicted` 是被淘汰的顶层任务；子任务一并删了）。产物库的清扫据此再跑一轮。 */
+  onPruned(listener: (evicted: ReadonlySet<Id>) => void): () => void {
+    this.#pruneListeners.add(listener);
+    return () => this.#pruneListeners.delete(listener);
+  }
+
+  /**
+   * 账本里全部任务（任何状态，含流程的步骤）引用的产物：公开记录（结果、输出、步骤的产出、应用）、冻结的规格与执行参数、
+   * 还没清掉的发布意图里出现的每个 `sha256:<hex>`。按文本找，宁多勿少：多留一个文件无害，少留一个就是丢了结果。
+   */
+  referencedArtifactIds(): Set<string> {
+    const ids = new Set<string>();
+    for (const entry of this.#entries.values()) {
+      collectArtifactIds(
+        { record: entry.record, spec: entry.spec, publishing: entry.publishing ?? null, input: entry.input, videoPlace: entry.videoPlace ?? null },
+        ids,
+      );
+    }
+    for (const application of this.#applications.all()) collectArtifactIds(application, ids);
+    return ids;
   }
 
   snapshot(): JobsSnapshot {
@@ -2675,6 +2698,13 @@ export class JobManager {
     }
     if (!this.#crashed) {
       void this.#applications.remove(evicted).catch((error: unknown) => this.#log.error('Writing the application ledger failed', { error: String(error) }));
+    }
+    for (const listener of this.#pruneListeners) {
+      try {
+        listener(evicted);
+      } catch (error) {
+        this.#log.warn('A prune listener failed', { error: String(error) });
+      }
     }
   }
 

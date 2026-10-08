@@ -77,6 +77,11 @@ export interface SettingValues {
    */
   'space.trashRetentionDays': number;
   /**
+   * Runtime Home 里 `cache/` 的总大小上限（MiB，架构设计 §5.1）：超过时按修改时间从旧到新删缓存文件，降到上限的 90%。
+   * 跨视频检索的内容索引（`cache/content-index/`）不删，但计入总大小。整数 256–1048576。
+   */
+  'cache.maxSizeMiB': number;
+  /**
    * 资源调度用的机器容量（架构设计 §7.6、§7.7）：null 为自动探测（内存与 CPU 线程取自系统，Apple 芯片的 GPU 内存按统一内存估计，
    * 其余机器的 GPU 内存未知、不按它准入）。某一项为 null 时那一项照旧自动。
    */
@@ -111,6 +116,7 @@ export const SETTING_KEYS = [
   'fonts.cssEndpoint',
   'fonts.fileEndpoint',
   'space.trashRetentionDays',
+  'cache.maxSizeMiB',
   'resources.capacity',
   'runtime.idleExitMinutes',
   'updates.autoCheck',
@@ -135,6 +141,7 @@ export const SETTING_DEFAULTS: Readonly<SettingValues> = Object.freeze({
   'fonts.cssEndpoint': null,
   'fonts.fileEndpoint': null,
   'space.trashRetentionDays': 30,
+  'cache.maxSizeMiB': 2048,
   'resources.capacity': null,
   'runtime.idleExitMinutes': 10,
   'updates.autoCheck': true,

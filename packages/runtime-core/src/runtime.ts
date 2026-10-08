@@ -59,6 +59,7 @@ import { VideoTools } from './agent-tools/video-tools.ts';
 import { Gateway, originAllowed } from './gateway.ts';
 import { createHandlers } from './handlers.ts';
 import { createFileLogger } from './logger.ts';
+import { StorageGc } from './storage-gc.ts';
 import { AttachmentStore } from './attachments.ts';
 import { MediaRegistry } from './media.ts';
 import { MediaAnalysis } from './media-analysis.ts';
@@ -246,6 +247,7 @@ const TRASH_SWEEP_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 const STOP_ORDER = [
   'activity',
+  'storage-gc',
   'services',
   'nodes',
   'jobs',
@@ -746,6 +748,18 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     void space.ready
       .then(() => sweepLeftovers({ jobs: () => models.jobs.list(), sourceRoots: () => space.sourceRoots(), log }))
       .catch((error) => log.warn('Leftover file cleanup failed', { error: String(error) }));
+    // 产物库与缓存的后台清理（§5.1、§7.3）：Space 从账本补齐产物记录之后清一轮产物库，之后每次账本淘汰任务后再清；缓存每小时核一次大小。
+    const storageGc = new StorageGc({
+      jobs: models.jobs,
+      spaceArtifacts,
+      ready: space.ready,
+      artifactSweepBlocked: retained.quarantined ? 'space-artifacts-quarantined' : null,
+      cacheDir: home.cacheDir,
+      cacheMaxBytes: () => settings.store.get('cache.maxSizeMiB') * 1024 * 1024,
+      log: log.child('storage-gc'),
+    });
+    stops.add('storage-gc', () => storageGc.close(), null);
+    storageGc.start();
     const videoTrash = new VideoTrash({
       space,
       videos,

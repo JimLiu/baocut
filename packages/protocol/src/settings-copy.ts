@@ -39,6 +39,7 @@ const en = {
   'fonts.fileEndpoint': 'Base URL for font files (mirror, https://; files are only fetched from under it); null uses https://fonts.gstatic.com',
   'space.trashRetentionDays':
     'Days to keep items in the Space trash (1–3650): unreferenced items and deleted videos older than this are permanently deleted periodically',
+  'cache.maxSizeMiB': "Size limit for the data folder's cache, in MiB (256–1048576): above it, the oldest cached files (media analysis, playback copies) are deleted until it drops to 90%. The cross-video search index is never deleted",
   'resources.capacity':
     'Advanced: machine capacity for resource scheduling { memoryMiB, gpuMemoryMiB, cpuThreads }; an item set to null is detected automatically; null detects everything (memory and CPU come from the system, GPU memory on Apple silicon is estimated from unified memory)',
   'runtime.idleExitMinutes':

@@ -21,6 +21,7 @@ export const pl: SettingDescriptionMessages = {
   'fonts.cssEndpoint': "Bazowy URL CSS API czcionek (serwer lustrzany, https://); null używa https://fonts.googleapis.com",
   'fonts.fileEndpoint': "Bazowy URL plików czcionek (serwer lustrzany, https://; pliki tylko spod niego); null używa https://fonts.gstatic.com",
   'space.trashRetentionDays': "Dni przechowywania w koszu Space (1–3650): wpisy bez odwołań i usunięte wideo starsze niż okres są okresowo usuwane trwale",
+  'cache.maxSizeMiB': 'Limit rozmiaru pamięci podręcznej w folderze danych, w MiB (256–1048576): po jego przekroczeniu usuwane są najstarsze pliki podręczne (analiza multimediów, kopie do odtwarzania), aż rozmiar spadnie do 90%. Indeks wyszukiwania między filmami nigdy nie jest usuwany',
   'resources.capacity':
     "Zaawansowane: zasoby maszyny do planowania { memoryMiB, gpuMemoryMiB, cpuThreads }; pole null wykrywane automatycznie; całość null wykrywa wszystko (pamięć i CPU z systemu, GPU Apple silicon szacowane z pamięci zunifikowanej)",
   'runtime.idleExitMinutes':

@@ -423,6 +423,7 @@ export const settingValueSchemas = {
     .refine(isHttpsEndpoint, { error: () => V.fontEndpoint().text })
     .nullable(),
   'space.trashRetentionDays': z.number().int().min(1).max(3650),
+  'cache.maxSizeMiB': z.number().int().min(256).max(1024 * 1024),
   'runtime.idleExitMinutes': z.number().int().min(1).max(1440),
   'resources.capacity': z
     .object({

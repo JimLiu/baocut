@@ -83,7 +83,16 @@ export {
 export { RECONCILE_DECISIONS, reconcileChoices } from './job-reconcile.ts';
 export { libraryVoice, transcribeGlossaries, type JobLibrary } from './job-library.ts';
 export { emptySelection, readSelection, selectionBody, selectionDocument, videoSelection } from './library-selection.ts';
-export { ArtifactStore, ARTIFACT_EXTENSIONS, artifactIdOf, locateArtifact, type ArtifactExtension } from './artifact-store.ts';
+export {
+  ArtifactStore,
+  ARTIFACT_EXTENSIONS,
+  ARTIFACT_SWEEP_GRACE_MS,
+  artifactIdOf,
+  collectArtifactIds,
+  locateArtifact,
+  type ArtifactExtension,
+  type ArtifactSweepResult,
+} from './artifact-store.ts';
 export { generatedImportOperation } from './generated-import.ts';
 export {
   ffprobeMediaProbe,
