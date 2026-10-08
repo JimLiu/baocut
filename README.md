@@ -17,6 +17,12 @@
 
 Development, issues and contributions are maintained at [jimliu/baocut](https://github.com/jimliu/baocut). The earlier standalone BaoCut skill is preserved on the [legacy archive branch](https://github.com/jimliu/baocut/tree/archive/legacy-2026-10-07) and the `legacy-2026-10-07` tag.
 
+<img width="4432" height="2704" alt="CleanShot 2026-10-07 at 9 35 49 PM@2x" src="https://github.com/user-attachments/assets/304eecf4-56f7-40bf-a1f0-83dd9a7d4ee8" />
+
+<img width="3294" height="2582" alt="CleanShot 2026-10-07 at 9 38 02 PM@2x" src="https://github.com/user-attachments/assets/f71e7ad1-a7cb-40f5-987b-4b78403c11cf" />
+
+
+
 ## Why BaoCut
 
 Most AI video tools render once and hand you a file. If the second sentence of the translation is wrong, you start over. BaoCut takes the opposite stance:
