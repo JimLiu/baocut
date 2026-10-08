@@ -93,6 +93,7 @@ import { SpaceThumbnails } from './space/space-thumbnails.ts';
 import { openSettings, type RuntimeSettings } from './settings-topic.ts';
 import { openServices, type RuntimeServices, type ServicesOptions } from './services/open-services.ts';
 import { FileLinkSources, isTerminal, resolveSpeechWorkerCommand, type HostLookup } from '@baocut/jobs';
+import { LegacyUpgrade } from './legacy-upgrade.ts';
 import { RuntimeActivity, type IdleExitOptions } from './runtime-activity.ts';
 import { ExternalToolService, type ExternalToolServiceOptions } from './external-tools/external-tool-service.ts';
 import { linkImportDefinition, pruneLinkSources } from './external-tools/link-import-wiring.ts';
@@ -248,6 +249,7 @@ const TRASH_SWEEP_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 const STOP_ORDER = [
   'activity',
+  'legacy-upgrade',
   'storage-gc',
   'services',
   'nodes',
@@ -330,6 +332,9 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
   });
   harnessReady.catch(() => {});
   try {
+    const legacyUpgrade = new LegacyUpgrade({ home, log });
+    stops.add('legacy-upgrade', () => legacyUpgrade.stop(), 'Stopping legacy upgrade failed');
+    await legacyUpgrade.prepare().catch(() => log.warn('Legacy upgrade preparation deferred'));
     const drivers = new DriverRegistry();
     // 内置 Driver 按 `BUILTIN_DRIVER_IDS` 的顺序注册（注册顺序就是 `agents.list` 的顺序）。
     const builtin = () =>
@@ -795,7 +800,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     const activity = new RuntimeActivity(
       {
         info,
-        activeJobs: () => models.jobs.list().filter((job) => !isTerminal(job.state)).length,
+        activeJobs: () => models.jobs.list().filter((job) => !isTerminal(job.state)).length + Number(legacyUpgrade.active),
         runningServices: () =>
           services.manager.list().flatMap((service) => (service.state === 'off' || service.state === 'error' ? [] : [service.serviceId])),
       },
@@ -891,6 +896,19 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     await services.manager.restore();
     activity.start();
     stops.add('activity', () => activity.stop(), null);
+    legacyUpgrade.start({
+      models: models.services.store,
+      refreshModels: () => models.services.refresh(),
+      engine: options.engineHost !== undefined ? options.engineHost : resolveEngineHostCommand(),
+      openProject: async (dir, name) => {
+        const existed = harness.listProjects().some((project) => project.path === dir);
+        const project = await harness.openProject(dir);
+        if (!existed && typeof name === 'string' && name.trim()) {
+          await harness.updateProject({ projectId: project.id, name: [...name.trim()].slice(0, 200).join('') });
+        }
+      },
+      env: toolEnv,
+    });
     log.info('Runtime ready', { instanceId, endpoint, home: home.root, launchedBy: info.launchedBy });
 
     let closing: Promise<void> | null = null;

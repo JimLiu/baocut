@@ -1,11 +1,11 @@
-//! 系统的安全存储。首版只有 macOS 钥匙串的 generic password；其他平台对每个请求回答 `unsupported`。
+//! 系统的安全存储。macOS 钥匙串与 Windows Credential Manager 的 generic password；其他平台对每个请求回答 `unsupported`。
 
 pub use platform::SystemKeychain;
 
 #[cfg(target_os = "macos")]
 mod platform {
     use security_framework::base::Error;
-    use security_framework::item::{ItemClass, ItemSearchOptions};
+    use security_framework::item::{ItemClass, ItemSearchOptions, Limit};
     use security_framework::passwords::{delete_generic_password, get_generic_password, set_generic_password};
 
     use crate::{ErrorCode, HelperError, SecretBackend};
@@ -56,6 +56,36 @@ mod platform {
             delete_generic_password(crate::SERVICE, key).map_err(failure)
         }
 
+        fn legacy_accounts(&self, service: &str) -> Result<Vec<String>, HelperError> {
+            if !matches!(service, "BaoCut" | "VoiceInk") {
+                return Err(HelperError::new(ErrorCode::Internal, "Unsupported legacy service"));
+            }
+            let items = ItemSearchOptions::new()
+                .class(ItemClass::generic_password())
+                .service(service)
+                .load_attributes(true)
+                .limit(Limit::All)
+                .search();
+            match items {
+                Ok(items) => {
+                    let mut accounts = Vec::new();
+                    for item in items {
+                        let attributes = item
+                            .simplify_dict()
+                            .ok_or_else(|| HelperError::new(ErrorCode::Internal, "Invalid legacy account attributes"))?;
+                        if let Some(account) = attributes.get("acct") {
+                            accounts.push(account.clone());
+                        }
+                    }
+                    accounts.sort();
+                    accounts.dedup();
+                    Ok(accounts)
+                }
+                Err(error) if error.code() == ERR_SEC_ITEM_NOT_FOUND => Ok(Vec::new()),
+                Err(error) => Err(failure(error)),
+            }
+        }
+
         /// 只查属性，不读出密钥。
         fn has(&self, key: &str) -> Result<bool, HelperError> {
             let found = ItemSearchOptions::new()
@@ -90,7 +120,7 @@ mod platform {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 mod platform {
     use crate::{ErrorCode, HelperError, SecretBackend};
 
@@ -113,6 +143,64 @@ mod platform {
         }
         fn has(&self, _key: &str) -> Result<bool, HelperError> {
             Err(unsupported())
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+mod platform {
+    use crate::{ErrorCode, HelperError, SecretBackend};
+
+    pub struct SystemKeychain;
+
+    fn failure(error: keyring::Error) -> HelperError {
+        // Never format a keyring error: BadEncoding and Ambiguous may contain secrets.
+        let code = match error {
+            keyring::Error::NoEntry => ErrorCode::NotFound,
+            keyring::Error::NoStorageAccess(_) => ErrorCode::Denied,
+            keyring::Error::PlatformFailure(_) => ErrorCode::Unavailable,
+            _ => ErrorCode::Internal,
+        };
+        HelperError::new(code, "Windows credential operation failed")
+    }
+
+    fn entry(service: &str, account: &str) -> Result<keyring::Entry, HelperError> {
+        keyring::Entry::new(service, account).map_err(failure)
+    }
+
+    impl SecretBackend for SystemKeychain {
+        fn get(&self, key: &str) -> Result<String, HelperError> {
+            entry(crate::SERVICE, key)?.get_password().map_err(failure)
+        }
+        fn set(&self, key: &str, secret: &str) -> Result<(), HelperError> {
+            entry(crate::SERVICE, key)?.set_password(secret).map_err(failure)
+        }
+        fn delete(&self, key: &str) -> Result<(), HelperError> {
+            entry(crate::SERVICE, key)?.delete_credential().map_err(failure)
+        }
+        fn has(&self, key: &str) -> Result<bool, HelperError> {
+            match entry(crate::SERVICE, key)?.get_attributes() {
+                Ok(_) => Ok(true),
+                Err(keyring::Error::NoEntry) => Ok(false),
+                Err(error) => Err(failure(error)),
+            }
+        }
+        fn legacy_get(&self, provider: &str) -> Result<String, HelperError> {
+            // v2 used keyring::Entry::new("bcut", provider), target <provider>.bcut,
+            // with JSON encoded by keyring as UTF-16. Keep that exact convention.
+            entry("bcut", provider)?.get_password().map_err(failure)
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        #[test]
+        fn failures_never_include_credential_bytes() {
+            let error = failure(keyring::Error::BadEncoding(b"private-key".to_vec()));
+            assert_eq!(error.code, ErrorCode::Internal);
+            assert!(!error.message.contains("private-key"));
+            assert_eq!(failure(keyring::Error::NoEntry).code, ErrorCode::NotFound);
         }
     }
 }

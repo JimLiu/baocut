@@ -1,0 +1,17 @@
+{
+  "name": "@baocut/legacy-import",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./bcut-project": "./src/bcut-project.ts",
+    "./engine-host": "./src/engine-host.ts",
+    "./exact-time": "./src/exact-time.ts",
+    "./video-plan": "./src/video-plan.ts",
+    "./video-writer": "./src/video-writer.ts"
+  },
+  "dependencies": {
+    "@baocut/editor-wasm": "*"
+  }
+}

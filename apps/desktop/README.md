@@ -100,7 +100,7 @@ Windows 安装包尚无 Authenticode 签名。当前 Worker 链接 `MSVCP140.dll
 **现状与限制**（详见[架构设计 §14](../../docs/architecture/architecture-design.md#14-待评审事项)）：
 
 - 不签名，首次运行会被 SmartScreen 拦下。
-- 凭据：Windows 上凭据助手对一切操作答 `unsupported`，在线 Provider 与远端节点的凭据如实报告不可用，不回退到明文文件（[架构设计 §6.8](../../docs/architecture/architecture-design.md)）。
+- 凭据：Windows 凭据助手使用 Credential Manager，启动时可读取 v2 的 `bcut` 服务条目并写入新版安全存储。已通过 Windows 目标交叉编译，尚未在 Windows 上实测；失败保留待重试状态，不回退到明文文件（[架构设计 §6.8](../../docs/architecture/architecture-design.md)）。
 - CUDA 版用 Model Worker 的 `cuda`（candle 的 CUDA 后端）与 `whisper-ggml-cuda`（Whisper 的 ggml CUDA 后端），还没有实际构建过；Whisper 在 CUDA 与 Vulkan 上都没有实测。CUDA 版的 Worker 依赖显卡驱动的 `nvcuda.dll`，没有 NVIDIA 驱动的机器（包括 CI 的 runner）上预计起不来（未实测），那样的机器用标准版或 Vulkan 版。
 - 更新源与下载页使用 GitHub（§2.6）；Windows 的完整跨版本自动更新与真实 GPU 推理仍需另行验证。
 - 停止 Runtime（经 IPC 请它收尾）、Model Worker 的父进程看护与推理线程降优先级只交叉编译过，没有在 Windows 上实测；没有内存压力信号。

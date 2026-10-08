@@ -9,7 +9,7 @@ import {
 import { RuntimeStorageCredentials as SC } from '@baocut/protocol/messages/runtime-storage';
 
 /**
- * 正式版本的凭据存放（架构设计 §6.8）：系统的安全存储，经随应用签名的 `credential-helper` 访问（首版只有 macOS 钥匙串）。
+ * 正式版本的凭据存放（架构设计 §6.8）：系统的安全存储，经随应用签名的 `credential-helper` 访问（macOS 钥匙串 / Windows Credential Manager）。
  *
  * 每个操作起一个助手进程：stdin 写一行 JSON 请求 `{ op, key, secret? }`，stdout 读一行 JSON 响应
  * `{ ok: true, secret? , exists? }` 或 `{ ok: false, error, message }`。密钥只经 stdin 与 stdout：不进命令行参数、

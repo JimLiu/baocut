@@ -4,6 +4,9 @@
 //! stdout 一行 JSON 响应：成功是 `{"ok": true}`，`get` 另带 `"secret"`，`has` 另带 `"exists"`；
 //! 失败是 `{"ok": false, "error": <错误码>, "message": string}`，错误码是封闭集合（见 [`ErrorCode`]）。
 //!
+//! 升级专用的只读操作：`legacy-accounts` 仅枚举 BaoCut / VoiceInk 的账号属性，
+//! `legacy-get` 仅按 provider 读取 Windows v2 的 bcut 服务条目，不删除或改写旧凭据。
+//!
 //! 密钥只经 stdin 与 stdout 传递：不进命令行参数、环境变量、stderr 与错误信息。
 
 use serde::{Deserialize, Serialize};
@@ -49,12 +52,20 @@ impl HelperError {
     }
 }
 
-/// 存放密钥的地方。macOS 上是钥匙串（[`keychain::SystemKeychain`]），测试里是内存。
+/// 存放密钥的地方。macOS 上是钥匙串、Windows 上是 Credential Manager（[`keychain::SystemKeychain`]），测试里是内存。
 pub trait SecretBackend {
     fn get(&self, key: &str) -> Result<String, HelperError>;
     fn set(&self, key: &str, secret: &str) -> Result<(), HelperError>;
     fn delete(&self, key: &str) -> Result<(), HelperError>;
     fn has(&self, key: &str) -> Result<bool, HelperError>;
+    /// Read one v2 Windows provider from its original bcut service, without deleting it.
+    fn legacy_get(&self, _provider: &str) -> Result<String, HelperError> {
+        Err(HelperError::new(ErrorCode::Unsupported, "Legacy provider access is unavailable"))
+    }
+    /// Only historical BaoCut services; returns account names, never secret values.
+    fn legacy_accounts(&self, _service: &str) -> Result<Vec<String>, HelperError> {
+        Err(HelperError::new(ErrorCode::Unsupported, "Legacy account discovery is unavailable"))
+    }
 }
 
 #[derive(Deserialize)]
@@ -94,6 +105,12 @@ fn parse(line: &str) -> Result<Request, HelperError> {
 fn dispatch(request: &Request, backend: &dyn SecretBackend) -> Result<Value, HelperError> {
     let key = request.key.as_str();
     match (request.op.as_str(), request.secret.as_deref()) {
+        ("legacy-accounts", None) if matches!(key, "BaoCut" | "VoiceInk") => backend
+            .legacy_accounts(key)
+            .map(|accounts| json!({ "ok": true, "accounts": accounts })),
+        ("legacy-get", None) if key.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-') => {
+            backend.legacy_get(key).map(|secret| json!({ "ok": true, "secret": secret }))
+        }
         ("get", None) => backend.get(key).map(|secret| json!({ "ok": true, "secret": secret })),
         ("set", Some(secret)) if !secret.is_empty() => backend.set(key, secret).map(|()| json!({ "ok": true })),
         ("set", _) => Err(HelperError::new(ErrorCode::Internal, "set 要给出非空的 secret")),

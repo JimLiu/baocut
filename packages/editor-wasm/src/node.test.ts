@@ -1,9 +1,13 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   EditorWasmError,
   SENTENCE_DERIVATION,
   applySpeakers,
   editorWasmAvailable,
+  locateEditorWasm,
   sourceChapters,
   speakerProposal,
   speechSentences,
@@ -131,4 +135,19 @@ describe.skipIf(!built)('editor-wasm：来源自带章节（Node）', () => {
   it('没有来源章节时返回空的结果', () => {
     expect(sourceChapters({ source: { title: 'x' }, durationSeconds: 10 }).sourceChapters).toEqual([]);
   });
+});
+
+it('finds the shipped WASM from a shared chunk outside the repository', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-editor-chunk-'));
+  try {
+    const main = path.join(root, 'out', 'main');
+    fs.mkdirSync(path.join(main, 'chunks'), { recursive: true });
+    fs.mkdirSync(path.join(main, 'generated'));
+    const file = path.join(main, 'generated', 'editor.wasm');
+    fs.writeFileSync(file, new Uint8Array());
+    expect(locateEditorWasm(path.join(main, 'chunks'))).toBe(file);
+    expect(locateEditorWasm(main)).toBe(file);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });

@@ -12,6 +12,7 @@
     "@baocut/editor-wasm": "*",
     "@baocut/harness": "*",
     "@baocut/jobs": "*",
+    "@baocut/legacy-import": "*",
     "@baocut/models": "*",
     "@baocut/nodes": "*",
     "@baocut/process-host": "*",
@@ -19,6 +20,7 @@
     "@baocut/providers": "*",
     "@baocut/runtime-storage": "*",
     "file-type": "^22.1.1",
+    "smol-toml": "^1.9.0",
     "ws": "^8.22.0",
     "zod": "^4.6.5"
   },

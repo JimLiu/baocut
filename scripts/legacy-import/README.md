@@ -1,8 +1,10 @@
 # legacy-import
 
-把 baocut-app 的 `.bcut` 项目和外部视频项目目录导入成视频（`baocut.video`）。一次性的迁移脚本，放在这里归档；它不是产品的一部分，只通过 `engine-host` 的公开协议写视频，不直接碰 `video.db`。
+把 baocut-app 的 `.bcut` 项目和外部视频项目目录导入成视频（`baocut.video`）。这里保留手动批量导入入口；可复用的转换核心已移到 [`@baocut/legacy-import`](../../packages/legacy-import/README.md)，也供 Runtime 启动迁移使用。它只通过 `engine-host` 的公开协议写视频，不直接碰 `video.db`。
 
 写出来的是视频格式第 3 版（`schemaVersion: 3`）的实例模型。逐字段的映射规则见 [元素模型映射](../../docs/design/timeline/element-model-mapping.md) 第 5 节，下面「映射」一节是摘要。
+
+启动时的 v1 / v2 检测、设置与凭据迁移、完成标记见[架构设计 §2.7](../../docs/architecture/architecture-design.md#27-历史版本的启动迁移)。下面的 CLI 用法保持不变。
 
 ## 用法
 

@@ -374,11 +374,11 @@ const languageOption = z.union([
 ]);
 const tick = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 
-/** 本机的绝对路径：POSIX 的 `/…` 或 Windows 的 `C:\…`。不含 NUL。 */
+/** 本机的绝对路径：POSIX 路径、Windows 盘符或 UNC 共享路径。不含 NUL。 */
 const absolutePath = z
   .string()
   .max(4096)
-  .regex(/^(?:\/|[A-Za-z]:[\\/])[^\0]*$/, { error: () => V.absolutePath().text });
+  .regex(/^(?:\/|[A-Za-z]:[\\/]|\\\\[^\\/\0]+[\\/][^\\/\0]+(?:[\\/]|$))[^\0]*$/, { error: () => V.absolutePath().text });
 
 /**
  * 偏好设置每个键的取值（架构设计 §5.10）。键、类型、默认值与说明见 `settings.ts`；这里只管校验。

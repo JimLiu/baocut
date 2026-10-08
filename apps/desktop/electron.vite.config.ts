@@ -100,6 +100,7 @@ export default defineConfig({
           index: resolve(import.meta.dirname, 'src/main/index.ts'),
           // Runtime 与主进程一起构建，由主进程用 Electron 自带的 Node 启动（ELECTRON_RUN_AS_NODE）。
           runtime: resolve(import.meta.dirname, '../runtime/src/main.ts'),
+          'legacy-import-worker': resolve(import.meta.dirname, '../../packages/legacy-import/src/worker.ts'),
           // 产物的自检入口（`tools/check-model-assets.mjs` 用 Electron 的 Node 运行）：随应用分发的模型数据解析到哪里；应用自己不加载它。
           'model-assets-check': resolve(import.meta.dirname, 'src/main/model-assets-check.ts'),
         },

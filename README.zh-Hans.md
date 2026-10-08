@@ -148,6 +148,7 @@ BaoCut 正在积极开发，macOS Apple Silicon 与 Windows x64 安装包见上�
 
 | 变量 | 用途 |
 | --- | --- |
+| `BAOCUT_LEGACY_ROOT` | 显式指定启动时迁移的 v1/v2 数据目录，开发态独立 Home 也可使用。旧数据不改写，完成状态记在 `<home>/store/legacy-upgrade.json`；未指定时仅默认生产 Home 检测平台历史目录 |
 | `BAOCUT_HOME` | Runtime 主目录，保存发现文件、实例锁、会话与日志。默认 `~/.baocut`；桌面开发模式默认 `.dev/baocut-home`。 |
 | `BAOCUT_PROJECTS_DIR` | 新建项目的目录。默认 `~/BaoCut`；设置 `BAOCUT_HOME` 时默认 `<home>/projects`。 |
 | `BAOCUT_<ID>_PATH` | 指定智能体引擎的可执行文件，`<ID>` 为 `CLAUDE`、`CODEX`、`GEMINI`、`CURSOR`、`GROK` 或 `KIMI`（如 `BAOCUT_CODEX_PATH`）。否则从登录 shell 的 PATH 与已知安装位置选择最新版本。 |

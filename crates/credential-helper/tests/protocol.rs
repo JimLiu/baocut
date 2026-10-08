@@ -44,6 +44,9 @@ impl SecretBackend for Memory {
             .map(|_| ())
             .ok_or_else(|| HelperError::new(ErrorCode::NotFound, "没有这个条目"))
     }
+    fn legacy_get(&self, provider: &str) -> Result<String, HelperError> {
+        self.get(&format!("legacy:{provider}"))
+    }
     fn has(&self, key: &str) -> Result<bool, HelperError> {
         self.check()?;
         Ok(self.items.borrow().contains_key(key))
@@ -131,7 +134,7 @@ fn malformed_requests_are_internal_and_never_echo_the_secret() {
 
 /// 真实钥匙串的往返。会在登录钥匙串里写入并删除一个测试条目，可能弹出授权提示，所以默认不跑。
 ///
-/// 手动运行（只在 macOS 上）：
+/// 手动运行（macOS 钥匙串或 Windows Credential Manager）：
 ///
 /// ```sh
 /// CARGO_TARGET_DIR=/Volumes/ExtremeSSD/cargo-target/credential-store \
@@ -152,4 +155,46 @@ fn real_keychain_round_trip() {
     assert_eq!(run(json!({ "op": "get", "key": key }))["secret"], "s3cret-2");
     assert_eq!(run(json!({ "op": "delete", "key": key })), json!({ "ok": true }));
     assert_eq!(run(json!({ "op": "get", "key": key }))["error"], "not-found");
+}
+
+#[test]
+fn legacy_discovery_is_read_only_and_restricted_to_baocut_services() {
+    let memory = Memory::default();
+    for service in ["BaoCut", "VoiceInk"] {
+        assert_eq!(
+            call(&memory, json!({ "op": "legacy-accounts", "key": service }))["error"],
+            "unsupported"
+        );
+    }
+    for service in ["com.other.app", "com.baocut.runtime"] {
+        assert_eq!(
+            call(&memory, json!({ "op": "legacy-accounts", "key": service }))["error"],
+            "internal"
+        );
+    }
+    assert_eq!(
+        call(&memory, json!({ "op": "legacy-accounts", "key": "BaoCut", "secret": "private" }))["error"],
+        "internal"
+    );
+    assert!(memory.items.borrow().is_empty());
+}
+
+#[test]
+fn legacy_provider_reads_are_scoped_and_never_remove_the_old_entry() {
+    let memory = Memory::default();
+    memory.items.borrow_mut().insert("legacy:openai".into(), "old-json-secret".into());
+    assert_eq!(
+        call(&memory, json!({"op":"legacy-get", "key":"openai"})),
+        json!({"ok":true,"secret":"old-json-secret"})
+    );
+    assert!(memory.items.borrow().contains_key("legacy:openai"));
+    assert_eq!(call(&memory, json!({"op":"legacy-get", "key":"missing"}))["error"], "not-found");
+    assert_eq!(
+        call(&memory, json!({"op":"legacy-get", "key":"provider:openai"}))["error"],
+        "internal"
+    );
+    assert_eq!(
+        call(&memory, json!({"op":"legacy-get", "key":"openai", "secret":"do-not-write"}))["error"],
+        "internal"
+    );
 }
