@@ -24,12 +24,12 @@
 .bc-amd strong {
   font-weight: 600;
 }
-.bc-amd a {
+.bc-amd a:not(.bc-amd-settings) {
   color: var(--bc-at-link);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-.bc-amd a:hover {
+.bc-amd a:not(.bc-amd-settings):hover {
   color: var(--bc-at-link-hover);
 }
 .bc-amd-settings > svg {

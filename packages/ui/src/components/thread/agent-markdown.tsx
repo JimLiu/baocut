@@ -1,6 +1,7 @@
 import { createContext, memo, useContext, useEffect, useMemo, useId, useRef, useState, type ReactNode } from 'react';
 import Markdown, { defaultUrlTransform, type Components } from 'react-markdown';
-import { ActionButton, Link, ToastQueue, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
+import { ActionButton, ToastQueue, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
+import { Link } from '@react-spectrum/s2/Link';
 import Settings from '@react-spectrum/s2/icons/Settings';
 import { advanceCut, closeStreamingTail, revealStep, splitBlocks } from '../../model/agent-stream.ts';
 import { gapBetween, parsePathToken, pathTip, type PathToken } from '../../model/agent-turn.ts';
@@ -113,13 +114,12 @@ function PathLink({ raw, token }: { raw: string; token: PathToken }) {
 function MarkdownLink({ href, children, title }: { href?: string; children?: ReactNode; title?: string }) {
   const scope = useContext(PathScope);
   const runtime = useRuntime();
-  const navigate = useShell((s) => s.go);
   // 设置路径优先于外部网页与文件；浏览器和未知设置路径只显示文字（§3.2.2）。
   if (href && /^\/settings(?:\/|$)/.test(href)) {
     const hit = runtime.host.platform !== 'web' ? settingsLink(href) : null;
     if (!hit) return <span>{children}</span>;
     return <TooltipTrigger delay={400}>
-      <Link UNSAFE_className="bc-amd-settings" onPress={() => navigate(hit.route)}>
+      <Link href={href} UNSAFE_className="bc-amd-settings">
         <Settings />{children}
       </Link>
       <Tooltip>{hit.trail}</Tooltip>
