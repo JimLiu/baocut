@@ -464,6 +464,15 @@ function BundleRow({
       </TooltipTrigger>,
     );
   }
+  // 装好了、缺可选组件（对齐器、说话人模型）：「补齐」只下载缺的那几件（设计稿 settings-local.jsx 的 `half`）。
+  if (actions.complete) {
+    buttons.push(
+      <Button key="complete" variant="accent" size="S" onPress={() => onInstall('complete')}>
+        <DownloadIcon />
+        <Text>{INSTALL.complete}</Text>
+      </Button>,
+    );
+  }
   if (actions.install) {
     buttons.push(
       <Button key="install" variant="secondary" size="S" onPress={() => onInstall('install')}>
@@ -474,7 +483,7 @@ function BundleRow({
   }
   if (actions.resume) {
     buttons.push(
-      <Button key="resume" variant="accent" size="S" onPress={() => onInstall('install')}>
+      <Button key="resume" variant="accent" size="S" onPress={() => onInstall(isBundleInstalled(bundle) ? 'complete' : 'install')}>
         <DownloadIcon />
         <Text>{INSTALL.resume}</Text>
       </Button>,

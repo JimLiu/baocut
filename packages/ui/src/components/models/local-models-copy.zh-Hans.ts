@@ -4,6 +4,7 @@ export const zhHans: LocalModelsMessages = {
   install: {
     availableNote: '下载前先给你看要下载多少、磁盘还剩多少。下载中可以暂停，已经下载的部分留着，下次接着下。',
     download: '下载',
+    complete: '补齐',
     resume: '继续下载',
     pause: '暂停',
     cancelDownload: '取消下载',
@@ -19,10 +20,12 @@ export const zhHans: LocalModelsMessages = {
     // 确认对话框
     installTitle: (id: string) => `下载 ${id}`,
     repairTitle: (id: string) => `修复「${id}」？`,
+    completeTitle: (id: string) => `补齐 ${id}`,
     planning: '正在算要下载什么…',
     verifying: '正在找出坏掉或缺失的文件，文件大时要一会儿…',
     planFailed: '没能拿到下载计划',
     upToDate: '文件都齐全、校验无误，不用下载。',
+    completeNote: '模型已经装好，只下载缺的可选组件，装好的文件不动。',
     repairUpToDate: '文件都完好，没有要重新下载的。',
     repairThenCheck: '只重新下载坏掉或缺失的文件，完好的不动。修好后会自动再检查一次。',
     replanned: '要下载的大小刚刚变了，下面是新的计划，再确认一次。',

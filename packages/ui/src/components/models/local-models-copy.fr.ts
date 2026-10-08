@@ -5,6 +5,7 @@ export const fr: LocalModelsMessages = {
     availableNote:
       "Avant téléchargement, taille et espace libre sont affichés. Vous pouvez suspendre ; les fichiers reçus sont conservés et repris la prochaine fois.",
     download: "Télécharger",
+    complete: "Compléter",
     resume: "Reprendre le téléchargement",
     pause: "Pause",
     cancelDownload: "Annuler le téléchargement",
@@ -20,10 +21,12 @@ export const fr: LocalModelsMessages = {
 
     installTitle: (id: string) => `Télécharger ${id}`,
     repairTitle: (id: string) => `Réparer « ${id} » ?`,
+    completeTitle: (id: string) => `Compléter ${id}`,
     planning: "Calcul des téléchargements nécessaires…",
     verifying: "Recherche des fichiers endommagés ou manquants. Peut prendre du temps pour les gros fichiers…",
     planFailed: "Impossible de récupérer le plan de téléchargement",
     upToDate: "Tous les fichiers sont présents et vérifiés. Rien à télécharger.",
+    completeNote: "Le modèle est déjà installé. Seuls les composants facultatifs manquants sont téléchargés ; les fichiers installés ne sont pas modifiés.",
     repairUpToDate: "Tous les fichiers sont intacts. Rien à retélécharger.",
     repairThenCheck: "Seuls les fichiers endommagés ou manquants sont retéléchargés. Ceux intacts restent inchangés. Vérification automatique après réparation.",
     replanned: "La taille vient de changer. Voici le nouveau plan ; confirmez à nouveau.",

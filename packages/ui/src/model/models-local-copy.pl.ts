@@ -19,6 +19,7 @@ export const pl: ModelsLocalMessages = {
   chipBusy: "W toku",
   chipUnloading: "Zwalnianie",
   chipUnavailable: "Niedostępne",
+  chipMissing: (names) => `Brak: ${names.join(', ')}`,
   capability: {
     transcribe: "Transkrybuj",
     align: "Wyrównaj",

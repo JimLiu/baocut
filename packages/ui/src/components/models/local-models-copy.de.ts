@@ -5,6 +5,7 @@ export const de: LocalModelsMessages = {
     availableNote:
       "Vor dem Herunterladen werden Downloadmenge und freier Speicherplatz angezeigt. Ein Download kann pausiert werden; bereits heruntergeladene Teile bleiben erhalten und werden beim nächsten Mal fortgesetzt.",
     download: "Herunterladen",
+    complete: "Vervollständigen",
     resume: "Download fortsetzen",
     pause: "Pause",
     cancelDownload: "Download abbrechen",
@@ -20,10 +21,12 @@ export const de: LocalModelsMessages = {
 
     installTitle: (id: string) => `Herunterladen: ${id}`,
     repairTitle: (id: string) => `Reparieren: „${id}“?`,
+    completeTitle: (id: string) => `${id} vervollständigen`,
     planning: "Downloadmenge wird ermittelt…",
     verifying: "Beschädigte oder fehlende Dateien werden gesucht. Bei großen Dateien kann dies dauern…",
     planFailed: "Downloadplan konnte nicht abgerufen werden",
     upToDate: "Alle Dateien vorhanden und geprüft. Nichts herunterzuladen.",
+    completeNote: "Das Modell ist bereits installiert. Nur die fehlenden optionalen Komponenten werden heruntergeladen; installierte Dateien bleiben unverändert.",
     repairUpToDate: "Alle Dateien sind intakt. Nichts erneut herunterzuladen.",
     repairThenCheck: "Nur beschädigte oder fehlende Dateien werden erneut heruntergeladen; intakte bleiben unverändert. Nach der Reparatur wird automatisch erneut geprüft.",
     replanned: "Die Downloadgröße wurde gerade geändert. Hier ist der neue Plan; erneut bestätigen.",

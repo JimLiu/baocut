@@ -35,6 +35,8 @@ const en = {
   chipBusy: 'Running',
   chipUnloading: 'Unloading',
   chipUnavailable: 'Unavailable',
+  /** 装好了、还缺的可选组件（行上的标签）。 */
+  chipMissing: (names: string[]) => `Missing ${names.join(', ')}`,
   /** 模型包的用途。 */
   capability: {
     transcribe: 'Transcribe',

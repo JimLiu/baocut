@@ -1,4 +1,11 @@
-import { localizeText, type ImageModelInfo, type ModelBundleStatus, type ModelCapabilitiesView, type ModelLicense } from '@baocut/protocol';
+import {
+  localizeText,
+  type ImageModelInfo,
+  type ModelBundleStatus,
+  type ModelCapabilitiesView,
+  type ModelComponentStatus,
+  type ModelLicense,
+} from '@baocut/protocol';
 import type { ModelCategory } from './settings-nav.ts';
 import { M } from './models-local-copy.ts';
 
@@ -47,6 +54,20 @@ export function isBundleInstalled(bundle: Pick<ModelBundleStatus, 'state' | 'com
   return bundle.state !== 'not-installed' && bundle.state !== 'downloading';
 }
 
+/**
+ * 装好了、但还缺的可选组件（对齐器、说话人模型）：模型包照常可用，补上之后多出词级时间、跨块合并说话人（设计稿 settings-local.jsx 的
+ * `half`）。`models.install` 只下载缺的这几件。没装好的、这台电脑跑不了的模型包不算（前者走「下载」，后者补了也用不上）。
+ */
+export function missingParts(bundle: Pick<ModelBundleStatus, 'state' | 'reason' | 'components'>): ModelComponentStatus[] {
+  if (!isBundleInstalled(bundle) || bundle.reason === 'unsupported' || bundle.reason === 'worker-missing') return [];
+  return (bundle.components ?? []).filter((c) => c.optional && c.state === 'missing');
+}
+
+/** 组件给人看的名字；没列的用组件名。 */
+export function componentLabel(component: string): string {
+  return M.componentName[component] ?? component;
+}
+
 /** 这一类的模型包，按装好没有分组（见 `isBundleInstalled`）。 */
 export function localGroups(bundles: readonly ModelBundleStatus[], category: ModelCategory): LocalGroups {
   const mine = bundles.filter((b) => bundleCategory(b) === category).sort((a, b) => a.bundleId.localeCompare(b.bundleId));
@@ -85,6 +106,8 @@ export function bundleChips(bundle: ModelBundleStatus, isDefault: boolean): Mode
     case 'installed':
       break;
   }
+  const missing = missingParts(bundle);
+  if (missing.length) chips.push({ label: M.chipMissing(missing.map((c) => componentLabel(c.component))), tone: 'notice' });
   return chips;
 }
 
@@ -193,7 +216,7 @@ export function licenseLines(bundle: Pick<ModelBundleStatus, 'components'>, weig
     const license = c.license;
     if (!license) continue;
     if (!weights || license.name !== weights.name || /^CC-BY/.test(license.name)) {
-      lines.push({ part: M.componentName[c.component] ?? c.component, component: true, license });
+      lines.push({ part: componentLabel(c.component), component: true, license });
     }
   }
   return lines;

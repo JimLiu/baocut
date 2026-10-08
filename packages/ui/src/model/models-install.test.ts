@@ -194,7 +194,15 @@ describe('分组与每行能做什么', () => {
     const paused = bundle(QWEN, { state: 'not-installed', install: { jobId: null, state: 'paused', receivedBytes: 5, totalBytes: 10 } });
     expect(bundleActions(paused)).toMatchObject({ install: false, resume: true, discard: true, stop: false });
     const running = bundle(QWEN, { state: 'downloading', install: { jobId: 'j', state: 'downloading', receivedBytes: 5, totalBytes: 10 } });
-    expect(bundleActions(running)).toEqual({ install: false, resume: false, stop: true, discard: false, repair: false, remove: false });
+    expect(bundleActions(running)).toEqual({
+      install: false,
+      complete: false,
+      resume: false,
+      stop: true,
+      discard: false,
+      repair: false,
+      remove: false,
+    });
   });
 
   it('装好的能修复、删除；这台电脑不支持的不能下载', () => {
@@ -206,5 +214,21 @@ describe('分组与每行能做什么', () => {
       install: false,
       remove: false,
     });
+  });
+
+  it('装好了、缺可选组件：能补齐（只下缺的），不算没装；在装、暂停、跑不了的不给补齐', () => {
+    const aligner = component('aufklarer/aligner', { component: 'aligner', optional: true, state: 'missing', bytes: null });
+    const half = bundle(QWEN, { state: 'ready', components: [component('w'), aligner] });
+    expect(isBundleInstalled(half)).toBe(true);
+    expect(bundleActions(half)).toMatchObject({ complete: true, install: false, repair: true, remove: true });
+    expect(bundleActions(bundle(QWEN, { state: 'ready', components: [component('w'), { ...aligner, state: 'installed' }] })).complete).toBe(false);
+    const running = { ...half, install: { jobId: 'j', state: 'downloading' as const, receivedBytes: 5, totalBytes: 10 } };
+    expect(bundleActions(running)).toMatchObject({ complete: false, stop: true });
+    const paused = { ...half, install: { jobId: null, state: 'paused' as const, receivedBytes: 5, totalBytes: 10 } };
+    expect(bundleActions(paused)).toMatchObject({ complete: false, resume: true });
+    expect(bundleActions({ ...half, state: 'error', reason: 'worker-missing' }).complete).toBe(false);
+    // 必需组件缺：没装好，走「下载」，不是补齐
+    const partial = bundle(QWEN, { state: 'not-installed', reason: 'incomplete', components: [component('w', { state: 'missing' }), aligner] });
+    expect(bundleActions(partial)).toMatchObject({ complete: false, install: true });
   });
 });

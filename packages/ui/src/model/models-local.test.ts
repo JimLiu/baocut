@@ -11,6 +11,7 @@ import {
   localDefaultChoice,
   localDefaultPicker,
   localGroups,
+  missingParts,
 } from './models-local.ts';
 import type { ModelComponentStatus, ModelLicense } from '@baocut/protocol';
 import { bundle, fixtureView } from './models-test-fixtures.ts';
@@ -79,6 +80,28 @@ describe('bundleChips', () => {
     expect(bundleChips(bundle(QWEN, { state: 'not-installed', reason: 'size-mismatch' }), false)).toEqual([
       { label: '文件大小不符', tone: 'notice' },
     ]);
+  });
+
+  it('装好了、缺可选组件：写缺哪几件；必需组件缺、跑不了的不写', () => {
+    const part = (component: string, patch: Partial<ModelComponentStatus> = {}): ModelComponentStatus => ({
+      component,
+      repo: `r/${component}`,
+      revision: 'r',
+      state: 'installed',
+      bytes: 1,
+      sharedWith: [],
+      ...patch,
+    });
+    const missing = { optional: true, state: 'missing' as const, bytes: null };
+    const half = bundle(QWEN, { state: 'ready', components: [part('asr'), part('aligner', missing), part('speaker', missing)] });
+    expect(missingParts(half).map((c) => c.component)).toEqual(['aligner', 'speaker']);
+    expect(bundleChips(half, false)).toEqual([
+      { label: '已加载', tone: 'positive' },
+      { label: '缺 Forced aligner、声纹嵌入', tone: 'notice' },
+    ]);
+    const required = bundle(QWEN, { state: 'not-installed', components: [part('asr', { state: 'missing' }), part('aligner', missing)] });
+    expect(missingParts(required)).toEqual([]);
+    expect(missingParts({ ...half, state: 'error', reason: 'unsupported' })).toEqual([]);
   });
 });
 

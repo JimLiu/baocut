@@ -19,6 +19,7 @@ export const ptBR: ModelsLocalMessages = {
   chipBusy: "Em execução",
   chipUnloading: "Descarregando",
   chipUnavailable: "Indisponível",
+  chipMissing: (names) => `Falta: ${names.join(', ')}`,
   capability: {
     transcribe: "Transcrever",
     align: "Alinhar",

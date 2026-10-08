@@ -23,6 +23,7 @@ const en = {
     availableNote:
       'Before downloading, you’ll see how much will be downloaded and how much disk space is left. You can pause a download; what’s already downloaded is kept and resumes next time.',
     download: 'Download',
+    complete: 'Complete',
     resume: 'Resume download',
     pause: 'Pause',
     cancelDownload: 'Cancel download',
@@ -38,10 +39,12 @@ const en = {
     // 确认对话框
     installTitle: (id: string) => `Download ${id}`,
     repairTitle: (id: string) => `Repair “${id}”?`,
+    completeTitle: (id: string) => `Complete ${id}`,
     planning: 'Working out what to download…',
     verifying: 'Looking for damaged or missing files. This can take a while for large files…',
     planFailed: 'Couldn’t get the download plan',
     upToDate: 'All files are present and verified. Nothing to download.',
+    completeNote: 'The model is already installed. Only the missing optional components are downloaded; installed files are left alone.',
     repairUpToDate: 'All files are intact. Nothing to download again.',
     repairThenCheck: 'Only damaged or missing files are downloaded again; intact ones are left alone. It’s checked again automatically after the repair.',
     replanned: 'The download size just changed. Here’s the new plan; please confirm again.',

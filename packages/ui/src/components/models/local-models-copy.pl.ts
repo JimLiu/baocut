@@ -4,6 +4,7 @@ export const pl: LocalModelsMessages = {
   install: {
     availableNote: "Przed pobieraniem zobaczysz rozmiar i wolne miejsce na dysku. Możesz wstrzymać pobieranie; pobrana część zostaje zachowana i jest wznawiana następnym razem.",
     download: "Pobierz",
+    complete: "Uzupełnij",
     resume: "Wznów pobieranie",
     pause: "Wstrzymaj",
     cancelDownload: "Anuluj pobieranie",
@@ -19,10 +20,12 @@ export const pl: LocalModelsMessages = {
 
     installTitle: (id: string) => `Najpierw pobierz ${id}`,
     repairTitle: (id: string) => `Napraw „${id}”?`,
+    completeTitle: (id: string) => `Uzupełnij ${id}`,
     planning: "Ustalanie plików do pobrania…",
     verifying: "Szukanie uszkodzonych lub brakujących plików. Duże pliki mogą wymagać czasu…",
     planFailed: "Nie udało się uzyskać planu pobierania",
     upToDate: "Wszystkie pliki są obecne i zweryfikowane. Nic do pobrania.",
+    completeNote: "Model jest już zainstalowany. Pobierane są tylko brakujące komponenty opcjonalne; zainstalowane pliki pozostają bez zmian.",
     repairUpToDate: "Wszystkie pliki są poprawne. Nic do ponownego pobrania.",
     repairThenCheck: "Ponownie pobierane są tylko uszkodzone lub brakujące pliki; poprawne pozostają bez zmian. Po naprawie następuje automatyczna weryfikacja.",
     replanned: "Rozmiar pobierania właśnie się zmienił. Oto nowy plan; potwierdź ponownie.",

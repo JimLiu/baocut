@@ -19,6 +19,7 @@ export const ru: ModelsLocalMessages = {
   chipBusy: "Выполняется",
   chipUnloading: "Выгрузка",
   chipUnavailable: "Недоступно",
+  chipMissing: (names) => `Не хватает: ${names.join(', ')}`,
   capability: {
     transcribe: "Расшифровать",
     align: "Выравнивание",

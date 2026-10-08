@@ -5,6 +5,7 @@ export const ja: LocalModelsMessages = {
     availableNote:
       'ダウンロード前に、ダウンロード量とディスクの空き容量が表示されます。ダウンロードは一時停止でき、ダウンロード済みの部分は残して次回そこから再開します。',
     download: 'ダウンロード',
+    complete: '補完',
     resume: 'ダウンロードを再開',
     pause: '一時停止',
     cancelDownload: 'ダウンロードをキャンセル',
@@ -20,10 +21,12 @@ export const ja: LocalModelsMessages = {
     // 确认对话框
     installTitle: (id: string) => `${id} をダウンロード`,
     repairTitle: (id: string) => `「${id}」を修復しますか？`,
+    completeTitle: (id: string) => `${id} を補完`,
     planning: 'ダウンロードする内容を確認中…',
     verifying: '破損または不足しているファイルを探しています。大きなファイルでは時間がかかることがあります…',
     planFailed: 'ダウンロード計画を取得できませんでした',
     upToDate: 'すべてのファイルがそろっていて検証済みです。ダウンロードするものはありません。',
+    completeNote: 'モデルはインストール済みです。不足しているオプションのコンポーネントだけをダウンロードし、インストール済みのファイルはそのままです。',
     repairUpToDate: 'すべてのファイルに問題はありません。再ダウンロードするものはありません。',
     repairThenCheck: '破損または不足しているファイルだけを再ダウンロードし、問題のないファイルはそのままにします。修復後に自動でもう一度確認します。',
     replanned: 'ダウンロードするサイズが変わりました。新しい計画を表示しているので、もう一度確認してください。',

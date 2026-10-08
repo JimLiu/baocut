@@ -19,6 +19,7 @@ export const zhHans: ModelsLocalMessages = {
   chipBusy: '正在运行',
   chipUnloading: '正在卸载',
   chipUnavailable: '不可用',
+  chipMissing: (names) => `缺 ${names.join('、')}`,
   capability: {
     transcribe: '转写',
     align: '对齐',

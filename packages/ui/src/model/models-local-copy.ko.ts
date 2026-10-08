@@ -19,6 +19,7 @@ export const ko: ModelsLocalMessages = {
   chipBusy: '실행 중',
   chipUnloading: '해제 중',
   chipUnavailable: '사용할 수 없음',
+  chipMissing: (names) => `${names.join(', ')} 없음`,
   capability: {
     transcribe: '전사',
     align: '정렬',

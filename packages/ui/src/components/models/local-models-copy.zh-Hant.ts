@@ -4,6 +4,7 @@ export const zhHant: LocalModelsMessages = {
   install: {
     availableNote: '下載前會先顯示要下載多少，以及磁碟還剩多少空間。下載可以暫停；已下載的部分會保留，下次接著下載。',
     download: '下載',
+    complete: '補齊',
     resume: '繼續下載',
     pause: '暫停',
     cancelDownload: '取消下載',
@@ -19,10 +20,12 @@ export const zhHant: LocalModelsMessages = {
     // 确认对话框
     installTitle: (id: string) => `下載 ${id}`,
     repairTitle: (id: string) => `要修復「${id}」嗎？`,
+    completeTitle: (id: string) => `補齊 ${id}`,
     planning: '正在計算要下載的內容…',
     verifying: '正在尋找損壞或缺少的檔案。檔案很大時可能需要一段時間…',
     planFailed: '無法取得下載計畫',
     upToDate: '所有檔案都已齊全並通過驗證，不需要下載。',
+    completeNote: '模型已經裝好，只下載缺少的選用元件，裝好的檔案不動。',
     repairUpToDate: '所有檔案都完好，不需要重新下載。',
     repairThenCheck: '只會重新下載損壞或缺少的檔案，完好的檔案不受影響。修復後會自動再檢查一次。',
     replanned: '要下載的大小剛剛變了。以下是新的計畫，請再確認一次。',

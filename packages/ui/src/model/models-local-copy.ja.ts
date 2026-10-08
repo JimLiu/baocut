@@ -19,6 +19,7 @@ export const ja: ModelsLocalMessages = {
   chipBusy: '実行中',
   chipUnloading: '解放中',
   chipUnavailable: '使用不可',
+  chipMissing: (names) => `${names.join('、')} が不足`,
   capability: {
     transcribe: '文字起こし',
     align: 'アライメント',

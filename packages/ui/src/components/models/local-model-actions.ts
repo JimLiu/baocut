@@ -11,7 +11,8 @@ type Session = Pick<
   'installModelBundle' | 'repairModelBundle' | 'cancelModelInstall' | 'removeModelBundle' | 'testModelBundle'
 >;
 
-export type InstallMode = 'install' | 'repair';
+/** `complete`：装好了的模型包补上缺的可选组件，与 `install` 同一个请求（计划里只有缺的那几件），只是不再问许可、标题不同。 */
+export type InstallMode = 'install' | 'complete' | 'repair';
 
 function call(session: Session, mode: InstallMode, bundleId: string, confirmBytes?: number): Promise<ModelInstallResult> {
   return mode === 'repair' ? session.repairModelBundle(bundleId, confirmBytes) : session.installModelBundle(bundleId, confirmBytes);

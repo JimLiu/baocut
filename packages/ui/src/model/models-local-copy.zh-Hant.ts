@@ -19,6 +19,7 @@ export const zhHant: ModelsLocalMessages = {
   chipBusy: '執行中',
   chipUnloading: '正在卸載',
   chipUnavailable: '無法使用',
+  chipMissing: (names) => `缺少 ${names.join('、')}`,
   capability: {
     transcribe: '轉錄',
     align: '對齊',

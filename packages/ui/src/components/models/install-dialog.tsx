@@ -48,9 +48,10 @@ type Phase =
   | { kind: 'failed'; message: string };
 
 /**
- * 下载 / 修复的确认（架构设计 §6.3 的两步）：打开时只要计划（不下载），给人看要下载多少、续传多少、磁盘还剩多少、从哪儿下；
+ * 下载 / 补齐 / 修复的确认（架构设计 §6.3 的两步）：打开时只要计划（不下载），给人看要下载多少、续传多少、磁盘还剩多少、从哪儿下；
  * 确认时把 `confirmBytes` 原样交回去。大小变了时换成新计划再问一次，不关对话框。磁盘明显不够时不让确认。
- * 不许商用的模型（设计稿 panel-tts-local.jsx `withModelLicense`）下载前先写清许可，确认按钮写「我知道了，下载」；修复不再问。
+ * 不许商用的模型（设计稿 panel-tts-local.jsx `withModelLicense`）下载前先写清许可，确认按钮写「我知道了，下载」；补齐与修复不再问
+ * （权重已在，设计稿 settings-local.jsx）。补齐只下载缺的可选组件，先说一句装好的不动。
  * 修复（设计稿 settings-local.jsx 的修复确认）写明修好后会自动再检查一次；文件都完好时给「重新检查」。
  * 状态放在 Dialog 外层：S2 的 Dialog 会把 children 在几个 slot 里各渲染一遍。
  */
@@ -122,7 +123,9 @@ export function InstallDialog({
       <Dialog size="M">
         {({ close }) => (
           <>
-            <Heading slot="title">{mode === 'repair' ? COPY.repairTitle(name) : COPY.installTitle(name)}</Heading>
+            <Heading slot="title">
+              {mode === 'repair' ? COPY.repairTitle(name) : mode === 'complete' ? COPY.completeTitle(name) : COPY.installTitle(name)}
+            </Heading>
             <Content>
               <div className={stack}>
                 {phase.kind === 'planning' ? (
@@ -143,6 +146,7 @@ export function InstallDialog({
                   ) : (
                     <>
                       {phase.kind === 'plan' && phase.replanned ? <p className={problem}>{COPY.replanned}</p> : null}
+                      {mode === 'complete' ? <p className={text}>{COPY.completeNote}</p> : null}
                       <p className={lead}>{view.size}</p>
                       {view.resumed ? <p className={text}>{view.resumed}</p> : null}
                       {view.space ? <p className={text}>{view.space}</p> : null}

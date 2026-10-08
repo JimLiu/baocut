@@ -22,6 +22,7 @@ export const de: ModelsLocalMessages = {
   chipBusy: "Läuft",
   chipUnloading: "Wird entladen",
   chipUnavailable: "Nicht verfügbar",
+  chipMissing: (names) => `Fehlt: ${names.join(', ')}`,
 
   capability: {
     transcribe: "Transkribieren",

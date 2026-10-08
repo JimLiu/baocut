@@ -1,5 +1,5 @@
 import type { JobRecord, ModelBundleStatus, ModelInstallPlan, ModelInstallProgress } from '@baocut/protocol';
-import { isBundleInstalled } from './models-local.ts';
+import { isBundleInstalled, missingParts } from './models-local.ts';
 import { fmtSize } from './task-facts.ts';
 import { M } from './models-install-copy.ts';
 import { jobErrorText, remedyText } from './localized-text.ts';
@@ -229,6 +229,8 @@ export interface BundleActions {
   stop: boolean;
   /** 丢掉已下载的部分（暂停着）。 */
   discard: boolean;
+  /** 补齐：装好了、还缺可选组件（`missingParts`），只下载缺的那几件（没在装、没暂停）。 */
+  complete: boolean;
   /** 修复：装好的逐个文件校验一遍、只重下坏的。能不能检查见 model-check.ts 的 `checkRoute`。 */
   repair: boolean;
   /** 删除：有装好的东西、没有在装的。 */
@@ -243,6 +245,7 @@ export function bundleActions(bundle: ModelBundleStatus): BundleActions {
   const cannotRun = bundle.reason === 'unsupported' || bundle.reason === 'worker-missing';
   return {
     install: !installed && !bundle.install && bundle.reason !== 'unsupported',
+    complete: !bundle.install && missingParts(bundle).length > 0,
     resume: paused && bundle.reason !== 'unsupported',
     stop: installing,
     discard: paused,

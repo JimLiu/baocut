@@ -5,6 +5,7 @@ export const ko: LocalModelsMessages = {
     availableNote:
       '다운로드 전에 내려받을 용량과 남은 디스크 공간을 보여 드립니다. 다운로드는 일시정지할 수 있으며, 이미 받은 부분은 남겨 두었다가 다음에 이어서 받습니다.',
     download: '다운로드',
+    complete: '보완',
     resume: '다운로드 재개',
     pause: '일시정지',
     cancelDownload: '다운로드 취소',
@@ -20,10 +21,12 @@ export const ko: LocalModelsMessages = {
     // 确认对话框
     installTitle: (id: string) => `${id} 다운로드`,
     repairTitle: (id: string) => `“${id}” 모델을 복구할까요?`,
+    completeTitle: (id: string) => `${id} 보완`,
     planning: '다운로드할 항목을 계산하는 중…',
     verifying: '손상되었거나 없는 파일을 찾는 중입니다. 파일이 크면 시간이 걸릴 수 있습니다…',
     planFailed: '다운로드 계획을 가져오지 못했습니다',
     upToDate: '모든 파일이 있고 검증도 끝났습니다. 다운로드할 것이 없습니다.',
+    completeNote: '모델은 이미 설치되어 있습니다. 빠진 선택 구성 요소만 내려받고, 설치된 파일은 그대로 둡니다.',
     repairUpToDate: '모든 파일이 온전합니다. 다시 다운로드할 것이 없습니다.',
     repairThenCheck: '손상되었거나 없는 파일만 다시 다운로드하고, 온전한 파일은 그대로 둡니다. 복구가 끝나면 자동으로 다시 검사합니다.',
     replanned: '다운로드 크기가 방금 바뀌었습니다. 아래 새 계획을 다시 확인하세요.',
