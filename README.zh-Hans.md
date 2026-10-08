@@ -80,39 +80,116 @@ macOS 打开 DMG 后，将 BaoCut 拖入“应用程序”。Windows 先安装 [
 
 ## 从源码运行
 
-需要 Node.js 22.18 以上，以及一个已登录的智能体引擎（[Codex CLI](https://github.com/openai/codex) 或 Claude Code）。从源码构建编辑器与本地转写还需要 Rust 工具链（[rustup](https://rustup.rs)）；未安装时应用仍可启动，但相关能力不可用。媒体分析、转写音频准备与成片导出还需要可用的 `ffmpeg` 和 `ffprobe`；非 Apple Silicon 平台构建 whisper.cpp 需要 CMake 与 C++ 编译器。
+普通使用可直接下载上面的[安装包](#下载与安装)：它包含 Rust Worker 与 WASM，无需安装 Node.js、Rust 或编译器。从源码运行有两条路径：
 
-在仓库根目录运行：
+| 目标 | `npm ci` 后的命令 | 依赖与限制 |
+| --- | --- | --- |
+| 完整桌面开发 | `npm run dev` | Node.js 22.18+、Rust、CMake 与下方平台构建工具；启动前构建原生 Worker 与 WASM。 |
+| 无 Rust 的外壳／界面开发 | `npm run dev:lite` | Node.js 22.18+；跳过原生与 WASM 构建。全新检出中，视频编辑、预览、导出、本地推理与语音处理不可用；已有构建产物仍可能被使用。 |
 
-```bash
-git clone https://github.com/jimliu/baocut.git
-cd baocut
-npm install
+智能体对话还需要安装并登录智能体引擎。媒体分析、转写音频准备与成片导出需要 PATH 中可用的 `ffmpeg` 和 `ffprobe`，两者不随应用分发。只打开应用无需登录智能体。
+
+### 1. 按操作系统安装工具
+
+先安装 [Git](https://git-scm.com/downloads) 与 [Node.js](https://nodejs.org/en/download) 22.18+。重新打开终端，检查 `git --version`、`node --version`、`npm --version`。选择 lite 模式时，可以跳过以下 Rust／编译器步骤，直接进入第 2 步。
+
+**macOS**
+
+安装命令行工具：`xcode-select --install`。使用 [Homebrew](https://brew.sh) 时，执行 `brew install cmake ffmpeg` 安装 CMake 与 FFmpeg。按 [Rust 官方安装说明](https://rust-lang.org/tools/install/)安装 rustup：
+
+```sh
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+. "$HOME/.cargo/env"
+rustup default stable
+rustup target add wasm32-unknown-unknown
 ```
 
-```bash
+macOS 14+ 上 Apple Silicon 的本地模型 Worker 使用 MLX／Core ML，还需要**完整 Xcode 与 Metal 编译器**。安装 Xcode，先打开一次完成初始化，再选择它（路径按实际安装位置调整）：
+
+```sh
+sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+xcrun --find metal
+# 所选 Xcode 缺少 Metal 时：
+xcodebuild -downloadComponent MetalToolchain
+```
+
+Intel Mac 改用 candle／whisper.cpp，需要 CMake 与 C++ 编译器。发布的 macOS 安装包面向 Apple Silicon；Intel 源码构建尚未纳入发布验证。
+
+**Windows x64**
+
+安装 [Visual Studio／Build Tools](https://visualstudio.microsoft.com/downloads/)，勾选 **Desktop development with C++（使用 C++ 的桌面开发）**，包含 MSVC x64 工具与 Windows SDK；见 [Rust 的 MSVC 安装说明](https://rust-lang.github.io/rustup/installation/windows-msvc.html)。安装 [CMake](https://cmake.org/download/) 时启用加入 PATH 的选项；安装 [LLVM](https://releases.llvm.org/download.html) 提供 Rust 绑定使用的 libclang。绑定找不到 libclang 时，将 `LIBCLANG_PATH` 设为 LLVM 的 `bin` 目录。安装 FFmpeg，并把含 `ffmpeg.exe` 与 `ffprobe.exe` 的目录加入 PATH。
+
+下载并运行 [rustup-init.exe](https://rust-lang.org/tools/install/)，保留默认的 `x86_64-pc-windows-msvc` 宿主。随后重新打开 **x64 Native Tools Command Prompt** 或**配置为 x64 的 Developer PowerShell**，再执行源码构建；普通终端可能找得到 Rust，却没有 `cl.exe` 与 SDK 环境。
+
+```powershell
+rustup default stable
+rustup target add wasm32-unknown-unknown
+cargo --version
+cmake --version
+cl /?
+```
+
+默认 Windows 构建使用 CPU 推理，无需 CUDA／Vulkan SDK。GPU 构建的额外依赖见[桌面端说明](apps/desktop/README.md#windows-打包)。
+
+**Linux（源码开发）**
+
+使用与 macOS 相同的 rustup 命令安装 Rust。Debian／Ubuntu 可执行 `sudo apt install build-essential cmake clang libclang-dev pkg-config ffmpeg`；其他发行版使用对应软件包。Linux 源码开发使用 candle／whisper.cpp，目前不提供 Linux 安装包与原生发布验证。
+
+### 2. 克隆、检查并运行
+
+从仓库根目录执行；以下命令适用于 macOS／Linux 终端与 Windows 开发者终端：
+
+```sh
+git clone https://github.com/jimliu/baocut.git
+cd baocut
+npm ci
+npm run doctor
 npm run dev
 ```
 
-开发模式启动 Electron 与 Vite，按需拉起 Runtime，并在退出时停止它自己启动的 Runtime。默认数据目录是仓库内的 `.dev/baocut-home`。
+`doctor` 列出缺失工具与修复提示，缺少源码构建的必需工具时返回非零退出码。FFmpeg 只给警告，因为它是媒体流程依赖。检查不会安装系统工具，也不能证明所有 SDK 与 Rust 依赖都能编译。`npm run setup` 检查环境并构建原生 Worker 与 WASM，不打开 Electron；`npm run dev` 自动执行它，任一构建失败便停止启动。使用 rustup 时，WASM 构建会自动补装目标。首次构建需要下载依赖，耗时与磁盘占用可能较大；后续复用 Cargo 缓存。PATH 中没有 Cargo 时，脚本也会检查 `CARGO_HOME/bin` 与 rustup 所在目录。
 
-`npm run dev` 会先用 cargo 构建原生 Worker 与 WASM。PATH 中没有 cargo 时，脚本再到 `CARGO_HOME/bin` 与 rustup 所在目录查找；缺少 `wasm32-unknown-unknown` 目标时会自动安装。构建失败后开发应用仍可能启动，需要查看终端输出确认相关能力是否可用。Electron 44 安装时不再下载二进制，`npm run dev` 与 `npm start` 会在启动前补下。
+没有 Rust 时，用以下命令**替代** `doctor` 与 `dev`：
 
-从终端连接开发态桌面应用使用的 Runtime：
+```sh
+npm run dev:lite
+```
 
-```bash
+补齐完整工具链后运行 `npm run dev` 即可构建原生能力。开发模式启动 Electron 与 Vite，按需拉起 Runtime，退出时停止它启动的 Runtime；数据默认位于 `.dev/baocut-home`。Electron 44 会在 `dev`、`dev:lite` 或 `start` 启动前下载二进制，首次启动需要网络。Ctrl+C 或关闭终端时，开发监管脚本请求 Electron、Vite 与 Runtime 退出，12 秒后强制结束仍未退出的进程。
+
+### 常见问题
+
+- **找不到 Cargo／没有默认工具链**：安装 Rust 后重新打开终端，执行 `rustup default stable`，再运行 `npm run doctor`。
+- **Windows 找不到 `cl.exe`、链接器或 SDK**：使用 x64 开发者终端，检查 C++ 工作负载与 Windows SDK；libclang 报错时检查 LLVM 与 `LIBCLANG_PATH`。
+- **macOS 找不到 `metal`**：选择完整 Xcode 并安装 MetalToolchain；仅安装命令行工具不足以提供 MLX 构建环境。
+- **缺少 WASM 目标**：运行 `rustup target add wasm32-unknown-unknown`。`wasm-opt` 为可选优化工具，未安装时直接使用 Cargo 产物。
+- **Electron 下载失败**：检查下载服务器的网络访问后重试启动；只执行 `npm ci` 不会下载 Electron 44 二进制。
+- **全新检出直接 `npm start`**：该命令预览已有构建产物，需先执行 `npm run setup` 与 `npm run build`。
+
+从 CLI 连接开发态桌面应用的 Runtime，macOS／Linux 使用：
+
+```sh
 BAOCUT_HOME=.dev/baocut-home npm run cli -- status
 ```
 
-上面是 POSIX shell 写法；PowerShell 中先运行 `$env:BAOCUT_HOME = '.dev/baocut-home'`，再运行 `npm run cli -- status`。
+Windows PowerShell 使用：
+
+```powershell
+$env:BAOCUT_HOME = '.dev/baocut-home'
+npm run cli -- status
+```
+
+Windows Command Prompt 中，先执行 `set "BAOCUT_HOME=.dev/baocut-home"`，再运行 CLI 命令。
 
 ### 其他命令
 
 | 命令 | 作用 |
 | --- | --- |
+| `npm run doctor` / `npm run setup` | 检查源码构建依赖／检查并构建原生 Worker 与 WASM。 |
+| `npm run dev:lite` | 跳过 Rust 构建启动桌面外壳；功能限制见上方。 |
 | `npm run dev:designs` | 用 Vite 启动可交互原型，起始地址为 `http://127.0.0.1:4331/#/home`，源码变化后自动构建并刷新。首次运行前执行 `npm --prefix designs/baocut ci`；见[原型 README](designs/baocut/README.md)。 |
 | `npm run build` | 构建 WASM、工具目录、外部智能体 skill，以及主进程、preload、Runtime 与界面；桌面产物位于 `apps/desktop/out`。 |
-| `npm start` | 构建并以生产方式运行桌面端，界面从文件加载；原生 Worker 与 WASM 分别用 `npm run build:engine`、`npm run build:wasm` 构建。 |
+| `npm start` | 预览已构建的桌面端，界面从文件加载；首次先运行 `npm run setup` 与 `npm run build`。 |
 | `npm run package:mac -- --build <n> --sign-sha1 <SHA1> --out <新目录>` | Apple Silicon 的签名、公证 ZIP 与 DMG，见[桌面端打包说明](apps/desktop/README.md#macos-打包)。 |
 | `npm run package:win` / `npm run package:win:cuda` / `npm run package:win:vulkan` | Windows x64 的 NSIS 安装包（按用户安装）与 zip，不签名；分别使用 CPU、CUDA（NVIDIA）或 Vulkan（Whisper 使用 GPU，candle 仍使用 CPU）配置。见[桌面端 README](apps/desktop/README.md#windows-打包)。 |
 | `npm run runtime` | 单独启动 Runtime，默认主目录为 `~/.baocut`。 |

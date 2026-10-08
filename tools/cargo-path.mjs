@@ -13,18 +13,20 @@ function find(name, dirs) {
   return dirs.map((dir) => join(dir, name + suffix)).find((file) => existsSync(file));
 }
 
-/** 确保 cargo 在 PATH 上；哪里都找不到时提示安装 Rust 并以非零退出。 */
-export function ensureCargo() {
+/** 确保 cargo 在 PATH 上；required=false 时缺失返回 false，默认提示安装 Rust 并以非零退出。 */
+export function ensureCargo(required = true) {
   const dirs = (process.env.PATH ?? '').split(delimiter).filter(Boolean);
-  if (find('cargo', dirs)) return;
+  if (find('cargo', dirs)) return true;
   const rustup = find('rustup', dirs);
   const candidates = [join(process.env.CARGO_HOME || join(homedir(), '.cargo'), 'bin')];
   if (rustup) candidates.push(dirname(realpathSync(rustup)));
   const cargo = find('cargo', candidates);
   if (!cargo) {
-    console.error('没有找到 cargo：先装 Rust（https://rustup.rs）');
+    if (!required) return false;
+    console.error('Cargo not found. Install Rust: https://rustup.rs. See README.md#run-from-source or run npm run dev:lite.');
     process.exit(1);
   }
   console.log(`PATH 里没有 cargo，改用 ${cargo}`);
   process.env.PATH = [dirname(cargo), ...dirs].join(delimiter);
+  return true;
 }

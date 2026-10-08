@@ -86,33 +86,116 @@ Every surface talks to the same local Runtime over the same protocol and edits t
 
 ## Run from source
 
-Requirements: Node.js 22.18+, and a signed-in agent engine ([Codex CLI](https://github.com/openai/codex) or Claude Code). The editor and local transcription also need a Rust toolchain ([rustup](https://rustup.rs)); without it the app still starts, those features are just unavailable.
+For normal use, choose a [packaged app](#download-and-install): it includes the Rust workers and WASM, so you do not need Node.js, Rust or a compiler. Source development has two paths:
 
-```bash
-git clone https://github.com/jimliu/baocut.git
-cd baocut
-npm install
+| Goal | Command after `npm ci` | Requirements / limits |
+| --- | --- | --- |
+| Full desktop development | `npm run dev` | Node.js 22.18+, Rust, CMake and platform build tools below. Builds native workers and WASM before launching. |
+| Shell/UI development without Rust | `npm run dev:lite` | Node.js 22.18+. Skips native and WASM builds. On a fresh checkout, video editing, preview, export, local inference and speech processing are unavailable; existing outputs may still be used. |
+
+Agent conversations additionally need an installed, signed-in agent engine. Media analysis, transcription preparation and export need `ffmpeg` and `ffprobe` on PATH. Neither is bundled. Opening the app does not require an agent login.
+
+### 1. Install the tools for your OS
+
+Install [Git](https://git-scm.com/downloads) and [Node.js](https://nodejs.org/en/download) 22.18+ first. Open a new terminal and check `git --version`, `node --version` and `npm --version`. For lite mode, skip the Rust/compiler steps below and continue at step 2.
+
+**macOS**
+
+Install the Command Line Tools (`xcode-select --install`). If you use [Homebrew](https://brew.sh), install CMake and FFmpeg with `brew install cmake ffmpeg`. Install Rust using the [official rustup installer](https://rust-lang.org/tools/install/):
+
+```sh
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+. "$HOME/.cargo/env"
+rustup default stable
+rustup target add wasm32-unknown-unknown
 ```
 
-```bash
+On Apple Silicon with macOS 14+, the local model worker uses MLX / Core ML and also needs **full Xcode with the Metal compiler**. Install Xcode, launch it once to finish setup, and select it (adjust the path if installed elsewhere):
+
+```sh
+sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+xcrun --find metal
+# If Metal is missing from the selected Xcode:
+xcodebuild -downloadComponent MetalToolchain
+```
+
+Intel Macs use candle / whisper.cpp instead, requiring CMake and a C++ compiler. Published macOS packages target Apple Silicon; Intel source builds are not covered by the release checks.
+
+**Windows x64**
+
+Install [Visual Studio / Build Tools](https://visualstudio.microsoft.com/downloads/) with **Desktop development with C++**, the MSVC x64 tools and a Windows SDK (see [Rust's MSVC prerequisites](https://rust-lang.github.io/rustup/installation/windows-msvc.html)). Install [CMake](https://cmake.org/download/) with its PATH option enabled, and [LLVM](https://releases.llvm.org/download.html) for the libclang used by Rust bindings. If bindings cannot locate it, set `LIBCLANG_PATH` to LLVM's `bin` directory. Install FFmpeg with both `ffmpeg.exe` and `ffprobe.exe` on PATH.
+
+Download and run [rustup-init.exe](https://rust-lang.org/tools/install/), keeping the default `x86_64-pc-windows-msvc` host. Reopen an **x64 Native Tools Command Prompt** or a **Developer PowerShell configured for x64** before running the source-build commands; a regular terminal may find Rust but lack `cl.exe` and the SDK environment.
+
+```powershell
+rustup default stable
+rustup target add wasm32-unknown-unknown
+cargo --version
+cmake --version
+cl /?
+```
+
+The default Windows build uses CPU inference and does not need CUDA or Vulkan SDKs. GPU builds have extra requirements; see the [desktop guide](apps/desktop/README.md#windows-打包).
+
+**Linux (source development)**
+
+Install Rust with the same rustup commands as macOS. On Debian/Ubuntu, install the native tools with `sudo apt install build-essential cmake clang libclang-dev pkg-config ffmpeg`. Other distributions use their corresponding packages. Linux source development uses candle / whisper.cpp; Linux installers and native release validation are not provided.
+
+### 2. Clone, check and run
+
+Run from the repository root. These commands work in macOS/Linux terminals and Windows developer terminals:
+
+```sh
+git clone https://github.com/jimliu/baocut.git
+cd baocut
+npm ci
+npm run doctor
 npm run dev
 ```
 
-Development mode starts Electron and Vite, launches the Runtime on demand and stops it on exit. Data goes to `.dev/baocut-home` inside the repo, never to `~/.baocut`. `npm run dev` first builds the native workers and WASM with cargo; if cargo is not on PATH it looks in `CARGO_HOME/bin` and next to rustup, and installs the `wasm32-unknown-unknown` target when missing. Electron 44 does not download its binary at install time; `npm run dev` and `npm start` fetch it before launching. `npm run dev` runs electron-vite under a small supervisor (`apps/desktop/tools/dev-runner.mjs`): closing the terminal, Ctrl+C, or a SIGTERM to the script asks electron-vite, Electron and the Runtime to quit together, force-kills them if they are still running 12 s later, and exits only once they are gone.
+`doctor` reports missing tools with installation hints and exits nonzero for missing source-build prerequisites. FFmpeg is a warning because it is needed for media workflows, not to compile the app. The check does not install tools or prove all SDKs and Rust dependencies can build. `npm run setup` checks prerequisites and builds native workers and WASM without opening Electron; `npm run dev` runs it automatically and stops if either build fails. Rustup-based WASM builds install the target when missing. The first build downloads dependencies and can take considerable time and disk space; later runs reuse Cargo's cache. Cargo is also discovered in `CARGO_HOME/bin` and next to rustup when absent from PATH.
 
-Drive the Runtime the desktop app started, from a terminal:
+Without Rust, use this **instead of** `doctor` and `dev`:
 
-```bash
+```sh
+npm run dev:lite
+```
+
+After installing the full toolchain, run `npm run dev` to restore the native features. Development mode starts Electron and Vite, launches the Runtime on demand and stops it on exit. Data goes to `.dev/baocut-home` in the repo. Electron 44 downloads its binary before `dev`, `dev:lite` or `start`, so first launch needs network access. The development supervisor asks Electron, Vite and the Runtime to exit on Ctrl+C or terminal closure, then force-kills remaining processes after 12 seconds.
+
+### Troubleshooting
+
+- **Cargo missing / no default toolchain:** reopen the terminal after installing Rust and run `rustup default stable`, then `npm run doctor`.
+- **Windows `cl.exe`, linker or SDK missing:** use the x64 developer terminal and check the C++ workload and Windows SDK installation. For `libclang` errors, check LLVM and `LIBCLANG_PATH`.
+- **macOS `metal` missing:** select full Xcode and install its MetalToolchain component; Command Line Tools alone do not provide the MLX build environment.
+- **WASM target missing:** run `rustup target add wasm32-unknown-unknown`. `wasm-opt` is optional; without it the build uses Cargo's output.
+- **Electron download fails:** verify access to its download server and retry the launch. `npm ci` alone does not fetch the Electron 44 binary.
+- **`npm start` on a fresh checkout:** it previews existing build output. Run `npm run setup` and `npm run build` first.
+
+To connect a CLI to the Runtime started by the development desktop, on macOS/Linux:
+
+```sh
 BAOCUT_HOME=.dev/baocut-home npm run cli -- status
 ```
+
+On Windows PowerShell:
+
+```powershell
+$env:BAOCUT_HOME = '.dev/baocut-home'
+npm run cli -- status
+```
+
+In Windows Command Prompt, use `set "BAOCUT_HOME=.dev/baocut-home"` before the CLI command.
 
 ### Other commands
 
 | Command | What it does |
 | --- | --- |
+| `npm run doctor` / `npm run setup` | Check source-build prerequisites / check and build native workers plus WASM |
+| `npm run dev:lite` | Run the desktop shell without Rust builds; see the limits above |
 | `npm run dev:designs` | Start the interactive prototype with Vite at `http://127.0.0.1:4331/#/home`, rebuilding and reloading on source changes. First run `npm --prefix designs/baocut ci`; see the [prototype README](designs/baocut/README.md). |
 | `npm run build` | Build main process, preload, Runtime and UI into `apps/desktop/out` |
-| `npm start` | Build and run the desktop app the production way (UI loaded from files) |
+| `npm start` | Preview the already-built desktop app (UI loaded from files); first run `npm run setup` and `npm run build` |
 | `npm run package:mac -- --build <n> --sign-sha1 <SHA1> --out <new-directory>` | Signed and notarized Apple Silicon ZIP and DMG; see the [desktop guide](apps/desktop/README.md#macos-打包). |
 | `npm run package:win` / `package:win:cuda` / `package:win:vulkan` | Windows x64 installer (NSIS, per-user) and zip, unsigned: CPU, CUDA (NVIDIA) or Vulkan (AMD / Intel) model worker. See [desktop README](apps/desktop/README.md#windows-打包) |
 | `npm run runtime` | Start the Runtime alone (default home `~/.baocut`) |

@@ -18,8 +18,12 @@
     "packages/*"
   ],
   "scripts": {
-    "predev": "(npm run build:engine || echo '视频引擎或模型 Worker 没有构建成功：编辑器或本地转写不可用') && (npm run build:wasm || echo '预览与编辑语义的 WASM 没有构建成功：预览、句子与译文核对不可用')",
+    "doctor": "node tools/dev-check.mjs",
+    "setup": "npm run doctor && npm run build:engine && npm run build:wasm",
+    "predev": "npm run setup",
     "dev": "npm run dev --workspace=@baocut/desktop",
+    "predev:lite": "node tools/dev-check.mjs --lite",
+    "dev:lite": "npm run dev --workspace=@baocut/desktop",
     "dev:designs": "npm --prefix designs/baocut run dev --",
     "prebuild": "npm run build:wasm && npm run build:catalog && npm run build:agent-skill",
     "build": "npm run build --workspace=@baocut/desktop",
