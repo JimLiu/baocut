@@ -6,6 +6,7 @@ import path from 'node:path';
 import { RpcError, type MediaHandle, type MediaPlayback } from '@baocut/protocol';
 import type { Logger } from '@baocut/harness';
 import { inspectFileContent } from './file-content.ts';
+import type { PlaybackPreparation } from './media-analysis.ts';
 import { RcRuntime } from '@baocut/protocol/messages/runtime-core';
 
 /**
@@ -198,11 +199,10 @@ export class MediaRegistry {
     return handle;
   }
 
-  /** Only an existing grant may request playback; cache paths never cross the control channel. */
-  async playback(
-    url: string,
-    prepare: (file: string) => Promise<{ status: 'pending'; retryAfterMs: number } | { status: 'ready'; root: string; file: string }>,
-  ): Promise<MediaPlayback> {
+  /**
+   * 播放地址（架构设计 §4.5）：只认已签发的句柄，缓存路径不经控制通道。不是 WebM、或 `prepare` 说客户端能直接放原文件时给原句柄。
+   */
+  async playback(url: string, prepare: (file: string) => Promise<PlaybackPreparation>): Promise<MediaPlayback> {
     const base = new URL(this.#baseUrl || '/', 'http://localhost');
     let parsed: URL;
     try { parsed = new URL(url, base); } catch { throw new RpcError('not-found', RcRuntime.fileNotFound()); }
@@ -216,6 +216,7 @@ export class MediaRegistry {
     grant.expiresAt = Date.now() + this.#ttlMs;
     if (!['video/webm', 'audio/webm'].includes(grant.mimeType)) return { status: 'ready', media: grant.handle };
     const result = await prepare(realPath);
+    if (result.status === 'original') return { status: 'ready', media: grant.handle };
     if (result.status === 'pending') return result;
     const media = await this.issue(result.root, result.file);
     return { status: 'ready', media: { ...media, fileName: grant.handle.fileName } };

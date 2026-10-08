@@ -204,7 +204,7 @@ interface VideoTransaction {
 
 以下是各命名空间的代表性方法。
 
-媒体通道的 `media.playback { url }` 为当前通道已签发的文件句柄请求兼容播放地址（架构设计 §4.5）。只接受 `{ url }`，未知字段拒绝；句柄伪造、过期、来源不符或源文件已丢失回 `not-found`。WebM 缓存未就绪时返回 `{ status: 'pending', retryAfterMs: 250 }`，就绪时返回 `{ status: 'ready', media: MediaHandle }`；非 WebM 直接返回原句柄。失败经现有 RPC 错误信封返回，FFmpeg 缺失、超时与不能解码沿用媒体分析的错误。派生缓存不进入文档历史或用户任务表；源文件下载继续通过 `media.resolve` 及原句柄的 `?download=1`。该方法在 Web 的只读白名单内，缓存句柄仍受 Web 会话和媒体权限约束，无独立 CLI / MCP 入口。
+媒体通道的 `media.playback { url, playable? }` 为当前通道已签发的文件句柄请求播放地址（架构设计 §4.5）。只接受 `url` 与可选的 `playable`（客户端能原生解码的 WebM 编码，取值 `vp8`、`vp9`、`av1`、`opus`、`vorbis`），未知字段拒绝；句柄伪造、过期、来源不符或源文件已丢失回 `not-found`。非 WebM，或 WebM 首条画面与声音的编码都在 `playable` 里时，直接返回 `{ status: 'ready', media: 原句柄 }`；否则准备兼容副本，未就绪时返回 `{ status: 'pending', retryAfterMs: 250, progress? }`（`progress` 为 0–1 的编码进度，不知道时省略），就绪时返回 `{ status: 'ready', media: MediaHandle }`。失败经现有 RPC 错误信封返回，FFmpeg 缺失、超时与不能解码沿用媒体分析的错误。派生缓存不进入文档历史或用户任务表；源文件下载继续通过 `media.resolve` 及原句柄的 `?download=1`。该方法在 Web 的只读白名单内，缓存句柄仍受 Web 会话和媒体权限约束，无独立 CLI / MCP 入口。
 
 | 命名空间 | 代表性方法 | 说明 |
 | --- | --- | --- |

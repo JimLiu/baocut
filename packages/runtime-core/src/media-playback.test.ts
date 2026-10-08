@@ -66,6 +66,68 @@ describe.skipIf(!tools)('WebM playback compatibility', () => {
     } finally { analysis.close(); await fs.rm(root, { recursive: true, force: true }); }
   }, 30_000);
 
+  it('plays the original when the client decodes its codecs and prepares a copy otherwise', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-playback-native-'));
+    const tool = (command: string) => async () => ({ command, env: process.env });
+    const analysis = new MediaAnalysis({ cacheDir: path.join(root, 'cache'), log: silentLogger, ffmpeg: tool(ffmpeg), ffprobe: tool(ffprobe) });
+    const blind = new MediaAnalysis({ cacheDir: path.join(root, 'blind'), log: silentLogger, ffmpeg: tool(ffmpeg) });
+    const registry = new MediaRegistry({ log: silentLogger, originAllowed: () => true });
+    registry.setBaseUrl('http://localhost:12345');
+    try {
+      const source = path.join(root, 'clip.webm');
+      execFileSync(ffmpeg, [
+        '-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc2=size=162x90:rate=10:duration=1', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=1',
+        '-c:v', 'libvpx-vp9', '-threads', '2', '-c:a', 'libopus', source,
+      ], { stdio: 'pipe' });
+      const raw = await registry.issue(root, source);
+      const playable = (codecs: string[]) => (file: string) => analysis.playback(file, codecs);
+      expect(await registry.playback(raw.url, playable(['vp9', 'opus']))).toEqual({ status: 'ready', media: raw });
+      // 声音的编码不在里面：照旧做兼容副本。
+      expect(await registry.playback(raw.url, playable(['vp9']))).toMatchObject({ status: 'pending' });
+      const deadline = Date.now() + 15_000;
+      let result = await registry.playback(raw.url, playable(['vp9']));
+      while (result.status === 'pending') {
+        expect(Date.now()).toBeLessThan(deadline);
+        await new Promise(resolve => setTimeout(resolve, 20));
+        result = await registry.playback(raw.url, playable(['vp9']));
+      }
+      expect(result.media.mimeType).toBe('video/mp4');
+      // 有了兼容副本，能直接放的客户端仍拿原文件。
+      expect(await registry.playback(raw.url, playable(['vp8', 'vp9', 'opus']))).toEqual({ status: 'ready', media: raw });
+      // 没有 ffprobe 认不出编码：一律做兼容副本。
+      expect(await blind.playback(await fs.realpath(source), ['vp9', 'opus'])).toMatchObject({ status: 'pending' });
+    } finally { analysis.close(); blind.close(); await fs.rm(root, { recursive: true, force: true }); }
+  }, 30_000);
+
+  it.skipIf(process.platform === 'win32')('reports the copy\'s encode progress against the probed duration', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-playback-progress-'));
+    // 假的 ffmpeg：报一次编到 1 秒，然后一直编下去（关掉时被杀）。
+    const fake = path.join(root, 'ffmpeg');
+    await fs.writeFile(fake, "#!/bin/sh\nprintf 'frame=10\\nout_time_us=1000000\\nprogress=continue\\n'\nexec sleep 30\n", { mode: 0o755 });
+    const analysis = new MediaAnalysis({
+      cacheDir: path.join(root, 'cache'),
+      log: silentLogger,
+      ffmpeg: async () => ({ command: fake, env: process.env }),
+      ffprobe: async () => ({ command: ffprobe, env: process.env }),
+    });
+    try {
+      const source = path.join(root, 'clip.webm');
+      execFileSync(ffmpeg, ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc2=size=162x90:rate=10:duration=2', '-c:v', 'libvpx', source], { stdio: 'pipe' });
+      const real = await fs.realpath(source);
+      expect(await analysis.playback(real)).toMatchObject({ status: 'pending', retryAfterMs: 250 });
+      const deadline = Date.now() + 10_000;
+      let result = await analysis.playback(real);
+      while (result.status === 'pending' && result.progress === undefined) {
+        expect(Date.now()).toBeLessThan(deadline);
+        await new Promise(resolve => setTimeout(resolve, 20));
+        result = await analysis.playback(real);
+      }
+      expect(result).toMatchObject({ status: 'pending' });
+      if (result.status !== 'pending') throw new Error('not pending');
+      expect(result.progress).toBeCloseTo(0.5, 1);
+    } finally { analysis.close(); await fs.rm(root, { recursive: true, force: true }); }
+  }, 20_000);
+
   it('does not publish partial output on failure and detects replaced sources', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-playback-fail-'));
     const analysis = new MediaAnalysis({ cacheDir: root, log: silentLogger, ffmpeg: async () => ({ command: ffmpeg, env: process.env }) });

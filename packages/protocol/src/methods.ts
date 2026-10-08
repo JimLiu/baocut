@@ -129,6 +129,7 @@ import type {
 } from './services.ts';
 import type { WebAccessLink, WebSession } from './web.ts';
 import type { Seq } from './domain.ts';
+import type { PlaybackCodec } from './limits.ts';
 import type {
   DocumentContent,
   EditOperation,
@@ -490,8 +491,11 @@ export interface RpcMethods {
    * 文件来自 Space 条目，或会话工作目录、项目目录里的路径（例如智能体改过的文件）。
    */
   'media.resolve': { params: MediaTarget; result: MediaHandle };
-  /** Prepare/poll a browser-compatible playback copy of an already granted file; original bytes remain at media.resolve. */
-  'media.playback': { params: { url: string }; result: MediaPlayback };
+  /**
+   * 已签发的文件句柄的播放地址（架构设计 §4.5）：WebM 的编码都在 `playable` 里时直接给原句柄，否则准备兼容副本并轮询；
+   * 原始字节始终经 media.resolve。
+   */
+  'media.playback': { params: { url: string; playable?: PlaybackCodec[] }; result: MediaPlayback };
   /** 与一个视频放在同一目录里的字幕文件（播放器叠加用）。只列出，不读内容。 */
   'media.subtitles': { params: FileTarget; result: { tracks: SubtitleTrack[] } };
   /**
@@ -1119,7 +1123,8 @@ export interface SubtitleTrack {
 export type FileContentKind = 'text' | 'image' | 'pdf' | 'audio' | 'video' | 'archive' | 'binary';
 export type TextEncoding = 'utf-8' | 'utf-16le' | 'utf-16be';
 
-export type MediaPlayback = { status: 'pending'; retryAfterMs: number } | { status: 'ready'; media: MediaHandle };
+/** `progress`：兼容副本编码到了源时长的几成（0–1）；还不知道时省略。 */
+export type MediaPlayback = { status: 'pending'; retryAfterMs: number; progress?: number } | { status: 'ready'; media: MediaHandle };
 
 export interface MediaHandle {
   /** Runtime 根据至多 64 KiB 的文件前缀识别；旧 Runtime 可以不提供。 */

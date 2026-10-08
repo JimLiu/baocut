@@ -348,7 +348,7 @@ export function createHandlers({
         const { root, file } = 'entryId' in p ? space.locateBytes(p.entryId) : locateMedia(p);
         return media.issue(root, file);
       },
-      'media.playback': (p) => media.playback(p.url, (file) => analysis.playback(file)),
+      'media.playback': (p) => media.playback(p.url, (file) => analysis.playback(file, p.playable)),
       // 字体（§9.1）：本机、下载缓存与按需下载。
       ...fontMethods(
         () => fonts,
