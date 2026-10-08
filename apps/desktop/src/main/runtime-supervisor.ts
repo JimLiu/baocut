@@ -13,6 +13,8 @@ export interface ConnectionTarget {
 
 export interface RuntimeSupervisorOptions {
   home: RuntimeHome;
+  /** 默认桌面 Home（含开发态）启动历史迁移；显式沙盒默认关闭。 */
+  legacyAutoDetect?: boolean;
   /** 构建出来的 Runtime 入口（out/main/runtime.js）。 */
   script: string;
   allowedOrigins: string[];
@@ -86,6 +88,7 @@ export class RuntimeSupervisor {
         ...process.env,
         ELECTRON_RUN_AS_NODE: '1',
         BAOCUT_HOME: home.root,
+        ...(this.#options.legacyAutoDetect ? { BAOCUT_LEGACY_AUTO_DETECT: '1' } : {}),
         BAOCUT_ALLOWED_ORIGINS: allowedOrigins.join(','),
         // 以 Node 方式运行的 Runtime 不一定能拿到 resourcesPath：Worker、凭据助手、内置模板等的位置由主进程告诉它。
         ...(resources ? packagedResourceEnv(resources) : {}),

@@ -225,7 +225,7 @@ Runtime 失联时，Engine Host 停止接受新的修改并进入受限关闭。
 
 ### 2.7 历史版本的启动迁移
 
-Runtime 取得 Home 实例锁后检测 v1 / v2 数据：macOS 的 `~/Library/Application Support/BaoCut`、其中历史 `cli` 子目录及同级 `bcut`；Windows 仅有 v2，检测 `%APPDATA%/bcut` 与 `%APPDATA%/BaoCut`；Linux 的 `$XDG_CONFIG_HOME/bcut`（未设时 `~/.config/bcut`）。非默认的 Runtime Home（包括开发态 `BAOCUT_HOME`）保持隔离；桌面端显式传递默认 `~/.baocut` 时仍自动检测；设 `BAOCUT_LEGACY_ROOT` 时只迁指定目录，不读取真实 UserDefaults / 钥匙串。
+Runtime 取得 Home 实例锁后检测 v1 / v2 数据：macOS 的 `~/Library/Application Support/BaoCut`、其中历史 `cli` 子目录及同级 `bcut`；Windows 仅有 v2，检测 `%APPDATA%/bcut` 与 `%APPDATA%/BaoCut`；Linux 的 `$XDG_CONFIG_HOME/bcut`（未设时 `~/.config/bcut`）。桌面端默认的开发 Home（仓库下 `.dev/baocut-home`）与生产 Home 都自动检测：主进程给 Runtime 带 `BAOCUT_LEGACY_AUTO_DETECT=1`，因此开发 Home 不会被误判为测试沙盒。调用者显式指定其他 `BAOCUT_HOME` 时默认隔离；默认生产 `~/.baocut` 仍自动检测；设 `BAOCUT_LEGACY_ROOT` 时只迁指定目录，不读取真实 UserDefaults / 钥匙串。
 
 设置先迁入，再构造模型目录；项目和云凭据在 Runtime 就绪后串行后台迁移，期间不触发 CLI 空闲退出。退出时先取消迁移、等待导入子进程退出，再释放实例锁。项目转换由随桌面构建分发的 `legacy-import-worker.js` 执行，源码模式从 `packages/legacy-import` 启动；写视频仍只经 `engine-host` 的公开协议。所有客户端共享这次 Runtime 迁移，没有新的引导界面。
 

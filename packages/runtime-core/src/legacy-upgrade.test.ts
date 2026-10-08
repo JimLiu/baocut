@@ -18,6 +18,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await fs.rm(dir, { recursive: true, force: true });
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
 });
 const secret = 'sk-fixture-legacy-key-123456';
 async function setup() {
@@ -270,3 +271,41 @@ it.skipIf(
   },
   30_000,
 );
+
+it('detects legacy data in the default desktop development home without a legacy-root override', async () => {
+  vi.spyOn(os, 'homedir').mockReturnValue(dir);
+  vi.stubEnv('BAOCUT_HOME', path.join(dir, 'repo', '.dev', 'baocut-home'));
+  vi.stubEnv('BAOCUT_LEGACY_ROOT', '');
+  vi.stubEnv('BAOCUT_LEGACY_AUTO_DETECT', '1');
+  const root = path.join(dir, 'Library', 'Application Support', 'BaoCut');
+  const modelsDir = path.join(dir, 'old-models');
+  await writeJsonAtomic(path.join(root, 'config.json'), { values: { 'models.dir': modelsDir } });
+  await writeJsonAtomic(path.join(root, 'projects', 'v2.bcut', 'project.json'), { title: 'Old project' });
+  const home = resolveRuntimeHome(process.env);
+  const models = await ModelServiceStore.open(home, new FileCredentialStore(home.modelCredentialsFile));
+  const importProject = vi.fn(async () => {});
+  for (let i = 0; i < 2; i++) {
+    const upgrade = new LegacyUpgrade({ home, log: silentLogger, platform: 'darwin', importProject, allowKeychain: false });
+    await upgrade.prepare();
+    upgrade.start({ models, engine: 'fixture-engine', openProject: async () => {}, env: async () => ({}) });
+    await finish(upgrade);
+    const settings = new SettingsStore(home.settingsFile);
+    await settings.load();
+    expect(settings.get('models.dir')).toBe(modelsDir);
+  }
+  expect(importProject).toHaveBeenCalledTimes(1);
+});
+
+it('keeps an explicit sandbox isolated without the desktop opt-in', () => {
+  expect(legacyRoots({ BAOCUT_HOME: '/sandbox' }, 'darwin', '/user')).toEqual([]);
+  expect(legacyRoots({ BAOCUT_HOME: '/repo/.dev/baocut-home', BAOCUT_LEGACY_AUTO_DETECT: '1' }, 'darwin', '/user')).toContain(
+    '/user/Library/Application Support/BaoCut',
+  );
+  expect(
+    legacyRoots(
+      { BAOCUT_HOME: 'D:\\repo\\.dev\\baocut-home', BAOCUT_LEGACY_AUTO_DETECT: '1', APPDATA: 'C:\\Users\\Jim\\AppData\\Roaming' },
+      'win32',
+      'C:\\Users\\Jim',
+    ),
+  ).toContain('C:\\Users\\Jim\\AppData\\Roaming\\bcut');
+});

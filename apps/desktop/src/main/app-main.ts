@@ -36,11 +36,13 @@ export function startDesktopApp(): void {
 
   const supervisor = new RuntimeSupervisor({
     home,
+    // 默认开发态也迁移历史数据；只有调用者显式给出的 Home 才默认保持沙盒隔离。
+    legacyAutoDetect: !process.env.BAOCUT_HOME,
     script: path.join(__dirname, 'runtime.js'),
     allowedOrigins: devServerUrl ? [new URL(devServerUrl).origin] : [],
     echoLogs: isDev,
     // 正式版本的密钥与节点令牌存在系统的安全存储里（没有实现的平台如实报告不可用，不回退到文件）；开发时用明文文件，
-    // 不碰钥匙串（架构设计 §6.8）。
+    // 不写钥匙串；首次历史迁移可以只读旧凭据（架构设计 §2.7、§6.8）。
     credentialStore: app.isPackaged ? 'keychain' : 'file',
     // Worker、凭据助手、内置模板与 skill、模型数据、Web 客户端：打包脚本（tools/package-desktop.mjs）把它们放进 resources；
     // 开发时 Runtime 从仓库里找。

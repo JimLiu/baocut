@@ -17,13 +17,18 @@ export interface LegacySource {
   v1PreferenceFiles?: string[];
 }
 
-/** Explicit Runtime homes stay isolated unless a legacy root is explicitly supplied. */
+/** Custom homes stay isolated; the default desktop launcher explicitly enables historical detection. */
 export function legacyRoots(env = process.env, platform = process.platform, userHome = os.homedir()): string[] {
   const paths = platform === 'win32' ? path.win32 : path.posix;
   if (env.BAOCUT_LEGACY_ROOT) return [paths.resolve(env.BAOCUT_LEGACY_ROOT)];
   const root = env.BAOCUT_HOME ? paths.resolve(env.BAOCUT_HOME) : null;
   const defaultRoot = paths.join(userHome, '.baocut');
-  if (root && (platform === 'win32' ? root.toLowerCase() !== defaultRoot.toLowerCase() : root !== defaultRoot)) return [];
+  if (
+    env.BAOCUT_LEGACY_AUTO_DETECT !== '1' &&
+    root &&
+    (platform === 'win32' ? root.toLowerCase() !== defaultRoot.toLowerCase() : root !== defaultRoot)
+  )
+    return [];
   if (platform === 'darwin') {
     const support = paths.join(userHome, 'Library', 'Application Support');
     return [paths.join(support, 'BaoCut'), paths.join(support, 'BaoCut', 'cli'), paths.join(support, 'bcut')];

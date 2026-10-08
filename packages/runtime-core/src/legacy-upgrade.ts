@@ -91,7 +91,9 @@ export class LegacyUpgrade {
         ? this.#options.v1Preferences
         : platform === 'darwin' &&
             !process.env.BAOCUT_LEGACY_ROOT &&
-            (!process.env.BAOCUT_HOME || path.resolve(process.env.BAOCUT_HOME) === path.join(os.homedir(), '.baocut'))
+            (process.env.BAOCUT_LEGACY_AUTO_DETECT === '1' ||
+              !process.env.BAOCUT_HOME ||
+              path.resolve(process.env.BAOCUT_HOME) === path.join(os.homedir(), '.baocut'))
           ? path.join(os.homedir(), 'Library', 'Preferences', 'com.jimliu.baocut.plist')
           : null;
     for (const root of roots) {

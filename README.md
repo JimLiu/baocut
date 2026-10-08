@@ -148,7 +148,7 @@ BaoCut is under active development, with macOS Apple Silicon and Windows x64 pac
 
 | Variable | Purpose |
 | --- | --- |
-| `BAOCUT_LEGACY_ROOT` | Explicit v1/v2 data directory for startup migration, including in an isolated development home. Old data stays unchanged; completion is recorded in `<home>/store/legacy-upgrade.json`. Without this override only the default production home detects historical platform directories |
+| `BAOCUT_LEGACY_ROOT` | Explicit v1/v2 data directory for startup migration, including in an isolated development home. Old data stays unchanged; completion is recorded in `<home>/store/legacy-upgrade.json`. The default desktop launch (development or packaged) detects historical platform directories automatically; explicitly configured sandbox homes stay isolated |
 | `BAOCUT_HOME` | Runtime home: discovery file, instance lock, session store, logs. Default `~/.baocut`; `.dev/baocut-home` in desktop development mode |
 | `BAOCUT_PROJECTS_DIR` | Where "New project" creates directories. Default `~/BaoCut`; `<home>/projects` when `BAOCUT_HOME` is set |
 | `BAOCUT_<ID>_PATH` | Executable of an agent engine; `<ID>` is one of `CLAUDE`, `CODEX`, `GEMINI`, `CURSOR`, `GROK`, `KIMI` (e.g. `BAOCUT_CODEX_PATH`). Otherwise the newest version found on the login shell's PATH and known install locations |
