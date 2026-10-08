@@ -138,7 +138,7 @@ export async function publishWindows(env = process.env) {
   const marker = `<!-- baocut-windows-${runId} -->`;
   if (!(after.body || '').includes(marker)) {
     const notes = path.join(output, 'release-notes.md');
-    writeFileSync(notes, `${after.body || ''}\n\n${marker}\n### Windows x64\n\nVariants: ${variants.join(', ')}. NSIS installers and portable ZIPs are unsigned. Windows credential storage is currently unsupported; model/Agent/GPU inference was not exercised by the installer tests.\n\nNative build and installer verification: ${run.html_url}\n`);
+    writeFileSync(notes, `${after.body || ''}\n\n${marker}\n### Windows x64\n\nVariants: ${variants.join(', ')}. NSIS installers and portable ZIPs are unsigned. Windows credential storage is currently unsupported; model/Agent/GPU inference was not exercised by the installer tests. Requires the [Microsoft Visual C++ v14 x64 Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist/); the current package does not bundle the VC runtime DLLs.\n\nNative build and installer verification: ${run.html_url}\n`);
     command('gh', ['release', 'edit', tag, '--repo', repo, '--title', `BaoCut ${mac.version} (Build ${mac.build}) — macOS and Windows`, '--notes-file', notes, '--latest=false']);
   }
   invariant(api(`repos/${repo}/releases/latest`).id === latest, 'Latest release changed');

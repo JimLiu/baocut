@@ -528,6 +528,8 @@ interface CapabilitySnapshot {
 - 会话与视频之间只有事实记录：会话里的任务创建或修改过哪些视频，由任务的回执得出，用于在会话头与 Space 里互相跳转。这份记录不是写入权，也不限制会话之后操作别的视频；每次写入的目标由当次工具调用给出，权限按 TaskContract 检查（§3.5）。
 - 一个视频可以被多个会话修改。从视频发起对话时，默认新建一个属于该项目的会话并把这个视频作为引用带入；继续已有的会话由用户选择。
 
+**持久形态**：每个会话一个只追加的日志 `store/conversations/<id>.jsonl`。第一行是文件头 `{"op":"header","formatVersion":2}`，第二行是 `snapshot`（完整记录：`conversation`、`items`、`seq`、`agent`、`tasks`），之后按顺序重放：`item` 行按 `item.id` 原地替换、没见过的追加到末尾（流式回复与工具调用的状态更新都是替换）；`meta` 行整体替换给出的 `conversation` / `seq` / `agent`，`tasks` 按 taskId 整体替换。内存为主，150ms 合并窗口到期时只追加变化了的行，不 fsync。新会话、item 被删或换序、任务被删、以及日志超过阈值（行数超过 4 ×（items + tasks）+ 64，或字节超过 4 × 记录大小 + 256 KB）时，原子替换成「文件头 + 一行快照」（压缩）；追加与压缩在同一个会话的串行写链上。读取：末尾残行跳过、这次不记落盘副本、下次保存整份写快照；中间认不出的行跳过并记日志；文件头或快照认不出时改名 `.corrupt-<时间>` 保留并跳过；`formatVersion` / `schemaVersion` 不认识时原样留着、跳过。旧的整文件 `<id>.json` 启动时导入为快照并改名 `.json.migrated`。
+
 - `Conversation.projectId` 可空。绑定之后不改绑到另一个项目。项目目录被移动或改名后，会话随项目的标识留在它下面，工作目录换到新路径；复制出来的目录是另一个项目，不带走会话（§5.1）。
 - 无项目的会话首次需要可编辑时间线时，`TaskController` 先建立项目（目录）并登记，再经 `videos.create` 在其中创建视频，最后在 Runtime Store 中把会话绑定到该项目。创建视频是 VideoEngine 的事务；项目的登记与会话绑定是 Runtime Store 的记录。各步之间崩溃时，以幂等键恢复，不产生第二个项目或第二个视频。
 - 新会话继续旧项目时，上下文来自其中视频的当前状态与 `VideoMemory`，不来自其他会话的聊天历史。
@@ -852,8 +854,7 @@ VideoStore 用 SQLite，表至少包括 `videos`、`entities`、`document_versio
 ```text
 <runtime-home>/
   instance.json / instance.lock     # Supervisor 的发现信息与实例锁
-  runtime.db                        # Runtime Store
-  jobs.db                           # Job Ledger
+  store/                            # Runtime Store 与 Job Ledger：一存储一文件。小而整体读入内存的（项目登记、Space 标记、设置、授权等）是整文件原子重写的 JSON；按条记账、只改几条的是只追加的 JSONL 加压缩：store/conversations/<id>.jsonl（会话，§3.10）、store/jobs.jsonl 与 store/applications.jsonl（任务与应用账本，§7.3）。旧格式导入后留下 *.migrated，认不出的改名为 *.corrupt-<时间> 保留
   artifacts/                        # 内容寻址的 Artifact / Blob Store
   staging/                          # 发布前的临时写入
   cache/                            # 派生缓存，可整体删除
@@ -1203,7 +1204,8 @@ CLI 的 `baocut settings`（列出键、当前值、是否默认）、`settings 
 **这个版本的实现**（`packages/runtime-core/src/space/content-*.ts`）：
 
 - **读取**。Engine Host 的内部只读查询 `videos.readContent`（不在网关的方法表里）给出视频快照与文字类文档（转写、字幕、译文）的当前正文，转写与字幕另带根序列上的时间线投影（与导出同一个 `plan_text`）。已经打开的视频用打开的那一份，没有打开的以只读方式打开、读完就放下，不取写锁。
-- **缓存**。每个视频一个 JSON 文件，`<home>/cache/content-index/<目录真实路径的摘要>.json`，记下 videoId、索引时的版本、目录的修改时间、可检索的段落与视频事实。一次只读一个视频。文件带格式版本（`schemaVersion`，现在是 4）：读回旧版本（1 没有文稿、译文与配音组，2 没有封面，3 没有时长与画布尺寸）时照样可查、补上空的事实，并排队重读（不走版本比对的捷径），重读完之前算待索引；不认得的版本当作没有。
+- **缓存**。一个 SQLite 库 `<home>/cache/content-index/index.db`（Node 内置的 `node:sqlite`，WAL，另有 `-wal` / `-shm` 旁文件）：`videos` 表每个视频一行（目录真实路径为主键，记 videoId、索引时的版本、目录的修改时间与视频事实 JSON）；`segment_rows` 表是可检索的段落（原文、NFKC 小写后的正文、时间、种类、说话人，按目录建索引）；`segments` 是建在正文上的 FTS5 外部内容表（trigram 分词），由触发器同步。每个视频的段落在一个事务里整体替换。一次只读一个视频。格式版本记在 `PRAGMA user_version`：不符、文件不是库或打不开时关掉连接、删库（含旁文件）重建、全部重读，不迁移；旧的 `<摘要>.json` 启动时删掉。`space.rebuildIndex` 不删库：全部标成待重建后排队重读，重读完之前旧段落照样可查、结果标明不完整。库打不开时降级：记录与事实只留在内存，检索没有命中，记一条警告。
+- **匹配**。NFKC 与小写，按空白切词，同一段里全部出现才算命中（AND），中文不分词，不排相关度，按调用方给的视频顺序（最近活动在前）、视频内按时间。三个码点以上的词走 FTS5 MATCH（每词一个加引号的短语），更短的词（常见的两字中文）trigram 用不上，退回 `instr` 子串过滤；`kinds` 用 `IN`，说话人按规范化后的子串。候选段落最后都按同一套子串规则再核对一遍并生成片段，所以结果与子串匹配等价。
 - **视频事实**。Space 目录要用的（时间线上用到的素材、链接素材，§5.7），与工具的候选输入要用的（§7.9），后者都从 `videos.readContent` 已经给出的正文、投影与快照里取：
   - 文稿（`speech` 文档）：文档 ID、语言、有没有逐词时间（有可见的词，且没有一个词的 `timingQuality` 是 `estimated` 或 `missing`）、在不在时间线上（根序列上的投影有内容）。
   - 译文：文档 ID、目标语言、译自的文稿（文档头的 `sourceDocumentId`，或正文 `sourceBasis` 里的转写）、单元数与过期的单元数。过期按配音的规则（§7.9）：标成过期、原句不在了、指纹不符、译文为空；`/1` 的译文没有指纹，只数标成过期的与空的；译自的文稿不在视频里时全部算过期。术语表改过（`glossary-changed`）要读用户库，索引里不判断，配音时照样会查。
@@ -1678,7 +1680,7 @@ interface ApplicationRecord {
 
 `inputVersionRefs`、权限和预算由服务端冻结。任务不能执行到一半改成读取「当前视频」；变更输入需要新的尝试。
 
-应用记录的权威是 `<home>/store/applications.json`（应用账本，与任务账本分开）；任务记录里的 `applications` 是它的投影，任务从账本里淘汰时它的应用一并删除。`JobSpec` 里的 `taskId` 没有实现。`runId` 与 `runGeneration` 只用于引擎侧的停止屏障（§7.4），不进任务记录，由 Runtime 在提交时算出：Task 与 Run 实现之前，任务自己就是它的执行，`runId` 是任务 ID，`runGeneration` 是任务的 `attempt`；固定流程的步骤用父任务的。
+应用记录的权威是 `<home>/store/applications.jsonl`（应用账本，与任务账本分开）；任务记录里的 `applications` 是它的投影，任务从账本里淘汰时它的应用一并删除。`JobSpec` 里的 `taskId` 没有实现。`runId` 与 `runGeneration` 只用于引擎侧的停止屏障（§7.4），不进任务记录，由 Runtime 在提交时算出：Task 与 Run 实现之前，任务自己就是它的执行，`runId` 是任务 ID，`runGeneration` 是任务的 `attempt`；固定流程的步骤用父任务的。
 
 生成任务的输入是文本或提示词本身：`contentHash` 是它的 sha256，`inputHash` 是能力、Provider、模型与冻结参数的规范 JSON 的 sha256。相同的输入摘要不复用已有的结果（生成不保证可复现，再生成就是要一个新的结果）；同一个 `commandId` 的重复提交返回同一个任务。
 
@@ -1709,7 +1711,7 @@ interface ApplicationRecord {
 - 产物缺了或对不上时丢掉意图，按「在跑」恢复（§7.5）。
 - 意图记在任务账本里，不给产物附任务的元数据：产物库按内容去重，同样的 bytes 只有一个文件，附元数据与这条规则冲突，恢复时还要扫产物库。代价是每次发布之前多一次账本的持久写入。
 
-**账本的持久性**：任务、应用与授权三本账用持久的原子替换。先写临时文件并 fsync，再改名，最后 fsync 目录。别的文件（设置、会话等）只做原子替换，不 fsync。产物库的文件不 fsync，认领时按 sha256 核对。
+**账本的持久性**：任务与应用两本账是只追加的 JSONL（`store/jobs.jsonl`、`store/applications.jsonl`）。第一行是文件头 `{"op":"header","formatVersion":2}`，之后每行一个操作：`{"op":"put", ...记录}` 写入或替换一条，`{"op":"remove","jobId"|"applicationId":…}` 删一条；账本记住每条上次落盘的样子，只追加变化了的行，每次追加都 fsync 文件（新建时再 fsync 目录），发布意图的顺序靠它。重放时任务按创建先后留在原位，应用再次写入移到最后（旧的在前）。行数超过 max(4 × 存活记录数, 256)，或字节超过 8 MiB 且超过存活记录的两倍时，把存活记录整份压缩成新文件（临时文件 + fsync + 改名 + fsync 目录）；追加与压缩在同一条串行写链上，写失败后下一次写整份压缩。读取：末尾残行与认不出的行跳过并记日志、下一次写压缩掉；文件头认不出时改名 `.corrupt-<时间>` 保留、从空开始；旧的整文件 `jobs.json` / `applications.json` 启动时导入并改名 `.migrated`。授权账本仍用持久的原子替换（先写临时文件并 fsync，再改名，最后 fsync 目录）。别的文件（设置、会话等）只做原子替换或追加，不 fsync。产物库的文件不 fsync，认领时按 sha256 核对。
 
 **按命令查回执**：引擎的回执在视频目录里持久化，Engine Host 重启后照样可查（`receipts.byCommand`）。
 
@@ -3049,7 +3051,7 @@ v3 是 v2（`baocut-app`）的架构重做。成熟的领域实现从 v2 原样�
 | Space 派生状态的精度（§5.7） | `source-changed` 按什么指纹判定；`candidate` / `applied` 的权威是什么；费用与派生关系从哪里来 | 实现的简化：`source-changed` 只比较导出冻结的 `videoRevision` 与视频当前版本，视频有任何提交就算变了；Application 记录只用于结果没有应用的任务：最近一次应用没有提交（`stale-input`、`rejected`、`cancelled`）的输出列为 `candidate`，`statusDetail` 带原因；`applied` 看时间线（任何序列）上是否用着导入得到的素材，在内容索引重读视频之后才更新；`origin` 没有 `cost`、`derivedFrom`、`derivedFromVideo`；固定流程（§7.9）的输出不单独成条，发布到来源目录里的经扫描出现 |
 | Space 与 Job Ledger 的保留（§5.7） | Ledger 修剪旧记录之后，只在 Artifact Store 里的产物怎样留在目录里 | 已定：Space 另存产物记录（`store/space-artifacts.json`，只有派生用的事实），派生时与 Ledger 合并；产物全部删除后去掉记录。被修剪的任务在 `jobs.inspect` 里查不到，失败占位随 Ledger 消失；对外服务看产物要 Ledger 里的提交者，只在产物记录里的产物对它们不可见。这个版本之前已经被修剪的任务找不回来 |
 | Space 物理删除的引用检查（§5.5、§5.7） | 引用图覆盖哪些引用；删除视频的命令 | 实现的简化：只查视频链接的素材文件（内容索引里的事实）与进行中任务用到的产物；有视频读不了或索引落后时按有引用处理。历史、冻结快照、模板与用户库的引用没有查。产物文件直接从 Artifact Store 的目录删除（Artifact Store 没有删除接口）。已定：删除视频是 `videos.delete`（移进来源目录的回收站），物理删除删除了的视频时另查别的视频的链接、它的进行中与等对账的任务、目录里不归视频管理的文件，只删视频管理的文件，链接素材的原文件不动（§5.5、§5.7）。确认锁时引擎短暂以写模式打开视频 |
-| 跨视频检索的匹配与更新（§5.11） | 分词、排序与倒排索引；没有打开的视频怎样发现变化 | 实现的简化：NFKC 与小写之后的子串匹配，多词 AND，不分词，不排相关度，线性扫描（规模大了再换二元组倒排索引）；没有打开的视频靠 `video.db` 与 WAL 的修改时间发现变化，再比较版本 |
+| 跨视频检索的匹配与更新（§5.11） | 分词、排序与倒排索引；没有打开的视频怎样发现变化 | 实现的简化：NFKC 与小写之后的子串匹配，多词 AND，不分词，不排相关度；三个码点以上的词经 SQLite FTS5 trigram 索引取候选，更短的词逐段子串过滤，再按子串规则核对；没有打开的视频靠 `video.db` 与 WAL 的修改时间发现变化，再比较版本 |
 | `space.continueInConversation`（§5.7） | 从条目继续一段会话：带哪些上下文、放进哪个会话 | 已定：给了会话时要看得到条目；属于项目的条目在项目里新建会话，不属于项目的回到它所在或产生它的会话（不在了时新建）。只带条目的标识与元数据，记在会话上，随下一条消息发出（§5.7）。不属于项目、又没有来源会话的条目（例如对外服务生成的）放进新会话之后，智能体经 `space_list` 看不到它 |
 | Model Worker 的进程粒度（§6.5） | 一个模型包一个进程在显存紧张的机器上是否过于浪费；是否允许同一进程承载多个模型 | 一包一进程；共享进程只作为后续优化 |
 | Model Worker 的崩溃阈值与期限（§6.5） | N 次 / M 分钟的具体取值；自动重试的次数；取消 ack 期限 | 重试 1 次；ack 5 秒；阈值未定 |
