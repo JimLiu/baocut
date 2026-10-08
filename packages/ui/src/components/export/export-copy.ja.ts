@@ -27,6 +27,7 @@ export const ja: ExportMessages = {
   noEstimate: 'このバージョンでは、所要時間とサイズの見積もりにまだ対応していません',
   place: '保存先',
   defaultPlace: 'プロジェクト内の exports/',
+  sourcePlace: (dir) => `元の動画と同じフォルダ · ${dir}`,
   pickPlace: '保存先を選択',
   resetPlace: '既定の保存先を使用',
   pickFailed: (message: string) => `保存先を選択できませんでした：${message}`,

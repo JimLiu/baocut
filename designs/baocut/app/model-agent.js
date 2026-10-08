@@ -285,7 +285,7 @@
      write: {cmd: 'bcut export project.bcut --to mp4 && bcut export project.bcut --to srt --content both', why: '会写两个文件到视频的 out/ 目录。不改视频本身。'},
      step: {verb: '导出', count: 2, unit: '个文件', llm: false, engine: '本机渲染'},
      task: {kind: 'export', title: '导出 · MP4 + 双语 SRT'},
-     receipt: '已完成 · kelang-ep42 ZH-EN.mp4 · 482 MB · kelang-ep42-both.srt',
+     receipt: '已完成 · kelang-ep42.zh-en.mp4 · 482 MB · kelang-ep42-both.srt',
      close: '两个文件都在 out/ 里。注意有 3 句缺译，烧录时留空了——要我先补译再重导吗？'},
   ];
 

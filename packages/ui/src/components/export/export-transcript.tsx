@@ -222,7 +222,7 @@ export function ExportTranscriptTab({ env, submitter, onClose }: { env: ExportEn
         <SumRow label={EXPORT_COPY.willExport}>{what}</SumRow>
         <FileRows names={files} />
         <SumRow label={EXPORT_COPY.transcriptLength}>{receipt ?? '—'}</SumRow>
-        <PlaceRow videoId={env.videoId} />
+        <PlaceRow videoId={env.videoId} sourceDir={env.sourceDir} />
       </Summary>
 
       <SubmitFoot env={env} submitter={submitter} settings={settings} label={EXPORT_COPY.exportTranscript} onClose={onClose} />

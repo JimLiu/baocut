@@ -35,6 +35,8 @@ export const ja: ExportJobMessages = {
   outputs: (done: number) => `${done} 個のファイルを書き込み済み`,
   bytesOf: (done: string, total: string) => `${done} / ${total} をパッケージ化済み`,
   bytes: (done: string) => `${done} をパッケージ化済み`,
+  fps: (n) => `${n} fps`,
+  timeLeft: (clock) => `残り ${clock}`,
   mono: 'モノラル',
   stereo: 'ステレオ',
   entries: (n: number) => `${n} 件`,

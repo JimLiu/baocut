@@ -1,4 +1,5 @@
 import {
+  burnedCaptionLanguages,
   defineMessages,
   DEFAULT_LOUDNESS_TARGET,
   type AudioExportFormat,
@@ -538,15 +539,22 @@ export function safeFileStem(name: string): string {
 }
 
 /**
- * 提交前的预计文件名（Runtime 的默认命名，见 `ExportDestination`）：「视频名.种类后缀.扩展名」，成片没有后缀，
- * 几段各出一份时加 `.partN`。重名时 Runtime 会再加序号，所以这只是预计；提交后改读任务记录里的文件名。
+ * 提交前的预计文件名（Runtime 的默认命名，见 `ExportDestination`）：「视频名.种类后缀.扩展名」，成片的后缀是画面里烧着的
+ * 字幕语言（`burnedCaptionLanguages`，要给 `sequence`；没有烧字幕时不加），几段各出一份时加 `.partN`。
+ * 重名时 Runtime 会再加序号，所以这只是预计；提交后改读任务记录里的文件名。
  */
-export function defaultFileNames(videoName: string, settings: ExportSettings, documents: Record<Id, DocumentRecord>): string[] {
+export function defaultFileNames(
+  videoName: string,
+  settings: ExportSettings,
+  documents: Record<Id, DocumentRecord>,
+  sequence?: Pick<Sequence, 'tracks' | 'items'>,
+): string[] {
   const stem = safeFileStem(videoName);
   if (settings.kind === 'portable') return [`${stem}.baocut`];
   if (settings.kind === 'project') return [`${stem}.xmeml.xml`];
   let suffix = '';
-  if (settings.kind === 'audio') suffix = 'audio';
+  if (settings.kind === 'video') suffix = settings.burnCaptions !== false && sequence ? burnedCaptionLanguages(sequence, documents).join('-') : '';
+  else if (settings.kind === 'audio') suffix = 'audio';
   else if (settings.kind === 'transcript') suffix = 'transcript';
   else if (settings.kind === 'subtitles') {
     const primary = settings.documentId ? documents[settings.documentId]?.language : undefined;
@@ -558,6 +566,29 @@ export function defaultFileNames(videoName: string, settings: ExportSettings, do
   const parts = settings.ranges?.length ?? 0;
   if (parts > 1) return Array.from({ length: parts }, (_, i) => `${base}.part${i + 1}.${settings.format}`);
   return [`${base}.${settings.format}`];
+}
+
+/**
+ * 没挑位置时导到哪：原视频所在的文件夹（`file` 是主素材的绝对路径，`assetFilePath` 的结果）。素材在视频目录里面
+ * （收进来的、托管的）时 null，交给 Runtime 的缺省（项目下的 `exports/`），不往视频目录里写。macOS / Linux 与 Windows 的路径都认。
+ */
+export function exportSourceDir(file: string | null, videoDir: string | null): string | null {
+  if (!file) return null;
+  const windows = /^[A-Za-z]:[\\/]/.test(file) || file.startsWith('\\\\');
+  const sep = windows ? '\\' : '/';
+  const cut = Math.max(file.lastIndexOf('/'), windows ? file.lastIndexOf('\\') : -1);
+  if (cut < 0) return null;
+  const dir = cut === 0 ? sep : /^[A-Za-z]:$/.test(file.slice(0, cut)) ? `${file.slice(0, cut)}${sep}` : file.slice(0, cut);
+  if (videoDir) {
+    const norm = (p: string) => {
+      const trimmed = p.replace(/[\\/]+$/, '');
+      return windows ? trimmed.replace(/\//g, '\\').toLowerCase() : trimmed;
+    };
+    const inner = norm(dir);
+    const video = norm(videoDir);
+    if (inner === video || inner.startsWith(`${video}${sep}`)) return null;
+  }
+  return dir;
 }
 
 // ---- 音频：每种配音各一份（设计稿 export-audio.jsx「人声分几份」、model-audio-export.js `voiceParts` / `audioFiles`）----

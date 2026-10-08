@@ -3,12 +3,15 @@ import type { Id, Sequence } from '@baocut/protocol';
 import { Button, DialogTrigger, Popover, Text, ToastQueue } from '@react-spectrum/s2';
 import ExportIcon from '@react-spectrum/s2/icons/Export';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
+import { assetFilePath } from '../../model/editor-ops.ts';
 import { exportButtonLabel, exportDir, exportOutputs, exportTitle, latestLiveExport, videoExports } from '../../model/export-job.ts';
+import { exportSourceDir } from '../../model/export-settings.ts';
 import { jobLive } from '../../model/task-list.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useEditor } from '../../state/editor-store.ts';
 import { useJobs } from '../../state/jobs-store.ts';
 import type { OpenVideo } from '../../state/video-store.ts';
+import { mediaCandidates } from '../editor/transcribe-run.ts';
 import { EXPORT_COPY } from './export-copy.ts';
 import { Note } from './export-parts.tsx';
 import { ExportPanel } from './export-popover.tsx';
@@ -58,6 +61,7 @@ export function ExportButton({ video, sequence }: { video: OpenVideo; sequence: 
 
 /** 弹层打开那一刻的视频事实；播放头与选区取打开时的（弹层开着时编辑器不动）。 */
 function PanelHost({ video, videoId, sequence, initialJobId, onClose }: { video: OpenVideo; videoId: Id; sequence: Sequence | null; initialJobId: Id | null; onClose: () => void }) {
+  const web = useRuntime().host.platform === 'web';
   const [{ playhead, selection }] = useState(() => {
     const s = useEditor.getState();
     return { playhead: s.playhead, selection: s.selection };
@@ -70,6 +74,9 @@ function PanelHost({ video, videoId, sequence, initialJobId, onClose }: { video:
       </div>
     );
   }
+  // 没挑位置时导到主素材（时间轴上最早出现的那段视频或音频）所在的文件夹。Web 上 Runtime 只往项目的 exports/ 里写，不给。
+  const main = web ? undefined : mediaCandidates(sequence, snapshot.assets, snapshot.documents)[0]?.asset;
+  const videoDir = video.ref?.path ?? null;
   const env: ExportEnv = {
     videoId,
     videoName: snapshot.name,
@@ -79,6 +86,7 @@ function PanelHost({ video, videoId, sequence, initialJobId, onClose }: { video:
     playhead,
     selection,
     ready: video.status === 'ready',
+    sourceDir: main ? exportSourceDir(assetFilePath(main, videoDir), videoDir) : null,
   };
   return <ExportPanel env={env} initialJobId={initialJobId} onClose={onClose} />;
 }

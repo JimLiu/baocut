@@ -27,6 +27,7 @@ export const vi: ExportMessages = {
   noEstimate: "Phiên bản này chưa có ước tính thời gian và kích thước",
   place: "Vị trí",
   defaultPlace: "exports/ trong dự án",
+  sourcePlace: (dir) => `Thư mục của video gốc · ${dir}`,
   pickPlace: "Chọn vị trí",
   resetPlace: "Dùng vị trí mặc định",
   pickFailed: (message) => `Không chọn vị trí được: ${message}`,

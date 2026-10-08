@@ -19,6 +19,8 @@ export interface ExportEnv {
   selection: readonly Id[];
   /** 已追平、能提交（打开中、断线时不能导）。 */
   ready: boolean;
+  /** 没挑位置时导到这里：原视频所在的文件夹（`exportSourceDir`）；Web、素材在视频目录里时 null，交给 Runtime 的缺省。 */
+  sourceDir: string | null;
 }
 
 export interface ExportSubmit {
@@ -55,7 +57,7 @@ export function useExportSubmit(env: ExportEnv, onStarted: (jobId: Id, tab: Expo
   const submit = async (settings: ExportSettings, dir?: string | null) => {
     if (batch && settings === batch.rejected) return submitEach(batch.parts, dir);
     setBatch(null);
-    const target = dir === undefined ? savedDir : dir;
+    const target = dir === undefined ? (savedDir ?? env.sourceDir) : dir;
     setBusy(true);
     setProblem(null);
     try {
@@ -76,7 +78,7 @@ export function useExportSubmit(env: ExportEnv, onStarted: (jobId: Id, tab: Expo
    * 用提示说清楚后面几份没导。
    */
   const submitEach = async (parts: readonly ExportPart[], dir?: string | null) => {
-    const target = dir === undefined ? savedDir : dir;
+    const target = dir === undefined ? (savedDir ?? env.sourceDir) : dir;
     setBusy(true);
     setProblem(null);
     setBatch(null);

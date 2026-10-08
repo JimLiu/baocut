@@ -70,7 +70,7 @@ export function ExportProjectTab({ env, submitter, onClose }: { env: ExportEnv; 
       <Summary>
         <SumRow label={EXPORT_COPY.willExport}>{portable ? EXPORT_COPY.portableName : `${EXPORT_COPY.xmemlName} · ${EXPORT_COPY.xmemlMeta}`}</SumRow>
         <FileRows names={files} />
-        <PlaceRow videoId={env.videoId} />
+        <PlaceRow videoId={env.videoId} sourceDir={env.sourceDir} />
       </Summary>
 
       <SubmitFoot env={env} submitter={submitter} settings={settings} label={portable ? EXPORT_COPY.exportPortable : EXPORT_COPY.exportProject} onClose={onClose} />

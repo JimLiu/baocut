@@ -82,7 +82,7 @@ export function ExportVideoTab({
   const source = sources.find((c) => c.key === form.source) ?? sources[0]!;
 
   const settings = range.plan.empty ? null : videoSettings({ ...form, source: source.key }, canvas, rangeScope(range.plan), loudness);
-  const files = settings ? defaultFileNames(env.videoName, settings, env.documents) : [];
+  const files = settings ? defaultFileNames(env.videoName, settings, env.documents, env.sequence) : [];
   const what = [
     range.plan.label,
     ratio ? EXPORT_COPY.letterboxedTo(ratio.key) : null,
@@ -168,7 +168,7 @@ export function ExportVideoTab({
             <SumRow label={EXPORT_COPY.willExport}>{what.join(' · ')}</SumRow>
             <FileRows names={files} />
             <SumRow label={EXPORT_COPY.estimate}>{EXPORT_COPY.noEstimate}</SumRow>
-            <PlaceRow videoId={env.videoId} />
+            <PlaceRow videoId={env.videoId} sourceDir={env.sourceDir} />
           </Summary>
         </div>
 

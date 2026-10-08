@@ -14,6 +14,7 @@ import {
   exportPhaseLabel,
   exportPlannedFiles,
   exportProgressLine,
+  exportSpeedParts,
   exportTitle,
   exportView,
   exportWarnings,
@@ -23,6 +24,7 @@ import { explainExportError } from '../../model/export-rejection.ts';
 import { exportOtherWarnings } from '../../model/font-library.ts';
 import { jobPercent } from '../../model/task-list.ts';
 import { useRuntime } from '../../runtime/context.tsx';
+import { useExportSpeed } from '../../state/jobs-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { EXPORT_COPY } from './export-copy.ts';
 import { ExportFontFallbacks, useExportFontPhase } from './export-fonts.tsx';
@@ -31,7 +33,8 @@ import { RejectedAlert, RemedyButtons } from './export-remedy.tsx';
 import type { ExportEnv, ExportSubmit } from './use-export-submit.ts';
 
 /**
- * 弹层盯着的那一次导出（设计稿 export.jsx 的运行 / 完成 / 取消态）：读 jobs-store 里的任务记录，不自己计时、不估算。
+ * 弹层盯着的那一次导出（设计稿 export.jsx 的运行 / 完成 / 取消态）：读 jobs-store 里的任务记录；速度与剩余时间按最近几秒的进度推算
+ * （`useExportSpeed`），算不出时不写。
  * 关掉弹层不会停下导出；取消要先确认一句，开始保存文件之后停不下来（Runtime 只在保存前检查取消）。
  */
 
@@ -42,6 +45,7 @@ const headSub = style({ font: 'ui-sm', color: 'gray-600', overflowWrap: 'anywher
 const bar = style({ marginTop: 16 });
 const stats = style({ display: 'flex', flexWrap: 'wrap', columnGap: 12, rowGap: 2, marginTop: 8, font: 'ui-sm', color: 'gray-700' });
 const pctText = style({ font: 'code-sm', fontWeight: 'bold', color: 'gray-900' });
+const speedText = style({ fontVariantNumeric: 'tabular-nums' });
 const confirm = style({ marginTop: 16 });
 const confirmActs = style({ display: 'flex', justifyContent: 'end', gap: 8, marginTop: 8 });
 const list = style({ display: 'flex', flexDirection: 'column', gap: 4, margin: 0, marginTop: 12, padding: 0, listStyleType: 'none' });
@@ -100,7 +104,7 @@ function plannedLine(job: JobRecord): string {
   return files.length === 1 ? files[0]! : EXPORT_COPY.plannedFiles(files[0]!, files.length);
 }
 
-/** 运行态：进度条与百分比只读 Runtime 报的进度；没有总量时是不定进度。 */
+/** 运行态：进度条与百分比只读 Runtime 报的进度；没有总量时是不定进度。渲染时跟着 fps 与预计剩余时间。 */
 function ExportRunning({ job, onClose }: { job: JobRecord; onClose: () => void }) {
   const runtime = useRuntime();
   const [asking, setAsking] = useState(false);
@@ -110,6 +114,8 @@ function ExportRunning({ job, onClose }: { job: JobRecord; onClose: () => void }
   // 下载字体时阶段里已经念了族与百分比，不再念字节。
   const fontPhase = useExportFontPhase(job);
   const progress = fontPhase ? null : exportProgressLine(job);
+  // 速度只在渲染时有（`export-speed.ts`）；下载字体时阶段里已经念了进度，不再写。
+  const speed = exportSpeedParts(useExportSpeed(fontPhase ? null : job.jobId));
   const title = job.state === 'queued' ? EXPORT_COPY.queued : pending ? EXPORT_COPY.cancelling : EXPORT_COPY.running;
 
   const cancel = async () => {
@@ -133,6 +139,11 @@ function ExportRunning({ job, onClose }: { job: JobRecord; onClose: () => void }
         {pct != null ? <span className={pctText}>{pct}%</span> : null}
         <span>{fontPhase ?? exportPhaseLabel(job)}</span>
         {progress ? <span>{progress}</span> : null}
+        {speed.map((part) => (
+          <span key={part} className={speedText}>
+            {part}
+          </span>
+        ))}
       </div>
       <Note>
         {EXPORT_COPY.keepsRunning}{' '}

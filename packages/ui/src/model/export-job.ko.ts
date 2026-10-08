@@ -35,6 +35,8 @@ export const ko: ExportJobMessages = {
   outputs: (done: number) => `파일 ${done}개 씀`,
   bytesOf: (done: string, total: string) => `${done} / ${total} 패키징함`,
   bytes: (done: string) => `${done} 패키징함`,
+  fps: (n) => `${n} fps`,
+  timeLeft: (clock) => `${clock} 남음`,
   mono: '모노',
   stereo: '스테레오',
   entries: (n: number) => `항목 ${n}개`,

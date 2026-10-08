@@ -12,6 +12,8 @@ export const ptBR: ExportJobMessages = {
   outputsOf: (done: number, total: number) => pluralForm('pt-BR', total, { one: `Gravado ${done} / ${total} arquivo`, other: `Gravados ${done} / ${total} arquivos` }),
   outputs: (done: number) => pluralForm('pt-BR', done, { one: `${done} arquivo gravado`, other: `${done} arquivos gravados` }),
   bytesOf: (done: string, total: string) => `Empacotado: ${done} / ${total}`, bytes: (done: string) => `Empacotado: ${done}`,
+  fps: (n) => `${n} fps`,
+  timeLeft: (clock) => `Faltam ${clock}`,
   mono: 'Mono', stereo: 'Estéreo',
   entries: (n: number) => pluralForm('pt-BR', n, { one: `${n} entrada`, other: `${n} entradas` }), files: (n: number) => pluralForm('pt-BR', n, { one: `${n} arquivo`, other: `${n} arquivos` }),
   assetRevisions: (n: number) => pluralForm('pt-BR', n, { one: `${n} versão de mídia`, other: `${n} versões de mídia` }), missing: (n: number) => pluralForm('pt-BR', n, { one: `${n} ausente`, other: `${n} ausentes` }), clips: (n: number) => pluralForm('pt-BR', n, { one: `${n} clipe`, other: `${n} clipes` }),

@@ -89,7 +89,7 @@ export function ExportSubtitlesTab({ env, submitter, onClose }: { env: ExportEnv
       <Summary>
         <SumRow label={EXPORT_COPY.willExport}>{what}</SumRow>
         <FileRows names={files} />
-        <PlaceRow videoId={env.videoId} />
+        <PlaceRow videoId={env.videoId} sourceDir={env.sourceDir} />
       </Summary>
 
       <SubmitFoot env={env} submitter={submitter} settings={settings} label={EXPORT_COPY.exportSubtitles} onClose={onClose} />

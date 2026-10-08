@@ -205,6 +205,20 @@ test('resolveShort：没挑过跟原始走，挑高了夹回来', () => {
   assert.equal(X.resolveShort(608, 1080), 720);
 });
 
+test('fmtLeft：分:秒，超过一小时写时', () => {
+  assert.equal(X.fmtLeft(0), '0:00');
+  assert.equal(X.fmtLeft(44200), '0:45');
+  assert.equal(X.fmtLeft(12 * 60 * 1000 + 3000), '12:03');
+  assert.equal(X.fmtLeft((3600 + 2 * 60 + 3) * 1000), '1:02:03');
+});
+
+test('exportPlace：原视频所在的文件夹；不是本机文件时放 exports/', () => {
+  assert.equal(X.exportPlace({path: '~/Movies/播客/kelang-ep42-master.mp4'}), '原视频所在的文件夹 · ~/Movies/播客');
+  assert.equal(X.exportPlace({path: 'https://media.w3.org/2010/05/sintel/trailer.mp4'}), '项目下的 exports/');
+  assert.equal(X.exportPlace(null), '项目下的 exports/');
+  assert.equal(X.exportPlace({path: '~/Movies/播客/kelang-ep42-master.mp4'}, false), '项目下的 exports/', 'Web 拿不到本机路径');
+});
+
 test('fmtEta：秒 / 分 / 小时三档', () => {
   assert.equal(X.fmtEta(400), '≈ 1 秒');
   assert.equal(X.fmtEta(90 * 1000), '≈ 2 分');
@@ -232,7 +246,7 @@ test('summary / videoName / taskSub：随生效清单联动', () => {
   const span = X.rangeSpan(CLIPS, 'c3', 206);
   assert.deepEqual(X.summary(eff, {span, dims: {w: 1920, h: 1080}}),
     ['片段 3 · 2:08', '1920×1080', '日本語字幕', '1/2 个元素', '音频', '音乐']);
-  assert.equal(X.videoName('kelang-ep42', eff, span), 'kelang-ep42 JA 片段3.mp4');
+  assert.equal(X.videoName('kelang-ep42', eff, span), 'kelang-ep42.ja 片段3.mp4');
   assert.equal(X.taskSub(eff, {span, dims: {w: 1920, h: 1080}}), 'mp4 · 1920×1080 · 日本語字幕 · 片段 3');
   const none = X.apply(ls, {'subs:zh': false, 'subs:ja': false, 'el:e1': false, 'el:e2': false, audio: false, music: false});
   assert.deepEqual(X.summary(none, {span: X.rangeSpan(CLIPS, null, 206)}), ['整片 3:26', '无字幕', '无元素', '静音']);

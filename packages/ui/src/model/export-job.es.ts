@@ -15,6 +15,8 @@ export const es: ExportJobMessages = {
   outputsOf: (done, total) => `Escritos ${done} / ${total} ${pluralForm('es', total, { one: 'archivo', other: 'archivos' })}`,
   outputs: (done) => `${pluralForm('es', done, { one: 'Escrito', other: 'Escritos' })} ${countEs(done, 'archivo', 'archivos')}`,
   bytesOf: (done, total) => `Empaquetado ${done} / ${total}`, bytes: (done) => `Empaquetado ${done}`,
+  fps: (n) => `${n} fps`,
+  timeLeft: (clock) => `Quedan ${clock}`,
   mono: 'Mono', stereo: 'Estéreo', entries: (n) => countEs(n, 'entrada', 'entradas'), files: (n) => countEs(n, 'archivo', 'archivos'),
   assetRevisions: (n) => countEs(n, 'versión de material', 'versiones de material'), missing: (n) => `${n} ausentes`,
   clips: (n) => countEs(n, 'clip', 'clips'), omitted: (n) => `${countEs(n, 'elemento', 'elementos')} sin escribir en el archivo de proyecto`,

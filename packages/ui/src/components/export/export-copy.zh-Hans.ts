@@ -27,6 +27,7 @@ export const zhHans: ExportMessages = {
   noEstimate: '这一版还没有接上耗时与体积的预估',
   place: '位置',
   defaultPlace: '项目下的 exports/',
+  sourcePlace: (dir) => `原视频所在的文件夹 · ${dir}`,
   pickPlace: '选择位置',
   resetPlace: '用默认位置',
   pickFailed: (message: string) => `没能选择位置：${message}`,

@@ -8,6 +8,7 @@ import {
   audioSourceChoices,
   dbChoices,
   defaultFileNames,
+  exportSourceDir,
   dubGroups,
   dubParts,
   dubTags,
@@ -213,6 +214,13 @@ describe('字幕设置', () => {
     expect(defaultFileNames('访谈: 第一期', { kind: 'subtitles', format: 'srt', documentId: 'zh', bilingual: { documentId: 'en' } }, documents)).toEqual(['访谈_ 第一期.zh-en.srt']);
     expect(defaultFileNames('访谈', { kind: 'subtitles', format: 'vtt', documentId: 'speech_x' }, documents)).toEqual(['访谈.subtitles.vtt']);
     expect(defaultFileNames('访谈', { kind: 'video', format: 'mp4' }, documents)).toEqual(['访谈.mp4']);
+    // 成片：画面里烧着的字幕语言，从上到下（隐藏的 s3 不算）；不烧字幕时没有后缀。
+    expect(defaultFileNames('访谈', { kind: 'video', format: 'mp4' }, documents, seq)).toEqual(['访谈.en-zh.mp4']);
+    expect(defaultFileNames('访谈', { kind: 'video', format: 'mp4', burnCaptions: false }, documents, seq)).toEqual(['访谈.mp4']);
+    expect(defaultFileNames('访谈', { kind: 'video', format: 'webm', ranges: [{ start: 0, end: 1 }, { start: 2, end: 3 }] }, documents, seq)).toEqual([
+      '访谈.en-zh.part1.webm',
+      '访谈.en-zh.part2.webm',
+    ]);
     expect(defaultFileNames('访谈', { kind: 'audio', format: 'mp3', ranges: [{ start: 0, end: 1 }, { start: 2, end: 3 }] }, documents)).toEqual([
       '访谈.audio.part1.mp3',
       '访谈.audio.part2.mp3',
@@ -221,6 +229,18 @@ describe('字幕设置', () => {
     expect(defaultFileNames('访谈', { kind: 'project', format: 'xmeml' }, documents)).toEqual(['访谈.xmeml.xml']);
     expect(defaultFileNames('访谈', { kind: 'portable' }, documents)).toEqual(['访谈.baocut']);
     expect(safeFileStem(' ..  ')).toBe('video');
+  });
+
+  it('没挑位置时导到原视频所在的文件夹；素材在视频目录里面时交给 Runtime 的缺省', () => {
+    expect(exportSourceDir('/Users/me/Movies/访谈.mp4', '/Users/me/BaoCut/访谈')).toBe('/Users/me/Movies');
+    expect(exportSourceDir('/a.mp4', null)).toBe('/');
+    expect(exportSourceDir('C:\\Videos\\talk.mp4', 'D:\\BaoCut\\talk')).toBe('C:\\Videos');
+    expect(exportSourceDir('C:\\talk.mp4', null)).toBe('C:\\');
+    expect(exportSourceDir('/Users/me/BaoCut/访谈/media/a.mp4', '/Users/me/BaoCut/访谈/')).toBeNull();
+    expect(exportSourceDir('/Users/me/BaoCut/访谈/a.mp4', '/Users/me/BaoCut/访谈')).toBeNull();
+    expect(exportSourceDir('C:\\BaoCut\\Talk\\a.mp4', 'c:\\baocut\\talk')).toBeNull();
+    expect(exportSourceDir('/Users/me/BaoCut/访谈2/a.mp4', '/Users/me/BaoCut/访谈')).toBe('/Users/me/BaoCut/访谈2');
+    expect(exportSourceDir(null, '/v')).toBeNull();
   });
 });
 
