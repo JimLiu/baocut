@@ -32,6 +32,7 @@ import { isDotLottie } from '@baocut/runtime-storage/library';
 import type { TrustedPrincipal } from '../gateway.ts';
 import { TRASH_DIR, scanDirectory } from '../space-catalog.ts';
 import { EngineHost } from './engine-host.ts';
+import { hostPath } from './host-path.ts';
 import { RcCommon, RcVideo } from '@baocut/protocol/messages/runtime-core';
 
 /**
@@ -266,7 +267,7 @@ export class VideoService {
     const host = await this.#ensureHost();
     // 带上所属项目：视频里记的项目不同（副本）时引擎先换标识，同一个 videoId 不会指向两个目录（架构设计 §5.1）。
     const opened = await host.request<HostOpened>('videos.open', { path: dir, ...projectOf(location.scope) });
-    if (opened.path !== dir) {
+    if (hostPath(opened.path) !== dir) {
       // 同一个 videoId 出现在两个目录（不属于项目、无从区分的副本，或打开期间被移动）：保留先打开的那一个。
       this.#log.warn('Two folders hold the same video; kept the open one', { videoId: opened.videoId });
     }
@@ -341,7 +342,7 @@ export class VideoService {
     const host = await this.#ensureHost();
     const opened = await host.request<HostOpened>('videos.open', { path: dir });
     // 引擎里已经开着的（会话里的，或同一个视频在另一个目录里开着）不是这次取到的锁，不能替它放下。
-    const owned = !this.#channels.get(opened.videoId)?.session && opened.path === dir;
+    const owned = !this.#channels.get(opened.videoId)?.session && hostPath(opened.path) === dir;
     try {
       if (!owned) throw new RpcError('conflict', RcVideo.videoInUse(), { code: 'VIDEO_IN_USE', videoId: opened.videoId });
       return await fn();
@@ -660,6 +661,7 @@ export class VideoService {
   // ---- 内部 ----
 
   #register(opened: HostOpened, rootReal: string, scope: VideoLocation['scope'], principal: TrustedPrincipal): VideoOpenResult {
+    opened = { ...opened, path: hostPath(opened.path) };
     let channel = this.#channels.get(opened.videoId);
     if (!channel) {
       const holder: Channel = {

@@ -47,6 +47,7 @@ describe('参数', () => {
     }
     const download = downloadArgs('https://v.example.com/a', { output: '/s/dl/media.%(ext)s', audioOnly: true, subtitleLanguages: [] });
     expect(download).toContain('ba/b');
+    expect(download).toContain('--check-formats');
     expect(download).not.toContain('--write-subs');
     expect(download[download.indexOf('-o') + 1]).toBe('/s/dl/media.%(ext)s');
   });
@@ -74,7 +75,9 @@ describe('参数', () => {
       ['ERROR: could not copy Chrome cookie database', 'LINK_COOKIES_UNAVAILABLE'],
       [`ERROR: [Errno 1] Operation not permitted: '/Users/a/Library/Containers/com.apple.Safari/Data/Library/Cookies/Cookies.binarycookies'`, 'LINK_COOKIES_UNAVAILABLE'],
       ['ERROR: nsig extraction failed', 'LINK_TOOL_UPDATE_REQUIRED'],
-      ['ERROR: HTTP Error 403: Forbidden', 'LINK_LOGIN_REQUIRED'],
+      ['ERROR: HTTP Error 403: Forbidden', 'LINK_DOWNLOAD_FAILED'],
+      ['ERROR: unable to download video data: HTTP Error 403: Forbidden', 'LINK_DOWNLOAD_FAILED'],
+      ['ERROR: HTTP Error 403: Sign in to confirm your age', 'LINK_LOGIN_REQUIRED'],
       ["WARNING: Your yt-dlp version (2026.07.04) is older than 90 days!\nERROR: unable to download video data: HTTP Error 403: Forbidden", 'LINK_TOOL_UPDATE_REQUIRED'],
       ["WARNING: Your yt-dlp version (2026.07.04) is older than 90 days!\nERROR: HTTP Error 403: Sign in to confirm you are not a bot", 'LINK_LOGIN_REQUIRED'],
       ['ERROR: something else', 'LINK_DOWNLOAD_FAILED'],

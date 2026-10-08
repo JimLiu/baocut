@@ -185,6 +185,8 @@ describe.skipIf(!engine || !ffmpeg)('视频（真实引擎）', () => {
     expect(runtime.videos.mirror(ref.videoId)).toBeNull();
     const reopened = await client.request('videos.open', { projectId: project.id, path: '第一部' });
     expect(reopened.ref.videoId).toBe(ref.videoId);
+    expect(reopened.ref.relPath).toBe('第一部');
+    expect(reopened.ref.path).toBe(ref.path);
     expect(reopened.snapshot).toEqual(before);
 
     // Space 把视频目录列成一个条目。
@@ -193,6 +195,7 @@ describe.skipIf(!engine || !ffmpeg)('视频（真实引擎）', () => {
     expect(entries.map((e) => [e.kind, e.relPath])).toEqual([['video', '第一部']]);
     const fromSpace = await client.request('videos.open', { entryId: entries[0]!.id });
     expect(fromSpace.ref.videoId).toBe(ref.videoId);
+    expect(fromSpace.ref.relPath).toBe('第一部');
   });
 
   it('同名新建加序号；同一个 commandId 新建只建一次', async () => {
@@ -417,11 +420,18 @@ describe.skipIf(!engine || !ffmpeg)('视频（真实引擎）', () => {
     }
   });
 
-  it('链接的符号链接按它指向的真实文件放行：指向别的文件（哪怕长度相同）就不放行', async () => {
+  it('链接的符号链接按它指向的真实文件放行：指向别的文件（哪怕长度相同）就不放行', async (context) => {
     const { ref, snapshot } = await create();
     const alias = path.join(fixtures, 'alias.mp4');
     await fs.rm(alias, { force: true });
-    await fs.symlink(clip, alias);
+    try {
+      await fs.symlink(clip, alias);
+    } catch (error) {
+      if (process.platform === 'win32' && (error as NodeJS.ErrnoException).code === 'EPERM') {
+        context.skip('Windows does not grant this process permission to create file symlinks');
+      }
+      throw error;
+    }
     const linked = await client.request('edits.apply', {
       videoId: ref.videoId,
       commandId: newId('cmd'),

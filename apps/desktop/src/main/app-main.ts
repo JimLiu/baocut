@@ -12,6 +12,7 @@ import { packagedResources } from './packaged-resources.ts';
 import { RuntimeSupervisor } from './runtime-supervisor.ts';
 import { installWebTabs } from './web-tabs.ts';
 import { openLocalFile } from './open-local-file.ts';
+import { installStdioErrorGuards } from './stdio-errors.ts';
 
 /**
  * 桌面端主进程：找到或启动 Runtime、开窗口、提供少量原生能力（选目录、在文件夹中显示）。
@@ -20,6 +21,7 @@ import { openLocalFile } from './open-local-file.ts';
  * 只做定义、没有副作用：入口（`index.ts`）先判断这次是不是离屏宿主，不是才调 `startDesktopApp`。
  */
 export function startDesktopApp(): void {
+  installStdioErrorGuards();
   const devServerUrl = process.env.ELECTRON_RENDERER_URL;
   const isDev = !app.isPackaged;
   // 开发态 Electron 用它自己的默认图标；打包后 macOS / Windows 从包里的 .icns / .ico 读，不走这里。

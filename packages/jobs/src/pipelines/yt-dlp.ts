@@ -60,7 +60,8 @@ export interface DownloadOptions {
 
 /** 下载媒体（与可选的字幕）。 */
 export function downloadArgs(url: string, options: DownloadOptions): string[] {
-  const args = [...COMMON_ARGS, ...cookieArgs(options.cookieBrowser), '--newline', '--progress-template', PROGRESS_TEMPLATE, '--no-mtime', '-o', options.output];
+  // Metadata can advertise CDN formats that are no longer downloadable. Let yt-dlp reject them before selecting a stream.
+  const args = [...COMMON_ARGS, ...cookieArgs(options.cookieBrowser), '--check-formats', '--newline', '--progress-template', PROGRESS_TEMPLATE, '--no-mtime', '-o', options.output];
   args.push('-f', options.audioOnly ? 'ba/b' : 'bv*+ba/b');
   if (options.ffmpegLocation) args.push('--ffmpeg-location', options.ffmpegLocation);
   if (options.subtitleLanguages.length > 0) args.push('--write-subs', '--sub-langs', options.subtitleLanguages.join(','));
@@ -210,12 +211,14 @@ export function classifyFailure(stderr: string, exitCode: number | null): Pipeli
       !/sign in|log ?in|login required|cookies|members[- ]only|private video|confirm your age|age[- ]restricted|not a bot|authentication/i.test(errorLine)
     ) return 'LINK_TOOL_UPDATE_REQUIRED';
     if (
-      /HTTP Error 401|HTTP Error 403|403: Forbidden|sign in|log ?in|login required|cookies|members[- ]only|private video|confirm your age|age[- ]restricted|not a bot|authentication/i.test(
+      /HTTP Error 401|sign in|log ?in|login required|cookies|members[- ]only|private video|confirm your age|age[- ]restricted|not a bot|authentication/i.test(
         errorLine,
       )
     ) {
       return 'LINK_LOGIN_REQUIRED';
     }
+    // A CDN 403 alone does not establish that authentication is required.
+    if (/HTTP Error 403|403: Forbidden/i.test(errorLine)) return 'LINK_DOWNLOAD_FAILED';
     if (
       /not available in your (country|region)|geo|video unavailable|has been removed|Requested format is not available|no video formats/i.test(
         errorLine,
