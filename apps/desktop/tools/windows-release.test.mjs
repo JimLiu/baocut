@@ -13,7 +13,6 @@ test('requires native validation for every selected variant and the frozen Mac s
   const jobs = [{ name: 'Package Windows x64 (cpu)', conclusion: 'success' }, { name: 'Package Windows x64 (cuda)', conclusion: 'failure' }];
   validateCandidate(run, jobs, mac, ['cpu'], 7, 'JimLiu/baocut');
   assert.throws(() => validateCandidate(run, jobs, mac, ['cpu', 'cuda'], 7, 'JimLiu/baocut'), /Native validation/);
-  assert.throws(() => validateCandidate({ ...run, head_sha: 'b'.repeat(40) }, jobs, mac, ['cpu'], 7, 'JimLiu/baocut'), /source differs/);
   assert.throws(() => validateCandidate({ ...run, event: 'pull_request' }, jobs, mac, ['cpu'], 7, 'JimLiu/baocut'), /workflow/);
 });
 
@@ -38,7 +37,8 @@ async function fixture() {
 test('checks actual candidate bytes and rejects a modified installer', async () => {
   const f = await fixture();
   try {
-    await validatePackage(f.directory, mac, 'baocut-v3.0.0-build.60', 'cpu', 'JimLiu/baocut');
+    await validatePackage(f.directory, mac, 'baocut-v3.0.0-build.60', 'cpu', 'JimLiu/baocut', run);
+    await assert.rejects(validatePackage(f.directory, mac, 'baocut-v3.0.0-build.60', 'cpu', 'JimLiu/baocut', { ...run, head_sha: 'b'.repeat(40) }), /source differs/);
     writeFileSync(path.join(f.directory, f.report.installer.file), 'different-bytes');
     await assert.rejects(validatePackage(f.directory, mac, 'baocut-v3.0.0-build.60', 'cpu', 'JimLiu/baocut'), /checksum differs/);
   } finally { rmSync(f.directory, { recursive: true, force: true }); }

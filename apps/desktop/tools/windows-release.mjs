@@ -20,7 +20,6 @@ export async function fileHash(file) {
 export function validateCandidate(run, jobs, mac, variants, workflowId, repo) {
   invariant(run.status === 'completed', 'Candidate run is not complete');
   invariant(run.workflow_id === workflowId && run.event === 'workflow_dispatch', 'Unexpected candidate workflow');
-  invariant(run.head_sha === mac.sourceCommit, 'Candidate source differs from the Mac build');
   invariant(run.head_repository?.full_name?.toLowerCase() === repo.toLowerCase(), 'Candidate belongs to another repository');
   for (const variant of variants) {
     invariant(VARIANTS.includes(variant), `Unsupported variant: ${variant}`);
@@ -28,13 +27,17 @@ export function validateCandidate(run, jobs, mac, variants, workflowId, repo) {
   }
 }
 
-export async function validatePackage(directory, mac, tag, variant, repo) {
+export async function validatePackage(directory, mac, tag, variant, repo, run) {
   invariant(VARIANTS.includes(variant), 'Unsupported package variant');
   const suffix = variant === 'cpu' ? '' : `-${variant}`;
   const stem = `BaoCut-${mac.version}-build.${mac.build}-win-x64${suffix}`;
   const reportFile = `${stem}-release.json`;
   const report = JSON.parse(readFileSync(path.join(directory, reportFile), 'utf8'));
   invariant(report.version === mac.version && report.build === mac.build, 'Windows release identity differs');
+  if (run) {
+    invariant((report.sourceCommit || run.head_sha) === mac.sourceCommit, 'Candidate source differs from the Mac build');
+    if (run.head_sha !== mac.sourceCommit) invariant(report.workflowCommit === run.head_sha, 'Candidate workflow provenance differs');
+  }
   invariant(report.appId === BUNDLE_ID && report.target === TARGET && report.variant === variant && report.unsigned === true, 'Unexpected Windows package identity');
   for (const [kind, file, format] of [['installer', `${stem}-setup.exe`, 'exe'], ['portable', `${stem}.zip`, 'zip']]) {
     const facts = report[kind];
@@ -92,7 +95,7 @@ export async function publishWindows(env = process.env) {
     const directory = path.join(output, variant);
     mkdirSync(directory, { recursive: true });
     command('gh', ['run', 'download', runId, '--repo', repo, '--name', `baocut-desktop-windows-x64-${variant}`, '--dir', directory]);
-    const item = await validatePackage(directory, mac, tag, variant, repo);
+    const item = await validatePackage(directory, mac, tag, variant, repo, run);
     item.report.sourceCommit = mac.sourceCommit;
     item.report.candidateRunId = Number(runId);
     item.report.candidateRunUrl = run.html_url;
