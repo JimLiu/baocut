@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { ArtifactStore } from '@baocut/jobs';
+import { ArtifactStore, collectArtifactIds } from '@baocut/jobs';
 import type { Id, JobRecord } from '@baocut/protocol';
 import { StorageGc } from './storage-gc.ts';
 
@@ -14,6 +14,7 @@ describe('StorageGc', () => {
   let jobs: JobRecord[];
   let ledgerRefs: Set<string>;
   let spaceRecords: unknown[];
+  let sweepSince: number;
   let pruned: ((evicted: ReadonlySet<Id>) => void) | null;
   let logs: { level: string; message: string; fields?: Record<string, unknown> }[];
   let gc: StorageGc | null;
@@ -39,7 +40,7 @@ describe('StorageGc', () => {
         },
         list: () => jobs,
       },
-      spaceArtifacts: { list: () => spaceRecords },
+      spaceArtifacts: { referencedArtifactIds: async () => collectArtifactIds(spaceRecords), sweepSince: () => sweepSince },
       ready: Promise.resolve(),
       artifactSweepBlocked: options.blocked ?? null,
       cacheDir: path.join(dir, 'cache'),
@@ -59,6 +60,7 @@ describe('StorageGc', () => {
     jobs = [];
     ledgerRefs = new Set();
     spaceRecords = [];
+    sweepSince = 0;
     pruned = null;
     logs = [];
     gc = null;
@@ -83,6 +85,17 @@ describe('StorageGc', () => {
     expect(await exists(ledger.path)).toBe(true);
     expect(await exists(space.path)).toBe(true);
     expect(logs).toContainEqual(expect.objectContaining({ level: 'info', message: 'Artifact cleanup finished' }));
+  });
+
+  it('修改时间早于清扫起点的产物（开始保留引用之前的）不删', async () => {
+    const legacy = await artifacts.put(Buffer.from('legacy'));
+    const managed = await artifacts.put(Buffer.from('managed'));
+    await age(legacy.path, 5 * HOUR);
+    await age(managed.path, 2 * HOUR);
+    sweepSince = Date.now() - 3 * HOUR;
+    expect(await make().sweepArtifacts()).toMatchObject({ removed: 1 });
+    expect(await exists(legacy.path)).toBe(true);
+    expect(await exists(managed.path)).toBe(false);
   });
 
   it('有排队或运行中的任务时推迟，任务结束、账本淘汰任务之后补跑', async () => {

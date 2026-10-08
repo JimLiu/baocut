@@ -24,6 +24,7 @@ import { TopicLog, type Harness, type Logger, type TopicSubscription } from '@ba
 import {
   EMPTY_MARK,
   artifactIdsOf,
+  artifactRefsOf,
   spaceJobFacts,
   type SpaceArtifactStore,
   type SpaceJobFacts,
@@ -832,6 +833,11 @@ export class SpaceCatalog {
       return ids.length > 0 && ids.every((id) => this.#marks.get(id).dismissedAt) ? [] : [facts];
     });
     if (records.length > 0) void this.#artifacts.put(records).catch((error) => this.#log.warn('Writing output records failed', { error: String(error) }));
+    // 只为产物库清扫保留的引用（§7.3）：任何留下了产物的任务（配音、翻译、说话人、写进视频的转录、它们的步骤……），
+    // 不论上面要不要留派生用的事实。不进目录，Job Ledger 修剪之后产物仍被引用。
+    const refs = jobs.flatMap((job) => artifactRefsOf(job) ?? []);
+    if (refs.length > 0)
+      void this.#artifacts.putReferences(refs).catch((error) => this.#log.warn('Writing output references failed', { error: String(error) }));
   }
 
   /** 产物全部物理删除或清除了的记录去掉；Ledger 里也没有这个任务时，清除标记也不再需要。 */

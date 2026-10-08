@@ -1,4 +1,4 @@
-import { collectArtifactIds, isTerminal, type ArtifactStore, type ArtifactSweepResult } from '@baocut/jobs';
+import { isTerminal, type ArtifactStore, type ArtifactSweepResult } from '@baocut/jobs';
 import { trimCache, type CacheTrimResult } from '@baocut/runtime-storage';
 import type { Id, JobRecord } from '@baocut/protocol';
 
@@ -14,8 +14,8 @@ export interface StorageGcOptions {
     onPruned(listener: (evicted: ReadonlySet<Id>) => void): () => void;
     list(): JobRecord[];
   };
-  /** Space 的产物记录（Job Ledger 修剪之后仍然登记着的产物）。 */
-  spaceArtifacts: { list(): readonly unknown[] };
+  /** Space 的产物记录与只为清扫保留的引用（Job Ledger 修剪之后仍然引用着的产物，含读坏留存的文件里的）。 */
+  spaceArtifacts: { referencedArtifactIds(): Promise<Set<string>>; sweepSince(): number };
   /** 产物记录与 Job Ledger 都读进来、Space 已经从账本补齐记录之后兑现。 */
   ready: Promise<unknown>;
   /** 产物记录整个读不了、从空的开始时给出原因：引用不全，不清产物库。 */
@@ -31,7 +31,8 @@ export interface StorageGcOptions {
 /**
  * Runtime Home 的两项后台清理（架构设计 §5.1、§7.3）：
  *
- * - **产物库**：账本里全部任务（任何状态，含冻结的规格与发布意图）与 Space 产物记录都没有引用、修改时间超过 1 小时的
+ * - **产物库**：账本里全部任务（任何状态，含冻结的规格与发布意图）与 Space 产物记录（含只为清扫保留的引用、读坏留存的
+ *   文件）都没有引用、修改时间超过 1 小时、又不早于清扫起点（开始保留引用的时候）的
  *   `artifacts/<sha256>.<ext>` 删掉，残留的 `.tmp` 同样。启动后（`ready` 兑现时）跑一轮，之后每次账本淘汰任务后再跑。
  *   有排队或运行中的任务时跳过：流程在步骤完成之前只在暂存目录与内存里记着它刚写的产物，这些不在引用集合里；
  *   跳过之后由下一次淘汰或每小时的定时补跑。
@@ -132,8 +133,8 @@ export class StorageGc {
       }
       this.#artifactPending = false;
       const referenced = this.#options.jobs.referencedArtifactIds();
-      collectArtifactIds(this.#options.spaceArtifacts.list(), referenced);
-      const result = await this.#options.jobs.artifacts.sweep(referenced);
+      for (const id of await this.#options.spaceArtifacts.referencedArtifactIds()) referenced.add(id);
+      const result = await this.#options.jobs.artifacts.sweep(referenced, { notBefore: this.#options.spaceArtifacts.sweepSince() });
       if (result) log.info('Artifact cleanup finished', { ...result, referenced: referenced.size });
       return result;
     } catch (error) {

@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { JobRecord } from '@baocut/protocol';
-import { SpaceArtifactStore, artifactIdsOf, isFilePipelineJob, spaceJobFacts } from './space-artifacts.ts';
+import { SpaceArtifactStore, artifactIdsOf, artifactRefsOf, isFilePipelineJob, spaceJobFacts } from './space-artifacts.ts';
 
 function job(partial: Partial<JobRecord>): JobRecord {
   return {
@@ -170,5 +170,44 @@ describe('Space 的产物记录', () => {
     expect(loaded.quarantined).toMatch(/space-artifacts\.json\.corrupt-\d+$/);
     expect(broken.list()).toEqual([]);
     await expect(fs.readFile(loaded.quarantined!, 'utf8')).resolves.toBe('{ 坏了');
+  });
+  it('只为清扫保留的引用：结果、步骤与应用里的产物 id，不含输入摘要；重读后还在，清扫起点落盘且不后移', async () => {
+    const a = `sha256:${'1'.repeat(64)}`;
+    const b = `sha256:${'2'.repeat(64)}`;
+    const dub = job({
+      jobId: 'job_dub',
+      kind: 'pipeline',
+      inputHash: `sha256:${'9'.repeat(64)}`,
+      result: { documentId: null, artifactId: a },
+      pipeline: { name: 'dub', steps: [{ name: 'synthesize', status: 'completed', output: { units: { u1: { artifactId: b } } } }] } as unknown as JobRecord['pipeline'],
+    });
+    expect(artifactRefsOf(dub)).toEqual({ jobId: 'job_dub', kind: 'pipeline', videoId: 'v1', endedAt: dub.endedAt, artifactIds: [a, b] });
+    expect(artifactRefsOf(job({ state: 'running' }))).toBeNull();
+    expect(artifactRefsOf(job({ result: null }))).toBeNull();
+
+    const store = new SpaceArtifactStore(file);
+    await store.load();
+    const since = store.sweepSince();
+    await store.putReferences([artifactRefsOf(dub)!]);
+    const again = new SpaceArtifactStore(file);
+    await again.load();
+    expect(again.references()).toEqual([artifactRefsOf(dub)]);
+    expect(again.sweepSince()).toBe(since);
+    expect([...(await again.referencedArtifactIds())].sort()).toEqual([a, b]);
+  });
+
+  it('读坏了改名留存的文件里的产物 id 照样算引用：下次启动不误删', async () => {
+    const lost = `sha256:${'3'.repeat(64)}`;
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, `{ "jobs": [{ "result": { "artifactId": "${lost}" } }`);
+    const store = new SpaceArtifactStore(file);
+    const loaded = await store.load();
+    expect(loaded.quarantined).toMatch(/\.corrupt-\d+$/);
+    expect(store.list()).toEqual([]);
+    expect((await store.referencedArtifactIds()).has(lost)).toBe(true);
+    // 下次启动：主文件已是新的，留存的文件还在，引用还在。
+    const next = new SpaceArtifactStore(file);
+    expect((await next.load()).quarantined).toBeNull();
+    expect((await next.referencedArtifactIds()).has(lost)).toBe(true);
   });
 });

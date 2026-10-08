@@ -82,12 +82,13 @@ export class ArtifactStore {
    *   之后才记账，刚发布的文件可能还没有任何引用；`put` 命中已有内容时会刷新修改时间，宽限期因此对重新发布的内容也成立。
    * - 写到一半留下的 `*.tmp`：修改时间早于宽限期时删除。
    * - 其他文件与子目录不动。
+   * - 给了 `notBefore` 时，修改时间早于它的产物不删（开始保留引用之前的产物，无从知道还有没有人用）。
    *
    * 删除前再看一次修改时间，清扫期间被 `put` 过的不删。同一实例同一时间只跑一轮，重入时返回 null。
    */
   async sweep(
     referenced: ReadonlySet<string>,
-    options: { graceMs?: number; now?: number } = {},
+    options: { graceMs?: number; now?: number; notBefore?: number } = {},
   ): Promise<ArtifactSweepResult | null> {
     if (this.#sweeping) return null;
     this.#sweeping = true;
@@ -116,6 +117,7 @@ export class ArtifactStore {
         const file = path.join(this.dir, name);
         const stat = await fs.lstat(file).catch(() => null);
         if (!stat?.isFile() || stat.mtimeMs > cutoff) continue;
+        if (artifact && options.notBefore !== undefined && stat.mtimeMs < options.notBefore) continue;
         if (artifact && this.#touched.has(artifact[1]!)) continue;
         try {
           await fs.unlink(file);
