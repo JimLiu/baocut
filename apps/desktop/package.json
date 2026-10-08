@@ -6,7 +6,7 @@
   "main": "out/main/index.js",
   "scripts": {
     "predev": "install-electron",
-    "dev": "electron-vite dev",
+    "dev": "node tools/dev-runner.mjs",
     "build": "electron-vite build",
     "prestart": "install-electron",
     "start": "electron-vite preview"
