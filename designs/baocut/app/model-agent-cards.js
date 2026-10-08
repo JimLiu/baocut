@@ -120,11 +120,11 @@
     }
   }
 
-  /** 用时与剩余：「已用 4:12 · 预计还要 1:30」；没有剩余时间就只写已用，什么都没有返回 null。 */
+  /** 用时与剩余：「已用 4:12 · 剩余 1:30」（与导出窗口同一个说法）；没有剩余时间就只写已用，什么都没有返回 null。 */
   function timeLabel(task) {
     const parts = [];
     if (has(task.elapsedMs)) parts.push(`已用 ${clock(task.elapsedMs)}`);
-    if (has(task.leftMs) && task.status === 'running') parts.push(`预计还要 ${clock(task.leftMs)}`);
+    if (has(task.leftMs) && task.status === 'running') parts.push(`剩余 ${clock(task.leftMs)}`);
     return parts.length ? parts.join(' · ') : null;
   }
 

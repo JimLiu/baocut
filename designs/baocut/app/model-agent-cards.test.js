@@ -84,7 +84,7 @@ test('jobRow：运行中是阶段、计数、百分比、已用与剩余与取�
   assert.equal(r.name, '转录');
   assert.equal(r.tail, '46%');
   assert.equal(r.line, '识别中 · 已识别 11:58 / 26:00');
-  assert.equal(r.time, '已用 4:12 · 预计还要 4:56');
+  assert.equal(r.time, '已用 4:12 · 剩余 4:56');
   assert.deepEqual(r.actions.map((a) => a.label), ['取消']);
   assert.deepEqual(C.jobRow(tr({cancellable: false})).actions, []);
   const tl = C.jobRow({id: 'l', kind: 'translate', status: 'running', pct: 61, step: 'translate', lang: '英语', linesDone: 38, linesTotal: 62});
@@ -144,7 +144,7 @@ test('download：下载中 pct、已下多少、已用与剩余、取消；失�
     site: 'lanshan.example', url: 'https://lanshan.example/v/12', title: '城市夜跑'});
   assert.deepEqual([run.title, run.name, run.source], ['正在下载视频', '城市夜跑', 'https://lanshan.example/v/12']);
   assert.equal(run.line, '下载中 · 已下 86 / 320 MB');
-  assert.equal(run.time, '已用 0:13 · 预计还要 0:35');
+  assert.equal(run.time, '已用 0:13 · 剩余 0:35');
   assert.deepEqual(run.actions.map((a) => a.label), ['取消']);
   const failed = C.download({id: 'd', kind: 'download', status: 'error', issue: 'network', pct: 34});
   assert.equal(failed.error, '连接中断了');

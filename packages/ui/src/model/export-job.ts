@@ -225,12 +225,17 @@ export function exportProgressLine(job: Pick<JobRecord, 'progress' | 'state'>): 
   }
 }
 
-/** 速度与预计剩余时间：「58 fps」「剩余 1:23」，超过一小时「剩余 1:02:03」；进度单位不是帧时只有剩余时间。算不出时空。 */
+/** 预计剩余时间：「剩余 1:23」，超过一小时「剩余 1:02:03」。算不出时 null。 */
+export function exportTimeLeft(speed: ExportSpeed | null): string | null {
+  return speed ? M.timeLeft(formatClock(Math.ceil(speed.secondsLeft))) : null;
+}
+
+/** 速度与预计剩余时间：「58 fps」「剩余 1:23」；进度单位不是帧时只有剩余时间。算不出时空。 */
 export function exportSpeedParts(speed: ExportSpeed | null): string[] {
   if (!speed) return [];
   const parts: string[] = [];
   if (speed.fps != null) parts.push(M.fps(new Intl.NumberFormat(intlLocale(), { maximumFractionDigits: speed.fps < 10 ? 1 : 0 }).format(speed.fps)));
-  parts.push(M.timeLeft(formatClock(Math.ceil(speed.secondsLeft))));
+  parts.push(exportTimeLeft(speed)!);
   return parts;
 }
 

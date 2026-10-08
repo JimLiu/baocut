@@ -11,6 +11,7 @@ import Translate from '@react-spectrum/s2/icons/Translate';
 import Video from '@react-spectrum/s2/icons/Video';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { VIDEO_CARD_COPY } from '../../copy.ts';
+import { exportTimeLeft } from '../../model/export-job.ts';
 import { isLinkImport, linkMeta } from '../../model/link-import.ts';
 import { jobLive } from '../../model/task-list.ts';
 import {
@@ -24,7 +25,7 @@ import {
   type VideoStatus,
 } from '../../model/video-cards.ts';
 import { useRuntime } from '../../runtime/context.tsx';
-import { useJobs } from '../../state/jobs-store.ts';
+import { useExportSpeed, useJobs } from '../../state/jobs-store.ts';
 import { useModels } from '../../state/models-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useTaskAction } from '../tasks/use-task-actions.ts';
@@ -224,8 +225,10 @@ function JobRow({
 }) {
   const full = !compact;
   const running = row.state === 'running';
-  const elapsed = full ? row.elapsed : null;
-  const hasFoot = !!elapsed || row.canCancel || row.canRetry || !!row.remedy;
+  // 导出在渲染时，已用时长后面接预计剩余时间（与导出窗口同一份推算，`useExportSpeed`）；算不出、别的活不写。
+  const left = exportTimeLeft(useExportSpeed(full && running && row.kind === 'export' ? row.jobId : null));
+  const time = full ? [row.elapsed, left].filter(Boolean).join(' · ') || null : null;
+  const hasFoot = !!time || row.canCancel || row.canRetry || !!row.remedy;
   return (
     <li className={`bc-vjob${compact ? ' bc-vjob--compact' : ''} is-${row.state}`}>
       <div className="bc-vjob__head">
@@ -284,7 +287,7 @@ function JobRow({
       {full && row.remedy ? <span className="bc-vjob__hint">{row.remedy.hint}</span> : null}
       {hasFoot ? (
         <div className="bc-vjob__foot">
-          <span className="bc-vjob__time">{elapsed}</span>
+          <span className="bc-vjob__time">{time}</span>
           {row.remedy ? (
             <Button size="S" variant="secondary" onPress={() => actions.go(row.remedy!.target)}>
               {row.remedy.label}

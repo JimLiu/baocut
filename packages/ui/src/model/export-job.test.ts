@@ -10,6 +10,7 @@ import {
   exportPhaseLabel,
   exportProgressLine,
   exportSpeedParts,
+  exportTimeLeft,
   exportTitle,
   exportView,
   latestLiveExport,
@@ -94,6 +95,8 @@ describe('导出任务', () => {
     expect(exportSpeedParts({ rate: 2.46, fps: 2.46, secondsLeft: 3723 })).toEqual(['2.5 fps', '剩余 1:02:03']);
     expect(exportSpeedParts({ rate: 10, fps: null, secondsLeft: 10 })).toEqual(['剩余 0:10']);
     expect(exportSpeedParts(null)).toEqual([]);
+    expect(exportTimeLeft({ rate: 58.4, fps: 58.4, secondsLeft: 3723 })).toBe('剩余 1:02:03');
+    expect(exportTimeLeft(null)).toBeNull();
   });
 
   it('输出读实际路径：重名时 Runtime 加过的序号照实显示', () => {
