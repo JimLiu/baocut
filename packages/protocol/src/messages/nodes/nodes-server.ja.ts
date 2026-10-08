@@ -39,5 +39,6 @@ export const ja: NodesServerMessages = {
   pairingLocked: 'ペアリングはロックされています',
   pairingCodeInvalid: 'ペアリングコードが間違っているか、期限切れか、入力されていません',
   portInUse: (p) => `ポート ${p.port} はすでに使用中です`,
+  shareFileUnreadable: (p) => `共有設定ファイル（node-share.json）を読み取れません（${p.reason}）。そのまま残しています。共有を変更するには修正するか削除してください`,
   cannotListen: (p) => `ノードサービスが待ち受けできません：${p.code}`,
 };

@@ -39,5 +39,6 @@ export const pl: NodesServerMessages = {
   pairingLocked: "Parowanie zablokowane",
   pairingCodeInvalid: "Kod parowania jest błędny, wygasły lub niepodany",
   portInUse: (p) => `Port ${p.port} jest już zajęty`,
+  shareFileUnreadable: (p) => `Nie można odczytać pliku ustawień udostępniania (node-share.json) (${p.reason}). Pozostawiono go bez zmian; popraw go lub usuń, aby zmienić udostępnianie`,
   cannotListen: (p) => `Usługa węzła nie może nasłuchiwać: ${p.code}`,
 };

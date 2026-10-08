@@ -22,8 +22,16 @@ export async function migrateFileCredentials(
   log?: CredentialMigrationLog,
 ): Promise<CredentialMigrationResult> {
   const result: CredentialMigrationResult = { migrated: [], failed: [] };
-  const keys = await from.keys();
-  // 没有可迁的密钥（没有文件，或文件认不出）：什么也不动。
+  let keys: string[];
+  try {
+    keys = await from.keys();
+  } catch (error) {
+    // 文件读不了或认不出：原样留着，不迁也不删（钥匙串照常用），记日志。
+    const { code, message } = credentialProblem(error);
+    log?.warn('Credential file could not be read; nothing migrated and the file was left in place', { code, reason: message });
+    return result;
+  }
+  // 没有可迁的密钥（没有文件）：什么也不动。
   if (keys.length === 0) return result;
   for (const key of keys) {
     try {

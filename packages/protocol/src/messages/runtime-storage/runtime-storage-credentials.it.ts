@@ -7,6 +7,7 @@ export const it: RuntimeStorageCredentialsMessages = {
   internal: "Errore nella lettura o scrittura della credenziale",
   problem: (p) => `${p.reason}: ${p.message}`,
   fileWriteFailed: (p) => `Impossibile scrivere il file delle credenziali (${p.code})`,
+  fileUnreadable: (p) => `Impossibile leggere il file delle credenziali; è stato lasciato intatto (${p.code})`,
   helperBadResponse: "L’assistente per le credenziali ha restituito una risposta non valida",
   helperNotFound: "Il programma di assistenza per le credenziali non è stato trovato",
   helperTimedOut: (p) => `L’assistente per le credenziali non ha risposto entro ${p.seconds} secondi`,

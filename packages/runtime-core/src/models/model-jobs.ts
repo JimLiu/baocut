@@ -205,7 +205,7 @@ export async function openModelJobs(options: ModelJobsOptions): Promise<ModelJob
     idleMs: options.idleMs,
     resources,
   });
-  const store = await ModelServiceStore.open(home, options.credentials);
+  const store = await ModelServiceStore.open(home, options.credentials, undefined, { log: options.log.child('model-services') });
   // 用量账本（§6.10）：在线与智能体 Provider 的每次真实调用记一条。
   const usageLog = options.log.child('usage');
   const usage = new UsageLedger(home.usageFile, { warn: (message, data) => usageLog.warn(message, data) });

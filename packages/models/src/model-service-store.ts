@@ -22,9 +22,9 @@ import {
   CredentialStoreError,
   credentialProblem,
   providerCredentialKey,
-  readJson,
-  writeJsonAtomic,
+  JsonStoreFile,
   type CredentialStore,
+  type StoreLog,
 } from '@baocut/runtime-storage';
 
 /**
@@ -128,7 +128,7 @@ export interface AccountPatch {
 }
 
 export class ModelServiceStore {
-  readonly #paths: ModelServiceStorePaths;
+  readonly #file: JsonStoreFile;
   readonly #services: ServicesFile;
   readonly #credentials: CredentialStore;
   /** 有密钥的账号（`<providerId>/<accountId>`；打开时查一次，之后随修改更新）。 */
@@ -143,14 +143,15 @@ export class ModelServiceStore {
   readonly #migrationFailed = new Set<string>();
   #chain: Promise<void> = Promise.resolve();
 
-  private constructor(paths: ModelServiceStorePaths, services: ServicesFile, credentials: CredentialStore) {
-    this.#paths = paths;
+  private constructor(file: JsonStoreFile, services: ServicesFile, credentials: CredentialStore) {
+    this.#file = file;
     this.#services = services;
     this.#credentials = credentials;
   }
 
   /**
-   * 读配置文件（没有或认不出时从空的配置开始，第一次修改时才写），把第 1 版的密钥迁成账号，再向凭据存储逐个查各账号有没有
+   * 读配置文件（没有时从空的配置开始，第一次修改时才写；不是 JSON 或认不出时改名保留、从空开始；更新版本写下的或读不了的
+   * 按空处理且不再写它，见 `store-file.ts`），把第 1 版的密钥迁成账号，再向凭据存储逐个查各账号有没有
    * 密钥。查不了时记下原因，不让打开失败。
    *
    * 迁移的顺序（§6.8）：先把密钥写到新键 `provider:<id>/main`，再写第 2 版的配置文件，最后删旧键。写配置失败时不删旧键，
@@ -160,9 +161,16 @@ export class ModelServiceStore {
     paths: ModelServiceStorePaths,
     credentials: CredentialStore,
     now: () => string = () => new Date().toISOString(),
+    options: { log?: StoreLog } = {},
   ): Promise<ModelServiceStore> {
-    const { services, legacy } = parseServices(await readJson<unknown>(paths.modelServicesFile).catch(() => null));
-    const store = new ModelServiceStore(paths, services, credentials);
+    const file = new JsonStoreFile(paths.modelServicesFile, options.log);
+    const { value } = await file.read({
+      version: { key: 'formatVersion', known: 2 },
+      recognize: (raw) => (raw.formatVersion === 1 || raw.formatVersion === 2 ? raw : null),
+      tolerateReadErrors: true,
+    });
+    const { services, legacy } = parseServices(value);
+    const store = new ModelServiceStore(file, services, credentials);
     const pendingDelete: string[] = [];
     let changed = legacy;
     for (const [providerId, provider] of Object.entries(services.providers)) {
@@ -556,16 +564,17 @@ export class ModelServiceStore {
     for (const provider of Object.values(services.providers)) {
       if (provider.accounts.length === 0) delete (provider as Partial<StoredProvider>).accounts;
     }
-    const next = this.#chain.then(() => writePrivate(this.#paths.modelServicesFile, services));
+    const next = this.#chain.then(() => writePrivate(this.#file, services));
     this.#chain = next.catch(() => {});
     return next;
   }
 }
 
-async function writePrivate(file: string, value: unknown): Promise<void> {
-  await writeJsonAtomic(file, value, { mode: 0o600 });
+async function writePrivate(file: JsonStoreFile, value: unknown): Promise<void> {
+  if (file.readOnly) return file.write(value); // 只记一次 warn，不写。
+  await file.write(value, { mode: 0o600 });
   // umask 可能放宽了新文件的权限：改名之后再收紧一次。
-  await fs.chmod(file, 0o600);
+  await fs.chmod(file.file, 0o600);
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

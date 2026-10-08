@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { DownloadedFontFace, FontLicence } from '@baocut/protocol';
-import { readJson, writeJsonAtomic } from '@baocut/runtime-storage';
+import { JsonStoreFile, type StoreLog } from '@baocut/runtime-storage';
 
 /**
  * 下载的字体的缓存（架构设计 §9.1），在 Runtime Home 的 `fonts/` 下，不在项目目录里：
@@ -13,7 +13,14 @@ import { readJson, writeJsonAtomic } from '@baocut/runtime-storage';
  * 文件名里有内容摘要：同一个 face 换了内容是另一个文件，冻结了旧文件的导出不受影响。
  */
 
-const INDEX_SCHEMA = 'baocut.font-cache/1';
+const INDEX_VERSION = 1;
+const INDEX_SCHEMA = `baocut.font-cache/${INDEX_VERSION}`;
+
+/** `baocut.font-cache/<n>` → n；别的写法 null。 */
+function indexVersion(value: unknown): number | null {
+  const match = typeof value === 'string' ? /^baocut\.font-cache\/(\d+)$/.exec(value) : null;
+  return match ? Number(match[1]) : null;
+}
 
 export interface FontCacheEntry extends DownloadedFontFace {
   /** 相对 `files/` 的路径。 */
@@ -44,23 +51,28 @@ export class FontCache {
   readonly root: string;
   readonly filesDir: string;
   readonly stagingDir: string;
-  readonly #indexFile: string;
+  readonly #index: JsonStoreFile;
   #faces: FontCacheEntry[] | null = null;
   #writes: Promise<void> = Promise.resolve();
 
-  constructor(root: string) {
+  constructor(root: string, options: { log?: StoreLog } = {}) {
     this.root = root;
     this.filesDir = path.join(root, 'files');
     this.stagingDir = path.join(root, '.staging');
-    this.#indexFile = path.join(root, 'index.json');
+    this.#index = new JsonStoreFile(path.join(root, 'index.json'), options.log);
   }
 
   /** 读索引（第一次时）：文件不见了的条目去掉。 */
   async #load(): Promise<FontCacheEntry[]> {
     if (this.#faces) return this.#faces;
     await fs.mkdir(this.filesDir, { recursive: true });
-    const raw = await readJson<IndexFile>(this.#indexFile).catch(() => null);
-    const faces = raw?.schema === INDEX_SCHEMA && Array.isArray(raw.faces) ? raw.faces : [];
+    // 索引坏了改名保留、从空开始（文件还在 `files/` 里，下次用到时重新下载登记）；更新版本写下的不改写（`store-file.ts`）。
+    const { value } = await this.#index.read({
+      version: { key: 'schema', known: INDEX_VERSION, parse: indexVersion },
+      recognize: (raw) => (raw.schema === INDEX_SCHEMA && Array.isArray(raw.faces) ? (raw.faces as FontCacheEntry[]) : null),
+      tolerateReadErrors: true,
+    });
+    const faces = value ?? [];
     const present: FontCacheEntry[] = [];
     for (const face of faces) {
       if (typeof face?.file !== 'string' || face.file.includes('..') || path.isAbsolute(face.file)) continue;
@@ -136,7 +148,7 @@ export class FontCache {
   async #write(change: (faces: FontCacheEntry[]) => Promise<FontCacheEntry[]>): Promise<void> {
     const write = this.#writes.then(async () => {
       const next = await change(await this.#load());
-      await writeJsonAtomic(this.#indexFile, { schema: INDEX_SCHEMA, faces: next } satisfies IndexFile);
+      await this.#index.write({ schema: INDEX_SCHEMA, faces: next } satisfies IndexFile);
       this.#faces = next;
     });
     this.#writes = write.catch(() => {});

@@ -78,11 +78,13 @@ export class NodeService {
   /** 实际绑定的地址（`server.address()`），没在监听时为 null。 */
   #boundAddress: string | null = null;
   #error: string | null = null;
+  /** `node-share.json` 读不了或认不出：共享关着、不能修改，也不写那个文件。 */
+  readonly #unreadable: string | null;
   /** 开关操作串行。 */
   #chain: Promise<unknown> = Promise.resolve();
   #closed = false;
 
-  private constructor(options: NodeServiceOptions, share: ShareFile) {
+  private constructor(options: NodeServiceOptions, share: ShareFile, unreadable: string | null) {
     this.#options = options;
     this.#log = options.log ?? silentNodeLog;
     this.#store = new ShareStore(options.shareFile);
@@ -90,6 +92,7 @@ export class NodeService {
     this.#host = options.host ?? '0.0.0.0';
     this.#shareable = options.shareableCapabilities ?? NODE_SHAREABLE_CAPABILITIES;
     this.#share = share;
+    this.#unreadable = unreadable;
     this.#pairing = this.#newPairing(share);
     this.jobs = new NodeJobs({
       dir: options.jobsDir,
@@ -102,9 +105,17 @@ export class NodeService {
     });
   }
 
-  /** 读持久状态、清掉上次留下的远端任务目录；开关是开的就开始监听（不生成配对码）。 */
+  /**
+   * 读持久状态、清掉上次留下的远端任务目录；开关是开的就开始监听（不生成配对码）。
+   * `node-share.json` 读不了或认不出时不让 Runtime 启动失败：共享按关着处理，修改共享的操作以 `conflict` 拒绝，
+   * `ShareStatus.error` 说明原因；文件原样留着，修好或移走之后重启生效。
+   */
   static async open(options: NodeServiceOptions): Promise<NodeService> {
-    const share = (await loadShareFile(options.shareFile)) ?? {
+    const log = options.log ?? silentNodeLog;
+    const loaded = await loadShareFile(options.shareFile, log);
+    const unreadable = loaded && 'unreadable' in loaded ? loaded.unreadable : null;
+    if (unreadable) log.error('Share file is unreadable; sharing is off and cannot be changed until it is fixed or removed', { reason: unreadable });
+    const share = (loaded && !('unreadable' in loaded) ? loaded : null) ?? {
       formatVersion: 1,
       enabled: false,
       nodeId: null,
@@ -114,7 +125,7 @@ export class NodeService {
       capabilities: null,
       clients: [],
     };
-    const service = new NodeService(options, share);
+    const service = new NodeService(options, share, unreadable);
     await service.jobs.sweep();
     if (share.enabled) await service.#listen();
     return service;
@@ -125,6 +136,7 @@ export class NodeService {
   start(params: ShareStartParams = {}): Promise<ShareStatus> {
     return this.#serial(async () => {
       if (this.#closed) throw new RpcError('busy', NS.runtimeStopping());
+      this.#assertWritable();
       const share = this.#share;
       const portChanged = params.port !== undefined && params.port !== share.port;
       const nameChanged = params.name !== undefined && params.name !== share.name;
@@ -146,6 +158,7 @@ export class NodeService {
 
   stop(): Promise<ShareStatus> {
     return this.#serial(async () => {
+      this.#assertWritable();
       this.#share.enabled = false;
       await this.#save();
       await this.#shutdown();
@@ -159,7 +172,7 @@ export class NodeService {
     return {
       enabled: share.enabled,
       listening: this.#server !== null,
-      error: share.enabled && !this.#server ? this.#error : null,
+      error: this.#unreadable !== null ? NS.shareFileUnreadable({ reason: this.#unreadable }).text : share.enabled && !this.#server ? this.#error : null,
       nodeId: share.nodeId,
       name: this.#name(),
       port: this.#boundPort ?? share.port,
@@ -180,6 +193,7 @@ export class NodeService {
 
   revoke(clientId: string): Promise<ShareStatus> {
     return this.#serial(async () => {
+      this.#assertWritable();
       if (!this.#pairing.revoke(clientId)) throw new RpcError('not-found', NS.clientNotFound());
       this.#share.clients = this.#pairing.clients();
       await this.#save();
@@ -195,6 +209,7 @@ export class NodeService {
    */
   setCapability(capability: string, enabled: boolean): Promise<ShareStatus> {
     return this.#serial(async () => {
+      this.#assertWritable();
       if (!this.#shareable.includes(capability)) {
         throw new RpcError('invalid-request', NS.capabilityNotShareable({ capability, shareable: this.#shareable.join(NS.listSeparator().text) }), {
           capability,
@@ -363,7 +378,12 @@ export class NodeService {
   }
 
   #save(): Promise<void> {
+    if (this.#unreadable !== null) return Promise.resolve();
     return this.#store.save(this.#share);
+  }
+
+  #assertWritable(): void {
+    if (this.#unreadable !== null) throw new RpcError('conflict', NS.shareFileUnreadable({ reason: this.#unreadable }));
   }
 
   #serial<T>(task: () => Promise<T>): Promise<T> {

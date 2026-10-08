@@ -142,7 +142,7 @@ export class FontService {
 
   constructor(options: FontServiceOptions) {
     this.#options = options;
-    this.cache = new FontCache(options.dir);
+    this.cache = new FontCache(options.dir, { log: options.log });
     // `BAOCUT_FONT_DOWNLOADS=off`（测试的默认，见 vitest.config.ts）：没有字体目录，什么也不下载，只用本机字体。
     this.catalogue =
       options.catalogue ??

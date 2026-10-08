@@ -1,5 +1,5 @@
 import { isDriverId, isMessageRef, type DriverId, type DriverModel, type DriverProbe } from '@baocut/protocol';
-import { readJson, writeJsonAtomic } from './json-file.ts';
+import { JsonStoreFile, type StoreOptions } from './store-file.ts';
 
 /**
  * 探测结果里属于「这台机器」的事实（架构设计 §3.11）：装没装、哪个版本、在哪、登没登录、模型表。
@@ -49,19 +49,22 @@ export function driverProbeFacts(probe: DriverProbe): DriverProbeFacts {
  * Agent 的探测缓存（`<home>/store/agent-probes.json`，架构设计 §3.11）：每个 Driver 最近一次探测的本机事实。
  * Runtime 启动时先拿它给界面，后台重新探测；探测完成一个写一次（整份覆盖，写串行，后一次覆盖前一次）。
  *
- * 只是缓存：文件坏了、字段不对的条目当没有，不拦住 Runtime 启动；没注册的 Driver、可执行文件对不上的条目由调用方丢弃。
+ * 只是缓存：文件坏了（改名保留）、字段不对的条目当没有，不拦住 Runtime 启动；更新版本写下的不改写（`store-file.ts`）；没注册的 Driver、可执行文件对不上的条目由调用方丢弃。
  */
 export class AgentProbeStore {
-  readonly #file: string;
+  readonly #file: JsonStoreFile;
   #saving: Promise<void> = Promise.resolve();
 
-  constructor(file: string) {
-    this.#file = file;
+  constructor(file: string, options: StoreOptions = {}) {
+    this.#file = new JsonStoreFile(file, options.log);
   }
 
   async load(): Promise<StoredDriverProbes> {
-    const data = await readJson<Partial<AgentProbesFile>>(this.#file).catch(() => null);
-    const raw = data && typeof data === 'object' && data.drivers && typeof data.drivers === 'object' ? data.drivers : {};
+    const { value } = await this.#file.read({
+      recognize: (raw) => (raw.drivers && typeof raw.drivers === 'object' && !Array.isArray(raw.drivers) ? (raw.drivers as object) : null),
+      tolerateReadErrors: true,
+    });
+    const raw = value ?? {};
     const result: StoredDriverProbes = {};
     for (const id of Object.keys(raw).filter(isDriverId)) {
       const entry = normalize((raw as Record<string, unknown>)[id]);
@@ -73,7 +76,7 @@ export class AgentProbeStore {
   /** 整份写入。写失败只影响下次启动能不能用上缓存：调用方记日志即可。 */
   save(drivers: StoredDriverProbes): Promise<void> {
     const snapshot: AgentProbesFile = { schemaVersion: 1, drivers: structuredClone(drivers) };
-    this.#saving = this.#saving.catch(() => {}).then(() => writeJsonAtomic(this.#file, snapshot));
+    this.#saving = this.#saving.catch(() => {}).then(() => this.#file.write(snapshot));
     return this.#saving;
   }
 

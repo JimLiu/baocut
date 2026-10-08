@@ -7,6 +7,7 @@ export const ja: RuntimeStorageCredentialsMessages = {
   internal: '認証情報の読み書き中にエラーが発生しました',
   problem: (p) => `${p.reason}：${p.message}`,
   fileWriteFailed: (p) => `認証情報ファイルに書き込めませんでした（${p.code}）`,
+  fileUnreadable: (p) => `認証情報ファイルを読み取れないため、そのまま残しました（${p.code}）`,
   helperBadResponse: '認証情報ヘルパーが無効な応答を返しました',
   helperNotFound: '認証情報ヘルパーのプログラムが見つかりませんでした',
   helperTimedOut: (p) => `認証情報ヘルパーが ${p.seconds} 秒以内に応答しませんでした`,

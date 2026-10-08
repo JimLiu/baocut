@@ -7,6 +7,7 @@ export const fr: RuntimeStorageCredentialsMessages = {
   internal: "Erreur de lecture ou d’écriture de l’identifiant",
   problem: (p: { reason: string; message: string }) => `${p.reason} : ${p.message}`,
   fileWriteFailed: (p: { code: string }) => `Impossible d’écrire le fichier d’identifiant (${p.code})`,
+  fileUnreadable: (p) => `Impossible de lire le fichier d’identifiant ; il a été laissé intact (${p.code})`,
   helperBadResponse: "L’assistant d’identifiants a renvoyé une réponse invalide",
   helperNotFound: "Programme d’assistance aux identifiants introuvable",
   helperTimedOut: (p: { seconds: number }) => `L’assistant d’identifiants n’a pas répondu dans les ${p.seconds} secondes`,

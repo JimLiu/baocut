@@ -7,6 +7,7 @@ export const ru: RuntimeStorageCredentialsMessages = {
   internal: "Ошибка чтения или записи учётных данных",
   problem: (p) => `${p.reason}: ${p.message}`,
   fileWriteFailed: (p) => `Не удалось записать файл учётных данных (${p.code})`,
+  fileUnreadable: (p) => `Не удаётся прочитать файл учётных данных; он оставлен без изменений (${p.code})`,
   helperBadResponse: "Программа учётных данных вернула недопустимый ответ",
   helperNotFound: "Программа учётных данных не найдена",
   helperTimedOut: (p) => `Программа учётных данных не ответила за ${p.seconds} с`,

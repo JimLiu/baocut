@@ -1,4 +1,4 @@
-import { TopicLog } from '@baocut/harness';
+import { TopicLog, type Logger } from '@baocut/harness';
 import { processLanguageTags, resolveLanguage, setLocale, type SettingsEvent, type SettingsSnapshot } from '@baocut/protocol';
 import { SettingsStore, type RuntimeHome } from '@baocut/runtime-storage';
 
@@ -8,9 +8,9 @@ export interface RuntimeSettings {
   topic: TopicLog<SettingsSnapshot, SettingsEvent>;
 }
 
-/** 读入偏好设置并接上主题。文件不是合法的 JSON 时抛出，Runtime 启动失败。 */
-export async function openSettings(home: RuntimeHome): Promise<RuntimeSettings> {
-  const store = new SettingsStore(home.settingsFile);
+/** 读入偏好设置并接上主题。文件不是合法的 JSON 或认不出时改名保留、全部取默认值（`store-file.ts`）；读不了时抛出。 */
+export async function openSettings(home: RuntimeHome, log?: Logger): Promise<RuntimeSettings> {
+  const store = new SettingsStore(home.settingsFile, log ? { log: log.child('settings') } : {});
   await store.load();
   const topic = new TopicLog<SettingsSnapshot, SettingsEvent>(() => store.snapshotAll(), '0');
   // Runtime 给人看的文字跟着界面语言（`ui.language`）；跟随系统时按这台电脑的系统语言。

@@ -39,5 +39,6 @@ export const ko: NodesServerMessages = {
   pairingLocked: '페어링이 잠겨 있습니다',
   pairingCodeInvalid: '페어링 코드가 틀렸거나 만료되었거나 없습니다',
   portInUse: (p) => `포트 ${p.port}이(가) 이미 사용 중입니다`,
+  shareFileUnreadable: (p) => `공유 설정 파일(node-share.json)을 읽을 수 없습니다(${p.reason}). 그대로 두었습니다. 공유를 변경하려면 파일을 고치거나 제거하세요`,
   cannotListen: (p) => `노드 서비스가 수신 대기할 수 없습니다: ${p.code}`,
 };

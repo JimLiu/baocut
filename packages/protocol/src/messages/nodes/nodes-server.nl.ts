@@ -40,5 +40,6 @@ export const nl: NodesServerMessages = {
   pairingLocked: "Koppelen is vergrendeld",
   pairingCodeInvalid: "De koppelcode is onjuist, verlopen of ontbreekt",
   portInUse: (p: { port: number }) => `Poort ${p.port} is al in gebruik`,
+  shareFileUnreadable: (p) => `Het bestand met deelinstellingen (node-share.json) kan niet worden gelezen (${p.reason}). Het is ongewijzigd gelaten; herstel of verwijder het om delen te wijzigen`,
   cannotListen: (p: { code: string }) => `De knooppuntdienst kan niet luisteren: ${p.code}`,
 };

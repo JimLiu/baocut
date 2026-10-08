@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import { CREDENTIAL_UNAVAILABLE } from '@baocut/models';
 import { RpcError } from '@baocut/protocol';
-import { credentialProblem, nodeCredentialKey, readJson, writeJsonAtomic, type CredentialStore } from '@baocut/runtime-storage';
+import { JsonStoreFile, credentialProblem, nodeCredentialKey, type CredentialStore } from '@baocut/runtime-storage';
 import { silentNodeLog, type NodeLogger } from '../node-logger.ts';
 import { NodesClient as NC } from '@baocut/protocol/messages/nodes';
 
@@ -47,21 +47,28 @@ const ALIAS_MAX = 63;
 
 export class NodeStore {
   readonly file: string;
+  readonly #file: JsonStoreFile;
   readonly #data: NodesFile;
   readonly #credentials: CredentialStore;
   /** 读不到令牌的节点与原因（不含令牌）。 */
   readonly #problems = new Map<string, string>();
   #chain: Promise<void> = Promise.resolve();
 
-  private constructor(file: string, data: NodesFile, credentials: CredentialStore) {
-    this.file = file;
+  private constructor(file: JsonStoreFile, data: NodesFile, credentials: CredentialStore) {
+    this.file = file.file;
+    this.#file = file;
     this.#data = data;
     this.#credentials = credentials;
   }
 
-  /** 读文件；没有（或认不出）时生成新的 `clientId` 并立即落盘。文件里还有旧版本的令牌时迁进凭据存储。 */
-  static async open(file: string, credentials: CredentialStore, log: NodeLogger = silentNodeLog): Promise<NodeStore> {
-    const loaded = parse(await readJson<unknown>(file).catch(() => null));
+  /**
+   * 读文件；没有时生成新的 `clientId` 并立即落盘。不是 JSON 或认不出时先改名保留（`<文件>.corrupt-<时间>`）再生成新的；
+   * 更新版本写下的或读不了的不改名也不覆盖，这次运行用一个只在内存里的 `clientId`（`store-file.ts`）。
+   * 文件里还有旧版本的令牌时迁进凭据存储。
+   */
+  static async open(path: string, credentials: CredentialStore, log: NodeLogger = silentNodeLog): Promise<NodeStore> {
+    const file = new JsonStoreFile(path, log);
+    const { value: loaded } = await file.read({ version: { key: 'formatVersion', known: 1 }, recognize: parse, tolerateReadErrors: true });
     const store = new NodeStore(file, loaded ?? { formatVersion: 1, clientId: newClientId(), nodes: [] }, credentials);
     if (!loaded) await store.#save();
     else await store.#migrateTokens(log);
@@ -211,7 +218,8 @@ export class NodeStore {
   #save(): Promise<void> {
     const snapshot = structuredClone(this.#data);
     const next = this.#chain.then(async () => {
-      await writeJsonAtomic(this.file, snapshot, { mode: 0o600 });
+      if (this.#file.readOnly) return this.#file.write(snapshot); // 只记一次 warn，不写。
+      await this.#file.write(snapshot, { mode: 0o600 });
       // umask 可能放宽了新文件的权限：改名之后再收紧一次。
       await fs.chmod(this.file, 0o600);
     });
@@ -230,8 +238,7 @@ function record(node: StoredNode): PairedNodeRecord {
   return { nodeId, alias, name, host, port, pairedAt };
 }
 
-function parse(value: unknown): NodesFile | null {
-  if (!value || typeof value !== 'object') return null;
+function parse(value: Record<string, unknown>): NodesFile | null {
   const data = value as Partial<NodesFile>;
   if (data.formatVersion !== 1 || typeof data.clientId !== 'string' || !CLIENT_ID_PATTERN.test(data.clientId)) return null;
   const nodes = Array.isArray(data.nodes) ? data.nodes : [];
