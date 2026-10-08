@@ -9,8 +9,11 @@
 // Worker 的输入用 Runtime 的 `workerInput`（`packages/runtime-core/src/exports/video-export.ts`）拼，视频与文档按引擎
 // `exports.plan` 给的形状手写（取自一致性夹具 `crates/frame-render/tests/fixtures/parity.json` 的写法）。
 //
-// 用法：node tools/export-bench.ts [--seconds 60] [--mono | --no-captions] [--worker <export-worker>] [--runs 1]
+// 用法：node tools/export-bench.ts [--seconds 60] [--mono | --no-captions] [--style <预设>] [--worker <export-worker>] [--runs 1]
 //       [--json <输出文件>] [--keep]
+// `--style` 选字幕样式预设：缺省 `studio-color`（逐词变色，画面只在句与词的边界变，约 1 ms/帧）；其余走字幕内核每帧重画的路径：
+// `studio-transition`（入场姿态＋出场）、`studio-wordbox`（药丸高亮块随词缩放淡入）、`designed`（Designed Caption 配方＋逐词强调）、
+// `boxed-reveal`（定位框样式＋逐字显现，原文与译文各一个框；词到了才亮出来，只在词界变）、`boxed-motion`（同样的框，词入场连续位移）。
 // `--worker` 缺省是 `<target>/release/export-worker`（`cargo build --release -p export-worker`；打包的应用用 release），
 // 没有时退回 debug 并警告。`--runs` 大于 1 时报中位数与最好的一次。机器忙时绝对值会飘，看输出里的负载。
 // 环境：CARGO_TARGET_DIR（找 export-worker），BAOCUT_FFMPEG / BAOCUT_FFPROBE（缺省 PATH 里的 ffmpeg、ffprobe）。
@@ -44,9 +47,21 @@ const CUE_LENGTH = 2.3;
 
 type Captions = "bilingual" | "mono" | "none";
 
+/** 字幕样式预设（`--style`）。除缺省的 `studio-color` 外，都会让字幕内核每帧重画。 */
+const STYLES = [
+  "studio-color",
+  "studio-transition",
+  "studio-wordbox",
+  "designed",
+  "boxed-reveal",
+  "boxed-motion",
+] as const;
+type StyleName = (typeof STYLES)[number];
+
 interface Options {
   seconds: number;
   captions: Captions;
+  style: StyleName;
   worker: string | null;
   runs: number;
   json: string | null;
@@ -57,6 +72,7 @@ function parseOptions(argv: string[]): Options {
   const options: Options = {
     seconds: 60,
     captions: "bilingual",
+    style: "studio-color",
     worker: null,
     runs: 1,
     json: null,
@@ -67,7 +83,12 @@ function parseOptions(argv: string[]): Options {
     if (arg === "--seconds") options.seconds = Number(argv[++i]);
     else if (arg === "--mono") options.captions = "mono";
     else if (arg === "--no-captions") options.captions = "none";
-    else if (arg === "--worker") options.worker = resolve(argv[++i]!);
+    else if (arg === "--style") {
+      const name = argv[++i] as StyleName;
+      if (!STYLES.includes(name))
+        throw new Error(`--style 要是 ${STYLES.join(" / ")} 之一`);
+      options.style = name;
+    } else if (arg === "--worker") options.worker = resolve(argv[++i]!);
     else if (arg === "--runs") options.runs = Number(argv[++i]);
     else if (arg === "--json") options.json = resolve(argv[++i]!);
     else if (arg === "--keep") options.keep = true;
@@ -142,6 +163,121 @@ const TRANSLATION = [
   "我们量 worker 每秒能稳定画多少帧（FPS）",
 ];
 
+/** 译文行的样式文档 id；Studio 样式两行共用 `doc_style`，定位框样式各有一个框。 */
+const ORIG_STYLE = "doc_style";
+const TRANS_STYLE = "doc_style_trans";
+
+const motion = (preset: string, durationSeconds: number, easing: string) => ({
+  preset,
+  unit: "cue",
+  durationSeconds,
+  staggerSeconds: 0,
+  intensity: 1,
+  easing,
+});
+
+const studioDocument = (documentId: string, style: unknown) => ({
+  documentId,
+  kind: "caption-style",
+  schema: "baocut.legacy-studio-style/0.1",
+  body: { schema: "baocut.legacy-studio-style/0.1", style },
+});
+
+/** 定位框样式：画布与输出同大，原文框在下、译文框叠在它上面；`animationPresetId: reveal` 逐字显现。 */
+const boxedDocument = (documentId: string, y: number, preset: string) => ({
+  documentId,
+  kind: "caption-style",
+  schema: "baocut.boxed-caption-style/18",
+  body: {
+    schema: "baocut.boxed-caption-style/18",
+    canvas: { width: WIDTH, height: HEIGHT },
+    box: { x: 0, y, width: 1700, height: 160 },
+    style: {
+      fontSize: 64,
+      color: "#FFFFFF",
+      verticalAlign: "center",
+      animationPresetId: preset,
+    },
+  },
+});
+
+/** 预设的样式文档：`orig` 给原文，`trans` 给译文（缺省与原文共用）。 */
+function styleDocuments(style: StyleName): { orig: unknown; trans: unknown } {
+  const studio = (extra: Record<string, unknown>) => {
+    const doc = studioDocument(ORIG_STYLE, { order: "trans", ...extra });
+    return { orig: doc, trans: doc };
+  };
+  switch (style) {
+    case "studio-color":
+      // 逐词变色：画面只在句子与词的边界变。
+      return studio({ anim: { name: "Color" } });
+    case "studio-transition":
+      // 入场姿态（淡入＋缩放）与出场（textMotion.out）：句首句尾每帧重画。
+      return studio({
+        anim: { name: "Color" },
+        transition: { transitionId: "magic-pop", transitionSpeed: 0 },
+        textMotion: {
+          version: 1,
+          in: motion("fade-up", 0.5, "easeOutQuad"),
+          out: motion("blur-out", 0.4, "easeInQuad"),
+        },
+      });
+    case "studio-wordbox":
+      // 药丸高亮：高亮块随词的相位缩放、淡入。
+      return studio({
+        wordAnimation: {
+          animationName: "Highlight",
+          active: {
+            boxScale: [
+              [0, 0.7],
+              [0.4, 1.08],
+              [1, 1],
+            ],
+            boxOpacity: [
+              [0, 0],
+              [0.3, 1],
+              [1, 1],
+            ],
+            boxEasing: "expoOut",
+          },
+        },
+      });
+    case "designed": {
+      // Designed Caption：配方每帧解析；第 3 个词标成 hero（词 id 取自转写）。
+      const doc = studioDocument(ORIG_STYLE, {
+        order: "trans",
+        captionEmphasis: {
+          w0_2: { role: "hero", color: "#00E5FF", emoji: "✨" },
+          w1_1: { role: "emphasis", color: "#FFD43B" },
+        },
+        wordAnimation: {
+          animationName: "None",
+          caption: {
+            schema: 1,
+            style: { id: "caption-weight-shift", version: 1 },
+            content: "orig",
+            palette: { primary: "#FFFFFF", accent: "#FF4D6D" },
+            intensity: 72,
+            speed: 1.1,
+            seed: 31415,
+            options: [],
+          },
+        },
+      });
+      return { orig: doc, trans: doc };
+    }
+    case "boxed-reveal":
+    case "boxed-motion": {
+      // 逐字显现是离散的（词到了才亮出来）；`floatInTop` 让每个词入场时连续位移淡入。
+      const preset = style === "boxed-reveal" ? "reveal" : "floatInTop";
+      return {
+        orig: boxedDocument(ORIG_STYLE, 440, preset),
+        trans: boxedDocument(TRANS_STYLE, 270, preset),
+      };
+    }
+  }
+}
+
 const MS = (seconds: number) => Math.round(seconds * 1000);
 const time = (seconds: number) => ({
   ticks: String(MS(seconds)),
@@ -149,7 +285,7 @@ const time = (seconds: number) => ({
 });
 
 /** 转写、原文与译文字幕（源素材时钟，毫秒）。 */
-function captionDocuments(seconds: number, assetId: string) {
+function captionDocuments(seconds: number, assetId: string, style: StyleName) {
   const words: { id: string; text: string; start: number; end: number }[] = [];
   const original: unknown[] = [];
   const translation: unknown[] = [];
@@ -219,16 +355,7 @@ function captionDocuments(seconds: number, assetId: string) {
       sourceAssetId: assetId,
       body: caption(translation),
     },
-    style: {
-      documentId: "doc_style",
-      kind: "caption-style",
-      schema: "baocut.legacy-studio-style/0.1",
-      body: {
-        schema: "baocut.legacy-studio-style/0.1",
-        // 逐词变色（缺省动画），译文在上。
-        style: { anim: { name: "Color" }, order: "trans" },
-      },
-    },
+    styles: styleDocuments(style),
   };
 }
 
@@ -239,14 +366,19 @@ const base = {
   followPolicy: { kind: "sequence-fixed" },
 };
 
-function captionItem(id: string, documentId: string, frames: number) {
+function captionItem(
+  id: string,
+  documentId: string,
+  styleDocumentId: string,
+  frames: number,
+) {
   return {
     ...base,
     id,
     type: "caption",
     trackId: "trk_s1",
     documentId,
-    styleDocumentId: "doc_style",
+    styleDocumentId,
     scopeItemIds: ["clip"],
     span: { fromFrame: 0, durationFrames: frames },
   };
@@ -256,11 +388,12 @@ function captionItem(id: string, documentId: string, frames: number) {
 function plan(
   seconds: number,
   captions: Captions,
+  style: StyleName,
   bytes: number,
 ): VideoPlanResult {
   const frames = seconds * FPS;
   const assetId = "a_clip";
-  const docs = captionDocuments(seconds, assetId);
+  const docs = captionDocuments(seconds, assetId, style);
   const items: unknown[] = [
     {
       ...base,
@@ -282,12 +415,21 @@ function plan(
   ];
   const documents: unknown[] = [];
   if (captions !== "none") {
-    items.push(captionItem("cap_orig", "doc_orig", frames));
-    documents.push(docs.speech, docs.original, docs.style);
+    items.push(captionItem("cap_orig", "doc_orig", ORIG_STYLE, frames));
+    documents.push(docs.speech, docs.original, docs.styles.orig);
   }
   if (captions === "bilingual") {
-    items.push(captionItem("cap_trans", "doc_trans", frames));
+    const own = docs.styles.trans !== docs.styles.orig;
+    items.push(
+      captionItem(
+        "cap_trans",
+        "doc_trans",
+        own ? TRANS_STYLE : ORIG_STYLE,
+        frames,
+      ),
+    );
     documents.push(docs.translation);
+    if (own) documents.push(docs.styles.trans);
   }
   const track = (id: string, kind: string, order: number) => ({
     id,
@@ -361,7 +503,11 @@ interface Fixture {
   cues: number;
 }
 
-function makeFixture(seconds: number, captions: Captions): Fixture {
+function makeFixture(
+  seconds: number,
+  captions: Captions,
+  style: StyleName,
+): Fixture {
   const dir = mkdtempSync(join(tmpdir(), "baocut-export-bench-"));
   const clip = join(dir, "clip.mp4");
   run(FFMPEG, [
@@ -392,7 +538,7 @@ function makeFixture(seconds: number, captions: Captions): Fixture {
     ],
   ]);
   const input = workerInput({
-    plan: plan(seconds, captions, statSync(clip).size),
+    plan: plan(seconds, captions, style, statSync(clip).size),
     part: 0,
     assets: assets as never,
     output,
@@ -428,6 +574,7 @@ function which(tool: string): string {
 
 interface Result {
   captions: Captions;
+  style: StyleName;
   worker: string;
   profile: string;
   seconds: number;
@@ -528,7 +675,7 @@ function print(
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
   const worker = findWorker(options.worker);
-  const fixture = makeFixture(options.seconds, options.captions);
+  const fixture = makeFixture(options.seconds, options.captions, options.style);
   const captionsLabel = {
     bilingual: "双语字幕",
     mono: "单语字幕",
@@ -536,7 +683,7 @@ async function main(): Promise<void> {
   }[options.captions];
   console.log(
     `夹具：${WIDTH}×${HEIGHT} ${FPS} fps ${options.seconds} s，${captionsLabel}` +
-      `${options.captions === "none" ? "" : `（${fixture.cues} 句）`}，目录 ${fixture.dir}`,
+      `${options.captions === "none" ? "" : `（${options.style}，${fixture.cues} 句）`}，目录 ${fixture.dir}`,
   );
   console.log(
     `Worker：${worker.path}（${worker.profile}），${cpus().length} 核 ${cpus()[0]?.model ?? ""}`,
@@ -551,6 +698,7 @@ async function main(): Promise<void> {
       const renderSeconds = Number(done.renderSeconds);
       const result: Result = {
         captions: options.captions,
+        style: options.style,
         worker: worker.path,
         profile: worker.profile,
         seconds: options.seconds,
@@ -566,8 +714,12 @@ async function main(): Promise<void> {
         loadAfter,
       };
       results.push(result);
-      const warnings =
-        (done.warnings ?? []).length + (done.skipped ?? []).length;
+      const skipped = (done.skipped ?? []).length;
+      const warnings = (done.warnings ?? []).length + skipped;
+      if (skipped)
+        console.warn(
+          `警告：Worker 跳过了字幕（样式没画出来）：${JSON.stringify(done.skipped)}`,
+        );
       print(
         `第 ${i + 1} 次`,
         result,
