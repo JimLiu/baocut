@@ -17,7 +17,7 @@ import {
   pickTemplate,
   type HomeBriefState,
 } from '../model/home-brief.ts';
-import type { HomeStarter } from '../model/home-starters.ts';
+import { starterTarget, type HomeStarter } from '../model/home-starters.ts';
 import { templateOf, type HomeTemplate } from '../model/home-templates.ts';
 import { slotLabels } from '../model/prompt-slots.ts';
 import { recentVideos, videoTargetOf } from '../model/space.ts';
@@ -30,6 +30,7 @@ import { useDirectory, useProject } from '../state/directory-store.ts';
 import { useDraftImages } from '../state/draft-images-store.ts';
 import { useDraftSkillId, useDraftSkills } from '../state/draft-skills-store.ts';
 import { useSetting } from '../state/settings-store.ts';
+import { useHomeMemory } from '../state/home-memory-store.ts';
 import { useHomeTemplates } from '../state/home-templates-store.ts';
 import { useTemplateCatalog } from '../state/template-catalog-store.ts';
 import { useShell } from '../state/shell-store.ts';
@@ -83,10 +84,17 @@ const title = style({
  */
 export function StartPage({ projectId: routeProjectId }: { projectId: string | null }) {
   const runtime = useRuntime();
+  const projects = useDirectory((s) => s.projects);
+  const pickable = projects.filter((p) => !p.archived).sort((a, b) => b.lastActiveAt.localeCompare(a.lastActiveAt));
   // 旁边的编辑器开着项目里的视频时，新会话建在那个项目里，智能体才能读写这个视频（§1.5）。
   const videoProjectId = useVideo((s) => s.video?.ref?.source.projectId ?? null);
-  const projectId = routeProjectId ?? videoProjectId;
+  // 路由没带项目时用托盘上次选的（记在这台电脑上，还在、没归档才算；产品设计 §3.2.1），否则不用项目。
+  const lastProject = useHomeMemory((s) => s.project);
+  const remembered = lastProject && pickable.some((p) => p.id === lastProject) ? lastProject : null;
+  const projectId = routeProjectId ?? videoProjectId ?? remembered;
   const project = useProject(projectId);
+  // 「转录并翻译」上次填的目标语言：快捷开始沿用它，没有时那句话留待填项。
+  const lastTarget = useHomeMemory((s) => s.target);
   const go = useShell((s) => s.go);
   const draftKey = startDraftKey(routeProjectId);
   // 新会话的访问模式：草稿上选过的，否则设置里的默认（`agent.defaultAccessMode`，记着上次在这里选的）。
@@ -105,8 +113,6 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
   const driverId = driver?.id ?? null;
   const { model, effort } = draftSelection(driver, choice);
   const editor = useEditorReference({ conversationId: null, projectId });
-  const projects = useDirectory((s) => s.projects);
-  const pickable = projects.filter((p) => !p.archived).sort((a, b) => b.lastActiveAt.localeCompare(a.lastActiveAt));
   const brief = useStartBriefOf(draftKey);
   // 输入框里还没填的待填项（模板包规范 §5.5）：框下面的提示行列出它们。
   const slots = slotLabels(useShell((s) => s.drafts[draftKey] ?? ''));
@@ -193,7 +199,7 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
     fillPrompt(text, () => patch({ template: before.template }));
   };
 
-  // 新建空白视频（原型 `createBlank`）：16:9，建在这一页的项目里（没选项目时先建一个）。
+  // 新建空白视频（原型 `createBlank`）：16:9，建在这一页的项目里（没选项目时先建一个：没有会话，视频没有别处可放）。
   const createBlank = () => void createBlankVideo(runtime, projectId, '16:9');
 
   // 选文件是异步的：并进去时按 store 里最新的那份算，不用渲染时的快照。
@@ -207,7 +213,7 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
 
   // 换项目：起始页按项目重新挂载，输入框的话、附图、点选的 skill、模板与素材、访问模式与 Agent 选择一起搬过去；
   // 编辑器开着的话，功能区的标签也跟到那个项目的起始页。
-  const moveDraft = (id: Id) => {
+  const moveDraft = (id: Id | null) => {
     const to = startDraftKey(id);
     const shell = useShell.getState();
     const text = shell.drafts[draftKey];
@@ -232,7 +238,9 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
     if (route.tab === 'home') shell.carryWorkspace(workspaceKey(route.conversationId, route.projectId), workspaceKey(null, id));
   };
 
-  const switchProject = (id: Id) => {
+  // 托盘上选的项目（null = 不用项目）记下来，下次进起始页还是它；别处带着项目来（侧栏「在这里新建会话」等）不记。
+  const switchProject = (id: Id | null) => {
+    useHomeMemory.getState().setProject(id);
     if (id === routeProjectId) return;
     const { route } = useShell.getState();
     const pane = route.tab === 'home' ? route.pane : undefined;
@@ -320,6 +328,9 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
             const sceneRef = brief.template
               ? { id: brief.template, ...(template ? { version: template.version, language: template.language } : {}) }
               : undefined;
+            // 「转录并翻译」填的目标语言记下来，下次点这条快捷开始直接沿用（认不出那句话就不记）。
+            const target = starterTarget(raw);
+            if (target) useHomeMemory.getState().setTarget(target);
             const text = homeBrief(raw, {
               images: attachments.length,
               materials: brief.materials.map((m) => m.path),
@@ -370,10 +381,15 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
             }
           }}
         />
-        <ProjectPicker project={project ?? null} projects={pickable} onSelect={switchProject} />
+        <ProjectPicker
+          project={project ?? null}
+          projects={pickable}
+          noneDisabled={!!videoProjectId}
+          onSelect={switchProject}
+        />
         <SlotHint labels={gate === null || gate.ok ? slots : []} onNext={() => setSlotTick((n) => n + 1)} />
         {guide ? <GateCard guide={guide} /> : null}
-        <HomeStarters onPick={applyStarter} onBlank={createBlank} />
+        <HomeStarters target={lastTarget} onPick={applyStarter} onBlank={createBlank} />
         <HomeTemplateShelf
           catalog={catalog.templates}
           scene={brief.template}

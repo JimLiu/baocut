@@ -344,22 +344,24 @@ export const fr: CopyMessages = {
     thisComputer: "Cet ordinateur",
     pickProject: "Choisir un projet",
     pickProjectLabel: (name: string | null) => `Choisir un projet : ${name ?? "Aucun"}`,
-    currentProject: "Projet actuel",
-    newProject: "Nouveau projet",
-    noProject: "Sans projet, l’Agent travaille dans un dossier temporaire",
+    current: "Actuel",
+    newProject: "Nouveau projet…",
+    noProjectOption: "Aucun projet",
+    noProject: "Sans projet, les vidéos et fichiers restent dans le dossier propre à cette session",
     enableFailed: (message: string) => `Impossible d’activer : ${message}`,
   },
 
   homeStarter: {
-    sub: { title: "Ajouter des sous-titres", needs: "une vidéo", prompt: "Ajoutez des sous-titres à cette vidéo." },
-    trans: { title: "Transcrire et traduire", needs: "une vidéo", prompt: "Transcrivez cette vidéo et traduisez en chinois sous forme de sous-titres bilingues." },
+    sub: { title: "Ajouter des sous-titres", needs: "une vidéo", link: "un lien vidéo", prompt: "Ajoutez des sous-titres à cette vidéo." },
+    trans: { title: "Transcrire et traduire", needs: "une vidéo", link: "un lien vidéo", prompt: "Transcrivez cette vidéo et traduisez-la en {{langue cible}} sous forme de sous-titres bilingues." },
     clean: {
       title: "Raccourcir une vidéo face caméra",
       needs: "une vidéo",
+      link: "un lien vidéo",
       prompt: "Transcrivez cette vidéo et trouvez tics de langage, pauses et reprises. Montrez-moi avant de couper.",
     },
-    a2v: { title: "Audio vers vidéo", needs: "un fichier audio", prompt: "Transformez cet audio en vidéo avec fond, forme d’onde et sous-titres." },
-    tip: (needs: string) => `Remplit le prompt. Glissez ensuite ${needs} dans le champ de message`,
+    a2v: { title: "Audio vers vidéo", needs: "un fichier audio", link: "un lien", prompt: "Transformez cet audio en vidéo avec fond, forme d’onde et sous-titres." },
+    tip: (needs: string, link: string) => `Remplit le prompt. Glissez ensuite ${needs} dans le champ de message ou collez ${link}`,
   },
 
   templateCategory: {

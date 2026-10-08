@@ -94,8 +94,8 @@
   }
   /* 输入框下沿的项目托盘（product-design §2.3）：会话可以不属于任何项目，所以第一项是「不用项目」；
      其余是项目（按最近活动排，同侧栏）与「新建项目」。选中哪个由页面记住，下次进来还是它（page-new.jsx）。
-     不用项目时说明 Agent 在哪儿干活、视频会落到哪儿：要建视频时才自动建项目，以视频命名。 */
-  const NO_PROJECT_HINT = '没选项目时，Agent 在临时文件夹里工作；要建视频时会自动建一个项目';
+     不用项目时说明视频会落到哪儿：会话自己的文件夹，不另建项目；用户明确要项目时 Agent 才把会话收进一个以视频命名的新项目。 */
+  const NO_PROJECT_HINT = '不用项目时，视频和文件放在这个会话自己的文件夹里';
   function HomeProjectPicker({dir, onDir}) {
     const app = useApp();
     const AP = window.BC_AGENT_PROJECTS;

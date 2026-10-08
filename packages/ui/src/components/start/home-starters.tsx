@@ -17,16 +17,16 @@ const STARTER_ICON: Record<StarterKey, typeof CloseCaptions> = { sub: CloseCapti
 
 /**
  * 起始页输入框下面「快捷开始」一行（原型 new-agent.jsx `HomeStarters`）：安静的小按钮，点一下把一句提示词放进输入框，不发送。
- * 行尾的「新建空白视频」不经过 Agent，直接建一个空视频在功能区打开。
+ * 行尾的「新建空白视频」不经过 Agent，直接建一个空视频在功能区打开。`target` 是上次「转录并翻译」填的目标语言，没有时那句话留待填项。
  */
-export function HomeStarters({ onPick, onBlank }: { onPick(starter: HomeStarter): void; onBlank(): void }) {
+export function HomeStarters({ target, onPick, onBlank }: { target: string | null; onPick(starter: HomeStarter): void; onBlank(): void }) {
   return (
     <div className={row} role="group" aria-label={HOME_COPY.quickStart}>
       <span className={label} aria-hidden>
         {HOME_COPY.quickStart}
       </span>
       <div className={items}>
-        {homeStarters().map((starter) => {
+        {homeStarters(target).map((starter) => {
           const Icon = STARTER_ICON[starter.key];
           return (
             <TooltipTrigger key={starter.key} placement="bottom">

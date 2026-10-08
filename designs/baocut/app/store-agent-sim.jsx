@@ -119,13 +119,13 @@
       const t = tasksRef.current.find((x) => x.id === tid) || {};
       const sess = sessionsRef.current.find((x) => x.id === sid) || {};
       /* 视频落在会话的项目里（会话的 `dir` 也可能是刚在起始页新建的项目，演示数据里查不到它，存放路径就留空）；
-         会话不属于任何项目时标 `needsDir`，App 层按 §2.3 给它新开一个与视频同名的项目（apprail-store.jsx）。 */
+         会话不属于任何项目时视频也不属于项目，放在会话自己的文件夹里（§2.3），不另建项目。 */
       const dirRec = (D.agentProjects || []).find((d) => d.id === sess.dir) || null;
       const title = t.title || t.name || '下载的视频';
       const id = 'pd-' + tid + '-' + Date.now().toString(36);
       const movie = {...window.BC_IMPORT.movieRecord({id, title, name: t.name || `${title}.mp4`,
         saveDir: dirRec ? dirRec.path + title : null, duration: t.mediaSec, hue: t.hue,
-        dir: sess.dir || null}), ctime: 0, mtime: 0, otime: 0, ...(sess.dir ? {} : {needsDir: true})};
+        dir: sess.dir || null}), ctime: 0, mtime: 0, otime: 0};
       setProjects((ps) => [movie].concat(ps));
       patchTask(tid, {status: 'done', outcome: 'done', ...SIM.done(sim), project: id});
       markTool(sid, tid, {status: 'done', took: '48s', error: null});

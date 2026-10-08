@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { templateSlots, templateUnfilledText } from '@baocut/protocol';
-import { fromPromptSegments, isSlotToken, nextSlotIndex, slotLabels, slotParts, slotsForAgent, toPromptSegments } from './prompt-slots.ts';
+import {
+  fillSlot,
+  filledSlot,
+  fromPromptSegments,
+  isSlotToken,
+  nextSlotIndex,
+  slotLabels,
+  slotParts,
+  slotsForAgent,
+  toPromptSegments,
+} from './prompt-slots.ts';
 
 const serialize = (parts: ReturnType<typeof slotParts>) => parts.map((x) => (x.type === 'slot' ? `{{${x.label}}}` : x.text)).join('');
 
@@ -135,5 +145,32 @@ describe('nextSlotIndex', () => {
     expect(nextSlotIndex(toPromptSegments('{{a}}'), 0)).toBe(0);
     expect(nextSlotIndex(toPromptSegments('都填好了'), 0)).toBe(-1);
     expect(nextSlotIndex([], -1)).toBe(-1);
+  });
+});
+
+describe('filledSlot / fillSlot', () => {
+  const template = '转录这个视频，并翻译成{{目标语言}}，做成双语字幕。';
+
+  it('认出用户把待填项填成了什么：按占位符前后的几个字找，前后可以多出别的话', () => {
+    expect(filledSlot(template, '目标语言', '转录这个视频，并翻译成日文，做成双语字幕。')).toBe('日文');
+    expect(filledSlot(template, '目标语言', 'https://youtu.be/x 转录这个视频，并翻译成 English ，做成双语字幕。另外加章节')).toBe('English');
+    const en = 'Transcribe this video and translate it into {{target language}} as bilingual subtitles.';
+    expect(filledSlot(en, 'target language', 'Transcribe this video and translate it into Spanish as bilingual subtitles.')).toBe('Spanish');
+  });
+
+  it('还是占位符、没填、改得认不出、跨行或太长时为 null；模板里没有这个待填项也是 null', () => {
+    expect(filledSlot(template, '目标语言', template)).toBeNull();
+    expect(filledSlot(template, '目标语言', '转录这个视频，并翻译成[目标语言]，做成双语字幕。')).toBeNull();
+    expect(filledSlot(template, '目标语言', '转录这个视频，并翻译成 ，做成双语字幕。')).toBeNull();
+    expect(filledSlot(template, '目标语言', '给这个视频加上字幕。')).toBeNull();
+    expect(filledSlot(template, '目标语言', '转录这个视频，并翻译成日\n文，做成双语字幕。')).toBeNull();
+    expect(filledSlot(template, '目标语言', `转录这个视频，并翻译成${'长'.repeat(40)}，做成双语字幕。`)).toBeNull();
+    expect(filledSlot(template, '受众', '转录这个视频，并翻译成日文，做成双语字幕。')).toBeNull();
+    expect(filledSlot('{{a}}', 'a', '随便')).toBeNull();
+  });
+
+  it('fillSlot 只换第一处同名占位符，值里的 $ 照原样', () => {
+    expect(fillSlot(template, '目标语言', '日文')).toBe('转录这个视频，并翻译成日文，做成双语字幕。');
+    expect(fillSlot('{{a}} 和 {{a}}', 'a', '$&')).toBe('$& 和 {{a}}');
   });
 });

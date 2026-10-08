@@ -75,9 +75,9 @@
     const p = probe(u);
     return {
       kind: 'download', re: URL_RE,
-      summary: '这条链接里的视频还不在项目里。我先把它下载下来；下载完会在项目里建一部视频，接着用本机语音模型转录。视频一建好你就能打开编辑器，不用等转录。',
+      summary: '这条链接里的视频还没下载。我先把它下载下来；下载完建一部视频，接着用本机语音模型转录。视频一建好你就能打开编辑器，不用等转录。',
       reads: [],
-      write: {cmd: `bcut download ${u}`, why: '会把视频下载到项目目录，建一部新视频并开始转录。原有的视频与文件不动。'},
+      write: {cmd: `bcut download ${u}`, why: '会把视频下载到会话所在的项目，不用项目时放在会话自己的文件夹；建一部新视频并开始转录。原有的视频与文件不动。'},
       step: {verb: '下载', count: p.sizeMB, unit: 'MB', llm: false, engine: '本机下载工具'},
       task: {kind: 'download', title: '下载视频'},
       receipt: null,
@@ -271,7 +271,7 @@
   /** 下载完成后 Agent 的收尾话与接着起的转录。 */
   function afterDownload(task) {
     return {
-      close: `下载好了：「${task.title || task.name}」，${task.sizeMB} MB。视频已经建在项目里，正在用本机语音模型转录——现在就可以打开编辑器，转录在后台接着跑。`,
+      close: `下载好了：「${task.title || task.name}」，${task.sizeMB} MB。视频已经建好，正在用本机语音模型转录——现在就可以打开编辑器，转录在后台接着跑。`,
       transcribe: simFor({kind: 'transcribe'}, {mediaSec: task.mediaSec}),
     };
   }

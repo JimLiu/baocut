@@ -211,7 +211,7 @@
       if (link || N.wantsSource(said)) {
         /* 话里带着链接（视频网站的页面、文件地址），或这件事要处理一条现成的视频却还没附上（加字幕、转录并翻译…）：
            不先建空白视频，直接开会话——链接由 Agent 下载下来再建视频，没有链接就由它来要。
-           会话落在选中的项目里；不用项目时会话先不属于任何项目，建视频时按 §2.3 自动建项目。 */
+           会话落在选中的项目里；不用项目时会话不属于任何项目，视频就建在会话自己的文件夹里（§2.3）。 */
         app.openAgent({dir: dir || undefined, prompt, attachments: rest.filter((f) => f.url), send: true, ...run});
         app.toast(link ? '已交给 Agent · 链接里的视频由它下载' : '已交给 Agent · 附上视频或贴上链接就能开始', 'positive');
         return;

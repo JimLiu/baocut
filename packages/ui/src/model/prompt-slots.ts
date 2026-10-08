@@ -40,6 +40,37 @@ export function slotsForAgent(text: string): string {
   return templateUnfilledText(text);
 }
 
+/** 认出填了什么时，在待填项前后各取几个字做锚点；填的值最长几个字（`filledSlot`）。 */
+const SLOT_CONTEXT = 6;
+const FILLED_MAX = 32;
+
+/**
+ * 用户把 `template` 里第一处 `{{label}}` 填成了什么（原型 model-prompt-slots.js `filled`；快捷开始记住上次填的值用）：
+ * 在 `text` 里找紧挨着占位符的前后几个字，取两者之间的文字。前后文被改掉、还是占位符、填的是空白、跨了行或太长，都返回 null。
+ */
+export function filledSlot(template: string, label: string, text: string): string | null {
+  const parts = slotParts(template);
+  const i = parts.findIndex((x) => x.type === 'slot' && x.label === label);
+  if (i < 0) return null;
+  const prev = parts[i - 1];
+  const next = parts[i + 1];
+  const before = prev?.type === 'text' ? prev.text.slice(-SLOT_CONTEXT) : '';
+  const after = next?.type === 'text' ? next.text.slice(0, SLOT_CONTEXT) : '';
+  if (!before || !after) return null;
+  const from = text.indexOf(before);
+  if (from < 0) return null;
+  const start = from + before.length;
+  const end = text.indexOf(after, start);
+  if (end < 0) return null;
+  const value = text.slice(start, end).trim();
+  return value && value.length <= FILLED_MAX && !/[\n{}[\]]/.test(value) ? value : null;
+}
+
+/** 把 `template` 里第一处 `{{label}}` 换成 `value`（快捷开始沿用上次填的值）。 */
+export function fillSlot(template: string, label: string, value: string): string {
+  return template.replace(`{{${label}}}`, () => value);
+}
+
 /* ---------- 与 S2 PromptFieldValue 片段的互换 ----------
    S2 的占位 token 是 {type: 'token', text: label, value: {type: 'placeholder', placeholderType: 'text'}}：
    画成占位样式，点一下整个选中，打字即替换，Tab / Shift+Tab 在 token 之间跳。

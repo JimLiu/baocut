@@ -408,9 +408,9 @@
       "app/legacy-import.css",
       "app/subtitle-motion.css"
     ],
-    "js": "generated/app.js?v=adcb7c972fc4",
+    "js": "generated/app.js?v=4fa1f1106551",
     "css": "generated/app.css?v=ae6629d84b54",
-    "bytes": 3780904
+    "bytes": 3780388
   },
   "web": {
     "file": "BaoCutWeb.html",

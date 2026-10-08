@@ -362,9 +362,10 @@ export const pl: CopyMessages = {
     thisComputer: "Ten komputer",
     pickProject: "Wybierz projekt",
     pickProjectLabel: (name: string | null) => `Wybierz projekt: ${name ?? "Brak"}`,
-    currentProject: "Bieżący projekt",
-    newProject: "Nowy projekt",
-    noProject: "Bez projektu agent pracuje w folderze tymczasowym",
+    current: "Bieżący",
+    newProject: "Nowy projekt…",
+    noProjectOption: "Bez projektu",
+    noProject: "Bez projektu filmy i pliki zostają w osobnym folderze tej sesji",
     enableFailed: (message: string) => `Nie udało się włączyć: ${message}`,
   },
   /**
@@ -372,15 +373,16 @@ export const pl: CopyMessages = {
    * 措辞不带「动画」「讲解」「图表」这类词，免得被当成某一类制作。`needs` 是提示里「再把什么拖进输入框」。
    */
   homeStarter: {
-    sub: { title: "Dodaj napisy", needs: "materiał wideo", prompt: "Dodaj napisy do tego wideo." },
-    trans: { title: "Transkrybuj i przetłumacz", needs: "materiał wideo", prompt: "Transkrybuj to wideo i przetłumacz na chiński jako dwujęzyczne napisy." },
+    sub: { title: "Dodaj napisy", needs: "materiał wideo", link: "link do wideo", prompt: "Dodaj napisy do tego wideo." },
+    trans: { title: "Transkrybuj i przetłumacz", needs: "materiał wideo", link: "link do wideo", prompt: "Transkrybuj to wideo i przetłumacz na {{język docelowy}} jako dwujęzyczne napisy." },
     clean: {
       title: "Przytnij wideo z mówiącą osobą",
       needs: "materiał wideo",
+      link: "link do wideo",
       prompt: "Transkrybuj to wideo i znajdź wypełniacze, długie pauzy i powtórzone ujęcia. Pokaż przed wycinaniem.",
     },
-    a2v: { title: "Audio do wideo", needs: "plik audio", prompt: "Zamień to audio w wideo z tłem, przebiegiem fali i napisami." },
-    tip: (needs: string) => `Wypełnia polecenie. Następnie przeciągnij ${needs} do pola wiadomości`,
+    a2v: { title: "Audio do wideo", needs: "plik audio", link: "link", prompt: "Zamień to audio w wideo z tłem, przebiegiem fali i napisami." },
+    tip: (needs: string, link: string) => `Wypełnia polecenie. Następnie przeciągnij ${needs} do pola wiadomości lub wklej ${link}`,
   },
   /** 模板分类的显示名（模板包规范 §3.2；键是协议的一部分）。认不出的键由 model/home-templates.ts 兜底按键名显示。 */
   templateCategory: {

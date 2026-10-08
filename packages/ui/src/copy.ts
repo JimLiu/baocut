@@ -377,25 +377,28 @@ const en = {
     thisComputer: 'This computer',
     pickProject: 'Choose project',
     pickProjectLabel: (name: string | null) => `Choose project: ${name ?? 'None'}`,
-    currentProject: 'Current project',
-    newProject: 'New project',
-    noProject: 'Without a project, the agent works in a temporary folder',
+    current: 'Current',
+    newProject: 'New project…',
+    noProjectOption: 'No project',
+    noProject: 'Without a project, videos and files stay in this session’s own folder',
     enableFailed: (message: string) => `Couldn’t turn on: ${message}`,
   },
   /**
    * 起始页「快捷开始」的四条（原型 model-newproject.js `STARTERS`）：处理已有视频或音频的常见事，点一下把这句话放进输入框。
-   * 措辞不带「动画」「讲解」「图表」这类词，免得被当成某一类制作。`needs` 是提示里「再把什么拖进输入框」。
+   * 措辞不带「动画」「讲解」「图表」这类词，免得被当成某一类制作。`needs` 是提示里「再把什么拖进输入框」，`link` 是「或贴上什么」
+   *（视频网站的链接也行）。`trans.prompt` 里恰好一处 `{{目标语言}}` 这样的待填项，各语言自己写标签；上次填过的由起始页填进去。
    */
   homeStarter: {
-    sub: { title: 'Add subtitles', needs: 'a video', prompt: 'Add subtitles to this video.' },
-    trans: { title: 'Transcribe and translate', needs: 'a video', prompt: 'Transcribe this video and translate it into Chinese as bilingual subtitles.' },
+    sub: { title: 'Add subtitles', needs: 'a video', link: 'a video link', prompt: 'Add subtitles to this video.' },
+    trans: { title: 'Transcribe and translate', needs: 'a video', link: 'a video link', prompt: 'Transcribe this video and translate it into {{target language}} as bilingual subtitles.' },
     clean: {
       title: 'Trim talking-head video',
       needs: 'a video',
+      link: 'a video link',
       prompt: 'Transcribe this video and find filler words, long pauses, and retakes. Show me before cutting anything.',
     },
-    a2v: { title: 'Audio to video', needs: 'an audio file', prompt: 'Turn this audio into a video with a background, a waveform, and subtitles.' },
-    tip: (needs: string) => `Fills in the prompt. Then drag ${needs} into the message box`,
+    a2v: { title: 'Audio to video', needs: 'an audio file', link: 'a link', prompt: 'Turn this audio into a video with a background, a waveform, and subtitles.' },
+    tip: (needs: string, link: string) => `Fills in the prompt. Then drag ${needs} into the message box, or paste ${link}`,
   },
   /** 模板分类的显示名（模板包规范 §3.2；键是协议的一部分）。认不出的键由 model/home-templates.ts 兜底按键名显示。 */
   templateCategory: {

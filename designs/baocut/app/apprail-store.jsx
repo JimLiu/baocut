@@ -6,7 +6,7 @@
    - 打开视频（openMovie）：Home 与 Space 是同一个动作——Space 编辑器路由带 `via`，Home 会话路由带 `movie`，保留入口侧栏；Space 用右下角的悬浮会话（shell.jsx，状态在共享 store 的 movieChats），Home 保留左侧会话（§5.1）。
    - Space 的整理标记（收藏 / 回收站）与二次编辑另存出来的新版本：投影之外的那一层，投影本身在 model-space.js。 */
 (function () {
-  const {useState, useCallback, useMemo, useEffect} = React;
+  const {useState, useCallback, useMemo} = React;
   const D = window.BC_DATA;
   const AP = window.BC_AGENT_PROJECTS;
   const IA = window.BC_APP_IA;
@@ -101,22 +101,6 @@
       base.patchProject(proj.id, {dir: dirId, folder: proj.folder});
       return proj;
     }, [base.createProject, base.patchProject, dirs]);
-
-    /* 不属于任何项目的会话第一次建出视频（演示里是下载完链接，store-agent-sim.jsx 标 `needsDir`）：
-       按 §2.3 新开一个与视频同名的项目，会话随视频归进去（AP.dirOf 从视频推项目），并提示一句。 */
-    useEffect(() => {
-      const orphans = projects.filter((p) => p.needsDir && !p.dir);
-      if (!orphans.length) return;
-      const made = orphans.map((mv) => {
-        const name = String(mv.title || '未命名').replace(/\.[^.\s/]+$/, '');
-        return {mv, nd: {id: nextDirId(), name, path: AP.dirPath(name), mtime: 0}};
-      });
-      setDirs((ds) => made.map((x) => x.nd).concat(ds));
-      made.forEach(({mv, nd}) => {
-        base.patchProject(mv.id, {dir: nd.id, folder: mv.folder || nd.name, needsDir: false});
-        base.toast(`已新建项目「${nd.name}」，视频放在里面`, 'info');
-      });
-    }, [projects]);
 
     /* 看过就不再「未读」；「有待审阅」要人明确点掉 */
     const markRead = useCallback((sid) => {

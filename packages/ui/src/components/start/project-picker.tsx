@@ -5,6 +5,7 @@ import {
   Button,
   CustomDialog,
   DialogContainer,
+  Header,
   Menu,
   MenuItem,
   MenuSection,
@@ -14,25 +15,27 @@ import {
   ToastQueue,
 } from '@react-spectrum/s2';
 import Add from '@react-spectrum/s2/icons/Add';
+import Chat from '@react-spectrum/s2/icons/Chat';
 import Close from '@react-spectrum/s2/icons/Close';
 import DeviceLaptop from '@react-spectrum/s2/icons/DeviceLaptop';
 import Folder from '@react-spectrum/s2/icons/Folder';
 import FolderOpen from '@react-spectrum/s2/icons/FolderOpen';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { CREATE_PROJECT_COPY, HOME_COPY } from '../../copy.ts';
+import { S } from '../shell-copy.ts';
 import { shortenPath } from '../../model/format.ts';
 import { projectNameError } from '../../model/home-brief.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useConnection } from '../../state/connection-store.ts';
 
-// 贴在输入框下沿的托盘：比输入框窄一圈、上边压进输入框底下 12px，看上去和输入框是一个整体。
-// PromptField 在卡片下面还留着一行 24px 的空提示位，一并收掉（原型 `.home-create__project` 的 -36px），两者之间不露白缝。
+// 贴在输入框下沿的托盘：比输入框窄一圈、上边压进输入框底下 12px，看上去和输入框是一个整体（原型 `.home-create__project`）。
+// 输入框下面 S2 留的空提示段落已经收掉（app.css `[data-composer-start] p:empty`），这里只压 12px；压多了会被输入框的外框盖住，按钮点不到。
 const row = style({
   display: 'flex',
   alignItems: 'center',
   gap: 8,
   marginX: 16,
-  marginTop: -36,
+  marginTop: -12,
   paddingTop: 16,
   paddingBottom: 4,
   paddingX: 12,
@@ -43,22 +46,31 @@ const row = style({
 });
 const device = style({ display: 'inline-flex', alignItems: 'center', gap: 4, font: 'ui-sm', color: 'gray-700', whiteSpace: 'nowrap' });
 const path = style({ font: 'ui-sm', color: 'gray-600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 });
+// 窄的时候先省略路径，项目名尽量完整；名字特别长也只占一半宽。
+const picker = style({ flexShrink: 0, maxWidth: '[50%]' });
+
+/** 菜单里「不用项目」那一项的键（项目的键是项目 id）。 */
+const NONE = 'none';
 
 /**
- * 起始页输入框下沿的项目托盘（原型 new-agent.jsx `HomeProjectPicker`）：「这台 Mac」、项目菜单、项目路径。
- * 选一个项目就切到那个项目的起始页；「新建项目」在 Runtime 的项目根目录下建一个同名目录。
+ * 起始页输入框下沿的项目托盘（产品设计 §2.3、§3.2.1；原型 new-agent.jsx `HomeProjectPicker`）：「这台电脑」、项目菜单、项目路径。
+ * 会话可以不属于任何项目，所以菜单第一项是「不用项目」，其余是项目（按最近活动排）与「新建项目…」；不用项目时路径处说明视频放在哪儿。
+ * 选了哪一项由起始页记在这台电脑上（state/home-memory-store.ts）。`noneDisabled`：编辑器开着某个项目里的视频，新会话只能建在那个项目里（会话要能改这部视频）。
  */
 export function ProjectPicker({
   project,
   projects,
+  noneDisabled = false,
   onSelect,
 }: {
-  /** 新会话会建在哪个项目里；null = 临时目录。 */
+  /** 新会话会建在哪个项目里；null = 不用项目（视频放在会话自己的文件夹里）。 */
   project: Project | null;
   projects: readonly Project[];
-  onSelect(projectId: Id): void;
+  noneDisabled?: boolean;
+  onSelect(projectId: Id | null): void;
 }) {
   const [creating, setCreating] = useState(false);
+  const current = <Text slot="description">{HOME_COPY.current}</Text>;
   return (
     <div className={row}>
       <span className={device}>
@@ -66,18 +78,29 @@ export function ProjectPicker({
         {HOME_COPY.thisComputer}
       </span>
       <MenuTrigger>
-        <ActionButton isQuiet size="S" aria-label={HOME_COPY.pickProjectLabel(project?.name ?? null)}>
-          <Folder />
-          <Text>{project?.name ?? HOME_COPY.pickProject}</Text>
+        <ActionButton isQuiet size="S" styles={picker} aria-label={HOME_COPY.pickProjectLabel(project?.name ?? HOME_COPY.noProjectOption)}>
+          {project ? <Folder /> : <Chat />}
+          <Text>{project?.name ?? HOME_COPY.noProjectOption}</Text>
         </ActionButton>
-        <Menu aria-label={HOME_COPY.pickProject} onAction={(key) => (key === 'new' ? setCreating(true) : onSelect(String(key)))}>
+        <Menu
+          aria-label={HOME_COPY.pickProject}
+          disabledKeys={noneDisabled ? [NONE] : []}
+          onAction={(key) => (key === 'new' ? setCreating(true) : onSelect(key === NONE ? null : String(key)))}>
+          <MenuSection>
+            <MenuItem id={NONE} textValue={HOME_COPY.noProjectOption}>
+              <Chat />
+              <Text slot="label">{HOME_COPY.noProjectOption}</Text>
+              {project ? null : current}
+            </MenuItem>
+          </MenuSection>
           {projects.length ? (
             <MenuSection>
+              <Header>{S.sidebar.projects}</Header>
               {projects.map((p) => (
                 <MenuItem key={p.id} id={p.id} textValue={p.name}>
                   <Folder />
                   <Text slot="label">{p.name}</Text>
-                  {p.id === project?.id ? <Text slot="description">{HOME_COPY.currentProject}</Text> : null}
+                  {p.id === project?.id ? current : null}
                 </MenuItem>
               ))}
             </MenuSection>
@@ -90,8 +113,7 @@ export function ProjectPicker({
           </MenuSection>
         </Menu>
       </MenuTrigger>
-      {/* 设计稿只在选了项目时写路径；没选时如实说新会话在临时目录里。 */}
-      <span className={path} title={project?.path}>
+      <span className={path} title={project?.path ?? HOME_COPY.noProject}>
         {project ? shortenPath(project.path) : HOME_COPY.noProject}
       </span>
       {creating ? <CreateProjectDialog onClose={() => setCreating(false)} onCreated={(created) => onSelect(created.id)} /> : null}

@@ -124,6 +124,12 @@ body,
   min-height: 80px;
 }
 
+/* S2 PromptField 始终生成提示段落；起始页没有提示（`aiDisclaimer` 是空的），空段落不占位。它若留着，盖在项目托盘上面的输入框
+   （z-index 1）底下会多出 24px 透明的一条，挡住托盘里的项目按钮（原型 new-project.css 同一条规则）。 */
+[data-composer-start] p:empty {
+  display: none;
+}
+
 /*
  * Workflow 图标的画布（产品设计 §2.1）：只有应用 Rail 用 20px；Rail 以外正文、页面侧栏、菜单、弹层、对话框与标题栏里的
  * workflow 图标一律 16px。按 S2 workflow 图标的特征（role=img、20×20 viewBox）匹配，不靠逐个容器声明；S2 的 UI 图形
