@@ -99,6 +99,9 @@ async function main(): Promise<void> {
   onStopRequest = () => stop('runtime.stop');
   process.on('SIGTERM', () => stop('SIGTERM'));
   process.on('SIGINT', () => stop('SIGINT'));
+  // 终端关了（在终端里跑、或开发时随桌面端在终端的进程组里）：照常收尾。不处理的话默认动作是立即结束，来不及按停止顺序
+  // 收尾、删发现文件。
+  process.on('SIGHUP', () => stop('SIGHUP'));
   // 由父进程以 IPC 通道启动时（桌面端），父进程经通道发 `{ type: 'stop' }` 请 Runtime 停下：Windows 上 SIGTERM 等于直接
   // 结束进程，处理不到。通道断开（父进程退出或崩溃）不停：Runtime 照旧留着，下一次启动经发现文件找回它（架构设计 §2.2）。
   process.on('message', (message) => {

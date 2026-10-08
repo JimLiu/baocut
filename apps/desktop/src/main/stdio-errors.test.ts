@@ -18,19 +18,37 @@ describe('desktop diagnostic streams', () => {
     expect((await emitted)[0].code).toBe('EPIPE');
   });
 
-  it('handles both inherited output streams', () => {
+  it.each(['EPIPE', 'EIO'])('handles both inherited output streams after the terminal goes away (%s)', (code) => {
     const stdout = new EventEmitter();
     const stderr = new EventEmitter();
     installStdioErrorGuards([stdout, stderr]);
     for (const stream of [stdout, stderr]) {
-      expect(() => stream.emit('error', Object.assign(new Error('closed'), { code: 'EPIPE' }))).not.toThrow();
+      expect(() => stream.emit('error', Object.assign(new Error('closed'), { code }))).not.toThrow();
     }
+  });
+
+  it('keeps diagnostics from crashing the app after the terminal closes (EIO)', async () => {
+    // Like a tty stdout/stderr after the terminal is closed: every write fails, and the stream is not destroyed by it.
+    let writes = 0;
+    const stderr = new Writable({
+      autoDestroy: false,
+      write(_chunk, _encoding, callback) {
+        writes += 1;
+        callback(Object.assign(new Error('write EIO'), { code: 'EIO' }));
+      },
+    });
+    installStdioErrorGuards([stderr]);
+    const emitted = once(stderr, 'error');
+    const console = new Console({ stdout: new PassThrough(), stderr, ignoreErrors: false });
+    console.error('[renderer] gone');
+    expect((await emitted)[0].code).toBe('EIO');
+    expect(writes).toBe(1);
   });
 
   it('does not hide unrelated stream failures', () => {
     const stream = new EventEmitter();
     installStdioErrorGuards([stream]);
-    const error = Object.assign(new Error('disk failure'), { code: 'EIO' });
+    const error = Object.assign(new Error('no space left on device'), { code: 'ENOSPC' });
     expect(() => stream.emit('error', error)).toThrow(error);
   });
 });
