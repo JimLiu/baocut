@@ -9,7 +9,7 @@ import {
   type SpaceSearchResult,
 } from '@baocut/protocol';
 import type { SpaceCatalog } from '../space-catalog.ts';
-import { searchSegments, type SearchableVideo } from './content-search.ts';
+import type { SearchableVideo } from './content-search.ts';
 import { RcSpace } from '@baocut/protocol/messages/runtime-core';
 
 /**
@@ -122,20 +122,20 @@ export function searchContent(catalog: SpaceCatalog, viewer: SpaceViewer, params
     if (viewer.kind === 'service' && viewer.videos !== 'all' && !viewer.videos.has(indexed.videoId)) continue;
     if (index!.pendingCount([video.dir]) > 0) pending++;
     searchable.push({
+      dir: indexed.dir,
       videoId: indexed.videoId,
       videoName: indexed.name,
       entryId: video.entryId,
       projectId: video.projectId,
       revision: indexed.revision,
-      segments: indexed.segments,
     });
   }
-  const { hits, truncated } = searchSegments(searchable, {
+  const { hits, truncated } = (index?.search(searchable, {
     query: params.query,
     ...(params.kinds ? { kinds: params.kinds } : {}),
     ...(params.speaker ? { speaker: params.speaker } : {}),
     limit: params.limit ?? DEFAULT_SEARCH_LIMIT,
-  });
+  }) ?? { hits: [], truncated: false });
   return { hits, complete: pending === 0 && !catalog.scanning && index !== null, pendingVideos: pending, truncated };
 }
 
