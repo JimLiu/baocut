@@ -282,7 +282,11 @@ export function TranscribeSettings({ videoId, documents, editable }: { videoId: 
                   if (!next || next.key === option?.key) return;
                   const bundle = downloadableBundle(bundles, next);
                   if (bundle) download(next, bundle);
-                  else patch({ model: next.key, language: effectiveLanguage(setup.language, next) });
+                  else {
+                    // 手动换了一只能用的：不再等着下完自动选中（下载照常继续）。
+                    setPending(null);
+                    patch({ model: next.key, language: effectiveLanguage(setup.language, next) });
+                  }
                 }}>
                 {groups(options).map((g) => (
                   <PickerSection key={g.providerId} id={`provider:${g.providerId}`}>
