@@ -1,7 +1,7 @@
 // 签名与公证只在这里完成；electron-builder 先产出目录，最终归档来自已 staple 的 App。
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { createReadStream, mkdirSync, statSync, writeFileSync } from 'node:fs';
+import { closeSync, createReadStream, mkdirSync, openSync, readSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 export function runMac(command, args) {
@@ -31,7 +31,7 @@ export function verifyMacIdentity(app, expected) {
   }
   // Signer names can collide. Read the actual leaf certificate, then check its fingerprint.
   const prefix = path.join(expected.output, 'signer-');
-  runMac('codesign', ['-d', '--extract-certificates', prefix, app]);
+  runMac('codesign', ['-d', `--extract-certificates=${prefix}`, app]);
   const sha1 = runMac('openssl', ['x509', '-inform', 'DER', '-in', `${prefix}0`, '-noout', '-fingerprint', '-sha1']).trim().split('=')[1].replaceAll(':', '');
   if (sha1 !== expected.signingSha1) throw new Error('App was signed with a different certificate');
   runMac('codesign', ['--verify', '--deep', '--strict', '--verbose=2', app]);
@@ -58,6 +58,17 @@ export async function distributeMac({ app, output, stem, version, build, appId, 
     app, platform: 'darwin', identity: signingSha1, identityValidation: false,
     ...(keychain ? { keychain } : {}),
     preAutoEntitlements: false, preEmbedProvisioningProfile: false,
+    ignore: [(file) => {
+      if (file.endsWith('.app') || file.endsWith('.framework')) return false;
+      // Resource blobs are sealed by their enclosing bundle. Only sign Mach-O code.
+      const fd = openSync(file, 'r');
+      try {
+        const magic = Buffer.alloc(4);
+        if (readSync(fd, magic, 0, 4, 0) !== 4) return true;
+        return ![0xfeedface, 0xcefaedfe, 0xfeedfacf, 0xcffaedfe,
+          0xcafebabe, 0xbebafeca, 0xcafebabf, 0xbfbafeca].includes(magic.readUInt32BE());
+      } finally { closeSync(fd); }
+    }],
     optionsForFile: () => ({ entitlements, hardenedRuntime: true }),
   });
   const expected = { appId, version, build, signingSha1, output };
