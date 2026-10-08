@@ -30,7 +30,7 @@ Electron-builder 先装成 `BaoCut.app`；签名脚本用完整证书指纹选�
 
 发布通过 GitHub Releases，归档文件名与内容不可变。`--download-base-url` 生成 App 自己的解析器验证过的 ZIP 更新清单；公开归档读回通过后才更新 `apps/desktop/releases/` 的版本钉。新版使用独立 ID，不将旧版官网的更新源直接换成新包；旧 skill 的 GitHub Latest 保持原状。具体顺序见发布 skill。
 
-**GitHub Actions**：手动触发 `desktop-macos`，从本仓库 `main` 的固定 commit 构建。默认 `mode=validate` 只验证签名私钥、指纹与公证访问；`mode=package` 生成候选，`mode=publish` 构建后发布，并更新 Mac appcast。后两种模式必须提供递增的新 build，不能复用已公开的 Build 60。签名材料放在仅允许 `main` 的 `macos-release` Environment；变量、Secrets、命令与验证范围见[签名说明 §5](../../docs/macos-signing.md#5-github-actions-配置)。这套工作流没有自动执行 UI、导出或真实模型推理验收，报告会标为未运行。
+**GitHub Actions**：推送 `baocut-v<VERSION>-build.<BUILD>` release tag 自动触发 `desktop-release`，从 tag 的同一提交构建 Mac Apple Silicon 与 Windows x64 CPU、CUDA、Vulkan；全部原生检查通过后发布到同一个 Release，并更新各平台 appcast。tag 版本必须与 package.json / lockfile 一致、build 递增、提交已在 `main` 上；不能复用 Build 60。签名材料放在允许 `main` 和 release tag 的 `macos-release` Environment。`desktop-macos` 保留默认 `mode=validate` 的手动凭据验证入口。Secrets、命令和完整规则见[签名说明 §5](../../docs/macos-signing.md#5-github-actions-配置)；UI/导出与真实模型推理未由流水线验证，报告会明确标注。
 
 ## Windows 打包
 
@@ -78,7 +78,7 @@ npm run package:win:vulkan   # Vulkan 版：Whisper 用 Vulkan GPU（candle 仍�
 
 ### GitHub Actions 发布
 
-Windows 发布分成原生构建与候选发布两次手动触发；普通 push 不启动这些工作流。首次构建的运行结果与硬件验证状态分别报告，不能把工作流存在当作已验证。
+常规全平台发布由 `desktop-release` 在 release tag push 后自动调用原生构建和候选发布；规则见[签名说明 §5.4](../../docs/macos-signing.md#54-release-tag-自动发布)。`desktop-windows` 和 `desktop-windows-publish` 仍提供以下两次手动触发入口，用于单平台补发或重试；普通分支 push 不发布。运行结果与硬件验证状态分别报告，不能把工作流存在当作已验证。
 
 ```sh
 gh workflow run desktop-windows.yml --ref baocut-v3.0.0-build.60 \

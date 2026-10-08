@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { BUNDLE_ID, feedFileName, parseManifest } from '../src/main/app-update-rules.ts';
 import { fileHash } from './windows-release.mjs';
 import { runMac, verifyMacIdentity } from './macos-distribution.mjs';
+import { validateReleaseRef } from './desktop-release-rules.mjs';
 
 const TARGET = 'aarch64-apple-darwin';
 const FEED = feedFileName(TARGET, null);
@@ -69,9 +70,12 @@ async function prepareCandidate(directory, env) {
 async function publishCandidate(directory, env) {
   ensure(process.platform === 'darwin' && process.arch === 'arm64', 'Public Mac read-back requires native Apple Silicon');
   const repo = env.GITHUB_REPOSITORY;
-  ensure(repo?.toLowerCase() === 'jimliu/baocut' && env.GITHUB_REF === 'refs/heads/main', 'Publish only from the owning repository main');
+  ensure(repo?.toLowerCase() === 'jimliu/baocut', 'Publish only from the owning repository');
   const item = await validateMacPackage(directory, { sourceCommit: env.GITHUB_SHA, signingSha1: env.BAOCUT_MAC_SIGNING_SHA1 });
   const { report, tag } = item;
+  validateReleaseRef(env.GITHUB_REF, tag);
+  command('git', ['fetch', 'origin', 'main']);
+  command('git', ['merge-base', '--is-ancestor', report.sourceCommit, 'origin/main']);
   ensure(report.workflowCommit === env.GITHUB_SHA && report.candidateRunId === Number(env.GITHUB_RUN_ID) &&
     report.checks?.nativeWorkerProbes === 'passed' && report.checks?.signingAndGatekeeper === 'passed', 'Missing native candidate provenance or verification');
   const latestId = api(`repos/${repo}/releases/latest`).id;

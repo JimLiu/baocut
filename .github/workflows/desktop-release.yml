@@ -1,0 +1,109 @@
+name: desktop-release
+
+on:
+  push:
+    tags:
+      - 'baocut-v*-build.*'
+
+permissions: {}
+
+concurrency:
+  group: desktop-all-platform-release
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  plan:
+    if: github.repository == 'JimLiu/baocut'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      build: ${{ steps.release.outputs.build }}
+      source_commit: ${{ steps.release.outputs.source_commit }}
+      download_base_url: ${{ steps.release.outputs.download_base_url }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Validate tag, package versions, increasing build and main ancestry
+        id: release
+        run: node apps/desktop/tools/desktop-release-rules.mjs
+
+  macos:
+    needs: plan
+    permissions:
+      contents: read
+    uses: ./.github/workflows/desktop-macos-build.yml
+    with:
+      mode: package
+      build: ${{ needs.plan.outputs.build }}
+    secrets: inherit
+
+  windows:
+    needs: plan
+    permissions:
+      contents: read
+    uses: ./.github/workflows/desktop-windows.yml
+    with:
+      source_ref: ${{ needs.plan.outputs.source_commit }}
+      include_cpu: true
+      include_cuda: true
+      include_vulkan: true
+      build: ${{ needs.plan.outputs.build }}
+      download_base_url: ${{ needs.plan.outputs.download_base_url }}
+
+  publish-macos:
+    needs: [plan, macos, windows]
+    runs-on: macos-15
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Download the validated native Mac candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name baocut-desktop-macos-arm64 --dir "$RUNNER_TEMP/mac-candidate"
+      - name: Publish and independently verify Mac assets and update feed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BAOCUT_MAC_SIGNING_SHA1: ${{ needs.macos.outputs.signing_sha1 }}
+        run: node apps/desktop/tools/macos-release.mjs publish "$RUNNER_TEMP/mac-candidate"
+
+  publish-windows:
+    needs: [plan, publish-macos]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Publish all three validated Windows variants and update feeds
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_RUN_ID: ${{ github.run_id }}
+          RELEASE_TAG: ${{ needs.plan.outputs.tag }}
+          VARIANTS: cpu,cuda,vulkan
+        run: node apps/desktop/tools/windows-release.mjs

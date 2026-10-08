@@ -1,4 +1,4 @@
-# BaoCut 桌面端的 Windows x64 安装包（不签名）。只手动触发；规则见 docs/development-workflow.md §2 与 apps/desktop/README.md。
+# BaoCut 桌面端的 Windows x64 安装包（不签名）。手动触发或由 desktop-release 的 release tag 调用；规则见 docs/development-workflow.md §2 与 apps/desktop/README.md。
 # 三个变体各一个 job，按显卡分档：标准版（Model Worker 用 candle CPU 与 whisper.cpp 的 Whisper，没有合适显卡时用）、CUDA 版
 # （NVIDIA 专用：candle 与 Whisper 都走 CUDA，随带 NVIDIA 运行库）与 Vulkan 版（Whisper 走 Vulkan，适合 AMD / Intel 与不支持
 # CUDA 13 的 NVIDIA 显卡，candle 仍在 CPU 上；构建要 Vulkan SDK，运行时只要显卡驱动的 vulkan-1.dll）。CUDA 版的 Whisper 与 Vulkan 版
@@ -13,6 +13,37 @@ name: desktop-windows
 
 on:
   workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Frozen product source ref; empty uses the workflow commit
+        type: string
+        default: ""
+      include_cpu:
+        description: Build the standard CPU variant
+        type: boolean
+        default: true
+      include_cuda:
+        description: Also build the CUDA variant (NVIDIA only, Ampere or newer; candle and Whisper both on CUDA; Whisper on CUDA untested)
+        type: boolean
+        default: true
+      include_vulkan:
+        description: Also build the Vulkan variant (Whisper on Vulkan for AMD / Intel and NVIDIA GPUs without CUDA 13; candle stays on the CPU; untested)
+        type: boolean
+        default: true
+      build:
+        description: Release build number (positive integer); empty builds an unnumbered test package that never checks for updates
+        type: string
+        default: ""
+      download_base_url:
+        description: HTTPS directory the installers will be uploaded to; when set (with a build number), also writes the update feed
+        type: string
+        default: ""
+      rollout_hours:
+        description: Staged rollout over this many hours for automatic update checks (needs download_base_url); empty or 0 offers it to everyone at once
+        type: string
+        default: ""
+
+  workflow_call:
     inputs:
       source_ref:
         description: Frozen product source ref; empty uses the workflow commit

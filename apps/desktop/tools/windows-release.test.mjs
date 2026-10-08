@@ -18,6 +18,18 @@ test('requires native validation for every selected variant and the frozen Mac s
   assert.throws(() => validateCandidate({ ...run, event: 'pull_request' }, jobs, mac, ['cpu'], 7, 'JimLiu/baocut'), /workflow/);
 });
 
+test('accepts the tag orchestrator only with the exact tag, source and successful reusable Windows jobs', () => {
+  const policy = { manual: 7, automatic: 8 };
+  const automatic = { ...run, workflow_id: 8, event: 'push', head_branch: 'baocut-v3.0.0-build.60' };
+  const jobs = ['cpu', 'cuda', 'vulkan'].map((variant) => ({ name: `windows / Package Windows x64 (${variant})`, conclusion: 'success' }));
+  validateCandidate(automatic, jobs, mac, ['cpu', 'cuda', 'vulkan'], policy, 'JimLiu/baocut');
+  assert.throws(() => validateCandidate({ ...automatic, head_branch: 'baocut-v3.0.0-build.61' }, jobs, mac, ['cpu'], policy, 'JimLiu/baocut'), /tag or source differs/);
+  assert.throws(() => validateCandidate({ ...automatic, head_sha: 'b'.repeat(40) }, jobs, mac, ['cpu'], policy, 'JimLiu/baocut'), /tag or source differs/);
+  assert.throws(() => validateCandidate({ ...automatic, workflow_id: 9 }, jobs, mac, ['cpu'], policy, 'JimLiu/baocut'), /workflow/);
+  assert.throws(() => validateCandidate({ ...automatic, event: 'pull_request' }, jobs, mac, ['cpu'], policy, 'JimLiu/baocut'), /workflow/);
+  assert.throws(() => validateCandidate(automatic, jobs.filter((job) => !job.name.includes('cuda')), mac, ['cpu', 'cuda', 'vulkan'], policy, 'JimLiu/baocut'), /Native validation/);
+});
+
 async function fixture() {
   const directory = mkdtempSync(path.join(tmpdir(), 'baocut-win-release-test-'));
   const stem = 'BaoCut-3.0.0-build.60-win-x64';

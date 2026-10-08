@@ -86,6 +86,24 @@ must identify the exact build commit, not a different remote branch HEAD.
 Windows uses the existing `package:win*` commands and native validation in the
 desktop README. A Mac-only release does not require Windows publication.
 
+## Automatic all-platform releases
+
+Routine releases use `desktop-release.yml`, triggered by a human pushing an exact
+`baocut-v<VERSION>-build.<BUILD>` tag, for example `baocut-v3.0.1-build.61`.
+The stable semantic version must match root/desktop package.json and lockfile;
+no leading zeros, prerelease suffix or reused build. Build increases across all
+platform feeds, version never goes backwards, and source must already belong to
+`main`. The tag is the frozen source for all builders. Do not create or push a
+release tag when the user asks only to configure automation.
+
+Mac arm64 and Windows x64 CPU/CUDA/Vulkan build in parallel through reusable
+workflows. All native jobs must pass before either publisher runs. Publish Mac
+first, then all Windows variants into that same immutable release; verify public
+read-back before advancing each platform feed. Preserve historical Latest and old
+assets. Report actual runs and all hardware/UI/model skips. Rerun failed jobs using
+existing validated artifacts; never rebuild or overwrite an already published build.
+The manual platform workflows below remain verification/recovery tools.
+
 ## Windows Actions continuation
 
 Build from the published Mac tag with `desktop-windows.yml`, using the same build
@@ -107,7 +125,8 @@ does not imply inference has been tested on CUDA/Vulkan hardware.
 
 ## macOS Actions
 
-Use `desktop-macos.yml` on this repository's `main`. Its protected `macos-release`
+Use `desktop-macos.yml` on this repository's `main` for manual verification or
+recovery; routine all-platform releases use the tag workflow above. Its protected `macos-release`
 Environment contains the exact encrypted PKCS#12 identity and separate notarization
 credentials. An explicit request to configure these GitHub signing Secrets authorizes
 that upload; a request for local backups alone does not. Never print any credential.

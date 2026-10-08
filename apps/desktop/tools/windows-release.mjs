@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { BUNDLE_ID, feedFileName, parseManifest } from '../src/main/app-update-rules.ts';
+import { parseReleaseTag } from './desktop-release-rules.mjs';
 
 const TARGET = 'x86_64-pc-windows-msvc';
 const VARIANTS = ['cpu', 'cuda', 'vulkan'];
@@ -19,11 +20,20 @@ export async function fileHash(file) {
 
 export function validateCandidate(run, jobs, mac, variants, workflowId, repo) {
   invariant(['completed', 'in_progress'].includes(run.status), 'Candidate run has not started');
-  invariant(run.workflow_id === workflowId && run.event === 'workflow_dispatch', 'Unexpected candidate workflow');
+  const manualId = typeof workflowId === 'number' ? workflowId : workflowId.manual;
+  const automaticId = typeof workflowId === 'number' ? null : workflowId.automatic;
+  const manual = run.workflow_id === manualId && run.event === 'workflow_dispatch';
+  const automatic = run.workflow_id === automaticId && run.event === 'push';
+  invariant(manual || automatic, 'Unexpected candidate workflow');
   invariant(run.head_repository?.full_name?.toLowerCase() === repo.toLowerCase(), 'Candidate belongs to another repository');
+  if (automatic) {
+    const identity = parseReleaseTag(run.head_branch);
+    invariant(identity.version === mac.version && identity.build === mac.build && run.head_sha === mac.sourceCommit, 'Automatic candidate tag or source differs from the Mac build');
+  }
   for (const variant of variants) {
     invariant(VARIANTS.includes(variant), `Unsupported variant: ${variant}`);
-    invariant(jobs.some((job) => job.name === `Package Windows x64 (${variant})` && job.conclusion === 'success'), `Native validation did not pass: ${variant}`);
+    const name = `Package Windows x64 (${variant})`;
+    invariant(jobs.some((job) => (job.name === name || (automatic && job.name === `windows / ${name}`)) && job.conclusion === 'success'), `Native validation did not pass: ${variant}`);
   }
 }
 
@@ -74,7 +84,7 @@ export async function publishWindows(env = process.env) {
   const tag = env.RELEASE_TAG;
   const variants = (env.VARIANTS || 'cpu').split(',');
   invariant(/^\d+$/.test(runId || ''), 'Candidate run ID must be numeric');
-  invariant(/^baocut-v\d+\.\d+\.\d+-build\.\d+$/.test(tag || ''), 'Invalid release tag');
+  parseReleaseTag(tag);
   invariant(variants.length > 0 && new Set(variants).size === variants.length && variants.every((v) => VARIANTS.includes(v)), 'Invalid variant selection');
   const output = path.join(env.RUNNER_TEMP || tmpdir(), `baocut-windows-publish-${runId}`);
   mkdirSync(output, { recursive: true });
@@ -88,7 +98,8 @@ export async function publishWindows(env = process.env) {
   invariant(tag === `baocut-v${mac.version}-build.${mac.build}`, 'Tag differs from the Mac release');
   const run = api(`repos/${repo}/actions/runs/${runId}`);
   const jobs = api(`repos/${repo}/actions/runs/${runId}/jobs?per_page=100`).jobs;
-  const workflowId = api(`repos/${repo}/actions/workflows/desktop-windows.yml`).id;
+  const manualId = api(`repos/${repo}/actions/workflows/desktop-windows.yml`).id;
+  const workflowId = run.workflow_id === manualId ? manualId : { manual: manualId, automatic: api(`repos/${repo}/actions/workflows/desktop-release.yml`).id };
   validateCandidate(run, jobs, mac, variants, workflowId, repo);
   const packages = [];
   for (const variant of variants) {

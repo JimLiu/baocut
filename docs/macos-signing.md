@@ -115,7 +115,7 @@ xcrun notarytool history --keychain-profile baocut-notary
 
 ### 5.1 Secrets 与变量
 
-在发布 Environment `macos-release` 配置以下值；该环境只允许 `main` 分支使用。本地备份不自动上传到 GitHub，上传需由持有人明确授权。
+在发布 Environment `macos-release` 配置以下值；该环境允许 `main` 分支及 `baocut-v*-build.*` release tag 使用。本地备份不自动上传到 GitHub，上传需由持有人明确授权。
 
 | 名称 | 类型 | 内容 |
 | --- | --- | --- |
@@ -130,7 +130,7 @@ xcrun notarytool history --keychain-profile baocut-notary
 | `BAOCUT_NOTARY_APPLE_ID` | Secret，Apple ID 方式 | 发布用 Apple ID |
 | `BAOCUT_NOTARY_APP_PASSWORD` | Secret，Apple ID 方式 | app-specific password |
 
-二选一配置公证凭据。正式构建只在 macOS 原生 runner 上运行；当前 Apple Silicon Worker 用 arm64 runner。使用 `workflow_dispatch` 手动触发，固定源 commit，不让 PR、普通 push 或不可信 fork 获得签名凭据。workflow 仅在发布阶段引入 Secrets。
+二选一配置公证凭据。正式构建只在 macOS 原生 arm64 runner 上运行。统一入口 `desktop-release` 接收 release tag push；访问 Secrets 前校验 tag 格式、包版本、递增 build，以及提交属于 `main`。PR、普通分支 push 与旧 skill tag 不触发发布。`desktop-macos` 保留手动凭据验证与单平台应急入口；只有凭据准备 step 接收 Secrets。
 
 ### 5.2 临时钥匙串
 
@@ -199,26 +199,40 @@ rm -f "$RUNNER_TEMP/baocut-signing.p12" "$RUNNER_TEMP/baocut-notary.p8" \
 
 自托管 runner 还要保证取消任务后会运行清理或由宿主清理任务遗留的材料。上传 artifacts 使用明确的发布文件列表，不能上传整个 `$RUNNER_TEMP` 或签名备份目录。
 
-### 5.4 手动工作流
+### 5.4 Release tag 自动发布
 
-`.github/workflows/desktop-macos.yml` 只允许从本仓库 `main` 手动触发，源 commit 固定为当次工作流的 SHA。`macos-15` 原生 arm64 runner 使用独立临时钥匙串；只有凭据准备 step 接收私密值，发布 job 不接收证书或公证密码。
+统一入口为 `.github/workflows/desktop-release.yml`，匹配 `baocut-v<MAJOR>.<MINOR>.<PATCH>-build.<BUILD>`，例如 `baocut-v3.0.1-build.61`。只接受不带前导零的稳定版本号和正整数 build；tag 版本必须同时等于根包、桌面包及 lockfile 中的版本。build 高于所有平台当前更新源，版本不倒退；tag 指向的提交必须已在 `main` 上。tag 与公开文件保持不可变，历史 skill 的 Latest 保持不变。
+
+完成版本更新、验证并提交到 `main` 后，用已推送的完整源 commit 打 tag：
 
 ```bash
-# 首次先验证：导入私钥、签名并运行探针、核对完整指纹、校验 Apple 公证访问，最后清理。
+git tag -a baocut-v3.0.1-build.61 <已推送到main的完整COMMIT> -m 'BaoCut 3.0.1 build 61'
+git push origin baocut-v3.0.1-build.61
+```
+
+这里的版本与 build 是格式示例，不能给版本仍为 3.0.0 的提交打 3.0.1 tag。只配置流水线时不创建或推送 release tag。
+
+同一 tag 的 Mac Apple Silicon 和 Windows x64 CPU、CUDA、Vulkan 并行构建，全部原生 job 通过后才开始发布。Mac 使用可复用的 `desktop-macos-build.yml` 与 `macos-release` Environment，临时导入签名和公证凭据；Windows 使用可复用的 `desktop-windows.yml`，不接收 Mac Secrets。Mac 候选只上传 ZIP、DMG、两份摘要、公共报告和 appcast 共六个文件，排除钥匙串、私钥与中间公证 ZIP。
+
+发布按 Mac、Windows 顺序执行，避免同时推送更新源。公开下载读回后，Mac 再次验证 App 与 DMG 的签名、票据、Gatekeeper 和 App Runtime；Windows 核对三种候选的来源、原生 job、摘要与 App 自己的清单解析结果。最后分别提交和推送各平台 appcast，其他平台和旧发布资产保持原状。报告明确标注 UI/导出、真实模型或 GPU 推理、付费 Agent 调用未运行；工作流存在不代表完整发布已实跑。
+
+失败后查看对应 job，优先重跑失败 job，复用原先已验证的候选。已公开版本/build 不重建为不同字节，不删除或移动 tag 来绕过不可变校验。
+
+### 5.5 手动验证与单平台入口
+
+`desktop-macos.yml` 保留从 `main` 手动触发，默认只验证凭据，不创建 Release：
+
+```bash
 gh workflow run desktop-macos.yml --repo JimLiu/baocut --ref main -f mode=validate
-
-# 只生成已签名、公证且自检过的候选，不创建公开 Release。
+# 只生成候选；不公开发布。
 gh workflow run desktop-macos.yml --repo JimLiu/baocut --ref main -f mode=package -f build=<新BUILD>
-
-# 构建并发布新 build；不能复用已公开的版本/build。
+# 单平台应急发布；常规全平台发布使用 §5.4 的 release tag。
 gh workflow run desktop-macos.yml --repo JimLiu/baocut --ref main -f mode=publish -f build=<新BUILD>
 ```
 
-`package` / `publish` 要求 build 高于当前 Mac 更新源，并在访问 Secrets 前拒绝已存在的 release tag。候选只上传 ZIP、DMG、各自校验文件、去掉本机路径的报告和 appcast 共六个公共文件。报告明确标注原生启动检查通过、UI/导出、真实模型推理与付费 Agent 调用未运行。
+验证会导入私钥、签名并运行探针、核对完整指纹和 Apple 公证访问，最后清理；首次真实 Actions 凭据验证、完整构建与公开发布分别记录结果。单平台入口不自动续跑其他平台。
 
-`publish` 在独立 Mac job 重新核对候选来源、签名、公证记录、文件摘要与 App 的更新源解析结果；保持 Release tag 与公开资产不可变、旧 skill 的 Latest 不变。公开下载读回后再次验证解压 App 的签名、票据、Gatekeeper 与 Runtime，以及 DMG 的签名、票据和 Gatekeeper，最后才由 bot 提交和推送 Mac appcast。工作流默认 `validate`，配置签名环境不自动发布新版本。
-
-本地检查为 `node --test apps/desktop/tools/macos-release.test.mjs` 和 `actionlint .github/workflows/desktop-macos.yml`。首次真实 Actions 的凭据验证、完整构建和公开发布分别记录结果，不能互相替代。
+本地检查为 `node --test apps/desktop/tools/desktop-release-rules.test.mjs apps/desktop/tools/macos-release.test.mjs apps/desktop/tools/windows-release.test.mjs` 和 `actionlint .github/workflows/*.yml`。
 
 ## 6. 发布与备份完成条件
 
