@@ -62,7 +62,10 @@ export interface DownloadOptions {
 export function downloadArgs(url: string, options: DownloadOptions): string[] {
   // Metadata can advertise CDN formats that are no longer downloadable. Let yt-dlp reject them before selecting a stream.
   const args = [...COMMON_ARGS, ...cookieArgs(options.cookieBrowser), '--check-formats', '--newline', '--progress-template', PROGRESS_TEMPLATE, '--no-mtime', '-o', options.output];
-  args.push('-f', options.audioOnly ? 'ba/b' : 'bv*+ba/b');
+  // 默认要 MP4：画面与声音优先挑 MP4 / M4A 的流、合并成 MP4，浏览器与 Electron 直接播放，不用先转换。网站没有时退回
+  // 最好的任意格式；合并时 MP4 装不下的编码（VP9 + Opus 一类）放进 WebM，再不行放进 MKV。
+  args.push('-f', options.audioOnly ? 'ba[ext=m4a]/ba/b' : 'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b');
+  if (!options.audioOnly) args.push('--merge-output-format', 'mp4/webm/mkv');
   if (options.ffmpegLocation) args.push('--ffmpeg-location', options.ffmpegLocation);
   if (options.subtitleLanguages.length > 0) args.push('--write-subs', '--sub-langs', options.subtitleLanguages.join(','));
   args.push('--', url);
