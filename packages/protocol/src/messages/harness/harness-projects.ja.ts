@@ -7,7 +7,7 @@ export const ja: HarnessProjectsMessages = {
   markerReadFailed: (p) => `プロジェクトマーカーを読み取れませんでした：${p.error}`,
   markerNewer: (p) =>
     `このプロジェクトは新しいバージョンの BaoCut で作成されています（プロジェクトマーカーのバージョン ${p.version}）。BaoCut を更新してから、もう一度開いてください`,
-  untitledProject: '名称未設定のプロジェクト',
+  untitledProject: '名称未設定のプロジェクト', recoveredVideos: '復元された動画',
   createFolderFailed: (p) => `プロジェクトフォルダを作成できませんでした：${p.error}`,
   tooManySameName: '同じ名前のプロジェクトフォルダが多すぎます。別の名前を選んでください',
   markerNotWritable: (p) =>

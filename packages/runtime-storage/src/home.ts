@@ -25,7 +25,7 @@ import path from 'node:path';
  *   staging/node-jobs/<id>/ 别的机器提交的远端任务：上传的媒体与结果，随任务删除
  *   artifacts/<摘要>.json  任务的原始结果，按内容寻址
  *   models/<org>/<repo>/  本地模型文件的缺省位置（设置 `models.dir` 可以改，`BAOCUT_MODELS_DIR` 优先）
- *   scratch/<id>/         无项目会话的工作目录
+ *   scratch/<id>/         无项目会话的工作目录；第一次新建视频时搬进新建的项目（架构设计 §3.10）
  *   cache/media/<摘要>/    素材的分析结果（波形峰值、缩略图），按内容摘要存，删掉会重新生成
  *   cache/content-index/<摘要>.json 跨视频检索的内容索引，每个视频一个（架构设计 §5.11），删掉会重新读
  *   library/<glossaries|voices|brand>/<id>/ 用户库的条目（架构设计 §5.9）：条目头、各版本的内容与按摘要命名的文件

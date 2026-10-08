@@ -61,10 +61,12 @@ export interface PipelineTargetsOptions {
   /** 项目目录；不存在时 `not-found`。 */
   projectRoot(projectId: Id): string;
   /**
-   * 会话的来源（与智能体的 `videos_create` 相同）：属于项目时是项目目录与项目范围，否则是会话的工作目录与会话范围；
-   * 会话不存在时 `not-found`。不给时不接受按会话新建。
+   * 按会话新建时的位置（与智能体的 `videos_create` 相同）：会话所属项目的目录与项目范围；不属于项目的会话先建项目并绑定
+   * （架构设计 §3.10）。会话不存在时 `not-found`。不给时不接受按会话新建。
    */
-  conversationSource?(conversationId: Id): { root: string; scope: { projectId: Id } | { conversationId: Id } };
+  conversationSource?(
+    conversationId: Id,
+  ): Promise<{ root: string; scope: { projectId: Id } | { conversationId: Id } }> | { root: string; scope: { projectId: Id } | { conversationId: Id } };
 }
 
 export function pipelineTargets(videos: VideoService, options: PipelineTargetsOptions): PipelineTargets {
@@ -90,7 +92,7 @@ export function pipelineTargets(videos: VideoService, options: PipelineTargetsOp
   };
 
   /** 新建视频的来源目录与范围：项目，或会话的来源（属于项目的会话是那个项目）。 */
-  const source = (request: PipelineCreateScope): { root: string; scope: { projectId: Id } | { conversationId: Id } } => {
+  const source = async (request: PipelineCreateScope): Promise<{ root: string; scope: { projectId: Id } | { conversationId: Id } }> => {
     if (request.projectId !== undefined) return { root: options.projectRoot(request.projectId), scope: { projectId: request.projectId } };
     if (!options.conversationSource) {
       throw new RpcError('invalid-request', RcVideo.cantCreateInSession(), { code: 'PIPELINE_TARGET_UNSUPPORTED' });
@@ -108,13 +110,13 @@ export function pipelineTargets(videos: VideoService, options: PipelineTargetsOp
       return toLease(opened.ref.videoId, principal, place);
     },
     async reserve(request) {
-      const { root, scope } = source(request);
+      const { root, scope } = await source(request);
       const file = await reserveVideoDir(root, request.name);
       return { root: path.resolve(root), file, scope };
     },
     async create(request) {
       const { name, commandId, place } = request;
-      const { root, scope } = source(request);
+      const { root, scope } = await source(request);
       const principal = targetPrincipal();
       if (place) {
         const location = placeLocation(place);

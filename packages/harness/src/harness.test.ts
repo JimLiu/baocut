@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { RpcError } from '@baocut/protocol';
+import { HarnessProjects as HP } from '@baocut/protocol/messages/harness';
 import {
   ConversationStore,
   ProjectStore,
@@ -200,5 +201,166 @@ describe('项目标记', () => {
     expect(await markerId(legacy)).toBeNull();
     expect((await harness.openProject(legacy)).id).toBe('proj_legacy');
     expect(await markerId(legacy)).toBe('proj_legacy');
+  });
+});
+
+/** 无项目会话第一次新建视频时建项目并绑定（架构设计 §3.10），与升级前留在工作目录里的视频的迁移。 */
+describe('无项目会话绑定项目', () => {
+  /** 一个假的视频目录：只要有 `video.db` 就算视频（视频格式规范 §1）。 */
+  async function fakeVideo(dir: string): Promise<void> {
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, 'video.db'), 'db');
+  }
+
+  const exists = (p: string) =>
+    fs.lstat(p).then(
+      () => true,
+      () => false,
+    );
+
+  it('第一次绑定建项目（名字取标题）、换工作目录、东西搬过去；重复与并发的调用拿回同一个项目', async () => {
+    const conversation = await harness.createConversation({ title: '我的片子' });
+    expect(conversation.projectId).toBeNull();
+    expect(conversation.cwd).toBe(path.join(home.scratchDir, conversation.id));
+    await fs.writeFile(path.join(conversation.cwd, 'notes.txt'), '笔记');
+
+    const [a, b] = await Promise.all([harness.ensureConversationProject(conversation.id), harness.ensureConversationProject(conversation.id)]);
+    expect(b.id).toBe(a.id);
+    expect(a).toMatchObject({ name: '我的片子', path: path.join(home.projectsDir, '我的片子') });
+    expect(await markerId(a.path)).toBe(a.id);
+    expect(harness.getConversation(conversation.id).conversation).toMatchObject({ projectId: a.id, cwd: a.path });
+    expect(await fs.readFile(path.join(a.path, 'notes.txt'), 'utf8')).toBe('笔记');
+    // 没有回合在用旧工作目录：删掉。
+    expect(await exists(conversation.cwd)).toBe(false);
+
+    expect((await harness.ensureConversationProject(conversation.id)).id).toBe(a.id);
+    expect(harness.listProjects()).toHaveLength(1);
+
+    // 绑定落盘：重启后还在。
+    await harness.shutdown();
+    harness = await open();
+    expect(harness.getConversation(conversation.id).conversation).toMatchObject({ projectId: a.id, cwd: a.path });
+    expect((await harness.ensureConversationProject(conversation.id)).id).toBe(a.id);
+    expect(harness.listProjects()).toHaveLength(1);
+
+    // 没有标题用默认名。
+    const untitled = await harness.createConversation({});
+    expect((await harness.ensureConversationProject(untitled.id)).name).toBe(HP.untitledProject().text);
+  });
+
+  it('崩溃恢复：项目目录选定之后、会话绑定之前退出，下次接着用同一个目录，不产生第二个项目', async () => {
+    const conversation = await harness.createConversation({ title: '半途' });
+    // 模拟上次绑定到一半：选定的目录记下了、建好并登记了，会话还没有绑定。
+    const chosen = path.join(home.projectsDir, '半途');
+    await fs.writeFile(path.join(conversation.cwd, '.baocut-binding.json'), JSON.stringify({ path: chosen }));
+    const half = await harness.createProject({ name: '半途' });
+    expect(half.path).toBe(chosen);
+
+    const project = await harness.ensureConversationProject(conversation.id);
+    expect(project.id).toBe(half.id);
+    expect(harness.listProjects()).toHaveLength(1);
+    expect(await exists(path.join(project.path, '.baocut-binding.json'))).toBe(false);
+    expect(await exists(conversation.cwd)).toBe(false);
+  });
+
+  it('启动迁移：有会话的工作目录里的视频建项目搬进去；没有会话的收进「恢复的视频」（按界面语言命名，再次启动沿用），没有视频的删掉', async () => {
+    const live = await harness.createConversation({ title: '旧会话' });
+    await fakeVideo(path.join(live.cwd, '旧视频'));
+    await fs.writeFile(path.join(live.cwd, 'exports.txt'), 'x');
+    const plain = await harness.createConversation({ title: '只聊天' });
+    await fs.writeFile(path.join(plain.cwd, 'draft.txt'), 'x');
+    const orphan = path.join(home.scratchDir, 'conv_gone');
+    await fakeVideo(path.join(orphan, '孤儿视频'));
+    await fs.writeFile(path.join(orphan, '.hidden'), 'x');
+    const empty = path.join(home.scratchDir, 'conv_empty');
+    await fs.mkdir(empty, { recursive: true });
+    await fs.writeFile(path.join(empty, 'scrap.txt'), 'x');
+
+    const result = await harness.migrateScratch();
+    expect(result).toMatchObject({ bound: 1, recovered: 1, removed: 1 });
+
+    const bound = harness.getConversation(live.id).conversation;
+    const project = harness.listProjects().find((p) => p.id === bound.projectId)!;
+    expect(project).toMatchObject({ name: '旧会话' });
+    expect(bound.cwd).toBe(project.path);
+    expect(await exists(path.join(project.path, '旧视频', 'video.db'))).toBe(true);
+    expect(await exists(path.join(project.path, 'exports.txt'))).toBe(true);
+    expect(await exists(live.cwd)).toBe(false);
+
+    // 没有视频的会话不动。
+    expect(harness.getConversation(plain.id).conversation).toMatchObject({ projectId: null, cwd: plain.cwd });
+    expect(await exists(path.join(plain.cwd, 'draft.txt'))).toBe(true);
+
+    const recovered = harness.listProjects().find((p) => p.name === HP.recoveredVideos().text)!;
+    expect(recovered).toBeTruthy();
+    expect(await exists(path.join(recovered.path, '孤儿视频', 'video.db'))).toBe(true);
+    expect(await exists(path.join(recovered.path, '.hidden'))).toBe(false);
+    expect(await exists(orphan)).toBe(false);
+    expect(await exists(empty)).toBe(false);
+
+    // 再来一个没有会话的：收进同一个「恢复的视频」，重名的加序号。
+    const another = path.join(home.scratchDir, 'conv_gone2');
+    await fakeVideo(path.join(another, '孤儿视频'));
+    await harness.shutdown();
+    harness = await open();
+    expect(await harness.migrateScratch()).toMatchObject({ recovered: 1 });
+    expect(harness.listProjects().filter((p) => p.name.startsWith(HP.recoveredVideos().text))).toHaveLength(1);
+    expect(await exists(path.join(recovered.path, '孤儿视频 2', 'video.db'))).toBe(true);
+  });
+
+  it('启动迁移：属于项目的会话还留着的工作目录（回合中绑定后的链接或剩下的文件）收拾掉', async () => {
+    const conversation = await harness.createConversation({ title: '收尾' });
+    const project = await harness.ensureConversationProject(conversation.id);
+    const scratch = path.join(home.scratchDir, conversation.id);
+    await fs.mkdir(scratch, { recursive: true });
+    await fs.writeFile(path.join(scratch, 'late.txt'), 'x');
+    await harness.migrateScratch();
+    expect(await exists(scratch)).toBe(false);
+    expect(await exists(path.join(project.path, 'late.txt'))).toBe(true);
+
+    await fs.symlink(project.path, scratch, 'dir');
+    await harness.migrateScratch();
+    expect(await exists(scratch)).toBe(false);
+    expect(await exists(path.join(project.path, 'late.txt'))).toBe(true);
+  });
+
+  it('删除工作目录里还有视频的会话：先建项目搬进去再删，视频不丢；没有视频的工作目录随会话删掉', async () => {
+    const legacy = await harness.createConversation({ title: '要删的' });
+    await fakeVideo(path.join(legacy.cwd, '留下的视频'));
+    await harness.deleteConversation(legacy.id);
+    const project = harness.listProjects().find((p) => p.name === '要删的')!;
+    expect(project).toBeTruthy();
+    expect(await exists(path.join(project.path, '留下的视频', 'video.db'))).toBe(true);
+    expect(await exists(legacy.cwd)).toBe(false);
+
+    const chat = await harness.createConversation({ title: '闲聊' });
+    await fs.writeFile(path.join(chat.cwd, 'a.txt'), 'x');
+    await harness.deleteConversation(chat.id);
+    expect(await exists(chat.cwd)).toBe(false);
+    expect(harness.listProjects()).toHaveLength(1);
+  });
+
+  it('打开着的视频不搬：留在工作目录里，其余照搬；下次启动再搬', async () => {
+    await harness.shutdown();
+    let busy: string[] = [];
+    harness = await Harness.open({
+      home,
+      conversations: new ConversationStore(home.conversationsDir),
+      projects: new ProjectStore(home.projectsFile),
+      drivers: new DriverRegistry(),
+      log: silentLogger,
+      openVideoDirs: () => busy,
+    });
+    const conversation = await harness.createConversation({ title: '开着' });
+    await fakeVideo(path.join(conversation.cwd, '开着的'));
+    await fs.writeFile(path.join(conversation.cwd, 'b.txt'), 'x');
+    busy = [path.join(await fs.realpath(conversation.cwd), '开着的')];
+    const project = await harness.ensureConversationProject(conversation.id);
+    expect(await exists(path.join(project.path, 'b.txt'))).toBe(true);
+    expect(await exists(path.join(conversation.cwd, '开着的', 'video.db'))).toBe(true);
+    busy = [];
+    await harness.migrateScratch();
+    expect(await exists(path.join(project.path, '开着的', 'video.db'))).toBe(true);
+    expect(await exists(conversation.cwd)).toBe(false);
   });
 });

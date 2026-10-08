@@ -415,6 +415,11 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       return { root: conversation.cwd, scope: { conversationId: conversation.id } };
     };
     const conversationRoot = (conversationId: Id) => conversationSource(conversationId).root;
+    // 流程按会话新建视频（`create: { conversationId }`）：不属于项目的会话先建项目并绑定（§3.10），视频建在项目里。
+    const conversationCreateSource = async (conversationId: Id): Promise<{ root: string; scope: { projectId: Id } }> => {
+      const project = await requireHarness().ensureConversationProject(conversationId);
+      return { root: project.path, scope: { projectId: project.id } };
+    };
     const models = await openModelJobs({
       home,
       credentials,
@@ -459,7 +464,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
           return entryPlace(spaceRef, entryId);
         },
         projectRoot,
-        conversationSource,
+        conversationSource: conversationCreateSource,
       },
       // 任务下的 Job 与流程应用结果时带上任务合同的保护范围（§3.2）。任务已经不在了（会话删掉了）时没有保护。
       taskProtections: async (taskId, videoId) => {
@@ -606,9 +611,13 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       attachments,
       // 任务预算（§3.2、§7.8）：合同的预算策略登记在授权账本里，任务里的每次外发调用在授权之外还要通过它。
       budgets: models.grants,
+      // 把无项目会话工作目录里的东西搬进项目时（§3.10），打开着的视频目录跳过。
+      openVideoDirs: () => videos.openRefs().map((ref) => ref.path),
       log,
     });
     stops.add('harness', () => harness.shutdown(), 'Stopping the Harness failed');
+    // 升级前留在会话工作目录里的视频搬进项目，没有会话的工作目录收拾掉（§3.10）。在 Space 首次扫描与客户端连上之前。
+    await harness.migrateScratch().catch((error: unknown) => log.warn('Failed to tidy session folders', { error: String(error) }));
     // 默认 Agent 存在偏好设置里（`agent.defaultDriver`，§3.11）：设置页、CLI、`agents.setDefault` 改了它都推送新的 Agent 视图。
     // 默认 Agent 没设过默认模型时 `DriverInfo.defaultModel` 取 `agent.defaultModel`，改了它也推送。
     settings.store.onChange((changed) => {

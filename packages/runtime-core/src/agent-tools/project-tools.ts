@@ -78,7 +78,7 @@ const LIST_NEXT: Record<ToolPrincipal['kind'], string> = {
 
 /** 一个项目都没有时的出路：各个面能做的不一样（对外服务不能新建项目）。 */
 const EMPTY_NEXT: Record<ToolPrincipal['kind'], string> = {
-  agent: '这个会话不属于任何项目：视频建在会话的工作目录里（videos_create 不给 project）。',
+  agent: '这个会话不属于任何项目：videos_create 不给 project 时先以会话标题新建项目并把会话绑定到它，视频建在那个项目里，工作目录换成项目目录。',
   local:
     '还没有登记的项目：videos_create 不给 project 时视频建在当前目录所属的项目里，没有时登记默认项目目录下的 CLI 项目；要放在指定的目录里，先用 projects_create 在那里新建并登记项目。',
   service:
