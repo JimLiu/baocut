@@ -313,6 +313,14 @@ export function needBytes(bundle: Pick<ModelBundleStatus, 'components'>): number
   return total;
 }
 
+/**
+ * 就地下载那一处写多大（与设置页那一行同一个数）：有组件信息时就是 `needBytes`——权重在、缺公共组件的只算缺的，有缺的组件不知道
+ * 大小时不写；没有组件信息的旧快照用随附清单估的 `estimatedBytes`。不知道、或什么都不缺时 null。
+ */
+export function downloadBytes(bundle: Pick<ModelBundleStatus, 'components' | 'estimatedBytes'>): number | null {
+  return (bundle.components?.length ? needBytes(bundle) : bundle.estimatedBytes) || null;
+}
+
 const installing = (b: ModelBundleStatus) => !!b.install && b.install.state !== 'paused';
 const cannotRun = (b: ModelBundleStatus) => b.reason === 'unsupported' || b.reason === 'worker-missing';
 

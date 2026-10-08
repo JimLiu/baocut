@@ -1,5 +1,5 @@
 import { defineMessages, type Id, type JobRecord, type ModelBundleStatus, type ModelCapabilitiesView, type ModelRef, type TranscribeModelInfo } from '@baocut/protocol';
-import { bundleName, isBundleInstalled } from './models-local.ts';
+import { bundleName, downloadBytes, isBundleInstalled } from './models-local.ts';
 import { zhHans } from './transcribe-speakers.zh-Hans.ts';
 import { zhHant } from './transcribe-speakers.zh-Hant.ts';
 import { ja } from './transcribe-speakers.ja.ts';
@@ -81,14 +81,14 @@ export function speakerSwitch(info: TranscribeModelInfo | null | undefined, pick
   return { kind, on, locked: false, missing: on && !installed, step: on };
 }
 
-/** 「说话人区分」那一行：名字与体积（下载计划给的总量，没有时用模型包随附清单估的 `estimatedBytes`；都没有时不写）。 */
+/** 「说话人区分」那一行：名字与体积（下载任务的总量，没有时按缺的组件算，与设置页同一个数；都不知道时不写）。 */
 export interface SpeakerPackFacts {
   name: string;
   size: string | null;
 }
 
 export function speakerPackFacts(pack: ModelBundleStatus | null, size: (bytes: number) => string): SpeakerPackFacts {
-  const total = pack?.install?.totalBytes || pack?.estimatedBytes || null;
+  const total = pack ? pack.install?.totalBytes || downloadBytes(pack) : null;
   return { name: pack ? bundleName(pack) : M.packFallback, size: total ? size(total) : null };
 }
 

@@ -27,7 +27,7 @@ import DownloadIcon from '@react-spectrum/s2/icons/Download';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { entryKey } from '../../model/library-entry.ts';
 import { isLocalProvider } from '../../model/models-cloud.ts';
-import { downloadableBundle, downloadView } from '../../model/models-install.ts';
+import { downloadableBundle, downloadView, inlineInstallMode } from '../../model/models-install.ts';
 import {
   budgetLine,
   DEFAULT_TRANSCRIBE_SETUP,
@@ -203,7 +203,12 @@ export function TranscribeSettings({ videoId, documents, editable }: { videoId: 
   // 选中的那只没装时，下拉下面给「下载 {大小}」（在下时给进度），下完不用再选。
   const bundles = useModels((s) => s.bundles);
   const jobs = useJobs((s) => s.jobs);
-  const [installing, setInstalling] = useState<{ option: TranscribeModelOption; bundle: ModelBundleStatus } | null>(null);
+  const [installing, setInstalling] = useState<{
+    option: TranscribeModelOption;
+    bundle: ModelBundleStatus;
+    /** 权重已在、只缺公共组件的按补齐走（`inlineInstallMode`），打开时定下。 */
+    mode: 'install' | 'complete';
+  } | null>(null);
   const [pending, setPending] = useState<{ key: string; jobId: Id | null } | null>(null);
   const pendingOption = pending ? (options.find((o) => o.key === pending.key) ?? null) : null;
   const pendingBundle = pendingOption ? (bundles.find((b) => b.bundleId === pendingOption.modelId) ?? null) : null;
@@ -218,7 +223,7 @@ export function TranscribeSettings({ videoId, documents, editable }: { videoId: 
     // 只跟着等的那只能不能用、下载有没有失败走；patch 每次渲染都是新的。
   }, [pending, pendingOption?.usable, pendingFailed]);
   const download = (o: TranscribeModelOption, bundle: ModelBundleStatus) => {
-    if (downloadView(bundle).state !== 'running') setInstalling({ option: o, bundle });
+    if (downloadView(bundle).state !== 'running') setInstalling({ option: o, bundle, mode: inlineInstallMode(bundle, bundles) });
     else if (o.key !== option?.key) setPending({ key: o.key, jobId: bundle.install?.jobId ?? null });
   };
   const disabledKeys = options.filter((o) => !o.usable && o.key !== option?.key && !downloadableBundle(bundles, o)).map((o) => o.key);
@@ -344,7 +349,7 @@ export function TranscribeSettings({ videoId, documents, editable }: { videoId: 
                   bundleId={installing.bundle.bundleId}
                   name={installing.option.label}
                   license={installing.bundle.license ?? null}
-                  mode="install"
+                  mode={installing.mode}
                   onClose={() => setInstalling(null)}
                   // 下的是已经选中的那只时不用等着选，照常提示「开始下载」。
                   {...(installing.option.key === option?.key

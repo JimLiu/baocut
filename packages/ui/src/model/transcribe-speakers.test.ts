@@ -66,6 +66,17 @@ describe('识别说话人的开关', () => {
     // 没有下载计划时用随附清单估的体积。
     const estimated = bundle(PACK, { capability: 'diarize', label: '说话人区分', estimatedBytes: 31 * 1024 * 1024 });
     expect(speakerPackFacts(estimated, mb).size).toBe('31 MB');
+    // 有组件信息时只算缺的（权重在、缺公共组件的只写缺的那一件）。
+    const half = bundle(PACK, {
+      capability: 'diarize',
+      state: 'not-installed',
+      estimatedBytes: 31 * 1024 * 1024,
+      components: [
+        { component: 'speaker', repo: 'pyannote/embedding', revision: 'r', state: 'installed', bytes: 28 * 1024 * 1024, sharedWith: [] },
+        { component: 'segmentation', repo: 'pyannote/seg', revision: 'r', state: 'missing', bytes: null, estimatedBytes: 3 * 1024 * 1024, sharedWith: [] },
+      ],
+    });
+    expect(speakerPackFacts(half, mb).size).toBe('3 MB');
     expect(speakerCopy(speakerSwitch(moss, null, false), 'MOSS Transcribe', pack)).toEqual({
       note: 'MOSS Transcribe 自带说话人区分，转录时一起完成',
       summary: '识别说话人 · 模型自带',

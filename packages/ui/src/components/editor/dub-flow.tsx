@@ -47,7 +47,7 @@ import {
   type SpeakerRow,
   type VoiceChoice,
 } from '../../model/dub-setup.ts';
-import { downloadView, separationDownload } from '../../model/models-install.ts';
+import { downloadView, inlineInstallMode, separationDownload } from '../../model/models-install.ts';
 import { bundleName } from '../../model/models-local.ts';
 import { textModelLine } from '../../model/models-text.ts';
 import { cloudModelOptions, findOption, initialModelKey, langName, parseModelKey, type ToolModelOption } from '../../model/tools-models.ts';
@@ -272,7 +272,8 @@ function DubSetupPage({
   const sepDownload = separate && sepBundle ? sepBundle : null;
   const sepView = sepDownload ? downloadView(sepDownload) : null;
   const sepWait = useDubRun((s) => s.installs[videoId] ?? null);
-  const [sepConfirm, setSepConfirm] = useState<{ params: DubParams; intent: DubIntent } | null>(null);
+  // 权重已在、只缺公共组件的分离模型按补齐走（`inlineInstallMode`），打开对话框时定下。
+  const [sepConfirm, setSepConfirm] = useState<{ params: DubParams; intent: DubIntent; mode: 'install' | 'complete' } | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -335,7 +336,7 @@ function DubSetupPage({
       // 已经在下（设置页点的）：等它下完；否则先走安装对话框，提交了下载再等。
       const jobId = sepView?.state === 'running' ? sepDownload.install?.jobId : null;
       if (jobId) awaitDubInstall(jobId, params, intent);
-      else setSepConfirm({ params, intent });
+      else setSepConfirm({ params, intent, mode: inlineInstallMode(sepDownload, bundles) });
       return;
     }
     setSubmitting(true);
@@ -626,7 +627,7 @@ function DubSetupPage({
             bundleId={sepDownload.bundleId}
             name={bundleName(sepDownload)}
             license={sepDownload.license ?? null}
-            mode="install"
+            mode={sepConfirm.mode}
             onClose={() => setSepConfirm(null)}
             onStarted={(jobId) => {
               setSepConfirm(null);

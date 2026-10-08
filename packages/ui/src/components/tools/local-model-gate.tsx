@@ -3,7 +3,7 @@ import type { ModelBundleStatus } from '@baocut/protocol';
 import { Button, ProgressBar, Text } from '@react-spectrum/s2';
 import Download from '@react-spectrum/s2/icons/Download';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import { downloadView } from '../../model/models-install.ts';
+import { downloadView, inlineInstallMode } from '../../model/models-install.ts';
 import type { ModelCategory } from '../../model/settings-nav.ts';
 import { localNotDownloaded } from '../../model/tools-image.ts';
 import type { ToolModelOption } from '../../model/tools-models.ts';
@@ -16,7 +16,8 @@ import { GATE_COPY } from './tools-copy.ts';
 
 /*
  * 选中的本机模型还不能用时的门卡（设计稿 image-gen.jsx `EngineGate` 的本机分支、panel-tts.jsx `TtsModelGate`）：没下载的给
- * 「下载 {大小}」（走设置页同一个安装对话框，先看大小与许可）、下载中给进度条；这个平台或构建跑不了的只给「换用可用的云端模型」。
+ * 「下载 {大小}」（走设置页同一个安装对话框，先看大小与许可；权重已在、只缺公共组件的按补齐走，只下缺的、不再问许可）、下载中给
+ * 进度条；这个平台或构建跑不了的只给「换用可用的云端模型」。
  * 都带「管理本地模型…」。
  */
 
@@ -44,7 +45,9 @@ export function LocalDownloadGate({
   extra?: ReactNode;
 }) {
   const go = useShell((s) => s.go);
-  const [installing, setInstalling] = useState(false);
+  const bundles = useModels((s) => s.bundles);
+  // 打开对话框时定下下载还是补齐：下载中组件陆续落地，不让对话框中途换计划。
+  const [installing, setInstalling] = useState<'install' | 'complete' | null>(null);
   const view = downloadView(bundle);
   const label = view.state === 'running' ? GATE_COPY.downloading(view.percent) : null;
   return (
@@ -66,7 +69,7 @@ export function LocalDownloadGate({
                 {label}
               </span>
             ) : (
-              <Button variant="accent" size="S" onPress={() => setInstalling(true)}>
+              <Button variant="accent" size="S" onPress={() => setInstalling(inlineInstallMode(bundle, bundles))}>
                 <Download />
                 <Text>
                   {view.state === 'paused' ? GATE_COPY.resume : view.size ? GATE_COPY.downloadSize(view.size) : GATE_COPY.downloadButton}
@@ -84,8 +87,8 @@ export function LocalDownloadGate({
           name={name}
           license={bundle.license ?? null}
           {...(licenseUse ? { licenseUse } : {})}
-          mode="install"
-          onClose={() => setInstalling(false)}
+          mode={installing}
+          onClose={() => setInstalling(null)}
         />
       ) : null}
     </>

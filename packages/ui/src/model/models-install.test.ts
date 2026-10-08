@@ -5,6 +5,7 @@ import {
   canDownload,
   downloadableBundle,
   downloadView,
+  inlineInstallMode,
   installFailure,
   installPlanView,
   installProgressView,
@@ -283,7 +284,12 @@ describe('分组与每行能做什么', () => {
 
 describe('就地下载（工具页、转录设置、配音的「下载 {大小}」）', () => {
   const missing = (bundleId: string, patch: Partial<ModelBundleStatus> = {}) =>
-    bundle(bundleId, { state: 'not-installed', components: [component('w', { state: 'missing' })], estimatedBytes: 1.2 * GB, ...patch });
+    bundle(bundleId, {
+      state: 'not-installed',
+      components: [component('w', { state: 'missing', estimatedBytes: 1.2 * GB })],
+      estimatedBytes: 1.2 * GB,
+      ...patch,
+    });
   const ready = (bundleId: string) => bundle(bundleId, { state: 'ready', components: [component('w')] });
 
   it('没装好、这台电脑也跑得了才能下载', () => {
@@ -309,9 +315,19 @@ describe('就地下载（工具页、转录设置、配音的「下载 {大小}�
     expect(separationDownload([missing(QWEN), sep('a@candle', { state: 'error', reason: 'unsupported' })])).toBeNull();
   });
 
-  it('下载的样子：大小先用下载任务的总量、再用估计值；在下写百分比，停在一半是暂停', () => {
+  it('下载的样子：大小先用下载任务的总量、再按缺的组件算；在下写百分比，停在一半是暂停', () => {
     expect(downloadView(missing(QWEN))).toEqual({ state: 'idle', size: fmtSize(1.2 * GB), percent: null });
-    const { estimatedBytes: _, ...unknown } = missing(QWEN);
+    // 权重在、只缺公共组件：只写缺的那一件（与设置页「补齐 {大小}」同一个数），不写整只模型的估计值。
+    const vad = component('silero/vad', { component: 'vad', state: 'missing', bytes: null, estimatedBytes: 30 * MB });
+    const half = missing(QWEN, { components: [component('w', { estimatedBytes: 1.2 * GB }), vad], estimatedBytes: 1.2 * GB + 30 * MB });
+    expect(downloadView(half).size).toBe(fmtSize(30 * MB));
+    // 缺的组件有不知道大小的：不写（设置页也不写），不拿整只的估计值顶。
+    const unsized = missing(QWEN, { components: [component('w', { estimatedBytes: 1.2 * GB }), { ...vad, estimatedBytes: null }] });
+    expect(downloadView(unsized).size).toBeNull();
+    // 没有组件信息的旧快照用随附清单估的；都没有时不写。
+    const { components: _c, ...legacy } = missing(QWEN);
+    expect(downloadView(legacy).size).toBe(fmtSize(1.2 * GB));
+    const { estimatedBytes: _e, ...unknown } = legacy;
     expect(downloadView(unknown)).toEqual({ state: 'idle', size: null, percent: null });
     const running = missing(QWEN, { install: { jobId: 'j', state: 'downloading', receivedBytes: 0.6 * GB, totalBytes: 2 * GB } });
     expect(downloadView(running)).toEqual({ state: 'running', size: fmtSize(2 * GB), percent: 30 });
@@ -319,5 +335,21 @@ describe('就地下载（工具页、转录设置、配音的「下载 {大小}�
     expect(downloadView(queued)).toEqual({ state: 'running', size: fmtSize(1.2 * GB), percent: null });
     const paused = missing(QWEN, { install: { jobId: null, state: 'paused', receivedBytes: 5, totalBytes: 10 } });
     expect(downloadView(paused).state).toBe('paused');
+  });
+
+  it('权重已在的就地下载走补齐（与设置页同一个判断）：只借到别人装上的公共组件、什么都没有的走下载', () => {
+    const vad = (state: 'installed' | 'missing') => component('silero/vad', { component: 'vad', state });
+    const half = missing('a@mlx', { reason: 'incomplete', components: [component('a'), vad('missing')] });
+    const fresh = missing('b@mlx', { components: [component('b', { state: 'missing' }), vad('missing')] });
+    const bundles = [half, fresh];
+    expect(canDownload(half)).toBe(true);
+    expect(inlineInstallMode(half, bundles)).toBe('complete');
+    expect(inlineInstallMode(fresh, bundles)).toBe('install');
+    // 公共组件是别的模型装上的：自己的权重不在，照样是下载（要问许可）。
+    const borrowed = missing('b@mlx', { components: [component('b', { state: 'missing' }), vad('installed')] });
+    expect(inlineInstallMode(borrowed, [borrowed, { ...half, components: [component('a'), vad('installed')] }])).toBe('install');
+    // 下到一半停下、权重已经落地：接着下也是补齐（设置页的「继续下载」同样按补齐走）。
+    const paused = { ...half, install: { jobId: null, state: 'paused' as const, receivedBytes: 5, totalBytes: 10 } };
+    expect(inlineInstallMode(paused, [paused, fresh])).toBe('complete');
   });
 });

@@ -1,5 +1,13 @@
 import type { JobRecord, ModelBundleStatus, ModelInstallPlan, ModelInstallProgress } from '@baocut/protocol';
-import { isBundleInstalled, LOCAL_PROVIDER, missingParts } from './models-local.ts';
+import {
+  bundleCategory,
+  downloadBytes,
+  hasOwnFiles,
+  isBundleInstalled,
+  LOCAL_PROVIDER,
+  missingParts,
+  sharedComponents,
+} from './models-local.ts';
 import { fmtSize } from './task-facts.ts';
 import { M } from './models-install-copy.ts';
 import { jobErrorText, remedyText } from './localized-text.ts';
@@ -125,19 +133,27 @@ export function separationDownload(bundles: readonly ModelBundleStatus[]): Model
   );
 }
 
+/**
+ * 就地下载走哪种安装（与设置页同一个判断，设计稿 settings-local.jsx 的 `half`）：这只模型包自己的文件已在盘上（权重在、缺公共组件，
+ * 或下到一半、权重已经落地）时是补齐——只下载缺的，不再问许可；否则是下载。公共组件按它那一类的模型包算（`hasOwnFiles`）。
+ */
+export function inlineInstallMode(bundle: ModelBundleStatus, bundles: readonly ModelBundleStatus[]): 'install' | 'complete' {
+  return hasOwnFiles(bundle, sharedComponents(bundles, bundleCategory(bundle))) ? 'complete' : 'install';
+}
+
 export interface DownloadView {
   /** `idle` 还没开始，`paused` 停在一半（接着下），`running` 正在下（排队、下载、校验）。 */
   state: 'idle' | 'paused' | 'running';
-  /** 要下载多少：下载计划给的总量，没有时按随附清单估的 `estimatedBytes`；都没有时 null。 */
+  /** 要下载多少：下载任务的总量，没有时按缺的组件算（`downloadBytes`，与设置页同一个数）；都不知道时 null。 */
   size: string | null;
   /** 正在下时的百分比；总量未知、排队或校验中时 null。 */
   percent: number | null;
 }
 
 /** 就地下载那一处此刻的样子：按钮上写多大，下载中写进度。 */
-export function downloadView(bundle: Pick<ModelBundleStatus, 'install' | 'estimatedBytes'>): DownloadView {
+export function downloadView(bundle: Pick<ModelBundleStatus, 'install' | 'estimatedBytes' | 'components'>): DownloadView {
   const install = bundle.install;
-  const total = install?.totalBytes || bundle.estimatedBytes || null;
+  const total = install?.totalBytes || downloadBytes(bundle);
   const size = total ? fmtSize(total) : null;
   if (!install) return { state: 'idle', size, percent: null };
   const progress = installProgressView(install);

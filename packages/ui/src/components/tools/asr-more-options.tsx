@@ -3,6 +3,7 @@ import { Button, Disclosure, DisclosurePanel, DisclosureTitle, ProgressBar, Swit
 import Download from '@react-spectrum/s2/icons/Download';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import type { ModelBundleStatus, TranscribeModelInfo } from '@baocut/protocol';
+import { inlineInstallMode } from '../../model/models-install.ts';
 import { fmtSize } from '../../model/task-facts.ts';
 import {
   speakerCopy,
@@ -47,6 +48,8 @@ export interface SpeakerState {
   s: SpeakerSwitch;
   pack: ModelBundleStatus | null;
   facts: SpeakerPackFacts;
+  /** 就地下载说话人模型走下载还是补齐（`inlineInstallMode`）。 */
+  mode: 'install' | 'complete';
 }
 
 /** 这只语音模型的「识别说话人」此刻的样子：`pick` 是用户亲手拨的值（null 为没拨过）。 */
@@ -54,12 +57,18 @@ export function useSpeakerState(info: TranscribeModelInfo | null | undefined, pi
   const bundles = useModels((s) => s.bundles);
   const id = speakerPackId(info);
   const pack = id ? (bundles.find((b) => b.bundleId === id) ?? null) : null;
-  return { s: speakerSwitch(info, pick, speakerPackInstalled(info, pack)), pack, facts: speakerPackFacts(pack, fmtSize) };
+  return {
+    s: speakerSwitch(info, pick, speakerPackInstalled(info, pack)),
+    pack,
+    facts: speakerPackFacts(pack, fmtSize),
+    mode: pack ? inlineInstallMode(pack, bundles) : 'install',
+  };
 }
 
 export function AsrMoreOptions({ state, name, onPick }: { state: SpeakerState; name: string; onPick: (on: boolean) => void }) {
   const { s, pack, facts } = state;
-  const [installing, setInstalling] = useState(false);
+  // 打开对话框时定下下载还是补齐，下载中不换计划。
+  const [installing, setInstalling] = useState<'install' | 'complete' | null>(null);
   const copy = speakerCopy(s, name, facts);
   const install = pack?.install;
   const running = !!install && install.state !== 'paused';
@@ -93,7 +102,7 @@ export function AsrMoreOptions({ state, name, onPick }: { state: SpeakerState; n
                     value={pct ?? undefined}
                   />
                 ) : pack ? (
-                  <Button variant="secondary" size="S" onPress={() => setInstalling(true)}>
+                  <Button variant="secondary" size="S" onPress={() => setInstalling(state.mode)}>
                     <Download />
                     {install?.state === 'paused' ? TRANSCRIBE_TOOL_COPY.resumePack : TRANSCRIBE_TOOL_COPY.downloadPack}
                   </Button>
@@ -108,8 +117,8 @@ export function AsrMoreOptions({ state, name, onPick }: { state: SpeakerState; n
           bundleId={pack.bundleId}
           name={facts.name}
           license={pack.license ?? null}
-          mode="install"
-          onClose={() => setInstalling(false)}
+          mode={installing}
+          onClose={() => setInstalling(null)}
         />
       ) : null}
     </>
