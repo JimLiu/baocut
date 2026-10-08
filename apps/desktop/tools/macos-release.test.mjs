@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileHash } from './windows-release.mjs';
-import { publicReport, validateMacPackage } from './macos-release.mjs';
+import { findMacRelease, publicReport, validateMacPackage } from './macos-release.mjs';
 
 const expected = { sourceCommit: 'a'.repeat(40), signingSha1: 'C'.repeat(40) };
 async function fixture() {
@@ -73,4 +73,16 @@ test('Public report excludes local extraction paths and unexpected credential fi
     assert.equal(clean.portable.privateKey, undefined);
     assert.deepEqual(clean.installer, report.installer);
   } finally { rmSync(directory, { recursive: true }); }
+});
+
+test('A newly created draft is found without the public-only by-tag endpoint', () => {
+  const tag = 'baocut-v3.0.1-build.61';
+  const draft = { id: 61, tag_name: tag, draft: true, assets: [] };
+  const get = (endpoint) => {
+    if (endpoint.includes('/releases/tags/')) throw new Error('404 Not Found');
+    assert.equal(endpoint, 'repos/JimLiu/baocut/releases?per_page=100');
+    return [draft, { id: 60, tag_name: 'baocut-v3.0.0-build.60', draft: false }];
+  };
+  assert.equal(findMacRelease('JimLiu/baocut', tag, get), draft);
+  assert.equal(findMacRelease('JimLiu/baocut', 'missing-tag', get), undefined);
 });
