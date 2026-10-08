@@ -1,11 +1,14 @@
 import { useEffect, useState, type SyntheticEvent } from 'react';
-import { Button, ProgressCircle } from '@react-spectrum/s2';
+import type { Id } from '@baocut/protocol';
+import { Button, ProgressBar, ProgressCircle } from '@react-spectrum/s2';
 import AlertTriangle from '@react-spectrum/s2/icons/AlertTriangle';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
+import { useRuntime } from '../../runtime/context.tsx';
+import type { MediaPreparation } from '../../runtime/media-url-cache.ts';
 import { useVideo } from '../../state/video-store.ts';
 import { EDITOR_COPY as E } from './editor-copy.ts';
 import type { PreviewEngine, PreviewStatus } from './preview-engine.ts';
-import { SPINNER_DELAY_MS, stallDetail, stallTopic, waitedSeconds } from './preview-stall.ts';
+import { SPINNER_DELAY_MS, preparePercent, stallDetail, stallTopic, waitedSeconds } from './preview-stall.ts';
 import type { StallReport } from './preview-watch.ts';
 
 /**
@@ -25,6 +28,22 @@ const layer = style({
   cursor: 'default',
 });
 const busy = style({ display: 'flex', alignItems: 'center', gap: 8, font: 'ui-sm', color: 'transparent-white-700' });
+/** 转换中（设计稿 `.stageload__prep`）：不是卡片，标题、进度条、在转哪个媒体、只转一次居中一列，文字层级与卡片相同。 */
+const prep = style({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: 8,
+  maxWidth: 440,
+  font: 'ui-sm',
+  color: 'transparent-white-800',
+  textAlign: 'center',
+  overflowWrap: 'anywhere',
+});
+const prepTitle = style({ font: 'title-sm', color: 'white' });
+/** 百分比走动时标题不跳宽（style macro 没有 `font-variant-numeric`）。 */
+const tabular = { fontVariantNumeric: 'tabular-nums' } as const;
+const bar = style({ width: 240, maxWidth: 'full' });
 /** 与「主媒体放不出来」那张（stage-media-notice.tsx）同一个样子，多一行按钮。 */
 const card = style({
   display: 'flex',
@@ -50,36 +69,70 @@ const swallow = (event: SyntheticEvent) => event.stopPropagation();
 const block = { onPointerDown: swallow, onMouseDown: swallow, onClick: swallow, onDoubleClick: swallow, onContextMenu: swallow };
 
 /**
- * 预览载入与卡住（产品设计 §5.1，设计稿 stage-load.jsx）：载入中是一块不透明的深色面板，满 `SPINNER_DELAY_MS` 才露出
- * 转圈；卡住（预览引擎的卡住诊断报出、页面可见）时画面正中一张卡，说卡在哪一步、已经等了几秒，带「重试」。
- * `suppressed`：主媒体放不出来已有专门的卡，不再叠一张。
+ * 预览载入与卡住（产品设计 §5.1，设计稿 stage-load.jsx）：画面出来之前（渲染内核还在载入，或这一刻的媒体还没齐）是一块
+ * 不透明的深色面板，不露出等着媒体时的黑帧；满 `SPINNER_DELAY_MS` 才露出转圈。媒体要先转换才能播放（Runtime 在准备兼容
+ * 副本）时换成「正在准备预览 · N%」与进度条，点名在转哪个媒体。卡住（预览引擎的卡住诊断报出、页面可见）时画面正中一张卡，
+ * 说卡在哪一步、已经等了几秒，带「重试」。`suppressed`：主媒体放不出来已有专门的卡，不再叠一张，也不再盖着等画面。
  */
 export function StageLoadNotice({
   engine,
+  videoId,
   status,
   frame,
   suppressed,
   onRetry,
 }: {
   engine: PreviewEngine;
+  videoId: Id | null;
   status: PreviewStatus;
   frame: { left: number; top: number; width: number; height: number };
   suppressed: boolean;
   onRetry(): void;
 }) {
   const stall = usePreviewStall(engine);
-  const loading = status.kind === 'loading';
-  const spinner = useDelayed(loading, SPINNER_DELAY_MS);
+  const pictured = usePictured(engine);
+  const preparing = usePreparing(videoId);
+  const waiting = status.kind === 'loading' || (status.kind === 'ready' && !pictured && !suppressed);
+  // 头一小会儿只是安静的深色面板：很快就好的打开（包括很快就转好的短片）不闪出转圈或进度条。
+  const shown = useDelayed(waiting, SPINNER_DELAY_MS);
   if (stall && !suppressed) return <StallCard stall={stall} frame={frame} onRetry={onRetry} />;
-  if (!loading) return null;
+  if (!waiting) return null;
+  const converting = shown ? preparing[0] : undefined;
+  if (converting) return <PreparingPanel preparation={converting} frame={frame} />;
   return (
     <div className={layer} style={frame} role="status" aria-label={E.stall.loading} data-preview-load="loading" {...block}>
-      {spinner ? (
+      {shown ? (
         <div className={busy}>
           <ProgressCircle size="S" isIndeterminate staticColor="white" aria-label={E.stall.loading} />
           <span>{E.stall.loading}</span>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/** 转换中：百分比向下取整、封顶 99；Runtime 还不知道进度时只有标题、进度条不定。 */
+function PreparingPanel({ preparation, frame }: { preparation: MediaPreparation; frame: { left: number; top: number; width: number; height: number } }) {
+  const name = useVideo((s) => s.video?.state?.video?.assets[preparation.assetId]?.name?.trim() || null);
+  const percent = preparePercent(preparation.progress);
+  const label = percent === null ? E.stall.preparing : `${E.stall.preparing} · ${percent}%`;
+  return (
+    <div className={layer} style={frame} role="status" aria-label={label} data-preview-load="preparing" {...block}>
+      <div className={prep}>
+        <div className={prepTitle} style={tabular}>
+          {label}
+        </div>
+        <ProgressBar
+          size="S"
+          staticColor="white"
+          aria-label={E.stall.preparing}
+          value={percent ?? 0}
+          isIndeterminate={percent === null}
+          styles={bar}
+        />
+        <div className={step}>{name ? E.stall.converting(name) : E.stall.convertingUnnamed}</div>
+        <div>{E.stall.once}</div>
+      </div>
     </div>
   );
 }
@@ -126,6 +179,25 @@ function usePreviewStall(engine: PreviewEngine): StallReport | null {
     return () => document.removeEventListener('visibilitychange', update);
   }, []);
   return visible ? stall : null;
+}
+
+/** 画面出来过没有（预览引擎的 `pictured`）。 */
+function usePictured(engine: PreviewEngine): boolean {
+  const [pictured, setPictured] = useState(() => engine.pictured);
+  useEffect(() => engine.onPicture(setPictured), [engine]);
+  return pictured;
+}
+
+/** 这部视频在等兼容副本的媒体（Runtime 在转换），按开始的先后；进度变了跟着变。 */
+function usePreparing(videoId: Id | null): MediaPreparation[] {
+  const mediaUrls = useRuntime().videos.mediaUrls;
+  const [preparing, setPreparing] = useState<MediaPreparation[]>(() => (videoId ? mediaUrls.preparing(videoId) : []));
+  useEffect(() => {
+    const update = () => setPreparing(videoId ? mediaUrls.preparing(videoId) : []);
+    update();
+    return mediaUrls.subscribe(update);
+  }, [mediaUrls, videoId]);
+  return preparing;
 }
 
 /** `on` 连续为真满 `ms` 之后才为真（快的载入不闪）。 */

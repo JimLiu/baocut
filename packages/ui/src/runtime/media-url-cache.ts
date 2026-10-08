@@ -9,6 +9,17 @@ export interface MediaUrlCacheOptions {
   now?: () => number;
 }
 
+/** 取地址：`onProgress` 在 Runtime 准备兼容副本的每次轮询时报编码到了几成（0–1，还不知道时 null）。 */
+export type ResolveMedia = (videoId: Id, asset: VersionRef, signal: AbortSignal, onProgress: (progress: number | null) => void) => Promise<MediaHandle>;
+
+/** 一个正在准备兼容副本的素材（产品设计 §5.1「预览载入与卡住」的转换中）。 */
+export interface MediaPreparation {
+  assetId: Id;
+  revision: string;
+  /** 编码到了几成（0–1）；Runtime 还不知道时是 null。 */
+  progress: number | null;
+}
+
 /** 缓存的键：「视频:素材@版本」。 */
 export function mediaUrlKey(videoId: Id, asset: VersionRef): string {
   return `${videoId}:${asset.id}@${asset.revision}`;
@@ -22,14 +33,19 @@ export function mediaUrlKey(videoId: Id, asset: VersionRef): string {
  * - 句柄离过期不到一分钟就不再用，重新要。
  * - 某个地址放不出来时 `invalidate` 只在记着的还是这个地址时才删（先报错的那个删掉并重新要，其余的跟上新的请求）。
  * - 关掉视频、Runtime 重新连上（旧句柄随 Runtime 一起失效）时 `clear`，路上的请求回来也不收。
+ * - 路上的请求在等 Runtime 准备兼容副本时记下进度（`progress`、`preparing`），变了通知订阅者；请求了结、被丢掉时一并删掉。
+ *   被丢掉的请求还在轮询，它报的进度不收。
  */
 export class MediaUrlCache {
-  readonly #resolve: (videoId: Id, asset: VersionRef, signal: AbortSignal) => Promise<MediaHandle>;
+  readonly #resolve: ResolveMedia;
   readonly #now: () => number;
   readonly #entries = new Map<string, Entry>();
+  /** 正在准备兼容副本的（键同 `#entries`），按开始准备的先后。 */
+  readonly #preparing = new Map<string, MediaPreparation & { videoId: Id }>();
+  readonly #listeners = new Set<() => void>();
   #generation = 0;
 
-  constructor(resolve: (videoId: Id, asset: VersionRef, signal: AbortSignal) => Promise<MediaHandle>, options: MediaUrlCacheOptions = {}) {
+  constructor(resolve: ResolveMedia, options: MediaUrlCacheOptions = {}) {
     this.#resolve = resolve;
     this.#now = options.now ?? (() => Date.now());
   }
@@ -38,6 +54,24 @@ export class MediaUrlCache {
   peek(videoId: Id, asset: VersionRef): string | null {
     const entry = this.#entries.get(mediaUrlKey(videoId, asset));
     return entry?.state === 'ready' && this.#fresh(entry.handle) ? entry.handle.url : null;
+  }
+
+  /** 这个素材的兼容副本编码到了几成（0–1，Runtime 还不知道时 null）；不在准备是 undefined。 */
+  progress(videoId: Id, asset: VersionRef): number | null | undefined {
+    return this.#preparing.get(mediaUrlKey(videoId, asset))?.progress;
+  }
+
+  /** 这部视频正在准备兼容副本的素材，按开始准备的先后。 */
+  preparing(videoId: Id): MediaPreparation[] {
+    return [...this.#preparing.values()]
+      .filter((p) => p.videoId === videoId)
+      .map(({ assetId, revision, progress }) => ({ assetId, revision, progress }));
+  }
+
+  /** 准备进度变了（开始、推进、了结、被丢掉）时通知；返回取消订阅的函数。 */
+  subscribe(listener: () => void): () => void {
+    this.#listeners.add(listener);
+    return () => this.#listeners.delete(listener);
   }
 
   /** 地址：有新鲜的直接给；有路上的请求就等它；否则发一个。 */
@@ -63,6 +97,9 @@ export class MediaUrlCache {
   forgetVideo(videoId: Id): void {
     const prefix = `${videoId}:`;
     for (const key of [...this.#entries.keys()]) if (key.startsWith(prefix)) this.#entries.delete(key);
+    let dropped = false;
+    for (const key of [...this.#preparing.keys()]) if (key.startsWith(prefix)) dropped = this.#preparing.delete(key) || dropped;
+    if (dropped) this.#emit();
   }
 
   /** 关掉视频或 Runtime 重新连上：全部丢掉，路上的请求回来也不收。 */
@@ -70,22 +107,45 @@ export class MediaUrlCache {
     this.#generation++;
     for (const entry of this.#entries.values()) if (entry.state === 'pending') entry.controller.abort();
     this.#entries.clear();
+    if (this.#preparing.size > 0) {
+      this.#preparing.clear();
+      this.#emit();
+    }
   }
 
   #load(key: string, videoId: Id, asset: VersionRef): Promise<MediaHandle> {
     const controller = new AbortController();
-    const promise = this.#resolve(videoId, asset, controller.signal);
-    const entry: Entry = { state: 'pending', promise, generation: this.#generation, controller };
-    this.#entries.set(key, entry);
+    let entry: Entry | null = null;
+    // 只收还记着的这一个请求报的进度：被丢掉的请求还在轮询。
+    const onProgress = (progress: number | null) => {
+      if (!entry || this.#entries.get(key) !== entry) return;
+      const known = this.#preparing.get(key);
+      if (known && known.progress === progress) return;
+      this.#preparing.set(key, { videoId, assetId: asset.id, revision: asset.revision, progress });
+      this.#emit();
+    };
+    const promise = this.#resolve(videoId, asset, controller.signal, onProgress);
+    const current: Entry = { state: 'pending', promise, generation: this.#generation, controller };
+    entry = current;
+    this.#entries.set(key, current);
+    const settle = () => {
+      if (this.#entries.get(key) === current && this.#preparing.delete(key)) this.#emit();
+    };
     promise.then(
       (handle) => {
-        if (entry.generation === this.#generation && this.#entries.get(key) === entry) this.#entries.set(key, { state: 'ready', handle });
+        settle();
+        if (current.generation === this.#generation && this.#entries.get(key) === current) this.#entries.set(key, { state: 'ready', handle });
       },
       () => {
-        if (this.#entries.get(key) === entry) this.#entries.delete(key);
+        settle();
+        if (this.#entries.get(key) === current) this.#entries.delete(key);
       },
     );
     return promise;
+  }
+
+  #emit(): void {
+    for (const listener of this.#listeners) listener();
   }
 
   #fresh(handle: MediaHandle): boolean {

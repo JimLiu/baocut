@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '@baocut/protocol';
-import { stallDetail, stallTopic, waitedSeconds } from './preview-stall.ts';
+import { preparePercent, stallDetail, stallTopic, waitedSeconds } from './preview-stall.ts';
 import type { MediaProbe, StallStep } from './preview-watch.ts';
 
 const ASSETS: Record<string, string> = { asset_a: 'interview.mp4', asset_blank: '  ' };
@@ -31,6 +31,7 @@ describe('预览卡住提示', () => {
     expect(stallTopic('planner-loading')).toBe('engine');
     expect((['no-video', 'video-error', 'no-plan'] as const).map(stallTopic)).toEqual(['video', 'video', 'video']);
     expect(stallTopic('media-pending')).toBe('media');
+    expect(stallTopic('media-preparing')).toBe('prepare');
     expect(stallTopic('documents-pending')).toBe('captions');
     expect(stallTopic('fonts-loading')).toBe('fonts');
     expect(stallTopic('not-painted')).toBe('paint');
@@ -42,6 +43,8 @@ describe('预览卡住提示', () => {
       '在等媒体：interview.mp4',
     );
     expect(stallDetail(report('media-pending', { media: [probe('asset_gone')] }), names)).toBe('在等媒体');
+    expect(stallDetail(report('media-preparing', { media: [probe('asset_a')] }), names)).toBe('转换媒体没有进展：interview.mp4');
+    expect(stallDetail(report('media-preparing', { media: [probe()] }), names)).toBe('转换媒体没有进展');
     expect(stallDetail(report('documents-pending', { documents: ['doc_cap'] }), names)).toBe('在等字幕：Original captions');
     expect(stallDetail(report('documents-pending', { documents: ['doc_gone'] }), names)).toBe('在等字幕');
     expect(stallDetail(report('fonts-loading', { fonts: ['Inter'] }), names)).toBe('在等字体：Inter');
@@ -55,7 +58,13 @@ describe('预览卡住提示', () => {
     setLocale('en');
     expect(stallDetail(report('media-pending', { media: [probe('asset_a')] }), names)).toBe('Waiting for media: interview.mp4');
     expect(stallDetail(report('planner-loading'), names)).toBe('Preview engine still loading');
+    expect(stallDetail(report('media-preparing', { media: [probe('asset_a')] }), names)).toBe('Media conversion isn’t progressing: interview.mp4');
     expect(stallDetail(report('documents-pending', { documents: ['doc_gone'] }), names)).toBe('Waiting for captions');
+  });
+
+  it('转换的百分比：向下取整、封顶 99；不知道进度是 null', () => {
+    expect([0, 0.009, 0.374, 0.999, 1, 1.5].map(preparePercent)).toEqual([0, 0, 37, 99, 99, 99]);
+    expect([null, undefined, Number.NaN, -0.1].map(preparePercent)).toEqual([null, null, null, null]);
   });
 
   it('已经等了几秒：从开始卡住算起，向下取整', () => {

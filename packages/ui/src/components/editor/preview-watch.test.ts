@@ -1,5 +1,5 @@
 import { expect, test, vi } from 'vitest';
-import { POLL_MS, PreviewWatch, STALL_MS, probeElement, stalledStep, type PreviewSnapshot } from './preview-watch.ts';
+import { POLL_MS, PreviewWatch, STALL_MS, preparingMark, probeElement, stalledStep, type MediaProbe, type PreviewSnapshot } from './preview-watch.ts';
 
 function snapshot(patch: Partial<PreviewSnapshot> = {}): PreviewSnapshot {
   return {
@@ -69,6 +69,56 @@ test('卡在哪一步：就绪之后看媒体、文档、字体，再看要画�
   // 画布上换过帧（播放中每帧都要画）就不算卡住。
   expect(stalledStep(snapshot({ paintWanted: true, playing: true }), true)).toBeNull();
   expect(stalledStep(snapshot(), false)).toBeNull();
+});
+
+/** 在等兼容副本的媒体：`progress` 是转换到了几成，null 是 Runtime 还不知道。 */
+const preparing = (progress: number | null, assetId = 'asset_a'): MediaProbe => ({
+  itemId: `clip_${assetId}`,
+  assetId,
+  kind: 'video',
+  wait: 'preparing',
+  progress,
+  wantedSeconds: 0,
+  element: null,
+});
+
+test('卡在哪一步：都在等兼容副本时看进度；夹着别的媒体还是在等媒体', () => {
+  expect(stalledStep(snapshot({ media: [preparing(0.3)] }), false)).toBe('media-preparing');
+  // Runtime 还不知道进度：不算卡住（转换有自己的超时）。
+  expect(stalledStep(snapshot({ media: [preparing(null)] }), false)).toBeNull();
+  expect(stalledStep(snapshot({ media: [preparing(0.3), preparing(null, 'asset_b')] }), false)).toBeNull();
+  const other = { itemId: 'clip', kind: 'video' as const, wait: 'no-data' as const, wantedSeconds: 0, element: null };
+  expect(stalledStep(snapshot({ media: [preparing(0.3), other] }), false)).toBe('media-pending');
+  // 记号按原始比值、与顺序无关。
+  expect(preparingMark({ media: [preparing(0.301, 'b'), preparing(0.3)] })).toBe(preparingMark({ media: [preparing(0.3), preparing(0.301, 'b')] }));
+  expect(preparingMark({ media: [preparing(0.3)] })).not.toBe(preparingMark({ media: [preparing(0.3001)] }));
+});
+
+test('转换中：进度一直在走就不报；停在同一处满门槛才报，再走起来算卡住结束', () => {
+  let progress = 0;
+  const { watch, warn, advance } = harness(() => snapshot({ media: [preparing(progress)] }));
+  const seen: (string | null)[] = [];
+  watch.onChange((report) => seen.push(report ? report.step : null));
+  watch.start();
+  for (let i = 0; i < 20; i++) {
+    progress += 0.0001;
+    advance(POLL_MS);
+  }
+  expect(warn).not.toHaveBeenCalled();
+  advance(STALL_MS + POLL_MS);
+  expect(warn).toHaveBeenCalledTimes(1);
+  expect(warn.mock.calls[0]![0]).toContain('转换没有进展');
+  expect(watch.ongoing).toMatchObject({ step: 'media-preparing', media: [{ wait: 'preparing', progress }] });
+  progress += 0.0001;
+  advance(POLL_MS);
+  expect(seen).toEqual(['media-preparing', null]);
+});
+
+test('转换中：Runtime 一直不知道进度就一直不报', () => {
+  const { watch, warn, advance } = harness(() => snapshot({ media: [preparing(null)] }));
+  watch.start();
+  advance(STALL_MS * 5);
+  expect(warn).not.toHaveBeenCalled();
 });
 
 test('同一步卡过门槛只报一次，带上快照；有进展之后重新计时、再卡再报', () => {

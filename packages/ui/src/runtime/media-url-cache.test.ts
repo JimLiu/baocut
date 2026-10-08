@@ -8,9 +8,10 @@ const HOUR = 3_600_000;
 function setup() {
   let now = Date.parse('2026-10-06T00:00:00Z');
   let serial = 0;
-  const pending: { resolve(handle: MediaHandle): void; reject(error: Error): void }[] = [];
+  const pending: { resolve(handle: MediaHandle): void; reject(error: Error): void; progress(progress: number | null): void }[] = [];
   const resolve = vi.fn(
-    (_videoId: string, _asset: VersionRef) => new Promise<MediaHandle>((resolve, reject) => pending.push({ resolve, reject })),
+    (_videoId: string, _asset: VersionRef, _signal: AbortSignal, onProgress: (progress: number | null) => void) =>
+      new Promise<MediaHandle>((resolve, reject) => pending.push({ resolve, reject, progress: onProgress })),
   );
   const cache = new MediaUrlCache(resolve, { now: () => now });
   /** 一个新句柄：地址每次不同，`ttl` 之后过期。 */
@@ -175,5 +176,52 @@ describe('媒体地址缓存', () => {
     pending[3]!.resolve(fresh);
     await settle();
     expect(cache.peek('vid1', asset)).toBe(fresh.url);
+  });
+
+  it('转换中：记下路上的请求报的进度并通知；好了、失败了都删掉，不在准备的素材是 undefined', async () => {
+    const { cache, pending, handle, settle } = setup();
+    const other = { id: 'asset_b', revision: '1' };
+    const heard = vi.fn();
+    cache.subscribe(heard);
+    void cache.get('vid1', asset);
+    const failing = cache.get('vid1', other).catch(() => {});
+    expect(cache.progress('vid1', asset)).toBeUndefined();
+    expect(cache.preparing('vid1')).toEqual([]);
+
+    pending[0]!.progress(null);
+    pending[1]!.progress(0.2);
+    pending[0]!.progress(0.5);
+    // 同样的进度再报一次不再通知。
+    pending[0]!.progress(0.5);
+    expect(heard).toHaveBeenCalledTimes(3);
+    expect(cache.progress('vid1', asset)).toBe(0.5);
+    expect(cache.preparing('vid1')).toEqual([
+      { assetId: 'asset_a', revision: '1', progress: 0.5 },
+      { assetId: 'asset_b', revision: '1', progress: 0.2 },
+    ]);
+    expect(cache.preparing('vid2')).toEqual([]);
+
+    pending[0]!.resolve(handle());
+    pending[1]!.reject(new Error('boom'));
+    await failing;
+    await settle();
+    expect(cache.progress('vid1', asset)).toBeUndefined();
+    expect(cache.preparing('vid1')).toEqual([]);
+    expect(heard).toHaveBeenCalledTimes(5);
+  });
+
+  it('转换中：重试丢掉的请求还在轮询，它报的进度不收；关视频时全部删掉', async () => {
+    const { cache, pending } = setup();
+    void cache.get('vid1', asset);
+    pending[0]!.progress(0.3);
+    cache.forgetVideo('vid1');
+    expect(cache.progress('vid1', asset)).toBeUndefined();
+    void cache.get('vid1', asset);
+    pending[0]!.progress(0.4);
+    expect(cache.progress('vid1', asset)).toBeUndefined();
+    pending[1]!.progress(0.41);
+    expect(cache.progress('vid1', asset)).toBe(0.41);
+    cache.clear();
+    expect(cache.preparing('vid1')).toEqual([]);
   });
 });

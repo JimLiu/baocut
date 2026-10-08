@@ -27,12 +27,13 @@ export function playableCodecs(): PlaybackCodec[] {
 /**
  * Playback only: downloads and file viewers keep the original handle. WebM whose codecs this browser decodes plays
  * from the original file; otherwise the Runtime prepares a compatible copy and we poll until it is ready.
+ * `onProgress` hears every pending poll: how far the copy is (0–1), or null while the Runtime doesn't know yet.
  */
 export async function preparePlaybackMedia(
   client: PlaybackClient,
   original: MediaHandle,
   signal?: AbortSignal,
-  playable: PlaybackCodec[] = playableCodecs(),
+  { playable = playableCodecs(), onProgress }: { playable?: PlaybackCodec[]; onProgress?: (progress: number | null) => void } = {},
 ): Promise<MediaHandle> {
   signal?.throwIfAborted();
   // Unsent attachments belong to the browser, not the Runtime grant registry.
@@ -44,6 +45,7 @@ export async function preparePlaybackMedia(
     const result = await client.request('media.playback', params);
     signal?.throwIfAborted();
     if (result.status === 'ready') return result.media;
+    onProgress?.(result.progress ?? null);
     await new Promise<void>((resolve, reject) => {
       const aborted = () => { clearTimeout(timer); reject(signal?.reason); };
       const timer = setTimeout(() => { signal?.removeEventListener('abort', aborted); resolve(); }, Math.max(100, Math.min(1000, result.retryAfterMs)));
