@@ -1,0 +1,733 @@
+{
+  "note": "P2 golden：整轨指纹 + 五个时刻的帧号与逐行摘要。改了派生语义才该动它。",
+  "tracks": [
+    {
+      "analysisRate": 60,
+      "fingerprint": "sha256-cfdf5d048f2139cc05e828f8e80176ca75eb41a3862b60c07065e0e862b88e45",
+      "frameCount": 12,
+      "freqBins": 512,
+      "params": "canonical",
+      "samples": [
+        {
+          "freqDigest": "7da144b97d054b25",
+          "freqHead": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "index": 0,
+          "t": 0.0,
+          "timeDigest": "d3f24d73256ced25"
+        },
+        {
+          "freqDigest": "e09c20ccd5b3e339",
+          "freqHead": [
+            11,
+            11,
+            12,
+            13,
+            14,
+            16,
+            18,
+            21
+          ],
+          "index": 6,
+          "t": 0.1,
+          "timeDigest": "d3978b4df5147d34"
+        },
+        {
+          "freqDigest": "5f46bb14c75f46dc",
+          "freqHead": [
+            50,
+            63,
+            70,
+            105,
+            129,
+            138,
+            137,
+            123
+          ],
+          "index": 11,
+          "t": 0.5,
+          "timeDigest": "17378174a91bfe46"
+        },
+        {
+          "freqDigest": "5f46bb14c75f46dc",
+          "freqHead": [
+            50,
+            63,
+            70,
+            105,
+            129,
+            138,
+            137,
+            123
+          ],
+          "index": 11,
+          "t": 1.0,
+          "timeDigest": "17378174a91bfe46"
+        },
+        {
+          "freqDigest": "5f46bb14c75f46dc",
+          "freqHead": [
+            50,
+            63,
+            70,
+            105,
+            129,
+            138,
+            137,
+            123
+          ],
+          "index": 11,
+          "t": 2.5,
+          "timeDigest": "17378174a91bfe46"
+        }
+      ],
+      "spectrum": "tone",
+      "timeBins": 128
+    },
+    {
+      "analysisRate": 60,
+      "fingerprint": "sha256-7f06e28b52beb2d67948f1bd9f7b077438c84ca483e356c6d258d40fb228d396",
+      "frameCount": 12,
+      "freqBins": 512,
+      "params": "default",
+      "samples": [
+        {
+          "freqDigest": "7da144b97d054b25",
+          "freqHead": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "index": 0,
+          "t": 0.0,
+          "timeDigest": "d3f24d73256ced25"
+        },
+        {
+          "freqDigest": "b7f3b632c9358609",
+          "freqHead": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "index": 6,
+          "t": 0.1,
+          "timeDigest": "d3978b4df5147d34"
+        },
+        {
+          "freqDigest": "f866c439c2788d8f",
+          "freqHead": [
+            39,
+            39,
+            40,
+            58,
+            94,
+            108,
+            106,
+            84
+          ],
+          "index": 11,
+          "t": 0.5,
+          "timeDigest": "17378174a91bfe46"
+        },
+        {
+          "freqDigest": "f866c439c2788d8f",
+          "freqHead": [
+            39,
+            39,
+            40,
+            58,
+            94,
+            108,
+            106,
+            84
+          ],
+          "index": 11,
+          "t": 1.0,
+          "timeDigest": "17378174a91bfe46"
+        },
+        {
+          "freqDigest": "f866c439c2788d8f",
+          "freqHead": [
+            39,
+            39,
+            40,
+            58,
+            94,
+            108,
+            106,
+            84
+          ],
+          "index": 11,
+          "t": 2.5,
+          "timeDigest": "17378174a91bfe46"
+        }
+      ],
+      "spectrum": "tone",
+      "timeBins": 128
+    },
+    {
+      "analysisRate": 60,
+      "fingerprint": "sha256-cb891fad91d59f68703875476f654d1a0b6e6dbca1498335e7a007e0ac64781e",
+      "frameCount": 12,
+      "freqBins": 512,
+      "params": "bicubic",
+      "samples": [
+        {
+          "freqDigest": "7da144b97d054b25",
+          "freqHead": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "index": 0,
+          "t": 0.0,
+          "timeDigest": "d3f24d73256ced25"
+        },
+        {
+          "freqDigest": "5783cc6babbc28a0",
+          "freqHead": [
+            71,
+            71,
+            71,
+            72,
+            73,
+            73,
+            73,
+            75
+          ],
+          "index": 6,
+          "t": 0.1,
+          "timeDigest": "d3978b4df5147d34"
+        },
+        {
+          "freqDigest": "a2fabef2e10122b0",
+          "freqHead": [
+            126,
+            127,
+            129,
+            160,
+            201,
+            217,
+            215,
+            191
+          ],
+          "index": 11,
+          "t": 0.5,
+          "timeDigest": "17378174a91bfe46"
+        },
+        {
+          "freqDigest": "a2fabef2e10122b0",
+          "freqHead": [
+            126,
+            127,
+            129,
+            160,
+            201,
+            217,
+            215,
+            191
+          ],
+          "index": 11,
+          "t": 1.0,
+          "timeDigest": "17378174a91bfe46"
+        },
+        {
+          "freqDigest": "a2fabef2e10122b0",
+          "freqHead": [
+            126,
+            127,
+            129,
+            160,
+            201,
+            217,
+            215,
+            191
+          ],
+          "index": 11,
+          "t": 2.5,
+          "timeDigest": "17378174a91bfe46"
+        }
+      ],
+      "spectrum": "tone",
+      "timeBins": 128
+    },
+    {
+      "analysisRate": 60,
+      "fingerprint": "sha256-15f18edd40269a503682b2dfc27214a21070a860d54118e0a1caf822f3ed6ed9",
+      "frameCount": 12,
+      "freqBins": 512,
+      "params": "hot",
+      "samples": [
+        {
+          "freqDigest": "7da144b97d054b25",
+          "freqHead": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "index": 0,
+          "t": 0.0,
+          "timeDigest": "d3f24d73256ced25"
+        },
+        {
+          "freqDigest": "00a645b281a67f89",
+          "freqHead": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "index": 6,
+          "t": 0.1,
+          "timeDigest": "d3978b4df5147d34"
+        },
+        {
+          "freqDigest": "585e6c163b9a5d01",
+          "freqHead": [
+            97,
+            97,
+            101,
+            146,
+            234,
+            255,
+            255,
+            210
+          ],
+          "index": 11,
+          "t": 0.5,
+          "timeDigest": "17378174a91bfe46"
+        },
+        {
+          "freqDigest": "585e6c163b9a5d01",
+          "freqHead": [
+            97,
+            97,
+            101,
+            146,
+            234,
+            255,
+            255,
+            210
+          ],
+          "index": 11,
+          "t": 1.0,
+          "timeDigest": "17378174a91bfe46"
+        },
+        {
+          "freqDigest": "585e6c163b9a5d01",
+          "freqHead": [
+            97,
+            97,
+            101,
+            146,
+            234,
+            255,
+            255,
+            210
+          ],
+          "index": 11,
+          "t": 2.5,
+          "timeDigest": "17378174a91bfe46"
+        }
+      ],
+      "spectrum": "tone",
+      "timeBins": 128
+    },
+    {
+      "analysisRate": 60,
+      "fingerprint": "sha256-f4d9856500ad7eaf581decc30f9d2fe0cf23a010147575e0f50df53e396c7e73",
+      "frameCount": 180,
+      "freqBins": 512,
+      "params": "canonical",
+      "samples": [
+        {
+          "freqDigest": "bd8144eb32dfb5a1",
+          "freqHead": [
+            230,
+            233,
+            223,
+            222,
+            221,
+            221,
+            217,
+            223
+          ],
+          "index": 0,
+          "t": 0.0,
+          "timeDigest": "54e471342909be25"
+        },
+        {
+          "freqDigest": "81df41691b4f829e",
+          "freqHead": [
+            241,
+            240,
+            239,
+            235,
+            234,
+            232,
+            226,
+            233
+          ],
+          "index": 6,
+          "t": 0.1,
+          "timeDigest": "3f0ffb82a3b58f9b"
+        },
+        {
+          "freqDigest": "e0f172fd09a7777f",
+          "freqHead": [
+            251,
+            251,
+            245,
+            248,
+            240,
+            238,
+            241,
+            243
+          ],
+          "index": 30,
+          "t": 0.5,
+          "timeDigest": "a038833df9eb67c1"
+        },
+        {
+          "freqDigest": "628f42e7dbc4d30a",
+          "freqHead": [
+            227,
+            233,
+            225,
+            221,
+            222,
+            219,
+            220,
+            219
+          ],
+          "index": 60,
+          "t": 1.0,
+          "timeDigest": "6641c2ab5992cefe"
+        },
+        {
+          "freqDigest": "05b39953f0c665fb",
+          "freqHead": [
+            253,
+            255,
+            246,
+            247,
+            243,
+            238,
+            236,
+            245
+          ],
+          "index": 150,
+          "t": 2.5,
+          "timeDigest": "72559d9bb5d2d2e2"
+        }
+      ],
+      "spectrum": "sweep",
+      "timeBins": 128
+    },
+    {
+      "analysisRate": 60,
+      "fingerprint": "sha256-b718bfd17940eca16f8cc1571f3b3a206d3fa2df54d13e0116f9e0e94801746c",
+      "frameCount": 180,
+      "freqBins": 512,
+      "params": "default",
+      "samples": [
+        {
+          "freqDigest": "4a0353329ecf944f",
+          "freqHead": [
+            192,
+            196,
+            183,
+            181,
+            180,
+            180,
+            175,
+            183
+          ],
+          "index": 0,
+          "t": 0.0,
+          "timeDigest": "54e471342909be25"
+        },
+        {
+          "freqDigest": "696b5d22edec3a9b",
+          "freqHead": [
+            240,
+            239,
+            237,
+            235,
+            233,
+            232,
+            230,
+            232
+          ],
+          "index": 6,
+          "t": 0.1,
+          "timeDigest": "3f0ffb82a3b58f9b"
+        },
+        {
+          "freqDigest": "46a2fefe7c6cf765",
+          "freqHead": [
+            247,
+            247,
+            244,
+            244,
+            239,
+            238,
+            238,
+            241
+          ],
+          "index": 30,
+          "t": 0.5,
+          "timeDigest": "a038833df9eb67c1"
+        },
+        {
+          "freqDigest": "1c9fbdedcda499eb",
+          "freqHead": [
+            248,
+            246,
+            245,
+            245,
+            243,
+            240,
+            238,
+            241
+          ],
+          "index": 60,
+          "t": 1.0,
+          "timeDigest": "6641c2ab5992cefe"
+        },
+        {
+          "freqDigest": "412540f1865a2a1d",
+          "freqHead": [
+            248,
+            248,
+            244,
+            243,
+            239,
+            238,
+            237,
+            241
+          ],
+          "index": 150,
+          "t": 2.5,
+          "timeDigest": "72559d9bb5d2d2e2"
+        }
+      ],
+      "spectrum": "sweep",
+      "timeBins": 128
+    },
+    {
+      "analysisRate": 60,
+      "fingerprint": "sha256-1ae4ea73ad3b7ec652eab4f4929db1855a6aacda719d0cb4194704f1c31aa95c",
+      "frameCount": 180,
+      "freqBins": 512,
+      "params": "bicubic",
+      "samples": [
+        {
+          "freqDigest": "cd5e90c6f0cc44af",
+          "freqHead": [
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255
+          ],
+          "index": 0,
+          "t": 0.0,
+          "timeDigest": "54e471342909be25"
+        },
+        {
+          "freqDigest": "6e03adaaf7b0fcd8",
+          "freqHead": [
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255
+          ],
+          "index": 6,
+          "t": 0.1,
+          "timeDigest": "3f0ffb82a3b58f9b"
+        },
+        {
+          "freqDigest": "dc2cbfa350686e23",
+          "freqHead": [
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255
+          ],
+          "index": 30,
+          "t": 0.5,
+          "timeDigest": "a038833df9eb67c1"
+        },
+        {
+          "freqDigest": "7ac5c74d0f474d22",
+          "freqHead": [
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255
+          ],
+          "index": 60,
+          "t": 1.0,
+          "timeDigest": "6641c2ab5992cefe"
+        },
+        {
+          "freqDigest": "70941e392a441a71",
+          "freqHead": [
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255
+          ],
+          "index": 150,
+          "t": 2.5,
+          "timeDigest": "72559d9bb5d2d2e2"
+        }
+      ],
+      "spectrum": "sweep",
+      "timeBins": 128
+    },
+    {
+      "analysisRate": 60,
+      "fingerprint": "sha256-8e44b48b0f553686873d64142f0c27431fd9ca5e124ade0e656f3aed85203f57",
+      "frameCount": 180,
+      "freqBins": 512,
+      "params": "hot",
+      "samples": [
+        {
+          "freqDigest": "8f5cc6a7860039a2",
+          "freqHead": [
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255
+          ],
+          "index": 0,
+          "t": 0.0,
+          "timeDigest": "54e471342909be25"
+        },
+        {
+          "freqDigest": "baaa7d32bfa9267c",
+          "freqHead": [
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255
+          ],
+          "index": 6,
+          "t": 0.1,
+          "timeDigest": "3f0ffb82a3b58f9b"
+        },
+        {
+          "freqDigest": "bbc310b527cd85ff",
+          "freqHead": [
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255
+          ],
+          "index": 30,
+          "t": 0.5,
+          "timeDigest": "a038833df9eb67c1"
+        },
+        {
+          "freqDigest": "e915e4103f81f7ee",
+          "freqHead": [
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255
+          ],
+          "index": 60,
+          "t": 1.0,
+          "timeDigest": "6641c2ab5992cefe"
+        },
+        {
+          "freqDigest": "fe2e764d245dc1d9",
+          "freqHead": [
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255
+          ],
+          "index": 150,
+          "t": 2.5,
+          "timeDigest": "72559d9bb5d2d2e2"
+        }
+      ],
+      "spectrum": "sweep",
+      "timeBins": 128
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "id": "sparkle",
+  "version": 1,
+  "domain": "sticker",
+  "namespace": "timeline",
+  "order": 7,
+  "layers": [
+    {
+      "fill": "#FDE047",
+      "segments": [
+        {"verb": "move", "pts": [[0.42, 0.02]]},
+        {"verb": "line", "pts": [[0.490711, 0.329289]]},
+        {"verb": "line", "pts": [[0.8, 0.4]]},
+        {"verb": "line", "pts": [[0.490711, 0.470711]]},
+        {"verb": "line", "pts": [[0.42, 0.78]]},
+        {"verb": "line", "pts": [[0.349289, 0.470711]]},
+        {"verb": "line", "pts": [[0.04, 0.4]]},
+        {"verb": "line", "pts": [[0.349289, 0.329289]]},
+        {"verb": "close"},
+        {"verb": "move", "pts": [[0.78, 0.53]]},
+        {"verb": "line", "pts": [[0.815355, 0.684645]]},
+        {"verb": "line", "pts": [[0.97, 0.72]]},
+        {"verb": "line", "pts": [[0.815355, 0.755355]]},
+        {"verb": "line", "pts": [[0.78, 0.91]]},
+        {"verb": "line", "pts": [[0.744645, 0.755355]]},
+        {"verb": "line", "pts": [[0.59, 0.72]]},
+        {"verb": "line", "pts": [[0.744645, 0.684645]]},
+        {"verb": "close"},
+        {"verb": "move", "pts": [[0.2, 0.68]]},
+        {"verb": "line", "pts": [[0.226163, 0.793837]]},
+        {"verb": "line", "pts": [[0.34, 0.82]]},
+        {"verb": "line", "pts": [[0.226163, 0.846163]]},
+        {"verb": "line", "pts": [[0.2, 0.96]]},
+        {"verb": "line", "pts": [[0.173837, 0.846163]]},
+        {"verb": "line", "pts": [[0.06, 0.82]]},
+        {"verb": "line", "pts": [[0.173837, 0.793837]]},
+        {"verb": "close"}
+      ]
+    }
+  ],
+  "available": true
+}

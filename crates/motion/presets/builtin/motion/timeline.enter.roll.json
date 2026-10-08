@@ -1,0 +1,25 @@
+{
+  "id": "roll",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "enter",
+  "order": 20,
+  "duration": 0.6,
+  "curve": {
+    "kind": "named",
+    "name": "easeOutCubic"
+  },
+  "mirror": "roll",
+  "from": {
+    "opacity": 0.0,
+    "dx": -0.08,
+    "rotation": -160.0
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

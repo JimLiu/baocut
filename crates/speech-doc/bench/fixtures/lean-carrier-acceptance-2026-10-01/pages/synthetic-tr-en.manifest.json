@@ -1,0 +1,159 @@
+{
+  "rows": [
+    {
+      "id": "tr-01",
+      "reference_en": "Elif did not cancel the meeting; she postponed it to Thursday at 14:30.",
+      "required_facts": [
+        "Elif",
+        "not cancelled",
+        "Thursday",
+        "14:30"
+      ],
+      "risk": "negation; time",
+      "source": "Elif toplantıyı iptal etmedi; perşembe günü saat 14.30’a erteledi.",
+      "source_lang": "tr",
+      "source_words": [
+        "Elif",
+        "toplantıyı",
+        "iptal",
+        "etmedi;",
+        "perşembe",
+        "günü",
+        "saat",
+        "14.30’a",
+        "erteledi."
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "tr-02",
+      "reference_en": "If the temperature falls below 5 degrees, close the window before turning on the heater.",
+      "required_facts": [
+        "below 5 degrees",
+        "window first",
+        "heater afterward"
+      ],
+      "risk": "condition; order",
+      "source": "Sıcaklık 5 derecenin altına düşerse, ısıtıcıyı çalıştırmadan önce pencereyi kapat.",
+      "source_lang": "tr",
+      "source_words": [
+        "Sıcaklık",
+        "5",
+        "derecenin",
+        "altına",
+        "düşerse,",
+        "ısıtıcıyı",
+        "çalıştırmadan",
+        "önce",
+        "pencereyi",
+        "kapat."
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "tr-03",
+      "reference_en": "Ömer paid 120 lira for three tickets, but dinner was not included in the price.",
+      "required_facts": [
+        "Ömer",
+        "120 lira",
+        "three tickets",
+        "dinner excluded"
+      ],
+      "risk": "number; negation",
+      "source": "Ömer üç bilet için 120 lira ödedi, ama akşam yemeği fiyata dahil değildi.",
+      "source_lang": "tr",
+      "source_words": [
+        "Ömer",
+        "üç",
+        "bilet",
+        "için",
+        "120",
+        "lira",
+        "ödedi,",
+        "ama",
+        "akşam",
+        "yemeği",
+        "fiyata",
+        "dahil",
+        "değildi."
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "tr-04",
+      "reference_en": "The book Ayşe lent Deniz yesterday belongs to Ayşe’s sister.",
+      "required_facts": [
+        "Ayşe lent to Deniz",
+        "yesterday",
+        "belongs to Ayşe’s sister"
+      ],
+      "risk": "agglutination; ownership",
+      "source": "Ayşe’nin dün Deniz’e ödünç verdiği kitap, Ayşe’nin kız kardeşine ait.",
+      "source_lang": "tr",
+      "source_words": [
+        "Ayşe’nin",
+        "dün",
+        "Deniz’e",
+        "ödünç",
+        "verdiği",
+        "kitap,",
+        "Ayşe’nin",
+        "kız",
+        "kardeşine",
+        "ait."
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "tr-05",
+      "reference_en": "The code D-08 appears beside “approved,” but the parcel has not been sent yet.",
+      "required_facts": [
+        "D-08",
+        "approved",
+        "not yet sent"
+      ],
+      "risk": "code; negation",
+      "source": "“Onaylandı” yazısının yanında D-08 kodu görünüyor, ancak paket henüz gönderilmedi.",
+      "source_lang": "tr",
+      "source_words": [
+        "“Onaylandı”",
+        "yazısının",
+        "yanında",
+        "D-08",
+        "kodu",
+        "görünüyor,",
+        "ancak",
+        "paket",
+        "henüz",
+        "gönderilmedi."
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "tr-06",
+      "reference_en": "Although Zeynep set off before Can, she arrived ten minutes after him.",
+      "required_facts": [
+        "Zeynep set off first",
+        "Can arrived first",
+        "ten minutes"
+      ],
+      "risk": "chronology; word order",
+      "source": "Zeynep, Can’dan önce yola çıkmasına rağmen ondan on dakika sonra vardı.",
+      "source_lang": "tr",
+      "source_words": [
+        "Zeynep,",
+        "Can’dan",
+        "önce",
+        "yola",
+        "çıkmasına",
+        "rağmen",
+        "ondan",
+        "on",
+        "dakika",
+        "sonra",
+        "vardı."
+      ],
+      "target_lang": "en"
+    }
+  ]
+}

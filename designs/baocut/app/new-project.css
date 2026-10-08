@@ -1,0 +1,68 @@
+/* ============================================================================
+   Home 起始页（product-design §3.2.1）：标题 → Agent 输入框与项目托盘 → 快捷开始一行 → 模板网格
+   （网格与模板库在 home-templates.css）。另有视频设置弹层、AI 闸门引导卡与「创建项目」对话框。
+   只组合 S2 控件与 ui.css 的控件；这里只有版面与这几种容器。
+   ============================================================================ */
+
+.newp { max-width: 880px; margin: 0 auto; padding-top: 20px; text-align: left; }
+.newp__hd .hero__d { max-width: 640px; }
+
+/* 侧栏顶上的「新建项目」就是这一页的导航项：在这一页时给选中态 */
+.side__cta .btn.is-on { background: var(--blue-100); box-shadow: inset 0 0 0 2px var(--blue-800); color: var(--blue-1000); }
+
+/* ---------- 页顶：标题与 Agent 框 ---------- */
+.newp__hd--hero { padding-top: 24px; text-align: center; }
+.newp__hd--hero .hero__d { margin-left: auto; margin-right: auto; }
+.nhero { margin-top: 20px; }
+
+/* ---------- AI 闸门：输入框下面的引导卡（new-agent.jsx 的 GateCard） ---------- */
+.ngate { display: flex; align-items: center; gap: 12px; margin-top: 16px; padding: 12px 16px; border-radius: 10px; background: var(--orange-100); box-shadow: inset 0 0 0 1px var(--orange-300); }
+.ngate__ic { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; flex: none; background: var(--orange-1000); color: var(--gray-25); }
+.ngate__t { min-width: 0; }
+.ngate__t b { display: block; font-size: 14px; font-weight: 700; color: var(--gray-900); }
+.ngate__t p { margin: 2px 0 0; font-size: 12px; line-height: 1.5; color: var(--gray-700); }
+.ngate__acts { display: flex; align-items: center; gap: 6px; flex: none; }
+
+/* Home 起始状态：标题与输入框是主角，下面是「快捷开始」一行和模板网格（product-design §3.2.1）。
+   内容不满一屏时整块在视口里居中（上下 auto），超出一屏照常滚动。 */
+.page__in:has(> .home-create) { box-sizing: border-box; min-height: 100%; display: flex; flex-direction: column; }
+.home-create { width: 100%; max-width: 760px; margin: auto; padding: 32px 0 48px; }
+.home-create .newp__hd--hero { padding: 0 0 24px; }
+.home-create .greet { font-size: 28px; font-weight: 700; line-height: 1.3; }
+.home-create .nhero { margin-top: 0; }
+/* 快捷开始：一行 quiet 按钮，点一下把一句提示词放进输入框；行尾是不经过 Agent 的「新建空白视频」。 */
+.home-quick { display: flex; align-items: flex-start; gap: 8px; min-width: 0; margin: 20px 0 0; }
+.home-quick__label { flex: none; font-size: 12px; line-height: 24px; color: var(--gray-600); }
+.home-quick__items { display: flex; flex: 1; flex-wrap: wrap; gap: 4px; min-width: 0; }
+/* 项目托盘贴在输入框下沿：比输入框窄一圈、上边压进输入框底下 12px，看上去和输入框是一个整体。 */
+.home-create .bc-ai-home { position: relative; z-index: 1; }
+/* 托盘的上沿压在输入框卡片底下 12px：PromptField 在卡片下面还留着一行 24px 的空提示位，一并收掉，两者之间不露白缝。 */
+.home-create__project { display: flex; align-items: center; gap: 8px; margin: -36px 16px 0; padding: 16px 12px 4px; background: var(--gray-75); border-radius: 0 0 10px 10px; }
+/* 待填提示（template-spec §5.5）：托盘下面一行小字 + quiet 按钮，与托盘里的内容左对齐；没有待填项时整行不占高度。 */
+.pslot-hint { display: flex; align-items: center; gap: 8px; margin: 0 16px; padding: 0 12px; min-height: 0; }
+.pslot-hint:not(:empty) { margin-top: 4px; }
+.pslot-hint__t { min-width: 0; color: var(--gray-700); font-size: 12px; line-height: 1.5; }
+/* token 只占内容的宽度；× 是 20px 的小按钮，图标 12px。 */
+.home-template-token .bc-icon-button .ic, .cins-token .bc-icon-button .ic { width: 12px; height: 12px; }
+.home-template-token { display: inline-flex; align-self: flex-start; align-items: center; gap: 6px; max-width: 100%; padding: 2px 2px 2px 8px; margin-bottom: 12px; border-radius: 8px; background: var(--gray-100); color: var(--gray-800); font-size: 12px; }
+.home-create .bc-ai-home [contenteditable] { min-height: 80px; }
+
+/* 创建项目（product-design §3.1）：与首页项目菜单、侧栏共用。 */
+.home-create__project { min-width: 0; }
+.home-create__project-path { color: var(--gray-600); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-project-dialog { position: relative; padding: 32px 24px 24px; }
+.home-project-dialog__close { position: absolute; top: 12px; right: 12px; }
+.home-project-dialog__heading { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 24px; }
+.home-project-dialog__heading h2 { font-size: 20px; margin: 0; }
+.home-project-dialog__mark { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 10px; background: var(--gray-100); }
+.home-project-dialog__form { display: flex; flex-direction: column; gap: 24px; }
+.home-project-dialog__field { width: 100%; }
+.home-project-dialog__location { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.home-project-dialog__label { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.home-project-dialog__device { display: inline-flex; align-items: center; gap: 6px; color: var(--gray-700); font-size: 12px; white-space: nowrap; }
+.home-project-dialog__device svg { width: 16px; height: 16px; }
+.home-project-dialog__folder { width: 100%; justify-content: flex-start; min-height: 40px; }
+.home-project-dialog__folder [slot="text"] { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-project-dialog__path { margin: 0; font-size: 12px; color: var(--gray-600); overflow-wrap: anywhere; }
+.home-project-dialog__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.home-project-dialog__actions > button { width: 100%; }

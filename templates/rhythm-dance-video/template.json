@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "id": "rhythm-dance-video",
+  "version": "1.1.0",
+  "kind": "example",
+  "title": "节奏舞蹈动画",
+  "summary": "一条街机风的高能量舞蹈视频：动画角色配节奏游戏特效。",
+  "description": "用视频生成能力生成一个跳舞的原创动画角色，再用代码搭出节奏游戏的画面和跟着节拍走的特效。",
+  "language": "zh-CN",
+  "category": "motion-design",
+  "ratio": "16:9",
+  "fields": [
+    {
+      "label": "角色形象",
+      "hint": "跳舞的角色长什么样",
+      "example": "一只戴耳机的机器猫"
+    },
+    {
+      "label": "成片语言",
+      "hint": "画面文字用的语言"
+    }
+  ],
+  "author": "BaoCut",
+  "source": "official",
+  "license": "LicenseRef-BaoCut-Community-1.0",
+  "tags": [
+    "舞蹈",
+    "节奏游戏",
+    "视频生成"
+  ],
+  "skills": [
+    "video-production"
+  ],
+  "cover": {
+    "file": "cover.jpg",
+    "tone": "magenta",
+    "figure": "bars",
+    "kicker": "COMBO"
+  },
+  "preview": {
+    "file": "preview.mp4",
+    "beats": [
+      "角色登场",
+      "音符落下",
+      "连击与特效",
+      "满分结算"
+    ]
+  },
+  "verification": {
+    "date": "2026-10-04",
+    "version": "1.0.0",
+    "engine": "codex",
+    "input": "按提示词原样，末尾附一段测试环境说明：成片语言用中文；没有配置语音合成、配乐、音效与视频生成，遇到没有配置的能力跳过并在最后说明；现有编辑操作做不出的画面可以直接渲染成视频文件再导入时间线。一轮完成，没有追问。",
+    "materials": [],
+    "capabilities": [
+      "generateVideo"
+    ],
+    "outcome": "partial",
+    "output": {
+      "ratio": "16:9",
+      "durationSeconds": 24
+    },
+    "notes": "确认：智能体先查到没有视频生成能力，明确说明后降级：用本机脚本画了一个原创霓虹小机器人当舞者，配四键下落音符轨道、判定字样、连击与得分，舞步、音符与光效共用每分钟 150 拍的同一节拍时钟，分热身、加速、爆发、全连四段，24 秒 1080p，画面文字为中文；导入时间线 0–24 秒并加章节，自己导出了成片，源码保留。模板要求用视频生成做跳舞角色，这项没做到，记为 partial；降级合理并告诉了用户。疑似：图片生成可用，但它没有用来设计角色，角色造型偏简单；模板没有要求配乐，舞蹈视频即使有音乐能力也可能无声，这次无法区分，不改。预览与封面取自 BaoCut 导出的成片。模板文案未改。"
+  }
+}

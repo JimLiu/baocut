@@ -1,0 +1,44 @@
+{
+  "id": "motion.typewriter",
+  "version": 1,
+  "domain": "motion",
+  "family": "typewriter",
+  "appliesTo": "part",
+  "doc": "逐 part 打字机：每个 part 在极短窗口内淡入。配 animate.parts 的 stagger.gap 控制打字速度。",
+  "aliases": [
+    "typeIn"
+  ],
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "curve": {
+      "type": "curve",
+      "default": "linear",
+      "doc": "时间曲线（规范 §7.6 的封闭名称）"
+    }
+  },
+  "defaults": {
+    "dur": 0.04
+  },
+  "tracks": [
+    {
+      "prop": "opacity",
+      "composite": "multiply",
+      "order": 10,
+      "frames": [
+        {
+          "t": "0%",
+          "v": 0
+        },
+        {
+          "t": "100%",
+          "v": 1,
+          "ease": "{curve}"
+        }
+      ]
+    }
+  ],
+  "determinism": "strict",
+  "capabilities": []
+}

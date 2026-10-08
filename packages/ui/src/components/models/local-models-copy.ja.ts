@@ -1,0 +1,47 @@
+import type { LocalModelsMessages } from './local-models-copy.ts';
+
+export const ja: LocalModelsMessages = {
+  install: {
+    availableNote:
+      'ダウンロード前に、ダウンロード量とディスクの空き容量が表示されます。ダウンロードは一時停止でき、ダウンロード済みの部分は残して次回そこから再開します。',
+    download: 'ダウンロード',
+    resume: 'ダウンロードを再開',
+    pause: '一時停止',
+    cancelDownload: 'ダウンロードをキャンセル',
+    discard: 'ダウンロード済みのファイルを破棄',
+    repair: '修復…',
+    remove: '削除…',
+    more: (id: string) => `その他 · ${id}`,
+    details: '詳細',
+    hideDetails: '詳細を隠す',
+    componentLine: (state: 'installed' | 'missing', size: string | null) => (state === 'installed' ? `インストール済み${size ? ` · ${size}` : ''}` : '不足'),
+    sharedWith: (ids: string[]) => `${ids.join('、')} と共用`,
+    noComponents: 'この Runtime はコンポーネントの詳細を報告していません。',
+    // 确认对话框
+    installTitle: (id: string) => `${id} をダウンロード`,
+    repairTitle: (id: string) => `「${id}」を修復しますか？`,
+    planning: 'ダウンロードする内容を確認中…',
+    verifying: '破損または不足しているファイルを探しています。大きなファイルでは時間がかかることがあります…',
+    planFailed: 'ダウンロード計画を取得できませんでした',
+    upToDate: 'すべてのファイルがそろっていて検証済みです。ダウンロードするものはありません。',
+    repairUpToDate: 'すべてのファイルに問題はありません。再ダウンロードするものはありません。',
+    repairThenCheck: '破損または不足しているファイルだけを再ダウンロードし、問題のないファイルはそのままにします。修復後に自動でもう一度確認します。',
+    replanned: 'ダウンロードするサイズが変わりました。新しい計画を表示しているので、もう一度確認してください。',
+    source: (url: string) => `ダウンロード元：${url}`,
+    confirmInstall: (size: string) => `${size} をダウンロード`,
+    confirmRepair: '修復',
+    cancel: 'キャンセル',
+    close: '閉じる',
+    started: (id: string) => `${id} をダウンロード中 · 進行状況はこの行とバックグラウンドタスクに表示されます`,
+    // 停下与删除
+    paused: (id: string) => `${id} を一時停止しました · ダウンロード済みの部分は残ります`,
+    discardTitle: (id: string) => `${id} のダウンロード済みの部分を破棄しますか？`,
+    discardBody: '次回のダウンロードは最初からになります。ほかのモデルパッケージがダウンロード中のファイルや共用のコンポーネントは削除されません。',
+    discarded: (id: string) => `${id} のダウンロード済みの部分を破棄しました`,
+    removeTitle: (id: string) => `${id} を削除しますか？`,
+    removeConfirm: '削除',
+    stopFailed: (text: string) => `停止できませんでした：${text}`,
+    removeFailed: (text: string) => `削除できませんでした：${text}`,
+    installFailed: (text: string) => `前回のダウンロードは完了しませんでした：${text}`,
+  },
+};

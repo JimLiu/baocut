@@ -1,0 +1,107 @@
+{
+  "id": "lowerThird.13",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "lowerThird",
+  "order": 313,
+  "duration": 3.8,
+  "content": [
+    {
+      "kind": "text",
+      "place": {
+        "x": 18.96,
+        "y": 65.13,
+        "w": 30.26
+      },
+      "text": "Laura\nGutierrez",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#ffffffff",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 34.8,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 0.9,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.2,
+          "distance": 0.01,
+          "rotation": 180.0,
+          "color": "#000000",
+          "on": true,
+          "opacity": 0.1
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "slideR",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.67
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 18.53,
+        "y": 73.34,
+        "w": 29.3
+      },
+      "text": "Art Director @ Laura.Studio",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#ffffffff",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 10.5,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.0,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.2,
+          "distance": 0.01,
+          "rotation": 180.0,
+          "color": "#000000",
+          "on": true,
+          "opacity": 0.1
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "delay": 0.7,
+      "animate": {
+        "enter": {
+          "preset": "rise",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.7
+        }
+      }
+    }
+  ]
+}

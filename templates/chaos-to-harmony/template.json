@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "id": "chaos-to-harmony",
+  "version": "1.1.0",
+  "kind": "example",
+  "title": "混沌归于秩序",
+  "summary": "一部全部由代码渲染的短片：物理形态与材质从混乱走向和谐。",
+  "description": "不用生成视频片段，也不用图库素材，所有画面与动画都由代码搭建和渲染，交付成片和可以继续修改的源码。",
+  "language": "zh-CN",
+  "category": "motion-design",
+  "ratio": "16:9",
+  "fields": [
+    {
+      "label": "形态与材质",
+      "hint": "想看哪些东西从混乱走向秩序",
+      "example": "各种物理形态与材质"
+    },
+    {
+      "label": "成片语言",
+      "hint": "画面文字、歌词或旁白用的语言"
+    }
+  ],
+  "author": "BaoCut",
+  "source": "official",
+  "license": "LicenseRef-BaoCut-Community-1.0",
+  "tags": [
+    "代码动画",
+    "物理",
+    "材质"
+  ],
+  "skills": [
+    "video-production"
+  ],
+  "cover": {
+    "file": "cover.jpg",
+    "tone": "seafoam",
+    "figure": "ring",
+    "kicker": "ORDER"
+  },
+  "preview": {
+    "file": "preview.mp4",
+    "beats": [
+      "散乱的碎片与材质",
+      "彼此碰撞、吸引",
+      "逐渐找到节奏",
+      "归于和谐的整体"
+    ]
+  },
+  "verification": {
+    "date": "2026-10-04",
+    "version": "1.0.0",
+    "engine": "codex",
+    "input": "按提示词原样，末尾附一段测试环境说明：成片语言用中文；没有配置语音合成、配乐、音效与视频生成，遇到没有配置的能力跳过并在最后说明；现有编辑操作做不出的画面可以直接渲染成视频文件再导入时间线。第一轮在等待导出排队时到了单轮时间上限被停止，第二轮回复「时间线不用改，请重新提交高清版和社交平台压缩版两个导出，等完成后检查并交付」。",
+    "materials": [],
+    "capabilities": [
+      "generateMusic",
+      "generateSoundEffect"
+    ],
+    "outcome": "pass",
+    "output": {
+      "ratio": "16:9",
+      "durationSeconds": 44
+    },
+    "notes": "确认：智能体没有追问，用本机脚本写了一个程序化三维场景，渲染 1080p、44 秒的无声短片：碎粒、液滴与柔带等不同材质先各自翻涌，再汇成环流并保持各自的颜色与形态，配四个中文小标题。导入时间线后按五个段落拆分并命名、加章节，方便继续修改；源代码与重渲染脚本打包交付。它从时间线提交了两个导出（1080p 高清版与 720p 压缩版），符合「另外导出一份压缩版」；两个导出都已完成。音频是可选项，智能体按说明跳过并告诉了用户。预览与封面取自 BaoCut 导出的高清版。模板文案未改。"
+  }
+}

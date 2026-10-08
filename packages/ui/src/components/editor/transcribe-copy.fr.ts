@@ -1,0 +1,27 @@
+import type { TranscribeSetupMessages } from './transcribe-copy.ts';
+
+export const fr: TranscribeSetupMessages = {
+  title: "Réglages de transcription",
+  language: "Langue",
+  model: "Modèle vocal",
+  manageModels: "Gérer les modèles vocaux",
+  modelsLoading: "Chargement des modèles vocaux…",
+  noDefault: "Aucun modèle vocal par défaut",
+  hint: "Indications de reconnaissance",
+  glossary: "Glossaire",
+  manageGlossary: "Gérer les glossaires",
+  glossaryLoading: "Chargement des glossaires…",
+  glossaryEmpty: "Aucun glossaire de transcription. Créez-en un dans Réglages › Glossaire pour les orthographes de noms et termes.",
+  glossaryFailed: (message: string) => `Impossible de lire les glossaires activés pour cette vidéo : ${message}`,
+  glossaryNote: "Cochez un glossaire pour l’activer pour cette vidéo ; toutes les futures transcriptions l’utiliseront. Annulable.",
+  glossaryReadOnly: "La vidéo ne peut pas être modifiée actuellement ; glossaires activés non modifiables.",
+  glossaryLimit: (n: number) => `Une vidéo peut activer au plus ${n} glossaires`,
+  glossaryOn: (name: string) => `« ${name} » activé pour cette vidéo`,
+  glossaryOff: (name: string) => `« ${name} »`,
+  glossaryWriteFailed: (message: string) => `Impossible de changer les glossaires activés : ${message}`,
+  undo: "Annuler",
+  prompt: "Prompt personnalisé",
+  promptPlaceholder: "Facultatif. Exemple : podcast anglais sur l’optimisation d’inférence LLM, animé par Lin Che avec l’invité Zhou Yuan.",
+  how: "Prompt et glossaires activés (orthographes correctes) sont fournis ensemble au modèle pour reconnaître noms et termes. Au-delà de la limite, les derniers termes sont retirés.",
+  reuse: "Les médias déjà transcrits réutilisent leur transcription ; ces réglages concernent seulement ceux restant à transcrire.",
+};

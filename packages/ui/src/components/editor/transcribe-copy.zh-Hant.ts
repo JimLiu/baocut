@@ -1,0 +1,27 @@
+import type { TranscribeSetupMessages } from './transcribe-copy.ts';
+
+export const zhHant: TranscribeSetupMessages = {
+  title: '轉錄設定',
+  language: '語言',
+  model: '語音模型',
+  manageModels: '管理語音模型',
+  modelsLoading: '正在載入語音模型…',
+  noDefault: '還沒有預設的語音模型',
+  hint: '辨識提示',
+  glossary: '術語表',
+  manageGlossary: '管理術語表',
+  glossaryLoading: '正在載入術語表…',
+  glossaryEmpty: '還沒有轉錄術語表。請在「設定 › 術語表」中建立一份，記下人名與術語的正確寫法。',
+  glossaryFailed: (message: string) => `無法讀取這部影片啟用的術語表：${message}`,
+  glossaryNote: '勾選即在這部影片啟用，之後每次轉錄都會使用；可以還原。',
+  glossaryReadOnly: '這部影片目前無法編輯，因此無法變更啟用的術語表。',
+  glossaryLimit: (n: number) => `一部影片最多只能啟用 ${n} 份術語表`,
+  glossaryOn: (name: string) => `已在這部影片啟用「${name}」`,
+  glossaryOff: (name: string) => `已停用「${name}」`,
+  glossaryWriteFailed: (message: string) => `無法變更啟用的術語表：${message}`,
+  undo: '還原',
+  prompt: '自訂提示詞',
+  promptPlaceholder: '選填。例如：一集關於 LLM 推論最佳化的英文 Podcast，主持人林澈，來賓周遠。',
+  how: '提示詞與啟用的術語表（正確寫法）會一起提供給語音模型，幫助它辨識人名與術語。超過上限時，排在後面的術語會被捨去。',
+  reuse: '已經轉錄過的素材會直接沿用那份逐字稿；這些設定只套用於還需要轉錄的素材。',
+};

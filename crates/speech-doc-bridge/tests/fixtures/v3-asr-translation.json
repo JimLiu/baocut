@@ -1,0 +1,103 @@
+{
+  "schema": "baocut.translation/2",
+  "language": "zh-Hans",
+  "sourceBasis": {
+    "speechRef": {
+      "id": "doc-speech",
+      "revision": "1"
+    },
+    "sequenceId": "seq-1",
+    "scopeLineage": [],
+    "editViewHash": "sha256:cb9794e73392150b61a0cc342f9fa9609b0681260056c23dee1e9662f75f6280"
+  },
+  "glossaryRef": {
+    "entries": [
+      {
+        "library": "glossaries",
+        "id": "g1",
+        "version": 3,
+        "contentHash": "sha256:11",
+        "name": "术语"
+      }
+    ],
+    "inline": null,
+    "terms": [
+      {
+        "entryId": "g1",
+        "source": "Hello",
+        "target": "你好"
+      }
+    ]
+  },
+  "units": [
+    {
+      "id": "t-s-w-000001",
+      "sourceSentenceId": "s-w-000001",
+      "sourceFingerprint": "sha256:7144598a50181c407eb3e94f7f45b364ec5847484f7ce3b13fb2fbd3b1477888",
+      "naturalText": "你好。",
+      "alignment": {
+        "basis": "natural",
+        "correspondence": "sentence",
+        "blocks": [],
+        "sourceWordIds": [
+          "w-000001",
+          "w-000002"
+        ],
+        "textHash": "sha256:81fddea03ec6aa29ed52fc9b346ca130613650a71fd8d3ffc93077bc27806bc1"
+      },
+      "status": "draft"
+    },
+    {
+      "id": "t-s-w-000003",
+      "sourceSentenceId": "s-w-000003",
+      "sourceFingerprint": "sha256:1764590f59a5589f2b57d8d51a679e090b6164e699c1d2e29795a3ac95492f1c",
+      "naturalText": "你还好吗？",
+      "alignment": {
+        "basis": "natural",
+        "correspondence": "sentence",
+        "blocks": [],
+        "sourceWordIds": [
+          "w-000003",
+          "w-000004",
+          "w-000005"
+        ],
+        "textHash": "sha256:3dfeedde9184c80987b283ab4822a1555da5225ce9ef969247afcca0faee8339"
+      },
+      "status": "reviewed"
+    },
+    {
+      "id": "t-s-w-000006",
+      "sourceSentenceId": "s-w-000006",
+      "sourceFingerprint": "sha256:c0e6c6b4cc2b51f03cf79a7141e483e69fc3ef7cd1dd16d860b3e38832f62049",
+      "naturalText": "很好，谢谢。",
+      "alignment": {
+        "basis": "natural",
+        "correspondence": "sentence",
+        "blocks": [],
+        "sourceWordIds": [
+          "w-000006"
+        ],
+        "textHash": "sha256:6adc057f3d03a6adb212665f1b4c2500880f45e20cc2f44ee93faeeb19e46af8"
+      },
+      "status": "draft"
+    },
+    {
+      "id": "t-s-w-000007",
+      "sourceSentenceId": "s-w-000007",
+      "sourceFingerprint": "sha256:a0a7b56b6fd442a24dfbb975529c2f765361d51956ab100f5800b67c743d2070",
+      "naturalText": "回头见。",
+      "alignment": {
+        "basis": "natural",
+        "correspondence": "sentence",
+        "blocks": [],
+        "sourceWordIds": [
+          "w-000007",
+          "w-000008",
+          "w-000009"
+        ],
+        "textHash": "sha256:3a042a8aa0711ebcba88b8323ae33d4d1787b48ad728387e934c30e9552e7e85"
+      },
+      "status": "draft"
+    }
+  ]
+}

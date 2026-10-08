@@ -1,0 +1,125 @@
+import type { AiToolsMessages } from './ai-tools.ts';
+
+const SOON_TAIL = 'Runtime 還沒有這條流程，畫面上也還沒有調整取景框的覆蓋層，所以這裡暫時沒有可以填寫的表單。';
+
+export const zhHant: AiToolsMessages = {
+  groups: {
+    frame: '畫面',
+    transcript: '逐字稿',
+    translate: '翻譯',
+    writing: '寫作',
+    publish: '發布',
+  },
+  tools: {
+    crop: {
+      name: '智慧裁切',
+      desc: '換一種長寬比，把說話者、白板等重點留在畫面裡',
+      why: `智慧裁切要在影片中一路追蹤說話者、白板等重點，再依新的長寬比裁切。${SOON_TAIL}`,
+    },
+    shortscut: {
+      name: '剪成短影音',
+      desc: '從這部影片挑出幾段，各做成一支直式短影音',
+      why: `剪成短影音要挑出幾段、各自裁成直式，並在畫面上逐段調整取景。${SOON_TAIL}`,
+    },
+    polish: {
+      name: '潤飾逐字稿',
+      desc: '修正錯字、補上標點、分段——不改寫你的話',
+      setup: ['修正明顯的錯字、補上缺漏的標點，並依主題分段。', '不改寫你的措辭，也不刪除內容——只修正確定是筆誤的地方。'],
+    },
+    chapters: {
+      name: '產生章節',
+      desc: '把長影片分成有標題的章節',
+      setup: ['依段落主題歸納出章節，並為每一章下標題。', '匯出與分享頁使用同一份章節。'],
+    },
+    speakers: {
+      name: '辨識說話者',
+      desc: '分辨是誰在說話，字幕與逐字稿都會標上名字',
+    },
+    retranscribe: {
+      name: '重新轉錄',
+      desc: '換一個模型重跑音訊——也可以只跑一個章節或一段',
+      setup: ['用另一個語音模型重跑，取代這個範圍的詞級資料。', '範圍之外的逐字稿、字幕與譯文完全不變。'],
+    },
+    cleanup: {
+      name: '找出可剪片段',
+      desc: '找出贅字、長停頓和失誤片段，先看建議再剪',
+      setup: ['掃描贅字、0.8 秒以上的停頓與重複的開頭。', '先列出建議剪掉的清單讓你確認，再動手剪。'],
+    },
+    translate: { name: '翻譯字幕', desc: '逐句翻譯，並依詞級資料對齊時間碼' },
+    stale: {
+      name: '更新過期譯文',
+      desc: '只重新翻譯原文被修改或剪掉的句子',
+      setup: ['只重新翻譯原文有變動的句子：你修改過的，以及剪輯時被剪掉一部分的。', '依剪輯後的原文翻譯；整句已剪掉的，譯文也一起剪掉。其餘不變。'],
+    },
+    dub: {
+      name: '翻譯配音',
+      desc: '選一種語言，讓影片用它說話，聽起來像說話者本人或母語人士；使用預設值就能開始',
+    },
+    summary: { name: '寫摘要', desc: '正文加上附時間的重點；按一下時間就跳到那裡' },
+    blog: { name: '寫部落格文章', desc: '改寫成一篇文章，從作者或觀眾的角度' },
+    title: { name: '建議標題', desc: '一次產生幾個角度不同的候選，再挑一個' },
+    desc: { name: '寫簡介', desc: '發布用的簡介，附章節時間碼與標籤' },
+    cover: { name: '做封面', desc: '從關鍵影格做幾張候選封面，再挑一張' },
+  },
+  unknownTool: (id: string) => `沒有這個 AI 工具：${id}`,
+  cleanup: {
+    fillers: {
+      label: '贅字',
+      sub: '像「嗯」「呃」「就是」「然後」這類詞',
+      off: '贅字',
+    },
+    pauses: { label: '長停頓 ≥ 0.8 秒', sub: '依詞級時間尋找', off: '長停頓' },
+    repeats: {
+      label: '重複開頭',
+      sub: '同一句開頭說了兩次，保留後一次',
+      off: '重複開頭',
+    },
+  },
+  cleanupOff: (offs: readonly string[]) => `不找${offs.join('、')}`,
+  lengths: { short: '短', medium: '中', long: '長' },
+  styles: {
+    plain: '平實',
+    pop: '科普',
+    sharp: '毒舌',
+    light: '輕鬆',
+    pro: '專業',
+    custom: '自訂…',
+  },
+  views: { auto: '自動', author: '我是作者', viewer: '我是觀眾' },
+  coverText: {
+    none: '不放文字',
+    phrase: '一句短語',
+    'phrase-sub': '短語加一行小字',
+  },
+  viewName: { author: '作者', viewer: '觀眾' },
+  extraScope: (scope: string) => `只看${scope}`,
+  extraLength: (label: string) => `篇幅：${label}`,
+  extraStyle: (style: string) => `風格：${style}`,
+  extraLanguage: (language: string) => `用${language}寫`,
+  extraView: (view: string) => `視角：${view}`,
+  extraPlatform: (platform: string) => `要發布到：${platform}，請依它的規定寫，寫完提醒我核對`,
+  extraIdea: (idea: string) => `封面要傳達的一件事：${idea}`,
+  extraRatio: (ratio: string) => `長寬比 ${ratio}`,
+  extraCoverText: (label: string) => `封面上的文字：${label}`,
+  titled: (title: string) => `「${title}」`,
+  thisVideo: '這部影片',
+  sourceEdited: (n: number | null) => (n === null ? '原文已修改' : `${n} 句原文已修改`),
+  sourceCut: (n: number | null) => (n === null ? '原文已剪掉' : `${n} 句原文已剪掉`),
+  sourceJoin: (parts: readonly string[]) => parts.join('、'),
+  intents: {
+    stale: (o) =>
+      `${o.p}有幾句譯文過期了${o.why ? `（${o.why}）` : '：原文已修改'}，只重新翻譯這些句子，${o.cut ? '被剪掉的依剪輯後的原文重新翻譯，整句剪掉的譯文也一併移除，' : ''}其餘完全不變。`,
+    polish: (o) => `潤飾${o.p}的${o.scope || '全篇'}逐字稿：修正錯字、補上標點、依主題分段，不改寫我的措辭。`,
+    chapters: (o) => `把${o.p}依主題分成章節，每章下一個簡短的標題。`,
+    speakers: (o) => `辨識${o.p}中${o.scope || '全篇'}的說話者，先把結果列給我確認，再寫進影片。`,
+    retranscribe: (o) => `用另一個語音模型重新轉錄${o.p}的${o.scope || '全篇'}，範圍之外完全不變。`,
+    cleanup: (o) => `找出${o.p}${o.scope || '全篇'}裡的贅字、長停頓和重複開頭，先列出來，我確認後再剪。`,
+    summary: (o) => `從${o.p}的逐字稿整理出一份附時間碼的重點摘要。`,
+    blog: (o) => `把${o.p}改寫成一篇可以發布的部落格文章。`,
+    title: (o) => `為${o.p}想 ${o.count} 個候選標題，角度各不相同，每個附一行理由，並推薦其中一個。`,
+    desc: (o) => `為${o.p}寫一份發布用的簡介，附章節時間碼和一行標籤。`,
+    cover: (o) => `為${o.p}做 ${o.count} 張候選封面：先挑關鍵影格，每張用不同的底圖做法，做完先縮小檢查一遍再給我看。`,
+  },
+  endSentence: (text: string) => (/[。！？]$/.test(text) ? text : `${text}。`),
+  joinPrompt: (head: string, extra: readonly string[]) => head + extra.join(''),
+};

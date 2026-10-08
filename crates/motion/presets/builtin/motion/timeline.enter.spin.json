@@ -1,0 +1,30 @@
+{
+  "id": "spin",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "enter",
+  "order": 11,
+  "duration": 0.55,
+  "curve": {
+    "kind": "named",
+    "name": "easeOutBack"
+  },
+  "opacityCurve": {
+    "kind": "named",
+    "name": "easeOutCubic"
+  },
+  "mirror": "spin",
+  "from": {
+    "opacity": 0.0,
+    "scaleX": 0.9,
+    "scaleY": 0.9,
+    "rotation": -12.0
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

@@ -1,0 +1,13 @@
+node_modules/
+out/
+dist/
+.dev/
+*.log
+.DS_Store
+/target/
+# 机器专属的 Cargo 覆盖（target 目录等）；模板见 .cargo/config.local.toml.example
+.cargo/config.local.toml
+# 构建产物：预览与编辑语义的 WASM 由 tools/build-wasm.mjs 生成
+packages/ui/src/render/generated/
+packages/editor-wasm/src/generated/
+apps/cli/src/generated/

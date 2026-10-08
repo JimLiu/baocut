@@ -1,0 +1,8 @@
+{
+  "effort": "auto",
+  "elapsedMs": 1822,
+  "error": null,
+  "model": "deepseek-flash",
+  "name": "synthetic-hi-en",
+  "response": "1 |लीला..की|Leela did not cancel the meeting;|उसने..टाल|she postponed it to Thursday 14:30.\n2 |अगर..जाए|If the temperature drops below 5 degrees,|तो..दें|close the window before turning on the heater.\n3 |अमन..दिए|Aman paid 120 rupees for three tickets,|लेकिन..था|but dinner was not included in this price.\n4 |मीरा..थी|The book Meera lent Ravi yesterday|वह..है|belongs to Meera's sister.\n5 |“पुष्टि..है|\"Confirmed\" has E-12 written on it,|लेकिन..है|but the packet has not been sent yet.\n6 |नेहा..थी|Neha left before Arjun,|फिर..पहुँची|yet she arrived ten minutes after him."
+}

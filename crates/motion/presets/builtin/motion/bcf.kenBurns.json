@@ -1,0 +1,55 @@
+{
+  "id": "kenBurns",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "bcf",
+  "order": 4,
+  "emitsParamsMeta": false,
+  "determinism": "strict",
+  "definition": {
+    "params": {
+      "fromZoom": {
+        "default": 1
+      },
+      "toZoom": {
+        "default": 1.1
+      },
+      "fromX": {
+        "default": 0
+      },
+      "toX": {
+        "default": 0
+      },
+      "fromY": {
+        "default": 0
+      },
+      "toY": {
+        "default": 0
+      }
+    },
+    "keyframes": [
+      {
+        "prop": "cam",
+        "frames": [
+          {
+            "t": "0%",
+            "v": {
+              "x": "{fromX}",
+              "y": "{fromY}",
+              "zoom": "{fromZoom}"
+            }
+          },
+          {
+            "t": "100%",
+            "v": {
+              "x": "{toX}",
+              "y": "{toY}",
+              "zoom": "{toZoom}"
+            },
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
+    ]
+  }
+}

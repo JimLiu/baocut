@@ -1,0 +1,32 @@
+import type { ToolsTranscodeMessages } from './tools-transcode-copy.ts';
+
+export const vi: ToolsTranscodeMessages = {
+quality: {
+ smaller: { name: 'Nhỏ hơn', sub: 'Đủ tốt cho nhắn tin và lưu trữ đám mây' },
+ balanced: { name: 'Cân bằng', sub: 'Khó thấy khác biệt' },
+ high: { name: 'Chất lượng cao', sub: 'Giữ để chỉnh sửa sau' },
+},
+heightOriginal: 'Gốc', heightOriginalLong: 'Độ phân giải gốc',
+codecSub: { h264: 'Phát được ở mọi nơi', hevc: 'Nhỏ hơn 40% với cùng chất lượng; thiết bị cũ có thể không phát được' },
+notVideoFiles: (names) => `${names.join(', ')} không phải tệp video`,
+notAbsolute: (paths) => `${paths.join(', ')} không phải đường dẫn tuyệt đối`,
+alreadyListed: (names) => `${names.join(', ')} đã có trong danh sách`,
+overflow: (limit, extra) => `Tối đa ${limit} tệp mỗi lần; chưa thêm ${extra} tệp khác`,
+joinNotices: (bits) => bits.join('; '),
+needTwoVideos: 'Thêm ít nhất hai video', needMediaFile: 'Chọn tệp video hoặc âm thanh trước', needVideoFile: 'Chọn tệp video trước', needOneMore: 'Ghép cần ít nhất hai video; thêm một video nữa',
+tooManyFiles: (limit) => `Tối đa ${limit} tệp mỗi lần`,
+videoKbpsRange: (min, max) => `Tốc độ bit video phải trong khoảng ${min}–${max} kbps`,
+audioKbpsRange: (min, max) => `Tốc độ bit âm thanh phải trong khoảng ${min}–${max} kbps`,
+outDirAbsolute: 'Thư mục đầu ra phải là đường dẫn tuyệt đối', ffmpegUnusable: (message) => `ffmpeg không khả dụng: ${message}`, audioKbps: (kbps) => `Âm thanh ${kbps} kbps`,
+ffmpegNeeded: 'Cài ffmpeg trước', ffmpegInstallHint: 'Cài ffmpeg hoặc đặt đường dẫn bằng BAOCUT_FFMPEG', ffmpegReady: (version) => `ffmpeg${version} sẵn sàng`, ffmpegOutdated: (version) => `ffmpeg${version} quá cũ`, ffmpegCannotRun: 'ffmpeg không thể chạy',
+filesTitle: (first, count) => `${first} và ${count - 1} tệp khác`, defaultTitle: 'Chuyển đổi tệp', mergeTitle: (first, more) => `${first} + ${more} mục nữa`, qualityWithCrf: (name, crf) => `${name} (CRF ${crf})`,
+mergeStreamCopy: (n) => `Ghép ${n} clip · Sao chép luồng`, extractAudioMany: (n) => `Trích âm thanh từ ${n} tệp`, extractAudio: 'Trích âm thanh', mergeClips: (n) => `Ghép ${n} clip`, compressMany: (n) => `Nén ${n} tệp`, compress: 'Nén',
+stepQueued: (step, detail) => `${step} · ${detail ?? 'Đang chờ'}`, stepOf: (step, cur, total) => `${step} · Bước ${cur}/${total}`, noAudioTrack: 'Không có âm thanh',
+mergedSize: (after, before) => `${after} (tổng nguồn ${before})`,
+savedSize: (before, after, saved) => `${before} → ${after} (${saved === null ? 'không nhỏ hơn' : saved === 0 ? 'gần như không đổi' : `nhỏ hơn ${saved}%`})`,
+streamCopyLine: 'Tất cả clip khớp nhau: sao chép luồng không mã hóa lại, giữ nguyên chất lượng', reencodeLine: (reason) => reason ? `Đã mã hóa lại: ${reason}` : 'Đã mã hóa lại', underASecond: 'Dưới 1 giây', took: (duration) => `Mất ${duration}`, stateQueued: 'Đang chờ', stateProcessing: 'Đang xử lý',
+remedyThenRetry: (remedy) => `${remedy}, rồi thử lại`,
+inputUnreadable: 'Không đọc được khung hình từ tệp này. Hãy kiểm tra tệp phát được trong trình phát hoặc chọn tệp khác',
+transcodeFailed: 'ffmpeg thất bại giữa chừng; đầu ra gốc ở bên dưới. Nếu đĩa đầy, giải phóng dung lượng; nếu tệp nguồn đã chuyển, chọn lại',
+validationFailed: 'Đầu ra không vượt qua kiểm tra và đã bị loại bỏ nên chưa ghi gì vào thư mục đầu ra. Thử lại hoặc đổi cài đặt',
+};

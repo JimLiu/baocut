@@ -1,0 +1,24 @@
+{
+  "id": "compress",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "exit",
+  "order": 13,
+  "duration": 0.4,
+  "curve": {
+    "kind": "named",
+    "name": "easeInCubic"
+  },
+  "mirror": null,
+  "from": {
+    "opacity": 0.0,
+    "scaleX": 1.6
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

@@ -1,0 +1,12 @@
+{
+  "center": {
+    "samples": 6,
+    "strength": 0.3
+  },
+  "corner-strong": {
+    "cx": 0.2,
+    "cy": 0.8,
+    "samples": 8,
+    "strength": 0.6
+  }
+}

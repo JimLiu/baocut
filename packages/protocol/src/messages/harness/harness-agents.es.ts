@@ -1,0 +1,22 @@
+import type { HarnessAgentsMessages } from './harness-agents.ts';
+export const es: HarnessAgentsMessages = {
+ listSeparator: ', ', noDriver: (p) => `No hay un agente registrado con el ID ${p.id}`, probeFailed: (p) => `La detección falló: ${p.error}`,
+ cannotChangeAgent: 'Esta sesión ya ha empezado, por lo que no se puede cambiar su agente. Crea una sesión nueva para elegir otro.',
+ noBudgetLedger: 'Este Runtime no tiene un registro de presupuesto de tareas, por lo que no se pueden establecer presupuestos',
+ driverGone: (p) => `El agente ${p.id} se eliminó o no está registrado, por lo que esta sesión ya no puede enviar. Crea una sesión nueva con otro agente.`,
+ driverUnverified: (p) => `${p.agent} aún no ha superado las pruebas de integración de BaoCut. Solo se muestran sus resultados de detección y no puede iniciar sesiones.`,
+ fullAccessOnly: (p) => `${p.agent} no puede pedir aprobación paso a paso, por lo que solo se ejecuta en modo «${p.fullAccess}» (actualmente «${p.current}»). Cambia a «${p.fullAccess}» y envía de nuevo o usa otro agente.`,
+ runtimeStopping: 'El Runtime se está deteniendo', sessionBusy: 'Una tarea sigue en curso en esta sesión. Deténla o espera a que termine.', sessionBusyOther: 'Esta sesión está ejecutando otra tarea. Deténla o espera a que termine.',
+ oldTaskNotStopped: 'La tarea anterior aún no se ha detenido. Vuelve a intentarlo más tarde', attachmentsUnsupported: 'Esta versión aún no puede enviar imágenes adjuntas', attachmentDuplicate: 'Cada adjunto solo se puede incluir una vez por mensaje',
+ tooManyImages: (p) => `Un mensaje puede incluir como máximo ${p.max} imágenes`, imagesUnsupported: 'Este agente no admite imágenes',
+ contractRevisionMissing: (p) => `El contrato de la tarea no tiene la revisión ${p.revision} (la última es ${p.latest})`,
+ taskEnded: 'La tarea ha terminado (o se está deteniendo), por lo que no se puede cambiar su contrato. Para cambiar el objetivo, usa tasks.changeGoal',
+ contractRevisionStale: (p) => `El contrato ya está en la revisión ${p.latest}, no en la ${p.expected}. Vuelve a leerlo antes de cambiarlo`,
+ checkMissing: (p) => `El contrato de la tarea no tiene esta comprobación: ${p.id}`, taskNotFound: (p) => `Tarea no encontrada: ${p.id}`, approvalNotFound: (p) => `Aprobación no encontrada: ${p.id}`,
+ builtinId: (p) => `${p.id} es un ID de agente integrado. Elige otro`, agentExists: (p) => `Ya existe un agente con el ID ${p.id}`,
+ builtinNotRemovable: (p) => `${p.agent} está integrado y no se puede quitar. Puedes desactivarlo en Ajustes`, agentMissing: (p) => `Ningún agente tiene el ID ${p.id}`,
+ providersUnsupported: 'Este Runtime no puede añadir ni quitar agentes', modelMissing: (p) => `${p.agent} no tiene el modelo «${p.model}». Elige entre ${p.choices}`,
+ effortMissing: (p) => `El modelo «${p.model}» no tiene el esfuerzo de razonamiento «${p.effort}». Elige entre ${p.choices}`,
+ effortUnsupported: (p) => `El modelo «${p.model}» no tiene niveles de esfuerzo de razonamiento`, approvalNoGrant: 'Esta aprobación no envía datos fuera, por lo que no puede incluir una elección de autorización',
+ contractFieldsReadonly: (p) => `El agente no puede cambiar estos campos del contrato de la tarea: ${p.fields}. Solo el usuario decide el modo de acceso, el ámbito de permisos, el presupuesto y los intervalos protegidos`,
+};

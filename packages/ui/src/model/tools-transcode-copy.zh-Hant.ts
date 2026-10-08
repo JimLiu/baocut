@@ -1,0 +1,66 @@
+import type { ToolsTranscodeMessages } from './tools-transcode-copy.ts';
+
+export const zhHant: ToolsTranscodeMessages = {
+  quality: {
+    smaller: { name: '較小', sub: '傳訊息、存雲端硬碟就夠用' },
+    balanced: { name: '平衡', sub: '幾乎看不出差別' },
+    high: { name: '高畫質', sub: '留著日後剪輯' },
+  },
+  heightOriginal: '原始',
+  heightOriginalLong: '原始解析度',
+  codecSub: {
+    h264: '到處都能播放',
+    hevc: '相同畫質下小 40%；舊裝置可能無法播放',
+  },
+
+  notVideoFiles: (names) => `${names.join('、')} 不是影片檔`,
+  notAbsolute: (paths) => `${paths.join('、')} 不是絕對路徑`,
+  alreadyListed: (names) => `${names.join('、')} 已在清單中`,
+  overflow: (limit, extra) => `一次最多 ${limit} 個檔案；多出的 ${extra} 個未加入`,
+  joinNotices: (bits) => bits.join('；'),
+
+  needTwoVideos: '請至少加入兩部影片',
+  needMediaFile: '請先選擇影片或音訊檔',
+  needVideoFile: '請先選擇影片檔',
+  needOneMore: '合併至少需要兩部影片，請再加入一部',
+  tooManyFiles: (limit) => `一次最多 ${limit} 個檔案`,
+  videoKbpsRange: (min, max) => `影片位元率必須介於 ${min}–${max} kbps 之間`,
+  audioKbpsRange: (min, max) => `音訊位元率必須介於 ${min}–${max} kbps 之間`,
+  outDirAbsolute: '輸出資料夾必須是絕對路徑',
+  ffmpegUnusable: (message) => `ffmpeg 無法使用：${message}`,
+  audioKbps: (kbps) => `音訊 ${kbps} kbps`,
+
+  ffmpegNeeded: '請先安裝 ffmpeg',
+  ffmpegInstallHint: '安裝 ffmpeg，或用 BAOCUT_FFMPEG 指定路徑',
+  ffmpegReady: (version) => `ffmpeg${version} 已就緒`,
+  ffmpegOutdated: (version) => `ffmpeg${version} 版本太舊`,
+  ffmpegCannotRun: 'ffmpeg 無法執行',
+
+  filesTitle: (first, count) => `${first} 等 ${count} 個檔案`,
+  defaultTitle: '檔案轉檔',
+  mergeTitle: (first, more) => `${first} 和另外 ${more} 段`,
+  qualityWithCrf: (name, crf) => `${name}（CRF ${crf}）`,
+  mergeStreamCopy: (n) => `合併 ${n} 段 · 串流複製`,
+  extractAudioMany: (n) => `從 ${n} 個檔案擷取音訊`,
+  extractAudio: '擷取音訊',
+  mergeClips: (n) => `合併 ${n} 段`,
+  compressMany: (n) => `壓縮 ${n} 個檔案`,
+  compress: '壓縮',
+  stepQueued: (step, detail) => `${step} · ${detail ?? '排隊中'}`,
+  stepOf: (step, cur, total) => `${step} · 第 ${cur}/${total} 步`,
+  noAudioTrack: '無音軌',
+  mergedSize: (after, before) => `${after}（來源檔共 ${before}）`,
+  savedSize: (before, after, saved) =>
+    `${before} → ${after}（${saved === null ? '沒有變小' : saved === 0 ? '幾乎沒變' : `小了 ${saved}%`}）`,
+  streamCopyLine: '各段參數一致：直接串流複製，未重新編碼，畫質不變',
+  reencodeLine: (reason) => (reason ? `已重新編碼：${reason}` : '已重新編碼'),
+  underASecond: '不到 1 秒',
+  took: (duration) => `耗時 ${duration}`,
+  stateQueued: '排隊中',
+  stateProcessing: '處理中',
+
+  remedyThenRetry: (remedy) => `${remedy}，然後再試一次`,
+  inputUnreadable: '無法從這個檔案讀取任何畫面。請確認它能在播放器中播放，或換一個檔案',
+  transcodeFailed: 'ffmpeg 中途出錯，原始輸出在下方。如果磁碟已滿，請先騰出空間；如果來源檔已移動，請重新選擇',
+  validationFailed: '輸出未通過驗證，已捨棄，因此沒有寫入輸出資料夾。請再試一次或更改設定',
+};

@@ -1,0 +1,8 @@
+{
+  "effort": "auto",
+  "elapsedMs": 1402,
+  "error": null,
+  "model": "deepseek-flash",
+  "name": "synthetic-de-en",
+  "response": "1 |Lea..verschoben|Lea didn't cancel the appointment, but postponed it to Thursday at 2:30 p.m.\n2 |Wenn..einschaltest|If the temperature drops below 5 degrees, close the window before you turn on the heating.\n3 |Für..enthalten|Ömer paid 120 euros for three tickets; dinner was not included in the price.\n4 |Das..Schwester|The book that Mia borrowed from Jonas yesterday belongs to his sister.\n5 |Neben..wurde|Next to \"confirmed\" is the code B-23, although the package has not yet been shipped.\n6 |Obwohl..an|Although Nora had set off earlier, she arrived ten minutes after Cem."
+}

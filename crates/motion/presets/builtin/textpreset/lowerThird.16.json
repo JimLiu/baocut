@@ -1,0 +1,82 @@
+{
+  "id": "lowerThird.16",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "lowerThird",
+  "order": 316,
+  "duration": 3.73,
+  "content": [
+    {
+      "kind": "shape",
+      "place": {
+        "x": 10.35,
+        "y": 73.67,
+        "w": 12.83
+      },
+      "shape": {
+        "shape": "rect",
+        "fill": "#5544cc",
+        "h": 1.25
+      },
+      "delay": 0.43,
+      "animate": {
+        "enter": {
+          "preset": "wipe",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "wipe",
+          "dur": 0.6
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 21.39,
+        "y": 67.84,
+        "w": 35.45
+      },
+      "text": "JEREMIAH\nBERRINGTON",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#ffffffff",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 26.9,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 0.95,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.2,
+          "distance": 0.01,
+          "rotation": 180.0,
+          "color": "#000000",
+          "on": true,
+          "opacity": 0.1
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "rise",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.63
+        }
+      }
+    }
+  ]
+}

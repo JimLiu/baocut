@@ -1,0 +1,613 @@
+{
+  "diagnostics": {},
+  "issues": [],
+  "mode": "lean",
+  "pageRejected": false,
+  "retryIds": [],
+  "rows": [
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              5
+            ],
+            "tgt": [
+              0,
+              34
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              8
+            ],
+            "tgt": [
+              34,
+              63
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              9,
+              12
+            ],
+            "tgt": [
+              63,
+              72
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Lea didn't cancel the appointment,",
+            "to": 5
+          },
+          {
+            "from": 6,
+            "text": "but postponed it to Thursday at 14:30.",
+            "to": 12
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12"
+        ]
+      },
+      "chunks": 3,
+      "coarse": false,
+      "frozen": false,
+      "id": "de-01",
+      "issues": [],
+      "locatedChunks": 3,
+      "minChunks": 3,
+      "n": 1,
+      "realTiming": false,
+      "source": "Lea hat den Termin nicht abgesagt, sondern auf Donnerstag um 14:30 Uhr verschoben.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Lea didn't cancel the appointment, but postponed it to Thursday at 14:30."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              6
+            ],
+            "tgt": [
+              0,
+              41
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              7,
+              9
+            ],
+            "tgt": [
+              41,
+              57
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              10,
+              14
+            ],
+            "tgt": [
+              57,
+              88
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "If the temperature falls below 5 degrees,",
+            "to": 6
+          },
+          {
+            "from": 7,
+            "text": "close the window",
+            "to": 9
+          },
+          {
+            "from": 10,
+            "text": "before you turn on the heating.",
+            "to": 14
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14"
+        ]
+      },
+      "chunks": 3,
+      "coarse": false,
+      "frozen": false,
+      "id": "de-02",
+      "issues": [],
+      "locatedChunks": 3,
+      "minChunks": 3,
+      "n": 2,
+      "realTiming": false,
+      "source": "Wenn die Temperatur unter 5 Grad fällt, schließe das Fenster, bevor du die Heizung einschaltest.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "If the temperature falls below 5 degrees, close the window before you turn on the heating."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              3
+            ],
+            "tgt": [
+              0,
+              18
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              4,
+              6
+            ],
+            "tgt": [
+              18,
+              38
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              7,
+              10
+            ],
+            "tgt": [
+              38,
+              53
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              11,
+              13
+            ],
+            "tgt": [
+              53,
+              75
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "For three tickets Ömer paid 120 euros;",
+            "to": 6
+          },
+          {
+            "from": 7,
+            "text": "dinner was not included in the price.",
+            "to": 13
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13"
+        ]
+      },
+      "chunks": 4,
+      "coarse": false,
+      "frozen": false,
+      "id": "de-03",
+      "issues": [],
+      "locatedChunks": 4,
+      "minChunks": 3,
+      "n": 3,
+      "realTiming": false,
+      "source": "Für drei Fahrkarten zahlte Ömer 120 Euro; das Abendessen war nicht im Preis enthalten.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "For three tickets Ömer paid 120 euros; dinner was not included in the price."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              4
+            ],
+            "tgt": [
+              0,
+              17
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              5,
+              8
+            ],
+            "tgt": [
+              17,
+              46
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              9,
+              11
+            ],
+            "tgt": [
+              46,
+              68
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "The book that Mia",
+            "to": 4
+          },
+          {
+            "from": 5,
+            "text": "borrowed from Jonas yesterday",
+            "to": 8
+          },
+          {
+            "from": 9,
+            "text": "belongs to his sister.",
+            "to": 11
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11"
+        ]
+      },
+      "chunks": 3,
+      "coarse": false,
+      "frozen": false,
+      "id": "de-04",
+      "issues": [],
+      "locatedChunks": 3,
+      "minChunks": 3,
+      "n": 4,
+      "realTiming": false,
+      "source": "Das Buch, das Mia gestern von Jonas ausgeliehen hat, gehört seiner Schwester.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "The book that Mia borrowed from Jonas yesterday belongs to his sister."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              1
+            ],
+            "tgt": [
+              0,
+              20
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "anchor"
+            ],
+            "src": [
+              2,
+              5
+            ],
+            "tgt": [
+              20,
+              37
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              9
+            ],
+            "tgt": [
+              37,
+              58
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              10,
+              12
+            ],
+            "tgt": [
+              58,
+              83
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Next to \"confirmed\" is the code B-23,",
+            "to": 5
+          },
+          {
+            "from": 6,
+            "text": "although the package has not yet been shipped.",
+            "to": 12
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12"
+        ]
+      },
+      "chunks": 4,
+      "coarse": false,
+      "frozen": false,
+      "id": "de-05",
+      "issues": [],
+      "locatedChunks": 4,
+      "minChunks": 3,
+      "n": 5,
+      "realTiming": false,
+      "source": "Neben „bestätigt“ steht der Code B-23, obwohl das Paket noch nicht versandt wurde.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Next to \"confirmed\" is the code B-23, although the package has not yet been shipped."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              4
+            ],
+            "tgt": [
+              0,
+              31
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              5,
+              8
+            ],
+            "tgt": [
+              31,
+              55
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              9,
+              11
+            ],
+            "tgt": [
+              55,
+              65
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Although Nora had left earlier,",
+            "to": 4
+          },
+          {
+            "from": 5,
+            "text": "she arrived ten minutes after Cem.",
+            "to": 11
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11"
+        ]
+      },
+      "chunks": 3,
+      "coarse": false,
+      "frozen": false,
+      "id": "de-06",
+      "issues": [],
+      "locatedChunks": 3,
+      "minChunks": 2,
+      "n": 6,
+      "realTiming": false,
+      "source": "Obwohl Nora früher losgefahren war, kam sie zehn Minuten nach Cem an.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Although Nora had left earlier, she arrived ten minutes after Cem."
+    }
+  ],
+  "schema": "lean-carrier-grade/2",
+  "totals": {
+    "acceptedTranslations": 6,
+    "aligned": 6,
+    "chunks": 20,
+    "coarse": 0,
+    "expectedSentences": 6,
+    "locatedChunks": 20,
+    "sentencesWithAnchorIssues": 0,
+    "syntaxOrPermissionIssues": 0,
+    "translationRetries": 0
+  }
+}

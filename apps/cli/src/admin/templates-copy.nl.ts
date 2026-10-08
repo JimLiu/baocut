@@ -1,0 +1,9 @@
+import type { TemplatesMessages } from './templates-copy.ts';
+import { pluralForm } from '@baocut/protocol';
+export const nl: TemplatesMessages = {
+ help: `Gebruik:
+  baocut templates                 Beschikbare creatiesjablonen tonen (ingebouwd en in <BAOCUT_HOME>/templates),
+                                   plus sjabloonmappen die niet kunnen worden geladen en de reden
+  baocut templates show <id>       De belangrijkste manifestgegevens en de volledige prompt.md tonen`,
+ kindLabels: { scene: 'Scènesjabloon', example: 'Voorbeeld' }, originLabels: { builtin: 'Ingebouwd', user: 'Gebruiker' }, spec: (ratio, seconds) => `${ratio ?? 'automatische verhouding'} · ${seconds ? `${seconds} s` : 'automatische duur'}`, summaryLine: (title, summary) => `${title}: ${summary}`, diagnosticHead: (origin, dir, code, message) => `${origin}-sjabloon ${dir} (${code}): ${message}`, folder: (path) => `  Map: ${path}`, none: 'Geen sjablonen beschikbaar', skipped: (n) => `${n} ${pluralForm('nl', n, { one: 'sjabloonmap overgeslagen', other: 'sjabloonmappen overgeslagen' })}:`, detailHead: (title, id, version, kind, origin) => `${title} (${id} v${version}, ${kind}, ${origin})`, meta: (category, spec, language) => `Categorie: ${category}  Verhouding en duur: ${spec}  Taal: ${language}`, author: (author, source, license) => `Auteur: ${author} (${source}, ${license})`, tags: (tags) => `Tags: ${tags.join(', ')}`, sample: (sample) => `Probeer te zeggen: ${sample}`, cover: (file) => `Omslag: ${file}`, preview: (file) => `Voorbeeld: ${file}`, asset: (path, type, note) => `Media: ${path} (${type})${note ? ` ${note}` : ''}`, verification: (v) => `Gecontroleerd: ${v.date} ${v.engine} v${v.version} ${v.outcome}${v.output ? `, export ${v.output.ratio} · ${v.output.seconds} s` : ''}${v.missing.length ? `, ontbreekt ${v.missing.join(', ')}` : ''}`, templateFlag: (value) => `--template accepteert een sjabloon-id (kebab-case, zie baocut templates): ${value}`,
+};

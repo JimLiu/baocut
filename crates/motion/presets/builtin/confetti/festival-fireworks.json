@@ -1,0 +1,91 @@
+{
+  "id": "festival-fireworks",
+  "version": 1,
+  "domain": "confetti",
+  "namespace": "timeline",
+  "order": 50,
+  "aspect": "frame",
+  "palette": [
+    "#FF477E",
+    "#FF8C42",
+    "#FFD166",
+    "#06D6A0",
+    "#4CC9F0",
+    "#B388FF"
+  ],
+  "shapes": [
+    "circle",
+    "rect",
+    "sparkle",
+    "starlet"
+  ],
+  "sources": [
+    "js-confetti/flight"
+  ],
+  "hasEmitterControl": true,
+  "recipe": {
+    "algorithm": "confetti-v1",
+    "params": {
+      "emit": {
+        "mode": "burst",
+        "rate": 40,
+        "count": 80,
+        "interval": 1.6,
+        "jitter": 1.0
+      },
+      "emitters": [
+        {
+          "x": 25,
+          "y": 80,
+          "spreadX": 0,
+          "spreadY": 0
+        },
+        {
+          "x": 50,
+          "y": 80,
+          "spreadX": 0,
+          "spreadY": 0
+        },
+        {
+          "x": 75,
+          "y": 80,
+          "spreadX": 0,
+          "spreadY": 0
+        }
+      ],
+      "angle": -90,
+      "spread": 324,
+      "speedPx": [
+        85,
+        225
+      ],
+      "dragX": 0,
+      "dragY": 0,
+      "gravityPx": 190,
+      "windPx": 0,
+      "driftPx": 0,
+      "driftHz": 0.3,
+      "sizePx": [
+        5,
+        12
+      ],
+      "sizeRamp": true,
+      "spinDps": [
+        90,
+        360
+      ],
+      "flipHz": [
+        0.6,
+        1.6
+      ],
+      "pulse": null,
+      "lifeSec": 2.4,
+      "fadeIn": 0,
+      "fadeOut": 0.8,
+      "maxAlive": 600
+    }
+  },
+  "determinism": "strict",
+  "shader": null,
+  "available": true
+}

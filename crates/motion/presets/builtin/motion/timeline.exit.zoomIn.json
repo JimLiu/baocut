@@ -1,0 +1,25 @@
+{
+  "id": "zoomIn",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "exit",
+  "order": 9,
+  "duration": 0.375,
+  "curve": {
+    "kind": "named",
+    "name": "easeInCubic"
+  },
+  "mirror": null,
+  "from": {
+    "opacity": 0.0,
+    "scaleX": 1.15,
+    "scaleY": 1.15
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

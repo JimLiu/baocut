@@ -1,0 +1,66 @@
+import { pluralForm } from '@baocut/protocol';
+import type { ToolsTranscodeMessages } from './tools-transcode-copy.ts';
+
+export const ru: ToolsTranscodeMessages = {
+  quality: {
+    smaller: { name: "Меньше", sub: "Достаточно для сообщений и облачного хранения" },
+    balanced: { name: "Сбалансированно", sub: "Разницу трудно заметить" },
+    high: { name: "Высокое качество", sub: "Сохранить для дальнейшего редактирования" },
+  },
+  heightOriginal: "Оригинал",
+  heightOriginalLong: "Исходное разрешение",
+  codecSub: {
+    h264: "Воспроизводится везде",
+    hevc: "На 40 % меньше при том же качестве; старые устройства могут не воспроизвести",
+  },
+
+  notVideoFiles: (names) => `Не видеофайлы: ${names.join(', ')}`,
+  notAbsolute: (paths) => `Не абсолютные пути: ${paths.join(', ')}`,
+  alreadyListed: (names) => `Уже в списке: ${names.join(', ')}`,
+  overflow: (limit, extra) => `Максимум файлов за раз: ${limit}; сверх лимита не добавлено: ${extra}`,
+  joinNotices: (bits) => bits.join("; "),
+
+  needTwoVideos: "Добавьте хотя бы два видео",
+  needMediaFile: "Сначала выберите видео- или аудиофайл",
+  needVideoFile: "Сначала выберите видеофайл",
+  needOneMore: "Для объединения нужно хотя бы два видео; добавьте ещё одно",
+  tooManyFiles: (limit) => `До ${limit} файлов за раз`,
+  videoKbpsRange: (min, max) => `Битрейт видео должен быть от ${min} и ${max} кбит/с`,
+  audioKbpsRange: (min, max) => `Битрейт аудио должен быть от ${min} и ${max} кбит/с`,
+  outDirAbsolute: "Папка результата должна быть абсолютным путём",
+  ffmpegUnusable: (message) => `ffmpeg недоступен: ${message}`,
+  audioKbps: (kbps) => `Аудио ${kbps} кбит/с`,
+
+  ffmpegNeeded: "Сначала установите ffmpeg",
+  ffmpegInstallHint: "Установите ffmpeg или задайте путь через BAOCUT_FFMPEG",
+  ffmpegReady: (version) => `ffmpeg${version} готов`,
+  ffmpegOutdated: (version) => `ffmpeg${version} устарел`,
+  ffmpegCannotRun: "ffmpeg не запускается",
+
+  filesTitle: (first, count) => `${first} · файлов: ${count}`,
+  defaultTitle: "Преобразование файлов",
+  mergeTitle: (first, more) => `${first} + клипы: ${more}`,
+  qualityWithCrf: (name, crf) => `${name} (CRF ${crf})`,
+  mergeStreamCopy: (n) => pluralForm('ru', n, { one: `Объединить ${n} клип · Копирование потока`, few: `Объединить ${n} клипа · Копирование потока`, many: `Объединить ${n} клипов · Копирование потока`, other: `Объединить ${n} клипа · Копирование потока` }),
+  extractAudioMany: (n) => pluralForm('ru', n, { one: `Извлечь аудио из ${n} файла`, few: `Извлечь аудио из ${n} файлов`, many: `Извлечь аудио из ${n} файлов`, other: `Извлечь аудио из ${n} файла` }),
+  extractAudio: "Извлечь аудио",
+  mergeClips: (n) => pluralForm('ru', n, { one: `Объединить ${n} клип`, few: `Объединить ${n} клипа`, many: `Объединить ${n} клипов`, other: `Объединить ${n} клипа` }),
+  compressMany: (n) => pluralForm('ru', n, { one: `Сжать ${n} файл`, few: `Сжать ${n} файла`, many: `Сжать ${n} файлов`, other: `Сжать ${n} файла` }),
+  compress: "Сжать",
+  stepQueued: (step, detail) => `${step} · ${detail ?? 'Queued'}`,
+  stepOf: (step, cur, total) => `${step} · Шаг ${cur} из ${total}`,
+  noAudioTrack: "Нет аудио",
+  mergedSize: (after, before) => `${after} (всего исходных ${before})`,
+  savedSize: (before, after, saved) => `${before} → ${after} (${saved === null ? "не меньше" : saved === 0 ? "примерно столько же" : `${saved} % меньше`})`,
+  streamCopyLine: "Все клипы совместимы: поток скопирован без перекодирования, качество не изменено",
+  reencodeLine: (reason) => (reason ? `Перекодировано: ${reason}` : "Перекодировано"),
+  underASecond: "Меньше 1 секунды",
+  took: (duration) => `Заняло ${duration}`,
+  stateQueued: "В очереди",
+  stateProcessing: "Обработка",
+
+  remedyThenRetry: (remedy) => `${remedy}, затем повторите попытку`,
+  inputUnreadable: "Не удалось прочитать кадры файла. Проверьте воспроизведение в плеере или выберите другой файл",
+  transcodeFailed: "ffmpeg завершился ошибкой; исходный вывод ниже. Если диск полон, освободите место; если файл перемещён, выберите снова",
+  validationFailed: "Результат не прошёл проверку и отброшен, ничего не записано в папку результата. Повторите попытку или измените настройки",
+};

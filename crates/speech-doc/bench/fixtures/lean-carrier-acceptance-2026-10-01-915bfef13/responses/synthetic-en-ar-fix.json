@@ -1,0 +1,8 @@
+{
+  "effort": "auto",
+  "elapsedMs": 1635,
+  "error": null,
+  "model": "deepseek-flash",
+  "name": "synthetic-en-ar-fix",
+  "response": "1 |Maryam..said|قالت مريم |that..bag|إن الحقيبة |Yusuf..train|التي تركها يوسف في القطار |was..hers|لم تكن لها.\n2 |Do..file|لا ترسل الملف |to..Sara|إلى سارة |unless..approves|إلا إذا وافق المدير |the..version|على النسخة الثانية."
+}

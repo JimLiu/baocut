@@ -1,0 +1,167 @@
+/* 全屏播放器 —— §11.1（第 222 轮）。判据在 model-player.js，结构在 player.jsx。
+
+   这一层是**贴在视频上的 chrome**，所以它是全站唯一一处不吃 light-dark 主题的表面：
+   画面底下是什么亮度谁也不知道，控件只能自带对比（半透明黑底 + 白字 + 遮罩渐变）。
+   为此 `.pl` 里用的是 rgba 的黑与白，不是灰阶 token——token 会跟着系统主题翻成浅色，
+   那样白天模式下白字会印在白底上。几何仍然全部落在 S2 阶梯：钮 40/32、内边距 24、
+   行距 8、圆角 8/10/pill、动效 150ms cubic-bezier(0.45,0,0.4,1)。 */
+
+.pl {
+  position: fixed;
+  inset: 0;
+  z-index: 80;                       /* 高于时间轴与面板，低于对话框 scrim（90） */
+  display: flex;
+  background: rgba(0, 0, 0, 1);      /* 画面之外一律纯黑，不透出编辑器 */
+  cursor: default;
+}
+/* chrome 收起时连指针一起收——不然黑画面上会永远浮着一支箭头 */
+.pl.is-idle { cursor: none; }
+
+.pl__view { position: absolute; inset: 0; display: flex; }
+.pl__view .stage { flex: 1 1 auto; }
+
+/* 观看面上画面不接任何手势：整幅画面（含字幕、元素）都把点击让给 `.pl`，
+   于是「点画面 = 播放/暂停」在任何位置都成立，不会踩到某个元素的选中框上。 */
+.stage--player, .stage--player * { pointer-events: none; }
+.stage--player .frame { box-shadow: none; }
+
+/* ---------- chrome：上下两条遮罩 + 控件 ---------- */
+
+/* chrome 铺满整幅画面（上下两条遮罩各占一头），所以它**自己不能吃指针**——
+   吃了的话「点画面 = 播放/暂停」在中间那一大片全都失效，人会以为播放器坏了。
+   只有真正画着东西的那条控件条收指针（`.pl__bar`）。 */
+.pl__chrome {
+  position: absolute; inset: 0;
+  opacity: 1;
+  pointer-events: none;
+  transition: opacity 150ms cubic-bezier(0.45,0,0.4,1);
+}
+.pl.is-idle .pl__chrome { opacity: 0; }
+.pl.is-idle .pl__bar { pointer-events: none; }   /* 看不见的条子不许被点中 */
+
+.pl__top {
+  position: absolute; inset: 0 0 auto 0;
+  padding: 24px 24px 40px;
+  display: flex; flex-direction: column; gap: 4px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.72), rgba(0,0,0,0));
+  pointer-events: none;              /* 标题只是标识，不吃「点画面暂停」那一下 */
+}
+.pl__title { font-size: 16px; font-weight: 700; color: rgba(255,255,255,0.95); }
+.pl__sub   { font-size: 12px; color: rgba(255,255,255,0.72); }
+
+.pl__bar {
+  position: absolute; inset: auto 0 0 0;
+  pointer-events: auto;
+  padding: 24px;
+  display: flex; flex-direction: column; gap: 8px;
+  background: linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0));
+}
+.pl__row { display: flex; align-items: center; gap: 8px; }
+.pl__row .spacer { flex: 1 1 auto; }
+
+/* 时间码：成片时钟（§11.1）。当前值满亮，总长压暗——一眼能分出「现在」和「一共」。 */
+.pl__tc { font-size: 12px; color: rgba(255,255,255,0.95); font-variant-numeric: tabular-nums; padding: 0 4px; }
+.pl__tc i { font-style: normal; color: rgba(255,255,255,0.56); }
+
+/* ---------- 进度条 ---------- */
+
+.plseek { position: relative; height: 20px; display: flex; align-items: center; cursor: pointer; }
+.plseek__track {
+  position: relative; width: 100%; height: 4px; border-radius: 9999px;
+  background: rgba(255,255,255,0.28);
+  transition: height 150ms cubic-bezier(0.45,0,0.4,1);
+}
+.plseek:hover .plseek__track, .plseek.is-drag .plseek__track { height: 6px; }
+.plseek__fill { position: absolute; inset: 0 auto 0 0; border-radius: 9999px; background: var(--blue-900); }
+/* 章节刻痕：进度条上的一道缝，首章的 0 不画（model-player.js chapterTicks） */
+.plseek__tick {
+  position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px;
+  background: rgba(0,0,0,0.56);
+}
+.plseek__knob {
+  position: absolute; top: 50%; width: 14px; height: 14px; margin-left: -7px;
+  border-radius: 9999px; background: rgba(255,255,255,1);
+  transform: translate(0, -50%) scale(0);
+  transition: transform 150ms cubic-bezier(0.45,0,0.4,1);
+}
+.plseek:hover .plseek__knob, .plseek.is-drag .plseek__knob { transform: translate(0, -50%) scale(1); }
+
+/* 悬停气泡：一格画面 + 「松手会落到哪一秒」+ 那一秒在哪一章。
+   气泡居中对齐指针，在片头片尾会探出条子一点点——不夹它：夹到边上，气泡就不再
+   对准指针，而「它指着哪一帧」正是这东西存在的理由。 */
+.plseek__bub {
+  position: absolute; bottom: 24px; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 8px; border-radius: 8px;
+  background: rgba(0,0,0,0.82);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16);
+  pointer-events: none; white-space: nowrap;
+}
+/* 预览格。原型不解码真视频，画的是 model-timeline 那份确定性色板——与时间轴上
+   视频块的缩略图带同一份配方，所以进度条上这一格与时间轴上那一格是同一张。 */
+.plseek__th {
+  border-radius: 4px; margin-bottom: 4px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16);
+}
+.plseek__bub b { font-size: 12px; font-weight: 400; color: rgba(255,255,255,0.95); font-variant-numeric: tabular-nums; }
+.plseek__bub span { font-size: 11px; color: rgba(255,255,255,0.72); max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- 控件皮肤（几何全部继承 ui.css 的 .ibtn，只换颜色） ---------- */
+
+.plbtn { color: rgba(255,255,255,0.95); }
+.plbtn .ic { color: rgba(255,255,255,0.95); }
+.plbtn:hover:not(:disabled) { background: rgba(255,255,255,0.16); }
+.plbtn:active:not(:disabled) { background: rgba(255,255,255,0.24); }
+.plbtn.is-on .ic { color: var(--blue-900); }
+.plbtn--play .ic { width: 22px; height: 22px; }
+
+.plspeed {
+  height: 32px; min-width: 48px; padding: 0 10px;
+  border: 0; border-radius: 9999px;
+  background: rgba(255,255,255,0.16);
+  color: rgba(255,255,255,0.95);
+  font-family: var(--mono); font-size: 12px;
+  cursor: pointer;
+  transition: background-color 150ms cubic-bezier(0.45,0,0.4,1),
+              transform 150ms cubic-bezier(0.45,0,0.4,1);
+}
+.plspeed:hover { background: rgba(255,255,255,0.24); }
+.plspeed:active { transform: scale(0.96); }
+
+/* 音量：钮常驻，滑杆悬停 / 拖拽时才展开——控件行不该为一条平时用不到的杆常年占 80px。 */
+.plvol { display: flex; align-items: center; gap: 4px; }
+.plvol__sl {
+  width: 0; overflow: hidden;
+  transition: width 150ms cubic-bezier(0.45,0,0.4,1);
+}
+.plvol:hover .plvol__sl, .plvol:focus-within .plvol__sl { width: 80px; }
+.plvol .sl__track { background: rgba(255,255,255,0.28); }
+.plvol .sl__knob { background: rgba(255,255,255,1); box-shadow: none; }
+
+
+/* ---------- 键盘快捷键表（`?`，也在控件行有一枚钮） ----------
+   压在画面上而不是走 Dialog：全屏里再叠一层模态遮罩，等于把片子盖掉两次。
+   点表外的任何地方、Esc、再按一次 `?` 都关得掉。 */
+.plkeys {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: auto;
+}
+.plkeys__card {
+  width: 420px; max-height: 72%; overflow: auto;
+  padding: 20px; border-radius: 16px;
+  background: rgba(20, 20, 20, 0.94);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16), var(--sh-elev);
+  backdrop-filter: blur(12px);
+}
+.plkeys__hd { margin-bottom: 12px; font-size: 16px; color: rgba(255,255,255,0.95); }
+.plkeys__row {
+  display: flex; align-items: center; gap: 12px;
+  height: 24px; font-size: 12px; color: rgba(255,255,255,0.72);
+}
+.plkeys__k {
+  flex: none; padding: 0 6px; border-radius: 4px;
+  background: rgba(255,255,255,0.16);
+  color: rgba(255,255,255,0.95); font-size: 11px; font-style: normal;
+}
+.plkeys__ft { margin-top: 12px; font-size: 11px; color: rgba(255,255,255,0.56); }

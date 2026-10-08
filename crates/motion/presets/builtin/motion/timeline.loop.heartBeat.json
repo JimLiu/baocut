@@ -1,0 +1,33 @@
+{
+  "id": "heartBeat",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "loop",
+  "order": 6,
+  "period": 2.0,
+  "amplitudes": {
+    "scaleX": 0.12,
+    "scaleY": 0.12
+  },
+  "wave": {
+    "kind": "heartbeat",
+    "samples": 32
+  },
+  "channelSeedStride": 101,
+  "defaultSeed": 17,
+  "envelope": {
+    "kind": "idle-ramp-v1",
+    "rampCap": 0.3,
+    "rampFraction": 0.15,
+    "tailThresholdSec": 6.0,
+    "tailStart": 0.8,
+    "tailSpan": 0.2
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

@@ -1,0 +1,29 @@
+import type { GrantsMessages } from './grants-copy.ts';
+import { pluralForm } from '@baocut/protocol';
+const callsText = (n: number) => `${n} ${pluralForm('nl', n, { one: 'aanroep', other: 'aanroepen' })}`;
+export const nl: GrantsMessages = {
+ help: `Gebruik:
+  baocut grants [list]             Toestemmingen voor gegevensdeling tonen (online- en agentaanbieders):
+                                   ontvanger, gegevenstypen, bereik, gebruik en budget
+    --recipient <id>               Alleen toestemmingen voor deze aanbieder
+    --video <video id>             Alleen toestemmingen die deze video omvatten
+    --include-ended                Ook ingetrokken, verlopen en opgebruikte toestemmingen tonen
+  baocut grants create --recipient <id> --data <kind,…> --purpose <purpose> [options]
+                                   Toestemming geven. Typen: transcript (transcripten en vertalingen), frames (videobeelden),
+                                   audio (audio), video (oorspronkelijke video), document (tekst en prompts), context (agentcontext)
+    --video <video id|all>         Alleen deze video; zonder deze optie of met all alle video’s
+    --max-calls <n>                Aanroeplimiet; onbeperkt zonder deze optie
+    --budget <amount> --currency <currency>
+                                   Uitgavenlimiet: geschat en gereserveerd op basis van modelprijzen;
+                                   aanroepen naar modellen zonder prijs worden geweigerd (BUDGET_UNVERIFIABLE)
+    --expires <ISO time>           Verlooptijd
+  baocut grants update <id> [--data …] [--video <id|all>] [--purpose …] [--max-calls <n|none>]
+                         [--budget <amount|none> --currency …] [--expires <time|none>]
+                                   Toestemming wijzigen; beperkter bereik, lagere limieten of eerder verlopen
+                                   weigeren wachtende aanroepen onder de oude voorwaarden zodra ze starten
+  baocut grants revoke <id>        Toestemming intrekken: latere aanroepen zijn niet meer toegestaan; reeds
+                                   verzonden gegevens en berekende kosten worden ongewijzigd gemeld
+  baocut grants usage <id>         Gebruik van een toestemming en de taken die deze gebruikten (reserveringen en afrekeningen)`,
+ usage: 'Gebruik: baocut grants [list [--recipient <id>] [--video <id>] [--include-ended] | create --recipient <id> --data <kind,…> --purpose <purpose> [options] | update <grant id> [options] | revoke <grant id> | usage <grant id>]', listSep: ', ', missingRecipient: '--recipient ontbreekt (de aanbieder die de gegevens ontvangt, bijv. openai)', missingData: (kinds) => `--data ontbreekt (gegevenstypen, gescheiden door komma’s: ${kinds.join(', ')})`, missingPurpose: '--purpose ontbreekt (een leesbare zin)', recipientFixed: 'De ontvanger kan niet worden gewijzigd: trek deze toestemming in en maak een nieuwe', nothingToUpdate: 'Niets te wijzigen: geef --data, --video, --purpose, --max-calls, --budget of --expires op', persistOnly: '--scope, --max-calls, --budget en --expires horen alleen bij --persist', scopeChoices: '--scope accepteert video of all', unknownKinds: (unknown, kinds) => `Onbekend gegevenstype: ${unknown}. Kies uit ${kinds.join(', ')}`, maxCallsRange: '--max-calls moet een geheel getal van 1 tot 1000000 zijn, of none (geen limiet)', currencyNeedsBudget: '--currency hoort alleen bij --budget', budgetFormat: '--budget moet een niet-negatief decimaal bedrag met maximaal 6 decimalen zijn (bijv. 5 of 2.50)', budgetNeedsCurrency: '--budget vereist --currency <valutacode van drie letters, bijv. USD>', expiresFormat: '--expires moet een ISO-tijd met tijdzone zijn (bijv. 2026-12-31T23:59:59Z), of none', stateLabels: { active: 'Actief', expired: 'Verlopen', revoked: 'Ingetrokken', exhausted: 'Opgebruikt' }, originLabels: { user: 'door jou gegeven', approval: 'bij goedkeuring gegeven', 'provider-enable': 'standaard bij inschakelen' },
+ calls: (calls, reserved, max) => `${calls}${reserved ? `+${reserved} gereserveerd` : ''}${max !== null ? `/${max}` : ''} ${max === null && !reserved ? pluralForm('nl', calls, { one: 'aanroep', other: 'aanroepen' }) : 'aanroepen'}`, unknownCostCalls: (n) => ` (${n} met onbekende kosten)`, callsAndAmount: (calls, amount, reserved, cap, currency) => `${calls}, ${amount}${reserved ? `+${reserved} gereserveerd` : ''}/${cap} ${currency}`, noGrants: 'Geen toestemmingen: aanroepen naar online- en agentaanbieders vragen goedkeuring (of maak er een met baocut grants create)', scopeVideo: (videoId) => `video ${videoId}`, scopeAll: 'alle video’s', grantLine: (g) => `${g.id}  [${g.state}] ${g.recipient} ← ${g.kinds}  ${g.scope}${g.taskId ? `, alleen taak ${g.taskId}` : ''}${g.once ? ', alleen deze keer' : ''}  gebruik ${g.usage}${g.expiresAt ? `, verloopt ${g.expiresAt}` : ''}  (${g.origin}: ${g.purpose})`, revoked: (id, recipient, kinds) => `${id} ingetrokken (${recipient} ← ${kinds})`, alreadySent: (calls, amount, unknownCostCalls) => `Al verzonden: ${callsText(calls)}${amount ? `, ${amount} berekend` : ''}${unknownCostCalls ? ` (${unknownCostCalls} met onbekende kosten)` : ''}`, runningJobs: (jobs) => `Taken die nog lopen (worden normaal afgemaakt): ${jobs.join(', ')}`, noJobs: '(Nog geen taak heeft deze gebruikt, of de taakrecords zijn opgeruimd)', settled: (calls, amount, basis) => `${callsText(calls)} afgerekend ${amount} (${basis})`, unsettled: 'niet afgerekend', jobLine: (jobId, state, calls, amount, settled) => `  ${jobId}  ${state}  ${callsText(calls)} gereserveerd ${amount}  ${settled}`, approvalGrant: (a) => `    Verzendt: ${a.recipient} ← ${a.kinds}${a.videoId ? ` (video ${a.videoId})` : ''}: ${a.purpose}${a.estimate ? `, geschat ${a.estimate}` : ', kosten onbekend'}${a.maxCalls !== null ? `, maximaal ${callsText(a.maxCalls)}` : ''}${a.reason === 'revoked' ? ', toestemming ingetrokken of verlopen' : a.reason === 'unverifiable' ? ', kosten niet te schatten' : ''}`,
+};

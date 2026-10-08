@@ -1,0 +1,1790 @@
+{
+  "diagnostics": {},
+  "issues": [],
+  "mode": "lean",
+  "pageRejected": false,
+  "retryIds": [],
+  "rows": [
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              5
+            ],
+            "tgt": [
+              0,
+              29
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "anchor"
+            ],
+            "src": [
+              6,
+              10
+            ],
+            "tgt": [
+              29,
+              50
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              11,
+              15
+            ],
+            "tgt": [
+              50,
+              65
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Honestly, stop agonizing over",
+            "to": 5
+          },
+          {
+            "from": 6,
+            "text": "whether to use Codex or Claude Code.",
+            "to": 15
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15"
+        ]
+      },
+      "chunks": 3,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-g1.0",
+      "issues": [],
+      "locatedChunks": 3,
+      "minChunks": 2,
+      "n": 1,
+      "realTiming": true,
+      "source": "真的别再纠结到底是用 Codex 还是 Claude Code 了。",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Honestly, stop agonizing over whether to use Codex or Claude Code."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "anchor"
+            ],
+            "src": [
+              0,
+              5
+            ],
+            "tgt": [
+              0,
+              27
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              11
+            ],
+            "tgt": [
+              27,
+              69
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              12,
+              17
+            ],
+            "tgt": [
+              69,
+              95
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              18,
+              29
+            ],
+            "tgt": [
+              95,
+              124
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "The first is Skill Creator,",
+            "to": 5
+          },
+          {
+            "from": 6,
+            "text": "which lets you, even without understanding",
+            "to": 11
+          },
+          {
+            "from": 12,
+            "text": "Skill writing conventions,",
+            "to": 17
+          },
+          {
+            "from": 18,
+            "text": "still build a complete Skill.",
+            "to": 29
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15",
+          "w16",
+          "w17",
+          "w18",
+          "w19",
+          "w20",
+          "w21",
+          "w22",
+          "w23",
+          "w24",
+          "w25",
+          "w26",
+          "w27",
+          "w28",
+          "w29"
+        ]
+      },
+      "chunks": 5,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-g23.0",
+      "issues": [],
+      "locatedChunks": 5,
+      "minChunks": 4,
+      "n": 2,
+      "realTiming": true,
+      "source": "第一个是 Skill Creator，让你即使不懂 Skill 的编写规范，也可以做出一个完整的 Skill 来。",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "The first is Skill Creator, which lets you, even without understanding Skill writing conventions, still build a complete Skill."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              9
+            ],
+            "tgt": [
+              0,
+              36
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "anchor"
+            ],
+            "src": [
+              10,
+              13
+            ],
+            "tgt": [
+              36,
+              50
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              14,
+              25
+            ],
+            "tgt": [
+              50,
+              94
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              26,
+              35
+            ],
+            "tgt": [
+              94,
+              122
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              36,
+              39
+            ],
+            "tgt": [
+              122,
+              149
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              40,
+              45
+            ],
+            "tgt": [
+              149,
+              160
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              46,
+              53
+            ],
+            "tgt": [
+              160,
+              186
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              54,
+              58
+            ],
+            "tgt": [
+              186,
+              214
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Now I just need to tell Claude Code,",
+            "to": 9
+          },
+          {
+            "from": 10,
+            "text": "use this Skill",
+            "to": 13
+          },
+          {
+            "from": 14,
+            "text": "to help me generate a PPT on whatever topic,",
+            "to": 25
+          },
+          {
+            "from": 26,
+            "text": "then paste the copy into it,",
+            "to": 35
+          },
+          {
+            "from": 36,
+            "text": "and in just a few minutes' time it can",
+            "to": 45
+          },
+          {
+            "from": 46,
+            "text": "generate for me a PPT that",
+            "to": 53
+          },
+          {
+            "from": 54,
+            "text": "fully meets my requirements.",
+            "to": 58
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15",
+          "w16",
+          "w17",
+          "w18",
+          "w19",
+          "w20",
+          "w21",
+          "w22",
+          "w23",
+          "w24",
+          "w25",
+          "w26",
+          "w27",
+          "w28",
+          "w29",
+          "w30",
+          "w31",
+          "w32",
+          "w33",
+          "w34",
+          "w35",
+          "w36",
+          "w37",
+          "w38",
+          "w39",
+          "w40",
+          "w41",
+          "w42",
+          "w43",
+          "w44",
+          "w45",
+          "w46",
+          "w47",
+          "w48",
+          "w49",
+          "w50",
+          "w51",
+          "w52",
+          "w53",
+          "w54",
+          "w55",
+          "w56",
+          "w57",
+          "w58"
+        ]
+      },
+      "chunks": 9,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-g27.0",
+      "issues": [],
+      "locatedChunks": 9,
+      "minChunks": 7,
+      "n": 3,
+      "realTiming": true,
+      "source": "现在我只需要告诉 Claude Code，用这个 Skill 帮我生成一个什么主题的 PPT，然后把文案内容贴给它，几分钟的时间它就可以帮我生成一个满足我要求的 PPT。",
+      "splitSeams": [
+        "backed"
+      ],
+      "status": "aligned",
+      "translation": "Now I just need to tell Claude Code, use this Skill to help me generate a PPT on whatever topic, then paste the copy into it, and in just a few minutes' time it can generate for me a PPT that fully meets my requirements."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              5
+            ],
+            "tgt": [
+              0,
+              22
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              13
+            ],
+            "tgt": [
+              22,
+              69
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              14,
+              26
+            ],
+            "tgt": [
+              69,
+              109
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "After clicking submit,",
+            "to": 5
+          },
+          {
+            "from": 6,
+            "text": "it will, based on the requirements I've clearly",
+            "to": 13
+          },
+          {
+            "from": 14,
+            "text": "settled on, generate the specific Skill.",
+            "to": 26
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15",
+          "w16",
+          "w17",
+          "w18",
+          "w19",
+          "w20",
+          "w21",
+          "w22",
+          "w23",
+          "w24",
+          "w25",
+          "w26"
+        ]
+      },
+      "chunks": 4,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-g43.0",
+      "issues": [],
+      "locatedChunks": 4,
+      "minChunks": 4,
+      "n": 4,
+      "realTiming": true,
+      "source": "点击提交以后，它就会根据我明确下来的需求去生成具体的 Skill 了。",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "After clicking submit, it will, based on the requirements I've clearly settled on, generate the specific Skill."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              2
+            ],
+            "tgt": [
+              0,
+              12
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              3,
+              12
+            ],
+            "tgt": [
+              12,
+              53
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              13,
+              23
+            ],
+            "tgt": [
+              53,
+              98
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              24,
+              28
+            ],
+            "tgt": [
+              98,
+              115
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              29,
+              34
+            ],
+            "tgt": [
+              115,
+              130
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              35,
+              43
+            ],
+            "tgt": [
+              130,
+              156
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              44,
+              50
+            ],
+            "tgt": [
+              156,
+              195
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              51,
+              57
+            ],
+            "tgt": [
+              195,
+              220
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "For example,",
+            "to": 2
+          },
+          {
+            "from": 3,
+            "text": "after I install it and invoke this Skill,",
+            "to": 12
+          },
+          {
+            "from": 13,
+            "text": "I tell it to find me an image-matching Skill,",
+            "to": 23
+          },
+          {
+            "from": 24,
+            "text": "and then it gave me two options,",
+            "to": 34
+          },
+          {
+            "from": 35,
+            "text": "each with a note beside it",
+            "to": 43
+          },
+          {
+            "from": 44,
+            "text": "of the Star count and the corresponding",
+            "to": 50
+          },
+          {
+            "from": 51,
+            "text": "Skill's text description.",
+            "to": 57
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15",
+          "w16",
+          "w17",
+          "w18",
+          "w19",
+          "w20",
+          "w21",
+          "w22",
+          "w23",
+          "w24",
+          "w25",
+          "w26",
+          "w27",
+          "w28",
+          "w29",
+          "w30",
+          "w31",
+          "w32",
+          "w33",
+          "w34",
+          "w35",
+          "w36",
+          "w37",
+          "w38",
+          "w39",
+          "w40",
+          "w41",
+          "w42",
+          "w43",
+          "w44",
+          "w45",
+          "w46",
+          "w47",
+          "w48",
+          "w49",
+          "w50",
+          "w51",
+          "w52",
+          "w53",
+          "w54",
+          "w55",
+          "w56",
+          "w57"
+        ]
+      },
+      "chunks": 8,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-g55.0",
+      "issues": [],
+      "locatedChunks": 8,
+      "minChunks": 7,
+      "n": 5,
+      "realTiming": true,
+      "source": "比如我安装完以后调用这个 Skill，跟它说帮我找一个配图 Skill，接着它给了我两个备选项，然后分别会在旁边备注 Star 数以及对应的 Skill 的文字介绍。",
+      "splitSeams": [
+        "backed"
+      ],
+      "status": "aligned",
+      "translation": "For example, after I install it and invoke this Skill, I tell it to find me an image-matching Skill, and then it gave me two options, each with a note beside it of the Star count and the corresponding Skill's text description."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "anchor"
+            ],
+            "src": [
+              0,
+              8
+            ],
+            "tgt": [
+              0,
+              35
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "First, let's introduce Superpowers.",
+            "to": 8
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8"
+        ]
+      },
+      "chunks": 1,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-g67.0",
+      "issues": [],
+      "locatedChunks": 1,
+      "minChunks": 1,
+      "n": 6,
+      "realTiming": true,
+      "source": "第一个我们来介绍 Superpowers。",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "First, let's introduce Superpowers."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              7
+            ],
+            "tgt": [
+              0,
+              34
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "anchor"
+            ],
+            "src": [
+              8,
+              15
+            ],
+            "tgt": [
+              34,
+              65
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              16,
+              20
+            ],
+            "tgt": [
+              65,
+              85
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Next, this Skill is called gstack,",
+            "to": 7
+          },
+          {
+            "from": 8,
+            "text": "and its project author is YC's president Garry Tan.",
+            "to": 20
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15",
+          "w16",
+          "w17",
+          "w18",
+          "w19",
+          "w20"
+        ]
+      },
+      "chunks": 4,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-g91.0",
+      "issues": [],
+      "locatedChunks": 4,
+      "minChunks": 3,
+      "n": 7,
+      "realTiming": true,
+      "source": "接下来这个 Skill 叫 gstack，它的项目作者是 YC 的总裁 Garry Tan。",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Next, this Skill is called gstack, and its project author is YC's president Garry Tan."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              6
+            ],
+            "tgt": [
+              0,
+              36
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              7,
+              15
+            ],
+            "tgt": [
+              36,
+              80
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              16,
+              18
+            ],
+            "tgt": [
+              80,
+              93
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              19,
+              23
+            ],
+            "tgt": [
+              93,
+              110
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              24,
+              30
+            ],
+            "tgt": [
+              110,
+              140
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "gstack, though, is better at telling",
+            "to": 6
+          },
+          {
+            "from": 7,
+            "text": "you whether you should do it and what to do,",
+            "to": 15
+          },
+          {
+            "from": 16,
+            "text": "helping you, before you start,",
+            "to": 23
+          },
+          {
+            "from": 24,
+            "text": "get the direction clear first.",
+            "to": 30
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15",
+          "w16",
+          "w17",
+          "w18",
+          "w19",
+          "w20",
+          "w21",
+          "w22",
+          "w23",
+          "w24",
+          "w25",
+          "w26",
+          "w27",
+          "w28",
+          "w29",
+          "w30"
+        ]
+      },
+      "chunks": 5,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-wmuosgcxu-167",
+      "issues": [],
+      "locatedChunks": 5,
+      "minChunks": 4,
+      "n": 8,
+      "realTiming": true,
+      "source": "gstack 呢，更擅长告诉你该不该做和做什么，帮你在动手之前呢，先把方向想清楚。",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "gstack, though, is better at telling you whether you should do it and what to do, helping you, before you start, get the direction clear first."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              6
+            ],
+            "tgt": [
+              0,
+              33
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              7,
+              18
+            ],
+            "tgt": [
+              33,
+              76
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              19,
+              27
+            ],
+            "tgt": [
+              76,
+              109
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              28,
+              30
+            ],
+            "tgt": [
+              109,
+              123
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              31,
+              36
+            ],
+            "tgt": [
+              123,
+              148
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              37,
+              41
+            ],
+            "tgt": [
+              148,
+              163
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              42,
+              49
+            ],
+            "tgt": [
+              163,
+              198
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              50,
+              54
+            ],
+            "tgt": [
+              198,
+              225
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "The first is called Baoyu Skills,",
+            "to": 6
+          },
+          {
+            "from": 7,
+            "text": "a set of skill packs made by Teacher Baoyu,",
+            "to": 18
+          },
+          {
+            "from": 19,
+            "text": "containing nearly twenty Skills, which can help",
+            "to": 30
+          },
+          {
+            "from": 31,
+            "text": "you produce high-quality visual designs,",
+            "to": 41
+          },
+          {
+            "from": 42,
+            "text": "such as cover images, infographics,",
+            "to": 49
+          },
+          {
+            "from": 50,
+            "text": "PPTs, and long-form layout.",
+            "to": 54
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15",
+          "w16",
+          "w17",
+          "w18",
+          "w19",
+          "w20",
+          "w21",
+          "w22",
+          "w23",
+          "w24",
+          "w25",
+          "w26",
+          "w27",
+          "w28",
+          "w29",
+          "w30",
+          "w31",
+          "w32",
+          "w33",
+          "w34",
+          "w35",
+          "w36",
+          "w37",
+          "w38",
+          "w39",
+          "w40",
+          "w41",
+          "w42",
+          "w43",
+          "w44",
+          "w45",
+          "w46",
+          "w47",
+          "w48",
+          "w49",
+          "w50",
+          "w51",
+          "w52",
+          "w53",
+          "w54"
+        ]
+      },
+      "chunks": 8,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-g133.0",
+      "issues": [],
+      "locatedChunks": 8,
+      "minChunks": 7,
+      "n": 9,
+      "realTiming": true,
+      "source": "第一个叫宝玉 Skills，是宝玉老师做的一套技能包，里面有将近二十个 Skill，可以帮你做出高质量的视觉设计，比如封面图、信息图、PPT、长文排版。",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "The first is called Baoyu Skills, a set of skill packs made by Teacher Baoyu, containing nearly twenty Skills, which can help you produce high-quality visual designs, such as cover images, infographics, PPTs, and long-form layout."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              7
+            ],
+            "tgt": [
+              0,
+              34
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              8,
+              15
+            ],
+            "tgt": [
+              34,
+              52
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Let's go check whether the article",
+            "to": 7
+          },
+          {
+            "from": 8,
+            "text": "has them included.",
+            "to": 15
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15"
+        ]
+      },
+      "chunks": 2,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-g152.0",
+      "issues": [],
+      "locatedChunks": 2,
+      "minChunks": 2,
+      "n": 10,
+      "realTiming": true,
+      "source": "我们去看一下文章里面有没有放进去。",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Let's go check whether the article has them included."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              8
+            ],
+            "tgt": [
+              0,
+              28
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              9,
+              12
+            ],
+            "tgt": [
+              28,
+              36
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              13,
+              22
+            ],
+            "tgt": [
+              36,
+              73
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              23,
+              28
+            ],
+            "tgt": [
+              73,
+              108
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              29,
+              37
+            ],
+            "tgt": [
+              108,
+              136
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              38,
+              47
+            ],
+            "tgt": [
+              136,
+              165
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              48,
+              51
+            ],
+            "tgt": [
+              165,
+              187
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              52,
+              56
+            ],
+            "tgt": [
+              187,
+              211
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              57,
+              64
+            ],
+            "tgt": [
+              211,
+              251
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              65,
+              70
+            ],
+            "tgt": [
+              251,
+              268
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              71,
+              76
+            ],
+            "tgt": [
+              268,
+              292
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "After installing this Skill,",
+            "to": 8
+          },
+          {
+            "from": 9,
+            "text": "you can inside an Agent, such as Claude Code,",
+            "to": 22
+          },
+          {
+            "from": 23,
+            "text": "query and analyze all the documents",
+            "to": 28
+          },
+          {
+            "from": 29,
+            "text": "you've stored in NotebookLM,",
+            "to": 37
+          },
+          {
+            "from": 38,
+            "text": "such as web pages and videos,",
+            "to": 47
+          },
+          {
+            "from": 48,
+            "text": "and AI hallucinations will be greatly reduced,",
+            "to": 56
+          },
+          {
+            "from": 57,
+            "text": "which is essentially adding to the Agent",
+            "to": 64
+          },
+          {
+            "from": 65,
+            "text": "a super-powerful long-term memory add-on.",
+            "to": 76
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15",
+          "w16",
+          "w17",
+          "w18",
+          "w19",
+          "w20",
+          "w21",
+          "w22",
+          "w23",
+          "w24",
+          "w25",
+          "w26",
+          "w27",
+          "w28",
+          "w29",
+          "w30",
+          "w31",
+          "w32",
+          "w33",
+          "w34",
+          "w35",
+          "w36",
+          "w37",
+          "w38",
+          "w39",
+          "w40",
+          "w41",
+          "w42",
+          "w43",
+          "w44",
+          "w45",
+          "w46",
+          "w47",
+          "w48",
+          "w49",
+          "w50",
+          "w51",
+          "w52",
+          "w53",
+          "w54",
+          "w55",
+          "w56",
+          "w57",
+          "w58",
+          "w59",
+          "w60",
+          "w61",
+          "w62",
+          "w63",
+          "w64",
+          "w65",
+          "w66",
+          "w67",
+          "w68",
+          "w69",
+          "w70",
+          "w71",
+          "w72",
+          "w73",
+          "w74",
+          "w75",
+          "w76"
+        ]
+      },
+      "chunks": 11,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-g161.0",
+      "issues": [],
+      "locatedChunks": 11,
+      "minChunks": 9,
+      "n": 11,
+      "realTiming": true,
+      "source": "安装了这个 Skill 以后呢，你就可以在 Agent 里面，比如 Claude Code 里面，查询分析你存在 NotebookLM 里面的所有文档，比如网页、视频这些资料，AI 幻觉也会大大减少，相当于是给 Agent 加上了一个超强的长期记忆外挂。",
+      "splitSeams": [
+        "backed"
+      ],
+      "status": "aligned",
+      "translation": "After installing this Skill, you can inside an Agent, such as Claude Code, query and analyze all the documents you've stored in NotebookLM, such as web pages and videos, and AI hallucinations will be greatly reduced, which is essentially adding to the Agent a super-powerful long-term memory add-on."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              8
+            ],
+            "tgt": [
+              0,
+              27
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "I'm Axi, see you next time.",
+            "to": 8
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8"
+        ]
+      },
+      "chunks": 1,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-g173.0",
+      "issues": [],
+      "locatedChunks": 1,
+      "minChunks": 1,
+      "n": 12,
+      "realTiming": true,
+      "source": "我是阿西，我们下期见。",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "I'm Axi, see you next time."
+    }
+  ],
+  "schema": "lean-carrier-grade/2",
+  "totals": {
+    "acceptedTranslations": 12,
+    "aligned": 12,
+    "chunks": 61,
+    "coarse": 0,
+    "expectedSentences": 12,
+    "locatedChunks": 61,
+    "sentencesWithAnchorIssues": 0,
+    "syntaxOrPermissionIssues": 0,
+    "translationRetries": 0
+  }
+}

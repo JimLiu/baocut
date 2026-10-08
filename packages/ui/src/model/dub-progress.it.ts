@@ -1,0 +1,35 @@
+import type { DubProgressMessages } from './dub-progress.ts';
+
+export const it: DubProgressMessages = {
+  unit: {
+    fit: "Posizionato senza modifiche",
+    tempo: "Posizionato dopo l’accelerazione",
+    extended: "Accelerato fino al limite, usando il silenzio successivo",
+    overlong: "Troppo lungo per rientrare, non posizionato",
+    stale: "Traduzione non aggiornata, non sintetizzata",
+    offTimeline: "Frase originale non più nella timeline, non posizionata",
+    voiceUnavailable: "Voce del parlante non disponibile, non sintetizzata",
+  },
+  reasonStale: "Il clone è scaduto; clonalo di nuovo nella libreria delle voci",
+  reasonMissing: "Non ancora clonata con questo provider",
+  reasonNoConsent: "Senza dichiarazione di consenso del parlante non verrà caricata sul provider",
+  reasonRemoved: "Questa voce non è più nella libreria",
+  reasonServiceClient: "Chi chiama servizi esterni non può usare voci della libreria",
+  codeCloneRequired: "Nessun clone valido con questo provider",
+  codeNotFound: "Voce non trovata",
+  warning: {
+    DUB_SEPARATION_NOT_CONFIGURED: "Sottofondo non separato",
+    DUB_UNITS_STALE: "Traduzioni non aggiornate non sintetizzate",
+    DUB_UNITS_OVERLONG: "Alcune frasi sono troppo lunghe per rientrare",
+    DUB_UNITS_OFF_TIMELINE: "Alcune frasi originali non sono più nella timeline",
+    DUB_MUTED_UNVOICED: "L’audio originale è stato disattivato anche per le frasi non sintetizzate",
+    DUB_BACKGROUND_MUTED: "Anche l’audio di sottofondo è stato disattivato",
+    DUB_VOICE_UNAVAILABLE: "Le voci di alcuni parlanti non sono disponibili",
+  },
+  separated: "Sottofondo separato",
+  separationNotConfigured: "Separazione richiesta ma nessuna capacità di separazione configurata: saltata, audio originale lasciato invariato",
+  notSeparated: "Sottofondo non separato",
+  originalMuted: "Audio originale disattivato",
+  originalKept: "Audio originale invariato",
+  originalDucked: (db: number | null) => (db ? `Audio originale abbassato di ${db} dB durante il doppiaggio` : "Audio originale abbassato durante il doppiaggio"),
+};

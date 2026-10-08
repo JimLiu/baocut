@@ -1,0 +1,148 @@
+{
+  "schema": "baocut-caption-style/1",
+  "id": "caption-particle-burst",
+  "version": 1,
+  "title": "Particle burst",
+  "description": "Marked words release a deterministic particle burst.",
+  "tags": [
+    "social",
+    "vfx"
+  ],
+  "scripts": [
+    "latin",
+    "cjk"
+  ],
+  "aspects": [
+    "16:9",
+    "9:16",
+    "1:1"
+  ],
+  "cjk": "good",
+  "layout": "lowerThird",
+  "family": "particleBurst",
+  "layers": [
+    "particles",
+    "glyphs"
+  ],
+  "channels": [
+    "opacity",
+    "scaleX",
+    "scaleY",
+    "burst",
+    "colorMix"
+  ],
+  "tunables": [
+    {
+      "key": "intensity",
+      "kind": "number",
+      "min": 0,
+      "max": 100,
+      "default": 60
+    },
+    {
+      "key": "speed",
+      "kind": "number",
+      "min": 0.35,
+      "max": 2,
+      "default": 1
+    },
+    {
+      "key": "particleCount",
+      "kind": "number",
+      "min": 4,
+      "max": 24,
+      "default": 16
+    }
+  ],
+  "events": [
+    {
+      "trigger": "word.enter",
+      "operator": "transform",
+      "channels": [
+        "opacity",
+        "scaleX",
+        "scaleY"
+      ],
+      "easing": "backOut",
+      "duration": 0.3,
+      "byRole": true,
+      "keyframes": {
+        "opacity": [
+          {"offset": 0, "value": 0},
+          {"offset": 0.55, "value": 1},
+          {"offset": 1, "value": 1}
+        ],
+        "scaleX": [
+          {"offset": 0, "value": 0.8, "ease": "easeOutCubic"},
+          {"offset": 0.6, "value": 1.05, "ease": "easeInCubic"},
+          {"offset": 1, "value": 1}
+        ],
+        "scaleY": [
+          {"offset": 0, "value": 0.8, "ease": "easeOutCubic"},
+          {"offset": 0.6, "value": 1.05, "ease": "easeInCubic"},
+          {"offset": 1, "value": 1}
+        ]
+      }
+    },
+    {
+      "trigger": "word.enter",
+      "operator": "decoration",
+      "channels": ["burst", "colorMix"],
+      "easing": "easeOut",
+      "duration": 0.72,
+      "roles": ["emphasis", "hero"],
+      "fixed": true,
+      "procedural": "seededBurst",
+      "maxCount": 24,
+      "keyframes": {
+        "burst": [
+          {"offset": 0, "value": 0},
+          {"offset": 1, "value": 1}
+        ],
+        "colorMix": [
+          {"offset": 0, "value": 0},
+          {"offset": 0.25, "value": 1},
+          {"offset": 1, "value": 1}
+        ]
+      }
+    }
+  ],
+  "composite": "screen",
+  "hardKill": true,
+  "visibility": {"hold": 0.5, "gapBeforeNext": 0.05, "hardKillAfter": 0.45},
+  "seeded": true,
+  "assets": [],
+  "fonts": [
+    {
+      "role": "sans",
+      "family": "Inter",
+      "weights": [
+        400,
+        600,
+        800
+      ],
+      "fallback": [
+        "SF Pro",
+        "PingFang SC",
+        "Hiragino Sans"
+      ],
+      "substitution": "substitute",
+      "license": "OFL-1.1"
+    },
+    {
+      "role": "sansHeavy",
+      "family": "Inter",
+      "weights": [
+        700,
+        900
+      ],
+      "fallback": [
+        "SF Pro Display",
+        "PingFang SC Semibold",
+        "Hiragino Sans W6"
+      ],
+      "substitution": "metric-safe",
+      "license": "OFL-1.1"
+    }
+  ]
+}

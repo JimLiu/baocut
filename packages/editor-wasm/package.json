@@ -1,0 +1,12 @@
+{
+  "name": "@baocut/editor-wasm",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "browser": "./src/browser.ts",
+      "default": "./src/node.ts"
+    }
+  }
+}

@@ -1,0 +1,25 @@
+import type { DubGroupMessages } from './dub-group-copy.ts';
+
+export const zhHans: DubGroupMessages = {
+  track: '在时间线上看这条轨',
+  trackGone: '时间线上已经没有这组配音',
+  regen: (n: number) => `重新生成 ${n} 句…`,
+  regenNote: '没合成或放不下的几句 · 先看一眼、可改译文，再只重配这几句',
+  download: '下载整组',
+  downloadNote: '还不能整组下载；导出音频时选「只要这一组配音」可以拿到这一组的混音',
+  redub: '重新配这种语言',
+  redubNote: '打开翻译配音',
+  remove: '移除这组配音',
+  removeNote: '时间线上这一组的片段一起去掉、原声恢复，可撤销；空的配音轨与配音计划会留下',
+  removeLoading: '正在读配音计划…',
+  readOnly: '视频是只读的',
+  removed: (title: string) => `已移除「${title}」`,
+  rowOnTimeline: (label: string) => `时间线上「${label}」这一行`,
+  undo: '撤销',
+  stateOn: '已在时间线',
+  stateOff: '轨已关',
+  stateGone: '不在时间线',
+  groupMenu: '这组配音',
+  actionsOf: (title: string) => `「${title}」的操作`,
+  clickToSelect: (text: string) => `${text} · 点一下在时间线上选中`,
+};

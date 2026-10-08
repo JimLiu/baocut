@@ -1,0 +1,25 @@
+import type { ToolsImageMessages } from './tools-image-copy.ts';
+
+export const ko: ToolsImageMessages = {
+  emptyPrompt: '먼저 그림을 설명하세요',
+  promptTooLong: (n, max) => `프롬프트 ${n}자 · 이 모델은 최대 ${max}자까지 받습니다`,
+  maxImages: (max) => `한 번에 최대 ${max}장`,
+  seedInteger: '시드는 정수여야 합니다',
+  pickModel: '먼저 모델을 선택하세요',
+  downloadFirst: (label) => `먼저 ${label} 모델을 다운로드하세요`,
+  connectFirst: (provider) => `먼저 ${provider}에 연결하세요`,
+  local: '이 컴퓨터',
+  steps: (n) => `${n}단계`,
+  deviceTime: '소요 시간은 기기에 따라 다름',
+  offline: '오프라인에서 작동',
+  images: (n) => `${n}장`,
+  aspects: (n) => `화면 비율 ${n}개`,
+  providerSize: '크기는 공급자가 정함',
+  takesSeed: '시드 지원',
+  localChip: '이 컴퓨터에서 생성 · 오프라인',
+  cloudChip: (provider) => `온라인 · ${provider} · 사용량 과금`,
+  imageName: (n) => `이미지 ${n}`,
+  seed: (seed) => `시드 ${seed}`,
+  decoding: '디코딩',
+  stepOf: (done, total) => `${done}/${total}단계`,
+};

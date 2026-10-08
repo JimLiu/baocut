@@ -1,0 +1,55 @@
+import { pluralForm } from '../../i18n.ts';
+import type { RcModelsMessages } from './rc-models.ts';
+
+export const pl: RcModelsMessages = {
+  offlineStrict: "Modele nie są pobierane w ścisłym trybie offline",
+  sizeChanged: "Liczba bajtów do pobrania zmieniona. Potwierdź ponownie nowy plan",
+  bundleInUse: "Pakiet modelu używany. Usuń po ukończeniu lub anulowaniu zadań",
+  diarizationNoCheck: "Pakiet rozróżniania mówców nie ma osobnej kontroli: używany z pakietem rozpoznawania podczas transkrypcji",
+  bundleUnavailable: "Pakiet modelu jest teraz niedostępny",
+  installFailed: "Błąd instalacji modelu",
+  noSuchBundle: (p) => `Brak pakietu modelu: ${p.bundleId}`,
+  movingDirWait: "Folder modeli przenoszony. Spróbuj po ukończeniu",
+  dirMissing: "Folder modeli nie istnieje (także przy odłączonym dysku). Podłącz i spróbuj ponownie lub wybierz inny folder w ustawieniach",
+  selfTestSampleLabel: "próbka kontroli rozpoznawania",
+
+  workerFailed: (p) => `Worker nie powiódł się: ${p.reason}`,
+  workerCancelledCheck: "Worker sam anulował kontrolę",
+  noWorkerOutput: "Worker nie utworzył wyniku",
+  outputMissing: "Plik wyniku nie istnieje",
+  outputMismatch: "Długość lub sha256 pliku wyniku nie odpowiada odpowiedzi Worker",
+  namedOutputMissing: (p) => `Plik wyniku ${p.file} nie istnieje`,
+  namedOutputMismatch: (p) => `Długość lub sha256 pliku ${p.file} nie odpowiada odpowiedzi Worker`,
+  outputNotJson: "Wynik nie jest prawidłowym JSON",
+  outputNotAsrResult: "Wynik nie odpowiada kontraktowi asr-result",
+  transcriptMissingExpected: (p) => `Rozpoznany tekst nie zawiera „${p.expected}"`,
+  separationPassed: (p) => `${p.duration} s · ${p.sampleRate} Hz · głos ${p.finite ? `${p.ratio} dB` : "znacznie"} powyżej tła`,
+  speechPassed: (p) => `${p.duration} s · ${p.sampleRate} Hz`,
+  imagePassed: (p) => `${p.width}×${p.height} · ${p.steps} kroków`,
+
+  envLocked: "Folder modeli ustawiony przez BAOCUT_MODELS_DIR. Zmień zmienną i uruchom BaoCut ponownie",
+  movingDirWaitOrCancel: "Folder modeli przenoszony. Zmień po ukończeniu lub anulowaniu",
+  folderMissing: "Folder nie istnieje (także przy odłączonym dysku zewnętrznym)",
+  folderNotWritable: "BaoCut nie ma uprawnień zapisu do folderu",
+  dirNested: "Nowa lokalizacja i obecny folder są zagnieżdżone. Wybierz folder poza nim i niezawierający go",
+  noSpaceForMove: "Na nowym dysku brakuje miejsca do przeniesienia modeli",
+  noSpaceRemedy: "Zwolnij miejsce, wybierz inną lokalizację lub „Tylko zmień lokalizację”",
+  dirInUse: "Zadania używają modeli lokalnych. Zmień folder po ukończeniu lub anulowaniu",
+  sourceKept: (p) => pluralForm('pl', p.count, { one: `Nie można usunąć ${p.count} repozytorium ze starego folderu. Możesz usunąć ręcznie`, few: `Nie można usunąć ${p.count} repozytoriów ze starego folderu. Możesz usunąć ręcznie`, many: `Nie można usunąć ${p.count} repozytoriów ze starego folderu. Możesz usunąć ręcznie`, other: `Nie można usunąć ${p.count} repozytorium ze starego folderu. Możesz usunąć ręcznie` }),
+  moveNoSpace: "Na nowym dysku zabrakło miejsca. Przenoszenie cofnięto",
+  moveFailed: "Błąd przenoszenia modeli. Przenoszenie cofnięto",
+  moveFailedRemedy: "Oryginalny folder modeli bez zmian, modele nadal działają",
+
+  noAlignableFormat: (p) => `Model ${p.modelId} nie zwraca formatu audio możliwego do dopasowania`,
+  synthOutputCount: (p) => `Synteza mowy utworzyła ${p.count} wyników; powinien być 1`,
+  synthOutputOutsideStaging: "Wynik syntezy mowy jest poza folderem staging",
+  dubGrantHint: (p) => `Dubbing wysyła transkrypcję (tłumaczenie i oryginał tam, gdzie brak tłumaczenia) do ${p.recipient}. Domyślne uprawnienie po włączeniu dostawcy nie obejmuje transkrypcji; użytkownik musi przyznać je jawnie (poleceniem poniżej lub w ustawieniach BaoCut), a potem ponowić dubbing.`,
+  voiceRemoved: (p) => `${p.reason}: głos ${p.voice}`,
+
+  notSpeakersJob: "To zadanie nie jest rozpoznawaniem mówców",
+  jobNotForVideo: "To rozpoznawanie nie należy do wideo",
+  speakersNotDone: "Rozpoznawanie mówców nie zostało ukończone",
+  speakersCleaned: "Wyniki rozpoznawania usunięto. Rozpoznaj mówców ponownie",
+
+  recoveryPrincipalName: "Odzyskiwanie zadania",
+};

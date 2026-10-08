@@ -1,0 +1,22 @@
+[package]
+name = "speech-worker"
+description = "BaoCut 的字幕与翻译 Worker（架构设计 §7.9、§13.1）：独立进程，用 speech-doc 跑一份转写的翻译；模型调用经 stdio 交回 Runtime，只写 staging"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "speech-worker"
+path = "src/main.rs"
+
+[dependencies]
+editor-semantics.workspace = true
+speech-doc.workspace = true
+speech-doc-bridge.workspace = true
+video-model.workspace = true
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
+
+[dev-dependencies]
+tempfile = "3.27.0"

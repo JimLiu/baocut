@@ -1,0 +1,11 @@
+[package]
+name = "message-ref"
+description = "Rust 一侧给人看的文字：英文文本 + 消息引用（key + params），与 @baocut/protocol 的 message-ref.ts 同形（仓库约定 §5）"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"

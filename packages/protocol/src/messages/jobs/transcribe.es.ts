@@ -1,0 +1,20 @@
+import type { JobsTranscribeMessages } from './transcribe.ts';
+export const es: JobsTranscribeMessages = {
+ label: 'Transcribir', description: 'Transcribe un material de un vídeo (o crea un vídeo e importa un archivo multimedia local), escribiendo una transcripción y creando una capa de subtítulos. Si el vídeo ya tiene una transcripción de ese material, el resultado va a un vídeo nuevo (por defecto) o sustituye la transcripción y conserva traducciones, subtítulos y doblaje. Si solo se proporciona un archivo, no se crea un vídeo y se escriben TXT y SRT en la ubicación de guardado.',
+ cannotCreateVideo: 'Este Runtime no puede crear vídeos', videoNotOpen: 'El vídeo no está abierto', stepCreate: 'Crear vídeo', stepTranscribe: 'Transcribir', importMediaLabel: 'Importar medios',
+ fileExcludesVideo: 'no se puede combinar con videoId o target', assetIdWithFile: 'no se puede proporcionar con un archivo: se transcribe el propio archivo',
+ captionsWithFile: 'no se aplica a un archivo: sin un vídeo no hay capa de subtítulos', diarizeWithFile: 'no se aplica a un archivo: no se distinguen los hablantes', outDirFileOnly: 'solo se puede proporcionar con un archivo',
+ assetIdWithCreate: 'no se puede proporcionar al crear un vídeo: se transcriben los medios importados', needVideoOrFile: 'Proporciona uno de videoId, target o file',
+ createMediaRequired: 'es obligatorio: el archivo multimedia que se importará y transcribirá en el vídeo nuevo', fileShape: 'debe ser una ruta absoluta o { entryId }',
+ cannotTranscribeFile: 'Este Runtime no puede transcribir archivos sin un vídeo', mediaToTranscribeNotFound: 'No se encuentra el archivo multimedia que transcribir', mediaToImportNotFound: 'No se encuentra el archivo multimedia que importar', noVideo: 'No hay un vídeo que transcribir',
+ notApplied: 'La transcripción terminó, pero no se escribió en el vídeo', videoClosed: 'El vídeo se cerró, por lo que no se transcribió nada: abre el vídeo y vuelve a intentarlo',
+ noMainAsset: 'No hay un material de audio o vídeo en la pista principal: especifica el material que transcribir (assetId)', ambiguousMainAsset: 'Hay más de un material en la pista principal: especifica cuál transcribir (assetId)',
+  retranscribedName: (p: { name: string }) => `${p.name} · Retranscrito`,
+  transcriptEdited: 'La transcripción se editó después de transcribirse y sustituirla descartaría esos cambios: usa destination new-video o pasa acceptEdited: true para sustituirla igualmente',
+  transcriptEditedSinceSubmit: 'La transcripción cambió después de iniciar esta ejecución, así que no se sustituyó: vuelve a iniciar la transcripción',
+  landingNeedsVideo: 'solo se aplica a un vídeo existente ({ videoId } o { entryId })',
+  nameNewVideoOnly: 'solo se aplica cuando destination es new-video',
+  replaceOnly: 'solo se aplica cuando destination es replace',
+  transcriptUnreadable: 'No se puede leer la transcripción actual para comprobar si se editó',
+  replaceDocumentGone: 'La transcripción que se iba a sustituir ya no está en el vídeo',
+};

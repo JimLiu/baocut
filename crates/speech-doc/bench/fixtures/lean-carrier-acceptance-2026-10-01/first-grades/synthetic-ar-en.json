@@ -1,0 +1,419 @@
+{
+  "diagnostics": {},
+  "issues": [],
+  "mode": "lean",
+  "pageRejected": false,
+  "retryIds": [],
+  "rows": [
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              3
+            ],
+            "tgt": [
+              0,
+              33
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              4,
+              9
+            ],
+            "tgt": [
+              33,
+              71
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Layla did not cancel the meeting;",
+            "to": 3
+          },
+          {
+            "from": 4,
+            "text": "she postponed it to 14:30 on Thursday.",
+            "to": 9
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9"
+        ]
+      },
+      "chunks": 2,
+      "coarse": true,
+      "frozen": false,
+      "id": "ar-01",
+      "issues": [],
+      "locatedChunks": 2,
+      "minChunks": 3,
+      "n": 1,
+      "realTiming": false,
+      "source": "لم تُلغِ ليلى الاجتماع؛ أجّلته إلى الساعة 14:30 يوم الخميس.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Layla did not cancel the meeting; she postponed it to 14:30 on Thursday."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              7
+            ],
+            "tgt": [
+              0,
+              41
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              8,
+              12
+            ],
+            "tgt": [
+              41,
+              87
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "If the temperature drops below 5 degrees,",
+            "to": 7
+          },
+          {
+            "from": 8,
+            "text": "close the window before turning on the heater.",
+            "to": 12
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12"
+        ]
+      },
+      "chunks": 2,
+      "coarse": true,
+      "frozen": false,
+      "id": "ar-02",
+      "issues": [],
+      "locatedChunks": 2,
+      "minChunks": 3,
+      "n": 2,
+      "realTiming": false,
+      "source": "إذا انخفضت الحرارة إلى أقل من 5 درجات، فأغلق النافذة قبل تشغيل المدفأة.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "If the temperature drops below 5 degrees, close the window before turning on the heater."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              6
+            ],
+            "tgt": [
+              0,
+              39
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              7,
+              11
+            ],
+            "tgt": [
+              39,
+              76
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Omar paid 120 riyals for three tickets,",
+            "to": 6
+          },
+          {
+            "from": 7,
+            "text": "and the price did not include dinner.",
+            "to": 11
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11"
+        ]
+      },
+      "chunks": 2,
+      "coarse": true,
+      "frozen": false,
+      "id": "ar-03",
+      "issues": [],
+      "locatedChunks": 2,
+      "minChunks": 3,
+      "n": 3,
+      "realTiming": false,
+      "source": "دفع عمر 120 ريالًا مقابل ثلاث تذاكر، ولم يشمل السعر وجبة العشاء.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Omar paid 120 riyals for three tickets, and the price did not include dinner."
+    },
+    {
+      "alignment": null,
+      "chunks": 1,
+      "coarse": true,
+      "frozen": false,
+      "id": "ar-04",
+      "issues": [],
+      "locatedChunks": 1,
+      "minChunks": 2,
+      "n": 4,
+      "realTiming": false,
+      "source": "قالت مريم إن الحقيبة التي تركها يوسف في القطار ليست حقيبتها.",
+      "splitSeams": [],
+      "status": "needs-rewrite",
+      "translation": "Maryam said the bag Yusuf left on the train is not her bag."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              5
+            ],
+            "tgt": [
+              0,
+              51
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              10
+            ],
+            "tgt": [
+              51,
+              90
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "The code A-17 appears next to the word \"confirmed,\"",
+            "to": 5
+          },
+          {
+            "from": 6,
+            "text": "but the order has not been shipped yet.",
+            "to": 10
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10"
+        ]
+      },
+      "chunks": 2,
+      "coarse": true,
+      "frozen": false,
+      "id": "ar-05",
+      "issues": [],
+      "locatedChunks": 2,
+      "minChunks": 3,
+      "n": 5,
+      "realTiming": false,
+      "source": "يظهر الرمز A-17 بجانب كلمة «مُؤَكَّد»، لكن الطلب لم يُشحن بعد.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "The code A-17 appears next to the word \"confirmed,\" but the order has not been shipped yet."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              5
+            ],
+            "tgt": [
+              0,
+              38
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              10
+            ],
+            "tgt": [
+              38,
+              80
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Noura arrived ten minutes after Ahmed,",
+            "to": 5
+          },
+          {
+            "from": 6,
+            "text": "even though she left the house before him.",
+            "to": 10
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10"
+        ]
+      },
+      "chunks": 2,
+      "coarse": true,
+      "frozen": false,
+      "id": "ar-06",
+      "issues": [],
+      "locatedChunks": 2,
+      "minChunks": 3,
+      "n": 6,
+      "realTiming": false,
+      "source": "وصلت نورة بعد أحمد بعشر دقائق، مع أنها غادرت المنزل قبله.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Noura arrived ten minutes after Ahmed, even though she left the house before him."
+    }
+  ],
+  "schema": "lean-carrier-grade/2",
+  "totals": {
+    "acceptedTranslations": 6,
+    "aligned": 5,
+    "chunks": 11,
+    "coarse": 1,
+    "expectedSentences": 6,
+    "locatedChunks": 11,
+    "needs-rewrite": 1,
+    "sentencesWithAnchorIssues": 0,
+    "syntaxOrPermissionIssues": 0,
+    "translationRetries": 0
+  }
+}

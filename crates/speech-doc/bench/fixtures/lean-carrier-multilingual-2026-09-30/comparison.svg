@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1370" height="745" viewBox="0 0 1370 745" role="img" aria-label="多语言字幕验收：首轮译文、修复后译文及对齐结果">
+<rect width="1370" height="745" fill="#f8fafc"/>
+<text x="54" y="58" font-size="27" font-weight="700" fill="#152238">多语言字幕验收 · 92 句</text>
+<text x="54" y="89" font-size="14" fill="#526276">三个真实项目抽样 36 句 · 六种合成语言 48 句 · 英译阿 8 句</text>
+<text x="54" y="140" font-size="17" font-weight="650" fill="#142842">译文接收：首轮与一次修复后</text>
+<text x="724" y="140" font-size="17" font-weight="650" fill="#142842">修复后对齐结局</text>
+<text x="54" y="196" font-size="16" fill="#1e334d">韩文真实</text>
+<rect x="195" y="178" width="396.0" height="13" rx="6" fill="#e1e9ef"/>
+<rect x="195" y="178" width="396.0" height="13" rx="6" fill="#7893b1"/>
+<rect x="195" y="195" width="396.0" height="13" rx="6" fill="#1f9d8a"/>
+<text x="608" y="197" font-size="14" fill="#29405e">12 → 12 / 12</text>
+<rect x="724" y="181" width="396.0" height="24" fill="#1f9d8a"/>
+<text x="1135" y="198" font-size="14" fill="#29405e">12 / 12 对齐</text>
+<text x="54" y="246" font-size="16" fill="#1e334d">中文真实</text>
+<rect x="195" y="228" width="396.0" height="13" rx="6" fill="#e1e9ef"/>
+<rect x="195" y="228" width="0.0" height="13" rx="6" fill="#7893b1"/>
+<rect x="195" y="245" width="231.0" height="13" rx="6" fill="#1f9d8a"/>
+<text x="608" y="247" font-size="14" fill="#29405e">0 → 7 / 12</text>
+<rect x="724" y="231" width="231.0" height="24" fill="#1f9d8a"/>
+<rect x="955.0" y="231" width="165.0" height="24" fill="#95a3b3"/>
+<text x="1135" y="248" font-size="14" fill="#29405e">7 / 12 对齐</text>
+<text x="54" y="296" font-size="16" fill="#1e334d">日文真实</text>
+<rect x="195" y="278" width="396.0" height="13" rx="6" fill="#e1e9ef"/>
+<rect x="195" y="278" width="396.0" height="13" rx="6" fill="#7893b1"/>
+<rect x="195" y="295" width="396.0" height="13" rx="6" fill="#1f9d8a"/>
+<text x="608" y="297" font-size="14" fill="#29405e">12 → 12 / 12</text>
+<rect x="724" y="281" width="396.0" height="24" fill="#1f9d8a"/>
+<text x="1135" y="298" font-size="14" fill="#29405e">12 / 12 对齐</text>
+<text x="54" y="346" font-size="16" fill="#1e334d">阿拉伯文</text>
+<rect x="195" y="328" width="396.0" height="13" rx="6" fill="#e1e9ef"/>
+<rect x="195" y="328" width="66.0" height="13" rx="6" fill="#7893b1"/>
+<rect x="195" y="345" width="264.0" height="13" rx="6" fill="#1f9d8a"/>
+<text x="608" y="347" font-size="14" fill="#29405e">2 → 8 / 8</text>
+<rect x="724" y="331" width="231.0" height="24" fill="#1f9d8a"/>
+<rect x="955.0" y="331" width="33.0" height="24" fill="#d16f62"/>
+<text x="1135" y="348" font-size="14" fill="#29405e">7 / 8 对齐</text>
+<text x="54" y="396" font-size="16" fill="#1e334d">德文</text>
+<rect x="195" y="378" width="396.0" height="13" rx="6" fill="#e1e9ef"/>
+<rect x="195" y="378" width="66.0" height="13" rx="6" fill="#7893b1"/>
+<rect x="195" y="395" width="264.0" height="13" rx="6" fill="#1f9d8a"/>
+<text x="608" y="397" font-size="14" fill="#29405e">2 → 8 / 8</text>
+<rect x="724" y="381" width="264.0" height="24" fill="#1f9d8a"/>
+<text x="1135" y="398" font-size="14" fill="#29405e">8 / 8 对齐</text>
+<text x="54" y="446" font-size="16" fill="#1e334d">西班牙文</text>
+<rect x="195" y="428" width="396.0" height="13" rx="6" fill="#e1e9ef"/>
+<rect x="195" y="428" width="99.0" height="13" rx="6" fill="#7893b1"/>
+<rect x="195" y="445" width="264.0" height="13" rx="6" fill="#1f9d8a"/>
+<text x="608" y="447" font-size="14" fill="#29405e">3 → 8 / 8</text>
+<rect x="724" y="431" width="264.0" height="24" fill="#1f9d8a"/>
+<text x="1135" y="448" font-size="14" fill="#29405e">8 / 8 对齐</text>
+<text x="54" y="496" font-size="16" fill="#1e334d">土耳其文</text>
+<rect x="195" y="478" width="396.0" height="13" rx="6" fill="#e1e9ef"/>
+<rect x="195" y="478" width="66.0" height="13" rx="6" fill="#7893b1"/>
+<rect x="195" y="495" width="264.0" height="13" rx="6" fill="#1f9d8a"/>
+<text x="608" y="497" font-size="14" fill="#29405e">2 → 8 / 8</text>
+<rect x="724" y="481" width="264.0" height="24" fill="#1f9d8a"/>
+<text x="1135" y="498" font-size="14" fill="#29405e">8 / 8 对齐</text>
+<text x="54" y="546" font-size="16" fill="#1e334d">印地文</text>
+<rect x="195" y="528" width="396.0" height="13" rx="6" fill="#e1e9ef"/>
+<rect x="195" y="528" width="66.0" height="13" rx="6" fill="#7893b1"/>
+<rect x="195" y="545" width="264.0" height="13" rx="6" fill="#1f9d8a"/>
+<text x="608" y="547" font-size="14" fill="#29405e">2 → 8 / 8</text>
+<rect x="724" y="531" width="132.0" height="24" fill="#1f9d8a"/>
+<rect x="856.0" y="531" width="33.0" height="24" fill="#e6a844"/>
+<rect x="889.0" y="531" width="99.0" height="24" fill="#d16f62"/>
+<text x="1135" y="548" font-size="14" fill="#29405e">4 / 8 对齐</text>
+<text x="54" y="596" font-size="16" fill="#1e334d">泰文</text>
+<rect x="195" y="578" width="396.0" height="13" rx="6" fill="#e1e9ef"/>
+<rect x="195" y="578" width="264.0" height="13" rx="6" fill="#7893b1"/>
+<rect x="195" y="595" width="264.0" height="13" rx="6" fill="#1f9d8a"/>
+<text x="608" y="597" font-size="14" fill="#29405e">8 → 8 / 8</text>
+<rect x="724" y="581" width="264.0" height="24" fill="#e6a844"/>
+<text x="1135" y="598" font-size="14" fill="#29405e">0 / 8 对齐</text>
+<text x="54" y="646" font-size="16" fill="#1e334d">英文→阿语</text>
+<rect x="195" y="628" width="396.0" height="13" rx="6" fill="#e1e9ef"/>
+<rect x="195" y="628" width="264.0" height="13" rx="6" fill="#7893b1"/>
+<rect x="195" y="645" width="264.0" height="13" rx="6" fill="#1f9d8a"/>
+<text x="608" y="647" font-size="14" fill="#29405e">8 → 8 / 8</text>
+<rect x="724" y="631" width="264.0" height="24" fill="#1f9d8a"/>
+<text x="1135" y="648" font-size="14" fill="#29405e">8 / 8 对齐</text>
+<text x="54" y="699" font-size="14" fill="#526276">左：灰蓝=首轮接收，绿色=修复后接收。右：绿=直接对齐；黄=整句；红=待改写；灰=译句仍被拒。</text>
+<text x="54" y="723" font-size="13" fill="#64748b">对齐计数是程序结果，未代表翻译语义正确。真实项目仅测试每项目 12 句。</text>
+</svg>

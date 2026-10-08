@@ -1,0 +1,77 @@
+{
+  "id": "transition.glitch",
+  "version": 1,
+  "domain": "transition",
+  "inputs": 2,
+  "params": {
+    "direction": {
+      "type": "enum",
+      "default": "vertical",
+      "options": [
+        "vertical",
+        "horizontal"
+      ],
+      "doc": "vertical = 画面切成竖条、各条上下错位，RGB 沿竖直方向分离；horizontal = 切成横条、左右错位"
+    },
+    "slices": {
+      "type": "number",
+      "default": 24,
+      "min": 2,
+      "max": 400,
+      "doc": "条带数（取整）；各条宽度每档随机"
+    },
+    "amount": {
+      "type": "length",
+      "default": 0.08,
+      "min": 0,
+      "max": 1,
+      "basis": "canvasShortEdge",
+      "quantize": "none",
+      "doc": "条带最大错位，画布短边的比例；约 15% 的条带再放大 2.5 倍（撕裂）"
+    },
+    "rgb": {
+      "type": "length",
+      "default": 0.012,
+      "min": 0,
+      "max": 0.2,
+      "basis": "canvasShortEdge",
+      "quantize": "none",
+      "doc": "RGB 三通道分离距离，画布短边的比例"
+    },
+    "steps": {
+      "type": "number",
+      "default": 10,
+      "min": 2,
+      "max": 120,
+      "doc": "整段转场里随机量重掷的档数（取整）；档内画面不动，跨档整体跳变——故障的卡顿节奏"
+    },
+    "flicker": {
+      "type": "number",
+      "default": 0.5,
+      "min": 0,
+      "max": 1,
+      "doc": "闪白：每档以 flicker × 强度 的概率把整帧提亮；0 = 不闪"
+    },
+    "seed": {
+      "type": "number",
+      "default": 0,
+      "min": 0,
+      "max": 4294967295,
+      "doc": "随机种子（取整）"
+    }
+  },
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "kernel": "glitch-band-shift-premul-u8",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "clamp",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "doc": "数字故障切换。档位 b = ⌊p × steps⌋，本档随机量全部取 splitmix64(seed, b × 2²⁰ + 槽号)；强度 I = 1 − |2p − 1|。沿切条轴按 0.3 + rand 的权重切出 slices 条；每条以 0.2 + 0.7I 的概率错位 round((2·rand − 1) × amount × I × (撕裂 ? 2.5 : 1)) px，并以 q = clamp((p − 0.25)/0.5, 0, 1) 的概率取入场画面、否则取出场画面。取样在画布边缘夹取（移出的部分拖出边缘像素的拖影）；R / B 各沿错位轴偏 ±round(rgb × I × (0.5 + rand)) px，alpha 取三次取样的最大值。以 flicker × I 的概率整帧提亮 0.35 × I × flicker（c' = c + (α − c)·f）。只有整数位移与最近像素搬运，没有超越函数；progress = 0 / 1 逐字节等于 from / to。推荐 dur 0.25–0.35 s（不写 dur 时是转场缺省的 0.4 s）。"
+}

@@ -1,0 +1,59 @@
+/* 图像生成表单 / 结果格（图像生成设计稿 §2.4 / §2.5，2026-09-25）——只在 App 入口加载：
+   工具 › 生成图片 与 图片 Tab › AI 生成 共用。结构类沿用 tools.css 的 ttsw__*，这里只放画幅 chip、参考图、结果格。 */
+.imgen__model { flex-wrap: wrap; }
+/* 能力说明与「在哪儿跑」旁注在窄面板里折行：nowrap 的最小内容宽会把整张表单撑出面板 */
+.imgen__model .ttsmodel__line { white-space: normal; }
+.imgen__sec--compact { padding: 10px 12px; gap: 6px; }
+
+/* 画幅：小方块示意比例 + 比例 + 尺寸；「跟视频画布」是第一颗 */
+.imgen__aspects { display: flex; flex-wrap: wrap; gap: 6px; }
+.imgen__aspect { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 9999px; background: var(--gray-100); color: var(--gray-800); font-size: 12px; cursor: pointer; }
+.imgen__aspect:hover { background: var(--gray-200); }
+.imgen__aspect.is-on { background: var(--blue-900); color: var(--gray-25); }
+.imgen__aspect b { font-weight: 600; }
+.imgen__aspect span { font-size: 11px; opacity: .8; }
+.imgen__box { display: inline-block; flex: none; border-radius: 3px; box-shadow: inset 0 0 0 1.5px currentColor; }
+
+/* 参考图 */
+.imgen__promptrefs { display: flex; flex-direction: column; gap: 8px; }
+.imgen__refs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.imgen__ref { max-width: 220px; }
+.imgen__ref-preview { flex: none; width: 48px; height: 40px; border-radius: 4px; }
+.imgen__ref.is-extra { opacity: 0.55; }
+.imgen__ref.is-missing { box-shadow: inset 0 0 0 1px var(--red-900); }
+.imgen__refs.is-over { outline: 2px dashed var(--blue-900); outline-offset: 4px; border-radius: 6px; }
+.imgen__refs--off { min-height: 24px; }
+/* 自测对话框：结果图 + 元信息 + 下载 / 复制 */
+.imgen__probe .cloud-sample .field--area { min-height: 64px; }
+.imgen__probe__res { display: flex; align-items: flex-start; gap: 12px; margin-top: 8px; }
+.imgen__probe__thumb { flex: none; width: 160px; height: 160px; border-radius: 8px; border: 1px solid var(--gray-200); }
+.imgen__probe__meta { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.imgen__probe__acts { margin-top: 6px; }
+
+.imgen__adv { display: flex; flex-direction: column; gap: 6px; }
+.imgen__adv .field--s { max-width: 100%; }
+
+/* 面板里的表单与主按钮 */
+.imgen__pane .mact.imgen__form { flex-direction: column; align-items: stretch; gap: 8px; }
+.imgen__go { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+
+/* 结果格：一批一块，1 张时通栏，多张两列；悬停浮出四个动作 */
+.imgen__results { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+.imgen__batch { display: flex; flex-direction: column; gap: 6px; }
+.imgen__batchhd { display: flex; align-items: center; gap: 8px; min-height: 20px; }
+.imgen__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.imgen__grid--one { grid-template-columns: minmax(0, 1fr); }
+.imgen__card { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.imgen__card em { font-size: 11px; font-style: normal; color: var(--gray-800); }
+.imgen__thumb { position: relative; display: block; width: 100%; border-radius: 8px; overflow: hidden; }
+.imgen__acts { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 4px; padding: 8px; opacity: 0; background: linear-gradient(to top, rgba(0,0,0,0.62), transparent 60%); /* @ds-allow: 压在生成图画面上的动作层，随画面浮动，不是 S2 表面 */ transition: opacity 130ms; }
+.imgen__thumb:hover .imgen__acts, .imgen__thumb:focus-within .imgen__acts { opacity: 1; }
+.imgen__acts .btn--quiet { color: var(--gray-25); }
+.imgen__acts .btn--quiet:hover:not(:disabled) { background: rgba(255,255,255,0.16); } /* @ds-allow: 同上 */
+.imgen__kept { position: absolute; left: 8px; top: 8px; }
+.imgen__running { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 10px; background: var(--gray-50); box-shadow: inset 0 0 0 1px var(--blue-700); }
+.imgen__running > .row > .ic { color: var(--blue-900); }
+.imgen__error { margin-top: 0; }
+
+/* 工具页右栏：记录一批一块，缩略图两列 */
+.ttsw__side .imgen__results { gap: 16px; }

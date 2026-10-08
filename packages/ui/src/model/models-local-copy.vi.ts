@@ -1,0 +1,5 @@
+import type { ModelsLocalMessages } from './models-local-copy.ts';
+
+export const vi: ModelsLocalMessages = {
+reason: { unsupported: 'Không hỗ trợ trên máy tính này', resource: 'Đã tắt', 'worker-missing': 'Thiếu Model Worker', 'missing-manifest': 'Thiếu bản kê', 'missing-file': 'Thiếu tệp', 'size-mismatch': 'Kích thước tệp không khớp', 'hash-mismatch': 'Tổng kiểm tra không khớp', incomplete: 'Thiếu thành phần', 'load-failed': 'Không tải được', relocating: 'Đang chuyển' }, chipDefault: 'Mặc định', chipLoading: 'Đang tải', chipReady: 'Đã tải', chipBusy: 'Đang xử lý', chipUnloading: 'Đang giải phóng', chipUnavailable: 'Không khả dụng', capability: { transcribe: 'Chép lời', align: 'Căn chỉnh', synthesize: 'Tổng hợp', image: 'Hình ảnh', separate: 'Phân tách', diarize: 'Phân biệt người nói' }, auto: 'Tự động', notInstalled: (name) => `${name} (chưa cài)`, componentName: { aligner: 'Bộ căn chỉnh cưỡng bức', speaker: 'Nhúng người nói', vad: 'VAD (phát hiện hoạt động giọng nói)' }, weights: 'Trọng số mô hình',
+};

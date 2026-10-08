@@ -1,0 +1,31 @@
+{
+  "id": "oscilloscope",
+  "version": 1,
+  "domain": "visualizer",
+  "namespace": "timeline",
+  "order": 4,
+  "numColors": 1,
+  "colorLabels": [
+    "Wave"
+  ],
+  "defaultMainColor": "#46E1FF",
+  "defaultSecondaryColor": "#FFFFFF",
+  "defaultMinDb": -120.0,
+  "defaultMaxDb": -10.0,
+  "hasControl": false,
+  "binWidth": "half",
+  "aspect": "free",
+  "recipe": {
+    "algorithm": "oscilloscope-v1",
+    "params": {
+      "layout": "linear",
+      "samples": 128,
+      "lineWidth": 0.02,
+      "amplitude": 0.9,
+      "baseRadius": 0.0
+    }
+  },
+  "determinism": "strict",
+  "shader": null,
+  "available": true
+}

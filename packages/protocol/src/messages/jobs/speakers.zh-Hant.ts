@@ -1,0 +1,25 @@
+import type { JobsSpeakersMessages } from './speakers.ts';
+
+export const zhHant: JobsSpeakersMessages = {
+  label: '辨識說話者',
+  description: '依聲紋重新區分影片中現有逐字稿的說話者（本機模型，不重新轉錄），結果是一份提案；確認後用 edits.applySpeakers 套用。',
+  stepDiarize: '區分說話者',
+  stepPropose: '整理結果',
+  videoNotOpen: '影片未開啟',
+  notFromAsset: '這份逐字稿不屬於影片中的素材，因此無法依聲紋區分說話者',
+  modelMissing: '這台電腦上沒有說話者區分模型',
+  modelNotInstalled: '說話者區分模型尚未安裝。請先下載。',
+  transcriptUnreadable: '無法讀取逐字稿',
+  videoClosed: '影片已關閉',
+  transcriptGone: '逐字稿已不在影片中',
+  noWords: '逐字稿中沒有任何字詞',
+  untimedWords: '逐字稿中有沒有時間的字詞，因此無法依聲紋區分說話者',
+  sourceMissing: '找不到素材的來源檔案',
+  hashMismatch: 'speakers.json 的雜湊與 Worker 回報的不符',
+  wordCountMismatch: 'speakers.json 與逐字稿的字詞數不一致',
+  transcriptChanged: '辨識說話者後逐字稿有變更。請重新辨識說話者。',
+  translationChanged: '辨識說話者後譯文有變更。請重新辨識說話者。',
+  unknownSpeaker: '提案中沒有這位說話者',
+  nameInvalid: (p: { max: number }) => `說話者名稱不能為空，最多 ${p.max} 字`,
+  applyFailed: '無法套用提案',
+};

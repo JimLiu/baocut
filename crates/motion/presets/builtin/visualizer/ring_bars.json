@@ -1,0 +1,31 @@
+{
+  "id": "ring_bars",
+  "version": 1,
+  "domain": "visualizer",
+  "namespace": "timeline",
+  "order": 3,
+  "numColors": 1,
+  "colorLabels": [
+    "Bars"
+  ],
+  "defaultMainColor": "#FFAC46",
+  "defaultSecondaryColor": "#FFFFFF",
+  "defaultMinDb": -80.0,
+  "defaultMaxDb": 40.0,
+  "hasControl": true,
+  "binWidth": "64",
+  "aspect": "square",
+  "recipe": {
+    "algorithm": "polar-bars-v1",
+    "params": {
+      "barCount": 72,
+      "innerRadius": 0.55,
+      "gap": 0.4,
+      "minHeight": 0.04,
+      "easing": "easeOutQuad"
+    }
+  },
+  "determinism": "strict",
+  "shader": null,
+  "available": true
+}

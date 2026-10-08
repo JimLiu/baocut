@@ -1,0 +1,24 @@
+{
+  "id": "flipboard",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "enter",
+  "order": 22,
+  "duration": 0.5,
+  "curve": {
+    "kind": "named",
+    "name": "easeOutCubic"
+  },
+  "mirror": "flipboard",
+  "from": {
+    "opacity": 0.0,
+    "scaleY": 0.04
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

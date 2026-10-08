@@ -1,0 +1,2 @@
+# 移植自 BaoCut v2 的代码沿用它的格式（rustfmt 缺省 max_width 100），不按仓库根的 140 重排。
+edition = "2024"

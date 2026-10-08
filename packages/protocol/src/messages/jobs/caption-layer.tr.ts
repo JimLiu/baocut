@@ -1,0 +1,5 @@
+import type { JobsCaptionLayerMessages } from './caption-layer.ts';
+
+export const tr: JobsCaptionLayerMessages = {
+label: 'Altyazı katmanı ekle', noSource: 'Altyazı katmanı eklenecek belge yok', videoClosed: 'Video kapatıldı; altyazı katmanı eklenmedi. Videoyu açıp yeniden deneyin.', empty: 'Belgede gösterilecek altyazı yok; altyazı katmanı eklenmedi', notOnTimeline: 'Zaman çizelgesindeki hiçbir klip bu medyayı kullanmıyor; altyazılar ekranda görünemez. Altyazı katmanı eklenmedi.', noDocumentId: 'Altyazı katmanı eklendi ancak belge ID döndürülmedi', rejected: 'Altyazı katmanı ekleme işlemi reddedildi', documentGone: 'Altyazı katmanının belgesi artık videoda yok', needsOutputStore: 'Speech Worker altyazılarını okumak için çıktı deposu gerekir', notSpeech: 'Belge döküm değil', speechUnreadable: 'Döküm gövdesi okunamadı', translationUnreadable: 'Çeviri gövdesi okunamadı', unaligned: (p) => `${p.count} çeviri birimi hizalanmamış (alignment null); zamanları belirlenemiyor`, noSourceSpeech: 'Bu çevirinin kaynak dökümü bulunamadı', subtitlesName: 'Altyazı', translationName: 'Çeviri', styleName: 'Altyazı stili',
+};

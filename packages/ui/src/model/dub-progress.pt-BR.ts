@@ -1,0 +1,35 @@
+import type { DubProgressMessages } from './dub-progress.ts';
+
+export const ptBR: DubProgressMessages = {
+  unit: {
+    fit: "Colocado sem alterações",
+    tempo: "Colocado após acelerar",
+    extended: "Acelerado até o limite, usando o silêncio seguinte",
+    overlong: "Longo demais para caber, não colocado",
+    stale: "Tradução desatualizada, não sintetizada",
+    offTimeline: "Frase original fora da linha do tempo, não colocada",
+    voiceUnavailable: "Voz do falante indisponível, não sintetizada",
+  },
+  reasonStale: "O clone expirou; clone novamente na biblioteca de vozes",
+  reasonMissing: "Ainda não há clone neste provedor",
+  reasonNoConsent: "Sem declaração de consentimento do falante, não será enviada ao provedor",
+  reasonRemoved: "Esta voz não está mais na biblioteca",
+  reasonServiceClient: "Chamadores de serviços externos não podem usar vozes da biblioteca",
+  codeCloneRequired: "Nenhum clone válido neste provedor",
+  codeNotFound: "Voz não encontrada",
+  warning: {
+    DUB_SEPARATION_NOT_CONFIGURED: "Fundo não separado",
+    DUB_UNITS_STALE: "Traduções desatualizadas não sintetizadas",
+    DUB_UNITS_OVERLONG: "Algumas frases são longas demais para caber",
+    DUB_UNITS_OFF_TIMELINE: "Algumas frases originais não estão mais na linha do tempo",
+    DUB_MUTED_UNVOICED: "O áudio original também foi silenciado nas frases não sintetizadas",
+    DUB_BACKGROUND_MUTED: "O áudio de fundo também foi silenciado",
+    DUB_VOICE_UNAVAILABLE: "As vozes de alguns falantes estão indisponíveis",
+  },
+  separated: "Fundo separado",
+  separationNotConfigured: "Foi solicitada separação, mas a capacidade não está configurada: ignorada, áudio original mantido",
+  notSeparated: "Fundo não separado",
+  originalMuted: "Áudio original silenciado",
+  originalKept: "Áudio original inalterado",
+  originalDucked: (db: number | null) => (db ? `Áudio original reduzido em ${db} dB durante a dublagem` : "Áudio original reduzido durante a dublagem"),
+};

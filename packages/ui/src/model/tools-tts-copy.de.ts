@@ -1,0 +1,48 @@
+import { pluralForm } from '@baocut/protocol';
+import type { ToolsTtsMessages } from './tools-tts-copy.ts';
+
+export const de: ToolsTtsMessages = {
+  emptyText: "Zuerst den vorzulesenden Text eingeben",
+
+  vibes: {
+    radio: { name: "Nachtradio", style: "Wie Nachtradio: etwas langsamer und mit leiser Stimme" },
+    launch: { name: "Produktvorstellung", style: "Eine Produktvorstellung: wärmer und energischer, mit Betonung der wichtigsten Punkte" },
+    bedtime: { name: "Gutenachtgeschichte", style: "Eine sanfte Gutenachtgeschichte: langsamer und mit sanftem Ton" },
+    news: { name: "Nachrichten", style: "Nachrichten: deutliche Aussprache und gleichmäßiger Rhythmus" },
+    teach: { name: "Unterricht", style: "Wie im Unterricht erklären: gesprächig, mit Pausen an den wichtigsten Stellen" },
+    vlog: { name: "Fröhliche Erzählung", style: "Leicht und fröhlich, etwas schneller, mit einem Lächeln in der Stimme" },
+  },
+  statsEmpty: (max: number) => `0 / ${max} Zeichen`,
+  stats: (n: number, max: number, segments: number, seconds: string) =>
+    `${n} / ${max} Zeichen · ${segments} ${pluralForm('de', segments, { one: "Abschnitt", other: "Abschnitte" })} · etwa ${seconds} s`,
+  defaultVoiceOption: (name: string) => `Standard · ${name}`,
+  customVoiceOption: "Stimmen-ID eingeben…",
+  presetOnly: (model: string) => `${model} akzeptiert nur voreingestellte Stimmen; „Meine Stimmen“ können daher nicht verwendet werden`,
+  cannotClone: (provider: string) => `${provider} kann nicht klonen · voreingestellte Stimmen verwenden`,
+  noConsent: "Nicht als eigene Stimme oder als Nutzung mit Erlaubnis gekennzeichnet; wird daher nicht an Dritte hochgeladen · Erklärung unter „Meine Stimmen“ ergänzen",
+  cloneStale: (provider: string) => `Der Klon bei ${provider} ist veraltet (die Referenzaufnahme wurde geändert) · unter „Meine Stimmen“ erneut hochladen`,
+  notCloned: (provider: string) => `Noch nicht geklont bei ${provider} · einmal unter „Meine Stimmen“ hochladen`,
+  customVoice: "Benutzerdefinierte Stimme",
+  deletedVoice: "Gelöschte Stimme",
+  myVoices: "Meine Stimmen",
+  defaultVoice: "Standardstimme",
+  cannotSpeak: (model: string, language: string) => `${model} kann nicht vorlesen in ${language}`,
+  voiceDeleted: "Die ausgewählte Stimme wurde gelöscht; eine andere auswählen",
+  tooLong: (model: string, max: number) => `${model} akzeptiert höchstens ${max} Zeichen auf einmal; zuerst den Text kürzen`,
+  enterVoiceId: "Zuerst eine Stimmen-ID eingeben",
+  pickVoice: "Zuerst eine Stimme auswählen",
+  noVoices: "Für dieses Modell sind keine Stimmen verfügbar",
+  seedInteger: "Der Seed muss eine ganze Zahl sein",
+  noModel: "Noch kein Sprachsynthesemodell verfügbar",
+  connectFirst: (provider: string) => `Verbinden: ${provider}`,
+  readsMaterial: (model: string, voice: string, name: string) => `${model} · ${voice} · liest den Text aus „${name}“`,
+  estimate: (seconds: string, chars: number) => ` · etwa ${seconds} s · etwa ${chars} Zeichen`,
+  chars: (n: number) => `${n} ${pluralForm('de', n, { one: "Zeichen", other: "Zeichen" })}`,
+  speech: "Sprache",
+  presetVoices: (n: number) => `${n} voreingestellte ${pluralForm('de', n, { one: "Stimme", other: "Stimmen" })}`,
+  customVoiceId: "Benutzerdefinierte Stimmen-ID",
+  takesStyle: "Unterstützt Stilhinweise",
+  speedRange: (min: number, max: number) => `Geschwindigkeit ${min}–${max}×`,
+  maxChars: (max: number) => `Bis zu ${max} Zeichen auf einmal`,
+  headerChip: (provider: string) => `Online · ${provider} · nach Nutzung abgerechnet`,
+};

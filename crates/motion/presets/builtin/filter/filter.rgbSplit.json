@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "domain": "filter",
+  "inputs": 1,
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "transparent",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "id": "filter.rgbSplit",
+  "kernel": "rgb-split-premul-u8",
+  "params": {
+    "distance": {
+      "type": "length",
+      "default": 0,
+      "min": 0,
+      "max": 0.1,
+      "basis": "canvasShortEdge",
+      "quantize": "round-to-int"
+    },
+    "angle": {
+      "type": "number",
+      "default": 0,
+      "min": -180,
+      "max": 180
+    }
+  },
+  "doc": "沿 angle 平移红/蓝通道，绿通道保持；alpha 取三样本最大值，保持预乘不变式。"
+}

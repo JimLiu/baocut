@@ -1,0 +1,21 @@
+[package]
+name = "preview-wasm"
+description = "编辑器预览的 WASM 入口：render-graph 的帧计划与 frame-render 的帧光栅（与导出同一份实现，架构设计 §2、§9.7、§13.1）"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# 字体由界面注入：只开 `wasm-safe`（它带着 SVG 光栅，SVG 图片与贴纸换色在内核里画）。
+frame-render = { workspace = true, features = ["wasm-safe"] }
+render-graph.workspace = true
+video-model.workspace = true
+# 素材频谱在这里算（界面解码、按块送进来）。
+waveform = { workspace = true, features = ["dsp"] }
+tiny-skia = "0.11.4"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"

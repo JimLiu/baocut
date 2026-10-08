@@ -1,0 +1,45 @@
+{
+  "id": "simple.03",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "simple",
+  "order": 103,
+  "duration": 5.0,
+  "content": [
+    {
+      "kind": "text",
+      "place": {
+        "x": 50.0,
+        "y": 50.0
+      },
+      "text": "Cursive",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#ffffff",
+        "fontFamily": "Damion",
+        "fontSize": 25.9,
+        "fontStyle": "normal",
+        "fontWeight": "normal",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.2,
+        "letterSpacing": 0.0,
+        "textAlign": "center",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+import type { LocalModelsMessages } from './local-models-copy.ts';
+
+export const fr: LocalModelsMessages = {
+  install: {
+    availableNote:
+      "Avant téléchargement, taille et espace libre sont affichés. Vous pouvez suspendre ; les fichiers reçus sont conservés et repris la prochaine fois.",
+    download: "Télécharger",
+    resume: "Reprendre le téléchargement",
+    pause: "Pause",
+    cancelDownload: "Annuler le téléchargement",
+    discard: "Abandonner les fichiers téléchargés",
+    repair: "Réparer…",
+    remove: "Supprimer…",
+    more: (id: string) => `Plus · ${id}`,
+    details: "Détails",
+    hideDetails: "Masquer les détails",
+    componentLine: (state: 'installed' | 'missing', size: string | null) => (state === 'installed' ? `Installé${size ? ` · ${size}` : ""}` : "Manquant"),
+    sharedWith: (ids: string[]) => `Partagé avec ${ids.join(", ")}`,
+    noComponents: "Ce Runtime n’a pas fourni les détails des composants.",
+
+    installTitle: (id: string) => `Télécharger ${id}`,
+    repairTitle: (id: string) => `Réparer « ${id} » ?`,
+    planning: "Calcul des téléchargements nécessaires…",
+    verifying: "Recherche des fichiers endommagés ou manquants. Peut prendre du temps pour les gros fichiers…",
+    planFailed: "Impossible de récupérer le plan de téléchargement",
+    upToDate: "Tous les fichiers sont présents et vérifiés. Rien à télécharger.",
+    repairUpToDate: "Tous les fichiers sont intacts. Rien à retélécharger.",
+    repairThenCheck: "Seuls les fichiers endommagés ou manquants sont retéléchargés. Ceux intacts restent inchangés. Vérification automatique après réparation.",
+    replanned: "La taille vient de changer. Voici le nouveau plan ; confirmez à nouveau.",
+    source: (url: string) => `Source de téléchargement : ${url}`,
+    confirmInstall: (size: string) => `Télécharger ${size}`,
+    confirmRepair: "Réparer",
+    cancel: "Annuler",
+    close: "Fermer",
+    started: (id: string) => `Téléchargement de ${id} · progression ici et dans Tâches en arrière-plan`,
+
+    paused: (id: string) => `Mis en pause : ${id} · téléchargements reçus conservés`,
+    discardTitle: (id: string) => `Abandonner la partie téléchargée de ${id} ?`,
+    discardBody: "Le prochain téléchargement recommence à zéro. Fichiers téléchargés par d’autres paquets et composants partagés non supprimés.",
+    discarded: (id: string) => `Partie téléchargée abandonnée pour ${id}`,
+    removeTitle: (id: string) => `Supprimer ${id} ?`,
+    removeConfirm: "Supprimer",
+    stopFailed: (text: string) => `Impossible d’arrêter : ${text}`,
+    removeFailed: (text: string) => `Impossible de supprimer : ${text}`,
+    installFailed: (text: string) => `Le dernier téléchargement n’a pas abouti : ${text}`,
+  },
+};

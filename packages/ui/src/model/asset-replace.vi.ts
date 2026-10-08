@@ -1,0 +1,7 @@
+import type { AssetReplaceMessages } from './asset-replace.ts';
+
+const KIND_TEXT = { video: 'video', image: 'hình ảnh', audio: 'âm thanh' } as const;
+
+export const vi: AssetReplaceMessages = {
+cantReplaceKind: 'Chưa thể thay tư liệu loại này.', sameKind: (kind) => `Chỉ có thể thay bằng tư liệu cùng loại: cần tư liệu ${KIND_TEXT[kind]}.`, sameAsset: 'Đây là tư liệu hiện tại. Chọn tư liệu khác.', unused: 'Tư liệu này không dùng trên dòng thời gian nên không có gì để thay.', tooShort: 'Tư liệu mới quá ngắn để lấp đầy một khung hình.', allLocked: 'Mọi clip dùng tư liệu này đã khóa (hoặc là bản thay thế kết xuất sẵn của bố cục). Mở khóa trước.', durationUnknown: 'Chưa rõ thời lượng tư liệu nên clip tạm giữ thời lượng hiện tại.', longEnoughMany: 'Tư liệu mới đủ dài. Không clip nào đổi thời lượng và dòng thời gian giữ nguyên.', longEnoughOne: 'Tư liệu mới đủ dài. Clip giữ thời lượng và dòng thời gian giữ nguyên.', shortenMany: (n, seconds) => `${n} clip ngắn hơn, tổng ${seconds} giây`, shortenOne: (seconds) => `Clip ngắn hơn ${seconds} giây`, moved: (head, n) => `${head} và ${n === 1 ? 'clip tiếp theo' : `${n} clip tiếp theo`} trên rãnh chuyển sớm hơn.`, trackShorter: (head) => `${head} và rãnh ngắn hơn.`, transitions: (n) => n === 1 ? 'Chuyển cảnh trên clip này sẽ bị gỡ.' : `${n} chuyển cảnh trên clip này sẽ bị gỡ.`, captions: (n) => `${n} phụ đề có thời gian dựa trên clip này và cần căn chỉnh lại sau khi thay.`, ducking: (n) => `${n} quy tắc giảm âm trỏ đến clip này và sẽ không khớp sau khi thay.`,
+};

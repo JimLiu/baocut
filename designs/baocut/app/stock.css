@@ -1,0 +1,71 @@
+/* 在线素材视图。行几何与项目视频列表对齐（96×54 缩略图 + 虚拟行），
+   多出来的只有许可裁决、匹配记账与两颗获取动作。 */
+.stk-pane {display:flex;flex-direction:column;flex:1;min-height:0;padding:12px 12px 8px;gap:8px}
+.stk-search {display:flex;gap:8px;align-items:center;flex:none}
+.stk-search .field-wrap {flex:1;min-width:0}
+.stk-filters {display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:none}
+.stk-free {display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--gray-700);cursor:default}
+.stk-intent {display:flex;flex-direction:column;gap:4px;padding:6px 8px;border-radius:8px;background:var(--blue-100);color:var(--blue-1100);font-size:11px;flex:none}
+.stk-intent>span {display:flex;align-items:center;gap:4px}
+.stk-intent__soft {color:var(--gray-700)}
+
+.stk-list {flex:1;min-height:120px;overflow:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:8px}
+.stk-virtual {position:relative;width:100%;flex:none}
+.stk-slot {position:absolute;left:0;right:0;height:96px;padding-bottom:4px}
+.stk-row {height:100%;display:flex;align-items:flex-start;gap:12px;padding:8px;border-radius:10px;background:var(--gray-25);border:1px solid var(--gray-200)}
+.stk-row:hover,.stk-row:focus-within {background:var(--gray-75);border-color:var(--gray-300)}
+/* @ds-allow: 缩略图是 16:9 媒体视窗的几何，不是控件尺寸 */
+.stk-thumb {position:relative;display:flex;align-items:center;justify-content:center;width:96px;height:54px;flex:none;border-radius:8px;overflow:hidden;background:var(--gray-200);color:var(--gray-700);border:0;padding:0}
+.stk-thumb--btn {cursor:pointer}
+.stk-thumb--btn:hover,.stk-thumb--btn.is-playing {background:var(--gray-300)}
+.stk-dur {position:absolute;right:4px;bottom:4px;padding:0 4px;border-radius:4px;background:var(--gray-25);color:var(--gray-900);font-size:10px;font-variant-numeric:tabular-nums}
+.stk-abar {position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--gray-400)}
+.stk-abar>i {display:block;height:100%;background:var(--blue-800)}
+.stk-info {flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.stk-name {font-size:12px;line-height:1.3;font-weight:700;color:var(--gray-900);display:flex;align-items:center;gap:6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.stk-meta {font-size:11px;line-height:1.3;color:var(--gray-600);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stk-line {display:flex;align-items:center;gap:6px;min-width:0;font-size:11px}
+.stk-verdict {flex:none;padding:0 6px;border-radius:4px;font-size:10px;line-height:16px;background:var(--gray-100);color:var(--gray-700)}
+.stk-verdict--allowed {background:var(--green-100);color:var(--green-1100)}
+.stk-verdict--not-allowed {background:var(--red-100);color:var(--red-1100)}
+.stk-verdict--unverified {background:var(--yellow-100);color:var(--yellow-1100)}
+.stk-match {display:flex;gap:6px;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:var(--gray-600)}
+.stk-match__ok {display:inline-flex;align-items:center;gap:2px;color:var(--green-1100)}
+.stk-match__no {color:var(--gray-600)}
+.stk-act {display:flex;align-items:center;gap:6px;margin-top:1px}
+
+.stk-busy {display:flex;flex-direction:column;gap:8px;padding:16px 8px;color:var(--gray-700);font-size:11px;flex:none}
+.stk-job {display:flex;flex-direction:column;gap:6px;padding:8px 12px;border-radius:10px;background:var(--blue-100);color:var(--blue-1100);font-size:11px;flex:none}
+
+.stk-outcomes {list-style:none;margin:0;padding:0 4px;display:flex;flex-direction:column;gap:4px;flex:none}
+.stk-outcomes>li {display:flex;align-items:baseline;gap:8px;font-size:11px;color:var(--gray-700)}
+.stk-outcomes>li>b {font-size:11px;color:var(--gray-900);min-width:72px}
+.stk-outcomes>li.is-off {color:var(--gray-600)}
+
+.stk-src {display:flex;align-items:center;gap:8px;padding:6px 12px}
+.stk-src__nm {display:flex;flex-direction:column;flex:1;min-width:0}
+.stk-src__nm>b {font-size:12px;color:var(--gray-900)}
+.stk-src__nm>em {font-size:11px;font-style:normal;color:var(--gray-600)}
+
+.stk-ext {display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:10px;border:1px dashed var(--gray-400);background:var(--gray-50);flex:none}
+.stk-ext__hd {display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gray-900)}
+.stk-ext__t {margin:0;font-size:11px;line-height:1.5;color:var(--gray-700)}
+.stk-tier {display:flex;align-items:flex-start;gap:8px;padding:8px 0}
+.stk-tier>span {display:flex;flex-direction:column;gap:2px}
+.stk-tier b {font-size:12px;color:var(--gray-900)}
+.stk-tier em {font-size:11px;font-style:normal;color:var(--gray-600)}
+
+/* @ds-allow: 详情页的预览块画的是素材画面，高度是媒体视窗不是控件 */
+.stk-hero {height:160px;border-radius:10px;margin:12px;background:var(--gray-200)}
+.stk-hero--audio {display:flex;align-items:center;justify-content:center;color:var(--gray-600)}
+.stk-head {display:flex;flex-direction:column;gap:4px;padding:0 12px 4px}
+.stk-head>b {font-size:14px;color:var(--gray-900);display:flex;align-items:center;gap:6px}
+.stk-head>span {font-size:11px;color:var(--gray-600)}
+.stk-specs {margin:0;padding:0 12px;display:grid;grid-template-columns:1fr 1fr;gap:6px 12px}
+.stk-specs>div {display:flex;justify-content:space-between;gap:8px;font-size:11px}
+.stk-specs dt {color:var(--gray-600)}
+.stk-specs dd {margin:0;color:var(--gray-900)}
+.stk-rend {display:flex;flex-direction:column;gap:4px;margin:0 12px 8px;padding:8px;border-radius:8px;border:1px solid var(--gray-200);background:var(--gray-25)}
+.stk-rend__hd {display:flex;align-items:center;gap:6px;font-size:11px;color:var(--gray-600)}
+.stk-rend__hd>b {font-size:12px;color:var(--gray-900)}
+.stk-rend__lic {font-size:11px;color:var(--gray-700);display:flex;align-items:center;gap:6px;flex-wrap:wrap}

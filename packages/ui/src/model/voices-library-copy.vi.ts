@@ -1,0 +1,28 @@
+import type { VoicesLibraryMessages } from './voices-library-copy.ts';
+
+export const vi: VoicesLibraryMessages = {
+consentStatement: 'Đây là giọng của tôi hoặc tôi đã được người nói cho phép',
+uploading: (label) => `Đang tải lên ${label}…`,
+noConsent: 'Chưa xác nhận là giọng của bạn hoặc được phép sử dụng nên sẽ không tải lên bên thứ ba. Đánh dấu tuyên bố trong “Chỉnh sửa” trước.',
+cannotClone: (label) => `Runtime này không thể nhân bản trên ${label}`,
+providerOff: (label, detail) => `Hiện không dùng được ${label}${detail ? ` (${detail})` : ''}: hãy bật và đặt khóa trong “Mô hình đám mây” trước`,
+consentUnstated: 'Chưa khai báo sự cho phép',
+cloned: (label) => `Đã nhân bản trên ${label}`,
+cloneStale: (label) => `Bản nhân trên ${label} đã lỗi thời`,
+languageUnknown: 'Chưa chỉ định ngôn ngữ',
+recorded: 'Ghi âm trong ứng dụng',
+imported: 'Nhập từ tệp',
+edited: (ago) => `Đã chỉnh sửa ${ago}`,
+nameRequired: 'Đặt tên cho giọng',
+nameTooLong: (max) => `Tên tối đa ${max} ký tự`,
+transcriptTooLong: (max) => `Bản chép lời tối đa ${max} ký tự`,
+dontKnow: 'Không chắc',
+deleteClones: (labels) => `Sẽ xóa bản nhân trên ${labels.join(', ')} trước; nếu thất bại, giọng sẽ được giữ lại.`,
+deleteBody: (clones) => `Video dùng giọng này sẽ trở về giọng mặc định khi tạo lần tới; lồng tiếng đã tạo không bị ảnh hưởng. ${clones}`.trim(),
+uploadNotice: (name, size, label) => `Bản ghi tham chiếu của “${name}”${size ? ` (${size})` : ''} sẽ được tải lên ${label} để tạo bản nhân. Sau đó, khi dùng giọng này trên ${label}, sẽ dùng trực tiếp ID giọng của họ; xóa giọng sẽ xóa bản nhân này trước.`,
+withRemedy: (message, remedy) => `${message.replace(/[。.]$/, '')}. ${remedy}`,
+remedyConsent: 'Giọng chưa có tuyên bố cho phép sẽ không tải lên bên thứ ba: đánh dấu tuyên bố trong “Chỉnh sửa” trước.',
+remedyConfigure: 'Bật nhà cung cấp này và đặt khóa trong “Mô hình đám mây”.',
+remedyConflict: 'Giọng này vừa được thay đổi ở nơi khác. Bản mới nhất được hiển thị bên dưới; xem lại trước khi lưu.',
+remedyGrant: 'Gửi bản ghi tham chiếu cho nhà cung cấp cần ủy quyền gửi ra ngoài: cấp ủy quyền trong Cài đặt rồi thử lại.',
+};

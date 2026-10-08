@@ -1,0 +1,94 @@
+{
+  "assets": [
+    {
+      "e": 1,
+      "h": 4,
+      "id": "img_0",
+      "p": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAF0lEQVR4nGP4z8AAQv9hNAMyB0wTVAEALFAf4bytevoAAAAASUVORK5CYII=",
+      "u": "",
+      "w": 4
+    }
+  ],
+  "ddd": 0,
+  "fr": 30,
+  "h": 90,
+  "ip": 0,
+  "layers": [
+    {
+      "ao": 0,
+      "bm": 0,
+      "ddd": 0,
+      "ind": 1,
+      "ip": 0,
+      "ks": {
+        "a": {
+          "a": 0,
+          "k": [
+            0,
+            0
+          ]
+        },
+        "o": {
+          "a": 0,
+          "k": 85
+        },
+        "p": {
+          "a": 1,
+          "k": [
+            {
+              "i": {
+                "x": [
+                  0.84
+                ],
+                "y": [
+                  1.0
+                ]
+              },
+              "o": {
+                "x": [
+                  0.16
+                ],
+                "y": [
+                  0.0
+                ]
+              },
+              "s": [
+                20,
+                20
+              ],
+              "t": 0
+            },
+            {
+              "s": [
+                80,
+                60
+              ],
+              "t": 30
+            }
+          ]
+        },
+        "r": {
+          "a": 0,
+          "k": 0
+        },
+        "s": {
+          "a": 0,
+          "k": [
+            400,
+            400
+          ]
+        }
+      },
+      "nm": "bitmap",
+      "op": 30,
+      "refId": "img_0",
+      "sr": 1,
+      "st": 0,
+      "ty": 2
+    }
+  ],
+  "nm": "case",
+  "op": 30,
+  "v": "5.7.4",
+  "w": 120
+}

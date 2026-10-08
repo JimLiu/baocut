@@ -1,0 +1,453 @@
+{
+  "observed_at_utc": "2026-10-01T01:27:26.728358+00:00",
+  "scope": "48 original synthetic source-language samples; reverse-ar samples excluded",
+  "method": "人工按源文核查 mergedRows 的数字、否定、条件、专名、时间顺序及核心意思；reference_en 只作为辅助参考，不作为金标。明确失败另核对 runs/*/result.json 原始模型回答。pass 表示本次未发现核心语义错误，不是专业母语金标认证。",
+  "counts": {
+    "pass": 46,
+    "fail": 2
+  },
+  "rows": [
+    {
+      "id": "ar-01",
+      "verdict": "pass",
+      "reason": "保留人物、未取消的否定、改期及星期四 14:30；2:30 PM 是等值时间表示。",
+      "source": "لم تُلغِ ليلى الاجتماع؛ أجّلته إلى الساعة 14:30 يوم الخميس.",
+      "translation": "Layla didn't cancel the meeting; she postponed it to 2:30 PM on Thursday.",
+      "target_lang": "en",
+      "run_group": "synthetic-ar-en"
+    },
+    {
+      "id": "ar-02",
+      "verdict": "pass",
+      "reason": "保留低于 5 度的触发条件，以及先关窗、后开启取暖设备的顺序。",
+      "source": "إذا انخفضت الحرارة إلى أقل من 5 درجات، فأغلق النافذة قبل تشغيل المدفأة.",
+      "translation": "If the temperature drops below 5 degrees, close the window before turning on the heater.",
+      "target_lang": "en",
+      "run_group": "synthetic-ar-en"
+    },
+    {
+      "id": "ar-03",
+      "verdict": "pass",
+      "reason": "保留付款人、120 的金额、币种、三张票及不含晚饭的否定。",
+      "source": "دفع عمر 120 ريالًا مقابل ثلاث تذاكر، ولم يشمل السعر وجبة العشاء.",
+      "translation": "Omar paid 120 riyals for three tickets, and the price didn't include dinner.",
+      "target_lang": "en",
+      "run_group": "synthetic-ar-en"
+    },
+    {
+      "id": "ar-04",
+      "verdict": "pass",
+      "reason": "保留 Maryam 说、Yusuf/Youssef 把包留在火车上及包并非 Maryam 所有；Youssef 是可接受的名字转写。",
+      "source": "قالت مريم إن الحقيبة التي تركها يوسف في القطار ليست حقيبتها.",
+      "translation": "Maryam said the bag Youssef left on the train isn't hers.",
+      "target_lang": "en",
+      "run_group": "synthetic-ar-en"
+    },
+    {
+      "id": "ar-05",
+      "verdict": "pass",
+      "reason": "保留完整字母数字代码、确认/批准的状态，以及包裹/订单尚未寄出的否定。",
+      "source": "يظهر الرمز A-17 بجانب كلمة «مُؤَكَّد»، لكن الطلب لم يُشحن بعد.",
+      "translation": "The code A-17 appears next to the word \"confirmed,\" but the order hasn't shipped yet.",
+      "target_lang": "en",
+      "run_group": "synthetic-ar-en"
+    },
+    {
+      "id": "ar-06",
+      "verdict": "pass",
+      "reason": "保留先出发却后到达的让步关系、两个人物及十分钟的时间差。",
+      "source": "وصلت نورة بعد أحمد بعشر دقائق، مع أنها غادرت المنزل قبله.",
+      "translation": "Noura arrived ten minutes after Ahmed, even though she left home before him.",
+      "target_lang": "en",
+      "run_group": "synthetic-ar-en"
+    },
+    {
+      "id": "ar-07",
+      "verdict": "pass",
+      "reason": "保留文件接收人、经理/主管批准第二版的条件，以及批准前不得发送的限制。",
+      "source": "لا ترسل الملف إلى سارة إلا إذا وافق المدير على النسخة الثانية.",
+      "translation": "除非经理批准第二版，否则不要把文件发给萨拉。",
+      "target_lang": "zh-Hans",
+      "run_group": "synthetic-ar-zh-Hans"
+    },
+    {
+      "id": "ar-08",
+      "verdict": "pass",
+      "reason": "保留购买大米、2.5 公斤、晚饭后与剩下一半的事实。",
+      "source": "اشترينا 2.5 كيلوغرام من الأرز، وبقي نصفه بعد العشاء.",
+      "translation": "我们买了 2.5 公斤大米，晚饭后还剩一半。",
+      "target_lang": "zh-Hans",
+      "run_group": "synthetic-ar-zh-Hans"
+    },
+    {
+      "id": "de-01",
+      "verdict": "pass",
+      "reason": "保留人物、未取消的否定、改期及星期四 14:30；2:30 PM 是等值时间表示。",
+      "source": "Lea hat den Termin nicht abgesagt, sondern auf Donnerstag um 14:30 Uhr verschoben.",
+      "translation": "Lea didn't cancel the appointment, but postponed it to Thursday at 2:30 p.m.",
+      "target_lang": "en",
+      "run_group": "synthetic-de-en"
+    },
+    {
+      "id": "de-02",
+      "verdict": "pass",
+      "reason": "保留低于 5 度的触发条件，以及先关窗、后开启取暖设备的顺序。",
+      "source": "Wenn die Temperatur unter 5 Grad fällt, schließe das Fenster, bevor du die Heizung einschaltest.",
+      "translation": "If the temperature drops below 5 degrees, close the window before you turn on the heating.",
+      "target_lang": "en",
+      "run_group": "synthetic-de-en"
+    },
+    {
+      "id": "de-03",
+      "verdict": "pass",
+      "reason": "保留付款人、120 的金额、币种、三张票及不含晚饭的否定。",
+      "source": "Für drei Fahrkarten zahlte Ömer 120 Euro; das Abendessen war nicht im Preis enthalten.",
+      "translation": "Ömer paid 120 euros for three tickets; dinner was not included in the price.",
+      "target_lang": "en",
+      "run_group": "synthetic-de-en"
+    },
+    {
+      "id": "de-04",
+      "verdict": "pass",
+      "reason": "保留人物间的借出/借入方向、昨天及书的所有权；名字的常见转写差异不改变人物关系。",
+      "source": "Das Buch, das Mia gestern von Jonas ausgeliehen hat, gehört seiner Schwester.",
+      "translation": "The book Mia borrowed from Jonas yesterday belongs to his sister.",
+      "target_lang": "en",
+      "run_group": "synthetic-de-en"
+    },
+    {
+      "id": "de-05",
+      "verdict": "pass",
+      "reason": "保留完整字母数字代码、确认/批准的状态，以及包裹/订单尚未寄出的否定。",
+      "source": "Neben „bestätigt“ steht der Code B-23, obwohl das Paket noch nicht versandt wurde.",
+      "translation": "Next to \"confirmed\" is the code B-23, although the package hasn't been shipped yet.",
+      "target_lang": "en",
+      "run_group": "synthetic-de-en"
+    },
+    {
+      "id": "de-06",
+      "verdict": "pass",
+      "reason": "保留先出发却后到达的让步关系、两个人物及十分钟的时间差。",
+      "source": "Obwohl Nora früher losgefahren war, kam sie zehn Minuten nach Cem an.",
+      "translation": "Although Nora had left earlier, she arrived ten minutes after Cem.",
+      "target_lang": "en",
+      "run_group": "synthetic-de-en"
+    },
+    {
+      "id": "de-07",
+      "verdict": "fail",
+      "reason": "原文 die Leitung 是管理层，der zweiten Fassung 是 zustimmen 的与格对象，意思为管理层批准第二版。译文“第二版负责人同意”把版本误解析成负责人的修饰语，改变了批准主体与批准对象。首轮及修复轮均存在该误译。建议译为“只有在管理层批准第二版后，才把文件发给 Anna。”",
+      "source": "Sende Anna die Datei nur dann, wenn die Leitung der zweiten Fassung zugestimmt hat.",
+      "translation": "只有在第二版负责人同意后，才把文件发给 Anna。",
+      "target_lang": "zh-Hans",
+      "run_group": "synthetic-de-zh-Hans"
+    },
+    {
+      "id": "de-08",
+      "verdict": "pass",
+      "reason": "保留购买大米、2.5 公斤、晚饭后与剩下一半的事实。",
+      "source": "Wir kauften 2,5 Kilogramm Reis; nach dem Abendessen war noch die Hälfte übrig.",
+      "translation": "我们买了 2.5 公斤米；晚饭后还剩一半。",
+      "target_lang": "zh-Hans",
+      "run_group": "synthetic-de-zh-Hans"
+    },
+    {
+      "id": "es-01",
+      "verdict": "pass",
+      "reason": "保留人物、未取消的否定、改期及星期四 14:30；2:30 PM 是等值时间表示。",
+      "source": "Lucía no canceló la reunión; la aplazó hasta el jueves a las 14:30.",
+      "translation": "Lucía didn't cancel the meeting; she postponed it to Thursday at 2:30 p.m.",
+      "target_lang": "en",
+      "run_group": "synthetic-es-en"
+    },
+    {
+      "id": "es-02",
+      "verdict": "pass",
+      "reason": "保留低于 5 度的触发条件，以及先关窗、后开启取暖设备的顺序。",
+      "source": "Si la temperatura baja de 5 grados, cierra la ventana antes de encender la calefacción.",
+      "translation": "If the temperature drops below 5 degrees, close the window before turning on the heating.",
+      "target_lang": "en",
+      "run_group": "synthetic-es-en"
+    },
+    {
+      "id": "es-03",
+      "verdict": "pass",
+      "reason": "保留付款人、120 的金额、币种、三张票及不含晚饭的否定。",
+      "source": "Diego pagó 120 euros por tres entradas, pero el precio no incluía la cena.",
+      "translation": "Diego paid 120 euros for three tickets, but the price didn't include dinner.",
+      "target_lang": "en",
+      "run_group": "synthetic-es-en"
+    },
+    {
+      "id": "es-04",
+      "verdict": "pass",
+      "reason": "保留人物间的借出/借入方向、昨天及书的所有权；名字的常见转写差异不改变人物关系。",
+      "source": "El libro que Ana le prestó ayer a Pablo pertenece a la hermana de Ana.",
+      "translation": "The book Ana lent Pablo yesterday belongs to Ana's sister.",
+      "target_lang": "en",
+      "run_group": "synthetic-es-en"
+    },
+    {
+      "id": "es-05",
+      "verdict": "pass",
+      "reason": "保留完整字母数字代码、确认/批准的状态，以及包裹/订单尚未寄出的否定。",
+      "source": "El código C-19 aparece junto a «confirmado», aunque el paquete aún no se ha enviado.",
+      "translation": "The code C-19 appears next to \"confirmed,\" although the package hasn't been sent yet.",
+      "target_lang": "en",
+      "run_group": "synthetic-es-en"
+    },
+    {
+      "id": "es-06",
+      "verdict": "fail",
+      "reason": "目标语言为英语，但合并结果仍是西语“llegó diez minutos después de él. llegó..él”；遗漏 Inés、Mateo 和她虽先出发却后到达的让步关系，并夹带源语端点标记。真实首轮回答第 6 行字段错序，修复轮仅含前 5 句；未获得该句的合格英语翻译。",
+      "source": "Aunque Inés salió antes que Mateo, llegó diez minutos después de él.",
+      "translation": "llegó diez minutos después de él. llegó..él",
+      "target_lang": "en",
+      "run_group": "synthetic-es-en"
+    },
+    {
+      "id": "es-07",
+      "verdict": "pass",
+      "reason": "保留文件接收人、经理/主管批准第二版的条件，以及批准前不得发送的限制。",
+      "source": "No envíes el archivo a Sofía a menos que la directora apruebe la segunda versión.",
+      "translation": "别把文件发给 Sofía，除非主管批准第二版。",
+      "target_lang": "zh-Hans",
+      "run_group": "synthetic-es-zh-Hans"
+    },
+    {
+      "id": "es-08",
+      "verdict": "pass",
+      "reason": "保留购买大米、2.5 公斤、晚饭后与剩下一半的事实。",
+      "source": "Compramos 2,5 kilos de arroz y, después de cenar, todavía quedaba la mitad.",
+      "translation": "我们买了 2.5 公斤大米，吃完晚饭后还剩一半。",
+      "target_lang": "zh-Hans",
+      "run_group": "synthetic-es-zh-Hans"
+    },
+    {
+      "id": "tr-01",
+      "verdict": "pass",
+      "reason": "保留人物、未取消的否定、改期及星期四 14:30；2:30 PM 是等值时间表示。",
+      "source": "Elif toplantıyı iptal etmedi; perşembe günü saat 14.30’a erteledi.",
+      "translation": "Elif didn't cancel the meeting; she postponed it to Thursday at 14.30.",
+      "target_lang": "en",
+      "run_group": "synthetic-tr-en"
+    },
+    {
+      "id": "tr-02",
+      "verdict": "pass",
+      "reason": "保留低于 5 度的触发条件，以及先关窗、后开启取暖设备的顺序。",
+      "source": "Sıcaklık 5 derecenin altına düşerse, ısıtıcıyı çalıştırmadan önce pencereyi kapat.",
+      "translation": "If the temperature drops below 5 degrees, close the window before turning on the heater.",
+      "target_lang": "en",
+      "run_group": "synthetic-tr-en"
+    },
+    {
+      "id": "tr-03",
+      "verdict": "pass",
+      "reason": "保留付款人、120 的金额、币种、三张票及不含晚饭的否定。",
+      "source": "Ömer üç bilet için 120 lira ödedi, ama akşam yemeği fiyata dahil değildi.",
+      "translation": "Ömer paid 120 lira for three tickets, but dinner wasn't included in the price.",
+      "target_lang": "en",
+      "run_group": "synthetic-tr-en"
+    },
+    {
+      "id": "tr-04",
+      "verdict": "pass",
+      "reason": "保留人物间的借出/借入方向、昨天及书的所有权；名字的常见转写差异不改变人物关系。",
+      "source": "Ayşe’nin dün Deniz’e ödünç verdiği kitap, Ayşe’nin kız kardeşine ait.",
+      "translation": "The book Ayşe lent Deniz yesterday belongs to Ayşe's sister.",
+      "target_lang": "en",
+      "run_group": "synthetic-tr-en"
+    },
+    {
+      "id": "tr-05",
+      "verdict": "pass",
+      "reason": "保留完整字母数字代码、确认/批准的状态，以及包裹/订单尚未寄出的否定。",
+      "source": "“Onaylandı” yazısının yanında D-08 kodu görünüyor, ancak paket henüz gönderilmedi.",
+      "translation": "Next to the text \"Approved\" the code D-08 appears, but the package hasn't been sent yet.",
+      "target_lang": "en",
+      "run_group": "synthetic-tr-en"
+    },
+    {
+      "id": "tr-06",
+      "verdict": "pass",
+      "reason": "保留先出发却后到达的让步关系、两个人物及十分钟的时间差。",
+      "source": "Zeynep, Can’dan önce yola çıkmasına rağmen ondan on dakika sonra vardı.",
+      "translation": "Although Zeynep set off before Can, she arrived ten minutes after him.",
+      "target_lang": "en",
+      "run_group": "synthetic-tr-en"
+    },
+    {
+      "id": "tr-07",
+      "verdict": "pass",
+      "reason": "保留文件接收人、经理/主管批准第二版的条件，以及批准前不得发送的限制。",
+      "source": "Müdür ikinci sürümü onaylamadıkça dosyayı Selin’e gönderme.",
+      "translation": "经理不批准第二版，就别把文件发给 Selin。",
+      "target_lang": "zh-Hans",
+      "run_group": "synthetic-tr-zh-Hans"
+    },
+    {
+      "id": "tr-08",
+      "verdict": "pass",
+      "reason": "保留购买大米、2.5 公斤、晚饭后与剩下一半的事实。",
+      "source": "2,5 kilo pirinç aldık; akşam yemeğinden sonra yarısı kaldı.",
+      "translation": "我们买了 2.5 公斤大米；晚饭后剩了一半。",
+      "target_lang": "zh-Hans",
+      "run_group": "synthetic-tr-zh-Hans"
+    },
+    {
+      "id": "hi-01",
+      "verdict": "pass",
+      "reason": "保留人物、未取消的否定、改期及星期四 14:30；2:30 PM 是等值时间表示。",
+      "source": "लीला ने बैठक रद्द नहीं की; उसने उसे गुरुवार को 14:30 बजे तक टाल दिया।",
+      "translation": "Leela didn't cancel the meeting; she postponed it to Thursday at 14:30.",
+      "target_lang": "en",
+      "run_group": "synthetic-hi-en"
+    },
+    {
+      "id": "hi-02",
+      "verdict": "pass",
+      "reason": "保留低于 5 度的触发条件，以及先关窗、后开启取暖设备的顺序。",
+      "source": "अगर तापमान 5 डिग्री से नीचे चला जाए, तो हीटर चालू करने से पहले खिड़की बंद कर दें।",
+      "translation": "If the temperature drops below 5 degrees, close the window before turning on the heater.",
+      "target_lang": "en",
+      "run_group": "synthetic-hi-en"
+    },
+    {
+      "id": "hi-03",
+      "verdict": "pass",
+      "reason": "保留付款人、120 的金额、币种、三张票及不含晚饭的否定。",
+      "source": "अमन ने तीन टिकटों के लिए 120 रुपये दिए, लेकिन इस कीमत में रात का खाना शामिल नहीं था।",
+      "translation": "Aman paid 120 rupees for three tickets, but dinner was not included in this price.",
+      "target_lang": "en",
+      "run_group": "synthetic-hi-en"
+    },
+    {
+      "id": "hi-04",
+      "verdict": "pass",
+      "reason": "保留人物间的借出/借入方向、昨天及书的所有权；名字的常见转写差异不改变人物关系。",
+      "source": "मीरा ने कल रवि को जो किताब उधार दी थी, वह मीरा की बहन की है।",
+      "translation": "The book Meera lent Ravi yesterday belongs to Meera's sister.",
+      "target_lang": "en",
+      "run_group": "synthetic-hi-en"
+    },
+    {
+      "id": "hi-05",
+      "verdict": "pass",
+      "reason": "保留完整字母数字代码、确认/批准的状态，以及包裹/订单尚未寄出的否定。",
+      "source": "“पुष्टि हुई” के पास E-12 लिखा है, लेकिन पैकेट अभी तक भेजा नहीं गया है।",
+      "translation": "Next to \"Confirmed\" it says E-12, but the packet hasn't been sent yet.",
+      "target_lang": "en",
+      "run_group": "synthetic-hi-en"
+    },
+    {
+      "id": "hi-06",
+      "verdict": "pass",
+      "reason": "保留先出发却后到达的让步关系、两个人物及十分钟的时间差。",
+      "source": "नेहा अर्जुन से पहले निकली थी, फिर भी वह उससे दस मिनट बाद पहुँची।",
+      "translation": "Neha left before Arjun, yet she arrived ten minutes after him.",
+      "target_lang": "en",
+      "run_group": "synthetic-hi-en"
+    },
+    {
+      "id": "hi-07",
+      "verdict": "pass",
+      "reason": "保留文件接收人、经理/主管批准第二版的条件，以及批准前不得发送的限制。",
+      "source": "जब तक प्रबंधक दूसरे संस्करण को मंज़ूरी न दे, तब तक फ़ाइल सारा को मत भेजें।",
+      "translation": "在经理批准第二个版本之前，不要把文件发给萨拉。",
+      "target_lang": "zh-Hans",
+      "run_group": "synthetic-hi-zh-Hans"
+    },
+    {
+      "id": "hi-08",
+      "verdict": "pass",
+      "reason": "保留购买大米、2.5 公斤、晚饭后与剩下一半的事实。",
+      "source": "हमने 2.5 किलो चावल खरीदे थे; रात के खाने के बाद आधे चावल बच गए।",
+      "translation": "我们买了 2.5 公斤大米；晚饭后剩了一半。",
+      "target_lang": "zh-Hans",
+      "run_group": "synthetic-hi-zh-Hans"
+    },
+    {
+      "id": "th-01",
+      "verdict": "pass",
+      "reason": "保留人物、未取消的否定、改期及星期四 14:30；2:30 PM 是等值时间表示。",
+      "source": "ลลิตาไม่ได้ยกเลิกการประชุมแต่เลื่อนไปเป็นวันพฤหัสบดีเวลา14:30น.",
+      "translation": "Lalita didn't cancel the meeting but moved it to Thursday at 14:30.",
+      "target_lang": "en",
+      "run_group": "synthetic-th-en"
+    },
+    {
+      "id": "th-02",
+      "verdict": "pass",
+      "reason": "保留低于 5 度的触发条件，以及先关窗、后开启取暖设备的顺序。 泰语原文未显式标记窗户数量，因此 windows 的复数不作为确定语义错误。",
+      "source": "ถ้าอุณหภูมิลดลงต่ำกว่า5องศาให้ปิดหน้าต่างก่อนเปิดเครื่องทำความร้อน",
+      "translation": "If the temperature drops below 5 degrees, close the windows before turning on the heater.",
+      "target_lang": "en",
+      "run_group": "synthetic-th-en"
+    },
+    {
+      "id": "th-03",
+      "verdict": "pass",
+      "reason": "保留付款人、120 的金额、币种、三张票及不含晚饭的否定。",
+      "source": "นนท์จ่ายเงิน120บาทสำหรับตั๋วสามใบแต่ราคานี้ไม่รวมอาหารเย็น",
+      "translation": "Non paid 120 baht for three tickets, but this price doesn't include dinner.",
+      "target_lang": "en",
+      "run_group": "synthetic-th-en"
+    },
+    {
+      "id": "th-04",
+      "verdict": "pass",
+      "reason": "保留人物间的借出/借入方向、昨天及书的所有权；名字的常见转写差异不改变人物关系。 保留 older sister 的长幼关系；Malee/Mali 是同一泰语名字的转写。",
+      "source": "หนังสือที่มาลีให้ก้องยืมเมื่อวานเป็นของพี่สาวของมาลี",
+      "translation": "The book Malee lent Kong yesterday belongs to Malee's older sister.",
+      "target_lang": "en",
+      "run_group": "synthetic-th-en"
+    },
+    {
+      "id": "th-05",
+      "verdict": "pass",
+      "reason": "保留完整字母数字代码、确认/批准的状态，以及包裹/订单尚未寄出的否定。",
+      "source": "รหัสF-07ปรากฏข้างคำว่า“ยืนยันแล้ว”แต่ยังไม่ได้ส่งพัสดุ",
+      "translation": "The code F-07 appears next to the word \"confirmed,\" but the parcel hasn't been sent yet.",
+      "target_lang": "en",
+      "run_group": "synthetic-th-en"
+    },
+    {
+      "id": "th-06",
+      "verdict": "pass",
+      "reason": "保留先出发却后到达的让步关系、两个人物及十分钟的时间差。",
+      "source": "แม้พลอยจะออกเดินทางก่อนนัทแต่เธอก็มาถึงหลังเขาสิบนาที",
+      "translation": "Even though Ploy set off before Nat, she arrived ten minutes after him.",
+      "target_lang": "en",
+      "run_group": "synthetic-th-en"
+    },
+    {
+      "id": "th-07",
+      "verdict": "pass",
+      "reason": "保留文件接收人、经理/主管批准第二版的条件，以及批准前不得发送的限制。",
+      "source": "อย่าส่งไฟล์ให้นิดาจนกว่าผู้จัดการจะอนุมัติฉบับที่สอง",
+      "translation": "在经理批准第二版之前，不要把文件发给妮达。",
+      "target_lang": "zh-Hans",
+      "run_group": "synthetic-th-zh-Hans"
+    },
+    {
+      "id": "th-08",
+      "verdict": "pass",
+      "reason": "保留购买大米、2.5 公斤、晚饭后与剩下一半的事实。",
+      "source": "เราซื้อข้าวสาร2.5กิโลกรัมและหลังอาหารเย็นยังเหลืออยู่ครึ่งหนึ่ง",
+      "translation": "我们买了 2.5 公斤大米，晚饭后还剩一半。",
+      "target_lang": "zh-Hans",
+      "run_group": "synthetic-th-zh-Hans"
+    }
+  ],
+  "evidence": {
+    "de-07": [
+      "runs/synthetic-de-zh-Hans/result.json",
+      "runs/synthetic-de-zh-Hans-fix/result.json"
+    ],
+    "es-06": [
+      "runs/synthetic-es-en/result.json",
+      "runs/synthetic-es-en-fix/result.json"
+    ]
+  }
+}

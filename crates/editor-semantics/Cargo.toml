@@ -1,0 +1,12 @@
+[package]
+name = "editor-semantics"
+description = "BaoCut 的时间语义：精确有理数、十进制秒、帧量化、时间映射（视频格式规范 §2）"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[dependencies]
+message-ref.workspace = true
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"

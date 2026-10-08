@@ -1,0 +1,33 @@
+{
+  "id": "dragonfly",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "loop",
+  "order": 8,
+  "period": 1.6,
+  "amplitudes": {
+    "dx": 0.0037,
+    "dy": 0.003
+  },
+  "wave": {
+    "kind": "sine",
+    "samples": 32
+  },
+  "channelSeedStride": 101,
+  "defaultSeed": 17,
+  "envelope": {
+    "kind": "idle-ramp-v1",
+    "rampCap": 0.3,
+    "rampFraction": 0.15,
+    "tailThresholdSec": 6.0,
+    "tailStart": 0.8,
+    "tailSpan": 0.2
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

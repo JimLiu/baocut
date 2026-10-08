@@ -1,0 +1,143 @@
+{
+  "schema": "baocut-caption-style/1",
+  "id": "caption-neon-accent",
+  "version": 1,
+  "title": "Neon accent",
+  "description": "Words land with an accent-colored neon pulse.",
+  "tags": [
+    "social",
+    "vfx"
+  ],
+  "scripts": [
+    "latin",
+    "cjk"
+  ],
+  "aspects": [
+    "16:9",
+    "9:16",
+    "1:1"
+  ],
+  "cjk": "good",
+  "layout": "lowerThird",
+  "family": "neonAccent",
+  "layers": [
+    "glyphDuplicate",
+    "glyphs"
+  ],
+  "glowLayers": 3,
+  "glyphDuplicateLayers": 3,
+  "channels": [
+    "opacity",
+    "scaleX",
+    "scaleY",
+    "glowGain",
+    "colorMix",
+    "dx"
+  ],
+  "tunables": [
+    {
+      "key": "intensity",
+      "kind": "number",
+      "min": 0,
+      "max": 100,
+      "default": 60
+    },
+    {
+      "key": "speed",
+      "kind": "number",
+      "min": 0.35,
+      "max": 2,
+      "default": 1
+    }
+  ],
+  "events": [
+    {
+      "trigger": "word.enter",
+      "operator": "transform",
+      "channels": [
+        "opacity",
+        "scaleX",
+        "scaleY"
+      ],
+      "easing": "backOut",
+      "duration": 0.3,
+      "keyframes": {
+        "opacity": [
+          {"offset": 0, "value": 0},
+          {"offset": 1, "value": 1}
+        ],
+        "scaleX": [
+          {"offset": 0, "value": 0.86, "ease": "easeOutCubic"},
+          {"offset": 1, "value": 1}
+        ],
+        "scaleY": [
+          {"offset": 0, "value": 0.86, "ease": "easeOutCubic"},
+          {"offset": 1, "value": 1}
+        ]
+      }
+    },
+    {
+      "trigger": "word.active",
+      "operator": "glow",
+      "channels": ["glowGain", "colorMix", "dx"],
+      "easing": "easeInOut",
+      "attack": 0.1,
+      "release": 0.4,
+      "procedural": "seededWiggle",
+      "byRole": true,
+      "keyframes": {
+        "glowGain": [
+          {"offset": 0, "value": 0},
+          {"offset": 1, "value": 1.4}
+        ],
+        "colorMix": [
+          {"offset": 0, "value": 0},
+          {"offset": 1, "value": 1}
+        ],
+        "dx": [
+          {"offset": 0, "value": 0},
+          {"offset": 1, "value": 0}
+        ]
+      },
+      "jitter": {"step": 0.06, "amplitude": 0.012}
+    }
+  ],
+  "composite": "screen",
+  "hardKill": true,
+  "visibility": {"hold": 0.5, "gapBeforeNext": 0.05, "hardKillAfter": 0.45},
+  "seeded": true,
+  "assets": [],
+  "fonts": [
+    {
+      "role": "sans",
+      "family": "Inter",
+      "weights": [
+        400,
+        600,
+        800
+      ],
+      "fallback": [
+        "SF Pro",
+        "PingFang SC",
+        "Hiragino Sans"
+      ],
+      "substitution": "substitute",
+      "license": "OFL-1.1"
+    },
+    {
+      "role": "sansHeavy",
+      "family": "Inter",
+      "weights": [
+        700,
+        900
+      ],
+      "fallback": [
+        "SF Pro Display",
+        "PingFang SC Semibold",
+        "Hiragino Sans W6"
+      ],
+      "substitution": "metric-safe",
+      "license": "OFL-1.1"
+    }
+  ]
+}

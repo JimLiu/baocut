@@ -1,0 +1,599 @@
+{
+  "diagnostics": {},
+  "issues": [],
+  "mode": "lean",
+  "pageRejected": false,
+  "retryIds": [],
+  "rows": [
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              5
+            ],
+            "tgt": [
+              0,
+              21
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              6,
+              15
+            ],
+            "tgt": [
+              21,
+              71
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Lalita did not cancel",
+            "to": 5
+          },
+          {
+            "from": 6,
+            "text": "the meeting but postponed it to Thursday at 14:30.",
+            "to": 15
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15"
+        ]
+      },
+      "chunks": 3,
+      "coarse": false,
+      "frozen": false,
+      "id": "th-01",
+      "issues": [],
+      "locatedChunks": 3,
+      "minChunks": 3,
+      "n": 1,
+      "realTiming": false,
+      "source": "ลลิตาไม่ได้ยกเลิกการประชุมแต่เลื่อนไปเป็นวันพฤหัสบดีเวลา14:30น.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Lalita did not cancel the meeting but postponed it to Thursday at 14:30."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              4
+            ],
+            "tgt": [
+              0,
+              30
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "anchor"
+            ],
+            "src": [
+              5,
+              9
+            ],
+            "tgt": [
+              30,
+              40
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              10,
+              14
+            ],
+            "tgt": [
+              40,
+              75
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              15,
+              18
+            ],
+            "tgt": [
+              75,
+              86
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "If the temperature drops below",
+            "to": 4
+          },
+          {
+            "from": 5,
+            "text": "5 degrees,",
+            "to": 9
+          },
+          {
+            "from": 10,
+            "text": "close the windows before turning on",
+            "to": 14
+          },
+          {
+            "from": 15,
+            "text": "the heater.",
+            "to": 18
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15",
+          "w16",
+          "w17",
+          "w18"
+        ]
+      },
+      "chunks": 4,
+      "coarse": false,
+      "frozen": false,
+      "id": "th-02",
+      "issues": [],
+      "locatedChunks": 4,
+      "minChunks": 3,
+      "n": 2,
+      "realTiming": false,
+      "source": "ถ้าอุณหภูมิลดลงต่ำกว่า5องศาให้ปิดหน้าต่างก่อนเปิดเครื่องทำความร้อน",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "If the temperature drops below 5 degrees, close the windows before turning on the heater."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              5
+            ],
+            "tgt": [
+              0,
+              21
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              10
+            ],
+            "tgt": [
+              21,
+              50
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              11,
+              15
+            ],
+            "tgt": [
+              50,
+              74
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Non paid 120 baht for",
+            "to": 5
+          },
+          {
+            "from": 6,
+            "text": "three tickets, but this price",
+            "to": 10
+          },
+          {
+            "from": 11,
+            "text": "does not include dinner.",
+            "to": 15
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15"
+        ]
+      },
+      "chunks": 3,
+      "coarse": false,
+      "frozen": false,
+      "id": "th-03",
+      "issues": [],
+      "locatedChunks": 3,
+      "minChunks": 3,
+      "n": 3,
+      "realTiming": false,
+      "source": "นนท์จ่ายเงิน120บาทสำหรับตั๋วสามใบแต่ราคานี้ไม่รวมอาหารเย็น",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Non paid 120 baht for three tickets, but this price does not include dinner."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              4
+            ],
+            "tgt": [
+              0,
+              29
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              5,
+              9
+            ],
+            "tgt": [
+              29,
+              57
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              10,
+              13
+            ],
+            "tgt": [
+              57,
+              70
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "The book that Malee lent Kong",
+            "to": 4
+          },
+          {
+            "from": 5,
+            "text": "yesterday belongs to Malee's",
+            "to": 9
+          },
+          {
+            "from": 10,
+            "text": "older sister.",
+            "to": 13
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13"
+        ]
+      },
+      "chunks": 3,
+      "coarse": false,
+      "frozen": false,
+      "id": "th-04",
+      "issues": [],
+      "locatedChunks": 3,
+      "minChunks": 3,
+      "n": 4,
+      "realTiming": false,
+      "source": "หนังสือที่มาลีให้ก้องยืมเมื่อวานเป็นของพี่สาวของมาลี",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "The book that Malee lent Kong yesterday belongs to Malee's older sister."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              8
+            ],
+            "tgt": [
+              0,
+              51
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              9,
+              14
+            ],
+            "tgt": [
+              51,
+              88
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "The code F-07 appears next to the word “ confirmed”",
+            "to": 8
+          },
+          {
+            "from": 9,
+            "text": "but the parcel has not yet been sent.",
+            "to": 14
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14"
+        ]
+      },
+      "chunks": 3,
+      "coarse": false,
+      "frozen": false,
+      "id": "th-05",
+      "issues": [],
+      "locatedChunks": 3,
+      "minChunks": 3,
+      "n": 5,
+      "realTiming": false,
+      "source": "รหัสF-07ปรากฏข้างคำว่า“ยืนยันแล้ว”แต่ยังไม่ได้ส่งพัสดุ",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "The code F-07 appears next to the word “ confirmed” but the parcel has not yet been sent."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              5
+            ],
+            "tgt": [
+              0,
+              31
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              10
+            ],
+            "tgt": [
+              31,
+              53
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              11,
+              15
+            ],
+            "tgt": [
+              53,
+              75
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Even though Ploy set off before",
+            "to": 5
+          },
+          {
+            "from": 6,
+            "text": "Nat, she still arrived",
+            "to": 10
+          },
+          {
+            "from": 11,
+            "text": "ten minutes after him.",
+            "to": 15
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15"
+        ]
+      },
+      "chunks": 3,
+      "coarse": false,
+      "frozen": false,
+      "id": "th-06",
+      "issues": [],
+      "locatedChunks": 3,
+      "minChunks": 3,
+      "n": 6,
+      "realTiming": false,
+      "source": "แม้พลอยจะออกเดินทางก่อนนัทแต่เธอก็มาถึงหลังเขาสิบนาที",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Even though Ploy set off before Nat, she still arrived ten minutes after him."
+    }
+  ],
+  "schema": "lean-carrier-grade/2",
+  "totals": {
+    "acceptedTranslations": 6,
+    "aligned": 6,
+    "chunks": 19,
+    "coarse": 0,
+    "expectedSentences": 6,
+    "locatedChunks": 19,
+    "sentencesWithAnchorIssues": 0,
+    "syntaxOrPermissionIssues": 0,
+    "translationRetries": 0
+  }
+}

@@ -1,0 +1,1949 @@
+{
+  "documents": [
+    {
+      "hostInputs": null,
+      "id": "launch",
+      "ir": {
+        "audioClips": [],
+        "cameraClips": [
+          {
+            "channel": {
+              "frames": [
+                {
+                  "ease": null,
+                  "t": 9.2,
+                  "v": {
+                    "x": 0,
+                    "y": 0,
+                    "zoom": 1
+                  }
+                },
+                {
+                  "ease": "easeInOutCubic",
+                  "t": 12.94,
+                  "v": {
+                    "x": 260,
+                    "y": 60,
+                    "zoom": 1.45
+                  }
+                },
+                {
+                  "ease": null,
+                  "t": 16.0,
+                  "v": {
+                    "x": 260,
+                    "y": 60,
+                    "zoom": 1.45
+                  }
+                }
+              ],
+              "meta": null,
+              "prop": "camera",
+              "samples": [
+                {
+                  "t": 8.95,
+                  "v": {
+                    "x": 0,
+                    "y": 0,
+                    "zoom": 1
+                  }
+                },
+                {
+                  "t": 9.2,
+                  "v": {
+                    "x": 0,
+                    "y": 0,
+                    "zoom": 1
+                  }
+                },
+                {
+                  "t": 11.07,
+                  "v": {
+                    "x": 130.00000000000017,
+                    "y": 30.00000000000004,
+                    "zoom": 1.2250000000000003
+                  }
+                },
+                {
+                  "t": 12.94,
+                  "v": {
+                    "x": 260.0,
+                    "y": 60.0,
+                    "zoom": 1.45
+                  }
+                },
+                {
+                  "t": 14.469999999999999,
+                  "v": {
+                    "x": 260.0,
+                    "y": 60.0,
+                    "zoom": 1.45
+                  }
+                },
+                {
+                  "t": 16.0,
+                  "v": {
+                    "x": 260,
+                    "y": 60,
+                    "zoom": 1.45
+                  }
+                },
+                {
+                  "t": 16.25,
+                  "v": {
+                    "x": 260,
+                    "y": 60,
+                    "zoom": 1.45
+                  }
+                }
+              ]
+            },
+            "end": 16.0,
+            "start": 9.2
+          },
+          {
+            "channel": {
+              "frames": [
+                {
+                  "ease": null,
+                  "t": 16.0,
+                  "v": {
+                    "x": 0,
+                    "y": 0,
+                    "zoom": 1.06
+                  }
+                },
+                {
+                  "ease": "easeInOutSine",
+                  "t": 20.0,
+                  "v": {
+                    "x": 0,
+                    "y": 0,
+                    "zoom": 1
+                  }
+                }
+              ],
+              "meta": null,
+              "prop": "camera",
+              "samples": [
+                {
+                  "t": 15.75,
+                  "v": {
+                    "x": 0,
+                    "y": 0,
+                    "zoom": 1.06
+                  }
+                },
+                {
+                  "t": 16.0,
+                  "v": {
+                    "x": 0,
+                    "y": 0,
+                    "zoom": 1.06
+                  }
+                },
+                {
+                  "t": 18.0,
+                  "v": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "zoom": 1.03
+                  }
+                },
+                {
+                  "t": 20.0,
+                  "v": {
+                    "x": 0,
+                    "y": 0,
+                    "zoom": 1
+                  }
+                },
+                {
+                  "t": 20.25,
+                  "v": {
+                    "x": 0,
+                    "y": 0,
+                    "zoom": 1
+                  }
+                }
+              ]
+            },
+            "end": 20.0,
+            "start": 16.0
+          }
+        ],
+        "meta": {
+          "bg": {
+            "a": 1.0,
+            "b": 14.0,
+            "g": 11.0,
+            "r": 11.0
+          },
+          "fps": 30.0,
+          "h": 1080.0,
+          "total": 20.0,
+          "w": 1920.0
+        },
+        "visualClips": [
+          {
+            "end": 3.0,
+            "id": "opening-shot",
+            "nodes": [
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 0.0,
+                        "v": 0
+                      },
+                      {
+                        "ease": "easeInOutSine",
+                        "t": 1.1,
+                        "v": 1
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "pathDraw",
+                    "samples": [
+                      {
+                        "t": -0.25,
+                        "v": 0
+                      },
+                      {
+                        "t": 0.0,
+                        "v": 0
+                      },
+                      {
+                        "t": 0.55,
+                        "v": 0.49999999999999994
+                      },
+                      {
+                        "t": 1.1,
+                        "v": 1
+                      },
+                      {
+                        "t": 1.35,
+                        "v": 1
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.0,
+                "ntype": "path",
+                "path": "stage/logo/logo-ring"
+              },
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 0.5,
+                        "v": 0
+                      },
+                      {
+                        "ease": "easeInOutSine",
+                        "t": 1.4,
+                        "v": 1
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "pathDraw",
+                    "samples": [
+                      {
+                        "t": 0.25,
+                        "v": 0
+                      },
+                      {
+                        "t": 0.5,
+                        "v": 0
+                      },
+                      {
+                        "t": 0.95,
+                        "v": 0.49999999999999994
+                      },
+                      {
+                        "t": 1.4,
+                        "v": 1
+                      },
+                      {
+                        "t": 1.65,
+                        "v": 1
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.0,
+                "ntype": "path",
+                "path": "stage/logo/logo-b"
+              },
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 0.9,
+                        "v": 0
+                      },
+                      {
+                        "ease": null,
+                        "t": 1.5,
+                        "v": 1
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "opacity",
+                    "samples": [
+                      {
+                        "t": 0.65,
+                        "v": 0
+                      },
+                      {
+                        "t": 0.9,
+                        "v": 0
+                      },
+                      {
+                        "t": 1.2,
+                        "v": 0.4999999999999999
+                      },
+                      {
+                        "t": 1.5,
+                        "v": 1
+                      },
+                      {
+                        "t": 1.75,
+                        "v": 1
+                      }
+                    ]
+                  },
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 0.9,
+                        "v": 28
+                      },
+                      {
+                        "ease": "easeOutCubic",
+                        "t": 1.5,
+                        "v": 0
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "y",
+                    "samples": [
+                      {
+                        "t": 0.65,
+                        "v": 28
+                      },
+                      {
+                        "t": 0.9,
+                        "v": 28
+                      },
+                      {
+                        "t": 1.2,
+                        "v": 3.5000000000000036
+                      },
+                      {
+                        "t": 1.5,
+                        "v": 0
+                      },
+                      {
+                        "t": 1.75,
+                        "v": 0
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.0,
+                "ntype": "text",
+                "path": "stage/title"
+              }
+            ],
+            "order": 0,
+            "renderEnd": 3.25,
+            "renderStart": 0.0,
+            "start": 0.0,
+            "wrapChannels": [
+              {
+                "frames": [
+                  {
+                    "ease": null,
+                    "t": 2.75,
+                    "v": 1.0
+                  },
+                  {
+                    "ease": "easeInOutSine",
+                    "t": 3.25,
+                    "v": 0.0
+                  }
+                ],
+                "meta": null,
+                "prop": "opacity",
+                "samples": [
+                  {
+                    "t": 2.5,
+                    "v": 1.0
+                  },
+                  {
+                    "t": 2.75,
+                    "v": 1.0
+                  },
+                  {
+                    "t": 3.0,
+                    "v": 0.5
+                  },
+                  {
+                    "t": 3.25,
+                    "v": 0.0
+                  },
+                  {
+                    "t": 3.5,
+                    "v": 0.0
+                  }
+                ]
+              }
+            ],
+            "z": 0.0
+          },
+          {
+            "end": 8.0,
+            "id": "problem-shot",
+            "nodes": [
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 3.3,
+                        "v": 0
+                      },
+                      {
+                        "ease": null,
+                        "t": 3.8,
+                        "v": 1
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "opacity",
+                    "samples": [
+                      {
+                        "t": 3.05,
+                        "v": 0
+                      },
+                      {
+                        "t": 3.3,
+                        "v": 0
+                      },
+                      {
+                        "t": 3.55,
+                        "v": 0.5
+                      },
+                      {
+                        "t": 3.8,
+                        "v": 1
+                      },
+                      {
+                        "t": 4.05,
+                        "v": 1
+                      }
+                    ]
+                  },
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 3.3,
+                        "v": 28
+                      },
+                      {
+                        "ease": "easeOutCubic",
+                        "t": 3.8,
+                        "v": 0
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "y",
+                    "samples": [
+                      {
+                        "t": 3.05,
+                        "v": 28
+                      },
+                      {
+                        "t": 3.3,
+                        "v": 28
+                      },
+                      {
+                        "t": 3.55,
+                        "v": 3.5
+                      },
+                      {
+                        "t": 3.8,
+                        "v": 0
+                      },
+                      {
+                        "t": 4.05,
+                        "v": 0
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.0,
+                "ntype": "text",
+                "path": "stage/heading"
+              },
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 3.5,
+                        "v": 0
+                      },
+                      {
+                        "ease": null,
+                        "t": 4.05,
+                        "v": 1
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "opacity",
+                    "samples": [
+                      {
+                        "t": 3.25,
+                        "v": 0
+                      },
+                      {
+                        "t": 3.5,
+                        "v": 0
+                      },
+                      {
+                        "t": 3.775,
+                        "v": 0.5
+                      },
+                      {
+                        "t": 4.05,
+                        "v": 1
+                      },
+                      {
+                        "t": 4.3,
+                        "v": 1
+                      }
+                    ]
+                  },
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 3.5,
+                        "v": 48
+                      },
+                      {
+                        "ease": "easeOutCubic",
+                        "t": 4.05,
+                        "v": 0
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "y",
+                    "samples": [
+                      {
+                        "t": 3.25,
+                        "v": 48
+                      },
+                      {
+                        "t": 3.5,
+                        "v": 48
+                      },
+                      {
+                        "t": 3.775,
+                        "v": 6.0
+                      },
+                      {
+                        "t": 4.05,
+                        "v": 0
+                      },
+                      {
+                        "t": 4.3,
+                        "v": 0
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.0,
+                "ntype": "box",
+                "path": "stage/pain-cards/pain-cards-0"
+              },
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 3.0,
+                        "v": 0
+                      },
+                      {
+                        "ease": "easeOutCubic",
+                        "t": 4.0,
+                        "v": 72
+                      }
+                    ],
+                    "meta": {
+                      "decimals": 0,
+                      "prefix": "",
+                      "suffix": "%",
+                      "to": 72
+                    },
+                    "prop": "textCount",
+                    "samples": [
+                      {
+                        "t": 2.75,
+                        "v": 0
+                      },
+                      {
+                        "t": 3.0,
+                        "v": 0
+                      },
+                      {
+                        "t": 3.5,
+                        "v": 63.0
+                      },
+                      {
+                        "t": 4.0,
+                        "v": 72
+                      },
+                      {
+                        "t": 4.25,
+                        "v": 72
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.0,
+                "ntype": "text",
+                "path": "stage/pain-cards/pain-cards-0/card/value"
+              },
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 3.72,
+                        "v": 0
+                      },
+                      {
+                        "ease": null,
+                        "t": 4.2700000000000005,
+                        "v": 1
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "opacity",
+                    "samples": [
+                      {
+                        "t": 3.47,
+                        "v": 0
+                      },
+                      {
+                        "t": 3.72,
+                        "v": 0
+                      },
+                      {
+                        "t": 3.995,
+                        "v": 0.4999999999999996
+                      },
+                      {
+                        "t": 4.2700000000000005,
+                        "v": 1
+                      },
+                      {
+                        "t": 4.5200000000000005,
+                        "v": 1
+                      }
+                    ]
+                  },
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 3.72,
+                        "v": 48
+                      },
+                      {
+                        "ease": "easeOutCubic",
+                        "t": 4.2700000000000005,
+                        "v": 0
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "y",
+                    "samples": [
+                      {
+                        "t": 3.47,
+                        "v": 48
+                      },
+                      {
+                        "t": 3.72,
+                        "v": 48
+                      },
+                      {
+                        "t": 3.995,
+                        "v": 6.000000000000014
+                      },
+                      {
+                        "t": 4.2700000000000005,
+                        "v": 0
+                      },
+                      {
+                        "t": 4.5200000000000005,
+                        "v": 0
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.22,
+                "ntype": "box",
+                "path": "stage/pain-cards/pain-cards-1"
+              },
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 3.0,
+                        "v": 0
+                      },
+                      {
+                        "ease": "easeOutCubic",
+                        "t": 4.0,
+                        "v": 45
+                      }
+                    ],
+                    "meta": {
+                      "decimals": 0,
+                      "prefix": "",
+                      "suffix": "%",
+                      "to": 45
+                    },
+                    "prop": "textCount",
+                    "samples": [
+                      {
+                        "t": 2.75,
+                        "v": 0
+                      },
+                      {
+                        "t": 3.0,
+                        "v": 0
+                      },
+                      {
+                        "t": 3.5,
+                        "v": 39.375
+                      },
+                      {
+                        "t": 4.0,
+                        "v": 45
+                      },
+                      {
+                        "t": 4.25,
+                        "v": 45
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.0,
+                "ntype": "text",
+                "path": "stage/pain-cards/pain-cards-1/card/value"
+              },
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 3.94,
+                        "v": 0
+                      },
+                      {
+                        "ease": null,
+                        "t": 4.49,
+                        "v": 1
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "opacity",
+                    "samples": [
+                      {
+                        "t": 3.69,
+                        "v": 0
+                      },
+                      {
+                        "t": 3.94,
+                        "v": 0
+                      },
+                      {
+                        "t": 4.215,
+                        "v": 0.4999999999999996
+                      },
+                      {
+                        "t": 4.49,
+                        "v": 1
+                      },
+                      {
+                        "t": 4.74,
+                        "v": 1
+                      }
+                    ]
+                  },
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 3.94,
+                        "v": 48
+                      },
+                      {
+                        "ease": "easeOutCubic",
+                        "t": 4.49,
+                        "v": 0
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "y",
+                    "samples": [
+                      {
+                        "t": 3.69,
+                        "v": 48
+                      },
+                      {
+                        "t": 3.94,
+                        "v": 48
+                      },
+                      {
+                        "t": 4.215,
+                        "v": 6.000000000000014
+                      },
+                      {
+                        "t": 4.49,
+                        "v": 0
+                      },
+                      {
+                        "t": 4.74,
+                        "v": 0
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.44,
+                "ntype": "box",
+                "path": "stage/pain-cards/pain-cards-2"
+              },
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 3.0,
+                        "v": 0
+                      },
+                      {
+                        "ease": "easeOutCubic",
+                        "t": 4.0,
+                        "v": 89
+                      }
+                    ],
+                    "meta": {
+                      "decimals": 0,
+                      "prefix": "",
+                      "suffix": "%",
+                      "to": 89
+                    },
+                    "prop": "textCount",
+                    "samples": [
+                      {
+                        "t": 2.75,
+                        "v": 0
+                      },
+                      {
+                        "t": 3.0,
+                        "v": 0
+                      },
+                      {
+                        "t": 3.5,
+                        "v": 77.875
+                      },
+                      {
+                        "t": 4.0,
+                        "v": 89
+                      },
+                      {
+                        "t": 4.25,
+                        "v": 89
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.0,
+                "ntype": "text",
+                "path": "stage/pain-cards/pain-cards-2/card/value"
+              }
+            ],
+            "order": 1,
+            "renderEnd": 8.3,
+            "renderStart": 2.75,
+            "start": 3.0,
+            "wrapChannels": [
+              {
+                "frames": [
+                  {
+                    "ease": null,
+                    "t": 2.75,
+                    "v": 0.0
+                  },
+                  {
+                    "ease": "easeInOutSine",
+                    "t": 3.25,
+                    "v": 1.0
+                  }
+                ],
+                "meta": null,
+                "prop": "opacity",
+                "samples": [
+                  {
+                    "t": 2.5,
+                    "v": 0.0
+                  },
+                  {
+                    "t": 2.75,
+                    "v": 0.0
+                  },
+                  {
+                    "t": 3.0,
+                    "v": 0.49999999999999994
+                  },
+                  {
+                    "t": 3.25,
+                    "v": 1.0
+                  },
+                  {
+                    "t": 3.5,
+                    "v": 1.0
+                  }
+                ]
+              },
+              {
+                "frames": [
+                  {
+                    "ease": null,
+                    "t": 7.7,
+                    "v": 0.0
+                  },
+                  {
+                    "ease": "easeInOutCubic",
+                    "t": 8.3,
+                    "v": -1920.0
+                  }
+                ],
+                "meta": null,
+                "prop": "x",
+                "samples": [
+                  {
+                    "t": 7.45,
+                    "v": 0.0
+                  },
+                  {
+                    "t": 7.7,
+                    "v": 0.0
+                  },
+                  {
+                    "t": 8.0,
+                    "v": -959.9999999999958
+                  },
+                  {
+                    "t": 8.3,
+                    "v": -1920.0
+                  },
+                  {
+                    "t": 8.55,
+                    "v": -1920.0
+                  }
+                ]
+              }
+            ],
+            "z": 0.0
+          },
+          {
+            "end": 16.0,
+            "id": "growth-shot",
+            "nodes": [
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 7.6,
+                        "v": 60
+                      },
+                      {
+                        "ease": "easeInOutCubic",
+                        "t": 8.6,
+                        "v": 0
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "x",
+                    "samples": [
+                      {
+                        "t": 7.35,
+                        "v": 60
+                      },
+                      {
+                        "t": 7.6,
+                        "v": 60
+                      },
+                      {
+                        "t": 8.1,
+                        "v": 30.0
+                      },
+                      {
+                        "t": 8.6,
+                        "v": 0
+                      },
+                      {
+                        "t": 8.85,
+                        "v": 0
+                      }
+                    ]
+                  },
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 7.6,
+                        "v": 0
+                      },
+                      {
+                        "ease": null,
+                        "t": 8.4,
+                        "v": 1
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "opacity",
+                    "samples": [
+                      {
+                        "t": 7.35,
+                        "v": 0
+                      },
+                      {
+                        "t": 7.6,
+                        "v": 0
+                      },
+                      {
+                        "t": 8.0,
+                        "v": 0.5
+                      },
+                      {
+                        "t": 8.4,
+                        "v": 1
+                      },
+                      {
+                        "t": 8.65,
+                        "v": 1
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.0,
+                "ntype": "text",
+                "path": "stage/heading"
+              },
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 8.4,
+                        "v": 0
+                      },
+                      {
+                        "ease": null,
+                        "t": 8.8,
+                        "v": 1
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "opacity",
+                    "samples": [
+                      {
+                        "t": 8.15,
+                        "v": 0
+                      },
+                      {
+                        "t": 8.4,
+                        "v": 0
+                      },
+                      {
+                        "t": 8.600000000000001,
+                        "v": 0.5000000000000022
+                      },
+                      {
+                        "t": 8.8,
+                        "v": 1
+                      },
+                      {
+                        "t": 9.05,
+                        "v": 1
+                      }
+                    ]
+                  },
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 8.4,
+                        "v": 28
+                      },
+                      {
+                        "ease": "easeOutCubic",
+                        "t": 8.8,
+                        "v": 0
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "y",
+                    "samples": [
+                      {
+                        "t": 8.15,
+                        "v": 28
+                      },
+                      {
+                        "t": 8.4,
+                        "v": 28
+                      },
+                      {
+                        "t": 8.600000000000001,
+                        "v": 3.499999999999954
+                      },
+                      {
+                        "t": 8.8,
+                        "v": 0
+                      },
+                      {
+                        "t": 9.05,
+                        "v": 0
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.0,
+                "ntype": "box",
+                "path": "stage/bars/bars-0"
+              },
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 8.0,
+                        "v": 0
+                      },
+                      {
+                        "ease": "easeOutQuart",
+                        "t": 9.2,
+                        "v": 0.14
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "scaleY",
+                    "samples": [
+                      {
+                        "t": 7.75,
+                        "v": 0
+                      },
+                      {
+                        "t": 8.0,
+                        "v": 0
+                      },
+                      {
+                        "t": 8.6,
+                        "v": 0.13125
+                      },
+                      {
+                        "t": 9.2,
+                        "v": 0.14
+                      },
+                      {
+                        "t": 9.45,
+                        "v": 0.14
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.0,
+                "ntype": "box",
+                "path": "stage/bars/bars-0/slot/bar"
+              },
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 8.75,
+                        "v": 0
+                      },
+                      {
+                        "ease": null,
+                        "t": 9.15,
+                        "v": 1
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "opacity",
+                    "samples": [
+                      {
+                        "t": 8.5,
+                        "v": 0
+                      },
+                      {
+                        "t": 8.75,
+                        "v": 0
+                      },
+                      {
+                        "t": 8.95,
+                        "v": 0.4999999999999978
+                      },
+                      {
+                        "t": 9.15,
+                        "v": 1
+                      },
+                      {
+                        "t": 9.4,
+                        "v": 1
+                      }
+                    ]
+                  },
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 8.75,
+                        "v": 28
+                      },
+                      {
+                        "ease": "easeOutCubic",
+                        "t": 9.15,
+                        "v": 0
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "y",
+                    "samples": [
+                      {
+                        "t": 8.5,
+                        "v": 28
+                      },
+                      {
+                        "t": 8.75,
+                        "v": 28
+                      },
+                      {
+                        "t": 8.95,
+                        "v": 3.500000000000046
+                      },
+                      {
+                        "t": 9.15,
+                        "v": 0
+                      },
+                      {
+                        "t": 9.4,
+                        "v": 0
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.35,
+                "ntype": "box",
+                "path": "stage/bars/bars-1"
+              },
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 8.0,
+                        "v": 0
+                      },
+                      {
+                        "ease": "easeOutQuart",
+                        "t": 9.2,
+                        "v": 0.43
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "scaleY",
+                    "samples": [
+                      {
+                        "t": 7.75,
+                        "v": 0
+                      },
+                      {
+                        "t": 8.0,
+                        "v": 0
+                      },
+                      {
+                        "t": 8.6,
+                        "v": 0.403125
+                      },
+                      {
+                        "t": 9.2,
+                        "v": 0.43
+                      },
+                      {
+                        "t": 9.45,
+                        "v": 0.43
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.0,
+                "ntype": "box",
+                "path": "stage/bars/bars-1/slot/bar"
+              },
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 9.1,
+                        "v": 0
+                      },
+                      {
+                        "ease": null,
+                        "t": 9.5,
+                        "v": 1
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "opacity",
+                    "samples": [
+                      {
+                        "t": 8.85,
+                        "v": 0
+                      },
+                      {
+                        "t": 9.1,
+                        "v": 0
+                      },
+                      {
+                        "t": 9.3,
+                        "v": 0.5000000000000022
+                      },
+                      {
+                        "t": 9.5,
+                        "v": 1
+                      },
+                      {
+                        "t": 9.75,
+                        "v": 1
+                      }
+                    ]
+                  },
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 9.1,
+                        "v": 28
+                      },
+                      {
+                        "ease": "easeOutCubic",
+                        "t": 9.5,
+                        "v": 0
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "y",
+                    "samples": [
+                      {
+                        "t": 8.85,
+                        "v": 28
+                      },
+                      {
+                        "t": 9.1,
+                        "v": 28
+                      },
+                      {
+                        "t": 9.3,
+                        "v": 3.499999999999954
+                      },
+                      {
+                        "t": 9.5,
+                        "v": 0
+                      },
+                      {
+                        "t": 9.75,
+                        "v": 0
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.7,
+                "ntype": "box",
+                "path": "stage/bars/bars-2"
+              },
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 8.0,
+                        "v": 0
+                      },
+                      {
+                        "ease": "easeOutQuart",
+                        "t": 9.2,
+                        "v": 1
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "scaleY",
+                    "samples": [
+                      {
+                        "t": 7.75,
+                        "v": 0
+                      },
+                      {
+                        "t": 8.0,
+                        "v": 0
+                      },
+                      {
+                        "t": 8.6,
+                        "v": 0.9375
+                      },
+                      {
+                        "t": 9.2,
+                        "v": 1
+                      },
+                      {
+                        "t": 9.45,
+                        "v": 1
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.0,
+                "ntype": "box",
+                "path": "stage/bars/bars-2/slot/bar"
+              },
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 13.6,
+                        "v": 1
+                      },
+                      {
+                        "ease": "easeOutBack",
+                        "t": 13.93,
+                        "v": 1.14
+                      },
+                      {
+                        "ease": "easeInOutQuad",
+                        "t": 14.2,
+                        "v": 1
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "scale",
+                    "samples": [
+                      {
+                        "t": 13.35,
+                        "v": 1
+                      },
+                      {
+                        "t": 13.6,
+                        "v": 1
+                      },
+                      {
+                        "t": 13.765,
+                        "v": 1.15227765
+                      },
+                      {
+                        "t": 13.93,
+                        "v": 1.14
+                      },
+                      {
+                        "t": 14.065,
+                        "v": 1.0699999999999998
+                      },
+                      {
+                        "t": 14.2,
+                        "v": 1
+                      },
+                      {
+                        "t": 14.45,
+                        "v": 1
+                      }
+                    ]
+                  },
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 12.4,
+                        "v": 0
+                      },
+                      {
+                        "ease": "easeOutQuad",
+                        "t": 12.966666666666667,
+                        "v": 1
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "opacity",
+                    "samples": [
+                      {
+                        "t": 12.15,
+                        "v": 0
+                      },
+                      {
+                        "t": 12.4,
+                        "v": 0
+                      },
+                      {
+                        "t": 12.683333333333334,
+                        "v": 0.75
+                      },
+                      {
+                        "t": 12.966666666666667,
+                        "v": 1
+                      },
+                      {
+                        "t": 13.216666666666667,
+                        "v": 1
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.0,
+                "ntype": "text",
+                "path": "stage/callout"
+              }
+            ],
+            "order": 2,
+            "renderEnd": 16.25,
+            "renderStart": 7.7,
+            "start": 8.0,
+            "wrapChannels": [
+              {
+                "frames": [
+                  {
+                    "ease": null,
+                    "t": 7.7,
+                    "v": 1920.0
+                  },
+                  {
+                    "ease": "easeInOutCubic",
+                    "t": 8.3,
+                    "v": 0.0
+                  }
+                ],
+                "meta": null,
+                "prop": "x",
+                "samples": [
+                  {
+                    "t": 7.45,
+                    "v": 1920.0
+                  },
+                  {
+                    "t": 7.7,
+                    "v": 1920.0
+                  },
+                  {
+                    "t": 8.0,
+                    "v": 960.0000000000042
+                  },
+                  {
+                    "t": 8.3,
+                    "v": 0.0
+                  },
+                  {
+                    "t": 8.55,
+                    "v": 0.0
+                  }
+                ]
+              },
+              {
+                "frames": [
+                  {
+                    "ease": null,
+                    "t": 15.75,
+                    "v": 1.0
+                  },
+                  {
+                    "ease": "easeInOutSine",
+                    "t": 16.25,
+                    "v": 0.0
+                  }
+                ],
+                "meta": null,
+                "prop": "opacity",
+                "samples": [
+                  {
+                    "t": 15.5,
+                    "v": 1.0
+                  },
+                  {
+                    "t": 15.75,
+                    "v": 1.0
+                  },
+                  {
+                    "t": 16.0,
+                    "v": 0.5
+                  },
+                  {
+                    "t": 16.25,
+                    "v": 0.0
+                  },
+                  {
+                    "t": 16.5,
+                    "v": 0.0
+                  }
+                ]
+              }
+            ],
+            "z": 0.0
+          },
+          {
+            "end": 20.0,
+            "id": "outro-shot",
+            "nodes": [
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 16.0,
+                        "v": 0
+                      },
+                      {
+                        "ease": "easeInOutSine",
+                        "t": 16.8,
+                        "v": 1
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "pathDraw",
+                    "samples": [
+                      {
+                        "t": 15.75,
+                        "v": 0
+                      },
+                      {
+                        "t": 16.0,
+                        "v": 0
+                      },
+                      {
+                        "t": 16.4,
+                        "v": 0.4999999999999965
+                      },
+                      {
+                        "t": 16.8,
+                        "v": 1
+                      },
+                      {
+                        "t": 17.05,
+                        "v": 1
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.0,
+                "ntype": "path",
+                "path": "stage/logo/logo-ring2"
+              },
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 16.3,
+                        "v": 0
+                      },
+                      {
+                        "ease": "easeInOutSine",
+                        "t": 17.0,
+                        "v": 1
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "pathDraw",
+                    "samples": [
+                      {
+                        "t": 16.05,
+                        "v": 0
+                      },
+                      {
+                        "t": 16.3,
+                        "v": 0
+                      },
+                      {
+                        "t": 16.65,
+                        "v": 0.49999999999999595
+                      },
+                      {
+                        "t": 17.0,
+                        "v": 1
+                      },
+                      {
+                        "t": 17.25,
+                        "v": 1
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.0,
+                "ntype": "path",
+                "path": "stage/logo/logo-b2"
+              },
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 16.35,
+                        "v": 0
+                      },
+                      {
+                        "ease": null,
+                        "t": 16.950000000000003,
+                        "v": 1
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "opacity",
+                    "samples": [
+                      {
+                        "t": 16.1,
+                        "v": 0
+                      },
+                      {
+                        "t": 16.35,
+                        "v": 0
+                      },
+                      {
+                        "t": 16.650000000000002,
+                        "v": 0.5
+                      },
+                      {
+                        "t": 16.950000000000003,
+                        "v": 1
+                      },
+                      {
+                        "t": 17.200000000000003,
+                        "v": 1
+                      }
+                    ]
+                  },
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 16.35,
+                        "v": 28
+                      },
+                      {
+                        "ease": "easeOutCubic",
+                        "t": 16.950000000000003,
+                        "v": 0
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "y",
+                    "samples": [
+                      {
+                        "t": 16.1,
+                        "v": 28
+                      },
+                      {
+                        "t": 16.35,
+                        "v": 28
+                      },
+                      {
+                        "t": 16.650000000000002,
+                        "v": 3.5
+                      },
+                      {
+                        "t": 16.950000000000003,
+                        "v": 0
+                      },
+                      {
+                        "t": 17.200000000000003,
+                        "v": 0
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.0,
+                "ntype": "text",
+                "path": "stage/slogan"
+              },
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 16.7,
+                        "v": 0
+                      },
+                      {
+                        "ease": null,
+                        "t": 17.2,
+                        "v": 1
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "opacity",
+                    "samples": [
+                      {
+                        "t": 16.45,
+                        "v": 0
+                      },
+                      {
+                        "t": 16.7,
+                        "v": 0
+                      },
+                      {
+                        "t": 16.95,
+                        "v": 0.5
+                      },
+                      {
+                        "t": 17.2,
+                        "v": 1
+                      },
+                      {
+                        "t": 17.45,
+                        "v": 1
+                      }
+                    ]
+                  },
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 16.7,
+                        "v": 28
+                      },
+                      {
+                        "ease": "easeOutCubic",
+                        "t": 17.2,
+                        "v": 0
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "y",
+                    "samples": [
+                      {
+                        "t": 16.45,
+                        "v": 28
+                      },
+                      {
+                        "t": 16.7,
+                        "v": 28
+                      },
+                      {
+                        "t": 16.95,
+                        "v": 3.5
+                      },
+                      {
+                        "t": 17.2,
+                        "v": 0
+                      },
+                      {
+                        "t": 17.45,
+                        "v": 0
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.0,
+                "ntype": "text",
+                "path": "stage/cta"
+              }
+            ],
+            "order": 3,
+            "renderEnd": 20.0,
+            "renderStart": 15.75,
+            "start": 16.0,
+            "wrapChannels": [
+              {
+                "frames": [
+                  {
+                    "ease": null,
+                    "t": 15.75,
+                    "v": 0.0
+                  },
+                  {
+                    "ease": "easeInOutSine",
+                    "t": 16.25,
+                    "v": 1.0
+                  }
+                ],
+                "meta": null,
+                "prop": "opacity",
+                "samples": [
+                  {
+                    "t": 15.5,
+                    "v": 0.0
+                  },
+                  {
+                    "t": 15.75,
+                    "v": 0.0
+                  },
+                  {
+                    "t": 16.0,
+                    "v": 0.49999999999999994
+                  },
+                  {
+                    "t": 16.25,
+                    "v": 1.0
+                  },
+                  {
+                    "t": 16.5,
+                    "v": 1.0
+                  }
+                ]
+              }
+            ],
+            "z": 0.0
+          }
+        ]
+      },
+      "path": "core/fixtures/launch-golden/launch.bcut.json"
+    }
+  ],
+  "generator": "cargo test -p bcut-core --test motion_channels_baseline（BCUT_UPDATE_GOLDEN=1 重生成）",
+  "note": "core/fixtures/launch-golden/launch.bcut.json 的通道语义基线（阶段 0）。"
+}

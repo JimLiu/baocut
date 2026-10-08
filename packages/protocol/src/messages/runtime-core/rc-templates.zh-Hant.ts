@@ -1,0 +1,26 @@
+import type { RcTemplatesMessages } from './rc-templates.ts';
+
+export const zhHant: RcTemplatesMessages = {
+  builtinConflict: (p) => `已有 id 為「${p.id}」的內建範本，因此未載入這一份。請變更 id（資料夾名稱）後再加入`,
+  templateNotFound: (p) => `找不到範本：${p.id}`,
+  fileNotRegistered: (p) => `範本「${p.id}」未列出這個檔案：${p.file}`,
+  dirIsSymlink: '範本資料夾是符號連結，不會跟隨。請加入範本資料夾本身',
+  duplicateId: (p) => `同一個資料夾中有多個 id 為「${p.id}」的範本，全部都未載入`,
+  templateInvalid: '範本無效，未載入',
+  unsupportedSchema: '這個版本無法辨識清單的 schema，因此未載入範本',
+  missingFile: (p) => `缺少 ${p.file}`,
+  fileOverBytes: (p) => `${p.file} 超過 ${p.limit} 位元組`,
+  fileOverBytesActual: (p) => `${p.file} 超過 ${p.limit} 位元組（${p.size}）`,
+  fileNotUtf8: (p) => `${p.file} 不是有效的 UTF-8`,
+  fileNotJson: (p) => `${p.file} 不是有效的 JSON`,
+  fileEmpty: (p) => `${p.file} 是空的`,
+  registeredFileMissing: (p) => `列出的檔案不存在：${p.file}`,
+  pathOutsideTemplate: (p) => `路徑超出範本資料夾：${p.file}`,
+  unregisteredFile: (p) => `資料夾中有未列出的檔案：${p.file}`,
+  tooManyEntries: (p) => `資料夾中的項目超過 ${p.limit} 個`,
+  noSymlinks: (p) => `不允許符號連結：${p.path}`,
+  notRegularFile: (p) => `不是一般檔案：${p.path}`,
+  cannotReadDir: (p) => `無法讀取範本資料夾（${p.code}）`,
+  notScene: (p) => `「${p.title}」是作品範例：請將它的提示詞放進訊息框直接傳送，不必附加範本`,
+  assetNotRegistered: (p) => `範本「${p.id}」未列出這個素材：${p.asset}`,
+};

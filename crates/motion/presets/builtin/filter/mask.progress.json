@@ -1,0 +1,32 @@
+{
+  "id": "mask.progress",
+  "version": 1,
+  "domain": "mask",
+  "inputs": 1,
+  "params": {
+    "progress": {
+      "type": "number",
+      "default": 1,
+      "min": 0,
+      "max": 1
+    },
+    "invert": {
+      "type": "bool",
+      "default": false
+    }
+  },
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "kernel": "linear-reveal-coverage",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "clamp",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "doc": "水平进度擦除，**逐行等价于 studio_export 的 apply_horizontal_reveal**：boundary = progress × width，coverage = clamp(boundary - x, 0, 1)。progress ∈ [0,1] 闭区间，0 = 全透明、1 = 原样。"
+}

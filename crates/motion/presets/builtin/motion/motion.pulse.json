@@ -1,0 +1,52 @@
+{
+  "id": "motion.pulse",
+  "version": 1,
+  "domain": "motion",
+  "family": "pulse",
+  "doc": "呼吸式放大后回落。composite=multiply，与主运动的 scale 相乘。",
+  "aliases": [
+    "pulse",
+    "pop"
+  ],
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "scale": {
+      "type": "number",
+      "default": 1.06,
+      "min": 0.0,
+      "doc": "峰值缩放"
+    },
+    "curve": {
+      "type": "curve",
+      "default": "easeOutBack",
+      "doc": "时间曲线（规范 §7.6 的封闭名称）"
+    }
+  },
+  "tracks": [
+    {
+      "prop": "scale",
+      "composite": "multiply",
+      "order": 0,
+      "frames": [
+        {
+          "t": "0%",
+          "v": 1
+        },
+        {
+          "t": "55%",
+          "v": "{scale}",
+          "ease": "{curve}"
+        },
+        {
+          "t": "100%",
+          "v": 1,
+          "ease": "easeInOutQuad"
+        }
+      ]
+    }
+  ],
+  "determinism": "strict",
+  "capabilities": []
+}

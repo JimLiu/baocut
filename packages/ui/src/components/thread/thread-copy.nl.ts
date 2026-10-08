@@ -1,0 +1,8 @@
+import { pluralForm } from '@baocut/protocol';
+import type { ThreadMessages } from './thread-copy.ts';
+export const nl: ThreadMessages = {
+  withDetail: (text, detail) => `${text} (${detail})`, copy: 'Kopiëren', copied: 'Gekopieerd', copyFailed: 'Kopiëren mislukt. Probeer opnieuw.', copyCode: 'Code kopiëren', copyReply: 'Antwoord van deze beurt kopiëren',
+  change: { added: (n) => `${n} toegevoegd`, updated: (n) => `${n} gewijzigd`, deleted: (n) => `${n} verwijderd`, duration: (clock) => `Duur ${clock}`, durationChange: (before, after) => `Duur ${before} → ${after}`, revision: (before, after) => `Versie ${before} → ${after}`, locked: 'De video kan tijdelijk niet worden gewijzigd', undoStep: (videoName, label) => `Een stap in ‘${videoName}’ ongedaan gemaakt: ${label}`, changed: (videoName, label) => `‘${videoName}’ gewijzigd: ${label}`, aria: (label) => `Videowijziging: ${label}` },
+  message: { contextTitle: 'Editorstatus meegestuurd met het bericht', context: (videoName, revision, playhead, selected) => `‘${videoName}’ · Versie ${revision} · Afspeelkop ${playhead}${selected ? ` · ${pluralForm('nl', selected, { one: `${selected} fragment geselecteerd`, other: `${selected} fragmenten geselecteerd` })}` : ''}` }, output: { aria: (name, detail) => `${name}, ${detail}` },
+  steps: { working: (summary) => `Bezig · ${summary}`, failed: (n) => pluralForm('nl', n, { one: `${n} stap mislukt`, other: `${n} stappen mislukt` }), thinking: 'Denken', viewFile: (name) => `${name} bekijken`, input: 'Invoer', error: 'Fout', output: 'Uitvoer', waiting: 'Wachten op uitvoer', noOutput: 'Geen uitvoer' },
+};

@@ -1,0 +1,25 @@
+import type { ToolsImageMessages } from './tools-image-copy.ts';
+
+export const tr: ToolsImageMessages = {
+  emptyPrompt: 'Önce görseli tarif edin',
+  promptTooLong: (n, max) => `İstem ${n} karakter · bu model en fazla ${max} kabul eder`,
+  maxImages: (max) => `Bir seferde en fazla ${max} görsel`,
+  seedInteger: 'Tohum tam sayı olmalı',
+  pickModel: 'Önce bir model seçin',
+  downloadFirst: (label) => `Önce ${label} indirin`,
+  connectFirst: (provider) => `Önce ${provider} sağlayıcısını bağlayın`,
+  local: 'Bu bilgisayarda',
+  steps: (n) => `${n} adım`,
+  deviceTime: 'Süre cihazınıza bağlıdır',
+  offline: 'Çevrimdışı çalışır',
+  images: (n) => `${n} görsel`,
+  aspects: (n) => `${n} en boy oranı`,
+  providerSize: 'Boyutu sağlayıcı belirler',
+  takesSeed: 'Tohum kabul eder',
+  localChip: 'Bu bilgisayarda oluşturulur · çevrimdışı',
+  cloudChip: (provider) => `Çevrimiçi · ${provider} · kullanıma göre ücretlendirilir`,
+  imageName: (n) => `Görsel ${n}`,
+  seed: (seed) => `Tohum ${seed}`,
+  decoding: 'Çözülüyor',
+  stepOf: (done, total) => `Adım ${done}/${total}`,
+};

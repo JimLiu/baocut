@@ -1,0 +1,100 @@
+/* S2 owns control geometry, color, focus and interaction states. These rules only
+   place controls in BaoCut's app frame (product-design §2.1, §2.5, §5.1). */
+.bc-rsp-root { height: 100%; }
+.bc-picker { position: relative; display: inline-flex; min-width: 0; }
+.bc-picker--wide { display: flex; }
+.bc-picker--wide > button { width: 100%; }
+.bc-field { min-width: 0; }
+.bc-slider { flex: 1; min-width: 0; }
+.bc-composer-field { width: 100%; }
+.bc-popover { max-width: calc(100vw - 32px); }
+.bc-context-anchor { position: fixed; width: 1px; height: 1px; pointer-events: none; }
+.bc-menu-heading { margin: 0; padding: 8px 12px; font-size: 12px; }
+/* 行图标占了图标槽时，当前项的勾放在名字右边（ui-spectrum.jsx `item`） */
+.bc-menu-check { display: flex; align-items: center; color: var(--blue-900); }
+.bc-button > .ic, .bc-icon-button > .ic { flex-shrink: 0; }
+/* Screen buttons may contain thumbnails, status lines or several inline fields.
+   Keep those content arrangements while S2 supplies the control and focus ring. */
+:where(.bc-screen-action) { display: inline-flex; align-items: center; justify-content: normal; height: auto; min-height: 24px; width: auto; grid-template-areas: none; grid-template-columns: none; }
+.bc-field--area textarea { min-height: 72px; }
+
+/* Native AI surfaces; wrappers only arrange product actions and attachments. */
+.bc-ai-prompt { min-width: 0; width: 100%; }
+/* PromptTokenField 的提示词是输入区自己的 :empty::before（data-placeholder），继承正文色，
+   聚焦时和已输入的文字一样深；按 .field::placeholder 的做法降到 gray-500（product-design §2.6）。 */
+.bc-ai-prompt [role="textbox"][data-placeholder]:empty::before { color: var(--gray-500); }
+.bc-ai-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; width: 100%; min-width: 0; }
+.bc-ai-toolbar > .bc-picker:last-of-type { margin-inline-start: auto; }
+.bc-ai-toolbar .bc-picker { min-width: 0; max-width: 260px; }
+.bc-ai-toolbar .bc-picker > button { min-width: 0; max-width: 100%; }
+.bc-ai-attachments { min-width: 0; margin-bottom: 16px; }
+.bc-ai-suggestions { margin-top: 16px; }
+.numf__i input { text-align: right; font-variant-numeric: tabular-nums; }
+.bc-choice-picker { width: max-content; max-width: 100%; flex-shrink: 0; }
+.bc-choice-picker.bc-picker--wide { width: 100%; flex-shrink: 1; }
+.bc-action-label { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; }
+.bc-trailing-icon { display: inline-flex; flex-shrink: 0; }
+.bc-trailing-icon svg { width: 14px; height: 14px; }
+.bc-help-dialog .help-center { position: static; width: 100%; max-width: none; margin: 0; border: none; box-shadow: none; }
+.bc-tweaks { position: static; width: 100%; max-height: 70vh; box-shadow: none; border: none; }
+
+.bc-export-popover { position: static; width: 100%; max-height: calc(100vh - 96px); overflow-y: auto; box-shadow: none; border-radius: 0; background: transparent; }
+
+/* Native fields and disclosures retain S2 geometry; only product layout is specified. */
+.bc-value-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 4px 8px; padding-block: 8px; }
+.bc-value-row__slider { width: 100%; min-width: 0; }
+.bc-value-row__detail { grid-column: 1 / -1; text-align: end; font-size: 12px; color: var(--gray-600); }
+.bc-value-row__input { padding: 16px; }
+.bc-color-area { width: 100%; height: 160px; }
+.cpanel { display: flex; flex-direction: column; gap: 8px; }
+.bc-color-format { flex: 0 0 80px; min-width: 0; }
+.bc-color-field { flex: 1 1 auto; min-width: 0; }
+.numf__i { width: 80px; }
+
+.bc-ai-home { position: relative; z-index: 1; }
+.bc-ai-home.is-over { outline: 2px solid var(--blue-900); outline-offset: 2px; }
+.bc-ai-message-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.bc-ai-sent-attachments { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.bc-ai-sent-preview { width: 80px; height: 64px; object-fit: cover; }
+
+.bc-ai-reference-preview, .bc-ai-reference-preview > * { width: 32px; height: 32px; object-fit: cover; flex-shrink: 0; }
+
+.imgen__refs > .bc-ai-attachments { width: 100%; margin-bottom: 0; }
+
+/* Workflow icon canvases, product-design §2.1: the App rail is the only 20px
+   scope; every other S2 workflow icon (page body, sidebars, menus, popovers,
+   dialogs) is a fixed 16px canvas. Matched by the S2 workflow signature
+   (role=img + 20×20 viewBox), so S2 UI glyphs, artwork, thumbnails and the
+   video canvas keep their own sizing. Exclusions: 12px UI glyphs (section
+   chevrons, tab close), Space kind previews (32/48) and icon tiles. */
+.apprail svg[role="img"] {
+  width: var(--bc-icon-primary);
+  height: var(--bc-icon-primary);
+  flex-shrink: 0;
+}
+svg[role="img"][viewBox="0 0 20 20"]:not(:where(
+  .apprail svg, .hs-head__chevron svg, .home-tabs__close svg, .home-tabs__ghost > svg:last-child,
+  .sp-prev--kind > svg, .toolcard__ic svg, .svc__mark svg, .chat-output__icon svg, .media-audio__icon svg)),
+.setpage__nav .ic {
+  width: var(--bc-icon-compact);
+  height: var(--bc-icon-compact);
+  flex-shrink: 0;
+}
+/* Icon tiles (40–48px badges on tool / service cards and chat outputs) are
+   identity marks, not actions: one 20px glyph for all of them. */
+:is(.toolcard__ic, .svc__mark, .chat-output__icon, .media-audio__icon, .agset-avatar) svg[role="img"] {
+  width: var(--bc-icon-primary);
+  height: var(--bc-icon-primary);
+}
+
+/* Attachment open and remove actions are separate S2 buttons. */
+.bc-ai-attachment-open { display: flex; align-items: center; gap: 8px; padding: 0; background: transparent; min-width: 0; max-width: 280px; }
+.bc-ai-attachment-open [data-slot="content"] { min-width: 0; }
+.bc-ai-sent-file { display: inline-flex; gap: 8px; align-items: center; padding: 8px; max-width: 280px; }
+.bc-ai-sent-file > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bc-attachment-preview { display: flex; flex-direction: column; padding: 16px; gap: 12px; min-height: 240px; }
+.bc-attachment-preview > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.bc-attachment-preview > header strong { overflow-wrap: anywhere; }
+.bc-attachment-preview > img { max-width: 100%; max-height: 70vh; object-fit: contain; }
+.file-preview__uploaded-pdf { width: 100%; height: 100%; min-height: 480px; border: 0; flex: 1; }

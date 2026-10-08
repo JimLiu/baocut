@@ -1,0 +1,17 @@
+[package]
+name = "render-graph"
+description = "BaoCut 的帧计划（架构设计 §9）：某一时刻画面上有哪些层、怎么摆、各自的源时间，以及哪些声音在响。纯函数，原生导出与 WASM 预览共用"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[dependencies]
+editor-semantics.workspace = true
+video-model.workspace = true
+# 几何（`place` 换成像素框）用 v2 元素模型的单一实现。
+timeline.workspace = true
+# 三角函数与取整走 libm：std 的同名方法在原生与 wasm32 上末位可能不同，预览与导出要逐位一致。
+libm = "0.2.16"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"

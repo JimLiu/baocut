@@ -1,0 +1,2 @@
+import type { EffectsPanelMessages } from './effects-panel.ts';
+export const nl: EffectsPanelMessages = { color: { brightness: 'Helderheid', contrast: 'Contrast', saturation: 'Verzadiging', temperature: 'Temperatuur', hue: 'Tint' }, other: { filterPreset: 'Filtervoorinstelling', effectPreset: 'Effectvoorinstelling', grayscale: 'Grijstinten', exposure: 'Belichting', sharpen: 'Verscherpen', noise: 'Ruis', vignette: 'Vignet' } };

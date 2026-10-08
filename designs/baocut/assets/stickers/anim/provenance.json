@@ -1,0 +1,2040 @@
+{
+  "dyn-collage-01.json": {
+    "pack": "Collage",
+    "name": "dyn-collage-01.json",
+    "bytes": 14001,
+    "sha256": "6d52938b41d99861dc43fb6cf68a4feaa5315b8437a6383b5137357fd50122a4",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f308"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f308/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#FF5117",
+      "#F9D81E",
+      "#00C0E9",
+      "#97CC37",
+      "#FF8E00",
+      "#8177FA"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.0,
+    "cat": "Collage",
+    "title": "Rainbow"
+  },
+  "dyn-collage-02.json": {
+    "pack": "Collage",
+    "name": "dyn-collage-02.json",
+    "bytes": 73372,
+    "sha256": "e8c46183441ba1c16282830515e107ce57e1295ab6d0b6a07954bd1e7b25d02a",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f31f"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f31f/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#FFC107",
+      "#F4B400",
+      "#FFFF8D",
+      "#FDD835",
+      "#212121"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.783,
+    "cat": "Collage",
+    "title": "Glowing Star"
+  },
+  "dyn-collage-03.json": {
+    "pack": "Collage",
+    "name": "dyn-collage-03.json",
+    "bytes": 12998,
+    "sha256": "9f4ddc73a872fae3c3e566e45f91fd5673018613ba591ebb8a3eb08e20d79918",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f3b6"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f3b6/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#546E7A"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.0,
+    "cat": "Collage",
+    "title": "Musical Notes"
+  },
+  "dyn-collage-04.json": {
+    "pack": "Collage",
+    "name": "dyn-collage-04.json",
+    "bytes": 28403,
+    "sha256": "adc6dd662c2fe163d90cc81fd1f1d0a0cc4770197fcc65c79a4ed4b22bdd97a5",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f440"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f440/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#B4C1C8",
+      "#9DB0BB",
+      "#FAFAFA"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.0,
+    "cat": "Collage",
+    "title": "Eyes"
+  },
+  "dyn-collage-05.json": {
+    "pack": "Collage",
+    "name": "dyn-collage-05.json",
+    "bytes": 41058,
+    "sha256": "06cf87f9f91989b6cf730123702d8d5759a2a93a5efcfdfb85553450cb99f0a2",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f44d"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f44d/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#FFCA28",
+      "#FAA700",
+      "#B55E19",
+      "#19B52B"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.2,
+    "cat": "Collage",
+    "title": "Thumbs Up"
+  },
+  "dyn-collage-06.json": {
+    "pack": "Collage",
+    "name": "dyn-collage-06.json",
+    "bytes": 139123,
+    "sha256": "db575af555fb90c35c03db472ea4e758868abdc9c3487903578e86cb91d98f49",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f44f"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f44f/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#BDCCD4",
+      "#B55E19",
+      "#FAA700",
+      "#FFCA28"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 0.733,
+    "cat": "Collage",
+    "title": "Clap"
+  },
+  "dyn-collage-07.json": {
+    "pack": "Collage",
+    "name": "dyn-collage-07.json",
+    "bytes": 87429,
+    "sha256": "60ff88ed211e6730bcff5fb53659c7df9da3030db96c138233e51ebb83e8b2af",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f494"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f494/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#CC3333",
+      "#F44336",
+      "#FF8A80"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 3.3,
+    "cat": "Collage",
+    "title": "Broken Heart"
+  },
+  "dyn-collage-08.json": {
+    "pack": "Collage",
+    "name": "dyn-collage-08.json",
+    "bytes": 12624,
+    "sha256": "3190c9060190c27f792457efc7a1b939cf78bc72ee08d917b5b95d531f94148f",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f495"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f495/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#F386AB",
+      "#DA2E75",
+      "#EF5592"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.233,
+    "cat": "Collage",
+    "title": "Two Hearts"
+  },
+  "dyn-collage-09.json": {
+    "pack": "Collage",
+    "name": "dyn-collage-09.json",
+    "bytes": 87997,
+    "sha256": "b2d6e4f82ea56e548fb2ad980a1f8e4206b34af652bf12fa158a89353ecb0683",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f4a5"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f4a5/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#D1D1D1",
+      "#C7C7C7",
+      "#F44336",
+      "#FFF06E",
+      "#FFEB3B",
+      "#FFA000",
+      "#FFFFFF",
+      "#FFF7B0"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.267,
+    "cat": "Collage",
+    "title": "Collision"
+  },
+  "dyn-collage-10.json": {
+    "pack": "Collage",
+    "name": "dyn-collage-10.json",
+    "bytes": 80813,
+    "sha256": "1e497cb9b17ac8ea09f07ed729c30ddbe94dd1b221bd935a16ff03fe3dbed8a7",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f4ab"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f4ab/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#F49D00",
+      "#FFFF8D",
+      "#212121",
+      "#F4B400",
+      "#FDD835",
+      "#FF4F4F"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.2,
+    "cat": "Collage",
+    "title": "Shooting Star"
+  },
+  "dyn-collage-11.json": {
+    "pack": "Collage",
+    "name": "dyn-collage-11.json",
+    "bytes": 9549,
+    "sha256": "ad8dd128265f5164850b290ac4b00ed0f52026ca46874c6b25194b819b181f13",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f4ac"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f4ac/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#54646D",
+      "#000000",
+      "#FFFFFF"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 4.067,
+    "cat": "Collage",
+    "title": "Speech Bubble"
+  },
+  "dyn-collage-12.json": {
+    "pack": "Collage",
+    "name": "dyn-collage-12.json",
+    "bytes": 66302,
+    "sha256": "67946960e077156d0ad17f3c64aabcf7c28c12fd43d51a080a549d95869564ff",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f4af"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f4af/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#F44336"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.25,
+    "cat": "Collage",
+    "title": "100"
+  },
+  "dyn-collage-13.json": {
+    "pack": "Collage",
+    "name": "dyn-collage-13.json",
+    "bytes": 29519,
+    "sha256": "44aa8c8f8d2e395e944134b525b7c36d4bddc5e3a2a355da4ed5cc3654f3aeff",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f525"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [],
+    "motion": null,
+    "animated": true,
+    "duration": 1.083,
+    "cat": "Collage",
+    "title": "Fire"
+  },
+  "dyn-collage-14.json": {
+    "pack": "Collage",
+    "name": "dyn-collage-14.json",
+    "bytes": 38072,
+    "sha256": "5fd8eddefaf72abef73861d7547304188afb608390ffd0afddaa4da11485a403",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f5ef_fe0f"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f5ef_fe0f/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#2F2F2F",
+      "#FFFFFF"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.167,
+    "cat": "Collage",
+    "title": "Anger Bubble"
+  },
+  "dyn-collage-15.json": {
+    "pack": "Collage",
+    "name": "dyn-collage-15.json",
+    "bytes": 89263,
+    "sha256": "d8ab3fc35ebfa86ce12d951a3e3594530a09db51292213cc07c076cceddebdfd",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/26a1"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/26a1/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#FEB804",
+      "#FFE567",
+      "#FFC927"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.383,
+    "cat": "Collage",
+    "title": "Electricity"
+  },
+  "dyn-collage-16.json": {
+    "pack": "Collage",
+    "name": "dyn-collage-16.json",
+    "bytes": 15748,
+    "sha256": "98ab5bc02c6f10922d4d4e7859c662a66e60c2abeb5d9367d06984347084d475",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/2728"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/2728/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#F4B400",
+      "#FFEE58",
+      "#FDD835"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.033,
+    "cat": "Collage",
+    "title": "Sparkles"
+  },
+  "dyn-collage-17.json": {
+    "pack": "Collage",
+    "name": "dyn-collage-17.json",
+    "bytes": 8604,
+    "sha256": "dd290dfac16790ada3d93e3ba732450947a5630de6e1e0376da179cde8140732",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/2764_fe0f"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/2764_fe0f/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#FF8A80",
+      "#CC3233",
+      "#F44236"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.833,
+    "cat": "Collage",
+    "title": "Red Heart"
+  },
+  "dyn-collage-18.json": {
+    "pack": "Collage",
+    "name": "dyn-collage-18.json",
+    "bytes": 12217,
+    "sha256": "7e7169bfa0e4b26f14fdacfa80de7aa1b919d56416fdfb489a58cf4c398e4839",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/2b50"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/2b50/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#FFFF8D",
+      "#F4B400",
+      "#FDD835"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.433,
+    "cat": "Collage",
+    "title": "Star"
+  },
+  "dyn-emoji-01.json": {
+    "pack": "Emoji",
+    "name": "dyn-emoji-01.json",
+    "bytes": 200909,
+    "sha256": "94e952c6f7a04732613d28cffc9d16d610712294ccf94ec29ed8efc7ed46b1d6",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f47b"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f47b/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#E0E0E0",
+      "#CCCCCC",
+      "#422B0D",
+      "#FFFFFF",
+      "#AB3F2E"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.4,
+    "cat": "Emoji",
+    "title": "Ghost"
+  },
+  "dyn-emoji-02.json": {
+    "pack": "Emoji",
+    "name": "dyn-emoji-02.json",
+    "bytes": 226819,
+    "sha256": "f7f3f2629f6ef47010b07bc03e055b24ff85a9926e9f01d6143921b3f3ac3ac5",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f480"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f480/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#8ABFD1",
+      "#597C87",
+      "#719CAB",
+      "#424242",
+      "#3D545C",
+      "#384D54",
+      "#E1E7EA"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 5.0,
+    "cat": "Emoji",
+    "title": "Skull"
+  },
+  "dyn-emoji-03.json": {
+    "pack": "Emoji",
+    "name": "dyn-emoji-03.json",
+    "bytes": 257682,
+    "sha256": "47e7d28f35470e139397332337ed69d1cc4215757d8a24e2699a556fce6ce402",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f4a9"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f4a9/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#35220B",
+      "#949494",
+      "#885742",
+      "#FFFFFF"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.4,
+    "cat": "Emoji",
+    "title": "Poop"
+  },
+  "dyn-emoji-04.json": {
+    "pack": "Emoji",
+    "name": "dyn-emoji-04.json",
+    "bytes": 37490,
+    "sha256": "63429c17e6bbfc76cc7b53fe4e1a18d8d6613ef80b0c59431e7a02a6a44697a9",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f600"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f600/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#422B0D",
+      "#EB8F00",
+      "#896024",
+      "#FFFFFF",
+      "#ED7770",
+      "#362B1C"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.333,
+    "cat": "Emoji",
+    "title": "Smile"
+  },
+  "dyn-emoji-05.json": {
+    "pack": "Emoji",
+    "name": "dyn-emoji-05.json",
+    "bytes": 59284,
+    "sha256": "c9a895ffdd3037766dc43bf6d12391bda99fa84cc4f7c6a733d318847bfbdf23",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f602"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f602/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#422B0D",
+      "#81D4FA",
+      "#29B6F6",
+      "#EB8F00",
+      "#FFFFFF",
+      "#ED7770"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.967,
+    "cat": "Emoji",
+    "title": "Joy"
+  },
+  "dyn-emoji-06.json": {
+    "pack": "Emoji",
+    "name": "dyn-emoji-06.json",
+    "bytes": 42503,
+    "sha256": "dc19346c794643d0f847701cfdb97e2c85a24f76bbc98bd73e19baeb008bd9aa",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f60d"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f60d/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#C62828",
+      "#FF847A",
+      "#F44336",
+      "#422B0D",
+      "#EC776F",
+      "#EB8F00"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.717,
+    "cat": "Emoji",
+    "title": "Heart Eyes"
+  },
+  "dyn-emoji-07.json": {
+    "pack": "Emoji",
+    "name": "dyn-emoji-07.json",
+    "bytes": 25579,
+    "sha256": "c8ec1cce73a3f08e852665cf10839f5be3ce24a07eeee29a162b55c3bc9180ce",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f60e"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f60e/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#422B0D",
+      "#896024",
+      "#EB8F00"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.417,
+    "cat": "Emoji",
+    "title": "Sunglasses Face"
+  },
+  "dyn-emoji-08.json": {
+    "pack": "Emoji",
+    "name": "dyn-emoji-08.json",
+    "bytes": 46450,
+    "sha256": "484e04b55f1cde11216107ac360e0c1b747ceb285073fa0913e6b070ec20bd80",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f621"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f621/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#422B0D",
+      "#896024",
+      "#EC776F"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 3.0,
+    "cat": "Emoji",
+    "title": "Rage"
+  },
+  "dyn-emoji-09.json": {
+    "pack": "Emoji",
+    "name": "dyn-emoji-09.json",
+    "bytes": 119720,
+    "sha256": "2bc97ca962bf467b2c12e7f791f5db25803f68c67b9f89fd218674dcfa1ed120",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f62d"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f62d/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#27B5F4",
+      "#422B0D",
+      "#81D3F9",
+      "#FFFFFF",
+      "#2CB7F4",
+      "#EB8F00"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.0,
+    "cat": "Emoji",
+    "title": "Loudly Crying"
+  },
+  "dyn-emoji-10.json": {
+    "pack": "Emoji",
+    "name": "dyn-emoji-10.json",
+    "bytes": 29681,
+    "sha256": "f52fa167f7d147e2ccd658ee78ca1aea9fcb2001aac228b787307fdf5ce2e240",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f644"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f644/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#422B0D",
+      "#F4A223",
+      "#FFFFFF",
+      "#EB8F00"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 3.267,
+    "cat": "Emoji",
+    "title": "Rolling Eyes"
+  },
+  "dyn-emoji-11.json": {
+    "pack": "Emoji",
+    "name": "dyn-emoji-11.json",
+    "bytes": 68197,
+    "sha256": "bcef766b02341860b8582222b5ab70e8cbc31d764e2c05aee74700c23a0f9120",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f914"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f914/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#EB8F00",
+      "#422B0D",
+      "#896024",
+      "#422B0F"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.0,
+    "cat": "Emoji",
+    "title": "Thinking Face"
+  },
+  "dyn-emoji-12.json": {
+    "pack": "Emoji",
+    "name": "dyn-emoji-12.json",
+    "bytes": 80346,
+    "sha256": "1682ca27781b9c49bb05978998f045ba01cbcb1ba0763493bb0cd7a027490507",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f917"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f917/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#422B0D",
+      "#EB8F00"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.0,
+    "cat": "Emoji",
+    "title": "Hug Face"
+  },
+  "dyn-emoji-13.json": {
+    "pack": "Emoji",
+    "name": "dyn-emoji-13.json",
+    "bytes": 46925,
+    "sha256": "5f7c684052a56aa0a4592f24284c70a7405bf5fd7a14311c0abfaad867fc30a1",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f929"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f929/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#422B0D",
+      "#EB8F00",
+      "#ED7770",
+      "#FFFFFF"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.0,
+    "cat": "Emoji",
+    "title": "Star Struck"
+  },
+  "dyn-emoji-14.json": {
+    "pack": "Emoji",
+    "name": "dyn-emoji-14.json",
+    "bytes": 69408,
+    "sha256": "2936b0fd69d8d281770dd46a256164f87b50b0effe9c55a5b9ee121c136e13d2",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f92a"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f92a/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#422B0D",
+      "#896024",
+      "#AB3F2E",
+      "#FFFFFF",
+      "#FF4081",
+      "#A5236F",
+      "#EB8F00"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.833,
+    "cat": "Emoji",
+    "title": "Zany Face"
+  },
+  "dyn-emoji-15.json": {
+    "pack": "Emoji",
+    "name": "dyn-emoji-15.json",
+    "bytes": 143783,
+    "sha256": "5a92597155244dd92ceba3b8305c229573da5ce42703204976692fe5f9364ae7",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f92f"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f92f/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#422B0D",
+      "#896024",
+      "#D2EDF7",
+      "#FFFFFF",
+      "#B3B3B3",
+      "#92CBEB",
+      "#78C0E8",
+      "#EB8F00"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.9,
+    "cat": "Emoji",
+    "title": "Mind Blown"
+  },
+  "dyn-emoji-16.json": {
+    "pack": "Emoji",
+    "name": "dyn-emoji-16.json",
+    "bytes": 40752,
+    "sha256": "731ccd29fbfdb48a28f199bd4f9baed9e86ceac4e841bfab4a5e9a8a75bfefee",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f971"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f971/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#422B0D",
+      "#EB8F00"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.35,
+    "cat": "Emoji",
+    "title": "Yawn"
+  },
+  "dyn-emoji-17.json": {
+    "pack": "Emoji",
+    "name": "dyn-emoji-17.json",
+    "bytes": 68047,
+    "sha256": "eb950817c349abeb20cf2a56dc149efcb08408dd0b8fd4fa7c194785992b6e8c",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f973"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f973/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#FF4545",
+      "#FF9C9C",
+      "#422B0D",
+      "#7F0099",
+      "#0048FF",
+      "#C93737",
+      "#EB8F00",
+      "#FF82B2"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.8,
+    "cat": "Emoji",
+    "title": "Partying Face"
+  },
+  "dyn-emoji-18.json": {
+    "pack": "Emoji",
+    "name": "dyn-emoji-18.json",
+    "bytes": 45842,
+    "sha256": "684de17afc2e2057514eac6e60e9aad6bec8b655016518c9a7cfb64683d40d76",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f97a"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f97a/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#FFFFFF",
+      "#422B0D",
+      "#EB8F00"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 3.433,
+    "cat": "Emoji",
+    "title": "Pleading"
+  },
+  "dyn-grow-01.json": {
+    "pack": "Growth",
+    "name": "dyn-grow-01.json",
+    "bytes": 18934,
+    "sha256": "ef00ca04ac2d62520a9a09fb30d9e357e5549785723601c24287271ca9f356f7",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f199"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f199/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#FAFAFA",
+      "#A0C8D6",
+      "#8CAFBF",
+      "#427687"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.667,
+    "cat": "Growth",
+    "title": "Up"
+  },
+  "dyn-grow-02.json": {
+    "pack": "Growth",
+    "name": "dyn-grow-02.json",
+    "bytes": 53307,
+    "sha256": "9801de485267a4969f772c3764c0376550cc230ff4a8c6aea6ec8cd903c02300",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f331"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f331/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#99C23B",
+      "#E6DC9F",
+      "#FFFFFF",
+      "#75C6FF"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 5.75,
+    "cat": "Growth",
+    "title": "Plant"
+  },
+  "dyn-grow-03.json": {
+    "pack": "Growth",
+    "name": "dyn-grow-03.json",
+    "bytes": 39394,
+    "sha256": "a627e33e1e9240df332c18b80f9731e64ebdafdadc0c0cf7b07f28dea86652f3",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f33f"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f33f/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#5B9821",
+      "#8DC02C",
+      "#8DC02D"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.6,
+    "cat": "Growth",
+    "title": "Herb"
+  },
+  "dyn-grow-04.json": {
+    "pack": "Growth",
+    "name": "dyn-grow-04.json",
+    "bytes": 88668,
+    "sha256": "931e678a80e4d7e0d3827472c535fc8c2ba8fce67c8328ffa10d97b8a662ead0",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f343"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f343/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#B1E3FF",
+      "#589622",
+      "#8BC12D"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.6,
+    "cat": "Growth",
+    "title": "Leaves"
+  },
+  "dyn-grow-05.json": {
+    "pack": "Growth",
+    "name": "dyn-grow-05.json",
+    "bytes": 46114,
+    "sha256": "bfdb99b2e72cca02e730fb8cebdd861ce5a3b965486b6e3e8869a65267827c22",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f3af"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f3af/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#FF2A23",
+      "#CC1935",
+      "#1F87FD",
+      "#006CA9",
+      "#ACB1B5",
+      "#C8C8C8",
+      "#FB2B22",
+      "#FFFFFF"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.333,
+    "cat": "Growth",
+    "title": "Direct Hit"
+  },
+  "dyn-grow-06.json": {
+    "pack": "Growth",
+    "name": "dyn-grow-06.json",
+    "bytes": 79396,
+    "sha256": "f0dc6c9e46c5f3912fffa3959accb2b2e952c567f2a897d6e0b73ab168cbfe9e",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f3c6"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f3c6/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#D1701C",
+      "#FFA828",
+      "#FFFFFF",
+      "#FF2B2B",
+      "#FF8F00",
+      "#FCC219",
+      "#865C50",
+      "#FFD900"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.267,
+    "cat": "Growth",
+    "title": "Trophy"
+  },
+  "dyn-grow-07.json": {
+    "pack": "Growth",
+    "name": "dyn-grow-07.json",
+    "bytes": 12724,
+    "sha256": "e164e71cb9a945e9decf1c27b2a70f41c44bef5b6990e0fe9b8c95b3ae6f5c29",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f4c8"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f4c8/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#B0BEC5",
+      "#E53935",
+      "#FFFFFF"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.7,
+    "cat": "Growth",
+    "title": "Chart Increasing"
+  },
+  "dyn-grow-08.json": {
+    "pack": "Growth",
+    "name": "dyn-grow-08.json",
+    "bytes": 12726,
+    "sha256": "679d0a159beb13969f015f479568249bfa95ca8fdb7620fd8be3e2416dc77647",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f4c9"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f4c9/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#B0BEC5",
+      "#0B88CF",
+      "#FFFFFF"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.7,
+    "cat": "Growth",
+    "title": "Chart Decreasing"
+  },
+  "dyn-grow-09.json": {
+    "pack": "Growth",
+    "name": "dyn-grow-09.json",
+    "bytes": 15404,
+    "sha256": "f61b3739f37ac334a39be0f9265d93e0ca59beb23e0e0692c01c68c4f48ffe2b",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f4ca"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f4ca/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#B0BEC5",
+      "#9CCC65",
+      "#F44336",
+      "#0091EA",
+      "#FFFFFF"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.967,
+    "cat": "Growth",
+    "title": "Bar Chart"
+  },
+  "dyn-grow-10.json": {
+    "pack": "Growth",
+    "name": "dyn-grow-10.json",
+    "bytes": 81738,
+    "sha256": "f97321e3de09d00c32a0d928580a4991648ef402af46c8cba3193fa0f95cc466",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f680"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f680/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#D9D9D9",
+      "#A02422",
+      "#ED6A65",
+      "#F7D74D",
+      "#CA2C31",
+      "#3F545F",
+      "#D83F22",
+      "#B3E1EE"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 0.667,
+    "cat": "Growth",
+    "title": "Rocket"
+  },
+  "dyn-grow-11.json": {
+    "pack": "Growth",
+    "name": "dyn-grow-11.json",
+    "bytes": 42595,
+    "sha256": "e45ef07ed57b247e25809de5b0c7914df29cec0ffa2a10aa4283c9521a4d518b",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f947"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f947/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#FA912C",
+      "#FEFFFA",
+      "#FCC417",
+      "#FB9E27",
+      "#2E9DF4",
+      "#FDFFFF",
+      "#176CC7"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.0,
+    "cat": "Growth",
+    "title": "Gold Medal"
+  },
+  "dyn-grow-12.json": {
+    "pack": "Growth",
+    "name": "dyn-grow-12.json",
+    "bytes": 574485,
+    "sha256": "6c4d0348b56a02d3eb8059ef8c39c3c54e9b8cb28dbb4e958fe459c52ddc31c0",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1fa99"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1fa99/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#FFF176",
+      "#D38200",
+      "#E08F00",
+      "#BC6F00",
+      "#F2BC1A",
+      "#D68F30",
+      "#FFFFFF",
+      "#E69F09"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 3.15,
+    "cat": "Growth",
+    "title": "Coin"
+  },
+  "dyn-grow-13.json": {
+    "pack": "Growth",
+    "name": "dyn-grow-13.json",
+    "bytes": 16482,
+    "sha256": "35e67090035f6f08d1296fdb42f477e53ad17d6ae359b3462d1d276d6add4eb1",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/267e_fe0f"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/267e_fe0f/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#C37DCF",
+      "#FFFFFF",
+      "#AB47BC",
+      "#8E24AA"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.667,
+    "cat": "Growth",
+    "title": "Infinity"
+  },
+  "dyn-grow-14.json": {
+    "pack": "Growth",
+    "name": "dyn-grow-14.json",
+    "bytes": 33629,
+    "sha256": "177742156d8f1861f65e0af14698d3b7823f8422ac1046064babfd40dcd4fb40",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/2795"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/2795/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#FFD500"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.8,
+    "cat": "Growth",
+    "title": "Plus Sign"
+  },
+  "dyn-holiday-01.json": {
+    "pack": "Holiday",
+    "name": "dyn-holiday-01.json",
+    "bytes": 37826,
+    "sha256": "26255329371560e422527ff6f96ee695574a7f080a64bd8ae040d4c934fb1f0a",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f37e"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f37e/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#FEE465",
+      "#CD844F",
+      "#F2A259",
+      "#317C31",
+      "#485020",
+      "#FFFFFF",
+      "#FFEBCA",
+      "#F5B03E"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.5,
+    "cat": "Holiday",
+    "title": "Bottle With Popping Cork"
+  },
+  "dyn-holiday-02.json": {
+    "pack": "Holiday",
+    "name": "dyn-holiday-02.json",
+    "bytes": 73648,
+    "sha256": "3ddec8ffa9692f04ebc7971feae88b650b4fa39a4c3c4fc40262253945cb7745",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f381"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f381/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#FF2A23",
+      "#AF0F1B",
+      "#FCC9D2",
+      "#DC0D28",
+      "#BA5E0D",
+      "#E37D14",
+      "#FDD717",
+      "#E07F14"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.4,
+    "cat": "Holiday",
+    "title": "Wrapped Gift"
+  },
+  "dyn-holiday-03.json": {
+    "pack": "Holiday",
+    "name": "dyn-holiday-03.json",
+    "bytes": 93276,
+    "sha256": "7741911c14d0ad8f411655a12a984ab140123251692080135b52d72edc714559",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f382"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f382/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#808080",
+      "#EE5B4A",
+      "#FCE9CA",
+      "#FF6E45",
+      "#FBB75A",
+      "#FDFFFF",
+      "#B5B5B5",
+      "#FD6F42"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.633,
+    "cat": "Holiday",
+    "title": "Birthday Cake"
+  },
+  "dyn-holiday-04.json": {
+    "pack": "Holiday",
+    "name": "dyn-holiday-04.json",
+    "bytes": 110376,
+    "sha256": "7bac8693c7eec63d21fadd4fde4e4debffa54026eeb0c1d6c397c224d5ca29cd",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f386"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f386/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#FFFEFD",
+      "#FFFFFD",
+      "#FFDD74",
+      "#FEDE6A",
+      "#FFFFFF"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.067,
+    "cat": "Holiday",
+    "title": "Fireworks"
+  },
+  "dyn-holiday-05.json": {
+    "pack": "Holiday",
+    "name": "dyn-holiday-05.json",
+    "bytes": 14259,
+    "sha256": "5d509c0c6fb26c98ab6414a72108c2e982162b51cc7636edd09a189575457ff3",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f388"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f388/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#F44336",
+      "#FF847A",
+      "#C62828",
+      "#64B5F6"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.6,
+    "cat": "Holiday",
+    "title": "Balloon"
+  },
+  "dyn-holiday-06.json": {
+    "pack": "Holiday",
+    "name": "dyn-holiday-06.json",
+    "bytes": 68044,
+    "sha256": "fcd104f069cb120a855e9a8b1823496eda44e129fc143b184e83305f1ba01bc4",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f389"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f389/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#F44336",
+      "#FB8C00",
+      "#FFC107",
+      "#703E2D",
+      "#FF8F00",
+      "#F48FB1",
+      "#03A9F4",
+      "#C92B27"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.533,
+    "cat": "Holiday",
+    "title": "Party Popper"
+  },
+  "dyn-holiday-07.json": {
+    "pack": "Holiday",
+    "name": "dyn-holiday-07.json",
+    "bytes": 122888,
+    "sha256": "6c74ab12f0326a8bfa4ffb036f91c28deb5044e51fc93d5bb6fcea67ff1c985e",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f38a"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f38a/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#F44336",
+      "#03A9F4",
+      "#7F5586",
+      "#FB8C00",
+      "#0076C6",
+      "#FFEE58",
+      "#FFC107",
+      "#F48FB1"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.4,
+    "cat": "Holiday",
+    "title": "Confetti Ball"
+  },
+  "dyn-holiday-08.json": {
+    "pack": "Holiday",
+    "name": "dyn-holiday-08.json",
+    "bytes": 60826,
+    "sha256": "7a504a2b032a5cbb79c52c4cba53e785db094156bbd247a81ef927415a3fda10",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f3a1"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f3a1/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#9B9B9B",
+      "#C8C8C8",
+      "#8F7CF3",
+      "#7956C0",
+      "#C37DCF",
+      "#F1EDEC",
+      "#C9C9C9",
+      "#DA0A26"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 8.067,
+    "cat": "Holiday",
+    "title": "Ferris Wheel"
+  },
+  "dyn-holiday-09.json": {
+    "pack": "Holiday",
+    "name": "dyn-holiday-09.json",
+    "bytes": 324782,
+    "sha256": "626f4e3ff19f2f30a4120f5042f6b0b47d6847c73bf76f49241dbce011ff8098",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1fa85"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1fa85/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#FFB803",
+      "#004FAD",
+      "#C7C7C7",
+      "#4CC1F7",
+      "#50C4FA",
+      "#FFE269",
+      "#B3E5FF",
+      "#F44336"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.967,
+    "cat": "Holiday",
+    "title": "Piñata"
+  },
+  "dyn-holiday-10.json": {
+    "pack": "Holiday",
+    "name": "dyn-holiday-10.json",
+    "bytes": 51514,
+    "sha256": "b94c1436039cbd7feccfff802d9b40f3f6c57edffbf22349388673bc09c54e1b",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1fa94"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1fa94/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#91C354",
+      "#FFA821",
+      "#FFCF43",
+      "#CA750F",
+      "#FF7512",
+      "#FEF499",
+      "#FFE36A",
+      "#EBA961"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.7,
+    "cat": "Holiday",
+    "title": "Diya Lamp"
+  },
+  "dyn-holiday-11.json": {
+    "pack": "Holiday",
+    "name": "dyn-holiday-11.json",
+    "bytes": 172375,
+    "sha256": "4ea569c3df669a8b597b9f1962a73ea49ab4b88819b29edc6bfc5a728eeda715",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1faa9"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1faa9/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#FFFFFF",
+      "#81D4FA",
+      "#8E24AA",
+      "#3949AB"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.8,
+    "cat": "Holiday",
+    "title": "Mirror Ball"
+  },
+  "dyn-holiday-12.json": {
+    "pack": "Holiday",
+    "name": "dyn-holiday-12.json",
+    "bytes": 60195,
+    "sha256": "0fa9ec97727d7730137d83616d182dc0f7605bae3c75d99d8da4480b8fecc3af",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/2603_fe0f"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/2603_fe0f/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#95C7F7",
+      "#303030",
+      "#474D50",
+      "#E0E0E0",
+      "#FFA72B",
+      "#A42718"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.9,
+    "cat": "Holiday",
+    "title": "Snowman With Snow"
+  },
+  "dyn-holiday-13.json": {
+    "pack": "Holiday",
+    "name": "dyn-holiday-13.json",
+    "bytes": 39828,
+    "sha256": "f2cb52d333d5f42a730b6850115c84a512aeb981c58034c30dcc7cb253bf0871",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/26c4"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/26c4/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#303030",
+      "#474D50",
+      "#E0E0E0",
+      "#FFA72B",
+      "#A42718"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.9,
+    "cat": "Holiday",
+    "title": "Snowman"
+  },
+  "dyn-holiday-14.json": {
+    "pack": "Holiday",
+    "name": "dyn-holiday-14.json",
+    "bytes": 138829,
+    "sha256": "668bcad304684138a0769f59d7c2d6cd25bf903b655152f51c2b3a1ef5af3645",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/2744_fe0f"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/2744_fe0f/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#AFE3FF",
+      "#86C0E0",
+      "#65A3D2",
+      "#FEFEFE",
+      "#95C7EC"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 4.5,
+    "cat": "Holiday",
+    "title": "Snowflake"
+  },
+  "dyn-work-01.json": {
+    "pack": "Work",
+    "name": "dyn-work-01.json",
+    "bytes": 23603,
+    "sha256": "97cae947b591a6e142b6dc29cb2696fe44e40dbe93dec99ff1cb6ce8eb480026",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f4a1"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f4a1/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#2F7889",
+      "#94D1E0",
+      "#82AEC0",
+      "#424242",
+      "#FFD600"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.4,
+    "cat": "Work",
+    "title": "Light Bulb"
+  },
+  "dyn-work-02.json": {
+    "pack": "Work",
+    "name": "dyn-work-02.json",
+    "bytes": 128058,
+    "sha256": "52db332f21f672d34b50f249b5ce1fe64f20739b7062fe8bc2e76d6b63e14727",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f4da"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f4da/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#424242",
+      "#94C6D6",
+      "#689F38",
+      "#01579B",
+      "#CFDEE3",
+      "#616161",
+      "#F5F5F5",
+      "#C62828"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 3.0,
+    "cat": "Work",
+    "title": "Books"
+  },
+  "dyn-work-03.json": {
+    "pack": "Work",
+    "name": "dyn-work-03.json",
+    "bytes": 44948,
+    "sha256": "a666a684cf15b646926ec67e8f7c08d3dc8f06e39f4e7293e531ceb5ea44299a",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f4e3"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f4e3/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#2F7889",
+      "#B8DADE",
+      "#C62828",
+      "#82AEC0",
+      "#FFCA28",
+      "#FFFFFF",
+      "#F44336"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.933,
+    "cat": "Work",
+    "title": "Megaphone"
+  },
+  "dyn-work-04.json": {
+    "pack": "Work",
+    "name": "dyn-work-04.json",
+    "bytes": 26118,
+    "sha256": "8ca0823baeb0f3c792408e95b6f59f08570ba8a7686083d61e3b0a2c765eda8c",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f4e6"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f4e6/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#6A5139",
+      "#BF9F85",
+      "#FFE0B2",
+      "#5B412D",
+      "#966239",
+      "#B38251",
+      "#DEA66C"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.033,
+    "cat": "Work",
+    "title": "Package"
+  },
+  "dyn-work-05.json": {
+    "pack": "Work",
+    "name": "dyn-work-05.json",
+    "bytes": 29388,
+    "sha256": "2e5477ebd5e80bf8f7982de4e0e17e0532099063dbfdf4c5ec4f1977fadafd6c",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f50e"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f50e/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#FFFFFF",
+      "#5EBDE0",
+      "#D9F2FD",
+      "#BDBDBD",
+      "#616161",
+      "#81D4FA",
+      "#424242",
+      "#000000"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.8,
+    "cat": "Work",
+    "title": "Magnifying Glass Tilted Right"
+  },
+  "dyn-work-06.json": {
+    "pack": "Work",
+    "name": "dyn-work-06.json",
+    "bytes": 71988,
+    "sha256": "1b4d0d7196ed6e5d622e8df621da7889def7aac8e1762b1c683885de950229e9",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f512"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f512/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#84B0C1",
+      "#FDD835",
+      "#9E740B",
+      "#E6B844",
+      "#E2A610",
+      "#B9E4EA",
+      "#7197A6",
+      "#4E342E"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.533,
+    "cat": "Work",
+    "title": "Locked"
+  },
+  "dyn-work-07.json": {
+    "pack": "Work",
+    "name": "dyn-work-07.json",
+    "bytes": 36878,
+    "sha256": "5fa376b2595d68d34dc1b22f3b73c3352af1654a3412962b1f89e5b7bda9878f",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f514"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f514/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#FFF59D",
+      "#E2A610",
+      "#4E342E",
+      "#FFCA28",
+      "#9E740B"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 0.8,
+    "cat": "Work",
+    "title": "Bell"
+  },
+  "dyn-work-08.json": {
+    "pack": "Work",
+    "name": "dyn-work-08.json",
+    "bytes": 56974,
+    "sha256": "835b9e4995bce9d1b9c8bc06e3330b17c7ea00c7b627370731224e6daba59054",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f587_fe0f"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f587_fe0f/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#2F7889",
+      "#B9E4EA",
+      "#94D1E0",
+      "#82AEC0",
+      "#D6F1F2",
+      "#B0BEC5"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 3.0,
+    "cat": "Work",
+    "title": "Linked Paperclips"
+  },
+  "dyn-work-09.json": {
+    "pack": "Work",
+    "name": "dyn-work-09.json",
+    "bytes": 69075,
+    "sha256": "5540a5808a4aa4407c60eae07955f58360dbecfe745c9f5602b5661aef531eba",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f5a8_fe0f"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f5a8_fe0f/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#BDBDBD",
+      "#757575",
+      "#9E9E9E",
+      "#B0BEC5",
+      "#424242",
+      "#FFFFFF",
+      "#212121",
+      "#607D8B"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.4,
+    "cat": "Work",
+    "title": "Printer"
+  },
+  "dyn-work-10.json": {
+    "pack": "Work",
+    "name": "dyn-work-10.json",
+    "bytes": 37962,
+    "sha256": "53dafa2eceb90744d5b97551306497cd04ffd22b406120b73026094afd437368",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/1f6e0_fe0f"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f6e0_fe0f/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#2F7889",
+      "#B9E4EA",
+      "#82AEC0",
+      "#7D5133",
+      "#A06841"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 3.017,
+    "cat": "Work",
+    "title": "Hammer And Wrench"
+  },
+  "dyn-work-11.json": {
+    "pack": "Work",
+    "name": "dyn-work-11.json",
+    "bytes": 36576,
+    "sha256": "9b599df2f43a1d2c87cfd349846f7811d0f2ff3578b9cf2f22f9a0db678fc46b",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/23f0"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/23f0/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#B2947C",
+      "#82AEC0",
+      "#563428",
+      "#FF4638",
+      "#CC2929",
+      "#2F7889",
+      "#94D1E0",
+      "#FAFAFA"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 0.567,
+    "cat": "Work",
+    "title": "Alarm Clock"
+  },
+  "dyn-work-12.json": {
+    "pack": "Work",
+    "name": "dyn-work-12.json",
+    "bytes": 30217,
+    "sha256": "bad7fdbfd89625a4d465f33d3b4cd3c2c4a25c170f9c0e3b6e4875afa54cbd6f",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/23f3"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/23f3/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#FFCA28",
+      "#FFFFFF",
+      "#CC8552",
+      "#8B5738",
+      "#E2A610",
+      "#1D44B3",
+      "#81D4FA",
+      "#FFB17A"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.2,
+    "cat": "Work",
+    "title": "Hourglass Not Done"
+  },
+  "dyn-work-13.json": {
+    "pack": "Work",
+    "name": "dyn-work-13.json",
+    "bytes": 7224,
+    "sha256": "21132d4aa44c43af7e5ffc1bdc89f1d9201e0d382f7b36906bcb223904103a01",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/2699_fe0f"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/2699_fe0f/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#94D1E0",
+      "#B9E4EA",
+      "#2F7889",
+      "#82AEC0"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 5.0,
+    "cat": "Work",
+    "title": "Gear"
+  },
+  "dyn-work-14.json": {
+    "pack": "Work",
+    "name": "dyn-work-14.json",
+    "bytes": 49348,
+    "sha256": "8ce765cd7b7e4555270290ec8ced4deee2f9809f85881ed730cd7ef73dd20d32",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/2702_fe0f"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/2702_fe0f/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#DE3E31",
+      "#82AEC0",
+      "#FF7555",
+      "#B9E4EA",
+      "#A8E3F0",
+      "#2F7889"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.9,
+    "cat": "Work",
+    "title": "Scissors"
+  },
+  "dyn-work-15.json": {
+    "pack": "Work",
+    "name": "dyn-work-15.json",
+    "bytes": 16091,
+    "sha256": "bb0bc9ea474377937ff233de2fb87a942c7fc6d6178b13a6251a958c6328d7c2",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/2705"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/2705/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#A4CA7B",
+      "#FBF9F9",
+      "#7CB342",
+      "#689F38"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.667,
+    "cat": "Work",
+    "title": "Check Mark"
+  },
+  "dyn-work-16.json": {
+    "pack": "Work",
+    "name": "dyn-work-16.json",
+    "bytes": 37654,
+    "sha256": "231e7fc56ab2186f8097bef24060006d8a079a400c0530866444fdb75a8756ee",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/270f_fe0f"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/270f_fe0f/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#B9E4EA",
+      "#EF5350",
+      "#94D1E0",
+      "#4E342E",
+      "#FF8383",
+      "#F19534",
+      "#D1762C",
+      "#FDD835"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 2.1,
+    "cat": "Work",
+    "title": "Pencil"
+  },
+  "dyn-work-17.json": {
+    "pack": "Work",
+    "name": "dyn-work-17.json",
+    "bytes": 7458,
+    "sha256": "95f78d9f6383b74b280e7b35a9a5846893e0f964671a1540292732b2773a48e8",
+    "license": "CC-BY-4.0",
+    "sources": [
+      "noto/274c"
+    ],
+    "author": "Google LLC",
+    "url": "https://fonts.gstatic.com/s/e/notoemoji/latest/274c/lottie.json",
+    "modifications": "Unmodified Noto Animated Emoji Lottie plus a bodymovin meta attribution block; static colours listed for fillOverrides",
+    "colors": [
+      "#FFFFFF",
+      "#CC3333",
+      "#F44336"
+    ],
+    "motion": null,
+    "animated": true,
+    "duration": 1.967,
+    "cat": "Work",
+    "title": "Cross Mark"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "id": "transition.crossfade",
+  "version": 1,
+  "domain": "transition",
+  "inputs": 2,
+  "params": {},
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "kernel": "crossfade-lerp-premul-u8",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "clamp",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "doc": "两张画面按 progress 线性混合。整数实现：a = round(progress×255)，out = (from×(255−a) + to×a + 127) / 255（u8 截断除法），逐通道作用在预乘 sRGB 上。a = 0 与 a = 255 分别逐字节等于 from / to——`progress` 是闭区间 [0,1]，端点必须精确，因此不能写成浮点插值再取整。"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "cut",
+  "version": 1,
+  "domain": "transition",
+  "namespace": "bcf",
+  "order": 0,
+  "prop": null,
+  "ease": null,
+  "out": null,
+  "in": null,
+  "determinism": "strict"
+}

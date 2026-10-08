@@ -1,0 +1,31 @@
+{
+  "id": "strobe_border",
+  "version": 1,
+  "domain": "progress",
+  "namespace": "timeline",
+  "order": 8,
+  "numColors": 2,
+  "colorLabels": ["Color 1", "Color 2"],
+  "defaultMainColor": "#FF4C45",
+  "defaultSecondaryColor": "#A46CFF",
+  "aspect": "frame",
+  "recipe": {
+    "algorithm": "frame-v1",
+    "params": {
+      "borderSize": 0.015,
+      "smoothing": 0.0032,
+      "fill": "forward",
+      "background": false,
+      "colorMode": {
+        "kind": "strobe",
+        "speed": 2.0,
+        "gradientSteps": 1,
+        "mixBias": 0.35,
+        "mixGain": 0.45
+      }
+    }
+  },
+  "determinism": "visual",
+  "shader": "border.wgsl",
+  "available": true
+}

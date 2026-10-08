@@ -1,0 +1,30 @@
+{
+  "id": "pop",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "enter",
+  "order": 8,
+  "duration": 0.45,
+  "curve": {
+    "kind": "spring",
+    "response": 0.5,
+    "damping": 0.82
+  },
+  "opacityCurve": {
+    "kind": "named",
+    "name": "easeOutExpo"
+  },
+  "mirror": "shrink",
+  "from": {
+    "opacity": 0.0,
+    "scaleX": 0.4,
+    "scaleY": 0.4
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

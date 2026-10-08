@@ -1,0 +1,32 @@
+{
+  "id": "rotate",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "loop",
+  "order": 5,
+  "period": 2.0,
+  "amplitudes": {
+    "rotation": 360.0
+  },
+  "wave": {
+    "kind": "ramp",
+    "samples": 32
+  },
+  "channelSeedStride": 101,
+  "defaultSeed": 17,
+  "envelope": {
+    "kind": "none",
+    "rampCap": 0.3,
+    "rampFraction": 0.15,
+    "tailThresholdSec": 6.0,
+    "tailStart": 0.8,
+    "tailSpan": 0.2
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

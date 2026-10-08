@@ -1,0 +1,130 @@
+const endSentence = (text: string): string => (/[.!?。！？]$/.test(text.trim()) ? text.trim() : `${text.trim()}.`);
+const joinSentences = (parts: readonly (string | null | undefined)[]): string => parts.filter((p): p is string => !!p?.trim()).map(endSentence).join(' ');
+import type { LinkImportMessages } from './link-import-copy.ts';
+
+export const pl: LinkImportMessages = {
+  title: (name: string | null) => (name ? `Import z linku · ${name}` : "Import z linku"),
+
+  phase: {
+    starting: "Przygotowywanie",
+    probing: "Odczytywanie linku",
+    downloading: "Pobieranie wideo",
+    validating: "Sprawdzanie odtwarzania pliku",
+    publishing: "Przenoszenie do folderu pobierania",
+    applying: "Importowanie wideo",
+    transcribing: "Rozpoczynanie transkrypcji",
+  },
+  phaseFallback: "Przetwarzanie",
+  downloaded: (bytes: string) => `${bytes} pobrane`,
+
+  stageDownload: "Pobierz wideo",
+  stageVideo: "Sprawdź multimedia i utwórz wideo",
+  stageSubs: "Utwórz napisy",
+
+  issue: {
+    TOOL_NOT_INSTALLED: {
+      title: "Ustaw raz, potem wklejaj",
+      body: "BaoCut wymaga yt-dlp do odczytu strony. Zainstaluj i rozpocznij import ponownie.",
+    },
+    TOOL_CONSENT_REQUIRED: { title: "Wymagana zgoda na narzędzie pobierania", body: "Narzędzie pobierania już na komputerze. BaoCut używa do pobierania ze stron tylko po zgodzie." },
+    TOOL_UNAVAILABLE: { title: "Narzędzie pobierania nie uruchamia się", body: "Narzędzie znalezione, ale nie działa. Zainstaluj ponownie lub wybierz działającą kopię." },
+    TOOL_OUTDATED: { title: "Narzędzie pobierania wymaga aktualizacji", body: "Wersja zbyt stara, może nie odczytać strony. Zaktualizuj i spróbuj ponownie." },
+    OFFLINE_STRICT: { title: "Nie można pobierać z linków w ścisłym offline", body: "W ścisłym offline BaoCut nie łączy się z siecią. Pobierz wideo w przeglądarce i wybierz plik lokalny." },
+    LINK_UNSUPPORTED: {
+      title: "Źródło jeszcze nieobsługiwane",
+      body: "Narzędzie nie rozpoznaje strony. Użyj strony samego wideo (nie listy, transmisji ani wyszukiwania) lub pliku lokalnego.",
+    },
+    LINK_LOGIN_REQUIRED: {
+      title: "Wideo wymaga logowania",
+      body: "Zaloguj na stronie w przeglądarce, wróć do „Pobierz wideo”, zaznacz przeglądarkę w „Logowanie do witryny” i pobierz ponownie.",
+    },
+    LINK_COOKIES_UNAVAILABLE: {
+      title: "Nie można odczytać cookie przeglądarki",
+      body: "Sprawdź logowanie. Przy blokadzie bazy zamknij przeglądarkę całkowicie (także w tle) i uprawnienia Pęku kluczy (Safari: zezwól BaoCut na pełny dostęp do dysku). W Windows cookie Chrome, Edge i Brave z app-bound encryption nieczytelne; wybierz Firefox. Lub inną przeglądarkę i pobierz ponownie.",
+    },
+    LINK_TOOL_UPDATE_REQUIRED: { title: "yt-dlp wymaga aktualizacji", body: "Strona zmieniła dostarczanie wideo. Zaktualizuj yt-dlp metodą instalacji, sprawdź i spróbuj ponownie." },
+    LINK_UNAVAILABLE: {
+      title: "Wideo niedostępne",
+      body: "Wideo może być usunięte, ograniczone regionalnie lub bez formatu pobierania. Spróbuj innego linku lub pliku lokalnego.",
+    },
+    LINK_NETWORK_ERROR: { title: "Połączenie utracone", body: "Sprawdź sieć i spróbuj ponownie; pobrana część wznowiona." },
+    LINK_DISK_FULL: { title: "Za mało miejsca na dysku", body: "Dysk folderu pobierania pełny. Zwolnij miejsce i spróbuj ponownie." },
+    LINK_DOWNLOAD_FAILED: {
+      title: "Narzędzie pobierania zgłosiło błąd",
+      body: "Strona mogła się zmienić lub ogranicza pobieranie. Spróbuj ponownie; przy dalszym błędzie sprawdź aktualizację narzędzia lub użyj pliku lokalnego.",
+    },
+    LINK_DOWNLOAD_UNREADABLE: {
+      title: "Pobrany plik nieprzydatny",
+      body: "Plik niepełny, bez audio lub niedekodowalny; strona mogła zwrócić zastępczą treść. Pobierz ponownie, wybierz inny link lub plik lokalny.",
+    },
+    LINK_DESTINATION_UNAVAILABLE: {
+      title: "Nie można zapisać w folderze pobierania",
+      body: "Sprawdź istnienie i zapis folderu; wybierz inny i rozpocznij import ponownie.",
+    },
+    MEDIA_TOOL_UNAVAILABLE: {
+      title: "Nie można sprawdzić pobranego pliku",
+      body: "Kontrola multimediów wymaga ffprobe (z ffmpeg), którego brak na komputerze. Zainstaluj ffmpeg i spróbuj ponownie.",
+    },
+    LINK_SOURCE_EXPIRED: {
+      title: "Oryginalny link nie istnieje",
+      body: "Po restarcie Runtime zachowuje tylko zredagowany link, nie pełny. Wklej link dla ponownego importu.",
+    },
+    INTERRUPTED: { title: "Import przerwany", body: "Runtime zatrzymany lub zrestartowany przed ukończeniem. Ponowienie od zatrzymanego kroku." },
+  },
+  issueUnknownTitle: "Import nieukończony",
+  issueUnknownBody: (message: string | null, remedy: string | null) => joinSentences([message, remedy]) || 'Something went wrong.',
+
+  headingStopped: "Import zatrzymany",
+  headingFailed: "Import nieukończony",
+  headingRunning: "Tworzenie edytowalnego wideo z linku",
+  headingDownloaded: "Wideo pobrane",
+  headingVideoFailed: "Plik pobrany, wideo nieutworzone",
+  headingCreatingVideo: "Plik pobrany, tworzenie wideo",
+  headingTranscribing: "Wideo gotowe, generowanie napisów",
+  headingTranscribeFailed: "Wideo gotowe, transkrypcja wymaga uwagi",
+  headingReady: "Wideo gotowe",
+  headingSubsReady: "Napisy gotowe",
+
+  toolSource: {
+    system: "Zainstalowane w systemie",
+    user: "Wybrane przez Ciebie",
+    managed: "Pobrane przez BaoCut",
+    env: "Ustawione przez zmienną środowiskową",
+  },
+  factVersion: (version: string, size: string | null) => (size ? `Wersja ${version} · około ${size}` : `Wersja ${version}`),
+  factFrom: (host: string) => `Pobrano z ${host}`,
+  factLicense: (license: string) => `${license} – licencja`,
+  factIsolated: "W folderze BaoCut, uruchamiane po kontroli sumy; system bez zmian",
+  factInstalledWith: (method: string) => `Zainstalowane przez ${method}`,
+
+  cardChecking: "Sprawdzanie narzędzia pobierania…",
+  cardCheckingBody: "Sprawdza tylko wersję na komputerze; bez sieci.",
+  cardUnknown: "Narzędzie pobierania niezarejestrowane",
+  cardUnknownBody: "Runtime nie zna yt-dlp, import z linków na razie niedostępny.",
+  cardInstalling: "Przygotowywanie narzędzia pobierania…",
+  cardInstallingBody: "Pobierz → sprawdź → próbny start. Potem stan „Gotowe”.",
+  cardUpdating: "Aktualizowanie narzędzia pobierania…",
+  cardUpdatingBody: "Wynik pod poleceniem; wersja sprawdzana po ukończeniu.",
+  cardBlockedWhy: "BaoCut nie może pobrać za Ciebie na tym komputerze.",
+  cardMissing: "Narzędzie pobierania niezainstalowane",
+  cardMissingBody: (why: string) => `${endSentence(why)} Możesz zainstalować yt-dlp ręcznie i kliknąć „Sprawdź ponownie” lub wybrać lokalizację.`,
+  cardInstall: "Ustaw raz, potem wklejaj",
+  cardInstallBody: "BaoCut wymaga yt-dlp dla stron wideo. Po zgodzie pobierze narzędzie i zapamięta zgodę, import z linków już nie pyta.",
+  cardInstallAction: "Zgódź się i zainstaluj",
+  cardOutdatedReason: (reason: string | null, version: string | null, minVersion: string | null) => endSentence(reason ?? `Wersja ${version ?? 'unknown'} starszy niż wymagana wersja ${minVersion ?? ''}`),
+  cardOutdated: "Narzędzie pobierania wymaga aktualizacji",
+  cardOutdatedBlocked: (reason: string, why: string) => `${reason} ${why}`,
+  cardOutdatedRunnable: "Niepobrany przez BaoCut; aktualizuj metodą instalacji poleceniem poniżej.",
+  cardOutdatedManual: "Niepobrany przez BaoCut. Aktualizuj w terminalu według instrukcji i kliknij „Sprawdź ponownie”.",
+  cardOutdatedUpdate: (reason: string) => `${reason} Zaktualizuj przed rozpoczęciem.`,
+  cardUpdateAction: "Zgódź się i zaktualizuj",
+  cardBroken: "Narzędzie pobierania nie uruchamia się",
+  cardBrokenBody: (reason: string | null, remedy: string | null) => joinSentences([reason, remedy]) || 'Found it, but it doesn’t run.',
+  cardReinstallAction: "Zgódź się i zainstaluj ponownie",
+  cardConsentRevoked: "Zgoda na narzędzie pobierania wycofana",
+  cardConsent: "Wymagana zgoda na narzędzie pobierania",
+  cardConsentBody: "BaoCut używa do pobierania ze stron tylko po zgodzie. Zgoda w Runtime, import z linków już nie pyta.",
+  cardConsentAction: "Zgódź się i użyj",
+  cardReady: "Narzędzie pobierania gotowe",
+  cardReadyBody: "Przy starcie BaoCut sprawdzi link, pobierze informacje o wideo, potem pobierze.",
+};

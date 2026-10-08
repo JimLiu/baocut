@@ -1,0 +1,37 @@
+import type { FontLibraryMessages } from './font-library.ts';
+import { pluralForm } from '@baocut/protocol';
+const familiesEs = (n: number) => `${n} ${pluralForm('es', n, { one: 'familia', other: 'familias' })}`;
+const fontsEs = (n: number) => `${n} ${pluralForm('es', n, { one: 'fuente', other: 'fuentes' })}`;
+export const es: FontLibraryMessages = {
+ state: { 'built-in': 'Integrada', installed: 'Instalada', downloaded: 'Descargada', downloadable: 'Disponible para descargar', downloading: 'Descargando', failed: 'Fallido', unavailable: 'Fuente no encontrada' },
+ source: { 'built-in': 'Incluida en la aplicación', local: 'Instalada en este ordenador', 'google-fonts': 'Google Fonts' },
+ categories: { 'sans-serif': 'Sin serifa', serif: 'Con serifa', display: 'Decorativa', handwriting: 'Manuscrita', monospace: 'Monoespaciada' },
+ scripts: { chinese: 'Chino', japanese: 'Japonés', korean: 'Coreano', latin: 'Latino', cyrillic: 'Cirílico', greek: 'Griego', vietnamese: 'Vietnamita', arabic: 'Árabe', hebrew: 'Hebreo', thai: 'Tailandés', devanagari: 'Devanagari' },
+ privacyNote: 'Se descarga de Google Fonts; solo se envían el nombre de la familia y los pesos. Se guarda en los datos de la aplicación, no en la carpeta del vídeo.',
+ offlineNote: 'Estás sin conexión · Las fuentes descargables necesitan una conexión de red para descargarse',
+ strictOfflineNote: 'El modo sin conexión estricto está activado · No se descargan fuentes; las fuentes descargables se muestran con una fuente alternativa',
+ waiting: 'En espera', sections: { search: 'Resultados de búsqueda', video: 'Usadas en este vídeo', recent: 'Usadas recientemente', all: 'Todas las fuentes' },
+ cancelled: 'Cancelado', downloadFailed: 'Error de descarga',
+ pickToast: (family, fallback) => `«${family}» se muestra con «${fallback}» hasta que se descargue; después cambia automáticamente`,
+ alreadyDownloaded: (family) => `«${family}» ya está descargada`,
+ detail: { status: 'Estado', source: 'Origen', category: 'Categoría', weights: 'Pesos', size: 'Tamaño', licence: 'Licencia' },
+ scriptJoin: (labels) => labels.join(', '), withItalics: ' (con cursiva)', downloadedSize: (size) => `${size} descargados`,
+ unknownLicence: 'Desconocida (una fuente de este ordenador; comprueba por tu cuenta si se puede usar para publicar)',
+ mirrorInvalid: 'No es una dirección válida', mirrorHttps: 'Solo se aceptan direcciones que empiecen con https://',
+ mirrorCredentials: 'La dirección no puede incluir un nombre de usuario ni una contraseña', mirrorQuery: 'La dirección no puede incluir parámetros de consulta ni #', italic: ' cursiva',
+ cleared: (removed, freed, kept) => `Se eliminaron ${familiesEs(removed)} y se liberaron ${freed}${kept ? ` · Se conservaron ${kept} en uso por exportaciones` : ''}`,
+ clearConfirm: (count, size, inUse) => `Eliminar ${familiesEs(count)}, ${size} en total. Los vídeos que las usan muestran una fuente alternativa hasta que se vuelvan a descargar cuando sean necesarias.` + (inUse ? ' Se conservarán las fuentes en uso por exportaciones sin terminar.' : ''),
+ barOff: (total) => `Este vídeo usa ${fontsEs(total)} ${pluralForm('es', total, { one: 'que no está descargada', other: 'que no están descargadas' })}; se muestra una fuente alternativa`,
+ autoOff: 'La descarga automática está desactivada', barRunning: 'Descargando las fuentes usadas en este vídeo',
+ barReady: (total) => total === 1 ? 'La fuente usada en este vídeo está lista' : `Las ${total} fuentes usadas en este vídeo están listas`,
+ barMissed: (n) => `No se pudieron obtener ${fontsEs(n)}; se muestra una fuente alternativa`, skipped: 'Omitido', notDownloaded: 'Sin descargar',
+ quoteList: (names) => new Intl.ListFormat('es', { type: 'conjunction' }).format(names.map((n) => `«${n}»`)),
+ exportPending: (names, n) => `${names} ${pluralForm('es', n, { one: 'sigue descargándose', other: 'siguen descargándose' })} · La exportación espera a que termine antes de renderizar`,
+ exportFailed: (names, fallbacks) => `No se descargó ${names} · Se usará ${fallbacks} en la exportación`,
+ exportMissingAuto: (names, n) => `${names} ${pluralForm('es', n, { one: 'aún no está descargada', other: 'aún no están descargadas' })} · Se descarga al iniciar la exportación; si falla, se usa una fuente alternativa`,
+ exportMissingOff: (names, n) => `${names} ${pluralForm('es', n, { one: 'no está descargada', other: 'no están descargadas' })} (la descarga automática está desactivada) · La exportación usará una fuente alternativa`,
+ actionRetry: 'Reintentar', actionDownloadNow: 'Descargar ahora', actionDownload: 'Descargar',
+ exportFallback: (family, fallback, reason) => `«${family}» reemplazada por «${fallback}» · ${reason}`, exportFallbackSeparator: '; ',
+ exportPhase: (detail) => detail ? `Descargando fuentes · ${detail}` : 'Descargando fuentes', systemFont: 'Fuente del sistema', errorFallback: 'La operación no se completó',
+ removed: (family) => `Se eliminaron los archivos descargados de «${family}»`, removeInUse: (family) => `Una exportación sin terminar usa «${family}» · Elimínala después de que termine la exportación`,
+};

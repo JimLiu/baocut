@@ -1,0 +1,83 @@
+import type { JobsMessages } from './jobs-copy.ts';
+
+export const zhHant: JobsMessages = {
+  help: `用法：
+  baocut jobs resources            資源排程狀態：機器容量與其來源、預留、租約、常駐的 Model Worker，
+                                   以及排隊中的任務在等待什麼
+  baocut jobs reconcile <jobId> retry|discard|apply
+                                   處理重新啟動後結果不明或未完整套用的任務：retry 重新執行（新的一次呼叫，
+                                   重新檢查授權與預算），discard 放棄待對帳的外送呼叫（已扣除的預算不退還），
+                                   apply 重新驗證保留的結果並套用到影片`,
+  usage: '用法：baocut jobs resources | baocut jobs reconcile <jobId> retry|discard|apply',
+  badDecision: (choices) => `對帳決定必須是 ${choices.join('、')} 其中之一`,
+  jobStates: {
+    queued: '排隊中',
+    running: '執行中',
+    completed: '已完成',
+    failed: '失敗',
+    cancelled: '已取消',
+    interrupted: '已中斷',
+    'needs-reconciliation': '待對帳',
+  },
+  applicationStates: {
+    pending: '待套用',
+    validating: '提交中',
+    committed: '已套用',
+    'stale-input': '目標已變更',
+    rejected: '已拒絕',
+    cancelled: '未套用',
+  },
+  remoteStates: {
+    'not-applicable': '無遠端',
+    'not-submitted': '未送出',
+    cancelled: '遠端已取消',
+    'cancel-unsupported': '遠端無法取消',
+    unknown: '遠端狀態不明',
+  },
+  costStates: {
+    none: '無費用',
+    possible: '可能已計費',
+    charged: '已計費',
+  },
+  cancellation: (stoppedLocally, remote, cost) => `${stoppedLocally ? '本機已停止' : '本機未停止'}、${remote}、${cost}`,
+  cancellationLine: (text) => `取消：${text}`,
+  requeued: (attempt, jobId) => `已重新排隊（第 ${attempt} 次嘗試）：${jobId}`,
+  discarded: (jobId) => `已放棄：${jobId}`,
+  appliedTo: (videoId, recovered) => `已套用到影片 ${videoId}${recovered ? '（上次其實已提交，現已補記回執）' : ''}`,
+  notApplied: (state, error) => `未套用：${state}${error ? `（${error}）` : ''}`,
+  noApplicationRecord: '沒有套用記錄',
+  statusLine: (state, code) => `狀態：${state}${code ? `  ${code}` : ''}`,
+  budgetSettled: (basis, calls) => `預算已結算：${basis}，${calls} 次呼叫`,
+  unknown: '未知',
+  amounts: (memory, gpuMemory, cpuThreads, disk) => `記憶體 ${memory}  GPU 記憶體 ${gpuMemory}  CPU ${cpuThreads} 個執行緒  磁碟 ${disk}`,
+  demandMemory: (value) => `記憶體 ${value}`,
+  demandGpuMemory: (value) => `GPU 記憶體 ${value}`,
+  demandCpu: (threads) => `CPU ${threads} 個執行緒`,
+  demandDisk: (value) => `磁碟 ${value}`,
+  demandNone: '不使用本機資源',
+  listSep: '、',
+  clauseSep: '，',
+  sources: {
+    system: '系統',
+    setting: '設定',
+    'unified-estimate': '依統一記憶體估算',
+    unknown: '未知',
+    statfs: '暫存磁碟區的可用空間',
+  },
+  capacity: (amounts, unified) => `容量：${amounts}${unified ? '（統一記憶體：GPU 記憶體也計入記憶體）' : ''}`,
+  capacitySources: (memory, gpuMemory, cpu, disk) => `  來源：記憶體 ${memory}，GPU 記憶體 ${gpuMemory}，CPU ${cpu}，磁碟 ${disk}`,
+  systemReserve: (amounts) => `系統預留：${amounts}`,
+  interactiveReserve: (amounts) => `互動預留：${amounts}`,
+  leased: (amounts) => `已租出：${amounts}`,
+  backgroundAvailable: (amounts) => `背景可用：${amounts}`,
+  interactiveAvailable: (amounts) => `互動可用：${amounts}`,
+  leasesHeader: '租約：',
+  leasesNone: '租約：無',
+  leaseHolder: (holder) => `使用 ${holder}`,
+  leaseQueue: (queue) => `佇列 ${queue}`,
+  holdersHeader: '常駐行程：',
+  holderState: (users, processes) => `${users > 0 ? `${users} 個任務使用中` : '閒置'}，${processes} 個行程仍在執行`,
+  waitingHeader: '等待中：',
+  waitingNone: '等待中：無',
+  waitingAdmission: '等待准入',
+};

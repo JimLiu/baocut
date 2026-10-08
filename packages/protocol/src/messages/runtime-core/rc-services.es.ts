@@ -1,0 +1,5 @@
+import type { RcServicesMessages } from './rc-services.ts';
+export const es: RcServicesMessages = {
+ mcpServiceLabel: 'Servicio MCP', nodeServiceLabel: 'Nodo de LAN', serviceNotAvailable: (p) => `Esta versión aún no ofrece el servicio «${p.serviceId}»`, serviceNotFound: (p) => `No hay un servicio «${p.serviceId}»`, runtimeStopping: 'El Runtime se está deteniendo', clientNotFound: 'No existe ese cliente', portInUse: (p) => `El puerto ${p.port} ya está en uso`, cannotListen: (p) => `No se puede escuchar en el puerto ${p.port}: ${p.reason}`, configFileInvalid: (p) => `El archivo de configuración de servicios es incorrecto: ${p.file}`,
+ routingOnlyForModelApi: 'routing y maxConcurrentPerClient solo se aplican al servicio de API de modelos (model-api)', tokenPlaceholder: (p) => `<token para ${p.client}>`, tokenPlaceholderGeneric: '<token>', mcpNotRunning: 'El servicio MCP está desactivado: inícialo primero (baocut services start mcp) o los clientes no podrán conectarse.', nodeServiceConfigure: 'Configura el servicio del nodo con nodes.share.* (baocut share …)', nodeServiceNotListening: 'El servicio del nodo no está escuchando',
+};

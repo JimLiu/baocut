@@ -1,0 +1,37 @@
+{
+  "id": "elDrop",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "enter",
+  "order": 32,
+  "duration": 0.6,
+  "curve": {
+    "kind": "named",
+    "name": "linear"
+  },
+  "mirror": "elDrop",
+  "from": {},
+  "keyframes": [
+    {
+      "at": 0,
+      "scaleX": 4.5,
+      "scaleY": 4.5,
+      "opacity": 0.0
+    },
+    {
+      "at": 1,
+      "ease": "easeOutExpo",
+      "scaleX": 1.0,
+      "scaleY": 1.0,
+      "opacity": 1.0
+    }
+  ],
+  "basis": {
+    "dx": "selfWidth",
+    "dy": "selfHeight"
+  },
+  "surface": "element",
+  "determinism": "strict",
+  "available": true
+}

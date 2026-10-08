@@ -1,0 +1,131 @@
+/* Home 模板库（product-design §3.2.1；template-spec §1.2、§3.3）：封面、起始页的模板网格、「全部模板」弹窗与详情。 */
+
+/* 封面：统一的 16:10 格子，里面按模板自己的画幅放一帧。--u 是画面里图形的单位，跟着尺寸档走。 */
+.home-tpl-thumb { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 16 / 10; overflow: hidden; border-radius: 8px; background: var(--gray-100); --u: 6px; }
+.home-tpl-thumb--lg { border-radius: 10px; --u: 10px; }
+.home-tpl-thumb--xs { flex: none; width: 24px; height: 16px; aspect-ratio: auto; border-radius: 4px; --u: 2px; }
+.home-tpl-art { position: relative; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; height: 100%; overflow: hidden; padding: calc(var(--u) * 2); text-align: start;
+  background: var(--blue-200); color: var(--blue-1000); color-scheme: light; }
+.home-tpl-art--r16-9 { width: 100%; height: auto; aspect-ratio: 16 / 9; }
+.home-tpl-art--r9-16 { aspect-ratio: 9 / 16; }
+.home-tpl-art--r1-1 { aspect-ratio: 1 / 1; }
+.home-tpl-thumb--xs .home-tpl-art { width: 100%; height: 100%; aspect-ratio: auto; padding: 0; }
+.home-tpl-art--orange { background: var(--orange-200); color: var(--orange-1000); }
+.home-tpl-art--green { background: var(--green-200); color: var(--green-1000); }
+.home-tpl-art--purple { background: var(--purple-200); color: var(--purple-1000); }
+.home-tpl-art--cyan { background: var(--cyan-200); color: var(--cyan-1000); }
+.home-tpl-art--indigo { background: var(--indigo-200); color: var(--indigo-1000); }
+.home-tpl-art--magenta { background: var(--magenta-200); color: var(--magenta-1000); }
+.home-tpl-art--seafoam { background: var(--seafoam-200); color: var(--seafoam-1000); }
+.home-tpl-art--brown { background: var(--brown-200); color: var(--brown-1000); }
+.home-tpl-art__kicker { position: relative; font-size: 10px; letter-spacing: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-tpl-art__word { position: relative; font-size: 14px; font-weight: 800; line-height: 1.2; }
+.home-tpl-art__line { width: calc(var(--u) * 4); height: 2px; margin-top: 4px; background: currentColor; }
+.home-tpl-thumb--lg .home-tpl-art__kicker { font-size: 12px; }
+.home-tpl-thumb--lg .home-tpl-art__word { font-size: 22px; }
+.home-tpl-art--r9-16 .home-tpl-art__word, .home-tpl-art--r1-1 .home-tpl-art__word { font-size: 11px; }
+.home-tpl-thumb--md .home-tpl-art--r9-16 { padding: var(--u); }
+.home-tpl-thumb--lg .home-tpl-art--r9-16 .home-tpl-art__word, .home-tpl-thumb--lg .home-tpl-art--r1-1 .home-tpl-art__word { font-size: 16px; }
+.home-tpl-art__kicker + .home-tpl-art__fig + .home-tpl-art__word { margin-top: auto; }
+/* 画面里的图形：四种画法，都只用当前色。 */
+.home-tpl-art__fig { position: absolute; inset-inline-end: calc(var(--u) * 2); top: calc(var(--u) * 2); display: flex; opacity: 0.28; }
+.home-tpl-art__fig i { display: block; background: currentColor; }
+.home-tpl-art__fig--bars { align-items: flex-end; gap: var(--u); height: calc(var(--u) * 7); }
+.home-tpl-art__fig--bars i { width: calc(var(--u) * 2); height: 40%; }
+.home-tpl-art__fig--bars i:nth-child(2) { height: 70%; }
+.home-tpl-art__fig--bars i:nth-child(3) { height: 55%; }
+.home-tpl-art__fig--bars i:nth-child(4) { height: 100%; }
+.home-tpl-art__fig--ring i { display: none; }
+.home-tpl-art__fig--ring i:first-child { display: block; width: calc(var(--u) * 6); height: calc(var(--u) * 6); border-radius: 9999px; background: transparent; border: var(--u) solid currentColor; }
+.home-tpl-art__fig--cards i { display: none; width: calc(var(--u) * 5); height: calc(var(--u) * 6); border-radius: var(--u); }
+.home-tpl-art__fig--cards i:first-child { display: block; transform: rotate(-10deg); }
+.home-tpl-art__fig--cards i:nth-child(2) { display: block; margin-inline-start: calc(var(--u) * -2); transform: rotate(8deg); opacity: 0.6; }
+.home-tpl-art__fig--steps { flex-direction: column; align-items: flex-end; gap: var(--u); }
+.home-tpl-art__fig--steps i { width: calc(var(--u) * 9); height: var(--u); }
+.home-tpl-art__fig--steps i:nth-child(2) { width: calc(var(--u) * 6); }
+.home-tpl-art__fig--steps i:nth-child(3) { width: calc(var(--u) * 8); }
+.home-tpl-art__fig--steps i:nth-child(4) { width: calc(var(--u) * 4); }
+.home-tpl-thumb--xs .home-tpl-art__fig { inset: 0; align-items: center; justify-content: center; }
+.home-tpl-thumb--xs .home-tpl-art__fig--bars { align-items: flex-end; height: auto; padding: 4px; gap: 1px; }
+.home-tpl-thumb--xs .home-tpl-art__fig--steps { align-items: center; }
+
+/* 起始页输入框下面的模板网格：四列两行，封面是主角。卡片的底、标题与小字沿用弹窗里的 .home-tpl__card，
+   这里只管网格、选中态与焦点环。列数跟着这一节自己的宽度走（.home-shelf 是容器），窄了降为三列、两列；
+   「全部模板」弹窗渲染在这一节外面，不受容器的包含块影响。 */
+.home-shelf { margin-top: 32px; container: home-shelf / inline-size; }
+.home-shelf__hd { display: flex; align-items: center; gap: 8px; min-height: 24px; margin-bottom: 6px; }
+.home-shelf__title { margin: 0; font-size: 14px; font-weight: 700; color: var(--gray-900); }
+/* 卡片自带 6px 内边距：网格向两侧各探出 6px，封面的边才和输入框对齐。 */
+.home-shelf__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 4px; margin: 0 -6px; }
+.home-shelf__grid .home-shelf__card:focus-visible { outline-offset: 2px; }
+.home-shelf__card.is-on { background: var(--blue-100); }
+.home-shelf__card.is-on .home-tpl-thumb { outline: 2px solid var(--blue-800); outline-offset: -2px; }
+@container home-shelf (max-width: 640px) { .home-shelf__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@container home-shelf (max-width: 440px) { .home-shelf__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* 「全部模板」弹窗：左右两栏。左边找（搜索、来源、分类、封面格子、分页），右边看（预览、提示词、素材、使用）。
+   两栏各自滚动，弹窗高度不随翻页与换模板跳动。 */
+.home-tpl { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; height: min(70vh, 660px); min-width: 0; }
+.home-tpl__browse { display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; }
+.home-tpl__bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.home-tpl__search { flex: 1 1 160px; min-width: 0; }
+/* 类型与来源是一组：放不下时整组换到搜索框下面一行，不把来源单独挤下去。 */
+.home-tpl__filters { display: flex; align-items: center; gap: 8px; flex: none; }
+.home-tpl__source { width: 112px; flex: none; }
+.home-tpl__cats { display: flex; flex-wrap: wrap; gap: 4px; }
+.home-tpl__list { flex: 1; min-height: 0; overflow: auto; margin: 0 -6px; padding: 2px 0; }
+.home-tpl__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 4px; }
+.home-tpl__card { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 6px; text-align: start; font: inherit; color: var(--gray-800);
+  background: transparent; border: none; border-radius: 10px; cursor: pointer; transition: background-color 150ms cubic-bezier(0.45, 0, 0.4, 1), transform 150ms cubic-bezier(0.45, 0, 0.4, 1); }
+.home-tpl__card:hover { background: var(--gray-75); }
+.home-tpl__card:active { transform: scale(0.96); }
+.home-tpl__card:focus-visible { outline: 2px solid var(--blue-900); outline-offset: -2px; }
+.home-tpl__card.is-current { background: var(--gray-100); }
+.home-tpl__badge { position: absolute; inset-inline-end: 6px; bottom: 6px; display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; height: 20px; border-radius: 8px; background: var(--gray-25); color: var(--gray-800); font-size: 11px; }
+.home-tpl__title { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 6px 2px 0; font-size: 14px; font-weight: 700; color: var(--gray-900); }
+.home-tpl__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 作品示例的小标识：与 .home-tpl__badge 同一份几何，用在起始页网格与弹窗的卡片标题旁。 */
+.home-tpl-kind { flex: none; display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 8px; background: var(--gray-100); color: var(--gray-700); font-size: 11px; font-weight: 400; line-height: 1; }
+.home-tpl__meta { padding: 0 2px; font-size: 12px; color: var(--gray-600); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-tpl__note, .home-tpl__page, .home-tpl__empty { margin: 0; font-size: 12px; color: var(--gray-600); }
+.home-tpl__empty { padding: 48px 0; text-align: center; }
+.home-tpl__pager { display: flex; align-items: center; gap: 8px; }
+
+/* 右栏：当前模板。内容自己滚，「使用」固定在栏底。 */
+.home-tpl-detail { display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; padding-inline-start: 24px; border-inline-start: 2px solid var(--gray-100); }
+.home-tpl-detail--empty { justify-content: center; }
+.home-tpl-detail__scroll { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
+.home-tpl-detail__scroll > * { flex: none; }
+.home-tpl-detail__preview { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.home-tpl-detail__ctl { display: flex; align-items: center; gap: 8px; }
+.home-tpl-detail__track { flex: 1; height: 4px; border-radius: 9999px; background: var(--gray-200); overflow: hidden; }
+.home-tpl-detail__track span { display: block; height: 100%; background: var(--gray-800); transition: width 150ms cubic-bezier(0.45, 0, 0.4, 1); }
+.home-tpl-detail__time, .home-tpl-detail__by, .home-tpl-detail__state { margin: 0; font-size: 12px; color: var(--gray-600); }
+.home-tpl-detail__title { margin: 0; font-size: 18px; font-weight: 700; color: var(--gray-900); }
+.home-tpl-detail__by { margin-top: -8px; }
+.home-tpl-detail__sample { margin: 0; font-size: 14px; line-height: 1.5; color: var(--gray-800); }
+.home-tpl-detail__spec { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; color: var(--gray-700); }
+.home-tpl-detail__brief { margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--blue-100); color: var(--blue-1000); font-size: 12px; line-height: 1.5; }
+.home-tpl-detail__say { margin: 0; font-size: 14px; line-height: 1.5; color: var(--gray-800); }
+.home-tpl-detail__label { margin: 0 0 6px; font-size: 12px; font-weight: 700; color: var(--gray-700); }
+/* 「需要你补充」：占位标记 + 一句说明（template-spec §5.5）。 */
+.home-tpl-detail__fields { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.home-tpl-detail__fields li { display: flex; align-items: baseline; gap: 8px; font-size: 12px; line-height: 1.5; }
+.home-tpl-detail__hint { min-width: 0; color: var(--gray-700); }
+/* 占位标记：与输入框里 S2 占位 token 同一外观（虚线描边），提示词预览与「需要你补充」共用。 */
+.pslot-mark { display: inline; padding: 0 4px; border-radius: 4px; outline: 1px dashed var(--gray-500); outline-offset: -1px; background: var(--gray-100); color: var(--gray-800); font-weight: 700; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.home-tpl-detail__prompt { margin: 0; padding: 12px; border-radius: 8px; background: var(--gray-75); color: var(--gray-800); font: inherit; font-size: 12px; line-height: 1.6; white-space: pre-wrap; }
+.home-tpl-detail__assets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.home-tpl-detail__asset { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border-radius: 8px; background: var(--gray-100); color: var(--gray-800); font-size: 12px; }
+.home-tpl-detail__actions { display: flex; justify-content: flex-end; }
+
+/* 输入框里的模板 token：素材还在下载时带一条进度。 */
+.home-template-token__dl { color: var(--gray-600); }
+
+/* 窄窗口：两栏叠成上下，整块一起滚。 */
+@media (max-width: 860px) {
+  .home-tpl { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .home-tpl__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .home-tpl__list, .home-tpl-detail__scroll { overflow: visible; }
+  .home-tpl-detail { padding-inline-start: 0; padding-top: 16px; border-inline-start: none; border-top: 2px solid var(--gray-100); }
+}

@@ -1,0 +1,43 @@
+{
+  "id": "motion.blurTo",
+  "version": 1,
+  "domain": "motion",
+  "family": null,
+  "doc": "内部积木：模糊从 0 发散到 blur。",
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "blur": {
+      "type": "number",
+      "default": 8.0,
+      "min": 0.0,
+      "doc": "终止模糊半径（px）"
+    },
+    "curve": {
+      "type": "curve",
+      "default": "easeInCubic",
+      "doc": "时间曲线（规范 §7.6 的封闭名称）"
+    }
+  },
+  "tracks": [
+    {
+      "prop": "blur",
+      "composite": "add",
+      "order": 0,
+      "frames": [
+        {
+          "t": "0%",
+          "v": 0
+        },
+        {
+          "t": "100%",
+          "v": "{blur}",
+          "ease": "{curve}"
+        }
+      ]
+    }
+  ],
+  "determinism": "strict",
+  "capabilities": []
+}

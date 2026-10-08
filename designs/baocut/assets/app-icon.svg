@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs>
+<clipPath id="tri"><path d="M 332 397.5767 A 48 48 0 0 1 403.3109 355.6171 L 733.9137 539.2854 A 42 42 0 0 1 733.9137 612.7146 L 403.3109 796.3829 A 48 48 0 0 1 332 754.4233 Z"/></clipPath>
+<filter id="body-shadow" filterUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024"><feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#000000" flood-opacity="0.30"/></filter>
+</defs>
+<path d="M 627.36 100 c 103.8337 0 155.7506 0 195.4098 20.2074 a 185.4 185.4 0 0 1 81.0228 81.0228 c 20.2074 39.6592 20.2074 91.5761 20.2074 195.4098 L 924 627.36 c 0 103.8337 0 155.7506 -20.2074 195.4098 a 185.4 185.4 0 0 1 -81.0228 81.0228 c -39.6592 20.2074 -91.5761 20.2074 -195.4098 20.2074 L 396.64 924 c -103.8337 0 -155.7506 0 -195.4098 -20.2074 a 185.4 185.4 0 0 1 -81.0228 -81.0228 c -20.2074 -39.6592 -20.2074 -91.5761 -20.2074 -195.4098 L 100 396.64 c 0 -103.8337 0 -155.7506 20.2074 -195.4098 a 185.4 185.4 0 0 1 81.0228 -81.0228 c 39.6592 -20.2074 91.5761 -20.2074 195.4098 -20.2074 Z" fill="#FF5C4A" filter="url(#body-shadow)"/>
+<g clip-path="url(#tri)"><rect x="312" y="316" width="216.56" height="158.6667" fill="#FFC1B8"/><rect x="528.56" y="316" width="291.44" height="158.6667" fill="#FFFFFF"/><rect x="312" y="496.6667" width="216.56" height="158.6667" fill="#FFC1B8"/><rect x="528.56" y="496.6667" width="291.44" height="158.6667" fill="#FFFFFF"/><rect x="312" y="677.3333" width="216.56" height="158.6667" fill="#FFC1B8"/><rect x="528.56" y="677.3333" width="291.44" height="158.6667" fill="#FFFFFF"/></g>
+<path d="M 528.56 313.6 L 528.56 836" stroke="#FF5C4A" stroke-width="44" stroke-linecap="round" fill="none"/>
+<path d="M 528.56 313.6 L 528.56 836" stroke="#FFFFFF" stroke-width="20" stroke-linecap="round" fill="none"/>
+<path d="M 528.56 168 Q 546.24 254.32 632.56 272 Q 546.24 289.68 528.56 376 Q 510.88 289.68 424.56 272 Q 510.88 254.32 528.56 168 Z" fill="#FFFFFF"/>
+</svg>

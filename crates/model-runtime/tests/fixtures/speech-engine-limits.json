@@ -1,0 +1,22 @@
+{
+  "description": "合成引擎的语言表与旋钮区间：packages/models 的 speech-bundles.ts（Runtime 提交时据此校验、界面据此画滑杆）与 model-runtime 的引擎常量各一份，两侧的测试都对照这份。",
+  "languages": {
+    "qwen3-tts": ["zh", "en", "ja", "ko", "de", "fr", "es", "it", "pt", "ru"],
+    "index-tts2.5": ["zh", "en", "ja", "es", "ar"],
+    "gpt-sovits": ["zh", "en"]
+  },
+  "knobs": {
+    "voxcpm2": {
+      "cfg": { "min": 1, "max": 3, "step": 0.1, "default": 2 },
+      "steps": { "min": 1, "max": 50, "step": 1, "default": 10 }
+    },
+    "omnivoice": {
+      "speed": { "min": 0.5, "max": 1.5, "step": 0.05, "default": 1 },
+      "cfg": { "min": 0, "max": 4, "step": 0.1, "default": 2 },
+      "steps": { "min": 4, "max": 64, "step": 1, "default": 32 }
+    },
+    "index-tts2.5": {
+      "speed": { "min": 0.5, "max": 1.5, "step": 0.05, "default": 1 }
+    }
+  }
+}

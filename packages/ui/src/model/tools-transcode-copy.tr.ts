@@ -1,0 +1,32 @@
+import type { ToolsTranscodeMessages } from './tools-transcode-copy.ts';
+
+export const tr: ToolsTranscodeMessages = {
+quality: {
+ smaller: { name: 'Daha küçük', sub: 'Mesajlaşma ve bulut depolama için yeterli' },
+ balanced: { name: 'Dengeli', sub: 'Farkı görmek zor' },
+ high: { name: 'Yüksek kalite', sub: 'Daha sonra düzenlemek için saklayın' },
+},
+heightOriginal: 'Özgün', heightOriginalLong: 'Özgün çözünürlük',
+codecSub: { h264: 'Her yerde oynatılır', hevc: 'Aynı kalitede %40 daha küçük; eski cihazlar oynatamayabilir' },
+notVideoFiles: (names) => `${names.join(', ')} video dosyası değil`,
+notAbsolute: (paths) => `${paths.join(', ')} mutlak yol değil`,
+alreadyListed: (names) => `${names.join(', ')} zaten listede`,
+overflow: (limit, extra) => `Bir seferde en fazla ${limit} dosya; ${extra} dosya daha eklenmedi`,
+joinNotices: (bits) => bits.join('; '),
+needTwoVideos: 'En az iki video ekleyin', needMediaFile: 'Önce video veya ses dosyası seçin', needVideoFile: 'Önce video dosyası seçin', needOneMore: 'Birleştirmek için en az iki video gerekir; bir tane daha ekleyin',
+tooManyFiles: (limit) => `Bir seferde en fazla ${limit} dosya`,
+videoKbpsRange: (min, max) => `Video bit hızı ${min}–${max} kbps arasında olmalı`,
+audioKbpsRange: (min, max) => `Ses bit hızı ${min}–${max} kbps arasında olmalı`,
+outDirAbsolute: 'Çıktı klasörü mutlak yol olmalı', ffmpegUnusable: (message) => `ffmpeg kullanılamıyor: ${message}`, audioKbps: (kbps) => `Ses ${kbps} kbps`,
+ffmpegNeeded: 'Önce ffmpeg yükleyin', ffmpegInstallHint: "Ffmpeg yükleyin veya BAOCUT_FFMPEG ile yolunu ayarlayın", ffmpegReady: (version) => `ffmpeg${version} hazır`, ffmpegOutdated: (version) => `ffmpeg${version} çok eski`, ffmpegCannotRun: 'ffmpeg çalışamıyor',
+filesTitle: (first, count) => `${first} ve ${count - 1} dosya daha`, defaultTitle: 'Dosya dönüştürme', mergeTitle: (first, more) => `${first} + ${more} tane daha`, qualityWithCrf: (name, crf) => `${name} (CRF ${crf})`,
+mergeStreamCopy: (n) => `${n} klip birleştir · Akış kopyalama`, extractAudioMany: (n) => `${n} dosyadan ses çıkar`, extractAudio: 'Sesi çıkar', mergeClips: (n) => `${n} klip birleştir`, compressMany: (n) => `${n} dosya sıkıştır`, compress: 'Sıkıştır',
+stepQueued: (step, detail) => `${step} · ${detail ?? 'Sırada'}`, stepOf: (step, cur, total) => `${step} · Adım ${cur}/${total}`, noAudioTrack: 'Ses yok',
+mergedSize: (after, before) => `${after} (kaynak toplamı ${before})`,
+savedSize: (before, after, saved) => `${before} → ${after} (${saved === null ? 'küçülmedi' : saved === 0 ? 'neredeyse aynı' : `%${saved} daha küçük`})`,
+streamCopyLine: 'Tüm klipler uyumlu: yeniden kodlanmadan akış kopyalandı, kalite değişmedi', reencodeLine: (reason) => reason ? `Yeniden kodlandı: ${reason}` : 'Yeniden kodlandı', underASecond: '1 saniyeden az', took: (duration) => `${duration} sürdü`, stateQueued: 'Sırada', stateProcessing: 'İşleniyor',
+remedyThenRetry: (remedy) => `${remedy}, sonra yeniden deneyin`,
+inputUnreadable: 'Bu dosyadan kare okunamadı. Medya oynatıcıda oynatıldığını doğrulayın veya başka dosya seçin',
+transcodeFailed: 'ffmpeg işlem sırasında başarısız oldu; özgün çıktı aşağıda. Disk doluysa yer açın; kaynak dosya taşındıysa yeniden seçin',
+validationFailed: 'Çıktı doğrulanamadı ve atıldı; çıktı klasörüne bir şey yazılmadı. Yeniden deneyin veya ayarları değiştirin',
+};

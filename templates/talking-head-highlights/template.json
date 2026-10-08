@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "id": "talking-head-highlights",
+  "version": "1.1.0",
+  "kind": "scene",
+  "title": "口播精华剪辑",
+  "summary": "从长录像里找出最有分量的观点，剪成带字幕的短视频。",
+  "description": "把一段较长的口播、访谈或直播录像剪成一条聚焦的短片：开头有力、观点完整、字幕易读。去掉停顿与重复，同时保留说话人的原意。",
+  "language": "zh-CN",
+  "category": "editing",
+  "ratio": "9:16",
+  "durationSeconds": 60,
+  "brief": "这是{{录像}}，帮我剪一条精华，聚焦{{想留下的话题}}，发到{{发布去向}}。",
+  "fields": [
+    {
+      "label": "录像",
+      "hint": "附上的录像，大概多长、录的是什么",
+      "example": "一小时的访谈录像"
+    },
+    {
+      "label": "想留下的话题",
+      "hint": "想剪出来的观点或话题；交给智能体挑可以写「你来挑」",
+      "example": "嘉宾对远程办公的看法"
+    },
+    {
+      "label": "发布去向",
+      "hint": "发在哪里，决定节奏与长短",
+      "example": "社交平台"
+    }
+  ],
+  "author": "BaoCut",
+  "source": "official",
+  "license": "LicenseRef-BaoCut-Community-1.0",
+  "tags": [
+    "口播",
+    "访谈",
+    "精华"
+  ],
+  "skills": [
+    "video-production",
+    "talking-head-cut"
+  ],
+  "cover": {
+    "tone": "orange",
+    "figure": "steps",
+    "kicker": "CLIP"
+  },
+  "preview": {
+    "beats": [
+      "最有力的一句开场",
+      "完整讲清一个观点",
+      "去掉停顿与重复",
+      "落在一句结论上"
+    ]
+  },
+  "verification": {
+    "date": "2026-10-04",
+    "version": "1.0.0",
+    "engine": "codex",
+    "input": "挂上本模板发送，用户消息原文：\n主题：一段公开的讲解录像（media/talk.mp4，约 3 分 43 秒，英文原声），一位航天员在空间站上讲学生怎么用业余无线电和空间站通话。想剪一条竖屏精华，讲清楚一个观点：为什么每次通话只有大约十分钟。\n目标：让观众记住这个最有分量的观点。\n受众：对航天感兴趣的社交平台观众。\n材料：media/talk.mp4 是录像；media/talk.en.srt 是这段录像的英文文字稿（带时间码的字幕文件），可以直接用来找片段和做字幕。\n成片语言用中文：字幕保留英文原声的逐句字幕，另外加中文译文字幕。信息已给全，请直接按默认开始制作，不用再确认。\n\n（测试环境说明：这台机器没有配置转写、语音合成、配乐、音效与视频生成，遇到没有配置的能力请跳过，并在最后说明跳过了什么。如果现有编辑操作做不出需要的画面，可以直接渲染成视频文件再导入时间线，不用再问。）\n\n（录像取 Commons 的 1080p 转码版再转成 1280×720 H.264 MP4；字幕文件取同一文件页的英文 TimedText。）",
+    "materials": [
+      {
+        "title": "Connecting Classrooms to Space- Ham Radio Explainer by NASA Astronaut Nichole Ayers (jsc2025m000040).webm",
+        "url": "https://commons.wikimedia.org/wiki/File:Connecting_Classrooms_to_Space-_Ham_Radio_Explainer_by_NASA_Astronaut_Nichole_Ayers_(jsc2025m000040).webm",
+        "license": "Public-Domain",
+        "note": "media/talk.mp4，约 3 分 43 秒的英文讲解录像，画面有可辨认的真人，所以不放预览与封面"
+      },
+      {
+        "title": "TimedText: Connecting Classrooms to Space- Ham Radio Explainer (英文字幕)",
+        "url": "https://commons.wikimedia.org/wiki/TimedText:Connecting_Classrooms_to_Space-_Ham_Radio_Explainer_by_NASA_Astronaut_Nichole_Ayers_(jsc2025m000040).webm.en.srt",
+        "license": "Public-Domain",
+        "note": "media/talk.en.srt，代替转写的文字稿"
+      }
+    ],
+    "capabilities": [
+      "transcribe"
+    ],
+    "outcome": "partial",
+    "output": {
+      "ratio": "9:16",
+      "durationSeconds": 60
+    },
+    "notes": "确认：没有转写能力，智能体没有尝试调用，直接改用用户给的英文字幕文件找片段和对字幕，并说明跳过了转写；记 partial。剪辑全在 BaoCut 时间线上完成：导入原片后用 addCuts 去掉无关段、splitItem 拆开、moveItems 重排成「飞得太快所以时间短—通话怎么进行—只有约 9 到 10 分钟」，共 7 段原声加 3 秒结论卡，正好 60 秒；观点完整，没有把不同语境的话拼成新意思。竖屏重新构图用 crop 取中间部分，放在深色底的上下标题区与字幕区之间，说话人始终在画面里，脸不被字幕遮挡。英文逐句字幕取自字幕文件并按剪后时间重排，另配中文译文；字幕是脚本渲染的视频层，文字源保留在项目里，没有用 BaoCut 自带的字幕。智能体结束时导出还在排队，最后告诉用户 MP4 尚未完成；导出随后自行完成，本记录的画幅与时长量自那份 BaoCut 成片。画面是可辨认的真人，不放预览与封面。模板改动：无。"
+  }
+}

@@ -1,0 +1,25 @@
+import type { JobsSpeakersMessages } from './speakers.ts';
+
+export const zhHans: JobsSpeakersMessages = {
+  label: '识别说话人',
+  description: '给视频里已有的一份转写按声纹重新区分说话人（本机模型，不重新转写），结果是一份提案；确认后用 edits.applySpeakers 应用。',
+  stepDiarize: '区分说话人',
+  stepPropose: '整理',
+  videoNotOpen: '视频没有打开',
+  notFromAsset: '这份转写不属于视频里的素材，没法按声纹区分',
+  modelMissing: '这台机器上没有「说话人区分」模型',
+  modelNotInstalled: '「说话人区分」模型还没有装好：先下载',
+  transcriptUnreadable: '转写读不了',
+  videoClosed: '视频已经关闭',
+  transcriptGone: '转写已经不在视频里',
+  noWords: '转写里没有词',
+  untimedWords: '转写里有没有时间的词，没法按声纹区分',
+  sourceMissing: '素材的源文件找不到',
+  hashMismatch: 'speakers.json 的摘要与 Worker 报告的不符',
+  wordCountMismatch: 'speakers.json 与转写的词数对不上',
+  transcriptChanged: '转写在识别之后改过了：重新识别说话人',
+  translationChanged: '译文在识别之后改过了：重新识别说话人',
+  unknownSpeaker: '提案里没有这位说话人',
+  nameInvalid: (p: { max: number }) => `说话人的名字不能为空，最长 ${p.max} 个字`,
+  applyFailed: '提案应用不了',
+};

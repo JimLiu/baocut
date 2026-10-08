@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "domain": "filter",
+  "inputs": 1,
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "transparent",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "id": "filter.outline",
+  "kernel": "alpha-outline-square-premul-u8",
+  "params": {
+    "radius": {
+      "type": "length",
+      "default": 0,
+      "min": 0,
+      "max": 0.1,
+      "basis": "canvasShortEdge",
+      "quantize": "round-to-int"
+    },
+    "color": {
+      "type": "color",
+      "default": [
+        1,
+        1,
+        1,
+        1
+      ]
+    }
+  },
+  "doc": "alpha 的方形半径膨胀，颜色垫在原图后；适用于已有 alpha 或 style.mask 的前景。"
+}

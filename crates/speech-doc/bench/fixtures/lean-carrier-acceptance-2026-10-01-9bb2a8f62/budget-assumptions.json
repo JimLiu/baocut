@@ -1,0 +1,738 @@
+[
+  {
+    "page": "ko-real",
+    "id": "s-g1.0",
+    "duration": 6.109999999999999,
+    "kind": "real-word-times",
+    "budget": 54,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "ko-real",
+    "id": "s-g8.0",
+    "duration": 14.350000000000001,
+    "kind": "real-word-times",
+    "budget": 129,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "ko-real",
+    "id": "s-g11.0",
+    "duration": 9.930000000000007,
+    "kind": "real-word-times",
+    "budget": 89,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "ko-real",
+    "id": "s-wmuothvkq-16",
+    "duration": 13.530000000000001,
+    "kind": "real-word-times",
+    "budget": 121,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "ko-real",
+    "id": "s-g23.0",
+    "duration": 13.29000000000002,
+    "kind": "real-word-times",
+    "budget": 119,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "ko-real",
+    "id": "s-g33.0",
+    "duration": 5.840000000000003,
+    "kind": "real-word-times",
+    "budget": 52,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "ko-real",
+    "id": "s-g45.0",
+    "duration": 12.800000000000011,
+    "kind": "real-word-times",
+    "budget": 115,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "ko-real",
+    "id": "s-g58.0",
+    "duration": 4.599999999999966,
+    "kind": "real-word-times",
+    "budget": 41,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "ko-real",
+    "id": "s-g74.0",
+    "duration": 6.649999999999977,
+    "kind": "real-word-times",
+    "budget": 59,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "ko-real",
+    "id": "s-wmuothvkw-107",
+    "duration": 12.580000000000041,
+    "kind": "real-word-times",
+    "budget": 113,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "ko-real",
+    "id": "s-g86.3",
+    "duration": 13.059999999999945,
+    "kind": "real-word-times",
+    "budget": 117,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "ko-real",
+    "id": "s-g96.4",
+    "duration": 1.4300000000000637,
+    "kind": "real-word-times",
+    "budget": 12,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "zh-real",
+    "id": "s-g1.0",
+    "duration": 2.81,
+    "kind": "real-word-times",
+    "budget": 59,
+    "targetLang": "en"
+  },
+  {
+    "page": "zh-real",
+    "id": "s-g23.0",
+    "duration": 6.07,
+    "kind": "real-word-times",
+    "budget": 127,
+    "targetLang": "en"
+  },
+  {
+    "page": "zh-real",
+    "id": "s-g27.0",
+    "duration": 10.850000000000009,
+    "kind": "real-word-times",
+    "budget": 227,
+    "targetLang": "en"
+  },
+  {
+    "page": "zh-real",
+    "id": "s-g43.0",
+    "duration": 4.799999999999997,
+    "kind": "real-word-times",
+    "budget": 100,
+    "targetLang": "en"
+  },
+  {
+    "page": "zh-real",
+    "id": "s-g55.0",
+    "duration": 10.050000000000011,
+    "kind": "real-word-times",
+    "budget": 211,
+    "targetLang": "en"
+  },
+  {
+    "page": "zh-real",
+    "id": "s-g67.0",
+    "duration": 1.9299999999999784,
+    "kind": "real-word-times",
+    "budget": 40,
+    "targetLang": "en"
+  },
+  {
+    "page": "zh-real",
+    "id": "s-g91.0",
+    "duration": 5.170000000000016,
+    "kind": "real-word-times",
+    "budget": 108,
+    "targetLang": "en"
+  },
+  {
+    "page": "zh-real",
+    "id": "s-wmuosgcxu-167",
+    "duration": 6.1200000000000045,
+    "kind": "real-word-times",
+    "budget": 128,
+    "targetLang": "en"
+  },
+  {
+    "page": "zh-real",
+    "id": "s-g133.0",
+    "duration": 10.800000000000011,
+    "kind": "real-word-times",
+    "budget": 226,
+    "targetLang": "en"
+  },
+  {
+    "page": "zh-real",
+    "id": "s-g152.0",
+    "duration": 2.269999999999982,
+    "kind": "real-word-times",
+    "budget": 47,
+    "targetLang": "en"
+  },
+  {
+    "page": "zh-real",
+    "id": "s-g161.0",
+    "duration": 15.340000000000032,
+    "kind": "real-word-times",
+    "budget": 322,
+    "targetLang": "en"
+  },
+  {
+    "page": "zh-real",
+    "id": "s-g173.0",
+    "duration": 1.3700000000000045,
+    "kind": "real-word-times",
+    "budget": 28,
+    "targetLang": "en"
+  },
+  {
+    "page": "ja-real",
+    "id": "s-g1.0",
+    "duration": 1.6400000000000001,
+    "kind": "real-word-times",
+    "budget": 14,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "ja-real",
+    "id": "s-g21.0",
+    "duration": 4.550000000000011,
+    "kind": "real-word-times",
+    "budget": 40,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "ja-real",
+    "id": "s-g45.0",
+    "duration": 4.939999999999998,
+    "kind": "real-word-times",
+    "budget": 44,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "ja-real",
+    "id": "s-g69.0",
+    "duration": 5.1299999999999955,
+    "kind": "real-word-times",
+    "budget": 46,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "ja-real",
+    "id": "s-g75.0",
+    "duration": 11.149999999999977,
+    "kind": "real-word-times",
+    "budget": 100,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "ja-real",
+    "id": "s-g82.0",
+    "duration": 8.719999999999914,
+    "kind": "real-word-times",
+    "budget": 78,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "ja-real",
+    "id": "s-g94.0",
+    "duration": 2.0400000000000773,
+    "kind": "real-word-times",
+    "budget": 18,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "ja-real",
+    "id": "s-g117.0",
+    "duration": 7.600000000000023,
+    "kind": "real-word-times",
+    "budget": 68,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "ja-real",
+    "id": "s-g142.0",
+    "duration": 6.67999999999995,
+    "kind": "real-word-times",
+    "budget": 60,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "ja-real",
+    "id": "s-g165.0",
+    "duration": 6.960000000000036,
+    "kind": "real-word-times",
+    "budget": 62,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "ja-real",
+    "id": "s-g187.0",
+    "duration": 12.799999999999955,
+    "kind": "real-word-times",
+    "budget": 115,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "ja-real",
+    "id": "s-g189.15",
+    "duration": 1.599999999999909,
+    "kind": "real-word-times",
+    "budget": 14,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "synthetic-ar-en",
+    "id": "ar-01",
+    "duration": 4.814814814814815,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 101,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-ar-en",
+    "id": "ar-02",
+    "duration": 5.555555555555555,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 116,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-ar-en",
+    "id": "ar-03",
+    "duration": 5.185185185185185,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 108,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-ar-en",
+    "id": "ar-04",
+    "duration": 4.814814814814815,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 101,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-ar-en",
+    "id": "ar-05",
+    "duration": 5.925925925925926,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 124,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-ar-en",
+    "id": "ar-06",
+    "duration": 4.444444444444444,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 93,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-ar-zh-Hans",
+    "id": "ar-07",
+    "duration": 5.185185185185185,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 46,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "synthetic-ar-zh-Hans",
+    "id": "ar-08",
+    "duration": 4.814814814814815,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 43,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "synthetic-de-en",
+    "id": "de-01",
+    "duration": 4.814814814814815,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 101,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-de-en",
+    "id": "de-02",
+    "duration": 5.555555555555555,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 116,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-de-en",
+    "id": "de-03",
+    "duration": 5.185185185185185,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 108,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-de-en",
+    "id": "de-04",
+    "duration": 4.0740740740740735,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 85,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-de-en",
+    "id": "de-05",
+    "duration": 5.555555555555555,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 116,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-de-en",
+    "id": "de-06",
+    "duration": 4.444444444444444,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 93,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-de-zh-Hans",
+    "id": "de-07",
+    "duration": 4.444444444444444,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 39,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "synthetic-de-zh-Hans",
+    "id": "de-08",
+    "duration": 4.444444444444444,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 39,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "synthetic-en-ar",
+    "id": "reverse-ar-01",
+    "duration": 4.814814814814815,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 101,
+    "targetLang": "ar"
+  },
+  {
+    "page": "synthetic-en-ar",
+    "id": "reverse-ar-02",
+    "duration": 5.555555555555555,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 116,
+    "targetLang": "ar"
+  },
+  {
+    "page": "synthetic-en-ar",
+    "id": "reverse-ar-03",
+    "duration": 5.185185185185185,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 108,
+    "targetLang": "ar"
+  },
+  {
+    "page": "synthetic-en-ar",
+    "id": "reverse-ar-04",
+    "duration": 4.814814814814815,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 101,
+    "targetLang": "ar"
+  },
+  {
+    "page": "synthetic-en-ar",
+    "id": "reverse-ar-05",
+    "duration": 5.925925925925926,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 124,
+    "targetLang": "ar"
+  },
+  {
+    "page": "synthetic-en-ar",
+    "id": "reverse-ar-06",
+    "duration": 4.444444444444444,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 93,
+    "targetLang": "ar"
+  },
+  {
+    "page": "synthetic-en-ar",
+    "id": "reverse-ar-07",
+    "duration": 5.185185185185185,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 108,
+    "targetLang": "ar"
+  },
+  {
+    "page": "synthetic-en-ar",
+    "id": "reverse-ar-08",
+    "duration": 4.814814814814815,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 101,
+    "targetLang": "ar"
+  },
+  {
+    "page": "synthetic-es-en",
+    "id": "es-01",
+    "duration": 4.814814814814815,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 101,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-es-en",
+    "id": "es-02",
+    "duration": 5.555555555555555,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 116,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-es-en",
+    "id": "es-03",
+    "duration": 5.185185185185185,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 108,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-es-en",
+    "id": "es-04",
+    "duration": 3.7037037037037033,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 77,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-es-en",
+    "id": "es-05",
+    "duration": 5.185185185185185,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 108,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-es-en",
+    "id": "es-06",
+    "duration": 4.0740740740740735,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 85,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-es-zh-Hans",
+    "id": "es-07",
+    "duration": 5.185185185185185,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 46,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "synthetic-es-zh-Hans",
+    "id": "es-08",
+    "duration": 4.814814814814815,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 43,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "synthetic-hi-en",
+    "id": "hi-01",
+    "duration": 4.814814814814815,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 101,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-hi-en",
+    "id": "hi-02",
+    "duration": 5.555555555555555,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 116,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-hi-en",
+    "id": "hi-03",
+    "duration": 5.555555555555555,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 116,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-hi-en",
+    "id": "hi-04",
+    "duration": 3.7037037037037033,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 77,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-hi-en",
+    "id": "hi-05",
+    "duration": 4.814814814814815,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 101,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-hi-en",
+    "id": "hi-06",
+    "duration": 4.0740740740740735,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 85,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-hi-zh-Hans",
+    "id": "hi-07",
+    "duration": 5.185185185185185,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 46,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "synthetic-hi-zh-Hans",
+    "id": "hi-08",
+    "duration": 4.814814814814815,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 43,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "synthetic-th-en",
+    "id": "th-01",
+    "duration": 4.814814814814815,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 101,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-th-en",
+    "id": "th-02",
+    "duration": 5.555555555555555,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 116,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-th-en",
+    "id": "th-03",
+    "duration": 5.185185185185185,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 108,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-th-en",
+    "id": "th-04",
+    "duration": 4.0740740740740735,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 85,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-th-en",
+    "id": "th-05",
+    "duration": 5.185185185185185,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 108,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-th-en",
+    "id": "th-06",
+    "duration": 4.444444444444444,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 93,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-th-zh-Hans",
+    "id": "th-07",
+    "duration": 5.185185185185185,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 46,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "synthetic-th-zh-Hans",
+    "id": "th-08",
+    "duration": 5.185185185185185,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 46,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "synthetic-tr-en",
+    "id": "tr-01",
+    "duration": 4.814814814814815,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 101,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-tr-en",
+    "id": "tr-02",
+    "duration": 5.555555555555555,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 116,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-tr-en",
+    "id": "tr-03",
+    "duration": 5.555555555555555,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 116,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-tr-en",
+    "id": "tr-04",
+    "duration": 3.7037037037037033,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 77,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-tr-en",
+    "id": "tr-05",
+    "duration": 5.185185185185185,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 108,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-tr-en",
+    "id": "tr-06",
+    "duration": 4.444444444444444,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 93,
+    "targetLang": "en"
+  },
+  {
+    "page": "synthetic-tr-zh-Hans",
+    "id": "tr-07",
+    "duration": 5.185185185185185,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 46,
+    "targetLang": "zh-Hans"
+  },
+  {
+    "page": "synthetic-tr-zh-Hans",
+    "id": "tr-08",
+    "duration": 3.7037037037037033,
+    "kind": "synthetic-reference-English-words/2.7",
+    "budget": 33,
+    "targetLang": "zh-Hans"
+  }
+]

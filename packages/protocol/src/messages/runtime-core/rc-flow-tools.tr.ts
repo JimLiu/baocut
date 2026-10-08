@@ -1,0 +1,11 @@
+import type { RcFlowToolsMessages } from './rc-flow-tools.ts';
+
+function providerNote(p: { provider: string | null; model: string | null }): string { return p.provider ? ` (${p.provider}${p.model ? ` ${p.model}` : ''})` : ''; }
+function originalLabel(original: string): string { switch (original) { case 'mute': return 'kapat'; case 'keep': return 'koru'; default: return 'kıs'; } }
+function transcodeAction(action: string): string { switch (action) { case 'merge': return 'sırayla birleştir'; case 'extract-audio': return 'ses izini çıkar'; default: return 'sıkıştır'; } }
+
+export const tr: RcFlowToolsMessages = {
+listSeparator: ', ', transcribeVideoSummary: (p) => `${p.asset ? `${p.asset} medyasını` : 'Ana izdeki medyayı'} yazıya dök${providerNote(p)}${p.captions ? ' ve altyazı katmanı ekle' : ''}`, transcribeFileSummary: (p) => `${p.file} dosyasını yazıya dök${providerNote(p)} ve TXT ve SRT dökümlerini ${p.outDir ?? 'İndirilenler klasörü'} konumuna yaz`, transcribeCreateSummary: (p) => `Video oluştur${p.name ? ` “${p.name}”` : ''}, ${p.file} içe aktar ve zaman çizelgesine ekle, sonra yazıya dök${providerNote(p)}${p.captions ? ' ve altyazı katmanı ekle' : ''}`, translateVideoSummary: (p) => `Dökümü metin modeliyle ${p.to} diline çevir${providerNote(p)}${p.captions ? ` ve ${p.bilingual ? 'iki dilli ' : ''}altyazı katmanı ekle` : ''}`, translateFileSummary: (p) => `${p.input} altyazı dosyasını metin modeliyle ${p.to} diline çevir${providerNote(p)} ve yeni dosyayı ${p.outDir ?? 'İndirilenler klasörü'} konumuna yaz`, dubSummary: (p) => `Çeviri dublajı${p.to ? ` (${p.to})` : ''}: ${p.translation ? `${p.translation} çevirisini kullan` : 'önce metin modeliyle çevir'}, cümle cümle sentezle${providerNote(p)}${p.voice ? `, ses ${p.voice}` : ''}, yeni dublaj izi ekle ve özgün sesi ${originalLabel(p.original)}`, transcodeSummary: (p) => `${p.count} dosyayı ${transcodeAction(p.action)} (${p.files}${p.truncated ? '…' : ''}) ve ${p.outDir ?? 'İndirilenler klasörü'} konumuna kaydet`,
+  transcribeReplaceSummary: (p) =>
+    `${p.asset ? `${p.asset} medyasını` : 'Ana izdeki medyayı'} yeniden yazıya dök${providerNote(p)} ve videonun geçerli dökümünün yerine koy; çeviriler, altyazılar ve seslendirme taşınır (geri alınabilen tek işlem)`,
+};

@@ -1,0 +1,94 @@
+{
+  "id": "other.01",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "other",
+  "order": 401,
+  "duration": 4.43,
+  "content": [
+    {
+      "kind": "text",
+      "place": {
+        "x": 36.46,
+        "y": 43.28,
+        "w": 49.5
+      },
+      "text": "THIS IS YOUR",
+      "style": {
+        "backgroundColor": "#000000",
+        "backgroundPadding": 14.0,
+        "backgroundStyle": "block",
+        "borderRadius": 0.0,
+        "fontColor": "#ffffff",
+        "fontFamily": "Anton",
+        "fontSize": 56.0,
+        "fontStyle": "normal",
+        "fontWeight": "normal",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.1,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "drop",
+          "dur": 0.6
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 50.0,
+        "y": 56.72,
+        "w": 76.59
+      },
+      "text": "PRESENTATION TITLE",
+      "style": {
+        "backgroundColor": "#000000",
+        "backgroundPadding": 14.0,
+        "backgroundStyle": "block",
+        "borderRadius": 0.0,
+        "fontColor": "#ffffff",
+        "fontFamily": "Anton",
+        "fontSize": 56.0,
+        "fontStyle": "normal",
+        "fontWeight": "normal",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.1,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "rise",
+          "dur": 0.6
+        }
+      }
+    }
+  ]
+}

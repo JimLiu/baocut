@@ -1,0 +1,75 @@
+[package]
+name = "model-runtime"
+description = "BaoCut 本地推理的公共库：Model Worker 协议、父进程看护、后端抽象、音频解码与语音识别流水线（架构设计 §6.5–§6.6）"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[features]
+default = ["backend-mlx", "backend-coreml"]
+# Apple Silicon 专属：mlx-rs（Metal）推理。其他平台开着也能编译，只是后端报告不可用。
+backend-mlx = ["dep:mlx-rs", "dep:mlx-sys"]
+# Apple Silicon 专属：CoreML 上的 Whisper（`.mlmodelc`）。VAD 仍是 MLX 的 Silero，所以连带 `backend-mlx`。
+# 其他平台开着也能编译，只是后端报告不可用。
+backend-coreml = ["backend-mlx", "dep:half", "dep:objc2", "dep:objc2-core-ml", "dep:objc2-foundation"]
+# 全平台：candle 推理（CPU；开 `cuda` 时 NVIDIA GPU），覆盖 Qwen3-ASR、MOSS、Qwen-Image 与同一批模型仓库（架构设计 §6.5）。
+backend-candle = ["dep:candle-core", "dep:candle-nn", "dep:safetensors", "dep:rand_chacha", "dep:rand_distr"]
+# 可选：candle 的 NVIDIA CUDA 加速（Windows/Linux；构建要 CUDA 工具链）。
+cuda = ["backend-candle", "candle-core?/cuda", "candle-nn?/cuda"]
+# 全平台：Whisper 走 whisper.cpp（whisper-rs，构建要 cmake 与 C++ 编译器）。VAD 与可选的对齐器仍是 candle 的，所以连带
+# `backend-candle`。不进 default：Apple Silicon 的 Whisper 是 Core ML，非 Apple 的构建显式开启。
+whisper-ggml = ["backend-candle", "dep:whisper-rs"]
+# whisper.cpp 的 ggml Vulkan 后端：AMD / Intel / NVIDIA 显卡与核显一次覆盖；构建要 Vulkan SDK（glslc），运行只要显卡驱动带的 vulkan-1。
+whisper-ggml-vulkan = ["whisper-ggml", "whisper-rs?/vulkan"]
+# whisper.cpp 的 ggml CUDA 后端：NVIDIA 上 Whisper 走 CUDA（静态链接 ggml-cuda，运行要 cudart / cublas / cublasLt 与显卡驱动）。
+# 构建要 CUDA Toolkit（nvcc，Windows 上还要 CUDA_PATH），没有 GPU 的构建机要给 CMAKE_CUDA_ARCHITECTURES（打包脚本给）。可与
+# `whisper-ggml-vulkan` 同时开，运行期 CUDA 优先（ggml 先登记 CUDA）。与 candle 的 `cuda` 是两个独立的 feature。未实测。
+whisper-ggml-cuda = ["whisper-ggml", "whisper-rs?/cuda"]
+
+[dependencies]
+anyhow = "1.0.102"
+candle-core = { version = "0.11", optional = true }
+candle-nn = { version = "0.11", optional = true }
+# OmniVoice 文本前端与分词器的预切分正则、GPT-SoVITS 中文数字规范化、IndexTTS2 数字规范化（都要 lookaround）。
+fancy-regex = "0.18.0"
+# GPT-SoVITS 文本前端与注音：内嵌词典的 zlib 解压。
+flate2 = "1.1.9"
+hound = "3.5.1"
+# 无空格书写（日、泰等）的分词：估计词时间时按词切开段文本。
+icu_segmenter = "2.2"
+libc = "0.2.189"
+memmap2 = "0.9.11"
+# 本地文生图的输出（`baocut.image-png/v1`）。
+png = "0.18.1"
+# candle 文生图的初始噪声：主机上按 seed 抽（candle 的 CPU 设备不能设种子）。
+rand_chacha = { version = "0.9", optional = true }
+rand_distr = { version = "0.5", optional = true }
+realfft = "3.5.0"
+# GPT-SoVITS 文本前端：分词与英文规范化。
+regex = "1.13.1"
+# candle 后端按需读 safetensors 分片（不整份读进内存）。
+safetensors = { version = "0.8", optional = true }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sha2 = "0.11.0"
+unicode-general-category = "1.1"
+# OmniVoice 分词器的 NFC 规范化、GPT-SoVITS 英文规范化的 NFKD、IndexTTS2 文本前端的 NFKC。
+unicode-normalization = "0.1.25"
+# 自动语言识别的兜底：模型没有报出语言时按累计文本判断。
+whatlang = "0.18"
+# raw-api：暴露 whisper_rs_sys，用于 ggml 的设备枚举与动态后端加载。
+whisper-rs = { version = "0.16", optional = true, features = ["raw-api"] }
+
+[target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
+# 所有 MLX crate 必须同一版：两份 pmetal-mlx-sys 会各链一份 libmlx。
+mlx-rs = { package = "pmetal-mlx-rs", version = "0.25.8", features = ["safetensors"], optional = true }
+mlx-sys = { package = "pmetal-mlx-sys", version = "0.2.4", optional = true }
+# CoreML（Whisper）：MLMultiArray 的半精度缓存与 Objective-C 绑定。
+half = { version = "2.7.1", optional = true }
+objc2 = { version = "0.6.4", optional = true }
+objc2-core-ml = { version = "0.3.2", optional = true }
+objc2-foundation = { version = "0.3.2", optional = true }
+
+[dev-dependencies]
+tempfile = "3.27.0"

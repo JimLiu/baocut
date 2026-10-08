@@ -1,0 +1,66 @@
+{
+  "rows": [
+    {
+      "id": "hi-07",
+      "reference_en": "Do not send the file to Sara until the manager approves the second version.",
+      "required_facts": [
+        "Sara",
+        "manager approval required",
+        "second version"
+      ],
+      "risk": "until; combining marks",
+      "source": "जब तक प्रबंधक दूसरे संस्करण को मंज़ूरी न दे, तब तक फ़ाइल सारा को मत भेजें।",
+      "source_lang": "hi",
+      "source_words": [
+        "जब",
+        "तक",
+        "प्रबंधक",
+        "दूसरे",
+        "संस्करण",
+        "को",
+        "मंज़ूरी",
+        "न",
+        "दे,",
+        "तब",
+        "तक",
+        "फ़ाइल",
+        "सारा",
+        "को",
+        "मत",
+        "भेजें।"
+      ],
+      "target_lang": "zh-Hans"
+    },
+    {
+      "id": "hi-08",
+      "reference_en": "We bought 2.5 kilos of rice; half of the rice remained after dinner.",
+      "required_facts": [
+        "2.5 kilos",
+        "rice",
+        "half remained",
+        "after dinner"
+      ],
+      "risk": "decimal; fraction",
+      "source": "हमने 2.5 किलो चावल खरीदे थे; रात के खाने के बाद आधे चावल बच गए।",
+      "source_lang": "hi",
+      "source_words": [
+        "हमने",
+        "2.5",
+        "किलो",
+        "चावल",
+        "खरीदे",
+        "थे;",
+        "रात",
+        "के",
+        "खाने",
+        "के",
+        "बाद",
+        "आधे",
+        "चावल",
+        "बच",
+        "गए।"
+      ],
+      "target_lang": "zh-Hans"
+    }
+  ]
+}

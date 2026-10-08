@@ -1,0 +1,8 @@
+{
+  "effort": "auto",
+  "elapsedMs": 1768,
+  "error": null,
+  "model": "deepseek-flash",
+  "name": "synthetic-de-en",
+  "response": "1 |Lea..abgesagt|Lea didn't cancel the appointment, |sondern..Donnerstag|but postponed it to Thursday |um..Uhr|at 14:30.\n2 |Wenn..fällt|If the temperature falls below 5 degrees, |schließe..Fenster|close the window |bevor..einschaltest|before you turn on the heating.\n3 |Für..zahlte|For three tickets |Ömer..Euro|Ömer paid 120 euros; |das..nicht|dinner was not |im..enthalten|included in the price.\n4 |Das..gestern|The book that Mia |von..hat|borrowed from Jonas yesterday |gehört..Schwester|belongs to his sister.\n5 |Neben..bestätigt|Next to \"confirmed\" |steht..B-23|is the code B-23, |obwohl..noch|although the package |nicht..wurde|has not yet been shipped.\n6 |Obwohl..losgefahren|Although Nora had left earlier, |kam..Minuten|she arrived ten minutes |nach..an|after Cem."
+}

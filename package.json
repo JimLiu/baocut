@@ -1,0 +1,62 @@
+{
+  "name": "baocut",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BaoCut: an AI video agent with an editable video at the center",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jimliu/baocut.git"
+  },
+  "homepage": "https://github.com/jimliu/baocut#readme",
+  "bugs": {
+    "url": "https://github.com/jimliu/baocut/issues"
+  },
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "predev": "(npm run build:engine || echo '视频引擎或模型 Worker 没有构建成功：编辑器或本地转写不可用') && (npm run build:wasm || echo '预览与编辑语义的 WASM 没有构建成功：预览、句子与译文核对不可用')",
+    "dev": "npm run dev --workspace=@baocut/desktop",
+    "dev:designs": "npm --prefix designs/baocut run dev --",
+    "prebuild": "npm run build:wasm && npm run build:catalog && npm run build:agent-skill",
+    "build": "npm run build --workspace=@baocut/desktop",
+    "start": "npm run start --workspace=@baocut/desktop",
+    "runtime": "node apps/runtime/src/main.ts",
+    "build:engine": "node tools/build-engine.mjs",
+    "build:wasm": "node tools/build-wasm.mjs",
+    "build:web": "npm run build --workspace=@baocut/web",
+    "build:catalog": "node tools/catalog-snapshot.ts",
+    "build:agent-skill": "node tools/sync-agent-skill.ts",
+    "package:win": "npm run build && npm run build:web && node apps/desktop/tools/package-desktop.mjs --variant cpu",
+    "package:win:cuda": "npm run build && npm run build:web && node apps/desktop/tools/package-desktop.mjs --variant cuda",
+    "package:win:vulkan": "npm run build && npm run build:web && node apps/desktop/tools/package-desktop.mjs --variant vulkan",
+    "check:file-fonts": "npm run build && node apps/desktop/tools/check-file-fonts.mjs",
+    "check:model-assets": "npm run build && node apps/desktop/tools/check-model-assets.mjs",
+    "bench:preview": "npm run build && node apps/desktop/tools/preview-bench.mjs",
+    "bench:panels": "npm run build && node apps/desktop/tools/panels-bench.mjs",
+    "icons": "node tools/app-icon/render.mjs",
+    "precli": "npm run build:catalog",
+    "cli": "node apps/cli/src/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "npm run build:catalog && npm run build:agent-skill",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.1",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  },
+  "allowScripts": {
+    "@swc/core@1.16.13": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.2": true,
+    "fsevents@2.3.3": true,
+    "electron@44.5.1": true
+  }
+}

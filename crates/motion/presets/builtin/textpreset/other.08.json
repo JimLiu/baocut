@@ -1,0 +1,226 @@
+{
+  "id": "other.08",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "other",
+  "order": 408,
+  "duration": 5.0,
+  "content": [
+    {
+      "kind": "text",
+      "place": {
+        "x": 50.0,
+        "y": 8.0,
+        "w": 100.0
+      },
+      "text": "WORKOUT",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#00000000",
+        "fontFamily": "Archivo Black",
+        "fontSize": 75.6,
+        "fontStyle": "normal",
+        "fontWeight": "normal",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.2,
+        "letterSpacing": 0.0,
+        "textAlign": "center",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#E8005D",
+          "width": 5.0,
+          "on": true
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "drop",
+          "dur": 0.6
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 50.0,
+        "y": 29.0,
+        "w": 100.0
+      },
+      "text": "WORKOUT",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#00000000",
+        "fontFamily": "Archivo Black",
+        "fontSize": 75.6,
+        "fontStyle": "normal",
+        "fontWeight": "normal",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.2,
+        "letterSpacing": 0.0,
+        "textAlign": "center",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#E8005D",
+          "width": 5.0,
+          "on": true
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "rise",
+          "dur": 0.6
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 50.0,
+        "y": 50.0,
+        "w": 100.0
+      },
+      "text": "WORKOUT",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#E8005D",
+        "fontFamily": "Archivo Black",
+        "fontSize": 75.6,
+        "fontStyle": "normal",
+        "fontWeight": "normal",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.2,
+        "letterSpacing": 0.0,
+        "textAlign": "center",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.2,
+          "distance": 0.03,
+          "rotation": 45.0,
+          "color": "#F65D94",
+          "on": true,
+          "opacity": 0.57
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "drop",
+          "dur": 0.6
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 50.0,
+        "y": 71.0,
+        "w": 100.0
+      },
+      "text": "WORKOUT",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#00000000",
+        "fontFamily": "Archivo Black",
+        "fontSize": 75.6,
+        "fontStyle": "normal",
+        "fontWeight": "normal",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.2,
+        "letterSpacing": 0.0,
+        "textAlign": "center",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#E8005D",
+          "width": 5.0,
+          "on": true
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "rise",
+          "dur": 0.6
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 50.0,
+        "y": 92.0,
+        "w": 100.0
+      },
+      "text": "WORKOUT",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#00000000",
+        "fontFamily": "Archivo Black",
+        "fontSize": 75.6,
+        "fontStyle": "normal",
+        "fontWeight": "normal",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.2,
+        "letterSpacing": 0.0,
+        "textAlign": "center",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#E8005D",
+          "width": 5.0,
+          "on": true
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "drop",
+          "dur": 0.6
+        }
+      }
+    }
+  ]
+}

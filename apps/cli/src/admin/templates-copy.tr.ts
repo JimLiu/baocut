@@ -1,0 +1,9 @@
+import type { TemplatesMessages } from './templates-copy.ts';
+
+export const tr: TemplatesMessages = {
+help: `Kullanım:
+  baocut templates                 Kullanılabilir oluşturma şablonlarını listele (yerleşik ve <BAOCUT_HOME>/templates içindeki),
+                                   yüklenemeyen şablon klasörlerini ve nedenlerini de göster
+  baocut templates show <id>       Şablonun bildirim özetini ve tam prompt.md içeriğini göster`,
+kindLabels: { scene: 'Sahne şablonu', example: 'Örnek' }, originLabels: { builtin: 'Yerleşik', user: 'Kullanıcı' }, spec: (ratio, seconds) => `${ratio ?? 'otomatik oran'} · ${seconds ? `${seconds} sn` : 'otomatik süre'}`, summaryLine: (title, summary) => `${title}: ${summary}`, diagnosticHead: (origin, dir, code, message) => `${origin} şablonu ${dir} (${code}): ${message}`, folder: (path) => `  Klasör: ${path}`, none: 'Kullanılabilir şablon yok', skipped: (n) => `${n} şablon klasörü atlandı:`, detailHead: (title, id, version, kind, origin) => `${title} (${id} v${version}, ${kind}, ${origin})`, meta: (category, spec, language) => `Kategori: ${category}  Oran ve süre: ${spec}  Dil: ${language}`, author: (author, source, license) => `Yazar: ${author} (${source}, ${license})`, tags: (tags) => `Etiketler: ${tags.join(', ')}`, sample: (sample) => `Şunu söylemeyi deneyin: ${sample}`, cover: (file) => `Kapak: ${file}`, preview: (file) => `Önizleme: ${file}`, asset: (path, type, note) => `Medya: ${path} (${type})${note ? ` ${note}` : ''}`, verification: (v) => `Doğrulandı: ${v.date} ${v.engine} v${v.version} ${v.outcome}${v.output ? `, dışa aktarma ${v.output.ratio} · ${v.output.seconds} sn` : ''}${v.missing.length ? `, eksik ${v.missing.join(', ')}` : ''}`, templateFlag: (value) => `--template şablon id kabul eder (kebab-case, baocut templates komutuna bakın): ${value}`,
+};

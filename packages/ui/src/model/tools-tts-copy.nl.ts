@@ -1,0 +1,48 @@
+import { pluralForm } from '@baocut/protocol';
+import type { ToolsTtsMessages } from './tools-tts-copy.ts';
+
+export const nl: ToolsTtsMessages = {
+  emptyText: "Schrijf eerst de tekst om voor te lezen",
+
+  vibes: {
+    radio: { name: "Nachtradio", style: "Als nachtradio: wat langzamer, met een zachte stem" },
+    launch: { name: "Productintroductie", style: "Een productintroductie: warmer en energieker, met nadruk op de belangrijkste punten" },
+    bedtime: { name: "Verhaaltje voor het slapengaan", style: "Een zacht verhaaltje voor het slapengaan: langzamer, met een vriendelijke toon" },
+    news: { name: "Nieuwsbericht", style: "Een nieuwsbericht: duidelijke uitspraak, gelijkmatig ritme" },
+    teach: { name: "Les", style: "Leg het uit als een les: in spreektaal, met pauzes bij de belangrijkste punten" },
+    vlog: { name: "Vrolijke vertelling", style: "Licht en vrolijk, wat sneller, met een glimlach in de stem" },
+  },
+  statsEmpty: (max: number) => `0 / ${max} tekens`,
+  stats: (n: number, max: number, segments: number, seconds: string) =>
+    `${n} / ${max} tekens · ${segments} ${pluralForm('nl', segments, { one: "segment", other: "segmenten" })} · ongeveer ${seconds} s`,
+  defaultVoiceOption: (name: string) => `Standaard · ${name}`,
+  customVoiceOption: "Voer een stem-ID in…",
+  presetOnly: (model: string) => `${model} accepteert alleen vooringestelde stemmen, dus Mijn stemmen kan niet worden gebruikt`,
+  cannotClone: (provider: string) => `${provider} kan niet klonen · gebruik de vooringestelde stemmen`,
+  noConsent: "Niet gemarkeerd als je eigen stem of gebruikt met toestemming, dus wordt niet naar derden geüpload · voeg de verklaring toe bij Mijn stemmen",
+  cloneStale: (provider: string) => `De kloon bij ${provider} is verouderd (de referentieopname is gewijzigd) · upload die opnieuw bij Mijn stemmen`,
+  notCloned: (provider: string) => `Nog niet gekloond bij ${provider} · upload die een keer bij Mijn stemmen`,
+  customVoice: "Aangepaste stem",
+  deletedVoice: "Verwijderde stem",
+  myVoices: "Mijn stemmen",
+  defaultVoice: "Standaardstem",
+  cannotSpeak: (model: string, language: string) => `${model} kan niet voorlezen in ${language}`,
+  voiceDeleted: "De geselecteerde stem is verwijderd; kies een andere",
+  tooLong: (model: string, max: number) => `${model} accepteert maximaal ${max} tekens tegelijk; kort de tekst eerst in`,
+  enterVoiceId: "Voer eerst een stem-ID in",
+  pickVoice: "Kies eerst een stem",
+  noVoices: "Dit model heeft geen stemmen beschikbaar",
+  seedInteger: "Seed moet een geheel getal zijn",
+  noModel: "Nog geen spraaksynthesemodel beschikbaar",
+  connectFirst: (provider: string) => `Verbinden: ${provider}`,
+  readsMaterial: (model: string, voice: string, name: string) => `${model} · ${voice} · leest de tekst van ‘${name}’`,
+  estimate: (seconds: string, chars: number) => ` · ongeveer ${seconds} s · ongeveer ${chars} tekens`,
+  chars: (n: number) => `${n} ${pluralForm('nl', n, { one: "teken", other: "tekens" })}`,
+  speech: "Spraak",
+  presetVoices: (n: number) => `${n} vooringestelde ${pluralForm('nl', n, { one: "stem", other: "stemmen" })}`,
+  customVoiceId: "Aangepaste stem-ID",
+  takesStyle: "Accepteert stijlinstructies",
+  speedRange: (min: number, max: number) => `Snelheid ${min}–${max}×`,
+  maxChars: (max: number) => `Maximaal ${max} tekens tegelijk`,
+  headerChip: (provider: string) => `Online · ${provider} · gefactureerd op basis van gebruik`,
+};

@@ -1,0 +1,104 @@
+{
+  "id": "lowerThird.04",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "lowerThird",
+  "order": 304,
+  "duration": 4.0,
+  "content": [
+    {
+      "kind": "text",
+      "place": {
+        "x": 47.5,
+        "y": 45.85,
+        "w": 29.67
+      },
+      "text": "LAURA SIMON",
+      "style": {
+        "backgroundColor": "#ae8affff",
+        "backgroundPadding": 5.3,
+        "backgroundStyle": "block",
+        "borderRadius": 6.4,
+        "fontColor": "#000000ff",
+        "fontFamily": "Poppins",
+        "fontSize": 21.2,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 0.8,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "zoomIn",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "zoomOut",
+          "dur": 0.6
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 51.43,
+        "y": 52.52,
+        "rot": -343.8,
+        "w": 31.45
+      },
+      "text": "ART DIRECTOR",
+      "style": {
+        "backgroundColor": "#000000ff",
+        "backgroundPadding": 5.3,
+        "backgroundStyle": "block",
+        "borderRadius": 6.4,
+        "fontColor": "#ae8affff",
+        "fontFamily": "Poppins",
+        "fontSize": 21.2,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 0.8,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "delay": 0.07,
+      "animate": {
+        "enter": {
+          "preset": "zoomIn",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "zoomOut",
+          "dur": 0.6
+        }
+      }
+    }
+  ]
+}

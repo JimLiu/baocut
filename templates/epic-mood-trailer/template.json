@@ -1,0 +1,64 @@
+{
+  "schema": 1,
+  "id": "epic-mood-trailer",
+  "version": "1.1.0",
+  "kind": "example",
+  "title": "史诗氛围预告",
+  "summary": "用 p5.js 做一条远航与归乡氛围的快切预告。",
+  "description": "情绪取自古典史诗里漫长的远航与归乡，用 p5.js 生成画面，剪成一分钟以内的快切预告，配旁白与字幕。",
+  "language": "zh-CN",
+  "category": "creative-short",
+  "fields": [
+    {
+      "label": "情绪参考",
+      "hint": "想要的氛围或故事母题",
+      "example": "古典史诗里漫长的远航与归乡"
+    },
+    {
+      "label": "成片语言",
+      "hint": "旁白与字幕用的语言"
+    }
+  ],
+  "author": "BaoCut",
+  "source": "official",
+  "license": "LicenseRef-BaoCut-Community-1.0",
+  "tags": [
+    "p5.js",
+    "预告片",
+    "氛围"
+  ],
+  "skills": [
+    "video-production"
+  ],
+  "cover": {
+    "file": "cover.jpg",
+    "tone": "blue",
+    "figure": "ring",
+    "kicker": "远航"
+  },
+  "preview": {
+    "file": "preview.mp4",
+    "beats": [
+      "海面与星空",
+      "风暴与考验",
+      "漫长的归途",
+      "灯火在望"
+    ]
+  },
+  "verification": {
+    "date": "2026-10-04",
+    "version": "1.0.0",
+    "engine": "codex",
+    "input": "按提示词原样，末尾附一段测试环境说明：成片语言用中文；没有配置语音合成、配乐、音效与视频生成，遇到没有配置的能力跳过并在最后说明；现有编辑操作做不出的画面可以直接渲染成视频文件再导入时间线。第一轮智能体因本机没有 p5.js 且无法联网下载，问是否改用本地 Canvas 渲染并保留 p5.js 源码；第二轮回复「接受 Canvas 渲染并附 p5.js 源码，请继续完成成片」。",
+    "materials": [],
+    "capabilities": [
+      "synthesizeSpeech"
+    ],
+    "outcome": "partial",
+    "output": {
+      "ratio": "16:9",
+      "durationSeconds": 48
+    },
+    "notes": "确认：本机没有 p5.js，下载被网络与权限拦下，智能体没有绕过，停下来问是否改用 Canvas，这一问合理。第二轮它把同一套绘制代码分别接到 p5.js 草图（保留为源码）和本机 Canvas 渲染器上，用后者渲染 20 个程序化镜头：星海启航、风暴与星盘、门前灯火的闪回、归乡与片名，48 秒，在一分钟以内；中段约一秒一切，结尾放慢。13 条中文字幕画进画面，另存为字幕文稿并导出 SRT。旁白是可选项，没有语音合成而跳过，并告诉了用户。因为成片不是用 p5.js 渲染的，记为 partial；这是测试环境缺依赖，不是模板问题，模板未改。疑似：它第一次写字幕文稿用了错误的字段，写入成功但导出报空范围，随后撤销重写。预览与封面取自 BaoCut 导出的时间线成片（720p）。"
+  }
+}

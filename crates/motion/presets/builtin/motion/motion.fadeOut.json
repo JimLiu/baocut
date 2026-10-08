@@ -1,0 +1,37 @@
+{
+  "id": "motion.fadeOut",
+  "version": 1,
+  "domain": "motion",
+  "family": "fadeIn",
+  "doc": "淡出。composite=multiply。",
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "curve": {
+      "type": "curve",
+      "default": "easeInCubic",
+      "doc": "时间曲线（规范 §7.6 的封闭名称）"
+    }
+  },
+  "tracks": [
+    {
+      "prop": "opacity",
+      "composite": "multiply",
+      "order": 10,
+      "frames": [
+        {
+          "t": "0%",
+          "v": 1
+        },
+        {
+          "t": "100%",
+          "v": 0,
+          "ease": "{curve}"
+        }
+      ]
+    }
+  ],
+  "determinism": "strict",
+  "capabilities": []
+}

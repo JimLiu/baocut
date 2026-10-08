@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE svg
+  PUBLIC '-//W3C//DTD SVG 1.0//EN'
+  'http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd'>
+<svg width="960" height="480" preserveAspectRatio="xMinYMin meet" viewBox="0 0 960 480" xmlns="http://www.w3.org/2000/svg" version="1.0" fill-rule="evenodd" xmlns:xlink="http://www.w3.org/1999/xlink">
+	<title>...</title>
+	<desc>...</desc>
+	<clipPath id="clip">
+		<rect x="0" y="0" width="960" height="480"/>
+	</clipPath>
+	<g id="group" transform="scale(1,-1) translate(0,-480)" style="clip-path: url(#clip)">
+		<g transform="">
+			<rect x="0" y="0" width="960" height="480" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(100%,100%,100%); fill-rule: evenodd;"/>
+			<text x="35" y="442" style="font-family: Times-Roman; font-size: 23px;fill: rgb(0%,0%,0%); stroke:none;" transform="translate(0,884) scale(1,-1)">Same samples + same budgets | 92 sentences</text>
+			<text x="35" y="414" style="font-family: Times-Roman; font-size: 12px;fill: rgb(0%,0%,0%); stroke:none;" transform="translate(0,828) scale(1,-1)">DeepSeek Flash, one fresh run per version, at most one repair</text>
+			<text x="35" y="378" style="font-family: Times-Roman; font-size: 12px;fill: rgb(0%,0%,0%); stroke:none;" transform="translate(0,756) scale(1,-1)">First-turn aligned (higher is better)</text>
+			<rect x="210" y="350" width="642.9347826086956" height="15" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(54%,60%,66%); fill-rule: evenodd;"/>
+			<text x="862.9347826086956" y="352" style="font-family: Times-Roman; font-size: 11px;fill: rgb(0%,0%,0%); stroke:none;" transform="translate(0,704) scale(1,-1)">91</text>
+			<text x="35" y="352" style="font-family: Times-Roman; font-size: 10px;fill: rgb(54%,60%,66%); stroke:none;" transform="translate(0,704) scale(1,-1)">Previous 915bfef13</text>
+			<rect x="210" y="328" width="635.8695652173913" height="15" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(3%,49%,54%); fill-rule: evenodd;"/>
+			<text x="855.8695652173913" y="330" style="font-family: Times-Roman; font-size: 11px;fill: rgb(0%,0%,0%); stroke:none;" transform="translate(0,660) scale(1,-1)">90</text>
+			<text x="35" y="330" style="font-family: Times-Roman; font-size: 10px;fill: rgb(3%,49%,54%); stroke:none;" transform="translate(0,660) scale(1,-1)">Latest 9bb2a8f62</text>
+			<text x="35" y="294" style="font-family: Times-Roman; font-size: 12px;fill: rgb(0%,0%,0%); stroke:none;" transform="translate(0,588) scale(1,-1)">After repair aligned (higher is better)</text>
+			<rect x="210" y="266" width="650.0" height="15" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(54%,60%,66%); fill-rule: evenodd;"/>
+			<text x="870.0" y="268" style="font-family: Times-Roman; font-size: 11px;fill: rgb(0%,0%,0%); stroke:none;" transform="translate(0,536) scale(1,-1)">92</text>
+			<text x="35" y="268" style="font-family: Times-Roman; font-size: 10px;fill: rgb(54%,60%,66%); stroke:none;" transform="translate(0,536) scale(1,-1)">Previous 915bfef13</text>
+			<rect x="210" y="244" width="650.0" height="15" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(3%,49%,54%); fill-rule: evenodd;"/>
+			<text x="870.0" y="246" style="font-family: Times-Roman; font-size: 11px;fill: rgb(0%,0%,0%); stroke:none;" transform="translate(0,492) scale(1,-1)">92</text>
+			<text x="35" y="246" style="font-family: Times-Roman; font-size: 10px;fill: rgb(3%,49%,54%); stroke:none;" transform="translate(0,492) scale(1,-1)">Latest 9bb2a8f62</text>
+			<text x="35" y="210" style="font-family: Times-Roman; font-size: 12px;fill: rgb(0%,0%,0%); stroke:none;" transform="translate(0,420) scale(1,-1)">Sentences with anchor issues (lower is better)</text>
+			<rect x="210" y="182" width="455.0" height="15" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(54%,60%,66%); fill-rule: evenodd;"/>
+			<text x="675.0" y="184" style="font-family: Times-Roman; font-size: 11px;fill: rgb(0%,0%,0%); stroke:none;" transform="translate(0,368) scale(1,-1)">7</text>
+			<text x="35" y="184" style="font-family: Times-Roman; font-size: 10px;fill: rgb(54%,60%,66%); stroke:none;" transform="translate(0,368) scale(1,-1)">Previous 915bfef13</text>
+			<rect x="210" y="160" width="130.0" height="15" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(3%,49%,54%); fill-rule: evenodd;"/>
+			<text x="350.0" y="162" style="font-family: Times-Roman; font-size: 11px;fill: rgb(0%,0%,0%); stroke:none;" transform="translate(0,324) scale(1,-1)">2</text>
+			<text x="35" y="162" style="font-family: Times-Roman; font-size: 10px;fill: rgb(3%,49%,54%); stroke:none;" transform="translate(0,324) scale(1,-1)">Latest 9bb2a8f62</text>
+			<text x="35" y="126" style="font-family: Times-Roman; font-size: 12px;fill: rgb(0%,0%,0%); stroke:none;" transform="translate(0,252) scale(1,-1)">Thai-English requested chunks (lower = less fragmentation)</text>
+			<rect x="210" y="98" width="541.6666666666666" height="15" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(54%,60%,66%); fill-rule: evenodd;"/>
+			<text x="761.6666666666666" y="100" style="font-family: Times-Roman; font-size: 11px;fill: rgb(0%,0%,0%); stroke:none;" transform="translate(0,200) scale(1,-1)">25</text>
+			<text x="35" y="100" style="font-family: Times-Roman; font-size: 10px;fill: rgb(54%,60%,66%); stroke:none;" transform="translate(0,200) scale(1,-1)">Previous 915bfef13</text>
+			<rect x="210" y="76" width="411.66666666666674" height="15" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(3%,49%,54%); fill-rule: evenodd;"/>
+			<text x="631.6666666666667" y="78" style="font-family: Times-Roman; font-size: 11px;fill: rgb(0%,0%,0%); stroke:none;" transform="translate(0,156) scale(1,-1)">19</text>
+			<text x="35" y="78" style="font-family: Times-Roman; font-size: 10px;fill: rgb(3%,49%,54%); stroke:none;" transform="translate(0,156) scale(1,-1)">Latest 9bb2a8f62</text>
+			<text x="35" y="30" style="font-family: Times-Roman; font-size: 12px;fill: rgb(0%,0%,0%); stroke:none;" transform="translate(0,60) scale(1,-1)">Both arms: 92/92 aligned after repair. Meaning errors remain in de-07 and hi-07.</text>
+		</g>
+	</g>
+</svg>

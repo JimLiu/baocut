@@ -1,0 +1,43 @@
+{
+  "id": "whipPan",
+  "version": 1,
+  "domain": "transition",
+  "namespace": "bcf",
+  "order": 9,
+  "prop": null,
+  "ease": null,
+  "doc": "甩镜：离场 clip 以 easeInQuart 加速甩出 1.2 个画布宽（超程），入场 clip 以 easeOutQuart 从 +1.2 个画布宽刹停回位；两侧各配一条 Quart 透明度通道，在甩程两端洗白，近似甩镜的拖影。真正的运动模糊要离屏，属 Surface Transition（规范 §9）。",
+  "out": {
+    "channels": [
+      {
+        "prop": "x",
+        "ease": "easeInQuart",
+        "from": { "value": 0.0, "basis": "absolute" },
+        "to": { "value": -1.2, "basis": "canvasWidth" }
+      },
+      {
+        "prop": "opacity",
+        "ease": "easeInQuart",
+        "from": { "value": 1.0, "basis": "absolute" },
+        "to": { "value": 0.0, "basis": "absolute" }
+      }
+    ]
+  },
+  "in": {
+    "channels": [
+      {
+        "prop": "x",
+        "ease": "easeOutQuart",
+        "from": { "value": 1.2, "basis": "canvasWidth" },
+        "to": { "value": 0.0, "basis": "absolute" }
+      },
+      {
+        "prop": "opacity",
+        "ease": "easeOutQuart",
+        "from": { "value": 0.0, "basis": "absolute" },
+        "to": { "value": 1.0, "basis": "absolute" }
+      }
+    ]
+  },
+  "determinism": "strict"
+}

@@ -1,0 +1,78 @@
+{
+  "id": "pastel-fall",
+  "version": 1,
+  "domain": "confetti",
+  "namespace": "timeline",
+  "order": 20,
+  "aspect": "frame",
+  "palette": [
+    "#FFB3C6",
+    "#FFD6A5",
+    "#FDFFB6",
+    "#CAFFBF",
+    "#9BF6FF",
+    "#BDB2FF"
+  ],
+  "shapes": [
+    "rect",
+    "circle",
+    "ellipse"
+  ],
+  "sources": [
+    "react-confetti/particle"
+  ],
+  "hasEmitterControl": false,
+  "recipe": {
+    "algorithm": "confetti-v1",
+    "params": {
+      "emit": {
+        "mode": "continuous",
+        "rate": 30,
+        "count": 80,
+        "interval": 2.0,
+        "jitter": 1.0
+      },
+      "emitters": [
+        {
+          "x": 50,
+          "y": -6,
+          "spreadX": 100,
+          "spreadY": 0
+        }
+      ],
+      "angle": 90,
+      "spread": 30,
+      "speedPx": [
+        80,
+        130
+      ],
+      "dragX": 0.3,
+      "dragY": 0.3,
+      "gravityPx": 200,
+      "windPx": 0,
+      "driftPx": 6,
+      "driftHz": 0.3,
+      "sizePx": [
+        5,
+        13
+      ],
+      "sizeRamp": false,
+      "spinDps": [
+        60,
+        240
+      ],
+      "flipHz": [
+        0.6,
+        1.6
+      ],
+      "pulse": null,
+      "lifeSec": 5.5,
+      "fadeIn": 0,
+      "fadeOut": 0.6,
+      "maxAlive": 600
+    }
+  },
+  "determinism": "strict",
+  "shader": null,
+  "available": true
+}

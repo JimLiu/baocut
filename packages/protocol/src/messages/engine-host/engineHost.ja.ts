@@ -1,0 +1,27 @@
+import type { EngineHostMessages } from './engineHost.ts';
+
+export const ja: EngineHostMessages = {
+  runGenerationNotInteger: 'runGeneration は 10 進整数である必要があります',
+  secondsInvalid: (p) => `${p.field} は 0 以上の有限の秒数である必要があります`,
+  secondsOverflow: (p) => `${p.field} が範囲外です`,
+  audioItemsKind: 'audioItems は audio と video のプランでのみ使用できます',
+  skipAssetsKind: 'skipAssets は video プランでのみ使用できます',
+  outputKind: 'output は video プランでのみ使用できます',
+  outputSize: 'output の幅と高さは正の整数である必要があります',
+  tooManyRanges: (p) => `範囲は一度に ${p.max} 個までです`,
+  textPlanNoDocument: 'text プランには少なくとも 1 つのドキュメントが必要です',
+  textPlanTooManyDocuments: 'text プランに指定できるドキュメントは 2 つまでです（メインのドキュメントと、2 言語結合のもう一方）',
+  planKindUnknown: (p) => `不明なプランの種類：${p.kind}`,
+  unknownMethod: (p) => `不明なメソッド：${p.method}`,
+  paramsInvalid: (p) => `パラメータが無効です：${p.error}`,
+  fontFacesInvalid: (p) => `face を 1 から ${p.max} 個指定してください（ファミリ名は空でない 200 文字以内、ウェイトは 1 から 1000 まで）`,
+  cacheDirRelative: 'cacheDir は絶対パスである必要があります',
+  fontPathRelative: 'path は絶対パスである必要があります',
+  fontInvalid: (p) => `使用できるフォントファイルではありません：${p.error}`,
+  videoPathRelative: '動画のパスは絶対パスである必要があります',
+  videoNotOpen: '動画が開かれていません',
+  taskStopped: 'この実行は停止されたため、変更はコミットされていません',
+  afterNotInteger: 'after は 10 進整数である必要があります',
+  enginePanic: 'リクエストの処理中にエンジンでエラーが発生したため、変更はコミットされていません',
+  pathRelative: 'パスは絶対パスである必要があります',
+};

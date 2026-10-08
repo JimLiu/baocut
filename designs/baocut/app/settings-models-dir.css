@@ -1,0 +1,18 @@
+/* 设置 › 本地模型 › 模型目录（settings-models-dir.jsx）。类名一律 mdir 前缀。 */
+.mdir { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; padding: 16px; border-radius: 10px; background: var(--gray-75); }
+.mdir__hd { display: flex; align-items: center; gap: 8px; }
+.mdir__hd > h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.mdir__path { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 14px; color: var(--gray-900); }
+.mdir__path .ic { flex: none; color: var(--gray-700); }
+.mdir__txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mdir__stats { color: var(--gray-700); }
+.mdir__moving { display: flex; flex-direction: column; gap: 4px; }
+.mdir__acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
+.mdir__note { display: flex; align-items: flex-start; gap: 6px; margin: 0; color: var(--gray-700); }
+.mdir__note--warn { color: var(--orange-900); }
+.mdir__note--warn .ic { flex: none; margin-top: 2px; }
+.mdir__note--warn > span { min-width: 0; }
+
+.mdir-dlg { display: flex; flex-direction: column; gap: 16px; }
+.mdir-dlg p { margin: 0; }
+.mdir-dlg__path { overflow-wrap: anywhere; }

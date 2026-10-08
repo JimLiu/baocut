@@ -1,0 +1,23 @@
+{
+  "id": "wipe",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "enter",
+  "order": 15,
+  "duration": 0.45,
+  "curve": {
+    "kind": "named",
+    "name": "easeOutExpo"
+  },
+  "mirror": "wipe",
+  "from": {
+    "reveal": 0.0
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

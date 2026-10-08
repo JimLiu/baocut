@@ -1,0 +1,73 @@
+{
+  "id": "motion.elasticIn",
+  "version": 1,
+  "domain": "motion",
+  "family": "elasticIn",
+  "doc": "位移 + 缩放的弹性入场（easeOutElastic）。",
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "direction": {
+      "type": "enum",
+      "options": [
+        "left",
+        "right",
+        "up",
+        "down"
+      ],
+      "default": "up",
+      "doc": "元素进入/离开的方向（'up' = 从下方进入）"
+    },
+    "distance": {
+      "type": "length",
+      "default": {
+        "value": 0.03,
+        "basis": "canvasShortEdge"
+      },
+      "doc": "位移量；缺省是画布短边的 3%"
+    },
+    "scaleFrom": {
+      "type": "number",
+      "default": 0.7,
+      "min": 0.0,
+      "doc": "起始缩放"
+    },
+    "curve": {
+      "type": "curve",
+      "default": "easeOutElastic",
+      "doc": "时间曲线（规范 §7.6 的封闭名称）"
+    },
+    "fade": {
+      "type": "bool",
+      "default": true,
+      "doc": "是否同时淡入/淡出"
+    }
+  },
+  "compose": [
+    {
+      "preset": "motion.shiftIn",
+      "params": {
+        "direction": "{direction}",
+        "distance": "{distance}",
+        "curve": "{curve}"
+      }
+    },
+    {
+      "preset": "motion.zoomIn",
+      "params": {
+        "scaleFrom": "{scaleFrom}",
+        "curve": "{curve}"
+      }
+    },
+    {
+      "preset": "motion.fadeIn",
+      "when": "{fade}"
+    }
+  ],
+  "defaults": {
+    "curve": "easeOutElastic"
+  },
+  "determinism": "strict",
+  "capabilities": []
+}

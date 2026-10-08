@@ -1,0 +1,13 @@
+{
+  "name": "@baocut/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "baocut": "./src/main.ts"
+  },
+  "dependencies": {
+    "@baocut/client": "*",
+    "@baocut/protocol": "*"
+  }
+}

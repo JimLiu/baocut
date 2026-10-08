@@ -1,0 +1,26 @@
+{
+  "id": "mask.luma",
+  "version": 1,
+  "domain": "mask",
+  "inputs": 2,
+  "params": {
+    "invert": {
+      "type": "bool",
+      "default": false
+    }
+  },
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "kernel": "luma-mask-from-pixmap",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "clamp",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "doc": "第二个输入的亮度（Rec.709，先反预乘）作为遮罩（尺寸必须与输入一致）。invert 时用 1 - luma。"
+}

@@ -1,0 +1,177 @@
+{
+  "diagnostics": {},
+  "issues": [],
+  "mode": "lean",
+  "pageRejected": false,
+  "retryIds": [],
+  "rows": [
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              5
+            ],
+            "tgt": [
+              0,
+              11
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              14
+            ],
+            "tgt": [
+              11,
+              21
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "不要把文件发给索菲亚，",
+            "to": 5
+          },
+          {
+            "from": 6,
+            "text": "除非主管批准第二版。",
+            "to": 14
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14"
+        ]
+      },
+      "chunks": 2,
+      "coarse": false,
+      "frozen": false,
+      "id": "es-07",
+      "issues": [],
+      "locatedChunks": 2,
+      "minChunks": 1,
+      "n": 1,
+      "realTiming": false,
+      "source": "No envíes el archivo a Sofía a menos que la directora apruebe la segunda versión.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "不要把文件发给索菲亚，除非主管批准第二版。"
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              4
+            ],
+            "tgt": [
+              0,
+              12
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              5,
+              12
+            ],
+            "tgt": [
+              12,
+              26
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "我们买了2.5公斤大米，",
+            "to": 4
+          },
+          {
+            "from": 5,
+            "text": "而且吃完晚饭后，还剩下一半。",
+            "to": 12
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12"
+        ]
+      },
+      "chunks": 2,
+      "coarse": true,
+      "frozen": false,
+      "id": "es-08",
+      "issues": [],
+      "locatedChunks": 2,
+      "minChunks": 3,
+      "n": 2,
+      "realTiming": false,
+      "source": "Compramos 2,5 kilos de arroz y, después de cenar, todavía quedaba la mitad.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "我们买了2.5公斤大米，而且吃完晚饭后，还剩下一半。"
+    }
+  ],
+  "schema": "lean-carrier-grade/2",
+  "totals": {
+    "acceptedTranslations": 2,
+    "aligned": 2,
+    "chunks": 4,
+    "coarse": 0,
+    "expectedSentences": 2,
+    "locatedChunks": 4,
+    "sentencesWithAnchorIssues": 0,
+    "syntaxOrPermissionIssues": 0,
+    "translationRetries": 0
+  }
+}

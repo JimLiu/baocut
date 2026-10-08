@@ -1,0 +1,31 @@
+{
+  "id": "dots",
+  "version": 1,
+  "domain": "visualizer",
+  "namespace": "timeline",
+  "order": 7,
+  "numColors": 2,
+  "colorLabels": [
+    "Dots",
+    "Peaks"
+  ],
+  "defaultMainColor": "#3CADFF",
+  "defaultSecondaryColor": "#FF4C45",
+  "defaultMinDb": -80.0,
+  "defaultMaxDb": 40.0,
+  "hasControl": true,
+  "binWidth": "64",
+  "aspect": "free",
+  "recipe": {
+    "algorithm": "dot-matrix-v1",
+    "params": {
+      "columns": 32,
+      "rows": 8,
+      "dotRadius": 0.3,
+      "easing": "easeOutQuad"
+    }
+  },
+  "determinism": "strict",
+  "shader": null,
+  "available": true
+}

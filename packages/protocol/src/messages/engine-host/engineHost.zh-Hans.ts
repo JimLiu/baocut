@@ -1,0 +1,27 @@
+import type { EngineHostMessages } from './engineHost.ts';
+
+export const zhHans: EngineHostMessages = {
+  runGenerationNotInteger: 'runGeneration 须为十进制整数',
+  secondsInvalid: (p) => `${p.field} 必须是不小于 0 的有限秒数`,
+  secondsOverflow: (p) => `${p.field} 超出范围`,
+  audioItemsKind: 'audioItems 只用于 audio 与 video 计划',
+  skipAssetsKind: 'skipAssets 只用于 video 计划',
+  outputKind: 'output 只用于 video 计划',
+  outputSize: '输出的宽高要是正整数',
+  tooManyRanges: (p) => `一次最多 ${p.max} 段范围`,
+  textPlanNoDocument: 'text 计划至少要一份文档',
+  textPlanTooManyDocuments: 'text 计划最多两份文档（主文档与双语合并的另一份）',
+  planKindUnknown: (p) => `不认识的计划种类 ${p.kind}`,
+  unknownMethod: (p) => `未知方法：${p.method}`,
+  paramsInvalid: (p) => `参数不合法：${p.error}`,
+  fontFacesInvalid: (p) => `要 1 到 ${p.max} 个 face：族名非空、不超过 200 个字，字重在 1 到 1000 之间`,
+  cacheDirRelative: 'cacheDir 要是绝对路径',
+  fontPathRelative: 'path 要是绝对路径',
+  fontInvalid: (p) => `不是能用的字体文件：${p.error}`,
+  videoPathRelative: '视频路径必须是绝对路径',
+  videoNotOpen: '视频没有打开',
+  taskStopped: '这次执行已被停止，修改没有提交',
+  afterNotInteger: 'after 须为十进制整数',
+  enginePanic: '引擎处理请求时出错，修改没有提交',
+  pathRelative: '路径必须是绝对路径',
+};

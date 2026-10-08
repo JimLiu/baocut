@@ -1,0 +1,5 @@
+import type { JobsCaptionLayerMessages } from './caption-layer.ts';
+
+export const vi: JobsCaptionLayerMessages = {
+label: 'Thêm lớp phụ đề', noSource: 'Không có tài liệu để thêm lớp phụ đề', videoClosed: 'Video đã đóng nên chưa thêm lớp phụ đề. Mở video rồi thử lại.', empty: 'Tài liệu không có phụ đề để hiển thị nên chưa thêm lớp phụ đề', notOnTimeline: 'Không có clip nào trên dòng thời gian dùng tư liệu này nên phụ đề không thể hiện trên màn hình. Chưa thêm lớp phụ đề.', noDocumentId: 'Đã thêm lớp phụ đề nhưng chưa nhận được ID tài liệu', rejected: 'Giao dịch thêm lớp phụ đề bị từ chối', documentGone: 'Tài liệu cho lớp phụ đề không còn trong video', needsOutputStore: 'Đọc phụ đề của Speech Worker cần kho đầu ra', notSpeech: 'Tài liệu không phải bản chép lời', speechUnreadable: 'Không đọc được nội dung bản chép lời', translationUnreadable: 'Không đọc được nội dung bản dịch', unaligned: (p) => `${p.count} đơn vị dịch chưa được căn chỉnh (alignment là null) nên không thể xác định thời gian`, noSourceSpeech: 'Không tìm thấy bản chép lời nguồn của bản dịch này', subtitlesName: 'Phụ đề', translationName: 'Bản dịch', styleName: 'Kiểu phụ đề',
+};

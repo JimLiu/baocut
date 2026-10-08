@@ -1,0 +1,69 @@
+{
+  "id": "motion.rollIn",
+  "version": 1,
+  "domain": "motion",
+  "family": "rollIn",
+  "doc": "位移 + 旋转的滚入。",
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "direction": {
+      "type": "enum",
+      "options": [
+        "left",
+        "right",
+        "up",
+        "down"
+      ],
+      "default": "up",
+      "doc": "元素进入/离开的方向（'up' = 从下方进入）"
+    },
+    "distance": {
+      "type": "length",
+      "default": {
+        "value": 0.045,
+        "basis": "canvasShortEdge"
+      },
+      "doc": "位移量；缺省是画布短边的 4.5%"
+    },
+    "rotationFrom": {
+      "type": "number",
+      "default": -24.0,
+      "doc": "起始角度（度）"
+    },
+    "curve": {
+      "type": "curve",
+      "default": "easeOutCubic",
+      "doc": "时间曲线（规范 §7.6 的封闭名称）"
+    },
+    "fade": {
+      "type": "bool",
+      "default": true,
+      "doc": "是否同时淡入/淡出"
+    }
+  },
+  "compose": [
+    {
+      "preset": "motion.shiftIn",
+      "params": {
+        "direction": "{direction}",
+        "distance": "{distance}",
+        "curve": "{curve}"
+      }
+    },
+    {
+      "preset": "motion.spinIn",
+      "params": {
+        "rotationFrom": "{rotationFrom}",
+        "curve": "{curve}"
+      }
+    },
+    {
+      "preset": "motion.fadeIn",
+      "when": "{fade}"
+    }
+  ],
+  "determinism": "strict",
+  "capabilities": []
+}

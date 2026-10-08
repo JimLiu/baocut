@@ -1,0 +1,92 @@
+/* 设置 › 我的声音（voice-library 设计稿 §2 / §9，2026-09-24）。620px 栏宽里的一列：
+   一只音色一行（试听 · 名字 · 元数据 · 原文 · 试听克隆 · ⋯），点「试听克隆」在行下摊开设置页那块试听面板；
+   采集页（麦克风 / 分人）是同一栏里的子页，左上「我的声音」回列表。 */
+.vlib { min-width: 0; }
+.vlib h1, .vlib h2, .vlib p { margin: 0; }
+.vlib p { color: var(--gray-700); font-size: 12px; line-height: 1.6; }
+.vlib .vlib-lede { margin-top: 8px; font-size: 14px; }
+
+/* 回程条：从面板的「克隆新音色…」过来 */
+.vlib-handoff { display: flex; align-items: center; gap: 12px; margin-top: 16px; padding: 8px 12px; border-radius: 10px; background: var(--indigo-100); color: var(--indigo-1000); font-size: 12px; }
+.vlib-handoff > .ic { flex: none; }
+
+/* ---------- 列表 ---------- */
+.vlib-list { margin-top: 16px; border: 1px solid var(--gray-200); border-radius: 10px; overflow: visible; }
+.vlib-row + .vlib-row { border-top: 1px solid var(--gray-200); }
+.vlib-row.is-open { background: var(--gray-25); }
+.vlib-row__hd { display: flex; align-items: flex-start; gap: 12px; padding: 12px; }
+.vlib-row__hd > .icb, .vlib-row__hd > .btn { flex: none; margin-top: 2px; }
+.vlib-row__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.vlib-row__main > .field { width: 240px; }
+.vlib-row__nm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-height: 24px; }
+.vlib-row__meta { color: var(--gray-600); }
+.vlib-row__text { color: var(--gray-700); font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vlib-row__more { position: relative; flex: none; margin-top: 2px; }
+.vlib-audition { display: flex; flex-direction: column; gap: 8px; padding: 0 12px 12px 56px; }
+.vlib-audition .ttst { margin: 0; }
+.vlib-engines { color: var(--gray-600); }
+.vlib-actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.vlib-empty { margin-top: 16px; border: 1px dashed var(--gray-300); border-radius: 10px; }
+.vlib-empty__acts { display: flex; justify-content: center; gap: 8px; padding: 0 24px 32px; }
+.vlib-foot { margin-top: 12px; color: var(--gray-600); line-height: 1.6; }
+.vlib-foot--rule { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--gray-200); }
+
+/* ---------- 采集页（麦克风 / 分人）共用 ---------- */
+.vlib-cap { display: flex; flex-direction: column; gap: 12px; }
+.vlib-cap__hd { margin-bottom: 4px; }
+.vlib-cap .vlib-cap__lede { margin: 0; font-size: 12px; }
+.vlib-cap__row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-height: 32px; }
+.vlib-cap__lab { flex: none; width: 56px; font-size: 12px; color: var(--gray-700); }
+.vlib-cap__chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.vlib-cap__sep { width: 1px; height: 16px; background: var(--gray-300); margin: 0 4px; }
+.vlib-save { display: flex; flex-direction: column; gap: 12px; padding: 12px; border: 1px solid var(--gray-200); border-radius: 10px; background: var(--gray-50); }
+.vlib-save .field { width: 240px; }
+.vlib-save__acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.vlib-save__acts--sticky { position: sticky; bottom: 0; margin: 0 -12px; padding: 12px; background: var(--gray-25); box-shadow: inset 0 1px 0 var(--gray-200); }
+.vlib-demo { align-self: flex-start; }
+
+/* 麦克风 */
+.vlib-meter { display: inline-flex; align-items: flex-end; gap: 2px; height: 16px; margin-left: 8px; }
+.vlib-meter i { width: 4px; height: 100%; border-radius: 3px; background: var(--gray-200); transition: background 80ms linear; }
+.vlib-meter.is-on i.is-lit { background: var(--green-900); }
+.vlib-meter.is-on i.is-lit:nth-child(n+11) { background: var(--orange-900); }
+.vlib-script { margin: 0; padding: 16px 20px; border-left: 4px solid var(--gray-300); border-radius: 0 10px 10px 0; background: var(--gray-50); font-size: 18px; line-height: 1.6; color: var(--gray-900); }
+.vlib-script.is-live { border-left-color: var(--red-900); }
+.vlib-rec { display: flex; align-items: center; gap: 12px; min-height: 40px; }
+.vlib-rec__time { flex: none; min-width: 48px; font-size: 14px; color: var(--gray-800); font-variant-numeric: tabular-nums; }
+
+/* 分人 */
+.vlib-drop { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 32px 24px; border: 1px dashed var(--gray-300); border-radius: 10px; color: var(--gray-700); cursor: pointer; text-align: center; }
+.vlib-drop:hover { border-color: var(--gray-500); background: var(--gray-50); }
+.vlib-drop:focus-visible { outline: 2px solid var(--blue-900); outline-offset: 2px; }
+.vlib-drop b { font-size: 14px; color: var(--gray-900); }
+.vlib-gates { display: flex; flex-direction: column; gap: 8px; }
+.vlib-gates:empty { display: none; }
+.vlib-gate { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; background: var(--orange-100); color: var(--orange-1000); }
+.vlib-gate__bar { width: 120px; }
+.vlib-spks { display: flex; flex-direction: column; gap: 12px; }
+.vlib-spk { border: 1px solid var(--gray-200); border-radius: 10px; padding: 12px; }
+.vlib-spk.is-on { border-color: var(--blue-800); box-shadow: inset 0 0 0 1px var(--blue-800); }
+.vlib-spk__hd { display: flex; align-items: center; gap: 8px; }
+.vlib-spk__name { width: 180px; }
+.vlib-spk__cands { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.vlib-cand { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 4px 8px; border-radius: 8px; flex-wrap: wrap; }
+.vlib-cand.is-on { background: var(--blue-100); }
+.vlib-cand__text { flex: 1 1 100%; min-width: 0; padding-left: 28px; color: var(--gray-700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vlib-cand .rd { font-variant-numeric: tabular-nums; }
+
+/* 配音设置页每人一行右侧：元数据 + 选择器 */
+.dubsp__voice { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.dubsp__voice > .t-detail-xs { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 试听克隆：引擎一行（Picker + 两句说明） */
+.vlib-audition__pick { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* 共享选择器在云端引擎下的「提供方音色」组：目录多于 12 只时组头下挂一个搜索框（voice-picker.jsx） */
+.vpk-search { padding: 4px 8px 6px; }
+.vpk-search .field { width: 100%; }
+
+/* 行卡与试听面板上的云端克隆状态（settings-voices.jsx）；云端试听是一句示例 + 合成按钮 */
+.vlib-cloud { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-left: 8px; }
+.vlib-cloudtry { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.vlib-cloudtry p { margin: 0; }

@@ -1,0 +1,75 @@
+{
+  "id": "tick",
+  "version": 1,
+  "domain": "shape",
+  "namespace": "timeline",
+  "order": 11,
+  "path": {
+    "kind": "outline",
+    "segments": [
+      {
+        "verb": "move",
+        "pts": [
+          [
+            0.02,
+            0.52
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.19,
+            0.35
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.41,
+            0.59
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.82,
+            0.07
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.98,
+            0.2
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.43,
+            0.94
+          ]
+        ]
+      },
+      {
+        "verb": "close"
+      }
+    ]
+  },
+  "params": [
+    "fill",
+    "stroke",
+    "strokeWidth"
+  ],
+  "available": true
+}

@@ -1,0 +1,33 @@
+{
+  "id": "elWipeR",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "exit",
+  "order": 34,
+  "duration": 0.6,
+  "curve": {
+    "kind": "named",
+    "name": "linear"
+  },
+  "mirror": null,
+  "from": {},
+  "keyframes": [
+    {
+      "at": 0
+    },
+    {
+      "at": 1,
+      "ease": "easeOutSine",
+      "reveal": 0.0
+    }
+  ],
+  "edge": "right",
+  "basis": {
+    "dx": "selfWidth",
+    "dy": "selfHeight"
+  },
+  "surface": "element",
+  "determinism": "strict",
+  "available": true
+}

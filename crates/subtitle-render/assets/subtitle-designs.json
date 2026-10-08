@@ -1,0 +1,465 @@
+[
+  {
+    "id": "focus",
+    "name": "Spoken emphasis",
+    "style": {
+      "fontFamily": "Anton",
+      "fontWeight": 400,
+      "bold": false,
+      "italic": false,
+      "fontColor": "#FFFFFF",
+      "fontSize": 39.419999999999995,
+      "fontSizeBasis": "height",
+      "lineHeight": 0.95,
+      "letterSpacing": 0.6599999999999999,
+      "textTransform": "uppercase",
+      "align": "center",
+      "textAlign": "center",
+      "background": false,
+      "backgroundColor": "#00000000",
+      "backgroundStyle": "wrap",
+      "backgroundPadding": 0.0,
+      "backgroundPaddingY": 0.0,
+      "borderRadius": 0.0,
+      "outline": true,
+      "textOutline": {
+        "on": true,
+        "color": "#000000",
+        "width": 32.87671232876713
+      },
+      "dropShadow": {
+        "on": true,
+        "color": "#000000",
+        "blur": 0.0,
+        "distance": 0.1911819307347792,
+        "rotation": 40.15599962491932,
+        "opacity": 0.88
+      },
+      "wordBackground": null,
+      "textMotion": {
+        "version": 1,
+        "emphasis": {
+          "color": "#FC75E9",
+          "scale": 1.18,
+          "durationSeconds": 0.2
+        }
+      }
+    }
+  },
+  {
+    "id": "word-tiles",
+    "name": "Word tiles",
+    "style": {
+      "fontFamily": "Inter",
+      "fontWeight": 500,
+      "bold": false,
+      "italic": false,
+      "fontColor": "#FFFDF7",
+      "fontSize": 25.92,
+      "fontSizeBasis": "height",
+      "lineHeight": 1.12,
+      "letterSpacing": -0.36,
+      "textTransform": "none",
+      "align": "center",
+      "textAlign": "center",
+      "background": false,
+      "backgroundColor": "#00000000",
+      "backgroundStyle": "wrap",
+      "backgroundPadding": 0.0,
+      "backgroundPaddingY": 0.0,
+      "borderRadius": 0.0,
+      "outline": false,
+      "textOutline": {
+        "on": false,
+        "color": "#000000",
+        "width": 0
+      },
+      "dropShadow": {
+        "on": false,
+        "color": "#000000",
+        "blur": 0,
+        "distance": 0.0,
+        "rotation": 0.0,
+        "opacity": 1
+      },
+      "wordBackground": {
+        "color": "#121213D6",
+        "activeColor": "#FFD84D",
+        "paddingXEm": 0.2,
+        "paddingYEm": 0.1,
+        "radiusEm": 0.12
+      },
+      "textMotion": {
+        "version": 1,
+        "emphasis": {
+          "color": "#191919",
+          "scale": 1.04,
+          "durationSeconds": 0.14
+        }
+      }
+    }
+  },
+  {
+    "id": "word-drop",
+    "name": "Word entrance",
+    "style": {
+      "fontFamily": "Poppins Black",
+      "fontWeight": 900,
+      "bold": false,
+      "italic": false,
+      "fontColor": "#232323",
+      "fontSize": 31.32,
+      "fontSizeBasis": "height",
+      "lineHeight": 1.04,
+      "letterSpacing": -0.5399999999999999,
+      "textTransform": "none",
+      "align": "center",
+      "textAlign": "center",
+      "background": true,
+      "backgroundColor": "#C7FF5A",
+      "backgroundStyle": "wrap",
+      "backgroundPadding": 7.7586206896551735,
+      "backgroundPaddingY": 7.7586206896551735,
+      "borderRadius": 13.16614420062696,
+      "outline": false,
+      "textOutline": {
+        "on": false,
+        "color": "#000000",
+        "width": 0
+      },
+      "dropShadow": {
+        "on": false,
+        "color": "#000000",
+        "blur": 0,
+        "distance": 0.0,
+        "rotation": 0.0,
+        "opacity": 1
+      },
+      "wordBackground": null,
+      "textMotion": {
+        "version": 1,
+        "in": {
+          "preset": "cascade",
+          "unit": "word",
+          "durationSeconds": 0.22,
+          "staggerSeconds": 0.04,
+          "intensity": 0.85,
+          "easing": "easeOutQuad"
+        }
+      }
+    }
+  },
+  {
+    "id": "paper-typewriter",
+    "name": "Character reveal",
+    "style": {
+      "fontFamily": "Roboto Mono",
+      "fontWeight": 500,
+      "bold": false,
+      "italic": false,
+      "fontColor": "#241F1A",
+      "fontSize": 22.68,
+      "fontSizeBasis": "height",
+      "lineHeight": 1.16,
+      "letterSpacing": 0,
+      "textTransform": "none",
+      "align": "left",
+      "textAlign": "left",
+      "background": true,
+      "backgroundColor": "#F4EBDD",
+      "backgroundStyle": "wrap",
+      "backgroundPadding": 10.714285714285715,
+      "backgroundPaddingY": 10.714285714285715,
+      "borderRadius": 10.38961038961039,
+      "outline": false,
+      "textOutline": {
+        "on": false,
+        "color": "#000000",
+        "width": 0
+      },
+      "dropShadow": {
+        "on": false,
+        "color": "#000000",
+        "blur": 0,
+        "distance": 0.0,
+        "rotation": 0.0,
+        "opacity": 1
+      },
+      "wordBackground": null,
+      "textMotion": {
+        "version": 1,
+        "in": {
+          "preset": "typewriter",
+          "unit": "grapheme",
+          "durationSeconds": 0.03333333333333333,
+          "staggerSeconds": 0.04,
+          "intensity": 1,
+          "easing": "linear"
+        }
+      }
+    }
+  },
+  {
+    "id": "line-swipe",
+    "name": "Line slide",
+    "style": {
+      "fontFamily": "Poppins Black",
+      "fontWeight": 900,
+      "bold": false,
+      "italic": false,
+      "fontColor": "#FFF8F2",
+      "fontSize": 31.32,
+      "fontSizeBasis": "height",
+      "lineHeight": 1,
+      "letterSpacing": -0.5399999999999999,
+      "textTransform": "none",
+      "align": "center",
+      "textAlign": "center",
+      "background": false,
+      "backgroundColor": "#00000000",
+      "backgroundStyle": "wrap",
+      "backgroundPadding": 0.0,
+      "backgroundPaddingY": 0.0,
+      "borderRadius": 0.0,
+      "outline": true,
+      "textOutline": {
+        "on": true,
+        "color": "#000000",
+        "width": 13.793103448275861
+      },
+      "dropShadow": {
+        "on": true,
+        "color": "#FF6B5B",
+        "blur": 0.0,
+        "distance": 0.21997309435637513,
+        "rotation": 33.274887984834926,
+        "opacity": 1
+      },
+      "wordBackground": null,
+      "textMotion": {
+        "version": 1,
+        "in": {
+          "preset": "slide-mask",
+          "unit": "line",
+          "durationSeconds": 0.36,
+          "staggerSeconds": 0.08,
+          "intensity": 0.92,
+          "easing": "easeOutQuad"
+        }
+      }
+    }
+  },
+  {
+    "id": "soft-focus",
+    "name": "Soft focus",
+    "style": {
+      "fontFamily": "Inter",
+      "fontWeight": 500,
+      "bold": false,
+      "italic": false,
+      "fontColor": "#FFFDF7",
+      "fontSize": 25.92,
+      "fontSizeBasis": "height",
+      "lineHeight": 1.1,
+      "letterSpacing": 0.15,
+      "textTransform": "none",
+      "align": "center",
+      "textAlign": "center",
+      "background": false,
+      "backgroundColor": "#00000000",
+      "backgroundStyle": "wrap",
+      "backgroundPadding": 0.0,
+      "backgroundPaddingY": 0.0,
+      "borderRadius": 0.0,
+      "outline": false,
+      "textOutline": {
+        "on": false,
+        "color": "#000000",
+        "width": 0
+      },
+      "dropShadow": {
+        "on": true,
+        "color": "#000000",
+        "blur": 0.16666666666666666,
+        "distance": 0.08333333333333333,
+        "rotation": 90.0,
+        "opacity": 0.46
+      },
+      "wordBackground": null,
+      "textMotion": {
+        "version": 1,
+        "in": {
+          "preset": "blur-in",
+          "unit": "cue",
+          "durationSeconds": 0.38,
+          "staggerSeconds": 0,
+          "intensity": 0.55,
+          "easing": "easeOutQuad"
+        }
+      }
+    }
+  },
+  {
+    "id": "rise-settle",
+    "name": "Rise and settle",
+    "style": {
+      "fontFamily": "Playfair Display",
+      "fontWeight": 400,
+      "bold": false,
+      "italic": true,
+      "fontColor": "#F5E6CF",
+      "fontSize": 31.32,
+      "fontSizeBasis": "height",
+      "lineHeight": 1.12,
+      "letterSpacing": -0.36,
+      "textTransform": "none",
+      "align": "center",
+      "textAlign": "center",
+      "background": false,
+      "backgroundColor": "#00000000",
+      "backgroundStyle": "wrap",
+      "backgroundPadding": 0.0,
+      "backgroundPaddingY": 0.0,
+      "borderRadius": 0.0,
+      "outline": false,
+      "textOutline": {
+        "on": false,
+        "color": "#000000",
+        "width": 0
+      },
+      "dropShadow": {
+        "on": true,
+        "color": "#301E16",
+        "blur": 0.13793103448275862,
+        "distance": 0.13840913308956662,
+        "rotation": 48.366460663429805,
+        "opacity": 0.55
+      },
+      "wordBackground": null,
+      "textMotion": {
+        "version": 1,
+        "in": {
+          "preset": "rise",
+          "unit": "cue",
+          "durationSeconds": 0.36,
+          "staggerSeconds": 0,
+          "intensity": 0.5,
+          "easing": "easeOutQuad"
+        },
+        "out": {
+          "preset": "fade-down",
+          "unit": "cue",
+          "durationSeconds": 0.22,
+          "staggerSeconds": 0,
+          "intensity": 0.35,
+          "easing": "easeInQuad"
+        }
+      }
+    }
+  },
+  {
+    "id": "kinetic-wave",
+    "name": "Character wave",
+    "style": {
+      "fontFamily": "Oswald",
+      "fontWeight": 700,
+      "bold": false,
+      "italic": false,
+      "fontColor": "#FFFFFF",
+      "fontSize": 35.64,
+      "fontSizeBasis": "height",
+      "lineHeight": 0.98,
+      "letterSpacing": -0.75,
+      "textTransform": "none",
+      "align": "center",
+      "textAlign": "center",
+      "background": false,
+      "backgroundColor": "#00000000",
+      "backgroundStyle": "wrap",
+      "backgroundPadding": 0.0,
+      "backgroundPaddingY": 0.0,
+      "borderRadius": 0.0,
+      "outline": true,
+      "textOutline": {
+        "on": true,
+        "color": "#FFE547",
+        "width": 15.15151515151515
+      },
+      "dropShadow": {
+        "on": true,
+        "color": "#32DDE7",
+        "blur": 0.0,
+        "distance": 0.16249061969041959,
+        "rotation": 34.019349989826466,
+        "opacity": 1
+      },
+      "wordBackground": null,
+      "textMotion": {
+        "version": 1,
+        "in": {
+          "preset": "wave-in",
+          "unit": "grapheme",
+          "durationSeconds": 0.32,
+          "staggerSeconds": 0.025,
+          "intensity": 0.62,
+          "easing": "easeOutQuad"
+        },
+        "loop": {
+          "preset": "wave",
+          "unit": "grapheme",
+          "durationSeconds": 0.96,
+          "staggerSeconds": 0.03,
+          "intensity": 0.32,
+          "easing": "linear"
+        }
+      }
+    }
+  },
+  {
+    "id": "ktv",
+    "name": "KTV lyrics",
+    "style": {
+      "fontFamily": "Poppins Black",
+      "fontWeight": 900,
+      "bold": false,
+      "italic": false,
+      "fontColor": "#FFF6D8",
+      "fontSize": 31.32,
+      "fontSizeBasis": "height",
+      "lineHeight": 1.18,
+      "letterSpacing": 0.0,
+      "textTransform": "none",
+      "align": "center",
+      "textAlign": "center",
+      "background": false,
+      "backgroundColor": "#00000000",
+      "backgroundStyle": "wrap",
+      "backgroundPadding": 0.0,
+      "backgroundPaddingY": 0.0,
+      "borderRadius": 0.0,
+      "outline": true,
+      "textOutline": {
+        "on": true,
+        "color": "#3A1A08",
+        "width": 20.0
+      },
+      "dropShadow": {
+        "on": true,
+        "color": "#000000",
+        "blur": 0.08,
+        "distance": 0.1,
+        "rotation": 60.0,
+        "opacity": 0.7
+      },
+      "wordBackground": null,
+      "textMotion": {
+        "version": 1,
+        "karaoke": {
+          "color": "#FF6A1A",
+          "guide": true,
+          "nextLine": true
+        }
+      }
+    }
+  }
+]

@@ -1,0 +1,51 @@
+{
+  "rows": [
+    {
+      "id": "tr-07",
+      "reference_en": "Do not send the file to Selin unless the manager approves the second version.",
+      "required_facts": [
+        "Selin",
+        "manager approval required",
+        "second version"
+      ],
+      "risk": "unless; negation",
+      "source": "Müdür ikinci sürümü onaylamadıkça dosyayı Selin’e gönderme.",
+      "source_lang": "tr",
+      "source_words": [
+        "Müdür",
+        "ikinci",
+        "sürümü",
+        "onaylamadıkça",
+        "dosyayı",
+        "Selin’e",
+        "gönderme."
+      ],
+      "target_lang": "zh-Hans"
+    },
+    {
+      "id": "tr-08",
+      "reference_en": "We bought 2.5 kilos of rice; half remained after dinner.",
+      "required_facts": [
+        "2.5 kilos",
+        "rice",
+        "half remained",
+        "after dinner"
+      ],
+      "risk": "decimal comma; fraction",
+      "source": "2,5 kilo pirinç aldık; akşam yemeğinden sonra yarısı kaldı.",
+      "source_lang": "tr",
+      "source_words": [
+        "2,5",
+        "kilo",
+        "pirinç",
+        "aldık;",
+        "akşam",
+        "yemeğinden",
+        "sonra",
+        "yarısı",
+        "kaldı."
+      ],
+      "target_lang": "zh-Hans"
+    }
+  ]
+}

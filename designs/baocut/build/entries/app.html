@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BaoCut</title>
+
+<!-- 设计系统 token（生成物；全仓唯一一份 @ds 块，见 _ds/adobe-spectrum-2/） -->
+<link rel="stylesheet" href="app/tokens.css?v=20260911-0255">
+<link rel="stylesheet" href="_ds/adobe-spectrum-2/tokens/layout.css">
+<!-- 控件层与外壳；Agent 设置布局独立，复用共享控件 -->
+<link rel="stylesheet" href="app/ui.css?v=20261002-0120">
+<link rel="stylesheet" href="app/text-inspector.css?v=20260904-r143">
+<link rel="stylesheet" href="app/subtitle-inspector.css?v=20260907-r207">
+<link rel="stylesheet" href="app/settings-agent.css?v=20261001-1200">
+<link rel="stylesheet" href="app/settings-agent-skills.css?v=20261005-0900">
+<link rel="stylesheet" href="app/composer-insert-menu.css?v=20261005-0900">
+<link rel="stylesheet" href="app/settings-cloud.css?v=20261006-0300">
+<link rel="stylesheet" href="app/settings-providers.css?v=20261006-0300">
+<link rel="stylesheet" href="app/settings-usage.css?v=20261006-0300">
+<link rel="stylesheet" href="app/settings-local.css?v=20260930-0208">
+<link rel="stylesheet" href="app/settings-models-dir.css">
+<link rel="stylesheet" href="app/settings-glossary.css?v=20261002-0004">
+<link rel="stylesheet" href="app/settings-voices.css?v=20260924-1931">
+<link rel="stylesheet" href="app/settings-update.css?v=20261001-1455">
+<link rel="stylesheet" href="app/video-library.css?v=20260916-0045">
+<link rel="stylesheet" href="app/shorts-source.css?v=20260928-1516">
+<link rel="stylesheet" href="app/stock.css?v=20260920-0308">
+<link rel="stylesheet" href="app/video-replace.css?v=20260916-1100">
+<link rel="stylesheet" href="app/crop.css?v=20260916-2211">
+<link rel="stylesheet" href="app/shorts-cut.css?v=20260929-1720">
+<link rel="stylesheet" href="app/stage-load.css">
+<link rel="stylesheet" href="app/daoyazi.css?v=20260917-2133">
+<link rel="stylesheet" href="app/help-center.css?v=20260904-r134">
+<!-- 全屏播放器（§11.1）：贴在视频上的 chrome，唯一不吃主题的表面 -->
+<link rel="stylesheet" href="app/player.css?v=20260908-r223">
+<link rel="stylesheet" href="app/import-flow.css?v=20260905-r157">
+<!-- 新建项目页（§8.1–§8.3）：入口卡 / 目标磁贴 / 选项行 / 流程条 -->
+<link rel="stylesheet" href="app/new-project.css?v=20260927-1817">
+<link rel="stylesheet" href="app/home-templates.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,500;0,700;0,800;1,400&family=Source+Code+Pro:wght@400;500&display=swap">
+<!-- 字幕样式目录那 31 份用到的族（见 app/model-subpresets.js）。
+     Komika Axis 与 The Bold Font 不在 Google Fonts 上，栈里各跟一款替身。 -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=Montserrat:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Rubik:wght@400;900&family=Anton&family=Bangers&family=Squada+One&family=Shrikhand&display=swap">
+<!-- 动效字幕那 17 份用到的族（见 app/model-motioncaption.js 的
+     `fontFamilies()`）。这一族**全在 Google Fonts 上**（含 2025 年新上的 Special Gothic
+     Expanded One），所以没有替身；单开一个 link 是为了它挂了也不连累上面那 31 份。 -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Ballet&family=Bricolage+Grotesque:wght@400;500;700&family=Epilogue:wght@400;700&family=IBM+Plex+Mono:wght@400;500&family=Indie+Flower&family=Inter:ital,wght@0,400;0,500;0,700;0,900;1,400&family=Jacquard+24&family=Lacquer&family=Libre+Caslon+Text:wght@400;700&family=Pinyon+Script&family=Playfair+Display:ital,wght@0,400;0,900;1,400&family=Special+Gothic+Expanded+One&display=swap">
+<!-- 第 72 轮：preset-seven 那 8 份动效字幕带进来的 7 个族（BC_VC.fontFamilies() 的后半截） -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BBH+Bartle&family=Gloock&family=Gloria+Hallelujah&family=Instrument+Serif:ital@0;1&family=Just+Me+Again+Down+Here&family=Rubik+Spray+Paint&family=Unna:ital,wght@0,400;0,700;1,400&display=swap">
+<link rel="stylesheet" href="app/services.css?v=20260927-1316">
+<link rel="stylesheet" href="app/tools.css?v=20260926-1540">
+<link rel="stylesheet" href="app/image-gen.css?v=20261002-0004">
+<link rel="stylesheet" href="app/panel-aitools-write.css?v=20260928-1317">
+<!-- react-spectrum S2（App / Web / Components 统一基础控件）：全部规则在 @layer 里；
+     -font.css 是 build.mjs 生成的无层覆盖，让 S2 的字族吃 --sans（Source Sans 3） -->
+<link rel="stylesheet" href="vendor/react-spectrum-s2/react-spectrum-s2.css?v=20261001-2326">
+<link rel="stylesheet" href="vendor/react-spectrum-s2/react-spectrum-s2-font.css?v=20261001-2326">
+<!-- App rail ＋ S2 根容器（App 独有） -->
+<link rel="stylesheet" href="app/home-workspace.css">
+<link rel="stylesheet" href="app/home-shell-chrome.css">
+<link rel="stylesheet" href="app/file-tab-preview.css">
+<link rel="stylesheet" href="app/media-preview.css">
+<link rel="stylesheet" href="app/media-preview-image.css">
+<link rel="stylesheet" href="app/apprail.css?v=20261002-0317">
+<link rel="stylesheet" href="app/space.css?v=20261002-0100">
+<link rel="stylesheet" href="app/spectrum.css?v=20261002-0317">
+<link rel="stylesheet" href="app/font-library.css">
+<link rel="stylesheet" href="app/agent-messages.css">
+<link rel="stylesheet" href="app/agent-cards.css">
+</head>
+<body>
+<div id="root"></div>
+
+<!-- 第 238 轮：动态贴纸换成 Google Noto 的 Lottie JSON，播放器用 lottie-web 5.13.0（SVG renderer） -->
+<!-- 第 242 轮：Codex Pet 的 zip 在浏览器里解包，用 JSZip 3.10.1 -->
+<!-- react-spectrum S2 1.7.1 的 IIFE：读 window.React / window.ReactDOM，挂 window.RSP。必须在 React 之后、Babel 脚本之前 -->
+<script src="vendor/react-spectrum-s2/react-spectrum-s2.js?v=20261001-2326"></script>
+
+<!-- 纯模型层（无 React，node --test 直接 require 这几个） -->
+<!-- 表面能力表：两份入口共用同一套组件，Web 少什么只写在这里（BaoCutWeb.html 先声明 BC_SURFACE_ID） -->
+<script src="app/model-surface.js?v=20261002-0043"></script>
+<script src="app/model-popup.js?v=20260904-popup"></script>
+<script src="app/model-languages.js?v=20260920-1743"></script>
+<script src="app/model-asr-languages.js?v=20260924-1946"></script>
+<script src="app/model-help.js?v=20261002-0004"></script>
+<script src="app/model-time.js?v=20260830-r88"></script>
+<script src="app/model-media.js?v=20261002-0004"></script>
+<script src="app/model-video-library.js?v=20260916-1205"></script>
+<script src="app/model-stock.js?v=20261002-0004"></script>
+<script src="app/model-video-replace.js?v=20260916-1945"></script>
+<script src="app/model-import.js?v=20261002-0004"></script>
+<script src="app/model-shorts.js?v=20261002-0004"></script>
+<script src="app/model-shorts-cut.js?v=20261002-0004"></script>
+<script src="app/model-prompt-slots.js"></script>
+<script src="app/model-home-tools.js"></script>
+<script src="app/model-home-templates-data.js"></script>
+<script src="app/model-home-templates.js"></script>
+<script src="app/model-llm-tools.js"></script>
+<script src="app/model-newproject.js?v=20261002-0004"></script>
+<script src="app/model-timeline.js?v=20260924-2327"></script>
+<script src="app/model-cut.js?v=20261001-0322"></script>
+<script src="app/model-export.js?v=20261002-0004"></script>
+<script src="app/model-task-pill.js?v=20261002-0004"></script>
+<script src="app/model-audio-export.js?v=20260924-2327"></script>
+<script src="app/model-score.js?v=20260924-2327"></script>
+<script src="app/model-loudness.js?v=20261002-0004"></script>
+<script src="app/model-layout.js?v=20261002-0043"></script>
+<script src="app/model-player.js?v=20260908-r223"></script>
+<script src="app/model-proxy.js?v=20260925-2254"></script>
+<script src="app/model-home-workspace.js"></script>
+<script src="app/model-file-preview.js"></script>
+<script src="app/model-media-preview.js"></script>
+<script src="app/model-media-gif.js"></script>
+<script src="app/model-home-browser.js"></script>
+<script src="app/model-nav.js?v=20261001-2325"></script>
+<script src="app/browser-nav.js"></script>
+<script src="app/model-settings-nav.js?v=20261006-0300"></script>
+<script src="app/model-models-dir.js"></script>
+<script src="app/model-app-update.js?v=20261002-0004"></script>
+<script src="app/model-chapters.js?v=20260826-r31a"></script>
+<script src="app/model-template.js?v=20261002-0004"></script>
+<script src="app/model-transcript.js?v=20260920-0307"></script>
+<script src="app/model-transcript-follow.js"></script>
+<script src="app/model-find.js?v=20260826-r32a"></script>
+<script src="app/model-project-search.js?v=20261002-0004"></script>
+<script src="app/model-project-library.js?v=20261002-0004"></script>
+<script src="app/model-project-info.js?v=20260909-r233"></script>
+<script src="app/model-task-facts.js?v=20261002-0004"></script>
+<script src="app/model-subtitle-designs.js?v=20260930-0400"></script>
+<script src="app/model-defaultsub.js?v=20260928-1254"></script>
+<script src="app/model-subpresets.js?v=20260917-0018"></script>
+<script src="app/model-motioncaption.js?v=20260828-r72"></script>
+<script src="app/model-subprefs.js"></script>
+<script src="app/model-substyle.js?v=20260930-1620"></script>
+<script src="app/model-sublist.js?v=20260907-r207"></script>
+<script src="app/model-cueops.js?v=20260906-r178"></script>
+<script src="app/model-subanim.js?v=20260905-r150"></script>
+<script src="app/model-subcanvas.js?v=20260905-r150"></script>
+<script src="app/model-subinspector.js?v=20260928-1713"></script>
+<script src="app/model-wordanim.js?v=20260930-2358"></script>
+<script src="app/model-color.js?v=20260829-r81"></script>
+<script src="app/model-fonts.js?v=20260829-r80"></script>
+<script src="app/font-library-data.js"></script>
+<script src="app/model-font-library.js"></script>
+<script src="app/model-trans-run.js?v=20260907-r207"></script>
+<script src="app/model-toolbar.js?v=20260916-1945"></script>
+<script src="app/model-video-edit.js?v=20260916-1205"></script>
+<script src="app/model-video-transition.js?v=20260905-r145"></script>
+<script src="app/model-pose.js?v=20260916-1205"></script>
+<script src="app/model-geometry.js?v=20260913-1343"></script>
+<script src="app/model-keyframes.js?v=20260929-0440"></script>
+<script src="app/model-select.js?v=20260916-1205"></script>
+<script src="app/model-history.js?v=20260902-r115"></script>
+<script src="app/model-shape-paths.js?v=20260827-r60b"></script>
+<script src="app/model-elements.js?v=20260911-0255"></script>
+<script src="app/model-confetti.js?v=20260909-r234"></script>
+<script src="app/model-whiteboard.js?v=20260917-2316"></script>
+<script src="app/model-waveicons.js?v=20260909-r232"></script>
+<script src="app/model-progicons.js?v=20260830-r87"></script>
+<script src="app/model-counticons.js?v=20260830-r88"></script>
+<script src="app/model-animicons.js?v=20260827-r59"></script>
+<script src="app/model-textpresets.js?v=20260905-r156"></script>
+<script src="app/model-text-controls.js?v=20260904-r142c"></script>
+<script src="app/model-textanim.js?v=20260905-r156"></script>
+<script src="app/model-preview.js?v=20260904-r143"></script>
+<script src="app/model-stickers.js?v=20260914-2104"></script>
+<script src="app/model-sticker-source.js?v=20260910-2317"></script>
+<script src="app/model-brand-stickers.js?v=20260910-2317"></script>
+<script src="app/model-lottiefill.js?v=20260910-r238"></script>
+<script src="app/model-svgfill.js?v=20260903-r122e"></script>
+<script src="app/model-pet.js?v=20260910-2317"></script>
+<script src="app/model-pet-catalog.js?v=20260910-2317"></script>
+<script src="app/model-elpanel.js?v=20260914-2339"></script>
+<script src="app/model-agent.js?v=20261002-0004"></script>
+<script src="app/model-agent-setup.js?v=20260929-0256"></script>
+<script src="app/model-agent-catalog.js?v=20261006-1200"></script>
+<script src="app/model-skill-install.js?v=20260918-1703"></script>
+<script src="app/model-agent-skills.js?v=20261005-0900"></script>
+<script src="app/model-readings.js?v=20260926-1540"></script>
+<script src="app/model-cloud-tts.js?v=20261006-0300"></script>
+<script src="app/model-cloud-image.js?v=20261006-0300"></script>
+<script src="app/model-vendors.js?v=20261006-0300"></script>
+<script src="app/model-usage.js?v=20261006-0300"></script>
+<script src="app/model-writing.js?v=20261002-0004"></script>
+<script src="app/model-tts.js?v=20260927-1850"></script>
+<script src="app/model-voices.js?v=20260926-1540"></script>
+<script src="app/model-crop.js?v=20260916-1952"></script>
+<script src="app/model-video.js?v=20260916-0337"></script>
+<script src="app/model-stage-media.js?v=20261002-0004"></script>
+<script src="app/model-stage-load.js"></script>
+<script src="app/model-services.js?v=20261002-0004"></script>
+<script src="app/model-openai-api.js?v=20260927-1648"></script>
+<script src="app/model-mcp-tools.js?v=20261002-0004"></script>
+<script src="app/model-tools.js?v=20261002-0004"></script>
+<script src="app/model-tool-targets.js"></script>
+<script src="app/model-tool-runs.js"></script>
+<script src="app/model-tool-update.js"></script>
+<script src="app/model-tool-cookies.js"></script>
+<script src="app/model-tool-save-dir.js"></script>
+<script src="app/model-tool-handover.js"></script>
+<script src="app/model-tool-space-input.js"></script>
+<script src="app/model-tool-extract.js"></script>
+<script src="app/model-dub.js?v=20261002-0004"></script>
+<script src="app/model-local-models.js?v=20261002-0004"></script>
+<script src="app/model-local-check.js?v=20261005-0000"></script>
+<script src="app/model-daoyazi.js?v=20260918-0324"></script>
+<script src="app/model-glossary.js?v=20260920-1520"></script>
+<script src="app/data.js?v=20261006-0300"></script>
+<!-- App rail / Home / Space 的纯模型（2026-10-01，只在 App 入口） -->
+<script src="app/model-agent-projects.js?v=20261002-0004"></script>
+<script src="app/model-space.js?v=20261001-2325"></script>
+<script src="app/model-space-tools.js"></script>
+<script src="app/model-task-outputs.js"></script>
+<script src="app/model-app-ia.js?v=20261002-0100"></script>
+<!-- Agent 消息流：逐字显示、Markdown 分块、工具步骤行与回合页脚的纯模型（只在 App 入口） -->
+<script src="app/model-agent-stream.js"></script>
+<script src="app/model-agent-tools.js"></script>
+<script src="app/model-agent-turn.js"></script>
+<!-- 「智能体在干活」的像素加载图形按步骤类别取哪几个图（只在 App 入口；agent-steps.jsx 与会话输入框读它） -->
+<script src="app/model-agent-loader.js"></script>
+<!-- 会话里的视频卡（一件活一行）、下载卡、候选卡的模型，与下载 / 转录 / 翻译 / 导出的演示脚本（只在 App 入口；store-agent-sim.jsx 与 agent-cards.jsx 读它们） -->
+<script src="app/model-agent-cards.js"></script>
+<script src="app/model-agent-sim.js"></script>
+<!-- 回复里的设置链接：应用内的设置路径 → 设置的那一页（只在 App 入口；agent-markdown.jsx 与演示脚本读它） -->
+<script src="app/model-settings-link.js"></script>
+<!-- markdown-it（MIT）由 build.mjs 从 node_modules 打进 generated/app.js，挂 window.BC_MARKDOWN_IT；Web 入口不声明 -->
+<script data-npm="markdown-it"></script>
+
+<!-- 视图层：依赖顺序就是这个顺序，没有构建步骤 -->
+<script type="text/jsx" src="app/icons.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/ui-spectrum.jsx?v=20261002-0317"></script>
+<script src="app/model-attachments.js"></script>
+<script type="text/jsx" src="app/attachment-files.jsx"></script>
+<script type="text/jsx" src="app/ui.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/import-flow.jsx?v=20261002-0004"></script>
+<script type="text/jsx" src="app/newproject-flow.jsx?v=20261002-0004"></script>
+<script type="text/jsx" src="app/import-panel.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/store-crop.jsx?v=20261002-0004"></script>
+<script type="text/jsx" src="app/store-shorts-cut.jsx?v=20261002-0004"></script>
+<script type="text/jsx" src="app/store-agent-sim.jsx"></script>
+<script type="text/jsx" src="app/store.jsx?v=20261006-0300"></script>
+<script type="text/jsx" src="app/apprail-store.jsx?v=20261002-0004"></script>
+<script type="text/jsx" src="app/voice-picker.jsx?v=20260924-1931"></script>
+<script type="text/jsx" src="app/export-preview.jsx?v=20260927-2045"></script>
+<script type="text/jsx" src="app/export-range.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/export-transcript.jsx?v=20260920-1856"></script>
+<script type="text/jsx" src="app/export-audio.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/export-loudness.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/export-shorts.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/export-project.jsx?v=20260924-1941"></script>
+<script type="text/jsx" src="app/export.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/help-center.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/task-pill.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/shell.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/agent-picker.jsx?v=20260929-0256"></script>
+<script type="text/jsx" src="app/tool-setup.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/page-projects.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/project-info.jsx?v=20261002-0004"></script>
+<script type="text/jsx" src="app/home-templates.jsx"></script>
+<script type="text/jsx" src="app/composer-insert-menu.jsx?v=20261005-0900"></script>
+<script type="text/jsx" src="app/new-agent.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/page-new.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/page-tasks.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/page-tasks-outputs.jsx"></script>
+<script type="text/jsx" src="app/page-shell.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/settings-agent-provider.jsx?v=20260929-0256"></script>
+<script type="text/jsx" src="app/settings-agent-catalog.jsx?v=20261006-1200"></script>
+<script type="text/jsx" src="app/page-settings-agent.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/settings-skill-install.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/page-settings-skills.jsx?v=20261002-0004"></script>
+<script type="text/jsx" src="app/settings-agent-skill-detail.jsx?v=20261005-0900"></script>
+<script type="text/jsx" src="app/settings-agent-skills.jsx?v=20261005-0900"></script>
+<script type="text/jsx" src="app/settings-tts.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/page-services-mcp-tools.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/page-services-api-map.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/page-services-api.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/page-services.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/tool-llm.jsx"></script>
+<script type="text/jsx" src="app/page-tools.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/tool-runs.jsx"></script>
+<script type="text/jsx" src="app/tool-run-view.jsx"></script>
+<script type="text/jsx" src="app/tool-frame.jsx"></script>
+<script type="text/jsx" src="app/tool-space-picker.jsx"></script>
+<script type="text/jsx" src="app/tool-video-picker.jsx"></script>
+<script type="text/jsx" src="app/tool-specs.jsx"></script>
+<script type="text/jsx" src="app/tool-transcribe.jsx"></script>
+<script type="text/jsx" src="app/tool-link.jsx"></script>
+<script type="text/jsx" src="app/tool-translate.jsx"></script>
+<script type="text/jsx" src="app/tool-dub.jsx"></script>
+<script type="text/jsx" src="app/tool-tts-form.jsx"></script>
+<script type="text/jsx" src="app/tool-tts.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/image-gen.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/tool-image.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/tool-video.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/tool-video-jobs.jsx"></script>
+<script type="text/jsx" src="app/tool-video-compress.jsx"></script>
+<script type="text/jsx" src="app/tool-video-extract.jsx"></script>
+<script type="text/jsx" src="app/tool-video-merge.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/settings-models-dir.jsx"></script>
+<script type="text/jsx" src="app/settings-model-check.jsx?v=20261005-0000"></script>
+<script type="text/jsx" src="app/settings-local.jsx?v=20261006-0300"></script>
+<script type="text/jsx" src="app/vendor-icon.jsx?v=20261006-0300"></script>
+<script type="text/jsx" src="app/settings-probe-dialog.jsx?v=20261006-0300"></script>
+<script type="text/jsx" src="app/settings-providers.jsx?v=20261006-0300"></script>
+<script type="text/jsx" src="app/settings-provider-detail.jsx?v=20261006-0300"></script>
+<script type="text/jsx" src="app/settings-usage.jsx?v=20261006-0300"></script>
+<script type="text/jsx" src="app/settings-capability.jsx?v=20261006-0300"></script>
+<script type="text/jsx" src="app/settings-glossary.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/settings-voices.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/settings-update.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/settings-fonts.jsx"></script>
+<script type="text/jsx" src="app/page-settings.jsx?v=20261006-0300"></script>
+<!-- 第 109 轮：Agent 升到左侧主入口——线程（三宿主共用）＋ Agent 页 / 全部会话页 / 编辑器左抽屉 -->
+<script type="text/jsx" src="app/agent-markdown.jsx"></script>
+<script type="text/jsx" src="app/agent-steps.jsx"></script>
+<script type="text/jsx" src="app/agent-cards.jsx"></script>
+<script type="text/jsx" src="app/agent-thread.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/page-agent.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/apprail.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/home-sidebar.jsx?v=20261002-0100"></script>
+<script type="text/jsx" src="app/home-session.jsx?v=20261001-2325"></script>
+<script type="text/jsx" src="app/space-list.jsx?v=20261001-2325"></script>
+<script type="text/jsx" src="app/space-viewer.jsx?v=20261001-2325"></script>
+<script type="text/jsx" src="app/page-space.jsx?v=20261001-2325"></script>
+<script type="text/jsx" src="app/stage-objects.jsx?v=20260916-1205"></script>
+<script type="text/jsx" src="app/stage-crop.jsx?v=20260916-1955"></script>
+<script type="text/jsx" src="app/stage-shorts-cut.jsx?v=20260929-1720"></script>
+<script type="text/jsx" src="app/stage-toolbar-menu.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/stage-toolbar.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/template-render.jsx?v=20260915-1237"></script>
+<script type="text/jsx" src="app/stage-marquee.jsx?v=20260916-1205"></script>
+<script type="text/jsx" src="app/stage-video.jsx?v=20261002-0004"></script>
+<script type="text/jsx" src="app/stage-elements.jsx?v=20260929-0440"></script>
+<script type="text/jsx" src="app/daoyazi-stage.jsx?v=20260918-0310"></script>
+<script type="text/jsx" src="app/stage-load.jsx"></script>
+<script type="text/jsx" src="app/stage.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/player.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/subtrack.jsx?v=20260901-r108"></script>
+<script type="text/jsx" src="app/timeline-whiteboard.jsx?v=20260917-2316"></script>
+<script type="text/jsx" src="app/timeline-rows.jsx?v=20260929-0440"></script>
+<script type="text/jsx" src="app/timeline-dub.jsx?v=20260923-1204"></script>
+<script type="text/jsx" src="app/timeline-score.jsx?v=20260924-2327"></script>
+<script type="text/jsx" src="app/timeline-menu.jsx?v=20260916-1205"></script>
+<script type="text/jsx" src="app/timeline-cutbands.jsx?v=20261001-0322"></script>
+<script type="text/jsx" src="app/timeline.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-shared.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/font-library-store.jsx"></script>
+<script type="text/jsx" src="app/panel-font-picker.jsx"></script>
+<script type="text/jsx" src="app/font-downloads.jsx"></script>
+<script type="text/jsx" src="app/panel-geometry.jsx?v=20260929-0440"></script>
+<script type="text/jsx" src="app/panel-motion.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-sound.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/sticker-fills.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/intrinsic-sticker.jsx"></script>
+<script type="text/jsx" src="app/lottie-sticker.jsx?v=20260910-r238"></script>
+<script type="text/jsx" src="app/pet-sticker.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/subcaption.jsx?v=20260828-r72"></script>
+<link rel="stylesheet" href="app/subtitle-motion.css?v=20260928-1759">
+<script type="text/jsx" data-presets="react" src="app/subtitle-motion.jsx?v=20260930-0417"></script>
+<script type="text/jsx" src="app/panel-substyle.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-substrip.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/subtitle-canvas.jsx?v=20260905-r150"></script>
+<script type="text/jsx" src="app/panel-subanim.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-daoyazi.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-subprops.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-translate.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-subtitle.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/glossary-tool.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-aitools-flows.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-crop-review.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-crop.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-aitools-shorts-pick.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-aitools-shorts.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-dub-fit.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-dub-readings.jsx?v=20261002-0004"></script>
+<script type="text/jsx" src="app/panel-dub-setup.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-dub.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-aitools-cut.jsx?v=20261002-0004"></script>
+<script type="text/jsx" src="app/panel-aitools-cover-art.jsx?v=20260928-1317"></script>
+<script type="text/jsx" src="app/panel-aitools-write.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-aitools-cover.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-aitools.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-elements-tile.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-elements-sections.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-elements.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-element-anim.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-element-style.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-element-confetti.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-element-whiteboard.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-element-edit.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-template-edit.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-template-studio.jsx?v=20261002-0004"></script>
+<script type="text/jsx" src="app/panel-textpreset.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-text.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-text-design.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-image.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-video.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-video-transition.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-filters.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-tts-local.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-tts.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-video-library.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/video-replace.jsx?v=20261002-0004"></script>
+<script type="text/jsx" src="app/shorts-add-dialog.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/shorts-source.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-media-stock.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/readings-chips.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-audio-sentence.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-image-gen.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-media.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-brand.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panel-transcript-follow.jsx"></script>
+<script type="text/jsx" src="app/panel-transcript-cut.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/panels.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/editor-elements.jsx?v=20260929-0440"></script>
+<script type="text/jsx" src="app/editor-template.jsx?v=20261002-0004"></script>
+<script type="text/jsx" src="app/editor-selection.jsx?v=20260902-r115"></script>
+<script type="text/jsx" src="app/editor-preview.jsx?v=20260904-r143b"></script>
+<script type="text/jsx" src="app/editor-history.jsx?v=20260916-0300"></script>
+<script type="text/jsx" src="app/editor-keys.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/editor-cuts.jsx?v=20261001-0322"></script>
+<script type="text/jsx" src="app/editor.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/home-workspace-store.jsx"></script>
+<script type="text/jsx" src="app/home-browser.jsx"></script>
+<script type="text/jsx" src="app/home-shell-chrome.jsx"></script>
+<script type="text/jsx" src="app/home-workspace.jsx"></script>
+<script type="text/jsx" src="app/file-tab-preview.jsx"></script>
+<script type="text/jsx" src="app/media-preview-runtime.jsx"></script>
+<script type="text/jsx" src="app/media-preview-markup.jsx"></script>
+<script type="text/jsx" src="app/media-preview-panorama.jsx"></script>
+<script type="text/jsx" src="app/media-preview-gif.jsx"></script>
+<script type="text/jsx" src="app/media-preview-controls.jsx"></script>
+<script type="text/jsx" src="app/media-preview-audio.jsx"></script>
+<script type="text/jsx" src="app/media-preview-video.jsx"></script>
+<script type="text/jsx" src="app/media-preview-image-chrome.jsx"></script>
+<script type="text/jsx" src="app/media-preview.jsx"></script>
+<script type="text/jsx" src="app/media-preview-image-gallery.jsx"></script>
+<script type="text/jsx" src="app/media-preview-attachment.jsx"></script>
+<script type="text/jsx" src="app/main.jsx?v=20261006-0300"></script>
+</body>
+</html>

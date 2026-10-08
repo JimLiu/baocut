@@ -1,0 +1,34 @@
+import type { ModelsLocalMessages } from './models-local-copy.ts';
+
+export const ko: ModelsLocalMessages = {
+  reason: {
+    unsupported: '이 컴퓨터에서 지원하지 않음',
+    resource: '꺼짐',
+    'worker-missing': 'Model Worker 없음',
+    'missing-manifest': '매니페스트 없음',
+    'missing-file': '파일 없음',
+    'size-mismatch': '파일 크기 불일치',
+    'hash-mismatch': '체크섬 불일치',
+    incomplete: '구성 요소 없음',
+    'load-failed': '불러오지 못함',
+    relocating: '이동 중',
+  },
+  chipDefault: '기본값',
+  chipLoading: '불러오는 중',
+  chipReady: '불러옴',
+  chipBusy: '실행 중',
+  chipUnloading: '해제 중',
+  chipUnavailable: '사용할 수 없음',
+  capability: {
+    transcribe: '전사',
+    align: '정렬',
+    synthesize: '합성',
+    image: '이미지',
+    separate: '분리',
+    diarize: '화자 구분',
+  },
+  auto: '자동 선택',
+  notInstalled: (name) => `${name}(설치되지 않음)`,
+  componentName: { aligner: '강제 정렬기', speaker: '화자 임베딩', vad: 'VAD(음성 활동 감지)' },
+  weights: '모델 가중치',
+};

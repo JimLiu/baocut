@@ -1,0 +1,85 @@
+import type { JobsMessages } from './jobs-copy.ts';
+
+export const ko: JobsMessages = {
+  help: `사용법:
+  baocut jobs resources            리소스 스케줄링 현황: 머신 용량과 그 출처, 예약, 임대,
+                                   상주 Model Worker, 대기 중인 작업이 기다리는 대상
+  baocut jobs reconcile <jobId> retry|discard|apply
+                                   재시작 후 결과가 불분명하거나 완전히 적용되지 않은 작업을 처리합니다:
+                                   retry는 다시 실행하고(새 호출, 허가와 예산을 다시 확인), discard는 대조를
+                                   기다리는 외부 호출을 포기하며(이미 차감된 예산은 환불되지 않음), apply는
+                                   보관한 결과를 다시 검증해 영상에 적용합니다`,
+  usage: '사용법: baocut jobs resources | baocut jobs reconcile <jobId> retry|discard|apply',
+  badDecision: (choices) => `대조 결정은 ${choices.join(', ')} 중 하나여야 합니다`,
+  jobStates: {
+    queued: '대기 중',
+    running: '실행 중',
+    completed: '완료',
+    failed: '실패',
+    cancelled: '취소됨',
+    interrupted: '중단됨',
+    'needs-reconciliation': '대조 필요',
+  },
+  applicationStates: {
+    pending: '적용 대기',
+    validating: '커밋 중',
+    committed: '적용됨',
+    'stale-input': '대상 변경됨',
+    rejected: '거부됨',
+    cancelled: '적용 안 됨',
+  },
+  remoteStates: {
+    'not-applicable': '원격 없음',
+    'not-submitted': '전송 안 됨',
+    cancelled: '원격에서 취소됨',
+    'cancel-unsupported': '원격 취소 불가',
+    unknown: '원격 상태 알 수 없음',
+  },
+  costStates: {
+    none: '비용 없음',
+    possible: '청구되었을 수 있음',
+    charged: '청구됨',
+  },
+  cancellation: (stoppedLocally, remote, cost) => `${stoppedLocally ? '로컬에서 중지됨' : '로컬에서 중지 안 됨'}, ${remote}, ${cost}`,
+  cancellationLine: (text) => `취소: ${text}`,
+  requeued: (attempt, jobId) => `다시 대기열에 넣었습니다(${attempt}번째 시도): ${jobId}`,
+  discarded: (jobId) => `포기했습니다: ${jobId}`,
+  appliedTo: (videoId, recovered) =>
+    `영상 ${videoId}에 적용했습니다${recovered ? '(지난번에 이미 커밋되어 있어 이번에 확인 기록만 남겼습니다)' : ''}`,
+  notApplied: (state, error) => `적용하지 못했습니다: ${state}${error ? `(${error})` : ''}`,
+  noApplicationRecord: '적용 기록 없음',
+  statusLine: (state, code) => `상태: ${state}${code ? `  ${code}` : ''}`,
+  budgetSettled: (basis, calls) => `예산 정산: ${basis}, 호출 ${calls}회`,
+  unknown: '알 수 없음',
+  amounts: (memory, gpuMemory, cpuThreads, disk) => `메모리 ${memory}  GPU 메모리 ${gpuMemory}  CPU 스레드 ${cpuThreads}개  디스크 ${disk}`,
+  demandMemory: (value) => `메모리 ${value}`,
+  demandGpuMemory: (value) => `GPU 메모리 ${value}`,
+  demandCpu: (threads) => `CPU 스레드 ${threads}개`,
+  demandDisk: (value) => `디스크 ${value}`,
+  demandNone: '로컬 리소스를 쓰지 않음',
+  listSep: ', ',
+  clauseSep: ', ',
+  sources: {
+    system: '시스템',
+    setting: '설정',
+    'unified-estimate': '통합 메모리로 추정',
+    unknown: '알 수 없음',
+    statfs: '스테이징 볼륨의 여유 공간',
+  },
+  capacity: (amounts, unified) => `용량: ${amounts}${unified ? '(통합 메모리: GPU 메모리도 메모리로 계산)' : ''}`,
+  capacitySources: (memory, gpuMemory, cpu, disk) => `  출처: 메모리 ${memory}, GPU 메모리 ${gpuMemory}, CPU ${cpu}, 디스크 ${disk}`,
+  systemReserve: (amounts) => `시스템 예약분: ${amounts}`,
+  interactiveReserve: (amounts) => `대화형 예약분: ${amounts}`,
+  leased: (amounts) => `임대됨: ${amounts}`,
+  backgroundAvailable: (amounts) => `백그라운드 사용 가능: ${amounts}`,
+  interactiveAvailable: (amounts) => `대화형 사용 가능: ${amounts}`,
+  leasesHeader: '임대:',
+  leasesNone: '임대: 없음',
+  leaseHolder: (holder) => `${holder} 사용`,
+  leaseQueue: (queue) => `대기열 ${queue}`,
+  holdersHeader: '상주 프로세스:',
+  holderState: (users, processes) => `${users > 0 ? `작업 ${users}개가 사용 중` : '유휴'}, 프로세스 ${processes}개 실행 중`,
+  waitingHeader: '대기:',
+  waitingNone: '대기: 없음',
+  waitingAdmission: '수락 대기 중',
+};

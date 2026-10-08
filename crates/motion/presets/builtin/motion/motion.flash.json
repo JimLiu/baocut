@@ -1,0 +1,52 @@
+{
+  "id": "motion.flash",
+  "version": 1,
+  "domain": "motion",
+  "family": "flash",
+  "doc": "一次不透明度下沉再回满。composite=multiply。",
+  "aliases": [
+    "flash"
+  ],
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "to": {
+      "type": "number",
+      "default": 0.25,
+      "min": 0.0,
+      "max": 1.0,
+      "doc": "谷值不透明度"
+    },
+    "curve": {
+      "type": "curve",
+      "default": "easeOutQuad",
+      "doc": "时间曲线（规范 §7.6 的封闭名称）"
+    }
+  },
+  "tracks": [
+    {
+      "prop": "opacity",
+      "composite": "multiply",
+      "order": 0,
+      "frames": [
+        {
+          "t": "0%",
+          "v": 1
+        },
+        {
+          "t": "50%",
+          "v": "{to}",
+          "ease": "{curve}"
+        },
+        {
+          "t": "100%",
+          "v": 1,
+          "ease": "easeInOutQuad"
+        }
+      ]
+    }
+  ],
+  "determinism": "strict",
+  "capabilities": []
+}

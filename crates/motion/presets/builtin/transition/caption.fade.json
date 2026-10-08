@@ -1,0 +1,23 @@
+{
+  "id": "transition.caption.fade",
+  "version": 1,
+  "domain": "transition",
+  "namespace": "caption",
+  "order": 1,
+  "legacyId": "magic-fade",
+  "curve": {
+    "kind": "cubicBezier",
+    "x1": 0.42,
+    "y1": 0.0,
+    "x2": 0.58,
+    "y2": 1.0,
+    "solver": "newton6-bisect10-1e-6"
+  },
+  "timeQuantization": "round-both-ends",
+  "channels": [
+    { "prop": "opacity", "factor": 1.0, "a": 0.0, "b": 1.0, "scaleBy": "none", "clamp01": true },
+    { "prop": "blur", "factor": 6.0, "a": 1.0, "b": -1.0, "scaleBy": "canvasScale", "clampMin": 0.0 }
+  ],
+  "determinism": "strict",
+  "doc": "字幕入场姿态：淡入 + 去模糊。通道值 = factor × scaleBy × (a + b·e)，e 是曲线取值——这个**求值顺序**是契约的一部分：blur 原式是 6.0 × canvasScale × (1 − e)，先乘 canvasScale 再乘括号，换成 (6 − 6e) × canvasScale 会换像素。"
+}

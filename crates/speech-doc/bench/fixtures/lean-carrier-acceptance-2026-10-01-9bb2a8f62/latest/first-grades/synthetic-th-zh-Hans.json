@@ -1,0 +1,229 @@
+{
+  "diagnostics": {},
+  "issues": [],
+  "mode": "lean",
+  "pageRejected": false,
+  "retryIds": [],
+  "rows": [
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              5
+            ],
+            "tgt": [
+              0,
+              11
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              11
+            ],
+            "tgt": [
+              11,
+              15
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              12,
+              13
+            ],
+            "tgt": [
+              15,
+              18
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "不要把文件发给妮达直到经理批准第二版",
+            "to": 13
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13"
+        ]
+      },
+      "chunks": 6,
+      "coarse": false,
+      "frozen": false,
+      "id": "th-07",
+      "issues": [],
+      "locatedChunks": 6,
+      "minChunks": 1,
+      "n": 1,
+      "realTiming": false,
+      "source": "อย่าส่งไฟล์ให้นิดาจนกว่าผู้จัดการจะอนุมัติฉบับที่สอง",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "不要把文件发给妮达直到经理批准第二版"
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              3
+            ],
+            "tgt": [
+              0,
+              6
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "anchor"
+            ],
+            "src": [
+              4,
+              5
+            ],
+            "tgt": [
+              6,
+              11
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              8
+            ],
+            "tgt": [
+              11,
+              15
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              9,
+              11
+            ],
+            "tgt": [
+              15,
+              18
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              12,
+              14
+            ],
+            "tgt": [
+              18,
+              20
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "我们买了大米",
+            "to": 3
+          },
+          {
+            "from": 4,
+            "text": "2.5公斤而晚饭后还剩下一半",
+            "to": 14
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14"
+        ]
+      },
+      "chunks": 5,
+      "coarse": false,
+      "frozen": false,
+      "id": "th-08",
+      "issues": [],
+      "locatedChunks": 5,
+      "minChunks": 1,
+      "n": 2,
+      "realTiming": false,
+      "source": "เราซื้อข้าวสาร2.5กิโลกรัมและหลังอาหารเย็นยังเหลืออยู่ครึ่งหนึ่ง",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "我们买了大米2.5公斤而晚饭后还剩下一半"
+    }
+  ],
+  "schema": "lean-carrier-grade/2",
+  "totals": {
+    "acceptedTranslations": 2,
+    "aligned": 2,
+    "chunks": 11,
+    "coarse": 0,
+    "expectedSentences": 2,
+    "locatedChunks": 11,
+    "sentencesWithAnchorIssues": 0,
+    "syntaxOrPermissionIssues": 0,
+    "translationRetries": 0
+  }
+}

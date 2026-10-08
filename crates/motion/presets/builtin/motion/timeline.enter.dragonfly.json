@@ -1,0 +1,30 @@
+{
+  "id": "dragonfly",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "enter",
+  "order": 23,
+  "duration": 0.6,
+  "curve": {
+    "kind": "spring",
+    "response": 0.55,
+    "damping": 0.5
+  },
+  "opacityCurve": {
+    "kind": "named",
+    "name": "easeOutExpo"
+  },
+  "mirror": "dragonfly",
+  "from": {
+    "opacity": 0.0,
+    "dx": 0.037,
+    "dy": -0.023
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

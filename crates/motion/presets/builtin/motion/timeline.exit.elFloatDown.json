@@ -1,0 +1,33 @@
+{
+  "id": "elFloatDown",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "exit",
+  "order": 25,
+  "duration": 0.6,
+  "curve": {
+    "kind": "named",
+    "name": "linear"
+  },
+  "mirror": null,
+  "from": {},
+  "keyframes": [
+    {
+      "at": 0
+    },
+    {
+      "at": 1,
+      "ease": "easeOutSine",
+      "opacity": 0.0,
+      "dy": 0.1
+    }
+  ],
+  "basis": {
+    "dx": "selfWidth",
+    "dy": "selfHeight"
+  },
+  "surface": "element",
+  "determinism": "strict",
+  "available": true
+}

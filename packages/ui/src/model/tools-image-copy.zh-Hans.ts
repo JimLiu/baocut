@@ -1,0 +1,25 @@
+import type { ToolsImageMessages } from './tools-image-copy.ts';
+
+export const zhHans: ToolsImageMessages = {
+  emptyPrompt: '先写要画的画面',
+  promptTooLong: (n, max) => `提示词 ${n} 字 · 这只模型最多 ${max} 字`,
+  maxImages: (max) => `一次最多 ${max} 张`,
+  seedInteger: '种子要是整数',
+  pickModel: '先选一只模型',
+  downloadFirst: (label) => `先下载 ${label}`,
+  connectFirst: (provider) => `先连接 ${provider}`,
+  local: '本机',
+  steps: (n) => `${n} 步`,
+  deviceTime: '耗时取决于设备',
+  offline: '不联网',
+  images: (n) => `${n} 张`,
+  aspects: (n) => `${n} 种画幅`,
+  providerSize: '尺寸由服务商定',
+  takesSeed: '收种子',
+  localChip: '在这台电脑上出图 · 不联网',
+  cloudChip: (provider) => `联网 · ${provider} · 按用量计费`,
+  imageName: (n) => `图片 ${n}`,
+  seed: (seed) => `种子 ${seed}`,
+  decoding: '解码',
+  stepOf: (done, total) => `第 ${done}/${total} 步`,
+};

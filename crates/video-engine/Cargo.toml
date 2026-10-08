@@ -1,0 +1,25 @@
+[package]
+name = "video-engine"
+description = "BaoCut 的视频引擎与视频存储：单写、事务、回执、撤销、outbox（架构设计 §2.3、§5.1、§5.2）"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[dependencies]
+editor-semantics.workspace = true
+message-ref.workspace = true
+# 语义锚按文稿闪避的同一种词投影求值（`text_plan`）。
+render-graph.workspace = true
+# 导入 Lottie 素材时用内核的读法（JSON 或 `.lottie` 压缩包）取尺寸与时长；不开 `media`，不带解码与字体。
+render-raster.workspace = true
+timeline.workspace = true
+video-model.workspace = true
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sha2 = "0.11.0"
+uuid = { version = "1.26.1", features = ["v4"] }
+
+[dev-dependencies]
+tempfile = "3.27.0"

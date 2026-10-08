@@ -1,0 +1,35 @@
+import type { DubProgressMessages } from './dub-progress.ts';
+
+export const ko: DubProgressMessages = {
+  unit: {
+    fit: '그대로 배치함',
+    tempo: '속도를 높여 배치함',
+    extended: '한도까지 속도를 높이고 뒤의 무음 구간을 사용함',
+    overlong: '너무 길어 배치하지 않음',
+    stale: '번역이 오래되어 합성하지 않음',
+    offTimeline: '원문 문장이 더 이상 타임라인에 없어 배치하지 않음',
+    voiceUnavailable: '화자의 목소리를 사용할 수 없어 합성하지 않음',
+  },
+  reasonStale: '복제가 만료되었습니다 · 목소리 라이브러리에서 다시 복제하세요',
+  reasonMissing: '이 공급자에서 아직 복제하지 않았습니다',
+  reasonNoConsent: '화자의 동의 문구가 없어 공급자에게 업로드하지 않습니다',
+  reasonRemoved: '이 목소리는 더 이상 라이브러리에 없습니다',
+  reasonServiceClient: '외부 서비스 호출자는 라이브러리의 목소리를 사용할 수 없습니다',
+  codeCloneRequired: '이 공급자에 유효한 복제가 없습니다',
+  codeNotFound: '목소리를 찾을 수 없습니다',
+  warning: {
+    DUB_SEPARATION_NOT_CONFIGURED: '배경음을 분리하지 않음',
+    DUB_UNITS_STALE: '오래된 번역은 합성하지 않음',
+    DUB_UNITS_OVERLONG: '일부 문장이 너무 길어 배치하지 못함',
+    DUB_UNITS_OFF_TIMELINE: '일부 원문 문장이 더 이상 타임라인에 없음',
+    DUB_MUTED_UNVOICED: '합성하지 않은 문장의 원본 오디오도 음소거됨',
+    DUB_BACKGROUND_MUTED: '배경 오디오도 음소거됨',
+    DUB_VOICE_UNAVAILABLE: '일부 화자의 목소리를 사용할 수 없음',
+  },
+  separated: '배경음 분리됨',
+  separationNotConfigured: '분리를 요청했지만 설정된 분리 기능이 없음: 건너뛰고 원본 오디오는 그대로 둠',
+  notSeparated: '배경음을 분리하지 않음',
+  originalMuted: '원본 오디오 음소거',
+  originalKept: '원본 오디오 변경 없음',
+  originalDucked: (db: number | null) => (db ? `더빙이 재생되는 동안 원본 오디오를 ${db} dB 낮춤` : '더빙이 재생되는 동안 원본 오디오를 낮춤'),
+};

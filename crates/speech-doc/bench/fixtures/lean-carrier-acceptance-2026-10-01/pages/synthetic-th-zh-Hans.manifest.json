@@ -1,0 +1,37 @@
+{
+  "rows": [
+    {
+      "id": "th-07",
+      "reference_en": "Do not send the file to Nida until the manager approves the second version.",
+      "required_facts": [
+        "Nida",
+        "manager approval required",
+        "second version"
+      ],
+      "risk": "no spaces; until; negation",
+      "source": "อย่าส่งไฟล์ให้นิดาจนกว่าผู้จัดการจะอนุมัติฉบับที่สอง",
+      "source_lang": "th",
+      "source_words": [
+        "อย่าส่งไฟล์ให้นิดาจนกว่าผู้จัดการจะอนุมัติฉบับที่สอง"
+      ],
+      "target_lang": "zh-Hans"
+    },
+    {
+      "id": "th-08",
+      "reference_en": "We bought 2.5 kilograms of uncooked rice, and half was still left after dinner.",
+      "required_facts": [
+        "2.5 kilograms",
+        "uncooked rice",
+        "half left",
+        "after dinner"
+      ],
+      "risk": "no spaces; decimal; fraction",
+      "source": "เราซื้อข้าวสาร2.5กิโลกรัมและหลังอาหารเย็นยังเหลืออยู่ครึ่งหนึ่ง",
+      "source_lang": "th",
+      "source_words": [
+        "เราซื้อข้าวสาร2.5กิโลกรัมและหลังอาหารเย็นยังเหลืออยู่ครึ่งหนึ่ง"
+      ],
+      "target_lang": "zh-Hans"
+    }
+  ]
+}

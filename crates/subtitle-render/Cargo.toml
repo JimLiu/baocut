@@ -1,0 +1,42 @@
+[package]
+name = "subtitle-render"
+description = "BaoCut 字幕 overlay 渲染内核：字幕排版与样式、逐词动画、Designed Caption 配方、转场、模板层、时间线元素合成、DrawOp 指纹与 CPU 光栅、ASS 样式头；内置字幕样式与贴图在 `assets/`，字体读 `render-raster` 的内置字体。烧录导出与预览共用的唯一实现（移植自 BaoCut v2 bcut-subtitle-render）"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+# feature 表与 v2 相同。进 WASM 的构建用 `--no-default-features --features wasm-safe`
+# （v2 `bcut-wasm-subtitle`、`bcut-wasm-editor` 的组合）。
+[features]
+default = ["host"]
+external-fonts = ["host", "render-raster/external-fonts"]
+# 桌面/CLI 宿主：项目 I/O、媒体解码与系统字体。
+host = ["render-raster/media", "timeline-render/media", "timeline-render/external-media-scene"]
+# 浏览器合成器只消费纯排版 + glyph scene；字体与文档由 JS host 注入。
+wasm-safe = ["render-raster/wasm-safe", "timeline-render/wasm-safe"]
+
+[dependencies]
+# 无 I/O 的排版 / 光栅化 / DrawOp 内核与效果栈。
+render-raster = { workspace = true }
+# Timeline 文档模型、时钟映射与 `TimelineProjection`（host 注入的投影类型）。
+timeline = { workspace = true }
+# Timeline 元素的纯几何 → DrawOp 组装；与预览 WASM 共用，预览＝导出同源。
+timeline-render = { workspace = true }
+# 目录型 preset 配方（shape / visualizer / progress）注册表。
+motion = { workspace = true }
+# BCS1 频谱的纯函数解析（visualizer 元素的像素输入）。workspace 登记处关掉了 `dsp`。
+waveform = { workspace = true }
+# 译文投影：`target_delivery_projection` 决定哪些句子进烧录；ASS 样式头的 `AssStyleSheet`。
+speech-doc = { workspace = true }
+anyhow = "1.0"
+serde = { version = "1.0.229", features = ["derive"] }
+# `float_roundtrip`：v2 在 workspace 级打开，这里随 crate 声明。
+serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
+# v2 是 0.10；本仓库已解析到 0.11，跟本仓库（同 `render-raster`）。
+sha2 = "0.11.0"
+tiny-skia = "0.11.4"
+unicode-segmentation = "1.12"
+
+[dev-dependencies]
+tempfile = "3"

@@ -1,0 +1,86 @@
+import type { SpeakersMessages } from './speakers-copy.ts';
+
+export const zhHant: SpeakersMessages = {
+  title: '辨識說話者',
+  back: '返回',
+  background: '正在背景執行',
+
+  // 设置
+  cardTitle: '分辨是誰在說話',
+  cardBody: '依聲紋重新辨識說話者，並在字幕與逐字稿中標上名字。結果會先交給你審閱，套用之前不會變更任何內容。',
+  who: '使用',
+  local: '本機聲紋模型',
+  localSub: '只在這台電腦上處理',
+  agent: '交給 Agent',
+  agentSub: '在這部影片的對話中進行',
+  scope: '範圍',
+  scopeAll: '整部影片',
+  scopeLocal: (scope: string) => `本機辨識會處理整部影片；若只要辨識「${scope}」，請交給 Agent。`,
+  packHint: (size: string | null) =>
+    `本機聲紋模型${size ? `（約 ${size}）` : ''}會在第一次執行時下載，之後可離線使用。`,
+  packDownloading: (pct: number | null) =>
+    `正在下載本機聲紋模型${pct === null ? '…' : ` · ${pct}%`}，下載完成後就會開始辨識。`,
+  packUnlisted: '這台電腦上沒有可用的本機聲紋模型，只能交給 Agent 處理。',
+  noSpeech: '這部影片還沒有轉錄。請先在字幕面板中轉錄，再來辨識說話者。',
+  manySpeech: '影片有好幾份逐字稿，將使用第一份',
+  start: '開始',
+  startHint: '完成後會開啟審閱頁面——這是唯一一個要先確認才會套用的工具。',
+  agentHint: '會把這個請求傳送到這部影片的對話中，Agent 隨即開始處理。',
+  readOnly: '這部影片是唯讀的，無法辨識說話者。',
+  web: '無法在瀏覽器中辨識說話者',
+  webBody: '辨識說話者需要使用這台電腦上的本機聲紋模型，請使用 BaoCut 桌面版。',
+
+  // 运行
+  submitting: '正在提交…',
+  queued: '排隊中…',
+  running: '正在辨識說話者…',
+  activity: (stage: string) => `本機聲紋模型 · ${stage}`,
+  runNote: '可以繼續編輯 · 辨識在背景執行，完成後會開啟審閱頁面，不會直接變更逐字稿。',
+  cancel: '取消',
+  cancelled: '已取消辨識說話者',
+  cancelFailed: (message: string) => `無法取消：${message}`,
+
+  // 确认
+  found: (n: number) => `找到 ${n} 位說話者。試聽片段確認各是誰，點名字可以重新命名，然後再套用。`,
+  same: '說話者分界與目前的標註相同；套用只會變更名字。',
+  newSpeaker: '新',
+  rename: '重新命名',
+  renameLabel: (name: string) => `重新命名「${name}」`,
+  sentences: (n: number) => `${n} 句`,
+  clipOff: '這一句已剪掉，不在時間軸上',
+  splitTitle: (n: number) => `${n} 份譯文會重新切分，不需要重新翻譯`,
+  splitBody: '變更說話者分界只會影響字幕行的切分方式——譯文內容保持不變。',
+  skipped: (n: number) => `${n} 份舊格式的譯文不會重新切分；套用後它們的句子會對不上，並標記為過期。`,
+  apply: '套用',
+  applyHint: '套用後隨時都可以還原。',
+  discard: '捨棄這次結果',
+
+  // 收据
+  engine: '本機聲紋模型',
+  undoneReceipt: '已還原 · 說話者標註已回復',
+  undo: '還原',
+  redo: '重做',
+  again: '再執行一次',
+  done: '完成',
+  splitDone: (n: number) => `${n} 份譯文已依新的說話者分界重新切分——沒有重新翻譯。`,
+  undoneTitle: '已還原',
+  undoneBody: '「再執行一次」會重新開始——你的辨識設定會保留。',
+  captionsStale: (n: number) => `${n} 條字幕軌是由舊版逐字稿產生的，沒有更新。`,
+  gotoCaptions: '開啟字幕',
+  noUndo: '沒有可還原的變更：結果與目前的標註相同。',
+  undoFailed: '無法還原',
+  redoFailed: '無法重做',
+
+  // 问题
+  failed: '辨識說話者失敗',
+  interrupted: '辨識說話者已中斷',
+  submitFailed: '無法開始辨識說話者',
+  applyFailed: '無法套用結果',
+  applyStale: '辨識之後逐字稿或譯文有變更。請再執行一次，然後再套用。',
+  badResult: '無法讀取結果。請再執行一次。',
+  retry: '重試',
+  decide: '到背景任務中處理',
+  dismiss: '好',
+  chapterScope: (n: number, label: string) => `第 ${n} 章 · ${label}`,
+  manySpeechNamed: (name: string) => `影片有好幾份逐字稿；將使用第一份「${name}」`,
+};

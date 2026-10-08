@@ -1,0 +1,42 @@
+import type { JobsLinkImportMessages } from './link-import.ts';
+
+export const ja: JobsLinkImportMessages = {
+
+  languageTag: 'BCP 47 言語タグである必要があります',
+  requiresTranscribe: 'transcribe と一緒に指定する必要があります',
+  noVideoDiarize: '対象の動画がない場合は独立した文字起こしだけを書き出し、話者は分離できません',
+  noVideoCaptions: '対象の動画がない場合は字幕レイヤーを作成しません',
+  notWrittenToVideo: '文字起こしは完了しましたが、動画には書き込まれていません',
+  label: '動画をダウンロード',
+  description:
+    'yt-dlp で動画をフォルダにダウンロードし、必要に応じて TXT と SRT に文字起こしします。プロジェクトの所属と保存先フォルダは互いに独立しています。旧プロトコルでは動画の読み込み先も引き続き受け付けます。yt-dlp のインストールと利用への同意が必要です。',
+  offlineStrict: '厳格なオフラインモードではリンクからダウンロードしません',
+  cannotCreateVideo: 'この Runtime では動画を作成できません',
+  cannotTranscribe: 'この Runtime では文字起こしできません',
+  fileTranscribeUnavailable: 'ファイルの文字起こしは使用できません',
+  videoNotOpen: '動画が開かれていません',
+  sourceExpired: '元のリンクはもう使用できません：新しく読み込みを開始してください',
+  stepResolve: 'リンクの解析',
+  stepDownload: 'ダウンロード',
+  stepVerify: 'デコードの確認',
+  stepPublish: 'ダウンロードフォルダへの移動',
+  stepCreate: '動画の作成',
+  stepImport: '動画への読み込み',
+  stepTranscribe: '文字起こし',
+  undecodable: 'ダウンロードしたファイルをデコードできません',
+  noStreams: 'ダウンロードしたファイルには映像も音声もありません',
+  undecodableRemedy: '配信元のファイルが不完全か、対応していない形式です：再試行するか、別の形式（audioOnly）を試してください',
+  noMediaFile: 'ダウンロードツールがメディアファイルを残しませんでした',
+  destinationUnwritable: (p: { dir: string }) => `保存先フォルダに書き込めません：${p.dir}`,
+  destinationRemedy:
+    '保存先フォルダ（ダウンロードフォルダは設定 downloads.directory、プロジェクト内ではプロジェクトの downloads/）が存在し、書き込み可能であることを確認してください',
+  publishedOutside: '配置したファイルが保存先フォルダの外にあります',
+  diskFull: 'ダウンロードフォルダのあるディスクの空き容量が不足しています',
+  unsupportedBrowser: 'は対応しているブラウザではありません',
+  browserItems: 'の項目はすべて対応しているブラウザである必要があります',
+  noDuplicates: 'に重複は含められません',
+  saveToInvalid: 'は downloads または project である必要があります',
+  languageItems: 'の項目はすべて言語コード（例：en、zh-Hans）である必要があります',
+  projectMismatch: 'が target.create のプロジェクトと一致しません',
+  conversationMismatch: 'が target.create のセッションと一致しません',
+};

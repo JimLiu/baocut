@@ -1,0 +1,22 @@
+{
+  "id": "transition.caption.flip",
+  "version": 1,
+  "domain": "transition",
+  "namespace": "caption",
+  "order": 3,
+  "legacyId": "magic-flip",
+  "curve": {
+    "kind": "cubicBezier",
+    "x1": 0.25,
+    "y1": 0.46,
+    "x2": 0.45,
+    "y2": 0.94,
+    "solver": "newton6-bisect10-1e-6"
+  },
+  "timeQuantization": "round-both-ends",
+  "channels": [
+    { "prop": "scaleY", "factor": 1.0, "a": 0.0, "b": 1.0, "scaleBy": "none", "clamp01": true }
+  ],
+  "determinism": "strict",
+  "doc": "字幕入场姿态：垂直方向从 0 展开到 1（翻牌）。"
+}

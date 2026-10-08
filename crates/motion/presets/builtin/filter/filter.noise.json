@@ -1,0 +1,18 @@
+{
+  "id": "filter.noise",
+  "version": 1,
+  "domain": "filter",
+  "inputs": 1,
+  "params": {"amount": {"type": "number", "default": 0, "min": 0, "max": 1}},
+  "color": {"colorSpace": "srgb-premultiplied", "precision": "u8"},
+  "kernel": "noise-coordinate-hash-premul-u8",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "clamp",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "doc": "由像素坐标固定散列出的单色噪点，无随机时钟，alpha 保持不变。"
+}

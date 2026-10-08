@@ -1,0 +1,95 @@
+{
+  "diagnostics": {
+    "problems": [
+      {
+        "code": "missing-id",
+        "detail": "no valid numbered translation",
+        "scope": {
+          "id": "ar-07",
+          "kind": "sentence"
+        }
+      }
+    ]
+  },
+  "issues": [
+    [
+      1,
+      "lines-syntax"
+    ]
+  ],
+  "mode": "lean",
+  "pageRejected": false,
+  "retryIds": [
+    "ar-07"
+  ],
+  "rows": [
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              8
+            ],
+            "tgt": [
+              0,
+              19
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "我们买了公斤大米，晚饭后العشاء.",
+            "to": 8
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8"
+        ]
+      },
+      "chunks": 4,
+      "coarse": false,
+      "frozen": false,
+      "id": "ar-08",
+      "issues": [
+        "anchor-unresolved"
+      ],
+      "locatedChunks": 3,
+      "minChunks": 1,
+      "n": 2,
+      "realTiming": false,
+      "source": "اشترينا 2.5 كيلوغرام من الأرز، وبقي نصفه بعد العشاء.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "我们买了公斤大米，晚饭后العشاء."
+    }
+  ],
+  "schema": "lean-carrier-grade/2",
+  "totals": {
+    "acceptedTranslations": 1,
+    "aligned": 1,
+    "chunks": 4,
+    "coarse": 0,
+    "expectedSentences": 2,
+    "locatedChunks": 3,
+    "sentencesWithAnchorIssues": 1,
+    "syntaxOrPermissionIssues": 1,
+    "translationRetries": 1
+  }
+}

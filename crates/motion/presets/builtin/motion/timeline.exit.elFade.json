@@ -1,0 +1,32 @@
+{
+  "id": "elFade",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "exit",
+  "order": 21,
+  "duration": 0.6,
+  "curve": {
+    "kind": "named",
+    "name": "linear"
+  },
+  "mirror": null,
+  "from": {},
+  "keyframes": [
+    {
+      "at": 0
+    },
+    {
+      "at": 1,
+      "ease": "linear",
+      "opacity": 0.0
+    }
+  ],
+  "basis": {
+    "dx": "selfWidth",
+    "dy": "selfHeight"
+  },
+  "surface": "element",
+  "determinism": "strict",
+  "available": true
+}

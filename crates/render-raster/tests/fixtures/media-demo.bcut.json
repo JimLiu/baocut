@@ -1,0 +1,55 @@
+{
+  "bcut": "0.2",
+  "meta": { "id": "media-demo", "width": 960, "height": 540, "fps": 30, "background": "#101014" },
+  "scenes": [
+    { "id": "intro",   "dur": 3, "desc": "标题、logo 与卡片图进场" },
+    { "id": "footage", "dur": 4, "desc": "实拍素材铺满画面，配乐为叠字让位" }
+  ],
+  "assets": {
+    "card": { "type": "image", "src": "assets/card.png" },
+    "logo": { "type": "image", "src": "assets/logo.svg" },
+    "clip": { "type": "video", "src": "assets/clip.mp4" },
+    "tone": { "type": "audio", "src": "assets/tone.wav" },
+    "main": { "type": "font",  "src": "assets/main.ttf" }
+  },
+  "theme": {
+    "color": { "bg": "#101014", "ink": "#f6f4ef", "accent": "#e8906a" }
+  },
+  "tracks": [
+    { "id": "main", "kind": "visual", "clips": [
+      { "id": "intro-shot", "start": 0, "end": "@intro.end",
+        "transitionOut": { "preset": "crossfade", "dur": 0.4 },
+        "element": { "type": "box", "id": "intro-root",
+          "style": { "width": 960, "height": 540, "layout": "column", "align": "center", "justify": "center", "gap": 24 },
+          "children": [
+            { "type": "image", "id": "logo", "src": "$assets.logo",
+              "style": { "width": 96 },
+              "animate": { "enter": { "preset": "fadeIn", "dur": 0.5 } } },
+            { "type": "text", "id": "title", "text": "Media Demo",
+              "style": { "fontSize": 56, "fontWeight": 700, "color": "$theme.color.ink" },
+              "animate": { "enter": { "preset": "fadeIn", "dur": 0.6, "delay": 0.2 } } },
+            { "type": "image", "id": "card", "src": "$assets.card",
+              "style": { "width": 240 },
+              "animate": { "enter": { "preset": "fadeIn", "dur": 0.5, "delay": 0.5 } } }
+          ] } },
+      { "id": "footage-shot", "start": "@footage", "end": "@footage.end",
+        "transitionIn": { "preset": "crossfade", "dur": 0.4 },
+        "element": { "type": "box", "id": "footage-root",
+          "style": { "width": 960, "height": 540 },
+          "children": [
+            { "type": "video", "id": "clip", "src": "$assets.clip", "mediaStart": 0.5,
+              "style": { "x": 0, "y": 0, "width": 960, "height": 540 } },
+            { "type": "text", "id": "overlay", "text": "Footage overlay",
+              "style": { "x": 40, "y": 40, "fontSize": 34, "fontWeight": 600, "color": "$theme.color.accent" },
+              "animate": { "enter": { "preset": "fadeIn", "dur": 0.4, "delay": 0.3 } } }
+          ] } }
+    ] },
+    { "id": "sound", "kind": "audio", "clips": [
+      { "id": "bgm", "start": 0, "end": "@footage.end",
+        "src": "$assets.tone", "mediaStart": 0.0, "volume": 0.8,
+        "animate": { "keyframes": [ { "prop": "volume", "frames": [
+          { "t": "@footage-0.5", "v": 0.8 },
+          { "t": "@footage+0.5", "v": 0.3, "ease": "easeInOutSine" } ] } ] } }
+    ] }
+  ]
+}

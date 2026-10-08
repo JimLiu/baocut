@@ -1,0 +1,34 @@
+{
+  "id": "filter.colorAdjust",
+  "version": 1,
+  "domain": "filter",
+  "inputs": 1,
+  "params": {
+    "grayscale": {
+      "type": "number",
+      "default": 0,
+      "min": 0,
+      "max": 1
+    },
+    "brightness": {
+      "type": "number",
+      "default": 0,
+      "min": -1,
+      "max": 1
+    }
+  },
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "kernel": "color-adjust-grayscale-brightness-f64",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "clamp",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "doc": "Timeline 0.1 的 fx {grayscale, brightness} 复合配方——**逐行等价于 studio_export 的 apply_media_effects**：同一趟循环里先向 Rec.709 亮度插值再加亮度偏移，最后一次 clamp+预乘。拆成两条 filter 串联会多一次 u8 round-trip，像素不同，所以它自成一个配方。"
+}

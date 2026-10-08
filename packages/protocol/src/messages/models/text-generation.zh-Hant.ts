@@ -1,0 +1,25 @@
+import type { ModelsTextGenerationMessages } from './text-generation.ts';
+
+export const zhHant: ModelsTextGenerationMessages = {
+  noMessage: '至少需要一則非空的 user 或 assistant 訊息',
+  badRole: '訊息的 role 只能是 system、user 或 assistant',
+  inputTooLong: (p: { chars: number; modelId: string; contextTokens: number }) => `輸入有 ${p.chars} 字，遠超過模型 ${p.modelId} 的 ${p.contextTokens} token 上下文`,
+  maxOutput: (p: { modelId: string; max: number }) => `模型 ${p.modelId} 每次呼叫最多輸出 ${p.max} 個 token`,
+  noTemperature: (p: { modelId: string }) => `模型 ${p.modelId} 不接受 temperature`,
+  temperatureRange: 'temperature 必須介於 0 到 2 之間',
+  noSeed: (p: { modelId: string }) => `模型 ${p.modelId} 不接受 seed`,
+  noStructured: (p: { modelId: string }) => `模型 ${p.modelId} 不支援結構化輸出`,
+  effortIgnored: (p: { modelId: string; requested: string }) => `模型 ${p.modelId} 無法調整推理強度，已忽略 ${p.requested}`,
+  effortChanged: (p: { modelId: string; requested: string; applied: string }) => `模型 ${p.modelId} 沒有 ${p.requested} 這一級推理強度，已改用 ${p.applied}`,
+  contentFiltered: (p: { provider: string }) => `${p.provider} 的內容篩選器擋下了這次輸出`,
+  truncatedJson: (p: { provider: string; max: number }) => `${p.provider} 的輸出達到上限（${p.max} token）而被截斷，結構化輸出不完整`,
+  truncatedProblem: (p: { max: number }) => `輸出被截斷（maxOutputTokens ${p.max}）`,
+  notJson: (p: { provider: string }) => `${p.provider} 的輸出不是有效的 JSON`,
+  notJsonProblem: '不是有效的 JSON',
+  schemaMismatch: (p: { provider: string }) => `${p.provider} 的輸出不符合指定的 JSON Schema`,
+  limitBeforeText: (p: { provider: string }) => `${p.provider} 在輸出任何文字前就達到輸出上限`,
+  emptyOutput: (p: { provider: string }) => `${p.provider} 傳回了空的輸出`,
+  limitBeforeTextProblem: (p: { max: number }) => `${p.max} token 的輸出上限用完時仍沒有文字`,
+  emptyProblem: '輸出為空',
+  cancelled: '呼叫已取消',
+};

@@ -1,0 +1,27 @@
+{
+  "id": "arrow_curved",
+  "version": 1,
+  "domain": "sticker",
+  "namespace": "timeline",
+  "order": 8,
+  "layers": [
+    {
+      "stroke": "#111827",
+      "strokeWidth": 0.07,
+      "segments": [
+        {"verb": "move", "pts": [[0.1, 0.84]]},
+        {"verb": "cubic", "pts": [[0.18, 0.36], [0.5, 0.13], [0.8, 0.26]]}
+      ]
+    },
+    {
+      "fill": "#111827",
+      "segments": [
+        {"verb": "move", "pts": [[0.902132, 0.300853]]},
+        {"verb": "line", "pts": [[0.741506, 0.31738]]},
+        {"verb": "line", "pts": [[0.797215, 0.178108]]},
+        {"verb": "close"}
+      ]
+    }
+  ],
+  "available": true
+}

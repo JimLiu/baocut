@@ -1,0 +1,133 @@
+{
+  "id": "lowerThird.20",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "lowerThird",
+  "order": 320,
+  "duration": 4.3,
+  "content": [
+    {
+      "kind": "shape",
+      "place": {
+        "x": 19.68,
+        "y": 70.12,
+        "w": 31.59
+      },
+      "shape": {
+        "shape": "rect",
+        "fill": "#5544CC",
+        "cornerRadius": [
+          4.5,
+          4.5,
+          4.5,
+          4.5
+        ],
+        "h": 8.32
+      },
+      "animate": {
+        "enter": {
+          "preset": "wipe",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.69
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 20.51,
+        "y": 69.02,
+        "w": 28.45
+      },
+      "text": "ROBERT HENDERSON",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#ffffffff",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 12.6,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.0,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "delay": 0.3,
+      "animate": {
+        "enter": {
+          "preset": "fade",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.6
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 17.42,
+        "y": 71.5,
+        "w": 22.11
+      },
+      "text": "Marketing Director",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#d1d3fbff",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 10.3,
+        "fontStyle": "normal",
+        "fontWeight": "normal",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.0,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "delay": 0.3,
+      "animate": {
+        "enter": {
+          "preset": "fade",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.69
+        }
+      }
+    }
+  ]
+}

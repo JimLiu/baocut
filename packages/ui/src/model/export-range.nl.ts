@@ -1,0 +1,3 @@
+import type { ExportRangeMessages } from './export-range.ts';
+import { pluralForm } from '@baocut/protocol';
+export const nl: ExportRangeMessages = { modeAll: 'Hele video', modeChapters: 'Per hoofdstuk', modeClips: 'Per clip', modeCustom: 'Aangepast', chapterN: (n) => `Hoofdstuk ${n}`, clipN: (n) => `Clip ${n}`, whole: (clock) => `Hele video ${clock}`, joined: (n, chapters, clock) => `${n} ${chapters ? pluralForm('nl', n, { one: 'hoofdstuk', other: 'hoofdstukken' }) : pluralForm('nl', n, { one: 'segment', other: 'segmenten' })} samengevoegd tot één · ${clock}`, separate: (n, clock) => `${n} ${pluralForm('nl', n, { one: 'segment', other: 'segmenten' })} · ${clock} totaal` };

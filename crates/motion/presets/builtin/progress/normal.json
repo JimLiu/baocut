@@ -1,0 +1,24 @@
+{
+  "id": "normal",
+  "version": 1,
+  "domain": "progress",
+  "namespace": "timeline",
+  "order": 0,
+  "numColors": 2,
+  "colorLabels": ["Bar", "Base"],
+  "defaultMainColor": "#FF4C45",
+  "defaultSecondaryColor": "#FFC9C7",
+  "aspect": "bar",
+  "recipe": {
+    "algorithm": "bar-v1",
+    "params": {
+      "direction": "ltr",
+      "corner": {
+        "kind": "none"
+      }
+    }
+  },
+  "determinism": "strict",
+  "shader": "normal.wgsl",
+  "available": true
+}

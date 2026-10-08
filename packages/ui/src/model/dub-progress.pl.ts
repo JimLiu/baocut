@@ -1,0 +1,35 @@
+import type { DubProgressMessages } from './dub-progress.ts';
+
+export const pl: DubProgressMessages = {
+  unit: {
+    fit: "Umieszczono bez zmian",
+    tempo: "Umieszczono po przyspieszeniu",
+    extended: "Przyspieszono do limitu, wykorzystując ciszę po nim",
+    overlong: "Za długie, nie umieszczono",
+    stale: "Tłumaczenie nieaktualne, nie zsyntetyzowano",
+    offTimeline: "Oryginalny wiersz nie jest już na osi czasu, nie umieszczono",
+    voiceUnavailable: "Głos mówcy niedostępny, nie zsyntetyzowano",
+  },
+  reasonStale: "Klon wygasł; sklonuj ponownie w bibliotece głosów",
+  reasonMissing: "Nie sklonowano jeszcze u tego dostawcy",
+  reasonNoConsent: "Brak oświadczenia zgody mówcy, więc nagranie nie zostanie przesłane dostawcy",
+  reasonRemoved: "Tego głosu nie ma już w bibliotece",
+  reasonServiceClient: "Klienci usług zewnętrznych nie mogą używać głosów z biblioteki",
+  codeCloneRequired: "Brak ważnego klonu u tego dostawcy",
+  codeNotFound: "Nie znaleziono głosu",
+  warning: {
+    DUB_SEPARATION_NOT_CONFIGURED: "Tło nie zostało oddzielone",
+    DUB_UNITS_STALE: "Nie zsyntetyzowano nieaktualnych tłumaczeń",
+    DUB_UNITS_OVERLONG: "Niektóre wiersze są za długie",
+    DUB_UNITS_OFF_TIMELINE: "Niektórych oryginalnych wierszy nie ma już na osi czasu",
+    DUB_MUTED_UNVOICED: "Oryginalne audio wyciszono także dla niezsyntetyzowanych wierszy",
+    DUB_BACKGROUND_MUTED: "Audio tła także wyciszono",
+    DUB_VOICE_UNAVAILABLE: "Głosy niektórych mówców są niedostępne",
+  },
+  separated: "Tło oddzielone",
+  separationNotConfigured: "Zażądano oddzielenia, ale ta możliwość nie jest skonfigurowana: pominięto, oryginalne audio bez zmian",
+  notSeparated: "Tło nie zostało oddzielone",
+  originalMuted: "Oryginalne audio wyciszone",
+  originalKept: "Oryginalne audio bez zmian",
+  originalDucked: (db: number | null) => (db ? `Oryginalne audio przyciszono o ${db} dB podczas dubbingu` : "Oryginalne audio przyciszone podczas dubbingu"),
+};

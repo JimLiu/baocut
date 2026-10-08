@@ -1,0 +1,111 @@
+{
+  "id": "chevron2",
+  "version": 1,
+  "domain": "shape",
+  "namespace": "timeline",
+  "order": 14,
+  "path": {
+    "kind": "outline",
+    "segments": [
+      {
+        "verb": "move",
+        "pts": [
+          [
+            0,
+            0.13
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.25,
+            0.38
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.5,
+            0.13
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.75,
+            0.38
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            1,
+            0.13
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            1,
+            0.6
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.75,
+            0.85
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.5,
+            0.6
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.25,
+            0.85
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0,
+            0.6
+          ]
+        ]
+      },
+      {
+        "verb": "close"
+      }
+    ]
+  },
+  "params": [
+    "fill",
+    "stroke",
+    "strokeWidth"
+  ],
+  "available": true
+}

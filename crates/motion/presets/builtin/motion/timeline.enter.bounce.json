@@ -1,0 +1,29 @@
+{
+  "id": "bounce",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "enter",
+  "order": 17,
+  "duration": 0.6,
+  "curve": {
+    "kind": "spring",
+    "response": 0.55,
+    "damping": 0.58
+  },
+  "opacityCurve": {
+    "kind": "named",
+    "name": "easeOutCubic"
+  },
+  "mirror": "rise",
+  "from": {
+    "opacity": 0.0,
+    "dy": -0.045
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

@@ -1,0 +1,38 @@
+[
+  {
+    "project": "东京旅行行程推荐-10_taRWL9Ao",
+    "exitCode": 0,
+    "unchanged": true,
+    "cues": 206,
+    "sentences": 73,
+    "summary": {
+      "ids": "3436:1ihx7wxn04eqc",
+      "texts": "3436:g1.0:g96.6~4:1f5jzukq8ifiq",
+      "words": 3436
+    }
+  },
+  {
+    "project": "8 个必装 Skill - 顶级 AI 生产力",
+    "exitCode": 0,
+    "unchanged": true,
+    "cues": 218,
+    "sentences": 84,
+    "summary": {
+      "ids": "2461:30zl11vdusod9",
+      "texts": "2461:g1.0:wmuosgcxx-287:wjkhx4zof44y",
+      "words": 2461
+    }
+  },
+  {
+    "project": "东京观光 15 处推荐景点",
+    "exitCode": 0,
+    "unchanged": true,
+    "cues": 454,
+    "sentences": 189,
+    "summary": {
+      "ids": "6580:2rt4pcac638bf",
+      "texts": "6580:g1.0:g189.20~1:3jm3wse6rijuj",
+      "words": 6580
+    }
+  }
+]

@@ -1,0 +1,77 @@
+{
+  "id": "neon-streamers",
+  "version": 1,
+  "domain": "confetti",
+  "namespace": "timeline",
+  "order": 30,
+  "aspect": "frame",
+  "palette": [
+    "#FF2D95",
+    "#00F0FF",
+    "#B4FF00",
+    "#FFE600",
+    "#FF6A00"
+  ],
+  "shapes": [
+    "strip",
+    "ribbon"
+  ],
+  "sources": [
+    "party-js/confetti",
+    "party-js/shapes"
+  ],
+  "hasEmitterControl": false,
+  "recipe": {
+    "algorithm": "confetti-v1",
+    "params": {
+      "emit": {
+        "mode": "continuous",
+        "rate": 32,
+        "count": 80,
+        "interval": 2.0,
+        "jitter": 1.0
+      },
+      "emitters": [
+        {
+          "x": 50,
+          "y": -6,
+          "spreadX": 100,
+          "spreadY": 0
+        }
+      ],
+      "angle": 90,
+      "spread": 70,
+      "speedPx": [
+        90,
+        150
+      ],
+      "dragX": 0.25,
+      "dragY": 0.35,
+      "gravityPx": 320,
+      "windPx": 45,
+      "driftPx": 0,
+      "driftHz": 0.3,
+      "sizePx": [
+        8,
+        18
+      ],
+      "sizeRamp": false,
+      "spinDps": [
+        120,
+        420
+      ],
+      "flipHz": [
+        1,
+        2.4
+      ],
+      "pulse": null,
+      "lifeSec": 4.2,
+      "fadeIn": 0,
+      "fadeOut": 0.6,
+      "maxAlive": 600
+    }
+  },
+  "determinism": "strict",
+  "shader": null,
+  "available": true
+}

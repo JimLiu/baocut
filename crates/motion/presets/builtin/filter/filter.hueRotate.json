@@ -1,0 +1,28 @@
+{
+  "id": "filter.hueRotate",
+  "version": 1,
+  "domain": "filter",
+  "inputs": 1,
+  "params": {
+    "degrees": {
+      "type": "number",
+      "default": 0,
+      "min": -360,
+      "max": 360
+    }
+  },
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "kernel": "hue-rotate-matrix-f64",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "clamp",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "doc": "W3C filter-effects 的 hue-rotate 矩阵（绕亮度轴旋转），角度为度。"
+}

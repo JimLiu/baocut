@@ -1,0 +1,60 @@
+{
+  "id": "motion.drift",
+  "version": 1,
+  "domain": "motion",
+  "family": "drift",
+  "doc": "缓慢漂浮：x / y 两条不同周期的正弦轨（Lissajous），composite=add。与 shake 的区别是连续可导、周期以秒计。",
+  "aliases": [
+    "drift",
+    "floatDrift"
+  ],
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "amplitude": {
+      "type": "length",
+      "default": {
+        "value": 0.012,
+        "basis": "canvasShortEdge"
+      },
+      "doc": "漂移幅度；缺省是画布短边的 1.2%"
+    },
+    "period": {
+      "type": "number",
+      "default": 3.2,
+      "min": 0.001,
+      "doc": "水平方向的周期（秒）"
+    },
+    "periodY": {
+      "type": "number",
+      "default": 4.1,
+      "min": 0.001,
+      "doc": "竖直方向的周期（秒）；与 period 互质感更强"
+    }
+  },
+  "ops": [
+    {
+      "op": "oscillate",
+      "prop": "x",
+      "amplitude": "{amplitude}",
+      "period": "{period}",
+      "phase": 0.0,
+      "wave": "sine",
+      "dur": "{dur}",
+      "composite": "add"
+    },
+    {
+      "op": "oscillate",
+      "prop": "y",
+      "amplitude": "{amplitude}",
+      "period": "{periodY}",
+      "phase": 0.25,
+      "wave": "sine",
+      "dur": "{dur}",
+      "composite": "add"
+    }
+  ],
+  "determinism": "strict",
+  "capabilities": []
+}

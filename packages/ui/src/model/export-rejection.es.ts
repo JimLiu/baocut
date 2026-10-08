@@ -1,0 +1,25 @@
+import type { ExportRejectionMessages } from './export-rejection.ts';
+export const es: ExportRejectionMessages = {
+ portableReason: { missing: 'Archivo no encontrado', changed: 'El contenido difiere del que tenía al añadirlo', unreadable: 'No se puede leer' },
+ titles: {
+ VIDEO_NOT_OPEN: 'El vídeo no está abierto', EXPORT_KIND_UNSUPPORTED: 'Esta versión aún no puede exportar este tipo de contenido',
+ EXPORT_SOURCE_UNSUPPORTED: 'Este documento no se puede exportar de esta forma', EXPORT_NOTHING_TO_EXPORT: 'No hay nada que se pueda exportar en el intervalo',
+ EXPORT_SOURCE_NOT_FOUND: 'No hay ningún documento que se pueda exportar', EXPORT_SOURCE_AMBIGUOUS: 'Hay varios documentos que se pueden exportar',
+ EXPORT_TOOL_MISSING: 'Falta una herramienta necesaria para exportar en este ordenador', EXPORT_UNSUPPORTED_CONTENT: 'Parte del contenido no se puede renderizar para exportar',
+ ASSET_MISSING: 'Algunos materiales no se pueden leer', ASSET_CHANGED: 'Algunos materiales han cambiado', ENTITY_NOT_FOUND: 'La secuencia no existe',
+ DUB_GROUP_NOT_FOUND: 'No se encuentra este grupo de doblaje', EXPORT_PACKAGE_LOCAL_PATH: 'Algunos documentos contienen rutas de este ordenador',
+ EXPORT_PACKAGE_UNSUPPORTED: 'Algunos archivos no se pueden incluir en un paquete portable', EXPORT_INSUFFICIENT_SPACE: 'No hay espacio suficiente en el disco de destino de la exportación',
+ EXPORT_DESTINATION_EXISTS: 'Ya existe un archivo con el mismo nombre', EXPORT_DESTINATION_UNWRITABLE: 'No se puede escribir en el destino de la exportación',
+ EXPORT_RENDER_FAILED: 'No se pudo renderizar el vídeo', EXPORT_VALIDATION_FAILED: 'El archivo exportado no superó la validación',
+ EXPORT_PUBLISH_FAILED: 'No se pudieron guardar los archivos en el destino de la exportación', EXPORT_PARTIALLY_PUBLISHED: 'Solo se guardaron algunos archivos',
+ RESOURCE_ADMISSION_UNSATISFIABLE: 'Este ordenador no tiene recursos suficientes para esta exportación',
+ },
+ resources: { memory: 'Memoria', gpuMemory: 'Memoria de GPU', cpuThreads: 'Hilos de CPU', scratchDisk: 'Espacio de disco para archivos temporales' },
+ problemSeparator: '; ', fileProblems: (file, problems) => `${file}: ${problems}`,
+ notStarted: 'La exportación no comenzó', failed: 'Error de exportación', missingTool: (tool) => `Falta: ${tool}`,
+ assetMissingHint: 'Busca el archivo o vuelve a vincularlo en Materiales y exporta de nuevo.',
+ assetChangedHint: 'Vuelve a vincular este material o restaura el archivo original y exporta de nuevo.',
+ nothingHint: 'Elige otro intervalo o coloca algo en la línea de tiempo primero.',
+ space: (required, available) => `Se necesitan unos ${required}; solo quedan ${available}`,
+ notEnough: (resource) => `Insuficiente: ${resource}`, resourceHint: 'Exporta un intervalo más corto o elige una resolución menor y vuelve a intentarlo.',
+};

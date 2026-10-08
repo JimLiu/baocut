@@ -1,0 +1,22 @@
+import type { DriversOpencodeMessages } from './drivers-opencode.ts';
+export const es: DriversOpencodeMessages = {
+ plan: 'Cuentas de modelos en OpenCode', installHint: 'Instala 2.x con npm install -g @opencode/cli',
+ unsupportedMajor: (p) => `OpenCode ${p.version} es una versión principal que BaoCut aún no admite. Solo se admite 2.x.`,
+ tooOld: (p) => `OpenCode ${p.version} es demasiado antiguo. Actualízalo: BaoCut necesita ${p.min} o una versión 2.x posterior (${p.command}).`,
+ unsupportedVersion: (p) => `OpenCode ${p.version} no es compatible. Se necesita ${p.min} o una versión 2.x posterior`, versionUnknown: 'versión desconocida',
+ noModelAccount: (p) => `Aún no hay una cuenta de modelos conectada en OpenCode, por lo que solo están disponibles los modelos gratuitos de OpenCode Zen. Ejecuta ${p.command} en un terminal para conectar una.`,
+ probeFailed: (p) => `OpenCode serve no pudo iniciarse o leer la lista de modelos: ${p.error}`, externalDirectory: 'Acceder a una ubicación fuera de la carpeta de trabajo',
+ directoryNotReady: (p) => `OpenCode no preparó la carpeta ${p.directory} en ${p.seconds} segundos`,
+ httpFailed: (p) => `OpenCode ${p.operation} falló (HTTP ${p.status}${p.tag ? ` ${p.tag}` : ''})${p.detail ? `: ${p.detail}` : ''}`,
+ htmlResponse: 'Se recibió una página web en lugar de la API v2 (¿versión incompatible?)', processExited: 'El proceso de OpenCode ha terminado',
+ killedBySignal: (p) => `Terminado por la señal ${p.signal}`, exitCode: (p) => `Código de salida ${p.code}`,
+ serveNotReady: (p) => `opencode serve no estuvo listo en ${p.seconds} segundos`, serveExitedAtStart: (p) => `opencode serve terminó durante el inicio (${p.reason})`, serveExited: 'opencode serve terminó',
+ streamConnectFailed: (p) => `No se pudo conectar al flujo de eventos (HTTP ${p.status})`, streamEnded: 'El flujo de eventos terminó',
+ streamNotConnected: (p) => `El flujo de eventos no se conectó (${p.seconds} segundos)`, streamLost: (p) => `Flujo de eventos desconectado: ${p.error}`,
+ mcpFailed: (p) => `${p.name} no pudo conectarse al servidor MCP ${p.server} (${p.error}). Las herramientas de BaoCut no están disponibles en esta sesión.`,
+ mcpTimeout: (p) => `${p.name} no se conectó a los servidores MCP (${p.servers}) a tiempo. Puede que las herramientas de BaoCut no estén disponibles en esta sesión.`,
+ promptRejected: (p) => `${p.name} no aceptó este mensaje: ${p.error}`, setModeFailed: (p) => `${p.name} no pudo establecer el modo de acceso: ${p.error}`,
+ retryFallback: 'La solicitud al modelo falló. Se reintentará en breve.', runFailed: (p) => `La ejecución de ${p.name} falló`,
+ endedAfterRejection: (p) => `${p.name} terminó este turno después de rechazarse una herramienta. Envía otro mensaje si quieres que pruebe otro método.`,
+ interruptedTurn: (p) => `${p.name} interrumpió este turno (${p.reason}).`, modelFormat: (p) => `Los modelos de ${p.name} deben escribirse como provider/model (se recibió ${p.id})`,
+};

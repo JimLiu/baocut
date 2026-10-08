@@ -1,0 +1,29 @@
+/* Fixed-size media rows keep large libraries virtualized; thumbnails preserve the source ratio. */
+.vl-panel {display:flex;flex-direction:column;flex:1;min-height:0;padding:16px 12px 12px;gap:8px}
+.vl-import {display:flex;align-items:center;gap:12px;padding:12px;border:1px dashed var(--gray-400);border-radius:10px;background:var(--gray-75);color:var(--gray-700);flex:none}
+.vl-import.is-over {border-color:var(--blue-800);background:var(--blue-100)}
+.vl-import>div {display:flex;flex:1;min-width:0;flex-direction:column;gap:4px}
+.vl-import b,.vl-heading b {font-size:12px;color:var(--gray-900)}
+.vl-import span,.vl-heading>span,.vl-hint,.vl-footnote {font-size:11px;color:var(--gray-600)}
+.vl-heading {display:flex;align-items:center;justify-content:space-between;padding:8px 4px 0}
+.vl-hint {padding:0 4px 4px}
+.vl-list {flex:1;min-height:120px;overflow:auto;overscroll-behavior:contain}
+.vl-virtual {position:relative;width:100%}
+.vl-slot {position:absolute;left:0;right:0;height:96px;padding-bottom:4px}
+.vl-row {height:100%;display:flex;align-items:center;gap:12px;padding:8px;border-radius:10px;background:var(--gray-25);border:1px solid var(--gray-200)}
+.vl-row:hover,.vl-row:focus-within {background:var(--gray-75);border-color:var(--gray-300)}
+.vl-row.is-previewing {border-color:var(--gray-500)}
+/* @ds-allow: video thumbnail geometry is a 16:9 media viewport, not a button size. */
+.vl-thumb {position:relative;display:flex;align-items:center;justify-content:center;width:96px;height:54px;flex:none;border-radius:8px;overflow:hidden;background:var(--gray-200);color:var(--gray-600)}
+.vl-thumb>img,.vl-thumb>video {position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--gray-200)}
+.vl-thumb .vl-play {position:absolute;z-index:1;background:var(--gray-25);color:var(--gray-900);opacity:0}
+.vl-row:hover .vl-play,.vl-row:focus-within .vl-play,.vl-row.is-previewing .vl-play {opacity:1}
+.vl-duration {position:absolute;right:4px;bottom:4px;padding:0 4px;border-radius:4px;background:var(--gray-25);color:var(--gray-900);font-size:10px;font-variant-numeric:tabular-nums}
+.vl-progress {position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--gray-300)}
+.vl-progress>i {height:100%;display:block;background:var(--blue-800)}
+.vl-info {flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.vl-name {font-size:12px;line-height:1.3;font-weight:700;color:var(--gray-900);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.vl-meta,.vl-status {font-size:11px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--gray-600)}
+.vl-status {display:flex;align-items:center;gap:4px;color:var(--gray-700)}
+.vl-menu {position:relative;flex:none;align-self:center}
+.vl-footnote {margin:0;padding:4px;line-height:1.5;flex:none}

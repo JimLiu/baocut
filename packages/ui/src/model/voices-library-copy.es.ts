@@ -1,0 +1,21 @@
+import type { VoicesLibraryMessages } from './voices-library-copy.ts';
+export const es: VoicesLibraryMessages = {
+  consentStatement: 'Esta es mi voz o tengo permiso del hablante',
+  uploading: (label) => `Subiendo a ${label}…`,
+  noConsent: 'No se ha indicado que sea tu voz o que tengas permiso para usarla, por lo que no se subirá a un tercero. Primero marca la declaración en «Editar».',
+  cannotClone: (label) => `Este Runtime no puede clonar en ${label}`,
+  providerOff: (label, detail) => `${label} no está disponible ahora${detail ? ` (${detail})` : ''}: primero activa el proveedor y configura su clave en «Modelos en la nube»`,
+  consentUnstated: 'Consentimiento no declarado', cloned: (label) => `Clonado en ${label}`,
+  cloneStale: (label) => `Clon de ${label} desactualizado`, languageUnknown: 'Idioma no especificado',
+  recorded: 'Grabado en la aplicación', imported: 'Importado desde un archivo', edited: (ago) => `Editado ${ago}`,
+  nameRequired: 'Pon un nombre a la voz', nameTooLong: (max) => `Los nombres pueden tener hasta ${max} caracteres`,
+  transcriptTooLong: (max) => `Las transcripciones pueden tener hasta ${max} caracteres`, dontKnow: 'No estoy seguro',
+  deleteClones: (labels) => `Primero se eliminan sus clones en ${labels.join(', ')}; si falla, se conserva la voz.`,
+  deleteBody: (clones) => `Los vídeos que la usan recurrirán a la voz predeterminada la próxima vez que generen; los doblajes ya generados no se ven afectados. ${clones}`.trim(),
+  uploadNotice: (name, size, label) => `La grabación de referencia de «${name}»${size ? ` (${size})` : ''} se subirá a ${label} para crear un clon. Después, usar esta voz en ${label} utiliza directamente su ID de voz; al eliminar la voz, se elimina primero este clon.`,
+  withRemedy: (message, remedy) => `${message.replace(/[。.]$/, '')}. ${remedy}`,
+  remedyConsent: 'Las voces sin declaración de consentimiento no se suben a terceros: primero marca la declaración en «Editar».',
+  remedyConfigure: 'Activa este proveedor y configura su clave en «Modelos en la nube».',
+  remedyConflict: 'Esta voz acaba de cambiar en otro lugar. La versión más reciente se muestra abajo; revísala antes de guardar.',
+  remedyGrant: 'Enviar la grabación de referencia a un proveedor requiere una autorización de envío: crea una en Ajustes y vuelve a intentarlo.',
+};

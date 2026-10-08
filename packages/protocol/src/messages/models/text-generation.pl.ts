@@ -1,0 +1,25 @@
+import type { ModelsTextGenerationMessages } from './text-generation.ts';
+
+export const pl: ModelsTextGenerationMessages = {
+  noMessage: "Wymagana jest co najmniej jedna niepusta wiadomość user lub assistant",
+  badRole: "Rola wiadomości musi być system, user lub assistant",
+  inputTooLong: (p: { chars: number; modelId: string; contextTokens: number }) => `Długość wejścia: ${p.chars} znaków, znacznie więcej niż kontekst ${p.contextTokens} tokenów modelu ${p.modelId}`,
+  maxOutput: (p: { modelId: string; max: number }) => `Model ${p.modelId} zwraca najwyżej ${p.max} tokenów na wywołanie`,
+  noTemperature: (p: { modelId: string }) => `Model ${p.modelId} nie przyjmuje temperature`,
+  temperatureRange: "temperature musi być od 0 do 2",
+  noSeed: (p: { modelId: string }) => `Model ${p.modelId} nie przyjmuje seed`,
+  noStructured: (p: { modelId: string }) => `Model ${p.modelId} nie obsługuje wyniku strukturalnego`,
+  effortIgnored: (p: { modelId: string; requested: string }) => `Model ${p.modelId} nie zmienia intensywności rozumowania; pominięto ${p.requested}`,
+  effortChanged: (p: { modelId: string; requested: string; applied: string }) => `Model ${p.modelId} nie ma ${p.requested} poziomu rozumowania; użyto ${p.applied} zamiast tego`,
+  contentFiltered: (p: { provider: string }) => `${p.provider} – filtr treści zablokował wynik`,
+  truncatedJson: (p: { provider: string; max: number }) => `${p.provider} – wynik osiągnął limit (${p.max} tokenów) i został ucięty; wynik strukturalny jest niepełny`,
+  truncatedProblem: (p: { max: number }) => `Wynik ucięto (maxOutputTokens ${p.max})`,
+  notJson: (p: { provider: string }) => `${p.provider} – wynik nie jest prawidłowym JSON`,
+  notJsonProblem: "Nieprawidłowy JSON",
+  schemaMismatch: (p: { provider: string }) => `${p.provider} – wynik nie odpowiada podanemu JSON Schema`,
+  limitBeforeText: (p: { provider: string }) => `${p.provider} osiągnął limit wyniku bez zapisania tekstu`,
+  emptyOutput: (p: { provider: string }) => `${p.provider} zwrócił pusty wynik`,
+  limitBeforeTextProblem: (p: { max: number }) => `Brak tekstu, wyczerpano limit wyniku ${p.max} tokenów`,
+  emptyProblem: "Wynik jest pusty",
+  cancelled: "Wywołanie anulowano",
+};

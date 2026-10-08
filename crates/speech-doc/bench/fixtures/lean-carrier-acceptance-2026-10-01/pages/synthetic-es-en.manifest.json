@@ -1,0 +1,180 @@
+{
+  "rows": [
+    {
+      "id": "es-01",
+      "reference_en": "Lucía did not cancel the meeting; she postponed it until Thursday at 14:30.",
+      "required_facts": [
+        "Lucía",
+        "not cancelled",
+        "Thursday",
+        "14:30"
+      ],
+      "risk": "negation; time",
+      "source": "Lucía no canceló la reunión; la aplazó hasta el jueves a las 14:30.",
+      "source_lang": "es",
+      "source_words": [
+        "Lucía",
+        "no",
+        "canceló",
+        "la",
+        "reunión;",
+        "la",
+        "aplazó",
+        "hasta",
+        "el",
+        "jueves",
+        "a",
+        "las",
+        "14:30."
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "es-02",
+      "reference_en": "If the temperature drops below 5 degrees, close the window before turning on the heating.",
+      "required_facts": [
+        "below 5 degrees",
+        "window first",
+        "heating afterward"
+      ],
+      "risk": "condition; order",
+      "source": "Si la temperatura baja de 5 grados, cierra la ventana antes de encender la calefacción.",
+      "source_lang": "es",
+      "source_words": [
+        "Si",
+        "la",
+        "temperatura",
+        "baja",
+        "de",
+        "5",
+        "grados,",
+        "cierra",
+        "la",
+        "ventana",
+        "antes",
+        "de",
+        "encender",
+        "la",
+        "calefacción."
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "es-03",
+      "reference_en": "Diego paid 120 euros for three tickets, but the price did not include dinner.",
+      "required_facts": [
+        "Diego",
+        "120 euros",
+        "three tickets",
+        "dinner excluded"
+      ],
+      "risk": "numbers; negation",
+      "source": "Diego pagó 120 euros por tres entradas, pero el precio no incluía la cena.",
+      "source_lang": "es",
+      "source_words": [
+        "Diego",
+        "pagó",
+        "120",
+        "euros",
+        "por",
+        "tres",
+        "entradas,",
+        "pero",
+        "el",
+        "precio",
+        "no",
+        "incluía",
+        "la",
+        "cena."
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "es-04",
+      "reference_en": "The book Ana lent Pablo yesterday belongs to Ana’s sister.",
+      "required_facts": [
+        "Ana lent to Pablo",
+        "yesterday",
+        "belongs to Ana’s sister"
+      ],
+      "risk": "argument direction; ownership",
+      "source": "El libro que Ana le prestó ayer a Pablo pertenece a la hermana de Ana.",
+      "source_lang": "es",
+      "source_words": [
+        "El",
+        "libro",
+        "que",
+        "Ana",
+        "le",
+        "prestó",
+        "ayer",
+        "a",
+        "Pablo",
+        "pertenece",
+        "a",
+        "la",
+        "hermana",
+        "de",
+        "Ana."
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "es-05",
+      "reference_en": "The code C-19 appears beside “confirmed,” although the parcel has not been sent yet.",
+      "required_facts": [
+        "C-19",
+        "confirmed",
+        "not yet sent"
+      ],
+      "risk": "code; tense; negation",
+      "source": "El código C-19 aparece junto a «confirmado», aunque el paquete aún no se ha enviado.",
+      "source_lang": "es",
+      "source_words": [
+        "El",
+        "código",
+        "C-19",
+        "aparece",
+        "junto",
+        "a",
+        "«confirmado»,",
+        "aunque",
+        "el",
+        "paquete",
+        "aún",
+        "no",
+        "se",
+        "ha",
+        "enviado."
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "es-06",
+      "reference_en": "Although Inés left before Mateo, she arrived ten minutes after him.",
+      "required_facts": [
+        "Inés left first",
+        "Mateo arrived first",
+        "ten minutes"
+      ],
+      "risk": "chronology",
+      "source": "Aunque Inés salió antes que Mateo, llegó diez minutos después de él.",
+      "source_lang": "es",
+      "source_words": [
+        "Aunque",
+        "Inés",
+        "salió",
+        "antes",
+        "que",
+        "Mateo,",
+        "llegó",
+        "diez",
+        "minutos",
+        "después",
+        "de",
+        "él."
+      ],
+      "target_lang": "en"
+    }
+  ]
+}

@@ -1,0 +1,104 @@
+{
+  "id": "lowerThird.05",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "lowerThird",
+  "order": 305,
+  "duration": 3.33,
+  "content": [
+    {
+      "kind": "text",
+      "place": {
+        "x": 20.42,
+        "y": 64.56,
+        "w": 33.65
+      },
+      "text": "OLIVIA\nHENDERSON",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#ffffffff",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 27.6,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 0.95,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.2,
+          "distance": 0.01,
+          "rotation": 180.0,
+          "color": "#000000",
+          "on": true,
+          "opacity": 0.1
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "slideR",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.63
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 19.75,
+        "y": 72.1,
+        "w": 31.06
+      },
+      "text": "MEDIA RELATIONS COORDINATOR\n& VICE PRESIDENT OF MARKETING",
+      "style": {
+        "backgroundColor": "#5544ccff",
+        "backgroundPadding": 2.1,
+        "backgroundStyle": "block",
+        "borderRadius": 0.0,
+        "fontColor": "#FFFFFF",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 8.2,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.1,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "rise",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.6
+        }
+      }
+    }
+  ]
+}

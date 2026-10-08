@@ -1,0 +1,239 @@
+# BaoCut 桌面端的 Windows x64 安装包（不签名）。只手动触发；规则见 docs/development-workflow.md §2 与 apps/desktop/README.md。
+# 三个变体各一个 job，按显卡分档：标准版（Model Worker 用 candle CPU 与 whisper.cpp 的 Whisper，没有合适显卡时用）、CUDA 版
+# （NVIDIA 专用：candle 与 Whisper 都走 CUDA，随带 NVIDIA 运行库）与 Vulkan 版（Whisper 走 Vulkan，适合 AMD / Intel 与不支持
+# CUDA 13 的 NVIDIA 显卡，candle 仍在 CPU 上；构建要 Vulkan SDK，运行时只要显卡驱动的 vulkan-1.dll）。CUDA 版的 Whisper 与 Vulkan 版
+# 都尚未实跑过。
+# CUDA 版的 model-worker.exe 直接依赖驱动的 nvcuda.dll（candle 的 cudarc 与 ggml-cuda 都链它），预计在没有 NVIDIA 驱动的 runner 上
+# 自检时起不来（未实跑）——这是 CUDA 版原有的情况，ggml-cuda 没有让它更糟。CUDA 版另编 ggml-cuda（大量 .cu 内核 × 四个 GPU 架构），构建会明显变长，
+# 150 分钟的 timeout 可能不够；先看一次实际耗时再定，不要盲目调大。
+# 每个 job：构建 → electron-builder 出 NSIS 与 zip → 解开的包与静默安装后的目录各跑一遍自检（Worker 握手、Runtime 解析）
+# → 按更新的方式（/S --updated）在装好的上面再装一遍 → 上传安装包、zip 与发布报告（给了下载地址时另有更新源）。
+
+name: desktop-windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      include_cuda:
+        description: Also build the CUDA variant (NVIDIA only, Ampere or newer; candle and Whisper both on CUDA; Whisper on CUDA untested)
+        type: boolean
+        default: true
+      include_vulkan:
+        description: Also build the Vulkan variant (Whisper on Vulkan for AMD / Intel and NVIDIA GPUs without CUDA 13; candle stays on the CPU; untested)
+        type: boolean
+        default: true
+      build:
+        description: Release build number (positive integer); empty builds an unnumbered test package that never checks for updates
+        type: string
+        default: ""
+      download_base_url:
+        description: HTTPS directory the installers will be uploaded to; when set (with a build number), also writes the update feed
+        type: string
+        default: ""
+      rollout_hours:
+        description: Staged rollout over this many hours for automatic update checks (needs download_base_url); empty or 0 offers it to everyone at once
+        type: string
+        default: ""
+
+permissions: {}
+
+concurrency:
+  group: desktop-windows-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Package Windows x64 (${{ matrix.variant }})
+    runs-on: windows-2022
+    timeout-minutes: 150
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [cpu, cuda, vulkan]
+    env:
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - name: Skip the CUDA or Vulkan variant when not requested
+        id: gate
+        shell: pwsh
+        run: |
+          $skip = ('${{ matrix.variant }}' -eq 'cuda' -and '${{ inputs.include_cuda }}' -ne 'true') -or
+            ('${{ matrix.variant }}' -eq 'vulkan' -and '${{ inputs.include_vulkan }}' -ne 'true')
+          "skip=$($skip.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+
+      - name: Check out
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      # candle 的 CUDA 构建与链接会超出 runner 默认的提交上限，先把页面文件调大（同 v2 的 Windows 构建）；ggml-cuda 的 nvcc 同样吃内存。
+      - name: Enlarge pagefile
+        if: steps.gate.outputs.skip != 'true' && matrix.variant == 'cuda'
+        uses: al-cheb/configure-pagefile-action@9b6da52fb72a3c6147c1aad2df22d8d905681adc # v1.5
+        with:
+          minimum-size: 16GB
+          maximum-size: 32GB
+          disk-root: "D:"
+
+      - name: Install Node
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22"
+          package-manager-cache: false
+
+      - name: Install npm dependencies
+        if: steps.gate.outputs.skip != 'true'
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Rust
+        if: steps.gate.outputs.skip != 'true'
+        uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # action 1.97.1
+        with:
+          targets: x86_64-pc-windows-msvc, wasm32-unknown-unknown
+
+      # whisper-rs-sys 不随 GGML_* 环境变量重跑，缓存里 GGML_NATIVE 时代的 whisper.cpp 产物会被原样沿用；key 带上 ggml 的 CPU 基线，
+      # 打包脚本换基线时一起改。
+      - name: Restore Rust build cache
+        if: steps.gate.outputs.skip != 'true'
+        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+        with:
+          key: desktop-${{ matrix.variant }}-ggml-avx2
+
+      # nvcc 与 whisper.cpp 的 CMake 构建需要 cl.exe 在 PATH（rustc 自己找得到 MSVC，这些构建脚本找不到；同 v2 的 Windows 构建）。
+      - name: Enter the MSVC developer environment
+        if: steps.gate.outputs.skip != 'true'
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+        with:
+          arch: x64
+
+      - name: Install CUDA Toolkit 13.1
+        if: steps.gate.outputs.skip != 'true' && matrix.variant == 'cuda'
+        uses: Jimver/cuda-toolkit@b8bf9c6c28f8a92fbb04dcfcaee872e60c57462d # v0.2.36
+        with:
+          cuda: "13.1.0"
+          method: network
+          sub-packages: >-
+            ["nvcc", "crt", "nvvm", "nvrtc", "nvrtc_dev", "cudart",
+             "cublas", "cublas_dev", "curand", "curand_dev",
+             "thrust", "visual_studio_integration"]
+          log-file-suffix: cuda13.txt
+
+      # ggml 的 Vulkan 后端在构建期要 Vulkan 头文件、loader 导入库与 glslc（预编译着色器）。LunarG SDK 安装包按 sha256 钉死（同 v2）。
+      # model-worker 静态链接 ggml 的 Vulkan 后端，启动就要 vulkan-1.dll；runner 没有显卡驱动，把 SDK 的运行库目录加进 PATH，
+      # 只给后面的自检用，不进包（用户的显卡驱动自带）。
+      - name: Install the LunarG Vulkan SDK
+        if: steps.gate.outputs.skip != 'true' && matrix.variant == 'vulkan'
+        shell: pwsh
+        env:
+          VULKAN_SDK_VERSION: "1.4.357.0"
+          VULKAN_SDK_SHA256: 81f474711e9042f4cd22b31b2f7a8870db2e428b21586fb43dd80150be97310d
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP "vulkansdk-windows-X64-$env:VULKAN_SDK_VERSION.exe"
+          Invoke-WebRequest -UseBasicParsing `
+            -Uri "https://sdk.lunarg.com/sdk/download/$env:VULKAN_SDK_VERSION/windows/vulkansdk-windows-X64-$env:VULKAN_SDK_VERSION.exe" `
+            -OutFile $installer
+          $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer).Hash.ToLowerInvariant()
+          if ($actual -ne $env:VULKAN_SDK_SHA256) {
+            throw "Vulkan SDK sha256 mismatch: $actual != $env:VULKAN_SDK_SHA256"
+          }
+          $process = Start-Process -FilePath $installer -Wait -PassThru -ArgumentList @(
+            "--accept-licenses", "--default-answer", "--confirm-command", "install")
+          if ($process.ExitCode -ne 0) { throw "Vulkan SDK installer exited with $($process.ExitCode)" }
+          $sdkRoot = "C:\VulkanSDK\$env:VULKAN_SDK_VERSION"
+          if (-not (Test-Path (Join-Path $sdkRoot "Bin\glslc.exe"))) { throw "glslc.exe missing under $sdkRoot" }
+          "VULKAN_SDK=$sdkRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          (Join-Path $sdkRoot "Bin") | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          if (-not (Test-Path (Join-Path $env:SystemRoot "System32\vulkan-1.dll"))) {
+            $runtime = Join-Path $sdkRoot "runtime\x64"
+            if (-not (Test-Path (Join-Path $runtime "vulkan-1.dll"))) { throw "vulkan-1.dll missing under $runtime" }
+            $runtime | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          }
+
+      # npm run build 先编 WASM（prebuild），再出 Electron 的 out/；build:web 出 Runtime 托管的 Web 客户端。
+      - name: Build the Electron app and the Web client
+        if: steps.gate.outputs.skip != 'true'
+        run: |
+          npm run build
+          npm run build:web
+
+      # 打包脚本自己编 Worker（release、x86_64-pc-windows-msvc、--locked）；三个变体都设 GGML_NATIVE=OFF 与 GGML_AVX2=ON，ggml-cpu
+      # 按 AVX2 基线编，不按 runner 的 CPU（可能带 AVX-512）探测；CUDA 版另设 CUDA_COMPUTE_CAP=80、nvcc 的 /MD 与
+      # ggml-cuda 的 CMAKE_CUDA_ARCHITECTURES（runner 没有 GPU，不给的话 ggml 的 native 架构探测会失败）。
+      # whisper.cpp 由 whisper-rs-sys 用 CMake 编（runner 自带 CMake 与 LLVM）；CUDA 版的 ggml-cuda 要上一步装的 CUDA_PATH 与 VS 集成。
+      # 输入经环境变量传进脚本，不直接拼进命令行。build 号写进应用（没有时应用不检查更新）；给了下载地址时另写更新源。
+      - name: Build workers and package
+        if: steps.gate.outputs.skip != 'true'
+        shell: pwsh
+        env:
+          RELEASE_BUILD: ${{ inputs.build }}
+          DOWNLOAD_BASE_URL: ${{ inputs.download_base_url }}
+          ROLLOUT_HOURS: ${{ inputs.rollout_hours }}
+        run: |
+          $packArgs = @('apps/desktop/tools/package-desktop.mjs', '--variant', '${{ matrix.variant }}')
+          if ($env:RELEASE_BUILD) { $packArgs += @('--build', $env:RELEASE_BUILD) }
+          if ($env:DOWNLOAD_BASE_URL) { $packArgs += @('--download-base-url', $env:DOWNLOAD_BASE_URL) }
+          if ($env:ROLLOUT_HOURS) { $packArgs += @('--rollout-hours', $env:ROLLOUT_HOURS) }
+          node @packArgs
+          if ($LASTEXITCODE -ne 0) { throw "package-desktop.mjs exited with $LASTEXITCODE" }
+
+      # dumpbin 在 MSVC 开发环境里：留一份 Model Worker 依赖哪些 DLL 的记录（CUDA 版的 NVIDIA 运行库、Vulkan 版的 vulkan-1.dll）。
+      - name: Record model-worker DLL dependencies
+        if: steps.gate.outputs.skip != 'true'
+        shell: pwsh
+        run: dumpbin /DEPENDENTS apps/desktop/dist/${{ matrix.variant }}/win-unpacked/resources/bin/model-worker.exe
+
+      - name: Self-check the unpacked app
+        if: steps.gate.outputs.skip != 'true'
+        run: node apps/desktop/tools/check-packaged-app.mjs apps/desktop/dist/${{ matrix.variant }}/win-unpacked
+
+      # 按用户安装（不要管理员）。一键安装的目录名取 package.json 的 name，即 %LOCALAPPDATA%\Programs\baocut。
+      # 对装好的目录跑同一份自检。应用靠 exe 旁边的 `Uninstall BaoCut.exe` 认出安装版（app-update-install.ts），这里核对它在。
+      # 再按应用内更新的参数（/S --updated，不带 --force-run：runner 上不起界面）在装好的上面装一遍，最后静默卸载。
+      - name: Install silently, update in place and self-check the installed app
+        if: steps.gate.outputs.skip != 'true'
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem apps/desktop/dist/${{ matrix.variant }}/BaoCut-*-setup.exe -File | Select-Object -First 1
+          if (-not $setup) { throw "no NSIS installer" }
+          if ((Get-AuthenticodeSignature -LiteralPath $setup.FullName).Status -ne 'NotSigned') { throw "installer is expected to be unsigned" }
+          Start-Process -FilePath $setup.FullName -ArgumentList '/S' -Wait
+          $installed = Join-Path $env:LOCALAPPDATA 'Programs\baocut'
+          if (-not (Test-Path (Join-Path $installed 'BaoCut.exe'))) { throw "BaoCut.exe not installed under $installed" }
+          $uninstaller = Join-Path $installed 'Uninstall BaoCut.exe'
+          if (-not (Test-Path $uninstaller)) { throw "no '$uninstaller': the app would not recognise this install for updates" }
+          node apps/desktop/tools/check-packaged-app.mjs $installed
+          if ($LASTEXITCODE -ne 0) { throw "installed app self-check failed" }
+          Start-Process -FilePath $setup.FullName -ArgumentList '/S', '--updated' -Wait
+          if (-not (Test-Path (Join-Path $installed 'BaoCut.exe'))) { throw "BaoCut.exe missing after the in-place update" }
+          if (-not (Test-Path $uninstaller)) { throw "uninstaller missing after the in-place update" }
+          node apps/desktop/tools/check-packaged-app.mjs $installed
+          if ($LASTEXITCODE -ne 0) { throw "self-check failed after the in-place update" }
+          Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait
+
+      - name: Self-check the zip
+        if: steps.gate.outputs.skip != 'true'
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem apps/desktop/dist/${{ matrix.variant }}/BaoCut-*-win-x64*.zip -File | Select-Object -First 1
+          if (-not $zip) { throw "no zip" }
+          $dest = Join-Path $env:RUNNER_TEMP 'baocut-zip'
+          Expand-Archive -LiteralPath $zip.FullName -DestinationPath $dest -Force
+          node apps/desktop/tools/check-packaged-app.mjs $dest
+          if ($LASTEXITCODE -ne 0) { throw "zip self-check failed" }
+
+      - name: Upload the packages
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: baocut-desktop-windows-x64-${{ matrix.variant }}
+          path: |
+            apps/desktop/dist/${{ matrix.variant }}/BaoCut-*.exe
+            apps/desktop/dist/${{ matrix.variant }}/BaoCut-*.zip
+            apps/desktop/dist/${{ matrix.variant }}/BaoCut-*-release.json
+            apps/desktop/dist/${{ matrix.variant }}/appcast-*.json
+          if-no-files-found: error
+          retention-days: 14

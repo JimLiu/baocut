@@ -1,0 +1,30 @@
+{
+  "id": "slideDown",
+  "version": 1,
+  "domain": "transition",
+  "namespace": "bcf",
+  "order": 5,
+  "prop": "y",
+  "ease": "easeInOutCubic",
+  "out": {
+    "from": {
+      "value": 0.0,
+      "basis": "absolute"
+    },
+    "to": {
+      "value": 1.0,
+      "basis": "canvasHeight"
+    }
+  },
+  "in": {
+    "from": {
+      "value": -1.0,
+      "basis": "canvasHeight"
+    },
+    "to": {
+      "value": 0.0,
+      "basis": "absolute"
+    }
+  },
+  "determinism": "strict"
+}

@@ -1,0 +1,25 @@
+import type { ModelsTextGenerationMessages } from './text-generation.ts';
+
+export const nl: ModelsTextGenerationMessages = {
+  noMessage: "Er is minstens één niet-leeg user- of assistant-bericht vereist",
+  badRole: "Een berichtrol moet system, user of assistant zijn",
+  inputTooLong: (p: { chars: number; modelId: string; contextTokens: number }) => `De invoer bevat ${p.chars} tekens, veel meer dan de context van ${p.contextTokens} tokens van model ${p.modelId}`,
+  maxOutput: (p: { modelId: string; max: number }) => `Model ${p.modelId} geeft maximaal uit: ${p.max} tokens per aanroep`,
+  noTemperature: (p: { modelId: string }) => `Model ${p.modelId} accepteert geen temperature`,
+  temperatureRange: "temperature moet tussen 0 en 2 liggen",
+  noSeed: (p: { modelId: string }) => `Model ${p.modelId} accepteert geen seed`,
+  noStructured: (p: { modelId: string }) => `Model ${p.modelId} ondersteunt geen gestructureerde uitvoer`,
+  effortIgnored: (p: { modelId: string; requested: string }) => `Model ${p.modelId} kan de denkintensiteit niet aanpassen; genegeerd: ${p.requested}`,
+  effortChanged: (p: { modelId: string; requested: string; applied: string }) => `Model ${p.modelId} heeft geen denkintensiteitsniveau ${p.requested}; in plaats daarvan gebruikt: ${p.applied}`,
+  contentFiltered: (p: { provider: string }) => `${p.provider}: het inhoudsfilter heeft deze uitvoer geblokkeerd`,
+  truncatedJson: (p: { provider: string; max: number }) => `${p.provider}: de uitvoer heeft de limiet bereikt (${p.max} tokens) en is afgekapt; de gestructureerde uitvoer is onvolledig`,
+  truncatedProblem: (p: { max: number }) => `Uitvoer afgekapt (maxOutputTokens ${p.max})`,
+  notJson: (p: { provider: string }) => `${p.provider}: de uitvoer is geen geldige JSON`,
+  notJsonProblem: "Geen geldige JSON",
+  schemaMismatch: (p: { provider: string }) => `${p.provider}: de uitvoer voldoet niet aan het opgegeven JSON Schema`,
+  limitBeforeText: (p: { provider: string }) => `${p.provider} heeft de uitvoerlimiet bereikt voordat er tekst is geschreven`,
+  emptyOutput: (p: { provider: string }) => `${p.provider} heeft lege uitvoer geretourneerd`,
+  limitBeforeTextProblem: (p: { max: number }) => `Nog geen tekst toen de uitvoerlimiet van ${p.max} tokens is bereikt`,
+  emptyProblem: "Uitvoer is leeg",
+  cancelled: "Aanroep geannuleerd",
+};

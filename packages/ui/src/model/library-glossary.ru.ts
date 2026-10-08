@@ -1,0 +1,36 @@
+import { pluralForm } from '@baocut/protocol';
+import type { LibraryGlossaryMessages } from './library-glossary.ts';
+
+export const ru: LibraryGlossaryMessages = {
+  kinds: {
+    transcription: { label: "Глоссарий расшифровки", a: "Правильное написание", b: "Часто распознаётся как" },
+    translation: { label: "Глоссарий перевода", a: "Источник", b: "Перевод" },
+  },
+  anyLanguage: "Любой язык",
+  spoken: (language: string) => `${language} — речь`,
+  newTranscription: "Новый глоссарий расшифровки",
+  fieldCanonical: "Правильное написание",
+  fieldSource: "Источник",
+  fieldTarget: "Перевод",
+  fieldEmpty: (label: string) => `${label} не может быть пустым`,
+  fieldTooLong: (label: string, max: number) => pluralForm('ru', max, { one: `${label}: не более ${max} символа`, few: `${label}: не более ${max} символов`, many: `${label}: не более ${max} символов`, other: `${label}: не более ${max} символа` }),
+  fieldNewline: (label: string) => `${label} не может содержать переносы строк`,
+  duplicate: (term: string) => `«${term}» уже есть в глоссарии`,
+  misheardSame: "Ошибочное написание не может совпадать с правильным",
+  misheardTooMany: (max: number) => pluralForm('ru', max, { one: `До ${max} ошибочного написания`, few: `До ${max} ошибочных написаний`, many: `До ${max} ошибочных написаний`, other: `До ${max} ошибочного написания` }),
+  misheardTooLong: (max: number) => pluralForm('ru', max, { one: `Каждый вариант написания: не более ${max} символа`, few: `Каждый вариант написания: не более ${max} символов`, many: `Каждый вариант написания: не более ${max} символов`, other: `Каждый вариант написания: не более ${max} символа` }),
+  noteTooLong: (max: number) => pluralForm('ru', max, { one: `Примечание: не более ${max} символа`, few: `Примечание: не более ${max} символов`, many: `Примечание: не более ${max} символов`, other: `Примечание: не более ${max} символа` }),
+  nameEmpty: "Имя глоссария не может быть пустым",
+  nameTooLong: (max: number) => pluralForm('ru', max, { one: `Имя глоссария: не более ${max} символа`, few: `Имя глоссария: не более ${max} символов`, many: `Имя глоссария: не более ${max} символов`, other: `Имя глоссария: не более ${max} символа` }),
+  skipPunctuation: "Только знаки препинания",
+  skipTooLong: (max: number) => pluralForm('ru', max, { one: `Длиннее ${max} символа`, few: `Длиннее ${max} символов`, many: `Длиннее ${max} символов`, other: `Длиннее ${max} символа` }),
+  skipMerged: "Тот же термин, что в предыдущей строке; объединено",
+  skipNoTarget: "Нет перевода",
+  skipKeptFirst: "Тот же термин, что в предыдущей строке; сохранён первый",
+  allExist: "Эти термины уже есть в глоссарии",
+  added: (n: number) => pluralForm('ru', n, { one: `Добавлен ${n} термин`, few: `Добавлены ${n} термина`, many: `Добавлено ${n} терминов`, other: `Добавлено ${n} термина` }),
+  merged: (n: number) => pluralForm('ru', n, { one: `${n} термин уже есть в глоссарии`, few: `${n} термина уже есть в глоссарии`, many: `${n} терминов уже есть в глоссарии`, other: `${n} термина уже есть в глоссарии` }),
+  overflow: (n: number, limit: number) => `${pluralForm('ru', n, { one: `Не добавлен ${n} термин`, few: `Не добавлены ${n} термина`, many: `Не добавлено ${n} терминов`, other: `Не добавлено ${n} термина` })}: ${pluralForm('ru', limit, { one: `глоссарий вмещает до ${limit} термина`, few: `глоссарий вмещает до ${limit} терминов`, many: `глоссарий вмещает до ${limit} терминов`, other: `глоссарий вмещает до ${limit} термина` })}`,
+  fileName: "Глоссарий",
+  misheardSeparator: ", ",
+};

@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "id": "motion-design-showreel",
+  "version": "1.1.0",
+  "kind": "example",
+  "title": "动效设计展示",
+  "summary": "一条节奏紧凑的动态图形短片，展示动效设计功力。",
+  "description": "形变、遮罩揭示、弹性运动与卡点转场轮番登场，像一位动效设计师的作品集开场。适合用来感受 BaoCut 做动态图形的能力。",
+  "language": "zh-CN",
+  "category": "motion-design",
+  "durationSeconds": 15,
+  "fields": [
+    {
+      "label": "配色风格",
+      "hint": "想要的配色或视觉风格",
+      "example": "黑底配荧光色"
+    },
+    {
+      "label": "成片语言",
+      "hint": "画面文字用的语言"
+    }
+  ],
+  "author": "BaoCut",
+  "source": "official",
+  "license": "LicenseRef-BaoCut-Community-1.0",
+  "tags": [
+    "动态图形",
+    "作品集",
+    "转场"
+  ],
+  "skills": [
+    "video-production"
+  ],
+  "cover": {
+    "file": "cover.jpg",
+    "tone": "purple",
+    "figure": "ring",
+    "kicker": "REEL"
+  },
+  "preview": {
+    "file": "preview.mp4",
+    "beats": [
+      "几何形状弹入",
+      "文字遮罩揭示",
+      "形变与卡点转场",
+      "干净的收尾画面"
+    ]
+  },
+  "verification": {
+    "date": "2026-10-04",
+    "version": "1.0.0",
+    "engine": "codex",
+    "input": "按提示词原样，末尾附一段测试环境说明：画面文字用中文；没有配置配乐、音效与语音合成，遇到没有配置的能力跳过并在最后说明。智能体第一轮问交付方式，第二轮回复「生成 MP4 并导入」。",
+    "materials": [],
+    "capabilities": [
+      "generateMusic",
+      "generateSoundEffect"
+    ],
+    "outcome": "pass",
+    "output": {
+      "ratio": "16:9",
+      "durationSeconds": 15
+    },
+    "notes": "确认：编辑工具没有新建文字、图形与关键帧的操作，智能体第一轮先问交付方式（渲染成视频文件导入时间线，还是暂不制作），这是工具层的缺口，不是模板问题。第二轮它用本机脚本渲染 1080p、60 帧的无声视频并导入时间线 0–15 秒：六段手法每段约 2.5 秒，配色与字体统一，画面文字为中文，结尾 1 秒定格。配乐与音效因没有能力跳过，并告诉了用户。预览与封面取自 BaoCut 导出的时间线成片。模板文案未改。"
+  }
+}

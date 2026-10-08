@@ -1,0 +1,25 @@
+import type { DubGroupMessages } from './dub-group-copy.ts';
+
+export const zhHant: DubGroupMessages = {
+  track: '在時間軸上顯示這個軌道',
+  trackGone: '這組配音已不在時間軸上',
+  regen: (n: number) => `重新生成 ${n} 句…`,
+  regenNote: '未合成或放不下的句子 · 請先審閱，必要時修改譯文，再只重做這幾句',
+  download: '下載整組',
+  downloadNote: '目前還無法下載整組；要取得這組的混音，請在匯出音訊時選擇「只要這組配音」',
+  redub: '重做這個語言',
+  redubNote: '開啟翻譯配音',
+  remove: '移除這組配音',
+  removeNote: '從時間軸移除這組的片段並回復原始音訊，可以還原。空的配音軌道與配音計畫會保留',
+  removeLoading: '正在載入配音計畫…',
+  readOnly: '影片為唯讀',
+  removed: (title: string) => `已移除「${title}」`,
+  rowOnTimeline: (label: string) => `時間軸上的「${label}」這一列`,
+  undo: '還原',
+  stateOn: '在時間軸上',
+  stateOff: '軌道已關閉',
+  stateGone: '不在時間軸上',
+  groupMenu: '這組配音',
+  actionsOf: (title: string) => `「${title}」的操作`,
+  clickToSelect: (text: string) => `${text} · 按一下即可在時間軸上選取`,
+};

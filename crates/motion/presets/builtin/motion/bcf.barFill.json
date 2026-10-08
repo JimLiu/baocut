@@ -1,0 +1,32 @@
+{
+  "id": "barFill",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "bcf",
+  "order": 3,
+  "emitsParamsMeta": false,
+  "determinism": "strict",
+  "definition": {
+    "params": {
+      "to": {
+        "default": 1
+      }
+    },
+    "keyframes": [
+      {
+        "prop": "scaleY",
+        "frames": [
+          {
+            "t": "0%",
+            "v": 0
+          },
+          {
+            "t": "100%",
+            "v": "{to}",
+            "ease": "easeOutQuart"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+import { pluralForm } from '@baocut/protocol';
+import type { AgentSkillsMessages } from './agent-skills.ts';
+
+export const ru: AgentSkillsMessages = {
+  origin: { builtin: "Встроенный", personal: "Мои", 'third-party': "Сторонний" },
+  all: "Все",
+  commit: (sha: string) => ` (${sha})`,
+  bytes: (n: number) => pluralForm('ru', n, { one: `${n} байт`, few: `${n} байта`, many: `${n} байтов`, other: `${n} байта` }),
+  action: {
+    load: "загрузить Skills",
+    toggle: "переключить",
+    add: "добавить",
+    import: "импортировать",
+    remove: "удалить",
+    read: "открыть файл",
+    send: "отправить",
+  },
+  exists: (id: string | null) => `Skill с именем «${id ?? 'this'}» уже есть и не будет перезаписан. Сначала удалите старый или переименуйте папку и добавьте снова.`,
+  invalid: (issue: string) => `Этот Skill непригоден: ${issue}. В корневой папке нужен SKILL.md, начинающийся с name и description.`,
+  tooLarge: (files: number, total: string, skillFile: string) => `Этот Skill слишком большой: максимум файлов — ${files}, общий размер — ${total}, а сам SKILL.md — максимум ${skillFile}.`,
+  githubNotFound: "Не удалось найти репозиторий, ветку или папку на GitHub (возможно, приватные). Проверьте адрес.",
+  folderNotFound: "Папка не найдена. Возможно, перемещена или удалена.",
+  urlInvalid: "Адрес не распознан. Используйте owner/repo или https://github.com/owner/repo/tree/branch/folder.",
+  network: "Нет доступа к GitHub. Проверьте сеть и повторите попытку.",
+  rateLimited: "Лимит анонимного доступа GitHub достигнут. Попробуйте импортировать позже.",
+  offline: "Включён строгий офлайн-режим, импорт из GitHub невозможен.",
+  builtinNotRemovable: "Встроенные Skills нельзя удалить, но можно отключить.",
+  notFound: "Этого Skill больше нет; возможно, только что удалён.",
+  fileNotFound: "Этого файла больше нет.",
+  fileTooLarge: "Файл слишком большой для отображения. Откройте его в папке.",
+  fileNotText: "Это не текстовый файл, здесь он не отображается.",
+  webNotAllowed: "В браузере это невозможно. Используйте настольный BaoCut.",
+  webReadOnly: "Эта сессия браузера доступна только для чтения, изменения невозможны.",
+  failed: (action: string, raw: string) => `Не удалось ${action}: ${raw}`,
+  sendFailed: (raw: string) => `Не удалось отправить: ${raw}`,
+};

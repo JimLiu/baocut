@@ -1,0 +1,14 @@
+{
+  "soft": {
+    "intensity": 1.5,
+    "knee": 0.25,
+    "radius": 0.125,
+    "threshold": 0.5
+  },
+  "wide-hard": {
+    "intensity": 3.0,
+    "knee": 0.0,
+    "radius": 0.2708333333333333,
+    "threshold": 0.3
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "effort": "auto",
+  "elapsedMs": 1810,
+  "error": null,
+  "model": "deepseek-flash",
+  "name": "synthetic-th-en",
+  "response": "1 |ลลิตาไม่ได้ยกเลิกการ|Lalita did not cancel |ประชุมแต่เลื่อนไปเป็น|the meeting but postponed it to |วันพฤหัสบดีเวลา14:30น.|Thursday at 14:30.\n2 |ถ้าอุณหภูมิลดลงต่ำ|If the temperature drops below |กว่า5องศาให้|5 degrees, |ปิดหน้าต่างก่อนเปิด|close the windows before turning on |เครื่องทำความร้อน|the heater.\n3 |นนท์จ่ายเงิน120บาทสำหรับ|Non paid 120 baht for |ตั๋วสามใบแต่ราคา|three tickets, but this price |นี้ไม่รวมอาหารเย็น|does not include dinner.\n4 |หนังสือที่มาลีให้ก้องยืม|The book that Malee lent Kong |เมื่อวานเป็นของพี่|yesterday belongs to Malee's |สาวของมาลี|older sister.\n5 |รหัสF-07ปรากฏข้างคำว่า“|The code F-07 appears next to the word “ |ยืนยันแล้ว”|confirmed” |แต่ยังไม่ได้ส่งพัสดุ|but the parcel has not yet been sent.\n6 |แม้พลอยจะออกเดินทางก่อน|Even though Ploy set off before |นัทแต่เธอก็มาถึง|Nat, she still arrived |หลังเขาสิบนาที|ten minutes after him."
+}

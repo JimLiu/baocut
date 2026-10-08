@@ -1,0 +1,64 @@
+{
+  "id": "transition.inkBlot",
+  "version": 1,
+  "domain": "transition",
+  "inputs": 2,
+  "params": {
+    "cx": {
+      "type": "number",
+      "default": 0.5,
+      "min": 0,
+      "max": 1,
+      "doc": "墨团中心 x，画布宽度的比例"
+    },
+    "cy": {
+      "type": "number",
+      "default": 0.5,
+      "min": 0,
+      "max": 1,
+      "doc": "墨团中心 y，画布高度的比例"
+    },
+    "softness": {
+      "type": "length",
+      "default": 0,
+      "min": 0,
+      "max": 0.25,
+      "basis": "canvasShortEdge",
+      "quantize": "none",
+      "doc": "边缘羽化宽度，画布短边的比例；0 = 硬边（手绘片推荐）"
+    },
+    "roughness": {
+      "type": "number",
+      "default": 0.18,
+      "min": 0,
+      "max": 0.9,
+      "doc": "毛边幅度：各方向的半径在 ±roughness 的比例内起伏；0 退化成 transition.circleCrop"
+    },
+    "seed": {
+      "type": "number",
+      "default": 0,
+      "min": 0,
+      "max": 4294967295,
+      "doc": "毛边形状的种子（取整）；同一个 seed 在整段转场里形状不变，只是变大"
+    },
+    "invert": {
+      "type": "bool",
+      "default": false,
+      "doc": "true = 墨团**收拢**：从画布外缘开始换成入场画面，最后收到中心"
+    }
+  },
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "kernel": "ink-blot-noise-coverage",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "clamp",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "doc": "一团毛边的墨从中心洇开，墨团内换成入场画面。记 d 为像素到中心 (cx·W, cy·H) 的欧氏距离、r = roughness、n(dir) ∈ [0, 1] 为按单位方向向量取的两倍频二维 value noise（格点值来自 splitmix64(seed, 格点编号)，只用加减乘除与 sqrt）。u = d·(1 + r·(2n − 1))，U 为全画面 u 的最大值（invert = true 时取 U − u），其余与 transition.circleCrop 相同：e = progress × (U + S + 1)，cov = clamp((e − u) / S, 0, 1)（S = 0 时 cov = [u < e]）。progress = 0 / 1 逐字节等于 from / to；形状不随 progress 变化，所以不会在转场途中「沸腾」。"
+}

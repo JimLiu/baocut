@@ -1,0 +1,26 @@
+import type { DriversClaudeMessages } from './drivers-claude.ts';
+
+export const ru: DriversClaudeMessages = {
+  plan: "Подписка Claude Pro или Max",
+  installHint: "Установите Claude Code",
+  signedOut: "В Claude Code не выполнен вход. Выполните claude в терминале и следуйте инструкциям для входа.",
+  subscriptionPro: "Подписка Claude Pro",
+  subscriptionMax: "Подписка Claude Max",
+  subscriptionTeam: "Подписка Claude Team",
+  subscriptionEnterprise: "Подписка Claude Enterprise",
+  providerAnthropicAws: "Anthropic (AWS)",
+  providerAnthropicGoogleCloud: "Anthropic (Google Cloud)",
+  enterpriseGateway: "Корпоративный шлюз",
+  claudeAccount: "Аккаунт Claude",
+  longLivedToken: "Подписка Claude (долговечный токен)",
+  apiKey: "Ключ API Anthropic",
+  thirdPartyCloud: "Стороннее облако",
+  fromSettings: (p) => `Из настроек Claude Code (env.${p.key})`,
+  imageUnsupported: (p) => `Claude не поддерживает этот формат изображения: ${p.mimeType} (поддерживаются: JPEG, PNG, GIF, WebP)`,
+  defaultModel: "модель по умолчанию",
+  switchModelFailed: (p) => `Claude не смог переключить модель (${p.model}): ${p.error}`,
+  autoUnsupported: (p) => `${p.model ? `Модель ${p.model}` : "Текущая модель"} не поддерживает режим разрешений Claude «auto»${p.reason ? ` (${p.reason})` : ""}. Эта итерация работает в режиме «спрашивать каждый раз» и запрашивает разрешение перед действиями.`,
+  apiRetry: (p) => `Ошибка API Claude (${p.error}); повторная попытка ${p.attempt}/${p.max}`,
+  turnFailed: (p) => `Ошибка итерации Claude Code (${p.subtype})`,
+  exitedPlanMode: (p) => `Claude Code вышел из режима планирования с одобренным планом и начнёт изменения. Пока режим доступа — «${p.plan}», изменения будут отклоняться. Чтобы продолжить, смените режим доступа на «${p.edit}» или другой уровень.`,
+};

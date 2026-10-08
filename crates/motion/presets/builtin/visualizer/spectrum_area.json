@@ -1,0 +1,31 @@
+{
+  "id": "spectrum_area",
+  "version": 1,
+  "domain": "visualizer",
+  "namespace": "timeline",
+  "order": 6,
+  "numColors": 2,
+  "colorLabels": [
+    "Fill",
+    "Line"
+  ],
+  "defaultMainColor": "#3CADFF",
+  "defaultSecondaryColor": "#FFFFFF",
+  "defaultMinDb": -80.0,
+  "defaultMaxDb": 40.0,
+  "hasControl": true,
+  "binWidth": "64",
+  "aspect": "free",
+  "recipe": {
+    "algorithm": "spectrum-area-v1",
+    "params": {
+      "samples": 64,
+      "minHeight": 0.03,
+      "easing": "easeOutSine",
+      "lineWidth": 0.02
+    }
+  },
+  "determinism": "strict",
+  "shader": null,
+  "available": true
+}

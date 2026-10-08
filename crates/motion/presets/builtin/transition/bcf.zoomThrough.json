@@ -1,0 +1,43 @@
+{
+  "id": "zoomThrough",
+  "version": 1,
+  "domain": "transition",
+  "namespace": "bcf",
+  "order": 8,
+  "prop": null,
+  "ease": null,
+  "doc": "镜头「穿过」离场画面：离场 clip 以画布中心为锚点加速推近到 2.5× 并淡出（easeInCubic），入场 clip 从 0.5× 减速落回 1× 并淡入（easeOutCubic）。两条 scale 通道以画布中心为锚点，逐条相乘。",
+  "out": {
+    "channels": [
+      {
+        "prop": "scale",
+        "ease": "easeInCubic",
+        "from": { "value": 1.0, "basis": "absolute" },
+        "to": { "value": 2.5, "basis": "absolute" }
+      },
+      {
+        "prop": "opacity",
+        "ease": "easeInCubic",
+        "from": { "value": 1.0, "basis": "absolute" },
+        "to": { "value": 0.0, "basis": "absolute" }
+      }
+    ]
+  },
+  "in": {
+    "channels": [
+      {
+        "prop": "scale",
+        "ease": "easeOutCubic",
+        "from": { "value": 0.5, "basis": "absolute" },
+        "to": { "value": 1.0, "basis": "absolute" }
+      },
+      {
+        "prop": "opacity",
+        "ease": "easeOutCubic",
+        "from": { "value": 0.0, "basis": "absolute" },
+        "to": { "value": 1.0, "basis": "absolute" }
+      }
+    ]
+  },
+  "determinism": "strict"
+}

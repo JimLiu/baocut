@@ -1,0 +1,25 @@
+import type { DubGroupMessages } from './dub-group-copy.ts';
+
+export const ja: DubGroupMessages = {
+  track: 'タイムラインでこのトラックを表示',
+  trackGone: 'この吹き替えグループはもうタイムライン上にありません',
+  regen: (n: number) => `${n} 文を再生成…`,
+  regenNote: '合成されなかった文や収まらなかった文 · 確認して必要なら翻訳を編集し、これらの文だけを吹き替え直します',
+  download: 'グループをダウンロード',
+  downloadNote: 'グループ全体のダウンロードにはまだ対応していません。このグループのミックスは、音声の書き出しで「この吹き替えグループのみ」を選ぶと取得できます',
+  redub: 'この言語をやり直す',
+  redubNote: '翻訳吹き替えを開く',
+  remove: 'この吹き替えグループを削除',
+  removeNote: 'タイムラインからこのグループのクリップを削除し、元の音声を戻します。取り消し可能です。空の吹き替えトラックとプランは残ります',
+  removeLoading: '吹き替えプランを読み込み中…',
+  readOnly: '動画は読み取り専用です',
+  removed: (title: string) => `「${title}」を削除しました`,
+  rowOnTimeline: (label: string) => `タイムラインの「${label}」の行`,
+  undo: '取り消す',
+  stateOn: 'タイムライン上',
+  stateOff: 'トラックはオフ',
+  stateGone: 'タイムライン上にない',
+  groupMenu: 'この吹き替えグループ',
+  actionsOf: (title: string) => `「${title}」の操作`,
+  clickToSelect: (text: string) => `${text} · クリックしてタイムラインで選択`,
+};

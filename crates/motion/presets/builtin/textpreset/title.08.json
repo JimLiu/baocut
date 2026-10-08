@@ -1,0 +1,98 @@
+{
+  "id": "title.08",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "title",
+  "order": 208,
+  "duration": 5.0,
+  "content": [
+    {
+      "kind": "text",
+      "place": {
+        "x": 50.0,
+        "y": 50.0,
+        "w": 61.25
+      },
+      "text": "Expert\nInsights\n",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#fff049ff",
+        "fontFamily": "Bayon",
+        "fontSize": 67.2,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 0.8,
+        "letterSpacing": 0.0,
+        "textAlign": "center",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.2,
+          "distance": 0.01,
+          "rotation": 180.0,
+          "color": "#000000",
+          "on": true,
+          "opacity": 0.1
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "zoomIn",
+          "dur": 0.6
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 50.0,
+        "y": 60.64,
+        "w": 61.2
+      },
+      "text": "ADD YOUR HEADLINE HERE",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#fff049ff",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 9.1,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.0,
+        "letterSpacing": 9.1,
+        "textAlign": "center",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.2,
+          "distance": 0.03,
+          "rotation": 85.0,
+          "color": "#000000",
+          "on": true,
+          "opacity": 0.1
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "rise",
+          "dur": 0.6
+        }
+      }
+    }
+  ]
+}

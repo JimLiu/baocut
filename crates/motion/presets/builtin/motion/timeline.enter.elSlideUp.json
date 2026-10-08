@@ -1,0 +1,33 @@
+{
+  "id": "elSlideUp",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "enter",
+  "order": 35,
+  "duration": 0.6,
+  "curve": {
+    "kind": "named",
+    "name": "linear"
+  },
+  "mirror": "elSlideUp",
+  "from": {},
+  "keyframes": [
+    {
+      "at": 0,
+      "dy": 1.0
+    },
+    {
+      "at": 1,
+      "ease": "easeInOutCubic",
+      "dy": 0.0
+    }
+  ],
+  "basis": {
+    "dx": "selfWidth",
+    "dy": "selfHeight"
+  },
+  "surface": "element",
+  "determinism": "strict",
+  "available": true
+}

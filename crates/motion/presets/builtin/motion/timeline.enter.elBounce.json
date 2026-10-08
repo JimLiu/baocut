@@ -1,0 +1,45 @@
+{
+  "id": "elBounce",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "enter",
+  "order": 42,
+  "duration": 0.6,
+  "curve": {
+    "kind": "named",
+    "name": "linear"
+  },
+  "mirror": "elBounce",
+  "from": {},
+  "keyframes": [
+    {
+      "at": 0,
+      "dy": 0.2,
+      "opacity": 0.0
+    },
+    {
+      "at": 0.01,
+      "ease": "easeInQuad",
+      "dy": 0.2,
+      "opacity": 1.0
+    },
+    {
+      "at": 0.8,
+      "ease": "easeOutQuart",
+      "dy": -0.05
+    },
+    {
+      "at": 1,
+      "ease": "easeOutQuart",
+      "dy": 0.0
+    }
+  ],
+  "basis": {
+    "dx": "selfWidth",
+    "dy": "selfHeight"
+  },
+  "surface": "element",
+  "determinism": "strict",
+  "available": true
+}

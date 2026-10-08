@@ -1,0 +1,41 @@
+{
+  "id": "countUp",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "bcf",
+  "order": 2,
+  "emitsParamsMeta": true,
+  "determinism": "strict",
+  "definition": {
+    "params": {
+      "to": {
+        "default": 1
+      },
+      "prefix": {
+        "default": ""
+      },
+      "suffix": {
+        "default": ""
+      },
+      "decimals": {
+        "default": 0
+      }
+    },
+    "keyframes": [
+      {
+        "prop": "textCount",
+        "frames": [
+          {
+            "t": "0%",
+            "v": 0
+          },
+          {
+            "t": "100%",
+            "v": "{to}",
+            "ease": "easeOutCubic"
+          }
+        ]
+      }
+    ]
+  }
+}

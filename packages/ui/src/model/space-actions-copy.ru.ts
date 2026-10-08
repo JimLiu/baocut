@@ -1,0 +1,41 @@
+import { pluralForm } from '@baocut/protocol';
+import type { SpaceActionsMessages } from './space-actions-copy.ts';
+
+export const ru: SpaceActionsMessages = {
+  edit: {
+    video: "Открыть видео",
+    'source-video': "Изменить в исходном видео",
+    'new-video': "Создать видео из этого материала",
+    text: "Редактировать текст",
+    version: "Сохранить копию и редактировать",
+  },
+  trashed: "Сначала восстановите этот элемент из корзины",
+  editGenerating: "Ещё создаётся; можно редактировать после завершения",
+  editMissing: "Файл не найден; подключите заново перед редактированием",
+  editFailed: "Генерация завершилась ошибкой; нет файла для редактирования",
+  editPackage: "Пакеты видео (переносимые пакеты) нельзя редактировать",
+  editText: "Здесь пока нельзя сохранить новую версию текста; продолжите в сессии и поручите изменение агенту",
+  editVersion: "Ручные правки изображений, аудио и шаблонов пока недоступны; продолжите в сессии и поручите изменение агенту",
+  newVideoOutside: "Файл не в папке проекта или сессии, пока нельзя создать из него видео",
+  packageGenerating: "Экспорт ещё выполняется; можно открыть после завершения",
+  packageMissing: "Не удалось найти этот файл",
+  packageFailed: "Экспорт завершился ошибкой; нет пакета для открытия",
+  packageOutside: "Пакет не в папке проекта или сессии, пока нельзя открыть",
+  continueTrashed: "Восстановите элемент из корзины перед добавлением в сессию",
+  purgeGenerating: "Задача ещё выполняется; сначала отмените на странице «Задачи»",
+  purgeNotTrashed: "Сначала переместите в корзину, затем удалите из корзины",
+  referenceKind: {
+    'video-asset': "Видеоматериал",
+    job: "Выполняющаяся задача",
+    unverified: "Не удалось подтвердить",
+    'user-file': "Другие файлы в папке видео",
+  },
+  importAllFailed: (count: number, error: string) => `Не импортировано из ${count} файлов: ${error}`,
+  importFailed: (error: string) => `Не импортировано: ${error}`,
+  imported: (count: number) => pluralForm('ru', count, { one: `Импортирован ${count} материал`, few: `Импортированы ${count} материала`, many: `Импортировано ${count} материалов`, other: `Импортировано ${count} материала` }),
+  copiedAll: "скопировано в imports/ проекта",
+  copiedSome: (count: number) => `${count} скопировано в imports/ проекта`,
+  notImported: (count: number) => `${count} не импортировано`,
+  references: (names: readonly string[], total: number) => { const quoted = names.map(name => `«${name}»`).join(', '); return total > names.length ? `Элементы Space: ${quoted} и ещё ${total - names.length}` : `${total === 1 ? 'Элемент' : 'Элементы'} Space: ${quoted}`; },
+  referenceOutput: "Результат",
+};

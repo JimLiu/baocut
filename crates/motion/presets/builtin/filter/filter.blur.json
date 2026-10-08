@@ -1,0 +1,31 @@
+{
+  "id": "filter.blur",
+  "version": 1,
+  "domain": "filter",
+  "inputs": 1,
+  "params": {
+    "radius": {
+      "type": "length",
+      "default": 0,
+      "min": 0,
+      "max": 0.5,
+      "basis": "canvasShortEdge",
+      "quantize": "round-to-int",
+      "doc": "模糊半径，以画布短边为基准的比例（求值后取整为像素；实现另有 256 px 的结构性上限）"
+    }
+  },
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "kernel": "box-1pass-integer",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "clamp-shrink-window",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "doc": "单遍可分离 box blur，u8 整数截断除法，作用在预乘 sRGB。边缘按窗口收缩（除数变小）而不是补零。radius 以画布短边为基准换算成像素后四舍五入取整；实现侧另有 256 px 上限，只是挡住病态值——滑动窗口本身是 O(1)/像素。CPU reference 走非零内容包围盒版本，与整幅版本逐字节相同（有等价性测试）。"
+}

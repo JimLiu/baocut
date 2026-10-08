@@ -1,0 +1,42 @@
+{
+  "id": "motion.spinIn",
+  "version": 1,
+  "domain": "motion",
+  "family": null,
+  "doc": "内部积木：旋转从 rotationFrom 回到 0。",
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "rotationFrom": {
+      "type": "number",
+      "default": -12.0,
+      "doc": "起始角度（度）"
+    },
+    "curve": {
+      "type": "curve",
+      "default": "easeOutCubic",
+      "doc": "时间曲线（规范 §7.6 的封闭名称）"
+    }
+  },
+  "tracks": [
+    {
+      "prop": "rotation",
+      "composite": "add",
+      "order": 0,
+      "frames": [
+        {
+          "t": "0%",
+          "v": "{rotationFrom}"
+        },
+        {
+          "t": "100%",
+          "v": 0,
+          "ease": "{curve}"
+        }
+      ]
+    }
+  ],
+  "determinism": "strict",
+  "capabilities": []
+}

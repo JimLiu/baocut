@@ -1,0 +1,22 @@
+{
+  "id": "transition.caption.pop",
+  "version": 1,
+  "domain": "transition",
+  "namespace": "caption",
+  "order": 2,
+  "legacyId": "magic-pop",
+  "curve": {
+    "kind": "cubicBezier",
+    "x1": 0.22,
+    "y1": 0.19,
+    "x2": 0.54,
+    "y2": 1.62,
+    "solver": "newton6-bisect10-1e-6"
+  },
+  "timeQuantization": "round-both-ends",
+  "channels": [
+    { "prop": "scale", "factor": 1.0, "a": 0.7, "b": 0.3, "scaleBy": "none" }
+  ],
+  "determinism": "strict",
+  "doc": "字幕入场姿态：从 0.7× 弹到 1×（曲线 y2 = 1.62 会过冲，姿态不夹）。"
+}

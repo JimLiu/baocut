@@ -1,0 +1,175 @@
+{
+  "rows": [
+    {
+      "id": "de-01",
+      "reference_en": "Lea did not cancel the appointment; she moved it to Thursday at 14:30.",
+      "required_facts": [
+        "Lea",
+        "not cancelled",
+        "Thursday",
+        "14:30"
+      ],
+      "risk": "negation; time",
+      "source": "Lea hat den Termin nicht abgesagt, sondern auf Donnerstag um 14:30 Uhr verschoben.",
+      "source_lang": "de",
+      "source_words": [
+        "Lea",
+        "hat",
+        "den",
+        "Termin",
+        "nicht",
+        "abgesagt,",
+        "sondern",
+        "auf",
+        "Donnerstag",
+        "um",
+        "14:30",
+        "Uhr",
+        "verschoben."
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "de-02",
+      "reference_en": "If the temperature falls below 5 degrees, close the window before turning on the heating.",
+      "required_facts": [
+        "below 5 degrees",
+        "window closed first",
+        "heating afterward"
+      ],
+      "risk": "condition; order",
+      "source": "Wenn die Temperatur unter 5 Grad fällt, schließe das Fenster, bevor du die Heizung einschaltest.",
+      "source_lang": "de",
+      "source_words": [
+        "Wenn",
+        "die",
+        "Temperatur",
+        "unter",
+        "5",
+        "Grad",
+        "fällt,",
+        "schließe",
+        "das",
+        "Fenster,",
+        "bevor",
+        "du",
+        "die",
+        "Heizung",
+        "einschaltest."
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "de-03",
+      "reference_en": "Ömer paid 120 euros for three tickets; dinner was not included in the price.",
+      "required_facts": [
+        "Ömer",
+        "120 euros",
+        "three tickets",
+        "dinner excluded"
+      ],
+      "risk": "number; diacritic; negation",
+      "source": "Für drei Fahrkarten zahlte Ömer 120 Euro; das Abendessen war nicht im Preis enthalten.",
+      "source_lang": "de",
+      "source_words": [
+        "Für",
+        "drei",
+        "Fahrkarten",
+        "zahlte",
+        "Ömer",
+        "120",
+        "Euro;",
+        "das",
+        "Abendessen",
+        "war",
+        "nicht",
+        "im",
+        "Preis",
+        "enthalten."
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "de-04",
+      "reference_en": "The book Mia borrowed from Jonas yesterday belongs to his sister.",
+      "required_facts": [
+        "Mia borrowed yesterday",
+        "from Jonas",
+        "belongs to Jonas’s sister"
+      ],
+      "risk": "relative clause; ownership",
+      "source": "Das Buch, das Mia gestern von Jonas ausgeliehen hat, gehört seiner Schwester.",
+      "source_lang": "de",
+      "source_words": [
+        "Das",
+        "Buch,",
+        "das",
+        "Mia",
+        "gestern",
+        "von",
+        "Jonas",
+        "ausgeliehen",
+        "hat,",
+        "gehört",
+        "seiner",
+        "Schwester."
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "de-05",
+      "reference_en": "The code B-23 is next to “confirmed,” although the parcel has not been shipped yet.",
+      "required_facts": [
+        "B-23",
+        "confirmed",
+        "parcel not yet shipped"
+      ],
+      "risk": "code; negation",
+      "source": "Neben „bestätigt“ steht der Code B-23, obwohl das Paket noch nicht versandt wurde.",
+      "source_lang": "de",
+      "source_words": [
+        "Neben",
+        "„bestätigt“",
+        "steht",
+        "der",
+        "Code",
+        "B-23,",
+        "obwohl",
+        "das",
+        "Paket",
+        "noch",
+        "nicht",
+        "versandt",
+        "wurde."
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "de-06",
+      "reference_en": "Although Nora had set off earlier, she arrived ten minutes after Cem.",
+      "required_facts": [
+        "Nora set off earlier",
+        "arrived after Cem",
+        "ten minutes"
+      ],
+      "risk": "verb-final; chronology",
+      "source": "Obwohl Nora früher losgefahren war, kam sie zehn Minuten nach Cem an.",
+      "source_lang": "de",
+      "source_words": [
+        "Obwohl",
+        "Nora",
+        "früher",
+        "losgefahren",
+        "war,",
+        "kam",
+        "sie",
+        "zehn",
+        "Minuten",
+        "nach",
+        "Cem",
+        "an."
+      ],
+      "target_lang": "en"
+    }
+  ]
+}

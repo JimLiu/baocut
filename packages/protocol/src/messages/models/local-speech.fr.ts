@@ -1,0 +1,26 @@
+import type { ModelsLocalSpeechMessages } from './local-speech.ts';
+
+export const fr: ModelsLocalSpeechMessages = {
+  paceQwen06: "environ 55 fois plus lent que le temps réel ; une phrase de 3 secondes prend donc deux à trois minutes",
+  paceQwen17: "estimé plus lent que le 0.6B (environ 55 fois plus lent que le temps réel) ; celui-ci n’a pas été mesuré",
+  paceIndexTts2: "estimé similaire à IndexTTS 2.5 (120–145 fois plus lent que le temps réel) ; celui-ci n’a pas été mesuré",
+  paceIndexTts25: "120–145 fois plus lent que le temps réel ; une phrase de quatre ou cinq secondes prend sept à dix minutes",
+  paceGptSovits: "environ 6 fois plus lent que le temps réel ; une phrase de 4 secondes prend environ une demi-minute",
+  paceVoxcpm2: "le plus gros modèle ; chaque phrase devrait prendre plusieurs minutes, mais il n’a pas été mesuré",
+  paceOmnivoice: "environ 30 fois plus lent que le temps réel ; une phrase de 4 secondes prend environ deux minutes",
+  paceDefault: "chaque phrase prend quelques minutes",
+  cpuNote: (p: { pace: string }) => `Synthétise sur le CPU de cet ordinateur avec un ou deux cœurs uniquement : ${p.pace}. Devrait être bien plus rapide avec un GPU NVIDIA (CUDA) (non mesuré)`,
+  oneVoiceSource: "Indiquez un seul choix parmi voice, reference et voiceDescription",
+  modeUnsupported: (p: { modelId: string; what: string; mode: string }) => `Le modèle ${p.modelId} ne prend pas en charge ${p.what} (${p.mode})`,
+  modeClone: "le clonage depuis un enregistrement de référence",
+  modeDescribe: "la création d’une voix depuis une description",
+  noReferenceTranscript: (p: { modelId: string }) => `Le modèle ${p.modelId} ne lit pas la transcription de l’enregistrement de référence (reference.transcript)`,
+  descriptionEmpty: "La description ne peut pas être vide",
+  noPresetVoice: (p: { modelId: string; need: string }) => `Le modèle ${p.modelId} n’a aucune voix prédéfinie ; indiquez ${p.need}`,
+  noSuchVoice: (p: { modelId: string; voice: string }) => `Le modèle ${p.modelId} n’a aucune voix ${p.voice}`,
+  noDefaultVoice: (p: { modelId: string }) => `Le modèle ${p.modelId} n’a aucune voix par défaut ; indiquez voice`,
+  termNotInVocabulary: (p: { modelId: string; term: string }) => `Les descriptions de voix du modèle ${p.modelId} acceptent seulement les mots de son vocabulaire : « ${p.term} » n’en fait pas partie`,
+  onePerCategory: (p: { modelId: string; category: string }) => `Les descriptions de voix du modèle ${p.modelId} acceptent au plus un terme par catégorie (${p.category})`,
+  builtinReferenceLabel: "enregistrement de voix intégré",
+  referenceUnreadable: (p: { name: string }) => `Impossible de lire l’enregistrement de référence « ${p.name} » : absent, pas un fichier ou illisible. Essayez un autre enregistrement`,
+};

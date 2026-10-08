@@ -1,0 +1,46 @@
+import type { RcVideoMessages } from './rc-video.ts';
+
+export const ja: RcVideoMessages = {
+  engineExited: '動画エンジンが終了したため、変更が確定していない可能性があります。同じコマンドで再試行してください',
+  engineStartFailed: (p) => `動画エンジンを起動できませんでした：${p.reason}`,
+  engineNotRunning: '動画エンジンが実行されていません',
+  engineRequestFailed: (p) => `エンジンが ${p.method} の処理に失敗しました`,
+  engineRestarting: '動画エンジンを再起動中です。しばらくしてから同じコマンドで再試行してください',
+  runtimeStopping: 'Runtime は停止中です',
+  engineNotFound: '動画エンジン（engine-host）が見つかりません。先に npm run build:engine を実行してください',
+
+  defaultDirName: '動画',
+  untitledVideo: '無題の動画',
+  sourceDirNotFound: 'ソースフォルダが存在しません',
+  reservedDirOutsideSource: '予約したフォルダがソースフォルダ内にありません',
+  videoInUse: 'この動画は開いています',
+  videoNotOpenOpenFirst: '動画が開いていません。先に開いてください',
+  assetVersionNotFound: '素材、またはそのこのバージョンが存在しません',
+  videoNotFound: '動画が存在しません',
+  onlyWorkspaceVideos: '開けるのは作業フォルダ内の動画のみです',
+  videoDeletedRestoreFromTrash: 'この動画は削除されています。先にゴミ箱から復元してください',
+  dirNotVideo: 'このフォルダは動画ではありません',
+  linkedPreviewUnsupported: 'プレビューできるのは、リンクした画像、音声、動画、フォント、Lottie アニメーションのみです',
+  packageNotFound: 'ポータブルパッケージが存在しません',
+  packageNotFile: 'ポータブルパッケージは .baocut ファイルにしてください',
+  videoInTrash: 'この動画はゴミ箱にあります。先に復元してください',
+  videoNotInSourceDir: '動画がプロジェクトやセッションのフォルダにありません',
+  cantCreateInSession: 'この Runtime はセッション内に動画を作成できません',
+  targetLocationIncomplete: '対象の動画の場所が不完全です',
+  reservedDirOutsideProject: '予約したフォルダがこのプロジェクトやセッションのフォルダ内にありません',
+  pipelinePrincipalName: 'パイプライン',
+
+  openElsewhere: 'この動画は別のウインドウまたは接続で開いています。先にそちらで閉じてください',
+  videoBusy: 'この動画には実行中のタスクまたは書き出しがあります。先にキャンセルしてください',
+  crossDevice: '動画フォルダとソースフォルダが同じディスク上にないため、ゴミ箱に移動できません',
+  videoEntryNotFound: 'この動画が見つかりません（Space にないか、Space がまだスキャン中です）',
+  notDeletedVideo: 'この項目は削除された動画ではありません',
+  restoreRootGone: 'この動画があったプロジェクトまたはセッションはもうないため、復元できません',
+  trashDirGone: 'ゴミ箱内の動画フォルダはもうありません',
+  sourceRootInTrash:
+    'この動画フォルダはプロジェクトフォルダまたはセッションの作業フォルダである（またはそれを含む）ため、ゴミ箱に移動できません',
+  sourceRootRemedy:
+    '先に BaoCut で、このフォルダを使っているプロジェクトまたはセッションを削除してから、親のプロジェクトからこの動画を削除してください',
+  compositionImportFailed: (p) => `モーショングラフィックを読み込めませんでした（${p.code}）`,
+  compositionPreviewFailed: (p) => `モーショングラフィックをプレビューできませんでした（${p.code}）`,
+};

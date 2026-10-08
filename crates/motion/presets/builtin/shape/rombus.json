@@ -1,0 +1,57 @@
+{
+  "id": "rombus",
+  "version": 1,
+  "domain": "shape",
+  "namespace": "timeline",
+  "order": 3,
+  "path": {
+    "kind": "outline",
+    "segments": [
+      {
+        "verb": "move",
+        "pts": [
+          [
+            0.5,
+            0
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            1,
+            0.5
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.5,
+            1
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0,
+            0.5
+          ]
+        ]
+      },
+      {
+        "verb": "close"
+      }
+    ]
+  },
+  "params": [
+    "fill",
+    "stroke",
+    "strokeWidth"
+  ],
+  "available": true
+}

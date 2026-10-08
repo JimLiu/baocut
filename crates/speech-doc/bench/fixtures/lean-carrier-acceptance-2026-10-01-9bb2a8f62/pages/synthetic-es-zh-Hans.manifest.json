@@ -1,0 +1,63 @@
+{
+  "rows": [
+    {
+      "id": "es-07",
+      "reference_en": "Do not send the file to Sofía unless the director approves the second version.",
+      "required_facts": [
+        "Sofía",
+        "only after director approval",
+        "second version"
+      ],
+      "risk": "unless; condition",
+      "source": "No envíes el archivo a Sofía a menos que la directora apruebe la segunda versión.",
+      "source_lang": "es",
+      "source_words": [
+        "No",
+        "envíes",
+        "el",
+        "archivo",
+        "a",
+        "Sofía",
+        "a",
+        "menos",
+        "que",
+        "la",
+        "directora",
+        "apruebe",
+        "la",
+        "segunda",
+        "versión."
+      ],
+      "target_lang": "zh-Hans"
+    },
+    {
+      "id": "es-08",
+      "reference_en": "We bought 2.5 kilos of rice, and half was still left after dinner.",
+      "required_facts": [
+        "2.5 kilos",
+        "rice",
+        "half left",
+        "after dinner"
+      ],
+      "risk": "decimal comma; fraction",
+      "source": "Compramos 2,5 kilos de arroz y, después de cenar, todavía quedaba la mitad.",
+      "source_lang": "es",
+      "source_words": [
+        "Compramos",
+        "2,5",
+        "kilos",
+        "de",
+        "arroz",
+        "y,",
+        "después",
+        "de",
+        "cenar,",
+        "todavía",
+        "quedaba",
+        "la",
+        "mitad."
+      ],
+      "target_lang": "zh-Hans"
+    }
+  ]
+}

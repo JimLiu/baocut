@@ -1,0 +1,41 @@
+import { pluralForm } from '@baocut/protocol';
+import type { SpaceActionsMessages } from './space-actions-copy.ts';
+
+export const pl: SpaceActionsMessages = {
+  edit: {
+    video: "Otwórz wideo",
+    'source-video': "Edytuj w wideo źródłowym",
+    'new-video': "Nowe wideo z tego materiału",
+    text: "Edytuj tekst",
+    version: "Zapisz kopię i edytuj",
+  },
+  trashed: "Najpierw przywróć ten element z kosza",
+  editGenerating: "Trwa generowanie; możesz edytować po ukończeniu",
+  editMissing: "Plik nieznaleziony; podłącz ponownie przed edycją",
+  editFailed: "Generowanie nie powiodło się; brak pliku do edycji",
+  editPackage: "Pakietów wideo (pakietów przenośnych) nie można edytować",
+  editText: "Nie można jeszcze zapisać tutaj nowej wersji tekstu; kontynuuj w sesji i zleć zmianę agentowi",
+  editVersion: "Ręczna edycja obrazów, audio i szablonów nie jest jeszcze dostępna; kontynuuj w sesji i zleć zmianę agentowi",
+  newVideoOutside: "Plik nie jest w folderze projektu ani sesji, więc nie można jeszcze utworzyć z niego wideo",
+  packageGenerating: "Trwa eksport; możesz otworzyć po ukończeniu",
+  packageMissing: "Nie można znaleźć tego pliku",
+  packageFailed: "Eksport nie powiódł się; brak pakietu do otwarcia",
+  packageOutside: "Pakiet nie jest w folderze projektu ani sesji, więc nie można jeszcze otworzyć",
+  continueTrashed: "Przywróć element z kosza przed dodaniem do sesji",
+  purgeGenerating: "Zadanie nadal trwa; najpierw anuluj na stronie „Zadania”",
+  purgeNotTrashed: "Najpierw przenieś do kosza, a potem usuń z kosza",
+  referenceKind: {
+    'video-asset': "Materiał wideo",
+    job: "Trwające zadanie",
+    unverified: "Nie można potwierdzić",
+    'user-file': "Inne pliki w folderze wideo",
+  },
+  importAllFailed: (count: number, error: string) => `Nie zaimportowano z ${count} plików: ${error}`,
+  importFailed: (error: string) => `Nie zaimportowano: ${error}`,
+  imported: (count: number) => pluralForm('pl', count, { one: `Zaimportowano ${count} materiał`, few: `Zaimportowano ${count} materiały`, many: `Zaimportowano ${count} materiałów`, other: `Zaimportowano ${count} materiału` }),
+  copiedAll: "skopiowano do imports/ projektu",
+  copiedSome: (count: number) => `${count} skopiowano do imports/ projektu`,
+  notImported: (count: number) => `${count} nie zaimportowano`,
+  references: (names: readonly string[], total: number) => { const quoted = names.map(name => `„${name}”`).join(', '); return total > names.length ? `Elementy Space: ${quoted} i jeszcze ${total - names.length}` : `${total === 1 ? 'Element' : 'Elementy'} Space: ${quoted}`; },
+  referenceOutput: "Wynik",
+};

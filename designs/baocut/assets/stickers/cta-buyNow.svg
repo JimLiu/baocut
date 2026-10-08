@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="363" height="128" viewBox="0 0 363 128" fill="none">
+<!--
+MIT License
+
+Copyright (c) 2020-2026 Paweł Kuna
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+Label lettering: glyph outlines from Poppins ExtraBold, SIL Open Font License 1.1 (LICENSES/fonts-OFL.txt).
+-->
+<rect x="8" y="18" width="347" height="100" rx="50.0" fill="#167939" /><rect x="8" y="10" width="347" height="100" rx="50.0" fill="#1FA84F" /><circle cx="58" cy="60" r="36" fill="#FFFFFF" /><g transform="translate(36.000 38.000) scale(1.8333)"><path d="M6 2a1 1 0 0 1 .993 .883l.007 .117v1.068l13.071 .935a1 1 0 0 1 .929 1.024l-.01 .114l-1 7a1 1 0 0 1 -.877 .853l-.113 .006h-12v2h10a3 3 0 1 1 -2.995 3.176l-.005 -.176l.005 -.176c.017 -.288 .074 -.564 .166 -.824h-5.342a3 3 0 1 1 -5.824 1.176l-.005 -.176l.005 -.176a3.002 3.002 0 0 1 1.995 -2.654v-12.17h-1a1 1 0 0 1 -.993 -.883l-.007 -.117a1 1 0 0 1 .883 -.993l.117 -.007h2zm0 16a1 1 0 1 0 0 2a1 1 0 0 0 0 -2m11 0a1 1 0 1 0 0 2a1 1 0 0 0 0 -2" fill="#1FA84F" />
+</g><path d="M25.64 -7.68Q25.64 -4.08 23.16 -2.04Q20.68 0 16.2 0H2.24V-28.2H15.76Q20.08 -28.2 22.54 -26.28Q25 -24.36 25 -20.88Q25 -18.4 23.7 -16.74Q22.4 -15.08 20.24 -14.48Q22.72 -13.92 24.18 -12.02Q25.64 -10.12 25.64 -7.68ZM10.08 -17H14.04Q17 -17 17 -19.44Q17 -21.96 14.04 -21.96H10.08ZM17.6 -8.8Q17.6 -10.08 16.82 -10.76Q16.04 -11.44 14.6 -11.44H10.08V-6.32H14.64Q17.6 -6.32 17.6 -8.8ZM37.56 -28.2V-11.84Q37.56 -9.56 38.62 -8.32Q39.68 -7.08 41.84 -7.08Q44 -7.08 45.1 -8.34Q46.2 -9.6 46.2 -11.84V-28.2H54.04V-11.84Q54.04 -7.96 52.4 -5.22Q50.76 -2.48 47.94 -1.1Q45.12 0.28 41.68 0.28Q38.24 0.28 35.54 -1.1Q32.84 -2.48 31.3 -5.2Q29.76 -7.92 29.76 -11.84V-28.2ZM84.8 -28.2 74.88 -8.96V0H67V-8.96L57.08 -28.2H66.04L71 -17.32L75.96 -28.2ZM122.56 0H114.72L104.28 -15.76V0H96.44V-28.2H104.28L114.72 -12.24V-28.2H122.56ZM126.88 -14.2Q126.88 -18.36 128.82 -21.66Q130.76 -24.96 134.08 -26.8Q137.4 -28.64 141.36 -28.64Q145.36 -28.64 148.66 -26.8Q151.96 -24.96 153.88 -21.66Q155.8 -18.36 155.8 -14.2Q155.8 -10.04 153.88 -6.74Q151.96 -3.44 148.64 -1.58Q145.32 0.28 141.36 0.28Q137.4 0.28 134.08 -1.58Q130.76 -3.44 128.82 -6.74Q126.88 -10.04 126.88 -14.2ZM147.84 -14.2Q147.84 -17.56 146.1 -19.5Q144.36 -21.44 141.36 -21.44Q138.32 -21.44 136.6 -19.5Q134.88 -17.56 134.88 -14.2Q134.88 -10.88 136.6 -8.94Q138.32 -7 141.36 -7Q144.36 -7 146.1 -8.96Q147.84 -10.92 147.84 -14.2ZM199.84 -28.2 192.92 0H183.28L179.4 -17.28L175.44 0H165.8L158.96 -28.2H167.44L170.72 -8.92L175.16 -28.2H183.76L188.08 -9.08L191.36 -28.2Z" fill="#FFFFFF" transform="translate(114.00 74.18)" /></svg>

@@ -1,0 +1,79 @@
+{
+  "schema": "baocut-caption-style/1",
+  "id": "caption-daoyazi",
+  "version": 1,
+  "title": "Daoyazi kinetic type",
+  "description": "Words stack across an infinite canvas while the camera flies, turns and zooms from block to block.",
+  "tags": [
+    "kinetic",
+    "typography",
+    "talking-head"
+  ],
+  "scripts": [
+    "latin",
+    "cjk"
+  ],
+  "aspects": [
+    "16:9",
+    "9:16",
+    "1:1"
+  ],
+  "cjk": "good",
+  "layout": "sequence",
+  "layoutTokens": {
+    "wide": {"width": 0.88, "fontScale": 1.0, "minFontSize": 18, "maxHeight": 0.72, "bandGap": 0, "viewport": [0.06, 0.08, 0.88, 0.72], "density": 0.65, "fit": 0.60},
+    "square": {"width": 0.88, "fontScale": 1.0, "minFontSize": 18, "maxHeight": 0.70, "bandGap": 0, "viewport": [0.06, 0.10, 0.88, 0.70], "density": 0.60, "fit": 0.62},
+    "vertical": {"width": 0.88, "fontScale": 1.0, "minFontSize": 18, "maxHeight": 0.62, "bandGap": 0, "viewport": [0.06, 0.14, 0.88, 0.62], "density": 0.55, "fit": 0.66}
+  },
+  "family": "kinetic",
+  "layers": [
+    "glyphs"
+  ],
+  "channels": [
+    "opacity",
+    "scale"
+  ],
+  "tunables": [
+    {
+      "key": "intensity",
+      "kind": "number",
+      "min": 0,
+      "max": 100,
+      "default": 60
+    },
+    {
+      "key": "speed",
+      "kind": "number",
+      "min": 0.35,
+      "max": 2,
+      "default": 1
+    }
+  ],
+  "events": [],
+  "composite": "normal",
+  "hardKill": false,
+  "seeded": true,
+  "execution": {
+    "scope": "sequence",
+    "compiler": "typography-world",
+    "version": 1
+  },
+  "assets": [],
+  "fonts": [
+    {
+      "role": "sans",
+      "family": "Inter",
+      "weights": [
+        700,
+        800
+      ],
+      "fallback": [
+        "SF Pro Display",
+        "PingFang SC Semibold",
+        "Hiragino Sans W6"
+      ],
+      "substitution": "substitute",
+      "license": "OFL-1.1"
+    }
+  ]
+}

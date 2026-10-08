@@ -1,0 +1,5 @@
+import type { RcServicesMessages } from './rc-services.ts';
+
+export const vi: RcServicesMessages = {
+mcpServiceLabel: 'Dịch vụ MCP', nodeServiceLabel: 'Nút LAN', serviceNotAvailable: (p) => `Phiên bản này chưa cung cấp dịch vụ “${p.serviceId}”`, serviceNotFound: (p) => `Không có dịch vụ “${p.serviceId}”`, runtimeStopping: 'Runtime đang dừng', clientNotFound: 'Không có máy khách này', portInUse: (p) => `Cổng ${p.port} đã được dùng`, cannotListen: (p) => `Không thể lắng nghe cổng ${p.port}: ${p.reason}`, configFileInvalid: (p) => `Tệp cấu hình dịch vụ sai định dạng: ${p.file}`, routingOnlyForModelApi: 'routing và maxConcurrentPerClient chỉ áp dụng cho dịch vụ API mô hình (model-api)', tokenPlaceholder: (p) => `<token for ${p.client}>`, tokenPlaceholderGeneric: '<token>', mcpNotRunning: 'Dịch vụ MCP đang tắt: khởi chạy trước (baocut services start mcp), nếu không máy khách không thể kết nối.', nodeServiceConfigure: 'Cấu hình dịch vụ nút bằng nodes.share.* (baocut share …)', nodeServiceNotListening: 'Dịch vụ nút chưa lắng nghe',
+};

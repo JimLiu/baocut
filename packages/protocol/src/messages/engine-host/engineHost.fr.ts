@@ -1,0 +1,27 @@
+import type { EngineHostMessages } from './engineHost.ts';
+
+export const fr: EngineHostMessages = {
+  runGenerationNotInteger: "runGeneration doit être un entier décimal",
+  secondsInvalid: (p) => `${p.field} doit être un nombre fini de secondes supérieur ou égal à 0`,
+  secondsOverflow: (p) => `${p.field} est hors limites`,
+  audioItemsKind: "audioItems est réservé aux plans audio et vidéo",
+  skipAssetsKind: "skipAssets est réservé aux plans vidéo",
+  outputKind: "output est réservé aux plans vidéo",
+  outputSize: "La largeur et la hauteur de sortie doivent être des entiers positifs",
+  tooManyRanges: (p) => `Au plus ${p.max} plages à la fois`,
+  textPlanNoDocument: "Un plan texte nécessite au moins un document",
+  textPlanTooManyDocuments: "Un plan texte accepte au plus deux documents (principal et second pour une fusion bilingue)",
+  planKindUnknown: (p) => `Type de plan inconnu ${p.kind}`,
+  unknownMethod: (p) => `Méthode inconnue : ${p.method}`,
+  paramsInvalid: (p) => `Réglages invalides : ${p.error}`,
+  fontFacesInvalid: (p) => `Indiquez de 1 à ${p.max} variantes : chaque nom de famille non vide et au plus 200 caractères, chaque graisse entre 1 et 1000`,
+  cacheDirRelative: "cacheDir doit être absolu",
+  fontPathRelative: "path doit être absolu",
+  fontInvalid: (p) => `Fichier de police inutilisable : ${p.error}`,
+  videoPathRelative: "Le chemin de la vidéo doit être absolu",
+  videoNotOpen: "La vidéo n’est pas ouverte",
+  taskStopped: "Cette exécution a été arrêtée ; la modification n’a pas été validée",
+  afterNotInteger: "after doit être un entier décimal",
+  enginePanic: "Le moteur a échoué pendant la requête ; la modification n’a pas été validée",
+  pathRelative: "Les chemins doivent être absolus",
+};

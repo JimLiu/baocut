@@ -1,0 +1,25 @@
+import type { ToolsImageMessages } from './tools-image-copy.ts';
+
+export const zhHant: ToolsImageMessages = {
+  emptyPrompt: '請先描述畫面',
+  promptTooLong: (n, max) => `提示詞 ${n} 字 · 這個模型最多接受 ${max} 字`,
+  maxImages: (max) => `一次最多 ${max} 張`,
+  seedInteger: '種子必須是整數',
+  pickModel: '請先選擇模型',
+  downloadFirst: (label) => `請先下載 ${label}`,
+  connectFirst: (provider) => `請先連接 ${provider}`,
+  local: '在這台電腦上',
+  steps: (n) => `${n} 步`,
+  deviceTime: '耗時取決於你的裝置',
+  offline: '可離線使用',
+  images: (n) => `${n} 張`,
+  aspects: (n) => `${n} 種長寬比`,
+  providerSize: '尺寸由供應商決定',
+  takesSeed: '可指定種子',
+  localChip: '在這台電腦上生成 · 離線',
+  cloudChip: (provider) => `線上 · ${provider} · 依用量計費`,
+  imageName: (n) => `圖片 ${n}`,
+  seed: (seed) => `種子 ${seed}`,
+  decoding: '解碼',
+  stepOf: (done, total) => `第 ${done}/${total} 步`,
+};

@@ -1,0 +1,263 @@
+/* 时间线里样式宏表达不了的部分：悬停才出现的裁切把手、播放头、吸附线。颜色随明暗主题走（light-dark）。 */
+
+/*
+ * 时间线片段与配音块里不随状态变的部分（原值照抄自原来的样式宏：圆角 sm 即 0.25rem，内边距、间距按 px）。
+ * 样式宏一个属性一个原子类，元素上的类越多样式计算越慢；整片入镜一次挂上几千个片段与配音块，不变的这几项合成一个类，
+ * 每块少十几个类。随色相、选中、锁定、停用变的底色、边框色与宽、字色、指针、透明度仍在样式宏里，字体由轨继承
+ * （timeline.tsx 的 lane）。同一属性只在一处给：这里的规则不分层，会盖过样式宏里同名属性的每一种取值。
+ */
+.bc-clip {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  box-sizing: border-box;
+  border-radius: 0.25rem;
+  border-style: solid;
+  overflow: hidden;
+  display: flex;
+  user-select: none;
+}
+/* 普通片段：标题、时长竖排居中；图标随字色。 */
+.bc-clip-item {
+  flex-direction: column;
+  justify-content: center;
+  padding-inline: 8px;
+  --iconPrimary: currentColor;
+}
+/* 配音块：色条、译文、语速角标横排。 */
+.bc-dub-block {
+  align-items: center;
+  gap: 6px;
+  padding-inline: 10px 8px;
+}
+
+/* 片段两端的裁切热区（原型 min(7, w/3) px），悬停时露出一条细把手。 */
+.bc-clip-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  max-width: 33%;
+  cursor: ew-resize;
+  z-index: 1;
+}
+.bc-clip-handle[data-edge='start'] {
+  inset-inline-start: 0;
+}
+.bc-clip-handle[data-edge='end'] {
+  inset-inline-end: 0;
+}
+.bc-clip-handle::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0;
+}
+.bc-clip-handle[data-edge='start']::after {
+  inset-inline-start: 1px;
+}
+.bc-clip-handle[data-edge='end']::after {
+  inset-inline-end: 1px;
+}
+.bc-clip:hover .bc-clip-handle::after,
+.bc-clip[data-active] .bc-clip-handle::after {
+  opacity: 0.55;
+}
+.bc-clip-handle:hover::after {
+  opacity: 0.9;
+}
+.bc-clip[data-active] {
+  cursor: grabbing;
+}
+
+/* 播放头：一条红线，竖贯轨道区，中心落在 left 上。不接指针事件，点刻度尺定位。 */
+.bc-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  z-index: 5;
+  pointer-events: none;
+  border-inline-start: 1.5px solid #e23b30;
+  margin-inline-start: -0.75px;
+}
+/*
+ * 播放头的小旗（timeline.tsx `PlayheadFlag`）：画在已经吸顶的刻度尺里，竖向滚动时随刻度尺留在上沿；与竖线用同一个取整到
+ * 设备像素的横坐标（`playheadX`），尖端（50%）落在 left 上。压在刻度之上，不接指针，点刻度尺照样定位。
+ */
+.bc-playhead-flag {
+  position: absolute;
+  top: 0;
+  /* 刻度尺本身不成层叠上下文：5 与左上角（z 4）同场比较，播放头滚到表头底下时小旗压在角上，同竖线压在表头上。 */
+  z-index: 5;
+  width: 12px;
+  height: 16px;
+  margin-inline-start: -6px;
+  pointer-events: none;
+  /* 抓手旗（原型 ui.css `.ph__flag`）：上半是圆角矩形，下半收成指向竖线的三角；圆角留给上沿，clip-path 只切下沿。 */
+  border-radius: 3px 3px 0 0;
+  clip-path: polygon(0 0, 100% 0, 100% 10px, 50% 100%, 0 10px);
+  background: #e23b30;
+}
+
+/* 吸附时的参考线。 */
+.bc-snapline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  z-index: 4;
+  pointer-events: none;
+  border-inline-start: 1px dashed light-dark(#3b63fb, #8ea8ff);
+}
+
+/* 舞台把手（原型 ui.css .hnd / .rot）：触屏没有悬停，4px 宽的条子点不着，铺一块 20×20 的隐形热区。 */
+@media (hover: none) {
+  .bc-stage-handle::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 20px;
+    height: 20px;
+    transform: translate(-50%, -50%);
+  }
+}
+/* 旋转钮悬停放大、按下回缩（样式宏表达不了 :active 的 transform）。 */
+.bc-stage-rotate {
+  transition: transform 150ms cubic-bezier(0.45, 0, 0.4, 1);
+}
+.bc-stage-rotate:hover {
+  transform: scale(1.14);
+}
+.bc-stage-rotate:active {
+  cursor: grabbing;
+  transform: scale(0.96);
+}
+
+/* 字幕列表 cue 卡上边线上的「并入上一条」（原型 ui.css .sbseam）：悬停这张卡、或焦点在卡里时才出，不占布局；
+   外观在 subtitle-panel.tsx 的样式宏里，这里只管出没（样式宏表达不了「父元素悬停时」）。触屏没有悬停，一直显示。
+   悬停认卡与钮本身，不认这一层：卡间 8px 的缝是这一层的上内边距，悬停在缝里不该把下一张的钮叫出来。 */
+.bc-cue-seam {
+  opacity: 0;
+  transition: opacity 150ms cubic-bezier(0.45, 0, 0.4, 1);
+}
+.bc-cue-slot:has(> :hover) > .bc-cue-seam,
+.bc-cue-slot:focus-within > .bc-cue-seam {
+  opacity: 1;
+}
+@media (hover: none) {
+  .bc-cue-seam {
+    opacity: 1;
+  }
+}
+
+/* 时间线剪口带（原型 ui.css .tcut / .tcut__edge）：斜纹空槽 + 两侧各一道实线缝，两缘的命中区悬停 / 拖动中描蓝。
+   颜色是 timeline-seams.tsx 的样式宏给的 S2 token（--bc-cut-*），这里只画样式宏表达不了的渐变与内阴影。 */
+.bc-cut-band {
+  background-color: color-mix(in srgb, var(--bc-cut-bg) 88%, transparent);
+  background-image: repeating-linear-gradient(-45deg, transparent 0 4px, var(--bc-cut-stripe) 4px 5px);
+  box-shadow:
+    inset 2px 0 0 var(--bc-cut-seam),
+    inset -2px 0 0 var(--bc-cut-seam);
+  transition: background-color 150ms cubic-bezier(0.45, 0, 0.4, 1);
+}
+.bc-cut-band:hover {
+  background-color: color-mix(in srgb, var(--bc-cut-bg-hover) 88%, transparent);
+}
+.bc-cut-band[data-drag] {
+  background-color: color-mix(in srgb, var(--bc-cut-bg-drag) 88%, transparent);
+  transition: none;
+}
+.bc-cut-edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  cursor: col-resize;
+  transition:
+    background-color 150ms cubic-bezier(0.45, 0, 0.4, 1),
+    box-shadow 150ms cubic-bezier(0.45, 0, 0.4, 1);
+}
+.bc-cut-edge[data-edge='start'] {
+  left: 0;
+}
+.bc-cut-edge[data-edge='end'] {
+  right: 0;
+}
+.bc-cut-edge:hover,
+.bc-cut-edge[data-on] {
+  background-color: color-mix(in srgb, var(--bc-cut-edge) 45%, transparent);
+}
+.bc-cut-edge[data-edge='start']:hover,
+.bc-cut-edge[data-edge='start'][data-on] {
+  box-shadow: inset 2px 0 0 var(--bc-cut-edge-line);
+}
+.bc-cut-edge[data-edge='end']:hover,
+.bc-cut-edge[data-edge='end'][data-on] {
+  box-shadow: inset -2px 0 0 var(--bc-cut-edge-line);
+}
+/* 拖剪口带的边时整页都是左右箭头，指针离开带也不变。 */
+html.bc-col-resize,
+html.bc-col-resize * {
+  cursor: col-resize !important;
+}
+/* 转录中的临时字幕行（原型 ui.css `.tpend` / `.tcue__cur` / `.thd__live`，第 220 轮）与文稿面板的实时段落（`.caret`）：
+   还没转录到的那段是斜纹待定带，前缘一道实线；行头一颗呼吸点；最后一段末尾一枚闪烁的光标。颜色由 timeline-live.tsx、
+   transcript-live.tsx 的样式宏给成 token（--bc-live-*），这里只画样式宏表达不了的渐变、内阴影与动画。 */
+.bc-live-pending {
+  background-color: var(--bc-live-bg);
+  background-image: repeating-linear-gradient(-45deg, transparent 0 4px, var(--bc-live-stripe) 4px 5px);
+  box-shadow: inset 2px 0 0 var(--bc-live-edge);
+}
+.bc-live-dot {
+  animation: bc-live 1.4s ease-in-out infinite;
+}
+.bc-live-caret {
+  animation: bc-caret 1s step-end infinite;
+}
+@keyframes bc-live {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes bc-caret {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bc-live-dot,
+  .bc-live-caret {
+    animation: none;
+  }
+}
+/* 正在重新生成的配音块（设计稿 ui.css `.tdub--queued`）：斜条纹；颜色由 timeline-dub.tsx 的样式宏给成 token。 */
+.bc-dub-queued {
+  background-image: repeating-linear-gradient(-45deg, var(--bc-dub-stripe) 0 4px, var(--bc-dub-stripe-gap) 4px 8px);
+}
+
+/*
+ * 走带的播放键（transport.tsx；原型 ui.css `.tport__play`）：用户定的 36px 正圆 accent 钮，落在 S2 的 32 / 40 两档之间，
+ * 样式宏的 Button 只让改宽不让改高；S2 M 档的 pill 圆角只有 16px，放大后不再正圆，所以圆角给 100%。图标与走带其余按钮同为 16px。
+ */
+.bc-transport-play {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  padding: 0;
+  border-radius: 100%;
+}

@@ -1,0 +1,37 @@
+{
+  "id": "badge_cross",
+  "version": 1,
+  "domain": "sticker",
+  "namespace": "timeline",
+  "order": 1,
+  "layers": [
+    {
+      "fill": "#EF4444",
+      "segments": [
+        {"verb": "move", "pts": [[0.5, 0.04]]},
+        {"verb": "cubic", "pts": [[0.754051, 0.04], [0.96, 0.245949], [0.96, 0.5]]},
+        {"verb": "cubic", "pts": [[0.96, 0.754051], [0.754051, 0.96], [0.5, 0.96]]},
+        {"verb": "cubic", "pts": [[0.245949, 0.96], [0.04, 0.754051], [0.04, 0.5]]},
+        {"verb": "cubic", "pts": [[0.04, 0.245949], [0.245949, 0.04], [0.5, 0.04]]},
+        {"verb": "close"}
+      ]
+    },
+    {
+      "stroke": "#FFFFFF",
+      "strokeWidth": 0.1,
+      "segments": [
+        {"verb": "move", "pts": [[0.33, 0.33]]},
+        {"verb": "line", "pts": [[0.67, 0.67]]}
+      ]
+    },
+    {
+      "stroke": "#FFFFFF",
+      "strokeWidth": 0.1,
+      "segments": [
+        {"verb": "move", "pts": [[0.67, 0.33]]},
+        {"verb": "line", "pts": [[0.33, 0.67]]}
+      ]
+    }
+  ],
+  "available": true
+}

@@ -1,0 +1,87 @@
+{
+  "id": "party-cannons",
+  "version": 1,
+  "domain": "confetti",
+  "namespace": "timeline",
+  "order": 70,
+  "aspect": "frame",
+  "palette": [
+    "#FF595E",
+    "#FFCA3A",
+    "#8AC926",
+    "#1982C4",
+    "#6A4C93",
+    "#FFFFFF"
+  ],
+  "shapes": [
+    "rect",
+    "strip",
+    "circle",
+    "triangle"
+  ],
+  "sources": [
+    "react-confetti/particle"
+  ],
+  "hasEmitterControl": true,
+  "recipe": {
+    "algorithm": "confetti-v1",
+    "params": {
+      "emit": {
+        "mode": "burst",
+        "rate": 40,
+        "count": 70,
+        "interval": 2.4,
+        "jitter": 1.0
+      },
+      "emitters": [
+        {
+          "x": 0,
+          "y": 83,
+          "spreadX": 0,
+          "spreadY": 0,
+          "angle": -65
+        },
+        {
+          "x": 100,
+          "y": 83,
+          "spreadX": 0,
+          "spreadY": 0,
+          "angle": -115
+        }
+      ],
+      "angle": -90,
+      "spread": 26,
+      "speedPx": [
+        250,
+        420
+      ],
+      "dragX": 0.6,
+      "dragY": 0.35,
+      "gravityPx": 250,
+      "windPx": 0,
+      "driftPx": 0,
+      "driftHz": 0.3,
+      "sizePx": [
+        6,
+        14
+      ],
+      "sizeRamp": false,
+      "spinDps": [
+        90,
+        360
+      ],
+      "flipHz": [
+        0.6,
+        1.6
+      ],
+      "pulse": null,
+      "lifeSec": 3.4,
+      "fadeIn": 0,
+      "fadeOut": 0.7,
+      "maxAlive": 600
+    }
+  },
+  "determinism": "strict",
+  "shader": null,
+  "available": true
+}

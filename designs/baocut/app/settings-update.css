@@ -1,0 +1,70 @@
+/* 设置 › 关于：居中卡片里的版本与更新状态（§17.7，2026-10-01）；侧栏更新按钮与更新窗（同节，2026-10-01 下午）。只属于 App 入口。 */
+.about-card { display: flex; flex-direction: column; align-items: center; gap: 4px; max-width: 480px; margin: 12px auto 0; padding: 24px; text-align: center; }
+.about-card__tag { margin-top: 12px; max-width: 400px; color: var(--gray-700); }
+.about-foot { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 16px; }
+
+.upd { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; margin-top: 12px; }
+.upd__line { font-size: 12px; line-height: 1.3; color: var(--gray-700); }
+.upd__line--positive { color: var(--green-900); }
+.upd__line--negative { color: var(--red-900); }
+.upd__line--muted { color: var(--gray-600); }
+.upd__line--strong { font-size: 14px; font-weight: 700; color: var(--gray-900); }
+.upd__pg { width: 240px; }
+.upd__notes { width: 100%; max-width: 400px; margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--gray-75); list-style: none; text-align: left; }
+.upd__notes li { font-size: 12px; line-height: 1.5; color: var(--gray-700); }
+.upd__btns { display: flex; align-items: center; gap: 12px; }
+.upd__btns .viewall { margin-left: 0; font-size: 12px; }
+
+/* 原型演示挡位（不是产品 UI） */
+.upd-demo { margin-top: 28px; padding: 12px; border: 1px dashed var(--gray-300); border-radius: 8px; }
+.upd-demo > b { display: block; margin-bottom: 8px; font-size: 11px; font-weight: 700; color: var(--gray-600); }
+.upd-demo__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.upd-demo__opts { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-top: 12px; }
+
+/* 侧栏页脚「设置」行右侧的更新按钮（§17.7「侧栏更新按钮与更新窗」）。行 flex 让位：设置行 flex 1、按钮 flex none、间距 4；
+   按钮是正方形，边长 = 行高（aspect-ratio 跟着行高走，不写死）。前景同 .btn--accent（var(--gray-25)）。
+   用 grid 不用 flex：flex 里 Tip 包裹层按内容（16 px 图标）定宽，方钮会溢出侧栏右缘；grid 的 auto 列认 aspect-ratio
+   推出来的宽。按钮放在隐式列里，不显示时没有这一列，也就没有那 4 px 间距，设置行占满。 */
+.side__footrow { display: grid; grid-template-columns: minmax(0, 1fr); grid-auto-flow: column; grid-auto-columns: auto; gap: 4px; margin-top: 4px; }
+.side__footrow > .siderow { min-width: 0; margin-top: 0; }
+.side__footrow > .tipw { height: 100%; }
+/* 共享 Tip 只有朝上 / 朝下居中两种；按钮贴着侧栏右缘，居中会探出侧栏，这里就地改成右缘对齐、向左展开 */
+.side__footrow > .tipw > .tip--top { left: auto; right: 0; transform: none; }
+.sideupd {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  height: 100%; aspect-ratio: 1; border-radius: 8px;
+  background: var(--blue-900); color: var(--gray-25); cursor: pointer;
+  transition: background-color 150ms cubic-bezier(0.45,0,0.4,1), transform 150ms cubic-bezier(0.45,0,0.4,1);
+}
+.sideupd:hover { background: var(--blue-1000); }
+.sideupd:active { transform: scale(0.96); }
+.sideupd:focus-visible { outline: 2px solid var(--blue-800); outline-offset: 2px; }
+.sideupd__ring { width: 16px; height: 16px; }
+.sideupd__ring circle { fill: none; stroke: currentColor; stroke-width: 2; }
+.sideupd__ring-bg { stroke-opacity: 0.17; }
+.sideupd__ring-fg { stroke-opacity: 0.94; stroke-linecap: round; }
+/* 右上角状态点：直径 7，外圈 1.5 的 accent 底色描边把点从按钮上托出来，内缩 4 */
+.sideupd__dot { position: absolute; top: 4px; right: 4px; width: 7px; height: 7px; border-radius: 9999px; box-shadow: 0 0 0 1.5px var(--blue-900); } /* @ds-allow: 状态点 7 / 描边 1.5 是规格值（§17.7 显示表），不是间距阶梯 */
+.sideupd:hover .sideupd__dot { box-shadow: 0 0 0 1.5px var(--blue-1000); } /* @ds-allow: 同上，hover 时描边跟着底色换 */
+.sideupd__dot--white { background: var(--gray-25); }
+.sideupd__dot--positive { background: var(--green-900); }
+.sideupd__dot--negative { background: var(--red-900); }
+
+/* 更新窗：.dlg 的圆角 / 阴影，宽 480；正文可滚，说明逐条带圆点、全部列出 */
+/* CustomDialog 是 padding="none"，内边距由窗自己给。S2 的对话框（.upddlg-host）高度封顶、自身会滚；
+   让它做纵向 flex，.upddlg 跟着收缩，矮窗口里只滚 .upddlg__b，头部与底栏留在原地 */
+.upddlg-host { display: flex; flex-direction: column; }
+.upddlg { box-sizing: border-box; display: flex; flex-direction: column; width: 480px; max-height: 560px; min-height: 0; padding: 24px; outline: none; }
+.upddlg__hd { display: flex; align-items: flex-start; gap: 12px; }
+.upddlg__icon { width: 40px; height: 40px; flex: none; }
+.upddlg__sub { margin-top: 2px; font-size: 12px; line-height: 1.3; color: var(--gray-600); }
+.upddlg__b { flex: 1 1 auto; min-height: 0; overflow: auto; margin-top: 16px; }
+.upddlg__cur { margin: 0 0 16px; font-size: 14px; line-height: 21px; color: var(--gray-800); }
+.upddlg__notes { margin: 8px 0 0; padding-left: 20px; list-style: disc; }
+.upddlg__notes li { font-size: 14px; line-height: 21px; color: var(--gray-700); }
+.upddlg__notes li + li { margin-top: 4px; }
+.upddlg__f { display: flex; align-items: center; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--gray-200); }
+.upddlg__left { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.upddlg__pg { width: 120px; flex: none; }
+.upddlg__pct { font-size: 12px; color: var(--gray-700); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.upddlg__err { font-size: 12px; line-height: 1.3; color: var(--red-900); }

@@ -1,0 +1,42 @@
+{
+  "id": "transition.wipe",
+  "version": 1,
+  "domain": "transition",
+  "inputs": 2,
+  "params": {
+    "direction": {
+      "type": "enum",
+      "default": "right",
+      "options": [
+        "left",
+        "right",
+        "up",
+        "down"
+      ],
+      "doc": "擦除边的走向"
+    },
+    "softness": {
+      "type": "length",
+      "default": 0,
+      "min": 0,
+      "max": 0.25,
+      "basis": "canvasShortEdge",
+      "quantize": "none",
+      "doc": "边的羽化宽度，画布短边的比例；0 = 硬边"
+    }
+  },
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "kernel": "wipe-linear-coverage",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "clamp",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "doc": "一条边扫过画布，两张画面都不动。沿走向的坐标记为 u（direction = right 时 u = x，left 时 u = W−1−x，down 时 u = y，up 时 u = H−1−y），轴长记为 span。边的位置 e = progress × (span + S + 1)，S 是羽化像素宽；覆盖率 cov = clamp((e − u) / S, 0, 1)（S = 0 时 cov = [u < e]）。那个 +1 不是凑数：没有它，progress = 1 时最后一列的 u 恰好等于 e，硬边下会漏掉一列 from。cov = 0 / 1 直接取 from / to 的原字节，中间才按 transition.crossfade 的整数混合式合成——因此 progress = 0 / 1 逐字节等于 from / to。"
+}

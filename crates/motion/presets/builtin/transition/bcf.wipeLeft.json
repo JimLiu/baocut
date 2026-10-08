@@ -1,0 +1,29 @@
+{
+  "id": "wipeLeft",
+  "version": 1,
+  "domain": "transition",
+  "namespace": "bcf",
+  "order": 6,
+  "prop": null,
+  "ease": "easeInOutSine",
+  "doc": "擦除边由右向左扫过（与 slideLeft 同一方向约定：名字说的是边的走向）。边在 x = (1 - p)·W；离场 clip 保留边左侧、入场 clip 保留边右侧，两侧画面都不移动。通道值是**画布宽度的比例**：clipInsetLeft/Right = 0 表示不裁，= 1 表示裁光。",
+  "out": {
+    "channels": [
+      {
+        "prop": "clipInsetRight",
+        "from": { "value": 0.0, "basis": "absolute" },
+        "to": { "value": 1.0, "basis": "absolute" }
+      }
+    ]
+  },
+  "in": {
+    "channels": [
+      {
+        "prop": "clipInsetLeft",
+        "from": { "value": 1.0, "basis": "absolute" },
+        "to": { "value": 0.0, "basis": "absolute" }
+      }
+    ]
+  },
+  "determinism": "strict"
+}

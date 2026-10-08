@@ -1,0 +1,25 @@
+{
+  "id": "dragonfly",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "exit",
+  "order": 19,
+  "duration": 0.45,
+  "curve": {
+    "kind": "named",
+    "name": "easeInCubic"
+  },
+  "mirror": null,
+  "from": {
+    "opacity": 0.0,
+    "dx": 0.037,
+    "dy": 0.023
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

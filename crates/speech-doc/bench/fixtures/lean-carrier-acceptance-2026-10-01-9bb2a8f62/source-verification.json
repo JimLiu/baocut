@@ -1,0 +1,10 @@
+{
+  "changed": [],
+  "binaries": {
+    "bin/property": "f78bb05d98b3c069db56256aa8e4072e6b54a0b883455c060010ea8270ccec16",
+    "bin/provider_carrier_bench": "0d59eb44e9988caf7f24c76393cec0095b9e1ca0d4427910410617dee2ecf60c",
+    "bin/lean_carrier_grade": "43c1adda5179d5ceb7321f0fdb363fbbd618701d45413345ad7852f310a13a51",
+    "old-budget/bin/provider_carrier_bench": "0d59eb44e9988caf7f24c76393cec0095b9e1ca0d4427910410617dee2ecf60c",
+    "old-budget/bin/lean_carrier_grade": "709dec68aa9ec83be1217b0165f5995a090c1743c473d9909c7c6eff6c456cb5"
+  }
+}

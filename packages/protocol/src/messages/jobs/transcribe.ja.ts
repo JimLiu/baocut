@@ -1,0 +1,38 @@
+import type { JobsTranscribeMessages } from './transcribe.ts';
+
+export const ja: JobsTranscribeMessages = {
+  label: '文字起こし',
+  description:
+    '動画内の素材を文字起こしし（または動画を作成してローカルのメディアファイルを読み込み）、文字起こしを書き出して字幕レイヤーを作成します。動画にその素材の文字起こしがすでにある場合、結果は新しい動画（既定）に入るか、現在の文字起こしを置き換えて翻訳・字幕・吹き替えを引き継ぎます。ファイルだけを指定した場合は動画を作成せず、TXT と SRT を保存先に書き出します。',
+  cannotCreateVideo: 'この Runtime では動画を作成できません',
+  videoNotOpen: '動画が開かれていません',
+  stepCreate: '動画の作成',
+  stepTranscribe: '文字起こし',
+  importMediaLabel: 'メディアの読み込み',
+  fileExcludesVideo: 'は videoId または target と同時に指定できません',
+  assetIdWithFile: 'はファイルと同時に指定できません：ファイルそのものを文字起こしします',
+  captionsWithFile: 'はファイルには適用されません：動画がないため字幕レイヤーはありません',
+  diarizeWithFile: 'はファイルには適用されません：話者は分離しません',
+  outDirFileOnly: 'はファイルと一緒にのみ指定できます',
+  assetIdWithCreate: 'は動画の作成時には指定できません：読み込んだメディアを文字起こしします',
+  needVideoOrFile: 'videoId、target、file のいずれかを指定してください',
+  createMediaRequired: 'は必須です（新しい動画に読み込んで文字起こしするメディアファイル）',
+  fileShape: 'は絶対パスまたは { entryId } である必要があります',
+  cannotTranscribeFile: 'この Runtime では動画のないファイルを文字起こしできません',
+  mediaToTranscribeNotFound: '文字起こしするメディアファイルが見つかりません',
+  mediaToImportNotFound: '読み込むメディアファイルが見つかりません',
+  noVideo: '文字起こしする動画がありません',
+  notApplied: '文字起こしは完了しましたが、動画に書き込まれませんでした',
+  videoClosed: '動画が閉じられたため、文字起こしは行われませんでした：動画を開いてから再試行してください',
+  noMainAsset: 'メイントラックに音声または動画の素材がありません：文字起こしする素材（assetId）を指定してください',
+  ambiguousMainAsset: 'メイントラックに素材が複数あります：文字起こしする素材（assetId）を指定してください',
+  retranscribedName: (p: { name: string }) => `${p.name} · 再文字起こし`,
+  transcriptEdited:
+    '文字起こしの後に原文が編集されています。置き換えるとその編集は失われます：destination を new-video にするか、acceptEdited: true を指定して置き換えてください',
+  transcriptEditedSinceSubmit: 'この実行の開始後に原文が変更されたため、置き換えませんでした：もう一度文字起こしを開始してください',
+  landingNeedsVideo: '既存の動画（{ videoId } または { entryId }）にのみ指定できます',
+  nameNewVideoOnly: 'destination が new-video のときにのみ指定できます',
+  replaceOnly: 'destination が replace のときにのみ指定できます',
+  transcriptUnreadable: '現在の文字起こしを読み取れないため、編集の有無を確認できません',
+  replaceDocumentGone: '置き換える文字起こしが動画にありません',
+};

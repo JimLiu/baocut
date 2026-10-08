@@ -1,0 +1,41 @@
+{
+  "id": "elZoom",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "exit",
+  "order": 26,
+  "duration": 0.6,
+  "curve": {
+    "kind": "named",
+    "name": "linear"
+  },
+  "mirror": null,
+  "from": {},
+  "keyframes": [
+    {
+      "at": 0
+    },
+    {
+      "at": 0.5,
+      "ease": "linear",
+      "scaleX": 0.95,
+      "scaleY": 0.95,
+      "opacity": 1.0
+    },
+    {
+      "at": 1,
+      "ease": "linear",
+      "scaleX": 0.9,
+      "scaleY": 0.9,
+      "opacity": 0.0
+    }
+  ],
+  "basis": {
+    "dx": "selfWidth",
+    "dy": "selfHeight"
+  },
+  "surface": "element",
+  "determinism": "strict",
+  "available": true
+}

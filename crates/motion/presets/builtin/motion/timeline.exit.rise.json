@@ -1,0 +1,24 @@
+{
+  "id": "rise",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "exit",
+  "order": 3,
+  "duration": 0.375,
+  "curve": {
+    "kind": "named",
+    "name": "easeInCubic"
+  },
+  "mirror": null,
+  "from": {
+    "opacity": 0.0,
+    "dy": -0.028
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

@@ -1,0 +1,5 @@
+import type { RcServicesMessages } from './rc-services.ts';
+
+export const tr: RcServicesMessages = {
+mcpServiceLabel: 'MCP hizmeti', nodeServiceLabel: 'LAN düğümü', serviceNotAvailable: (p) => `Bu sürüm henüz “${p.serviceId}” hizmeti sunmuyor`, serviceNotFound: (p) => `“${p.serviceId}” hizmeti yok`, runtimeStopping: 'Runtime durduruluyor', clientNotFound: 'Böyle istemci yok', portInUse: (p) => `${p.port} portu kullanımda`, cannotListen: (p) => `${p.port} portunda dinlenemiyor: ${p.reason}`, configFileInvalid: (p) => `Hizmet yapılandırma dosyası hatalı: ${p.file}`, routingOnlyForModelApi: 'routing ve maxConcurrentPerClient yalnızca model API hizmetinde (model-api) geçerli', tokenPlaceholder: (p) => `<token for ${p.client}>`, tokenPlaceholderGeneric: '<token>', mcpNotRunning: 'MCP hizmeti kapalı: önce başlatın (baocut services start mcp), aksi halde istemciler bağlanamaz.', nodeServiceConfigure: 'Düğüm hizmetini nodes.share.* ile ayarlayın (baocut share …)', nodeServiceNotListening: 'Düğüm hizmeti dinlemiyor',
+};

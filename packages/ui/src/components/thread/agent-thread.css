@@ -1,0 +1,446 @@
+/*
+ * Agent 会话线程的回复正文、工具步骤行与回合页脚（产品设计 §3.2.2）。style 宏表达不了的规则在这里：
+ * Markdown 生成的元素、扫光动画、diff 的逐行底色、hover 才出的复制按钮。颜色变量由线程列给（thread.tsx 的 S2 token）。
+ */
+
+/* ---------- 回复正文 ---------- */
+.bc-amd {
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--bc-at-text);
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.bc-amd-block > * + * {
+  margin-top: 8px;
+}
+/* 段落里的单个换行保留成换行。 */
+.bc-amd p {
+  margin: 0;
+  white-space: pre-line;
+}
+.bc-amd strong {
+  font-weight: 600;
+}
+.bc-amd a {
+  color: var(--bc-at-link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.bc-amd a:hover {
+  color: var(--bc-at-link-hover);
+}
+.bc-amd hr {
+  border: 0;
+  border-top: 1px solid var(--bc-at-line);
+  margin: 0;
+}
+.bc-amd :is(h1, h2, h3, h4, h5, h6) {
+  margin: 0;
+  font-weight: 700;
+  color: var(--bc-at-heading);
+  line-height: 1.4;
+}
+.bc-amd :is(h1, h2) {
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--bc-at-line);
+}
+.bc-amd h1 {
+  font-size: 18px;
+}
+.bc-amd h2 {
+  font-size: 16px;
+}
+.bc-amd :is(h3, h4, h5, h6) {
+  font-size: 14px;
+}
+.bc-amd :is(ul, ol) {
+  margin: 0;
+  padding-inline-start: 20px;
+}
+.bc-amd li + li {
+  margin-top: 4px;
+}
+.bc-amd li > :is(ul, ol) {
+  margin-top: 4px;
+}
+.bc-amd li > p {
+  white-space: normal;
+}
+.bc-amd blockquote {
+  margin: 0;
+  padding-inline-start: 12px;
+  border-inline-start: 4px solid var(--bc-at-quote);
+  color: var(--bc-at-muted);
+}
+.bc-amd img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+.bc-amd-code {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--bc-at-code-bg);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+}
+
+/* 代码块：浅底、圆角 8；长行换行不横滚；右上角 hover 或聚焦时出复制。 */
+.bc-amd-pre {
+  position: relative;
+}
+.bc-amd-pre pre {
+  margin: 0;
+  padding: 8px 40px 8px 12px;
+  border-radius: 8px;
+  background: var(--bc-at-pre-bg);
+  box-shadow: inset 0 0 0 1px var(--bc-at-line);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.bc-amd-pre__copy {
+  position: absolute;
+  top: 4px;
+  inset-inline-end: 4px;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.bc-amd-pre:is(:hover, :focus-within) .bc-amd-pre__copy {
+  opacity: 1;
+}
+
+/* 表格：圆角边框，列等分。 */
+.bc-amd-table {
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px var(--bc-at-line);
+  overflow: hidden;
+}
+.bc-amd-table table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.bc-amd-table :is(th, td) {
+  padding: 6px 8px;
+  text-align: start;
+  vertical-align: top;
+  border-top: 1px solid var(--bc-at-line);
+  overflow-wrap: anywhere;
+}
+.bc-amd-table thead tr:first-child th {
+  border-top: 0;
+}
+.bc-amd-table :is(th + th, td + td) {
+  border-inline-start: 1px solid var(--bc-at-line);
+}
+.bc-amd-table th {
+  background: var(--bc-at-pre-bg);
+  font-weight: 600;
+}
+
+/* 正文里的文件路径：S2 按钮压成行内代码的样子（无层规则盖过 S2 的 @layer）。 */
+.bc-amd .bc-amd-path {
+  display: inline;
+  height: auto;
+  min-height: 0;
+  min-width: 0;
+  padding: 0 4px;
+  margin: 0;
+  border-radius: 4px;
+  vertical-align: baseline;
+  background: var(--bc-at-code-bg);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+  line-height: inherit;
+  color: var(--bc-at-link);
+  cursor: pointer;
+}
+.bc-amd .bc-amd-path * {
+  font: inherit;
+  color: inherit;
+  padding: 0;
+  margin: 0;
+}
+.bc-amd .bc-amd-path:hover {
+  background: var(--bc-at-code-bg-hover);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ---------- 工具步骤行 ---------- */
+.bc-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.bc-step {
+  min-width: 0;
+}
+.bc-step__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 24px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  text-align: start;
+  color: var(--bc-at-text);
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.bc-step__row:hover {
+  background: var(--bc-at-row-hover);
+}
+.bc-step__row:focus-visible {
+  outline: 2px solid var(--bc-at-focus);
+  outline-offset: -2px;
+}
+.bc-step__row > * {
+  min-width: 0;
+}
+.bc-step__ic {
+  flex: none;
+  display: inline-flex;
+  color: var(--bc-at-muted);
+}
+.bc-step.is-failed .bc-step__ic {
+  color: var(--bc-at-err-text);
+}
+/* 运行中的那一步：类别图标换成 14px 的像素加载图形（PixelLoader 用 currentColor），放进与图标同尺寸的画布，换图标时这一行不动。 */
+.bc-step__loader {
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+/* 工作组标题前的像素图静止：S2 的 ResponseStatus 在 pending 时一定播 PixelLoader、没有暂停的开关，
+   去掉动画后像素格停在原位、整体不透明，就是一枚静止的图；动画只留在正在跑的那一步（.bc-step__loader）与回合页脚。 */
+.bc-steps-group h3 div[aria-hidden='true'][style*='-group-o'],
+.bc-steps-group h3 div[aria-hidden='true'][style*='-group-o'] > div {
+  animation: none !important;
+}
+.bc-step__label {
+  flex: none;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.bc-step__sum {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  color: var(--bc-at-muted);
+}
+.bc-step__meta {
+  flex: none;
+  font-size: 11px;
+  color: var(--bc-at-faint);
+  white-space: nowrap;
+}
+.bc-step.is-failed .bc-step__meta--code {
+  color: var(--bc-at-err-text);
+}
+.bc-step__chev {
+  flex: none;
+  display: inline-flex;
+  color: var(--bc-at-faint);
+}
+.bc-step__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 8px 30px;
+  min-width: 0;
+}
+.bc-step__sec {
+  border-radius: 8px;
+  background: var(--bc-at-pre-bg);
+  box-shadow: inset 0 0 0 1px var(--bc-at-line);
+  overflow: hidden;
+}
+.bc-step__sec header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  font-size: 11px;
+  color: var(--bc-at-muted);
+}
+.bc-step__sec pre {
+  max-height: 240px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+  padding: 4px 8px 8px;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.bc-step__sec--err {
+  background: var(--bc-at-err-bg);
+  box-shadow: inset 0 0 0 1px var(--bc-at-err-line);
+}
+.bc-step__sec--err header {
+  color: var(--bc-at-err-text);
+  font-weight: 600;
+}
+.bc-step__sec--err pre {
+  color: var(--bc-at-err-strong);
+}
+.bc-step__reasoning {
+  margin: 0;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--bc-at-muted);
+  white-space: pre-wrap;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.bc-step__none {
+  margin: 0;
+  padding: 0 8px;
+  font-size: 12px;
+  color: var(--bc-at-faint);
+}
+.bc-step__dl {
+  display: block;
+  padding: 0 4px;
+  border-radius: 4px;
+}
+.bc-step__dl--add {
+  background: var(--bc-at-add-bg);
+  color: var(--bc-at-add-text);
+}
+.bc-step__dl--del {
+  background: var(--bc-at-del-bg);
+  color: var(--bc-at-del-text);
+}
+.bc-step__dl--hunk {
+  color: var(--bc-at-hunk);
+}
+.bc-step__dl--meta {
+  color: var(--bc-at-faint);
+}
+/* 运行中还没有输出：3 行骨架。 */
+.bc-step__skel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 8px;
+}
+.bc-step__skel span {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bc-at-code-bg);
+}
+.bc-step__skel span:nth-child(1) {
+  width: 88%;
+}
+.bc-step__skel span:nth-child(2) {
+  width: 72%;
+}
+.bc-step__skel span:nth-child(3) {
+  width: 48%;
+}
+
+/* 运行中的扫光：渐变铺在文字上（background-clip: text）横向走，代替转圈。 */
+.bc-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--bc-at-shimmer) 0%,
+    var(--bc-at-shimmer) 40%,
+    var(--bc-at-shimmer-hi) 50%,
+    var(--bc-at-shimmer) 60%,
+    var(--bc-at-shimmer) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: bc-shimmer 1.6s linear infinite;
+}
+@keyframes bc-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bc-shimmer {
+    animation: none;
+    background-image: none;
+    color: var(--bc-at-shimmer);
+  }
+}
+
+/* ---------- 回合页脚 ---------- */
+.bc-turn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  padding-inline-start: 36px;
+  font-size: 12px;
+  color: var(--bc-at-faint);
+}
+.bc-turn--failed {
+  color: var(--bc-at-err-text);
+}
+.bc-turn__grow {
+  flex: 1 1 auto;
+}
+.bc-turn__live {
+  white-space: nowrap;
+}
+/* 运行中「正在工作」前的像素加载图形（PixelLoader 用 currentColor），与正文左边对齐，不进头像那一列。 */
+.bc-turn__loader {
+  flex: none;
+  color: var(--bc-at-muted);
+}
+/* 完成后的时长，hover 换成结束时刻；隐藏的 sizer 占住两种文案里较长的宽度，换字时不抖。 */
+.bc-turn__time {
+  position: relative;
+  display: inline-block;
+  white-space: nowrap;
+}
+.bc-turn__sizer {
+  visibility: hidden;
+}
+.bc-turn__spent,
+.bc-turn__at {
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+}
+.bc-turn__at {
+  visibility: hidden;
+}
+.bc-turn:hover .bc-turn__spent {
+  visibility: hidden;
+}
+.bc-turn:hover .bc-turn__at {
+  visibility: visible;
+}

@@ -1,0 +1,103 @@
+{
+  "id": "lowerThird.15",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "lowerThird",
+  "order": 315,
+  "duration": 3.28,
+  "content": [
+    {
+      "kind": "text",
+      "place": {
+        "x": 19.11,
+        "y": 64.9,
+        "w": 28.81
+      },
+      "text": "ROBERT\nHENDERSON",
+      "style": {
+        "backgroundColor": "#5544ccff",
+        "backgroundPadding": 6.1,
+        "backgroundStyle": "wrap",
+        "borderRadius": 0.0,
+        "fontColor": "#FFFFFF",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 24.3,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.05,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "slideR",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "slideL",
+          "dur": 0.65
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 13.76,
+        "y": 72.56,
+        "w": 18.98
+      },
+      "text": "LONDON, UK 2024",
+      "style": {
+        "backgroundColor": "#ffffffff",
+        "backgroundPadding": 2.8,
+        "backgroundStyle": "block",
+        "borderRadius": 0.0,
+        "fontColor": "#323232ff",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 11.1,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.0,
+        "letterSpacing": 0.0,
+        "textAlign": "center",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "delay": 0.01,
+      "animate": {
+        "enter": {
+          "preset": "slideR",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "slideL",
+          "dur": 0.83
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,554 @@
+{
+  "schema": "bcut-align-golden/1",
+  "project": "p130-what-is-an-agentic-harness",
+  "lang": "zh",
+  "cases": [
+    {
+      "id": "p130-zh-001",
+      "sentenceId": "s-g1.0",
+      "sourceWords": ["So", "Greg,", "I've", "just", "been", "wondering,", "I've", "been", "hearing", "so", "much", "talk", "recently", "about", "harnesses."],
+      "target": "格雷格，我一直在想，最近关于线束的讨论真不少。",
+      "tags": ["N:M", "omission", "proper-noun", "term"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 4]},
+        {"src": [2, 6], "tgt": [4, 10]},
+        {"src": [6, 15], "tgt": [10, 23]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p130-zh-002",
+      "sentenceId": "s-g2.0",
+      "sourceWords": ["What", "is", "a", "harness?"],
+      "target": "什么是线束？",
+      "tags": ["1:1", "N:1", "term"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 3]},
+        {"src": [2, 4], "tgt": [3, 6]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-zh-003",
+      "sentenceId": "s-g3.0",
+      "sourceWords": ["So", "when", "we", "talk", "about", "harness,", "we're", "talking", "about", "an", "agentic", "harness."],
+      "target": "所以当我们谈论线束时，我们指的是智能体线束。",
+      "tags": ["1:1", "N:M", "term"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 2]},
+        {"src": [1, 6], "tgt": [2, 11]},
+        {"src": [6, 12], "tgt": [11, 22]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p130-zh-004",
+      "sentenceId": "s-g4.0",
+      "sourceWords": ["That", "begs", "the", "question,", "what", "is", "an", "agent?"],
+      "target": "这就引出了一个问题：什么是智能体？",
+      "tags": ["N:1", "1:N", "term"],
+      "beads": [
+        {"src": [0, 4], "tgt": [0, 10]},
+        {"src": [4, 8], "tgt": [10, 17]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-zh-005",
+      "sentenceId": "s-g5.0",
+      "sourceWords": ["My", "favorite", "is", "Simon", "Williamson's", "definition."],
+      "target": "我最喜欢的是 Simon Williamson 的定义。",
+      "tags": ["proper-noun", "attributive-reorder", "1:1"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 7]},
+        {"src": [3, 5], "tgt": [7, 24]},
+        {"src": [5, 6], "tgt": [24, 28]}
+      ],
+      "hardAnchors": [
+        {"src": 3, "tgt": [7, 12]},
+        {"src": 4, "tgt": [13, 23]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p130-zh-006",
+      "sentenceId": "s-g6.0",
+      "sourceWords": ["An", "agent", "is", "an", "LLM", "with", "tools", "running", "in", "a", "loop", "to", "accomplish", "a"],
+      "target": "智能体就是一个 LLM，带着工具在循环里运行，以完成某个",
+      "tags": ["1:1", "term", "addition"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 5]},
+        {"src": [3, 5], "tgt": [5, 11]},
+        {"src": [5, 7], "tgt": [11, 16]},
+        {"src": [7, 11], "tgt": [16, 22]},
+        {"src": [11, 14], "tgt": [22, 28]}
+      ],
+      "hardAnchors": [
+        {"src": 4, "tgt": [8, 11]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 5}
+    },
+    {
+      "id": "p130-zh-007",
+      "sentenceId": "s-g7.0",
+      "sourceWords": ["The", "main", "thing", "a", "large", "language", "model", "does", "is", "next", "token", "prediction."],
+      "target": "大型语言模型主要做的是下一个词元预测。",
+      "tags": ["N:M", "attributive-reorder", "term"],
+      "beads": [
+        {"src": [0, 9], "tgt": [0, 11]},
+        {"src": [9, 12], "tgt": [11, 19]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-zh-008",
+      "sentenceId": "s-g8.0",
+      "sourceWords": ["You", "feed", "it", "a", "bunch", "of", "tokens", "or", "a", "bunch", "of", "words", "and", "it", "does", "fancy", "autocomplete", "to", "figure", "out", "what", "should", "complete", "that", "sentence", "or", "statement", "or", "a", "string", "of"],
+      "target": "你给它输入一堆词元或一堆单词，它会做花哨的自动补全，推测该如何补完那个句子、陈述，或者一串",
+      "tags": ["1:N", "N:1", "term", "addition"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 5]},
+        {"src": [3, 7], "tgt": [5, 9]},
+        {"src": [7, 12], "tgt": [9, 14]},
+        {"src": [12, 17], "tgt": [14, 25]},
+        {"src": [17, 20], "tgt": [25, 28]},
+        {"src": [20, 23], "tgt": [28, 33]},
+        {"src": [23, 25], "tgt": [33, 37]},
+        {"src": [25, 27], "tgt": [37, 40]},
+        {"src": [27, 31], "tgt": [40, 45]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 9}
+    },
+    {
+      "id": "p130-zh-009",
+      "sentenceId": "s-g10.0",
+      "sourceWords": ["We", "came", "up", "with", "function", "calling."],
+      "target": "我们提出了函数调用。",
+      "tags": ["N:1", "term"],
+      "beads": [
+        {"src": [0, 4], "tgt": [0, 5]},
+        {"src": [4, 6], "tgt": [5, 10]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-zh-010",
+      "sentenceId": "s-g11.0",
+      "sourceWords": ["And", "so", "the", "idea", "here", "was", "that", "you", "could", "sort", "of", "prime", "the", "LLM", "and", "you", "could", "say,", "hey,", "I", "have", "these", "functions", "that", "you", "can", "run."],
+      "target": "这里的想法是，你可以预先设定好 LLM，然后对它说，嘿，我有这些你可以运行的函数。",
+      "tags": ["attributive-reorder", "omission", "N:M", "term"],
+      "beads": [
+        {"src": [0, 6], "tgt": [0, 6]},
+        {"src": [6, 14], "tgt": [6, 19]},
+        {"src": [14, 19], "tgt": [19, 28]},
+        {"src": [19, 21], "tgt": [28, 30]},
+        {"src": [21, 27], "tgt": [30, 41]}
+      ],
+      "hardAnchors": [
+        {"src": 13, "tgt": [16, 19]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 5}
+    },
+    {
+      "id": "p130-zh-011",
+      "sentenceId": "s-g13.0",
+      "sourceWords": ["The", "function", "signature", "looks", "like", "this."],
+      "target": "函数签名是这样的。",
+      "tags": ["1:1", "N:1", "term"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 4]},
+        {"src": [3, 6], "tgt": [4, 9]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-zh-012",
+      "sentenceId": "s-g14.0",
+      "sourceWords": ["You", "pass", "it", "these", "parameters."],
+      "target": "你向它传递这些参数。",
+      "tags": ["1:1", "N:1"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 1]},
+        {"src": [1, 3], "tgt": [1, 5]},
+        {"src": [3, 5], "tgt": [5, 10]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p130-zh-013",
+      "sentenceId": "s-g15.0",
+      "sourceWords": ["Those", "functions", "could", "do", "all", "sorts", "of", "things,", "right?"],
+      "target": "这些函数可以做各种各样的事情，对吧？",
+      "tags": ["1:1", "1:N", "N:1"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 4]},
+        {"src": [2, 4], "tgt": [4, 7]},
+        {"src": [4, 8], "tgt": [7, 15]},
+        {"src": [8, 9], "tgt": [15, 18]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 4}
+    },
+    {
+      "id": "p130-zh-014",
+      "sentenceId": "s-g16.0",
+      "sourceWords": ["But", "generally", "speaking,", "what", "you're", "doing", "is", "using", "these", "functions", "or", "tools", "to", "go", "grab", "context", "that's", "external", "to", "the", "LLM", "and", "then", "to", "feed", "that", "context", "into", "the", "context", "of", "your", "conversation", "with", "the", "LLM", "so", "that", "it", "can", "augment", "its", "response."],
+      "target": "但一般来说，你在做的是利用这些函数或工具，去抓取 LLM 之外的上下文，然后把那些上下文喂进你与 LLM 的对话上下文里，好让它增强自己的回答。",
+      "tags": ["N:M", "attributive-reorder", "term", "1:N"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 6]},
+        {"src": [3, 7], "tgt": [6, 11]},
+        {"src": [7, 12], "tgt": [11, 21]},
+        {"src": [12, 15], "tgt": [21, 25]},
+        {"src": [15, 21], "tgt": [25, 35]},
+        {"src": [21, 24], "tgt": [35, 38]},
+        {"src": [24, 27], "tgt": [38, 45]},
+        {"src": [27, 36], "tgt": [45, 60]},
+        {"src": [36, 43], "tgt": [60, 72]}
+      ],
+      "hardAnchors": [
+        {"src": 20, "tgt": [25, 28]},
+        {"src": 35, "tgt": [49, 52]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 9}
+    },
+    {
+      "id": "p130-zh-015",
+      "sentenceId": "s-g19.0",
+      "sourceWords": ["That's", "the", "tool", "portion."],
+      "target": "这就是工具的部分。",
+      "tags": ["1:1", "N:1", "term"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 3]},
+        {"src": [2, 4], "tgt": [3, 9]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-zh-016",
+      "sentenceId": "s-g21.0",
+      "sourceWords": ["And", "then", "there's", "this", "portion", "of", "running", "in", "a", "loop,", "right?"],
+      "target": "然后还有循环运行的这一部分，对吧？",
+      "tags": ["attributive-reorder", "N:M"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 4]},
+        {"src": [3, 10], "tgt": [4, 14]},
+        {"src": [10, 11], "tgt": [14, 17]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p130-zh-017",
+      "sentenceId": "s-g22.0",
+      "sourceWords": ["So", "it's", "not", "just", "a", "one", "for", "one."],
+      "target": "所以它并不只是一对一。",
+      "tags": ["negation", "number", "1:1", "N:1"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 2]},
+        {"src": [1, 4], "tgt": [2, 7]},
+        {"src": [4, 8], "tgt": [7, 11]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p130-zh-018",
+      "sentenceId": "s-g23.0",
+      "sourceWords": ["There's", "some", "mechanism", "there", "where", "we", "are", "programmatically", "evaluating", "the", "output", "of", "the", "large", "language", "model", "to", "determine,", "is", "it", "done?"],
+      "target": "那里有某种机制，我们通过程序评估大型语言模型的输出，来判断它是否完成了？",
+      "tags": ["attributive-reorder", "N:M", "term"],
+      "beads": [
+        {"src": [0, 4], "tgt": [0, 7]},
+        {"src": [4, 7], "tgt": [7, 10]},
+        {"src": [7, 9], "tgt": [10, 16]},
+        {"src": [9, 16], "tgt": [16, 25]},
+        {"src": [16, 18], "tgt": [25, 29]},
+        {"src": [18, 21], "tgt": [29, 36]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 6}
+    },
+    {
+      "id": "p130-zh-019",
+      "sentenceId": "s-g25.0",
+      "sourceWords": ["Has", "it", "reached", "the", "goal?"],
+      "target": "它达到目标了吗？",
+      "tags": ["N:1", "1:1"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 3]},
+        {"src": [3, 5], "tgt": [3, 8]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-zh-020",
+      "sentenceId": "s-g26.0",
+      "sourceWords": ["And", "if", "it's", "not,", "then", "we", "feed", "it", "more", "instructions", "programmatically", "and", "then", "we", "have", "it", "just", "run", "in", "that"],
+      "target": "如果没有，我们就通过程序给它更多指令，然后让它继续跑在那个",
+      "tags": ["negation", "causal-inversion", "N:M", "omission"],
+      "beads": [
+        {"src": [0, 4], "tgt": [0, 5]},
+        {"src": [4, 6], "tgt": [5, 8]},
+        {"src": [6, 11], "tgt": [8, 18]},
+        {"src": [11, 14], "tgt": [18, 21]},
+        {"src": [14, 20], "tgt": [21, 29]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 5}
+    },
+    {
+      "id": "p130-zh-021",
+      "sentenceId": "s-g28.0",
+      "sourceWords": ["Those", "are", "the", "portions", "of", "like,", "what", "is", "an", "agent?"],
+      "target": "这些就是“什么是智能体”的组成部分。",
+      "tags": ["attributive-reorder", "N:M", "omission"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 4]},
+        {"src": [2, 10], "tgt": [4, 18]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-zh-022",
+      "sentenceId": "s-g29.0",
+      "sourceWords": ["And", "my", "definition", "of", "an", "agentic", "harness,", "the", "harness", "is", "everything", "after", "the", "LLM."],
+      "target": "我对智能体线束的定义是：线束就是 LLM 之后的一切。",
+      "tags": ["attributive-reorder", "N:M", "term"],
+      "beads": [
+        {"src": [0, 7], "tgt": [0, 12]},
+        {"src": [7, 10], "tgt": [12, 17]},
+        {"src": [10, 14], "tgt": [17, 27]}
+      ],
+      "hardAnchors": [
+        {"src": 13, "tgt": [17, 20]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p130-zh-023",
+      "sentenceId": "s-g30.0",
+      "sourceWords": ["The", "harness", "is", "how", "do", "you", "give", "it", "tools?"],
+      "target": "线束就是你如何给它工具。",
+      "tags": ["N:M", "term", "1:1"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 4]},
+        {"src": [3, 9], "tgt": [4, 12]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-zh-024",
+      "sentenceId": "s-g31.0",
+      "sourceWords": ["The", "harness", "is", "what", "programming", "do", "you", "have", "that's", "running", "it", "in", "the", "loop?"],
+      "target": "线束就是你有什么程序在循环里运行它。",
+      "tags": ["hard-negative", "N:M", "term"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 4]},
+        {"src": [3, 8], "tgt": [4, 10]},
+        {"src": [8, 14], "tgt": [10, 18]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3, "hardNegativeOf": "p130-zh-023"}
+    },
+    {
+      "id": "p130-zh-025",
+      "sentenceId": "s-g32.0",
+      "sourceWords": ["What", "programming", "do", "you", "have", "that", "is", "evaluating", "the", "output", "of", "the", "LLM", "to", "determine", "if", "it", "completed", "its", "task", "or", "not?"],
+      "target": "你有什么程序在评估 LLM 的输出，来判断它是否完成了任务？",
+      "tags": ["hard-negative", "attributive-reorder", "negation", "term", "N:M"],
+      "beads": [
+        {"src": [0, 5], "tgt": [0, 6]},
+        {"src": [5, 8], "tgt": [6, 10]},
+        {"src": [8, 13], "tgt": [10, 17]},
+        {"src": [13, 15], "tgt": [17, 21]},
+        {"src": [15, 22], "tgt": [21, 30]}
+      ],
+      "hardAnchors": [
+        {"src": 12, "tgt": [10, 13]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 5, "hardNegativeOf": "p130-zh-024"}
+    },
+    {
+      "id": "p130-zh-026",
+      "sentenceId": "s-g34.0",
+      "sourceWords": ["And", "all", "of", "that", "infrastructure,", "which", "doesn't", "have", "to", "be", "a", "lot,", "but", "that", "is", "the", "agentic", "harness."],
+      "target": "而所有这些基础设施——不一定要很多——就是智能体线束。",
+      "tags": ["negation", "attributive-reorder", "omission", "term"],
+      "beads": [
+        {"src": [0, 5], "tgt": [0, 11]},
+        {"src": [5, 12], "tgt": [11, 19]},
+        {"src": [12, 18], "tgt": [19, 27]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p130-zh-027",
+      "sentenceId": "s-g35.0",
+      "sourceWords": ["All", "that", "stuff", "you", "put", "around", "an", "LLM", "to", "turn", "it", "into", "an", "agent."],
+      "target": "你围绕 LLM 放置的所有东西，把它变成一个智能体。",
+      "tags": ["attributive-reorder", "N:M", "term"],
+      "beads": [
+        {"src": [0, 8], "tgt": [0, 16]},
+        {"src": [8, 14], "tgt": [16, 26]}
+      ],
+      "hardAnchors": [
+        {"src": 7, "tgt": [4, 7]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-zh-028",
+      "sentenceId": "s-g36.0",
+      "sourceWords": ["That", "makes", "so", "much", "sense", "because", "I", "had", "been", "thinking", "of", "the", "harness", "as", "like,", "it's", "like", "the", "IDE", "or", "it's", "like", "what's", "running", "your", "agent,", "but", "it", "sounds", "like", "your", "definition", "is", "lower", "level", "of", "that."],
+      "target": "这太说得通了，因为我一直把线束想成像 IDE，或者像运行你的智能体的东西，但听起来你的定义比那更底层。",
+      "tags": ["causal-inversion", "attributive-reorder", "proper-noun", "N:M"],
+      "beads": [
+        {"src": [0, 5], "tgt": [0, 7]},
+        {"src": [5, 15], "tgt": [7, 17]},
+        {"src": [15, 19], "tgt": [17, 23]},
+        {"src": [19, 26], "tgt": [23, 37]},
+        {"src": [26, 30], "tgt": [37, 41]},
+        {"src": [30, 37], "tgt": [41, 51]}
+      ],
+      "hardAnchors": [
+        {"src": 18, "tgt": [19, 22]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 6}
+    },
+    {
+      "id": "p130-zh-029",
+      "sentenceId": "s-g38.0",
+      "sourceWords": ["If", "you", "think", "about", "the", "most", "popular", "agentic", "harnesses", "today,", "so", "like", "a", "Claude", "code", "or", "an", "anti-gravity", "or", "a", "Codex,", "right?"],
+      "target": "如果你想想当今最流行的智能体线束，比如 Claude Code、Antigravity 或者 Codex，对吧？",
+      "tags": ["proper-noun", "attributive-reorder", "N:M", "term"],
+      "beads": [
+        {"src": [0, 4], "tgt": [0, 5]},
+        {"src": [4, 10], "tgt": [5, 17]},
+        {"src": [10, 12], "tgt": [17, 20]},
+        {"src": [12, 15], "tgt": [20, 31]},
+        {"src": [15, 18], "tgt": [31, 43]},
+        {"src": [18, 21], "tgt": [43, 53]},
+        {"src": [21, 22], "tgt": [53, 56]}
+      ],
+      "hardAnchors": [
+        {"src": 13, "tgt": [20, 26]},
+        {"src": 20, "tgt": [47, 52]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 7}
+    },
+    {
+      "id": "p130-zh-030",
+      "sentenceId": "s-g41.0",
+      "sourceWords": ["So", "I", "think", "it's", "really", "interesting", "that", "if", "you", "decouple", "the", "harness", "from", "the", "interface,", "you're", "saying", "the", "important", "piece", "here", "is", "how", "we", "control", "the", "logic", "and", "the", "behavior", "of", "the", "LLM."],
+      "target": "所以我觉得很有意思：如果你把线束和接口解耦，你是在说这里重要的部分是我们如何控制 LLM 的逻辑和行为。",
+      "tags": ["causal-inversion", "attributive-reorder", "N:M", "term"],
+      "beads": [
+        {"src": [0, 7], "tgt": [0, 10]},
+        {"src": [7, 15], "tgt": [10, 22]},
+        {"src": [15, 17], "tgt": [22, 26]},
+        {"src": [17, 22], "tgt": [26, 34]},
+        {"src": [22, 25], "tgt": [34, 41]},
+        {"src": [25, 33], "tgt": [41, 52]}
+      ],
+      "hardAnchors": [
+        {"src": 32, "tgt": [41, 44]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 6}
+    },
+    {
+      "id": "p130-zh-031",
+      "sentenceId": "s-g46.0",
+      "sourceWords": ["There's", "probably", "actually", "a", "lot", "of", "use", "cases", "where", "you", "don't", "even", "need", "a", "user", "interface."],
+      "target": "实际上可能有很多用例，你甚至根本不需要用户界面。",
+      "tags": ["negation", "N:M", "attributive-reorder"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 6]},
+        {"src": [3, 8], "tgt": [6, 11]},
+        {"src": [8, 13], "tgt": [11, 19]},
+        {"src": [13, 16], "tgt": [19, 24]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 4}
+    },
+    {
+      "id": "p130-zh-032",
+      "sentenceId": "s-g47.0",
+      "sourceWords": ["You", "just", "need", "a", "programmatic", "interface", "to", "the", "agent,", "like", "an", "autonomous", "agent."],
+      "target": "你只需要一个通往智能体的程序化接口，比如自主智能体。",
+      "tags": ["attributive-reorder", "N:M", "term"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 4]},
+        {"src": [3, 9], "tgt": [4, 18]},
+        {"src": [9, 13], "tgt": [18, 26]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p130-zh-033",
+      "sentenceId": "s-g48.0",
+      "sourceWords": ["And", "then", "coding,", "your", "interface", "is", "going", "to", "look", "different", "than", "it", "is", "with", "a", "consumer", "chat", "app."],
+      "target": "然后在编码场景里，你的接口会和消费级聊天应用中的不一样。",
+      "tags": ["N:M", "negation", "addition"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 9]},
+        {"src": [3, 5], "tgt": [9, 13]},
+        {"src": [5, 18], "tgt": [13, 28]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p130-zh-034",
+      "sentenceId": "s-g49.0",
+      "sourceWords": ["But", "it", "might", "be", "the", "same", "agentic", "harness", "powering", "all", "those", "interactions."],
+      "target": "但驱动所有这些交互的，可能是同一个智能体线束。",
+      "tags": ["attributive-reorder", "N:M", "term"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 1]},
+        {"src": [1, 12], "tgt": [1, 23]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-zh-035",
+      "sentenceId": "s-g50.1",
+      "sourceWords": ["Thank", "you", "so", "much."],
+      "target": "非常感谢你。",
+      "tags": ["1:1", "N:1"],
+      "beads": [
+        {"src": [0, 4], "tgt": [0, 6]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 1}
+    },
+    {
+      "id": "p130-zh-036",
+      "sentenceId": "s-g51.0",
+      "sourceWords": ["Thank", "you."],
+      "target": "谢谢你。",
+      "tags": ["hard-negative", "N:1"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 4]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 1, "hardNegativeOf": "p130-zh-035"}
+    }
+  ]
+}

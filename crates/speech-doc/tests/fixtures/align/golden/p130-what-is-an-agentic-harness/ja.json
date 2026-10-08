@@ -1,0 +1,431 @@
+{
+  "schema": "bcut-align-golden/1",
+  "project": "p130-what-is-an-agentic-harness",
+  "lang": "ja",
+  "cases": [
+    {
+      "id": "p130-ja-001",
+      "sentenceId": "s-g1.0",
+      "sourceWords": ["So", "Greg,", "I've", "just", "been", "wondering,", "I've", "been", "hearing", "so", "much", "talk", "recently", "about", "harnesses."],
+      "target": "グレッグ、ずっと気になっていたんですが、最近ハーネスの話をよく耳にします。",
+      "tags": ["N:M", "omission", "proper-noun", "attributive-reorder"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 5]},
+        {"src": [2, 6], "tgt": [5, 20]},
+        {"src": [6, 15], "tgt": [20, 37]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p130-ja-002",
+      "sentenceId": "s-g2.0",
+      "sourceWords": ["What", "is", "a", "harness?"],
+      "target": "ハーネスとは何でしょうか？",
+      "tags": ["N:M", "term"],
+      "beads": [
+        {"src": [0, 4], "tgt": [0, 13]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 1}
+    },
+    {
+      "id": "p130-ja-003",
+      "sentenceId": "s-g3.0",
+      "sourceWords": ["So", "when", "we", "talk", "about", "harness,", "we're", "talking", "about", "an", "agentic", "harness."],
+      "target": "ハーネスと言うとき、私たちはエージェント型ハーネスのことを指しています。",
+      "tags": ["N:M", "term", "omission"],
+      "beads": [
+        {"src": [0, 6], "tgt": [0, 10]},
+        {"src": [6, 12], "tgt": [10, 36]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-ja-004",
+      "sentenceId": "s-g4.0",
+      "sourceWords": ["That", "begs", "the", "question,", "what", "is", "an", "agent?"],
+      "target": "そこで疑問が生じます。エージェントとは何でしょうか？",
+      "tags": ["N:M", "term"],
+      "beads": [
+        {"src": [0, 4], "tgt": [0, 11]},
+        {"src": [4, 8], "tgt": [11, 26]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-ja-005",
+      "sentenceId": "s-g5.0",
+      "sourceWords": ["My", "favorite", "is", "Simon", "Williamson's", "definition."],
+      "target": "私のお気に入りは Simon Williamson の定義です。",
+      "tags": ["proper-noun", "N:M", "attributive-reorder"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 9]},
+        {"src": [2, 6], "tgt": [9, 32]}
+      ],
+      "hardAnchors": [
+        {"src": 3, "tgt": [9, 14]},
+        {"src": 4, "tgt": [15, 25]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-ja-006",
+      "sentenceId": "s-g6.0",
+      "sourceWords": ["An", "agent", "is", "an", "LLM", "with", "tools", "running", "in", "a", "loop", "to", "accomplish", "a"],
+      "target": "エージェントとは、目標を達成するためにループの中でツールを使って動く LLM のことです。",
+      "tags": ["attributive-reorder", "N:M", "term"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 9]},
+        {"src": [3, 14], "tgt": [9, 45]}
+      ],
+      "hardAnchors": [
+        {"src": 4, "tgt": [35, 38]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-ja-007",
+      "sentenceId": "s-g7.0",
+      "sourceWords": ["The", "main", "thing", "a", "large", "language", "model", "does", "is", "next", "token", "prediction."],
+      "target": "大規模言語モデルが主に行うのは、次のトークンの予測です。",
+      "tags": ["attributive-reorder", "N:M", "term"],
+      "beads": [
+        {"src": [0, 9], "tgt": [0, 16]},
+        {"src": [9, 12], "tgt": [16, 28]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-ja-008",
+      "sentenceId": "s-g8.0",
+      "sourceWords": ["You", "feed", "it", "a", "bunch", "of", "tokens", "or", "a", "bunch", "of", "words", "and", "it", "does", "fancy", "autocomplete", "to", "figure", "out", "what", "should", "complete", "that", "sentence", "or", "statement", "or", "a", "string", "of"],
+      "target": "たくさんのトークンや単語を入力すると、高度なオートコンプリートによって、その文や記述、あるいは一連の",
+      "tags": ["1:N", "N:M", "omission", "term"],
+      "beads": [
+        {"src": [0, 12], "tgt": [0, 19]},
+        {"src": [12, 20], "tgt": [19, 36]},
+        {"src": [20, 25], "tgt": [36, 39]},
+        {"src": [25, 27], "tgt": [39, 43]},
+        {"src": [27, 31], "tgt": [43, 50]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 5}
+    },
+    {
+      "id": "p130-ja-009",
+      "sentenceId": "s-g10.0",
+      "sourceWords": ["We", "came", "up", "with", "function", "calling."],
+      "target": "私たちは関数呼び出しを考え出しました。",
+      "tags": ["N:M", "term"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 4]},
+        {"src": [1, 6], "tgt": [4, 19]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-ja-010",
+      "sentenceId": "s-g11.0",
+      "sourceWords": ["And", "so", "the", "idea", "here", "was", "that", "you", "could", "sort", "of", "prime", "the", "LLM", "and", "you", "could", "say,", "hey,", "I", "have", "these", "functions", "that", "you", "can", "run."],
+      "target": "ここでの発想は、LLM にあらかじめ指示を与えて、こう言えるというものでした。ねえ、あなたが実行できる関数がいくつかあります。",
+      "tags": ["attributive-reorder", "N:M", "term"],
+      "beads": [
+        {"src": [0, 6], "tgt": [0, 8]},
+        {"src": [6, 14], "tgt": [8, 25]},
+        {"src": [14, 18], "tgt": [25, 39]},
+        {"src": [18, 19], "tgt": [39, 42]},
+        {"src": [19, 27], "tgt": [42, 63]}
+      ],
+      "hardAnchors": [
+        {"src": 13, "tgt": [8, 11]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 5}
+    },
+    {
+      "id": "p130-ja-011",
+      "sentenceId": "s-g13.0",
+      "sourceWords": ["The", "function", "signature", "looks", "like", "this."],
+      "target": "関数のシグネチャはこのようになります。",
+      "tags": ["1:1", "N:1", "term"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 9]},
+        {"src": [3, 6], "tgt": [9, 19]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-ja-012",
+      "sentenceId": "s-g14.0",
+      "sourceWords": ["You", "pass", "it", "these", "parameters."],
+      "target": "これらのパラメータを渡します。",
+      "tags": ["omission", "N:M"],
+      "beads": [
+        {"src": [0, 5], "tgt": [0, 15]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 1}
+    },
+    {
+      "id": "p130-ja-013",
+      "sentenceId": "s-g15.0",
+      "sourceWords": ["Those", "functions", "could", "do", "all", "sorts", "of", "things,", "right?"],
+      "target": "それらの関数はあらゆることができますよね？",
+      "tags": ["1:1", "N:M"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 7]},
+        {"src": [2, 8], "tgt": [7, 18]},
+        {"src": [8, 9], "tgt": [18, 21]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p130-ja-014",
+      "sentenceId": "s-g19.0",
+      "sourceWords": ["That's", "the", "tool", "portion."],
+      "target": "それがツールの部分です。",
+      "tags": ["1:1", "term"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 3]},
+        {"src": [1, 4], "tgt": [3, 12]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-ja-015",
+      "sentenceId": "s-g21.0",
+      "sourceWords": ["And", "then", "there's", "this", "portion", "of", "running", "in", "a", "loop,", "right?"],
+      "target": "そして、ループで実行するというこの部分があります、ですよね？",
+      "tags": ["attributive-reorder", "N:M"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 4]},
+        {"src": [2, 10], "tgt": [4, 25]},
+        {"src": [10, 11], "tgt": [25, 30]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p130-ja-016",
+      "sentenceId": "s-g22.0",
+      "sourceWords": ["So", "it's", "not", "just", "a", "one", "for", "one."],
+      "target": "つまり、単なる一対一ではありません。",
+      "tags": ["negation", "number", "N:M"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 4]},
+        {"src": [1, 8], "tgt": [4, 18]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-ja-017",
+      "sentenceId": "s-g23.0",
+      "sourceWords": ["There's", "some", "mechanism", "there", "where", "we", "are", "programmatically", "evaluating", "the", "output", "of", "the", "large", "language", "model", "to", "determine,", "is", "it", "done?"],
+      "target": "そこには何らかの仕組みがあり、大規模言語モデルの出力をプログラム的に評価して、完了したかどうかを判断します。",
+      "tags": ["attributive-reorder", "N:M", "term"],
+      "beads": [
+        {"src": [0, 4], "tgt": [0, 15]},
+        {"src": [4, 16], "tgt": [15, 39]},
+        {"src": [16, 21], "tgt": [39, 54]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p130-ja-018",
+      "sentenceId": "s-g25.0",
+      "sourceWords": ["Has", "it", "reached", "the", "goal?"],
+      "target": "目標に到達したでしょうか？",
+      "tags": ["N:M", "omission"],
+      "beads": [
+        {"src": [0, 5], "tgt": [0, 13]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 1}
+    },
+    {
+      "id": "p130-ja-019",
+      "sentenceId": "s-g26.0",
+      "sourceWords": ["And", "if", "it's", "not,", "then", "we", "feed", "it", "more", "instructions", "programmatically", "and", "then", "we", "have", "it", "just", "run", "in", "that"],
+      "target": "もしそうでなければ、プログラム的にさらに指示を与えて、そのループの中で実行させ続けます。",
+      "tags": ["causal-inversion", "negation", "N:M", "omission"],
+      "beads": [
+        {"src": [0, 5], "tgt": [0, 10]},
+        {"src": [5, 11], "tgt": [10, 27]},
+        {"src": [11, 20], "tgt": [27, 44]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p130-ja-020",
+      "sentenceId": "s-g28.0",
+      "sourceWords": ["Those", "are", "the", "portions", "of", "like,", "what", "is", "an", "agent?"],
+      "target": "以上が「エージェントとは何か」という部分です。",
+      "tags": ["attributive-reorder", "N:M", "term"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 3]},
+        {"src": [2, 10], "tgt": [3, 23]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-ja-021",
+      "sentenceId": "s-g29.0",
+      "sourceWords": ["And", "my", "definition", "of", "an", "agentic", "harness,", "the", "harness", "is", "everything", "after", "the", "LLM."],
+      "target": "そして私のエージェント型ハーネスの定義では、ハーネスとは LLM の後にあるすべてです。",
+      "tags": ["attributive-reorder", "term", "N:M"],
+      "beads": [
+        {"src": [0, 7], "tgt": [0, 22]},
+        {"src": [7, 10], "tgt": [22, 29]},
+        {"src": [10, 14], "tgt": [29, 44]}
+      ],
+      "hardAnchors": [
+        {"src": 13, "tgt": [29, 32]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p130-ja-022",
+      "sentenceId": "s-g30.0",
+      "sourceWords": ["The", "harness", "is", "how", "do", "you", "give", "it", "tools?"],
+      "target": "ハーネスとは、どうやってツールを与えるかということです。",
+      "tags": ["N:M", "term"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 7]},
+        {"src": [3, 9], "tgt": [7, 28]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-ja-023",
+      "sentenceId": "s-g31.0",
+      "sourceWords": ["The", "harness", "is", "what", "programming", "do", "you", "have", "that's", "running", "it", "in", "the", "loop?"],
+      "target": "ハーネスとは、ループで実行させるためにどんなプログラムを持っているかということです。",
+      "tags": ["hard-negative", "N:M", "term"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 7]},
+        {"src": [3, 14], "tgt": [7, 42]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2, "hardNegativeOf": "p130-ja-022"}
+    },
+    {
+      "id": "p130-ja-024",
+      "sentenceId": "s-g34.0",
+      "sourceWords": ["And", "all", "of", "that", "infrastructure,", "which", "doesn't", "have", "to", "be", "a", "lot,", "but", "that", "is", "the", "agentic", "harness."],
+      "target": "そして、そうしたインフラのすべては、多くある必要はありませんが、それこそがエージェント型ハーネスです。",
+      "tags": ["negation", "attributive-reorder", "term", "N:M"],
+      "beads": [
+        {"src": [0, 5], "tgt": [0, 18]},
+        {"src": [5, 12], "tgt": [18, 32]},
+        {"src": [12, 18], "tgt": [32, 51]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p130-ja-025",
+      "sentenceId": "s-g35.0",
+      "sourceWords": ["All", "that", "stuff", "you", "put", "around", "an", "LLM", "to", "turn", "it", "into", "an", "agent."],
+      "target": "LLM をエージェントに変えるために、その周りに置くすべてのものです。",
+      "tags": ["N:M", "attributive-reorder", "term"],
+      "beads": [
+        {"src": [0, 14], "tgt": [0, 35]}
+      ],
+      "hardAnchors": [
+        {"src": 7, "tgt": [0, 3]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 1}
+    },
+    {
+      "id": "p130-ja-026",
+      "sentenceId": "s-g38.0",
+      "sourceWords": ["If", "you", "think", "about", "the", "most", "popular", "agentic", "harnesses", "today,", "so", "like", "a", "Claude", "code", "or", "an", "anti-gravity", "or", "a", "Codex,", "right?"],
+      "target": "もし今日最も人気のあるエージェント型ハーネス、たとえば Claude Code や Antigravity、Codex などを考えてみると、どうですか？",
+      "tags": ["proper-noun", "attributive-reorder", "N:M", "term"],
+      "beads": [
+        {"src": [0, 22], "tgt": [0, 76]}
+      ],
+      "hardAnchors": [
+        {"src": 13, "tgt": [28, 34]},
+        {"src": 20, "tgt": [54, 59]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 1}
+    },
+    {
+      "id": "p130-ja-027",
+      "sentenceId": "s-g46.0",
+      "sourceWords": ["There's", "probably", "actually", "a", "lot", "of", "use", "cases", "where", "you", "don't", "even", "need", "a", "user", "interface."],
+      "target": "実際には、ユーザーインターフェースすら必要ない使用例がおそらくたくさんあります。",
+      "tags": ["negation", "attributive-reorder", "N:M"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 5]},
+        {"src": [3, 16], "tgt": [5, 40]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-ja-028",
+      "sentenceId": "s-g48.0",
+      "sourceWords": ["And", "then", "coding,", "your", "interface", "is", "going", "to", "look", "different", "than", "it", "is", "with", "a", "consumer", "chat", "app."],
+      "target": "そしてコーディングでは、インターフェースは一般消費者向けチャットアプリの場合とは違ったものになります。",
+      "tags": ["attributive-reorder", "N:M", "omission"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 12]},
+        {"src": [3, 5], "tgt": [12, 21]},
+        {"src": [5, 18], "tgt": [21, 51]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p130-ja-029",
+      "sentenceId": "s-g49.0",
+      "sourceWords": ["But", "it", "might", "be", "the", "same", "agentic", "harness", "powering", "all", "those", "interactions."],
+      "target": "しかし、それらすべてのやり取りを支えているのは、同じエージェント型ハーネスかもしれません。",
+      "tags": ["attributive-reorder", "N:M", "term"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 4]},
+        {"src": [1, 12], "tgt": [4, 45]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p130-ja-030",
+      "sentenceId": "s-g50.1",
+      "sourceWords": ["Thank", "you", "so", "much."],
+      "target": "本当にありがとうございます。",
+      "tags": ["N:1", "1:1"],
+      "beads": [
+        {"src": [0, 4], "tgt": [0, 14]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 1}
+    },
+    {
+      "id": "p130-ja-031",
+      "sentenceId": "s-g51.0",
+      "sourceWords": ["Thank", "you."],
+      "target": "ありがとうございます。",
+      "tags": ["hard-negative", "N:1"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 11]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 1, "hardNegativeOf": "p130-ja-030"}
+    }
+  ]
+}

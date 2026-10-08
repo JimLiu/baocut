@@ -1,0 +1,25 @@
+import type { JobsSpeakersMessages } from './speakers.ts';
+
+export const it: JobsSpeakersMessages = {
+  label: "Identifica parlanti",
+  description: "Distingue i parlanti di una trascrizione esistente nel video in base alla voce (modello locale, senza ritrascrizione). Il risultato è una proposta; dopo la conferma, applicala con edits.applySpeakers.",
+  stepDiarize: "Distingui i parlanti",
+  stepPropose: "Organizza risultati",
+  videoNotOpen: "Il video non è aperto",
+  notFromAsset: "Questa trascrizione non appartiene a un materiale del video, quindi non è possibile distinguere i parlanti in base alla voce",
+  modelMissing: "Questo computer non ha un modello di diarizzazione dei parlanti",
+  modelNotInstalled: "Il modello di diarizzazione dei parlanti non è ancora installato. Scaricalo prima.",
+  transcriptUnreadable: "Impossibile leggere la trascrizione",
+  videoClosed: "Il video è stato chiuso",
+  transcriptGone: "La trascrizione non è più nel video",
+  noWords: "La trascrizione non ha parole",
+  untimedWords: "La trascrizione ha parole senza tempi, quindi non è possibile distinguere i parlanti in base alla voce",
+  sourceMissing: "Impossibile trovare il file di origine del materiale",
+  hashMismatch: "L’hash di speakers.json non corrisponde a quello segnalato dal Worker",
+  wordCountMismatch: "speakers.json non ha lo stesso numero di parole della trascrizione",
+  transcriptChanged: "La trascrizione è cambiata dopo l’identificazione dei parlanti. Identifica di nuovo i parlanti.",
+  translationChanged: "Una traduzione è cambiata dopo l’identificazione dei parlanti. Identifica di nuovo i parlanti.",
+  unknownSpeaker: "Questo parlante non è nella proposta",
+  nameInvalid: (p: { max: number }) => `I nomi dei parlanti non possono essere vuoti e possono contenere al massimo ${p.max} caratteri`,
+  applyFailed: "Impossibile applicare la proposta",
+};

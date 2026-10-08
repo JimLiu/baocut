@@ -1,0 +1,27 @@
+[package]
+name = "export-worker"
+description = "BaoCut 的 Render Worker（架构设计 §9.13、§13.1）：独立进程，按冻结的导出输入逐帧求计划、合成并交给 ffmpeg 编码；可取消，进度走 stdout 的 JSON 行"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "export-worker"
+path = "src/main.rs"
+
+[dependencies]
+audio-dsp.workspace = true
+editor-semantics.workspace = true
+font-files.workspace = true
+media-core.workspace = true
+frame-render = { workspace = true, features = ["host"] }
+render-graph.workspace = true
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sha2 = "0.11.0"
+tiny-skia = { version = "0.11.4", default-features = false, features = ["std", "simd"] }
+video-model.workspace = true
+
+[dev-dependencies]
+tempfile = "3.27.0"

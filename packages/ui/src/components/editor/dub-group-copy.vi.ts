@@ -1,0 +1,5 @@
+import type { DubGroupMessages } from './dub-group-copy.ts';
+
+export const vi: DubGroupMessages = {
+track: 'Hiện rãnh này trên dòng thời gian', trackGone: 'Nhóm lồng tiếng này không còn trên dòng thời gian', regen: (n) => `Tạo lại ${n} câu…`, regenNote: 'Câu chưa tổng hợp hoặc không vừa · xem lại, sửa bản dịch nếu cần rồi chỉ làm lại những câu này', download: 'Tải nhóm', downloadNote: 'Chưa tải được cả nhóm; để lấy bản trộn nhóm này, chọn “Chỉ nhóm lồng tiếng này” khi xuất âm thanh', redub: 'Làm lại ngôn ngữ này', redubNote: 'Mở Lồng tiếng bản dịch', remove: 'Gỡ nhóm lồng tiếng này', removeNote: 'Gỡ clip nhóm khỏi dòng thời gian và khôi phục âm thanh gốc; có thể hoàn tác. Giữ rãnh lồng tiếng trống và kế hoạch', removeLoading: 'Đang tải kế hoạch lồng tiếng…', readOnly: 'Video chỉ đọc', removed: (title) => `Đã gỡ “${title}”`, rowOnTimeline: (label) => `Hàng “${label}” trên dòng thời gian`, undo: 'Hoàn tác', stateOn: 'Trên dòng thời gian', stateOff: 'Rãnh tắt', stateGone: 'Không trên dòng thời gian', groupMenu: 'Nhóm lồng tiếng này', actionsOf: (title) => `Hành động cho “${title}”`, clickToSelect: (text) => `${text} · nhấp để chọn trên dòng thời gian`,
+};

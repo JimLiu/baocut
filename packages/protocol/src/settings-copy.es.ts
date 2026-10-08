@@ -1,0 +1,20 @@
+import { LOCALES } from './i18n.ts';
+import type { SettingDescriptionMessages } from './settings-copy.ts';
+export const es: SettingDescriptionMessages = {
+ 'agent.defaultDriver': 'Agente para sesiones nuevas; null usa el predeterminado integrado (codex). Se fija al crear la sesión',
+ 'agent.defaultModel': 'Modelo para sesiones nuevas; null usa el modelo recomendado (Sonnet en Claude Code, un modelo -sol en Codex) y __agent-default__ no indica modelo y sigue la configuración de la CLI del agente', 'agent.defaultEffort': 'Esfuerzo de razonamiento para sesiones nuevas; null usa el predeterminado del agente',
+ 'agent.defaultAccessMode': 'Usado por sesiones que nunca cambiaron el modo de acceso: ask, autoAcceptEdits, auto, fullAccess o plan (los valores antiguos controlled y authorized se tratan como ask y fullAccess)',
+ 'ui.language': `Idioma de interfaz: system sigue el idioma del sistema (inglés si no hay idioma coincidente), o un código de idioma (${LOCALES.join(', ')}). El texto que el Runtime muestra a personas también lo usa`,
+ 'captions.maxLineLength': 'Longitud objetivo de línea para saltos automáticos (caracteres): cjk para texto chino, japonés y coreano; other para el resto', 'transcribe.afterComplete': 'Después de transcribir: open-video abre el vídeo, notify solo notifica, nothing no hace nada',
+ 'downloads.directory': 'Ubicación de guardado predeterminada para resultados de herramientas sin vídeo, medios descargados de enlaces y archivos entregados por downloads_save (ruta absoluta); null usa ~/Downloads de este host, independientemente del proyecto',
+ 'models.downloadEndpoint': 'Origen de descarga de modelos locales (URL base de servidor espejo, http(s)://); null usa el repositorio público de modelos. La variable de entorno BAOCUT_MODELS_ENDPOINT tiene prioridad',
+ 'models.dir': 'Carpeta de modelos locales (ruta absoluta); null usa models de la carpeta de datos. La variable de entorno BAOCUT_MODELS_DIR tiene prioridad. Cámbiala con models.setDir, no con settings set',
+ 'tools.downloadEndpoint': 'Origen de descarga de herramientas externas gestionadas (yt-dlp) (URL base de servidor espejo, http(s)://, archivos en <base>/<tool>/<version>/<file>); null usa la URL de distribución oficial. La variable de entorno BAOCUT_TOOLS_ENDPOINT tiene prioridad',
+ 'fonts.autoDownload': 'Descargar automáticamente fuentes necesarias para la composición, ausentes de este ordenador y presentes en el catálogo de fuentes (vista previa y exportación); al desactivar, se dibuja con una fuente alternativa y se muestra un aviso',
+ 'fonts.cssEndpoint': 'URL base de la API CSS de fuentes (servidor espejo, https://); null usa https://fonts.googleapis.com',
+ 'fonts.fileEndpoint': 'URL base de archivos de fuentes (servidor espejo, https://; solo se obtienen archivos dentro de ella); null usa https://fonts.gstatic.com',
+ 'space.trashRetentionDays': 'Días que conservar elementos en la Papelera de Space (1–3650): los elementos sin referencias y vídeos eliminados más antiguos se eliminan permanentemente de forma periódica',
+ 'resources.capacity': 'Avanzado: capacidad del ordenador para planificar recursos { memoryMiB, gpuMemoryMiB, cpuThreads }; una propiedad en null se detecta automáticamente; null detecta todo (memoria y CPU del sistema, memoria de GPU en Apple silicon estimada de memoria unificada)',
+ 'runtime.idleExitMinutes': 'Minutos que un Runtime iniciado por la CLI permanece inactivo antes de terminar solo (1–1440): sin conexiones, tareas ni servicios externos abiertos. No afecta a la aplicación de escritorio ni a Runtimes iniciados manualmente',
+ 'updates.autoCheck': 'Comprobar actualizaciones de la aplicación automáticamente', 'updates.autoDownload': 'Descargar versiones nuevas en segundo plano (sin instalarlas automáticamente)', 'diagnostics.enabled': 'Enviar estadísticas anónimas de uso y resúmenes de rendimiento (sin medios, texto ni rutas)', 'offline.strict': 'Sin conexión estricto: no enviar nada a ningún servicio en línea',
+};

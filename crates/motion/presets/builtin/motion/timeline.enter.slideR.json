@@ -1,0 +1,24 @@
+{
+  "id": "slideR",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "enter",
+  "order": 5,
+  "duration": 0.5,
+  "curve": {
+    "kind": "named",
+    "name": "easeOutCubic"
+  },
+  "mirror": "slideR",
+  "from": {
+    "opacity": 0.0,
+    "dx": 0.05
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

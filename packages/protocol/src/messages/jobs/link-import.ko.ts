@@ -1,0 +1,42 @@
+import type { JobsLinkImportMessages } from './link-import.ts';
+
+export const ko: JobsLinkImportMessages = {
+
+  languageTag: 'BCP 47 언어 태그여야 합니다',
+  requiresTranscribe: 'transcribe와 함께만 지정할 수 있습니다',
+  noVideoDiarize: '대상 영상이 없으면 독립된 전사본만 작성하며 화자를 구분할 수 없습니다',
+  noVideoCaptions: '대상 영상이 없으면 자막 레이어를 만들지 않습니다',
+  notWrittenToVideo: '전사가 완료되었지만 영상에 쓰이지 않았습니다',
+  label: '영상 다운로드',
+  description:
+    'yt-dlp로 영상을 폴더에 다운로드하고, 원하면 TXT와 SRT로 전사합니다. 프로젝트 소속과 저장 폴더는 서로 독립적이며, 이전 프로토콜은 영상 가져오기 대상도 계속 받습니다. yt-dlp를 설치하고 사용에 동의해야 합니다.',
+  offlineStrict: '엄격한 오프라인 모드에서는 링크를 다운로드하지 않습니다',
+  cannotCreateVideo: '이 Runtime은 영상을 만들 수 없습니다',
+  cannotTranscribe: '이 Runtime은 전사할 수 없습니다',
+  fileTranscribeUnavailable: '파일 전사를 사용할 수 없습니다',
+  videoNotOpen: '영상이 열려 있지 않습니다',
+  sourceExpired: '원래 링크를 더 이상 사용할 수 없습니다: 새로 가져오기를 시작하세요',
+  stepResolve: '링크 분석',
+  stepDownload: '다운로드',
+  stepVerify: '디코딩 확인',
+  stepPublish: '다운로드 폴더로 이동',
+  stepCreate: '영상 만들기',
+  stepImport: '영상으로 가져오기',
+  stepTranscribe: '전사',
+  undecodable: '다운로드한 파일을 디코딩할 수 없습니다',
+  noStreams: '다운로드한 파일에 화면도 소리도 없습니다',
+  undecodableRemedy: '원본의 파일이 불완전하거나 지원하지 않는 형식입니다: 다시 시도하거나 다른 형식(audioOnly)을 시도하세요',
+  noMediaFile: '다운로드 도구가 미디어 파일을 남기지 않았습니다',
+  destinationUnwritable: (p: { dir: string }) => `저장 폴더에 쓸 수 없습니다: ${p.dir}`,
+  destinationRemedy:
+    '저장 폴더(다운로드 폴더는 downloads.directory 설정, 프로젝트에서는 프로젝트의 downloads/)가 있고 쓸 수 있는지 확인하세요',
+  publishedOutside: '게시된 파일이 저장 폴더 밖에 있습니다',
+  diskFull: '다운로드 폴더의 디스크 공간이 부족합니다',
+  unsupportedBrowser: '지원하는 브라우저가 아닙니다',
+  browserItems: '지원하는 브라우저만 포함해야 합니다',
+  noDuplicates: '중복 값을 포함할 수 없습니다',
+  saveToInvalid: 'downloads 또는 project여야 합니다',
+  languageItems: '언어 코드만 포함해야 합니다(예: en, zh-Hans)',
+  projectMismatch: 'target.create의 프로젝트와 일치하지 않습니다',
+  conversationMismatch: 'target.create의 세션과 일치하지 않습니다',
+};

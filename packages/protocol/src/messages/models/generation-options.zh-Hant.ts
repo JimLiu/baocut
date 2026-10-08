@@ -1,0 +1,25 @@
+import type { ModelsGenerationOptionsMessages } from './generation-options.ts';
+
+export const zhHant: ModelsGenerationOptionsMessages = {
+  notLocalOnly: (p: { modelId: string; key: string }) => `模型 ${p.modelId} 不接受 ${p.key}（只有本機模型接受）`,
+  textEmpty: '文字不能為空',
+  textTooLong: (p: { length: number; modelId: string; limit: number }) => `文字有 ${p.length} 字，超過模型 ${p.modelId} 單次 ${p.limit} 字的上限。請分段提交。`,
+  noDefaultVoice: (p: { modelId: string }) => `模型 ${p.modelId} 沒有預設音色，請指定 voice`,
+  noSuchVoice: (p: { modelId: string; voice: string }) => `模型 ${p.modelId} 沒有音色 ${p.voice}`,
+  badLanguageTag: (p: { tag: string }) => `不是有效的 BCP 47 語言標籤：${p.tag}`,
+  languageUnsupported: (p: { modelId: string; language: string }) => `模型 ${p.modelId} 不支援語言 ${p.language}`,
+  formatUnsupported: (p: { modelId: string; format: string }) => `模型 ${p.modelId} 不會輸出 ${p.format}`,
+  noInstructions: (p: { modelId: string }) => `模型 ${p.modelId} 不接受語氣說明（instructions）`,
+  noSpeed: (p: { modelId: string }) => `模型 ${p.modelId} 不接受語速（speed）`,
+  speedRange: (p: { min: number; max: number }) => `語速必須介於 ${p.min} 到 ${p.max} 之間`,
+  knobUnsupported: (p: { modelId: string; key: string }) => `模型 ${p.modelId} 不接受 ${p.key}`,
+  knobRange: (p: { key: string; min: number; max: number }) => `${p.key} 必須介於 ${p.min} 到 ${p.max} 之間`,
+  promptEmpty: '提示詞不能為空',
+  promptTooLong: (p: { length: number; modelId: string; limit: number }) => `提示詞有 ${p.length} 字，超過模型 ${p.modelId} 的 ${p.limit} 字上限`,
+  aspectUnsupported: (p: { modelId: string; ratio: string }) => `模型 ${p.modelId} 不支援長寬比 ${p.ratio}`,
+  sizeUnsupported: (p: { modelId: string; size: string }) => `模型 ${p.modelId} 不支援尺寸 ${p.size}`,
+  maxCount: (p: { modelId: string; max: number }) => `模型 ${p.modelId} 一次最多生成 ${p.max} 張圖片`,
+  noSteps: (p: { modelId: string }) => `模型 ${p.modelId} 不接受 steps（只有本機模型接受）`,
+  stepsRange: (p: { min: number; max: number }) => `steps 必須是介於 ${p.min} 到 ${p.max} 之間的整數`,
+  noSeed: (p: { modelId: string }) => `模型 ${p.modelId} 不接受 seed`,
+};

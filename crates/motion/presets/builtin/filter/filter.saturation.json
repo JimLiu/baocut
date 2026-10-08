@@ -1,0 +1,28 @@
+{
+  "id": "filter.saturation",
+  "version": 1,
+  "domain": "filter",
+  "inputs": 1,
+  "params": {
+    "amount": {
+      "type": "number",
+      "default": 1,
+      "min": 0,
+      "max": 4
+    }
+  },
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "kernel": "saturation-rec709-f64",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "clamp",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "doc": "以 Rec.709 亮度（0.2126/0.7152/0.0722）为锚做线性插值：out = gray + (in - gray) × amount。amount = 0 全灰、1 恒等、>1 增艳。"
+}

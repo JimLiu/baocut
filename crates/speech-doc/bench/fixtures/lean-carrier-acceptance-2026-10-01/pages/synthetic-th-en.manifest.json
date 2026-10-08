@@ -1,0 +1,104 @@
+{
+  "rows": [
+    {
+      "id": "th-01",
+      "reference_en": "Lalita did not cancel the meeting but postponed it to Thursday at 14:30.",
+      "required_facts": [
+        "Lalita",
+        "not cancelled",
+        "Thursday",
+        "14:30"
+      ],
+      "risk": "no spaces; negation; time",
+      "source": "ลลิตาไม่ได้ยกเลิกการประชุมแต่เลื่อนไปเป็นวันพฤหัสบดีเวลา14:30น.",
+      "source_lang": "th",
+      "source_words": [
+        "ลลิตาไม่ได้ยกเลิกการประชุมแต่เลื่อนไปเป็นวันพฤหัสบดีเวลา14:30น."
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "th-02",
+      "reference_en": "If the temperature drops below 5 degrees, close the window before turning on the heater.",
+      "required_facts": [
+        "below 5 degrees",
+        "window first",
+        "heater afterward"
+      ],
+      "risk": "no spaces; condition; order",
+      "source": "ถ้าอุณหภูมิลดลงต่ำกว่า5องศาให้ปิดหน้าต่างก่อนเปิดเครื่องทำความร้อน",
+      "source_lang": "th",
+      "source_words": [
+        "ถ้าอุณหภูมิลดลงต่ำกว่า5องศาให้ปิดหน้าต่างก่อนเปิดเครื่องทำความร้อน"
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "th-03",
+      "reference_en": "Non paid 120 baht for three tickets, but the price did not include dinner.",
+      "required_facts": [
+        "Non",
+        "120 baht",
+        "three tickets",
+        "dinner excluded"
+      ],
+      "risk": "no spaces; numbers; negation",
+      "source": "นนท์จ่ายเงิน120บาทสำหรับตั๋วสามใบแต่ราคานี้ไม่รวมอาหารเย็น",
+      "source_lang": "th",
+      "source_words": [
+        "นนท์จ่ายเงิน120บาทสำหรับตั๋วสามใบแต่ราคานี้ไม่รวมอาหารเย็น"
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "th-04",
+      "reference_en": "The book Mali lent Kong yesterday belongs to Mali’s older sister.",
+      "required_facts": [
+        "Mali lent to Kong",
+        "yesterday",
+        "belongs to Mali’s older sister"
+      ],
+      "risk": "no spaces; ownership",
+      "source": "หนังสือที่มาลีให้ก้องยืมเมื่อวานเป็นของพี่สาวของมาลี",
+      "source_lang": "th",
+      "source_words": [
+        "หนังสือที่มาลีให้ก้องยืมเมื่อวานเป็นของพี่สาวของมาลี"
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "th-05",
+      "reference_en": "The code F-07 appears beside “confirmed,” but the parcel has not been sent yet.",
+      "required_facts": [
+        "F-07",
+        "confirmed",
+        "not yet sent"
+      ],
+      "risk": "no spaces; code; combining marks",
+      "source": "รหัสF-07ปรากฏข้างคำว่า“ยืนยันแล้ว”แต่ยังไม่ได้ส่งพัสดุ",
+      "source_lang": "th",
+      "source_words": [
+        "รหัสF-07ปรากฏข้างคำว่า“",
+        "ยืนยันแล้ว”",
+        "แต่ยังไม่ได้ส่งพัสดุ"
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "th-06",
+      "reference_en": "Although Ploy set off before Nat, she arrived ten minutes after him.",
+      "required_facts": [
+        "Ploy set off first",
+        "Nat arrived first",
+        "ten minutes"
+      ],
+      "risk": "no spaces; chronology",
+      "source": "แม้พลอยจะออกเดินทางก่อนนัทแต่เธอก็มาถึงหลังเขาสิบนาที",
+      "source_lang": "th",
+      "source_words": [
+        "แม้พลอยจะออกเดินทางก่อนนัทแต่เธอก็มาถึงหลังเขาสิบนาที"
+      ],
+      "target_lang": "en"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+import type { DriversPiMessages } from './drivers-pi.ts';
+
+export const pl: DriversPiMessages = {
+  plan: "Konta modeli w Pi",
+  installHint: "Zainstaluj Pi przez npm (npm install -g @earendil-works/pi-coding-agent, wymaga Node.js)",
+  signedOut: "Pi nie jest zalogowany. Uruchom pi w terminalu i wpisz /login lub ustaw klucz API dostawcy modelu (na przykład ANTHROPIC_API_KEY).",
+  rpcFailed: (p) => `Nie udało się uruchomić trybu RPC Pi: ${p.error}`,
+  processStartFailed: (p) => `Nie udało się uruchomić procesu Pi: ${p.error}`,
+  processExited: (p) => `Proces Pi zakończył działanie (kod ${p.code}, sygnał ${p.signal})${p.tail ? `: ${p.tail}` : ""}`,
+  processClosed: "Proces Pi jest zamknięty",
+  requestTimeout: (p) => `Pi nie odpowiedział na ${p.command} w ciągu ${p.ms} ms`,
+  stdinUnwritable: "stdin Pi jest niezapisywalne",
+  commandFailed: (p) => `Pi: ${p.command} z niepowodzeniem`,
+  toolFallback: "Narzędzie",
+  sessionFileMissing: "nie znaleziono pliku sesji",
+  withStderr: (p) => `${p.error} (${p.tail})`,
+  mcpNameInvalid: (p) => `Nazwa serwera MCP ${p.name} zawiera znaki niedozwolone przez Pi (tylko litery, cyfry, _ i -); nie można użyć go w tej sesji.`,
+  modelFormat: (p) => `Modele Pi muszą mieć format provider/id: ${p.model}`,
+  switchModelFailed: (p) => `Pi nie przełączył się na model ${p.model}: ${p.error}`,
+  effortUnsupported: (p) => `Pi nie ma poziomu rozumowania „${p.level}”, więc ta tura używa obecnego ustawienia.`,
+  effortFailed: (p) => `Pi nie ustawił intensywności rozumowania (${p.error}), więc ta tura używa obecnego ustawienia.`,
+  mcpConnectFailed: (p) => `Pi nie połączył się z serwerem MCP BaoCut, więc narzędzia BaoCut (odczyt i zapis projektów, napisy itp.) są niedostępne w tej sesji: ${p.error}`,
+  extensionError: (p) => `Rozszerzenie Pi nie powiodło się: ${p.error}`,
+  modelCallFailed: "Wywołanie modelu Pi nie powiodło się",
+  notice: (p) => `Pi: ${p.message}`,
+  extensionAsked: (p) => `Rozszerzenie Pi chciało o coś zapytać${p.title ? ` ("${p.title}")` : ""}. BaoCut nie przekazuje jeszcze tego rodzaju pytań, więc zostało anulowane.`,
+  fullAccessOnly: (p) => `Pi nie pyta przed każdym działaniem, więc BaoCut może uruchomić go tylko w trybie „${p.mode}”: nie pyta przed uruchamianiem poleceń ani zmianami plików.`,
+};

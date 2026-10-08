@@ -1,0 +1,25 @@
+import type { ModelsTextGenerationMessages } from './text-generation.ts';
+
+export const de: ModelsTextGenerationMessages = {
+  noMessage: "Mindestens eine nichtleere user- oder assistant-Nachricht ist erforderlich",
+  badRole: "Die Nachrichtenrolle muss system, user oder assistant sein",
+  inputTooLong: (p: { chars: number; modelId: string; contextTokens: number }) => `Die Eingabe enthält ${p.chars} Zeichen, weit mehr als der Kontext von ${p.contextTokens} Token des Modells ${p.modelId}`,
+  maxOutput: (p: { modelId: string; max: number }) => `Modell ${p.modelId} gibt höchstens aus: ${p.max} Token pro Aufruf`,
+  noTemperature: (p: { modelId: string }) => `Modell ${p.modelId} unterstützt keine temperature`,
+  temperatureRange: "temperature muss zwischen 0 und 2 liegen",
+  noSeed: (p: { modelId: string }) => `Modell ${p.modelId} unterstützt keinen seed`,
+  noStructured: (p: { modelId: string }) => `Modell ${p.modelId} unterstützt keine strukturierte Ausgabe`,
+  effortIgnored: (p: { modelId: string; requested: string }) => `Modell ${p.modelId} kann den Denkaufwand nicht einstellen; ignoriert: ${p.requested}`,
+  effortChanged: (p: { modelId: string; requested: string; applied: string }) => `Modell ${p.modelId} hat keine Denkaufwandsstufe ${p.requested}; stattdessen verwendet: ${p.applied}`,
+  contentFiltered: (p: { provider: string }) => `${p.provider}: Inhaltsfilter hat dieses Ergebnis blockiert`,
+  truncatedJson: (p: { provider: string; max: number }) => `${p.provider}: Ergebnis hat das Limit erreicht (${p.max} Token) und wurde abgeschnitten; die strukturierte Ausgabe ist unvollständig`,
+  truncatedProblem: (p: { max: number }) => `Ergebnis abgeschnitten (maxOutputTokens ${p.max})`,
+  notJson: (p: { provider: string }) => `${p.provider}: Ergebnis ist kein gültiges JSON`,
+  notJsonProblem: "Kein gültiges JSON",
+  schemaMismatch: (p: { provider: string }) => `${p.provider}: Ergebnis entspricht nicht dem angegebenen JSON Schema`,
+  limitBeforeText: (p: { provider: string }) => `${p.provider} hat das Ausgabelimit vor dem Schreiben von Text erreicht`,
+  emptyOutput: (p: { provider: string }) => `${p.provider} hat ein leeres Ergebnis zurückgegeben`,
+  limitBeforeTextProblem: (p: { max: number }) => `Noch kein Text, als das Ausgabelimit von ${p.max} Token erreicht wurde`,
+  emptyProblem: "Ergebnis ist leer",
+  cancelled: "Aufruf abgebrochen",
+};

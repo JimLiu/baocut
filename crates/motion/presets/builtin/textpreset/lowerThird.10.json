@@ -1,0 +1,153 @@
+{
+  "id": "lowerThird.10",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "lowerThird",
+  "order": 310,
+  "duration": 3.8,
+  "content": [
+    {
+      "kind": "text",
+      "place": {
+        "x": 19.08,
+        "y": 63.58,
+        "w": 30.81
+      },
+      "text": "MORGAN",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#ffffffff",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 27.1,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 0.9,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.2,
+          "distance": 0.01,
+          "rotation": 180.0,
+          "color": "#000000",
+          "on": true,
+          "opacity": 0.1
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "slideL",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.63
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 19.08,
+        "y": 68.27,
+        "w": 30.81
+      },
+      "text": "NELSON",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#ffffffff",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 27.1,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 0.9,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.2,
+          "distance": 0.01,
+          "rotation": 180.0,
+          "color": "#000000",
+          "on": true,
+          "opacity": 0.1
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "slideR",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.63
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 21.68,
+        "y": 72.71,
+        "w": 34.69
+      },
+      "text": "ART DIRECTOR AT MMN AGENCY",
+      "style": {
+        "backgroundColor": "#5544ccff",
+        "backgroundPadding": 2.8,
+        "backgroundStyle": "wrap",
+        "borderRadius": 0.0,
+        "fontColor": "#FFFFFF",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 11.0,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.0,
+        "letterSpacing": 11.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "delay": 0.57,
+      "animate": {
+        "enter": {
+          "preset": "rise",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.63
+        }
+      }
+    }
+  ]
+}

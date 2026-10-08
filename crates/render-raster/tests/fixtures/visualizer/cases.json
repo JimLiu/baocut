@@ -1,0 +1,114 @@
+{
+  "instants": [
+    0.0,
+    0.1,
+    0.5,
+    1.0,
+    2.5
+  ],
+  "note": "P2 conformance 夹具的**输入**。P3 / P5 / P6 复用同一份，各自追加 expected-*.json。",
+  "params": [
+    {
+      "gain": 1.0,
+      "maxDb": 40.0,
+      "minDb": -120.0,
+      "name": "canonical",
+      "smoothing": 0.0
+    },
+    {
+      "gain": 1.0,
+      "maxDb": 40.0,
+      "minDb": -80.0,
+      "name": "default",
+      "smoothing": 0.8
+    },
+    {
+      "gain": 1.0,
+      "maxDb": -10.0,
+      "minDb": -120.0,
+      "name": "bicubic",
+      "smoothing": 0.5
+    },
+    {
+      "gain": 2.5,
+      "maxDb": 40.0,
+      "minDb": -80.0,
+      "name": "hot",
+      "smoothing": 0.8
+    }
+  ],
+  "sequence": {
+    "length": 40,
+    "order": "spectra × params × instants，按本文件的书写顺序展开"
+  },
+  "shuffle": {
+    "algorithm": "splitmix64 + Fisher–Yates（自 len-1 递减，pick = next % (i+1)）",
+    "order": [
+      36,
+      6,
+      16,
+      29,
+      14,
+      18,
+      26,
+      19,
+      39,
+      9,
+      21,
+      15,
+      27,
+      34,
+      25,
+      22,
+      17,
+      33,
+      28,
+      20,
+      38,
+      30,
+      24,
+      31,
+      4,
+      1,
+      12,
+      32,
+      35,
+      11,
+      37,
+      10,
+      13,
+      8,
+      5,
+      7,
+      0,
+      3,
+      2,
+      23
+    ],
+    "seed": "0x5EED5EED5EED5EED"
+  },
+  "spectra": [
+    {
+      "name": "tone",
+      "note": "P1 的真实 DSP golden，0.2 s：时刻表里 0.5 / 1.0 / 2.5 全部越界，专钉 clamp",
+      "path": "../spectrum/tone-48k-mono-f32.bcs1"
+    },
+    {
+      "name": "sweep",
+      "note": "程序生成的 3.0 s 合成频谱：五个时刻全部落在轨内",
+      "path": "sweep-48k-mono.bcs1"
+    }
+  ],
+  "styles": [
+    "visualizer.bars",
+    "visualizer.bars_rounded",
+    "visualizer.bars_bottom",
+    "visualizer.ring_bars",
+    "visualizer.oscilloscope",
+    "visualizer.ring_wave",
+    "visualizer.spectrum_area",
+    "visualizer.dots",
+    "visualizer.pulse_rings",
+    "visualizer.ribbons"
+  ]
+}

@@ -1,0 +1,165 @@
+{
+  "rows": [
+    {
+      "id": "ar-01",
+      "reference_en": "Layla did not cancel the meeting; she postponed it until 14:30 on Thursday.",
+      "required_facts": [
+        "Layla",
+        "not cancelled",
+        "postponed",
+        "Thursday",
+        "14:30"
+      ],
+      "risk": "negation; RTL; time",
+      "source": "لم تُلغِ ليلى الاجتماع؛ أجّلته إلى الساعة 14:30 يوم الخميس.",
+      "source_lang": "ar",
+      "source_words": [
+        "لم",
+        "تُلغِ",
+        "ليلى",
+        "الاجتماع؛",
+        "أجّلته",
+        "إلى",
+        "الساعة",
+        "14:30",
+        "يوم",
+        "الخميس."
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "ar-02",
+      "reference_en": "If the temperature drops below 5 degrees, close the window before turning on the heater.",
+      "required_facts": [
+        "below 5 degrees",
+        "close window first",
+        "turn on heater afterward"
+      ],
+      "risk": "condition; order",
+      "source": "إذا انخفضت الحرارة إلى أقل من 5 درجات، فأغلق النافذة قبل تشغيل المدفأة.",
+      "source_lang": "ar",
+      "source_words": [
+        "إذا",
+        "انخفضت",
+        "الحرارة",
+        "إلى",
+        "أقل",
+        "من",
+        "5",
+        "درجات،",
+        "فأغلق",
+        "النافذة",
+        "قبل",
+        "تشغيل",
+        "المدفأة."
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "ar-03",
+      "reference_en": "Omar paid 120 riyals for three tickets, and the price did not include dinner.",
+      "required_facts": [
+        "Omar",
+        "120 riyals",
+        "three tickets",
+        "dinner excluded"
+      ],
+      "risk": "number; negation",
+      "source": "دفع عمر 120 ريالًا مقابل ثلاث تذاكر، ولم يشمل السعر وجبة العشاء.",
+      "source_lang": "ar",
+      "source_words": [
+        "دفع",
+        "عمر",
+        "120",
+        "ريالًا",
+        "مقابل",
+        "ثلاث",
+        "تذاكر،",
+        "ولم",
+        "يشمل",
+        "السعر",
+        "وجبة",
+        "العشاء."
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "ar-04",
+      "reference_en": "Maryam said that the bag Yusuf left on the train was not hers.",
+      "required_facts": [
+        "Maryam said",
+        "Yusuf left bag on train",
+        "bag not Maryam’s"
+      ],
+      "risk": "nested clause; ownership",
+      "source": "قالت مريم إن الحقيبة التي تركها يوسف في القطار ليست حقيبتها.",
+      "source_lang": "ar",
+      "source_words": [
+        "قالت",
+        "مريم",
+        "إن",
+        "الحقيبة",
+        "التي",
+        "تركها",
+        "يوسف",
+        "في",
+        "القطار",
+        "ليست",
+        "حقيبتها."
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "ar-05",
+      "reference_en": "The code A-17 appears beside the word “confirmed,” but the order has not been shipped yet.",
+      "required_facts": [
+        "A-17",
+        "confirmed",
+        "not yet shipped"
+      ],
+      "risk": "combining marks; Latin code; RTL",
+      "source": "يظهر الرمز A-17 بجانب كلمة «مُؤَكَّد»، لكن الطلب لم يُشحن بعد.",
+      "source_lang": "ar",
+      "source_words": [
+        "يظهر",
+        "الرمز",
+        "A-17",
+        "بجانب",
+        "كلمة",
+        "«مُؤَكَّد»،",
+        "لكن",
+        "الطلب",
+        "لم",
+        "يُشحن",
+        "بعد."
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "ar-06",
+      "reference_en": "Noura arrived ten minutes after Ahmed, although she left home before him.",
+      "required_facts": [
+        "Noura arrived after Ahmed",
+        "ten minutes",
+        "Noura left home first"
+      ],
+      "risk": "reordered chronology",
+      "source": "وصلت نورة بعد أحمد بعشر دقائق، مع أنها غادرت المنزل قبله.",
+      "source_lang": "ar",
+      "source_words": [
+        "وصلت",
+        "نورة",
+        "بعد",
+        "أحمد",
+        "بعشر",
+        "دقائق،",
+        "مع",
+        "أنها",
+        "غادرت",
+        "المنزل",
+        "قبله."
+      ],
+      "target_lang": "en"
+    }
+  ]
+}

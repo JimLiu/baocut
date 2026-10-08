@@ -1,0 +1,120 @@
+/* Agent 会话线程的消息流：行间距、Markdown 正文、工具步骤行、回合页脚（只在 App 入口加载）。
+   视图在 agent-markdown.jsx / agent-steps.jsx / agent-thread.jsx，算间距与步骤的纯模型在 model-agent-turn.js。 */
+
+/* ---------- 行间距：相邻两行按种类定（gapBetween） ---------- */
+.agap-0 { margin-top: 0; }
+.agap-4 { margin-top: 4px; }
+.agap-12 { margin-top: 12px; }
+.agap-16 { margin-top: 16px; }
+.ath__row { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+
+/* ---------- Markdown 正文 ---------- */
+.amd { min-width: 0; overflow-wrap: anywhere; }
+.amd-block > * + * { margin-top: 8px; }
+.amd p { margin: 0; white-space: pre-line; }
+.amd strong { font-weight: 500; }
+.amd a { color: var(--blue-900); text-decoration: underline; text-underline-offset: 2px; }
+.amd a:hover { color: var(--blue-1000); }
+/* 设置链接：S2 Link，前面一个设置图标，表明点了去设置而不是开网页；认不出的只留文字 */
+.amd .amd-setlink { white-space: normal; }
+.amd .amd-setlink .ic { display: inline-block; vertical-align: -2px; margin-right: 2px; }
+.amd hr { border: 0; border-top: 1px solid var(--gray-200); margin: 0; }
+.amd .amd-h { margin: 0; font-weight: 700; color: var(--gray-900); line-height: 1.4; }
+.amd h1.amd-h { font-size: 18px; padding-bottom: 4px; border-bottom: 1px solid var(--gray-200); }
+.amd h2.amd-h { font-size: 16px; padding-bottom: 4px; border-bottom: 1px solid var(--gray-200); }
+.amd h3.amd-h, .amd h4.amd-h, .amd h5.amd-h, .amd h6.amd-h { font-size: 14px; }
+.ath--compact .amd h1.amd-h { font-size: 16px; }
+.ath--compact .amd h2.amd-h, .ath--compact .amd h3.amd-h { font-size: 14px; }
+.amd ul, .amd ol { margin: 0; padding-left: 20px; }
+.amd li + li { margin-top: 4px; }
+.amd li > ul, .amd li > ol { margin-top: 4px; }
+.amd blockquote { margin: 0; padding: 0 0 0 12px; border-left: 4px solid var(--gray-300); color: var(--gray-700); }
+.amd .amd-code { padding: 0 4px; border-radius: 4px; background: var(--gray-100); font-family: var(--mono); font-size: 12px; color: var(--gray-800); }
+.ath--compact .amd .amd-code { font-size: 11px; }
+.amd .amd-img { max-width: 100%; border-radius: 8px; }
+
+/* 代码块：gray-50 底、圆角 8；长行换行不横滚；右上角 hover 出复制 */
+.amd-pre { position: relative; }
+.amd-pre pre { margin: 0; padding: 8px 40px 8px 12px; border-radius: 8px; background: var(--gray-50); box-shadow: inset 0 0 0 1px var(--gray-200);
+  white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--mono); font-size: 12px; line-height: 1.6; color: var(--gray-800); }
+.amd-pre__copy { position: absolute; top: 4px; right: 4px; opacity: 0; transition: opacity 150ms cubic-bezier(0.45,0,0.4,1); }
+.amd-pre:hover .amd-pre__copy, .amd-pre:focus-within .amd-pre__copy { opacity: 1; }
+
+/* 表格：等分列、圆角边框 */
+.amd-table { border-radius: 8px; box-shadow: inset 0 0 0 1px var(--gray-200); overflow: hidden; }
+.amd-table table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 12px; line-height: 1.5; }
+.amd-table th, .amd-table td { padding: 6px 8px; text-align: left; vertical-align: top; border-top: 1px solid var(--gray-200); overflow-wrap: anywhere; }
+.amd-table thead tr:first-child th { border-top: 0; }
+.amd-table th + th, .amd-table td + td { border-left: 1px solid var(--gray-200); }
+.amd-table th { background: var(--gray-50); font-weight: 500; color: var(--gray-800); }
+
+/* 正文里的文件路径：S2 按钮压成行内的样子（无层 CSS 盖过 S2 的 @layer） */
+.amd .amd-path { display: inline; height: auto; min-height: 0; min-width: 0; padding: 0 4px; margin: 0; border-radius: 4px; vertical-align: baseline;
+  background: var(--gray-100); font-family: var(--mono); font-size: 12px; line-height: inherit; color: var(--blue-900); cursor: pointer; }
+.amd .amd-path * { font: inherit; color: inherit; padding: 0; margin: 0; }
+.amd .amd-path:hover { background: var(--gray-200); text-decoration: underline; text-underline-offset: 2px; }
+.ath--compact .amd .amd-path { font-size: 11px; }
+
+/* ---------- 工具步骤行 ---------- */
+.asteps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.astep { min-width: 0; }
+.astep__row.astep__row { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; height: auto; min-height: 24px; padding: 4px 8px;
+  text-align: left; font-size: 12px; }
+.astep__row > * { min-width: 0; }
+.astep__ic { flex: none; color: var(--gray-600); }
+.astep.is-failed .astep__ic { color: var(--red-900); }
+/* 工作组标题前的像素图静止：S2 的 ResponseStatus 在 pending 时一定播 PixelLoader、没有暂停的开关，
+   去掉动画后像素格停在原位、整体不透明，就是一枚静止的图；动画只留在正在跑的那一步（.astep__loader） */
+.awork h3 div[aria-hidden="true"][style*="-group-o"], .awork h3 div[aria-hidden="true"][style*="-group-o"] > div { animation: none !important; }
+.astep__loader { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; }
+.astep__label { flex: none; font-weight: 500; color: var(--gray-800); white-space: nowrap; }
+.astep__sum { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); color: var(--gray-600); }
+.astep__sum--plain { font-family: inherit; }
+.astep__meta { flex: none; font-size: 11px; color: var(--gray-500); white-space: nowrap; }
+.astep.is-failed .astep__meta:first-of-type { color: var(--red-900); }
+.astep__chev { flex: none; color: var(--gray-500); }
+.astep__detail { display: flex; flex-direction: column; gap: 6px; margin: 0 0 8px 30px; min-width: 0; }
+.astep__sec { border-radius: 8px; background: var(--gray-50); box-shadow: inset 0 0 0 1px var(--gray-200); overflow: hidden; }
+.astep__sec header { display: flex; justify-content: space-between; align-items: center; min-height: 24px; padding: 0 8px; font-size: 11px; color: var(--gray-600); }
+.astep__sec pre { max-height: 240px; overflow: auto; overscroll-behavior: contain; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; padding: 4px 8px 8px;
+  font-family: var(--mono); font-size: 12px; line-height: 1.5; color: var(--gray-800); }
+.astep__sec--err { background: var(--red-100); box-shadow: inset 0 0 0 1px var(--red-300); }
+.astep__sec--err header { color: var(--red-900); font-weight: 500; }
+.astep__sec--err pre { color: var(--red-1000); }
+.astep__fix { display: flex; gap: 8px; }
+.astep__none { margin: 0; padding: 0 8px; font-size: 12px; color: var(--gray-500); }
+.astep__diff .astep__dl { display: block; padding: 0 4px; border-radius: 4px; }
+.astep__dl--add { background: var(--green-100); color: var(--green-1100); }
+.astep__dl--del { background: var(--red-100); color: var(--red-1100); }
+.astep__dl--hunk { color: var(--blue-900); }
+.astep__dl--meta { color: var(--gray-500); }
+/* 运行中还没有输出：3 行骨架 */
+.astep__skel { display: flex; flex-direction: column; gap: 6px; padding: 4px 8px; }
+.astep__skel span { display: block; height: 8px; border-radius: 4px; background: var(--gray-100); }
+.astep__skel span:nth-child(1) { width: 88%; }
+.astep__skel span:nth-child(2) { width: 72%; }
+.astep__skel span:nth-child(3) { width: 48%; }
+
+/* 运行中的扫光：渐变铺在文字上（background-clip: text）横向走，代替转圈 */
+.is-shimmer {
+  background-image: linear-gradient(90deg, var(--gray-700) 0%, var(--gray-700) 40%, var(--gray-300) 50%, var(--gray-700) 60%, var(--gray-700) 100%);
+  background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: agent-shimmer 1.6s linear infinite;
+}
+@keyframes agent-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .is-shimmer { animation: none; background-image: none; color: var(--gray-700); }
+}
+
+/* ---------- 回合页脚 ---------- */
+.aturn { display: flex; align-items: center; gap: 8px; min-height: 24px; padding-left: 34px; font-size: 12px; color: var(--gray-500); }
+.aturn__live { white-space: nowrap; }
+/* 运行中「正在工作」前的像素加载图形（PixelLoader 用 currentColor），与正文左边对齐 */
+.aturn__loader { flex: none; color: var(--gray-600); }
+.aturn__time { position: relative; display: inline-block; white-space: nowrap; }
+.aturn__sizer { visibility: hidden; }
+.aturn__spent, .aturn__at { position: absolute; left: 0; top: 0; }
+.aturn__at { visibility: hidden; }
+.aturn:hover .aturn__spent { visibility: hidden; }
+.aturn:hover .aturn__at { visibility: visible; }
+.awork__copy--label span { margin-left: 4px; }

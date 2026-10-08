@@ -1,0 +1,88 @@
+/* 剪成短视频（§15.12）：工具页、挑片段页、挑片段的舞台。前缀 sc-。只属 App（AI 工具）。
+   舞台的外壳、两格画框与播放头复用智能裁剪的 cr-stage / cr-pane / cr-frame / cr-track。 */
+
+/* ---------- 工具页：设置 ---------- */
+.sc-kids { margin-top: 8px; }
+.sc-made { display: flex; flex-direction: column; gap: 4px; padding: 4px 0; }
+.sc-made__row { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 4px 4px 8px; border-radius: 8px; background: var(--gray-50); }
+.sc-made__t { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sc-made__t b { font-size: 12px; font-weight: 700; color: var(--gray-900); }
+.sc-made__t span { font-size: 11px; color: var(--gray-600); font-variant-numeric: tabular-nums; }
+.sc-note { display: flex; flex-direction: column; gap: 6px; }
+.sc-note__lb { display: flex; align-items: baseline; gap: 6px; font-size: 12px; color: var(--gray-800); }
+.sc-note__lb em { font-style: normal; font-size: 11px; color: var(--gray-500); }
+.sc-flat { margin-top: 0; }
+.sc-opts { gap: 6px; padding: 4px 4px 0; }
+.sc-row { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+
+/* ---------- 工具页：完成 ---------- */
+.sc-done { gap: 6px; margin-top: 12px; }
+.sc-done__row { display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 10px; background: var(--gray-50); box-shadow: inset 0 0 0 1px var(--gray-200); }
+.sc-done__pic { flex: none; display: flex; align-items: center; justify-content: center; width: 24px; height: 40px; border-radius: 4px; background: var(--gray-800); color: var(--gray-25); }
+.sc-done__t { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sc-done__t b { font-size: 12px; font-weight: 700; color: var(--gray-900); }
+.sc-done__t span { font-size: 11px; color: var(--gray-600); font-variant-numeric: tabular-nums; }
+.sc-done__chk.is-positive { color: var(--green-1000); }
+.sc-done__chk.is-notice { color: var(--orange-1000); }
+
+/* ---------- 挑片段：候选卡 ---------- */
+.sc-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.sc-card { display: flex; flex-direction: column; gap: 6px; padding: 8px 12px 8px 8px; border-radius: 10px; background: var(--gray-25); box-shadow: inset 0 0 0 1px var(--gray-300); cursor: pointer; transition: box-shadow 150ms cubic-bezier(0.45, 0, 0.4, 1), background-color 150ms cubic-bezier(0.45, 0, 0.4, 1); }
+.sc-card:hover { box-shadow: inset 0 0 0 1px var(--gray-500); }
+.sc-card.is-sel { background: var(--blue-100); box-shadow: inset 0 0 0 2px var(--blue-800); }
+.sc-card.is-off .sc-card__title, .sc-card.is-off .sc-quote span { color: var(--gray-600); }
+.sc-card__head { display: flex; align-items: center; gap: 6px; min-height: 24px; }
+.sc-card__n { flex: none; min-width: 16px; font-size: 11px; font-weight: 700; color: var(--gray-600); text-align: center; }
+.sc-card__title { flex: 1 1 auto; min-width: 0; padding: 0 4px; height: 24px; border-radius: 4px; font-size: 14px; font-weight: 700; color: var(--gray-900); text-align: left; cursor: text; }
+.sc-card__title:hover { background: var(--gray-100); }
+.sc-card.is-sel .sc-card__title:hover { background: var(--blue-200); }
+.sc-card__edit { flex: 1 1 auto; min-width: 0; }
+.sc-card__span { padding-left: 4px; font-size: 11px; color: var(--gray-700); }
+.sc-quote, .sc-why { display: flex; align-items: baseline; gap: 8px; padding-left: 4px; font-size: 12px; line-height: 1.5; }
+.sc-quote em, .sc-why em { flex: none; font-style: normal; font-size: 11px; color: var(--gray-600); }
+.sc-quote span { min-width: 0; color: var(--gray-900); }
+.sc-why span { min-width: 0; color: var(--gray-700); }
+.sc-flags { display: flex; flex-wrap: wrap; gap: 4px; padding-left: 4px; }
+.sc-acts { display: flex; align-items: center; gap: 6px; padding-left: 4px; }
+
+.sc-adj { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 4px 4px; padding: 8px; border-radius: 8px; background: var(--gray-50); box-shadow: inset 0 0 0 1px var(--gray-200); cursor: default; }
+.sc-adj__row { display: flex; flex-direction: column; gap: 4px; }
+.sc-adj__lb { white-space: nowrap; display: flex; align-items: baseline; gap: 6px; font-size: 11px; font-weight: 700; color: var(--gray-800); }
+.sc-adj__lb em { font-style: normal; font-weight: 400; color: var(--gray-600); }
+.sc-adj__tx { font-size: 12px; line-height: 1.5; color: var(--gray-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-adj__tx.is-loose { color: var(--orange-1000); }
+.sc-adj__bt { display: flex; flex-wrap: wrap; gap: 6px; }
+.sc-adj__tip { font-size: 11px; line-height: 1.5; color: var(--gray-600); }
+.sc-more { display: flex; align-items: center; gap: 6px; }
+.sc-more .field { flex: 1 1 auto; min-width: 0; }
+
+/* ---------- 挑片段：舞台 ---------- */
+.sc-win--fixed { cursor: default; border-style: dashed; }
+.sc-win--fixed:active { cursor: default; }
+.sc-cap { position: absolute; z-index: 9; display: flex; flex-direction: column; align-items: center; gap: 2px; font-weight: 800; line-height: 1.2; text-align: center; pointer-events: none; }
+.sc-cap span { display: block; max-width: 100%; overflow-wrap: anywhere; }
+.sc-stage__warn { max-width: 100%; padding: 4px 8px; border-radius: 8px; background: var(--orange-200); font-size: 11px; line-height: 1.5; color: var(--orange-1000); }
+.sc-time { min-width: 128px; }
+.sc-legend { display: inline-flex; align-items: center; gap: 6px; }
+.sc-legend::before { content: ''; width: 12px; height: 8px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--blue-800); background: var(--gray-25); }
+.sc-legend.is-on::before { background: var(--blue-700); }
+.sc-legend.is-done::before { box-shadow: none; background: repeating-linear-gradient(135deg, var(--gray-500) 0 2px, var(--gray-300) 2px 4px); }
+
+.sc-track { height: 64px; overflow: visible; }
+.sc-tick { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--gray-400); pointer-events: none; }
+.sc-seg { position: absolute; top: 32px; bottom: 8px; display: flex; align-items: center; justify-content: center; border-radius: 4px; background: var(--gray-25); box-shadow: inset 0 0 0 1px var(--blue-800); cursor: pointer; }
+.sc-seg b { font-size: 10px; font-weight: 700; color: var(--blue-1000); pointer-events: none; }
+.sc-seg.is-on { background: var(--blue-700); }
+.sc-seg.is-on b { color: var(--gray-25); }
+.sc-seg.is-cur { top: 28px; bottom: 4px; z-index: 2; box-shadow: inset 0 0 0 2px var(--gray-900); }
+.sc-seg.is-done { top: 36px; bottom: 12px; box-shadow: none; background: repeating-linear-gradient(135deg, var(--gray-500) 0 3px, var(--gray-300) 3px 6px); cursor: default; pointer-events: none; }
+.sc-grip { position: absolute; top: 0; bottom: 0; width: 8px; background: var(--blue-1000); cursor: ew-resize; touch-action: none; }
+.sc-grip--l { left: -4px; border-radius: 4px 0 0 4px; }
+.sc-grip--r { right: -4px; border-radius: 0 4px 4px 0; }
+.sc-framing-pending { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--gray-100); color: var(--gray-700); font-size: 12px; text-align: center; }
+
+.sc-playhead-line { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--blue-900); pointer-events: none; }
+.sc-playhead { position: absolute; top: 0; width: 24px; height: 24px; transform: translateX(-50%); z-index: 4; cursor: grab; display: flex; justify-content: center; touch-action: none; }
+.sc-playhead > i { width: 12px; height: 16px; border-radius: 0 0 4px 4px; background: var(--blue-900); pointer-events: none; }
+
+.sc-bound-input { width: 128px; flex: none; }

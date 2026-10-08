@@ -1,0 +1,10 @@
+{
+  "ellipse": {
+    "feather": 0.020833333333333332,
+    "shape": "ellipse"
+  },
+  "rounded": {
+    "radius": 0.1875,
+    "shape": "roundedRect"
+  }
+}

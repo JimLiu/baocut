@@ -1,0 +1,85 @@
+{
+  "stripes.gif": {
+    "format": "gif",
+    "size": [8, 8],
+    "frames": 4,
+    "durationMs": 1000,
+    "loops": "infinite",
+    "frameStartsMs": [0, 100, 300, 600, 1000],
+    "fingerprint": "sha256-9a885ebc1613d6d60c30a15a5606bec9a03c30b7896c6b128d4407a91c85ba58",
+    "frameDigests": ["9383725594627046", "58565165ccc3ae9b", "d5963425e2ff849f", "9d5899cfa92fb0de"],
+    "samples": [
+      { "ms": -10, "index": 0, "startMs": 0, "topLeft": [224, 32, 32, 255] },
+      { "ms": 0, "index": 0, "startMs": 0, "topLeft": [224, 32, 32, 255] },
+      { "ms": 100, "index": 1, "startMs": 100, "topLeft": [32, 192, 32, 255] },
+      { "ms": 300, "index": 2, "startMs": 300, "topLeft": [32, 64, 224, 255] },
+      { "ms": 333, "index": 2, "startMs": 300, "topLeft": [32, 64, 224, 255] },
+      { "ms": 500, "index": 2, "startMs": 300, "topLeft": [32, 64, 224, 255] },
+      { "ms": 600, "index": 3, "startMs": 600, "topLeft": [240, 208, 0, 255] },
+      { "ms": 999, "index": 3, "startMs": 600, "topLeft": [240, 208, 0, 255] },
+      { "ms": 1000, "index": 3, "startMs": 600, "topLeft": [240, 208, 0, 255] },
+      { "ms": 3000, "index": 3, "startMs": 600, "topLeft": [240, 208, 0, 255] }
+    ]
+  },
+  "disposal.gif": {
+    "format": "gif",
+    "size": [8, 8],
+    "frames": 3,
+    "durationMs": 300,
+    "loops": "2x",
+    "frameStartsMs": [0, 100, 200, 300],
+    "fingerprint": "sha256-6961073a1cc69e94b35b10fd74c232fc15ee69d5caf0cc568ec035aec91d2d6a",
+    "frameDigests": ["9383725594627046", "947f8f074ab55ebe", "ef98a709ccb5dde1"],
+    "samples": [
+      { "ms": -10, "index": 0, "startMs": 0, "topLeft": [224, 32, 32, 255] },
+      { "ms": 0, "index": 0, "startMs": 0, "topLeft": [224, 32, 32, 255] },
+      { "ms": 100, "index": 1, "startMs": 100, "topLeft": [224, 32, 32, 255] },
+      { "ms": 150, "index": 1, "startMs": 100, "topLeft": [224, 32, 32, 255] },
+      { "ms": 200, "index": 2, "startMs": 200, "topLeft": [32, 64, 224, 255] },
+      { "ms": 299, "index": 2, "startMs": 200, "topLeft": [32, 64, 224, 255] },
+      { "ms": 300, "index": 2, "startMs": 200, "topLeft": [32, 64, 224, 255] },
+      { "ms": 900, "index": 2, "startMs": 200, "topLeft": [32, 64, 224, 255] }
+    ]
+  },
+  "pulse.png": {
+    "format": "apng",
+    "size": [8, 8],
+    "frames": 3,
+    "durationMs": 200,
+    "loops": "1x",
+    "frameStartsMs": [0, 40, 140, 200],
+    "fingerprint": "sha256-4c72c9d8ffb80151c250d2e7ce4c69f90c5a4e5a054299b688067c53209b4e7a",
+    "frameDigests": ["b88d6c7a62ad794e", "74029e36966f0c31", "dd5d9d6056175b71"],
+    "samples": [
+      { "ms": -10, "index": 0, "startMs": 0, "topLeft": [0, 200, 208, 255] },
+      { "ms": 0, "index": 0, "startMs": 0, "topLeft": [0, 200, 208, 255] },
+      { "ms": 40, "index": 1, "startMs": 40, "topLeft": [208, 0, 160, 255] },
+      { "ms": 66, "index": 1, "startMs": 40, "topLeft": [208, 0, 160, 255] },
+      { "ms": 100, "index": 1, "startMs": 40, "topLeft": [208, 0, 160, 255] },
+      { "ms": 140, "index": 2, "startMs": 140, "topLeft": [244, 244, 240, 255] },
+      { "ms": 199, "index": 2, "startMs": 140, "topLeft": [244, 244, 240, 255] },
+      { "ms": 200, "index": 2, "startMs": 140, "topLeft": [244, 244, 240, 255] },
+      { "ms": 600, "index": 2, "startMs": 140, "topLeft": [244, 244, 240, 255] }
+    ]
+  },
+  "wave.webp": {
+    "format": "webp",
+    "size": [8, 8],
+    "frames": 3,
+    "durationMs": 300,
+    "loops": "infinite",
+    "frameStartsMs": [0, 50, 150, 300],
+    "fingerprint": "sha256-d95f6a76b58e0bfd62ffd950bf61fcf28f1fd74263ecaf9d1bf26381c5c45db8",
+    "frameDigests": ["7c29468a07b6ef74", "1d527dccb42473bd", "228c6a5830e6ea8b"],
+    "samples": [
+      { "ms": -10, "index": 0, "startMs": 0, "topLeft": [31, 127, 254, 255] },
+      { "ms": 0, "index": 0, "startMs": 0, "topLeft": [31, 127, 254, 255] },
+      { "ms": 50, "index": 1, "startMs": 50, "topLeft": [254, 159, 31, 255] },
+      { "ms": 100, "index": 1, "startMs": 50, "topLeft": [254, 159, 31, 255] },
+      { "ms": 150, "index": 2, "startMs": 150, "topLeft": [63, 223, 127, 255] },
+      { "ms": 299, "index": 2, "startMs": 150, "topLeft": [63, 223, 127, 255] },
+      { "ms": 300, "index": 2, "startMs": 150, "topLeft": [63, 223, 127, 255] },
+      { "ms": 900, "index": 2, "startMs": 150, "topLeft": [63, 223, 127, 255] }
+    ]
+  }
+}

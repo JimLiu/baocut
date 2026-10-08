@@ -1,0 +1,10 @@
+{
+  "id": "arrow",
+  "version": 1,
+  "domain": "shape",
+  "namespace": "timeline",
+  "order": 10,
+  "path": { "kind": "segment", "defaultHead": "arrow" },
+  "params": ["stroke", "strokeWidth", "endpoints", "head"],
+  "available": true
+}

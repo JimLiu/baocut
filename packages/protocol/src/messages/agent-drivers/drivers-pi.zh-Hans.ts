@@ -1,0 +1,28 @@
+import type { DriversPiMessages } from './drivers-pi.ts';
+
+export const zhHans: DriversPiMessages = {
+  plan: 'Pi 里的模型账号',
+  installHint: '用 npm 安装 Pi（npm install -g @earendil-works/pi-coding-agent，需要 Node.js）',
+  signedOut: 'Pi 未登录：在终端运行 pi 后输入 /login 登录，或设置模型服务的 API 密钥（例如 ANTHROPIC_API_KEY）。',
+  rpcFailed: (p) => `Pi 的 RPC 模式启动失败：${p.error}`,
+  processStartFailed: (p) => `Pi 进程启动失败：${p.error}`,
+  processExited: (p) => `Pi 进程退出（code ${p.code}，signal ${p.signal}）${p.tail ? `：${p.tail}` : ''}`,
+  processClosed: 'Pi 进程已关闭',
+  requestTimeout: (p) => `Pi 的 ${p.command} 没有在 ${p.ms} 毫秒内应答`,
+  stdinUnwritable: 'Pi 的 stdin 不可写',
+  commandFailed: (p) => `Pi 的 ${p.command} 失败`,
+  toolFallback: '工具',
+  sessionFileMissing: '会话文件不存在',
+  withStderr: (p) => `${p.error}（${p.tail}）`,
+  mcpNameInvalid: (p) => `MCP 服务名 ${p.name} 里有 Pi 不接受的字符（只允许字母、数字、_ 与 -），这个会话里用不了它。`,
+  modelFormat: (p) => `Pi 的模型要写成 provider/id：${p.model}`,
+  switchModelFailed: (p) => `Pi 切换到模型 ${p.model} 失败：${p.error}`,
+  effortUnsupported: (p) => `Pi 没有「${p.level}」这一档推理强度，这一轮按它当前的设置运行。`,
+  effortFailed: (p) => `Pi 设置推理强度失败（${p.error}），这一轮按它当前的设置运行。`,
+  mcpConnectFailed: (p) => `Pi 没能接上 BaoCut 的 MCP 服务，这个会话里用不了 BaoCut 的工具（读写项目、字幕等）：${p.error}`,
+  extensionError: (p) => `Pi 的扩展出错：${p.error}`,
+  modelCallFailed: 'Pi 的模型调用失败',
+  notice: (p) => `Pi：${p.message}`,
+  extensionAsked: (p) => `Pi 的扩展想问你${p.title ? `「${p.title}」` : ''}，BaoCut 还不能转达这类提问，已替你取消。`,
+  fullAccessOnly: (p) => `Pi 没有逐次询问的通道，BaoCut 只能让它在「${p.mode}」模式下运行：执行命令和修改文件之前不会先问你。`,
+};

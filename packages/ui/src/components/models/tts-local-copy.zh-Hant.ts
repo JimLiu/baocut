@@ -1,0 +1,80 @@
+import type { TtsLocalMessages } from './tts-local-copy.ts';
+
+export const zhHant: TtsLocalMessages = {
+  ttsLocal: {
+    // 默认模型（语音合成没有出厂默认，菜单里没有「自动选择」）
+    unset: '未設定',
+    defaultDesc: '建立新的合成任務時會預先選取它。沒有預設時每次都要選擇模型；手動選擇一律優先。',
+    cloudDefault: (name: string) => `預設是雲端模型（${name}），請在「設定 › 雲端模型」中變更。選擇本機模型就會改用它。`,
+    noInstalled: '還沒有安裝語音合成模型。請先從下方下載一個。',
+    // 行
+    audition: '試聽',
+    hideAudition: '隱藏試聽',
+    engine: '引擎',
+    license: '授權條款',
+    components: '元件',
+    // 下载前的许可确认（设计稿 withModelLicense）
+    licenseTitle: '授權條款',
+    licenseUse: '用它合成的語音只能用於非商業內容；打算商用的影片，請改用其他語音模型。',
+    licenseConfirm: (size: string) => `我了解，下載 ${size}`,
+    // 试听面板
+    voice: '音色',
+    tone: '語氣',
+    say: '要說的內容',
+    lines: '台詞',
+    more: '更多音色',
+    cloneNew: '克隆新音色…',
+    writeOwn: '自己寫一句',
+    ownPlaceholder: '輸入想聽的句子',
+    ownLabel: '試聽文字',
+    describeLabel: '音色描述',
+    describePlaceholder: '例如：低沉、慢條斯理的老年男聲',
+    builtinRef: (label: string, seconds: number | null) =>
+      `參考錄音 · ${label}${seconds !== null ? ` · ${seconds} 秒` : ''} · 會自動附上它的逐字稿`,
+    describedBuiltin: (label: string) => `依描述生成的音色 · 使用「${label}」附帶的描述`,
+    describePreset: (text: string) => `描述：${text}`,
+    myVoice: (name: string) => `我的音色 · ${name} · 以它的參考錄音與逐字稿克隆`,
+    presetOnly: (models: string | null) =>
+      models
+        ? `這個模型只有內建的說話者 · 請在可以克隆的模型上試用「我的音色」：${models}（在各自那一行試聽）`
+        : '這個模型只有內建的說話者 · 若要試用「我的音色」，請先下載一個可以克隆的模型',
+    nameList: (names: readonly string[]) => names.join('、'),
+    cloneHint: '提供 5–15 秒乾淨的人聲：只有一個人說話，沒有背景音樂。WAV、MP3、M4A、FLAC 或影片檔都可以。',
+    yourFile: (name: string) => `你的錄音 · ${name}`,
+    sampleFile: (label: string) => `範例錄音 · ${label} · BaoCut 內建，不必另外找檔案`,
+    pickFile: '選擇錄音…',
+    changeFile: '選擇其他錄音…',
+    useSample: '使用範例錄音',
+    crossLang: '也可以跨語言使用：中文錄音一樣能唸英文。',
+    noPicker:
+      '瀏覽器無法選取這台電腦上的檔案。若只想暫時使用一段錄音，請在桌面版中選取；或使用範例錄音，或先把它儲存到「我的音色」。',
+    pickTitle: '選擇參考錄音',
+    pickButton: '選擇',
+    pickFilter: '音訊或影片',
+    transcriptLabel: '錄音逐字稿（選填）',
+    transcriptHint: '寫下錄音中說的話，聽起來會更像',
+    fileChip: (name: string, sample: boolean) => (sample ? `範例 · ${name}` : name),
+    generate: '生成試聽',
+    again: '再生成一次',
+    cancel: '取消',
+    busy: (phase: string) => `正在合成 · ${phase}`,
+    stalePrefix: '上一次 · ',
+    stale: '這段是用你上一次的選擇產生的。變更音色或文字後，請點「生成試聽」聽新的版本。',
+    download: '下載',
+    resultLabel: '試聽結果',
+    credit: (credit: string) => `內建音色錄音：${credit}`,
+    loadingAudio: '正在載入音訊…',
+    audioFailed: (message: string) => `無法載入音訊：${message}`,
+    downloadFailed: (message: string) => `無法下載：${message}`,
+    fileName: (name: string) => `${name.replace(/[^\w.-]+/g, '-')}-試聽.wav`,
+    // 「我的声音」那一侧：`name` 是发起克隆的那只本地模型的名字
+    handoffFrom: (name: string) => `來自「${name}」的試聽 · 錄一段或從影片中擷取；儲存後會帶你回去`,
+    handoffSaved: (name: string) => `已儲存 · 回到「${name}」的試聽，那裡會選取這個音色`,
+    handoffBack: '回去使用',
+    handoffCancel: '不用了，回去',
+    auditionClone: '試聽克隆',
+    auditionCloneLabel: (name: string) => `試聽克隆 · ${name}`,
+    noCloneModel: '還沒有安裝可以克隆的本機模型。請先在本機模型頁下載一個（IndexTTS2、Qwen3-TTS Base、GPT-SoVITS…）。',
+    goLocal: '前往本機模型',
+  },
+};

@@ -1,0 +1,487 @@
+{
+  "schema": "bcut-align-golden/1",
+  "project": "p128-用-codex-hyperframes-为你的口播视频生成高级感分镜",
+  "lang": "en",
+  "cases": [
+    {
+      "id": "p128-en-001",
+      "sentenceId": "s-g1.0",
+      "sourceWords": ["八", "十", "万", "人", "看", "过", "的", "CODEX", "加", "Remote", "实", "战", "已", "经", "帮", "助", "很", "多", "小", "伙", "伴", "入", "门", "了，", "用", "A", "帧", "的", "制", "作", "像", "这", "样", "的", "高", "级", "感", "动", "画", "视", "频。"],
+      "target": "The CODEX plus Remote walkthrough that 800,000 people have watched has already helped many friends get started, using A-frames to make premium-looking animated videos like this one.",
+      "tags": ["number", "attributive-reorder", "N:M", "proper-noun", "term"],
+      "beads": [
+        {"src": [0, 12], "tgt": [0, 67]},
+        {"src": [12, 24], "tgt": [67, 112]},
+        {"src": [24, 28], "tgt": [112, 127]},
+        {"src": [28, 41], "tgt": [127, 181]}
+      ],
+      "hardAnchors": [
+        {"src": 7, "tgt": [4, 9]},
+        {"src": 9, "tgt": [15, 21]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 4}
+    },
+    {
+      "id": "p128-en-002",
+      "sentenceId": "s-g1.41",
+      "sourceWords": ["今", "天", "我", "们", "又", "迎", "来", "了", "口", "播", "剪", "辑", "界", "最", "严", "厉", "的", "父", "亲", "Hyper", "Frames。"],
+      "target": "Today we welcome the strictest father of the talking-head editing world, Hyper Frames.",
+      "tags": ["attributive-reorder", "proper-noun", "N:M", "term"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 6]},
+        {"src": [2, 8], "tgt": [6, 17]},
+        {"src": [8, 19], "tgt": [17, 73]},
+        {"src": [19, 21], "tgt": [73, 86]}
+      ],
+      "hardAnchors": [
+        {"src": 19, "tgt": [73, 78]},
+        {"src": 20, "tgt": [79, 85]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 4}
+    },
+    {
+      "id": "p128-en-003",
+      "sentenceId": "s-g2.28",
+      "sourceWords": ["那", "么，", "Hyper", "Frames", "到", "底", "是", "什", "么？"],
+      "target": "So what exactly is Hyper Frames?",
+      "tags": ["N:M", "proper-noun", "attributive-reorder"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 3]},
+        {"src": [2, 9], "tgt": [3, 32]}
+      ],
+      "hardAnchors": [
+        {"src": 2, "tgt": [19, 24]},
+        {"src": 3, "tgt": [25, 31]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p128-en-004",
+      "sentenceId": "s-g2.37",
+      "sourceWords": ["怎", "么", "配", "合", "CODEX，", "用", "一", "句", "话", "渲", "染", "出", "视", "频？"],
+      "target": "How does it work with CODEX to render a video from a single sentence?",
+      "tags": ["proper-noun", "attributive-reorder", "number", "N:M"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 4]},
+        {"src": [2, 5], "tgt": [4, 28]},
+        {"src": [5, 14], "tgt": [28, 69]}
+      ],
+      "hardAnchors": [
+        {"src": 4, "tgt": [22, 27]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p128-en-005",
+      "sentenceId": "s-g3.0",
+      "sourceWords": ["又", "如", "何", "帮", "助", "我", "们", "完", "成", "一", "整", "套", "口", "播", "剪", "辑", "呢？"],
+      "target": "And how does it help us complete a whole talking-head editing workflow?",
+      "tags": ["1:N", "N:1", "term", "addition"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 8]},
+        {"src": [3, 7], "tgt": [8, 24]},
+        {"src": [7, 17], "tgt": [24, 71]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p128-en-006",
+      "sentenceId": "s-g3.17",
+      "sourceWords": ["期", "待", "你", "的", "一", "键", "三", "连，", "我", "用", "一", "期", "视", "频", "给", "你", "讲", "清", "楚。"],
+      "target": "Please like, comment and subscribe; I'll explain it all in one video.",
+      "tags": ["number", "attributive-reorder", "N:M", "omission"],
+      "beads": [
+        {"src": [0, 8], "tgt": [0, 36]},
+        {"src": [8, 9], "tgt": [36, 41]},
+        {"src": [9, 19], "tgt": [41, 69]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p128-en-007",
+      "sentenceId": "s-g4.0",
+      "sourceWords": ["Hyper", "Frames", "是", "一", "个", "开", "源", "框", "架，", "让", "你", "可", "以", "用", "构", "建", "HTML", "网", "页", "的", "方", "式", "来", "构", "建", "视", "频。"],
+      "target": "Hyper Frames is an open-source framework that lets you build videos the way you build HTML web pages.",
+      "tags": ["proper-noun", "term", "attributive-reorder", "N:M"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 13]},
+        {"src": [2, 9], "tgt": [13, 41]},
+        {"src": [9, 13], "tgt": [41, 55]},
+        {"src": [13, 27], "tgt": [55, 101]}
+      ],
+      "hardAnchors": [
+        {"src": 0, "tgt": [0, 5]},
+        {"src": 1, "tgt": [6, 12]},
+        {"src": 16, "tgt": [86, 90]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 4}
+    },
+    {
+      "id": "p128-en-008",
+      "sentenceId": "s-g4.27",
+      "sourceWords": ["所", "以", "理", "论", "上，", "只", "要", "是", "HTML、", "CSS、", "JS", "代", "码", "能", "够", "实", "现", "的", "效", "果。"],
+      "target": "So in theory, any effect that HTML, CSS and JS code can achieve",
+      "tags": ["attributive-reorder", "term", "N:M"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 3]},
+        {"src": [2, 5], "tgt": [3, 14]},
+        {"src": [5, 20], "tgt": [14, 63]}
+      ],
+      "hardAnchors": [
+        {"src": 8, "tgt": [30, 34]},
+        {"src": 9, "tgt": [36, 39]},
+        {"src": 10, "tgt": [44, 46]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p128-en-009",
+      "sentenceId": "s-g5.0",
+      "sourceWords": ["就", "都", "可", "以", "用", "Hyper", "Frames", "渲", "染", "出", "来。"],
+      "target": "can all be rendered with Hyper Frames.",
+      "tags": ["proper-noun", "attributive-reorder", "N:M"],
+      "beads": [
+        {"src": [0, 4], "tgt": [0, 11]},
+        {"src": [4, 11], "tgt": [11, 38]}
+      ],
+      "hardAnchors": [
+        {"src": 5, "tgt": [25, 30]},
+        {"src": 6, "tgt": [31, 37]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p128-en-010",
+      "sentenceId": "s-g5.11",
+      "sourceWords": ["这", "也", "解", "释", "了", "为", "什", "么", "Hyper", "Frames", "从", "设", "计", "之", "初", "就", "是", "专", "为", "A", "蛛", "点", "打", "造", "的。"],
+      "target": "This also explains why Hyper Frames was purpose-built for AI agents from the very beginning of its design.",
+      "tags": ["attributive-reorder", "proper-noun", "N:M", "term"],
+      "beads": [
+        {"src": [0, 5], "tgt": [0, 19]},
+        {"src": [5, 8], "tgt": [19, 23]},
+        {"src": [8, 10], "tgt": [23, 36]},
+        {"src": [10, 25], "tgt": [36, 106]}
+      ],
+      "hardAnchors": [
+        {"src": 8, "tgt": [23, 28]},
+        {"src": 9, "tgt": [29, 35]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 4}
+    },
+    {
+      "id": "p128-en-011",
+      "sentenceId": "s-g5.36",
+      "sourceWords": ["其", "内", "容", "纯", "为", "HTML", "构", "建，", "多", "数", "大", "语", "言", "模", "型", "都", "能", "轻", "松", "驾", "驭。"],
+      "target": "Its content is built purely in HTML, which most large language models can handle with ease.",
+      "tags": ["attributive-reorder", "term", "N:M", "addition"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 12]},
+        {"src": [3, 8], "tgt": [12, 37]},
+        {"src": [8, 15], "tgt": [37, 70]},
+        {"src": [15, 21], "tgt": [70, 91]}
+      ],
+      "hardAnchors": [
+        {"src": 5, "tgt": [31, 35]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 4}
+    },
+    {
+      "id": "p128-en-012",
+      "sentenceId": "s-g6.0",
+      "sourceWords": ["下", "面", "我", "们", "就", "使", "用", "CODEX", "创", "建", "第", "一", "个", "Hyper", "Frame", "视", "频。"],
+      "target": "Next, let's use CODEX to create our first Hyper Frame video.",
+      "tags": ["proper-noun", "number", "term", "N:M"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 6]},
+        {"src": [2, 8], "tgt": [6, 22]},
+        {"src": [8, 17], "tgt": [22, 60]}
+      ],
+      "hardAnchors": [
+        {"src": 7, "tgt": [16, 21]},
+        {"src": 13, "tgt": [42, 47]},
+        {"src": 14, "tgt": [48, 53]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p128-en-013",
+      "sentenceId": "s-g6.17",
+      "sourceWords": ["我", "们", "先", "不", "做", "多", "么", "复", "杂", "的", "效", "果，", "而", "是", "测", "试", "Hyper", "Frame", "是", "不", "是", "能", "够", "一", "句", "话", "出", "片。"],
+      "target": "We won't start with anything too complicated; instead we'll test whether Hyper Frame can really produce a video from a single sentence.",
+      "tags": ["negation", "attributive-reorder", "proper-noun", "N:M"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 3]},
+        {"src": [2, 12], "tgt": [3, 46]},
+        {"src": [12, 16], "tgt": [46, 65]},
+        {"src": [16, 28], "tgt": [65, 135]}
+      ],
+      "hardAnchors": [
+        {"src": 16, "tgt": [73, 78]},
+        {"src": 17, "tgt": [79, 84]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 4}
+    },
+    {
+      "id": "p128-en-014",
+      "sentenceId": "s-g6.45",
+      "sourceWords": ["我", "们", "直", "接", "在", "CODEX", "里", "输", "入", "这", "段", "日", "词。"],
+      "target": "We type this prompt directly into CODEX.",
+      "tags": ["proper-noun", "attributive-reorder", "N:M"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 3]},
+        {"src": [2, 13], "tgt": [3, 40]}
+      ],
+      "hardAnchors": [
+        {"src": 5, "tgt": [34, 39]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p128-en-015",
+      "sentenceId": "s-g7.0",
+      "sourceWords": ["请", "使", "用", "Hyper", "Frame", "创", "建", "一", "个", "KodiX", "安", "装", "指", "南，", "要", "求", "1920x1080，", "包", "含", "参", "考", "图", "配", "色", "的", "科", "技", "感", "视", "频。"],
+      "target": "Please use Hyper Frame to create a KodiX installation guide: a 1920x1080 tech-style video that uses the color scheme from the reference image.",
+      "tags": ["number", "proper-noun", "term", "attributive-reorder", "N:M"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 11]},
+        {"src": [3, 5], "tgt": [11, 23]},
+        {"src": [5, 9], "tgt": [23, 35]},
+        {"src": [9, 14], "tgt": [35, 61]},
+        {"src": [14, 17], "tgt": [61, 73]},
+        {"src": [17, 30], "tgt": [73, 142]}
+      ],
+      "hardAnchors": [
+        {"src": 3, "tgt": [11, 16]},
+        {"src": 4, "tgt": [17, 22]},
+        {"src": 9, "tgt": [35, 40]},
+        {"src": 16, "tgt": [63, 72]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 6}
+    },
+    {
+      "id": "p128-en-016",
+      "sentenceId": "s-g8.0",
+      "sourceWords": ["第", "一", "步，", "确", "认", "制", "作", "规", "范。"],
+      "target": "Step one: confirm the production spec.",
+      "tags": ["number", "term", "N:1"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 10]},
+        {"src": [3, 9], "tgt": [10, 38]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p128-en-017",
+      "sentenceId": "s-g8.9",
+      "sourceWords": ["Hyper", "Frame", "Scale", "中", "内", "置", "了", "明", "确", "的", "工", "作", "流", "要", "求。"],
+      "target": "Hyper Frame Scale has clear built-in workflow requirements.",
+      "tags": ["proper-noun", "term", "N:M"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 18]},
+        {"src": [3, 15], "tgt": [18, 59]}
+      ],
+      "hardAnchors": [
+        {"src": 0, "tgt": [0, 5]},
+        {"src": 1, "tgt": [6, 11]},
+        {"src": 2, "tgt": [12, 17]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p128-en-018",
+      "sentenceId": "s-g8.24",
+      "sourceWords": ["它", "不", "是", "随", "便", "生", "成", "一", "个", "网", "页，", "然", "后", "直", "接", "录", "屏。"],
+      "target": "It doesn't just generate some web page and then screen-record it.",
+      "tags": ["negation", "1:N", "N:M"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 3]},
+        {"src": [1, 11], "tgt": [3, 39]},
+        {"src": [11, 17], "tgt": [39, 65]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p128-en-019",
+      "sentenceId": "s-g8.41",
+      "sourceWords": ["它", "更", "像", "是", "一", "个", "标", "准", "的", "视", "频", "工", "程", "化", "流", "程。"],
+      "target": "It is more like a standard video engineering pipeline.",
+      "tags": ["1:1", "term", "N:1"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 3]},
+        {"src": [1, 4], "tgt": [3, 16]},
+        {"src": [4, 16], "tgt": [16, 54]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p128-en-020",
+      "sentenceId": "s-g8.57",
+      "sourceWords": ["第", "二", "步，", "联", "网", "搜", "索。"],
+      "target": "Step two: search online.",
+      "tags": ["number", "hard-negative", "N:1"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 10]},
+        {"src": [3, 7], "tgt": [10, 24]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2, "hardNegativeOf": "p128-en-016"}
+    },
+    {
+      "id": "p128-en-021",
+      "sentenceId": "s-g9.0",
+      "sourceWords": ["因", "为", "这", "条", "视", "频", "要", "做", "的", "是", "Kodi", "X", "Clean", "的", "安", "装", "指", "南，", "所", "以", "A", "站", "的", "先", "去", "读", "了", "Kodi", "X", "官", "方", "文", "档，", "明", "确", "了", "当", "前", "视", "频", "里", "需", "要", "展", "示", "的", "安", "装", "步", "骤。"],
+      "target": "Because this video is meant to be a Kodi X Clean installation guide, the agent first went and read the official Kodi X documentation, and settled on the installation steps this video needs to show.",
+      "tags": ["causal-inversion", "proper-noun", "attributive-reorder", "N:M", "term"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 8]},
+        {"src": [2, 18], "tgt": [8, 69]},
+        {"src": [18, 23], "tgt": [69, 79]},
+        {"src": [23, 27], "tgt": [79, 99]},
+        {"src": [27, 33], "tgt": [99, 134]},
+        {"src": [33, 50], "tgt": [134, 197]}
+      ],
+      "hardAnchors": [
+        {"src": 10, "tgt": [36, 40]},
+        {"src": 12, "tgt": [43, 48]},
+        {"src": 27, "tgt": [112, 116]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 6}
+    },
+    {
+      "id": "p128-en-022",
+      "sentenceId": "s-g9.50",
+      "sourceWords": ["第", "三", "步。"],
+      "target": "Step three.",
+      "tags": ["number", "hard-negative", "N:1"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 11]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 1, "hardNegativeOf": "p128-en-020"}
+    },
+    {
+      "id": "p128-en-023",
+      "sentenceId": "s-g10.0",
+      "sourceWords": ["环", "境", "检", "查，", "Hyper", "Frames", "的", "整", "个", "渲", "染", "过", "程", "要", "用", "到", "Node.js、", "FFmpeg、", "Chrome", "这", "些", "基", "础", "依", "赖。"],
+      "target": "Environment check: the whole Hyper Frames rendering process needs base dependencies like Node.js, FFmpeg and Chrome.",
+      "tags": ["proper-noun", "term", "attributive-reorder", "N:M"],
+      "beads": [
+        {"src": [0, 4], "tgt": [0, 19]},
+        {"src": [4, 13], "tgt": [19, 60]},
+        {"src": [13, 16], "tgt": [60, 66]},
+        {"src": [16, 25], "tgt": [66, 116]}
+      ],
+      "hardAnchors": [
+        {"src": 4, "tgt": [29, 34]},
+        {"src": 5, "tgt": [35, 41]},
+        {"src": 16, "tgt": [89, 96]},
+        {"src": 17, "tgt": [98, 104]},
+        {"src": 18, "tgt": [109, 115]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 4}
+    },
+    {
+      "id": "p128-en-024",
+      "sentenceId": "s-g11.0",
+      "sourceWords": ["如", "果", "你", "本", "地", "没", "有", "安", "装", "过", "这", "些", "依", "赖，", "也", "不", "用", "担", "心。"],
+      "target": "If you haven't installed these dependencies locally, don't worry.",
+      "tags": ["causal-inversion", "negation", "attributive-reorder", "N:M"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 3]},
+        {"src": [2, 14], "tgt": [3, 53]},
+        {"src": [14, 19], "tgt": [53, 65]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p128-en-025",
+      "sentenceId": "s-g11.20",
+      "sourceWords": ["Zen", "会", "根", "据", "检", "查", "结", "果，", "继", "续", "帮", "你", "完", "善", "这", "些", "环", "境。"],
+      "target": "Zen will keep helping you complete these environments based on the check results.",
+      "tags": ["attributive-reorder", "proper-noun", "N:M"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 4]},
+        {"src": [1, 2], "tgt": [4, 9]},
+        {"src": [2, 18], "tgt": [9, 81]}
+      ],
+      "hardAnchors": [
+        {"src": 0, "tgt": [0, 3]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p128-en-026",
+      "sentenceId": "s-g11.38",
+      "sourceWords": ["第", "四", "步，", "初", "始", "化。"],
+      "target": "Step four: initialize.",
+      "tags": ["number", "hard-negative", "N:1"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 11]},
+        {"src": [3, 6], "tgt": [11, 22]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2, "hardNegativeOf": "p128-en-022"}
+    },
+    {
+      "id": "p128-en-027",
+      "sentenceId": "s-g12.24",
+      "sourceWords": ["生", "成", "以", "后，", "你", "就", "会", "看", "到", "一", "个", "完", "整", "的", "项", "目", "目", "录。"],
+      "target": "Once it's generated, you'll see a complete project directory.",
+      "tags": ["causal-inversion", "1:N", "N:M", "term"],
+      "beads": [
+        {"src": [0, 4], "tgt": [0, 21]},
+        {"src": [4, 9], "tgt": [21, 32]},
+        {"src": [9, 18], "tgt": [32, 61]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p128-en-028",
+      "sentenceId": "s-g12.42",
+      "sourceWords": ["如", "果", "你", "没", "有", "编", "程", "经", "验，", "第", "一", "次", "看", "到", "这", "些", "文", "件，", "大", "概", "率", "会", "有", "点", "头", "疼。"],
+      "target": "If you have no programming experience, the first time you see these files you'll probably find them a bit of a headache.",
+      "tags": ["causal-inversion", "negation", "number", "N:M"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 3]},
+        {"src": [2, 9], "tgt": [3, 39]},
+        {"src": [9, 18], "tgt": [39, 74]},
+        {"src": [18, 26], "tgt": [74, 120]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 4}
+    },
+    {
+      "id": "p128-en-029",
+      "sentenceId": "s-g13.31",
+      "sourceWords": ["第", "五", "步，", "建", "立", "视", "觉", "风", "格。"],
+      "target": "Step five: establish the visual style.",
+      "tags": ["number", "hard-negative", "N:1"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 11]},
+        {"src": [3, 9], "tgt": [11, 38]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2, "hardNegativeOf": "p128-en-026"}
+    },
+    {
+      "id": "p128-en-030",
+      "sentenceId": "s-g14.0",
+      "sourceWords": ["什", "么", "是", "D", "三", "点", "MD？"],
+      "target": "What is design.md?",
+      "tags": ["term", "N:1", "1:1"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 8]},
+        {"src": [3, 7], "tgt": [8, 18]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    }
+  ]
+}

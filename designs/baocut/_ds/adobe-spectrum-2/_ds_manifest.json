@@ -1,0 +1,30 @@
+{
+  "name": "Adobe Spectrum 2",
+  "slug": "adobe-spectrum-2",
+  "kind": "tokens",
+  "version": {
+    "reactSpectrumS2": "1.6.0",
+    "reactSpectrumCommit": "34b330d5f9374c983b9ac6e10f73b0188d37882b",
+    "spectrumTokens": "14.15.0",
+    "importedAt": "2026-08-25"
+  },
+  "sources": [
+    "https://github.com/adobe/react-spectrum",
+    "https://www.npmjs.com/package/@adobe/spectrum-tokens"
+  ],
+  "license": "Apache-2.0",
+  "entry": "tokens/artboard-tokens.css",
+  "prompt": "_ds_prompt.md",
+  "checker": "check-conformance.mjs",
+  "files": {
+    "tokens/artboard-tokens.css": "the block every .dc.html artboard embeds verbatim",
+    "tokens/colors.css": "full palette, light-dark() pairs",
+    "tokens/semantic-colors.css": "semantic aliases",
+    "tokens/layout.css": "spacing, radii, border widths, control heights, icon sizes",
+    "tokens/typography.css": "families, weights, line heights, size ramp, role sizes",
+    "tokens/tokens.json": "flat map the checker measures against",
+    "components/control-geometry.json": "control geometry read out of the S2 source"
+  },
+  "consumers": ["canvas/Main.dc.html", "canvas/Home.dc.html", "canvas/NewProject.dc.html", "canvas/SoundWave.dc.html"],
+  "notes": "Tokens only — no React bundle or component CSS. Artboards are self-contained Design Components with no network egress, so the system is embedded and verified rather than linked."
+}

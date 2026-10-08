@@ -1,0 +1,84 @@
+{
+  "id": "sharp2",
+  "version": 1,
+  "domain": "shape",
+  "namespace": "timeline",
+  "order": 23,
+  "path": {
+    "kind": "outline",
+    "segments": [
+      {
+        "verb": "move",
+        "pts": [
+          [
+            0.02,
+            0.04
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.98,
+            0.04
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.98,
+            0.75
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.56,
+            0.75
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.22,
+            0.98
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.29,
+            0.75
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.02,
+            0.75
+          ]
+        ]
+      },
+      {
+        "verb": "close"
+      }
+    ]
+  },
+  "params": [
+    "fill",
+    "stroke",
+    "strokeWidth"
+  ],
+  "available": true
+}

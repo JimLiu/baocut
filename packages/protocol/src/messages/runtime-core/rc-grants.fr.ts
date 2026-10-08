@@ -1,0 +1,24 @@
+import type { RcGrantsMessages } from './rc-grants.ts';
+import { pluralForm } from '../../i18n.ts';
+
+const FR_KINDS: Readonly<Record<string, string>> = { transcript: 'les transcriptions et traductions', frames: 'les images vidéo et miniatures', audio: 'l’audio', video: 'la vidéo originale', document: 'le texte et les invites', context: 'le contexte de conversation de l’Agent' };
+function frKinds(codes: string): string { return new Intl.ListFormat('fr', { style: 'long', type: 'conjunction' }).format(codes.split(',').filter(Boolean).map((k) => FR_KINDS[k] ?? k)); }
+
+export const fr: RcGrantsMessages = {
+  dataKinds: (p) => frKinds(p.kinds), grantLapsed: (p) => `L’autorisation d’envoyer ${frKinds(p.kinds)} à ${p.label} a ${p.expired ? 'expiré' : 'été révoquée'}`,
+  grantRequired: (p) => `L’envoi de ${frKinds(p.kinds)} à ${p.label} nécessite l’autorisation de l’utilisateur`, grantCallsUsedUp: (p) => `La limite d’appels de l’autorisation (${p.used}/${p.max}) est épuisée ; cet appel dépasserait le budget`, grantAmountUsedUp: 'La limite de montant de l’autorisation est épuisée ; cet appel dépasserait le budget',
+  budgetUnverifiable: (p) => `L’autorisation a une limite de montant, mais ce modèle ${p.label} n’a pas de prix fiable ; le respect de la limite ne peut pas être garanti`, taskCallsUsedUp: (p) => `Le budget d’appels de cette tâche (${p.used}/${p.max}) est épuisé ; cet appel dépasserait le budget de la tâche`,
+  taskAmountUsedUp: (p) => `Le budget de montant de cette tâche (${p.amount} ${p.currency}) est épuisé ; cet appel dépasserait le budget de la tâche`, taskBudgetUnverifiable: (p) => `Le budget de cette tâche a une limite de montant, mais le coût de cet appel ne peut pas être estimé en ${p.currency} ; le respect de la limite ne peut pas être garanti`,
+  combined: (p) => `${p.message} (${p.others} ${pluralForm('fr', p.others, { one: 'autre transfert nécessite aussi une autorisation', other: 'autres transferts nécessitent aussi une autorisation' })})`,
+  hintRevoked: 'Les autorisations révoquées ou expirées ne sont pas rétablies automatiquement. Demandez à l’utilisateur de les accorder à nouveau dans les Réglages de BaoCut, ou d’approuver cet appel une fois dans la session.',
+  hintRequired: 'L’envoi de données nécessite l’autorisation de l’utilisateur (par type de données, destinataire, périmètre et usage). Demandez à l’utilisateur d’accorder une autorisation dans les Réglages de BaoCut, ou d’approuver cet appel une fois dans la session.',
+  hintExhausted: 'Un budget épuisé n’est pas augmenté automatiquement. Demandez à l’utilisateur d’augmenter la limite de cette autorisation, ou attendez la fin des appels en cours (les appels échoués et annulés libèrent leurs réservations).',
+  hintUnverifiable: 'Lorsque le coût ne peut pas être estimé, l’utilisateur peut uniquement approuver chaque appel (montant inconnu), ou accorder une autorisation par appel avec un montant inconnu.',
+  hintTaskExhausted: 'Un budget de tâche épuisé n’est pas augmenté automatiquement. Demandez à l’utilisateur d’augmenter le budget dans le contrat de la tâche, ou attendez la fin des appels en cours (les appels échoués et annulés libèrent leurs réservations).',
+  hintTaskUnverifiable: 'Lorsqu’un budget de tâche a une limite de montant, seuls les appels dont le coût peut être estimé dans la même devise sont acceptés ; le respect de la limite ne peut pas non plus être garanti en présence d’appels de montant inconnu ou dans d’autres devises. Demandez à l’utilisateur de retirer la limite de montant du budget (en gardant uniquement la limite d’appels), ou de choisir un modèle avec un prix.',
+  hintServiceAuto: 'Le niveau auto d’un service externe n’est pas une autorisation d’envoyer des données. Demandez à l’utilisateur d’accorder une autorisation pour ce fournisseur dans BaoCut (types de données, périmètre et budget), ou de passer le service au niveau ask pour approuver chaque appel.',
+  placeholderPurpose: '<usage>', placeholderMaxCalls: '<nombre d’appels supérieur>', placeholderBudget: '<montant supérieur>', placeholderCalls: '<nombre d’appels>',
+  grantLapsedBeforeStart: (p) => `L’autorisation ${p.state === 'expired' ? 'a expiré' : p.state === 'revoked' ? 'a été révoquée' : 'a été restreinte'} avant le démarrage de la tâche ; aucune donnée n’a été envoyée`, grantInvalidBeforeStart: 'L’autorisation est devenue invalide avant le démarrage de la tâche ; aucune donnée n’a été envoyée',
+  retrySkipped: (p) => `La nouvelle tentative automatique n’a pas été effectuée : ${p.reason}`, ledgerUnsaved: 'Impossible d’écrire le registre des autorisations sur disque ; aucune donnée n’a été envoyée', providerDisabledBeforeStart: 'Le fournisseur a été désactivé avant le démarrage de la tâche ; aucune donnée n’a été envoyée',
+  noSuchGrant: 'Autorisation introuvable', toolPurpose: (p) => `Outil « ${p.tool} »`, pipelinePurpose: (p) => `Processus « ${p.label} »`,
+};

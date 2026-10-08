@@ -1,0 +1,98 @@
+{
+  "id": "love",
+  "version": 1,
+  "domain": "shape",
+  "namespace": "timeline",
+  "order": 18,
+  "path": {
+    "kind": "outline",
+    "segments": [
+      {
+        "verb": "move",
+        "pts": [
+          [
+            0.5,
+            0.94
+          ]
+        ]
+      },
+      {
+        "verb": "cubic",
+        "pts": [
+          [
+            0.39,
+            0.84
+          ],
+          [
+            0.04,
+            0.59
+          ],
+          [
+            0.04,
+            0.31
+          ]
+        ]
+      },
+      {
+        "verb": "cubic",
+        "pts": [
+          [
+            0.04,
+            0.02
+          ],
+          [
+            0.38,
+            -0.02
+          ],
+          [
+            0.5,
+            0.24
+          ]
+        ]
+      },
+      {
+        "verb": "cubic",
+        "pts": [
+          [
+            0.62,
+            -0.02
+          ],
+          [
+            0.96,
+            0.02
+          ],
+          [
+            0.96,
+            0.31
+          ]
+        ]
+      },
+      {
+        "verb": "cubic",
+        "pts": [
+          [
+            0.96,
+            0.59
+          ],
+          [
+            0.61,
+            0.84
+          ],
+          [
+            0.5,
+            0.94
+          ]
+        ]
+      },
+      {
+        "verb": "close"
+      }
+    ]
+  },
+  "params": [
+    "fill",
+    "stroke",
+    "strokeWidth"
+  ],
+  "available": true
+}

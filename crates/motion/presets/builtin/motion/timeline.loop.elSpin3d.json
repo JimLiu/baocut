@@ -1,0 +1,32 @@
+{
+  "id": "elSpin3d",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "loop",
+  "order": 13,
+  "period": 2.0,
+  "keyframes": [
+    {
+      "at": 0,
+      "scaleX": 1.0
+    },
+    {
+      "at": 0.5,
+      "ease": "easeInOutQuart",
+      "scaleX": -1.0
+    },
+    {
+      "at": 1,
+      "ease": "easeInOutQuart",
+      "scaleX": 1.0
+    }
+  ],
+  "basis": {
+    "dx": "selfWidth",
+    "dy": "selfHeight"
+  },
+  "surface": "element",
+  "determinism": "strict",
+  "available": true
+}

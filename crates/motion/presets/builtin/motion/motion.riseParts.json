@@ -1,0 +1,68 @@
+{
+  "id": "motion.riseParts",
+  "version": 1,
+  "domain": "motion",
+  "family": "riseParts",
+  "appliesTo": "part",
+  "doc": "逐 part 上浮淡入。与 timeline.enter.riseWords@1 同一种视觉，参数化并对 BCF 开放。",
+  "aliases": [
+    "riseWordsParts"
+  ],
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "distance": {
+      "type": "length",
+      "default": {
+        "value": 0.026,
+        "basis": "canvasShortEdge"
+      },
+      "doc": "起始下沉量；缺省是画布短边的 2.6%"
+    },
+    "curve": {
+      "type": "curve",
+      "default": "easeOutCubic",
+      "doc": "时间曲线（规范 §7.6 的封闭名称）"
+    }
+  },
+  "defaults": {
+    "dur": 0.35
+  },
+  "tracks": [
+    {
+      "prop": "y",
+      "composite": "add",
+      "order": 0,
+      "frames": [
+        {
+          "t": "0%",
+          "v": "{distance}"
+        },
+        {
+          "t": "100%",
+          "v": 0,
+          "ease": "{curve}"
+        }
+      ]
+    },
+    {
+      "prop": "opacity",
+      "composite": "multiply",
+      "order": 10,
+      "frames": [
+        {
+          "t": "0%",
+          "v": 0
+        },
+        {
+          "t": "100%",
+          "v": 1,
+          "ease": "{curve}"
+        }
+      ]
+    }
+  ],
+  "determinism": "strict",
+  "capabilities": []
+}

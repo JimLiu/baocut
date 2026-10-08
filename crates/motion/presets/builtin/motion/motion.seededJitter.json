@@ -1,0 +1,59 @@
+{
+  "id": "motion.seededJitter",
+  "version": 1,
+  "domain": "motion",
+  "family": "seededJitter",
+  "appliesTo": "part",
+  "doc": "逐 part 的确定性抖动：splitmix64 噪声（规范 §7.3），seed 缺省 0，composite=add。",
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "amplitude": {
+      "type": "length",
+      "default": {
+        "value": 0.004,
+        "basis": "canvasShortEdge"
+      },
+      "doc": "抖动幅度"
+    },
+    "period": {
+      "type": "number",
+      "default": 0.5,
+      "min": 0.001,
+      "doc": "一个噪声周期的秒数"
+    },
+    "seed": {
+      "type": "seed",
+      "default": 0,
+      "doc": "确定性种子（规范 §7.3）"
+    }
+  },
+  "defaults": {
+    "dur": 1.0
+  },
+  "ops": [
+    {
+      "op": "noise",
+      "prop": "x",
+      "amplitude": "{amplitude}",
+      "period": "{period}",
+      "seed": "{seed}",
+      "channel": 1,
+      "dur": "{dur}",
+      "composite": "add"
+    },
+    {
+      "op": "noise",
+      "prop": "y",
+      "amplitude": "{amplitude}",
+      "period": "{period}",
+      "seed": "{seed}",
+      "channel": 2,
+      "dur": "{dur}",
+      "composite": "add"
+    }
+  ],
+  "determinism": "strict",
+  "capabilities": []
+}

@@ -1,0 +1,33 @@
+{
+  "id": "elKenBurns",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "exit",
+  "order": 27,
+  "duration": 0.6,
+  "curve": {
+    "kind": "named",
+    "name": "linear"
+  },
+  "mirror": null,
+  "from": {},
+  "keyframes": [
+    {
+      "at": 0,
+      "scaleX": 1.4705882352941178,
+      "scaleY": 1.4705882352941178
+    },
+    {
+      "at": 1,
+      "ease": "easeInOutSine"
+    }
+  ],
+  "basis": {
+    "dx": "selfWidth",
+    "dy": "selfHeight"
+  },
+  "surface": "element",
+  "determinism": "strict",
+  "available": true
+}

@@ -1,0 +1,13 @@
+import type { JobsTranscribeMessages } from './transcribe.ts';
+
+export const vi: JobsTranscribeMessages = {
+label: 'Chép lời', description: 'Chép lời tư liệu trong video (hoặc tạo video và nhập tệp tư liệu cục bộ), ghi bản chép lời và tạo lớp phụ đề. Nếu video đã có bản chép lời của tư liệu đó, kết quả vào một video mới (mặc định) hoặc thay bản chép lời và chuyển theo bản dịch, phụ đề và lồng tiếng. Khi chỉ cung cấp tệp, không tạo video và ghi TXT, SRT vào vị trí lưu.', cannotCreateVideo: 'Runtime này không thể tạo video', videoNotOpen: 'Video chưa mở', stepCreate: 'Tạo video', stepTranscribe: 'Chép lời', importMediaLabel: 'Nhập tư liệu', fileExcludesVideo: 'không thể kết hợp với videoId hoặc target', assetIdWithFile: 'không thể cung cấp cùng tệp: sẽ chép lời chính tệp đó', captionsWithFile: 'không áp dụng cho tệp: không có video nên không có lớp phụ đề', diarizeWithFile: 'không áp dụng cho tệp: không phân biệt người nói', outDirFileOnly: 'chỉ có thể cung cấp cùng tệp', assetIdWithCreate: 'không thể cung cấp khi tạo video: sẽ chép lời tư liệu đã nhập', needVideoOrFile: 'Cung cấp một trong videoId, target hoặc file', createMediaRequired: 'là bắt buộc: tệp tư liệu cần nhập và chép lời trong video mới', fileShape: 'phải là đường dẫn tuyệt đối hoặc { entryId }', cannotTranscribeFile: 'Runtime này không thể chép lời tệp không có video', mediaToTranscribeNotFound: 'Không tìm thấy tệp tư liệu cần chép lời', mediaToImportNotFound: 'Không tìm thấy tệp tư liệu cần nhập', noVideo: 'Không có video để chép lời', notApplied: 'Chép lời đã hoàn tất nhưng chưa ghi vào video', videoClosed: 'Video đã đóng nên chưa chép lời: mở video rồi thử lại', noMainAsset: 'Không có tư liệu âm thanh hoặc video trên rãnh chính: chỉ định tư liệu cần chép lời (assetId)', ambiguousMainAsset: 'Có nhiều tư liệu trên rãnh chính: chỉ định tư liệu cần chép lời (assetId)',
+  retranscribedName: (p: { name: string }) => `${p.name} · Chép lời lại`,
+  transcriptEdited: 'Bản chép lời đã được sửa sau khi chép lời; thay thế sẽ bỏ những chỉnh sửa đó: dùng destination new-video hoặc truyền acceptEdited: true để vẫn thay thế',
+  transcriptEditedSinceSubmit: 'Bản chép lời đã thay đổi sau khi lần chạy này bắt đầu nên chưa được thay thế: hãy bắt đầu chép lời lại',
+  landingNeedsVideo: 'chỉ áp dụng cho video có sẵn ({ videoId } hoặc { entryId })',
+  nameNewVideoOnly: 'chỉ áp dụng khi destination là new-video',
+  replaceOnly: 'chỉ áp dụng khi destination là replace',
+  transcriptUnreadable: 'Không đọc được bản chép lời hiện tại để kiểm tra chỉnh sửa',
+  replaceDocumentGone: 'Bản chép lời cần thay không còn trong video',
+};

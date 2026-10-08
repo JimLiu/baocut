@@ -1,0 +1,26 @@
+import type { RcTemplatesMessages } from './rc-templates.ts';
+
+export const zhHans: RcTemplatesMessages = {
+  builtinConflict: (p) => `已经有同 id 的内置模板「${p.id}」，这一份没有加载。换一个 id（目录名）再放进来`,
+  templateNotFound: (p) => `没有这个模板：${p.id}`,
+  fileNotRegistered: (p) => `模板「${p.id}」没有登记这个文件：${p.file}`,
+  dirIsSymlink: '模板目录是符号链接，不跟随。把模板目录本身放进来',
+  duplicateId: (p) => `同一个目录里有不止一个 id 为「${p.id}」的模板，都没有加载`,
+  templateInvalid: '模板不合规，没有加载',
+  unsupportedSchema: '清单的 schema 这个版本不认识，没有加载',
+  missingFile: (p) => `缺少 ${p.file}`,
+  fileOverBytes: (p) => `${p.file} 超过 ${p.limit} 字节`,
+  fileOverBytesActual: (p) => `${p.file} 超过 ${p.limit} 字节（${p.size}）`,
+  fileNotUtf8: (p) => `${p.file} 不是合法的 UTF-8`,
+  fileNotJson: (p) => `${p.file} 不是合法的 JSON`,
+  fileEmpty: (p) => `${p.file} 是空的`,
+  registeredFileMissing: (p) => `登记的文件不存在：${p.file}`,
+  pathOutsideTemplate: (p) => `路径越出模板目录：${p.file}`,
+  unregisteredFile: (p) => `目录里有没登记的文件：${p.file}`,
+  tooManyEntries: (p) => `目录里的条目超过 ${p.limit} 个`,
+  noSymlinks: (p) => `不得含符号链接：${p.path}`,
+  notRegularFile: (p) => `不是普通文件：${p.path}`,
+  cannotReadDir: (p) => `读不了模板目录（${p.code}）`,
+  notScene: (p) => `「${p.title}」是作品示例：把它的提示词放进输入框直接发送，不用挂模板`,
+  assetNotRegistered: (p) => `模板「${p.id}」没有登记这个素材：${p.asset}`,
+};

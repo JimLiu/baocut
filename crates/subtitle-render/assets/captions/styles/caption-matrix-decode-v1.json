@@ -1,0 +1,115 @@
+{
+  "schema": "baocut-caption-style/1",
+  "id": "caption-matrix-decode",
+  "version": 1,
+  "title": "Matrix decode",
+  "description": "Seeded monospace symbols resolve into the real word.",
+  "tags": [
+    "vfx",
+    "tech"
+  ],
+  "scripts": [
+    "latin",
+    "cjk"
+  ],
+  "aspects": [
+    "16:9",
+    "9:16",
+    "1:1"
+  ],
+  "cjk": "fallback",
+  "layout": "lowerThird",
+  "family": "matrixDecode",
+  "layers": [
+    "glyphs"
+  ],
+  "channels": [
+    "opacity",
+    "colorMix",
+    "scramble"
+  ],
+  "tunables": [
+    {
+      "key": "intensity",
+      "kind": "number",
+      "min": 0,
+      "max": 100,
+      "default": 60
+    },
+    {
+      "key": "speed",
+      "kind": "number",
+      "min": 0.35,
+      "max": 2,
+      "default": 1
+    }
+  ],
+  "events": [
+    {
+      "trigger": "word.enter",
+      "operator": "textSwap",
+      "channels": [
+        "opacity",
+        "colorMix",
+        "scramble"
+      ],
+      "easing": "step",
+      "duration": 0.55,
+      "fixed": true,
+      "procedural": "matrixDecode",
+      "keyframes": {
+        "opacity": [
+          {"offset": 0, "value": 0},
+          {"offset": 0.18, "value": 1},
+          {"offset": 1, "value": 1}
+        ],
+        "colorMix": [
+          {"offset": 0, "value": 1},
+          {"offset": 1, "value": 0}
+        ],
+        "scramble": [
+          {"offset": 0, "value": 1, "ease": "easeInCubic"},
+          {"offset": 1, "value": 0}
+        ]
+      }
+    }
+  ],
+  "composite": "normal",
+  "hardKill": true,
+  "visibility": {"hold": 0.5, "gapBeforeNext": 0.05, "hardKillAfter": 0.45},
+  "seeded": true,
+  "assets": [],
+  "fonts": [
+    {
+      "role": "mono",
+      "family": "JetBrains Mono",
+      "weights": [
+        500,
+        700
+      ],
+      "fallback": [
+        "SF Mono",
+        "Menlo",
+        "PingFang SC"
+      ],
+      "substitution": "metric-safe",
+      "license": "OFL-1.1"
+    },
+    {
+      "role": "sans",
+      "family": "Inter",
+      "weights": [
+        400,
+        600,
+        800
+      ],
+      "fallback": [
+        "SF Pro",
+        "PingFang SC",
+        "Hiragino Sans"
+      ],
+      "substitution": "substitute",
+      "license": "OFL-1.1"
+    }
+  ]
+}

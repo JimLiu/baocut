@@ -1,0 +1,14 @@
+import type { VideoModelMessages } from './videoModel.ts';
+
+export const it: VideoModelMessages = {
+  bindingNegativeFrame: (p) => `localFrame dell’associazione ${p.binding} non può essere negativo`,
+  bindingFrameOrPercent: (p) => `Ogni fotogramma chiave dell’associazione ${p.binding} deve indicare esattamente uno tra localFrame e percent`,
+  bindingDuplicate: (p) => `${p.prop} della clip ${p.item} ha più di un’associazione di fotogrammi chiave`,
+  captionAnimationUnknown: (p) => `style.animationPresetId deve essere un ID del catalogo delle animazioni delle parole, non ${p.value}`,
+  captionStyleNotObject: 'style deve essere un oggetto', bodyShape: (p) => `Il corpo ha campi con una struttura errata: ${p.error}`, schemaMismatch: (p) => `schema deve essere ${p.schema}`, clockSourceAsset: 'clock deve essere source-asset', timescaleSafeInteger: 'timescale deve essere un intero sicuro positivo',
+  cutTicksNotInteger: (p) => `t0 e t1 del taglio ${p.cut} devono essere tick interi`, cutRangeInvalid: (p) => `Il taglio ${p.cut} deve rispettare 0 ≤ t0 < t1`, cutBeyondDuration: (p) => `Il taglio ${p.cut} supera la fine del materiale`, cutOrder: (p) => `Il taglio ${p.cut} si sovrappone al precedente o non è ordinato per t0`, cutIdsRepeated: 'Gli ID dei tagli sono ripetuti',
+  suggestionTicksNotInteger: (p) => `t0 e t1 del suggerimento ${p.suggestion} devono essere tick interi`, suggestionRangeInvalid: (p) => `Il suggerimento ${p.suggestion} deve rispettare 0 ≤ t0 < t1`, suggestionOrder: (p) => `Il suggerimento ${p.suggestion} non è ordinato per t0`, suggestionConfidence: (p) => `confidence del suggerimento ${p.suggestion} deve essere compreso tra 0 e 1`, suggestionIdsRepeated: 'Gli ID dei suggerimenti sono ripetuti',
+  fxTemperatureRange: 'fx.temperature deve rientrare in -1..=1', fxShadowOffset: 'Gli offset di fx.shadow devono essere numeri finiti', fxShadowBlurRange: 'fx.shadow.blur deve rientrare in 0..=200', fxShadowOpacityRange: 'fx.shadow.opacity deve rientrare in 0..=1', fxShadowColor: 'fx.shadow.color deve essere #RRGGBB o #RRGGBBAA', fxStrokeWidthRange: 'fx.stroke.width deve rientrare in (0, 100]', fxStrokeColor: 'fx.stroke.color deve essere #RRGGBB o #RRGGBBAA',
+  layoutProfileEmpty: 'layoutProfileId non può essere una stringa vuota', coverageRange: 'stages.aligned.coverage deve essere compreso tra 0 e 1', transitionParamsInvalid: (p) => `Parametri non validi per ${p.kind}: ${p.error}`, dipColorInvalid: 'color di dip-to-color deve essere #RRGGBB',
+  blockConfidence: (p) => `confidence dei blocchi di allineamento in units[${p.index}] deve essere compreso tra 0 e 1`, splitPiecesEmpty: (p) => `alignment.split.pieces in units[${p.index}] non può essere vuoto`, splitPieceOrder: (p) => `alignment.split.pieces in units[${p.index}] ha un elemento con from maggiore di to`,
+};

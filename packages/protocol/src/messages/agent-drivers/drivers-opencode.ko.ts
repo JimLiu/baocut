@@ -1,0 +1,37 @@
+import type { DriversOpencodeMessages } from './drivers-opencode.ts';
+
+export const ko: DriversOpencodeMessages = {
+  plan: 'OpenCode의 모델 계정',
+  installHint: 'npm install -g @opencode/cli로 2.x를 설치하세요',
+  unsupportedMajor: (p) => `OpenCode ${p.version} 버전은 BaoCut이 아직 지원하지 않는 메이저 버전입니다. 2.x만 지원합니다.`,
+  tooOld: (p) => `OpenCode ${p.version} 버전은 너무 오래되었습니다. 업그레이드하세요: BaoCut에는 ${p.min} 이상의 2.x가 필요합니다(${p.command}).`,
+  unsupportedVersion: (p) => `OpenCode ${p.version} 버전은 지원되지 않습니다. ${p.min} 이상의 2.x가 필요합니다`,
+  versionUnknown: '알 수 없는 버전',
+  noModelAccount: (p) =>
+    `OpenCode에 아직 연결된 모델 계정이 없어 OpenCode Zen의 무료 모델만 사용할 수 있습니다. 터미널에서 ${p.command} 명령을 실행해 계정을 연결하세요.`,
+  probeFailed: (p) => `OpenCode serve를 시작하거나 모델 목록을 읽지 못했습니다: ${p.error}`,
+  externalDirectory: '작업 폴더 밖의 위치에 접근',
+  directoryNotReady: (p) => `OpenCode가 ${p.seconds}초 안에 ${p.directory} 폴더를 준비하지 못했습니다`,
+  httpFailed: (p) => `OpenCode ${p.operation} 실패(HTTP ${p.status}${p.tag ? ` ${p.tag}` : ''})${p.detail ? `: ${p.detail}` : ''}`,
+  htmlResponse: 'v2 API 대신 웹 페이지가 반환되었습니다(버전이 호환되지 않을 수 있음)',
+  processExited: 'OpenCode 프로세스가 종료되었습니다',
+  killedBySignal: (p) => `시그널 ${p.signal}에 의해 종료됨`,
+  exitCode: (p) => `종료 코드 ${p.code}`,
+  serveNotReady: (p) => `opencode serve가 ${p.seconds}초 안에 준비되지 않았습니다`,
+  serveExitedAtStart: (p) => `opencode serve가 시작 중에 종료되었습니다(${p.reason})`,
+  serveExited: 'opencode serve가 종료되었습니다',
+  streamConnectFailed: (p) => `이벤트 스트림에 연결하지 못했습니다(HTTP ${p.status})`,
+  streamEnded: '이벤트 스트림이 끝났습니다',
+  streamNotConnected: (p) => `이벤트 스트림이 연결되지 않았습니다(${p.seconds}초)`,
+  streamLost: (p) => `이벤트 스트림 연결이 끊겼습니다: ${p.error}`,
+  mcpFailed: (p) => `${p.name}이(가) MCP 서버 ${p.server}에 연결하지 못했습니다(${p.error}). 이 세션에서는 BaoCut 도구를 사용할 수 없습니다.`,
+  mcpTimeout: (p) =>
+    `${p.name}이(가) 제한 시간 안에 MCP 서버(${p.servers})에 연결하지 못했습니다. 이 세션에서는 BaoCut 도구를 사용하지 못할 수 있습니다.`,
+  promptRejected: (p) => `${p.name}이(가) 이 메시지를 받지 않았습니다: ${p.error}`,
+  setModeFailed: (p) => `${p.name}이(가) 접근 모드를 설정하지 못했습니다: ${p.error}`,
+  retryFallback: '모델 요청이 실패했습니다. 잠시 후 다시 시도합니다.',
+  runFailed: (p) => `${p.name} 실행 실패`,
+  endedAfterRejection: (p) => `도구가 거부되어 ${p.name}이(가) 이번 턴을 종료했습니다. 다른 방법을 시도하게 하려면 메시지를 다시 보내세요.`,
+  interruptedTurn: (p) => `${p.name}이(가) 이번 턴을 중단했습니다(${p.reason}).`,
+  modelFormat: (p) => `${p.name} 모델은 provider/model 형식으로 써야 합니다(받은 값: ${p.id})`,
+};

@@ -1,0 +1,22 @@
+[package]
+name = "motion"
+description = "BaoCut 的共享动画内核：缓动与弹簧曲线、关键帧取样、preset / 效果 / 文字预设注册表（内置 manifest 经 include_str! 嵌入）、flow 编译与逐词动效的拆分。纯函数、无 I/O、超越函数只走 libm（移植自 BaoCut v2 bcut-motion）"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[dependencies]
+# 超越函数只走 libm：std 的同名方法在 macOS native 调系统 libm、在 wasm32 调 compiler-builtins，
+# 末位不同，导出与预览算出的姿态就对不上。门禁在 `tests/libm_only.rs`。
+libm = "0.2.16"
+serde = { version = "1.0.229", features = ["derive"] }
+# `float_roundtrip`：十进制读成 f64 必须正确舍入，与 std `str::parse`、JS `JSON.parse` 同值。
+# 内置 preset 常量读偏 1 ULP，预览与导出在元素边界帧就不一致（门禁在 `tests/float_parse.rs`；
+# v2 在 workspace 级打开，这里随 crate 声明）。
+serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
+unicode-segmentation = "1.12"
+
+[dev-dependencies]
+# 搬迁证据：easing 实现必须与 `scene-primitives` 的旧实现逐位相同（v2 同样是 dev 方向的环）。
+scene-primitives = { workspace = true }

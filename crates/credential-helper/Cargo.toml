@@ -1,0 +1,23 @@
+[package]
+name = "credential-helper"
+description = "BaoCut 的凭据助手：Runtime 以子进程调用，经 stdin/stdout 的一行 JSON 读写 macOS 钥匙串（架构设计 §6.8）"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[lib]
+name = "credential_helper"
+path = "src/lib.rs"
+
+[[bin]]
+name = "credential-helper"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+
+# 只在 macOS 上访问钥匙串；其他平台编译成对每个请求回答 `unsupported` 的桩。
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = "3.7.0"

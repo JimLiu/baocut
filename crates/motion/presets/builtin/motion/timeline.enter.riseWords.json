@@ -1,0 +1,29 @@
+{
+  "id": "riseWords",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "enter",
+  "order": 14,
+  "duration": 0.9,
+  "curve": {
+    "kind": "named",
+    "name": "easeOutQuart"
+  },
+  "mirror": "sink",
+  "from": {
+    "opacity": 0.0,
+    "dy": 0.026
+  },
+  "parts": {
+    "unit": "word",
+    "partDur": 0.35,
+    "stagger": 0.06
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

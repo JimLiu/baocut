@@ -1,0 +1,25 @@
+{
+  "id": "donut",
+  "version": 1,
+  "domain": "progress",
+  "namespace": "timeline",
+  "order": 3,
+  "numColors": 2,
+  "colorLabels": ["Bar", "Base"],
+  "defaultMainColor": "#70DB74",
+  "defaultSecondaryColor": "#D4F4D5",
+  "aspect": "square",
+  "recipe": {
+    "algorithm": "ring-v1",
+    "params": {
+      "featherPx": 4.0,
+      "edgeFeatherPx": 0.5,
+      "innerRadius": 0.8,
+      "startAngle": "top",
+      "direction": "cw"
+    }
+  },
+  "determinism": "strict",
+  "shader": "circle.wgsl",
+  "available": true
+}

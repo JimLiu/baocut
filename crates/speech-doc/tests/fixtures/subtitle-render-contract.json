@@ -1,0 +1,757 @@
+{
+  "displayWindows": [
+    {
+      "items": [{"id":"a","text":"A","start":1.0,"end":2.0},{"id":"b","text":"B","start":2.3,"end":3.0}],
+      "index": 0,
+      "expected": {"start":0.5,"end":2.2}
+    },
+    {
+      "items": [{"id":"a","text":"A","start":1.0,"end":2.0},{"id":"b","text":"B","start":2.3,"end":3.0}],
+      "index": 1,
+      "expected": {"start":2.2,"end":4.0}
+    }
+  ],
+  "styleMetrics": [
+    {
+      "name": "explicit radius and block width floor",
+      "style": {
+        "fontSize": 30,
+        "background": true,
+        "backgroundPadding": 10,
+        "backgroundColor": "#000000ff",
+        "backgroundStyle": "block",
+        "borderRadius": 30,
+        "letterSpacing": -1.5
+      },
+      "frame": {"width": 960, "height": 540},
+      "expected": {"borderRadius": 16.5, "blockMinWidth": 268.8, "letterSpacing": -1.5}
+    },
+    {
+      "name": "missing radius retains the legacy padding radius",
+      "style": {
+        "fontSize": 30,
+        "background": true,
+        "backgroundPadding": 10,
+        "backgroundColor": "#000000ff",
+        "backgroundStyle": "wrap"
+      },
+      "frame": {"width": 960, "height": 540},
+      "expected": {"borderRadius": 8.0, "blockMinWidth": 0.0, "letterSpacing": 0.0}
+    }
+  ],
+  "textTransforms": [
+    {"text": "hello ACME world", "transform": "title", "expected": "Hello ACME World"},
+    {"text": "你好world ACME", "transform": "title", "expected": "你好world ACME"}
+  ],
+  "cueDerivations": [
+    {
+      "name": "hidden head and middle words are omitted before cue derivation",
+      "words": [
+        {"id":"w0","t0":0.0,"t1":0.2,"text":"Um","sp":"s1"},
+        {"id":"w1","t0":0.2,"t1":0.7,"text":"Hello","sp":"s1"},
+        {"id":"w2","t0":0.7,"t1":0.9,"text":"secret","sp":"s1"},
+        {"id":"w3","t0":0.9,"t1":1.4,"text":"world.","sp":"s1"}
+      ],
+      "breaks": {"w1":"nobreak"},
+      "hidden": {"w0":true,"w2":true},
+      "expected": [
+        {"id":"q-w1","start":0.2,"end":1.4,"sp":"s1","text":"Hello world.","wordIds":["w1","w3"]}
+      ]
+    },
+    {
+      "name": "an all-hidden transcript has no derived cues",
+      "words": [
+        {"id":"w0","t0":0.0,"t1":0.5,"text":"Hidden","sp":"s1"},
+        {"id":"w1","t0":0.5,"t1":1.0,"text":"line.","sp":"s1"}
+      ],
+      "breaks": {},
+      "hidden": {"w0":true,"w1":true},
+      "expected": []
+    },
+    {
+      "name": "the default Latin width is pinned to exactly 42 cells",
+      "words": [
+        {"id":"w0","t0":0.0,"t1":1.0,"text":"abcdefghijklmnopqrst","sp":"s1"},
+        {"id":"w1","t0":1.0,"t1":2.0,"text":"abcdefghijklmnopqrstu","sp":"s1"},
+        {"id":"w2","t0":2.0,"t1":3.0,"text":"ABCDEFGHIJKLMNOPQRST","sp":"s1"},
+        {"id":"w3","t0":3.0,"t1":4.0,"text":"ABCDEFGHIJKLMNOPQRST","sp":"s1"},
+        {"id":"w4","t0":4.0,"t1":5.0,"text":"x","sp":"s1"}
+      ],
+      "breaks": {},
+      "hidden": {},
+      "expected": [
+        {"id":"q-w0","start":0.0,"end":2.0,"sp":"s1","text":"abcdefghijklmnopqrst abcdefghijklmnopqrstu","wordIds":["w0","w1"]},
+        {"id":"q-w2","start":2.0,"end":4.0,"sp":"s1","text":"ABCDEFGHIJKLMNOPQRST ABCDEFGHIJKLMNOPQRST","wordIds":["w2","w3"]},
+        {"id":"q-w4","start":4.0,"end":5.0,"sp":"s1","text":"x","wordIds":["w4"]}
+      ]
+    },
+    {
+      "name": "CJK glyphs use double width and join without spaces",
+      "words": [
+        {"id":"c0","t0":0.0,"t1":0.1,"text":"字","sp":"s1"},
+        {"id":"c1","t0":0.1,"t1":0.2,"text":"幕","sp":"s1"},
+        {"id":"c2","t0":0.2,"t1":0.3,"text":"系","sp":"s1"},
+        {"id":"c3","t0":0.3,"t1":0.4,"text":"统","sp":"s1"},
+        {"id":"c4","t0":0.4,"t1":0.5,"text":"需","sp":"s1"},
+        {"id":"c5","t0":0.5,"t1":0.6,"text":"要","sp":"s1"},
+        {"id":"c6","t0":0.6,"t1":0.7,"text":"在","sp":"s1"},
+        {"id":"c7","t0":0.7,"t1":0.8,"text":"中","sp":"s1"},
+        {"id":"c8","t0":0.8,"t1":0.9,"text":"文","sp":"s1"},
+        {"id":"c9","t0":0.9,"t1":1.0,"text":"字","sp":"s1"},
+        {"id":"c10","t0":1.0,"t1":1.1,"text":"符","sp":"s1"},
+        {"id":"c11","t0":1.1,"t1":1.2,"text":"之","sp":"s1"},
+        {"id":"c12","t0":1.2,"t1":1.3,"text":"间","sp":"s1"},
+        {"id":"c13","t0":1.3,"t1":1.4,"text":"保","sp":"s1"},
+        {"id":"c14","t0":1.4,"t1":1.5,"text":"持","sp":"s1"},
+        {"id":"c15","t0":1.5,"t1":1.6,"text":"自","sp":"s1"},
+        {"id":"c16","t0":1.6,"t1":1.7,"text":"然","sp":"s1"},
+        {"id":"c17","t0":1.7,"t1":1.8,"text":"换","sp":"s1"},
+        {"id":"c18","t0":1.8,"t1":1.9,"text":"行","sp":"s1"},
+        {"id":"c19","t0":1.9,"t1":2.0,"text":"规","sp":"s1"},
+        {"id":"c20","t0":2.0,"t1":2.1,"text":"则","sp":"s1"},
+        {"id":"c21","t0":2.1,"t1":2.2,"text":"稳","sp":"s1"}
+      ],
+      "breaks": {},
+      "hidden": {},
+      "expected": [
+        {"id":"q-c0","start":0.0,"end":2.1,"sp":"s1","text":"字幕系统需要在中文字符之间保持自然换行规则","wordIds":["c0","c1","c2","c3","c4","c5","c6","c7","c8","c9","c10","c11","c12","c13","c14","c15","c16","c17","c18","c19","c20"]},
+        {"id":"q-c21","start":2.1,"end":2.2,"sp":"s1","text":"稳","wordIds":["c21"]}
+      ]
+    },
+    {
+      "name": "auto pins from autoBreaks[default] apply and a user break pin overrides the same key",
+      "note": "0.4：派生用 pins = autoBreaks[layoutProfile || 'default'] ⊕ breaks（同键以 breaks 为准）。w1 的自动 break 被用户 nobreak 压掉，w3 的自动 break 生效。",
+      "words": [
+        {"id":"w0","t0":0.0,"t1":1.0,"text":"one","sp":"s1"},
+        {"id":"w1","t0":1.0,"t1":2.0,"text":"two","sp":"s1"},
+        {"id":"w2","t0":2.0,"t1":3.0,"text":"three","sp":"s1"},
+        {"id":"w3","t0":3.0,"t1":4.0,"text":"four","sp":"s1"},
+        {"id":"w4","t0":4.0,"t1":5.0,"text":"five","sp":"s1"},
+        {"id":"w5","t0":5.0,"t1":6.0,"text":"six.","sp":"s1"}
+      ],
+      "breaks": {"w1":"nobreak"},
+      "autoBreaks": {"default": {"w1":"break","w3":"break"}},
+      "hidden": {},
+      "expected": [
+        {"id":"q-w0","start":0.0,"end":4.0,"sp":"s1","text":"one two three four","wordIds":["w0","w1","w2","w3"]},
+        {"id":"q-w4","start":4.0,"end":6.0,"sp":"s1","text":"five six.","wordIds":["w4","w5"]}
+      ]
+    },
+    {
+      "name": "autoBreaks are keyed by layoutProfile; other profiles' pins are ignored",
+      "words": [
+        {"id":"w0","t0":0.0,"t1":1.0,"text":"one","sp":"s1"},
+        {"id":"w1","t0":1.0,"t1":2.0,"text":"two","sp":"s1"},
+        {"id":"w2","t0":2.0,"t1":3.0,"text":"three","sp":"s1"},
+        {"id":"w3","t0":3.0,"t1":4.0,"text":"four","sp":"s1"},
+        {"id":"w4","t0":4.0,"t1":5.0,"text":"five","sp":"s1"},
+        {"id":"w5","t0":5.0,"t1":6.0,"text":"six.","sp":"s1"}
+      ],
+      "breaks": {},
+      "autoBreaks": {"default": {"w1":"break"}, "portrait": {"w3":"break"}},
+      "layoutProfile": "portrait",
+      "hidden": {},
+      "expected": [
+        {"id":"q-w0","start":0.0,"end":4.0,"sp":"s1","text":"one two three four","wordIds":["w0","w1","w2","w3"]},
+        {"id":"q-w4","start":4.0,"end":6.0,"sp":"s1","text":"five six.","wordIds":["w4","w5"]}
+      ]
+    }
+  ],
+  "lineBreaks": [
+    {
+      "name": "a span that fits the width stays on one line",
+      "words": ["Which","means","when","I","find","a","need"],
+      "language": "en",
+      "fit": 42,
+      "maxLines": 2,
+      "expected": [[0,1,2,3,4,5,6]]
+    },
+    {
+      "name": "a three-line Latin span balances toward the ideal width",
+      "words": ["It","seems","like","each","advancement","we've","had","in","the","complexity","of","the","way","we","write","code","to","interact","with","these","models"],
+      "language": "en",
+      "fit": 42,
+      "maxLines": 3,
+      "expected": [[0,1,2,3,4,5],[6,7,8,9,10,11,12,13],[14,15,16,17,18,19,20]]
+    },
+    {
+      "name": "the boundary penalty pulls a line end onto a comma when the balance cost allows",
+      "words": ["so","the","humans","don't","get","distracted","paying","attention","to","that","in","reviews,","stuff","like","that."],
+      "language": "en",
+      "fit": 42,
+      "maxLines": 3,
+      "expected": [[0,1,2,3,4,5],[6,7,8,9,10],[11,12,13,14]]
+    },
+    {
+      "name": "two lines split near the middle rather than at the first comma",
+      "words": ["First","clause","ends","here,","and","the","second","clause","runs","a","bit","longer","than","the","first."],
+      "language": "en",
+      "fit": 42,
+      "maxLines": 2,
+      "expected": [[0,1,2,3,4,5,6],[7,8,9,10,11,12,13,14]]
+    },
+    {
+      "name": "a narrow fit yields evenly filled lines",
+      "words": ["one","two","three","four","five","six","seven","eight","nine","ten","eleven"],
+      "language": "en",
+      "fit": 20,
+      "maxLines": 3,
+      "expected": [[0,1,2,3],[4,5,6,7],[8,9,10]]
+    },
+    {
+      "name": "CJK words join without separators and count code points",
+      "words": ["我们","今天","要","讲","的","是","字幕","切分","的","四层","分离","模型","以及","它","的","实现"],
+      "language": "zh",
+      "fit": 12,
+      "maxLines": 3,
+      "expected": [[0,1,2,3,4,5],[6,7,8,9,10],[11,12,13,14,15]]
+    },
+    {
+      "name": "a sentence end inside the span does not force the line break there",
+      "words": ["and","how","AI","is","beginning","to","reshape","the","environment.","Modern","workflows","changed."],
+      "language": "en",
+      "fit": 42,
+      "maxLines": 2,
+      "expected": [[0,1,2,3,4,5,6,7],[8,9,10,11]]
+    },
+    {
+      "name": "an over-wide single word owns its own line and never blocks the DP",
+      "words": ["Supercalifragilisticexpialidocious","is","a","very","long","word","indeed"],
+      "language": "en",
+      "fit": 20,
+      "maxLines": 4,
+      "expected": [[0],[1,2,3,4],[5,6]]
+    }
+  ],
+  "splitBoundaries": [
+    {
+      "name": "pure CJK cue splits on the character boundary nearest textA",
+      "note": "标尺必须与生成 cue.text 的 join 一致：CJK 相邻不占分隔宽度。每词 +1 的近似会落到 g1.1。",
+      "words": [
+        {"id":"g1.0","t0":0.0,"t1":0.5,"text":"我","sp":"s1"},
+        {"id":"g1.1","t0":0.5,"t1":1.0,"text":"们","sp":"s1"},
+        {"id":"g1.2","t0":1.0,"t1":1.5,"text":"今","sp":"s1"},
+        {"id":"g1.3","t0":1.5,"t1":2.0,"text":"天","sp":"s1"},
+        {"id":"g1.4","t0":2.0,"t1":2.5,"text":"开","sp":"s1"},
+        {"id":"g1.5","t0":2.5,"t1":3.0,"text":"始","sp":"s1"},
+        {"id":"g1.6","t0":3.0,"t1":3.5,"text":"工","sp":"s1"},
+        {"id":"g1.7","t0":3.5,"t1":4.0,"text":"作","sp":"s1"}
+      ],
+      "baseText": "我们今天开始工作",
+      "textA": "我们今天",
+      "textB": "开始工作",
+      "expectedAt": "g1.3"
+    },
+    {
+      "name": "mixed CJK and Latin cue counts the join separators once each",
+      "note": "显示串是「我用 BaoCut 剪视频」：CJK↔Latin 之间各有一个空格，CJK 之间没有。每词 +1 的近似会落到 m1.0。",
+      "words": [
+        {"id":"m1.0","t0":0.0,"t1":0.4,"text":"我","sp":"s1"},
+        {"id":"m1.1","t0":0.4,"t1":0.8,"text":"用","sp":"s1"},
+        {"id":"m1.2","t0":0.8,"t1":1.6,"text":"BaoCut","sp":"s1"},
+        {"id":"m1.3","t0":1.6,"t1":2.0,"text":"剪","sp":"s1"},
+        {"id":"m1.4","t0":2.0,"t1":2.4,"text":"视","sp":"s1"},
+        {"id":"m1.5","t0":2.4,"t1":2.8,"text":"频","sp":"s1"}
+      ],
+      "baseText": "我用 BaoCut 剪视频",
+      "textA": "我用",
+      "textB": "BaoCut 剪视频",
+      "expectedAt": "m1.1"
+    },
+    {
+      "name": "emoji word keeps its own separators on both sides",
+      "note": "textA 精确等于某个词边界前缀（距离 0），因此结论与「字符」的计量单位无关——Rust 标量 / Swift 字素 / JS UTF-16 长度各算各的都落在同一边界。emoji 只用单标量、无 ZWJ 与肤色修饰符，否则三端计数各不相同。",
+      "words": [
+        {"id":"e1.0","t0":0.0,"t1":0.4,"text":"今","sp":"s1"},
+        {"id":"e1.1","t0":0.4,"t1":0.8,"text":"天","sp":"s1"},
+        {"id":"e1.2","t0":0.8,"t1":1.2,"text":"🎉","sp":"s1"},
+        {"id":"e1.3","t0":1.2,"t1":1.6,"text":"开","sp":"s1"},
+        {"id":"e1.4","t0":1.6,"t1":2.0,"text":"心","sp":"s1"}
+      ],
+      "baseText": "今天 🎉 开心",
+      "textA": "今天 🎉",
+      "textB": "开心",
+      "expectedAt": "e1.2"
+    }
+  ],
+  "modes": [
+    {"mode":"orig","order":"trans","expected":["orig"]},
+    {"mode":"trans","order":"orig","expected":["trans"]},
+    {"mode":"bi","order":"trans","expected":["trans","orig"]},
+    {"mode":"bi","order":"orig","expected":["orig","trans"]}
+  ],
+  "trackSet": {
+    "resolve": [
+      {
+        "description": "tracks only: the track set is the truth, mode is derived from it",
+        "style": {"tracks":[{"role":"source","lang":"zh"}]},
+        "expected": {"tracks":[{"role":"source","lang":"zh"}],"mode":"orig"}
+      },
+      {
+        "description": "tracks only, both roles present -> bi",
+        "style": {"tracks":[{"role":"source","lang":"zh"},{"role":"translation","lang":"en"}]},
+        "expected": {"tracks":[{"role":"source","lang":"zh"},{"role":"translation","lang":"en"}],"mode":"bi"}
+      },
+      {
+        "description": "tracks only, translation alone -> trans",
+        "style": {"tracks":[{"role":"translation","lang":"en"}]},
+        "expected": {"tracks":[{"role":"translation","lang":"en"}],"mode":"trans"}
+      },
+      {
+        "description": "legacy doc, mode only: tracks derived from mode (bi -> source + translation)",
+        "style": {"mode":"bi"},
+        "expected": {"tracks":[{"role":"source"},{"role":"translation"}],"mode":"bi"}
+      },
+      {
+        "description": "legacy doc, mode only: trans -> translation track alone",
+        "style": {"mode":"trans"},
+        "expected": {"tracks":[{"role":"translation"}],"mode":"trans"}
+      },
+      {
+        "description": "mode aliases: original / translated / bilingual parse like orig / trans / bi",
+        "style": {"mode":"bilingual"},
+        "expected": {"tracks":[{"role":"source"},{"role":"translation"}],"mode":"bi"}
+      },
+      {
+        "description": "mode alias: original",
+        "style": {"mode":"original"},
+        "expected": {"tracks":[{"role":"source"}],"mode":"orig"}
+      },
+      {
+        "description": "mode alias: translated",
+        "style": {"mode":"translated"},
+        "expected": {"tracks":[{"role":"translation"}],"mode":"trans"}
+      },
+      {
+        "description": "conflict: mode wins over tracks (old writers rewrite mode unconditionally, so it is fresher) and lang is carried over per role",
+        "style": {"tracks":[{"role":"source","lang":"zh"},{"role":"translation","lang":"en"}],"mode":"trans"},
+        "expected": {"tracks":[{"role":"translation","lang":"en"}],"mode":"trans"}
+      },
+      {
+        "description": "conflict the other way: single source track plus mode bi re-derives both roles, keeping the known lang",
+        "style": {"tracks":[{"role":"source","lang":"ja"}],"mode":"bi"},
+        "expected": {"tracks":[{"role":"source","lang":"ja"},{"role":"translation"}],"mode":"bi"}
+      },
+      {
+        "description": "agreement is not a conflict: mode equal to mode_of(tracks) leaves tracks untouched",
+        "style": {"tracks":[{"role":"source","lang":"zh"},{"role":"translation","lang":"en"}],"mode":"bi"},
+        "expected": {"tracks":[{"role":"source","lang":"zh"},{"role":"translation","lang":"en"}],"mode":"bi"}
+      },
+      {
+        "description": "unparseable mode counts as absent and does not trigger the conflict rule",
+        "style": {"tracks":[{"role":"translation","lang":"en"}],"mode":"nonsense"},
+        "expected": {"tracks":[{"role":"translation","lang":"en"}],"mode":"trans"}
+      },
+      {
+        "description": "both absent -> the source track alone",
+        "style": {},
+        "expected": {"tracks":[{"role":"source"}],"mode":"orig"}
+      },
+      {
+        "description": "empty tracks array falls through to mode",
+        "style": {"tracks":[],"mode":"bi"},
+        "expected": {"tracks":[{"role":"source"},{"role":"translation"}],"mode":"bi"}
+      },
+      {
+        "description": "malformed entries are ignored: unknown role, non-object, null, missing role",
+        "style": {"tracks":[{"role":"caption"},null,"source",{"lang":"zh"},{"role":"translation","lang":"en"}]},
+        "expected": {"tracks":[{"role":"translation","lang":"en"}],"mode":"trans"}
+      },
+      {
+        "description": "every entry malformed -> treated as an empty set, falls through to mode (absent -> source)",
+        "style": {"tracks":[{"role":"caption"}]},
+        "expected": {"tracks":[{"role":"source"}],"mode":"orig"}
+      },
+      {
+        "description": "duplicate role deduped, first occurrence wins",
+        "style": {"tracks":[{"role":"source","lang":"zh"},{"role":"source","lang":"ja"}]},
+        "expected": {"tracks":[{"role":"source","lang":"zh"}],"mode":"orig"}
+      },
+      {
+        "description": "authored order is document truth and survives verbatim: the array order is the timeline row order, never sorted; mode_of looks at the role set only, not the order",
+        "style": {"tracks":[{"role":"translation","lang":"en"},{"role":"source","lang":"zh"}]},
+        "expected": {"tracks":[{"role":"translation","lang":"en"},{"role":"source","lang":"zh"}],"mode":"bi"}
+      },
+      {
+        "description": "re-deriving from mode is the only place that produces a fixed order: bilingual is always [source, translation]",
+        "style": {"tracks":[{"role":"translation","lang":"en"}],"mode":"bi"},
+        "expected": {"tracks":[{"role":"source"},{"role":"translation","lang":"en"}],"mode":"bi"}
+      },
+      {
+        "description": "blank lang is dropped rather than stored as an empty string",
+        "style": {"tracks":[{"role":"source","lang":"  "}]},
+        "expected": {"tracks":[{"role":"source"}],"mode":"orig"}
+      },
+      {
+        "description": "voiceInkContexts.bi.mode outranks the flat root mode when the track set has to be derived: the mac subtitle tab rewrites root mode as a meaningless 'orig' while its real intent lives in the context",
+        "style": {"mode":"orig","voiceInkContexts":{"sub":{"mode":"orig"},"bi":{"mode":"bi"}}},
+        "expected": {"tracks":[{"role":"source"},{"role":"translation"}],"mode":"bi"}
+      },
+      {
+        "description": "the same precedence decides the conflict rule: the context mode, not the root mode, re-derives over a stale track set, and the surviving lang is carried per role",
+        "style": {"tracks":[{"role":"source","lang":"zh"}],"mode":"orig","voiceInkContexts":{"sub":{"mode":"orig"},"bi":{"mode":"bi"}}},
+        "expected": {"tracks":[{"role":"source","lang":"zh"},{"role":"translation"}],"mode":"bi"}
+      },
+      {
+        "description": "without a parseable context mode the adjudication falls back to the flat root mode",
+        "style": {"mode":"bi","voiceInkContexts":{"sub":{"mode":"orig"}}},
+        "expected": {"tracks":[{"role":"source"},{"role":"translation"}],"mode":"bi"}
+      },
+      {
+        "description": "an unparseable context mode is absent rather than authoritative: the root mode decides",
+        "style": {"mode":"trans","voiceInkContexts":{"bi":{"mode":"nonsense"}}},
+        "expected": {"tracks":[{"role":"translation"}],"mode":"trans"}
+      },
+      {
+        "description": "both mode signals absent and no tracks: the most conservative answer is a lone source track",
+        "style": {"voiceInkContexts":{"sub":{},"bi":{}}},
+        "expected": {"tracks":[{"role":"source"}],"mode":"orig"}
+      }
+    ],
+    "canonicalize": [
+      {
+        "description": "intent inherited: the tracks were carried over, not written by this patch, so the conflict rule still gives mode the win",
+        "style": {"tracks":[{"role":"source","lang":"zh"}],"mode":"trans"},
+        "intent": "inherited",
+        "guard": "keep",
+        "expected": {"tracks":[{"role":"translation"}],"mode":"trans"}
+      },
+      {
+        "description": "intent authored: this patch wrote tracks and did not touch mode, so the track set is the intent and beats the stale mode on disk",
+        "style": {"tracks":[{"role":"source","lang":"zh"}],"mode":"trans"},
+        "intent": "authored",
+        "guard": "keep",
+        "expected": {"tracks":[{"role":"source","lang":"zh"}],"mode":"orig"}
+      },
+      {
+        "description": "guard keep (the sidecar style.json write path, including Studio's overlay): a bilingual set survives even before any translation exists",
+        "style": {"tracks":[{"role":"source","lang":"zh"},{"role":"translation","lang":"en"}]},
+        "intent": "authored",
+        "guard": "keep",
+        "hasTranslation": false,
+        "expected": {"tracks":[{"role":"source","lang":"zh"},{"role":"translation","lang":"en"}],"mode":"bi"}
+      },
+      {
+        "description": "guard drop (the studio/data.json projection only): no translation data drops the translation track",
+        "style": {"tracks":[{"role":"source","lang":"zh"},{"role":"translation","lang":"en"}]},
+        "intent": "inherited",
+        "guard": "drop",
+        "hasTranslation": false,
+        "expected": {"tracks":[{"role":"source","lang":"zh"}],"mode":"orig"}
+      },
+      {
+        "description": "guard drop: stripping the only track backfills the source track, the set is never empty",
+        "style": {"tracks":[{"role":"translation","lang":"en"}]},
+        "intent": "inherited",
+        "guard": "drop",
+        "hasTranslation": false,
+        "expected": {"tracks":[{"role":"source"}],"mode":"orig"}
+      },
+      {
+        "description": "guard drop with translation data present keeps the resolved set as is and mode follows it",
+        "style": {"tracks":[{"role":"source","lang":"zh"},{"role":"translation","lang":"en"}]},
+        "intent": "inherited",
+        "guard": "drop",
+        "hasTranslation": true,
+        "expected": {"tracks":[{"role":"source","lang":"zh"},{"role":"translation","lang":"en"}],"mode":"bi"}
+      },
+      {
+        "description": "legacy mode-only doc is migrated to a track set on write",
+        "style": {"mode":"bi"},
+        "intent": "inherited",
+        "guard": "keep",
+        "expected": {"tracks":[{"role":"source"},{"role":"translation"}],"mode":"bi"}
+      },
+      {
+        "description": "authored order survives canonicalization: only re-deriving from mode ever fixes an order",
+        "style": {"tracks":[{"role":"translation","lang":"en"},{"role":"source","lang":"zh"}]},
+        "intent": "authored",
+        "guard": "keep",
+        "expected": {"tracks":[{"role":"translation","lang":"en"},{"role":"source","lang":"zh"}],"mode":"bi"}
+      },
+      {
+        "description": "voiceInkContexts.bi.mode follows the track set; sub.mode stays orig (the sub context is single-line by construction)",
+        "style": {"tracks":[{"role":"source"},{"role":"translation"}],"voiceInkContexts":{"sub":{"mode":"bi"},"bi":{"mode":"orig"}}},
+        "intent": "authored",
+        "guard": "keep",
+        "expected": {"tracks":[{"role":"source"},{"role":"translation"}],"mode":"bi","voiceInkContexts":{"sub":{"mode":"orig"},"bi":{"mode":"bi"}}}
+      },
+      {
+        "description": "guard drop: contexts follow the stripped set as well",
+        "style": {"mode":"bi","voiceInkContexts":{"sub":{"mode":"orig"},"bi":{"mode":"bi"}}},
+        "intent": "inherited",
+        "guard": "drop",
+        "hasTranslation": false,
+        "expected": {"tracks":[{"role":"source"}],"mode":"orig","voiceInkContexts":{"sub":{"mode":"orig"},"bi":{"mode":"orig"}}}
+      }
+    ]
+  },
+  "punctuationProjections": [
+    {"text":"你好，世界。","language":"zh","enabled":true,"expected":"你好 世界"},
+    {"text":"版本 1.2，价格 1,000。","language":"zh","enabled":true,"expected":"版本 1.2 价格 1,000"},
+    {"text":"3.14 1,000 U.S. Dr. foo@example.com README.md v1.2","language":"zh","enabled":true,"expected":"3.14 1,000 U.S. Dr. foo@example.com README.md v1.2"},
+    {"text":"README.md. example.com. 报告.pdf。 好。","language":"zh","enabled":true,"expected":"README.md example.com 报告.pdf 好"},
+    {"text":"真的吗？真的！A、B：好…","language":"zh","enabled":true,"expected":"真的吗？真的！A、B：好…"},
+    {"text":"wait... then, go.","language":"zh","enabled":true,"expected":"wait... then go"},
+    {"text":"。你好，，  世界。。\nNext, line.","language":"zh","enabled":true,"expected":"你好 世界\nNext line"},
+    {"text":"他说，\"好。\"然后。","language":"zh","enabled":true,"expected":"他说 \"好\" 然后"},
+    {"text":"Hello, world.","language":"en","enabled":true,"expected":"Hello world"},
+    {"text":"Bonjour, monde.","language":"fr","enabled":true,"expected":"Bonjour monde"},
+    {"text":"你好，世界。","language":"zh","enabled":false,"expected":"你好，世界。"},
+    {"text":"，，。","language":"zh","enabled":true,"expected":""}
+  ],
+  "wordAnimations": [
+    {"name":"None","index":1,"current":1,"expected":{}},
+    {"name":"Color","index":1,"current":1,"expected":{"color":"#FFD43B"}},
+    {"name":"Reveal","index":2,"current":1,"expected":{"color":"transparent","shadowOff":true,"underline":false}},
+    {"name":"Highlight","index":1,"current":1,"expected":{"color":"#0D0D0D","backgroundColor":"#FFD43B","borderRadiusEm":0.25}},
+    {"name":"Bounce","index":1,"current":1,"expected":{"bottomEm":0.22}},
+    {"name":"Paint","index":0,"current":1,"expected":{"color":"#FFD43B","underline":true,"underlineOffsetEm":0.18}},
+    {"name":"Custom","index":2,"current":1,"expected":{"opacity":0.5}}
+  ],
+  "transitions": [
+    {"id":"magic-fade","speed":50,"displayStart":1.5,"time":1.5,"scale":2.0,"fps":30.0,"expected":{"opacity":0.0,"scaleX":1.0,"scaleY":1.0,"blur":12.0,"active":true}},
+    {"id":"magic-pop","speed":50,"displayStart":2.0,"time":2.0,"scale":1.0,"fps":30.0,"expected":{"opacity":1.0,"scaleX":0.7,"scaleY":0.7,"blur":0.0,"active":true}},
+    {"id":"magic-flip","speed":50,"displayStart":2.0,"time":2.0,"scale":1.0,"fps":30.0,"expected":{"opacity":1.0,"scaleX":1.0,"scaleY":0.0,"blur":0.0,"active":true}}
+  ],
+  "verticalAligns": [
+    {"value":"top","expected":"top"},
+    {"value":"center","expected":"center"},
+    {"value":"bottom","expected":"bottom"},
+    {"value":"middle","expected":null},
+    {"value":"Top","expected":null},
+    {"value":"BOTTOM","expected":null},
+    {"value":"","expected":null},
+    {"value":1,"expected":null},
+    {"value":true,"expected":null},
+    {"value":null,"expected":null},
+    {"value":{"value":"top"},"expected":null},
+    {"value":["top"],"expected":null}
+  ],
+  "seamAligns": [
+    {"rank":0,"count":1,"expected":"center"},
+    {"rank":0,"count":2,"expected":"bottom"},
+    {"rank":1,"count":2,"expected":"top"},
+    {"rank":0,"count":3,"expected":"bottom"},
+    {"rank":1,"count":3,"expected":"center"},
+    {"rank":2,"count":3,"expected":"top"}
+  ],
+  "lineFontSizes": [
+    {"name":"position-only override keeps the compact original scale","style":{"fontSize":30,"origStyle":{"x":20,"y":30}},"line":"orig","compactOriginal":true,"frame":{"width":960,"height":540},"expected":20.0},
+    {"name":"position-only override keeps the translation ratio","style":{"fontSize":30,"transStyle":{"x":20,"y":30,"verticalAlign":"top"}},"line":"trans","compactOriginal":true,"frame":{"width":960,"height":540},"expected":32.0},
+    {"name":"an explicit per-line size bypasses the compact original scale","style":{"fontSize":30,"origStyle":{"fontSize":18,"x":20,"y":30}},"line":"orig","compactOriginal":true,"frame":{"width":960,"height":540},"expected":18.0},
+    {"name":"an explicit per-line size bypasses the translation ratio","style":{"fontSize":30,"transStyle":{"fontSize":24}},"line":"trans","compactOriginal":true,"frame":{"width":960,"height":540},"expected":24.0},
+    {"name":"a standalone original keeps the root size","style":{"fontSize":30},"line":"orig","compactOriginal":false,"frame":{"width":960,"height":540},"expected":30.0},
+    {"name":"a zero per-line size clamps to one","style":{"fontSize":30,"origStyle":{"fontSize":0}},"line":"orig","compactOriginal":true,"frame":{"width":960,"height":540},"expected":1.0},
+    {"name":"a negative per-line size clamps to one","style":{"fontSize":30,"origStyle":{"fontSize":-5}},"line":"orig","compactOriginal":true,"frame":{"width":960,"height":540},"expected":1.0},
+    {"name":"a string per-line size is absent, not explicit","style":{"fontSize":30,"origStyle":{"fontSize":"20"}},"line":"orig","compactOriginal":true,"frame":{"width":960,"height":540},"expected":20.0},
+    {"name":"a null per-line override is absent","style":{"fontSize":30,"transStyle":null},"line":"trans","compactOriginal":true,"frame":{"width":960,"height":540},"expected":32.0},
+    {"name":"the canvas scale multiplies the compact original size","style":{"fontSize":30,"origStyle":{"x":1,"y":2}},"line":"orig","compactOriginal":true,"frame":{"width":1920,"height":1080},"expected":40.0}
+  ],
+  "linePlacements": [
+    {
+      "name": "single row lines reproduce the pre-anchor stack math bit for bit",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": null,
+      "lines": [
+        {"line":"trans","width":400,"height":40,"reference":40,"over":null,"align":null},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[827,873],"span":{"top":827,"bottom":893}}
+    },
+    {
+      "name": "the upper line wraps and grows away from the seam",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": null,
+      "lines": [
+        {"line":"trans","width":400,"height":80,"reference":40,"over":null,"align":null},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[787,873],"span":{"top":787,"bottom":893}}
+    },
+    {
+      "name": "the lower line wraps and grows away from the seam",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": null,
+      "lines": [
+        {"line":"trans","width":400,"height":40,"reference":40,"over":null,"align":null},
+        {"line":"orig","width":300,"height":40,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[827,873],"span":{"top":827,"bottom":913}}
+    },
+    {
+      "name": "both lines wrap and the shared background spans the placed lines",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": null,
+      "lines": [
+        {"line":"trans","width":400,"height":80,"reference":40,"over":null,"align":null},
+        {"line":"orig","width":300,"height":40,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[787,873],"span":{"top":787,"bottom":913}}
+    },
+    {
+      "name": "a lone wrapped line still centers on the anchor",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": null,
+      "lines": [
+        {"line":"trans","width":400,"height":80,"reference":40,"over":null,"align":null}
+      ],
+      "expected": {"tops":[820],"span":{"top":820,"bottom":900}}
+    },
+    {
+      "name": "the block anchor hangs the whole stack off the anchor line (top)",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": "top",
+      "lines": [
+        {"line":"trans","width":400,"height":40,"reference":40,"over":null,"align":null},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[860,906],"span":{"top":860,"bottom":926}}
+    },
+    {
+      "name": "the block anchor hangs the whole stack off the anchor line (bottom)",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": "bottom",
+      "lines": [
+        {"line":"trans","width":400,"height":40,"reference":40,"over":null,"align":null},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[794,840],"span":{"top":794,"bottom":860}}
+    },
+    {
+      "name": "a lone wrapped line follows the block anchor (top)",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": "top",
+      "lines": [
+        {"line":"trans","width":400,"height":80,"reference":40,"over":null,"align":null}
+      ],
+      "expected": {"tops":[860],"span":{"top":860,"bottom":940}}
+    },
+    {
+      "name": "a lone wrapped line follows the block anchor (bottom)",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": "bottom",
+      "lines": [
+        {"line":"trans","width":400,"height":80,"reference":40,"over":null,"align":null}
+      ],
+      "expected": {"tops":[780],"span":{"top":780,"bottom":860}}
+    },
+    {
+      "name": "a line anchor overrides the seam default",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": null,
+      "lines": [
+        {"line":"trans","width":400,"height":80,"reference":40,"over":null,"align":"top"},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[827,873],"span":{"top":827,"bottom":907}}
+    },
+    {
+      "name": "a detached line without an anchor keeps the historical centre semantics",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": null,
+      "lines": [
+        {"line":"trans","width":400,"height":40,"reference":40,"over":{"x":20,"y":30},"align":null},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[280,850],"span":{"top":850,"bottom":870}}
+    },
+    {
+      "name": "a detached line pins its stored y to the top edge",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": null,
+      "lines": [
+        {"line":"trans","width":400,"height":40,"reference":40,"over":{"x":20,"y":30},"align":"top"},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[300,850],"span":{"top":850,"bottom":870}}
+    },
+    {
+      "name": "a detached line pins its stored y to the bottom edge",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": null,
+      "lines": [
+        {"line":"trans","width":400,"height":40,"reference":40,"over":{"x":20,"y":30},"align":"bottom"},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[260,850],"span":{"top":850,"bottom":870}}
+    },
+    {
+      "name": "every line detaches and the stack span disappears",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "blockAlign": null,
+      "lines": [
+        {"line":"trans","width":400,"height":40,"reference":40,"over":{"x":20,"y":30},"align":"bottom"},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":{"x":80,"y":70},"align":"top"}
+      ],
+      "expected": {"tops":[260,700],"span":null}
+    },
+    {
+      "name": "the shared plate top edge is what a top block anchor pins",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "platePadV": 12,
+      "blockAlign": "top",
+      "lines": [
+        {"line":"trans","width":400,"height":40,"reference":40,"over":null,"align":null},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[872,918],"span":{"top":872,"bottom":938}}
+    },
+    {
+      "name": "the shared plate bottom edge is what a bottom block anchor pins",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "platePadV": 12,
+      "blockAlign": "bottom",
+      "lines": [
+        {"line":"trans","width":400,"height":40,"reference":40,"over":null,"align":null},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[782,828],"span":{"top":782,"bottom":848}}
+    },
+    {
+      "name": "a centered block anchor is unchanged by the shared plate padding",
+      "frame": {"width":1000,"height":1000},
+      "anchor": {"x":50,"y":86},
+      "gap": 6,
+      "platePadV": 12,
+      "blockAlign": "center",
+      "lines": [
+        {"line":"trans","width":400,"height":40,"reference":40,"over":null,"align":null},
+        {"line":"orig","width":300,"height":20,"reference":20,"over":null,"align":null}
+      ],
+      "expected": {"tops":[827,873],"span":{"top":827,"bottom":893}}
+    }
+  ]
+}

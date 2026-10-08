@@ -1,0 +1,51 @@
+{
+  "$comment": "阶段 A 示例：studio/style.json 只动 wordAnimation.caption（schema 1 不变，新增 seed 与 options.daoyazi）。阶段 C 的 captionSequences 见 bcut-daoyazi-caption-design.md §5.4，这里不出现。",
+  "bcutStudioStyle": "0.1",
+  "tracks": [
+    { "role": "source", "lang": "zh-CN", "hidden": false },
+    { "role": "translation", "lang": "en", "hidden": false }
+  ],
+  "wordAnimation": {
+    "caption": {
+      "schema": 1,
+      "content": "orig",
+      "style": { "id": "caption-daoyazi-v1", "version": 1 },
+      "palette": { "primary": "#FFFFFF", "accent": "#FF9B42", "secondary": "#59BAF2" },
+      "intensity": 60,
+      "speed": 1.0,
+      "seed": 137,
+      "options": {
+        "daoyazi": {
+          "preset": "standard",
+          "sequence": {
+            "maxDurationMs": 12000,
+            "maxBlocks": 16,
+            "maxWords": 48,
+            "pauseThresholdMs": 800,
+            "breakOnSourceCut": true,
+            "breakOnSpeakerChange": true,
+            "fadeMs": 200
+          },
+          "layout": { "mode": "column", "density": null, "turnEvery": 2 },
+          "camera": {
+            "travelMs": 300,
+            "anticipation": 0.5,
+            "maxTurnDeg": 90,
+            "fit": null,
+            "overshoot": 0.04,
+            "zoomLog": true
+          },
+          "reveal": "word",
+          "presentation": {
+            "mode": "overlay",
+            "viewport": null,
+            "background": "#00000000",
+            "history": { "maxBlocks": 8, "opacity": 0.5 },
+            "ending": "hold",
+            "translation": "fixed"
+          }
+        }
+      }
+    }
+  }
+}

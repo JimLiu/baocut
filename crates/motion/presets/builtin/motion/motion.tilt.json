@@ -1,0 +1,50 @@
+{
+  "id": "motion.tilt",
+  "version": 1,
+  "domain": "motion",
+  "family": "tilt",
+  "doc": "一次角度轻推再回正。composite=add，与主运动的 rotation 相加。",
+  "aliases": [
+    "tiltNudge"
+  ],
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "angle": {
+      "type": "number",
+      "default": 4.0,
+      "doc": "峰值角度（度）"
+    },
+    "curve": {
+      "type": "curve",
+      "default": "easeOutQuad",
+      "doc": "时间曲线（规范 §7.6 的封闭名称）"
+    }
+  },
+  "tracks": [
+    {
+      "prop": "rotation",
+      "composite": "add",
+      "order": 0,
+      "frames": [
+        {
+          "t": "0%",
+          "v": 0
+        },
+        {
+          "t": "50%",
+          "v": "{angle}",
+          "ease": "{curve}"
+        },
+        {
+          "t": "100%",
+          "v": 0,
+          "ease": "easeInOutQuad"
+        }
+      ]
+    }
+  ],
+  "determinism": "strict",
+  "capabilities": []
+}

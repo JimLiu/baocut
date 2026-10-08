@@ -1,0 +1,43 @@
+/* 文件预览与 skill 详情里 Markdown 的正文排版（会话里的回复见 agent-thread.css）。颜色随 Provider 的明暗主题走（color-scheme）。 */
+.bc-md {
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.bc-md > :first-child { margin-top: 0; }
+.bc-md > :last-child { margin-bottom: 0; }
+.bc-md p, .bc-md ul, .bc-md ol, .bc-md pre, .bc-md table, .bc-md blockquote { margin: 0 0 10px; }
+.bc-md ul, .bc-md ol { padding-inline-start: 22px; }
+.bc-md li + li { margin-top: 2px; }
+.bc-md h1, .bc-md h2, .bc-md h3, .bc-md h4 { margin: 16px 0 8px; line-height: 1.3; font-weight: 700; }
+.bc-md h1 { font-size: 18px; }
+.bc-md h2 { font-size: 16px; }
+.bc-md h3, .bc-md h4 { font-size: 14px; }
+.bc-md a { color: light-dark(#3b63fb, #8ea8ff); text-decoration: none; }
+.bc-md a:hover { text-decoration: underline; }
+.bc-md code {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12.5px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: light-dark(rgb(0 0 0 / 6%), rgb(255 255 255 / 10%));
+}
+.bc-md pre {
+  padding: 10px 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  background: light-dark(rgb(0 0 0 / 4%), rgb(255 255 255 / 6%));
+}
+.bc-md pre code { padding: 0; background: none; font-size: 12px; line-height: 1.5; }
+.bc-md blockquote {
+  padding-inline-start: 12px;
+  border-inline-start: 2px solid light-dark(rgb(0 0 0 / 15%), rgb(255 255 255 / 20%));
+  color: light-dark(#505050, #b0b0b0);
+}
+.bc-md table { border-collapse: collapse; display: block; overflow-x: auto; }
+.bc-md th, .bc-md td { padding: 4px 10px; border: 1px solid light-dark(rgb(0 0 0 / 12%), rgb(255 255 255 / 15%)); }
+.bc-md hr { border: 0; border-top: 1px solid light-dark(rgb(0 0 0 / 12%), rgb(255 255 255 / 15%)); margin: 14px 0; }
+.bc-mono { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; }

@@ -1,0 +1,8 @@
+{
+  "effort": "auto",
+  "elapsedMs": 1578,
+  "error": null,
+  "model": "deepseek-flash",
+  "name": "synthetic-de-en",
+  "response": "1 |Lea..nicht|Lea hat den Termin nicht |sondern..verschoben|abgesagt, sondern auf Donnerstag um 14:30 Uhr verschoben.\n2 |Wenn..fällt|Wenn die Temperatur unter 5 Grad fällt, |schließe..einschaltest|schließe das Fenster, bevor du die Heizung einschaltest.\n3 |Für..Euro|Für drei Fahrkarten zahlte Ömer 120 Euro; |das..enthalten|das Abendessen war nicht im Preis enthalten.\n4 |Das..hat|Das Buch, das Mia gestern von Jonas ausgeliehen hat, |gehört..Schwester|gehört seiner Schwester.\n5 |Neben..B-23|Neben „bestätigt“ steht der Code B-23, |obwohl..wurde|obwohl das Paket noch nicht versandt wurde.\n6 |Obwohl..war|Obwohl Nora früher losgefahren war, |kam..an|kam sie zehn Minuten nach Cem an."
+}

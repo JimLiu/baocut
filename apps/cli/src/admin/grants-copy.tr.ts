@@ -1,0 +1,27 @@
+import type { GrantsMessages } from './grants-copy.ts';
+
+export const tr: GrantsMessages = {
+help: `Kullanım:
+  baocut grants [list]             Veri paylaşım izinlerini listele (çevrimiçi ve ajan sağlayıcıları):
+                                   alıcı, veri türleri, kapsam, kullanım ve bütçe
+    --recipient <id>               Yalnızca bu sağlayıcının izinleri
+    --video <video id>             Yalnızca bu videoyu kapsayan izinler
+    --include-ended                İptal edilmiş, süresi dolmuş ve tükenmiş izinleri de listele
+  baocut grants create --recipient <id> --data <kind,…> --purpose <purpose> [options]
+                                   İzin ver. Veri türleri: transcript (döküm ve çeviri), frames (video kareleri),
+                                   audio (ses), video (özgün video), document (metin ve istem), context (ajan bağlamı)
+    --video <video id|all>         Yalnızca bu videoyu kapsa; verilmezse veya all ise tüm videolar
+    --max-calls <n>                Çağrı sınırı; verilmezse sınırsız
+    --budget <amount> --currency <currency>
+                                   Harcama sınırı: model fiyatından tahmin edilip ayrılır;
+                                   fiyatı olmayan model çağrıları reddedilir (BUDGET_UNVERIFIABLE)
+    --expires <ISO time>           Sona erme zamanı
+  baocut grants update <id> [--data …] [--video <id|all>] [--purpose …] [--max-calls <n|none>]
+                         [--budget <amount|none> --currency …] [--expires <time|none>]
+                                   İzni değiştir; kapsamı daraltmak, sınırı düşürmek veya sona ermeyi
+                                   erkene almak eski koşullarla sıraya alınan çağrıları başladıklarında reddeder
+  baocut grants revoke <id>        İzni iptal et: sonraki çağrılara izin verilmez; gönderilmiş veri
+                                   ve sayılmış maliyet olduğu gibi bildirilir
+  baocut grants usage <id>         İznin kullanımı ve kullanan görevler (rezervler ve hesap kapatma)`,
+usage: 'Kullanım: baocut grants [list [--recipient <id>] [--video <id>] [--include-ended] | create --recipient <id> --data <kind,…> --purpose <purpose> [options] | update <grant id> [options] | revoke <grant id> | usage <grant id>]', listSep: ', ', missingRecipient: '--recipient eksik (veriyi alan sağlayıcı, örneğin openai)', missingData: (kinds) => `--data eksik (virgülle ayrılmış veri türleri: ${kinds.join(', ')})`, missingPurpose: '--purpose eksik (insanların okuyacağı tek cümle)', recipientFixed: 'Alıcı değiştirilemez: bu izni iptal edip yenisini oluşturun', nothingToUpdate: 'Değişiklik yok: --data, --video, --purpose, --max-calls, --budget veya --expires verin', persistOnly: '--scope, --max-calls, --budget ve --expires yalnızca --persist ile kullanılır', scopeChoices: '--scope video veya all kabul eder', unknownKinds: (unknown, kinds) => `Bilinmeyen veri türü: ${unknown}. Şunlardan seçin: ${kinds.join(', ')}`, maxCallsRange: '--max-calls 1–1000000 arasında tam sayı veya none (sınırsız) olmalı', currencyNeedsBudget: '--currency yalnızca --budget ile kullanılır', budgetFormat: '--budget en fazla 6 ondalık basamaklı negatif olmayan tutar olmalı (örneğin 5 veya 2.50)', budgetNeedsCurrency: '--budget, --currency <üç harfli para birimi kodu, örneğin USD> gerektirir', expiresFormat: '--expires saat dilimli ISO zamanı (örneğin 2026-12-31T23:59:59Z) veya none olmalı', stateLabels: { active: 'Etkin', expired: 'Süresi doldu', revoked: 'İptal edildi', exhausted: 'Tükendi' }, originLabels: { user: 'sizin verdiğiniz izin', approval: 'onayda verilen izin', 'provider-enable': 'etkinleştirmede varsayılan' }, calls: (calls, reserved, max) => `${calls}${reserved ? `+${reserved} ayrıldı` : ''}${max !== null ? `/${max}` : ''} çağrı`, unknownCostCalls: (n) => ` (${n} maliyeti bilinmeyen çağrı)`, callsAndAmount: (calls, amount, reserved, cap, currency) => `${calls}, ${amount}${reserved ? `+${reserved} ayrıldı` : ''}/${cap} ${currency}`, noGrants: 'İzin yok: çevrimiçi ve ajan sağlayıcılarına çağrılar onay ister (veya baocut grants create ile izin oluşturun)', scopeVideo: (videoId) => `video ${videoId}`, scopeAll: 'tüm videolar', grantLine: (g) => `${g.id}  [${g.state}] ${g.recipient} ← ${g.kinds}  ${g.scope}${g.taskId ? `, yalnızca ${g.taskId} görevi` : ''}${g.once ? ', yalnızca bu sefer' : ''}  kullanım ${g.usage}${g.expiresAt ? `, sona erme ${g.expiresAt}` : ''}  (${g.origin}: ${g.purpose})`, revoked: (id, recipient, kinds) => `${id} iptal edildi (${recipient} ← ${kinds})`, alreadySent: (calls, amount, unknownCostCalls) => `Gönderildi: ${calls} çağrı${amount ? `, ${amount} sayıldı` : ''}${unknownCostCalls ? ` (${unknownCostCalls} maliyeti bilinmeyen çağrı)` : ''}`, runningJobs: (jobs) => `Hâlâ çalışan görevler (normal şekilde tamamlanırlar): ${jobs.join(', ')}`, noJobs: '(Henüz görev kullanmadı veya görev kayıtları temizlendi)', settled: (calls, amount, basis) => `${calls} çağrı ${amount} kapatıldı (${basis})`, unsettled: 'kapatılmadı', jobLine: (jobId, state, calls, amount, settled) => `  ${jobId}  ${state}  ayrılan ${calls} çağrı ${amount}  ${settled}`, approvalGrant: (a) => `    Gönderir: ${a.recipient} ← ${a.kinds}${a.videoId ? ` (video ${a.videoId})` : ''}: ${a.purpose}${a.estimate ? `, tahmini ${a.estimate}` : ', maliyet bilinmiyor'}${a.maxCalls !== null ? `, en fazla ${a.maxCalls} çağrı` : ''}${a.reason === 'revoked' ? ', izin iptal edildi veya süresi doldu' : a.reason === 'unverifiable' ? ', maliyet tahmin edilemiyor' : ''}`,
+};

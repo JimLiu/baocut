@@ -1,0 +1,55 @@
+{
+  "id": "motion.karaokeScale",
+  "version": 1,
+  "domain": "motion",
+  "family": "karaokeScale",
+  "appliesTo": "part",
+  "doc": "逐 part 弹一下：绕该 part 自己的包围盒中心缩放（record_text 负责锚点），composite=multiply。",
+  "aliases": [
+    "karaoke"
+  ],
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "scale": {
+      "type": "number",
+      "default": 1.18,
+      "min": 0.0,
+      "doc": "峰值缩放"
+    },
+    "curve": {
+      "type": "curve",
+      "default": "easeOutBack",
+      "doc": "时间曲线（规范 §7.6 的封闭名称）"
+    }
+  },
+  "defaults": {
+    "dur": 0.28
+  },
+  "tracks": [
+    {
+      "prop": "scale",
+      "composite": "multiply",
+      "order": 0,
+      "frames": [
+        {
+          "t": "0%",
+          "v": 1
+        },
+        {
+          "t": "45%",
+          "v": "{scale}",
+          "ease": "{curve}"
+        },
+        {
+          "t": "100%",
+          "v": 1,
+          "ease": "easeInOutQuad"
+        }
+      ]
+    }
+  ],
+  "determinism": "strict",
+  "capabilities": []
+}

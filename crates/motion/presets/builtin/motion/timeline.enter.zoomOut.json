@@ -1,0 +1,25 @@
+{
+  "id": "zoomOut",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "enter",
+  "order": 10,
+  "duration": 0.5,
+  "curve": {
+    "kind": "named",
+    "name": "easeOutCubic"
+  },
+  "mirror": "zoomOut",
+  "from": {
+    "opacity": 0.0,
+    "scaleX": 0.82,
+    "scaleY": 0.82
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

@@ -1,0 +1,32 @@
+{
+  "id": "bars_rounded",
+  "version": 1,
+  "domain": "visualizer",
+  "namespace": "timeline",
+  "order": 1,
+  "numColors": 1,
+  "colorLabels": [
+    "Bars"
+  ],
+  "defaultMainColor": "#FF6B9A",
+  "defaultSecondaryColor": "#FFFFFF",
+  "defaultMinDb": -80.0,
+  "defaultMaxDb": 40.0,
+  "hasControl": true,
+  "binWidth": "64",
+  "aspect": "free",
+  "recipe": {
+    "algorithm": "spectrum-bars-v1",
+    "params": {
+      "barCount": 32,
+      "align": "mirror",
+      "gap": 0.45,
+      "radius": 1.0,
+      "minHeight": 0.06,
+      "easing": "easeOutQuad"
+    }
+  },
+  "determinism": "strict",
+  "shader": null,
+  "available": true
+}

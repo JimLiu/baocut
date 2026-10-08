@@ -1,0 +1,131 @@
+{
+  "id": "lowerThird.08",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "lowerThird",
+  "order": 308,
+  "duration": 3.87,
+  "content": [
+    {
+      "kind": "shape",
+      "place": {
+        "x": 4.48,
+        "y": 66.63,
+        "w": 1.34
+      },
+      "shape": {
+        "shape": "rect",
+        "fill": "#5544cc",
+        "h": 15.05
+      },
+      "delay": 0.3,
+      "animate": {
+        "enter": {
+          "preset": "wipe",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "wipe",
+          "dur": 0.63
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 21.23,
+        "y": 65.08,
+        "w": 30.09
+      },
+      "text": "ERIC\nGRANT",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#ffffffff",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 39.9,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 0.9,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.2,
+          "distance": 0.01,
+          "rotation": 180.0,
+          "color": "#000000",
+          "on": true,
+          "opacity": 0.1
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "slideR",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "slideL",
+          "dur": 0.63
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 19.17,
+        "y": 73.25,
+        "w": 25.22
+      },
+      "text": "PRODUCT MANAGER",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#ffffffff",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 10.9,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.0,
+        "letterSpacing": 10.9,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.2,
+          "distance": 0.01,
+          "rotation": 180.0,
+          "color": "#000000",
+          "on": true,
+          "opacity": 0.1
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "delay": 0.37,
+      "animate": {
+        "enter": {
+          "preset": "rise",
+          "dur": 0.5
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.73
+        }
+      }
+    }
+  ]
+}

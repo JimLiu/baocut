@@ -1,0 +1,24 @@
+{
+  "offscreen-long": {
+    "cx": 1.4,
+    "cy": -0.5,
+    "decay": 0.0,
+    "intensity": 1.0,
+    "length": 0.9,
+    "threshold": 0.1
+  },
+  "skylight-gold": {
+    "cx": 0.5,
+    "cy": 0.0,
+    "decay": 0.5,
+    "intensity": 2.0,
+    "length": 0.6,
+    "threshold": 0.3,
+    "tint": [
+      1.0,
+      0.85,
+      0.55,
+      1.0
+    ]
+  }
+}

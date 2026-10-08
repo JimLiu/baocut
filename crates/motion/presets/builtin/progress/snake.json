@@ -1,0 +1,41 @@
+{
+  "id": "snake",
+  "version": 1,
+  "domain": "progress",
+  "namespace": "timeline",
+  "order": 10,
+  "numColors": 2,
+  "colorLabels": ["Foreground", "Background"],
+  "defaultMainColor": "#3CADFF",
+  "defaultSecondaryColor": "#C4E6FF",
+  "aspect": "square",
+  "recipe": {
+    "algorithm": "snake-v1",
+    "params": {
+      "dotRadius": 0.1,
+      "smoothing": 0.032,
+      "orbitRadius": 0.4,
+      "startAngleDeg": 270.0,
+      "angleIncrementDeg": -1.0,
+      "maxIterations": 360,
+      "boostSteps": [
+        {
+          "below": 1.0,
+          "gain": 3.0
+        },
+        {
+          "below": 2.0,
+          "gain": 2.0
+        }
+      ],
+      "spin": null,
+      "colorMode": {
+        "kind": "solid",
+        "trackColor": "secondary"
+      }
+    }
+  },
+  "determinism": "strict",
+  "shader": "snake.wgsl",
+  "available": true
+}

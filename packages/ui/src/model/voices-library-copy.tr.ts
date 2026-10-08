@@ -1,0 +1,28 @@
+import type { VoicesLibraryMessages } from './voices-library-copy.ts';
+
+export const tr: VoicesLibraryMessages = {
+consentStatement: 'Bu benim sesim veya konuşmacıdan izin aldım',
+uploading: (label) => `${label} sağlayıcısına yükleniyor…`,
+noConsent: 'Kendi sesiniz olduğu veya izinle kullanıldığı belirtilmediği için üçüncü tarafa yüklenmez. Önce “Düzenle” kısmında beyanı işaretleyin.',
+cannotClone: (label) => `Bu Runtime, ${label} sağlayıcısında klonlayamaz`,
+providerOff: (label, detail) => `${label} şu anda kullanılamıyor${detail ? ` (${detail})` : ''}: önce “Bulut modelleri” kısmında etkinleştirin ve anahtarı ayarlayın`,
+consentUnstated: 'İzin belirtilmedi',
+cloned: (label) => `${label} sağlayıcısında klonlandı`,
+cloneStale: (label) => `${label} klonu güncel değil`,
+languageUnknown: 'Dil belirtilmedi',
+recorded: 'Uygulamada kaydedildi',
+imported: 'Dosyadan içe aktarıldı',
+edited: (ago) => `${ago} düzenlendi`,
+nameRequired: 'Sese bir ad verin',
+nameTooLong: (max) => `Ad en fazla ${max} karakter olabilir`,
+transcriptTooLong: (max) => `Döküm en fazla ${max} karakter olabilir`,
+dontKnow: 'Emin değilim',
+deleteClones: (labels) => `Önce ${labels.join(', ')} sağlayıcılarındaki klonları silinir; başarısız olursa ses korunur.`,
+deleteBody: (clones) => `Bu sesi kullanan videolar sonraki oluşturmada varsayılan sese döner; oluşturulmuş dublajlar etkilenmez. ${clones}`.trim(),
+uploadNotice: (name, size, label) => `“${name}” adlı sesin referans kaydı${size ? ` (${size})` : ''} klon oluşturmak için ${label} sağlayıcısına yüklenecek. Sonrasında bu ses ${label} sağlayıcısında kullanılırken doğrudan sağlayıcının ses ID değeri kullanılır; ses silinirken önce bu klon silinir.`,
+withRemedy: (message, remedy) => `${message.replace(/[。.]$/, '')}. ${remedy}`,
+remedyConsent: 'İzin beyanı olmayan sesler üçüncü taraflara yüklenmez: önce “Düzenle” kısmında beyanı işaretleyin.',
+remedyConfigure: '“Bulut modelleri” kısmında bu sağlayıcıyı etkinleştirin ve anahtarını ayarlayın.',
+remedyConflict: 'Bu ses az önce başka yerde değiştirildi. En güncel sürüm aşağıda; kaydetmeden önce gözden geçirin.',
+remedyGrant: 'Referans kaydı sağlayıcıya göndermek için veri paylaşım izni gerekir: Ayarlar kısmında izin verin, sonra yeniden deneyin.',
+};

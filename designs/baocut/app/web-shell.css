@@ -1,0 +1,20 @@
+/* BaoCut Web 原型 — 外壳里 Web 独有的那几条（§22.3）。
+   控件、标题栏、侧栏行、内容区全部沿用 ui.css；这里只补「没有窗口红绿灯」的左边距、
+   只有项目列表的侧栏头，以及还没选项目时的空页。全部走 token。 */
+
+/* 浏览器里的一页：没有红绿灯那 84px，标题栏从内容左缘起 */
+.tbar--web { padding-left: 12px; }
+
+/* 侧栏只有一段「项目」：段头不是折叠开关，也没有排序 / 新建 */
+.side--web { padding-top: 0; }
+.side__hd--web { align-items: center; padding-top: 8px; }
+.webside__none { padding: 8px 9px; color: var(--gray-600); }
+
+/* 进度胶囊在 Web 上只读：没有任务页可去 */
+.tpill--static .tpill__go { cursor: default; }
+.tpill--static .tpill__go:hover { background: transparent; }
+
+/* 还没选项目 */
+.webnone { display: flex; flex: 1 1 auto; align-items: center; justify-content: center; padding: 32px; }
+.webnone .empty { max-width: 420px; }
+.webnone__note { margin-top: 12px; color: var(--gray-600); font-size: 12px; }

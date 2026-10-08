@@ -1,0 +1,13 @@
+import type { JobsTranscribeMessages } from './transcribe.ts';
+
+export const tr: JobsTranscribeMessages = {
+label: 'Yazıya dök', description: 'Videodaki medyayı yazıya döker (veya video oluşturup yerel medya dosyasını içe aktarır), döküm yazar ve altyazı katmanı oluşturur. Videoda bu medyanın dökümü zaten varsa sonuç yeni bir videoya gider (varsayılan) ya da dökümün yerini alıp çevirileri, altyazıları ve seslendirmeyi taşır. Yalnızca dosya verilirse video oluşturulmaz; TXT ve SRT kaydetme konumuna yazılır.', cannotCreateVideo: 'Bu Runtime video oluşturamaz', videoNotOpen: 'Video açık değil', stepCreate: 'Video oluştur', stepTranscribe: 'Yazıya dök', importMediaLabel: 'Medya içe aktar', fileExcludesVideo: 'videoId veya target ile birleştirilemez', assetIdWithFile: 'dosyayla verilemez: dosyanın kendisi yazıya dökülür', captionsWithFile: 'dosya için geçerli değil: video olmadan altyazı katmanı yok', diarizeWithFile: 'dosya için geçerli değil: konuşmacılar ayrılmaz', outDirFileOnly: 'yalnızca dosyayla verilebilir', assetIdWithCreate: 'video oluşturulurken verilemez: içe aktarılan medya yazıya dökülür', needVideoOrFile: "VideoId, target veya file değerlerinden birini verin", createMediaRequired: 'gereklidir: yeni videoya içe aktarılıp yazıya dökülecek medya dosyası', fileShape: 'mutlak yol veya { entryId } olmalı', cannotTranscribeFile: 'Bu Runtime video olmadan dosyaları yazıya dökemez', mediaToTranscribeNotFound: 'Yazıya dökülecek medya dosyası bulunamıyor', mediaToImportNotFound: 'İçe aktarılacak medya dosyası bulunamıyor', noVideo: 'Yazıya dökülecek video yok', notApplied: 'Yazıya dökme tamamlandı ancak videoya yazılmadı', videoClosed: 'Video kapatıldı; yazıya dökülmedi: videoyu açıp yeniden deneyin', noMainAsset: 'Ana izde ses veya video medyası yok: yazıya dökülecek medyayı belirtin (assetId)', ambiguousMainAsset: 'Ana izde birden fazla medya var: yazıya dökülecek olanı belirtin (assetId)',
+  retranscribedName: (p: { name: string }) => `${p.name} · Yeniden yazıya döküldü`,
+  transcriptEdited: 'Döküm yazıya döküldükten sonra düzenlendi; değiştirmek bu düzenlemeleri siler: destination new-video kullanın veya yine de değiştirmek için acceptEdited: true verin',
+  transcriptEditedSinceSubmit: 'Bu çalıştırma başladıktan sonra döküm değişti, bu yüzden değiştirilmedi: yazıya dökmeyi yeniden başlatın',
+  landingNeedsVideo: 'yalnızca mevcut bir video için geçerlidir ({ videoId } veya { entryId })',
+  nameNewVideoOnly: 'yalnızca destination new-video olduğunda geçerlidir',
+  replaceOnly: 'yalnızca destination replace olduğunda geçerlidir',
+  transcriptUnreadable: 'Düzenleme olup olmadığını denetlemek için geçerli döküm okunamıyor',
+  replaceDocumentGone: 'Değiştirilecek döküm artık videoda değil',
+};

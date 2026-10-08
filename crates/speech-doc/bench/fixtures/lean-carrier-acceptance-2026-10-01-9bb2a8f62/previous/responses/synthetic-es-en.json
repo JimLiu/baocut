@@ -1,0 +1,8 @@
+{
+  "effort": "auto",
+  "elapsedMs": 1808,
+  "error": null,
+  "model": "deepseek-flash",
+  "name": "synthetic-es-en",
+  "response": "1 |Lucía..reunión|Lucía didn't cancel the meeting; |la..aplazó|she postponed it |hasta..jueves|until Thursday |a..14:30|at 14:30.\n2 |Si..temperatura|If the temperature |baja..grados|drops below 5 degrees, |cierra..la|close the |ventana..de|window before |encender..calefacción|turning on the heating.\n3 |Diego..euros|Diego paid 120 euros |por..entradas|for three tickets, |pero..no|but the price didn't |incluía..cena|include dinner.\n4 |El..le|The book that Ana |prestó..pertenece|loaned Pablo yesterday belongs |a..Ana|to Ana's sister.\n5 |El..aparece|The code C-19 appears |junto..confirmado|next to \"confirmed,\" |aunque..no|although the package still hasn't |se..enviado|been sent.\n6 |Aunque..salió|Although Inés left |antes..Mateo|before Mateo, |llegó..minutos|she arrived ten minutes |después..él|after him."
+}

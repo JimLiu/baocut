@@ -1,0 +1,380 @@
+{
+  "documents": [
+    {
+      "hostInputs": {
+        "card": {
+          "height": 360.0,
+          "kind": "image",
+          "width": 640.0
+        },
+        "clip": {
+          "duration": 12.0,
+          "fps": 24.0,
+          "height": 720.0,
+          "kind": "video",
+          "width": 1280.0
+        },
+        "logo": {
+          "height": 128.0,
+          "kind": "image",
+          "width": 128.0
+        },
+        "tone": {
+          "duration": 30.0,
+          "kind": "audio"
+        }
+      },
+      "id": "media-demo",
+      "ir": {
+        "audioClips": [
+          {
+            "assetId": "tone",
+            "baseVolume": 0.8,
+            "channel": {
+              "frames": [
+                {
+                  "ease": null,
+                  "t": 2.5,
+                  "v": 0.8
+                },
+                {
+                  "ease": "easeInOutSine",
+                  "t": 3.5,
+                  "v": 0.3
+                }
+              ],
+              "meta": null,
+              "prop": "volume",
+              "samples": [
+                {
+                  "t": 2.25,
+                  "v": 0.8
+                },
+                {
+                  "t": 2.5,
+                  "v": 0.8
+                },
+                {
+                  "t": 3.0,
+                  "v": 0.55
+                },
+                {
+                  "t": 3.5,
+                  "v": 0.3
+                },
+                {
+                  "t": 3.75,
+                  "v": 0.3
+                }
+              ]
+            },
+            "end": 7.0,
+            "mediaStart": 0.0,
+            "rate": 1.0,
+            "start": 0.0
+          }
+        ],
+        "cameraClips": [],
+        "meta": {
+          "bg": {
+            "a": 1.0,
+            "b": 20.0,
+            "g": 16.0,
+            "r": 16.0
+          },
+          "fps": 30.0,
+          "h": 540.0,
+          "total": 7.0,
+          "w": 960.0
+        },
+        "visualClips": [
+          {
+            "end": 3.0,
+            "id": "intro-shot",
+            "nodes": [
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 0.0,
+                        "v": 0
+                      },
+                      {
+                        "ease": null,
+                        "t": 0.5,
+                        "v": 1
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "opacity",
+                    "samples": [
+                      {
+                        "t": -0.25,
+                        "v": 0
+                      },
+                      {
+                        "t": 0.0,
+                        "v": 0
+                      },
+                      {
+                        "t": 0.25,
+                        "v": 0.5
+                      },
+                      {
+                        "t": 0.5,
+                        "v": 1
+                      },
+                      {
+                        "t": 0.75,
+                        "v": 1
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.0,
+                "ntype": "image",
+                "path": "intro-root/logo"
+              },
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 0.2,
+                        "v": 0
+                      },
+                      {
+                        "ease": null,
+                        "t": 0.8,
+                        "v": 1
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "opacity",
+                    "samples": [
+                      {
+                        "t": -0.04999999999999999,
+                        "v": 0
+                      },
+                      {
+                        "t": 0.2,
+                        "v": 0
+                      },
+                      {
+                        "t": 0.5,
+                        "v": 0.4999999999999999
+                      },
+                      {
+                        "t": 0.8,
+                        "v": 1
+                      },
+                      {
+                        "t": 1.05,
+                        "v": 1
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.0,
+                "ntype": "text",
+                "path": "intro-root/title"
+              },
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 0.5,
+                        "v": 0
+                      },
+                      {
+                        "ease": null,
+                        "t": 1.0,
+                        "v": 1
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "opacity",
+                    "samples": [
+                      {
+                        "t": 0.25,
+                        "v": 0
+                      },
+                      {
+                        "t": 0.5,
+                        "v": 0
+                      },
+                      {
+                        "t": 0.75,
+                        "v": 0.5
+                      },
+                      {
+                        "t": 1.0,
+                        "v": 1
+                      },
+                      {
+                        "t": 1.25,
+                        "v": 1
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.0,
+                "ntype": "image",
+                "path": "intro-root/card"
+              }
+            ],
+            "order": 0,
+            "renderEnd": 3.2,
+            "renderStart": 0.0,
+            "start": 0.0,
+            "wrapChannels": [
+              {
+                "frames": [
+                  {
+                    "ease": null,
+                    "t": 2.8,
+                    "v": 1.0
+                  },
+                  {
+                    "ease": "easeInOutSine",
+                    "t": 3.2,
+                    "v": 0.0
+                  }
+                ],
+                "meta": null,
+                "prop": "opacity",
+                "samples": [
+                  {
+                    "t": 2.55,
+                    "v": 1.0
+                  },
+                  {
+                    "t": 2.8,
+                    "v": 1.0
+                  },
+                  {
+                    "t": 3.0,
+                    "v": 0.5
+                  },
+                  {
+                    "t": 3.2,
+                    "v": 0.0
+                  },
+                  {
+                    "t": 3.45,
+                    "v": 0.0
+                  }
+                ]
+              }
+            ],
+            "z": 0.0
+          },
+          {
+            "end": 7.0,
+            "id": "footage-shot",
+            "nodes": [
+              {
+                "channels": [
+                  {
+                    "frames": [
+                      {
+                        "ease": null,
+                        "t": 3.3,
+                        "v": 0
+                      },
+                      {
+                        "ease": null,
+                        "t": 3.6999999999999997,
+                        "v": 1
+                      }
+                    ],
+                    "meta": null,
+                    "prop": "opacity",
+                    "samples": [
+                      {
+                        "t": 3.05,
+                        "v": 0
+                      },
+                      {
+                        "t": 3.3,
+                        "v": 0
+                      },
+                      {
+                        "t": 3.5,
+                        "v": 0.5000000000000006
+                      },
+                      {
+                        "t": 3.6999999999999997,
+                        "v": 1
+                      },
+                      {
+                        "t": 3.9499999999999997,
+                        "v": 1
+                      }
+                    ]
+                  }
+                ],
+                "extraDelay": 0.0,
+                "ntype": "text",
+                "path": "footage-root/overlay"
+              }
+            ],
+            "order": 1,
+            "renderEnd": 7.0,
+            "renderStart": 2.8,
+            "start": 3.0,
+            "wrapChannels": [
+              {
+                "frames": [
+                  {
+                    "ease": null,
+                    "t": 2.8,
+                    "v": 0.0
+                  },
+                  {
+                    "ease": "easeInOutSine",
+                    "t": 3.2,
+                    "v": 1.0
+                  }
+                ],
+                "meta": null,
+                "prop": "opacity",
+                "samples": [
+                  {
+                    "t": 2.55,
+                    "v": 0.0
+                  },
+                  {
+                    "t": 2.8,
+                    "v": 0.0
+                  },
+                  {
+                    "t": 3.0,
+                    "v": 0.49999999999999994
+                  },
+                  {
+                    "t": 3.2,
+                    "v": 1.0
+                  },
+                  {
+                    "t": 3.45,
+                    "v": 1.0
+                  }
+                ]
+              }
+            ],
+            "z": 0.0
+          }
+        ]
+      },
+      "path": "core/fixtures/media-demo.bcut.json"
+    }
+  ],
+  "generator": "cargo test -p bcut-core --test motion_channels_baseline（BCUT_UPDATE_GOLDEN=1 重生成）",
+  "note": "BCF resolve 后的绝对时间通道语义基线（阶段 0）。"
+}

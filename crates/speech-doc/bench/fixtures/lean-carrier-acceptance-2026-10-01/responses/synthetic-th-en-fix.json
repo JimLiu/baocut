@@ -1,0 +1,8 @@
+{
+  "effort": "auto",
+  "elapsedMs": 2041,
+  "error": null,
+  "model": "deepseek-flash",
+  "name": "synthetic-th-en-fix",
+  "response": "1 |ลลิตาไม่ได้ยกเลิกการประชุมแต่เลื่อนไปเป็นวันพฤหัสบดีเวลา14:30น.|Lalita didn't cancel the meeting but moved it to Thursday at 2:30 p.m.\n2 |ถ้าอุณหภูมิลดลงต่ำกว่า5องศาให้ปิดหน้าต่างก่อนเปิดเครื่องทำความร้อน|If the temperature drops below 5 degrees, close the windows before turning on the heater.\n3 |นนท์จ่ายเงิน120บาทสำหรับตั๋วสามใบแต่ราคานี้ไม่รวมอาหารเย็น|Non paid 120 baht for three tickets, but this price doesn't include dinner.\n4 |หนังสือที่มาลีให้ก้องยืมเมื่อวานเป็นของพี่สาวของมาลี|The book Malee lent Kong yesterday belongs to Malee's older sister.\n5 |รหัสF-07ปรากฏข้างคำว่า“ยืนยันแล้ว”แต่ยังไม่ได้ส่งพัสดุ|The code F-07 appears next to the word \"confirmed,\" but the parcel hasn't been sent yet.\n6 |แม้พลอยจะออกเดินทางก่อนนัทแต่เธอก็มาถึงหลังเขาสิบนาที|Even though Ploy set off before Nat, she arrived ten minutes after him."
+}

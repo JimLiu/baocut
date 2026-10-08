@@ -1,0 +1,17 @@
+{
+  "dawn-warm": {
+    "gain": 1.3,
+    "gamma": 1.15,
+    "lift": 0.04,
+    "saturation": 1.2,
+    "shoulder": 0.6,
+    "tint": 0.7
+  },
+  "moon-cold": {
+    "gain": 0.9,
+    "gamma": 0.85,
+    "lift": -0.05,
+    "saturation": 0.6,
+    "tint": -0.8
+  }
+}

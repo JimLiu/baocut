@@ -1,0 +1,36 @@
+import { pluralForm } from '@baocut/protocol';
+import type { DataGrantsMessages } from './data-grants.ts';
+
+export const ru: DataGrantsMessages = {
+  state: { active: "Активный", expired: "Истекло", revoked: "Отозвано", exhausted: "Лимит достигнут" },
+  kindList: (kinds: readonly string[]) => kinds.join(", "),
+  noKinds: "Нет видов данных",
+  origin: {
+    'provider-enable': "Выдано по умолчанию при включении поставщика",
+    approval: "Выдано при одобрении",
+    user: "Выдано вручную",
+  },
+  oneVideoNamed: (name: string) => `Только видео «${name}»`,
+  oneVideo: "Только одно видео",
+  allVideos: "Все видео",
+  oneTask: "Только одна задача",
+  budgetCap: (amount: string) => `Лимит расходов ${amount}`,
+  budgetUnknown: "Стоимость неизвестна, учёт только по вызовам",
+  once: "Только этот раз",
+  unlimited: "Неограниченные вызовы",
+  maxCalls: (n: number) => `Максимум: ${pluralForm('ru', n, { one: `${n} вызов`, few: `${n} вызова`, many: `${n} вызовов`, other: `${n} вызова` })}`,
+  revokedOn: (day: string) => `Отозвано ${day}`,
+  expiredOn: (day: string) => `Истекло ${day}`,
+  expiresOn: (day: string) => `Истекает ${day}`,
+  neverUsed: "Ещё не использовано",
+  usedWithAmount: (calls: number, amount: string) => `Использовано: ${pluralForm('ru', calls, { one: `${calls} вызов`, few: `${calls} вызова`, many: `${calls} вызовов`, other: `${calls} вызова` })} (${amount})`,
+  used: (calls: number) => `Использовано: ${pluralForm('ru', calls, { one: `${calls} вызов`, few: `${calls} вызова`, many: `${calls} вызовов`, other: `${calls} вызова` })}`,
+  reservedWithAmount: (calls: number, amount: string) => `Выполняется: ${pluralForm('ru', calls, { one: `${calls} вызов`, few: `${calls} вызова`, many: `${calls} вызовов`, other: `${calls} вызова` })} (${amount} зарезервировано)`,
+  reserved: (calls: number) => `Выполняется: ${pluralForm('ru', calls, { one: `${calls} вызов`, few: `${calls} вызова`, many: `${calls} вызовов`, other: `${calls} вызова` })}`,
+  unknownCost: (calls: number) => `Стоимость неизвестна: ${pluralForm('ru', calls, { one: `${calls} вызов`, few: `${calls} вызова`, many: `${calls} вызовов`, other: `${calls} вызова` })}`,
+  usageSeparator: ", ",
+  revokeConfirm: (running: number, sent: number) => ["После отзыва новые вызовы и вызовы в очереди с этим разрешением будут отклонены.", running ? `Текущие вызовы завершатся как обычно: ${pluralForm('ru', running, { one: `${running} вызов`, few: `${running} вызова`, many: `${running} вызовов`, other: `${running} вызова` })}.` : '', sent ? `Уже отправлено: ${pluralForm('ru', sent, { one: `${sent} вызов`, few: `${sent} вызова`, many: `${sent} вызовов`, other: `${sent} вызова` })}. Отправленные данные и понесённые расходы вернуть нельзя.` : ''].filter(Boolean).join(' '),
+  revoked: "Отозвано",
+  sentBefore: (calls: number, amount: string | null, unknownCostCalls: number) => `Ранее отправлено: ${pluralForm('ru', calls, { one: `${calls} вызов`, few: `${calls} вызова`, many: `${calls} вызовов`, other: `${calls} вызова` })}${amount ? ` (${amount}${unknownCostCalls ? `, стоимость неизвестна: ${pluralForm('ru', unknownCostCalls, { one: `${unknownCostCalls} вызов`, few: `${unknownCostCalls} вызова`, many: `${unknownCostCalls} вызовов`, other: `${unknownCostCalls} вызова` })}` : ''})` : ''}`,
+  runningJobs: (n: number) => pluralForm('ru', n, { one: `${n} выполняющаяся задача завершится как обычно`, few: `${n} выполняющиеся задачи завершатся как обычно`, many: `${n} выполняющихся задач завершатся как обычно`, other: `${n} выполняющейся задачи завершится как обычно` }),
+};

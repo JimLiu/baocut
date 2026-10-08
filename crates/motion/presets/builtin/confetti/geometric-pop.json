@@ -1,0 +1,86 @@
+{
+  "id": "geometric-pop",
+  "version": 1,
+  "domain": "confetti",
+  "namespace": "timeline",
+  "order": 90,
+  "aspect": "frame",
+  "palette": [
+    "#0D3B66",
+    "#FAF0CA",
+    "#F4D35E",
+    "#EE964B",
+    "#F95738"
+  ],
+  "shapes": [
+    "triangle",
+    "diamond",
+    "rect",
+    "circle"
+  ],
+  "sources": [
+    "js-confetti/flight"
+  ],
+  "hasEmitterControl": true,
+  "recipe": {
+    "algorithm": "confetti-v1",
+    "params": {
+      "emit": {
+        "mode": "burst",
+        "rate": 40,
+        "count": 90,
+        "interval": 1.8,
+        "jitter": 1.0
+      },
+      "emitters": [
+        {
+          "x": 0,
+          "y": 97,
+          "spreadX": 0,
+          "spreadY": 0,
+          "angle": -60
+        },
+        {
+          "x": 100,
+          "y": 97,
+          "spreadX": 0,
+          "spreadY": 0,
+          "angle": -120
+        }
+      ],
+      "angle": -90,
+      "spread": 40,
+      "speedPx": [
+        280,
+        460
+      ],
+      "dragX": 0.5,
+      "dragY": 0.3,
+      "gravityPx": 300,
+      "windPx": 0,
+      "driftPx": 0,
+      "driftHz": 0.3,
+      "sizePx": [
+        7,
+        16
+      ],
+      "sizeRamp": false,
+      "spinDps": [
+        90,
+        300
+      ],
+      "flipHz": [
+        0.5,
+        1.4
+      ],
+      "pulse": null,
+      "lifeSec": 3.2,
+      "fadeIn": 0,
+      "fadeOut": 0.6,
+      "maxAlive": 600
+    }
+  },
+  "determinism": "strict",
+  "shader": null,
+  "available": true
+}

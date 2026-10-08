@@ -1,0 +1,50 @@
+{
+  "id": "filter.radialBlur",
+  "version": 1,
+  "domain": "filter",
+  "inputs": 1,
+  "params": {
+    "cx": {
+      "type": "number",
+      "default": 0.5,
+      "min": 0,
+      "max": 1,
+      "doc": "模糊中心 x，画布宽度的比例（效果作用的 surface 与画布同尺寸）"
+    },
+    "cy": {
+      "type": "number",
+      "default": 0.5,
+      "min": 0,
+      "max": 1,
+      "doc": "模糊中心 y，画布高度的比例"
+    },
+    "strength": {
+      "type": "number",
+      "default": 0.15,
+      "min": 0,
+      "max": 0.95,
+      "doc": "强度：每个像素最远的取样点朝中心走过的比例（0.15 = 离中心 1000 px 的像素拖出约 150 px）；0 = 原样不动，可用 effects[N].strength 关键帧做推进冲击"
+    },
+    "samples": {
+      "type": "number",
+      "default": 8,
+      "min": 2,
+      "max": 16,
+      "doc": "每遍取样数（取整），共三遍，等效 samples³ 个采样点；强度大时调高可去掉残留的分层"
+    }
+  },
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "kernel": "radial-zoom-3pass-premul-f32",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "linear",
+  "edge": "clamp",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "doc": "径向（zoom）模糊：像素 p 取 c + (p − c)·e^{−o} 处的双线性样本平均（c = (cx·W, cy·H)，边缘夹取），o 在 [0, σ) 上均匀，σ = −ln(1 − strength)。实现为三遍：第 k 遍取 o = j·σ/Tᵏ（j = 0..T−1，T = samples）等权平均，三遍复合恰好是步长 σ/T³ 的 T³ 个均匀点。预乘值直接平均，f32 四则运算，e^{−o} 与权重进像素循环前用 libm 算好；结果四舍五入并夹到 RGB ≤ alpha。strength = 0 逐字节恒等。"
+}

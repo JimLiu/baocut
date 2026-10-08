@@ -1,0 +1,36 @@
+import { pluralForm } from '@baocut/protocol';
+import type { DataGrantsMessages } from './data-grants.ts';
+
+export const pl: DataGrantsMessages = {
+  state: { active: "Aktywny", expired: "Wygasło", revoked: "Cofnięto", exhausted: "Limit osiągnięty" },
+  kindList: (kinds: readonly string[]) => kinds.join(", "),
+  noKinds: "Brak typów danych",
+  origin: {
+    'provider-enable': "Przyznano domyślnie po włączeniu dostawcy",
+    approval: "Przyznano przy zatwierdzeniu",
+    user: "Przyznano ręcznie",
+  },
+  oneVideoNamed: (name: string) => `Tylko wideo „${name}”`,
+  oneVideo: "Tylko jedno wideo",
+  allVideos: "Wszystkie wideo",
+  oneTask: "Tylko jedno zadanie",
+  budgetCap: (amount: string) => `Limit wydatków ${amount}`,
+  budgetUnknown: "Koszt nieznany, liczone tylko wywołania",
+  once: "Tylko tym razem",
+  unlimited: "Wywołania bez limitu",
+  maxCalls: (n: number) => `Najwyżej: ${pluralForm('pl', n, { one: `${n} wywołanie`, few: `${n} wywołania`, many: `${n} wywołań`, other: `${n} wywołania` })}`,
+  revokedOn: (day: string) => `Cofnięto ${day}`,
+  expiredOn: (day: string) => `Wygasło ${day}`,
+  expiresOn: (day: string) => `Wygasa ${day}`,
+  neverUsed: "Jeszcze nie użyto",
+  usedWithAmount: (calls: number, amount: string) => `Użyto: ${pluralForm('pl', calls, { one: `${calls} wywołanie`, few: `${calls} wywołania`, many: `${calls} wywołań`, other: `${calls} wywołania` })} (${amount})`,
+  used: (calls: number) => `Użyto: ${pluralForm('pl', calls, { one: `${calls} wywołanie`, few: `${calls} wywołania`, many: `${calls} wywołań`, other: `${calls} wywołania` })}`,
+  reservedWithAmount: (calls: number, amount: string) => `W trakcie: ${pluralForm('pl', calls, { one: `${calls} wywołanie`, few: `${calls} wywołania`, many: `${calls} wywołań`, other: `${calls} wywołania` })} (${amount} zarezerwowano)`,
+  reserved: (calls: number) => `W trakcie: ${pluralForm('pl', calls, { one: `${calls} wywołanie`, few: `${calls} wywołania`, many: `${calls} wywołań`, other: `${calls} wywołania` })}`,
+  unknownCost: (calls: number) => `Koszt nieznany: ${pluralForm('pl', calls, { one: `${calls} wywołanie`, few: `${calls} wywołania`, many: `${calls} wywołań`, other: `${calls} wywołania` })}`,
+  usageSeparator: ", ",
+  revokeConfirm: (running: number, sent: number) => ["Po cofnięciu nowe wywołania i wywołania w kolejce używające tego uprawnienia zostaną odrzucone.", running ? `Trwające wywołania zakończą się normalnie: ${pluralForm('pl', running, { one: `${running} wywołanie`, few: `${running} wywołania`, many: `${running} wywołań`, other: `${running} wywołania` })}.` : '', sent ? `Wysłano już: ${pluralForm('pl', sent, { one: `${sent} wywołanie`, few: `${sent} wywołania`, many: `${sent} wywołań`, other: `${sent} wywołania` })}. Wysłanych danych i poniesionych kosztów nie można cofnąć.` : ''].filter(Boolean).join(' '),
+  revoked: "Cofnięto",
+  sentBefore: (calls: number, amount: string | null, unknownCostCalls: number) => `Wcześniej wysłano: ${pluralForm('pl', calls, { one: `${calls} wywołanie`, few: `${calls} wywołania`, many: `${calls} wywołań`, other: `${calls} wywołania` })}${amount ? ` (${amount}${unknownCostCalls ? `, koszt nieznany: ${pluralForm('pl', unknownCostCalls, { one: `${unknownCostCalls} wywołanie`, few: `${unknownCostCalls} wywołania`, many: `${unknownCostCalls} wywołań`, other: `${unknownCostCalls} wywołania` })}` : ''})` : ''}`,
+  runningJobs: (n: number) => pluralForm('pl', n, { one: `${n} trwające zadanie zakończy się normalnie`, few: `${n} trwające zadania zakończą się normalnie`, many: `${n} trwających zadań zakończy się normalnie`, other: `${n} trwającego zadania zakończy się normalnie` }),
+};

@@ -1,0 +1,936 @@
+{
+  "format": "baocut.video",
+  "schemaVersion": 3,
+  "timeContractVersion": 1,
+  "id": "video_fixture",
+  "name": "帧计划夹具",
+  "revision": "12",
+  "rootSequenceId": "seq_main",
+  "sequences": {
+    "seq_main": {
+      "id": "seq_main",
+      "revision": "7",
+      "name": "主序列",
+      "fps": {
+        "num": 30,
+        "den": 1
+      },
+      "canvas": {
+        "width": 1920,
+        "height": 1080,
+        "workingSpace": "srgb",
+        "background": "#101820"
+      },
+      "durationPolicy": {
+        "kind": "derived"
+      },
+      "tracks": [
+        {
+          "id": "trk_v2",
+          "order": 1,
+          "kind": "visual",
+          "locked": false,
+          "visible": true,
+          "muted": false,
+          "solo": {
+            "enabled": false,
+            "group": "visual"
+          }
+        },
+        {
+          "id": "trk_v1",
+          "order": 0,
+          "kind": "visual",
+          "locked": false,
+          "visible": true,
+          "muted": false,
+          "solo": {
+            "enabled": false,
+            "group": "visual"
+          }
+        },
+        {
+          "id": "trk_v3",
+          "order": 2,
+          "kind": "visual",
+          "locked": false,
+          "visible": false,
+          "muted": false,
+          "solo": {
+            "enabled": false,
+            "group": "visual"
+          }
+        },
+        {
+          "id": "trk_a1",
+          "order": 0,
+          "kind": "audio",
+          "locked": false,
+          "visible": true,
+          "muted": false,
+          "solo": {
+            "enabled": false,
+            "group": "audio"
+          }
+        },
+        {
+          "id": "trk_g1",
+          "order": 3,
+          "kind": "visual",
+          "locked": false,
+          "visible": true,
+          "muted": false,
+          "solo": {
+            "enabled": false,
+            "group": "visual"
+          }
+        },
+        {
+          "id": "trk_s1",
+          "order": 4,
+          "kind": "subtitle",
+          "locked": false,
+          "visible": true,
+          "muted": false,
+          "solo": {
+            "enabled": false,
+            "group": "visual"
+          }
+        }
+      ],
+      "items": [
+        {
+          "id": "item_land_a",
+          "trackId": "trk_v1",
+          "enabled": true,
+          "locked": false,
+          "paintOrder": 0,
+          "followPolicy": {
+            "kind": "sequence-fixed"
+          },
+          "type": "video",
+          "span": {
+            "fromFrame": 0,
+            "durationFrames": 90
+          },
+          "assetRef": {
+            "id": "asset_land",
+            "revision": "rev_1"
+          },
+          "timeMap": {
+            "kind": "linear",
+            "sourceIn": {
+              "ticks": "1",
+              "timescale": 1
+            },
+            "rate": {
+              "num": 1,
+              "den": 1
+            }
+          },
+          "embeddedAudio": {
+            "enabled": true,
+            "volume": 1
+          },
+          "place": {},
+          "mode": "fullscreen",
+          "fit": "contain"
+        },
+        {
+          "id": "item_land_b",
+          "trackId": "trk_v1",
+          "enabled": true,
+          "locked": false,
+          "paintOrder": 0,
+          "followPolicy": {
+            "kind": "sequence-fixed"
+          },
+          "type": "video",
+          "span": {
+            "fromFrame": 90,
+            "durationFrames": 60
+          },
+          "assetRef": {
+            "id": "asset_land",
+            "revision": "rev_1"
+          },
+          "timeMap": {
+            "kind": "linear",
+            "sourceIn": {
+              "ticks": "4",
+              "timescale": 1
+            },
+            "rate": {
+              "num": 1,
+              "den": 1
+            }
+          },
+          "embeddedAudio": {
+            "enabled": true,
+            "volume": 1
+          },
+          "crop": {
+            "left": 0.1,
+            "top": 0,
+            "right": 0.1,
+            "bottom": 0
+          },
+          "place": {},
+          "mode": "fullscreen",
+          "fit": "contain"
+        },
+        {
+          "id": "item_hold",
+          "trackId": "trk_v1",
+          "enabled": true,
+          "locked": false,
+          "paintOrder": 0,
+          "followPolicy": {
+            "kind": "sequence-fixed"
+          },
+          "type": "video",
+          "span": {
+            "fromFrame": 150,
+            "durationFrames": 30
+          },
+          "assetRef": {
+            "id": "asset_land",
+            "revision": "rev_1"
+          },
+          "timeMap": {
+            "kind": "hold",
+            "sourceAt": {
+              "ticks": "5",
+              "timescale": 2
+            }
+          },
+          "embeddedAudio": {
+            "enabled": true,
+            "volume": 1
+          },
+          "place": {},
+          "mode": "fullscreen",
+          "fit": "contain",
+          "fx": {
+            "saturation": -0.5,
+            "temperature": 0.3,
+            "vignette": 0.4
+          }
+        },
+        {
+          "id": "item_port",
+          "trackId": "trk_v2",
+          "enabled": true,
+          "locked": false,
+          "paintOrder": 0,
+          "followPolicy": {
+            "kind": "sequence-fixed"
+          },
+          "type": "video",
+          "span": {
+            "fromFrame": 30,
+            "durationFrames": 30
+          },
+          "assetRef": {
+            "id": "asset_port",
+            "revision": "rev_1"
+          },
+          "timeMap": {
+            "kind": "linear",
+            "sourceIn": {
+              "ticks": "0",
+              "timescale": 1
+            },
+            "rate": {
+              "num": 1,
+              "den": 1
+            }
+          },
+          "embeddedAudio": {
+            "enabled": false,
+            "volume": 1
+          },
+          "place": {
+            "x": 60,
+            "y": 40,
+            "w": 15,
+            "rot": 90,
+            "opacity": 0.5
+          },
+          "fit": "contain"
+        },
+        {
+          "id": "item_logo",
+          "trackId": "trk_v2",
+          "enabled": true,
+          "locked": false,
+          "paintOrder": 1,
+          "followPolicy": {
+            "kind": "sequence-fixed"
+          },
+          "type": "image",
+          "span": {
+            "fromFrame": 45,
+            "durationFrames": 75
+          },
+          "assetRef": {
+            "id": "asset_logo",
+            "revision": "rev_1"
+          },
+          "place": {
+            "x": 25,
+            "y": 75,
+            "w": 20,
+            "rot": 30
+          },
+          "fit": "cover"
+        },
+        {
+          "id": "item_disabled",
+          "trackId": "trk_v2",
+          "enabled": false,
+          "locked": false,
+          "paintOrder": 0,
+          "followPolicy": {
+            "kind": "sequence-fixed"
+          },
+          "type": "image",
+          "span": {
+            "fromFrame": 0,
+            "durationFrames": 150
+          },
+          "assetRef": {
+            "id": "asset_logo",
+            "revision": "rev_1"
+          },
+          "place": {},
+          "mode": "fullscreen",
+          "fit": "contain"
+        },
+        {
+          "id": "item_hidden",
+          "trackId": "trk_v3",
+          "enabled": true,
+          "locked": false,
+          "paintOrder": 0,
+          "followPolicy": {
+            "kind": "sequence-fixed"
+          },
+          "type": "video",
+          "span": {
+            "fromFrame": 0,
+            "durationFrames": 150
+          },
+          "assetRef": {
+            "id": "asset_land",
+            "revision": "rev_1"
+          },
+          "timeMap": {
+            "kind": "linear",
+            "sourceIn": {
+              "ticks": "0",
+              "timescale": 1
+            },
+            "rate": {
+              "num": 1,
+              "den": 1
+            }
+          },
+          "embeddedAudio": {
+            "enabled": true,
+            "volume": 0.5
+          },
+          "place": {},
+          "mode": "fullscreen",
+          "fit": "contain"
+        },
+        {
+          "id": "item_music",
+          "trackId": "trk_a1",
+          "enabled": true,
+          "locked": false,
+          "paintOrder": 0,
+          "followPolicy": {
+            "kind": "sequence-fixed"
+          },
+          "type": "audio",
+          "assetRef": {
+            "id": "asset_music",
+            "revision": "rev_1"
+          },
+          "fromFrame": 15,
+          "subframeOffset": {
+            "ticks": "1",
+            "timescale": 48000
+          },
+          "playDuration": {
+            "ticks": "3",
+            "timescale": 1
+          },
+          "timeMap": {
+            "kind": "linear",
+            "sourceIn": {
+              "ticks": "0",
+              "timescale": 1
+            },
+            "rate": {
+              "num": 1,
+              "den": 1
+            }
+          },
+          "mix": {
+            "volume": 0.5
+          }
+        },
+        {
+          "id": "item_talk_a",
+          "trackId": "trk_v1",
+          "enabled": true,
+          "locked": false,
+          "paintOrder": 0,
+          "followPolicy": {
+            "kind": "sequence-fixed"
+          },
+          "type": "video",
+          "span": {
+            "fromFrame": 200,
+            "durationFrames": 60
+          },
+          "assetRef": {
+            "id": "asset_land",
+            "revision": "rev_1"
+          },
+          "timeMap": {
+            "kind": "linear",
+            "sourceIn": {
+              "ticks": "10",
+              "timescale": 1
+            },
+            "rate": {
+              "num": 1,
+              "den": 1
+            }
+          },
+          "embeddedAudio": {
+            "enabled": true,
+            "volume": 1
+          },
+          "place": {},
+          "mode": "fullscreen",
+          "fit": "contain"
+        },
+        {
+          "id": "item_talk_b",
+          "trackId": "trk_v1",
+          "enabled": true,
+          "locked": false,
+          "paintOrder": 0,
+          "followPolicy": {
+            "kind": "sequence-fixed"
+          },
+          "type": "video",
+          "span": {
+            "fromFrame": 275,
+            "durationFrames": 30
+          },
+          "assetRef": {
+            "id": "asset_land",
+            "revision": "rev_1"
+          },
+          "timeMap": {
+            "kind": "linear",
+            "sourceIn": {
+              "ticks": "20",
+              "timescale": 1
+            },
+            "rate": {
+              "num": 1,
+              "den": 1
+            }
+          },
+          "embeddedAudio": {
+            "enabled": true,
+            "volume": 1
+          },
+          "place": {},
+          "mode": "fullscreen",
+          "fit": "contain"
+        },
+        {
+          "id": "item_title",
+          "trackId": "trk_g1",
+          "enabled": true,
+          "locked": false,
+          "paintOrder": 0,
+          "followPolicy": {
+            "kind": "sequence-fixed"
+          },
+          "type": "text",
+          "span": {
+            "fromFrame": 215,
+            "durationFrames": 60
+          },
+          "text": "标题",
+          "style": {
+            "fontSize": 96
+          },
+          "place": {
+            "x": 50,
+            "y": 20,
+            "w": 50
+          }
+        },
+        {
+          "id": "item_badge",
+          "trackId": "trk_g1",
+          "enabled": true,
+          "locked": false,
+          "paintOrder": 1,
+          "followPolicy": {
+            "kind": "sequence-fixed"
+          },
+          "type": "shape",
+          "span": {
+            "fromFrame": 215,
+            "durationFrames": 60
+          },
+          "shape": {
+            "shape": "rect",
+            "fill": "#FF0000",
+            "h": 10
+          },
+          "place": {
+            "x": 10,
+            "y": 20,
+            "w": 10,
+            "rot": 90,
+            "opacity": 0.8
+          }
+        },
+        {
+          "id": "item_meter",
+          "trackId": "trk_g1",
+          "enabled": true,
+          "locked": false,
+          "paintOrder": 2,
+          "followPolicy": {
+            "kind": "sequence-fixed"
+          },
+          "type": "progress",
+          "span": {
+            "fromFrame": 230,
+            "durationFrames": 90
+          },
+          "place": {
+            "y": 95,
+            "w": 80
+          },
+          "progress": {
+            "style": "bar",
+            "mainColor": "#FFFFFF"
+          }
+        },
+        {
+          "id": "item_bundle",
+          "trackId": "trk_g1",
+          "enabled": true,
+          "locked": false,
+          "paintOrder": 3,
+          "followPolicy": {
+            "kind": "sequence-fixed"
+          },
+          "type": "composition",
+          "span": {
+            "fromFrame": 245,
+            "durationFrames": 30
+          },
+          "source": {
+            "kind": "bundle",
+            "assetRef": {
+              "id": "asset_logo",
+              "revision": "rev_1"
+            }
+          },
+          "parameterValues": {},
+          "timeMap": {
+            "kind": "linear",
+            "sourceIn": {
+              "ticks": "0",
+              "timescale": 1
+            },
+            "rate": {
+              "num": 1,
+              "den": 1
+            }
+          },
+          "place": {
+            "x": 70,
+            "y": 50,
+            "w": 30
+          }
+        },
+        {
+          "id": "item_mirror",
+          "trackId": "trk_g1",
+          "enabled": true,
+          "locked": false,
+          "paintOrder": 4,
+          "followPolicy": {
+            "kind": "sequence-fixed"
+          },
+          "type": "image",
+          "span": {
+            "fromFrame": 260,
+            "durationFrames": 30
+          },
+          "assetRef": {
+            "id": "asset_logo",
+            "revision": "rev_1"
+          },
+          "place": {
+            "x": 30,
+            "y": 50,
+            "w": 20,
+            "flipX": true
+          },
+          "fit": "contain"
+        },
+        {
+          "id": "item_caption",
+          "trackId": "trk_s1",
+          "enabled": true,
+          "locked": false,
+          "paintOrder": 0,
+          "followPolicy": {
+            "kind": "sequence-fixed"
+          },
+          "type": "caption",
+          "span": {
+            "fromFrame": 200,
+            "durationFrames": 120
+          },
+          "documentId": "doc_caption",
+          "styleDocumentId": "doc_caption_style",
+          "scopeItemIds": [
+            "item_talk_a",
+            "item_talk_b"
+          ]
+        },
+        {
+          "id": "item_note",
+          "trackId": "trk_s1",
+          "enabled": true,
+          "locked": false,
+          "paintOrder": 1,
+          "followPolicy": {
+            "kind": "sequence-fixed"
+          },
+          "type": "caption",
+          "span": {
+            "fromFrame": 290,
+            "durationFrames": 30
+          },
+          "documentId": "doc_note"
+        },
+        {
+          "id": "item_scribble",
+          "trackId": "trk_g1",
+          "enabled": true,
+          "locked": false,
+          "paintOrder": 5,
+          "followPolicy": {
+            "kind": "sequence-fixed"
+          },
+          "type": "draw",
+          "span": {
+            "fromFrame": 300,
+            "durationFrames": 30
+          },
+          "place": {
+            "x": 25,
+            "y": 30,
+            "w": 30
+          },
+          "draw": {
+            "brush": "round",
+            "color": "#FFFFFF",
+            "size": 4
+          }
+        },
+        {
+          "id": "item_slot",
+          "trackId": "trk_g1",
+          "enabled": true,
+          "locked": false,
+          "paintOrder": 6,
+          "followPolicy": {
+            "kind": "sequence-fixed"
+          },
+          "type": "placeholder",
+          "span": {
+            "fromFrame": 300,
+            "durationFrames": 30
+          },
+          "place": {
+            "x": 70,
+            "y": 30,
+            "w": 30
+          },
+          "placeholder": {
+            "variant": "camera"
+          }
+        },
+        {
+          "id": "item_board",
+          "trackId": "trk_g1",
+          "enabled": true,
+          "locked": false,
+          "paintOrder": 7,
+          "followPolicy": {
+            "kind": "sequence-fixed"
+          },
+          "type": "whiteboard",
+          "span": {
+            "fromFrame": 300,
+            "durationFrames": 30
+          },
+          "place": {
+            "x": 50,
+            "y": 70,
+            "w": 40
+          },
+          "assetRef": {
+            "id": "asset_logo",
+            "revision": "rev_1"
+          },
+          "whiteboard": {}
+        }
+      ],
+      "animationBindings": [],
+      "transitions": [
+        {
+          "id": "tr_hold_in",
+          "rightItemId": "item_hold",
+          "kind": "dissolve",
+          "durationFrames": 10,
+          "easing": "linear",
+          "placement": "center",
+          "audioCrossfade": false
+        },
+        {
+          "id": "tr_land",
+          "leftItemId": "item_land_a",
+          "rightItemId": "item_land_b",
+          "kind": "dissolve",
+          "durationFrames": 30,
+          "easing": "ease-in-out",
+          "placement": "center",
+          "audioCrossfade": true
+        },
+        {
+          "id": "tr_talk_out",
+          "leftItemId": "item_talk_b",
+          "kind": "vendor.spin",
+          "params": {
+            "turns": 2
+          },
+          "durationFrames": 15,
+          "easing": "linear",
+          "placement": "center",
+          "audioCrossfade": false
+        }
+      ],
+      "markers": [
+        {
+          "id": "chap_intro",
+          "frame": 0,
+          "label": "开场",
+          "kind": "chapter"
+        }
+      ],
+      "ducking": [
+        {
+          "id": "duck_music",
+          "enabled": true,
+          "trigger": {
+            "kind": "items",
+            "trackIds": [
+              "trk_a1"
+            ]
+          },
+          "target": {
+            "itemIds": [
+              "item_hidden"
+            ]
+          },
+          "attack": {
+            "ticks": "1",
+            "timescale": 4
+          },
+          "release": {
+            "ticks": "1",
+            "timescale": 2
+          },
+          "depth": 12
+        }
+      ]
+    }
+  },
+  "assets": {
+    "asset_land": {
+      "id": "asset_land",
+      "kind": "video",
+      "name": "land.mp4",
+      "currentRevision": "rev_1",
+      "revisions": {
+        "rev_1": {
+          "revision": "rev_1",
+          "contentHash": "sha256:asset_land",
+          "byteLength": 1000,
+          "mediaType": "video/mp4",
+          "storage": {
+            "mode": "managed"
+          },
+          "provenance": {
+            "origin": "import"
+          },
+          "video": {
+            "displayWidth": 1920,
+            "displayHeight": 1080,
+            "rotation": 0,
+            "pixelAspectRatio": {
+              "num": 1,
+              "den": 1
+            },
+            "frameRate": {
+              "kind": "cfr",
+              "rate": {
+                "num": 30,
+                "den": 1
+              }
+            },
+            "ptsOrigin": {
+              "ticks": "0",
+              "timescale": 1
+            },
+            "hasAlpha": false
+          }
+        }
+      }
+    },
+    "asset_port": {
+      "id": "asset_port",
+      "kind": "video",
+      "name": "port.mov",
+      "currentRevision": "rev_1",
+      "revisions": {
+        "rev_1": {
+          "revision": "rev_1",
+          "contentHash": "sha256:asset_port",
+          "byteLength": 1000,
+          "mediaType": "video/quicktime",
+          "storage": {
+            "mode": "managed"
+          },
+          "provenance": {
+            "origin": "import"
+          },
+          "video": {
+            "displayWidth": 1080,
+            "displayHeight": 1920,
+            "rotation": 90,
+            "pixelAspectRatio": {
+              "num": 1,
+              "den": 1
+            },
+            "frameRate": {
+              "kind": "cfr",
+              "rate": {
+                "num": 30,
+                "den": 1
+              }
+            },
+            "ptsOrigin": {
+              "ticks": "0",
+              "timescale": 1
+            },
+            "hasAlpha": false
+          }
+        }
+      }
+    },
+    "asset_logo": {
+      "id": "asset_logo",
+      "kind": "image",
+      "name": "logo.png",
+      "currentRevision": "rev_1",
+      "revisions": {
+        "rev_1": {
+          "revision": "rev_1",
+          "contentHash": "sha256:asset_logo",
+          "byteLength": 1000,
+          "mediaType": "image/png",
+          "storage": {
+            "mode": "managed"
+          },
+          "provenance": {
+            "origin": "import"
+          },
+          "video": {
+            "displayWidth": 640,
+            "displayHeight": 360,
+            "rotation": 0,
+            "pixelAspectRatio": {
+              "num": 1,
+              "den": 1
+            },
+            "frameRate": {
+              "kind": "cfr",
+              "rate": {
+                "num": 30,
+                "den": 1
+              }
+            },
+            "ptsOrigin": {
+              "ticks": "0",
+              "timescale": 1
+            },
+            "hasAlpha": true
+          }
+        }
+      }
+    },
+    "asset_music": {
+      "id": "asset_music",
+      "kind": "audio",
+      "name": "music.mp3",
+      "currentRevision": "rev_1",
+      "revisions": {
+        "rev_1": {
+          "revision": "rev_1",
+          "contentHash": "sha256:asset_music",
+          "byteLength": 1000,
+          "mediaType": "audio/mpeg",
+          "storage": {
+            "mode": "managed"
+          },
+          "provenance": {
+            "origin": "import"
+          },
+          "audio": {
+            "sampleRate": 48000,
+            "channels": 2
+          }
+        }
+      }
+    }
+  },
+  "fonts": {},
+  "documents": {},
+  "localizationSets": {},
+  "canvasVariants": {},
+  "syncGroups": {},
+  "protections": {},
+  "checkpoints": {},
+  "links": []
+}

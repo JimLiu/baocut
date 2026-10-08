@@ -1,0 +1,28 @@
+{
+  "id": "filter.sepia",
+  "version": 1,
+  "domain": "filter",
+  "inputs": 1,
+  "params": {
+    "amount": {
+      "type": "number",
+      "default": 1,
+      "min": 0,
+      "max": 1
+    }
+  },
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "kernel": "sepia-matrix-f64",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "clamp",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "doc": "W3C filter-effects 的 sepia 矩阵，按 amount 与恒等矩阵插值。"
+}

@@ -1,0 +1,66 @@
+import { pluralForm } from '@baocut/protocol';
+import type { ToolsTranscodeMessages } from './tools-transcode-copy.ts';
+
+export const pl: ToolsTranscodeMessages = {
+  quality: {
+    smaller: { name: "Mniejszy", sub: "Wystarczy do wiadomości i przechowywania w chmurze" },
+    balanced: { name: "Zrównoważony", sub: "Trudno zauważyć różnicę" },
+    high: { name: "Wysoka jakość", sub: "Zachowaj do późniejszej edycji" },
+  },
+  heightOriginal: "Oryginał",
+  heightOriginalLong: "Oryginalna rozdzielczość",
+  codecSub: {
+    h264: "Odtwarza się wszędzie",
+    hevc: "40% mniejsze przy tej samej jakości; starsze urządzenia mogą nie odtworzyć",
+  },
+
+  notVideoFiles: (names) => `To nie pliki wideo: ${names.join(', ')}`,
+  notAbsolute: (paths) => `To nie ścieżki bezwzględne: ${paths.join(', ')}`,
+  alreadyListed: (names) => `Już na liście: ${names.join(', ')}`,
+  overflow: (limit, extra) => `Maksymalna liczba plików naraz: ${limit}; ponad limit nie dodano: ${extra}`,
+  joinNotices: (bits) => bits.join("; "),
+
+  needTwoVideos: "Dodaj co najmniej dwa wideo",
+  needMediaFile: "Najpierw wybierz plik wideo lub audio",
+  needVideoFile: "Najpierw wybierz plik wideo",
+  needOneMore: "Połączenie wymaga co najmniej dwóch wideo; dodaj jeszcze jedno",
+  tooManyFiles: (limit) => `Do ${limit} plików naraz`,
+  videoKbpsRange: (min, max) => `Bitrate wideo musi być od ${min} i ${max} kbps`,
+  audioKbpsRange: (min, max) => `Bitrate audio musi być od ${min} i ${max} kbps`,
+  outDirAbsolute: "Folder wyniku musi być ścieżką bezwzględną",
+  ffmpegUnusable: (message) => `ffmpeg jest niedostępny: ${message}`,
+  audioKbps: (kbps) => `Audio ${kbps} kbps`,
+
+  ffmpegNeeded: "Najpierw zainstaluj ffmpeg",
+  ffmpegInstallHint: "Zainstaluj ffmpeg lub ustaw ścieżkę przez BAOCUT_FFMPEG",
+  ffmpegReady: (version) => `ffmpeg${version} jest gotowy`,
+  ffmpegOutdated: (version) => `ffmpeg${version} jest zbyt stary`,
+  ffmpegCannotRun: "Nie można uruchomić ffmpeg",
+
+  filesTitle: (first, count) => `${first} · pliki: ${count}`,
+  defaultTitle: "Konwersja plików",
+  mergeTitle: (first, more) => `${first} + klipy: ${more}`,
+  qualityWithCrf: (name, crf) => `${name} (CRF ${crf})`,
+  mergeStreamCopy: (n) => pluralForm('pl', n, { one: `Połącz ${n} klip · Kopiowanie strumienia`, few: `Połącz ${n} klipy · Kopiowanie strumienia`, many: `Połącz ${n} klipów · Kopiowanie strumienia`, other: `Połącz ${n} klipu · Kopiowanie strumienia` }),
+  extractAudioMany: (n) => pluralForm('pl', n, { one: `Wyodrębnij audio z ${n} pliku`, few: `Wyodrębnij audio z ${n} plików`, many: `Wyodrębnij audio z ${n} plików`, other: `Wyodrębnij audio z ${n} pliku` }),
+  extractAudio: "Wyodrębnij audio",
+  mergeClips: (n) => pluralForm('pl', n, { one: `Połącz ${n} klip`, few: `Połącz ${n} klipy`, many: `Połącz ${n} klipów`, other: `Połącz ${n} klipu` }),
+  compressMany: (n) => pluralForm('pl', n, { one: `Skompresuj ${n} plik`, few: `Skompresuj ${n} pliki`, many: `Skompresuj ${n} plików`, other: `Skompresuj ${n} pliku` }),
+  compress: "Kompresuj",
+  stepQueued: (step, detail) => `${step} · ${detail ?? 'Queued'}`,
+  stepOf: (step, cur, total) => `${step} · Krok ${cur} z ${total}`,
+  noAudioTrack: "Brak audio",
+  mergedSize: (after, before) => `${after} (łącznie źródła ${before})`,
+  savedSize: (before, after, saved) => `${before} → ${after} (${saved === null ? "nie mniejsze" : saved === 0 ? "około tyle samo" : `${saved}% mniejsze`})`,
+  streamCopyLine: "Wszystkie klipy zgodne: skopiowano strumień bez ponownego kodowania, jakość bez zmian",
+  reencodeLine: (reason) => (reason ? `Przekodowano: ${reason}` : "Przekodowano"),
+  underASecond: "Mniej niż 1 sekunda",
+  took: (duration) => `Zajęło ${duration}`,
+  stateQueued: "W kolejce",
+  stateProcessing: "Przetwarzanie",
+
+  remedyThenRetry: (remedy) => `${remedy}, a potem spróbuj ponownie`,
+  inputUnreadable: "Nie udało się odczytać klatek pliku. Sprawdź odtwarzanie w odtwarzaczu lub wybierz inny plik",
+  transcodeFailed: "ffmpeg przerwał z błędem; oryginalny wynik poniżej. Jeśli dysk pełny, zwolnij miejsce; jeśli plik przeniesiono, wybierz ponownie",
+  validationFailed: "Wynik nie przeszedł weryfikacji i został odrzucony, nic nie zapisano w folderze wyniku. Spróbuj ponownie lub zmień ustawienia",
+};

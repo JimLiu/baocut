@@ -1,0 +1,16 @@
+{
+  "name": "@baocut/protocol",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schemas": "./src/schemas.ts",
+    "./json-schema": "./src/json-schema.ts",
+    "./messages/*.ts": "./src/messages/*.ts",
+    "./messages/*": "./src/messages/*/index.ts"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  }
+}

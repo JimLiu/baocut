@@ -1,0 +1,26 @@
+import type { ModelsLocalSpeechMessages } from './local-speech.ts';
+
+export const zhHans: ModelsLocalSpeechMessages = {
+  paceQwen06: '比实时慢约 55 倍，3 秒的一句要等两三分钟',
+  paceQwen17: '预计比 0.6B（比实时慢约 55 倍）还慢，这只没有实测',
+  paceIndexTts2: '预计与 IndexTTS 2.5（比实时慢 120–145 倍）相当，这只没有实测',
+  paceIndexTts25: '比实时慢 120–145 倍，四五秒的一句要等七到十分钟',
+  paceGptSovits: '比实时慢约 6 倍，4 秒的一句要等半分钟左右',
+  paceVoxcpm2: '模型最大，预计一句要等好几分钟，这只没有实测',
+  paceOmnivoice: '比实时慢约 30 倍，4 秒的一句要等两分钟左右',
+  paceDefault: '一句要等几分钟',
+  cpuNote: (p: { pace: string }) => `在本机的 CPU 上合成，只用到一两个核，${p.pace}；有 NVIDIA 显卡（CUDA）时应该快得多（未实测）`,
+  oneVoiceSource: 'voice、reference 与 voiceDescription 只能给一个',
+  modeUnsupported: (p: { modelId: string; what: string; mode: string }) => `模型 ${p.modelId} 不支持${p.what}（${p.mode}）`,
+  modeClone: '用参考录音克隆',
+  modeDescribe: '按描述造声',
+  noReferenceTranscript: (p: { modelId: string }) => `模型 ${p.modelId} 不读参考录音的原文（reference.transcript）`,
+  descriptionEmpty: '描述不能为空',
+  noPresetVoice: (p: { modelId: string; need: string }) => `模型 ${p.modelId} 没有预设音色，请给出 ${p.need}`,
+  noSuchVoice: (p: { modelId: string; voice: string }) => `模型 ${p.modelId} 没有音色 ${p.voice}`,
+  noDefaultVoice: (p: { modelId: string }) => `模型 ${p.modelId} 没有默认音色，请指定 voice`,
+  termNotInVocabulary: (p: { modelId: string; term: string }) => `模型 ${p.modelId} 的声音描述只接受词表里的词：「${p.term}」不在词表里`,
+  onePerCategory: (p: { modelId: string; category: string }) => `模型 ${p.modelId} 的声音描述每类至多一项（${p.category}）`,
+  builtinReferenceLabel: '内置音色录音',
+  referenceUnreadable: (p: { name: string }) => `参考录音「${p.name}」读不出来：文件不在、不是文件或没有读取权限，换一段录音再试`,
+};

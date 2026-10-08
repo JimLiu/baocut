@@ -1,0 +1,546 @@
+{
+  "files": [
+    {
+      "file": "logo--logo-animation-reveal-xz9RbV3YNK.json",
+      "fps": 60.0,
+      "frames": 300,
+      "height": 800,
+      "samples": [
+        {
+          "drawOpFingerprint": "9a0b6ca613b1c735",
+          "ms": 0,
+          "ops": 20,
+          "paints": 4,
+          "paths": 6
+        },
+        {
+          "drawOpFingerprint": "5e897f97f56382df",
+          "ms": 1249,
+          "ops": 118,
+          "paints": 7,
+          "paths": 27
+        },
+        {
+          "drawOpFingerprint": "5d492f571f51b918",
+          "ms": 2499,
+          "ops": 121,
+          "paints": 7,
+          "paths": 30
+        },
+        {
+          "drawOpFingerprint": "f572185938929414",
+          "ms": 3749,
+          "ops": 121,
+          "paints": 7,
+          "paths": 30
+        },
+        {
+          "drawOpFingerprint": "633397d5ff55ca79",
+          "ms": 4999,
+          "ops": 109,
+          "paints": 7,
+          "paths": 18
+        }
+      ],
+      "warnings": 0,
+      "width": 1000
+    },
+    {
+      "file": "dataviz--data-lRWA5nCnQT.json",
+      "fps": 29.9700012207031,
+      "frames": 140,
+      "height": 2160,
+      "samples": [
+        {
+          "drawOpFingerprint": "54933d496de8383b",
+          "ms": 0,
+          "ops": 8,
+          "paints": 0,
+          "paths": 3
+        },
+        {
+          "drawOpFingerprint": "bce7b9eea7232e2c",
+          "ms": 1167,
+          "ops": 9,
+          "paints": 0,
+          "paths": 3
+        },
+        {
+          "drawOpFingerprint": "3b2fafda3861f910",
+          "ms": 2335,
+          "ops": 14,
+          "paints": 0,
+          "paths": 4
+        },
+        {
+          "drawOpFingerprint": "ebef8f9a3c75db19",
+          "ms": 3502,
+          "ops": 14,
+          "paints": 0,
+          "paths": 4
+        },
+        {
+          "drawOpFingerprint": "ebef8f9a3c75db19",
+          "ms": 4670,
+          "ops": 14,
+          "paints": 0,
+          "paths": 4
+        }
+      ],
+      "warnings": 1,
+      "width": 3840
+    },
+    {
+      "file": "logo--logo-reveal-BSRHyQLF3V.json",
+      "fps": 30.0,
+      "frames": 71,
+      "height": 1080,
+      "samples": [
+        {
+          "drawOpFingerprint": "4f3d7011fe214b85",
+          "ms": 0,
+          "ops": 7,
+          "paints": 3,
+          "paths": 2
+        },
+        {
+          "drawOpFingerprint": "e45bc194c6cfd502",
+          "ms": 591,
+          "ops": 44,
+          "paints": 9,
+          "paths": 10
+        },
+        {
+          "drawOpFingerprint": "2cbfa8a177df720f",
+          "ms": 1183,
+          "ops": 44,
+          "paints": 9,
+          "paths": 10
+        },
+        {
+          "drawOpFingerprint": "71668d3077620061",
+          "ms": 1774,
+          "ops": 43,
+          "paints": 8,
+          "paths": 10
+        },
+        {
+          "drawOpFingerprint": "71668d3077620061",
+          "ms": 2366,
+          "ops": 43,
+          "paints": 8,
+          "paths": 10
+        }
+      ],
+      "warnings": 0,
+      "width": 1920
+    },
+    {
+      "file": "loading--loading-FufM7HCbOd.json",
+      "fps": 29.9700012207031,
+      "frames": 22,
+      "height": 100,
+      "samples": [
+        {
+          "drawOpFingerprint": "e04757db662a8661",
+          "ms": 0,
+          "ops": 27,
+          "paints": 2,
+          "paths": 4
+        },
+        {
+          "drawOpFingerprint": "2d06afad66d5d8af",
+          "ms": 183,
+          "ops": 31,
+          "paints": 2,
+          "paths": 4
+        },
+        {
+          "drawOpFingerprint": "93756d14887ef09a",
+          "ms": 366,
+          "ops": 35,
+          "paints": 2,
+          "paths": 4
+        },
+        {
+          "drawOpFingerprint": "602b1d18d0d0f1f9",
+          "ms": 549,
+          "ops": 39,
+          "paints": 2,
+          "paths": 4
+        },
+        {
+          "drawOpFingerprint": "f2d4d11398e3a0d5",
+          "ms": 733,
+          "ops": 43,
+          "paints": 2,
+          "paths": 4
+        }
+      ],
+      "warnings": 0,
+      "width": 100
+    },
+    {
+      "file": "illustration--roomie-hazelnut-illustration-7kfF2mNngI.json",
+      "fps": 12.0,
+      "frames": 24,
+      "height": 270,
+      "samples": [
+        {
+          "drawOpFingerprint": "f84ef9d171ab7bf1",
+          "ms": 0,
+          "ops": 43,
+          "paints": 4,
+          "paths": 41
+        },
+        {
+          "drawOpFingerprint": "be81a632329bff35",
+          "ms": 499,
+          "ops": 43,
+          "paints": 3,
+          "paths": 39
+        },
+        {
+          "drawOpFingerprint": "75e4a57fa37c9ce7",
+          "ms": 999,
+          "ops": 43,
+          "paints": 4,
+          "paths": 41
+        },
+        {
+          "drawOpFingerprint": "7f33d4ee58ce64e2",
+          "ms": 1499,
+          "ops": 46,
+          "paints": 4,
+          "paths": 40
+        },
+        {
+          "drawOpFingerprint": "6d9e70d66d539ae6",
+          "ms": 1999,
+          "ops": 40,
+          "paints": 3,
+          "paths": 37
+        }
+      ],
+      "warnings": 0,
+      "width": 550
+    },
+    {
+      "file": "dataviz--graph-sifYDMGrzQ.json",
+      "fps": 29.9700012207031,
+      "frames": 51,
+      "height": 550,
+      "samples": [
+        {
+          "drawOpFingerprint": "ca9618c39916f776",
+          "ms": 0,
+          "ops": 5,
+          "paints": 2,
+          "paths": 2
+        },
+        {
+          "drawOpFingerprint": "5f816204748a83f0",
+          "ms": 425,
+          "ops": 5,
+          "paints": 2,
+          "paths": 2
+        },
+        {
+          "drawOpFingerprint": "c3e3ab60b87914d3",
+          "ms": 850,
+          "ops": 5,
+          "paints": 2,
+          "paths": 2
+        },
+        {
+          "drawOpFingerprint": "f119067ba9f68bdd",
+          "ms": 1275,
+          "ops": 5,
+          "paints": 2,
+          "paths": 2
+        },
+        {
+          "drawOpFingerprint": "4ab216558a5a76d5",
+          "ms": 1701,
+          "ops": 5,
+          "paints": 2,
+          "paths": 2
+        }
+      ],
+      "warnings": 0,
+      "width": 790
+    },
+    {
+      "file": "loading--spiner-uDFnkzUQGt.json",
+      "fps": 29.9700012207031,
+      "frames": 34,
+      "height": 500,
+      "samples": [
+        {
+          "drawOpFingerprint": "b6a7310742603d6b",
+          "ms": 0,
+          "ops": 4,
+          "paints": 1,
+          "paths": 3
+        },
+        {
+          "drawOpFingerprint": "f4b7f7394a5df3db",
+          "ms": 283,
+          "ops": 7,
+          "paints": 2,
+          "paths": 6
+        },
+        {
+          "drawOpFingerprint": "b96392dc20cad734",
+          "ms": 566,
+          "ops": 5,
+          "paints": 1,
+          "paths": 4
+        },
+        {
+          "drawOpFingerprint": "1a0bb8bdf7cf7c90",
+          "ms": 849,
+          "ops": 6,
+          "paints": 3,
+          "paths": 5
+        },
+        {
+          "drawOpFingerprint": "6dbe4310d864553c",
+          "ms": 1133,
+          "ops": 4,
+          "paints": 2,
+          "paths": 3
+        }
+      ],
+      "warnings": 0,
+      "width": 500
+    },
+    {
+      "file": "icon--home-icon-micro-interaction-eOdTKE4iLe.json",
+      "fps": 60.0,
+      "frames": 61,
+      "height": 6408,
+      "samples": [
+        {
+          "drawOpFingerprint": "e3f3e8b18b7e0b24",
+          "ms": 0,
+          "ops": 5,
+          "paints": 2,
+          "paths": 4
+        },
+        {
+          "drawOpFingerprint": "c2cb0d3245c3bf30",
+          "ms": 254,
+          "ops": 5,
+          "paints": 2,
+          "paths": 4
+        },
+        {
+          "drawOpFingerprint": "b6eb07e3d4b4666c",
+          "ms": 508,
+          "ops": 5,
+          "paints": 2,
+          "paths": 4
+        },
+        {
+          "drawOpFingerprint": "357cf1dd016240f4",
+          "ms": 762,
+          "ops": 5,
+          "paints": 2,
+          "paths": 4
+        },
+        {
+          "drawOpFingerprint": "2f7ebad9bffee984",
+          "ms": 1016,
+          "ops": 5,
+          "paints": 2,
+          "paths": 4
+        }
+      ],
+      "warnings": 0,
+      "width": 6408
+    },
+    {
+      "file": "illustration--building-illustrated-scene-A5O3xmMRsD.json",
+      "fps": 60.0,
+      "frames": 60,
+      "height": 1024,
+      "samples": [
+        {
+          "drawOpFingerprint": "c0e15ee3496270c6",
+          "ms": 0,
+          "ops": 2340,
+          "paints": 53,
+          "paths": 1167
+        },
+        {
+          "drawOpFingerprint": "c0e15ee3496270c6",
+          "ms": 249,
+          "ops": 2340,
+          "paints": 53,
+          "paths": 1167
+        },
+        {
+          "drawOpFingerprint": "c0e15ee3496270c6",
+          "ms": 499,
+          "ops": 2340,
+          "paints": 53,
+          "paths": 1167
+        },
+        {
+          "drawOpFingerprint": "c0e15ee3496270c6",
+          "ms": 749,
+          "ops": 2340,
+          "paints": 53,
+          "paths": 1167
+        },
+        {
+          "drawOpFingerprint": "c0e15ee3496270c6",
+          "ms": 999,
+          "ops": 2340,
+          "paints": 53,
+          "paths": 1167
+        }
+      ],
+      "warnings": 0,
+      "width": 1024
+    },
+    {
+      "file": "icon--icon-PEH7emTurj.json",
+      "fps": 60.0,
+      "frames": 340,
+      "height": 106,
+      "samples": [
+        {
+          "drawOpFingerprint": "a14ac8d20effbec5",
+          "ms": 0,
+          "ops": 26,
+          "paints": 2,
+          "paths": 3
+        },
+        {
+          "drawOpFingerprint": "704373211217aed0",
+          "ms": 1416,
+          "ops": 34,
+          "paints": 3,
+          "paths": 4
+        },
+        {
+          "drawOpFingerprint": "bcfd768b74c45866",
+          "ms": 2833,
+          "ops": 64,
+          "paints": 4,
+          "paths": 9
+        },
+        {
+          "drawOpFingerprint": "6c8468c8fce45075",
+          "ms": 4249,
+          "ops": 62,
+          "paints": 4,
+          "paths": 9
+        },
+        {
+          "drawOpFingerprint": "eb205ce0b75190f5",
+          "ms": 5666,
+          "ops": 62,
+          "paints": 4,
+          "paths": 9
+        }
+      ],
+      "warnings": 0,
+      "width": 106
+    },
+    {
+      "file": "dataviz--data-EioPFQX83U.json",
+      "fps": 25.0,
+      "frames": 51,
+      "height": 50,
+      "samples": [
+        {
+          "drawOpFingerprint": "01774bd3cb3f0ee6",
+          "ms": 0,
+          "ops": 6,
+          "paints": 1,
+          "paths": 2
+        },
+        {
+          "drawOpFingerprint": "689b47143296636e",
+          "ms": 509,
+          "ops": 6,
+          "paints": 1,
+          "paths": 2
+        },
+        {
+          "drawOpFingerprint": "85969e5532bc0b31",
+          "ms": 1019,
+          "ops": 6,
+          "paints": 1,
+          "paths": 2
+        },
+        {
+          "drawOpFingerprint": "85969e5532bc0b31",
+          "ms": 1529,
+          "ops": 6,
+          "paints": 1,
+          "paths": 2
+        },
+        {
+          "drawOpFingerprint": "85969e5532bc0b31",
+          "ms": 2039,
+          "ops": 6,
+          "paints": 1,
+          "paths": 2
+        }
+      ],
+      "warnings": 0,
+      "width": 50
+    },
+    {
+      "file": "illustration--building-illustrated-scene-JIAeCHeZ1j.json",
+      "fps": 60.0,
+      "frames": 60,
+      "height": 1024,
+      "samples": [
+        {
+          "drawOpFingerprint": "0f3ecd8f345c9aca",
+          "ms": 0,
+          "ops": 899,
+          "paints": 17,
+          "paths": 450
+        },
+        {
+          "drawOpFingerprint": "0f3ecd8f345c9aca",
+          "ms": 249,
+          "ops": 899,
+          "paints": 17,
+          "paths": 450
+        },
+        {
+          "drawOpFingerprint": "0f3ecd8f345c9aca",
+          "ms": 499,
+          "ops": 899,
+          "paints": 17,
+          "paths": 450
+        },
+        {
+          "drawOpFingerprint": "0f3ecd8f345c9aca",
+          "ms": 749,
+          "ops": 899,
+          "paints": 17,
+          "paths": 450
+        },
+        {
+          "drawOpFingerprint": "0f3ecd8f345c9aca",
+          "ms": 999,
+          "ops": 899,
+          "paints": 17,
+          "paths": 450
+        }
+      ],
+      "warnings": 0,
+      "width": 1024
+    }
+  ],
+  "note": "12 个 golden 素材的 DrawOp 指纹（BCOP v4）。素材不进仓库，测试经 BCUT_LOTTIE_CORPUS 指向本地语料目录。",
+  "rendererTag": "bcut.source.lottie/v1"
+}

@@ -1,0 +1,30 @@
+{
+  "box": "画幅 100% × 100%",
+  "canvas": [
+    1920.0,
+    1080.0
+  ],
+  "note": "confetti 夹具的**输入**。GPU 对拍与 wasm 复用同一份，各自追加 expected-*.json。追加新输入请往末尾加，既有编号不动。times 是元素本地时刻（秒）；颜色与形状取配方缺省，倍率全 1，种子固定。",
+  "pixelScale": 2.0,
+  "seed": 20260909,
+  "styles": [
+    "confetti.rainbow-paper",
+    "confetti.pastel-fall",
+    "confetti.neon-streamers",
+    "confetti.golden-starburst",
+    "confetti.festival-fireworks",
+    "confetti.hearts-petals",
+    "confetti.party-cannons",
+    "confetti.curling-ribbons",
+    "confetti.geometric-pop",
+    "confetti.champagne-sparkle"
+  ],
+  "times": [
+    0.0,
+    0.4,
+    1.2,
+    2.5,
+    4.5,
+    12.0
+  ]
+}

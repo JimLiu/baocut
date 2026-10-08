@@ -1,0 +1,231 @@
+/* App rail 与 react-spectrum 根容器（只在 BaoCut.html 加载，Web 入口不进）。2026-10-01，product-design §2。
+   S2 自己的样式在 @layer _.*（vendor/react-spectrum-s2/react-spectrum-s2.css）；这里是本目录画的那部分：
+   rail 的格子、页面侧栏与 Space 的外框。颜色、字号、圆角、动效一律走 token / S2 阶梯。 */
+.bc-rsp-root { height: 100%; --apprail-size: 56px; }
+/* product-design §2.5 用户修订：参考 Codex 的 44px 标题栏；浏览器用轻微渐变模拟原生窗体底色层次。 */
+.app { background: linear-gradient(120deg, var(--gray-75), var(--gray-50) 65%); }
+.tbar { height: 44px; }
+
+/* product-design §2.5 用户修订：整个工作区共用一个外缘，右侧与底部露出窗体底色。 */
+.appsheet { display: flex; flex: 1; min-width: 0; min-height: 0; margin: 0 8px 8px 0; border-radius: 16px; background: var(--gray-25); box-shadow: var(--sh-pop); overflow: hidden; }
+
+/* ---------- rail ----------
+   Spectrum 2 app frame 的 side navigation：与标题栏同一层底色（base，gray-50），**右边不画线**——
+   rail 与右边的整体工作区通过色阶、圆角与外缘轻阴影分开。
+   宽 56：主要入口贴顶，横线下方是服务与后台任务，设置固定在底部。
+   每格高 40（行距 40），图标 20 居中；hover 才有一块 32×32 的浅圆角底（gray-100）。
+   选中 = 图标左侧一根指示竖条（2×16，gray-800，圆头，离 rail 左缘 9px）+ 图标变深（gray-700 → gray-800），
+   没有底色块。名字由 S2 Tooltip 提供。 */
+.apprail { flex: none; width: var(--apprail-size); display: flex; flex-direction: column; justify-content: space-between; padding: 8px 0; background: transparent; }
+.apprail__top, .apprail__end { display: flex; flex-direction: column; align-items: stretch; }
+.apprail__btn { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; height: 40px; color: var(--gray-700); cursor: pointer; }
+.apprail__btn::before { content: ''; position: absolute; left: 9px; top: 50%; width: 2px; height: 16px; border-radius: 9999px; background: var(--gray-800); transform: translateY(-50%); opacity: 0; transition: opacity 150ms cubic-bezier(0.45,0,0.4,1); }
+.apprail__ic { position: relative; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; transition: background-color 150ms cubic-bezier(0.45,0,0.4,1); }
+.apprail__ic > svg { width: 20px; height: 20px; --iconPrimary: currentColor; fill: currentColor; }
+.apprail__btn.is-on { color: var(--gray-800); }
+.apprail__btn.is-on::before { opacity: 1; }
+.apprail__badge { position: absolute; top: 1px; right: 9px; display: flex; pointer-events: none; }
+/* 服务出错的角标：S2 NotificationBadge 的纯圆点（8px），颜色换成服务页「出错」那颗灯的橙（services.css .svclight.is-error） */
+.apprail__badge--dot { top: 7px; right: 15px; }
+.apprail__alert { background-color: var(--orange-900); }
+/* 更新按钮原来是侧栏页脚里的方钮（settings-update.css .sideupd：高 = 行高、aspect-ratio 1）；这里给它 32 高、坐在一格 40 里。
+   没有可提示的更新时按钮渲染为空，这一格不占位 */
+.apprail__upd { display: flex; align-items: center; justify-content: center; height: 40px; }
+.apprail__upd:empty { display: none; }
+.apprail__upd > .tipw { height: 32px; }
+.apprail__upd .tip--top { left: 0; transform: none; }
+
+/* ---------- 页面侧栏（Home 的项目与会话 / Space 的分类）----------
+   外框是本目录的（宽度沿用原侧栏的可拖宽度），里面的行是 S2 SideNav。
+   它是 sheet 的一部分（白，gray-25）：外缘圆角与阴影统一由 .appsheet 绘制；
+   与内容区之间那根 divider 由侧栏缝画（.seam--side），这里不画边框。 */
+.hside { display: flex; flex-direction: column; flex: none; min-width: 0; padding: 4px 8px 10px; background: var(--gray-25); }
+/* Spectrum layout spacing: region inset 300 (16px), related controls 100 (8px).
+   Source: spectrum.adobe.com/foundations/layout-and-structure/spacing/layout-spacing
+   S2 retains responsibility for padding inside buttons, fields and SideNav rows. */
+.hside--home { padding: var(--spacing-300); }
+.hside__top { display: flex; align-items: center; padding-bottom: var(--spacing-300); }
+.hside__new { flex: 1 1 auto; justify-content: start; }
+/* product-design §2 / §3.1 / §4: screenshot refinement, each sidebar starts with its section title. */
+.app-section-title { flex: none; margin: 0 var(--spacing-100) var(--spacing-300); font-size: 18px; font-weight: 600; line-height: 24px; color: var(--gray-900); }
+/* Workflow sizes are shared in spectrum.css; S2 keeps the button hit area. */
+.hside__nav { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.hside__note { flex: none; margin-top: 6px; padding: 8px 10px 0; border-top: 2px solid var(--gray-100); font-size: 11px; line-height: 16px; color: var(--gray-600); }
+
+/* product-design §3.1：按截图反馈，会话用整行底色表达当前页。
+   只替换 S2 SideNav 的会话指示条；第一层焦点环与项目/Space 导航保留。 */
+.hside--home [data-session-row] { border-radius: 8px; }
+.hside--home [data-session-row][data-hovered] { background: var(--gray-75); }
+.hside--home [data-session-row][data-current] { background: var(--gray-100); }
+/* S2 1.7 compatibility: these app navigation rows use a full-row selection.
+   Only suppress the internal indicator; preserve the public link and focus ring.
+   Keep the version-dependent selector here for all three navigation variants. */
+.appsheet :is([data-session-row], [data-utility-row], [data-settings-row]) > [role="gridcell"] > div:has(> a) > div:first-child { display: none; }
+
+/* 行里的自定义排版：标题截断，尾巴（多久前 / 计数）不换行（Space 分类行） */
+.hs-row { display: flex; align-items: center; gap: 6px; min-width: 0; width: 100%; }
+.hs-row__t { flex: 1 1 0; width: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hs-row__new { color: var(--gray-600); }
+.hs-ago { flex: none; white-space: nowrap; font-size: 11px; font-weight: 400; color: var(--gray-600); }
+/* 项目保留目录汇总；会话使用单行，状态始终留在标题右侧。 */
+.hs-proj { display: flex; flex-direction: column; min-width: 0; }
+.hs-proj__t, .hs-proj__sub { width: 0; min-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hs-proj__sub { font-size: 11px; font-weight: 400; line-height: 14px; color: var(--gray-600); }
+.hs-sess { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.hs-sess__t { flex: 1 1 0; width: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hs-sess__status { display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; flex: none; }
+.hs-sess__status--waiting { color: var(--orange-900); }
+.hs-sess__status--failed { color: var(--red-900); }
+.hs-sess__status--review { color: var(--purple-900); }
+.hs-sess__status--unread { color: var(--green-900); }
+.hs-sess__status > [slot="icon"] svg { width: 16px; height: 16px; --iconPrimary: currentColor; }
+.hs-sess__light { gap: 0; align-items: center; }
+.hs-sess__light > [data-rsp-slot="text"] { display: none; }
+.hside--home [data-session-row] { margin-top: var(--spacing-50); }
+/* 会话没有子项；移除 S2 隐藏展开按钮占的空位，给标题和状态使用。 */
+.hside--home [data-session-row] > [role="gridcell"] > [slot="chevron"] { display: none; }
+.hside--home [data-session-row] > [role="gridcell"] > div:has(> a) { padding-right: 12px; }
+/* Screenshot refinement of §3.1: section controls appear for pointer and keyboard.
+   Opacity keeps controls reachable with Tab; focus-within reveals them. */
+.hs-head { display: flex; align-items: center; gap: var(--spacing-75); min-width: 0; width: 100%; height: 24px; margin-block: -4px; }
+.hs-head__toggle { margin-inline-start: -8px; flex: 1 1 auto; justify-content: start; min-width: 0; }
+.hs-head__toggle [data-rsp-slot="text"] { display: flex; align-items: center; gap: var(--spacing-75); }
+.hs-head__label { color: var(--gray-600); font-size: 12px; font-weight: 400; }
+.hs-head__chevron { display: inline-flex; width: 12px; height: 12px; opacity: 0; }
+.hs-head__chevron svg { width: 12px; height: 12px; --iconPrimary: currentColor; }
+.hs-head__actions { display: flex; align-items: center; opacity: 0; pointer-events: none; }
+.hs-head:hover .hs-head__actions, .hs-head:focus-within .hs-head__actions,
+.hs-head:has(.hs-head__actions [aria-expanded="true"]) .hs-head__actions { opacity: 1; pointer-events: auto; }
+.hs-head:hover .hs-head__chevron, .hs-head:focus-within .hs-head__chevron,
+.hs-head:has(.hs-head__actions [aria-expanded="true"]) .hs-head__chevron,
+.hs-head__toggle[aria-expanded="false"] .hs-head__chevron { opacity: 1; }
+.hs-head__btn { flex: none; }
+.hs-proj__sub { display: none; }
+[data-project-menu], .hs-sess__actions { opacity: 0; pointer-events: none; max-width: 0; min-width: 0; overflow: hidden; margin-inline: 0; }
+.hside--home [data-project-row]:is(:hover, :focus-within) [data-project-menu],
+.hside--home [data-project-row]:has([aria-expanded="true"][aria-haspopup]) [data-project-menu],
+.hside--home [data-session-row]:is(:hover, :focus-within) .hs-sess__actions { opacity: 1; pointer-events: auto; max-width: 56px; overflow: visible; }
+.hside--home [data-project-row] > [role="gridcell"] > [slot="chevron"] { opacity: 0; }
+.hside--home [data-project-row]:is(:hover, :focus-within) > [role="gridcell"] > [slot="chevron"] { opacity: 1; }
+@media (hover: none) {
+  .hs-head__actions, .hs-head__chevron, [data-project-menu], .hs-sess__actions { opacity: 1; pointer-events: auto; max-width: none; overflow: visible; }
+  .hside--home [data-project-row] > [role="gridcell"] > [slot="chevron"] { opacity: 1; }
+}
+
+/* product-design §2.5 用户修订：窗体标题栏延续侧栏、会话与编辑器的分界。 */
+.tbar__divider { position: absolute; top: 12px; bottom: 12px; width: 1px; transform: translateX(-50%); background: var(--gray-100); pointer-events: none; }
+.tbar__title--pane { position: absolute; top: 0; bottom: 0; right: 0; padding: 0 48px; pointer-events: none; }
+.tbar:has(.tbar__title--pane) .tbar__acts { margin-left: auto; }
+
+/* ---------- Home 主区的会话头 ---------- */
+.hhd { display: flex; align-items: center; gap: 8px; flex: none; min-height: 56px; padding: 8px 20px; border-bottom: 2px solid var(--gray-100); }
+.hhd__title { flex: 1; margin: 0; min-width: 0; font-size: 14px; font-weight: 600; color: var(--gray-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hhd__status { flex: none; font-size: 11px; color: var(--gray-600); }
+.chat-outputs { display: flex; flex-direction: column; gap: 8px; margin: 0 0 16px 32px; }
+.chat-output { display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; padding: 12px 16px; border: 1px solid var(--gray-200); border-radius: 10px; background: var(--gray-25); text-align: left; }
+.chat-output:hover { background: var(--gray-50); }
+.chat-output__icon { display: flex; align-items: center; justify-content: center; flex: none; width: 40px; height: 40px; border-radius: 8px; background: var(--gray-75); color: var(--gray-700); }
+.chat-output__icon svg { width: 20px; height: 20px; --iconPrimary: currentColor; fill: currentColor; }
+.chat-output__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.chat-output__body strong { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-output__body > span { font-size: 12px; color: var(--gray-600); }
+.chat-output > .ic { flex: none; color: var(--gray-600); }
+
+/* Movie delivery preview (product-design §3.2.7), shared with the output popover. */
+.chat-output.chat-output--movie { flex-direction: column; align-items: stretch; gap: 0; max-width: 360px; padding: 0; overflow: hidden; }
+.chat-movie__preview-action { display: block; width: 100%; padding: 0; border-radius: 0; }
+.chat-movie__footer { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+.chat-output--movie .chat-output__body strong { white-space: normal; overflow-wrap: anywhere; line-height: 1.5; }
+.chat-movie__preview { position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: var(--gray-75); }
+.chat-movie__preview > img, .chat-movie__demo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.chat-movie__preview { color-scheme: light; }
+.chat-movie__sample { position: absolute; top: 12px; left: 12px; font-size: 11px; color: var(--gray-300); }
+.chat-movie__captions { position: absolute; left: 8%; right: 8%; bottom: 20%; display: flex; flex-direction: column; gap: 4px; color: var(--gray-25); text-align: center; font-size: 11px; line-height: 1.4; }
+.chat-movie__captions > span:first-child { font-weight: 600; }
+.chat-movie__open { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 9999px; background: var(--gray-25); color: var(--gray-900); box-shadow: var(--sh-pop); }
+.chat-movie__duration { position: absolute; right: 8px; bottom: 8px; padding: 4px 6px; border-radius: 4px; background: var(--gray-900); color: var(--gray-25); font: 11px var(--mono); }
+.chat-movie__empty { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: var(--gray-600); }
+.chat-movie__actions { display: flex; flex: none; align-self: flex-start; }
+/* 视频卡的状态（BADGE 词表）与时长一行；下面一件活一行在 agent-cards.css 的 .mjobs */
+.chat-output__body > .chat-movie__meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+
+/* App frame screenshot refinement: primary navigation, divider, utilities, then settings at the foot. */
+.apprail__group { display: flex; flex-direction: column; }
+.apprail__divider { border: 0; border-top: 1px solid var(--gray-200); margin: var(--spacing-200) var(--spacing-300); }
+.hside--utility { padding: var(--spacing-300); }
+.hside--utility [data-utility-row] { border-radius: 8px; margin-top: var(--spacing-50); }
+.hside--utility [data-utility-row][data-hovered] { background: var(--gray-75); }
+.hside--utility [data-utility-row][data-current] { background: var(--gray-100); }
+.hside--utility [data-utility-row] > [role="gridcell"] > [slot="chevron"] { display: none; }
+.utility-nav__row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.utility-nav__label { flex: 1; width: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.utility-nav__row--service .utility-nav__label { flex: 0 1 auto; width: auto; }
+.utility-nav__progress { display: flex; flex: none; width: 16px; height: 16px; }
+.utility-nav__dot { flex: none; width: 6px; height: 6px; border-radius: 9999px; background: var(--gray-400); }
+.utility-nav__dot--on { background: var(--green-900); }
+.utility-nav__dot--error { background: var(--orange-900); }
+.utility-nav__note { margin: 16px 8px 0; color: var(--gray-600); font-size: 12px; line-height: 18px; }
+.content--utility { container: utility / inline-size; }
+.content--utility .page__in { max-width: 1040px; padding: 32px; }
+.content--utility .page__hd { margin-bottom: 24px; }
+.content--utility .tools__grid { grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 16px; }
+.content--utility .tools__grp { margin-bottom: 32px; }
+.content--utility .svclist { max-width: none; }
+@container utility (max-width: 800px) {
+  .content--utility .ttsw, .content--utility .vw { grid-template-columns: minmax(0, 1fr); }
+  .content--utility .ttsw__side { position: static; }
+}
+@container utility (max-width: 600px) {
+  .content--utility .page__in { padding: 24px; }
+  .content--utility .task { flex-wrap: wrap; }
+  .content--utility .task__b { flex-basis: calc(100% - 64px); }
+  .content--utility .task__b > .row { flex-wrap: wrap; }
+  .content--utility .svcitem { flex-wrap: wrap; }
+  .content--utility .svcitem__main { flex-basis: 100%; }
+}
+
+/* 工具由侧栏直接切换：标题与主动作共用页顶，取消重复的返回层级（product-design §2.4 的本轮简化）。 */
+.content--utility .page--rootbar .pagenav__in { padding: 24px 40px 16px; }
+.page--rootbar .pagenav__heading { margin: 0; min-width: 0; }
+.page--rootbar .pagenav__side--end { flex: 1; }
+.content--utility .page--rootbar .page__in { padding-top: 8px; }
+.page--rootbar .page__hd { justify-content: flex-end; flex-wrap: wrap; }
+@container utility (max-width: 600px) {
+  .content--utility .page--rootbar .pagenav__in { padding: 24px 24px 16px; flex-wrap: wrap; }
+  .page--rootbar .pagenav__note, .page--rootbar .pagenav__hint { display: none; }
+}
+
+/* Space 查看视频；Home 的正常会话在左、视频在右。 */
+.content--movie { min-width: 0; }
+.movie-workspace { display: flex; flex: 1; min-width: 0; min-height: 0; }
+.movie-workspace__editor { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; position: relative; container: movie / inline-size; }
+.movie-conversation { display: flex; flex-direction: column; min-height: 0; min-width: 320px; max-width: 45%; flex: none; }
+.movie-conversation .hhd { padding-inline: 16px; }
+/* 悬浮会话（product-design §5.1）：默认是一枚输入框，发送后线程就地向上展开；最小化成一颗图标。 */
+.movie-quickchat { position: absolute; right: 24px; bottom: 24px; z-index: 20; }
+.movie-quickchat__trigger { position: relative; display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%; background: var(--gray-25); box-shadow: var(--sh-elev); color: var(--gray-800); }
+.movie-quickchat__dot { position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 50%; background: var(--blue-900); box-shadow: 0 0 0 2px var(--gray-25); }
+.movie-quickchat__dot.is-waiting { background: var(--orange-900); }
+/* 展开时让开右侧的工具 rail（48px 宽），线程再高也不盖住 Tab */
+.movie-quickchat.is-open { right: calc(48px + 24px); width: 400px; max-width: calc(100% - 96px); max-height: calc(100% - 48px); border-radius: 16px; background: var(--gray-25); box-shadow: var(--sh-elev); display: flex; flex-direction: column; overflow: hidden; }
+.movie-quickchat.has-thread { height: 560px; }
+.movie-quickchat__head { display: flex; align-items: center; gap: 4px; padding: 8px 8px 0 16px; font-size: 12px; font-weight: 700; color: var(--gray-700); }
+/* 还没说第一句话：只留输入框，问候语与示例收起，浮层尽量不挡编辑器 */
+.movie-quickchat:not(.has-thread) .ath__scroll { display: none; }
+@container movie (max-width: 600px) {
+  .moviebar { padding: 8px; gap: 8px; flex-wrap: wrap; }
+  .moviebar__title { flex-basis: 100%; }
+  .moviebar__actions { margin-left: auto; }
+}
+@media (max-width: 1000px) {
+  .movie-workspace:has(.movie-conversation) { flex-direction: column; overflow-y: auto; }
+  .movie-conversation { width: 100% !important; max-width: none; flex: none; height: 420px; }
+  .movie-conversation + .seam--dock { display: none; }
+  .movie-conversation ~ .movie-workspace__editor { flex: none; height: 560px; min-height: 560px; border-top: 2px solid var(--gray-100); }
+}
+.movie-workspace__editor .edrow { position: relative; }
+.movie-workspace__editor .panelouter--overlay { position: absolute; top: 0; bottom: 0; right: 68px; z-index: 30; box-shadow: var(--sh-elev); background: var(--gray-25); }
+
+/* Page hierarchy follows S2 title/body/detail roles; editor typography is independent. */
+.content--utility .page__hd .t-heading { font-size: 22px; font-weight: 700; }
+.hside__note { font-size: 12px; line-height: 1.5; }

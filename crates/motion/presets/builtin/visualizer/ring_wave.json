@@ -1,0 +1,31 @@
+{
+  "id": "ring_wave",
+  "version": 1,
+  "domain": "visualizer",
+  "namespace": "timeline",
+  "order": 5,
+  "numColors": 1,
+  "colorLabels": [
+    "Wave"
+  ],
+  "defaultMainColor": "#B98CFF",
+  "defaultSecondaryColor": "#FFFFFF",
+  "defaultMinDb": -120.0,
+  "defaultMaxDb": -10.0,
+  "hasControl": false,
+  "binWidth": "half",
+  "aspect": "square",
+  "recipe": {
+    "algorithm": "oscilloscope-v1",
+    "params": {
+      "layout": "polar",
+      "samples": 128,
+      "lineWidth": 0.015,
+      "amplitude": 0.6,
+      "baseRadius": 0.6
+    }
+  },
+  "determinism": "strict",
+  "shader": null,
+  "available": true
+}

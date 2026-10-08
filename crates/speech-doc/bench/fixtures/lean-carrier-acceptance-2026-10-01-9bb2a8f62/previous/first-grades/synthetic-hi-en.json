@@ -1,0 +1,582 @@
+{
+  "diagnostics": {},
+  "issues": [],
+  "mode": "lean",
+  "pageRejected": false,
+  "retryIds": [],
+  "rows": [
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              3
+            ],
+            "tgt": [
+              0,
+              33
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              4,
+              7
+            ],
+            "tgt": [
+              33,
+              49
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              8,
+              14
+            ],
+            "tgt": [
+              49,
+              70
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Leela did not cancel the meeting,",
+            "to": 3
+          },
+          {
+            "from": 4,
+            "text": "she postponed it",
+            "to": 7
+          },
+          {
+            "from": 8,
+            "text": "to Thursday at 14:30.",
+            "to": 14
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14"
+        ]
+      },
+      "chunks": 3,
+      "coarse": false,
+      "frozen": false,
+      "id": "hi-01",
+      "issues": [],
+      "locatedChunks": 3,
+      "minChunks": 3,
+      "n": 1,
+      "realTiming": false,
+      "source": "लीला ने बैठक रद्द नहीं की; उसने उसे गुरुवार को 14:30 बजे तक टाल दिया।",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Leela did not cancel the meeting, she postponed it to Thursday at 14:30."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              7
+            ],
+            "tgt": [
+              0,
+              41
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              8,
+              10
+            ],
+            "tgt": [
+              41,
+              75
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              11,
+              17
+            ],
+            "tgt": [
+              75,
+              92
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "If the temperature drops below 5 degrees,",
+            "to": 7
+          },
+          {
+            "from": 8,
+            "text": "then before turning on the heater,",
+            "to": 10
+          },
+          {
+            "from": 11,
+            "text": "close the window.",
+            "to": 17
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15",
+          "w16",
+          "w17"
+        ]
+      },
+      "chunks": 4,
+      "coarse": false,
+      "frozen": false,
+      "id": "hi-02",
+      "issues": [
+        "anchor-conflict"
+      ],
+      "locatedChunks": 4,
+      "minChunks": 3,
+      "n": 2,
+      "realTiming": false,
+      "source": "अगर तापमान 5 डिग्री से नीचे चला जाए, तो हीटर चालू करने से पहले खिड़की बंद कर दें।",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "If the temperature drops below 5 degrees, then before turning on the heater, close the window."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              8
+            ],
+            "tgt": [
+              0,
+              39
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              9,
+              11
+            ],
+            "tgt": [
+              39,
+              53
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              12,
+              18
+            ],
+            "tgt": [
+              53,
+              76
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Aman paid 120 rupees for three tickets,",
+            "to": 8
+          },
+          {
+            "from": 9,
+            "text": "but this price",
+            "to": 11
+          },
+          {
+            "from": 12,
+            "text": "did not include dinner.",
+            "to": 18
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15",
+          "w16",
+          "w17",
+          "w18"
+        ]
+      },
+      "chunks": 4,
+      "coarse": false,
+      "frozen": false,
+      "id": "hi-03",
+      "issues": [
+        "anchor-conflict"
+      ],
+      "locatedChunks": 4,
+      "minChunks": 3,
+      "n": 3,
+      "realTiming": false,
+      "source": "अमन ने तीन टिकटों के लिए 120 रुपये दिए, लेकिन इस कीमत में रात का खाना शामिल नहीं था।",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Aman paid 120 rupees for three tickets, but this price did not include dinner."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              5
+            ],
+            "tgt": [
+              0,
+              34
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              15
+            ],
+            "tgt": [
+              34,
+              60
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "The book Meera lent Ravi yesterday",
+            "to": 5
+          },
+          {
+            "from": 6,
+            "text": "belongs to Meera's sister.",
+            "to": 15
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15"
+        ]
+      },
+      "chunks": 2,
+      "coarse": false,
+      "frozen": false,
+      "id": "hi-04",
+      "issues": [],
+      "locatedChunks": 2,
+      "minChunks": 2,
+      "n": 4,
+      "realTiming": false,
+      "source": "मीरा ने कल रवि को जो किताब उधार दी थी, वह मीरा की बहन की है।",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "The book Meera lent Ravi yesterday belongs to Meera's sister."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "anchor"
+            ],
+            "src": [
+              0,
+              6
+            ],
+            "tgt": [
+              0,
+              48
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              7,
+              14
+            ],
+            "tgt": [
+              48,
+              70
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Next to \"Confirmed\" it says E-12, but the packet",
+            "to": 6
+          },
+          {
+            "from": 7,
+            "text": "has not been sent yet.",
+            "to": 14
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14"
+        ]
+      },
+      "chunks": 3,
+      "coarse": false,
+      "frozen": false,
+      "id": "hi-05",
+      "issues": [
+        "anchor-conflict"
+      ],
+      "locatedChunks": 3,
+      "minChunks": 2,
+      "n": 5,
+      "realTiming": false,
+      "source": "“पुष्टि हुई” के पास E-12 लिखा है, लेकिन पैकेट अभी तक भेजा नहीं गया है।",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Next to \"Confirmed\" it says E-12, but the packet has not been sent yet."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              3
+            ],
+            "tgt": [
+              0,
+              24
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              4,
+              5
+            ],
+            "tgt": [
+              24,
+              39
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              13
+            ],
+            "tgt": [
+              39,
+              61
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Neha left before Arjun, yet she arrived",
+            "to": 5
+          },
+          {
+            "from": 6,
+            "text": "ten minutes after him.",
+            "to": 13
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13"
+        ]
+      },
+      "chunks": 3,
+      "coarse": false,
+      "frozen": false,
+      "id": "hi-06",
+      "issues": [],
+      "locatedChunks": 3,
+      "minChunks": 2,
+      "n": 6,
+      "realTiming": false,
+      "source": "नेहा अर्जुन से पहले निकली थी, फिर भी वह उससे दस मिनट बाद पहुँची।",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Neha left before Arjun, yet she arrived ten minutes after him."
+    }
+  ],
+  "schema": "lean-carrier-grade/2",
+  "totals": {
+    "acceptedTranslations": 6,
+    "aligned": 6,
+    "chunks": 19,
+    "coarse": 0,
+    "expectedSentences": 6,
+    "locatedChunks": 19,
+    "sentencesWithAnchorIssues": 3,
+    "syntaxOrPermissionIssues": 0,
+    "translationRetries": 0
+  }
+}

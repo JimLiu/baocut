@@ -1,0 +1,8 @@
+{
+  "effort": "auto",
+  "elapsedMs": 1544,
+  "error": null,
+  "model": "deepseek-flash",
+  "name": "synthetic-es-en-fix",
+  "response": "1 |Lucía no canceló la reunión|Lucía didn't cancel the meeting; |la aplazó hasta el jueves a las 14:30|she postponed it to Thursday at 2:30 p.m.\n2 |Si la temperatura baja de 5 grados|If the temperature drops below 5 degrees, |cierra la ventana|close the window |antes de encender la calefacción|before turning on the heating.\n3 |Diego pagó 120 euros por tres entradas|Diego paid 120 euros for three tickets, |pero el precio no incluía la cena|but the price didn't include dinner.\n4 |El libro que Ana le prestó ayer a Pablo|The book Ana lent Pablo yesterday |pertenece a la hermana de Ana|belongs to Ana's sister.\n5 |El código C-19 aparece junto a «confirmado»|The code C-19 appears next to \"confirmed,\" |aunque el paquete aún no se ha enviado|although the package hasn't been sent yet."
+}

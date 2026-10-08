@@ -1,0 +1,1436 @@
+{
+  "diagnostics": {
+    "problems": [
+      {
+        "code": "missing-id",
+        "detail": "no valid numbered translation",
+        "scope": {
+          "id": "s-g165.0",
+          "kind": "sentence"
+        }
+      }
+    ]
+  },
+  "issues": [
+    [
+      10,
+      "lines-syntax"
+    ]
+  ],
+  "mode": "lean",
+  "pageRejected": false,
+  "retryIds": [
+    "s-g165.0"
+  ],
+  "rows": [
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              7
+            ],
+            "tgt": [
+              0,
+              7
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "从经典到最新！",
+            "to": 7
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7"
+        ]
+      },
+      "chunks": 1,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-g1.0",
+      "issues": [],
+      "locatedChunks": 1,
+      "minChunks": 1,
+      "n": 1,
+      "realTiming": true,
+      "source": "定番から最新まで！",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "从经典到最新！"
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              14
+            ],
+            "tgt": [
+              0,
+              10
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              15,
+              20
+            ],
+            "tgt": [
+              10,
+              15
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              21,
+              27
+            ],
+            "tgt": [
+              15,
+              20
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "明治天皇与昭宪皇太后感情和睦，",
+            "to": 20
+          },
+          {
+            "from": 21,
+            "text": "正源于此。",
+            "to": 27
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15",
+          "w16",
+          "w17",
+          "w18",
+          "w19",
+          "w20",
+          "w21",
+          "w22",
+          "w23",
+          "w24",
+          "w25",
+          "w26",
+          "w27"
+        ]
+      },
+      "chunks": 4,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-g21.0",
+      "issues": [],
+      "locatedChunks": 4,
+      "minChunks": 1,
+      "n": 2,
+      "realTiming": true,
+      "source": "明治天皇と昭憲皇太后が仲睦まじかったことに由来しています。",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "明治天皇与昭宪皇太后感情和睦，正源于此。"
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              13
+            ],
+            "tgt": [
+              0,
+              10
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              14,
+              32
+            ],
+            "tgt": [
+              10,
+              23
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "关键在于不只是观看，",
+            "to": 13
+          },
+          {
+            "from": 14,
+            "text": "还能在场地中自由走动探索。",
+            "to": 32
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15",
+          "w16",
+          "w17",
+          "w18",
+          "w19",
+          "w20",
+          "w21",
+          "w22",
+          "w23",
+          "w24",
+          "w25",
+          "w26",
+          "w27",
+          "w28",
+          "w29",
+          "w30",
+          "w31",
+          "w32"
+        ]
+      },
+      "chunks": 4,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-g45.0",
+      "issues": [],
+      "locatedChunks": 4,
+      "minChunks": 3,
+      "n": 3,
+      "realTiming": true,
+      "source": "ポイントはただ見るだけでなく、その場を自由に歩き回って探索できること。",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "关键在于不只是观看，还能在场地中自由走动探索。"
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              15
+            ],
+            "tgt": [
+              0,
+              10
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              16,
+              31
+            ],
+            "tgt": [
+              10,
+              19
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              32,
+              38
+            ],
+            "tgt": [
+              19,
+              25
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "可丽饼和甜点盒之外，",
+            "to": 15
+          },
+          {
+            "from": 16,
+            "text": "水果糖、“糖与糖”也不容错过。",
+            "to": 38
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15",
+          "w16",
+          "w17",
+          "w18",
+          "w19",
+          "w20",
+          "w21",
+          "w22",
+          "w23",
+          "w24",
+          "w25",
+          "w26",
+          "w27",
+          "w28",
+          "w29",
+          "w30",
+          "w31",
+          "w32",
+          "w33",
+          "w34",
+          "w35",
+          "w36",
+          "w37",
+          "w38"
+        ]
+      },
+      "chunks": 5,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-g69.0",
+      "issues": [],
+      "locatedChunks": 5,
+      "minChunks": 3,
+      "n": 4,
+      "realTiming": true,
+      "source": "クレープやスイートボックスのほか、フルーツキャンディ、アメアンドアメも見逃せません。",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "可丽饼和甜点盒之外，水果糖、“糖与糖”也不容错过。"
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              9
+            ],
+            "tgt": [
+              0,
+              13
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              10,
+              28
+            ],
+            "tgt": [
+              13,
+              26
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              29,
+              38
+            ],
+            "tgt": [
+              26,
+              30
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              39,
+              52
+            ],
+            "tgt": [
+              30,
+              39
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              53,
+              68
+            ],
+            "tgt": [
+              39,
+              44
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              69,
+              70
+            ],
+            "tgt": [
+              44,
+              46
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              71,
+              79
+            ],
+            "tgt": [
+              46,
+              51
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "第7家是能体验电影《哈利·",
+            "to": 9
+          },
+          {
+            "from": 10,
+            "text": "波特》和《神奇动物·》系列电影制作",
+            "to": 38
+          },
+          {
+            "from": 39,
+            "text": "幕后世界的华纳兄弟工作室之旅东京制作幕后。",
+            "to": 79
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15",
+          "w16",
+          "w17",
+          "w18",
+          "w19",
+          "w20",
+          "w21",
+          "w22",
+          "w23",
+          "w24",
+          "w25",
+          "w26",
+          "w27",
+          "w28",
+          "w29",
+          "w30",
+          "w31",
+          "w32",
+          "w33",
+          "w34",
+          "w35",
+          "w36",
+          "w37",
+          "w38",
+          "w39",
+          "w40",
+          "w41",
+          "w42",
+          "w43",
+          "w44",
+          "w45",
+          "w46",
+          "w47",
+          "w48",
+          "w49",
+          "w50",
+          "w51",
+          "w52",
+          "w53",
+          "w54",
+          "w55",
+          "w56",
+          "w57",
+          "w58",
+          "w59",
+          "w60",
+          "w61",
+          "w62",
+          "w63",
+          "w64",
+          "w65",
+          "w66",
+          "w67",
+          "w68",
+          "w69",
+          "w70",
+          "w71",
+          "w72",
+          "w73",
+          "w74",
+          "w75",
+          "w76",
+          "w77",
+          "w78",
+          "w79"
+        ]
+      },
+      "chunks": 10,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-g75.0",
+      "issues": [],
+      "locatedChunks": 10,
+      "minChunks": 5,
+      "n": 5,
+      "realTiming": true,
+      "source": "7 軒目は映画『ハリー・ポッター』や『ファンタスティック・ビースト』シリーズの映画制作の舞台裏を体験することができるワーナーブラザーススタジオツアー東京メイキング・オブ・",
+      "splitSeams": [
+        "model-hinted-refused"
+      ],
+      "status": "aligned",
+      "translation": "第7家是能体验电影《哈利·波特》和《神奇动物·》系列电影制作幕后世界的华纳兄弟工作室之旅东京制作幕后。"
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              20
+            ],
+            "tgt": [
+              0,
+              10
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              21,
+              41
+            ],
+            "tgt": [
+              10,
+              28
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              42,
+              50
+            ],
+            "tgt": [
+              28,
+              34
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              51,
+              58
+            ],
+            "tgt": [
+              34,
+              41
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              59,
+              66
+            ],
+            "tgt": [
+              41,
+              49
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "站台旁的铁路商店里，",
+            "to": 20
+          },
+          {
+            "from": 21,
+            "text": "除了电影中出现的青蛙巧克力和百味豆，",
+            "to": 41
+          },
+          {
+            "from": 42,
+            "text": "还有只有这里才能买到的限定周边，琳琅满目。",
+            "to": 66
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15",
+          "w16",
+          "w17",
+          "w18",
+          "w19",
+          "w20",
+          "w21",
+          "w22",
+          "w23",
+          "w24",
+          "w25",
+          "w26",
+          "w27",
+          "w28",
+          "w29",
+          "w30",
+          "w31",
+          "w32",
+          "w33",
+          "w34",
+          "w35",
+          "w36",
+          "w37",
+          "w38",
+          "w39",
+          "w40",
+          "w41",
+          "w42",
+          "w43",
+          "w44",
+          "w45",
+          "w46",
+          "w47",
+          "w48",
+          "w49",
+          "w50",
+          "w51",
+          "w52",
+          "w53",
+          "w54",
+          "w55",
+          "w56",
+          "w57",
+          "w58",
+          "w59",
+          "w60",
+          "w61",
+          "w62",
+          "w63",
+          "w64",
+          "w65",
+          "w66"
+        ]
+      },
+      "chunks": 8,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-g82.0",
+      "issues": [],
+      "locatedChunks": 8,
+      "minChunks": 5,
+      "n": 6,
+      "realTiming": true,
+      "source": "ホームのそばにあるレールウェイショップには、映画に登場するカエルチョコや百味ビーンズのほかにもここでしか手に入らない限定グッズがいっぱい。",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "站台旁的铁路商店里，除了电影中出现的青蛙巧克力和百味豆，还有只有这里才能买到的限定周边，琳琅满目。"
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              13
+            ],
+            "tgt": [
+              0,
+              9
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "旁边是抱石攀岩墙。",
+            "to": 13
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13"
+        ]
+      },
+      "chunks": 1,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-g94.0",
+      "issues": [],
+      "locatedChunks": 1,
+      "minChunks": 1,
+      "n": 7,
+      "realTiming": true,
+      "source": "その隣はボルダリングウォール。",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "旁边是抱石攀岩墙。"
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              10
+            ],
+            "tgt": [
+              0,
+              8
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              11,
+              14
+            ],
+            "tgt": [
+              8,
+              10
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              15,
+              36
+            ],
+            "tgt": [
+              10,
+              28
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "东京站的标志之一银铃",
+            "to": 14
+          },
+          {
+            "from": 15,
+            "text": "作为碰头地点的标志于1968年诞生。",
+            "to": 36
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15",
+          "w16",
+          "w17",
+          "w18",
+          "w19",
+          "w20",
+          "w21",
+          "w22",
+          "w23",
+          "w24",
+          "w25",
+          "w26",
+          "w27",
+          "w28",
+          "w29",
+          "w30",
+          "w31",
+          "w32",
+          "w33",
+          "w34",
+          "w35",
+          "w36"
+        ]
+      },
+      "chunks": 6,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-g117.0",
+      "issues": [],
+      "locatedChunks": 6,
+      "minChunks": 3,
+      "n": 8,
+      "realTiming": true,
+      "source": "東京駅のシンボルの一つ銀の鈴は待ち合わせ場所の目印として 1968 年に誕生しました。",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "东京站的标志之一银铃作为碰头地点的标志于1968年诞生。"
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              9
+            ],
+            "tgt": [
+              0,
+              8
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              10,
+              26
+            ],
+            "tgt": [
+              8,
+              21
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              27,
+              45
+            ],
+            "tgt": [
+              21,
+              36
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "日本馆地下一层，",
+            "to": 9
+          },
+          {
+            "from": 10,
+            "text": "可以供人休息的休息室之外，",
+            "to": 26
+          },
+          {
+            "from": 27,
+            "text": "附设的鲸鱼咖啡厅还能享用美食。",
+            "to": 45
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15",
+          "w16",
+          "w17",
+          "w18",
+          "w19",
+          "w20",
+          "w21",
+          "w22",
+          "w23",
+          "w24",
+          "w25",
+          "w26",
+          "w27",
+          "w28",
+          "w29",
+          "w30",
+          "w31",
+          "w32",
+          "w33",
+          "w34",
+          "w35",
+          "w36",
+          "w37",
+          "w38",
+          "w39",
+          "w40",
+          "w41",
+          "w42",
+          "w43",
+          "w44",
+          "w45"
+        ]
+      },
+      "chunks": 5,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-g142.0",
+      "issues": [],
+      "locatedChunks": 5,
+      "minChunks": 4,
+      "n": 9,
+      "realTiming": true,
+      "source": "日本館の地下 1 階には、休憩に利用できるラウンジがあるほか、併設のクジラカフェでは食事が楽しめます。",
+      "splitSeams": [
+        "backed"
+      ],
+      "status": "aligned",
+      "translation": "日本馆地下一层，可以供人休息的休息室之外，附设的鲸鱼咖啡厅还能享用美食。"
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              10
+            ],
+            "tgt": [
+              0,
+              7
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              11,
+              27
+            ],
+            "tgt": [
+              7,
+              19
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              28,
+              31
+            ],
+            "tgt": [
+              19,
+              24
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              32,
+              37
+            ],
+            "tgt": [
+              24,
+              30
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              38,
+              44
+            ],
+            "tgt": [
+              30,
+              36
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              45,
+              50
+            ],
+            "tgt": [
+              36,
+              41
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              51,
+              56
+            ],
+            "tgt": [
+              41,
+              46
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              57,
+              62
+            ],
+            "tgt": [
+              46,
+              51
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              63,
+              67
+            ],
+            "tgt": [
+              51,
+              54
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              68,
+              74
+            ],
+            "tgt": [
+              54,
+              58
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "象征东京的塔、能沉浸式体验的娱乐设施、",
+            "to": 27
+          },
+          {
+            "from": 28,
+            "text": "从明治时代就有的庭园、",
+            "to": 37
+          },
+          {
+            "from": 38,
+            "text": "最先进的艺术水族馆等，",
+            "to": 50
+          },
+          {
+            "from": 51,
+            "text": "感兴趣的设施最新信息请查看简介栏。",
+            "to": 74
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15",
+          "w16",
+          "w17",
+          "w18",
+          "w19",
+          "w20",
+          "w21",
+          "w22",
+          "w23",
+          "w24",
+          "w25",
+          "w26",
+          "w27",
+          "w28",
+          "w29",
+          "w30",
+          "w31",
+          "w32",
+          "w33",
+          "w34",
+          "w35",
+          "w36",
+          "w37",
+          "w38",
+          "w39",
+          "w40",
+          "w41",
+          "w42",
+          "w43",
+          "w44",
+          "w45",
+          "w46",
+          "w47",
+          "w48",
+          "w49",
+          "w50",
+          "w51",
+          "w52",
+          "w53",
+          "w54",
+          "w55",
+          "w56",
+          "w57",
+          "w58",
+          "w59",
+          "w60",
+          "w61",
+          "w62",
+          "w63",
+          "w64",
+          "w65",
+          "w66",
+          "w67",
+          "w68",
+          "w69",
+          "w70",
+          "w71",
+          "w72",
+          "w73",
+          "w74"
+        ]
+      },
+      "chunks": 12,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-g187.0",
+      "issues": [],
+      "locatedChunks": 12,
+      "minChunks": 6,
+      "n": 11,
+      "realTiming": true,
+      "source": "東京を象徴するタワーや、没入体験ができるエンターテイメント、明治時代からある庭園、最新鋭のアートな水族館など、気になった施設の最新情報は概要欄をご確認ください。",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "象征东京的塔、能沉浸式体验的娱乐设施、从明治时代就有的庭园、最先进的艺术水族馆等，感兴趣的设施最新信息请查看简介栏。"
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              11
+            ],
+            "tgt": [
+              0,
+              7
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "也请务必观看。",
+            "to": 11
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11"
+        ]
+      },
+      "chunks": 1,
+      "coarse": false,
+      "frozen": false,
+      "id": "s-g189.15",
+      "issues": [],
+      "locatedChunks": 1,
+      "minChunks": 1,
+      "n": 12,
+      "realTiming": true,
+      "source": "そちらもぜひご覧ください。",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "也请务必观看。"
+    }
+  ],
+  "schema": "lean-carrier-grade/2",
+  "totals": {
+    "acceptedTranslations": 11,
+    "aligned": 11,
+    "chunks": 57,
+    "coarse": 0,
+    "expectedSentences": 12,
+    "locatedChunks": 57,
+    "sentencesWithAnchorIssues": 0,
+    "syntaxOrPermissionIssues": 1,
+    "translationRetries": 1
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "domain": "filter",
+  "inputs": 1,
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "transparent",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "id": "filter.directionalBlur",
+  "kernel": "directional-17tap-premul-u8",
+  "params": {
+    "distance": {
+      "type": "length",
+      "default": 0,
+      "min": 0,
+      "max": 0.25,
+      "basis": "canvasShortEdge",
+      "quantize": "round-to-int"
+    },
+    "angle": {
+      "type": "number",
+      "default": 0,
+      "min": -180,
+      "max": 180
+    }
+  },
+  "doc": "沿 angle 对称采样 17 个整数像素位置，透明边界，四通道一起平均。"
+}

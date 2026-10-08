@@ -1,0 +1,9 @@
+{
+  "changed": [],
+  "headAfter": "e3ec027309c503f0a3674d9fd8bf5b794e64cea5",
+  "binaries": {
+    "property": "7ec7342e38fb228fde2bf512d9bc5e31dc18c7e06b81e1dc2c61220b87cd3786",
+    "provider_carrier_bench": "d86e56b2102ddd7462858e173c428d5294c9e098eaf833fec89100e4691f8449",
+    "lean_carrier_grade": "709dec68aa9ec83be1217b0165f5995a090c1743c473d9909c7c6eff6c456cb5"
+  }
+}

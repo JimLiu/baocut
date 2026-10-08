@@ -1,0 +1,33 @@
+{
+  "id": "transition.slide",
+  "version": 1,
+  "domain": "transition",
+  "inputs": 2,
+  "params": {
+    "direction": {
+      "type": "enum",
+      "default": "left",
+      "options": [
+        "left",
+        "right",
+        "up",
+        "down"
+      ],
+      "doc": "新画面推进的方向；离场画面被同向推走"
+    }
+  },
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "kernel": "slide-shift-copy",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "clamp",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "doc": "推挤：两张画面一起朝 direction 平移一整屏，位移 s = round(progress × 该轴尺寸)。每个输出像素**整像素拷贝**自其中一张（没有混合、没有重采样），因此 progress = 0 / 1 逐字节等于 from / to。以 direction = left 为例：x < W − s 取 from[x + s]，否则取 to[x − (W − s)]。"
+}

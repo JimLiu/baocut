@@ -1,0 +1,47 @@
+import type { LocalModelsMessages } from './local-models-copy.ts';
+
+export const ko: LocalModelsMessages = {
+  install: {
+    availableNote:
+      '다운로드 전에 내려받을 용량과 남은 디스크 공간을 보여 드립니다. 다운로드는 일시정지할 수 있으며, 이미 받은 부분은 남겨 두었다가 다음에 이어서 받습니다.',
+    download: '다운로드',
+    resume: '다운로드 재개',
+    pause: '일시정지',
+    cancelDownload: '다운로드 취소',
+    discard: '다운로드한 파일 폐기',
+    repair: '복구…',
+    remove: '삭제…',
+    more: (id: string) => `더 보기 · ${id}`,
+    details: '세부 정보',
+    hideDetails: '세부 정보 숨기기',
+    componentLine: (state: 'installed' | 'missing', size: string | null) => (state === 'installed' ? `설치됨${size ? ` · ${size}` : ''}` : '없음'),
+    sharedWith: (ids: string[]) => `${ids.join(', ')}와(과) 공유`,
+    noComponents: '이 Runtime은 구성 요소 세부 정보를 보고하지 않았습니다.',
+    // 确认对话框
+    installTitle: (id: string) => `${id} 다운로드`,
+    repairTitle: (id: string) => `“${id}” 모델을 복구할까요?`,
+    planning: '다운로드할 항목을 계산하는 중…',
+    verifying: '손상되었거나 없는 파일을 찾는 중입니다. 파일이 크면 시간이 걸릴 수 있습니다…',
+    planFailed: '다운로드 계획을 가져오지 못했습니다',
+    upToDate: '모든 파일이 있고 검증도 끝났습니다. 다운로드할 것이 없습니다.',
+    repairUpToDate: '모든 파일이 온전합니다. 다시 다운로드할 것이 없습니다.',
+    repairThenCheck: '손상되었거나 없는 파일만 다시 다운로드하고, 온전한 파일은 그대로 둡니다. 복구가 끝나면 자동으로 다시 검사합니다.',
+    replanned: '다운로드 크기가 방금 바뀌었습니다. 아래 새 계획을 다시 확인하세요.',
+    source: (url: string) => `다운로드 출처: ${url}`,
+    confirmInstall: (size: string) => `${size} 다운로드`,
+    confirmRepair: '복구',
+    cancel: '취소',
+    close: '닫기',
+    started: (id: string) => `${id} 다운로드 중 · 진행 상황은 이 행과 백그라운드 작업에 표시됩니다`,
+    // 停下与删除
+    paused: (id: string) => `${id} 일시정지됨 · 이미 받은 부분은 남겨 둡니다`,
+    discardTitle: (id: string) => `${id}의 다운로드된 부분을 폐기할까요?`,
+    discardBody: '다음 다운로드는 처음부터 시작합니다. 다른 모델 패키지가 다운로드 중인 파일과 공유 구성 요소는 삭제하지 않습니다.',
+    discarded: (id: string) => `${id}의 다운로드된 부분을 폐기했습니다`,
+    removeTitle: (id: string) => `${id} 모델을 삭제할까요?`,
+    removeConfirm: '삭제',
+    stopFailed: (text: string) => `중지하지 못했습니다: ${text}`,
+    removeFailed: (text: string) => `삭제하지 못했습니다: ${text}`,
+    installFailed: (text: string) => `지난 다운로드를 완료하지 못했습니다: ${text}`,
+  },
+};

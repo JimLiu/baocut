@@ -1,0 +1,223 @@
+{
+  "rows": [
+    {
+      "id": "reverse-ar-01",
+      "reference_ar": "لم تُلغِ ليلى الاجتماع؛ أجّلته إلى الساعة 14:30 يوم الخميس.",
+      "required_facts": [
+        "Layla",
+        "not cancelled",
+        "postponed",
+        "Thursday",
+        "14:30"
+      ],
+      "risk": "negation; RTL; time",
+      "source": "Layla did not cancel the meeting; she postponed it until 14:30 on Thursday.",
+      "source_words": [
+        "Layla",
+        "did",
+        "not",
+        "cancel",
+        "the",
+        "meeting;",
+        "she",
+        "postponed",
+        "it",
+        "until",
+        "14:30",
+        "on",
+        "Thursday."
+      ]
+    },
+    {
+      "id": "reverse-ar-02",
+      "reference_ar": "إذا انخفضت الحرارة إلى أقل من 5 درجات، فأغلق النافذة قبل تشغيل المدفأة.",
+      "required_facts": [
+        "below 5 degrees",
+        "close window first",
+        "turn on heater afterward"
+      ],
+      "risk": "condition; order",
+      "source": "If the temperature drops below 5 degrees, close the window before turning on the heater.",
+      "source_words": [
+        "If",
+        "the",
+        "temperature",
+        "drops",
+        "below",
+        "5",
+        "degrees,",
+        "close",
+        "the",
+        "window",
+        "before",
+        "turning",
+        "on",
+        "the",
+        "heater."
+      ]
+    },
+    {
+      "id": "reverse-ar-03",
+      "reference_ar": "دفع عمر 120 ريالًا مقابل ثلاث تذاكر، ولم يشمل السعر وجبة العشاء.",
+      "required_facts": [
+        "Omar",
+        "120 riyals",
+        "three tickets",
+        "dinner excluded"
+      ],
+      "risk": "number; negation",
+      "source": "Omar paid 120 riyals for three tickets, and the price did not include dinner.",
+      "source_words": [
+        "Omar",
+        "paid",
+        "120",
+        "riyals",
+        "for",
+        "three",
+        "tickets,",
+        "and",
+        "the",
+        "price",
+        "did",
+        "not",
+        "include",
+        "dinner."
+      ]
+    },
+    {
+      "id": "reverse-ar-04",
+      "reference_ar": "قالت مريم إن الحقيبة التي تركها يوسف في القطار ليست حقيبتها.",
+      "required_facts": [
+        "Maryam said",
+        "Yusuf left bag on train",
+        "bag not Maryam’s"
+      ],
+      "risk": "nested clause; ownership",
+      "source": "Maryam said that the bag Yusuf left on the train was not hers.",
+      "source_words": [
+        "Maryam",
+        "said",
+        "that",
+        "the",
+        "bag",
+        "Yusuf",
+        "left",
+        "on",
+        "the",
+        "train",
+        "was",
+        "not",
+        "hers."
+      ]
+    },
+    {
+      "id": "reverse-ar-05",
+      "reference_ar": "يظهر الرمز A-17 بجانب كلمة «مُؤَكَّد»، لكن الطلب لم يُشحن بعد.",
+      "required_facts": [
+        "A-17",
+        "confirmed",
+        "not yet shipped"
+      ],
+      "risk": "combining marks; Latin code; RTL",
+      "source": "The code A-17 appears beside the word “confirmed,” but the order has not been shipped yet.",
+      "source_words": [
+        "The",
+        "code",
+        "A-17",
+        "appears",
+        "beside",
+        "the",
+        "word",
+        "“confirmed,”",
+        "but",
+        "the",
+        "order",
+        "has",
+        "not",
+        "been",
+        "shipped",
+        "yet."
+      ]
+    },
+    {
+      "id": "reverse-ar-06",
+      "reference_ar": "وصلت نورة بعد أحمد بعشر دقائق، مع أنها غادرت المنزل قبله.",
+      "required_facts": [
+        "Noura arrived after Ahmed",
+        "ten minutes",
+        "Noura left home first"
+      ],
+      "risk": "reordered chronology",
+      "source": "Noura arrived ten minutes after Ahmed, although she left home before him.",
+      "source_words": [
+        "Noura",
+        "arrived",
+        "ten",
+        "minutes",
+        "after",
+        "Ahmed,",
+        "although",
+        "she",
+        "left",
+        "home",
+        "before",
+        "him."
+      ]
+    },
+    {
+      "id": "reverse-ar-07",
+      "reference_ar": "لا ترسل الملف إلى سارة إلا إذا وافق المدير على النسخة الثانية.",
+      "required_facts": [
+        "Sara",
+        "send only after approval",
+        "manager",
+        "second version"
+      ],
+      "risk": "exception; condition",
+      "source": "Do not send the file to Sara unless the manager approves the second version.",
+      "source_words": [
+        "Do",
+        "not",
+        "send",
+        "the",
+        "file",
+        "to",
+        "Sara",
+        "unless",
+        "the",
+        "manager",
+        "approves",
+        "the",
+        "second",
+        "version."
+      ]
+    },
+    {
+      "id": "reverse-ar-08",
+      "reference_ar": "اشترينا 2.5 كيلوغرام من الأرز، وبقي نصفه بعد العشاء.",
+      "required_facts": [
+        "2.5 kilograms",
+        "rice",
+        "half remained",
+        "after dinner"
+      ],
+      "risk": "decimal; fraction",
+      "source": "We bought 2.5 kilograms of rice, and half of it remained after dinner.",
+      "source_words": [
+        "We",
+        "bought",
+        "2.5",
+        "kilograms",
+        "of",
+        "rice,",
+        "and",
+        "half",
+        "of",
+        "it",
+        "remained",
+        "after",
+        "dinner."
+      ]
+    }
+  ]
+}

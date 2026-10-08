@@ -1,0 +1,43 @@
+[package]
+name = "timeline-render"
+description = "BaoCut 时间线元素的绘制层：元素（形状、贴纸、可视化、进度、彩纸、手绘）→ DrawOp 指令流与同源的实时 scene 节点，外部媒体的 texture 节点与 BCS2 scene 线格式。纯函数、无 I/O，导出与预览共用（移植自 BaoCut v2 bcut-timeline-render）"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+# ── 为什么是**新 crate** 而不是把这段代码塞进 `render-raster`（v2 的原注释，crate 名换成 v3 的）：
+#
+# `render-raster` 是**图元层**，`timeline` 是**契约层**，契约层在图元层之上。让 `render-raster`
+# 直接吃 `timeline` 的依赖是把这条边**反过来**接：图元层从此认识 `ShapeProps` / `Place` /
+# `ElementKind`，「`render-raster` 不依赖 `timeline`」这条事实作废，「host 映射成纯参数 struct」
+# （`VisualizerParams` / `ProgressParams` / `VizBox`）避开的那条边也就白避了。图无环（`timeline`
+# 不依赖 `render-raster`），所以这不是编译期问题，是分层问题：编译得过不等于该这么接。
+#
+# 本 crate 就是那条边该待的地方——**两层的交汇层**，向下依赖两边，谁也不用反接。导出与预览 WASM
+# 共用同一份元素绘制实现，「指纹逐位相同」因此是**结构性**的而不是靠两份代码互相对齐。
+#
+# feature 表与 v2 相同。进 WASM 的构建用 `--no-default-features --features wasm-safe`，GPU / 字幕
+# 合成器的产物再加 `scene-wire`（v2 `bcut-wasm-gpu`、`bcut-wasm-subtitle` 的组合）。
+[features]
+default = []
+media = ["render-raster/media"]
+wasm-safe = ["render-raster/wasm-safe"]
+# 只由浏览器 GPU 产物启用。基础 CPU wasm 不需要外部媒体节点，不能因为共用
+# 求值 crate 就把这段几何/适配代码一起链进首屏包。
+external-media-scene = []
+# BCS2 是字幕规划器 → GPU 合成器的跨 wasm 边界；两端懒加载产物显式启用，
+# 基础 CPU wasm 不编解码 retained scene。
+scene-wire = ["external-media-scene"]
+
+[dependencies]
+anyhow = "1.0"
+motion = { workspace = true }
+timeline = { workspace = true }
+# workspace 登记处是 `default-features = false`：本 crate 只用 `drawop` 与 `source`，两者在
+# `media` / `wasm-safe` 两侧都在。要哪一侧由**最终消费者**决定，上面两个透传 feature 让消费者
+# 可以显式声明而不必自己再连一条 `render-raster` 的边。
+render-raster = { workspace = true }
+
+[dev-dependencies]
+serde_json = { version = "1.0.151", features = ["float_roundtrip"] }

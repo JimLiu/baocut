@@ -1,0 +1,379 @@
+/* 工具页 —— §17.5（2026-09-16）。目录卡（page-tools.jsx）、生成语音工作台（tool-tts.jsx）
+   与视频工具工作台（tool-video.jsx / tool-video-merge.jsx）。 */
+
+/* 子页顶上的「← 工具」 */
+.page__crumb { margin: -8px 0 12px -8px; }
+
+/* ---------- 目录 ---------- */
+.tools__lede { margin: -12px 0 24px; }
+.tools__grp { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+.tools__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.tools__foot { margin-top: 8px; }
+
+.toolcard { display: flex; align-items: center; gap: 12px; min-height: 96px; padding: 16px; border: 0; border-radius: 10px; text-align: left;
+  background: var(--gray-50); box-shadow: inset 0 0 0 1px var(--gray-200); color: var(--gray-900); cursor: pointer;
+  transition: box-shadow 150ms cubic-bezier(0.45, 0, 0.4, 1), background 150ms cubic-bezier(0.45, 0, 0.4, 1); }
+.toolcard:hover { background: var(--gray-100); box-shadow: inset 0 0 0 1px var(--gray-300); }
+.toolcard:focus-visible { outline: 2px solid var(--blue-800); outline-offset: 2px; }
+.toolcard.is-planned { cursor: default; background: var(--gray-25); }
+.toolcard.is-planned .toolcard__ic, .toolcard.is-planned .toolcard__desc { opacity: 0.6; }
+.toolcard__ic { display: grid; place-items: center; flex: none; width: 48px; height: 48px; border-radius: 10px; background: var(--blue-100); color: var(--blue-1000); }
+.toolcard__txt { display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto; min-width: 0; }
+.toolcard__nm { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.toolcard__nm b { font-weight: 700; }
+.toolcard__desc { font-size: 12px; line-height: 1.5; color: var(--gray-700); }
+.toolcard__st { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--gray-600); }
+.toolcard__go { flex: none; color: var(--gray-600); }
+
+/* ---------- 生成语音工作台 ---------- */
+.ttsw { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; }
+.ttsw__main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.ttsw__sec { display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 10px; background: var(--gray-50); box-shadow: inset 0 0 0 1px var(--gray-200); }
+.ttsw__sechd { display: flex; align-items: center; gap: 8px; min-height: 24px; }
+.ttsw__sechd .viewall { margin-left: 0; }
+
+.ttsw__text.field--area { width: 100%; box-sizing: border-box; min-height: 160px; font-size: 16px; line-height: 1.6; }
+.ttsw__textft { display: flex; align-items: center; gap: 12px; }
+.ttsw__textft .viewall { margin-left: 0; }
+.ttsw__over { color: var(--red-900); }
+
+.ttsw__engines { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.ttseng { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 0; border-radius: 10px; text-align: left; color: var(--gray-900);
+  background: var(--gray-25); box-shadow: inset 0 0 0 1px var(--gray-200); cursor: pointer;
+  transition: box-shadow 150ms cubic-bezier(0.45, 0, 0.4, 1), background 150ms cubic-bezier(0.45, 0, 0.4, 1); }
+.ttseng:hover { box-shadow: inset 0 0 0 1px var(--gray-400); }
+.ttseng:focus-visible { outline: 2px solid var(--blue-800); outline-offset: 2px; }
+.ttseng.is-on { background: var(--blue-100); box-shadow: inset 0 0 0 2px var(--blue-900); }
+.ttseng__hd { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.ttseng__hd b { flex: 1 1 auto; min-width: 0; font-weight: 700; }
+.ttseng__inst { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--gray-600); }
+.ttseng__inst.is-ok { color: var(--green-1000); }
+.ttseng__line { font-size: 12px; line-height: 1.5; color: var(--gray-700); }
+.ttseng__tags { display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* 模型一栏收起时的一行：名字 + 装没装 + 它能做什么 */
+.ttsmodel { display: flex; align-items: center; gap: 8px; min-height: 32px; min-width: 0; }
+.ttsmodel__line { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ttsw__voices { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
+.ttsvoice { display: flex; flex-direction: column; gap: 4px; padding: 8px 12px; border: 0; border-radius: 8px; text-align: left; color: var(--gray-900);
+  background: var(--gray-25); box-shadow: inset 0 0 0 1px var(--gray-200); cursor: pointer;
+  transition: box-shadow 150ms cubic-bezier(0.45, 0, 0.4, 1); }
+.ttsvoice:hover { box-shadow: inset 0 0 0 1px var(--gray-400); }
+.ttsvoice:focus-visible { outline: 2px solid var(--blue-800); outline-offset: 2px; }
+.ttsvoice.is-on { background: var(--blue-100); box-shadow: inset 0 0 0 2px var(--blue-900); }
+.ttsvoice b { font-size: 12px; font-weight: 700; }
+.ttsvoice span { font-size: 11px; color: var(--gray-600); }
+.ttsvoice--roll b { display: inline-flex; align-items: center; gap: 4px; color: var(--gray-700); }
+
+/* 现成的念法：名字一行、指令原文一行（点一下就填进「风格」） */
+.ttsw__vibes { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 6px; }
+.ttsvibe { display: flex; flex-direction: column; gap: 4px; padding: 8px 12px; border: 0; border-radius: 8px; text-align: left; color: var(--gray-900);
+  background: var(--gray-25); box-shadow: inset 0 0 0 1px var(--gray-200); cursor: pointer;
+  transition: box-shadow 150ms cubic-bezier(0.45, 0, 0.4, 1); }
+.ttsvibe:hover { box-shadow: inset 0 0 0 1px var(--gray-400); }
+.ttsvibe:focus-visible { outline: 2px solid var(--blue-800); outline-offset: 2px; }
+.ttsvibe.is-on { background: var(--blue-100); box-shadow: inset 0 0 0 2px var(--blue-900); }
+.ttsvibe b { font-size: 12px; font-weight: 700; }
+.ttsvibe span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  font-size: 11px; line-height: 1.4; color: var(--gray-600); }
+
+.ttsw__row { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.ttsw__lab { flex: none; width: 64px; font-size: 12px; color: var(--gray-700); }
+.ttsw__indent { margin-left: 72px; }
+.ttsw__indent.hint { margin-top: 0; }
+.ttsw__chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ttsw__ref { display: flex; flex-direction: column; gap: 8px; }
+.ttsw__refrow { display: flex; align-items: center; gap: 8px; }
+.ttsw__block { display: block; }
+.ttsw__slider { width: 160px; flex: none; }
+
+/* 「交给 Agent」的提示词预览：随表单实时折出来，最多露 6 行 */
+.ttsw__prompt { margin: 0; max-height: 132px; padding: 8px 10px; border-radius: 8px; background: var(--gray-25); box-shadow: inset 0 0 0 1px var(--gray-200);
+  font-family: var(--mono); font-size: 12px; line-height: 1.6; color: var(--gray-800); white-space: pre-wrap; overflow-wrap: anywhere; overflow: hidden; user-select: text; }
+
+/* 「生成语音」在页顶吸顶导航栏右侧（2026-09-24，Page 的 bar；此前是页脚 .ttsw__foot）。
+   栏上那行现状没装模型 / 有校验错误时变橙；下载卡挪进模型一节，紧贴节头。 */
+.ttsw__sec > .aicard { margin-top: 0; }
+.ttsw__err { color: var(--orange-1000); }
+
+/* 右栏：生成记录。吸住时让出导航栏（12 + 32 + 12）再空 16 */
+.ttsw__side { position: sticky; top: 72px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.ttsw__sidehd { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.ttsw__sidefoot { padding: 4px; line-height: 1.6; }
+
+.ttsrec { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 10px; background: var(--gray-50); box-shadow: inset 0 0 0 1px var(--gray-200); }
+.ttsrec.is-running { box-shadow: inset 0 0 0 1px var(--blue-700); }
+.ttsrec.is-off .ttsrec__text { color: var(--gray-500); }
+.ttsrec__hd { display: flex; align-items: center; gap: 8px; min-height: 24px; }
+.ttsrec__ic { flex: none; color: var(--blue-900); }
+.ttsrec__pop { position: relative; flex: none; }
+.ttsrec__text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 0; font-size: 12px; line-height: 1.5; color: var(--gray-800); }
+.ttsrec__busy { display: flex; flex-direction: column; gap: 6px; }
+.ttsrec__bar { cursor: pointer; }
+.ttsrec__acts { display: flex; align-items: center; gap: 8px; }
+
+@media (max-width: 960px) {
+  .ttsw { grid-template-columns: minmax(0, 1fr); }
+  .ttsw__side { position: static; }
+}
+
+/* ---------- 视频工具（tool-video.jsx / tool-video-merge.jsx） ---------- */
+/* 压缩与合并共用这一套：左边表单、右边任务队列，窄屏时上下叠放。
+   与生成语音工作台同一个骨架（.ttsw），但那一页的 class 不复用——
+   两页的段落形状已经不一样，共用会让两边都被对方牵着改。 */
+.vw { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; align-items: start; }
+.vw__main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.vw__sec { display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 10px;
+  background: var(--gray-50); box-shadow: inset 0 0 0 1px var(--gray-200); }
+.vw__sechd { display: flex; align-items: center; gap: 8px; min-height: 24px; }
+.vw__sechd .viewall { margin-left: 0; }
+.vw__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 32px; }
+.vw__lab { flex: none; width: 64px; font-size: 12px; color: var(--gray-700); }
+.vw__indent { margin-left: 72px; }
+.vw__chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.vw__warn { display: flex; flex-direction: column; gap: 4px; padding: 8px 12px; border-radius: 8px;
+  background: var(--orange-100); color: var(--orange-1000); }
+.vw__warn span { display: flex; align-items: center; gap: 6px; }
+/* 「压缩 / 合并视频」在吸顶导航栏右端（2026-09-24，Page 的 bar；此前是左栏末尾吸底的 .vw__go）。
+   栏上那行现状在 ffmpeg 没备好 / 有错时变橙。 */
+.vw__err { color: var(--orange-1000); }
+
+/* 拖进来 / 选文件 */
+.vdrop { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 32px 16px;
+  border-radius: 10px; background: var(--gray-25); box-shadow: inset 0 0 0 1px var(--gray-300); text-align: center;
+  transition: box-shadow 150ms cubic-bezier(0.45, 0, 0.4, 1), background 150ms cubic-bezier(0.45, 0, 0.4, 1); }
+.vdrop.is-over { background: var(--blue-100); box-shadow: inset 0 0 0 2px var(--blue-900); }
+.vdrop__ic { color: var(--gray-500); }
+
+/* 选中的源文件一行 */
+.vsrc { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.vsrc__ic { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 8px;
+  background: var(--blue-100); color: var(--blue-1000); }
+.vsrc__txt { display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto; min-width: 0; }
+
+/* 画质 / 方式的卡片式单选 */
+.vw__cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 8px; }
+.vcard { display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 0; border-radius: 8px;
+  text-align: left; color: var(--gray-900); background: var(--gray-25); box-shadow: inset 0 0 0 1px var(--gray-200);
+  cursor: pointer; transition: box-shadow 150ms cubic-bezier(0.45, 0, 0.4, 1); }
+.vcard:hover { box-shadow: inset 0 0 0 1px var(--gray-400); }
+.vcard:focus-visible { outline: 2px solid var(--blue-800); outline-offset: 2px; }
+.vcard.is-on { background: var(--blue-100); box-shadow: inset 0 0 0 2px var(--blue-900); }
+.vcard b { font-size: 14px; font-weight: 700; }
+.vcard span { font-size: 11px; line-height: 1.5; color: var(--gray-600); }
+
+/* ffmpeg 卡：检测 / 安装 / 升级 */
+/* 窄栏里三颗按钮会把文字挤成一列单字，所以整张卡可换行：文字留 220px 基准，
+   放不下就让按钮整排落到下一行。 */
+.vffm { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; padding: 12px 16px;
+  border-radius: 10px; background: var(--gray-50); box-shadow: inset 0 0 0 1px var(--gray-300); }
+.vffm--notice { background: var(--orange-100); box-shadow: inset 0 0 0 1px var(--orange-400); }
+.vffm--positive { background: var(--green-100); box-shadow: inset 0 0 0 1px var(--green-400); }
+.vffm--accent { background: var(--blue-100); box-shadow: inset 0 0 0 1px var(--blue-700); }
+.vffm__ic { flex: none; margin-top: 2px; color: var(--gray-700); }
+.vffm--notice .vffm__ic { color: var(--orange-1000); }
+.vffm--positive .vffm__ic { color: var(--green-1000); }
+.vffm__txt { display: flex; flex-direction: column; gap: 4px; flex: 1 1 220px; min-width: 0; }
+.vffm__acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex: 0 1 auto; margin-left: auto; }
+.vffm__manual { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.vffm__cmd { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 8px;
+  background: var(--gray-75); box-shadow: inset 0 0 0 1px var(--gray-300); }
+.vffm__cmd code { flex: 1 1 auto; min-width: 0; overflow-x: auto; font-size: 11px; white-space: nowrap; }
+
+/* 合并：片段列表 */
+.vclips { display: flex; flex-direction: column; gap: 6px; }
+.vclip { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 12px; border-radius: 8px;
+  background: var(--gray-25); box-shadow: inset 0 0 0 1px var(--gray-200); cursor: grab; }
+.vclip.is-dragging { background: var(--blue-100); box-shadow: inset 0 0 0 2px var(--blue-900); }
+.vclip.is-bad { background: var(--orange-100); box-shadow: inset 0 0 0 1px var(--orange-400); }
+.vclip__n { flex: none; width: 20px; font-size: 11px; color: var(--gray-600); text-align: right; }
+.vclip__grip { flex: none; color: var(--gray-500); }
+.vclip__txt { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.vclip__off { color: var(--orange-1000); }
+
+/* 合并：能不能不重新编码 */
+.vcompat { display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; border-radius: 10px; }
+.vcompat--positive { background: var(--green-100); box-shadow: inset 0 0 0 1px var(--green-400); }
+.vcompat--notice { background: var(--orange-100); box-shadow: inset 0 0 0 1px var(--orange-400); }
+.vcompat__ic { flex: none; margin-top: 2px; }
+.vcompat--positive .vcompat__ic { color: var(--green-1000); }
+.vcompat--notice .vcompat__ic { color: var(--orange-1000); }
+.vcompat__txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.vcompat__list { margin: 4px 0 0; padding-left: 20px; }
+.vcompat__list li { margin-bottom: 2px; }
+
+/* 右栏：任务队列。吸住时让出导航栏（12 + 32 + 12）再空 16 */
+.vw__side { position: sticky; top: 72px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.vw__sidehd { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.vw__sidefoot { padding: 4px; line-height: 1.6; }
+
+.vrec { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 10px;
+  background: var(--gray-50); box-shadow: inset 0 0 0 1px var(--gray-200); }
+.vrec.is-running { box-shadow: inset 0 0 0 1px var(--blue-700); }
+.vrec.is-bad { box-shadow: inset 0 0 0 1px var(--orange-400); }
+.vrec.is-off { color: var(--gray-500); }
+.vrec__hd { display: flex; align-items: center; gap: 8px; min-height: 24px; }
+.vrec__ic { flex: none; color: var(--blue-900); }
+.vrec__pop { position: relative; flex: none; }
+.vrec__busy { display: flex; flex-direction: column; gap: 6px; }
+.vrec__sum { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.vrec__over { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 0; }
+.vrec__acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+
+/* 失败卡：原因一句话、ffmpeg 的原句、一排一键修法 */
+.vfail { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 8px;
+  background: var(--orange-100); color: var(--orange-1100); }
+.vfail__ev { display: block; padding: 6px 8px; border-radius: 8px; background: var(--gray-75);
+  color: var(--gray-800); font-size: 11px; line-height: 1.5; overflow-x: auto; white-space: pre-wrap; }
+.vfail__raw summary { cursor: pointer; }
+.vfail__raw code { display: block; margin-top: 6px; padding: 6px 8px; border-radius: 8px; background: var(--gray-75);
+  color: var(--gray-800); font-size: 11px; line-height: 1.5; overflow-x: auto; white-space: pre-wrap; }
+
+/* 原型演示挡位（不是产品 UI） */
+.vdemo { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 4px; }
+.vdemo label { display: flex; flex-direction: column; gap: 4px; }
+
+/* 380px 的队列 + 够用的表单要 1080px 才不挤，比这窄就上下叠。 */
+@media (max-width: 1080px) {
+  .vw { grid-template-columns: minmax(0, 1fr); }
+  .vw__side { position: static; }
+}
+
+/* 生成语音工作台的模型格里多一组「云端」（2026-09-24 云端语音合成设计稿 §2.2）：组头横跨整行，没连的 API 提供方卡片淡一档 */
+.ttsw__grouphd { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 11px; color: var(--gray-600); }
+.ttsw__grouphd::after { content: ''; flex: 1 1 auto; height: 1px; background: var(--gray-300); }
+.ttseng.is-off { opacity: 0.72; }
+.ttseng.is-off.is-on { opacity: 1; }
+.ttsmodel .picker { flex: none; }
+.ttsw__range { font-size: 11px; color: var(--gray-600); }
+
+/* ---------- 本地语音模型共用件（2026-09-26，panel-tts-local.jsx）：音频面板与工作台都用 ---------- */
+/* 「高级」旋钮折叠：面板里与上下行同宽（折叠行自带 12px 内衬，这里抵掉）；工作台里贴着节的左缘 */
+.ttsknobs { margin: 4px -12px 0; }
+.ttsknobs--bench { margin: 0 -12px; }
+.ttsknobs__body { display: flex; flex-direction: column; gap: 2px; padding: 4px 12px 8px; }
+.ttsknobs__note { margin: -4px 0 4px 70px; color: var(--gray-600); }
+.ttsknobs__ft { display: flex; align-items: center; gap: 8px; min-height: 24px; }
+.ttsknobs__ft .viewall { flex: none; white-space: nowrap; }
+.ttsknobs--bench .ttsknobs__ft, .ttsknobs--bench .ttsknobs__note { margin-left: 72px; }
+.ttsknobs--bench .ttsw__slider { flex: 1; width: auto; min-width: 0; }
+/* OmniVoice 按类挑项：一类一行，项多时换行，标签贴第一行 */
+.ttsomni { display: flex; flex-direction: column; gap: 4px; }
+.ttsomni__row { align-items: flex-start; }
+.ttsomni__row > .lab, .ttsomni__row > .ttsw__lab { padding-top: 4px; }
+.ttsomni .hint { margin-top: 4px; }
+/* 许可确认框正文 */
+.ttslic { display: flex; flex-direction: column; gap: 12px; color: var(--gray-800); }
+/* 整像素行高：对话框正文 `overflow: auto`，1.3 倍行高的小数余量会凭空多出一道滚动条；
+   末句中文回退字形的行框还会比 16px 高出半像素，垫 1px 底边把它收进盒子里 */
+.ttslic .t-detail, .ttslic .t-detail-xs { line-height: 16px; }
+.ttslic > .t-detail { padding-bottom: 1px; }
+.ttslic__item { display: flex; flex-direction: column; gap: 2px; }
+.ttslic__item b { font-weight: 700; color: var(--gray-900); }
+.ttslic__item .t-detail-xs { word-break: break-all; }
+
+/* 语音模型下面的「更多选项」（转录工具页与重新转录共用）：折叠标题带状态，展开是识别说话人 */
+.asrmore__sum { margin-left: 8px; font-size: 12px; font-weight: 400; color: var(--gray-600); }
+.asrmore__body { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.asrmore__gate { display: flex; align-items: center; gap: 8px; align-self: stretch; margin-top: 4px; padding: 8px 12px; border-radius: 8px; background: var(--orange-100); color: var(--orange-1000); }
+.asrmore__bar { width: 120px; }
+
+.tool-transcribe__input { display: flex; align-items: center; flex-direction: column; gap: 16px; padding: 40px 24px; margin: 24px 0; border: 1px dashed var(--gray-400); border-radius: 10px; background: var(--gray-50); }
+/* 重新转录选「取代这部视频的文稿」时的影响预览（product-design §5.11） */
+.ttx-impact { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding: 12px 16px; border-radius: 10px; background: var(--gray-25); box-shadow: inset 0 0 0 1px var(--gray-200); }
+.ttx-impact__hd { font-size: 14px; color: var(--gray-900); }
+.ttx-impact__row { display: flex; align-items: baseline; gap: 12px; font-size: 14px; color: var(--gray-800); }
+.ttx-impact__k { flex: none; width: 64px; font-size: 12px; color: var(--gray-600); }
+
+/* 独立 LLM 工具输入与结果。 */
+.tool-llm__form { display: flex; flex-direction: column; gap: 16px; }
+.tool-llm__field, .tool-llm__input { width: 100%; }
+.tool-llm__input textarea { min-height: 240px; }
+.tool-llm__result { margin: 8px 0; max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; color: var(--gray-800); }
+
+/* ---------- 视频工具（2026-10-03，product-design §2.7）：分类说明、结果行、步骤、当场授权、运行页、视频选择器 ---------- */
+.tools__grpdesc { margin: -4px 0 4px; }
+.toolcard__res { font-size: 11px; line-height: 1.5; color: var(--gray-800); }
+
+.tsteps { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.tsteps__row { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 4px 8px; border-radius: 8px; font-size: 14px; color: var(--gray-600); }
+.tsteps__mark { display: grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 9999px; font-size: 12px;
+  background: var(--gray-100); color: var(--gray-700); }
+.tsteps__label { flex: 1 1 auto; min-width: 0; }
+.tsteps__st { flex: none; font-size: 12px; }
+.tsteps__row.is-running { background: var(--blue-100); color: var(--gray-900); }
+.tsteps__row.is-running .tsteps__mark { background: var(--blue-900); color: var(--gray-25); }
+.tsteps__row.is-done { color: var(--gray-800); }
+.tsteps__row.is-done .tsteps__mark { background: var(--green-100); color: var(--green-1000); }
+.tsteps__row.is-failed { background: var(--red-100); color: var(--red-1000); }
+.tsteps__row.is-failed .tsteps__mark { background: var(--red-900); color: var(--gray-25); }
+
+.tgrant { display: flex; flex-direction: column; gap: 8px; }
+.tgrant__list { display: flex; flex-direction: column; gap: 8px; margin: 0 0 8px; padding: 0; list-style: none; }
+.tgrant__list li { display: flex; flex-direction: column; gap: 2px; }
+
+.trun { display: flex; flex-direction: column; gap: 12px; }
+.trun__hd { display: flex; align-items: baseline; gap: 8px; font-size: 16px; }
+.trun__result { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 10px; background: var(--gray-50); box-shadow: inset 0 0 0 1px var(--gray-200); }
+.trun__lines { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: 14px; color: var(--gray-900); }
+.trun__lines li { display: flex; align-items: flex-start; gap: 8px; }
+.trun__lines .ic--14 { flex: none; margin-top: 2px; color: var(--green-1000); }
+.trun__next { display: flex; flex-direction: column; gap: 8px; }
+.trun__media { display: flex; flex-direction: column; gap: 8px; width: 100%; padding: 12px; border-radius: 10px; background: var(--gray-25); box-shadow: inset 0 0 0 1px var(--gray-200); }
+
+.trec { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px; border: 0; border-radius: 10px; text-align: left; color: var(--gray-900); cursor: pointer;
+  background: var(--gray-50); box-shadow: inset 0 0 0 1px var(--gray-200); transition: box-shadow 150ms cubic-bezier(0.45, 0, 0.4, 1); }
+.trec:hover { box-shadow: inset 0 0 0 1px var(--gray-400); }
+.trec:focus-visible { outline: 2px solid var(--blue-800); outline-offset: 2px; }
+.trec.is-on { background: var(--blue-100); box-shadow: inset 0 0 0 2px var(--blue-900); }
+
+.ttask { display: flex; flex-direction: column; gap: 12px; max-width: 480px; margin-top: 16px; }
+
+.tvp { display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 10px; background: var(--gray-50); box-shadow: inset 0 0 0 1px var(--gray-200); }
+.tvp__hd { display: flex; align-items: baseline; gap: 8px; }
+.tvp__list { max-height: 320px; overflow-y: auto; }
+.tvp__row { width: 100%; padding: 8px; border-radius: 8px; }
+.tvp__row.is-on { background: var(--blue-100); }
+.tvp__txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tvp__t { font-size: 14px; font-weight: 700; color: var(--gray-900); }
+.tvp__row.is-off .tvp__t { color: var(--gray-600); }
+.tvp__d { font-size: 12px; color: var(--gray-700); }
+.tvp__tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.tvp__why { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--gray-700); }
+
+.tool-link__url { width: 100%; }
+/* 网站登录的浏览器：一组复选框横排，放不下自然换行（product-design §2.7） */
+.tool-link__browsers { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
+
+/* 下载工具的更新（tool-link.jsx）：一行命令（代码块，右边是执行与复制）、命令下面的输出 */
+.tool-update { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 2px solid var(--gray-100); }
+.tool-update__manual { display: flex; flex-direction: column; gap: 4px; }
+.tool-update__out { display: flex; flex-direction: column; gap: 8px; }
+.tool-update__cmdrow { display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 12px; border-radius: 8px; background: var(--gray-100); }
+.tool-update__cmd { flex: 1; min-width: 0; color: var(--gray-900); font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere;
+  user-select: text; -webkit-user-select: text; }
+.tool-update__log { margin: 0; max-height: 240px; overflow: auto; padding: 12px; border-radius: 8px; background: var(--gray-100); color: var(--gray-800);
+  font-family: var(--mono); font-size: 12px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
+
+/* 工具页统一骨架（tool-frame.jsx，product-design §2.7「页面」）：保存位置行、模型行的提示、选项下的子块 */
+.tframe__save { display: flex; flex-direction: column; gap: 4px; }
+.tframe__warn { display: block; margin-top: 4px; color: var(--orange-900); }
+.tframe__sub { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; padding-left: 16px; }
+
+/* 产物行（ToolOutputRow / ToolOutputs，§2.7「结果与下一步」）：名字、种类与大小，四类操作，接着用工具 */
+.tout__list { display: flex; flex-direction: column; gap: 8px; }
+.tout { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 8px; background: var(--gray-50); box-shadow: inset 0 0 0 1px var(--gray-200); }
+.tout--compact { padding: 8px; background: transparent; box-shadow: none; }
+.tout__hd { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.tout__ic { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 32px; height: 32px; border-radius: 8px; background: var(--gray-100); color: var(--gray-800); }
+.tout__txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tout__txt b { font-size: 14px; color: var(--gray-900); }
+.tout__acts, .tout__next { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+/* Space 选择器（tool-space-picker.jsx）：在 tvp 的列表上加缩略图 */
+.tsp__item { display: flex; align-items: center; gap: 12px; min-width: 0; width: 100%; }
+.tsp__thumb { display: inline-flex; flex: none; width: 48px; height: 32px; overflow: hidden; border-radius: 4px; background: var(--gray-100); }
+.tsp__thumb > * { width: 100%; height: 100%; }
+.tsp__chosen .tsp__item { padding: 4px 0; }
+.vw__space { display: flex; flex-direction: column; gap: 8px; }

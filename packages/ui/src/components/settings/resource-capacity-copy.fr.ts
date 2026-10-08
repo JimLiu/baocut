@@ -1,0 +1,6 @@
+import type { ResourceCapacityMessages } from './resource-capacity-copy.ts';
+
+export const fr: ResourceCapacityMessages = {
+  title: 'Planification des ressources', resetAll: 'Tout rétablir en automatique', lead: 'Les tâches lourdes comme la transcription, les modèles locaux et les exports sont mises en file d’attente selon la capacité de cet ordinateur : elles démarrent si les ressources suffisent, sinon elles attendent la fin des précédentes. La capacité est détectée automatiquement. Si cet ordinateur exécute aussi d’autres gros programmes ou si la détection est incorrecte, vous pouvez définir une limite manuellement ; laissez vide pour le mode automatique.',
+  disconnected: 'Non connecté au Runtime', loadFailed: 'Impossible de lire l’état des ressources', loading: 'Lecture de l’état des ressources…', limitOf: (label, unit) => `Limite de ${label} (${unit})`, unit: { memoryGB: 'Go', gpuMemoryGB: 'Go', cpuThreads: 'threads' }, notSettable: 'Ne peut pas être défini manuellement', inUseAndQueued: 'Utilisé et en file d’attente', inUse: (demand) => `Utilisé · ${demand}`, queued: (detail, demand) => `En file d’attente · ${detail ?? 'En attente du démarrage'} · Nécessite ${demand}`, idle: 'Aucune tâche n’utilise les ressources locales', saveFailed: (message) => `Impossible d’enregistrer : ${message}`,
+};

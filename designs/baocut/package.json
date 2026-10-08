@@ -1,0 +1,25 @@
+{
+  "name": "baocut-prototype",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "node build/build.mjs",
+    "watch": "node build/build.mjs --watch",
+    "test": "node --test app/*.test.js build/*.test.cjs",
+    "build:spectrum": "node vendor/react-spectrum-s2/build/build.mjs && npm run build"
+  },
+  "devDependencies": {
+    "@react-spectrum/ai": "0.4.0",
+    "@react-spectrum/s2": "1.7.1",
+    "esbuild": "0.25.12",
+    "jszip": "3.10.1",
+    "lottie-web": "5.13.0",
+    "markdown-it": "15.0.2",
+    "react": "19.3.0",
+    "react-aria": "3.52.1",
+    "react-dom": "19.3.0",
+    "sirv": "3.0.2",
+    "vite": "7.3.6"
+  }
+}

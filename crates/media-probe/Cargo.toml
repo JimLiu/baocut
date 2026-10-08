@@ -1,0 +1,36 @@
+[package]
+name = "media-probe"
+description = "BaoCut unified media probe: pure-Rust container/geometry/duration inspection with optional ffprobe fallback (ported from BaoCut v2 bcut-media-probe)"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow = "1.0"
+# `float_roundtrip`：十进制读成 f64 必须正确舍入，与 std `str::parse`、JS `JSON.parse` 同值
+# （v2 在 workspace 级打开，这里随 crate 声明）。
+serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
+# 音频容器与时长：不解 packet，只读 `Track.duration + time_base`（WP2 已把
+# symphonia 提为音频解码主路径，这里与它同版本同 features，不新增编译单元）。
+symphonia = { version = "0.6", features = ["all"] }
+# MP4 / MOV（ISO-BMFF）：rerun-io 维护的 mp4-rust 派生，MIT，纯 Rust 零 C 依赖。
+# `Mp4::read` 走 `Read + Seek` 且跳过 `mdat`，几 GB 的片子也只读 box 头。
+re_mp4 = "0.5"
+# MKV / WebM：hasenbanck/matroska-demuxer，Zlib OR MIT OR Apache-2.0，**零依赖**。
+# 选它的唯一硬理由：它是调研过的 Matroska crate 里唯一把 `AlphaMode`
+# （0x53C0）解出来并公开成 `Video::alpha_mode()` 的——带 alpha 的 WebM 贴纸
+# 判据全靠它（symphonia 的 mkv demuxer 认得这个 ID 但直接丢弃）。
+matroska-demuxer = "0.8"
+# 图片只读头部尺寸（`image::ImageReader` 不解码像素）。
+image = { version = "0.25", default-features = false, features = [
+    "png",
+    "jpeg",
+    "gif",
+    "webp",
+    "bmp",
+    "tiff",
+] }
+
+[dev-dependencies]
+tempfile = "3"

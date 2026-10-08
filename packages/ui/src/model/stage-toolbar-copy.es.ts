@@ -1,0 +1,33 @@
+import type { StageToolbarMessages } from './stage-toolbar-copy.ts';
+
+export const es: StageToolbarMessages = {
+  toolLabel: {
+    color: 'Color', font: 'Fuente', size: 'Tamaño', 'text-styles': 'Estilos',
+    animation: 'Animación', transitions: 'Transiciones', volume: 'Volumen', speed: 'Velocidad',
+    adjust: 'Ajustar', border: 'Contorno', 'fill-list': 'Colores de relleno',
+    'progress-colors': 'Color', 'progress-picker': 'Estilos', 'wave-colors': 'Color', 'wave-picker': 'Estilos',
+    'counter-mode': 'Modo', 'volume-levels': 'Niveles de volumen', properties: 'Propiedades',
+    copy: 'Duplicar', arrange: 'Orden', 'save-to-brand-kit': 'Guardar en kit de marca',
+    'adjust-timing': 'Ajustar tiempos', delete: 'Eliminar', bold: 'Negrita', italic: 'Cursiva',
+    'align-left': 'Alinear a la izquierda', 'align-center': 'Centrar', 'align-right': 'Alinear a la derecha',
+    'line-height': 'Interlineado', 'letter-spacing': 'Espaciado entre letras',
+    'flip-vertical': 'Voltear verticalmente', 'flip-horizontal': 'Voltear horizontalmente',
+    'fit-canvas': 'Ajustar al lienzo', 'fill-canvas': 'Rellenar lienzo', opacity: 'Opacidad',
+    'round-corners': 'Radio de esquina', filters: 'Filtros', effects: 'Efectos',
+    'crop-video': 'Recorte inteligente', 'replace-video': 'Reemplazar vídeo',
+    'replace-image': 'Reemplazar imagen', 'detach-audio': 'Separar audio',
+  },
+  offReason: {
+    animation: 'El formato de vídeo aún no admite animaciones: no hay un campo donde escribirlas ni una operación para editarlas.',
+    arrange: 'El orden de apilamiento sigue las pistas (paintOrder) y aún no hay una operación para cambiarlo. Para adelantar o retrasar un clip, muévelo a una pista superior o inferior en la línea de tiempo.',
+    brand: 'El kit de marca aún no puede guardar clips.',
+    roundCorners: 'Aún no se puede escribir el radio de esquina de vídeos e imágenes (la operación de apariencia no acepta un radio).',
+    filters: 'Los filtros (LUT) son un nombre reservado en el formato de vídeo y se rechazan al escribir.',
+    crop: 'El recorte inteligente necesita un modelo y aún no tiene un punto de acceso. Próximamente.',
+    replace: 'Aún no hay una operación para cambiar el material de un clip.',
+    detach: 'Separar audio aún no está conectado: necesita añadir un clip de audio y silenciar el vídeo en la misma edición.',
+    speed: 'Este clip no se reproduce a una velocidad constante, por lo que no se puede cambiar su velocidad aquí.',
+    sound: 'Este clip no tiene sonido.',
+  },
+  textStyleLocked: (schema: string) => `Este texto usa el formato de estilo ${schema} y aún no se puede editar aquí.`,
+};

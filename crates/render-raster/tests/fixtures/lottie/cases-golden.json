@@ -1,0 +1,609 @@
+{
+  "cases": [
+    {
+      "file": "dash-caps.json",
+      "fps": 30.0,
+      "frames": 30,
+      "height": 90,
+      "markers": [],
+      "samples": [
+        {
+          "bcopVersion": 4,
+          "drawOpFingerprint": "90e8f19fe733a780",
+          "encodedBytes": 792,
+          "ms": 0,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "StrokePathPaint #1 paint=0 w=4 cap=0 join=0 miter=2 [1 0 0 1 60 45]",
+            "PopClip"
+          ],
+          "paints": [
+            "solid (0 0 0 1)"
+          ]
+        },
+        {
+          "bcopVersion": 4,
+          "drawOpFingerprint": "3526db089734c92a",
+          "encodedBytes": 801,
+          "ms": 500,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "StrokePathPaint #1 paint=0 w=4 cap=0 join=0 miter=2 [1 0 0 1 60 45]",
+            "PopClip"
+          ],
+          "paints": [
+            "solid (0 0 0 1)"
+          ]
+        },
+        {
+          "bcopVersion": 4,
+          "drawOpFingerprint": "1d296b8698b10d53",
+          "encodedBytes": 792,
+          "ms": 999,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "StrokePathPaint #1 paint=0 w=4 cap=0 join=0 miter=2 [1 0 0 1 60 45]",
+            "PopClip"
+          ],
+          "paints": [
+            "solid (0 0 0 1)"
+          ]
+        }
+      ],
+      "warnings": 0,
+      "width": 120
+    },
+    {
+      "file": "gradients.json",
+      "fps": 30.0,
+      "frames": 30,
+      "height": 90,
+      "markers": [],
+      "samples": [
+        {
+          "bcopVersion": 4,
+          "drawOpFingerprint": "ae6a5d22ae25a409",
+          "encodedBytes": 772,
+          "ms": 0,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "StrokePathPaint #1 paint=0 w=6 cap=2 join=0 miter=6 [1 0 0 1 60 74]",
+            "FillPathPaint #2 paint=1 [1 0 0 1 88 30]",
+            "FillPathPaint #3 paint=2 [1 0 0 1 32 24]",
+            "PopClip"
+          ],
+          "paints": [
+            "linear -40,0 → 40,0 [0:(0 0 1 1) 0.5:(0 1 0 1) 1:(1 0 0 1)]",
+            "radial c=0,0 r=20 focus=5.656854,5.656854 [0:(1 1 1 1) 0.6:(0.46 0.46 0.64 0.5) 1:(0.1 0.1 0.4 0)]",
+            "linear -24,0 → 24,0 [0:(1 0 0 1) 1:(0 0.2 1 1)]"
+          ]
+        },
+        {
+          "bcopVersion": 4,
+          "drawOpFingerprint": "ae6a5d22ae25a409",
+          "encodedBytes": 772,
+          "ms": 500,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "StrokePathPaint #1 paint=0 w=6 cap=2 join=0 miter=6 [1 0 0 1 60 74]",
+            "FillPathPaint #2 paint=1 [1 0 0 1 88 30]",
+            "FillPathPaint #3 paint=2 [1 0 0 1 32 24]",
+            "PopClip"
+          ],
+          "paints": [
+            "linear -40,0 → 40,0 [0:(0 0 1 1) 0.5:(0 1 0 1) 1:(1 0 0 1)]",
+            "radial c=0,0 r=20 focus=5.656854,5.656854 [0:(1 1 1 1) 0.6:(0.46 0.46 0.64 0.5) 1:(0.1 0.1 0.4 0)]",
+            "linear -24,0 → 24,0 [0:(1 0 0 1) 1:(0 0.2 1 1)]"
+          ]
+        },
+        {
+          "bcopVersion": 4,
+          "drawOpFingerprint": "ae6a5d22ae25a409",
+          "encodedBytes": 772,
+          "ms": 999,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "StrokePathPaint #1 paint=0 w=6 cap=2 join=0 miter=6 [1 0 0 1 60 74]",
+            "FillPathPaint #2 paint=1 [1 0 0 1 88 30]",
+            "FillPathPaint #3 paint=2 [1 0 0 1 32 24]",
+            "PopClip"
+          ],
+          "paints": [
+            "linear -40,0 → 40,0 [0:(0 0 1 1) 0.5:(0 1 0 1) 1:(1 0 0 1)]",
+            "radial c=0,0 r=20 focus=5.656854,5.656854 [0:(1 1 1 1) 0.6:(0.46 0.46 0.64 0.5) 1:(0.1 0.1 0.4 0)]",
+            "linear -24,0 → 24,0 [0:(1 0 0 1) 1:(0 0.2 1 1)]"
+          ]
+        }
+      ],
+      "warnings": 0,
+      "width": 120
+    },
+    {
+      "file": "image-embedded.json",
+      "fps": 30.0,
+      "frames": 30,
+      "height": 90,
+      "markers": [],
+      "samples": [
+        {
+          "bcopVersion": 3,
+          "drawOpFingerprint": "67d17802456d58b3",
+          "encodedBytes": 245,
+          "ms": 0,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "PushLayer o=0.85 normal",
+            "DrawMedia \"lottie:case/img_0\" ms=-1 src=[0 0 0 0] [4 0 0 4 20 20]",
+            "PopLayer",
+            "PopClip"
+          ],
+          "paints": []
+        },
+        {
+          "bcopVersion": 3,
+          "drawOpFingerprint": "fdd96fc6ffc7114b",
+          "encodedBytes": 245,
+          "ms": 500,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "PushLayer o=0.85 normal",
+            "DrawMedia \"lottie:case/img_0\" ms=-1 src=[0 0 0 0] [4 0 0 4 50 40]",
+            "PopLayer",
+            "PopClip"
+          ],
+          "paints": []
+        },
+        {
+          "bcopVersion": 3,
+          "drawOpFingerprint": "f5d3b555b7a16616",
+          "encodedBytes": 245,
+          "ms": 999,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "PushLayer o=0.85 normal",
+            "DrawMedia \"lottie:case/img_0\" ms=-1 src=[0 0 0 0] [4 0 0 4 79.40428 59.60285]",
+            "PopLayer",
+            "PopClip"
+          ],
+          "paints": []
+        }
+      ],
+      "warnings": 0,
+      "width": 120
+    },
+    {
+      "file": "keyframe-dialects.json",
+      "fps": 30.0,
+      "frames": 30,
+      "height": 90,
+      "markers": [],
+      "samples": [
+        {
+          "bcopVersion": 4,
+          "drawOpFingerprint": "f96bd0802331bc44",
+          "encodedBytes": 684,
+          "ms": 0,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "ClipPath #1 [1 0 0 1 95 70]",
+            "FillPathPaint #2 paint=0 [1 0 0 1 110 85]",
+            "PopClip",
+            "PushLayer o=0.3 normal",
+            "StrokePathPaint #3 paint=1 w=3 cap=1 join=1 miter=4 [1 0 0 1 80 20]",
+            "PopLayer",
+            "FillPathPaint #3 paint=2 [1 0 0 1 40 45]",
+            "PopClip"
+          ],
+          "paints": [
+            "solid (0 0.7 0.3 1)",
+            "solid (1 0.3 0 1)",
+            "solid (0.2 0.5 1 1)"
+          ]
+        },
+        {
+          "bcopVersion": 4,
+          "drawOpFingerprint": "f2590594c8f9c481",
+          "encodedBytes": 787,
+          "ms": 500,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "ClipPath #1 [1 0 0 1 95 70]",
+            "PushLayer o=0.325 normal",
+            "FillPathPaint #2 paint=0 [1 0 0 1 110 85]",
+            "PopLayer",
+            "PopClip",
+            "PushLayer o=0.825 normal",
+            "StrokePathPaint #3 paint=1 w=3 cap=1 join=1 miter=4 [1 0 0 1 80 57.5]",
+            "PopLayer",
+            "PushLayer o=0.6 normal",
+            "FillPathPaint #4 paint=2 [0.70710677 0.70710677 -0.70710677 0.70710677 40 45]",
+            "PopLayer",
+            "PopClip"
+          ],
+          "paints": [
+            "solid (0 0.7 0.3 1)",
+            "solid (1 0.3 0 1)",
+            "solid (0.2 0.5 1 1)"
+          ]
+        },
+        {
+          "bcopVersion": 4,
+          "drawOpFingerprint": "d5822ba7fc6aff27",
+          "encodedBytes": 780,
+          "ms": 999,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "ClipPath #1 [1 0 0 1 95 70]",
+            "PushLayer o=0.1 normal",
+            "FillPathPaint #2 paint=0 [1 0 0 1 110 85]",
+            "PopLayer",
+            "PopClip",
+            "StrokePathPaint #3 paint=1 w=3 cap=1 join=1 miter=4 [1 0 0 1 80 70]",
+            "PushLayer o=0.22666667 normal",
+            "FillPathPaint #4 paint=2 [0.052335955 0.9986295 -0.9986295 0.052335955 40 45]",
+            "PopLayer",
+            "PopClip"
+          ],
+          "paints": [
+            "solid (0 0.7 0.3 1)",
+            "solid (1 0.3 0 1)",
+            "solid (0.2 0.5 1 1)"
+          ]
+        }
+      ],
+      "warnings": 0,
+      "width": 120
+    },
+    {
+      "file": "masks-mattes.json",
+      "fps": 30.0,
+      "frames": 30,
+      "height": 90,
+      "markers": [],
+      "samples": [
+        {
+          "bcopVersion": 4,
+          "drawOpFingerprint": "c1bab528e915a17f",
+          "encodedBytes": 813,
+          "ms": 0,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "PushLayer o=1 normal",
+            "FillPathPaint #1 paint=0 [1 0 0 1 60 45]",
+            "PushMatte",
+            "FillPathPaint #2 paint=1 [1 0 0 1 0 0]",
+            "PopMatte mode=0",
+            "PopLayer",
+            "ClipPath #2 [1 0 0 1 0 0]",
+            "FillPathPaint #1 paint=2 [1 0 0 1 60 45]",
+            "PopClip",
+            "PushLayer o=1 normal",
+            "FillPathPaint #1 paint=3 [1 0 0 1 60 45]",
+            "PushMatte",
+            "FillPathPaint #1 paint=4 [1 0 0 1 60 45]",
+            "PopMatte mode=1",
+            "PopLayer",
+            "PushLayer o=1 normal",
+            "FillPathPaint #1 paint=5 [1 0 0 1 60 45]",
+            "PushMatte",
+            "FillPathPaint #1 paint=6 [1 0 0 1 60 45]",
+            "PopMatte mode=0",
+            "PopLayer",
+            "PopClip"
+          ],
+          "paints": [
+            "solid (1 1 0 1)",
+            "solid (1 1 1 0.45)",
+            "solid (0.5 0.5 0.5 1)",
+            "solid (0 1 0 1)",
+            "solid (1 0.4 0 1)",
+            "solid (0 0.4 1 1)",
+            "solid (1 0 0 1)"
+          ]
+        },
+        {
+          "bcopVersion": 4,
+          "drawOpFingerprint": "c1bab528e915a17f",
+          "encodedBytes": 813,
+          "ms": 500,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "PushLayer o=1 normal",
+            "FillPathPaint #1 paint=0 [1 0 0 1 60 45]",
+            "PushMatte",
+            "FillPathPaint #2 paint=1 [1 0 0 1 0 0]",
+            "PopMatte mode=0",
+            "PopLayer",
+            "ClipPath #2 [1 0 0 1 0 0]",
+            "FillPathPaint #1 paint=2 [1 0 0 1 60 45]",
+            "PopClip",
+            "PushLayer o=1 normal",
+            "FillPathPaint #1 paint=3 [1 0 0 1 60 45]",
+            "PushMatte",
+            "FillPathPaint #1 paint=4 [1 0 0 1 60 45]",
+            "PopMatte mode=1",
+            "PopLayer",
+            "PushLayer o=1 normal",
+            "FillPathPaint #1 paint=5 [1 0 0 1 60 45]",
+            "PushMatte",
+            "FillPathPaint #1 paint=6 [1 0 0 1 60 45]",
+            "PopMatte mode=0",
+            "PopLayer",
+            "PopClip"
+          ],
+          "paints": [
+            "solid (1 1 0 1)",
+            "solid (1 1 1 0.45)",
+            "solid (0.5 0.5 0.5 1)",
+            "solid (0 1 0 1)",
+            "solid (1 0.4 0 1)",
+            "solid (0 0.4 1 1)",
+            "solid (1 0 0 1)"
+          ]
+        },
+        {
+          "bcopVersion": 4,
+          "drawOpFingerprint": "c1bab528e915a17f",
+          "encodedBytes": 813,
+          "ms": 999,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "PushLayer o=1 normal",
+            "FillPathPaint #1 paint=0 [1 0 0 1 60 45]",
+            "PushMatte",
+            "FillPathPaint #2 paint=1 [1 0 0 1 0 0]",
+            "PopMatte mode=0",
+            "PopLayer",
+            "ClipPath #2 [1 0 0 1 0 0]",
+            "FillPathPaint #1 paint=2 [1 0 0 1 60 45]",
+            "PopClip",
+            "PushLayer o=1 normal",
+            "FillPathPaint #1 paint=3 [1 0 0 1 60 45]",
+            "PushMatte",
+            "FillPathPaint #1 paint=4 [1 0 0 1 60 45]",
+            "PopMatte mode=1",
+            "PopLayer",
+            "PushLayer o=1 normal",
+            "FillPathPaint #1 paint=5 [1 0 0 1 60 45]",
+            "PushMatte",
+            "FillPathPaint #1 paint=6 [1 0 0 1 60 45]",
+            "PopMatte mode=0",
+            "PopLayer",
+            "PopClip"
+          ],
+          "paints": [
+            "solid (1 1 0 1)",
+            "solid (1 1 1 0.45)",
+            "solid (0.5 0.5 0.5 1)",
+            "solid (0 1 0 1)",
+            "solid (1 0.4 0 1)",
+            "solid (0 0.4 1 1)",
+            "solid (1 0 0 1)"
+          ]
+        }
+      ],
+      "warnings": 0,
+      "width": 120
+    },
+    {
+      "file": "precomp-timeremap.json",
+      "fps": 30.0,
+      "frames": 30,
+      "height": 90,
+      "markers": [
+        {
+          "duration": 0.0,
+          "frame": 0.0,
+          "name": "start"
+        },
+        {
+          "duration": 5.0,
+          "frame": 15.0,
+          "name": "loop"
+        }
+      ],
+      "samples": [
+        {
+          "bcopVersion": 4,
+          "drawOpFingerprint": "3aab6a7d9361a8d9",
+          "encodedBytes": 649,
+          "ms": 0,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "FillPathPaint #1 paint=0 [1 0 0 1 0 78]",
+            "PushLayer o=0.7 lighten",
+            "ClipPath #2 [1 0 0 1 10 10]",
+            "FillPathPaint #3 paint=1 [0.4 0 0 0.4 22 18.8]",
+            "PopClip",
+            "PopLayer",
+            "PopClip"
+          ],
+          "paints": [
+            "solid (0.13333334 0.4 0.8 1)",
+            "solid (1 0.5 0 1)"
+          ]
+        },
+        {
+          "bcopVersion": 4,
+          "drawOpFingerprint": "c19c22209e9a3e31",
+          "encodedBytes": 649,
+          "ms": 500,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "FillPathPaint #1 paint=0 [1 0 0 1 0 78]",
+            "PushLayer o=0.7 lighten",
+            "ClipPath #2 [1 0 0 1 25 15]",
+            "FillPathPaint #3 paint=1 [0.60900116 0 0 0.60900116 43.270035 28.398026]",
+            "PopClip",
+            "PopLayer",
+            "PopClip"
+          ],
+          "paints": [
+            "solid (0.13333334 0.4 0.8 1)",
+            "solid (1 0.5 0 1)"
+          ]
+        },
+        {
+          "bcopVersion": 4,
+          "drawOpFingerprint": "531896eff573ccdd",
+          "encodedBytes": 649,
+          "ms": 999,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "FillPathPaint #1 paint=0 [1 0 0 1 0 78]",
+            "PushLayer o=0.7 lighten",
+            "ClipPath #2 [1 0 0 1 39.70214 19.900713]",
+            "FillPathPaint #3 paint=1 [0.8940901 0 0 0.8940901 66.52484 39.570694]",
+            "PopClip",
+            "PopLayer",
+            "PopClip"
+          ],
+          "paints": [
+            "solid (0.13333334 0.4 0.8 1)",
+            "solid (1 0.5 0 1)"
+          ]
+        }
+      ],
+      "warnings": 0,
+      "width": 120
+    },
+    {
+      "file": "shapes.json",
+      "fps": 30.0,
+      "frames": 30,
+      "height": 90,
+      "markers": [],
+      "samples": [
+        {
+          "bcopVersion": 4,
+          "drawOpFingerprint": "71d63bbfe6c773d8",
+          "encodedBytes": 1337,
+          "ms": 0,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "StrokePathPaint #1 paint=0 w=2 cap=1 join=1 miter=4 [1 0 0 1 100 45]",
+            "FillPathPaint #2 paint=1 [1 0 0 1 66 64]",
+            "FillPathPaint #3 paint=2 [1 0 0 1 24 64]",
+            "FillPathPaint #4 paint=3 evenOdd [1 0 0 1 66 22]",
+            "FillPathPaint #5 paint=4 [1 0 0 1 24 22]",
+            "StrokePathPaint #5 paint=5 w=3 cap=0 join=2 miter=4 [1 0 0 1 24 22]",
+            "PopClip"
+          ],
+          "paints": [
+            "solid (0 0 0 1)",
+            "solid (0.2 0.2 0.9 1)",
+            "solid (1 0.85 0 1)",
+            "solid (0 0.6 0.4 1)",
+            "solid (1 0.25 0 0.8)",
+            "solid (0 0 1 1)"
+          ]
+        },
+        {
+          "bcopVersion": 4,
+          "drawOpFingerprint": "54a1a999bcfe0f33",
+          "encodedBytes": 1337,
+          "ms": 500,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "StrokePathPaint #1 paint=0 w=2 cap=1 join=1 miter=4 [0.70710677 0.70710677 -0.70710677 0.70710677 88.28427 73.28427]",
+            "FillPathPaint #2 paint=1 [0.70710677 0.70710677 -0.70710677 0.70710677 50.807613 62.67767]",
+            "FillPathPaint #3 paint=2 [0.70710677 0.70710677 -0.70710677 0.70710677 21.109127 32.979183]",
+            "FillPathPaint #4 paint=3 evenOdd [0.70710677 0.70710677 -0.70710677 0.70710677 80.506096 32.979183]",
+            "FillPathPaint #5 paint=4 [0.70710677 0.70710677 -0.70710677 0.70710677 50.807613 3.2807]",
+            "StrokePathPaint #5 paint=5 w=3 cap=0 join=2 miter=4 [0.70710677 0.70710677 -0.70710677 0.70710677 50.807613 3.2807]",
+            "PopClip"
+          ],
+          "paints": [
+            "solid (0 0 0 1)",
+            "solid (0.2 0.2 0.9 1)",
+            "solid (1 0.85 0 1)",
+            "solid (0 0.6 0.4 1)",
+            "solid (1 0.25 0 0.8)",
+            "solid (0 0 1 1)"
+          ]
+        },
+        {
+          "bcopVersion": 4,
+          "drawOpFingerprint": "f1438f8451b1dc52",
+          "encodedBytes": 1337,
+          "ms": 999,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "StrokePathPaint #1 paint=0 w=2 cap=1 join=1 miter=4 [0.015595316 0.9998784 -0.9998784 0.015595316 60.623814 84.99513]",
+            "FillPathPaint #2 paint=1 [0.015595316 0.9998784 -0.9998784 0.015595316 41.095882 51.29558]",
+            "FillPathPaint #3 paint=2 [0.015595316 0.9998784 -0.9998784 0.015595316 40.44088 9.300689]",
+            "FillPathPaint #4 paint=3 evenOdd [0.015595316 0.9998784 -0.9998784 0.015595316 83.090775 50.64058]",
+            "FillPathPaint #5 paint=4 [0.015595316 0.9998784 -0.9998784 0.015595316 82.43577 8.645686]",
+            "StrokePathPaint #5 paint=5 w=3 cap=0 join=2 miter=4 [0.015595316 0.9998784 -0.9998784 0.015595316 82.43577 8.645686]",
+            "PopClip"
+          ],
+          "paints": [
+            "solid (0 0 0 1)",
+            "solid (0.2 0.2 0.9 1)",
+            "solid (1 0.85 0 1)",
+            "solid (0 0.6 0.4 1)",
+            "solid (1 0.25 0 0.8)",
+            "solid (0 0 1 1)"
+          ]
+        }
+      ],
+      "warnings": 0,
+      "width": 120
+    },
+    {
+      "file": "trim-round-merge.json",
+      "fps": 30.0,
+      "frames": 30,
+      "height": 90,
+      "markers": [],
+      "samples": [
+        {
+          "bcopVersion": 4,
+          "drawOpFingerprint": "71b13fbdf3cd7405",
+          "encodedBytes": 291,
+          "ms": 0,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "StrokePathPaint #1 paint=0 w=4 cap=1 join=1 miter=4 [1 0 0 1 60 45]",
+            "PopClip"
+          ],
+          "paints": [
+            "solid (0.1 0.1 0.1 1)"
+          ]
+        },
+        {
+          "bcopVersion": 4,
+          "drawOpFingerprint": "dea0d170fbc7b2c0",
+          "encodedBytes": 475,
+          "ms": 500,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "StrokePathPaint #1 paint=0 w=4 cap=1 join=1 miter=4 [1 0 0 1 60 45]",
+            "PopClip"
+          ],
+          "paints": [
+            "solid (0.1 0.1 0.1 1)"
+          ]
+        },
+        {
+          "bcopVersion": 4,
+          "drawOpFingerprint": "d8d7d80ae1fb92b0",
+          "encodedBytes": 660,
+          "ms": 999,
+          "ops": [
+            "ClipPath #0 [1 0 0 1 0 0]",
+            "StrokePathPaint #1 paint=0 w=4 cap=1 join=1 miter=4 [1 0 0 1 60 45]",
+            "PopClip"
+          ],
+          "paints": [
+            "solid (0.1 0.1 0.1 1)"
+          ]
+        }
+      ],
+      "warnings": 0,
+      "width": 120
+    }
+  ],
+  "note": "手写夹具的 DrawOp 字节级 golden。drawOpFingerprint 是 BCOP 编码字节的 FNV-1a（真正的字节判据）；ops 是同一条指令流的文本反汇编，只为让 diff 可读。",
+  "rendererTag": "bcut.source.lottie/v1"
+}

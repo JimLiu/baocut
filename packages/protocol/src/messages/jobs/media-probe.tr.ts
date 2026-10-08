@@ -1,0 +1,5 @@
+import type { JobsMediaProbeMessages } from './media-probe.ts';
+
+export const tr: JobsMediaProbeMessages = {
+unknownMediaType: (p) => `Tanınmayan medya türü ${p.mediaType}`, unreadable: 'Çıktı dosyası okunamadı', headerMismatch: (p) => `Dosya başlığı ${p.sniffed}, ancak ${p.mediaType} olarak bildirildi`, unrecognizedFormat: 'tanınmayan biçim', notJson: 'ffprobe çıktısı JSON değil', noAudioStream: 'Ses akışı yok', noImage: 'Görsel yok', noFrames: 'Tek bir kare bile çözümlenemedi', durationNotPositive: 'Süre pozitif değil', sampleRateNotPositive: 'Örnekleme hızı pozitif değil', channelsNotPositive: 'Kanal sayısı pozitif değil', sizeNotPositive: 'Genişlik veya yükseklik pozitif değil', cannotRun: (p) => `ffprobe çalıştırılamadı: ${p.reason}`, killedBy: (p) => `${p.signal} ile sonlandırıldı`, exitCode: (p) => `çıkış kodu ${p.code}`, decodeFailed: (p) => `ffprobe çözümleyemedi (${p.reason})`, decodeFailedWith: (p) => `ffprobe çözümleyemedi (${p.reason}): ${p.output}`, noProbe: 'ffprobe kullanılamıyor; çıktı denetlenemiyor',
+};

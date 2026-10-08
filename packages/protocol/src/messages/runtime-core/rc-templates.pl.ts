@@ -1,0 +1,26 @@
+import type { RcTemplatesMessages } from './rc-templates.ts';
+
+export const pl: RcTemplatesMessages = {
+  builtinConflict: (p) => `Wbudowany szablon z id „${p.id}” już istnieje, więc ta kopia nie została wczytana. Zmień id (nazwę folderu) i dodaj ponownie`,
+  templateNotFound: (p) => `Nie znaleziono szablonu: ${p.id}`,
+  fileNotRegistered: (p) => `Szablon „${p.id}” nie wymienia tego pliku: ${p.file}`,
+  dirIsSymlink: "Folder szablonu jest dowiązaniem symbolicznym i nie jest śledzony. Dodaj sam folder szablonu",
+  duplicateId: (p) => `Więcej niż jeden szablon w tym samym katalogu ma id „${p.id}”; żadnego nie wczytano`,
+  templateInvalid: "Szablon jest nieprawidłowy i nie został wczytany",
+  unsupportedSchema: "Ta wersja nie rozpoznaje schema manifestu, więc nie wczytano szablonu",
+  missingFile: (p) => `${p.file} nie istnieje`,
+  fileOverBytes: (p) => `${p.file} jest większy niż ${p.limit} bajtów`,
+  fileOverBytesActual: (p) => `${p.file} jest większy niż ${p.limit} bajtów (${p.size})`,
+  fileNotUtf8: (p) => `${p.file} nie jest prawidłowym UTF-8`,
+  fileNotJson: (p) => `${p.file} nie jest prawidłowym JSON`,
+  fileEmpty: (p) => `${p.file} jest pusty`,
+  registeredFileMissing: (p) => `Plik wymieniony na liście nie istnieje: ${p.file}`,
+  pathOutsideTemplate: (p) => `Ścieżka wykracza poza folder szablonu: ${p.file}`,
+  unregisteredFile: (p) => `Folder zawiera plik spoza listy: ${p.file}`,
+  tooManyEntries: (p) => `Folder zawiera ponad ${p.limit} wpisów`,
+  noSymlinks: (p) => `Dowiązania symboliczne są niedozwolone: ${p.path}`,
+  notRegularFile: (p) => `To nie zwykły plik: ${p.path}`,
+  cannotReadDir: (p) => `Nie można odczytać folderu szablonu (${p.code})`,
+  notScene: (p) => `„${p.title}” to przykład demonstracyjny: wstaw prompt w pole wiadomości i wyślij bez załączania szablonu`,
+  assetNotRegistered: (p) => `Szablon „${p.id}” nie wymienia tego materiału: ${p.asset}`,
+};

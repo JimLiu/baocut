@@ -1,0 +1,215 @@
+# 骨架
+
+动效图形的自包含 HTML 骨架，与 skill 目录里的 `scaffold.html` 逐字节一致。只填三个槽：布局槽 `/* slot:layout */`（`<style>` 末尾的 CSS）、结构槽 `<!-- slot:scene -->`（`<section id="scene">` 里的 HTML）、动效槽 `/* slot:motion */`（`renderScene(time)` 里统一出场那行之后的代码），并按需改 `#root` 的尺寸、三个颜色 token 与 `data-*` 属性；其余部分原样保留。槽里现有的 `demo` 内容只是占位，替换掉即可。
+
+```html
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920,height=1080">
+<title>Motion graphic</title>
+<style>
+/* 骨架样式：不要改。画面相关的 CSS 全部写进下面的布局槽。 */
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:transparent}
+body{font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans", "Microsoft YaHei", "Noto Sans CJK SC", Arial, sans-serif;-webkit-font-smoothing:antialiased}
+*,*::before,*::after{box-sizing:border-box}
+#root{position:relative;width:1920px;height:1080px;overflow:hidden;background:transparent;color:var(--ink);--ink:#17191e;--panel:#f7f4ed;--accent:#ff6b3d}
+#scene{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.copy{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+svg{overflow:visible}
+/* slot:layout */
+.demo{position:absolute;left:120px;right:120px;bottom:140px;display:flex}
+.demo-line{display:block;white-space:nowrap;padding:14px 28px;border-radius:18px;background:var(--panel);font-size:48px;font-weight:700}
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-width="1920" data-height="1080" data-duration="4" data-fps="30" data-aspect-ratio="16:9" data-structure="single headline placeholder" data-layout="lower-safe left aligned" data-motion="headline rises then holds">
+<section id="scene">
+<!-- slot:scene -->
+<div class="demo"><p class="copy demo-line" id="demo-line" data-copy-primary>Replace this line</p></div>
+</section>
+</div>
+<script>
+(() => {
+  'use strict';
+  const root = document.getElementById('root');
+  const scene = document.getElementById('scene');
+  const COMPOSITION_ID = root.dataset.compositionId;
+  const WIDTH = Number(root.dataset.width);
+  const HEIGHT = Number(root.dataset.height);
+  const DURATION = Number(root.dataset.duration);
+
+  // ---- 辅助函数：全是纯函数或只改指定元素的样式，不读时钟、不随机 ----
+  const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v));
+  // time 落在 [start, end] 里的进度，两端夹到 0 和 1。
+  const range = (t, start, end) => (end <= start ? (t >= end ? 1 : 0) : clamp((t - start) / (end - start)));
+  const easeOut = (p) => 1 - Math.pow(1 - p, 3);
+  const easeInOut = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+  const backOut = (p) => {
+    const c1 = 1.70158;
+    const c3 = c1 + 1;
+    return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2);
+  };
+  const node = (id) => document.getElementById(id);
+  const style = (id, prop, value) => {
+    const el = node(id);
+    if (el) el.style.setProperty(prop, String(value));
+  };
+  const text = (id, value) => {
+    const el = node(id);
+    if (el && el.textContent !== String(value)) el.textContent = String(value);
+  };
+  // 一次写全 transform：没给的属性回到默认值，所以同一时刻重复调用结果相同。
+  // preserveCenter 为真时保留 translate(-50%,-50%)，用于以中心点定位的元素。
+  const applyEl = (el, props = {}, preserveCenter = false) => {
+    if (!el) return;
+    const s = props.scale ?? 1;
+    const parts = [];
+    if (preserveCenter) parts.push('translate(-50%, -50%)');
+    parts.push(`translate(${props.x ?? 0}px, ${props.y ?? 0}px)`);
+    if (props.rotate) parts.push(`rotate(${props.rotate}deg)`);
+    parts.push(`scale(${s * (props.scaleX ?? 1)}, ${s * (props.scaleY ?? 1)})`);
+    el.style.transform = parts.join(' ');
+    if (props.opacity !== undefined) el.style.opacity = String(clamp(props.opacity));
+    // clip：0 全遮住，1 全露出，从左向右展开。
+    if (props.clip !== undefined) el.style.clipPath = `inset(0 ${((1 - clamp(props.clip)) * 100).toFixed(3)}% 0 0)`;
+  };
+  const apply = (id, props, preserveCenter) => applyEl(node(id), props, preserveCenter);
+  // 描线：按 data-length（不短于路径真实长度）设置虚线，progress 0 不可见，1 画满。
+  const path = (id, progress) => {
+    const el = node(id);
+    if (!el) return;
+    const len = Number(el.dataset.length) || 0;
+    const p = clamp(progress);
+    el.style.strokeDasharray = `${len} ${len}`;
+    el.style.strokeDashoffset = String(len * (1 - p));
+    el.style.visibility = p > 0 ? 'visible' : 'hidden';
+  };
+
+  // ---- 画面：只由 time 决定 ----
+  function renderScene(time) {
+    const exit = 1 - easeInOut(range(time, DURATION - 0.62, DURATION - 0.05)); scene.style.opacity = String(exit);
+    /* slot:motion */
+    const line = easeOut(range(time, 0.03, 0.6));
+    apply('demo-line', { y: (1 - line) * 48, opacity: line });
+  }
+
+  // ---- 可 seek 的时间线：渲染与导出只用 seek()，play() 只给预览 ----
+  class SeekableTimeline {
+    constructor(duration, render) {
+      this._duration = duration;
+      this._render = render;
+      this._time = 0;
+      this._rate = 1;
+      this._frame = 0;
+      this._last = null;
+    }
+    duration() {
+      return this._duration;
+    }
+    time() {
+      return this._time;
+    }
+    seek(seconds) {
+      this._time = clamp(Number(seconds) || 0, 0, this._duration);
+      this._render(this._time);
+      return this;
+    }
+    progress(p) {
+      if (p === undefined) return this._duration > 0 ? this._time / this._duration : 0;
+      return this.seek(clamp(Number(p) || 0) * this._duration);
+    }
+    timeScale(rate) {
+      if (rate === undefined) return this._rate;
+      this._rate = Math.max(0, Number(rate) || 0);
+      return this;
+    }
+    pause() {
+      if (this._frame) cancelAnimationFrame(this._frame);
+      this._frame = 0;
+      this._last = null;
+      return this;
+    }
+    play() {
+      if (this._frame) return this;
+      // 用 rAF 回调给的时间戳推进，不读墙上时钟。
+      const tick = (stamp) => {
+        if (this._last !== null) this.seek(this._time + ((stamp - this._last) / 1000) * this._rate);
+        this._last = stamp;
+        if (this._time >= this._duration) {
+          this.pause();
+          return;
+        }
+        this._frame = requestAnimationFrame(tick);
+      };
+      this._frame = requestAnimationFrame(tick);
+      return this;
+    }
+  }
+
+  const timeline = new SeekableTimeline(DURATION, renderScene);
+  window.__timelines = { [COMPOSITION_ID]: timeline };
+
+  // ---- QA：外部检查用，不影响画面 ----
+  const SAFE_DEFAULT = HEIGHT > WIDTH ? { left: 60, right: 60, top: 180, bottom: 230 } : { left: 70, right: 70, top: 100, bottom: 100 };
+  // 停留期里的检查时刻：出场开始前 0.3 s（停留不短于 1.2 s，入场一定已经结束）。
+  const HOLD_AT = DURATION - 0.92;
+  const QA_COPY = {
+    long: 'This replacement line is deliberately long so the check can prove the layout trims overflow instead of spilling outside the safe area',
+    cjk: '这是一段刻意写长的替换文案，用来检查排版会不会溢出安全区；日本語の長い文章も混ぜて、省略記号まで確かめます',
+  };
+  const originals = new Map();
+  const copies = () => Array.from(document.querySelectorAll('.copy, [data-copy-primary], [data-copy-secondary]'));
+  const transparent = (el) => {
+    const bg = getComputedStyle(el).backgroundColor;
+    return bg === 'transparent' || /^rgba\(.*,\s*0\)$/.test(bg);
+  };
+  window.__GRAPHICS_QA__ = {
+    holdAt: HOLD_AT,
+    seek(seconds) {
+      timeline.seek(seconds);
+      return timeline.time();
+    },
+    // mode：'long' 长英文，'cjk' 中日混排长句，'original' 换回原文。
+    setCopy(mode) {
+      for (const el of document.querySelectorAll('[data-copy-primary]')) {
+        if (!originals.has(el)) originals.set(el, el.innerHTML);
+        if (mode === 'original') el.innerHTML = originals.get(el);
+        else if (QA_COPY[mode]) el.textContent = QA_COPY[mode];
+        else throw new Error(`unknown copy mode: ${mode}`);
+      }
+      timeline.seek(HOLD_AT);
+      return HOLD_AT;
+    },
+    inspect(safe) {
+      const s = { ...SAFE_DEFAULT, ...(safe || {}) };
+      const base = root.getBoundingClientRect();
+      const eps = 0.5;
+      const boxes = copies()
+        .map((el) => {
+          const r = el.getBoundingClientRect();
+          return { id: el.id || el.className, left: r.left - base.left, top: r.top - base.top, right: r.right - base.left, bottom: r.bottom - base.top, w: r.width, h: r.height };
+        })
+        .filter((b) => b.w > 0 && b.h > 0);
+      const within = (b, l, t, r, btm) => b.left >= l - eps && b.top >= t - eps && b.right <= r + eps && b.bottom <= btm + eps;
+      const outsideRoot = boxes.filter((b) => !within(b, 0, 0, WIDTH, HEIGHT));
+      const outsideSafe = boxes.filter((b) => !within(b, s.left, s.top, WIDTH - s.right, HEIGHT - s.bottom));
+      return {
+        copyCount: document.querySelectorAll('[data-copy-primary], [data-copy-secondary]').length,
+        insideRoot: outsideRoot.length === 0,
+        insideSafeArea: outsideSafe.length === 0,
+        transparentRoot: [document.documentElement, document.body, root, scene].every(transparent),
+        safe: s,
+        outsideSafe: outsideSafe.map((b) => b.id),
+      };
+    },
+  };
+
+  timeline.seek(0);
+  if (location.hash === '#play') timeline.play();
+})();
+</script>
+</body>
+</html>
+```

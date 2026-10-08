@@ -1,0 +1,133 @@
+{
+  "id": "lowerThird.02",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "lowerThird",
+  "order": 302,
+  "duration": 4.33,
+  "content": [
+    {
+      "kind": "shape",
+      "place": {
+        "x": 48.43,
+        "y": 50.0,
+        "w": 34.24
+      },
+      "shape": {
+        "shape": "rect",
+        "fill": "#ffffffff",
+        "cornerRadius": [
+          8.0,
+          8.0,
+          8.0,
+          8.0
+        ],
+        "h": 14.85
+      },
+      "animate": {
+        "enter": {
+          "preset": "wipe",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.7
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 48.88,
+        "y": 47.61,
+        "w": 31.33
+      },
+      "text": "Olivia Carter",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#000000ff",
+        "fontFamily": "Newsreader",
+        "fontSize": 29.6,
+        "fontStyle": "italic",
+        "fontWeight": "normal",
+        "italic": true,
+        "underline": false,
+        "lineHeight": 1.0,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "delay": 0.2,
+      "animate": {
+        "enter": {
+          "preset": "fade",
+          "dur": 0.3
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.77
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 50.89,
+        "y": 53.29,
+        "w": 35.61
+      },
+      "text": "Art Director",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#000000ff",
+        "fontFamily": "DM Sans",
+        "fontSize": 17.8,
+        "fontStyle": "normal",
+        "fontWeight": "normal",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.0,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "delay": 0.33,
+      "animate": {
+        "enter": {
+          "preset": "fade",
+          "dur": 0.3
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.93
+        }
+      }
+    }
+  ]
+}

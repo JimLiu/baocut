@@ -1,0 +1,106 @@
+{
+  "id": "title.10",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "title",
+  "order": 210,
+  "duration": 3.5,
+  "content": [
+    {
+      "kind": "text",
+      "place": {
+        "x": 50.0,
+        "y": 46.39,
+        "w": 75.19
+      },
+      "text": "This is\na headline",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#ffffffff",
+        "fontFamily": "Libre Baskerville",
+        "fontSize": 40.5,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.1,
+        "letterSpacing": 0.0,
+        "textAlign": "center",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.2,
+          "distance": 0.01,
+          "rotation": 180.0,
+          "color": "#000000",
+          "on": true,
+          "opacity": 0.1
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "zoomIn",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.7
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 50.0,
+        "y": 59.07,
+        "w": 37.97
+      },
+      "text": "Simply click anywhere in the paragraph\nor heading text and start typing.\n",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#ffffffff",
+        "fontFamily": "Libre Baskerville",
+        "fontSize": 9.3,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.3,
+        "letterSpacing": 0.0,
+        "textAlign": "center",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.2,
+          "distance": 0.01,
+          "rotation": 180.0,
+          "color": "#000000",
+          "on": true,
+          "opacity": 0.1
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "zoomIn",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.7
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "elSpinSmooth",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "loop",
+  "order": 12,
+  "period": 2.0,
+  "keyframes": [
+    {
+      "at": 0
+    },
+    {
+      "at": 1,
+      "ease": "easeInOutQuart",
+      "rotation": 360.0
+    }
+  ],
+  "basis": {
+    "dx": "selfWidth",
+    "dy": "selfHeight"
+  },
+  "surface": "element",
+  "determinism": "strict",
+  "available": true
+}

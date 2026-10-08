@@ -1,0 +1,25 @@
+import type { ModelsGenerationOptionsMessages } from './generation-options.ts';
+
+export const ptBR: ModelsGenerationOptionsMessages = {
+  notLocalOnly: (p: { modelId: string; key: string }) => `Modelo ${p.modelId} não aceita ${p.key} (somente modelos locais)`,
+  textEmpty: "O texto não pode estar vazio",
+  textTooLong: (p: { length: number; modelId: string; limit: number }) => `O texto tem ${p.length} caracteres, acima do limite de ${p.limit} caracteres por chamada do modelo ${p.modelId}. Envie em partes.`,
+  noDefaultVoice: (p: { modelId: string }) => `Modelo ${p.modelId} não tem voz padrão; informe voice`,
+  noSuchVoice: (p: { modelId: string; voice: string }) => `Modelo ${p.modelId} não tem a voz ${p.voice}`,
+  badLanguageTag: (p: { tag: string }) => `Tag de idioma BCP 47 inválida: ${p.tag}`,
+  languageUnsupported: (p: { modelId: string; language: string }) => `Modelo ${p.modelId} não aceita o idioma ${p.language}`,
+  formatUnsupported: (p: { modelId: string; format: string }) => `Modelo ${p.modelId} não produz ${p.format}`,
+  noInstructions: (p: { modelId: string }) => `Modelo ${p.modelId} não aceita instruções de tom (instructions)`,
+  noSpeed: (p: { modelId: string }) => `Modelo ${p.modelId} não aceita velocidade de fala (speed)`,
+  speedRange: (p: { min: number; max: number }) => `A velocidade de fala deve estar entre ${p.min} e ${p.max}`,
+  knobUnsupported: (p: { modelId: string; key: string }) => `Modelo ${p.modelId} não aceita ${p.key}`,
+  knobRange: (p: { key: string; min: number; max: number }) => `${p.key} deve estar entre ${p.min} e ${p.max}`,
+  promptEmpty: "O prompt não pode estar vazio",
+  promptTooLong: (p: { length: number; modelId: string; limit: number }) => `O prompt tem ${p.length} caracteres, acima do limite de ${p.limit} caracteres do modelo ${p.modelId}`,
+  aspectUnsupported: (p: { modelId: string; ratio: string }) => `Modelo ${p.modelId} não aceita a proporção ${p.ratio}`,
+  sizeUnsupported: (p: { modelId: string; size: string }) => `Modelo ${p.modelId} não aceita o tamanho ${p.size}`,
+  maxCount: (p: { modelId: string; max: number }) => `Modelo ${p.modelId} gera no máximo ${p.max} imagens por vez`,
+  noSteps: (p: { modelId: string }) => `Modelo ${p.modelId} não aceita steps (somente modelos locais)`,
+  stepsRange: (p: { min: number; max: number }) => `steps deve ser um inteiro entre ${p.min} e ${p.max}`,
+  noSeed: (p: { modelId: string }) => `Modelo ${p.modelId} não aceita seed`,
+};

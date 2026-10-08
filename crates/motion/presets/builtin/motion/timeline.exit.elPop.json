@@ -1,0 +1,47 @@
+{
+  "id": "elPop",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "exit",
+  "order": 37,
+  "duration": 0.6,
+  "curve": {
+    "kind": "named",
+    "name": "linear"
+  },
+  "mirror": null,
+  "from": {},
+  "keyframes": [
+    {
+      "at": 0,
+      "scaleX": 1.0,
+      "scaleY": 1.0
+    },
+    {
+      "at": 0.2,
+      "ease": "easeInOutSine",
+      "scaleX": 0.95,
+      "scaleY": 0.95
+    },
+    {
+      "at": 0.3,
+      "ease": "easeInOutSine",
+      "scaleX": 1.2,
+      "scaleY": 1.2
+    },
+    {
+      "at": 1,
+      "ease": "linear",
+      "scaleX": 0.0,
+      "scaleY": 0.0
+    }
+  ],
+  "basis": {
+    "dx": "selfWidth",
+    "dy": "selfHeight"
+  },
+  "surface": "element",
+  "determinism": "strict",
+  "available": true
+}

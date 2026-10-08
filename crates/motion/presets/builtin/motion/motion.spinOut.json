@@ -1,0 +1,42 @@
+{
+  "id": "motion.spinOut",
+  "version": 1,
+  "domain": "motion",
+  "family": null,
+  "doc": "内部积木：旋转从 0 到 rotationTo。",
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "rotationTo": {
+      "type": "number",
+      "default": 12.0,
+      "doc": "终止角度（度）"
+    },
+    "curve": {
+      "type": "curve",
+      "default": "easeInCubic",
+      "doc": "时间曲线（规范 §7.6 的封闭名称）"
+    }
+  },
+  "tracks": [
+    {
+      "prop": "rotation",
+      "composite": "add",
+      "order": 0,
+      "frames": [
+        {
+          "t": "0%",
+          "v": 0
+        },
+        {
+          "t": "100%",
+          "v": "{rotationTo}",
+          "ease": "{curve}"
+        }
+      ]
+    }
+  ],
+  "determinism": "strict",
+  "capabilities": []
+}

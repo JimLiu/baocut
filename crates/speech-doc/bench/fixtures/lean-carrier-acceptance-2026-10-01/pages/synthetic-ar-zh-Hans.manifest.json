@@ -1,0 +1,57 @@
+{
+  "rows": [
+    {
+      "id": "ar-07",
+      "reference_en": "Do not send the file to Sara unless the manager approves the second version.",
+      "required_facts": [
+        "Sara",
+        "send only after approval",
+        "manager",
+        "second version"
+      ],
+      "risk": "exception; condition",
+      "source": "لا ترسل الملف إلى سارة إلا إذا وافق المدير على النسخة الثانية.",
+      "source_lang": "ar",
+      "source_words": [
+        "لا",
+        "ترسل",
+        "الملف",
+        "إلى",
+        "سارة",
+        "إلا",
+        "إذا",
+        "وافق",
+        "المدير",
+        "على",
+        "النسخة",
+        "الثانية."
+      ],
+      "target_lang": "zh-Hans"
+    },
+    {
+      "id": "ar-08",
+      "reference_en": "We bought 2.5 kilograms of rice, and half of it remained after dinner.",
+      "required_facts": [
+        "2.5 kilograms",
+        "rice",
+        "half remained",
+        "after dinner"
+      ],
+      "risk": "decimal; fraction",
+      "source": "اشترينا 2.5 كيلوغرام من الأرز، وبقي نصفه بعد العشاء.",
+      "source_lang": "ar",
+      "source_words": [
+        "اشترينا",
+        "2.5",
+        "كيلوغرام",
+        "من",
+        "الأرز،",
+        "وبقي",
+        "نصفه",
+        "بعد",
+        "العشاء."
+      ],
+      "target_lang": "zh-Hans"
+    }
+  ]
+}

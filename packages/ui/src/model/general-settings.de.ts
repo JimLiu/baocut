@@ -1,0 +1,42 @@
+import type { ExternalToolSource } from "@baocut/protocol";
+import type { GeneralSettingsModelMessages } from './general-settings.ts';
+
+export const de: GeneralSettingsModelMessages = {
+  lineShort: "Kurz",
+  lineMedium: "Mittel",
+  lineLong: "Lang",
+  lineLength: (cjk: number, other: number) => `CJK-Text: ${cjk} Zeichen pro Zeile · anderer Text: ${other} Zeichen pro Zeile`,
+  endpointTooLong: (max: number) => `Zu lang: höchstens ${max} Zeichen`,
+  endpointNotUrl: "Keine Webadresse: muss mit http:// oder https:// beginnen",
+  endpointScheme: "Nur Adressen mit http:// oder https:// werden unterstützt",
+  endpointCredentials: "Adresse darf keinen Benutzername oder Passwort enthalten",
+  endpointQuery: "Adresse darf keine Abfrageparameter enthalten (Teil nach ?)",
+  endpointHash: "Adresse darf kein Fragment enthalten (Teil nach #)",
+  saveDir: {
+    label: "Standard-Speicherort",
+    desc: "Werkzeugergebnisse, heruntergeladene Videos und vom Agenten übergebene Dateien werden hier gespeichert. Standard ist Ihr Downloadordner.",
+    systemDefault: "Downloadordner",
+    isDefault: "Standard",
+    change: "Ändern…",
+    reset: "Auf Standard zurücksetzen",
+    pickTitle: "Standard-Speicherort auswählen",
+    changed: "Standard-Speicherort geändert",
+    resetDone: "Auf Downloadordner zurücksetzen",
+    pickFailed: (message: string) => `Ordner konnte nicht ausgewählt werden: ${message}`,
+    webNote: "Der Browser kann keinen Ordner auf diesem Computer auswählen. In der BaoCut-Desktop-App festlegen.",
+  },
+  source: {
+    system: "Im System installiert",
+    user: "Gewählter Speicherort",
+    managed: "Von BaoCut heruntergeladen",
+    env: "Durch Umgebungsvariable festgelegt",
+  } as Record<ExternalToolSource, string>,
+  notInstalled: "Nicht installiert",
+  missingDesc: "yt-dlp ist noch nicht installiert. Beim Linkimport fragt der Agent zuerst nach Zustimmung zum Download (Quelle, Version, Größe und Lizenz werden angezeigt).",
+  consentRevoked: "Einwilligung zurückgezogen",
+  revokedDesc: (facts: string) => `${facts}. Die Einwilligung wurde zurückgezogen; Linkimport fragt erneut nach.`,
+  available: "Verfügbar",
+  needsUpdate: "Aktualisierung nötig",
+  cannotRun: "Nicht ausführbar",
+  factsWhy: (facts: string, why: string) => `${facts}. ${why}`,
+};

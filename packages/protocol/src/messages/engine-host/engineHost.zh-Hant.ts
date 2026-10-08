@@ -1,0 +1,27 @@
+import type { EngineHostMessages } from './engineHost.ts';
+
+export const zhHant: EngineHostMessages = {
+  runGenerationNotInteger: 'runGeneration 必須是十進位整數',
+  secondsInvalid: (p) => `${p.field} 必須是不小於 0 的有限秒數`,
+  secondsOverflow: (p) => `${p.field} 超出範圍`,
+  audioItemsKind: 'audioItems 只用於 audio 與 video 計畫',
+  skipAssetsKind: 'skipAssets 只用於 video 計畫',
+  outputKind: 'output 只用於 video 計畫',
+  outputSize: '輸出的寬度與高度必須是正整數',
+  tooManyRanges: (p) => `一次最多 ${p.max} 個範圍`,
+  textPlanNoDocument: 'text 計畫至少需要一份文件',
+  textPlanTooManyDocuments: 'text 計畫最多兩份文件（主文件，以及雙語合併的另一份）',
+  planKindUnknown: (p) => `未知的計畫種類 ${p.kind}`,
+  unknownMethod: (p) => `未知的方法：${p.method}`,
+  paramsInvalid: (p) => `參數無效：${p.error}`,
+  fontFacesInvalid: (p) => `請提供 1 到 ${p.max} 個 face：每個字族名稱不得為空、不超過 200 字，每個字重介於 1 到 1000`,
+  cacheDirRelative: 'cacheDir 必須是絕對路徑',
+  fontPathRelative: 'path 必須是絕對路徑',
+  fontInvalid: (p) => `不是可用的字型檔案：${p.error}`,
+  videoPathRelative: '影片路徑必須是絕對路徑',
+  videoNotOpen: '影片未開啟',
+  taskStopped: '這次執行已停止，修改沒有提交',
+  afterNotInteger: 'after 必須是十進位整數',
+  enginePanic: '引擎處理請求時發生錯誤，修改沒有提交',
+  pathRelative: '路徑必須是絕對路徑',
+};

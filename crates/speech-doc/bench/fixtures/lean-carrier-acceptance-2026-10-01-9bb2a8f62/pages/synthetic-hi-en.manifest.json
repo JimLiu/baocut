@@ -1,0 +1,193 @@
+{
+  "rows": [
+    {
+      "id": "hi-01",
+      "reference_en": "Leela did not cancel the meeting; she postponed it until Thursday at 14:30.",
+      "required_facts": [
+        "Leela",
+        "not cancelled",
+        "Thursday",
+        "14:30"
+      ],
+      "risk": "negation; combining marks; time",
+      "source": "लीला ने बैठक रद्द नहीं की; उसने उसे गुरुवार को 14:30 बजे तक टाल दिया।",
+      "source_lang": "hi",
+      "source_words": [
+        "लीला",
+        "ने",
+        "बैठक",
+        "रद्द",
+        "नहीं",
+        "की;",
+        "उसने",
+        "उसे",
+        "गुरुवार",
+        "को",
+        "14:30",
+        "बजे",
+        "तक",
+        "टाल",
+        "दिया।"
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "hi-02",
+      "reference_en": "If the temperature falls below 5 degrees, close the window before turning on the heater.",
+      "required_facts": [
+        "below 5 degrees",
+        "window first",
+        "heater afterward"
+      ],
+      "risk": "condition; order",
+      "source": "अगर तापमान 5 डिग्री से नीचे चला जाए, तो हीटर चालू करने से पहले खिड़की बंद कर दें।",
+      "source_lang": "hi",
+      "source_words": [
+        "अगर",
+        "तापमान",
+        "5",
+        "डिग्री",
+        "से",
+        "नीचे",
+        "चला",
+        "जाए,",
+        "तो",
+        "हीटर",
+        "चालू",
+        "करने",
+        "से",
+        "पहले",
+        "खिड़की",
+        "बंद",
+        "कर",
+        "दें।"
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "hi-03",
+      "reference_en": "Aman paid 120 rupees for three tickets, but dinner was not included in the price.",
+      "required_facts": [
+        "Aman",
+        "120 rupees",
+        "three tickets",
+        "dinner excluded"
+      ],
+      "risk": "number; negation",
+      "source": "अमन ने तीन टिकटों के लिए 120 रुपये दिए, लेकिन इस कीमत में रात का खाना शामिल नहीं था।",
+      "source_lang": "hi",
+      "source_words": [
+        "अमन",
+        "ने",
+        "तीन",
+        "टिकटों",
+        "के",
+        "लिए",
+        "120",
+        "रुपये",
+        "दिए,",
+        "लेकिन",
+        "इस",
+        "कीमत",
+        "में",
+        "रात",
+        "का",
+        "खाना",
+        "शामिल",
+        "नहीं",
+        "था।"
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "hi-04",
+      "reference_en": "The book Meera lent Ravi yesterday belongs to Meera’s sister.",
+      "required_facts": [
+        "Meera lent to Ravi",
+        "yesterday",
+        "belongs to Meera’s sister"
+      ],
+      "risk": "relative-correlative; ownership",
+      "source": "मीरा ने कल रवि को जो किताब उधार दी थी, वह मीरा की बहन की है।",
+      "source_lang": "hi",
+      "source_words": [
+        "मीरा",
+        "ने",
+        "कल",
+        "रवि",
+        "को",
+        "जो",
+        "किताब",
+        "उधार",
+        "दी",
+        "थी,",
+        "वह",
+        "मीरा",
+        "की",
+        "बहन",
+        "की",
+        "है।"
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "hi-05",
+      "reference_en": "E-12 is written beside “confirmed,” but the parcel has not been sent yet.",
+      "required_facts": [
+        "E-12",
+        "confirmed",
+        "not yet sent"
+      ],
+      "risk": "code; combining marks; negation",
+      "source": "“पुष्टि हुई” के पास E-12 लिखा है, लेकिन पैकेट अभी तक भेजा नहीं गया है।",
+      "source_lang": "hi",
+      "source_words": [
+        "“पुष्टि",
+        "हुई”",
+        "के",
+        "पास",
+        "E-12",
+        "लिखा",
+        "है,",
+        "लेकिन",
+        "पैकेट",
+        "अभी",
+        "तक",
+        "भेजा",
+        "नहीं",
+        "गया",
+        "है।"
+      ],
+      "target_lang": "en"
+    },
+    {
+      "id": "hi-06",
+      "reference_en": "Neha left before Arjun, yet she arrived ten minutes after him.",
+      "required_facts": [
+        "Neha left first",
+        "Arjun arrived first",
+        "ten minutes"
+      ],
+      "risk": "chronology; word order",
+      "source": "नेहा अर्जुन से पहले निकली थी, फिर भी वह उससे दस मिनट बाद पहुँची।",
+      "source_lang": "hi",
+      "source_words": [
+        "नेहा",
+        "अर्जुन",
+        "से",
+        "पहले",
+        "निकली",
+        "थी,",
+        "फिर",
+        "भी",
+        "वह",
+        "उससे",
+        "दस",
+        "मिनट",
+        "बाद",
+        "पहुँची।"
+      ],
+      "target_lang": "en"
+    }
+  ]
+}

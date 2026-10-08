@@ -1,0 +1,46 @@
+{
+  "id": "motion.scaleOut",
+  "version": 1,
+  "domain": "motion",
+  "family": "scaleIn",
+  "doc": "缩放离场（可选淡出）。",
+  "aliases": [
+    "scaleOut"
+  ],
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "scaleTo": {
+      "type": "number",
+      "default": 0.7,
+      "min": 0.0,
+      "doc": "终止缩放"
+    },
+    "curve": {
+      "type": "curve",
+      "default": "easeInCubic",
+      "doc": "时间曲线（规范 §7.6 的封闭名称）"
+    },
+    "fade": {
+      "type": "bool",
+      "default": true,
+      "doc": "是否同时淡入/淡出"
+    }
+  },
+  "compose": [
+    {
+      "preset": "motion.zoomOut",
+      "params": {
+        "scaleTo": "{scaleTo}",
+        "curve": "{curve}"
+      }
+    },
+    {
+      "preset": "motion.fadeOut",
+      "when": "{fade}"
+    }
+  ],
+  "determinism": "strict",
+  "capabilities": []
+}

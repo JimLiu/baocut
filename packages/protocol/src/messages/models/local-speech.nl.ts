@@ -1,0 +1,26 @@
+import type { ModelsLocalSpeechMessages } from './local-speech.ts';
+
+export const nl: ModelsLocalSpeechMessages = {
+  paceQwen06: "ongeveer 55 keer langzamer dan realtime, dus een zin van 3 seconden duurt twee tot drie minuten",
+  paceQwen17: "naar verwachting langzamer dan 0.6B (ongeveer 55 keer langzamer dan realtime); dit model is nog niet gemeten",
+  paceIndexTts2: "naar verwachting ongeveer gelijk aan IndexTTS 2.5 (120–145 keer langzamer dan realtime); dit model is nog niet gemeten",
+  paceIndexTts25: "120–145 keer langzamer dan realtime, dus een zin van vier of vijf seconden duurt zeven tot tien minuten",
+  paceGptSovits: "ongeveer 6 keer langzamer dan realtime, dus een zin van 4 seconden duurt ongeveer een halve minuut",
+  paceVoxcpm2: "het grootste model, dus elke zin duurt naar verwachting enkele minuten; dit model is nog niet gemeten",
+  paceOmnivoice: "ongeveer 30 keer langzamer dan realtime, dus een zin van 4 seconden duurt ongeveer twee minuten",
+  paceDefault: "elke zin duurt enkele minuten",
+  cpuNote: (p: { pace: string }) => `Synthetiseert op de CPU van deze computer met slechts één of twee kernen: ${p.pace}. Met een NVIDIA-GPU (CUDA) zou het veel sneller moeten zijn (niet gemeten)`,
+  oneVoiceSource: "Geef alleen voice, reference of voiceDescription op",
+  modeUnsupported: (p: { modelId: string; what: string; mode: string }) => `Model ${p.modelId} ondersteunt niet ${p.what} (${p.mode})`,
+  modeClone: "klonen vanuit een referentieopname",
+  modeDescribe: "een stem maken vanuit een beschrijving",
+  noReferenceTranscript: (p: { modelId: string }) => `Model ${p.modelId} leest het transcript van de referentieopname niet (reference.transcript)`,
+  descriptionEmpty: "De beschrijving mag niet leeg zijn",
+  noPresetVoice: (p: { modelId: string; need: string }) => `Model ${p.modelId} heeft geen vooringestelde stemmen; geef op: ${p.need}`,
+  noSuchVoice: (p: { modelId: string; voice: string }) => `Model ${p.modelId} heeft geen stem ${p.voice}`,
+  noDefaultVoice: (p: { modelId: string }) => `Model ${p.modelId} heeft geen standaardstem; geef voice op`,
+  termNotInVocabulary: (p: { modelId: string; term: string }) => `Stembeschrijvingen voor model ${p.modelId} accepteren alleen woorden uit de woordenschat: ‘${p.term}’ staat er niet in`,
+  onePerCategory: (p: { modelId: string; category: string }) => `Stembeschrijvingen voor model ${p.modelId} accepteren maximaal één term per categorie (${p.category})`,
+  builtinReferenceLabel: "ingebouwde stemopname",
+  referenceUnreadable: (p: { name: string }) => `Kan de referentieopname niet lezen: ‘${p.name}’: ontbreekt, is geen bestand of is niet leesbaar. Probeer een andere opname`,
+};

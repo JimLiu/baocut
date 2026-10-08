@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BaoCut · 控件样本</title>
+
+<!-- 设计系统 token（生成物，见 _ds/adobe-spectrum-2/） -->
+<link rel="stylesheet" href="app/tokens.css?v=20260826-r39m">
+<link rel="stylesheet" href="_ds/adobe-spectrum-2/tokens/layout.css">
+<!-- 控件层 -->
+<link rel="stylesheet" href="app/ui.css?v=20260920-1807">
+<link rel="stylesheet" href="vendor/react-spectrum-s2/react-spectrum-s2.css?v=20261001-2326">
+<link rel="stylesheet" href="vendor/react-spectrum-s2/react-spectrum-s2-font.css?v=20261001-2326">
+<!-- Source Sans 3 / Source Code Pro：token 里 --sans / --mono 的首选面 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,500;0,700;0,800;1,400&family=Source+Code+Pro:wght@400;500&display=swap">
+
+<style>
+  body { background: var(--gray-100); }
+  .pg-wrap { max-width: 1080px; margin: 0 auto; padding: 32px 24px 64px; }
+  .pg-hd { margin-bottom: 24px; }
+  .sec { margin-top: 32px; padding: 20px; border-radius: 10px; background: var(--gray-25); box-shadow: inset 0 0 0 1px var(--gray-200); }
+  .sec > h2 { margin: 0 0 4px; font-size: 16px; font-weight: 700; color: var(--gray-900); }
+  .sec > .note { margin: 0 0 16px; font-size: 12px; color: var(--gray-600); line-height: 1.5; }
+  .strip { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  .strip + .strip { margin-top: 12px; }
+  .grid-ic { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+  .ic-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px; border-radius: 8px; background: var(--gray-50); }
+  .ic-cell span { font-size: 10px; color: var(--gray-600); }
+  .ic-cell em { font-size: 10px; font-style: normal; color: var(--gray-500); }
+  .ramp { display: flex; flex-wrap: wrap; gap: 4px; }
+  .sw-cell { width: 76px; }
+  .sw-chip { height: 32px; border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06); }
+  .sw-cell span { display: block; margin-top: 4px; font-size: 10px; color: var(--gray-600); font-family: var(--mono); }
+</style>
+<link rel="stylesheet" href="app/spectrum.css?v=20261002-0317">
+</head>
+<body>
+<div id="root"></div>
+
+
+<script src="vendor/react-spectrum-s2/react-spectrum-s2.js?v=20261001-2326"></script>
+<script type="text/jsx" src="app/icons.jsx?v=20261002-0317"></script>
+<script src="app/model-popup.js?v=20260904-popup"></script>
+<script src="app/model-languages.js?v=20260911-1713"></script>
+<script src="app/model-asr-languages.js?v=20260907-r208"></script>
+<script src="app/model-geometry.js?v=20260913-1343"></script>
+<script src="app/model-prompt-slots.js"></script>
+<script type="text/jsx" src="app/ui-spectrum.jsx?v=20261002-0317"></script>
+<script src="app/model-attachments.js"></script>
+<script type="text/jsx" src="app/attachment-files.jsx"></script>
+<script type="text/jsx" src="app/ui.jsx?v=20261002-0317"></script>
+<script type="text/jsx" src="app/components-page.jsx?v=20261002-0317"></script>
+</body>
+</html>

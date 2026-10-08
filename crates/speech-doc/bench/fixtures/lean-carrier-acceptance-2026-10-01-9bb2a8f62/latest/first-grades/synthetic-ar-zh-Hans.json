@@ -1,0 +1,212 @@
+{
+  "diagnostics": {},
+  "issues": [],
+  "mode": "lean",
+  "pageRejected": false,
+  "retryIds": [],
+  "rows": [
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              4
+            ],
+            "tgt": [
+              0,
+              10
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              5,
+              9
+            ],
+            "tgt": [
+              10,
+              16
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              10,
+              11
+            ],
+            "tgt": [
+              16,
+              20
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "不要把文件发给萨拉，",
+            "to": 4
+          },
+          {
+            "from": 5,
+            "text": "除非经理同意第二版。",
+            "to": 11
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11"
+        ]
+      },
+      "chunks": 5,
+      "coarse": false,
+      "frozen": false,
+      "id": "ar-07",
+      "issues": [],
+      "locatedChunks": 5,
+      "minChunks": 1,
+      "n": 1,
+      "realTiming": false,
+      "source": "لا ترسل الملف إلى سارة إلا إذا وافق المدير على النسخة الثانية.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "不要把文件发给萨拉，除非经理同意第二版。"
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "anchor"
+            ],
+            "src": [
+              0,
+              4
+            ],
+            "tgt": [
+              0,
+              12
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              5,
+              5
+            ],
+            "tgt": [
+              12,
+              14
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              7
+            ],
+            "tgt": [
+              14,
+              17
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              8,
+              8
+            ],
+            "tgt": [
+              17,
+              21
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "我们买了2.5公斤大米，",
+            "to": 4
+          },
+          {
+            "from": 5,
+            "text": "剩下一半在晚饭后。",
+            "to": 8
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8"
+        ]
+      },
+      "chunks": 5,
+      "coarse": false,
+      "frozen": false,
+      "id": "ar-08",
+      "issues": [],
+      "locatedChunks": 5,
+      "minChunks": 1,
+      "n": 2,
+      "realTiming": false,
+      "source": "اشترينا 2.5 كيلوغرام من الأرز، وبقي نصفه بعد العشاء.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "我们买了2.5公斤大米，剩下一半在晚饭后。"
+    }
+  ],
+  "schema": "lean-carrier-grade/2",
+  "totals": {
+    "acceptedTranslations": 2,
+    "aligned": 2,
+    "chunks": 10,
+    "coarse": 0,
+    "expectedSentences": 2,
+    "locatedChunks": 10,
+    "sentencesWithAnchorIssues": 0,
+    "syntaxOrPermissionIssues": 0,
+    "translationRetries": 0
+  }
+}

@@ -1,0 +1,63 @@
+import type { AudioGenMessages, GeneratedMarkMessages, ImageGenMessages } from './media-gen-copy.ts';
+
+/** 素材卡上生成来的那一枚标记。 */
+export const zhMark: GeneratedMarkMessages = { generated: '生成' };
+
+export const zhAudioGen: AudioGenMessages = {
+  generate: '生成语音',
+  clone: '克隆声音',
+  generateTip: '用云端模型把一段文字念出来，收进素材库',
+  cloneTip: '用我的声音里克隆好的音色念一段',
+  back: '返回音频',
+  running: '后台运行中',
+  textPlaceholder: '要合成的文字，按句号 / 换行分段…',
+  clonePlaceholder: '要用这个声音说的话…',
+  cta: '生成',
+  cloneCta: '用这个声音生成',
+  hint: (provider: string) =>
+    `联网发给 ${provider} 合成，按服务商的规则计费；进度在顶栏与后台任务页，完成后收进素材库，放到时间线是另一步。停止等待不会撤回已发送的请求。`,
+  readOnly: '这个视频现在只读，不能往里生成素材',
+  noVoicesTitle: '我的声音里还没有音色',
+  noVoicesBody: '克隆声音要先在 模型 › 语音合成 › 我的声音 录一段或从文件导入，再上传到能克隆的服务商（ElevenLabs）；建好回来在下面的音色里选它。',
+  goVoices: '去我的声音',
+  runTitle: (title: string) => `${title}…`,
+  runNote: '可先继续编辑 · 合成在后台运行，完成后自动收进素材库。',
+  cancel: '取消',
+  cancelled: '已取消',
+  done: (meta: string) => `已生成 · ${meta}`,
+  inLibrary: (name: string) => `已收进素材库 · ${name}`,
+  importing: '正在收进素材库…',
+  add: '加到时间线',
+  addTip: '放在播放头处',
+  again: '再生成一段',
+  backToAudio: '回到音频',
+  doneNote: '素材在「音频」的素材库里，标着「生成」；拖到时间线或点「＋」也能放，同一段可以用很多次。',
+  failed: (message: string) => `没生成出来 · ${message}`,
+  edit: '改一改再生成',
+  retried: '已重新提交',
+};
+
+export const zhImageGen: ImageGenMessages = {
+  title: '图片',
+  segments: '图片来源',
+  project: '视频素材',
+  gen: 'AI 生成',
+  noModelTitle: '还没有能画图的模型',
+  noModelBody: '连一家云端服务商（模型 › 图像生成 › 云端模型），或下载 Qwen-Image-2.1（模型 › 图像生成 › 本地模型），任选其一。',
+  connect: '连接云端服务商',
+  downloadLocal: '下载本地模型',
+  fit: '跟视频画布',
+  recent: '最近生成',
+  all: (n: number) => `全部 ${n} 批`,
+  fewer: '只看最近 3 批',
+  empty: '这个视频还没生成过图。生成好的图直接收进素材库（标着「生成」），放到画布是另一步。',
+  place: '放到画布',
+  placeTip: '放在播放头处',
+  inLibrary: '已在素材库',
+  importing: '正在收进素材库…',
+  useAsRef: '用作参考',
+  foot: '生成的图直接收进这个视频的素材库，出处（模型、参数、任务）随素材记下，提示词只留在任务记录里；放到画布是另一步。',
+  readOnly: '这个视频现在只读，不能往里生成素材',
+  charCount: (chars: number, max: number) => `${chars} / ${max} 字`,
+  charCountPlain: (chars: number) => `${chars} 字`,
+};

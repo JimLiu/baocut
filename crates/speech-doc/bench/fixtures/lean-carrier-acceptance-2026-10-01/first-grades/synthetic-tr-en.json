@@ -1,0 +1,471 @@
+{
+  "diagnostics": {},
+  "issues": [],
+  "mode": "lean",
+  "pageRejected": false,
+  "retryIds": [],
+  "rows": [
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              3
+            ],
+            "tgt": [
+              0,
+              32
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              4,
+              8
+            ],
+            "tgt": [
+              32,
+              70
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Elif did not cancel the meeting;",
+            "to": 3
+          },
+          {
+            "from": 4,
+            "text": "she postponed it to Thursday at 14.30.",
+            "to": 8
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8"
+        ]
+      },
+      "chunks": 2,
+      "coarse": true,
+      "frozen": false,
+      "id": "tr-01",
+      "issues": [],
+      "locatedChunks": 2,
+      "minChunks": 3,
+      "n": 1,
+      "realTiming": false,
+      "source": "Elif toplantıyı iptal etmedi; perşembe günü saat 14.30’a erteledi.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Elif did not cancel the meeting; she postponed it to Thursday at 14.30."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              4
+            ],
+            "tgt": [
+              0,
+              41
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              5,
+              9
+            ],
+            "tgt": [
+              41,
+              87
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "If the temperature drops below 5 degrees,",
+            "to": 4
+          },
+          {
+            "from": 5,
+            "text": "close the window before turning on the heater.",
+            "to": 9
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9"
+        ]
+      },
+      "chunks": 2,
+      "coarse": true,
+      "frozen": false,
+      "id": "tr-02",
+      "issues": [],
+      "locatedChunks": 2,
+      "minChunks": 3,
+      "n": 2,
+      "realTiming": false,
+      "source": "Sıcaklık 5 derecenin altına düşerse, ısıtıcıyı çalıştırmadan önce pencereyi kapat.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "If the temperature drops below 5 degrees, close the window before turning on the heater."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              6
+            ],
+            "tgt": [
+              0,
+              37
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              7,
+              12
+            ],
+            "tgt": [
+              37,
+              78
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Ömer paid 120 lira for three tickets,",
+            "to": 6
+          },
+          {
+            "from": 7,
+            "text": "but dinner was not included in the price.",
+            "to": 12
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12"
+        ]
+      },
+      "chunks": 2,
+      "coarse": true,
+      "frozen": false,
+      "id": "tr-03",
+      "issues": [],
+      "locatedChunks": 2,
+      "minChunks": 3,
+      "n": 3,
+      "realTiming": false,
+      "source": "Ömer üç bilet için 120 lira ödedi, ama akşam yemeği fiyata dahil değildi.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Ömer paid 120 lira for three tickets, but dinner was not included in the price."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              5
+            ],
+            "tgt": [
+              0,
+              34
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              9
+            ],
+            "tgt": [
+              34,
+              59
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "The book Ayşe lent Deniz yesterday",
+            "to": 5
+          },
+          {
+            "from": 6,
+            "text": "belongs to Ayşe’s sister.",
+            "to": 9
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9"
+        ]
+      },
+      "chunks": 2,
+      "coarse": false,
+      "frozen": false,
+      "id": "tr-04",
+      "issues": [],
+      "locatedChunks": 2,
+      "minChunks": 2,
+      "n": 4,
+      "realTiming": false,
+      "source": "Ayşe’nin dün Deniz’e ödünç verdiği kitap, Ayşe’nin kız kardeşine ait.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "The book Ayşe lent Deniz yesterday belongs to Ayşe’s sister."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              5
+            ],
+            "tgt": [
+              0,
+              50
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              9
+            ],
+            "tgt": [
+              50,
+              88
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Next to the word “Approved” the code D-08 appears,",
+            "to": 5
+          },
+          {
+            "from": 6,
+            "text": "but the package has not been sent yet.",
+            "to": 9
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9"
+        ]
+      },
+      "chunks": 2,
+      "coarse": true,
+      "frozen": false,
+      "id": "tr-05",
+      "issues": [],
+      "locatedChunks": 2,
+      "minChunks": 3,
+      "n": 5,
+      "realTiming": false,
+      "source": "“Onaylandı” yazısının yanında D-08 kodu görünüyor, ancak paket henüz gönderilmedi.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Next to the word “Approved” the code D-08 appears, but the package has not been sent yet."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              5
+            ],
+            "tgt": [
+              0,
+              35
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              10
+            ],
+            "tgt": [
+              35,
+              69
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Although Zeynep set off before Can,",
+            "to": 5
+          },
+          {
+            "from": 6,
+            "text": "she arrived ten minutes after him.",
+            "to": 10
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10"
+        ]
+      },
+      "chunks": 2,
+      "coarse": true,
+      "frozen": false,
+      "id": "tr-06",
+      "issues": [],
+      "locatedChunks": 2,
+      "minChunks": 3,
+      "n": 6,
+      "realTiming": false,
+      "source": "Zeynep, Can’dan önce yola çıkmasına rağmen ondan on dakika sonra vardı.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Although Zeynep set off before Can, she arrived ten minutes after him."
+    }
+  ],
+  "schema": "lean-carrier-grade/2",
+  "totals": {
+    "acceptedTranslations": 6,
+    "aligned": 6,
+    "chunks": 12,
+    "coarse": 0,
+    "expectedSentences": 6,
+    "locatedChunks": 12,
+    "sentencesWithAnchorIssues": 0,
+    "syntaxOrPermissionIssues": 0,
+    "translationRetries": 0
+  }
+}

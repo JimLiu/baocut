@@ -1,0 +1,139 @@
+/* API 提供方列表、添加 API 提供方、API 提供方详情与能力页的 API 提供方模型（product-design §7.6）。行、卡、控件都是公共件，这里只排布。 */
+.prov-page { display: flex; flex-direction: column; min-width: 0; }
+.prov-page p { margin: 0; }
+
+/* 图标：列表 20px、详情页头 32px；单色的用 mask 跟主题着色，彩色的原样 */
+.vicon { flex: none; display: inline-flex; align-items: center; justify-content: center; }
+.vicon--s { width: 20px; height: 20px; }
+.vicon--l { width: 32px; height: 32px; }
+.vicon--mono { background: var(--gray-900); -webkit-mask-size: contain; mask-size: contain; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; }
+.vicon--letter { border-radius: 4px; background: var(--gray-200); color: var(--gray-800); font-size: 11px; font-weight: 700; }
+.vicon--letter.vicon--l { border-radius: 8px; font-size: 16px; }
+/* 编码 Agent 图标（vendor-icon.jsx `AgentIcon`，S2 图标槽里的 SVG）：单色的当遮罩，首字母头像与上面的 .vicon--letter 同色 */
+.vglyph--mono { -webkit-mask-size: contain; mask-size: contain; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; }
+.vglyph__box { fill: var(--gray-200); }
+.vglyph__letter { fill: var(--gray-800); }
+
+/* 列表：一行一家 */
+.prov-list { padding: 4px 8px; }
+.prov-list > [role="listitem"] + [role="listitem"] { border-top: 1px solid var(--gray-100); }
+.prov-page .prov-row { display: flex; width: 100%; align-items: center; justify-content: flex-start; gap: 12px; height: auto; min-height: 56px; padding: 8px; text-align: start; }
+.prov-row__nm { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.prov-row__nm b { font-size: 14px; line-height: 20px; font-weight: 700; color: var(--gray-900); }
+.prov-row__nm > span { font-size: 12px; line-height: 1.5; color: var(--gray-600); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prov-row__tag { margin-inline-start: 8px; font-size: 11px; font-weight: 400; color: var(--gray-600); }
+.prov-row__acct { flex: none; }
+.prov-row__st { flex: none; width: 88px; }
+.prov-row__chev { flex: none; color: var(--gray-600); }
+.prov-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--gray-400); }
+.prov-dot.is-ok { background: var(--green-700); }
+.prov-dot.is-warn { background: var(--orange-700); }
+.prov-foot { display: flex; align-items: center; gap: 16px; margin-top: 16px; }
+
+/* 添加 API 提供方 */
+.prov-sheet { display: flex; flex-direction: column; gap: 16px; }
+.prov-sheet section { display: flex; flex-direction: column; gap: 8px; }
+.prov-sheet__h { margin: 0; font-size: 14px; font-weight: 700; color: var(--gray-900); }
+.prov-sheet__note { margin: 0; }
+.prov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.prov-sheet .prov-card { display: flex; width: 100%; align-items: center; justify-content: flex-start; gap: 8px; height: auto; min-height: 48px; padding: 8px 12px; border: 1px solid var(--gray-200); border-radius: 8px; text-align: start; }
+.prov-card__nm { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.prov-card__nm b { font-size: 14px; font-weight: 500; color: var(--gray-900); }
+.prov-card__nm span { font-size: 11px; line-height: 1.5; color: var(--gray-600); }
+.prov-custom { padding-top: 16px; border-top: 1px solid var(--gray-100); }
+.prov-custom__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.prov-custom__caps { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+/* 模型厂商网格末尾的「自建端点 · OpenAI 兼容」卡：点了滚到下面的表单并聚焦名称 */
+.prov-sheet .prov-card--custom { border-style: dashed; }
+.prov-card__plus { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; color: var(--gray-700); }
+/* 能力页 ④ 列表末尾的「添加 OpenAI 兼容端点」一行 */
+.capm .capm__custom { display: flex; width: 100%; justify-content: flex-start; gap: 8px; height: auto; min-height: 40px; padding: 4px 8px; text-align: start; font-size: 12px; font-weight: 400; color: var(--gray-700); }
+.capm__custom b { font-weight: 500; color: var(--gray-900); }
+.prov-taken { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+
+/* 详情 */
+.pdet .pdet__back { align-self: flex-start; margin-bottom: 12px; }
+.pdet__head { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+.pdet__title { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.pdet__title h1 { margin: 0; font-size: 22px; font-weight: 700; line-height: 1.3; color: var(--gray-900); }
+.pdet__title a { color: var(--blue-900); text-decoration: none; }
+.pdet__title a:hover { text-decoration: underline; }
+.pdet__off { margin-bottom: 16px; }
+.pdet-region { margin-bottom: 24px; }
+.pdet-accts { padding-block: 4px; }
+.acct { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 0; border-bottom: 1px solid var(--gray-100); }
+.acct.is-off .acct__nm { opacity: 0.6; }
+.acct > .chip, .acct > .bc-button, .acct > .bc-icon-button { flex: none; }
+.acct__nm { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+.pdet .acct__name { height: auto; padding: 0 4px; margin-inline-start: -4px; gap: 4px; }
+.acct__name b { font-size: 14px; font-weight: 500; color: var(--gray-900); }
+.pdet-accts__empty, .pdet-accts__note { padding: 12px 0 4px; }
+.pdet-accts__add { padding: 12px 0 8px; }
+.acct-add { display: flex; flex-direction: column; gap: 12px; padding: 12px 0; }
+.acct-add__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* 添加账号里折叠的「端点（高级）」与账号行的编辑态（名称 + 端点地址） */
+.acct-add__eprow { display: flex; flex-direction: column; gap: 4px; padding-block: 4px; }
+.acct-add__eprow p { margin: 0; }
+.acct-add__eprow .bc-field { width: 100%; }
+.acct.is-editing { align-items: flex-start; }
+.acct.is-editing .acct__nm { align-items: stretch; }
+.acct__edit { display: flex; flex-direction: column; gap: 6px; width: 100%; padding-block: 4px; }
+.acct__edit .bc-field { width: 100%; }
+.pdet-caps { padding-block: 4px; }
+.pdet-cap { padding: 8px 0; border-bottom: 1px solid var(--gray-100); }
+.pdet-cap:last-of-type { border-bottom: none; }
+.pdet-cap__head { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.pdet-cap__head b { font-size: 14px; font-weight: 700; color: var(--gray-900); }
+.pdet-model { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 0 4px 16px; }
+.pdet-model.is-p1 { opacity: 0.6; }
+.pdet-model > * { flex: none; }
+.pdet-model__nm { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pdet-model__nm b { font-family: var(--mono); font-size: 12px; line-height: 18px; font-weight: 400; color: var(--gray-800); overflow-wrap: anywhere; }
+.pdet-model__nm span, .pdet-model__verdict { font-size: 11px; line-height: 1.5; color: var(--gray-600); }
+.pdet-model__verdict { max-width: 240px; text-align: end; }
+.pdet-model--add .bc-field { flex: 1 1 auto; }
+.pdet-caps__note { padding: 8px 0; }
+.pdet-use__row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 12px 0; }
+.pdet-use__cell { display: flex; flex-direction: column; gap: 4px; }
+.pdet-use__cell b { font-size: 16px; font-weight: 700; color: var(--gray-900); }
+.pdet-use__foot { padding: 4px 0 12px; }
+.pdet__remove { margin-top: 8px; }
+
+/* 能力页第 ④ 节：API 提供方（全目录，一家一组，可折叠） */
+.capm__head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.capm__title { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.capm__title h2 { margin: 0; font-size: 14px; font-weight: 500; }
+.capm .capm__link { gap: 4px; }
+.capm .capm__search { width: 100%; margin-bottom: 8px; }
+.capm__card { padding-block: 4px; }
+.capm__grp { border-bottom: 1px solid var(--gray-100); }
+.capm__grp:last-child { border-bottom: none; }
+.capm__row { display: flex; align-items: center; gap: 4px; min-height: 40px; }
+.capm .capm__toggle { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: flex-start; gap: 8px; height: auto; min-height: 40px; padding: 4px 8px; text-align: start; }
+.capm__nm { flex: none; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 700; color: var(--gray-900); }
+.capm__tag { flex: none; font-size: 11px; color: var(--gray-600); }
+.capm__meta { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: end; font-size: 12px; font-weight: 400; color: var(--gray-600); }
+.capm__meta.is-warn { color: var(--orange-900); }
+.capm__chev { flex: none; color: var(--gray-600); transition: transform 150ms cubic-bezier(0.45, 0, 0.4, 1); }
+.capm__toggle[aria-expanded="true"] .capm__chev { transform: rotate(90deg); }
+.capm__models { padding: 0 0 8px 36px; }
+.capm__model { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.capm__model > * { flex: none; }
+.capm__model b { font-family: var(--mono); font-size: 12px; line-height: 18px; font-weight: 400; color: var(--gray-800); overflow-wrap: anywhere; max-width: 60%; }
+.capm__model .capm__desc { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--gray-600); }
+.capm__verdict { max-width: 240px; font-size: 11px; line-height: 1.5; color: var(--gray-600); text-align: end; }
+.capm__none { margin: 0; padding: 4px 0; }
+.capm__empty { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding-block: 16px; }
+.capm__empty p { margin: 0; }
+.capm__agent { margin-top: 12px; }
+
+@container settings (max-width: 560px) {
+  .prov-row__acct, .prov-row__st { display: none; }
+  .prov-custom__grid, .acct-add__grid, .pdet-use__row { grid-template-columns: 1fr; }
+  .acct { flex-wrap: wrap; }
+  .pdet-model { flex-wrap: wrap; padding-inline-start: 0; }
+  .pdet-model__verdict { max-width: none; text-align: start; }
+  .capm__models { padding-inline-start: 8px; }
+  .capm__model { flex-wrap: wrap; }
+  .capm__verdict { max-width: none; text-align: start; }
+}

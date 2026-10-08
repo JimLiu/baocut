@@ -1,0 +1,84 @@
+{
+  "id": "squig2",
+  "version": 1,
+  "domain": "shape",
+  "namespace": "timeline",
+  "order": 8,
+  "path": {
+    "kind": "outline",
+    "segments": [
+      {
+        "verb": "move",
+        "pts": [
+          [
+            0,
+            0.32
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.61,
+            0.32
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.61,
+            0.04
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            1,
+            0.5
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.61,
+            0.96
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.61,
+            0.68
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0,
+            0.68
+          ]
+        ]
+      },
+      {
+        "verb": "close"
+      }
+    ]
+  },
+  "params": [
+    "fill",
+    "stroke",
+    "strokeWidth"
+  ],
+  "available": true
+}

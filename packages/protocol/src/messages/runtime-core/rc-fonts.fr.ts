@@ -1,0 +1,15 @@
+import type { RcFontsMessages } from './rc-fonts.ts';
+
+export const fr: RcFontsMessages = {
+  manageOnlyInAppOrCli: 'Les polices peuvent uniquement être téléchargées, supprimées et vérifiées dans l’application de bureau ou le CLI', catalogueInvalid: 'Le format du catalogue de polices est incorrect',
+  remedyNetwork: 'Le réseau est inaccessible ou le téléchargement a été interrompu. Vérifiez le réseau et téléchargez à nouveau, ou changez de miroir dans « URL de la feuille de style » et « URL du fichier de police » sous Réglages › Polices',
+  remedySource: 'Le service de polices n’a pas fourni de fichier pour cette police. Vérifiez le nom de famille et la graisse, ou les adresses de miroir dans les Réglages',
+  remedyIntegrity: 'Le téléchargement n’est pas une police utilisable (nom de famille incorrect, fichier illisible ou trop volumineux). Le fichier incorrect a été supprimé ; choisissez un autre miroir et téléchargez à nouveau', remedyNoSpace: 'Le disque du Runtime Home est plein. Libérez de l’espace, puis téléchargez à nouveau',
+  diskFullWriting: (p) => `Le disque s’est rempli pendant l’écriture de ${p.what}`, sourceHttpStatus: (p) => `Le service de polices a renvoyé HTTP ${p.status} pour ${p.what}`, downloadFailed: (p) => `Le téléchargement de ${p.what} a échoué : ${p.reason}`, overByteLimit: (p) => `${p.what} dépasse la limite de ${p.limit} octets`,
+  downloadCancelled: 'Téléchargement de police annulé', cancelled: 'Téléchargement annulé', offlineStrict: 'Les polices ne sont pas téléchargées en mode hors ligne strict', autoDownloadOff: 'Le téléchargement automatique des polices est désactivé (« Télécharger les polices automatiquement » dans Réglages › Polices)',
+  downloadFailedOutcome: (p) => `Échec du téléchargement : ${p.reason}`, notInCatalogue: (p) => `« ${p.family} » n’est pas dans le catalogue de polices`, noNeedToDownload: (p) => `« ${p.family} » ${p.bundled ? 'est fourni avec l’application' : 'est déjà installé sur cet ordinateur'} ; aucun téléchargement nécessaire`,
+  inUseByExport: (p) => `« ${p.family} » est utilisé par un export non terminé. Supprimez-le après la fin de l’export`, sampleLabel: (p) => `l’exemple ${p.family}`, sampleCss: (p) => `la feuille de style de ${p.label}`,
+  noSampleBlock: (p) => `La réponse du service de polices ne contient pas ${p.label}`, sampleNotOnHost: (p) => `${p.label} ne se trouve pas sur l’hôte de fichiers de polices configuré`, sampleNotUsable: (p) => `${p.label} téléchargé n’est pas une police utilisable`,
+  faceLabel: (p) => `${p.family} ${p.weight}${p.italic ? ' Italique' : ''}`, faceCss: (p) => `la feuille de style de police pour ${p.label}`, noFaceBlock: (p) => `La réponse du service de polices ne contient pas ${p.label}`,
+  faceSplit: (p) => `Le service de polices a divisé ${p.label} en sous-ensembles par caractère, que BaoCut ne peut pas encore fusionner`, faceNotOnHost: (p) => `Le fichier de ${p.label} ne se trouve pas sur l’hôte de fichiers de polices configuré`, faceNotUsable: (p) => `${p.label} téléchargé n’est pas une police utilisable`, familyMismatch: (p) => `Le nom de famille de ${p.label} téléchargé ne correspond pas`,
+};

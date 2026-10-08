@@ -1,0 +1,27 @@
+import type { TranscribeSetupMessages } from './transcribe-copy.ts';
+
+export const zhHans: TranscribeSetupMessages = {
+  title: '转录设置',
+  language: '语言',
+  model: '语音模型',
+  manageModels: '管理语音模型',
+  modelsLoading: '正在读取语音模型…',
+  noDefault: '还没有默认的语音模型',
+  hint: '识别提示',
+  glossary: '术语表',
+  manageGlossary: '管理术语表',
+  glossaryLoading: '正在读取术语表…',
+  glossaryEmpty: '还没有转录术语表。在设置 › 术语表里建一张，记下专有名词的规范写法。',
+  glossaryFailed: (message: string) => `读不出这个视频启用的术语表：${message}`,
+  glossaryNote: '勾选即在这个视频启用：以后每次转录都用；能撤销。',
+  glossaryReadOnly: '这个视频现在不能编辑，启用的术语表改不了。',
+  glossaryLimit: (n: number) => `一个视频最多启用 ${n} 张术语表`,
+  glossaryOn: (name: string) => `已在这个视频启用「${name}」`,
+  glossaryOff: (name: string) => `已停用「${name}」`,
+  glossaryWriteFailed: (message: string) => `没能改启用的术语表：${message}`,
+  undo: '撤销',
+  prompt: '自定义提示词',
+  promptPlaceholder: '可不填。例如：这是一期关于大模型推理优化的中文播客，主持人林澈，嘉宾周远。',
+  how: '提示词与启用的术语表（规范写法）合在一起交给语音模型，帮它认对专有名词；合计超过上限时，排在后面的术语舍去。',
+  reuse: '已经转写过的素材直接用那份转写，这些设置只对要转录的素材生效。',
+};

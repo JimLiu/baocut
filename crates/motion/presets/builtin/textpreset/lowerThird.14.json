@@ -1,0 +1,148 @@
+{
+  "id": "lowerThird.14",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "lowerThird",
+  "order": 314,
+  "duration": 3.63,
+  "content": [
+    {
+      "kind": "text",
+      "place": {
+        "x": 21.51,
+        "y": 61.5,
+        "w": 34.03
+      },
+      "text": "MICHAEL ARNOLD",
+      "style": {
+        "backgroundColor": "#ffffffff",
+        "backgroundPadding": 3.9,
+        "backgroundStyle": "wrap",
+        "borderRadius": 4.6,
+        "fontColor": "#323232ff",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 15.4,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.0,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "slideR",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "slideL",
+          "dur": 0.6
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 21.51,
+        "y": 66.74,
+        "w": 34.19
+      },
+      "text": "CREATIVE PRODUCER",
+      "style": {
+        "backgroundColor": "#ffffffff",
+        "backgroundPadding": 3.9,
+        "backgroundStyle": "wrap",
+        "borderRadius": 4.6,
+        "fontColor": "#323232ff",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 15.4,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.0,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "slideL",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "slideR",
+          "dur": 0.6
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 20.05,
+        "y": 71.9,
+        "w": 31.33
+      },
+      "text": "@ MVO",
+      "style": {
+        "backgroundColor": "#5544ccff",
+        "backgroundPadding": 3.9,
+        "backgroundStyle": "wrap",
+        "borderRadius": 4.6,
+        "fontColor": "#ffffffff",
+        "fontFamily": "Inter",
+        "fontSize": 15.4,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.0,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "slideR",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "slideL",
+          "dur": 0.6
+        }
+      }
+    }
+  ]
+}

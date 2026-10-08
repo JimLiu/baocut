@@ -1,0 +1,61 @@
+{
+  "id": "elHeartbeat",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "loop",
+  "order": 15,
+  "period": 2.0,
+  "keyframes": [
+    {
+      "at": 0
+    },
+    {
+      "at": 0.2,
+      "ease": "easeOutSine",
+      "scaleX": 0.8,
+      "scaleY": 0.8
+    },
+    {
+      "at": 0.72,
+      "ease": "easeInSine",
+      "scaleX": 1.0,
+      "scaleY": 1.0
+    },
+    {
+      "at": 0.8,
+      "ease": "easeInOutSine",
+      "scaleX": 1.2,
+      "scaleY": 1.2
+    },
+    {
+      "at": 0.82,
+      "ease": "easeInSine",
+      "scaleX": 1.0,
+      "scaleY": 1.0
+    },
+    {
+      "at": 0.9,
+      "ease": "easeInOutSine",
+      "scaleX": 1.1,
+      "scaleY": 1.1
+    },
+    {
+      "at": 0.999,
+      "ease": "easeInOutSine",
+      "scaleX": 1.0,
+      "scaleY": 1.0
+    },
+    {
+      "at": 1,
+      "ease": "easeInOutSine"
+    }
+  ],
+  "basis": {
+    "dx": "selfWidth",
+    "dy": "selfHeight"
+  },
+  "surface": "element",
+  "determinism": "strict",
+  "available": true
+}

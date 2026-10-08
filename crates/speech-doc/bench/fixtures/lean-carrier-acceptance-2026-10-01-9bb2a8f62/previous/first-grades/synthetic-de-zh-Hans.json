@@ -1,0 +1,200 @@
+{
+  "diagnostics": {
+    "warnings": [
+      {
+        "code": "marker-residue",
+        "detail": "3 echoed piece mark(s) `¦` removed from the answer and kept as cut hints",
+        "scope": {
+          "kind": "document"
+        }
+      }
+    ]
+  },
+  "issues": [],
+  "mode": "lean",
+  "pageRejected": false,
+  "retryIds": [],
+  "rows": [
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              5
+            ],
+            "tgt": [
+              0,
+              10
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              13
+            ],
+            "tgt": [
+              10,
+              24
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "只有在第二稿的负责人",
+            "to": 5
+          },
+          {
+            "from": 6,
+            "text": "批准之后，才把文件发给安娜。",
+            "to": 13
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13"
+        ]
+      },
+      "chunks": 2,
+      "coarse": true,
+      "frozen": false,
+      "id": "de-07",
+      "issues": [],
+      "locatedChunks": 2,
+      "minChunks": 3,
+      "n": 1,
+      "realTiming": false,
+      "source": "Sende Anna die Datei nur dann, wenn die Leitung der zweiten Fassung zugestimmt hat.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "只有在第二稿的负责人批准之后，才把文件发给安娜。"
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              4
+            ],
+            "tgt": [
+              0,
+              12
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              5,
+              8
+            ],
+            "tgt": [
+              12,
+              18
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              9,
+              12
+            ],
+            "tgt": [
+              18,
+              21
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "我们买了2.5公斤大米；",
+            "to": 4
+          },
+          {
+            "from": 5,
+            "text": "晚饭后还剩下一半。",
+            "to": 12
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12"
+        ]
+      },
+      "chunks": 3,
+      "coarse": false,
+      "frozen": false,
+      "id": "de-08",
+      "issues": [],
+      "locatedChunks": 3,
+      "minChunks": 1,
+      "n": 2,
+      "realTiming": false,
+      "source": "Wir kauften 2,5 Kilogramm Reis; nach dem Abendessen war noch die Hälfte übrig.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "我们买了2.5公斤大米；晚饭后还剩下一半。"
+    }
+  ],
+  "schema": "lean-carrier-grade/2",
+  "totals": {
+    "acceptedTranslations": 2,
+    "aligned": 2,
+    "chunks": 5,
+    "coarse": 0,
+    "expectedSentences": 2,
+    "locatedChunks": 5,
+    "sentencesWithAnchorIssues": 0,
+    "syntaxOrPermissionIssues": 0,
+    "translationRetries": 0
+  }
+}

@@ -1,0 +1,57 @@
+/* 用量页（product-design §7.6）：花费、统计格、按天的柱状图（div 高度，按能力分色堆叠）与拆分列表。 */
+.use-page { display: flex; flex-direction: column; min-width: 0; }
+.use-page p { margin: 0; }
+.use-head { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
+.use-head__t { flex: 1 1 auto; min-width: 0; }
+.use-head__t h1 { margin: 0 0 8px; font-size: 22px; font-weight: 700; line-height: 1.3; color: var(--gray-900); }
+.use-head__t p { font-size: 14px; line-height: 1.5; color: var(--gray-600); }
+.use-head__cost { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.use-pill { display: inline-flex; align-items: center; min-height: 24px; padding: 2px 12px; border-radius: 9999px; background: var(--gray-100); color: var(--gray-900); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.use-bar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
+
+.use-bal { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin-bottom: 16px; }
+.use-bal__card { display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; border: 1px solid var(--gray-200); border-radius: 8px; }
+.use-bal__card b { font-size: 18px; font-weight: 700; color: var(--gray-900); }
+
+.use-tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-bottom: 24px; }
+.use-tile { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 12px 16px; border: 1px solid var(--gray-200); border-radius: 8px; }
+.use-tile b { font-size: 18px; font-weight: 700; color: var(--gray-900); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+.use-card { padding-block: 12px; }
+.use-chart { display: flex; flex-direction: column; gap: 8px; }
+.use-bars { display: flex; align-items: flex-end; gap: 4px; height: 160px; }
+.use-bars.is-dense { gap: 2px; }
+.use-bar { flex: 1 1 0; min-width: 0; height: 100%; display: flex; align-items: flex-end; }
+.use-bar__stack { width: 100%; min-height: 2px; display: flex; flex-direction: column-reverse; border-radius: 3px; overflow: hidden; }
+.use-bar__stack .use-seg { display: block; flex-basis: 0; min-height: 1px; }
+.use-axis { display: flex; justify-content: space-between; }
+.use-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.use-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.use-legend .use-seg, .use-row__nm .use-seg { display: inline-block; width: 8px; height: 8px; border-radius: 3px; flex: none; }
+.use-seg.is-text { background: var(--blue-800); }
+.use-seg.is-asr { background: var(--seafoam-700); }
+.use-seg.is-tts { background: var(--purple-700); }
+.use-seg.is-image { background: var(--orange-600); }
+
+.use-split-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.use-split-head h2 { flex: 1 1 auto; margin: 0; font-size: 14px; font-weight: 500; }
+.use-row { display: grid; grid-template-columns: minmax(0, 2fr) 96px minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 1.6fr); align-items: center; gap: 12px; min-height: 40px; padding: 4px 0; border-bottom: 1px solid var(--gray-100); }
+.use-row:last-child { border-bottom: none; }
+.use-row--head { min-height: 28px; }
+.use-row__nm { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.use-row__nm b { font-size: 14px; font-weight: 500; color: var(--gray-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.use-page .use-row__link { height: auto; padding: 0 4px; margin-inline-start: -4px; font-weight: 500; }
+.use-row__unk { color: var(--orange-900); }
+.use-share { display: block; height: 6px; border-radius: 9999px; background: var(--gray-100); overflow: hidden; }
+.use-share > span { display: block; height: 100%; background: var(--blue-800); }
+.use-note { margin-top: 8px; }
+.use-empty { display: flex; flex-direction: column; gap: 8px; padding: 32px 16px; border: 1px dashed var(--gray-300); border-radius: 8px; text-align: center; align-items: center; }
+
+@container settings (max-width: 560px) {
+  .use-head { flex-direction: column; }
+  .use-head__cost { align-items: flex-start; }
+  .use-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .use-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .use-row > :nth-child(3), .use-row > :nth-child(4) { display: none; }
+  .use-row > :nth-child(5) { grid-column: 1 / -1; }
+}

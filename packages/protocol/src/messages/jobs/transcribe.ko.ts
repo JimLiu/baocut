@@ -1,0 +1,38 @@
+import type { JobsTranscribeMessages } from './transcribe.ts';
+
+export const ko: JobsTranscribeMessages = {
+  label: '전사',
+  description:
+    '동영상의 소재를 전사하고(또는 동영상을 만들고 로컬 미디어 파일을 가져와) 전사본을 쓰고 자막 레이어를 만듭니다. 동영상에 그 소재의 전사본이 이미 있으면 결과를 새 동영상에 넣거나(기본값) 현재 전사본을 대체하고 번역, 자막, 더빙을 이어 받습니다. 파일만 지정하면 동영상을 만들지 않고 TXT와 SRT를 저장 위치에 씁니다.',
+  cannotCreateVideo: '이 Runtime은 영상을 만들 수 없습니다',
+  videoNotOpen: '영상이 열려 있지 않습니다',
+  stepCreate: '영상 만들기',
+  stepTranscribe: '전사',
+  importMediaLabel: '미디어 가져오기',
+  fileExcludesVideo: 'videoId나 target과 함께 지정할 수 없습니다',
+  assetIdWithFile: '파일과 함께 지정할 수 없습니다: 파일 자체를 전사합니다',
+  captionsWithFile: '파일에는 적용되지 않습니다: 영상이 없으면 자막 레이어도 없습니다',
+  diarizeWithFile: '파일에는 적용되지 않습니다: 화자를 구분하지 않습니다',
+  outDirFileOnly: '파일과 함께일 때만 지정할 수 있습니다',
+  assetIdWithCreate: '영상을 만들 때는 지정할 수 없습니다: 가져온 미디어를 전사합니다',
+  needVideoOrFile: 'videoId, target, file 중 하나를 지정하세요',
+  createMediaRequired: '필수입니다: 새 영상에 가져와 전사할 미디어 파일입니다',
+  fileShape: '절대 경로이거나 { entryId } 형식이어야 합니다',
+  cannotTranscribeFile: '이 Runtime은 영상 없이 파일을 전사할 수 없습니다',
+  mediaToTranscribeNotFound: '전사할 미디어 파일을 찾을 수 없습니다',
+  mediaToImportNotFound: '가져올 미디어 파일을 찾을 수 없습니다',
+  noVideo: '전사할 영상이 없습니다',
+  notApplied: '전사는 끝났지만 영상에 쓰지 않았습니다',
+  videoClosed: '영상이 닫혀 아무것도 전사하지 않았습니다: 영상을 연 뒤 다시 시도하세요',
+  noMainAsset: '메인 트랙에 오디오나 영상 소재가 없습니다: 전사할 소재(assetId)를 지정하세요',
+  ambiguousMainAsset: '메인 트랙에 소재가 둘 이상 있습니다: 전사할 소재(assetId)를 지정하세요',
+  retranscribedName: (p: { name: string }) => `${p.name} · 다시 전사`,
+  transcriptEdited:
+    '전사 후 원문이 편집되었습니다. 대체하면 그 편집이 사라집니다: destination을 new-video로 하거나 acceptEdited: true를 지정해 그래도 대체하세요',
+  transcriptEditedSinceSubmit: '이번 실행을 시작한 뒤 원문이 바뀌어 대체하지 않았습니다: 전사를 다시 시작하세요',
+  landingNeedsVideo: '기존 동영상({ videoId } 또는 { entryId })에만 지정할 수 있습니다',
+  nameNewVideoOnly: 'destination이 new-video일 때만 지정할 수 있습니다',
+  replaceOnly: 'destination이 replace일 때만 지정할 수 있습니다',
+  transcriptUnreadable: '현재 전사본을 읽을 수 없어 편집 여부를 확인할 수 없습니다',
+  replaceDocumentGone: '대체할 전사본이 더 이상 동영상에 없습니다',
+};

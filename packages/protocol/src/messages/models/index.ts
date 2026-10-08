@@ -1,0 +1,22 @@
+/** `packages/models` 给人看的文字（message-ref.ts）。每个区域一个 `<区域>.ts` 与它的译文 `<区域>.zh-Hans.ts`，在这里 import 登记。 */
+import './asr-result.ts';
+import './bundle-registry.ts';
+import './download-source.ts';
+import './generation-options.ts';
+import './image-bundles.ts';
+import './image-self-test.ts';
+import './local-image.ts';
+import './local-source.ts';
+import './local-speech.ts';
+import './model-assets.ts';
+import './model-catalog.ts';
+import './model-downloader.ts';
+import './model-installer.ts';
+import './model-selection.ts';
+import './model-service-store.ts';
+import './model-services.ts';
+import './separation-self-test.ts';
+import './speech-bundles.ts';
+import './speech-self-test.ts';
+import './text-generation.ts';
+import './usage-report.ts';

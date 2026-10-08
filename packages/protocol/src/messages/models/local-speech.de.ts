@@ -1,0 +1,26 @@
+import type { ModelsLocalSpeechMessages } from './local-speech.ts';
+
+export const de: ModelsLocalSpeechMessages = {
+  paceQwen06: "etwa 55-mal langsamer als Echtzeit; ein 3-Sekunden-Satz dauert zwei bis drei Minuten",
+  paceQwen17: "voraussichtlich langsamer als 0.6B (etwa 55-mal langsamer als Echtzeit); dieses Modell wurde noch nicht gemessen",
+  paceIndexTts2: "voraussichtlich etwa gleich wie IndexTTS 2.5 (120–145-mal langsamer als Echtzeit); dieses Modell wurde noch nicht gemessen",
+  paceIndexTts25: "120–145-mal langsamer als Echtzeit; ein vier- oder fünfsekündiger Satz dauert sieben bis zehn Minuten",
+  paceGptSovits: "etwa 6-mal langsamer als Echtzeit; ein 4-Sekunden-Satz dauert etwa eine halbe Minute",
+  paceVoxcpm2: "größtes Modell; jeder Satz benötigt voraussichtlich mehrere Minuten; dieses Modell wurde noch nicht gemessen",
+  paceOmnivoice: "etwa 30-mal langsamer als Echtzeit; ein 4-Sekunden-Satz dauert etwa zwei Minuten",
+  paceDefault: "jeder Satz dauert einige Minuten",
+  cpuNote: (p: { pace: string }) => `Synthetisiert auf der CPU dieses Computers mit nur einem oder zwei Kernen: ${p.pace}. Mit einer NVIDIA-GPU (CUDA) sollte es deutlich schneller gehen (nicht gemessen)`,
+  oneVoiceSource: "Nur einen der Werte voice, reference oder voiceDescription angeben",
+  modeUnsupported: (p: { modelId: string; what: string; mode: string }) => `Modell ${p.modelId} unterstützt nicht ${p.what} (${p.mode})`,
+  modeClone: "Klonen aus einer Referenzaufnahme",
+  modeDescribe: "Erstellen einer Stimme aus einer Beschreibung",
+  noReferenceTranscript: (p: { modelId: string }) => `Modell ${p.modelId} liest das Transkript der Referenzaufnahme nicht (reference.transcript)`,
+  descriptionEmpty: "Die Beschreibung darf nicht leer sein",
+  noPresetVoice: (p: { modelId: string; need: string }) => `Modell ${p.modelId} hat keine voreingestellten Stimmen; angeben: ${p.need}`,
+  noSuchVoice: (p: { modelId: string; voice: string }) => `Modell ${p.modelId} hat keine Stimme ${p.voice}`,
+  noDefaultVoice: (p: { modelId: string }) => `Modell ${p.modelId} hat keine Standardstimme; voice angeben`,
+  termNotInVocabulary: (p: { modelId: string; term: string }) => `Stimmbeschreibungen für Modell ${p.modelId} akzeptieren nur Wörter aus dessen Vokabular: „${p.term}“ gehört nicht dazu`,
+  onePerCategory: (p: { modelId: string; category: string }) => `Stimmbeschreibungen für Modell ${p.modelId} akzeptieren höchstens einen Begriff pro Kategorie (${p.category})`,
+  builtinReferenceLabel: "integrierte Stimmaufnahme",
+  referenceUnreadable: (p: { name: string }) => `Referenzaufnahme konnte nicht gelesen werden: „${p.name}“: fehlt, ist keine Datei oder ist nicht lesbar. Eine andere Aufnahme versuchen`,
+};

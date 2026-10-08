@@ -1,0 +1,46 @@
+{
+  "id": "motion.scaleIn",
+  "version": 1,
+  "domain": "motion",
+  "family": "scaleIn",
+  "doc": "缩放入场（可选淡入）。",
+  "aliases": [
+    "scaleIn"
+  ],
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "scaleFrom": {
+      "type": "number",
+      "default": 0.7,
+      "min": 0.0,
+      "doc": "起始缩放"
+    },
+    "curve": {
+      "type": "curve",
+      "default": "easeOutCubic",
+      "doc": "时间曲线（规范 §7.6 的封闭名称）"
+    },
+    "fade": {
+      "type": "bool",
+      "default": true,
+      "doc": "是否同时淡入/淡出"
+    }
+  },
+  "compose": [
+    {
+      "preset": "motion.zoomIn",
+      "params": {
+        "scaleFrom": "{scaleFrom}",
+        "curve": "{curve}"
+      }
+    },
+    {
+      "preset": "motion.fadeIn",
+      "when": "{fade}"
+    }
+  ],
+  "determinism": "strict",
+  "capabilities": []
+}

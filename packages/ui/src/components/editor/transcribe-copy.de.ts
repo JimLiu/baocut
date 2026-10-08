@@ -1,0 +1,27 @@
+import type { TranscribeSetupMessages } from './transcribe-copy.ts';
+
+export const de: TranscribeSetupMessages = {
+  title: "Transkriptionseinstellungen",
+  language: "Sprache",
+  model: "Sprachmodell",
+  manageModels: "Sprachmodelle verwalten",
+  modelsLoading: "Sprachmodelle werden geladen…",
+  noDefault: "Noch kein Standard-Sprachmodell",
+  hint: "Erkennungshinweise",
+  glossary: "Glossar",
+  manageGlossary: "Glossare verwalten",
+  glossaryLoading: "Glossare werden geladen…",
+  glossaryEmpty: "Noch keine Transkriptionsglossare. Unter Einstellungen › Glossar ein Glossar mit der richtigen Schreibweise von Namen und Begriffen erstellen.",
+  glossaryFailed: (message: string) => `Für dieses Video aktivierte Glossare konnten nicht gelesen werden: ${message}`,
+  glossaryNote: "Ein Glossar auswählen, um es für dieses Video zu aktivieren; jede spätere Transkription verwendet es. Rückgängig zu machen.",
+  glossaryReadOnly: "Dieses Video kann derzeit nicht bearbeitet werden; aktivierte Glossare können nicht geändert werden.",
+  glossaryLimit: (n: number) => `Ein Video darf höchstens enthalten: ${n} aktivierte Glossare`,
+  glossaryOn: (name: string) => `Aktiviert: „${name}“ für dieses Video`,
+  glossaryOff: (name: string) => `Deaktiviert: „${name}“`,
+  glossaryWriteFailed: (message: string) => `Aktivierte Glossare konnten nicht geändert werden: ${message}`,
+  undo: "Rückgängig machen",
+  prompt: "Eigener Prompt",
+  promptPlaceholder: "Optional. Zum Beispiel: Ein englischer Podcast über die Optimierung von LLM-Inferenz, moderiert von Lin Che mit Gast Zhou Yuan.",
+  how: "Prompt und aktivierte Glossare (richtige Schreibweisen) werden zusammen an das Sprachmodell übergeben, um Namen und Begriffe besser zu erkennen. Bei Überschreitung des Limits werden Begriffe am Ende weggelassen.",
+  reuse: "Bereits transkribierte Materialien verwenden dieses Transkript erneut; diese Einstellungen gelten nur für noch zu transkribierende Materialien.",
+};

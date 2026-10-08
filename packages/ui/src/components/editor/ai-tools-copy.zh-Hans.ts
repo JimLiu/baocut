@@ -1,0 +1,71 @@
+import type { AiToolsMessages } from './ai-tools-copy.ts';
+
+export const zhHans: AiToolsMessages = {
+  back: '返回',
+
+  // 设置态
+  who: '用',
+  whoAgent: '交给 Agent',
+  whoAgentSub: '在这个视频的会话里进行',
+  whoModel: '直接调模型',
+  whoModelSub: '这一项 Runtime 还没有对应的流程，只能交给 Agent',
+  scope: '范围',
+  scopeAll: '整篇',
+  scopeChapter: (index: number, label: string) => `第 ${index} 章 · ${label}`,
+  scopeNoChapters: '时间线上还没有章节，只能整篇',
+  byAgent: '由 Agent 完成',
+  preview: '会发给 Agent 的这句话',
+  cta: '交给 Agent',
+  ctaHint: '按下就把上面这句话发到这个视频的会话里，Agent 随即开始；要改的话先在上面调好。',
+  ctaNoVideo: '视频还没打开，交不出去。',
+  sent: '已交给 Agent · 在会话里进行',
+  queued: 'Agent 正在忙 · 这句话已排队，等这一轮结束再发',
+  sendFailed: (message: string) => `没能发送：${message}`,
+  noConversation: '这个视频不在任何项目或会话里，没法交给 Agent。',
+  createFailed: (message: string) => `没能新建会话：${message}`,
+
+  // 勾选项与自定义
+  prePolish: '先润色一遍（自动分段）',
+  prePolishOn: '章节按段落聚合',
+  prePolishOff: '还没润色过的文稿只有 1 段，章节会很粗',
+  noteTitle: '自定义指令（可选）',
+  notePlaceholder: '补充要求，比如保留口语感、不要改品牌名…',
+  staleEdited: '原文改过的句子',
+  staleEditedSub: '你在文稿里改过字，译文还是旧的',
+  staleCut: '原文被剪切的句子',
+  staleCutSub: '剪口播剪掉了半句；按剪后的原文重译',
+  staleNone: '至少勾一类',
+  staleOnly: (language: string) => `只处理${language}这一份译文`,
+  retranscribeModel: '用哪个语音模型由 Agent 按本机装好的模型挑；想指定就写在下面的指令里。',
+  /** 重新转录「更多选项」开着识别说话人、要由「说话人区分」来做时，加进发给 Agent 的那句话（设计稿 panel-aitools.jsx）。 */
+  retranscribeSpeakers: '转写后识别说话人',
+
+  // 写作与发布
+  length: '篇幅',
+  style: '风格',
+  styleCustom: '怎么写，用你自己的话说',
+  view: '视角',
+  viewAuto: '自动：由 Agent 按视频来源判断',
+  language: '语言',
+  languageWrite: '跟界面语言',
+  languagePublish: '跟文稿',
+  platform: '发到哪',
+  platformPlaceholder: '要发的平台，可空；按它的规定写，写完提醒你核对',
+  titleCount: '候选数',
+  titleCountNote: (min: number, max: number) => `${min}–${max} 个，角度各不相同`,
+  coverCount: '出几张',
+  coverIdea: '要说的一件事',
+  coverIdeaPlaceholder: '这支视频最想让人点开的那一点；可空，空着就让 Agent 从文稿里找',
+  coverRatio: '画幅',
+  coverRatioProject: '跟视频画布',
+  coverText: '封面字',
+  writeNote: '还有什么要求（可选）',
+  writeNotePlaceholder: '比如开头先讲结论、提一下嘉宾的名字',
+  titleNote: '一句要求（可选）',
+  titleNotePlaceholder: '比如别用问句、把嘉宾的名字放进去',
+  coverNotePlaceholder: '比如别用红色、人物放右边',
+
+  // 还做不了的
+  soon: '即将推出',
+  chaptersPolishFirst: '先润色并分段，再生成章节',
+};

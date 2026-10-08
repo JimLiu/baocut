@@ -1,0 +1,86 @@
+{
+  "id": "motion.wipeParts",
+  "version": 1,
+  "domain": "motion",
+  "family": "wipeParts",
+  "appliesTo": "part",
+  "doc": "逐 part 侧向擦入（位移 + 淡入的近似）。真正的裁切式 wipe 需要 clipPath 通道，见阶段 4。",
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "direction": {
+      "type": "enum",
+      "options": [
+        "left",
+        "right"
+      ],
+      "default": "left",
+      "doc": "擦入方向（'left' = 从左侧进入）"
+    },
+    "distance": {
+      "type": "length",
+      "default": {
+        "value": 0.02,
+        "basis": "canvasShortEdge"
+      },
+      "doc": "起始横向位移"
+    },
+    "curve": {
+      "type": "curve",
+      "default": "easeOutQuart",
+      "doc": "时间曲线（规范 §7.6 的封闭名称）"
+    }
+  },
+  "defaults": {
+    "dur": 0.3
+  },
+  "tracks": [
+    {
+      "prop": "x",
+      "composite": "add",
+      "order": 0,
+      "frames": [
+        {
+          "t": "0%",
+          "v": {
+            "case": "{direction}",
+            "of": {
+              "left": {
+                "length": "{distance}",
+                "scale": -1
+              },
+              "right": {
+                "length": "{distance}",
+                "scale": 1
+              }
+            }
+          }
+        },
+        {
+          "t": "100%",
+          "v": 0,
+          "ease": "{curve}"
+        }
+      ]
+    },
+    {
+      "prop": "opacity",
+      "composite": "multiply",
+      "order": 10,
+      "frames": [
+        {
+          "t": "0%",
+          "v": 0
+        },
+        {
+          "t": "100%",
+          "v": 1,
+          "ease": "{curve}"
+        }
+      ]
+    }
+  ],
+  "determinism": "strict",
+  "capabilities": []
+}

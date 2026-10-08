@@ -1,0 +1,27 @@
+import type { TranscribeSetupMessages } from './transcribe-copy.ts';
+
+export const ko: TranscribeSetupMessages = {
+  title: '전사 설정',
+  language: '언어',
+  model: '음성 모델',
+  manageModels: '음성 모델 관리',
+  modelsLoading: '음성 모델을 불러오는 중…',
+  noDefault: '아직 기본 음성 모델이 없습니다',
+  hint: '인식 힌트',
+  glossary: '용어집',
+  manageGlossary: '용어집 관리',
+  glossaryLoading: '용어집을 불러오는 중…',
+  glossaryEmpty: '아직 전사 용어집이 없습니다. 설정 › 용어집에서 하나 만들어 이름과 용어의 올바른 표기를 기록하세요.',
+  glossaryFailed: (message: string) => `이 영상에 켜 둔 용어집을 읽지 못했습니다: ${message}`,
+  glossaryNote: '용어집을 체크하면 이 영상에서 켜지고, 이후 모든 전사에 사용됩니다. 실행 취소할 수 있습니다.',
+  glossaryReadOnly: '지금은 이 영상을 편집할 수 없어서 켜 둔 용어집을 바꿀 수 없습니다.',
+  glossaryLimit: (n: number) => `영상 하나에 용어집은 최대 ${n}개까지 켤 수 있습니다`,
+  glossaryOn: (name: string) => `이 영상에서 “${name}” 용어집을 켰습니다`,
+  glossaryOff: (name: string) => `“${name}” 용어집을 껐습니다`,
+  glossaryWriteFailed: (message: string) => `켜 둔 용어집을 바꾸지 못했습니다: ${message}`,
+  undo: '실행 취소',
+  prompt: '사용자 지정 프롬프트',
+  promptPlaceholder: '선택 사항. 예: LLM 추론 최적화를 다루는 영어 팟캐스트, 진행자 Lin Che, 게스트 Zhou Yuan.',
+  how: '프롬프트와 켜 둔 용어집(올바른 표기)을 함께 음성 모델에 전달해 이름과 용어를 제대로 인식하도록 돕습니다. 한도를 넘으면 뒤쪽 용어부터 빠집니다.',
+  reuse: '이미 전사한 소재는 그 전사본을 그대로 쓰며, 이 설정은 아직 전사해야 하는 소재에만 적용됩니다.',
+};

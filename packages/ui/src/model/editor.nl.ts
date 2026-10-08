@@ -1,0 +1,2 @@
+import type { EditorMessages } from './editor.ts';
+export const nl: EditorMessages = { trackKind: { visual: 'Beeld', audio: 'Audio', subtitle: 'Ondertitels' }, counter: 'Teller', text: 'Tekst', shape: 'Vorm', composition: 'Compositie', caption: 'Ondertitels', asset: 'Media', elements: { sticker: 'Sticker', placeholder: 'Tijdelijke aanduiding', whiteboard: 'Whiteboard', progress: 'Voortgangsbalk', visualizer: 'Golfvorm', confetti: 'Confetti', draw: 'Tekening' }, seconds: (value) => `${value} s` };

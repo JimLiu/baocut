@@ -1,0 +1,154 @@
+{
+  "schema": 1,
+  "id": "creative-montage",
+  "version": "1.1.0",
+  "kind": "example",
+  "title": "创意混剪",
+  "summary": "一条素材丰富、高潮在后半段的混剪，展示剪辑与编程能力。",
+  "description": "镜头不重复，画面包装精致，声音一直延续到结尾，剪辑的重心放在后半段更强的高潮上。",
+  "language": "zh-CN",
+  "category": "editing",
+  "fields": [
+    {
+      "label": "混剪主题",
+      "hint": "混剪围绕什么展开",
+      "example": "一座城市从清晨到深夜"
+    },
+    {
+      "label": "手头的素材",
+      "hint": "附上的素材；没有可以写「没有，你来找或生成」",
+      "example": "没有，你来找或生成"
+    },
+    {
+      "label": "成片语言",
+      "hint": "画面文字与旁白用的语言"
+    }
+  ],
+  "author": "BaoCut",
+  "source": "official",
+  "license": "LicenseRef-BaoCut-Community-1.0",
+  "tags": [
+    "混剪",
+    "剪辑",
+    "节奏"
+  ],
+  "skills": [
+    "video-production"
+  ],
+  "cover": {
+    "file": "cover.jpg",
+    "tone": "orange",
+    "figure": "cards",
+    "kicker": "MONTAGE"
+  },
+  "preview": {
+    "file": "preview.mp4",
+    "beats": [
+      "快速铺开的开场",
+      "多样素材交替",
+      "层层推高",
+      "后半段的高潮"
+    ]
+  },
+  "verification": {
+    "date": "2026-10-04",
+    "version": "1.0.0",
+    "engine": "codex",
+    "input": "按提示词原样，末尾附两段说明：测试环境说明（成片语言用中文；没有配置语音合成、配乐、音效与视频生成，遇到没有配置的能力跳过并在最后说明；现有编辑操作做不出的画面可以直接渲染成视频文件再导入时间线）；素材说明（项目目录 media/ 下有 13 段短视频和一段音乐，都是公有领域或 CC0，可以直接使用）。一轮完成。",
+    "materials": [
+      {
+        "title": "Corona.Candle.webm",
+        "url": "https://commons.wikimedia.org/wiki/File:Corona.Candle.webm",
+        "license": "CC0-1.0",
+        "note": "烛光，开场"
+      },
+      {
+        "title": "Jellyfish Species- Hidden Ocean 2016- Chukchi Borderlands.webm",
+        "url": "https://commons.wikimedia.org/wiki/File:Jellyfish_Species-_Hidden_Ocean_2016-_Chukchi_Borderlands.webm",
+        "license": "Public-Domain",
+        "note": "水母"
+      },
+      {
+        "title": "Kombucha floating.webm",
+        "url": "https://commons.wikimedia.org/wiki/File:Kombucha_floating.webm",
+        "license": "CC0-1.0",
+        "note": "发酵罐"
+      },
+      {
+        "title": "Color sorter coffeebeans.webm",
+        "url": "https://commons.wikimedia.org/wiki/File:Color_sorter_coffeebeans.webm",
+        "license": "CC0-1.0",
+        "note": "咖啡果"
+      },
+      {
+        "title": "Anna's hummingbird (Calypte anna) in the rain.webm",
+        "url": "https://commons.wikimedia.org/wiki/File:Anna's_hummingbird_(Calypte_anna)_in_the_rain.webm",
+        "license": "CC0-1.0",
+        "note": "雨中蜂鸟"
+      },
+      {
+        "title": "Sunset timelapse on the beach in Libreville, Gabon.webm",
+        "url": "https://commons.wikimedia.org/wiki/File:Sunset_timelapse_on_the_beach_in_Libreville,_Gabon.webm",
+        "license": "CC0-1.0",
+        "note": "海边云，延时"
+      },
+      {
+        "title": "Klosterneuburg-Korneuburg-Timelapse.webm",
+        "url": "https://commons.wikimedia.org/wiki/File:Klosterneuburg-Korneuburg-Timelapse.webm",
+        "license": "CC0-1.0",
+        "note": "城市远景延时"
+      },
+      {
+        "title": "Railway crossing near Woodville.webm",
+        "url": "https://commons.wikimedia.org/wiki/File:Railway_crossing_near_Woodville.webm",
+        "license": "CC0-1.0",
+        "note": "列车"
+      },
+      {
+        "title": "Sunny waves at Cattle Point (40789227201).webm",
+        "url": "https://commons.wikimedia.org/wiki/File:Sunny_waves_at_Cattle_Point_(40789227201).webm",
+        "license": "Public-Domain",
+        "note": "礁石海浪"
+      },
+      {
+        "title": "Amazing Flame Comes to Life in Space Station Microgravity Combustion Science.webm",
+        "url": "https://commons.wikimedia.org/wiki/File:Amazing_Flame_Comes_to_Life_in_Space_Station_Microgravity_Combustion_Science.webm",
+        "license": "Public-Domain",
+        "note": "微重力火焰"
+      },
+      {
+        "title": "Fissure fountains feed lava flows, as shown in this overflight video of the F....webm",
+        "url": "https://commons.wikimedia.org/wiki/File:Fissure_fountains_feed_lava_flows,_as_shown_in_this_overflight_video_of_the_F....webm",
+        "license": "Public-Domain",
+        "note": "熔岩，高潮"
+      },
+      {
+        "title": "Sarychev Peak eruption on 12 June 2009, oblique satellite view.ogv",
+        "url": "https://commons.wikimedia.org/wiki/File:Sarychev_Peak_eruption_on_12_June_2009,_oblique_satellite_view.ogv",
+        "license": "Public-Domain",
+        "note": "火山喷发卫星图"
+      },
+      {
+        "title": "Aurora Australis from ISS 2011 - 1.ogv",
+        "url": "https://commons.wikimedia.org/wiki/File:Aurora_Australis_from_ISS_2011_-_1.ogv",
+        "license": "Public-Domain",
+        "note": "极光，结尾"
+      },
+      {
+        "title": "Ludwig van Beethoven - symphony no. 5 in c minor, op. 67 - iii. allegro.ogg",
+        "url": "https://commons.wikimedia.org/wiki/File:Ludwig_van_Beethoven_-_symphony_no._5_in_c_minor,_op._67_-_iii._allegro.ogg",
+        "license": "Public-Domain",
+        "note": "全片配乐，截取 42 秒"
+      }
+    ],
+    "capabilities": [
+      "synthesizeSpeech"
+    ],
+    "outcome": "pass",
+    "output": {
+      "ratio": "16:9",
+      "durationSeconds": 42
+    },
+    "notes": "确认：智能体自定主题「万物，向前」，13 个镜头各用一段不同素材，没有重复；先分析音乐，找到约 22 秒处的能量跃升作为分界，前 22 秒舒缓铺陈，22 秒后镜头缩短、动效加强，经城市、列车、海浪、微重力火焰推到熔岩与火山喷发的高潮，以极光和片名收尾，重心确实在后半段。音乐连续铺满 42 秒，到最后一帧仍有声音并淡出。包装是统一的中文动态字、章节标签和底部进度条，还裁掉了素材边缘的外文标注与机构水印。剪辑方式：每个镜头的变速、裁切与动态排版都由本机脚本烘焙成视频，音乐也先截成 42 秒，再在时间线上一条画面轨、一条音频轨首尾相接摆放并加章节；原始素材也一并导入了素材库。提示词里的旁白没有做（没有语音合成），智能体说明了；提示词没有把旁白写成必需，记 pass。导出一度因本机 CPU 繁忙排队，智能体结束时说明 MP4 尚未完成，之后导出自行完成，预览与封面取自这份 BaoCut 成片。模板改动：无。"
+  }
+}

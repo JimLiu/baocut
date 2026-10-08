@@ -1,0 +1,35 @@
+{
+  "id": "bolt",
+  "version": 1,
+  "domain": "sticker",
+  "namespace": "timeline",
+  "order": 5,
+  "layers": [
+    {
+      "fill": "#FACC15",
+      "segments": [
+        {"verb": "move", "pts": [[0.6, 0.02]]},
+        {"verb": "line", "pts": [[0.19, 0.56]]},
+        {"verb": "line", "pts": [[0.43, 0.56]]},
+        {"verb": "line", "pts": [[0.38, 0.98]]},
+        {"verb": "line", "pts": [[0.79, 0.44]]},
+        {"verb": "line", "pts": [[0.55, 0.44]]},
+        {"verb": "close"}
+      ]
+    },
+    {
+      "stroke": "#B45309",
+      "strokeWidth": 0.035,
+      "segments": [
+        {"verb": "move", "pts": [[0.6, 0.02]]},
+        {"verb": "line", "pts": [[0.19, 0.56]]},
+        {"verb": "line", "pts": [[0.43, 0.56]]},
+        {"verb": "line", "pts": [[0.38, 0.98]]},
+        {"verb": "line", "pts": [[0.79, 0.44]]},
+        {"verb": "line", "pts": [[0.55, 0.44]]},
+        {"verb": "close"}
+      ]
+    }
+  ],
+  "available": true
+}

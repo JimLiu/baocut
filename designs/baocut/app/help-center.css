@@ -1,0 +1,73 @@
+/* Spectrum 2 帮助阅读层；编辑器保持挂载，内容自身滚动。 */
+.help-center { width: min(960px, calc(100vw - 48px)); height: min(716px, calc(100dvh - 48px)); max-width: none; max-height: none; padding: 0; border: 1px solid var(--gray-300); border-radius: 16px; background: var(--gray-25); color: var(--gray-800); box-shadow: var(--sh-elev); overflow: hidden; }
+.help-center::backdrop { background: color-mix(in srgb, var(--gray-1000) 32%, transparent); }
+.help-center h1 { margin: 0; font-size: 16px; font-weight: 800; }
+.help-center h2 { margin: 0; font-size: 22px; color: var(--gray-900); font-weight: 800; line-height: 1.3; }
+.help-center h3 { margin: 0; font-size: 14px; color: var(--gray-900); font-weight: 700; }
+.help-center p { margin: 8px 0 0; line-height: 1.6; color: var(--gray-700); }
+.help-header { height: 64px; padding: 0 20px 0 24px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid var(--gray-200); }
+.help-layout { display: flex; height: calc(100% - 64px); min-height: 0; }
+.help-nav { width: 180px; flex: none; display: flex; flex-direction: column; padding: 24px 12px 16px; background: var(--gray-75); border-right: 1px solid var(--gray-200); }
+.help-nav > .t-section { margin: 0 12px 12px; }
+.help-nav .siderow { flex: none; width: 100%; margin: 2px 0; }
+.help-nav-note { display: flex; align-items: flex-start; gap: 8px; margin: 20px 8px 0; font-size: 11px; line-height: 1.6; color: var(--gray-600); }
+.help-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.help-search { position: relative; padding: 20px 28px 0; flex: none; }
+.help-search > .ic { position: absolute; left: 40px; top: 32px; color: var(--gray-600); pointer-events: none; }
+.help-search .field { width: 100%; height: 40px; padding-left: 36px; padding-right: 40px; }
+.help-search > .tipw { position: absolute; right: 36px; top: 28px; }
+.help-content { flex: 1; min-height: 0; padding: 24px 28px; }
+.help-eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--blue-1000); }
+.help-welcome h2 { font-size: 28px; margin-top: 8px; letter-spacing: -0.02em; }
+.help-welcome p { margin: 8px 0 20px; }
+.help-duration { display: inline-block; margin-left: 12px; font-size: 12px; color: var(--gray-600); }
+.help-path { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 24px 0 28px; }
+.help-path button { min-width: 0; padding: 16px 12px; border: 1px solid var(--gray-200); border-radius: 10px; background: var(--gray-75); cursor: pointer; transition: background-color 150ms cubic-bezier(0.45,0,0.4,1); }
+.help-path button:hover { background: var(--gray-100); border-color: var(--gray-400); }
+.help-path .ic { color: var(--blue-1000); }
+.help-path strong { display: block; margin: 16px 0 6px; font-weight: 700; color: var(--gray-900); }
+.help-path .t-detail { font-size: 11px; }
+.help-section-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.help-section-heading h2 { font-size: 20px; }
+.help-link { display: inline-flex; align-items: center; gap: 4px; color: var(--blue-1000); font-size: 12px; cursor: pointer; }
+.help-link:hover { text-decoration: underline; }
+.help-list { border: 1px solid var(--gray-200); border-radius: 10px; overflow: hidden; }
+.help-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 16px; cursor: pointer; transition: background-color 150ms cubic-bezier(0.45,0,0.4,1); }
+.help-row + .help-row { border-top: 1px solid var(--gray-200); }
+.help-row:hover { background: var(--gray-75); }
+.help-row:focus-visible { outline-offset: -3px; }
+.help-row strong { display: block; font-size: 14px; font-weight: 700; color: var(--gray-900); }
+.help-row small { display: block; margin-top: 4px; font-size: 12px; line-height: 1.5; color: var(--gray-600); }
+.help-icon { display: grid; place-items: center; width: 32px; height: 32px; flex: none; color: var(--gray-700); }
+.help-readtime { flex: none; font-size: 11px; color: var(--gray-600); }
+.help-bottom-tip { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 20px; font-size: 12px; color: var(--gray-600); }
+.help-footer { display: flex; align-items: center; gap: 8px; padding: 12px 28px; border-top: 1px solid var(--gray-200); flex: none; }
+.help-article-heading { margin: 24px 0; }
+.help-article-heading h2 { margin-top: 8px; }
+.help-instructions { list-style: none; padding: 0; margin: 0; }
+.help-instructions li { display: flex; gap: 16px; margin: 24px 0; }
+.help-number { display: grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 999px; background: var(--gray-100); color: var(--gray-800); font-size: 12px; font-weight: 700; }
+.help-instructions h3 { line-height: 24px; }
+.help-instructions p { margin-top: 4px; }
+.help-note { display: flex; align-items: flex-start; gap: 8px; padding: 16px; border-radius: 10px; background: var(--blue-100); color: var(--blue-1000); }
+.help-note .ic { margin-top: 2px; }
+.help-note p { color: var(--blue-1000); font-size: 12px; margin: 0; }
+.help-article-action { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 24px; }
+.help-next { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--gray-200); padding-top: 20px; margin-top: 24px; font-size: 12px; color: var(--blue-1000); cursor: pointer; }
+.help-intro { margin-bottom: 24px !important; font-size: 12px; }
+.help-keys > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--gray-200); font-size: 12px; }
+.help-empty { display: flex; align-items: center; text-align: center; flex-direction: column; padding: 64px 20px; gap: 16px; }
+.help-empty p { max-width: 340px; margin: 0; font-size: 12px; }
+@media (max-width: 760px) {
+  .help-center { width: calc(100vw - 24px); height: calc(100dvh - 24px); }
+  .help-nav { width: 140px; padding: 20px 8px; }
+  .help-nav-note { display: none; }
+  .help-content { padding: 20px; }
+  .help-path { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .help-search { padding: 16px 20px 0; }
+  .help-search > .ic { left: 32px; top: 28px; }
+  .help-search > .tipw { right: 28px; top: 24px; }
+  .help-readtime { display: none; }
+  .help-welcome h2 { font-size: 22px; }
+  .help-duration { display: block; margin: 12px 0 0; }
+}

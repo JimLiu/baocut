@@ -1,0 +1,25 @@
+import type { ToolsImageMessages } from './tools-image-copy.ts';
+
+export const ja: ToolsImageMessages = {
+  emptyPrompt: '先に描きたい画像を説明してください',
+  promptTooLong: (n, max) => `プロンプト ${n} 文字 · このモデルは最大 ${max} 文字`,
+  maxImages: (max) => `一度に最大 ${max} 枚`,
+  seedInteger: 'シードは整数にしてください',
+  pickModel: '先にモデルを選んでください',
+  downloadFirst: (label) => `先に ${label} をダウンロードしてください`,
+  connectFirst: (provider) => `先に ${provider} を接続してください`,
+  local: 'このコンピュータ',
+  steps: (n) => `${n} ステップ`,
+  deviceTime: '所要時間はデバイスによります',
+  offline: 'オフラインで動作',
+  images: (n) => `${n} 枚`,
+  aspects: (n) => `アスペクト比 ${n} 種類`,
+  providerSize: 'サイズはプロバイダが決定',
+  takesSeed: 'シード指定可',
+  localChip: 'このコンピュータで生成 · オフライン',
+  cloudChip: (provider) => `オンライン · ${provider} · 使用量に応じて課金`,
+  imageName: (n) => `画像 ${n}`,
+  seed: (seed) => `シード ${seed}`,
+  decoding: 'デコード中',
+  stepOf: (done, total) => `ステップ ${done}/${total}`,
+};

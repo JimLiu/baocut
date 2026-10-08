@@ -1,0 +1,93 @@
+.media-preview { display: flex; flex-direction: column; flex: 1; height: 100%; min-height: 480px; min-width: 0; }
+.media-preview__toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--gray-100); }
+.media-preview__counter { color: var(--gray-600); font-size: 12px; white-space: nowrap; }
+.media-preview__layout { display: flex; flex: 1; min-height: 0; min-width: 0; }
+.media-preview__stage { flex: 1; min-width: 0; min-height: 320px; overflow: auto; padding: 24px; background: var(--gray-75); display: flex; align-items: flex-start; cursor: grab; touch-action: none; }
+.media-preview__stage.is-commenting { cursor: crosshair; }
+.media-preview__canvas { position: relative; flex-shrink: 0; margin: auto; line-height: 0; }
+.media-preview__canvas img { display: block; width: 100%; height: auto; user-select: none; pointer-events: none; }
+.media-preview__canvas:focus-visible { outline: 2px solid var(--blue-900); outline-offset: 4px; }
+.media-preview__box { position: absolute; border: 2px solid var(--blue-900); box-sizing: border-box; background: var(--blue-100); opacity: .3; pointer-events: none; }
+.media-preview__pin { position: absolute; transform: translate(-50%, -50%); line-height: normal; }
+.media-preview__comments { width: 240px; flex-shrink: 0; overflow: auto; padding: 16px; border-inline-start: 1px solid var(--gray-100); }
+.media-preview__comments h3 { font-size: 14px; margin: 0 0 12px; }
+.media-preview__hint { font-size: 12px; color: var(--gray-600); line-height: 1.6; margin: 0 0 12px; }
+.media-preview__comment { border-bottom: 1px solid var(--gray-100); padding: 12px 0; font-size: 12px; overflow-wrap: anywhere; }
+.media-preview__comment p { margin: 0 0 8px; white-space: pre-wrap; }
+.media-preview__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.media-preview__thumbs { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; overflow: auto; border-top: 1px solid var(--gray-100); }
+.media-preview__thumb { width: 72px; height: 48px; padding: 2px; border-radius: 8px; flex-shrink: 0; }
+.media-preview__thumb img { width: 64px; height: 40px; object-fit: cover; border-radius: 4px; }
+.media-preview__thumb[aria-current="true"] { outline: 2px solid var(--blue-900); outline-offset: 2px; }
+.media-preview__video { display: flex; flex: 1; min-height: 0; align-items: center; justify-content: center; background: var(--gray-100); padding: 16px; }
+.media-preview__video video { display: block; width: 100%; max-height: 100%; }
+.media-preview__notice { padding: 12px 16px; color: var(--gray-600); font-size: 12px; }
+.amd-media { display: inline-flex; flex-direction: column; max-width: 100%; gap: 8px; vertical-align: top; }
+.amd-media img, .amd-media video { display: block; width: 100%; max-width: 480px; max-height: 320px; object-fit: contain; border-radius: 8px; }
+.amd-media__actions { display: flex; gap: 8px; align-items: center; }
+.home-files__content:has(> .media-preview) { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+@media (max-width: 1100px) { .media-preview__layout { flex-direction: column; } .media-preview__comments { width: auto; max-height: 240px; border-inline-start: 0; border-top: 1px solid var(--gray-100); } }
+/* 扩展媒体查看器：单图、画布、标记、GIF 与视频共用 S2 控件。 */
+.media-preview__sized { position: relative; flex-shrink: 0; margin: auto; }
+.media-gallery { width: max-content; min-width: 100%; }
+.media-gallery__group { padding: 12px; }
+.media-gallery__group h3 { font-size: 14px; color: var(--gray-700); margin: 0 0 12px; }
+.media-gallery__grid { display: flex; flex-wrap: wrap; gap: 16px; max-width: 1200px; }
+.media-gallery__card { padding: 12px; background: var(--gray-25); border-radius: 10px; flex-shrink: 0; box-sizing: border-box; }
+.media-gallery__caption { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+.media-gallery__caption button { max-width: 100%; }
+.media-markup { display: flex; flex-direction: column; min-height: 480px; flex: 1; min-width: 0; }
+.media-markup > .media-preview__hint { padding: 0 16px; }
+.media-markup__stage { display: flex; flex: 1; min-height: 0; padding: 24px; overflow: auto; background: var(--gray-75); }
+.media-markup__canvas { position: relative; width: 100%; max-width: 1200px; margin: auto; line-height: 0; }
+.media-markup__canvas img { width: 100%; height: auto; display: block; user-select: none; pointer-events: none; }
+.media-markup__canvas canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+.media-gif-controls { flex-shrink: 0; padding: 0 16px 12px; }
+.media-gif-sheet { display: grid; grid-template-columns: repeat(auto-fill,minmax(120px,1fr)); gap: 12px; padding: 16px; overflow: auto; min-height: 0; }
+.media-gif-sheet__frame { display: flex; flex-direction: column; height: auto; padding: 8px; }
+.media-gif-sheet__frame img { width: 100%; max-height: 120px; object-fit: contain; }
+.media-panorama { display: flex; flex-direction: column; flex: 1; min-height: 480px; min-width: 0; background: var(--gray-75); }
+.media-panorama canvas { width: 100%; flex: 1; min-height: 360px; touch-action: none; cursor: grab; }
+.media-panorama canvas:focus-visible { outline: 2px solid var(--blue-900); outline-offset: -2px; }
+.media-panorama > p { padding: 12px 16px; }
+.media-video { display: flex; flex-direction: column; width: 100%; min-width: 0; min-height: 0; background: var(--gray-25); border: 1px solid var(--gray-100); border-radius: 10px; overflow: hidden; box-sizing: border-box; }
+.media-video video { display: block; width: 100%; min-height: 0; max-height: 64vh; object-fit: contain; }
+.media-video__controls { display: flex; flex-wrap: nowrap; gap: 4px; align-items: center; min-height: 40px; padding: 4px 8px; box-sizing: border-box; background: var(--gray-25); }
+.media-control-button { flex-shrink: 0; color: var(--gray-600); }
+.media-control-button svg { width: var(--bc-icon-compact); height: var(--bc-icon-compact); }
+.media-control-time { flex-shrink: 0; font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--gray-600); line-height: 1.5; }
+.media-control-seek { flex: 1; min-width: 32px; padding-inline: 8px; box-sizing: border-box; }
+/* S2 1.7.1 媒体样式适配：细轨、紧凑滑块与隐藏数值行；保留 S2 的输入、键盘和焦点环，不依赖哈希类。 */
+.media-control-slider { display: block; width: 100%; min-width: 0; }
+.media-control-slider > div:has(output), .media-control-slider output { display: none; }
+.media-control-slider > div:not(:has(output)) { width: 100%; min-width: 0; }
+.media-volume-popover { display: flex; align-items: center; gap: 8px; width: 192px; padding: 12px; box-sizing: border-box; }
+.media-options-menu { min-width: 160px; }
+.media-video-tab { display: flex; flex: 1; min-height: 0; flex-direction: column; justify-content: center; padding: 16px; }
+.media-video-dialog { display: flex; flex-direction: column; max-height: 88vh; }
+.media-video:fullscreen { border: 0; border-radius: 0; height: 100%; }
+.media-video:fullscreen video { max-height: none; flex: 1; }
+.amd-media.media-video-inline { display: inline-flex; width: 100%; max-width: 704px; }
+.amd-media .media-video video { max-width: 100%; max-height: 64vh; border-radius: 0; }
+.amd-media .media-video:fullscreen video { max-height: none; }
+.amd-media.media-audio-inline { display: inline-flex; width: 100%; max-width: 512px; }
+.media-audio-tab { display: flex; justify-content: center; align-items: center; min-height: 240px; padding: 24px; }
+.media-audio { display: flex; flex-direction: column; width: 100%; max-width: 512px; border: 1px solid var(--gray-100); border-radius: 10px; background: var(--gray-25); overflow: hidden; box-sizing: border-box; }
+.media-audio__head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; }
+.media-audio__icon { width: 40px; height: 40px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 10px; background: var(--gray-75); color: var(--blue-900); }
+.media-audio__icon svg { width: var(--bc-icon-primary); height: var(--bc-icon-primary); }
+.media-audio__meta { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 4px; padding-inline-start: 4px; }
+.media-audio__meta strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--gray-900); }
+.media-audio__meta > span { color: var(--gray-600); font-size: 12px; line-height: 16px; }
+.media-audio__footer { display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 4px 12px; border-top: 1px solid var(--gray-100); box-sizing: border-box; }
+.media-audio__error { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 12px; color: var(--gray-600); border-top: 1px solid var(--gray-100); }
+@media (max-width: 1100px) { .media-gallery__grid { max-width: 640px; } }
+@media (prefers-reduced-motion: reduce) { ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0s; } }
+::view-transition-group(bc-media-image) { animation-duration: 150ms; animation-timing-function: cubic-bezier(0.45,0,0.4,1); }
+@media (prefers-reduced-motion: reduce) { ::view-transition-group(bc-media-image) { animation-duration: 0s; } }
+
+.media-options-menu [role="menuitemradio"] { grid-template-areas: ". label checkmark ."; grid-template-columns: 8px minmax(0,1fr) auto 8px; }
+.media-audio__icon svg { --iconPrimary: var(--blue-900); }
+.media-control-slider > div:last-child > [data-rac] > div:first-child { height: 2px; outline: none; background: var(--gray-200); }
+.media-control-slider [data-rac]:has(> div > input[type="range"]) > div:last-child > div { width: 16px; height: 16px; border-width: 1px; border-color: var(--gray-200); box-shadow: 0 1px 2px var(--gray-100); }
+.media-audio .media-control-slider [data-rac]:has(> div > input[type="range"]) > div:last-child > div { background: var(--blue-900); border-color: var(--blue-900); box-shadow: none; }

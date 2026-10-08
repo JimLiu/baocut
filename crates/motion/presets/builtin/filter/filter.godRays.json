@@ -1,0 +1,74 @@
+{
+  "id": "filter.godRays",
+  "version": 1,
+  "domain": "filter",
+  "inputs": 1,
+  "params": {
+    "cx": {
+      "type": "number",
+      "default": 0.5,
+      "min": -1,
+      "max": 2,
+      "doc": "光源 x，画布宽度的比例；可以在画面外"
+    },
+    "cy": {
+      "type": "number",
+      "default": 0.0,
+      "min": -1,
+      "max": 2,
+      "doc": "光源 y，画布高度的比例；缺省在上边缘（天窗），可以在画面外"
+    },
+    "threshold": {
+      "type": "number",
+      "default": 0.6,
+      "min": 0,
+      "max": 1,
+      "doc": "亮通门槛：预乘 RGB 最大分量（0..1）超过它的像素才发光，权重 (m − t)/(1 − t)"
+    },
+    "length": {
+      "type": "number",
+      "default": 0.5,
+      "min": 0,
+      "max": 0.95,
+      "doc": "光柱长度：每个像素朝光源回溯的比例；越大光柱拖得越长"
+    },
+    "intensity": {
+      "type": "number",
+      "default": 1.5,
+      "min": 0,
+      "max": 8,
+      "doc": "光柱加回原图的倍数（加法）；0 = 原样不动"
+    },
+    "decay": {
+      "type": "number",
+      "default": 0.6,
+      "min": 0,
+      "max": 1,
+      "doc": "衰减：沿光柱越远越暗，最远处的权重是 1 − decay；0 = 整条等亮"
+    },
+    "tint": {
+      "type": "color",
+      "default": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "doc": "光柱色调，写颜色字符串（金色光写 \"#ffd98a\"），RGB 与 alpha 乘在光柱上；缺省白色"
+    }
+  },
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "kernel": "god-rays-halfres-zoom-premul-f32",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "linear",
+  "edge": "clamp",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "doc": "体积光 / 光柱：① 亮通——预乘 RGB 最大分量 m，整像素乘 w = clamp((m − threshold)/(1 − threshold), 0, 1)，同时 2×2 平均降到半分辨率；② 以光源 (cx·W, cy·H) 为中心做与 filter.radialBlur 相同的三遍对数步长缩放取样（每遍 8 个，σ = −ln(1 − length)），权重按 (1 − decay)^{o/σ} 衰减、各遍归一；③ 双线性上采样回原分辨率，RGB × tint.rgb × intensity、alpha × tint.a × intensity 加到原图，结果夹到 alpha ≥ RGB。像素收到的光来自「像素 → 光源」连线上的亮部，所以亮物体朝背离光源的方向拖出光柱。f32 四则运算，超越函数只在像素循环前用 libm 算权重表。intensity = 0 或 length = 0 逐字节恒等；亮部挂在全幅 Group 上，光柱不会被别的元素盒裁掉。"
+}

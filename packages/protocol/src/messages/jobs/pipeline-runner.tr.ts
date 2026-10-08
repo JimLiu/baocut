@@ -1,0 +1,5 @@
+import type { JobsPipelineRunnerMessages } from './pipeline-runner.ts';
+
+export const tr: JobsPipelineRunnerMessages = {
+unknownPipeline: (p) => `“${p.name}” adlı işlem hattı yok`, entryTargetUnsupported: 'Bu Runtime Space öğelerinden video açamaz', targetMismatch: "Target ve videoId parametreleri farklı videolara işaret ediyor", noLibrary: 'Bu Runtime kullanıcı kitaplığına sahip değil', notPipeline: 'Bu görev işlem hattı değil', notRetryable: 'Yalnızca başarısız, iptal edilmiş veya kesintiye uğramış işlem hatları yeniden denenebilir', pipelineMissing: (p) => `Bu Runtime içinde “${p.name}” adlı işlem hattı yok`, alreadyRetrying: 'İşlem hattı zaten yeniden deneniyor', cannotOpenTarget: 'Bu Runtime işlem hattının hedef videosunu açamaz', targetReplaced: 'Hedef konumda artık farklı bir video var. Yeniden başlayın.', pipelineFailed: 'İşlem hattında hata oluştu', stepFailed: 'Adımda hata oluştu', interrupted: 'İşlem hattı tamamlanmadan Runtime durdu. Durduğu adımdan devam etmek için pipelines.retry kullanın.', subtask: (p) => `${p.step}: ${p.label}`,
+};

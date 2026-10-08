@@ -1,0 +1,64 @@
+{
+  "schema": 1,
+  "id": "white-ui-launch",
+  "version": "1.1.0",
+  "kind": "example",
+  "title": "虚构新品发布",
+  "summary": "用代码为一款虚构产品做一条白色界面风格的发布视频。",
+  "description": "干净漂亮的白色 UI、快节奏的画面与音效，适合发布到社交平台。产品名、功能与界面都由智能体原创。",
+  "language": "zh-CN",
+  "category": "product-launch",
+  "fields": [
+    {
+      "label": "产品类型",
+      "hint": "虚构的是哪一类产品",
+      "example": "智能手表"
+    },
+    {
+      "label": "成片语言",
+      "hint": "画面文字用的语言"
+    }
+  ],
+  "author": "BaoCut",
+  "source": "official",
+  "license": "LicenseRef-BaoCut-Community-1.0",
+  "tags": [
+    "发布",
+    "界面",
+    "代码动画"
+  ],
+  "skills": [
+    "video-production"
+  ],
+  "cover": {
+    "file": "cover.jpg",
+    "tone": "cyan",
+    "figure": "cards",
+    "kicker": "LAUNCH"
+  },
+  "preview": {
+    "file": "preview.mp4",
+    "beats": [
+      "白色界面徐徐展开",
+      "核心功能快速切换",
+      "细节与动效特写",
+      "产品名定格"
+    ]
+  },
+  "verification": {
+    "date": "2026-10-04",
+    "version": "1.0.0",
+    "engine": "codex",
+    "input": "按提示词原样，末尾附一段测试环境说明：成片语言用中文；没有配置语音合成、配乐、音效与视频生成，遇到没有配置的能力跳过并在最后说明；现有编辑操作做不出的画面可以直接渲染成视频文件再导入时间线。一轮完成，没有追问。",
+    "materials": [],
+    "capabilities": [
+      "generateSoundEffect"
+    ],
+    "outcome": "pass",
+    "output": {
+      "ratio": "9:16",
+      "durationSeconds": 25
+    },
+    "notes": "确认：智能体没有追问，原创了一款把零散灵感整理成计划的工作台产品，产品名、图标与界面都是自拟，没有借用真实品牌。模板没有规定画幅，它按「适合发布到社交平台」选了 9:16 竖屏、25 秒。用本机脚本渲染八个镜头（卡片汇聚、产品登场、收集、整理、勾选任务、专注计时、快切、落版），白底卡片配蓝色点缀，中文排版完整，每镜 2–4 秒，节奏紧凑；八段首尾相接放上时间线，可逐段调整，源码保留。音效是可选项，按说明跳过并告诉了用户。预览与封面取自 BaoCut 导出的成片。模板文案未改。"
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "id": "rainbow-paper",
+  "version": 1,
+  "domain": "confetti",
+  "namespace": "timeline",
+  "order": 10,
+  "aspect": "frame",
+  "palette": [
+    "#F94144",
+    "#F3722C",
+    "#F9C74F",
+    "#90BE6D",
+    "#43AA8B",
+    "#577590",
+    "#9B5DE5"
+  ],
+  "shapes": [
+    "rect",
+    "strip",
+    "circle"
+  ],
+  "sources": [
+    "react-confetti/particle"
+  ],
+  "hasEmitterControl": false,
+  "recipe": {
+    "algorithm": "confetti-v1",
+    "params": {
+      "emit": {
+        "mode": "continuous",
+        "rate": 40,
+        "count": 80,
+        "interval": 2.0,
+        "jitter": 1.0
+      },
+      "emitters": [
+        {
+          "x": 50,
+          "y": -6,
+          "spreadX": 100,
+          "spreadY": 0
+        }
+      ],
+      "angle": 90,
+      "spread": 30,
+      "speedPx": [
+        90,
+        150
+      ],
+      "dragX": 0.3,
+      "dragY": 0.3,
+      "gravityPx": 320,
+      "windPx": 0,
+      "driftPx": 0,
+      "driftHz": 0.3,
+      "sizePx": [
+        5,
+        13
+      ],
+      "sizeRamp": false,
+      "spinDps": [
+        90,
+        360
+      ],
+      "flipHz": [
+        0.6,
+        1.6
+      ],
+      "pulse": null,
+      "lifeSec": 4.5,
+      "fadeIn": 0,
+      "fadeOut": 0.6,
+      "maxAlive": 600
+    }
+  },
+  "determinism": "strict",
+  "shader": null,
+  "available": true
+}

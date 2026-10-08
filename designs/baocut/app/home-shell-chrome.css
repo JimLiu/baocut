@@ -1,0 +1,66 @@
+/* App shell chrome: title bar view controls, tab hover thumbnail, sidebar peek
+   (product-design §2.5 / §3.3 user revision). App entry only. */
+.shell-icon { display: inline-block; flex: none; width: 16px; height: 16px; background: currentColor; mask-size: contain; mask-position: center; mask-repeat: no-repeat; -webkit-mask-size: contain; -webkit-mask-position: center; -webkit-mask-repeat: no-repeat; }
+.shell-icon--sidebar { mask-image: url(../assets/shell/sidebar.svg); -webkit-mask-image: url(../assets/shell/sidebar.svg); }
+.shell-icon--sidebar-hidden { mask-image: url(../assets/shell/sidebar-hidden.svg); -webkit-mask-image: url(../assets/shell/sidebar-hidden.svg); }
+.shell-icon--tabs { mask-image: url(../assets/shell/tabs.svg); -webkit-mask-image: url(../assets/shell/tabs.svg); }
+.shell-icon--tabs-plus { mask-image: url(../assets/shell/tabs-plus.svg); -webkit-mask-image: url(../assets/shell/tabs-plus.svg); }
+.shell-icon--hide-tabs { mask-image: url(../assets/shell/hide-tabs.svg); -webkit-mask-image: url(../assets/shell/hide-tabs.svg); }
+.shell-icon--full { mask-image: url(../assets/shell/full.svg); -webkit-mask-image: url(../assets/shell/full.svg); }
+.shell-icon--exit-full { mask-image: url(../assets/shell/exit-full.svg); -webkit-mask-image: url(../assets/shell/exit-full.svg); }
+.shell-icon--summary { mask-image: url(../assets/shell/summary.svg); -webkit-mask-image: url(../assets/shell/summary.svg); }
+.home-workspace-controls { gap: 4px; }
+.shell-tabs, .shell-summary-anchor { display: inline-flex; }
+/* Shell glyphs are drawn on the S2 20px grid and shown at the 16px compact size, like the ···
+   menu beside them. Icon-only shell buttons: 32px squares, icon centred (S2 lays a
+   non-slotted child out in its label column, so the grid is replaced by flex centring). */
+button.shell-button { display: inline-flex; align-items: center; justify-content: center; width: 32px; min-width: 32px; height: 32px; padding: 0; }
+/* Pressed (full view, open summary): a filled surface on the quiet button. */
+.shell-button[aria-pressed="true"] { background: var(--gray-100); }
+/* Tabs button icon: tab frame + centred overlay (plus, or the count). The count uses the
+   ladder's smallest size, 10px; "9+" is scaled down to fit the frame. */
+.shell-tabstack { position: relative; display: inline-flex; flex: none; width: 16px; height: 16px; }
+.shell-tabstack__overlay { position: absolute; inset: 0; display: grid; place-items: center; }
+.shell-tabstack__count { font-size: 10px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+.shell-tabstack__count.is-wide { transform: scale(0.75); letter-spacing: -0.5px; }
+
+.shell-tabs__list { display: flex; flex-direction: column; gap: 4px; max-height: 480px; padding: 8px; overflow-y: auto; }
+.shell-tabs__head { margin: 0; padding: 6px 8px; font-size: 12px; font-weight: 400; color: var(--gray-600); }
+/* Rows: 32px high, radius 8; the full-view button sits at the row end and appears only
+   on row hover or keyboard focus inside the row. */
+.shell-tabs__row { position: relative; display: flex; align-items: center; height: 32px; border-radius: 8px; color: var(--gray-800); transition: background-color 150ms cubic-bezier(0.45,0,0.4,1); }
+.shell-tabs__row:hover { background: var(--gray-100); }
+.shell-tabs__row.is-active { background: var(--gray-100); color: var(--gray-900); }
+.shell-tabs__open { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; height: 32px; padding: 0 40px 0 8px; border-radius: 8px; background: transparent; color: inherit; font-size: 12px; text-align: left; }
+.shell-tabs__open > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.shell-tabs__open > svg, .shell-tabs__open > .ic { flex: none; width: 16px; height: 16px; }
+.shell-tabs__row.is-active .shell-tabs__open { font-weight: 700; }
+.shell-tabs__full { position: absolute; top: 4px; right: 4px; opacity: 0; transition: opacity 150ms cubic-bezier(0.45,0,0.4,1); }
+.shell-tabs__row:is(:hover, :focus-within) .shell-tabs__full { opacity: 1; }
+/* The row's trailing button stays a 24px square inside the 32px row. */
+button.shell-button.shell-tabs__full { width: 24px; min-width: 24px; height: 24px; }
+
+.shell-summary { display: flex; flex-direction: column; gap: 8px; max-height: 480px; padding: 16px; overflow-y: auto; }
+.shell-summary__title { margin: 0; font-size: 16px; font-weight: 700; color: var(--gray-900); }
+.shell-summary__status { align-self: flex-start; margin: 0; padding: 0 8px; border-radius: 9999px; background: var(--blue-100); color: var(--blue-900); font-size: 11px; line-height: 20px; }
+.shell-summary__status.is-waiting { background: var(--orange-100); color: var(--orange-900); }
+.shell-summary__section { margin: 8px 0 0; font-size: 12px; font-weight: 700; color: var(--gray-600); }
+.shell-summary__empty { margin: 0; font-size: 12px; color: var(--gray-600); }
+.shell-summary .chat-output { padding: 12px; }
+
+/* Tab hover thumbnail: 960×600 clone scaled to 280×175. */
+.shell-tab-preview { position: fixed; z-index: 60; width: 280px; box-sizing: border-box; overflow: hidden; border: 1px solid var(--gray-200); border-radius: 10px; background: var(--gray-25); color: var(--gray-900); box-shadow: var(--sh-elev); pointer-events: none; }
+.shell-tab-preview__image { position: relative; height: 175px; overflow: hidden; background: var(--gray-50); border-bottom: 1px solid var(--gray-100); }
+.shell-tab-preview__clone { position: absolute; top: 0; left: 0; display: flex; flex-direction: column; width: 960px; height: 600px; overflow: hidden; transform: scale(0.2916667); transform-origin: top left; }
+.shell-tab-preview__title, .shell-tab-preview__path { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.shell-tab-preview__title { padding: 8px 12px 0; font-size: 12px; font-weight: 700; }
+.shell-tab-preview__path { padding: 4px 12px 8px; font-size: 11px; color: var(--gray-600); }
+
+/* Sidebar peek: floats over the sheet, below popovers and dialogs. Inset 6px from the sheet, so the
+   corner is concentric with the sheet's 16px: 16 − 6 = 10px. */
+.shell-side-peek { position: fixed; z-index: 50; display: flex; overflow: hidden; border: 1px solid var(--gray-200); border-radius: 10px; background: var(--gray-25); box-shadow: var(--sh-elev); }
+.shell-side-peek .hside { height: 100%; }
+.shell-side-peek__pin { position: absolute; top: 8px; right: 8px; z-index: 1; }
+.tbar__side { display: inline-flex; }
+/* The thumbnail already names the tab; hide the tab's own tooltip while it shows. */
+.home-tabs.is-previewing .mtip { display: none; }

@@ -1,0 +1,13 @@
+[package]
+name = "media-core"
+description = "BaoCut 的媒体读写（架构设计 §13.1）：经 ffmpeg / ffprobe 子进程按顺序解码画面、把原始帧编码成成片。不链接任何 C 库"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde_json = "1.0.151"
+
+[dev-dependencies]
+tempfile = "3.27.0"

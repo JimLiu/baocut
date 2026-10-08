@@ -1,0 +1,47 @@
+import type { LocalModelsMessages } from './local-models-copy.ts';
+
+export const de: LocalModelsMessages = {
+  install: {
+    availableNote:
+      "Vor dem Herunterladen werden Downloadmenge und freier Speicherplatz angezeigt. Ein Download kann pausiert werden; bereits heruntergeladene Teile bleiben erhalten und werden beim nächsten Mal fortgesetzt.",
+    download: "Herunterladen",
+    resume: "Download fortsetzen",
+    pause: "Pause",
+    cancelDownload: "Download abbrechen",
+    discard: "Heruntergeladene Dateien verwerfen",
+    repair: "Reparieren…",
+    remove: "Löschen…",
+    more: (id: string) => `Weitere · ${id}`,
+    details: "Details",
+    hideDetails: "Details ausblenden",
+    componentLine: (state: 'installed' | 'missing', size: string | null) => (state === 'installed' ? `Installiert${size ? ` · ${size}` : ""}` : "Fehlt"),
+    sharedWith: (ids: string[]) => `Gemeinsam verwendet mit ${ids.join(", ")}`,
+    noComponents: "Diese Runtime hat keine Komponentendetails gemeldet.",
+
+    installTitle: (id: string) => `Herunterladen: ${id}`,
+    repairTitle: (id: string) => `Reparieren: „${id}“?`,
+    planning: "Downloadmenge wird ermittelt…",
+    verifying: "Beschädigte oder fehlende Dateien werden gesucht. Bei großen Dateien kann dies dauern…",
+    planFailed: "Downloadplan konnte nicht abgerufen werden",
+    upToDate: "Alle Dateien vorhanden und geprüft. Nichts herunterzuladen.",
+    repairUpToDate: "Alle Dateien sind intakt. Nichts erneut herunterzuladen.",
+    repairThenCheck: "Nur beschädigte oder fehlende Dateien werden erneut heruntergeladen; intakte bleiben unverändert. Nach der Reparatur wird automatisch erneut geprüft.",
+    replanned: "Die Downloadgröße wurde gerade geändert. Hier ist der neue Plan; erneut bestätigen.",
+    source: (url: string) => `Downloadquelle: ${url}`,
+    confirmInstall: (size: string) => `Herunterladen: ${size}`,
+    confirmRepair: "Reparieren",
+    cancel: "Abbrechen",
+    close: "Schließen",
+    started: (id: string) => `Das Herunterladen von ${id} · Fortschritt erscheint in dieser Zeile und unter Hintergrundaufgaben`,
+
+    paused: (id: string) => `Pausiert: ${id} · heruntergeladene Teile bleiben erhalten`,
+    discardTitle: (id: string) => `Heruntergeladenen Teil verwerfen von ${id}?`,
+    discardBody: "Der nächste Download beginnt von vorn. Dateien laufender Downloads anderer Modellpakete und gemeinsam genutzte Komponenten werden nicht gelöscht.",
+    discarded: (id: string) => `Heruntergeladenen Teil verworfen von ${id}`,
+    removeTitle: (id: string) => `Löschen: ${id}?`,
+    removeConfirm: "Löschen",
+    stopFailed: (text: string) => `Stoppen fehlgeschlagen: ${text}`,
+    removeFailed: (text: string) => `Löschen fehlgeschlagen: ${text}`,
+    installFailed: (text: string) => `Der letzte Download wurde nicht abgeschlossen: ${text}`,
+  },
+};

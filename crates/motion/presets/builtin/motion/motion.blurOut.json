@@ -1,0 +1,43 @@
+{
+  "id": "motion.blurOut",
+  "version": 1,
+  "domain": "motion",
+  "family": "blurIn",
+  "doc": "失焦离场。",
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "blur": {
+      "type": "number",
+      "default": 8.0,
+      "min": 0.0,
+      "doc": "终止模糊半径（px）"
+    },
+    "curve": {
+      "type": "curve",
+      "default": "easeInCubic",
+      "doc": "时间曲线（规范 §7.6 的封闭名称）"
+    },
+    "fade": {
+      "type": "bool",
+      "default": true,
+      "doc": "是否同时淡入/淡出"
+    }
+  },
+  "compose": [
+    {
+      "preset": "motion.blurTo",
+      "params": {
+        "blur": "{blur}",
+        "curve": "{curve}"
+      }
+    },
+    {
+      "preset": "motion.fadeOut",
+      "when": "{fade}"
+    }
+  ],
+  "determinism": "strict",
+  "capabilities": []
+}

@@ -1,0 +1,132 @@
+{
+  "schema": "baocut-caption-style/1",
+  "id": "caption-highlight",
+  "version": 1,
+  "title": "Sweep highlight",
+  "description": "A bright plate sweeps behind the active word.",
+  "tags": [
+    "clean",
+    "social"
+  ],
+  "scripts": [
+    "latin",
+    "cjk"
+  ],
+  "aspects": [
+    "16:9",
+    "9:16",
+    "1:1"
+  ],
+  "cjk": "good",
+  "layout": "lowerThird",
+  "family": "highlight",
+  "layers": [
+    "highlightPlate",
+    "glyphs"
+  ],
+  "channels": [
+    "opacity",
+    "plateW",
+    "plateR",
+    "colorMix"
+  ],
+  "tunables": [
+    {
+      "key": "intensity",
+      "kind": "number",
+      "min": 0,
+      "max": 100,
+      "default": 60
+    },
+    {
+      "key": "speed",
+      "kind": "number",
+      "min": 0.35,
+      "max": 2,
+      "default": 1
+    }
+  ],
+  "events": [
+    {
+      "trigger": "word.enter",
+      "operator": "transform",
+      "channels": [
+        "opacity"
+      ],
+      "easing": "easeOut",
+      "duration": 0.12,
+      "fixed": true,
+      "keyframes": {
+        "opacity": [
+          {"offset": 0, "value": 0.5},
+          {"offset": 1, "value": 1}
+        ]
+      }
+    },
+    {
+      "trigger": "word.active",
+      "operator": "plate",
+      "channels": [
+        "plateW",
+        "plateR",
+        "colorMix"
+      ],
+      "easing": "easeInOut",
+      "attack": 0.14,
+      "release": 0.1,
+      "fixed": true,
+      "keyframes": {
+        "plateW": [
+          {"offset": 0, "value": 0},
+          {"offset": 1, "value": 1}
+        ],
+        "plateR": [
+          {"offset": 0, "value": 0.14},
+          {"offset": 1, "value": 0.14}
+        ],
+        "colorMix": [
+          {"offset": 0, "value": 0},
+          {"offset": 1, "value": 1}
+        ]
+      }
+    }
+  ],
+  "composite": "normal",
+  "hardKill": true,
+  "visibility": {"hold": 0.5, "gapBeforeNext": 0.05, "hardKillAfter": 0.45},
+  "seeded": false,
+  "assets": [],
+  "fonts": [
+    {
+      "role": "sans",
+      "family": "Inter",
+      "weights": [
+        400,
+        600,
+        800
+      ],
+      "fallback": [
+        "SF Pro",
+        "PingFang SC",
+        "Hiragino Sans"
+      ],
+      "substitution": "substitute",
+      "license": "OFL-1.1"
+    },
+    {
+      "role": "sansHeavy",
+      "family": "Inter",
+      "weights": [
+        700,
+        900
+      ],
+      "fallback": [
+        "SF Pro Display",
+        "PingFang SC Semibold",
+        "Hiragino Sans W6"
+      ],
+      "substitution": "metric-safe",
+      "license": "OFL-1.1"
+    }
+  ]
+}

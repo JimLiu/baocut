@@ -1,0 +1,10 @@
+{
+  "hard": {
+    "softness": 0.0,
+    "threshold": 0.6
+  },
+  "soft": {
+    "softness": 0.25,
+    "threshold": 0.6
+  }
+}

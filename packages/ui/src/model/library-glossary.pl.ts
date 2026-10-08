@@ -1,0 +1,36 @@
+import { pluralForm } from '@baocut/protocol';
+import type { LibraryGlossaryMessages } from './library-glossary.ts';
+
+export const pl: LibraryGlossaryMessages = {
+  kinds: {
+    transcription: { label: "Słownik transkrypcji", a: "Prawidłowa pisownia", b: "Często rozpoznawane jako" },
+    translation: { label: "Słownik tłumaczenia", a: "Źródło", b: "Tłumaczenie" },
+  },
+  anyLanguage: "Dowolny język",
+  spoken: (language: string) => `${language} – mowa`,
+  newTranscription: "Nowy słownik transkrypcji",
+  fieldCanonical: "Prawidłowa pisownia",
+  fieldSource: "Źródło",
+  fieldTarget: "Tłumaczenie",
+  fieldEmpty: (label: string) => `${label} nie może być puste`,
+  fieldTooLong: (label: string, max: number) => pluralForm('pl', max, { one: `${label}: najwyżej ${max} znak`, few: `${label}: najwyżej ${max} znaki`, many: `${label}: najwyżej ${max} znaków`, other: `${label}: najwyżej ${max} znaku` }),
+  fieldNewline: (label: string) => `${label} nie może zawierać podziałów wiersza`,
+  duplicate: (term: string) => `„${term}” jest już w słowniku`,
+  misheardSame: "Błędna pisownia nie może być taka sama jak prawidłowa",
+  misheardTooMany: (max: number) => pluralForm('pl', max, { one: `Do ${max} błędnego wariantu pisowni`, few: `Do ${max} błędnych wariantów pisowni`, many: `Do ${max} błędnych wariantów pisowni`, other: `Do ${max} błędnego wariantu pisowni` }),
+  misheardTooLong: (max: number) => pluralForm('pl', max, { one: `Każdy wariant pisowni: najwyżej ${max} znak`, few: `Każdy wariant pisowni: najwyżej ${max} znaki`, many: `Każdy wariant pisowni: najwyżej ${max} znaków`, other: `Każdy wariant pisowni: najwyżej ${max} znaku` }),
+  noteTooLong: (max: number) => pluralForm('pl', max, { one: `Notatka: najwyżej ${max} znak`, few: `Notatka: najwyżej ${max} znaki`, many: `Notatka: najwyżej ${max} znaków`, other: `Notatka: najwyżej ${max} znaku` }),
+  nameEmpty: "Nazwa słownika nie może być pusta",
+  nameTooLong: (max: number) => pluralForm('pl', max, { one: `Nazwa słownika: najwyżej ${max} znak`, few: `Nazwa słownika: najwyżej ${max} znaki`, many: `Nazwa słownika: najwyżej ${max} znaków`, other: `Nazwa słownika: najwyżej ${max} znaku` }),
+  skipPunctuation: "Tylko interpunkcja",
+  skipTooLong: (max: number) => pluralForm('pl', max, { one: `Dłuższe niż ${max} znak`, few: `Dłuższe niż ${max} znaki`, many: `Dłuższe niż ${max} znaków`, other: `Dłuższe niż ${max} znaku` }),
+  skipMerged: "Ten sam termin co w poprzednim wierszu; połączono",
+  skipNoTarget: "Brak tłumaczenia",
+  skipKeptFirst: "Ten sam termin co w poprzednim wierszu; zachowano pierwszy",
+  allExist: "Te terminy są już w słowniku",
+  added: (n: number) => pluralForm('pl', n, { one: `Dodano ${n} termin`, few: `Dodano ${n} terminy`, many: `Dodano ${n} terminów`, other: `Dodano ${n} terminu` }),
+  merged: (n: number) => pluralForm('pl', n, { one: `${n} termin już jest w słowniku`, few: `${n} terminy już są w słowniku`, many: `${n} terminów już jest w słowniku`, other: `${n} terminu już jest w słowniku` }),
+  overflow: (n: number, limit: number) => `${pluralForm('pl', n, { one: `Nie dodano ${n} terminu`, few: `Nie dodano ${n} terminów`, many: `Nie dodano ${n} terminów`, other: `Nie dodano ${n} terminu` })}: ${pluralForm('pl', limit, { one: `słownik mieści do ${limit} terminu`, few: `słownik mieści do ${limit} terminów`, many: `słownik mieści do ${limit} terminów`, other: `słownik mieści do ${limit} terminu` })}`,
+  fileName: "Słownik",
+  misheardSeparator: ", ",
+};

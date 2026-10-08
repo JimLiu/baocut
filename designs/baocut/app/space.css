@@ -1,0 +1,114 @@
+/* Space（2026-10-01，product-design §4）—— 只在 BaoCut.html 加载。
+   外框与预览块是本目录的；工具条里的控件、卡片（Card）、列表（TableView）、查看框（Dialog）是 S2 的。
+   网格与 TableView 自己滚动，需要定高的父：.space 是满高的 flex 列，.space__list 吃掉余下的高度。 */
+/* §4.3: hierarchy and responsive spacing follow the reviewed Space references.
+   Container queries also respond when the user resizes the sidebar. */
+.space { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; min-width: 0; container: space / inline-size; --space-inset: var(--spacing-600); }
+.space__bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--spacing-400); flex: none; padding: var(--spacing-500) var(--space-inset) var(--spacing-400); }
+.space__title { display: flex; align-items: baseline; gap: var(--spacing-100); margin: 0; font-size: 22px; font-weight: 700; color: var(--gray-900); }
+.space__n { font-size: 14px; font-weight: 400; color: var(--gray-600); }
+.space__actions { display: flex; align-items: center; gap: var(--spacing-200); min-width: 0; }
+.space__search { width: 240px; min-width: 0; flex: 1 1 auto; }
+.space__search > * { width: 100%; }
+.space__tools { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--spacing-300); padding: 0 var(--space-inset) var(--spacing-400); }
+.space__filters { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: var(--spacing-100); min-width: 0; }
+.space__pick { width: 140px; max-width: 100%; }
+.space__filter { display: flex; align-items: center; gap: var(--spacing-100); flex: none; margin: 0 var(--space-inset) var(--spacing-300); padding: var(--spacing-100) var(--spacing-200); border-radius: var(--corner-radius-medium-default); background: var(--blue-100); font-size: 14px; color: var(--gray-800); }
+.space__filter-t { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A single grid scroller; align its outer edge with the header and tools. */
+.space__list { position: relative; flex: 1 1 auto; min-height: 0; min-width: 0; display: flex; flex-direction: column; padding: var(--spacing-100) var(--space-inset) var(--spacing-400); }
+.space__view { flex: 1 1 auto; min-height: 0; min-width: 0; }
+.space__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: var(--spacing-300); align-content: start; flex: 1 1 auto; min-height: 0; overflow: auto; padding: var(--spacing-75); margin: calc(-1 * var(--spacing-75)); }
+.space__grid[data-empty] { display: flex; align-items: center; justify-content: center; }
+.space__grid-item { min-width: 0; outline: none; border-radius: var(--corner-radius-large-default); cursor: pointer; }
+.space__grid-item[data-focus-visible] { outline: var(--border-width-200) solid var(--blue-900); outline-offset: var(--spacing-50); }
+.space__card { width: 100%; height: 100%; }
+.hside--space { padding: var(--spacing-300); }
+.hside--space .hside__note { padding-inline: var(--spacing-100); }
+@container space (max-width: 900px) {
+  .space__bar { grid-template-columns: minmax(0, 1fr); }
+  .space__search { width: auto; }
+}
+@container space (max-width: 600px) {
+  .space__tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-100); }
+  .space__filters { display: contents; }
+  .space__pick { width: 100%; min-width: 0; }
+  .space__tools > [role="radiogroup"] { justify-self: end; }
+}
+@container space (max-width: 440px) {
+  .space__bar, .space__tools, .space__filter, .space__list { --space-inset: var(--spacing-400); }
+  .space__bar { padding-block-start: var(--spacing-400); }
+}
+
+/* 预览块：视频是编辑器同款封面（window.Thumb，背景渐变内联），其余是类型图标坐在按色相着色的底上 */
+.sp-prev { width: 100%; aspect-ratio: 16 / 9; }
+.sp-prev--kind { display: flex; align-items: center; justify-content: center; position: relative;
+  background: light-dark(oklch(0.93 0.03 var(--sp-hue)), oklch(0.30 0.04 var(--sp-hue)));
+  color: light-dark(oklch(0.45 0.10 var(--sp-hue)), oklch(0.82 0.09 var(--sp-hue))); }
+.sp-prev--kind > svg { width: 32px; height: 32px; --iconPrimary: currentColor; fill: currentColor; }
+.sp-prev--big { aspect-ratio: 16 / 9; max-height: 280px; border-radius: 8px; overflow: hidden; }
+.sp-prev--big.sp-prev--kind > svg { width: 48px; height: 48px; }
+.sp-prev.is-missing { background: var(--gray-100); color: var(--gray-500); }
+.sp-prev__flag { position: absolute; left: 8px; bottom: 8px; padding: 2px 6px; border-radius: 4px; background: var(--red-900); color: var(--gray-25); font-size: 11px; }
+.sp-muted { color: var(--gray-500); }
+/* 网格卡片的时长角标（§4.3）：像视频缩略图上的时间戳，压在预览右下角；左下角留给「找不到文件」。
+   配色与 Home 会话里视频卡的时长一致（.chat-movie__duration）：反色的灰阶对，深浅主题都清楚。 */
+.sp-prev__wrap { position: relative; width: 100%; }
+.sp-prev__dur { position: absolute; inset-inline-end: 8px; bottom: 8px; padding: 2px 6px; border-radius: 4px; background: var(--gray-900); color: var(--gray-25); font-size: 12px; line-height: 16px; font-variant-numeric: tabular-nums; pointer-events: none; }
+.sp-num { font-variant-numeric: tabular-nums; }
+.sp-fav { display: inline-flex; width: var(--bc-icon-compact); height: var(--bc-icon-compact); color: var(--yellow-700); --iconPrimary: currentColor; fill: currentColor; }
+.sp-fav > svg { width: var(--bc-icon-compact); height: var(--bc-icon-compact); }
+.sp-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sp-name > svg { flex: none; width: 16px; height: 16px; color: var(--gray-600); --iconPrimary: currentColor; fill: currentColor; }
+.sp-name__t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 列表行里的缩略图（§4.3）：spacious 行高 48，缩略图取控件高度 32、16:9，上下各留 8。 */
+.sp-prev--small { flex: none; width: auto; height: 32px; aspect-ratio: 16 / 9; border-radius: 4px; overflow: hidden; }
+.sp-prev--small.sp-prev--kind > svg { width: 16px; height: 16px; }
+.sp-prev--small.sp-prev--document { padding: 4px 6px 0; }
+.sp-prev--small .sp-prev__paper { display: flex; align-items: center; justify-content: center; padding: 0; border-radius: 0; box-shadow: none; color: var(--gray-600); }
+.sp-prev--small .sp-prev__paper > svg { width: 16px; height: 16px; --iconPrimary: currentColor; fill: currentColor; }
+.sp-prev--small .ic { width: 16px; height: 16px; }
+
+/* 查看框 */
+.spv { display: flex; flex-direction: column; gap: 16px; }
+.spv__hd { display: flex; align-items: center; gap: 10px; }
+.spv__media { display: flex; flex-direction: column; gap: 10px; }
+.spv__text { margin: 0; max-height: 280px; overflow: auto; padding: 10px 12px; border-radius: 8px; background: var(--gray-75); font-family: var(--mono); font-size: 12px; line-height: 18px; color: var(--gray-800); white-space: pre-wrap; }
+.spv__edit { width: 100%; }
+.spv__edit textarea { min-height: 200px; font-family: var(--mono); }
+.spv__facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0; font-size: 14px; }
+.spv__k { color: var(--gray-600); }
+.spv__v { margin: 0; min-width: 0; color: var(--gray-900); }
+.spv__path { font-family: var(--mono); font-size: 12px; word-break: break-all; }
+.spv__vers { display: flex; flex-wrap: wrap; gap: 4px; }
+/* 来源那一行：文字后面跟「再做一次」「查看任务」（§4.5） */
+.spv__src { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.spv__foot { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.spv__hint { margin: 0; font-size: 12px; line-height: 18px; color: var(--gray-600); }
+
+/* 文档阅读与源码共用原始文字，详情在宽窗口里单独成栏。 */
+.spv--document { display: grid; grid-template-columns: minmax(0, 1fr) 240px; align-items: start; gap: 24px; }
+.spv--document .spv__media { min-width: 0; gap: 24px; }
+.spv__toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.spv__toolbar .spv__path { min-width: 0; color: var(--gray-600); }
+.spv__reading { max-width: 65ch; color: var(--gray-900); font-size: 14px; line-height: 1.8; overflow-wrap: anywhere; }
+.spv__reading h1 { font-size: 25px; }
+.spv__reading h2 { font-size: 20px; }
+.spv__reading h3, .spv__reading h4, .spv__reading h5, .spv__reading h6 { font-size: 16px; }
+.spv__reading h1, .spv__reading h2, .spv__reading h3, .spv__reading h4, .spv__reading h5, .spv__reading h6 { margin: 24px 0 16px; font-weight: 600; line-height: 1.4; }
+.spv__reading > :first-child { margin-top: 0; }
+.spv__reading p, .spv__reading ol, .spv__reading ul { margin: 0 0 16px; white-space: pre-line; }
+.spv__reading ol, .spv__reading ul { padding-inline-start: 24px; }
+.spv__reading li + li { margin-top: 8px; }
+.spv__reading pre { padding: 16px; border-radius: 8px; background: var(--gray-75); white-space: pre-wrap; font-family: var(--mono); font-size: 12px; }
+.spv--document .spv__facts { padding: 16px; border: 1px solid var(--gray-200); border-radius: 10px; background: var(--gray-50); font-size: 12px; gap: 12px; }
+.spv--document .spv__text { max-height: none; min-height: 240px; overflow-wrap: anywhere; padding: 16px; }
+@media (max-width: 900px) {
+  .spv--document { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Preview actual document content without inventing artwork for absent image files. */
+.sp-prev--document { position: relative; overflow: hidden; padding: 16px 20px 0; background: var(--gray-75); }
+.sp-prev__paper { height: 100%; overflow: hidden; padding: 16px; border-radius: 8px 8px 0 0; background: var(--gray-25); box-shadow: var(--sh-pop); }
+.sp-prev__paper pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; font-size: 12px; line-height: 1.5; color: var(--gray-700); }
+.sp-prev__doctype { position: absolute; inset-inline-end: 8px; bottom: 8px; padding: 4px 8px; border-radius: 4px; background: var(--gray-25); color: var(--gray-700); font-size: 12px; }

@@ -1,0 +1,35 @@
+import type { DubProgressMessages } from './dub-progress.ts';
+
+export const ja: DubProgressMessages = {
+  unit: {
+    fit: 'そのまま配置',
+    tempo: '速度を上げて配置',
+    extended: '上限まで速度を上げ、後ろの無音部分も使用',
+    overlong: '長すぎて収まらないため未配置',
+    stale: '翻訳が古いため未合成',
+    offTimeline: '元の行がタイムラインにないため未配置',
+    voiceUnavailable: '話者の声が使えないため未合成',
+  },
+  reasonStale: 'クローンの期限が切れています。ボイスライブラリでもう一度クローンしてください',
+  reasonMissing: 'このプロバイダではまだクローンしていません',
+  reasonNoConsent: '話者本人の同意表明がないため、プロバイダにはアップロードしません',
+  reasonRemoved: 'この声はもうライブラリにありません',
+  reasonServiceClient: '外部サービスの呼び出し元はライブラリの声を使えません',
+  codeCloneRequired: 'このプロバイダに有効なクローンがありません',
+  codeNotFound: '声が見つかりません',
+  warning: {
+    DUB_SEPARATION_NOT_CONFIGURED: '背景を分離していません',
+    DUB_UNITS_STALE: '古い翻訳は合成していません',
+    DUB_UNITS_OVERLONG: '長すぎて収まらない行があります',
+    DUB_UNITS_OFF_TIMELINE: '元の行がタイムラインにない行があります',
+    DUB_MUTED_UNVOICED: '合成しなかった行も元の音声をミュートしました',
+    DUB_BACKGROUND_MUTED: '背景音もミュートしました',
+    DUB_VOICE_UNAVAILABLE: '一部の話者の声が使えません',
+  },
+  separated: '背景を分離済み',
+  separationNotConfigured: '分離が指定されましたが、分離機能が設定されていません：スキップし、元の音声はそのままにしました',
+  notSeparated: '背景を分離していません',
+  originalMuted: '元の音声をミュート',
+  originalKept: '元の音声はそのまま',
+  originalDucked: (db: number | null) => (db ? `吹き替えの再生中は元の音声を ${db} dB 下げる` : '吹き替えの再生中は元の音声を下げる'),
+};

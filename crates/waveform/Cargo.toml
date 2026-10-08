@@ -1,0 +1,19 @@
+[package]
+name = "waveform"
+description = "BaoCut 音频派生数据的纯函数格式层：BCW1 峰值包络与 BCS1 频谱（移植自 BaoCut v2 bcut-waveform）"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[features]
+default = ["dsp"]
+# PCM → BCS1 的 STFT。只有**生产**素材频谱的一方开它：原生导出（frame-render 的
+# `host`）与编辑器预览的 WASM 入口（preview-wasm，界面解码后在这里算）；只读已有
+# BCS1 字节的**消费**方（render-raster 的 visualizer 源）关着它。
+dsp = ["dep:realfft"]
+
+[dependencies]
+anyhow = "1.0"
+# STFT 用的 real FFT；与 bcut-speech 的 mel 前端同版本，已证明全平台可用。
+realfft = { version = "3.5", optional = true }

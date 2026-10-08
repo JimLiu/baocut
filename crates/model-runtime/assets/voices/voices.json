@@ -1,0 +1,66 @@
+[
+  {
+    "id": "zh-female",
+    "lang": "zh",
+    "gender": "female",
+    "seconds": 6.72,
+    "text": "一般来说，卫星电话不能取代移动电话，因为只有在卫星信号畅通的室外，才能进行通话。",
+    "credit": "FLEURS · cmn_hans_cn · dev · 11138309825590803862.wav"
+  },
+  {
+    "id": "zh-male",
+    "lang": "zh",
+    "gender": "male",
+    "seconds": 6.16,
+    "text": "游猎活动也许是非洲最吸引人的旅游活动，也是许多游客行程中的亮点。",
+    "credit": "FLEURS · cmn_hans_cn · dev · 7878925372167965477.wav"
+  },
+  {
+    "id": "en-female",
+    "lang": "en",
+    "gender": "female",
+    "seconds": 7.32,
+    "text": "Author of the danger trail, Philip Steels, etc. Not at this particular case, Tom, apologized Whittemore.",
+    "credit": "CMU ARCTIC · cmu_us_slt_arctic · arctic_a0001 + arctic_a0002"
+  },
+  {
+    "id": "en-male",
+    "lang": "en",
+    "gender": "male",
+    "seconds": 6.9,
+    "text": "Author of the danger trail, Philip Steels, etc. Not at this particular case, Tom, apologized Whittemore.",
+    "credit": "CMU ARCTIC · cmu_us_bdl_arctic · arctic_a0001 + arctic_a0002"
+  },
+  {
+    "id": "ja-female",
+    "lang": "ja",
+    "gender": "female",
+    "seconds": 8.44,
+    "text": "州間の税法や関税を無効にする権限もありませんでした。",
+    "credit": "FLEURS · ja_jp · dev · 9633305044980004895.wav"
+  },
+  {
+    "id": "ja-male",
+    "lang": "ja",
+    "gender": "male",
+    "seconds": 6.4,
+    "text": "宇宙にある人工衛星は通話を受信して、ほぼ瞬時にそれを反映します。",
+    "credit": "FLEURS · ja_jp · dev · 18146068393309246703.wav"
+  },
+  {
+    "id": "es-female",
+    "lang": "es",
+    "gender": "female",
+    "seconds": 6.92,
+    "text": "Los canales navegables internos pueden ser una buena temática para las vacaciones.",
+    "credit": "FLEURS · es_419 · dev · 16573424493246998243.wav"
+  },
+  {
+    "id": "es-male",
+    "lang": "es",
+    "gender": "male",
+    "seconds": 7.86,
+    "text": "Cuando uno se comunica con alguien que está a miles de millas de distancia, se está haciendo uso de un satélite.",
+    "credit": "FLEURS · es_419 · dev · 14695292064114231662.wav"
+  }
+]

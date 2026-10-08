@@ -1,0 +1,79 @@
+{
+  "id": "elJiggle",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "loop",
+  "order": 19,
+  "period": 2.0,
+  "keyframes": [
+    {
+      "at": 0
+    },
+    {
+      "at": 0.1,
+      "ease": "easeInOutSine",
+      "dx": -0.005,
+      "dy": 0.0
+    },
+    {
+      "at": 0.2,
+      "ease": "easeInOutSine",
+      "dx": 0.00125,
+      "dy": 0.00131
+    },
+    {
+      "at": 0.3,
+      "ease": "easeInOutSine",
+      "dx": 0.0,
+      "dy": -0.005
+    },
+    {
+      "at": 0.4,
+      "ease": "easeInOutSine",
+      "dx": 0.00121,
+      "dy": -0.00151
+    },
+    {
+      "at": 0.5,
+      "ease": "easeInOutSine",
+      "dx": -0.0015,
+      "dy": 0.00125
+    },
+    {
+      "at": 0.6,
+      "ease": "easeInOutSine",
+      "dx": -0.0015,
+      "dy": 0.00131
+    },
+    {
+      "at": 0.7,
+      "ease": "easeInOutSine",
+      "dx": 0.0012,
+      "dy": -0.0015
+    },
+    {
+      "at": 0.8,
+      "ease": "easeInOutSine",
+      "dx": -0.0015,
+      "dy": -0.0015
+    },
+    {
+      "at": 0.9,
+      "ease": "easeInOutSine",
+      "dx": 0.0018,
+      "dy": 0.0013
+    },
+    {
+      "at": 1,
+      "ease": "easeInOutSine"
+    }
+  ],
+  "basis": {
+    "dx": "selfWidth",
+    "dy": "selfHeight"
+  },
+  "surface": "element",
+  "determinism": "strict",
+  "available": true
+}

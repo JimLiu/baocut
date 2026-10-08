@@ -1,0 +1,13 @@
+{
+  "source": "Spectrum 2 icon geometry: 20px canvas, 1.5px stroke, 2.25 outer corner radius, shown at the 16px compact size; currentColor fill. Icons marked s2 copy the path data of the named @react-spectrum/s2 icon (Apache-2.0); the window icons share the square frame (2–18) of the user-provided S2 expand-right panel icon; icons marked drawn are BaoCut's own on that frame.",
+  "icons": {
+    "sidebar.svg": {"from": "s2-expand-right", "shape": "square frame + panel bar x 5, y 5–15, 4 wide (the expand-right bar widened)", "role": "sidebar toggle while the sidebar is shown; pin button in the sidebar peek"},
+    "sidebar-hidden.svg": {"from": "s2-expand-right", "shape": "square frame + panel bar x 5, y 5–15, 1.5 wide (the expand-right icon as provided)", "role": "sidebar toggle while the sidebar is hidden"},
+    "tabs.svg": {"from": "s2-expand-right", "shape": "the square frame alone", "role": "tabs button frame; holds the plus overlay or the open-tab count"},
+    "tabs-plus.svg": {"from": "drawn", "shape": "plus 6.75–13.25 on the 20px grid, 1.5px stroke, round caps", "role": "overlay inside the tabs button frame when no tab is open"},
+    "full.svg": {"from": "drawn", "shape": "two corner brackets from S2 FullScreen (1.5px stroke, 1.25 outer radius, sharp inner corner) at top-right and bottom-left, pointing out; the previous glyph's layout scaled to a 1.5px stroke: 4.5–15.5, arms 5.75, brackets overlapping by 0.5", "role": "enter full view; open-tabs row trailing button"},
+    "exit-full.svg": {"from": "drawn", "shape": "the same two brackets turned to point in, as in S2 FullScreenExit; 3.5–16.5, arms 5.75, 1.5 gap between the brackets", "role": "exit full view (pressed state)"},
+    "summary.svg": {"from": "s2", "icon": "ListBulleted", "role": "session summary toggle"},
+    "hide-tabs.svg": {"from": "drawn", "shape": "square frame + centre divider x 9.25–10.75", "role": "tabs button while the split pane is visible (hide tabs)"}
+  }
+}

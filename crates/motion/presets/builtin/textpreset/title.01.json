@@ -1,0 +1,80 @@
+{
+  "id": "title.01",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "title",
+  "order": 201,
+  "duration": 5.0,
+  "content": [
+    {
+      "kind": "text",
+      "place": {
+        "x": 50.0,
+        "y": 48.35
+      },
+      "text": "bold",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#ffffff",
+        "fontFamily": "Poppins",
+        "fontSize": 25.9,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.2,
+        "letterSpacing": 0.0,
+        "textAlign": "center",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 50.0,
+        "y": 53.6
+      },
+      "text": "Traditional",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#ffffff",
+        "fontFamily": "Newsreader",
+        "fontSize": 11.9,
+        "fontStyle": "normal",
+        "fontWeight": "normal",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.2,
+        "letterSpacing": 0.0,
+        "textAlign": "center",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      }
+    }
+  ]
+}

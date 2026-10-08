@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- 只连本机 Runtime（WebSocket 与同端口的媒体通道）；字体可以从 Typekit 取，远程脚本一律不加载。
+         'wasm-unsafe-eval' 只放行编译 WebAssembly（预览的帧计划），不放行 eval。 -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: http://127.0.0.1:* http://localhost:*; media-src 'self' blob: http://127.0.0.1:* http://localhost:*; worker-src 'self' blob:; frame-src 'self' blob:; font-src 'self' blob: data: https://use.typekit.net; connect-src 'self' blob: ws://127.0.0.1:* ws://localhost:* http://127.0.0.1:* http://localhost:*"
+    />
+    <title>BaoCut</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "id": "wipe",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "exit",
+  "order": 12,
+  "duration": 0.34,
+  "curve": {
+    "kind": "named",
+    "name": "easeInExpo"
+  },
+  "mirror": null,
+  "from": {
+    "reveal": 0.0
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

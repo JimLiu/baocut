@@ -1,0 +1,136 @@
+{
+  "schema": "baocut-caption-style/1",
+  "id": "caption-kinetic-slam",
+  "version": 1,
+  "title": "Kinetic slam",
+  "description": "One word at a time slams into a full-screen band.",
+  "tags": [
+    "social",
+    "impact"
+  ],
+  "scripts": [
+    "latin",
+    "cjk"
+  ],
+  "aspects": [
+    "16:9",
+    "9:16",
+    "1:1"
+  ],
+  "cjk": "fallback",
+  "layout": "fullScreenWord",
+  "layoutTokens": {
+    "wide": {"width": 0.86, "fontScale": 2.45, "minFontSize": 30, "maxHeight": 0.46, "bandGap": 0},
+    "vertical": {"width": 0.9, "fontScale": 2.05, "minFontSize": 26, "maxHeight": 0.34, "bandGap": 0},
+    "square": {"width": 0.88, "fontScale": 2.25, "minFontSize": 28, "maxHeight": 0.4, "bandGap": 0}
+  },
+  "grouping": {
+    "maxWords": 1,
+    "pauseThreshold": 0.35,
+    "punctuation": true
+  },
+  "family": "kineticSlam",
+  "layers": [
+    "glyphs"
+  ],
+  "channels": [
+    "opacity",
+    "dx",
+    "scaleX",
+    "scaleY",
+    "rotation"
+  ],
+  "tunables": [
+    {
+      "key": "intensity",
+      "kind": "number",
+      "min": 0,
+      "max": 100,
+      "default": 60
+    },
+    {
+      "key": "speed",
+      "kind": "number",
+      "min": 0.35,
+      "max": 2,
+      "default": 1
+    }
+  ],
+  "events": [
+    {
+      "trigger": "word.enter",
+      "operator": "transform",
+      "channels": [
+        "opacity",
+        "dx",
+        "scaleX",
+        "scaleY",
+        "rotation"
+      ],
+      "easing": "backOut",
+      "duration": 0.28,
+      "byRole": true,
+      "keyframes": {
+        "opacity": [
+          {"offset": 0, "value": 0},
+          {"offset": 0.35, "value": 1},
+          {"offset": 1, "value": 1}
+        ],
+        "dx": [
+          {"offset": 0, "value": 0.42, "ease": "easeOutCubic"},
+          {"offset": 1, "value": 0}
+        ],
+        "scaleX": [
+          {"offset": 0, "value": 1.55, "ease": "easeOutCubic"},
+          {"offset": 0.72, "value": 0.96, "ease": "easeInCubic"},
+          {"offset": 1, "value": 1}
+        ],
+        "scaleY": [
+          {"offset": 0, "value": 1.55, "ease": "easeOutCubic"},
+          {"offset": 0.72, "value": 0.96, "ease": "easeInCubic"},
+          {"offset": 1, "value": 1}
+        ],
+        "rotation": [
+          {"offset": 0, "value": -6, "ease": "easeOutCubic"},
+          {"offset": 1, "value": 0}
+        ]
+      }
+    },
+    {
+      "trigger": "word.leave",
+      "operator": "transform",
+      "channels": ["opacity"],
+      "easing": "easeIn",
+      "duration": 0.08,
+      "fixed": true,
+      "keyframes": {
+        "opacity": [
+          {"offset": 0, "value": 1},
+          {"offset": 1, "value": 0}
+        ]
+      }
+    }
+  ],
+  "composite": "normal",
+  "hardKill": true,
+  "visibility": {"hold": 0.1, "gapBeforeNext": 0, "hardKillAfter": 0.1},
+  "seeded": false,
+  "assets": [],
+  "fonts": [
+    {
+      "role": "sansHeavy",
+      "family": "Inter",
+      "weights": [
+        700,
+        900
+      ],
+      "fallback": [
+        "SF Pro Display",
+        "PingFang SC Semibold",
+        "Hiragino Sans W6"
+      ],
+      "substitution": "metric-safe",
+      "license": "OFL-1.1"
+    }
+  ]
+}

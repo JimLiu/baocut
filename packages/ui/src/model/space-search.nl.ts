@@ -1,0 +1,3 @@
+import type { SpaceSearchMessages } from './space-search.ts';
+import { pluralForm } from '@baocut/protocol';
+export const nl: SpaceSearchMessages = { documentKind: { speech: 'Transcript', caption: 'Ondertitels', translation: 'Vertaling', chapter: 'Hoofdstuk' }, pendingVideos: (count) => `De inhoudsindex voor ${count} ${pluralForm('nl', count, { one: 'video', other: 'video’s' })} is nog niet bijgewerkt; video’s kunnen ontbreken in de resultaten of verouderd zijn`, indexUpdating: 'De inhoudsindex wordt bijgewerkt; resultaten kunnen verouderd zijn', truncated: (count) => `Te veel treffers; alleen de eerste ${count} worden getoond`, notes: (notes) => `${notes.join('; ')}.`, sourceTime: (clock) => `Mediatijd ${clock}` };

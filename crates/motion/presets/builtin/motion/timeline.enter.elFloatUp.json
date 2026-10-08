@@ -1,0 +1,35 @@
+{
+  "id": "elFloatUp",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "enter",
+  "order": 28,
+  "duration": 0.6,
+  "curve": {
+    "kind": "named",
+    "name": "linear"
+  },
+  "mirror": "elFloatUp",
+  "from": {},
+  "keyframes": [
+    {
+      "at": 0,
+      "opacity": 0.0,
+      "dy": 0.1
+    },
+    {
+      "at": 1,
+      "ease": "easeOutSine",
+      "opacity": 1.0,
+      "dy": 0.0
+    }
+  ],
+  "basis": {
+    "dx": "selfWidth",
+    "dy": "selfHeight"
+  },
+  "surface": "element",
+  "determinism": "strict",
+  "available": true
+}

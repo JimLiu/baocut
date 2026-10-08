@@ -1,0 +1,5 @@
+import type { JobsSubtitleFileMessages } from './subtitle-file.ts';
+
+export const tr: JobsSubtitleFileMessages = {
+tooLarge: (p) => `Altyazı dosyası ${p.bytes} bayt; ${p.limit} sınırını aşıyor`, tooManyCues: (p) => `${p.limit} sınırından fazla altyazı var`, invalidAt: (p) => `Altyazı dosyası satır ${p.line}: ${p.problem}`, nul: 'Dosya NUL karakterleri içeriyor ve metin altyazısına benzemiyor', vttHeader: 'WebVTT dosyası WEBVTT ile başlamalı', vttHeaderBlank: 'WEBVTT başlığından sonra altyazılardan önce boş satır bırakın', empty: 'Dosyada altyazı yok', noTiming: 'Bu blokta metin var ancak zaman satırı yok', tooManyIdLines: 'Zaman satırından önce yalnızca bir sayı veya tanımlayıcı satırı olabilir', srtIndex: (p) => `SRT sıra satırı sayı olmalı: ${p.id}`, badTiming: (p) => `Zaman satırı biçimi yanlış: ${p.timing}`, endBeforeStart: 'Bitiş zamanı başlangıçtan önce', timingInText: 'Altyazı metninde zaman satırı var (iki altyazı arasında boş satır eksik olabilir)', cueTooLong: (p) => `Altyazı metni ${p.max} karakterden uzun`, minuteSecondRange: 'Dakika veya saniye 59 sınırını aşıyor',
+};

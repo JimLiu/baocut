@@ -1,0 +1,32 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "designs",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "exec npm run dev:designs -- --port \"${PORT:-4331}\""
+      ],
+      "port": 4331,
+      "autoPort": true
+    },
+    {
+      "name": "desktop-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "legacy-import-preview",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        ".dev/preview-shim/start.mjs"
+      ],
+      "port": 5199
+    }
+  ]
+}

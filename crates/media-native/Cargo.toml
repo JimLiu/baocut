@@ -1,0 +1,146 @@
+[package]
+name = "media-native"
+description = "BaoCut platform-native media primitives: frame extraction, streaming, GPU playback surfaces and MP4 writing via AVFoundation / Media Foundation (ported from BaoCut v2 bcut-media-native)"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow = "1.0"
+
+# macOS：单帧走 AVFoundation 的 `AVAssetImageGenerator` + CoreGraphics 位图上下文，
+# 顺序帧流走 `AVAssetReader` + `AVAssetReaderTrackOutput`（32BGRA 的 CVPixelBuffer），
+# MP4 写入走 `AVAssetWriter` + `AVAssetWriterInputPixelBufferAdaptor`（WP6b）。
+# 版本与 features 对齐 v2 的 `core/crates/bcut-kernel`、`apps/cli`、`apps/baocut` 里已有的
+# objc2 系依赖，避免同一棵依赖树里出现两个大版本。
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+# `finishWritingWithCompletionHandler:` 要一个 Objective-C block。
+block2 = "0.6"
+# MP4 写入期的影子文件目录：`shouldOptimizeForNetworkUse` 为把 moov 前置会写一份
+# 接近成片大小的临时文件，不指定目录时它可能落在用户的输出目录旁边。只有这条
+# 平台路径需要，因此不进跨平台的 `[dependencies]`。
+tempfile = "3"
+objc2-av-foundation = { version = "0.3", default-features = false, features = [
+    "AVAsset",
+    "AVAssetImageGenerator",
+    "AVAssetReader",
+    "AVAssetReaderOutput",
+    "AVAssetTrack",
+    # 预览拖动时按关键帧吸附：`AVAssetTrack::makeSampleCursor…` 与 sync 信息，
+    # `AVSampleBufferGenerator` 直接从容器抓关键帧的压缩样本喂常驻解码器。
+    "AVSampleCursor",
+    "AVSampleBufferGenerator",
+    "AVAssetWriter",
+    "AVAssetWriterInput",
+    "AVMediaFormat",
+    "AVVideoSettings",
+    # `finishWritingWithCompletionHandler:` 的 block 形参。
+    "block2",
+    "objc2-core-foundation",
+    "objc2-core-graphics",
+    "objc2-core-media",
+    "objc2-core-video",
+] }
+# AAC 输出设置的键（`AVFormatIDKey` / `AVEncoderBitRateKey` …）。
+objc2-avf-audio = { version = "0.3", default-features = false, features = [
+    "AVAudioSettings",
+] }
+# 混音 PCM 的 `AudioStreamBasicDescription` 与 `kAudioFormat*` 常量。
+objc2-core-audio-types = { version = "0.3", default-features = false, features = [
+    "CoreAudioBaseTypes",
+] }
+objc2-core-graphics = { version = "0.3", default-features = false, features = [
+    "CGBitmapContext",
+    "CGColorSpace",
+    "CGContext",
+    "CGImage",
+] }
+objc2-core-foundation = { version = "0.3", default-features = false, features = [
+    "CFBase",
+    "CFCGTypes",
+    # `kCVPixelBufferPixelFormatTypeKey` 是 `CFStringRef`：要有 `CFString` 这个
+    # 类型才能把它 toll-free 换成 `NSString` 放进 output settings 字典。
+    "CFString",
+    # `VTDecompressionSessionCreate` 的目标像素缓冲属性是 `CFDictionaryRef`。
+    "CFDictionary",
+] }
+# `CMSampleBuffer` + `objc2-core-video` 才有 `CMSampleBufferGetImageBuffer`；
+# `CMTimeRange` 是顺序流限定起点用的。`CMBlockBuffer` / `CMFormatDescription` +
+# `objc2-core-audio-types` 是 WP6b 自造音频样本缓冲用的（混音 PCM 没有容器，
+# 格式描述与块缓冲只能自己搭）。
+objc2-core-media = { version = "0.3", default-features = false, features = [
+    "CMBase",
+    "CMBlockBuffer",
+    "CMFormatDescription",
+    "CMSampleBuffer",
+    "CMTime",
+    "CMTimeRange",
+    "objc2-core-audio-types",
+    "objc2-core-video",
+] }
+objc2-core-video = { version = "0.3", default-features = false, features = [
+    "CVBase",
+    "CVBuffer",
+    "CVImageBuffer",
+    "CVPixelBuffer",
+    "CVPixelBufferPool",
+    "CVReturn",
+] }
+objc2-foundation = { version = "0.3", default-features = false, features = [
+    "NSArray",
+    "NSDictionary",
+    "NSError",
+    "NSObject",
+    "NSString",
+    "NSURL",
+    "NSValue",
+] }
+# 预览拖动时的关键帧解码器：一个常驻的 `VTDecompressionSession` 解
+# `AVSampleBufferGenerator` 抓出来的关键帧样本，省掉 `AVAssetReader` 每次
+# 重开都要付的解码会话冷启动（1080p H.264 实测 ≈ 50 ms/次）。
+objc2-video-toolbox = { version = "0.3.2", default-features = false, features = [
+    "VTDecompressionSession",
+    "VTErrors",
+    "VTSession",
+    "block2",
+    "objc2",
+    "objc2-core-media",
+    "objc2-core-video",
+] }
+
+# Windows：Media Foundation 的 `IMFSourceReader` 解 RGB32 单帧，`IMFMediaEngine`
+# frame-server 把实时帧直接写进可共享的 D3D11 BGRA 纹理。版本与 features 对齐
+# v2 `core/crates/bcut-kernel/src/services/native_video/platform.rs` 里的 MF 导出后端。
+[target.'cfg(target_os = "windows")'.dependencies]
+# `windows::core::implement` 展开后直接引用 `windows_core` crate；这是生成 COM
+# `IMFMediaEngineNotify` 回调所需，不是重复的 Win32 绑定版本。
+windows-core = "0.62"
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Direct3D",
+    "Win32_Graphics_Direct3D10",
+    "Win32_Graphics_Direct3D11",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_Media_MediaFoundation",
+    "Win32_Security",
+    "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_Variant",
+] }
+
+[dev-dependencies]
+tempfile = "3"
+# 音频往返验收（WP6b）：写出的 MP4 解回 PCM 判 RMS 与主频。版本与 features
+# 对齐 `render-raster` / `media-probe`（同版同 features ⇒ 不新增编译单元）。
+symphonia = { version = "0.6", features = ["all"] }
+# 写出的 MP4 的元数据验收（尺寸 / 时长 / 有无音轨）。
+media-probe = { workspace = true }
+# 跨后端 SSIM 对拍（WP5b）：算法已收敛进 `render-raster::imgcmp`，测试侧不再自带
+# 一份最小实现。只作为 dev-dependency（不进生产二进制）；workspace 登记处是
+# `default-features = false`，关掉 `media`（ffmpeg/resvg/cosmic-text 这类本 crate 用不上的
+# 重依赖），留下的 `raster`（tiny-skia）/ `imgcmp` 已够用。
+render-raster = { workspace = true }
+tiny-skia = "0.11"

@@ -1,0 +1,41 @@
+{
+  "source": "OFL-1.1 WOFF2 fonts (Inter, Poppins, Roboto Mono, Playfair Display, Oswald); WOFF2 decoded to sfnt without altering outlines",
+  "fonts": [
+    {
+      "file": "Inter-Medium.ttf",
+      "source": "inter-latin-500-normal.woff2",
+      "license": "Inter-OFL-1.1.txt",
+      "sha256": "3eda5be5d863533a91376825baf87e44f4877819fc03a3959448c47998c2f0a1"
+    },
+    {
+      "file": "Poppins-Black.ttf",
+      "source": "poppins-latin-900-normal.woff2",
+      "license": "Poppins-OFL-1.1.txt",
+      "sha256": "1a31cb8c298b416844bcd21ae1c357c3fc74ab0fa5740b0bbdb3c3213f70c8e7"
+    },
+    {
+      "file": "RobotoMono-Medium.ttf",
+      "source": "roboto-mono-latin-500-normal.woff2",
+      "license": "Roboto-Mono-OFL-1.1.txt",
+      "sha256": "65a45e38c0c034afa3b27f987646ab8327ce0839b085c8112fc32ef76e4f7c1f"
+    },
+    {
+      "file": "PlayfairDisplay-Italic.ttf",
+      "source": "playfair-display-latin-400-italic.woff2",
+      "license": "Playfair-Display-OFL-1.1.txt",
+      "sha256": "e18be8b9b11d4bbc714e0971bc84fe96b1f1c23e52322c037220d94bcb07aa34"
+    },
+    {
+      "file": "Oswald-Bold.ttf",
+      "source": "oswald-latin-700-normal.woff2",
+      "license": "Oswald-OFL-1.1.txt",
+      "sha256": "e883fb10e64261c1af251bae050d03284db2e68decec60a29b31daa592c7d9e8"
+    },
+    {
+      "file": "PlayfairDisplay-Regular.ttf",
+      "source": "playfair-display-latin-400-normal.woff2",
+      "license": "Playfair-Display-OFL-1.1.txt",
+      "sha256": "5c666d162cc9f6ea9094438d5a0b96759a0a978dd2444283104d1cad242f0f90"
+    }
+  ]
+}

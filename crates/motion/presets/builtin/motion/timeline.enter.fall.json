@@ -1,0 +1,25 @@
+{
+  "id": "fall",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "enter",
+  "order": 18,
+  "duration": 0.55,
+  "curve": {
+    "kind": "named",
+    "name": "easeOutQuart"
+  },
+  "mirror": "fall",
+  "from": {
+    "opacity": 0.0,
+    "dy": -0.06,
+    "rotation": -10.0
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

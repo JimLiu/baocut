@@ -1,0 +1,62 @@
+{
+  "rows": [
+    {
+      "id": "de-07",
+      "reference_en": "Send Anna the file only if management has approved the second version.",
+      "required_facts": [
+        "Anna",
+        "only after management approval",
+        "second version"
+      ],
+      "risk": "condition; scope",
+      "source": "Sende Anna die Datei nur dann, wenn die Leitung der zweiten Fassung zugestimmt hat.",
+      "source_lang": "de",
+      "source_words": [
+        "Sende",
+        "Anna",
+        "die",
+        "Datei",
+        "nur",
+        "dann,",
+        "wenn",
+        "die",
+        "Leitung",
+        "der",
+        "zweiten",
+        "Fassung",
+        "zugestimmt",
+        "hat."
+      ],
+      "target_lang": "zh-Hans"
+    },
+    {
+      "id": "de-08",
+      "reference_en": "We bought 2.5 kilograms of rice; half was still left after dinner.",
+      "required_facts": [
+        "2.5 kilograms",
+        "rice",
+        "half left",
+        "after dinner"
+      ],
+      "risk": "decimal comma; fraction",
+      "source": "Wir kauften 2,5 Kilogramm Reis; nach dem Abendessen war noch die Hälfte übrig.",
+      "source_lang": "de",
+      "source_words": [
+        "Wir",
+        "kauften",
+        "2,5",
+        "Kilogramm",
+        "Reis;",
+        "nach",
+        "dem",
+        "Abendessen",
+        "war",
+        "noch",
+        "die",
+        "Hälfte",
+        "übrig."
+      ],
+      "target_lang": "zh-Hans"
+    }
+  ]
+}

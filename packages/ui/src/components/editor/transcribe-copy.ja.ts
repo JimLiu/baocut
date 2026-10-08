@@ -1,0 +1,27 @@
+import type { TranscribeSetupMessages } from './transcribe-copy.ts';
+
+export const ja: TranscribeSetupMessages = {
+  title: '文字起こしの設定',
+  language: '言語',
+  model: '音声モデル',
+  manageModels: '音声モデルを管理',
+  modelsLoading: '音声モデルを読み込み中…',
+  noDefault: '既定の音声モデルがまだありません',
+  hint: '認識のヒント',
+  glossary: '用語集',
+  manageGlossary: '用語集を管理',
+  glossaryLoading: '用語集を読み込み中…',
+  glossaryEmpty: '文字起こし用の用語集はまだありません。設定 › 用語集 で作成し、固有名詞や用語の正しい表記を登録してください。',
+  glossaryFailed: (message: string) => `この動画で有効な用語集を読み込めませんでした：${message}`,
+  glossaryNote: '用語集にチェックを入れるとこの動画で有効になり、今後のすべての文字起こしで使われます。取り消すこともできます。',
+  glossaryReadOnly: 'この動画は現在編集できないため、有効な用語集を変更できません。',
+  glossaryLimit: (n: number) => `1 本の動画で有効にできる用語集は最大 ${n} 件です`,
+  glossaryOn: (name: string) => `この動画で「${name}」を有効にしました`,
+  glossaryOff: (name: string) => `「${name}」を無効にしました`,
+  glossaryWriteFailed: (message: string) => `有効な用語集を変更できませんでした：${message}`,
+  undo: '取り消す',
+  prompt: 'カスタムプロンプト',
+  promptPlaceholder: '省略可。例：LLM の推論最適化をテーマにした英語のポッドキャスト。ホストは Lin Che、ゲストは Zhou Yuan。',
+  how: 'プロンプトと有効な用語集（正しい表記）はまとめて音声モデルに渡され、固有名詞や用語の認識に役立ちます。上限を超えた場合は、末尾の用語から省かれます。',
+  reuse: '文字起こし済みの素材はその文字起こしを再利用します。これらの設定は、まだ文字起こしが必要な素材にのみ適用されます。',
+};

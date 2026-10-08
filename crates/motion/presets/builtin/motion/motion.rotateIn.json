@@ -1,0 +1,42 @@
+{
+  "id": "motion.rotateIn",
+  "version": 1,
+  "domain": "motion",
+  "family": "rotateIn",
+  "doc": "旋转入场（可选淡入）。",
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "rotationFrom": {
+      "type": "number",
+      "default": -12.0,
+      "doc": "起始角度（度）"
+    },
+    "curve": {
+      "type": "curve",
+      "default": "easeOutCubic",
+      "doc": "时间曲线（规范 §7.6 的封闭名称）"
+    },
+    "fade": {
+      "type": "bool",
+      "default": true,
+      "doc": "是否同时淡入/淡出"
+    }
+  },
+  "compose": [
+    {
+      "preset": "motion.spinIn",
+      "params": {
+        "rotationFrom": "{rotationFrom}",
+        "curve": "{curve}"
+      }
+    },
+    {
+      "preset": "motion.fadeIn",
+      "when": "{fade}"
+    }
+  ],
+  "determinism": "strict",
+  "capabilities": []
+}

@@ -1,0 +1,25 @@
+/* 倒鸭子字幕 —— 画面上那张跨句 canvas、画廊小样、属性页那一段的几个专属件。
+   控件本身全部来自 ui.jsx / ui.css，这里只有摆放。 */
+
+/* 画面上：铺满画面框，正常模式不接指针（铺满会吞掉底下元素的手势，见 daoyazi-stage.jsx 头注） */
+.dzstage { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 7; display: block; pointer-events: none; }
+.dzstage.is-edit { pointer-events: auto; cursor: grab; }
+.dzstage.is-drag { cursor: grabbing; }
+
+/* 画廊 / 预览条里的小样：格子比通用格高一档（96 = 48 × 2），小样里三块字才铺得开 */
+.sthumb--kin { height: 96px; padding: 0; background: var(--gray-900); }
+.dzthumb { display: block; width: 100%; height: 100%; }
+.spp__l--kin { align-self: stretch; height: 96px; background: var(--gray-900); border-radius: 8px; overflow: hidden; }
+
+/* 配色四格：圆形色样，颜色是画面色（内联），选中态走 UI token */
+.dzsws { display: flex; gap: 8px; }
+.dzsw { width: 24px; height: 24px; border-radius: 9999px; border: 0; padding: 0; cursor: pointer; outline: 2px solid transparent; outline-offset: 2px; transition: outline-color 150ms cubic-bezier(0.45, 0, 0.4, 1); }
+.dzsw:hover { outline-color: var(--gray-400); }
+.dzsw.is-on { outline-color: var(--blue-800); }
+.dzsw:active { transform: scale(0.96); }
+
+.dzseed { margin-left: 8px; color: var(--gray-600); }
+.dzkv { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 8px 0 0; font-size: 11px; color: var(--gray-700); }
+.dzkv dt { color: var(--gray-600); }
+.dzkv dd { margin: 0; }
+.row.wrap { flex-wrap: wrap; row-gap: 4px; }

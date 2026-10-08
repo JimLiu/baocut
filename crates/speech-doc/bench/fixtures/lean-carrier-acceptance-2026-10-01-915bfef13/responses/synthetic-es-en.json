@@ -1,0 +1,8 @@
+{
+  "effort": "auto",
+  "elapsedMs": 1528,
+  "error": null,
+  "model": "deepseek-flash",
+  "name": "synthetic-es-en",
+  "response": "1 |Lucía..reunión|Lucía didn't cancel the meeting; |la..aplazó|she postponed it |hasta..14:30|until Thursday at 2:30 p.m.\n2 |Si..grados|If the temperature drops below 5 degrees, |cierra..calefacción|close the window before turning on the heating.\n3 |Diego..entradas|Diego paid 120 euros for three tickets, |pero..cena|but the price didn't include dinner.\n4 |El..Pablo|The book that Ana lent Pablo yesterday |pertenece..Ana|belongs to Ana's sister.\n5 |El..«confirmado»|The code C-19 appears next to \"confirmed,\" |aunque..enviado|although the package hasn't been sent yet.\n6 |Aunque..Mateo|Even though Inés left before Mateo, |llegó..él|she arrived ten minutes after him."
+}

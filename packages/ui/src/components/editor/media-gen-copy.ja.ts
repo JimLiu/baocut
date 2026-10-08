@@ -1,0 +1,63 @@
+import type { AudioGenMessages, GeneratedMarkMessages, ImageGenMessages } from './media-gen-copy.ts';
+
+export const jaMark: GeneratedMarkMessages = { generated: '生成済み' };
+
+export const jaAudioGen: AudioGenMessages = {
+  generate: '音声を生成',
+  clone: '声をクローン',
+  generateTip: 'クラウドモデルでテキストを読み上げ、素材ライブラリに追加します',
+  cloneTip: 'マイボイスでクローンした声でテキストを読み上げます',
+  back: '音声に戻る',
+  running: 'バックグラウンドで実行中',
+  textPlaceholder: '合成するテキスト。句点や改行で区切ります…',
+  clonePlaceholder: 'この声で話す内容…',
+  cta: '生成',
+  cloneCta: 'この声で生成',
+  hint: (provider: string) =>
+    `オンラインで ${provider} に送って合成し、プロバイダの規定に従って課金されます。進行状況は上部バーとバックグラウンドタスクに表示され、完了すると素材ライブラリに追加されます。タイムラインへの配置は別の操作です。待機を止めても、送信済みのリクエストは取り消されません。`,
+  readOnly: 'この動画は現在読み取り専用のため、素材を生成できません',
+  noVoicesTitle: 'マイボイスにまだ声がありません',
+  noVoicesBody:
+    '声をクローンするには、まず モデル › 音声合成 › マイボイス で録音するかファイルから読み込み、声のクローンに対応したプロバイダ（ElevenLabs）にアップロードしてください。その後ここに戻り、下の声から選びます。',
+  goVoices: 'マイボイスを開く',
+  runTitle: (title: string) => `${title}…`,
+  runNote: '編集を続けられます · 合成はバックグラウンドで実行され、完了すると素材ライブラリに追加されます。',
+  cancel: 'キャンセル',
+  cancelled: 'キャンセル済み',
+  done: (meta: string) => `生成完了 · ${meta}`,
+  inLibrary: (name: string) => `素材ライブラリに追加しました · ${name}`,
+  importing: '素材ライブラリに追加中…',
+  add: 'タイムラインに追加',
+  addTip: '再生ヘッドの位置に配置',
+  again: 'もう一度生成',
+  backToAudio: '音声に戻る',
+  doneNote: '素材は「音声」の素材ライブラリにあり、「生成済み」の印が付いています。タイムラインにドラッグするか「＋」をクリックして配置できます。何度でも使えます。',
+  failed: (message: string) => `生成できませんでした · ${message}`,
+  edit: '編集して再生成',
+  retried: '再送信しました',
+};
+
+export const jaImageGen: ImageGenMessages = {
+  title: '画像',
+  segments: '画像の入手元',
+  project: '動画の素材',
+  gen: 'AI 生成',
+  noModelTitle: '画像モデルがまだありません',
+  noModelBody: 'クラウドプロバイダを接続する（モデル › 画像生成 › クラウドモデル）か、Qwen-Image-2.1 をダウンロードしてください（モデル › 画像生成 › ローカルモデル）。どちらか一方で使えます。',
+  connect: 'クラウドプロバイダを接続',
+  downloadLocal: 'ローカルモデルをダウンロード',
+  fit: '動画のキャンバスと同じ',
+  recent: '最近',
+  all: (n: number) => `全 ${n} 回分`,
+  fewer: '直近 3 回分のみ',
+  empty: 'この動画ではまだ画像を生成していません。生成した画像はそのまま素材ライブラリに追加されます（「生成済み」の印付き）。キャンバスへの配置は別の操作です。',
+  place: 'キャンバスに配置',
+  placeTip: '再生ヘッドの位置に配置',
+  inLibrary: '素材ライブラリにあります',
+  importing: '素材ライブラリに追加中…',
+  useAsRef: '参考として使う',
+  foot: '生成した画像はそのままこの動画の素材ライブラリに追加され、出所（モデル、パラメータ、タスク）が素材と一緒に記録されます。プロンプトはタスクの記録にのみ残ります。キャンバスへの配置は別の操作です。',
+  readOnly: 'この動画は現在読み取り専用のため、素材を生成できません',
+  charCount: (chars: number, max: number) => `${chars} / ${max} 文字`,
+  charCountPlain: (chars: number) => `${chars} 文字`,
+};

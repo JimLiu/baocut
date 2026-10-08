@@ -1,0 +1,13 @@
+[package]
+name = "font-files"
+description = "BaoCut 按字体族名、字重与斜体找本机字体的一个 face（移植自 BaoCut v2 bcut-render 的系统字体库）并把它从字体集合里抽成单独的字体：导出与预览用同一份解析与抽法；有大小上限，不列整个字体目录"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[dependencies]
+fontdb = "0.23"
+
+[dev-dependencies]
+tempfile = "3.27.0"

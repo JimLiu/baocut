@@ -1,0 +1,28 @@
+import type { VoicesLibraryMessages } from './voices-library-copy.ts';
+
+export const pl: VoicesLibraryMessages = {
+  consentStatement: "To mój głos lub mam zgodę mówcy",
+  uploading: (label) => `Przesyłanie do ${label}…`,
+  noConsent: "Nie zaznaczono, że to Twój głos lub masz zgodę, więc nie zostanie przesłany stronie trzeciej. Najpierw zaznacz oświadczenie w „Edytuj”.",
+  cannotClone: (label) => `Ten Runtime nie może klonować u dostawcy ${label}`,
+  providerOff: (label, detail) => `${label} jest teraz niedostępny${detail ? ` (${detail})` : ""}: najpierw włącz i ustaw klucz w „Modele w chmurze”`,
+  consentUnstated: "Brak oświadczenia zgody",
+  cloned: (label) => `Sklonowano przez ${label}`,
+  cloneStale: (label) => `${label} – klon nieaktualny`,
+  languageUnknown: "Język nieokreślony",
+  recorded: "Nagrano w aplikacji",
+  imported: "Zaimportowano z pliku",
+  edited: (ago) => `Edytowano ${ago}`,
+  nameRequired: "Nadaj głosowi nazwę",
+  nameTooLong: (max) => `Maksymalna długość nazwy: ${max} znaków`,
+  transcriptTooLong: (max) => `Maksymalna długość transkrypcji: ${max} znaków`,
+  dontKnow: "Nie wiem",
+  deleteClones: (labels) => `Jego klony u dostawcy ${labels.join(", ")} są usuwane najpierw; jeśli się nie uda, głos zostaje zachowany.`,
+  deleteBody: (clones) => `Przy kolejnym generowaniu używające go wideo wrócą do głosu domyślnego; utworzony dubbing pozostaje bez zmian. ${clones}`.trim(),
+  uploadNotice: (name, size, label) => `Nagranie referencyjne głosu „${name}”${size ? ` (${size})` : ""} zostanie przesłane do ${label} w celu utworzenia klonu. Następnie używanie tego głosu u dostawcy ${label} używa bezpośrednio jego ID głosu; usunięcie głosu najpierw usuwa klon.`,
+  withRemedy: (message, remedy) => `${message.replace(/[。.]$/, "")}. ${remedy}`,
+  remedyConsent: "Głosy bez oświadczenia zgody nie są przesyłane stronom trzecim: najpierw zaznacz oświadczenie w „Edytuj”.",
+  remedyConfigure: "Włącz tego dostawcę i ustaw klucz w „Modele w chmurze”.",
+  remedyConflict: "Ten głos został właśnie zmieniony w innym miejscu. Poniżej jest najnowsza wersja; sprawdź przed zapisaniem.",
+  remedyGrant: "Wysłanie nagrania referencyjnego dostawcy wymaga uprawnienia do wysyłania danych: przyznaj w ustawieniach i spróbuj ponownie.",
+};

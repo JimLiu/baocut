@@ -1,0 +1,113 @@
+{
+  "diagnostics": {},
+  "issues": [],
+  "mode": "lean",
+  "pageRejected": false,
+  "retryIds": [],
+  "rows": [
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              0
+            ],
+            "tgt": [
+              0,
+              21
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "在经理批准第二版之前，不要把文件发给妮达。",
+            "to": 0
+          }
+        ],
+        "words": [
+          "w0"
+        ]
+      },
+      "chunks": 1,
+      "coarse": false,
+      "frozen": false,
+      "id": "th-07",
+      "issues": [],
+      "locatedChunks": 1,
+      "minChunks": 1,
+      "n": 1,
+      "realTiming": false,
+      "source": "อย่าส่งไฟล์ให้นิดาจนกว่าผู้จัดการจะอนุมัติฉบับที่สอง",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "在经理批准第二版之前，不要把文件发给妮达。"
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              0
+            ],
+            "tgt": [
+              0,
+              20
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "我们买了两点五公斤大米，晚饭后还剩一半。",
+            "to": 0
+          }
+        ],
+        "words": [
+          "w0"
+        ]
+      },
+      "chunks": 1,
+      "coarse": false,
+      "frozen": false,
+      "id": "th-08",
+      "issues": [],
+      "locatedChunks": 1,
+      "minChunks": 1,
+      "n": 2,
+      "realTiming": false,
+      "source": "เราซื้อข้าวสาร2.5กิโลกรัมและหลังอาหารเย็นยังเหลืออยู่ครึ่งหนึ่ง",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "我们买了两点五公斤大米，晚饭后还剩一半。"
+    }
+  ],
+  "schema": "lean-carrier-grade/2",
+  "totals": {
+    "acceptedTranslations": 2,
+    "aligned": 2,
+    "chunks": 2,
+    "coarse": 0,
+    "expectedSentences": 2,
+    "locatedChunks": 2,
+    "sentencesWithAnchorIssues": 0,
+    "syntaxOrPermissionIssues": 0,
+    "translationRetries": 0
+  }
+}

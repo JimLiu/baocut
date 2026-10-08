@@ -1,0 +1,61 @@
+import type { RcSpaceMessages } from './rc-space.ts';
+
+export const ko: RcSpaceMessages = {
+  dirUnreadable: (p) => `폴더를 읽을 수 없습니다(${p.code})`,
+  tooManyDirEntries: (p) => `폴더 항목이 ${p.max}개를 초과하여 일부만 표시합니다`,
+  tooManyFiles: (p) => `파일이 ${p.max}개를 초과하여 일부만 표시합니다`,
+
+  entryGone: '이 항목은 더 이상 Space에 없습니다',
+  trashVideoUseDelete: '영상을 삭제하려면 videos.delete를 사용하세요',
+  restoreVideoUseRestore: '삭제된 영상을 복원하려면 videos.restore를 사용하세요',
+  videoDeletedRestoreFirst: '이 영상은 삭제되었습니다. 먼저 복원하세요',
+  videoDeleted: '이 영상은 삭제되었습니다',
+  notInSourceDir: '이 항목은 프로젝트나 세션 폴더에 없습니다',
+  stillGeneratingNoFile: '아직 생성 중이라 파일이 없습니다',
+  noReadableFile: '이 항목에는 읽을 수 있는 파일이 없습니다',
+  entryStillGeneratingNoFile: '이 항목은 아직 생성 중이라 파일이 없습니다',
+  entryInTrash: '이 항목은 휴지통에 있습니다. 먼저 복원하세요',
+  entryKindNotAccepted: (p) => `여기에서는 ${p.kind} 항목을 사용할 수 없습니다`,
+  notVideo: '이 항목은 영상이 아닙니다',
+
+  projectNotFound: '프로젝트가 없습니다',
+  needAbsolutePath: '파일의 절대 경로를 지정하세요',
+  fileNotFound: '파일이 없습니다',
+  unrecognizedFileType: '이 파일의 유형을 알 수 없습니다. 영상, 이미지, 오디오, 자막, 문서 파일만 추가할 수 있습니다',
+  projectDirNotFound: '프로젝트 폴더가 없습니다',
+  hiddenDirFile: '숨김 폴더나 종속성 폴더 안의 파일은 추가할 수 없습니다',
+  videoDirFile: '영상 폴더 안의 파일은 영상에 속하므로 따로 추가할 수 없습니다',
+  tooManySameName: '프로젝트의 imports/에 이름이 같은 파일이 너무 많습니다',
+
+  purgeVideoDeleteFirst: '먼저 영상을 삭제해(videos.delete) 휴지통으로 옮긴 뒤 휴지통에서 영구 삭제하세요',
+  purgeTaskRunning: '작업이 아직 실행 중입니다. 먼저 취소하세요(jobs.cancel)',
+  purgeNotTrashed: '먼저 휴지통으로 옮긴 뒤 휴지통에서 삭제하세요',
+  videoSourceGone: '이 영상의 원본이 더 이상 없습니다',
+  refRunningTaskUsesVideo: (p) => `진행 중인 작업 ${p.jobId}에서 이 영상을 사용하고 있습니다`,
+  refTaskAwaitsDecision: (p) => `작업 ${p.jobId}의 결과를 이 영상에 추가할지 결정을 기다리고 있습니다`,
+  refStrayFiles: (p) =>
+    `영상 폴더에 영상이 관리하지 않는 파일이 있습니다(${p.names.split('/').join(', ')}${p.total > 3 ? ` 등 ${p.total}개` : ''}). 영상을 복원하고 파일을 밖으로 옮긴 뒤 삭제하세요`,
+  refRunningTaskUsesOutput: (p) => `진행 중인 작업 ${p.jobId}에서 이 결과물을 사용하고 있습니다`,
+  refVideoUnreadable: (p) =>
+    `지금은 ${p.dir} 영상을 읽을 수 없어(또는 색인을 업데이트하는 중이어서) 이 파일을 사용하지 않는지 확인할 수 없습니다`,
+  refVideoAssetLinks: (p) => `영상 “${p.video}”의 소재 “${p.asset}”이(가) 이 파일에 연결되어 있습니다`,
+
+  importedFileGone: '추가한 파일이 더 이상 프로젝트 폴더에 없습니다',
+  resultNotApplied: '결과가 영상에 적용되지 않았습니다',
+  taskNotFinished: '작업이 완료되지 않았습니다',
+  outputFileGone: '결과물 파일이 더 이상 없습니다',
+  exportedFileGone: '내보낸 파일이 더 이상 없습니다',
+  labelSynthesizeSpeech: '합성된 음성',
+  labelGenerateImage: '생성된 이미지',
+  labelGenerateText: '생성된 텍스트',
+  labelExport: '내보내기',
+
+  engineUnavailable: '영상 엔진을 사용할 수 없습니다',
+  continueFromTrash: '휴지통에 있는 항목에서는 이어서 작업할 수 없습니다. 먼저 복원하세요',
+  conversationCantSee: '이 세션에서는 이 항목을 볼 수 없습니다. 프로젝트에 속한 항목은 같은 프로젝트의 세션에 넣어야 합니다',
+  serviceUsesMcp: '외부 서비스는 MCP 도구로 Space에 접근합니다',
+  materialTextOnly: (p) => `.txt, .md 문서와 .srt, .vtt 자막의 텍스트만 읽을 수 있습니다: ${p.fileName}`,
+  materialTooLarge: (p) => `${p.fileName} 파일은 ${p.bytes}바이트로 자료 한도 ${p.limit}바이트를 초과합니다`,
+  afterMaterial: (p) => `자료를 추가한 뒤: ${p.reason}`,
+  invalidParams: '매개변수가 올바르지 않습니다',
+};

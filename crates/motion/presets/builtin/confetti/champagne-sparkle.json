@@ -1,0 +1,81 @@
+{
+  "id": "champagne-sparkle",
+  "version": 1,
+  "domain": "confetti",
+  "namespace": "timeline",
+  "order": 100,
+  "aspect": "frame",
+  "palette": [
+    "#FFF3B0",
+    "#FFE066",
+    "#FFFFFF",
+    "#FFD166"
+  ],
+  "shapes": [
+    "sparkle",
+    "circle",
+    "starlet"
+  ],
+  "sources": [
+    "party-js/confetti",
+    "party-js/shapes"
+  ],
+  "hasEmitterControl": false,
+  "recipe": {
+    "algorithm": "confetti-v1",
+    "params": {
+      "emit": {
+        "mode": "continuous",
+        "rate": 36,
+        "count": 80,
+        "interval": 2.0,
+        "jitter": 1.0
+      },
+      "emitters": [
+        {
+          "x": 50,
+          "y": 50,
+          "spreadX": 100,
+          "spreadY": 100
+        }
+      ],
+      "angle": -90,
+      "spread": 0,
+      "speedPx": [
+        14,
+        28
+      ],
+      "dragX": 0,
+      "dragY": 0,
+      "gravityPx": 0,
+      "windPx": 0,
+      "driftPx": 15,
+      "driftHz": 0.16,
+      "sizePx": [
+        3,
+        9
+      ],
+      "sizeRamp": false,
+      "spinDps": [
+        0,
+        60
+      ],
+      "flipHz": [
+        0,
+        0
+      ],
+      "pulse": {
+        "min": 0.1,
+        "max": 1.1,
+        "hz": 0.33
+      },
+      "lifeSec": 3.2,
+      "fadeIn": 0.5,
+      "fadeOut": 0.8,
+      "maxAlive": 600
+    }
+  },
+  "determinism": "strict",
+  "shader": null,
+  "available": true
+}

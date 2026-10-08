@@ -1,0 +1,151 @@
+import type { TextNotConfiguredMessages, TranslateMessages } from './translate-copy.ts';
+
+export const koTranslate: TranslateMessages = {
+  // 设置页（TranslateFlow）
+  title: '새 언어로 번역',
+  back: '자막으로 돌아가기',
+  target: '대상 언어',
+  targetPicker: '번역할 언어',
+  source: '원문',
+  sourcePicker: '번역할 전사본',
+  sourceLine: (language: string, count: number | null) => (count === null ? language : `${language} · ${count}문장`),
+  model: '텍스트 모델',
+  modelPicker: '번역에 쓸 텍스트 모델',
+  manage: '텍스트 모델 관리…',
+  modelsLoading: '텍스트 모델을 불러오는 중…',
+  noStructured: '구조화된 출력 미지원 · 번역에 쓸 수 없음',
+  notConfiguredTitle: '아직 쓸 수 있는 텍스트 모델이 없습니다',
+  notConfiguredBody:
+    '번역은 텍스트 모델을 묶음 단위로 호출합니다. 설정 › 모델 › 텍스트 생성에서 공급자를 연결하고(키 입력) 구조화된 출력을 지원하는 모델을 고른 뒤, 돌아와서 시작하세요.',
+  goModels: '설정 › 모델 › 텍스트 생성 열기',
+  style: '스타일 힌트',
+  stylePlaceholder: '예: 구어체, 간결하게. 이름은 원문 그대로',
+  styleHint: '선택 사항. 최대 500자.',
+  glossary: '용어집',
+  glossaryNote:
+    '체크 = 이 영상에서 켬(실행 취소할 수 있는 편집). 번역에는 방향이 맞는 켜진 용어집을 쓰며, 항목이 많으면 묶음마다 원문에 나오는 항목만 넣습니다.',
+  glossaryManage: '용어집 관리…',
+  glossaryEmpty: (target: string) => `용어집 라이브러리에 아직 ${target}(으)로 번역하는 용어집이 없습니다.`,
+  glossaryLoading: '용어집을 불러오는 중…',
+  glossaryCount: (terms: number, hits: number) => `항목 ${terms}개 · 이 영상에서 ${hits}개 발견`,
+  glossaryFailed: (message: string) => `이 영상에 켜 둔 용어집을 읽지 못했습니다: ${message}`,
+  glossaryReadOnly: '영상이 읽기 전용이라 켜 둔 용어집을 바꿀 수 없습니다.',
+  glossaryLimit: (max: number) => `한 번에 용어집은 최대 ${max}개까지 켤 수 있습니다`,
+  glossaryOn: (name: string) => `이 영상에서 “${name}” 용어집을 켰습니다`,
+  glossaryOff: (name: string) => `이 영상에서 “${name}” 용어집을 껐습니다`,
+  glossaryWriteFailed: (message: string) => `켜 둔 용어집을 바꾸지 못했습니다: ${message}`,
+  bilingual: '두 언어 함께 표시',
+  bilingualHint:
+    '번역이 끝나면 원문과 번역이 함께 화면에 나타납니다. 끄면 번역만 나타나고, 원문은 화면에서 내립니다(삭제하지 않음).',
+  cta: (language: string) => `${language}(으)로 번역`,
+  ctaHint: '완료되면 자동으로 화면에 배치되며, 언제든 실행 취소할 수 있습니다. 온라인 모델은 토큰 단위로 요금이 부과됩니다.',
+  noSpeechTitle: '아직 번역할 전사본이 없습니다',
+  noSpeech:
+    '번역은 전사본을 바탕으로 문장 단위로 진행됩니다. 먼저 자막 패널의 “자막 생성”으로 소재를 전사하세요. 가져온 자막 파일에는 단어 타이밍이 없어 바로 번역할 수 없습니다.',
+  busy: '이 영상은 이미 번역 중입니다. 끝난 뒤에 다른 언어를 시작하세요.',
+  readOnly: '영상이 읽기 전용이라 번역할 수 없습니다.',
+  allTaken: '자주 쓰는 언어는 모두 이미 번역이 있습니다.',
+
+  // 运行态
+  submitting: '번역 제출 중',
+  queued: '대기 중',
+  running: (from: string, to: string) => `번역 중 · ${from} → ${to}`,
+  stepUnits: (done: number, total: number | null) => (total ? `${done} / ${total}문장 번역됨` : `${done}문장 번역됨`),
+  cancel: '번역 취소',
+  cancelled: '번역을 취소했습니다',
+  cancelFailed: (message: string) => `번역을 취소하지 못했습니다: ${message}`,
+  liveNote: '완료되면 자동으로 화면에 배치되며, 언제든 실행 취소할 수 있습니다. 이 페이지를 떠나도 됩니다.',
+  foreign: '이 번역은 여기서 시작하지 않았습니다. 끝나면 비교 목록에서 “화면에 배치”를 사용하세요.',
+  chipTip: (step: string) => `번역 중 · ${step}`,
+
+  // 问题
+  notConfigured: (reason: string) => `아직 번역할 수 없음 · ${reason}`,
+  submitFailed: '번역을 시작하지 못했습니다',
+  failed: '번역 실패',
+  interrupted: '번역이 중단되었습니다',
+  retry: '다시 시도',
+  retrying: '다시 시도하는 중',
+  retryFailed: (message: string) => `다시 시도하지 못했습니다: ${message}`,
+  retryCharges:
+    '다시 시도하면 멈춘 단계부터 이어서 진행합니다. “번역” 단계에서 멈췄다면 모델을 다시 호출하므로 요금이 다시 부과될 수 있습니다.',
+  retryFree: '다시 시도하면 멈춘 단계부터 이어서 진행합니다. 이미 끝난 번역은 모델을 다시 호출하지 않습니다.',
+  dismiss: '확인',
+  decide: '백그라운드 작업에서 처리',
+  emptyTitle: '번역에 화면에 배치할 문장이 없습니다',
+  empty: '번역의 모든 문장이 오래되었거나 비어 있습니다.',
+  pendingTitle: '번역은 끝났지만 아직 화면에 없습니다',
+  pending: '번역은 영상에 저장되어 있습니다. 비교 목록에서 “화면에 배치”를 클릭하세요.',
+  offTimeline:
+    '타임라인에 이 소재를 쓰는 클립이 없어 자막을 화면에 배치할 수 없습니다. 번역은 영상에 저장되어 있으니 비교 목록에서 “화면에 배치”를 클릭하세요.',
+  badDocument: '번역이나 전사본의 형식을 인식할 수 없어 자막으로 나눌 수 없습니다.',
+
+  // 回执
+  applied: (language: string, count: number) => `적용됨 · ${language}(으)로 번역 · 자막 ${count}개`,
+  appliedNote: (bilingual: boolean): string =>
+    bilingual
+      ? '원문과 번역이 함께 화면에 나타납니다.'
+      : '화면에는 번역만 나타나며, 원문은 화면에서 내렸습니다(삭제하지 않았으며 트랙 바에서 다시 올릴 수 있습니다).',
+  undo: '실행 취소',
+  done: '완료',
+  undone: (language: string) => `실행 취소됨 · ${language} 자막을 화면에서 제거했습니다`,
+  undoneNote: '원문은 건드리지 않았습니다. 번역은 영상에 남아 있으며, 비교 목록에서 다시 “화면에 배치”할 수 있습니다.',
+  undoFailed: '실행 취소하지 못했습니다. 이 단계 이후 영상이 바뀌었습니다. 편집기에서 실행 취소하세요.',
+
+  // 放到画面上
+  place: '화면에 배치',
+  placing: '화면에 배치하는 중',
+  unnamed: '번역',
+  placed: (language: string, count: number) => `${language} 번역을 화면에 배치했습니다 · 자막 ${count}개`,
+  notPlaced: '이 번역은 아직 화면에 없습니다.',
+
+  // 对照条与列表
+  list: '목록',
+  modes: { src: '원문만', bi: '원문 + 번역', trans: '번역만' },
+  compareLanguage: '비교할 번역',
+  noTranslation: '아직 번역이 없습니다 · 먼저 트랙 바에서 “번역하기…”를 사용하세요',
+  original: (language: string) => `원문 · ${language}`,
+  translation: (language: string) => `번역 · ${language}`,
+  reading: '번역을 불러오는 중…',
+  unreadable: '이 번역의 형식은 아직 여기서 볼 수 없습니다.',
+  speechMissing: '이 번역의 전사본이 더 이상 영상에 없습니다.',
+  stats: (count: number) => `${count}문장`,
+  untranslated: (n: number) => `${n}문장 번역 안 됨`,
+  stale: (n: number) => `번역 ${n}문장이 오래됨`,
+  gone: (n: number) => `원문 ${n}문장 삭제됨`,
+  allFresh: '모든 번역이 최신입니다 ✓',
+  refreshHint:
+    '번역을 클릭하면 바로 편집할 수 있으며, 편집한 번역은 더 이상 오래된 것으로 보지 않습니다. 이 문장들만 다시 번역하려면 Agent에게 맡기세요:',
+  refreshOpen: '오래된 번역 새로 고침',
+  refreshHintWeb: '번역을 클릭하면 바로 편집할 수 있으며, 편집한 번역은 더 이상 오래된 것으로 보지 않습니다.',
+  chipStale: '오래됨',
+  chipUntranslated: '번역 안 됨',
+  chipGone: '원문 삭제됨',
+  goneTip: '이 문장은 더 이상 전사본에 없습니다. 이 번역은 화면에 나타나지 않으며 편집할 수 없습니다.',
+  emptyPlaceholder: '(아직 번역 없음 · 클릭해 입력)',
+  editLabel: (n: number) => `${n}번째 문장의 번역 편집`,
+  editing: '번역',
+  editHint:
+    '번역된 문장을 클릭하면 다시 쓸 수 있습니다. 다른 곳을 클릭하면 저장되고, Esc를 누르면 변경 사항을 버립니다. 화면의 자막도 함께 바뀝니다.',
+  editTail: '번역을 클릭해 편집',
+  noRows: '이 번역에는 아직 문장이 없습니다.',
+  edited: '이 번역 문장을 다시 썼습니다',
+  editFailed: (message: string) => `다시 쓰지 못했습니다: ${message}`,
+  seekTip: '재생 헤드를 이 문장으로 이동',
+  cutTip: '이 문장의 영상 구간은 잘라냈습니다',
+  translateTo: (language: string) => `${language}(으)로 번역`,
+  rewriteTranslation: '번역 편집',
+  unknownLanguage: '알 수 없는 언어',
+  targetLanguage: '대상 언어',
+};
+
+export const koTextNotConfigured: TextNotConfiguredMessages = {
+  'no-default': '아직 텍스트 생성에 쓸 모델을 고르지 않았습니다',
+  'missing-credential': '텍스트 모델의 공급자에 아직 키가 없습니다',
+  'not-installed': '텍스트 모델이 아직 설치되지 않았습니다',
+  'signed-out': 'Agent가 아직 로그인하지 않았습니다',
+  outdated: 'Agent 버전이 너무 오래되었습니다',
+  'not-paired': '원격 노드가 아직 페어링되지 않았습니다',
+  'not-connected': '원격 노드가 연결되어 있지 않습니다',
+  unsupported: '선택한 서비스는 텍스트 생성을 지원하지 않습니다',
+  disabled: '텍스트 생성 서비스가 꺼져 있습니다',
+};

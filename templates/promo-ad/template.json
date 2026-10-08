@@ -1,0 +1,110 @@
+{
+  "schema": 1,
+  "id": "promo-ad",
+  "version": "1.1.0",
+  "kind": "scene",
+  "title": "推广短片",
+  "summary": "把你的产品或服务做成一条促成行动的推广短片。",
+  "description": "用一个抓人的开头、一段真实的展示和一个明确的行动号召触达受众。素材用你手头的产品图、视频或介绍，突出真实的好处，引导观众购买、报名或咨询。",
+  "language": "zh-CN",
+  "category": "marketing",
+  "ratio": "9:16",
+  "durationSeconds": 30,
+  "brief": "给{{产品或服务}}做一条推广短片，目标是{{希望观众做什么}}，受众是{{受众}}。材料：{{手头的材料}}。",
+  "fields": [
+    {
+      "label": "产品或服务",
+      "hint": "要推广的是什么",
+      "example": "我们的线上瑜伽课"
+    },
+    {
+      "label": "希望观众做什么",
+      "hint": "只选一个行动：购买、报名或咨询",
+      "example": "让新用户报名免费体验课"
+    },
+    {
+      "label": "受众",
+      "hint": "谁会看到，他们关心什么",
+      "example": "想在家锻炼的上班族"
+    },
+    {
+      "label": "手头的材料",
+      "hint": "附上的产品图、视频或介绍；没有可以写「没有」",
+      "example": "课程介绍和几段上课视频"
+    }
+  ],
+  "author": "BaoCut",
+  "source": "official",
+  "license": "LicenseRef-BaoCut-Community-1.0",
+  "tags": [
+    "广告",
+    "推广",
+    "转化"
+  ],
+  "skills": [
+    "video-production"
+  ],
+  "cover": {
+    "file": "cover.jpg",
+    "tone": "magenta",
+    "figure": "ring",
+    "kicker": "AD"
+  },
+  "preview": {
+    "file": "preview.mp4",
+    "beats": [
+      "头两秒抓住注意力",
+      "说出受众在意的问题",
+      "展示真实的卖点",
+      "一个明确的行动号召"
+    ]
+  },
+  "verification": {
+    "date": "2026-10-04",
+    "version": "1.0.0",
+    "engine": "codex",
+    "input": "挂上本模板发送，用户消息原文：\n主题：一家虚构的社区陶艺工作室「泥白工作室」的周末体验课。每周六、周日下午各一场，每场两小时，小班 6 人，有老师一对一带着上拉坯机；作品由工作室上釉烧制，两周后可以来取。首次体验免费，在工作室的小程序里搜「泥白」预约。\n目标：让新用户报名免费体验课。\n受众：25–35 岁、工作日久坐、想在周末做点手作放松的上班族。\n材料：项目目录 media/ 下的 5 张照片：\n- media/01.jpg：拉坯时手捧着湿泥的特写\n- media/02.jpg：工作室里的几台拉坯机\n- media/03.jpg：架子上已经烧好的陶器\n- media/04.jpg：一把白瓷茶壶成品\n- media/05.jpg：一只绿釉杯子成品\n成片语言用中文。信息已给全，请直接按默认开始制作，不用再确认。\n\n（测试环境说明：这台机器没有配置语音合成、配乐、音效与视频生成，遇到没有配置的能力请跳过，并在最后说明跳过了什么。如果现有编辑操作做不出需要的画面，可以直接渲染成视频文件再导入时间线，不用再问。）\n\n（照片按 Commons 原图缩小到最长边 1280 后放入项目。）",
+    "materials": [
+      {
+        "title": "Pottery wheel (Unsplash).jpg",
+        "url": "https://commons.wikimedia.org/wiki/File:Pottery_wheel_(Unsplash).jpg",
+        "license": "CC0-1.0",
+        "note": "media/01.jpg，拉坯手部特写"
+      },
+      {
+        "title": "Potter's wheels, Throwing Workshop, University for the Creative Arts (Farnham Campus), Surrey - September 2025.jpg",
+        "url": "https://commons.wikimedia.org/wiki/File:Potter's_wheels,_Throwing_Workshop,_University_for_the_Creative_Arts_(Farnham_Campus),_Surrey_-_September_2025.jpg",
+        "license": "CC0-1.0",
+        "note": "media/02.jpg，拉坯机"
+      },
+      {
+        "title": "Handmade Terracotta Ceramics (Unsplash).jpg",
+        "url": "https://commons.wikimedia.org/wiki/File:Handmade_Terracotta_Ceramics_(Unsplash).jpg",
+        "license": "CC0-1.0",
+        "note": "media/03.jpg，陶器陈列"
+      },
+      {
+        "title": "Tea-teapot-cup-ceramic-kettle-drink-617935-pxhere.jpg",
+        "url": "https://commons.wikimedia.org/wiki/File:Tea-teapot-cup-ceramic-kettle-drink-617935-pxhere.jpg",
+        "license": "CC0-1.0",
+        "note": "media/04.jpg，白瓷茶壶"
+      },
+      {
+        "title": "Green glazed mug.jpg",
+        "url": "https://commons.wikimedia.org/wiki/File:Green_glazed_mug.jpg",
+        "license": "Public-Domain",
+        "note": "media/05.jpg，绿釉杯"
+      }
+    ],
+    "capabilities": [
+      "synthesizeSpeech",
+      "generateMusic"
+    ],
+    "outcome": "partial",
+    "output": {
+      "ratio": "9:16",
+      "durationSeconds": 30
+    },
+    "notes": "确认：简报给全后没有再提问，复述简报并按模板默认 9:16、30 秒制作。开头一句「坐了一周，周末动动手」直接击中受众，不先放品牌；中段依次给出场次与时长、6 人小班与一对一、上釉烧制与两周取件，每条都配了对应照片；结尾只有一个行动号召（首次体验免费、小程序搜「泥白」预约），停留 7 秒。卖点与数字全部来自简报，没有编造评价或优惠。每个镜头都有中文字幕，文字在安全区内。剪辑方式：智能体用本机脚本把每个镜头（照片推近 + 排版文字）渲染成 6 段视频，在时间线上首尾相接排好并加章节，时间线只起拼接作用；另把 5 张原始照片也导入了素材库但没有用。没有语音合成与配乐，模板要求的旁白与音乐都没做，智能体说明了，记 partial；成片音轨为静音。预览与封面取自 BaoCut 导出的成片。模板改动：无。"
+  }
+}

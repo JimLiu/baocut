@@ -1,0 +1,2 @@
+import type { ModelsTextMessages } from './models-text.ts';
+export const nl: ModelsTextMessages = { effort: { minimal: 'Minimaal', low: 'Laag', medium: 'Gemiddeld', high: 'Hoog' }, auto: 'Automatisch', context: (tokens) => `Context ${tokens}`, maxOutput: (tokens) => `Maximale uitvoer ${tokens}`, efforts: (labels) => `Denkintensiteit ${labels.join(' / ')}`, noEffort: 'De denkintensiteit kan niet worden aangepast' };

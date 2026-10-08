@@ -1,0 +1,129 @@
+{
+  "schema": 1,
+  "id": "vlog-edit",
+  "version": "1.1.0",
+  "kind": "scene",
+  "title": "Vlog 剪辑",
+  "summary": "把日常素材剪成一条值得看完的 Vlog。",
+  "description": "把旅行或日常素材整理成有开头、有几个难忘瞬间、自然收尾的小故事。保留最好的反应和环境声，音乐与字幕贴合你的节奏。",
+  "language": "zh-CN",
+  "category": "editing",
+  "ratio": "16:9",
+  "durationSeconds": 180,
+  "brief": "这些是{{素材}}，帮我剪一条 Vlog，{{风格}}。一定要保留：{{必须保留的片段}}。",
+  "fields": [
+    {
+      "label": "素材",
+      "hint": "附上的素材在哪里、做什么时拍的",
+      "example": "周末去海边拍的素材"
+    },
+    {
+      "label": "风格",
+      "hint": "想要的感觉",
+      "example": "轻松一点"
+    },
+    {
+      "label": "必须保留的片段",
+      "hint": "点名要留下的瞬间；没有可以写「没有」",
+      "example": "第一次冲浪站起来的那段"
+    }
+  ],
+  "author": "BaoCut",
+  "source": "official",
+  "license": "LicenseRef-BaoCut-Community-1.0",
+  "tags": [
+    "Vlog",
+    "旅行",
+    "日常"
+  ],
+  "skills": [
+    "video-production",
+    "subtitle-workflow"
+  ],
+  "cover": {
+    "file": "cover.jpg",
+    "tone": "green",
+    "figure": "cards",
+    "kicker": "DAY 1"
+  },
+  "preview": {
+    "file": "preview.mp4",
+    "beats": [
+      "交代去哪、为什么去",
+      "几个难忘的瞬间",
+      "真实的反应与环境声",
+      "自然的结尾"
+    ]
+  },
+  "verification": {
+    "date": "2026-10-04",
+    "version": "1.0.0",
+    "engine": "codex",
+    "input": "挂上本模板发送，用户消息原文：\n主题：一次虚构的海边周末，两天一夜，住在海边小镇。第一天下午到海边散步、看浪，傍晚看日落；第二天清晨在礁石边看海鸟，回程前在沙滩上待了一会儿。\n目标：让观众感到轻松，想去海边。\n受众：朋友和关注者。\n材料：项目目录 media/ 下的 9 段视频（都是我拍的）：\n- media/v01.mp4：到达时的第一眼，平静的浪拍在沙滩上（有海浪声）\n- media/v02.mp4：沙滩上的旧木桩和海浪，比较长（有风声和浪声）\n- media/v03.mp4：阳光下的礁石和卵石滩，浪一下下冲上来（有浪声）\n- media/v04.mp4：傍晚海边的云，延时（没有声音）\n- media/v05.mp4：边走边拍的海面和沙地，最后走到一片水塘边（有环境声，比较晃）\n- media/v06.mp4、media/v07.mp4：山上看日落和云海（没有声音）\n- media/v08.mp4：第二天清晨，海鸟一只只扎进水里（有环境声）\n- media/v09.mp4：一只海鸥把放在礁石上的运动相机叼走了，镜头跟着飞了一段（有声音）。这段一定要保留，是这次最好笑的瞬间。\n成片 60 秒就够，不要太长。成片语言用中文。信息已给全，请直接按默认开始制作，不用再确认。\n\n（测试环境说明：这台机器没有配置语音合成、配乐、音效与视频生成，遇到没有配置的能力请跳过，并在最后说明跳过了什么。如果现有编辑操作做不出需要的画面，可以直接渲染成视频文件再导入时间线，不用再问。）\n\n（视频按 Commons 原片转成最长边 1280 的 H.264/AAC MP4 后放入项目。）",
+    "materials": [
+      {
+        "title": "Sidi Kacem beach - Tangier.webm",
+        "url": "https://commons.wikimedia.org/wiki/File:Sidi_Kacem_beach_-_Tangier.webm",
+        "license": "CC0-1.0",
+        "note": "media/v01.mp4，开场海浪，有声"
+      },
+      {
+        "title": "Strandwellenbeugung (Ostspitze Wangerooge) ii.webm",
+        "url": "https://commons.wikimedia.org/wiki/File:Strandwellenbeugung_(Ostspitze_Wangerooge)_ii.webm",
+        "license": "CC0-1.0",
+        "note": "media/v02.mp4，木桩与海浪，有声，也用作结尾与声音桥"
+      },
+      {
+        "title": "Sunny waves at Cattle Point (40789227201).webm",
+        "url": "https://commons.wikimedia.org/wiki/File:Sunny_waves_at_Cattle_Point_(40789227201).webm",
+        "license": "Public-Domain",
+        "note": "media/v03.mp4，礁石与卵石滩，有声"
+      },
+      {
+        "title": "Sunset timelapse on the beach in Libreville, Gabon.webm",
+        "url": "https://commons.wikimedia.org/wiki/File:Sunset_timelapse_on_the_beach_in_Libreville,_Gabon.webm",
+        "license": "CC0-1.0",
+        "note": "media/v04.mp4，傍晚云，延时，无声"
+      },
+      {
+        "title": "Komoča Beach VID 20170718 202321.webm",
+        "url": "https://commons.wikimedia.org/wiki/File:Komoča_Beach_VID_20170718_202321.webm",
+        "license": "CC0-1.0",
+        "note": "media/v05.mp4，边走边拍，有声"
+      },
+      {
+        "title": "King Range National Conservation Area (18372912993).webm",
+        "url": "https://commons.wikimedia.org/wiki/File:King_Range_National_Conservation_Area_(18372912993).webm",
+        "license": "Public-Domain",
+        "note": "media/v06.mp4，日落云海，无声"
+      },
+      {
+        "title": "King Range National Conservation Area (18993643595).webm",
+        "url": "https://commons.wikimedia.org/wiki/File:King_Range_National_Conservation_Area_(18993643595).webm",
+        "license": "Public-Domain",
+        "note": "media/v07.mp4，日落云海，无声"
+      },
+      {
+        "title": "Birds diving.webm",
+        "url": "https://commons.wikimedia.org/wiki/File:Birds_diving.webm",
+        "license": "Public-Domain",
+        "note": "media/v08.mp4，海鸟入水，有声"
+      },
+      {
+        "title": "Gaivota colle cámara GoPro nas Illas Cíes e fai un vídeo.ogv",
+        "url": "https://commons.wikimedia.org/wiki/File:Gaivota_colle_cámara_GoPro_nas_Illas_Cíes_e_fai_un_vídeo.ogv",
+        "license": "Public-Domain",
+        "note": "media/v09.mp4，海鸥叼走相机，有声，用户点名必须保留"
+      }
+    ],
+    "capabilities": [
+      "generateMusic"
+    ],
+    "outcome": "partial",
+    "output": {
+      "ratio": "16:9",
+      "durationSeconds": 60
+    },
+    "notes": "确认：用户把时长改成 60 秒，智能体以用户为准（成片 60.0 秒），画幅用模板默认 16:9；简报给全后没有再提问。这是本组里最接近真实剪辑的一次：九段原素材直接导入时间线，用 trimItem 从每段挑出 3–17 秒、moveItems 按「到达—散步—日落—清晨海鸟—海鸥抢相机—回程」排好，片段间加溶解与压暗转场，逐段 setAudioMix 调现场声音量与淡入淡出，并把一段有浪声的素材做成透明的声音桥垫在无声的日落段下；画面文字是脚本渲染的透明 PNG，放在第二条轨上；导出时设了响度目标。用户点名的海鸥片段连续保留 17 秒，现场声全程保留，没有编造经历，剪辑说明写进项目目录。没有配乐能力，模板里的音乐没做，智能体说明了，记 partial。预览与封面取自 BaoCut 导出的成片（导出为 1280×720）。疑似：白色细字压在浅色浪花上时可读性偏弱。模板改动：无。"
+  }
+}

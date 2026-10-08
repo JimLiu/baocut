@@ -1,0 +1,8 @@
+/* 测试对话框的公共排布（product-design §7.6）：API 提供方模型的测试（settings-probe-dialog.jsx）与图像生成的自测（image-gen.jsx）共用。
+   API 提供方列表、详情与用量页的排布在 settings-providers.css / settings-usage.css。 */
+.cloud-probe { display: flex; flex-direction: column; gap: 16px; }
+.cloud-probe p { margin: 0; }
+.cloud-sample { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+.cloud-sample audio { width: 100%; height: 40px; }
+.cloud-result { padding: 16px; }
+.cloud-result p { margin-top: 8px; }

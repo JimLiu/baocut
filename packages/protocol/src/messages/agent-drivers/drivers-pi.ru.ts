@@ -1,0 +1,28 @@
+import type { DriversPiMessages } from './drivers-pi.ts';
+
+export const ru: DriversPiMessages = {
+  plan: "Аккаунты моделей в Pi",
+  installHint: "Установите Pi через npm (npm install -g @earendil-works/pi-coding-agent, нужен Node.js)",
+  signedOut: "В Pi не выполнен вход. Выполните pi в терминале и введите /login либо задайте ключ API поставщика модели (например, ANTHROPIC_API_KEY).",
+  rpcFailed: (p) => `Не удалось запустить режим RPC в Pi: ${p.error}`,
+  processStartFailed: (p) => `Не удалось запустить процесс Pi: ${p.error}`,
+  processExited: (p) => `Процесс Pi завершился (код ${p.code}, сигнал ${p.signal})${p.tail ? `: ${p.tail}` : ""}`,
+  processClosed: "Процесс Pi закрыт",
+  requestTimeout: (p) => `Pi не ответил на ${p.command} за ${p.ms} мс`,
+  stdinUnwritable: "stdin Pi недоступен для записи",
+  commandFailed: (p) => `Pi: ${p.command} с ошибкой`,
+  toolFallback: "Инструмент",
+  sessionFileMissing: "файл сессии не найден",
+  withStderr: (p) => `${p.error} (${p.tail})`,
+  mcpNameInvalid: (p) => `Имя сервера MCP ${p.name} содержит символы, которые Pi не принимает (только буквы, цифры, _ и -); его нельзя использовать в этой сессии.`,
+  modelFormat: (p) => `Модели Pi должны быть в формате provider/id: ${p.model}`,
+  switchModelFailed: (p) => `Pi не смог переключиться на модель ${p.model}: ${p.error}`,
+  effortUnsupported: (p) => `В Pi нет уровня рассуждений «${p.level}», эта итерация использует текущую настройку.`,
+  effortFailed: (p) => `Pi не смог задать уровень рассуждений (${p.error}), эта итерация использует текущую настройку.`,
+  mcpConnectFailed: (p) => `Pi не смог подключиться к MCP-серверу BaoCut, инструменты BaoCut (чтение и запись проектов, субтитры и прочее) недоступны в этой сессии: ${p.error}`,
+  extensionError: (p) => `Ошибка расширения Pi: ${p.error}`,
+  modelCallFailed: "Ошибка вызова модели Pi",
+  notice: (p) => `Pi: ${p.message}`,
+  extensionAsked: (p) => `Расширение Pi хотело задать вам вопрос${p.title ? ` ("${p.title}")` : ""}. BaoCut пока не передаёт вопросы такого вида, вопрос отменён.`,
+  fullAccessOnly: (p) => `Pi не может спрашивать перед каждым действием, BaoCut запускает его только в режиме «${p.mode}»: он не будет спрашивать перед командами и изменениями файлов.`,
+};

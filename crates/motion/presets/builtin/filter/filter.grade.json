@@ -1,0 +1,64 @@
+{
+  "id": "filter.grade",
+  "version": 1,
+  "domain": "filter",
+  "inputs": 1,
+  "params": {
+    "lift": {
+      "type": "number",
+      "default": 0,
+      "min": -0.5,
+      "max": 0.5,
+      "doc": "暗部抬升：c·gain + lift·(1 − c)，正值提黑、负值压黑"
+    },
+    "gamma": {
+      "type": "number",
+      "default": 1,
+      "min": 0.2,
+      "max": 5,
+      "doc": "中间调：c^(1/gamma)，大于 1 提亮中间调"
+    },
+    "gain": {
+      "type": "number",
+      "default": 1,
+      "min": 0,
+      "max": 4,
+      "doc": "高光增益（乘法）"
+    },
+    "saturation": {
+      "type": "number",
+      "default": 1,
+      "min": 0,
+      "max": 2,
+      "doc": "饱和度：与 Rec.601 亮度（0.299, 0.587, 0.114）线性混合，0 = 灰、1 = 不变"
+    },
+    "tint": {
+      "type": "number",
+      "default": 0,
+      "min": -1,
+      "max": 1,
+      "doc": "色温偏移：+1 暖（橙）、−1 冷（蓝），按亮度保持的通道乘子实现"
+    },
+    "shoulder": {
+      "type": "number",
+      "default": 0,
+      "min": 0,
+      "max": 1,
+      "doc": "高光肩部：膝点 1 − 0.6·shoulder 以上做指数软压缩，0 = 硬截断"
+    }
+  },
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "kernel": "grade-lgg-unpremul-f64",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "clamp",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "doc": "调色：反预乘到 f64，逐通道 gamma → gain/lift → shoulder 肩部压缩，再做饱和度与色温乘子，夹到 0..1 后乘回 alpha 并四舍五入。pow / exp 走 libm，native 与 wasm 逐位一致。六个参数都是标量，都能用 effects[i].<param> 通道做关键帧动画（§6.6）。"
+}

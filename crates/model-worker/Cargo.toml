@@ -1,0 +1,34 @@
+[package]
+name = "model-worker"
+description = "BaoCut 的 Model Worker：承载一个常驻模型包的本地推理进程，通过 stdio 的 JSON 行与 Runtime 通信（架构设计 §6.5）"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "model-worker"
+path = "src/main.rs"
+
+[features]
+default = ["backend-mlx", "backend-coreml"]
+backend-mlx = ["model-runtime/backend-mlx"]
+backend-coreml = ["model-runtime/backend-coreml"]
+backend-candle = ["model-runtime/backend-candle"]
+cuda = ["backend-candle", "model-runtime/cuda"]
+whisper-ggml = ["backend-candle", "model-runtime/whisper-ggml"]
+whisper-ggml-vulkan = ["whisper-ggml", "model-runtime/whisper-ggml-vulkan"]
+# Whisper 在 NVIDIA 上走 ggml 的 CUDA 后端（要 CUDA Toolkit；与 candle 的 `cuda` 各自独立，CUDA 安装包两个都开）。未实测。
+whisper-ggml-cuda = ["whisper-ggml", "model-runtime/whisper-ggml-cuda"]
+
+[dependencies]
+libc = "0.2.189"
+model-runtime.workspace = true
+serde_json = "1.0.151"
+
+[dev-dependencies]
+hound = "3.5.1"
+# 文生图端到端测试解码 `image.png`。
+png = "0.18.1"
+sha2 = "0.11.0"
+tempfile = "3.27.0"

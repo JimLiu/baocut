@@ -1,0 +1,26 @@
+{
+  "id": "fadeOut",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "bcf",
+  "order": 1,
+  "emitsParamsMeta": false,
+  "determinism": "strict",
+  "definition": {
+    "keyframes": [
+      {
+        "prop": "opacity",
+        "frames": [
+          {
+            "t": "0%",
+            "v": 1
+          },
+          {
+            "t": "100%",
+            "v": 0
+          }
+        ]
+      }
+    ]
+  }
+}

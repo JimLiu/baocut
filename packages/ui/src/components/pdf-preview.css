@@ -1,0 +1,7 @@
+/* PDF.js 文本层的几何；透明文字覆盖画布，允许选择与复制，不套应用字体。 */
+.bc-pdf-text { position: absolute; inset: 0; overflow: clip; text-align: initial; line-height: 1; text-size-adjust: none; forced-color-adjust: none; transform-origin: 0 0; user-select: text; color-scheme: only light; letter-spacing: normal; word-spacing: normal; --min-font-size: 1; --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size)); --min-font-size-inv: calc(1 / var(--min-font-size)); }
+.bc-pdf-text :is(span, br) { position: absolute; color: transparent; white-space: pre; cursor: text; transform-origin: 0 0; }
+.bc-pdf-text > :not(.markedContent), .bc-pdf-text .markedContent span:not(.markedContent) { z-index: 1; --font-height: 0; --scale-x: 1; --rotate: 0deg; font-size: calc(var(--text-scale-factor) * var(--font-height)); transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv)); }
+.bc-pdf-text ::selection { background: Highlight; }
+
+.bc-pdf-text .markedContent { display: contents; }

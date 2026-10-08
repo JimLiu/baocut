@@ -1,0 +1,31 @@
+import type { TtsQuickTestMessages } from './tts-quick-test-copy.ts';
+export const es: TtsQuickTestMessages = {
+  kindIntro: 'Introducción', kindNumbers: 'Números', kindMood: 'Tono',
+  presetSub: {
+    Vivian: 'Femenina · Brillante', Serena: 'Femenina · Tranquila', Uncle_Fu: 'Masculina · Grave',
+    Dylan: 'Masculina · Joven', Eric: 'Masculina · Locutor', Ryan: 'Masculina · Animada',
+    Aiden: 'Masculina · Narrativa', Ono_Anna: 'Femenina · Japonés', Sohee: 'Femenina · Coreano',
+  },
+  builtinVoice: {
+    'zh-female': 'Femenina en chino', 'zh-male': 'Masculina en chino', 'en-female': 'Femenina en inglés', 'en-male': 'Masculina en inglés',
+    'ja-female': 'Femenina en japonés', 'ja-male': 'Masculina en japonés', 'es-female': 'Femenina en español', 'es-male': 'Masculina en español',
+  },
+  builtinCredit: 'Corpus FLEURS (CC BY 4.0) y CMU ARCTIC · recortados y con volumen normalizado · avisos originales conservados',
+  describeWarm: 'Femenina cálida', describeWarmText: 'Una voz femenina adulta, cálida y amable, con un ritmo moderado, como al charlar con un amigo',
+  describeAnchor: 'Masculina firme', describeAnchorText: 'Una voz masculina adulta, firme y clara, con tono de locutor y ritmo uniforme',
+  describeBright: 'Juvenil brillante', describeBrightText: 'Una voz joven, brillante y vivaz, con un tono relajado',
+  toneUpbeat: 'Animado', toneUpbeatText: 'Habla con energía alegre y animada, un poco más rápido de lo habitual',
+  toneNatural: 'Natural', toneAnchor: 'Firme', toneAnchorText: 'Habla con una voz de locutor firme y clara, a un ritmo uniforme',
+  toneSoft: 'Suave', toneSoftText: 'Habla suave y más despacio, como si estuvieras hablando de cerca',
+  customDescribe: 'Describir mi propia voz', defaultVoice: 'Voz predeterminada', myVoices: 'Mis voces', fileVoice: 'Usar un clip una vez',
+  seconds: (n: string) => `${n} s`, textRequired: 'Primero introduce el texto que quieres sintetizar',
+  textTooLong: (max: number) => `Hasta ${max} caracteres a la vez; usa una frase más corta para la vista previa`,
+  describeRequired: 'Primero describe en una frase la voz que quieres',
+  myVoiceGone: 'Esta voz ya no está en Mis voces; elige otra',
+  referenceRequired: 'Primero elige una grabación de referencia o vuelve a una voz integrada',
+  phaseSubmitting: 'Enviando', phaseQueued: 'En cola', phaseLoading: 'Cargando modelo',
+  phaseGeneratingStep: (step: number, total: number) => `Generando audio · paso ${step}/${total}`,
+  phaseGenerating: 'Generando audio', phaseWriting: 'Escribiendo audio', phasePreparing: 'Preparando',
+  sampleVoice: (name: string) => `Muestra · ${name}`, customText: 'Texto personalizado',
+  elapsed: (seconds: string) => `Tiempo empleado: ${seconds} s`, audioLength: (seconds: string) => `Audio ${seconds} s`,
+};

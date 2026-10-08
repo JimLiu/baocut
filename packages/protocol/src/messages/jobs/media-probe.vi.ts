@@ -1,0 +1,5 @@
+import type { JobsMediaProbeMessages } from './media-probe.ts';
+
+export const vi: JobsMediaProbeMessages = {
+unknownMediaType: (p) => `Loại tư liệu không được nhận dạng ${p.mediaType}`, unreadable: 'Không đọc được tệp đầu ra', headerMismatch: (p) => `Đầu tệp là ${p.sniffed} nhưng được khai báo là ${p.mediaType}`, unrecognizedFormat: 'định dạng không được nhận dạng', notJson: 'Đầu ra ffprobe không phải JSON', noAudioStream: 'Không có luồng âm thanh', noImage: 'Không có hình ảnh', noFrames: 'Không giải mã được khung hình nào', durationNotPositive: 'Thời lượng không dương', sampleRateNotPositive: 'Tần số lấy mẫu không dương', channelsNotPositive: 'Số kênh không dương', sizeNotPositive: 'Chiều rộng hoặc chiều cao không dương', cannotRun: (p) => `Không chạy được ffprobe: ${p.reason}`, killedBy: (p) => `bị kết thúc bởi ${p.signal}`, exitCode: (p) => `mã thoát ${p.code}`, decodeFailed: (p) => `ffprobe không giải mã được (${p.reason})`, decodeFailedWith: (p) => `ffprobe không giải mã được (${p.reason}): ${p.output}`, noProbe: 'ffprobe không khả dụng nên không thể kiểm tra đầu ra',
+};

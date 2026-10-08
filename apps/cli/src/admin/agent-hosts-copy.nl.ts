@@ -1,0 +1,2 @@
+import type { AgentHostsMessages } from './agent-hosts-copy.ts';
+export const nl: AgentHostsMessages = { missingAgent: (hosts) => `--agent ontbreekt: een van ${hosts.join(', ')}`, unknownAgent: (value, hosts) => `Onbekende agent ‘${value}’: alleen ${hosts.join(', ')}`, invalidJson: (file, reason) => `${file} is geen geldige JSON; er is niets gewijzigd: ${reason}`, notObject: (file) => `Het hoogste niveau van ${file} is geen object; er is niets gewijzigd` };

@@ -1,0 +1,86 @@
+{
+  "bcutTimelineMapContract": "0.1",
+  "timeline": {
+    "bcutTimeline": "0.1",
+    "sources": {
+      "main": {
+        "cuts": [
+          { "id": "cut-1", "t0": 10.0, "t1": 20.0 }
+        ]
+      },
+      "src-a": {
+        "path": "media/insert.mp4",
+        "kind": "video",
+        "duration": 8.0
+      }
+    },
+    "clips": [
+      { "id": "c1", "in": 0.0, "out": 30.0 },
+      { "id": "c2", "srcId": "src-a", "in": 2.0, "out": 6.0, "rate": 2.0 },
+      { "id": "c3", "in": 20.0, "out": 30.0 }
+    ]
+  },
+  "sourceDurations": {
+    "main": 30.0
+  },
+  "expect": {
+    "duration": 32.0,
+    "views": {
+      "main": {
+        "duration": 20.0,
+        "keptSpans": [
+          { "sourceStart": 0.0, "sourceEnd": 10.0, "viewStart": 0.0 },
+          { "sourceStart": 20.0, "sourceEnd": 30.0, "viewStart": 10.0 }
+        ],
+        "sourceToView": [
+          { "source": 5.0, "view": 5.0 },
+          { "source": 15.0, "view": null },
+          { "source": 25.0, "view": 15.0 }
+        ],
+        "viewToSource": [
+          { "view": 10.0, "bias": "preceding", "source": 10.0 },
+          { "view": 10.0, "bias": "following", "source": 20.0 }
+        ]
+      }
+    },
+    "clips": [
+      { "id": "c1", "timelineStart": 0.0, "timelineEnd": 20.0 },
+      { "id": "c2", "timelineStart": 20.0, "timelineEnd": 22.0 },
+      { "id": "c3", "timelineStart": 22.0, "timelineEnd": 32.0 }
+    ],
+    "sourceToTimeline": [
+      { "srcId": "main", "source": 25.0, "timeline": [15.0, 27.0] },
+      { "srcId": "main", "source": 15.0, "timeline": [] },
+      { "srcId": "src-a", "source": 4.0, "timeline": [21.0] }
+    ],
+    "timelineToSource": [
+      { "timeline": 10.0, "bias": "preceding", "srcId": "main", "source": 10.0 },
+      { "timeline": 10.0, "bias": "following", "srcId": "main", "source": 20.0 },
+      { "timeline": 20.0, "bias": "preceding", "srcId": "main", "source": 30.0 },
+      { "timeline": 20.0, "bias": "following", "srcId": "src-a", "source": 2.0 }
+    ],
+    "events": [
+      {
+        "srcId": "main",
+        "start": 9.0,
+        "end": 21.0,
+        "minimumDuration": 0.01,
+        "mapped": [
+          { "clipId": "c1", "timelineStart": 9.0, "timelineEnd": 10.0 },
+          { "clipId": "c1", "timelineStart": 10.0, "timelineEnd": 11.0 },
+          { "clipId": "c3", "timelineStart": 22.0, "timelineEnd": 23.0 }
+        ]
+      },
+      {
+        "srcId": "main",
+        "start": 9.995,
+        "end": 21.0,
+        "minimumDuration": 0.01,
+        "mapped": [
+          { "clipId": "c1", "timelineStart": 10.0, "timelineEnd": 11.0 },
+          { "clipId": "c3", "timelineStart": 22.0, "timelineEnd": 23.0 }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "id": "crossfade",
+  "version": 1,
+  "domain": "transition",
+  "namespace": "bcf",
+  "order": 1,
+  "prop": "opacity",
+  "ease": "easeInOutSine",
+  "out": {
+    "from": {
+      "value": 1.0,
+      "basis": "absolute"
+    },
+    "to": {
+      "value": 0.0,
+      "basis": "absolute"
+    }
+  },
+  "in": {
+    "from": {
+      "value": 0.0,
+      "basis": "absolute"
+    },
+    "to": {
+      "value": 1.0,
+      "basis": "absolute"
+    }
+  },
+  "determinism": "strict"
+}

@@ -1,0 +1,37 @@
+{
+  "id": "elSway3d",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "loop",
+  "order": 17,
+  "period": 2.0,
+  "keyframes": [
+    {
+      "at": 0,
+      "scaleX": 1.0
+    },
+    {
+      "at": 0.33,
+      "ease": "easeOutSine",
+      "scaleX": 0.9659258262890683
+    },
+    {
+      "at": 0.66,
+      "ease": "easeOutSine",
+      "scaleX": 0.9659258262890683
+    },
+    {
+      "at": 1,
+      "ease": "easeOutSine",
+      "scaleX": 1.0
+    }
+  ],
+  "basis": {
+    "dx": "selfWidth",
+    "dy": "selfHeight"
+  },
+  "surface": "element",
+  "determinism": "strict",
+  "available": true
+}

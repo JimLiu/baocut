@@ -1,0 +1,5 @@
+import type { ResourceCapacityMessages } from './resource-capacity-copy.ts';
+
+export const vi: ResourceCapacityMessages = {
+ title: 'Điều phối tài nguyên', resetAll: 'Đặt lại tất cả về tự động', lead: 'Tác vụ nặng như chép lời, mô hình cục bộ và xuất xếp hàng theo năng lực của máy tính này: đủ tài nguyên thì bắt đầu, nếu không sẽ đợi tác vụ trước kết thúc. Năng lực được phát hiện tự động. Nếu máy tính còn chạy chương trình lớn khác hoặc phát hiện sai, bạn có thể đặt giới hạn thủ công; để trống để dùng tự động.', disconnected: 'Chưa kết nối với Runtime', loadFailed: 'Không đọc được trạng thái tài nguyên', loading: 'Đang đọc trạng thái tài nguyên…', limitOf: (label, unit) => `Giới hạn ${label} (${unit})`, unit: { memoryGB: 'GB', gpuMemoryGB: 'GB', cpuThreads: 'luồng' }, notSettable: 'Không thể đặt thủ công', inUseAndQueued: 'Đang dùng và đang chờ', inUse: (demand) => `Đang dùng · ${demand}`, queued: (detail, demand) => `Đang chờ · ${detail ?? 'Đợi bắt đầu'} · Cần ${demand}`, idle: 'Không có tác vụ đang dùng tài nguyên cục bộ', saveFailed: (message) => `Không lưu được: ${message}`,
+};

@@ -1,0 +1,66 @@
+import { pluralForm } from '@baocut/protocol';
+import type { ToolsTranscodeMessages } from './tools-transcode-copy.ts';
+
+export const de: ToolsTranscodeMessages = {
+  quality: {
+    smaller: { name: "Kleiner", sub: "Ausreichend für Nachrichten und Cloud-Speicher" },
+    balanced: { name: "Ausgewogen", sub: "Kaum ein Unterschied sichtbar" },
+    high: { name: "Hohe Qualität", sub: "Zur späteren Bearbeitung aufbewahren" },
+  },
+  heightOriginal: "Original",
+  heightOriginalLong: "Originalauflösung",
+  codecSub: {
+    h264: "Überall abspielbar",
+    hevc: "40 % kleiner bei gleicher Qualität; auf älteren Geräten möglicherweise nicht abspielbar",
+  },
+
+  notVideoFiles: (names: readonly string[]) => `${names.join(", ")} ${pluralForm('de', names.length, { one: "ist keine Videodatei", other: "sind keine Videodateien" })}`,
+  notAbsolute: (paths: readonly string[]) => `${paths.join(", ")} ${pluralForm('de', paths.length, { one: "ist kein absoluter Pfad", other: "sind keine absoluten Pfade" })}`,
+  alreadyListed: (names: readonly string[]) => `${names.join(", ")} ${pluralForm('de', names.length, { one: "ist bereits in der Liste", other: "sind bereits in der Liste" })}`,
+  overflow: (limit: number, extra: number) => `Bis zu ${limit} Dateien gleichzeitig; ${pluralForm('de', extra, { one: `${extra} weitere Datei wurde nicht hinzugefügt`, other: `${extra} weitere Dateien wurden nicht hinzugefügt` })}`,
+  joinNotices: (bits: readonly string[]) => bits.join("; "),
+
+  needTwoVideos: "Mindestens zwei Videos hinzufügen",
+  needMediaFile: "Zuerst eine Video- oder Audiodatei auswählen",
+  needVideoFile: "Zuerst eine Videodatei auswählen",
+  needOneMore: "Zum Zusammenführen sind mindestens zwei Videos nötig; ein weiteres hinzufügen",
+  tooManyFiles: (limit: number) => `Bis zu ${limit} Dateien gleichzeitig`,
+  videoKbpsRange: (min: number, max: number) => `Die Video-Bitrate muss zwischen ${min} und ${max} kbps liegen`,
+  audioKbpsRange: (min: number, max: number) => `Die Audio-Bitrate muss zwischen ${min} und ${max} kbps liegen`,
+  outDirAbsolute: "Der Ergebnisordner muss ein absoluter Pfad sein",
+  ffmpegUnusable: (message: string) => `ffmpeg ist nicht verfügbar: ${message}`,
+  audioKbps: (kbps: number) => `Audio ${kbps} kbps`,
+
+  ffmpegNeeded: "Zuerst ffmpeg installieren",
+  ffmpegInstallHint: "ffmpeg installieren oder den Pfad mit BAOCUT_FFMPEG festlegen",
+  ffmpegReady: (version: string) => `ffmpeg${version} ist bereit`,
+  ffmpegOutdated: (version: string) => `ffmpeg${version} ist zu alt`,
+  ffmpegCannotRun: "ffmpeg kann nicht ausgeführt werden",
+
+  filesTitle: (first: string, count: number) => `${first} und ${count - 1} weitere`,
+  defaultTitle: "Dateikonvertierung",
+  mergeTitle: (first: string, more: number) => `${first} + ${more} weitere`,
+  qualityWithCrf: (name: string, crf: number) => `${name} (CRF ${crf})`,
+  mergeStreamCopy: (n: number) => `Zusammenführen: ${n} Clips · Stream-Kopie`,
+  extractAudioMany: (n: number) => pluralForm('de', n, { one: `Audio aus ${n} Datei extrahieren`, other: `Audio aus ${n} Dateien extrahieren` }),
+  extractAudio: "Audio extrahieren",
+  mergeClips: (n: number) => `Zusammenführen: ${n} Clips`,
+  compressMany: (n: number) => pluralForm('de', n, { one: `${n} Datei komprimieren`, other: `${n} Dateien komprimieren` }),
+  compress: "Komprimieren",
+  stepQueued: (step: string, detail: string | null) => `${step} · ${detail ?? "In Warteschlange"}`,
+  stepOf: (step: string, cur: number, total: number) => `${step} · Schritt ${cur} von ${total}`,
+  noAudioTrack: "Kein Audio",
+  mergedSize: (after: string, before: string) => `${after} (Quelldateien insgesamt ${before})`,
+  savedSize: (before: string, after: string, saved: number | null) => `${before} → ${after} (${saved === null ? "nicht kleiner" : saved === 0 ? "etwa gleich groß" : `${saved} % kleiner`})`,
+  streamCopyLine: "Alle Clips stimmen überein: Stream-Kopie ohne Neucodierung, Qualität unverändert",
+  reencodeLine: (reason: string | null) => (reason ? `Neu codiert: ${reason}` : "Neu codiert"),
+  underASecond: "Unter 1 Sekunde",
+  took: (duration: string) => `Dauer: ${duration}`,
+  stateQueued: "In Warteschlange",
+  stateProcessing: "Wird verarbeitet",
+
+  remedyThenRetry: (remedy: string) => `${remedy}, dann erneut versuchen`,
+  inputUnreadable: "Aus dieser Datei konnten keine Frames gelesen werden. Prüfen Sie, ob sie in einem Mediaplayer abgespielt wird, oder wählen Sie eine andere Datei",
+  transcodeFailed: "ffmpeg ist während der Verarbeitung fehlgeschlagen; die Originalausgabe steht unten. Bei voller Festplatte Speicherplatz freigeben; bei verschobener Quelldatei diese erneut auswählen",
+  validationFailed: "Das Ergebnis hat die Validierung nicht bestanden und wurde verworfen. Nichts wurde in den Ergebnisordner geschrieben. Erneut versuchen oder Einstellungen ändern",
+};

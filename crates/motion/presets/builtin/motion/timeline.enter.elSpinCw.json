@@ -1,0 +1,35 @@
+{
+  "id": "elSpinCw",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "enter",
+  "order": 43,
+  "duration": 0.6,
+  "curve": {
+    "kind": "named",
+    "name": "linear"
+  },
+  "mirror": "elSpinCw",
+  "from": {},
+  "keyframes": [
+    {
+      "at": 0,
+      "rotation": 180.0,
+      "opacity": 0.0
+    },
+    {
+      "at": 1,
+      "ease": "linear",
+      "rotation": 360.0,
+      "opacity": 1.0
+    }
+  ],
+  "basis": {
+    "dx": "selfWidth",
+    "dy": "selfHeight"
+  },
+  "surface": "element",
+  "determinism": "strict",
+  "available": true
+}

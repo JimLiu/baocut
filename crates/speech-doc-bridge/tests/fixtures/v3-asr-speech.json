@@ -1,0 +1,100 @@
+{
+  "language": "en",
+  "body": {
+    "schema": "baocut.speech/1",
+    "clock": "source-asset",
+    "timescale": 1000,
+    "engine": {
+      "provider": "local",
+      "bundleId": "whisper-test",
+      "models": {
+        "asr": {
+          "family": "whisper",
+          "revision": "r1"
+        }
+      },
+      "backend": "cpu",
+      "device": "cpu",
+      "workerVersion": "0.0.0"
+    },
+    "createdAt": "2026-10-01T08:00:00.000Z",
+    "speakers": [
+      {
+        "id": "s1",
+        "name": "说话人 1"
+      },
+      {
+        "id": "s2",
+        "name": "Guest"
+      }
+    ],
+    "words": [
+      {
+        "id": "w-000001",
+        "start": 120,
+        "end": 480,
+        "text": "Hello",
+        "speaker": "s1"
+      },
+      {
+        "id": "w-000002",
+        "start": 480,
+        "end": 900,
+        "text": " there.",
+        "speaker": "s1"
+      },
+      {
+        "id": "w-000003",
+        "start": 1300,
+        "end": 1610,
+        "text": "How",
+        "speaker": "s1"
+      },
+      {
+        "id": "w-000004",
+        "start": 1610,
+        "end": 1800,
+        "text": "are",
+        "speaker": "s1",
+        "timingQuality": "estimated"
+      },
+      {
+        "id": "w-000005",
+        "start": 1800,
+        "end": 2410,
+        "text": "you?",
+        "speaker": "s1"
+      },
+      {
+        "id": "w-000006",
+        "start": 4600,
+        "end": 6050,
+        "text": "Fine, thanks.",
+        "timingQuality": "missing"
+      },
+      {
+        "id": "w-000007",
+        "start": 6100,
+        "end": 6400,
+        "text": "See",
+        "speaker": "s2"
+      },
+      {
+        "id": "w-000008",
+        "start": 6400,
+        "end": 6700,
+        "text": "you",
+        "speaker": "s2"
+      },
+      {
+        "id": "w-000009",
+        "start": 6700,
+        "end": 8333,
+        "text": "later.",
+        "speaker": "s2"
+      }
+    ],
+    "sentences": null,
+    "chapters": []
+  }
+}

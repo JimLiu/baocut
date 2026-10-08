@@ -1,0 +1,28 @@
+{
+  "id": "filter.contrast",
+  "version": 1,
+  "domain": "filter",
+  "inputs": 1,
+  "params": {
+    "amount": {
+      "type": "number",
+      "default": 0,
+      "min": -1,
+      "max": 1
+    }
+  },
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "kernel": "contrast-unpremul-f64",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "clamp",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "doc": "围绕 127.5 缩放：out = (in - 127.5) × (1 + amount) + 127.5。amount ∈ [-1, 1]，-1 全灰、0 恒等。"
+}

@@ -1,0 +1,3 @@
+import type { ServicesMessages } from './services.ts';
+import { pluralForm } from '@baocut/protocol';
+export const nl: ServicesMessages = { portRange: 'Voer een poortnummer tussen 1024 en 65535 in', portTaken: (port, service) => `${port} wordt al gebruikt door ‘${service}’; kies een andere poort`, browser: 'Browser', sessionMeta: (connections, ago, expires) => [connections ? `${connections} ${pluralForm('nl', connections, { one: 'verbinding', other: 'verbindingen' })}` : 'Geen verbindingen', `Actief ${ago}`, expires ? `Verloopt om ${expires}` : null].filter(Boolean).join(' · '), runtime: { connected: 'Verbonden', incompatible: 'Incompatibele versie', disconnected: 'Niet verbonden' } };

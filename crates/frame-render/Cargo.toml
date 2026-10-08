@@ -1,0 +1,33 @@
+[package]
+name = "frame-render"
+description = "BaoCut 的帧光栅（架构设计 §9.3、§13.1）：把 render-graph 的帧计划交给移植来的 CPU 渲染内核（subtitle-render、render-raster）画成一帧 RGBA。原生导出直接链它，编辑器预览经 preview-wasm 用同一份"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+# 进 WASM 的构建用 `--no-default-features --features wasm-safe`（字体由宿主注入）；原生导出用缺省的 `host`
+# （内置字体、素材频谱的解码与分析）。SVG 光栅两侧都有（`render-raster/svg`）：图片层的 SVG 在内核里画。
+[features]
+default = ["host"]
+host = ["subtitle-render/host", "render-raster/media", "waveform/dsp"]
+wasm-safe = ["subtitle-render/wasm-safe", "render-raster/wasm-safe", "render-raster/svg"]
+
+[dependencies]
+motion.workspace = true
+render-graph.workspace = true
+render-raster.workspace = true
+speech-doc.workspace = true
+subtitle-render.workspace = true
+timeline.workspace = true
+timeline-render.workspace = true
+video-model.workspace = true
+waveform.workspace = true
+anyhow = "1.0"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+tiny-skia = "0.11.4"
+
+[dev-dependencies]
+editor-semantics.workspace = true
+sha2 = "0.11.0"

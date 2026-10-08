@@ -1,0 +1,29 @@
+{
+  "id": "wave",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "enter",
+  "order": 21,
+  "duration": 0.6,
+  "curve": {
+    "kind": "spring",
+    "response": 0.6,
+    "damping": 0.35
+  },
+  "opacityCurve": {
+    "kind": "named",
+    "name": "easeOutCubic"
+  },
+  "mirror": "sink",
+  "from": {
+    "opacity": 0.0,
+    "dy": 0.028
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

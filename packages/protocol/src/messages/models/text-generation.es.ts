@@ -1,0 +1,9 @@
+import type { ModelsTextGenerationMessages } from './text-generation.ts';
+export const es: ModelsTextGenerationMessages = {
+ noMessage: 'Se necesita al menos un mensaje no vacío de user o assistant', badRole: 'El rol de un mensaje debe ser system, user o assistant', inputTooLong: (p) => `La entrada tiene ${p.chars} caracteres, muy por encima del contexto de ${p.contextTokens} tokens del modelo ${p.modelId}`, maxOutput: (p) => `El modelo ${p.modelId} produce como máximo ${p.max} tokens por llamada`,
+ noTemperature: (p) => `El modelo ${p.modelId} no admite temperature`, temperatureRange: 'temperature debe estar entre 0 y 2', noSeed: (p) => `El modelo ${p.modelId} no admite seed`, noStructured: (p) => `El modelo ${p.modelId} no admite salida estructurada`,
+ effortIgnored: (p) => `El modelo ${p.modelId} no puede ajustar el esfuerzo de razonamiento; se ignoró ${p.requested}`, effortChanged: (p) => `El modelo ${p.modelId} no tiene el esfuerzo de razonamiento ${p.requested}; se usó ${p.applied} en su lugar`,
+ contentFiltered: (p) => `El filtro de contenido de ${p.provider} bloqueó este resultado`, truncatedJson: (p) => `El resultado de ${p.provider} alcanzó el límite (${p.max} tokens) y se recortó; la salida estructurada está incompleta`, truncatedProblem: (p) => `Resultado recortado (maxOutputTokens ${p.max})`,
+ notJson: (p) => `El resultado de ${p.provider} no es JSON válido`, notJsonProblem: 'No es JSON válido', schemaMismatch: (p) => `El resultado de ${p.provider} no coincide con el JSON Schema proporcionado`, limitBeforeText: (p) => `${p.provider} alcanzó el límite de salida antes de escribir texto`, emptyOutput: (p) => `${p.provider} devolvió un resultado vacío`,
+ limitBeforeTextProblem: (p) => `Aún no había texto al agotarse el límite de salida de ${p.max} tokens`, emptyProblem: 'El resultado está vacío', cancelled: 'Llamada cancelada',
+};

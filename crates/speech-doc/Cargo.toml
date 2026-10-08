@@ -1,0 +1,22 @@
+[package]
+name = "speech-doc"
+description = "BaoCut 转录后处理、翻译、字幕对齐与字幕导出的纯逻辑核心（移植自 BaoCut v2 bcut-flow-core，零 I/O、零网络）"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow = "1.0"
+serde = { version = "1.0.229", features = ["derive"] }
+# `float_roundtrip`：十进制读成 f64 必须正确舍入，与 std `str::parse`、JS `JSON.parse` 同值。
+# 默认快速路径对 17 位有效数字的数会读偏 1 ULP；transcript.json 的词时间与指纹依赖逐位一致
+# （v2 在 workspace 级打开，这里随 crate 声明）。
+serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
+regex = "1.12"
+html5ever = "0.39"
+markup5ever_rcdom = "0.39"
+icu_segmenter = "2.2"
+unicode-general-category = "1.1"
+unicode-normalization = "0.1"
+unicode-segmentation = "1.12"

@@ -1,0 +1,425 @@
+{
+  "note": "DrawOp 指令流指纹：每帧 = ClipPath + FillPath × N + PopClip，空帧 0 条。",
+  "styles": [
+    {
+      "algorithm": "confetti-v1",
+      "samples": [
+        {
+          "fingerprint": "3b6d57a693dedd62",
+          "ops": 0,
+          "paths": 0,
+          "t": 0.0
+        },
+        {
+          "fingerprint": "69718446abd42c7c",
+          "ops": 18,
+          "paths": 4,
+          "t": 0.4
+        },
+        {
+          "fingerprint": "25da53f9776d3a82",
+          "ops": 50,
+          "paths": 4,
+          "t": 1.2
+        },
+        {
+          "fingerprint": "af9b154592a87c1e",
+          "ops": 102,
+          "paths": 4,
+          "t": 2.5
+        },
+        {
+          "fingerprint": "7f96dfbe1d2371cd",
+          "ops": 169,
+          "paths": 4,
+          "t": 4.5
+        },
+        {
+          "fingerprint": "6f43b8e109a60616",
+          "ops": 165,
+          "paths": 4,
+          "t": 12.0
+        }
+      ],
+      "style": "confetti.rainbow-paper"
+    },
+    {
+      "algorithm": "confetti-v1",
+      "samples": [
+        {
+          "fingerprint": "3b6d57a693dedd62",
+          "ops": 0,
+          "paths": 0,
+          "t": 0.0
+        },
+        {
+          "fingerprint": "345db4ca8e457d27",
+          "ops": 14,
+          "paths": 4,
+          "t": 0.4
+        },
+        {
+          "fingerprint": "565be875480e42ea",
+          "ops": 38,
+          "paths": 4,
+          "t": 1.2
+        },
+        {
+          "fingerprint": "d9c0794cd0689d42",
+          "ops": 77,
+          "paths": 4,
+          "t": 2.5
+        },
+        {
+          "fingerprint": "7a6165931d9e0cec",
+          "ops": 137,
+          "paths": 4,
+          "t": 4.5
+        },
+        {
+          "fingerprint": "996a464227791253",
+          "ops": 155,
+          "paths": 4,
+          "t": 12.0
+        }
+      ],
+      "style": "confetti.pastel-fall"
+    },
+    {
+      "algorithm": "confetti-v1",
+      "samples": [
+        {
+          "fingerprint": "3b6d57a693dedd62",
+          "ops": 0,
+          "paths": 0,
+          "t": 0.0
+        },
+        {
+          "fingerprint": "051b93de64281610",
+          "ops": 15,
+          "paths": 3,
+          "t": 0.4
+        },
+        {
+          "fingerprint": "5bff2d63f7c0d6d0",
+          "ops": 41,
+          "paths": 3,
+          "t": 1.2
+        },
+        {
+          "fingerprint": "0bc85976eeb31dfa",
+          "ops": 82,
+          "paths": 3,
+          "t": 2.5
+        },
+        {
+          "fingerprint": "b7cdd68a95451715",
+          "ops": 127,
+          "paths": 3,
+          "t": 4.5
+        },
+        {
+          "fingerprint": "d0c98614e306f991",
+          "ops": 125,
+          "paths": 3,
+          "t": 12.0
+        }
+      ],
+      "style": "confetti.neon-streamers"
+    },
+    {
+      "algorithm": "confetti-v1",
+      "samples": [
+        {
+          "fingerprint": "3b6d57a693dedd62",
+          "ops": 0,
+          "paths": 0,
+          "t": 0.0
+        },
+        {
+          "fingerprint": "aa896c8fe306a860",
+          "ops": 62,
+          "paths": 5,
+          "t": 0.4
+        },
+        {
+          "fingerprint": "ad0e46df8650556a",
+          "ops": 62,
+          "paths": 5,
+          "t": 1.2
+        },
+        {
+          "fingerprint": "701ed124207f6396",
+          "ops": 70,
+          "paths": 5,
+          "t": 2.5
+        },
+        {
+          "fingerprint": "1f62145ec0538f49",
+          "ops": 70,
+          "paths": 5,
+          "t": 4.5
+        },
+        {
+          "fingerprint": "ffbb7b3ff3f413ce",
+          "ops": 62,
+          "paths": 5,
+          "t": 12.0
+        }
+      ],
+      "style": "confetti.golden-starburst"
+    },
+    {
+      "algorithm": "confetti-v1",
+      "samples": [
+        {
+          "fingerprint": "3b6d57a693dedd62",
+          "ops": 0,
+          "paths": 0,
+          "t": 0.0
+        },
+        {
+          "fingerprint": "eafdc6f92b405306",
+          "ops": 82,
+          "paths": 5,
+          "t": 0.4
+        },
+        {
+          "fingerprint": "24303a088f91744b",
+          "ops": 82,
+          "paths": 5,
+          "t": 1.2
+        },
+        {
+          "fingerprint": "4d3ae403d12d73f9",
+          "ops": 82,
+          "paths": 5,
+          "t": 2.5
+        },
+        {
+          "fingerprint": "45f8d8762e6878bf",
+          "ops": 82,
+          "paths": 5,
+          "t": 4.5
+        },
+        {
+          "fingerprint": "4071c7174653c390",
+          "ops": 82,
+          "paths": 5,
+          "t": 12.0
+        }
+      ],
+      "style": "confetti.festival-fireworks"
+    },
+    {
+      "algorithm": "confetti-v1",
+      "samples": [
+        {
+          "fingerprint": "3b6d57a693dedd62",
+          "ops": 0,
+          "paths": 0,
+          "t": 0.0
+        },
+        {
+          "fingerprint": "6b2bc4a86f8f4f98",
+          "ops": 8,
+          "paths": 3,
+          "t": 0.4
+        },
+        {
+          "fingerprint": "ff57f72b1d472fab",
+          "ops": 21,
+          "paths": 3,
+          "t": 1.2
+        },
+        {
+          "fingerprint": "883e07744ef693b0",
+          "ops": 42,
+          "paths": 3,
+          "t": 2.5
+        },
+        {
+          "fingerprint": "882a0432dba22f76",
+          "ops": 74,
+          "paths": 3,
+          "t": 4.5
+        },
+        {
+          "fingerprint": "2ffdb9781b01343d",
+          "ops": 91,
+          "paths": 3,
+          "t": 12.0
+        }
+      ],
+      "style": "confetti.hearts-petals"
+    },
+    {
+      "algorithm": "confetti-v1",
+      "samples": [
+        {
+          "fingerprint": "a96a1af09f3ce7dc",
+          "ops": 72,
+          "paths": 5,
+          "t": 0.0
+        },
+        {
+          "fingerprint": "56b2bc855c17792f",
+          "ops": 72,
+          "paths": 5,
+          "t": 0.4
+        },
+        {
+          "fingerprint": "4b05f1d37f4d5e7a",
+          "ops": 72,
+          "paths": 5,
+          "t": 1.2
+        },
+        {
+          "fingerprint": "185223b1a70d368e",
+          "ops": 142,
+          "paths": 5,
+          "t": 2.5
+        },
+        {
+          "fingerprint": "acbf016cbc108e5b",
+          "ops": 72,
+          "paths": 5,
+          "t": 4.5
+        },
+        {
+          "fingerprint": "9e24b7ce15aafaa3",
+          "ops": 142,
+          "paths": 5,
+          "t": 12.0
+        }
+      ],
+      "style": "confetti.party-cannons"
+    },
+    {
+      "algorithm": "confetti-v1",
+      "samples": [
+        {
+          "fingerprint": "3b6d57a693dedd62",
+          "ops": 0,
+          "paths": 0,
+          "t": 0.0
+        },
+        {
+          "fingerprint": "c5901140b74f1d6a",
+          "ops": 11,
+          "paths": 3,
+          "t": 0.4
+        },
+        {
+          "fingerprint": "05b5fed76f86b62d",
+          "ops": 31,
+          "paths": 3,
+          "t": 1.2
+        },
+        {
+          "fingerprint": "b6a819f48fb196c4",
+          "ops": 62,
+          "paths": 3,
+          "t": 2.5
+        },
+        {
+          "fingerprint": "4ea3de63508bf03b",
+          "ops": 80,
+          "paths": 3,
+          "t": 4.5
+        },
+        {
+          "fingerprint": "c37ae587d3cd1c59",
+          "ops": 82,
+          "paths": 3,
+          "t": 12.0
+        }
+      ],
+      "style": "confetti.curling-ribbons"
+    },
+    {
+      "algorithm": "confetti-v1",
+      "samples": [
+        {
+          "fingerprint": "c94c587ec6e943fa",
+          "ops": 92,
+          "paths": 5,
+          "t": 0.0
+        },
+        {
+          "fingerprint": "7323585e3d899b15",
+          "ops": 92,
+          "paths": 5,
+          "t": 0.4
+        },
+        {
+          "fingerprint": "c406ef39a0959b36",
+          "ops": 92,
+          "paths": 5,
+          "t": 1.2
+        },
+        {
+          "fingerprint": "c7041d43c72a451e",
+          "ops": 182,
+          "paths": 5,
+          "t": 2.5
+        },
+        {
+          "fingerprint": "bade25da0a93802d",
+          "ops": 182,
+          "paths": 5,
+          "t": 4.5
+        },
+        {
+          "fingerprint": "cc3880883fc75206",
+          "ops": 125,
+          "paths": 5,
+          "t": 12.0
+        }
+      ],
+      "style": "confetti.geometric-pop"
+    },
+    {
+      "algorithm": "confetti-v1",
+      "samples": [
+        {
+          "fingerprint": "3b6d57a693dedd62",
+          "ops": 0,
+          "paths": 0,
+          "t": 0.0
+        },
+        {
+          "fingerprint": "10167a783fce40ff",
+          "ops": 16,
+          "paths": 4,
+          "t": 0.4
+        },
+        {
+          "fingerprint": "aa5a9937e53b1f85",
+          "ops": 45,
+          "paths": 4,
+          "t": 1.2
+        },
+        {
+          "fingerprint": "e054fbff45005498",
+          "ops": 91,
+          "paths": 4,
+          "t": 2.5
+        },
+        {
+          "fingerprint": "7c67b61499191b8d",
+          "ops": 107,
+          "paths": 4,
+          "t": 4.5
+        },
+        {
+          "fingerprint": "ed12d2ee2fcf0078",
+          "ops": 109,
+          "paths": 4,
+          "t": 12.0
+        }
+      ],
+      "style": "confetti.champagne-sparkle"
+    }
+  ]
+}

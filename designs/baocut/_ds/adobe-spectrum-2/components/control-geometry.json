@@ -1,0 +1,76 @@
+{
+  "_comment": "Component geometry read out of the S2 source in _import/. Values are code, not token data, so each entry names the file and symbol it came from. The conformance checker enforces the scales below.",
+  "source": {
+    "repo": "https://github.com/adobe/react-spectrum",
+    "commit": "34b330d5f9374c983b9ac6e10f73b0188d37882b",
+    "package": "@react-spectrum/s2@1.6.0"
+  },
+
+  "controlHeight": {
+    "source": "src/style-utils.ts — controlSizeM",
+    "scale": { "XS": 20, "S": 24, "M": 32, "L": 40, "XL": 48 },
+    "note": "Every interactive control (button, field, picker, menu item, chip, tab, action button) sits on this scale. 56 and 64 exist as component-height-400/500 for oversized surfaces."
+  },
+  "smallControlSize": {
+    "source": "src/style-utils.ts — controlSizeS",
+    "scale": { "S": 14, "M": 16, "L": 18, "XL": 20 },
+    "note": "Checkbox box, radio dot, switch track height."
+  },
+  "cornerRadius": {
+    "source": "style/spectrum-theme.ts — const radius",
+    "named": { "none": 0, "sm": 4, "default": 8, "lg": 10, "xl": 16, "full": 9999 },
+    "pill": "calc(height / 2)",
+    "scale": [0, 3, 4, 5, 6, 7, 8, 9, 10, 16],
+    "note": "Non-pill controls scale the 8px medium radius on a Major Second ladder (controlBorderRadius): XS 6, S 7, M 8, L 9, XL 10. Cards, popovers and toasts 10 (lg); dialogs and modals 16 (xl); checkbox 4 (sm)."
+  },
+  "fontSize": {
+    "source": "style/spectrum-theme.ts — fontSize roles + tokens font-size-*",
+    "scale": [10, 11, 12, 14, 16, 18, 20, 22, 25, 28, 32, 36, 40, 45, 51, 58, 65, 73],
+    "roles": {
+      "ui-xs": 11, "ui-sm": 12, "ui": 14, "ui-lg": 16, "ui-xl": 18, "ui-2xl": 20, "ui-3xl": 22,
+      "detail-xs": 11, "detail-sm": 12, "detail": 14, "detail-lg": 16,
+      "body-xs": 12, "body-sm": 14, "body": 16, "body-lg": 18,
+      "heading-2xs": 14, "heading-xs": 18, "heading-sm": 20, "heading": 22, "heading-lg": 28,
+      "title-xs": 12, "title-sm": 14, "title": 16, "title-lg": 18
+    },
+    "note": "14px is the UI default; 12px is the label/detail size; 11px is the smallest legal UI size."
+  },
+  "fontWeight": {
+    "source": "style/spectrum-theme.ts — fontWeightBase",
+    "scale": { "normal": 400, "medium": 500, "bold": 700, "extra-bold": 800, "black": 900 },
+    "note": "Headings extra-bold (800), button labels bold (700), control labels medium (500), body regular (400)."
+  },
+  "lineHeight": {
+    "source": "tokens line-height-100 / -200",
+    "ui": 1.3,
+    "body": 1.5
+  },
+  "borderWidth": { "scale": [1, 2, 4], "note": "1px separators and field borders; 2px outline buttons, checkboxes, switches, focus ring." },
+  "focusRing": {
+    "source": "style/index.ts — focusRing()",
+    "outlineWidth": 2,
+    "outlineOffset": 2,
+    "color": "--focus-indicator-color",
+    "note": "outline + outline-offset, never box-shadow."
+  },
+  "motion": {
+    "source": "style/spectrum-theme.ts — transition() / timingFunction",
+    "duration": 150,
+    "timingFunction": "cubic-bezier(0.45, 0, 0.4, 1)",
+    "note": "S2 1.6.0 moved the default transition to 150ms; earlier imports of this system recorded 130ms."
+  },
+  "press": {
+    "source": "src/*.tsx — isPressed scale",
+    "transform": "scale(0.96)",
+    "note": "The press-down scale is an S2 signature; keep it on every pressable surface."
+  },
+  "iconSize": {
+    "source": "tokens workflow-icon-size-* (desktop)",
+    "scale": { "50": 14, "75": 16, "100": 20, "200": 22, "300": 26 },
+    "note": "20px is the default; icons sit left of labels separated by text-to-visual-100 (6px)."
+  },
+  "spacing": {
+    "source": "tokens spacing-*",
+    "scale": [1, 2, 4, 6, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80, 96]
+  }
+}

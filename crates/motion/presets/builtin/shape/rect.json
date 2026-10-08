@@ -1,0 +1,10 @@
+{
+  "id": "rect",
+  "version": 1,
+  "domain": "shape",
+  "namespace": "timeline",
+  "order": 0,
+  "path": { "kind": "rect" },
+  "params": ["fill", "stroke", "strokeWidth", "cornerRadius"],
+  "available": true
+}

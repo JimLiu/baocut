@@ -1,0 +1,92 @@
+/* Agent 会话线程里挂在行后面的卡（agent-cards.jsx；只在 App 入口加载）。
+   与会话里的视频卡（apprail.css 的 .chat-output）一家：圆角 10、gray-200 描边、gray-25 底、最宽 360；
+   状态只换图标底色与少量文字色，不整卡染色。 */
+
+/* ---------- 视频卡下面的活（进行中的或最后一件摊开，其余收起） ---------- */
+.mjobs { display: flex; flex-direction: column; margin: 0; padding: 0 16px 4px; list-style: none; }
+.mjob { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 12px 0; border-top: 1px solid var(--gray-200); font-size: 12px; color: var(--gray-700); }
+.mjob__head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.mjob__ic { flex: none; color: var(--gray-700); }
+.mjob.is-running .mjob__ic, .mjob.is-queued .mjob__ic { color: var(--blue-900); }
+.mjob.is-done .mjob__ic { color: var(--green-900); }
+.mjob.is-failed .mjob__ic { color: var(--red-900); }
+.mjob__ic svg { --iconPrimary: currentColor; fill: currentColor; }
+.mjob__name { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; color: var(--gray-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mjob__tail { flex: none; color: var(--gray-700); font-variant-numeric: tabular-nums; }
+.mjob.is-failed .mjob__tail { color: var(--red-900); }
+.mjob.is-done .mjob__tail { color: var(--green-900); }
+.mjob__line { color: var(--gray-800); font-variant-numeric: tabular-nums; }
+.mjob__facts { color: var(--gray-800); font-variant-numeric: tabular-nums; }
+.mjob__asr { color: var(--gray-600); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mjob__warn { color: var(--orange-900); line-height: 1.5; }
+.mjob__err { color: var(--red-900); line-height: 1.5; }
+.mjob__file { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mjob__fname { color: var(--gray-900); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mjob__fmeta { color: var(--gray-600); font-variant-numeric: tabular-nums; }
+.mjob__checks { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; padding: 0; list-style: none; }
+.mjob__checks li { display: inline-flex; align-items: center; gap: 4px; }
+.mjob__checks svg { flex: none; --iconPrimary: currentColor; fill: currentColor; }
+.mjob__checks .is-ok svg { color: var(--green-900); }
+.mjob__checks .is-warn { color: var(--orange-900); }
+.mjob__foot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 24px; }
+.mjob__time { flex: 1; min-width: 0; color: var(--gray-600); font-variant-numeric: tabular-nums; }
+
+/* 之前的活：一行「之前的 N 项」，默认收起（agent-cards.jsx 的 MovieJobRows）。开合照工具步骤行（agent-messages.css 的 .astep__row）：
+   安静的文字、末尾一枚 14px 箭头；左右各出 8px 让悬停底色不贴字，字仍与上面的行对齐 */
+.mjobs__more { display: flex; flex-direction: column; min-width: 0; padding: 4px 0; border-top: 1px solid var(--gray-200); }
+.mjobs__toggle.mjobs__toggle { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: calc(100% + 16px); height: auto; min-height: 24px;
+  margin: 0 -8px; padding: 4px 8px; text-align: left; font-size: 12px; }
+.mjobs__toggle > * { min-width: 0; }
+.mjobs__label { flex: 1 1 auto; color: var(--gray-700); }
+.mjobs__chev { flex: none; color: var(--gray-500); }
+/* 收起的里有失败待处理的：靠右一枚警示图标 + 「N 项待处理」，与失败行的图标、原因同色（.mjob.is-failed .mjob__ic / .mjob__err） */
+.mjobs__pending { display: inline-flex; align-items: center; gap: 4px; flex: none; color: var(--red-900); font-variant-numeric: tabular-nums; }
+.mjobs__pendic { flex: none; }
+.mjobs__pendic svg { --iconPrimary: currentColor; fill: currentColor; }
+.mjobs__earlier { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+/* 紧凑的历史行：头一行降到 12px，只留成片文件名、失败原因与按钮 */
+.mjob--compact { gap: 4px; padding: 8px 0; }
+.mjob--compact .mjob__name { font-size: 12px; font-weight: 500; color: var(--gray-800); }
+
+/* ---------- 下载卡 ---------- */
+.dlcard { display: flex; flex-direction: column; gap: 8px; min-width: 0; max-width: 360px; padding: 12px 16px;
+  border: 1px solid var(--gray-200); border-radius: 10px; background: var(--gray-25); font-size: 12px; color: var(--gray-700); }
+.dlcard__head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.dlcard__ic { display: flex; align-items: center; justify-content: center; flex: none; width: 32px; height: 32px; border-radius: 8px;
+  background: var(--blue-100); color: var(--blue-900); }
+.dlcard__ic svg { --iconPrimary: currentColor; fill: currentColor; }
+.dlcard.is-failed .dlcard__ic { background: var(--red-100); color: var(--red-900); }
+.dlcard.is-canceled .dlcard__ic, .dlcard.is-done .dlcard__ic { background: var(--gray-75); color: var(--gray-700); }
+.dlcard__titles { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.dlcard__title { font-size: 14px; font-weight: 600; color: var(--gray-900); }
+.dlcard__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--gray-700); }
+.dlcard__pct { flex: none; font-size: 14px; color: var(--gray-800); font-variant-numeric: tabular-nums; }
+.dlcard__src { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--gray-600); }
+.dlcard__line { color: var(--gray-800); font-variant-numeric: tabular-nums; }
+.dlcard__err { color: var(--red-900); font-weight: 600; }
+.dlcard__hint { color: var(--gray-700); line-height: 1.5; }
+.dlcard__foot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 24px; }
+.dlcard__time { flex: 1; min-width: 0; color: var(--gray-600); font-variant-numeric: tabular-nums; }
+
+/* ---------- 候选卡 ---------- */
+.acard { display: flex; flex-direction: column; gap: 12px; min-width: 0; max-width: 360px; padding: 12px 16px;
+  border: 1px solid var(--gray-200); border-radius: 10px; background: var(--gray-25); font-size: 12px; color: var(--gray-700); }
+.acard__head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.acard__ic { display: flex; align-items: center; justify-content: center; flex: none; width: 32px; height: 32px; border-radius: 8px;
+  background: var(--green-100); color: var(--green-900); }
+.acard__ic svg { --iconPrimary: currentColor; fill: currentColor; }
+.acard__titles { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.acard__title { font-size: 14px; font-weight: 600; color: var(--gray-900); }
+.acard__sub { color: var(--gray-600); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acard__cands { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.acard__cand { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 8px; border-radius: 8px; background: var(--gray-50); }
+.acard__cand.is-picked { box-shadow: inset 0 0 0 2px var(--blue-900); }
+.acard__thumb { flex: none; width: 36px; height: 64px; border-radius: 4px; transition: width 150ms cubic-bezier(0.45,0,0.4,1), height 150ms cubic-bezier(0.45,0,0.4,1); }
+.acard__thumb.is-big { width: 108px; height: 192px; }
+.acard__voice { display: flex; align-items: center; justify-content: center; flex: none; width: 36px; height: 36px; border-radius: 8px; background: var(--gray-100); color: var(--gray-700); }
+.acard__voice.is-playing { background: var(--blue-100); color: var(--blue-900); }
+.acard__cand-t { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.acard__cand-name { font-weight: 600; color: var(--gray-900); }
+.acard__cand-text { color: var(--gray-700); overflow-wrap: anywhere; }
+.acard__cand-meta { color: var(--gray-600); font-variant-numeric: tabular-nums; }
+.acard__cand-acts { display: flex; align-items: center; gap: 4px; flex: none; }

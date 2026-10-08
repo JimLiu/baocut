@@ -1,0 +1,33 @@
+import type { SpaceMessages } from './space-copy.ts';
+
+export const it: SpaceMessages = {
+  kind: {
+    video: "Video",
+    export: "Esportazione",
+    'video-file': "Materiale video",
+    image: "Immagine",
+    audio: "Audio",
+    subtitle: "Sottotitoli",
+    document: "Documento",
+    package: "Pacchetto video",
+    template: "Template",
+  },
+  categoryAll: "Tutti",
+  favorite: "Preferiti",
+  trash: "Cestino",
+  sort: { recent: "Attività recente", name: "Nome", kind: "Tipo" },
+  status: {
+    generating: "Generazione in corso",
+    candidate: "Candidato",
+    applied: "Applicato",
+    published: "Pubblicato",
+    'source-changed': "Origine modificata",
+    missing: "Mancante",
+    failed: "Non riuscito",
+  },
+  statusAny: "Tutti gli stati",
+  statusNone: "Nessuno stato",
+  noProject: "Non in un progetto",
+  removedProject: "Progetto rimosso",
+  conversation: (title: string) => `Sessione «${title}»`,
+};

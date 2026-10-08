@@ -1,0 +1,3 @@
+import type { FormatMessages } from './format.ts';
+import { pluralForm } from '@baocut/protocol';
+export const nl: FormatMessages = { hoursMinutes: (h, m) => `${h} u ${m} min`, hours: (h) => `${h} u`, minutesSeconds: (m, s) => `${m} min ${s} s`, minutes: (m) => `${m} min`, seconds: (s) => `${s} s`, justNow: 'Zojuist', minutesAgo: (n) => `${n} min geleden`, hoursAgo: (n) => `${n} ${pluralForm('nl', n, { one: 'uur', other: 'uur' })} geleden`, yesterday: 'Gisteren', dateThisYear: (date) => new Intl.DateTimeFormat('nl', { month: 'short', day: 'numeric' }).format(date), dateWithYear: (date) => new Intl.DateTimeFormat('nl', { year: 'numeric', month: 'short', day: 'numeric' }).format(date) };

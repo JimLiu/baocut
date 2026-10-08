@@ -1,0 +1,10 @@
+{
+  "id": "ellipse",
+  "version": 1,
+  "domain": "shape",
+  "namespace": "timeline",
+  "order": 1,
+  "path": { "kind": "ellipse" },
+  "params": ["fill", "stroke", "strokeWidth"],
+  "available": true
+}

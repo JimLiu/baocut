@@ -1,0 +1,43 @@
+{
+  "id": "motion.zoomIn",
+  "version": 1,
+  "domain": "motion",
+  "family": null,
+  "doc": "内部积木：缩放从 scaleFrom 回到 1。",
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "scaleFrom": {
+      "type": "number",
+      "default": 0.7,
+      "min": 0.0,
+      "doc": "起始缩放"
+    },
+    "curve": {
+      "type": "curve",
+      "default": "easeOutCubic",
+      "doc": "时间曲线（规范 §7.6 的封闭名称）"
+    }
+  },
+  "tracks": [
+    {
+      "prop": "scale",
+      "composite": "multiply",
+      "order": 0,
+      "frames": [
+        {
+          "t": "0%",
+          "v": "{scaleFrom}"
+        },
+        {
+          "t": "100%",
+          "v": 1,
+          "ease": "{curve}"
+        }
+      ]
+    }
+  ],
+  "determinism": "strict",
+  "capabilities": []
+}

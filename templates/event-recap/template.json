@@ -1,0 +1,129 @@
+{
+  "schema": 1,
+  "id": "event-recap",
+  "version": "1.1.0",
+  "kind": "scene",
+  "title": "活动回顾",
+  "summary": "把活动现场素材剪成一条让人记住的集锦。",
+  "description": "留住一场工作坊、聚会或发布活动的现场气氛，把场地、关键时刻和参与者的反应串成一条有开头有收尾的回顾短片。",
+  "language": "zh-CN",
+  "category": "marketing",
+  "ratio": "9:16",
+  "durationSeconds": 45,
+  "brief": "这些是{{活动}}的现场照片和视频，剪一条回顾短片，发给{{给谁看}}。一定要保留：{{必须保留的片段}}。",
+  "fields": [
+    {
+      "label": "活动",
+      "hint": "活动的名称与时间",
+      "example": "昨天读书会"
+    },
+    {
+      "label": "给谁看",
+      "hint": "回顾发给谁、发在哪里",
+      "example": "没来的朋友看"
+    },
+    {
+      "label": "必须保留的片段",
+      "hint": "点名要留下的瞬间；没有可以写「没有」",
+      "example": "大家的合影和主持人的结束语"
+    }
+  ],
+  "author": "BaoCut",
+  "source": "official",
+  "license": "LicenseRef-BaoCut-Community-1.0",
+  "tags": [
+    "活动",
+    "回顾",
+    "集锦"
+  ],
+  "skills": [
+    "video-production",
+    "subtitle-workflow"
+  ],
+  "cover": {
+    "file": "cover.jpg",
+    "tone": "magenta",
+    "figure": "cards",
+    "kicker": "RECAP"
+  },
+  "preview": {
+    "file": "preview.mp4",
+    "beats": [
+      "交代场地与氛围",
+      "几个关键时刻",
+      "参与者的反应",
+      "收在一句收获上"
+    ]
+  },
+  "verification": {
+    "date": "2026-10-04",
+    "version": "1.0.0",
+    "engine": "codex",
+    "input": "挂上本模板发送，用户消息原文：\n主题：一场虚构的社区周末读书会「拾页读书会」第 12 期的现场回顾。时间是上周六下午两点到五点，地点在社区里的「青梧书屋」（虚构的小书店）。这期大家一起读诗集，最后每人写下一句想留给下次的话。\n目标：让没来的朋友感受到现场安静又温暖的气氛，下次想来。\n受众：读书会群里的朋友。\n材料：现场照片和视频都在项目目录的 media/ 下：\n- media/01.jpg、media/02.jpg、media/04.jpg：书店里的书架通道\n- media/03.jpg：门口的街角共享书箱\n- media/05.jpg：茶歇桌上的点心\n- media/06.jpg：有人在读诗集、喝咖啡\n- media/07.jpg：签到桌上的笔记本，结束时大家在上面写下一句话\n- media/clip-01.mp4：分享环节桌上的白蜡烛（视频）\n- media/clip-02.mp4：开场仪式点起的粉色蜡烛（视频），这段必须保留。\n成片语言用中文。信息已给全，请直接按默认开始制作，不用再确认。\n\n（测试环境说明：这台机器没有配置语音合成、配乐、音效与视频生成，遇到没有配置的能力请跳过，并在最后说明跳过了什么。如果现有编辑操作做不出需要的画面，可以直接渲染成视频文件再导入时间线，不用再问。）\n\n（素材文件按 Commons 原图缩小到最长边 1280；两段视频转成 H.264 MP4 后放入项目。）",
+    "materials": [
+      {
+        "title": "Kings Second Hand Bookstore Detroit Interior 2.jpg",
+        "url": "https://commons.wikimedia.org/wiki/File:Kings_Second_Hand_Bookstore_Detroit_Interior_2.jpg",
+        "license": "CC0-1.0",
+        "note": "media/01.jpg，书架通道，开场"
+      },
+      {
+        "title": "Kings Second Hand Bookstore Detroit Interior 7.jpg",
+        "url": "https://commons.wikimedia.org/wiki/File:Kings_Second_Hand_Bookstore_Detroit_Interior_7.jpg",
+        "license": "CC0-1.0",
+        "note": "media/02.jpg，书架通道"
+      },
+      {
+        "title": "Wooden public bookcase Groenstraat Heverlee.jpg",
+        "url": "https://commons.wikimedia.org/wiki/File:Wooden_public_bookcase_Groenstraat_Heverlee.jpg",
+        "license": "CC0-1.0",
+        "note": "media/03.jpg，街角共享书箱，结尾"
+      },
+      {
+        "title": "Kings Second Hand Bookstore Detroit Interior 5.jpg",
+        "url": "https://commons.wikimedia.org/wiki/File:Kings_Second_Hand_Bookstore_Detroit_Interior_5.jpg",
+        "license": "CC0-1.0",
+        "note": "media/04.jpg，书架通道"
+      },
+      {
+        "title": "Rustic Cafe Table (Unsplash).jpg",
+        "url": "https://commons.wikimedia.org/wiki/File:Rustic_Cafe_Table_(Unsplash).jpg",
+        "license": "CC0-1.0",
+        "note": "media/05.jpg，茶歇桌"
+      },
+      {
+        "title": "Woman roads poetry book while drinking coffee (Unsplash).jpg",
+        "url": "https://commons.wikimedia.org/wiki/File:Woman_roads_poetry_book_while_drinking_coffee_(Unsplash).jpg",
+        "license": "CC0-1.0",
+        "note": "media/06.jpg，读诗集，只有手和腿"
+      },
+      {
+        "title": "A laptop and a notebook on the wooden table (Pixabay).jpg",
+        "url": "https://commons.wikimedia.org/wiki/File:A_laptop_and_a_notebook_on_the_wooden_table_(Pixabay).jpg",
+        "license": "CC0-1.0",
+        "note": "media/07.jpg，签到桌笔记本"
+      },
+      {
+        "title": "White candle video.webm",
+        "url": "https://commons.wikimedia.org/wiki/File:White_candle_video.webm",
+        "license": "CC0-1.0",
+        "note": "media/clip-01.mp4，白蜡烛视频，无音轨"
+      },
+      {
+        "title": "Pink candle burning.webm",
+        "url": "https://commons.wikimedia.org/wiki/File:Pink_candle_burning.webm",
+        "license": "CC0-1.0",
+        "note": "media/clip-02.mp4，粉色蜡烛视频，无音轨，用户点名必须保留"
+      }
+    ],
+    "capabilities": [
+      "generateMusic"
+    ],
+    "outcome": "partial",
+    "output": {
+      "ratio": "9:16",
+      "durationSeconds": 45
+    },
+    "notes": "确认：简报给全后没有再提问，开工前复述并按模板默认 9:16、45 秒制作。智能体在 BaoCut 时间线上剪辑：一条画面轨放 7 张照片（先用本机脚本渲染成带轻微推拉的短视频再导入）与两段蜡烛视频，另一条轨放 11 张脚本渲染的中文字卡（PNG），用 trimItem、moveItem、setTransform 排布并设了 5 个章节，自己调 exports_create 导出并抽帧检查。用户点名的粉色蜡烛完整保留在 4–22 秒；活动名称、时间与地点在开场字卡标注；结尾落在「下次，一起读诗」。横图没有裁成满屏，而是放在米色底上的竖屏版式里。没有配乐能力，模板要求的「其余部分用音乐串联」没做到，智能体说明了，因而记 partial；素材本身无音轨，「保留现场声」这次测不出来。预览与封面取自 BaoCut 导出的成片。疑似：18 秒的蜡烛整段保留，节奏偏慢，模板没说点名片段能否裁短，一次运行不足以判断。模板改动：无。"
+  }
+}

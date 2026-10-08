@@ -1,0 +1,22 @@
+[package]
+name = "scene-primitives"
+description = "BaoCut 渲染核心的确定性原语与 BCF 场景解析：缓动、颜色、SVG 路径与笔触风格、时间表达式、通道取样、文字排版与字格、SVG 动画、混音常量、内容指纹、静态布局，以及渲染入口消费的 resolve → Ir 管线与 lint。纯函数、无 I/O（移植自 BaoCut v2 bcut-core）"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow = "1.0"
+motion = { workspace = true }
+# `events[].phase` 表达式求值（sin / cos / pow / floor）：与 `motion` 同一份 libm。
+libm = "0.2.16"
+serde = { version = "1.0.229", features = ["derive"] }
+# `float_roundtrip`：十进制读成 f64 必须正确舍入，与 std `str::parse`、JS `JSON.parse` 同值
+# （v2 在 workspace 级打开，这里随 crate 声明）。
+serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
+# v2 是 0.10；本仓库已解析到 0.11，跟本仓库。
+sha2 = "0.11.0"
+roxmltree = "0.20"
+unicode-segmentation = "1.12"
+unicode-linebreak = "0.1.5"

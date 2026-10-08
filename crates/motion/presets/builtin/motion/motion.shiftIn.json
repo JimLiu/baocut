@@ -1,0 +1,94 @@
+{
+  "id": "motion.shiftIn",
+  "version": 1,
+  "domain": "motion",
+  "family": null,
+  "doc": "内部积木：按 direction 从 distance 处位移归零。",
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "direction": {
+      "type": "enum",
+      "options": [
+        "left",
+        "right",
+        "up",
+        "down"
+      ],
+      "default": "up",
+      "doc": "元素进入/离开的方向（'up' = 从下方进入）"
+    },
+    "distance": {
+      "type": "length",
+      "default": {
+        "value": 0.045,
+        "basis": "canvasShortEdge"
+      },
+      "doc": "位移量；缺省是画布短边的 4.5%"
+    },
+    "curve": {
+      "type": "curve",
+      "default": "easeOutCubic",
+      "doc": "时间曲线（规范 §7.6 的封闭名称）"
+    }
+  },
+  "tracks": [
+    {
+      "prop": "x",
+      "composite": "add",
+      "order": 0,
+      "frames": [
+        {
+          "t": "0%",
+          "v": {
+            "case": "{direction}",
+            "of": {
+              "left": {
+                "length": "{distance}",
+                "scale": -1
+              },
+              "right": {
+                "length": "{distance}"
+              }
+            }
+          }
+        },
+        {
+          "t": "100%",
+          "v": 0,
+          "ease": "{curve}"
+        }
+      ]
+    },
+    {
+      "prop": "y",
+      "composite": "add",
+      "order": 0,
+      "frames": [
+        {
+          "t": "0%",
+          "v": {
+            "case": "{direction}",
+            "of": {
+              "up": {
+                "length": "{distance}"
+              },
+              "down": {
+                "length": "{distance}",
+                "scale": -1
+              }
+            }
+          }
+        },
+        {
+          "t": "100%",
+          "v": 0,
+          "ease": "{curve}"
+        }
+      ]
+    }
+  ],
+  "determinism": "strict",
+  "capabilities": []
+}

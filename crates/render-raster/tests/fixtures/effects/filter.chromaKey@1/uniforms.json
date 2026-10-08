@@ -1,0 +1,12 @@
+{
+  "green": {
+    "color": [
+      0.0,
+      1.0,
+      0.0,
+      1.0
+    ],
+    "similarity": 0.4,
+    "smoothness": 0.1
+  }
+}

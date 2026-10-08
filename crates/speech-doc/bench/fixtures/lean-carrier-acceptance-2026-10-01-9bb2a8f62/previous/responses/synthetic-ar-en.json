@@ -1,0 +1,8 @@
+{
+  "effort": "auto",
+  "elapsedMs": 2120,
+  "error": null,
+  "model": "deepseek-flash",
+  "name": "synthetic-ar-en",
+  "response": "1 |لم..الاجتماع؛|Layla did not cancel the meeting; |أجّلته|she postponed it |إلى..14:30|to 14:30 |يوم..الخميس.|on Thursday.\n2 |إذا..الحرارة|If the temperature drops |إلى..من|to less than |5..درجات،|5 degrees, |فأغلق..قبل|then close the window before |تشغيل..المدفأة.|turning on the heater.\n3 |دفع..120|Omar paid 120 |ريالًا..تذاكر،|riyals for three tickets, |ولم..يشمل|and the price did not include |السعر..العشاء.|dinner.\n4 |قالت..إن|Maryam said that |الحقيبة..تركها|the bag that |يوسف..القطار|Youssef left on the train |ليست..حقيبتها.|was not her bag.\n5 |يظهر..A-17|The code A-17 appears |بجانب..«مُؤَكَّد»،|next to the word \"confirmed,\" |لكن|but |الطلب..لم|the order has not |يُشحن..بعد.|been shipped yet.\n6 |وصلت..بعد|Noura arrived after |أحمد..دقائق،|Ahmed by ten minutes, |مع..غادرت|even though she left |المنزل..قبله.|home before him."
+}

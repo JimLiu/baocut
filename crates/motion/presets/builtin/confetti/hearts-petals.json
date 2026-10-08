@@ -1,0 +1,76 @@
+{
+  "id": "hearts-petals",
+  "version": 1,
+  "domain": "confetti",
+  "namespace": "timeline",
+  "order": 60,
+  "aspect": "frame",
+  "palette": [
+    "#FF6B9D",
+    "#FF8FAB",
+    "#FFB3C6",
+    "#FFC2D1",
+    "#FF4D6D"
+  ],
+  "shapes": [
+    "heart",
+    "petal"
+  ],
+  "sources": [
+    "js-confetti/flight"
+  ],
+  "hasEmitterControl": false,
+  "recipe": {
+    "algorithm": "confetti-v1",
+    "params": {
+      "emit": {
+        "mode": "continuous",
+        "rate": 16,
+        "count": 80,
+        "interval": 2.0,
+        "jitter": 1.0
+      },
+      "emitters": [
+        {
+          "x": 50,
+          "y": -6,
+          "spreadX": 100,
+          "spreadY": 0
+        }
+      ],
+      "angle": 90,
+      "spread": 10,
+      "speedPx": [
+        100,
+        136
+      ],
+      "dragX": 0,
+      "dragY": 0,
+      "gravityPx": 0,
+      "windPx": 0,
+      "driftPx": 21,
+      "driftHz": 0.32,
+      "sizePx": [
+        8,
+        18
+      ],
+      "sizeRamp": false,
+      "spinDps": [
+        30,
+        120
+      ],
+      "flipHz": [
+        0.4,
+        1
+      ],
+      "pulse": null,
+      "lifeSec": 6,
+      "fadeIn": 0,
+      "fadeOut": 0.6,
+      "maxAlive": 600
+    }
+  },
+  "determinism": "strict",
+  "shader": null,
+  "available": true
+}

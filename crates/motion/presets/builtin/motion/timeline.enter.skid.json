@@ -1,0 +1,28 @@
+{
+  "id": "skid",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "enter",
+  "order": 19,
+  "duration": 0.5,
+  "curve": {
+    "kind": "named",
+    "name": "easeOutBack"
+  },
+  "opacityCurve": {
+    "kind": "named",
+    "name": "easeOutCubic"
+  },
+  "mirror": "skid",
+  "from": {
+    "opacity": 0.0,
+    "dx": 0.08
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

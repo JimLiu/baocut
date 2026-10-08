@@ -1,0 +1,124 @@
+{
+  "id": "lowerThird.03",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "lowerThird",
+  "order": 303,
+  "duration": 4.07,
+  "content": [
+    {
+      "kind": "text",
+      "place": {
+        "x": 43.22,
+        "y": 57.32,
+        "w": 17.28
+      },
+      "text": "MOTION DESIGNER",
+      "style": {
+        "backgroundColor": "#053aedff",
+        "backgroundPadding": 2.3,
+        "backgroundStyle": "block",
+        "borderRadius": 0.0,
+        "fontColor": "#ffffff",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 9.2,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.0,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.13,
+          "distance": 0.01,
+          "rotation": 180.0,
+          "color": "#000000",
+          "on": true,
+          "opacity": 0.34
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "delay": 0.17,
+      "animate": {
+        "exit": {
+          "preset": "fade",
+          "dur": 0.7
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 50.0,
+        "y": 51.69,
+        "w": 31.91
+      },
+      "text": "PAT MORGAN",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#000000ff",
+        "fontFamily": "Climate Crisis",
+        "fontSize": 25.5,
+        "fontStyle": "normal",
+        "fontWeight": "normal",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 0.8,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "zoomIn",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.6
+        }
+      }
+    },
+    {
+      "kind": "shape",
+      "place": {
+        "x": 35.65,
+        "y": 44.4,
+        "w": 3.21
+      },
+      "shape": {
+        "shape": "diamond",
+        "fill": "#111111",
+        "h": 5.53
+      },
+      "animate": {
+        "enter": {
+          "preset": "zoomIn",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.6
+        }
+      }
+    }
+  ]
+}

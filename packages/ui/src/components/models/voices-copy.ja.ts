@@ -1,0 +1,92 @@
+import type { VoicesMessages } from './voices-copy.ts';
+
+export const ja: VoicesMessages = {
+  myVoices: {
+    offline: 'Runtime に接続すると声が表示されます。',
+    add: '声を追加',
+    fromFile: '音声ファイルから新規作成…',
+    fromFileHint: 'WAV、MP3、FLAC、20 MB まで。5–12 秒の完結した 1 文が最適です',
+    importPackage: 'ボイスパックを読み込む…',
+    importHint: 'ほかの人が書き出した .bcvoice',
+    record: 'マイクで録音',
+    recordWhy:
+      'アプリ内での録音にはまだ対応していません。録音を Runtime に渡すには先にファイルとして保存する必要があり、その処理がまだできていないためです。ほかのアプリで先に録音し（WAV、MP3、FLAC）、「音声ファイルから新規作成」を使ってください。',
+    recordWhyNoPicker:
+      'アプリ内での録音にはまだ対応していません。録音を Runtime に渡すには先にファイルとして保存する必要があり、その処理がまだできていないためです。ほかのアプリで先に録音し（WAV、MP3、FLAC）、「音声ファイルから新規作成」を使ってください。ボイスパックの読み込み：このウインドウではシステムのファイルダイアログを開けません。デスクトップアプリを使ってください。',
+    noPicker: 'このウインドウではシステムのファイルダイアログを開けません。デスクトップアプリを使ってください。',
+    pickAudioTitle: '参照用の録音を選択',
+    pickAudioFilter: '音声（WAV、MP3、FLAC）',
+    pickPackageTitle: 'ボイスパックを選択',
+    pickPackageFilter: 'ボイスパック',
+    pickButton: '選択',
+    notAudio: '参照用の録音は WAV、MP3、FLAC ファイルのみ使用できます。',
+    imported: (name: string) => `「${name}」を読み込みました · 音声や吹き替えの生成時に選べます`,
+    importFailed: (text: string) => `読み込めませんでした：${text}`,
+    foot:
+      '声 = 参照用の録音 + その録音で話している内容 + 同意の表明。参照用の録音はこのコンピュータに残ります。書き出したボイスパック（名前.bcvoice）には録音が含まれ、ほかの人に送って読み込んでもらえますが、クローンは引き継がれません。' +
+      '本人の声かどうかの表明がない声は、第三者にアップロードされることはありません。',
+    // 一行
+    play: (name: string) => `${name} を試聴`,
+    stop: (name: string) => `${name} の試聴を停止`,
+    playFailed: (text: string) => `試聴できませんでした：${text}`,
+    more: (name: string) => `その他 · ${name}`,
+    edit: '編集…',
+    cloneTo: (label: string) => `${label} にアップロードしてクローン…`,
+    recloneTo: (label: string) => `${label} に再アップロード…`,
+    recloneHint: '参照用の録音が変わったため、以前のクローンは古くなっています',
+    removeClone: (label: string) => `${label} からクローンを削除…`,
+    export: 'ボイスパックを書き出す…',
+    remove: '削除…',
+    cloning: (label: string) => `${label} にアップロードしてクローン中…`,
+    cloneFailed: (label: string, text: string) => `前回の ${label} でのクローンは成功しませんでした：${text}`,
+    loadingMeta: '読み込み中…',
+    // 新建与编辑
+    createTitle: '新しい声',
+    editTitle: (name: string) => `「${name}」を編集`,
+    referenceFile: (file: string) => `参照用の録音：${file}`,
+    name: '名前',
+    language: '言語',
+    languageHint: '参照用の録音で話されている言語',
+    transcript: '書き起こし',
+    transcriptHint: '参照用の録音で話している内容です。クローンに必要なエンジンもあります。わからない場合は空欄のままにしてください。',
+    consentHint: 'チェックを入れなくても保存できますが、クローンのために第三者へアップロードされることはありません。',
+    save: '声として保存',
+    saveEdit: '保存',
+    cancel: 'キャンセル',
+    loading: '声を読み込み中…',
+    loadFailed: (text: string) => `この声を読み込めませんでした：${text}`,
+    saved: (name: string) => `「${name}」を保存しました · 音声や吹き替えの生成時に選べます`,
+    updated: (name: string) => `「${name}」を保存しました`,
+    unchanged: '変更はありません',
+    // 克隆
+    uploadTitle: (label: string) => `${label} にアップロードしますか？`,
+    upload: 'アップロード',
+    cloneStarted: (label: string) => `${label} にアップロード中 · 進行状況はバックグラウンドタスクに表示されます`,
+    cloneRejected: (text: string) => `クローンを開始できませんでした：${text}`,
+    removeCloneTitle: (label: string) => `${label} からクローンを削除しますか？`,
+    removeCloneBody: (label: string) =>
+      `${label} にこのクローンした声の削除を依頼します。その後 ${label} でこの声を使うには、再度アップロードする必要があります。`,
+    removeCloneConfirm: 'クローンを削除',
+    cloneRemoved: (label: string) => `${label} からクローンを削除しました`,
+    cloneGoneRemote: (label: string) => `${label} にはこのクローンがもうありません。このコンピュータ上の記録も消去しました`,
+    cloneRemoveFailed: (text: string) => `クローンを削除できませんでした：${text}`,
+    // 导出
+    exportTitle: 'ボイスパックを書き出す',
+    exportButton: '書き出す',
+    exported: (path: string) => `${path} に書き出しました`,
+    exportFailed: (text: string) => `書き出せませんでした：${text}`,
+    exportExists: 'BaoCut は既存のファイルを上書きしません。別の名前か場所を選んで、もう一度書き出してください。',
+    exportFailedExists: (text: string) =>
+      `書き出せませんでした：${text}。BaoCut は既存のファイルを上書きしません。別の名前か場所を選んで、もう一度書き出してください。`,
+    // 删除
+    deleteTitle: (name: string) => `「${name}」を削除しますか？`,
+    deleteConfirm: '削除',
+    deleted: (name: string) => `「${name}」を削除しました`,
+    deleteFailed: (text: string) => `削除できませんでした：${text}`,
+    localOnlyTitle: (label: string) => `${label} 上のクローンは削除されませんでした`,
+    localOnlyBody: (label: string, text: string) =>
+      `${text}\n\n声はまだ残っています。後で再試行するか、このコンピュータ上の記録と声だけを削除できます。その場合 ${label} アカウントのクローンは残るため、${label} でご自身で削除する必要があります。`,
+    localOnlyConfirm: 'このコンピュータでのみ削除',
+    later: '後で再試行',
+  },
+};

@@ -1,0 +1,105 @@
+{
+  "id": "lowerThird.17",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "lowerThird",
+  "order": 317,
+  "duration": 3.8,
+  "content": [
+    {
+      "kind": "text",
+      "place": {
+        "x": 20.24,
+        "y": 68.48,
+        "w": 32.98
+      },
+      "text": "JOSH NOEL",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#ffffffff",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 27.7,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.0,
+        "letterSpacing": 55.4,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.2,
+          "distance": 0.04,
+          "rotation": 180.0,
+          "color": "#000000",
+          "on": true,
+          "opacity": 0.1
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "rise",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.63
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 15.71,
+        "y": 72.71,
+        "w": 22.88
+      },
+      "text": "SENIOR VIDEO EDITOR",
+      "style": {
+        "backgroundColor": "#5544ccff",
+        "backgroundPadding": 2.6,
+        "backgroundStyle": "block",
+        "borderRadius": 0.0,
+        "fontColor": "#FFFFFF",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 10.2,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.0,
+        "letterSpacing": 10.2,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "delay": 0.33,
+      "animate": {
+        "enter": {
+          "preset": "slideR",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.73
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "name": "@baocut/runtime-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@baocut/agent-drivers": "*",
+    "@baocut/code-runtime": "*",
+    "@baocut/editor-wasm": "*",
+    "@baocut/harness": "*",
+    "@baocut/jobs": "*",
+    "@baocut/models": "*",
+    "@baocut/nodes": "*",
+    "@baocut/process-host": "*",
+    "@baocut/protocol": "*",
+    "@baocut/providers": "*",
+    "@baocut/runtime-storage": "*",
+    "file-type": "^22.1.1",
+    "ws": "^8.22.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.2"
+  }
+}

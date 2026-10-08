@@ -1,0 +1,32 @@
+{
+  "id": "sway",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "loop",
+  "order": 2,
+  "period": 2.8,
+  "amplitudes": {
+    "rotation": 0.6
+  },
+  "wave": {
+    "kind": "sine",
+    "samples": 32
+  },
+  "channelSeedStride": 101,
+  "defaultSeed": 17,
+  "envelope": {
+    "kind": "idle-ramp-v1",
+    "rampCap": 0.3,
+    "rampFraction": 0.15,
+    "tailThresholdSec": 6.0,
+    "tailStart": 0.8,
+    "tailSpan": 0.2
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

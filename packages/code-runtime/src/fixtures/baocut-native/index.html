@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; padding: 0; overflow: hidden; }
+  #root { position: relative; width: 1280px; height: 720px; }
+  #box { position: absolute; left: 0; top: 310px; width: 100px; height: 100px; background: #2e86e4; border-radius: 50%; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-width="1280" data-height="720" data-fps="30" data-duration="2">
+  <div id="box"></div>
+</div>
+<script>
+  // BaoCut native contract: initialize(ctx) / renderAt(time, params) / dispose().
+  var DURATION = 2;
+  var box = null;
+  function renderScene(time) {
+    var p = Math.min(Math.max(time / DURATION, 0), 1);
+    box.style.transform = 'translateX(' + (p * 1180).toFixed(3) + 'px) scale(' + (0.5 + p).toFixed(3) + ')';
+  }
+  window.__baocutCompositions = window.__baocutCompositions || {};
+  window.__baocutCompositions.main = {
+    initialize: function (ctx) {
+      box = ctx.target.querySelector('#box');
+      renderScene(0);
+      return Promise.resolve();
+    },
+    renderAt: function (time, params) {
+      renderScene(Number(time.ticks) / time.timescale);
+      return Promise.resolve();
+    },
+    dispose: function () {
+      box = null;
+    },
+  };
+</script>
+</body>
+</html>

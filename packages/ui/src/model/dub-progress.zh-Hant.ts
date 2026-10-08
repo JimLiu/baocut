@@ -1,0 +1,35 @@
+import type { DubProgressMessages } from './dub-progress.ts';
+
+export const zhHant: DubProgressMessages = {
+  unit: {
+    fit: '原樣放置',
+    tempo: '加速後放置',
+    extended: '已加速到上限，並佔用後面的靜音',
+    overlong: '太長放不下，未放置',
+    stale: '譯文已過期，未合成',
+    offTimeline: '原句已不在時間軸上，未放置',
+    voiceUnavailable: '說話者的音色無法使用，未合成',
+  },
+  reasonStale: '克隆已過期，請在音色資料庫中重新克隆',
+  reasonMissing: '尚未在這個供應商克隆',
+  reasonNoConsent: '沒有說話者本人的同意聲明，因此不會上傳給供應商',
+  reasonRemoved: '這個音色已不在資料庫中',
+  reasonServiceClient: '外部服務的呼叫端無法使用資料庫中的音色',
+  codeCloneRequired: '這個供應商上沒有有效的克隆',
+  codeNotFound: '找不到音色',
+  warning: {
+    DUB_SEPARATION_NOT_CONFIGURED: '未分離背景',
+    DUB_UNITS_STALE: '過期的譯文未合成',
+    DUB_UNITS_OVERLONG: '部分句子太長放不下',
+    DUB_UNITS_OFF_TIMELINE: '部分原句已不在時間軸上',
+    DUB_MUTED_UNVOICED: '未合成的句子，原聲也已靜音',
+    DUB_BACKGROUND_MUTED: '背景音也已靜音',
+    DUB_VOICE_UNAVAILABLE: '部分說話者的音色無法使用',
+  },
+  separated: '已分離背景',
+  separationNotConfigured: '已要求分離，但尚未設定分離功能：已略過，原聲維持原樣',
+  notSeparated: '未分離背景',
+  originalMuted: '原聲已靜音',
+  originalKept: '原聲不變',
+  originalDucked: (db: number | null) => (db ? `配音播放時，原聲壓低 ${db} dB` : '配音播放時，原聲會壓低'),
+};

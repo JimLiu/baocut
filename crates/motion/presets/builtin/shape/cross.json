@@ -1,0 +1,129 @@
+{
+  "id": "cross",
+  "version": 1,
+  "domain": "shape",
+  "namespace": "timeline",
+  "order": 16,
+  "path": {
+    "kind": "outline",
+    "segments": [
+      {
+        "verb": "move",
+        "pts": [
+          [
+            0.36,
+            0
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.64,
+            0
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.64,
+            0.36
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            1,
+            0.36
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            1,
+            0.64
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.64,
+            0.64
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.64,
+            1
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.36,
+            1
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.36,
+            0.64
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0,
+            0.64
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0,
+            0.36
+          ]
+        ]
+      },
+      {
+        "verb": "line",
+        "pts": [
+          [
+            0.36,
+            0.36
+          ]
+        ]
+      },
+      {
+        "verb": "close"
+      }
+    ]
+  },
+  "params": [
+    "fill",
+    "stroke",
+    "strokeWidth"
+  ],
+  "available": true
+}

@@ -1,0 +1,155 @@
+{
+  "id": "lowerThird.12",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "lowerThird",
+  "order": 312,
+  "duration": 3.67,
+  "content": [
+    {
+      "kind": "shape",
+      "place": {
+        "x": 19.1,
+        "y": 69.95,
+        "w": 30.64
+      },
+      "shape": {
+        "shape": "rect",
+        "fill": "#ffffff4d",
+        "h": 8.57
+      },
+      "delay": 0.53,
+      "animate": {
+        "enter": {
+          "preset": "wipe",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "wipe",
+          "dur": 0.63
+        }
+      }
+    },
+    {
+      "kind": "shape",
+      "place": {
+        "x": 4.7,
+        "y": 69.96,
+        "w": 1.85
+      },
+      "shape": {
+        "shape": "rect",
+        "fill": "#5544cc",
+        "h": 8.56
+      },
+      "animate": {
+        "enter": {
+          "preset": "wipe",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "wipe",
+          "dur": 0.3
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 16.55,
+        "y": 71.53,
+        "w": 18.0
+      },
+      "text": "CREATIVE PRODUCER",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#ffffffff",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 8.7,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.0,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.5,
+          "distance": 0.01,
+          "rotation": 90.0,
+          "color": "#000000",
+          "on": true,
+          "opacity": 0.1
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "delay": 0.7,
+      "animate": {
+        "enter": {
+          "preset": "slideR",
+          "dur": 0.3
+        },
+        "exit": {
+          "preset": "slideL",
+          "dur": 0.37
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 20.36,
+        "y": 68.6,
+        "w": 25.96
+      },
+      "text": "CARLOS DRAPER",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#ffffffff",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 16.2,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.0,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.3,
+          "distance": 0.06,
+          "rotation": 90.0,
+          "color": "#000000",
+          "on": true,
+          "opacity": 0.1
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "delay": 0.7,
+      "animate": {
+        "enter": {
+          "preset": "slideR",
+          "dur": 0.3
+        },
+        "exit": {
+          "preset": "slideL",
+          "dur": 0.37
+        }
+      }
+    }
+  ]
+}

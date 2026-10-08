@@ -1,0 +1,16 @@
+{
+  "name": "@baocut/jobs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@baocut/editor-wasm": "*",
+    "@baocut/models": "*",
+    "@baocut/process-host": "*",
+    "@baocut/protocol": "*",
+    "@baocut/runtime-storage": "*"
+  }
+}

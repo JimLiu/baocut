@@ -1,0 +1,21 @@
+import type { DriversAcpMessages } from './drivers-acp.ts';
+export const es: DriversAcpMessages = {
+ copilotPlan: 'Suscripción a GitHub Copilot', copilotLoginHint: 'ejecuta copilot login en un terminal para iniciar sesión (o introduce /login en el modo interactivo de copilot)', copilotInstallHint: 'Instala GitHub Copilot CLI (npm install -g @github/copilot)',
+ geminiPlan: 'Cuenta de Google', geminiLoginHint: 'ejecuta gemini en un terminal y elige iniciar sesión con una cuenta de Google, o escribe GEMINI_API_KEY=… en ~/.gemini/.env', geminiInstallHint: 'Instala Gemini CLI (brew install gemini-cli)',
+ cursorPlan: 'Suscripción a Cursor', cursorInstallHint: 'Instala Cursor Agent con el script oficial', grokPlan: 'Cuenta de xAI', grokInstallHint: 'Instala Grok CLI con el script oficial', kimiPlan: 'Cuenta de Kimi', kimiInstallHint: 'Instala Kimi Code siguiendo las instrucciones oficiales (https://github.com/MoonshotAI/kimi-code)',
+ customNoCommand: (p) => `El agente ${p.id} no tiene comando`, customInstallHint: (p) => `Comprueba que ${p.command} esté instalado y en PATH, o añádelo de nuevo con una ruta absoluta`,
+ loginViaTerminal: (p) => `ejecuta ${p.command} en un terminal para iniciar sesión`, loginPerInstructions: 'sigue sus instrucciones para iniciar sesión',
+ signedOut: (p) => `${p.name} no ha iniciado sesión: ${p.login}.${p.detail ? ` (${p.detail})` : ''}`,
+ probeTimeout: (p) => `${p.name} no respondió en ${p.seconds} segundos`, acpModeFailed: (p) => `${p.name} no pudo iniciarse en modo ACP: ${p.error}`,
+ exitCode: (p) => `código de salida ${p.code}`, exited: (p) => `${p.name} terminó (${p.status})${p.tail ? `: ${p.tail}` : ''}`,
+ exitedBeforeInit: (p) => `${p.name} terminó antes de inicializarse`, initTimeout: (p) => `${p.name} no terminó la inicialización ACP a tiempo`,
+ mcpHttpUnsupported: (p) => `${p.name} no puede conectarse a servidores MCP por HTTP, por lo que las herramientas de BaoCut (leer y editar proyectos, subtítulos y demás) no están disponibles en esta sesión.`,
+ resumeUnsupported: (p) => `${p.name} no admite reanudar sesiones`,
+ onlyAlwaysAllow: (p) => `${p.name} solo ofreció «Permitir siempre» esta vez. BaoCut no lo escribirá en sus ajustes por ti, por lo que la solicitud se rechazó.`,
+ modeSwitchFailed: (p) => `${p.name} no pudo cambiar el modo de sesión (${p.mode}): ${p.error}`,
+ noAllowAllSwitch: (p) => `Esta sesión de ${p.name} no tiene un interruptor «permitir todo» (${p.configId}), por lo que seguirá preguntando por cada acción en Acceso completo.`,
+ setOptionFailed: (p) => `${p.name} no pudo establecer ${p.configId}=${p.value}: ${p.error}`,
+ stillAskThisTurn: (p) => `${p.failure}. Seguirá preguntando por cada acción en este turno.`,
+ noMatchingMode: (p) => `${p.name} no tiene un modo de sesión que coincida con este modo de acceso, por lo que usa su propio valor predeterminado. BaoCut sigue comprobando las acciones que requieren aprobación según el modo de acceso.`,
+ modelSwitchUnsupported: (p) => `${p.name} no puede cambiar de modelo dentro de una sesión, por lo que sigue usando su modelo actual.`,
+};

@@ -1,0 +1,27 @@
+{
+  "id": "border",
+  "version": 1,
+  "domain": "progress",
+  "namespace": "timeline",
+  "order": 4,
+  "numColors": 2,
+  "colorLabels": ["Bar", "Background"],
+  "defaultMainColor": "#FF9FDC",
+  "defaultSecondaryColor": "#FFFFFF00",
+  "aspect": "frame",
+  "recipe": {
+    "algorithm": "frame-v1",
+    "params": {
+      "borderSize": 0.015,
+      "smoothing": 0.0032,
+      "fill": "forward",
+      "background": true,
+      "colorMode": {
+        "kind": "solid"
+      }
+    }
+  },
+  "determinism": "strict",
+  "shader": "border.wgsl",
+  "available": true
+}

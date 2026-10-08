@@ -1,0 +1,25 @@
+import type { ModelsTextGenerationMessages } from './text-generation.ts';
+
+export const ru: ModelsTextGenerationMessages = {
+  noMessage: "Нужно хотя бы одно непустое сообщение user или assistant",
+  badRole: "Роль сообщения должна быть system, user или assistant",
+  inputTooLong: (p: { chars: number; modelId: string; contextTokens: number }) => `Длина входа: ${p.chars} символов, намного больше контекста в ${p.contextTokens} токенов модели ${p.modelId}`,
+  maxOutput: (p: { modelId: string; max: number }) => `Модель ${p.modelId} выводит не более ${p.max} токенов за вызов`,
+  noTemperature: (p: { modelId: string }) => `Модель ${p.modelId} не принимает temperature`,
+  temperatureRange: "temperature должна быть от 0 до 2",
+  noSeed: (p: { modelId: string }) => `Модель ${p.modelId} не принимает seed`,
+  noStructured: (p: { modelId: string }) => `Модель ${p.modelId} не поддерживает структурированный вывод`,
+  effortIgnored: (p: { modelId: string; requested: string }) => `Модель ${p.modelId} не поддерживает изменение уровня рассуждений; проигнорировано ${p.requested}`,
+  effortChanged: (p: { modelId: string; requested: string; applied: string }) => `Модель ${p.modelId} не имеет ${p.requested} уровня рассуждений; использовано ${p.applied} вместо этого`,
+  contentFiltered: (p: { provider: string }) => `${p.provider} — фильтр содержимого заблокировал результат`,
+  truncatedJson: (p: { provider: string; max: number }) => `${p.provider} — результат достиг лимита (${p.max} токенов) и обрезан; структурированный результат неполон`,
+  truncatedProblem: (p: { max: number }) => `Результат обрезан (maxOutputTokens ${p.max})`,
+  notJson: (p: { provider: string }) => `${p.provider} — результат не является допустимым JSON`,
+  notJsonProblem: "Недопустимый JSON",
+  schemaMismatch: (p: { provider: string }) => `${p.provider} — результат не соответствует заданной JSON Schema`,
+  limitBeforeText: (p: { provider: string }) => `${p.provider} достиг лимита вывода, не записав текст`,
+  emptyOutput: (p: { provider: string }) => `${p.provider} вернул пустой результат`,
+  limitBeforeTextProblem: (p: { max: number }) => `Нет текста, исчерпан лимит вывода в ${p.max} токенов`,
+  emptyProblem: "Результат пуст",
+  cancelled: "Вызов отменён",
+};

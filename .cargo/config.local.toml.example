@@ -1,0 +1,8 @@
+# 复制为 `.cargo/config.local.toml`（不入版本控制）后按本机情况修改。
+# 常见用途：把 Cargo 产物挪到外置盘，避免 target 目录撑爆系统盘。
+[build]
+target-dir = "/Volumes/YourDisk/cargo-target/baocut"
+
+# 也可以在这里放本机专属的环境变量覆盖，例如：
+# [env]
+# SDKROOT = "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"

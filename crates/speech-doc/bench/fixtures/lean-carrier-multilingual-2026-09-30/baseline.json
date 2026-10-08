@@ -1,0 +1,2103 @@
+{
+  "schema": "lean-carrier-multilingual-baseline/1",
+  "head": "d59f06d23d086a20b77d148d9ea7a229ff16de2f",
+  "model": "deepseek-flash",
+  "samples": 92,
+  "realSamples": 36,
+  "syntheticSamples": 56,
+  "provider": {
+    "calls": 25,
+    "inputTokens": 51206,
+    "outputTokens": 7959,
+    "elapsedMs": 51265,
+    "httpStatuses": {
+      "200": 25
+    }
+  },
+  "groups": {
+    "ko": {
+      "n": 12,
+      "first": 12,
+      "final": 12,
+      "aligned": 12,
+      "sentence-level": 0,
+      "needs-rewrite": 0,
+      "retry": 0
+    },
+    "zh": {
+      "n": 12,
+      "first": 0,
+      "final": 7,
+      "aligned": 7,
+      "sentence-level": 0,
+      "needs-rewrite": 0,
+      "retry": 5
+    },
+    "ja": {
+      "n": 12,
+      "first": 12,
+      "final": 12,
+      "aligned": 12,
+      "sentence-level": 0,
+      "needs-rewrite": 0,
+      "retry": 0
+    },
+    "ar": {
+      "n": 8,
+      "first": 2,
+      "final": 8,
+      "aligned": 7,
+      "sentence-level": 0,
+      "needs-rewrite": 1,
+      "retry": 0
+    },
+    "de": {
+      "n": 8,
+      "first": 2,
+      "final": 8,
+      "aligned": 8,
+      "sentence-level": 0,
+      "needs-rewrite": 0,
+      "retry": 0
+    },
+    "es": {
+      "n": 8,
+      "first": 3,
+      "final": 8,
+      "aligned": 8,
+      "sentence-level": 0,
+      "needs-rewrite": 0,
+      "retry": 0
+    },
+    "tr": {
+      "n": 8,
+      "first": 2,
+      "final": 8,
+      "aligned": 8,
+      "sentence-level": 0,
+      "needs-rewrite": 0,
+      "retry": 0
+    },
+    "hi": {
+      "n": 8,
+      "first": 2,
+      "final": 8,
+      "aligned": 4,
+      "sentence-level": 1,
+      "needs-rewrite": 3,
+      "retry": 0
+    },
+    "th": {
+      "n": 8,
+      "first": 8,
+      "final": 8,
+      "aligned": 0,
+      "sentence-level": 8,
+      "needs-rewrite": 0,
+      "retry": 0
+    },
+    "en": {
+      "n": 8,
+      "first": 8,
+      "final": 8,
+      "aligned": 8,
+      "sentence-level": 0,
+      "needs-rewrite": 0,
+      "retry": 0
+    }
+  },
+  "pages": [
+    {
+      "name": "ko-real",
+      "kind": "real",
+      "sourceLang": "ko",
+      "targetLang": "zh-Hans",
+      "sentences": 12,
+      "strictFirst": {
+        "acceptedTranslations": 12,
+        "aligned": 12,
+        "chunks": 107,
+        "coarse": 0,
+        "expectedSentences": 12,
+        "locatedChunks": 107,
+        "sentencesWithAnchorIssues": 1,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      },
+      "first": {
+        "acceptedTranslations": 12,
+        "aligned": 12,
+        "chunks": 107,
+        "coarse": 0,
+        "expectedSentences": 12,
+        "locatedChunks": 107,
+        "sentencesWithAnchorIssues": 1,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      },
+      "merged": {
+        "aligned": 12,
+        "acceptedTranslations": 12,
+        "translationRetries": 0,
+        "expectedSentences": 12
+      },
+      "retryIds": [],
+      "firstRows": [
+        {
+          "id": "s-g1.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "去东京旅行前，东查西查，却还是不知道该从哪儿开始、怎么规划行程，这样的人应该不少吧。"
+        },
+        {
+          "id": "s-g8.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "所以把东京大致划分一下，涩谷·新宿、上野·浅草、银座·东京站、六本木·东京塔，可以这样分组，每个地区各安排一天左右，这样旅行也不错，或者从这些地区里挑中意的去。"
+        },
+        {
+          "id": "s-g11.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "先说我们这种情况，住宿在新桥，因为住在这里，而且第一天不想太累，所以把附近的银座和东京站周边排进了第一个行程。"
+        },
+        {
+          "id": "s-wmuothvkq-16",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "银座常被说成像我们国家的清潭洞，这里名品店很多，整体上高级的氛围很浓，不过就算不买名品，也有优衣库、GU、无印良品、Montbell 这些日本"
+        },
+        {
+          "id": "s-g23.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "在新桥、银座一带，有几家想推荐的餐厅，先说位于银座的东京乌冬 Samurai，它就在银座正中心，排队不算久，600 日元这个价格就能吃到一根筋道的乌冬，味道"
+        },
+        {
+          "id": "s-g33.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "各餐厅的位置、推荐菜单、价格等详细内容，请看之前上传的东京美食视频参考一下。"
+        },
+        {
+          "id": "s-g45.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "我们在新宿去的那家，游客比本地客人还少，是一家烤鸟店，炭火香十足的烤鸟，加上日本特有的氛围，价格也不算贵，是东京旅行中印象很深的一家。"
+        },
+        {
+          "id": "s-g58.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "逛完浅草寺之后，也推荐去东京晴空塔观景台看看。"
+        },
+        {
+          "id": "s-g74.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "我个人觉得六本木和东京塔，与其花一整天，不如放在最后一天轻松逛逛，是条好路线。"
+        },
+        {
+          "id": "s-wmuothvkw-107",
+          "issues": [
+            "anchor-conflict",
+            "anchor-conflict"
+          ],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "虽然给大家介绍了3 晚 4 天的行程，但东京还有迪士尼乐园、迪士尼海洋、哈利波特影城、日本动漫圣地秋叶原、池袋、能看东京大海的台场、成为《灌篮高手》取景地的"
+        },
+        {
+          "id": "s-g86.3",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "近郊地区镰仓这样的地方，所以从中挑出符合自己喜好的放进行程，把一定要去一次、或者旅行中觉得一天结束太可惜的地区加进去，按自己的喜好来逛才是真"
+        },
+        {
+          "id": "s-g96.4",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "感谢观看。"
+        }
+      ],
+      "mergedRows": [
+        {
+          "id": "s-g1.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "去东京旅行前，东查西查，却还是不知道该从哪儿开始、怎么规划行程，这样的人应该不少吧。"
+        },
+        {
+          "id": "s-g8.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "所以把东京大致划分一下，涩谷·新宿、上野·浅草、银座·东京站、六本木·东京塔，可以这样分组，每个地区各安排一天左右，这样旅行也不错，或者从这些地区里挑中意的去。"
+        },
+        {
+          "id": "s-g11.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "先说我们这种情况，住宿在新桥，因为住在这里，而且第一天不想太累，所以把附近的银座和东京站周边排进了第一个行程。"
+        },
+        {
+          "id": "s-wmuothvkq-16",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "银座常被说成像我们国家的清潭洞，这里名品店很多，整体上高级的氛围很浓，不过就算不买名品，也有优衣库、GU、无印良品、Montbell 这些日本"
+        },
+        {
+          "id": "s-g23.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "在新桥、银座一带，有几家想推荐的餐厅，先说位于银座的东京乌冬 Samurai，它就在银座正中心，排队不算久，600 日元这个价格就能吃到一根筋道的乌冬，味道"
+        },
+        {
+          "id": "s-g33.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "各餐厅的位置、推荐菜单、价格等详细内容，请看之前上传的东京美食视频参考一下。"
+        },
+        {
+          "id": "s-g45.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "我们在新宿去的那家，游客比本地客人还少，是一家烤鸟店，炭火香十足的烤鸟，加上日本特有的氛围，价格也不算贵，是东京旅行中印象很深的一家。"
+        },
+        {
+          "id": "s-g58.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "逛完浅草寺之后，也推荐去东京晴空塔观景台看看。"
+        },
+        {
+          "id": "s-g74.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "我个人觉得六本木和东京塔，与其花一整天，不如放在最后一天轻松逛逛，是条好路线。"
+        },
+        {
+          "id": "s-wmuothvkw-107",
+          "issues": [
+            "anchor-conflict",
+            "anchor-conflict"
+          ],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "虽然给大家介绍了3 晚 4 天的行程，但东京还有迪士尼乐园、迪士尼海洋、哈利波特影城、日本动漫圣地秋叶原、池袋、能看东京大海的台场、成为《灌篮高手》取景地的"
+        },
+        {
+          "id": "s-g86.3",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "近郊地区镰仓这样的地方，所以从中挑出符合自己喜好的放进行程，把一定要去一次、或者旅行中觉得一天结束太可惜的地区加进去，按自己的喜好来逛才是真"
+        },
+        {
+          "id": "s-g96.4",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "感谢观看。"
+        }
+      ],
+      "fixTotals": null
+    },
+    {
+      "name": "zh-real",
+      "kind": "real",
+      "sourceLang": "zh",
+      "targetLang": "en",
+      "sentences": 12,
+      "strictFirst": {
+        "acceptedTranslations": 0,
+        "expectedSentences": 12,
+        "syntaxOrPermissionIssues": 1,
+        "translationRetries": 12
+      },
+      "first": {
+        "acceptedTranslations": 0,
+        "expectedSentences": 12,
+        "syntaxOrPermissionIssues": 1,
+        "translationRetries": 12
+      },
+      "merged": {
+        "aligned": 7,
+        "acceptedTranslations": 7,
+        "translationRetries": 5,
+        "expectedSentences": 12
+      },
+      "retryIds": [
+        "s-g1.0",
+        "s-g152.0",
+        "s-g173.0",
+        "s-g67.0",
+        "s-g91.0"
+      ],
+      "firstRows": [],
+      "mergedRows": [
+        {
+          "id": "s-g23.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "The first is Skill Creator, which lets you, even without understanding Skill writing conventions, still create a complete Skill."
+        },
+        {
+          "id": "s-g27.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "Now I just need to tell Claude Code, use this Skill to generate me a on whatever topic PPT, then paste in the copy, and in just a few minutes it can generate me a PPT that fully meets my requirements."
+        },
+        {
+          "id": "s-g43.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "After clicking submit, it will, based on the requirements I've clearly set, generate the specific Skill."
+        },
+        {
+          "id": "s-g55.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "For example, after I install it and invoke this Skill, I tell it to find me an image-matching Skill, then it gives me two options, each with a note beside it of the Star count and the corresponding Skill's text description."
+        },
+        {
+          "id": "s-wmuosgcxu-167",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "gstack is better at telling you whether to do it and what to do, helping you, before you start, first get the direction clear."
+        },
+        {
+          "id": "s-g133.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "The first is called Baoyu Skills, a skill pack made by Teacher Baoyu, containing nearly twenty Skills, which can help you produce high-quality visual designs, such as cover images, infographics, and long-form layout."
+        },
+        {
+          "id": "s-g161.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [
+            "backed"
+          ],
+          "status": "aligned",
+          "translation": "After installing this Skill, you can inside an Agent, such as Claude Code, query and analyze all the documents you've stored in NotebookLM, such as web pages and videos, and AI hallucinations will also be greatly reduced, which is essentially adding to the Agent a super-powerful long-term memory add-on."
+        }
+      ],
+      "fixTotals": {
+        "acceptedTranslations": 7,
+        "aligned": 7,
+        "chunks": 67,
+        "coarse": 0,
+        "expectedSentences": 12,
+        "locatedChunks": 67,
+        "sentencesWithAnchorIssues": 0,
+        "syntaxOrPermissionIssues": 6,
+        "translationRetries": 5
+      }
+    },
+    {
+      "name": "ja-real",
+      "kind": "real",
+      "sourceLang": "ja",
+      "targetLang": "zh-Hans",
+      "sentences": 12,
+      "strictFirst": {
+        "acceptedTranslations": 12,
+        "aligned": 11,
+        "chunks": 64,
+        "coarse": 0,
+        "expectedSentences": 12,
+        "locatedChunks": 63,
+        "needs-rewrite": 1,
+        "sentencesWithAnchorIssues": 1,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      },
+      "first": {
+        "acceptedTranslations": 12,
+        "aligned": 11,
+        "chunks": 64,
+        "coarse": 0,
+        "expectedSentences": 12,
+        "locatedChunks": 63,
+        "needs-rewrite": 1,
+        "sentencesWithAnchorIssues": 1,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      },
+      "merged": {
+        "aligned": 12,
+        "acceptedTranslations": 12,
+        "translationRetries": 0,
+        "expectedSentences": 12
+      },
+      "retryIds": [],
+      "firstRows": [
+        {
+          "id": "s-g1.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "从经典到最新！"
+        },
+        {
+          "id": "s-g21.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "源于明治天皇与昭宪皇太后夫妻感情和睦，"
+        },
+        {
+          "id": "s-g45.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "亮点在于不只是观看，还能在现场自由走动探索。"
+        },
+        {
+          "id": "s-g69.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "可丽饼和甜品盒之外，水果糖、Ame and Ame 也不容错过。"
+        },
+        {
+          "id": "s-g75.0",
+          "issues": [
+            "anchor-unresolved"
+          ],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "needs-rewrite",
+          "translation": "第 7 家是能体验电影《哈利· 波特》和《神奇动物》》系列电影制作幕后的华纳兄弟工作室东京 Making of Home 附近的"
+        },
+        {
+          "id": "s-g82.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "铁道商店里，除了电影中登场的青蛙巧克力和百味豆，还有只有这里才能买到的限定周边，琳琅满目。"
+        },
+        {
+          "id": "s-g94.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "旁边是抱石墙。"
+        },
+        {
+          "id": "s-g117.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "东京站标志之一的银铃，作为碰头地点的标记，诞生于 1968 年。"
+        },
+        {
+          "id": "s-g142.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "日本馆地下一层设有可供休息的休息室，附设的 Kujira 咖啡厅还能用餐。"
+        },
+        {
+          "id": "s-g165.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "第 14 家是运用数字艺术传递海洋生物魅力的 Maxell Aqua Park 品川。"
+        },
+        {
+          "id": "s-g187.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "象征东京的塔、可沉浸体验的娱乐设施、明治时代就有的庭园、最前沿的艺术水族馆等，感兴趣设施的最新信息请查看简介栏。"
+        },
+        {
+          "id": "s-g189.15",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "也请务必一看。"
+        }
+      ],
+      "mergedRows": [
+        {
+          "id": "s-g1.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "从经典到最新！"
+        },
+        {
+          "id": "s-g21.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "源于明治天皇与昭宪皇太后夫妻感情和睦，"
+        },
+        {
+          "id": "s-g45.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "亮点在于不只是观看，还能在现场自由走动探索。"
+        },
+        {
+          "id": "s-g69.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "可丽饼和甜品盒之外，水果糖、Ame and Ame 也不容错过。"
+        },
+        {
+          "id": "s-g75.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "第 7 个是电影《哈利·波特》与《神奇动物》系列电影制作的幕后体验，可以体验的华纳兄弟工作室东京“幕后制作”"
+        },
+        {
+          "id": "s-g82.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "铁道商店里，除了电影中登场的青蛙巧克力和百味豆，还有只有这里才能买到的限定周边，琳琅满目。"
+        },
+        {
+          "id": "s-g94.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "旁边是抱石墙。"
+        },
+        {
+          "id": "s-g117.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "东京站标志之一的银铃，作为碰头地点的标记，诞生于 1968 年。"
+        },
+        {
+          "id": "s-g142.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "日本馆地下一层设有可供休息的休息室，附设的 Kujira 咖啡厅还能用餐。"
+        },
+        {
+          "id": "s-g165.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "第 14 家是运用数字艺术传递海洋生物魅力的 Maxell Aqua Park 品川。"
+        },
+        {
+          "id": "s-g187.0",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "象征东京的塔、可沉浸体验的娱乐设施、明治时代就有的庭园、最前沿的艺术水族馆等，感兴趣设施的最新信息请查看简介栏。"
+        },
+        {
+          "id": "s-g189.15",
+          "issues": [],
+          "realTiming": true,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "也请务必一看。"
+        }
+      ],
+      "fixTotals": {
+        "acceptedTranslations": 1,
+        "aligned": 1,
+        "chunks": 7,
+        "coarse": 0,
+        "expectedSentences": 1,
+        "locatedChunks": 7,
+        "sentencesWithAnchorIssues": 0,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      }
+    },
+    {
+      "name": "synthetic-ar-en",
+      "kind": "synthetic",
+      "sourceLang": "ar",
+      "targetLang": "en",
+      "sentences": 6,
+      "strictFirst": {
+        "acceptedTranslations": 0,
+        "expectedSentences": 6,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 6
+      },
+      "first": {
+        "acceptedTranslations": 0,
+        "expectedSentences": 6,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 6
+      },
+      "merged": {
+        "aligned": 5,
+        "needs-rewrite": 1,
+        "acceptedTranslations": 6,
+        "translationRetries": 0,
+        "expectedSentences": 6
+      },
+      "retryIds": [],
+      "firstRows": [],
+      "mergedRows": [
+        {
+          "id": "ar-01",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "Layla didn't cancel the meeting; she postponed it to 2:30 PM on Thursday."
+        },
+        {
+          "id": "ar-02",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "If the temperature drops below 5 degrees, close the window before turning on the heater."
+        },
+        {
+          "id": "ar-03",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "Omar paid 120 riyals for three tickets, and the price didn't include dinner."
+        },
+        {
+          "id": "ar-04",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "needs-rewrite",
+          "translation": "Maryam said the bag Youssef left on the train isn't hers."
+        },
+        {
+          "id": "ar-05",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "The code A-17 appears next to the word \"confirmed,\" but the order hasn't shipped yet."
+        },
+        {
+          "id": "ar-06",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "Noura arrived ten minutes after Ahmed, even though she left home before him."
+        }
+      ],
+      "fixTotals": {
+        "acceptedTranslations": 6,
+        "aligned": 5,
+        "chunks": 11,
+        "coarse": 1,
+        "expectedSentences": 6,
+        "locatedChunks": 11,
+        "needs-rewrite": 1,
+        "sentencesWithAnchorIssues": 0,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      }
+    },
+    {
+      "name": "synthetic-ar-zh-Hans",
+      "kind": "synthetic",
+      "sourceLang": "ar",
+      "targetLang": "zh-Hans",
+      "sentences": 2,
+      "strictFirst": {
+        "acceptedTranslations": 2,
+        "aligned": 2,
+        "chunks": 2,
+        "coarse": 0,
+        "expectedSentences": 2,
+        "locatedChunks": 2,
+        "sentencesWithAnchorIssues": 0,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      },
+      "first": {
+        "acceptedTranslations": 2,
+        "aligned": 2,
+        "chunks": 2,
+        "coarse": 0,
+        "expectedSentences": 2,
+        "locatedChunks": 2,
+        "sentencesWithAnchorIssues": 0,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      },
+      "merged": {
+        "aligned": 2,
+        "acceptedTranslations": 2,
+        "translationRetries": 0,
+        "expectedSentences": 2
+      },
+      "retryIds": [],
+      "firstRows": [
+        {
+          "id": "ar-07",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "除非经理批准第二版，否则不要把文件发给萨拉。"
+        },
+        {
+          "id": "ar-08",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "我们买了 2.5 公斤大米，晚饭后还剩一半。"
+        }
+      ],
+      "mergedRows": [
+        {
+          "id": "ar-07",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "除非经理批准第二版，否则不要把文件发给萨拉。"
+        },
+        {
+          "id": "ar-08",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "我们买了 2.5 公斤大米，晚饭后还剩一半。"
+        }
+      ],
+      "fixTotals": null
+    },
+    {
+      "name": "synthetic-de-en",
+      "kind": "synthetic",
+      "sourceLang": "de",
+      "targetLang": "en",
+      "sentences": 6,
+      "strictFirst": {
+        "acceptedTranslations": 0,
+        "expectedSentences": 6,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 6
+      },
+      "first": {
+        "acceptedTranslations": 0,
+        "expectedSentences": 6,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 6
+      },
+      "merged": {
+        "aligned": 6,
+        "acceptedTranslations": 6,
+        "translationRetries": 0,
+        "expectedSentences": 6
+      },
+      "retryIds": [],
+      "firstRows": [],
+      "mergedRows": [
+        {
+          "id": "de-01",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "Lea didn't cancel the appointment, but postponed it to Thursday at 2:30 p.m."
+        },
+        {
+          "id": "de-02",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "If the temperature drops below 5 degrees, close the window before you turn on the heating."
+        },
+        {
+          "id": "de-03",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "Ömer paid 120 euros for three tickets; dinner was not included in the price."
+        },
+        {
+          "id": "de-04",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "The book Mia borrowed from Jonas yesterday belongs to his sister."
+        },
+        {
+          "id": "de-05",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "Next to \"confirmed\" is the code B-23, although the package hasn't been shipped yet."
+        },
+        {
+          "id": "de-06",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "Although Nora had left earlier, she arrived ten minutes after Cem."
+        }
+      ],
+      "fixTotals": {
+        "acceptedTranslations": 6,
+        "aligned": 6,
+        "chunks": 12,
+        "coarse": 0,
+        "expectedSentences": 6,
+        "locatedChunks": 12,
+        "sentencesWithAnchorIssues": 0,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      }
+    },
+    {
+      "name": "synthetic-de-zh-Hans",
+      "kind": "synthetic",
+      "sourceLang": "de",
+      "targetLang": "zh-Hans",
+      "sentences": 2,
+      "strictFirst": {
+        "acceptedTranslations": 2,
+        "aligned": 1,
+        "chunks": 4,
+        "coarse": 1,
+        "expectedSentences": 2,
+        "locatedChunks": 4,
+        "needs-rewrite": 1,
+        "sentencesWithAnchorIssues": 1,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      },
+      "first": {
+        "acceptedTranslations": 2,
+        "aligned": 1,
+        "chunks": 4,
+        "coarse": 1,
+        "expectedSentences": 2,
+        "locatedChunks": 4,
+        "needs-rewrite": 1,
+        "sentencesWithAnchorIssues": 1,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      },
+      "merged": {
+        "aligned": 2,
+        "acceptedTranslations": 2,
+        "translationRetries": 0,
+        "expectedSentences": 2
+      },
+      "retryIds": [],
+      "firstRows": [
+        {
+          "id": "de-07",
+          "issues": [
+            "anchor-conflict"
+          ],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "needs-rewrite",
+          "translation": "只有当第二版的负责人同意后，才把文件发给 Anna。"
+        },
+        {
+          "id": "de-08",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "我们买了 2.5 公斤米；晚饭后还剩一半。"
+        }
+      ],
+      "mergedRows": [
+        {
+          "id": "de-07",
+          "issues": [
+            "anchor-conflict"
+          ],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "只有在第二版负责人同意后，才把文件发给 Anna。"
+        },
+        {
+          "id": "de-08",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "我们买了 2.5 公斤米；晚饭后还剩一半。"
+        }
+      ],
+      "fixTotals": {
+        "acceptedTranslations": 1,
+        "aligned": 1,
+        "chunks": 2,
+        "coarse": 0,
+        "expectedSentences": 1,
+        "locatedChunks": 2,
+        "sentencesWithAnchorIssues": 1,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      }
+    },
+    {
+      "name": "synthetic-en-ar",
+      "kind": "synthetic",
+      "sourceLang": "en",
+      "targetLang": "ar",
+      "sentences": 8,
+      "strictFirst": {
+        "acceptedTranslations": 8,
+        "aligned": 4,
+        "chunks": 14,
+        "coarse": 2,
+        "expectedSentences": 8,
+        "locatedChunks": 14,
+        "needs-rewrite": 4,
+        "sentencesWithAnchorIssues": 0,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      },
+      "first": {
+        "acceptedTranslations": 8,
+        "aligned": 6,
+        "chunks": 14,
+        "coarse": 2,
+        "expectedSentences": 8,
+        "locatedChunks": 14,
+        "needs-rewrite": 2,
+        "sentencesWithAnchorIssues": 0,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      },
+      "merged": {
+        "aligned": 8,
+        "acceptedTranslations": 8,
+        "translationRetries": 0,
+        "expectedSentences": 8
+      },
+      "retryIds": [],
+      "firstRows": [
+        {
+          "id": "reverse-ar-01",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "لم تُلغِ ليلى الاجتماع؛ بل أخّرته إلى الساعة 14:30 يوم الخميس."
+        },
+        {
+          "id": "reverse-ar-02",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "إذا انخفضت الحرارة دون 5 درجات، فأغلق النافذة قبل تشغيل المدفأة."
+        },
+        {
+          "id": "reverse-ar-03",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "دفع عمر 120 ريالاً مقابل ثلاث تذاكر، ولم يشمل السعر العشاء."
+        },
+        {
+          "id": "reverse-ar-04",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "needs-rewrite",
+          "translation": "قالت مريم إن الحقيبة التي تركها يوسف في القطار ليست لها."
+        },
+        {
+          "id": "reverse-ar-05",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "يظهر الرمز A-17 بجانب كلمة \"مؤكد\"، لكن الطلب لم يُشحن بعد."
+        },
+        {
+          "id": "reverse-ar-06",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [
+            "backed"
+          ],
+          "status": "aligned",
+          "translation": "وصلت نورة بعد أحمد بعشر دقائق، مع أنها خرجت من البيت قبله."
+        },
+        {
+          "id": "reverse-ar-07",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "needs-rewrite",
+          "translation": "لا ترسل الملف إلى سارة إلا إذا وافق المدير على النسخة الثانية."
+        },
+        {
+          "id": "reverse-ar-08",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [
+            "backed"
+          ],
+          "status": "aligned",
+          "translation": "اشترينا 2.5 كيلوغرام من الأرز، وبقي نصفه بعد العشاء."
+        }
+      ],
+      "mergedRows": [
+        {
+          "id": "reverse-ar-01",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "لم تُلغِ ليلى الاجتماع؛ بل أخّرته إلى الساعة 14:30 يوم الخميس."
+        },
+        {
+          "id": "reverse-ar-02",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "إذا انخفضت الحرارة دون 5 درجات، فأغلق النافذة قبل تشغيل المدفأة."
+        },
+        {
+          "id": "reverse-ar-03",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "دفع عمر 120 ريالاً مقابل ثلاث تذاكر، ولم يشمل السعر العشاء."
+        },
+        {
+          "id": "reverse-ar-04",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "قالت مريم إن الحقيبة التي تركها يوسف في القطار لم تكن لها."
+        },
+        {
+          "id": "reverse-ar-05",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "يظهر الرمز A-17 بجانب كلمة \"مؤكد\"، لكن الطلب لم يُشحن بعد."
+        },
+        {
+          "id": "reverse-ar-06",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [
+            "backed"
+          ],
+          "status": "aligned",
+          "translation": "وصلت نورة بعد أحمد بعشر دقائق، مع أنها خرجت من البيت قبله."
+        },
+        {
+          "id": "reverse-ar-07",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "لا ترسل الملف إلى سارة إلا إذا وافق المدير على النسخة الثانية."
+        },
+        {
+          "id": "reverse-ar-08",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [
+            "backed"
+          ],
+          "status": "aligned",
+          "translation": "اشترينا 2.5 كيلوغرام من الأرز، وبقي نصفه بعد العشاء."
+        }
+      ],
+      "fixTotals": {
+        "acceptedTranslations": 2,
+        "aligned": 2,
+        "chunks": 7,
+        "coarse": 0,
+        "expectedSentences": 2,
+        "locatedChunks": 7,
+        "sentencesWithAnchorIssues": 0,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      }
+    },
+    {
+      "name": "synthetic-es-en",
+      "kind": "synthetic",
+      "sourceLang": "es",
+      "targetLang": "en",
+      "sentences": 6,
+      "strictFirst": {
+        "acceptedTranslations": 1,
+        "aligned": 1,
+        "chunks": 2,
+        "coarse": 0,
+        "expectedSentences": 6,
+        "locatedChunks": 2,
+        "sentencesWithAnchorIssues": 0,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 5
+      },
+      "first": {
+        "acceptedTranslations": 1,
+        "aligned": 1,
+        "chunks": 2,
+        "coarse": 0,
+        "expectedSentences": 6,
+        "locatedChunks": 2,
+        "sentencesWithAnchorIssues": 0,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 5
+      },
+      "merged": {
+        "aligned": 6,
+        "acceptedTranslations": 6,
+        "translationRetries": 0,
+        "expectedSentences": 6
+      },
+      "retryIds": [],
+      "firstRows": [
+        {
+          "id": "es-06",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "llegó diez minutos después de él. llegó..él"
+        }
+      ],
+      "mergedRows": [
+        {
+          "id": "es-06",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "llegó diez minutos después de él. llegó..él"
+        },
+        {
+          "id": "es-01",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "Lucía didn't cancel the meeting; she postponed it to Thursday at 2:30 p.m."
+        },
+        {
+          "id": "es-02",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "If the temperature drops below 5 degrees, close the window before turning on the heating."
+        },
+        {
+          "id": "es-03",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "Diego paid 120 euros for three tickets, but the price didn't include dinner."
+        },
+        {
+          "id": "es-04",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "The book Ana lent Pablo yesterday belongs to Ana's sister."
+        },
+        {
+          "id": "es-05",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "The code C-19 appears next to \"confirmed,\" although the package hasn't been sent yet."
+        }
+      ],
+      "fixTotals": {
+        "acceptedTranslations": 5,
+        "aligned": 5,
+        "chunks": 11,
+        "coarse": 0,
+        "expectedSentences": 5,
+        "locatedChunks": 11,
+        "sentencesWithAnchorIssues": 0,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      }
+    },
+    {
+      "name": "synthetic-es-zh-Hans",
+      "kind": "synthetic",
+      "sourceLang": "es",
+      "targetLang": "zh-Hans",
+      "sentences": 2,
+      "strictFirst": {
+        "acceptedTranslations": 2,
+        "aligned": 2,
+        "chunks": 4,
+        "coarse": 0,
+        "expectedSentences": 2,
+        "locatedChunks": 4,
+        "sentencesWithAnchorIssues": 0,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      },
+      "first": {
+        "acceptedTranslations": 2,
+        "aligned": 2,
+        "chunks": 4,
+        "coarse": 0,
+        "expectedSentences": 2,
+        "locatedChunks": 4,
+        "sentencesWithAnchorIssues": 0,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      },
+      "merged": {
+        "aligned": 2,
+        "acceptedTranslations": 2,
+        "translationRetries": 0,
+        "expectedSentences": 2
+      },
+      "retryIds": [],
+      "firstRows": [
+        {
+          "id": "es-07",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "别把文件发给 Sofía，除非主管批准第二版。"
+        },
+        {
+          "id": "es-08",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "我们买了 2.5 公斤大米，吃完晚饭后还剩一半。"
+        }
+      ],
+      "mergedRows": [
+        {
+          "id": "es-07",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "别把文件发给 Sofía，除非主管批准第二版。"
+        },
+        {
+          "id": "es-08",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "我们买了 2.5 公斤大米，吃完晚饭后还剩一半。"
+        }
+      ],
+      "fixTotals": null
+    },
+    {
+      "name": "synthetic-hi-en",
+      "kind": "synthetic",
+      "sourceLang": "hi",
+      "targetLang": "en",
+      "sentences": 6,
+      "strictFirst": {
+        "acceptedTranslations": 0,
+        "expectedSentences": 6,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 6
+      },
+      "first": {
+        "acceptedTranslations": 0,
+        "expectedSentences": 6,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 6
+      },
+      "merged": {
+        "needs-rewrite": 3,
+        "aligned": 3,
+        "acceptedTranslations": 6,
+        "translationRetries": 0,
+        "expectedSentences": 6
+      },
+      "retryIds": [],
+      "firstRows": [],
+      "mergedRows": [
+        {
+          "id": "hi-01",
+          "issues": [
+            "anchor-unresolved"
+          ],
+          "realTiming": false,
+          "splitSeams": [
+            "backed"
+          ],
+          "status": "needs-rewrite",
+          "translation": "Leela didn't cancel the meeting; she postponed it to Thursday at 14:30."
+        },
+        {
+          "id": "hi-02",
+          "issues": [
+            "anchor-unresolved",
+            "anchor-unresolved"
+          ],
+          "realTiming": false,
+          "splitSeams": [
+            "backed"
+          ],
+          "status": "aligned",
+          "translation": "If the temperature drops below 5 degrees, close the window before turning on the heater."
+        },
+        {
+          "id": "hi-03",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "Aman paid 120 rupees for three tickets, but dinner was not included in this price."
+        },
+        {
+          "id": "hi-04",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "The book Meera lent Ravi yesterday belongs to Meera's sister."
+        },
+        {
+          "id": "hi-05",
+          "issues": [
+            "anchor-unresolved"
+          ],
+          "realTiming": false,
+          "splitSeams": [
+            "backed"
+          ],
+          "status": "needs-rewrite",
+          "translation": "Next to \"Confirmed\" it says E-12, but the packet hasn't been sent yet."
+        },
+        {
+          "id": "hi-06",
+          "issues": [
+            "anchor-unresolved"
+          ],
+          "realTiming": false,
+          "splitSeams": [
+            "backed"
+          ],
+          "status": "needs-rewrite",
+          "translation": "Neha left before Arjun, yet she arrived ten minutes after him."
+        }
+      ],
+      "fixTotals": {
+        "acceptedTranslations": 6,
+        "aligned": 3,
+        "chunks": 12,
+        "coarse": 3,
+        "expectedSentences": 6,
+        "locatedChunks": 7,
+        "needs-rewrite": 3,
+        "sentencesWithAnchorIssues": 4,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      }
+    },
+    {
+      "name": "synthetic-hi-zh-Hans",
+      "kind": "synthetic",
+      "sourceLang": "hi",
+      "targetLang": "zh-Hans",
+      "sentences": 2,
+      "strictFirst": {
+        "acceptedTranslations": 2,
+        "aligned": 1,
+        "chunks": 2,
+        "coarse": 0,
+        "expectedSentences": 2,
+        "locatedChunks": 1,
+        "sentence-level": 1,
+        "sentencesWithAnchorIssues": 1,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      },
+      "first": {
+        "acceptedTranslations": 2,
+        "aligned": 1,
+        "chunks": 2,
+        "coarse": 0,
+        "expectedSentences": 2,
+        "locatedChunks": 1,
+        "sentence-level": 1,
+        "sentencesWithAnchorIssues": 1,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      },
+      "merged": {
+        "sentence-level": 1,
+        "aligned": 1,
+        "acceptedTranslations": 2,
+        "translationRetries": 0,
+        "expectedSentences": 2
+      },
+      "retryIds": [],
+      "firstRows": [
+        {
+          "id": "hi-07",
+          "issues": [
+            "anchor-unresolved"
+          ],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "sentence-level",
+          "translation": "在经理批准第二个版本之前，不要把文件发给萨拉。"
+        },
+        {
+          "id": "hi-08",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "我们买了 2.5 公斤大米；晚饭后剩了一半。"
+        }
+      ],
+      "mergedRows": [
+        {
+          "id": "hi-07",
+          "issues": [
+            "anchor-unresolved"
+          ],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "sentence-level",
+          "translation": "在经理批准第二个版本之前，不要把文件发给萨拉。"
+        },
+        {
+          "id": "hi-08",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "我们买了 2.5 公斤大米；晚饭后剩了一半。"
+        }
+      ],
+      "fixTotals": null
+    },
+    {
+      "name": "synthetic-th-en",
+      "kind": "synthetic",
+      "sourceLang": "th",
+      "targetLang": "en",
+      "sentences": 6,
+      "strictFirst": {
+        "acceptedTranslations": 6,
+        "chunks": 6,
+        "coarse": 0,
+        "expectedSentences": 6,
+        "locatedChunks": 0,
+        "sentence-level": 6,
+        "sentencesWithAnchorIssues": 6,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      },
+      "first": {
+        "acceptedTranslations": 6,
+        "chunks": 6,
+        "coarse": 0,
+        "expectedSentences": 6,
+        "locatedChunks": 0,
+        "sentence-level": 6,
+        "sentencesWithAnchorIssues": 6,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      },
+      "merged": {
+        "sentence-level": 6,
+        "acceptedTranslations": 6,
+        "translationRetries": 0,
+        "expectedSentences": 6
+      },
+      "retryIds": [],
+      "firstRows": [
+        {
+          "id": "th-01",
+          "issues": [
+            "anchor-unresolved"
+          ],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "sentence-level",
+          "translation": "Lalita didn't cancel the meeting but moved it to Thursday at 14:30."
+        },
+        {
+          "id": "th-02",
+          "issues": [
+            "anchor-unresolved"
+          ],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "sentence-level",
+          "translation": "If the temperature drops below 5 degrees, close the windows before turning on the heater."
+        },
+        {
+          "id": "th-03",
+          "issues": [
+            "anchor-unresolved"
+          ],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "sentence-level",
+          "translation": "Non paid 120 baht for three tickets, but this price doesn't include dinner."
+        },
+        {
+          "id": "th-04",
+          "issues": [
+            "anchor-unresolved"
+          ],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "sentence-level",
+          "translation": "The book Malee lent Kong yesterday belongs to Malee's older sister."
+        },
+        {
+          "id": "th-05",
+          "issues": [
+            "anchor-unresolved"
+          ],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "sentence-level",
+          "translation": "The code F-07 appears next to the word \"confirmed,\" but the parcel hasn't been sent yet."
+        },
+        {
+          "id": "th-06",
+          "issues": [
+            "anchor-unresolved"
+          ],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "sentence-level",
+          "translation": "Even though Ploy set off before Nat, she arrived ten minutes after him."
+        }
+      ],
+      "mergedRows": [
+        {
+          "id": "th-01",
+          "issues": [
+            "anchor-unresolved"
+          ],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "sentence-level",
+          "translation": "Lalita didn't cancel the meeting but moved it to Thursday at 14:30."
+        },
+        {
+          "id": "th-02",
+          "issues": [
+            "anchor-unresolved"
+          ],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "sentence-level",
+          "translation": "If the temperature drops below 5 degrees, close the windows before turning on the heater."
+        },
+        {
+          "id": "th-03",
+          "issues": [
+            "anchor-unresolved"
+          ],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "sentence-level",
+          "translation": "Non paid 120 baht for three tickets, but this price doesn't include dinner."
+        },
+        {
+          "id": "th-04",
+          "issues": [
+            "anchor-unresolved"
+          ],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "sentence-level",
+          "translation": "The book Malee lent Kong yesterday belongs to Malee's older sister."
+        },
+        {
+          "id": "th-05",
+          "issues": [
+            "anchor-unresolved"
+          ],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "sentence-level",
+          "translation": "The code F-07 appears next to the word \"confirmed,\" but the parcel hasn't been sent yet."
+        },
+        {
+          "id": "th-06",
+          "issues": [
+            "anchor-unresolved"
+          ],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "sentence-level",
+          "translation": "Even though Ploy set off before Nat, she arrived ten minutes after him."
+        }
+      ],
+      "fixTotals": null
+    },
+    {
+      "name": "synthetic-th-zh-Hans",
+      "kind": "synthetic",
+      "sourceLang": "th",
+      "targetLang": "zh-Hans",
+      "sentences": 2,
+      "strictFirst": {
+        "acceptedTranslations": 2,
+        "chunks": 2,
+        "coarse": 0,
+        "expectedSentences": 2,
+        "locatedChunks": 0,
+        "sentence-level": 2,
+        "sentencesWithAnchorIssues": 2,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      },
+      "first": {
+        "acceptedTranslations": 2,
+        "chunks": 2,
+        "coarse": 0,
+        "expectedSentences": 2,
+        "locatedChunks": 0,
+        "sentence-level": 2,
+        "sentencesWithAnchorIssues": 2,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      },
+      "merged": {
+        "sentence-level": 2,
+        "acceptedTranslations": 2,
+        "translationRetries": 0,
+        "expectedSentences": 2
+      },
+      "retryIds": [],
+      "firstRows": [
+        {
+          "id": "th-07",
+          "issues": [
+            "anchor-unresolved"
+          ],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "sentence-level",
+          "translation": "在经理批准第二版之前，不要把文件发给妮达。"
+        },
+        {
+          "id": "th-08",
+          "issues": [
+            "anchor-unresolved"
+          ],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "sentence-level",
+          "translation": "我们买了 2.5 公斤大米，晚饭后还剩一半。"
+        }
+      ],
+      "mergedRows": [
+        {
+          "id": "th-07",
+          "issues": [
+            "anchor-unresolved"
+          ],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "sentence-level",
+          "translation": "在经理批准第二版之前，不要把文件发给妮达。"
+        },
+        {
+          "id": "th-08",
+          "issues": [
+            "anchor-unresolved"
+          ],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "sentence-level",
+          "translation": "我们买了 2.5 公斤大米，晚饭后还剩一半。"
+        }
+      ],
+      "fixTotals": null
+    },
+    {
+      "name": "synthetic-tr-en",
+      "kind": "synthetic",
+      "sourceLang": "tr",
+      "targetLang": "en",
+      "sentences": 6,
+      "strictFirst": {
+        "acceptedTranslations": 0,
+        "expectedSentences": 6,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 6
+      },
+      "first": {
+        "acceptedTranslations": 0,
+        "expectedSentences": 6,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 6
+      },
+      "merged": {
+        "aligned": 6,
+        "acceptedTranslations": 6,
+        "translationRetries": 0,
+        "expectedSentences": 6
+      },
+      "retryIds": [],
+      "firstRows": [],
+      "mergedRows": [
+        {
+          "id": "tr-01",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "Elif didn't cancel the meeting; she postponed it to Thursday at 14.30."
+        },
+        {
+          "id": "tr-02",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "If the temperature drops below 5 degrees, close the window before turning on the heater."
+        },
+        {
+          "id": "tr-03",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "Ömer paid 120 lira for three tickets, but dinner wasn't included in the price."
+        },
+        {
+          "id": "tr-04",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "The book Ayşe lent Deniz yesterday belongs to Ayşe's sister."
+        },
+        {
+          "id": "tr-05",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "Next to the text \"Approved\" the code D-08 appears, but the package hasn't been sent yet."
+        },
+        {
+          "id": "tr-06",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "Although Zeynep set off before Can, she arrived ten minutes after him."
+        }
+      ],
+      "fixTotals": {
+        "acceptedTranslations": 6,
+        "aligned": 6,
+        "chunks": 12,
+        "coarse": 0,
+        "expectedSentences": 6,
+        "locatedChunks": 12,
+        "sentencesWithAnchorIssues": 0,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      }
+    },
+    {
+      "name": "synthetic-tr-zh-Hans",
+      "kind": "synthetic",
+      "sourceLang": "tr",
+      "targetLang": "zh-Hans",
+      "sentences": 2,
+      "strictFirst": {
+        "acceptedTranslations": 2,
+        "aligned": 2,
+        "chunks": 4,
+        "coarse": 0,
+        "expectedSentences": 2,
+        "locatedChunks": 4,
+        "sentencesWithAnchorIssues": 0,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      },
+      "first": {
+        "acceptedTranslations": 2,
+        "aligned": 2,
+        "chunks": 4,
+        "coarse": 0,
+        "expectedSentences": 2,
+        "locatedChunks": 4,
+        "sentencesWithAnchorIssues": 0,
+        "syntaxOrPermissionIssues": 0,
+        "translationRetries": 0
+      },
+      "merged": {
+        "aligned": 2,
+        "acceptedTranslations": 2,
+        "translationRetries": 0,
+        "expectedSentences": 2
+      },
+      "retryIds": [],
+      "firstRows": [
+        {
+          "id": "tr-07",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "经理不批准第二版，就别把文件发给 Selin。"
+        },
+        {
+          "id": "tr-08",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "我们买了 2.5 公斤大米；晚饭后剩了一半。"
+        }
+      ],
+      "mergedRows": [
+        {
+          "id": "tr-07",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "经理不批准第二版，就别把文件发给 Selin。"
+        },
+        {
+          "id": "tr-08",
+          "issues": [],
+          "realTiming": false,
+          "splitSeams": [],
+          "status": "aligned",
+          "translation": "我们买了 2.5 公斤大米；晚饭后剩了一半。"
+        }
+      ],
+      "fixTotals": null
+    }
+  ],
+  "property": {
+    "cases": [
+      {
+        "falseSafe": 0,
+        "lang": "en",
+        "safePresent": 15,
+        "tested": 100
+      },
+      {
+        "falseSafe": 0,
+        "lang": "ko",
+        "safePresent": 15,
+        "tested": 100
+      },
+      {
+        "falseSafe": 0,
+        "lang": "zh",
+        "safePresent": 15,
+        "tested": 100
+      },
+      {
+        "falseSafe": 0,
+        "lang": "ja",
+        "safePresent": 15,
+        "tested": 100
+      },
+      {
+        "falseSafe": 0,
+        "lang": "ar",
+        "safePresent": 15,
+        "tested": 100
+      },
+      {
+        "falseSafe": 0,
+        "lang": "de",
+        "safePresent": 15,
+        "tested": 100
+      },
+      {
+        "falseSafe": 0,
+        "lang": "es",
+        "safePresent": 15,
+        "tested": 100
+      },
+      {
+        "falseSafe": 0,
+        "lang": "tr",
+        "safePresent": 15,
+        "tested": 100
+      },
+      {
+        "falseSafe": 0,
+        "lang": "hi",
+        "safePresent": 15,
+        "tested": 100
+      },
+      {
+        "falseSafe": 0,
+        "lang": "th",
+        "safePresent": 15,
+        "tested": 100
+      }
+    ],
+    "failureCount": 0
+  },
+  "semanticReview": {
+    "scope": "48 original synthetic source-language samples; reverse-ar samples excluded",
+    "counts": {
+      "pass": 46,
+      "fail": 2
+    },
+    "reviewer": "AI agent, not human gold labels"
+  },
+  "build": [
+    {
+      "name": "bcut_flow_core",
+      "fresh": false,
+      "sha256": [
+        "0dc1d6ed02a3e5976f8b5f8e23a8403ed5950e149aa30fa426a9725150718797"
+      ]
+    },
+    {
+      "name": "lean_carrier_grade",
+      "fresh": false,
+      "sha256": [
+        "9458f333028084864a2e893b7387f094e2fc38077a529a43b543b1e8f2f448c0"
+      ]
+    },
+    {
+      "name": "bcut_engine",
+      "fresh": false,
+      "sha256": [
+        "503b66ae3218fcea644580cfe558d0764c7c34fecc403f40c5cd7adcb3df6756"
+      ]
+    },
+    {
+      "name": "provider_carrier_bench",
+      "fresh": false,
+      "sha256": [
+        "612ccfb3a14ec1f33a253a9aadfe4c4e5e1a11400d487c99a004a5ec78a95d79"
+      ]
+    }
+  ]
+}

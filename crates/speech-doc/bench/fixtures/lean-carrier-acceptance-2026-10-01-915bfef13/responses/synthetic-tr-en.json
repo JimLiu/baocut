@@ -1,0 +1,8 @@
+{
+  "effort": "auto",
+  "elapsedMs": 1743,
+  "error": null,
+  "model": "deepseek-flash",
+  "name": "synthetic-tr-en",
+  "response": "1 |Elif..iptal|Elif didn't cancel the meeting; |perşembe..erteledi|she postponed it to Thursday at 2:30 p.m.\n2 |Sıcaklık..düşerse|If the temperature drops below 5 degrees, |ısıtıcıyı..kapat|close the window before turning on the heater.\n3 |Ömer..ödedi|Ömer paid 120 lira for three tickets, |ama..değildi|but dinner wasn't included in the price.\n4 |Ayşe’nin..kitap|The book Ayşe lent Deniz yesterday |Ayşe’nin..ait|belongs to Ayşe's sister.\n5 |“Onaylandı”..görünüyor|Next to the word \"Approved\" the code D-08 appears, |ancak..gönderilmedi|but the package hasn't been sent yet.\n6 |Zeynep..rağmen|Even though Zeynep set off before Can, |ondan..vardı|she arrived ten minutes after him."
+}

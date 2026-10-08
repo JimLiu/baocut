@@ -1,0 +1,32 @@
+{
+  "id": "ribbons",
+  "version": 1,
+  "domain": "visualizer",
+  "namespace": "timeline",
+  "order": 9,
+  "numColors": 2,
+  "colorLabels": [
+    "Ribbon A",
+    "Ribbon B"
+  ],
+  "defaultMainColor": "#437BDC",
+  "defaultSecondaryColor": "#A477DA",
+  "defaultMinDb": -80.0,
+  "defaultMaxDb": 40.0,
+  "hasControl": true,
+  "binWidth": "64",
+  "aspect": "free",
+  "recipe": {
+    "algorithm": "ribbons-v1",
+    "params": {
+      "ribbonCount": 3,
+      "samples": 96,
+      "lineWidth": 0.03,
+      "speed": 0.6,
+      "cycles": 2.5
+    }
+  },
+  "determinism": "strict",
+  "shader": null,
+  "available": true
+}

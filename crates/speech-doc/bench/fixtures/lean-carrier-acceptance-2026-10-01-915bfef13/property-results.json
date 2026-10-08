@@ -1,0 +1,276 @@
+{
+  "cases": [
+    {
+      "falseSafe": 0,
+      "lang": "en",
+      "safePresent": 15,
+      "tested": 100
+    },
+    {
+      "falseSafe": 0,
+      "lang": "ko",
+      "safePresent": 15,
+      "tested": 100
+    },
+    {
+      "falseSafe": 0,
+      "lang": "zh",
+      "safePresent": 15,
+      "tested": 100
+    },
+    {
+      "falseSafe": 0,
+      "lang": "ja",
+      "safePresent": 15,
+      "tested": 100
+    },
+    {
+      "falseSafe": 0,
+      "lang": "ar",
+      "safePresent": 15,
+      "tested": 100
+    },
+    {
+      "falseSafe": 0,
+      "lang": "de",
+      "safePresent": 15,
+      "tested": 100
+    },
+    {
+      "falseSafe": 0,
+      "lang": "es",
+      "safePresent": 15,
+      "tested": 100
+    },
+    {
+      "falseSafe": 0,
+      "lang": "tr",
+      "safePresent": 15,
+      "tested": 100
+    },
+    {
+      "falseSafe": 0,
+      "lang": "hi",
+      "safePresent": 15,
+      "tested": 100
+    },
+    {
+      "falseSafe": 0,
+      "lang": "th",
+      "safePresent": 15,
+      "tested": 100
+    }
+  ],
+  "failures": [],
+  "roundtrip": [
+    {
+      "atoms": [
+        [
+          "حَجز",
+          false
+        ]
+      ],
+      "exact": true,
+      "joined": "حَجز",
+      "lang": "ar",
+      "source": "حَجز"
+    },
+    {
+      "atoms": [
+        [
+          "सेवा",
+          false
+        ]
+      ],
+      "exact": true,
+      "joined": "सेवा",
+      "lang": "hi",
+      "source": "सेवा"
+    },
+    {
+      "atoms": [
+        [
+          "พื้น",
+          false
+        ],
+        [
+          "ที่",
+          true
+        ]
+      ],
+      "exact": true,
+      "joined": "พื้นที่",
+      "lang": "th",
+      "source": "พื้นที่"
+    },
+    {
+      "atoms": [
+        [
+          "שָׁלוֹם",
+          false
+        ]
+      ],
+      "exact": true,
+      "joined": "שָׁלוֹם",
+      "lang": "he",
+      "source": "שָׁלוֹם"
+    },
+    {
+      "atoms": [
+        [
+          "Café",
+          false
+        ]
+      ],
+      "exact": true,
+      "joined": "Café",
+      "lang": "de-nfd",
+      "source": "Café"
+    },
+    {
+      "atoms": [
+        [
+          "도쿄",
+          false
+        ],
+        [
+          "여행",
+          false
+        ]
+      ],
+      "exact": true,
+      "joined": "도쿄 여행",
+      "lang": "ko",
+      "source": "도쿄 여행"
+    },
+    {
+      "atoms": [
+        [
+          "ถ้า",
+          false
+        ],
+        [
+          "อุณหภูมิ",
+          true
+        ],
+        [
+          "ลด",
+          true
+        ],
+        [
+          "ลง",
+          true
+        ],
+        [
+          "ต่ำ",
+          true
+        ],
+        [
+          "กว่า",
+          true
+        ],
+        [
+          "5",
+          true
+        ],
+        [
+          "อง",
+          true
+        ],
+        [
+          "ศา",
+          true
+        ],
+        [
+          "ให้",
+          true
+        ],
+        [
+          "ปิด",
+          true
+        ],
+        [
+          "หน้า",
+          true
+        ],
+        [
+          "ต่าง",
+          true
+        ],
+        [
+          "ก่อน",
+          true
+        ],
+        [
+          "เปิด",
+          true
+        ],
+        [
+          "เครื่อง",
+          true
+        ],
+        [
+          "ทำ",
+          true
+        ],
+        [
+          "ความ",
+          true
+        ],
+        [
+          "ร้อน",
+          true
+        ]
+      ],
+      "exact": true,
+      "joined": "ถ้าอุณหภูมิลดลงต่ำกว่า5องศาให้ปิดหน้าต่างก่อนเปิดเครื่องทำความร้อน",
+      "lang": "th-long",
+      "source": "ถ้าอุณหภูมิลดลงต่ำกว่า5องศาให้ปิดหน้าต่างก่อนเปิดเครื่องทำความร้อน"
+    },
+    {
+      "atoms": [
+        [
+          "ພາສາ",
+          false
+        ],
+        [
+          "ລາວ",
+          true
+        ]
+      ],
+      "exact": true,
+      "joined": "ພາສາລາວ",
+      "lang": "lo",
+      "source": "ພາສາລາວ"
+    },
+    {
+      "atoms": [
+        [
+          "ភាសាខ្មែរ",
+          false
+        ]
+      ],
+      "exact": true,
+      "joined": "ភាសាខ្មែរ",
+      "lang": "km",
+      "source": "ភាសាខ្មែរ"
+    },
+    {
+      "atoms": [
+        [
+          "မြန်",
+          false
+        ],
+        [
+          "မာဘာသာ",
+          true
+        ]
+      ],
+      "exact": true,
+      "joined": "မြန်မာဘာသာ",
+      "lang": "my",
+      "source": "မြန်မာဘာသာ"
+    }
+  ],
+  "schema": "multilingual-property/1"
+}

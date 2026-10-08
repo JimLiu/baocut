@@ -1,0 +1,31 @@
+/* @ds tokens: adobe-spectrum-2 */
+/* Generated — do not hand-edit. Regenerate with _ds/adobe-spectrum-2/_import/generate-tokens.mjs
+   and paste between the @ds markers; check-conformance.mjs enforces the match.
+   Deviation on purpose: Source Sans 3 leads the stack instead of Adobe Clean, so the
+   artboard measures the same on every machine whether or not Clean is licensed. */
+--bc-icon-primary: 20px;
+--bc-icon-compact: 16px;
+--sans: 'Source Sans 3', 'Adobe Clean', ui-sans-serif, system-ui, -apple-system, 'Helvetica Neue', sans-serif;
+--mono: 'Source Code Pro', 'Adobe Clean Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+--gray-25:light-dark(#FFFFFF, #111111); --gray-50:light-dark(#F8F8F8, #1B1B1B); --gray-75:light-dark(#F3F3F3, #222222); --gray-100:light-dark(#E9E9E9, #2C2C2C); --gray-200:light-dark(#E1E1E1, #323232); --gray-300:light-dark(#DADADA, #393939); --gray-400:light-dark(#C6C6C6, #444444); --gray-500:light-dark(#8F8F8F, #6D6D6D); --gray-600:light-dark(#717171, #8A8A8A); --gray-700:light-dark(#505050, #AFAFAF); --gray-800:light-dark(#292929, #DBDBDB); --gray-900:light-dark(#131313, #F2F2F2); --gray-1000:light-dark(#000000, #FFFFFF);
+--blue-100:light-dark(#F5F9FF, #0E173F); --blue-200:light-dark(#E5F0FE, #0F1C52); --blue-300:light-dark(#CBE2FE, #0C2175); --blue-400:light-dark(#ACCFFD, #122D9A); --blue-500:light-dark(#8EB9FC, #1A3AC3); --blue-600:light-dark(#729EFD, #2549E5); --blue-800:light-dark(#4B75FF, #4069FD); --blue-900:light-dark(#3B63FB, #5681FF); --blue-1000:light-dark(#274DEA, #6995FE); --blue-1100:light-dark(#1D3ECF, #7CA9FC);
+--red-100:light-dark(#FFF6F5, #360A03); --red-200:light-dark(#FFEBE8, #440D05); --red-300:light-dark(#FFD6D1, #571107); --red-400:light-dark(#FFBCB4, #73180B); --red-700:light-dark(#FF513D, #CD2E1D); --red-900:light-dark(#D73220, #FC432E); --red-1000:light-dark(#B72818, #FF6756); --red-1100:light-dark(#9C2113, #FF8678);
+--orange-100:light-dark(#FFF6E7, #311000); --orange-200:light-dark(#FFECCF, #3D1500); --orange-300:light-dark(#FFDA9E, #501B00); --orange-400:light-dark(#FFC15E, #6A2400); --orange-600:light-dark(#FC7D00, #A23B00); --orange-700:light-dark(#E86A00, #B94900); --orange-900:light-dark(#C24E00, #E06400); --orange-1000:light-dark(#A73E00, #F37500); --orange-1100:light-dark(#903300, #FF8900);
+--green-100:light-dark(#EDFCF1, #001E17); --green-200:light-dark(#D7F7E1, #00261D); --green-300:light-dark(#ADEEC5, #003326); --green-400:light-dark(#6BE3A2, #004430); --green-700:light-dark(#0BA45D, #047C4B); --green-900:light-dark(#05834E, #099D59); --green-1000:light-dark(#036E45, #0EAF62); --green-1100:light-dark(#025D3C, #18C16E);
+--yellow-100:light-dark(#FFF8CC, #251700); --yellow-200:light-dark(#FFF197, #2F1D00); --yellow-300:light-dark(#FFDE2C, #3D2700); --yellow-400:light-dark(#F5C700, #533400); --yellow-700:light-dark(#C18300, #976100); --yellow-1000:light-dark(#865500, #CB8D00); --yellow-1100:light-dark(#724800, #DA9F00);
+--purple-200:light-dark(#F4EBFC, #320060); --purple-300:light-dark(#EBDAF9, #40007A); --purple-400:light-dark(#DDC1F6, #53009F); --purple-700:light-dark(#B272EB, #943EE0); --purple-1000:light-dark(#8628D9, #BA7FED);
+--cyan-200:light-dark(#D9F4FD, #002431); --cyan-300:light-dark(#B7E7FC, #003041); --cyan-400:light-dark(#8AD5FF, #004058); --cyan-700:light-dark(#1D95E7, #0873A8); --cyan-1000:light-dark(#046691, #269FF4);
+--magenta-200:light-dark(#FFE8F0, #4A001B); --magenta-300:light-dark(#FFD5E3, #5D0022); --magenta-400:light-dark(#FFB9D0, #7B002D); --magenta-700:light-dark(#FF4885, #CF1F5C); --magenta-1000:light-dark(#BA1650, #FF6095);
+--seafoam-200:light-dark(#D3F6EA, #002723); --seafoam-300:light-dark(#A9EDD8, #00322C); --seafoam-400:light-dark(#5CE1C2, #00433B); --seafoam-700:light-dark(#0BA286, #067A67); --seafoam-1000:light-dark(#056C5C, #0CAD8E);
+--indigo-200:light-dark(#EBEEFF, #23006E); --indigo-300:light-dark(#D8DEFF, #2F008C); --indigo-400:light-dark(#C0C9FF, #3E0CAE); --indigo-700:light-dark(#8480FE, #6D4BF8); --indigo-1000:light-dark(#6338EE, #8B8DFE);
+--brown-200:light-dark(#F7EEE1, #2C1F0B); --brown-300:light-dark(#EFDDC3, #3A280E); --brown-400:light-dark(#E5C89D, #4E3713); --brown-700:light-dark(#AB8A5A, #84683D); --brown-1000:light-dark(#775B32, #B59362);
+--cinnamon-1000:light-dark(#934D2B, #CE8863);
+--focus-ring:light-dark(#4B75FF, #4069FD);
+--ease: 150ms cubic-bezier(0.45,0,0.4,1);
+--sh-pop: 0px 2px 8px 0px rgba(0,0,0,0.08), 0px 1px 4px 0px rgba(0,0,0,0.04), 0px 0px 1px 0px rgba(0,0,0,0.08);
+--sh-elev: 0px 4px 12px 0px rgba(0,0,0,0.08), 0px 2px 6px 0px rgba(0,0,0,0.04), 0px 0px 2px 0px rgba(0,0,0,0.12);
+/* legacy short aliases */
+--g25:var(--gray-25); --g50:var(--gray-50); --g75:var(--gray-75); --g100:var(--gray-100); --g200:var(--gray-200); --g300:var(--gray-300); --g400:var(--gray-400); --g500:var(--gray-500); --g600:var(--gray-600); --g700:var(--gray-700); --g800:var(--gray-800); --g900:var(--gray-900); --g1000:var(--gray-1000);
+--b100:var(--blue-100); --b200:var(--blue-200); --b300:var(--blue-300); --b400:var(--blue-400); --b800:var(--blue-800); --b900:var(--blue-900); --b1000:var(--blue-1000); --b1100:var(--blue-1100);
+--red:var(--red-900); --orange:var(--orange-600); --green:var(--green-900);
+/* @ds end */

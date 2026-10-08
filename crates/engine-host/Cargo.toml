@@ -1,0 +1,23 @@
+[package]
+name = "engine-host"
+description = "BaoCut 的 Engine Host：持有视频写锁的独立进程，通过 stdio 的 JSON 行与 Runtime 通信（架构设计 §2.3）"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "engine-host"
+path = "src/main.rs"
+
+[dependencies]
+editor-semantics.workspace = true
+font-files.workspace = true
+message-ref.workspace = true
+render-graph.workspace = true
+video-engine.workspace = true
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+
+[dev-dependencies]
+tempfile = "3.27.0"

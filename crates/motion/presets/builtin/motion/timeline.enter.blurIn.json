@@ -1,0 +1,24 @@
+{
+  "id": "blurIn",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "enter",
+  "order": 12,
+  "duration": 0.55,
+  "curve": {
+    "kind": "named",
+    "name": "easeOutCubic"
+  },
+  "mirror": "fade",
+  "from": {
+    "opacity": 0.0,
+    "blur": 8.0
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

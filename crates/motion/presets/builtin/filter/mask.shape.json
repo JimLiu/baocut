@@ -1,0 +1,52 @@
+{
+  "id": "mask.shape",
+  "version": 1,
+  "domain": "mask",
+  "inputs": 1,
+  "params": {
+    "shape": {
+      "type": "enum",
+      "default": "roundedRect",
+      "options": [
+        "roundedRect",
+        "ellipse"
+      ]
+    },
+    "radius": {
+      "type": "length",
+      "default": 0,
+      "min": 0,
+      "max": 0.5,
+      "basis": "canvasShortEdge",
+      "quantize": "none",
+      "doc": "圆角半径，画布短边的比例；会被夹到短边的一半"
+    },
+    "radiusTopLeft": {"type":"length","default":0,"min":0,"max":0.5,"basis":"canvasShortEdge","quantize":"none"},
+    "radiusTopRight": {"type":"length","default":0,"min":0,"max":0.5,"basis":"canvasShortEdge","quantize":"none"},
+    "radiusBottomRight": {"type":"length","default":0,"min":0,"max":0.5,"basis":"canvasShortEdge","quantize":"none"},
+    "radiusBottomLeft": {"type":"length","default":0,"min":0,"max":0.5,"basis":"canvasShortEdge","quantize":"none"},
+    "feather": {
+      "type": "length",
+      "default": 0,
+      "min": 0,
+      "max": 0.25,
+      "basis": "canvasShortEdge",
+      "quantize": "none",
+      "doc": "羽化宽度，画布短边的比例"
+    }
+  },
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "kernel": "sdf-rounded-rect-ellipse",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "clamp",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "doc": "圆角矩形 / 椭圆的 SDF 覆盖率遮罩，**逐行等价于 studio_export 的 apply_local_clip**：softness = 1 + feather，coverage = (0.5 - sd)/softness + 0.5×(softness-1)/softness，覆盖率乘在预乘四通道上。radius 会被夹到短边的一半。"
+}

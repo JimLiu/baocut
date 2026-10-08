@@ -1,0 +1,8 @@
+{
+  "effort": "auto",
+  "elapsedMs": 1820,
+  "error": null,
+  "model": "deepseek-flash",
+  "name": "synthetic-tr-en",
+  "response": "1 |Elif..iptal|Elif toplantıyı iptal |etmedi;|etmedi; |perşembe..14.30’a|perşembe günü saat 14.30’a |erteledi|erteledi.\n2 |Sıcaklık..düşerse,|Sıcaklık 5 derecenin altına düşerse, |ısıtıcıyı..kapat|ısıtıcıyı çalıştırmadan önce pencereyi kapat.\n3 |Ömer..ödedi,|Ömer üç bilet için 120 lira ödedi, |ama..değildi|ama akşam yemeği fiyata dahil değildi.\n4 |Ayşe’nin..kitap,|Ayşe’nin dün Deniz’e ödünç verdiği kitap, |Ayşe’nin..ait|Ayşe’nin kız kardeşine ait.\n5 |“Onaylandı”..görünüyor,|“Onaylandı” yazısının yanında D-08 kodu görünüyor, |ancak..gönderilmedi|ancak paket henüz gönderilmedi.\n6 |Zeynep,..rağmen|Zeynep, Can’dan önce yola çıkmasına rağmen |ondan..vardı|ondan on dakika sonra vardı."
+}

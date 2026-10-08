@@ -1,0 +1,43 @@
+{
+  "id": "filter.chromaKey",
+  "version": 1,
+  "domain": "filter",
+  "inputs": 1,
+  "params": {
+    "color": {
+      "type": "color",
+      "default": [
+        0,
+        1,
+        0,
+        1
+      ]
+    },
+    "similarity": {
+      "type": "number",
+      "default": 0.4,
+      "min": 0,
+      "max": 1
+    },
+    "smoothness": {
+      "type": "number",
+      "default": 0.1,
+      "min": 0,
+      "max": 1
+    }
+  },
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "kernel": "chroma-key-euclidean-f64",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "clamp",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "doc": "反预乘后与 key 色求 RGB 欧氏距离：距离 ≤ similarity×441.67 全透明，≤ (similarity+smoothness)×441.67 线性过渡。441.67 = sqrt(3)×255 是 RGB 立方体对角线。"
+}

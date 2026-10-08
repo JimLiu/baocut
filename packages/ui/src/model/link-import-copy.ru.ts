@@ -1,0 +1,130 @@
+const endSentence = (text: string): string => (/[.!?。！？]$/.test(text.trim()) ? text.trim() : `${text.trim()}.`);
+const joinSentences = (parts: readonly (string | null | undefined)[]): string => parts.filter((p): p is string => !!p?.trim()).map(endSentence).join(' ');
+import type { LinkImportMessages } from './link-import-copy.ts';
+
+export const ru: LinkImportMessages = {
+  title: (name: string | null) => (name ? `Импорт по ссылке · ${name}` : "Импорт по ссылке"),
+
+  phase: {
+    starting: "Подготовка",
+    probing: "Чтение ссылки",
+    downloading: "Скачивание видео",
+    validating: "Проверка воспроизведения файла",
+    publishing: "Перемещение в папку скачивания",
+    applying: "Импорт видео",
+    transcribing: "Запуск расшифровки",
+  },
+  phaseFallback: "Выполняется",
+  downloaded: (bytes: string) => `${bytes} скачано`,
+
+  stageDownload: "Скачать видео",
+  stageVideo: "Проверить медиа и создать видео",
+  stageSubs: "Создать субтитры",
+
+  issue: {
+    TOOL_NOT_INSTALLED: {
+      title: "Настройте один раз, затем вставляйте",
+      body: "BaoCut нужен yt-dlp для чтения сайта. Установите и начните импорт снова.",
+    },
+    TOOL_CONSENT_REQUIRED: { title: "Нужно согласие на инструмент скачивания", body: "Инструмент скачивания уже на компьютере. BaoCut использует для скачивания с сайтов только после согласия." },
+    TOOL_UNAVAILABLE: { title: "Инструмент скачивания не запускается", body: "Инструмент найден, но не запускается. Переустановите или выберите рабочую копию." },
+    TOOL_OUTDATED: { title: "Инструмент скачивания требует обновления", body: "Версия слишком старая, может не прочитать сайт. Обновите и повторите." },
+    OFFLINE_STRICT: { title: "В строгом офлайн-режиме нельзя скачать по ссылкам", body: "В строгом офлайн-режиме BaoCut не выходит в сеть. Скачайте видео в браузере и выберите локальный файл." },
+    LINK_UNSUPPORTED: {
+      title: "Источник ещё не поддерживается",
+      body: "Инструмент не распознаёт сайт или страницу. Используйте страницу самого видео (не плейлист, трансляцию или поиск) либо локальный файл.",
+    },
+    LINK_LOGIN_REQUIRED: {
+      title: "Видео требует входа",
+      body: "Сначала войдите на сайте в браузере, вернитесь в «Скачать видео», отметьте браузер в «Вход на сайт» и скачайте снова.",
+    },
+    LINK_COOKIES_UNAVAILABLE: {
+      title: "Не удалось прочитать cookie браузера",
+      body: "Проверьте вход в браузере. При блокировке базы полностью закройте браузер (включая фоновые процессы) и проверьте права Связки ключей (Safari: разрешите BaoCut полный доступ к диску). В Windows защищённые app-bound encryption cookie Chrome, Edge и Brave не читаются; выберите Firefox. Или другой браузер и скачайте снова.",
+    },
+    LINK_TOOL_UPDATE_REQUIRED: { title: "yt-dlp требует обновления", body: "Сайт изменил выдачу видео. Обновите yt-dlp способом установки, проверьте и повторите." },
+    LINK_UNAVAILABLE: {
+      title: "Видео недоступно",
+      body: "Видео удалено, ограничено регионом или без формата скачивания. Попробуйте другую ссылку или локальный файл.",
+    },
+    LINK_NETWORK_ERROR: { title: "Соединение потеряно", body: "Проверьте сеть и повторите; скачанная часть будет использована." },
+    LINK_DISK_FULL: { title: "Недостаточно места на диске", body: "Диск с папкой скачивания полон. Освободите место и повторите." },
+    LINK_DOWNLOAD_FAILED: {
+      title: "Инструмент скачивания сообщил об ошибке",
+      body: "Сайт мог измениться или ограничить скачивание. Повторите; при повторной ошибке проверьте обновление инструмента или используйте локальный файл.",
+    },
+    LINK_DOWNLOAD_UNREADABLE: {
+      title: "Скачанный файл непригоден",
+      body: "Файл неполный, без аудио или не декодируется; сайт мог отдать заглушку. Скачайте снова, выберите другую ссылку или локальный файл.",
+    },
+    LINK_DESTINATION_UNAVAILABLE: {
+      title: "Не удалось записать в папку скачивания",
+      body: "Проверьте наличие и доступность папки для записи; выберите другую и начните импорт снова.",
+    },
+    MEDIA_TOOL_UNAVAILABLE: {
+      title: "Не удалось проверить скачанный файл",
+      body: "Проверка медиа требует ffprobe (в составе ffmpeg), которого нет на компьютере. Установите ffmpeg и повторите.",
+    },
+    LINK_SOURCE_EXPIRED: {
+      title: "Исходной ссылки больше нет",
+      body: "После перезапуска Runtime сохраняет только скрытую часть ссылки, не полную. Вставьте ссылку для нового импорта.",
+    },
+    INTERRUPTED: { title: "Импорт прерван", body: "Runtime остановлен или перезапущен до завершения. Повтор продолжит с остановленного шага." },
+  },
+  issueUnknownTitle: "Импорт не завершён",
+  issueUnknownBody: (message: string | null, remedy: string | null) => joinSentences([message, remedy]) || 'Something went wrong.',
+
+  headingStopped: "Импорт остановлен",
+  headingFailed: "Импорт не завершён",
+  headingRunning: "Создание редактируемого видео по ссылке",
+  headingDownloaded: "Видео скачано",
+  headingVideoFailed: "Файл скачан, видео не создано",
+  headingCreatingVideo: "Файл скачан, создание видео",
+  headingTranscribing: "Видео готово, создание субтитров",
+  headingTranscribeFailed: "Видео готово, расшифровка требует внимания",
+  headingReady: "Видео готово",
+  headingSubsReady: "Субтитры готовы",
+
+  toolSource: {
+    system: "Установлено в системе",
+    user: "Выбрано вами",
+    managed: "Скачано BaoCut",
+    env: "Задано переменной окружения",
+  },
+  factVersion: (version: string, size: string | null) => (size ? `Версия ${version} · около ${size}` : `Версия ${version}`),
+  factFrom: (host: string) => `Скачано из ${host}`,
+  factLicense: (license: string) => `${license} — лицензия`,
+  factIsolated: "Хранится в папке BaoCut, запускается после проверки суммы; система не изменяется",
+  factInstalledWith: (method: string) => `Установлено через ${method}`,
+
+  cardChecking: "Проверка инструмента скачивания…",
+  cardCheckingBody: "Проверяет только версию на компьютере; без сети.",
+  cardUnknown: "Инструмент скачивания не зарегистрирован",
+  cardUnknownBody: "Runtime не знает yt-dlp, импорт по ссылкам пока недоступен.",
+  cardInstalling: "Подготовка инструмента скачивания…",
+  cardInstallingBody: "Скачать → проверить → пробный запуск. Затем статус «Готово».",
+  cardUpdating: "Обновление инструмента скачивания…",
+  cardUpdatingBody: "Вывод под командой; версия проверяется после завершения.",
+  cardBlockedWhy: "BaoCut не может скачать за вас на этом компьютере.",
+  cardMissing: "Инструмент скачивания не установлен",
+  cardMissingBody: (why: string) => `${endSentence(why)} Можно установить yt-dlp вручную и нажать «Проверить снова» либо выбрать расположение.`,
+  cardInstall: "Настройте один раз, затем вставляйте",
+  cardInstallBody: "BaoCut нужен yt-dlp для видеосайтов. После согласия скачает инструмент и запомнит согласие, импорт по ссылкам не спросит снова.",
+  cardInstallAction: "Согласиться и установить",
+  cardOutdatedReason: (reason: string | null, version: string | null, minVersion: string | null) => endSentence(reason ?? `Версия ${version ?? 'unknown'} старее требуемой версии ${minVersion ?? ''}`),
+  cardOutdated: "Инструмент скачивания требует обновления",
+  cardOutdatedBlocked: (reason: string, why: string) => `${reason} ${why}`,
+  cardOutdatedRunnable: "Скачан не BaoCut; обновите способом установки командой ниже.",
+  cardOutdatedManual: "Скачан не BaoCut. Обновите в терминале по инструкции ниже и нажмите «Проверить снова».",
+  cardOutdatedUpdate: (reason: string) => `${reason} Обновите перед началом.`,
+  cardUpdateAction: "Согласиться и обновить",
+  cardBroken: "Инструмент скачивания не запускается",
+  cardBrokenBody: (reason: string | null, remedy: string | null) => joinSentences([reason, remedy]) || 'Found it, but it doesn’t run.',
+  cardReinstallAction: "Согласиться и переустановить",
+  cardConsentRevoked: "Согласие на инструмент скачивания отозвано",
+  cardConsent: "Нужно согласие на инструмент скачивания",
+  cardConsentBody: "BaoCut использует для скачивания с сайтов только после согласия. Согласие в Runtime, импорт по ссылкам не спросит снова.",
+  cardConsentAction: "Согласиться и использовать",
+  cardReady: "Инструмент скачивания готов",
+  cardReadyBody: "При запуске BaoCut проверит ссылку, получит сведения о видео, затем скачает.",
+};

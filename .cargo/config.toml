@@ -1,0 +1,15 @@
+# 仓库级 Cargo 配置：只放对所有 clone 都成立的设置。
+#
+# 机器专属的覆盖（例如把 target 目录挪到外置盘）写进同目录的
+# `config.local.toml`——该文件已被 .gitignore 忽略，不存在时下面这条 include
+# 会静默跳过，clone 出来即可直接构建。模板见 `config.local.toml.example`。
+#
+# 优先级：本文件里的键**覆盖** include 进来的同名键，所以希望本机可改的配置
+# 项（如 build.target-dir）一律不要在这里赋值。
+include = [{ path = "config.local.toml", optional = true }]
+
+[env]
+# pmetal-mlx-sys compiles MLX against macOS 14 APIs. Keep Rust, C++ and the final
+# linker on one deployment target so release links do not mix Mach-O objects
+# targeting different macOS versions.
+MACOSX_DEPLOYMENT_TARGET = { value = "14.0", force = false }

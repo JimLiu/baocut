@@ -1,0 +1,47 @@
+{
+  "id": "snake_spin_rainbow",
+  "version": 1,
+  "domain": "progress",
+  "namespace": "timeline",
+  "order": 13,
+  "numColors": 1,
+  "colorLabels": ["Background"],
+  "defaultMainColor": "#E8E9EC",
+  "defaultSecondaryColor": "#E8E9EC",
+  "aspect": "square",
+  "recipe": {
+    "algorithm": "snake-v1",
+    "params": {
+      "dotRadius": 0.1,
+      "smoothing": 0.032,
+      "orbitRadius": 0.4,
+      "startAngleDeg": 270.0,
+      "angleIncrementDeg": -1.0,
+      "maxIterations": 360,
+      "boostSteps": [
+        {
+          "below": 1.0,
+          "gain": 3.0
+        },
+        {
+          "below": 2.0,
+          "gain": 2.0
+        }
+      ],
+      "spin": {
+        "speedDegPerSec": 50.0
+      },
+      "colorMode": {
+        "kind": "rainbow",
+        "trackColor": "main",
+        "rotationSpeedDegPerSec": 50.0,
+        "hueSteps": 96,
+        "radialSteps": 6,
+        "saturationFromRadius": true
+      }
+    }
+  },
+  "determinism": "visual",
+  "shader": "snake.wgsl",
+  "available": true
+}

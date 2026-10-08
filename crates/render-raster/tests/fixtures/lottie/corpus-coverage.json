@@ -1,0 +1,413 @@
+{
+  "blocked": [
+    {
+      "file": "dataviz--chart-kYxvIy71ZZ.json",
+      "reason": "raster-effect"
+    },
+    {
+      "file": "dataviz--chart-oy9CQ2uFOM.json",
+      "reason": "raster-effect"
+    },
+    {
+      "file": "dataviz--chart-tBxfcGPOU4.json",
+      "reason": "raster-effect"
+    },
+    {
+      "file": "dataviz--charts-DymQgzhWkF.json",
+      "reason": "boolean-merge"
+    },
+    {
+      "file": "dataviz--data-D2X5Hrxe80.json",
+      "reason": "expression"
+    },
+    {
+      "file": "dataviz--data-Ij4PaZHpML.json",
+      "reason": "text-layer"
+    },
+    {
+      "file": "dataviz--data-bOBaGPoSLM.json",
+      "reason": "text-layer"
+    },
+    {
+      "file": "dataviz--data-graph-blue-JM9ttooV52.json",
+      "reason": "boolean-merge"
+    },
+    {
+      "file": "dataviz--data-qL1DTs02ls.json",
+      "reason": "expression"
+    },
+    {
+      "file": "dataviz--graphic-02-OykDYU3RWn.json",
+      "reason": "text-layer"
+    },
+    {
+      "file": "icon--anim-icon-KHmYwGFjRy.json",
+      "reason": "mask-feather"
+    },
+    {
+      "file": "icon--animation-CjNXpA6nYB.json",
+      "reason": "text-layer"
+    },
+    {
+      "file": "icon--community-bCCQOH6NzC.json",
+      "reason": "expression"
+    },
+    {
+      "file": "icon--icon-YC8QnkCpGU.json",
+      "reason": "raster-effect"
+    },
+    {
+      "file": "icon--icon-animation-Nld2ahh8DH.json",
+      "reason": "text-layer"
+    },
+    {
+      "file": "icon--icon-animation-uPo4sZwcBp.json",
+      "reason": "raster-effect"
+    },
+    {
+      "file": "icon--popular-C75TbGCvDO.json",
+      "reason": "text-layer"
+    },
+    {
+      "file": "illustration--character-animation-scene-zedJzjlexL.json",
+      "reason": "boolean-merge"
+    },
+    {
+      "file": "illustration--illustration-animation-2buQyEsVj5.json",
+      "reason": "raster-effect"
+    },
+    {
+      "file": "illustration--kyc-character-illustration-WY2Dtg4hVC.json",
+      "reason": "expression"
+    },
+    {
+      "file": "illustration--ufo-camping-scene-HRfsa5DpQi.json",
+      "reason": "mask-mode"
+    },
+    {
+      "file": "loading--loaidng-spinner-uwelSyleug.json",
+      "reason": "expression"
+    },
+    {
+      "file": "logo--animation-xpEZNIJinP.json",
+      "reason": "raster-effect"
+    },
+    {
+      "file": "logo--e-commerce-logo-animation-utCWl4z5jN.json",
+      "reason": "text-layer"
+    },
+    {
+      "file": "logo--iteratively-logo-ERb2iawMoG.json",
+      "reason": "text-layer"
+    },
+    {
+      "file": "logo--loading-animation-K04qK1xedw.json",
+      "reason": "raster-effect"
+    },
+    {
+      "file": "logo--logo-reveal-LVBXMKxDtq.json",
+      "reason": "raster-effect"
+    },
+    {
+      "file": "logo--logo-reveal-XUTqVvY6Sz.json",
+      "reason": "raster-effect"
+    },
+    {
+      "file": "logo--logo-reveal-ucxazjsiwx.json",
+      "reason": "raster-effect"
+    },
+    {
+      "file": "logo--logoreveal-QUn2tWQjDW.json",
+      "reason": "raster-effect"
+    }
+  ],
+  "blockedCount": 30,
+  "incomplete": [
+    {
+      "file": "icon--comp-2-z3BbknlTCr.json",
+      "reason": "外链子资源 /i/5.png 不在语料目录里"
+    },
+    {
+      "file": "illustration--illustration-9OCif40fCQ.json",
+      "reason": "外链子资源 /i/1.png 不在语料目录里"
+    },
+    {
+      "file": "illustration--roomie-hazelnut-illustration-7kfF2mNngI.json",
+      "reason": "外链子资源 /i/1.png 不在语料目录里"
+    },
+    {
+      "file": "loading--로딩-인디케이터-rAQ9xaERyx.json",
+      "reason": "外链子资源 /i/1.png 不在语料目录里"
+    },
+    {
+      "file": "logo--bob-zlatkov-a1-rwcpSv9dJA.json",
+      "reason": "外链子资源 /i/2.png 不在语料目录里"
+    },
+    {
+      "file": "logo--inm402cc-anirlind-lottieloop-Iwqs9kQ2nt.json",
+      "reason": "外链子资源 /i/1.png 不在语料目录里"
+    }
+  ],
+  "incompleteCount": 6,
+  "note": "细化子集边界下的语料分类。renderable = parse + prepare + 五个取样点全部发出指令；blocked = lottie-unsupported-feature fail-fast；incomplete = 子集内但本机缺外链子资源。renderable + incomplete 就是普查（2026-08-20）说的「细化边界下 strict 覆盖 70/100」。",
+  "renderable": [
+    {
+      "file": "dataviz--chart-AORcfFyDdp.json",
+      "warnings": 0
+    },
+    {
+      "file": "dataviz--chart-F6ZOZzwCsB.json",
+      "warnings": 0
+    },
+    {
+      "file": "dataviz--chart-URwHCtDC1S.json",
+      "warnings": 0
+    },
+    {
+      "file": "dataviz--data-ELM07DgJek.json",
+      "warnings": 0
+    },
+    {
+      "file": "dataviz--data-EioPFQX83U.json",
+      "warnings": 0
+    },
+    {
+      "file": "dataviz--data-RTSddRDTht.json",
+      "warnings": 0
+    },
+    {
+      "file": "dataviz--data-lRWA5nCnQT.json",
+      "warnings": 1
+    },
+    {
+      "file": "dataviz--graph-sifYDMGrzQ.json",
+      "warnings": 0
+    },
+    {
+      "file": "dataviz--seller-ecommerce-RYCTSBjnBI.json",
+      "warnings": 0
+    },
+    {
+      "file": "dataviz--work-Hx3vXrMb9T.json",
+      "warnings": 0
+    },
+    {
+      "file": "icon--flow-4-rCacVRO8kB.json",
+      "warnings": 0
+    },
+    {
+      "file": "icon--home-8i3tIvINaa.json",
+      "warnings": 1
+    },
+    {
+      "file": "icon--home-icon-micro-interaction-eOdTKE4iLe.json",
+      "warnings": 0
+    },
+    {
+      "file": "icon--icon-PEH7emTurj.json",
+      "warnings": 0
+    },
+    {
+      "file": "icon--icon-animation-fzSZ37Pckv.json",
+      "warnings": 0
+    },
+    {
+      "file": "icon--icon-animation-puwuIuiyp3.json",
+      "warnings": 0
+    },
+    {
+      "file": "icon--mic005-bmHo4MCSmn.json",
+      "warnings": 0
+    },
+    {
+      "file": "icon--motion-desgin-VKDLAUrg8w.json",
+      "warnings": 0
+    },
+    {
+      "file": "icon--notification-icon-XzeWXAejxO.json",
+      "warnings": 0
+    },
+    {
+      "file": "icon--reading-icon-MqsAVPrHGR.json",
+      "warnings": 0
+    },
+    {
+      "file": "icon--visual-icon-8oq4Xhf0qa.json",
+      "warnings": 0
+    },
+    {
+      "file": "icon--web-icon-yHIlAotWQP.json",
+      "warnings": 0
+    },
+    {
+      "file": "illustration--building-illustrated-scene-A5O3xmMRsD.json",
+      "warnings": 0
+    },
+    {
+      "file": "illustration--building-illustrated-scene-JIAeCHeZ1j.json",
+      "warnings": 0
+    },
+    {
+      "file": "illustration--comp-1-mKbStpzGv8.json",
+      "warnings": 0
+    },
+    {
+      "file": "illustration--daddy-N1dyNdiJg4.json",
+      "warnings": 0
+    },
+    {
+      "file": "illustration--dog-illustrated-scene-WTD4QVkK5p.json",
+      "warnings": 0
+    },
+    {
+      "file": "illustration--girl-and-boy-tYWChdvUap.json",
+      "warnings": 0
+    },
+    {
+      "file": "illustration--girl-and-cat-U0FwER4piw.json",
+      "warnings": 0
+    },
+    {
+      "file": "illustration--girl-with-a-book-CGCHDMIzko.json",
+      "warnings": 0
+    },
+    {
+      "file": "illustration--house-8Jr298QaNx.json",
+      "warnings": 0
+    },
+    {
+      "file": "illustration--illustration-ASB4xiyd5t.json",
+      "warnings": 0
+    },
+    {
+      "file": "illustration--monkey-illustrated-scene-SoynmS5Ly5.json",
+      "warnings": 0
+    },
+    {
+      "file": "illustration--office-character-illustration-Jt4Lr3BSvK.json",
+      "warnings": 0
+    },
+    {
+      "file": "illustration--owl-illustrated-scene-KA7RTIg1df.json",
+      "warnings": 0
+    },
+    {
+      "file": "illustration--scene-by-yumna-Zw2HGU6j4W.json",
+      "warnings": 0
+    },
+    {
+      "file": "loading--frame-48100992-L2qTVTeBu8.json",
+      "warnings": 0
+    },
+    {
+      "file": "loading--loading-3YL6VDDSfp.json",
+      "warnings": 0
+    },
+    {
+      "file": "loading--loading-FufM7HCbOd.json",
+      "warnings": 0
+    },
+    {
+      "file": "loading--loading-Oe1BTDLuO6.json",
+      "warnings": 0
+    },
+    {
+      "file": "loading--loading-YOjDUwuS7g.json",
+      "warnings": 0
+    },
+    {
+      "file": "loading--loading-spinner-946KrNendf.json",
+      "warnings": 0
+    },
+    {
+      "file": "loading--loading-spinner-ByEiAmi7b9.json",
+      "warnings": 0
+    },
+    {
+      "file": "loading--loading-spinner-DeValqL2ht.json",
+      "warnings": 0
+    },
+    {
+      "file": "loading--loading-spinner-KaNaK1Do18.json",
+      "warnings": 0
+    },
+    {
+      "file": "loading--loading-spinner-c4bq46rjr8.json",
+      "warnings": 0
+    },
+    {
+      "file": "loading--loading-spinner-fjCUA2nslC.json",
+      "warnings": 0
+    },
+    {
+      "file": "loading--loading-xb4ZjvXIv5.json",
+      "warnings": 0
+    },
+    {
+      "file": "loading--spiner-uDFnkzUQGt.json",
+      "warnings": 0
+    },
+    {
+      "file": "loading--spinner-22KJ4P26wR.json",
+      "warnings": 0
+    },
+    {
+      "file": "loading--spinner-Glhlwwlysr.json",
+      "warnings": 0
+    },
+    {
+      "file": "loading--spinner-OKlCCjCLjs.json",
+      "warnings": 0
+    },
+    {
+      "file": "loading--spinner-pUcoBgAaGm.json",
+      "warnings": 0
+    },
+    {
+      "file": "loading--spinner-zIvdxQ8aFT.json",
+      "warnings": 0
+    },
+    {
+      "file": "logo--branding-1Djr1m5tbi.json",
+      "warnings": 0
+    },
+    {
+      "file": "logo--jiwa-visual-logo-BabBhLKyX7.json",
+      "warnings": 0
+    },
+    {
+      "file": "logo--logo-animation-V3GdluNkEg.json",
+      "warnings": 0
+    },
+    {
+      "file": "logo--logo-animation-reveal-xz9RbV3YNK.json",
+      "warnings": 0
+    },
+    {
+      "file": "logo--logo-intro-NNMzaO4xKy.json",
+      "warnings": 4
+    },
+    {
+      "file": "logo--logo-reveal-BSRHyQLF3V.json",
+      "warnings": 0
+    },
+    {
+      "file": "logo--logo-reveal-j6VAgitMXp.json",
+      "warnings": 0
+    },
+    {
+      "file": "logo--revealing-brand-name-1zWPRXoq9u.json",
+      "warnings": 0
+    },
+    {
+      "file": "logo--se-logo-K0YDdBJzJp.json",
+      "warnings": 0
+    },
+    {
+      "file": "logo--turn-ZGYQjP1WgD.json",
+      "warnings": 0
+    }
+  ],
+  "renderableCount": 64,
+  "total": 100
+}

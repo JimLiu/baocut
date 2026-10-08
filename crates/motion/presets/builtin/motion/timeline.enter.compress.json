@@ -1,0 +1,24 @@
+{
+  "id": "compress",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "enter",
+  "order": 16,
+  "duration": 0.45,
+  "curve": {
+    "kind": "named",
+    "name": "easeOutCubic"
+  },
+  "mirror": "compress",
+  "from": {
+    "opacity": 0.0,
+    "scaleX": 1.8
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

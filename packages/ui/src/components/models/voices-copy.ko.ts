@@ -1,0 +1,92 @@
+import type { VoicesMessages } from './voices-copy.ts';
+
+export const ko: VoicesMessages = {
+  myVoices: {
+    offline: 'Runtime이 연결되면 목소리가 표시됩니다.',
+    add: '목소리 추가',
+    fromFile: '오디오 파일로 새로 만들기…',
+    fromFileHint: 'WAV, MP3 또는 FLAC, 최대 20 MB. 5–12초 길이의 완전한 문장 하나가 가장 좋습니다',
+    importPackage: '목소리 팩 가져오기…',
+    importHint: '다른 사람이 내보낸 .bcvoice',
+    record: '마이크로 녹음',
+    recordWhy:
+      '앱 안에서 녹음하는 기능은 아직 없습니다. 녹음을 Runtime에 보내려면 먼저 파일로 저장해야 하는데, 그 단계가 아직 만들어지지 않았습니다. 다른 앱으로 먼저 녹음한 뒤(WAV, MP3 또는 FLAC) “오디오 파일로 새로 만들기”를 사용하세요.',
+    recordWhyNoPicker:
+      '앱 안에서 녹음하는 기능은 아직 없습니다. 녹음을 Runtime에 보내려면 먼저 파일로 저장해야 하는데, 그 단계가 아직 만들어지지 않았습니다. 다른 앱으로 먼저 녹음한 뒤(WAV, MP3 또는 FLAC) “오디오 파일로 새로 만들기”를 사용하세요. 목소리 팩 가져오기: 이 창에서는 시스템 파일 대화상자를 열 수 없습니다. 데스크톱 앱을 사용하세요.',
+    noPicker: '이 창에서는 시스템 파일 대화상자를 열 수 없습니다. 데스크톱 앱을 사용하세요.',
+    pickAudioTitle: '참조 녹음 선택',
+    pickAudioFilter: '오디오(WAV, MP3, FLAC)',
+    pickPackageTitle: '목소리 팩 선택',
+    pickPackageFilter: '목소리 팩',
+    pickButton: '선택',
+    notAudio: '참조 녹음은 WAV, MP3 또는 FLAC 파일이어야 합니다.',
+    imported: (name: string) => `“${name}” 목소리를 가져왔습니다 · 음성 생성과 더빙에서 쓸 수 있습니다`,
+    importFailed: (text: string) => `가져오지 못했습니다: ${text}`,
+    foot:
+      '목소리 = 참조 녹음 + 녹음 내용 + 동의 진술. 참조 녹음은 이 컴퓨터에 남습니다. 내보낸 목소리 팩(이름.bcvoice)에는 녹음이 들어 있어 다른 사람에게 보내 가져오게 할 수 있지만, 복제는 함께 옮겨지지 않습니다. ' +
+      '본인 목소리인지 밝히지 않은 목소리는 어떤 제3자에게도 업로드하지 않습니다.',
+    // 一行
+    play: (name: string) => `${name} 미리 듣기`,
+    stop: (name: string) => `${name} 미리 듣기 중지`,
+    playFailed: (text: string) => `미리 듣지 못했습니다: ${text}`,
+    more: (name: string) => `더 보기 · ${name}`,
+    edit: '편집…',
+    cloneTo: (label: string) => `${label}에 업로드해 복제…`,
+    recloneTo: (label: string) => `${label}에 다시 업로드…`,
+    recloneHint: '참조 녹음이 바뀌어 이전 복제는 오래된 상태입니다',
+    removeClone: (label: string) => `${label}에서 복제 삭제…`,
+    export: '목소리 팩 내보내기…',
+    remove: '삭제…',
+    cloning: (label: string) => `${label}에 업로드해 복제하는 중…`,
+    cloneFailed: (label: string, text: string) => `${label}에서 한 지난 복제가 성공하지 못했습니다: ${text}`,
+    loadingMeta: '불러오는 중…',
+    // 新建与编辑
+    createTitle: '새 목소리',
+    editTitle: (name: string) => `“${name}” 편집`,
+    referenceFile: (file: string) => `참조 녹음: ${file}`,
+    name: '이름',
+    language: '언어',
+    languageHint: '참조 녹음에서 말하는 언어',
+    transcript: '전사본',
+    transcriptHint: '참조 녹음에서 하는 말입니다. 일부 엔진은 복제할 때 필요합니다. 잘 모르면 비워 두세요.',
+    consentHint: '체크하지 않아도 저장할 수 있지만, 복제를 위해 어떤 제3자에게도 업로드하지 않습니다.',
+    save: '목소리로 저장',
+    saveEdit: '저장',
+    cancel: '취소',
+    loading: '목소리를 불러오는 중…',
+    loadFailed: (text: string) => `이 목소리를 불러오지 못했습니다: ${text}`,
+    saved: (name: string) => `“${name}” 목소리를 저장했습니다 · 음성 생성과 더빙에서 쓸 수 있습니다`,
+    updated: (name: string) => `“${name}” 목소리를 저장했습니다`,
+    unchanged: '변경 사항 없음',
+    // 克隆
+    uploadTitle: (label: string) => `${label}에 업로드할까요?`,
+    upload: '업로드',
+    cloneStarted: (label: string) => `${label}에 업로드하는 중 · 진행 상황은 백그라운드 작업에 있습니다`,
+    cloneRejected: (text: string) => `복제를 시작하지 못했습니다: ${text}`,
+    removeCloneTitle: (label: string) => `${label}에서 복제를 삭제할까요?`,
+    removeCloneBody: (label: string) =>
+      `${label}에 이 복제 목소리를 삭제해 달라고 요청합니다. 이후 ${label}에서 이 목소리를 쓰려면 다시 업로드해야 합니다.`,
+    removeCloneConfirm: '복제 삭제',
+    cloneRemoved: (label: string) => `${label}에서 복제를 삭제했습니다`,
+    cloneGoneRemote: (label: string) => `${label}에 이 복제가 더 이상 없어 이 컴퓨터의 기록도 지웠습니다`,
+    cloneRemoveFailed: (text: string) => `복제를 삭제하지 못했습니다: ${text}`,
+    // 导出
+    exportTitle: '목소리 팩 내보내기',
+    exportButton: '내보내기',
+    exported: (path: string) => `${path}에 내보냈습니다`,
+    exportFailed: (text: string) => `내보내지 못했습니다: ${text}`,
+    exportExists: 'BaoCut은 기존 파일을 덮어쓰지 않습니다. 다른 이름이나 위치를 골라 다시 내보내세요.',
+    exportFailedExists: (text: string) =>
+      `내보내지 못했습니다: ${text}. BaoCut은 기존 파일을 덮어쓰지 않습니다. 다른 이름이나 위치를 골라 다시 내보내세요.`,
+    // 删除
+    deleteTitle: (name: string) => `“${name}” 목소리를 삭제할까요?`,
+    deleteConfirm: '삭제',
+    deleted: (name: string) => `“${name}” 목소리를 삭제했습니다`,
+    deleteFailed: (text: string) => `삭제하지 못했습니다: ${text}`,
+    localOnlyTitle: (label: string) => `${label}의 복제가 삭제되지 않았습니다`,
+    localOnlyBody: (label: string, text: string) =>
+      `${text}\n\n목소리는 아직 여기에 있습니다. 나중에 다시 시도하거나, 이 컴퓨터의 기록과 목소리만 삭제할 수 있습니다. 그러면 ${label} 계정의 복제는 남아 있으므로 ${label}에서 직접 삭제해야 합니다.`,
+    localOnlyConfirm: '이 컴퓨터에서만 삭제',
+    later: '나중에 다시 시도',
+  },
+};

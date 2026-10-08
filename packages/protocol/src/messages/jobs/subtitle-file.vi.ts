@@ -1,0 +1,5 @@
+import type { JobsSubtitleFileMessages } from './subtitle-file.ts';
+
+export const vi: JobsSubtitleFileMessages = {
+tooLarge: (p) => `Tệp phụ đề có ${p.bytes} byte, vượt giới hạn ${p.limit}`, tooManyCues: (p) => `Có hơn ${p.limit} phụ đề`, invalidAt: (p) => `Dòng ${p.line} trong tệp phụ đề: ${p.problem}`, nul: 'Tệp chứa ký tự NUL và không giống phụ đề văn bản', vttHeader: 'Tệp WebVTT phải bắt đầu bằng WEBVTT', vttHeaderBlank: 'Để một dòng trống sau phần đầu WEBVTT trước phụ đề', empty: 'Tệp không có phụ đề', noTiming: 'Khối này có văn bản nhưng không có dòng thời gian', tooManyIdLines: 'Chỉ được có một dòng số hoặc định danh trước dòng thời gian', srtIndex: (p) => `Dòng chỉ số SRT phải là số: ${p.id}`, badTiming: (p) => `Dòng thời gian sai định dạng: ${p.timing}`, endBeforeStart: 'Thời gian kết thúc trước thời gian bắt đầu', timingInText: 'Dòng thời gian xuất hiện trong văn bản phụ đề (có thể thiếu dòng trống giữa hai phụ đề)', cueTooLong: (p) => `Văn bản phụ đề dài hơn ${p.max} ký tự`, minuteSecondRange: 'Phút hoặc giây vượt quá 59',
+};

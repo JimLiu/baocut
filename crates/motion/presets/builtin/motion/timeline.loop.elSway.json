@@ -1,0 +1,35 @@
+{
+  "id": "elSway",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "loop",
+  "order": 16,
+  "period": 2.0,
+  "keyframes": [
+    {
+      "at": 0
+    },
+    {
+      "at": 0.33,
+      "ease": "easeOutSine",
+      "rotation": 15.0
+    },
+    {
+      "at": 0.66,
+      "ease": "easeOutSine",
+      "rotation": -15.0
+    },
+    {
+      "at": 1,
+      "ease": "easeOutSine"
+    }
+  ],
+  "basis": {
+    "dx": "selfWidth",
+    "dy": "selfHeight"
+  },
+  "surface": "element",
+  "determinism": "strict",
+  "available": true
+}

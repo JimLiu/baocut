@@ -1,0 +1,57 @@
+{
+  "id": "rainbow_border",
+  "version": 1,
+  "domain": "progress",
+  "namespace": "timeline",
+  "order": 6,
+  "numColors": 0,
+  "colorLabels": [],
+  "defaultMainColor": "#FFFFFF",
+  "defaultSecondaryColor": "#FFFFFF00",
+  "aspect": "frame",
+  "recipe": {
+    "algorithm": "frame-v1",
+    "params": {
+      "borderSize": 0.015,
+      "smoothing": 0.0032,
+      "fill": "forward",
+      "background": true,
+      "colorMode": {
+        "kind": "rainbow",
+        "hueSpeed": 0.2,
+        "corners": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0,
+            1.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            1.0
+          ],
+          [
+            0.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        ],
+        "gradientSteps": 16,
+        "mixBias": 0.35,
+        "mixGain": 0.45
+      }
+    }
+  },
+  "determinism": "visual",
+  "shader": "border.wgsl",
+  "available": true
+}

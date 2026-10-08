@@ -1,0 +1,32 @@
+{
+  "id": "pulse_rings",
+  "version": 1,
+  "domain": "visualizer",
+  "namespace": "timeline",
+  "order": 8,
+  "numColors": 2,
+  "colorLabels": [
+    "Core",
+    "Rings"
+  ],
+  "defaultMainColor": "#3CADFF",
+  "defaultSecondaryColor": "#FFFFFF",
+  "defaultMinDb": -80.0,
+  "defaultMaxDb": 40.0,
+  "hasControl": true,
+  "binWidth": "64",
+  "aspect": "square",
+  "recipe": {
+    "algorithm": "pulse-rings-v1",
+    "params": {
+      "bands": 4,
+      "coreRadius": 0.22,
+      "ringRadius": 0.9,
+      "ringWidth": 0.035,
+      "easing": "easeOutCubic"
+    }
+  },
+  "determinism": "strict",
+  "shader": null,
+  "available": true
+}

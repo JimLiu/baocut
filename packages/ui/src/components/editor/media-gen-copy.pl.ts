@@ -1,0 +1,63 @@
+import { pluralForm } from '@baocut/protocol';
+import type { AudioGenMessages, GeneratedMarkMessages, ImageGenMessages } from './media-gen-copy.ts';
+
+
+export const plMark: GeneratedMarkMessages = { generated: "Wygenerowane" };
+
+export const plAudioGen: AudioGenMessages = {
+  generate: "Generuj mowę",
+  clone: "Sklonuj głos",
+  generateTip: "Odczytaj tekst modelem w chmurze i dodaj do biblioteki materiałów",
+  cloneTip: "Odczytaj tekst głosem sklonowanym w „Moje głosy”",
+  back: "Wróć do audio",
+  running: "Działa w tle",
+  textPlaceholder: "Tekst do syntezy; dzielony przy kropkach i podziałach wiersza…",
+  clonePlaceholder: "Co ma powiedzieć ten głos…",
+  cta: "Wygeneruj",
+  cloneCta: "Generuj tym głosem",
+  hint: (provider: string) => `Wysyłane online do ${provider} dla syntezy, opłaty według jego zasad. Postęp na górnym pasku i w „Zadania w tle”; po ukończeniu trafia do biblioteki materiałów – umieszczenie na osi czasu osobno. Zatrzymanie oczekiwania nie cofa wysłanego żądania.`,
+  readOnly: "Wideo jest teraz tylko do odczytu, nie można generować do niego materiałów",
+  noVoicesTitle: "W „Moje głosy” nie ma jeszcze głosów",
+  noVoicesBody: "Aby sklonować głos, najpierw nagraj lub zaimportuj w Modele › Synteza mowy › Moje głosy, potem prześlij dostawcy klonującemu (ElevenLabs). Wróć i wybierz poniżej.",
+  goVoices: "Otwórz „Moje głosy”",
+  runTitle: (title: string) => `${title}…`,
+  runNote: "Możesz dalej edytować · synteza działa w tle i trafia do biblioteki materiałów po ukończeniu.",
+  cancel: "Anuluj",
+  cancelled: "Anulowano",
+  done: (meta: string) => `Wygenerowano · ${meta}`,
+  inLibrary: (name: string) => `Dodano do biblioteki materiałów · ${name}`,
+  importing: "Dodawanie do biblioteki materiałów…",
+  add: "Dodaj na oś czasu",
+  addTip: "Umieść przy głowicy odtwarzania",
+  again: "Wygeneruj kolejny",
+  backToAudio: "Wróć do audio",
+  doneNote: "Materiał jest w bibliotece audio z oznaczeniem „Wygenerowane”. Przeciągnij na oś czasu lub kliknij „+”, aby umieścić; możesz używać dowolną liczbę razy.",
+  failed: (message: string) => `Nie udało się wygenerować · ${message}`,
+  edit: "Edytuj i generuj ponownie",
+  retried: "Przesłano ponownie",
+};
+
+export const plImageGen: ImageGenMessages = {
+  title: "Obrazy",
+  segments: "Źródło obrazu",
+  project: "Materiały wideo",
+  gen: "Wygenerowano przez AI",
+  noModelTitle: "Nie ma jeszcze modelu obrazów",
+  noModelBody: "Połącz dostawcę w chmurze (Modele › Generowanie obrazów › Modele w chmurze) lub pobierz Qwen-Image-2.1 (Modele › Generowanie obrazów › Modele lokalne) – obie opcje działają.",
+  connect: "Połącz dostawcę w chmurze",
+  downloadLocal: "Pobierz model lokalny",
+  fit: "Tak jak płótno wideo",
+  recent: "Najnowsze",
+  all: (n: number) => pluralForm('pl', n, { one: `Wszystkie ${n} partie`, few: `Wszystkie ${n} partie`, many: `Wszystkie ${n} partii`, other: `Wszystkie ${n} partii` }),
+  fewer: "Tylko ostatnie 3 partie",
+  empty: "Nie wygenerowano jeszcze obrazów dla wideo. Trafiają od razu do biblioteki materiałów (oznaczenie „Wygenerowane”); umieszczenie na płótnie osobno.",
+  place: "Umieść na płótnie",
+  placeTip: "Umieść przy głowicy odtwarzania",
+  inLibrary: "W bibliotece materiałów",
+  importing: "Dodawanie do biblioteki materiałów…",
+  useAsRef: "Użyj jako referencji",
+  foot: "Wygenerowane obrazy trafiają od razu do biblioteki materiałów wideo z pochodzeniem (model, parametry, zadanie); prompt zostaje tylko w zapisie zadania. Umieszczenie na płótnie osobno.",
+  readOnly: "Wideo jest teraz tylko do odczytu, nie można generować do niego materiałów",
+  charCount: (chars: number, max: number) => `Znaki: ${chars} / ${max}`,
+  charCountPlain: (chars: number) => pluralForm('pl', chars, { one: `${chars} znak`, few: `${chars} znaki`, many: `${chars} znaków`, other: `${chars} znaku` }),
+};

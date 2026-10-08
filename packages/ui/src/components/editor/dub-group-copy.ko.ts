@@ -1,0 +1,25 @@
+import type { DubGroupMessages } from './dub-group-copy.ts';
+
+export const ko: DubGroupMessages = {
+  track: '타임라인에서 이 트랙 보기',
+  trackGone: '이 더빙 그룹은 더 이상 타임라인에 없습니다',
+  regen: (n: number) => `문장 ${n}개 다시 생성…`,
+  regenNote: '합성되지 않았거나 들어가지 않는 문장 · 확인하고 필요하면 번역을 수정한 뒤 이 문장들만 다시 더빙합니다',
+  download: '그룹 다운로드',
+  downloadNote: '아직 그룹 전체를 다운로드할 수 없습니다. 이 그룹의 믹스가 필요하면 오디오를 내보낼 때 “이 더빙 그룹만”을 선택하세요',
+  redub: '이 언어 다시 더빙',
+  redubNote: '번역 더빙 열기',
+  remove: '이 더빙 그룹 제거',
+  removeNote: '타임라인에서 이 그룹의 클립을 제거하고 원본 오디오를 복원합니다. 실행 취소할 수 있으며, 빈 더빙 트랙과 계획은 남습니다',
+  removeLoading: '더빙 계획 불러오는 중…',
+  readOnly: '영상이 읽기 전용입니다',
+  removed: (title: string) => `“${title}” 항목을 제거했습니다`,
+  rowOnTimeline: (label: string) => `타임라인의 “${label}” 행`,
+  undo: '실행 취소',
+  stateOn: '타임라인에 있음',
+  stateOff: '트랙 꺼짐',
+  stateGone: '타임라인에 없음',
+  groupMenu: '이 더빙 그룹',
+  actionsOf: (title: string) => `“${title}” 작업`,
+  clickToSelect: (text: string) => `${text} · 클릭해 타임라인에서 선택`,
+};

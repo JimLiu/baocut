@@ -1,0 +1,28 @@
+{
+  "id": "typewriter",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "enter",
+  "order": 13,
+  "duration": 0.6,
+  "curve": {
+    "kind": "named",
+    "name": "linear"
+  },
+  "mirror": "fade",
+  "from": {
+    "opacity": 0.0
+  },
+  "parts": {
+    "unit": "grapheme",
+    "partDur": 0.04,
+    "stagger": 0.041666666666666664
+  },
+  "basis": {
+    "dx": "canvasShortEdge",
+    "dy": "canvasShortEdge"
+  },
+  "determinism": "strict",
+  "available": true
+}

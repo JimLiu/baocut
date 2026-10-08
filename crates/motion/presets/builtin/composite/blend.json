@@ -1,0 +1,54 @@
+{
+  "id": "composite.blend",
+  "version": 1,
+  "domain": "composite",
+  "inputs": 2,
+  "params": {
+    "mode": {
+      "type": "enum",
+      "default": "normal",
+      "options": [
+        "normal",
+        "multiply",
+        "screen",
+        "overlay",
+        "darken",
+        "lighten",
+        "difference",
+        "exclusion",
+        "plus"
+      ]
+    },
+    "opacity": {
+      "type": "number",
+      "default": 1,
+      "min": 0,
+      "max": 1
+    }
+  },
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "kernel": "porter-duff-separable",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "clamp",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "blendModes": [
+    "normal",
+    "multiply",
+    "screen",
+    "overlay",
+    "darken",
+    "lighten",
+    "difference",
+    "exclusion",
+    "plus"
+  ],
+  "doc": "混合模式的封闭表与稳定 u8 编号（下标即编号）。DrawOp v3 的 PushLayer{blend} 与 FramePlan 的 Composite pass 共用这张表；重排等于改二进制契约。"
+}

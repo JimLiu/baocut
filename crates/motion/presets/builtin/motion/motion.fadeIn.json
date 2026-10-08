@@ -1,0 +1,37 @@
+{
+  "id": "motion.fadeIn",
+  "version": 1,
+  "domain": "motion",
+  "family": "fadeIn",
+  "doc": "淡入。composite=multiply，可与主运动叠加。",
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "curve": {
+      "type": "curve",
+      "default": "easeOutCubic",
+      "doc": "时间曲线（规范 §7.6 的封闭名称）"
+    }
+  },
+  "tracks": [
+    {
+      "prop": "opacity",
+      "composite": "multiply",
+      "order": 10,
+      "frames": [
+        {
+          "t": "0%",
+          "v": 0
+        },
+        {
+          "t": "100%",
+          "v": 1,
+          "ease": "{curve}"
+        }
+      ]
+    }
+  ],
+  "determinism": "strict",
+  "capabilities": []
+}

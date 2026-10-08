@@ -1,0 +1,35 @@
+import type { DubProgressMessages } from './dub-progress.ts';
+
+export const zhHans: DubProgressMessages = {
+  unit: {
+    fit: '原样放下',
+    tempo: '加速后放下',
+    extended: '加速到上限，占用了后面的静音',
+    overlong: '太长放不下，没有放',
+    stale: '译文已过期，没有合成',
+    offTimeline: '原句已经不在时间线上，没有放',
+    voiceUnavailable: '说话人的音色不可用，没有合成',
+  },
+  reasonStale: '克隆已过期，要在声音库里重新克隆',
+  reasonMissing: '这家服务商上还没有克隆',
+  reasonNoConsent: '没有本人声明，不会上传给服务商',
+  reasonRemoved: '库里已经没有这只音色',
+  reasonServiceClient: '对外服务的调用方不能用库里的音色',
+  codeCloneRequired: '这家服务商上没有有效的克隆',
+  codeNotFound: '找不到这只音色',
+  warning: {
+    DUB_SEPARATION_NOT_CONFIGURED: '没有分离背景',
+    DUB_UNITS_STALE: '过期的译文没有合成',
+    DUB_UNITS_OVERLONG: '有句子太长放不下',
+    DUB_UNITS_OFF_TIMELINE: '有句子的原句已经不在时间线上',
+    DUB_MUTED_UNVOICED: '没合成的句子原声也静音了',
+    DUB_BACKGROUND_MUTED: '背景声一起静音了',
+    DUB_VOICE_UNAVAILABLE: '有说话人的音色不可用',
+  },
+  separated: '背景声已分离',
+  separationNotConfigured: '要求了分离，但没有配置分离能力：跳过，原声按原样处理',
+  notSeparated: '没有分离背景声',
+  originalMuted: '原声静音',
+  originalKept: '原声不动',
+  originalDucked: (db: number | null) => (db ? `配音响起时原声压低 ${db} dB` : '配音响起时原声压低'),
+};

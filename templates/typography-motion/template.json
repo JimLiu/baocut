@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "id": "typography-motion",
+  "version": "1.1.0",
+  "kind": "example",
+  "title": "排版动效短片",
+  "summary": "用 JavaScript 做一条以排版驱动、温暖极简的短片。",
+  "description": "多种风格的字体、温暖的极简美学，节奏与色彩丰富，配上背景音乐。也可以生成图片或视频片段来点缀。",
+  "language": "zh-CN",
+  "category": "motion-design",
+  "ratio": "16:9",
+  "durationSeconds": 30,
+  "fields": [
+    {
+      "label": "主题",
+      "hint": "视频围绕什么内容",
+      "example": "四季的变化"
+    },
+    {
+      "label": "成片语言",
+      "hint": "画面文字用的语言"
+    }
+  ],
+  "author": "BaoCut",
+  "source": "official",
+  "license": "LicenseRef-BaoCut-Community-1.0",
+  "tags": [
+    "排版",
+    "字体",
+    "JavaScript"
+  ],
+  "skills": [
+    "video-production"
+  ],
+  "cover": {
+    "file": "cover.jpg",
+    "tone": "brown",
+    "figure": "bars",
+    "kicker": "Aa"
+  },
+  "preview": {
+    "file": "preview.mp4",
+    "beats": [
+      "一个词占满画面",
+      "字体与字重交替",
+      "色彩随节奏切换",
+      "安静的收尾"
+    ]
+  },
+  "verification": {
+    "date": "2026-10-04",
+    "version": "1.0.0",
+    "engine": "codex",
+    "input": "按提示词原样，末尾附一段测试环境说明：成片语言用中文；没有配置语音合成、配乐、音效与视频生成，遇到没有配置的能力跳过并在最后说明；现有编辑操作做不出的画面可以直接渲染成视频文件再导入时间线。一轮完成，没有追问。",
+    "materials": [],
+    "capabilities": [
+      "generateMusic"
+    ],
+    "outcome": "partial",
+    "output": {
+      "ratio": "16:9",
+      "durationSeconds": 30
+    },
+    "notes": "确认：智能体没有追问，先在本机找到覆盖中文的宋体、黑体与手写体，再用 JavaScript（Node 画布）逐帧绘制七段排版动画，渲染 1080p、30 秒，首尾相接放上时间线 0–30 秒并加章节，源码保留。画面以奶油白、朱红、姜黄、墨绿为主，字体风格对比明显，有标点化成太阳、汉字组成花形、四色分屏等段落，中文无缺字、无出框，画幅与时长与清单一致。模板要求配背景音乐，因为没有配置配乐能力而跳过，并告诉了用户，所以记为 partial。疑似：智能体没有尝试用代码合成音乐，可能受测试说明里「遇到没有配置的能力请跳过」影响；模板未改。预览与封面取自 BaoCut 导出的成片。 测试之后的 1.0.1 在提示词里补了「没有配乐生成能力时用代码合成配乐」，这一版尚未重测。"
+  }
+}

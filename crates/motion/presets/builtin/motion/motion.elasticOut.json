@@ -1,0 +1,73 @@
+{
+  "id": "motion.elasticOut",
+  "version": 1,
+  "domain": "motion",
+  "family": "elasticIn",
+  "doc": "位移 + 缩放的弹性离场。规范附录 A 的封闭 easing 枚举没有 easeInElastic，缺省用 easeInBack。",
+  "exposedTo": [
+    "bcf"
+  ],
+  "params": {
+    "direction": {
+      "type": "enum",
+      "options": [
+        "left",
+        "right",
+        "up",
+        "down"
+      ],
+      "default": "up",
+      "doc": "元素进入/离开的方向（'up' = 从下方进入）"
+    },
+    "distance": {
+      "type": "length",
+      "default": {
+        "value": 0.03,
+        "basis": "canvasShortEdge"
+      },
+      "doc": "位移量；缺省是画布短边的 3%"
+    },
+    "scaleTo": {
+      "type": "number",
+      "default": 0.7,
+      "min": 0.0,
+      "doc": "终止缩放"
+    },
+    "curve": {
+      "type": "curve",
+      "default": "easeInBack",
+      "doc": "时间曲线（规范 §7.6 的封闭名称）"
+    },
+    "fade": {
+      "type": "bool",
+      "default": true,
+      "doc": "是否同时淡入/淡出"
+    }
+  },
+  "compose": [
+    {
+      "preset": "motion.shiftOut",
+      "params": {
+        "direction": "{direction}",
+        "distance": "{distance}",
+        "curve": "{curve}"
+      }
+    },
+    {
+      "preset": "motion.zoomOut",
+      "params": {
+        "scaleTo": "{scaleTo}",
+        "curve": "{curve}"
+      }
+    },
+    {
+      "preset": "motion.fadeOut",
+      "when": "{fade}"
+    }
+  ],
+  "defaults": {
+    "curve": "easeInBack"
+  },
+  "determinism": "strict",
+  "capabilities": []
+}

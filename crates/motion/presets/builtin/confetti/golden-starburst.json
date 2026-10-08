@@ -1,0 +1,91 @@
+{
+  "id": "golden-starburst",
+  "version": 1,
+  "domain": "confetti",
+  "namespace": "timeline",
+  "order": 40,
+  "aspect": "frame",
+  "palette": [
+    "#FFD700",
+    "#FFC300",
+    "#FFB000",
+    "#FFF1A8",
+    "#FFFFFF"
+  ],
+  "shapes": [
+    "star",
+    "starlet",
+    "sparkle",
+    "circle"
+  ],
+  "sources": [
+    "party-js/confetti",
+    "party-js/shapes"
+  ],
+  "hasEmitterControl": true,
+  "recipe": {
+    "algorithm": "confetti-v1",
+    "params": {
+      "emit": {
+        "mode": "burst",
+        "rate": 40,
+        "count": 60,
+        "interval": 2.0,
+        "jitter": 1.0
+      },
+      "emitters": [
+        {
+          "x": 25,
+          "y": 80,
+          "spreadX": 0,
+          "spreadY": 0
+        },
+        {
+          "x": 50,
+          "y": 80,
+          "spreadX": 0,
+          "spreadY": 0
+        },
+        {
+          "x": 75,
+          "y": 80,
+          "spreadX": 0,
+          "spreadY": 0
+        }
+      ],
+      "angle": -90,
+      "spread": 250,
+      "speedPx": [
+        85,
+        225
+      ],
+      "dragX": 0,
+      "dragY": 0,
+      "gravityPx": 190,
+      "windPx": 0,
+      "driftPx": 0,
+      "driftHz": 0.3,
+      "sizePx": [
+        6,
+        14
+      ],
+      "sizeRamp": true,
+      "spinDps": [
+        90,
+        360
+      ],
+      "flipHz": [
+        0.6,
+        1.6
+      ],
+      "pulse": null,
+      "lifeSec": 2.6,
+      "fadeIn": 0,
+      "fadeOut": 0.9,
+      "maxAlive": 600
+    }
+  },
+  "determinism": "strict",
+  "shader": null,
+  "available": true
+}

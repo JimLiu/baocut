@@ -1,0 +1,9 @@
+{
+  "half": {
+    "progress": 0.5
+  },
+  "half-inverted": {
+    "invert": true,
+    "progress": 0.5
+  }
+}

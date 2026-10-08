@@ -1,0 +1,135 @@
+{
+  "diagnostics": {},
+  "issues": [],
+  "mode": "lean",
+  "pageRejected": false,
+  "retryIds": [],
+  "rows": [
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              11
+            ],
+            "tgt": [
+              0,
+              22
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "除非经理批准第二版，否则不要把文件发给萨拉。",
+            "to": 11
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11"
+        ]
+      },
+      "chunks": 1,
+      "coarse": false,
+      "frozen": false,
+      "id": "ar-07",
+      "issues": [],
+      "locatedChunks": 1,
+      "minChunks": 1,
+      "n": 1,
+      "realTiming": false,
+      "source": "لا ترسل الملف إلى سارة إلا إذا وافق المدير على النسخة الثانية.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "除非经理批准第二版，否则不要把文件发给萨拉。"
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              8
+            ],
+            "tgt": [
+              0,
+              20
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "我们买了2.5公斤大米，晚饭后还剩一半。",
+            "to": 8
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8"
+        ]
+      },
+      "chunks": 2,
+      "coarse": false,
+      "frozen": false,
+      "id": "ar-08",
+      "issues": [
+        "anchor-unresolved"
+      ],
+      "locatedChunks": 1,
+      "minChunks": 1,
+      "n": 2,
+      "realTiming": false,
+      "source": "اشترينا 2.5 كيلوغرام من الأرز، وبقي نصفه بعد العشاء.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "我们买了2.5公斤大米，晚饭后还剩一半。"
+    }
+  ],
+  "schema": "lean-carrier-grade/2",
+  "totals": {
+    "acceptedTranslations": 2,
+    "aligned": 2,
+    "chunks": 3,
+    "coarse": 0,
+    "expectedSentences": 2,
+    "locatedChunks": 2,
+    "sentencesWithAnchorIssues": 1,
+    "syntaxOrPermissionIssues": 0,
+    "translationRetries": 0
+  }
+}

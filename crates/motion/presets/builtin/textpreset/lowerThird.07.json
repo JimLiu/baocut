@@ -1,0 +1,150 @@
+{
+  "id": "lowerThird.07",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "lowerThird",
+  "order": 307,
+  "duration": 3.7,
+  "content": [
+    {
+      "kind": "shape",
+      "place": {
+        "x": 20.22,
+        "y": 70.32,
+        "w": 30.92
+      },
+      "shape": {
+        "shape": "rect",
+        "fill": "#5544cc",
+        "h": 7.76
+      },
+      "animate": {
+        "enter": {
+          "preset": "wipe",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "wipe",
+          "dur": 0.67
+        }
+      }
+    },
+    {
+      "kind": "shape",
+      "place": {
+        "x": 19.23,
+        "y": 69.31,
+        "w": 30.71
+      },
+      "shape": {
+        "shape": "rect",
+        "fill": "#ffffffff",
+        "h": 7.58
+      },
+      "animate": {
+        "enter": {
+          "preset": "wipe",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "wipe",
+          "dur": 0.67
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 19.39,
+        "y": 70.62,
+        "w": 28.04
+      },
+      "text": "Motion Designer",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#323232ff",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 10.4,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.0,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "delay": 0.27,
+      "animate": {
+        "enter": {
+          "preset": "slideR",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "slideL",
+          "dur": 0.63
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 19.32,
+        "y": 68.01,
+        "w": 28.03
+      },
+      "text": "Robert Henderson",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#323232ff",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 15.3,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.0,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "delay": 0.27,
+      "animate": {
+        "enter": {
+          "preset": "slideR",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "slideL",
+          "dur": 0.63
+        }
+      }
+    }
+  ]
+}

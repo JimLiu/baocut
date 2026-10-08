@@ -1,0 +1,98 @@
+[workspace]
+resolver = "3"
+# `render-raster` 带来的打过补丁的 resvg（v2 `core/vendor/bcut-resvg`，见其 README.md）是它 `media` 的
+# 依赖；与 v2 一样是 workspace 成员，`tests/patches.rs` 的对上游逐字节门禁随 workspace 测试跑。
+members = ["crates/*", "bindings/*", "crates/render-raster/vendor/bcut-resvg"]
+
+[workspace.package]
+version = "0.4.0"
+edition = "2024"
+license-file = "LICENSE"
+publish = false
+
+[workspace.dependencies]
+editor-semantics = { path = "crates/editor-semantics" }
+message-ref = { path = "crates/message-ref" }
+model-runtime = { path = "crates/model-runtime", default-features = false }
+video-engine = { path = "crates/video-engine" }
+video-model = { path = "crates/video-model" }
+render-graph = { path = "crates/render-graph" }
+frame-render = { path = "crates/frame-render", default-features = false }
+media-core = { path = "crates/media-core" }
+motion = { path = "crates/motion" }
+scene-primitives = { path = "crates/scene-primitives" }
+speech-doc = { path = "crates/speech-doc" }
+font-files = { path = "crates/font-files" }
+audio-dsp = { path = "crates/audio-dsp" }
+media-probe = { path = "crates/media-probe" }
+media-native = { path = "crates/media-native" }
+# 缺省关掉 `media`（ffmpeg 子进程、host resvg、平台编解码、内置字体）：引用方不显式要它就拿到 `wasm-safe`
+# 的最小集，进 WASM 的构建图因此不会被 feature 合并带上 `media`。要 host 字节层的一方自己加
+# `features = ["media"]`。
+render-raster = { path = "crates/render-raster", default-features = false }
+# 缺省关掉 `dsp`（STFT，realfft/rustfft）：消费方只读 BCS1，WASM 不带它；生产频谱的一方自己加 `features = ["dsp"]`。
+waveform = { path = "crates/waveform", default-features = false }
+speech-doc-bridge = { path = "crates/speech-doc-bridge" }
+timeline = { path = "crates/timeline" }
+timeline-render = { path = "crates/timeline-render" }
+# 缺省关掉 `host`（项目 I/O、媒体解码、系统字体，经 `render-raster/media`）：与 `render-raster` 同理，
+# 进 WASM 的一方用 `features = ["wasm-safe"]`，要宿主能力的一方自己加 `features = ["host"]`。
+subtitle-render = { path = "crates/subtitle-render", default-features = false }
+
+# 预览的 WASM：体积优先，只给 `--profile wasm` 用，不影响原生的 engine-host。
+[profile.wasm]
+inherits = "release"
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+# 构建脚本与过程宏是宿主的动态库，`strip` 会去掉它们导出的符号，全新的 target 目录里因此找不到 serde_derive 等。
+[profile.wasm.build-override]
+strip = false
+
+# 原生 release 同理：缺省的 `strip = "debuginfo"` 在全新的 target 目录里会弄坏过程宏动态库（链接器报 mis-aligned LINKEDIT）。
+[profile.release.build-override]
+strip = false
+
+# 预览每一帧都在 WASM 里画：光栅化的几个 crate 按速度优化（体积优先时 960×540 的一帧要慢三倍多）。
+# 另见 tools/build-wasm.mjs 给 wasm32 打开的 SIMD。
+[profile.wasm.package.tiny-skia]
+opt-level = 3
+[profile.wasm.package.tiny-skia-path]
+opt-level = 3
+[profile.wasm.package.render-raster]
+opt-level = 3
+[profile.wasm.package.subtitle-render]
+opt-level = 3
+[profile.wasm.package.frame-render]
+opt-level = 3
+
+# 调试构建里成片导出与预览测试也逐帧走光栅：这几个 crate 不优化时一帧要慢一个数量级，导出测试会超时。
+[profile.dev.package.tiny-skia]
+opt-level = 3
+[profile.dev.package.tiny-skia-path]
+opt-level = 3
+[profile.dev.package.render-raster]
+opt-level = 3
+[profile.dev.package.subtitle-render]
+opt-level = 3
+[profile.dev.package.frame-render]
+opt-level = 3
+
+# candle 后端（`backend-candle`）的 CPU 张量运算与矩阵乘：不优化时真权重的识别测试要慢上百倍。
+[profile.dev.package.candle-core]
+opt-level = 3
+[profile.dev.package.candle-nn]
+opt-level = 3
+[profile.dev.package.gemm]
+opt-level = 3
+[profile.dev.package.gemm-common]
+opt-level = 3
+[profile.dev.package.gemm-f16]
+opt-level = 3
+[profile.dev.package.gemm-f32]
+opt-level = 3
+[profile.dev.package.pulp]
+opt-level = 3

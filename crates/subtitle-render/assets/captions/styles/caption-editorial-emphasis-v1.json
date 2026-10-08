@@ -1,0 +1,150 @@
+{
+  "schema": "baocut-caption-style/1",
+  "id": "caption-editorial-emphasis",
+  "version": 1,
+  "title": "Editorial pop",
+  "description": "A dual-font editorial block elevates marked words.",
+  "tags": [
+    "editorial",
+    "clean"
+  ],
+  "scripts": [
+    "latin",
+    "cjk"
+  ],
+  "aspects": [
+    "16:9",
+    "9:16",
+    "1:1"
+  ],
+  "cjk": "good",
+  "layout": "editorialBlock",
+  "layoutTokens": {
+    "wide": {"width": 0.84, "fontScale": 1.05, "minFontSize": 18, "maxHeight": 0.42, "bandGap": 14},
+    "vertical": {"width": 0.9, "fontScale": 0.9, "minFontSize": 16, "maxHeight": 0.34, "bandGap": 10},
+    "square": {"width": 0.86, "fontScale": 0.98, "minFontSize": 17, "maxHeight": 0.38, "bandGap": 12}
+  },
+  "grouping": {
+    "maxWords": 8,
+    "pauseThreshold": 0.55,
+    "punctuation": true
+  },
+  "family": "editorialEmphasis",
+  "layers": [
+    "glyphs",
+    "glyphDuplicate"
+  ],
+  "glyphDuplicateLayers": 1,
+  "channels": [
+    "opacity",
+    "scaleX",
+    "scaleY",
+    "dy",
+    "colorMix"
+  ],
+  "tunables": [
+    {
+      "key": "intensity",
+      "kind": "number",
+      "min": 0,
+      "max": 100,
+      "default": 60
+    },
+    {
+      "key": "speed",
+      "kind": "number",
+      "min": 0.35,
+      "max": 2,
+      "default": 1
+    }
+  ],
+  "events": [
+    {
+      "trigger": "word.enter",
+      "operator": "transform",
+      "channels": [
+        "opacity",
+        "scaleX",
+        "scaleY",
+        "dy"
+      ],
+      "easing": "backOut",
+      "duration": 0.3,
+      "byRole": true,
+      "keyframes": {
+        "opacity": [
+          {"offset": 0, "value": 0, "ease": "easeOutCubic"},
+          {"offset": 1, "value": 1}
+        ],
+        "dy": [
+          {"offset": 0, "value": 0.26, "ease": "easeOutCubic"},
+          {"offset": 1, "value": 0}
+        ],
+        "scaleX": [
+          {"offset": 0, "value": 0.74, "ease": "easeOutCubic"},
+          {"offset": 0.62, "value": 1.06, "ease": "easeInCubic"},
+          {"offset": 1, "value": 1}
+        ],
+        "scaleY": [
+          {"offset": 0, "value": 0.74, "ease": "easeOutCubic"},
+          {"offset": 0.62, "value": 1.06, "ease": "easeInCubic"},
+          {"offset": 1, "value": 1}
+        ]
+      }
+    },
+    {
+      "trigger": "emphasis.active",
+      "operator": "duplicate",
+      "channels": ["colorMix"],
+      "easing": "easeOut",
+      "attack": 0.08,
+      "release": 0.2,
+      "roles": ["emphasis", "hero"],
+      "fixed": true,
+      "keyframes": {
+        "colorMix": [
+          {"offset": 0, "value": 0},
+          {"offset": 1, "value": 1}
+        ]
+      }
+    }
+  ],
+  "composite": "normal",
+  "hardKill": true,
+  "visibility": {"hold": 0.5, "gapBeforeNext": 0.05, "hardKillAfter": 0.45},
+  "seeded": false,
+  "assets": [],
+  "fonts": [
+    {
+      "role": "sans",
+      "family": "Inter",
+      "weights": [
+        400,
+        600,
+        800
+      ],
+      "fallback": [
+        "SF Pro",
+        "PingFang SC",
+        "Hiragino Sans"
+      ],
+      "substitution": "substitute",
+      "license": "OFL-1.1"
+    },
+    {
+      "role": "editorialSerif",
+      "family": "New York",
+      "weights": [
+        600,
+        700
+      ],
+      "fallback": [
+        "Georgia",
+        "Songti SC",
+        "Hiragino Mincho ProN"
+      ],
+      "substitution": "substitute",
+      "license": "system"
+    }
+  ]
+}

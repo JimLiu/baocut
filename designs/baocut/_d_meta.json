@@ -1,0 +1,78 @@
+{
+  "type": "design",
+  "title": "BaoCut 高保真可交互原型",
+  "prompt": "基于 designs/baocut-mac 的载体范式与 designs/editor-redesign 的设计方案与设计系统，重新实现一个与 apps/baocut 完全同步的高精度原型。",
+  "designSystems": [
+    {
+      "name": "Adobe Spectrum 2",
+      "slug": "adobe-spectrum-2",
+      "dsFolder": "_ds/adobe-spectrum-2",
+      "prompt": "_ds/adobe-spectrum-2/_ds_prompt.md",
+      "checker": "_ds/adobe-spectrum-2/check-conformance.mjs",
+      "kind": "tokens+icons",
+      "source": "https://github.com/adobe/react-spectrum",
+      "pinned": {
+        "reactSpectrumS2": "1.6.0",
+        "spectrumTokens": "14.15.0"
+      },
+      "importedAt": "2026-08-25",
+      "movedFrom": "designs/editor-redesign/_ds/adobe-spectrum-2 (2026-08-26)",
+      "icons": {
+        "folder": "_ds/adobe-spectrum-2/icons",
+        "count": 58,
+        "addedAt": "2026-08-27",
+        "note": "workflow 原件，取自用户提供的 Spectrum 2 Design System 包 assets/icons/，一个数没改；原型把用到的路径内联进 app/icons.jsx。"
+      }
+    }
+  ],
+  "primaryDesignSystem": "adobe-spectrum-2",
+  "conformance": "_ds_conformance.json",
+  "predecessor": {
+    "path": "designs/editor-redesign",
+    "archivedAt": "2026-08-26",
+    "baseline": "a4ae3dde",
+    "rounds": "1–25"
+  },
+  "createdAt": "2026-08-26T00:00:00.000Z",
+  "updatedAt": "2026-09-29T22:24:54.895Z",
+  "assets": {
+    "BaoCut": {
+      "versions": [
+        {
+          "path": "BaoCut.html",
+          "createdAt": "2026-08-26T17:34:48.338Z",
+          "status": "needs-review",
+          "subtitle": "导出准备阶段与即时反馈",
+          "viewport": {
+            "width": 1429,
+            "height": 1215
+          }
+        }
+      ]
+    },
+    "控件样本": {
+      "versions": [
+        {
+          "path": "Components.html",
+          "createdAt": "2026-08-26T17:34:48.421Z",
+          "status": "needs-review",
+          "subtitle": "Spectrum 2 控件层自查页",
+          "viewport": {
+            "width": 1080,
+            "height": 900
+          }
+        }
+      ]
+    },
+    "BaoCutWeb": {
+      "versions": [
+        {
+          "path": "BaoCutWeb.html",
+          "createdAt": "2026-09-28T22:11:40.515Z",
+          "status": "needs-review",
+          "subtitle": "导出准备阶段与即时反馈"
+        }
+      ]
+    }
+  }
+}

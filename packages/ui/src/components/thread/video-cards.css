@@ -1,0 +1,292 @@
+/*
+ * 线程里的视频卡行与下载卡（产品设计 §3.2.2、§6.5；原型 agent-cards.css `.mjob` / `.dlcard`）。
+ * style 宏会丢掉逐边边框与等宽数字，这些写在这里；颜色变量由卡片根给（video-card-rows.tsx `cardVars`）。
+ */
+
+/* ---------- 视频卡下面的活（进行中的或最后一件摊开，其余收起） ---------- */
+.bc-vjobs {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0 16px 4px;
+  list-style: none;
+}
+.bc-vjob {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px 0;
+  border-top: 1px solid var(--bc-vc-line);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--bc-vc-muted);
+}
+.bc-vjob__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.bc-vjob__ic {
+  display: flex;
+  flex: none;
+  color: var(--bc-vc-muted);
+}
+.bc-vjob__ic svg {
+  --iconPrimary: currentColor;
+  fill: currentColor;
+}
+.bc-vjob:is(.is-running, .is-queued) .bc-vjob__ic {
+  color: var(--bc-vc-live);
+}
+.bc-vjob.is-done .bc-vjob__ic {
+  color: var(--bc-vc-ok);
+}
+.bc-vjob:is(.is-failed, .is-interrupted) .bc-vjob__ic {
+  color: var(--bc-vc-err);
+}
+.bc-vjob__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--bc-vc-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bc-vjob__tail {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.bc-vjob.is-done .bc-vjob__tail {
+  color: var(--bc-vc-ok);
+}
+.bc-vjob:is(.is-failed, .is-interrupted) .bc-vjob__tail {
+  color: var(--bc-vc-err);
+}
+.bc-vjob__line {
+  color: var(--bc-vc-body);
+  font-variant-numeric: tabular-nums;
+}
+/* 转录用的模型与参数（原型 `.mjob__asr`）：只读的一行，放不下时截断，完整的在 title 里 */
+.bc-vjob__asr {
+  overflow: hidden;
+  color: var(--bc-vc-faint);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bc-vjob__warn {
+  color: var(--bc-vc-warn);
+}
+.bc-vjob__err {
+  color: var(--bc-vc-err);
+  font-weight: 600;
+}
+.bc-vjob__hint {
+  color: var(--bc-vc-muted);
+}
+.bc-vjob__file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  min-width: 0;
+}
+.bc-vjob__fname {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  font-weight: 600;
+  color: var(--bc-vc-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bc-vjob__fmeta {
+  color: var(--bc-vc-faint);
+  font-variant-numeric: tabular-nums;
+}
+.bc-vjob__facts {
+  display: inline-flex;
+  gap: 4px;
+}
+.bc-vjob__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+.bc-vjob__time {
+  flex: 1;
+  min-width: 0;
+  color: var(--bc-vc-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 之前的活：一行「之前的 N 项」，默认收起（原型 agent-cards.css `.mjobs__more`） ---------- */
+.bc-vjobs__more {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 4px 0;
+  border-top: 1px solid var(--bc-vc-line);
+}
+/* 开合照线程步骤行（agent-thread.css `.bc-step__row`）：安静的文字、末尾一枚箭头；左右各出 8px 让悬停底色不贴字，字仍与上面的行对齐 */
+.bc-vjobs__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: calc(100% + 16px);
+  min-height: 24px;
+  margin: 0 -8px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  text-align: start;
+  color: var(--bc-vc-muted);
+  cursor: pointer;
+}
+.bc-vjobs__toggle:hover {
+  background: var(--bc-vc-hover);
+}
+.bc-vjobs__toggle:focus-visible {
+  outline: 2px solid var(--bc-vc-focus);
+  outline-offset: -2px;
+}
+.bc-vjobs__toggle > * {
+  min-width: 0;
+}
+.bc-vjobs__label {
+  flex: 1 1 auto;
+}
+/* 收起的里有失败待处理的：靠右一枚警示图标 +「N 项待处理」，与失败行的图标、原因同色 */
+.bc-vjobs__pending {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  color: var(--bc-vc-err);
+  font-variant-numeric: tabular-nums;
+}
+.bc-vjobs__chev {
+  display: inline-flex;
+  flex: none;
+  color: var(--bc-vc-chev);
+}
+.bc-vjobs__pending svg,
+.bc-vjobs__chev svg {
+  --iconPrimary: currentColor;
+  fill: currentColor;
+}
+.bc-vjobs__earlier {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* 紧凑的历史行：头一行降到 12px，只留导出的文件名、失败原因与按钮 */
+.bc-vjob--compact {
+  padding: 8px 0;
+}
+.bc-vjob--compact .bc-vjob__name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--bc-vc-body);
+}
+
+/* ---------- 下载卡 ---------- */
+.bc-dlcard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 360px;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 12px 16px;
+  border: 1px solid var(--bc-vc-line);
+  border-radius: 10px;
+  background: var(--bc-vc-bg);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--bc-vc-muted);
+}
+.bc-dlcard__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.bc-dlcard__ic {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--bc-vc-ic-bg);
+  color: var(--bc-vc-live);
+}
+.bc-dlcard__ic svg {
+  --iconPrimary: currentColor;
+  fill: currentColor;
+}
+.bc-dlcard:is(.is-failed, .is-interrupted) .bc-dlcard__ic {
+  background: var(--bc-vc-ic-err-bg);
+  color: var(--bc-vc-err);
+}
+.bc-dlcard:is(.is-cancelled, .is-done) .bc-dlcard__ic {
+  background: var(--bc-vc-ic-idle-bg);
+  color: var(--bc-vc-muted);
+}
+.bc-dlcard__titles {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.bc-dlcard__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--bc-vc-text);
+}
+.bc-dlcard__name,
+.bc-dlcard__src {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bc-dlcard__src {
+  color: var(--bc-vc-faint);
+}
+.bc-dlcard__pct {
+  flex: none;
+  font-size: 14px;
+  color: var(--bc-vc-body);
+  font-variant-numeric: tabular-nums;
+}
+.bc-dlcard__line {
+  color: var(--bc-vc-body);
+  font-variant-numeric: tabular-nums;
+}
+.bc-dlcard__err {
+  color: var(--bc-vc-err);
+  font-weight: 600;
+}
+.bc-dlcard__hint {
+  color: var(--bc-vc-muted);
+}
+.bc-dlcard__file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}

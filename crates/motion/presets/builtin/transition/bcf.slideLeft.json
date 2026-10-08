@@ -1,0 +1,30 @@
+{
+  "id": "slideLeft",
+  "version": 1,
+  "domain": "transition",
+  "namespace": "bcf",
+  "order": 2,
+  "prop": "x",
+  "ease": "easeInOutCubic",
+  "out": {
+    "from": {
+      "value": 0.0,
+      "basis": "absolute"
+    },
+    "to": {
+      "value": -1.0,
+      "basis": "canvasWidth"
+    }
+  },
+  "in": {
+    "from": {
+      "value": 1.0,
+      "basis": "canvasWidth"
+    },
+    "to": {
+      "value": 0.0,
+      "basis": "absolute"
+    }
+  },
+  "determinism": "strict"
+}

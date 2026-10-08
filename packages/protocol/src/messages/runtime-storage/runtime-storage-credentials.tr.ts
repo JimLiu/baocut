@@ -1,0 +1,5 @@
+import type { RuntimeStorageCredentialsMessages } from './runtime-storage-credentials.ts';
+
+export const tr: RuntimeStorageCredentialsMessages = {
+denied: 'Erişim reddedildi', unavailable: 'Kimlik bilgisi deposu kullanılamıyor', unsupported: 'Bu platform sistemin güvenli depolamasını desteklemiyor', internal: 'Kimlik bilgisi okuma veya yazma hatası', problem: (p) => `${p.reason}: ${p.message}`, fileWriteFailed: (p) => `Kimlik bilgisi dosyası yazılamadı (${p.code})`, helperBadResponse: 'Kimlik bilgisi yardımcısı geçersiz yanıt döndürdü', helperNotFound: 'Kimlik bilgisi yardımcı programı bulunamadı', helperTimedOut: (p) => `Kimlik bilgisi yardımcısı ${p.seconds} saniyede yanıt vermedi`, helperMissing: 'Kimlik bilgisi yardımcı programı eksik', helperStartFailed: (p) => `Kimlik bilgisi yardımcısı başlatılamadı (${p.code})`, helperResponseTooLong: 'Kimlik bilgisi yardımcısının yanıtı çok uzun', helperExitedSilently: 'Kimlik bilgisi yardımcısı yanıt vermeden çıktı', helperReportedError: 'Kimlik bilgisi yardımcısı hata bildirdi', redacted: '[gizlendi]',
+};

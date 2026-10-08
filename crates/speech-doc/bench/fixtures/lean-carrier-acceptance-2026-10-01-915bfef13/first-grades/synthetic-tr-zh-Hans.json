@@ -1,0 +1,165 @@
+{
+  "diagnostics": {},
+  "issues": [],
+  "mode": "lean",
+  "pageRejected": false,
+  "retryIds": [],
+  "rows": [
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              3
+            ],
+            "tgt": [
+              0,
+              11
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              4,
+              6
+            ],
+            "tgt": [
+              11,
+              21
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "经理不批准第二版的话，",
+            "to": 3
+          },
+          {
+            "from": 4,
+            "text": "就别把文件发给塞林。",
+            "to": 6
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6"
+        ]
+      },
+      "chunks": 2,
+      "coarse": false,
+      "frozen": false,
+      "id": "tr-07",
+      "issues": [],
+      "locatedChunks": 2,
+      "minChunks": 1,
+      "n": 1,
+      "realTiming": false,
+      "source": "Müdür ikinci sürümü onaylamadıkça dosyayı Selin’e gönderme.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "经理不批准第二版的话，就别把文件发给塞林。"
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              3
+            ],
+            "tgt": [
+              0,
+              12
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              4,
+              8
+            ],
+            "tgt": [
+              12,
+              20
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "我们买了2.5公斤大米；",
+            "to": 3
+          },
+          {
+            "from": 4,
+            "text": "晚饭后剩了一半。",
+            "to": 8
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8"
+        ]
+      },
+      "chunks": 2,
+      "coarse": false,
+      "frozen": false,
+      "id": "tr-08",
+      "issues": [],
+      "locatedChunks": 2,
+      "minChunks": 1,
+      "n": 2,
+      "realTiming": false,
+      "source": "2,5 kilo pirinç aldık; akşam yemeğinden sonra yarısı kaldı.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "我们买了2.5公斤大米；晚饭后剩了一半。"
+    }
+  ],
+  "schema": "lean-carrier-grade/2",
+  "totals": {
+    "acceptedTranslations": 2,
+    "aligned": 2,
+    "chunks": 4,
+    "coarse": 0,
+    "expectedSentences": 2,
+    "locatedChunks": 4,
+    "sentencesWithAnchorIssues": 0,
+    "syntaxOrPermissionIssues": 0,
+    "translationRetries": 0
+  }
+}

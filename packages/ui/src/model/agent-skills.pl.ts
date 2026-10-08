@@ -1,0 +1,36 @@
+import { pluralForm } from '@baocut/protocol';
+import type { AgentSkillsMessages } from './agent-skills.ts';
+
+export const pl: AgentSkillsMessages = {
+  origin: { builtin: "Wbudowany", personal: "Moje", 'third-party': "Zewnętrzny" },
+  all: "Wszystko",
+  commit: (sha: string) => ` (${sha})`,
+  bytes: (n: number) => pluralForm('pl', n, { one: `${n} bajt`, few: `${n} bajty`, many: `${n} bajtów`, other: `${n} bajtu` }),
+  action: {
+    load: "wczytać Skills",
+    toggle: "przełączyć",
+    add: "dodać",
+    import: "zaimportować",
+    remove: "usunąć",
+    read: "otworzyć plik",
+    send: "wysłać",
+  },
+  exists: (id: string | null) => `Skill o nazwie „${id ?? 'this'}” już istnieje i nie zostanie nadpisany. Najpierw usuń poprzedni lub zmień nazwę folderu i dodaj ponownie.`,
+  invalid: (issue: string) => `Ten Skill jest nieprawidłowy: ${issue}. Folder główny wymaga SKILL.md zaczynającego się od name i description.`,
+  tooLarge: (files: number, total: string, skillFile: string) => `Ten Skill jest zbyt duży: maksymalna liczba plików – ${files}, łączny rozmiar – ${total}, a sam SKILL.md – najwyżej ${skillFile}.`,
+  githubNotFound: "Nie znaleziono repozytorium, gałęzi lub folderu na GitHub (mogą być prywatne). Sprawdź adres.",
+  folderNotFound: "Nie znaleziono folderu. Mógł zostać przeniesiony lub usunięty.",
+  urlInvalid: "Adres nierozpoznany. Użyj owner/repo lub https://github.com/owner/repo/tree/branch/folder.",
+  network: "Brak dostępu do GitHub. Sprawdź sieć i spróbuj ponownie.",
+  rateLimited: "Osiągnięto limit anonimowego dostępu GitHub. Spróbuj zaimportować później.",
+  offline: "Włączony ścisły tryb offline, import z GitHub niemożliwy.",
+  builtinNotRemovable: "Wbudowanych Skills nie można usunąć, ale można wyłączyć.",
+  notFound: "Tego Skill już nie ma; mógł zostać właśnie usunięty.",
+  fileNotFound: "Tego pliku już nie ma.",
+  fileTooLarge: "Plik jest zbyt duży do wyświetlenia. Możesz otworzyć go w folderze.",
+  fileNotText: "To nie plik tekstowy, więc nie jest tutaj wyświetlany.",
+  webNotAllowed: "Nie można tego zrobić w przeglądarce. Użyj aplikacji komputerowej BaoCut.",
+  webReadOnly: "Ta sesja przeglądarki jest tylko do odczytu, zmiany są niemożliwe.",
+  failed: (action: string, raw: string) => `Nie udało się ${action}: ${raw}`,
+  sendFailed: (raw: string) => `Nie udało się wysłać: ${raw}`,
+};

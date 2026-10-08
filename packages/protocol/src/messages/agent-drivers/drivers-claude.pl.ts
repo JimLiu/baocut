@@ -1,0 +1,26 @@
+import type { DriversClaudeMessages } from './drivers-claude.ts';
+
+export const pl: DriversClaudeMessages = {
+  plan: "Subskrypcja Claude Pro lub Max",
+  installHint: "Zainstaluj Claude Code",
+  signedOut: "Claude Code nie jest zalogowany. Uruchom claude w terminalu i postępuj zgodnie z instrukcjami logowania.",
+  subscriptionPro: "Subskrypcja Claude Pro",
+  subscriptionMax: "Subskrypcja Claude Max",
+  subscriptionTeam: "Subskrypcja Claude Team",
+  subscriptionEnterprise: "Subskrypcja Claude Enterprise",
+  providerAnthropicAws: "Anthropic (AWS)",
+  providerAnthropicGoogleCloud: "Anthropic (Google Cloud)",
+  enterpriseGateway: "Brama firmowa",
+  claudeAccount: "Konto Claude",
+  longLivedToken: "Subskrypcja Claude (długotrwały token)",
+  apiKey: "Klucz API Anthropic",
+  thirdPartyCloud: "Chmura zewnętrzna",
+  fromSettings: (p) => `Z ustawień Claude Code (env.${p.key})`,
+  imageUnsupported: (p) => `Claude nie obsługuje tego formatu obrazu: ${p.mimeType} (obsługiwane: JPEG, PNG, GIF, WebP)`,
+  defaultModel: "model domyślny",
+  switchModelFailed: (p) => `Claude nie przełączył modelu (${p.model}): ${p.error}`,
+  autoUnsupported: (p) => `${p.model ? `Model ${p.model}` : "Obecny model"} nie obsługuje trybu uprawnień Claude „auto”${p.reason ? ` (${p.reason})` : ""}. Ta tura działa w trybie „pytaj za każdym razem” i pyta przed działaniem.`,
+  apiRetry: (p) => `Błąd API Claude (${p.error}); ponowna próba ${p.attempt}/${p.max}`,
+  turnFailed: (p) => `Tura Claude Code nie powiodła się (${p.subtype})`,
+  exitedPlanMode: (p) => `Claude Code opuścił tryb planowania z zatwierdzonym planem i rozpocznie zmiany. Dopóki tryb dostępu to „${p.plan}”, te zmiany będą odrzucane. Aby kontynuować, zmień tryb dostępu na „${p.edit}” lub inny poziom.`,
+};

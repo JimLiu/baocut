@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "id": "game-trailer",
+  "version": "1.1.0",
+  "kind": "example",
+  "title": "原创游戏预告",
+  "summary": "为一款原创游戏做一条开头就抓人的精致预告。",
+  "description": "从世界观、角色到玩法，用几组快速镜头交代一款原创游戏，头两秒就给出钩子，适合发布到社交平台。",
+  "language": "zh-CN",
+  "category": "creative-short",
+  "fields": [
+    {
+      "label": "游戏类型",
+      "hint": "什么类型、什么风格的游戏",
+      "example": "像素风太空探险"
+    },
+    {
+      "label": "成片语言",
+      "hint": "画面文字与旁白用的语言"
+    }
+  ],
+  "author": "BaoCut",
+  "source": "official",
+  "license": "LicenseRef-BaoCut-Community-1.0",
+  "tags": [
+    "游戏",
+    "预告片",
+    "原创"
+  ],
+  "skills": [
+    "video-production"
+  ],
+  "cover": {
+    "file": "cover.jpg",
+    "tone": "indigo",
+    "figure": "cards",
+    "kicker": "TRAILER"
+  },
+  "preview": {
+    "file": "preview.mp4",
+    "beats": [
+      "两秒钩子",
+      "世界观与角色",
+      "玩法高光",
+      "游戏名与标语"
+    ]
+  },
+  "verification": {
+    "date": "2026-10-04",
+    "version": "1.0.0",
+    "engine": "codex",
+    "input": "按提示词原样，末尾附一段测试环境说明：成片语言用中文；没有配置语音合成、配乐、音效与视频生成，遇到没有配置的能力跳过并在最后说明；现有编辑操作做不出的画面可以直接渲染成视频文件再导入时间线。一轮完成，没有追问。",
+    "materials": [],
+    "capabilities": [
+      "synthesizeSpeech",
+      "generateMusic",
+      "generateSoundEffect"
+    ],
+    "outcome": "pass",
+    "output": {
+      "ratio": "9:16",
+      "durationSeconds": 24
+    },
+    "notes": "确认：智能体没有追问，原创了一款幻想冒险游戏（倒悬之海、拾灯的主角、记忆之城），用图片生成做了四张统一美术的关键画面（其中一张是六格概念图，切开后分镜使用），再用本机脚本给每个镜头加推拉、横移、闪切与光晕，渲染十个镜头首尾相接放上时间线，并自己导出成片。模板没有规定画幅，它按「发布到社交平台」选了 9:16、24 秒。开场第一帧就是悬念问句配倒悬海城；中段依次交代世界、角色与三种玩法；最后约 5 秒停在游戏名与一句标语上；画面里没有进度条；中文字幕完整。配乐、音效与旁白都是可选项，因为没有能力跳过，并告诉了用户；动态全靠静帧运镜。疑似：一个角色特写镜头推得过近，人物脸部被裁出画面上缘。预览与封面取自 BaoCut 导出的成片。模板文案未改。"
+  }
+}

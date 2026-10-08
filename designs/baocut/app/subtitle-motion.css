@@ -1,0 +1,6 @@
+.submotion-preview { display: block; position: relative; width: 100%; min-width: 120px; overflow: hidden; }
+.submotion-fallback { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; }
+/* @ds-allow: subtitle specimen backdrop, not application chrome. */
+.submotion-preview--sample { background: #191e28; }
+
+.submotion-preview--stage { overflow: visible; }

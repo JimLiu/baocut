@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; padding: 0; overflow: hidden; }
+  #root { position: relative; width: 1280px; height: 720px; }
+  #box { position: absolute; left: 0; top: 310px; width: 100px; height: 100px; background: #e4572e; border-radius: 12px; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-width="1280" data-height="720" data-fps="30" data-duration="2">
+  <div id="box"></div>
+</div>
+<script>
+  // Minimal seekable timeline: the picture is a pure function of time.
+  var DURATION = 2;
+  function renderScene(time) {
+    var p = Math.min(Math.max(time / DURATION, 0), 1);
+    var box = document.getElementById('box');
+    box.style.transform = 'translateX(' + (p * 1180).toFixed(3) + 'px) rotate(' + (p * 180).toFixed(3) + 'deg)';
+    box.style.opacity = String(0.4 + 0.6 * p);
+  }
+  function SeekableTimeline(duration, render) {
+    this._duration = duration;
+    this._time = 0;
+    this._render = render;
+    this._paused = true;
+    this.timeScale = 1;
+    render(0);
+  }
+  SeekableTimeline.prototype.duration = function () { return this._duration; };
+  SeekableTimeline.prototype.seek = function (t) {
+    this._time = Math.min(Math.max(Number(t) || 0, 0), this._duration);
+    this._render(this._time);
+    return this;
+  };
+  SeekableTimeline.prototype.time = function () { return this._time; };
+  SeekableTimeline.prototype.progress = function (value) {
+    if (value === undefined) return this._time / this._duration;
+    return this.seek(value * this._duration);
+  };
+  SeekableTimeline.prototype.pause = function () { this._paused = true; return this; };
+  SeekableTimeline.prototype.play = function () { this._paused = false; return this; };
+
+  var tl = new SeekableTimeline(DURATION, renderScene);
+  window.__timelines = window.__timelines || {};
+  window.__timelines.main = tl;
+</script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+# resvg 0.45.1 with six BaoCut patches; see README.md. Upstream license and edition are kept.
+[package]
+name = "bcut-resvg"
+version = "0.45.1"
+edition = "2021"
+rust-version = "1.67.1"
+description = "resvg 0.45.1 with BaoCut's layer-clamp, filter-region and displacement-map fixes."
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/linebender/resvg"
+publish = false
+
+[lib]
+name = "resvg"
+path = "src/lib.rs"
+
+[features]
+default = ["text", "system-fonts", "memmap-fonts", "raster-images"]
+memmap-fonts = ["usvg/memmap-fonts"]
+raster-images = ["gif", "image-webp", "dep:zune-jpeg"]
+system-fonts = ["usvg/system-fonts"]
+text = ["usvg/text"]
+
+[dependencies]
+gif = { version = "0.13", optional = true }
+image-webp = { version = "0.2.0", optional = true }
+log = "0.4"
+rgb = "0.8"
+svgtypes = "0.15.3"
+tiny-skia = "0.11.4"
+usvg = { version = "0.45.1", default-features = false }
+zune-jpeg = { version = "0.4", optional = true }
+
+[dev-dependencies]
+# Parity gate: ordinary documents must render byte-identical to the crate we patched.
+upstream = { package = "resvg", version = "=0.45.1", default-features = false }

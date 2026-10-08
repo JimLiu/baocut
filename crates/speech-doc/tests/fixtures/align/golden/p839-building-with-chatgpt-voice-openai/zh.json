@@ -1,0 +1,417 @@
+{
+  "schema": "bcut-align-golden/1",
+  "project": "p839-building-with-chatgpt-voice-openai",
+  "lang": "zh",
+  "cases": [
+    {
+      "id": "p839-zh-001",
+      "sentenceId": "s-g1.0",
+      "sourceWords": ["Hey,", "Chat,", "put", "yourself", "on", "the", "projector."],
+      "target": "嘿，Chat，把画面投到投影仪上。",
+      "tags": ["proper-noun", "1:1", "N:1"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 2]},
+        {"src": [1, 2], "tgt": [2, 7]},
+        {"src": [2, 4], "tgt": [7, 11]},
+        {"src": [4, 7], "tgt": [11, 17]}
+      ],
+      "hardAnchors": [
+        {"src": 1, "tgt": [2, 6]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 4}
+    },
+    {
+      "id": "p839-zh-002",
+      "sentenceId": "s-g2.0",
+      "sourceWords": ["Play", "my", "day", "list."],
+      "target": "播放我的每日清单。",
+      "tags": ["1:1", "N:1"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 2]},
+        {"src": [1, 2], "tgt": [2, 4]},
+        {"src": [2, 4], "tgt": [4, 9]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p839-zh-003",
+      "sentenceId": "s-g2.4",
+      "sourceWords": ["One"],
+      "target": "稍等",
+      "tags": ["1:1"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 2]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 1}
+    },
+    {
+      "id": "p839-zh-004",
+      "sentenceId": "s-g2.5",
+      "sourceWords": ["moment."],
+      "target": "一下。",
+      "tags": ["1:1"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 3]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 1}
+    },
+    {
+      "id": "p839-zh-005",
+      "sentenceId": "s-wmry60xib-3",
+      "sourceWords": ["So,", "we", "got", "to", "prepare", "some", "launch,", "materials", "for", "the", "voice", "launch", "next", "week."],
+      "target": "所以，我们得为下周的语音发布准备一些发布材料。",
+      "tags": ["attributive-reorder", "N:M", "omission"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 3]},
+        {"src": [1, 2], "tgt": [3, 5]},
+        {"src": [2, 14], "tgt": [5, 23]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p839-zh-006",
+      "sentenceId": "s-g3.14",
+      "sourceWords": ["Could", "you", "help", "us", "draft", "some", "blog", "posts?"],
+      "target": "能帮我们起草几篇博客吗？",
+      "tags": ["1:1", "N:1", "addition"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 1]},
+        {"src": [2, 4], "tgt": [1, 4]},
+        {"src": [4, 5], "tgt": [4, 6]},
+        {"src": [5, 8], "tgt": [6, 12]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 4}
+    },
+    {
+      "id": "p839-zh-007",
+      "sentenceId": "s-g3.22",
+      "sourceWords": ["Absolutely."],
+      "target": "当然。",
+      "tags": ["1:1"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 3]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 1}
+    },
+    {
+      "id": "p839-zh-008",
+      "sentenceId": "s-g3.23",
+      "sourceWords": ["A", "simple", "first", "pass:", "“Meet", "Voice", "in", "the", "desktop", "app."],
+      "target": "先来个简单的初稿：“在桌面应用里认识 Voice。",
+      "tags": ["attributive-reorder", "N:M", "proper-noun", "number"],
+      "beads": [
+        {"src": [0, 4], "tgt": [0, 9]},
+        {"src": [4, 10], "tgt": [9, 25]}
+      ],
+      "hardAnchors": [
+        {"src": 5, "tgt": [19, 24]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p839-zh-009",
+      "sentenceId": "s-g4.0",
+      "sourceWords": ["Voice", "makes", "it", "easier", "to", "move", "work,", "forward", "naturally,", "but", "use", "your", "computer", "without", "breaking,", "flow.”"],
+      "target": "Voice 让工作更自然地向前推进，同时使用电脑而不打断心流。”",
+      "tags": ["proper-noun", "negation", "N:M", "attributive-reorder"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 6]},
+        {"src": [1, 2], "tgt": [6, 7]},
+        {"src": [2, 9], "tgt": [7, 18]},
+        {"src": [9, 13], "tgt": [18, 24]},
+        {"src": [13, 16], "tgt": [24, 32]}
+      ],
+      "hardAnchors": [
+        {"src": 0, "tgt": [0, 5]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 5}
+    },
+    {
+      "id": "p839-zh-010",
+      "sentenceId": "s-g5.7",
+      "sourceWords": ["Let's", "ship"],
+      "target": "我们就发布",
+      "tags": ["1:1"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 3]},
+        {"src": [1, 2], "tgt": [3, 5]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p839-zh-011",
+      "sentenceId": "s-g6.0",
+      "sourceWords": ["I", "got", "this", "feature", "idea", "for,", "like,", "some", "last-minute", "polish", "we", "can", "do."],
+      "target": "我有个功能点子，关于我们能做的最后关头的润色。",
+      "tags": ["attributive-reorder", "term", "N:M", "omission"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 2]},
+        {"src": [2, 5], "tgt": [2, 8]},
+        {"src": [5, 7], "tgt": [8, 10]},
+        {"src": [7, 13], "tgt": [10, 23]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 4}
+    },
+    {
+      "id": "p839-zh-012",
+      "sentenceId": "s-g6.14",
+      "sourceWords": ["I'm", "gonna", "ramble", "a", "little", "bit,", "and", "then", "I", "want", "you", "to", "ask", "me", "some,", "questions", "and", "push", "back", "on", "me."],
+      "target": "我会先随口讲一点，然后请你问我一些问题，并且反驳我。",
+      "tags": ["1:N", "N:1", "omission"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 6]},
+        {"src": [3, 6], "tgt": [6, 9]},
+        {"src": [6, 12], "tgt": [9, 13]},
+        {"src": [12, 16], "tgt": [13, 20]},
+        {"src": [16, 21], "tgt": [20, 26]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 5}
+    },
+    {
+      "id": "p839-zh-013",
+      "sentenceId": "s-g6.35",
+      "sourceWords": ["It", "looks", "like", "we", "can", "get", "pretty", "far,", "just", "inside", "the", "shader,", "since", "it", "already", "has", "the", "audio,", "and", "phase"],
+      "target": "看来我们只在着色器里就能做得挺远，因为它已经有音频和相位",
+      "tags": ["causal-inversion", "attributive-reorder", "term", "N:M"],
+      "beads": [
+        {"src": [0, 3], "tgt": [0, 2]},
+        {"src": [3, 4], "tgt": [2, 4]},
+        {"src": [4, 12], "tgt": [4, 17]},
+        {"src": [12, 13], "tgt": [17, 19]},
+        {"src": [13, 18], "tgt": [19, 25]},
+        {"src": [18, 20], "tgt": [25, 28]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 6}
+    },
+    {
+      "id": "p839-zh-014",
+      "sentenceId": "s-g6.55",
+      "sourceWords": ["inputs."],
+      "target": "输入。",
+      "tags": ["1:1", "term"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 3]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 1}
+    },
+    {
+      "id": "p839-zh-015",
+      "sentenceId": "s-g6.56",
+      "sourceWords": ["Codex,", "could", "you", "go", "check", "the", "feature", "flags", "and,", "make", "sure", "they're", "all", "configured", "properly?"],
+      "target": "Codex，你能去检查一下功能开关，确保它们都配置正确吗？",
+      "tags": ["proper-noun", "term", "1:1", "addition"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 6]},
+        {"src": [1, 4], "tgt": [6, 9]},
+        {"src": [4, 8], "tgt": [9, 18]},
+        {"src": [8, 11], "tgt": [18, 20]},
+        {"src": [11, 15], "tgt": [20, 29]}
+      ],
+      "hardAnchors": [
+        {"src": 0, "tgt": [0, 5]}
+      ],
+      "expected": {"correspondence": "block", "minBlocks": 5}
+    },
+    {
+      "id": "p839-zh-016",
+      "sentenceId": "s-g7.9",
+      "sourceWords": ["Wait,", "there's", "also", "a", "new", "bug,", "report", "in", "the", "feedback", "channel."],
+      "target": "等等，反馈频道里还有一份新的 Bug 报告。",
+      "tags": ["attributive-reorder", "N:M", "term"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 3]},
+        {"src": [1, 11], "tgt": [3, 22]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p839-zh-017",
+      "sentenceId": "s-g7.20",
+      "sourceWords": ["Can", "you", "spin", "up", "a", "new", "thread,", "make", "a", "pull", "request,", "find", "the", "root", "cause,", "and", "let", "me", "take", "a"],
+      "target": "你能新开一个线程，提一个拉取请求，找到根因，然后让我看一",
+      "tags": ["1:1", "term", "N:1"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 2]},
+        {"src": [2, 7], "tgt": [2, 9]},
+        {"src": [7, 11], "tgt": [9, 17]},
+        {"src": [11, 15], "tgt": [17, 22]},
+        {"src": [15, 20], "tgt": [22, 28]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 5}
+    },
+    {
+      "id": "p839-zh-018",
+      "sentenceId": "s-wmry60xin-25",
+      "sourceWords": ["look?"],
+      "target": "眼？",
+      "tags": ["1:1"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 2]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 1}
+    },
+    {
+      "id": "p839-zh-019",
+      "sentenceId": "s-g7.40",
+      "sourceWords": ["Ah,", "found", "it."],
+      "target": "啊，找到了。",
+      "tags": ["1:1", "omission"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 2]},
+        {"src": [1, 3], "tgt": [2, 6]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p839-zh-020",
+      "sentenceId": "s-g7.43",
+      "sourceWords": ["It", "was", "that", "feature", "flag,", "totally", "misconfigured."],
+      "target": "原来是那个功能开关完全配错了。",
+      "tags": ["hard-negative", "term", "1:1", "negation"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 3]},
+        {"src": [2, 5], "tgt": [3, 9]},
+        {"src": [5, 7], "tgt": [9, 15]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3, "hardNegativeOf": "p839-zh-016"}
+    },
+    {
+      "id": "p839-zh-021",
+      "sentenceId": "s-wmry60xio-28",
+      "sourceWords": ["Happens."],
+      "target": "难免的。",
+      "tags": ["1:1"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 4]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 1}
+    },
+    {
+      "id": "p839-zh-022",
+      "sentenceId": "s-wmry60xip-29",
+      "sourceWords": ["We've", "got", "everything", "set", "for", "launch,", "right?"],
+      "target": "我们发布要用的都准备好了，对吧？",
+      "tags": ["hard-negative", "attributive-reorder", "N:M"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 2]},
+        {"src": [2, 6], "tgt": [2, 13]},
+        {"src": [6, 7], "tgt": [13, 16]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3, "hardNegativeOf": "p839-zh-005"}
+    },
+    {
+      "id": "p839-zh-023",
+      "sentenceId": "s-g8.12",
+      "sourceWords": ["Yeah,", "I", "think", "we're", "ready", "to"],
+      "target": "对，我觉得我们可以",
+      "tags": ["1:1", "N:1"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 2]},
+        {"src": [1, 3], "tgt": [2, 5]},
+        {"src": [3, 6], "tgt": [5, 9]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 3}
+    },
+    {
+      "id": "p839-zh-024",
+      "sentenceId": "s-g8.18",
+      "sourceWords": ["go."],
+      "target": "开始了。",
+      "tags": ["1:1"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 4]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 1}
+    },
+    {
+      "id": "p839-zh-025",
+      "sentenceId": "s-g8.19",
+      "sourceWords": ["You", "get", "the", "idea."],
+      "target": "你懂我的意思。",
+      "tags": ["1:1", "addition"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 1]},
+        {"src": [1, 4], "tgt": [1, 7]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p839-zh-026",
+      "sentenceId": "s-g8.23",
+      "sourceWords": ["Just", "set", "a", "goal", "and,", "then", "tag", "the", "team", "for", "review", "later."],
+      "target": "只要设个目标，然后标记团队稍后审核。",
+      "tags": ["attributive-reorder", "1:1", "N:1"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 2]},
+        {"src": [1, 4], "tgt": [2, 6]},
+        {"src": [4, 6], "tgt": [6, 9]},
+        {"src": [6, 9], "tgt": [9, 13]},
+        {"src": [9, 12], "tgt": [13, 18]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 5}
+    },
+    {
+      "id": "p839-zh-027",
+      "sentenceId": "s-g8.35",
+      "sourceWords": ["I'll", "check", "in", "with", "you", "from", "my", "phone."],
+      "target": "我会用手机跟你同步。",
+      "tags": ["attributive-reorder", "N:M"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 2]},
+        {"src": [1, 8], "tgt": [2, 10]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 2}
+    },
+    {
+      "id": "p839-zh-028",
+      "sentenceId": "s-g8.43",
+      "sourceWords": ["Got", "it."],
+      "target": "明白。",
+      "tags": ["N:1"],
+      "beads": [
+        {"src": [0, 2], "tgt": [0, 3]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 1}
+    },
+    {
+      "id": "p839-zh-029",
+      "sentenceId": "s-g8.45",
+      "sourceWords": ["I'll", "create", "a", "follow-up", "goal", "for", "that,", "and", "then", "just,", "you", "know,", "make", "no", "mistakes."],
+      "target": "我会为此创建一个后续目标，然后，你懂的，不出错。",
+      "tags": ["attributive-reorder", "negation", "omission", "N:M"],
+      "beads": [
+        {"src": [0, 1], "tgt": [0, 2]},
+        {"src": [1, 7], "tgt": [2, 13]},
+        {"src": [7, 9], "tgt": [13, 16]},
+        {"src": [9, 12], "tgt": [16, 20]},
+        {"src": [12, 15], "tgt": [20, 24]}
+      ],
+      "hardAnchors": [],
+      "expected": {"correspondence": "block", "minBlocks": 5}
+    }
+  ]
+}

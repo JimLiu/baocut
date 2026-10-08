@@ -1,0 +1,54 @@
+{
+  "id": "elSlideBounceUp",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "exit",
+  "order": 43,
+  "duration": 0.6,
+  "curve": {
+    "kind": "named",
+    "name": "linear"
+  },
+  "mirror": null,
+  "from": {},
+  "keyframes": [
+    {
+      "at": 0
+    },
+    {
+      "at": 0.8,
+      "ease": "easeInQuart",
+      "dy": -0.55
+    },
+    {
+      "at": 0.85,
+      "ease": "easeInQuart",
+      "dy": -0.475
+    },
+    {
+      "at": 0.9,
+      "ease": "easeInQuart",
+      "dy": -0.525
+    },
+    {
+      "at": 0.95,
+      "ease": "easeInQuart",
+      "dy": -0.49375,
+      "opacity": 0.5
+    },
+    {
+      "at": 1,
+      "ease": "easeInQuart",
+      "dy": -0.5,
+      "opacity": 0.0
+    }
+  ],
+  "basis": {
+    "dx": "selfWidth",
+    "dy": "selfHeight"
+  },
+  "surface": "element",
+  "determinism": "strict",
+  "available": true
+}

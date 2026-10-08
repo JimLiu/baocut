@@ -1,0 +1,11 @@
+/* 网页标签里样式宏表达不了的部分：地址栏静止时网址居中（原型 home-workspace.css `.home-browser__address.is-resting input`）。 */
+.bc-web-address.is-resting input {
+  text-align: center;
+}
+
+/* 新标签页起始页的「工具」卡片网格（原型 home-workspace.css `.home-browser__tool-grid`）：自适应列数的网格写在这里。 */
+.bc-web-tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}

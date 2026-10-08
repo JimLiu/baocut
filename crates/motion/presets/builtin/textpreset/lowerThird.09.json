@@ -1,0 +1,151 @@
+{
+  "id": "lowerThird.09",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "lowerThird",
+  "order": 309,
+  "duration": 3.6,
+  "content": [
+    {
+      "kind": "shape",
+      "place": {
+        "x": 15.94,
+        "y": 61.2,
+        "w": 24.15
+      },
+      "shape": {
+        "shape": "rect",
+        "fill": "#ffffffff",
+        "h": 8.86
+      },
+      "animate": {
+        "enter": {
+          "preset": "wipe",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "wipe",
+          "dur": 0.63
+        }
+      }
+    },
+    {
+      "kind": "shape",
+      "place": {
+        "x": 15.96,
+        "y": 69.87,
+        "w": 24.2
+      },
+      "shape": {
+        "shape": "rect",
+        "fill": "#5544cc",
+        "h": 8.85
+      },
+      "delay": 0.03,
+      "animate": {
+        "enter": {
+          "preset": "wipe",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "wipe",
+          "dur": 0.63
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 16.18,
+        "y": 61.0,
+        "w": 21.03
+      },
+      "text": "ROBERT\nHENDERSON",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#5544ccff",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 17.6,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 0.85,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "delay": 0.2,
+      "animate": {
+        "enter": {
+          "preset": "slideR",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "slideL",
+          "dur": 0.63
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 16.42,
+        "y": 69.81,
+        "w": 21.41
+      },
+      "text": "PRODUCT MANAGER\nWTC PRODUCTION",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#ffffffff",
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": 10.8,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.0,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "delay": 0.2,
+      "animate": {
+        "enter": {
+          "preset": "rise",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.73
+        }
+      }
+    }
+  ]
+}

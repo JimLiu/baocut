@@ -1,0 +1,25 @@
+import type { ModelsGenerationOptionsMessages } from './generation-options.ts';
+
+export const de: ModelsGenerationOptionsMessages = {
+  notLocalOnly: (p: { modelId: string; key: string }) => `Modell ${p.modelId} unterstützt nicht ${p.key} (nur lokale Modelle unterstützen dies)`,
+  textEmpty: "Text darf nicht leer sein",
+  textTooLong: (p: { length: number; modelId: string; limit: number }) => `Der Text enthält ${p.length} Zeichen, mehr als das Limit von ${p.limit} Zeichen pro Aufruf des Modells ${p.modelId}. In Teilen einreichen.`,
+  noDefaultVoice: (p: { modelId: string }) => `Modell ${p.modelId} hat keine Standardstimme; voice angeben`,
+  noSuchVoice: (p: { modelId: string; voice: string }) => `Modell ${p.modelId} hat keine Stimme ${p.voice}`,
+  badLanguageTag: (p: { tag: string }) => `Kein gültiger BCP 47-Sprachtag: ${p.tag}`,
+  languageUnsupported: (p: { modelId: string; language: string }) => `Modell ${p.modelId} unterstützt nicht die Sprache ${p.language}`,
+  formatUnsupported: (p: { modelId: string; format: string }) => `Modell ${p.modelId} gibt nicht aus: ${p.format}`,
+  noInstructions: (p: { modelId: string }) => `Modell ${p.modelId} unterstützt keine Tonanweisungen (instructions)`,
+  noSpeed: (p: { modelId: string }) => `Modell ${p.modelId} unterstützt keine Sprechgeschwindigkeit (speed)`,
+  speedRange: (p: { min: number; max: number }) => `Die Sprechgeschwindigkeit muss liegen zwischen ${p.min} und ${p.max}`,
+  knobUnsupported: (p: { modelId: string; key: string }) => `Modell ${p.modelId} unterstützt nicht ${p.key}`,
+  knobRange: (p: { key: string; min: number; max: number }) => `${p.key} muss liegen zwischen ${p.min} und ${p.max}`,
+  promptEmpty: "Prompt darf nicht leer sein",
+  promptTooLong: (p: { length: number; modelId: string; limit: number }) => `Der Prompt enthält ${p.length} Zeichen, mehr als das Limit von ${p.limit} Zeichen des Modells ${p.modelId}`,
+  aspectUnsupported: (p: { modelId: string; ratio: string }) => `Modell ${p.modelId} unterstützt nicht das Seitenverhältnis ${p.ratio}`,
+  sizeUnsupported: (p: { modelId: string; size: string }) => `Modell ${p.modelId} unterstützt nicht die Größe ${p.size}`,
+  maxCount: (p: { modelId: string; max: number }) => `Modell ${p.modelId} erzeugt höchstens ${p.max} Bilder gleichzeitig`,
+  noSteps: (p: { modelId: string }) => `Modell ${p.modelId} unterstützt keine steps (nur lokale Modelle unterstützen dies)`,
+  stepsRange: (p: { min: number; max: number }) => `steps muss eine ganze Zahl sein zwischen ${p.min} und ${p.max}`,
+  noSeed: (p: { modelId: string }) => `Modell ${p.modelId} unterstützt keinen seed`,
+};

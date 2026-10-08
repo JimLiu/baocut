@@ -1,0 +1,138 @@
+{
+  "id": "other.05",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "other",
+  "order": 405,
+  "duration": 5.0,
+  "content": [
+    {
+      "kind": "text",
+      "place": {
+        "x": 50.0,
+        "y": 40.48,
+        "w": 80.0
+      },
+      "text": "THANKS FOR",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#000000",
+        "fontFamily": "Archivo Black",
+        "fontSize": 32.4,
+        "fontStyle": "normal",
+        "fontWeight": "normal",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.2,
+        "letterSpacing": 0.0,
+        "textAlign": "center",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "animate": {
+        "enter": {
+          "preset": "drop",
+          "dur": 0.6
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 50.0,
+        "y": 52.47,
+        "w": 80.0
+      },
+      "text": "WATCHING",
+      "style": {
+        "backgroundColor": "#ff0800",
+        "backgroundPadding": 13.5,
+        "backgroundStyle": "block",
+        "borderRadius": 0.0,
+        "fontColor": "#FFFFFF",
+        "fontFamily": "Archivo Black",
+        "fontSize": 54.0,
+        "fontStyle": "normal",
+        "fontWeight": "normal",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.2,
+        "letterSpacing": 0.0,
+        "textAlign": "center",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "delay": 0.4,
+      "animate": {
+        "enter": {
+          "preset": "pop",
+          "dur": 0.6
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 50.0,
+        "y": 62.0,
+        "w": 80.0
+      },
+      "text": "LIKE, COMMENT AND SUBSCRIBE",
+      "style": {
+        "backgroundColor": "#f5f000",
+        "backgroundPadding": 3.6,
+        "backgroundStyle": "block",
+        "borderRadius": 4.4,
+        "fontColor": "#000000",
+        "fontFamily": "Roboto",
+        "fontSize": 14.6,
+        "fontStyle": "normal",
+        "fontWeight": "bold",
+        "italic": false,
+        "underline": false,
+        "lineHeight": 1.2,
+        "letterSpacing": 0.0,
+        "textAlign": "center",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "delay": 1.8,
+      "animate": {
+        "enter": {
+          "preset": "rise",
+          "dur": 0.6
+        }
+      }
+    }
+  ]
+}

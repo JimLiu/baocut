@@ -1,0 +1,160 @@
+const words = (n: number) => pluralForm('pl', n, { one: `${n} słowo`, few: `${n} słowa`, many: `${n} słów`, other: `${n} słowa` });
+import { pluralForm } from '@baocut/protocol';
+import type { TranscriptMessages, TranscriptToolsMessages } from './transcript-copy.ts';
+
+
+function secondsLabel(seconds: number): string { return (seconds < 10 ? (Math.round(seconds * 10) / 10).toLocaleString('pl', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : Math.round(seconds).toLocaleString('pl')) + ' s'; }
+
+export const plSeconds = secondsLabel;
+
+export const plTranscript: TranscriptMessages = {
+  title: "Transkrypcja",
+  modes: "Tryb edycji transkrypcji",
+  modeEdit: "Edytuj tekst",
+  modeCut: "Wytnij multimedia",
+
+  hintEdit: "Zmienia tylko tekst transkrypcji, wideo i audio bez zmian. Kliknij słowo dwa razy, aby edytować; ⌫ usuwa tylko tekst.",
+  hintCut: "Zaznacz tekst i naciśnij ⌫, aby wyciąć razem z wideo, audio i napisów. Wycięte słowa przekreślone, można przywrócić.",
+
+  emptyTitle: "Nie ma jeszcze transkrypcji",
+  emptyNoMedia: "Najpierw dodaj wideo lub audio. Po transkrypcji wypowiedziane słowa pojawią się tutaj.",
+  emptyNotPlaced: "Wideo lub audio jeszcze poza osią czasu. Umieść i transkrybuj, tekst pojawi się tutaj.",
+  emptyNotTranscribed: "Materiały osi czasu jeszcze nietranskrybowane. Transkrybuj w panelu „Napisy”, tekst pojawi się tutaj.",
+  gotoSubtitle: "Transkrybuj w napisach",
+  addMedia: "Dodaj multimedia",
+  loading: "Wczytywanie transkrypcji…",
+  noWords: "Transkrypcja nie ma słów do pokazania.",
+  notSpeech: "Format transkrypcji nierozpoznany.",
+
+
+  stats: (count: number, cut: number) => (cut ? `${words(count)} · ${cut} wycięte` : words(count)),
+  jump: "Przejdź tutaj",
+  cutWordTitle: "Wycięte z osi czasu",
+  partialWordTitle: "Cięcie wewnątrz słowa; tylko część pozostała na osi czasu",
+
+  selected: (count: number, seconds: number | null) => seconds === null ? `${words(count)} wybrano` : `${words(count)} wybrano · ${secondsLabel(seconds)}`,
+  cut: "Cięcie",
+  restore: "Przywróć",
+  editWord: "Edytuj słowo",
+  deleteText: "Usuń tekst",
+  clear: "Odznacz · Esc",
+  aiFind: "Znajdź cięcia",
+  aiFindHint: "Lub najpierw zleć AI znalezienie wypełniaczy i pauz",
+
+  cutDone: (seconds: number, ranges: number) => ranges > 1 ? `Wycięcie ${secondsLabel(seconds)} · ${ranges} zakresów` : `Wycięcie ${secondsLabel(seconds)}`,
+  cutNothing: "Wybranych słów nie ma już na osi czasu, nie ma czego wyciąć.",
+  cutTooShort: "Zaznaczenie krótsze niż klatka, nie można wyciąć.",
+  restoreDone: (seconds: number) => `Przywrócono: ${secondsLabel(seconds)}`,
+  restoreNotRelaid: "Część cięć nie ma połączenia na osi czasu. Usunięto z listy, ale treści nie przywrócono.",
+  restoreRefused: {
+    untracked: "Zakres usunięto nie cięciem (np. przycięto krawędzią klipu), brak cięcia do przywrócenia. Przeciągnij krawędź na osi czasu, aby przywrócić.",
+    partial: "Wycięto tylko część zakresu, nie można zmienić zakresu. Najpierw kliknij pas cięcia, aby przywrócić.",
+  },
+  textSaved: "Tekst zaktualizowany · wideo i audio bez zmian",
+  textDeleted: (count: number) => `Usunięto tekst: ${words(count)} · wideo i audio bez zmian`,
+
+  stale: (count: number) => pluralForm('pl', count, { one: `${count} ścieżka napisów powstała ze starszej transkrypcji i nie została zaktualizowana.`, few: `${count} ścieżki napisów powstały ze starszej transkrypcji i nie zostały zaktualizowane.`, many: `${count} ścieżek napisów powstało ze starszej transkrypcji i nie zostało zaktualizowanych.`, other: `${count} ścieżki napisów powstało ze starszej transkrypcji i nie zostało zaktualizowane.` }),
+  gotoCaptions: "Otwórz napisy",
+  undo: "Cofnij",
+
+  seamLabel: (seconds: number) => `Wycięcie ${secondsLabel(seconds)} · kliknij, aby przywrócić`,
+  cutLabel: "Wytnij w transkrypcji",
+  restoreLabel: "Przywróć wyciętą treść",
+  liveCopy: "Kopiuj dotychczasową transkrypcję",
+  liveCopied: "Skopiowano dotychczasową transkrypcję · transkrypcja trwa",
+  liveSpeaker: "Rozpoznawanie",
+  liveWaiting: "Rozpoznany tekst pojawia się tutaj na bieżąco. Niektóre usługi zwracają całość dopiero na końcu.",
+  liveNote: "Rozpoznany tekst pojawia się akapit po akapicie. Edycja będzie możliwa po zakończeniu transkrypcji.",
+  liveJump: "Przejdź do najnowszego",
+  liveSaving: "Zapisywanie transkrypcji",
+};
+
+export const plTranscriptTools: TranscriptToolsMessages = {
+
+  toolsMenu: "Uporządkuj transkrypcję",
+  toolsTidy: "Uporządkuj całą transkrypcję",
+  toolsFrom: "Zacznij od transkrypcji",
+
+  findTip: "Znajdź i zastąp · ⌘F",
+  findLabel: "Znajdź i zastąp",
+  findPlaceholder: "Znajdź w transkrypcji",
+
+  lockTranslation: "Można szukać tłumaczeń, ale nie edytować tutaj – panel „Transkrypcja” edytuje tylko oryginał",
+  lockLoading: "Nowa wersja transkrypcji wczytywana; zastąp po ukończeniu",
+  replaceLabel: "Zastąp tekst transkrypcji",
+  replaceDone: (count: number) => `Zastąpiono: ${count} ${pluralForm('pl', count, { one: "dopasowanie", few: "dopasowania", many: "dopasowań", other: "dopasowania" })} · wideo i audio bez zmian`,
+  replaceNothing: "Brak dopasowań do zmiany",
+
+  copyMenu: "Kopiuj transkrypcję",
+  copyAllHead: (lang: string) => `Kopiuj wszystko · ${lang}`,
+  copyText: "Kopiuj tekst",
+  copySpeaker: "Z mówcami",
+  copyTimed: "Z kodami czasowymi i mówcami",
+  copyScopeHead: (scope: string) => `Skopiuj ${scope}`,
+  copied: (scope: string, receipt: string) => `Skopiowano: ${scope} · ${receipt}`,
+  copyFailed: "Nie udało się skopiować · przeglądarka odmówiła schowka",
+  copyEmpty: "Nic do skopiowania",
+  scopeAll: "wszystko",
+  scopePara: "ten akapit",
+  scopeChapter: (title: string) => `„${title}”`,
+  scopeSelection: "wybrany tekst",
+  copySelection: "Kopiuj",
+  copySelectionTip: "Kopiuj zaznaczony tekst · ⌘C",
+
+  langLabel: "Język transkrypcji",
+  langSource: "Oryginał",
+  langTranslation: "Tłumaczenie",
+  langBoth: (source: string, translation: string) => `${source} + ${translation}`,
+  showBoth: "Pokaż oryginał obok",
+  showBothNeedsTranslation: "Najpierw wybierz tłumaczenie",
+  showBothHint: "Obok siebie",
+  noTranslation: "Nie ma jeszcze tłumaczeń",
+  noTranslationHint: "Tłumacz z panelu „Napisy” przez „+ Przetłumacz na…”",
+  translationNote: "Tłumaczenie śledzi odtwarzanie tylko akapitami – czas słów tylko w oryginale, podświetlenie słów byłoby zmyślone.",
+  translationOnly: "Nie można edytować ani ciąć przy samym tłumaczeniu; przełącz na oryginał lub widok obok siebie.",
+  noParagraphTranslation: "Akapit nie ma tłumaczenia",
+
+  paraMenu: "Ten akapit…",
+  moveUp: "Przenieś do poprzedniego rozdziału",
+  moveDown: "Przenieś do następnego rozdziału",
+  play: "Odtwórz akapit",
+  moveHead: "Przenieś do rozdziału",
+  moveTo: (title: string) => `Przenieś do „${title}”`,
+  moveWith: (count: number) => (count > 1 ? `Przenosi z sąsiadami po tej stronie, ${count} akapitów łącznie` : "Przenosi tylko ten akapit"),
+
+  noPrev: "Przed akapitem nie ma rozdziału",
+  noNext: "Po akapicie nie ma rozdziału",
+  moveBlocked: "Przeniesienie opróżni rozdział lub przekroczy początek sąsiedniego",
+  moveLabel: "Przenieś akapit do sąsiedniego rozdziału",
+  moved: (title: string, count: number) => (count > 1 ? `Przeniesiono: ${count} akapitów do „${title}”` : `Przeniesiono do „${title}”`),
+  cutPara: "Wytnij akapit",
+  cutParaHint: "Wycina razem wideo, audio i napisy; można przywrócić",
+
+  chapterMenu: "Ten rozdział…",
+  renameChapter: "Zmień nazwę…",
+  cutChapter: "Wytnij rozdział",
+  cutChapterHint: "Wycina razem wideo, audio i napisy; kolejne rozdziały przesuwają wcześniej",
+  cutChapterLabel: "Wytnij rozdział",
+  cutChapterRefused: {
+    empty: "Rozdział nie ma długości",
+    whole: "Rozdział to całe wideo; wycięcie nie zostawi nic",
+    'no-tracks': "Żadna ścieżka nie używa transkrybowanych materiałów, nie ma czego wyciąć",
+  },
+  cutChapterDone: (title: string, seconds: number) => `Wytnij „${title}” · ${secondsLabel(seconds)}`,
+  removeMarker: "Usuń znacznik rozdziału",
+  removeMarkerHint: "Usuwa tylko znacznik, treść zostaje",
+  find: "Znajdź",
+  badRegex: "Nieprawidłowe wyrażenie regularne",
+  noResults: "Brak wyników",
+  previous: "Poprzedni",
+  next: "Dalej",
+  closeFind: "Zamknij wyszukiwanie",
+  replaceWith: "Zamień na",
+  matchCase: "Uwzględnij wielkość liter",
+  wholeWordShort: "Słowo",
+  wholeWord: "Dopasuj całe słowo",
+  regex: "Wyrażenie regularne · tekst zastępczy wstawiany dosłownie",
+  replace: "Wymień",
+  replaceAll: "Zastąp wszystko",
+  regexError: (error: string) => `Błąd wyrażenia regularnego: ${error}`,
+};

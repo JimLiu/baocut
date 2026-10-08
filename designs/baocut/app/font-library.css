@@ -1,0 +1,51 @@
+/* 按需下载的字体（product-design §5.9）：选字框的一张表（panel-font-picker.jsx）、编辑器顶上的字体条与导出面板的提示
+   （font-downloads.jsx）、设置 › 字体（settings-fonts.jsx）。前缀 fontlib__ / fontstrip / fontset__，沿用 .fontpop / .fitem 的几何。 */
+
+/* ---------- 选字框 ---------- */
+.fontlib__filters { display: flex; gap: 6px; margin-top: 6px; }
+.fontlib__filters > * { flex: 1 1 0; min-width: 0; }
+.fontlib__note { display: flex; align-items: center; gap: 6px; margin-top: 6px; padding: 6px 8px; border-radius: 8px; background: var(--orange-100); color: var(--orange-1000); font-size: 12px; }
+.fontlib__count { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--gray-500); }
+.fontlib__row { display: flex; align-items: center; gap: 4px; border-radius: 6px; }
+.fontlib__row:hover, .fontlib__row:focus-within { background: var(--gray-100); }
+.fontlib__row .fitem.fontlib__pick { flex: 1 1 auto; width: auto; min-width: 0; }
+.fontlib__row .fitem.fontlib__pick:hover { background: transparent; }
+.fontlib__end { display: flex; align-items: center; gap: 4px; flex: none; padding-right: 4px; }
+.fontlib__tag { padding: 0 4px; font-size: 11px; color: var(--gray-600); white-space: nowrap; }
+.fontlib__tag--ok { color: var(--green-900); }
+.fontlib__tag--bad { color: var(--red-900); }
+.fontlib__pct { min-width: 32px; font-size: 11px; color: var(--gray-700); text-align: right; }
+.fontlib__info { opacity: 0; }
+.fontlib__row:hover .fontlib__info, .fontlib__row:focus-within .fontlib__info { opacity: 1; }
+.fontlib__sample { margin-left: 6px; color: var(--gray-600); }
+.fontlib__detail { padding: 4px 0; }
+.fontlib__dhead { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 14px; }
+.fontlib__dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 12px 4px; font-size: 12px; }
+.fontlib__dl dt { color: var(--gray-600); }
+.fontlib__dl dd { margin: 0; min-width: 0; color: var(--gray-900); overflow-wrap: anywhere; }
+.fontlib__fine { margin: 0 4px 12px; font-size: 11px; color: var(--gray-600); }
+.fontlib__dacts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+
+/* ---------- 编辑器顶上的字体条（与 .opentoast 同位、同几何） ---------- */
+.fontstrip { flex: none; margin: 10px 12px 0; padding: 6px 12px; border-radius: 8px; background: var(--gray-100); color: var(--gray-900); font-size: 12px; }
+.fontstrip--ready { background: var(--green-100); color: var(--green-1000); }
+.fontstrip--missed, .fontstrip--off { background: var(--orange-100); color: var(--orange-1000); }
+.fontstrip__line { display: flex; align-items: center; gap: 8px; min-height: 24px; }
+.fontstrip__text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fontstrip__meta { color: var(--gray-700); }
+.fontstrip__bar { width: 100%; margin-top: 4px; }
+.fontstrip__list { display: grid; gap: 4px; margin: 6px 0 0; padding: 0; list-style: none; }
+.fontstrip__list li { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.fontstrip__list li .t-detail { flex: 1 1 auto; min-width: 0; }
+
+/* ---------- 导出面板 ---------- */
+.fontlib__xnote { display: flex; align-items: center; gap: 6px; }
+.fontlib__xnote--notice { color: var(--orange-1000); }
+
+/* ---------- 设置 › 字体 ---------- */
+.fontset__lead { margin: 0 0 24px; }
+.fontset__head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.fontset__head h2 { margin: 0; font-size: 14px; font-weight: 500; }
+.fontset__mirror { display: flex; flex-direction: column; gap: 4px; width: 280px; max-width: 100%; }
+.fontset__err { font-size: 11px; color: var(--red-900); }
+.fontset__row { gap: 8px; }

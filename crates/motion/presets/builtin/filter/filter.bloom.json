@@ -1,0 +1,51 @@
+{
+  "id": "filter.bloom",
+  "version": 1,
+  "domain": "filter",
+  "inputs": 1,
+  "params": {
+    "threshold": {
+      "type": "number",
+      "default": 0.8,
+      "min": 0,
+      "max": 1,
+      "doc": "亮通门槛：预乘 RGB 最大分量（0..1）超过它的部分才发光"
+    },
+    "knee": {
+      "type": "number",
+      "default": 0.25,
+      "min": 0,
+      "max": 1,
+      "doc": "软膝宽度：门槛两侧 ±knee 之间用二次曲线过渡，0 = 硬切"
+    },
+    "radius": {
+      "type": "length",
+      "default": 0.05,
+      "min": 0,
+      "max": 0.5,
+      "basis": "canvasShortEdge",
+      "doc": "光晕扩散半径，以画布短边为基准的比例；决定降采样级数（约 log2(像素半径)，上限 8 级），末级按小数部分加权，动画时连续"
+    },
+    "intensity": {
+      "type": "number",
+      "default": 1,
+      "min": 0,
+      "max": 8,
+      "doc": "光晕加回原图的倍数（加法回混）"
+    }
+  },
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "kernel": "bloom-pyramid-premul-f32",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "linear",
+  "edge": "clamp",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "doc": "泛光：软膝亮通（按预乘 RGB 最大分量取权重，Unity 式二次膝）→ 逐级 2× 降采样（4×4 帐篷核 [1,3,3,1]²/64，边缘夹取）→ 逐级双线性上采样相加（b_i = a_i + up(b_{i+1})，末级按半径小数部分加权）→ 除以级数后 × intensity 加回原图（RGB 与 alpha 同加，结果夹到 alpha ≥ RGB）。全程 f32 四则运算，无超越函数，逐位确定。透明底上的亮物体会长出带 alpha 的光晕。"
+}

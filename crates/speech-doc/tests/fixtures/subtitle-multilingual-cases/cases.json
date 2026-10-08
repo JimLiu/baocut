@@ -1,0 +1,595 @@
+{
+  "schema": "subtitle-multilingual-cases/1",
+  "cases": [
+    {
+      "id": "en-01",
+      "sourceLang": "en",
+      "targetLang": "ar",
+      "source": "Maya did not cancel the meeting; she moved it to Thursday at 14:30.",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "Maya did not cancel the meetng; she moved it to Thursday at 14:30",
+        "reference": "Maya did not cancel the meeting; she moved it to Thursday at 14:30.",
+        "instruction": "Correct obvious transcription typos and missing sentence punctuation. Preserve facts, names, numbers and the source language; do not paraphrase.",
+        "mode": "typo-and-punctuation",
+        "allowedCorrection": {
+          "from": "meetng",
+          "to": "meeting"
+        }
+      },
+      "translation": {
+        "reference": "لم تُلغِ مايا الاجتماع؛ بل نقلته إلى يوم الخميس الساعة 14:30.",
+        "counterexample": "ألغت مايا الاجتماع يوم الخميس الساعة 14:30.",
+        "requiredFacts": [
+          "未取消；改至星期四14:30。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "en-02",
+      "sourceLang": "en",
+      "targetLang": "ko",
+      "source": "Send Lina the file only after Omar approves version 2.",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "Send Lina the file only after Omar approves version 2.",
+        "reference": "Send Lina the file only after Omar approves version 2.",
+        "instruction": "Correct only missing sentence punctuation; preserve all facts, names, numbers and the source language. Leave already-correct text unchanged.",
+        "mode": "preserve"
+      },
+      "translation": {
+        "reference": "오마르가 버전 2를 승인한 뒤에만 리나에게 파일을 보내세요.",
+        "counterexample": "리나가 버전 2를 승인하면 오마르에게 파일을 보내세요.",
+        "requiredFacts": [
+          "Omar批准第二版；Lina是收件人，不能交换角色。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "zh-01",
+      "sourceLang": "zh",
+      "targetLang": "en",
+      "source": "小林没有取消会议，只是改到了周四14:30。",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "小林没有取消会仪，只是改到了周四14:30",
+        "reference": "小林没有取消会议，只是改到了周四14:30。",
+        "instruction": "Correct obvious transcription typos and missing sentence punctuation. Preserve facts, names, numbers and the source language; do not paraphrase.",
+        "mode": "typo-and-punctuation",
+        "allowedCorrection": {
+          "from": "会仪",
+          "to": "会议"
+        }
+      },
+      "translation": {
+        "reference": "Xiaolin did not cancel the meeting; it was moved to Thursday at 14:30.",
+        "counterexample": "Xiaolin cancelled the meeting on Thursday at 14:30.",
+        "requiredFacts": [
+          "保留否定、改期与时间。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "zh-02",
+      "sourceLang": "zh",
+      "targetLang": "ja",
+      "source": "只有王经理批准第二版后，才能把文件发给小李。",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "只有王经理批准第二版后，才能把文件发给小李。",
+        "reference": "只有王经理批准第二版后，才能把文件发给小李。",
+        "instruction": "Correct only missing sentence punctuation; preserve all facts, names, numbers and the source language. Leave already-correct text unchanged.",
+        "mode": "preserve"
+      },
+      "translation": {
+        "reference": "王マネージャーが第2版を承認してからでなければ、小李にファイルを送ってはいけません。",
+        "counterexample": "小李が第2版を承認したら、王マネージャーにファイルを送ってください。",
+        "requiredFacts": [
+          "王经理批准第二版，小李接收文件。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "ja-01",
+      "sourceLang": "ja",
+      "targetLang": "en",
+      "source": "会議は中止していません。木曜日の14:30に変更しました。",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "会議は中止していません。木曜日の14:30に変更しました",
+        "reference": "会議は中止していません。木曜日の14:30に変更しました。",
+        "instruction": "Correct only missing sentence punctuation; preserve all facts, names, numbers and the source language. Leave already-correct text unchanged.",
+        "mode": "punctuation"
+      },
+      "translation": {
+        "reference": "The meeting has not been cancelled. It has been moved to Thursday at 14:30.",
+        "counterexample": "The meeting was cancelled on Thursday at 14:30.",
+        "requiredFacts": [
+          "取消的否定和改期须保留；不得合并掉否定。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "ja-02",
+      "sourceLang": "ja",
+      "targetLang": "zh-Hans",
+      "source": "田中さんが第2版を承認するまで、佐藤さんにファイルを送らないでください。",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "田中さんが第2版を承認するまで、佐藤さんにファイルを送らないでください。",
+        "reference": "田中さんが第2版を承認するまで、佐藤さんにファイルを送らないでください。",
+        "instruction": "Correct only missing sentence punctuation; preserve all facts, names, numbers and the source language. Leave already-correct text unchanged.",
+        "mode": "preserve"
+      },
+      "translation": {
+        "reference": "在田中批准第二版之前，请不要把文件发给佐藤。",
+        "counterexample": "佐藤批准第二版之后，请把文件发给田中。",
+        "requiredFacts": [
+          "田中是批准者，佐藤是收件人。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "ko-01",
+      "sourceLang": "ko",
+      "targetLang": "en",
+      "source": "회의를 취소한 게 아니라 목요일 14:30으로 옮겼어요.",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "회의를 취소한 게 아니라 목요알 14:30으로 옮겼어요",
+        "reference": "회의를 취소한 게 아니라 목요일 14:30으로 옮겼어요.",
+        "instruction": "Correct obvious transcription typos and missing sentence punctuation. Preserve facts, names, numbers and the source language; do not paraphrase.",
+        "mode": "typo-and-punctuation",
+        "allowedCorrection": {
+          "from": "목요알",
+          "to": "목요일"
+        }
+      },
+      "translation": {
+        "reference": "I did not cancel the meeting; I moved it to Thursday at 14:30.",
+        "counterexample": "I cancelled the meeting on Thursday at 14:30.",
+        "requiredFacts": [
+          "保留口语否定与改期；韩文空格不能被抹去。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "ko-02",
+      "sourceLang": "ko",
+      "targetLang": "ja",
+      "source": "2박 3일 여행 비용은 120달러이고 저녁 식사는 포함되지 않아요.",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "2박 3일 여행 비용은 120달러이고 저녁 식사는 포함되지 않아요.",
+        "reference": "2박 3일 여행 비용은 120달러이고 저녁 식사는 포함되지 않아요.",
+        "instruction": "Correct only missing sentence punctuation; preserve all facts, names, numbers and the source language. Leave already-correct text unchanged.",
+        "mode": "preserve"
+      },
+      "translation": {
+        "reference": "2泊3日の旅行費用は120ドルで、夕食は含まれていません。",
+        "counterexample": "3泊2日の旅行費用は120ドルで、夕食も含まれています。",
+        "requiredFacts": [
+          "2晚3天、120美元、不含晚餐；2박不得写成2 박。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "ar-01",
+      "sourceLang": "ar",
+      "targetLang": "en",
+      "source": "لم تُلغِ ليلى الاجتماع؛ نقلته إلى الخميس الساعة 14:30.",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "لم تُلغِ ليلى الاجتماع؛ نقلته إلى الخمبس الساعة 14:30",
+        "reference": "لم تُلغِ ليلى الاجتماع؛ نقلته إلى الخميس الساعة 14:30.",
+        "instruction": "Correct obvious transcription typos and missing sentence punctuation. Preserve facts, names, numbers and the source language; do not paraphrase.",
+        "mode": "typo-and-punctuation",
+        "allowedCorrection": {
+          "from": "الخمبس",
+          "to": "الخميس"
+        }
+      },
+      "translation": {
+        "reference": "Layla did not cancel the meeting; she moved it to Thursday at 14:30.",
+        "counterexample": "Layla cancelled the meeting on Thursday at 14:30.",
+        "requiredFacts": [
+          "阿拉伯文组合符号、否定及时间保持。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "ar-02",
+      "sourceLang": "ar",
+      "targetLang": "fr",
+      "source": "لا ترسل الملف إلى سارة إلا بعد أن يوافق المدير على النسخة الثانية.",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "لا ترسل الملف إلى سارة إلا بعد أن يوافق المدير على النسخة الثانية.",
+        "reference": "لا ترسل الملف إلى سارة إلا بعد أن يوافق المدير على النسخة الثانية.",
+        "instruction": "Correct only missing sentence punctuation; preserve all facts, names, numbers and the source language. Leave already-correct text unchanged.",
+        "mode": "preserve"
+      },
+      "translation": {
+        "reference": "N’envoie le fichier à Sara qu’après l’approbation de la deuxième version par le directeur.",
+        "counterexample": "Envoie le fichier au directeur après l’approbation de Sara.",
+        "requiredFacts": [
+          "经理批准第二版后才可发给Sara；不能交换角色。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "de-01",
+      "sourceLang": "de",
+      "targetLang": "en",
+      "source": "Lea hat den Termin nicht abgesagt, sondern auf Donnerstag um 14:30 Uhr verschoben.",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "Lea hat den Termin nicht abgesagt, sondern auf Donerstag um 14:30 Uhr verschoben",
+        "reference": "Lea hat den Termin nicht abgesagt, sondern auf Donnerstag um 14:30 Uhr verschoben.",
+        "instruction": "Correct obvious transcription typos and missing sentence punctuation. Preserve facts, names, numbers and the source language; do not paraphrase.",
+        "mode": "typo-and-punctuation",
+        "allowedCorrection": {
+          "from": "Donerstag",
+          "to": "Donnerstag"
+        }
+      },
+      "translation": {
+        "reference": "Lea did not cancel the appointment; she moved it to Thursday at 14:30.",
+        "counterexample": "Lea cancelled the appointment on Thursday at 14:30.",
+        "requiredFacts": [
+          "nicht…sondern的否定和替代关系。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "de-02",
+      "sourceLang": "de",
+      "targetLang": "zh-Hans",
+      "source": "Sende Anna die Datei nur dann, wenn die Leitung der zweiten Fassung zugestimmt hat.",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "Sende Anna die Datei nur dann, wenn die Leitung der zweiten Fassung zugestimmt hat.",
+        "reference": "Sende Anna die Datei nur dann, wenn die Leitung der zweiten Fassung zugestimmt hat.",
+        "instruction": "Correct only missing sentence punctuation; preserve all facts, names, numbers and the source language. Leave already-correct text unchanged.",
+        "mode": "preserve"
+      },
+      "translation": {
+        "reference": "只有管理层批准第二版后，才把文件发给安娜。",
+        "counterexample": "只有在安娜收到文件并且第二版的负责人同意后，才发送。",
+        "requiredFacts": [
+          "批准的对象是第二版，不是第二版负责人；发送前不得要求已收到。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "es-01",
+      "sourceLang": "es",
+      "targetLang": "en",
+      "source": "Inés no canceló la reunión; la cambió al jueves a las 14:30.",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "Inés no canceló la reuníon; la cambió al jueves a las 14:30",
+        "reference": "Inés no canceló la reunión; la cambió al jueves a las 14:30.",
+        "instruction": "Correct obvious transcription typos and missing sentence punctuation. Preserve facts, names, numbers and the source language; do not paraphrase.",
+        "mode": "typo-and-punctuation",
+        "allowedCorrection": {
+          "from": "reuníon",
+          "to": "reunión"
+        }
+      },
+      "translation": {
+        "reference": "Inés did not cancel the meeting; she moved it to Thursday at 14:30.",
+        "counterexample": "Inés cancelled the meeting on Thursday at 14:30.",
+        "requiredFacts": [
+          "保留重音符、否定与时间。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "es-02",
+      "sourceLang": "es",
+      "targetLang": "zh-Hans",
+      "source": "Aunque Inés salió antes que Mateo, llegó diez minutos después de él.",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "Aunque Inés salió antes que Mateo, llegó diez minutos después de él.",
+        "reference": "Aunque Inés salió antes que Mateo, llegó diez minutos después de él.",
+        "instruction": "Correct only missing sentence punctuation; preserve all facts, names, numbers and the source language. Leave already-correct text unchanged.",
+        "mode": "preserve"
+      },
+      "translation": {
+        "reference": "虽然伊内斯比马特奥先出发，但她比他晚到十分钟。",
+        "counterexample": "伊内斯比马特奥晚出发，却早到十分钟。",
+        "requiredFacts": [
+          "先出发、晚到十分钟；两种先后关系不能混淆。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "tr-01",
+      "sourceLang": "tr",
+      "targetLang": "en",
+      "source": "Elif toplantıyı iptal etmedi; perşembe günü saat 14:30’a erteledi.",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "Elif toplantıyı iptal etmedi; perşemeb günü saat 14:30’a erteledi",
+        "reference": "Elif toplantıyı iptal etmedi; perşembe günü saat 14:30’a erteledi.",
+        "instruction": "Correct obvious transcription typos and missing sentence punctuation. Preserve facts, names, numbers and the source language; do not paraphrase.",
+        "mode": "typo-and-punctuation",
+        "allowedCorrection": {
+          "from": "perşemeb",
+          "to": "perşembe"
+        }
+      },
+      "translation": {
+        "reference": "Elif did not cancel the meeting; she postponed it until Thursday at 14:30.",
+        "counterexample": "Elif cancelled the meeting on Thursday at 14:30.",
+        "requiredFacts": [
+          "土耳其文ı、否定后缀及改期。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "tr-02",
+      "sourceLang": "tr",
+      "targetLang": "de",
+      "source": "Ayşe’nin dün Deniz’e ödünç verdiği kitap Ayşe’nin kız kardeşine ait.",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "Ayşe’nin dün Deniz’e ödünç verdiği kitap Ayşe’nin kız kardeşine ait.",
+        "reference": "Ayşe’nin dün Deniz’e ödünç verdiği kitap Ayşe’nin kız kardeşine ait.",
+        "instruction": "Correct only missing sentence punctuation; preserve all facts, names, numbers and the source language. Leave already-correct text unchanged.",
+        "mode": "preserve"
+      },
+      "translation": {
+        "reference": "Das Buch, das Ayşe Deniz gestern geliehen hat, gehört Ayşes Schwester.",
+        "counterexample": "Das Buch, das Deniz Ayşe gestern geliehen hat, gehört Deniz.",
+        "requiredFacts": [
+          "Ayşe借给Deniz；书属于Ayşe的姐妹。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "hi-01",
+      "sourceLang": "hi",
+      "targetLang": "en",
+      "source": "लीला ने बैठक रद्द नहीं की; उसने इसे गुरुवार को 14:30 बजे तक टाल दिया।",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "लीला ने बैठक रद्द नहीं की; उसने इसे गुरुवर को 14:30 बजे तक टाल दिया",
+        "reference": "लीला ने बैठक रद्द नहीं की; उसने इसे गुरुवार को 14:30 बजे तक टाल दिया।",
+        "instruction": "Correct obvious transcription typos and missing sentence punctuation. Preserve facts, names, numbers and the source language; do not paraphrase.",
+        "mode": "typo-and-punctuation",
+        "allowedCorrection": {
+          "from": "गुरुवर",
+          "to": "गुरुवार"
+        }
+      },
+      "translation": {
+        "reference": "Leela did not cancel the meeting; she postponed it until Thursday at 14:30.",
+        "counterexample": "Leela cancelled the meeting on Thursday at 14:30.",
+        "requiredFacts": [
+          "组合符号、句末danda、否定与改期。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "hi-02",
+      "sourceLang": "hi",
+      "targetLang": "zh-Hans",
+      "source": "अमन ने तीन टिकटों के लिए 120 रुपये दिए, लेकिन इस कीमत में रात का खाना शामिल नहीं था।",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "अमन ने तीन टिकटों के लिए 120 रुपये दिए, लेकिन इस कीमत में रात का खाना शामिल नहीं था।",
+        "reference": "अमन ने तीन टिकटों के लिए 120 रुपये दिए, लेकिन इस कीमत में रात का खाना शामिल नहीं था।",
+        "instruction": "Correct only missing sentence punctuation; preserve all facts, names, numbers and the source language. Leave already-correct text unchanged.",
+        "mode": "preserve"
+      },
+      "translation": {
+        "reference": "阿曼花120卢比买了三张票，但这个价格不包含晚餐。",
+        "counterexample": "阿曼花120卢比买了两张票，价格包含晚餐。",
+        "requiredFacts": [
+          "三张票、120卢比、晚餐不包含。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "th-01",
+      "sourceLang": "th",
+      "targetLang": "en",
+      "source": "ลลิตาไม่ได้ยกเลิกการประชุมแต่เลื่อนไปเป็นวันพฤหัสบดีเวลา14:30น.",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "ลลิตาไม่ได้ยกเลิกการประชุมแต่เลื่อนไปเป็นวันพฤหัสบดีเวลา14:30น",
+        "reference": "ลลิตาไม่ได้ยกเลิกการประชุมแต่เลื่อนไปเป็นวันพฤหัสบดีเวลา14:30น.",
+        "instruction": "Correct only missing sentence punctuation; preserve all facts, names, numbers and the source language. Leave already-correct text unchanged.",
+        "mode": "punctuation"
+      },
+      "translation": {
+        "reference": "Lalita did not cancel the meeting; she moved it to Thursday at 14:30.",
+        "counterexample": "Lalita cancelled the meeting on Thursday at 14:30.",
+        "requiredFacts": [
+          "泰文无空格词流和否定、时间。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "th-02",
+      "sourceLang": "th",
+      "targetLang": "zh-Hans",
+      "source": "ถ้าอุณหภูมิลดลงต่ำกว่า5องศาให้ปิดหน้าต่างก่อนเปิดเครื่องทำความร้อน",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "ถ้าอุณหภูมิลดลงต่ำกว่า5องศาให้ปิดหน้าต่างก่อนเปิดเครื่องทำความร้อน",
+        "reference": "ถ้าอุณหภูมิลดลงต่ำกว่า5องศาให้ปิดหน้าต่างก่อนเปิดเครื่องทำความร้อน",
+        "instruction": "Correct only missing sentence punctuation; preserve all facts, names, numbers and the source language. Leave already-correct text unchanged.",
+        "mode": "preserve"
+      },
+      "translation": {
+        "reference": "如果温度降到5度以下，先关窗，再打开暖气。",
+        "counterexample": "如果温度降到5度以下，先关闭前面板，再打开暖气。",
+        "requiredFacts": [
+          "หน้าต่าง是窗户；低于5度，关窗在开暖气之前。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "th-03",
+      "sourceLang": "th",
+      "targetLang": "zh-Hans",
+      "source": "รหัสF-07ปรากฏข้างคำว่า“ยืนยันแล้ว”แต่ยังไม่ได้ส่งพัสดุ",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "รหัสF-07ปรากฏข้างคำว่า“ยืนยันแล้ว”แต่ยังไม่ได้ส่งพัสดุ",
+        "reference": "รหัสF-07ปรากฏข้างคำว่า“ยืนยันแล้ว”แต่ยังไม่ได้ส่งพัสดุ",
+        "instruction": "Correct only missing sentence punctuation; preserve all facts, names, numbers and the source language. Leave already-correct text unchanged.",
+        "mode": "preserve"
+      },
+      "translation": {
+        "reference": "编号F-07出现在“已确认”字样旁边，但包裹还没有寄出。",
+        "counterexample": "编号F-07已确认，包裹已经寄出。",
+        "requiredFacts": [
+          "泰文夹拉丁字母代码：F-07只是出现在“已确认”旁，包裹尚未寄出。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "fr-01",
+      "sourceLang": "fr",
+      "targetLang": "en",
+      "source": "Léa n’a pas annulé la réunion ; elle l’a déplacée à jeudi à 14:30.",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "Léa n’a pas annulé la réunoin ; elle l’a déplacée à jeudi à 14:30",
+        "reference": "Léa n’a pas annulé la réunion ; elle l’a déplacée à jeudi à 14:30.",
+        "instruction": "Correct obvious transcription typos and missing sentence punctuation. Preserve facts, names, numbers and the source language; do not paraphrase.",
+        "mode": "typo-and-punctuation",
+        "allowedCorrection": {
+          "from": "réunoin",
+          "to": "réunion"
+        }
+      },
+      "translation": {
+        "reference": "Léa did not cancel the meeting; she moved it to Thursday at 14:30.",
+        "counterexample": "Léa cancelled the meeting on Thursday at 14:30.",
+        "requiredFacts": [
+          "法文撇号、否定及时间。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "fr-02",
+      "sourceLang": "fr",
+      "targetLang": "ar",
+      "source": "Nous avons acheté 2,5 kilos de riz ; il en restait la moitié après le dîner.",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "Nous avons acheté 2,5 kilos de riz ; il en restait la moitié après le dîner.",
+        "reference": "Nous avons acheté 2,5 kilos de riz ; il en restait la moitié après le dîner.",
+        "instruction": "Correct only missing sentence punctuation; preserve all facts, names, numbers and the source language. Leave already-correct text unchanged.",
+        "mode": "preserve"
+      },
+      "translation": {
+        "reference": "اشترينا 2.5 كيلوغرام من الأرز؛ وبقي نصفه بعد العشاء.",
+        "counterexample": "اشترينا 25 كيلوغرامًا من الأرز؛ وبقي كله بعد العشاء.",
+        "requiredFacts": [
+          "小数逗号2,5对应2.5，剩余一半而非全部。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "pt-01",
+      "sourceLang": "pt",
+      "targetLang": "en",
+      "source": "Lia não cancelou a reunião; mudou-a para quinta-feira às 14:30.",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "Lia não cancelou a reuniao; mudou-a para quinta-feira às 14:30",
+        "reference": "Lia não cancelou a reunião; mudou-a para quinta-feira às 14:30.",
+        "instruction": "Correct obvious transcription typos and missing sentence punctuation. Preserve facts, names, numbers and the source language; do not paraphrase.",
+        "mode": "typo-and-punctuation",
+        "allowedCorrection": {
+          "from": "reuniao",
+          "to": "reunião"
+        }
+      },
+      "translation": {
+        "reference": "Lia did not cancel the meeting; she moved it to Thursday at 14:30.",
+        "counterexample": "Lia cancelled the meeting on Thursday at 14:30.",
+        "requiredFacts": [
+          "葡语重音、否定、连字符与时间。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    },
+    {
+      "id": "pt-02",
+      "sourceLang": "pt",
+      "targetLang": "es",
+      "source": "O código P-08 aparece ao lado de “confirmado”, mas a encomenda ainda não foi enviada.",
+      "syntheticDurationSeconds": 16,
+      "polish": {
+        "input": "O código P-08 aparece ao lado de “confirmado”, mas a encomenda ainda não foi enviada.",
+        "reference": "O código P-08 aparece ao lado de “confirmado”, mas a encomenda ainda não foi enviada.",
+        "instruction": "Correct only missing sentence punctuation; preserve all facts, names, numbers and the source language. Leave already-correct text unchanged.",
+        "mode": "preserve"
+      },
+      "translation": {
+        "reference": "El código P-08 aparece junto a «confirmado», pero el paquete todavía no se ha enviado.",
+        "counterexample": "El código P-08 aparece junto a «confirmado» y el paquete ya se ha enviado.",
+        "requiredFacts": [
+          "代码P-08、已确认与尚未发货不能混为一谈。"
+        ],
+        "instruction": "Translate naturally into the requested target language. Preserve negation, conditions, roles, numbers, units and named entities."
+      },
+      "provenance": "agent-authored; not native-speaker certified"
+    }
+  ]
+}

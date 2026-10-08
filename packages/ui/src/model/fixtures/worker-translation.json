@@ -1,0 +1,389 @@
+{
+  "speech": {
+    "schema": "baocut.speech/1",
+    "clock": "source-asset",
+    "timescale": 1000000,
+    "speakers": [
+      {
+        "id": "host",
+        "name": "主持人"
+      },
+      {
+        "id": "guest",
+        "name": "嘉宾"
+      }
+    ],
+    "words": [
+      {
+        "id": "w1",
+        "start": 0,
+        "end": 400000,
+        "text": "Welcome",
+        "speaker": "host"
+      },
+      {
+        "id": "w2",
+        "start": 400000,
+        "end": 700000,
+        "text": " back",
+        "speaker": "host"
+      },
+      {
+        "id": "w3",
+        "start": 700000,
+        "end": 850000,
+        "text": " to",
+        "speaker": "host"
+      },
+      {
+        "id": "w4",
+        "start": 850000,
+        "end": 1000000,
+        "text": " the",
+        "speaker": "host"
+      },
+      {
+        "id": "w5",
+        "start": 1000000,
+        "end": 1400000,
+        "text": " show;",
+        "speaker": "host"
+      },
+      {
+        "id": "w6",
+        "start": 1500000,
+        "end": 1900000,
+        "text": " today",
+        "speaker": "host"
+      },
+      {
+        "id": "w7",
+        "start": 1900000,
+        "end": 2050000,
+        "text": " we",
+        "speaker": "host"
+      },
+      {
+        "id": "w8",
+        "start": 2050000,
+        "end": 2400000,
+        "text": " talk",
+        "speaker": "host"
+      },
+      {
+        "id": "w9",
+        "start": 2400000,
+        "end": 2700000,
+        "text": " about",
+        "speaker": "host"
+      },
+      {
+        "id": "w10",
+        "start": 2700000,
+        "end": 3200000,
+        "text": " editing.",
+        "speaker": "host"
+      },
+      {
+        "id": "w11",
+        "start": 3500000,
+        "end": 3900000,
+        "text": " First",
+        "speaker": "host"
+      },
+      {
+        "id": "w12",
+        "start": 3900000,
+        "end": 4200000,
+        "text": " um",
+        "speaker": "host",
+        "hidden": true
+      },
+      {
+        "id": "w13",
+        "start": 4200000,
+        "end": 4350000,
+        "text": " we",
+        "speaker": "host"
+      },
+      {
+        "id": "w14",
+        "start": 4350000,
+        "end": 4700000,
+        "text": " cut",
+        "speaker": "host"
+      },
+      {
+        "id": "w15",
+        "start": 6200000,
+        "end": 6350000,
+        "text": " the",
+        "speaker": "host"
+      },
+      {
+        "id": "w16",
+        "start": 6350000,
+        "end": 7000000,
+        "text": " silences",
+        "speaker": "host"
+      },
+      {
+        "id": "w17",
+        "start": 8900000,
+        "end": 9200000,
+        "text": " then",
+        "speaker": "host"
+      },
+      {
+        "id": "w18",
+        "start": 9200000,
+        "end": 9350000,
+        "text": " we",
+        "speaker": "host"
+      },
+      {
+        "id": "w19",
+        "start": 9350000,
+        "end": 9600000,
+        "text": " add",
+        "speaker": "host"
+      },
+      {
+        "id": "w20",
+        "start": 9600000,
+        "end": 10100000,
+        "text": " music.",
+        "speaker": "host"
+      },
+      {
+        "id": "w21",
+        "start": 10200000,
+        "end": 10600000,
+        "text": "Sounds",
+        "speaker": "guest"
+      },
+      {
+        "id": "w22",
+        "start": 10600000,
+        "end": 10900000,
+        "text": " great",
+        "speaker": "guest"
+      },
+      {
+        "id": "w23",
+        "start": 10900000,
+        "end": 11000000,
+        "text": " to",
+        "speaker": "guest"
+      },
+      {
+        "id": "w24",
+        "start": 11000000,
+        "end": 11300000,
+        "text": " me!",
+        "speaker": "guest"
+      },
+      {
+        "id": "w25",
+        "start": 11600000,
+        "end": 11850000,
+        "text": " What",
+        "speaker": "guest"
+      },
+      {
+        "id": "w26",
+        "start": 11850000,
+        "end": 12100000,
+        "text": " about",
+        "speaker": "guest"
+      },
+      {
+        "id": "w27",
+        "start": 12100000,
+        "end": 12800000,
+        "text": " subtitles?",
+        "speaker": "guest"
+      },
+      {
+        "id": "w28",
+        "start": 13200000,
+        "end": 13400000,
+        "text": "We",
+        "speaker": "host"
+      },
+      {
+        "id": "w29",
+        "start": 13400000,
+        "end": 13900000,
+        "text": " translate",
+        "speaker": "host"
+      },
+      {
+        "id": "w30",
+        "start": 13900000,
+        "end": 14100000,
+        "text": " them",
+        "speaker": "host"
+      },
+      {
+        "id": "w31",
+        "start": 14100000,
+        "end": 14500000,
+        "text": " sentence",
+        "speaker": "host"
+      },
+      {
+        "id": "w32",
+        "start": 14500000,
+        "end": 14650000,
+        "text": " by",
+        "speaker": "host"
+      },
+      {
+        "id": "w33",
+        "start": 14650000,
+        "end": 15200000,
+        "text": " sentence.",
+        "speaker": "host"
+      }
+    ],
+    "sentences": null
+  },
+  "translation": {
+    "language": "zh-Hans",
+    "schema": "baocut.translation/2",
+    "sourceBasis": {
+      "editViewHash": "sha256:6078185151eea03eb004babb72b6e08ce40c6a59203952a5b4c4670594c404a5",
+      "scopeLineage": [],
+      "sequenceId": "seq-root",
+      "speechRef": {
+        "id": "doc-speech",
+        "revision": "rev-1"
+      }
+    },
+    "units": [
+      {
+        "alignment": {
+          "basis": "natural",
+          "blocks": [],
+          "correspondence": "sentence",
+          "sourceWordIds": [
+            "w1",
+            "w2",
+            "w3",
+            "w4",
+            "w5",
+            "w6",
+            "w7",
+            "w8",
+            "w9",
+            "w10"
+          ],
+          "textHash": "sha256:f5b4de22925f055a9da899c0dccd2d94509468df727c68e465771685f902b466"
+        },
+        "id": "t-s-w1",
+        "naturalText": "好的，第 1 句。好的，第 2 句。",
+        "sourceFingerprint": "10:w1:w10:qv7gqhd1fefc",
+        "sourceSentenceId": "s-w1",
+        "status": "draft"
+      },
+      {
+        "alignment": {
+          "basis": "natural",
+          "blocks": [],
+          "correspondence": "sentence",
+          "sourceWordIds": [
+            "w11",
+            "w13",
+            "w14",
+            "w15",
+            "w16"
+          ],
+          "textHash": "sha256:87a501fa0d764ece2c37786b1562338509479f9c20b668d373002040962bacf1"
+        },
+        "id": "t-s-w11",
+        "naturalText": "好的，第 3 句。",
+        "sourceFingerprint": "5:w11:w16:2f4wbhvwluken",
+        "sourceSentenceId": "s-w11",
+        "status": "draft"
+      },
+      {
+        "alignment": {
+          "basis": "natural",
+          "blocks": [],
+          "correspondence": "sentence",
+          "sourceWordIds": [
+            "w17",
+            "w18",
+            "w19",
+            "w20"
+          ],
+          "textHash": "sha256:1862cd313753a3662ae8b27552ca915353540d503243d945ddc3b75a5a2b7def"
+        },
+        "id": "t-s-w17",
+        "naturalText": "好的，第 4 句。",
+        "sourceFingerprint": "4:w17:w20:34obwzlxx2ss0",
+        "sourceSentenceId": "s-w17",
+        "status": "draft"
+      },
+      {
+        "alignment": {
+          "basis": "natural",
+          "blocks": [],
+          "correspondence": "sentence",
+          "sourceWordIds": [
+            "w21",
+            "w22",
+            "w23",
+            "w24"
+          ],
+          "textHash": "sha256:5815b7fb489c7e3932d73f5f52a7597f77eaf5f6ffd708acfe145f73c0cded05"
+        },
+        "id": "t-s-w21",
+        "naturalText": "好的，第 5 句。",
+        "sourceFingerprint": "4:w21:w24:18nbndbab2dfw",
+        "sourceSentenceId": "s-w21",
+        "status": "draft"
+      },
+      {
+        "alignment": {
+          "basis": "natural",
+          "blocks": [],
+          "correspondence": "sentence",
+          "sourceWordIds": [
+            "w25",
+            "w26",
+            "w27"
+          ],
+          "textHash": "sha256:9ee347e79bb88802a7bf1f383c8bdba796dcdcdc763159477340c9bfd2ff0361"
+        },
+        "id": "t-s-w25",
+        "naturalText": "好的，第 6 句。",
+        "sourceFingerprint": "3:w25:w27:3a1jvw7v7lbgv",
+        "sourceSentenceId": "s-w25",
+        "status": "draft"
+      },
+      {
+        "alignment": {
+          "basis": "natural",
+          "blocks": [],
+          "correspondence": "sentence",
+          "sourceWordIds": [
+            "w28",
+            "w29",
+            "w30",
+            "w31",
+            "w32",
+            "w33"
+          ],
+          "textHash": "sha256:e540920075ac753aefbf4c44704cc489925b83d78cd0b302a56f9aa445b7864a"
+        },
+        "id": "t-s-w28",
+        "naturalText": "好的，第 7 句。",
+        "sourceFingerprint": "6:w28:w33:1rlzm7omm9zpc",
+        "sourceSentenceId": "s-w28",
+        "status": "draft"
+      }
+    ]
+  }
+}

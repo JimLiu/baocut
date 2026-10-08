@@ -1,0 +1,662 @@
+{
+  "diagnostics": {},
+  "issues": [],
+  "mode": "lean",
+  "pageRejected": false,
+  "retryIds": [],
+  "rows": [
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              4
+            ],
+            "tgt": [
+              0,
+              32
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              5,
+              6
+            ],
+            "tgt": [
+              32,
+              49
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              7,
+              9
+            ],
+            "tgt": [
+              49,
+              63
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              10,
+              12
+            ],
+            "tgt": [
+              63,
+              75
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Lucía didn't cancel the meeting;",
+            "to": 4
+          },
+          {
+            "from": 5,
+            "text": "she postponed it until Thursday",
+            "to": 9
+          },
+          {
+            "from": 10,
+            "text": "at 2:30 p.m.",
+            "to": 12
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12"
+        ]
+      },
+      "chunks": 4,
+      "coarse": false,
+      "frozen": false,
+      "id": "es-01",
+      "issues": [],
+      "locatedChunks": 4,
+      "minChunks": 3,
+      "n": 1,
+      "realTiming": false,
+      "source": "Lucía no canceló la reunión; la aplazó hasta el jueves a las 14:30.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Lucía didn't cancel the meeting; she postponed it until Thursday at 2:30 p.m."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              2
+            ],
+            "tgt": [
+              0,
+              19
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              3,
+              6
+            ],
+            "tgt": [
+              19,
+              41
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              7,
+              11
+            ],
+            "tgt": [
+              41,
+              64
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              12,
+              14
+            ],
+            "tgt": [
+              64,
+              87
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "If the temperature drops below 5 degrees,",
+            "to": 6
+          },
+          {
+            "from": 7,
+            "text": "close the window before",
+            "to": 11
+          },
+          {
+            "from": 12,
+            "text": "turning on the heating.",
+            "to": 14
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14"
+        ]
+      },
+      "chunks": 5,
+      "coarse": false,
+      "frozen": false,
+      "id": "es-02",
+      "issues": [],
+      "locatedChunks": 5,
+      "minChunks": 3,
+      "n": 2,
+      "realTiming": false,
+      "source": "Si la temperatura baja de 5 grados, cierra la ventana antes de encender la calefacción.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "If the temperature drops below 5 degrees, close the window before turning on the heating."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              3
+            ],
+            "tgt": [
+              0,
+              21
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              4,
+              6
+            ],
+            "tgt": [
+              21,
+              39
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              7,
+              10
+            ],
+            "tgt": [
+              39,
+              60
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              11,
+              13
+            ],
+            "tgt": [
+              60,
+              75
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Diego paid 120 euros for three tickets,",
+            "to": 6
+          },
+          {
+            "from": 7,
+            "text": "but the price didn't include dinner.",
+            "to": 13
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13"
+        ]
+      },
+      "chunks": 4,
+      "coarse": false,
+      "frozen": false,
+      "id": "es-03",
+      "issues": [],
+      "locatedChunks": 4,
+      "minChunks": 3,
+      "n": 3,
+      "realTiming": false,
+      "source": "Diego pagó 120 euros por tres entradas, pero el precio no incluía la cena.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Diego paid 120 euros for three tickets, but the price didn't include dinner."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              4
+            ],
+            "tgt": [
+              0,
+              17
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              5,
+              9
+            ],
+            "tgt": [
+              17,
+              47
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              10,
+              14
+            ],
+            "tgt": [
+              47,
+              63
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "The book that Ana",
+            "to": 4
+          },
+          {
+            "from": 5,
+            "text": "loaned Pablo yesterday belongs",
+            "to": 9
+          },
+          {
+            "from": 10,
+            "text": "to Ana's sister.",
+            "to": 14
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14"
+        ]
+      },
+      "chunks": 3,
+      "coarse": false,
+      "frozen": false,
+      "id": "es-04",
+      "issues": [],
+      "locatedChunks": 3,
+      "minChunks": 2,
+      "n": 4,
+      "realTiming": false,
+      "source": "El libro que Ana le prestó ayer a Pablo pertenece a la hermana de Ana.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "The book that Ana loaned Pablo yesterday belongs to Ana's sister."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              3
+            ],
+            "tgt": [
+              0,
+              22
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              4,
+              6
+            ],
+            "tgt": [
+              22,
+              42
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              7,
+              11
+            ],
+            "tgt": [
+              42,
+              76
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              12,
+              14
+            ],
+            "tgt": [
+              76,
+              86
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "The code C-19 appears next to \"confirmed,\"",
+            "to": 6
+          },
+          {
+            "from": 7,
+            "text": "although the package still hasn't been sent.",
+            "to": 14
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14"
+        ]
+      },
+      "chunks": 4,
+      "coarse": false,
+      "frozen": false,
+      "id": "es-05",
+      "issues": [],
+      "locatedChunks": 4,
+      "minChunks": 3,
+      "n": 5,
+      "realTiming": false,
+      "source": "El código C-19 aparece junto a «confirmado», aunque el paquete aún no se ha enviado.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "The code C-19 appears next to \"confirmed,\" although the package still hasn't been sent."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              2
+            ],
+            "tgt": [
+              0,
+              19
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "anchor"
+            ],
+            "src": [
+              3,
+              5
+            ],
+            "tgt": [
+              19,
+              32
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              8
+            ],
+            "tgt": [
+              32,
+              56
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              9,
+              11
+            ],
+            "tgt": [
+              56,
+              66
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "Although Inés left before Mateo,",
+            "to": 5
+          },
+          {
+            "from": 6,
+            "text": "she arrived ten minutes after him.",
+            "to": 11
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11"
+        ]
+      },
+      "chunks": 4,
+      "coarse": false,
+      "frozen": false,
+      "id": "es-06",
+      "issues": [],
+      "locatedChunks": 4,
+      "minChunks": 2,
+      "n": 6,
+      "realTiming": false,
+      "source": "Aunque Inés salió antes que Mateo, llegó diez minutos después de él.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "Although Inés left before Mateo, she arrived ten minutes after him."
+    }
+  ],
+  "schema": "lean-carrier-grade/2",
+  "totals": {
+    "acceptedTranslations": 6,
+    "aligned": 6,
+    "chunks": 24,
+    "coarse": 0,
+    "expectedSentences": 6,
+    "locatedChunks": 24,
+    "sentencesWithAnchorIssues": 0,
+    "syntaxOrPermissionIssues": 0,
+    "translationRetries": 0
+  }
+}

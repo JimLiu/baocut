@@ -1,0 +1,79 @@
+{
+  "id": "elSqueezy",
+  "version": 1,
+  "domain": "motion",
+  "namespace": "timeline",
+  "slot": "loop",
+  "order": 18,
+  "period": 2.0,
+  "keyframes": [
+    {
+      "at": 0
+    },
+    {
+      "at": 0.1,
+      "ease": "easeInOutSine",
+      "scaleX": 1.0193,
+      "scaleY": 1.02886
+    },
+    {
+      "at": 0.2,
+      "ease": "easeInOutSine",
+      "scaleX": 0.97753,
+      "scaleY": 1.0268
+    },
+    {
+      "at": 0.3,
+      "ease": "easeInOutSine",
+      "scaleX": 1.04722,
+      "scaleY": 0.95061
+    },
+    {
+      "at": 0.4,
+      "ease": "easeInOutSine",
+      "scaleX": 1.01487,
+      "scaleY": 1.02554
+    },
+    {
+      "at": 0.5,
+      "ease": "easeInOutSine",
+      "scaleX": 0.97207,
+      "scaleY": 0.98496
+    },
+    {
+      "at": 0.6,
+      "ease": "easeInOutSine",
+      "scaleX": 1.01447,
+      "scaleY": 0.92939
+    },
+    {
+      "at": 0.7,
+      "ease": "easeInOutSine",
+      "scaleX": 0.96413,
+      "scaleY": 0.9869
+    },
+    {
+      "at": 0.8,
+      "ease": "easeInOutSine",
+      "scaleX": 0.98445,
+      "scaleY": 1.0131
+    },
+    {
+      "at": 0.9,
+      "ease": "easeInOutSine",
+      "scaleX": 1.0959,
+      "scaleY": 0.98578
+    },
+    {
+      "at": 1,
+      "ease": "easeInOutSine"
+    }
+  ],
+  "basis": {
+    "dx": "selfWidth",
+    "dy": "selfHeight"
+  },
+  "surface": "element",
+  "determinism": "strict",
+  "available": true
+}

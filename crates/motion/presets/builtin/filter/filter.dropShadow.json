@@ -1,0 +1,55 @@
+{
+  "id": "filter.dropShadow",
+  "version": 1,
+  "domain": "filter",
+  "inputs": 1,
+  "params": {
+    "radius": {
+      "type": "length",
+      "default": 0,
+      "min": 0,
+      "max": 0.5,
+      "basis": "canvasShortEdge",
+      "quantize": "round-to-int"
+    },
+    "dx": {
+      "type": "length",
+      "default": 0,
+      "min": -1,
+      "max": 1,
+      "basis": "canvasShortEdge",
+      "quantize": "round-to-int"
+    },
+    "dy": {
+      "type": "length",
+      "default": 0,
+      "min": -1,
+      "max": 1,
+      "basis": "canvasShortEdge",
+      "quantize": "round-to-int"
+    },
+    "color": {
+      "type": "color",
+      "default": [
+        0,
+        0,
+        0,
+        0.5
+      ]
+    }
+  },
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "kernel": "shadow-blur-composite-premul",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "clamp-shrink-window",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "doc": "阴影层 = 输入按 color 着色并位移 → bounded box blur → 以预乘 source-over 垫在原图之下。radius / dx / dy 都以画布短边为基准的比例，求值后取整为像素。"
+}

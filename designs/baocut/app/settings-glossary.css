@@ -1,0 +1,110 @@
+/* 设置 › 术语库（§15.10，2026-09-20）。表列表与条目行都是 620px 栏宽里的一列：
+   一行一条术语，规范写法在左、译名在右，误识与备注降一档跟在下面——扫一眼能看出
+   「这个词库里记的是什么」，点开才进编辑。 */
+.gls { min-width: 0; }
+.gls h1, .gls p { margin: 0; }
+.gls p { color: var(--gray-700); font-size: 12px; line-height: 1.6; }
+.gls .gls-lede { margin-top: 8px; font-size: 14px; }
+
+/* 折叠入口（哪些模型吃得下 / 一次粘一批 / 更多）：同一种安静的小按钮 */
+.gls-more { display: inline-flex; align-items: center; gap: 4px; color: var(--gray-800); font-size: 12px; cursor: pointer; }
+.gls-more:hover { color: var(--gray-1000); }
+.gls-more:focus-visible { outline: 2px solid var(--blue-900); outline-offset: 2px; border-radius: 4px; }
+.gls-gate { width: 100%; margin-top: 8px; border: 1px solid var(--gray-200); border-radius: 10px; padding: 8px 12px; }
+.gls-gate__tr { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.gls-gate__note { margin-top: 4px; color: var(--gray-600); }
+.gls-ic-on { color: var(--green-1000); }
+.gls-ic-off { color: var(--gray-500); }
+.gls-warn { color: var(--orange-1000); }
+
+.gls-sec { margin: 24px 0 8px; }
+.gls-sec p { margin-top: 4px; }
+
+/* 一张表 = 一行卡：左边点进详情，右边是「新视频默认用」 */
+.gls-pack { display: flex; align-items: center; gap: 12px; border: 1px solid var(--gray-200); border-radius: 10px; padding: 12px; }
+.gls-pack + .gls-pack { margin-top: 8px; }
+.gls-pack:hover { border-color: var(--gray-300); }
+.gls-pack__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; text-align: left; cursor: pointer; }
+.gls-pack__main:focus-visible { outline: 2px solid var(--blue-900); outline-offset: 2px; border-radius: 8px; }
+.gls-pack__nm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gls-pack__desc { color: var(--gray-700); }
+.gls-pack__st { color: var(--gray-600); }
+.gls-pack__side { display: flex; align-items: center; gap: 8px; flex: none; }
+.gls-pack__go { color: var(--gray-500); }
+
+.gls-conflict { display: flex; gap: 12px; align-items: flex-start; margin-top: 12px; padding: 12px; border-radius: 10px; background: var(--indigo-100); color: var(--indigo-1000); }
+.gls-conflict > .ic { flex: none; margin-top: 2px; }
+.gls-conflict b { font-size: 12px; font-weight: 700; }
+.gls-conflict p { margin-top: 4px; color: var(--indigo-1000); }
+
+.gls-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.gls-actions--foot { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--gray-200); }
+.gls-new { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; padding: 12px; border: 1px solid var(--gray-200); border-radius: 10px; background: var(--gray-50); }
+.gls-foot { margin-top: 12px; color: var(--gray-600); }
+
+/* ---------- 表详情 ---------- */
+.gls-detail__hd { margin-bottom: 12px; }
+.gls-detail__title { display: flex; align-items: center; gap: 8px; }
+.gls-detail__name { flex: 1; min-width: 0; font-size: 18px; font-weight: 700; }
+.gls-detail__meta { display: flex; align-items: center; gap: 8px; margin: 12px 0 16px; flex-wrap: wrap; color: var(--gray-700); }
+.gls-detail__bar { margin: 16px 0 0; }
+.gls-lang { width: 260px; flex: none; }
+.gls-detail__foot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.gls-empty { padding: 24px 0; color: var(--gray-600); }
+
+/* ---------- 加词：常驻一行两格 ---------- */
+.gls-add { margin-bottom: 8px; }
+.gls-add__row { display: flex; align-items: center; gap: 8px; }
+.gls-add__row .field { flex: 1; min-width: 0; }
+.gls-add__arrow { flex: none; color: var(--gray-600); font-size: 14px; }
+.gls-add__bad { margin-top: 4px; color: var(--red-1000); }
+.gls-bulk { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--gray-200); border-radius: 10px; background: var(--gray-50); }
+.gls-bulk .field { width: 100%; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
+.gls-bulk__how { color: var(--gray-700); line-height: 1.6; }
+.gls-bulk__skip { display: flex; flex-direction: column; gap: 4px; color: var(--orange-1000); overflow-wrap: anywhere; }
+.gls-bulk__acts { display: flex; gap: 8px; }
+
+/* ---------- 一条术语：一行读完 ---------- */
+.gls-terms { margin-top: 12px; border: 1px solid var(--gray-200); border-radius: 10px; overflow: hidden; }
+.gls-term { display: flex; flex-direction: column; gap: 4px; width: 100%; text-align: left; padding: 8px 12px; cursor: pointer; }
+.gls-term + .gls-term { border-top: 1px solid var(--gray-200); }
+.gls-term:hover { background: var(--gray-50); }
+.gls-term:focus-visible { outline: 2px solid var(--blue-900); outline-offset: -2px; }
+.gls-term.is-open { cursor: default; padding: 12px; background: var(--gray-50); }
+.gls-term__hd { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.gls-term__arrow { color: var(--gray-500); }
+.gls-term__tgt { color: var(--gray-900); }
+.gls-term__var { color: var(--gray-700); font-size: 12px; }
+.gls-term__var .t-mono { color: var(--gray-800); }
+.gls-term__note { color: var(--gray-600); }
+.gls-terms > .gls-empty { padding: 24px 12px; }
+
+/* ---------- 就地编辑 ---------- */
+.gls-edit { display: flex; flex-direction: column; gap: 8px; }
+.gls-edit__hint { color: var(--gray-600); }
+.gls-edit__more { display: flex; flex-direction: column; gap: 8px; }
+.gls-edit__lock { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gls-edit__acts { display: flex; align-items: center; gap: 8px; }
+
+/* ---------- 项目里：转录的识别提示块、翻译的命中清单 ---------- */
+.gls-asr { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.gls-asr__rule { margin: 12px 0; }
+.gls-asr__row { display: flex; align-items: center; gap: 8px; }
+.gls-asr__lb { margin-top: 6px; }
+.gls-asr .field { width: 100%; }
+.gls-asr__how, .gls-asr__sum { color: var(--gray-600); line-height: 1.6; }
+.gls-asr__sum.gls-warn { color: var(--orange-1000); }
+.gls-hits { padding: 0 0 4px 26px; }
+.gls-hits__list { margin-top: 4px; }
+.gls-hits__row { display: flex; align-items: center; gap: 8px; padding: 2px 0; color: var(--gray-800); }
+
+/* ---------- 项目里：设置态一行、术语改动、候选回流（glossary-tool.jsx） ---------- */
+.gls-opt { flex-wrap: wrap; gap: 8px; }
+.gls-opt .tsetup__optsub { min-width: 140px; }
+.gls-fix__n { margin-top: 4px; color: var(--gray-600); }
+.gls-harv { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; padding: 12px; border: 1px solid var(--gray-200); border-radius: 10px; }
+.gls-harv > b { font-size: 14px; }
+.gls-harv > .t-detail-xs { color: var(--gray-600); }
+.gls-harv__row { display: flex; align-items: center; gap: 8px; padding: 8px 0; }
+.gls-harv__row + .gls-harv__row { border-top: 1px solid var(--gray-100); }
+.gls-harv__row .t-detail-xs { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

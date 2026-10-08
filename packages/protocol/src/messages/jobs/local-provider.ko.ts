@@ -1,0 +1,43 @@
+import type { JobsLocalProviderMessages } from './local-provider.ts';
+
+export const ko: JobsLocalProviderMessages = {
+  assetUnreadable: '소재를 읽지 못했습니다',
+  notHandled: (p: { capability: string }) => `로컬 공급자는 ${p.capability} 기능을 실행하지 않습니다`,
+  referenceChanged: '참조 녹음이 제출된 뒤 바뀌었습니다',
+  referenceUnreadable: '참조 녹음을 읽지 못했습니다',
+  speechOutputWrong: (p: { file: string }) => `합성 결과물이 staging의 ${p.file} 파일이 아닙니다`,
+  stemOutputWrong: (p: { file: string }) => `분리 결과물이 staging의 ${p.file} 파일이 아닙니다`,
+  speakersOutputWrong: (p: { file: string }) => `화자 식별 결과물이 staging의 ${p.file} 파일이 아닙니다`,
+  imageNoInput: '로컬 이미지 생성에 입력 파일이 없습니다',
+  imageOutputWrong: (p: { file: string }) => `이미지 결과물이 staging의 ${p.file} 파일이 아닙니다`,
+  runtimeStopping: 'Runtime이 종료되는 중입니다',
+  bundleRequired: '로컬 추론에는 모델 번들이 필요합니다',
+  bundleDisabled: '모델 번들이 꺼져 있습니다',
+  workerBusy: '이 모델 번들의 Worker가 다른 작업을 실행 중입니다',
+  workerVersionChanged: 'Worker 버전이 첫 시도 때와 달라 자동으로 다시 시도하지 않습니다',
+  noOutput: 'job.run이 결과물 없이 completed를 반환했습니다',
+  workerExitedDuringJob: '작업 중에 Model Worker가 종료되었습니다',
+  inferenceFailed: (p: { code: string }) => `추론 실패: ${p.code}`,
+  stagingUnwritable: '결과물을 staging에 쓰지 못했습니다. 디스크 공간을 확인하세요',
+  workerUnsupported: (p: { message: string }) => `Model Worker가 이 작업을 지원하지 않습니다: ${p.message}`,
+  jobRunReturned: (p: { code: string }) => `job.run이 ${p.code} 코드를 반환했습니다`,
+  workerNotFound: 'Model Worker(model-worker)를 찾을 수 없습니다',
+  workerCannotStart: 'Model Worker를 시작하지 못했습니다',
+  workerExitedOnStart: 'Model Worker가 시작 직후 종료되었습니다',
+  handshakeFailed: 'Model Worker 핸드셰이크에 실패했습니다',
+  contractMismatch: 'Model Worker의 계약 버전이 일치하지 않습니다',
+  backendUnavailable: (p: { backend: string }) => `이 Model Worker는 ${p.backend} 백엔드를 사용할 수 없습니다`,
+  cannotSeparate: '이 Model Worker는 아직 이 모델로 로컬 보컬·배경음 분리를 실행할 수 없습니다',
+  cannotGenerateImage: '이 Model Worker는 아직 이 모델로 로컬 이미지 생성을 할 수 없습니다',
+  cannotDiarize: '이 Model Worker는 아직 로컬에서 화자를 식별할 수 없습니다',
+  cannotTranscribe: '이 Model Worker는 아직 이 모델로 로컬 전사를 할 수 없습니다',
+  cannotSynthesize: '이 Model Worker는 아직 이 모델로 로컬 음성 합성을 실행할 수 없습니다',
+  loadFailed: (p: { reason: string }) => `모델 번들을 불러오지 못했습니다: ${p.reason}`,
+  workerExitedOnLoad: '불러오는 중에 Model Worker가 종료되었습니다',
+  crashedRepeatedly: (p: { minutes: number; count: number }) =>
+    `${p.minutes}분 안에 ${p.count}번 비정상 종료되었습니다`,
+  readingDroppedOne: (p: { at: number; reading: string; origin: string }) =>
+    `${p.at}번째 문자는 “${p.reading}” 발음으로 합성되지 않았습니다(${p.origin})`,
+  readingDroppedRange: (p: { from: number; to: number; reading: string; origin: string }) =>
+    `${p.from}~${p.to}번째 문자는 “${p.reading}” 발음으로 합성되지 않았습니다(${p.origin})`,
+};

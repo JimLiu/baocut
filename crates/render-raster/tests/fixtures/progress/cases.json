@@ -1,0 +1,45 @@
+{
+  "boxes": {
+    "bar": "画幅 80% × 5%，居中",
+    "frame": "画幅 100% × 100%",
+    "square": "画幅 30% × 30%，居中"
+  },
+  "canvas": [
+    1920.0,
+    1080.0
+  ],
+  "mainColor": "#3CADFF",
+  "note": "progress 夹具的**输入**。P5 的 GPU 对拍与 P6 的 wasm 复用同一份，各自追加 expected-*.json。追加新输入请往末尾加，既有编号不动。times 与 progress 一一配对，是元素本地时刻（秒）：P4 追加，只有 snake_spin 读它，P3 六种的指纹不受影响。",
+  "pixelScale": 2.0,
+  "progress": [
+    0.0,
+    0.25,
+    0.5,
+    0.75,
+    1.0
+  ],
+  "secondaryColor": "#C4E6FF",
+  "styles": [
+    "progress.normal",
+    "progress.rounded",
+    "progress.circle",
+    "progress.donut",
+    "progress.border",
+    "progress.reverse_border",
+    "progress.rainbow_border",
+    "progress.reverse_rainbow_border",
+    "progress.strobe_border",
+    "progress.reverse_strobe_border",
+    "progress.snake",
+    "progress.snake_spin",
+    "progress.snake_rainbow",
+    "progress.snake_spin_rainbow"
+  ],
+  "times": [
+    0.0,
+    0.75,
+    1.5,
+    2.25,
+    3.0
+  ]
+}

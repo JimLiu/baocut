@@ -1,0 +1,25 @@
+import type { ToolsImageMessages } from './tools-image-copy.ts';
+
+export const vi: ToolsImageMessages = {
+  emptyPrompt: 'Mô tả hình ảnh trước',
+  promptTooLong: (n, max) => `Lời nhắc có ${n} ký tự · mô hình này nhận tối đa ${max}`,
+  maxImages: (max) => `Tối đa ${max} hình ảnh mỗi lần`,
+  seedInteger: 'Seed phải là số nguyên',
+  pickModel: 'Chọn mô hình trước',
+  downloadFirst: (label) => `Tải xuống ${label} trước`,
+  connectFirst: (provider) => `Kết nối ${provider} trước`,
+  local: 'Trên máy tính này',
+  steps: (n) => `${n} bước`,
+  deviceTime: 'Thời gian tùy thuộc thiết bị',
+  offline: 'Hoạt động ngoại tuyến',
+  images: (n) => `${n} hình ảnh`,
+  aspects: (n) => `${n} tỷ lệ khung hình`,
+  providerSize: 'Kích thước do nhà cung cấp đặt',
+  takesSeed: 'Nhận seed',
+  localChip: 'Tạo trên máy tính này · ngoại tuyến',
+  cloudChip: (provider) => `Trực tuyến · ${provider} · tính phí theo mức sử dụng`,
+  imageName: (n) => `Hình ảnh ${n}`,
+  seed: (seed) => `Seed ${seed}`,
+  decoding: 'Đang giải mã',
+  stepOf: (done, total) => `Bước ${done}/${total}`,
+};

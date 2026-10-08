@@ -1,0 +1,181 @@
+{
+  "diagnostics": {},
+  "issues": [],
+  "mode": "lean",
+  "pageRejected": false,
+  "retryIds": [],
+  "rows": [
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              8
+            ],
+            "tgt": [
+              0,
+              13
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              9,
+              15
+            ],
+            "tgt": [
+              13,
+              23
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "在经理批准另一个版本之前，",
+            "to": 8
+          },
+          {
+            "from": 9,
+            "text": "不要把文件发给萨拉。",
+            "to": 15
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15"
+        ]
+      },
+      "chunks": 2,
+      "coarse": true,
+      "frozen": false,
+      "id": "hi-07",
+      "issues": [],
+      "locatedChunks": 2,
+      "minChunks": 3,
+      "n": 1,
+      "realTiming": false,
+      "source": "जब तक प्रबंधक दूसरे संस्करण को मंज़ूरी न दे, तब तक फ़ाइल सारा को मत भेजें।",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "在经理批准另一个版本之前，不要把文件发给萨拉。"
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              5
+            ],
+            "tgt": [
+              0,
+              12
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              14
+            ],
+            "tgt": [
+              12,
+              22
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "我们买了2.5公斤大米；",
+            "to": 5
+          },
+          {
+            "from": 6,
+            "text": "晚饭后剩了一半大米。",
+            "to": 14
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14"
+        ]
+      },
+      "chunks": 2,
+      "coarse": false,
+      "frozen": false,
+      "id": "hi-08",
+      "issues": [],
+      "locatedChunks": 2,
+      "minChunks": 1,
+      "n": 2,
+      "realTiming": false,
+      "source": "हमने 2.5 किलो चावल खरीदे थे; रात के खाने के बाद आधे चावल बच गए।",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "我们买了2.5公斤大米；晚饭后剩了一半大米。"
+    }
+  ],
+  "schema": "lean-carrier-grade/2",
+  "totals": {
+    "acceptedTranslations": 2,
+    "aligned": 2,
+    "chunks": 4,
+    "coarse": 0,
+    "expectedSentences": 2,
+    "locatedChunks": 4,
+    "sentencesWithAnchorIssues": 0,
+    "syntaxOrPermissionIssues": 0,
+    "translationRetries": 0
+  }
+}

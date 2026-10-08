@@ -1,0 +1,28 @@
+{
+  "language": "en",
+  "body": {
+    "schema": "baocut.speech/1",
+    "clock": "source-asset",
+    "timescale": 1000000,
+    "engine": { "name": "qwen3-asr-0.6b", "alignedWords": true },
+    "createdAt": null,
+    "speakers": [
+      { "id": "s1", "name": "Speaker 1", "hue": 222 },
+      { "id": "s2", "name": "Speaker 2", "hue": null }
+    ],
+    "words": [
+      { "id": "g1.0", "start": 0, "end": 150000, "text": "So", "speaker": "s1" },
+      { "id": "g1.1", "start": 150000, "end": 390000, "text": "Greg,", "speaker": "s1" },
+      { "id": "g1.2", "start": 390000, "end": 520000, "text": "um", "speaker": "s1", "hidden": true },
+      { "id": "g1.3", "start": 520000, "end": 1270000, "text": "welcome.", "speaker": "s1" },
+      { "id": "g2.0", "start": 3100000, "end": 3460000, "text": "Thanks", "speaker": "s2" },
+      { "id": "g2.1", "start": 3460000, "end": 3900000, "text": "everyone.", "speaker": "s2" }
+    ],
+    "sentences": [
+      { "id": "s-g1.0", "wordIds": ["g1.0", "g1.1", "g1.3"] },
+      { "id": "s-g2.0", "first": "g2.0", "last": "g2.1", "paragraphStart": true }
+    ],
+    "chapters": [{ "id": "c1", "title": "Transcript", "start": 0, "end": 175496000 }],
+    "legacy": { "breakPins": { "g1.1": "break" }, "paragraphPins": ["g2.0"] }
+  }
+}

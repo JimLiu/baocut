@@ -1,0 +1,8 @@
+{
+  "effort": "auto",
+  "elapsedMs": 2386,
+  "error": null,
+  "model": "deepseek-flash",
+  "name": "synthetic-en-ar",
+  "response": "1 |Layla..meeting|لم تُلغِ ليلى الاجتماع؛|she..Thursday|أجّلته إلى الساعة 14:30 يوم الخميس.\n2 |If..degrees|إذا انخفضت درجة الحرارة دون 5 درجات،|close..heater|أغلق النافذة قبل تشغيل المدفأة.\n3 |Omar..tickets|دفع عمر 120 ريالًا مقابل ثلاث تذاكر،|and..dinner|ولم يشمل السعر العشاء.\n4 |Maryam..hers|قالت مريم إن الحقيبة التي تركها يوسف في القطار ليست لها.\n5 |The code..confirmed|يظهر الرمز A-17 بجانب كلمة «مؤكد»،|but..yet|لكن الطلب لم يُشحن بعد.\n6 |Noura..him|وصلت نورة بعد أحمد بعشر دقائق،|although..him|رغم أنها غادرت المنزل قبله.\n7 |Do not..version|لا ترسل الملف إلى سارة إلا إذا وافق المدير على النسخة الثانية.\n8 |We bought..dinner|اشترينا 2.5 كيلوغرام من الأرز،|and..dinner|وبقي نصفه بعد العشاء."
+}

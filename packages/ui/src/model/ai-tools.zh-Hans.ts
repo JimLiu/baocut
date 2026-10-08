@@ -1,0 +1,125 @@
+import type { AiToolsMessages } from './ai-tools.ts';
+
+const SOON_TAIL = 'Runtime 还没有这条流程，画面上也还没有调取景框的覆盖层，所以这里先不给能操作的表单。';
+
+export const zhHans: AiToolsMessages = {
+  groups: {
+    frame: '画面',
+    transcript: '整理文稿',
+    translate: '翻译',
+    writing: '写作',
+    publish: '发布',
+  },
+  tools: {
+    crop: {
+      name: '智能裁剪',
+      desc: '换一种画幅，把发言人、白板这些重点留在框里',
+      why: `智能裁剪要在画面里一路跟住发言人、白板这些重点，再按新画幅裁切。${SOON_TAIL}`,
+    },
+    shortscut: {
+      name: '剪成短视频',
+      desc: '从这个视频里挑几段，各做成一支竖屏短视频',
+      why: `剪成短视频要挑出几段、各自裁成竖屏，并在画面上逐段调取景。${SOON_TAIL}`,
+    },
+    polish: {
+      name: '润色文稿',
+      desc: '修错字、补标点、自动分段——不改写你的话',
+      setup: ['把明显的错字、缺失的标点补上，并按话题分段。', '不改写你的表达，也不删内容——只修可以确定是笔误的地方。'],
+    },
+    chapters: {
+      name: '生成章节',
+      desc: '给长视频分出带标题的章节',
+      setup: ['按段落话题聚合出章节，并给每一章起标题。', '导出与分享页会用同一份章节。'],
+    },
+    speakers: {
+      name: '识别说话人',
+      desc: '区分是谁在说话，字幕与文稿都会标上名字',
+    },
+    retranscribe: {
+      name: '重新转录',
+      desc: '换一个模型重跑音频——可以只跑一章或一段',
+      setup: ['用另一个语音模型重跑，替换掉这一范围的词级数据。', '范围之外的文稿、字幕与译文一个字不动。'],
+    },
+    cleanup: {
+      name: '找可剪的口',
+      desc: '找出口癖、长停顿、坏拍，先看建议再剪',
+      setup: ['扫一遍口癖、≥0.8s 的长停顿与重复起句。', '先把要剪的清单列给你确认，再动手剪。'],
+    },
+    translate: { name: '翻译字幕', desc: '逐句翻译并按词级数据自动对齐时间码' },
+    stale: {
+      name: '刷新过期译文',
+      desc: '只重译原文改过或被剪切的那几句',
+      setup: ['只重译原文变过的那几句：你改过原文的，和剪口播剪掉了半句的。', '按剪后的原文译；整句剪掉的译文随句一起剪。其余一个字不动。'],
+    },
+    dub: {
+      name: '翻译配音',
+      desc: '选一种语言，让视频用它开口；像本人或像母语，其余默认就能开始',
+    },
+    summary: { name: '写总结', desc: '正文加带时间的要点，点时间跳到那里' },
+    blog: { name: '写博客', desc: '改写成一篇文章，作者视角或观众视角' },
+    title: { name: '起标题', desc: '一次出几个角度不同的候选，挑一个选用' },
+    desc: { name: '写简介', desc: '发布用的简介，带章节时间码和标签' },
+    cover: { name: '做封面', desc: '从关键帧出发做几张封面候选，挑一张选用' },
+  },
+  unknownTool: (id: string) => `没有这个 AI 工具：${id}`,
+  cleanup: {
+    fillers: {
+      label: '口癖',
+      sub: '嗯、啊、就是、然后这类词',
+      off: '口癖不找',
+    },
+    pauses: { label: '长停顿 ≥ 0.8s', sub: '按词级时间找', off: '停顿不动' },
+    repeats: {
+      label: '重复起句',
+      sub: '同一句起了两次，留后一次',
+      off: '重复起句不找',
+    },
+  },
+  cleanupOff: (offs: readonly string[]) => offs.join('、'),
+  lengths: { short: '短', medium: '中', long: '长' },
+  styles: {
+    plain: '平实',
+    pop: '科普',
+    sharp: '毒舌',
+    light: '轻松',
+    pro: '专业',
+    custom: '自定义…',
+  },
+  views: { auto: '自动', author: '我是作者', viewer: '我是观众' },
+  coverText: {
+    none: '不放字',
+    phrase: '一句短语',
+    'phrase-sub': '短语加一行小字',
+  },
+  viewName: { author: '作者', viewer: '观众' },
+  extraScope: (scope: string) => `只看${scope}`,
+  extraLength: (label: string) => `篇幅：${label}`,
+  extraStyle: (style: string) => `风格：${style}`,
+  extraLanguage: (language: string) => `用${language}写`,
+  extraView: (view: string) => `视角：${view}`,
+  extraPlatform: (platform: string) => `要发到：${platform}，按它的规定写，写完提醒我核对`,
+  extraIdea: (idea: string) => `封面要说的一件事：${idea}`,
+  extraRatio: (ratio: string) => `画幅 ${ratio}`,
+  extraCoverText: (label: string) => `封面上的字：${label}`,
+  titled: (title: string) => `「${title}」`,
+  thisVideo: '这个视频',
+  sourceEdited: (n: number | null) => (n === null ? '原文改过' : `${n} 句原文改过`),
+  sourceCut: (n: number | null) => (n === null ? '原文被剪切' : `${n} 句原文被剪切`),
+  sourceJoin: (parts: readonly string[]) => parts.join('、'),
+  intents: {
+    stale: (o) =>
+      `${o.p}有几句译文过期了${o.why ? `（${o.why}）` : '：原文改过'}，只重译这些句子，${o.cut ? '被剪切的按剪后的原文重译、整句剪掉的随句一起剪掉，' : ''}其余一个字不动。`,
+    polish: (o) => `润色${o.p}的${o.scope || '全篇'}文稿：修错字、补标点、按话题分段，不改写我的表达。`,
+    chapters: (o) => `给${o.p}按话题分出章节，每章起一个短标题。`,
+    speakers: (o) => `识别${o.p}里${o.scope || '全篇'}的说话人，先把结果列给我确认再写进视频。`,
+    retranscribe: (o) => `用另一个语音模型重新转录${o.p}的${o.scope || '全篇'}，范围之外一个字不动。`,
+    cleanup: (o) => `找出${o.p}${o.scope || '全篇'}里的口癖、长停顿和重复起句，先列出来，我确认后再剪。`,
+    summary: (o) => `从${o.p}的文稿提炼一份带时间码的要点总结。`,
+    blog: (o) => `把${o.p}改写成一篇可发布的博客。`,
+    title: (o) => `给${o.p}起 ${o.count} 个候选标题，角度各不相同，每个写一行理由，挑一个推荐。`,
+    desc: (o) => `给${o.p}写一份发布用的简介，带章节时间码和一行标签。`,
+    cover: (o) => `给${o.p}做 ${o.count} 张封面候选：先挑关键帧，每张走一条底图路线，做完缩小了检查一遍再给我看。`,
+  },
+  endSentence: (text: string) => (/[。！？]$/.test(text) ? text : `${text}。`),
+  joinPrompt: (head: string, extra: readonly string[]) => head + extra.join(''),
+};

@@ -1,0 +1,25 @@
+import type { ModelsTextGenerationMessages } from './text-generation.ts';
+
+export const fr: ModelsTextGenerationMessages = {
+  noMessage: "Au moins un message user ou assistant non vide est requis",
+  badRole: "Le rôle d’un message doit être system, user ou assistant",
+  inputTooLong: (p: { chars: number; modelId: string; contextTokens: number }) => `L’entrée contient ${p.chars} caractères, bien au-delà du contexte de ${p.contextTokens} tokens du modèle ${p.modelId}`,
+  maxOutput: (p: { modelId: string; max: number }) => `Le modèle ${p.modelId} produit au plus ${p.max} tokens par appel`,
+  noTemperature: (p: { modelId: string }) => `Le modèle ${p.modelId} n’accepte pas temperature`,
+  temperatureRange: "temperature doit être entre 0 et 2",
+  noSeed: (p: { modelId: string }) => `Le modèle ${p.modelId} n’accepte pas seed`,
+  noStructured: (p: { modelId: string }) => `Le modèle ${p.modelId} ne prend pas en charge la sortie structurée`,
+  effortIgnored: (p: { modelId: string; requested: string }) => `Le modèle ${p.modelId} ne peut pas ajuster l’effort de raisonnement ; valeur ignorée ${p.requested}`,
+  effortChanged: (p: { modelId: string; requested: string; applied: string }) => `Le modèle ${p.modelId} n’a pas de niveau de raisonnement ${p.requested} ; utilisation de ${p.applied} à la place`,
+  contentFiltered: (p: { provider: string }) => `${p.provider} : filtre de contenu ayant bloqué cette sortie`,
+  truncatedJson: (p: { provider: string; max: number }) => `${p.provider} : sortie ayant atteint la limite (${p.max} tokens) et tronquée ; sortie structurée incomplète`,
+  truncatedProblem: (p: { max: number }) => `Sortie tronquée (maxOutputTokens ${p.max})`,
+  notJson: (p: { provider: string }) => `${p.provider} : sortie non JSON valide`,
+  notJsonProblem: "JSON invalide",
+  schemaMismatch: (p: { provider: string }) => `${p.provider} : sortie non conforme au schéma JSON fourni`,
+  limitBeforeText: (p: { provider: string }) => `${p.provider} a atteint la limite avant d’écrire du texte`,
+  emptyOutput: (p: { provider: string }) => `${p.provider} a renvoyé une sortie vide`,
+  limitBeforeTextProblem: (p: { max: number }) => `Aucun texte quand la limite de sortie de ${p.max} tokens a été atteinte`,
+  emptyProblem: "Sortie vide",
+  cancelled: "Appel annulé",
+};

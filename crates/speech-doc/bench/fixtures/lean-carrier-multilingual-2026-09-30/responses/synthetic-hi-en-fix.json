@@ -1,0 +1,8 @@
+{
+  "effort": "auto",
+  "elapsedMs": 1761,
+  "error": null,
+  "model": "deepseek-flash",
+  "name": "synthetic-hi-en-fix",
+  "response": "1 |लीला ने बैठक रद्द नहीं की;|Leela didn't cancel the meeting; |उसने उसे गुरुवार को 14:30 बजे तक टाल दिया।|she postponed it to Thursday at 14:30.\n2 |अगर तापमान 5 डिग्री से नीचे चला जाए,|If the temperature drops below 5 degrees, |तो हीटर चालू करने से पहले खिड़की बंद कर दें।|close the window before turning on the heater.\n3 |अमन ने तीन टिकटों के लिए 120 रुपये दिए,|Aman paid 120 rupees for three tickets, |लेकिन इस कीमत में रात का खाना शामिल नहीं था।|but dinner was not included in this price.\n4 |मीरा ने कल रवि को जो किताब उधार दी थी,|The book Meera lent Ravi yesterday |वह मीरा की बहन की है।|belongs to Meera's sister.\n5 |“पुष्टि हुई” के पास E-12 लिखा है,|Next to \"Confirmed\" it says E-12, |लेकिन पैकेट अभी तक भेजा नहीं गया है।|but the packet hasn't been sent yet.\n6 |नेहा अर्जुन से पहले निकली थी,|Neha left before Arjun, |फिर भी वह उससे दस मिनट बाद पहुँची।|yet she arrived ten minutes after him."
+}

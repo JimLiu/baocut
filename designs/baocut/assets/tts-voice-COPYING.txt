@@ -1,0 +1,74 @@
+BaoCut 内置音色（默认音色）的参考录音
+=====================================
+
+八段 16 kHz 16-bit 单声道 PCM，四门语言 × 男女各一。只能克隆的引擎
+（IndexTTS2 / IndexTTS 2.5 / GPT-SoVITS）靠它们才有「默认音色」与
+「预置说话人」：选中一只音色 = 用这段录音做克隆参考。
+
+生成脚本：scripts/dev/tts-voices/build.py（选段的文件名钉在脚本里，
+同一份输入永远出同一份输出）。清单：voices.json。
+
+
+一、zh-female / zh-male / ja-female / ja-male / es-female / es-male
+-------------------------------------------------------------------
+
+来源：FLEURS（Few-shot Learning Evaluation of Universal Representations
+of Speech），Google，https://huggingface.co/datasets/google/fleurs
+
+许可：Creative Commons Attribution 4.0 International（CC BY 4.0）
+      https://creativecommons.org/licenses/by/4.0/
+      允许商用与再分发，须署名并标明修改。
+
+署名：FLEURS © Google LLC，按 CC BY 4.0 使用。
+引用：Conneau et al., "FLEURS: Few-shot Learning Evaluation of Universal
+      Representations of Speech", 2022, arXiv:2205.12446.
+
+选段（config · split · 原文件名）：
+  zh-female  cmn_hans_cn · dev · 11138309825590803862.wav
+  zh-male    cmn_hans_cn · dev · 7878925372167965477.wav
+  ja-female  ja_jp       · dev · 9633305044980004895.wav
+  ja-male    ja_jp       · dev · 18146068393309246703.wav
+  es-female  es_419      · dev · 16573424493246998243.wav
+  es-male    es_419      · dev · 14695292064114231662.wav
+
+修改（MODIFIED）：从 32-bit float WAV 转 16-bit PCM；掐掉首尾静音、两端各
+留 0.15 秒；峰值归一到 -3.5 dBFS。采样率与内容未变，没有剪接、没有变速。
+
+
+二、en-female / en-male
+------------------------
+
+来源：CMU ARCTIC speech databases，http://www.festvox.org/cmu_arctic/
+  en-male    = cmu_us_bdl_arctic wav/arctic_a0001.wav + wav/arctic_a0002.wav
+  en-female  = cmu_us_slt_arctic wav/arctic_a0001.wav + wav/arctic_a0002.wav
+原文："Author of the danger trail, Philip Steels, etc. Not at this
+      particular case, Tom, apologized Whittemore."
+
+修改（MODIFIED）：每只音色的两段之间接 0.3 秒静音拼成一段（16 kHz、16-bit
+单声道 PCM），2026-09-21 起再按上面的规则做一次首尾静音与峰值归一。
+
+原始许可（摘自 cmu_us_bdl_arctic/COPYING）：
+
+This voice is free for use for any purpose (commercial or otherwise)
+subject to the pretty light restrictions detailed below.
+
+                     Carnegie Mellon University
+                         Copyright (c) 2003
+                        All Rights Reserved.
+
+  Permission to use, copy, modify,  and licence this software and its
+  documentation for any purpose, is hereby granted without fee,
+  subject to the following conditions:
+   1. The code must retain the above copyright notice, this list of
+      conditions and the following disclaimer.
+   2. Any modifications must be clearly marked as such.
+   3. Original authors' names are not deleted.
+
+  THE AUTHORS OF THIS WORK DISCLAIM ALL WARRANTIES WITH REGARD TO
+  THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+  AND FITNESS, IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY
+  SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+  AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+  ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+  THIS SOFTWARE.

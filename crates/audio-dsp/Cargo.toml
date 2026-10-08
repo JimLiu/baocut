@@ -1,0 +1,16 @@
+[package]
+name = "audio-dsp"
+description = "BaoCut offline audio DSP primitives: RBJ biquads, time-varying low-pass, polyBLEP oscillators, shaped noise, synthetic IR + FFT convolution, followers, ducking, glue, BS.1770 loudness and 4x true-peak limiting. Pure functions, no I/O, libm-only transcendentals. (Ported from BaoCut v2 bcut-audio-dsp.)"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[dependencies]
+# 超越函数只走 libm（与 bcut-motion 同一理由）：同一份输入在 macOS / Windows / Linux 出逐位相同的采样。
+libm = "0.2.16"
+
+[dev-dependencies]
+# 独立实现的 EBU R128 测量（MIT），只在测试里与本 crate 自写的 BS.1770 对拍，不进库的依赖图：
+# 它的滤波系数与对数走 std 浮点，平台间末位可能不同，而响度值会反馈成母带增益。
+ebur128 = "0.1.10"

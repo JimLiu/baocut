@@ -1,0 +1,8 @@
+{
+  "effort": "auto",
+  "elapsedMs": 878,
+  "error": null,
+  "model": "deepseek-flash",
+  "name": "synthetic-es-zh-Hans",
+  "response": "1 |No..Sofía|别把文件发给 Sofía，|a..versión|除非主管批准第二版。\n2 |Compramos..arroz|我们买了 2.5 公斤大米，|y..mitad|吃完晚饭后还剩一半。"
+}

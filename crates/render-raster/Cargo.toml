@@ -1,0 +1,128 @@
+[package]
+name = "render-raster"
+description = "BaoCut 的 CPU 渲染核心：DrawOp 帧指令 IR（确定性二进制编码与指纹）、tiny-skia 光栅化重放、文本引擎（cosmic-text + swash，文档字体 strict 模式）、效果 / 滤镜 / 蒙版 / 转场、程序化源（Lottie、彩纸、进度、可视化、手绘）、帧计划的 CPU 执行器、BCF 布局与录制、图像比较；内置字体在 `assets/fonts/`（移植自 BaoCut v2 bcut-render）"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+# v2 的 feature 表原样保留名字与门禁（`src/lib.rs` 顶部的 `compile_error!`）。
+#
+# `media` 是**默认开**的 host 字节层（与 v2 同）：资源加载（`assets`）、帧供给（`media`，
+# 平台原生解码为主路径、ffmpeg 管道兜底）、ffmpeg 混音与 MP4 合成（`audio` / `video`）、内置字体的
+# `include_bytes!`。两处与 v2 不同：
+# - v2 的 `bcut-exec`（外部二进制发现）在架构设计 §13.6 定为不移植，`media` 用到的那一小块
+#   收成本 crate 的 `src/exec.rs`，查找规则跟 v3（`BAOCUT_FFMPEG` / `BAOCUT_FFPROBE`，再 `PATH`）；
+# - v2 的 `bcut-compile`（BCF 编译，oxc + rquickjs）同样不移植。它在 v2 是 `media` 的硬依赖，只服务
+#   `program` 资产；这里拆成单独的 `program` feature，`media` 不带它。
+#
+# 进 WASM 的构建一律 `--no-default-features --features wasm-safe`；根 `Cargo.toml` 的
+# `[workspace.dependencies]` 登记处已是 `default-features = false`，引用方不显式要 `media` 就拿不到。
+# `wasm-safe` 自己不打开任何东西，最小集来自「不开 `media`」（v2 同）。
+#
+# `svg`：只要 resvg 的 SVG 光栅（`src/svg.rs`，不带 `text`），浏览器预览的 wasm 也开它——
+# SVG 素材与贴纸换色在内核里光栅化，预览与导出走同一份实现（架构设计 §9.1）。`media` 是它的超集。
+#
+# `gpu-runtime` / `wgsl-validate` / `gpu` / `gpu-web*`：源码带来，依赖（wgpu 30、naga 30、
+# pollster 1）等「GPU 合成与预览 WASM」批再解析进 Cargo.lock，这一批只是占位。
+[features]
+default = ["media"]
+# App 发布档改读签名包里的共享字体目录（`Contents/Resources/fonts`），不把内置字体编进二进制。
+external-fonts = ["media"]
+media = [
+    "dep:tempfile",
+    "dep:resvg",
+    "dep:media-probe",
+    "dep:media-native",
+    "dep:symphonia",
+    "dep:audio-dsp",
+    "dep:rustybuzz",
+    "svg",
+    "resvg/text",
+]
+svg = ["dep:resvg", "resvg/raster-images"]
+# v3 占位：`program` 资产（BCF 的 TSX 模块图逐帧求值成 SVG，再由 resvg 光栅）。v2 里是 `media` 的一部分
+# （`dep:bcut-compile`），`bcut-compile` 不移植（§13.6）。不开时 `program` 资产在加载期报错，
+# `src/program.rs` 与门在它后面的测试不编译；打开它在 `lib.rs` 的门禁处编译失败。
+program = ["media"]
+wasm-safe = []
+# v2：`gpu-runtime = ["dep:wgpu"]`
+gpu-runtime = []
+# v2：`wgsl-validate = ["dep:naga"]`。建管线前先用 naga 解析 + 校验 WGSL。
+wgsl-validate = []
+# v2：`gpu = ["gpu-runtime", "wgsl-validate", "dep:pollster", "wgpu/metal", "wgpu/vulkan", "wgpu/dx12"]`
+gpu = ["gpu-runtime", "wgsl-validate"]
+# 浏览器的两份 GPU wasm（WebGPU / WebGL2）；`gpu-web` 是两者合开的旧名。
+gpu-web = ["gpu-webgpu", "gpu-webgl"]
+# v2：`gpu-webgpu = ["gpu-runtime", "wgpu/webgpu"]`
+gpu-webgpu = ["gpu-runtime"]
+# v2：`gpu-webgl = ["gpu-runtime", "wgsl-validate", "wgpu/webgl"]`
+gpu-webgl = ["gpu-runtime", "wgsl-validate"]
+
+[dependencies]
+scene-primitives = { workspace = true }
+motion = { workspace = true }
+# 只用 BCS1 的**读**侧（格式层 + 元素级重映射）：workspace 登记处关掉 `dsp`，
+# realfft/rustfft 不进本 crate 的依赖图（§9.1 wasm 边界）。
+waveform = { workspace = true }
+anyhow = "1.0"
+# confetti 闭式核与单位形的超越函数（`source/confetti/{kernel,shapes}.rs`）：取样
+# 结果原样跨出 wasm 边界，native 与 wasm32 必须逐位相同。
+libm = "0.2.16"
+# `float_roundtrip`：十进制读成 f64 必须正确舍入（v2 在 workspace 级打开，这里随 crate 声明）。
+serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
+tiny-skia = "0.11.4"
+cosmic-text = "0.19"
+swash = "0.2"
+# v2 是 0.10；本仓库已解析到 0.11，跟本仓库。
+sha2 = "0.11.0"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
+# `.lottie` 压缩包的 deflate 解压（`source/lottie/archive.rs`，自写的中央目录读取不用 zip crate）。已经在依赖图里
+#（png / flate2 带进来的那一份），纯 Rust，进 wasm。
+miniz_oxide = "0.8"
+
+# ── `media` 专属（跟着 `media` 走，不进 `wasm-safe` 的依赖图）。
+# 媒体探测（时长/尺寸/fps/alpha）的唯一实现。
+media-probe = { workspace = true, optional = true }
+# 平台原生解码（AVFoundation / Media Foundation）。渲染管线的**逐帧供片主路径**
+# （`media.rs`），解不了才回落 ffmpeg 管道；成片编码的原生后端（`video.rs`）。
+media-native = { workspace = true, optional = true }
+# 音频解码的纯 Rust 主路径（`audio/decode.rs`）。版本与 features 对齐 `media-probe`。
+symphonia = { version = "0.6", features = ["all"], optional = true }
+# 混音链（闪避、BS.1770 响度、真峰值限幅）。
+audio-dsp = { workspace = true, optional = true }
+# `resvg` 的调用点是 `svg.rs` 的 SVG 光栅与 `program.rs` 的逐帧光栅；`svg` feature 单独也会带上它
+# （浏览器预览 wasm）。打过补丁的 resvg 0.45.1（嵌套图层钳位、滤镜区域），源码在
+# `vendor/bcut-resvg/`（见其 README.md）。`text` 只跟 `media` 走，`raster-images` 让内嵌的
+# data URI 贴图画得出来。
+resvg = { package = "bcut-resvg", path = "vendor/bcut-resvg", default-features = false, optional = true }
+# 与 usvg 排版用的是同一份（锁在 0.20），量出的文字宽度才对得上。
+rustybuzz = { version = "0.20", optional = true }
+# 只有 `video.rs` 的混音临时文件用它；`getrandom` 在 wasm32-unknown-unknown 上
+# 需要显式 backend，不进 `wasm-safe` 的依赖图正好省掉这条 cfg。
+tempfile = { version = "3", optional = true }
+# v2 另有两条不移植的（§13.6）：
+# bcut-exec = { path = "../bcut-exec", optional = true }        → `src/exec.rs`
+# bcut-compile = { path = "../bcut-compile", optional = true }  → `program` feature 占位
+#
+# ── `gpu` 专属（v2 原文，待「GPU 合成与预览 WASM」批）。
+# wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "wgsl"], optional = true }
+# naga = { version = "30", default-features = false, features = ["wgsl-in", "glsl-out"], optional = true }
+# pollster = { version = "1", optional = true }
+
+[dev-dependencies]
+tempfile = "3"
+# 夹具的**生成端**要 `bcs1::encode` 与 `remap`：打开 `dsp`。
+waveform = { workspace = true, features = ["dsp"] }
+# 动图夹具的**生成端**（`write_animated_fixtures`，`#[ignore]`）：
+# 需要逐帧 disposal / blend / loop count 的精确控制，`image` 的编码器给不了。
+gif = "0.14"
+png = "0.18"
+# 成片编码后端验收（`tests/encode_backends.rs`）要探测写出来的 MP4、问本机有没有原生编码
+# 后端。正式依赖那两份是 `optional`（跟着 `media` 走），测试目标不继承可选依赖，这里再声明一次。
+media-probe = { workspace = true }
+media-native = { workspace = true }
+
+[[example]]
+name = "bcf_stage_bench"
+required-features = ["media"]

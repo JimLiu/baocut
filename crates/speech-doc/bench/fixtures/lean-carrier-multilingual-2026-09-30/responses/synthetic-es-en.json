@@ -1,0 +1,8 @@
+{
+  "effort": "auto",
+  "elapsedMs": 1819,
+  "error": null,
+  "model": "deepseek-flash",
+  "name": "synthetic-es-en",
+  "response": "1 |Lucía..reunión|Lucía no canceló la reunión;|la..30|la aplazó hasta el jueves a las 14:30.\n2 |Si..grados|Si la temperatura baja de 5 grados,|cierra..calefacción|cierra la ventana antes de encender la calefacción.\n3 |Diego..entradas|Diego pagó 120 euros por tres entradas,|pero..cena|pero el precio no incluía la cena.\n4 |El..Ana|El libro que Ana le prestó ayer a Pablo|pertenece..Ana|pertenece a la hermana de Ana.\n5 |El..«confirmado»|El código C-19 aparece junto a «confirmado»,|aunque..enviado|aunque el paquete aún no se ha enviado.\n6 |Aunque..Mateo|llegó diez minutos después de él.|Aunque Inés salió antes que Mateo,|llegó..él|"
+}

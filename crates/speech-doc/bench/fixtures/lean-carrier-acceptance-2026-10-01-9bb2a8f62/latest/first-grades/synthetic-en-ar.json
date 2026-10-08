@@ -1,0 +1,901 @@
+{
+  "diagnostics": {},
+  "issues": [],
+  "mode": "lean",
+  "pageRejected": false,
+  "retryIds": [],
+  "rows": [
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              3
+            ],
+            "tgt": [
+              0,
+              14
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              4,
+              5
+            ],
+            "tgt": [
+              14,
+              23
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              9
+            ],
+            "tgt": [
+              23,
+              34
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              10,
+              12
+            ],
+            "tgt": [
+              34,
+              58
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "لم تُلغِ ليلى الاجتماع؛",
+            "to": 5
+          },
+          {
+            "from": 6,
+            "text": "أجّلته إلى الساعة 14:30 يوم الخميس.",
+            "to": 12
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12"
+        ]
+      },
+      "chunks": 4,
+      "coarse": false,
+      "frozen": false,
+      "id": "reverse-ar-01",
+      "issues": [],
+      "locatedChunks": 4,
+      "minChunks": 2,
+      "n": 1,
+      "realTiming": false,
+      "source": "Layla did not cancel the meeting; she postponed it until 14:30 on Thursday.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "لم تُلغِ ليلى الاجتماع؛أجّلته إلى الساعة 14:30 يوم الخميس."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              2
+            ],
+            "tgt": [
+              0,
+              23
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              3,
+              6
+            ],
+            "tgt": [
+              23,
+              35
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              7,
+              9
+            ],
+            "tgt": [
+              35,
+              48
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              10,
+              14
+            ],
+            "tgt": [
+              48,
+              66
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "إذا انخفضت درجة الحرارة",
+            "to": 2
+          },
+          {
+            "from": 3,
+            "text": "دون 5 درجات،فأغلق النافذة",
+            "to": 9
+          },
+          {
+            "from": 10,
+            "text": "قبل تشغيل المدفأة.",
+            "to": 14
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14"
+        ]
+      },
+      "chunks": 4,
+      "coarse": false,
+      "frozen": false,
+      "id": "reverse-ar-02",
+      "issues": [],
+      "locatedChunks": 4,
+      "minChunks": 3,
+      "n": 2,
+      "realTiming": false,
+      "source": "If the temperature drops below 5 degrees, close the window before turning on the heater.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "إذا انخفضت درجة الحرارة دون 5 درجات،فأغلق النافذة قبل تشغيل المدفأة."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              3
+            ],
+            "tgt": [
+              0,
+              19
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              4,
+              6
+            ],
+            "tgt": [
+              19,
+              34
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              7,
+              11
+            ],
+            "tgt": [
+              34,
+              48
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              12,
+              13
+            ],
+            "tgt": [
+              48,
+              60
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "دفع عمر 120 ريالًا ثمن ثلاث تذاكر،",
+            "to": 6
+          },
+          {
+            "from": 7,
+            "text": "ولم يكن السعر يشمل العشاء.",
+            "to": 13
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13"
+        ]
+      },
+      "chunks": 4,
+      "coarse": false,
+      "frozen": false,
+      "id": "reverse-ar-03",
+      "issues": [],
+      "locatedChunks": 4,
+      "minChunks": 2,
+      "n": 3,
+      "realTiming": false,
+      "source": "Omar paid 120 riyals for three tickets, and the price did not include dinner.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "دفع عمر 120 ريالًا ثمن ثلاث تذاكر،ولم يكن السعر يشمل العشاء."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              3
+            ],
+            "tgt": [
+              0,
+              13
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              4,
+              6
+            ],
+            "tgt": [
+              13,
+              36
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              7,
+              9
+            ],
+            "tgt": [
+              36,
+              46
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              10,
+              12
+            ],
+            "tgt": [
+              46,
+              57
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "قالت مريم إن الحقيبة التي تركها يوسف",
+            "to": 6
+          },
+          {
+            "from": 7,
+            "text": "في القطار لم تكن لها.",
+            "to": 12
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12"
+        ]
+      },
+      "chunks": 4,
+      "coarse": false,
+      "frozen": false,
+      "id": "reverse-ar-04",
+      "issues": [],
+      "locatedChunks": 4,
+      "minChunks": 2,
+      "n": 4,
+      "realTiming": false,
+      "source": "Maryam said that the bag Yusuf left on the train was not hers.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "قالت مريم إن الحقيبة التي تركها يوسف في القطار لم تكن لها."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              3
+            ],
+            "tgt": [
+              0,
+              15
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              4,
+              7
+            ],
+            "tgt": [
+              15,
+              38
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              8,
+              11
+            ],
+            "tgt": [
+              38,
+              48
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              12,
+              14
+            ],
+            "tgt": [
+              48,
+              57
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              15,
+              15
+            ],
+            "tgt": [
+              57,
+              61
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "يظهر الرمز A-17",
+            "to": 3
+          },
+          {
+            "from": 4,
+            "text": "إلى جانب كلمة «مؤكَّد»،",
+            "to": 7
+          },
+          {
+            "from": 8,
+            "text": "لكن الطلب لم يُشحن بعد.",
+            "to": 15
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13",
+          "w14",
+          "w15"
+        ]
+      },
+      "chunks": 5,
+      "coarse": false,
+      "frozen": false,
+      "id": "reverse-ar-05",
+      "issues": [],
+      "locatedChunks": 5,
+      "minChunks": 2,
+      "n": 5,
+      "realTiming": false,
+      "source": "The code A-17 appears beside the word “confirmed,” but the order has not been shipped yet.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "يظهر الرمز A-17 إلى جانب كلمة «مؤكَّد»،لكن الطلب لم يُشحن بعد."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              2
+            ],
+            "tgt": [
+              0,
+              14
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              3,
+              5
+            ],
+            "tgt": [
+              14,
+              30
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              8
+            ],
+            "tgt": [
+              30,
+              44
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              9,
+              11
+            ],
+            "tgt": [
+              44,
+              56
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "وصلت نورة بعد أحمد بعشر دقائق،",
+            "to": 5
+          },
+          {
+            "from": 6,
+            "text": "مع أنها غادرت المنزل قبله.",
+            "to": 11
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11"
+        ]
+      },
+      "chunks": 4,
+      "coarse": false,
+      "frozen": false,
+      "id": "reverse-ar-06",
+      "issues": [],
+      "locatedChunks": 4,
+      "minChunks": 2,
+      "n": 6,
+      "realTiming": false,
+      "source": "Noura arrived ten minutes after Ahmed, although she left home before him.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "وصلت نورة بعد أحمد بعشر دقائق،مع أنها غادرت المنزل قبله."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              0,
+              3
+            ],
+            "tgt": [
+              0,
+              8
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              4,
+              6
+            ],
+            "tgt": [
+              8,
+              22
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              7,
+              10
+            ],
+            "tgt": [
+              22,
+              42
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              11,
+              13
+            ],
+            "tgt": [
+              42,
+              61
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "لا ترسل الملف إلى سارة",
+            "to": 6
+          },
+          {
+            "from": 7,
+            "text": "إلا إذا وافق المدير على النسخة الثانية.",
+            "to": 13
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12",
+          "w13"
+        ]
+      },
+      "chunks": 4,
+      "coarse": false,
+      "frozen": false,
+      "id": "reverse-ar-07",
+      "issues": [],
+      "locatedChunks": 4,
+      "minChunks": 2,
+      "n": 7,
+      "realTiming": false,
+      "source": "Do not send the file to Sara unless the manager approves the second version.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "لا ترسل الملف إلى سارة إلا إذا وافق المدير على النسخة الثانية."
+    },
+    {
+      "alignment": {
+        "aligner": "anchor/1",
+        "blocks": [
+          {
+            "confidence": 0.75,
+            "flags": [
+              "local-reorder",
+              "anchor"
+            ],
+            "src": [
+              0,
+              3
+            ],
+            "tgt": [
+              0,
+              20
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              4,
+              5
+            ],
+            "tgt": [
+              20,
+              29
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              6,
+              9
+            ],
+            "tgt": [
+              29,
+              38
+            ]
+          },
+          {
+            "confidence": 0.75,
+            "flags": [
+              "weak"
+            ],
+            "src": [
+              10,
+              12
+            ],
+            "tgt": [
+              38,
+              49
+            ]
+          }
+        ],
+        "correspondence": "block",
+        "mode": "manyToOne",
+        "pieces": [
+          {
+            "from": 0,
+            "text": "اشترينا 2.5 كيلوغرام",
+            "to": 3
+          },
+          {
+            "from": 4,
+            "text": "من الأرز،وبقي نصفه",
+            "to": 9
+          },
+          {
+            "from": 10,
+            "text": "بعد العشاء.",
+            "to": 12
+          }
+        ],
+        "words": [
+          "w0",
+          "w1",
+          "w2",
+          "w3",
+          "w4",
+          "w5",
+          "w6",
+          "w7",
+          "w8",
+          "w9",
+          "w10",
+          "w11",
+          "w12"
+        ]
+      },
+      "chunks": 4,
+      "coarse": false,
+      "frozen": false,
+      "id": "reverse-ar-08",
+      "issues": [],
+      "locatedChunks": 4,
+      "minChunks": 2,
+      "n": 8,
+      "realTiming": false,
+      "source": "We bought 2.5 kilograms of rice, and half of it remained after dinner.",
+      "splitSeams": [],
+      "status": "aligned",
+      "translation": "اشترينا 2.5 كيلوغرام من الأرز،وبقي نصفه بعد العشاء."
+    }
+  ],
+  "schema": "lean-carrier-grade/2",
+  "totals": {
+    "acceptedTranslations": 8,
+    "aligned": 8,
+    "chunks": 33,
+    "coarse": 0,
+    "expectedSentences": 8,
+    "locatedChunks": 33,
+    "sentencesWithAnchorIssues": 0,
+    "syntaxOrPermissionIssues": 0,
+    "translationRetries": 0
+  }
+}

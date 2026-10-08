@@ -1,0 +1,2 @@
+import type { RuntimeStorageFilesMessages } from './runtime-storage-files.ts';
+export const es: RuntimeStorageFilesMessages = { markerNotJson: 'no es JSON', markerNotObject: 'no es un objeto', markerFormat: (p) => `format no es ${p.format}`, markerSchemaVersion: 'schemaVersion no válido', markerProjectId: 'projectId no válido', markerCreatedAt: 'createdAt no válido', settingsInvalid: 'Ajustes no válidos' };

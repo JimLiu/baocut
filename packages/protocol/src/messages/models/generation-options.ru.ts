@@ -1,0 +1,25 @@
+import type { ModelsGenerationOptionsMessages } from './generation-options.ts';
+
+export const ru: ModelsGenerationOptionsMessages = {
+  notLocalOnly: (p: { modelId: string; key: string }) => `Модель ${p.modelId} не принимает ${p.key} (только локальные модели)`,
+  textEmpty: "Текст не может быть пустым",
+  textTooLong: (p: { length: number; modelId: string; limit: number }) => `Длина текста: ${p.length} символов, превышает лимит в ${p.limit} символов за вызов модели ${p.modelId}. Отправляйте частями.`,
+  noDefaultVoice: (p: { modelId: string }) => `Модель ${p.modelId} не имеет голоса по умолчанию; укажите voice`,
+  noSuchVoice: (p: { modelId: string; voice: string }) => `Модель ${p.modelId} не имеет голоса ${p.voice}`,
+  badLanguageTag: (p: { tag: string }) => `Недопустимый языковой тег BCP 47: ${p.tag}`,
+  languageUnsupported: (p: { modelId: string; language: string }) => `Модель ${p.modelId} не поддерживает язык ${p.language}`,
+  formatUnsupported: (p: { modelId: string; format: string }) => `Модель ${p.modelId} не выводит ${p.format}`,
+  noInstructions: (p: { modelId: string }) => `Модель ${p.modelId} не принимает инструкции тона (instructions)`,
+  noSpeed: (p: { modelId: string }) => `Модель ${p.modelId} не принимает темп речи (speed)`,
+  speedRange: (p: { min: number; max: number }) => `Темп речи должен быть от ${p.min} и ${p.max}`,
+  knobUnsupported: (p: { modelId: string; key: string }) => `Модель ${p.modelId} не принимает ${p.key}`,
+  knobRange: (p: { key: string; min: number; max: number }) => `${p.key} должен быть от ${p.min} и ${p.max}`,
+  promptEmpty: "Запрос не может быть пустым",
+  promptTooLong: (p: { length: number; modelId: string; limit: number }) => `Длина запроса: ${p.length} символов, превышает лимит в ${p.limit} символов модели ${p.modelId}`,
+  aspectUnsupported: (p: { modelId: string; ratio: string }) => `Модель ${p.modelId} не поддерживает соотношение сторон ${p.ratio}`,
+  sizeUnsupported: (p: { modelId: string; size: string }) => `Модель ${p.modelId} не поддерживает размер ${p.size}`,
+  maxCount: (p: { modelId: string; max: number }) => `Модель ${p.modelId} генерирует не более ${p.max} изображений за раз`,
+  noSteps: (p: { modelId: string }) => `Модель ${p.modelId} не принимает steps (только локальные модели)`,
+  stepsRange: (p: { min: number; max: number }) => `steps должен быть целым числом от ${p.min} и ${p.max}`,
+  noSeed: (p: { modelId: string }) => `Модель ${p.modelId} не принимает seed`,
+};

@@ -1,0 +1,50 @@
+{
+  "id": "transition.circleCrop",
+  "version": 1,
+  "domain": "transition",
+  "inputs": 2,
+  "params": {
+    "cx": {
+      "type": "number",
+      "default": 0.5,
+      "min": 0,
+      "max": 1,
+      "doc": "圆心 x，画布宽度的比例"
+    },
+    "cy": {
+      "type": "number",
+      "default": 0.5,
+      "min": 0,
+      "max": 1,
+      "doc": "圆心 y，画布高度的比例"
+    },
+    "softness": {
+      "type": "length",
+      "default": 0,
+      "min": 0,
+      "max": 0.25,
+      "basis": "canvasShortEdge",
+      "quantize": "none",
+      "doc": "圆边的羽化宽度，画布短边的比例；0 = 硬边"
+    },
+    "invert": {
+      "type": "bool",
+      "default": false,
+      "doc": "true = 圆**收缩**：从画布最远角开始换成入场画面，最后收到圆心"
+    }
+  },
+  "color": {
+    "colorSpace": "srgb-premultiplied",
+    "precision": "u8"
+  },
+  "kernel": "circle-crop-sdf-coverage",
+  "origin": "top-left",
+  "alpha": "premultiplied",
+  "sampling": "nearest",
+  "edge": "clamp",
+  "resizeMode": "same-as-input",
+  "determinism": "strict",
+  "capabilities": [],
+  "fallback": null,
+  "doc": "一个圆从圆心张开，圆内换成入场画面。记 d 为像素到圆心 (cx·W, cy·H) 的欧氏距离、R 为圆心到最远画布角的距离；u = d（invert = false）或 u = R − d（invert = true，圆收缩）。沿用与 transition.wipe 完全相同的扫掠式：e = progress × (R + S + 1)，cov = clamp((e − u) / S, 0, 1)（S = 0 时 cov = [u < e]），S 是羽化像素宽。cov = 0 / 1 直接取原字节，中间按 transition.crossfade 的整数混合式合成，因此 progress = 0 / 1 逐字节等于 from / to。"
+}

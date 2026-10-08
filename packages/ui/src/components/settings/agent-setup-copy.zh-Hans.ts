@@ -1,0 +1,92 @@
+import type { AgentSetupMessages } from './agent-setup-copy.ts';
+
+export const zhHans: AgentSetupMessages = {
+  badge: {
+    'not-installed': '未安装',
+    error: '无法运行',
+    outdated: '版本过旧',
+    'signed-out': '需要登录',
+    disabled: '已停用',
+  },
+  badgeNotChecked: '还没检测',
+  badgeReady: '可用',
+  badgeModelUpgrade: '可用 · 默认模型需升级',
+  badgeModelUnavailable: '可用 · 默认模型不可用',
+  badgeUpdate: '可用 · 有新版本',
+
+  errorTitle: (name: string) => `找到了 ${name}，但它无法运行`,
+  errorBody: (detail: string | null) => `${detail ? `${detail} ` : ''}常见原因是 Node.js 被卸载或升级、文件权限被改。运行排查可以定位到具体哪一步。`,
+  errorCta: '运行排查',
+  outdatedTitle: (name: string, version: string | null) =>
+    version ? `${name} ${version} 太旧，BaoCut 无法驱动` : `${name} 的版本太旧，BaoCut 无法驱动`,
+  outdatedBody: (detail: string | null, minVersion: string) =>
+    `${detail ? `${detail} ` : `至少需要 ${minVersion}。`}升级只更新这个命令行工具，不影响你的账号和它自己的设置。`,
+  outdatedCta: (version: string) => `升级到 ${version}`,
+  signedOutTitle: (name: string) => `${name} 需要重新登录`,
+  signedOutBody: (name: string) => `登录在 ${name} 自己的窗口里完成，BaoCut 不经手你的账号和密码。登录后回到这里检查。`,
+  signedOutCta: '打开终端登录',
+
+  stepSkipped: '上一步通过后再检查',
+  stepFind: '在这台电脑上找到它',
+  stepFindFail: (command: string) => `在常见安装位置和 PATH 里都没找到 ${command}`,
+  stepRun: '能够启动',
+  stepRunOk: (command: string, version: string) => `${command} --version 返回 ${version}`,
+  stepRunFail: '启动时出错',
+  stepVersion: 'BaoCut 支持这个版本',
+  stepVersionOk: (version: string, min: string) => `${version}，最低要求 ${min}`,
+  stepVersionFail: (version: string, min: string) => `当前 ${version}，最低要求 ${min}`,
+  stepLogin: '已登录你的账号',
+  stepLoginOk: '已登录',
+  stepLoginFail: '它报告未登录或登录已过期',
+  stepModels: '能取到模型列表',
+  stepModelsOk: (n: number) => `${n} 个模型`,
+  stepModelsNone: '它没有报告模型列表，会话用 Agent 默认模型',
+  verdictFail: (label: string, detail: string) => `卡在「${label}」：${detail}`,
+  verdictOk: '五项检查全部通过，可以开始会话',
+
+  moreSummary: (names: string[], more: boolean) => names.join('、') + (more ? ' 等' : ''),
+
+  readyTitle: '已准备好，可以开始了',
+  readyBody: (name: string, model: string, plan: string) =>
+    `新会话默认用 ${name} · ${model}。用的是这台电脑上已经装好的 ${name} 和你自己的 ${plan}，BaoCut 不另外收费。`,
+  readyCta: '开始会话',
+  attentionBody: (name: string) => `它已经装在这台电脑上，不需要重装。原因和修法在下面「${name}」那一行。`,
+  attentionCta: '查看问题',
+  offTitle: (name: string) => `${name} 已安装，但被停用了`,
+  offBody: '启用后就能在 BaoCut 里用一句话交代活。',
+  offCta: (name: string) => `启用 ${name}`,
+  missingTitle: '这台电脑上还没有检测到 Agent',
+  missingBodyMany: '装下面任意一个并用你已有的账号登录即可，不需要全部安装。',
+  missingBodyOne: '按下面的说明装好，并用你已有的账号登录即可。',
+
+  logDropped: (n: number) => `…（前面 ${n} 行已省略）`,
+  doneNotDetected: (name: string) => `命令已完成，但还没有检测到 ${name}。如果装在别的位置，可以手动指定。`,
+  doneSignIn: (name: string, version: string) => `检测到 ${name} ${version} · 还需要登录一次`,
+  doneInstalled: (name: string, version: string) => `检测到 ${name} ${version}`,
+  doneUpgraded: (name: string, version: string) => `${name} 现在是 ${version} · 正在刷新它的模型列表`,
+
+  tier: {
+    balanced: { label: '推荐', description: '转录、翻译、剪辑都够用，速度快，也更省订阅额度' },
+    max: { label: '最强', description: '更慢，更耗订阅额度；一般用不上' },
+    fast: { label: '最快', description: '适合改几句字幕这类小改动' },
+  },
+  agentDefaultModel: 'Agent 默认模型',
+  cliConfigGate: (model: string) => `按 CLI 配置选择 · ${model} 需要升级 CLI`,
+  cliConfigModel: (model: string) => `按 CLI 配置选择 · ${model}`,
+  cliConfig: '按 CLI 配置选择',
+  modelMissing: '当前模型列表里没有它，新会话会改用推荐模型',
+  effort: {
+    minimal: '最低',
+    low: '低',
+    medium: '中',
+    high: '高',
+    xhigh: '超高',
+    max: '最高',
+  },
+  modelDefaultEffort: '模型默认',
+  modelDefaultEffortOf: (label: string) => `模型默认（${label}）`,
+
+  rulesTitle: (n: number) => `总是允许的命令 · ${n} 条`,
+  rulesBody: '这些规则来自会话里的「总是允许」。移除后，该规则不再自动批准操作；访问模式与其他规则仍然生效。',
+  rulesEmpty: '还没有保存的规则。在会话的允许卡上选择「总是允许」，会显示在这里。',
+};

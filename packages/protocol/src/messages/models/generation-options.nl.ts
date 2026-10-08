@@ -1,0 +1,25 @@
+import type { ModelsGenerationOptionsMessages } from './generation-options.ts';
+
+export const nl: ModelsGenerationOptionsMessages = {
+  notLocalOnly: (p: { modelId: string; key: string }) => `Model ${p.modelId} accepteert niet ${p.key} (alleen lokale modellen doen dat)`,
+  textEmpty: "Tekst mag niet leeg zijn",
+  textTooLong: (p: { length: number; modelId: string; limit: number }) => `De tekst bevat ${p.length} tekens, meer dan de limiet van ${p.limit} tekens per aanroep van model ${p.modelId}. Dien het in delen in.`,
+  noDefaultVoice: (p: { modelId: string }) => `Model ${p.modelId} heeft geen standaardstem; geef voice op`,
+  noSuchVoice: (p: { modelId: string; voice: string }) => `Model ${p.modelId} heeft geen stem ${p.voice}`,
+  badLanguageTag: (p: { tag: string }) => `Geen geldige BCP 47-taaltag: ${p.tag}`,
+  languageUnsupported: (p: { modelId: string; language: string }) => `Model ${p.modelId} ondersteunt niet de taal ${p.language}`,
+  formatUnsupported: (p: { modelId: string; format: string }) => `Model ${p.modelId} geeft niet uit: ${p.format}`,
+  noInstructions: (p: { modelId: string }) => `Model ${p.modelId} accepteert geen tooninstructies (instructions)`,
+  noSpeed: (p: { modelId: string }) => `Model ${p.modelId} accepteert geen spreeksnelheid (speed)`,
+  speedRange: (p: { min: number; max: number }) => `De spreeksnelheid moet liggen tussen ${p.min} en ${p.max}`,
+  knobUnsupported: (p: { modelId: string; key: string }) => `Model ${p.modelId} accepteert niet ${p.key}`,
+  knobRange: (p: { key: string; min: number; max: number }) => `${p.key} moet liggen tussen ${p.min} en ${p.max}`,
+  promptEmpty: "Prompt mag niet leeg zijn",
+  promptTooLong: (p: { length: number; modelId: string; limit: number }) => `De prompt bevat ${p.length} tekens, meer dan de limiet van ${p.limit} tekens van model ${p.modelId}`,
+  aspectUnsupported: (p: { modelId: string; ratio: string }) => `Model ${p.modelId} ondersteunt niet de beeldverhouding ${p.ratio}`,
+  sizeUnsupported: (p: { modelId: string; size: string }) => `Model ${p.modelId} ondersteunt niet de grootte ${p.size}`,
+  maxCount: (p: { modelId: string; max: number }) => `Model ${p.modelId} genereert maximaal ${p.max} afbeeldingen tegelijk`,
+  noSteps: (p: { modelId: string }) => `Model ${p.modelId} accepteert geen steps (alleen lokale modellen doen dat)`,
+  stepsRange: (p: { min: number; max: number }) => `steps moet een geheel getal zijn tussen ${p.min} en ${p.max}`,
+  noSeed: (p: { modelId: string }) => `Model ${p.modelId} accepteert geen seed`,
+};

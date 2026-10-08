@@ -1,0 +1,9 @@
+{
+  "diagonal": {
+    "angle": 30,
+    "distance": 0.08333333333333333
+  },
+  "horizontal": {
+    "distance": 0.0625
+  }
+}

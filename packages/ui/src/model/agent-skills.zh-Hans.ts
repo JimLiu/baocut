@@ -1,0 +1,36 @@
+import type { AgentSkillsMessages } from './agent-skills.ts';
+
+export const zhHans: AgentSkillsMessages = {
+  origin: { builtin: '内置', personal: '我的', 'third-party': '第三方' },
+  all: '全部',
+  commit: (sha: string) => `（${sha}）`,
+  bytes: (n: number) => `${n} 字节`,
+  action: {
+    load: '读取 Skills',
+    toggle: '切换开关',
+    add: '添加',
+    import: '导入',
+    remove: '移除',
+    read: '打开文件',
+    send: '发送',
+  },
+  exists: (id: string | null) => `已经有一个叫「${id ?? '同名'}」的 skill，不会覆盖它：先移除旧的，或把文件夹改个名字再添加。`,
+  invalid: (issue: string) => `这不是一个能用的 skill：${issue}。根目录要有一份 SKILL.md，开头写明 name 与 description。`,
+  tooLarge: (files: number, total: string, skillFile: string) =>
+    `这个 skill 太大了：一个 skill 最多 ${files} 个文件、合计 ${total}，SKILL.md 本身不超过 ${skillFile}。`,
+  githubNotFound: 'GitHub 上找不到这个仓库、分支或文件夹（也可能是私有仓库）。检查一下地址。',
+  folderNotFound: '找不到这个文件夹，可能已经被移动或删除。',
+  urlInvalid: '地址认不出来。写成 owner/repo，或 https://github.com/owner/repo/tree/分支/文件夹。',
+  network: '连不上 GitHub，检查网络后再试。',
+  rateLimited: 'GitHub 的匿名访问次数暂时用完了，过一会儿再导入。',
+  offline: '现在是严格离线模式，不能从 GitHub 导入。',
+  builtinNotRemovable: '内置 skill 不能移除，可以把它关掉。',
+  notFound: '这个 skill 已经不在了，可能刚被移除。',
+  fileNotFound: '这个文件已经不在了。',
+  fileTooLarge: '这个文件太大，这里不显示，可以在文件夹里打开它。',
+  fileNotText: '这不是文本文件，这里不显示。',
+  webNotAllowed: '浏览器里不能这样做：请在 BaoCut 桌面应用里操作。',
+  webReadOnly: '这个浏览器会话是只读的，不能改动。',
+  failed: (action: string, raw: string) => `没能${action}：${raw}`,
+  sendFailed: (raw: string) => `没能发送：${raw}`,
+};

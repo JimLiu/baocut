@@ -1,0 +1,38 @@
+{
+  "id": "crown",
+  "version": 1,
+  "domain": "sticker",
+  "namespace": "timeline",
+  "order": 9,
+  "layers": [
+    {
+      "fill": "#FACC15",
+      "segments": [
+        {"verb": "move", "pts": [[0.06, 0.78]]},
+        {"verb": "line", "pts": [[0.06, 0.26]]},
+        {"verb": "line", "pts": [[0.28, 0.5]]},
+        {"verb": "line", "pts": [[0.5, 0.14]]},
+        {"verb": "line", "pts": [[0.72, 0.5]]},
+        {"verb": "line", "pts": [[0.94, 0.26]]},
+        {"verb": "line", "pts": [[0.94, 0.78]]},
+        {"verb": "close"}
+      ]
+    },
+    {
+      "fill": "#F59E0B",
+      "segments": [
+        {"verb": "move", "pts": [[0.11, 0.75]]},
+        {"verb": "line", "pts": [[0.89, 0.75]]},
+        {"verb": "cubic", "pts": [[0.917614, 0.75], [0.94, 0.772386], [0.94, 0.8]]},
+        {"verb": "line", "pts": [[0.94, 0.9]]},
+        {"verb": "cubic", "pts": [[0.94, 0.927614], [0.917614, 0.95], [0.89, 0.95]]},
+        {"verb": "line", "pts": [[0.11, 0.95]]},
+        {"verb": "cubic", "pts": [[0.082386, 0.95], [0.06, 0.927614], [0.06, 0.9]]},
+        {"verb": "line", "pts": [[0.06, 0.8]]},
+        {"verb": "cubic", "pts": [[0.06, 0.772386], [0.082386, 0.75], [0.11, 0.75]]},
+        {"verb": "close"}
+      ]
+    }
+  ],
+  "available": true
+}

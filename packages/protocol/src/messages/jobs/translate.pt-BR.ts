@@ -1,0 +1,25 @@
+import type { JobsTranslateMessages } from './translate.ts';
+
+export const ptBR: JobsTranslateMessages = {
+  label: 'Traduzir',
+  description: 'Traduz uma transcrição do vídeo frase por frase para outro idioma e grava o resultado como um novo documento de tradução. Um modelo de texto faz o trabalho; nenhum agente é iniciado.',
+  stepFreezeSource: 'Ler texto de origem', stepTranslate: 'Traduzir', stepAssemble: 'Montar tradução', stepWrite: 'Gravar no vídeo', videoNotOpen: 'O vídeo não está aberto',
+  noStructuredOutput: (p) => `O modelo ${p.model} não oferece suporte a saída estruturada e não pode ser usado para tradução`,
+  workerMismatch: 'A tradução do Speech Worker não corresponde à origem congelada',
+  targetLanguageInvalid: 'O parâmetro targetLanguage deve ser uma tag de idioma BCP 47',
+  flagInvalid: (p) => `O parâmetro ${p.key} deve ser true ou false`,
+  bilingualNeedsCaptions: 'O parâmetro bilingual só pode ser fornecido quando captions for true (adicionar uma camada de legendas)',
+  noDocument: (p) => `O vídeo não tem o documento ${p.documentId}`,
+  notSpeech: (p) => `O documento ${p.documentId} é ${p.kind}; só transcrições (speech) podem ser traduzidas`,
+  noTranscript: 'O vídeo não tem transcrição. Transcreva antes de traduzir.',
+  multipleTranscripts: 'O vídeo tem mais de uma transcrição. Use documentId para escolher qual traduzir.',
+  videoClosed: 'O vídeo foi fechado', sourceGone: 'O documento de origem não está mais no vídeo', noSentences: 'A transcrição não tem frases para traduzir',
+  sameLanguage: (p) => `O idioma da transcrição ${p.source} é igual ao idioma de destino ${p.target}, então não é necessário traduzir`,
+  workerMissing: 'Não foi possível encontrar o Speech Worker (speech-worker). Execute npm run build:engine primeiro.',
+  documentName: (p) => `Tradução ${p.language}`,
+  videoClosedKept: 'O vídeo foi fechado. A tradução é mantida nos resultados.',
+  sourceChanged: 'O documento de origem mudou durante a tradução, então nada foi gravado no vídeo. Tentar novamente traduz a versão atual do documento de origem.',
+  transactionLabel: (p) => `Traduzir para ${p.language}`,
+  noDocumentId: 'A tradução foi gravada no vídeo, mas o ID do documento não foi retornado',
+  rejected: 'A transação para gravar no vídeo foi rejeitada. A tradução é mantida nos resultados.',
+};

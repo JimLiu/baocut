@@ -1,0 +1,129 @@
+{
+  "id": "lowerThird.01",
+  "version": 1,
+  "domain": "textpreset",
+  "category": "lowerThird",
+  "order": 301,
+  "duration": 3.97,
+  "content": [
+    {
+      "kind": "shape",
+      "place": {
+        "x": 48.17,
+        "y": 50.41,
+        "w": 33.17
+      },
+      "shape": {
+        "shape": "rect",
+        "fill": "#ffffffff",
+        "cornerRadius": [
+          8.1,
+          8.1,
+          8.1,
+          8.1
+        ],
+        "h": 14.92
+      },
+      "animate": {
+        "enter": {
+          "preset": "wipe",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.77
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 47.98,
+        "y": 53.96,
+        "w": 27.85
+      },
+      "text": "Art Director",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#000000ff",
+        "fontFamily": "Newsreader",
+        "fontSize": 20.6,
+        "fontStyle": "italic",
+        "fontWeight": "normal",
+        "italic": true,
+        "underline": false,
+        "lineHeight": 1.0,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "delay": 0.2,
+      "animate": {
+        "exit": {
+          "preset": "fade",
+          "dur": 0.97
+        }
+      }
+    },
+    {
+      "kind": "text",
+      "place": {
+        "x": 51.21,
+        "y": 48.03,
+        "w": 34.41
+      },
+      "text": "Riya Adams",
+      "style": {
+        "backgroundColor": "#00000000",
+        "backgroundPadding": 10.0,
+        "backgroundStyle": "wrap",
+        "borderRadius": 15.0,
+        "fontColor": "#000000ff",
+        "fontFamily": "Just Me Again Down Here",
+        "fontSize": 44.6,
+        "fontStyle": "italic",
+        "fontWeight": "normal",
+        "italic": true,
+        "underline": false,
+        "lineHeight": 1.0,
+        "letterSpacing": 0.0,
+        "textAlign": "left",
+        "textTransform": "none",
+        "dropShadow": {
+          "blur": 0.0,
+          "distance": 0.0,
+          "rotation": 45.0,
+          "color": "#000000"
+        },
+        "textOutline": {
+          "color": "#000000",
+          "width": 0.0
+        }
+      },
+      "delay": 0.13,
+      "animate": {
+        "enter": {
+          "preset": "typewriter",
+          "dur": 0.6
+        },
+        "exit": {
+          "preset": "fade",
+          "dur": 0.67
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+import type { AudioGenMessages, GeneratedMarkMessages, ImageGenMessages } from './media-gen-copy.ts';
+
+export const zhHantMark: GeneratedMarkMessages = { generated: '生成' };
+
+export const zhHantAudioGen: AudioGenMessages = {
+  generate: '生成語音',
+  clone: '克隆音色',
+  generateTip: '用雲端模型把一段文字唸出來，收進素材庫',
+  cloneTip: '用「我的音色」裡克隆好的音色唸一段文字',
+  back: '返回音訊',
+  running: '正在背景執行',
+  textPlaceholder: '要合成的文字，依句號或換行分段…',
+  clonePlaceholder: '要用這個音色說的話…',
+  cta: '生成',
+  cloneCta: '用這個音色生成',
+  hint: (provider: string) =>
+    `透過網路傳送給 ${provider} 合成，依其規則計費。進度顯示在頂欄與背景任務中；完成後會收進素材庫，放到時間軸上是另一個步驟。停止等待不會撤回已傳送的請求。`,
+  readOnly: '這部影片目前是唯讀的，無法在其中生成素材',
+  noVoicesTitle: '「我的音色」裡還沒有音色',
+  noVoicesBody:
+    '要克隆音色，請先在「模型 › 語音合成 › 我的音色」中錄一段或從檔案匯入，再上傳到能克隆音色的供應商（ElevenLabs）。完成後回到這裡，在下方的音色中選擇它。',
+  goVoices: '開啟「我的音色」',
+  runTitle: (title: string) => `${title}…`,
+  runNote: '可以繼續編輯 · 合成在背景執行，完成後會收進素材庫。',
+  cancel: '取消',
+  cancelled: '已取消',
+  done: (meta: string) => `已生成 · ${meta}`,
+  inLibrary: (name: string) => `已收進素材庫 · ${name}`,
+  importing: '正在收進素材庫…',
+  add: '加到時間軸',
+  addTip: '放在播放頭位置',
+  again: '再生成一段',
+  backToAudio: '回到音訊',
+  doneNote: '素材在「音訊」素材庫中，標有「生成」。拖到時間軸上或點「+」即可放上去；同一段可以重複使用。',
+  failed: (message: string) => `無法生成 · ${message}`,
+  edit: '修改後重新生成',
+  retried: '已重新提交',
+};
+
+export const zhHantImageGen: ImageGenMessages = {
+  title: '圖片',
+  segments: '圖片來源',
+  project: '影片素材',
+  gen: 'AI 生成',
+  noModelTitle: '還沒有影像模型',
+  noModelBody: '連接一家雲端供應商（「模型 › 影像生成 › 雲端模型」），或下載 Qwen-Image-2.1（「模型 › 影像生成 › 本機模型」），擇一即可。',
+  connect: '連接雲端供應商',
+  downloadLocal: '下載本機模型',
+  fit: '與影片畫布相同',
+  recent: '最近生成',
+  all: (n: number) => `全部 ${n} 批`,
+  fewer: '只看最近 3 批',
+  empty: '這部影片還沒有生成過圖片。生成的圖片會直接收進素材庫（標有「生成」），放到畫布上是另一個步驟。',
+  place: '放到畫布',
+  placeTip: '放在播放頭位置',
+  inLibrary: '已在素材庫',
+  importing: '正在收進素材庫…',
+  useAsRef: '用作參考',
+  foot: '生成的圖片會直接收進這部影片的素材庫，來源（模型、參數、任務）隨素材一起記錄；提示詞只留在任務記錄裡。放到畫布上是另一個步驟。',
+  readOnly: '這部影片目前是唯讀的，無法在其中生成素材',
+  charCount: (chars: number, max: number) => `${chars} / ${max} 字`,
+  charCountPlain: (chars: number) => `${chars} 字`,
+};

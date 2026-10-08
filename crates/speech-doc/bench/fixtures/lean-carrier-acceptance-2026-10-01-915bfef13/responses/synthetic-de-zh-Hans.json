@@ -1,0 +1,8 @@
+{
+  "effort": "auto",
+  "elapsedMs": 1132,
+  "error": null,
+  "model": "deepseek-flash",
+  "name": "synthetic-de-zh-Hans",
+  "response": "1 |Sende..nur dann|只有在第二版负责人同意后，才把文件发给安娜。|wenn..hat|\n2 |Wir..Reis|我们买了2.5公斤大米；|nach..übrig|晚饭后还剩一半。"
+}

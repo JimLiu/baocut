@@ -1,0 +1,443 @@
+{
+  "canvas": [
+    1920.0,
+    1080.0
+  ],
+  "mainColor": "#3CADFF",
+  "note": "DrawOp 指令流指纹（10 款全量：柱状 4 + 折线 3 + 点阵 1 + 环 1 + 丝带 1）。输入是 cases.json 的 sweep × default × 五时刻，元素盒取 bcut_timeline 几何默认表在 1920×1080 上的像素；时刻同时充当元素本地时钟，只有 ribbons 读它。samples 是折线类冻结的采样密度。",
+  "params": "default",
+  "secondaryColor": "#FFFFFF",
+  "spectrum": "sweep",
+  "styles": [
+    {
+      "algorithm": "spectrum-bars-v1",
+      "aspect": "free",
+      "instants": [
+        {
+          "fingerprint": "a38db13f3973a741",
+          "ops": 48,
+          "paths": 0,
+          "t": 0.0
+        },
+        {
+          "fingerprint": "a573e8608b979e79",
+          "ops": 48,
+          "paths": 0,
+          "t": 0.1
+        },
+        {
+          "fingerprint": "fc4ccd0614f06e63",
+          "ops": 48,
+          "paths": 0,
+          "t": 0.5
+        },
+        {
+          "fingerprint": "8c3a99a2c0172bb7",
+          "ops": 48,
+          "paths": 0,
+          "t": 1.0
+        },
+        {
+          "fingerprint": "bf6aebacc9d6522f",
+          "ops": 48,
+          "paths": 0,
+          "t": 2.5
+        }
+      ],
+      "samples": null,
+      "silence": {
+        "fingerprint": "176a2adfb6efa64c",
+        "ops": 48,
+        "paths": 0
+      },
+      "style": "visualizer.bars"
+    },
+    {
+      "algorithm": "spectrum-bars-v1",
+      "aspect": "free",
+      "instants": [
+        {
+          "fingerprint": "f8710f410a25ea5d",
+          "ops": 32,
+          "paths": 0,
+          "t": 0.0
+        },
+        {
+          "fingerprint": "624423939694b275",
+          "ops": 32,
+          "paths": 0,
+          "t": 0.1
+        },
+        {
+          "fingerprint": "e3dbbe221ba7a00d",
+          "ops": 32,
+          "paths": 0,
+          "t": 0.5
+        },
+        {
+          "fingerprint": "c459b33ff7dc4730",
+          "ops": 32,
+          "paths": 0,
+          "t": 1.0
+        },
+        {
+          "fingerprint": "f0724018ed26e34a",
+          "ops": 32,
+          "paths": 0,
+          "t": 2.5
+        }
+      ],
+      "samples": null,
+      "silence": {
+        "fingerprint": "909cba6928a68a3d",
+        "ops": 32,
+        "paths": 0
+      },
+      "style": "visualizer.bars_rounded"
+    },
+    {
+      "algorithm": "spectrum-bars-v1",
+      "aspect": "free",
+      "instants": [
+        {
+          "fingerprint": "949e6bc28a408955",
+          "ops": 64,
+          "paths": 0,
+          "t": 0.0
+        },
+        {
+          "fingerprint": "6d6ae5a35415b904",
+          "ops": 64,
+          "paths": 0,
+          "t": 0.1
+        },
+        {
+          "fingerprint": "aed8b61b4b5e082c",
+          "ops": 64,
+          "paths": 0,
+          "t": 0.5
+        },
+        {
+          "fingerprint": "6f1af98100bb7a74",
+          "ops": 64,
+          "paths": 0,
+          "t": 1.0
+        },
+        {
+          "fingerprint": "991f7124b3896172",
+          "ops": 64,
+          "paths": 0,
+          "t": 2.5
+        }
+      ],
+      "samples": null,
+      "silence": {
+        "fingerprint": "f81ce929e5ca01ee",
+        "ops": 64,
+        "paths": 0
+      },
+      "style": "visualizer.bars_bottom"
+    },
+    {
+      "algorithm": "polar-bars-v1",
+      "aspect": "square",
+      "instants": [
+        {
+          "fingerprint": "17596cd922896b3f",
+          "ops": 72,
+          "paths": 72,
+          "t": 0.0
+        },
+        {
+          "fingerprint": "c230f46e8e47faab",
+          "ops": 72,
+          "paths": 72,
+          "t": 0.1
+        },
+        {
+          "fingerprint": "99c7bfa4febd65e4",
+          "ops": 72,
+          "paths": 72,
+          "t": 0.5
+        },
+        {
+          "fingerprint": "795b293fc154c9c3",
+          "ops": 72,
+          "paths": 72,
+          "t": 1.0
+        },
+        {
+          "fingerprint": "10c630b85c6189e8",
+          "ops": 72,
+          "paths": 72,
+          "t": 2.5
+        }
+      ],
+      "samples": null,
+      "silence": {
+        "fingerprint": "6224392fdb4f6278",
+        "ops": 72,
+        "paths": 72
+      },
+      "style": "visualizer.ring_bars"
+    },
+    {
+      "algorithm": "oscilloscope-v1",
+      "aspect": "free",
+      "instants": [
+        {
+          "fingerprint": "540e585c429e9f70",
+          "ops": 1,
+          "paths": 1,
+          "t": 0.0
+        },
+        {
+          "fingerprint": "044474158134624f",
+          "ops": 1,
+          "paths": 1,
+          "t": 0.1
+        },
+        {
+          "fingerprint": "8b391830a74c281a",
+          "ops": 1,
+          "paths": 1,
+          "t": 0.5
+        },
+        {
+          "fingerprint": "24b18ddbd6a3e154",
+          "ops": 1,
+          "paths": 1,
+          "t": 1.0
+        },
+        {
+          "fingerprint": "e68ed61f56c88117",
+          "ops": 1,
+          "paths": 1,
+          "t": 2.5
+        }
+      ],
+      "samples": 128,
+      "silence": {
+        "fingerprint": "9f963e3bce72100a",
+        "ops": 1,
+        "paths": 1
+      },
+      "style": "visualizer.oscilloscope"
+    },
+    {
+      "algorithm": "oscilloscope-v1",
+      "aspect": "square",
+      "instants": [
+        {
+          "fingerprint": "66f7d33557fd7f4b",
+          "ops": 1,
+          "paths": 1,
+          "t": 0.0
+        },
+        {
+          "fingerprint": "59350c8ee0c5d931",
+          "ops": 1,
+          "paths": 1,
+          "t": 0.1
+        },
+        {
+          "fingerprint": "1b44984f073cb85f",
+          "ops": 1,
+          "paths": 1,
+          "t": 0.5
+        },
+        {
+          "fingerprint": "912a0ea6d4a0c1c0",
+          "ops": 1,
+          "paths": 1,
+          "t": 1.0
+        },
+        {
+          "fingerprint": "637d07e6eefdfdaa",
+          "ops": 1,
+          "paths": 1,
+          "t": 2.5
+        }
+      ],
+      "samples": 128,
+      "silence": {
+        "fingerprint": "0bfd59a4fb1000ed",
+        "ops": 1,
+        "paths": 1
+      },
+      "style": "visualizer.ring_wave"
+    },
+    {
+      "algorithm": "spectrum-area-v1",
+      "aspect": "free",
+      "instants": [
+        {
+          "fingerprint": "b46c7aec603c7e77",
+          "ops": 2,
+          "paths": 2,
+          "t": 0.0
+        },
+        {
+          "fingerprint": "43f01320e8f51d4b",
+          "ops": 2,
+          "paths": 2,
+          "t": 0.1
+        },
+        {
+          "fingerprint": "b000455489651fb3",
+          "ops": 2,
+          "paths": 2,
+          "t": 0.5
+        },
+        {
+          "fingerprint": "77ddbe3b495eca55",
+          "ops": 2,
+          "paths": 2,
+          "t": 1.0
+        },
+        {
+          "fingerprint": "ede0aa5da61173bd",
+          "ops": 2,
+          "paths": 2,
+          "t": 2.5
+        }
+      ],
+      "samples": 64,
+      "silence": {
+        "fingerprint": "439572fc43b7c713",
+        "ops": 2,
+        "paths": 2
+      },
+      "style": "visualizer.spectrum_area"
+    },
+    {
+      "algorithm": "dot-matrix-v1",
+      "aspect": "free",
+      "instants": [
+        {
+          "fingerprint": "37544ebbf8ed3c05",
+          "ops": 152,
+          "paths": 0,
+          "t": 0.0
+        },
+        {
+          "fingerprint": "07d7c025f453b276",
+          "ops": 197,
+          "paths": 0,
+          "t": 0.1
+        },
+        {
+          "fingerprint": "f96eb7505537f73d",
+          "ops": 200,
+          "paths": 0,
+          "t": 0.5
+        },
+        {
+          "fingerprint": "f96eb7505537f73d",
+          "ops": 200,
+          "paths": 0,
+          "t": 1.0
+        },
+        {
+          "fingerprint": "f96eb7505537f73d",
+          "ops": 200,
+          "paths": 0,
+          "t": 2.5
+        }
+      ],
+      "samples": null,
+      "silence": {
+        "fingerprint": "83de3e85041d1782",
+        "ops": 32,
+        "paths": 0
+      },
+      "style": "visualizer.dots"
+    },
+    {
+      "algorithm": "pulse-rings-v1",
+      "aspect": "square",
+      "instants": [
+        {
+          "fingerprint": "efee5acde801d9b0",
+          "ops": 5,
+          "paths": 5,
+          "t": 0.0
+        },
+        {
+          "fingerprint": "c409dc8baf7718fd",
+          "ops": 5,
+          "paths": 5,
+          "t": 0.1
+        },
+        {
+          "fingerprint": "3dfab86dcfe3b772",
+          "ops": 5,
+          "paths": 5,
+          "t": 0.5
+        },
+        {
+          "fingerprint": "5758498f349c0856",
+          "ops": 5,
+          "paths": 5,
+          "t": 1.0
+        },
+        {
+          "fingerprint": "e5977c09c63e89e7",
+          "ops": 5,
+          "paths": 5,
+          "t": 2.5
+        }
+      ],
+      "samples": null,
+      "silence": {
+        "fingerprint": "e848313d3d817476",
+        "ops": 5,
+        "paths": 5
+      },
+      "style": "visualizer.pulse_rings"
+    },
+    {
+      "algorithm": "ribbons-v1",
+      "aspect": "free",
+      "instants": [
+        {
+          "fingerprint": "c15cf1bfceafc215",
+          "ops": 3,
+          "paths": 3,
+          "t": 0.0
+        },
+        {
+          "fingerprint": "6bb6d9c60e2c11df",
+          "ops": 3,
+          "paths": 3,
+          "t": 0.1
+        },
+        {
+          "fingerprint": "c39e7e9a79854bfe",
+          "ops": 3,
+          "paths": 3,
+          "t": 0.5
+        },
+        {
+          "fingerprint": "6888b747174c9ac1",
+          "ops": 3,
+          "paths": 3,
+          "t": 1.0
+        },
+        {
+          "fingerprint": "9ea5398ad4a5efd5",
+          "ops": 3,
+          "paths": 3,
+          "t": 2.5
+        }
+      ],
+      "samples": 96,
+      "silence": {
+        "fingerprint": "5db30556a7b8a9ef",
+        "ops": 3,
+        "paths": 1
+      },
+      "style": "visualizer.ribbons"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+import type { RcTemplatesMessages } from './rc-templates.ts';
+
+export const ru: RcTemplatesMessages = {
+  builtinConflict: (p) => `Встроенный шаблон с id «${p.id}» уже есть, эта копия не загружена. Измените id (имя папки) и добавьте снова`,
+  templateNotFound: (p) => `Шаблон не найден: ${p.id}`,
+  fileNotRegistered: (p) => `Шаблон «${p.id}» не содержит в списке этот файл: ${p.file}`,
+  dirIsSymlink: "Папка шаблона является символической ссылкой, переход по ней не выполняется. Добавьте саму папку шаблона",
+  duplicateId: (p) => `Несколько шаблонов в одной папке имеют id «${p.id}»; ни один не загружен`,
+  templateInvalid: "Шаблон недопустим и не загружен",
+  unsupportedSchema: "Эта версия не распознаёт schema манифеста, шаблон не загружен",
+  missingFile: (p) => `${p.file} отсутствует`,
+  fileOverBytes: (p) => `${p.file} больше ${p.limit} байт`,
+  fileOverBytesActual: (p) => `${p.file} больше ${p.limit} байт (${p.size})`,
+  fileNotUtf8: (p) => `${p.file} не является допустимым UTF-8`,
+  fileNotJson: (p) => `${p.file} не является допустимым JSON`,
+  fileEmpty: (p) => `${p.file} пуст`,
+  registeredFileMissing: (p) => `Указанный в списке файл отсутствует: ${p.file}`,
+  pathOutsideTemplate: (p) => `Путь выходит за пределы папки шаблона: ${p.file}`,
+  unregisteredFile: (p) => `В папке есть файл, отсутствующий в списке: ${p.file}`,
+  tooManyEntries: (p) => `В папке более ${p.limit} записей`,
+  noSymlinks: (p) => `Символические ссылки запрещены: ${p.path}`,
+  notRegularFile: (p) => `Не обычный файл: ${p.path}`,
+  cannotReadDir: (p) => `Не удалось прочитать папку шаблона (${p.code})`,
+  notScene: (p) => `«${p.title}» — демонстрационный пример: вставьте запрос в поле сообщения и отправьте без прикрепления шаблона`,
+  assetNotRegistered: (p) => `Шаблон «${p.id}» не содержит в списке этот материал: ${p.asset}`,
+};

@@ -1,0 +1,29 @@
+{
+  "id": "wipeRight",
+  "version": 1,
+  "domain": "transition",
+  "namespace": "bcf",
+  "order": 7,
+  "prop": null,
+  "ease": "easeInOutSine",
+  "doc": "擦除边由左向右扫过。边在 x = p·W；离场 clip 保留边右侧、入场 clip 保留边左侧。与 wipeLeft 逐项镜像。",
+  "out": {
+    "channels": [
+      {
+        "prop": "clipInsetLeft",
+        "from": { "value": 0.0, "basis": "absolute" },
+        "to": { "value": 1.0, "basis": "absolute" }
+      }
+    ]
+  },
+  "in": {
+    "channels": [
+      {
+        "prop": "clipInsetRight",
+        "from": { "value": 1.0, "basis": "absolute" },
+        "to": { "value": 0.0, "basis": "absolute" }
+      }
+    ]
+  },
+  "determinism": "strict"
+}

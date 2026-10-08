@@ -1,0 +1,25 @@
+{
+  "id": "circle",
+  "version": 1,
+  "domain": "progress",
+  "namespace": "timeline",
+  "order": 2,
+  "numColors": 2,
+  "colorLabels": ["Bar", "Base"],
+  "defaultMainColor": "#FFAC46",
+  "defaultSecondaryColor": "#FFE6C8",
+  "aspect": "square",
+  "recipe": {
+    "algorithm": "ring-v1",
+    "params": {
+      "featherPx": 4.0,
+      "edgeFeatherPx": 0.5,
+      "innerRadius": 0.0,
+      "startAngle": "top",
+      "direction": "cw"
+    }
+  },
+  "determinism": "strict",
+  "shader": "circle.wgsl",
+  "available": true
+}
