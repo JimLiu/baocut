@@ -25,6 +25,7 @@ import { importLegacyServices, importLegacyNodes } from './legacy-upgrade-servic
 import type { NodeStore } from '@baocut/nodes';
 import {
   isFile,
+  legacyActivityAt,
   legacyRoots,
   legacyProjectVersion,
   discoverLegacyProjects,
@@ -120,6 +121,15 @@ export function legacyVolumeOf(file: string, platform: NodeJS.Platform): { root:
       ? /^\/Volumes\/([^/]+)/.exec(file)
       : (/^\/(?:run\/)?media\/[^/]+\/([^/]+)/.exec(file) ?? /^\/mnt\/([^/]+)/.exec(file));
   return mount ? { root: mount[0], name: mount[1]! } : null;
+}
+
+/**
+ * 导入的视频沿用旧项目的最近活动（§2.7）：Space 的最近活动取 `video.db` 与它 WAL 的修改时间，不改的话导入那一刻就成了每个视频的最近活动。
+ * 导入进程退出时引擎已关库，之后才改；改不了不影响导入。
+ */
+async function keepLegacyActivity(videoDir: string, at: Date | null): Promise<void> {
+  if (!at) return;
+  for (const name of ['video.db', 'video.db-wal']) await fs.utimes(path.join(videoDir, name), at, at).catch(() => {});
 }
 
 /** `dir` 是 `root` 本身或在它里面。 */
@@ -701,6 +711,10 @@ export class LegacyUpgrade {
           return await deferred(after ? { kind: 'failed', report: reportFile } : { kind: 'unreadable' });
         }
         if (this.#abort.signal.aborted) return null;
+        await keepLegacyActivity(
+          record.videoDirectory ? record.target : path.join(record.target, 'video'),
+          await legacyActivityAt(canonical, entry, this.#options.platform),
+        );
         const done = await report();
         await deps.openProject(
           record.videoDirectory ? path.dirname(record.target) : record.target,

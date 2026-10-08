@@ -452,6 +452,37 @@ it('groups distinct sources in the same project with stable, separate video path
   ]);
 });
 
+it("keeps each imported video's last activity from the legacy project instead of the import time", async () => {
+  const s = await setup();
+  const opened = path.join(s.root, 'projects', 'opened');
+  const edited = path.join(s.root, 'projects', 'edited');
+  const longAgo = new Date('2026-01-02T03:04:05.000Z');
+  const editedAt = new Date('2026-03-04T05:06:07.000Z');
+  for (const [dir, at] of [[opened, longAgo], [edited, editedAt]] as const) {
+    await writeJsonAtomic(path.join(dir, 'project.json'), { title: path.basename(dir) });
+    await fs.utimes(path.join(dir, 'project.json'), at, at);
+  }
+  await fs.utimes(path.join(s.root, 'projects', 'old', 'doc.json'), longAgo, longAgo);
+  // 上次打开晚于项目文件的修改：取上次打开（v2 索引记 Unix 秒，v1 归档记 `modifiedAt`）；不在索引里的取项目文件的修改时间。
+  await writeJsonAtomic(path.join(s.root, 'projects.json'), { projects: [{ id: 'opened', path: opened, lastOpenedAt: 1780000000 }] });
+  await writeJsonAtomic(path.join(s.root, 'archive', 'projects.json'), [{ id: 'old', modifiedAt: '2026-05-06T07:08:09Z' }]);
+  const importProject = vi.fn(async (request: { target: string }) => {
+    await fs.mkdir(request.target, { recursive: true });
+    for (const name of ['video.db', 'video.db-wal']) await fs.writeFile(path.join(request.target, name), '');
+  });
+  const upgrade = new LegacyUpgrade({ ...s, roots: [s.root], v1Preferences: null, importProject, allowKeychain: false, platform: 'darwin' });
+  await upgrade.prepare();
+  upgrade.start(s.deps);
+  await finish(upgrade);
+  const requests = importProject.mock.calls as unknown as [{ source: string; target: string }][];
+  const target = (name: string) => requests.find(([request]) => path.basename(request.source) === name)![0].target;
+  for (const name of ['video.db', 'video.db-wal']) {
+    expect((await fs.stat(path.join(target('opened'), name))).mtime.toISOString()).toBe(new Date(1780000000_000).toISOString());
+    expect((await fs.stat(path.join(target('edited'), name))).mtime.toISOString()).toBe(editedAt.toISOString());
+    expect((await fs.stat(path.join(target('old'), name))).mtime.toISOString()).toBe('2026-05-06T07:08:09.000Z');
+  }
+});
+
 it('supplements previously completed markers with v2 service configuration without reimporting videos', async () => {
   const s = await setup();
   const markerFile = path.join(s.home.root, 'store', 'legacy-upgrade.json');
