@@ -856,9 +856,9 @@ VideoStore 用 SQLite，表至少包括 `videos`、`entities`、`document_versio
 <runtime-home>/
   instance.json / instance.lock     # Supervisor 的发现信息与实例锁
   store/                            # Runtime Store 与 Job Ledger：一存储一文件。小而整体读入内存的（项目登记、Space 标记、设置、授权等）是整文件原子重写的 JSON；按条记账、只改几条的是只追加的 JSONL 加压缩：store/conversations/<id>.jsonl（会话，§3.10）、store/jobs.jsonl 与 store/applications.jsonl（任务与应用账本，§7.3）。旧格式导入后留下 *.migrated，认不出的改名为 *.corrupt-<时间> 保留
-  artifacts/                        # 内容寻址的 Artifact / Blob Store
+  artifacts/                        # 内容寻址的 Artifact / Blob Store：<sha256>.<扩展名>；后台清扫没有引用的文件（§7.3）
   staging/                          # 发布前的临时写入
-  cache/                            # 派生缓存，可整体删除
+  cache/                            # 派生缓存，可整体删除；总大小有上限（设置 cache.maxSizeMiB，默认 2 GiB），超限按修改时间删最旧的到 90%，content-index/ 与 baocut-composition-host/ 不删
   workspaces/<bundleId>/            # 代码创作工作区（草稿）
   models/                           # 本地模型
   store/                            # 模型服务配置与凭据（§6.8）、节点与共享的状态（§6.7）、偏好设置（§5.10）、对外服务的配置（§4.8）、外部工具的登记（external-tools.json，§12.9）、从链接导入的原始链接（link-sources.json，0600，§7.9）、在线调用的用量账本（usage.jsonl，0600，§6.10）
@@ -1060,7 +1060,7 @@ interface SpaceEntry {
 - **恢复视频**（`videos.restore`，或对删除了的视频调用 `space.restore` / `space.update { trashed: false }`）。目录移回原来的相对路径；那里已经有东西时加序号（`renamed: true`）。项目或会话已经不在时无法恢复。
 - **`space.purge`**。来源目录里的视频条目以 `invalid-request` 拒绝（`SPACE_PURGE_VIDEO`，先删除视频）；进行中的占位以 `conflict` 拒绝（`SPACE_PURGE_RUNNING`，先 `jobs.cancel`）；失败的占位直接清除；其余只删回收站里的（否则 `SPACE_NOT_TRASHED`）。删除前查引用：链接着这个文件的视频素材（`video-asset`）、用着这个产物的进行中任务（`job`）；有视频此刻读不了或索引还没跟上时无法确认，按有引用处理（`unverified`）。删除了的视频另查：别的视频链接着它目录里的文件（`video-asset`）、它的排队、运行中与等对账（`needs-reconciliation`，结果可能还要写进它）的任务（`job`）、目录里不归视频管理的文件（`user-file`）；都没有时只删归视频管理的文件，再删掉空目录（§5.5）。有引用时什么也不删，返回 `{ status: 'blocked', references }`。删掉的产物与导出记下清除标记，之后不以 `missing` 再出现。
 - **回收站的保留期**。偏好设置 `space.trashRetentionDays`（1–3650，默认 30）。Space 首次扫描之后清一次，之后每 6 小时一次，天数每次取当时的设置：移入回收站超过保留期的条目逐个走 `space.purge` 的同一条路径，有引用的留着、写日志，下次再试。只写了回收站标记的来源目录里的视频（这个版本之前的记录）不在其中。
-- **产物记录**（Runtime Store 的 `store/space-artifacts.json`）。Job Ledger 只留最近的若干个任务（§7.5），修剪掉的任务的产物 bytes 还在 Artifact Store 里，条目却会跟着消失。Space 另留一份产出产物的任务（生成、导出，以及文件到文件的流程：文件转码与字幕文件的翻译，只记流程名）的派生用事实（`SpaceJobFacts`：种类、状态、videoId、Provider 与模型、输入 hash、提交者、时间、错误、输出列表、导出的设置摘要与发布文件名、最后一次应用的状态）：任务结束且有结果时写入，启动时也从 Ledger 补一遍；派生时与 Ledger 合并，Ledger 里还有的以 Ledger 为准。生成参数（原文、提示词）、警告、授权与取消的细节不在里面。一条记录的产物全部物理删除或清除之后去掉它（Ledger 里也没有了时连清除标记一起去掉）。它不是缓存，`space.rebuildIndex` 不删；读坏的行跳过，整个文件读不了时改名留存、从空的开始。
+- **产物记录**（Runtime Store 的 `store/space-artifacts.json`）。Job Ledger 只留最近的若干个任务（§7.5），修剪掉的任务的产物 bytes 还在 Artifact Store 里，条目却会跟着消失。Space 另留一份产出产物的任务（生成、导出，以及文件到文件的流程：文件转码与字幕文件的翻译，只记流程名）的派生用事实（`SpaceJobFacts`：种类、状态、videoId、Provider 与模型、输入 hash、提交者、时间、错误、输出列表、导出的设置摘要与发布文件名、最后一次应用的状态）：任务结束且有结果时写入，启动时也从 Ledger 补一遍；派生时与 Ledger 合并，Ledger 里还有的以 Ledger 为准。生成参数（原文、提示词）、警告、授权与取消的细节不在里面。一条记录的产物全部物理删除或清除之后去掉它（Ledger 里也没有了时连清除标记一起去掉）。它不是缓存，`space.rebuildIndex` 不删；读坏的行跳过，整个文件读不了时改名留存、从空的开始。同一个文件另存**只为清扫保留的引用**（`references`：任务结束时取它的结果、流程步骤的产出与应用里出现的全部产物 id，配音、翻译、说话人与写进视频的转写等不进目录的任务也记）与清扫起点 `sweepSince`（开始保留引用的时刻，旧文件读入时补上并落盘，不后移）；这些引用不参与派生，不显示成条目，目前也不释放。
 - **`space.continueInConversation`**。放进哪个会话：给了 `conversationId` 时用它，它要看得到这个条目（与智能体的 `space_list` 同一条规则），否则 `SPACE_CONVERSATION_MISMATCH`；没给时，属于项目的条目在那个项目里新建会话（项目里的会话各有话题，不猜该接哪一个，§3.10），不属于项目的条目回到它所在或产生它的会话，那个会话不在了时新建一个不属于项目的会话。带的只有条目的引用（`SpaceEntryReference`：`entryId`、种类、名字、项目、来源目录里的相对路径、videoId、artifactId、状态、来源的能力、jobId、会话与冻结版本），不读文件内容，不带生成参数。引用记在会话的 `pendingReferences` 上（同一条目只留一份，最多 20 个），不启动任务；用户下一次 `conversations.send` 时附在发给智能体的文字后面（`<baocut-space-references>` 段，只有元数据，要内容时智能体经工具按 id 取），记在那条用户消息的 `references` 上，然后清空；`conversations.update { pendingReferences: null }` 去掉。回收站里的条目拒绝（`SPACE_ENTRY_TRASHED`）。`commandId` 重试时回答同一个会话。
 - **入口**。桌面连接与 CLI 都能删除、恢复视频与从条目继续会话。Web 在默认集合里（`videos.*`、`space.*`）；只读配置下这些都是写入，拒绝（`WEB_READ_ONLY`，`space.update` / `space.trash` 也在内，不能借它们绕过）。会话里的智能体有工具 `videos_delete`（风险 `high`，按访问模式询问；只能删会话来源目录里的视频，范围之外的与不存在的一样回答 `VIDEO_NOT_FOUND`）；没有恢复与物理删除的工具。MCP 对外服务的工具目录里没有删除视频。
 
@@ -1188,6 +1188,7 @@ library/
 | `fonts.autoDownload` | 布尔 | `true` | 预览与导出用到字体目录里有、本机没有的族时自动下载（§9.1）；关掉时照回退字体画，导出给出 `FONT_NOT_DOWNLOADED` 警告 |
 | `fonts.cssEndpoint` / `fonts.fileEndpoint` | `https://` 基址或 `null` | `null`（`https://fonts.googleapis.com` / `https://fonts.gstatic.com`） | 按需下载字体的样式表接口与字体文件主机（镜像）；只接受 `https`，不带凭据、查询参数与片段；文件地址必须在文件主机的基址之下（§9.1） |
 | `updates.autoCheck` / `updates.autoDownload` | 布尔 | `true` / `true` | 应用更新的偏好（§2.6） |
+| `cache.maxSizeMiB` | 256–1048576 的整数（MiB） | `2048` | `<runtime-home>/cache/` 的总大小上限：启动后与每小时核一次，超限按修改时间删最旧的降到 90%（§5.1） |
 | `space.trashRetentionDays` | 1–3650 的整数（天） | `30` | Space 回收站的保留期：移入回收站超过这么多天的条目在没有引用时物理删除（§5.7） |
 | `resources.capacity` | `{ memoryMiB, gpuMemoryMiB, cpuThreads }`（每项可为 `null`）或 `null` | `null`（按本机探测） | 高级：覆盖资源调度看到的容量；某项为 `null` 时照旧自动（§7.6） |
 | `runtime.idleExitMinutes` | 1–1440 的整数（分钟） | `10` | CLI 拉起的 Runtime 空闲（没有在用的本机网关连接、没有排队或运行中的任务、没有开着的对外服务；只查状态的 CLI 连接不算在用）满这么久自己退出（§2.2）；桌面端与手动启动的不受影响 |
@@ -1715,6 +1716,8 @@ interface ApplicationRecord {
 - 意图记在任务账本里，不给产物附任务的元数据：产物库按内容去重，同样的 bytes 只有一个文件，附元数据与这条规则冲突，恢复时还要扫产物库。代价是每次发布之前多一次账本的持久写入。
 
 **账本的持久性**：任务与应用两本账是只追加的 JSONL（`store/jobs.jsonl`、`store/applications.jsonl`）。第一行是文件头 `{"op":"header","formatVersion":2}`，之后每行一个操作：`{"op":"put", ...记录}` 写入或替换一条，`{"op":"remove","jobId"|"applicationId":…}` 删一条；账本记住每条上次落盘的样子，只追加变化了的行，每次追加都 fsync 文件（新建时再 fsync 目录），发布意图的顺序靠它。重放时任务按创建先后留在原位，应用再次写入移到最后（旧的在前）。行数超过 max(4 × 存活记录数, 256)，或字节超过 8 MiB 且超过存活记录的两倍时，把存活记录整份压缩成新文件（临时文件 + fsync + 改名 + fsync 目录）；追加与压缩在同一条串行写链上，写失败后下一次写整份压缩。读取：末尾残行与认不出的行跳过并记日志、下一次写压缩掉；文件头认不出时改名 `.corrupt-<时间>` 保留、从空开始；旧的整文件 `jobs.json` / `applications.json` 启动时导入并改名 `.migrated`。授权账本仍用持久的原子替换（先写临时文件并 fsync，再改名，最后 fsync 目录）。别的文件（设置、会话等）只做原子替换或追加，不 fsync。产物库的写入是临时文件写完（或克隆完）fsync、改名、再 fsync 目录：账本引用的产物在记账之前已经落盘（macOS 上 Node 的 fsync 不是 `F_FULLFSYNC`，这个保留说明同样适用）；认领时仍按 sha256 核对，兜住更早写下的产物、磁盘自己的写缓存与外部改动。
+
+**产物库的清扫**（`StorageGc`，`runtime-core/src/storage-gc.ts`）：`artifacts/` 里没有引用、修改时间超过 1 小时、又不早于清扫起点（§5.7 的 `sweepSince`）的文件删掉，残留的 `.tmp` 超过 1 小时同样删掉。引用集合按文本找全部 `sha256:<hex>`：账本里任何状态的任务（记录、冻结的规格、执行参数、发布意图）与应用账本，加上 Space 产物记录（含只为清扫保留的引用，以及磁盘上留存的 `space-artifacts.json.corrupt-*` 里的）。1 小时宽限的来由是产物先写进库、后记账；重新发布已有内容时刷新文件的修改时间。时机：Space 从账本补齐记录之后跑一轮，之后每次账本淘汰任务后等 30 秒合并成一轮；有排队或运行中的任务时整轮跳过（流程在步骤完成前只在暂存目录里记着刚写的产物），由下一次淘汰或每小时的定时补跑；产物记录整个读坏、从空开始的这次运行不清。
 
 **按命令查回执**：引擎的回执在视频目录里持久化，Engine Host 重启后照样可查（`receipts.byCommand`）。
 
@@ -3048,7 +3051,7 @@ v3 是 v2（`baocut-app`）的架构重做。成熟的领域实现从 v2 原样�
 | `timeDependencies` 的验证方法（§8.6） | 如何验证代码包声明的时间依赖属实 | 未验证即保守失效 |
 | SoundCueSheet 与 pin 的合同 | 重新编译遇到 pin 冲突时的默认行为 | 保留 pin 并提示冲突 |
 | Space 目录的可见性标记（§5.7） | 用途标记的枚举；候选何时从 Space 消失 | 可交付产物进入；被丢弃的候选移入回收站 |
-| Space 与视频删除的保留期 | 回收站多久之后物理删除；GC 宽限期 | 已定：偏好设置 `space.trashRetentionDays`，默认 30 天；启动后与每 6 小时按 `space.purge` 的引用检查清理到期的条目，有引用的留着（§5.7）。Artifact Store 里没有进过回收站的产物不清理 |
+| Space 与视频删除的保留期 | 回收站多久之后物理删除；GC 宽限期 | 已定：偏好设置 `space.trashRetentionDays`，默认 30 天；启动后与每 6 小时按 `space.purge` 的引用检查清理到期的条目，有引用的留着（§5.7）。Artifact Store 里没有引用的产物由后台清扫按 §7.3 的规则删除 |
 | 视频素材版本与撤销历史的保留政策（§5.3、§5.5） | 已删除素材的 bytes 什么时候可以回收；撤销记录保留多久 | 未定。`asset_versions` 与 `undo_records` 从不删除，视频关闭时的 blob GC 只回收崩溃残留与过期 staging，已删除素材的 bytes 随版本记录一直留着 |
 | Space 条目的标识与引用（§5.7） | 视频条目的 `id` 用 videoId 还是位置；产物的引用是 `artifactRef: VersionRef` 还是 artifactId | 实现的简化：视频条目的 `id` 是来源与相对路径的摘要（`sp_…`），videoId 放在 `ref.videoId`（副本在打开换标识之前与原视频同一个 videoId，引擎不可用时也要列出视频；用户标记跟着位置）；产物条目的 `id` 与 `ref.artifactId` 是 artifactId，不是 `VersionRef` |
 | Space 目录的来源（§5.7） | 「只索引登记过的文件、不扫描整个项目目录」与界面的文件列表怎样共存 | 实现的简化：仍扫描项目目录与无项目会话的工作目录（有深度与数量上限），界面与会话的文件列表依赖它；`space.import` 的登记另外记在 Runtime Store，文件不在了显示 `missing`。项目之外的文件复制进项目的 `imports/` |
@@ -3112,7 +3115,8 @@ v3 是 v2（`baocut-app`）的架构重做。成熟的领域实现从 v2 原样�
 | 引擎侧的停止屏障（§7.4） | `runGeneration` 失效控制怎样经私有通道交给 Engine Host，在视频的串行提交入口检查 | 已定：取消时经 `runs.invalidate` 让这次执行失效。Engine Host 在提交入口以 `TASK_STOPPED` 拒绝，不开事务；Node 记为应用 `cancelled`。`tasks.stop` 等屏障确认，至多 5 秒。剩余缺口：Engine Host 重启时失效记录丢失、每个视频超过 1024 个执行时丢最早的，这两种都回退到 Node 侧的屏障，新的 Runtime 不重新登记；Task 与 Run 没有实现，执行代是任务的尝试序号；固定流程提交的转写任务另有自己的执行，取消父任务时经取消子任务失效 |
 | 可查询的远端任务（§7.5） | 在线 Provider 给出远端任务 ID 之后，怎样续取结果 | 只有接口（`RemoteTaskQuery`）：现有的在线适配器都是一次同步请求，没有远端任务 ID。查到 `pending`、`running`、`succeeded` 一律 `needs-reconciliation`，不续取 |
 | 正常停止时在跑的在线调用（§2.4、§7.5） | 退出前是否等在线请求返回 | 不等：标为 `needs-reconciliation`，预算保守扣。用户带着在跑的在线生成退出之后，每次都要对账 |
-| 发布与应用之间的崩溃窗口（§7.3） | 产物写进产物库之后、结果与应用落账之前崩溃时，怎样认领这个产物 | 已定：写产物之前先在任务账本记下发布意图。重启时核对产物后认领：不重新推理，不重发请求，预算结算一次。剩余缺口：导出与固定流程自己的产物不走发布意图；意图记下了、产物还没写完就崩溃时，任务仍按「在跑」恢复；产物库里没有引用的文件仍不清理 |
+| 发布与应用之间的崩溃窗口（§7.3） | 产物写进产物库之后、结果与应用落账之前崩溃时，怎样认领这个产物 | 已定：写产物之前先在任务账本记下发布意图。重启时核对产物后认领：不重新推理，不重发请求，预算结算一次。剩余缺口：导出与固定流程自己的产物不走发布意图；意图记下了、产物还没写完就崩溃时，任务仍按「在跑」恢复。产物库里没有引用的文件由后台清扫删除（§7.3） |
+| 产物引用的释放（§5.7、§7.3） | 账本裁掉的任务留下的产物引用（配音句子音频等，视频文档里还指着它们）什么时候可以释放；一直有排队任务时清扫永远推迟；缓存按修改时间淘汰、命中不刷新；不删的 `content-index/` 也计入缓存上限 | 未定。目前引用只增不减，清扫起点之前的产物一律保留 |
 | 账本的持久性（§7.3、§7.8） | 任务、应用与授权账本写入后是否 fsync；预留的「已开始」是否落盘之后才开始执行 | 已定：三本账 fsync 文件与目录；「已开始」落盘之后才交出数据。排队的任务重启时预留已经开始的，按结果不明对账。剩余缺口：macOS 上 Node 的 fsync 不是 `F_FULLFSYNC`，断电时数据可能还在磁盘缓存里；产物库与别的文件不 fsync |
 | 重试与续跑的范围（§7.5） | 哪些任务可以重新排队或 `retry`；本地分段任务能否从检查点续跑 | 只有有视频的转写与生成。没有视频的转写（模型接口服务）、节点代执行的、固定流程的步骤（用 `pipelines.retry`）与不经模型的任务不行。不从 staging 续跑，本地任务一律重新开始 |
 | 对账时视频没有打开（§7.5） | `retry`、`apply` 是否替用户打开视频 | 不打开：以 `VIDEO_NOT_OPEN` 拒绝，用户先打开。只有重启恢复会按记下的位置重新打开 |
