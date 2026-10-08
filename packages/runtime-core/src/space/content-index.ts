@@ -292,7 +292,7 @@ export class ContentIndex {
         const peeked = await this.#reader.peek(dir);
         if (peeked.videoId === indexed.videoId && peeked.revision === indexed.revision) {
           const updated = { ...indexed, mtimeMs, name: peeked.name };
-          if (this.#closed) return false;
+          if (this.#closed || !this.#wanted.has(dir)) return false;
           store?.touch(dir, mtimeMs, peeked.name);
           this.#videos.set(dir, updated);
           this.#failed.delete(dir);

@@ -46,6 +46,9 @@ export interface CandidateFilter {
   speaker: string | null;
 }
 
+/** 另一个 Runtime（开发态的应用与 CLI 起的 Runtime 共用一个主目录）正在写时等多久。 */
+const BUSY_TIMEOUT_MS = 2_000;
+
 /** trigram 的 MATCH 要求每个词至少三个字符（按码点计）。 */
 const TRIGRAM_MIN = 3;
 
@@ -112,7 +115,7 @@ export class ContentStore {
 
   #open(): DatabaseSync {
     try {
-      const db = new DatabaseSync(this.#file);
+      const db = new DatabaseSync(this.#file, { timeout: BUSY_TIMEOUT_MS });
       try {
         const version = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version;
         const empty = (db.prepare("SELECT count(*) AS n FROM sqlite_master WHERE type = 'table'").get() as { n: number }).n === 0;
@@ -129,7 +132,7 @@ export class ContentStore {
       // 打不开：删掉重建。
     }
     removeStore(this.#file);
-    const db = new DatabaseSync(this.#file);
+    const db = new DatabaseSync(this.#file, { timeout: BUSY_TIMEOUT_MS });
     db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;');
     db.exec(`BEGIN; ${SCHEMA} PRAGMA user_version = ${STORE_VERSION}; COMMIT;`);
     return db;
@@ -262,7 +265,8 @@ export class ContentStore {
     }
     const sql = `SELECT r.id, r.dir, r.kind, r.document_id, r.language, r.clock, r.start, r."end", r.text, r.speaker
       FROM segment_rows r ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}`;
-    const rows = this.#prepare(sql).all(...params) as {
+    // 条件随查询变化：不进语句缓存。
+    const rows = this.#db.prepare(sql).all(...params) as {
       id: number;
       dir: string;
       kind: SpaceSearchDocumentKind;
