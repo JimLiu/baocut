@@ -53,6 +53,10 @@ it('discovers Windows v2 projects and never routes doc.json to the v1 adapter', 
     const upgrade = new LegacyUpgrade({ home, log: silentLogger, roots: [root], platform: 'win32', importProject });
     await upgrade.prepare();
     upgrade.start({ models, engine: 'engine-host.exe', openProject, env: async () => ({}) });
+    if (i === 0) {
+      await vi.waitFor(() => expect(upgrade.prompt()).not.toBeNull());
+      await upgrade.answer({ promptId: upgrade.prompt()!.promptId, decision: 'import', directory: path.join(dir, 'Imported') });
+    }
     await vi.waitFor(() => expect(upgrade.active).toBe(false));
   }
   expect(importProject).toHaveBeenCalledTimes(1);

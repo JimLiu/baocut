@@ -5,6 +5,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { parse as parseToml } from 'smol-toml';
 import { readJson } from '@baocut/runtime-storage';
+import { readLegacyKeychainSecret } from './legacy-upgrade-keychain.ts';
 
 const execute = promisify(execFile);
 export type LegacyObject = Record<string, any>;
@@ -200,13 +201,9 @@ export async function readV1Preferences(file: string): Promise<LegacyObject> {
 /** Read only known BaoCut accounts. Errors intentionally omit child stdout/stderr. */
 export async function readLegacyKeychain(service: string, account: string): Promise<LegacyObject | null> {
   try {
-    const { stdout } = await execute('/usr/bin/security', ['find-generic-password', '-s', service, '-a', account, '-w'], {
-      timeout: 5000,
-      maxBuffer: 4 * 1024 * 1024,
-    });
-    return JSON.parse(stdout.trim());
-  } catch (error) {
-    if ((error as { code?: number }).code === 44) return null;
+    const secret = await readLegacyKeychainSecret(service, account);
+    return secret === null ? null : JSON.parse(secret);
+  } catch {
     throw new Error('legacy-credential-unavailable');
   }
 }

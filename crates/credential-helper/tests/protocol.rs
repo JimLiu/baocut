@@ -47,6 +47,9 @@ impl SecretBackend for Memory {
     fn legacy_get(&self, provider: &str) -> Result<String, HelperError> {
         self.get(&format!("legacy:{provider}"))
     }
+    fn legacy_read(&self, service: &str, account: &str) -> Result<String, HelperError> {
+        self.get(&format!("legacy:{service}:{account}"))
+    }
     fn has(&self, key: &str) -> Result<bool, HelperError> {
         self.check()?;
         Ok(self.items.borrow().contains_key(key))
@@ -196,5 +199,37 @@ fn legacy_provider_reads_are_scoped_and_never_remove_the_old_entry() {
     assert_eq!(
         call(&memory, json!({"op":"legacy-get", "key":"openai", "secret":"do-not-write"}))["error"],
         "internal"
+    );
+}
+
+#[test]
+fn legacy_macos_reads_accept_only_historical_services_and_never_write() {
+    let memory = Memory::default();
+    for service in ["BaoCut", "VoiceInk", "bcut"] {
+        let key = format!("legacy:{service}:openai:personal");
+        memory.items.borrow_mut().insert(key.clone(), "old-secret".into());
+        assert_eq!(
+            call(&memory, json!({"op":"legacy-read", "service":service, "key":"openai:personal"})),
+            json!({"ok":true,"secret":"old-secret"})
+        );
+        assert!(memory.items.borrow().contains_key(&key));
+    }
+    for request in [
+        json!({"op":"legacy-read", "service":"com.other.app", "key":"openai"}),
+        json!({"op":"legacy-read", "service":"com.baocut.runtime", "key":"openai"}),
+        json!({"op":"legacy-read", "key":"openai"}),
+        json!({"op":"legacy-read", "service":"BaoCut", "key":"openai", "secret":"do-not-write"}),
+        json!({"op":"get", "service":"BaoCut", "key":"openai"}),
+    ] {
+        assert_eq!(call(&memory, request)["error"], "internal");
+    }
+    assert_eq!(memory.items.borrow().len(), 3);
+    let denied = Memory {
+        fail: Some(ErrorCode::Denied),
+        ..Memory::default()
+    };
+    assert_eq!(
+        call(&denied, json!({"op":"legacy-read", "service":"BaoCut", "key":"openai"}))["error"],
+        "denied"
     );
 }

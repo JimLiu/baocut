@@ -6,6 +6,7 @@ pub use platform::SystemKeychain;
 mod platform {
     use security_framework::base::Error;
     use security_framework::item::{ItemClass, ItemSearchOptions, Limit};
+    use security_framework::os::macos::{keychain::SecKeychain, passwords::find_generic_password};
     use security_framework::passwords::{delete_generic_password, get_generic_password, set_generic_password};
 
     use crate::{ErrorCode, HelperError, SecretBackend};
@@ -60,6 +61,7 @@ mod platform {
             if !matches!(service, "BaoCut" | "VoiceInk") {
                 return Err(HelperError::new(ErrorCode::Internal, "Unsupported legacy service"));
             }
+            let _interaction = SecKeychain::disable_user_interaction().map_err(failure)?;
             let items = ItemSearchOptions::new()
                 .class(ItemClass::generic_password())
                 .service(service)
@@ -84,6 +86,16 @@ mod platform {
                 Err(error) if error.code() == ERR_SEC_ITEM_NOT_FOUND => Ok(Vec::new()),
                 Err(error) => Err(failure(error)),
             }
+        }
+
+        fn legacy_read(&self, service: &str, account: &str) -> Result<String, HelperError> {
+            if !matches!(service, "BaoCut" | "VoiceInk" | "bcut") {
+                return Err(HelperError::new(ErrorCode::Internal, "Unsupported legacy service"));
+            }
+            // The helper handles exactly one request; this lock cannot affect normal credential operations.
+            let _interaction = SecKeychain::disable_user_interaction().map_err(failure)?;
+            let (bytes, _) = find_generic_password(None, service, account).map_err(failure)?;
+            String::from_utf8(bytes.to_vec()).map_err(|_| HelperError::new(ErrorCode::Internal, "Invalid legacy credential encoding"))
         }
 
         /// 只查属性，不读出密钥。

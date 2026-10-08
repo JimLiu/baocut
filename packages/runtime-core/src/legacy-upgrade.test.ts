@@ -164,6 +164,38 @@ describe('legacy startup upgrade', () => {
     expect(JSON.stringify(result)).not.toContain(secret);
     expect(await s.models.credential('openai')).toBe(secret);
   });
+  it('does not open the old vault for completed, existing, plaintext or remote credentials', async () => {
+    const s = await setup();
+    await s.models.updateProvider('google', { enabled: false, credential: 'current-key' });
+    await writeJsonAtomic(path.join(s.root, 'key-masks.json'), {
+      keys: { openai: {}, anthropic: {}, gemini: {}, 'remote-studio': {} },
+    });
+    const source = (await readLegacySource(s.root))!;
+    const keychain = vi.fn(async () => { throw new Error('must-not-read'); });
+    const checkpoint = vi.fn(async () => {});
+    const result = await importLegacyCloud(source, s.models, ['anthropic'], checkpoint, { platform: 'darwin', keychain });
+    expect(keychain).not.toHaveBeenCalled();
+    expect(result.pending).toEqual([]);
+    expect(result.done).toEqual(['openai', 'gemini']);
+    expect(await s.models.credential('openai')).toBe(secret);
+    expect(await s.models.credential('google')).toBe('current-key');
+  });
+  it('finishes credential migration when an individual entry succeeds after vault access fails', async () => {
+    const s = await setup();
+    await fs.rm(path.join(s.root, 'secrets.json'));
+    await writeJsonAtomic(path.join(s.root, 'key-masks.json'), { keys: { openai: {} } });
+    const source = (await readLegacySource(s.root))!;
+    const keychain = vi.fn(async (_service: string, account: string) => {
+      if (account === '__provider-vault-v1') throw new Error('denied');
+      return { fields: { apiKey: secret } };
+    });
+    const done: string[] = [];
+    const result = await importLegacyCloud(source, s.models, [], async (id) => { done.push(id); }, { platform: 'darwin', keychain });
+    expect(result).toMatchObject({ done: ['openai'], pending: [] });
+    keychain.mockClear();
+    await importLegacyCloud(source, s.models, done, async () => {}, { platform: 'darwin', keychain });
+    expect(keychain).not.toHaveBeenCalled();
+  });
 });
 
 it('reads TOML settings with JSON taking precedence', async () => {

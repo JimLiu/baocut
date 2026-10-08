@@ -1,8 +1,5 @@
-import { spawn, execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-import { resolveCredentialHelperCommand } from './credentials.ts';
+import { legacyKeychainRequest, readLegacyKeychainSecret } from './legacy-upgrade-keychain.ts';
 import { readV1PreferenceValue, type LegacyObject } from './legacy-upgrade-sources.ts';
-const execute = promisify(execFile);
 
 export interface V1Key {
   provider: string;
@@ -11,38 +8,7 @@ export interface V1Key {
   account: string;
 }
 export async function legacyAccounts(service: 'BaoCut' | 'VoiceInk'): Promise<string[]> {
-  const helper = resolveCredentialHelperCommand();
-  if (!helper) throw new Error('legacy-account-helper-unavailable');
-  return new Promise((resolve, reject) => {
-    const child = spawn(helper.command, helper.args ?? [], { stdio: ['pipe', 'pipe', 'ignore'] });
-    let output = '';
-    const fail = () => {
-      child.kill('SIGKILL');
-      reject(new Error('legacy-account-discovery-unavailable'));
-    };
-    const timer = setTimeout(fail, 5000);
-    child.once('error', () => {
-      clearTimeout(timer);
-      fail();
-    });
-    child.stdout.on('data', (chunk) => {
-      output += chunk;
-      if (output.length > 1024 * 1024) fail();
-    });
-    child.stdin.on('error', () => {});
-    child.once('exit', (code) => {
-      clearTimeout(timer);
-      try {
-        const result = JSON.parse(output);
-        if (code !== 0 || !result.ok || !Array.isArray(result.accounts) || result.accounts.some((s: unknown) => typeof s !== 'string'))
-          throw new Error();
-        resolve(result.accounts);
-      } catch {
-        reject(new Error('legacy-account-discovery-unavailable'));
-      }
-    });
-    child.stdin.end(JSON.stringify({ op: 'legacy-accounts', key: service }) + '\n');
-  });
+  return (await legacyKeychainRequest({ op: 'legacy-accounts', key: service }))?.accounts ?? [];
 }
 
 /** Same ordering as v1→v2: selected label, BaoCut service, stable label order. */
@@ -85,11 +51,7 @@ export async function readV1Keys(preferenceFiles: string[], exclude: Set<string>
   const secrets: LegacyObject = {};
   for (const [provider, item] of selectV1Keys(items, preferences)) {
     try {
-      const { stdout } = await execute('/usr/bin/security', ['find-generic-password', '-s', item.service, '-a', item.account, '-w'], {
-        timeout: 5000,
-        maxBuffer: 1024 * 1024,
-      });
-      const value = stdout.trimEnd();
+      const value = await readLegacyKeychainSecret(item.service, item.account);
       if (!value) throw new Error();
       secrets[provider] = { fields: { apiKey: value } };
     } catch {

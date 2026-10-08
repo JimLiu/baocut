@@ -43,11 +43,15 @@ export async function importLegacyCloud(
   const masks = (await readJson<LegacyObject>(path.join(source.root, 'key-masks.json'))) ?? {};
   const readKeychain = options.keychain ?? readLegacyKeychain;
   let vault: LegacyObject = {};
-  if ((options.platform ?? process.platform) === 'darwin' && options.allowKeychain !== false && Object.keys(masks.keys ?? {}).length) {
+  // Decide what still needs a secret before opening the shared vault. Remote tokens belong to node migration.
+  const needsCredential = (id: string) =>
+    /^[a-z0-9-]+$/.test(id) && !id.startsWith('remote-') && !completed.includes(id) && !store.provider(mappedId(id)) && !file[id];
+  const maskedPending = Object.keys(masks.keys ?? {}).filter(needsCredential);
+  if ((options.platform ?? process.platform) === 'darwin' && options.allowKeychain !== false && maskedPending.length) {
     try {
       vault = (await readKeychain('BaoCut', '__provider-vault-v1'))?.providers ?? {};
     } catch {
-      result.pending.push('keychain');
+      // Individual entries may still be readable. Only unresolved providers remain pending below.
     }
   }
   const v1 =

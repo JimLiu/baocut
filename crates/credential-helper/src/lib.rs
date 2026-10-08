@@ -5,7 +5,8 @@
 //! 失败是 `{"ok": false, "error": <错误码>, "message": string}`，错误码是封闭集合（见 [`ErrorCode`]）。
 //!
 //! 升级专用的只读操作：`legacy-accounts` 仅枚举 BaoCut / VoiceInk 的账号属性，
-//! `legacy-get` 仅按 provider 读取 Windows v2 的 bcut 服务条目，不删除或改写旧凭据。
+//! `legacy-get` 仅按 provider 读取 Windows v2 的 bcut 服务条目；
+//! `legacy-read` 静默读取 macOS BaoCut / VoiceInk / bcut 的指定账号，不删除或改写旧凭据。
 //!
 //! 密钥只经 stdin 与 stdout 传递：不进命令行参数、环境变量、stderr 与错误信息。
 
@@ -62,6 +63,10 @@ pub trait SecretBackend {
     fn legacy_get(&self, _provider: &str) -> Result<String, HelperError> {
         Err(HelperError::new(ErrorCode::Unsupported, "Legacy provider access is unavailable"))
     }
+    /// Background macOS migration must never request keychain authorization.
+    fn legacy_read(&self, _service: &str, _account: &str) -> Result<String, HelperError> {
+        Err(HelperError::new(ErrorCode::Unsupported, "Legacy credential access is unavailable"))
+    }
     /// Only historical BaoCut services; returns account names, never secret values.
     fn legacy_accounts(&self, _service: &str) -> Result<Vec<String>, HelperError> {
         Err(HelperError::new(ErrorCode::Unsupported, "Legacy account discovery is unavailable"))
@@ -75,9 +80,11 @@ struct Request {
     key: String,
     #[serde(default)]
     secret: Option<String>,
+    #[serde(default)]
+    service: Option<String>,
 }
 
-/// 处理一行请求，返回一行响应（不含换行）。响应里只有 `get` 成功时带密钥。
+/// 处理一行请求，返回一行响应（不含换行）。只有密码读取操作成功时带密钥。
 pub fn handle_line(line: &str, backend: &dyn SecretBackend) -> String {
     let response = match parse(line) {
         Ok(request) => dispatch(&request, backend),
@@ -104,6 +111,17 @@ fn parse(line: &str) -> Result<Request, HelperError> {
 
 fn dispatch(request: &Request, backend: &dyn SecretBackend) -> Result<Value, HelperError> {
     let key = request.key.as_str();
+    if request.op == "legacy-read" {
+        return match (request.service.as_deref(), request.secret.as_deref()) {
+            (Some(service @ ("BaoCut" | "VoiceInk" | "bcut")), None) => backend
+                .legacy_read(service, key)
+                .map(|secret| json!({ "ok": true, "secret": secret })),
+            _ => Err(HelperError::new(ErrorCode::Internal, "Invalid legacy credential request")),
+        };
+    }
+    if request.service.is_some() {
+        return Err(HelperError::new(ErrorCode::Internal, "Only legacy-read accepts service"));
+    }
     match (request.op.as_str(), request.secret.as_deref()) {
         ("legacy-accounts", None) if matches!(key, "BaoCut" | "VoiceInk") => backend
             .legacy_accounts(key)
