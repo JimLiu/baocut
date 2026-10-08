@@ -155,6 +155,16 @@ describe('ConversationStore', () => {
     const again = await reload();
     expect(plain(again.get('conv_1'))).toEqual(plain(r));
     expect(warnings.map((w) => w.message)).toEqual(['Conversation log ends with a partial line; skipped it']);
+
+    // 之后的写入不能接在残行后面：下次读入时能看到。
+    const loaded = again.get('conv_1')!;
+    loaded.items.push({ id: 'item_2', createdAt: '2026-01-01T00:00:01Z', taskId: 'task_1', kind: 'user-message', text: 'hi' } as TimelineItem);
+    again.markDirty('conv_1');
+    await again.flush();
+    warnings = [];
+    const third = await reload();
+    expect(plain(third.get('conv_1'))).toEqual(plain(loaded));
+    expect(warnings).toEqual([]);
   });
 
   it('认不出的文件改名为 .corrupt-<时间> 并跳过；空文件同样处理', async () => {

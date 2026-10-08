@@ -208,7 +208,8 @@ export class ConversationStore {
     }
     const id = record.conversation.id;
     this.#records.set(id, record);
-    this.#persisted.set(id, { ...persistedOf(record), lines: read.lines, bytes: read.bytes });
+    // 末尾有残行时不记落盘副本：下次保存写快照整份替换，免得新行接在残行后面一起读不出来。
+    if (!read.bad.some((bad) => bad.tail)) this.#persisted.set(id, { ...persistedOf(record), lines: read.lines, bytes: read.bytes });
   }
 
   /** 旧格式 `<id>.json`（整份记录）：写成 `<id>.jsonl` 的快照行，再把旧文件改名为 `.json.migrated`。 */
