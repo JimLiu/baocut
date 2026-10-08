@@ -18,7 +18,7 @@ export async function fileHash(file) {
 }
 
 export function validateCandidate(run, jobs, mac, variants, workflowId, repo) {
-  invariant(run.status === 'completed', 'Candidate run is not complete');
+  invariant(['completed', 'in_progress'].includes(run.status), 'Candidate run has not started');
   invariant(run.workflow_id === workflowId && run.event === 'workflow_dispatch', 'Unexpected candidate workflow');
   invariant(run.head_repository?.full_name?.toLowerCase() === repo.toLowerCase(), 'Candidate belongs to another repository');
   for (const variant of variants) {

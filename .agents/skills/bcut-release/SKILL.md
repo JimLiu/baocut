@@ -94,7 +94,7 @@ each variant has a separate native build and installer/ZIP validation job.
 Windows is unsigned; Apple Developer ID credentials are neither useful nor needed
 for this path. Never inject the Mac signing backup into these workflows.
 
-After the candidate finishes, dispatch `desktop-windows-publish.yml` with its
+After the selected native jobs finish successfully, dispatch `desktop-windows-publish.yml` with its
 `candidate_run_id`, the existing `release_tag`, and a comma-separated `variants`
 list. Publish only variants whose native job passed and whose artifact exists.
 The publisher checks candidate workflow/repository/source against the Mac report,
