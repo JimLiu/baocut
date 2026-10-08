@@ -897,6 +897,8 @@ export class Harness {
   async deleteConversation(id: Id): Promise<void> {
     const state = this.#require(id);
     const run = this.#runs.get(id);
+    // 回合中绑定留下的收尾交给下面的删除前整理，不在回合结束时再做一遍。
+    this.#rebound.delete(id);
     if (run) this.#finish(state, run, 'stopped', null);
     this.#cancelIdle(id);
     await this.#agents.release(id);
