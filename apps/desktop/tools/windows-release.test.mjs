@@ -12,6 +12,8 @@ const run = { status: 'completed', workflow_id: 7, event: 'workflow_dispatch', h
 test('requires native validation for every selected variant and the frozen Mac source', () => {
   const jobs = [{ name: 'Package Windows x64 (cpu)', conclusion: 'success' }, { name: 'Package Windows x64 (cuda)', conclusion: 'failure' }];
   validateCandidate(run, jobs, mac, ['cpu'], 7, 'JimLiu/baocut');
+  validateCandidate({ ...run, status: 'in_progress' }, jobs, mac, ['cpu'], 7, 'JimLiu/baocut');
+  assert.throws(() => validateCandidate({ ...run, status: 'queued' }, jobs, mac, ['cpu'], 7, 'JimLiu/baocut'), /not started/);
   assert.throws(() => validateCandidate(run, jobs, mac, ['cpu', 'cuda'], 7, 'JimLiu/baocut'), /Native validation/);
   assert.throws(() => validateCandidate({ ...run, event: 'pull_request' }, jobs, mac, ['cpu'], 7, 'JimLiu/baocut'), /workflow/);
 });

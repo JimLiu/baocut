@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       candidate_run_id:
-        description: Completed desktop-windows run with native validation
+        description: desktop-windows run whose selected native jobs passed
         type: string
         required: true
       release_tag:
