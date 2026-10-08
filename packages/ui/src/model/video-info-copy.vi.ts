@@ -16,6 +16,7 @@ export const vi: VideoInfoMessages = {
     contents: 'Nội dung',
     translation: 'Bản dịch',
     location: 'Vị trí',
+    file: 'Tệp',
     media: 'Tư liệu',
     transcript: 'Chép lời',
     channel: 'Kênh',
@@ -23,5 +24,7 @@ export const vi: VideoInfoMessages = {
     platform: 'Nền tảng',
     mediaId: 'ID video',
     url: 'URL',
+    title: 'Tiêu đề gốc',
+    description: 'Mô tả',
   },
 };

@@ -8,5 +8,5 @@ export const ptBR: VideoInfoMessages = {
   paragraphs: (count: number) => pluralForm('pt-BR', count, { one: `${count} parágrafo`, other: `${count} parágrafos` }),
   list: (names: readonly string[]) => names.join(', '),
   sourceKind: { 'link-import': 'Importado de URL', 'user-import': 'Arquivo local', generated: 'Gerado', library: 'Biblioteca do usuário' },
-  row: { contents: 'Conteúdo', translation: 'Tradução', location: 'Localização', media: 'Mídia', transcript: 'Transcrição', channel: 'Canal', published: 'Publicado', platform: 'Plataforma', mediaId: 'ID do vídeo', url: 'URL' },
+  row: { contents: 'Conteúdo', translation: 'Tradução', location: 'Localização', file: 'Arquivo', media: 'Mídia', transcript: 'Transcrição', channel: 'Canal', published: 'Publicado', platform: 'Plataforma', mediaId: 'ID do vídeo', url: 'URL', title: 'Título original', description: 'Descrição original' },
 };

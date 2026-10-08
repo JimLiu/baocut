@@ -1,6 +1,8 @@
 import type { SettingKey } from '@baocut/protocol';
 import { localeOfTag } from '@baocut/protocol';
 import { settingValueSchemas } from '@baocut/protocol/schemas';
+import os from 'node:os';
+import path from 'node:path';
 import { SettingsStore } from '@baocut/runtime-storage';
 import { legacyPath, type LegacyObject, type LegacySource } from './legacy-upgrade-sources.ts';
 
@@ -10,12 +12,13 @@ export async function importLegacySettings(
   source: LegacySource,
   v1: LegacyObject = {},
   platform = process.platform,
+  userHome = os.homedir(),
 ): Promise<string[]> {
   const { config: c, preferences: p } = source;
   const language = p.language ?? v1['vk-lang'];
   const patch: Partial<Record<SettingKey, unknown>> = {
     'models.dir': legacyPath(c['models.dir'] ?? v1['vk-models-dir'], source.root, undefined, platform),
-    'downloads.directory': legacyPath(p['vk-url-savedir'] ?? c['download.dir'] ?? v1['vk-url-savedir'], source.root, undefined, platform),
+    'downloads.directory': legacyDownloads(p['vk-url-savedir'] ?? c['download.dir'] ?? v1['vk-url-savedir'], source.root, platform, userHome),
     'ui.language': language === 'system' ? 'system' : localeOfTag(typeof language === 'string' ? language : undefined),
     'updates.autoDownload': p.appAutoUpdate,
     'agent.defaultDriver': p.agentChatDefaults?.provider,
@@ -35,4 +38,17 @@ export async function importLegacySettings(
   }
   await store.set(accepted);
   return Object.keys(accepted);
+}
+
+/**
+ * The old default (`~/Downloads`) is not a user choice: leave the setting empty so v3 follows the host's Downloads folder,
+ * including a relocated Windows known folder.
+ */
+function legacyDownloads(value: unknown, root: string, platform: NodeJS.Platform, userHome: string): string | null {
+  const resolved = legacyPath(value, root, userHome, platform);
+  if (resolved === null) return null;
+  const paths = platform === 'win32' ? path.win32 : path.posix;
+  const fallback = paths.join(userHome, 'Downloads');
+  const same = platform === 'linux' ? resolved === fallback : resolved.toLowerCase() === fallback.toLowerCase();
+  return same ? null : resolved;
 }

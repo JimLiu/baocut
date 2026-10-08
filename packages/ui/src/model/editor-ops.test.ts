@@ -307,6 +307,11 @@ describe('素材菜单：用在哪、在文件夹中显示', () => {
     expect(assetFilePath(linked('/Users/me/a.mp4'), '/v/demo')).toBe('/Users/me/a.mp4');
     expect(assetFilePath(linked('media/a.mp4'), '/v/demo/')).toBe('/v/demo/media/a.mp4');
     expect(assetFilePath(linked('media\\a.mp4'), 'C:\\v\\demo')).toBe('C:\\v\\demo\\media\\a.mp4');
+    // 链到视频目录外的：折掉 `..`，不越过根。
+    expect(assetFilePath(linked('../downloads/a b.webm'), '/p/proj/demo')).toBe('/p/proj/downloads/a b.webm');
+    expect(assetFilePath(linked('..\\downloads\\a.webm'), 'C:\\p\\demo')).toBe('C:\\p\\downloads\\a.webm');
+    expect(assetFilePath(linked('../../../a.mp4'), '/v/demo')).toBe('/a.mp4');
+    expect(assetFilePath(linked('../../x/a.mp4'), '\\\\nas\\share\\demo')).toBe('\\\\nas\\share\\x\\a.mp4');
     expect(assetFilePath(linked('media/a.mp4'), null)).toBeNull();
     expect(assetFilePath(clip, '/v/demo')).toBeNull();
   });

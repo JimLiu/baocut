@@ -16,6 +16,7 @@ export const zhHans: VideoInfoMessages = {
     contents: '内容',
     translation: '译文',
     location: '位置',
+    file: '源文件',
     media: '媒体',
     transcript: '转录',
     channel: '频道',
@@ -23,5 +24,7 @@ export const zhHans: VideoInfoMessages = {
     platform: '平台',
     mediaId: '视频 ID',
     url: '网址',
+    title: '原标题',
+    description: '原简介',
   },
 };

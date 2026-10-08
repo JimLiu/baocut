@@ -153,18 +153,49 @@ describe('视频详情的行', () => {
     const meta = sections(editorFacts(LINK))[1]!;
     expect(meta.title).toBe(VIDEO_INFO_SECTION.source);
     expect(meta.rows.map((r) => `${r.label}=${r.value}`)).toEqual([
+      '原标题=科浪访谈',
       '频道=科浪电台',
       '发布=2026-04-20',
       '平台=YouTube',
       '视频 ID=kl-ep42',
       '网址=https://kelang.example/ep42',
     ]);
-    expect(meta.rows[3]!.mono).toBe(true);
+    expect(meta.rows[4]!.mono).toBe(true);
     // 日期不是八位数字就整行不出，不猜格式；缺的项各自省略。
     expect(prettyDate('2026-04-20')).toBeNull();
     const partial = editorFacts({ origin: 'link-import', source: { url: 'https://x.example/v', uploadDate: '2026-04-20' } });
     expect(sections(partial)[1]!.rows.map((r) => r.label)).toEqual(['网址']);
     expect(heroLine(editorFacts(LINK).source)).toBe('网址导入 · kelang-ep42-master.mp4');
+  });
+
+  it('原标题与原简介：改过名才写原标题；原简介限高、复制全文', () => {
+    const described: Provenance = { ...LINK, source: { ...(LINK.source as Record<string, unknown>), description: '第一段\n第二段' } };
+    const meta = sections(editorFacts(described))[1]!;
+    expect(meta.rows.map((r) => r.label)).toEqual(['原标题', '频道', '发布', '平台', '视频 ID', '网址', '原简介']);
+    expect(meta.rows[0]!.value).toBe('科浪访谈');
+    expect(meta.rows[6]!.long).toBe(true);
+    expect(copyText('t', null, [meta])).toContain('原简介: 第一段\n  第二段\n');
+    // 没改过名：原标题就是 hero 那行，不重复。
+    const same = snapshotFacts({ title: '科浪访谈', location: null, sequence: null, candidates: [{ asset: asset(described), speech: null }], speechBody: undefined, languageName });
+    expect(sections(same)[0]!.rows.some((r) => r.label === '原标题')).toBe(false);
+    expect(sections(same).flatMap((s) => s.rows.map((r) => r.label))).not.toContain('原标题');
+  });
+
+  it('位置与链接的源文件带着「在文件夹中显示」的路径；收进视频目录的素材没有源文件行', () => {
+    const linked = asset(LINK);
+    linked.revisions['1'] = { ...linked.revisions['1']!, storage: { mode: 'linked', locator: { path: '../downloads/kl.webm' }, frozen: false } };
+    const facts = snapshotFacts({
+      title: '口播剪辑',
+      location: '/Users/me/BaoCut/科浪/口播剪辑',
+      sequence: null,
+      candidates: [{ asset: linked, speech: null }],
+      speechBody: undefined,
+      languageName,
+    });
+    const media = sections(facts)[0]!.rows;
+    expect(media.map((r) => `${r.label}=${r.value}`)).toEqual(['位置=/Users/me/BaoCut/科浪/口播剪辑', '源文件=/Users/me/BaoCut/科浪/downloads/kl.webm']);
+    expect(media.map((r) => r.reveal)).toEqual(['/Users/me/BaoCut/科浪/口播剪辑', '/Users/me/BaoCut/科浪/downloads/kl.webm']);
+    expect(sections(editorFacts(LOCAL))[0]!.rows.map((r) => r.label)).not.toContain('源文件');
   });
 
   it('省略号只进眼睛不进剪贴板', () => {

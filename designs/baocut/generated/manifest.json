@@ -400,9 +400,9 @@
       "app/agent-cards.css",
       "app/subtitle-motion.css"
     ],
-    "js": "generated/app.js?v=06b7b2010d4a",
-    "css": "generated/app.css?v=9ff21cb2fefb",
-    "bytes": 3723802
+    "js": "generated/app.js?v=cccc3d7fce9b",
+    "css": "generated/app.css?v=20f4355804b0",
+    "bytes": 3724381
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -630,9 +630,9 @@
       "app/font-library.css",
       "app/subtitle-motion.css"
     ],
-    "js": "generated/web.js?v=49f80947ded0",
-    "css": "generated/web.css?v=b7e98a225668",
-    "bytes": 2306542
+    "js": "generated/web.js?v=f29823624cbc",
+    "css": "generated/web.css?v=7d59b47a6b79",
+    "bytes": 2307103
   },
   "components": {
     "file": "Components.html",
@@ -658,7 +658,7 @@
       "app/spectrum.css"
     ],
     "js": "generated/components.js?v=cbb7b656fc67",
-    "css": "generated/components.css?v=63a3f9abb90b",
+    "css": "generated/components.css?v=0dff63103c93",
     "bytes": 113563
   }
 }

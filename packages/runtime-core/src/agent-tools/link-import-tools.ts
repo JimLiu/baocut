@@ -29,9 +29,11 @@ import { commandIdArg, videoArg } from './video-tools.ts';
  *   终端里按 cwd 找到的项目），之后 `videos_list`、`videos_inspect` 看得到；新建视频不提高风险（`edit` 低于下载的 `command`）；
  * - `project`：只下载，文件放进这个项目。
  *
- * 有落点时文件放进归属项目的 `downloads/`（流程的 `saveTo: 'project'`）；归属是不属于项目的会话时仍进下载目录（会话的工作目录
- * 用户看不到）。不给落点时文件进下载目录（设置 `downloads.directory`，默认主机的下载文件夹），`transcribe` 为 true 时在旁边生成
- * TXT 与 SRT 文稿；之后可以用结果里媒体的 `artifactId` 经 `edits_apply` 的 `importAsset` 导入视频。
+ * 文件去哪：与界面、CLI 一样默认进下载目录（设置 `downloads.directory`，默认主机的下载文件夹），`video`、`newVideo` 导入的是
+ * 链到那里的素材；只给 `project` 时放进那个项目的 `downloads/`（流程的 `saveTo: 'project'`）。对外服务只能写进项目，它的落点
+ * 一律放进归属项目的 `downloads/`。归属是不属于项目的会话时仍进下载目录（会话的工作目录用户看不到）。不给落点时
+ * `transcribe` 为 true 在媒体旁边生成 TXT 与 SRT 文稿；之后可以用结果里媒体的 `artifactId` 经 `edits_apply` 的 `importAsset`
+ * 导入视频。
  *
  * 对外服务（MCP，§4.8、§12.8、§12.9）的落点只能是范围之内的 `video` 或已登记的 `project`：`newVideo` 要同时给 `project`（与
  * `videos_create` 相同），流程新建的视频一出现（父任务记下 `videoId`）就登记进服务的范围（`ToolScope.adoptCreatedVideo`，范围是
@@ -87,13 +89,13 @@ const schemas = {
     video: videoArg
       .optional()
       .describe(
-        '可选。下载后导入到这个已有视频（videos_list 给出的 path 或 videoId），时间线还空着时同时放上主轨；文件放进它所属项目的 downloads/；与 project、newVideo 不能同时给',
+        '可选。下载后导入到这个已有视频（videos_list 给出的 path 或 videoId），时间线还空着时同时放上主轨；文件在下载目录（对外服务放进它所属项目的 downloads/）；与 project、newVideo 不能同时给',
       ),
     newVideo: z
       .boolean()
       .optional()
       .describe(
-        '可选。新建一个视频：导入下载的媒体并放上时间线（主轨、从 0 开始、整段），与 videos_create 建在同一处；文件放进那个项目的 downloads/',
+        '可选。新建一个视频：导入下载的媒体并放上时间线（主轨、从 0 开始、整段），与 videos_create 建在同一处；文件在下载目录（对外服务放进那个项目的 downloads/）',
       ),
     name: z.string().min(1).max(200).optional().describe('可选。新视频的名字，默认取页面标题；只与 newVideo 一起给'),
     transcribe: z
@@ -117,11 +119,11 @@ const DEFINITIONS: Record<'download', ToolInfo> = {
     title: '从链接下载',
     description: [
       '用 yt-dlp 从视频页面的链接下载媒体，可以导入视频或新建视频并转写。',
-      '落点三选一：video 导入已有视频；newVideo 新建视频并放上时间线（可给 project、name）；project 只下载到项目。有落点时文件放进所属项目的 downloads/（不属于项目的会话仍进下载目录）；都不给时只下载到下载目录（设置 downloads.directory，默认系统的下载文件夹），只在用户明确说只要文件、不要视频时这样用。',
+      '落点三选一：video 导入已有视频；newVideo 新建视频并放上时间线（可给 project、name）；project 只下载到项目的 downloads/。文件默认存进下载目录（设置 downloads.directory，默认系统的下载文件夹），video、newVideo 导入的素材链到那里；都不给时只下载、不建视频，只在用户明确说只要文件、不要视频时这样用。',
       '要转写、加字幕、翻译的默认给 newVideo（或直接用 transcribe 给 url）：它新建视频、导入、放上时间线，transcribe 为 true 时再转写；之后 videos_list、videos_inspect 看得到它。新建的视频在之后的步骤失败时保留，不要再新建一次。',
       '只在用户明确要从网页链接取视频时用。会按访问模式向用户确认；yt-dlp 没有安装时会请用户同意下载它（显示来源、版本、大小与许可），这次只提交安装并返回 installJobId：用 jobs_wait 等它 completed，再调用一次本工具。',
       '立即返回 jobId。用 jobs_wait 等它结束（看进度用 jobs_inspect，progress.unit 为 bytes），state 为 completed 时 outputs 里有下载的文件与文稿（path）和导入的素材（assetId）；只下载时媒体的 artifactId 可以给 edits_apply 的 importAsset（文件要还在原处、没有改过）。失败时 error.code 是 LINK_LOGIN_REQUIRED、LINK_UNSUPPORTED、LINK_NETWORK_ERROR、LINK_DISK_FULL 等，error.details.remedy 说明怎么补救；不要用别的方式绕过（不要自己运行下载程序）。',
-      '对外服务的落点只能是范围之内的 video 或已登记的 project；newVideo 要同时给 project（新视频建在那个项目里，之后在服务的范围之内）。',
+      '对外服务的落点只能是范围之内的 video 或已登记的 project；newVideo 要同时给 project（新视频建在那个项目里，之后在服务的范围之内）；文件一律放进所属项目的 downloads/。',
     ].join('\n'),
     annotations: { destructiveHint: false, idempotentHint: true },
     effect: 'job',
@@ -247,6 +249,9 @@ async function start(deps: LinkImportToolsDeps, args: LinkImportRequest, princip
   // 落点先只找位置（看不到的项目不弹确认）；新建视频的确认之后再取一次，无项目会话那时才建项目并绑定（§3.10）。
   let target = await targetOf(deps, args, access, { locate: true });
   const placed = args.video !== undefined || args.newVideo === true || args.project !== undefined;
+  // 文件进项目的 downloads/：对外服务只能写进项目（§12.8），有落点就进；智能体只在只给 project（只下载到项目）时进，
+  // 导入视频的与界面、CLI 一样留在下载目录。
+  const intoProject = service ? placed : args.project !== undefined && !args.newVideo;
   // 说清楚文件去哪、视频怎么变。
   const about = {
     tool: status.label,
@@ -282,7 +287,7 @@ async function start(deps: LinkImportToolsDeps, args: LinkImportRequest, princip
       params: {
         url: args.url,
         ...target,
-        ...(placed ? { saveTo: 'project' } : {}),
+        ...(intoProject ? { saveTo: 'project' } : {}),
         ...(args.audioOnly !== undefined ? { audioOnly: args.audioOnly } : {}),
         ...(args.subtitleLanguages ? { subtitleLanguages: args.subtitleLanguages } : {}),
         ...(args.transcribe !== undefined ? { transcribe: args.transcribe } : {}),
@@ -303,7 +308,7 @@ async function start(deps: LinkImportToolsDeps, args: LinkImportRequest, princip
     adoptWhenCreated(deps.jobs, jobId, (videoId) => adopt(access, videoId));
   }
   // i18n-ignore-start: 给模型的工具说明、错误与下一步
-  const where = placed ? '所属项目的 downloads/（不属于项目的会话是下载目录）' : '下载目录';
+  const where = intoProject ? '所属项目的 downloads/（不属于项目的会话是下载目录）' : '下载目录';
   return {
     jobId,
     installJobId: null,

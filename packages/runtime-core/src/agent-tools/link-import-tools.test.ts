@@ -125,6 +125,30 @@ describe('download：对外服务的落点', () => {
   });
 });
 
+describe('download：文件存到哪里', () => {
+  it('智能体导入视频的下载进下载目录（不给 saveTo）；只给 project 时进项目；对外服务有落点就进项目', async () => {
+    const { deps, started } = harness();
+    const tools = new LinkImportTools(deps);
+    await tools.dispatch('download', { url: LINK, newVideo: true }, agent);
+    await tools.dispatch('download', { url: LINK, newVideo: true, project: 'prj_1' }, agent);
+    await tools.dispatch('download', { url: LINK, video: 'vid_1' }, agent);
+    await tools.dispatch('download', { url: LINK }, agent);
+    await tools.dispatch('download', { url: LINK, project: 'prj_1' }, agent);
+    await tools.dispatch('download', { url: LINK, video: 'vid_1' }, service);
+    await tools.dispatch('download', { url: LINK, project: 'prj_1' }, service);
+    expect(started.map((p) => p.saveTo ?? null)).toEqual([null, null, null, null, 'project', 'project', 'project']);
+  });
+
+  it('结果的 next 照实说文件在哪', async () => {
+    const { deps } = harness();
+    const tools = new LinkImportTools(deps);
+    const imported = (await tools.dispatch('download', { url: LINK, video: 'vid_1' }, agent)) as { next: string };
+    expect(imported.next).toContain('在下载目录');
+    const toProject = (await tools.dispatch('download', { url: LINK, project: 'prj_1' }, agent)) as { next: string };
+    expect(toProject.next).toContain('downloads/');
+  });
+});
+
 describe('transcribe 给 url：转写的参数', () => {
   it('语言、服务与模型、提示、说话人与 captions 原样交给流程；确认说明里写明语言', async () => {
     const { deps, started, confirmed } = harness();

@@ -1,5 +1,6 @@
 import { live, type AssetRecord, type DocumentRecord, type Id, type Provenance, type Sequence, type SpaceEntry } from '@baocut/protocol';
 import { durationSeconds, formatFps } from './editor.ts';
+import { assetFilePath } from './editor-ops.ts';
 import { formatClock } from './format.ts';
 import { measureText } from './space.ts';
 import { readSpeechWords } from './speech-cues.ts';
@@ -22,6 +23,11 @@ import { M } from './video-info-copy.ts';
  * - 「网址」是「来源信息」里的只读行（链接导入记下的原网页），不是可编辑的表单项；简介、备注没有地方存，界面置灰写明原因，
  *   也就不进「复制全部」（设计稿的「详情」一段）。
  * - 来源种类按素材记下的 `provenance.origin` 写，认不出的种类不写；设计稿的「录制」现在没有对应的来源。
+ * - 设计稿的「位置」是源文件；这里「位置」是视频目录，主素材是链接的原文件时另有一行「源文件」（从网址下载的在下载目录里，
+ *   不在视频旁边）。两行都带 `reveal`：桌面端在行尾放「在文件夹中显示」。收进视频目录的素材由 BaoCut 管理，没有这一行。
+ *
+ * 「来源信息」里的原标题与原简介是下载时记下的平台原文（`provenance.source.title`、`description`）：原标题与视频名一样时省略
+ * （hero 已经写着）；原简介可以很长，标 `long`，框里限高滚动，复制仍是全文。
  */
 
 export interface InfoRow {
@@ -29,6 +35,10 @@ export interface InfoRow {
   value: string;
   /** 路径、ID、网址这类用等宽字。 */
   mono: boolean;
+  /** 磁盘上的位置：行尾放「在文件夹中显示」（能交给系统文件管理器时）。 */
+  reveal?: string;
+  /** 长文本（原简介）：限高滚动。 */
+  long?: boolean;
 }
 
 export interface InfoSection {
@@ -42,7 +52,7 @@ export const HERO_NAME_MAX = 56;
 /** 两个分区的标题：「来源与媒体」「来源信息」。 */
 export const VIDEO_INFO_SECTION: { media: string; source: string } = live(() => M.section);
 
-const row = (label: string, value: string, mono = false): InfoRow => ({ label, value, mono });
+const row = (label: string, value: string, mono = false, extra: Pick<InfoRow, 'reveal' | 'long'> = {}): InfoRow => ({ label, value, mono, ...extra });
 
 const str = (value: unknown): string | null => (typeof value === 'string' && value.trim() ? value.trim() : null);
 
@@ -106,6 +116,10 @@ export function heroLine(source: HeroSource | null): string | null {
 
 /** 链接导入记下的来源元数据（`provenance.source`），逐项放行。 */
 export interface LinkFacts {
+  /** 平台上的标题（下载时记下的，视频改名后不变）。 */
+  title: string | null;
+  /** 平台上的简介原文。 */
+  description: string | null;
   uploader: string | null;
   /** 发布日期，`YYYY-MM-DD`。 */
   published: string | null;
@@ -120,6 +134,8 @@ export function linkFacts(provenance: Pick<Provenance, 'origin' | 'source'> | nu
   if (provenance?.origin !== 'link-import' || !isObject(provenance.source)) return null;
   const s = provenance.source;
   return {
+    title: str(s.title),
+    description: str(s.description),
     uploader: str(s.uploader),
     published: prettyDate(s.uploadDate),
     platform: str(s.platform),
@@ -148,6 +164,8 @@ export interface VideoInfoFacts {
   source: HeroSource | null;
   /** 视频目录的完整路径。 */
   location: string | null;
+  /** 主素材的原文件（链接的素材才有；收进视频目录的由 BaoCut 管理，不给路径）。 */
+  file?: string | null;
   /** `时长 · 分辨率 · 帧率`（Space 那条路只有时长与分辨率）。 */
   media: string | null;
   /** `模型 · 语言`。 */
@@ -182,7 +200,8 @@ export function snapshotFacts(input: SnapshotInput): VideoInfoFacts {
   const transcript = speech
     ? [speechModel(input.speechBody), speech.language ? input.languageName(speech.language) : null].filter(Boolean).join(' · ') || null
     : null;
-  return { title: input.title, source, location: input.location, media, transcript, link: linkFacts(provenance) };
+  const file = main ? assetFilePath(main, input.location) : null;
+  return { title: input.title, source, location: input.location, file, media, transcript, link: linkFacts(provenance) };
 }
 
 /** Space 那条路：手上只有条目记录，不为详情框打开视频。没有的行省略。 */
@@ -231,18 +250,21 @@ export function editorExtras(counts: ContentCounts, targets: readonly string[]):
 /** 只读区的全部分区。`extras` 接在「来源与媒体」的尾巴上；空分区整个丢掉。 */
 export function sections(facts: VideoInfoFacts, extras: readonly InfoRow[] = []): InfoSection[] {
   const media: InfoRow[] = [];
-  if (facts.location) media.push(row(M.row.location, facts.location, true));
+  if (facts.location) media.push(row(M.row.location, facts.location, true, { reveal: facts.location }));
+  if (facts.file) media.push(row(M.row.file, facts.file, true, { reveal: facts.file }));
   if (facts.media) media.push(row(M.row.media, facts.media));
   if (facts.transcript) media.push(row(M.row.transcript, facts.transcript));
   media.push(...extras);
 
   const link = facts.link;
   const meta: InfoRow[] = [];
+  if (link?.title && link.title !== facts.title.trim()) meta.push(row(M.row.title, link.title));
   if (link?.uploader) meta.push(row(M.row.channel, link.uploader));
   if (link?.published) meta.push(row(M.row.published, link.published));
   if (link?.platform) meta.push(row(M.row.platform, link.platform));
   if (link?.mediaId) meta.push(row(M.row.mediaId, link.mediaId, true));
   if (link?.url) meta.push(row(M.row.url, link.url, true));
+  if (link?.description) meta.push(row(M.row.description, link.description, false, { long: true }));
 
   return [
     { title: VIDEO_INFO_SECTION.media, rows: media },

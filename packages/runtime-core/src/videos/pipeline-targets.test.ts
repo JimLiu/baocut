@@ -351,8 +351,8 @@ describe.skipIf(!engine)('视频工具的目标（真实引擎）', () => {
       expect(job).toMatchObject({ state: 'completed', submitter: { kind: 'agent' } });
       const summary = job.pipeline!.summary as unknown as LinkImportSummary;
       expect(summary.createdVideo).toBe(true);
-      // 有落点时文件进归属项目的 downloads/，不进下载目录。
-      expect(path.dirname(summary.files.media)).toBe(path.join(await fs.realpath(project.path), 'downloads'));
+      // 智能体新建视频：文件与界面、CLI 一样进下载目录（测试里是 `BAOCUT_DOWNLOADS_DIR`），不进项目；视频链到那里。
+      expect(path.dirname(summary.files.media)).toBe(await fs.realpath(process.env.BAOCUT_DOWNLOADS_DIR!));
       await until(() => runtime.videos.ref(summary.videoId!) === null);
       // jobs_inspect 报出的 videoId 可以直接给 videos_inspect：视频关掉了也按来源目录找到。
       const byId = await tool(session, 'videos_inspect', { video: summary.videoId! });
@@ -382,7 +382,7 @@ describe.skipIf(!engine)('视频工具的目标（真实引擎）', () => {
       expect(hidden).toMatchObject({ isError: true, body: { error: { code: 'PROJECT_NOT_FOUND' } } });
       expect(runtime.harness.approvals.pending()).toEqual([]);
 
-      // 不给项目：与 videos_create 一样，确认之后先建项目并把会话绑定到它（§3.10），流程的新建目标直接是那个项目，文件进它的 downloads/。
+      // 不给项目：与 videos_create 一样，确认之后先建项目并把会话绑定到它（§3.10），流程的新建目标直接是那个项目，文件仍进下载目录。
       const creating = tool(looseSession, 'download', {
         url: 'https://video.example.com/watch?v=abc',
         newVideo: true,
@@ -408,7 +408,7 @@ describe.skipIf(!engine)('视频工具的目标（真实引擎）', () => {
       });
       const looseSummary = looseJob.pipeline!.summary as unknown as LinkImportSummary;
       expect(looseSummary).toMatchObject({ createdVideo: true, videoId: expect.any(String), assetId: expect.any(String) });
-      expect(path.dirname(looseSummary.files.media)).toBe(path.join(boundProject.path, 'downloads'));
+      expect(path.dirname(looseSummary.files.media)).toBe(await fs.realpath(process.env.BAOCUT_DOWNLOADS_DIR!));
       await until(() => runtime.videos.ref(looseSummary.videoId!) === null);
       // 原来的项目里没有多出视频；视频在新项目里，会话自己的 videos_list 看得到。
       expect(await videoDirs()).toHaveLength(1);

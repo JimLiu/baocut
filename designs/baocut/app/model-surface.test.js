@@ -15,6 +15,7 @@ test('不写 BC_SURFACE_ID 就是 app：全功能', () => {
   assert.equal(S.agent, true);
   assert.equal(S.sidebarDefaultOpen, true);
   assert.equal(S.appRail, true);
+  assert.equal(S.reveal, true);
   assert.deepEqual(S.rail(RAIL), RAIL);
   assert.equal(S.storageKey('bc-nav-v1'), 'bc-nav-v1');
   assert.deepEqual(S.normalizeRoute({r: 'tasks'}, () => true), {r: 'tasks'});
@@ -23,7 +24,7 @@ test('不写 BC_SURFACE_ID 就是 app：全功能', () => {
 test('web：没有 AI / Agent / 页面 / 帮助，侧栏默认收起', () => {
   const W = S.make('web');
   assert.equal(W.isWeb, true);
-  ['ai', 'agent', 'pages', 'help', 'windowChrome', 'sidebarDefaultOpen', 'appRail'].forEach((k) => assert.equal(W[k], false, k));
+  ['ai', 'agent', 'pages', 'help', 'windowChrome', 'sidebarDefaultOpen', 'appRail', 'reveal'].forEach((k) => assert.equal(W[k], false, k));
 });
 
 test('web 的 rail 只少「AI 工具」一项，顺序不动', () => {
