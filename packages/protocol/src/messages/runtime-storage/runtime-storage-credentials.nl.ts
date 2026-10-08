@@ -7,6 +7,7 @@ export const nl: RuntimeStorageCredentialsMessages = {
   internal: "Fout bij het lezen of schrijven van inloggegevens",
   problem: (p: { reason: string; message: string }) => `${p.reason}: ${p.message}`,
   fileWriteFailed: (p: { code: string }) => `Kan het bestand met inloggegevens niet schrijven (${p.code})`,
+  fileUnreadable: (p) => `Het bestand met inloggegevens kan niet worden gelezen en is ongewijzigd gelaten (${p.code})`,
   helperBadResponse: "Het hulpprogramma voor inloggegevens heeft een ongeldig antwoord geretourneerd",
   helperNotFound: "Het hulpprogramma voor inloggegevens is niet gevonden",
   helperTimedOut: (p: { seconds: number }) => `Het hulpprogramma voor inloggegevens heeft niet geantwoord binnen ${p.seconds} seconden`,

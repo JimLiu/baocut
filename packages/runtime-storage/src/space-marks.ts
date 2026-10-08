@@ -1,5 +1,5 @@
 import type { Id } from '@baocut/protocol';
-import { readJson, writeJsonAtomic } from './json-file.ts';
+import { JsonStoreFile, isPlainObject, type StoreOptions } from './store-file.ts';
 
 /** Space 条目上的用户标记（架构设计 §5.7 的 `user.*`）。索引重建不丢它们。 */
 export interface SpaceMark {
@@ -62,19 +62,27 @@ function isEmpty(mark: SpaceMark): boolean {
   return !mark.favorite && mark.displayName === null && mark.trashedAt === null && !mark.dismissedAt;
 }
 
+/** 文件坏了改名保留、从空开始；更新版本写下的不改写（`store-file.ts`）。 */
 export class SpaceMarkStore {
-  readonly #file: string;
+  readonly #file: JsonStoreFile;
   #marks = new Map<Id, SpaceMark>();
   #imports = new Map<Id, SpaceImport>();
   #trashedVideos = new Map<Id, TrashedVideo>();
   #saving: Promise<void> = Promise.resolve();
 
-  constructor(file: string) {
-    this.#file = file;
+  constructor(file: string, options: StoreOptions = {}) {
+    this.#file = new JsonStoreFile(file, options.log);
   }
 
   async load(): Promise<void> {
-    const data = await readJson<SpaceFile>(this.#file);
+    const { value: data } = await this.#file.read<SpaceFile>({
+      recognize: (raw) =>
+        isPlainObject(raw.marks) &&
+        (raw.imports === undefined || isPlainObject(raw.imports)) &&
+        (raw.trashedVideos === undefined || isPlainObject(raw.trashedVideos))
+          ? (raw as unknown as SpaceFile)
+          : null,
+    });
     this.#marks = new Map(Object.entries(data?.marks ?? {}));
     this.#imports = new Map(Object.entries(data?.imports ?? {}));
     this.#trashedVideos = new Map(Object.entries(data?.trashedVideos ?? {}));
@@ -139,7 +147,7 @@ export class SpaceMarkStore {
       ...(this.#imports.size > 0 ? { imports: Object.fromEntries(this.#imports) } : {}),
       ...(this.#trashedVideos.size > 0 ? { trashedVideos: Object.fromEntries(this.#trashedVideos) } : {}),
     };
-    this.#saving = this.#saving.catch(() => {}).then(() => writeJsonAtomic(this.#file, snapshot));
+    this.#saving = this.#saving.catch(() => {}).then(() => this.#file.write(snapshot));
     return this.#saving;
   }
 }

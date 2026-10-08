@@ -39,5 +39,6 @@ export const ptBR: NodesServerMessages = {
   pairingLocked: "O pareamento está bloqueado",
   pairingCodeInvalid: "O código de pareamento está errado, expirou ou está ausente",
   portInUse: (p) => `A porta ${p.port} já está em uso`,
+  shareFileUnreadable: (p) => `Não foi possível ler o arquivo de configurações de compartilhamento (node-share.json) (${p.reason}). Ele foi mantido intacto; corrija ou remova-o para alterar o compartilhamento`,
   cannotListen: (p) => `O serviço do nó não pode escutar: ${p.code}`,
 };

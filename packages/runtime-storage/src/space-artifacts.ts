@@ -1,4 +1,3 @@
-import fs from 'node:fs/promises';
 import type {
   ApplicationState,
   ExportSettings,
@@ -11,7 +10,7 @@ import type {
   PipelineRun,
   TextJobResult,
 } from '@baocut/protocol';
-import { readJson, writeJsonAtomic } from './json-file.ts';
+import { JsonStoreFile, type StoreOptions } from './store-file.ts';
 
 /**
  * Space 派生条目时从一个任务读的事实（架构设计 §5.7）：正好是 `space-derive` 用到的字段，`JobRecord` 可以直接当它用。
@@ -167,35 +166,28 @@ interface SpaceArtifactsFile {
  *
  * - 任务结束且有结果时写入（`SpaceCatalog` 订阅任务变化，启动时也从 Job Ledger 补一遍）；
  * - 一条记录的产物全部被物理删除或清除之后去掉；
- * - 不是缓存：`space.rebuildIndex` 不删它。读坏了的行跳过，整个文件读不了时改名留存、从空的开始。
+ * - 不是缓存：`space.rebuildIndex` 不删它。读坏了的行跳过，整个文件认不出时改名留存、从空的开始；更新版本写下的不改写
+ *   （`store-file.ts`）。
  */
 export class SpaceArtifactStore {
-  readonly #file: string;
+  readonly #file: JsonStoreFile;
   #jobs = new Map<Id, SpaceJobFacts>();
   #saving: Promise<void> = Promise.resolve();
 
-  constructor(file: string) {
-    this.#file = file;
+  constructor(file: string, options: StoreOptions = {}) {
+    this.#file = new JsonStoreFile(file, options.log);
   }
 
-  /** 读入记录。返回跳过的行数与（整个文件读不了时）留存的文件名，供日志。 */
+  /** 读入记录。返回跳过的行数与（整个文件认不出时）留存的文件名，供日志。 */
   async load(): Promise<{ skipped: number; quarantined: string | null }> {
-    let data: SpaceArtifactsFile | null;
-    try {
-      data = await readJson<SpaceArtifactsFile>(this.#file);
-    } catch {
-      const quarantined = `${this.#file}.corrupt-${Date.now()}`;
-      await fs.rename(this.#file, quarantined).catch(() => {});
-      this.#jobs = new Map();
-      return { skipped: 0, quarantined };
-    }
+    const read = await this.#file.read({ recognize: (raw) => (Array.isArray(raw.jobs) ? raw.jobs : null) });
     this.#jobs = new Map();
     let skipped = 0;
-    for (const row of Array.isArray(data?.jobs) ? data.jobs : []) {
+    for (const row of read.value ?? []) {
       if (isFacts(row)) this.#jobs.set(row.jobId, row);
       else skipped++;
     }
-    return { skipped, quarantined: null };
+    return { skipped, quarantined: read.status === 'quarantined' ? read.renamedTo : null };
   }
 
   list(): SpaceJobFacts[] {
@@ -230,7 +222,7 @@ export class SpaceArtifactStore {
 
   #save(): Promise<void> {
     const snapshot: SpaceArtifactsFile = { schemaVersion: 1, jobs: [...this.#jobs.values()] };
-    this.#saving = this.#saving.catch(() => {}).then(() => writeJsonAtomic(this.#file, snapshot));
+    this.#saving = this.#saving.catch(() => {}).then(() => this.#file.write(snapshot));
     return this.#saving;
   }
 }

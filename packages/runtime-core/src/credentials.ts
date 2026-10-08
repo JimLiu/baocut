@@ -43,9 +43,9 @@ export interface CredentialStoreOptions {
 export async function openCredentialStore(home: RuntimeHome, log: Logger, options: CredentialStoreOptions = {}): Promise<CredentialStore> {
   const kind = options.kind ?? 'file';
   if (typeof kind !== 'string') return kind;
-  const file = new FileCredentialStore(home.modelCredentialsFile);
-  if (kind === 'file') return file;
   const scoped = log.child('credentials');
+  const file = new FileCredentialStore(home.modelCredentialsFile, { log: scoped });
+  if (kind === 'file') return file;
   const helper = options.helper !== undefined ? options.helper : resolveCredentialHelperCommand();
   if (!helper) scoped.error('Credential helper not found: secrets and node tokens are unavailable');
   const keychain = new KeychainCredentialStore({ helper, ...(options.timeoutMs ? { timeoutMs: options.timeoutMs } : {}) });

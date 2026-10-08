@@ -71,6 +71,27 @@ describe('NodeStore', () => {
     expect((await NodeStore.open(file, credentials)).clientId).not.toBe('has.dot');
   });
 
+  it('文件损坏：先改名保留再生成新的 clientId', async () => {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, '{ not json');
+    const store = await NodeStore.open(file, credentials);
+    const names = await fs.readdir(path.dirname(file));
+    const kept = names.find((n) => n.startsWith('nodes.json.corrupt-'));
+    expect(kept).toBeDefined();
+    expect(await fs.readFile(path.join(path.dirname(file), kept!), 'utf8')).toBe('{ not json');
+    expect(JSON.parse(await fs.readFile(file, 'utf8')).clientId).toBe(store.clientId);
+  });
+
+  it('更新版本写下的文件：不改名也不覆盖，这次用只在内存里的 clientId', async () => {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    const text = JSON.stringify({ formatVersion: 2, clientId: 'c_future', peers: [] });
+    await fs.writeFile(file, text);
+    const store = await NodeStore.open(file, credentials);
+    expect(store.clientId).toMatch(CLIENT_ID_PATTERN);
+    expect(await fs.readFile(file, 'utf8')).toBe(text);
+    expect((await fs.readdir(path.dirname(file))).some((n) => n.includes('.corrupt-'))).toBe(false);
+  });
+
   it('写入：原子（不留临时文件）、0600（即使原文件权限被放宽）；令牌只在凭据存储里', async () => {
     const store = await NodeStore.open(file, credentials);
     await fs.chmod(file, 0o644);

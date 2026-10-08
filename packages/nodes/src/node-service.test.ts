@@ -924,3 +924,36 @@ describe('与本地视频任务共用一个队列', () => {
     expect(videos.leases).toBe(0);
   });
 });
+
+describe('node-share.json 读不了或认不出', () => {
+  let node: TestNode | undefined;
+  let dir: string;
+
+  afterEach(async () => {
+    await node?.close();
+    node = undefined;
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  it.each([
+    ['不是 JSON', '{ not json'],
+    ['更新版本写下的', JSON.stringify({ formatVersion: 2, enabled: true, clients: [] })],
+  ])('%s：Runtime 照常启动，共享关着且不能修改，文件原样留着', async (_label, text) => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-node-share-'));
+    const home = resolveRuntimeHome({ BAOCUT_HOME: dir });
+    await fs.mkdir(path.dirname(home.nodeShareFile), { recursive: true });
+    await fs.writeFile(home.nodeShareFile, text);
+    node = await startTestNode({ dir, share: null });
+    const status = node.service.status();
+    expect(status.enabled).toBe(false);
+    expect(status.listening).toBe(false);
+    expect(status.error).toContain('node-share.json');
+    await expect(node.service.start({ port: 0 })).rejects.toMatchObject({ code: 'conflict' });
+    await expect(node.service.setCapability('transcribe', false)).rejects.toBeInstanceOf(RpcError);
+    await node.close({ keepDir: true });
+    node = undefined;
+    expect(await fs.readFile(home.nodeShareFile, 'utf8')).toBe(text);
+    const names = await fs.readdir(path.dirname(home.nodeShareFile));
+    expect(names.some((n) => n.includes('.corrupt-'))).toBe(false);
+  });
+});

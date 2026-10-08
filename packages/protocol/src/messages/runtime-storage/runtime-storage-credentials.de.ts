@@ -7,6 +7,7 @@ export const de: RuntimeStorageCredentialsMessages = {
   internal: "Fehler beim Lesen oder Schreiben der Zugangsdaten",
   problem: (p: { reason: string; message: string }) => `${p.reason}: ${p.message}`,
   fileWriteFailed: (p: { code: string }) => `Zugangsdaten-Datei konnte nicht geschrieben werden (${p.code})`,
+  fileUnreadable: (p) => `Zugangsdaten-Datei kann nicht gelesen werden und wurde unverändert gelassen (${p.code})`,
   helperBadResponse: "Das Zugangsdaten-Hilfsprogramm hat eine ungültige Antwort zurückgegeben",
   helperNotFound: "Das Zugangsdaten-Hilfsprogramm wurde nicht gefunden",
   helperTimedOut: (p: { seconds: number }) => `Das Zugangsdaten-Hilfsprogramm hat nicht geantwortet innerhalb von ${p.seconds} Sekunden`,

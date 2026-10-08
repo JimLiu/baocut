@@ -39,5 +39,6 @@ export const it: NodesServerMessages = {
   pairingLocked: "L’abbinamento è bloccato",
   pairingCodeInvalid: "Il codice di abbinamento è errato, scaduto o manca",
   portInUse: (p) => `La porta ${p.port} è già in uso`,
+  shareFileUnreadable: (p) => `Impossibile leggere il file delle impostazioni di condivisione (node-share.json) (${p.reason}). È stato lasciato intatto; correggilo o rimuovilo per modificare la condivisione`,
   cannotListen: (p) => `Il servizio del nodo non può restare in ascolto: ${p.code}`,
 };

@@ -7,6 +7,7 @@ export const zhHant: RuntimeStorageCredentialsMessages = {
   internal: '讀寫憑證時發生錯誤',
   problem: (p) => `${p.reason}：${p.message}`,
   fileWriteFailed: (p) => `無法寫入憑證檔案（${p.code}）`,
+  fileUnreadable: (p) => `無法讀取憑證檔案，已原樣保留（${p.code}）`,
   helperBadResponse: '憑證輔助程式傳回的回應無效',
   helperNotFound: '找不到憑證輔助程式',
   helperTimedOut: (p) => `憑證輔助程式未在 ${p.seconds} 秒內回應`,
