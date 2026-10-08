@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   RpcError,
   capabilityRemedyCommands,
+  capabilitySettingsHref,
   isEngineErrorBody,
   localizeText,
   type CapabilityNotConfiguredDetails,
@@ -173,11 +174,11 @@ function callerOf(principal: ToolPrincipal): Record<string, string> {
 // i18n-ignore-start: 给模型的工具错误与下一步
 /** 能力没有配置：智能体转告用户，不自己想办法绕过（§6.2）。 */
 const NOT_CONFIGURED_NEXT =
-  '这是用户需要在 BaoCut 里完成的配置，不是你能修好的问题：把 hint 与 commands 转告用户，请用户在设置里的模型配置中启用并配置服务（或在终端运行 commands 里的命令），然后再试。不要用 shell 命令、脚本、ffmpeg、别的网站或别的服务商绕过，也不要自己去找或填写 API key。';
+  '这是用户需要在 BaoCut 里完成的配置，不是你能修好的问题：把 hint 与 commands 转告用户，请用户在设置里的模型配置中启用并配置服务，用 remedy.settingsHref 写成 Markdown 设置链接，链接文字用用户的语言说明对应能力（或在终端运行 commands 里的命令），然后再试。不要用 shell 命令、脚本、ffmpeg、别的网站或别的服务商绕过，也不要自己去找或填写 API key。';
 
 /** 本机模型没有安装：可以把下载模型作为前置步骤提交（大小先告诉用户、按访问模式确认）。 */
 const INSTALL_MODEL_NEXT =
-  '本机模型包没有安装：可以用 models_install 下载它（工具会先把大小告诉用户并按访问模式确认；语音合成要给出 models_capabilities 里列出的合成模型包），用 jobs_wait 等它完成后再提交（合成带上 provider: local 与那个模型包）；也可以把 hint 与 commands 转告用户，请用户改用在线服务。不要用 shell 命令、脚本或别的网站自己下载模型，也不要自己去找或填写 API key。';
+  '本机模型包没有安装：可以用 models_install 下载它（工具会先把大小告诉用户并按访问模式确认；语音合成要给出 models_capabilities 里列出的合成模型包），用 jobs_wait 等它完成后再提交（合成带上 provider: local 与那个模型包）；也可以把 hint 与 commands 转告用户，请用户改用在线服务，用 remedy.settingsHref 写成 Markdown 设置链接。不要用 shell 命令、脚本或别的网站自己下载模型，也不要自己去找或填写 API key。';
 // i18n-ignore-end
 
 /** 错误给智能体的形态：`code` 决定下一步，`retryability` / `recovery` / `next` 说怎么恢复。 */
@@ -211,7 +212,10 @@ export function errorBody(error: unknown): ToolErrorBody {
         capability: details.capability,
         reason: details.reason,
         ...(details.providerId ? { providerId: details.providerId } : {}),
-        remedy: { action: details.remedy.action, hint: details.remedy.hint, commands: capabilityRemedyCommands(details) },
+        remedy: {
+          action: details.remedy.action, hint: details.remedy.hint, commands: capabilityRemedyCommands(details),
+          settingsHref: capabilitySettingsHref(details.capability),
+        },
         next: NOT_CONFIGURED_NEXT,
       };
     }

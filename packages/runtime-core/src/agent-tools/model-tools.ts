@@ -4,6 +4,7 @@ import {
   IMAGE_FORMATS,
   MODEL_SERVICE_CAPABILITIES,
   SPEECH_FORMATS,
+  capabilitySettingsHref,
   type CapabilityView,
   type GrantRequestItem,
   type Id,
@@ -433,6 +434,7 @@ function digestCapability(capability: ModelServiceCapability, view: CapabilityVi
   const usable = providers.filter((p) => p.available).map((p) => p.providerId);
   return {
     capability,
+    settingsHref: capabilitySettingsHref(capability),
     default: view.default,
     effective: view.effective,
     usableProviders: usable,
@@ -445,12 +447,12 @@ function digestCapability(capability: ModelServiceCapability, view: CapabilityVi
         : capability === 'separateAudio'
           ? view.effective !== null
             ? `翻译配音分离背景声时用本机的 ${view.effective.modelId}。`
-            : '本机没有可用的分离模型包：翻译配音要求分离时跳过这一步。需要时请用户在设置的「模型 › 音源分离」里安装。'
+            : '本机没有可用的分离模型包：翻译配音要求分离时跳过这一步。需要时请用户在设置的「模型 › 音源分离」里安装，用 settingsHref 写成 Markdown 设置链接。'
           : view.effective !== null
             ? `不指定 provider 时用 ${view.effective.providerId} 的 ${view.effective.modelId}。`
             : usable.length > 0
-              ? `没有可用的默认值：调用时显式给出 provider（${usable.join('、')}），或请用户在设置里设默认值。`
-              : '没有可用的服务：这种能力现在不能用。告诉用户需要在设置里的模型配置中启用并配置一个服务；不要用别的办法绕过。',
+              ? `没有可用的默认值：调用时显式给出 provider（${usable.join('、')}），或请用户在设置里设默认值，用 settingsHref 写成 Markdown 设置链接。`
+              : '没有可用的服务：这种能力现在不能用。告诉用户需要在设置里的模型配置中启用并配置一个服务，用 settingsHref 写成 Markdown 设置链接，链接文字用用户的语言说明对应能力；不要用别的办法绕过。',
     // i18n-ignore-end
   };
 }

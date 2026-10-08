@@ -178,7 +178,7 @@ CLI 不区分「人敲的」与「Agent 敲的」。要让 Agent 宿主的权限
 | `captions` | `create` | mutation | 把转写或译文做成字幕层（现 `captions_create`），`bilingual`、`layout-profile` |
 | `assets` | `import` | mutation | **新增 sugar**：导入一个文件或 `artifactId`，可选 `place`（同一事务里 `addItem` 到主轨末尾或指定时间）。编译成 `importAsset` [+ `addItem`] |
 | `jobs` | `list` / `inspect` / `wait` / `cancel` / `retry` | query / query / query / mutation / job | `wait` 阻塞到终态或超时；`retry` 是现 `pipelines retry` |
-| `models` | `capabilities` | query | 每种能力可用的 Provider、模型、默认值、限制与不可用原因 |
+| `models` | `capabilities` | query | 每种能力可用的 Provider、模型、默认值、限制与不可用原因；`settingsHref` 是对应能力的设置路径，提示用户配置时将它写成 Markdown 链接（产品设计 §3.2.2） |
 | | `list` | query | 本地模型包与状态（现 `models bundles`） |
 | | `install` / `test` | job | 安装本地模型包（先报大小，`--yes` 跳过确认）；跑样本检查。两者只在工具桥与 CLI，不开放给 MCP |
 | `space` | `list` / `search` | query | 条目与跨视频检索（只读） |
@@ -227,6 +227,7 @@ export --video V --kind subtitles --format srt --bilingual
 - `--json`：结构化结果到 stdout。stdout 不是 TTY 时默认开启，Agent 不用记得加。人读的渲染只是 JSON 的另一种格式化。
 - 成功：薄信封 `{ ok: true, result, next? }`，`result` 就是工具的结果对象（与 MCP 工具结果的 JSON 相同）；`next` 是建议的下一条命令（例如 `transcribe` 之后给 `captions create` 或 `export`）。
 - 失败：`{ ok: false, error: { code, message, retryability?, recovery?, remedy?, next? } }`，与 `ToolCatalog.errorBody` 完全相同。`code` 是封闭的错误码（命令协议 §11），`next` 用 CLI 的写法（`baocut models install …`），MCP 面上同一条 `next` 写成工具名——两种写法由共用层按主体渲染，不手写两份。
+- `CAPABILITY_NOT_CONFIGURED` 的 `remedy.settingsHref` 提供对应能力的设置路径；Agent 按 `next` 用它写出可点击的设置链接，不猜地址。
 - 进度到 stderr：`--progress jsonl` 时每行一个事件（`progress` / `artifact` / `warning` / `done`，带 `jobId`、`stage`、`pct`），默认按 TTY 给人读的一行刷新。
 
 ### 5.2 退出码

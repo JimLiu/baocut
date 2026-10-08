@@ -1,12 +1,14 @@
 import { createContext, memo, useContext, useEffect, useMemo, useId, useRef, useState, type ReactNode } from 'react';
 import Markdown, { defaultUrlTransform, type Components } from 'react-markdown';
-import { ActionButton, ToastQueue, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
+import { ActionButton, Link, ToastQueue, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
+import Settings from '@react-spectrum/s2/icons/Settings';
 import { advanceCut, closeStreamingTail, revealStep, splitBlocks } from '../../model/agent-stream.ts';
 import { gapBetween, parsePathToken, pathTip, type PathToken } from '../../model/agent-turn.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useDirectory } from '../../state/directory-store.ts';
 import { useSpace } from '../../state/space-store.ts';
 import { markdownAbsolutePath, markdownFileOutsideScope, markdownFilePath, markdownFileTarget } from '../../model/markdown-file-link.ts';
+import { settingsLink } from '../../model/settings-link.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { S } from '../shell-copy.ts';
 import { CopyButton } from './copy-button.tsx';
@@ -111,6 +113,18 @@ function PathLink({ raw, token }: { raw: string; token: PathToken }) {
 function MarkdownLink({ href, children, title }: { href?: string; children?: ReactNode; title?: string }) {
   const scope = useContext(PathScope);
   const runtime = useRuntime();
+  const navigate = useShell((s) => s.go);
+  // 设置路径优先于外部网页与文件；浏览器和未知设置路径只显示文字（§3.2.2）。
+  if (href && /^\/settings(?:\/|$)/.test(href)) {
+    const hit = runtime.host.platform !== 'web' ? settingsLink(href) : null;
+    if (!hit) return <span>{children}</span>;
+    return <TooltipTrigger delay={400}>
+      <Link UNSAFE_className="bc-amd-settings" onPress={() => navigate(hit.route)}>
+        <Settings />{children}
+      </Link>
+      <Tooltip>{hit.trail}</Tooltip>
+    </TooltipTrigger>;
+  }
   const path = href ? markdownFilePath(href) : null;
   if (!href) return <span>{children}</span>;
   if (!path) return <a href={href} title={title} target="_blank" rel="noreferrer noopener" onClick={event => {

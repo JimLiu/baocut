@@ -172,6 +172,10 @@ describe('模型工具：能力视图与提交时的拒绝（不需要 ffprobe�
       'generateText',
       'separateAudio',
     ]);
+    expect(before.body.capabilities.map((c: Loose) => c.settingsHref)).toEqual([
+      '/settings/models/asr', '/settings/models/tts', '/settings/models/image', '/settings/models/llm', '/settings/models/sep',
+    ]);
+    expect(before.body.capabilities[0].next).toContain('Markdown 设置链接');
     // 文本生成也列出（带能力参数），但没有提交它的工具。
     expect(before.body.capabilities[3]).toMatchObject({ parameters: { effort: null, concurrency: 4 } });
     // 目录里所有提供文本生成的服务商（§6.4），都没有配置。
@@ -227,6 +231,8 @@ describe('模型工具：能力视图与提交时的拒绝（不需要 ffprobe�
     });
     expect(image.body.error.remedy.commands).toEqual([expect.stringMatching(/^baocut models configure </)]);
     expect(image.body.error.next).toContain('别的服务商');
+    expect(image.body.error.remedy.settingsHref).toBe('/settings/models/image');
+    expect(image.body.error.next).toContain('Markdown 设置链接');
     // 点名还没配置的在线服务：补救是去设置里配置它。
     const online = await call(side, session, 'image', { prompt: 'a cat', provider: 'openai' });
     expect(online.isError).toBe(true);

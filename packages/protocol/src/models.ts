@@ -768,6 +768,14 @@ export interface CapabilityNotConfiguredDetails {
   };
 }
 
+/** Agent 提示用户配置能力时使用的设置深链（产品设计 §3.2.2），与界面内路由一致。 */
+export function capabilitySettingsHref(capability: ModelServiceCapability): string {
+  const category: Record<ModelServiceCapability, string> = {
+    transcribe: 'asr', synthesizeSpeech: 'tts', generateText: 'llm', generateImage: 'image', separateAudio: 'sep',
+  };
+  return `/settings/models/${category[capability]}`;
+}
+
 /** 每种能力可以配置的在线 Provider（补救命令里的占位）。 */
 function configurableProviders(capability: ModelServiceCapability): string {
   const custom = ProtocolLabels.customProviderPlaceholder().text;

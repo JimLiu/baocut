@@ -32,6 +32,11 @@
 .bc-amd a:hover {
   color: var(--bc-at-link-hover);
 }
+.bc-amd-settings > svg {
+  display: inline-block;
+  vertical-align: middle;
+  margin-inline-end: 4px;
+}
 .bc-amd hr {
   border: 0;
   border-top: 1px solid var(--bc-at-line);
