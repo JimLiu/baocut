@@ -26,7 +26,7 @@ import {
   type SpaceSnapshot,
   type TasksSnapshot,
 } from '@baocut/protocol';
-import { readDiscovery, resolveRuntimeHome, type RuntimeHome } from '@baocut/runtime-storage';
+import { ConversationStore, readDiscovery, resolveRuntimeHome, type RuntimeHome } from '@baocut/runtime-storage';
 import { Gateway } from './gateway.ts';
 import { MediaAnalysis } from './media-analysis.ts';
 import { VideoService } from './videos/video-service.ts';
@@ -927,11 +927,13 @@ describe('Runtime（假 Driver）', () => {
 
     // 旧版本写下的记录：会话上是旧值，任务卡片上也是旧值。
     const conversationsDir = resolveRuntimeHome({ BAOCUT_HOME: dir }).conversationsDir;
-    const file = (await fs.readdir(conversationsDir)).find((name) => name.includes(conversation.id))!;
-    const record = JSON.parse(await fs.readFile(path.join(conversationsDir, file), 'utf8'));
+    const store = new ConversationStore(conversationsDir);
+    await store.load();
+    const record = JSON.parse(JSON.stringify(store.get(conversation.id)));
     record.conversation.accessMode = 'authorized';
     for (const item of record.items) if (item.kind === 'task') item.autonomy = { mode: 'controlled', source: 'request' };
-    await fs.writeFile(path.join(conversationsDir, file), JSON.stringify(record));
+    await fs.rm(path.join(conversationsDir, `${conversation.id}.jsonl`));
+    await fs.writeFile(path.join(conversationsDir, `${conversation.id}.json`), JSON.stringify(record));
 
     runtime = await startRuntime({ home: resolveRuntimeHome({ BAOCUT_HOME: dir }), drivers: () => [driver], watchSpace: false });
     client = await connect();

@@ -55,7 +55,7 @@ npm run package:win:vulkan   # Vulkan 版：Whisper 用 Vulkan GPU（candle 仍�
 
 都不签名。appId 与产品名取自更新规则（`app-update-rules.ts` 的 `BUNDLE_ID`、`PRODUCT_NAME`）。
 
-**发布与更新**。发布的包要给 build 号：`node apps/desktop/tools/package-desktop.mjs --variant <cpu|cuda|vulkan> --build <n>`（`desktop-windows` 工作流的 `build` 输入）。build 号与变体写进应用的 `package.json`（`baocutBuild`、`baocutVariant`），产物名带 `build.<n>`；没有 build 号的包不检查更新。再给 `--download-base-url <https 目录>`（工作流的 `download_base_url`）时另写更新源 `appcast-x86_64-pc-windows-msvc[-cuda|-vulkan].json`：schema-1 清单，指向那个目录里的安装器，带大小与 sha256，写完用应用的解析器读一遍。再给 `--rollout-hours <n>`（工作流的 `rollout_hours`）时分批推送：更新源另写 `rolloutHours` 与 `releasedAt`（生成的时刻），自动检查在这之后的 n 小时里按本机位置逐步放开，手动检查不受限（[架构设计 §2.6](../../docs/architecture/architecture-design.md#26-应用更新)）；隔了很久才上传时，把 `releasedAt` 改成真正发布的时刻再传（它不在任何摘要里）。应用按自己的变体读对应的一份。更新源与安装器放在哪里还没定（[架构设计 §14](../../docs/architecture/architecture-design.md#14-待评审事项)「Windows 的应用更新」）；演练时用 `BAOCUT_UPDATE_APPCAST=<清单的路径>` 指过去，清单里的安装器地址这时也可以是本地路径。
+**发布与更新**。发布的包要给 build 号：`node apps/desktop/tools/package-desktop.mjs --variant <cpu|cuda|vulkan> --build <n>`（`desktop-windows` 工作流的 `build` 输入）。build 号与变体写进应用的 `package.json`（`baocutBuild`、`baocutVariant`），产物名带 `build.<n>`；没有 build 号的包不检查更新。再给 `--download-base-url <https 目录>`（工作流的 `download_base_url`）时另写更新源 `appcast-x86_64-pc-windows-msvc[-cuda|-vulkan].json`：schema-1 清单，指向那个目录里的安装器，带大小与 sha256，写完用应用的解析器读一遍。再给 `--rollout-hours <n>`（工作流的 `rollout_hours`）时分批推送：更新源另写 `rolloutHours` 与 `releasedAt`（生成的时刻），自动检查在这之后的 n 小时里按本机位置逐步放开，手动检查不受限（[架构设计 §2.6](../../docs/architecture/architecture-design.md#26-应用更新)）；隔了很久才上传时，把 `releasedAt` 改成真正发布的时刻再传（它不在任何摘要里）。应用按自己的变体读对应的一份。更新源为 GitHub 仓库的 `apps/desktop/releases/` 版本钉，安装器为同一 GitHub Release 的不可变资产（[架构设计 §2.6](../../docs/architecture/architecture-design.md#26-应用更新)）；演练时用 `BAOCUT_UPDATE_APPCAST=<清单的路径>` 指过去，清单里的安装器地址这时也可以是本地路径。
 
 应用内更新只认 NSIS 装的那一份（exe 旁边有 `Uninstall BaoCut.exe`）：下载、校验之后，应用正常退出（先经 IPC 停 Runtime），退出时静默起安装器换文件：「重启并更新」用 `/S --updated --force-run`，装完重新打开应用；已下载时用户正常退出用 `/S --updated`，装完不打开。zip 版在资源管理器里显示安装包并打开下载页。
 
@@ -74,6 +74,25 @@ npm run package:win:vulkan   # Vulkan 版：Whisper 用 Vulkan GPU（candle 仍�
 
 **自检**。`node apps/desktop/tools/check-packaged-app.mjs <BaoCut.exe 所在目录>` 用应用自己的可执行文件按 Node 方式运行 asar 里的 `runtime.js --self-check --probe`：报告每项解析到哪里，并把每个原生程序起一次、走一遍握手（缺 DLL、架构不对在这里暴露）。只能在 Windows 上对 Windows 的包跑；`--dev` 对开发构建跑一遍。
 
+### GitHub Actions 发布
+
+Windows 发布分成原生构建与候选发布两次手动触发；普通 push 不启动这些工作流。首次构建的运行结果与硬件验证状态分别报告，不能把工作流存在当作已验证。
+
+```sh
+gh workflow run desktop-windows.yml --ref baocut-v3.0.0-build.60 \
+  -f include_cuda=true -f include_vulkan=true -f build=60 \
+  -f download_base_url=https://github.com/jimliu/baocut/releases/download/baocut-v3.0.0-build.60
+
+# 原生 job 通过且 artifact 已上传后，用实际 run ID；只选择验证通过的变体。
+gh workflow run desktop-windows-publish.yml --ref main \
+  -f 'candidate_run_id=<RUN_ID>' -f release_tag=baocut-v3.0.0-build.60 \
+  -f variants=cpu,cuda,vulkan
+```
+
+构建来源固定在现有 Mac Release 的同一完整 commit；版本与 build 相同。构建环境修复可在 main 上执行工作流并传 `source_ref=<Mac 源 commit>`，报告分别记录产品与工作流 SHA。Windows Cargo 输出使用短路径 `D:\bt`，CMake 使用 Ninja，避免 Vulkan 着色器生成器触发 MSBuild 的长路径限制；`include_cpu=false` 可只重试 GPU 变体。发布工作流仅授予发布 job `contents: write` 和读取候选产物所需的 `actions: read`，不使用 Mac 证书或私钥。它核对候选工作流、仓库、来源 SHA、各选中变体的原生 job 结果、文件大小与 SHA-256、App 自己的更新清单解析结果，再把安装器、ZIP、校验文件、补充发布报告与清单追加到已有 Release。已存在的同名不同字节不覆盖；Mac 资产与历史 skill 的 Latest 保留原状。公开下载读回验证后，才提交与推送 Windows 各变体的更新清单。
+
+Windows 安装包尚无 Authenticode 签名。流水线中的启动、安装、同版覆盖升级、卸载与 ZIP 自检不替代真实 CUDA / Vulkan 硬件上的推理；没有通过 native job 的变体不得发布。验证发布门本身可运行 `node --test apps/desktop/tools/windows-release.test.mjs` 和 `actionlint .github/workflows/desktop-windows-publish.yml`。
+
 **没有 Windows 机器时**：在 GitHub Actions 手动触发 `desktop-windows` 工作流（`.github/workflows/desktop-windows.yml`），它出各变体的包，对解开的包、zip 与静默安装后的目录各跑一遍自检，核对安装目录里有 `Uninstall BaoCut.exe`、按更新的参数（`/S --updated`）在装好的上面再装一遍，再上传安装包、zip 与发布报告。macOS 上可以交叉编译 Worker（`cargo build --release --target x86_64-pc-windows-gnu ...`，要 mingw-w64），再用 `node apps/desktop/tools/package-desktop.mjs --target x86_64-pc-windows-gnu --bin-dir <产物目录> --targets zip --out <仓库外的目录>` 出 zip 核对结构；NSIS 的 `makensis` 是 x86_64 程序，Apple 芯片上要 Rosetta。这样出的包不能代替 Windows 上的自检。
 
 **现状与限制**（详见[架构设计 §14](../../docs/architecture/architecture-design.md#14-待评审事项)）：
@@ -81,6 +100,6 @@ npm run package:win:vulkan   # Vulkan 版：Whisper 用 Vulkan GPU（candle 仍�
 - 不签名，首次运行会被 SmartScreen 拦下。
 - 凭据：Windows 上凭据助手对一切操作答 `unsupported`，在线 Provider 与远端节点的凭据如实报告不可用，不回退到明文文件（[架构设计 §6.8](../../docs/architecture/architecture-design.md)）。
 - CUDA 版用 Model Worker 的 `cuda`（candle 的 CUDA 后端）与 `whisper-ggml-cuda`（Whisper 的 ggml CUDA 后端），还没有实际构建过；Whisper 在 CUDA 与 Vulkan 上都没有实测。CUDA 版的 Worker 依赖显卡驱动的 `nvcuda.dll`，没有 NVIDIA 驱动的机器（包括 CI 的 runner）上预计起不来（未实测），那样的机器用标准版或 Vulkan 版。
-- 应用内更新没有在 Windows 上实测过；更新源与下载页还指着 v2 的地址，v3 发布前要定。
+- 更新源与下载页使用 GitHub（§2.6）；Windows 的完整跨版本自动更新与真实 GPU 推理仍需另行验证。
 - 停止 Runtime（经 IPC 请它收尾）、Model Worker 的父进程看护与推理线程降优先级只交叉编译过，没有在 Windows 上实测；没有内存压力信号。
 - 不设 Electron fuse：`GrantFileProtocolExtraPrivileges` 与 `RunAsNode` 都不能关（[架构设计](../../docs/architecture/architecture-design.md)的「字体」一段）。

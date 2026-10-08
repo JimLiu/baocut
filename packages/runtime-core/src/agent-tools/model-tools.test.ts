@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { BaoCutClient } from '@baocut/client';
+import { JobLedger } from '@baocut/jobs';
 import { fakeGoogleHandler, fakeOpenAiHandler, startFakeProviderServer, type FakeProviderServer } from '@baocut/providers/testing';
 import { newId, type AgentMode, type Autonomy, type Id, type Project } from '@baocut/protocol';
 import { resolveRuntimeHome, type RuntimeHome } from '@baocut/runtime-storage';
@@ -408,8 +409,8 @@ describe.skipIf(!ffprobe)('模型工具：生成任务（假供应商，不带�
     expect(job.outputs[0].media).toMatchObject({ kind: 'audio', sampleRate: 44100, channels: 1 });
     expect(job.next).toContain('产物');
     // 账本里留下同样的提交者（重启之后仍可归属）。
-    const ledger = JSON.parse(await fs.readFile(side.home.jobsFile, 'utf8'));
-    expect(ledger.jobs[0].record.submitter).toEqual({ kind: 'agent', id: side.conversationId, taskId });
+    const ledger = { jobs: await new JobLedger(side.home.jobsFile).load() };
+    expect(ledger.jobs[0]!.record.submitter).toEqual({ kind: 'agent', id: side.conversationId, taskId });
     await expectNoSecret(side, OPENAI_KEY);
   });
 

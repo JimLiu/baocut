@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   RpcError,
@@ -231,6 +232,16 @@ describe('Space 目录', () => {
   }
 
   const byName = (catalog: SpaceCatalog, name: string) => catalog.entries().find((e) => e.fileName === name || e.name === name)!;
+
+  /** 内容索引的库里记着的视频数。 */
+  const storedVideos = (indexDir: string): number => {
+    const db = new DatabaseSync(path.join(indexDir, 'index.db'), { readOnly: true });
+    try {
+      return (db.prepare('SELECT count(*) AS n FROM videos').get() as { n: number }).n;
+    } finally {
+      db.close();
+    }
+  };
 
   beforeEach(async () => {
     tmp = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'space-catalog-')));
@@ -648,7 +659,7 @@ describe('Space 目录', () => {
     result = searchContent(catalog, USER_VIEWER, { query: '剪辑' });
     expect(result).toMatchObject({ complete: false, pendingVideos: 1, hits: [{ indexedRevision: 'rev-1' }] });
 
-    // 重建：缓存删掉，重读完之前不完整。
+    // 重建：全部重读，重读完之前不完整。
     reader.failing.delete(videoDir);
     const reads = reader.reads;
     let release!: () => void;
@@ -664,7 +675,7 @@ describe('Space 目录', () => {
     await catalog.idle();
     expect(reader.reads).toBe(reads + 2);
     expect(searchContent(catalog, USER_VIEWER, { query: '剪辑' })).toMatchObject({ complete: true });
-    await expect(fs.readdir(path.join(tmp, 'cache', 'content-index'))).resolves.toHaveLength(2);
+    expect(storedVideos(path.join(tmp, 'cache', 'content-index'))).toBe(2);
   });
 
   it('按主体过滤：会话的来源目录、对外服务的视频范围与自己的任务', async () => {
@@ -708,48 +719,49 @@ describe('Space 目录', () => {
     expect(searchContent(catalog, service(new Set(['v2'])), { query: '剪辑' })).toMatchObject({ hits: [], pendingVideos: 0 });
     expect(searchContent(catalog, service('all'), { query: '剪辑' }).hits.map((h) => h.videoId)).toEqual(['v1']);
   });
-  it('旧版本的索引缓存读回后重读：重读完之前算没有索引，之后有文稿的事实', async () => {
+  it('库的格式版本不对时删库重建：重读完之前算没有索引，之后有文稿的事实；早先的 JSON 缓存删掉', async () => {
     reader.videos.set(videoDir, speechContent('v1', 'rev-1'));
     const opened = await open();
     const indexDir = path.join(tmp, 'cache', 'content-index');
-    const [file] = await fs.readdir(indexDir);
     await opened.catalog.close();
-    // 改写成版本 1 的缓存：没有文稿、译文与配音组；修改时间与版本都没变，不重读就发现不了。
-    const cached = JSON.parse(await fs.readFile(path.join(indexDir, file!), 'utf8')) as Record<string, unknown> & {
-      facts: Record<string, unknown>;
-    };
-    const { transcripts: _t, translations: _r, dubGroups: _d, ...v1Facts } = cached.facts;
-    await fs.writeFile(path.join(indexDir, file!), JSON.stringify({ ...cached, schemaVersion: 1, facts: v1Facts }));
+    // 修改时间与版本都没变：库的格式版本不对时不重读就补不上。
+    const raw = new DatabaseSync(path.join(indexDir, 'index.db'));
+    raw.exec('PRAGMA user_version = 999');
+    raw.close();
+    const legacy = path.join(indexDir, '0123456789abcdef0123456789abcdef.json');
+    await fs.writeFile(legacy, JSON.stringify({ schemaVersion: 4, dir: videoDir, segments: [] }));
 
     const reads = reader.reads;
     let release!: () => void;
     reader.hold = new Promise((resolve) => (release = resolve));
     const index = new ContentIndex({ dir: indexDir, reader, log: silentLogger });
     await index.load();
-    expect(index.at(videoDir)).toMatchObject({ schemaVersion: 1, facts: { transcripts: [], translations: [], dubGroups: [] } });
+    expect(index.at(videoDir)).toBeNull();
+    await expect(fs.stat(legacy)).rejects.toThrow();
     const catalog = new SpaceCatalog({ harness: harness(), marks, log: silentLogger, watch: false, jobs, index });
     catalogs.push(catalog);
     catalog.start();
     await catalog.ready;
     const dub = toolDefinition('dub')!;
-    // 重读之前：不能断定没有文稿，照样列出、标没有索引。
+    // 重读之前：还不知道 videoId，不能断定没有文稿，照样列出、标没有索引。
     expect(toolCandidates(catalog, USER_VIEWER, dub, {})).toMatchObject({
       complete: false,
       pendingVideos: 1,
-      candidates: [{ videoId: 'v1', indexed: false, documents: [] }],
+      candidates: [{ videoId: null, indexed: false, documents: [] }],
     });
+    expect(searchContent(catalog, USER_VIEWER, { query: '剪辑' })).toMatchObject({ complete: false, hits: [] });
     release();
     await catalog.idle();
     expect(reader.reads).toBe(reads + 1);
-    expect(index.at(videoDir)).toMatchObject({ schemaVersion: 4, facts: { transcripts: [{ documentId: 'speech-v1', language: 'zh' }] } });
-    expect(JSON.parse(await fs.readFile(path.join(indexDir, file!), 'utf8'))).toMatchObject({ schemaVersion: 4 });
+    expect(index.at(videoDir)).toMatchObject({ facts: { transcripts: [{ documentId: 'speech-v1', language: 'zh' }] } });
     expect(toolCandidates(catalog, USER_VIEWER, dub, {})).toMatchObject({
       complete: true,
       candidates: [{ videoId: 'v1', indexed: true, documents: [{ documentId: 'speech-v1' }] }],
     });
+    expect(storedVideos(indexDir)).toBe(1);
   });
 
-  it('视频条目的 media 是根序列的时长与画布尺寸；快照不全时没有，版本 3 的缓存读回后重读补上', async () => {
+  it('视频条目的 media 是根序列的时长与画布尺寸；快照不全时没有；删库之后重读补上', async () => {
     const { catalog, index } = await open();
     expect(byName(catalog, '访谈')).toMatchObject({ kind: 'video', ref: { videoId: 'v1' } });
     expect(byName(catalog, '访谈').media).toBeUndefined();
@@ -763,18 +775,20 @@ describe('Space 目录', () => {
     expect(byName(catalog, '访谈').media).toEqual({ durationSec: 15, width: 1920, height: 1080 });
     await catalog.close();
 
-    // 改写成版本 3 的缓存（没有时长与尺寸）：修改时间与版本都没变，不重读就补不上。
+    // 关着的时候没变：重开不重读，事实从库里读回。
     const indexDir = path.join(tmp, 'cache', 'content-index');
-    const [file] = await fs.readdir(indexDir);
-    const cached = JSON.parse(await fs.readFile(path.join(indexDir, file!), 'utf8')) as Record<string, unknown> & {
-      facts: Record<string, unknown>;
-    };
-    const { timeline: _timeline, ...v3Facts } = cached.facts;
-    await fs.writeFile(path.join(indexDir, file!), JSON.stringify({ ...cached, schemaVersion: 3, facts: v3Facts }));
-    const reads = reader.reads;
+    let reads = reader.reads;
+    const { catalog: same } = await open(indexDir);
+    expect(reader.reads).toBe(reads);
+    expect(byName(same, '访谈').media).toEqual({ durationSec: 15, width: 1920, height: 1080 });
+    await same.close();
+
+    // 库整个删掉（它是缓存）：重开时全部重读。
+    for (const name of await fs.readdir(indexDir)) await fs.rm(path.join(indexDir, name));
+    reads = reader.reads;
     const { catalog: reopened, index: reloaded } = await open(indexDir);
     expect(reader.reads).toBe(reads + 1);
-    expect(reloaded.at(videoDir)).toMatchObject({ schemaVersion: 4, facts: { timeline: { durationSec: 15 } } });
+    expect(reloaded.at(videoDir)).toMatchObject({ revision: 'rev-2', facts: { timeline: { durationSec: 15 } } });
     expect(byName(reopened, '访谈').media).toEqual({ durationSec: 15, width: 1920, height: 1080 });
   });
 

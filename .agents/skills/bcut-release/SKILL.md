@@ -86,6 +86,25 @@ must identify the exact build commit, not a different remote branch HEAD.
 Windows uses the existing `package:win*` commands and native validation in the
 desktop README. A Mac-only release does not require Windows publication.
 
+## Windows Actions continuation
+
+Build from the published Mac tag with `desktop-windows.yml`, using the same build
+number and that release's HTTPS download directory. Select CPU/CUDA/Vulkan explicitly;
+each variant has a separate native build and installer/ZIP validation job.
+Windows is unsigned; Apple Developer ID credentials are neither useful nor needed
+for this path. Never inject the Mac signing backup into these workflows.
+
+After the selected native jobs finish successfully, dispatch `desktop-windows-publish.yml` with its
+`candidate_run_id`, the existing `release_tag`, and a comma-separated `variants`
+list. Publish only variants whose native job passed and whose artifact exists.
+The publisher checks candidate workflow/repository/source against the Mac report,
+verifies each file and update feed, appends immutable assets, independently reads
+them back, and then commits/pushes only Windows update pins. It preserves Mac assets
+and the historical skill's Latest. The run URL and full source SHA are recorded in
+the supplemental Windows reports. A rerun may skip identical assets, never overwrite
+different bytes. Failed or unverified GPU variants remain unpublished; native startup
+does not imply inference has been tested on CUDA/Vulkan hardware.
+
 ## Completion
 
 Report version/build, architecture, full source commit, local paths or release URL,

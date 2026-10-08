@@ -1,15 +1,16 @@
-import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import type { Id } from '@baocut/protocol';
+import type { Id, SpaceSearchHit } from '@baocut/protocol';
 import type { Logger } from '@baocut/harness';
-import { extractContent, type ContentSegment, type ReadContentResult, type VideoFacts } from './content-extract.ts';
+import { extractContent, type ReadContentResult } from './content-extract.ts';
+import { searchSegments, type SearchableVideo, type SearchQuery } from './content-search.ts';
+import { ContentStore, type StoredVideo } from './content-store.ts';
 import { RcSpace } from '@baocut/protocol/messages/runtime-core';
 
 /**
- * 跨视频的内容索引（架构设计 §5.11）。派生缓存：每个视频一个 JSON 文件（`<cache>/content-index/<目录摘要>.json`），
- * 记下索引时的视频版本、可检索的段落与视频事实（Space 目录的派生状态；工具候选输入要的文稿、译文与配音组，§7.9）。
- * 删掉整个目录可以重建；格式有版本，读回旧版本时排队重读。
+ * 跨视频的内容索引（架构设计 §5.11）。派生缓存：一个 SQLite 库（`<cache>/content-index/index.db`，见 `content-store.ts`），
+ * 记下索引时的视频版本、可检索的段落（FTS5）与视频事实（Space 目录的派生状态；工具候选输入要的文稿、译文与配音组，§7.9）。
+ * 视频的记录与事实同时留在内存里（同步查询用），段落只在库里。删掉库文件可以重建；库的格式版本不对时删库，全部排队重读。
  *
  * - 视频目录由 Space 目录的扫描给出（`sync`）；没有打开的视频也在里面。读取走 VideoService 的只读查询
  *   （引擎的 `videos.inspect` 与 `videos.readContent`），不直接读 `video.db`，不打开视频，不占写锁。
@@ -24,25 +25,11 @@ export interface ContentReader {
   peek(dir: string): Promise<{ videoId: Id; name: string; revision: string }>;
 }
 
-export interface IndexedVideo {
-  /**
-   * 缓存格式的版本：2 起有文稿、译文与配音组的事实（`facts.transcripts` 等），3 起有封面那一帧（`facts.poster`），
-   * 4 起有根序列的时长与画布尺寸（`facts.timeline`）。
-   * 读回更旧的版本时照样可查，但算待索引、排队重读。
-   */
-  schemaVersion: number;
-  /** 视频目录的真实路径。 */
-  dir: string;
-  videoId: Id;
-  name: string;
-  revision: string;
-  /** 索引时目录的修改时间（`video.db` 与 WAL）。 */
-  mtimeMs: number;
-  indexedAt: string;
-  segments: ContentSegment[];
-  facts: VideoFacts;
-  problems: { documentId: Id; detail: string }[];
-}
+/**
+ * 一个视频的索引记录（不含段落，段落只在库里）：`dir` 是视频目录的真实路径，`mtimeMs` 是索引时目录的修改时间
+ * （`video.db` 与 WAL）。
+ */
+export type IndexedVideo = StoredVideo;
 
 export interface ContentIndexOptions {
   /** 缓存目录：`<home>/cache/content-index`。 */
@@ -50,10 +37,6 @@ export interface ContentIndexOptions {
   reader: ContentReader | null;
   log: Logger;
 }
-
-const SCHEMA_VERSION = 4;
-/** 还认得、读回之后排队重建的旧版本：1 没有文稿、译文与配音组的事实，2 没有封面那一帧，3 没有时长与画布尺寸。 */
-const REBUILT_VERSIONS: ReadonlySet<number> = new Set([1, 2, 3]);
 
 export class ContentIndex {
   readonly #dir: string;
@@ -75,6 +58,8 @@ export class ContentIndex {
   readonly #waiters = new Map<string, Set<() => void>>();
   #worker: Promise<void> | null = null;
   #closed = false;
+  /** 库：第一次用到时打开；打不开时 null（索引只留在内存里，检索没有段落）。 */
+  #store: ContentStore | null | undefined;
 
   constructor(options: ContentIndexOptions) {
     this.#dir = options.dir;
@@ -93,25 +78,46 @@ export class ContentIndex {
   }
 
   /**
-   * 读回上次留下的索引。坏掉的文件当作没有。旧版本的缓存（`REBUILT_VERSIONS`）照样读回、补上空的事实，记为待重建：
-   * 重读完之前检索照用旧的段落、结果标明不完整，`sync` 把它们排队（不走版本比对的捷径）。更新的、不认得的版本当作没有。
+   * 读回上次留下的索引。库坏掉或格式版本不对时删库重建（全部视频算没有索引，`sync` 时排队）。
+   * 早先每个视频一个 JSON 文件的缓存（`<摘要>.json`）直接删掉，不迁移。
    */
   async load(): Promise<void> {
     const names = await fs.readdir(this.#dir).catch(() => [] as string[]);
     for (const name of names) {
-      if (!name.endsWith('.json')) continue;
-      try {
-        const data = JSON.parse(await fs.readFile(path.join(this.#dir, name), 'utf8')) as IndexedVideo;
-        if (typeof data.dir !== 'string' || !Array.isArray(data.segments)) continue;
-        if (data.schemaVersion === SCHEMA_VERSION) {
-          this.#videos.set(data.dir, data);
-        } else if (REBUILT_VERSIONS.has(data.schemaVersion)) {
-          this.#videos.set(data.dir, { ...data, facts: withDocumentFacts(data.facts) });
-          this.#stale.add(data.dir);
-        }
-      } catch {
-        // 写到一半、格式不对：重建时会覆盖。
-      }
+      if (name.endsWith('.json') || name.endsWith('.tmp')) await fs.rm(path.join(this.#dir, name), { force: true }).catch(() => {});
+    }
+    const store = this.#open();
+    if (!store) return;
+    try {
+      for (const video of store.videos()) this.#videos.set(video.dir, video);
+    } catch (error) {
+      this.#log.warn("Couldn't read the content index", { error: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
+  #open(): ContentStore | null {
+    if (this.#store !== undefined) return this.#store;
+    try {
+      this.#store = new ContentStore(this.#dir);
+    } catch (error) {
+      this.#store = null;
+      this.#log.warn("Couldn't open the content index", { error: error instanceof Error ? error.message : String(error) });
+    }
+    return this.#store;
+  }
+
+  /**
+   * 在这些视频（调用方排好的顺序）里检索（`content-search.ts`）。落后于当前版本的视频照样用库里旧的段落；
+   * 库打不开、读库出错或已经关闭时没有命中（记日志）。
+   */
+  search(videos: readonly SearchableVideo[], query: SearchQuery): { hits: SpaceSearchHit[]; truncated: boolean } {
+    const store = this.#closed ? null : this.#open();
+    if (!store) return { hits: [], truncated: false };
+    try {
+      return searchSegments(store, videos, query);
+    } catch (error) {
+      this.#log.warn("Couldn't search the content index", { error: error instanceof Error ? error.message : String(error) });
+      return { hits: [], truncated: false };
     }
   }
 
@@ -137,7 +143,13 @@ export class ContentIndex {
       this.#failed.delete(dir);
     }
     const removed = gone.length > 0;
-    for (const dir of gone) await fs.rm(this.#fileOf(dir), { force: true }).catch(() => {});
+    if (removed && !this.#closed) {
+      try {
+        this.#open()?.remove(gone);
+      } catch (error) {
+        this.#log.warn("Couldn't remove videos from the content index", { error: error instanceof Error ? error.message : String(error) });
+      }
+    }
     for (const dir of [...this.#failed.keys()]) if (!wanted.has(dir)) this.#failed.delete(dir);
     for (const [dir, mtime] of wanted) {
       const indexed = this.#videos.get(dir);
@@ -156,13 +168,12 @@ export class ContentIndex {
   }
 
   /**
-   * 整体重建：删掉缓存文件，把全部视频排队重读（不走版本比对的捷径）。重读完之前旧的记录仍可查询，但都算待索引，
-   * 检索结果标明不完整；Space 目录的派生状态也不会因此闪一下。返回要重建的视频数。
+   * 整体重建：把全部视频排队重读（不走版本比对的捷径），每个视频读完在一个事务里换掉它的记录与段落。重读完之前旧的记录
+   * 仍可查询，但都算待索引，检索结果标明不完整；Space 目录的派生状态也不会因此闪一下。返回要重建的视频数。
    */
   async rebuild(): Promise<number> {
     for (const dir of this.#videos.keys()) this.#stale.add(dir);
     this.#failed.clear();
-    await fs.rm(this.#dir, { recursive: true, force: true }).catch(() => {});
     for (const dir of this.#wanted.keys()) this.#enqueue(dir);
     return this.#wanted.size;
   }
@@ -238,6 +249,8 @@ export class ContentIndex {
     this.#pending.clear();
     for (const dir of [...this.#waiters.keys()]) this.#wake(dir);
     await this.#worker?.catch(() => {});
+    this.#store?.close();
+    this.#store = null;
   }
 
   #enqueue(dir: string): void {
@@ -272,37 +285,39 @@ export class ContentIndex {
       this.#failed.set(dir, RcSpace.engineUnavailable().text);
       return false;
     }
+    const store = this.#open();
     try {
       const indexed = this.#stale.has(dir) ? undefined : this.#videos.get(dir);
       if (indexed) {
         const peeked = await this.#reader.peek(dir);
         if (peeked.videoId === indexed.videoId && peeked.revision === indexed.revision) {
           const updated = { ...indexed, mtimeMs, name: peeked.name };
+          if (this.#closed || !this.#wanted.has(dir)) return false;
+          store?.touch(dir, mtimeMs, peeked.name);
           this.#videos.set(dir, updated);
           this.#failed.delete(dir);
-          await this.#save(updated);
           return updated.name !== indexed.name;
         }
       }
       const content = await this.#reader.readContent(dir);
       const extracted = extractContent(content, dir);
       const record: IndexedVideo = {
-        schemaVersion: SCHEMA_VERSION,
         dir,
         videoId: content.videoId,
         name: content.name,
         revision: content.revision,
         mtimeMs,
         indexedAt: new Date().toISOString(),
-        segments: extracted.segments,
         facts: extracted.facts,
         problems: extracted.problems,
       };
       if (this.#closed) return false;
+      // 视频已经从目录里移走（读的期间 `sync` 过）：不写回。
+      if (!this.#wanted.has(dir)) return false;
+      store?.replace(record, extracted.segments);
       this.#videos.set(dir, record);
       this.#stale.delete(dir);
       this.#failed.delete(dir);
-      await this.#save(record);
       return true;
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
@@ -311,28 +326,4 @@ export class ContentIndex {
       return false;
     }
   }
-
-  async #save(record: IndexedVideo): Promise<void> {
-    if (this.#closed) return;
-    const file = this.#fileOf(record.dir);
-    await fs.mkdir(this.#dir, { recursive: true });
-    const tmp = `${file}.${crypto.randomUUID()}.tmp`;
-    await fs.writeFile(tmp, JSON.stringify(record));
-    await fs.rename(tmp, file);
-  }
-
-  #fileOf(dir: string): string {
-    return path.join(this.#dir, `${crypto.createHash('sha256').update(dir).digest('hex').slice(0, 32)}.json`);
-  }
-}
-
-/** 旧版本缓存里没有的事实补成空的。 */
-function withDocumentFacts(facts: Partial<VideoFacts> | undefined): VideoFacts {
-  return {
-    timelineAssetIds: facts?.timelineAssetIds ?? [],
-    linkedFiles: facts?.linkedFiles ?? [],
-    transcripts: facts?.transcripts ?? [],
-    translations: facts?.translations ?? [],
-    dubGroups: facts?.dubGroups ?? [],
-  };
 }

@@ -1,10 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { VideoSnapshot } from '@baocut/protocol';
 import { DUB_EXTENSION, sourceSentences } from '@baocut/jobs';
-import { extractContent, type ReadContentDocument, type ReadContentResult } from './content-extract.ts';
+import { extractContent, type ContentSegment, type ReadContentDocument, type ReadContentResult } from './content-extract.ts';
 import { matchTerms, searchSegments, type SearchableVideo } from './content-search.ts';
+import { ContentStore, STORE_FILE, STORE_VERSION, termClauses, type CandidateFilter, type StoredVideo } from './content-store.ts';
 
-/** 内容索引的抽取与检索：纯函数，不需要引擎。 */
+/** 内容索引的抽取与检索：不需要引擎；检索用临时目录里的库。 */
 
 function snapshot(extra: Partial<Record<string, unknown>> = {}): VideoSnapshot {
   return {
@@ -294,42 +299,58 @@ describe('视频事实：文稿、译文与配音组', () => {
 });
 
 describe('内容检索', () => {
-  const videos: SearchableVideo[] = [
-    {
-      videoId: 'v1',
-      videoName: '访谈',
-      entryId: 'sp_1',
-      projectId: 'p1',
-      revision: 'r1',
-      segments: [
-        {
-          kind: 'speech',
-          documentId: 'd1',
-          language: 'zh',
-          clock: 'sequence',
-          start: 20,
-          end: 22,
-          text: '我们来剪辑视频',
-          speaker: '宝玉',
-        },
-        { kind: 'speech', documentId: 'd1', language: 'zh', clock: 'sequence', start: 3, end: 5, text: '视频剪辑很好玩', speaker: 'Guest' },
-        { kind: 'chapter', documentId: null, language: null, clock: 'sequence', start: 3, end: 9, text: '剪辑入门', speaker: null },
-      ],
-    },
-    {
-      videoId: 'v2',
-      videoName: 'Vlog',
-      entryId: 'sp_2',
-      projectId: null,
-      revision: 'r9',
-      segments: [
-        { kind: 'caption', documentId: 'c1', language: 'en', clock: 'source', start: 1, end: 2, text: 'ＥＤＩＴ the Video', speaker: null },
-      ],
-    },
+  const v1: ContentSegment[] = [
+    { kind: 'speech', documentId: 'd1', language: 'zh', clock: 'sequence', start: 20, end: 22, text: '我们来剪辑视频', speaker: '宝玉' },
+    { kind: 'speech', documentId: 'd1', language: 'zh', clock: 'sequence', start: 3, end: 5, text: '视频剪辑很好玩', speaker: 'Guest' },
+    { kind: 'chapter', documentId: null, language: null, clock: 'sequence', start: 3, end: 9, text: '剪辑入门', speaker: null },
   ];
+  const v2: ContentSegment[] = [
+    { kind: 'caption', documentId: 'c1', language: 'en', clock: 'source', start: 1, end: 2, text: 'ＥＤＩＴ the Video', speaker: null },
+  ];
+  const videos: SearchableVideo[] = [
+    { dir: '/p/访谈', videoId: 'v1', videoName: '访谈', entryId: 'sp_1', projectId: 'p1', revision: 'r1' },
+    { dir: '/p/Vlog', videoId: 'v2', videoName: 'Vlog', entryId: 'sp_2', projectId: null, revision: 'r9' },
+  ];
+  const stored = (video: SearchableVideo): StoredVideo => ({
+    dir: video.dir,
+    videoId: video.videoId,
+    name: video.videoName,
+    revision: video.revision,
+    mtimeMs: 1,
+    indexedAt: '2026-01-01T00:00:00.000Z',
+    facts: { timelineAssetIds: [], linkedFiles: [], transcripts: [], translations: [], dubGroups: [] },
+    problems: [],
+  });
+
+  let tmp: string;
+  let store: ContentStore;
+  beforeEach(async () => {
+    tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'content-store-'));
+    store = new ContentStore(tmp);
+    store.replace(stored(videos[0]!), v1);
+    store.replace(stored(videos[1]!), v2);
+  });
+  afterEach(async () => {
+    store.close();
+    await fs.rm(tmp, { recursive: true, force: true });
+  });
+
+  /** 记下每次给库的过滤条件。 */
+  function spy(): { source: { candidates: (filter: CandidateFilter) => ReturnType<ContentStore['candidates']> }; filters: CandidateFilter[] } {
+    const filters: CandidateFilter[] = [];
+    return {
+      filters,
+      source: {
+        candidates: (filter) => {
+          filters.push(filter);
+          return store.candidates(filter);
+        },
+      },
+    };
+  }
 
   it('子串、多词 AND、大小写与全角不敏感；按视频顺序与时间排', () => {
-    const { hits, truncated } = searchSegments(videos, { query: '剪辑', limit: 10 });
+    const { hits, truncated } = searchSegments(store, videos, { query: '剪辑', limit: 10 });
     expect(truncated).toBe(false);
     expect(hits.map((h) => [h.videoId, h.documentKind, h.time.start])).toEqual([
       ['v1', 'chapter', 3],
@@ -344,15 +365,97 @@ describe('内容检索', () => {
       entryId: 'sp_1',
     });
 
-    expect(searchSegments(videos, { query: 'edit video', limit: 10 }).hits).toEqual([
+    expect(searchSegments(store, videos, { query: 'edit video', limit: 10 }).hits).toEqual([
       expect.objectContaining({ videoId: 'v2', documentKind: 'caption', time: { clock: 'source', start: 1, end: 2 } }),
     ]);
-    expect(searchSegments(videos, { query: '剪辑 好玩', limit: 10 }).hits).toHaveLength(1);
-    expect(searchSegments(videos, { query: '剪辑', kinds: ['chapter'], limit: 10 }).hits).toHaveLength(1);
-    expect(searchSegments(videos, { query: '', speaker: 'guest', limit: 10 }).hits).toEqual([
+    expect(searchSegments(store, videos, { query: '剪辑 好玩', limit: 10 }).hits).toHaveLength(1);
+    expect(searchSegments(store, videos, { query: '剪辑', kinds: ['chapter'], limit: 10 }).hits).toHaveLength(1);
+    expect(searchSegments(store, videos, { query: '', speaker: 'guest', limit: 10 }).hits).toEqual([
       expect.objectContaining({ snippet: '视频剪辑很好玩', highlights: [] }),
     ]);
-    expect(searchSegments(videos, { query: '剪辑', limit: 2 })).toMatchObject({ truncated: true, hits: [{}, {}] });
+    expect(searchSegments(store, videos, { query: '剪辑', limit: 2 })).toMatchObject({ truncated: true, hits: [{}, {}] });
+    // 正好 limit 条时不算截断。
+    expect(searchSegments(store, videos, { query: '剪辑', limit: 3 })).toMatchObject({ truncated: false });
+  });
+
+  it('结果按调用方给的视频顺序；范围之外的视频不出现', () => {
+    store.replace(stored(videos[1]!), [{ ...v2[0]!, text: '剪辑 the video' }]);
+    const reversed = [videos[1]!, videos[0]!];
+    expect(searchSegments(store, reversed, { query: '剪辑', limit: 10 }).hits.map((h) => h.videoId)).toEqual(['v2', 'v1', 'v1', 'v1']);
+    expect(searchSegments(store, [videos[1]!], { query: '剪辑', limit: 10 }).hits.map((h) => h.videoId)).toEqual(['v2']);
+    expect(searchSegments(store, [], { query: '剪辑', limit: 10 })).toEqual({ hits: [], truncated: false });
+  });
+
+  it('两字的词走子串过滤，三字以上走 MATCH；混合的多词同一段里 AND', () => {
+    expect(termClauses(['剪辑'])).toEqual({ match: null, short: ['剪辑'] });
+    expect(termClauses(['剪辑视', 'ab', 'say "hi"'])).toEqual({ match: '"剪辑视" AND "say ""hi"""', short: ['ab'] });
+    // 按码点计：两个表情是四个 UTF-16 单元，仍然太短。
+    expect(termClauses(['😀😀'])).toEqual({ match: null, short: ['😀😀'] });
+
+    const { source, filters } = spy();
+    expect(searchSegments(source, videos, { query: '剪辑', limit: 10 }).hits).toHaveLength(3);
+    expect(searchSegments(source, videos, { query: '剪辑视频', limit: 10 }).hits.map((h) => h.time.start)).toEqual([20]);
+    expect(searchSegments(source, videos, { query: '好玩 视频剪辑', limit: 10 }).hits.map((h) => h.snippet)).toEqual(['视频剪辑很好玩']);
+    expect(searchSegments(source, videos, { query: '好玩 我们来', limit: 10 }).hits).toEqual([]);
+    expect(filters.map((f) => termClauses(f.terms))).toEqual([
+      { match: null, short: ['剪辑'] },
+      { match: '"剪辑视频"', short: [] },
+      { match: '"视频剪辑"', short: ['好玩'] },
+      { match: '"我们来"', short: ['好玩'] },
+    ]);
+    // 通配符与引号按字面匹配。
+    store.replace(stored(videos[1]!), [{ ...v2[0]!, text: '50% off_now "quoted"' }]);
+    expect(searchSegments(store, videos, { query: '0%', limit: 10 }).hits).toHaveLength(1);
+    expect(searchSegments(store, videos, { query: '%', limit: 10 }).hits).toHaveLength(1);
+    expect(searchSegments(store, videos, { query: 'f_n', limit: 10 }).hits).toHaveLength(1);
+    expect(searchSegments(store, videos, { query: '"quoted"', limit: 10 }).hits).toHaveLength(1);
+    expect(searchSegments(store, videos, { query: 'f%n', limit: 10 }).hits).toHaveLength(0);
+  });
+
+  it('种类与说话人过滤', () => {
+    expect(searchSegments(store, videos, { query: '剪辑', kinds: ['speech'], limit: 10 }).hits.map((h) => h.time.start)).toEqual([3, 20]);
+    expect(searchSegments(store, videos, { query: '视频', kinds: ['chapter', 'caption'], limit: 10 }).hits).toEqual([]);
+    expect(searchSegments(store, videos, { query: '剪辑', speaker: '宝', limit: 10 }).hits.map((h) => h.speaker)).toEqual(['宝玉']);
+    expect(searchSegments(store, videos, { query: '剪辑', speaker: ' ＧＵＥＳＴ ', limit: 10 }).hits.map((h) => h.speaker)).toEqual(['Guest']);
+    expect(searchSegments(store, videos, { query: '剪辑', speaker: 'nobody', limit: 10 }).hits).toEqual([]);
+  });
+
+  it('换掉一个视频的段落不影响别的视频；删掉的视频查不到', () => {
+    store.replace(stored(videos[0]!), [{ ...v1[0]!, text: '换了内容' }]);
+    expect(searchSegments(store, videos, { query: '剪辑', limit: 10 }).hits).toEqual([]);
+    expect(searchSegments(store, videos, { query: '换了内容', limit: 10 }).hits).toHaveLength(1);
+    expect(searchSegments(store, videos, { query: 'video', limit: 10 }).hits).toHaveLength(1);
+    store.remove([videos[1]!.dir]);
+    expect(searchSegments(store, videos, { query: 'video', limit: 10 }).hits).toEqual([]);
+    expect(store.videos().map((v) => v.dir)).toEqual([videos[0]!.dir]);
+  });
+
+  it('库的格式版本不对、文件坏掉或被删掉时重建成空库', async () => {
+    const file = path.join(tmp, STORE_FILE);
+    store.close();
+    const reopened = new ContentStore(tmp);
+    expect(reopened.videos()).toHaveLength(2);
+    reopened.close();
+
+    const raw = new DatabaseSync(file);
+    raw.exec(`PRAGMA user_version = ${STORE_VERSION + 1}`);
+    raw.close();
+    store = new ContentStore(tmp);
+    expect(store.videos()).toEqual([]);
+    expect(searchSegments(store, videos, { query: '剪辑', limit: 10 }).hits).toEqual([]);
+    store.replace(stored(videos[0]!), v1);
+    expect(searchSegments(store, videos, { query: '剪辑', limit: 10 }).hits).toHaveLength(3);
+    store.close();
+
+    await fs.writeFile(file, 'not a database');
+    store = new ContentStore(tmp);
+    expect(store.videos()).toEqual([]);
+    store.close();
+
+    await fs.rm(tmp, { recursive: true, force: true });
+    store = new ContentStore(tmp);
+    store.replace(stored(videos[1]!), v2);
+    expect(searchSegments(store, videos, { query: 'edit', limit: 10 }).hits).toHaveLength(1);
   });
 
   it('长段落截取命中附近并改写位置', () => {

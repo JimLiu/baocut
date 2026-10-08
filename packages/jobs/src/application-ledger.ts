@@ -1,8 +1,9 @@
 import type { ApplicationRecord, Id } from '@baocut/protocol';
-import { readJson, writeJsonAtomic } from '@baocut/runtime-storage';
+import { RecordJournal, type LedgerOptions } from './record-journal.ts';
 
 /**
- * 应用账本（架构设计 §7.2）：`<runtime-home>/store/applications.json`，与任务账本分开。执行的结果（产物）与「应用到视频」
+ * 应用账本（架构设计 §7.2）：`<runtime-home>/store/applications.jsonl`（只追加的 JSONL，格式见 `record-journal.ts`；
+ * 旧的 `applications.json` 第一次读时导入，之后改名为 `.migrated`），与任务账本分开。执行的结果（产物）与「应用到视频」
  * 是两条记录：一个任务可以有多次应用（重启后的补做、用户的 `jobs.reconcile apply`），每次都先落账再提交事务。
  *
  * 这里是应用状态的权威；任务记录里的 `applications` 是它的投影。每次写入都要等落盘（崩溃安全的顺序靠它），
@@ -22,28 +23,30 @@ export interface StoredApplication {
   submissions: number;
 }
 
-interface ApplicationsFile {
-  formatVersion: 1;
-  applications: StoredApplication[];
-}
-
 export class ApplicationLedger {
   readonly file: string;
   readonly #items = new Map<Id, StoredApplication>();
-  #chain: Promise<void> = Promise.resolve();
+  readonly #journal: RecordJournal;
   #frozen = false;
 
-  constructor(file: string) {
+  constructor(file: string, options: LedgerOptions = {}) {
     this.file = file;
+    this.#journal = new RecordJournal({
+      file,
+      keyField: 'applicationId',
+      key: applicationKey,
+      moveOnPut: true,
+      legacy: file.endsWith('.jsonl') ? { file: file.slice(0, -1), records: legacyApplications } : undefined,
+      writable: () => !this.#frozen,
+      compaction: options.compaction,
+      log: options.log,
+    });
   }
 
   async load(): Promise<void> {
-    const data = await readJson<ApplicationsFile>(this.file).catch(() => null);
+    const items = (await this.#journal.load()) as StoredApplication[];
     this.#items.clear();
-    if (!data || data.formatVersion !== 1 || !Array.isArray(data.applications)) return;
-    for (const item of data.applications) {
-      if (item && typeof item.record?.applicationId === 'string') this.#items.set(item.record.applicationId, item);
-    }
+    for (const item of items) this.#items.set(item.record.applicationId, item);
   }
 
   get(applicationId: Id): StoredApplication | undefined {
@@ -69,18 +72,20 @@ export class ApplicationLedger {
     item.record.updatedAt = new Date().toISOString();
     this.#items.delete(item.record.applicationId);
     this.#items.set(item.record.applicationId, item);
-    return this.#write();
+    if (this.#frozen) return Promise.resolve();
+    return this.#journal.put(item.record.applicationId, item);
   }
 
   /** 删掉这些任务的应用（任务被淘汰时）。 */
   remove(jobIds: ReadonlySet<Id>): Promise<void> {
-    let changed = false;
+    const removed: Id[] = [];
     for (const [id, item] of this.#items) {
       if (!jobIds.has(item.record.jobId)) continue;
       this.#items.delete(id);
-      changed = true;
+      removed.push(id);
     }
-    return changed ? this.#write() : Promise.resolve();
+    if (removed.length === 0 || this.#frozen) return Promise.resolve();
+    return this.#journal.remove(removed);
   }
 
   /** 故障注入：模拟进程在这一刻崩溃，之后的写入都不落盘。 */
@@ -89,14 +94,17 @@ export class ApplicationLedger {
   }
 
   flush(): Promise<void> {
-    return this.#chain;
+    return this.#journal.flush();
   }
+}
 
-  #write(): Promise<void> {
-    if (this.#frozen) return Promise.resolve();
-    const data: ApplicationsFile = { formatVersion: 1, applications: structuredClone([...this.#items.values()]) };
-    const next = this.#chain.then(() => (this.#frozen ? undefined : writeJsonAtomic(this.file, data, { durable: true })));
-    this.#chain = next.catch(() => {});
-    return next;
-  }
+function applicationKey(value: unknown): string | null {
+  const applicationId = (value as Partial<StoredApplication> | null)?.record?.applicationId;
+  return typeof applicationId === 'string' ? applicationId : null;
+}
+
+/** 旧格式 `applications.json`：`{ formatVersion: 1, applications: StoredApplication[] }`。 */
+function legacyApplications(data: unknown): unknown[] | null {
+  const file = data as { formatVersion?: unknown; applications?: unknown } | null;
+  return file?.formatVersion === 1 && Array.isArray(file.applications) ? file.applications : null;
 }
