@@ -30,6 +30,8 @@ Electron-builder 先装成 `BaoCut.app`；签名脚本用完整证书指纹选�
 
 发布通过 GitHub Releases，归档文件名与内容不可变。`--download-base-url` 生成 App 自己的解析器验证过的 ZIP 更新清单；公开归档读回通过后才更新 `apps/desktop/releases/` 的版本钉。新版使用独立 ID，不将旧版官网的更新源直接换成新包；旧 skill 的 GitHub Latest 保持原状。具体顺序见发布 skill。
 
+**GitHub Actions**：手动触发 `desktop-macos`，从本仓库 `main` 的固定 commit 构建。默认 `mode=validate` 只验证签名私钥、指纹与公证访问；`mode=package` 生成候选，`mode=publish` 构建后发布，并更新 Mac appcast。后两种模式必须提供递增的新 build，不能复用已公开的 Build 60。签名材料放在仅允许 `main` 的 `macos-release` Environment；变量、Secrets、命令与验证范围见[签名说明 §5](../../docs/macos-signing.md#5-github-actions-配置)。这套工作流没有自动执行 UI、导出或真实模型推理验收，报告会标为未运行。
+
 ## Windows 打包
 
 在 Windows x64 上，从仓库根运行：

@@ -1,0 +1,156 @@
+name: desktop-macos
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Validate credentials, package a candidate, or publish a new build
+        type: choice
+        options: [validate, package, publish]
+        default: validate
+      build:
+        description: New increasing build number; required for package/publish
+        type: string
+        default: ""
+
+permissions: {}
+
+concurrency:
+  group: desktop-macos-release
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    if: github.repository == 'JimLiu/baocut' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Check version and build before accessing signing credentials
+        env:
+          MODE: ${{ inputs.mode }}
+          BUILD: ${{ inputs.build }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re, subprocess
+          from pathlib import Path
+          if os.environ['MODE'] == 'validate':
+              raise SystemExit(0)
+          value = os.environ['BUILD']
+          assert re.fullmatch(r'[1-9][0-9]{0,8}', value), 'A new positive build number is required'
+          current = json.loads(Path('apps/desktop/releases/appcast-aarch64-apple-darwin.json').read_text())
+          assert int(value) > current['build'], 'Build must increase; published packages are immutable'
+          version = json.loads(Path('apps/desktop/package.json').read_text())['version']
+          tag = f'baocut-v{version}-build.{value}'
+          tags = subprocess.run(['git', 'ls-remote', '--tags', 'origin', f'refs/tags/{tag}'], check=True, capture_output=True, text=True).stdout
+          assert not tags.strip(), 'This release tag already exists; choose a new build'
+          PY
+
+  package:
+    needs: plan
+    runs-on: macos-15
+    environment: macos-release
+    timeout-minutes: 180
+    permissions:
+      contents: read
+    outputs:
+      signing_sha1: ${{ vars.BAOCUT_MAC_SIGNING_SHA1 }}
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_BUILD_JOBS: "2"
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Check native runner
+        run: |
+          test "$(uname -m)" = arm64
+          echo "CARGO_TARGET_DIR=$RUNNER_TEMP/baocut-target" >> "$GITHUB_ENV"
+      - name: Import identity, validate Apple access and sign a probe
+        id: credentials
+        env:
+          BAOCUT_MAC_CERTIFICATE_BASE64: ${{ secrets.BAOCUT_MAC_CERTIFICATE_BASE64 }}
+          BAOCUT_MAC_CERTIFICATE_PASSWORD: ${{ secrets.BAOCUT_MAC_CERTIFICATE_PASSWORD }}
+          BAOCUT_MAC_KEYCHAIN_PASSWORD: ${{ secrets.BAOCUT_MAC_KEYCHAIN_PASSWORD }}
+          BAOCUT_MAC_SIGNING_SHA1: ${{ vars.BAOCUT_MAC_SIGNING_SHA1 }}
+          BAOCUT_APPLE_TEAM_ID: ${{ vars.BAOCUT_APPLE_TEAM_ID }}
+          BAOCUT_NOTARY_APPLE_ID: ${{ secrets.BAOCUT_NOTARY_APPLE_ID }}
+          BAOCUT_NOTARY_APP_PASSWORD: ${{ secrets.BAOCUT_NOTARY_APP_PASSWORD }}
+          BAOCUT_NOTARY_API_KEY_BASE64: ${{ secrets.BAOCUT_NOTARY_API_KEY_BASE64 }}
+          BAOCUT_NOTARY_KEY_ID: ${{ secrets.BAOCUT_NOTARY_KEY_ID }}
+          BAOCUT_NOTARY_ISSUER_ID: ${{ secrets.BAOCUT_NOTARY_ISSUER_ID }}
+        run: node apps/desktop/tools/macos-ci-keychain.mjs prepare
+      - name: Install Rust
+        if: inputs.mode != 'validate'
+        uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # action 1.97.1
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+      - name: Check Metal toolchain
+        if: inputs.mode != 'validate'
+        run: |
+          if ! xcrun --find metal; then
+            xcodebuild -downloadComponent MetalToolchain
+          fi
+          xcrun --find metal
+      - name: Install dependencies
+        if: inputs.mode != 'validate'
+        run: npm ci
+      - name: Build, sign, notarize and verify the App and DMG
+        if: inputs.mode != 'validate'
+        env:
+          BUILD: ${{ inputs.build }}
+          BAOCUT_MAC_SIGNING_SHA1: ${{ vars.BAOCUT_MAC_SIGNING_SHA1 }}
+        run: |
+          VERSION=$(node -p 'require("./apps/desktop/package.json").version')
+          npm run package:mac -- --build "$BUILD" \
+            --sign-sha1 "$BAOCUT_MAC_SIGNING_SHA1" \
+            --sign-keychain "$RUNNER_TEMP/baocut-signing.keychain-db" \
+            --notary-profile baocut-notary --out "$RUNNER_TEMP/mac-release" \
+            --download-base-url "https://github.com/jimliu/baocut/releases/download/baocut-v${VERSION}-build.${BUILD}"
+          node apps/desktop/tools/macos-release.mjs prepare "$RUNNER_TEMP/mac-release"
+      - name: Remove signing and notarization credentials
+        if: always() && steps.credentials.outcome != 'skipped'
+        run: node apps/desktop/tools/macos-ci-keychain.mjs cleanup
+      - name: Upload only verified public files
+        if: success() && inputs.mode != 'validate'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: baocut-desktop-macos-arm64
+          path: ${{ runner.temp }}/mac-release-public/*
+          if-no-files-found: error
+
+  publish:
+    if: inputs.mode == 'publish'
+    needs: package
+    runs-on: macos-15
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Download this run's native candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name baocut-desktop-macos-arm64 --dir "$RUNNER_TEMP/mac-candidate"
+      - name: Publish, verify fresh public downloads and advance the Mac update feed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BAOCUT_MAC_SIGNING_SHA1: ${{ needs.package.outputs.signing_sha1 }}
+        run: node apps/desktop/tools/macos-release.mjs publish "$RUNNER_TEMP/mac-candidate"

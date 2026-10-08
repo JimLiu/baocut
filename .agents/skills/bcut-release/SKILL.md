@@ -105,6 +105,27 @@ the supplemental Windows reports. A rerun may skip identical assets, never overw
 different bytes. Failed or unverified GPU variants remain unpublished; native startup
 does not imply inference has been tested on CUDA/Vulkan hardware.
 
+## macOS Actions
+
+Use `desktop-macos.yml` on this repository's `main`. Its protected `macos-release`
+Environment contains the exact encrypted PKCS#12 identity and separate notarization
+credentials. An explicit request to configure these GitHub signing Secrets authorizes
+that upload; a request for local backups alone does not. Never print any credential.
+
+First use `mode=validate`: import into a temporary keychain, sign/execute a probe,
+compare the actual certificate fingerprint and validate Apple access, then clean up.
+Only after an actual successful run report CI credentials as verified. `mode=package`
+builds a signed and notarized candidate without creating a public release.
+`mode=publish` also publishes the verified archives and updates only the
+Mac appcast. Both require a new increasing build and freeze the workflow SHA as
+the source. Current Build 60 is immutable. Do not trigger publication merely because
+the user asked to configure CI.
+
+The publisher independently downloads the six public assets and performs native
+signature, staple, Gatekeeper and Runtime checks before advancing the feed. Old
+Latest and other platforms' assets/feeds remain intact. UI/export, real model and
+paid Agent checks are not automated; the report must preserve these skips.
+
 ## Completion
 
 Report version/build, architecture, full source commit, local paths or release URL,
