@@ -10,6 +10,7 @@ const previousFile = path.join(temporary, 'baocut-keychains-before.json');
 const p12 = path.join(temporary, 'baocut-signing.p12');
 const p8 = path.join(temporary, 'baocut-notary.p8');
 const probe = path.join(temporary, 'baocut-signing-probe');
+const probeSource = `${probe}.c`;
 const prefix = path.join(temporary, 'baocut-probe-cert-');
 
 function run(program, args) {
@@ -50,7 +51,9 @@ if (process.argv[2] === 'prepare') {
   run('xcrun', credentials);
   run('xcrun', ['notarytool', 'history', '--keychain-profile', 'baocut-notary', '--keychain', keychain, '--output-format', 'json']);
   // Test possession of the private key, exact signer and trusted secure timestamp.
-  run('cp', ['/usr/bin/true', probe]);
+  // System binaries may carry platform-specific signing metadata. Compile our own probe.
+  writeFileSync(probeSource, 'int main(void) { return 0; }\n', { mode: 0o600 });
+  run('xcrun', ['clang', probeSource, '-o', probe]);
   run('codesign', ['--force', '--sign', sha1, '--keychain', keychain, '--timestamp', '--options', 'runtime', probe]);
   run('codesign', ['--verify', '--strict', probe]);
   run('codesign', ['-d', `--extract-certificates=${prefix}`, probe]);
@@ -66,7 +69,7 @@ if (process.argv[2] === 'prepare') {
   if (existsSync(keychain)) {
     try { run('security', ['delete-keychain', keychain]); } catch { failed = true; }
   }
-  for (const file of [p12, p8, probe, previousFile, `${prefix}0`, `${prefix}1`, `${prefix}2`]) rmSync(file, { force: true });
+  for (const file of [p12, p8, probe, probeSource, previousFile, `${prefix}0`, `${prefix}1`, `${prefix}2`]) rmSync(file, { force: true });
   if (failed) throw new Error('Temporary keychain cleanup failed');
   console.log('Temporary signing and notarization credentials removed.');
 } else throw new Error('Expected prepare or cleanup');
