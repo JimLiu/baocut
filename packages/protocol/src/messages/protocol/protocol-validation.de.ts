@@ -87,4 +87,7 @@ export const de: ProtocolValidationMessages = {
   templateFieldUnused: (p: { label: string }) => `Feld „${p.label}“ wird nicht verwendet ({{${p.label}}})`,
   templateSlotUnclosed: "Nicht geschlossenes {{; Platzhalter als {{label}} schreiben",
   templateScenePromptSlots: "prompt.md einer Szenenvorlage darf keine {{-Platzhalter enthalten; sie gehören in brief",
+  translationFieldsCount: (p: { count: number }) => `Muss so viele fields haben wie template.json (${p.count})`,
+  translationBeatsCount: (p: { count: number }) => `Muss so viele beats haben wie template.json (${p.count})`,
+  translationAssetUnknown: (p: { path: string }) => `Kein in template.json gelistetes Material: ${p.path}`,
 };

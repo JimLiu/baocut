@@ -1,0 +1,41 @@
+{
+  "title": "Demonstração de software",
+  "summary": "Mostre passo a passo como o seu software resolve um problema.",
+  "description": "Com capturas de tela, gravações ou materiais do produto, ligue um problema do usuário à função correspondente e ao resultado final. A demonstração segue sempre um fluxo de uso real.",
+  "brief": "Use {{gravação ou capturas}} para fazer um vídeo de demonstração que mostre como usar {{software}} para {{ação a demonstrar}}, resolvendo este problema: {{problema do usuário}}.",
+  "fields": [
+    {
+      "label": "gravação ou capturas",
+      "hint": "A gravação de tela, as capturas ou as instruções anexadas",
+      "example": "esta gravação de tela"
+    },
+    {
+      "label": "software",
+      "hint": "O nome do software ou da função",
+      "example": "nosso app de finanças pessoais"
+    },
+    {
+      "label": "ação a demonstrar",
+      "hint": "Um fluxo de uso completo",
+      "example": "exportar o relatório mensal em três passos"
+    },
+    {
+      "label": "problema do usuário",
+      "hint": "O trabalho que essa função poupa ao usuário",
+      "example": "organizar as contas à mão no fim do mês toma muito tempo"
+    }
+  ],
+  "tags": [
+    "software",
+    "demonstração",
+    "gravação de tela"
+  ],
+  "preview": {
+    "beats": [
+      "O problema do usuário",
+      "Abrir a função certa",
+      "Os passos-chave, um a um",
+      "O resultado obtido"
+    ]
+  }
+}

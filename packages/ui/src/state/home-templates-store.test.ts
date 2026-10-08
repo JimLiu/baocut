@@ -44,6 +44,7 @@ function summary(id: string): TemplateSummary {
       preview: { beats: ['一', '二', '三'] },
     },
     origin: 'builtin',
+    languages: ['zh-CN'],
     files: { cover: false, preview: false, assets: 0 },
   };
 }

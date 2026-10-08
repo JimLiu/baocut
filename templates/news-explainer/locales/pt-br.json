@@ -1,0 +1,29 @@
+{
+  "title": "Notícia em alta explicada",
+  "summary": "Escolha um assunto recente em alta e faça uma explicação ágil, cheia de memes.",
+  "description": "O agente pesquisa notícias recentes, escolhe um assunto e usa memes encontrados na busca para fazer uma explicação horizontal de cerca de 90 segundos. Não é preciso preparar mídias.",
+  "fields": [
+    {
+      "label": "área de notícias",
+      "hint": "Que tipo de notícia você quer ver; se não importar, escreva “qualquer”",
+      "example": "tecnologia"
+    },
+    {
+      "label": "idioma do vídeo",
+      "hint": "O idioma da narração e das legendas"
+    }
+  ],
+  "tags": [
+    "notícias",
+    "em alta",
+    "explicação"
+  ],
+  "preview": {
+    "beats": [
+      "Apresentar o assunto",
+      "O contexto completo",
+      "Memes e reações",
+      "Um comentário para fechar"
+    ]
+  }
+}

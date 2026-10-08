@@ -1219,5 +1219,13 @@ export const nodeJobRequestSchema = z
   })
   .strict();
 
-export { templateManifestSchema, parseTemplateManifest, templateSendRefSchema, type TemplateManifestResult } from './template-schemas.ts';
+export {
+  templateManifestSchema,
+  parseTemplateManifest,
+  templateTranslationSchema,
+  parseTemplateTranslation,
+  templateSendRefSchema,
+  type TemplateManifestResult,
+  type TemplateTranslationResult,
+} from './template-schemas.ts';
 export { skillSendRefSchema } from './skill-schemas.ts';

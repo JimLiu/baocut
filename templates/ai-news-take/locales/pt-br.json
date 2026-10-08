@@ -1,0 +1,34 @@
+{
+  "title": "Comentário rápido de notícias de IA",
+  "summary": "Escolha uma notícia recente de IA e faça um comentário rápido, cheio de memes.",
+  "description": "O agente pesquisa notícias recentes de IA, escolhe um assunto e combina clipes, imagens e GIFs encontrados na busca para fazer um comentário leve e gostoso de assistir.",
+  "fields": [
+    {
+      "label": "área de interesse",
+      "hint": "Que tipo de notícia de IA você quer ver; se não importar, escreva “qualquer”",
+      "example": "modelos de código aberto"
+    },
+    {
+      "label": "duração",
+      "hint": "Mais ou menos quanto tempo o vídeo deve ter",
+      "example": "um minuto"
+    },
+    {
+      "label": "idioma do vídeo",
+      "hint": "O idioma da narração e das legendas"
+    }
+  ],
+  "tags": [
+    "notícias",
+    "IA",
+    "comentário"
+  ],
+  "preview": {
+    "beats": [
+      "O que aconteceu, em uma frase",
+      "Os detalhes principais",
+      "Memes e reações",
+      "Por que isso importa"
+    ]
+  }
+}

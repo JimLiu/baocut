@@ -1,0 +1,29 @@
+{
+  "title": "Animation de danse rythmée",
+  "summary": "Une danse arcade pleine d’énergie : personnage animé et effets de jeu de rythme.",
+  "description": "La génération vidéo crée un personnage animé original qui danse ; le code construit ensuite l’écran d’un jeu de rythme et des effets qui suivent le tempo.",
+  "fields": [
+    {
+      "label": "personnage",
+      "hint": "À quoi ressemble le personnage qui danse",
+      "example": "un chat robot avec un casque audio"
+    },
+    {
+      "label": "langue de la vidéo",
+      "hint": "Langue du texte à l’écran"
+    }
+  ],
+  "tags": [
+    "danse",
+    "jeu de rythme",
+    "génération vidéo"
+  ],
+  "preview": {
+    "beats": [
+      "Le personnage entre en scène",
+      "Les notes tombent",
+      "Combos et effets",
+      "Écran final : score parfait"
+    ]
+  }
+}

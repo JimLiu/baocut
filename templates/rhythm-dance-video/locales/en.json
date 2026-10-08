@@ -1,0 +1,29 @@
+{
+  "title": "Rhythm dance animation",
+  "summary": "A high-energy arcade dance video: animated character plus rhythm game effects.",
+  "description": "Video generation creates an original animated character dancing, and code builds the rhythm game screen and effects that follow the beat.",
+  "fields": [
+    {
+      "label": "character design",
+      "hint": "What the dancing character looks like",
+      "example": "a robot cat wearing headphones"
+    },
+    {
+      "label": "video language",
+      "hint": "The language for on-screen text"
+    }
+  ],
+  "tags": [
+    "dance",
+    "rhythm game",
+    "video generation"
+  ],
+  "preview": {
+    "beats": [
+      "The character enters",
+      "Notes start falling",
+      "Combos and effects",
+      "Perfect score screen"
+    ]
+  }
+}

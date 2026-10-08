@@ -1,0 +1,41 @@
+{
+  "title": "Video promozionale",
+  "summary": "Fai del tuo prodotto o servizio un breve video promozionale che spinge ad agire.",
+  "description": "Raggiungi il pubblico con un’apertura che cattura, una dimostrazione reale e un invito all’azione chiaro. Usa le foto, i video o le descrizioni del prodotto che hai, metti in risalto vantaggi reali e porta il pubblico ad acquistare, iscriversi o chiedere informazioni.",
+  "brief": "Crea un breve video promozionale per {{prodotto o servizio}}. Obiettivo: {{azione desiderata}}. Pubblico: {{pubblico}}. Materiali: {{materiali a disposizione}}.",
+  "fields": [
+    {
+      "label": "prodotto o servizio",
+      "hint": "Cosa vuoi promuovere",
+      "example": "i nostri corsi di yoga online"
+    },
+    {
+      "label": "azione desiderata",
+      "hint": "Una sola azione: acquistare, iscriversi o chiedere informazioni",
+      "example": "far iscrivere i nuovi utenti a una lezione di prova gratuita"
+    },
+    {
+      "label": "pubblico",
+      "hint": "Chi lo vedrà e cosa gli interessa",
+      "example": "chi lavora in ufficio e vuole allenarsi a casa"
+    },
+    {
+      "label": "materiali a disposizione",
+      "hint": "Foto, video o descrizioni allegati; se non ne hai scrivi «nessuno»",
+      "example": "la presentazione del corso e alcuni video delle lezioni"
+    }
+  ],
+  "tags": [
+    "pubblicità",
+    "promozione",
+    "conversione"
+  ],
+  "preview": {
+    "beats": [
+      "Catturare l’attenzione in due secondi",
+      "Il problema che sta a cuore al pubblico",
+      "I punti di forza reali",
+      "Un invito all’azione chiaro"
+    ]
+  }
+}

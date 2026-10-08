@@ -1,0 +1,41 @@
+{
+  "title": "Softwaredemo",
+  "summary": "Laat stap voor stap zien hoe je software een probleem oplost.",
+  "description": "Verbind met screenshots, schermopnamen of productinformatie een probleem van de gebruiker met de bijbehorende functie en het eindresultaat. De demo volgt steeds één echte gebruikersflow.",
+  "brief": "Maak met {{opname of screenshots}} een demovideo die laat zien hoe je met {{software}} {{te tonen handeling}}. Het probleem dat dit oplost: {{gebruikersprobleem}}.",
+  "fields": [
+    {
+      "label": "opname of screenshots",
+      "hint": "Bijgevoegde schermopname, screenshots of instructies",
+      "example": "deze schermopname"
+    },
+    {
+      "label": "software",
+      "hint": "Naam van de software of functie",
+      "example": "onze boekhoudapp"
+    },
+    {
+      "label": "te tonen handeling",
+      "hint": "Eén volledige gebruikersflow",
+      "example": "in drie stappen een maandrapport exporteert"
+    },
+    {
+      "label": "gebruikersprobleem",
+      "hint": "Wat deze functie de gebruiker bespaart",
+      "example": "rekeningen aan het eind van de maand met de hand ordenen kost te veel tijd"
+    }
+  ],
+  "tags": [
+    "software",
+    "demo",
+    "schermopname"
+  ],
+  "preview": {
+    "beats": [
+      "Het probleem van de gebruiker",
+      "De juiste functie openen",
+      "Belangrijke stappen één voor één",
+      "Het resultaat"
+    ]
+  }
+}

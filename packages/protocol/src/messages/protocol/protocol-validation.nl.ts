@@ -87,4 +87,7 @@ export const nl: ProtocolValidationMessages = {
   templateFieldUnused: (p: { label: string }) => `Veld "${p.label}" wordt niet gebruikt ({{${p.label}}})`,
   templateSlotUnclosed: "Er is een niet-gesloten {{; schrijf tijdelijke aanduidingen als {{label}}",
   templateScenePromptSlots: "prompt.md van een scènesjabloon mag geen {{-aanduidingen bevatten; zet ze in brief",
+  translationFieldsCount: (p: { count: number }) => `Moet evenveel fields hebben als template.json (${p.count})`,
+  translationBeatsCount: (p: { count: number }) => `Moet evenveel beats hebben als template.json (${p.count})`,
+  translationAssetUnknown: (p: { path: string }) => `Geen media die in template.json staat: ${p.path}`,
 };

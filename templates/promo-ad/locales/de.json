@@ -1,0 +1,41 @@
+{
+  "title": "Werbeclip",
+  "summary": "Ein Werbeclip für Ihr Produkt oder Ihren Service, der zum Handeln bewegt.",
+  "description": "Erreichen Sie Ihr Publikum mit einem packenden Einstieg, einer echten Vorführung und einem klaren Call to Action. Ihre Produktfotos, Videos oder Beschreibungen heben echte Vorteile hervor und bewegen zum Kauf, zur Anmeldung oder zur Anfrage.",
+  "brief": "Erstellen Sie einen Werbeclip. Beworben wird: {{Produkt oder Service}}. Ziel: {{Gewünschte Aktion}}. Publikum: {{Publikum}}. Material: {{Vorhandenes Material}}.",
+  "fields": [
+    {
+      "label": "Produkt oder Service",
+      "hint": "Was beworben wird",
+      "example": "unser Online-Yogakurs"
+    },
+    {
+      "label": "Gewünschte Aktion",
+      "hint": "Nur eine Aktion: kaufen, anmelden oder anfragen",
+      "example": "Neukunden melden sich zur kostenlosen Probestunde an"
+    },
+    {
+      "label": "Publikum",
+      "hint": "Wer es sieht und was diese Menschen bewegt",
+      "example": "Berufstätige, die zu Hause trainieren möchten"
+    },
+    {
+      "label": "Vorhandenes Material",
+      "hint": "Angehängte Produktfotos, Videos oder Beschreibungen; sonst „keines“",
+      "example": "Kursbeschreibung und einige Videos aus dem Unterricht"
+    }
+  ],
+  "tags": [
+    "Werbung",
+    "Promotion",
+    "Conversion"
+  ],
+  "preview": {
+    "beats": [
+      "In zwei Sekunden Aufmerksamkeit",
+      "Das Problem des Publikums benennen",
+      "Echte Vorteile zeigen",
+      "Ein klarer Call to Action"
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "title": "Montagem criativa",
+  "summary": "Montagem rica em mídias e com clímax no fim, que mostra edição e programação.",
+  "description": "Sem tomadas repetidas, com acabamento visual caprichado e som contínuo até o fim; o peso da edição fica no clímax mais forte da segunda metade.",
+  "fields": [
+    {
+      "label": "tema da montagem",
+      "hint": "Em torno do que a montagem gira",
+      "example": "uma cidade do amanhecer até tarde da noite"
+    },
+    {
+      "label": "mídias disponíveis",
+      "hint": "As mídias anexadas; se não tiver, escreva “nenhuma, encontre ou gere”",
+      "example": "nenhuma, encontre ou gere"
+    },
+    {
+      "label": "idioma do vídeo",
+      "hint": "O idioma do texto na tela e da narração"
+    }
+  ],
+  "tags": [
+    "montagem",
+    "edição",
+    "ritmo"
+  ],
+  "preview": {
+    "beats": [
+      "Uma abertura que se desdobra rápido",
+      "Mídias variadas se alternando",
+      "Intensidade crescente",
+      "O clímax da segunda metade"
+    ]
+  }
+}

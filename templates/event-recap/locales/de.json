@@ -1,0 +1,36 @@
+{
+  "title": "Event-Rückblick",
+  "summary": "Schneiden Sie Aufnahmen eines Events zu einem einprägsamen Zusammenschnitt.",
+  "description": "Halten Sie die Stimmung eines Workshops, Treffens oder Launch-Events fest: Ort, Schlüsselmomente und Reaktionen der Teilnehmenden werden zu einem Rückblick mit klarem Anfang und Ende.",
+  "brief": "Hier sind Fotos und Videos von diesem Event: {{Event}}. Schneiden Sie daraus einen kurzen Rückblick. Publikum: {{Publikum}}. Unbedingt behalten: {{Pflichtszenen}}.",
+  "fields": [
+    {
+      "label": "Event",
+      "hint": "Name und Datum des Events",
+      "example": "unser Lesekreis von gestern"
+    },
+    {
+      "label": "Publikum",
+      "hint": "Wer den Rückblick bekommt und wo er erscheint",
+      "example": "Freunde, die nicht dabei waren"
+    },
+    {
+      "label": "Pflichtszenen",
+      "hint": "Momente, die unbedingt drin sein sollen; sonst „keine“",
+      "example": "das Gruppenfoto und die Schlussworte der Moderation"
+    }
+  ],
+  "tags": [
+    "Event",
+    "Rückblick",
+    "Highlights"
+  ],
+  "preview": {
+    "beats": [
+      "Ort und Atmosphäre zeigen",
+      "Einige Schlüsselmomente",
+      "Reaktionen der Teilnehmenden",
+      "Abschluss mit einer Erkenntnis"
+    ]
+  }
+}

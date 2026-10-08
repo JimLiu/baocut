@@ -1,0 +1,36 @@
+{
+  "title": "Dựng Vlog",
+  "summary": "Dựng tư liệu đời thường thành một Vlog đáng xem đến hết.",
+  "description": "Sắp xếp tư liệu du lịch hoặc đời thường thành một câu chuyện nhỏ có mở đầu, vài khoảnh khắc khó quên và cái kết tự nhiên. Giữ lại những phản ứng hay nhất và âm thanh môi trường; nhạc và phụ đề hợp với nhịp của bạn.",
+  "brief": "Đây là {{tư liệu}}. Hãy dựng giúp tôi một Vlog, phong cách: {{phong cách}}. Nhất định phải giữ: {{đoạn phải giữ lại}}.",
+  "fields": [
+    {
+      "label": "tư liệu",
+      "hint": "Tư liệu đính kèm ở đâu, quay khi làm gì",
+      "example": "tư liệu quay ở biển cuối tuần"
+    },
+    {
+      "label": "phong cách",
+      "hint": "Cảm giác bạn muốn",
+      "example": "nhẹ nhàng thoải mái"
+    },
+    {
+      "label": "đoạn phải giữ lại",
+      "hint": "Những khoảnh khắc nhất định phải giữ; nếu không có thì ghi “không có”",
+      "example": "đoạn lần đầu đứng lên được trên ván lướt sóng"
+    }
+  ],
+  "tags": [
+    "Vlog",
+    "du lịch",
+    "đời thường"
+  ],
+  "preview": {
+    "beats": [
+      "Đi đâu, vì sao đi",
+      "Vài khoảnh khắc khó quên",
+      "Phản ứng thật và âm thanh môi trường",
+      "Cái kết tự nhiên"
+    ]
+  }
+}

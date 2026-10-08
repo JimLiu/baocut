@@ -1,0 +1,29 @@
+{
+  "title": "Bande-annonce de jeu original",
+  "summary": "Une bande-annonce soignée pour un jeu original, qui accroche dès le début.",
+  "description": "Univers, personnages et gameplay d’un jeu original, présentés en quelques séries de plans rapides, avec une accroche dès les deux premières secondes. Idéal pour les réseaux sociaux.",
+  "fields": [
+    {
+      "label": "genre de jeu",
+      "hint": "Le genre et le style du jeu",
+      "example": "exploration spatiale en pixel art"
+    },
+    {
+      "label": "langue de la vidéo",
+      "hint": "Langue du texte à l’écran et de la voix off"
+    }
+  ],
+  "tags": [
+    "jeu vidéo",
+    "bande-annonce",
+    "original"
+  ],
+  "preview": {
+    "beats": [
+      "Une accroche en deux secondes",
+      "Univers et personnages",
+      "Les temps forts du gameplay",
+      "Nom du jeu et slogan"
+    ]
+  }
+}

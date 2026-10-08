@@ -1,0 +1,29 @@
+{
+  "title": "Lanzamiento de un producto ficticio",
+  "summary": "Lanzamiento de un producto ficticio con interfaz blanca, hecho con código.",
+  "description": "Una interfaz blanca limpia y bonita, imágenes y efectos de sonido de ritmo rápido, lista para publicar en redes sociales. El nombre del producto, sus funciones y la interfaz son creación original del agente.",
+  "fields": [
+    {
+      "label": "tipo de producto",
+      "hint": "Qué tipo de producto ficticio es",
+      "example": "un reloj inteligente"
+    },
+    {
+      "label": "idioma del vídeo",
+      "hint": "El idioma del texto en pantalla"
+    }
+  ],
+  "tags": [
+    "lanzamiento",
+    "interfaz",
+    "animación con código"
+  ],
+  "preview": {
+    "beats": [
+      "La interfaz blanca se despliega",
+      "Cambios rápidos entre funciones clave",
+      "Primeros planos de detalles y animaciones",
+      "El nombre del producto en pantalla"
+    ]
+  }
+}

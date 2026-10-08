@@ -1,0 +1,41 @@
+{
+  "title": "Giới thiệu sản phẩm",
+  "summary": "Một video giới thiệu gọn gàng, nói rõ tính năng và chi tiết của sản phẩm.",
+  "description": "Sắp xếp ảnh hoặc đoạn video sản phẩm thành một phần giới thiệu bằng hình ảnh rõ ràng. Làm nổi bật những chi tiết khán giả quan tâm nhất; phong cách và nhịp hợp với thương hiệu của bạn.",
+  "brief": "Dùng {{tư liệu sản phẩm}} làm một video giới thiệu cho {{sản phẩm}}, tập trung vào {{tính năng chính}}, chủ yếu dành cho {{khán giả}}.",
+  "fields": [
+    {
+      "label": "tư liệu sản phẩm",
+      "hint": "Ảnh sản phẩm, video quay thực tế hoặc phần giới thiệu đính kèm",
+      "example": "mấy tấm ảnh sản phẩm này"
+    },
+    {
+      "label": "sản phẩm",
+      "hint": "Sản phẩm là gì; có tên thì ghi tên",
+      "example": "một chiếc tai nghe chống ồn"
+    },
+    {
+      "label": "tính năng chính",
+      "hint": "Hai ba tính năng hoặc chi tiết đáng quay cận nhất",
+      "example": "khả năng chống ồn và thời lượng pin"
+    },
+    {
+      "label": "khán giả",
+      "hint": "Ai sẽ mua, họ quan tâm điều gì nhất",
+      "example": "dân văn phòng đi làm hằng ngày"
+    }
+  ],
+  "tags": [
+    "sản phẩm",
+    "giới thiệu",
+    "thương mại điện tử"
+  ],
+  "preview": {
+    "beats": [
+      "Sản phẩm xuất hiện trọn vẹn",
+      "Cận cảnh từng chi tiết then chốt",
+      "Một cảnh sử dụng thực tế",
+      "Lời kêu gọi hành động ở cuối"
+    ]
+  }
+}

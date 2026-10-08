@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { RpcError, TEMPLATE_FILE_MAX_BYTES, type TemplateManifest } from '@baocut/protocol';
+import { RpcError, TEMPLATE_FILE_MAX_BYTES, LOCALES, getLocale, type TemplateManifest } from '@baocut/protocol';
 import { TemplateCatalog, resolveBuiltinTemplatesDir, scanTemplateDir } from './template-catalog.ts';
 
 /** 仓库根的 `templates/`：从本文件往上四级（packages/runtime-core/src/templates）。 */
@@ -207,6 +207,84 @@ describe('模板目录的加载', () => {
   });
 });
 
+describe('语言版本', () => {
+  const en = {
+    title: 'Sample template',
+    summary: 'One line.',
+    description: 'A short paragraph.',
+    brief: 'Make an explainer about {{topic}}.',
+    fields: [{ label: 'topic', example: 'photosynthesis' }],
+    tags: [],
+    preview: { beats: ['One', 'Two', 'Three'] },
+  };
+  const ja = { ...en, title: 'サンプル', brief: '{{テーマ}}の解説動画を作ります。', fields: [{ label: 'テーマ', example: '光合成' }] };
+  const overlays = (extra: Record<string, string> = {}) => ({
+    'locales/en.json': JSON.stringify(en),
+    'locales/en.md': 'You are making a video.\n',
+    'locales/ja.json': JSON.stringify(ja),
+    'locales/ja.md': '動画を作ります。\n',
+    ...extra,
+  });
+
+  it('locales/ 里的译文算登记过；按想要的语言挑：同一语言，其次同一主语言的另一种写法，再其次英文', async () => {
+    await writeTemplate(root, 'multi', manifest('multi'), overlays());
+    const scan = await scanTemplateDir(root, 'user');
+    expect(scan.diagnostics).toEqual([]);
+    const catalog = new TemplateCatalog({ builtinDir: null, userDir: root });
+
+    const titles = async (language?: string) => (await catalog.list(language)).templates.map((t) => [t.manifest.language, t.manifest.title]);
+    expect(await titles('ja')).toEqual([['ja', 'サンプル']]);
+    expect(await titles('fr')).toEqual([['en', 'Sample template']]);
+    expect(await titles('zh-Hans')).toEqual([['zh-CN', '示例模板']]);
+    expect(await titles('zh-TW')).toEqual([['zh-CN', '示例模板']]);
+    expect((await catalog.list('ja')).templates[0]!.languages).toEqual(['zh-CN', 'en', 'ja']);
+
+    const detail = await catalog.get('multi', 'ja');
+    expect(detail.prompt).toBe('動画を作ります。\n');
+    expect(detail.template.manifest).toMatchObject({ language: 'ja', brief: ja.brief, fields: ja.fields, ratio: '16:9', version: '1.0.0' });
+    expect((await catalog.get('multi', 'zh-Hans')).prompt).toBe('你要做一条视频。\n');
+  });
+
+  it('不传语言时按 Runtime 的界面语言', async () => {
+    await writeTemplate(root, 'multi', manifest('multi'), overlays());
+    const catalog = new TemplateCatalog({ builtinDir: null, userDir: root });
+    const expected = getLocale() === 'zh-Hans' ? '示例模板' : getLocale() === 'ja' ? 'サンプル' : 'Sample template';
+    expect((await catalog.list()).templates[0]!.manifest.title).toBe(expected);
+  });
+
+  it('译文不合规时整个模板不合规：缺一半、项数不同、占位符对不上、与原文同一种语言', async () => {
+    await writeTemplate(root, 'half', manifest('half'), { 'locales/en.json': JSON.stringify(en) });
+    await writeTemplate(root, 'fields', manifest('fields'), {
+      'locales/en.json': JSON.stringify({ ...en, brief: 'Explain {{topic}} to {{audience}}.', fields: [...en.fields, { label: 'audience' }] }),
+      'locales/en.md': 'x\n',
+    });
+    await writeTemplate(root, 'slots', manifest('slots'), {
+      'locales/en.json': JSON.stringify({ ...en, brief: 'Make an explainer about {{subject}}.' }),
+      'locales/en.md': 'x\n',
+    });
+    await writeTemplate(root, 'scene-prompt', manifest('scene-prompt'), {
+      'locales/en.json': JSON.stringify(en),
+      'locales/en.md': 'Make an explainer about {{topic}}.\n',
+    });
+    await writeTemplate(root, 'same-language', manifest('same-language'), {
+      'locales/zh-hans.json': JSON.stringify(en),
+      'locales/zh-hans.md': 'x\n',
+    });
+    await writeTemplate(root, 'unknown-locale', manifest('unknown-locale'), { 'locales/xx.json': '{}' });
+    const scan = await scanTemplateDir(root, 'user');
+    expect(scan.templates).toEqual([]);
+    const issues = Object.fromEntries(scan.diagnostics.map((d) => [d.dir, d.issues]));
+    expect(scan.diagnostics.every((d) => d.code === 'invalid')).toBe(true);
+    expect(issues['half']).toEqual(['缺少 locales/en.md']);
+    expect(issues['fields']).toEqual([expect.stringMatching(/^locales\/en\.json: fields: /)]);
+    expect(issues['slots']!.length).toBeGreaterThan(0);
+    expect(issues['slots']!.every((issue) => issue.startsWith('locales/en.json: brief: '))).toBe(true);
+    expect(issues['scene-prompt']).toEqual([expect.stringMatching(/^locales\/en\.md: /)]);
+    expect(issues['same-language']).toEqual([expect.stringContaining('locales/zh-hans.json')]);
+    expect(issues['unknown-locale']).toEqual(['目录里有没登记的文件：locales/xx.json']);
+  });
+});
+
 describe('两个来源合在一起', () => {
   let builtin: string;
   let user: string;
@@ -270,6 +348,16 @@ describe('内置模板', () => {
     expect(templates.length).toBeGreaterThanOrEqual(24);
     expect(templates.every((t) => t.origin === 'builtin' && t.manifest.source === 'official')).toBe(true);
     expect(new Set(templates.map((t) => t.manifest.kind))).toEqual(new Set(['scene', 'example']));
+  });
+
+  it('内置模板每种别的出货语言都有译文，按各语言要时文案都换成那种语言', async () => {
+    const catalog = new TemplateCatalog({ builtinDir: REPO_TEMPLATES, userDir: path.join(root, 'none') });
+    const base = await catalog.list('zh-Hans');
+    for (const t of base.templates) expect(t.languages, t.manifest.id).toEqual(['zh-CN', ...LOCALES.filter((l) => l !== 'zh-Hans')]);
+    for (const locale of LOCALES.filter((l) => l !== 'zh-Hans')) {
+      const { templates } = await catalog.list(locale);
+      expect(templates.every((t) => t.manifest.language === locale), locale).toBe(true);
+    }
   });
 
   it('内置模板建议先读的 skills 都在仓库根的 skills/ 里', async () => {

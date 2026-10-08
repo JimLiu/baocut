@@ -1,0 +1,36 @@
+{
+  "title": "Retour sur un événement",
+  "summary": "Montez les images d’un événement en un best-of mémorable.",
+  "description": "Capturez l’ambiance d’un atelier, d’une soirée ou d’un lancement : reliez le lieu, les temps forts et les réactions des participants en un court film avec un vrai début et une vraie fin.",
+  "brief": "Voici les photos et vidéos prises sur place lors de l’événement : {{événement}}. Montez-en un court récap pour {{destinataires}}. À garder absolument : {{passages à garder}}.",
+  "fields": [
+    {
+      "label": "événement",
+      "hint": "Nom et date de l’événement",
+      "example": "notre club de lecture d’hier"
+    },
+    {
+      "label": "destinataires",
+      "hint": "À qui envoyer le récap, et où le publier",
+      "example": "les amis qui n’ont pas pu venir"
+    },
+    {
+      "label": "passages à garder",
+      "hint": "Les moments à garder absolument ; sinon, écrivez « aucun »",
+      "example": "la photo de groupe et le mot de fin de l’animatrice"
+    }
+  ],
+  "tags": [
+    "événement",
+    "récap",
+    "best-of"
+  ],
+  "preview": {
+    "beats": [
+      "Le lieu et l’ambiance",
+      "Quelques temps forts",
+      "Les réactions des participants",
+      "Finir sur ce qu’on en retient"
+    ]
+  }
+}

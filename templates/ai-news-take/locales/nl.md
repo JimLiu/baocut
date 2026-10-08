@@ -1,0 +1,3 @@
+Zoek recent AI-nieuws over {{aandachtsgebied}}, kies een interessant onderwerp en maak er een vlot commentaar met veel memes van, ongeveer {{duur}} lang en geschikt om op videoplatforms te plaatsen.
+
+Je kunt videofragmenten, afbeeldingen en GIF’s zoeken om te gebruiken. Kies bij voorkeur media waarvan de licentie gebruik toestaat, en vermeld de bronnen. Controleer de feiten zorgvuldig; gebruik memes alleen om het tempo te bepalen, nooit om het nieuws zelf te verdraaien. Gebruik {{taal van de video}} voor voice-over en ondertitels. Gebruik voor de hele voice-over één stem in een normaal spreektempo; is de tekst te lang, schrap dan woorden in plaats van te versnellen om in de tijd te passen.

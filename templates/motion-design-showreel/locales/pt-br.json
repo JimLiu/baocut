@@ -1,0 +1,29 @@
+{
+  "title": "Showreel de design de movimento",
+  "summary": "Um curta ágil de gráficos animados que mostra domínio de design de movimento.",
+  "description": "Transformações, revelações com máscara, movimentos elásticos e transições no ritmo da batida se revezam, como a abertura do portfólio de um designer de movimento. Bom para conhecer o que o BaoCut faz com gráficos animados.",
+  "fields": [
+    {
+      "label": "paleta de cores",
+      "hint": "As cores ou o estilo visual que você quer",
+      "example": "fundo preto com cores neon"
+    },
+    {
+      "label": "idioma do vídeo",
+      "hint": "O idioma do texto na tela"
+    }
+  ],
+  "tags": [
+    "gráficos animados",
+    "portfólio",
+    "transições"
+  ],
+  "preview": {
+    "beats": [
+      "Formas geométricas entram quicando",
+      "Texto revelado por máscara",
+      "Transformações e cortes na batida",
+      "Uma imagem final limpa"
+    ]
+  }
+}

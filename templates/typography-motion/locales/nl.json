@@ -1,0 +1,29 @@
+{
+  "title": "Typografische animatie",
+  "summary": "Een warme, minimalistische korte film in JavaScript, gedreven door typografie.",
+  "description": "Lettertypen in allerlei stijlen, een warme minimalistische esthetiek, een rijk ritme en veel kleur, met achtergrondmuziek. Gegenereerde afbeeldingen of videofragmenten kunnen het geheel aanvullen.",
+  "fields": [
+    {
+      "label": "onderwerp",
+      "hint": "Waar de video over gaat",
+      "example": "de wisseling van de seizoenen"
+    },
+    {
+      "label": "taal van de video",
+      "hint": "De taal voor tekst in beeld"
+    }
+  ],
+  "tags": [
+    "typografie",
+    "lettertypen",
+    "JavaScript"
+  ],
+  "preview": {
+    "beats": [
+      "Eén woord vult het beeld",
+      "Wisselende lettertypen en gewichten",
+      "Kleuren wisselen op het ritme",
+      "Een rustig slot"
+    ]
+  }
+}

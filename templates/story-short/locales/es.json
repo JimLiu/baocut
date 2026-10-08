@@ -1,0 +1,41 @@
+{
+  "title": "Cortometraje narrativo",
+  "summary": "Da vida a tus personajes y a tu historia en un cortometraje.",
+  "description": "Construye una historia completa en torno a un personaje, un objetivo y un conflicto, con su giro y su desenlace. Personajes, escenarios y estilo visual se mantienen coherentes de principio a fin.",
+  "brief": "Haz un cortometraje narrativo: {{protagonista}} quiere {{objetivo}}, pero {{obstáculo}}; al final, {{desenlace}}.",
+  "fields": [
+    {
+      "label": "protagonista",
+      "hint": "Quién es el protagonista",
+      "example": "un pequeño pingüino"
+    },
+    {
+      "label": "objetivo",
+      "hint": "Qué quiere el protagonista",
+      "example": "aprender a volar"
+    },
+    {
+      "label": "obstáculo",
+      "hint": "La dificultad que se interpone en su camino",
+      "example": "se cae cada vez que lo intenta"
+    },
+    {
+      "label": "desenlace",
+      "hint": "Logra su objetivo, fracasa o lo consigue de otra manera",
+      "example": "descubre en el agua su propia forma de volar"
+    }
+  ],
+  "tags": [
+    "historia",
+    "cortometraje",
+    "personajes"
+  ],
+  "preview": {
+    "beats": [
+      "El protagonista y lo que quiere",
+      "Aparece el obstáculo",
+      "El giro",
+      "Desenlace y regusto final"
+    ]
+  }
+}

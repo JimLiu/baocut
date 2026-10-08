@@ -1,0 +1,41 @@
+{
+  "title": "Kısa reklam filmi",
+  "summary": "Ürününüzü ya da hizmetinizi harekete geçiren kısa bir reklam filmine dönüştürün.",
+  "description": "Dikkat çeken bir açılış, gerçekçi bir gösterim ve net bir harekete çağrıyla hedef kitlenize ulaşın. Elinizdeki ürün görsellerini, videoları ya da tanıtım metnini kullanın; gerçek faydaları öne çıkarın ve izleyiciyi satın almaya, kaydolmaya ya da bilgi almaya yönlendirin.",
+  "brief": "Şunun için kısa bir reklam filmi yapın: {{ürün veya hizmet}}. Hedef: {{beklenen eylem}}. İzleyici kitlesi: {{izleyici kitlesi}}. Materyal: {{eldeki materyal}}.",
+  "fields": [
+    {
+      "label": "ürün veya hizmet",
+      "hint": "Neyin tanıtımı yapılıyor",
+      "example": "çevrim içi yoga derslerimiz"
+    },
+    {
+      "label": "beklenen eylem",
+      "hint": "Tek bir eylem seçin: satın alma, kayıt ya da bilgi alma",
+      "example": "yeni kullanıcıların ücretsiz deneme dersine kaydolması"
+    },
+    {
+      "label": "izleyici kitlesi",
+      "hint": "Kimler görecek, neyi önemsiyorlar",
+      "example": "evde spor yapmak isteyen çalışanlar"
+    },
+    {
+      "label": "eldeki materyal",
+      "hint": "Eklediğiniz ürün görselleri, videolar veya tanıtım; yoksa “yok” yazın",
+      "example": "ders tanıtımı ve birkaç ders videosu"
+    }
+  ],
+  "tags": [
+    "reklam",
+    "tanıtım",
+    "dönüşüm"
+  ],
+  "preview": {
+    "beats": [
+      "İlk iki saniyede dikkat çekmek",
+      "Kitlenin derdini söylemek",
+      "Gerçek satış noktalarını göstermek",
+      "Net bir harekete çağrı"
+    ]
+  }
+}

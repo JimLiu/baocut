@@ -28,4 +28,7 @@ export const fr: ProtocolValidationMessages = {
   templateFieldUnused: (p: { label: string }) => `Le champ « ${p.label} » n’est pas utilisé ({{${p.label}}})`,
   templateSlotUnclosed: 'Un {{ n’est pas fermé ; écrivez les espaces réservés sous la forme {{label}}',
   templateScenePromptSlots: 'Le prompt.md d’un modèle de scène ne peut pas contenir d’espaces réservés {{ ; mettez-les dans brief',
+  translationFieldsCount: (p: { count: number }) => `Doit avoir autant de fields que template.json (${p.count})`,
+  translationBeatsCount: (p: { count: number }) => `Doit avoir autant de beats que template.json (${p.count})`,
+  translationAssetUnknown: (p: { path: string }) => `Ce média n’est pas listé dans template.json : ${p.path}`,
 };

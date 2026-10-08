@@ -1,0 +1,36 @@
+{
+  "title": "Datengeschichte",
+  "summary": "Erzählen Sie eine Tabelle als klare, anschauliche Geschichte.",
+  "description": "Führen Sie das Publikum durch eine Frage, ein Diagramm und ein Fazit. Jeweils nur ein Vergleich; Einheiten, Datumsangaben und Datenquellen bleiben stets sichtbar, damit die Geschichte überprüfbar ist.",
+  "brief": "Erzählen Sie eine Datengeschichte. Daten: {{Daten}}. Frage: {{Leitfrage}}. Publikum: {{Publikum}}.",
+  "fields": [
+    {
+      "label": "Daten",
+      "hint": "Angehängte Tabelle oder Datei, oder die Datenquelle",
+      "example": "diese Verkaufsdaten der letzten fünf Jahre"
+    },
+    {
+      "label": "Leitfrage",
+      "hint": "Die eine Frage, die das Publikum danach klären kann",
+      "example": "welche Region am schnellsten wächst und warum das wichtig ist"
+    },
+    {
+      "label": "Publikum",
+      "hint": "Wer zuschaut; das bestimmt die Tiefe",
+      "example": "die Geschäftsführung"
+    }
+  ],
+  "tags": [
+    "Daten",
+    "Diagramme",
+    "Visualisierung"
+  ],
+  "preview": {
+    "beats": [
+      "Eine Frage, die sich lohnt",
+      "Ein Vergleich nach dem anderen",
+      "Ursachen aufschlüsseln",
+      "Ein belegtes Fazit"
+    ]
+  }
+}

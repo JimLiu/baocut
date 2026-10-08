@@ -86,4 +86,7 @@ export const zhHans: ProtocolValidationMessages = {
   templateFieldUnused: (p: { label: string }) => `待填项「${p.label}」没有被引用（{{${p.label}}}）`,
   templateSlotUnclosed: '有不成对的 {{，占位符要写成 {{label}}',
   templateScenePromptSlots: '场景模板的 prompt.md 不能含 {{ 占位符，待填项写在 brief 里',
+  translationFieldsCount: (p: { count: number }) => `项数要与 template.json 相同（${p.count}）`,
+  translationBeatsCount: (p: { count: number }) => `分镜要点的条数要与 template.json 相同（${p.count}）`,
+  translationAssetUnknown: (p: { path: string }) => `不是 template.json 登记的素材：${p.path}`,
 };

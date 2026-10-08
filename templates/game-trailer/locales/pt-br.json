@@ -1,0 +1,29 @@
+{
+  "title": "Trailer de jogo original",
+  "summary": "Um trailer caprichado de um jogo original, que prende desde o primeiro segundo.",
+  "description": "Do universo e dos personagens à jogabilidade, apresenta um jogo original em algumas sequências de tomadas rápidas, com um gancho já nos dois primeiros segundos, pronto para as redes sociais.",
+  "fields": [
+    {
+      "label": "gênero do jogo",
+      "hint": "Que gênero e estilo de jogo",
+      "example": "exploração espacial em pixel art"
+    },
+    {
+      "label": "idioma do vídeo",
+      "hint": "O idioma do texto na tela e da narração"
+    }
+  ],
+  "tags": [
+    "jogos",
+    "trailer",
+    "original"
+  ],
+  "preview": {
+    "beats": [
+      "Um gancho de dois segundos",
+      "Universo e personagens",
+      "Destaques da jogabilidade",
+      "Nome do jogo e slogan"
+    ]
+  }
+}

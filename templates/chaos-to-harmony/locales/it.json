@@ -1,0 +1,29 @@
+{
+  "title": "Dal caos all’armonia",
+  "summary": "Un corto renderizzato con il codice: forme e materiali dal caos all’armonia.",
+  "description": "Niente clip generate né materiali di repertorio: immagini e animazioni sono tutte costruite e renderizzate con il codice. Ottieni il video finale e un codice sorgente ancora modificabile.",
+  "fields": [
+    {
+      "label": "forme e materiali",
+      "hint": "Cosa vuoi vedere passare dal caos all’ordine",
+      "example": "varie forme fisiche e materiali"
+    },
+    {
+      "label": "lingua del video",
+      "hint": "La lingua di testo a schermo, testi cantati o narrazione"
+    }
+  ],
+  "tags": [
+    "animazione in codice",
+    "fisica",
+    "materiali"
+  ],
+  "preview": {
+    "beats": [
+      "Frammenti e materiali sparsi",
+      "Si scontrano e si attraggono",
+      "Trovano a poco a poco un ritmo",
+      "Un insieme armonioso"
+    ]
+  }
+}

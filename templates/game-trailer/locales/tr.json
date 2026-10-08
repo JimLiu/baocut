@@ -1,0 +1,29 @@
+{
+  "title": "Özgün oyun fragmanı",
+  "summary": "Özgün bir oyun için ilk saniyeden yakalayan, özenli bir fragman.",
+  "description": "Dünyasından karakterlerine ve oynanışına kadar özgün bir oyunu birkaç hızlı çekim grubuyla tanıtır; ilk iki saniyede bir kanca atar ve sosyal platformlarda paylaşmaya uygundur.",
+  "fields": [
+    {
+      "label": "oyun türü",
+      "hint": "Ne tür ve hangi üslupta bir oyun",
+      "example": "piksel sanatlı uzay macerası"
+    },
+    {
+      "label": "video dili",
+      "hint": "Ekran metni ve dış sesin dili"
+    }
+  ],
+  "tags": [
+    "oyun",
+    "fragman",
+    "özgün"
+  ],
+  "preview": {
+    "beats": [
+      "İki saniyelik kanca",
+      "Dünya ve karakterler",
+      "Oynanıştan öne çıkanlar",
+      "Oyunun adı ve sloganı"
+    ]
+  }
+}

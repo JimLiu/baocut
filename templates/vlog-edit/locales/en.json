@@ -1,0 +1,36 @@
+{
+  "title": "Vlog edit",
+  "summary": "Edit everyday footage into a vlog worth watching to the end.",
+  "description": "Shape travel or everyday footage into a small story with an opening, a few memorable moments and a natural ending. Keep the best reactions and ambient sound, with music and subtitles that match your pace.",
+  "brief": "Here's {{footage}}. Cut it into a vlog with {{style}}. Be sure to keep: {{must-keep moments}}.",
+  "fields": [
+    {
+      "label": "footage",
+      "hint": "Where the attached footage is and what you were doing when you shot it",
+      "example": "footage from a weekend at the beach"
+    },
+    {
+      "label": "style",
+      "hint": "The feel you're going for",
+      "example": "a relaxed feel"
+    },
+    {
+      "label": "must-keep moments",
+      "hint": "Moments you want kept; write \"none\" if there aren't any",
+      "example": "the first time I stood up on a surfboard"
+    }
+  ],
+  "tags": [
+    "vlog",
+    "travel",
+    "everyday life"
+  ],
+  "preview": {
+    "beats": [
+      "Where we're going and why",
+      "A few memorable moments",
+      "Real reactions and ambient sound",
+      "A natural ending"
+    ]
+  }
+}

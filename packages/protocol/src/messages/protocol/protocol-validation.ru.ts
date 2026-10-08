@@ -86,4 +86,7 @@ export const ru: ProtocolValidationMessages = {
   templateFieldUnused: (p: { label: string }) => `Поле «${p.label}» не используется ({{${p.label}}})`,
   templateSlotUnclosed: 'Есть незакрытый {{; заполнители пишутся как {{label}}',
   templateScenePromptSlots: 'В prompt.md шаблона сцены не может быть заполнителей {{; укажите их в brief',
+  translationFieldsCount: (p: { count: number }) => `Число fields должно совпадать с template.json (${p.count})`,
+  translationBeatsCount: (p: { count: number }) => `Число beats должно совпадать с template.json (${p.count})`,
+  translationAssetUnknown: (p: { path: string }) => `Этого материала нет в списке template.json: ${p.path}`,
 };

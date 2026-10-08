@@ -1,0 +1,36 @@
+{
+  "title": "Samouczek krok po kroku",
+  "summary": "Zamień nagranie ekranu lub instrukcję w przejrzysty samouczek.",
+  "description": "Pomóż widzom wykonać jedno zadanie dzięki uporządkowanym krokom, widocznym czynnościom i jasnym punktom kontrolnym: pokaż, co zrobić i jak sprawdzić, czy wszystko zrobiono dobrze.",
+  "brief": "Zrób samouczek na podstawie materiału: {{nagranie lub instrukcja}}. Odbiorcy: {{odbiorcy}}. Po obejrzeniu mają samodzielnie wykonać zadanie: {{zadanie}}.",
+  "fields": [
+    {
+      "label": "nagranie lub instrukcja",
+      "hint": "Dołączone nagranie ekranu, zrzuty ekranu lub opisane kroki",
+      "example": "ta instrukcja"
+    },
+    {
+      "label": "odbiorcy",
+      "hint": "Kto się uczy i co już umie",
+      "example": "początkujący"
+    },
+    {
+      "label": "zadanie",
+      "hint": "Jedna rzecz, którą po obejrzeniu zrobią samodzielnie",
+      "example": "konfiguracja sieci dla gości na routerze"
+    }
+  ],
+  "tags": [
+    "samouczek",
+    "instrukcja",
+    "kroki"
+  ],
+  "preview": {
+    "beats": [
+      "Cel i potrzebne przygotowania",
+      "Kroki we właściwej kolejności",
+      "Punkt kontrolny po każdym kroku",
+      "Efekt końcowy"
+    ]
+  }
+}

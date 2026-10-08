@@ -88,4 +88,7 @@ export const ja: ProtocolValidationMessages = {
   templateFieldUnused: (p: { label: string }) => `フィールド「${p.label}」が使われていません（{{${p.label}}}）`,
   templateSlotUnclosed: '閉じていない {{ があります。プレースホルダーは {{label}} の形で書いてください',
   templateScenePromptSlots: 'シーンテンプレートの prompt.md には {{ プレースホルダーを書けません。入力項目は brief に書いてください',
+  translationFieldsCount: (p: { count: number }) => `template.json と同じ数の fields が必要です（${p.count}）`,
+  translationBeatsCount: (p: { count: number }) => `template.json と同じ数の beats が必要です（${p.count}）`,
+  translationAssetUnknown: (p: { path: string }) => `template.json に記載されていない素材です：${p.path}`,
 };

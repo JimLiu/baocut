@@ -1,0 +1,41 @@
+{
+  "title": "Promotievideo",
+  "summary": "Maak van je product of dienst een korte promotievideo die tot actie aanzet.",
+  "description": "Bereik je publiek met een pakkend begin, een echte demonstratie en een duidelijke oproep tot actie. Gebruik je eigen productfoto’s, video’s of beschrijving, laat echte voordelen zien en zet kijkers aan tot kopen, aanmelden of contact opnemen.",
+  "brief": "Maak een korte promotievideo voor {{product of dienst}}. Doel: {{gewenste actie}}. Publiek: {{publiek}}. Materiaal: {{beschikbaar materiaal}}.",
+  "fields": [
+    {
+      "label": "product of dienst",
+      "hint": "Wat je wilt promoten",
+      "example": "onze online yogalessen"
+    },
+    {
+      "label": "gewenste actie",
+      "hint": "Kies één actie: kopen, aanmelden of contact opnemen",
+      "example": "nieuwe gebruikers laten aanmelden voor een gratis proefles"
+    },
+    {
+      "label": "publiek",
+      "hint": "Wie het te zien krijgt en wat ze belangrijk vinden",
+      "example": "werkenden die thuis willen sporten"
+    },
+    {
+      "label": "beschikbaar materiaal",
+      "hint": "Bijgevoegde productfoto’s, video’s of beschrijving; zo niet, schrijf ‘geen’",
+      "example": "de lesbeschrijving en een paar lesvideo’s"
+    }
+  ],
+  "tags": [
+    "advertentie",
+    "promotie",
+    "conversie"
+  ],
+  "preview": {
+    "beats": [
+      "In twee seconden de aandacht pakken",
+      "Het probleem van het publiek benoemen",
+      "Echte verkoopargumenten tonen",
+      "Eén duidelijke oproep tot actie"
+    ]
+  }
+}

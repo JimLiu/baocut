@@ -1,0 +1,41 @@
+{
+  "title": "Film promocyjny",
+  "summary": "Zamień swój produkt lub usługę w krótki film, który skłania do działania.",
+  "description": "Dotrzyj do odbiorców chwytliwym początkiem, prawdziwą prezentacją i jasnym wezwaniem do działania. Wykorzystaj zdjęcia, nagrania lub opis produktu, podkreśl realne korzyści i zachęć widzów do zakupu, zapisu lub kontaktu.",
+  "brief": "Zrób krótki film promocyjny. Produkt lub usługa: {{produkt lub usługa}}. Cel: {{oczekiwane działanie}}. Odbiorcy: {{odbiorcy}}. Materiały: {{dostępne materiały}}.",
+  "fields": [
+    {
+      "label": "produkt lub usługa",
+      "hint": "Co promujesz",
+      "example": "nasze zajęcia jogi online"
+    },
+    {
+      "label": "oczekiwane działanie",
+      "hint": "Wybierz tylko jedno działanie: zakup, zapis lub kontakt",
+      "example": "zapisy nowych osób na darmowe zajęcia próbne"
+    },
+    {
+      "label": "odbiorcy",
+      "hint": "Kto to zobaczy i na czym mu zależy",
+      "example": "osoby pracujące, które chcą ćwiczyć w domu"
+    },
+    {
+      "label": "dostępne materiały",
+      "hint": "Dołączone zdjęcia, nagrania lub opis produktu; jeśli ich nie ma, wpisz „brak”",
+      "example": "opis kursu i kilka nagrań z zajęć"
+    }
+  ],
+  "tags": [
+    "reklama",
+    "promocja",
+    "konwersja"
+  ],
+  "preview": {
+    "beats": [
+      "Uwaga w pierwszych dwóch sekundach",
+      "Problem, na którym zależy odbiorcom",
+      "Prawdziwe atuty",
+      "Jedno jasne wezwanie do działania"
+    ]
+  }
+}

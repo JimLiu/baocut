@@ -1,0 +1,32 @@
+{
+  "title": "Epische sfeertrailer",
+  "summary": "Een snel geknipte p5.js-trailer met de sfeer van een verre reis en thuiskomst.",
+  "description": "De stemming komt uit de lange zeereis en thuiskomst van klassieke heldendichten. De beelden worden met p5.js gegenereerd en gemonteerd tot een snelle trailer van minder dan een minuut, met voice-over en ondertitels.",
+  "fields": [
+    {
+      "label": "sfeerreferentie",
+      "hint": "De gewenste sfeer of het verhaalmotief",
+      "example": "de lange zeereis en thuiskomst uit klassieke heldendichten"
+    },
+    {
+      "label": "taal van de video",
+      "hint": "De taal voor voice-over en ondertitels"
+    }
+  ],
+  "tags": [
+    "p5.js",
+    "trailer",
+    "sfeer"
+  ],
+  "cover": {
+    "kicker": "VERRE REIS"
+  },
+  "preview": {
+    "beats": [
+      "Zee en sterrenhemel",
+      "Storm en beproeving",
+      "De lange weg naar huis",
+      "Lichtjes in zicht"
+    ]
+  }
+}

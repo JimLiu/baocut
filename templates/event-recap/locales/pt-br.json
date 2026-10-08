@@ -1,0 +1,36 @@
+{
+  "title": "Retrospectiva de evento",
+  "summary": "Edite as mídias gravadas em um evento em uma retrospectiva marcante.",
+  "description": "Preserve o clima de um workshop, encontro ou lançamento ligando o local, os momentos-chave e as reações dos participantes em um vídeo curto com começo e fim.",
+  "brief": "Estas são fotos e vídeos do evento: {{evento}}. Edite uma retrospectiva curta para {{destinatários}}. Não deixe de incluir: {{trechos obrigatórios}}.",
+  "fields": [
+    {
+      "label": "evento",
+      "hint": "Nome e data do evento",
+      "example": "clube do livro de ontem"
+    },
+    {
+      "label": "destinatários",
+      "hint": "Para quem a retrospectiva vai e onde será publicada",
+      "example": "amigos que não puderam ir"
+    },
+    {
+      "label": "trechos obrigatórios",
+      "hint": "Momentos que precisam ficar; se não houver, escreva “nenhum”",
+      "example": "a foto em grupo e as palavras finais do apresentador"
+    }
+  ],
+  "tags": [
+    "evento",
+    "retrospectiva",
+    "destaques"
+  ],
+  "preview": {
+    "beats": [
+      "O local e o clima",
+      "Alguns momentos-chave",
+      "As reações dos participantes",
+      "Fechar com um aprendizado"
+    ]
+  }
+}

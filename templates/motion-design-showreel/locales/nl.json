@@ -1,0 +1,29 @@
+{
+  "title": "Showreel voor animatieontwerp",
+  "summary": "Een strak getimede korte film met bewegende graphics die animatievakwerk toont.",
+  "description": "Morphs, maskeronthullingen, elastische beweging en overgangen op de beat volgen elkaar op, als de opening van het portfolio van een animatieontwerper. Een goede manier om te ervaren wat BaoCut met bewegende graphics kan.",
+  "fields": [
+    {
+      "label": "kleurstijl",
+      "hint": "Het gewenste kleurenpalet of de visuele stijl",
+      "example": "neonkleuren op zwart"
+    },
+    {
+      "label": "taal van de video",
+      "hint": "De taal voor tekst in beeld"
+    }
+  ],
+  "tags": [
+    "bewegende graphics",
+    "portfolio",
+    "overgangen"
+  ],
+  "preview": {
+    "beats": [
+      "Geometrische vormen springen erin",
+      "Tekst onthuld met maskers",
+      "Morphs en overgangen op de beat",
+      "Een strak slotbeeld"
+    ]
+  }
+}

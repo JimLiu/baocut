@@ -1,0 +1,29 @@
+{
+  "title": "Animación de baile rítmico",
+  "summary": "Baile arcade con mucha energía: personaje animado y efectos de juego de ritmo.",
+  "description": "Usa la generación de vídeo para crear un personaje animado original que baila y construye con código la interfaz de un juego de ritmo y unos efectos que siguen el compás.",
+  "fields": [
+    {
+      "label": "personaje",
+      "hint": "Cómo es el personaje que baila",
+      "example": "un gato robot con auriculares"
+    },
+    {
+      "label": "idioma del vídeo",
+      "hint": "El idioma del texto en pantalla"
+    }
+  ],
+  "tags": [
+    "baile",
+    "juego de ritmo",
+    "generación de vídeo"
+  ],
+  "preview": {
+    "beats": [
+      "Entra el personaje",
+      "Caen las notas",
+      "Combos y efectos",
+      "Puntuación perfecta"
+    ]
+  }
+}

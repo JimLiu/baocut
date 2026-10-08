@@ -1,0 +1,29 @@
+{
+  "title": "Original game trailer",
+  "summary": "A polished trailer for an original game that hooks viewers from the start.",
+  "description": "Introduce an original game's world, characters and gameplay in a few quick sequences, with a hook in the first two seconds. Made for posting on social media.",
+  "fields": [
+    {
+      "label": "game genre",
+      "hint": "What genre and style of game",
+      "example": "pixel-art space adventure"
+    },
+    {
+      "label": "video language",
+      "hint": "The language for on-screen text and narration"
+    }
+  ],
+  "tags": [
+    "game",
+    "trailer",
+    "original"
+  ],
+  "preview": {
+    "beats": [
+      "A two-second hook",
+      "World and characters",
+      "Gameplay highlights",
+      "Game title and tagline"
+    ]
+  }
+}

@@ -22,4 +22,5 @@ export const ptBR: RcTemplatesMessages = {
   cannotReadDir: (p) => `Não é possível ler a pasta do template (${p.code})`,
   notScene: (p) => `“${p.title}” é um exemplo: coloque o prompt na caixa de mensagem e envie, sem anexar um template`,
   assetNotRegistered: (p) => `O template “${p.id}” não lista esta mídia: ${p.asset}`,
+  translationForBaseLanguage: (p: { file: string; language: string }) => `${p.file} está no idioma do próprio template (${p.language}); template.json e prompt.md já cobrem esse idioma`,
 };

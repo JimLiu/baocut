@@ -1,0 +1,29 @@
+{
+  "title": "Kinetic typography short",
+  "summary": "A warm, minimalist, typography-driven short made with JavaScript.",
+  "description": "Fonts in many styles, a warm minimalist look, plenty of rhythm and color, and background music. Generated images or video clips can add accents too.",
+  "fields": [
+    {
+      "label": "topic",
+      "hint": "What the video is about",
+      "example": "the changing seasons"
+    },
+    {
+      "label": "video language",
+      "hint": "The language for on-screen text"
+    }
+  ],
+  "tags": [
+    "typography",
+    "fonts",
+    "JavaScript"
+  ],
+  "preview": {
+    "beats": [
+      "One word fills the frame",
+      "Fonts and weights alternate",
+      "Colors shift with the beat",
+      "A quiet ending"
+    ]
+  }
+}

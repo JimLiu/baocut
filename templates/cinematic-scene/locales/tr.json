@@ -1,0 +1,41 @@
+{
+  "title": "Sinematik sahne",
+  "summary": "Hayal ettiğiniz bir yeri sinematik hareketlerle canlandırın.",
+  "description": "Bir açıklamadan ya da referans görselden atmosferi güçlü bir sahne yapın. Mekânı, ışığı, kamera hareketini ve ortam sesini belirleyip tutarlı bir an kurun.",
+  "brief": "Sinematik bir sahne yapın: {{mekân}}, {{zaman ve hava}}. Kamera hareketi: {{kamera hareketi}}. Son olarak kamera şu ayrıntıda dursun: {{son ayrıntı}}.",
+  "fields": [
+    {
+      "label": "mekân",
+      "hint": "İzleyicinin kendini içinde bulacağı yer",
+      "example": "sahilde küçük bir kasaba"
+    },
+    {
+      "label": "zaman ve hava",
+      "hint": "Ne zaman ve nasıl bir hava; genel atmosferi belirler",
+      "example": "yağmurlu bir akşam, sokak lambaları yeni yanmış"
+    },
+    {
+      "label": "kamera hareketi",
+      "hint": "Kamera nereden başlayıp nereye gidiyor",
+      "example": "deniz fenerinden sokak köşesine yavaş bir yaklaşma"
+    },
+    {
+      "label": "son ayrıntı",
+      "hint": "Akılda kalacak son görüntü",
+      "example": "ışıkları hâlâ yanan bir fırın"
+    }
+  ],
+  "tags": [
+    "sinematik",
+    "sahne",
+    "atmosfer"
+  ],
+  "preview": {
+    "beats": [
+      "Ortamı kurmak",
+      "Işık ve hava",
+      "Yavaş bir kamera hareketi",
+      "Bir ayrıntıda durmak"
+    ]
+  }
+}

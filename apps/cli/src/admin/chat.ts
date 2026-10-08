@@ -1,6 +1,6 @@
 import readline from 'node:readline/promises';
 import { applyConversationEvent } from '@baocut/client';
-import { localizeText, newId, type ApprovalDecision, type ConversationSnapshot, type TimelineItem } from '@baocut/protocol';
+import { getLocale, localizeText, newId, type ApprovalDecision, type ConversationSnapshot, type TimelineItem } from '@baocut/protocol';
 import { CliError } from '../envelope.ts';
 import { describeApprovalRequest, formatMode, parseModeOption } from './approvals-output.ts';
 import { M } from './chat-copy.ts';
@@ -31,14 +31,16 @@ export const chat = defineNoun({
     const text = ctx.args.join(' ').trim();
     if (!text) throw ctx.usageError(M.missingMessage);
     const mode = ctx.parse(() => parseModeOption(values.mode));
-    const template = ctx.parse(() => parseChatTemplate(values.template));
+    // 模板按 CLI 的输出语言挂（模板包规范 §3.6），和 `baocut templates show` 看到的是同一版本。
+    const parsedTemplate = ctx.parse(() => parseChatTemplate(values.template));
+    const template = parsedTemplate ? { ...parsedTemplate, language: getLocale() } : undefined;
     const skill = ctx.parse(() => parseChatSkill(values.skill));
     // 回复正文：给人读时写 stdout；`--json` 时 stdout 留给信封。
     const body = output.json ? output.stderr : output.stdout;
 
     // 先查模板，免得为一个挂不上的模板新建一个空会话（没有这个模板时 Runtime 报 TEMPLATE_NOT_FOUND）。
     if (template) {
-      const { manifest } = (await client.request('templates.get', { id: template.id })).template;
+      const { manifest } = (await client.request('templates.get', { id: template.id, language: template.language })).template;
       if (manifest.kind !== 'scene') {
         throw ctx.usageError(M.templateIsExample(manifest.title, manifest.id));
       }

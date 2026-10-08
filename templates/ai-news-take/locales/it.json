@@ -1,0 +1,34 @@
+{
+  "title": "Notizie IA: commento a caldo",
+  "summary": "Scegli una notizia recente sull’IA e commentala a caldo, con ritmo e tanti meme.",
+  "description": "L’agente cerca le notizie recenti sull’IA, sceglie una storia e la accompagna con clip, immagini e GIF trovate in rete, per un commento leggero e piacevole da guardare.",
+  "fields": [
+    {
+      "label": "ambito",
+      "hint": "Che tipo di notizie sull’IA vuoi; se non hai preferenze scrivi «qualsiasi»",
+      "example": "modelli open source"
+    },
+    {
+      "label": "durata",
+      "hint": "Quanto deve durare il video, più o meno",
+      "example": "un minuto"
+    },
+    {
+      "label": "lingua del video",
+      "hint": "La lingua di narrazione e sottotitoli"
+    }
+  ],
+  "tags": [
+    "notizie",
+    "IA",
+    "commento a caldo"
+  ],
+  "preview": {
+    "beats": [
+      "Cosa è successo, in una riga",
+      "I dettagli chiave",
+      "Meme e reazioni",
+      "Perché conta"
+    ]
+  }
+}

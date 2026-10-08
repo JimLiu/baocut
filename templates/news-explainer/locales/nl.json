@@ -1,0 +1,29 @@
+{
+  "title": "Trending nieuws uitgelegd",
+  "summary": "Kies een recent trending onderwerp en maak er een vlotte uitleg vol memes van.",
+  "description": "Agent zoekt eerst recent nieuws op en kiest een onderwerp, zoekt er memes bij en maakt er een liggende uitlegvideo van ongeveer 90 seconden van. Je hoeft geen media voor te bereiden.",
+  "fields": [
+    {
+      "label": "nieuwscategorie",
+      "hint": "Welk soort nieuws je wilt; geen voorkeur? Schrijf ‘maakt niet uit’",
+      "example": "technologie"
+    },
+    {
+      "label": "taal van de video",
+      "hint": "De taal voor voice-over en ondertitels"
+    }
+  ],
+  "tags": [
+    "nieuws",
+    "trending",
+    "uitleg"
+  ],
+  "preview": {
+    "beats": [
+      "Het onderwerp neerzetten",
+      "De voorgeschiedenis",
+      "Memes en reacties",
+      "Afsluiten met één zin commentaar"
+    ]
+  }
+}

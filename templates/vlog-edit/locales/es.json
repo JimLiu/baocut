@@ -1,0 +1,36 @@
+{
+  "title": "Edición de vlog",
+  "summary": "Convierte lo que grabas en el día a día en un vlog que apetezca ver entero.",
+  "description": "Organiza el material de un viaje o del día a día en una pequeña historia con principio, algunos momentos memorables y un final natural. Conserva las mejores reacciones y el sonido ambiente, con música y subtítulos que siguen tu ritmo.",
+  "brief": "Aquí tienes {{material}}. Móntame un vlog con un tono {{estilo}}. Hay que conservar sin falta: {{momentos imprescindibles}}.",
+  "fields": [
+    {
+      "label": "material",
+      "hint": "Dónde está el material adjunto y en qué ocasión se grabó",
+      "example": "lo que grabé el fin de semana en la playa"
+    },
+    {
+      "label": "estilo",
+      "hint": "La sensación que buscas",
+      "example": "desenfadado"
+    },
+    {
+      "label": "momentos imprescindibles",
+      "hint": "Los momentos que quieres conservar; si no hay, escribe «ninguno»",
+      "example": "la primera vez que me pongo de pie en la tabla de surf"
+    }
+  ],
+  "tags": [
+    "vlog",
+    "viajes",
+    "día a día"
+  ],
+  "preview": {
+    "beats": [
+      "Adónde vamos y por qué",
+      "Algunos momentos memorables",
+      "Reacciones reales y sonido ambiente",
+      "Un final natural"
+    ]
+  }
+}

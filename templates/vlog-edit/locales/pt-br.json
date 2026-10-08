@@ -1,0 +1,36 @@
+{
+  "title": "Edição de vlog",
+  "summary": "Edite gravações do dia a dia em um vlog que vale a pena ver até o fim.",
+  "description": "Organize gravações de viagem ou do dia a dia em uma pequena história com começo, alguns momentos memoráveis e um final natural. Mantenha as melhores reações e o som ambiente, com música e legendas no seu ritmo.",
+  "brief": "Edite um vlog {{estilo}} com {{mídias}}. Não deixe de incluir: {{trechos obrigatórios}}.",
+  "fields": [
+    {
+      "label": "mídias",
+      "hint": "Onde as mídias anexadas foram gravadas e o que você estava fazendo",
+      "example": "as gravações do fim de semana na praia"
+    },
+    {
+      "label": "estilo",
+      "hint": "O clima que você quer",
+      "example": "mais descontraído"
+    },
+    {
+      "label": "trechos obrigatórios",
+      "hint": "Momentos que precisam ficar; se não houver, escreva “nenhum”",
+      "example": "a primeira vez que fiquei em pé na prancha"
+    }
+  ],
+  "tags": [
+    "Vlog",
+    "viagem",
+    "dia a dia"
+  ],
+  "preview": {
+    "beats": [
+      "Onde e por que ir",
+      "Alguns momentos memoráveis",
+      "Reações reais e som ambiente",
+      "Um final natural"
+    ]
+  }
+}

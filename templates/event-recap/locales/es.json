@@ -1,0 +1,36 @@
+{
+  "title": "Resumen de evento",
+  "summary": "Convierte lo grabado en un evento en un resumen que se recuerde.",
+  "description": "Captura el ambiente de un taller, una reunión o una presentación y une el lugar, los momentos clave y las reacciones de los asistentes en un vídeo resumen con principio y final.",
+  "brief": "Estas son fotos y vídeos grabados en {{evento}}. Monta con ellos un vídeo resumen para {{destinatarios}}. Hay que conservar sin falta: {{momentos imprescindibles}}.",
+  "fields": [
+    {
+      "label": "evento",
+      "hint": "El nombre y la fecha del evento",
+      "example": "la sesión de ayer del club de lectura"
+    },
+    {
+      "label": "destinatarios",
+      "hint": "A quién se envía el resumen y dónde se publica",
+      "example": "los amigos que no pudieron venir"
+    },
+    {
+      "label": "momentos imprescindibles",
+      "hint": "Los momentos que quieres conservar; si no hay, escribe «ninguno»",
+      "example": "la foto de grupo y las palabras de cierre del presentador"
+    }
+  ],
+  "tags": [
+    "evento",
+    "resumen",
+    "mejores momentos"
+  ],
+  "preview": {
+    "beats": [
+      "El lugar y el ambiente",
+      "Algunos momentos clave",
+      "Las reacciones de los asistentes",
+      "Cerrar con lo que nos llevamos"
+    ]
+  }
+}

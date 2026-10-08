@@ -1,0 +1,41 @@
+{
+  "title": "Video quảng bá",
+  "summary": "Biến sản phẩm hoặc dịch vụ của bạn thành một video quảng bá thúc đẩy hành động.",
+  "description": "Tiếp cận khán giả bằng một phần mở đầu cuốn hút, một phần trình diễn chân thực và một lời kêu gọi hành động rõ ràng. Dùng ảnh, video hoặc phần giới thiệu sản phẩm bạn có, làm nổi bật lợi ích thật, hướng khán giả mua hàng, đăng ký hoặc liên hệ tư vấn.",
+  "brief": "Làm một video quảng bá cho {{sản phẩm hoặc dịch vụ}}, mục tiêu: {{hành động mong muốn}}, khán giả là {{khán giả}}. Tư liệu: {{tư liệu sẵn có}}.",
+  "fields": [
+    {
+      "label": "sản phẩm hoặc dịch vụ",
+      "hint": "Thứ cần quảng bá là gì",
+      "example": "lớp yoga trực tuyến của chúng tôi"
+    },
+    {
+      "label": "hành động mong muốn",
+      "hint": "Chỉ chọn một hành động: mua, đăng ký hoặc liên hệ tư vấn",
+      "example": "mời người dùng mới đăng ký buổi học thử miễn phí"
+    },
+    {
+      "label": "khán giả",
+      "hint": "Ai sẽ xem, họ quan tâm điều gì",
+      "example": "dân văn phòng muốn tập luyện tại nhà"
+    },
+    {
+      "label": "tư liệu sẵn có",
+      "hint": "Ảnh, video hoặc phần giới thiệu đính kèm; nếu không có thì ghi “không có”",
+      "example": "phần giới thiệu khóa học và vài đoạn video buổi học"
+    }
+  ],
+  "tags": [
+    "quảng cáo",
+    "quảng bá",
+    "chuyển đổi"
+  ],
+  "preview": {
+    "beats": [
+      "Hai giây đầu thu hút sự chú ý",
+      "Nêu vấn đề khán giả quan tâm",
+      "Trình diễn điểm mạnh có thật",
+      "Một lời kêu gọi hành động rõ ràng"
+    ]
+  }
+}

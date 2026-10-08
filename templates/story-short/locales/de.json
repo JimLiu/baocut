@@ -1,0 +1,41 @@
+{
+  "title": "Story-Kurzfilm",
+  "summary": "Erwecken Sie Ihre Figuren und Ihre Geschichte in einem Kurzfilm zum Leben.",
+  "description": "Eine vollständige Geschichte um eine Figur, ein Ziel und einen Konflikt, mit Wendung und Ende. Figuren, Schauplätze und Bildstil bleiben von Anfang bis Ende einheitlich.",
+  "brief": "Erstellen Sie einen Story-Kurzfilm. Hauptfigur: {{Hauptfigur}}. Ziel: {{Ziel der Figur}}. Hindernis: {{Hindernis}}. Ende: {{Ende}}.",
+  "fields": [
+    {
+      "label": "Hauptfigur",
+      "hint": "Wer die Hauptfigur ist",
+      "example": "ein kleiner Pinguin"
+    },
+    {
+      "label": "Ziel der Figur",
+      "hint": "Was die Hauptfigur will",
+      "example": "fliegen lernen"
+    },
+    {
+      "label": "Hindernis",
+      "hint": "Die Schwierigkeit, die im Weg steht",
+      "example": "Jeder Flugversuch endet mit einem Sturz"
+    },
+    {
+      "label": "Ende",
+      "hint": "Ziel erreicht, verfehlt oder auf andere Weise gelöst",
+      "example": "Im Wasser findet er seine eigene Art zu fliegen"
+    }
+  ],
+  "tags": [
+    "Geschichte",
+    "Kurzfilm",
+    "Figuren"
+  ],
+  "preview": {
+    "beats": [
+      "Die Hauptfigur und ihr Wunsch",
+      "Ein Hindernis taucht auf",
+      "Die Wendung",
+      "Ende mit Nachklang"
+    ]
+  }
+}

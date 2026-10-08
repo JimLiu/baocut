@@ -1,0 +1,29 @@
+{
+  "title": "Hoạt hình nhảy theo nhịp",
+  "summary": "Video nhảy kiểu arcade sôi động: nhân vật hoạt hình và hiệu ứng game nhịp điệu.",
+  "description": "Dùng khả năng tạo video để tạo một nhân vật hoạt hình gốc đang nhảy, rồi dùng code dựng giao diện game nhịp điệu và các hiệu ứng chạy theo nhịp.",
+  "fields": [
+    {
+      "label": "hình tượng nhân vật",
+      "hint": "Nhân vật nhảy trông như thế nào",
+      "example": "một chú mèo máy đeo tai nghe"
+    },
+    {
+      "label": "ngôn ngữ video",
+      "hint": "Ngôn ngữ cho chữ trên hình"
+    }
+  ],
+  "tags": [
+    "nhảy",
+    "game nhịp điệu",
+    "tạo video"
+  ],
+  "preview": {
+    "beats": [
+      "Nhân vật xuất hiện",
+      "Nốt nhạc rơi xuống",
+      "Combo và hiệu ứng",
+      "Tổng kết điểm tuyệt đối"
+    ]
+  }
+}

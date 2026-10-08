@@ -87,4 +87,7 @@ export const ptBR: ProtocolValidationMessages = {
   templateFieldUnused: (p: { label: string }) => `O campo "${p.label}" não é usado ({{${p.label}}})`,
   templateSlotUnclosed: "Há um {{ sem fechamento; escreva os marcadores como {{label}}",
   templateScenePromptSlots: "O prompt.md de um template de cena não pode conter marcadores {{; coloque-os em brief",
+  translationFieldsCount: (p: { count: number }) => `Deve ter tantos fields quanto o template.json (${p.count})`,
+  translationBeatsCount: (p: { count: number }) => `Deve ter tantos beats quanto o template.json (${p.count})`,
+  translationAssetUnknown: (p: { path: string }) => `Não é uma mídia listada no template.json: ${p.path}`,
 };

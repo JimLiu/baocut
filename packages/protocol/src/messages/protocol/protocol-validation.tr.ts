@@ -10,4 +10,7 @@ listSeparator: ', ', notEmpty: 'Boş olamaz', noSurroundingSpace: 'Boşlukla ba�
   templateFieldUnused: (p: { label: string }) => `"${p.label}" alanı kullanılmıyor ({{${p.label}}})`,
   templateSlotUnclosed: 'Kapanmamış {{ var; yer tutucuları {{label}} biçiminde yazın',
   templateScenePromptSlots: 'Sahne şablonunun prompt.md dosyası {{ yer tutucusu içeremez; bunları brief içine yazın',
+  translationFieldsCount: (p: { count: number }) => `template.json ile aynı sayıda fields olmalı (${p.count})`,
+  translationBeatsCount: (p: { count: number }) => `template.json ile aynı sayıda beats olmalı (${p.count})`,
+  translationAssetUnknown: (p: { path: string }) => `template.json içinde listelenen bir materyal değil: ${p.path}`,
 };

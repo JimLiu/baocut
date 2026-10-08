@@ -1,0 +1,36 @@
+{
+  "title": "Terugblik op een evenement",
+  "summary": "Monteer beelden van een evenement tot een terugblik die blijft hangen.",
+  "description": "Leg de sfeer van een workshop, bijeenkomst of lancering vast en rijg locatie, sleutelmomenten en reacties van deelnemers aaneen tot een korte terugblik met een duidelijk begin en einde.",
+  "brief": "Dit zijn foto’s en video’s van {{evenement}}. Monteer er een korte terugblik van voor {{publiek}}. Dit moet er zeker in: {{onmisbare momenten}}.",
+  "fields": [
+    {
+      "label": "evenement",
+      "hint": "Naam en datum van het evenement",
+      "example": "de leesclub van gisteren"
+    },
+    {
+      "label": "publiek",
+      "hint": "Voor wie de terugblik is en waar je hem deelt",
+      "example": "vrienden die er niet bij waren"
+    },
+    {
+      "label": "onmisbare momenten",
+      "hint": "Momenten die je beslist wilt houden; zo niet, schrijf ‘geen’",
+      "example": "de groepsfoto en het slotwoord van de presentator"
+    }
+  ],
+  "tags": [
+    "evenement",
+    "terugblik",
+    "hoogtepunten"
+  ],
+  "preview": {
+    "beats": [
+      "Locatie en sfeer neerzetten",
+      "Een paar sleutelmomenten",
+      "Reacties van deelnemers",
+      "Eindigen met wat het opleverde"
+    ]
+  }
+}

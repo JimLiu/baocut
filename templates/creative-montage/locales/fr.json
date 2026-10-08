@@ -1,0 +1,34 @@
+{
+  "title": "Montage créatif",
+  "summary": "Un montage riche, au climax en seconde partie, vitrine du montage et du code.",
+  "description": "Aucun plan répété, un habillage soigné, un son continu jusqu’à la fin, et un montage qui concentre l’intensité sur un climax plus fort en seconde partie.",
+  "fields": [
+    {
+      "label": "thème du montage",
+      "hint": "Le fil conducteur du montage",
+      "example": "une ville, de l’aube jusqu’à tard dans la nuit"
+    },
+    {
+      "label": "médias disponibles",
+      "hint": "Les médias joints ; sinon, écrivez « aucun, trouvez-les ou générez-les »",
+      "example": "aucun, trouvez-les ou générez-les"
+    },
+    {
+      "label": "langue de la vidéo",
+      "hint": "Langue du texte à l’écran et de la voix off"
+    }
+  ],
+  "tags": [
+    "mash-up",
+    "montage",
+    "rythme"
+  ],
+  "preview": {
+    "beats": [
+      "Une ouverture qui s’emballe",
+      "Des médias variés en alternance",
+      "Une montée progressive",
+      "Le climax en seconde partie"
+    ]
+  }
+}

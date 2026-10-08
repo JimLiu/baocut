@@ -1,0 +1,41 @@
+{
+  "title": "Uitlegvideo",
+  "summary": "Maak van een document, presentatie of onderwerp een goed te volgen video.",
+  "description": "Help kijkers een begrip te doorgronden met heldere uitleg en concrete voorbeelden. Orden je materiaal tot een visueel verhaal en stem de diepgang af op wat het publiek al weet.",
+  "brief": "Leg {{onderwerp}} uit aan {{publiek}} op basis van {{bronmateriaal}}, zodat ze na afloop {{leerdoel}}.",
+  "fields": [
+    {
+      "label": "bronmateriaal",
+      "hint": "Bijgevoegd document, presentatie of link; zo niet, schrijf ‘openbare bronnen’",
+      "example": "deze hand-out"
+    },
+    {
+      "label": "publiek",
+      "hint": "Wie kijkt en wat ze al weten",
+      "example": "middelbare scholieren"
+    },
+    {
+      "label": "onderwerp",
+      "hint": "Het begrip of onderwerp dat je uitlegt",
+      "example": "fotosynthese"
+    },
+    {
+      "label": "leerdoel",
+      "hint": "Wat kijkers daarna onthouden of kunnen",
+      "example": "kunnen uitleggen wat de lichtreactie en de donkerreactie elk doen"
+    }
+  ],
+  "tags": [
+    "wetenschap",
+    "uitleg",
+    "onderwijs"
+  ],
+  "preview": {
+    "beats": [
+      "Een vraag opwerpen",
+      "Kernbegrippen ontleden",
+      "Uitleg met een concreet voorbeeld",
+      "De kern samengevat"
+    ]
+  }
+}

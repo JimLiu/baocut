@@ -1,0 +1,36 @@
+{
+  "title": "Vlog kurgusu",
+  "summary": "Günlük çekimlerinizi sonuna kadar izlenecek bir vloga dönüştürün.",
+  "description": "Seyahat ya da günlük çekimleri başı, birkaç unutulmaz anı ve doğal bir kapanışı olan küçük bir hikâyeye dönüştürün. En iyi tepkileri ve ortam sesini koruyun; müzik ve altyazılar sizin temponuza uysun.",
+  "brief": "Bunlar elimdeki çekimler: {{çekimler}}. Bunlardan bir vlog kurgulayın. Üslup: {{üslup}}. Mutlaka kalması gerekenler: {{kalması gereken anlar}}.",
+  "fields": [
+    {
+      "label": "çekimler",
+      "hint": "Eklediğiniz çekimler nerede, ne yaparken çekildi",
+      "example": "hafta sonu sahilde çektiğim görüntüler"
+    },
+    {
+      "label": "üslup",
+      "hint": "İstediğiniz his",
+      "example": "rahat ve hafif"
+    },
+    {
+      "label": "kalması gereken anlar",
+      "hint": "Mutlaka kalmasını istediğiniz anlar; yoksa “yok” yazın",
+      "example": "ilk kez sörf tahtasında ayağa kalktığım an"
+    }
+  ],
+  "tags": [
+    "vlog",
+    "seyahat",
+    "günlük"
+  ],
+  "preview": {
+    "beats": [
+      "Nereye ve neden",
+      "Birkaç unutulmaz an",
+      "Gerçek tepkiler ve ortam sesi",
+      "Doğal bir kapanış"
+    ]
+  }
+}

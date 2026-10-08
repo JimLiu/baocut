@@ -1,0 +1,29 @@
+{
+  "title": "Tráiler de juego original",
+  "summary": "Un tráiler cuidado de un juego original que engancha desde el principio.",
+  "description": "Presenta un videojuego original, de su mundo y sus personajes a la jugabilidad, con varias tandas de planos rápidos y un gancho en los dos primeros segundos; listo para publicar en redes sociales.",
+  "fields": [
+    {
+      "label": "tipo de juego",
+      "hint": "Qué género y estilo tiene el juego",
+      "example": "aventura espacial en pixel art"
+    },
+    {
+      "label": "idioma del vídeo",
+      "hint": "El idioma del texto en pantalla y la narración"
+    }
+  ],
+  "tags": [
+    "videojuegos",
+    "tráiler",
+    "original"
+  ],
+  "preview": {
+    "beats": [
+      "Un gancho de dos segundos",
+      "Mundo y personajes",
+      "Lo mejor de la jugabilidad",
+      "Nombre del juego y eslogan"
+    ]
+  }
+}

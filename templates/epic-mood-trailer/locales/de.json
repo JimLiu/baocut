@@ -1,0 +1,32 @@
+{
+  "title": "Epischer Stimmungstrailer",
+  "summary": "Schnell geschnittener p5.js-Trailer in der Stimmung von Seefahrt und Heimkehr.",
+  "description": "Die Stimmung stammt von den langen Seefahrten und Heimkehren klassischer Epen. Die Bilder entstehen mit p5.js und werden zu einem schnell geschnittenen Trailer unter einer Minute mit Sprechertext und Untertiteln.",
+  "fields": [
+    {
+      "label": "Stimmungsreferenz",
+      "hint": "Gewünschte Atmosphäre oder Erzählmotiv",
+      "example": "die lange Seefahrt und Heimkehr klassischer Epen"
+    },
+    {
+      "label": "Videosprache",
+      "hint": "Sprache für Sprechertext und Untertitel"
+    }
+  ],
+  "tags": [
+    "p5.js",
+    "Trailer",
+    "Atmosphäre"
+  ],
+  "cover": {
+    "kicker": "SEEFAHRT"
+  },
+  "preview": {
+    "beats": [
+      "Meer und Sternenhimmel",
+      "Sturm und Bewährung",
+      "Der lange Heimweg",
+      "Lichter in Sicht"
+    ]
+  }
+}

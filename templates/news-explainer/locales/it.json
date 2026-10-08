@@ -1,0 +1,29 @@
+{
+  "title": "Il caso del momento, spiegato",
+  "summary": "Scegli un tema caldo recente e spiegalo in un video veloce, pieno di meme.",
+  "description": "L’agente cerca le notizie recenti, sceglie un argomento e lo accompagna con meme trovati in rete, per una spiegazione in orizzontale di circa 90 secondi. Non devi preparare materiali.",
+  "fields": [
+    {
+      "label": "settore delle notizie",
+      "hint": "Che tipo di notizie vuoi; se non hai preferenze scrivi «qualsiasi»",
+      "example": "tecnologia"
+    },
+    {
+      "label": "lingua del video",
+      "hint": "La lingua di narrazione e sottotitoli"
+    }
+  ],
+  "tags": [
+    "notizie",
+    "tendenze",
+    "spiegazione"
+  ],
+  "preview": {
+    "beats": [
+      "Il tema caldo",
+      "Antefatti e sviluppi",
+      "Meme e reazioni",
+      "Un commento finale"
+    ]
+  }
+}

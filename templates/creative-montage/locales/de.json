@@ -1,0 +1,34 @@
+{
+  "title": "Kreative Montage",
+  "summary": "Vielseitige Montage mit spätem Höhepunkt, die Können in Schnitt und Code zeigt.",
+  "description": "Keine Einstellung wiederholt sich, die Gestaltung ist edel, der Ton trägt bis zum Ende, und der Schnitt steuert auf einen stärkeren Höhepunkt in der zweiten Hälfte zu.",
+  "fields": [
+    {
+      "label": "Thema der Montage",
+      "hint": "Worum sich die Montage dreht",
+      "example": "eine Stadt vom Morgen bis tief in die Nacht"
+    },
+    {
+      "label": "Vorhandenes Material",
+      "hint": "Angehängtes Material; sonst „keines, bitte selbst suchen oder generieren“",
+      "example": "keines, bitte selbst suchen oder generieren"
+    },
+    {
+      "label": "Videosprache",
+      "hint": "Sprache für Texteinblendungen und Sprechertext"
+    }
+  ],
+  "tags": [
+    "Montage",
+    "Schnitt",
+    "Rhythmus"
+  ],
+  "preview": {
+    "beats": [
+      "Ein schneller, breiter Auftakt",
+      "Vielfältiges Material im Wechsel",
+      "Schritt für Schritt steigern",
+      "Höhepunkt in der zweiten Hälfte"
+    ]
+  }
+}

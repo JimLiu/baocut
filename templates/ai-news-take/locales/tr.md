@@ -1,0 +1,3 @@
+Güncel yapay zekâ haberlerine bakıp ilginç bir konu seçin; video platformlarında paylaşılmaya uygun, hızlı tempolu, bol esprili, yaklaşık {{süre}} uzunluğunda bir haber yorumu hazırlayın. Odak alanı: {{odak alanı}}.
+
+Video klipleri, görseller ve GIF’ler arayıp kullanabilirsiniz; lisansı kullanıma izin veren medyayı tercih edin ve kaynakları belirtin. Olguları dikkatle doğrulayın; espriler yalnızca tempoyu ayarlamak içindir, haberin kendisini çarpıtmasın. Dış ses ve altyazılar şu dilde olsun: {{video dili}}. Dış ses video boyunca tek bir sesle ve normal hızda okunsun; metin uzun gelirse sözcük çıkarın, süreye sığdırmak için hızlandırmayın.

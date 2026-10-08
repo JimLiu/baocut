@@ -1,0 +1,29 @@
+{
+  "title": "Trending news explainer",
+  "summary": "Pick a recent trending story and turn it into a fast, meme-heavy explainer.",
+  "description": "The agent looks up recent news, picks a story, and pairs it with memes it finds to make a landscape explainer of about 90 seconds. No assets needed from you.",
+  "fields": [
+    {
+      "label": "news category",
+      "hint": "Which kind of news you want; write \"any\" if you don't mind",
+      "example": "tech"
+    },
+    {
+      "label": "video language",
+      "hint": "The language for narration and subtitles"
+    }
+  ],
+  "tags": [
+    "news",
+    "trending",
+    "explainer"
+  ],
+  "preview": {
+    "beats": [
+      "Lead with the story",
+      "The backstory",
+      "Memes and reactions",
+      "A one-line take to close"
+    ]
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "title": "Tráiler de aire épico",
+  "summary": "Un tráiler de cortes rápidos hecho con p5.js sobre la travesía y el regreso.",
+  "description": "La emoción se inspira en los largos viajes por mar y el regreso a casa de las epopeyas clásicas. Las imágenes se generan con p5.js y se montan en un tráiler de cortes rápidos de menos de un minuto, con narración y subtítulos.",
+  "fields": [
+    {
+      "label": "referencia emocional",
+      "hint": "La atmósfera o el motivo narrativo que buscas",
+      "example": "los largos viajes por mar y el regreso a casa de las epopeyas clásicas"
+    },
+    {
+      "label": "idioma del vídeo",
+      "hint": "El idioma de la narración y los subtítulos"
+    }
+  ],
+  "tags": [
+    "p5.js",
+    "tráiler",
+    "atmósfera"
+  ],
+  "cover": {
+    "kicker": "TRAVESÍA"
+  },
+  "preview": {
+    "beats": [
+      "El mar y el cielo estrellado",
+      "Tormentas y pruebas",
+      "El largo camino de vuelta",
+      "Luces a la vista"
+    ]
+  }
+}

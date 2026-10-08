@@ -1,0 +1,41 @@
+{
+  "title": "Concept explainer",
+  "summary": "Turn a document, a slide deck or a topic into an easy-to-follow video.",
+  "description": "Help viewers understand a concept with clear explanations and concrete examples. Your material is shaped into a visual story, pitched to what the audience already knows.",
+  "brief": "Using {{source material}}, explain {{topic}} to {{audience}} so that afterwards they can {{learning goal}}.",
+  "fields": [
+    {
+      "label": "source material",
+      "hint": "Attached documents, slides or links; if you have none, write \"public sources\"",
+      "example": "these lecture notes"
+    },
+    {
+      "label": "audience",
+      "hint": "Who is watching and how much they already know",
+      "example": "high school students"
+    },
+    {
+      "label": "topic",
+      "hint": "The concept or topic to explain",
+      "example": "photosynthesis"
+    },
+    {
+      "label": "learning goal",
+      "hint": "What viewers should remember or be able to do afterwards",
+      "example": "describe what the light and dark reactions each do"
+    }
+  ],
+  "tags": [
+    "popular science",
+    "explainer",
+    "education"
+  ],
+  "preview": {
+    "beats": [
+      "Pose a question",
+      "Break down the key ideas",
+      "Make it click with an example",
+      "Sum up the key points"
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "title": "Ritim dans animasyonu",
+  "summary": "Atari tarzı enerjik dans videosu: animasyon karakter ve ritim oyunu efektleri.",
+  "description": "Video üretimiyle dans eden özgün bir animasyon karakter oluşturur, ardından kodla bir ritim oyunu ekranı ve vuruşları takip eden efektler kurar.",
+  "fields": [
+    {
+      "label": "karakter",
+      "hint": "Dans eden karakter neye benziyor",
+      "example": "kulaklık takan bir robot kedi"
+    },
+    {
+      "label": "video dili",
+      "hint": "Ekran metninin dili"
+    }
+  ],
+  "tags": [
+    "dans",
+    "ritim oyunu",
+    "video üretimi"
+  ],
+  "preview": {
+    "beats": [
+      "Karakter sahneye çıkar",
+      "Notalar düşer",
+      "Kombolar ve efektler",
+      "Tam puanla sonuç ekranı"
+    ]
+  }
+}

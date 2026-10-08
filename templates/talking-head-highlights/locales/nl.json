@@ -1,0 +1,36 @@
+{
+  "title": "Hoogtepunten uit een gesprek",
+  "summary": "Knip de sterkste punten uit een lange opname tot een ondertitelde korte video.",
+  "description": "Knip een lange monoloog, interview of livestream tot een gerichte korte video: een sterke opening, een volledig uitgewerkt standpunt en goed leesbare ondertitels. Haal pauzes en herhalingen weg en behoud wat de spreker bedoelde.",
+  "brief": "Dit is {{opname}}. Knip er de hoogtepunten uit, gericht op {{onderwerp}}, om te plaatsen op {{platform}}.",
+  "fields": [
+    {
+      "label": "opname",
+      "hint": "Bijgevoegde opname: hoe lang ongeveer en wat erop staat",
+      "example": "een interview van een uur"
+    },
+    {
+      "label": "onderwerp",
+      "hint": "Het standpunt of onderwerp; laat Agent kiezen met ‘kies jij maar’",
+      "example": "wat de gast vindt van thuiswerken"
+    },
+    {
+      "label": "platform",
+      "hint": "Waar het verschijnt; dat bepaalt tempo en lengte",
+      "example": "sociale media"
+    }
+  ],
+  "tags": [
+    "monoloog",
+    "interview",
+    "hoogtepunten"
+  ],
+  "preview": {
+    "beats": [
+      "Openen met de sterkste zin",
+      "Eén standpunt volledig uitgelegd",
+      "Pauzes en herhalingen eruit",
+      "Eindigen op een conclusie"
+    ]
+  }
+}

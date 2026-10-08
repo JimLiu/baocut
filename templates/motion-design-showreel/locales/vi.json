@@ -1,0 +1,29 @@
+{
+  "title": "Showreel thiết kế chuyển động",
+  "summary": "Một video đồ họa chuyển động nhịp chặt, phô diễn tay nghề thiết kế chuyển động.",
+  "description": "Biến hình, hé lộ bằng mặt nạ, chuyển động đàn hồi và chuyển cảnh khớp nhịp lần lượt xuất hiện, như phần mở đầu portfolio của một nhà thiết kế chuyển động. Phù hợp để cảm nhận khả năng làm đồ họa chuyển động của BaoCut.",
+  "fields": [
+    {
+      "label": "phong cách màu",
+      "hint": "Bảng màu hoặc phong cách hình ảnh bạn muốn",
+      "example": "nền đen phối màu huỳnh quang"
+    },
+    {
+      "label": "ngôn ngữ video",
+      "hint": "Ngôn ngữ cho chữ trên hình"
+    }
+  ],
+  "tags": [
+    "đồ họa chuyển động",
+    "portfolio",
+    "chuyển cảnh"
+  ],
+  "preview": {
+    "beats": [
+      "Khối hình học nảy vào",
+      "Chữ hé lộ qua mặt nạ",
+      "Biến hình và chuyển cảnh khớp nhịp",
+      "Khung hình kết gọn gàng"
+    ]
+  }
+}

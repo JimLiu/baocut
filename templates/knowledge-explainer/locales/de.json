@@ -1,0 +1,41 @@
+{
+  "title": "Wissen verständlich erklärt",
+  "summary": "Machen Sie aus Dokument, Folien oder Thema ein leicht verständliches Video.",
+  "description": "Helfen Sie dem Publikum mit klaren Erklärungen und konkreten Beispielen, ein Konzept zu verstehen. Ihre Unterlagen werden zu einer visuellen Erzählung, deren Tiefe sich nach dem Vorwissen des Publikums richtet.",
+  "brief": "Erstellen Sie ein Erklärvideo zum Thema {{Thema}}. Unterlagen: {{Unterlagen}}. Publikum: {{Publikum}}. Lernziel: {{Lernziel}}.",
+  "fields": [
+    {
+      "label": "Unterlagen",
+      "hint": "Angehängte Dokumente, Folien oder Links; sonst „öffentliche Quellen“",
+      "example": "dieses Handout"
+    },
+    {
+      "label": "Publikum",
+      "hint": "Wer zuschaut und was es schon weiß",
+      "example": "Oberstufenschüler"
+    },
+    {
+      "label": "Thema",
+      "hint": "Das Konzept oder Thema, das erklärt werden soll",
+      "example": "Fotosynthese"
+    },
+    {
+      "label": "Lernziel",
+      "hint": "Was das Publikum danach wissen oder können soll",
+      "example": "erklären können, was Licht- und Dunkelreaktion jeweils bewirken"
+    }
+  ],
+  "tags": [
+    "Wissen",
+    "Erklärung",
+    "Bildung"
+  ],
+  "preview": {
+    "beats": [
+      "Eine Frage aufwerfen",
+      "Schlüsselbegriffe zerlegen",
+      "Mit Beispielen veranschaulichen",
+      "Die Kernpunkte zusammenfassen"
+    ]
+  }
+}

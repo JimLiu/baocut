@@ -1,0 +1,37 @@
+{
+  "title": "Petite histoire d’une technologie",
+  "summary": "Une histoire des grands modèles de langage, rythmée et drôle, réalisée par code.",
+  "description": "Pour le grand public, des premiers modèles de langage à aujourd’hui, avec des blagues et des mèmes originaux. Aucun média à préparer : l’Agent se met directement au travail.",
+  "fields": [
+    {
+      "label": "technologie",
+      "hint": "La technologie dont retracer l’histoire",
+      "example": "les grands modèles de langage"
+    },
+    {
+      "label": "public",
+      "hint": "Qui regarde ; cela fixe le niveau de détail",
+      "example": "le grand public"
+    },
+    {
+      "label": "langue de la vidéo",
+      "hint": "Langue de la voix off et des sous-titres"
+    }
+  ],
+  "tags": [
+    "vulgarisation",
+    "histoire des technos",
+    "chronologie"
+  ],
+  "cover": {
+    "kicker": "CHRONOLOGIE"
+  },
+  "preview": {
+    "beats": [
+      "Les premiers modèles de langage",
+      "Quelques percées décisives",
+      "Ce que change le passage à l’échelle",
+      "Aujourd’hui et demain"
+    ]
+  }
+}

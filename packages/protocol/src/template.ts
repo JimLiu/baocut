@@ -6,6 +6,7 @@
  * 经 `@baocut/protocol/schemas` 导出。
  */
 
+import { DEFAULT_LOCALE, LOCALES, localeOfTag, type Locale } from './i18n.ts';
 import { ProtocolValidation as V } from './messages/protocol/protocol-validation.ts';
 
 /** 清单格式版本（`schema` 字段）。不认识的版本整份跳过（规范 §2.3）。 */
@@ -16,6 +17,8 @@ export const TEMPLATE_MANIFEST_FILE = 'template.json';
 export const TEMPLATE_PROMPT_FILE = 'prompt.md';
 /** 素材目录：清单 `assets[].path` 都在它下面。 */
 export const TEMPLATE_ASSETS_DIR = 'assets';
+/** 译文目录（规范 §3.6）：`locales/<语言>.json` 是文案，`locales/<语言>.md` 是提示词，文件名是出货语言代码的小写。 */
+export const TEMPLATE_LOCALES_DIR = 'locales';
 
 /**
  * 两类模板（规范 §1.2）：
@@ -223,7 +226,10 @@ export interface TemplateManifest {
   summary: string;
   /** 详情里的一小段。 */
   description: string;
-  /** 文案（title、summary、description、brief、fields、beats、prompt.md）的语言标签，BCP 47。不是成片的语言。 */
+  /**
+   * 文案（title、summary、description、brief、fields、beats、prompt.md）的语言标签，BCP 47。不是成片的语言。
+   * 其他语言的文案在 `locales/` 里（规范 §3.6）；`templates.*` 给出的清单已经换成挑中的那种语言，这一项随之改成它。
+   */
   language: string;
   category: TemplateCategory;
   /** 缺省为自动。scene 必填。 */
@@ -249,6 +255,71 @@ export interface TemplateManifest {
   assets?: TemplateAsset[];
   /** 最近一次的验证记录。 */
   verification?: TemplateVerification;
+}
+
+/**
+ * 一种语言的译文（`locales/<语言>.json`，规范 §3.6）：只有文案，语言无关的字段（种类、分类、画幅、时长、skills、文件、
+ * 验证记录）沿用 `template.json`。scene 必须给 `brief`、example 不得有；`fields` 与 `beats` 的项数与 `template.json` 相同，
+ * 按顺序一一对应；`kicker` 与素材的 `note` 不给时沿用 `template.json`。
+ */
+export interface TemplateTranslation {
+  title: string;
+  summary: string;
+  description: string;
+  brief?: string;
+  fields?: TemplateField[];
+  tags: string[];
+  cover?: { kicker?: string };
+  preview?: { beats?: string[] };
+  /** 素材用途说明的译文，`path` 是 `template.json` 登记过的素材。 */
+  assets?: { path: string; note: string }[];
+}
+
+/** 一种语言的两个译文文件：`locales/<语言小写>.json` 与 `.md`。 */
+export function templateTranslationFiles(locale: Locale): { text: string; prompt: string } {
+  const stem = `${TEMPLATE_LOCALES_DIR}/${locale.toLowerCase()}`;
+  return { text: `${stem}.json`, prompt: `${stem}.md` };
+}
+
+/** `locales/` 下的一个文件是哪种语言的哪一份译文；不是 `<出货语言小写>.json|md` 时为 null。 */
+export function templateTranslationFile(file: string): { locale: Locale; part: 'text' | 'prompt' } | null {
+  const match = new RegExp(`^${TEMPLATE_LOCALES_DIR}/([a-z-]+)\\.(json|md)$`).exec(file);
+  const locale = match ? LOCALES.find((l) => l.toLowerCase() === match[1]) : undefined;
+  return locale ? { locale, part: match![2] === 'json' ? 'text' : 'prompt' } : null;
+}
+
+/**
+ * 按界面语言挑模板的语言版本（规范 §3.6）：同一种出货语言，其次同一主语言的另一种写法（繁体缺译文时用简体，反之亦然），
+ * 再其次英文，都没有时用 `template.json` 本身。返回要用的译文语言；null 表示用 `template.json`。
+ */
+export function pickTemplateLanguage(baseLanguage: string, translations: readonly Locale[], wanted: string | null | undefined): Locale | null {
+  const base = localeOfTag(baseLanguage);
+  const want = localeOfTag(wanted);
+  const primary = (locale: Locale) => locale.split('-')[0];
+  const candidates = want ? [want, ...LOCALES.filter((l) => l !== want && primary(l) === primary(want))] : [];
+  for (const locale of [...candidates, DEFAULT_LOCALE]) {
+    if (locale === base) return null;
+    if (translations.includes(locale)) return locale;
+  }
+  return null;
+}
+
+/** 清单套上一种语言的译文：文案换成译文，`language` 改成它，其余字段原样。 */
+export function localizeTemplateManifest(manifest: TemplateManifest, locale: Locale, translation: TemplateTranslation): TemplateManifest {
+  const notes = new Map((translation.assets ?? []).map((a) => [a.path, a.note]));
+  return {
+    ...manifest,
+    language: locale,
+    title: translation.title,
+    summary: translation.summary,
+    description: translation.description,
+    ...(translation.brief != null ? { brief: translation.brief } : {}),
+    ...(translation.fields ? { fields: translation.fields } : {}),
+    tags: translation.tags,
+    cover: { ...manifest.cover, ...(translation.cover?.kicker != null ? { kicker: translation.cover.kicker } : {}) },
+    preview: { ...manifest.preview, ...(translation.preview?.beats ? { beats: translation.preview.beats } : {}) },
+    ...(manifest.assets ? { assets: manifest.assets.map((a) => ({ ...a, note: notes.get(a.path) ?? a.note })) } : {}),
+  };
 }
 
 /**
@@ -360,10 +431,13 @@ export interface TemplateDiagnostic {
   issues: string[];
 }
 
-/** 目录里的一个可用模板：清单原样，加上来源与随附文件的概况。 */
+/** 目录里的一个可用模板：挑中的那种语言的清单（规范 §3.6），加上来源、可选的语言与随附文件的概况。 */
 export interface TemplateSummary {
+  /** 已经换成挑中语言的清单；`manifest.language` 是实际用的语言。 */
   manifest: TemplateManifest;
   origin: TemplateOrigin;
+  /** 这个模板有哪些语言版本：`template.json` 的 `language` 在前，译文按 `LOCALES` 的顺序。 */
+  languages: string[];
   /** 有没有封面图、预览视频，带几项素材（文件都经 `templates.openHandle` 取）。 */
   files: { cover: boolean; preview: boolean; assets: number };
 }
@@ -376,7 +450,7 @@ export interface TemplateListResult {
 
 export interface TemplateDetail {
   template: TemplateSummary;
-  /** `prompt.md` 的全文。 */
+  /** 提示词全文：`prompt.md`，或挑中语言的 `locales/<语言>.md`。 */
   prompt: string;
 }
 
@@ -388,6 +462,8 @@ export interface TemplateSendRef {
   id: string;
   version?: string;
   assets?: string[];
+  /** 用哪种语言的模板文案（规范 §3.6），通常是界面语言；不给时用 Runtime 的界面语言。 */
+  language?: string;
 }
 
 /** 用户消息上的模板标记：会话里显示「模板：标题」，不含提示词正文。 */

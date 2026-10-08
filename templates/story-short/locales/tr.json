@@ -1,0 +1,41 @@
+{
+  "title": "Kısa hikâye filmi",
+  "summary": "Karakterinizi ve hikâyenizi kısa bir filmde canlandırın.",
+  "description": "Bir karakter, bir hedef ve bir çatışma etrafında eksiksiz bir hikâye kurun; dönüm noktasını ve sonu yerleştirin. Karakterler, mekânlar ve görsel üslup baştan sona tutarlı kalır.",
+  "brief": "Kısa bir hikâye filmi yapın. Ana karakter: {{ana karakter}}. Hedefi: {{karakterin hedefi}}. Engel: {{karşılaştığı engel}}. Son: {{hikâyenin sonu}}.",
+  "fields": [
+    {
+      "label": "ana karakter",
+      "hint": "Ana karakter kim",
+      "example": "küçük bir penguen"
+    },
+    {
+      "label": "karakterin hedefi",
+      "hint": "Ana karakter ne istiyor",
+      "example": "uçmayı öğrenmek"
+    },
+    {
+      "label": "karşılaştığı engel",
+      "hint": "Yolundaki zorluk",
+      "example": "birkaç kez denese de hep yere düşüyor"
+    },
+    {
+      "label": "hikâyenin sonu",
+      "hint": "Hedefe ulaşır, ulaşamaz ya da başka bir yol bulur",
+      "example": "suyun içinde kendine özgü bir uçuş buluyor"
+    }
+  ],
+  "tags": [
+    "hikâye",
+    "kısa film",
+    "karakter"
+  ],
+  "preview": {
+    "beats": [
+      "Ana karakter ve isteği",
+      "Engel belirir",
+      "Dönüm noktası",
+      "Son ve geride kalan his"
+    ]
+  }
+}

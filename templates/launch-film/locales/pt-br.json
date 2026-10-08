@@ -1,0 +1,41 @@
+{
+  "title": "Vídeo de lançamento",
+  "summary": "Apresente um novo produto com uma revelação e um próximo passo claro.",
+  "description": "Comece despertando curiosidade, avance até a revelação do produto, mostre dois ou três benefícios concretos e termine em uma imagem de marca memorável, com um próximo passo para o espectador.",
+  "brief": "Vamos lançar {{novo produto}} {{data de lançamento}}. Faça um vídeo de lançamento que destaque {{benefícios principais}}; no final, convide o espectador a {{próximo passo}}.",
+  "fields": [
+    {
+      "label": "data de lançamento",
+      "hint": "Quando chega ao mercado ou é lançado",
+      "example": "no mês que vem"
+    },
+    {
+      "label": "novo produto",
+      "hint": "O que é o produto; inclua o nome, se tiver",
+      "example": "uma luminária de mesa inteligente"
+    },
+    {
+      "label": "benefícios principais",
+      "hint": "Dois ou três benefícios que o espectador deve guardar",
+      "example": "o ajuste automático de luz e o modo foco"
+    },
+    {
+      "label": "próximo passo",
+      "hint": "O que o espectador deve fazer depois de assistir",
+      "example": "fazer a pré-reserva"
+    }
+  ],
+  "tags": [
+    "lançamento",
+    "novidade",
+    "marca"
+  ],
+  "preview": {
+    "beats": [
+      "Uma abertura que gera curiosidade",
+      "A revelação do produto",
+      "Dois ou três benefícios concretos",
+      "Imagem de marca e próximo passo"
+    ]
+  }
+}

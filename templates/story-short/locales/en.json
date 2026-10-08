@@ -1,0 +1,41 @@
+{
+  "title": "Short film",
+  "summary": "Bring your characters and story to life in a short film.",
+  "description": "Build a complete story around one character, one goal and one conflict, with a turning point and an ending. Characters, settings and visual style stay consistent from start to finish.",
+  "brief": "Make a short story film: {{main character}} wants to {{goal}}, but {{obstacle}}. In the end, {{ending}}.",
+  "fields": [
+    {
+      "label": "main character",
+      "hint": "Who the main character is",
+      "example": "a little penguin"
+    },
+    {
+      "label": "goal",
+      "hint": "What the main character wants",
+      "example": "learn to fly"
+    },
+    {
+      "label": "obstacle",
+      "hint": "The difficulty standing in the way",
+      "example": "it falls every time it tries"
+    },
+    {
+      "label": "ending",
+      "hint": "Whether the goal is reached, missed, or reached in another way",
+      "example": "it finds its own way to fly underwater"
+    }
+  ],
+  "tags": [
+    "story",
+    "short film",
+    "characters"
+  ],
+  "preview": {
+    "beats": [
+      "The hero and what they want",
+      "An obstacle appears",
+      "The turning point",
+      "An ending that lingers"
+    ]
+  }
+}

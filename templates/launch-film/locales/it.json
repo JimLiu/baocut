@@ -1,0 +1,41 @@
+{
+  "title": "Video di lancio",
+  "summary": "Presenta un nuovo prodotto con una rivelazione e un passo successivo chiaro.",
+  "description": "Da un’apertura che incuriosisce si arriva alla rivelazione del prodotto, poi a due o tre vantaggi concreti, per chiudere su un’immagine del brand facile da ricordare e un passo successivo per il pubblico.",
+  "brief": "Lanciamo {{nuovo prodotto}} {{data di lancio}}. Crea un video di lancio che metta in risalto {{vantaggi principali}} e che alla fine inviti il pubblico a {{passo successivo}}.",
+  "fields": [
+    {
+      "label": "data di lancio",
+      "hint": "Quando esce o viene presentato",
+      "example": "il mese prossimo"
+    },
+    {
+      "label": "nuovo prodotto",
+      "hint": "Cos’è il prodotto; se ha un nome, scrivilo",
+      "example": "una lampada da scrivania smart"
+    },
+    {
+      "label": "vantaggi principali",
+      "hint": "I due o tre vantaggi che il pubblico deve ricordare",
+      "example": "regolazione automatica della luce e modalità concentrazione"
+    },
+    {
+      "label": "passo successivo",
+      "hint": "Cosa vuoi che il pubblico faccia dopo la visione",
+      "example": "fare il preordine"
+    }
+  ],
+  "tags": [
+    "lancio",
+    "novità",
+    "brand"
+  ],
+  "preview": {
+    "beats": [
+      "Un’apertura che incuriosisce",
+      "La rivelazione del prodotto",
+      "Due o tre vantaggi concreti",
+      "Immagine del brand e passo successivo"
+    ]
+  }
+}

@@ -23,4 +23,5 @@ export const ru: RcTemplatesMessages = {
   cannotReadDir: (p) => `Не удалось прочитать папку шаблона (${p.code})`,
   notScene: (p) => `«${p.title}» — демонстрационный пример: вставьте запрос в поле сообщения и отправьте без прикрепления шаблона`,
   assetNotRegistered: (p) => `Шаблон «${p.id}» не содержит в списке этот материал: ${p.asset}`,
+  translationForBaseLanguage: (p: { file: string; language: string }) => `${p.file} на исходном языке шаблона (${p.language}); template.json и prompt.md уже на этом языке`,
 };

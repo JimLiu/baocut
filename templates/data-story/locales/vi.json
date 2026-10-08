@@ -1,0 +1,36 @@
+{
+  "title": "Câu chuyện dữ liệu",
+  "summary": "Kể một bảng số liệu thành câu chuyện rõ ràng, trực quan.",
+  "description": "Dẫn khán giả đi qua một câu hỏi, một biểu đồ và một kết luận. Mỗi lần chỉ đưa vào một phép so sánh; đơn vị, ngày tháng và nguồn dữ liệu luôn hiển thị, để câu chuyện chịu được kiểm chứng.",
+  "brief": "Dùng {{dữ liệu}} kể một câu chuyện dữ liệu, trả lời câu hỏi: {{câu hỏi cần trả lời}}. Người xem là {{khán giả}}.",
+  "fields": [
+    {
+      "label": "dữ liệu",
+      "hint": "Bảng, tệp đính kèm hoặc nguồn của dữ liệu",
+      "example": "bảng doanh số 5 năm gần đây này"
+    },
+    {
+      "label": "câu hỏi cần trả lời",
+      "hint": "Một câu hỏi bạn muốn khán giả hiểu rõ sau khi xem",
+      "example": "khu vực nào tăng nhanh nhất và vì sao đáng chú ý"
+    },
+    {
+      "label": "khán giả",
+      "hint": "Ai sẽ xem; quyết định nói sâu đến đâu",
+      "example": "ban lãnh đạo công ty"
+    }
+  ],
+  "tags": [
+    "dữ liệu",
+    "biểu đồ",
+    "trực quan hóa"
+  ],
+  "preview": {
+    "beats": [
+      "Một câu hỏi đáng đặt ra",
+      "Mỗi lần một phép so sánh",
+      "Phân tích nguyên nhân",
+      "Kết luận có căn cứ"
+    ]
+  }
+}

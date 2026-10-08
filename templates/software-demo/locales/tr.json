@@ -1,0 +1,41 @@
+{
+  "title": "Yazılım demosu",
+  "summary": "Yazılımınızın bir sorunu nasıl çözdüğünü adım adım gösterin.",
+  "description": "Ekran görüntüleri, ekran kayıtları ya da ürün belgeleriyle bir kullanıcı sorununu ilgili özelliğe ve sonuca bağlayın. Demo baştan sona gerçek bir kullanım akışını izler.",
+  "brief": "Şu malzemeden bir demo videosu yapın: {{kayıt veya görüntüler}}. Video, {{yazılım}} ile şu işlemin nasıl yapıldığını göstersin: {{gösterilecek işlem}}. Çözülen sorun: {{kullanıcının sorunu}}.",
+  "fields": [
+    {
+      "label": "kayıt veya görüntüler",
+      "hint": "Eklediğiniz ekran kaydı, ekran görüntüleri veya kullanım açıklaması",
+      "example": "bu ekran kaydı"
+    },
+    {
+      "label": "yazılım",
+      "hint": "Yazılımın ya da özelliğin adı",
+      "example": "muhasebe uygulamamız"
+    },
+    {
+      "label": "gösterilecek işlem",
+      "hint": "Baştan sona tek bir kullanım akışı",
+      "example": "aylık raporu üç adımda dışa aktarmak"
+    },
+    {
+      "label": "kullanıcının sorunu",
+      "hint": "Bu özellik kullanıcıyı hangi zahmetten kurtarıyor",
+      "example": "ay sonunda faturaları elle düzenlemek çok zaman alıyor"
+    }
+  ],
+  "tags": [
+    "yazılım",
+    "demo",
+    "ekran kaydı"
+  ],
+  "preview": {
+    "beats": [
+      "Kullanıcının sorunu",
+      "İlgili özelliği açmak",
+      "Önemli adımları tek tek göstermek",
+      "Elde edilen sonuç"
+    ]
+  }
+}

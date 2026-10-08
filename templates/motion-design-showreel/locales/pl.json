@@ -1,0 +1,29 @@
+{
+  "title": "Pokaz motion designu",
+  "summary": "Zwarty, dynamiczny film z grafiką animowaną – popis umiejętności motion designu.",
+  "description": "Morfing, odsłanianie maską, ruch sprężysty i przejścia w rytm muzyki następują po sobie jak w otwarciu portfolio motion designera. Dobry sposób, by poczuć, co BaoCut potrafi w grafice animowanej.",
+  "fields": [
+    {
+      "label": "kolorystyka",
+      "hint": "Pożądana kolorystyka lub styl wizualny",
+      "example": "neonowe kolory na czarnym tle"
+    },
+    {
+      "label": "język wideo",
+      "hint": "Język tekstu na ekranie"
+    }
+  ],
+  "tags": [
+    "grafika animowana",
+    "portfolio",
+    "przejścia"
+  ],
+  "preview": {
+    "beats": [
+      "Wskakujące kształty geometryczne",
+      "Tekst odsłaniany maską",
+      "Morfing i przejścia w rytm",
+      "Czysty kadr końcowy"
+    ]
+  }
+}

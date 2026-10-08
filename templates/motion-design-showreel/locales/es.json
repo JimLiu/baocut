@@ -1,0 +1,29 @@
+{
+  "title": "Muestra de diseño en movimiento",
+  "summary": "Un corto de gráficos animados con ritmo ágil que luce oficio en animación.",
+  "description": "Transformaciones, revelados con máscara, movimientos elásticos y transiciones al compás se suceden como la apertura del portafolio de un diseñador de animación. Ideal para ver de qué es capaz BaoCut con los gráficos animados.",
+  "fields": [
+    {
+      "label": "paleta de colores",
+      "hint": "La paleta o el estilo visual que buscas",
+      "example": "fondo negro con colores fluorescentes"
+    },
+    {
+      "label": "idioma del vídeo",
+      "hint": "El idioma del texto en pantalla"
+    }
+  ],
+  "tags": [
+    "gráficos animados",
+    "portafolio",
+    "transiciones"
+  ],
+  "preview": {
+    "beats": [
+      "Formas geométricas que entran rebotando",
+      "Texto revelado con máscaras",
+      "Transformaciones y transiciones al compás",
+      "Un plano final limpio"
+    ]
+  }
+}

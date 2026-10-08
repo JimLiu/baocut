@@ -1,0 +1,36 @@
+{
+  "title": "Lo mejor de una charla a cámara",
+  "summary": "Saca la idea más potente de una grabación larga en un vídeo corto subtitulado.",
+  "description": "Convierte una charla a cámara, una entrevista o un directo de larga duración en un vídeo corto y centrado: arranque potente, idea completa y subtítulos fáciles de leer. Elimina pausas y repeticiones sin cambiar lo que quiso decir quien habla.",
+  "brief": "Aquí tienes {{grabación}}. Monta un clip con lo mejor, centrado en {{tema a destacar}}, para publicar en {{destino}}.",
+  "fields": [
+    {
+      "label": "grabación",
+      "hint": "La grabación adjunta: cuánto dura y qué se grabó",
+      "example": "una entrevista de una hora"
+    },
+    {
+      "label": "tema a destacar",
+      "hint": "La idea o tema que quieres sacar; para que elija el agente, escribe «elige tú»",
+      "example": "la opinión del invitado sobre el teletrabajo"
+    },
+    {
+      "label": "destino",
+      "hint": "Dónde se publicará; define el ritmo y la duración",
+      "example": "redes sociales"
+    }
+  ],
+  "tags": [
+    "a cámara",
+    "entrevista",
+    "mejores momentos"
+  ],
+  "preview": {
+    "beats": [
+      "Arrancar con la frase más potente",
+      "Explicar una idea completa",
+      "Quitar pausas y repeticiones",
+      "Cerrar con una conclusión"
+    ]
+  }
+}

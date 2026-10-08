@@ -1,0 +1,29 @@
+{
+  "title": "Lancement d’un produit fictif",
+  "summary": "Une vidéo de lancement en UI blanche, réalisée par code pour un produit fictif.",
+  "description": "Une UI blanche, épurée et élégante, des images et des effets sonores au rythme rapide, idéale pour les réseaux sociaux. Le nom du produit, ses fonctions et son interface sont tous inventés par l’Agent.",
+  "fields": [
+    {
+      "label": "type de produit",
+      "hint": "La catégorie de produit à imaginer",
+      "example": "montre connectée"
+    },
+    {
+      "label": "langue de la vidéo",
+      "hint": "Langue du texte à l’écran"
+    }
+  ],
+  "tags": [
+    "lancement",
+    "interface",
+    "animation par code"
+  ],
+  "preview": {
+    "beats": [
+      "L’interface blanche se déploie",
+      "Les fonctions clés défilent",
+      "Gros plans sur détails et animations",
+      "Arrêt sur le nom du produit"
+    ]
+  }
+}

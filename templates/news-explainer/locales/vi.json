@@ -1,0 +1,29 @@
+{
+  "title": "Giải thích tin nóng",
+  "summary": "Chọn một tin nóng gần đây, làm video giải thích nhịp nhanh, nhiều ảnh meme.",
+  "description": "Agent tìm tin tức gần đây để chọn một chủ đề, rồi ghép với ảnh meme tìm được, làm thành video giải thích khổ ngang dài khoảng 90 giây. Không cần chuẩn bị tư liệu.",
+  "fields": [
+    {
+      "label": "lĩnh vực tin tức",
+      "hint": "Bạn muốn xem loại tin nào; không kén thì ghi “bất kỳ”",
+      "example": "công nghệ"
+    },
+    {
+      "label": "ngôn ngữ video",
+      "hint": "Ngôn ngữ cho lời dẫn và phụ đề"
+    }
+  ],
+  "tags": [
+    "tin tức",
+    "tin nóng",
+    "giải thích"
+  ],
+  "preview": {
+    "beats": [
+      "Nêu tin nóng",
+      "Đầu đuôi câu chuyện",
+      "Ảnh meme và phản ứng",
+      "Kết bằng một câu nhận xét"
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "title": "Phim ngắn chữ chuyển động",
+  "summary": "Dùng JavaScript làm một phim ngắn tối giản, ấm áp, lấy chữ làm động lực chính.",
+  "description": "Phông chữ đa phong cách, thẩm mỹ tối giản ấm áp, nhịp điệu và màu sắc phong phú, kèm nhạc nền. Cũng có thể tạo hình ảnh hoặc đoạn video để điểm xuyết.",
+  "fields": [
+    {
+      "label": "chủ đề",
+      "hint": "Video xoay quanh nội dung gì",
+      "example": "sự đổi thay của bốn mùa"
+    },
+    {
+      "label": "ngôn ngữ video",
+      "hint": "Ngôn ngữ cho chữ trên hình"
+    }
+  ],
+  "tags": [
+    "nghệ thuật chữ",
+    "phông chữ",
+    "JavaScript"
+  ],
+  "preview": {
+    "beats": [
+      "Một từ chiếm trọn khung hình",
+      "Phông chữ và độ đậm luân phiên",
+      "Màu sắc đổi theo nhịp",
+      "Kết thúc lặng lẽ"
+    ]
+  }
+}

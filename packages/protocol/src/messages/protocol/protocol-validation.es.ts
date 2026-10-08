@@ -24,4 +24,7 @@ export const es: ProtocolValidationMessages = {
   templateFieldUnused: (p: { label: string }) => `El campo «${p.label}» no se usa ({{${p.label}}})`,
   templateSlotUnclosed: 'Hay un {{ sin cerrar; escribe los marcadores como {{label}}',
   templateScenePromptSlots: 'El prompt.md de una plantilla de escena no puede contener marcadores {{; ponlos en brief',
+  translationFieldsCount: (p: { count: number }) => `Debe tener tantos fields como template.json (${p.count})`,
+  translationBeatsCount: (p: { count: number }) => `Debe tener tantos beats como template.json (${p.count})`,
+  translationAssetUnknown: (p: { path: string }) => `No es un material listado en template.json: ${p.path}`,
 };

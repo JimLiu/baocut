@@ -1,0 +1,36 @@
+{
+  "title": "Montaggio di un vlog",
+  "summary": "Monta le riprese di tutti i giorni in un vlog che si guarda fino alla fine.",
+  "description": "Trasforma i materiali di un viaggio o della vita di tutti i giorni in una piccola storia con un inizio, alcuni momenti memorabili e una chiusura naturale. Conserva le reazioni migliori e il suono ambientale, con musica e sottotitoli che seguono il tuo ritmo.",
+  "brief": "Ecco {{materiali}}. Montami un vlog dal tono {{stile}}. Da tenere assolutamente: {{momenti da tenere}}.",
+  "fields": [
+    {
+      "label": "materiali",
+      "hint": "Dove sono i materiali allegati e in che occasione li hai girati",
+      "example": "i video girati al mare nel weekend"
+    },
+    {
+      "label": "stile",
+      "hint": "L’atmosfera che vuoi",
+      "example": "leggero e rilassato"
+    },
+    {
+      "label": "momenti da tenere",
+      "hint": "I momenti da conservare per forza; se non ce ne sono scrivi «nessuno»",
+      "example": "la prima volta che riesco a stare in piedi sul surf"
+    }
+  ],
+  "tags": [
+    "vlog",
+    "viaggi",
+    "vita quotidiana"
+  ],
+  "preview": {
+    "beats": [
+      "Dove si va e perché",
+      "Alcuni momenti memorabili",
+      "Reazioni vere e suono ambientale",
+      "Una chiusura naturale"
+    ]
+  }
+}

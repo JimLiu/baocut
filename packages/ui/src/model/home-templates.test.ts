@@ -31,7 +31,7 @@ const BUILTIN: TemplateSummary[] = fs
   .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
   .map((d) => {
     const manifest = JSON.parse(fs.readFileSync(path.join(TEMPLATES_DIR, d.name, 'template.json'), 'utf8')) as TemplateManifest;
-    return { manifest, origin: 'builtin', files: { cover: false, preview: false, assets: manifest.assets?.length ?? 0 } };
+    return { manifest, origin: 'builtin', languages: [manifest.language], files: { cover: false, preview: false, assets: manifest.assets?.length ?? 0 } };
   });
 
 function summary(patch: Partial<TemplateManifest>, extra: Partial<Omit<TemplateSummary, 'manifest'>> = {}): TemplateSummary {
@@ -58,7 +58,7 @@ function summary(patch: Partial<TemplateManifest>, extra: Partial<Omit<TemplateS
     preview: { beats: ['一', '二', '三'] },
     ...patch,
   };
-  return { manifest, origin: 'user', files: { cover: false, preview: false, assets: manifest.assets?.length ?? 0 }, ...extra };
+  return { manifest, origin: 'user', languages: [manifest.language], files: { cover: false, preview: false, assets: manifest.assets?.length ?? 0 }, ...extra };
 }
 
 const catalog = templateCatalogOf(BUILTIN);
@@ -75,7 +75,7 @@ describe('目录换成界面用的形状', () => {
 
   it('时长按秒；没写的画幅、时长、示例输入是自动 / 空', () => {
     const promo = templateOf(catalog, 'promo-ad')!;
-    expect(promo).toMatchObject({ kind: 'scene', ratio: '9:16', length: 30, tone: 'magenta', figure: 'ring', kicker: 'AD' });
+    expect(promo).toMatchObject({ language: 'zh-CN', kind: 'scene', ratio: '9:16', length: 30, tone: 'magenta', figure: 'ring', kicker: 'AD' });
     expect(promo.sample).not.toBe('');
     const launch = templateOf(catalog, 'white-ui-launch')!;
     expect(launch).toMatchObject({ kind: 'example', ratio: null, length: null, sample: '', brief: '' });

@@ -1,0 +1,36 @@
+{
+  "title": "Cortes de vídeo falado",
+  "summary": "Ache a ideia mais forte de uma gravação longa e faça um vídeo curto legendado.",
+  "description": "Edite um vídeo falado, uma entrevista ou uma live longa em um curta focado: abertura forte, ideia completa e legendas fáceis de ler. Remova pausas e repetições sem mudar o sentido do que a pessoa disse.",
+  "brief": "Aqui está {{gravação}}. Edite um corte com os melhores momentos para publicar em {{onde publicar}}. Foco: {{tema central}}.",
+  "fields": [
+    {
+      "label": "gravação",
+      "hint": "A gravação anexada: quanto dura e o que foi gravado",
+      "example": "uma entrevista de uma hora"
+    },
+    {
+      "label": "tema central",
+      "hint": "A ideia ou o tema a extrair; para o agente escolher, escreva “você escolhe”",
+      "example": "a opinião do convidado sobre trabalho remoto"
+    },
+    {
+      "label": "onde publicar",
+      "hint": "Onde será publicado; isso define o ritmo e a duração",
+      "example": "redes sociais"
+    }
+  ],
+  "tags": [
+    "vídeo falado",
+    "entrevista",
+    "melhores momentos"
+  ],
+  "preview": {
+    "beats": [
+      "Abrir com a frase mais forte",
+      "Uma ideia explicada por inteiro",
+      "Sem pausas nem repetições",
+      "Fechar com uma conclusão"
+    ]
+  }
+}

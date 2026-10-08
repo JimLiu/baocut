@@ -102,6 +102,9 @@ const en = {
   templateFieldUnused: (p: { label: string }) => `Field "${p.label}" isn't used as {{${p.label}}}`,
   templateSlotUnclosed: "There's a {{ that isn't closed; write placeholders as {{label}}",
   templateScenePromptSlots: "A scene template's prompt.md can't contain {{ placeholders; put them in brief",
+  translationFieldsCount: (p: { count: number }) => `Must have as many fields as template.json (${p.count})`,
+  translationBeatsCount: (p: { count: number }) => `Must have as many beats as template.json (${p.count})`,
+  translationAssetUnknown: (p: { path: string }) => `Not an asset listed in template.json: ${p.path}`,
 };
 
 export type ProtocolValidationMessages = typeof en;

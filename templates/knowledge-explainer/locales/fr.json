@@ -1,0 +1,41 @@
+{
+  "title": "Vidéo explicative",
+  "summary": "Transformez un document, des diapositives ou un sujet en vidéo facile à suivre.",
+  "description": "Aidez le public à comprendre un concept grâce à des explications claires et des exemples concrets. Vos documents deviennent un récit visuel, au niveau adapté à ce que le public sait déjà.",
+  "brief": "En vous appuyant sur {{sources}}, expliquez clairement {{sujet}} pour {{public}}. À la fin, ils doivent savoir {{objectif}}.",
+  "fields": [
+    {
+      "label": "sources",
+      "hint": "Documents, diapositives ou liens ; sinon, écrivez « des sources publiques »",
+      "example": "ce support de cours"
+    },
+    {
+      "label": "public",
+      "hint": "Qui regarde, et ce qu’il sait déjà",
+      "example": "des lycéens"
+    },
+    {
+      "label": "sujet",
+      "hint": "Le concept ou le sujet à expliquer",
+      "example": "la photosynthèse"
+    },
+    {
+      "label": "objectif",
+      "hint": "Ce que le public doit retenir ou savoir faire à la fin",
+      "example": "dire à quoi servent la phase lumineuse et la phase sombre"
+    }
+  ],
+  "tags": [
+    "vulgarisation",
+    "explication",
+    "éducation"
+  ],
+  "preview": {
+    "beats": [
+      "Poser une question",
+      "Décomposer les notions clés",
+      "Un exemple concret pour tout éclairer",
+      "Résumer l’essentiel"
+    ]
+  }
+}

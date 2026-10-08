@@ -1,0 +1,3 @@
+Créez un court film de motion design de 15 secondes, au rythme serré, qui montre ce dont un excellent motion designer est capable.
+
+Changez de technique toutes les deux ou trois secondes, par exemple morphing, révélation par masque, mouvement élastique ou transition calée sur le rythme, tout en gardant des couleurs et une typographie cohérentes. Palette : {{palette}}. L’ensemble doit ressembler à l’ouverture d’un portfolio. Terminez sur une image épurée. Vous pouvez générer la musique et les effets sonores, pour caler les mouvements sur le tempo. S’il y a du texte à l’écran, il est en {{langue de la vidéo}}.

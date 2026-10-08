@@ -1,0 +1,41 @@
+{
+  "title": "Video esplicativo",
+  "summary": "Trasforma un documento, delle slide o un argomento in un video facile da capire.",
+  "description": "Aiuta il pubblico a capire un concetto con spiegazioni chiare ed esempi concreti. Organizza i tuoi materiali in un racconto visivo e regola la profondità su ciò che il pubblico sa già.",
+  "brief": "Usa {{materiali}} per spiegare {{argomento}} in un video pensato per {{pubblico}}. Alla fine, chi guarda dovrà saper {{obiettivo}}.",
+  "fields": [
+    {
+      "label": "materiali",
+      "hint": "Documenti, slide o link allegati; se non ne hai scrivi «fonti pubbliche»",
+      "example": "queste dispense"
+    },
+    {
+      "label": "pubblico",
+      "hint": "Chi guarda e quanto ne sa già",
+      "example": "studenti delle superiori"
+    },
+    {
+      "label": "argomento",
+      "hint": "Il concetto o l’argomento da spiegare",
+      "example": "la fotosintesi"
+    },
+    {
+      "label": "obiettivo",
+      "hint": "Cosa il pubblico deve ricordare o saper fare alla fine",
+      "example": "dire cosa fanno la fase luminosa e la fase oscura"
+    }
+  ],
+  "tags": [
+    "divulgazione",
+    "spiegazione",
+    "didattica"
+  ],
+  "preview": {
+    "beats": [
+      "Una domanda iniziale",
+      "Scomporre i concetti chiave",
+      "Un esempio concreto",
+      "Riepilogo dei punti chiave"
+    ]
+  }
+}

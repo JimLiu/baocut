@@ -1,0 +1,41 @@
+{
+  "title": "Lanceringsvideo",
+  "summary": "Stel een nieuw product voor met een onthulling en een duidelijke volgende stap.",
+  "description": "Ga van een opening die nieuwsgierig maakt naar de onthulling van het product, bespreek twee of drie concrete voordelen en eindig op een merkbeeld dat blijft hangen en een volgende stap voor de kijker.",
+  "brief": "We lanceren {{lanceringsmoment}} {{nieuw product}}. Maak een lanceringsvideo die {{belangrijkste voordelen}} benadrukt en kijkers aan het eind uitnodigt tot {{volgende stap}}.",
+  "fields": [
+    {
+      "label": "lanceringsmoment",
+      "hint": "Wanneer het product uitkomt of wordt gelanceerd",
+      "example": "volgende maand"
+    },
+    {
+      "label": "nieuw product",
+      "hint": "Wat het product is; noem de naam als die er is",
+      "example": "een slimme bureaulamp"
+    },
+    {
+      "label": "belangrijkste voordelen",
+      "hint": "Twee of drie voordelen die kijkers moeten onthouden",
+      "example": "automatisch dimmen en een focusmodus"
+    },
+    {
+      "label": "volgende stap",
+      "hint": "Wat kijkers daarna moeten doen",
+      "example": "een pre-order"
+    }
+  ],
+  "tags": [
+    "lancering",
+    "nieuw product",
+    "merk"
+  ],
+  "preview": {
+    "beats": [
+      "Een opening die nieuwsgierig maakt",
+      "Het product wordt onthuld",
+      "Twee of drie concrete voordelen",
+      "Merkbeeld en volgende stap"
+    ]
+  }
+}

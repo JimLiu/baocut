@@ -1,0 +1,41 @@
+{
+  "title": "Product launch film",
+  "summary": "Introduce a new product with a reveal and a clear next step.",
+  "description": "Move from an intriguing opening to the product reveal, cover two or three concrete benefits, and end on a memorable brand shot with a next step for viewers.",
+  "brief": "We're launching {{new product}} {{launch timing}}. Make a launch film that highlights {{key benefits}} and ends by prompting viewers to {{next step}}.",
+  "fields": [
+    {
+      "label": "launch timing",
+      "hint": "When it goes on sale or launches",
+      "example": "next month"
+    },
+    {
+      "label": "new product",
+      "hint": "What the product is; include its name if it has one",
+      "example": "a smart desk lamp"
+    },
+    {
+      "label": "key benefits",
+      "hint": "The two or three benefits you most want viewers to remember",
+      "example": "auto-dimming and focus mode"
+    },
+    {
+      "label": "next step",
+      "hint": "What you want viewers to do afterwards",
+      "example": "reserve one for launch day"
+    }
+  ],
+  "tags": [
+    "launch",
+    "new product",
+    "brand"
+  ],
+  "preview": {
+    "beats": [
+      "An intriguing opening",
+      "The product reveal",
+      "Two or three concrete benefits",
+      "Brand shot and next step"
+    ]
+  }
+}

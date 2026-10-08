@@ -1,0 +1,34 @@
+{
+  "title": "Montaje creativo",
+  "summary": "Un montaje variado con el clímax al final que luce edición y programación.",
+  "description": "Sin planos repetidos, con un acabado visual cuidado y un sonido que se mantiene hasta el final; el peso del montaje recae en un clímax más intenso en la segunda mitad.",
+  "fields": [
+    {
+      "label": "tema del montaje",
+      "hint": "En torno a qué gira el montaje",
+      "example": "una ciudad desde el amanecer hasta la madrugada"
+    },
+    {
+      "label": "material disponible",
+      "hint": "El material adjunto; si no tienes, escribe «ninguno, búscalo o genéralo tú»",
+      "example": "ninguno, búscalo o genéralo tú"
+    },
+    {
+      "label": "idioma del vídeo",
+      "hint": "El idioma del texto en pantalla y la narración"
+    }
+  ],
+  "tags": [
+    "montaje",
+    "edición",
+    "ritmo"
+  ],
+  "preview": {
+    "beats": [
+      "Un arranque que se despliega rápido",
+      "Materiales variados que se alternan",
+      "Una tensión que sube por capas",
+      "El clímax en la segunda mitad"
+    ]
+  }
+}

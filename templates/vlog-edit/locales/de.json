@@ -1,0 +1,36 @@
+{
+  "title": "Vlog-Schnitt",
+  "summary": "Schneiden Sie Alltagsaufnahmen zu einem Vlog, den man bis zum Ende schaut.",
+  "description": "Reise- oder Alltagsmaterial wird zu einer kleinen Geschichte mit Anfang, einigen unvergesslichen Momenten und einem natürlichen Ende. Die besten Reaktionen und der Umgebungston bleiben erhalten; Musik und Untertitel folgen Ihrem Rhythmus.",
+  "brief": "Hier ist mein Material: {{Material}}. Schneiden Sie daraus einen Vlog. Stil: {{Stil}}. Unbedingt behalten: {{Pflichtszenen}}.",
+  "fields": [
+    {
+      "label": "Material",
+      "hint": "Wo und wobei das angehängte Material entstand",
+      "example": "Aufnahmen vom Wochenende am Meer"
+    },
+    {
+      "label": "Stil",
+      "hint": "Das gewünschte Gefühl",
+      "example": "eher locker"
+    },
+    {
+      "label": "Pflichtszenen",
+      "hint": "Momente, die unbedingt drin sein sollen; sonst „keine“",
+      "example": "der Moment, in dem ich zum ersten Mal auf dem Surfbrett stehe"
+    }
+  ],
+  "tags": [
+    "Vlog",
+    "Reise",
+    "Alltag"
+  ],
+  "preview": {
+    "beats": [
+      "Wohin es geht und warum",
+      "Einige unvergessliche Momente",
+      "Echte Reaktionen und Umgebungston",
+      "Ein natürliches Ende"
+    ]
+  }
+}

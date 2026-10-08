@@ -1,0 +1,41 @@
+{
+  "title": "Curta narrativo",
+  "summary": "Dê vida aos seus personagens e à sua história em um curta.",
+  "description": "Construa uma história completa em torno de um personagem, um objetivo e um conflito, com reviravolta e desfecho. Personagens, cenários e estilo visual se mantêm consistentes do início ao fim.",
+  "brief": "Faça um curta narrativo: {{protagonista}} quer {{objetivo do protagonista}}, mas {{obstáculo}}; no fim, {{desfecho}}.",
+  "fields": [
+    {
+      "label": "protagonista",
+      "hint": "Quem é o protagonista",
+      "example": "um pequeno pinguim"
+    },
+    {
+      "label": "objetivo do protagonista",
+      "hint": "O que o protagonista quer",
+      "example": "aprender a voar"
+    },
+    {
+      "label": "obstáculo",
+      "hint": "A dificuldade que aparece no caminho",
+      "example": "cai toda vez que tenta"
+    },
+    {
+      "label": "desfecho",
+      "hint": "O objetivo é alcançado, fracassa ou é alcançado de outro jeito",
+      "example": "descobre o próprio jeito de voar debaixo d’água"
+    }
+  ],
+  "tags": [
+    "história",
+    "curta",
+    "personagens"
+  ],
+  "preview": {
+    "beats": [
+      "O protagonista e o que ele quer",
+      "Surge um obstáculo",
+      "A reviravolta",
+      "O desfecho e o que fica"
+    ]
+  }
+}

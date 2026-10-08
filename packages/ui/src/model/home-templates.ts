@@ -35,6 +35,11 @@ export type { TemplateSourceKey } from '../copy.ts';
 export interface HomeTemplate {
   id: string;
   version: string;
+  /**
+   * 文案的语言：Runtime 按界面语言挑出的语言版本（模板包规范 §3.6），没有译文时是清单原文的语言。
+   * 取提示词、发送时都照它要，和卡片上看到的是同一版本。
+   */
+  language: string;
   kind: TemplateKind;
   /** 分类键（规范 §3.2）；认不出的键照样留着，显示名有兜底。 */
   category: string;
@@ -104,6 +109,7 @@ export function homeTemplateOf(summary: TemplateSummary): HomeTemplate {
   return {
     id: m.id,
     version: m.version,
+    language: m.language,
     kind: m.kind,
     category: m.category,
     source: sourceKey(summary),

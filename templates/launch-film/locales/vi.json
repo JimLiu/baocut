@@ -1,0 +1,41 @@
+{
+  "title": "Phim ra mắt sản phẩm",
+  "summary": "Giới thiệu sản phẩm mới bằng một màn hé lộ và một bước tiếp theo rõ ràng.",
+  "description": "Đi từ phần mở đầu gợi tò mò đến màn hé lộ sản phẩm, rồi nói hai ba lợi ích cụ thể, cuối cùng dừng ở một hình ảnh thương hiệu dễ nhớ và một bước tiếp theo cho khán giả.",
+  "brief": "Chúng tôi ra mắt {{sản phẩm mới}} vào {{thời điểm ra mắt}}. Hãy làm một phim ra mắt, làm nổi bật {{lợi ích chính}}, cuối phim kêu gọi khán giả {{bước tiếp theo}}.",
+  "fields": [
+    {
+      "label": "thời điểm ra mắt",
+      "hint": "Khi nào lên kệ hoặc ra mắt",
+      "example": "tháng sau"
+    },
+    {
+      "label": "sản phẩm mới",
+      "hint": "Sản phẩm là gì; có tên thì ghi tên",
+      "example": "một chiếc đèn bàn thông minh"
+    },
+    {
+      "label": "lợi ích chính",
+      "hint": "Hai ba lợi ích bạn muốn khán giả nhớ nhất",
+      "example": "tự điều chỉnh độ sáng và chế độ tập trung"
+    },
+    {
+      "label": "bước tiếp theo",
+      "hint": "Bạn muốn khán giả làm gì sau khi xem",
+      "example": "đặt trước đợt mở bán đầu tiên"
+    }
+  ],
+  "tags": [
+    "ra mắt",
+    "sản phẩm mới",
+    "thương hiệu"
+  ],
+  "preview": {
+    "beats": [
+      "Mở đầu gợi tò mò",
+      "Hé lộ sản phẩm",
+      "Hai ba lợi ích cụ thể",
+      "Hình ảnh thương hiệu và bước tiếp theo"
+    ]
+  }
+}

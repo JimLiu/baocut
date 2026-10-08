@@ -1,0 +1,37 @@
+{
+  "title": "Lược sử công nghệ",
+  "summary": "Dùng code làm video lược sử mô hình ngôn ngữ lớn, nhịp nhanh, có điểm gây cười.",
+  "description": "Dành cho khán giả phổ thông, kể từ những mô hình ngôn ngữ đầu tiên đến ngày nay, xen những điểm gây cười và meme tự sáng tác. Không cần chuẩn bị tư liệu, Agent bắt tay làm ngay.",
+  "fields": [
+    {
+      "label": "công nghệ",
+      "hint": "Kể đầu đuôi của công nghệ nào",
+      "example": "mô hình ngôn ngữ lớn"
+    },
+    {
+      "label": "khán giả",
+      "hint": "Ai sẽ xem; quyết định nói sâu đến đâu",
+      "example": "khán giả phổ thông"
+    },
+    {
+      "label": "ngôn ngữ video",
+      "hint": "Ngôn ngữ cho lời dẫn và phụ đề"
+    }
+  ],
+  "tags": [
+    "phổ biến kiến thức",
+    "lịch sử công nghệ",
+    "dòng thời gian"
+  ],
+  "cover": {
+    "kicker": "DÒNG THỜI GIAN"
+  },
+  "preview": {
+    "beats": [
+      "Những mô hình ngôn ngữ đầu tiên",
+      "Vài bước đột phá then chốt",
+      "Thay đổi nhờ quy mô",
+      "Hôm nay và sắp tới"
+    ]
+  }
+}

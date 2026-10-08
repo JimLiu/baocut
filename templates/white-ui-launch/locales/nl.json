@@ -1,0 +1,29 @@
+{
+  "title": "Fictieve productlancering",
+  "summary": "Maak met code een lanceringsvideo in witte UI-stijl voor een fictief product.",
+  "description": "Een strakke, mooie witte UI met snelle beelden en geluidseffecten, geschikt voor sociale media. Productnaam, functies en interface bedenkt Agent zelf.",
+  "fields": [
+    {
+      "label": "producttype",
+      "hint": "Wat voor soort product je verzint",
+      "example": "smartwatch"
+    },
+    {
+      "label": "taal van de video",
+      "hint": "De taal voor tekst in beeld"
+    }
+  ],
+  "tags": [
+    "lancering",
+    "interface",
+    "code-animatie"
+  ],
+  "preview": {
+    "beats": [
+      "De witte interface ontvouwt zich",
+      "Kernfuncties in snel tempo",
+      "Close-ups van details en animatie",
+      "De productnaam blijft staan"
+    ]
+  }
+}

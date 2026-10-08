@@ -25,4 +25,5 @@ export const ja: RcTemplatesMessages = {
   notScene: (p) =>
     `「${p.title}」は作品例です：テンプレートを添付せずに、プロンプトをメッセージ欄に入れて送信してください`,
   assetNotRegistered: (p) => `テンプレート「${p.id}」にこの素材は記載されていません：${p.asset}`,
+  translationForBaseLanguage: (p: { file: string; language: string }) => `${p.file} はテンプレート本来の言語（${p.language}）と同じです。template.json と prompt.md がすでにこの言語です`,
 };

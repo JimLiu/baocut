@@ -1,0 +1,36 @@
+{
+  "title": "Montage de vlog",
+  "summary": "Montez vos images du quotidien en un vlog qu’on regarde jusqu’au bout.",
+  "description": "Transformez des images de voyage ou du quotidien en une petite histoire, avec un début, quelques moments mémorables et une fin naturelle. Gardez les meilleures réactions et le son d’ambiance, avec une musique et des sous-titres à votre rythme.",
+  "brief": "Voici {{médias}}. Montez-en un vlog, avec un ton {{ton}}. À garder absolument : {{passages à garder}}.",
+  "fields": [
+    {
+      "label": "médias",
+      "hint": "Où et à quelle occasion les médias joints ont été filmés",
+      "example": "les images de notre week-end à la mer"
+    },
+    {
+      "label": "ton",
+      "hint": "L’ambiance recherchée",
+      "example": "plutôt détendu"
+    },
+    {
+      "label": "passages à garder",
+      "hint": "Les moments à garder absolument ; sinon, écrivez « aucun »",
+      "example": "ma première fois debout sur la planche de surf"
+    }
+  ],
+  "tags": [
+    "vlog",
+    "voyage",
+    "quotidien"
+  ],
+  "preview": {
+    "beats": [
+      "Où l’on va, et pourquoi",
+      "Quelques moments mémorables",
+      "Vraies réactions et son d’ambiance",
+      "Une fin naturelle"
+    ]
+  }
+}

@@ -1,0 +1,3 @@
+Haz con código un corto horizontal llamativo y fácil de compartir, de aproximadamente {{duración}}: una bola rebota dentro de anillos concéntricos que giran; cuando da con un hueco, salta al anillo exterior; los anillos van desapareciendo uno a uno hasta que escapa del todo.
+
+El movimiento físico debe ser realista y previsible, pero con algo de suspense, y el ritmo cada vez más rápido. Usa estos colores: {{colores}}. Acompaña cada choque con un efecto de sonido nítido (sintetiza también los efectos con código en el instante de cada choque, sin depender de la generación de efectos de sonido) y termina con un cierre satisfactorio.

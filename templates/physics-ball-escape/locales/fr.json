@@ -1,0 +1,30 @@
+{
+  "title": "Animation physique anti-stress",
+  "summary": "Une balle s’échappe d’anneaux successifs : une animation par code qui détend.",
+  "description": "Une balle rebondit dans des anneaux concentriques en rotation, ouvre une brèche et s’échappe : un mouvement physique réaliste et plein de suspense. Entièrement généré par code, idéal pour une courte vidéo horizontale qu’on a envie de revoir en boucle.",
+  "fields": [
+    {
+      "label": "durée",
+      "hint": "Durée approximative de la vidéo",
+      "example": "30 secondes"
+    },
+    {
+      "label": "palette",
+      "hint": "Les couleurs souhaitées ; plus elles sont vives, plus ça accroche",
+      "example": "néons vifs sur fond noir"
+    }
+  ],
+  "tags": [
+    "physique",
+    "animation par code",
+    "anti-stress"
+  ],
+  "preview": {
+    "beats": [
+      "La balle rebondit au centre",
+      "Une première brèche s’ouvre",
+      "Les anneaux disparaissent un à un",
+      "L’évasion complète"
+    ]
+  }
+}

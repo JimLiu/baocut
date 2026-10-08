@@ -1,0 +1,36 @@
+{
+  "title": "Récit de données",
+  "summary": "Transformez un tableau en un récit clair et parlant.",
+  "description": "Guidez le public à travers une question, un graphique et une conclusion. Une seule comparaison à la fois ; unités, dates et sources restent visibles pour que l’histoire résiste à la vérification.",
+  "brief": "Racontez une histoire de données qui répond à cette question : {{question}}. Données : {{données}}. Public : {{public}}.",
+  "fields": [
+    {
+      "label": "données",
+      "hint": "Le tableau ou fichier joint, ou la source des données",
+      "example": "ce fichier des ventes des cinq dernières années"
+    },
+    {
+      "label": "question",
+      "hint": "La question que le public doit avoir comprise à la fin",
+      "example": "quelle région progresse le plus vite, et pourquoi c’est important"
+    },
+    {
+      "label": "public",
+      "hint": "Qui regarde ; cela fixe le niveau de détail",
+      "example": "la direction de l’entreprise"
+    }
+  ],
+  "tags": [
+    "données",
+    "graphiques",
+    "visualisation"
+  ],
+  "preview": {
+    "beats": [
+      "Une question qui mérite d’être posée",
+      "Une comparaison à la fois",
+      "Décortiquer les causes",
+      "Une conclusion étayée"
+    ]
+  }
+}

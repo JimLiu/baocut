@@ -21,8 +21,8 @@ export function templateMethods(deps: {
 }): Pick<RpcHandlers['methods'], TemplateMethod> {
   const { templates, media, harness, skills } = deps;
   return {
-    'templates.list': () => templates.list(),
-    'templates.get': (p) => templates.get(p.id),
+    'templates.list': (p) => templates.list(p.language),
+    'templates.get': (p) => templates.get(p.id, p.language),
     'templates.openHandle': async (p) => {
       const { root, file } = await templates.locate(p.id, p.path);
       return media.issue(root, file);

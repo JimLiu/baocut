@@ -1,0 +1,36 @@
+{
+  "title": "Data story",
+  "summary": "Turn a spreadsheet into a clear, intuitive story.",
+  "description": "Walk viewers through a question, a chart and a conclusion. Introduce one comparison at a time and keep units, dates and data sources visible, so the story holds up to checking.",
+  "brief": "Use {{data}} to tell a data story that answers {{key question}}. The audience is {{audience}}.",
+  "fields": [
+    {
+      "label": "data",
+      "hint": "Attached spreadsheets or files, or where the data comes from",
+      "example": "this sales data from the past five years"
+    },
+    {
+      "label": "key question",
+      "hint": "The one question viewers should have answered by the end",
+      "example": "which region grew fastest and why it matters"
+    },
+    {
+      "label": "audience",
+      "hint": "Who is watching; this sets how deep to go",
+      "example": "the company's leadership"
+    }
+  ],
+  "tags": [
+    "data",
+    "charts",
+    "visualization"
+  ],
+  "preview": {
+    "beats": [
+      "A question worth asking",
+      "One comparison at a time",
+      "Breaking down the causes",
+      "A well-grounded conclusion"
+    ]
+  }
+}

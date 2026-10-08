@@ -1,0 +1,41 @@
+{
+  "title": "Vídeo promocional",
+  "summary": "Transforme seu produto ou serviço em um vídeo promocional que leve à ação.",
+  "description": "Alcance seu público com um começo que prende, uma demonstração real e uma chamada para ação clara. Use as fotos, os vídeos ou a descrição do produto que você já tem, destaque benefícios reais e leve o espectador a comprar, se inscrever ou entrar em contato.",
+  "brief": "Faça um vídeo promocional para divulgar {{produto ou serviço}}, com o objetivo de {{ação desejada}}. Público: {{público}}. Materiais: {{materiais disponíveis}}.",
+  "fields": [
+    {
+      "label": "produto ou serviço",
+      "hint": "O que você quer promover",
+      "example": "nossas aulas de ioga on-line"
+    },
+    {
+      "label": "ação desejada",
+      "hint": "Escolha só uma ação: comprar, se inscrever ou entrar em contato",
+      "example": "fazer novos usuários se inscreverem em uma aula experimental grátis"
+    },
+    {
+      "label": "público",
+      "hint": "Quem vai ver e o que importa para essas pessoas",
+      "example": "profissionais que querem se exercitar em casa"
+    },
+    {
+      "label": "materiais disponíveis",
+      "hint": "Fotos, vídeos ou descrição do produto anexados; se não tiver, escreva “nenhum”",
+      "example": "a descrição do curso e alguns vídeos das aulas"
+    }
+  ],
+  "tags": [
+    "anúncio",
+    "promoção",
+    "conversão"
+  ],
+  "preview": {
+    "beats": [
+      "Prender a atenção em dois segundos",
+      "Nomear o problema do público",
+      "Mostrar diferenciais reais",
+      "Uma chamada para ação clara"
+    ]
+  }
+}

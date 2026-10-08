@@ -1,0 +1,41 @@
+{
+  "title": "Phim ngắn kể chuyện",
+  "summary": "Thổi hồn vào nhân vật và câu chuyện của bạn trong một phim ngắn.",
+  "description": "Dựng một câu chuyện trọn vẹn xoay quanh một nhân vật, một mục tiêu và một xung đột, sắp đặt bước ngoặt và kết cục. Nhân vật, bối cảnh và phong cách hình ảnh nhất quán từ đầu đến cuối.",
+  "brief": "Làm một phim ngắn kể chuyện: {{nhân vật chính}} muốn {{mục tiêu của nhân vật}}, nhưng {{trở ngại gặp phải}}, cuối cùng {{kết cục}}.",
+  "fields": [
+    {
+      "label": "nhân vật chính",
+      "hint": "Nhân vật chính là ai",
+      "example": "một chú chim cánh cụt nhỏ"
+    },
+    {
+      "label": "mục tiêu của nhân vật",
+      "hint": "Nhân vật chính muốn gì",
+      "example": "học bay"
+    },
+    {
+      "label": "trở ngại gặp phải",
+      "hint": "Khó khăn chắn đường",
+      "example": "thử mấy lần đều ngã xuống"
+    },
+    {
+      "label": "kết cục",
+      "hint": "Đạt được mục tiêu, thất bại, hay tìm ra một cách khác",
+      "example": "nó tìm thấy cách bay của riêng mình ở dưới nước"
+    }
+  ],
+  "tags": [
+    "câu chuyện",
+    "phim ngắn",
+    "nhân vật"
+  ],
+  "preview": {
+    "beats": [
+      "Nhân vật chính và điều mong muốn",
+      "Trở ngại xuất hiện",
+      "Bước ngoặt",
+      "Kết cục và dư vị"
+    ]
+  }
+}

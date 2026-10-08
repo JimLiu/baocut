@@ -23,4 +23,5 @@ export const zhHans: RcTemplatesMessages = {
   cannotReadDir: (p) => `读不了模板目录（${p.code}）`,
   notScene: (p) => `「${p.title}」是作品示例：把它的提示词放进输入框直接发送，不用挂模板`,
   assetNotRegistered: (p) => `模板「${p.id}」没有登记这个素材：${p.asset}`,
+  translationForBaseLanguage: (p: { file: string; language: string }) => `${p.file} 与模板本身的语言（${p.language}）相同，template.json 与 prompt.md 已经是这种语言`,
 };

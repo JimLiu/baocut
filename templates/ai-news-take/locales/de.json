@@ -1,0 +1,34 @@
+{
+  "title": "KI-News, schnell kommentiert",
+  "summary": "Eine aktuelle KI-Meldung als schneller Kommentar voller Memes.",
+  "description": "Der Agent recherchiert aktuelle KI-News, wählt ein Thema und kombiniert es mit gefundenen Clips, Bildern und GIFs zu einem lockeren, unterhaltsamen News-Kommentar.",
+  "fields": [
+    {
+      "label": "Schwerpunkt",
+      "hint": "Welche Art von KI-News Sie interessiert; sonst „beliebig“",
+      "example": "Open-Source-Modelle"
+    },
+    {
+      "label": "Dauer",
+      "hint": "Ungefähre Länge des Videos",
+      "example": "eine Minute"
+    },
+    {
+      "label": "Videosprache",
+      "hint": "Sprache für Sprechertext und Untertitel"
+    }
+  ],
+  "tags": [
+    "News",
+    "KI",
+    "Kommentar"
+  ],
+  "preview": {
+    "beats": [
+      "Was passiert ist, in einem Satz",
+      "Die wichtigsten Details",
+      "Memes und Reaktionen",
+      "Warum es wichtig ist"
+    ]
+  }
+}

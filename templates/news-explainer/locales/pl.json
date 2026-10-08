@@ -1,0 +1,29 @@
+{
+  "title": "Gorący temat na wesoło",
+  "summary": "Wybierz świeży gorący temat i zrób dynamiczne objaśnienie z mnóstwem memów.",
+  "description": "Agent wyszukuje najnowsze wiadomości, wybiera temat i dobiera znalezione memy, tworząc poziome objaśnienie trwające około 90 sekund. Nie musisz przygotowywać materiałów.",
+  "fields": [
+    {
+      "label": "dziedzina wiadomości",
+      "hint": "Jakie wiadomości Cię interesują; jeśli to bez znaczenia, wpisz „dowolna”",
+      "example": "technologia"
+    },
+    {
+      "label": "język wideo",
+      "hint": "Język narracji i napisów"
+    }
+  ],
+  "tags": [
+    "wiadomości",
+    "na czasie",
+    "objaśnienie"
+  ],
+  "preview": {
+    "beats": [
+      "Gorący temat",
+      "Skąd się to wzięło",
+      "Memy i reakcje",
+      "Komentarz na koniec"
+    ]
+  }
+}

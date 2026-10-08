@@ -1,47 +1,61 @@
-import type { MediaHandle } from '@baocut/protocol';
+import { getLocale, type Locale, type MediaHandle } from '@baocut/protocol';
 import { useTemplateCatalog } from '../state/template-catalog-store.ts';
 import type { RuntimeSession } from './session.ts';
 
 /**
  * 模板目录（`templates.*`，命令与协议规范 §4.1；模板包规范 §6）的读取：目录进 state/template-catalog-store，
- * 提示词按「id@版本」缓存（同一版本的正文不会再变），随附文件的句柄有期限，到期前就重新要。
+ * 提示词按「id@版本:语言」缓存（同一版本同一语言的正文不会再变），随附文件的句柄有期限，到期前就重新要。
+ * 目录按当前界面语言要（模板包规范 §3.6）：换了界面语言后再取一次，就换成那种语言的文案。
  * 单独成文件，不把会话通道撑大（同 library-commands.ts）。
  */
 
 type Session = Pick<RuntimeSession, 'client'>;
 
-let listing: Promise<void> | null = null;
+let listing: { language: Locale; done: Promise<void> } | null = null;
 /** 同一版本的提示词不会再变：连同还在路上的请求一起记住；失败的不记，下次重取。 */
 const prompts = new Map<string, Promise<string>>();
 /** 文件句柄有期限：到期前 30 秒就不再用。 */
 const handles = new Map<string, Promise<MediaHandle>>();
 const HANDLE_MARGIN_MS = 30_000;
 
-/** 取一次目录；已经在取时不重复发。旧的列表在取的过程中照常显示。 */
+/**
+ * 按当前界面语言取一次目录；同一语言已经在取时不重复发。旧的列表在取的过程中照常显示。
+ * 取的过程中换了界面语言：旧语言的结果不再放进镜像，由新语言的那次取。
+ */
 export function loadTemplates(session: Session): Promise<void> {
-  if (listing) return listing;
+  const language = getLocale();
+  if (listing?.language === language) return listing.done;
   const store = useTemplateCatalog.getState();
   store.begin();
-  listing = session.client
-    .request('templates.list', {})
+  const current = (): boolean => getLocale() === language;
+  const done: Promise<void> = session.client
+    .request('templates.list', { language })
     .then(
-      (result) => useTemplateCatalog.getState().succeed(result),
-      (error: Error) => useTemplateCatalog.getState().fail(error.message),
+      (result) => {
+        if (current()) useTemplateCatalog.getState().succeed(result);
+      },
+      (error: Error) => {
+        if (current()) useTemplateCatalog.getState().fail(error.message);
+      },
     )
     .finally(() => {
-      listing = null;
+      if (listing?.done === done) listing = null;
     });
-  return listing;
+  listing = { language, done };
+  return done;
 }
 
-/** 模板的提示词（`prompt.md` 全文）。`templates.get` 只收 id、总给当前版本，所以按读到的实际版本再记一份。 */
-export function templatePrompt(session: Session, id: string, version: string): Promise<string> {
-  const key = `${id}@${version}`;
+/**
+ * 模板的提示词（`prompt.md` 或所选语言的译文全文）。`language` 用目录里这个模板的语言（`HomeTemplate.language`），
+ * 和卡片上的文案同一版本。`templates.get` 不收版本、总给当前版本，所以按读到的实际版本再记一份。
+ */
+export function templatePrompt(session: Session, id: string, version: string, language: string): Promise<string> {
+  const key = `${id}@${version}:${language}`;
   const cached = prompts.get(key);
   if (cached) return cached;
-  const pending = session.client.request('templates.get', { id }).then(({ template, prompt }) => {
+  const pending = session.client.request('templates.get', { id, language }).then(({ template, prompt }) => {
     // 目录在两次读取之间换了版本：按实际读到的版本也记一份。
-    const actual = `${id}@${template.manifest.version}`;
+    const actual = `${id}@${template.manifest.version}:${language}`;
     if (actual !== key) prompts.set(actual, Promise.resolve(prompt));
     return prompt;
   });

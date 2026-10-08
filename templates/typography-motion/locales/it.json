@@ -1,0 +1,29 @@
+{
+  "title": "Corto di tipografia animata",
+  "summary": "Un corto in JavaScript guidato dalla tipografia, caldo e minimalista.",
+  "description": "Font di stili diversi, un’estetica minimalista e calda, ritmo e colori vivaci, con musica di sottofondo. Si possono anche generare immagini o clip video come tocchi decorativi.",
+  "fields": [
+    {
+      "label": "tema",
+      "hint": "Di cosa parla il video",
+      "example": "il cambio delle stagioni"
+    },
+    {
+      "label": "lingua del video",
+      "hint": "La lingua del testo a schermo"
+    }
+  ],
+  "tags": [
+    "tipografia",
+    "font",
+    "JavaScript"
+  ],
+  "preview": {
+    "beats": [
+      "Una parola riempie lo schermo",
+      "Font e pesi si alternano",
+      "Colori che cambiano col ritmo",
+      "Una chiusura quieta"
+    ]
+  }
+}

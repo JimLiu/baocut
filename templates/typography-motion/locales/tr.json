@@ -1,0 +1,29 @@
+{
+  "title": "Kinetik tipografi videosu",
+  "summary": "JavaScript ile tipografi odaklı, sıcak ve minimalist bir kısa video.",
+  "description": "Farklı üsluplarda yazı tipleri, sıcak ve minimalist bir estetik, zengin ritim ve renkler, arka planda müzik. Süslemek için görsel ya da video parçaları da üretilebilir.",
+  "fields": [
+    {
+      "label": "tema",
+      "hint": "Video ne hakkında",
+      "example": "mevsimlerin değişimi"
+    },
+    {
+      "label": "video dili",
+      "hint": "Ekran metninin dili"
+    }
+  ],
+  "tags": [
+    "tipografi",
+    "yazı tipi",
+    "JavaScript"
+  ],
+  "preview": {
+    "beats": [
+      "Ekranı dolduran tek bir sözcük",
+      "Değişen yazı tipleri ve kalınlıklar",
+      "Ritimle değişen renkler",
+      "Sakin bir kapanış"
+    ]
+  }
+}

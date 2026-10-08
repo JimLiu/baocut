@@ -1,0 +1,3 @@
+Crea con il codice un corto orizzontale che catturi lo sguardo e faccia venire voglia di condividerlo, di circa {{durata}}: una pallina rimbalza dentro una serie di anelli concentrici rotanti; quando trova un varco passa all’anello esterno successivo, e gli anelli diminuiscono uno dopo l’altro finché non scappa del tutto.
+
+Il movimento fisico deve essere realistico, prevedibile ma con un po’ di suspense, con un ritmo sempre più veloce; usa questi colori: {{colori}}. A ogni urto aggiungi un suono secco e nitido (sintetizza anche gli effetti sonori con il codice, in base al momento degli urti, senza dipendere dalla generazione di effetti sonori) e chiudi con un finale appagante.

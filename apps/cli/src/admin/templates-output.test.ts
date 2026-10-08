@@ -24,11 +24,12 @@ const manifest: TemplateManifest = {
   preview: { beats: ['一', '二', '三'] },
   assets: [{ path: 'assets/logo.svg', type: 'svg', note: '片尾标志' }],
 };
-const scene: TemplateSummary = { manifest, origin: 'builtin', files: { cover: true, preview: false, assets: 1 } };
+const scene: TemplateSummary = { manifest, origin: 'builtin', languages: ['zh-CN'], files: { cover: true, preview: false, assets: 1 } };
 const { ratio: _r, durationSeconds: _d, brief: _b, fields: _f, ...loose } = manifest;
 const example: TemplateSummary = {
   manifest: { ...loose, id: 'an-example', kind: 'example', title: '示例' },
   origin: 'user',
+  languages: ['zh-CN'],
   files: { cover: true, preview: false, assets: 1 },
 };
 

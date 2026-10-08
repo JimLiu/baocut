@@ -181,7 +181,7 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
   const applyExample = async (example: HomeTemplate) => {
     let text: string;
     try {
-      text = await templatePrompt(runtime, example.id, example.version);
+      text = await templatePrompt(runtime, example.id, example.version, example.language);
     } catch (error) {
       ToastQueue.negative(HOME_COPY.templatePromptFailed((error as Error).message), { timeout: 5000 });
       return;
@@ -314,7 +314,9 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
             // 素材在发出去时写进这条消息（原型 `AgentHero` 的 brief），没填的待填项写成「[label]」（规范 §5.5，homeBrief）；挂着的场景模板与点选的 skill 只传标识，
             // 简报引导、模板正文与 SKILL.md 由 Runtime 拼给智能体（模板包规范 §5.2、产品设计 §6.9），
             // 会话里的消息另带「模板：标题」「Skill：名称」的标记。
-            const sceneRef = brief.template ? { id: brief.template, ...(template ? { version: template.version } : {}) } : undefined;
+            const sceneRef = brief.template
+              ? { id: brief.template, ...(template ? { version: template.version, language: template.language } : {}) }
+              : undefined;
             const text = homeBrief(raw, {
               images: attachments.length,
               materials: brief.materials.map((m) => m.path),

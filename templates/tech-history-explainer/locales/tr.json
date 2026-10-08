@@ -1,0 +1,37 @@
+{
+  "title": "Kısa teknoloji tarihi",
+  "summary": "Büyük dil modellerinin tarihini kodla, hızlı ve esprili anlatan bir video.",
+  "description": "Genel izleyiciye hitap eder; ilk dil modellerinden bugüne uzanır, aralara özgün espriler serpiştirir. Medya hazırlamanıza gerek yok, ajan doğrudan işe başlar.",
+  "fields": [
+    {
+      "label": "teknoloji",
+      "hint": "Hangi teknolojinin geçmişi anlatılsın",
+      "example": "büyük dil modelleri"
+    },
+    {
+      "label": "izleyici kitlesi",
+      "hint": "Kim izleyecek; anlatımın derinliğini belirler",
+      "example": "genel izleyici"
+    },
+    {
+      "label": "video dili",
+      "hint": "Dış ses ve altyazıların dili"
+    }
+  ],
+  "tags": [
+    "bilim",
+    "teknoloji tarihi",
+    "kronoloji"
+  ],
+  "cover": {
+    "kicker": "KRONOLOJİ"
+  },
+  "preview": {
+    "beats": [
+      "İlk dil modelleri",
+      "Birkaç kritik atılım",
+      "Ölçeğin getirdiği değişim",
+      "Bugün ve sonrası"
+    ]
+  }
+}

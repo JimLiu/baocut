@@ -13,5 +13,6 @@
 2. 写 `template.json`（字段见规范 §3，JSON 两空格缩进）与 `prompt.md`（写法见规范 §2.2）。
 3. 有封面、预览视频或素材时，按规范 §2.1 放进 `cover.*`、`preview.*` 或 `assets/`，并在清单里登记。
 4. 用真实的智能体按模板做一条视频：把成片按规范 §3.3 的命令压成 `preview.mp4`（≤ 2 MiB）与 `cover.jpg`（≤ 150 KiB），在清单里写验证记录 `verification`（规范 §3.5）。验证用的公开素材只记来源与许可，不放进模板目录。
-5. 运行 `npm test -- packages/protocol`，`template.test.ts` 会校验这里的全部模板。
-6. 提交前按规范 §4.2、§4.3 人工审阅：不带密钥与机器路径，不写真实品牌与他人作品名，不把某种语言设为成片的默认语言。
+5. 给原文以外的每种出货语言写译文：`locales/<语言小写>.json` 与 `.md`（规范 §3.6），格式可以照 `step-tutorial/locales/en.*`（场景模板）与 `ai-news-take/locales/en.*`（作品示例）。改了原文时同步改各个译文。
+6. 运行 `npm test -- packages/protocol`，`template.test.ts` 会校验这里的全部模板与译文；只查一种语言的译文时用 `npx vitest run packages/protocol/src/template.test.ts -t ' · ja：'`。
+7. 提交前按规范 §4.2、§4.3 人工审阅：不带密钥与机器路径，不写真实品牌与他人作品名，不把某种语言设为成片的默认语言。

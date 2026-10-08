@@ -1,0 +1,29 @@
+{
+  "title": "Corto de tipografía animada",
+  "summary": "Un corto cálido y minimalista, guiado por la tipografía, hecho con JavaScript.",
+  "description": "Fuentes de estilos variados, una estética minimalista y cálida, mucho ritmo y mucho color, con música de fondo. También se pueden generar imágenes o clips de vídeo como complemento.",
+  "fields": [
+    {
+      "label": "tema",
+      "hint": "De qué trata el vídeo",
+      "example": "el paso de las estaciones"
+    },
+    {
+      "label": "idioma del vídeo",
+      "hint": "El idioma del texto en pantalla"
+    }
+  ],
+  "tags": [
+    "tipografía",
+    "fuentes",
+    "JavaScript"
+  ],
+  "preview": {
+    "beats": [
+      "Una palabra que llena la pantalla",
+      "Fuentes y pesos que se alternan",
+      "Colores que cambian con el ritmo",
+      "Un cierre sereno"
+    ]
+  }
+}

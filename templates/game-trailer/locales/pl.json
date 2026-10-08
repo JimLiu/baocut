@@ -1,0 +1,29 @@
+{
+  "title": "Zwiastun autorskiej gry",
+  "summary": "Dopracowany zwiastun autorskiej gry, który wciąga od pierwszych sekund.",
+  "description": "Świat, postacie i rozgrywka autorskiej gry pokazane w kilku seriach szybkich ujęć, z haczykiem w pierwszych dwóch sekundach – w sam raz do publikacji w mediach społecznościowych.",
+  "fields": [
+    {
+      "label": "gatunek gry",
+      "hint": "Jaki gatunek i styl gry",
+      "example": "pikselowa eksploracja kosmosu"
+    },
+    {
+      "label": "język wideo",
+      "hint": "Język tekstu na ekranie i narracji"
+    }
+  ],
+  "tags": [
+    "gry",
+    "zwiastun",
+    "autorskie"
+  ],
+  "preview": {
+    "beats": [
+      "Haczyk w dwie sekundy",
+      "Świat i postacie",
+      "Najlepsze momenty rozgrywki",
+      "Tytuł gry i hasło"
+    ]
+  }
+}

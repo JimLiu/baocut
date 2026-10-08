@@ -1,0 +1,29 @@
+{
+  "title": "Animation typographique",
+  "summary": "Un court film JavaScript porté par la typographie, chaleureux et minimaliste.",
+  "description": "Des polices de styles variés, une esthétique minimaliste et chaleureuse, un rythme et des couleurs riches, avec une musique de fond. Des images ou clips générés peuvent aussi l’agrémenter.",
+  "fields": [
+    {
+      "label": "thème",
+      "hint": "Le sujet de la vidéo",
+      "example": "le passage des saisons"
+    },
+    {
+      "label": "langue de la vidéo",
+      "hint": "Langue du texte à l’écran"
+    }
+  ],
+  "tags": [
+    "typographie",
+    "polices",
+    "JavaScript"
+  ],
+  "preview": {
+    "beats": [
+      "Un mot qui remplit l’écran",
+      "Polices et graisses en alternance",
+      "Des couleurs qui suivent le rythme",
+      "Une fin paisible"
+    ]
+  }
+}

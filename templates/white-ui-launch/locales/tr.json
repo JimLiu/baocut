@@ -1,0 +1,29 @@
+{
+  "title": "Kurgusal ürün lansmanı",
+  "summary": "Kodla, kurgusal bir ürün için beyaz arayüz tarzında bir lansman videosu yapın.",
+  "description": "Temiz ve şık bir beyaz arayüz, hızlı tempolu görüntüler ve ses efektleri; sosyal platformlarda paylaşmaya uygun. Ürün adı, özellikleri ve arayüzü tamamen ajanın özgün tasarımıdır.",
+  "fields": [
+    {
+      "label": "ürün türü",
+      "hint": "Ne tür bir ürün kurgulanıyor",
+      "example": "akıllı saat"
+    },
+    {
+      "label": "video dili",
+      "hint": "Ekran metninin dili"
+    }
+  ],
+  "tags": [
+    "lansman",
+    "arayüz",
+    "kod animasyonu"
+  ],
+  "preview": {
+    "beats": [
+      "Beyaz arayüz yavaşça açılır",
+      "Temel özellikler hızla değişir",
+      "Ayrıntılara ve animasyonlara yakın plan",
+      "Ürün adıyla donan kare"
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "title": "Présentation produit",
+  "summary": "Une courte vidéo épurée qui montre clairement fonctions et détails d’un produit.",
+  "description": "Organisez les photos ou extraits vidéo du produit en une présentation visuelle claire. Mettez en avant les détails qui comptent le plus pour le public, avec un style et un rythme fidèles à votre marque.",
+  "brief": "Créez une vidéo de présentation pour {{produit}} à partir de {{médias du produit}}, centrée sur {{fonctions clés}} et pensée pour {{public}}.",
+  "fields": [
+    {
+      "label": "médias du produit",
+      "hint": "Photos, vidéos tournées ou présentation du produit jointes",
+      "example": "ces photos du produit"
+    },
+    {
+      "label": "produit",
+      "hint": "Ce qu’est le produit, avec son nom s’il en a un",
+      "example": "un casque à réduction de bruit"
+    },
+    {
+      "label": "fonctions clés",
+      "hint": "Deux ou trois fonctions ou détails qui méritent un gros plan",
+      "example": "la réduction de bruit et l’autonomie"
+    },
+    {
+      "label": "public",
+      "hint": "Qui l’achète, et ce qui compte le plus pour eux",
+      "example": "les actifs qui font la navette chaque jour"
+    }
+  ],
+  "tags": [
+    "produit",
+    "présentation",
+    "e-commerce"
+  ],
+  "preview": {
+    "beats": [
+      "Le produit en entier",
+      "Gros plans sur les détails clés",
+      "Une vraie scène d’utilisation",
+      "Un appel à l’action pour finir"
+    ]
+  }
+}

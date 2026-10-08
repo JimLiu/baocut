@@ -1,0 +1,36 @@
+{
+  "title": "Riepilogo di un evento",
+  "summary": "Monta i materiali girati all’evento in un riepilogo dei momenti da ricordare.",
+  "description": "Conserva l’atmosfera di un workshop, una festa o un evento di lancio, legando luogo, momenti chiave e reazioni dei partecipanti in un breve video di riepilogo con un inizio e una chiusura.",
+  "brief": "Ecco foto e video girati durante questo evento: {{evento}}. Monta un breve riepilogo per {{destinatari}}. Da tenere assolutamente: {{momenti da tenere}}.",
+  "fields": [
+    {
+      "label": "evento",
+      "hint": "Nome e data dell’evento",
+      "example": "il club del libro di ieri"
+    },
+    {
+      "label": "destinatari",
+      "hint": "A chi è destinato il riepilogo e dove lo pubblichi",
+      "example": "gli amici che non sono venuti"
+    },
+    {
+      "label": "momenti da tenere",
+      "hint": "I momenti da conservare per forza; se non ce ne sono scrivi «nessuno»",
+      "example": "la foto di gruppo e il saluto finale del moderatore"
+    }
+  ],
+  "tags": [
+    "evento",
+    "riepilogo",
+    "momenti salienti"
+  ],
+  "preview": {
+    "beats": [
+      "Luogo e atmosfera",
+      "Alcuni momenti chiave",
+      "Le reazioni dei partecipanti",
+      "Chiusura su ciò che resta"
+    ]
+  }
+}

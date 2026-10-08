@@ -1,0 +1,41 @@
+{
+  "title": "Cảnh quay điện ảnh",
+  "summary": "Thổi hồn vào một nơi tưởng tượng bằng chuyển động mang chất điện ảnh.",
+  "description": "Từ một đoạn mô tả hoặc một ảnh tham chiếu, dựng một cảnh giàu không khí. Chọn địa điểm, ánh sáng, chuyển động máy quay và âm thanh môi trường để ghép thành một khoảnh khắc liền mạch.",
+  "brief": "Làm một cảnh mang chất điện ảnh: {{địa điểm}}, {{thời gian và thời tiết}}. Máy quay {{chuyển động máy quay}}, cuối cùng dừng ở {{chi tiết khép lại}}.",
+  "fields": [
+    {
+      "label": "địa điểm",
+      "hint": "Nơi bạn muốn khán giả như đang có mặt",
+      "example": "một thị trấn nhỏ ven biển"
+    },
+    {
+      "label": "thời gian và thời tiết",
+      "hint": "Lúc nào, thời tiết ra sao; quyết định không khí chung",
+      "example": "chiều tối mưa, đèn đường vừa bật"
+    },
+    {
+      "label": "chuyển động máy quay",
+      "hint": "Máy quay xuất phát từ đâu và đi về đâu",
+      "example": "chậm rãi tiến từ ngọn hải đăng về góc phố"
+    },
+    {
+      "label": "chi tiết khép lại",
+      "hint": "Hình ảnh cuối cùng đọng lại trong trí nhớ",
+      "example": "một tiệm bánh vẫn còn sáng đèn"
+    }
+  ],
+  "tags": [
+    "điện ảnh",
+    "bối cảnh",
+    "không khí"
+  ],
+  "preview": {
+    "beats": [
+      "Thiết lập bối cảnh",
+      "Ánh sáng và thời tiết",
+      "Một chuyển động máy chậm rãi",
+      "Dừng lại ở một chi tiết"
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "title": "Najlepsze fragmenty wypowiedzi",
+  "summary": "Znajdź w długim nagraniu najmocniejszą myśl i zmontuj krótki film z napisami.",
+  "description": "Zmontuj dłuższe nagranie wypowiedzi do kamery, wywiadu lub transmisji na żywo w skupiony krótki film: mocny początek, kompletna myśl, czytelne napisy. Usuń pauzy i powtórzenia, zachowując intencję mówcy.",
+  "brief": "Oto nagranie: {{nagranie}}. Zmontuj z niego najlepsze fragmenty. Temat: {{temat}}. Miejsce publikacji: {{miejsce publikacji}}.",
+  "fields": [
+    {
+      "label": "nagranie",
+      "hint": "Dołączone nagranie: jak długie i co przedstawia",
+      "example": "godzinny wywiad"
+    },
+    {
+      "label": "temat",
+      "hint": "Myśl lub temat do wycięcia; jeśli ma wybrać agent, wpisz „wybierz najlepszy”",
+      "example": "opinia gościa o pracy zdalnej"
+    },
+    {
+      "label": "miejsce publikacji",
+      "hint": "Gdzie trafi film – od tego zależą rytm i długość",
+      "example": "media społecznościowe"
+    }
+  ],
+  "tags": [
+    "wypowiedź do kamery",
+    "wywiad",
+    "skrót"
+  ],
+  "preview": {
+    "beats": [
+      "Najmocniejsze zdanie na start",
+      "Jedna myśl wyłożona w całości",
+      "Bez pauz i powtórzeń",
+      "Wyraźna puenta na koniec"
+    ]
+  }
+}

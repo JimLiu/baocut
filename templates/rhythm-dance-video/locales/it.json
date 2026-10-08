@@ -1,0 +1,29 @@
+{
+  "title": "Animazione di danza a ritmo",
+  "summary": "Danza arcade ad alta energia: personaggio animato ed effetti da gioco ritmico.",
+  "description": "Un personaggio animato originale che balla, creato con la generazione video, dentro la grafica di un gioco ritmico costruita con il codice, con effetti che seguono il ritmo.",
+  "fields": [
+    {
+      "label": "aspetto del personaggio",
+      "hint": "Che aspetto ha il personaggio che balla",
+      "example": "un gatto robot con le cuffie"
+    },
+    {
+      "label": "lingua del video",
+      "hint": "La lingua del testo a schermo"
+    }
+  ],
+  "tags": [
+    "danza",
+    "gioco ritmico",
+    "generazione video"
+  ],
+  "preview": {
+    "beats": [
+      "Entra in scena il personaggio",
+      "Cadono le note",
+      "Combo ed effetti",
+      "Punteggio perfetto"
+    ]
+  }
+}

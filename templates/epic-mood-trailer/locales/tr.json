@@ -1,0 +1,32 @@
+{
+  "title": "Destansı atmosfer fragmanı",
+  "summary": "p5.js ile uzun bir yolculuk ve eve dönüş havasında hızlı kurgulu bir fragman.",
+  "description": "Duygusunu klasik destanlardaki uzun deniz yolculuğu ve eve dönüşten alır; görüntüleri p5.js ile üretir ve bunları dış ses ile altyazı eşliğinde, bir dakikanın altında hızlı kurgulu bir fragmana dönüştürür.",
+  "fields": [
+    {
+      "label": "duygu referansı",
+      "hint": "İstediğiniz atmosfer ya da hikâye motifi",
+      "example": "klasik destanlardaki uzun deniz yolculuğu ve eve dönüş"
+    },
+    {
+      "label": "video dili",
+      "hint": "Dış ses ve altyazıların dili"
+    }
+  ],
+  "tags": [
+    "p5.js",
+    "fragman",
+    "atmosfer"
+  ],
+  "cover": {
+    "kicker": "YOLCULUK"
+  },
+  "preview": {
+    "beats": [
+      "Deniz ve yıldızlı gök",
+      "Fırtına ve sınavlar",
+      "Uzun dönüş yolu",
+      "Ufukta ışıklar"
+    ]
+  }
+}

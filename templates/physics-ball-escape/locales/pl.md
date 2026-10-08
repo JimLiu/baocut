@@ -1,0 +1,3 @@
+Zrób w kodzie przyciągający wzrok poziomy film, którym ludzie chętnie się dzielą. Orientacyjny czas trwania: {{czas trwania}}. Kulka odbija się w kolejnych obracających się pierścieniach; gdy trafi w lukę, wylatuje do następnej, zewnętrznej warstwy, a pierścieni ubywa, aż w końcu kulka całkiem się wydostaje.
+
+Ruch fizyczny ma być realistyczny i przewidywalny, a przy tym trzymać w napięciu, z coraz szybszym tempem. Kolorystyka: {{kolorystyka}}. Zderzeniom towarzyszą dźwięczne efekty dźwiękowe (je także syntetyzuj w kodzie według momentów zderzeń, bez polegania na generowaniu efektów dźwiękowych). Na końcu daj satysfakcjonujące zamknięcie.

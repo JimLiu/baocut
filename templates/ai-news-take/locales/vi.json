@@ -1,0 +1,34 @@
+{
+  "title": "Bình luận nhanh tin AI",
+  "summary": "Chọn một tin AI gần đây và làm thành bình luận nhanh, nhịp gọn, nhiều meme.",
+  "description": "Agent tìm tin AI gần đây, chọn một chủ đề rồi ghép với các đoạn video, hình ảnh và ảnh GIF tìm được, làm thành một video điểm tin nhẹ nhàng, dễ xem.",
+  "fields": [
+    {
+      "label": "mảng quan tâm",
+      "hint": "Bạn muốn xem loại tin AI nào; không kén thì ghi “bất kỳ”",
+      "example": "mô hình mã nguồn mở"
+    },
+    {
+      "label": "thời lượng",
+      "hint": "Video dài khoảng bao lâu",
+      "example": "một phút"
+    },
+    {
+      "label": "ngôn ngữ video",
+      "hint": "Ngôn ngữ cho lời dẫn và phụ đề"
+    }
+  ],
+  "tags": [
+    "tin tức",
+    "AI",
+    "bình luận nhanh"
+  ],
+  "preview": {
+    "beats": [
+      "Một câu nói rõ chuyện gì xảy ra",
+      "Các chi tiết chính",
+      "Meme và phản ứng",
+      "Vì sao đáng chú ý"
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "title": "Taneczna animacja rytmiczna",
+  "summary": "Energetyczny taniec w stylu arcade: animowana postać i efekty gry rytmicznej.",
+  "description": "Tańcząca, autorska postać animowana powstaje dzięki generowaniu wideo, a ekran gry rytmicznej i efekty zgrane z rytmem są budowane w kodzie.",
+  "fields": [
+    {
+      "label": "postać",
+      "hint": "Jak wygląda tańcząca postać",
+      "example": "robotyczny kot w słuchawkach"
+    },
+    {
+      "label": "język wideo",
+      "hint": "Język tekstu na ekranie"
+    }
+  ],
+  "tags": [
+    "taniec",
+    "gra rytmiczna",
+    "generowanie wideo"
+  ],
+  "preview": {
+    "beats": [
+      "Wejście postaci",
+      "Spadające nuty",
+      "Combo i efekty",
+      "Wynik: maksimum punktów"
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "title": "Démo logicielle",
+  "summary": "Montrez pas à pas comment votre logiciel résout un problème.",
+  "description": "À partir de captures, d’enregistrements d’écran ou de documentation, reliez un problème d’utilisateur à la fonction correspondante et au résultat final. La démo suit du début à la fin un vrai parcours d’utilisation.",
+  "brief": "À partir de {{vidéo ou captures}}, créez une vidéo de démo qui montre comment {{action à montrer}} avec {{logiciel}}, pour régler ce problème : {{problème à résoudre}}.",
+  "fields": [
+    {
+      "label": "vidéo ou captures",
+      "hint": "Enregistrement d’écran, captures ou instructions joints",
+      "example": "cet enregistrement d’écran"
+    },
+    {
+      "label": "logiciel",
+      "hint": "Le nom du logiciel ou de la fonction",
+      "example": "notre appli de comptabilité"
+    },
+    {
+      "label": "action à montrer",
+      "hint": "Un parcours d’utilisation complet",
+      "example": "exporter un rapport mensuel en trois étapes"
+    },
+    {
+      "label": "problème à résoudre",
+      "hint": "Ce que cette fonction épargne à l’utilisateur",
+      "example": "trier les factures à la main en fin de mois prend trop de temps"
+    }
+  ],
+  "tags": [
+    "logiciel",
+    "démo",
+    "capture d’écran"
+  ],
+  "preview": {
+    "beats": [
+      "Le problème de l’utilisateur",
+      "Ouvrir la bonne fonction",
+      "Les étapes clés, une à une",
+      "Le résultat obtenu"
+    ]
+  }
+}

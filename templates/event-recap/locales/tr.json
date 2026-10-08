@@ -1,0 +1,36 @@
+{
+  "title": "Etkinlik özeti",
+  "summary": "Etkinlikten kalan çekimleri akılda kalan bir özet videoya dönüştürün.",
+  "description": "Bir atölyenin, buluşmanın ya da lansmanın havasını yakalayın; mekânı, önemli anları ve katılımcıların tepkilerini başı ve sonu olan kısa bir özet videoda birleştirin.",
+  "brief": "Bunlar şu etkinlikten fotoğraflar ve videolar: {{etkinlik}}. Bunlardan kısa bir özet video kurgulayın. Hedef izleyici: {{hedef izleyici}}. Mutlaka kalması gerekenler: {{kalması gereken anlar}}.",
+  "fields": [
+    {
+      "label": "etkinlik",
+      "hint": "Etkinliğin adı ve tarihi",
+      "example": "dünkü kitap kulübü buluşması"
+    },
+    {
+      "label": "hedef izleyici",
+      "hint": "Özet kime gidecek, nerede paylaşılacak",
+      "example": "gelemeyen arkadaşlar"
+    },
+    {
+      "label": "kalması gereken anlar",
+      "hint": "Mutlaka kalmasını istediğiniz anlar; yoksa “yok” yazın",
+      "example": "toplu fotoğraf ve sunucunun kapanış konuşması"
+    }
+  ],
+  "tags": [
+    "etkinlik",
+    "özet",
+    "derleme"
+  ],
+  "preview": {
+    "beats": [
+      "Mekân ve atmosfer",
+      "Birkaç önemli an",
+      "Katılımcıların tepkileri",
+      "Bir kazanımla kapanış"
+    ]
+  }
+}

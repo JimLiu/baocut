@@ -1,0 +1,29 @@
+{
+  "title": "L’actu qui fait parler, expliquée",
+  "summary": "Choisissez une actu brûlante et expliquez-la vite, avec plein de mèmes.",
+  "description": "L’Agent consulte l’actualité récente, choisit un sujet et l’accompagne de mèmes trouvés en ligne pour en faire une explication d’environ 90 secondes au format horizontal. Aucun média à préparer.",
+  "fields": [
+    {
+      "label": "domaine d’actualité",
+      "hint": "Le type d’actu qui vous intéresse ; sans préférence, écrivez « tous sujets »",
+      "example": "la tech"
+    },
+    {
+      "label": "langue de la vidéo",
+      "hint": "Langue de la voix off et des sous-titres"
+    }
+  ],
+  "tags": [
+    "actualité",
+    "tendances",
+    "explication"
+  ],
+  "preview": {
+    "beats": [
+      "Le sujet du moment",
+      "Le contexte et les faits",
+      "Mèmes et réactions",
+      "Un commentaire pour conclure"
+    ]
+  }
+}

@@ -1,0 +1,3 @@
+Cherchez l’actualité IA récente sur {{domaine d’intérêt}}, choisissez un sujet intéressant et faites-en une chronique rythmée et riche en mèmes d’environ {{durée}}, prête à publier sur les plateformes vidéo.
+
+Vous pouvez chercher des extraits vidéo, des images et des GIF à utiliser. Privilégiez les médias dont la licence autorise l’usage et citez les sources. Vérifiez soigneusement les faits ; les mèmes servent uniquement à rythmer, jamais à déformer l’information. Voix off et sous-titres en {{langue de la vidéo}}. Toute la voix off garde une seule et même voix, à un débit normal ; si le texte est trop long, coupez des mots plutôt que d’accélérer pour tenir la durée.

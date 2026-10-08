@@ -1,0 +1,36 @@
+{
+  "title": "Montaż vloga",
+  "summary": "Zmontuj codzienne nagrania w vloga, którego chce się obejrzeć do końca.",
+  "description": "Ułóż nagrania z podróży lub codzienności w małą historię z początkiem, kilkoma niezapomnianymi chwilami i naturalnym zakończeniem. Zachowaj najlepsze reakcje i dźwięki otoczenia, a muzykę i napisy dopasuj do swojego rytmu.",
+  "brief": "Oto materiały: {{materiały}}. Zmontuj z nich vloga. Styl: {{styl}}. Koniecznie zachowaj: {{fragmenty do zachowania}}.",
+  "fields": [
+    {
+      "label": "materiały",
+      "hint": "Gdzie i przy jakiej okazji nakręcono dołączone materiały",
+      "example": "nagrania z weekendu nad morzem"
+    },
+    {
+      "label": "styl",
+      "hint": "Jaki ma być klimat",
+      "example": "na luzie"
+    },
+    {
+      "label": "fragmenty do zachowania",
+      "hint": "Chwile, które muszą zostać; jeśli nie ma takich, wpisz „nic szczególnego”",
+      "example": "moment, gdy pierwszy raz wstaję na desce surfingowej"
+    }
+  ],
+  "tags": [
+    "vlog",
+    "podróże",
+    "codzienność"
+  ],
+  "preview": {
+    "beats": [
+      "Dokąd i po co",
+      "Kilka niezapomnianych chwil",
+      "Prawdziwe reakcje i dźwięki otoczenia",
+      "Naturalne zakończenie"
+    ]
+  }
+}

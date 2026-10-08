@@ -1,0 +1,30 @@
+{
+  "title": "Rahatlatıcı fizik animasyonu",
+  "summary": "Kodla, bir topun iç içe halkalardan kaçtığı rahatlatıcı bir animasyon yapın.",
+  "description": "Bir top, iç içe dönen halkaların içinde seker, boşlukları zorlayıp dışarı kaçar; fizik gerçekçi, gerilim yerinde. Tamamen kodla üretilir; tekrar tekrar izlenmek istenecek yatay bir kısa video için uygundur.",
+  "fields": [
+    {
+      "label": "süre",
+      "hint": "Videonun yaklaşık uzunluğu",
+      "example": "30 saniye"
+    },
+    {
+      "label": "renk paleti",
+      "hint": "İstediğiniz renkler; ne kadar canlıysa o kadar dikkat çeker",
+      "example": "siyah zemin üzerine canlı neon renkler"
+    }
+  ],
+  "tags": [
+    "fizik",
+    "kod animasyonu",
+    "rahatlatıcı"
+  ],
+  "preview": {
+    "beats": [
+      "Top en içteki halkada seker",
+      "İlk boşluk açılır",
+      "Halkalar birer birer azalır",
+      "Tam kaçış"
+    ]
+  }
+}

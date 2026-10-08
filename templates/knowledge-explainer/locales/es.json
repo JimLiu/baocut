@@ -1,0 +1,41 @@
+{
+  "title": "Vídeo explicativo",
+  "summary": "Convierte un documento, unas diapositivas o un tema en un vídeo fácil de seguir.",
+  "description": "Ayuda al público a entender un concepto con explicaciones claras y ejemplos concretos. Organiza tus materiales en un relato visual y ajusta la profundidad a lo que el público ya sabe.",
+  "brief": "A partir de {{fuentes}}, explica {{tema}} a {{público}}. Al terminar, deberían poder {{objetivo}}.",
+  "fields": [
+    {
+      "label": "fuentes",
+      "hint": "Documento, diapositivas o enlace adjuntos; si no hay, escribe «fuentes públicas»",
+      "example": "estos apuntes"
+    },
+    {
+      "label": "público",
+      "hint": "Quién lo verá y cuánto sabe ya",
+      "example": "alumnos de bachillerato"
+    },
+    {
+      "label": "tema",
+      "hint": "El concepto o tema que hay que explicar",
+      "example": "la fotosíntesis"
+    },
+    {
+      "label": "objetivo",
+      "hint": "Lo que el público debe recordar o saber hacer al terminar",
+      "example": "explicar qué ocurre en la fase luminosa y en la oscura"
+    }
+  ],
+  "tags": [
+    "divulgación",
+    "explicación",
+    "educación"
+  ],
+  "preview": {
+    "beats": [
+      "Plantear una pregunta",
+      "Desglosar los conceptos clave",
+      "Aclararlo con un ejemplo concreto",
+      "Resumir lo esencial"
+    ]
+  }
+}

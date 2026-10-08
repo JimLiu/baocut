@@ -1,0 +1,32 @@
+{
+  "title": "Trailer de clima épico",
+  "summary": "Trailer de cortes rápidos em p5.js, com clima de longa viagem e volta para casa.",
+  "description": "O clima vem das longas viagens e dos retornos ao lar das epopeias clássicas: imagens geradas com p5.js e montadas em um trailer de cortes rápidos com menos de um minuto, com narração e legendas.",
+  "fields": [
+    {
+      "label": "referência de clima",
+      "hint": "A atmosfera ou o tema narrativo que você quer",
+      "example": "longas viagens e retornos ao lar das epopeias clássicas"
+    },
+    {
+      "label": "idioma do vídeo",
+      "hint": "O idioma da narração e das legendas"
+    }
+  ],
+  "tags": [
+    "p5.js",
+    "trailer",
+    "atmosfera"
+  ],
+  "cover": {
+    "kicker": "TRAVESSIA"
+  },
+  "preview": {
+    "beats": [
+      "Mar e céu estrelado",
+      "Tempestade e provações",
+      "A longa volta para casa",
+      "Luzes à vista"
+    ]
+  }
+}

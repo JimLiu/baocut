@@ -1,0 +1,36 @@
+{
+  "title": "Step-by-step tutorial",
+  "summary": "Turn a screen recording or written steps into a clear how-to tutorial.",
+  "description": "Help viewers get one thing done with ordered steps, visible actions and clear checkpoints: show them what to do, and how to tell they did it right.",
+  "brief": "Make a tutorial from {{recording or steps}} that teaches {{audience}} how to {{task to complete}}.",
+  "fields": [
+    {
+      "label": "recording or steps",
+      "hint": "The attached recording, screenshots or written steps",
+      "example": "these steps"
+    },
+    {
+      "label": "audience",
+      "hint": "Who is learning, and what they already know",
+      "example": "beginners"
+    },
+    {
+      "label": "task to complete",
+      "hint": "One thing they can do on their own afterwards",
+      "example": "set up a guest network on a router"
+    }
+  ],
+  "tags": [
+    "tutorial",
+    "how-to",
+    "steps"
+  ],
+  "preview": {
+    "beats": [
+      "The goal and what to prepare",
+      "Each step, in order",
+      "A checkpoint after each step",
+      "The finished result"
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "title": "Tổng kết sự kiện",
+  "summary": "Dựng tư liệu hiện trường sự kiện thành một video tổng hợp đáng nhớ.",
+  "description": "Giữ lại không khí hiện trường của một buổi workshop, buổi gặp mặt hay sự kiện ra mắt, nối địa điểm, những khoảnh khắc then chốt và phản ứng của người tham dự thành một video tổng kết có mở đầu, có kết thúc.",
+  "brief": "Đây là ảnh và video hiện trường của {{sự kiện}}. Hãy dựng một video tổng kết ngắn để gửi {{người xem}}. Nhất định phải giữ: {{đoạn phải giữ lại}}.",
+  "fields": [
+    {
+      "label": "sự kiện",
+      "hint": "Tên và thời gian của sự kiện",
+      "example": "buổi câu lạc bộ sách hôm qua"
+    },
+    {
+      "label": "người xem",
+      "hint": "Video tổng kết gửi cho ai, đăng ở đâu",
+      "example": "những người bạn không đến được"
+    },
+    {
+      "label": "đoạn phải giữ lại",
+      "hint": "Những khoảnh khắc nhất định phải giữ; nếu không có thì ghi “không có”",
+      "example": "ảnh chụp chung và lời kết của người dẫn chương trình"
+    }
+  ],
+  "tags": [
+    "sự kiện",
+    "tổng kết",
+    "highlight"
+  ],
+  "preview": {
+    "beats": [
+      "Giới thiệu địa điểm và không khí",
+      "Vài khoảnh khắc then chốt",
+      "Phản ứng của người tham dự",
+      "Khép lại bằng một điều đọng lại"
+    ]
+  }
+}

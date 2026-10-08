@@ -1,0 +1,36 @@
+{
+  "title": "Dataverhaal",
+  "summary": "Vertel met een tabel een helder, aanschouwelijk verhaal.",
+  "description": "Neem de kijker mee langs een vraag, een grafiek en een conclusie. Introduceer steeds één vergelijking en houd eenheden, datums en databron in beeld, zodat het verhaal controleerbaar blijft.",
+  "brief": "Vertel met {{data}} een dataverhaal over de vraag {{kernvraag}}. Het publiek is {{publiek}}.",
+  "fields": [
+    {
+      "label": "data",
+      "hint": "Bijgevoegde tabel of bestand, of de bron van de data",
+      "example": "deze verkoopcijfers van de afgelopen vijf jaar"
+    },
+    {
+      "label": "kernvraag",
+      "hint": "De vraag waarop de kijker na afloop het antwoord weet",
+      "example": "welke regio het snelst groeit en waarom dat telt"
+    },
+    {
+      "label": "publiek",
+      "hint": "Wie kijkt; dat bepaalt hoe diep je gaat",
+      "example": "het management van het bedrijf"
+    }
+  ],
+  "tags": [
+    "data",
+    "grafieken",
+    "visualisatie"
+  ],
+  "preview": {
+    "beats": [
+      "Een vraag die het stellen waard is",
+      "Eén vergelijking tegelijk",
+      "De oorzaken ontleed",
+      "Een onderbouwde conclusie"
+    ]
+  }
+}

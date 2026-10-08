@@ -1,0 +1,29 @@
+{
+  "title": "From chaos to order",
+  "summary": "A short rendered entirely in code: forms and materials go from chaos to harmony.",
+  "description": "No generated video clips and no stock footage: every visual and animation is built and rendered in code. You get the final video plus source code you can keep editing.",
+  "fields": [
+    {
+      "label": "forms and materials",
+      "hint": "What you want to see go from chaos to order",
+      "example": "all kinds of physical forms and materials"
+    },
+    {
+      "label": "video language",
+      "hint": "The language for on-screen text, lyrics or narration"
+    }
+  ],
+  "tags": [
+    "code animation",
+    "physics",
+    "materials"
+  ],
+  "preview": {
+    "beats": [
+      "Scattered fragments and materials",
+      "Colliding and attracting",
+      "Gradually finding a rhythm",
+      "Settling into a harmonious whole"
+    ]
+  }
+}

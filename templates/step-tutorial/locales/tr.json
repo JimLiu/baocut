@@ -1,0 +1,36 @@
+{
+  "title": "Adım adım eğitim",
+  "summary": "Ekran kaydını ya da yazılı adımları anlaşılır bir eğitim videosuna dönüştürün.",
+  "description": "Sıralı adımlar, görünür işlemler ve net kontrol noktalarıyla izleyicinin bir işi tamamlamasına yardım edin: ne yapacaklarını ve doğru yaptıklarını nasıl anlayacaklarını gösterin.",
+  "brief": "Şu kaynaktan bir eğitim videosu yapın: {{kayıt veya adımlar}}. İzleyici kitlesi: {{izleyici kitlesi}}. Öğretilecek iş: {{yapılacak iş}}.",
+  "fields": [
+    {
+      "label": "kayıt veya adımlar",
+      "hint": "Eklediğiniz ekran kaydı, ekran görüntüleri ya da yazılı adımlar",
+      "example": "bu adımlar"
+    },
+    {
+      "label": "izleyici kitlesi",
+      "hint": "Kim öğrenecek, ne kadar biliyor",
+      "example": "yeni başlayanlar"
+    },
+    {
+      "label": "yapılacak iş",
+      "hint": "İzledikten sonra kendi başına yapabileceği tek bir iş",
+      "example": "bir modemde misafir ağı kurmak"
+    }
+  ],
+  "tags": [
+    "eğitim",
+    "nasıl yapılır",
+    "adımlar"
+  ],
+  "preview": {
+    "beats": [
+      "Hedef ve hazırlık",
+      "Sırayla her adım",
+      "Her adımdan sonra kontrol",
+      "Ortaya çıkan sonuç"
+    ]
+  }
+}

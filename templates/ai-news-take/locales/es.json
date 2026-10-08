@@ -1,0 +1,34 @@
+{
+  "title": "Noticias de IA en caliente",
+  "summary": "Elige una noticia reciente de IA y haz un comentario ágil y lleno de memes.",
+  "description": "El agente busca noticias recientes de IA, elige un tema y lo acompaña con clips, imágenes y GIF que encuentra para hacer un comentario de actualidad ligero y entretenido.",
+  "fields": [
+    {
+      "label": "tema de interés",
+      "hint": "Qué tipo de noticias de IA quieres ver; si te da igual, escribe «cualquiera»",
+      "example": "modelos de código abierto"
+    },
+    {
+      "label": "duración",
+      "hint": "Cuánto debe durar el vídeo, más o menos",
+      "example": "un minuto"
+    },
+    {
+      "label": "idioma del vídeo",
+      "hint": "El idioma de la narración y los subtítulos"
+    }
+  ],
+  "tags": [
+    "noticias",
+    "IA",
+    "opinión"
+  ],
+  "preview": {
+    "beats": [
+      "Qué ha pasado, en una frase",
+      "Los detalles clave",
+      "Memes y reacciones",
+      "Por qué importa"
+    ]
+  }
+}

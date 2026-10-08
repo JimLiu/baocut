@@ -1,0 +1,34 @@
+{
+  "title": "Creative montage",
+  "summary": "A rich montage with a late climax that shows off editing and coding skills.",
+  "description": "No repeated shots, polished visual packaging, and sound that carries through to the end, with the edit weighted toward a stronger climax in the second half.",
+  "fields": [
+    {
+      "label": "montage theme",
+      "hint": "What the montage is about",
+      "example": "a city from dawn to late night"
+    },
+    {
+      "label": "assets on hand",
+      "hint": "Attached assets; if you have none, write \"none, please find or make some\"",
+      "example": "none, please find or make some"
+    },
+    {
+      "label": "video language",
+      "hint": "The language for on-screen text and narration"
+    }
+  ],
+  "tags": [
+    "montage",
+    "editing",
+    "pacing"
+  ],
+  "preview": {
+    "beats": [
+      "A fast-moving opening",
+      "Varied footage, intercut",
+      "Building layer by layer",
+      "A climax in the second half"
+    ]
+  }
+}

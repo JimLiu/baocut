@@ -1,0 +1,34 @@
+{
+  "title": "Yaratıcı montaj",
+  "summary": "Kurgu ve kod becerisini gösteren, doruğu ikinci yarıda gelen zengin bir montaj.",
+  "description": "Hiçbir çekim tekrarlanmaz, görsel sunum özenlidir, ses sona kadar sürer; kurgunun ağırlığı ikinci yarıdaki daha güçlü dorukta toplanır.",
+  "fields": [
+    {
+      "label": "montaj konusu",
+      "hint": "Montaj neyin etrafında dönüyor",
+      "example": "sabahtan gece yarısına bir şehir"
+    },
+    {
+      "label": "eldeki medya",
+      "hint": "Eklediğiniz medya; yoksa “yok, siz bulun veya üretin” yazın",
+      "example": "yok, siz bulun veya üretin"
+    },
+    {
+      "label": "video dili",
+      "hint": "Ekran metni ve dış sesin dili"
+    }
+  ],
+  "tags": [
+    "montaj",
+    "kurgu",
+    "ritim"
+  ],
+  "preview": {
+    "beats": [
+      "Hızla açılan giriş",
+      "Çeşitli medya dönüşümlü akar",
+      "Adım adım yükselen gerilim",
+      "İkinci yarıda doruk"
+    ]
+  }
+}

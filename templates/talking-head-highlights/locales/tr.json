@@ -1,0 +1,36 @@
+{
+  "title": "Konuşmadan öne çıkan kesitler",
+  "summary": "Uzun bir kayıttaki en güçlü görüşü bulup altyazılı kısa bir videoya dönüştürün.",
+  "description": "Uzun bir konuşma, röportaj ya da canlı yayın kaydını odaklı kısa bir videoya dönüştürün: güçlü bir açılış, eksiksiz bir görüş, kolay okunan altyazılar. Duraksamaları ve tekrarları çıkarın, konuşmacının asıl söylemek istediğini koruyun.",
+  "brief": "Kayıt: {{kayıt}}. Bundan öne çıkan anları içeren kısa bir video kurgulayın. Odak: {{odaklanılacak konu}}. Yayınlanacağı yer: {{yayın yeri}}.",
+  "fields": [
+    {
+      "label": "kayıt",
+      "hint": "Eklediğiniz kayıt; ne kadar uzun, neyin kaydı",
+      "example": "bir saatlik röportaj kaydı"
+    },
+    {
+      "label": "odaklanılacak konu",
+      "hint": "Kesilecek görüş ya da konu; ajana bırakmak için “siz seçin” yazın",
+      "example": "konuğun uzaktan çalışma hakkındaki görüşleri"
+    },
+    {
+      "label": "yayın yeri",
+      "hint": "Nerede paylaşılacak; tempoyu ve uzunluğu belirler",
+      "example": "sosyal platformlar"
+    }
+  ],
+  "tags": [
+    "konuşma",
+    "röportaj",
+    "öne çıkanlar"
+  ],
+  "preview": {
+    "beats": [
+      "En güçlü cümleyle açılış",
+      "Tek bir görüşü eksiksiz anlatmak",
+      "Duraksama ve tekrarları atmak",
+      "Net bir sonuçla bitiş"
+    ]
+  }
+}

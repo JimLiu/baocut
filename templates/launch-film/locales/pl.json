@@ -1,0 +1,41 @@
+{
+  "title": "Film premierowy",
+  "summary": "Przedstaw nowy produkt efektownym odsłonięciem i jasnym następnym krokiem.",
+  "description": "Od intrygującego otwarcia przez odsłonięcie produktu do dwóch, trzech konkretnych korzyści, a na koniec zapadający w pamięć kadr marki i następny krok dla widza.",
+  "brief": "Wprowadzamy nowy produkt: {{produkt}}. Termin premiery: {{termin premiery}}. Zrób film premierowy. Co podkreślić: {{kluczowe korzyści}}. Na końcu poprowadź widzów do następnego kroku: {{następny krok}}.",
+  "fields": [
+    {
+      "label": "termin premiery",
+      "hint": "Kiedy produkt trafi na rynek lub zostanie ogłoszony",
+      "example": "w przyszłym miesiącu"
+    },
+    {
+      "label": "produkt",
+      "hint": "Czym jest produkt; jeśli ma nazwę, wpisz ją",
+      "example": "inteligentna lampka biurkowa"
+    },
+    {
+      "label": "kluczowe korzyści",
+      "hint": "Dwie, trzy korzyści, które widz ma zapamiętać",
+      "example": "automatyczna regulacja jasności i tryb skupienia"
+    },
+    {
+      "label": "następny krok",
+      "hint": "Co widz ma zrobić po obejrzeniu",
+      "example": "zamówienie w przedsprzedaży"
+    }
+  ],
+  "tags": [
+    "premiera",
+    "nowość",
+    "marka"
+  ],
+  "preview": {
+    "beats": [
+      "Intrygujące otwarcie",
+      "Odsłonięcie produktu",
+      "Dwie, trzy konkretne korzyści",
+      "Kadr marki i następny krok"
+    ]
+  }
+}

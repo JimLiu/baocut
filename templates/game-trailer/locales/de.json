@@ -1,0 +1,29 @@
+{
+  "title": "Trailer für ein eigenes Spiel",
+  "summary": "Ein hochwertiger Trailer für ein selbst erdachtes Spiel, der sofort packt.",
+  "description": "Welt, Figuren und Gameplay eines selbst erdachten Spiels in wenigen schnellen Einstellungsfolgen, mit einem Aufhänger in den ersten zwei Sekunden, ideal für soziale Netzwerke.",
+  "fields": [
+    {
+      "label": "Spielgenre",
+      "hint": "Art und Stil des Spiels",
+      "example": "Weltraumabenteuer im Pixel-Look"
+    },
+    {
+      "label": "Videosprache",
+      "hint": "Sprache für Texteinblendungen und Sprechertext"
+    }
+  ],
+  "tags": [
+    "Spiel",
+    "Trailer",
+    "Original"
+  ],
+  "preview": {
+    "beats": [
+      "Aufhänger in zwei Sekunden",
+      "Welt und Figuren",
+      "Gameplay-Highlights",
+      "Spielname und Slogan"
+    ]
+  }
+}

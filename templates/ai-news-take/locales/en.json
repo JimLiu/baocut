@@ -1,0 +1,34 @@
+{
+  "title": "AI news hot take",
+  "summary": "Pick a recent AI story and turn it into a fast, meme-filled hot take.",
+  "description": "The agent looks up recent AI news, picks a story, and pairs it with clips, images and GIFs it finds to make a light, watchable news take.",
+  "fields": [
+    {
+      "label": "focus area",
+      "hint": "Which kind of AI news you want; write \"any\" if you don't mind",
+      "example": "open-source models"
+    },
+    {
+      "label": "length",
+      "hint": "Roughly how long the video should be",
+      "example": "one minute"
+    },
+    {
+      "label": "video language",
+      "hint": "The language for narration and subtitles"
+    }
+  ],
+  "tags": [
+    "news",
+    "AI",
+    "hot take"
+  ],
+  "preview": {
+    "beats": [
+      "What happened, in one line",
+      "The key details",
+      "Memes and reactions",
+      "Why it matters"
+    ]
+  }
+}

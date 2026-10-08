@@ -23,4 +23,5 @@ export const pl: RcTemplatesMessages = {
   cannotReadDir: (p) => `Nie można odczytać folderu szablonu (${p.code})`,
   notScene: (p) => `„${p.title}” to przykład demonstracyjny: wstaw prompt w pole wiadomości i wyślij bez załączania szablonu`,
   assetNotRegistered: (p) => `Szablon „${p.id}” nie wymienia tego materiału: ${p.asset}`,
+  translationForBaseLanguage: (p: { file: string; language: string }) => `${p.file} jest w języku samego szablonu (${p.language}); template.json i prompt.md już go obejmują`,
 };

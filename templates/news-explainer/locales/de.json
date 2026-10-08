@@ -1,0 +1,29 @@
+{
+  "title": "Trendthemen locker erklärt",
+  "summary": "Ein aktuelles Trendthema als schnelles Erklärvideo voller Memes.",
+  "description": "Der Agent recherchiert aktuelle Nachrichten, wählt ein Thema und kombiniert es mit gefundenen Memes zu einem etwa 90 Sekunden langen Erklärvideo im Querformat. Eigenes Material ist nicht nötig.",
+  "fields": [
+    {
+      "label": "Nachrichtenbereich",
+      "hint": "Welche Art von Nachrichten Sie interessiert; sonst „beliebig“",
+      "example": "Technik"
+    },
+    {
+      "label": "Videosprache",
+      "hint": "Sprache für Sprechertext und Untertitel"
+    }
+  ],
+  "tags": [
+    "News",
+    "Trends",
+    "Erklärvideo"
+  ],
+  "preview": {
+    "beats": [
+      "Das Trendthema vorstellen",
+      "Hintergründe und Verlauf",
+      "Memes und Reaktionen",
+      "Ein kurzer Kommentar zum Schluss"
+    ]
+  }
+}

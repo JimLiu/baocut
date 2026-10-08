@@ -1,0 +1,36 @@
+{
+  "title": "Storia con i dati",
+  "summary": "Trasforma una tabella in un racconto chiaro e intuitivo.",
+  "description": "Accompagna il pubblico attraverso una domanda, un grafico e una conclusione. Introduci un solo confronto alla volta e tieni sempre visibili unità, date e fonti dei dati, così che la storia regga a una verifica.",
+  "brief": "Racconta una storia con {{dati}} per {{pubblico}}, rispondendo a questa domanda: {{domanda}}.",
+  "fields": [
+    {
+      "label": "dati",
+      "hint": "La tabella o il file allegato, oppure la fonte dei dati",
+      "example": "questi dati di vendita degli ultimi cinque anni"
+    },
+    {
+      "label": "domanda",
+      "hint": "La domanda che il pubblico deve avere chiara alla fine",
+      "example": "quale regione cresce più in fretta e perché conta"
+    },
+    {
+      "label": "pubblico",
+      "hint": "Chi guarda; decide quanto andare a fondo",
+      "example": "il management dell’azienda"
+    }
+  ],
+  "tags": [
+    "dati",
+    "grafici",
+    "visualizzazione"
+  ],
+  "preview": {
+    "beats": [
+      "Una domanda che vale la pena porsi",
+      "Un confronto alla volta",
+      "Scomporre le cause",
+      "Una conclusione fondata"
+    ]
+  }
+}

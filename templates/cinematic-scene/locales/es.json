@@ -1,0 +1,41 @@
+{
+  "title": "Escena cinematográfica",
+  "summary": "Da vida a un lugar imaginado con movimientos de cámara de cine.",
+  "description": "A partir de una descripción o una imagen de referencia, crea una escena cargada de atmósfera. Define el lugar, la luz, el movimiento de cámara y el sonido ambiente para componer un momento visual coherente.",
+  "brief": "Crea una escena cinematográfica: {{lugar}}, {{momento y clima}}. La cámara {{movimiento de cámara}} y al final se detiene en {{detalle final}}.",
+  "fields": [
+    {
+      "label": "lugar",
+      "hint": "El sitio donde quieres situar al espectador",
+      "example": "un pueblo junto al mar"
+    },
+    {
+      "label": "momento y clima",
+      "hint": "Cuándo y con qué tiempo; define la atmósfera general",
+      "example": "una tarde de lluvia, con las farolas recién encendidas"
+    },
+    {
+      "label": "movimiento de cámara",
+      "hint": "Desde dónde parte la cámara y hacia dónde va",
+      "example": "avanza despacio desde el faro hacia una esquina"
+    },
+    {
+      "label": "detalle final",
+      "hint": "La última imagen que debe quedarse en la memoria",
+      "example": "una panadería que aún tiene la luz encendida"
+    }
+  ],
+  "tags": [
+    "cinematográfico",
+    "escena",
+    "atmósfera"
+  ],
+  "preview": {
+    "beats": [
+      "Presentar el entorno",
+      "Luz y clima",
+      "Un movimiento de cámara lento",
+      "Detenerse en un detalle"
+    ]
+  }
+}

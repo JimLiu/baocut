@@ -1,0 +1,37 @@
+{
+  "title": "Breve storia di una tecnologia",
+  "summary": "Con il codice, una storia veloce e spiritosa dei grandi modelli linguistici.",
+  "description": "Per un pubblico generale: dai primi modelli linguistici a oggi, con battute e meme originali. Non devi preparare materiali: l’agente si mette subito al lavoro.",
+  "fields": [
+    {
+      "label": "tecnologia",
+      "hint": "Di quale tecnologia raccontare l’evoluzione",
+      "example": "i grandi modelli linguistici"
+    },
+    {
+      "label": "pubblico",
+      "hint": "Chi guarda; decide quanto andare a fondo",
+      "example": "il grande pubblico"
+    },
+    {
+      "label": "lingua del video",
+      "hint": "La lingua di narrazione e sottotitoli"
+    }
+  ],
+  "tags": [
+    "divulgazione",
+    "storia della tecnologia",
+    "cronologia"
+  ],
+  "cover": {
+    "kicker": "CRONOLOGIA"
+  },
+  "preview": {
+    "beats": [
+      "I primi modelli linguistici",
+      "Alcune svolte decisive",
+      "Cosa cambia con la scala",
+      "Oggi e domani"
+    ]
+  }
+}

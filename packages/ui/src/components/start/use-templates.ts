@@ -22,11 +22,11 @@ export function useTemplateCatalogLoader(refresh: unknown = null): TemplateCatal
 
 export type PromptState = { state: 'loading' } | { state: 'ready'; text: string } | { state: 'failed'; message: string };
 
-/** 一个模板的提示词（`templates.get`）：按「id@版本」缓存，换模板时先显示加载中。 */
-export function useTemplatePrompt(template: Pick<HomeTemplate, 'id' | 'version'> | null): PromptState & { retry(): void } {
+/** 一个模板的提示词（`templates.get`）：按「id@版本:语言」缓存，换模板时先显示加载中。 */
+export function useTemplatePrompt(template: Pick<HomeTemplate, 'id' | 'version' | 'language'> | null): PromptState & { retry(): void } {
   const runtime = useRuntime();
   const connected = useConnection((s) => s.state.status === 'connected');
-  const key = template ? `${template.id}@${template.version}` : '';
+  const key = template ? `${template.id}@${template.version}:${template.language}` : '';
   const [state, setState] = useState<{ key: string; value: PromptState }>({ key, value: { state: 'loading' } });
   const [attempt, setAttempt] = useState(0);
   const current = state.key === key ? state.value : ({ state: 'loading' } as const);
@@ -34,14 +34,14 @@ export function useTemplatePrompt(template: Pick<HomeTemplate, 'id' | 'version'>
   useEffect(() => {
     if (!template || !connected) return undefined;
     let cancelled = false;
-    templatePrompt(runtime, template.id, template.version).then(
+    templatePrompt(runtime, template.id, template.version, template.language).then(
       (text) => !cancelled && setState({ key, value: { state: 'ready', text } }),
       (error: Error) => !cancelled && setState({ key, value: { state: 'failed', message: error.message } }),
     );
     return () => {
       cancelled = true;
     };
-    // template 只经 key 生效：同一 id@版本 不重取。
+    // template 只经 key 生效：同一 id@版本:语言 不重取。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runtime, key, connected, attempt]);
 

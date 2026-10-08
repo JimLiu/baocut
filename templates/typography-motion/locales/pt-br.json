@@ -1,0 +1,29 @@
+{
+  "title": "Curta de tipografia animada",
+  "summary": "Um curta em JavaScript guiado pela tipografia, minimalista e acolhedor.",
+  "description": "Fontes de vários estilos, estética minimalista e acolhedora, ritmo e cores variados, com música de fundo. Também é possível gerar imagens ou clipes de vídeo como complemento.",
+  "fields": [
+    {
+      "label": "tema",
+      "hint": "Sobre o que é o vídeo",
+      "example": "a mudança das estações"
+    },
+    {
+      "label": "idioma do vídeo",
+      "hint": "O idioma do texto na tela"
+    }
+  ],
+  "tags": [
+    "tipografia",
+    "fontes",
+    "JavaScript"
+  ],
+  "preview": {
+    "beats": [
+      "Uma palavra ocupa a tela",
+      "Fontes e pesos se alternam",
+      "As cores mudam no ritmo",
+      "Um final tranquilo"
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "title": "Scena cinematografica",
+  "summary": "Dai vita a un luogo immaginario con movimenti di camera cinematografici.",
+  "description": "Partendo da una descrizione o da un’immagine di riferimento, crea una scena ricca di atmosfera. Definisci luogo, luce, movimenti di camera e suono ambientale per comporre un momento visivo coerente.",
+  "brief": "Crea una scena cinematografica: {{luogo}}, {{ora e meteo}}. La camera {{movimento della camera}}, poi la scena si chiude con {{dettaglio finale}}.",
+  "fields": [
+    {
+      "label": "luogo",
+      "hint": "Il posto in cui vuoi portare il pubblico",
+      "example": "un paesino sul mare"
+    },
+    {
+      "label": "ora e meteo",
+      "hint": "Quando e con che tempo; definisce l’atmosfera generale",
+      "example": "una sera di pioggia, con i lampioni appena accesi"
+    },
+    {
+      "label": "movimento della camera",
+      "hint": "Da dove parte la camera e dove va",
+      "example": "parte dal faro e avanza lenta verso l’angolo della strada"
+    },
+    {
+      "label": "dettaglio finale",
+      "hint": "L’ultima immagine che deve restare in mente",
+      "example": "un forno ancora illuminato"
+    }
+  ],
+  "tags": [
+    "cinematografico",
+    "scena",
+    "atmosfera"
+  ],
+  "preview": {
+    "beats": [
+      "Presentare l’ambiente",
+      "Luce e tempo atmosferico",
+      "Un lento movimento di camera",
+      "Fermarsi su un dettaglio"
+    ]
+  }
+}

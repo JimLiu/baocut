@@ -1,0 +1,36 @@
+{
+  "title": "Stapsgewijze tutorial",
+  "summary": "Maak van een schermopname of instructies een heldere tutorial.",
+  "description": "Help kijkers één taak af te ronden met geordende stappen, zichtbare handelingen en duidelijke controlepunten: laat zien wat ze moeten doen en hoe ze weten dat het goed is gegaan.",
+  "brief": "Maak op basis van {{opname of instructies}} een tutorial die {{publiek}} leert hoe ze {{taak}}.",
+  "fields": [
+    {
+      "label": "opname of instructies",
+      "hint": "Bijgevoegde opname, screenshots of geschreven stappen",
+      "example": "deze instructies"
+    },
+    {
+      "label": "publiek",
+      "hint": "Wie het leert en wat ze al weten",
+      "example": "beginners"
+    },
+    {
+      "label": "taak",
+      "hint": "Eén ding dat ze daarna zelf kunnen",
+      "example": "een gastnetwerk op een router instellen"
+    }
+  ],
+  "tags": [
+    "tutorial",
+    "handleiding",
+    "stappen"
+  ],
+  "preview": {
+    "beats": [
+      "Het doel en wat je nodig hebt",
+      "Elke stap, op volgorde",
+      "Een controlepunt na elke stap",
+      "Het eindresultaat"
+    ]
+  }
+}

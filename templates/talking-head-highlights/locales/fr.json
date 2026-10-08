@@ -1,0 +1,36 @@
+{
+  "title": "Meilleurs moments face caméra",
+  "summary": "Tirez d’un long enregistrement ses idées fortes, en vidéo courte sous-titrée.",
+  "description": "Transformez un long enregistrement face caméra, une interview ou un live en une vidéo courte et ciblée : ouverture forte, idée complète, sous-titres lisibles. Retirez pauses et répétitions tout en respectant ce que l’orateur a voulu dire.",
+  "brief": "Voici {{enregistrement}}. Montez-en les meilleurs moments, centrés sur {{sujet à garder}}, à publier sur {{plateforme}}.",
+  "fields": [
+    {
+      "label": "enregistrement",
+      "hint": "L’enregistrement joint : sa durée approximative et son contenu",
+      "example": "une interview d’une heure"
+    },
+    {
+      "label": "sujet à garder",
+      "hint": "Idée ou sujet à extraire ; sinon, écrivez « ce qui vous semble le plus fort »",
+      "example": "l’avis de l’invitée sur le télétravail"
+    },
+    {
+      "label": "plateforme",
+      "hint": "Où la vidéo sera publiée ; cela fixe le rythme et la durée",
+      "example": "les réseaux sociaux"
+    }
+  ],
+  "tags": [
+    "face caméra",
+    "interview",
+    "meilleurs moments"
+  ],
+  "preview": {
+    "beats": [
+      "Ouvrir sur la phrase la plus forte",
+      "Une idée exposée en entier",
+      "Sans pauses ni répétitions",
+      "Finir sur une conclusion"
+    ]
+  }
+}

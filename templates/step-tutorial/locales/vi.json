@@ -1,0 +1,36 @@
+{
+  "title": "Hướng dẫn từng bước",
+  "summary": "Biến đoạn quay màn hình hay bản hướng dẫn thành video hướng dẫn rõ ràng.",
+  "description": "Giúp khán giả làm xong một việc bằng các bước có thứ tự, thao tác nhìn thấy được và điểm kiểm tra rõ ràng: cho họ biết cần làm gì, và làm sao biết mình đã làm đúng.",
+  "brief": "Dựa trên {{đoạn quay hoặc hướng dẫn}}, làm một video hướng dẫn, dạy {{khán giả}} cách {{việc cần làm}}.",
+  "fields": [
+    {
+      "label": "đoạn quay hoặc hướng dẫn",
+      "hint": "Video quay màn hình, ảnh chụp màn hình hoặc các bước dạng chữ đính kèm",
+      "example": "bản hướng dẫn này"
+    },
+    {
+      "label": "khán giả",
+      "hint": "Ai đang học, nền tảng ra sao",
+      "example": "người mới bắt đầu"
+    },
+    {
+      "label": "việc cần làm",
+      "hint": "Một việc họ tự làm được sau khi xem",
+      "example": "thiết lập mạng khách trên router"
+    }
+  ],
+  "tags": [
+    "hướng dẫn",
+    "thao tác",
+    "từng bước"
+  ],
+  "preview": {
+    "beats": [
+      "Cần làm gì, chuẩn bị những gì",
+      "Thao tác từng bước theo thứ tự",
+      "Điểm kiểm tra sau mỗi bước",
+      "Kết quả cuối cùng"
+    ]
+  }
+}

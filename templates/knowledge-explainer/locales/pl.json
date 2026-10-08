@@ -1,0 +1,41 @@
+{
+  "title": "Film objaśniający",
+  "summary": "Zamień dokument, prezentację lub temat w zrozumiałe wideo.",
+  "description": "Pomóż widzom zrozumieć pojęcie dzięki jasnym wyjaśnieniom i konkretnym przykładom. Ułóż swoje materiały w wizualną opowieść, a głębię dopasuj do tego, co odbiorcy już wiedzą.",
+  "brief": "Zrób wideo objaśniające. Materiały: {{materiały}}. Odbiorcy: {{odbiorcy}}. Temat: {{temat}}. Po obejrzeniu widzowie mają umieć: {{cel nauki}}.",
+  "fields": [
+    {
+      "label": "materiały",
+      "hint": "Dołączone dokumenty, slajdy lub linki; jeśli ich brak, wpisz „publiczne źródła”",
+      "example": "te notatki z wykładu"
+    },
+    {
+      "label": "odbiorcy",
+      "hint": "Kto ogląda i ile już wie",
+      "example": "licealiści"
+    },
+    {
+      "label": "temat",
+      "hint": "Pojęcie lub zagadnienie do wyjaśnienia",
+      "example": "fotosynteza"
+    },
+    {
+      "label": "cel nauki",
+      "hint": "Co widz ma zapamiętać lub umieć po obejrzeniu",
+      "example": "wyjaśnić, co zachodzi w fazie jasnej, a co w ciemnej"
+    }
+  ],
+  "tags": [
+    "nauka",
+    "objaśnienie",
+    "edukacja"
+  ],
+  "preview": {
+    "beats": [
+      "Pytanie na start",
+      "Rozbiór kluczowych pojęć",
+      "Konkretny przykład",
+      "Podsumowanie najważniejszego"
+    ]
+  }
+}

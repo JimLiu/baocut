@@ -1,0 +1,41 @@
+{
+  "title": "Promo ad",
+  "summary": "Turn your product or service into a short promo that drives action.",
+  "description": "Reach your audience with a gripping opening, an authentic demo and a clear call to action. Using the product photos, videos or descriptions you have, highlight real benefits and lead viewers to buy, sign up or get in touch.",
+  "brief": "Make a short promo for {{product or service}}. The goal is to {{desired action}}, and the audience is {{audience}}. Materials: {{materials on hand}}.",
+  "fields": [
+    {
+      "label": "product or service",
+      "hint": "What you're promoting",
+      "example": "our online yoga classes"
+    },
+    {
+      "label": "desired action",
+      "hint": "Pick just one action: buy, sign up or get in touch",
+      "example": "get new users to sign up for a free trial class"
+    },
+    {
+      "label": "audience",
+      "hint": "Who will see it, and what they care about",
+      "example": "office workers who want to exercise at home"
+    },
+    {
+      "label": "materials on hand",
+      "hint": "Attached product photos, videos or descriptions; write \"none\" if you have none",
+      "example": "the course description and a few class videos"
+    }
+  ],
+  "tags": [
+    "ad",
+    "promotion",
+    "conversion"
+  ],
+  "preview": {
+    "beats": [
+      "Grab attention in two seconds",
+      "Name the problem the audience cares about",
+      "Show real selling points",
+      "One clear call to action"
+    ]
+  }
+}

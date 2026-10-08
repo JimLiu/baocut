@@ -1,0 +1,29 @@
+{
+  "title": "Premiera fikcyjnego produktu",
+  "summary": "Premiera fikcyjnego produktu zrobiona w kodzie, w stylistyce białego interfejsu.",
+  "description": "Czysty, elegancki biały interfejs, szybkie tempo obrazu i efekty dźwiękowe – w sam raz do publikacji w mediach społecznościowych. Nazwę produktu, funkcje i interfejs wymyśla agent.",
+  "fields": [
+    {
+      "label": "rodzaj produktu",
+      "hint": "Jaki rodzaj produktu ma zostać wymyślony",
+      "example": "smartwatch"
+    },
+    {
+      "label": "język wideo",
+      "hint": "Język tekstu na ekranie"
+    }
+  ],
+  "tags": [
+    "premiera",
+    "interfejs",
+    "animacja z kodu"
+  ],
+  "preview": {
+    "beats": [
+      "Biały interfejs powoli się rozwija",
+      "Szybki przegląd kluczowych funkcji",
+      "Zbliżenia detali i animacji",
+      "Stopklatka z nazwą produktu"
+    ]
+  }
+}

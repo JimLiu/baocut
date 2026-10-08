@@ -1,0 +1,41 @@
+{
+  "title": "Demo oprogramowania",
+  "summary": "Pokaż krok po kroku, jak Twoje oprogramowanie rozwiązuje problem.",
+  "description": "Na podstawie zrzutów ekranu, nagrań ekranu lub materiałów o produkcie połącz problem użytkownika z odpowiednią funkcją i efektem końcowym. Demo przez cały czas trzyma się jednego prawdziwego scenariusza użycia.",
+  "brief": "Zrób wideo demonstracyjne. Materiał: {{nagranie lub zrzuty}}. Oprogramowanie: {{oprogramowanie}}. Pokaż czynność: {{czynność do pokazania}}. Problem, który to rozwiązuje: {{problem użytkownika}}.",
+  "fields": [
+    {
+      "label": "nagranie lub zrzuty",
+      "hint": "Dołączone nagranie ekranu, zrzuty ekranu lub instrukcja obsługi",
+      "example": "to nagranie ekranu"
+    },
+    {
+      "label": "oprogramowanie",
+      "hint": "Nazwa programu lub funkcji",
+      "example": "nasza aplikacja do śledzenia wydatków"
+    },
+    {
+      "label": "czynność do pokazania",
+      "hint": "Jeden kompletny scenariusz użycia",
+      "example": "eksport raportu miesięcznego w trzech krokach"
+    },
+    {
+      "label": "problem użytkownika",
+      "hint": "Czego ta funkcja oszczędza użytkownikowi",
+      "example": "ręczne porządkowanie rachunków na koniec miesiąca trwa zbyt długo"
+    }
+  ],
+  "tags": [
+    "oprogramowanie",
+    "demo",
+    "nagranie ekranu"
+  ],
+  "preview": {
+    "beats": [
+      "Problem użytkownika",
+      "Otwarcie właściwej funkcji",
+      "Kluczowe kroki po kolei",
+      "Efekt końcowy"
+    ]
+  }
+}

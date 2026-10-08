@@ -1,0 +1,41 @@
+{
+  "title": "Ürün lansman filmi",
+  "summary": "Yeni ürünü etkileyici bir ilk gösterim ve net bir sonraki adımla tanıtın.",
+  "description": "Merak uyandıran bir açılıştan ürünün ilk gösterimine geçin, iki üç somut faydayı anlatın; sonunda akılda kalan bir marka karesi ve izleyiciye net bir sonraki adımla bitirin.",
+  "brief": "Yeni ürünümüz için bir lansman filmi yapın. Ürün: {{yeni ürün}}. Lansman: {{lansman zamanı}}. Öne çıkacak faydalar: {{ana faydalar}}. Sonda izleyiciden beklenen adım: {{sonraki adım}}.",
+  "fields": [
+    {
+      "label": "lansman zamanı",
+      "hint": "Ne zaman piyasaya çıkıyor veya duyuruluyor",
+      "example": "gelecek ay"
+    },
+    {
+      "label": "yeni ürün",
+      "hint": "Ürün ne; adı varsa yazın",
+      "example": "akıllı bir masa lambası"
+    },
+    {
+      "label": "ana faydalar",
+      "hint": "İzleyicinin hatırlamasını istediğiniz iki üç fayda",
+      "example": "otomatik ışık ayarı ve odak modu"
+    },
+    {
+      "label": "sonraki adım",
+      "hint": "İzledikten sonra izleyicinin ne yapmasını istiyorsunuz",
+      "example": "ilk satış için ön sipariş vermek"
+    }
+  ],
+  "tags": [
+    "lansman",
+    "yeni ürün",
+    "marka"
+  ],
+  "preview": {
+    "beats": [
+      "Merak uyandıran açılış",
+      "Ürünün ilk gösterimi",
+      "İki üç somut fayda",
+      "Marka karesi ve sonraki adım"
+    ]
+  }
+}

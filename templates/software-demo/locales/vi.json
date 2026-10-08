@@ -1,0 +1,41 @@
+{
+  "title": "Demo phần mềm",
+  "summary": "Trình diễn từng bước cách phần mềm của bạn giải quyết một vấn đề.",
+  "description": "Dùng ảnh chụp màn hình, video quay màn hình hoặc tài liệu sản phẩm để nối một vấn đề của người dùng với tính năng tương ứng và kết quả cuối cùng. Phần demo luôn bám theo một quy trình sử dụng có thật.",
+  "brief": "Dùng {{đoạn quay hoặc ảnh chụp}} làm một video demo, cho thấy cách dùng {{phần mềm}} để {{thao tác cần demo}}, giải quyết vấn đề: {{khó khăn của người dùng}}.",
+  "fields": [
+    {
+      "label": "đoạn quay hoặc ảnh chụp",
+      "hint": "Video quay màn hình, ảnh chụp màn hình hoặc hướng dẫn thao tác đính kèm",
+      "example": "đoạn quay màn hình này"
+    },
+    {
+      "label": "phần mềm",
+      "hint": "Tên phần mềm hoặc tính năng",
+      "example": "ứng dụng ghi chép chi tiêu của chúng tôi"
+    },
+    {
+      "label": "thao tác cần demo",
+      "hint": "Một quy trình sử dụng trọn vẹn",
+      "example": "xuất báo cáo tháng trong ba bước"
+    },
+    {
+      "label": "khó khăn của người dùng",
+      "hint": "Tính năng này giúp người dùng đỡ được việc gì",
+      "example": "cuối tháng tự sắp xếp hóa đơn quá mất thời gian"
+    }
+  ],
+  "tags": [
+    "phần mềm",
+    "demo",
+    "quay màn hình"
+  ],
+  "preview": {
+    "beats": [
+      "Vấn đề người dùng gặp phải",
+      "Mở tính năng tương ứng",
+      "Demo từng bước thao tác then chốt",
+      "Kết quả đạt được"
+    ]
+  }
+}

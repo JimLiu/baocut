@@ -1,0 +1,37 @@
+{
+  "title": "Tech history explainer",
+  "summary": "A fast, funny explainer on the history of large language models, made in code.",
+  "description": "Made for a general audience, it goes from early language models to today, with original jokes and memes along the way. No assets to prepare; the agent gets right to work.",
+  "fields": [
+    {
+      "label": "technology",
+      "hint": "Which technology's history to tell",
+      "example": "large language models"
+    },
+    {
+      "label": "audience",
+      "hint": "Who is watching; this sets how deep to go",
+      "example": "a general audience"
+    },
+    {
+      "label": "video language",
+      "hint": "The language for narration and subtitles"
+    }
+  ],
+  "tags": [
+    "popular science",
+    "tech history",
+    "timeline"
+  ],
+  "cover": {
+    "kicker": "TIMELINE"
+  },
+  "preview": {
+    "beats": [
+      "The earliest language models",
+      "A few key breakthroughs",
+      "What scale changed",
+      "Today and what comes next"
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "title": "Prezentacja produktu",
+  "summary": "Krótki, czysty film, który jasno pokazuje funkcje i detale produktu.",
+  "description": "Uporządkuj zdjęcia lub klipy produktu w przejrzystą prezentację wizualną. Wyeksponuj detale, na których odbiorcom zależy najbardziej, a styl i rytm dopasuj do swojej marki.",
+  "brief": "Zrób film prezentujący produkt. Produkt: {{produkt}}. Materiały: {{materiały produktu}}. Najważniejsze funkcje: {{kluczowe funkcje}}. Odbiorcy: {{odbiorcy}}.",
+  "fields": [
+    {
+      "label": "materiały produktu",
+      "hint": "Dołączone zdjęcia, nagrania lub opis produktu",
+      "example": "te zdjęcia produktu"
+    },
+    {
+      "label": "produkt",
+      "hint": "Czym jest produkt; jeśli ma nazwę, wpisz ją",
+      "example": "słuchawki z redukcją szumów"
+    },
+    {
+      "label": "kluczowe funkcje",
+      "hint": "Dwie, trzy funkcje lub detale warte zbliżenia",
+      "example": "redukcja szumów i czas pracy na baterii"
+    },
+    {
+      "label": "odbiorcy",
+      "hint": "Kto kupi i na czym mu najbardziej zależy",
+      "example": "osoby codziennie dojeżdżające do pracy"
+    }
+  ],
+  "tags": [
+    "produkt",
+    "prezentacja",
+    "e-commerce"
+  ],
+  "preview": {
+    "beats": [
+      "Produkt w całości",
+      "Zbliżenia kluczowych detali",
+      "Prawdziwa scena użycia",
+      "Wezwanie do działania na koniec"
+    ]
+  }
+}

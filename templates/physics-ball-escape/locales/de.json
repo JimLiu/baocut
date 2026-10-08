@@ -1,0 +1,30 @@
+{
+  "title": "Entspannende Physik-Animation",
+  "summary": "Eine per Code erstellte, entspannende Animation: Ein Ball entkommt Ring um Ring.",
+  "description": "Ein kleiner Ball springt in rotierenden, ineinanderliegenden Ringen umher, bricht durch Lücken und entkommt, mit realistischer Physik und Spannung. Komplett per Code erzeugt, ideal für einen Clip im Querformat, den man immer wieder sehen will.",
+  "fields": [
+    {
+      "label": "Dauer",
+      "hint": "Ungefähre Länge des Videos",
+      "example": "30 Sekunden"
+    },
+    {
+      "label": "Farbschema",
+      "hint": "Gewünschte Farben; je kräftiger, desto auffälliger",
+      "example": "kräftige Neonfarben auf Schwarz"
+    }
+  ],
+  "tags": [
+    "Physik",
+    "Code-Animation",
+    "Entspannung"
+  ],
+  "preview": {
+    "beats": [
+      "Der Ball springt im innersten Ring",
+      "Die erste Lücke bricht auf",
+      "Ring um Ring verschwindet",
+      "Der Ball ist frei"
+    ]
+  }
+}

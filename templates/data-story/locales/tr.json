@@ -1,0 +1,36 @@
+{
+  "title": "Veri hikâyesi",
+  "summary": "Bir tabloyu açık ve kolay anlaşılır bir anlatıya dönüştürün.",
+  "description": "İzleyiciyi bir sorudan bir grafiğe ve bir sonuca götürün. Her seferinde tek bir karşılaştırma gösterin; birimler, tarihler ve veri kaynağı hep görünür kalsın ki hikâye doğrulanabilsin.",
+  "brief": "Şu veriyle bir veri hikâyesi anlatın: {{veri}}. Yanıtlanacak soru: {{yanıtlanacak soru}}. İzleyici kitlesi: {{izleyici kitlesi}}.",
+  "fields": [
+    {
+      "label": "veri",
+      "hint": "Eklediğiniz tablo ya da dosya veya verinin kaynağı",
+      "example": "bu son beş yıllık satış verileri"
+    },
+    {
+      "label": "yanıtlanacak soru",
+      "hint": "İzleyicinin sonunda anlamasını istediğiniz tek soru",
+      "example": "hangi bölge en hızlı büyüyor ve bu neden önemli"
+    },
+    {
+      "label": "izleyici kitlesi",
+      "hint": "Kim izleyecek; anlatımın derinliğini belirler",
+      "example": "şirket yönetimi"
+    }
+  ],
+  "tags": [
+    "veri",
+    "grafik",
+    "görselleştirme"
+  ],
+  "preview": {
+    "beats": [
+      "Sorulmaya değer bir soru",
+      "Her seferinde bir karşılaştırma",
+      "Nedenleri açmak",
+      "Dayanağı olan bir sonuç"
+    ]
+  }
+}

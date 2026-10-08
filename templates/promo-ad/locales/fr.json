@@ -1,0 +1,41 @@
+{
+  "title": "Vidéo promotionnelle",
+  "summary": "Faites de votre produit ou service une courte vidéo promo qui pousse à l’action.",
+  "description": "Touchez votre public avec une accroche forte, une démonstration authentique et un appel à l’action clair. Partez des photos, vidéos ou présentations du produit que vous avez, mettez en avant de vrais bénéfices et incitez à acheter, à s’inscrire ou à se renseigner.",
+  "brief": "Créez une courte vidéo promo pour {{produit ou service}}. Objectif : {{action attendue}}. Public : {{public}}. Médias : {{médias disponibles}}.",
+  "fields": [
+    {
+      "label": "produit ou service",
+      "hint": "Ce que vous voulez promouvoir",
+      "example": "nos cours de yoga en ligne"
+    },
+    {
+      "label": "action attendue",
+      "hint": "Une seule action : acheter, s’inscrire ou se renseigner",
+      "example": "faire s’inscrire de nouveaux utilisateurs au cours d’essai gratuit"
+    },
+    {
+      "label": "public",
+      "hint": "Qui verra la vidéo, et ce qui compte pour eux",
+      "example": "des actifs qui veulent faire du sport chez eux"
+    },
+    {
+      "label": "médias disponibles",
+      "hint": "Photos, vidéos ou présentation jointes ; sinon, écrivez « aucun »",
+      "example": "la présentation des cours et quelques vidéos de séances"
+    }
+  ],
+  "tags": [
+    "publicité",
+    "promotion",
+    "conversion"
+  ],
+  "preview": {
+    "beats": [
+      "Capter l’attention en deux secondes",
+      "Nommer le problème du public",
+      "Montrer de vrais atouts",
+      "Un appel à l’action clair"
+    ]
+  }
+}

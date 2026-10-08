@@ -1,0 +1,41 @@
+{
+  "title": "Cortometraggio narrativo",
+  "summary": "Dai vita ai tuoi personaggi e alla tua storia in un cortometraggio.",
+  "description": "Costruisci una storia completa attorno a un personaggio, un obiettivo e un conflitto, con una svolta e un finale. Personaggi, ambienti e stile visivo restano coerenti dall’inizio alla fine.",
+  "brief": "Crea un cortometraggio: {{protagonista}} vuole {{obiettivo}}, ma {{ostacolo}}; alla fine {{finale}}.",
+  "fields": [
+    {
+      "label": "protagonista",
+      "hint": "Chi è il protagonista",
+      "example": "un piccolo pinguino"
+    },
+    {
+      "label": "obiettivo",
+      "hint": "Cosa vuole il protagonista",
+      "example": "imparare a volare"
+    },
+    {
+      "label": "ostacolo",
+      "hint": "La difficoltà che gli sbarra la strada",
+      "example": "ci prova più volte e cade sempre"
+    },
+    {
+      "label": "finale",
+      "hint": "Obiettivo raggiunto, mancato o inseguito in un altro modo",
+      "example": "trova il suo modo di volare, sott’acqua"
+    }
+  ],
+  "tags": [
+    "storia",
+    "cortometraggio",
+    "personaggi"
+  ],
+  "preview": {
+    "beats": [
+      "Il protagonista e il suo desiderio",
+      "Arriva l’ostacolo",
+      "La svolta",
+      "Il finale e ciò che lascia"
+    ]
+  }
+}

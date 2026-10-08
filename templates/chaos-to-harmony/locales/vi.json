@@ -1,0 +1,29 @@
+{
+  "title": "Từ hỗn loạn đến trật tự",
+  "summary": "Phim ngắn toàn bằng code: hình khối và chất liệu đi từ hỗn loạn đến hài hòa.",
+  "description": "Không dùng đoạn video tạo sinh, cũng không dùng tư liệu stock; mọi hình ảnh và chuyển động đều được dựng và kết xuất bằng code. Giao video hoàn chỉnh cùng mã nguồn có thể tiếp tục chỉnh sửa.",
+  "fields": [
+    {
+      "label": "hình khối và chất liệu",
+      "hint": "Bạn muốn xem những gì đi từ hỗn loạn đến trật tự",
+      "example": "đủ loại hình khối vật lý và chất liệu"
+    },
+    {
+      "label": "ngôn ngữ video",
+      "hint": "Ngôn ngữ cho chữ trên hình, lời bài hát hoặc lời dẫn"
+    }
+  ],
+  "tags": [
+    "hoạt hình bằng code",
+    "vật lý",
+    "chất liệu"
+  ],
+  "preview": {
+    "beats": [
+      "Mảnh vụn và chất liệu rời rạc",
+      "Va chạm, hút lấy nhau",
+      "Dần tìm được nhịp điệu",
+      "Hòa vào một tổng thể hài hòa"
+    ]
+  }
+}

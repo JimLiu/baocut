@@ -1,0 +1,36 @@
+{
+  "title": "Momenti salienti di un intervento",
+  "summary": "Estrai il meglio di una lunga registrazione in un breve video sottotitolato.",
+  "description": "Trasforma una lunga registrazione di un intervento, un’intervista o una diretta in un breve video mirato: apertura forte, idea completa, sottotitoli leggibili. Elimina pause e ripetizioni rispettando ciò che intendeva chi parla.",
+  "brief": "Ecco {{registrazione}}. Ricavane un video di momenti salienti per {{destinazione}}, concentrato su questo: {{argomento da tenere}}.",
+  "fields": [
+    {
+      "label": "registrazione",
+      "hint": "La registrazione allegata: quanto dura e cosa contiene",
+      "example": "un’intervista di un’ora"
+    },
+    {
+      "label": "argomento da tenere",
+      "hint": "Idea o argomento da estrarre; se vuoi che scelga l’agente scrivi «scegli tu»",
+      "example": "cosa pensa l’ospite del lavoro da remoto"
+    },
+    {
+      "label": "destinazione",
+      "hint": "Dove lo pubblichi; decide ritmo e durata",
+      "example": "i social"
+    }
+  ],
+  "tags": [
+    "video parlato",
+    "intervista",
+    "momenti salienti"
+  ],
+  "preview": {
+    "beats": [
+      "Apertura con la frase più forte",
+      "Un’idea spiegata per intero",
+      "Via pause e ripetizioni",
+      "Chiusura su una conclusione"
+    ]
+  }
+}

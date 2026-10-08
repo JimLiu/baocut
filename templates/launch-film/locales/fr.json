@@ -1,0 +1,41 @@
+{
+  "title": "Film de lancement",
+  "summary": "Présentez un nouveau produit avec une révélation et une prochaine étape claire.",
+  "description": "D’une ouverture qui éveille la curiosité à la révélation du produit, puis deux ou trois bénéfices concrets, pour finir sur une image de marque mémorable et une prochaine étape pour le public.",
+  "brief": "Nous lançons {{nouveau produit}} {{date de lancement}}. Créez un film de lancement qui met en avant {{bénéfices clés}}, puis invite le public à {{prochaine étape}}.",
+  "fields": [
+    {
+      "label": "date de lancement",
+      "hint": "Quand le produit sort ou est lancé",
+      "example": "le mois prochain"
+    },
+    {
+      "label": "nouveau produit",
+      "hint": "Ce qu’est le produit, avec son nom s’il en a un",
+      "example": "une lampe de bureau intelligente"
+    },
+    {
+      "label": "bénéfices clés",
+      "hint": "Deux ou trois bénéfices que le public doit retenir",
+      "example": "l’éclairage auto-adaptatif et le mode concentration"
+    },
+    {
+      "label": "prochaine étape",
+      "hint": "Ce que le public doit faire après avoir vu la vidéo",
+      "example": "la précommander dès sa sortie"
+    }
+  ],
+  "tags": [
+    "lancement",
+    "nouveauté",
+    "marque"
+  ],
+  "preview": {
+    "beats": [
+      "Une ouverture qui intrigue",
+      "La révélation du produit",
+      "Deux ou trois bénéfices concrets",
+      "Image de marque et prochaine étape"
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "title": "Cena cinematográfica",
+  "summary": "Dê vida a um lugar imaginário com movimentos de câmera cinematográficos.",
+  "description": "A partir de uma descrição ou de uma imagem de referência, crie uma cena cheia de atmosfera. Defina o lugar, a luz, o movimento de câmera e o som ambiente para compor um instante visual coeso.",
+  "brief": "Faça uma cena cinematográfica: {{lugar}}, {{horário e clima}}. A câmera faz {{movimento de câmera}} e termina em {{detalhe final}}.",
+  "fields": [
+    {
+      "label": "lugar",
+      "hint": "Onde você quer colocar o espectador",
+      "example": "uma pequena cidade à beira-mar"
+    },
+    {
+      "label": "horário e clima",
+      "hint": "Em que momento e com que tempo; isso define a atmosfera geral",
+      "example": "fim de tarde chuvoso, com os postes recém-acesos"
+    },
+    {
+      "label": "movimento de câmera",
+      "hint": "De onde a câmera parte e para onde vai",
+      "example": "um avanço lento do farol até a esquina"
+    },
+    {
+      "label": "detalhe final",
+      "hint": "A última imagem que deve ficar na memória",
+      "example": "uma padaria ainda com a luz acesa"
+    }
+  ],
+  "tags": [
+    "cinematográfico",
+    "cena",
+    "atmosfera"
+  ],
+  "preview": {
+    "beats": [
+      "Apresentar o ambiente",
+      "Luz e clima",
+      "Um movimento de câmera lento",
+      "Parar em um detalhe"
+    ]
+  }
+}

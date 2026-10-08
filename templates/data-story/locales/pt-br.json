@@ -1,0 +1,36 @@
+{
+  "title": "História com dados",
+  "summary": "Transforme uma planilha em uma narrativa clara e visual.",
+  "description": "Conduza o espectador por uma pergunta, um gráfico e uma conclusão. Apresente uma comparação por vez e mantenha unidades, datas e fontes sempre visíveis, para que a história resista a uma checagem.",
+  "brief": "Use {{dados}} para contar uma história com dados que responda: {{pergunta a responder}}. Público: {{público}}.",
+  "fields": [
+    {
+      "label": "dados",
+      "hint": "A planilha ou o arquivo anexado, ou a origem dos dados",
+      "example": "estes dados de vendas dos últimos cinco anos"
+    },
+    {
+      "label": "pergunta a responder",
+      "hint": "A pergunta que o espectador deve entender ao final",
+      "example": "qual região cresceu mais rápido e por que isso importa"
+    },
+    {
+      "label": "público",
+      "hint": "Quem vai assistir; isso define a profundidade",
+      "example": "a diretoria da empresa"
+    }
+  ],
+  "tags": [
+    "dados",
+    "gráficos",
+    "visualização"
+  ],
+  "preview": {
+    "beats": [
+      "Uma pergunta que vale a pena",
+      "Uma comparação por vez",
+      "Analisar as causas",
+      "Uma conclusão fundamentada"
+    ]
+  }
+}

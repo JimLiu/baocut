@@ -1,0 +1,3 @@
+Busca noticias recientes de IA sobre {{tema de interés}}, elige un tema interesante y haz un comentario de actualidad con ritmo ágil y muchos memes, de aproximadamente {{duración}} y listo para publicar en plataformas de vídeo.
+
+Puedes buscar clips de vídeo, imágenes y GIF para usarlos. Da preferencia a materiales cuya licencia permita usarlos e indica las fuentes. Comprueba bien los hechos; usa los memes solo para marcar el ritmo, nunca para distorsionar la noticia. Narración y subtítulos en {{idioma del vídeo}}. Usa una misma voz en toda la narración, a velocidad normal; si el guion es demasiado largo, recorta palabras en lugar de acelerar la voz para que quepa.

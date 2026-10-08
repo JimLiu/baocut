@@ -25,4 +25,5 @@ export const ko: RcTemplatesMessages = {
   notScene: (p) =>
     `“${p.title}”은(는) 작품 예시입니다. 템플릿을 첨부하지 말고 프롬프트를 입력란에 넣어 바로 보내세요`,
   assetNotRegistered: (p) => `템플릿 “${p.id}”에 이 소재가 등록되어 있지 않습니다: ${p.asset}`,
+  translationForBaseLanguage: (p: { file: string; language: string }) => `${p.file}은(는) 템플릿 원래 언어(${p.language})와 같습니다. template.json과 prompt.md가 이미 이 언어입니다`,
 };

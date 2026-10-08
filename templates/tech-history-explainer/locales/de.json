@@ -1,0 +1,37 @@
+{
+  "title": "Technikgeschichte kompakt",
+  "summary": "Die Geschichte großer Sprachmodelle, schnell und witzig, komplett per Code.",
+  "description": "Für ein breites Publikum, von den frühen Sprachmodellen bis heute, mit eigenen Gags und Memes. Eigenes Material ist nicht nötig; der Agent legt direkt los.",
+  "fields": [
+    {
+      "label": "Technologie",
+      "hint": "Die Technologie, deren Geschichte erzählt wird",
+      "example": "große Sprachmodelle"
+    },
+    {
+      "label": "Publikum",
+      "hint": "Wer zuschaut; das bestimmt die Tiefe",
+      "example": "interessierte Laien"
+    },
+    {
+      "label": "Videosprache",
+      "hint": "Sprache für Sprechertext und Untertitel"
+    }
+  ],
+  "tags": [
+    "Wissen",
+    "Technikgeschichte",
+    "Zeitstrahl"
+  ],
+  "cover": {
+    "kicker": "ZEITSTRAHL"
+  },
+  "preview": {
+    "beats": [
+      "Die ersten Sprachmodelle",
+      "Einige entscheidende Durchbrüche",
+      "Was die Größe verändert hat",
+      "Heute und als Nächstes"
+    ]
+  }
+}

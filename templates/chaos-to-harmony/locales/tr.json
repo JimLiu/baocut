@@ -1,0 +1,29 @@
+{
+  "title": "Kaostan uyuma",
+  "summary": "Tamamen kodla işlenen kısa film: biçimler ve malzemeler kaostan uyuma geçer.",
+  "description": "Video üretimiyle elde edilen klipler ya da stok medya kullanılmaz; tüm görüntüler ve animasyonlar kodla kurulup işlenir. Videoyla birlikte üzerinde çalışmaya devam edebileceğiniz kaynak kod da teslim edilir.",
+  "fields": [
+    {
+      "label": "biçimler ve malzemeler",
+      "hint": "Kaostan düzene geçişini görmek istediğiniz şeyler",
+      "example": "çeşitli fiziksel biçimler ve malzemeler"
+    },
+    {
+      "label": "video dili",
+      "hint": "Ekran metni, şarkı sözleri veya dış sesin dili"
+    }
+  ],
+  "tags": [
+    "kod animasyonu",
+    "fizik",
+    "malzeme"
+  ],
+  "preview": {
+    "beats": [
+      "Dağınık parçalar ve malzemeler",
+      "Çarpışır, birbirini çeker",
+      "Yavaş yavaş ritim bulur",
+      "Uyumlu bir bütün"
+    ]
+  }
+}

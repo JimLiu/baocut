@@ -1,0 +1,41 @@
+{
+  "title": "Giải thích kiến thức",
+  "summary": "Biến một tài liệu, bộ slide hay một chủ đề thành video dễ hiểu.",
+  "description": "Giúp khán giả hiểu một khái niệm bằng lời giải thích rõ ràng và ví dụ cụ thể. Sắp xếp tài liệu của bạn thành một mạch kể bằng hình ảnh; nói sâu hay nông tùy vào kiến thức sẵn có của khán giả.",
+  "brief": "Dựa trên {{tài liệu}}, giải thích rõ {{chủ đề}} cho {{khán giả}}, để sau khi xem họ có thể {{mục tiêu sau khi xem}}.",
+  "fields": [
+    {
+      "label": "tài liệu",
+      "hint": "Tài liệu, slide hoặc link đính kèm; nếu không có thì ghi “tài liệu công khai”",
+      "example": "tập bài giảng này"
+    },
+    {
+      "label": "khán giả",
+      "hint": "Ai sẽ xem, đã biết đến đâu",
+      "example": "học sinh trung học"
+    },
+    {
+      "label": "chủ đề",
+      "hint": "Khái niệm hoặc chủ đề cần giải thích rõ",
+      "example": "quang hợp"
+    },
+    {
+      "label": "mục tiêu sau khi xem",
+      "hint": "Điều bạn muốn khán giả nhớ hoặc làm được sau khi xem",
+      "example": "nói được pha sáng và pha tối mỗi pha làm gì"
+    }
+  ],
+  "tags": [
+    "phổ biến kiến thức",
+    "giải thích",
+    "giáo dục"
+  ],
+  "preview": {
+    "beats": [
+      "Đặt ra một câu hỏi",
+      "Tách các khái niệm then chốt",
+      "Giảng kỹ bằng ví dụ cụ thể",
+      "Tóm tắt ý chính"
+    ]
+  }
+}

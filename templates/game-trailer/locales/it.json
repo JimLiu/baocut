@@ -1,0 +1,29 @@
+{
+  "title": "Trailer di un gioco originale",
+  "summary": "Un trailer curato per un videogioco originale, che cattura fin da subito.",
+  "description": "Dal mondo ai personaggi fino al gameplay, alcune sequenze rapide presentano un videogioco originale, con un gancio già nei primi due secondi: un video pronto per i social.",
+  "fields": [
+    {
+      "label": "genere di gioco",
+      "hint": "Che genere e che stile di gioco",
+      "example": "esplorazione spaziale in pixel art"
+    },
+    {
+      "label": "lingua del video",
+      "hint": "La lingua di testo a schermo e narrazione"
+    }
+  ],
+  "tags": [
+    "videogiochi",
+    "trailer",
+    "originale"
+  ],
+  "preview": {
+    "beats": [
+      "Un gancio di due secondi",
+      "Mondo e personaggi",
+      "Il meglio del gameplay",
+      "Nome del gioco e slogan"
+    ]
+  }
+}

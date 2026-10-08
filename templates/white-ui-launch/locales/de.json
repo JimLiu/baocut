@@ -1,0 +1,29 @@
+{
+  "title": "Launch eines fiktiven Produkts",
+  "summary": "Launch-Video für ein fiktives Produkt im Stil einer weißen Oberfläche, per Code.",
+  "description": "Eine klare, schöne weiße UI, schnelle Bilder und Soundeffekte, ideal für soziale Netzwerke. Produktname, Funktionen und Oberfläche erfindet der Agent selbst.",
+  "fields": [
+    {
+      "label": "Produktart",
+      "hint": "Welche Art von Produkt erfunden wird",
+      "example": "Smartwatch"
+    },
+    {
+      "label": "Videosprache",
+      "hint": "Sprache für Texteinblendungen"
+    }
+  ],
+  "tags": [
+    "Launch",
+    "Oberfläche",
+    "Code-Animation"
+  ],
+  "preview": {
+    "beats": [
+      "Die weiße Oberfläche entfaltet sich",
+      "Kernfunktionen im schnellen Wechsel",
+      "Nahaufnahmen von Details und Animationen",
+      "Der Produktname bleibt stehen"
+    ]
+  }
+}

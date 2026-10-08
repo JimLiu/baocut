@@ -1,0 +1,29 @@
+{
+  "title": "Showreel de motion design",
+  "summary": "Un court film de motion design au rythme serré, vitrine d’un vrai savoir-faire.",
+  "description": "Morphing, révélations par masque, mouvements élastiques et transitions calées sur le rythme s’enchaînent, comme l’ouverture du portfolio d’un motion designer. Idéal pour découvrir ce que BaoCut sait faire en motion design.",
+  "fields": [
+    {
+      "label": "palette",
+      "hint": "La palette ou le style visuel souhaité",
+      "example": "fond noir et couleurs fluo"
+    },
+    {
+      "label": "langue de la vidéo",
+      "hint": "Langue du texte à l’écran"
+    }
+  ],
+  "tags": [
+    "motion design",
+    "portfolio",
+    "transitions"
+  ],
+  "preview": {
+    "beats": [
+      "Des formes géométriques surgissent",
+      "Texte révélé par masque",
+      "Morphing et transitions sur le rythme",
+      "Une image finale épurée"
+    ]
+  }
+}

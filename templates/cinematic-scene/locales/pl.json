@@ -1,0 +1,41 @@
+{
+  "title": "Scena filmowa",
+  "summary": "Ożyw wymyślone miejsce dzięki filmowemu ruchowi kamery.",
+  "description": "Na podstawie opisu lub obrazu referencyjnego stwórz klimatyczną scenę. Ustal miejsce, światło, ruch kamery i dźwięki otoczenia, a potem złóż je w jedną spójną chwilę.",
+  "brief": "Zrób filmową scenę. Miejsce: {{miejsce}}. Pora i pogoda: {{pora i pogoda}}. Ruch kamery: {{ruch kamery}}. Na koniec kamera zatrzymuje się na detalu: {{detal na koniec}}.",
+  "fields": [
+    {
+      "label": "miejsce",
+      "hint": "Gdzie ma się znaleźć widz",
+      "example": "nadmorskie miasteczko"
+    },
+    {
+      "label": "pora i pogoda",
+      "hint": "Kiedy i przy jakiej pogodzie – to ustala cały nastrój",
+      "example": "deszczowy wieczór, latarnie właśnie się zapalają"
+    },
+    {
+      "label": "ruch kamery",
+      "hint": "Skąd kamera rusza i dokąd zmierza",
+      "example": "powolny najazd od latarni morskiej w stronę rogu ulicy"
+    },
+    {
+      "label": "detal na koniec",
+      "hint": "Ostatni obraz, który ma zostać w pamięci",
+      "example": "piekarnia, w której wciąż pali się światło"
+    }
+  ],
+  "tags": [
+    "filmowy",
+    "scena",
+    "klimat"
+  ],
+  "preview": {
+    "beats": [
+      "Ustalenie miejsca",
+      "Światło i pogoda",
+      "Jeden powolny ruch kamery",
+      "Zatrzymanie na detalu"
+    ]
+  }
+}

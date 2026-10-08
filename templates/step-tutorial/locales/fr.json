@@ -1,0 +1,36 @@
+{
+  "title": "Tutoriel pas à pas",
+  "summary": "Transformez un enregistrement d’écran ou des instructions en tutoriel clair.",
+  "description": "Aidez le public à accomplir une tâche avec des étapes ordonnées, des actions visibles et des points de contrôle clairs : montrez quoi faire, et comment vérifier que c’est bien fait.",
+  "brief": "À partir de {{enregistrement ou étapes}}, créez un tutoriel pour {{public}} qui explique comment {{tâche à accomplir}}.",
+  "fields": [
+    {
+      "label": "enregistrement ou étapes",
+      "hint": "Enregistrement d’écran, captures ou étapes écrites joints",
+      "example": "ces étapes"
+    },
+    {
+      "label": "public",
+      "hint": "Qui apprend, et avec quel niveau",
+      "example": "des débutants"
+    },
+    {
+      "label": "tâche à accomplir",
+      "hint": "Une tâche qu’ils sauront faire seuls ensuite",
+      "example": "configurer un réseau invité sur un routeur"
+    }
+  ],
+  "tags": [
+    "tutoriel",
+    "mode d’emploi",
+    "étapes"
+  ],
+  "preview": {
+    "beats": [
+      "Le but et ce qu’il faut préparer",
+      "Chaque étape, dans l’ordre",
+      "Un point de contrôle par étape",
+      "Le résultat final"
+    ]
+  }
+}

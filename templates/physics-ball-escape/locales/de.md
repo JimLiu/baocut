@@ -1,0 +1,3 @@
+Erstellen Sie per Code einen auffälligen Clip im Querformat, der gern geteilt wird. Dauer: etwa {{Dauer}}. Ein kleiner Ball springt in rotierenden, ineinanderliegenden Ringen umher; trifft er auf eine Lücke, schießt er in den nächsten Ring nach außen. Ring um Ring verschwindet, bis er ganz entkommt.
+
+Die Physik soll realistisch und nachvollziehbar sein und trotzdem Spannung erzeugen, das Tempo steigt immer weiter. Farbschema: {{Farbschema}}. Unterlegen Sie Kollisionen mit hellen, knackigen Soundeffekten (auch diese per Code zum jeweiligen Kollisionszeitpunkt synthetisieren, ohne Soundeffekt-Generierung) und enden Sie mit einem befriedigenden Abschluss.

@@ -1,0 +1,29 @@
+{
+  "title": "Hareket tasarımı gösterisi",
+  "summary": "Hareket tasarımı ustalığını gösteren, sıkı tempolu bir hareketli grafik videosu.",
+  "description": "Biçim dönüşümleri, maskeyle açılışlar, esnek hareketler ve ritme oturan geçişler art arda gelir; bir hareket tasarımcısının portfolyo açılışı gibi. BaoCut’ın hareketli grafik yeteneğini görmek için uygundur.",
+  "fields": [
+    {
+      "label": "renk paleti",
+      "hint": "İstediğiniz renkler ya da görsel üslup",
+      "example": "siyah zemin üzerine neon renkler"
+    },
+    {
+      "label": "video dili",
+      "hint": "Ekran metninin dili"
+    }
+  ],
+  "tags": [
+    "hareketli grafik",
+    "portfolyo",
+    "geçiş"
+  ],
+  "preview": {
+    "beats": [
+      "Geometrik şekiller zıplayarak girer",
+      "Metin maskeyle açılır",
+      "Dönüşümler ve ritimli geçişler",
+      "Temiz bir kapanış karesi"
+    ]
+  }
+}

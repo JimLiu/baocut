@@ -1,0 +1,34 @@
+{
+  "title": "Kreatywny montaż",
+  "summary": "Bogata składanka z kulminacją w drugiej połowie – popis montażu i programowania.",
+  "description": "Ujęcia się nie powtarzają, oprawa graficzna jest dopracowana, dźwięk trwa aż do końca, a ciężar montażu spoczywa na mocniejszej kulminacji w drugiej połowie.",
+  "fields": [
+    {
+      "label": "temat montażu",
+      "hint": "Wokół czego ma się toczyć montaż",
+      "example": "miasto od świtu do późnej nocy"
+    },
+    {
+      "label": "dostępne materiały",
+      "hint": "Dołączone materiały; jeśli ich nie masz, wpisz „brak, znajdź lub wygeneruj”",
+      "example": "brak, znajdź lub wygeneruj"
+    },
+    {
+      "label": "język wideo",
+      "hint": "Język tekstu na ekranie i narracji"
+    }
+  ],
+  "tags": [
+    "składanka",
+    "montaż",
+    "rytm"
+  ],
+  "preview": {
+    "beats": [
+      "Szybkie otwarcie",
+      "Przeplatanie różnorodnych materiałów",
+      "Narastanie krok po kroku",
+      "Kulminacja w drugiej połowie"
+    ]
+  }
+}

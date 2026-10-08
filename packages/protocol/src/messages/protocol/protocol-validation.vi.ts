@@ -10,4 +10,7 @@ listSeparator: ', ', notEmpty: 'Không được rỗng', noSurroundingSpace: 'Kh
   templateFieldUnused: (p: { label: string }) => `Trường "${p.label}" không được dùng ({{${p.label}}})`,
   templateSlotUnclosed: 'Có {{ chưa đóng; viết chỗ trống dạng {{label}}',
   templateScenePromptSlots: 'prompt.md của mẫu cảnh không được chứa chỗ trống {{; đặt chúng trong brief',
+  translationFieldsCount: (p: { count: number }) => `Phải có cùng số fields với template.json (${p.count})`,
+  translationBeatsCount: (p: { count: number }) => `Phải có cùng số beats với template.json (${p.count})`,
+  translationAssetUnknown: (p: { path: string }) => `Không phải tài nguyên được liệt kê trong template.json: ${p.path}`,
 };

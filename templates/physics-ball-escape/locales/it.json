@@ -1,0 +1,30 @@
+{
+  "title": "Animazione fisica antistress",
+  "summary": "Un’animazione in codice: una pallina sfonda anello dopo anello e scappa.",
+  "description": "Una pallina rimbalza dentro una serie di anelli rotanti, apre un varco dopo l’altro e scappa: movimento fisico realistico e un pizzico di suspense. Tutto generato con il codice, ideale per un corto orizzontale da rivedere più volte.",
+  "fields": [
+    {
+      "label": "durata",
+      "hint": "Quanto deve durare il video, più o meno",
+      "example": "30 secondi"
+    },
+    {
+      "label": "colori",
+      "hint": "I colori che vuoi; più sono vivaci, più catturano lo sguardo",
+      "example": "fondo nero con neon brillanti"
+    }
+  ],
+  "tags": [
+    "fisica",
+    "animazione in codice",
+    "antistress"
+  ],
+  "preview": {
+    "beats": [
+      "La pallina rimbalza al centro",
+      "Si apre il primo varco",
+      "Gli anelli calano uno a uno",
+      "La fuga finale"
+    ]
+  }
+}

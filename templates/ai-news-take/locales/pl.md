@@ -1,0 +1,3 @@
+Wyszukaj najnowsze wiadomości o AI, wybierz ciekawy temat i zrób dynamiczny komentarz pełen memów, gotowy do publikacji na platformach wideo. Tematyka: {{tematyka}}. Orientacyjny czas trwania: {{czas trwania}}.
+
+Możesz wyszukać klipy wideo, obrazy i GIF-y. Wybieraj materiały, których licencja na to pozwala, i podawaj źródła. Dokładnie sprawdź fakty; memy mają tylko nadawać tempo i nie mogą zniekształcać samej wiadomości. Język narracji i napisów: {{język wideo}}. Całą narrację czyta jeden głos w normalnym tempie; jeśli tekst jest za długi, skracaj go, zamiast przyspieszać mowę, by zmieścić się w czasie.

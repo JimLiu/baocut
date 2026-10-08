@@ -1,0 +1,32 @@
+{
+  "title": "Epic mood trailer",
+  "summary": "A fast-cut p5.js trailer with the mood of a long voyage and homecoming.",
+  "description": "The mood draws on the long voyage and homecoming of classical epics. Visuals are generated with p5.js and cut into a fast-paced trailer under a minute long, with narration and subtitles.",
+  "fields": [
+    {
+      "label": "mood reference",
+      "hint": "The atmosphere or story motif you want",
+      "example": "the long voyage home in classical epics"
+    },
+    {
+      "label": "video language",
+      "hint": "The language for narration and subtitles"
+    }
+  ],
+  "tags": [
+    "p5.js",
+    "trailer",
+    "atmosphere"
+  ],
+  "cover": {
+    "kicker": "VOYAGE"
+  },
+  "preview": {
+    "beats": [
+      "Sea and starry sky",
+      "Storms and trials",
+      "The long way home",
+      "Lights on the horizon"
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "title": "Eğlenceli gündem anlatımı",
+  "summary": "Gündemden bir konuyu hızlı, mizahi görsellerle dolu bir anlatıma dönüştürün.",
+  "description": "Ajan önce güncel haberlere bakıp bir konu seçer, ardından bulduğu mizahi görsellerle yaklaşık 90 saniyelik yatay bir anlatım videosu hazırlar. Medya hazırlamanıza gerek yok.",
+  "fields": [
+    {
+      "label": "haber alanı",
+      "hint": "Hangi tür haberler; fark etmezse “serbest” yazın",
+      "example": "teknoloji"
+    },
+    {
+      "label": "video dili",
+      "hint": "Dış ses ve altyazıların dili"
+    }
+  ],
+  "tags": [
+    "haber",
+    "gündem",
+    "anlatım"
+  ],
+  "preview": {
+    "beats": [
+      "Konuyu ortaya atmak",
+      "Arka plan ve gelişmeler",
+      "Mizahi görseller ve tepkiler",
+      "Tek cümlelik yorumla kapanış"
+    ]
+  }
+}

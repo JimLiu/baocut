@@ -1,0 +1,3 @@
+Cerca le notizie recenti sull’IA in questo ambito: {{ambito}}. Scegli una storia interessante e crea un commento a caldo veloce e pieno di meme, di circa {{durata}}, pronto da pubblicare sulle piattaforme video.
+
+Puoi cercare clip video, immagini e GIF da usare. Preferisci materiali la cui licenza ne consente l’uso e cita le fonti. Verifica con cura i fatti; usa i meme solo per dare ritmo, mai per distorcere la notizia. Narrazione e sottotitoli in {{lingua del video}}. Usa una sola voce per tutta la narrazione, a velocità normale; se il testo è troppo lungo, taglia parole invece di accelerare per rientrare nei tempi.

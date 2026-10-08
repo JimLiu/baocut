@@ -1,0 +1,3 @@
+Haz un corto de gráficos animados de 15 segundos y ritmo ágil que muestre lo que puede hacer un gran diseñador de animación.
+
+Cambia de técnica cada dos o tres segundos, por ejemplo transformaciones, revelados con máscara, movimientos elásticos y transiciones al compás, pero mantén unificados los colores y la tipografía; para los colores, sigue esta línea: {{paleta de colores}}. El conjunto debe parecer la apertura de un portafolio. Termina en una imagen limpia. Puedes generar música y efectos de sonido para que los movimientos vayan al compás. Si hay texto en pantalla, que esté en {{idioma del vídeo}}.

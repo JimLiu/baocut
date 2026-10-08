@@ -1,0 +1,29 @@
+{
+  "title": "Od chaosu do harmonii",
+  "summary": "Film w całości renderowany kodem: formy i faktury od chaosu do harmonii.",
+  "description": "Bez generowanych klipów wideo i bez materiałów stockowych: cały obraz i animacja powstają i są renderowane w kodzie. Dostajesz gotowe wideo oraz kod źródłowy do dalszej edycji.",
+  "fields": [
+    {
+      "label": "formy i faktury",
+      "hint": "Co ma przejść od chaosu do porządku",
+      "example": "różne fizyczne formy i faktury"
+    },
+    {
+      "label": "język wideo",
+      "hint": "Język tekstu na ekranie, tekstu piosenki lub narracji"
+    }
+  ],
+  "tags": [
+    "animacja z kodu",
+    "fizyka",
+    "faktury"
+  ],
+  "preview": {
+    "beats": [
+      "Rozsypane fragmenty i faktury",
+      "Zderzenia i przyciąganie",
+      "Stopniowo pojawia się rytm",
+      "Harmonijna całość"
+    ]
+  }
+}

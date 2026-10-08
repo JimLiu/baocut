@@ -1,0 +1,41 @@
+{
+  "title": "Presentación de producto",
+  "summary": "Explica las funciones y los detalles de un producto en un vídeo limpio.",
+  "description": "Convierte fotos o clips de producto en una presentación visual clara. Destaca los detalles que más le importan a tu público, con un estilo y un ritmo acordes a tu marca.",
+  "brief": "Con {{material del producto}}, haz un vídeo de presentación de {{producto}} centrado en {{funciones clave}}, pensado sobre todo para {{público}}.",
+  "fields": [
+    {
+      "label": "material del producto",
+      "hint": "Fotos, vídeos grabados o descripción del producto adjuntos",
+      "example": "estas fotos del producto"
+    },
+    {
+      "label": "producto",
+      "hint": "Qué producto es; si tiene nombre, inclúyelo",
+      "example": "unos auriculares con cancelación de ruido"
+    },
+    {
+      "label": "funciones clave",
+      "hint": "Las dos o tres funciones o detalles que más merecen un primer plano",
+      "example": "la cancelación de ruido y la autonomía"
+    },
+    {
+      "label": "público",
+      "hint": "Quién lo compraría y qué es lo que más le importa",
+      "example": "quienes van cada día al trabajo"
+    }
+  ],
+  "tags": [
+    "producto",
+    "presentación",
+    "comercio electrónico"
+  ],
+  "preview": {
+    "beats": [
+      "El producto completo en pantalla",
+      "Primeros planos de cada detalle clave",
+      "Una escena de uso real",
+      "Una llamada a la acción final"
+    ]
+  }
+}

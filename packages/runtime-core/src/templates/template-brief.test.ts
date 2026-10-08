@@ -91,6 +91,32 @@ describe('发送时解析场景模板', () => {
     expect(text).toContain('（audio）：背景音乐，约 30 秒');
   });
 
+  it('按发送时带的语言用译文：标记的标题、正文与素材说明都换成那种语言', async () => {
+    const dir = path.join(root, scene.id, 'locales');
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(
+      path.join(dir, 'en.json'),
+      JSON.stringify({
+        title: 'Launch film',
+        summary: 'One line.',
+        description: 'A short paragraph.',
+        brief: 'Make a launch film for {{new product}}.',
+        fields: [{ label: 'new product', example: 'a desk lamp' }],
+        tags: [],
+        preview: { beats: ['One', 'Two', 'Three'] },
+        assets: [{ path: 'assets/logo.svg', note: 'End-card logo' }],
+      }),
+    );
+    await fs.writeFile(path.join(dir, 'en.md'), 'You are making a launch film.\n');
+    const resolved = await resolveSceneTemplate(catalog, { id: 'launch-scene', language: 'en' });
+    expect(resolved.ref).toMatchObject({ title: 'Launch film', version: '1.2.0' });
+    expect(resolved.instructions).toContain('模板正文：\nYou are making a launch film.');
+    expect(resolved.instructions).toContain('（svg）：End-card logo');
+    expect(resolved.instructions).toContain('（audio）：背景音乐，约 30 秒');
+    const original = await resolveSceneTemplate(catalog, { id: 'launch-scene', language: 'zh-Hans' });
+    expect(original.ref.title).toBe('发布短片');
+  });
+
   it('模板没给 skills 时不列做法', async () => {
     const { skills: _s, ...noSkills } = scene;
     await fs.writeFile(path.join(root, scene.id, 'template.json'), JSON.stringify(noSkills));

@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { RpcError, type TemplateMessageRef, type TemplateSendRef } from '@baocut/protocol';
-import type { LoadedTemplate, TemplateCatalog } from './template-catalog.ts';
+import { localizeTemplate, type LoadedTemplate, type TemplateCatalog } from './template-catalog.ts';
 import { RcTemplates } from '@baocut/protocol/messages/runtime-core';
 
 /**
@@ -36,11 +36,12 @@ export interface ResolvedTemplate {
 
 /**
  * 解析 `conversations.send` 的 `template`：只接受场景模板；`version` 只作参考，用目录里当前的版本；`assets` 必须是清单登记的路径，
- * 不给时附上全部素材。
+ * 不给时附上全部素材；`language` 挑模板文案的语言版本（规范 §3.6，缺省为 Runtime 的界面语言），标记上的标题与模板正文都用它。
  */
 export async function resolveSceneTemplate(catalog: TemplateCatalog, request: TemplateSendRef): Promise<ResolvedTemplate> {
   const template = await catalog.require(request.id);
-  const { manifest } = template;
+  const localized = localizeTemplate(template, request.language);
+  const { manifest } = localized;
   if (manifest.kind !== 'scene') {
     throw new RpcError('invalid-request', RcTemplates.notScene({ title: manifest.title }), {
       code: 'TEMPLATE_NOT_SCENE',
@@ -61,12 +62,12 @@ export async function resolveSceneTemplate(catalog: TemplateCatalog, request: Te
   const kept = request.assets ? new Set(request.assets) : registered;
   return {
     ref: { id: manifest.id, version: manifest.version, title: manifest.title, kind: manifest.kind, origin: template.origin },
-    instructions: sceneTemplateBlock(template, kept),
+    instructions: sceneTemplateBlock({ ...template, manifest, prompt: localized.prompt }, kept),
   };
 }
 
-/** 交给智能体的模板段：前言、默认值、正文与素材，包在 `<baocut-template>` 里。 */
-export function sceneTemplateBlock(template: LoadedTemplate, assets: ReadonlySet<string>): string {
+/** 交给智能体的模板段：前言、默认值、正文与素材，包在 `<baocut-template>` 里。`template` 是挑好语言版本的清单与正文。 */
+export function sceneTemplateBlock(template: Pick<LoadedTemplate, 'manifest' | 'prompt' | 'dir'>, assets: ReadonlySet<string>): string {
   const { manifest } = template;
   // i18n-ignore-start: 交给智能体的模板段，与前言同一种语言
   const defaults = [

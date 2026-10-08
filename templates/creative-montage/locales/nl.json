@@ -1,0 +1,34 @@
+{
+  "title": "Creatieve montage",
+  "summary": "Een gevarieerde montage met een late climax die montage en code laat zien.",
+  "description": "Geen enkel shot komt twee keer voor, de vormgeving is verzorgd en het geluid loopt door tot het einde. Het zwaartepunt van de montage ligt op een sterkere climax in de tweede helft.",
+  "fields": [
+    {
+      "label": "thema van de montage",
+      "hint": "Waar de montage om draait",
+      "example": "een stad van vroeg in de ochtend tot diep in de nacht"
+    },
+    {
+      "label": "beschikbare media",
+      "hint": "Bijgevoegde media; zo niet, schrijf ‘geen, zoek of genereer ze zelf’",
+      "example": "geen, zoek of genereer ze zelf"
+    },
+    {
+      "label": "taal van de video",
+      "hint": "De taal voor tekst in beeld en voice-over"
+    }
+  ],
+  "tags": [
+    "montage",
+    "knippen",
+    "ritme"
+  ],
+  "preview": {
+    "beats": [
+      "Een snelle, brede opening",
+      "Gevarieerde beelden wisselen af",
+      "Laag voor laag opbouwen",
+      "De climax in de tweede helft"
+    ]
+  }
+}

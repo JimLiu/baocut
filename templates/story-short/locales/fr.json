@@ -1,0 +1,41 @@
+{
+  "title": "Court métrage narratif",
+  "summary": "Donnez vie à vos personnages et à votre histoire dans un court métrage.",
+  "description": "Construisez une histoire complète autour d’un personnage, d’un objectif et d’un conflit, avec un rebondissement et un dénouement. Personnages, décors et style visuel restent cohérents du début à la fin.",
+  "brief": "Créez un court métrage : {{personnage principal}} veut {{objectif}}, mais {{obstacle}} ; à la fin, {{dénouement}}.",
+  "fields": [
+    {
+      "label": "personnage principal",
+      "hint": "Qui est le héros ou l’héroïne",
+      "example": "un petit manchot"
+    },
+    {
+      "label": "objectif",
+      "hint": "Ce que veut le personnage principal",
+      "example": "apprendre à voler"
+    },
+    {
+      "label": "obstacle",
+      "hint": "La difficulté qui lui barre la route",
+      "example": "il retombe à chaque essai"
+    },
+    {
+      "label": "dénouement",
+      "hint": "Objectif atteint, manqué, ou atteint autrement",
+      "example": "il découvre sa propre façon de voler, sous l’eau"
+    }
+  ],
+  "tags": [
+    "histoire",
+    "court métrage",
+    "personnage"
+  ],
+  "preview": {
+    "beats": [
+      "Le héros et ce qu’il veut",
+      "L’obstacle surgit",
+      "Le rebondissement",
+      "Un dénouement qui laisse une trace"
+    ]
+  }
+}

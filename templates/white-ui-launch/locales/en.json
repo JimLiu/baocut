@@ -1,0 +1,29 @@
+{
+  "title": "Fictional product launch",
+  "summary": "Use code to make a white-UI launch video for a fictional product.",
+  "description": "A clean, beautiful white UI with fast-paced visuals and sound effects, made for posting on social media. The agent invents the product name, features and interface.",
+  "fields": [
+    {
+      "label": "product type",
+      "hint": "What kind of product to invent",
+      "example": "smartwatch"
+    },
+    {
+      "label": "video language",
+      "hint": "The language for on-screen text"
+    }
+  ],
+  "tags": [
+    "launch",
+    "UI",
+    "code animation"
+  ],
+  "preview": {
+    "beats": [
+      "The white UI unfolds",
+      "Core features in quick cuts",
+      "Close-ups of details and motion",
+      "Freeze on the product name"
+    ]
+  }
+}

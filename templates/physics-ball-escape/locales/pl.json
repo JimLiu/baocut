@@ -1,0 +1,30 @@
+{
+  "title": "Odprężająca animacja fizyki",
+  "summary": "Odprężająca animacja w kodzie: kulka wyrywa się z kolejnych pierścieni.",
+  "description": "Kulka odbija się w obracających się warstwach pierścieni, wybija w nich luki i ucieka – realistyczny ruch fizyczny z dawką napięcia. Wszystko powstaje w kodzie; w sam raz na poziomy film, który chce się oglądać w kółko.",
+  "fields": [
+    {
+      "label": "czas trwania",
+      "hint": "Mniej więcej, ile ma trwać gotowe wideo",
+      "example": "30 sekund"
+    },
+    {
+      "label": "kolorystyka",
+      "hint": "Pożądane kolory – im bardziej wyraziste, tym mocniej przyciągają wzrok",
+      "example": "jaskrawe neony na czarnym tle"
+    }
+  ],
+  "tags": [
+    "fizyka",
+    "animacja z kodu",
+    "odprężenie"
+  ],
+  "preview": {
+    "beats": [
+      "Kulka odbija się w środku",
+      "Pierwsza wybita luka",
+      "Pierścieni ubywa",
+      "Ostateczna ucieczka"
+    ]
+  }
+}

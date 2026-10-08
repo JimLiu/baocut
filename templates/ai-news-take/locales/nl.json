@@ -1,0 +1,34 @@
+{
+  "title": "AI-nieuws met snel commentaar",
+  "summary": "Kies een recent AI-bericht en maak er een vlot commentaar vol memes van.",
+  "description": "Agent zoekt eerst recent AI-nieuws op en kiest een onderwerp, en maakt er met gevonden fragmenten, afbeeldingen en GIF’s een luchtig, prettig te bekijken nieuwscommentaar van.",
+  "fields": [
+    {
+      "label": "aandachtsgebied",
+      "hint": "Welk soort AI-nieuws je wilt; geen voorkeur? Schrijf ‘maakt niet uit’",
+      "example": "opensourcemodellen"
+    },
+    {
+      "label": "duur",
+      "hint": "Ongeveer hoe lang de video wordt",
+      "example": "één minuut"
+    },
+    {
+      "label": "taal van de video",
+      "hint": "De taal voor voice-over en ondertitels"
+    }
+  ],
+  "tags": [
+    "nieuws",
+    "AI",
+    "commentaar"
+  ],
+  "preview": {
+    "beats": [
+      "Wat er gebeurde, in één zin",
+      "De belangrijkste details",
+      "Memes en reacties",
+      "Waarom het ertoe doet"
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "title": "Originele gametrailer",
+  "summary": "Een verzorgde trailer voor een originele game die vanaf de eerste seconde pakt.",
+  "description": "Van wereld en personages tot gameplay: een paar snelle reeksen shots stellen een originele game voor, met een hook in de eerste twee seconden. Geschikt voor sociale media.",
+  "fields": [
+    {
+      "label": "gamegenre",
+      "hint": "Wat voor genre en stijl de game heeft",
+      "example": "ruimteavontuur in pixelart"
+    },
+    {
+      "label": "taal van de video",
+      "hint": "De taal voor tekst in beeld en voice-over"
+    }
+  ],
+  "tags": [
+    "game",
+    "trailer",
+    "origineel"
+  ],
+  "preview": {
+    "beats": [
+      "Een hook van twee seconden",
+      "Wereld en personages",
+      "Hoogtepunten uit de gameplay",
+      "Gamenaam en slogan"
+    ]
+  }
+}

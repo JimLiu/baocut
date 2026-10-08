@@ -1,0 +1,36 @@
+{
+  "title": "Tutorial passo passo",
+  "summary": "Trasforma una registrazione schermo o dei passaggi scritti in una guida chiara.",
+  "description": "Aiuta chi guarda a portare a termine un’operazione con passaggi in ordine, azioni ben visibili e verifiche chiare: mostra cosa fare e come capire se è stato fatto bene.",
+  "brief": "Usa {{registrazione o passaggi}} per fare un tutorial, pensato per {{pubblico}}, che insegni come {{operazione da imparare}}.",
+  "fields": [
+    {
+      "label": "registrazione o passaggi",
+      "hint": "La registrazione, gli screenshot o i passaggi scritti allegati",
+      "example": "queste istruzioni"
+    },
+    {
+      "label": "pubblico",
+      "hint": "Chi impara e quanto ne sa già",
+      "example": "principianti"
+    },
+    {
+      "label": "operazione da imparare",
+      "hint": "Una cosa che chi guarda saprà fare da solo alla fine",
+      "example": "configurare una rete ospiti sul router"
+    }
+  ],
+  "tags": [
+    "tutorial",
+    "guida pratica",
+    "passaggi"
+  ],
+  "preview": {
+    "beats": [
+      "Obiettivo e cosa preparare",
+      "Ogni passaggio, in ordine",
+      "Una verifica dopo ogni passaggio",
+      "Il risultato finale"
+    ]
+  }
+}

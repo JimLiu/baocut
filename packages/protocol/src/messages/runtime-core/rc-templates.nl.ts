@@ -25,4 +25,5 @@ export const nl: RcTemplatesMessages = {
   notScene: (p: { title: string }) =>
     `‘${p.title}’ is een demonstratievoorbeeld: zet de prompt in het berichtvak en verstuur die zonder een sjabloon toe te voegen`,
   assetNotRegistered: (p: { id: string; asset: string }) => `Sjabloon ‘${p.id}’ vermeldt deze media niet: ${p.asset}`,
+  translationForBaseLanguage: (p: { file: string; language: string }) => `${p.file} is in de eigen taal van het sjabloon (${p.language}); template.json en prompt.md dekken die al`,
 };

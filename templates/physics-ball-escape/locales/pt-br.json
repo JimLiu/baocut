@@ -1,0 +1,30 @@
+{
+  "title": "Animação de física relaxante",
+  "summary": "Uma animação relaxante feita com código: uma bola escapa de anéis em camadas.",
+  "description": "Uma bola quica dentro de anéis giratórios em camadas, atravessa as brechas e escapa, com física realista e um toque de suspense. Tudo gerado com código, ideal para um curta horizontal que dá vontade de ver de novo.",
+  "fields": [
+    {
+      "label": "duração",
+      "hint": "Mais ou menos quanto tempo o vídeo deve ter",
+      "example": "30 segundos"
+    },
+    {
+      "label": "cores",
+      "hint": "As cores que você quer; quanto mais vivas, mais chamam a atenção",
+      "example": "fundo preto com neon vibrante"
+    }
+  ],
+  "tags": [
+    "física",
+    "animação em código",
+    "relaxante"
+  ],
+  "preview": {
+    "beats": [
+      "A bola quica no anel interno",
+      "Atravessa a primeira brecha",
+      "Os anéis vão diminuindo",
+      "A fuga completa"
+    ]
+  }
+}

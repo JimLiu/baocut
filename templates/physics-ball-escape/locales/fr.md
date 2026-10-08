@@ -1,0 +1,3 @@
+Créez par code une courte vidéo horizontale accrocheuse, faite pour être partagée, d’environ {{durée}} : une balle rebondit à l’intérieur d’anneaux concentriques en rotation ; dès qu’elle passe par une brèche, elle file vers l’anneau extérieur suivant, et les anneaux disparaissent un à un jusqu’à son évasion complète.
+
+Le mouvement physique doit être réaliste et prévisible, avec une pointe de suspense, et un rythme qui s’accélère. Palette : {{palette}}. Ajoutez un effet sonore net à chaque collision (synthétisé lui aussi par code, calé sur le moment de chaque collision, sans dépendre de la génération d’effets sonores), et terminez sur une fin satisfaisante.

@@ -1,0 +1,41 @@
+{
+  "title": "Product showcase",
+  "summary": "Show a product's features and details in a clean showcase video.",
+  "description": "Turn product photos or video clips into a clear visual introduction. Highlight the details your audience cares about most, with a style and pace that fit your brand.",
+  "brief": "Use {{product assets}} to make a showcase video for {{product}}, focusing on {{key features}}, mainly for {{audience}}.",
+  "fields": [
+    {
+      "label": "product assets",
+      "hint": "Attached product photos, real footage or descriptions",
+      "example": "these product photos"
+    },
+    {
+      "label": "product",
+      "hint": "What the product is; include its name if it has one",
+      "example": "a pair of noise-canceling headphones"
+    },
+    {
+      "label": "key features",
+      "hint": "Two or three features or details most worth a close-up",
+      "example": "noise canceling and battery life"
+    },
+    {
+      "label": "audience",
+      "hint": "Who will buy it, and what they care about most",
+      "example": "daily commuters"
+    }
+  ],
+  "tags": [
+    "product",
+    "showcase",
+    "e-commerce"
+  ],
+  "preview": {
+    "beats": [
+      "The full product reveal",
+      "Close-ups of key details",
+      "A real-life use scene",
+      "A closing call to action"
+    ]
+  }
+}

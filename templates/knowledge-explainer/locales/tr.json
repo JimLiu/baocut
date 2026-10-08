@@ -1,0 +1,41 @@
+{
+  "title": "Konu anlatımı",
+  "summary": "Bir belgeyi, sunumu ya da konuyu kolay anlaşılır bir videoya dönüştürün.",
+  "description": "Açık anlatım ve somut örneklerle izleyicinin bir kavramı anlamasına yardım edin. Kaynaklarınızı görsel bir anlatıya dönüştürün; derinliği izleyicinin bildiklerine göre ayarlayın.",
+  "brief": "Kaynak: {{kaynak}}. Şu konuyu açıkça anlatan bir video yapın: {{konu}}. İzleyici kitlesi: {{izleyici kitlesi}}. İzledikten sonra şunu yapabilsinler: {{öğrenme hedefi}}.",
+  "fields": [
+    {
+      "label": "kaynak",
+      "hint": "Eklediğiniz belge, sunum veya bağlantı; yoksa “herkese açık kaynaklar” yazın",
+      "example": "bu ders notları"
+    },
+    {
+      "label": "izleyici kitlesi",
+      "hint": "Kim izleyecek, ne kadar biliyor",
+      "example": "lise öğrencileri"
+    },
+    {
+      "label": "konu",
+      "hint": "Açıkça anlatılacak kavram ya da konu",
+      "example": "fotosentez"
+    },
+    {
+      "label": "öğrenme hedefi",
+      "hint": "İzleyicinin sonunda hatırlamasını veya yapabilmesini istediğiniz şey",
+      "example": "ışığa bağımlı ve bağımsız reaksiyonların ne yaptığını açıklamak"
+    }
+  ],
+  "tags": [
+    "bilim",
+    "anlatım",
+    "eğitim"
+  ],
+  "preview": {
+    "beats": [
+      "Bir soru sormak",
+      "Temel kavramları ayırmak",
+      "Somut bir örnekle açmak",
+      "Ana noktaları özetlemek"
+    ]
+  }
+}

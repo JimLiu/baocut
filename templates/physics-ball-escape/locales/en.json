@@ -1,0 +1,30 @@
+{
+  "title": "Satisfying physics animation",
+  "summary": "Use code to make a satisfying animation of a ball breaking out of rings.",
+  "description": "A ball bounces inside layer after layer of spinning rings, breaking through gaps to escape, with physics that feel real and keep the suspense going. Generated entirely in code, it makes a landscape short people want to watch again and again.",
+  "fields": [
+    {
+      "label": "length",
+      "hint": "Roughly how long the video should be",
+      "example": "30 seconds"
+    },
+    {
+      "label": "color scheme",
+      "hint": "The colors you want; the bolder, the more eye-catching",
+      "example": "vivid neon on black"
+    }
+  ],
+  "tags": [
+    "physics",
+    "code animation",
+    "satisfying"
+  ],
+  "preview": {
+    "beats": [
+      "The ball bounces in the innermost ring",
+      "Breaking through the first gap",
+      "The rings fall away one by one",
+      "A clean escape"
+    ]
+  }
+}

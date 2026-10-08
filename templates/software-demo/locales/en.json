@@ -1,0 +1,41 @@
+{
+  "title": "Software demo",
+  "summary": "Show step by step how your software solves a problem.",
+  "description": "Use screenshots, screen recordings or product docs to connect a user's problem with the feature that solves it and the end result. The demo always follows one real workflow.",
+  "brief": "Use {{recording or screenshots}} to make a demo video showing how {{software}} lets you {{task to demo}}, solving the problem of {{pain point}}.",
+  "fields": [
+    {
+      "label": "recording or screenshots",
+      "hint": "The attached screen recording, screenshots or instructions",
+      "example": "this screen recording"
+    },
+    {
+      "label": "software",
+      "hint": "The name of the software or feature",
+      "example": "our budgeting app"
+    },
+    {
+      "label": "task to demo",
+      "hint": "One complete workflow",
+      "example": "export a monthly report in three steps"
+    },
+    {
+      "label": "pain point",
+      "hint": "What this feature saves users from",
+      "example": "spending hours sorting bills by hand at month end"
+    }
+  ],
+  "tags": [
+    "software",
+    "demo",
+    "screen recording"
+  ],
+  "preview": {
+    "beats": [
+      "The user's problem",
+      "Opening the feature",
+      "Key steps, one by one",
+      "The result"
+    ]
+  }
+}

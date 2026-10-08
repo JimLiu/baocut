@@ -86,4 +86,7 @@ export const ko: ProtocolValidationMessages = {
   templateFieldUnused: (p: { label: string }) => `필드 "${p.label}"이(가) 사용되지 않았습니다({{${p.label}}})`,
   templateSlotUnclosed: '짝이 맞지 않는 {{가 있습니다. 자리표시자는 {{label}} 형식으로 쓰세요',
   templateScenePromptSlots: '장면 템플릿의 prompt.md에는 {{ 자리표시자를 쓸 수 없습니다. 입력 항목은 brief에 쓰세요',
+  translationFieldsCount: (p: { count: number }) => `template.json과 같은 수의 fields가 필요합니다(${p.count})`,
+  translationBeatsCount: (p: { count: number }) => `template.json과 같은 수의 beats가 필요합니다(${p.count})`,
+  translationAssetUnknown: (p: { path: string }) => `template.json에 등록되지 않은 소재입니다: ${p.path}`,
 };

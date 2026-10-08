@@ -1,0 +1,41 @@
+{
+  "title": "Software-Demo",
+  "summary": "Zeigen Sie Schritt für Schritt, wie Ihre Software ein Problem löst.",
+  "description": "Mit Screenshots, Bildschirmaufnahmen oder Produktunterlagen verbinden Sie ein Problem der Benutzer mit der passenden Funktion und dem Ergebnis. Die Demo folgt durchgehend einem echten Arbeitsablauf.",
+  "brief": "Erstellen Sie ein Demo-Video. Material: {{Bildschirmmaterial}}. Software: {{Software}}. Gezeigter Ablauf: {{Gezeigter Ablauf}}. Gelöstes Problem: {{Problem der Benutzer}}.",
+  "fields": [
+    {
+      "label": "Bildschirmmaterial",
+      "hint": "Angehängte Aufnahme, Screenshots oder Bedienanleitung",
+      "example": "diese Bildschirmaufnahme"
+    },
+    {
+      "label": "Software",
+      "hint": "Name der Software oder Funktion",
+      "example": "unsere Haushaltsbuch-App"
+    },
+    {
+      "label": "Gezeigter Ablauf",
+      "hint": "Ein vollständiger Arbeitsablauf",
+      "example": "Monatsbericht in drei Schritten exportieren"
+    },
+    {
+      "label": "Problem der Benutzer",
+      "hint": "Was die Funktion den Benutzern erspart",
+      "example": "das mühsame manuelle Sortieren der Belege am Monatsende"
+    }
+  ],
+  "tags": [
+    "Software",
+    "Demo",
+    "Bildschirmaufnahme"
+  ],
+  "preview": {
+    "beats": [
+      "Das Problem der Benutzer",
+      "Die passende Funktion öffnen",
+      "Wichtige Schritte vorführen",
+      "Das Ergebnis"
+    ]
+  }
+}

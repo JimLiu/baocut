@@ -1,0 +1,29 @@
+{
+  "title": "Van chaos naar harmonie",
+  "summary": "Een film geheel in code: fysieke vormen en materialen van chaos naar harmonie.",
+  "description": "Geen gegenereerde videofragmenten en geen stockbeelden: alle beelden en animaties worden met code gebouwd en gerenderd. Je krijgt de eindvideo en broncode die je verder kunt aanpassen.",
+  "fields": [
+    {
+      "label": "vormen en materialen",
+      "hint": "Wat je van chaos naar orde wilt zien gaan",
+      "example": "allerlei fysieke vormen en materialen"
+    },
+    {
+      "label": "taal van de video",
+      "hint": "De taal voor tekst in beeld, songtekst of voice-over"
+    }
+  ],
+  "tags": [
+    "code-animatie",
+    "natuurkunde",
+    "materialen"
+  ],
+  "preview": {
+    "beats": [
+      "Losse stukken en materialen",
+      "Botsen en elkaar aantrekken",
+      "Langzaam een ritme vinden",
+      "Samen tot een harmonieus geheel"
+    ]
+  }
+}

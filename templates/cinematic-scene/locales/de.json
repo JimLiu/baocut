@@ -1,0 +1,41 @@
+{
+  "title": "Filmische Szene",
+  "summary": "Erwecken Sie einen erdachten Ort mit filmischer Bewegung zum Leben.",
+  "description": "Aus einer Beschreibung oder einem Referenzbild entsteht eine stimmungsvolle Szene. Ort, Licht, Kamerabewegung und Umgebungsklang fügen sich zu einem stimmigen Moment.",
+  "brief": "Erstellen Sie eine filmische Szene. Ort: {{Ort}}. Zeit und Wetter: {{Zeit und Wetter}}. Kamera: {{Kamerafahrt}}. Zum Schluss verweilt das Bild auf diesem Detail: {{Schlussdetail}}.",
+  "fields": [
+    {
+      "label": "Ort",
+      "hint": "Der Ort, an den das Publikum versetzt werden soll",
+      "example": "eine kleine Stadt am Meer"
+    },
+    {
+      "label": "Zeit und Wetter",
+      "hint": "Tageszeit und Wetter bestimmen die Grundstimmung",
+      "example": "ein verregneter Abend, die Laternen gehen gerade an"
+    },
+    {
+      "label": "Kamerafahrt",
+      "hint": "Wo die Kamera beginnt und wohin sie sich bewegt",
+      "example": "langsam vom Leuchtturm zur Straßenecke"
+    },
+    {
+      "label": "Schlussdetail",
+      "hint": "Das eine Bild, das in Erinnerung bleibt",
+      "example": "eine Bäckerei, in der noch Licht brennt"
+    }
+  ],
+  "tags": [
+    "Filmlook",
+    "Szene",
+    "Atmosphäre"
+  ],
+  "preview": {
+    "beats": [
+      "Die Umgebung etablieren",
+      "Licht und Wetter",
+      "Eine langsame Kamerafahrt",
+      "Verweilen auf einem Detail"
+    ]
+  }
+}

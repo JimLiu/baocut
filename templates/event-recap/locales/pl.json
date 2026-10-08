@@ -1,0 +1,36 @@
+{
+  "title": "Relacja z wydarzenia",
+  "summary": "Zmontuj materiały z wydarzenia w zapadającą w pamięć relację.",
+  "description": "Zachowaj atmosferę warsztatów, spotkania lub premiery: połącz miejsce, kluczowe momenty i reakcje uczestników w krótką relację z wyraźnym początkiem i zakończeniem.",
+  "brief": "Oto zdjęcia i nagrania z wydarzenia: {{wydarzenie}}. Zmontuj z nich krótką relację. Dla kogo: {{odbiorcy}}. Koniecznie zachowaj: {{fragmenty do zachowania}}.",
+  "fields": [
+    {
+      "label": "wydarzenie",
+      "hint": "Nazwa i termin wydarzenia",
+      "example": "wczorajszy klub książki"
+    },
+    {
+      "label": "odbiorcy",
+      "hint": "Do kogo i gdzie trafi relacja",
+      "example": "znajomi, którzy nie mogli przyjść"
+    },
+    {
+      "label": "fragmenty do zachowania",
+      "hint": "Chwile, które muszą zostać; jeśli nie ma takich, wpisz „nic szczególnego”",
+      "example": "wspólne zdjęcie i słowa prowadzącego na zakończenie"
+    }
+  ],
+  "tags": [
+    "wydarzenia",
+    "relacja",
+    "skrót"
+  ],
+  "preview": {
+    "beats": [
+      "Miejsce i atmosfera",
+      "Kilka kluczowych momentów",
+      "Reakcje uczestników",
+      "Na koniec jedna refleksja"
+    ]
+  }
+}

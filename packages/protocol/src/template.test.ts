@@ -2,9 +2,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { LOCALES, localeOfTag } from './i18n.ts';
 import { methodParamSchemas } from './schemas.ts';
-import { parseTemplateManifest, templateManifestSchema, templateSendRefSchema } from './template-schemas.ts';
+import { parseTemplateManifest, parseTemplateTranslation, templateManifestSchema, templateSendRefSchema } from './template-schemas.ts';
 import {
+  localizeTemplateManifest,
+  pickTemplateLanguage,
   TEMPLATE_FILE_MAX_BYTES,
   TEMPLATE_LIMITS,
   TEMPLATE_MANIFEST_FILE,
@@ -14,8 +17,11 @@ import {
   templatePromptSlotProblems,
   templateSlotProblems,
   templateSlots,
+  templateTranslationFile,
+  templateTranslationFiles,
   templateUnfilledText,
   type TemplateManifest,
+  type TemplateTranslation,
   type TemplateVerification,
 } from './template.ts';
 
@@ -162,6 +168,77 @@ describe('待填项', () => {
   });
 });
 
+describe('语言版本', () => {
+  const en: TemplateTranslation = {
+    title: 'Sample',
+    summary: 'One line.',
+    description: 'A short paragraph.',
+    brief: 'Explain {{topic}} for {{audience}}.',
+    fields: [
+      { label: 'topic', hint: 'What to explain', example: 'photosynthesis' },
+      { label: 'audience', example: 'high school students' },
+    ],
+    tags: ['explainer'],
+    preview: { beats: ['One', 'Two', 'Three'] },
+  };
+
+  it('译文文件名：locales/<语言小写>.json 与 .md，只认出货语言', () => {
+    expect(templateTranslationFiles('pt-BR')).toEqual({ text: 'locales/pt-br.json', prompt: 'locales/pt-br.md' });
+    expect(templateTranslationFile('locales/zh-hant.md')).toEqual({ locale: 'zh-Hant', part: 'prompt' });
+    expect(templateTranslationFile('locales/en.json')).toEqual({ locale: 'en', part: 'text' });
+    for (const file of ['locales/pt-BR.json', 'locales/xx.json', 'locales/en.txt', 'locales/en/x.json', 'en.json'])
+      expect(templateTranslationFile(file), file).toBeNull();
+  });
+
+  it('合规的译文；未知字段、超长与重复被拒绝', () => {
+    expect(parseTemplateTranslation(en, base)).toEqual({ ok: true, translation: en });
+    expect(parseTemplateTranslation({ ...en, ratio: '9:16' }, base).ok).toBe(false);
+    expect(parseTemplateTranslation({ ...en, title: 'x'.repeat(TEMPLATE_LIMITS.title + 1) }, base).ok).toBe(false);
+    expect(parseTemplateTranslation({ ...en, tags: ['a', 'a'] }, base).ok).toBe(false);
+    expect(parseTemplateTranslation({ ...en, cover: { tone: 'red' } }, base).ok).toBe(false);
+  });
+
+  it('与 template.json 对照：brief 与 fields 对得上，项数相同，素材已登记', () => {
+    const issues = (value: unknown, manifest: TemplateManifest = base) => {
+      const result = parseTemplateTranslation(value, manifest);
+      return result.ok ? [] : result.issues;
+    };
+    expect(issues({ ...en, brief: undefined })).toEqual([expect.stringMatching(/^brief: /)]);
+    expect(issues({ ...en, brief: 'Explain {{subject}} for {{audience}}.' }).length).toBeGreaterThan(0);
+    expect(issues({ ...en, fields: [en.fields![0]!], brief: 'Explain {{topic}}.' })).toEqual([expect.stringMatching(/^fields: /)]);
+    expect(issues({ ...en, preview: { beats: ['One', 'Two', 'Three', 'Four'] } })).toEqual([expect.stringMatching(/^preview\.beats: /)]);
+    expect(issues({ ...en, assets: [{ path: 'assets/logo.svg', note: 'Logo' }] })).toEqual([expect.stringMatching(/^assets: /)]);
+    const example: TemplateManifest = { ...base, kind: 'example', brief: undefined, ratio: undefined, durationSeconds: undefined };
+    expect(issues({ ...en, brief: undefined }, example)).toEqual([]);
+    expect(issues(en, example)).toEqual([expect.stringMatching(/^brief: /)]);
+  });
+
+  it('套用译文：文案与 language 换掉，其余字段与没译的部分不变', () => {
+    const withAssets: TemplateManifest = { ...base, assets: [{ path: 'assets/a.svg', type: 'svg', note: '图标' }, { path: 'assets/b.png', type: 'image', note: '底图' }] };
+    const localized = localizeTemplateManifest(withAssets, 'en', { ...en, cover: { kicker: 'STEP' }, assets: [{ path: 'assets/a.svg', note: 'Icon' }] });
+    expect(localized).toMatchObject({ id: base.id, version: base.version, language: 'en', title: 'Sample', brief: en.brief, fields: en.fields, tags: ['explainer'], ratio: '16:9' });
+    expect(localized.cover).toEqual({ ...base.cover, kicker: 'STEP' });
+    expect(localized.preview).toEqual({ ...base.preview, beats: ['One', 'Two', 'Three'] });
+    expect(localized.assets!.map((a) => a.note)).toEqual(['Icon', '底图']);
+    expect(localizeTemplateManifest(base, 'en', { ...en, cover: undefined }).cover).toEqual(base.cover);
+  });
+
+  it('挑语言：同一语言，其次同一主语言的另一种写法，再其次英文，最后用 template.json', () => {
+    const all = ['en', 'ja', 'zh-Hant', 'pt-BR'] as const;
+    expect(pickTemplateLanguage('zh-CN', all, 'ja')).toBe('ja');
+    expect(pickTemplateLanguage('zh-CN', all, 'ja-JP')).toBe('ja');
+    expect(pickTemplateLanguage('zh-CN', all, 'zh-TW')).toBe('zh-Hant');
+    expect(pickTemplateLanguage('zh-CN', all, 'zh-Hans')).toBeNull();
+    expect(pickTemplateLanguage('zh-CN', all, 'pt')).toBe('pt-BR');
+    expect(pickTemplateLanguage('zh-CN', all, 'fr')).toBe('en');
+    expect(pickTemplateLanguage('zh-CN', all, null)).toBe('en');
+    expect(pickTemplateLanguage('zh-CN', [], 'fr')).toBeNull();
+    expect(pickTemplateLanguage('zh-Hant', ['zh-Hans', 'en'], 'zh-Hans')).toBe('zh-Hans');
+    expect(pickTemplateLanguage('zh-Hant', ['zh-Hans', 'en'], 'zh-HK')).toBeNull();
+    expect(pickTemplateLanguage('en', ['zh-Hans'], 'fr')).toBeNull();
+  });
+});
+
 describe('验证记录', () => {
   const verification: TemplateVerification = {
     date: '2026-10-04',
@@ -231,6 +308,14 @@ describe('templates.* 与发送时挂的模板', () => {
       expect(open.safeParse({ id: 'launch-film', path: p }).success, p).toBe(false);
     expect(methodParamSchemas['templates.list'].safeParse({ extra: 1 }).success).toBe(false);
   });
+
+  it('列表、单个模板与发送时可以带想要的语言', () => {
+    expect(methodParamSchemas['templates.list'].safeParse({ language: 'zh-Hant' }).success).toBe(true);
+    expect(methodParamSchemas['templates.get'].safeParse({ id: 'launch-film', language: 'pt-BR' }).success).toBe(true);
+    expect(templateSendRefSchema.safeParse({ id: 'launch-film', language: 'ja' }).success).toBe(true);
+    for (const language of ['', 'EN', 'zh_CN', 'x'.repeat(40)])
+      expect(methodParamSchemas['templates.list'].safeParse({ language }).success, language).toBe(false);
+  });
 });
 
 /** 目录内的全部文件（相对路径，正斜杠），点开头的隐藏文件不算。 */
@@ -282,12 +367,51 @@ describe('仓库内置模板 templates/', () => {
       );
 
     const allowed = new Set([TEMPLATE_MANIFEST_FILE, TEMPLATE_PROMPT_FILE, ...declared]);
-    const stray = listFiles(root).filter((p) => !allowed.has(p));
+    const stray = listFiles(root).filter((p) => !allowed.has(p) && !templateTranslationFile(p));
     expect(stray, `${dir} 里有清单没登记的文件`).toEqual([]);
+    const own = listFiles(root).filter((p) => templateTranslationFile(p)?.locale === localeOfTag(manifest.language));
+    expect(own, `${dir} 不该有原文语言的译文`).toEqual([]);
   });
 
   it('id 不重复', () => {
     const ids = dirs.map((dir) => JSON.parse(fs.readFileSync(path.join(TEMPLATES_DIR, dir, TEMPLATE_MANIFEST_FILE), 'utf8')).id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+  /** 每个内置模板 × 每种别的出货语言一条，测试名「<id> · <语言>」，便于只跑一种语言：`-t ' · ja'`。 */
+  const translations = dirs.flatMap((dir) => {
+    const manifest = JSON.parse(fs.readFileSync(path.join(TEMPLATES_DIR, dir, TEMPLATE_MANIFEST_FILE), 'utf8')) as TemplateManifest;
+    return LOCALES.filter((locale) => locale !== localeOfTag(manifest.language)).map((locale) => [`${dir} · ${locale}`, dir, locale] as const);
+  });
+
+  it.each(translations)('%s：译文齐全、合法，与 template.json 对得上', (_name, dir, locale) => {
+    const root = path.join(TEMPLATES_DIR, dir);
+    const result = parseTemplateManifest(JSON.parse(fs.readFileSync(path.join(root, TEMPLATE_MANIFEST_FILE), 'utf8')), dir);
+    if (!result.ok) throw new Error(`${dir}: ${result.issues.join('; ')}`);
+    const manifest = result.manifest;
+    const files = templateTranslationFiles(locale);
+    for (const file of [files.text, files.prompt]) expect(fs.existsSync(path.join(root, file)), `缺少 ${dir}/${file}`).toBe(true);
+
+    const parsed = parseTemplateTranslation(JSON.parse(fs.readFileSync(path.join(root, files.text), 'utf8')), manifest);
+    if (!parsed.ok) throw new Error(`${dir}/${files.text}: ${parsed.issues.join('; ')}`);
+    const translation = parsed.translation;
+    const prompt = fs.readFileSync(path.join(root, files.prompt), 'utf8');
+    expect(prompt.trim().length).toBeGreaterThan(0);
+    expect(Buffer.byteLength(prompt, 'utf8')).toBeLessThanOrEqual(TEMPLATE_LIMITS.promptBytes);
+    expect(prompt, '提示词不得含机器路径').not.toMatch(/\/Users\/|\/home\/|[A-Za-z]:\\/);
+    expect(templatePromptSlotProblems({ kind: manifest.kind, fields: translation.fields }, prompt), `${files.prompt} 与译文的 fields 对不上`).toEqual([]);
+
+    // 每一项和原文一一对应：原文有提示与示例的，译文也有；原文没有示例的（例如成片语言，规范 §4.3）译文也不给。
+    (manifest.fields ?? []).forEach((field, i) => {
+      const translated = translation.fields![i]!;
+      expect(translated.hint != null, `fields[${i}].hint`).toBe(field.hint != null);
+      expect(translated.example != null, `fields[${i}].example`).toBe(field.example != null);
+    });
+    // 原文封面角标是中文时，别的语言要给自己的角标；英文角标可以沿用。
+    if (/\p{Script=Han}/u.test(manifest.cover.kicker ?? '')) expect(translation.cover?.kicker, 'cover.kicker').toBeTruthy();
+    // 中文、日文以外的译文不该残留汉字。
+    if (!['zh-Hans', 'zh-Hant', 'ja'].includes(locale)) {
+      const leftover = [JSON.stringify(translation), prompt].join('\n').match(/\p{Script=Han}+/gu);
+      expect(leftover, '译文里残留汉字').toBeNull();
+    }
   });
 });

@@ -1,0 +1,37 @@
+{
+  "title": "Krótka historia technologii",
+  "summary": "Dynamiczna, zabawna historia dużych modeli językowych zrobiona w kodzie.",
+  "description": "Dla szerokiej publiczności: od wczesnych modeli językowych do dziś, z autorskimi żartami i memami. Nie musisz przygotowywać materiałów – agent od razu zabiera się do pracy.",
+  "fields": [
+    {
+      "label": "technologia",
+      "hint": "Historię jakiej technologii opowiedzieć",
+      "example": "duże modele językowe"
+    },
+    {
+      "label": "odbiorcy",
+      "hint": "Kto będzie oglądać – od tego zależy głębia",
+      "example": "szeroka publiczność"
+    },
+    {
+      "label": "język wideo",
+      "hint": "Język narracji i napisów"
+    }
+  ],
+  "tags": [
+    "popularyzacja nauki",
+    "historia techniki",
+    "oś czasu"
+  ],
+  "cover": {
+    "kicker": "OŚ CZASU"
+  },
+  "preview": {
+    "beats": [
+      "Pierwsze modele językowe",
+      "Kilka kluczowych przełomów",
+      "Co zmieniła skala",
+      "Dziś i jutro"
+    ]
+  }
+}

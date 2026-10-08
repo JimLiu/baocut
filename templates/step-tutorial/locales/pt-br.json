@@ -1,0 +1,36 @@
+{
+  "title": "Tutorial passo a passo",
+  "summary": "Transforme uma gravação de tela ou instruções escritas em um tutorial claro.",
+  "description": "Ajude o espectador a concluir uma tarefa com passos ordenados, ações visíveis e pontos de verificação claros: mostre o que fazer e como saber se fez certo.",
+  "brief": "Use {{gravação ou instruções}} para fazer um tutorial que ensine {{público}} a {{tarefa a concluir}}.",
+  "fields": [
+    {
+      "label": "gravação ou instruções",
+      "hint": "A gravação de tela, as capturas ou os passos por escrito anexados",
+      "example": "estas instruções"
+    },
+    {
+      "label": "público",
+      "hint": "Quem vai aprender e o que já sabe",
+      "example": "iniciantes"
+    },
+    {
+      "label": "tarefa a concluir",
+      "hint": "Uma coisa que o espectador conseguirá fazer sozinho depois",
+      "example": "configurar uma rede de convidados em um roteador"
+    }
+  ],
+  "tags": [
+    "tutorial",
+    "como fazer",
+    "passos"
+  ],
+  "preview": {
+    "beats": [
+      "O objetivo e o que preparar",
+      "Cada passo, em ordem",
+      "Um ponto de verificação por passo",
+      "O resultado final"
+    ]
+  }
+}

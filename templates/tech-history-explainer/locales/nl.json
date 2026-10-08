@@ -1,0 +1,37 @@
+{
+  "title": "Korte techgeschiedenis",
+  "summary": "Met code gemaakt: de geschiedenis van grote taalmodellen, vlot en met humor.",
+  "description": "Voor een breed publiek, van de eerste taalmodellen tot nu, met originele grappen en memes ertussen. Je hoeft geen media voor te bereiden; Agent gaat meteen aan de slag.",
+  "fields": [
+    {
+      "label": "technologie",
+      "hint": "Van welke technologie je de geschiedenis vertelt",
+      "example": "grote taalmodellen"
+    },
+    {
+      "label": "publiek",
+      "hint": "Wie kijkt; dat bepaalt hoe diep je gaat",
+      "example": "een breed publiek"
+    },
+    {
+      "label": "taal van de video",
+      "hint": "De taal voor voice-over en ondertitels"
+    }
+  ],
+  "tags": [
+    "wetenschap",
+    "techgeschiedenis",
+    "tijdlijn"
+  ],
+  "cover": {
+    "kicker": "TIJDLIJN"
+  },
+  "preview": {
+    "beats": [
+      "De eerste taalmodellen",
+      "Een paar grote doorbraken",
+      "Wat schaal veranderde",
+      "Vandaag en wat er komt"
+    ]
+  }
+}

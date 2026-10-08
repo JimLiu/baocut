@@ -1,0 +1,41 @@
+{
+  "title": "Scène cinématographique",
+  "summary": "Donnez vie à un lieu imaginaire avec des mouvements de caméra dignes du cinéma.",
+  "description": "À partir d’une description ou d’une image de référence, créez une scène pleine d’atmosphère. Fixez le lieu, la lumière, le mouvement de caméra et le son d’ambiance pour composer un instant cohérent.",
+  "brief": "Créez une scène cinématographique : {{lieu}}, {{moment et météo}}. Mouvement de caméra : {{mouvement de caméra}}, jusqu’à s’arrêter sur {{détail final}}.",
+  "fields": [
+    {
+      "label": "lieu",
+      "hint": "L’endroit où plonger le spectateur",
+      "example": "une petite ville au bord de la mer"
+    },
+    {
+      "label": "moment et météo",
+      "hint": "Quand et par quel temps ; cela donne l’atmosphère générale",
+      "example": "un soir de pluie, les réverbères viennent de s’allumer"
+    },
+    {
+      "label": "mouvement de caméra",
+      "hint": "D’où part la caméra, et où elle va",
+      "example": "une lente avancée du phare vers le coin de la rue"
+    },
+    {
+      "label": "détail final",
+      "hint": "La dernière image qui doit rester en mémoire",
+      "example": "une boulangerie encore éclairée"
+    }
+  ],
+  "tags": [
+    "cinéma",
+    "scène",
+    "atmosphère"
+  ],
+  "preview": {
+    "beats": [
+      "Poser le décor",
+      "Lumière et météo",
+      "Un lent mouvement de caméra",
+      "S’arrêter sur un détail"
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "title": "Lançamento de produto fictício",
+  "summary": "Vídeo de lançamento em código, com interface branca, para um produto fictício.",
+  "description": "Interface branca limpa e bonita, imagens e efeitos sonoros em ritmo acelerado, pronto para as redes sociais. Nome, funções e interface do produto são todos criados pelo agente.",
+  "fields": [
+    {
+      "label": "tipo de produto",
+      "hint": "Que tipo de produto fictício",
+      "example": "relógio inteligente"
+    },
+    {
+      "label": "idioma do vídeo",
+      "hint": "O idioma do texto na tela"
+    }
+  ],
+  "tags": [
+    "lançamento",
+    "interface",
+    "animação em código"
+  ],
+  "preview": {
+    "beats": [
+      "A interface branca se abre aos poucos",
+      "Funções principais em sequência",
+      "Close em detalhes e animações",
+      "O nome do produto em destaque"
+    ]
+  }
+}

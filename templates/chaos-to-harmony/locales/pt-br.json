@@ -1,0 +1,29 @@
+{
+  "title": "Do caos à ordem",
+  "summary": "Um curta feito só com código: formas físicas e materiais vão do caos à harmonia.",
+  "description": "Sem clipes de geração de vídeo nem mídias de banco de imagens: todas as imagens e animações são construídas e renderizadas com código. Entrega o vídeo final e o código-fonte, que pode continuar sendo editado.",
+  "fields": [
+    {
+      "label": "formas e materiais",
+      "hint": "O que você quer ver passar do caos à ordem",
+      "example": "várias formas e materiais físicos"
+    },
+    {
+      "label": "idioma do vídeo",
+      "hint": "O idioma do texto na tela, da letra ou da narração"
+    }
+  ],
+  "tags": [
+    "animação em código",
+    "física",
+    "materiais"
+  ],
+  "preview": {
+    "beats": [
+      "Fragmentos e materiais dispersos",
+      "Colisões e atrações",
+      "Aos poucos, um ritmo",
+      "Um todo em harmonia"
+    ]
+  }
+}

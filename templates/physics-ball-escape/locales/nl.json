@@ -1,0 +1,30 @@
+{
+  "title": "Ontspannende fysica-animatie",
+  "summary": "Maak met code een ontspannende animatie: een bal ontsnapt uit lagen ringen.",
+  "description": "Een bal stuitert in lagen draaiende ringen, slaat een opening en ontsnapt; de natuurkunde is realistisch en spannend. Alles wordt met code gegenereerd: een liggende korte video die je steeds opnieuw wilt zien.",
+  "fields": [
+    {
+      "label": "duur",
+      "hint": "Ongeveer hoe lang de video wordt",
+      "example": "30 seconden"
+    },
+    {
+      "label": "kleuren",
+      "hint": "Het gewenste kleurenpalet; hoe feller, hoe meer het opvalt",
+      "example": "felle neonkleuren op zwart"
+    }
+  ],
+  "tags": [
+    "natuurkunde",
+    "code-animatie",
+    "ontspanning"
+  ],
+  "preview": {
+    "beats": [
+      "De bal stuitert in de binnenste ring",
+      "De eerste opening breekt open",
+      "Ring na ring verdwijnt",
+      "Volledig ontsnapt"
+    ]
+  }
+}

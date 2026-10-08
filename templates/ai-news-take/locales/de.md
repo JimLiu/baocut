@@ -1,0 +1,3 @@
+Recherchieren Sie aktuelle KI-News mit dem Schwerpunkt {{Schwerpunkt}}, wählen Sie ein interessantes Thema und machen Sie daraus einen schnellen, memereichen News-Kommentar für Videoplattformen. Dauer: etwa {{Dauer}}.
+
+Sie können nach Videoclips, Bildern und GIFs suchen und sie verwenden. Bevorzugen Sie Material, dessen Lizenz die Nutzung erlaubt, und nennen Sie die Quellen. Prüfen Sie die Fakten sorgfältig; Memes dienen nur dem Tempo und dürfen die Nachricht selbst nicht verzerren. Sprache für Sprechertext und Untertitel: {{Videosprache}}. Der gesamte Sprechertext wird mit derselben Stimme in normalem Tempo gesprochen; ist der Text zu lang, kürzen Sie ihn, statt das Tempo zu erhöhen, um die Dauer zu treffen.

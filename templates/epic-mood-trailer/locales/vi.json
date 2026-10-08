@@ -1,0 +1,32 @@
+{
+  "title": "Trailer không khí sử thi",
+  "summary": "Dùng p5.js làm một trailer cắt nhanh mang không khí viễn du và trở về.",
+  "description": "Cảm xúc lấy từ những chuyến hải trình dài và hành trình trở về quê hương trong sử thi cổ điển; hình ảnh tạo bằng p5.js, dựng thành trailer cắt nhanh dưới một phút, có lời dẫn và phụ đề.",
+  "fields": [
+    {
+      "label": "tham chiếu cảm xúc",
+      "hint": "Không khí hoặc mô-típ câu chuyện bạn muốn",
+      "example": "chuyến hải trình dài và hành trình về quê trong sử thi cổ điển"
+    },
+    {
+      "label": "ngôn ngữ video",
+      "hint": "Ngôn ngữ cho lời dẫn và phụ đề"
+    }
+  ],
+  "tags": [
+    "p5.js",
+    "trailer",
+    "không khí"
+  ],
+  "cover": {
+    "kicker": "HẢI TRÌNH"
+  },
+  "preview": {
+    "beats": [
+      "Mặt biển và bầu trời sao",
+      "Bão tố và thử thách",
+      "Đường về dằng dặc",
+      "Ánh đèn đã trong tầm mắt"
+    ]
+  }
+}

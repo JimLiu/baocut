@@ -1,0 +1,34 @@
+{
+  "title": "Montage sáng tạo",
+  "summary": "Montage giàu tư liệu, cao trào ở nửa sau, cho thấy tay nghề dựng và lập trình.",
+  "description": "Không lặp lại cảnh quay, phần đóng gói hình ảnh tinh tế, âm thanh liền mạch đến tận cuối; trọng tâm dựng đặt vào cao trào mạnh hơn ở nửa sau.",
+  "fields": [
+    {
+      "label": "chủ đề montage",
+      "hint": "Montage xoay quanh điều gì",
+      "example": "một thành phố từ sáng sớm đến khuya"
+    },
+    {
+      "label": "tư liệu sẵn có",
+      "hint": "Tư liệu đính kèm; nếu không có thì ghi “không có, bạn tự tìm hoặc tạo”",
+      "example": "không có, bạn tự tìm hoặc tạo"
+    },
+    {
+      "label": "ngôn ngữ video",
+      "hint": "Ngôn ngữ cho chữ trên hình và lời dẫn"
+    }
+  ],
+  "tags": [
+    "montage",
+    "dựng phim",
+    "nhịp điệu"
+  ],
+  "preview": {
+    "beats": [
+      "Mở đầu bung nhanh",
+      "Tư liệu đa dạng đan xen",
+      "Đẩy lên từng lớp",
+      "Cao trào ở nửa sau"
+    ]
+  }
+}

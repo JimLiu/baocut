@@ -1,0 +1,29 @@
+{
+  "title": "Trailer game gốc",
+  "summary": "Làm một trailer tinh xảo, cuốn hút ngay từ đầu cho một trò chơi gốc.",
+  "description": "Từ thế giới, nhân vật đến lối chơi, dùng vài loạt cảnh quay nhanh để giới thiệu một trò chơi gốc, có điểm móc ngay trong hai giây đầu, phù hợp để đăng lên mạng xã hội.",
+  "fields": [
+    {
+      "label": "thể loại game",
+      "hint": "Thể loại và phong cách của trò chơi",
+      "example": "phiêu lưu không gian phong cách pixel"
+    },
+    {
+      "label": "ngôn ngữ video",
+      "hint": "Ngôn ngữ cho chữ trên hình và lời dẫn"
+    }
+  ],
+  "tags": [
+    "game",
+    "trailer",
+    "sáng tác gốc"
+  ],
+  "preview": {
+    "beats": [
+      "Điểm móc hai giây",
+      "Thế giới và nhân vật",
+      "Lối chơi nổi bật",
+      "Tên game và khẩu hiệu"
+    ]
+  }
+}

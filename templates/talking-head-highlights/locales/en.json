@@ -1,0 +1,36 @@
+{
+  "title": "Talking-head highlights",
+  "summary": "Find the strongest point in a long recording and cut it into a subtitled short.",
+  "description": "Cut a long talking-head, interview or livestream recording into a focused short: a strong opening, a complete point and easy-to-read subtitles. Remove pauses and repetition while keeping what the speaker meant.",
+  "brief": "Here's {{recording}}. Cut a highlight clip focused on {{topic to keep}}, for posting on {{platform}}.",
+  "fields": [
+    {
+      "label": "recording",
+      "hint": "The attached recording: roughly how long it is and what it covers",
+      "example": "an hour-long interview recording"
+    },
+    {
+      "label": "topic to keep",
+      "hint": "The point or topic to cut out; to let the agent choose, write \"you pick\"",
+      "example": "the guest's views on remote work"
+    },
+    {
+      "label": "platform",
+      "hint": "Where it will be posted; this sets the pace and length",
+      "example": "social media"
+    }
+  ],
+  "tags": [
+    "talking head",
+    "interview",
+    "highlights"
+  ],
+  "preview": {
+    "beats": [
+      "Open with the strongest line",
+      "Make one point in full",
+      "Cut pauses and repetition",
+      "Land on one conclusion"
+    ]
+  }
+}

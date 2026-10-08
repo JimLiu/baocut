@@ -1,0 +1,29 @@
+{
+  "title": "Showreel di motion design",
+  "summary": "Un corto di grafica animata dal ritmo serrato, vetrina di motion design.",
+  "description": "Morphing, rivelazioni con maschere, movimenti elastici e transizioni a tempo si alternano, come l’apertura del portfolio di un motion designer. Utile per vedere cosa sa fare BaoCut con la grafica animata.",
+  "fields": [
+    {
+      "label": "palette di colori",
+      "hint": "La palette o lo stile visivo che vuoi",
+      "example": "fondo nero con colori fluo"
+    },
+    {
+      "label": "lingua del video",
+      "hint": "La lingua del testo a schermo"
+    }
+  ],
+  "tags": [
+    "grafica animata",
+    "portfolio",
+    "transizioni"
+  ],
+  "preview": {
+    "beats": [
+      "Forme geometriche che entrano a rimbalzo",
+      "Testo rivelato da maschere",
+      "Morphing e transizioni a tempo",
+      "Un’immagine finale pulita"
+    ]
+  }
+}

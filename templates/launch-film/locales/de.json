@@ -1,0 +1,41 @@
+{
+  "title": "Film zur Produkteinführung",
+  "summary": "Ein neues Produkt mit großer Enthüllung und klarem nächstem Schritt vorstellen.",
+  "description": "Vom neugierig machenden Einstieg bis zur Enthüllung des Produkts, dann zwei, drei konkrete Vorteile und zum Schluss ein einprägsames Markenbild mit einem nächsten Schritt für das Publikum.",
+  "brief": "Wir bringen {{Launch-Termin}} ein neues Produkt heraus: {{Neues Produkt}}. Erstellen Sie dazu einen Launch-Film, der diese Vorteile hervorhebt: {{Hauptvorteile}}. Am Ende soll das Publikum Folgendes tun: {{Nächster Schritt}}.",
+  "fields": [
+    {
+      "label": "Launch-Termin",
+      "hint": "Wann das Produkt erscheint, etwa „im Mai“",
+      "example": "nächsten Monat"
+    },
+    {
+      "label": "Neues Produkt",
+      "hint": "Was das Produkt ist, gern mit Namen",
+      "example": "eine smarte Schreibtischlampe"
+    },
+    {
+      "label": "Hauptvorteile",
+      "hint": "Zwei, drei Vorteile, die hängen bleiben sollen",
+      "example": "automatische Helligkeit und Fokusmodus"
+    },
+    {
+      "label": "Nächster Schritt",
+      "hint": "Was das Publikum danach tun soll",
+      "example": "zum Launch vorbestellen"
+    }
+  ],
+  "tags": [
+    "Launch",
+    "Neuheit",
+    "Marke"
+  ],
+  "preview": {
+    "beats": [
+      "Ein neugierig machender Einstieg",
+      "Die Enthüllung des Produkts",
+      "Zwei, drei konkrete Vorteile",
+      "Markenbild und nächster Schritt"
+    ]
+  }
+}

@@ -3,20 +3,30 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  LOCALES,
   RpcError,
   TEMPLATE_FILE_MAX_BYTES,
   TEMPLATE_LIMITS,
+  TEMPLATE_LOCALES_DIR,
   TEMPLATE_MANIFEST_FILE,
   TEMPLATE_PROMPT_FILE,
+  getLocale,
+  localeOfTag,
+  localizeTemplateManifest,
+  pickTemplateLanguage,
+  templatePromptSlotProblems,
+  templateTranslationFile,
+  templateTranslationFiles,
+  type Locale,
   type TemplateDetail,
   type TemplateDiagnostic,
   type TemplateListResult,
   type TemplateManifest,
   type TemplateOrigin,
   type TemplateSummary,
-  templatePromptSlotProblems,
+  type TemplateTranslation,
 } from '@baocut/protocol';
-import { parseTemplateManifest } from '@baocut/protocol/schemas';
+import { parseTemplateManifest, parseTemplateTranslation } from '@baocut/protocol/schemas';
 import { RcTemplates } from '@baocut/protocol/messages/runtime-core';
 
 /**
@@ -26,6 +36,8 @@ import { RcTemplates } from '@baocut/protocol/messages/runtime-core';
  * - 不缓存：每次 `list`、`get`、`locate` 都重新读目录。几十个小文件的读取可以忽略，用户放进新模板后再列一次就能看到，
  *   `get` 与发句柄也不会用到过期的清单。
  * - 内置与用户目录同 id 时内置的优先，用户的那一份记 `builtin-conflict`（规范 §6）。
+ * - 语言版本（规范 §3.6）：`locales/` 里的译文加载时全部校验，任何一份不合规整个模板跳过；`list`、`get` 与发送时
+ *   按请求的语言（缺省为 Runtime 的界面语言）挑一份套到清单上。
  */
 
 /** 清单文件的上限：清单的各项都有长度上限，正常的清单远小于它；超过的不读进内存。 */
@@ -33,12 +45,39 @@ const MANIFEST_MAX_BYTES = 64 * 1024;
 /** 一个模板目录里最多看多少个条目（含子目录）；超过的整个模板判为不合规，不让一个巨大的目录拖慢列表。 */
 const MAX_TEMPLATE_ENTRIES = 256;
 
-/** 一个加载成功的模板。`dir` 是模板目录的绝对路径。 */
+/** 一个加载成功的模板。`dir` 是模板目录的绝对路径；`manifest` 与 `prompt` 是 `template.json` 与 `prompt.md` 原样。 */
 export interface LoadedTemplate {
   manifest: TemplateManifest;
   origin: TemplateOrigin;
   dir: string;
   prompt: string;
+  /** `locales/` 里的译文，按 `LOCALES` 的顺序。 */
+  translations: ReadonlyMap<Locale, TemplateTranslationEntry>;
+}
+
+/** 一种语言的译文：`locales/<语言>.json` 的文案与 `locales/<语言>.md` 的提示词。 */
+export interface TemplateTranslationEntry {
+  translation: TemplateTranslation;
+  prompt: string;
+}
+
+/** 某种语言下的模板：清单套上译文、提示词换成译文；没有合适的译文时就是 `template.json` 与 `prompt.md`。 */
+export interface LocalizedTemplate {
+  manifest: TemplateManifest;
+  prompt: string;
+  /** 有哪些语言版本：`template.json` 的 `language` 在前，译文按 `LOCALES` 的顺序。 */
+  languages: string[];
+}
+
+/** 按 `language`（缺省为 Runtime 的界面语言）挑语言版本（规范 §3.6）。 */
+export function localizeTemplate(template: LoadedTemplate, language?: string | null): LocalizedTemplate {
+  const { manifest, translations } = template;
+  const available = [...translations.keys()];
+  const languages = [manifest.language, ...available];
+  const locale = pickTemplateLanguage(manifest.language, available, language ?? getLocale());
+  const entry = locale ? translations.get(locale) : undefined;
+  if (!locale || !entry) return { manifest, prompt: template.prompt, languages };
+  return { manifest: localizeTemplateManifest(manifest, locale, entry.translation), prompt: entry.prompt, languages };
 }
 
 export interface TemplateScan {
@@ -121,9 +160,10 @@ export class TemplateCatalog {
     return { templates, diagnostics };
   }
 
-  async list(): Promise<TemplateListResult> {
+  /** 目录；每个模板换成 `language`（缺省为 Runtime 的界面语言）挑中的语言版本。 */
+  async list(language?: string | null): Promise<TemplateListResult> {
     const { templates, diagnostics } = await this.scan();
-    return { templates: templates.map(summaryOf), diagnostics };
+    return { templates: templates.map((t) => summaryOf(t, language)), diagnostics };
   }
 
   /** 按 id 取一个可用的模板；没有（或没能加载）时 `not-found`。 */
@@ -133,9 +173,9 @@ export class TemplateCatalog {
     return found;
   }
 
-  async get(id: string): Promise<TemplateDetail> {
+  async get(id: string, language?: string | null): Promise<TemplateDetail> {
     const template = await this.require(id);
-    return { template: summaryOf(template), prompt: template.prompt };
+    return { template: summaryOf(template, language), prompt: localizeTemplate(template, language).prompt };
   }
 
   /**
@@ -156,11 +196,13 @@ export class TemplateCatalog {
 
 const EMPTY_SCAN: TemplateScan = { templates: [], diagnostics: [] };
 
-export function summaryOf(template: LoadedTemplate): TemplateSummary {
+export function summaryOf(template: LoadedTemplate, language?: string | null): TemplateSummary {
   const { manifest, origin } = template;
+  const localized = localizeTemplate(template, language);
   return {
-    manifest,
+    manifest: localized.manifest,
     origin,
+    languages: localized.languages,
     files: { cover: manifest.cover.file != null, preview: manifest.preview.file != null, assets: manifest.assets?.length ?? 0 },
   };
 }
@@ -217,7 +259,7 @@ function diagnostic(
 
 /**
  * 读并校验一个模板目录（规范 §2–§4）：清单合规、id 等于目录名、`prompt.md` 是非空的 UTF-8 且不超限、占位符与待填项对得上、登记的文件都在、
- * 封面与预览不超过体积上限、没有未登记的文件、目录里没有符号链接。不合规时返回诊断。
+ * 封面与预览不超过体积上限、`locales/` 里的译文成对且合规（§3.6）、没有未登记的文件、目录里没有符号链接。不合规时返回诊断。
  */
 export async function loadTemplate(dir: string, origin: TemplateOrigin): Promise<LoadedTemplate | TemplateDiagnostic> {
   const invalid = (issues: string[]) => diagnostic('invalid', origin, dir, RcTemplates.templateInvalid().text, issues);
@@ -246,23 +288,13 @@ export async function loadTemplate(dir: string, origin: TemplateOrigin): Promise
   const { manifest } = parsed;
 
   const issues: string[] = [];
-  let prompt = '';
-  if (!files.has(TEMPLATE_PROMPT_FILE)) {
-    issues.push(RcTemplates.missingFile({ file: TEMPLATE_PROMPT_FILE }).text);
-  } else {
-    const bytes = await readCapped(path.join(dir, TEMPLATE_PROMPT_FILE), TEMPLATE_LIMITS.promptBytes);
-    const text = bytes === null ? null : decodeUtf8(bytes);
-    if (bytes === null) issues.push(RcTemplates.fileOverBytes({ file: TEMPLATE_PROMPT_FILE, limit: TEMPLATE_LIMITS.promptBytes }).text);
-    else if (text === null) issues.push(RcTemplates.fileNotUtf8({ file: TEMPLATE_PROMPT_FILE }).text);
-    else if (!text.trim()) issues.push(RcTemplates.fileEmpty({ file: TEMPLATE_PROMPT_FILE }).text);
-    else {
-      prompt = text;
-      // 占位符（规范 §2.2、§5.5）：example 的正文与 fields 对得上，scene 的正文不得有 `{{`。
-      issues.push(...templatePromptSlotProblems(manifest, text));
-    }
-  }
+  // 占位符（规范 §2.2、§5.5）：example 的正文与 fields 对得上，scene 的正文不得有 `{{`。
+  const prompt = (await readPrompt(dir, files, TEMPLATE_PROMPT_FILE, issues)) ?? '';
+  if (prompt) issues.push(...templatePromptSlotProblems(manifest, prompt));
 
   const registered = new Set([TEMPLATE_MANIFEST_FILE, TEMPLATE_PROMPT_FILE, ...registeredFiles(manifest)]);
+  const translations = await loadTranslations(dir, files, manifest, issues);
+  for (const locale of translations.locales) for (const file of Object.values(templateTranslationFiles(locale))) registered.add(file);
   for (const file of registeredFiles(manifest)) {
     if (!files.has(file)) issues.push(RcTemplates.registeredFileMissing({ file }).text);
     else if (!inside(dir, file)) issues.push(RcTemplates.pathOutsideTemplate({ file }).text);
@@ -278,7 +310,88 @@ export async function loadTemplate(dir: string, origin: TemplateOrigin): Promise
   }
 
   if (issues.length) return invalid(issues);
-  return { manifest, origin, dir, prompt };
+  return { manifest, origin, dir, prompt, translations: translations.entries };
+}
+
+/**
+ * `locales/` 里的译文（规范 §3.6）：每种出货语言一对 `<语言小写>.json` 与 `.md`，不得与 `template.json` 同一种语言；
+ * 文案对照清单校验，提示词照 `prompt.md` 的规则、占位符对照译文的 `fields`。问题写进 `issues`；`locales` 是认出来的语言
+ * （它们的文件算登记过），`entries` 是合规的译文。认不出的文件留给未登记文件的检查。
+ */
+async function loadTranslations(
+  dir: string,
+  files: ReadonlySet<string>,
+  manifest: TemplateManifest,
+  issues: string[],
+): Promise<{ locales: Locale[]; entries: Map<Locale, TemplateTranslationEntry> }> {
+  const present = new Set<Locale>();
+  for (const file of files) {
+    if (!file.startsWith(`${TEMPLATE_LOCALES_DIR}/`)) continue;
+    const hit = templateTranslationFile(file);
+    if (hit) present.add(hit.locale);
+  }
+  const base = localeOfTag(manifest.language);
+  const locales = LOCALES.filter((locale) => present.has(locale));
+  const entries = new Map<Locale, TemplateTranslationEntry>();
+  for (const locale of locales) {
+    const { text: textFile, prompt: promptFile } = templateTranslationFiles(locale);
+    if (locale === base) {
+      issues.push(RcTemplates.translationForBaseLanguage({ file: textFile, language: manifest.language }).text);
+      continue;
+    }
+    const before = issues.length;
+    let translation: TemplateTranslation | null = null;
+    const raw = await readJson(dir, files, textFile, issues);
+    if (raw !== undefined) {
+      const parsed = parseTemplateTranslation(raw, manifest);
+      if (parsed.ok) translation = parsed.translation;
+      else issues.push(...parsed.issues.map((issue) => `${textFile}: ${issue}`));
+    }
+    const prompt = await readPrompt(dir, files, promptFile, issues);
+    if (prompt && translation)
+      issues.push(...templatePromptSlotProblems({ kind: manifest.kind, fields: translation.fields }, prompt).map((issue) => `${promptFile}: ${issue}`));
+    if (translation && prompt && issues.length === before) entries.set(locale, { translation, prompt });
+  }
+  return { locales, entries };
+}
+
+/** 读一份提示词（`prompt.md` 或译文的 `.md`）：要在、非空、合法 UTF-8、不超过上限；不合规时记问题、返回 null。 */
+async function readPrompt(dir: string, files: ReadonlySet<string>, file: string, issues: string[]): Promise<string | null> {
+  if (!files.has(file)) {
+    issues.push(RcTemplates.missingFile({ file }).text);
+    return null;
+  }
+  const bytes = await readCapped(path.join(dir, file), TEMPLATE_LIMITS.promptBytes);
+  const text = bytes === null ? null : decodeUtf8(bytes);
+  if (bytes === null) issues.push(RcTemplates.fileOverBytes({ file, limit: TEMPLATE_LIMITS.promptBytes }).text);
+  else if (text === null) issues.push(RcTemplates.fileNotUtf8({ file }).text);
+  else if (!text.trim()) issues.push(RcTemplates.fileEmpty({ file }).text);
+  else return text;
+  return null;
+}
+
+/** 读一份 JSON（译文文案）：要在、不超过清单的上限、合法 UTF-8 与 JSON；不合规时记问题、返回 undefined。 */
+async function readJson(dir: string, files: ReadonlySet<string>, file: string, issues: string[]): Promise<unknown> {
+  if (!files.has(file)) {
+    issues.push(RcTemplates.missingFile({ file }).text);
+    return undefined;
+  }
+  const bytes = await readCapped(path.join(dir, file), MANIFEST_MAX_BYTES);
+  if (bytes === null) {
+    issues.push(RcTemplates.fileOverBytes({ file, limit: MANIFEST_MAX_BYTES }).text);
+    return undefined;
+  }
+  const text = decodeUtf8(bytes);
+  if (text === null) {
+    issues.push(RcTemplates.fileNotUtf8({ file }).text);
+    return undefined;
+  }
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    issues.push(RcTemplates.fileNotJson({ file }).text);
+    return undefined;
+  }
 }
 
 /**

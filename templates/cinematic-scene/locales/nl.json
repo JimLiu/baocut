@@ -1,0 +1,41 @@
+{
+  "title": "Filmische scène",
+  "summary": "Breng een denkbeeldige plek tot leven met filmische beweging.",
+  "description": "Maak op basis van een beschrijving of referentiebeeld een sfeervolle scène. Leg plek, licht, camerabeweging en omgevingsgeluid vast en bouw zo één samenhangend moment in beeld.",
+  "brief": "Maak een filmische scène: {{plek}}, {{tijd en weer}}. De camera maakt {{camerabeweging}} en eindigt bij {{slotdetail}}.",
+  "fields": [
+    {
+      "label": "plek",
+      "hint": "De plek waar je de kijker naartoe wilt brengen",
+      "example": "een klein kustplaatsje"
+    },
+    {
+      "label": "tijd en weer",
+      "hint": "Wanneer en welk weer; dat bepaalt de sfeer",
+      "example": "een regenachtige avond, de lantaarns gaan net aan"
+    },
+    {
+      "label": "camerabeweging",
+      "hint": "Waar de camera begint en waar hij naartoe gaat",
+      "example": "een langzame rit van de vuurtoren naar de straathoek"
+    },
+    {
+      "label": "slotdetail",
+      "hint": "Het laatste beeld dat bijblijft",
+      "example": "een bakkerij waar nog licht brandt"
+    }
+  ],
+  "tags": [
+    "filmisch",
+    "scène",
+    "sfeer"
+  ],
+  "preview": {
+    "beats": [
+      "De omgeving neerzetten",
+      "Licht en weer",
+      "Eén langzame camerabeweging",
+      "Eindigen op een detail"
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "title": "Breve história da tecnologia",
+  "summary": "História ágil e divertida dos grandes modelos de linguagem, feita com código.",
+  "description": "Para o público em geral, dos primeiros modelos de linguagem até hoje, com piadas e memes originais. Não é preciso preparar mídias; o agente começa direto.",
+  "fields": [
+    {
+      "label": "tecnologia",
+      "hint": "De qual tecnologia contar a história",
+      "example": "grandes modelos de linguagem"
+    },
+    {
+      "label": "público",
+      "hint": "Quem vai assistir; isso define a profundidade",
+      "example": "o público em geral"
+    },
+    {
+      "label": "idioma do vídeo",
+      "hint": "O idioma da narração e das legendas"
+    }
+  ],
+  "tags": [
+    "divulgação científica",
+    "história da tecnologia",
+    "linha do tempo"
+  ],
+  "cover": {
+    "kicker": "LINHA DO TEMPO"
+  },
+  "preview": {
+    "beats": [
+      "Os primeiros modelos de linguagem",
+      "Alguns avanços decisivos",
+      "O que a escala mudou",
+      "Hoje e o que vem a seguir"
+    ]
+  }
+}

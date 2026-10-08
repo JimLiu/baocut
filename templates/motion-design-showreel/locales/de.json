@@ -1,0 +1,29 @@
+{
+  "title": "Motion-Design-Showreel",
+  "summary": "Ein straffer Motion-Graphics-Clip, der echtes Motion-Design-Können zeigt.",
+  "description": "Morphing, Masken-Reveals, federnde Bewegungen und Übergänge im Takt wechseln sich ab, wie der Auftakt eines Motion-Design-Portfolios. Zeigt, was BaoCut mit Motion Graphics kann.",
+  "fields": [
+    {
+      "label": "Farbstil",
+      "hint": "Gewünschte Farben oder visueller Stil",
+      "example": "Neonfarben auf Schwarz"
+    },
+    {
+      "label": "Videosprache",
+      "hint": "Sprache für Texteinblendungen"
+    }
+  ],
+  "tags": [
+    "Motion Graphics",
+    "Portfolio",
+    "Übergänge"
+  ],
+  "preview": {
+    "beats": [
+      "Geometrische Formen springen herein",
+      "Text per Maske enthüllt",
+      "Morphing und Übergänge im Takt",
+      "Ein klares Schlussbild"
+    ]
+  }
+}

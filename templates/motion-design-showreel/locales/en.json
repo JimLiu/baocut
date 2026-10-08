@@ -1,0 +1,29 @@
+{
+  "title": "Motion design showreel",
+  "summary": "A tight motion graphics short that shows off motion design skills.",
+  "description": "Morphs, mask reveals, elastic motion and beat-synced transitions take turns, like the opening of a motion designer's portfolio. A good way to get a feel for what BaoCut can do with motion graphics.",
+  "fields": [
+    {
+      "label": "color style",
+      "hint": "The color scheme or visual style you want",
+      "example": "neon on black"
+    },
+    {
+      "label": "video language",
+      "hint": "The language for on-screen text"
+    }
+  ],
+  "tags": [
+    "motion graphics",
+    "portfolio",
+    "transitions"
+  ],
+  "preview": {
+    "beats": [
+      "Geometric shapes bounce in",
+      "Text revealed through masks",
+      "Morphs and beat-synced cuts",
+      "A clean final frame"
+    ]
+  }
+}

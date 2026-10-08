@@ -40,6 +40,7 @@ const en = {
   notScene: (p: { title: string }) =>
     `"${p.title}" is a showcase example: put its prompt in the message box and send it, without attaching a template`,
   assetNotRegistered: (p: { id: string; asset: string }) => `Template "${p.id}" doesn't list this asset: ${p.asset}`,
+  translationForBaseLanguage: (p: { file: string; language: string }) => `${p.file} is in the template's own language (${p.language}); template.json and prompt.md already cover it`,
 };
 
 export type RcTemplatesMessages = typeof en;

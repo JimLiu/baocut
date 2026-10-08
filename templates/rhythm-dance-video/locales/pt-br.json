@@ -1,0 +1,29 @@
+{
+  "title": "Animação de dança rítmica",
+  "summary": "Dança enérgica estilo fliperama: personagem animado e efeitos de jogo de ritmo.",
+  "description": "Um personagem animado original dançando, criado com geração de vídeo, e uma tela de jogo de ritmo com efeitos que acompanham a batida, montada com código.",
+  "fields": [
+    {
+      "label": "personagem",
+      "hint": "Como é o personagem que dança",
+      "example": "um gato robô de fones de ouvido"
+    },
+    {
+      "label": "idioma do vídeo",
+      "hint": "O idioma do texto na tela"
+    }
+  ],
+  "tags": [
+    "dança",
+    "jogo de ritmo",
+    "geração de vídeo"
+  ],
+  "preview": {
+    "beats": [
+      "O personagem entra em cena",
+      "As notas caem",
+      "Combos e efeitos",
+      "Pontuação máxima no final"
+    ]
+  }
+}

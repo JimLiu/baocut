@@ -1,0 +1,34 @@
+{
+  "title": "Montaggio creativo",
+  "summary": "Un montaggio vario con il culmine nella seconda metà, tra editing e codice.",
+  "description": "Nessuna inquadratura ripetuta, una grafica curata e un audio continuo fino alla fine; il montaggio punta tutto sul culmine più forte della seconda metà.",
+  "fields": [
+    {
+      "label": "tema del montaggio",
+      "hint": "Attorno a cosa ruota il montaggio",
+      "example": "una città dall’alba a notte fonda"
+    },
+    {
+      "label": "materiali a disposizione",
+      "hint": "I materiali allegati; se non ne hai scrivi «nessuno, cercali o generali tu»",
+      "example": "nessuno, cercali o generali tu"
+    },
+    {
+      "label": "lingua del video",
+      "hint": "La lingua di testo a schermo e narrazione"
+    }
+  ],
+  "tags": [
+    "montaggio",
+    "editing",
+    "ritmo"
+  ],
+  "preview": {
+    "beats": [
+      "Un’apertura rapida",
+      "Materiali diversi in alternanza",
+      "Una tensione che cresce",
+      "Il culmine nella seconda metà"
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "title": "Ürün tanıtımı",
+  "summary": "Ürünün işlevlerini ve ayrıntılarını sade bir tanıtım videosuyla anlatın.",
+  "description": "Ürün fotoğraflarını ya da video parçalarını net bir görsel tanıtıma dönüştürün. İzleyicinin en çok önemsediği ayrıntıları öne çıkarın; üslup ve tempo markanıza uysun.",
+  "brief": "Şu ürün için bir tanıtım videosu yapın: {{ürün}}. Kullanılacak medya: {{ürün medyası}}. Öne çıkacak özellikler: {{öne çıkan özellikler}}. İzleyici kitlesi: {{izleyici kitlesi}}.",
+  "fields": [
+    {
+      "label": "ürün medyası",
+      "hint": "Eklediğiniz ürün görselleri, çekimler veya tanıtım metni",
+      "example": "bu ürün görselleri"
+    },
+    {
+      "label": "ürün",
+      "hint": "Ürün ne; adı varsa yazın",
+      "example": "gürültü engelleyici bir kulaklık"
+    },
+    {
+      "label": "öne çıkan özellikler",
+      "hint": "Yakın planda gösterilmeye en değer iki üç özellik veya ayrıntı",
+      "example": "gürültü engelleme ve pil ömrü"
+    },
+    {
+      "label": "izleyici kitlesi",
+      "hint": "Kim satın alır, en çok neyi önemser",
+      "example": "her gün işe gidip gelen çalışanlar"
+    }
+  ],
+  "tags": [
+    "ürün",
+    "tanıtım",
+    "e-ticaret"
+  ],
+  "preview": {
+    "beats": [
+      "Ürün bütünüyle sahnede",
+      "Önemli ayrıntılara tek tek yakın plan",
+      "Gerçek bir kullanım anı",
+      "Sonda harekete çağrı"
+    ]
+  }
+}

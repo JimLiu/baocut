@@ -1,0 +1,29 @@
+{
+  "title": "Animowana typografia",
+  "summary": "Ciepły, minimalistyczny film w JavaScript, napędzany typografią.",
+  "description": "Różnorodne kroje pisma, ciepła minimalistyczna estetyka, bogaty rytm i kolory, do tego muzyka w tle. Można też wygenerować obrazy lub klipy wideo jako ozdobniki.",
+  "fields": [
+    {
+      "label": "temat",
+      "hint": "Wokół czego toczy się wideo",
+      "example": "zmiany pór roku"
+    },
+    {
+      "label": "język wideo",
+      "hint": "Język tekstu na ekranie"
+    }
+  ],
+  "tags": [
+    "typografia",
+    "kroje pisma",
+    "JavaScript"
+  ],
+  "preview": {
+    "beats": [
+      "Jedno słowo wypełnia kadr",
+      "Zmiana krojów i grubości",
+      "Kolory zmieniają się w rytm",
+      "Spokojne zakończenie"
+    ]
+  }
+}

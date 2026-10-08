@@ -1,0 +1,36 @@
+{
+  "title": "Event recap",
+  "summary": "Cut footage from an event into a highlight reel people will remember.",
+  "description": "Capture the atmosphere of a workshop, gathering or launch event, stringing together the venue, key moments and attendees' reactions into a recap with a clear beginning and end.",
+  "brief": "These are photos and videos from {{event}}. Cut a short recap to share with {{viewers}}. Be sure to keep: {{must-keep moments}}.",
+  "fields": [
+    {
+      "label": "event",
+      "hint": "The event's name and when it took place",
+      "example": "yesterday's book club"
+    },
+    {
+      "label": "viewers",
+      "hint": "Who the recap is for, and where it will be shared",
+      "example": "friends who couldn't make it"
+    },
+    {
+      "label": "must-keep moments",
+      "hint": "Moments you want kept; write \"none\" if there aren't any",
+      "example": "the group photo and the host's closing remarks"
+    }
+  ],
+  "tags": [
+    "event",
+    "recap",
+    "highlights"
+  ],
+  "preview": {
+    "beats": [
+      "Setting the venue and mood",
+      "A few key moments",
+      "Attendees' reactions",
+      "Ending on one takeaway"
+    ]
+  }
+}

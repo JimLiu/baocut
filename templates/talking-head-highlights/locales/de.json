@@ -1,0 +1,36 @@
+{
+  "title": "Sprechvideo-Highlights",
+  "summary": "Die stärksten Aussagen einer langen Aufnahme als untertitelter Kurzclip.",
+  "description": "Aus einem längeren Sprechvideo, Interview oder Livestream wird ein fokussierter Kurzclip: starker Einstieg, vollständiger Gedanke, gut lesbare Untertitel. Pausen und Wiederholungen fallen weg, die Aussage der sprechenden Person bleibt erhalten.",
+  "brief": "Hier ist die Aufnahme: {{Aufnahme}}. Schneiden Sie daraus einen Highlight-Clip. Fokus: {{Fokusthema}}. Veröffentlichung: {{Plattform}}.",
+  "fields": [
+    {
+      "label": "Aufnahme",
+      "hint": "Angehängte Aufnahme: wie lang und was zu sehen ist",
+      "example": "eine einstündige Interviewaufnahme"
+    },
+    {
+      "label": "Fokusthema",
+      "hint": "Gewünschte Aussage oder Thema; sonst „wählen Sie selbst“",
+      "example": "die Sicht des Gastes auf Remote-Arbeit"
+    },
+    {
+      "label": "Plattform",
+      "hint": "Wo der Clip erscheint; das bestimmt Tempo und Länge",
+      "example": "soziale Netzwerke"
+    }
+  ],
+  "tags": [
+    "Sprechvideo",
+    "Interview",
+    "Highlights"
+  ],
+  "preview": {
+    "beats": [
+      "Einstieg mit dem stärksten Satz",
+      "Einen Gedanken vollständig erzählen",
+      "Pausen und Wiederholungen raus",
+      "Schluss mit einem klaren Fazit"
+    ]
+  }
+}

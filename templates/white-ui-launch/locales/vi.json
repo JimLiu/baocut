@@ -1,0 +1,29 @@
+{
+  "title": "Ra mắt sản phẩm hư cấu",
+  "summary": "Dùng code làm video ra mắt phong cách giao diện trắng cho một sản phẩm hư cấu.",
+  "description": "Giao diện UI trắng sạch đẹp, hình ảnh và hiệu ứng âm thanh nhịp nhanh, phù hợp để đăng lên mạng xã hội. Tên sản phẩm, tính năng và giao diện đều do Agent tự sáng tác.",
+  "fields": [
+    {
+      "label": "loại sản phẩm",
+      "hint": "Sản phẩm hư cấu thuộc loại nào",
+      "example": "đồng hồ thông minh"
+    },
+    {
+      "label": "ngôn ngữ video",
+      "hint": "Ngôn ngữ cho chữ trên hình"
+    }
+  ],
+  "tags": [
+    "ra mắt",
+    "giao diện",
+    "hoạt hình bằng code"
+  ],
+  "preview": {
+    "beats": [
+      "Giao diện trắng từ từ mở ra",
+      "Chuyển nhanh qua tính năng cốt lõi",
+      "Cận cảnh chi tiết và hiệu ứng động",
+      "Dừng lại ở tên sản phẩm"
+    ]
+  }
+}

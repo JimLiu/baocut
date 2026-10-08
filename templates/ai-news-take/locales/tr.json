@@ -1,0 +1,34 @@
+{
+  "title": "Yapay zekâ haberine hızlı yorum",
+  "summary": "Güncel bir yapay zekâ haberini seçip hızlı, esprili bir yoruma dönüştürün.",
+  "description": "Ajan önce güncel yapay zekâ haberlerine bakıp bir konu seçer, ardından bulduğu klipler, görseller ve GIF’lerle hafif ve keyifle izlenen bir haber yorumu hazırlar.",
+  "fields": [
+    {
+      "label": "odak alanı",
+      "hint": "Hangi tür yapay zekâ haberleri; fark etmezse “serbest” yazın",
+      "example": "açık kaynak modeller"
+    },
+    {
+      "label": "süre",
+      "hint": "Videonun yaklaşık uzunluğu",
+      "example": "bir dakika"
+    },
+    {
+      "label": "video dili",
+      "hint": "Dış ses ve altyazıların dili"
+    }
+  ],
+  "tags": [
+    "haber",
+    "yapay zekâ",
+    "hızlı yorum"
+  ],
+  "preview": {
+    "beats": [
+      "Ne oldu, tek cümlede",
+      "Önemli ayrıntılar",
+      "Espriler ve tepkiler",
+      "Neden önemli"
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "title": "Breve historia de una tecnología",
+  "summary": "Historia de los grandes modelos de lenguaje, hecha con código, ágil y con humor.",
+  "description": "Para el público general: desde los primeros modelos de lenguaje hasta hoy, con chistes y memes originales. No necesitas preparar materiales; el agente se pone manos a la obra directamente.",
+  "fields": [
+    {
+      "label": "tecnología",
+      "hint": "De qué tecnología quieres contar la historia",
+      "example": "los grandes modelos de lenguaje"
+    },
+    {
+      "label": "público",
+      "hint": "Quién lo verá; define el nivel de detalle",
+      "example": "el público general"
+    },
+    {
+      "label": "idioma del vídeo",
+      "hint": "El idioma de la narración y los subtítulos"
+    }
+  ],
+  "tags": [
+    "divulgación",
+    "historia tecnológica",
+    "cronología"
+  ],
+  "cover": {
+    "kicker": "CRONOLOGÍA"
+  },
+  "preview": {
+    "beats": [
+      "Los primeros modelos de lenguaje",
+      "Algunos avances clave",
+      "Lo que cambió con la escala",
+      "Hoy y lo que viene"
+    ]
+  }
+}

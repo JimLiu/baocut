@@ -1,0 +1,41 @@
+{
+  "title": "Produktpräsentation",
+  "summary": "Ein klarer Clip, der Funktionen und Details eines Produkts zeigt.",
+  "description": "Aus Produktfotos oder Videoclips wird eine klare visuelle Vorstellung. Im Vordergrund stehen die Details, die dem Publikum am wichtigsten sind; Stil und Tempo passen zu Ihrer Marke.",
+  "brief": "Erstellen Sie ein Video, das ein Produkt präsentiert. Produkt: {{Produkt}}. Material: {{Produktmaterial}}. Schwerpunkt: {{Kernfunktionen}}. Publikum: {{Publikum}}.",
+  "fields": [
+    {
+      "label": "Produktmaterial",
+      "hint": "Angehängte Produktfotos, Videos oder Beschreibungen",
+      "example": "diese Produktfotos"
+    },
+    {
+      "label": "Produkt",
+      "hint": "Was das Produkt ist, gern mit Namen",
+      "example": "ein Kopfhörer mit Geräuschunterdrückung"
+    },
+    {
+      "label": "Kernfunktionen",
+      "hint": "Zwei, drei Funktionen oder Details für Nahaufnahmen",
+      "example": "Geräuschunterdrückung und Akkulaufzeit"
+    },
+    {
+      "label": "Publikum",
+      "hint": "Wer es kauft und worauf diese Menschen achten",
+      "example": "Berufstätige, die täglich pendeln"
+    }
+  ],
+  "tags": [
+    "Produkt",
+    "Präsentation",
+    "E-Commerce"
+  ],
+  "preview": {
+    "beats": [
+      "Das Produkt im Ganzen",
+      "Nahaufnahmen der Details",
+      "Eine echte Nutzungsszene",
+      "Call to Action zum Schluss"
+    ]
+  }
+}

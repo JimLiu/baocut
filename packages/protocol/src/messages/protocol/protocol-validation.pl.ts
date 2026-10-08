@@ -86,4 +86,7 @@ export const pl: ProtocolValidationMessages = {
   templateFieldUnused: (p: { label: string }) => `Pole „${p.label}” nie jest używane ({{${p.label}}})`,
   templateSlotUnclosed: 'Jest niezamknięte {{; symbole zastępcze zapisuj jako {{label}}',
   templateScenePromptSlots: 'prompt.md szablonu sceny nie może zawierać symboli zastępczych {{; umieść je w brief',
+  translationFieldsCount: (p: { count: number }) => `Liczba fields musi być taka jak w template.json (${p.count})`,
+  translationBeatsCount: (p: { count: number }) => `Liczba beats musi być taka jak w template.json (${p.count})`,
+  translationAssetUnknown: (p: { path: string }) => `To nie jest materiał wymieniony w template.json: ${p.path}`,
 };

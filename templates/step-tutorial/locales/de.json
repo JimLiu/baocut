@@ -1,0 +1,36 @@
+{
+  "title": "Schritt-für-Schritt-Anleitung",
+  "summary": "Machen Sie aus einer Bildschirmaufnahme oder Anleitung ein klares Tutorial.",
+  "description": "Mit geordneten Schritten, sichtbaren Handgriffen und klaren Kontrollpunkten führen Sie das Publikum zum Ziel: was zu tun ist und woran man erkennt, dass es richtig war.",
+  "brief": "Erstellen Sie ein Tutorial. Grundlage: {{Aufnahme oder Anleitung}}. Publikum: {{Publikum}}. Lernziel: {{Aufgabe}}.",
+  "fields": [
+    {
+      "label": "Aufnahme oder Anleitung",
+      "hint": "Angehängte Aufnahme, Screenshots oder Schritte in Textform",
+      "example": "diese Anleitung"
+    },
+    {
+      "label": "Publikum",
+      "hint": "Wer lernt und mit welchem Vorwissen",
+      "example": "Einsteiger"
+    },
+    {
+      "label": "Aufgabe",
+      "hint": "Eine Sache, die das Publikum danach selbst erledigen kann",
+      "example": "ein Gastnetzwerk am Router einrichten"
+    }
+  ],
+  "tags": [
+    "Tutorial",
+    "Anleitung",
+    "Schritte"
+  ],
+  "preview": {
+    "beats": [
+      "Ziel und Vorbereitung",
+      "Jeder Schritt der Reihe nach",
+      "Kontrollpunkt nach jedem Schritt",
+      "Das fertige Ergebnis"
+    ]
+  }
+}

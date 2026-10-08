@@ -1,0 +1,3 @@
+Pesquise notícias recentes de IA sobre {{área de interesse}}, escolha um assunto interessante e faça um comentário rápido, de ritmo acelerado e cheio de memes, com cerca de {{duração}}, pronto para publicar em plataformas de vídeo.
+
+Você pode buscar clipes de vídeo, imagens e GIFs para usar. Prefira mídias cuja licença permita o uso e cite as fontes. Verifique bem os fatos; use os memes só para dar ritmo, sem distorcer a notícia em si. Use {{idioma do vídeo}} na narração e nas legendas. Mantenha uma só voz em toda a narração, em ritmo normal; se o roteiro ficar longo, corte palavras em vez de acelerar a fala para caber no tempo.

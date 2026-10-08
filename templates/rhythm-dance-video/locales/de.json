@@ -1,0 +1,29 @@
+{
+  "title": "Rhythmus-Tanzanimation",
+  "summary": "Energiegeladenes Arcade-Tanzvideo: Animationsfigur mit Rhythmusspiel-Effekten.",
+  "description": "Eine eigens erdachte Animationsfigur tanzt, erzeugt per Videogenerierung; per Code entstehen dazu die Oberfläche eines Rhythmusspiels und Effekte im Takt.",
+  "fields": [
+    {
+      "label": "Figur",
+      "hint": "Wie die tanzende Figur aussieht",
+      "example": "eine Roboterkatze mit Kopfhörern"
+    },
+    {
+      "label": "Videosprache",
+      "hint": "Sprache für Texteinblendungen"
+    }
+  ],
+  "tags": [
+    "Tanz",
+    "Rhythmusspiel",
+    "Videogenerierung"
+  ],
+  "preview": {
+    "beats": [
+      "Auftritt der Figur",
+      "Noten fallen herab",
+      "Combos und Effekte",
+      "Perfekte Wertung"
+    ]
+  }
+}

@@ -897,11 +897,15 @@ export interface RpcMethods {
 
   /**
    * 创作模板目录（模板包规范 §6）：内置目录与 Runtime Home 下 `templates/` 里的全部可用模板，以及跳过的模板目录与原因。
-   * 每次调用都重新读目录，用户放进新模板之后再列一次就能看到。顺序不是合同。
+   * 每次调用都重新读目录，用户放进新模板之后再列一次就能看到。顺序不是合同。每个模板按 `language`（通常是界面语言，
+   * 缺省为 Runtime 的界面语言）挑一个语言版本（模板包规范 §3.6），清单的文案已经换成它。
    */
-  'templates.list': { params: Record<string, never>; result: TemplateListResult };
-  /** 一个模板的清单与 `prompt.md` 全文。没有这个模板（或它没能加载）时 `not-found`（`TEMPLATE_NOT_FOUND`）。 */
-  'templates.get': { params: { id: string }; result: TemplateDetail };
+  'templates.list': { params: { language?: string }; result: TemplateListResult };
+  /**
+   * 一个模板的清单与提示词全文，按 `language` 挑语言版本（同 `templates.list`）。没有这个模板（或它没能加载）时 `not-found`
+   * （`TEMPLATE_NOT_FOUND`）。
+   */
+  'templates.get': { params: { id: string; language?: string }; result: TemplateDetail };
   /**
    * 模板随附文件的短期读取句柄，同 `artifacts.openHandle`。`path` 是清单里登记的 `cover.file`、`preview.file` 或 `assets[].path`；
    * 没登记的路径 `not-found`（`TEMPLATE_FILE_NOT_FOUND`），模板目录里别的文件（含 `prompt.md`）也一样。

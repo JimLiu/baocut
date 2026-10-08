@@ -1,0 +1,41 @@
+{
+  "title": "Korte verhaalfilm",
+  "summary": "Breng je personages en je verhaal tot leven in een korte film.",
+  "description": "Bouw rond één personage, één doel en één conflict een volledig verhaal, met een wending en een einde. Personages, locaties en beeldstijl blijven van begin tot eind consistent.",
+  "brief": "Maak een korte verhaalfilm: {{hoofdpersonage}} wil {{doel}}, maar {{obstakel}}. Uiteindelijk {{afloop}}.",
+  "fields": [
+    {
+      "label": "hoofdpersonage",
+      "hint": "Wie de hoofdpersoon is",
+      "example": "een pinguïntje"
+    },
+    {
+      "label": "doel",
+      "hint": "Wat de hoofdpersoon wil",
+      "example": "leren vliegen"
+    },
+    {
+      "label": "obstakel",
+      "hint": "De moeilijkheid die in de weg staat",
+      "example": "valt bij elke poging weer naar beneden"
+    },
+    {
+      "label": "afloop",
+      "hint": "Doel gehaald, niet gehaald of op een andere manier bereikt",
+      "example": "vindt het in het water zijn eigen manier van vliegen"
+    }
+  ],
+  "tags": [
+    "verhaal",
+    "korte film",
+    "personage"
+  ],
+  "preview": {
+    "beats": [
+      "De hoofdpersoon en wat die wil",
+      "Er duikt een obstakel op",
+      "De wending",
+      "Het einde en wat blijft hangen"
+    ]
+  }
+}

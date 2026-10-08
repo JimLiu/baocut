@@ -1,0 +1,41 @@
+{
+  "title": "Productpresentatie",
+  "summary": "Laat in een strakke korte video zien wat een product kan en hoe het eruitziet.",
+  "description": "Orden productfoto’s of videofragmenten tot een heldere visuele introductie. Licht de details uit die het publiek het belangrijkst vindt, in een stijl en tempo die bij je merk passen.",
+  "brief": "Maak met {{productmedia}} een presentatievideo voor {{product}}, met de nadruk op {{kernfuncties}}, vooral bedoeld voor {{publiek}}.",
+  "fields": [
+    {
+      "label": "productmedia",
+      "hint": "Bijgevoegde productfoto’s, eigen video’s of beschrijving",
+      "example": "deze productfoto’s"
+    },
+    {
+      "label": "product",
+      "hint": "Wat het product is; noem de naam als die er is",
+      "example": "een noise-cancelling koptelefoon"
+    },
+    {
+      "label": "kernfuncties",
+      "hint": "Twee of drie functies of details die een close-up verdienen",
+      "example": "ruisonderdrukking en accuduur"
+    },
+    {
+      "label": "publiek",
+      "hint": "Wie het koopt en wat ze het belangrijkst vinden",
+      "example": "forenzen die elke dag reizen"
+    }
+  ],
+  "tags": [
+    "product",
+    "presentatie",
+    "e-commerce"
+  ],
+  "preview": {
+    "beats": [
+      "Het product volledig in beeld",
+      "Close-ups van de belangrijkste details",
+      "Een echt gebruiksmoment",
+      "Oproep tot actie aan het eind"
+    ]
+  }
+}

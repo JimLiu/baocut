@@ -23,4 +23,5 @@ export const zhHant: RcTemplatesMessages = {
   cannotReadDir: (p) => `無法讀取範本資料夾（${p.code}）`,
   notScene: (p) => `「${p.title}」是作品範例：請將它的提示詞放進訊息框直接傳送，不必附加範本`,
   assetNotRegistered: (p) => `範本「${p.id}」未列出這個素材：${p.asset}`,
+  translationForBaseLanguage: (p: { file: string; language: string }) => `${p.file} 與範本本身的語言（${p.language}）相同，template.json 與 prompt.md 已經是這種語言`,
 };

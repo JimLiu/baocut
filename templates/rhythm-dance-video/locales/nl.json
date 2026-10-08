@@ -1,0 +1,29 @@
+{
+  "title": "Ritmische dansanimatie",
+  "summary": "Een energieke arcadedansvideo: een animatiepersonage met ritmegame-effecten.",
+  "description": "Genereer met videogeneratie een dansend, origineel animatiepersonage en bouw met code het beeld van een ritmegame en effecten die de beat volgen.",
+  "fields": [
+    {
+      "label": "personage",
+      "hint": "Hoe het dansende personage eruitziet",
+      "example": "een robotkat met een koptelefoon"
+    },
+    {
+      "label": "taal van de video",
+      "hint": "De taal voor tekst in beeld"
+    }
+  ],
+  "tags": [
+    "dans",
+    "ritmegame",
+    "videogeneratie"
+  ],
+  "preview": {
+    "beats": [
+      "Het personage verschijnt",
+      "Noten vallen naar beneden",
+      "Combo’s en effecten",
+      "Perfecte eindscore"
+    ]
+  }
+}

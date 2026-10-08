@@ -26,6 +26,7 @@ import {
   templatePathProblem,
   templateSlotProblems,
   type TemplateManifest,
+  type TemplateTranslation,
 } from './template.ts';
 
 /** 模板清单 `template.json` 的校验（模板包规范 §2–§4）。未知字段一律拒绝。 */
@@ -76,6 +77,12 @@ const field = z
     example: text(TEMPLATE_LIMITS.fieldExample).optional(),
   })
   .strict();
+
+/** BCP 47 语言标签（清单的 `language`，`templates.*` 与发送时的 `language`）。 */
+const languageTag = z
+  .string()
+  .max(35)
+  .regex(/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/, { error: () => V.languageTagExample().text });
 
 const isoDate = z
   .string()
@@ -136,7 +143,7 @@ export const templateManifestSchema = z
     title: text(TEMPLATE_LIMITS.title),
     summary: text(TEMPLATE_LIMITS.summary),
     description: text(TEMPLATE_LIMITS.description),
-    language: z.string().regex(/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/, { error: () => V.languageTagExample().text }),
+    language: languageTag,
     category: z.enum(TEMPLATE_CATEGORIES),
     ratio: z.enum(TEMPLATE_RATIOS).optional(),
     durationSeconds: z.number().int().min(TEMPLATE_DURATION_MIN).max(TEMPLATE_DURATION_MAX).multipleOf(TEMPLATE_DURATION_STEP).optional(),
@@ -200,6 +207,66 @@ type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 const manifestTypeMatches: Same<z.infer<typeof templateManifestSchema>, TemplateManifest> = true;
 void manifestTypeMatches;
 
+/** 一种语言的译文 `locales/<语言>.json`（规范 §3.6）：只有文案，未知字段一律拒绝。与 `template.json` 的对照在 `parseTemplateTranslation`。 */
+export const templateTranslationSchema = z
+  .object({
+    title: text(TEMPLATE_LIMITS.title),
+    summary: text(TEMPLATE_LIMITS.summary),
+    description: text(TEMPLATE_LIMITS.description),
+    brief: text(TEMPLATE_LIMITS.brief).optional(),
+    fields: z.array(field).max(TEMPLATE_LIMITS.fields).optional(),
+    tags: z.array(text(TEMPLATE_LIMITS.tag)).max(TEMPLATE_LIMITS.tags),
+    cover: z.object({ kicker: text(TEMPLATE_LIMITS.kicker).optional() }).strict().optional(),
+    preview: z
+      .object({ beats: z.array(text(TEMPLATE_LIMITS.beat)).min(TEMPLATE_LIMITS.beatsMin).max(TEMPLATE_LIMITS.beatsMax).optional() })
+      .strict()
+      .optional(),
+    assets: z
+      .array(z.object({ path: relativePath, note: text(TEMPLATE_LIMITS.note) }).strict())
+      .max(TEMPLATE_LIMITS.assets)
+      .optional(),
+  })
+  .strict()
+  .superRefine((t, ctx) => {
+    const labels = (t.fields ?? []).map((f) => f.label);
+    if (new Set(labels).size !== labels.length)
+      ctx.addIssue({ code: 'custom', path: ['fields'], message: V.templateFieldLabelsDuplicate().text });
+    if (new Set(t.tags).size !== t.tags.length) ctx.addIssue({ code: 'custom', path: ['tags'], message: V.tagsDuplicate().text });
+    const paths = (t.assets ?? []).map((a) => a.path);
+    if (new Set(paths).size !== paths.length) ctx.addIssue({ code: 'custom', path: ['assets'], message: V.assetPathsDuplicate().text });
+  });
+
+const translationTypeMatches: Same<z.infer<typeof templateTranslationSchema>, TemplateTranslation> = true;
+void translationTypeMatches;
+
+export type TemplateTranslationResult = { ok: true; translation: TemplateTranslation } | { ok: false; issues: string[] };
+
+/**
+ * 读一份译文（已经 JSON.parse 过的值），对照它所属的 `template.json`（规范 §3.6）：scene 必须给 `brief` 且占位符与译文的
+ * `fields` 对得上，example 不得有 `brief`；`fields` 与 `beats` 的项数与清单相同；素材只能是清单登记过的。
+ * example 的提示词与 `fields` 的对照由读目录的一方查（同 `template.json`）。
+ */
+export function parseTemplateTranslation(value: unknown, manifest: TemplateManifest): TemplateTranslationResult {
+  const result = templateTranslationSchema.safeParse(value);
+  if (!result.success)
+    return { ok: false, issues: result.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`) };
+  const t = result.data;
+  const issues: string[] = [];
+  if (manifest.kind === 'scene') {
+    if (t.brief == null) issues.push(`brief: ${V.sceneTemplateRequired().text}`);
+    else for (const message of templateSlotProblems(t.brief, t.fields ?? [])) issues.push(`brief: ${message}`);
+  } else if (t.brief != null) {
+    issues.push(`brief: ${V.exampleTemplateNoBrief().text}`);
+  }
+  const fieldCount = manifest.fields?.length ?? 0;
+  if ((t.fields?.length ?? 0) !== fieldCount) issues.push(`fields: ${V.translationFieldsCount({ count: fieldCount }).text}`);
+  const beatCount = manifest.preview.beats?.length ?? 0;
+  if ((t.preview?.beats?.length ?? 0) !== beatCount) issues.push(`preview.beats: ${V.translationBeatsCount({ count: beatCount }).text}`);
+  const registered = new Set((manifest.assets ?? []).map((a) => a.path));
+  for (const a of t.assets ?? []) if (!registered.has(a.path)) issues.push(`assets: ${V.translationAssetUnknown({ path: a.path }).text}`);
+  return issues.length ? { ok: false, issues } : { ok: true, translation: t };
+}
+
 export type TemplateManifestResult =
   { ok: true; manifest: TemplateManifest } | { ok: false; reason: 'unsupported-schema' | 'invalid'; issues: string[] };
 
@@ -229,11 +296,12 @@ export const templateSendRefSchema = z
     id: templateId,
     version: z.string().min(1).max(64).optional(),
     assets: z.array(relativePath).max(TEMPLATE_LIMITS.assets).optional(),
+    language: languageTag.optional(),
   })
   .strict();
 
 export const TEMPLATE_PARAM_SCHEMAS = {
-  'templates.list': z.object({}).strict(),
-  'templates.get': z.object({ id: templateId }).strict(),
+  'templates.list': z.object({ language: languageTag.optional() }).strict(),
+  'templates.get': z.object({ id: templateId, language: languageTag.optional() }).strict(),
   'templates.openHandle': z.object({ id: templateId, path: relativePath }).strict(),
 } as const;

@@ -1,0 +1,41 @@
+{
+  "title": "Vitrine de produto",
+  "summary": "Um vídeo limpo que mostra com clareza as funções e os detalhes do produto.",
+  "description": "Organize fotos ou clipes do produto em uma apresentação visual clara. Destaque os detalhes que mais importam ao público, com estilo e ritmo alinhados à sua marca.",
+  "brief": "Use {{mídias do produto}} para fazer um vídeo de apresentação de {{produto}}, destacando {{funções principais}}, voltado para {{público}}.",
+  "fields": [
+    {
+      "label": "mídias do produto",
+      "hint": "As fotos, os vídeos ou a descrição do produto anexados",
+      "example": "estas fotos do produto"
+    },
+    {
+      "label": "produto",
+      "hint": "O que é o produto; inclua o nome, se tiver",
+      "example": "um fone de ouvido com cancelamento de ruído"
+    },
+    {
+      "label": "funções principais",
+      "hint": "Duas ou três funções ou detalhes que merecem um close",
+      "example": "o cancelamento de ruído e a bateria"
+    },
+    {
+      "label": "público",
+      "hint": "Quem compra e o que mais importa para essas pessoas",
+      "example": "quem vai e volta do trabalho todo dia"
+    }
+  ],
+  "tags": [
+    "produto",
+    "vitrine",
+    "e-commerce"
+  ],
+  "preview": {
+    "beats": [
+      "O produto aparece por inteiro",
+      "Close em cada detalhe-chave",
+      "Uma cena real de uso",
+      "Chamada para ação no final"
+    ]
+  }
+}

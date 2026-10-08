@@ -1,0 +1,36 @@
+{
+  "title": "Trích đoạn hay từ video nói",
+  "summary": "Tìm quan điểm đắt giá nhất trong video dài, dựng thành video ngắn có phụ đề.",
+  "description": "Dựng một đoạn ghi hình dài như video nói trước máy quay, phỏng vấn hay livestream thành một video ngắn tập trung: mở đầu mạnh, quan điểm trọn vẹn, phụ đề dễ đọc. Bỏ khoảng ngừng và chỗ lặp, đồng thời giữ đúng ý của người nói.",
+  "brief": "Đây là {{bản ghi hình}}. Hãy dựng giúp tôi một đoạn tinh hoa để đăng lên {{nơi đăng}}. Chủ đề tập trung: {{chủ đề muốn giữ}}.",
+  "fields": [
+    {
+      "label": "bản ghi hình",
+      "hint": "Video đính kèm: dài khoảng bao lâu, ghi lại nội dung gì",
+      "example": "đoạn ghi hình buổi phỏng vấn dài một giờ"
+    },
+    {
+      "label": "chủ đề muốn giữ",
+      "hint": "Quan điểm hoặc chủ đề muốn cắt ra; để Agent chọn thì ghi “bạn tự chọn”",
+      "example": "quan điểm của khách mời về làm việc từ xa"
+    },
+    {
+      "label": "nơi đăng",
+      "hint": "Đăng ở đâu; quyết định nhịp và độ dài",
+      "example": "mạng xã hội"
+    }
+  ],
+  "tags": [
+    "nói trước máy quay",
+    "phỏng vấn",
+    "đoạn hay"
+  ],
+  "preview": {
+    "beats": [
+      "Mở đầu bằng câu mạnh nhất",
+      "Nói trọn vẹn một quan điểm",
+      "Bỏ khoảng ngừng và chỗ lặp",
+      "Khép lại bằng một kết luận"
+    ]
+  }
+}

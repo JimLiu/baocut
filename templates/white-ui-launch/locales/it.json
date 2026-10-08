@@ -1,0 +1,29 @@
+{
+  "title": "Lancio di un prodotto immaginario",
+  "summary": "Video di lancio in codice per un prodotto immaginario, con interfaccia bianca.",
+  "description": "Un’interfaccia bianca pulita ed elegante, immagini ed effetti sonori dal ritmo serrato: un video pronto per i social. Nome, funzioni e interfaccia del prodotto sono tutti inventati dall’agente.",
+  "fields": [
+    {
+      "label": "tipo di prodotto",
+      "hint": "Che genere di prodotto immaginario",
+      "example": "smartwatch"
+    },
+    {
+      "label": "lingua del video",
+      "hint": "La lingua del testo a schermo"
+    }
+  ],
+  "tags": [
+    "lancio",
+    "interfaccia",
+    "animazione in codice"
+  ],
+  "preview": {
+    "beats": [
+      "L’interfaccia bianca si apre piano",
+      "Le funzioni chiave in rapida sequenza",
+      "Primi piani su dettagli e animazioni",
+      "Il nome del prodotto in fermo immagine"
+    ]
+  }
+}

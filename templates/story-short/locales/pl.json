@@ -1,0 +1,41 @@
+{
+  "title": "Krótki film fabularny",
+  "summary": "Ożyw swoje postacie i historię w krótkim filmie.",
+  "description": "Zbuduj pełną historię wokół postaci, celu i konfliktu, z punktem zwrotnym i zakończeniem. Postacie, scenografia i styl obrazu pozostają spójne od początku do końca.",
+  "brief": "Zrób krótki film fabularny. Bohater: {{bohater}}. Cel: {{cel bohatera}}. Przeszkoda: {{przeszkoda}}. Zakończenie: {{zakończenie}}.",
+  "fields": [
+    {
+      "label": "bohater",
+      "hint": "Kim jest główny bohater",
+      "example": "mały pingwin"
+    },
+    {
+      "label": "cel bohatera",
+      "hint": "Czego chce bohater",
+      "example": "nauczyć się latać"
+    },
+    {
+      "label": "przeszkoda",
+      "hint": "Trudność, która staje na drodze",
+      "example": "kilka razy próbuje i za każdym razem spada"
+    },
+    {
+      "label": "zakończenie",
+      "hint": "Cel osiągnięty, nieosiągnięty albo osiągnięty inaczej",
+      "example": "pod wodą odkrywa własny sposób latania"
+    }
+  ],
+  "tags": [
+    "historia",
+    "krótki film",
+    "postacie"
+  ],
+  "preview": {
+    "beats": [
+      "Bohater i jego pragnienie",
+      "Pojawia się przeszkoda",
+      "Punkt zwrotny",
+      "Zakończenie, które zostaje w pamięci"
+    ]
+  }
+}

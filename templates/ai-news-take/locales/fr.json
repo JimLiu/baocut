@@ -1,0 +1,34 @@
+{
+  "title": "Chronique express de l’actu IA",
+  "summary": "Prenez une actu IA récente et faites-en une chronique rapide, pleine de mèmes.",
+  "description": "L’Agent consulte l’actualité récente de l’IA, choisit un sujet, puis l’illustre avec des extraits, images et GIF trouvés en ligne pour en faire une chronique légère et agréable à regarder.",
+  "fields": [
+    {
+      "label": "domaine d’intérêt",
+      "hint": "Le type d’actu IA souhaité ; sans préférence, écrivez « tous sujets »",
+      "example": "les modèles open source"
+    },
+    {
+      "label": "durée",
+      "hint": "Durée approximative de la vidéo",
+      "example": "une minute"
+    },
+    {
+      "label": "langue de la vidéo",
+      "hint": "Langue de la voix off et des sous-titres"
+    }
+  ],
+  "tags": [
+    "actualité",
+    "IA",
+    "chronique"
+  ],
+  "preview": {
+    "beats": [
+      "Ce qui s’est passé, en une phrase",
+      "Les détails clés",
+      "Mèmes et réactions",
+      "Pourquoi c’est important"
+    ]
+  }
+}

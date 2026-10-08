@@ -1,0 +1,30 @@
+{
+  "title": "Animación física relajante",
+  "summary": "Una animación relajante, hecha con código, de una bola que escapa de anillos.",
+  "description": "Una bola rebota dentro de anillos concéntricos que giran, abre huecos a golpes y escapa; la física es realista y mantiene la intriga. Todo se genera con código, ideal para un corto horizontal que dan ganas de ver una y otra vez.",
+  "fields": [
+    {
+      "label": "duración",
+      "hint": "Cuánto debe durar el vídeo, más o menos",
+      "example": "30 segundos"
+    },
+    {
+      "label": "colores",
+      "hint": "Los colores que quieres; cuanto más vivos, más llaman la atención",
+      "example": "fondo negro con neones vivos"
+    }
+  ],
+  "tags": [
+    "física",
+    "animación con código",
+    "relajante"
+  ],
+  "preview": {
+    "beats": [
+      "La bola rebota en el anillo interior",
+      "Abre el primer hueco",
+      "Los anillos van desapareciendo",
+      "Escapa del todo"
+    ]
+  }
+}

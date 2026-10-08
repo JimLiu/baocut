@@ -1,0 +1,29 @@
+{
+  "title": "Du chaos à l’harmonie",
+  "summary": "Un court film tout en code : formes et matières passent du chaos à l’harmonie.",
+  "description": "Ni clips générés ni médias de banques d’images : toutes les images et animations sont construites et rendues par code. Vous recevez la vidéo finale et un code source que vous pouvez continuer à modifier.",
+  "fields": [
+    {
+      "label": "formes et matières",
+      "hint": "Ce qui doit passer du chaos à l’ordre",
+      "example": "des formes et matières physiques variées"
+    },
+    {
+      "label": "langue de la vidéo",
+      "hint": "Langue du texte à l’écran, des paroles ou de la voix off"
+    }
+  ],
+  "tags": [
+    "animation par code",
+    "physique",
+    "matières"
+  ],
+  "preview": {
+    "beats": [
+      "Fragments et matières épars",
+      "Collisions et attractions",
+      "Un rythme qui s’installe",
+      "Un tout harmonieux"
+    ]
+  }
+}

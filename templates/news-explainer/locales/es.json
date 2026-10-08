@@ -1,0 +1,29 @@
+{
+  "title": "Actualidad explicada con humor",
+  "summary": "Elige un tema candente y explícalo en un vídeo ágil y lleno de memes.",
+  "description": "El agente busca noticias recientes, elige un tema y lo acompaña con memes que encuentra para hacer un vídeo explicativo horizontal de unos 90 segundos. No necesitas preparar materiales.",
+  "fields": [
+    {
+      "label": "área de noticias",
+      "hint": "Qué tipo de noticias quieres ver; si te da igual, escribe «cualquiera»",
+      "example": "tecnología"
+    },
+    {
+      "label": "idioma del vídeo",
+      "hint": "El idioma de la narración y los subtítulos"
+    }
+  ],
+  "tags": [
+    "noticias",
+    "actualidad",
+    "explicación"
+  ],
+  "preview": {
+    "beats": [
+      "Presentar el tema candente",
+      "Contexto y antecedentes",
+      "Memes y reacciones",
+      "Cerrar con un comentario"
+    ]
+  }
+}

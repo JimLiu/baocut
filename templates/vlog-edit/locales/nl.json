@@ -1,0 +1,36 @@
+{
+  "title": "Vlog monteren",
+  "summary": "Monteer alledaagse beelden tot een vlog die je tot het eind wilt kijken.",
+  "description": "Orden reis- of dagelijkse beelden tot een klein verhaal met een begin, een paar onvergetelijke momenten en een natuurlijk einde. Houd de beste reacties en het omgevingsgeluid, met muziek en ondertitels die bij je tempo passen.",
+  "brief": "Dit is {{beeldmateriaal}}. Monteer er een vlog van, {{stijl}}. Dit moet er zeker in: {{onmisbare momenten}}.",
+  "fields": [
+    {
+      "label": "beeldmateriaal",
+      "hint": "Waar de bijgevoegde beelden staan en wanneer ze gefilmd zijn",
+      "example": "beeldmateriaal van een weekend aan zee"
+    },
+    {
+      "label": "stijl",
+      "hint": "Het gevoel dat je wilt",
+      "example": "graag wat luchtig"
+    },
+    {
+      "label": "onmisbare momenten",
+      "hint": "Momenten die je beslist wilt houden; zo niet, schrijf ‘geen’",
+      "example": "het moment dat ik voor het eerst op de surfplank sta"
+    }
+  ],
+  "tags": [
+    "vlog",
+    "reizen",
+    "dagelijks leven"
+  ],
+  "preview": {
+    "beats": [
+      "Waar je heen gaat en waarom",
+      "Een paar onvergetelijke momenten",
+      "Echte reacties en omgevingsgeluid",
+      "Een natuurlijk einde"
+    ]
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "title": "Bande-annonce épique",
+  "summary": "Une bande-annonce rythmée en p5.js, entre long voyage en mer et retour au pays.",
+  "description": "L’émotion s’inspire des longs voyages en mer et des retours au pays des épopées antiques. Les images sont générées avec p5.js, puis montées en une bande-annonce rapide de moins d’une minute, avec voix off et sous-titres.",
+  "fields": [
+    {
+      "label": "ambiance de référence",
+      "hint": "L’atmosphère ou le motif narratif recherché",
+      "example": "le long voyage en mer et le retour au pays des épopées antiques"
+    },
+    {
+      "label": "langue de la vidéo",
+      "hint": "Langue de la voix off et des sous-titres"
+    }
+  ],
+  "tags": [
+    "p5.js",
+    "bande-annonce",
+    "atmosphère"
+  ],
+  "cover": {
+    "kicker": "TRAVERSÉE"
+  },
+  "preview": {
+    "beats": [
+      "La mer et le ciel étoilé",
+      "Tempêtes et épreuves",
+      "Le long chemin du retour",
+      "Des lumières à l’horizon"
+    ]
+  }
+}

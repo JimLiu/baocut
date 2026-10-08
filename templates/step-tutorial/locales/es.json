@@ -1,0 +1,36 @@
+{
+  "title": "Tutorial paso a paso",
+  "summary": "Convierte una grabación de pantalla o unas instrucciones en un tutorial claro.",
+  "description": "Ayuda al público a completar una tarea con pasos ordenados, acciones visibles y puntos de control claros: muéstrale qué hacer y cómo comprobar que lo ha hecho bien.",
+  "brief": "Haz un tutorial a partir de {{grabación o pasos}} que enseñe a {{público}} a {{tarea}}.",
+  "fields": [
+    {
+      "label": "grabación o pasos",
+      "hint": "La grabación, las capturas o los pasos por escrito adjuntos",
+      "example": "estos pasos"
+    },
+    {
+      "label": "público",
+      "hint": "Quién aprende y qué nivel tiene",
+      "example": "principiantes"
+    },
+    {
+      "label": "tarea",
+      "hint": "Algo que podrá hacer por su cuenta al terminar",
+      "example": "configurar una red de invitados en un router"
+    }
+  ],
+  "tags": [
+    "tutorial",
+    "guía práctica",
+    "pasos"
+  ],
+  "preview": {
+    "beats": [
+      "El objetivo y qué preparar",
+      "Cada paso, en orden",
+      "Un punto de control tras cada paso",
+      "El resultado final"
+    ]
+  }
+}

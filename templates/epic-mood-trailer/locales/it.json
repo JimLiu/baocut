@@ -1,0 +1,32 @@
+{
+  "title": "Trailer d’atmosfera epica",
+  "summary": "Un trailer a tagli rapidi in p5.js, tra lunghe traversate e ritorno a casa.",
+  "description": "L’atmosfera si ispira alle lunghe traversate per mare e al ritorno a casa dei poemi epici classici: immagini generate con p5.js, montate in un trailer a tagli rapidi di meno di un minuto, con narrazione e sottotitoli.",
+  "fields": [
+    {
+      "label": "atmosfera di riferimento",
+      "hint": "L’atmosfera o il motivo narrativo che vuoi",
+      "example": "le lunghe traversate e il ritorno a casa dei poemi epici classici"
+    },
+    {
+      "label": "lingua del video",
+      "hint": "La lingua di narrazione e sottotitoli"
+    }
+  ],
+  "tags": [
+    "p5.js",
+    "trailer",
+    "atmosfera"
+  ],
+  "cover": {
+    "kicker": "TRAVERSATA"
+  },
+  "preview": {
+    "beats": [
+      "Mare e cielo stellato",
+      "Tempeste e prove",
+      "Il lungo ritorno",
+      "Luci all’orizzonte"
+    ]
+  }
+}

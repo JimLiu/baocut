@@ -1,0 +1,29 @@
+{
+  "title": "Kinetische Typografie",
+  "summary": "Ein typografiegetriebener Clip in warmem Minimalismus, gebaut mit JavaScript.",
+  "description": "Schriften in vielen Stilen, warme minimalistische Ästhetik, reich an Rhythmus und Farbe, mit Hintergrundmusik. Generierte Bilder oder Videoclips können als Akzente dienen.",
+  "fields": [
+    {
+      "label": "Thema",
+      "hint": "Worum sich das Video dreht",
+      "example": "der Wechsel der Jahreszeiten"
+    },
+    {
+      "label": "Videosprache",
+      "hint": "Sprache für Texteinblendungen"
+    }
+  ],
+  "tags": [
+    "Typografie",
+    "Schriften",
+    "JavaScript"
+  ],
+  "preview": {
+    "beats": [
+      "Ein Wort füllt das Bild",
+      "Schriften und Stärken im Wechsel",
+      "Farben wechseln im Rhythmus",
+      "Ein ruhiger Ausklang"
+    ]
+  }
+}

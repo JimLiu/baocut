@@ -1,0 +1,36 @@
+{
+  "title": "Historia con datos",
+  "summary": "Convierte una tabla en un relato claro y visual.",
+  "description": "Lleva al público por una pregunta, un gráfico y una conclusión. Introduce una sola comparación cada vez y mantén siempre visibles las unidades, las fechas y la fuente de los datos, para que la historia resista cualquier comprobación.",
+  "brief": "Cuenta una historia con {{datos}} que responda a {{pregunta clave}}. El público es {{público}}.",
+  "fields": [
+    {
+      "label": "datos",
+      "hint": "La tabla o el archivo adjunto, o de dónde salen los datos",
+      "example": "estos datos de ventas de los últimos cinco años"
+    },
+    {
+      "label": "pregunta clave",
+      "hint": "La pregunta que el público debe tener clara al terminar",
+      "example": "qué región crece más rápido y por qué merece atención"
+    },
+    {
+      "label": "público",
+      "hint": "Quién lo verá; define el nivel de detalle",
+      "example": "la dirección de la empresa"
+    }
+  ],
+  "tags": [
+    "datos",
+    "gráficos",
+    "visualización"
+  ],
+  "preview": {
+    "beats": [
+      "Una pregunta que vale la pena hacer",
+      "Una comparación cada vez",
+      "Desglosar las causas",
+      "Una conclusión con fundamento"
+    ]
+  }
+}

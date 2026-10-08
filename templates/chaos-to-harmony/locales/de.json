@@ -1,0 +1,29 @@
+{
+  "title": "Vom Chaos zur Ordnung",
+  "summary": "Kurzfilm aus reinem Code: Formen und Materialien vom Chaos zur Harmonie.",
+  "description": "Ohne generierte Videoclips und ohne Stockmaterial: Alle Bilder und Animationen werden per Code aufgebaut und gerendert. Geliefert werden das fertige Video und weiter bearbeitbarer Quellcode.",
+  "fields": [
+    {
+      "label": "Formen und Materialien",
+      "hint": "Was vom Chaos zur Ordnung finden soll",
+      "example": "verschiedene physische Formen und Materialien"
+    },
+    {
+      "label": "Videosprache",
+      "hint": "Sprache für Texteinblendungen, Songtext oder Sprechertext"
+    }
+  ],
+  "tags": [
+    "Code-Animation",
+    "Physik",
+    "Materialien"
+  ],
+  "preview": {
+    "beats": [
+      "Verstreute Fragmente und Materialien",
+      "Sie prallen aufeinander und ziehen sich an",
+      "Allmählich entsteht ein Rhythmus",
+      "Ein harmonisches Ganzes"
+    ]
+  }
+}

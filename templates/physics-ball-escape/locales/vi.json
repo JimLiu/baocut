@@ -1,0 +1,30 @@
+{
+  "title": "Hoạt hình vật lý thư giãn",
+  "summary": "Dùng code làm hoạt hình thư giãn: quả bóng phá từng lớp vòng tròn để thoát ra.",
+  "description": "Một quả bóng nảy trong những vòng tròn xoay lồng nhau, đập vào khe hở để thoát ra ngoài; chuyển động vật lý chân thực mà vẫn hồi hộp. Tất cả tạo bằng code, phù hợp làm video ngắn khổ ngang khiến người ta muốn xem đi xem lại.",
+  "fields": [
+    {
+      "label": "thời lượng",
+      "hint": "Video dài khoảng bao lâu",
+      "example": "30 giây"
+    },
+    {
+      "label": "bảng màu",
+      "hint": "Màu bạn muốn; càng nổi bật càng bắt mắt",
+      "example": "nền đen phối màu neon rực rỡ"
+    }
+  ],
+  "tags": [
+    "vật lý",
+    "hoạt hình bằng code",
+    "thư giãn"
+  ],
+  "preview": {
+    "beats": [
+      "Quả bóng nảy ở vòng trong cùng",
+      "Phá được khe hở đầu tiên",
+      "Các vòng giảm dần từng lớp",
+      "Thoát ra hoàn toàn"
+    ]
+  }
+}

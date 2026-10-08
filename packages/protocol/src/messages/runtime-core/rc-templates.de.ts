@@ -25,4 +25,5 @@ export const de: RcTemplatesMessages = {
   notScene: (p: { title: string }) =>
     `„${p.title}“ ist ein Vorführbeispiel: Prompt ohne Vorlagenanhang in das Nachrichtenfeld einfügen und senden`,
   assetNotRegistered: (p: { id: string; asset: string }) => `Vorlage „${p.id}“ listet dieses Material nicht: ${p.asset}`,
+  translationForBaseLanguage: (p: { file: string; language: string }) => `${p.file} hat dieselbe Sprache wie die Vorlage selbst (${p.language}); template.json und prompt.md decken sie bereits ab`,
 };

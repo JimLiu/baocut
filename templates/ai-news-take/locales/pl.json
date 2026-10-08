@@ -1,0 +1,34 @@
+{
+  "title": "Newsy AI na gorąco",
+  "summary": "Wybierz świeży news o AI i zrób z niego szybki komentarz pełen memów.",
+  "description": "Agent wyszukuje najnowsze wiadomości o AI, wybiera temat i dobiera znalezione klipy, obrazy oraz GIF-y, tworząc lekki komentarz, który dobrze się ogląda.",
+  "fields": [
+    {
+      "label": "tematyka",
+      "hint": "Jakie newsy o AI Cię interesują; jeśli to bez znaczenia, wpisz „dowolna”",
+      "example": "modele open source"
+    },
+    {
+      "label": "czas trwania",
+      "hint": "Mniej więcej, ile ma trwać gotowe wideo",
+      "example": "jedna minuta"
+    },
+    {
+      "label": "język wideo",
+      "hint": "Język narracji i napisów"
+    }
+  ],
+  "tags": [
+    "wiadomości",
+    "AI",
+    "komentarz"
+  ],
+  "preview": {
+    "beats": [
+      "Co się stało – w jednym zdaniu",
+      "Najważniejsze szczegóły",
+      "Memy i reakcje",
+      "Dlaczego to ważne"
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "title": "Historia w danych",
+  "summary": "Zamień tabelę w jasną, obrazową opowieść.",
+  "description": "Poprowadź widza przez pytanie, wykres i wniosek. Wprowadzaj naraz tylko jedno porównanie, a jednostki, daty i źródła danych niech będą zawsze widoczne – tak, by tę historię dało się sprawdzić.",
+  "brief": "Opowiedz historię opartą na danych. Dane: {{dane}}. Pytanie, na które ma odpowiedzieć: {{pytanie}}. Odbiorcy: {{odbiorcy}}.",
+  "fields": [
+    {
+      "label": "dane",
+      "hint": "Dołączona tabela, plik albo źródło danych",
+      "example": "te dane o sprzedaży z ostatnich pięciu lat"
+    },
+    {
+      "label": "pytanie",
+      "hint": "Jedno pytanie, które widz ma zrozumieć po obejrzeniu",
+      "example": "który region rośnie najszybciej i dlaczego warto to śledzić"
+    },
+    {
+      "label": "odbiorcy",
+      "hint": "Kto będzie oglądać – od tego zależy głębia",
+      "example": "zarząd firmy"
+    }
+  ],
+  "tags": [
+    "dane",
+    "wykresy",
+    "wizualizacja"
+  ],
+  "preview": {
+    "beats": [
+      "Pytanie warte zadania",
+      "Jedno porównanie naraz",
+      "Rozbiór przyczyn",
+      "Wniosek oparty na danych"
+    ]
+  }
+}

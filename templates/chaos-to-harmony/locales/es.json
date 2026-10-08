@@ -1,0 +1,29 @@
+{
+  "title": "Del caos a la armonía",
+  "summary": "Corto hecho solo con código: formas y materiales que van del caos a la armonía.",
+  "description": "Sin clips de generación de vídeo ni material de bancos de imágenes: todas las imágenes y animaciones se construyen y renderizan con código. Se entrega el vídeo final y un código fuente que puedes seguir editando.",
+  "fields": [
+    {
+      "label": "formas y materiales",
+      "hint": "Qué quieres ver pasar del caos al orden",
+      "example": "todo tipo de formas físicas y materiales"
+    },
+    {
+      "label": "idioma del vídeo",
+      "hint": "El idioma del texto en pantalla, la letra o la narración"
+    }
+  ],
+  "tags": [
+    "animación con código",
+    "física",
+    "materiales"
+  ],
+  "preview": {
+    "beats": [
+      "Fragmentos y materiales dispersos",
+      "Chocan y se atraen",
+      "Poco a poco encuentran el ritmo",
+      "Un todo en armonía"
+    ]
+  }
+}

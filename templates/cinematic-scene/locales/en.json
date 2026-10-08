@@ -1,0 +1,41 @@
+{
+  "title": "Cinematic scene",
+  "summary": "Bring an imagined place to life with cinematic motion.",
+  "description": "Build an atmospheric scene from a description or a reference image. Set the location, light, camera movement and ambient sound, and put them together into one continuous moment.",
+  "brief": "Make a cinematic scene: {{location}}, {{time and weather}}. The camera {{camera move}} and comes to rest on {{closing detail}}.",
+  "fields": [
+    {
+      "label": "location",
+      "hint": "The place you want to put viewers in",
+      "example": "a seaside town"
+    },
+    {
+      "label": "time and weather",
+      "hint": "When it is and what the weather is like; this sets the overall mood",
+      "example": "a rainy evening as the streetlights come on"
+    },
+    {
+      "label": "camera move",
+      "hint": "Where the camera starts and where it goes",
+      "example": "slowly pushes in from the lighthouse toward the street corner"
+    },
+    {
+      "label": "closing detail",
+      "hint": "The one image people should remember at the end",
+      "example": "a bakery with its lights still on"
+    }
+  ],
+  "tags": [
+    "cinematic",
+    "scene",
+    "atmosphere"
+  ],
+  "preview": {
+    "beats": [
+      "Establish the setting",
+      "Light and weather",
+      "One slow camera move",
+      "Come to rest on a detail"
+    ]
+  }
+}

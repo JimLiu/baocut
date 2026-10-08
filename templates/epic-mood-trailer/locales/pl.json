@@ -1,0 +1,32 @@
+{
+  "title": "Zwiastun w klimacie eposu",
+  "summary": "Szybko cięty zwiastun w p5.js o dalekiej żegludze i powrocie do domu.",
+  "description": "Nastrój zaczerpnięty z długiej żeglugi i powrotu do domu z klasycznych eposów. Obraz jest generowany w p5.js i zmontowany w szybko cięty zwiastun krótszy niż minuta, z narracją i napisami.",
+  "fields": [
+    {
+      "label": "inspiracja nastroju",
+      "hint": "Pożądany klimat lub motyw opowieści",
+      "example": "długa żegluga i powrót do domu z klasycznych eposów"
+    },
+    {
+      "label": "język wideo",
+      "hint": "Język narracji i napisów"
+    }
+  ],
+  "tags": [
+    "p5.js",
+    "zwiastun",
+    "klimat"
+  ],
+  "cover": {
+    "kicker": "ŻEGLUGA"
+  },
+  "preview": {
+    "beats": [
+      "Morze i rozgwieżdżone niebo",
+      "Burza i próby",
+      "Długa droga do domu",
+      "Światła na horyzoncie"
+    ]
+  }
+}
