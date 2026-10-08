@@ -60,7 +60,11 @@ export async function isFile(file: string): Promise<boolean> {
   }
 }
 
-export async function readLegacySource(root: string, platform = process.platform): Promise<LegacySource | null> {
+export async function readLegacySource(
+  root: string,
+  platform = process.platform,
+  options: { discoverProjects?: boolean } = {},
+): Promise<LegacySource | null> {
   try {
     if (!(await fs.stat(root)).isDirectory()) return null;
   } catch (error) {
@@ -81,6 +85,14 @@ export async function readLegacySource(root: string, platform = process.platform
   const config = { ...flattened, ...(await readJson<LegacyObject>(path.join(root, 'config.json')))?.values };
   const preferences = (await readJson<LegacyObject>(path.join(root, 'app-v2-settings.json'))) ?? {};
   const cloud = (await readJson<LegacyObject>(path.join(root, 'cloud-settings.json'))) ?? {};
+  const source: LegacySource = { root, config, preferences, cloud, projects: [] };
+  if (options.discoverProjects !== false) source.projects = await discoverLegacyProjects(source, platform);
+  return source;
+}
+
+/** Project discovery can touch slow external volumes; only call after Runtime readiness. */
+export async function discoverLegacyProjects(source: LegacySource, platform = process.platform): Promise<LegacySource['projects']> {
+  const { root, config } = source;
   const registry = await readJson<LegacyObject | LegacyObject[]>(path.join(root, 'projects.json'));
   const liveEntries: LegacyObject[] = Array.isArray(registry) ? registry : (registry?.projects ?? []);
   const archive = (await readJson<LegacyObject[]>(path.join(root, 'archive', 'projects.json'))) ?? [];
@@ -111,7 +123,7 @@ export async function readLegacySource(root: string, platform = process.platform
       }
     }
   }
-  return { root, config, preferences, cloud, projects: [...projects].map(([path, entry]) => ({ path, entry })) };
+  return [...projects].map(([path, entry]) => ({ path, entry }));
 }
 
 /** plutil supports XML and binary plists; never export or log secret-bearing preferences. */

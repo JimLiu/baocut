@@ -309,3 +309,95 @@ it('keeps an explicit sandbox isolated without the desktop opt-in', () => {
     ),
   ).toContain('C:\\Users\\Jim\\AppData\\Roaming\\bcut');
 });
+
+it('does not read the project registry or enumerate projects before Runtime readiness', async () => {
+  const s = await setup();
+  await writeJsonAtomic(path.join(s.root, 'projects', 'old', 'project.json'), { title: 'V2 fixture' });
+  await fs.writeFile(path.join(s.root, 'projects.json'), 'invalid JSON that must only be read in background');
+  const scan = vi.spyOn(fs, 'readdir');
+  const upgrade = new LegacyUpgrade({
+    ...s,
+    roots: [s.root],
+    platform: process.platform,
+    v1Preferences: null,
+    importProject: async () => {},
+  });
+  await upgrade.prepare();
+  expect(scan).not.toHaveBeenCalled();
+  const settings = new SettingsStore(s.home.settingsFile);
+  await settings.load();
+  expect(settings.get('models.dir')).toBe(path.join(dir, 'models'));
+  upgrade.start(s.deps);
+  await finish(upgrade);
+  const marker = await readJson<any>(path.join(s.home.root, 'store', 'legacy-upgrade.json'));
+  expect(marker.sources[s.root].pending).toContain('project-discovery-unavailable');
+  expect(marker.complete).toBeUndefined();
+});
+
+it('a complete migration reads only its marker, even if old data is changed or corrupted later', async () => {
+  const s = await setup();
+  await writeJsonAtomic(path.join(s.root, 'projects', 'old', 'project.json'), { title: 'V2 fixture' });
+  const missingRoot = path.join(dir, 'never-installed');
+  const options = { ...s, roots: [s.root, missingRoot], platform: process.platform, v1Preferences: null, importProject: async () => {} };
+  const first = new LegacyUpgrade(options);
+  await first.prepare();
+  first.start(s.deps);
+  await finish(first);
+  const markerFile = path.join(s.home.root, 'store', 'legacy-upgrade.json');
+  expect((await readJson<any>(markerFile)).complete).toBe(true);
+  await fs.writeFile(path.join(s.root, 'config.json'), 'broken old configuration');
+  const read = vi.spyOn(fs, 'readFile');
+  const scan = vi.spyOn(fs, 'readdir');
+  const stat = vi.spyOn(fs, 'stat');
+  const again = new LegacyUpgrade(options);
+  await again.prepare();
+  again.start(s.deps);
+  await finish(again);
+  expect(read.mock.calls.map(([file]) => String(file))).toEqual([markerFile]);
+  expect(scan).not.toHaveBeenCalled();
+  expect(stat).not.toHaveBeenCalled();
+});
+
+it('retries the cached inventory and does not launch importers for still-missing media', async () => {
+  const s = await setup();
+  await writeJsonAtomic(path.join(s.root, 'projects', 'old', 'project.json'), { title: 'V2 fixture' });
+  const missing = path.join(dir, 'offline.wav');
+  const importProject = vi.fn(async (request: { target: string }) => {
+    if (!existsSync(missing)) {
+      await writeJsonAtomic(path.join(request.target, 'import-report.json'), { assets: { missing: [missing] } });
+      throw new Error('offline');
+    }
+  });
+  const options = { ...s, roots: [s.root], platform: process.platform, v1Preferences: null, importProject };
+  const run = async () => {
+    const upgrade = new LegacyUpgrade(options);
+    await upgrade.prepare();
+    upgrade.start(s.deps);
+    await finish(upgrade);
+  };
+  await run();
+  expect(importProject).toHaveBeenCalledTimes(1);
+  const scan = vi.spyOn(fs, 'readdir');
+  await fs.writeFile(path.join(s.root, 'projects.json'), 'must not reread a discovered registry');
+  await run();
+  expect(importProject).toHaveBeenCalledTimes(1);
+  expect(scan).not.toHaveBeenCalled();
+  await fs.writeFile(missing, 'restored');
+  await run();
+  expect(importProject).toHaveBeenCalledTimes(2);
+});
+
+it('waits for user jobs and can stop promptly without starting project discovery', async () => {
+  const s = await setup();
+  await writeJsonAtomic(path.join(s.root, 'projects', 'old', 'project.json'), { title: 'V2 fixture' });
+  const scan = vi.spyOn(fs, 'readdir');
+  const importProject = vi.fn(async () => {});
+  const upgrade = new LegacyUpgrade({ ...s, roots: [s.root], platform: process.platform, v1Preferences: null, importProject });
+  await upgrade.prepare();
+  upgrade.start({ ...s.deps, isBusy: () => true });
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  expect(scan).not.toHaveBeenCalled();
+  expect(importProject).not.toHaveBeenCalled();
+  await upgrade.stop();
+  expect(upgrade.active).toBe(false);
+});
