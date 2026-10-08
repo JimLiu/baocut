@@ -32,7 +32,7 @@ use crate::documents::Documents;
 use crate::effects::{apply_to_layer, apply_to_source, hex_rgba, needs_layer_pass};
 use crate::element::{source_id, visual_element};
 use crate::spectrum::{self, Route, SpeakerActivity};
-use crate::support::{UnsupportedItem, check_layer, check_transition, kind_name};
+use crate::support::{CaptionProblem, UnsupportedItem, caption_problem, check_layer, check_layer_with, check_transition, kind_name};
 use crate::template::TemplateScenes;
 use crate::text_measure::{TextBox, measure_text_element};
 use crate::transition::{BoxGeom, compose, effective_progress};
@@ -124,6 +124,10 @@ pub struct FrameRenderer {
     /// 画实例用的内核计划：编一次，每层把 `elements` 换成那一个实例。
     elements: Option<OverlayRenderPlan>,
     captions: HashMap<String, CaptionPlan>,
+    /// 各 `(字幕文档, 样式文档)` 画不画得出来（[`caption_problem`]）：只随文档变，换文档时清空。
+    caption_checks: HashMap<(String, Option<String>), Option<CaptionProblem>>,
+    /// 各 `(序列, 字幕组)` 的剪辑签名（[`Self::caption_signature`]）：换文档或序列变了（[`Self::sequence_changed`]）时清空。
+    caption_signatures: HashMap<(String, String), String>,
     collect_caption_hits: bool,
     caption_hits: Vec<CaptionHit>,
     templates: TemplateScenes,
@@ -176,6 +180,8 @@ impl FrameRenderer {
             frame,
             elements: None,
             captions: HashMap::new(),
+            caption_checks: HashMap::new(),
+            caption_signatures: HashMap::new(),
             collect_caption_hits: false,
             caption_hits: Vec::new(),
             templates: TemplateScenes::default(),
@@ -213,7 +219,15 @@ impl FrameRenderer {
     /// 换一批冻结的文档（预览里文档会变）。字幕的编译结果随之作废。
     pub fn set_documents(&mut self, documents: Documents) {
         self.documents = documents;
+        self.caption_checks.clear();
+        self.caption_signatures.clear();
         self.drop_captions();
+    }
+
+    /// 序列的内容换了（预览送进新的视频快照）。字幕按剪辑记下的签名作废，下一帧重算；签名没变的字幕计划照用。
+    /// 导出的输入不变，不用调。
+    pub fn sequence_changed(&mut self) {
+        self.caption_signatures.clear();
     }
 
     /// 一台装好字体的排版引擎：有备用的就用备用的。
@@ -955,7 +969,14 @@ impl FrameRenderer {
             .iter()
             .filter(|l| l.kind == LayerKind::Caption && caption_group(l) == group)
         {
-            let items = check_layer(layer, &self.documents, None);
+            let (documents, checks) = (&self.documents, &mut self.caption_checks);
+            let items = check_layer_with(layer, None, &mut |document_id, style_document_id| {
+                let key = (document_id.to_owned(), style_document_id.map(str::to_owned));
+                checks
+                    .entry(key)
+                    .or_insert_with(|| caption_problem(documents, document_id, style_document_id))
+                    .clone()
+            });
             if items.is_empty() {
                 admitted.push(layer);
             } else {
@@ -980,7 +1001,16 @@ impl FrameRenderer {
             })
             .collect();
         let prefix = format!("{group}|{}|", document_ids.join(","));
-        let key = format!("{prefix}{}", self.caption_signature(sequence, &document_ids));
+        let signature_key = (sequence.id.to_string(), prefix.clone());
+        let signature = match self.caption_signatures.get(&signature_key) {
+            Some(signature) => signature.clone(),
+            None => {
+                let signature = self.caption_signature(sequence, &document_ids);
+                self.caption_signatures.insert(signature_key, signature.clone());
+                signature
+            }
+        };
+        let key = format!("{prefix}{signature}");
         if !self.captions.contains_key(&key) {
             let Ok(style) = CaptionStyle::read(style_document_id.as_deref().and_then(|id| self.documents.get(id))) else {
                 return Ok(());

@@ -618,6 +618,8 @@ fn cut_and_hidden_words_leave_the_caption_line() {
     let mut shared = renderer(false, Documents::new(documents(&[])));
     let mut bounds = |items: Vec<Value>, seconds: f64| {
         let video = video(items, vec![video_asset("a_clip", 16, 9)], json!({}));
+        // 预览送进新的视频快照时告诉渲染器序列变了（preview-wasm 的 `set_video`）。
+        shared.sequence_changed();
         let (x0, _, x1, _) = painted_bounds(&render_with(&mut shared, &video, seconds, &mut Media::default())).unwrap();
         f64::from(x1 - x0)
     };

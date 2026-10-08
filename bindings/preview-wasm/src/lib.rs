@@ -224,6 +224,10 @@ pub fn set_video(input: &[u8]) -> Result<(), PlanError> {
         state.video = Some((request.video, sequence_id));
         state.speech = None;
         state.speakers = None;
+        // 渲染器按剪辑记下的字幕签名随新快照作废。
+        for renderer in &mut state.renderers {
+            renderer.sequence_changed();
+        }
     });
     Ok(())
 }

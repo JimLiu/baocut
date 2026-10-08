@@ -95,8 +95,20 @@ pub const SUPPORTED_TRANSITIONS: &[&str] = &["dissolve", "wipe", "slide", "zoom"
 
 /// 一层（不含它的转场）画不出来的地方。`template` 是序列的模板文档（模板层要查它的台标）。
 pub fn check_layer(layer: &VisualLayer, documents: &Documents, template: Option<&TemplateDoc>) -> Vec<UnsupportedItem> {
+    check_layer_with(layer, template, &mut |document_id, style_document_id| {
+        caption_problem(documents, document_id, style_document_id)
+    })
+}
+
+/// [`check_layer`]，字幕层画不画得出来问 `caption`（`(字幕文档, 样式文档)` → [`caption_problem`]）：渲染器按文档记住
+/// 答案，不必每帧重读整份字幕与样式。
+pub fn check_layer_with(
+    layer: &VisualLayer,
+    template: Option<&TemplateDoc>,
+    caption: &mut dyn FnMut(&str, Option<&str>) -> Option<CaptionProblem>,
+) -> Vec<UnsupportedItem> {
     let mut items = Vec::new();
-    if let Some(item) = check_content(layer, documents, template) {
+    if let Some(item) = check_content(layer, template, caption) {
         items.push(item);
         return items;
     }
@@ -185,7 +197,11 @@ fn catalogue_problem(layer: &VisualLayer) -> Option<(Option<String>, &'static st
     }
 }
 
-fn check_content(layer: &VisualLayer, documents: &Documents, template: Option<&TemplateDoc>) -> Option<UnsupportedItem> {
+fn check_content(
+    layer: &VisualLayer,
+    template: Option<&TemplateDoc>,
+    caption: &mut dyn FnMut(&str, Option<&str>) -> Option<CaptionProblem>,
+) -> Option<UnsupportedItem> {
     if let Some((id, reason, message)) = catalogue_problem(layer) {
         return Some(UnsupportedItem::layer(layer, id, reason, message));
     }
@@ -228,7 +244,8 @@ fn check_content(layer: &VisualLayer, documents: &Documents, template: Option<&T
                 style_document_id,
                 ..
             }),
-        ) => check_caption(layer, documents, document_id, style_document_id.as_deref()),
+        ) => caption(document_id, style_document_id.as_deref())
+            .map(|(kind, reason, message)| UnsupportedItem::layer(layer, kind, reason, message)),
         _ => Some(UnsupportedItem::layer(layer, None, "unknown-layer", "不认识这种层")),
     }
 }
@@ -245,56 +262,36 @@ fn unsupported_message(reason: &str) -> &'static str {
     }
 }
 
-/// 字幕层画不画得出来：字幕文档与样式文档都在、认得出，样式有画法。
+/// 字幕层画不出来的原因：`(认出的种类, 原因, 说明)`。
+pub type CaptionProblem = (Option<String>, &'static str, String);
+
+/// 字幕层画不画得出来：字幕文档与样式文档都在、认得出，样式有画法。只看文档，与层无关。
 /// 认不出的样式不替人换成缺省样式：预览跳过这组字幕并报出来，导出拒绝并说明。
-fn check_caption(
-    layer: &VisualLayer,
-    documents: &Documents,
-    document_id: &str,
-    style_document_id: Option<&str>,
-) -> Option<UnsupportedItem> {
+pub fn caption_problem(documents: &Documents, document_id: &str, style_document_id: Option<&str>) -> Option<CaptionProblem> {
     let Some(document) = documents.get(document_id) else {
-        return Some(UnsupportedItem::layer(
-            layer,
-            None,
-            "caption-document-missing",
-            format!("字幕文档 {document_id} 不在了"),
-        ));
+        return Some((None, "caption-document-missing", format!("字幕文档 {document_id} 不在了")));
     };
     if read_captions(&document.body).is_none() {
         let found = schema(&document.body);
-        return Some(UnsupportedItem::layer(
-            layer,
-            found.clone(),
-            "caption-unknown-document",
-            format!("字幕文档 {} 认不出", found.unwrap_or_else(|| "（没有 schema）".into())),
-        ));
+        let message = format!("字幕文档 {} 认不出", found.clone().unwrap_or_else(|| "（没有 schema）".into()));
+        return Some((found, "caption-unknown-document", message));
     }
     let style_document = match style_document_id {
         Some(id) => match documents.get(id) {
             Some(style) => Some(style),
-            None => {
-                return Some(UnsupportedItem::layer(
-                    layer,
-                    None,
-                    "caption-style-missing",
-                    format!("字幕样式文档 {id} 不在了"),
-                ));
-            }
+            None => return Some((None, "caption-style-missing", format!("字幕样式文档 {id} 不在了"))),
         },
         None => None,
     };
     match CaptionStyle::read(style_document) {
         Ok(_) => None,
-        Err(found) => Some(UnsupportedItem::layer(
-            layer,
-            found.clone(),
-            "caption-unknown-style",
-            format!(
+        Err(found) => {
+            let message = format!(
                 "字幕样式 {} 认不出（导出不替换样式）",
-                found.unwrap_or_else(|| "（没有 schema）".into())
-            ),
-        )),
+                found.clone().unwrap_or_else(|| "（没有 schema）".into())
+            );
+            Some((found, "caption-unknown-style", message))
+        }
     }
 }
 
