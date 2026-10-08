@@ -392,9 +392,138 @@
       out.push({key: 'score:' + t.bus, kind: 'score', h: ROW_H.music, bus: t.bus, score: t,
         label: SC ? SC.laneName(t.bus) : '配乐 · ' + t.bus, stale: !!t.stale, off});
     });
+    const placed = applyTrackOrder(out, o.trackOrder);
     let y = 0;
-    for (const r of out) { r.y = y; y += r.h; }
-    return {rows: out, height: y};
+    for (const r of placed) { r.y = y; y += r.h; }
+    return {rows: placed, height: y};
+  }
+
+  /* ---------- 轨道换序（2026-10-08，product-design §5.1 时间线） ----------
+     画布图层 = 时间线轨道：按住行头上下拖，只在同类轨道（画面 / 字幕 / 声音）之间换位。
+     与 App 共用 UI 的 `moveTrack` 同一套语义——每类有一份按 `order` 升序的键表（模型序），
+     画面与字幕在时间线上按 `order` 降序显示（上面的在前面），声音按升序显示，
+     所以声音行显示上的「上 / 下」要翻成模型的 below / above（`trackPlacement`）。
+     本原型的行由元素派生（同类共道），没有持久的轨道表：换过的次序记在 `trackOrder`
+     （`{picture: [...], audio: [...], subs: [...]}`，键为行 key），`rows()` 在每类原来占的
+     那些位置里按它重排，表里没有的行留在派生位置。随行（文字组的成员行、配音组的背景声行）
+     跟着它前面那一行走，自己不是轨、不能单拖；模板与文稿行不参与。 */
+  function trackClass(row) {
+    if (!row) return null;
+    if (row.kind === 'element' || row.kind === 'text') return 'picture';
+    if (row.kind === 'subs') return 'subs';
+    if (row.kind === 'audio' || row.kind === 'music' || row.kind === 'dub' || row.kind === 'score') return 'audio';
+    return null;
+  }
+  const ridesAlong = (row) => row.kind === 'member' || row.kind === 'bed';
+  /** 行按「轨 + 它的随行」分成单元，保持显示顺序。 */
+  function trackUnits(rows) {
+    const units = [];
+    let cur = null;
+    rows.forEach((r) => {
+      if (cur && ridesAlong(r)) { cur.rows.push(r); return; }
+      cur = {key: r.key, cls: trackClass(r), rows: [r]};
+      units.push(cur);
+    });
+    return units;
+  }
+  /** 模型序（`order` 升序）↔ 显示序（自上而下）：声音一致，画面与字幕相反。互为逆运算。 */
+  function displayKeys(cls, keys) {
+    return cls === 'audio' ? keys.slice() : keys.slice().reverse();
+  }
+  function applyTrackOrder(rows, trackOrder) {
+    if (!trackOrder) return rows;
+    const units = trackUnits(rows);
+    Object.keys(trackOrder).forEach((cls) => {
+      if (!Array.isArray(trackOrder[cls])) return;
+      const slots = [];
+      units.forEach((u, i) => { if (u.cls === cls) slots.push(i); });
+      if (slots.length < 2) return;
+      const current = slots.map((i) => units[i]);
+      const byKey = {};
+      current.forEach((u) => { byKey[u.key] = u; });
+      const next = displayKeys(cls, trackOrder[cls]).filter((k) => byKey[k]).map((k) => byKey[k]);
+      current.forEach((u, i) => { if (next.indexOf(u) < 0) next.splice(Math.min(i, next.length), 0, u); });
+      slots.forEach((slot, i) => { units[slot] = next[i]; });
+    });
+    return units.reduce((all, u) => all.concat(u.rows), []);
+  }
+  function unitsOf(rows, cls) { return trackUnits(rows).filter((u) => u.cls === cls); }
+  function unitOf(rows, key) { return trackUnits(rows).find((u) => u.key === key) || null; }
+
+  /** 时间线上的上下 → 模型的上下：声音行的「上面」是 `order` 更小的那边。 */
+  function trackPlacement(cls, position) {
+    if (cls !== 'audio') return position;
+    return position === 'above' ? 'below' : 'above';
+  }
+  /** 镜像引擎的 `moveTrack`：在 `order` 升序键表里把 `key` 挪到 `target` 之上（`order` 更大）或之下。 */
+  function moveTrack(orderAsc, key, target, position) {
+    if (key === target || orderAsc.indexOf(key) < 0 || orderAsc.indexOf(target) < 0) return null;
+    const rest = orderAsc.filter((k) => k !== key);
+    const at = rest.indexOf(target) + (position === 'above' ? 1 : 0);
+    return rest.slice(0, at).concat([key], rest.slice(at));
+  }
+  /** 同类的轨多于一条、没锁着才能拖；随行、模板、文稿行不能拖。`isLocked(row)` 可选——
+   *  本原型的时间线还没有轨道锁，调用方不传就当都没锁。 */
+  function canDragTrack(rows, key, isLocked) {
+    const unit = unitOf(rows, key);
+    if (!unit || !unit.cls) return false;
+    if (isLocked && isLocked(unit.rows[0])) return false;
+    return unitsOf(rows, unit.cls).length > 1;
+  }
+  /** 拖到紧挨着自己的行、又落在靠自己的那一边：位置不变，不算换。 */
+  function trackDropChanges(rows, key, drop) {
+    const own = unitOf(rows, key);
+    if (!own || !own.cls || !drop) return false;
+    const list = unitsOf(rows, own.cls).map((u) => u.key);
+    const from = list.indexOf(key);
+    const to = list.indexOf(drop.key);
+    if (from < 0 || to < 0 || from === to) return false;
+    if (drop.position === 'above' && to === from + 1) return false;
+    if (drop.position === 'below' && to === from - 1) return false;
+    return true;
+  }
+  /** 指针在行区里的纵坐标 `y`（从第一行顶上量）落在同类哪一轨的上半 / 下半；
+   *  落点不改变次序时给 null（不画落点线、松手不提交）。 */
+  function trackDropAt(rows, key, y) {
+    const own = unitOf(rows, key);
+    if (!own || !own.cls) return null;
+    for (const u of unitsOf(rows, own.cls)) {
+      if (u.key === key) continue;
+      const first = u.rows[0], last = u.rows[u.rows.length - 1];
+      const top = first.y, bottom = last.y + last.h;
+      if (y < top || y >= bottom) continue;
+      const drop = {key: u.key, position: y < (top + bottom) / 2 ? 'above' : 'below'};
+      return trackDropChanges(rows, key, drop) ? drop : null;
+    }
+    return null;
+  }
+  /** 松手：这一类的新模型序（`order` 升序），合进 `trackOrder` 返回；不变时原样返回。 */
+  function trackOrderAfterDrop(rows, trackOrder, key, drop) {
+    const own = unitOf(rows, key);
+    if (!own || !own.cls || !trackDropChanges(rows, key, drop)) return trackOrder || {};
+    const asc = displayKeys(own.cls, unitsOf(rows, own.cls).map((u) => u.key));
+    const next = moveTrack(asc, key, drop.key, trackPlacement(own.cls, drop.position));
+    return Object.assign({}, trackOrder, {[own.cls]: next});
+  }
+  /** 一类在显示上的键序（自上而下），由模型序换算。 */
+  function trackDisplay(cls, orderAsc) { return displayKeys(cls, orderAsc || []); }
+
+  /* 画布元素的「层级」四项（F / ⌘↑ / ⌘↓ / B）落在轨道上：画面元素独占一条轨时与相邻的同类轨换位
+     （前移 = 拖到上一条之上，移到最前 = 拖到最上一条之上），走到边就灰掉；与别的元素共一条轨时
+     引擎会把它拆到一条新的相邻轨上——本原型的道由同类共道派生、拆不出新轨，只报一个 `split`。 */
+  const ARRANGE_DIRS = ['front', 'forward', 'backward', 'back'];
+  function arrangePlan(rows, elId, dir) {
+    const row = rowOfEl(rows, elId);
+    if (!row || trackClass(row) !== 'picture') return null;
+    if (rowEls(row).length > 1) return {split: true};
+    const list = unitsOf(rows, 'picture');
+    const i = list.findIndex((u) => u.key === row.key);
+    const n = list.length;
+    const drop = dir === 'front' ? (i > 0 ? {key: list[0].key, position: 'above'} : null)
+      : dir === 'forward' ? (i > 0 ? {key: list[i - 1].key, position: 'above'} : null)
+      : dir === 'backward' ? (i < n - 1 ? {key: list[i + 1].key, position: 'below'} : null)
+      : dir === 'back' ? (i < n - 1 ? {key: list[n - 1].key, position: 'below'} : null) : null;
+    return drop ? {key: row.key, drop} : null;
   }
 
   /* ---------- 盖住视频的元素（2026-09-11，白板手绘；2026-09-16 起每条视频行都算） ----------
@@ -746,6 +875,8 @@
     playbackFollowScrollOffset,
     clampPxps, zoomIn, zoomOut, zoomLabel, fitPxps, minPxps, zoomedScroll, zoomPlan, zoomKey,
     chapterAt, playbackSpans, prevChapterStart, nextChapterStart, clipAt, splitSpan, rows, laneSwitch, rowEls, rowOfEl,
+    trackClass, trackUnits, trackPlacement, moveTrack, canDragTrack, trackDropChanges, trackDropAt, trackOrderAfterDrop,
+    trackDisplay, ARRANGE_DIRS, arrangePlan,
     LANE_EPSILON, laneFit, rowGaps,
     MEDIA_KINDS, isMediaKind, COVER_KINDS, covers, coverSpans,
     SNAP_PX, LABEL_MIN_W, TRIM_MIN, HANDLE_W, CUE_TEXT_INSET, THUMB_W, MEDIA_MIN_W,

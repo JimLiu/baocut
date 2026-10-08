@@ -50,7 +50,8 @@
     const {rows} = TL.rows(ctx.elements, {subTracks: ctx.subStyle.tracks, textMembers: D.textGroup.members,
       audio: ctx.hasAudio, music: ctx.hasMusic, mainAudio: ctx.audioProject,
       hiddenEls, audioMuted: ctx.muted, musicMuted: ctx.musicMuted,
-      dubs: ctx.dubs, dubOff: ctx.dubOff, bedOff: ctx.bedOff, score: ctx.score, scoreOff: ctx.scoreOff});
+      dubs: ctx.dubs, dubOff: ctx.dubOff, bedOff: ctx.bedOff, score: ctx.score, scoreOff: ctx.scoreOff,
+      trackOrder: ctx.trackOrder});
     return X.lanes(rows, {hiddenEls, muted: ctx.muted, musicMuted: ctx.musicMuted, dubOff: ctx.dubOff, bedOff: ctx.bedOff});
   }
   const baseName = (proj) => String((proj.src && proj.src.name) || proj.title || 'export').replace(/\.[a-z0-9]+$/i, '');
@@ -189,7 +190,7 @@
     const [watchTab, setWatchTab] = useState(running ? (running.exportTab || 'video') : 'video');
     const watched = watch ? app.tasks.find((t) => t.id === watch) : null;
 
-    const lanes = useMemo(() => lanesOf(ctx), [ctx.elements, ctx.elDocs, ctx.subStyle, ctx.muted, ctx.musicMuted, ctx.dubs, ctx.dubOff, ctx.bedOff, ctx.score, ctx.scoreOff]);
+    const lanes = useMemo(() => lanesOf(ctx), [ctx.elements, ctx.elDocs, ctx.subStyle, ctx.muted, ctx.musicMuted, ctx.dubs, ctx.dubOff, ctx.bedOff, ctx.score, ctx.scoreOff, ctx.trackOrder]);
     const eff = X.apply(lanes, ov);
     const diff = X.syncWrites(lanes, ov);
     const span = X.spanOf(range.mode, {chapters: ctx.chapters, clips: segs,

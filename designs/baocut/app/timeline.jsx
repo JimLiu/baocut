@@ -315,11 +315,7 @@
     /* 被盖住的视频（2026-09-11；2026-09-16 起每条视频行都算，没有「主视频」）：白板铺了纸的那几秒，
        下层视频画面整幅看不见——每件视频元素算一份 `coverSpans`，缩略带上压斜纹带（[timeline-whiteboard.jsx](timeline-whiteboard.jsx)）。 */
     const coverOf = (el) => TL.coverSpans(el, ctx.elements, ctx.elDocs, ctx.elStyleOf);
-    const {rows, height: laneH} = TL.rows(ctx.elements,
-      {subTracks: ctx.subStyle.tracks, transcript: ctx.cues.length > 0 && ctx.liveAt == null, textMembers: D.textGroup.members,
-        audio: ctx.hasAudio, music: ctx.hasMusic, mainAudio: ctx.audioProject,
-        hiddenEls, audioMuted: ctx.muted, musicMuted: ctx.musicMuted,
-        dubs: ctx.dubs, dubOff: ctx.dubOff, bedOff: ctx.bedOff, score: ctx.score, scoreOff: ctx.scoreOff});
+    const {rows, height: laneH} = window.timelineRows(ctx, hiddenEls);
     /* 空白项目（第 216 轮）：零泳道——不预埋任何轨，第一条轨随第一个元素出现。
        零泳道时画一条 64px 的占位行（不是泳道：没有行头、不进 rows、不参与吸附），
        点它等于点空处：清选区并把播放头落过去。时长开放：标尺与滚动区在内容末端
@@ -333,6 +329,13 @@
     const ownBodyRef = useRef(null);
     const bodyRef = ctx.tlBodyRef || ownBodyRef;
     const [scrubbing, setScrubbing] = useState(false);
+    /* 拖行头换轨道次序（timeline-trackorder.jsx）：`drag = {key, offsetY, drop}` */
+    const trackDrag = window.useTrackDrag(ctx, rows, bodyRef);
+    const dragging = trackDrag.drag;
+    /* 拖着的那一轨连同它的随行（成员行、背景声行）一起跟着指针走；落点线画在目标轨的上沿或下沿 */
+    const dragUnits = dragging ? TL.trackUnits(rows) : [];
+    const liftUnit = dragging ? dragUnits.find((u) => u.key === dragging.key) : null;
+    const dropUnit = dragging && dragging.drop ? dragUnits.find((u) => u.key === dragging.drop.key) : null;
     /* 字幕行头菜单：`{id, x, y, w, h}`——哪一行开着，以及它行头的屏幕矩形。
        菜单与 hook 都挂在这一层而不是行里：`.tlbody` 是滚动区，挂在里面的浮层会被
        裁掉；软上限那句确认（`subOps.dialog`）更是必须在外面——`.scrim` 的
@@ -491,9 +494,17 @@
               ))}
             </div>
 
-            {rows.map((r) => (
-              <div key={r.key} className={cx('trow', r.off && 'is-off', r.group && 'trow--grp', r.grouped && 'trow--grpmem')} style={{height: r.h, position: 'relative'}}>
-                <div className={cx('trow__hd', r.indent && 'trow__hd--sub',
+            {rows.map((r) => {
+              const lifted = !!liftUnit && liftUnit.rows.includes(r);
+              const target = dropUnit;
+              const dropEdge = !target ? null
+                : dragging.drop.position === 'above' ? (target.rows[0] === r ? 'above' : null)
+                : (target.rows[target.rows.length - 1] === r ? 'below' : null);
+              return (
+              <div key={r.key} className={cx('trow', r.off && 'is-off', r.group && 'trow--grp', r.grouped && 'trow--grpmem', lifted && 'trow--drag')}
+                style={{height: r.h, position: 'relative', transform: lifted ? `translateY(${dragging.offsetY}px)` : undefined}}>
+                {dropEdge ? <div className={cx('trow__drop', 'trow__drop--' + dropEdge)} /> : null}
+                <div className={cx('trow__hd', r.indent && 'trow__hd--sub', trackDrag.canDrag(r) && 'trow__hd--grab',
                   (r.group || r.grouped) && 'trow__hd--grp',
                   r.grouped && !r.groupOff && 'trow__hd--grpon',
                   r.kind === 'audio' && r.split && 'trow__hd--split',
@@ -502,7 +513,7 @@
                   r.kind === 'score' && scoreMenu && scoreMenu.bus === r.bus && 'trow__hd--menu',
                   TL.isMediaKind(r.el?.kind) && 'trow__hd--video',
                   r.main && 'trow__hd--main')}
-                  style={{height: r.h}}>
+                  style={{height: r.h}} onMouseDown={(e) => trackDrag.down(e, r)}>
                   {r.kind === 'subs' ? (
                     <SubsHead row={r} ctx={ctx} onOpen={setSubMenu}
                       open={!!subMenu && subMenu.id === (r.track || {}).id} />
@@ -569,7 +580,8 @@
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
 
             {blank ? (
               <div className="tlempty" style={{height: rowsH}}
