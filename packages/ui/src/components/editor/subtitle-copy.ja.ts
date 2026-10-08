@@ -147,6 +147,8 @@ export const jaSubtitle: SubtitleMessages = {
   noSchema: '（schema なし）',
   editPreset: (name: string) => `このスタイルを編集：${name}`,
   trackName: '字幕',
+  transcriptRow: '文字起こし',
+  transcriptRowTip: '文字起こし · 読み取り専用 · この動画にはまだ字幕トラックがありません。「字幕」タブで生成できます',
 };
 
 export const jaNotConfigured: NotConfiguredMessages = {

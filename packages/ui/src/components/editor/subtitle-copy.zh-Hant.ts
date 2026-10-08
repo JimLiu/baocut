@@ -147,6 +147,8 @@ export const zhHantSubtitle: SubtitleMessages = {
   noSchema: '（沒有 schema）',
   editPreset: (name: string) => `編輯這份樣式：${name}`,
   trackName: '字幕',
+  transcriptRow: '逐字稿',
+  transcriptRowTip: '逐字稿 · 唯讀 · 這部影片還沒有字幕軌，請在「字幕」分頁產生',
 };
 
 export const zhHantNotConfigured: NotConfiguredMessages = {

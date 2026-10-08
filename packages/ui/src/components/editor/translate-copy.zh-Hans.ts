@@ -52,6 +52,8 @@ export const zhTranslate: TranslateMessages = {
   cancelFailed: (message: string) => `没能取消翻译：${message}`,
   liveNote: '完成后自动放到画面上，随时可一键撤销；可以离开这一页。',
   foreign: '这次翻译不是从这里开始的：完成后在对照列表里「放到画面上」。',
+  agentNote: 'Agent 逐句翻译，译完一次写进视频',
+  agentSession: 'Agent 会话正在翻译；要停下，请停止那条会话。',
   chipTip: (step: string) => `翻译中 · ${step}`,
 
   // 问题

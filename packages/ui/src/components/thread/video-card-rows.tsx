@@ -73,11 +73,12 @@ const ROW_ICON: Record<JobRowView['kind'], ReactNode> = {
 const BADGE: Record<VideoStatus['key'], 'informative' | 'neutral' | 'positive' | 'negative'> = {
   transcribing: 'informative',
   queued: 'neutral',
+  translating: 'informative',
   transcribed: 'positive',
   failed: 'negative',
 };
 
-/** 视频卡头上的状态词（转录中 · 45% / 排队中 / 已转录 / 失败）。 */
+/** 视频卡头上的状态词（转录中 · 45% / 排队中 / 翻译中 · 30% / 已转录 / 失败）。 */
 export function VideoStatusBadge({ status }: { status: VideoStatus }) {
   return (
     <Badge variant={BADGE[status.key]} fillStyle="subtle" size="S">

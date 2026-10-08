@@ -1,12 +1,12 @@
-import { useMemo, useSyncExternalStore } from 'react';
-import type { Id } from '@baocut/protocol';
-import { ActionButton } from '@react-spectrum/s2';
+import { useMemo, useState, useSyncExternalStore } from 'react';
+import type { Id, MediaHandle } from '@baocut/protocol';
+import { ActionButton, ToastQueue } from '@react-spectrum/s2';
 import AlertTriangle from '@react-spectrum/s2/icons/AlertTriangle';
 import ChevronRight from '@react-spectrum/s2/icons/ChevronRight';
 import Play from '@react-spectrum/s2/icons/Play';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { Button as RACButton } from 'react-aria-components';
-import { OUTPUT_COPY } from '../../copy.ts';
+import { OUTPUT_COPY, VIDEO_CARD_COPY } from '../../copy.ts';
 import { outputSourceMissing, posterFrame, type ConversationOutput } from '../../model/conversation-outputs.ts';
 import { formatClock } from '../../model/format.ts';
 import { formatBytes, isPlayable, KIND_LABEL } from '../../model/space.ts';
@@ -17,6 +17,7 @@ import { useJobs } from '../../state/jobs-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useSpace } from '../../state/space-store.ts';
 import { useVideo } from '../../state/video-store.ts';
+import { CompactPlayer } from '../media/compact-player.tsx';
 import { KIND_ICON } from '../space/space-list.tsx';
 import { useEntryThumbnail } from '../use-entry-thumbnail.ts';
 import { cardVars, VideoJobRows, VideoStatusBadge } from './video-card-rows.tsx';
@@ -62,7 +63,8 @@ const outputBody = style({ display: 'flex', flexDirection: 'column', gap: 4, fle
 const outputName = style({ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
 /**
  * 视频是一张竖排的视频卡（产品设计 §3.2.2、§6.5，原型 apprail.css `.chat-output--movie` :142-155、home-session.jsx
- * `SessionArtifactCard`）：上面 16:9 的画面，点了在右侧打开；下面名字、状态词与时长，旁边一个「打开编辑器」；再下面一件活一行。
+ * `SessionArtifactCard`）：上面 16:9 的画面，能播的点了在卡里原地播，不能播的在右侧打开；下面名字、状态词与时长，旁边一个「打开编辑器」；
+ * 再下面一件活一行。
  */
 const videoCard = style({
   display: 'flex',
@@ -81,7 +83,10 @@ const videoCard = style({
   font: 'ui',
   color: 'gray-900',
 });
-/** 视频的画面区：有真帧画真帧和居中的播放钮；拿不到画「暂无缩略图」，源目录不在了画「找不到源文件」；右下角是时长。 */
+/**
+ * 视频的画面区：有真帧画真帧；拿不到画「暂无缩略图」，源目录不在了画「找不到源文件」；右下角是时长。
+ * 能在卡里播的，指针移上去或键盘聚焦时中间出现播放钮（`bc-vcard-play`，video-cards.css）。
+ */
 const videoPreview = style({
   position: 'relative',
   display: 'flex',
@@ -107,7 +112,7 @@ const videoPreview = style({
 const posterImage = style({ position: 'absolute', inset: 0, width: 'full', height: 'full', objectFit: 'cover' });
 const playMark = style({
   position: 'absolute',
-  top: '[40%]',
+  top: '[50%]',
   left: '[50%]',
   translateX: '[-50%]',
   translateY: '[-50%]',
@@ -211,6 +216,18 @@ export function OutputCard({
     .filter(Boolean)
     .join(' · ');
 
+  // 卡里原地播：开合只是这张卡自己的事；点了播放才取媒体句柄，挂上播放器后自动开播。
+  const [inline, setInline] = useState<MediaHandle | null>(null);
+  const [loading, setLoading] = useState(false);
+  const runtime = useRuntime();
+  const play = (entryId: Id) => {
+    setLoading(true);
+    runtime
+      .resolveMedia({ entryId })
+      .then(setInline, (error: unknown) => ToastQueue.negative(VIDEO_CARD_COPY.openFailed(error instanceof Error ? error.message : String(error))))
+      .finally(() => setLoading(false));
+  };
+
   const activate = () => {
     onOpen?.();
     const shell = useShell.getState();
@@ -224,29 +241,39 @@ export function OutputCard({
     const showPoster = poster !== null && !missing;
     // 还不知道在哪打开（流程新建的视频，Space 还没扫到）：画面与「打开编辑器」先置灰。
     const canOpen = output.video !== null;
+    // 卡里原地播（产品设计 §3.2.2）：有真帧、Space 里有这条视频、源文件在；播的是视频的原片，不是剪过的版本。
+    const canPlay = showPoster && output.entry !== null;
     return (
       // 画面区里的播放钮与「暂无缩略图」是画面内容，保留自己的尺寸（产品设计 §2.1）
       <div className={`${videoCard} ${cardVars}`} data-bc-icons="own">
-        <RACButton
-          className={(state) => videoPreview(state)}
-          aria-label={OUTPUT_COPY.openVideo(output.name)}
-          isDisabled={!canOpen}
-          onPress={activate}>
-          {showPoster ? (
-            <>
-              <img className={posterImage} src={poster} alt="" decoding="async" />
-              <span className={playMark} aria-hidden>
-                <Play />
-              </span>
-            </>
-          ) : (
-            <>
-              {missing ? <AlertTriangle /> : <Icon />}
-              {missing ? OUTPUT_COPY.sourceMissing : OUTPUT_COPY.noThumbnail}
-            </>
-          )}
-          {output.durationSeconds ? <span className={`${videoDuration} bc-tabular`}>{formatClock(output.durationSeconds)}</span> : null}
-        </RACButton>
+        {inline ? (
+          <div className="bc-vcard-player">
+            <CompactPlayer handle={inline} fileName={output.name} kind="video" memoryKey={`card:${output.id}`} autoPlay />
+          </div>
+        ) : (
+          <RACButton
+            className={(state) => `${videoPreview(state)} bc-vcard-preview`}
+            aria-label={canPlay ? OUTPUT_COPY.playVideo(output.name) : OUTPUT_COPY.openVideo(output.name)}
+            isDisabled={canPlay ? loading : !canOpen}
+            onPress={canPlay ? () => play(output.entry!.id) : activate}>
+            {showPoster ? (
+              <>
+                <img className={posterImage} src={poster} alt="" decoding="async" />
+                {canPlay ? (
+                  <span className={`${playMark} bc-vcard-play`} aria-hidden>
+                    <Play />
+                  </span>
+                ) : null}
+              </>
+            ) : (
+              <>
+                {missing ? <AlertTriangle /> : <Icon />}
+                {missing ? OUTPUT_COPY.sourceMissing : OUTPUT_COPY.noThumbnail}
+              </>
+            )}
+            {output.durationSeconds ? <span className={`${videoDuration} bc-tabular`}>{formatClock(output.durationSeconds)}</span> : null}
+          </RACButton>
+        )}
         <div className={videoFooter}>
           <span className={outputBody}>
             <span className={videoName}>{output.name}</span>

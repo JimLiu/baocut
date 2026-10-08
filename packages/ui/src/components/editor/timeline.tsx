@@ -71,7 +71,7 @@ import { useEditorActions } from './editor-context.tsx';
 import { Marquee } from './stage-boxes.tsx';
 import { TimelineChapters } from './timeline-chapters.tsx';
 import { CaptionCues } from './timeline-cues.tsx';
-import { LiveCaptionRow, useLiveRows } from './timeline-live.tsx';
+import { LiveCaptionRow, TranscriptRow, useLiveRows, useTranscriptRows } from './timeline-live.tsx';
 import { DubBlockView, stretchedLook, useDubBlocks } from './timeline-dub.tsx';
 import { DubHeadMenu, useDubTrack } from './timeline-dub-head.tsx';
 import { TimelineMenu, type TimelineMenuTarget } from './timeline-menu.tsx';
@@ -395,6 +395,8 @@ export function Timeline({
   const dubs = useDubBlocks(sequence, documents, assets);
   // 第一次转录时还没有字幕轨：识别出来的段落先画在一条临时行里（timeline-live.tsx）。
   const liveRows = useLiveRows(videoId, sequence, documents);
+  // 转录过、却一条字幕轨都没有（转录时没建字幕层）：文稿画在一条只读行里，时间线不是空的。
+  const transcripts = useTranscriptRows(sequence, documents, liveRows);
   // 看得见的横向范围（泳道坐标，像素），左右各多一屏：滚动、缩放、播放翻页时不露白。
   const view = useVisibleLane(scrollRef, HEAD, 1);
 
@@ -1045,6 +1047,21 @@ export function Timeline({
               onSeek={seek}
             />
           ))}
+          {transcripts.map((source) => (
+            <TranscriptRow
+              key={source.assetId}
+              source={source}
+              sequence={sequence}
+              height={ROW_HEIGHT.subtitle}
+              rowClass={row}
+              headerClass={header({ isOff: false })}
+              laneClass={lane({ isDropTarget: false })}
+              laneWidth={laneWidth}
+              xOf={xOf}
+              view={view}
+              onSeek={seek}
+            />
+          ))}
           {rows.map(({ track, label }) => (
             <div key={track.id} className={row} style={{ height: ROW_HEIGHT[track.kind] }}>
               {trackHeader(track, label)}
@@ -1100,7 +1117,7 @@ export function Timeline({
               documents={documents}
               xOfFrame={(frame) => HEAD + xOfFrame(frame)}
               top={RULER}
-              height={rows.reduce((sum, { track }) => sum + ROW_HEIGHT[track.kind], liveRows.length * ROW_HEIGHT.subtitle)}
+              height={rows.reduce((sum, { track }) => sum + ROW_HEIGHT[track.kind], (liveRows.length + transcripts.length) * ROW_HEIGHT.subtitle)}
               pps={pps}
               frames={{ from: windowFrom, to: windowTo }}
               editable={editable}

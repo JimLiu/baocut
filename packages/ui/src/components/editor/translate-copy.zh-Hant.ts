@@ -55,6 +55,8 @@ export const zhHantTranslate: TranslateMessages = {
   cancelFailed: (message: string) => `無法取消翻譯：${message}`,
   liveNote: '完成後會自動放到畫面上，隨時都可以還原。你可以離開這一頁。',
   foreign: '這次翻譯不是從這裡開始的。完成後，請在對照清單中使用「放到畫面上」。',
+  agentNote: 'Agent 逐句翻譯，譯完一次寫進影片',
+  agentSession: 'Agent 對話正在翻譯；要停下，請停止那段對話。',
   chipTip: (step: string) => `翻譯中 · ${step}`,
 
   // 问题

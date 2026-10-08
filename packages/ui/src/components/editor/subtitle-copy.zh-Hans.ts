@@ -148,6 +148,8 @@ export const zhSubtitle: SubtitleMessages = {
   noSchema: '（没有 schema）',
   editPreset: (name: string) => `编辑这份样式：${name}`,
   trackName: '字幕',
+  transcriptRow: '文稿',
+  transcriptRowTip: '文稿 · 只读 · 这条视频还没有字幕轨，在字幕 Tab 生成',
 };
 
 export const zhNotConfigured: NotConfiguredMessages = {

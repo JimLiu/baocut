@@ -65,6 +65,7 @@ export function CompactPlayer({
   onOpenTab,
   path,
   subtitles,
+  autoPlay = false,
 }: {
   handle: MediaHandle;
   fileName: string;
@@ -74,6 +75,8 @@ export function CompactPlayer({
   onOpenTab?: () => void;
   path?: string;
   subtitles?: React.ReactNode;
+  /** 用户点了播放才挂上播放器（如对话里的视频卡片）：元数据就绪后开播一次。 */
+  autoPlay?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false),
     [showSubtitles, setShowSubtitles] = useState(false);
@@ -85,7 +88,7 @@ export function CompactPlayer({
   return (
     <>
       <PlayerSurface
-        {...{ handle, fileName, kind, memoryKey, path, onOpenTab }}
+        {...{ handle, fileName, kind, memoryKey, path, onOpenTab, autoPlay }}
         active={active && !expanded && !showSubtitles}
         restoreKey={expanded || showSubtitles}
         onExpand={() => setExpanded(true)}
@@ -118,6 +121,7 @@ function PlayerSurface({
   onExpand,
   onSubtitles,
   path,
+  autoPlay = false,
 }: {
   handle: MediaHandle;
   fileName: string;
@@ -129,11 +133,13 @@ function PlayerSurface({
   onExpand?: () => void;
   onSubtitles?: () => void;
   path?: string;
+  autoPlay?: boolean;
 }) {
   const element = useRef<HTMLVideoElement>(null),
     root = useRef<HTMLElement>(null),
     handedOff = useRef(false),
     initialized = useRef(false),
+    started = useRef(false),
     scrub = useRef<boolean | null>(null);
   const [state, setState] = useState({ time: 0, duration: 0, paused: true, volume: 1, muted: false, rate: 1, ready: false });
   const [error, setError] = useState(false),
@@ -169,12 +175,19 @@ function PlayerSurface({
       if (initialized.current && !handedOff.current) positions.set(memoryKey, snapshot(e));
     }
   };
+  // 只开播一次；浏览器拒绝自动播放时留在暂停，用户点控制条即可，不弹错误。
+  const start = (e: HTMLMediaElement) => {
+    if (!autoPlay || !active || started.current) return;
+    started.current = true;
+    if (e.paused) void e.play().catch(() => {});
+  };
   const restore = () => {
     const e = element.current,
       saved = positions.get(memoryKey);
     if (!e) return;
     if (!saved) {
       initialized.current = true;
+      start(e);
       read();
       return;
     }
@@ -185,6 +198,7 @@ function PlayerSurface({
     if (transfers.delete(memoryKey) && !saved.paused && active) void e.play().catch(report);
     handedOff.current = false;
     initialized.current = true;
+    start(e);
     read();
   };
   useEffect(() => {

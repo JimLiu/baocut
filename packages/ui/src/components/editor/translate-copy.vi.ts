@@ -52,6 +52,8 @@ export const viTranslate: TranslateMessages = {
   cancelFailed: (message) => `Không hủy dịch được: ${message}`,
   liveNote: "Khi xong tự đặt lên hình, có thể hoàn tác bất cứ lúc nào. Bạn có thể rời trang.",
   foreign: "Bản dịch này không bắt đầu tại đây. Khi xong, dùng “Đặt lên hình” trong danh sách đối chiếu.",
+  agentNote: "Agent dịch từng câu và ghi bản dịch vào video khi xong",
+  agentSession: "Một phiên Agent đang dịch. Muốn dừng, hãy dừng phiên đó.",
   chipTip: (step) => `Đang dịch · ${step}`,
 
   // 问题

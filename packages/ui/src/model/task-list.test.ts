@@ -194,6 +194,37 @@ describe('jobRow', () => {
   });
 });
 
+describe('jobRow：智能体自己翻译', () => {
+  it('标题是「翻译 · 视频 · 语言」，在哪只写本机 · Driver，阶段是逐句翻译，进度转圈，不给取消；能打开会话', () => {
+    const row = jobRow(
+      job({
+        jobId: 'at1',
+        kind: 'agentTranslate',
+        videoId: 'v1',
+        phase: 'generating',
+        providerId: 'agent:codex',
+        modelId: 'codex',
+        submitter: { kind: 'agent', id: 'c1', taskId: 't1' },
+        translation: { sourceDocumentId: 'd1', targetLanguage: 'en', sentences: 62 },
+      }),
+      ctx,
+    );
+    expect(row).toMatchObject({
+      kind: 'agentTranslate',
+      title: '翻译 · 主视频 · 英语',
+      where: '本机 · Codex',
+      phase: 'Agent 逐句翻译',
+      label: 'Agent 逐句翻译',
+      pct: null,
+      progress: 'indet',
+      action: null,
+      chip: 'agent',
+      conversationId: 'c1',
+      projectId: 'p1',
+    });
+  });
+});
+
 describe('agentRow', () => {
   it('在跑：沿用任务状态的字，转圈，可以停止', () => {
     const row = agentRow(task({ taskId: 't1', projectId: 'p1', conversationTitle: '剪口播' }), ctx);

@@ -1,4 +1,4 @@
-import type { CaptionItem, DocumentRecord, JobLiveSegment, Sequence, VideoItem } from '@baocut/protocol';
+import type { CaptionItem, DocumentRecord, JobLiveSegment, Sequence, Track, VideoItem } from '@baocut/protocol';
 import { describe, expect, it } from 'vitest';
 import { job } from '../testing/task-records.ts';
 import {
@@ -11,7 +11,9 @@ import {
   liveTranscriptShown,
   placePending,
   placeSegments,
+  placeTranscript,
   transcribedBefore,
+  transcriptRows,
 } from './live-transcript.ts';
 
 const fps = { num: 30, den: 1 };
@@ -212,5 +214,48 @@ describe('投到时间线上', () => {
     ]);
     expect(placePending(seq, 'a1', { start: 22, end: Infinity })).toEqual([{ start: 7, end: 10 }]);
     expect(placePending(seq, 'a1', null)).toEqual([]);
+  });
+});
+
+describe('只读的文稿行', () => {
+  const subtitleTrack: Track = { id: 's1', order: 2, kind: 'subtitle', locked: false, visible: true, muted: false, solo: { enabled: false, group: 'visual' } };
+  const speechBody = {
+    schema: 'baocut.speech/1',
+    timescale: 1000,
+    words: [
+      { id: 'w1', text: '第一句。', start: 1000, end: 3000 },
+      { id: 'w2', text: '第二句。', start: 21000, end: 24000 },
+    ],
+    sentences: [
+      { id: 's1', wordIds: ['w1'] },
+      { id: 's2', wordIds: ['w2'] },
+    ],
+  };
+
+  it('转录过、一条字幕轨都没有：每个取用了的素材一行，取最新那份转写', () => {
+    const seq = sequence([video('v1', 0, 150, 0)]);
+    const documents = { old: doc('old', 'speech', '2026-01-01'), now: doc('now', 'speech', '2026-02-01'), cap: doc('cap', 'caption', '2026-03-01') };
+    expect(transcriptRows(seq, documents, new Set())).toEqual([{ assetId: 'a1', speech: documents.now }]);
+  });
+
+  it('有字幕轨、没有转写、素材不在时间线上、正画着临时转录行：都不画', () => {
+    const seq = sequence([video('v1', 0, 150, 0)]);
+    const documents = { now: doc('now', 'speech', '2026-02-01') };
+    expect(transcriptRows({ ...seq, tracks: [subtitleTrack] }, documents, new Set())).toEqual([]);
+    expect(transcriptRows(seq, { cap: doc('cap', 'caption', '2026-03-01') }, new Set())).toEqual([]);
+    expect(transcriptRows(seq, { other: doc('other', 'speech', '2026-02-01', 'a2') }, new Set())).toEqual([]);
+    expect(transcriptRows(seq, documents, new Set(['a1']))).toEqual([]);
+  });
+
+  it('句子按字幕的断句切开，经实例投到序列上：剪掉的不出现', () => {
+    // 素材 0–5 秒放在序列 0–5 秒，素材 20–25 秒放在序列 5–10 秒。
+    const seq = sequence([video('v1', 0, 150, 0), video('v2', 150, 150, 20)]);
+    const placed = placeTranscript(seq, 'a1', speechBody);
+    expect(placed.map((p) => [p.text, p.index, p.start, p.end])).toEqual([
+      ['第一句。', 0, 1, 3],
+      ['第二句。', 1, 6, 9],
+    ]);
+    expect(placeTranscript(seq, 'a1', undefined)).toEqual([]);
+    expect(placeTranscript(seq, 'a1', { schema: 'baocut.caption/1' })).toEqual([]);
   });
 });

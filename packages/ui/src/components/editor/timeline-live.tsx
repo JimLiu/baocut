@@ -1,6 +1,7 @@
 import { useMemo, type PointerEvent as ReactPointerEvent } from 'react';
 import type { AssetRecord, DocumentRecord, Id, Sequence } from '@baocut/protocol';
 import CloseCaptions from '@react-spectrum/s2/icons/CloseCaptions';
+import TranscriptIcon from '@react-spectrum/s2/icons/Transcript';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { formatClock } from '../../model/format.ts';
 import {
@@ -11,13 +12,17 @@ import {
   liveTranscriptions,
   placePending,
   placeSegments,
+  placeTranscript,
   transcribedBefore,
+  transcriptRows,
+  type TranscriptRowSource,
 } from '../../model/live-transcript.ts';
 import { projectableItems } from '../../model/speech-cues.ts';
 import { jobLive, jobPercent } from '../../model/task-list.ts';
 import { assetDuration } from '../../model/transcript-cut.ts';
 import { useJobs, useLiveSegments } from '../../state/jobs-store.ts';
 import { SUBTITLE_COPY as C } from './subtitle-copy.ts';
+import { useDocumentBody } from './timeline-cues.tsx';
 
 const icon = iconStyle({ size: 'XS' });
 const label = style({ flexGrow: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
@@ -40,6 +45,22 @@ const cue = style({
   cursor: 'pointer',
 });
 const cueText = style({ truncate: true, minWidth: 0 });
+/** 只读文稿行的句子块（原型 ui.css `.ttx`）：中性灰底深字，与字幕的颜色分开——它不上画面、不进导出；没有选中态。 */
+const transcriptCue = style({
+  position: 'absolute',
+  top: 4,
+  bottom: 4,
+  boxSizing: 'border-box',
+  display: 'flex',
+  alignItems: 'center',
+  paddingX: 4,
+  borderRadius: 'sm',
+  backgroundColor: { default: 'gray-200', ':hover': 'gray-300' },
+  font: 'ui-xs',
+  color: 'gray-800',
+  overflow: 'hidden',
+  cursor: 'pointer',
+});
 /** 最后一段末尾的光标（原型 `.tcue__cur`）：这里还在长。 */
 const caret = style({ flexShrink: 0, width: 1, height: 10, marginStart: 2, backgroundColor: 'purple-1100' });
 /** 还没转录到的那段（原型 `.tpend`）：斜纹、低对比，前缘一道实线；它不是块，点了只是跳过去。 */
@@ -202,6 +223,78 @@ export function LiveCaptionRow({
                 <span className={bandText}>{C.liveTitle}</span>
               ) : null}
             </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 时间线上要画只读文稿行的素材（`transcriptRows`）：一条字幕轨都没有、素材转录过。正画着临时转录行（`liveRows`）的素材不算，
+ * 免得转写落地、字幕层还没建好时同一段话画两行。
+ */
+export function useTranscriptRows(sequence: Sequence, documents: Record<Id, DocumentRecord>, liveRows: readonly Id[]): TranscriptRowSource[] {
+  const live = useJobs((s) => liveRows.map((jobId) => s.jobs.find((j) => j.jobId === jobId)?.assetId ?? '').join(' '));
+  return useMemo(() => transcriptRows(sequence, documents, new Set(live.split(' ').filter(Boolean))), [sequence, documents, live]);
+}
+
+/**
+ * 只读的「文稿」行（原型 timeline-rows.jsx `TranscriptRow`）：视频转录过、却还没有字幕轨时，文稿一句一块落在字幕行的位置上，
+ * 看得见哪里在说话。它不是轨：行头只有图标与名字，没有开关；块不可选中、不可裁，点一句只把播放头落到句首。
+ */
+export function TranscriptRow({
+  source,
+  sequence,
+  height,
+  rowClass,
+  headerClass,
+  laneClass,
+  laneWidth,
+  xOf,
+  view,
+  onSeek,
+}: {
+  source: TranscriptRowSource;
+  sequence: Sequence;
+  height: number;
+  rowClass: string;
+  headerClass: string;
+  laneClass: string;
+  laneWidth: number;
+  /** 序列时间（秒）→ 轨道内容里的横坐标。 */
+  xOf(seconds: number): number;
+  /** 看得见的横向范围（轨道内容坐标）。 */
+  view: { left: number; right: number };
+  onSeek(seconds: number): void;
+}) {
+  const body = useDocumentBody(source.speech);
+  const placed = useMemo(() => placeTranscript(sequence, source.assetId, body), [sequence, source.assetId, body]);
+  // 不让空白处的框选从这一行起手：这一行没有可选的东西。
+  const hold = (event: ReactPointerEvent) => event.stopPropagation();
+  return (
+    <div className={rowClass} style={{ height }}>
+      <div className={headerClass} onPointerDown={hold}>
+        <TranscriptIcon styles={icon} data-bc-icons="own" />
+        <span className={label} title={C.transcriptRowTip}>
+          {C.transcriptRow}
+        </span>
+      </div>
+      <div className={laneClass} style={{ width: laneWidth }} onPointerDown={hold}>
+        {placed.map((p) => {
+          const x0 = xOf(p.start);
+          const x1 = xOf(p.end);
+          if (x1 < view.left || x0 > view.right) return null;
+          const width = Math.max(2, x1 - x0 - GAP_PX);
+          return (
+            <span
+              key={p.key}
+              className={transcriptCue}
+              style={{ left: x0, width }}
+              title={`${p.text} · ${C.transcriptRowTip}`}
+              onClick={() => onSeek(p.start)}>
+              {width >= LABEL_MIN_PX ? <span className={cueText}>{p.text}</span> : null}
+            </span>
           );
         })}
       </div>

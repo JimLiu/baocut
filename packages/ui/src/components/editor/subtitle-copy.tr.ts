@@ -147,6 +147,8 @@ export const trSubtitle: SubtitleMessages = {
   noSchema: "(şema yok)",
   editPreset: (name) => `Bu stili düzenle: ${name}`,
   trackName: "Altyazı",
+  transcriptRow: "Döküm",
+  transcriptRowTip: "Döküm · salt okunur · Bu videonun henüz altyazı izi yok. Altyazı sekmesinden oluşturun.",
 };
 
 export const trNotConfigured: NotConfiguredMessages = {

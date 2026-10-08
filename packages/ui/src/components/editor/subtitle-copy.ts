@@ -168,6 +168,8 @@ const en = {
   noSchema: '(no schema)',
   editPreset: (name: string) => `Edit this style: ${name}`,
   trackName: 'Subtitles',
+  transcriptRow: 'Transcript',
+  transcriptRowTip: 'Transcript · read-only · This video has no subtitle track yet. Generate one in the Subtitles tab.',
 };
 
 export type SubtitleMessages = typeof en;

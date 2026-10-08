@@ -6,6 +6,9 @@ import { chargesOnRetry } from './task-reconcile.ts';
  * 翻译流程（`pipelines.start` 的 `translate`，架构设计 §7.9）在字幕面板上的进度与结果：父任务（`kind: 'pipeline'`）
  * 记着四步（读取原文 → 翻译 → 组装译文 → 写入视频），翻译那一步的子任务按句报进度（`unit: 'units'`）。
  * 原型 model-trans-run.js 按四段阶梯与在飞批次画进度；这里只有父任务与子任务的真实数字，不造批次。
+ *
+ * 会话里的智能体自己翻译（`kind: 'agentTranslate'`）也算这个视频的翻译：它只是一条进度记录，没有步骤、没有百分比
+ * （原型 model-trans-run.js `selfRun`），范围记在 `JobRecord.translation`。
  */
 
 export const TRANSLATE_PIPELINE = 'translate';
@@ -14,9 +17,15 @@ export const TRANSLATE_PIPELINE = 'translate';
 const STEP_WEIGHT: Record<string, number> = { 'freeze-source': 5, translate: 85, assemble: 5, write: 5 };
 const weightOf = (name: string) => STEP_WEIGHT[name] ?? 5;
 
-/** 这个视频的翻译流程（不论从哪里发起：字幕面板、智能体、命令行）。 */
+/** 智能体在会话里自己翻译的那条进度记录（不是翻译流程）。 */
+export function isAgentTranslate(job: JobRecord): boolean {
+  return job.kind === 'agentTranslate';
+}
+
+/** 这个视频的翻译：翻译流程（不论从哪里发起：字幕面板、智能体、命令行），或智能体自己翻译。 */
 export function isTranslateJob(job: JobRecord, videoId: Id | null): boolean {
-  return job.kind === 'pipeline' && job.pipeline?.name === TRANSLATE_PIPELINE && videoId !== null && job.videoId === videoId;
+  if (videoId === null || job.videoId !== videoId) return false;
+  return (job.kind === 'pipeline' && job.pipeline?.name === TRANSLATE_PIPELINE) || isAgentTranslate(job);
 }
 
 /** 正在翻的（排队、在跑、崩溃后自动重跑）。 */
@@ -24,15 +33,15 @@ export function liveTranslations(jobs: readonly JobRecord[], videoId: Id | null)
   return jobs.filter((job) => isTranslateJob(job, videoId) && jobLive(job));
 }
 
-/** 冻结参数里的目标语言。 */
+/** 冻结参数里的目标语言；智能体自己翻译的读 `translation`。 */
 export function targetOf(job: JobRecord): string | null {
-  const target = job.pipeline?.params.targetLanguage;
+  const target = job.pipeline?.params.targetLanguage ?? job.translation?.targetLanguage;
   return typeof target === 'string' && target ? target : null;
 }
 
-/** 冻结参数里的原文（`speech` 文档）。 */
+/** 冻结参数里的原文（`speech` 文档）；智能体自己翻译的读 `translation`。 */
 export function sourceOf(job: JobRecord): Id | null {
-  const id = job.pipeline?.params.documentId;
+  const id = job.pipeline?.params.documentId ?? job.translation?.sourceDocumentId;
   return typeof id === 'string' && id ? id : null;
 }
 
@@ -45,13 +54,15 @@ export function translationOf(job: JobRecord): Id | null {
 }
 
 export interface TranslateProgress {
-  /** 0–100；还没开始时 0，没完成时最多 99。 */
-  percent: number;
+  /** 0–100；还没开始时 0，没完成时最多 99。智能体自己翻译没有百分比：在跑时 null。 */
+  percent: number | null;
   /** 正在执行的那一步（Runtime 给的步骤名）；排队、还没有步骤时 null。 */
   step: string | null;
   /** 翻译那一步的句数；还没报时 null。 */
   units: { done: number; total: number | null } | null;
   queued: boolean;
+  /** 智能体自己翻译：要译的句数（没有逐句进度）；翻译流程为 null。 */
+  agent: { sentences: number } | null;
 }
 
 /**
@@ -59,6 +70,10 @@ export interface TranslateProgress {
  * 那一步按 0 算——宁可慢，不猜。
  */
 export function translateProgress(parent: JobRecord, jobs: readonly JobRecord[]): TranslateProgress {
+  if (isAgentTranslate(parent)) {
+    const percent = parent.state === 'completed' ? 100 : null;
+    return { percent, step: null, units: null, queued: false, agent: { sentences: parent.translation?.sentences ?? 0 } };
+  }
   const steps = parent.pipeline?.steps ?? [];
   const total = steps.reduce((sum, step) => sum + weightOf(step.name), 0);
   let done = 0;
@@ -79,7 +94,7 @@ export function translateProgress(parent: JobRecord, jobs: readonly JobRecord[])
   }
   const finished = parent.state === 'completed';
   const percent = finished ? 100 : total ? Math.min(99, Math.floor((done / total) * 100)) : 0;
-  return { percent, step: current?.label ?? null, units, queued: parent.state === 'queued' };
+  return { percent, step: current?.label ?? null, units, queued: parent.state === 'queued', agent: null };
 }
 
 /**

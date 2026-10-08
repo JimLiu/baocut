@@ -201,6 +201,7 @@ export const zhHans: CopyMessages = {
     chips: ['给这个视频加字幕并翻译成英文', '找出口癖和长停顿，先列出来再剪', '把这一期分成章节并起标题', '导出双语 SRT 和烧录字幕的 MP4'],
   },
   output: {
+    playVideo: (name: string) => `播放视频「${name}」`,
     noThumbnail: '暂无缩略图',
     sourceMissing: '找不到源文件',
     openEditor: '打开编辑器',
@@ -211,7 +212,9 @@ export const zhHans: CopyMessages = {
     messageOutputs: '消息产物',
   },
   videoCard: {
-    status: { transcribing: '转录中', queued: '排队中', transcribed: '已转录', failed: '失败' },
+    agentTranslating: 'Agent 逐句翻译',
+    sentenceTotal: (n: number) => `共 ${n} 句`,
+    status: { translating: '翻译中', transcribing: '转录中', queued: '排队中', transcribed: '已转录', failed: '失败' },
     rows: '这部视频上的活',
     retranscribe: '重新转录',
     translate: '翻译',

@@ -225,6 +225,7 @@ export const fr: CopyMessages = {
   },
 
   output: {
+    playVideo: (name: string) => `Lire la vidéo « ${name} »`,
     noThumbnail: "Aucune miniature",
     sourceMissing: "Fichier source introuvable",
     openEditor: "Ouvrir l’éditeur",
@@ -236,7 +237,9 @@ export const fr: CopyMessages = {
   },
 
   videoCard: {
-    status: { transcribing: "Transcription en cours", queued: "En file", transcribed: "Transcrit", failed: "Échec" },
+    agentTranslating: 'L’Agent traduit phrase par phrase',
+    sentenceTotal: (n: number) => pluralForm('fr', n, { one: `${n} phrase au total`, other: `${n} phrases au total` }),
+    status: { translating: 'Traduction en cours', transcribing: "Transcription en cours", queued: "En file", transcribed: "Transcrit", failed: "Échec" },
     rows: "Travailler sur cette vidéo",
     retranscribe: "Retranscrire",
     translate: "Traduire",

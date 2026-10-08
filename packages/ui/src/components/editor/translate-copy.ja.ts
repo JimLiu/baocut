@@ -56,6 +56,8 @@ export const jaTranslate: TranslateMessages = {
   cancelFailed: (message: string) => `翻訳をキャンセルできませんでした：${message}`,
   liveNote: '完了すると自動で画面に配置され、いつでも取り消せます。このページを離れてもかまいません。',
   foreign: 'この翻訳はここから開始されたものではありません。完了したら、対訳一覧の「画面に配置」を使ってください。',
+  agentNote: 'Agent が一文ずつ翻訳し、終わったらまとめて動画に書き込みます',
+  agentSession: 'Agent のセッションが翻訳中です。止めるにはそのセッションを停止してください。',
   chipTip: (step: string) => `翻訳中 · ${step}`,
 
   // 问题

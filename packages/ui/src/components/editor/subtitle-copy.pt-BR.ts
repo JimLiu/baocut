@@ -152,6 +152,8 @@ export const ptBRSubtitle: SubtitleMessages = {
   noSchema: "(sem schema)",
   editPreset: (name: string) => `Editar este estilo: ${name}`,
   trackName: "Legendas",
+  transcriptRow: "Transcrição",
+  transcriptRowTip: "Transcrição · somente leitura · Este vídeo ainda não tem faixa de legendas. Gere uma na aba Legendas.",
 };
 
 export const ptBRNotConfigured: NotConfiguredMessages = {

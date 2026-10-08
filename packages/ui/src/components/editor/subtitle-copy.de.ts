@@ -151,6 +151,8 @@ export const deSubtitle: SubtitleMessages = {
   noSchema: "(kein schema)",
   editPreset: (name: string) => `Diesen Stil bearbeiten: ${name}`,
   trackName: "Untertitel",
+  transcriptRow: "Transkript",
+  transcriptRowTip: "Transkript · schreibgeschützt · Dieses Video hat noch keine Untertitelspur. Im Tab „Untertitel“ erzeugen.",
 };
 
 export const deNotConfigured: NotConfiguredMessages = {

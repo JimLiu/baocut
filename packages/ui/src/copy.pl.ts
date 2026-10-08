@@ -240,6 +240,7 @@ export const pl: CopyMessages = {
   },
   /** 产物卡（原型 home-session.jsx `SessionArtifactCard`、`SessionMoviePreview`、`SessionMessageArtifacts`）。 */
   output: {
+    playVideo: (name: string) => `Odtwórz wideo „${name}”`,
     noThumbnail: "Brak miniatury",
     sourceMissing: "Nie znaleziono pliku źródłowego",
     openEditor: "Otwórz edytor",
@@ -254,7 +255,9 @@ export const pl: CopyMessages = {
    * 状态词与 Space 的视频状态同一套说法。
    */
   videoCard: {
-    status: { transcribing: "Transkrypcja", queued: "W kolejce", transcribed: "Transkrybowano", failed: "Niepowodzenie" },
+    agentTranslating: 'Agent tłumaczy zdanie po zdaniu',
+    sentenceTotal: (n: number) => pluralForm('pl', n, { one: `${n} zdanie łącznie`, few: `${n} zdania łącznie`, many: `${n} zdań łącznie`, other: `${n} zdania łącznie` }),
+    status: { translating: 'Tłumaczenie', transcribing: "Transkrypcja", queued: "W kolejce", transcribed: "Transkrybowano", failed: "Niepowodzenie" },
     rows: "Pracuj nad tym wideo",
     retranscribe: "Transkrybuj ponownie",
     translate: "Przetłumacz",

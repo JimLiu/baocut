@@ -254,6 +254,7 @@ const en = {
   },
   /** 产物卡（原型 home-session.jsx `SessionArtifactCard`、`SessionMoviePreview`、`SessionMessageArtifacts`）。 */
   output: {
+    playVideo: (name: string) => `Play video “${name}”`,
     noThumbnail: 'No thumbnail',
     sourceMissing: 'Source file not found',
     openEditor: 'Open editor',
@@ -268,7 +269,9 @@ const en = {
    * 状态词与 Space 的视频状态同一套说法。
    */
   videoCard: {
-    status: { transcribing: 'Transcribing', queued: 'Queued', transcribed: 'Transcribed', failed: 'Failed' },
+    agentTranslating: 'Agent translating line by line',
+    sentenceTotal: (n: number) => (n === 1 ? '1 line total' : `${n} lines total`),
+    status: { translating: 'Translating', transcribing: 'Transcribing', queued: 'Queued', transcribed: 'Transcribed', failed: 'Failed' },
     rows: 'Work on this video',
     retranscribe: 'Re-transcribe',
     translate: 'Translate',

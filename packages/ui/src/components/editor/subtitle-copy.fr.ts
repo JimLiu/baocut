@@ -152,6 +152,8 @@ export const frSubtitle: SubtitleMessages = {
   noSchema: "(aucun schema)",
   editPreset: (name: string) => `Modifier ce style : ${name}`,
   trackName: "Sous-titres",
+  transcriptRow: "Transcription",
+  transcriptRowTip: "Transcription · lecture seule · Cette vidéo n’a pas encore de piste de sous-titres. Générez-la dans l’onglet Sous-titres.",
 };
 
 export const frNotConfigured: NotConfiguredMessages = {

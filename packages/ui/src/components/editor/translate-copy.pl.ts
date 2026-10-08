@@ -54,6 +54,8 @@ export const plTranslate: TranslateMessages = {
   cancelFailed: (message: string) => `Nie udało się anulować tłumaczenia: ${message}`,
   liveNote: "Po ukończeniu automatycznie na ekranie, można cofnąć. Możesz opuścić stronę.",
   foreign: "Tłumaczenie zaczęto gdzie indziej. Po ukończeniu użyj „Umieść na ekranie” w porównaniu.",
+  agentNote: "Agent tłumaczy zdanie po zdaniu i na końcu zapisuje tłumaczenie w wideo",
+  agentSession: "Sesja Agenta tłumaczy. Aby zatrzymać, zatrzymaj sesję.",
   chipTip: (step: string) => `Tłumaczenie · ${step}`,
 
   notConfigured: (reason: string) => `Jeszcze nie można tłumaczyć · ${reason}`,

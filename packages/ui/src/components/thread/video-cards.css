@@ -290,3 +290,27 @@
   gap: 8px;
   min-width: 0;
 }
+
+/* ---------- 视频卡的画面区（产品设计 §3.2.2；原型 apprail.css `.chat-movie__open` / `.chat-movie__player`） ---------- */
+/* 播放钮默认不画，指针移上去或键盘聚焦时才出现；没有悬停的设备一直显示 */
+.bc-vcard-play {
+  opacity: 0;
+  transition: opacity 150ms cubic-bezier(0.45, 0, 0.4, 1);
+}
+.bc-vcard-preview:is([data-hovered], [data-focus-visible]) .bc-vcard-play {
+  opacity: 1;
+}
+@media (hover: none) {
+  .bc-vcard-play {
+    opacity: 1;
+  }
+}
+/* 卡里原地播：播放器占画面区的位置，画面 16:9，控制条在画面下面；卡的边框就是它的边框 */
+.bc-vcard-player .bc-media-player {
+  border: 0;
+  border-radius: 0;
+}
+.bc-vcard-player .bc-media-player > video:not([hidden]) {
+  aspect-ratio: 16 / 9;
+  max-height: none;
+}

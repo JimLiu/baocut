@@ -135,6 +135,36 @@ function linkJob(patch: Partial<JobRecord> = {}): JobRecord {
   });
 }
 
+function translateJob(patch: Partial<JobRecord> = {}): JobRecord {
+  return job({
+    kind: 'pipeline',
+    phase: 'generating',
+    providerId: 'openai',
+    modelId: 'gpt-5',
+    pipeline: {
+      name: 'translate',
+      params: { videoId: 'mov_1', documentId: 'doc_speech', targetLanguage: 'en' },
+      steps: [step('freeze-source', 'completed'), step('translate', 'running', { label: '翻译' }), step('assemble', 'pending'), step('write', 'pending')],
+      current: 1,
+      stoppedAt: null,
+      summary: null,
+    },
+    ...patch,
+  });
+}
+
+/** 会话里的智能体自己翻译（`agentTranslate`）：没有步骤、没有百分比。 */
+function agentTranslateJob(patch: Partial<JobRecord> = {}): JobRecord {
+  return job({
+    kind: 'agentTranslate',
+    phase: 'generating',
+    providerId: 'agent:codex',
+    modelId: 'codex',
+    translation: { sourceDocumentId: 'doc_speech', targetLanguage: 'en', sentences: 62 },
+    ...patch,
+  });
+}
+
 const cards = (items: TimelineItem[], jobs: JobRecord[], entries: SpaceEntry[] = []) => {
   const blocks = buildThread(items);
   const map = threadCards({ blocks, items, jobs, conversationId: CONV, entries });
@@ -261,6 +291,12 @@ describe('threadCards：一条会话一部视频一张卡（产品设计 §3.2.2
     expect(cards(twoTurns, [failed])).toEqual({ 'steps/c1': [`video:mov_1[${failed.jobId}]`] });
   });
 
+  it('智能体自己翻译进卡上做一行，在跑时卡跟到最新一轮', () => {
+    const transcribed = job({ state: 'completed', endedAt: at(15) });
+    const translating = agentTranslateJob();
+    expect(cards(twoTurns, [transcribed, translating])).toEqual({ a2: [`video:mov_1[${transcribed.jobId},${translating.jobId}]`] });
+  });
+
   it('转录在第二轮里结束：第三轮开始后卡仍在第二轮，不挪回去；一直在跑就一直跟到最新一轮', () => {
     const three = [...twoTurns, user('u3', 't3', 30), reply('a3', 't3')];
     const ended = job({ state: 'completed', endedAt: at(25) });
@@ -340,6 +376,25 @@ describe('videoStatus', () => {
     expect(videoStatus('mov_1', [], false)).toBeNull();
     expect(videoStatus('mov_1', [job({ kind: 'export' })], false)).toBeNull();
   });
+
+  it('转录没在跑、有翻译在跑时是翻译中：只有一件翻译流程时带百分比；智能体自己翻译没有百分比', () => {
+    const done = job({ state: 'completed', result: { documentId: 'doc_1', artifactId: 'art_doc' } });
+    const pipeline = translateJob();
+    expect(videoStatus('mov_1', [done, pipeline], false)).toEqual({ key: 'translating', text: '翻译中 · 5%' });
+    expect(videoStatus('mov_1', [done, agentTranslateJob()], true)).toEqual({ key: 'translating', text: '翻译中' });
+    // 两件同时在跑：不写百分比。
+    expect(videoStatus('mov_1', [pipeline, agentTranslateJob()], false)?.text).toBe('翻译中');
+    // 还没有步骤的流程不写 0%。
+    const fresh = translateJob({ pipeline: { ...pipeline.pipeline!, steps: [] } });
+    expect(videoStatus('mov_1', [fresh], false)?.text).toBe('翻译中');
+    // 转录在跑或排队时以转录为准；翻译排队或已结束不算。
+    expect(videoStatus('mov_1', [job(), agentTranslateJob()], false)?.key).toBe('transcribing');
+    expect(videoStatus('mov_1', [job({ state: 'queued' }), agentTranslateJob()], false)?.key).toBe('queued');
+    expect(videoStatus('mov_1', [done, translateJob({ state: 'queued' })], false)?.key).toBe('transcribed');
+    expect(videoStatus('mov_1', [done, agentTranslateJob({ state: 'completed', endedAt: at(9) })], false)?.key).toBe('transcribed');
+    // 别的视频的翻译不算。
+    expect(videoStatus('mov_1', [agentTranslateJob({ videoId: 'mov_2' })], false)).toBeNull();
+  });
 });
 
 describe('jobRowView', () => {
@@ -410,6 +465,29 @@ describe('jobRowView', () => {
     });
     const retrying = job({ state: 'interrupted', endedAt: null });
     expect(jobRowView(retrying, [retrying], now)).toMatchObject({ state: 'running', canRetry: false, canCancel: false });
+  });
+
+  it('智能体自己翻译：一行「翻译 · 语言」，不确定的进度、写一共多少句，不给取消；完成写语言', () => {
+    const j = agentTranslateJob({ startedAt: at(0) });
+    expect(jobRowView(j, [j], now)).toMatchObject({
+      kind: 'translate',
+      name: '翻译 · en',
+      state: 'running',
+      tail: null,
+      pct: null,
+      line: 'Agent 逐句翻译 · 共 62 句',
+      canCancel: false,
+      canRetry: false,
+    });
+    const done = agentTranslateJob({ state: 'completed', endedAt: at(9), result: { documentId: 'doc_tr', artifactId: '' } });
+    expect(jobRowView(done, [done], now)).toMatchObject({ state: 'done', tail: '完成', facts: ['en'], canCancel: false });
+    const stopped = agentTranslateJob({ state: 'interrupted', endedAt: at(9) });
+    expect(jobRowView(stopped, [stopped], now)).toMatchObject({ state: 'interrupted', canRetry: false });
+  });
+
+  it('翻译流程在跑：步骤与百分比，能取消', () => {
+    const j = translateJob();
+    expect(jobRowView(j, [j], now)).toMatchObject({ kind: 'translate', name: '翻译 · en', tail: '5%', pct: 5, line: '翻译', canCancel: true });
   });
 
   it('取消写已取消，没有按钮', () => {

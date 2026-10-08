@@ -200,6 +200,7 @@ export const ko: CopyMessages = {
     ],
   },
   output: {
+    playVideo: (name: string) => `“${name}” 영상 재생`,
     noThumbnail: '썸네일 없음',
     sourceMissing: '원본 파일을 찾을 수 없음',
     openEditor: '편집기 열기',
@@ -210,7 +211,9 @@ export const ko: CopyMessages = {
     messageOutputs: '메시지 결과물',
   },
   videoCard: {
-    status: { transcribing: '전사 중', queued: '대기 중', transcribed: '전사 완료', failed: '실패' },
+    agentTranslating: 'Agent가 문장별로 번역 중',
+    sentenceTotal: (n: number) => `총 ${n}문장`,
+    status: { translating: '번역 중', transcribing: '전사 중', queued: '대기 중', transcribed: '전사 완료', failed: '실패' },
     rows: '이 영상으로 작업',
     retranscribe: '다시 전사',
     translate: '번역',

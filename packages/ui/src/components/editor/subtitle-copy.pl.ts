@@ -146,6 +146,8 @@ export const plSubtitle: SubtitleMessages = {
   noSchema: "(brak schema)",
   editPreset: (name: string) => `Edytuj styl: ${name}`,
   trackName: "Napisy",
+  transcriptRow: "Transkrypcja",
+  transcriptRowTip: "Transkrypcja · tylko do odczytu · To wideo nie ma jeszcze ścieżki napisów. Wygeneruj ją na karcie Napisy.",
 };
 
 export const plNotConfigured: NotConfiguredMessages = {

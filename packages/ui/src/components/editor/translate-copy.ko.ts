@@ -56,6 +56,8 @@ export const koTranslate: TranslateMessages = {
   cancelFailed: (message: string) => `번역을 취소하지 못했습니다: ${message}`,
   liveNote: '완료되면 자동으로 화면에 배치되며, 언제든 실행 취소할 수 있습니다. 이 페이지를 떠나도 됩니다.',
   foreign: '이 번역은 여기서 시작하지 않았습니다. 끝나면 비교 목록에서 “화면에 배치”를 사용하세요.',
+  agentNote: 'Agent가 문장별로 번역하고, 끝나면 한 번에 영상에 기록합니다',
+  agentSession: 'Agent 세션이 번역 중입니다. 멈추려면 그 세션을 중지하세요.',
   chipTip: (step: string) => `번역 중 · ${step}`,
 
   // 问题

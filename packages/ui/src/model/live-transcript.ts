@@ -1,5 +1,5 @@
 import type { DocumentRecord, Id, JobLiveSegment, JobProgress, JobRecord, Sequence } from '@baocut/protocol';
-import { projectSpeech, type SpeechWord } from './speech-cues.ts';
+import { deriveCues, projectableItems, projectSpeech, readSpeechWords, type SpeechWord } from './speech-cues.ts';
 import { jobLive } from './task-list.ts';
 
 /*
@@ -198,4 +198,53 @@ export function placePending(
     start: w.start,
     end: w.end,
   }));
+}
+
+// ---- 只读的文稿行 ----
+
+/** 只读文稿行的一行：素材与它最新的那份转写。 */
+export interface TranscriptRowSource {
+  assetId: Id;
+  speech: DocumentRecord;
+}
+
+/**
+ * 时间线上只读的「文稿」行（原型 model-timeline.js `rows` 的 `transcript`；产品设计 §5.7）：视频转录过、却一条字幕轨都没有
+ * （转录时没建字幕层，例如从链接导入默认不建；或字幕轨都删了）——文稿照样落在字幕行的位置上，看得见哪里在说话。
+ * 每个转录过、时间线上取用了的素材一行（最新那份转写），按在时间线上第一次出现的先后排；正画着临时转录行的素材不重复画。
+ * 它不是轨：没有开关、不进导出、不可选中。
+ */
+export function transcriptRows(
+  sequence: Sequence,
+  documents: Record<Id, DocumentRecord>,
+  liveAssets: ReadonlySet<Id>,
+): TranscriptRowSource[] {
+  if (sequence.tracks.some((track) => track.kind === 'subtitle')) return [];
+  const created = (record: DocumentRecord) => record.revisions[record.currentRevision]?.createdAt ?? '';
+  const latest = new Map<Id, DocumentRecord>();
+  for (const record of Object.values(documents)) {
+    if (record.kind !== 'speech' || !record.sourceAssetId || liveAssets.has(record.sourceAssetId)) continue;
+    const seen = latest.get(record.sourceAssetId);
+    if (!seen || created(record) >= created(seen)) latest.set(record.sourceAssetId, record);
+  }
+  return [...latest]
+    .map(([assetId, speech]) => ({ assetId, speech, first: Math.min(...projectableItems(sequence, assetId).map(startFrame)) }))
+    .filter(({ first }) => Number.isFinite(first))
+    .sort((a, b) => a.first - b.first || (a.assetId < b.assetId ? -1 : a.assetId > b.assetId ? 1 : 0))
+    .map(({ assetId, speech }) => ({ assetId, speech }));
+}
+
+const startFrame = (item: Sequence['items'][number]) => ('span' in item ? item.span.fromFrame : item.fromFrame);
+
+/**
+ * 文稿行里的句子块：转写正文（`baocut.speech/1`）按字幕同一套断句（`deriveCues`）切成句，经取用这个素材的实例投到序列上，
+ * 剪掉的部分不出现、跨剪辑点的句子裁成几块。正文还没取到或不是转写时没有块。
+ */
+export function placeTranscript(sequence: Sequence, assetId: Id, body: unknown): readonly PlacedSegment[] {
+  const speech = readSpeechWords(body);
+  if (!speech?.words.length) return EMPTY as readonly never[];
+  const cues = deriveCues(speech.words);
+  const words: SpeechWord[] = cues.map((cue) => ({ id: cue.id, start: cue.start, end: cue.end, text: cue.text, paragraphStart: false }));
+  const index = new Map(cues.map((cue, n) => [cue.id, n]));
+  return projectSpeech(sequence, assetId, words).map((w) => ({ key: w.key, index: index.get(w.id) ?? 0, start: w.start, end: w.end, text: w.text }));
 }

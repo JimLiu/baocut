@@ -1,9 +1,10 @@
 import { localizeText, type Conversation, type Id, type JobKind, type JobRecord, type Project, type TaskSummary } from '@baocut/protocol';
-import { JOB_PHASE_LABEL, TASK_KIND_LABEL, TASK_STATUS_LABEL, TASK_VIEW_COPY } from '../copy.ts';
+import { JOB_PHASE_LABEL, TASK_KIND_LABEL, TASK_STATUS_LABEL, TASK_VIEW_COPY, VIDEO_CARD_COPY } from '../copy.ts';
 import { exportPhaseLabel, exportTitle } from './export-job.ts';
 import { shortenPath } from './format.ts';
 import { isLinkImport, linkKindLabel, linkPhaseText, linkTitle } from './link-import.ts';
 import { jobErrorText, jobWaitText } from './localized-text.ts';
+import { langName } from './tools-models.ts';
 
 /**
  * 后台任务的统一表（原型 page-tasks.jsx、产品设计 §2.1 用户修订）：Agent 会话里的任务（TaskSummary）与
@@ -121,6 +122,10 @@ function jobTitle(job: JobRecord, video: OpenVideoFacts | null): string {
   }
   // 从链接导入：「从链接导入 · 标题」（标题还没解析出来时写网站）。
   if (isLinkImport(job)) return linkTitle(job);
+  // 智能体自己翻译：「翻译 · 访谈 · 英语」（视频名只有打开着时才知道）。
+  if (job.kind === 'agentTranslate') {
+    return [kindLabel(job.kind), video?.name, job.translation ? langName(job.translation.targetLanguage) : null].filter(Boolean).join(' · ');
+  }
   // 导出：「导出视频 · MP4 · 访谈」（种类与格式取冻结的设置；视频名只有打开着时才知道）。
   if (job.kind === 'export' && job.export) return [exportTitle(job.export.settings), video?.name].filter(Boolean).join(' · ');
   return kindLabel(job.kind);
@@ -140,6 +145,8 @@ function localToolWhere(job: JobRecord): string | null {
 
 /** 在哪：导出是写到哪个目录（本机）；别的 Job 是模型 · 跑在哪。 */
 function jobWhere(job: JobRecord): string {
+  // 智能体自己翻译：`modelId` 就是 Driver，「本机 · Codex」已经说全了。
+  if (job.kind === 'agentTranslate') return runsOnLabel(job.providerId);
   if (job.kind === 'export' && job.export) return [shortenPath(job.export.destination.dir), runsOnLabel(job.providerId)].join(' · ');
   return localToolWhere(job) ?? [job.modelId, runsOnLabel(job.providerId)].filter(Boolean).join(' · ');
 }
@@ -184,7 +191,9 @@ export function jobRow(job: JobRecord, ctx: TaskContext): TaskRow {
         ? exportPhaseLabel(job)
         : isLinkImport(job)
           ? linkPhaseText(job)
-          : JOB_PHASE_LABEL[job.phase]
+          : job.kind === 'agentTranslate'
+            ? VIDEO_CARD_COPY.agentTranslating
+            : JOB_PHASE_LABEL[job.phase]
       : queued
         ? jobWaitText(job.wait)
         : null;
@@ -212,7 +221,8 @@ export function jobRow(job: JobRecord, ctx: TaskContext): TaskRow {
     pct,
     progress: running ? (pct ?? 'indet') : queued ? 'indet' : null,
     chip: job.submitter.kind === 'agent' ? 'agent' : job.submitter.kind === 'connection' ? 'cli' : null,
-    action: queued || running ? { type: 'cancel', jobId: job.jobId } : null,
+    // 智能体自己翻译不给取消：取消这条记录停不下智能体，要停就停那条会话（打开会话，或停它那一行的 Agent 任务）。
+    action: (queued || running) && job.kind !== 'agentTranslate' ? { type: 'cancel', jobId: job.jobId } : null,
     conversationId,
     projectId: conversation?.projectId ?? video?.projectId ?? null,
     videoId: job.videoId,

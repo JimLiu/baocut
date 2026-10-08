@@ -200,6 +200,7 @@ export const ja: CopyMessages = {
     ],
   },
   output: {
+    playVideo: (name: string) => `動画「${name}」を再生`,
     noThumbnail: 'サムネイルなし',
     sourceMissing: '元のファイルが見つかりません',
     openEditor: 'エディタを開く',
@@ -210,7 +211,9 @@ export const ja: CopyMessages = {
     messageOutputs: 'メッセージの生成物',
   },
   videoCard: {
-    status: { transcribing: '文字起こし中', queued: '待機中', transcribed: '文字起こし済み', failed: '失敗' },
+    agentTranslating: 'Agent が一文ずつ翻訳中',
+    sentenceTotal: (n: number) => `全 ${n} 文`,
+    status: { translating: '翻訳中', transcribing: '文字起こし中', queued: '待機中', transcribed: '文字起こし済み', failed: '失敗' },
     rows: 'この動画での作業',
     retranscribe: '再文字起こし',
     translate: '翻訳',

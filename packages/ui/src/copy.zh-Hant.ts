@@ -192,6 +192,7 @@ export const zhHant: CopyMessages = {
     chips: ['幫這部影片加上字幕並翻譯成英文', '找出贅字和長停頓，先列出來再剪', '把這一集分成章節並加上標題', '匯出雙語 SRT 和燒錄字幕的 MP4'],
   },
   output: {
+    playVideo: (name: string) => `播放影片「${name}」`,
     noThumbnail: '沒有縮圖',
     sourceMissing: '找不到來源檔案',
     openEditor: '開啟編輯器',
@@ -202,7 +203,9 @@ export const zhHant: CopyMessages = {
     messageOutputs: '訊息產出',
   },
   videoCard: {
-    status: { transcribing: '轉錄中', queued: '排隊中', transcribed: '已轉錄', failed: '失敗' },
+    agentTranslating: 'Agent 逐句翻譯',
+    sentenceTotal: (n: number) => `共 ${n} 句`,
+    status: { translating: '翻譯中', transcribing: '轉錄中', queued: '排隊中', transcribed: '已轉錄', failed: '失敗' },
     rows: '這部影片上的工作',
     retranscribe: '重新轉錄',
     translate: '翻譯',

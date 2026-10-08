@@ -147,6 +147,8 @@ export const koSubtitle: SubtitleMessages = {
   noSchema: '(schema 없음)',
   editPreset: (name: string) => `이 스타일 편집: ${name}`,
   trackName: '자막',
+  transcriptRow: '전사본',
+  transcriptRowTip: '전사본 · 읽기 전용 · 이 영상에는 아직 자막 트랙이 없습니다. 자막 탭에서 생성하세요',
 };
 
 export const koNotConfigured: NotConfiguredMessages = {

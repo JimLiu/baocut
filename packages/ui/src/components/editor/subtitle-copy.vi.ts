@@ -147,6 +147,8 @@ export const viSubtitle: SubtitleMessages = {
   noSchema: "(không có schema)",
   editPreset: (name) => `Sửa kiểu này: ${name}`,
   trackName: "Phụ đề",
+  transcriptRow: "Bản chép lời",
+  transcriptRowTip: "Bản chép lời · chỉ đọc · Video này chưa có rãnh phụ đề. Hãy tạo trong thẻ Phụ đề.",
 };
 
 export const viNotConfigured: NotConfiguredMessages = {

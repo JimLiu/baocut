@@ -59,6 +59,8 @@ export const ptBRTranslate: TranslateMessages = {
   cancelFailed: (message: string) => `Não foi possível cancelar tradução: ${message}`,
   liveNote: "Colocado automaticamente na tela, desfazível. Você pode sair desta página.",
   foreign: "Esta tradução não começou aqui. Ao terminar, use “Colocar na tela” na comparação.",
+  agentNote: "O Agent traduz frase por frase e grava a tradução no vídeo ao terminar",
+  agentSession: "Uma sessão do Agent está traduzindo. Para parar, pare a sessão.",
   chipTip: (step: string) => `Traduzindo · ${step}`,
 
   notConfigured: (reason: string) => `Ainda não pode traduzir · ${reason}`,

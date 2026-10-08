@@ -58,6 +58,8 @@ export const deTranslate: TranslateMessages = {
   cancelFailed: (message: string) => `Übersetzung konnte nicht abgebrochen werden: ${message}`,
   liveNote: "Nach Abschluss automatisch im Bild platziert; jederzeit rückgängig zu machen. Sie können diese Seite verlassen.",
   foreign: "Diese Übersetzung wurde nicht hier gestartet. Nach Abschluss „Im Bild platzieren“ in der Vergleichsliste verwenden.",
+  agentNote: "Der Agent übersetzt Zeile für Zeile und schreibt die Übersetzung am Ende ins Video",
+  agentSession: "Eine Agent-Sitzung übersetzt gerade. Zum Anhalten die Sitzung stoppen.",
   chipTip: (step: string) => `Wird übersetzt · ${step}`,
 
   notConfigured: (reason: string) => `Übersetzung noch nicht möglich · ${reason}`,

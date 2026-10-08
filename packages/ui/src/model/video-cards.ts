@@ -29,7 +29,7 @@ import { bundleName } from './models-local.ts';
 import { langName } from './tools-models.ts';
 import { reconcileOptions } from './task-reconcile.ts';
 import type { ThreadBlock } from './thread.ts';
-import { TRANSLATE_PIPELINE, targetOf, translateProgress } from './translate-progress.ts';
+import { isAgentTranslate, isTranslateJob, TRANSLATE_PIPELINE, targetOf, translateProgress } from './translate-progress.ts';
 import { jobErrorText, jobWaitText } from './localized-text.ts';
 
 /**
@@ -55,9 +55,9 @@ export type ThreadCard =
   /** `jobIds`：这条会话归这部视频的活（行），按提交先后（与 `conversationVideoJobs` 同一份）。 */
   { kind: 'video'; key: string; video: ConversationOutput; jobIds: Id[] } | { kind: 'download'; key: string; jobId: Id };
 
-/** 进视频卡做一行的 Job：转录、导出、固定流程（翻译、从链接导入到这部视频……）。 */
+/** 进视频卡做一行的 Job：转录、导出、固定流程（翻译、从链接导入到这部视频……）、智能体自己翻译。 */
 function isRowJob(job: JobRecord): boolean {
-  return !isPreviewExport(job) && (job.kind === 'transcribe' || job.kind === 'export' || job.kind === 'pipeline');
+  return !isPreviewExport(job) && (job.kind === 'transcribe' || job.kind === 'export' || job.kind === 'pipeline' || isAgentTranslate(job));
 }
 
 /** 这条 Job 归会话里哪个智能体任务：智能体直接提交的就是它自己；固定流程提交的归父任务（至多上溯几层）。 */
@@ -290,17 +290,18 @@ export function conversationJobVideos(jobs: readonly JobRecord[], conversationId
 
 // ---- 状态词 ----
 
-export type VideoStatusKey = 'transcribing' | 'queued' | 'transcribed' | 'failed';
+export type VideoStatusKey = 'transcribing' | 'queued' | 'translating' | 'transcribed' | 'failed';
 
 export interface VideoStatus {
   key: VideoStatusKey;
-  /** 「转录中 · 45%」「排队中」「已转录」「失败」。 */
+  /** 「转录中 · 45%」「排队中」「翻译中 · 30%」「已转录」「失败」。 */
   text: string;
 }
 
 /**
- * 视频卡头上的状态词（原型 `badge`）：指向这部视频的转录在跑 / 排队时以它为准；否则有转录结果（完成的转录写了文稿，
- * 或编辑器开着它、文档里有 `speech`）是「已转录」；转录失败过是「失败」。什么都不知道时 null（不显示），
+ * 视频卡头上的状态词（原型 `badge`）：指向这部视频的转录在跑 / 排队时以它为准；转录没在跑、有翻译在跑（翻译流程，不论
+ * 从哪里发起，或智能体自己翻译）时是「翻译中」，只有一件、是翻译流程、已经有步骤时带上百分比；否则有转录结果（完成的
+ * 转录写了文稿，或编辑器开着它、文档里有 `speech`）是「已转录」；转录失败过是「失败」。什么都不知道时 null（不显示），
  * 不从「没有」推出「未转录」：Job 镜像只有这次 Runtime 记得的任务，视频没开着时也读不到它的文档。
  */
 export function videoStatus(videoId: Id, jobs: readonly JobRecord[], transcribedInEditor: boolean): VideoStatus | null {
@@ -314,6 +315,12 @@ export function videoStatus(videoId: Id, jobs: readonly JobRecord[], transcribed
     };
   }
   if (mine.some((j) => j.state === 'queued')) return { key: 'queued', text: VIDEO_CARD_COPY.status.queued };
+  const translating = jobs.filter((j) => isTranslateJob(j, videoId) && (j.state === 'running' || jobRetrying(j)));
+  if (translating.length) {
+    const one = translating.length === 1 ? translating[0]! : null;
+    const pct = one && one.state === 'running' && !isAgentTranslate(one) && one.pipeline?.steps.length ? translateProgress(one, jobs).percent : null;
+    return { key: 'translating', text: pct == null ? VIDEO_CARD_COPY.status.translating : `${VIDEO_CARD_COPY.status.translating} · ${pct}%` };
+  }
   if (transcribedInEditor || mine.some((j) => j.state === 'completed' && j.result?.documentId)) {
     return { key: 'transcribed', text: VIDEO_CARD_COPY.status.transcribed };
   }
@@ -366,6 +373,7 @@ function rowKind(job: JobRecord): JobRowView['kind'] {
   if (job.kind === 'transcribe') return 'transcribe';
   if (job.kind === 'export') return 'export';
   if (isLinkImport(job)) return 'link-import';
+  if (isAgentTranslate(job)) return 'translate';
   if (job.kind === 'pipeline' && job.pipeline?.name === TRANSLATE_PIPELINE) return 'translate';
   if (job.kind === 'pipeline' && job.pipeline?.name === 'transcribe') return 'transcribe';
   return 'other';
@@ -418,6 +426,11 @@ function progressOf(job: JobRecord, kind: JobRowView['kind'], jobs: readonly Job
       return { line: [exportPhaseLabel(job), exportProgressLine(job)].filter(Boolean).join(' · '), pct: jobPercent(job) };
     case 'translate': {
       const p = translateProgress(job, jobs);
+      // 智能体自己翻译没有逐句进度：只写一共多少句，进度条不确定（原型 `phaseLabel` / `countLabel` 的 `byAgent`）。
+      if (p.agent) {
+        const total = p.agent.sentences ? VIDEO_CARD_COPY.sentenceTotal(p.agent.sentences) : null;
+        return { line: [VIDEO_CARD_COPY.agentTranslating, total].filter(Boolean).join(' · '), pct: null };
+      }
       const count = p.units ? VIDEO_CARD_COPY.translated(p.units.done, p.units.total) : null;
       return { line: [p.step ?? phase, count].filter(Boolean).join(' · '), pct: p.percent };
     }
@@ -498,7 +511,8 @@ export function jobRowView(job: JobRecord, jobs: readonly JobRecord[], now: numb
     files,
     playable,
     error,
-    canCancel: jobLive(job) && !jobRetrying(job) && !(kind === 'export' && cancelPending(job)),
+    // 智能体自己翻译不给取消：译文是那一轮在写，取消记录停不下智能体，要停就停那条会话。
+    canCancel: jobLive(job) && !jobRetrying(job) && !(kind === 'export' && cancelPending(job)) && !isAgentTranslate(job),
     canRetry: reconcileOptions(job).includes('retry'),
     remedy: failed ? jobRemedy(job) : null,
   };

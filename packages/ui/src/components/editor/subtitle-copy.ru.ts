@@ -146,6 +146,8 @@ export const ruSubtitle: SubtitleMessages = {
   noSchema: "(нет schema)",
   editPreset: (name: string) => `Изменить стиль: ${name}`,
   trackName: "Субтитры",
+  transcriptRow: "Расшифровка",
+  transcriptRowTip: "Расшифровка · только чтение · У этого видео ещё нет дорожки субтитров. Создайте её на вкладке «Субтитры».",
 };
 
 export const ruNotConfigured: NotConfiguredMessages = {

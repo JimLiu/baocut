@@ -52,6 +52,8 @@ export const trTranslate: TranslateMessages = {
   cancelFailed: (message) => `Çeviri iptal edilemedi: ${message}`,
   liveNote: "Bitince otomatik görüntüye yerleştirilir; her zaman geri alınabilir. Bu sayfadan ayrılabilirsiniz.",
   foreign: "Bu çeviri buradan başlatılmadı. Bitince karşılaştırma listesinde “Ekrana yerleştir” kullanın.",
+  agentNote: "Agent cümle cümle çevirir ve bitince çeviriyi videoya yazar",
+  agentSession: "Bir Agent oturumu çeviriyor. Durdurmak için oturumu durdurun.",
   chipTip: (step) => `Çevriliyor · ${step}`,
 
   // 问题
