@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use media_core::decode::{VideoDecoder, decode_still};
-use media_core::encode::{AudioTrack, Container, EncodeSettings, Encoder, Quality, VideoCodec};
+use media_core::encode::{AudioTrack, Container, EncodeSettings, Encoder, Quality, QueuedEncoder, VideoCodec};
 use media_core::probe::{encoders, probe_picture};
 use media_core::{Picture, Tools};
 use serde_json::Value;
@@ -182,4 +182,66 @@ fn encoder_muxes_frames_and_padded_audio_to_equal_length() {
     encoder.write(&frame).unwrap();
     encoder.abort();
     assert!(!aborted.exists());
+}
+
+#[test]
+fn queued_encoder_writes_every_frame_and_reports_a_dead_encoder() {
+    let Some(tools) = tools() else { return };
+    if !encoders(&tools).unwrap().contains("libx264") {
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let settings = EncodeSettings {
+        width: 64,
+        height: 36,
+        fps_num: 10,
+        fps_den: 1,
+        codec: VideoCodec::H264,
+        container: Container::Mp4,
+        quality: Quality::Crf(20),
+        audio: None,
+        duration_seconds: 1.2,
+    };
+    let count_frames = |path: &Path| {
+        let probe = Command::new(&tools.ffprobe)
+            .args(["-v", "error", "-count_frames", "-show_streams", "-of", "json"])
+            .arg(path)
+            .output()
+            .unwrap();
+        let value: Value = serde_json::from_slice(&probe.stdout).unwrap();
+        value["streams"][0]["nb_read_frames"].as_str().unwrap().to_string()
+    };
+
+    // 池里的缓冲铺好了颜色、长度是一帧；交进去的帧都写进去，收尾之后文件完整。
+    let out = dir.path().join("queued.mp4");
+    let mut queued = QueuedEncoder::new(Encoder::start(&tools, &settings, &out).unwrap(), 2, [0, 0, 0, 255]);
+    for i in 0..12u8 {
+        let mut frame = queued.buffer().unwrap();
+        assert_eq!(frame.len(), 64 * 36 * 4);
+        if i == 0 {
+            assert_eq!(&frame[..8], [0, 0, 0, 255, 0, 0, 0, 255]);
+        }
+        frame[..4].copy_from_slice(&[i * 20, 0, 0, 255]);
+        queued.submit(frame).unwrap();
+    }
+    assert!(queued.submit(vec![0; 4]).is_err(), "尺寸不对的帧不收");
+    queued.finish().unwrap();
+    assert_eq!(count_frames(&out), "12");
+
+    // 放弃：排着的帧不写，输出删掉。
+    let aborted = dir.path().join("queued-aborted.mp4");
+    let mut queued = QueuedEncoder::new(Encoder::start(&tools, &settings, &aborted).unwrap(), 2, [0; 4]);
+    let frame = queued.buffer().unwrap();
+    queued.submit(frame).unwrap();
+    queued.abort();
+    assert!(!aborted.exists());
+
+    // 编码器死了（输出写不出来）：合成线程很快在取缓冲或交帧时拿到写线程的错误。
+    let broken = dir.path().join("missing-dir").join("out.mp4");
+    let mut queued = QueuedEncoder::new(Encoder::start(&tools, &settings, &broken).unwrap(), 2, [0; 4]);
+    let error = (0..1000)
+        .find_map(|_| queued.buffer().and_then(|frame| queued.submit(frame)).err())
+        .expect("编码器失败要报出来");
+    assert_eq!(error.code, "EXPORT_ENCODE_FAILED");
+    queued.abort();
 }

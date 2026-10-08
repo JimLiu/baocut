@@ -1,10 +1,14 @@
 //! 编码：原始 RGBA 帧写进 ffmpeg 的标准输入，按 bt709 转成 yuv420p 编码，混好的声音文件一并封装。
 //!
 //! 声音补静音、截到画面的长度（帧数 ÷ 帧率），两条流等长。取消时杀掉编码器（不让它收尾写出半个文件）并删掉输出。
+//! [`QueuedEncoder`] 把写管道挪到单独的线程，合成不等编码器读完一帧。
 
 use std::io::{ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{Receiver, SyncSender, channel, sync_channel};
 use std::thread::JoinHandle;
 
 use crate::{MediaError, Tools, tail};
@@ -299,6 +303,131 @@ impl Drop for Encoder {
             drop(self.stdin.take());
             let _ = self.child.kill();
             let _ = self.child.wait();
+        }
+    }
+}
+
+/// 在单独的线程里写编码器：合成线程把整帧交进有界队列就去画下一帧，不等管道。
+///
+/// 帧缓冲是一个固定的池（队列深度加一个），用过的经回收通道送回来，逐帧不分配。池里的缓冲一开始铺满 `fill`
+/// （一个 RGBA 像素），之后原样回收、保留上一次写进去的内容：只写画面那一块的调用方（黑边），黑边只铺一次。
+///
+/// 写线程独占 [`Encoder`]：要过 [`finish`](Self::finish) 时写完队列再收尾，否则（[`abort`](Self::abort) 或直接丢掉）
+/// 不再写排着的帧，杀掉编码器、删掉输出。编码器中途失败时写线程放弃并退出，合成线程下一次取缓冲或交帧就失败，
+/// 拿到的是写线程的错误。
+pub struct QueuedEncoder {
+    frames: Option<SyncSender<Vec<u8>>>,
+    empty: Receiver<Vec<u8>>,
+    finishing: Arc<AtomicBool>,
+    aborting: Arc<AtomicBool>,
+    writer: Option<JoinHandle<Result<(), MediaError>>>,
+    frame_bytes: usize,
+}
+
+impl QueuedEncoder {
+    /// `depth` 是排队等着写的帧数（至少 1）。
+    pub fn new(encoder: Encoder, depth: usize, fill: [u8; 4]) -> QueuedEncoder {
+        let depth = depth.max(1);
+        let frame_bytes = encoder.frame_bytes;
+        let (frames, queued) = sync_channel::<Vec<u8>>(depth);
+        let (recycle, empty) = channel::<Vec<u8>>();
+        for _ in 0..=depth {
+            let _ = recycle.send(fill.repeat(frame_bytes / 4));
+        }
+        let finishing = Arc::new(AtomicBool::new(false));
+        let aborting = Arc::new(AtomicBool::new(false));
+        let (finish, abort) = (Arc::clone(&finishing), Arc::clone(&aborting));
+        let writer = std::thread::spawn(move || {
+            let mut encoder = encoder;
+            for frame in queued {
+                if abort.load(Ordering::SeqCst) {
+                    break;
+                }
+                if let Err(e) = encoder.write(&frame) {
+                    encoder.abort();
+                    return Err(e);
+                }
+                // 合成线程不再取缓冲（放弃中）时送不回去，丢掉即可。
+                let _ = recycle.send(frame);
+            }
+            if finish.load(Ordering::SeqCst) && !abort.load(Ordering::SeqCst) {
+                encoder.finish()
+            } else {
+                encoder.abort();
+                Ok(())
+            }
+        });
+        QueuedEncoder {
+            frames: Some(frames),
+            empty,
+            finishing,
+            aborting,
+            writer: Some(writer),
+            frame_bytes,
+        }
+    }
+
+    /// 取一个帧缓冲（长度是一帧，内容是上一次用它时留下的）。缓冲都在队列里时等写线程写完一帧。
+    pub fn buffer(&mut self) -> Result<Vec<u8>, MediaError> {
+        if self.writer.is_none() {
+            return Err(MediaError::new("EXPORT_ENCODE_FAILED", "编码器已关闭"));
+        }
+        match self.empty.recv() {
+            Ok(buffer) => Ok(buffer),
+            Err(_) => Err(self.writer_error()),
+        }
+    }
+
+    /// 把画好的一帧交给写线程；队列满时等。
+    pub fn submit(&mut self, frame: Vec<u8>) -> Result<(), MediaError> {
+        if frame.len() != self.frame_bytes {
+            return Err(MediaError::new("EXPORT_ENCODE_FAILED", "帧的大小与输出尺寸不符"));
+        }
+        let sent = self.frames.as_ref().is_some_and(|frames| frames.send(frame).is_ok());
+        if sent { Ok(()) } else { Err(self.writer_error()) }
+    }
+
+    /// 写完了：等队列里的帧写完、编码器收尾。
+    pub fn finish(mut self) -> Result<(), MediaError> {
+        self.finishing.store(true, Ordering::SeqCst);
+        drop(self.frames.take());
+        self.join()
+    }
+
+    /// 放弃：排着的帧不写了，杀掉编码器、删掉输出。返回时编码器已经停了、输出已经删了。
+    pub fn abort(mut self) {
+        self.stop();
+    }
+
+    fn stop(&mut self) {
+        self.aborting.store(true, Ordering::SeqCst);
+        drop(self.frames.take());
+        let _ = self.join();
+    }
+
+    fn join(&mut self) -> Result<(), MediaError> {
+        match self.writer.take() {
+            Some(writer) => writer
+                .join()
+                .unwrap_or_else(|_| Err(MediaError::new("EXPORT_ENCODE_FAILED", "写编码器的线程崩溃了"))),
+            None => Err(MediaError::new("EXPORT_ENCODE_FAILED", "编码器已关闭")),
+        }
+    }
+
+    /// 写线程已经退出（编码器失败）：等它结束，拿它的错误。
+    fn writer_error(&mut self) -> MediaError {
+        drop(self.frames.take());
+        match self.join() {
+            Err(e) => e,
+            Ok(()) => MediaError::new("EXPORT_ENCODE_FAILED", "编码器已关闭"),
+        }
+    }
+}
+
+impl Drop for QueuedEncoder {
+    fn drop(&mut self) {
+        if self.writer.is_some() {
+            self.stop();
         }
     }
 }

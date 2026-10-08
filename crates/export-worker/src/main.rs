@@ -3,7 +3,7 @@
 //! - `export-worker preflight <input.json>`：预检，结果是 stdout 上的一个 JSON 对象（帧数、画不出来的项、警告、缺的编码器，
 //!   以及要用到的本机字体 face，Runtime 按它冻结字体）；
 //! - `export-worker render <input.json>`：逐帧求计划（`render-graph`）、画成一帧（`frame-render`）、写进编码器（`media-core`）。
-//!   stdout 是 JSON 行：`progress`（已画的帧数与总帧数）、最后一行 `done`、`error` 或 `cancelled`；
+//!   stdout 是 JSON 行：`progress`（已画完、交给编码队列的帧数与总帧数）、最后一行 `done`、`error` 或 `cancelled`；
 //! - `export-worker census <input.json>`：只排一遍字，清点视频用到的字体（`fonts.usage`）：stdout 上一个 JSON 对象，
 //!   点了名的全部 face（`bundled` 标出随内核发布的）与内核的回退族（`fallback`）；
 //! - `export-worker master <input.json>`：开了响度标准化时，把混好的声音做成目标响度（[`master`]），stdout 同样是 JSON 行，

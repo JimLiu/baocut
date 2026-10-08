@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 
 use font_files::FontFace;
 use frame_render::{FrameRenderer, RenderError, RenderOptions, UnsupportedItem};
-use media_core::encode::Encoder;
+use media_core::encode::{Encoder, QueuedEncoder};
 use render_graph::plan_frame;
 use render_graph::video_plan::PictureRect;
 use serde_json::{Value, json};
@@ -24,6 +24,8 @@ use crate::{Failure, emit};
 
 /// 进度最多这么频繁地报一次。
 pub(crate) const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
+/// 排队等着写进编码器的帧数（1080p 的 RGBA 一帧 8.3 MB，池里多一个正在画的）。
+const ENCODE_QUEUE: usize = 2;
 
 fn render_failure(error: RenderError) -> Failure {
     Failure {
@@ -80,7 +82,7 @@ pub fn run(path: &Path) -> Result<ExitCode, Failure> {
     let settings = input.encode_settings()?;
     // 按画布画在画面那一块的尺寸上；比输出小时贴进黑底的输出帧（黑边），排版不按输出的比例重排。
     let picture = input.output.picture();
-    let mut boxed = Letterbox::new(input.output.width, input.output.height, picture);
+    let boxed = Letterbox::new(input.output.width, input.output.height, picture);
     let mut renderer = FrameRenderer::new(
         RenderOptions {
             width: picture.width,
@@ -99,7 +101,9 @@ pub fn run(path: &Path) -> Result<ExitCode, Failure> {
         renderer.add_fonts(fonts);
     }
     let mut sources = Sources::new(&input, tools.clone(), report.pictures.clone(), skip);
-    let mut encoder = Encoder::start(&tools, &settings, &input.output.path).map_err(|e| Failure::new(e.code, e.message))?;
+    let encoder = Encoder::start(&tools, &settings, &input.output.path).map_err(|e| Failure::new(e.code, e.message))?;
+    // 写编码器在单独的线程：合成线程把帧交进队列就画下一帧（`progress` 的帧数是交进队列的帧数）。
+    let mut encoder = QueuedEncoder::new(encoder, ENCODE_QUEUE, Letterbox::BAR);
     let view = input.document.view();
     let total = report.frames;
     let started = Instant::now();
@@ -117,9 +121,10 @@ pub fn run(path: &Path) -> Result<ExitCode, Failure> {
             let t = input.frame_time(k)?;
             let plan = plan_frame(view, &input.sequence_id, t).map_err(|e| Failure::new(&e.code, e.message))?;
             renderer.render(view, &plan, t.to_f64(), &mut sources).map_err(render_failure)?;
-            encoder
-                .write(boxed.place(renderer.frame().data()))
-                .map_err(|e| Failure::new(e.code, e.message))
+            let encode_failure = |e: media_core::MediaError| Failure::new(e.code, e.message);
+            let mut frame = encoder.buffer().map_err(encode_failure)?;
+            boxed.place(renderer.frame().data(), &mut frame);
+            encoder.submit(frame).map_err(encode_failure)
         })();
         if let Err(failure) = step {
             encoder.abort();
@@ -224,36 +229,43 @@ fn file_digest(path: &Path) -> std::io::Result<(u64, String)> {
     Ok((total, format!("sha256:{hex}")))
 }
 
-/// 输出帧：画面与输出同尺寸时原样交出；否则把画面逐行贴进不透明黑底（RGBA 0, 0, 0, 255）的输出帧，黑边只铺一次。
+/// 输出帧：画面与输出同尺寸时整帧复制进编码队列的缓冲；否则把画面逐行贴进画面那一块。缓冲来自编码队列的池，
+/// 一开始铺满不透明黑（RGBA 0, 0, 0, 255）、回收时原样留着，画面以外的黑边不再重写。
 struct Letterbox {
     picture: PictureRect,
-    /// 画面比输出小时的输出帧。
-    frame: Option<Vec<u8>>,
+    full: bool,
     stride: usize,
 }
 
 impl Letterbox {
+    /// 黑边的颜色，也是编码队列的缓冲一开始铺的颜色。
+    const BAR: [u8; 4] = [0, 0, 0, 255];
+
     fn new(width: u32, height: u32, picture: PictureRect) -> Letterbox {
-        let full = picture.x == 0 && picture.y == 0 && picture.width == width && picture.height == height;
-        let frame = (!full).then(|| [0, 0, 0, 255].repeat(width as usize * height as usize));
         Letterbox {
             picture,
-            frame,
+            full: picture.x == 0 && picture.y == 0 && picture.width == width && picture.height == height,
             stride: width as usize * 4,
         }
     }
 
-    fn place<'a>(&'a mut self, picture: &'a [u8]) -> &'a [u8] {
-        let Some(frame) = self.frame.as_mut() else {
-            return picture;
-        };
+    /// 把画面写进输出帧 `frame`（黑边已经铺好）。
+    fn place(&self, picture: &[u8], frame: &mut [u8]) {
+        if self.full {
+            frame.copy_from_slice(picture);
+            return;
+        }
         let p = self.picture;
         let row = p.width as usize * 4;
         for (y, line) in picture.chunks_exact(row).take(p.height as usize).enumerate() {
             let at = (p.y as usize + y) * self.stride + p.x as usize * 4;
             frame[at..at + row].copy_from_slice(line);
         }
-        frame
+    }
+
+    #[cfg(test)]
+    fn frame(&self, height: u32) -> Vec<u8> {
+        Self::BAR.repeat(self.stride / 4 * height as usize)
     }
 }
 
@@ -318,8 +330,9 @@ mod tests {
         let source: Vec<u8> = (0..2u8)
             .flat_map(|y| (0..4u8).flat_map(move |x| [10 + x, 20 + y, 200, 255]))
             .collect();
-        let mut boxed = Letterbox::new(8, 2, picture);
-        let frame = boxed.place(&source).to_vec();
+        let boxed = Letterbox::new(8, 2, picture);
+        let mut frame = boxed.frame(2);
+        boxed.place(&source, &mut frame);
         assert_eq!(frame.len(), 8 * 2 * 4);
         for y in 0..2usize {
             for x in 0..8usize {
@@ -332,7 +345,7 @@ mod tests {
             }
         }
         // 上下黑边。
-        let mut tall = Letterbox::new(
+        let tall = Letterbox::new(
             2,
             6,
             PictureRect {
@@ -342,13 +355,14 @@ mod tests {
                 height: 2,
             },
         );
-        let frame = tall.place(&[255; 16]).to_vec();
+        let mut frame = tall.frame(6);
+        tall.place(&[255; 16], &mut frame);
         let rows: Vec<&[u8]> = frame.chunks(8).collect();
         assert_eq!(rows[1], [0, 0, 0, 255, 0, 0, 0, 255]);
         assert_eq!(rows[2], [255; 8]);
         assert_eq!(rows[4], [0, 0, 0, 255, 0, 0, 0, 255]);
-        // 铺满：原样交出，不复制。
-        let mut full = Letterbox::new(
+        // 铺满：整帧照抄。
+        let full = Letterbox::new(
             4,
             2,
             PictureRect {
@@ -358,6 +372,8 @@ mod tests {
                 height: 2,
             },
         );
-        assert_eq!(full.place(&source).as_ptr(), source.as_ptr());
+        let mut frame = vec![7; 4 * 2 * 4];
+        full.place(&source, &mut frame);
+        assert_eq!(frame, source);
     }
 }
