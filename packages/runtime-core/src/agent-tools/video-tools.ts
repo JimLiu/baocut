@@ -152,6 +152,12 @@ const schemas = {
     video: videoArg,
     documentId: z.string().min(1).max(200).describe('videos_inspect 的文档里的 documentId'),
     revision: revisionArg.optional().describe('可选。文档的版本（十进制数字字符串）；不给时读当前版本'),
+    translateTo: z
+      .string()
+      .min(1)
+      .max(35)
+      .optional()
+      .describe('可选。读转写是为了自己把它译成这门语言（BCP 47，例如 en、zh-CN）时给：BaoCut 显示「正在翻译」，写入这门语言的译文后结束'),
   }),
   documents_put: z.strictObject({
     video: videoArg,
@@ -362,7 +368,7 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
       '读取视频里一份文档（转写、译文、字幕等）的正文。',
       '返回文档头（kind、名字、语言、来源素材与来源文档、各版本）、读到的版本与正文。',
       '改文档时先读当前版本，再用 documents_put 写入新的完整正文（document 给这个 documentId）。',
-      '转写（kind speech）另带 translationBasis：写译文要用的 sourceBasis 与按规则切好的句子（id、fingerprint、text、wordIds）。自己翻译后用 documents_put 新建译文：kind "translation"、language 为目标语言、sourceDocument 为这份转写的 documentId，body 为 {"schema":"baocut.translation/2","language":目标语言,"sourceBasis":translationBasis.sourceBasis,"units":[每句一个 {"id":"t-<句子 id>","sourceSentenceId":句子 id,"sourceFingerprint":句子 fingerprint,"naturalText":译文,"alignment":{"basis":"natural","correspondence":"sentence","blocks":[],"sourceWordIds":句子 wordIds},"status":"draft"}]}，字段不多不少。',
+      '转写（kind speech）另带 translationBasis：写译文要用的 sourceBasis 与按规则切好的句子（id、fingerprint、text、wordIds）。要自己翻译时读转写给 translateTo（目标语言）：BaoCut 在视频卡与字幕面板显示「正在翻译」，用 documents_put 写入这门语言的译文时结束（结果的 translationJob 是这条进度记录的 jobId）。自己翻译后用 documents_put 新建译文：kind "translation"、language 为目标语言、sourceDocument 为这份转写的 documentId，body 为 {"schema":"baocut.translation/2","language":目标语言,"sourceBasis":translationBasis.sourceBasis,"units":[每句一个 {"id":"t-<句子 id>","sourceSentenceId":句子 id,"sourceFingerprint":句子 fingerprint,"naturalText":译文,"alignment":{"basis":"natural","correspondence":"sentence","blocks":[],"sourceWordIds":句子 wordIds},"status":"draft"}]}，字段不多不少。',
       'alignment 是这句译文对应的原文词（句级对齐）：导出双语字幕与建字幕层都按它取时间。textHash（"sha256:" 加 naturalText 的 SHA-256）不用自己算，Runtime 写入时补上；写成 null 的，句子与指纹核对得上时 Runtime 同样补成句级对齐（回执的 filledAlignments 是补了几句）。',
       '要把转写或译文显示在画面上，用 captions_create 建字幕层，不要自己写字幕文档。',
     ].join('\n'),
@@ -729,7 +735,8 @@ export class VideoTools implements ToolSet {
   }
 
   async #readDocument(args: z.infer<(typeof schemas)['documents_read']>, principal: ToolPrincipal) {
-    const access = this.#scope.authorize(principal, false);
+    // 声明要翻译（translateTo）是要写的意图：规划模式下不登记。
+    const access = this.#scope.authorize(principal, args.translateTo !== undefined);
     const opened = await this.#scope.open(args.video, access);
     const videoId = opened.ref.videoId;
     if (!this.#videos.mirror(videoId)?.video.documents[args.documentId]) {
@@ -738,7 +745,21 @@ export class VideoTools implements ToolSet {
     }
     const content = await this.#videos.document(videoId, args.documentId, args.revision);
     const sequenceId = this.#videos.mirror(videoId)?.video.rootSequenceId ?? opened.snapshot.video.rootSequenceId;
-    return { videoId, ...content, ...translationBasis(content, sequenceId) };
+    const basis = translationBasis(content, sequenceId);
+    if (args.translateTo === undefined) return { videoId, ...content, ...basis };
+    if (content.document.kind !== 'speech') {
+      // i18n-ignore: 给模型的工具说明、错误与下一步
+      throw new ToolError('INVALID_ARGUMENTS', `translateTo 只用于转写（kind speech）；文档 ${args.documentId} 是 ${content.document.kind}`);
+    }
+    const sentences = (basis.translationBasis?.sentences as unknown[] | undefined)?.length ?? 0;
+    const jobId = this.#scope.translationStarted?.(access, {
+      videoId,
+      sourceDocumentId: content.document.id,
+      language: args.translateTo,
+      sentences,
+      sourceRevision: content.revision,
+    });
+    return { videoId, ...content, ...basis, ...(jobId ? { translationJob: jobId } : {}) };
   }
 
   async #apply(args: z.infer<(typeof schemas)['edits_apply']>, principal: ToolPrincipal) {
@@ -867,6 +888,14 @@ export class VideoTools implements ToolSet {
       principal,
       { ...taskOf(access), protections: this.#scope.protections?.(access, opened.ref.videoId) ?? [] },
     );
+    // 写入了译文：智能体自己翻译的进度记录（`documents_read` 的 translateTo）随之完成。
+    for (const op of operations) {
+      const source = (op.sourceDocument as { documentId?: unknown } | undefined)?.documentId;
+      if (op.type !== 'putDocument' || op.kind !== 'translation' || typeof source !== 'string' || typeof op.language !== 'string') continue;
+      const documentId =
+        typeof op.documentId === 'string' ? op.documentId : typeof op.ref === 'string' ? (result.receipt.refs?.[op.ref] ?? null) : null;
+      this.#scope.translationWritten?.(access, { videoId: opened.ref.videoId, sourceDocumentId: source, language: op.language, documentId });
+    }
     return { result, digest: this.#receipt(opened, result, access), filledAlignments };
   }
 

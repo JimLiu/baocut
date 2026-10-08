@@ -40,7 +40,12 @@ export type JobKind =
   /** 音色克隆（架构设计 §5.9）：把库里音色的参考录音上传给 Provider 建一个克隆。 */
   | 'voiceClone'
   /** 按需下载的字体（`fonts.download`、预览与导出自动下载，§9.1）：一个族的几个 face。 */
-  | 'fontDownload';
+  | 'fontDownload'
+  /**
+   * 会话里的智能体自己翻译一份转写（`documents_read` 给了 `translateTo`）：没有 Worker、不排队，只是一条进度记录，
+   * 让视频卡与字幕面板看得到「正在翻译」。智能体写入这门语言的译文时完成，回合结束还没写时中断（用户停止的取消）。
+   */
+  | 'agentTranslate';
 
 export type JobState = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted' | 'needs-reconciliation';
 
@@ -387,6 +392,8 @@ export interface JobRecord {
   library?: JobLibraryUse;
   /** 外发调用用到的授权与预算：哪条授权（哪一代）、预留与结算（架构设计 §12.5、§7.8）。本机与节点任务没有。 */
   grant?: JobGrantUse;
+  /** 智能体自己翻译（`kind: 'agentTranslate'`）：译自哪份转写、译成什么语言、要译多少句。 */
+  translation?: AgentTranslation;
   /** 固定流程的步骤（`kind: 'pipeline-step'`）：父任务的 `jobId`。`jobs.list` 默认把子任务折叠在父任务下。 */
   parentJobId?: Id;
   /** 固定流程的父任务（`kind: 'pipeline'`）：冻结的参数与每一步的状态。 */
@@ -404,6 +411,16 @@ export interface JobRecord {
    * 固定流程里声明了需求的步骤在准入之前也有（子任务与父任务上都记着）。
    */
   wait?: JobWait;
+}
+
+/** 智能体自己翻译的范围（`JobRecord.translation`）。 */
+export interface AgentTranslation {
+  /** 译自的转写（kind `speech`）的 documentId。 */
+  sourceDocumentId: Id;
+  /** 目标语言（BCP 47）。 */
+  targetLanguage: string;
+  /** 转写按规则切好的句子数（`translationBasis.sentences` 的长度）。 */
+  sentences: number;
 }
 
 /**

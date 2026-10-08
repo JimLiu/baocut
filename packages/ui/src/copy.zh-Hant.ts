@@ -363,6 +363,7 @@ export const zhHant: CopyMessages = {
     toolUpdate: '更新工具',
     fontDownload: '下載字型',
     voiceClone: '克隆音色',
+    agentTranslate: '翻譯',
   },
   jobPhase: {
     queued: '排隊中',

@@ -239,6 +239,18 @@ describe.skipIf(!engine || !ffmpeg)('Space 缩略图（真实引擎 + ffmpeg）'
     expectImage(await ofVideo(linked.videoId), 'image/jpeg', 320, 180);
     expect(await ofVideo(empty.videoId)).toEqual({ kind: 'none' });
 
+    // 媒体通道按视频条目给主素材（会话里视频卡的就地播放）：同样不打开视频；没有片段的 not-found。
+    const resolveVideo = async (videoId: string) => {
+      const [entry] = (await client.request('space.list', { videoId, kind: 'video' })).entries;
+      return client.request('media.resolve', { entryId: entry!.id });
+    };
+    for (const ref of [managed, linked]) {
+      const handle = await resolveVideo(ref.videoId);
+      expect(handle.mimeType).toMatch(/^video\//);
+      expect(handle.size).toBe((await fs.stat(clip)).size);
+    }
+    expect((await resolveVideo(empty.videoId).then(() => null, (error: RpcError) => error))?.code).toBe('not-found');
+
     // 取封面不打开视频、不占写锁：照样能打开来编辑。
     const reopened = await client.request('videos.open', { projectId: project.id, path: managed.relPath });
     expect(reopened.ref.videoId).toBe(managed.videoId);

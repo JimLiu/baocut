@@ -9,12 +9,13 @@ import {
   type Id,
   type JobRecord,
   type JobSubmitter,
+  type TasksEvent,
   type VideoChange,
   type VideoCreated,
   type VideoOpenResult,
 } from '@baocut/protocol';
 import { engineProtections, type Harness } from '@baocut/harness';
-import { locateArtifact, type JobManager } from '@baocut/jobs';
+import { canonicalJson, isTerminal, locateArtifact, sha256Hex, type HostedJob, type JobManager } from '@baocut/jobs';
 import type { EngineProtection, VideoService } from '../videos/video-service.ts';
 import { scanDirectory } from '../space-catalog.ts';
 import type { AgentPrincipal } from './grants.ts';
@@ -28,6 +29,7 @@ import {
   type ScopedProject,
   type ToolPrincipal,
   type ToolScope,
+  type TranslationScope,
   type VideoRoot,
 } from './tool-scope.ts';
 
@@ -53,6 +55,10 @@ export class AgentScope implements ToolScope<AgentAccess> {
   readonly #jobs: JobManager;
   /** 按 videoId 找过的、没有打开的视频的目录：下次先核对它，不对再扫。 */
   readonly #located = new Map<Id, string>();
+  /** 智能体自己翻译的进度记录（`translationStarted`），按会话、视频、转写与语言；终结了就拿掉。 */
+  readonly #translations = new Map<string, { job: HostedJob; taskId: Id }>();
+  /** 订阅了任务中心（回合结束时收尾进度记录）。第一次登记进度记录时才订阅。 */
+  #watchingTasks = false;
 
   constructor(deps: { harness: Harness; videos: VideoService; jobs: JobManager }) {
     this.#harness = deps.harness;
@@ -196,6 +202,87 @@ export class AgentScope implements ToolScope<AgentAccess> {
         ? { ...created.target, conversationId: access.conversation.id }
         : created.target;
     this.#harness.recordVideoCreated(access.conversation.id, access.taskId, { ...created, target });
+  }
+
+  /**
+   * 智能体要自己翻译一份转写：登记一条 `agentTranslate` 进度记录（托管任务，不排队、不执行，不持有视频的租约），
+   * 视频卡与字幕面板据此显示「正在翻译」。写入这门语言的译文时完成（`translationWritten`）；回合结束还没写时，
+   * 用户停止的记为取消，别的记为中断。同一会话、同一视频、同一份转写、同一门语言的记录还在进行时沿用它。
+   */
+  translationStarted(access: AgentAccess, start: TranslationScope & { sentences: number; sourceRevision?: string }): Id | null {
+    const key = translationKey(access.conversation.id, start);
+    const open = this.#translations.get(key);
+    if (open && !isTerminal(open.job.record().state)) {
+      if (open.taskId === access.taskId) return open.job.jobId;
+      // 上一个回合留下的（它结束时本该收尾）：中断它，这个回合重新登记。
+      void open.job.finish('interrupted');
+    }
+    this.#watchTasks();
+    const now = new Date().toISOString();
+    const scope = { videoId: start.videoId, sourceDocumentId: start.sourceDocumentId, language: start.language };
+    const record: JobRecord = {
+      jobId: newId('job'),
+      kind: 'agentTranslate',
+      state: 'running',
+      phase: 'generating',
+      progress: null,
+      videoId: start.videoId,
+      assetId: null,
+      assetRevision: null,
+      contentHash: `sha256:${sha256Hex(canonicalJson({ documentId: start.sourceDocumentId, revision: start.sourceRevision ?? null }))}`,
+      providerId: `agent:${access.conversation.driverId}`,
+      modelId: access.conversation.driverId,
+      bundleId: null,
+      inputHash: `sha256:${sha256Hex(canonicalJson({ kind: 'agentTranslate', ...scope }))}`,
+      submitter: access.submitter,
+      attempt: 1,
+      createdAt: now,
+      updatedAt: now,
+      startedAt: now,
+      endedAt: null,
+      error: null,
+      result: null,
+      warnings: [],
+      translation: { sourceDocumentId: start.sourceDocumentId, targetLanguage: start.language, sentences: start.sentences },
+    };
+    // 取消只结束这条记录，不停智能体的回合（界面不给它放取消按钮）；Runtime 停止时中断。
+    let job: HostedJob | null = null;
+    const end = (state: 'cancelled' | 'interrupted') => {
+      this.#translations.delete(key);
+      void job?.finish(state);
+    };
+    job = this.#jobs.host(record, { hosted: 'agent-translate', control: { cancel: () => end('cancelled'), interrupt: () => end('interrupted') } });
+    this.#translations.set(key, { job, taskId: access.taskId });
+    return job.jobId;
+  }
+
+  /** 写入了一份译文：同一会话、同一视频、同一份转写、同一门语言的进度记录完成，结果指向写入的译文。 */
+  translationWritten(access: AgentAccess, written: TranslationScope & { documentId: Id | null }): void {
+    const key = translationKey(access.conversation.id, written);
+    const open = this.#translations.get(key);
+    if (!open) return;
+    this.#translations.delete(key);
+    void open.job.finish('completed', { result: { documentId: written.documentId, artifactId: '' } });
+  }
+
+  /** 回合结束（任务中心里任务不再进行）时收尾它还开着的进度记录：用户停止的记为取消，别的记为中断。 */
+  #watchTasks(): void {
+    if (this.#watchingTasks) return;
+    this.#watchingTasks = true;
+    this.#harness.subscribe('tasks', undefined, (event) => {
+      const payload = event.event as TasksEvent;
+      let ended: { taskId: Id; stopped: boolean } | null = null;
+      if (payload.type === 'task.removed') ended = { taskId: payload.taskId, stopped: false };
+      else if (payload.type === 'task.upsert' && payload.task.status !== 'running' && payload.task.status !== 'stopping') {
+        ended = { taskId: payload.task.taskId, stopped: payload.task.status === 'stopped' };
+      }
+      if (!ended) return;
+      for (const [key, open] of this.#translations) {
+        if (open.taskId !== ended.taskId) continue;
+        this.#translations.delete(key);
+        void open.job.finish(ended.stopped ? 'cancelled' : 'interrupted');
+      }
+    });
   }
 
   /** 任务合同此刻的保护范围：合同修改之后，之后的提交按新范围检查。 */
@@ -362,6 +449,10 @@ const VIDEO_ID = /^video_[0-9a-f]{8,32}$/;
 /** 这个会话提交的任务。 */
 export function ownedBy(record: JobRecord, conversation: Conversation): boolean {
   return record.submitter.kind === 'agent' && record.submitter.id === conversation.id;
+}
+
+function translationKey(conversationId: Id, scope: TranslationScope): string {
+  return [conversationId, scope.videoId, scope.sourceDocumentId, scope.language.toLowerCase()].join('\u0000');
 }
 
 function jobNotFound(jobId: Id): ToolError {

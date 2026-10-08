@@ -374,6 +374,7 @@ export const zhHans: CopyMessages = {
     toolUpdate: '更新工具',
     fontDownload: '下载字体',
     voiceClone: '克隆音色',
+    agentTranslate: '翻译',
   },
   jobPhase: {
     queued: '排队中',

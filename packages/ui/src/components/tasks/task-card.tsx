@@ -11,6 +11,7 @@ import Microphone from '@react-spectrum/s2/icons/Microphone';
 import Search from '@react-spectrum/s2/icons/Search';
 import Tools from '@react-spectrum/s2/icons/Tools';
 import UserAvatar from '@react-spectrum/s2/icons/UserAvatar';
+import Translate from '@react-spectrum/s2/icons/Translate';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { TASK_VIEW_COPY } from '../../copy.ts';
 import type { TaskKind, TaskRow, TaskTone } from '../../model/task-list.ts';
@@ -23,7 +24,8 @@ import { actionLabel, useTaskAction } from './use-task-actions.ts';
 
 /**
  * 种类图标（原型 page-tasks.jsx `KIND`）：转录 mic、语音 wave、图片 image、导出 export；Agent 任务用智能体图标。
- * 原型没画的种类：生成文本 AI、固定流程与其中一步 layers、模型安装 download、模型测试 checkmark、工具安装与更新 tools、音色克隆 user。
+ * 原型没画的种类：生成文本 AI、固定流程与其中一步 layers、模型安装 download、模型测试 checkmark、工具安装与更新 tools、音色克隆 user、
+ * 智能体自己翻译 translate。
  */
 export const KIND_ICON: Record<TaskKind, ComponentType> = {
   agent: AgentIcon,
@@ -41,6 +43,7 @@ export const KIND_ICON: Record<TaskKind, ComponentType> = {
   toolUpdate: Tools,
   fontDownload: Download,
   voiceClone: UserAvatar,
+  agentTranslate: Translate,
 };
 
 /** 原型 `.chip--*` 的色调对到 S2 Badge：accent 蓝、info 靛、notice 橙、neutral 灰。 */

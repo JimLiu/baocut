@@ -289,6 +289,20 @@ export interface ToolScope<A extends ToolAccess = ToolAccess> {
   exportBase(access: A, opened: VideoOpenResult): ExportBase;
   /** 这次调用所在任务的合同对这个视频的保护范围（§3.2），随修改交给引擎。没有任务合同的范围（对外服务）不实现。 */
   protections?(access: A, videoId: Id): EngineProtection[];
+  /**
+   * 智能体要自己翻译一份转写（`documents_read` 给了 `translateTo`）：登记一条进度记录（`kind: 'agentTranslate'`），返回它的 jobId；
+   * 同一视频、同一份转写、同一门语言的记录还在进行时沿用它。只有会话里的智能体实现：别的范围不登记，为 null。
+   */
+  translationStarted?(access: A, start: TranslationScope & { sentences: number; sourceRevision?: string }): Id | null;
+  /** 写入了一份译文（`putDocument` kind `translation`）：对应的进度记录完成。 */
+  translationWritten?(access: A, written: TranslationScope & { documentId: Id | null }): void;
+}
+
+/** 智能体自己翻译的对象：哪个视频的哪份转写，译成哪门语言。 */
+export interface TranslationScope {
+  videoId: Id;
+  sourceDocumentId: Id;
+  language: string;
 }
 
 /**
@@ -365,5 +379,11 @@ export class ScopeRouter implements ToolScope<ToolAccess> {
   }
   protections(access: ToolAccess, videoId: Id): EngineProtection[] {
     return this.#of(access.principal).protections?.(access, videoId) ?? [];
+  }
+  translationStarted(access: ToolAccess, start: TranslationScope & { sentences: number; sourceRevision?: string }): Id | null {
+    return this.#of(access.principal).translationStarted?.(access, start) ?? null;
+  }
+  translationWritten(access: ToolAccess, written: TranslationScope & { documentId: Id | null }): void {
+    this.#of(access.principal).translationWritten?.(access, written);
   }
 }

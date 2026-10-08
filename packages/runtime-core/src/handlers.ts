@@ -340,6 +340,11 @@ export function createHandlers({
           const { root, file } = attachments.fileOf(ref);
           return { ...(await media.issue(root, file)), fileName: ref.fileName };
         }
+        if ('entryId' in p && space.get(p.entryId).kind === 'video') {
+          // 视频条目是一个目录：给它的主素材（封面那一帧所在的素材版本），会话里的视频卡就地播放用（产品设计 §3.2.2）。
+          const { root, file } = await spaceThumbnails.videoSource(p.entryId);
+          return { ...(await media.issue(root, file)), fileName: space.get(p.entryId).name };
+        }
         const { root, file } = 'entryId' in p ? space.locateBytes(p.entryId) : locateMedia(p);
         return media.issue(root, file);
       },

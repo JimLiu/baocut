@@ -376,6 +376,7 @@ export const ko: CopyMessages = {
     toolUpdate: '도구 업데이트',
     fontDownload: '글꼴 다운로드',
     voiceClone: '목소리 복제',
+    agentTranslate: '번역',
   },
   jobPhase: {
     queued: '대기 중',

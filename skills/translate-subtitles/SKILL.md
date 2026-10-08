@@ -1,7 +1,7 @@
 ---
 name: translate-subtitles
 description: 用户要把视频的转写或字幕翻译成另一种语言、做双语字幕，或更新原文改动后过期的译文时用：逐句翻译写成视频里的译文文档，再放到画面上、按需导出。有媒体时「翻译」默认指字幕翻译。不用于翻译与视频无关的文章、文档或一段纯文本；对话里没有视频或字幕、又看不出指的是什么时先问一次。
-version: 1.1.0
+version: 1.2.0
 ---
 
 # 翻译字幕
@@ -19,7 +19,7 @@ version: 1.1.0
 
 ## 2. 通读，定下译法
 
-用 documents_read 读转写，它带的 translationBasis 给出切好的句子。动笔前先通读全文，定下这几件事，翻译时全文照它们：
+用 documents_read 读转写，translateTo 给目标语言：BaoCut 据此在视频卡与字幕面板显示「正在翻译」，写入这门语言的译文时结束。它带的 translationBasis 给出切好的句子。动笔前先通读全文，定下这几件事，翻译时全文照它们：
 
 - **内容概要**：一两句话说清这个视频讲什么，用来理解上下文。
 - **术语**：认出原文里的术语（转写可能把它们拼错，留意同一个术语的几种错写），每个术语全文只用一种译法。
@@ -53,7 +53,7 @@ version: 1.1.0
 ## 4. 写回视频
 
 - 照 documents_read 说明里的写法，用 documents_put 写入完整的译文：新建时给 kind `translation`、language 为目标语言、sourceDocument 为转写的 documentId；更新已有的译文时给 document。每句一个单元，sourceBasis 用这次读到的 translationBasis，每个单元的对齐信息（对应原文哪一句、哪些词）也照说明填，不省略、不自己发明字段。一次 documents_put 写完整份。
-- **只重译变了的句子**（转写改过、剪过之后，或用户说译文过期了）：重新 documents_read 转写拿最新的 translationBasis，再读已有的译文。句子 id 与 fingerprint 都和已有单元对得上的，原样保留那一单元；对不上的和新出现的重新翻译；转写里已经没有的句子不再写。sourceBasis 换成新的。用户要求整份重译时才全部重来。
+- **只重译变了的句子**（转写改过、剪过之后，或用户说译文过期了）：重新 documents_read 转写（同样给 translateTo）拿最新的 translationBasis，再读已有的译文。句子 id 与 fingerprint 都和已有单元对得上的，原样保留那一单元；对不上的和新出现的重新翻译；转写里已经没有的句子不再写。sourceBasis 换成新的。用户要求整份重译时才全部重来。
 - 写之前转写又被改过（版本冲突或读到的已不是当前版本）时，重新读，按新的句子来。
 
 ## 5. 交付

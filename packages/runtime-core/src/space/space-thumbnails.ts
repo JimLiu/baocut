@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { SPACE_EXCERPT_MAX_BYTES, SPACE_THUMBNAIL_WIDTH, type Id, type SpaceEntry, type SpaceThumbnail } from '@baocut/protocol';
+import { RpcError, SPACE_EXCERPT_MAX_BYTES, SPACE_THUMBNAIL_WIDTH, type Id, type SpaceEntry, type SpaceThumbnail } from '@baocut/protocol';
+import { RcSpace } from '@baocut/protocol/messages/runtime-core';
 import type { Logger } from '@baocut/harness';
 import type { MediaAnalysis, MediaFrame } from '../media-analysis.ts';
 import { resolveInside } from '../media.ts';
@@ -85,6 +86,18 @@ export class SpaceThumbnails {
       default:
         return NONE;
     }
+  }
+
+  /**
+   * 视频条目的主素材文件（媒体通道 `media.resolve` 的 `entryId`，会话里视频卡的就地播放）：封面那一帧所在的素材版本，
+   * 与缩略图同一个来源，不打开视频、不取写锁。它是素材本身，没有套用时间线上的剪辑、字幕与叠加。没有封面时 not-found。
+   */
+  async videoSource(entryId: Id): Promise<{ root: string; file: string }> {
+    const { catalog, assetFileAt } = this.#deps;
+    const dir = catalog.videoEntry(entryId).dir;
+    const poster = (await catalog.index?.ensure(dir))?.facts.poster;
+    if (!poster) throw new RpcError('not-found', RcSpace.noReadableFile());
+    return assetFileAt(dir, poster.assetId, poster.revision);
   }
 
   /** 视频的封面：来源目录里的视频才有（删除了的视频不在内容索引里）。 */

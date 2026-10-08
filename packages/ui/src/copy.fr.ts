@@ -413,6 +413,7 @@ export const fr: CopyMessages = {
     toolUpdate: "Mettre l’outil à jour",
     fontDownload: "Télécharger la police",
     voiceClone: "Cloner la voix",
+    agentTranslate: "Traduire",
   },
 
   jobPhase: {

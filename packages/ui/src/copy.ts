@@ -448,6 +448,7 @@ const en = {
     toolUpdate: 'Update tool',
     fontDownload: 'Download font',
     voiceClone: 'Clone voice',
+    agentTranslate: 'Translate',
   },
   /** Job 的阶段（`JobPhase`）：列表与胶囊念「识别中 · 45%」。 */
   jobPhase: {
