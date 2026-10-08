@@ -278,6 +278,8 @@ fn operation_label(op: &EditOperation) -> &'static str {
         EditOperation::AddTrack { .. } => "新建轨道",
         EditOperation::DeleteTrack { .. } => "删除轨道",
         EditOperation::UpdateTrack { .. } => "修改轨道",
+        EditOperation::ArrangeItem { .. } => "调整叠放次序",
+        EditOperation::MoveTrack { .. } => "移动轨道",
         EditOperation::UpdateItem { .. } => "修改片段",
         EditOperation::SetTransform { .. } => "调整位置与大小",
         EditOperation::SetStyle { .. } => "修改样式",

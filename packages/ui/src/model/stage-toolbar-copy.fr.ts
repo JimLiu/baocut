@@ -15,7 +15,6 @@ export const fr: StageToolbarMessages = {
   },
   offReason: {
     animation: 'Le format vidéo ne prend pas encore en charge les animations : aucun champ ni aucune opération de modification ne permet de les enregistrer.',
-    arrange: 'L’ordre de superposition suit les pistes (paintOrder) et aucune opération ne permet encore de le modifier. Pour avancer ou reculer un clip, placez-le sur une piste plus haute ou plus basse de la timeline.',
     brand: 'Le kit de marque ne peut pas encore stocker de clips.',
     roundCorners: 'Le rayon des coins des vidéos et des images ne peut pas encore être enregistré (l’opération d’apparence n’accepte pas de rayon).',
     filters: 'Les filtres (LUT) sont un nom réservé dans le format vidéo et sont refusés à l’écriture.',
@@ -25,5 +24,6 @@ export const fr: StageToolbarMessages = {
     speed: 'Ce clip n’est pas lu à vitesse constante ; sa vitesse ne peut donc pas être modifiée ici.',
     sound: 'Ce clip n’a pas de son.',
   },
+  arrange: { front: 'Mettre au premier plan', forward: 'Avancer', backward: 'Reculer', back: 'Mettre à l’arrière-plan', label: 'Modifier l’ordre de superposition' },
   textStyleLocked: (schema) => `Ce texte utilise le format de style ${schema} et ne peut pas encore être modifié ici.`,
 };

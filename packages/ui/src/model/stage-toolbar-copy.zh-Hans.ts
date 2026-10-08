@@ -47,7 +47,6 @@ export const zhHans: StageToolbarMessages = {
   },
   offReason: {
     animation: '视频格式里还没有动画：没有可写的字段，也没有对应的修改操作。',
-    arrange: '叠放次序由引擎按轨道上下排（paintOrder），还没有修改它的操作；要换前后，在时间线上把片段挪到上面或下面的轨道。',
     brand: '品牌库还没有存入片段的接口。',
     roundCorners: '视频与图片的圆角还没有可写的操作（改外观的操作不收圆角）。',
     filters: '滤镜（LUT）在视频格式里是保留名，写入时会被拒绝。',
@@ -57,5 +56,6 @@ export const zhHans: StageToolbarMessages = {
     speed: '这一段的时间映射不是恒定速率，不能在这里变速。',
     sound: '这一件没有声音。',
   },
+  arrange: { front: '移到最前', forward: '前移一层', backward: '后移一层', back: '移到最后', label: '调整叠放次序' },
   textStyleLocked: (schema: string) => `这段文字的样式是 ${schema}，还不能在这里改。`,
 };

@@ -14,6 +14,7 @@ export const zhHans: EditorMessages = {
   notEditableNow: '视频暂时不能修改',
   timeline: '时间线',
   moveClips: '移动片段',
+  moveTrack: '移动轨道',
   importAndAdd: '导入并添加素材',
   seconds2: (seconds: number) => `${seconds.toFixed(2)} 秒`,
   emptyTimeline: '把素材拖进来，或从右侧面板添加',

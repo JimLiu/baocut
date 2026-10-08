@@ -19,7 +19,6 @@ export const es: StageToolbarMessages = {
   },
   offReason: {
     animation: 'El formato de vídeo aún no admite animaciones: no hay un campo donde escribirlas ni una operación para editarlas.',
-    arrange: 'El orden de apilamiento sigue las pistas (paintOrder) y aún no hay una operación para cambiarlo. Para adelantar o retrasar un clip, muévelo a una pista superior o inferior en la línea de tiempo.',
     brand: 'El kit de marca aún no puede guardar clips.',
     roundCorners: 'Aún no se puede escribir el radio de esquina de vídeos e imágenes (la operación de apariencia no acepta un radio).',
     filters: 'Los filtros (LUT) son un nombre reservado en el formato de vídeo y se rechazan al escribir.',
@@ -29,5 +28,6 @@ export const es: StageToolbarMessages = {
     speed: 'Este clip no se reproduce a una velocidad constante, por lo que no se puede cambiar su velocidad aquí.',
     sound: 'Este clip no tiene sonido.',
   },
+  arrange: { front: 'Traer al frente', forward: 'Traer adelante', backward: 'Enviar atrás', back: 'Enviar al fondo', label: 'Cambiar orden de apilamiento' },
   textStyleLocked: (schema: string) => `Este texto usa el formato de estilo ${schema} y aún no se puede editar aquí.`,
 };

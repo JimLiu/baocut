@@ -14,6 +14,7 @@ export const ko: EditorMessages = {
   notEditableNow: '지금은 영상을 편집할 수 없습니다',
   timeline: '타임라인',
   moveClips: '클립 이동',
+  moveTrack: '트랙 이동',
   importAndAdd: '소재 가져와 추가',
   seconds2: (seconds: number) => `${seconds.toFixed(2)}초`,
   emptyTimeline: '소재를 여기로 끌어 오거나 오른쪽 패널에서 추가하세요',

@@ -25,6 +25,7 @@ import { Timeline, type TimelineHandle } from './timeline.tsx';
 import { Transport } from './transport.tsx';
 import { ShortcutSheet } from './shortcut-sheet.tsx';
 import {
+  arrangeSelection,
   copySelection,
   cutSelection,
   deleteSelection,
@@ -352,6 +353,11 @@ function useEditorKeys(
 
       if (mod && !event.altKey) {
         if (event.shiftKey) return;
+        if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+          // ⌘↑ / ⌘↓：选中的画面元素前移 / 后移一层（画布工具条「层级」的两行）。
+          if (arrangeSelection(actions, event.key === 'ArrowUp' ? 'forward' : 'backward')) handled();
+          return;
+        }
         switch (letter) {
           case 'c':
             if (hasTextSelection()) return;
@@ -436,9 +442,15 @@ function useEditorKeys(
         return;
       }
       if (!event.altKey && !event.shiftKey && letter === 'f') {
-        // 全屏要在按键这一拍里请求（浏览器只认用户手势）。
+        // 选中画布上的一件时 F 是「移到最前」；没选中时是全屏，要在按键这一拍里请求（浏览器只认用户手势）。
         handled();
+        if (arrangeSelection(actions, 'front')) return;
         toggleFullscreen(root);
+        return;
+      }
+      if (!event.altKey && !event.shiftKey && letter === 'b') {
+        // B：选中的画面元素移到最后。
+        if (arrangeSelection(actions, 'back')) handled();
         return;
       }
       switch (event.key) {

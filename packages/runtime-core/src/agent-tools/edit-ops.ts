@@ -135,6 +135,19 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
     example: { type: 'moveItem', itemId: 'item_1', at: 5 },
   },
   {
+    type: 'arrangeItem',
+    family: 'items',
+    doc: [
+      '- {"type":"arrangeItem","itemId","direction":"forward"|"backward"|"front"|"back"}：调整画面片段的叠放次序（前移一层 / 后移一层 / 移到最前 / 移到最后）。叠放次序就是轨道的上下：与别的片段共用一条轨道时拆到相邻新建的轨道上，独占一条轨道时整条轨道挪位；已经在最前 / 最后时拒绝。',
+    ],
+    schema: op('arrangeItem', {
+      itemId: idOf('片段 ID'),
+      direction: z.enum(['forward', 'backward', 'front', 'back']).describe('forward 前移一层、backward 后移一层、front 移到最前、back 移到最后'),
+      sequenceId,
+    }),
+    example: { type: 'arrangeItem', itemId: 'item_1', direction: 'forward' },
+  },
+  {
     type: 'moveItems',
     family: 'items',
     doc: ['- {"type":"moveItems","moves":[{"itemId","at"?,"offset"?,"trackId"?}]}：一次移动多个片段。'],
@@ -628,6 +641,20 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
       sequenceId,
     }),
     example: { type: 'updateTrack', trackId: 'track_1', muted: true },
+  },
+  {
+    type: 'moveTrack',
+    family: 'tracks-and-sequences',
+    doc: [
+      '- {"type":"moveTrack","trackId","target","position":"above"|"below"}：把一条轨道挪到同类的另一条轨道（target）上面或下面，片段跟着轨道走；别的种类的轨道不动。',
+    ],
+    schema: op('moveTrack', {
+      trackId: idOf('轨道 ID'),
+      target: idOf('作为参照的同类轨道 ID'),
+      position: z.enum(['above', 'below']).describe('放在参照轨道的上面（above）还是下面（below）'),
+      sequenceId,
+    }),
+    example: { type: 'moveTrack', trackId: 'track_2', target: 'track_1', position: 'below' },
   },
   {
     type: 'updateSequence',

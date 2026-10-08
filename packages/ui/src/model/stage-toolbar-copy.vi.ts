@@ -47,7 +47,6 @@ export const vi: StageToolbarMessages = {
   },
   offReason: {
     animation: 'Định dạng video chưa có hoạt ảnh: không có trường để ghi và thao tác chỉnh sửa tương ứng.',
-    arrange: 'Thứ tự xếp chồng theo rãnh (paintOrder) và chưa có thao tác thay đổi. Để đưa clip ra trước hoặc sau, chuyển clip sang rãnh cao hơn hoặc thấp hơn trên dòng thời gian.',
     brand: 'Bộ thương hiệu chưa thể lưu clip.',
     roundCorners: 'Chưa thể ghi bán kính góc cho video và hình ảnh (thao tác ngoại hình không nhận bán kính).',
     filters: 'Bộ lọc (LUT) là tên dành riêng trong định dạng video và bị từ chối khi ghi.',
@@ -57,5 +56,6 @@ export const vi: StageToolbarMessages = {
     speed: 'Clip này không phát ở tốc độ cố định nên không thể đổi tốc độ tại đây.',
     sound: 'Clip này không có âm thanh.',
   },
+  arrange: { front: 'Đưa lên trên cùng', forward: 'Đưa lên trước', backward: 'Đưa ra sau', back: 'Đưa xuống dưới cùng', label: 'Thay đổi thứ tự xếp chồng' },
   textStyleLocked: (schema: string) => `Văn bản này dùng định dạng kiểu ${schema} và chưa thể chỉnh sửa tại đây.`,
 };

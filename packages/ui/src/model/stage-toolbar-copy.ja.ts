@@ -47,8 +47,6 @@ export const ja: StageToolbarMessages = {
   },
   offReason: {
     animation: '動画フォーマットにはまだアニメーションがありません。書き込むフィールドも、対応する編集操作もありません。',
-    arrange:
-      '重なり順はトラックの順序（paintOrder）に従い、変更する操作はまだありません。クリップを前面または背面に移すには、タイムラインで上または下のトラックに移動してください。',
     brand: 'ブランドキットにはまだクリップを保存できません。',
     roundCorners: '動画と画像の角の丸みはまだ書き込めません（外観の操作は半径を受け付けません）。',
     filters: 'フィルタ（LUT）は動画フォーマットの予約名で、書き込むと拒否されます。',
@@ -58,5 +56,6 @@ export const ja: StageToolbarMessages = {
     speed: 'このクリップは一定の速度で再生されないため、ここでは速度を変更できません。',
     sound: 'このクリップには音声がありません。',
   },
+  arrange: { front: '最前面へ移動', forward: '前面へ移動', backward: '背面へ移動', back: '最背面へ移動', label: '重なり順を変更' },
   textStyleLocked: (schema: string) => `このテキストは ${schema} スタイル形式のため、ここではまだ編集できません。`,
 };

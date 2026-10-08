@@ -14,6 +14,7 @@ export const zhHant: EditorMessages = {
   notEditableNow: '目前無法編輯影片',
   timeline: '時間軸',
   moveClips: '移動片段',
+  moveTrack: '移動軌道',
   importAndAdd: '匯入並新增素材',
   seconds2: (seconds: number) => `${seconds.toFixed(2)} 秒`,
   emptyTimeline: '將素材拖曳到這裡，或從右側面板新增',

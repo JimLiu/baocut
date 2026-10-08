@@ -141,7 +141,9 @@ const rulerLane = style({
 const tick = style({ position: 'absolute', bottom: 0, width: 1, backgroundColor: 'gray-400' });
 const tickLabel = style({ position: 'absolute', top: 2, font: 'ui-xs', color: 'gray-600', whiteSpace: 'nowrap', paddingStart: 4 });
 /** 行与行之间不画线（同原型），靠行头列与片段区分。 */
-const row = style({ display: 'flex' });
+const row = style({ position: 'relative', display: 'flex' });
+/** 拖行头换顺序时，落点那一行上缘或下缘的一条线。 */
+const trackDropLine = style({ position: 'absolute', insetStart: 0, insetEnd: 0, height: 2, backgroundColor: 'blue-800', zIndex: 3, pointerEvents: 'none' });
 /** 行头：类别图标 + 名字，开关靠右（原型 `.trow__hd`）；停用的行连名字一起降低强调。 */
 const header = style({
   position: 'sticky',
@@ -164,6 +166,7 @@ const header = style({
   borderColor: 'gray-200',
   font: 'ui-xs',
   color: { default: 'gray-700', isOff: 'gray-400' },
+  cursor: { default: 'default', isDraggable: 'grab' },
   '--iconPrimary': { type: 'fill', value: 'currentColor' },
 });
 const headerLabel = style({ flexGrow: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
@@ -301,6 +304,31 @@ const emptyBox = style({
   pointerEvents: 'none',
 });
 
+/** 拖行头的落点：同类的另一行，放在它显示上的上面还是下面。 */
+interface TrackDrop {
+  trackId: Id;
+  position: 'above' | 'below';
+}
+
+/**
+ * 时间线上的上下 → `moveTrack` 的上下：画面与字幕行按 `order` 从高到低排（上面的在前面），声音行从低到高
+ * （model/editor.ts 的 `trackRows`），所以声音行的「上面」是 `order` 更小的那边。
+ */
+function trackPlacement(kind: Track['kind'], position: TrackDrop['position']): 'above' | 'below' {
+  if (kind !== 'audio') return position;
+  return position === 'above' ? 'below' : 'above';
+}
+
+/** 拖到紧挨着自己的行、又落在靠自己的那一边：位置不变，不算换。 */
+function trackDropChanges(rows: readonly { track: Track }[], trackId: Id, drop: TrackDrop): boolean {
+  const from = rows.findIndex((row) => row.track.id === trackId);
+  const to = rows.findIndex((row) => row.track.id === drop.trackId);
+  if (from < 0 || to < 0) return false;
+  if (drop.position === 'above' && to === from + 1) return false;
+  if (drop.position === 'below' && to === from - 1) return false;
+  return true;
+}
+
 type Gesture =
   | {
       kind: 'move';
@@ -315,6 +343,16 @@ type Gesture =
       snap: number | null;
     }
   | { kind: 'trim'; itemId: Id; edge: 'start' | 'end'; frame: number; snap: number | null }
+  | {
+      /** 按住行头拖，换这条轨道在同类轨道里的上下：目标是同类的另一行，放在它上面或下面（显示上的上下）。 */
+      kind: 'track';
+      trackId: Id;
+      originY: number;
+      started: boolean;
+      /** 行跟着指针挪多少像素。 */
+      offsetY: number;
+      target: TrackDrop | null;
+    }
   /** 拖配音块的右缘改语速：松手一次 `setSpeed`。`room` 是到同轨下一件起点的长度。 */
   | { kind: 'stretch'; itemId: Id; originX: number; seconds0: number; room: number | null; stretch: Stretch | null }
   | {
@@ -593,6 +631,17 @@ export function Timeline({
     });
   };
 
+  /** 同类的行不止一条时行头可以拖着换顺序（锁着的不拖，只读时不拖）。 */
+  const canDragTrack = (track: Track) => editable && !track.locked && rows.filter((r) => r.track.kind === track.kind).length > 1;
+
+  /** 按住行头：拖起来就换这条轨道的上下（设计稿里行头可拖）。按在开关钮上不算。 */
+  const onHeaderPointerDown = (event: ReactPointerEvent<HTMLDivElement>, track: Track) => {
+    if (event.button !== 0 || !canDragTrack(track)) return;
+    if ((event.target as HTMLElement).closest('button, [role="button"], input')) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setGesture({ kind: 'track', trackId: track.id, originY: event.clientY, started: false, offsetY: 0, target: null });
+  };
+
   /** 在轨道区空白处按下：拖出矩形就框选，没拖起来就是点空白（清选区；按着修饰键时不动）。片段、行头、刻度尺自己拦下了按下。 */
   const onBlankPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     const element = scrollRef.current;
@@ -632,6 +681,22 @@ export function Timeline({
       if (item?.type !== 'audio') return;
       const want = gesture.seconds0 + (event.clientX - gesture.originX) / pps;
       setGesture({ ...gesture, stretch: stretchSpeed(item, want, gesture.room) });
+      return;
+    }
+    if (gesture.kind === 'track') {
+      const dy = event.clientY - gesture.originY;
+      if (!gesture.started && Math.abs(dy) < DRAG_PX) return;
+      const own = tracks.get(gesture.trackId);
+      let target: TrackDrop | null = null;
+      for (const [id, element] of laneRefs.current) {
+        if (id === gesture.trackId || tracks.get(id)?.kind !== own?.kind) continue;
+        const rect = element.getBoundingClientRect();
+        if (event.clientY < rect.top || event.clientY >= rect.bottom) continue;
+        target = { trackId: id, position: event.clientY < (rect.top + rect.bottom) / 2 ? 'above' : 'below' };
+        break;
+      }
+      if (target && !trackDropChanges(rows, gesture.trackId, target)) target = null;
+      setGesture({ ...gesture, started: true, offsetY: dy, target });
       return;
     }
     const playheadFrame = frameAt(useEditor.getState().playhead, fps);
@@ -686,6 +751,23 @@ export function Timeline({
       if (item?.type === 'audio' && done.stretch && stretchChanged(item, done.stretch)) {
         void apply([{ type: 'setSpeed', sequenceId: sequence.id, itemId: item.id, rate: done.stretch.rate }], DUB_COPY.labelStretch);
       }
+      return;
+    }
+    if (done.kind === 'track') {
+      const track = tracks.get(done.trackId);
+      if (!done.started || !done.target || !track) return;
+      void apply(
+        [
+          {
+            type: 'moveTrack',
+            sequenceId: sequence.id,
+            trackId: done.trackId,
+            target: done.target.trackId,
+            position: trackPlacement(track.kind, done.target.position),
+          },
+        ],
+        E.moveTrack,
+      );
       return;
     }
     if (done.kind === 'move') {
@@ -808,9 +890,10 @@ export function Timeline({
   const startOf = (item: SequenceItem) => itemFrames(item, fps);
   const moving = gesture?.kind === 'move' && gesture.started ? gesture : null;
   const trimming = gesture?.kind === 'trim' ? gesture : null;
+  const draggingTrack = gesture?.kind === 'track' && gesture.started ? gesture : null;
   const stretching = gesture?.kind === 'stretch' ? gesture : null;
   const marquee = gesture?.kind === 'marquee' && gesture.started ? gesture : null;
-  const gestureItemId = gesture && gesture.kind !== 'marquee' ? gesture.itemId : null;
+  const gestureItemId = gesture && gesture.kind !== 'marquee' && gesture.kind !== 'track' ? gesture.itemId : null;
 
   // ---- 只画时间窗里的件 ----
   // 窗外的件不挂 DOM。不管在不在窗里都要画的：按着的那一件（移动、裁边、拉伸都对它 setPointerCapture，卸掉就丢了捕获）
@@ -978,10 +1061,33 @@ export function Timeline({
       // 配音分离出的分轨：行头写「背景声 · 语言」「人声 · 语言」，同配音行。
       const stem = track.kind === 'audio' ? stemTrackOf(sequence, track.id) : null;
       const name = stem?.language ? DUB_COPY.stemTrackLabel(stem.stem, langName(stem.language)) : label;
-      return <TrackHeader track={track} label={name} hint={name} flag={false} editable={editable} sequenceId={sequence.id} />;
+      return (
+        <TrackHeader
+          track={track}
+          label={name}
+          hint={name}
+          flag={false}
+          editable={editable}
+          sequenceId={sequence.id}
+          draggable={canDragTrack(track)}
+          onDragStart={(event) => onHeaderPointerDown(event, track)}
+        />
+      );
     }
     const name = group.language ? DUB_COPY.trackLabel(langName(group.language)) : label;
-    return <DubTrackHeader track={track} group={group} name={name} sequence={sequence} documents={documents} blocks={dubs} editable={editable} />;
+    return (
+      <DubTrackHeader
+        track={track}
+        group={group}
+        name={name}
+        sequence={sequence}
+        documents={documents}
+        blocks={dubs}
+        editable={editable}
+        draggable={canDragTrack(track)}
+        onDragStart={(event) => onHeaderPointerDown(event, track)}
+      />
+    );
   };
   const readoutFrame = moving
     ? (() => {
@@ -1063,7 +1169,19 @@ export function Timeline({
             />
           ))}
           {rows.map(({ track, label }) => (
-            <div key={track.id} className={row} style={{ height: ROW_HEIGHT[track.kind] }}>
+            <div
+              key={track.id}
+              className={row}
+              style={{
+                height: ROW_HEIGHT[track.kind],
+                // 拖行头时这一行跟着指针走（不换父节点，指针捕获不断），压在别的行上面。
+                transform: draggingTrack?.trackId === track.id ? `translateY(${draggingTrack.offsetY}px)` : undefined,
+                zIndex: draggingTrack?.trackId === track.id ? 6 : undefined,
+                opacity: draggingTrack?.trackId === track.id ? 0.85 : undefined,
+              }}>
+              {draggingTrack?.target?.trackId === track.id ? (
+                <div className={trackDropLine} style={draggingTrack.target.position === 'above' ? { top: -1 } : { bottom: -1 }} />
+              ) : null}
               {trackHeader(track, label)}
               <div
                 ref={(element) => {
@@ -1188,6 +1306,8 @@ function DubTrackHeader({
   documents,
   blocks,
   editable,
+  draggable,
+  onDragStart,
 }: {
   track: Track;
   group: DubGroup;
@@ -1196,6 +1316,8 @@ function DubTrackHeader({
   documents: Record<Id, DocumentRecord>;
   blocks: ReadonlyMap<Id, DubBlock>;
   editable: boolean;
+  draggable: boolean;
+  onDragStart(event: ReactPointerEvent<HTMLDivElement>): void;
 }) {
   const { counts } = useDubTrack(group, sequence, documents, blocks);
   return (
@@ -1207,6 +1329,8 @@ function DubTrackHeader({
       menu={<DubHeadMenu group={group} label={name} sequence={sequence} documents={documents} blocks={blocks} />}
       editable={editable}
       sequenceId={sequence.id}
+      draggable={draggable}
+      onDragStart={onDragStart}
     />
   );
 }
@@ -1219,6 +1343,8 @@ function TrackHeader({
   menu,
   editable,
   sequenceId,
+  draggable,
+  onDragStart,
 }: {
   track: Track;
   label: string;
@@ -1230,6 +1356,9 @@ function TrackHeader({
   menu?: ReactNode;
   editable: boolean;
   sequenceId: Id;
+  /** 同类的行不止一条时可以拖着换顺序。 */
+  draggable: boolean;
+  onDragStart(event: ReactPointerEvent<HTMLDivElement>): void;
 }) {
   const { apply } = useEditorActions();
   const update = (patch: { visible?: boolean; muted?: boolean; locked?: boolean }, what: string) =>
@@ -1237,7 +1366,12 @@ function TrackHeader({
   const off = track.kind === 'audio' ? track.muted : !track.visible;
   const Icon = TRACK_ICON[track.kind];
   return (
-    <div className={header({ isOff: off })} onPointerDown={(event) => event.stopPropagation()}>
+    <div
+      className={header({ isOff: off, isDraggable: draggable })}
+      onPointerDown={(event) => {
+        event.stopPropagation();
+        onDragStart(event);
+      }}>
       <Icon styles={clipIcon} data-bc-icons="own" />
       <span className={headerLabel} title={hint}>
         {label}

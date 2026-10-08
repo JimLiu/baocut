@@ -4,6 +4,7 @@ import {
   itemAssetRefs,
   itemTimeMap,
   mediaTimeToSeconds,
+  type ArrangeDirection,
   type AssetRecord,
   type DocumentRecord,
   type EditOperation,
@@ -618,4 +619,26 @@ export function dubGroupCard(sequence: Sequence | null, assets: Record<Id, Asset
 /** 段头旁注（设计稿 `audioAside`）：`2 组配音 · 65 个文件` / `2 个文件`。 */
 export function audioAside(groups: number, files: number): string {
   return M.aside(groups, files);
+}
+
+// ---- 画布上的「层级」 ----
+
+/**
+ * 这一件还能不能往这个方向换一层。叠放次序就是轨道的上下（命令协议规范 §4.2 `arrangeItem`）：与别的片段共用一条轨道的
+ * 总能拆到相邻新建的轨道上；独占一条轨道、又已经在同类轨道的最上 / 最下时不能再走。声音与字幕没有叠放次序。
+ */
+export function canArrange(sequence: Sequence, itemId: Id, direction: ArrangeDirection): boolean {
+  const item = sequence.items.find((candidate) => candidate.id === itemId);
+  if (!item || item.type === 'audio' || item.type === 'caption') return false;
+  const track = sequence.tracks.find((candidate) => candidate.id === item.trackId);
+  if (!track) return false;
+  if (sequence.items.some((other) => other.trackId === item.trackId && other.id !== itemId)) return true;
+  const upward = direction === 'forward' || direction === 'front';
+  return sequence.tracks.some((other) => other.kind === track.kind && (upward ? other.order > track.order : other.order < track.order));
+}
+
+/** 「层级」的一笔；走不动时 null（菜单项灰着，快捷键什么都不做）。 */
+export function arrangeOperation(sequence: Sequence, itemId: Id, direction: ArrangeDirection): EditOperation | null {
+  if (!canArrange(sequence, itemId, direction)) return null;
+  return { type: 'arrangeItem', sequenceId: sequence.id, itemId, direction };
 }

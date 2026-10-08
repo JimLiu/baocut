@@ -47,7 +47,6 @@ export const tr: StageToolbarMessages = {
   },
   offReason: {
     animation: 'Video biçiminde henüz animasyon yok: yazılacak alan ve düzenleme işlemi yok.',
-    arrange: 'Yığılma sırası izlere göre belirlenir (paintOrder) ve henüz bunu değiştirecek işlem yok. Klipi öne veya arkaya almak için zaman çizelgesinde daha üst veya alt bir ize taşıyın.',
     brand: 'Marka kiti henüz klip saklayamıyor.',
     roundCorners: 'Video ve görsellerin köşe yarıçapı henüz yazılamıyor (görünüm işlemi yarıçap kabul etmiyor).',
     filters: 'Filtreler (LUT) video biçiminde ayrılmış bir addır ve yazılırken reddedilir.',
@@ -57,5 +56,6 @@ export const tr: StageToolbarMessages = {
     speed: 'Bu klip sabit hızda oynatılmadığından hızı burada değiştirilemez.',
     sound: 'Bu klipte ses yok.',
   },
+  arrange: { front: 'En öne getir', forward: 'Öne getir', backward: 'Arkaya gönder', back: 'En arkaya gönder', label: 'Yığılma sırasını değiştir' },
   textStyleLocked: (schema: string) => `Bu metin ${schema} stil biçimini kullanıyor ve henüz burada düzenlenemiyor.`,
 };

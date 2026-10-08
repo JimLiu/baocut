@@ -64,8 +64,6 @@ const en = {
   /** 协议里还没有对应操作的几格：为什么不能用。 */
   offReason: {
     animation: 'The video format has no animations yet: there is no field to write and no edit operation for it.',
-    arrange:
-      'Stacking order follows the tracks (paintOrder) and there is no operation to change it yet. To bring a clip forward or back, move it to a higher or lower track on the timeline.',
     brand: 'The brand kit cannot store clips yet.',
     roundCorners: 'Corner radius for videos and images cannot be written yet (the appearance operation does not take a radius).',
     filters: 'Filters (LUT) are a reserved name in the video format and are rejected on write.',
@@ -74,6 +72,14 @@ const en = {
     detach: 'Detach audio is not wired up yet: it needs to add an audio clip and mute the video in the same edit.',
     speed: 'This clip does not play at a constant rate, so its speed cannot be changed here.',
     sound: 'This clip has no sound.',
+  },
+  /** 「层级」下钻页的四行与这一笔的名字。 */
+  arrange: {
+    front: 'Bring to front',
+    forward: 'Bring forward',
+    backward: 'Send backward',
+    back: 'Send to back',
+    label: 'Change stacking order',
   },
   textStyleLocked: (schema: string) => `This text uses the ${schema} style format and cannot be edited here yet.`,
 };

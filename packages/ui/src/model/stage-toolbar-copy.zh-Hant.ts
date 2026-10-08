@@ -47,7 +47,6 @@ export const zhHant: StageToolbarMessages = {
   },
   offReason: {
     animation: '影片格式目前還沒有動畫：沒有可寫入的欄位，也沒有對應的編輯操作。',
-    arrange: '堆疊順序依軌道上下決定（paintOrder），目前還沒有可修改它的操作。若要移到前面或後面，請在時間軸上把片段移到上方或下方的軌道。',
     brand: '品牌庫目前還無法儲存片段。',
     roundCorners: '影片與圖片的圓角目前還無法寫入（外觀操作不接受圓角半徑）。',
     filters: '濾鏡（LUT）是影片格式中的保留名稱，寫入時會被拒絕。',
@@ -57,5 +56,6 @@ export const zhHant: StageToolbarMessages = {
     speed: '這個片段不是以固定速率播放，因此無法在這裡變更速度。',
     sound: '這個片段沒有聲音。',
   },
+  arrange: { front: '移到最前', forward: '前移一層', backward: '後移一層', back: '移到最後', label: '調整堆疊順序' },
   textStyleLocked: (schema: string) => `這段文字使用 ${schema} 樣式格式，目前還無法在這裡編輯。`,
 };

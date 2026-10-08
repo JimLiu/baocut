@@ -15,6 +15,7 @@ export const pl: EditorMessages = {
   notEditableNow: "Nie można teraz edytować wideo",
   timeline: "Oś czasu",
   moveClips: "Przesuń klipy",
+  moveTrack: 'Przesuń ścieżkę',
   importAndAdd: "Importuj i dodaj materiały",
   seconds2: (seconds: number) => `${seconds.toFixed(2)}s`,
   emptyTimeline: "Przeciągnij materiały tutaj lub dodaj z panelu po prawej",

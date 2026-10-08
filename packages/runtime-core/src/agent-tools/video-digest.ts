@@ -396,9 +396,11 @@ const TIMED = new Set(['addItem', 'moveItem', 'moveItems', 'trimItem', 'splitIte
 const SEQUENCE_SCOPED = new Set([
   ...TIMED,
   'deleteItems',
+  'arrangeItem',
   'addTrack',
   'deleteTrack',
   'updateTrack',
+  'moveTrack',
   'updateSequence',
   'setDucking',
   'addCuts',

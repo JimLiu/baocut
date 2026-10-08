@@ -14,6 +14,7 @@ export const ja: EditorMessages = {
   notEditableNow: '動画は現在編集できません',
   timeline: 'タイムライン',
   moveClips: 'クリップを移動',
+  moveTrack: 'トラックを移動',
   importAndAdd: '素材を読み込んで追加',
   seconds2: (seconds: number) => `${seconds.toFixed(2)} 秒`,
   emptyTimeline: 'ここに素材をドラッグするか、右側のパネルから追加してください',

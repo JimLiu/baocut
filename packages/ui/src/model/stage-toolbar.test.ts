@@ -98,10 +98,13 @@ describe('配置表照原型摆', () => {
     for (const layout of Object.values(BAR)) expect(layout.visible.flat()).not.toContain('save-to-brand-kit');
   });
 
-  it('认不出的合成只有一颗「属性」，没有溢出菜单', () => {
+  it('认不出的合成只有一颗「属性」，菜单里只剩通用的复制 / 层级 / 时长 / 删除', () => {
     const spec = toolbarFor(composition({ kind: 'bundle', assetRef: { id: 'a', revision: 1 } }));
     expect(ids(spec.visible)).toEqual([['properties']]);
-    expect(spec.more).toBeNull();
+    expect(menuIds(spec.more)).toEqual([
+      ['copy', 'arrange'],
+      ['adjust-timing', 'delete'],
+    ]);
     expect(spec.visible[0]![0]!.action).toEqual({ kind: 'jump', section: null });
   });
 });
@@ -117,10 +120,17 @@ describe('每一格做什么', () => {
     }
   });
 
-  it('协议里没有对应操作的几格不能用：动画、层级、存到品牌库、圆角、滤镜、替换、分离音频、智能裁剪', () => {
+  it('协议里没有对应操作的几格不能用：动画、存到品牌库、圆角、滤镜、替换、分离音频、智能裁剪', () => {
     const spec = toolbarFor(video());
-    for (const id of ['animation', 'arrange', 'save-to-brand-kit', 'round-corners', 'filters', 'replace-video', 'detach-audio', 'crop-video']) {
+    for (const id of ['animation', 'save-to-brand-kit', 'round-corners', 'filters', 'replace-video', 'detach-audio', 'crop-video']) {
       expect(find(spec, id)?.action.kind, id).toBe('off');
+    }
+  });
+
+  it('「层级」在每一类画面元素的菜单里都下钻一层（四个方向）', () => {
+    for (const item of SAMPLES) {
+      const spec = toolbarFor(item);
+      expect(find(spec, 'arrange')?.action, item.type).toEqual({ kind: 'sub' });
     }
   });
 

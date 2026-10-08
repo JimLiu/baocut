@@ -6,7 +6,6 @@ export const it: StageToolbarMessages = {
   },
   offReason: {
     animation: 'Il formato video non ha ancora animazioni: non esiste un campo da scrivere né un’operazione di modifica.',
-    arrange: 'L’ordine di sovrapposizione segue le tracce (paintOrder) e non esiste ancora un’operazione per cambiarlo. Per portare una clip avanti o indietro, spostala su una traccia superiore o inferiore nella timeline.',
     brand: 'Il kit del brand non può ancora memorizzare clip.',
     roundCorners: 'Il raggio degli angoli per video e immagini non può ancora essere scritto (l’operazione di aspetto non accetta un raggio).',
     filters: 'I filtri (LUT) sono un nome riservato nel formato video e vengono rifiutati in scrittura.',
@@ -16,5 +15,6 @@ export const it: StageToolbarMessages = {
     speed: 'Questa clip non viene riprodotta a velocità costante, quindi non puoi cambiarne la velocità qui.',
     sound: 'Questa clip non ha suono.',
   },
+  arrange: { front: 'Porta in primo piano', forward: 'Porta avanti', backward: 'Porta indietro', back: 'Porta in secondo piano', label: 'Cambia ordine di sovrapposizione' },
   textStyleLocked: (schema: string) => `Questo testo usa il formato di stile ${schema} e non può ancora essere modificato qui.`,
 };

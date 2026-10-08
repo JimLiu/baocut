@@ -29,6 +29,7 @@ const en = {
   notEditableNow: 'The video can’t be edited right now',
   timeline: 'Timeline',
   moveClips: 'Move clips',
+  moveTrack: 'Move track',
   importAndAdd: 'Import and add assets',
   seconds2: (seconds: number) => `${seconds.toFixed(2)}s`,
   emptyTimeline: 'Drag assets here, or add them from the panel on the right',

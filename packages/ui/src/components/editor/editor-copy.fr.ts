@@ -15,6 +15,7 @@ export const fr: EditorMessages = {
   notEditableNow: "La vidéo ne peut pas être modifiée actuellement",
   timeline: "Timeline",
   moveClips: "Déplacer les clips",
+  moveTrack: 'Déplacer la piste',
   importAndAdd: "Importer et ajouter des médias",
   seconds2: (seconds: number) => `${seconds.toFixed(2)}s`,
   emptyTimeline: "Glissez des médias ici ou ajoutez-les depuis le panneau de droite",

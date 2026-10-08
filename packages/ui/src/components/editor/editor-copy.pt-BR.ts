@@ -15,6 +15,7 @@ export const ptBR: EditorMessages = {
   notEditableNow: "O vídeo não pode ser editado agora",
   timeline: "Linha do tempo",
   moveClips: "Mover clipes",
+  moveTrack: 'Mover faixa',
   importAndAdd: "Importar e adicionar mídias",
   seconds2: (seconds) => `${seconds.toFixed(2).replace('.', ',')} s`,
   emptyTimeline: "Arraste seu material aqui ou adicione pelo painel à direita",

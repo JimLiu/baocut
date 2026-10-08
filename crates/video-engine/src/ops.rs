@@ -219,6 +219,25 @@ pub enum EditOperation {
         #[serde(default)]
         name: Option<String>,
     },
+    /// 调整一个画面实例的叠放次序（画布上的「前移一层 / 后移一层 / 移到最前 / 移到最后」）。叠放次序就是轨道的上下：
+    /// 实例与别的实例共用一条轨道时，把它拆到相邻新建的一条轨道上（上面或下面的轨道整体让一格）；它独占一条轨道时，
+    /// 轨道整条在同类轨道里挪位（相邻两条互换，或挪到最上 / 最下，其余轨道顺次让位）。已经在最前 / 最后时拒绝。
+    ArrangeItem {
+        #[serde(default)]
+        sequence_id: Option<Id>,
+        item_id: Id,
+        direction: ArrangeDirection,
+    },
+    /// 把一条轨道挪到同类的另一条轨道上面或下面（时间线上拖动行头）。同类轨道原有的那组 `order` 值按新次序重新分配，
+    /// 别的种类的轨道不动。
+    MoveTrack {
+        #[serde(default)]
+        sequence_id: Option<Id>,
+        track_id: Id,
+        /// 作为参照的同类轨道。
+        target: Id,
+        position: TrackPosition,
+    },
     /// 改实例的名字、启用、锁定与跟随策略。锁定的实例只能先解锁；空的名字去掉实例自己的名字。`followPolicy` 整个替换
     /// （视频格式规范 §3.16），写法与 `insertItems` 的相同。
     UpdateItem {
@@ -606,6 +625,24 @@ pub enum Edge {
     End,
 }
 
+/// `arrangeItem` 的方向：往上一层、往下一层、最上、最下。
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ArrangeDirection {
+    Forward,
+    Backward,
+    Front,
+    Back,
+}
+
+/// `moveTrack` 放在参照轨道的上面还是下面。
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TrackPosition {
+    Above,
+    Below,
+}
+
 /// 把 JSON 解析成操作。时间输入的错误按时间的错误码报，其余按 `INVALID_OPERATION`。
 pub fn parse_operation(index: usize, value: &Value) -> EngineResult<EditOperation> {
     match serde_json::from_value::<EditOperation>(value.clone()) {
@@ -851,6 +888,17 @@ pub fn apply_operation(state: &mut VideoState, index: usize, op: &EditOperation,
             muted,
             name,
         } => update_track(state, sequence_id.as_deref(), track_id, *locked, *visible, *muted, name.clone()),
+        EditOperation::ArrangeItem {
+            sequence_id,
+            item_id,
+            direction,
+        } => arrange_item(state, sequence_id.as_deref(), item_id, *direction),
+        EditOperation::MoveTrack {
+            sequence_id,
+            track_id,
+            target,
+            position,
+        } => move_track(state, sequence_id.as_deref(), track_id, target, *position),
         EditOperation::UpdateItem {
             sequence_id,
             item_id,
@@ -2514,14 +2562,27 @@ fn add_track(
             reference = r
         )));
     }
-    let order = state
+    let order = max_track_order(state, &sequence_id) + 1;
+    let id = create_track(state, &sequence_id, kind, name, order)?;
+    if let Some(r) = reference {
+        ctx.track_refs.insert(r.to_string(), id);
+    }
+    Ok(())
+}
+
+/// 序列里最大的轨道 `order`（没有轨道时 0）。
+fn max_track_order(state: &VideoState, sequence_id: &str) -> i64 {
+    state
         .tracks
         .values()
         .filter(|t| t.sequence_id == sequence_id)
         .map(|t| t.value.order)
         .max()
         .unwrap_or(0)
-        + 1;
+}
+
+/// 新建一条轨道放在给定的 `order` 上；没给名字时按种类计数（V2、A3……）。
+fn create_track(state: &mut VideoState, sequence_id: &str, kind: TrackKind, name: Option<String>, order: i64) -> EngineResult<Id> {
     let count = state
         .tracks
         .values()
@@ -2534,15 +2595,12 @@ fn add_track(
         TrackKind::Subtitle => format!("S{count}"),
     };
     let id = new_id("track");
-    if let Some(r) = reference {
-        ctx.track_refs.insert(r.to_string(), id.clone());
-    }
     state.tracks.insert(
         id.clone(),
         Placed {
-            sequence_id,
+            sequence_id: sequence_id.to_string(),
             value: Track {
-                id,
+                id: id.clone(),
                 order,
                 kind,
                 name: Some(name.map_or(Ok(default_name), |n| clean_name(&n, kinds::track()))?),
@@ -2560,6 +2618,161 @@ fn add_track(
             },
         },
     );
+    Ok(id)
+}
+
+/// 序列里同一种类的轨道，按 `order` 从低到高（画面上从下到上）。
+fn tracks_of_kind(state: &VideoState, sequence_id: &str, kind: TrackKind) -> Vec<(Id, i64)> {
+    let mut tracks: Vec<(Id, i64)> = state
+        .tracks
+        .values()
+        .filter(|t| t.sequence_id == sequence_id && t.value.kind == kind)
+        .map(|t| (t.value.id.clone(), t.value.order))
+        .collect();
+    tracks.sort_by(|a, b| a.1.cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
+    tracks
+}
+
+/// 给新轨道腾出 `order == slot` 这个位置：序列里 `order >= slot` 的轨道整体加一（所有种类一起让，`order` 在序列内保持唯一）。
+fn open_track_slot(state: &mut VideoState, sequence_id: &str, slot: i64) {
+    for placed in state.tracks.values_mut() {
+        if placed.sequence_id == sequence_id && placed.value.order >= slot {
+            placed.value.order += 1;
+        }
+    }
+}
+
+/// 同类轨道按新的次序重新领取它们原有的那组 `order` 值：集合不变，只换谁拿哪个，别的种类的轨道不受影响。
+fn reassign_track_orders(state: &mut VideoState, ordered: &[Id], orders: &[i64]) {
+    debug_assert_eq!(ordered.len(), orders.len());
+    for (id, order) in ordered.iter().zip(orders) {
+        if let Some(placed) = state.tracks.get_mut(id)
+            && placed.value.order != *order
+        {
+            placed.value.order = *order;
+        }
+    }
+}
+
+/// `arrangeItem`：见 [`EditOperation::ArrangeItem`]。
+fn arrange_item(state: &mut VideoState, sequence_id: Option<&str>, item_id: &str, direction: ArrangeDirection) -> EngineResult<()> {
+    let placed = checked_item(state, sequence_id, item_id)?;
+    let sequence_id = placed.sequence_id.clone();
+    let kind = placed.value.track_kind();
+    let track_id = placed.value.base().track_id.clone();
+    let shared = state
+        .items
+        .values()
+        .any(|p| p.sequence_id == sequence_id && p.value.base().track_id == track_id && p.value.base().id != item_id);
+    let same_kind = tracks_of_kind(state, &sequence_id, kind);
+    let index = same_kind
+        .iter()
+        .position(|(id, _)| *id == track_id)
+        .ok_or_else(|| ErrorBody::not_found(kinds::track(), &track_id))?;
+    let upward = matches!(direction, ArrangeDirection::Forward | ArrangeDirection::Front);
+    let at_edge = if upward { index + 1 == same_kind.len() } else { index == 0 };
+    if !shared && at_edge {
+        return Err(ErrorBody::invalid_operation(if upward {
+            msg!("engine.arrangeAtFront", "Clip {item} is already at the front", item = item_id)
+        } else {
+            msg!("engine.arrangeAtBack", "Clip {item} is already at the back", item = item_id)
+        })
+        .entities([item_id])
+        .details(json!({ "rule": "already-at-edge", "edge": if upward { "front" } else { "back" } })));
+    }
+    if shared {
+        // 与别的实例共用一条轨道：拆到相邻新建的一条轨道上，别的实例留在原处。
+        let current = same_kind[index].1;
+        let order = match direction {
+            ArrangeDirection::Forward => {
+                open_track_slot(state, &sequence_id, current + 1);
+                current + 1
+            }
+            ArrangeDirection::Backward => {
+                open_track_slot(state, &sequence_id, current);
+                current
+            }
+            ArrangeDirection::Front => max_track_order(state, &sequence_id) + 1,
+            ArrangeDirection::Back => {
+                let lowest = same_kind[0].1;
+                open_track_slot(state, &sequence_id, lowest);
+                lowest
+            }
+        };
+        let new_track = create_track(state, &sequence_id, kind, None, order)?;
+        state.items.get_mut(item_id).expect("刚检查过").value.base_mut().track_id = new_track;
+        return Ok(());
+    }
+    // 独占一条轨道：整条轨道在同类轨道里挪位，其余轨道顺次让位。
+    let orders: Vec<i64> = same_kind.iter().map(|(_, order)| *order).collect();
+    let mut ordered: Vec<Id> = same_kind.into_iter().map(|(id, _)| id).collect();
+    let moved = ordered.remove(index);
+    let at = match direction {
+        ArrangeDirection::Forward => index + 1,
+        ArrangeDirection::Backward => index - 1,
+        ArrangeDirection::Front => ordered.len(),
+        ArrangeDirection::Back => 0,
+    };
+    ordered.insert(at, moved);
+    reassign_track_orders(state, &ordered, &orders);
+    Ok(())
+}
+
+/// `moveTrack`：见 [`EditOperation::MoveTrack`]。
+fn move_track(
+    state: &mut VideoState,
+    sequence_id: Option<&str>,
+    track_id: &str,
+    target: &str,
+    position: TrackPosition,
+) -> EngineResult<()> {
+    let placed = state
+        .tracks
+        .get(track_id)
+        .ok_or_else(|| ErrorBody::not_found(kinds::track(), track_id))?;
+    if let Some(seq) = sequence_id
+        && placed.sequence_id != seq
+    {
+        return Err(ErrorBody::invalid_operation(msg!(
+            "engine.trackNotInSequence",
+            "Track {track} does not belong to sequence {sequence}",
+            track = track_id,
+            sequence = seq
+        )));
+    }
+    let sequence_id = placed.sequence_id.clone();
+    let kind = placed.value.kind;
+    let anchor = state
+        .tracks
+        .get(target)
+        .filter(|t| t.sequence_id == sequence_id)
+        .ok_or_else(|| ErrorBody::not_found(kinds::track(), target))?;
+    if anchor.value.kind != kind {
+        return Err(ErrorBody::invalid_operation(msg!(
+            "engine.moveTrackKind",
+            "A track can only be placed next to a track of the same kind"
+        ))
+        .entities([track_id.to_string(), target.to_string()]));
+    }
+    if track_id == target {
+        return Err(
+            ErrorBody::invalid_operation(msg!("engine.moveTrackSelf", "A track cannot be placed relative to itself"))
+                .entities([track_id.to_string()]),
+        );
+    }
+    ensure_track_editable(state, track_id)?;
+    let same_kind = tracks_of_kind(state, &sequence_id, kind);
+    let orders: Vec<i64> = same_kind.iter().map(|(_, order)| *order).collect();
+    let mut ordered: Vec<Id> = same_kind.into_iter().map(|(id, _)| id).collect();
+    let index = ordered.iter().position(|id| id == track_id).expect("刚检查过");
+    let moved = ordered.remove(index);
+    let anchor_at = ordered.iter().position(|id| id == target).expect("刚检查过");
+    let at = match position {
+        TrackPosition::Above => anchor_at + 1,
+        TrackPosition::Below => anchor_at,
+    };
+    ordered.insert(at, moved);
+    reassign_track_orders(state, &ordered, &orders);
     Ok(())
 }
 

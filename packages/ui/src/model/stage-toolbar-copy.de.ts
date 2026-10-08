@@ -49,8 +49,6 @@ export const de: StageToolbarMessages = {
 
   offReason: {
     animation: "Das Videoformat unterstützt noch keine Animationen: Es gibt weder ein beschreibbares Feld noch eine Bearbeitungsoperation dafür.",
-    arrange:
-      "Die Stapelreihenfolge richtet sich nach den Spuren (paintOrder). Es gibt noch keine Operation, um sie zu ändern. Um einen Clip nach vorne oder hinten zu bringen, verschieben Sie ihn auf eine höhere oder tiefere Spur in der Zeitleiste.",
     brand: "Im Marken-Kit können noch keine Clips gespeichert werden.",
     roundCorners: "Der Eckenradius von Videos und Bildern kann noch nicht geschrieben werden (die Darstellungsoperation nimmt keinen Radius an).",
     filters: "Filter (LUT) sind im Videoformat reserviert und werden beim Schreiben abgelehnt.",
@@ -60,5 +58,6 @@ export const de: StageToolbarMessages = {
     speed: "Dieser Clip wird nicht mit konstanter Geschwindigkeit abgespielt. Seine Geschwindigkeit kann hier daher nicht geändert werden.",
     sound: "Dieser Clip hat keinen Ton.",
   },
+  arrange: { front: 'In den Vordergrund', forward: 'Eine Ebene nach vorne', backward: 'Eine Ebene nach hinten', back: 'In den Hintergrund', label: 'Stapelreihenfolge ändern' },
   textStyleLocked: (schema: string) => `Dieser Text verwendet das Stilformat ${schema} und kann hier noch nicht bearbeitet werden.`,
 };

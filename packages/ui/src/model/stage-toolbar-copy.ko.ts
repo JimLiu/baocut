@@ -47,7 +47,6 @@ export const ko: StageToolbarMessages = {
   },
   offReason: {
     animation: '영상 형식에는 아직 애니메이션이 없습니다. 기록할 필드도, 이를 위한 편집 기능도 없습니다.',
-    arrange: '쌓임 순서는 트랙을 따르며(paintOrder) 아직 이를 바꾸는 기능이 없습니다. 클립을 앞이나 뒤로 보내려면 타임라인에서 더 위나 아래 트랙으로 옮기세요.',
     brand: '브랜드 키트에는 아직 클립을 저장할 수 없습니다.',
     roundCorners: '영상과 이미지의 모서리 반경은 아직 기록할 수 없습니다(외형 편집 기능은 반경 값을 받지 않습니다).',
     filters: '필터(LUT)는 영상 형식에서 예약된 이름이라 기록할 때 거부됩니다.',
@@ -57,5 +56,6 @@ export const ko: StageToolbarMessages = {
     speed: '이 클립은 일정한 속도로 재생되지 않으므로 여기서 속도를 바꿀 수 없습니다.',
     sound: '이 클립에는 소리가 없습니다.',
   },
+  arrange: { front: '맨 앞으로 가져오기', forward: '앞으로 가져오기', backward: '뒤로 보내기', back: '맨 뒤로 보내기', label: '쌓임 순서 변경' },
   textStyleLocked: (schema: string) => `이 텍스트는 ${schema} 스타일 형식을 사용하므로 아직 여기서 편집할 수 없습니다.`,
 };

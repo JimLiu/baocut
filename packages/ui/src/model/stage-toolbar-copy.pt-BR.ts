@@ -6,7 +6,6 @@ export const ptBR: StageToolbarMessages = {
   },
   offReason: {
     animation: 'O formato de vídeo ainda não tem animações: não há campo para gravar nem operação de edição.',
-    arrange: 'A ordem de sobreposição segue as faixas (paintOrder) e ainda não há operação para alterá-la. Para trazer um clipe à frente ou para trás, mova para uma faixa acima ou abaixo na linha do tempo.',
     brand: 'O kit de marca ainda não pode armazenar clipes.',
     roundCorners: 'Ainda não é possível gravar o raio dos cantos de vídeos e imagens (a operação de aparência não aceita raio).',
     filters: 'Filtros (LUT) são um nome reservado no formato de vídeo e são rejeitados ao gravar.',
@@ -16,5 +15,6 @@ export const ptBR: StageToolbarMessages = {
     speed: 'Este clipe não reproduz em velocidade constante, então a velocidade não pode ser alterada aqui.',
     sound: 'Este clipe não tem som.',
   },
+  arrange: { front: 'Trazer para a frente', forward: 'Avançar', backward: 'Recuar', back: 'Enviar para trás', label: 'Alterar ordem de sobreposição' },
   textStyleLocked: (schema: string) => `Este texto usa o formato de estilo ${schema} e ainda não pode ser editado aqui.`,
 };

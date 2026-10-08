@@ -15,6 +15,7 @@ export const nl: EditorMessages = {
   notEditableNow: "De video kan nu niet worden bewerkt",
   timeline: "Tijdlijn",
   moveClips: "Clips verplaatsen",
+  moveTrack: 'Track verplaatsen',
   importAndAdd: "Media importeren en toevoegen",
   seconds2: (seconds: number) => `${seconds.toFixed(2).replace('.', ',')} s`,
   emptyTimeline: "Sleep media hierheen of voeg die toe vanuit het paneel rechts",

@@ -1,8 +1,9 @@
-import type { Id, Sequence, SequenceItem, TransactionReceipt, VideoSnapshot } from '@baocut/protocol';
+import type { ArrangeDirection, Id, Sequence, SequenceItem, TransactionReceipt, VideoSnapshot } from '@baocut/protocol';
 import { ToastQueue } from '@react-spectrum/s2';
 import { TIMELINE_EDIT_COPY as COPY } from '../../copy.ts';
 import { frameAt, itemFrames, itemLabel, rootSequence } from '../../model/editor.ts';
-import { deletableItemIds, itemsAtFrame, moveOperation, nudgeDelta, splitOperations } from '../../model/editor-ops.ts';
+import { arrangeOperation, deletableItemIds, itemsAtFrame, moveOperation, nudgeDelta, splitOperations } from '../../model/editor-ops.ts';
+import { ARRANGE_COPY } from '../../model/stage-toolbar.ts';
 import { pasteOperations } from '../../model/item-clipboard.ts';
 import { createdItemIds } from '../../model/new-items.ts';
 import { fallbackUndoOperations, mutedItemsOf } from '../../model/dub-undo.ts';
@@ -266,6 +267,32 @@ export async function duplicateItems(actions: EditorActions, itemIds: readonly I
   const entries = ctx.sequence.items.filter((item) => itemIds.includes(item.id));
   if (!entries.length) return say(COPY.pick(COPY.duplicate));
   await spawn(actions, ctx, entries, COPY.labelDuplicate, COPY.duplicated);
+}
+
+/**
+ * 画布上的「层级」（工具条菜单与 F / B / ⌘↑ / ⌘↓）：换一层是一笔，⌘Z 撤销。叠放次序就是轨道的上下，引擎按需要拆轨道或整条
+ * 轨道挪位（命令协议规范 §4.2 `arrangeItem`）；已经在最前 / 最后时什么都不做（菜单里那一项灰着）。
+ */
+export function arrangeItem(actions: EditorActions, itemId: Id, direction: ArrangeDirection): void {
+  const ctx = live();
+  if (!ctx?.editable) return;
+  const operation = arrangeOperation(ctx.sequence, itemId, direction);
+  if (operation) void actions.apply([operation], ARRANGE_COPY.label);
+}
+
+/**
+ * 「层级」的快捷键：选区恰好是画布上的一件时接下（返回 true），别的情况（没选、多选、选的是声音或字幕）让给原来的键
+ * （F 是全屏播放）。选中了却不能改（视频只读）也算接下，不去全屏。
+ */
+export function arrangeSelection(actions: EditorActions, direction: ArrangeDirection): boolean {
+  const ctx = live();
+  if (!ctx) return false;
+  const { selection } = useEditor.getState();
+  if (selection.length !== 1) return false;
+  const item = ctx.sequence.items.find((candidate) => candidate.id === selection[0]);
+  if (!item || item.type === 'audio' || item.type === 'caption') return false;
+  arrangeItem(actions, item.id, direction);
+  return true;
 }
 
 /** 工具条的「删除」：删掉这几件，选区里去掉它们，提示带撤销。 */

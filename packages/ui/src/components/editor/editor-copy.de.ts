@@ -15,6 +15,7 @@ export const de: EditorMessages = {
   notEditableNow: "Das Video kann derzeit nicht bearbeitet werden",
   timeline: "Zeitleiste",
   moveClips: "Clips verschieben",
+  moveTrack: 'Spur verschieben',
   importAndAdd: "Material importieren und hinzufügen",
   seconds2: (seconds: number) => `${seconds.toFixed(2)}s`,
   emptyTimeline: "Material hierher ziehen oder rechts im Bereich hinzufügen",

@@ -1,4 +1,4 @@
-import { live } from '@baocut/protocol';
+import { live, type ArrangeDirection } from '@baocut/protocol';
 import { asObject } from '../render/text-style.ts';
 import { editableTextStyle } from './property-values.ts';
 import type { PlacedItem, Rect } from './stage-pose.ts';
@@ -206,6 +206,14 @@ export interface ToolbarSpec {
 /** 协议里还没有对应操作的几格：为什么不能用。 */
 export const OFF_REASON: StageToolbarMessages['offReason'] = live(() => M.offReason);
 
+/** 「层级」下钻页的四行（显示名）与这一笔的名字。 */
+export const ARRANGE_COPY: StageToolbarMessages['arrange'] = live(() => M.arrange);
+/** 「层级」下钻页的次序：往前的两行、一条线、往后的两行。 */
+export const ARRANGE_ROWS: readonly (readonly ArrangeDirection[])[] = [
+  ['front', 'forward'],
+  ['backward', 'back'],
+];
+
 /** 属性页里能直接跳到的节。 */
 export type InspectorSection = 'style' | 'transition' | 'effects';
 
@@ -280,7 +288,8 @@ export function toolAction(id: ToolId, item: PlacedItem, kind: BarKind): ToolAct
     case 'adjust-timing':
       return SUB;
     case 'arrange':
-      return off(OFF_REASON.arrange);
+      // 四个方向在菜单里下钻一层（原型 stage-toolbar-menu.jsx 的 OrderSub）；走不动的方向灰着。
+      return SUB;
     case 'save-to-brand-kit':
       return off(OFF_REASON.brand);
     case 'round-corners':
@@ -303,8 +312,8 @@ const isRow = (group: Group | Row): group is Row => group.some((entry) => Array.
 export function toolbarFor(item: PlacedItem): ToolbarSpec {
   const kind = barKindOf(item);
   const tool = (id: ToolId): Tool => ({ id, label: TOOL_LABEL[id], action: toolAction(id, item, kind) });
-  if (kind === 'other') return { kind, visible: [[tool('properties')]], more: null };
-  const layout = BAR[kind];
+  // 还没有自己一条的元素也要能改叠放次序：只给一颗「属性」，菜单里放通用的复制 / 层级 / 时长 / 删除。
+  const layout: Layout = kind === 'other' ? { visible: [['properties']], more: [['copy', 'arrange'], ['adjust-timing', 'delete']] } : BAR[kind];
   return {
     kind,
     visible: layout.visible.map((group) => group.map(tool)),

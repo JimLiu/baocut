@@ -36,6 +36,8 @@ export interface FrameSpan {
 export type TimeMap = { kind: 'linear'; sourceIn: MediaTime; rate: Rate } | { kind: 'hold'; sourceAt: MediaTime };
 
 export type TrackKind = 'visual' | 'audio' | 'subtitle';
+/** `arrangeItem` 的方向：往上一层、往下一层、最上、最下。 */
+export type ArrangeDirection = 'forward' | 'backward' | 'front' | 'back';
 
 export interface Track {
   id: Id;
@@ -1041,6 +1043,18 @@ export type EditOperation =
    */
   | { type: 'deleteTrack'; sequenceId?: Id; trackId: Id }
   | { type: 'updateTrack'; sequenceId?: Id; trackId: Id; locked?: boolean; visible?: boolean; muted?: boolean; name?: string }
+  /**
+   * 调整一个画面实例的叠放次序（画布上的「前移一层 / 后移一层 / 移到最前 / 移到最后」）。叠放次序就是轨道的上下：
+   * 实例与别的实例共用一条轨道时，把它拆到相邻新建的一条轨道上（新轨道列在 `createdIds`，让位的轨道列在 `updatedIds`）；
+   * 它独占一条轨道时，整条轨道在同类轨道里挪位（相邻两条互换，或挪到最上 / 最下，其余顺次让位）。已经在最前 / 最后时拒绝
+   * （`INVALID_OPERATION`，`details.rule: 'already-at-edge'`）；实例或所在轨道锁着时 `TARGET_LOCKED`。
+   */
+  | { type: 'arrangeItem'; sequenceId?: Id; itemId: Id; direction: ArrangeDirection }
+  /**
+   * 把一条轨道挪到同类的另一条轨道（`target`）上面或下面：同类轨道原有的那组 `order` 值按新次序重新分配，别的种类不动，
+   * 实例跟着轨道走。种类不同或参照自己时拒绝（`INVALID_OPERATION`）；轨道锁着时 `TARGET_LOCKED`。
+   */
+  | { type: 'moveTrack'; sequenceId?: Id; trackId: Id; target: Id; position: 'above' | 'below' }
   /**
    * 片段的名字、启用、锁定与跟随策略。空名字清掉名字；锁定的片段只能先解锁（同一个操作里解锁再改别的可以）。
    * `followPolicy` 整个替换（视频格式规范 §3.16）。

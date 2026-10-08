@@ -47,7 +47,6 @@ export const pl: StageToolbarMessages = {
   },
   offReason: {
     animation: "Format wideo nie ma jeszcze animacji: brak pola do zapisu i operacji edycji.",
-    arrange: "Kolejność warstw wynika ze ścieżek (paintOrder), brak operacji zmiany. Aby przesunąć klip do przodu lub do tyłu, przenieś go na wyższą lub niższą ścieżkę osi czasu.",
     brand: "Zestaw marki nie przechowuje jeszcze klipów.",
     roundCorners: "Nie można jeszcze zapisać promienia narożników wideo i obrazów (operacja appearance nie przyjmuje promienia).",
     filters: "Filtry (LUT) są zarezerwowaną nazwą w formacie wideo i są odrzucane przy zapisie.",
@@ -57,5 +56,6 @@ export const pl: StageToolbarMessages = {
     speed: "Klip nie odtwarza się ze stałą prędkością, więc nie można tu jej zmienić.",
     sound: "Ten klip nie ma dźwięku.",
   },
+  arrange: { front: 'Przenieś na wierzch', forward: 'Przesuń do przodu', backward: 'Przesuń do tyłu', back: 'Przenieś na spód', label: 'Zmień kolejność warstw' },
   textStyleLocked: (schema: string) => `Ten tekst używa ${schema} – formatu stylu, którego nie można jeszcze tu edytować.`,
 };

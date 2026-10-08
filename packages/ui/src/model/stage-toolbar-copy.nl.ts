@@ -49,8 +49,6 @@ export const nl: StageToolbarMessages = {
 
   offReason: {
     animation: "Het videoformaat ondersteunt nog geen animaties: er is geen veld om te schrijven en geen bewerkingsactie voor.",
-    arrange:
-      "De stapelvolgorde volgt de sporen (paintOrder) en er is nog geen actie om die te wijzigen. Verplaats een clip naar een hoger of lager spoor op de tijdlijn om hem naar voren of achteren te brengen.",
     brand: "De merkkit kan nog geen clips opslaan.",
     roundCorners: "De hoekradius voor video’s en afbeeldingen kan nog niet worden geschreven (de actie voor weergave accepteert geen radius).",
     filters: "Filters (LUT) zijn een gereserveerde naam in het videoformaat en worden bij het schrijven geweigerd.",
@@ -60,5 +58,6 @@ export const nl: StageToolbarMessages = {
     speed: "Deze clip speelt niet af met een constante snelheid, dus de snelheid kan hier niet worden gewijzigd.",
     sound: "Deze clip heeft geen geluid.",
   },
+  arrange: { front: 'Naar voorgrond', forward: 'Naar voren', backward: 'Naar achteren', back: 'Naar achtergrond', label: 'Stapelvolgorde wijzigen' },
   textStyleLocked: (schema: string) => `Deze tekst gebruikt het stijlformaat ${schema} en kan hier nog niet worden bewerkt.`,
 };

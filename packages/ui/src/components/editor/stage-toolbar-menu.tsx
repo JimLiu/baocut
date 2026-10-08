@@ -1,5 +1,5 @@
 import { useState, type ComponentType } from 'react';
-import type { Id } from '@baocut/protocol';
+import type { ArrangeDirection, Id } from '@baocut/protocol';
 import {
   ActionButton,
   Content,
@@ -22,7 +22,9 @@ import AudioWave from '@react-spectrum/s2/icons/AudioWave';
 import Brand from '@react-spectrum/s2/icons/Brand';
 import BrightnessContrast from '@react-spectrum/s2/icons/BrightnessContrast';
 import Brush from '@react-spectrum/s2/icons/Brush';
+import ChevronDown from '@react-spectrum/s2/icons/ChevronDown';
 import ChevronLeft from '@react-spectrum/s2/icons/ChevronLeft';
+import ChevronUp from '@react-spectrum/s2/icons/ChevronUp';
 import Clock from '@react-spectrum/s2/icons/Clock';
 import CornerRadius from '@react-spectrum/s2/icons/CornerRadius';
 import Crop from '@react-spectrum/s2/icons/Crop';
@@ -38,6 +40,8 @@ import More from '@react-spectrum/s2/icons/More';
 import Order from '@react-spectrum/s2/icons/Order';
 import Properties from '@react-spectrum/s2/icons/Properties';
 import Replace from '@react-spectrum/s2/icons/Replace';
+import SortDown from '@react-spectrum/s2/icons/SortDown';
+import SortUp from '@react-spectrum/s2/icons/SortUp';
 import SpeedFast from '@react-spectrum/s2/icons/SpeedFast';
 import StrokeWidth from '@react-spectrum/s2/icons/StrokeWidth';
 import TextAlignCenter from '@react-spectrum/s2/icons/TextAlignCenter';
@@ -51,16 +55,17 @@ import VolumeTwo from '@react-spectrum/s2/icons/VolumeTwo';
 import ZoomFitToScreen from '@react-spectrum/s2/icons/ZoomFitToScreen';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { STAGE_TOOLBAR_COPY as COPY } from '../../copy.ts';
+import { canArrange } from '../../model/editor-ops.ts';
 import { fitCanvas } from '../../model/geometry-panel.ts';
 import { patchTextStyle } from '../../model/property-values.ts';
 import { placeFields, poseOf, type PlacedItem } from '../../model/stage-pose.ts';
-import type { InspectorSection, MenuGroup, Tool, ToolId } from '../../model/stage-toolbar.ts';
+import { ARRANGE_COPY, ARRANGE_ROWS, type InspectorSection, type MenuGroup, type Tool, type ToolId } from '../../model/stage-toolbar.ts';
 import { asObject, num } from '../../render/text-style.ts';
 import { useEditor } from '../../state/editor-store.ts';
 import type { EditorActions } from './editor-context.tsx';
 import { ValueRow } from './inspector-controls.tsx';
 import { OpacityRow, TimeSection, type ItemPageProps } from './inspector-sections.tsx';
-import { MOD_KEY, deleteItems, duplicateItems } from './timeline-commands.ts';
+import { MOD_KEY, arrangeItem, deleteItems, duplicateItems } from './timeline-commands.ts';
 import { EDITOR_COPY as E } from './editor-copy.ts';
 import { ELEMENTS_COPY as EL } from './elements-copy.ts';
 import { INSPECTOR_COPY as IC } from './inspector-copy.ts';
@@ -281,8 +286,46 @@ function MenuTool({ tool }: { tool: Tool }) {
   );
 }
 
+/** 「层级」四行的图标与快捷键（原型 OrderSub：移到最前 F、前移一层 ⌘↑、后移一层 ⌘↓、移到最后 B）。 */
+const ARRANGE_ICON: Record<ArrangeDirection, ComponentType> = { front: SortUp, forward: ChevronUp, backward: ChevronDown, back: SortDown };
+const ARRANGE_KEY: Record<ArrangeDirection, string> = { front: 'F', forward: `${MOD_KEY}↑`, backward: `${MOD_KEY}↓`, back: 'B' };
+
+/**
+ * 「层级」下钻页：往前的两行、一条线、往后的两行。走不动的方向灰着（独占一条轨道、已经在同类轨道的最上 / 最下）；
+ * 点一行就提交一笔并收起弹层。
+ */
+function ArrangeSub({ props, actions, onDone }: { props: ToolProps; actions: EditorActions; onDone(): void }) {
+  const { item, sequence, canChange } = props;
+  const disabled = ARRANGE_ROWS.flat().filter((direction) => !canChange || !canArrange(sequence, item.id, direction));
+  return (
+    <Menu
+      aria-label={ARRANGE_COPY.label}
+      size="S"
+      disabledKeys={disabled}
+      onAction={(key) => {
+        onDone();
+        arrangeItem(actions, item.id, key as ArrangeDirection);
+      }}>
+      {ARRANGE_ROWS.map((group, i) => (
+        <MenuSection key={i}>
+          {group.map((direction) => {
+            const Icon = ARRANGE_ICON[direction];
+            return (
+              <MenuItem key={direction} id={direction} textValue={ARRANGE_COPY[direction]}>
+                <Icon />
+                <Text slot="label">{ARRANGE_COPY[direction]}</Text>
+                <Keyboard>{ARRANGE_KEY[direction]}</Keyboard>
+              </MenuItem>
+            );
+          })}
+        </MenuSection>
+      ))}
+    </Menu>
+  );
+}
+
 /** 下钻一层的编辑：不透明度、行高、字距、调整时间。与属性页同一套控件，拖动中只叠草稿，松手一笔提交。 */
-function SubPage({ tool, props, onBack }: { tool: Tool; props: ToolProps; onBack(): void }) {
+function SubPage({ tool, props, actions, onBack, onDone }: { tool: Tool; props: ToolProps; actions: EditorActions; onBack(): void; onDone(): void }) {
   const { item, sequence, edit, canChange } = props;
   const style = item.type === 'text' ? asObject(item.style) : {};
   const textCommit = (patch: Record<string, unknown>) =>
@@ -324,6 +367,7 @@ function SubPage({ tool, props, onBack }: { tool: Tool; props: ToolProps; onBack
           />
         ) : null}
         {tool.id === 'adjust-timing' ? <TimeSection {...props} /> : null}
+        {tool.id === 'arrange' ? <ArrangeSub props={props} actions={actions} onDone={onDone} /> : null}
       </div>
     </>
   );
@@ -359,7 +403,7 @@ export function StageToolbarMenu({ groups, props, actions }: { groups: MenuGroup
       <Popover placement="bottom end" aria-label={COPY.more}>
         <div className={pop}>
           {sub ? (
-            <SubPage tool={sub} props={props} onBack={() => setSub(null)} />
+            <SubPage tool={sub} props={props} actions={actions} onBack={() => setSub(null)} onDone={() => setOpen(false)} />
           ) : (
             <>
               {rows.map((g, i) => (

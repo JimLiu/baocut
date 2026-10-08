@@ -262,7 +262,7 @@ type EditOperation = { type: string; [field: string]: JsonValue };
 | 领域 | 代表性操作 | 回执必须说明 |
 | --- | --- | --- |
 | 素材 | `importAsset` `collectAssets` `removeAssets` `relinkAsset` `replaceAssetVersion` | 版本、受影响的实例、缺失的资源、删掉的素材记录 |
-| 片段 | `addItem` `moveItems` `trimItem` `splitItem` `joinItems` `deleteItems` `removeRange` `updateItem` `setSpeed` | 新旧时间、lineage、联动的对象 |
+| 片段 | `addItem` `moveItems` `arrangeItem` `trimItem` `splitItem` `joinItems` `deleteItems` `removeRange` `updateItem` `setSpeed` | 新旧时间、lineage、联动的对象 |
 | 样式 | `setText` `setTransform` `setStyle` `setProps` `setAnimation` `setKeyframes` `setAudioMix` | 属性校验的结果与改变的范围 |
 | 转场与效果 | `setTransition` `removeTransition` `setEffects` | 被连带删掉的转场与原因、随实例变短的单侧转场 |
 | 章节与闪避 | `setChapters` `upsertChapter` `removeChapter` `setDucking` `removeDucking` | 新建或改动的章节与规则 |
@@ -271,7 +271,7 @@ type EditOperation = { type: string; [field: string]: JsonValue };
 | 代码 | `publishBundle` `setCodeParameters` `replaceCodeBundle` `bakeCodeItem` | 代码包版本、兼容性与缓存影响 |
 | 配音 | `setDubbingScript` `attachVoiceResult` `chooseLanguageVariant` | 真实时长、对齐、待处理的单元 |
 | 版本 | `forkSequence` `applyLocalizationOverride` | 来源关系、冲突 |
-| 轨道与序列 | `addTrack` `deleteTrack` `updateTrack` `updateSequence` `changeSequenceFrameRate` `setTemplate` | 量化偏差、受影响的范围、被拒绝的原因（视频格式规范 §2.12）、删掉的轨道 |
+| 轨道与序列 | `addTrack` `deleteTrack` `updateTrack` `moveTrack` `updateSequence` `changeSequenceFrameRate` `setTemplate` | 量化偏差、受影响的范围、被拒绝的原因（视频格式规范 §2.12）、删掉的轨道 |
 | 保护 | `setProtection` `clearProtection` `createCheckpoint` | 保护的范围与检查点的版本 |
 
 智能体的 `edits_ops` 按已开放的操作返回目录；分组及操作条目的 `family` 使用稳定英文标识：`assets`、`items`、`styles`、`transitions-and-effects`、`chapters-and-ducking`、`speech`、`code`、`tracks-and-sequences`、`documents-and-versions`。这些值用于程序引用，与中文领域名称或操作说明分开。
@@ -306,6 +306,10 @@ type EditOperation = { type: string; [field: string]: JsonValue };
 `removeAssets` 给 `assetIds`，从视频里删掉没有任何引用的素材记录。「有引用」与提交时核对引用的是同一张图，再加上文档的来源：任何序列上实例的 `assetRef` 与合成的预渲染替身 `prerender`、章节的缩略图、文档的 `sourceAssetId`（转写、剪口集合、剪辑提案描述的录音）。列出的素材有一个还有引用就整笔拒绝（`INVALID_OPERATION`，`details.rule: 'asset-in-use'`，`details.usedBy` 是素材 → 引用它的实例、标记与文档的 ID），不认识的 ID 是 `ENTITY_NOT_FOUND`。代码包与它烘焙出的预渲染替身成对处理（代码包规范 §3.3）：替身的来源记录（`provenance.origin: 'composition-bake'`）里的 `sourceBundleRef` 与代码包当前版本清单的 `bundleId`、`revision` 对上就是一对，列出其中一个、另一个也没有引用时一起删。删掉的素材列在回执的 `impact.removedAssets` 与 `deletedIds`。只删记录：`managed` 的 bytes 留在 `blobs/`，撤销历史与冻结中的任务用到的内容因此仍在，撤销能把记录放回来，之后由 GC 按引用图与保留政策回收（架构设计 §5.5）；`linked` 的原文件不动。引擎宿主的只读方法 `videos.unusedAssets { videoId }` 返回此刻没有引用的素材（`{ unused: UnusedAsset[] }`：`assetId`、`name`、`kind`、`mediaType`、当前版本的 `byteLength`、`storage` 与成对的 `pairedWith`），它不在网关上，供工具 `assets_prune` 用。
 
 `deleteTrack` 给 `trackId`（`sequenceId` 可省略，给了要对得上），删掉一条空轨道。其他轨道的 `order` 不重排，与 `addTrack` 取最大值加一、不动已有轨道对称；之后新建的轨道照样排在最上面。轨道上还有实例时拒绝（`INVALID_OPERATION`，`details.rule: 'track-not-empty'`，`details.itemIds` 列出它们，`details.next: ['deleteItems', 'moveItem']`，`recovery` 是同样意思的说明），可以在同一笔事务里先删掉或移走实例再删轨道；被闪避规则的 `trigger` 或 `target` 引用时拒绝（`details.rule: 'track-in-ducking'`，`details.next: ['setDucking', 'removeDucking']`）；轨道锁着时 `TARGET_LOCKED`。删掉的轨道列在 `impact.removedTracks` 与 `deletedIds`。
+
+`arrangeItem` 给 `itemId` 与 `direction`（`forward` 前移一层、`backward` 后移一层、`front` 移到最前、`back` 移到最后；`sequenceId` 可省略，给了要对得上），调整一个画面实例的叠放次序。叠放次序就是轨道的上下（视频格式规范 §3.3），操作不写 `paintOrder`：实例与别的实例共用一条轨道时，把它拆到相邻新建的一条同类轨道上（`forward` 在原轨道上面、`backward` 在原轨道下面、`front` 在所有轨道之上、`back` 在同类轨道之下），别的实例留在原处，上面的轨道整体让一格、`order` 不出现负数，新轨道列在 `createdIds`，让位的轨道列在 `updatedIds`；实例独占一条轨道时，整条轨道在同类轨道里挪位（`forward` / `backward` 与相邻那条互换，`front` / `back` 挪到最上 / 最下、其余顺次让位），同类轨道原有的那组 `order` 值按新次序重新分配，别的种类的轨道不动。独占轨道的实例已经在最前 / 最后时拒绝（`INVALID_OPERATION`，`details.rule: 'already-at-edge'`，`details.edge: 'front' | 'back'`）；实例或所在轨道锁着时 `TARGET_LOCKED`。拆出去之后与原来相邻实例之间的转场不再相接，按 §4.2 转场的规则删掉并列在 `impact.removedTransitions`。
+
+`moveTrack` 给 `trackId`、`target`（作为参照的同类轨道）与 `position`（`above` 放在参照上面、`below` 放在下面；`sequenceId` 可省略，给了要对得上），把一条轨道挪到同类的另一条轨道旁边：同类轨道原有的那组 `order` 值按新次序重新分配，别的种类不动，实例跟着轨道走、不换轨。种类不同或参照自己时拒绝（`INVALID_OPERATION`）；要挪的轨道锁着时 `TARGET_LOCKED`。时间线上拖动行头换顺序用的就是它。
 
 智能体清理素材用 `assets_prune { video, assetIds?, apply?, revision?, commandId? }`（`agent`、`mcp` 与 `cli` 三个面）。不给 `apply` 时只读：列出 `videos.unusedAssets` 的结果（给了 `assetIds` 时只列其中的，成对的另一半带上），另有 `managedBytes`，还有引用的 ID 在 `inUse`、不存在的在 `notFound`，不改视频、不要确认。`apply: true` 时，列出的素材有还在用或不存在的就不提交、直接拒绝（同 `removeAssets` 的错误）；否则确认之后编译成一个 `removeAssets`，返回与 `edits_apply` 相同的回执，另带 `removed`（删掉的清单）。风险等级与 `assets_import` 相同（`edit`）。
 

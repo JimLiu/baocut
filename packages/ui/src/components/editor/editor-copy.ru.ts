@@ -15,6 +15,7 @@ export const ru: EditorMessages = {
   notEditableNow: "Сейчас видео нельзя редактировать",
   timeline: "Таймлайн",
   moveClips: "Переместить клипы",
+  moveTrack: 'Переместить дорожку',
   importAndAdd: "Импортировать и добавить материалы",
   seconds2: (seconds: number) => `${seconds.toFixed(2)}с`,
   emptyTimeline: "Перетащите материалы сюда или добавьте из панели справа",
