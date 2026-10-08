@@ -951,7 +951,11 @@ body { font-size: 14px; }
 .frame, .sthumb, .abc, .spp, .xpv__box, .pcard__th { color-scheme: light; }
 /* 第 115 轮：网格是画上去的参考，不吃指针——它盖在主视频上，吃了指针就点不着画面。 */
 .frame__grid { position: absolute; inset: 0; pointer-events: none; opacity: 0.16; background-image: linear-gradient(var(--gray-25) 1px, transparent 1px), linear-gradient(90deg, var(--gray-25) 1px, transparent 1px); background-size: 40px 40px; }
-.subs { position: absolute; z-index: 7; left: 8%; right: 8%; bottom: 7%; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
+/* 画面元素与字幕同一叠（product-design §5.1「叠放次序」）：各自的 z-index 是轨道名次，只在这一层里比，
+   整叠在模板 chrome、参考线、统一框与舞台胶囊之下。 */
+.stagestack { position: absolute; inset: 0; z-index: 1; isolation: isolate; }
+.stagestack__dz { position: absolute; inset: 0; pointer-events: none; }
+.subs { position: absolute; left: 8%; right: 8%; bottom: 7%; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
 /* 字色、底板、描边、阴影由 paintCss 内联给出（画布 / 缩略图 / 预览条同源，
    第 45 轮）。这里只留下不随样式变的那几件：最大宽度、命中区、选中标记。 */
 .subline { max-width: 100%; cursor: pointer; }

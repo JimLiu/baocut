@@ -280,9 +280,11 @@
   }
   /* 'counter' 排在 'wave' 后面（第 88 轮）：它在浏览面板里与进度 / 声波同属可视化那一栏，
      时间轴上跟着摆在一起。不在这张表里的类别一律沉到末尾——计时刚加进来那会儿正是
-     这样，一条本该挨着声波的行掉到了模板下面。 */
-  const CLASS_RANK = ['textgroup', 'sticker', 'confetti', 'image', 'whiteboard', 'video', 'shape', 'progress', 'wave',
-    'counter', 'overlay', 'vframe', 'tpl'];
+     这样，一条本该挨着声波的行掉到了模板下面。
+     'video' 排在画面类的最后（2026-10-08）：行序就是画布的叠放次序（越靠上越在前），项目原片铺满
+     画幅，默认得在别的画面元素底下，否则形状、进度、声波一出来就被它盖住。 */
+  const CLASS_RANK = ['textgroup', 'sticker', 'confetti', 'image', 'whiteboard', 'shape', 'progress', 'wave',
+    'counter', 'overlay', 'vframe', 'video', 'tpl'];
   /* 两层高的媒体行（74）：视频是「上半缩略图 + 下半波形」，白板手绘（2026-09-11）是
      「上半画面带 + 下半画时带」——都要那 42 + 24 的两层，30px 的元素行装不下一张画面。 */
   const MEDIA_KINDS = ['video', 'whiteboard'];
@@ -308,6 +310,24 @@
       if (e.kind === 'tpl' || e.kind === 'textgroup') return;
       (byKind[e.kind] || (byKind[e.kind] = [])).push(e);
     });
+    /* **一门语言 = 一条字幕轨 = 时间轴上一行**（第 45 轮）。轨落到时间轴上就
+       固定在那里：切 Tab、切面板的语言下拉都不会改变这里有哪几行——第 105 轮把
+       这条不变式收紧到**行的状态**：字幕行恒为展开态逐条 cue（46），两态退役。
+       行序 = 组的叠序（自上而下），所以在属性页里把译文挪到上面，时间轴上它也上去。
+       没有轨集传进来时退回一行——旧调用点与测试仍然拿得到那一行。
+       字幕行与画面行是同一叠（2026-10-08，product-design §5.1「叠放次序」）：默认排在画面行上面，
+       与画布上字幕默认盖住画面一致；拖过行头 / 用过「层级」后按 `trackOrder` 穿插，不再钉在哪一头。 */
+    const subTracks = Array.isArray(o.subTracks) ? o.subTracks : [{id: 'subs', name: '字幕'}];
+    subTracks.forEach((t) => {
+      out.push({key: 'subs:' + t.id, kind: 'subs', track: t, h: ROW_H.subs, label: t.name, off: !!t.hidden});
+    });
+    /* 只读的「文稿」行（2026-10-08，§12.6）：视频转录过、却一条字幕轨都没有（转录时没建字幕，
+       或把字幕都拿下了）——文稿照样落在时间轴上，占字幕行的位置，看得见哪里在说话、点一句落播放头。
+       它不是轨：没有开关、不进导出、不可选中。调用方显式传 `transcript` 才出这一行，
+       所以「显式空轨集」的旧语义（新建空白项目不补虚构轨）不变。 */
+    if (o.transcript && !subTracks.length) {
+      out.push({key: 'transcript', kind: 'transcript', h: ROW_H.subs, label: '文稿'});
+    }
     const done = {};
     els.forEach((e) => {
       // 视频元素行要高一档：它和主轨的 clip 一样是「上半缩略图 + 下半波形」两层
@@ -336,22 +356,6 @@
         });
       }
     });
-    /* **一门语言 = 一条字幕轨 = 时间轴上一行**（第 45 轮）。轨落到时间轴上就
-       固定在那里：切 Tab、切面板的语言下拉都不会改变这里有哪几行——第 105 轮把
-       这条不变式收紧到**行的状态**：字幕行恒为展开态逐条 cue（46），两态退役。
-       行序 = 组的叠序（自上而下），所以在属性页里把译文挪到上面，时间轴上它也上去。
-       没有轨集传进来时退回一行——旧调用点与测试仍然拿得到那一行。 */
-    const subTracks = Array.isArray(o.subTracks) ? o.subTracks : [{id: 'subs', name: '字幕'}];
-    subTracks.forEach((t) => {
-      out.push({key: 'subs:' + t.id, kind: 'subs', track: t, h: ROW_H.subs, label: t.name, off: !!t.hidden});
-    });
-    /* 只读的「文稿」行（2026-10-08，§12.6）：视频转录过、却一条字幕轨都没有（转录时没建字幕，
-       或把字幕都拿下了）——文稿照样落在时间轴上，占字幕行的位置，看得见哪里在说话、点一句落播放头。
-       它不是轨：没有开关、不进导出、不可选中。调用方显式传 `transcript` 才出这一行，
-       所以「显式空轨集」的旧语义（新建空白项目不补虚构轨）不变。 */
-    if (o.transcript && !subTracks.length) {
-      out.push({key: 'transcript', kind: 'transcript', h: ROW_H.subs, label: '文稿'});
-    }
     /* 没有 `clips` 行（2026-09-16）：项目原片是普通 `video` 元素，走上面的同类共道；
        时间轴上所有轨平等，没有「主视频」。 */
     /* 翻译配音（2026-09-11，§12.6；2026-09-14 改成**一种语言一组**）：一组 = 配音行 + 它自己的
@@ -399,18 +403,19 @@
   }
 
   /* ---------- 轨道换序（2026-10-08，product-design §5.1 时间线） ----------
-     画布图层 = 时间线轨道：按住行头上下拖，只在同类轨道（画面 / 字幕 / 声音）之间换位。
-     与 App 共用 UI 的 `moveTrack` 同一套语义——每类有一份按 `order` 升序的键表（模型序），
-     画面与字幕在时间线上按 `order` 降序显示（上面的在前面），声音按升序显示，
-     所以声音行显示上的「上 / 下」要翻成模型的 below / above（`trackPlacement`）。
-     本原型的行由元素派生（同类共道），没有持久的轨道表：换过的次序记在 `trackOrder`
-     （`{picture: [...], audio: [...], subs: [...]}`，键为行 key），`rows()` 在每类原来占的
-     那些位置里按它重排，表里没有的行留在派生位置。随行（文字组的成员行、配音组的背景声行）
-     跟着它前面那一行走，自己不是轨、不能单拖；模板与文稿行不参与。 */
+     画布图层 = 时间线轨道：按住行头上下拖，只在同一叠里换位。叠放分组与引擎的 `stacking_group`、
+     App 共用 UI 的 `stackingGroup` 一致：画面轨道与字幕轨道是同一叠（`picture`，渲染按 `order` 统一
+     排序，字幕不自动在最上，画面轨道可以拖到字幕轨道上面或下面），声音轨道另一叠（`audio`）。
+     与 `moveTrack` 同一套语义——每叠有一份按 `order` 升序的键表（模型序），画面叠在时间线上按
+     `order` 降序显示（上面的在前面），声音按升序显示，所以声音行显示上的「上 / 下」要翻成模型的
+     below / above（`trackPlacement`）。本原型的行由元素派生（同类共道），没有持久的轨道表：换过的
+     次序记在 `trackOrder`（`{picture: [...], audio: [...]}`，键为行 key），`rows()` 在每叠原来占的
+     那些位置里按它重排，表里没有的行留在派生位置。字幕轨彼此的上下只听 `subStyle.tracks`
+     （属性页也能改它），`trackOrder` 只管字幕轨夹在哪几条画面轨之间。随行（文字组的成员行、
+     配音组的背景声行）跟着它前面那一行走，自己不是轨、不能单拖；模板与文稿行不参与。 */
   function trackClass(row) {
     if (!row) return null;
-    if (row.kind === 'element' || row.kind === 'text') return 'picture';
-    if (row.kind === 'subs') return 'subs';
+    if (row.kind === 'element' || row.kind === 'text' || row.kind === 'subs') return 'picture';
     if (row.kind === 'audio' || row.kind === 'music' || row.kind === 'dub' || row.kind === 'score') return 'audio';
     return null;
   }
@@ -426,7 +431,7 @@
     });
     return units;
   }
-  /** 模型序（`order` 升序）↔ 显示序（自上而下）：声音一致，画面与字幕相反。互为逆运算。 */
+  /** 模型序（`order` 升序）↔ 显示序（自上而下）：声音一致，画面叠（含字幕）相反。互为逆运算。 */
   function displayKeys(cls, keys) {
     return cls === 'audio' ? keys.slice() : keys.slice().reverse();
   }
@@ -443,10 +448,15 @@
       current.forEach((u) => { byKey[u.key] = u; });
       const next = displayKeys(cls, trackOrder[cls]).filter((k) => byKey[k]).map((k) => byKey[k]);
       current.forEach((u, i) => { if (next.indexOf(u) < 0) next.splice(Math.min(i, next.length), 0, u); });
+      // 字幕轨彼此的上下按派生序（`subStyle.tracks`）填回它们在这一叠里占的位置
+      const subs = current.filter(isSubsUnit);
+      let si = 0;
+      next.forEach((u, i) => { if (isSubsUnit(u)) next[i] = subs[si++]; });
       slots.forEach((slot, i) => { units[slot] = next[i]; });
     });
     return units.reduce((all, u) => all.concat(u.rows), []);
   }
+  const isSubsUnit = (u) => u.rows[0].kind === 'subs';
   function unitsOf(rows, cls) { return trackUnits(rows).filter((u) => u.cls === cls); }
   function unitOf(rows, key) { return trackUnits(rows).find((u) => u.key === key) || null; }
 
@@ -508,18 +518,22 @@
   /** 一类在显示上的键序（自上而下），由模型序换算。 */
   function trackDisplay(cls, orderAsc) { return displayKeys(cls, orderAsc || []); }
 
-  /* 画布叠放次序（product-design §5.1「叠放次序」）：时间线上越靠上的画面轨道越在前面。
-     返回元素 id → 名次（0 = 最底下，越大越在前）；同一条轨道上的元素名次相同（时间上不重叠，
-     谁前谁后无从比较）。不在画面轨道上的元素（模板、声音）不在表里。 */
+  /* 画布叠放次序（product-design §5.1「叠放次序」）：时间线上越靠上的轨道越在前面，画面与字幕同一叠。
+     返回 键 → 名次（0 = 最底下，越大越在前）：画面元素按元素 id，字幕轨按行 key（`subs:<轨 id>`）。
+     同一条轨道上的元素名次相同（时间上不重叠，谁前谁后无从比较）。模板与声音不在表里。 */
   function stackRank(rows) {
     const list = unitsOf(rows, 'picture');
     const rank = {};
-    list.forEach((u, i) => { rowEls(u.rows[0]).forEach((e) => { rank[e.id] = list.length - 1 - i; }); });
+    list.forEach((u, i) => {
+      const r = list.length - 1 - i;
+      if (isSubsUnit(u)) rank[u.key] = r;
+      else rowEls(u.rows[0]).forEach((e) => { rank[e.id] = r; });
+    });
     return rank;
   }
 
-  /* 画布元素的「层级」四项（F / ⌘↑ / ⌘↓ / B）落在轨道上：画面元素独占一条轨时与相邻的同类轨换位
-     （前移 = 拖到上一条之上，移到最前 = 拖到最上一条之上），走到边就灰掉；与别的元素共一条轨时
+  /* 画布元素的「层级」四项（F / ⌘↑ / ⌘↓ / B）落在轨道上：画面元素独占一条轨时与同一叠里相邻的那条换位
+     （相邻的可以是字幕轨；前移 = 拖到上一条之上，移到最前 = 拖到整叠最上一条之上），走到边就灰掉；与别的元素共一条轨时
      引擎会把它拆到一条新的相邻轨上——本原型的道由同类共道派生、拆不出新轨，只报一个 `split`。 */
   const ARRANGE_DIRS = ['front', 'forward', 'backward', 'back'];
   function arrangePlan(rows, elId, dir) {

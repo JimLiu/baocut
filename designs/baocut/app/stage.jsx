@@ -69,6 +69,11 @@
     const subPreviewing = !!(ctx.peek && ctx.peek.kind === 'sub' && !ctx.peek.win);
     const beatCur = window.useSubBeat(cueWords, subPreviewing);
     const k = fit.w / 880;                       // 画面缩放系数，元素尺寸跟着走
+    /* 叠放次序（product-design §5.1）：画面元素与字幕是同一叠，名次读时间线行（`BC_TL.stackRank`），
+       拖行头、画布「层级」换过的次序在这里落到画面上。名次只在 `.stagestack` 里比，不出这一层。 */
+    const rank = window.BC_TL.stackRank(window.BC_TL.rows(ctx.elements || [],
+      {subTracks: ctx.subStyle.tracks, audio: false, music: false, trackOrder: ctx.trackOrder}).rows);
+    const subZ = (id) => rank['subs:' + id] ?? 0;
     /* 元素的选中判定与画法整体搬去 [stage-elements.jsx](stage-elements.jsx)（第 115 轮
        拆分：本文件此前 770 行）。这里只留舞台自己的事：画幅、字幕与工具条。 */
     const mode = (ctx.ent && ctx.ent.canvas) || 'mono';   // §9 六入口：画布也跟着改
@@ -143,24 +148,10 @@
               位置按画面框百分比落位；有没有模板看 tplDoc，不再看入口 */}
           {ctx.tplDoc ? <window.TemplateChrome ctx={ctx} fw={fit.w} fh={fit.h} /> : null}
 
+          {/* 画面元素与字幕同在一叠（`.stagestack`）：各带 `zIndex` = 名次，谁盖谁跟着轨道次序走 */}
+          <div className="stagestack">
           <window.StageElements ctx={ctx} st={st} k={k} frameRef={frameRef}
-            onGuides={setGuides} mode={mode} swallow={mq.swallow} />
-
-          {/* 多选统一框（第 115 轮）：≥2 件时逐件手柄收起，改画一个可整体拖动与
-              等比缩放的外包框。 */}
-          {player ? null : <window.MultiBox ctx={ctx} frameRef={frameRef} />}
-          {player ? null : <window.Marquee box={mq.box} />}
-
-          {/* §5 的对齐参考线：1px accent，松手消失 */}
-          {guides.map((g, i) => (
-            <i key={i} className={cx('gline', g.v ? 'gline--v' : 'gline--h')}
-              style={g.v ? {left: g.p} : {top: g.p}} />
-          ))}
-
-
-          {/* 平台安全区（2026-09-27，Shorts 设计稿 §5.1）：竖幅时画出平台 UI 盖住的三块，
-              只是参考线——不接鼠标、不进导出、全屏播放器里不画。数字只在 BC_SHORTS.SAFE。 */}
-          {!player && ctx.safeArea && window.BC_SHORTS.isPortrait(ratio) ? <SafeAreaOverlay /> : null}
+            onGuides={setGuides} mode={mode} swallow={mq.swallow} rank={rank} />
 
           {/* 播放器里字幕开关是那四档（关闭 / 原文 / 译文 / 双语），不是编辑器的
               `subsOn`——观看时选「只看译文」不该写回文档，见 model-player.js。 */}
@@ -175,9 +166,11 @@
               && (!player || window.BC_PLAYER.captionVisible(player.capMode, 'source')) ? src.kinetic : null;
             if (!kin) return null;
             return (
-              <window.DaoyaziStage key="dz" ctx={ctx} track={src} kin={kin} cues={ctx.cues}
-                playT={playT} loop={subPreviewing} fit={fit} duration={ctx.duration}
-                bilingual={!!window.BC_SUB.stackOrder(doc)} editable={!player} />
+              <div key="dz" className="stagestack__dz" style={{zIndex: subZ(src.id)}}>
+                <window.DaoyaziStage ctx={ctx} track={src} kin={kin} cues={ctx.cues}
+                  playT={playT} loop={subPreviewing} fit={fit} duration={ctx.duration}
+                  bilingual={!!window.BC_SUB.stackOrder(doc)} editable={!player} />
+              </div>
             );
           })() : null}
           {(player ? player.capMode !== 'off' : subsOn) && cue ? (() => {
@@ -241,7 +234,7 @@
               const x = ln.x == null ? 50 : ln.x;
               const pos = {position: 'absolute', left: (x - width / 2) + '%', width: width + '%',
                 top: y + '%', bottom: 'auto',
-                transform: 'translateY(' + P.subShift(ln.valign) + '%)'};
+                transform: 'translateY(' + P.subShift(ln.valign) + '%)', zIndex: subZ(t.id)};
               const picked = !!sel && sel.kind === 'subs' && sel.trackId === t.id;
               /* 字号换算（第 74.1 轮改口径）：名义字号 32 ↔ 画面基准 fz（20px@880），
                  每条轨各自按自己的字号折算。此前按 `src.size` 归一——源语言轨恒画成
@@ -305,6 +298,24 @@
               );
             });
           })() : null}
+          </div>
+
+          {/* 多选统一框（第 115 轮）：≥2 件时逐件手柄收起，改画一个可整体拖动与
+              等比缩放的外包框。 */}
+          {player ? null : <window.MultiBox ctx={ctx} frameRef={frameRef} />}
+          {player ? null : <window.Marquee box={mq.box} />}
+
+          {/* §5 的对齐参考线：1px accent，松手消失 */}
+          {guides.map((g, i) => (
+            <i key={i} className={cx('gline', g.v ? 'gline--v' : 'gline--h')}
+              style={g.v ? {left: g.p} : {top: g.p}} />
+          ))}
+
+
+          {/* 平台安全区（2026-09-27，Shorts 设计稿 §5.1）：竖幅时画出平台 UI 盖住的三块，
+              只是参考线——不接鼠标、不进导出、全屏播放器里不画。数字只在 BC_SHORTS.SAFE。 */}
+          {!player && ctx.safeArea && window.BC_SHORTS.isPortrait(ratio) ? <SafeAreaOverlay /> : null}
+
           {/* 舞台状态胶囊（§11.2）：BCF 预览代理在烧 MP4 时的「正在优化播放 · N%」，
               与「上一版画面」提示同一列。挂在 `.frame` 最后、直接子节点——理由同上面的
               预览贴片。全屏播放器不画：观看面只留播放 chrome，左下角也被控制条压着（§11.1）。 */}

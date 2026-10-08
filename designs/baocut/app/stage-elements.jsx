@@ -12,7 +12,7 @@
      · **播放中点一件 = 暂停 ＋ 选中**：不暂停的话手柄下一帧就被起播那条规则收走。
    ============================================================================ */
 (function () {
-  const {useEffect, useMemo} = React;
+  const {useEffect} = React;
   const D = window.BC_DATA;
   const P = window.BC_POSE;
   const PV = window.BC_PREV;
@@ -100,7 +100,7 @@
   };
 
   /** 画面上的元素层。`k` 是画面缩放系数，`st` 是共用样式袋（悬停预览之后的那一份）。 */
-  function StageElements({ctx, st, k, frameRef, onGuides, mode, swallow}) {
+  function StageElements({ctx, st, k, frameRef, onGuides, mode, swallow, rank}) {
     const app = useApp();
     const {sel, playT} = ctx;
     const localElapsed = window.useLocalMotionPreview(ctx.peek, ctx.playing, ctx.setPeek);
@@ -130,13 +130,12 @@
     // 删掉的不再画；停用的（第 120 轮，时间轴行头那只眼睛）也不画——它还在文档里，只是这一轮不上画面
     const live = (id) => (ctx.elements || []).some((e) => e.id === id) && !((ctx.elDocs || {})[id] || {}).hidden;
     const userEls = (ctx.elements || []).filter((e) => e.added && e.kind !== 'audio');
-    /* 叠放次序（product-design §5.1）：时间线上越靠上的画面轨道越在前面——拖行头、画布「层级」改的
-       `trackOrder` 在这里落到画面上。元素同在 z-index 1 上，按名次从底到顶排 DOM 顺序（后画的盖住
-       先画的）；不抬 z-index，免得压过字幕、参考线与统一框。名次只看画面轨道，与字幕 / 声音行无关。 */
-    const rank = useMemo(() => window.BC_TL.stackRank(window.BC_TL.rows(ctx.elements || [],
-      {subTracks: [], audio: false, music: false, trackOrder: ctx.trackOrder}).rows), [ctx.elements, ctx.trackOrder]);
+    /* 叠放次序（product-design §5.1）：时间线上越靠上的轨道越在前面，画面与字幕同一叠。`rank` 由
+       stage.jsx 按时间线行算好（`BC_TL.stackRank`，字幕轨也在里面），这里每件的 `zIndex` 就是它的名次，
+       只在 `.stagestack` 里比——压不过模板、参考线与统一框。同一条轨道上名次相同，按 DOM 先后。 */
+    const zOf = (id) => (rank || {})[id] ?? 0;
     const byStack = (list) => list.map((e, i) => [e, i])
-      .sort((a, b) => (rank[a[0].id] ?? -1) - (rank[b[0].id] ?? -1) || a[1] - b[1]).map((x) => x[0]);
+      .sort((a, b) => zOf(a[0].id) - zOf(b[0].id) || a[1] - b[1]).map((x) => x[0]);
     /* 按需那六类「在不在画面上」与「选没选中」第 115 轮起分开：选中一次就留在画面上
        （进 `ctx.shown`），取消选中不再让它消失，删除才拿走。 */
     const shown = ctx.shown || [];
@@ -552,7 +551,7 @@
             const box2 = {position: 'absolute', left: pose.x + '%', top: pose.y + '%',
                           width: (pose.w * (pose.scale || 1)) + '%',
                           height: hasH ? (pose.h * (pose.scale || 1)) + '%' : null,
-                          transform: 'translate(-50%, -50%)', zIndex:e.layer ?? 1};
+                          transform: 'translate(-50%, -50%)', zIndex: zOf(e.id)};
             /* 镜像归几何（核心 ADR-E01 的 `place.flipX/flipY`），但只翻**内容**：
                翻在盒子上会把选中框、手柄与浮动条一起镜像，条子上的字都要倒过来。 */
             const mir = (pose.flipX ? ' scaleX(-1)' : '') + (pose.flipY ? ' scaleY(-1)' : '');

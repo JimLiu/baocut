@@ -59,7 +59,7 @@
   /* 层级飞出。图标按方向分两枚：往前的两行一枚、往后的两行一枚；
      此前四行共用一枚 `elements`，读不出方向。四行与快捷键和 App 的画布「层级」一致
      （F / ⌘↑ / ⌘↓ / B）；落到轨道次序上（timeline-trackorder.jsx `arrangeElement`），
-     走到同类轨道的最上 / 最下就灰掉。 */
+     走到画面与字幕这一叠的最上 / 最下就灰掉。 */
   function OrderSub({el, ctx, style}) {
     const app = useApp();
     const rows = [
@@ -77,7 +77,7 @@
               {/* 往前的两行与往后的两行之间一条线（第 82.1 轮补） */}
               {i === 2 ? <div className="mprule" /> : null}
               <BCAction size="M" disabled={off} className="mpi"
-                title={off ? (i < 2 ? '已经在同类轨道的最上面' : '已经在同类轨道的最下面') : undefined}
+                title={off ? (i < 2 ? '已经在最前面' : '已经在最后面') : undefined}
                 onClick={() => !off && window.arrangeElement(ctx, el.id, r.d, app.toast)}>
                 <Ic n={r.ic} className="ic--14" />
                 <span className="nm">{r.n}</span><i className="kbd">{r.k}</i>

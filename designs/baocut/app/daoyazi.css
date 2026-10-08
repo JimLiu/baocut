@@ -2,7 +2,7 @@
    控件本身全部来自 ui.jsx / ui.css，这里只有摆放。 */
 
 /* 画面上：铺满画面框，正常模式不接指针（铺满会吞掉底下元素的手势，见 daoyazi-stage.jsx 头注） */
-.dzstage { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 7; display: block; pointer-events: none; }
+.dzstage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
 .dzstage.is-edit { pointer-events: auto; cursor: grab; }
 .dzstage.is-drag { cursor: grabbing; }
 
