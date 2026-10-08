@@ -183,6 +183,7 @@ it.skipIf(
     const { root, home } = await setup();
     await fs.rm(path.join(root, 'projects'), { recursive: true });
     await writeJsonAtomic(path.join(root, 'projects', 'blank', 'project.json'), { formatVersion: '0.1', title: 'Imported title' });
+    await writeJsonAtomic(path.join(root, 'projects', 'second', 'project.json'), { formatVersion: '0.1', title: 'Second video' });
     vi.stubEnv('BAOCUT_LEGACY_ROOT', root);
     vi.stubEnv('BAOCUT_HOME', home.root);
     const engine = process.env.BAOCUT_ENGINE_HOST ?? path.resolve(`target/debug/engine-host${process.platform === 'win32' ? '.exe' : ''}`);
@@ -198,7 +199,12 @@ it.skipIf(
           { timeout: 15_000 },
         );
         expect(runtime.harness.listProjects()).toHaveLength(1);
-        expect(runtime.harness.listProjects()[0]?.name).toBe('Imported title');
+        const project = runtime.harness.listProjects()[0]!;
+        expect(project.name).toBe('Imported');
+        expect(project.path).toBe(await fs.realpath(path.join(home.projectsDir, 'Imported')));
+        const videos = (await fs.readdir(project.path)).filter((name) => name.startsWith('legacy-'));
+        expect(videos).toHaveLength(2);
+        for (const video of videos) await fs.access(path.join(project.path, video, 'video.db'));
         expect(runtime.settings.store.get('models.dir')).toBe(path.join(dir, 'models'));
       } finally {
         await runtime.close();
@@ -401,3 +407,97 @@ it('waits for user jobs and can stop promptly without starting project discovery
   await upgrade.stop();
   expect(upgrade.active).toBe(false);
 });
+
+it('groups distinct sources in the same project with stable, separate video paths and reports', async () => {
+  const s = await setup();
+  const other = path.join(dir, 'another-legacy-root');
+  await writeJsonAtomic(path.join(other, 'projects', 'old', 'project.json'), { title: 'Same title' });
+  const importProject = vi.fn(async () => {});
+  const upgrade = new LegacyUpgrade({ ...s, roots: [s.root, other], v1Preferences: null, importProject, allowKeychain: false });
+  await upgrade.prepare();
+  upgrade.start(s.deps);
+  await finish(upgrade);
+  const requests = importProject.mock.calls as unknown as [{ target: string; videoDirectory: true }][];
+  expect(requests).toHaveLength(2);
+  expect(new Set(requests.map(([request]) => request.target)).size).toBe(2);
+  for (const [request] of requests) {
+    expect(request.videoDirectory).toBe(true);
+    expect(path.dirname(request.target)).toBe(path.join(s.home.projectsDir, 'Imported'));
+  }
+  expect(s.openProject.mock.calls).toEqual([
+    [path.join(s.home.projectsDir, 'Imported'), undefined],
+    [path.join(s.home.projectsDir, 'Imported'), undefined],
+  ]);
+});
+
+it('supplements previously completed markers with v2 service configuration without reimporting videos', async () => {
+  const s = await setup();
+  const markerFile = path.join(s.home.root, 'store', 'legacy-upgrade.json');
+  await writeJsonAtomic(markerFile, { schemaVersion: 1, complete: true, sources: {
+    [s.root]: { settings: true, cloud: true, complete: true, credentials: ['openai'], projects: {}, pending: [], unsupported: [] },
+  } });
+  await writeJsonAtomic(path.join(s.root, 'runtime', 'services.json'), { web: { autoStart: true, port: 34567 } });
+  await fs.writeFile(path.join(s.root, 'projects.json'), 'must not rescan completed projects');
+  const importProject = vi.fn(async () => {});
+  const upgrade = new LegacyUpgrade({ ...s, roots: [s.root], v1Preferences: null, importProject, allowKeychain: false });
+  await upgrade.prepare();
+  upgrade.start(s.deps);
+  await finish(upgrade);
+  expect(importProject).not.toHaveBeenCalled();
+  expect((await readJson<any>(s.home.servicesFile)).services.web).toMatchObject({ autostart: true, port: 34567 });
+  const marker = await readJson<any>(markerFile);
+  expect(marker.complete).toBe(true);
+  expect(marker.sources[s.root]).toMatchObject({ services: true, nodes: true });
+});
+
+it('imports settings even when service configuration is corrupted, then retries services after repair', async () => {
+  const s = await setup();
+  const file = path.join(s.root, 'runtime', 'services.json');
+  await writeJsonAtomic(file, { web: { port: 'invalid' } });
+  const options = { ...s, roots: [s.root], v1Preferences: null, allowKeychain: false, importProject: async () => {} };
+  const first = new LegacyUpgrade(options);
+  await first.prepare();
+  const settings = new SettingsStore(s.home.settingsFile);
+  await settings.load();
+  expect(settings.get('models.dir')).toBe(path.join(dir, 'models'));
+  first.start(s.deps);
+  await finish(first);
+  const marker = path.join(s.home.root, 'store', 'legacy-upgrade.json');
+  expect((await readJson<any>(marker)).complete).toBeUndefined();
+  await writeJsonAtomic(file, { web: { autoStart: true, port: 34567 } });
+  const again = new LegacyUpgrade(options);
+  await again.prepare();
+  again.start(s.deps);
+  await finish(again);
+  expect((await readJson<any>(marker)).complete).toBe(true);
+  expect((await readJson<any>(s.home.servicesFile)).services.web.port).toBe(34567);
+});
+
+it.skipIf(process.platform === 'win32' ||
+  !existsSync(process.env.BAOCUT_ENGINE_HOST ?? path.resolve('target/debug/engine-host')),
+)(
+  'keeps recovered v1 PCM media separate in the shared project and resumes the same video',
+  async () => {
+    const { runProjectImport } = await import('./legacy-upgrade.ts');
+    const project = path.join(dir, 'Imported');
+    for (const name of ['first', 'second']) {
+      const source = path.join(dir, name);
+      await writeJsonAtomic(path.join(source, 'doc.json'), {
+        clips: [{ id: 'clip', src: 0, start: 0, end: 1 }],
+        words: [{ id: 'word', text: 'Word.', t0: 0, t1: 0.5 }],
+      });
+      await fs.writeFile(path.join(source, 'audio16k.pcm'), Buffer.alloc(16000 * 4));
+      const target = path.join(project, `legacy-${name}`);
+      const request = {
+        source, version: 1 as const, entry: { title: name }, target, videoDirectory: true as const,
+        engine: process.env.BAOCUT_ENGINE_HOST ?? path.resolve('target/debug/engine-host'),
+      };
+      for (let attempt = 0; attempt < 2; attempt++) await runProjectImport(request, process.env, new AbortController().signal);
+      await fs.access(path.join(target, 'video.db'));
+      await fs.access(path.join(target, 'legacy-media', 'source.wav'));
+      expect((await readJson<any>(path.join(target, 'import-report.json'))).failed).toEqual([]);
+      expect(existsSync(path.join(source, 'project.json'))).toBe(false);
+    }
+  },
+  30_000,
+);

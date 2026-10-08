@@ -18,9 +18,13 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-it.each([true, false])('passes historical detection intent to the spawned Runtime: %s', async (enabled) => {
+it.each([true, false].flatMap((enabled) => [
+  {},
+  { BAOCUT_HOME: path.join(os.tmpdir(), 'desktop-development-home') },
+  { BAOCUT_PROJECTS_DIR: path.join(os.tmpdir(), 'desktop-custom-projects') },
+].map((env) => ({ enabled, env }))))('passes home paths and historical detection intent: $enabled, $env', async ({ enabled, env }) => {
   vi.stubEnv('BAOCUT_LEGACY_AUTO_DETECT', '');
-  const home = resolveRuntimeHome({ BAOCUT_HOME: path.join(os.tmpdir(), 'desktop-development-home') });
+  const home = resolveRuntimeHome(env);
   mocks.readDiscovery.mockResolvedValueOnce(null).mockResolvedValue({ pid: 123, endpoint: 'ws://127.0.0.1:1', token: 'fixture-token' });
   mocks.spawn.mockImplementation(() => {
     const child = Object.assign(new EventEmitter(), { stdout: new PassThrough() });
@@ -41,5 +45,7 @@ it.each([true, false])('passes historical detection intent to the spawned Runtim
   await supervisor.connection();
   const options = mocks.spawn.mock.calls[0]![2];
   expect(options.env.BAOCUT_HOME).toBe(home.root);
+  expect(options.env.BAOCUT_PROJECTS_DIR).toBe(home.projectsDir);
+  expect(resolveRuntimeHome(options.env).projectsDir).toBe(home.projectsDir);
   expect(options.env.BAOCUT_LEGACY_AUTO_DETECT).toBe(enabled ? '1' : '');
 });

@@ -15,7 +15,7 @@ async function main(): Promise<void> {
       ? planV1Project(request.source, request.entry, path.join(request.target, 'legacy-media'))
       : planBcutProject(request.source, new Set());
   if (!plan) throw new Error('Invalid legacy project');
-  plan.dirName = 'video';
+  plan.dirName = request.videoDirectory ? path.basename(request.target) : 'video';
   mkdirSync(request.target, { recursive: true });
   // Fail before creating a partial video when media is offline. Restoring the
   // media can then retry without changing already-committed document steps.
@@ -49,7 +49,7 @@ async function main(): Promise<void> {
   });
   try {
     await host.request('host.hello', {});
-    await writeVideo(host, plan, request.target, false);
+    await writeVideo(host, plan, request.videoDirectory ? path.dirname(request.target) : request.target, false);
   } finally {
     host.close();
     writeFileSync(path.join(request.target, 'import-report.json'), JSON.stringify(plan.report, null, 2), { mode: 0o600 });
