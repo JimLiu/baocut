@@ -400,7 +400,7 @@
       "app/agent-cards.css",
       "app/subtitle-motion.css"
     ],
-    "js": "generated/app.js?v=1106aaa059b6",
+    "js": "generated/app.js?v=c8bdcdbf6cd5",
     "css": "generated/app.css?v=0b7b07d1b497",
     "bytes": 3731032
   },
@@ -630,7 +630,7 @@
       "app/font-library.css",
       "app/subtitle-motion.css"
     ],
-    "js": "generated/web.js?v=7eac0a01f0bf",
+    "js": "generated/web.js?v=2c7b24d85652",
     "css": "generated/web.css?v=c8e11f76f3d8",
     "bytes": 2312779
   },

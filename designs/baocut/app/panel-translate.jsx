@@ -275,7 +275,7 @@
      §13.2 W6 的形状（`apps/baocut` 的 `lists/translate.rs::render_live`）：
      标题 + 百分比 + 进度条 + 行/调用两行计数 + 四段阶梯 + 模型活动行 + Cancel。
      发起方三档（第 207 轮，`BC_TRUN.sourceKind`）：App 自己开的只有活动行；命令行开的
-     出「命令行正在跑」；Agent 会话开的出「Agent 会话正在跑 · 会话「…」」+ 查看会话
+     出「命令行正在跑」；Agent 会话开的出「Agent 会话正在跑 · 会话「…」」+ 打开会话
      （抽屉里那条会话就是它的过程记录，这里不再复述一份）。取消钮看 `canCancel`：
      命令行的任务不归这个进程管，只有记录明确接受叫停才给钮——摆一颗按不动的取消钮
      是假承诺。计数只在有总数时出（同 App v2 的 when 门控）。 */
@@ -319,7 +319,7 @@
         {kind === 'agent' ? (
           <div className="livehd__m">
             <span className="t-truncate">Agent 会话正在跑这条任务{sessTitle ? ' · 会话「' + sessTitle + '」' : ''}</span>
-            {job.session && window.BC_SURFACE.agent ? <BCAction className="stlink" onClick={() => app.openSession(job.session)}>查看会话</BCAction> : null}
+            {job.session && window.BC_SURFACE.agent ? <BCAction className="stlink" onClick={() => app.openSession(job.session)}>打开会话</BCAction> : null}
           </div>
         ) : null}
         {cancelable ? (
@@ -354,7 +354,7 @@
         </div>
         <div className="livehd__m">
           <span className="t-truncate">Agent 会话正在翻译{sessTitle ? ' · 会话「' + sessTitle + '」' : ''}</span>
-          {job.session && window.BC_SURFACE.agent ? <BCAction className="stlink" onClick={() => app.openSession(job.session)}>查看会话</BCAction> : null}
+          {job.session && window.BC_SURFACE.agent ? <BCAction className="stlink" onClick={() => app.openSession(job.session)}>打开会话</BCAction> : null}
         </div>
       </div>
     );
