@@ -58,5 +58,5 @@ export const ja: RcRuntimeMessages = {
   legacyPromptGone: "このインポートの確認にはすでに回答済みか、もう有効ではありません",
   legacyImportFolderReserved: "BaoCut と旧バージョンのデータフォルダー以外のフォルダーを選んでください",
   legacyImportFolderUnwritable: "このフォルダーを作成できないか、書き込めません",
-  legacyImportLocalOnly: "以前のプロジェクトの読み込みについての確認には、デスクトップアプリかローカルの CLI からしか回答できません",
+  legacyImportLocalOnly: "以前のプロジェクトをどう読み込むかは、デスクトップアプリかローカルの CLI からしか決められません",
 };

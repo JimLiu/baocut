@@ -253,12 +253,20 @@ export function createHandlers({
         setTimeout(requestStop, 50);
         return { stopping: true as const };
       },
-      'legacyImport.get': () => ({ prompt: legacyUpgrade.prompt() }),
-      // 导入到哪、要不要导入是本机用户的决定：Agent 与对外服务的连接不能替用户回答。
+      'legacyImport.get': () => ({ prompt: legacyUpgrade.prompt(), run: legacyUpgrade.run() }),
+      // 导入到哪、要不要导入、重试还是跳过，是本机用户的决定：Agent 与对外服务的连接不能替用户做。
       'legacyImport.answer': async (p, principal) => {
         if (principal.kind !== 'cli' && principal.kind !== 'desktop') throw new RpcError('forbidden', RcRuntime.legacyImportLocalOnly());
         await legacyUpgrade.answer(p);
         return {};
+      },
+      'legacyImport.retry': async (p, principal) => {
+        if (principal.kind !== 'cli' && principal.kind !== 'desktop') throw new RpcError('forbidden', RcRuntime.legacyImportLocalOnly());
+        return { queued: await legacyUpgrade.retry(p.paths) };
+      },
+      'legacyImport.setSkipped': async (p, principal) => {
+        if (principal.kind !== 'cli' && principal.kind !== 'desktop') throw new RpcError('forbidden', RcRuntime.legacyImportLocalOnly());
+        return { changed: await legacyUpgrade.setSkipped(p.paths, p.skipped) };
       },
       'agents.list': () => harness.agents(),
       // 「重新检测」：强制探测（给了 driverId 只探那一个），探完再返回（§3.11）。

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { silentLogger } from '@baocut/harness';
 import { ModelServiceStore } from '@baocut/models';
 import { FileCredentialStore, SettingsStore, readJson, resolveRuntimeHome, writeJsonAtomic } from '@baocut/runtime-storage';
-import { LegacyUpgrade, defaultLegacyImportDirectory } from './legacy-upgrade.ts';
+import { LegacyUpgrade, defaultLegacyImportDirectory, legacyVolumeOf } from './legacy-upgrade.ts';
 import { legacyRoots, readLegacySource } from './legacy-upgrade-sources.ts';
 import { importLegacyCloud } from './legacy-upgrade-cloud.ts';
 import { importLegacySettings } from './legacy-upgrade-settings.ts';
@@ -560,7 +560,7 @@ describe('legacy project import prompt', () => {
     await first.answer({ promptId: prompt.promptId, decision: 'import', directory: chosen });
     await finish(first);
     expect(first.prompt()).toBeNull();
-    expect(events.at(-1)).toEqual({ type: 'prompt.updated', prompt: null });
+    expect(events.filter((event) => (event as { type: string }).type === 'prompt.updated').at(-1)).toEqual({ type: 'prompt.updated', prompt: null });
     expect(importProject).toHaveBeenCalledTimes(2);
     for (const [request] of importProject.mock.calls) expect(path.dirname(request.target)).toBe(chosen);
     expect(s.openProject.mock.calls).toEqual([
@@ -656,7 +656,7 @@ describe('legacy project import prompt', () => {
     upgrade.topic.subscribe(undefined, (sequenced) => events.push(sequenced.event));
     upgrade.start(s.deps);
     await finish(upgrade);
-    expect(events).toEqual([]);
+    expect(events.filter((event) => (event as { type: string }).type === 'prompt.updated')).toEqual([]);
     const targets = Object.fromEntries(importProject.mock.calls.map(([request]) => [path.basename(request.source), request.target]));
     expect(targets.old).toBe(earlierTarget);
     expect(path.dirname(targets.v2!)).toBe(path.join(s.home.projectsDir, 'Imported'));
@@ -692,7 +692,10 @@ describe('legacy project import prompt', () => {
     try {
       const desktop = await connect('desktop');
       const seen: unknown[] = [];
-      desktop.subscribeLegacyImport({ snapshot: (snapshot) => seen.push(snapshot.prompt), event: (event) => seen.push(event.prompt) });
+      desktop.subscribeLegacyImport({
+        snapshot: (snapshot) => seen.push(snapshot.prompt),
+        event: (event) => event.type === 'prompt.updated' && seen.push(event.prompt),
+      });
       await vi.waitFor(async () => expect((await desktop.request('legacyImport.get', {})).prompt).not.toBeNull());
       const prompt = (await desktop.request('legacyImport.get', {})).prompt!;
       expect(prompt.projects.map((project) => project.title)).toContain('V2 title');
@@ -709,9 +712,199 @@ describe('legacy project import prompt', () => {
       await vi.waitFor(async () => expect((await readJson<any>(markerOf(s))).complete).toBe(true));
       expect((await readJson<any>(markerOf(s))).projectImport).toEqual({ decision: 'never' });
       expect(runtime.harness.listProjects()).toEqual([]);
+      // 重试与跳过同样只给桌面界面与 CLI；不导入时没有这次的导入，什么也不排。
+      expect(await desktop.request('legacyImport.get', {})).toEqual({ prompt: null, run: null });
+      expect(await desktop.request('legacyImport.retry', {})).toEqual({ queued: 0 });
+      expect(await desktop.request('legacyImport.setSkipped', { paths: ['/old/project'], skipped: true })).toEqual({ changed: 0 });
+      await expect(agent.request('legacyImport.retry', {})).rejects.toMatchObject({ code: 'forbidden' });
+      await expect(agent.request('legacyImport.setSkipped', { paths: ['/old/project'], skipped: true })).rejects.toMatchObject({
+        code: 'forbidden',
+      });
     } finally {
       for (const client of clients) client.close();
       await runtime.close();
     }
   }, 30_000);
+});
+
+describe('legacy project import progress', () => {
+  const markerOf = (s: { home: { root: string } }) => path.join(s.home.root, 'store', 'legacy-upgrade.json');
+  /** 旧版的 v2 项目：目录名就是标题。 */
+  const v2 = (s: { root: string }, name: string) => writeJsonAtomic(path.join(s.root, 'projects', name, 'project.json'), { title: name });
+  const byTitle = (upgrade: LegacyUpgrade) => Object.fromEntries(upgrade.run()!.items.map((item) => [item.title, item]));
+  const report = (request: { target: string }, body: object) => writeJsonAtomic(path.join(request.target, 'import-report.json'), body);
+
+  it('finds the mount point of removable and network volumes on each platform', () => {
+    expect(legacyVolumeOf('/Volumes/Extreme SSD/2025/A001.MP4', 'darwin')).toEqual({ root: '/Volumes/Extreme SSD', name: 'Extreme SSD' });
+    expect(legacyVolumeOf('/Users/me/Movies/a.mov', 'darwin')).toBeNull();
+    expect(legacyVolumeOf('/media/me/Extreme SSD/a.mov', 'linux')).toEqual({ root: '/media/me/Extreme SSD', name: 'Extreme SSD' });
+    expect(legacyVolumeOf('/run/media/me/USB/a.mov', 'linux')).toEqual({ root: '/run/media/me/USB', name: 'USB' });
+    expect(legacyVolumeOf('/mnt/nas/a.mov', 'linux')).toEqual({ root: '/mnt/nas', name: 'nas' });
+    expect(legacyVolumeOf('/home/me/a.mov', 'linux')).toBeNull();
+    expect(legacyVolumeOf('e:\\2025\\A001.MP4', 'win32')).toEqual({ root: 'E:\\', name: 'E:' });
+    expect(legacyVolumeOf('\\\\nas\\video\\a.mov', 'win32')).toEqual({ root: '\\\\nas\\video', name: 'video' });
+    expect(legacyVolumeOf('relative\\a.mov', 'win32')).toBeNull();
+  });
+
+  it.skipIf(process.platform === 'win32')('reports each project as it imports, and why the others were not imported', async () => {
+    const s = await setup();
+    for (const name of ['ok', 'offline', 'moved', 'broken', 'failed']) await v2(s, name);
+    const drive = `/Volumes/BaoCut test ${path.basename(dir)}`;
+    const importProject = vi.fn(async (request: { source: string; target: string }) => {
+      const name = path.basename(request.source);
+      if (name === 'offline') {
+        await report(request, { assets: { missing: Array.from({ length: 7 }, (_, i) => `${drive}/clip-${i}.mov`) } });
+        throw new Error('offline');
+      }
+      if (name === 'moved') {
+        await report(request, { assets: { missing: [path.join(dir, 'moved.mov')] }, failed: [] });
+        throw new Error('missing');
+      }
+      if (name === 'broken') throw new Error('unreadable');
+      if (name === 'failed') {
+        await report(request, { assets: { missing: [] }, failed: ['subtitles'] });
+        throw new Error('failed');
+      }
+    });
+    const upgrade = new LegacyUpgrade({ ...s, roots: [s.root], v1Preferences: null, importProject, platform: 'darwin', allowKeychain: false });
+    await upgrade.prepare();
+    const runs: { state: string; items: { title: string; state: string }[] }[] = [];
+    upgrade.topic.subscribe(undefined, ({ event }) => event.type === 'run.updated' && event.run && runs.push(event.run));
+    upgrade.start(s.deps);
+    await finish(upgrade);
+
+    // 每个项目开始导入、有了结果都报一次；最后一次是跑完。
+    expect(runs[0]!.items.every((item) => item.state === 'queued')).toBe(true);
+    expect(runs.some((run) => run.items.some((item) => item.title === 'ok' && item.state === 'importing'))).toBe(true);
+    expect(runs.at(-1)!.state).toBe('finished');
+    const run = upgrade.run()!;
+    expect(run.directory).toBe(s.imported);
+    expect(run.finishedAt).not.toBeNull();
+    const items = byTitle(upgrade);
+    expect(Object.keys(items).sort()).toEqual(['broken', 'failed', 'moved', 'offline', 'ok', 'old']);
+    expect([items.ok!.state, items.old!.state]).toEqual(['imported', 'imported']);
+    expect(items.offline).toMatchObject({
+      state: 'not-imported',
+      problem: { kind: 'offline', volume: { root: drive, name: path.basename(drive) }, missingCount: 7 },
+    });
+    expect((items.offline!.problem as { missing: string[] }).missing).toHaveLength(5);
+    expect(items.moved!.problem).toEqual({ kind: 'missing', missing: [path.join(dir, 'moved.mov')], missingCount: 1 });
+    expect(items.broken!.problem).toEqual({ kind: 'unreadable' });
+    const failedTarget = importProject.mock.calls.find(([request]) => path.basename(request.source) === 'failed')![0].target;
+    expect(items.failed!.problem).toEqual({ kind: 'failed', report: path.join(failedTarget, 'import-report.json') });
+    // 没导入的记成待办，下次启动再试；这个来源还没完成。
+    const marker = await readJson<any>(markerOf(s));
+    expect(marker.sources[s.root].pending.filter((todo: string) => todo.startsWith('project:'))).toHaveLength(4);
+    expect(marker.sources[s.root].complete).toBeUndefined();
+  });
+
+  it.skipIf(process.platform === 'win32')('retries, skips and un-skips; skipped projects are never imported again', async () => {
+    const s = await setup();
+    for (const name of ['moved', 'broken']) await v2(s, name);
+    const media = path.join(dir, 'moved.mov');
+    const importProject = vi.fn(async (request: { source: string; target: string }) => {
+      const name = path.basename(request.source);
+      if (name === 'moved' && !existsSync(media)) {
+        await report(request, { assets: { missing: [media] }, failed: [] });
+        throw new Error('missing');
+      }
+      if (name === 'broken') throw new Error('unreadable');
+    });
+    const options = { ...s, roots: [s.root], v1Preferences: null, importProject, platform: 'darwin' as const, allowKeychain: false };
+    const upgrade = new LegacyUpgrade(options);
+    await upgrade.prepare();
+    upgrade.start(s.deps);
+    await finish(upgrade);
+    const { moved, broken } = byTitle(upgrade);
+    expect([moved!.state, broken!.state]).toEqual(['not-imported', 'not-imported']);
+
+    // 文件还没放回：重试还是没导入，原因不变。点名的路径之外不动。
+    expect(await upgrade.retry([moved!.path])).toBe(1);
+    expect(byTitle(upgrade).moved!.state).not.toBe('not-imported');
+    expect(byTitle(upgrade).broken!.state).toBe('not-imported');
+    expect(upgrade.active).toBe(true);
+    await finish(upgrade);
+    expect(byTitle(upgrade).moved!.problem).toEqual({ kind: 'missing', missing: [media], missingCount: 1 });
+    expect(upgrade.run()!.state).toBe('finished');
+
+    // 放回之后重试：导入了，待办里没有它了。
+    await fs.writeFile(media, 'restored');
+    expect(await upgrade.retry()).toBe(2);
+    await finish(upgrade);
+    expect(byTitle(upgrade).moved!.state).toBe('imported');
+    expect(byTitle(upgrade).broken!.state).toBe('not-imported');
+    expect(await upgrade.retry([moved!.path])).toBe(0);
+
+    // 跳过读不出来的：记下，不再是待办，来源算完成。
+    expect(await upgrade.setSkipped([broken!.path], true)).toBe(1);
+    expect(byTitle(upgrade).broken).toMatchObject({ state: 'skipped', problem: { kind: 'unreadable' } });
+    let marker = await readJson<any>(markerOf(s));
+    expect(marker.sources[s.root].skipped).toEqual([broken!.path]);
+    expect(marker.sources[s.root].pending).toEqual([]);
+    expect(marker.complete).toBe(true);
+
+    // 撤销跳过：放回原来的原因，又是待办，不自动重新导入。
+    const calls = importProject.mock.calls.length;
+    expect(await upgrade.setSkipped([broken!.path], false)).toBe(1);
+    expect(byTitle(upgrade).broken).toMatchObject({ state: 'not-imported', problem: { kind: 'unreadable' } });
+    expect(importProject.mock.calls.length).toBe(calls);
+    marker = await readJson<any>(markerOf(s));
+    expect(marker.sources[s.root].skipped).toBeUndefined();
+    expect(marker.complete).toBeUndefined();
+
+    // 再跳过，下次启动不再导入它，也没有要导入的。
+    await upgrade.setSkipped([broken!.path], true);
+    await upgrade.stop();
+    const again = new LegacyUpgrade(options);
+    await again.prepare();
+    again.start(s.deps);
+    await finish(again);
+    expect(again.run()).toBeNull();
+    expect(importProject.mock.calls.length).toBe(calls);
+  });
+
+  it.skipIf(process.platform === 'win32')('re-imports a project skipped on an earlier launch when asked, alongside the ones still to import', async () => {
+    const s = await setup();
+    for (const name of ['skipped', 'later']) await v2(s, name);
+    const skippedPath = await fs.realpath(path.join(s.root, 'projects', 'skipped'));
+    let ready = false;
+    const importProject = vi.fn(async (request: { source: string }) => {
+      if (path.basename(request.source) === 'later' && !ready) throw new Error('unreadable');
+    });
+    await writeJsonAtomic(markerOf(s), {
+      schemaVersion: 1,
+      projectImport: { decision: 'import', directory: s.imported },
+      sources: { [s.root]: { credentials: [], projects: {}, pending: [], unsupported: [], skipped: [skippedPath] } },
+    });
+    const upgrade = new LegacyUpgrade({ ...s, roots: [s.root], v1Preferences: null, importProject, platform: 'darwin', allowKeychain: false });
+    await upgrade.prepare();
+    upgrade.start(s.deps);
+    await finish(upgrade);
+    expect(byTitle(upgrade).skipped).toEqual(expect.objectContaining({ state: 'skipped', problem: null }));
+    expect(importProject.mock.calls.map(([request]) => path.basename(request.source)).sort()).toEqual(['later', 'old']);
+    // 更早跳过的没有原因：撤销跳过就重新导入。
+    expect(await upgrade.setSkipped([skippedPath], false)).toBe(1);
+    await finish(upgrade);
+    expect(byTitle(upgrade).skipped!.state).toBe('imported');
+    expect((await readJson<any>(markerOf(s))).sources[s.root].skipped).toBeUndefined();
+  });
+
+  it.skipIf(process.platform === 'win32')('pauses while other jobs run and says so', async () => {
+    const s = await setup();
+    await v2(s, 'second');
+    let busy = false;
+    const importProject = vi.fn(async () => {
+      busy = true;
+    });
+    const upgrade = new LegacyUpgrade({ ...s, roots: [s.root], v1Preferences: null, importProject, platform: 'darwin', allowKeychain: false });
+    await upgrade.prepare();
+    upgrade.start({ ...s.deps, isBusy: () => busy });
+    await vi.waitFor(() => expect(upgrade.run()?.state).toBe('waiting'));
+    expect(importProject).toHaveBeenCalledTimes(1);
+    expect(upgrade.active).toBe(true);
+    busy = false;
+    await finish(upgrade);
+    expect(upgrade.run()!.state).toBe('finished');
+    expect(upgrade.run()!.items.map((item) => item.state)).toEqual(['imported', 'imported']);
+  });
 });

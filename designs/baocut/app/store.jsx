@@ -642,7 +642,7 @@
     const toast = useCallback((text, tone, action) => {
       const id = nid.current++;
       setToasts((t) => [...t, {id, text, tone, action}]);
-      // Spectrum owns dismissal timing; actionable notices remain until acted on or closed.
+      // 几秒后自动关，带按钮的也一样（ui.jsx `ToastHost` 计时）。
     }, []);
     /** 引导卡上的「启用 X」：装了但停用的那家一键启用并设为默认——不用再进设置页翻一遍（第 185 轮）。 */
     const enableAgent = useCallback((id) => {

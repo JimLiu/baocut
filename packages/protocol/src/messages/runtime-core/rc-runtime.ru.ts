@@ -54,5 +54,5 @@ export const ru: RcRuntimeMessages = {
   legacyPromptGone: "На этот вопрос об импорте уже ответили, или он больше не актуален",
   legacyImportFolderReserved: "Выберите папку вне папок данных BaoCut и его прежних версий",
   legacyImportFolderUnwritable: "Не удаётся создать эту папку или записать в неё",
-  legacyImportLocalOnly: "Ответить на вопрос об импорте прежних проектов можно только из приложения для компьютера или локального CLI",
+  legacyImportLocalOnly: "Решить, как импортировать прежние проекты, можно только из приложения для компьютера или локального CLI",
 };

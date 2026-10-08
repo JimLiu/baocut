@@ -5,5 +5,5 @@ noSuchRun: (p) => `Không có lần chạy ${p.runId}`, noLoginCommand: (p) => `
   legacyPromptGone: "Câu hỏi nhập này đã được trả lời hoặc không còn mở",
   legacyImportFolderReserved: "Chọn một thư mục nằm ngoài các thư mục dữ liệu của BaoCut và các phiên bản cũ",
   legacyImportFolderUnwritable: "Không thể tạo hoặc ghi vào thư mục này",
-  legacyImportLocalOnly: "Chỉ ứng dụng máy tính và CLI cục bộ mới trả lời được câu hỏi về việc nhập dự án cũ",
+  legacyImportLocalOnly: "Chỉ ứng dụng máy tính và CLI cục bộ mới quyết định được cách nhập dự án cũ",
 };

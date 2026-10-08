@@ -417,6 +417,7 @@ export const fr: CopyMessages = {
     fontDownload: "Télécharger la police",
     voiceClone: "Cloner la voix",
     agentTranslate: "Traduire",
+    legacyImport: "Importer les anciens projets",
   },
 
   jobPhase: {

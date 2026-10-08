@@ -69,11 +69,11 @@ const en = {
     `This Runtime is still in use (desktop app: ${p.desktop}, other CLI connections: ${p.cli}, unfinished tasks: ${p.activeJobs}). Wait for them to finish or close them, then stop it`,
   stopNotSupported: "This Runtime can't be stopped through the gateway",
 
-  // legacyImport.answer（旧版项目的导入询问，architecture-design §2.7）
+  // legacyImport.*（旧版项目的导入询问、重试与跳过，architecture-design §2.7）
   legacyPromptGone: "This import question has already been answered or is no longer open",
   legacyImportFolderReserved: "Choose a folder outside the data folders of BaoCut and its earlier versions",
   legacyImportFolderUnwritable: "Can't create or write to this folder",
-  legacyImportLocalOnly: "Only the desktop app and the local CLI can answer the question about importing earlier projects",
+  legacyImportLocalOnly: "Only the desktop app and the local CLI can decide how earlier projects are imported",
 };
 
 export type RcRuntimeMessages = typeof en;

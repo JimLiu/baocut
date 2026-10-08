@@ -55,5 +55,5 @@ export const nl: RcRuntimeMessages = {
   legacyPromptGone: "Deze importvraag is al beantwoord of staat niet meer open",
   legacyImportFolderReserved: "Kies een map buiten de gegevensmappen van BaoCut en eerdere versies",
   legacyImportFolderUnwritable: "Deze map kan niet worden gemaakt of beschreven",
-  legacyImportLocalOnly: "Alleen de desktop-app en de lokale CLI kunnen de vraag over het importeren van eerdere projecten beantwoorden",
+  legacyImportLocalOnly: "Alleen de desktop-app en de lokale CLI kunnen bepalen hoe eerdere projecten worden geïmporteerd",
 };

@@ -152,7 +152,7 @@ export const WEB_TOPIC_METHODS: Readonly<Record<string, RpcMethod>> = {
   grants: 'grants.list',
   // Agent 的探测结果与偏好（§3.11）：与 `agents.list` 同一份视图。
   agents: 'agents.list',
-  // 旧版项目的导入询问（§2.7）只给桌面界面：`legacyImport.*` 不在默认集合里，主题也就订阅不了。
+  // 旧版项目的导入询问与导入进展（§2.7）只给桌面界面：`legacyImport.*` 不在默认集合里，主题也就订阅不了。
   'legacy-import': 'legacyImport.get',
 };
 

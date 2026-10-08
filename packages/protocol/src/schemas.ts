@@ -632,6 +632,8 @@ export const methodParamSchemas = {
     z.object({ promptId: id, decision: z.literal('import'), directory: filePath }).strict(),
     z.object({ promptId: id, decision: z.literal('never') }).strict(),
   ]),
+  'legacyImport.retry': z.object({ paths: z.array(filePath).min(1).max(10_000).optional() }).strict(),
+  'legacyImport.setSkipped': z.object({ paths: z.array(filePath).min(1).max(10_000), skipped: z.boolean() }).strict(),
   'agents.list': empty,
   'agents.detect': z.object({ driverId: driverId.optional() }),
   'agents.configure': z.object({

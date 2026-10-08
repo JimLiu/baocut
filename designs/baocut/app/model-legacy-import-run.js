@@ -13,8 +13,10 @@
    没导入的（missing-media / error）下次启动会自动再试；跳过的不再试。`waiting`：其他任务在跑时导入先停下，等它们结束再继续。
    这里的「重试」只重跑这几个项目的导入，属于直接任务的重试，不是 §17.3 红线里的 AI flow 重试。
 
-   实现差异（原型确认后再改）：Runtime 目前把没导入的项目只记成 pending、写一行 `Legacy project import deferred`，
-   没有任务记录、逐个原因、跳过标记与重试入口（architecture-design §2.7，runtime-core legacy-upgrade.ts）。 */
+   实现对应（architecture-design §2.7，protocol legacy-import.ts `LegacyImportRun`）：Runtime 在 `legacy-import` 主题上报这次
+   启动的导入，不是一条 Job；桌面界面把它拼成任务页里的一行（packages/ui model/legacy-import-run.ts）；视频页顶栏的任务胶囊只列这部视频的任务，不含它。原因多分了一种：
+   missing-media 有 `volume` 的是 `offline`、没有的是 `missing`；error 拆成 `unreadable`（读不出来）与 `failed`
+   （导入时出错，带导入报告，「在文件夹中显示」指向报告）。重试与跳过是 `legacyImport.retry`、`legacyImport.setSkipped`。 */
 (function () {
   const PENDING = ['missing-media', 'error'];
 

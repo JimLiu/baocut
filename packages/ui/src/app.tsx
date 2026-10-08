@@ -1,7 +1,7 @@
 import './app.css';
 import { useEffect, useState } from 'react';
 import { intlLocale } from '@baocut/protocol';
-import { Provider, ToastContainer } from '@react-spectrum/s2';
+import { Provider, ToastContainer, ToastQueue } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { AppShell } from './components/app-shell.tsx';
 import type { HostBridge } from './host.ts';
@@ -9,6 +9,10 @@ import { RuntimeContext } from './runtime/context.tsx';
 import { RuntimeSession } from './runtime/session.ts';
 import { useLanguageSync, useLocale } from './state/locale.ts';
 import { useShell } from './state/shell-store.ts';
+import { installToastAutoDismiss, type ToastQueueLike } from './toast-timing.ts';
+
+// toast 只停几秒，带按钮的也一样（toast-timing.ts）。
+installToastAutoDismiss(ToastQueue as unknown as ToastQueueLike);
 
 const rootStyle = style({ height: 'screen', overflow: 'hidden' });
 

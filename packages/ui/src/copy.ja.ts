@@ -379,6 +379,7 @@ export const ja: CopyMessages = {
     fontDownload: 'フォントをダウンロード',
     voiceClone: '声をクローン',
     agentTranslate: '翻訳',
+    legacyImport: '以前のプロジェクトの読み込み',
   },
   jobPhase: {
     queued: '待機中',

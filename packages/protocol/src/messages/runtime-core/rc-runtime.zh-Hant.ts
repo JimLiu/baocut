@@ -55,5 +55,5 @@ export const zhHant: RcRuntimeMessages = {
   legacyPromptGone: "這個匯入詢問已經回答過，或已不再有效",
   legacyImportFolderReserved: "請選擇不在 BaoCut 及舊版資料資料夾內的資料夾",
   legacyImportFolderUnwritable: "無法建立或寫入這個資料夾",
-  legacyImportLocalOnly: "匯入舊版專案的詢問只能由桌面 App 或本機 CLI 回答",
+  legacyImportLocalOnly: "舊版專案怎麼匯入只能由桌面 App 或本機 CLI 決定",
 };

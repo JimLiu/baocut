@@ -5,5 +5,5 @@ noSuchRun: (p) => `${p.runId} çalıştırması yok`, noLoginCommand: (p) => `${
   legacyPromptGone: "Bu içe aktarma sorusu zaten yanıtlandı veya artık açık değil",
   legacyImportFolderReserved: "BaoCut ve önceki sürümlerinin veri klasörleri dışında bir klasör seçin",
   legacyImportFolderUnwritable: "Bu klasör oluşturulamıyor veya klasöre yazılamıyor",
-  legacyImportLocalOnly: "Önceki projeleri içe aktarma sorusunu yalnızca masaüstü uygulaması ve yerel CLI yanıtlayabilir",
+  legacyImportLocalOnly: "Önceki projelerin nasıl içe aktarılacağına yalnızca masaüstü uygulaması ve yerel CLI karar verebilir",
 };

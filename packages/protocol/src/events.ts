@@ -25,7 +25,8 @@ import type { VideoTopicEvent, VideoTopicSnapshot } from './video.ts';
  * - `agent-setup`：应用内运行的 Agent 安装与升级命令（`agents.runSetup`，架构设计 §12.9）的状态与输出。
  * - `agents`：Agent（Driver）的探测结果与偏好（`agents.list` 的视图，架构设计 §3.11）；快照是上次的结果（启动时来自磁盘缓存），
  *   每个 Driver 的后台探测完成、偏好变化时送 `agents.updated`。
- * - `legacy-import`：旧版项目的导入询问（架构设计 §2.7，`legacy-import.ts`）；快照是等回答的询问，出现或消失时送 `prompt.updated`。
+ * - `legacy-import`：旧版项目的导入询问与这次启动里的导入（架构设计 §2.7，`legacy-import.ts`）；快照是等回答的询问与导入的进展，
+ *   询问出现或消失时送 `prompt.updated`，导入每有进展送 `run.updated`。
  * - `conversation:<id>`：一个会话的内容（卡片投影）。
  * - `video:<id>`：一个已打开的视频的投影（命令与协议规范 §10）。
  *
