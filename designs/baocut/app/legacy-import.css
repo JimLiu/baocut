@@ -1,0 +1,25 @@
+/* 旧版项目导入的启动询问（legacy-import.jsx）。对话框本身是 S2，这里只排正文：清单、导入目录、两行说明 */
+.lgi__lead { margin: 0; font-size: 14px; line-height: 1.5; color: var(--gray-800); }
+.lgi__list {
+  list-style: none; margin: 12px 0 0; padding: 4px 0;
+  max-height: 160px; overflow-y: auto; overscroll-behavior: contain;
+  border-radius: 8px; background: var(--gray-100);
+}
+.lgi__item { display: flex; align-items: baseline; gap: 12px; padding: 4px 12px; }
+.lgi__name {
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px; line-height: 1.5; color: var(--gray-900);
+}
+.lgi__when { flex: none; font-size: 12px; line-height: 1.5; color: var(--gray-600); }
+.lgi__dest { margin-top: 16px; display: flex; flex-direction: column; gap: 4px; }
+.lgi__lb { font-size: 12px; line-height: 1.3; font-weight: 700; color: var(--gray-700); }
+.lgi__path {
+  display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 4px 0 12px;
+  border: 2px solid var(--gray-200); border-radius: 8px; color: var(--gray-700);
+}
+.lgi__dir {
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px; line-height: 1.5; color: var(--gray-900); user-select: text;
+}
+.lgi__note { font-size: 12px; line-height: 1.5; color: var(--gray-600); }
+.lgi__hint { margin: 12px 0 0; }

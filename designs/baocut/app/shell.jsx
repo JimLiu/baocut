@@ -455,6 +455,7 @@
                 </div>
               </div>
             ) : null}
+            {window.LegacyImportTweaks ? <window.LegacyImportTweaks onLaunch={() => setOpen(false)} /> : null}
             {SURF.pages && window.BC_LOCALCHECK ? (
               <div className="tweaks__sec">
                 <div className="tweaks__lb">本地模型检查<em>设置 › 本地模型；下次「检查」和下次「生成试听」的结果（修复后那次检查总是通过）</em></div>

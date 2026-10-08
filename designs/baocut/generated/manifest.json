@@ -121,6 +121,7 @@
       "app/model-tool-update.js",
       "app/model-tool-cookies.js",
       "app/model-tool-save-dir.js",
+      "app/model-legacy-import.js",
       "app/model-tool-handover.js",
       "app/model-tool-space-input.js",
       "app/model-tool-extract.js",
@@ -171,6 +172,7 @@
       "app/tool-setup.jsx",
       "app/page-projects.jsx",
       "app/project-info.jsx",
+      "app/legacy-import.jsx",
       "app/home-templates.jsx",
       "app/composer-insert-menu.jsx",
       "app/new-agent.jsx",
@@ -398,11 +400,12 @@
       "app/font-library.css",
       "app/agent-messages.css",
       "app/agent-cards.css",
+      "app/legacy-import.css",
       "app/subtitle-motion.css"
     ],
-    "js": "generated/app.js?v=c6269433023c",
-    "css": "generated/app.css?v=d03f05d591ce",
-    "bytes": 3733181
+    "js": "generated/app.js?v=68de708f4d94",
+    "css": "generated/app.css?v=13dbd77cffee",
+    "bytes": 3740193
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -630,9 +633,9 @@
       "app/font-library.css",
       "app/subtitle-motion.css"
     ],
-    "js": "generated/web.js?v=7283923ec86e",
+    "js": "generated/web.js?v=1c2e5bf507e9",
     "css": "generated/web.css?v=292ed043c621",
-    "bytes": 2314934
+    "bytes": 2315033
   },
   "components": {
     "file": "Components.html",

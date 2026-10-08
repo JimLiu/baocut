@@ -90,6 +90,7 @@
           <Screens />
         </window.AppUpdateProvider>
         <window.ProjectInfoDialog />
+        <window.LegacyImportDialog />
         <ConfirmDialog ask={store.ask} onCancel={store.clearAsk}
           onConfirm={() => { const a = store.ask; store.clearAsk(); if (a && a.run) a.run(); }} />
         <ToastHost toasts={store.toasts} onDismiss={store.dismissToast} />
