@@ -17,6 +17,21 @@
 
 开发维护、问题反馈和贡献统一在 [jimliu/baocut](https://github.com/jimliu/baocut) 进行。此前独立的 BaoCut skill 保存在[旧版归档分支](https://github.com/jimliu/baocut/tree/archive/legacy-2026-10-07)及 `legacy-2026-10-07` tag。
 
+## 下载与安装
+
+[BaoCut 3.0.0（Build 60）](https://github.com/JimLiu/baocut/releases/tag/baocut-v3.0.0-build.60) 已提供 macOS 与 Windows 安装包。包内包含 Runtime 和原生 Worker；只有开发时才需要 Node.js 和 Rust。
+
+| 平台 | 安装包 | ZIP | 适用范围 |
+| --- | --- | --- | --- |
+| macOS 14+ · Apple Silicon | [DMG](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.0-build.60/BaoCut-3.0.0-build.60-aarch64-apple-darwin.dmg) | [ZIP](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.0-build.60/BaoCut-3.0.0-build.60-aarch64-apple-darwin.zip) | Apple Silicon Mac，已通过 Developer ID 签名与 Apple 公证 |
+| Windows x64 · CPU | [安装 EXE](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.0-build.60/BaoCut-3.0.0-build.60-win-x64-setup.exe) | [ZIP](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.0-build.60/BaoCut-3.0.0-build.60-win-x64.zip) | 使用 CPU 推理 |
+| Windows x64 · CUDA | [安装 EXE](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.0-build.60/BaoCut-3.0.0-build.60-win-x64-cuda-setup.exe) | [ZIP](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.0-build.60/BaoCut-3.0.0-build.60-win-x64-cuda.zip) | CUDA 13 支持的 NVIDIA 显卡，从 RTX 30 / Ampere 起 |
+| Windows x64 · Vulkan | [安装 EXE](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.0-build.60/BaoCut-3.0.0-build.60-win-x64-vulkan-setup.exe) | [ZIP](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.0-build.60/BaoCut-3.0.0-build.60-win-x64-vulkan.zip) | 支持 Vulkan 的 AMD / Intel 显卡或较旧的 NVIDIA 显卡；Whisper 使用 GPU，candle 使用 CPU |
+
+macOS 打开 DMG 后，将 BaoCut 拖入“应用程序”。Windows 先安装 [Microsoft Visual C++ v14 x64 Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist/)，再运行安装器或解压 ZIP。Windows 包未签名，GPU 版需要兼容的显卡驱动。校验文件与验证说明见发布页；应用通过各平台的更新源检查 GitHub Releases 中的新版本。
+
+智能体功能需要已登录的智能体引擎，例如 Codex CLI 或 Claude Code。媒体分析、转写音频准备与导出还需要 `ffmpeg` 和 `ffprobe`；安装包不包含这些外部工具。
+
 ## 为什么选择 BaoCut
 
 视频制作往往需要反复修改：译文里的第二句话不准确、某个镜头需要替换、配音的语气还要调整。BaoCut 把这些修改保留在同一个可编辑视频里：
@@ -63,7 +78,7 @@
 
 **选择自己的模型。** 转写、语音合成、图片生成、文本生成、音频分离等能力与服务提供方解耦。Apple Silicon 使用 MLX、Core ML 本地后端，Windows 使用 whisper.cpp、candle，并提供 CUDA 与 Vulkan 打包配置。在线接入包括 OpenAI、Anthropic、Google、ElevenLabs、DeepSeek、Moonshot、Qwen、Zhipu、MiniMax、Volcengine、xAI、Mistral、Groq、OpenRouter、SiliconFlow 及其他 OpenAI 兼容端点。各服务支持的能力不同；用量账本记录任务消耗与可获得的费用信息。一台机器也可以向局域网里的其他机器共享本地模型能力。Windows 当前的凭据与硬件验证限制见下文。
 
-## 快速开始
+## 从源码运行
 
 需要 Node.js 22.18 以上，以及一个已登录的智能体引擎（[Codex CLI](https://github.com/openai/codex) 或 Claude Code）。从源码构建编辑器与本地转写还需要 Rust 工具链（[rustup](https://rustup.rs)）；未安装时应用仍可启动，但相关能力不可用。媒体分析、转写音频准备与成片导出还需要可用的 `ffmpeg` 和 `ffprobe`；非 Apple Silicon 平台构建 whisper.cpp 需要 CMake 与 C++ 编译器。
 
@@ -109,10 +124,10 @@ BAOCUT_HOME=.dev/baocut-home npm run cli -- status
 
 ## 当前状态
 
-BaoCut 正在积极开发，各平台的安装包与验证覆盖仍在完善：
+BaoCut 正在积极开发，macOS Apple Silicon 与 Windows x64 安装包见上方，验证覆盖仍在完善：
 
 - Codex CLI 与 Claude Code 已有端到端验证。外部智能体的 CLI 链路已通过；MCP 链路在修复后通过脚本客户端复核，仍待 Claude Code 复跑。详见[验收记录](docs/acceptance/agent-surface-e2e.md)。其他内置引擎尚未在 BaoCut 中逐一验证。
-- 已实现 Apple Silicon（MLX、Core ML）和 Windows（whisper.cpp、candle）的本地推理后端。Windows 安装包不签名；CUDA 配置在[桌面端记录](apps/desktop/README.md#windows-打包)中尚未实际构建，Whisper 的 CUDA 与 Vulkan 路径尚未实测。Windows 凭据助手目前返回 `unsupported`，在线服务与远端节点的凭据功能不可用。Mac arm64 已有 Developer ID 签名、公证的打包流程，见[桌面端说明](apps/desktop/README.md#macos-打包)。
+- 已实现 Apple Silicon（MLX、Core ML）和 Windows（whisper.cpp、candle）的本地推理后端。Mac arm64 包已通过 Developer ID 签名与 Apple 公证。Windows CPU、CUDA、Vulkan 包已通过原生构建、安装、同版覆盖升级与 ZIP 自检，但未签名，GPU 推理尚未在实际显卡上验证。Windows 凭据助手目前返回 `unsupported`，在线服务与远端节点的凭据功能不可用。见[桌面端说明](apps/desktop/README.md)。
 - 部分本地模型权重（例如 OmniVoice、Qwen-Image）带有非商业许可，应用会在选择前提示。
 - 完整产品范围、发布阶段与当前进度见[产品设计 §11](docs/product/product-design.md#11-发布路线与成功指标)。
 
