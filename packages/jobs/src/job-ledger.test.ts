@@ -152,6 +152,17 @@ describe('JobLedger（JSONL）', () => {
     expect(await fs.readFile(file, 'utf8')).toBe(before);
   });
 
+  it('只有半个文件头（第一次写时崩溃）：按空的读，不改名；下一次写整份重写', async () => {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, '{"op":"header","form');
+    const ledger = new JobLedger(file);
+    expect(await ledger.load()).toEqual([]);
+    expect(await fs.readdir(path.dirname(file))).toEqual(['jobs.jsonl']);
+    await ledger.save([job('job_a')]);
+    expect((await lines(file))[0]).toEqual({ op: 'header', formatVersion: 2 });
+    expect((await new JobLedger(file).load()).map((j) => j.record.jobId)).toEqual(['job_a']);
+  });
+
   it('认不出的文件改名保留，从空开始', async () => {
     await fs.mkdir(path.dirname(file), { recursive: true });
     await fs.writeFile(file, '{"op":"header","formatVersion":99}\n');
@@ -163,7 +174,7 @@ describe('JobLedger（JSONL）', () => {
     await ledger.save([job('job_a')]);
     expect((await new JobLedger(file).load()).map((j) => j.record.jobId)).toEqual(['job_a']);
 
-    await fs.writeFile(file, 'garbage');
+    await fs.writeFile(file, 'garbage\n');
     expect(await new JobLedger(file).load()).toEqual([]);
     expect((await fs.readdir(path.dirname(file))).filter((name) => name.includes('.corrupt-')).length).toBeGreaterThanOrEqual(1);
   });

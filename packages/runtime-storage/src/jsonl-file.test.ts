@@ -41,6 +41,9 @@ describe('jsonl-file', () => {
     await fs.mkdir(path.dirname(file), { recursive: true });
     await fs.writeFile(file, '');
     expect(await readJsonl(file)).toMatchObject({ header: null, rows: [], lines: 0 });
+    // 只有半行（写文件头时崩溃）：按空文件处理，标出残行。
+    await fs.writeFile(file, '{"op":"hea');
+    expect(await readJsonl(file)).toMatchObject({ header: null, rows: [], lines: 0, truncatedTail: true });
     await fs.writeFile(file, 'not json\n{"a":1}\n');
     await expect(readJsonl(file)).rejects.toBeInstanceOf(JsonlCorruptError);
     const kept = await quarantineFile(file);

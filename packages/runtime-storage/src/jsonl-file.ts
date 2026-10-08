@@ -52,6 +52,8 @@ export async function readJsonl(file: string): Promise<JsonlReadResult | null> {
   const truncatedTail = !text.endsWith('\n');
   const parts = text.split('\n');
   if (!truncatedTail) parts.pop();
+  // 整个文件只有半行：第一次追加（文件头与第一行一起写）时崩溃，或者正好读在那次写入中间。按空文件处理。
+  if (truncatedTail && parts.length === 1) return { header: null, rows: [], skipped: 0, truncatedTail, lines: 0, bytes };
   let header: unknown;
   try {
     header = JSON.parse(parts[0]!);

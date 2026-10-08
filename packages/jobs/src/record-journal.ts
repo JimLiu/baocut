@@ -95,7 +95,11 @@ export class RecordJournal {
       return this.#quarantine();
     }
     if (data === null) return this.#migrate();
-    if (data.header === null) return [];
+    if (data.header === null) {
+      // 只有半行（写文件头时崩溃）：下一次写整份重写，不在残行后面追加。
+      if (data.truncatedTail) this.#compactNext = true;
+      return [];
+    }
     if (!isHeader(data.header)) return this.#quarantine();
     const records = new Map<string, Record<string, unknown>>();
     let skipped = data.skipped;
