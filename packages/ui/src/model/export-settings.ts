@@ -569,7 +569,7 @@ export function defaultFileNames(
 }
 
 /**
- * 没挑位置时导到哪：原视频所在的文件夹（`file` 是主素材的绝对路径，`assetFilePath` 的结果）。素材在视频目录里面
+ * 成片没挑位置时导到哪：原视频所在的文件夹（`file` 是主素材的绝对路径，`assetFilePath` 的结果）。素材在视频目录里面
  * （收进来的、托管的）时 null，交给 Runtime 的缺省（项目下的 `exports/`），不往视频目录里写。macOS / Linux 与 Windows 的路径都认。
  */
 export function exportSourceDir(file: string | null, videoDir: string | null): string | null {
@@ -589,6 +589,20 @@ export function exportSourceDir(file: string | null, videoDir: string | null): s
     if (inner === video || inner.startsWith(`${video}${sep}`)) return null;
   }
   return dir;
+}
+
+/**
+ * 这次导出交给 Runtime 的目录（`destination.dir`）：这次挑的（null 是「用默认位置」）优先，其次是挑过记着的；都没有时
+ * 成片导到原视频所在的文件夹（`exportSourceDir`），别的种类 null，交给 Runtime 的缺省（项目下的 `exports/`）。
+ */
+export function exportTargetDir(
+  kind: ExportSettings['kind'],
+  picked: string | null | undefined,
+  saved: string | null,
+  sourceDir: string | null,
+): string | null {
+  if (picked !== undefined) return picked;
+  return saved ?? (kind === 'video' ? sourceDir : null);
 }
 
 // ---- 音频：每种配音各一份（设计稿 export-audio.jsx「人声分几份」、model-audio-export.js `voiceParts` / `audioFiles`）----

@@ -9,6 +9,7 @@ import {
   dbChoices,
   defaultFileNames,
   exportSourceDir,
+  exportTargetDir,
   dubGroups,
   dubParts,
   dubTags,
@@ -231,7 +232,7 @@ describe('字幕设置', () => {
     expect(safeFileStem(' ..  ')).toBe('video');
   });
 
-  it('没挑位置时导到原视频所在的文件夹；素材在视频目录里面时交给 Runtime 的缺省', () => {
+  it('成片没挑位置时导到原视频所在的文件夹；素材在视频目录里面时交给 Runtime 的缺省', () => {
     expect(exportSourceDir('/Users/me/Movies/访谈.mp4', '/Users/me/BaoCut/访谈')).toBe('/Users/me/Movies');
     expect(exportSourceDir('/a.mp4', null)).toBe('/');
     expect(exportSourceDir('C:\\Videos\\talk.mp4', 'D:\\BaoCut\\talk')).toBe('C:\\Videos');
@@ -241,6 +242,17 @@ describe('字幕设置', () => {
     expect(exportSourceDir('C:\\BaoCut\\Talk\\a.mp4', 'c:\\baocut\\talk')).toBeNull();
     expect(exportSourceDir('/Users/me/BaoCut/访谈2/a.mp4', '/Users/me/BaoCut/访谈')).toBe('/Users/me/BaoCut/访谈2');
     expect(exportSourceDir(null, '/v')).toBeNull();
+  });
+
+  it('只有成片默认导到原视频所在的文件夹，别的种类放项目的 exports/；挑过的位置优先', () => {
+    expect(exportTargetDir('video', undefined, null, '/Movies')).toBe('/Movies');
+    for (const kind of ['audio', 'subtitles', 'transcript', 'project', 'portable'] as const) {
+      expect(exportTargetDir(kind, undefined, null, '/Movies')).toBeNull();
+    }
+    expect(exportTargetDir('subtitles', undefined, '/Picked', '/Movies')).toBe('/Picked');
+    expect(exportTargetDir('video', undefined, '/Picked', '/Movies')).toBe('/Picked');
+    expect(exportTargetDir('video', '/Now', '/Picked', '/Movies')).toBe('/Now');
+    expect(exportTargetDir('video', null, '/Picked', '/Movies')).toBeNull();
   });
 });
 

@@ -192,7 +192,7 @@ export function ExportAudioTab({
           <FileRows names={files} />
         )}
         <SumRow label={EXPORT_COPY.estimate}>{EXPORT_COPY.noEstimate}</SumRow>
-        <PlaceRow videoId={env.videoId} sourceDir={env.sourceDir} />
+        <PlaceRow videoId={env.videoId} />
       </Summary>
 
       <SubmitFoot

@@ -3,6 +3,7 @@ import type { AssetRecord, DocumentRecord, ExportSettings, Id, Sequence } from '
 import { ToastQueue } from '@react-spectrum/s2';
 import { tabOfKind, type ExportTab } from '../../model/export-job.ts';
 import { explainExportError, type ExportProblem } from '../../model/export-rejection.ts';
+import { exportTargetDir } from '../../model/export-settings.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useExportPlaces } from '../../state/export-store.ts';
 import { EXPORT_COPY } from './export-copy.ts';
@@ -19,7 +20,7 @@ export interface ExportEnv {
   selection: readonly Id[];
   /** 已追平、能提交（打开中、断线时不能导）。 */
   ready: boolean;
-  /** 没挑位置时导到这里：原视频所在的文件夹（`exportSourceDir`）；Web、素材在视频目录里时 null，交给 Runtime 的缺省。 */
+  /** 成片没挑位置时导到这里：原视频所在的文件夹（`exportSourceDir`）；Web、素材在视频目录里时 null，交给 Runtime 的缺省。 */
   sourceDir: string | null;
 }
 
@@ -53,11 +54,12 @@ export function useExportSubmit(env: ExportEnv, onStarted: (jobId: Id, tab: Expo
   const [rejected, setRejected] = useState<ExportSettings | null>(null);
   // 几份里第一份就被拒（还没有建任务）：补救（换个位置）拿着被拒的那份重提时，从它起把剩下的几份一起重提。
   const [batch, setBatch] = useState<{ rejected: ExportSettings; parts: readonly ExportPart[] } | null>(null);
+  const placeFor = (settings: ExportSettings, dir: string | null | undefined) => exportTargetDir(settings.kind, dir, savedDir, env.sourceDir);
 
   const submit = async (settings: ExportSettings, dir?: string | null) => {
     if (batch && settings === batch.rejected) return submitEach(batch.parts, dir);
     setBatch(null);
-    const target = dir === undefined ? (savedDir ?? env.sourceDir) : dir;
+    const target = placeFor(settings, dir);
     setBusy(true);
     setProblem(null);
     try {
@@ -78,13 +80,13 @@ export function useExportSubmit(env: ExportEnv, onStarted: (jobId: Id, tab: Expo
    * 用提示说清楚后面几份没导。
    */
   const submitEach = async (parts: readonly ExportPart[], dir?: string | null) => {
-    const target = dir === undefined ? (savedDir ?? env.sourceDir) : dir;
     setBusy(true);
     setProblem(null);
     setBatch(null);
     const started: Id[] = [];
     try {
       for (const [index, part] of parts.entries()) {
+        const target = placeFor(part.settings, dir);
         const destination = { ...(target ? { dir: target } : {}), ...(part.fileName ? { fileName: part.fileName } : {}) };
         try {
           started.push(

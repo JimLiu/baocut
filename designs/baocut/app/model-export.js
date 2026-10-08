@@ -512,7 +512,7 @@
     return base + (tag ? '.' + tag : '') + seg + '.mp4';
   }
 
-  /** 没选位置时导到哪（product-design §8.3）：原视频所在的文件夹；原视频不是本机文件（链接），或表面拿不到本机路径
+  /** 成片没选位置时导到哪（product-design §8.3）：原视频所在的文件夹；原视频不是本机文件（链接），或表面拿不到本机路径
    *  （`nextToSource` 为 false，Web）时放项目的 exports/。 */
   function exportPlace(src, nextToSource) {
     const p = src && src.path;

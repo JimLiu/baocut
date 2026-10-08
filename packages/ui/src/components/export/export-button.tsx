@@ -74,7 +74,7 @@ function PanelHost({ video, videoId, sequence, initialJobId, onClose }: { video:
       </div>
     );
   }
-  // 没挑位置时导到主素材（时间轴上最早出现的那段视频或音频）所在的文件夹。Web 上 Runtime 只往项目的 exports/ 里写，不给。
+  // 成片没挑位置时导到主素材（时间轴上最早出现的那段视频或音频）所在的文件夹。Web 上 Runtime 只往项目的 exports/ 里写，不给。
   const main = web ? undefined : mediaCandidates(sequence, snapshot.assets, snapshot.documents)[0]?.asset;
   const videoDir = video.ref?.path ?? null;
   const env: ExportEnv = {

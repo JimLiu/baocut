@@ -152,10 +152,10 @@ export function FileRows({ names }: { names: readonly string[] }) {
 }
 
 /**
- * 位置：没挑过时导到原视频所在的文件夹（`sourceDir`，桌面端、素材链在视频目录外时才有）；没有时由 Runtime 决定（项目下的 exports/）。
+ * 位置：没挑过时由 Runtime 决定（项目下的 exports/）；成片页给了 `sourceDir`（桌面端、素材链在视频目录外时才有），导到原视频所在的文件夹。
  * 可以挑一个目录，挑过的按视频记着（`useExportPlaces`），「用默认位置」回到上面的缺省。
  */
-export function PlaceRow({ videoId, sourceDir }: { videoId: Id; sourceDir: string | null }) {
+export function PlaceRow({ videoId, sourceDir = null }: { videoId: Id; sourceDir?: string | null }) {
   const dir = useExportPlaces((s) => s.dirs[videoId] ?? null);
   const setDir = useExportPlaces((s) => s.setDir);
   const pickDir = usePickDir();

@@ -32,7 +32,7 @@
       fontDownloads: true,
       /* 在文件夹中显示：交给系统的文件管理器（访达 / 资源管理器）打开所在文件夹。浏览器做不到，Web 不画这颗按钮。 */
       reveal: true,
-      /* 导出没选位置时导到原视频所在的文件夹（product-design §8.3）。浏览器拿不到本机路径，Web 导到项目的 exports/。 */
+      /* 成片没选位置时导到原视频所在的文件夹（product-design §8.3），别的种类放项目的 exports/。浏览器拿不到本机路径，Web 都导到 exports/。 */
       exportNextToSource: true,
     },
     web: {
