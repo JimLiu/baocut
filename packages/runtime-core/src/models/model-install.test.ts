@@ -365,6 +365,51 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
     expect(unknown).toMatchObject({ code: 'not-found' });
   });
 
+  it('补齐可选组件：装好的模型包缺对齐器时照常算装好，安装只下载它；装好后空闲的 Worker 先卸下，下一个任务带上它', async () => {
+    side = await startSide(source, free);
+    const plan = await side.client.request('models.install', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE });
+    const { jobId } = await side.client.request('models.install', {
+      bundleId: DEFAULT_TRANSCRIBE_BUNDLE,
+      confirmBytes: plan.plan.confirmBytes,
+    });
+    expect((await until(() => terminal(jobOf(side!, jobId!)))).state).toBe('completed');
+    // 自检加载了 Worker，跑完空闲着（`jobIdleMs` 是一分钟）。
+    const { jobId: testJob } = await side.client.request('models.test', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE });
+    expect((await until(() => terminal(jobOf(side!, testJob)), 15_000)).state).toBe('completed');
+    const provider = side.runtime.models.provider;
+    expect(provider.workerPid(DEFAULT_TRANSCRIBE_BUNDLE)).not.toBeNull();
+
+    // 对齐器不在了：模型包还算装好，组件报告缺。
+    const aligner = repos[2]!;
+    await fs.rm(path.join(side.home.modelsDir, ...aligner.repo.split('/')), { recursive: true });
+    const listed = (await side.client.request('models.list', {})).bundles.find((b) => b.bundleId === DEFAULT_TRANSCRIBE_BUNDLE)!;
+    expect(listed.state).not.toBe('not-installed');
+    expect(listed.components!.find((c) => c.component === 'aligner')).toMatchObject({ optional: true, state: 'missing', bytes: null });
+
+    // 安装只下载对齐器，装好的组件不动。
+    const complete = await side.client.request('models.install', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE });
+    expect(complete.plan.upToDate).toBe(false);
+    expect(complete.plan.components.map((c) => [c.component, c.action])).toEqual([
+      ['asr', 'keep'],
+      ['vad', 'keep'],
+      ['aligner', 'download'],
+    ]);
+    const before = source.requests.length;
+    const completed = await side.client.request('models.install', {
+      bundleId: DEFAULT_TRANSCRIBE_BUNDLE,
+      confirmBytes: complete.plan.confirmBytes,
+    });
+    expect((await until(() => terminal(jobOf(side!, completed.jobId!)))).state).toBe('completed');
+    expect(new Set(source.requests.slice(before).filter((r) => r.method === 'GET').map((r) => r.repo))).toEqual(new Set([aligner.repo]));
+    // 旧的 Worker 没有对齐器：空闲的卸下，下一个任务重新加载。
+    await until(() => provider.workerPid(DEFAULT_TRANSCRIBE_BUNDLE) === null);
+    expect((await side.client.request('models.list', {})).bundles.find((b) => b.bundleId === DEFAULT_TRANSCRIBE_BUNDLE)!.components!.map((c) => c.state)).toEqual([
+      'installed',
+      'installed',
+      'installed',
+    ]);
+  });
+
   it('「说话人区分」模型包：装好后识别模型包报告能区分说话人；没有单独的检查；识别模型包在用时不能删', async () => {
     side = await startSide(source, free);
     const install = async (bundleId: string) => {

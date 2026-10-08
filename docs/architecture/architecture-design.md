@@ -1317,7 +1317,7 @@ Node 管理模型目录、版本、下载计划、校验与资源准入；Rust W
 - **先给大小，再确认**。不带 `confirmBytes` 时只返回计划：每个组件下载还是保留、要下载的文件与字节数（大小未知时为 null，另给估计值）、暂存区里已有的字节、可用空间与来源，不创建任务。调用方把计划里的 `confirmBytes` 原样交回才提交；与新的计划不符时以 `conflict`（`MODEL_INSTALL_SIZE_CHANGED`，带新计划）拒绝。已经装好时不提交；同一个模型包正在安装时返回那个任务。
 - **安装是普通的 Job**（`kind: 'modelInstall'`，没有 Task，§7.9），排在一个串行的队列里：进度在 `jobs` 主题（`progress.unit: 'bytes'`），模型包的状态（`downloading` 与进度）在 `models` 主题。
 - **来源**。基址先取环境变量 `BAOCUT_MODELS_ENDPOINT`，再取设置 `models.downloadEndpoint`（§5.10），都没有时是公共模型仓库 `https://huggingface.co`。文件的地址是 `<基址>/<owner>/<repo>/resolve/<revision>/<文件路径>`，逐段 URL 编码、`/` 保留；镜像按同样的路径提供文件即可。基址只能是 `http(s)://`，不带凭据、查询参数与片段，下载请求不带认证头。
-- **下载、校验与发布**。按内置清单（Model Worker 协议规范 §4）逐文件下载到模型目录里的暂存区 `.bcut-staging/<owner>/<repo>@<revision>/`，逐个核对大小与 sha256；一个组件的文件齐了，写清单，整个目录原子地换上。组件发布之后才算装好：中途失败时已发布的组件保留，下次只补缺的。开始前按要下载的字节检查可用空间。
+- **下载、校验与发布**。按内置清单（Model Worker 协议规范 §4）逐文件下载到模型目录里的暂存区 `.bcut-staging/<owner>/<repo>@<revision>/`，逐个核对大小与 sha256；一个组件的文件齐了，写清单，整个目录原子地换上。组件发布之后才算装好：中途失败时已发布的组件保留，下次只补缺的。可选组件（对齐器、说话人模型）缺时模型包照常算装好，再次安装只下载缺的那几件（界面叫「补齐」）。开始前按要下载的字节检查可用空间。安装或修复完成后，这个模型包已经加载的空闲 Worker 先卸下，下一个任务按新的文件重新加载（补上的组件这时才用上）；正在跑任务的不打断。
 - **暂停与续传**。取消安装（`models.cancelInstall`，或取消它的 Job）就是暂停：暂存区留着，模型包报告 `install.state: 'paused'`；再次安装按 HTTP Range 从断点续传，核对过的文件不再下载。`discard: true` 时删掉暂存区。连不上、5xx 与断流有限次退避重试，断开前有进展时重新计数；续传出的文件不符时从头再下一次。
 - **失败**。错误码各带补救（`details.remedy`）：`MODEL_DOWNLOAD_NO_SPACE`、`MODEL_DOWNLOAD_NETWORK`、`MODEL_DOWNLOAD_INTEGRITY`（坏文件已删除）、`MODEL_DOWNLOAD_SOURCE`（来源没有这个文件或拒绝访问）、`MODEL_MANIFEST_INCOMPLETE`（内置清单缺可信的哈希；不会下载了再算）。
 - **修复**与安装同样两步，但把每个文件的 sha256 读一遍，只重下坏的与缺的，好文件原样复用。
