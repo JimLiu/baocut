@@ -686,14 +686,18 @@ export function Timeline({
     if (gesture.kind === 'track') {
       const dy = event.clientY - gesture.originY;
       if (!gesture.started && Math.abs(dy) < DRAG_PX) return;
+      // 落点取指针所在的同类行；指针在行与行的缝里、或拖出了最上 / 最下一行（底下那行常被裁掉一截）时取最近的一行，按在它上半还是下半分上下。
       const own = tracks.get(gesture.trackId);
       let target: TrackDrop | null = null;
+      let nearest = Number.POSITIVE_INFINITY;
       for (const [id, element] of laneRefs.current) {
         if (id === gesture.trackId || tracks.get(id)?.kind !== own?.kind) continue;
         const rect = element.getBoundingClientRect();
-        if (event.clientY < rect.top || event.clientY >= rect.bottom) continue;
-        target = { trackId: id, position: event.clientY < (rect.top + rect.bottom) / 2 ? 'above' : 'below' };
-        break;
+        const middle = (rect.top + rect.bottom) / 2;
+        const distance = Math.abs(event.clientY - middle);
+        if (distance >= nearest) continue;
+        nearest = distance;
+        target = { trackId: id, position: event.clientY < middle ? 'above' : 'below' };
       }
       if (target && !trackDropChanges(rows, gesture.trackId, target)) target = null;
       setGesture({ ...gesture, started: true, offsetY: dy, target });
@@ -1102,7 +1106,7 @@ export function Timeline({
     <div className={root} style={{ height }} aria-label={E.timeline}>
       <TimelineChapters sequence={sequence} />
       <div ref={scrollRef} className={`${scroller} bc-scroll`} onPointerDown={onBlankPointerDown}>
-        <div style={{ position: 'relative', width: HEAD + laneWidth, minHeight: '100%', userSelect: marquee ? 'none' : undefined }}>
+        <div style={{ position: 'relative', width: HEAD + laneWidth, minHeight: '100%', userSelect: marquee || gesture?.kind === 'track' ? 'none' : undefined }}>
           <div className={rulerRow}>
             <div className={corner} />
             <div
