@@ -36,8 +36,11 @@
 .home-quick__items { display: flex; flex: 1; flex-wrap: wrap; gap: 4px; min-width: 0; }
 /* 项目托盘贴在输入框下沿：比输入框窄一圈、上边压进输入框底下 12px，看上去和输入框是一个整体。 */
 .home-create .bc-ai-home { position: relative; z-index: 1; }
-/* 托盘的上沿压在输入框卡片底下 12px：PromptField 在卡片下面还留着一行 24px 的空提示位，一并收掉，两者之间不露白缝。 */
-.home-create__project { display: flex; align-items: center; gap: 8px; margin: -36px 16px 0; padding: 16px 12px 4px; background: var(--gray-75); border-radius: 0 0 10px 10px; }
+/* S2 始终生成 disclaimer 段落；这里没有脚注，空段落不占位。它若留着，输入框（z-index 1）的外框会多出 24px 透明的一条，
+   盖住托盘里按钮的上半截，「选择项目」点不到。 */
+.home-create .bc-ai-home .bc-ai-prompt > div > p:empty { display: none; }
+/* 托盘的上沿压在输入框卡片底下 12px，两者之间不露白缝。 */
+.home-create__project { display: flex; align-items: center; gap: 8px; margin: -12px 16px 0; padding: 16px 12px 4px; background: var(--gray-75); border-radius: 0 0 10px 10px; }
 /* 待填提示（template-spec §5.5）：托盘下面一行小字 + quiet 按钮，与托盘里的内容左对齐；没有待填项时整行不占高度。 */
 .pslot-hint { display: flex; align-items: center; gap: 8px; margin: 0 16px; padding: 0 12px; min-height: 0; }
 .pslot-hint:not(:empty) { margin-top: 4px; }

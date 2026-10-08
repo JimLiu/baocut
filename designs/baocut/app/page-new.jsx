@@ -17,7 +17,15 @@
     const app = useApp();
     const mem = app.newMem;
     const seed = useRef(N.seed(mem)).current;
-    const [dir, setDir] = useState('new');
+    /* 项目：默认是上次在这里选的那个（还在、没归档才算），否则不用项目（product-design §2.3：会话可以不属于任何项目）。
+       在托盘里换一次就记一次；别处带着项目来的预置（newPreset.dir）只管这一次，不记。 */
+    const usable = (id) => !!id && app.dirs.some((d) => d.id === id && !d.archived);
+    const [dir, setDirState] = useState(() => (usable(seed.dir) ? seed.dir : null));
+    const setDir = (id) => {
+      const next = usable(id) ? id : null;
+      setDirState(next);
+      app.rememberNew({dir: next});
+    };
     /* 模板与用户输入分别保存；换模板不会改写已输入的内容。 */
     const [scene, setScene] = useState(null);
     /* 模板的记忆（prefs.homeTemplates）：输入框下面的网格摆哪几个、哪些已经下载到本机。
@@ -131,7 +139,7 @@
       const p = app.newPreset;
       if (!p) return;
       app.takeNewPreset();
-      if (p.dir) setDir(p.dir);
+      if (p.dir) setDirState(p.dir);
       if (p.entry === 'blank') { createBlank(p.dir); return; }
       if (p.prompt) { setText(p.prompt); setFocusTick((n) => n + 1); }
       if (p.skill) setSkillId(p.skill);
@@ -175,7 +183,8 @@
       const rest = files;
       const names = rest.filter((f) => !f.url).map((f) => f.name);
       const run = {harness: sel.harness, model: sel.model, effort: sel.effort, mode: sel.mode};
-      app.rememberNew({entry: 'agent', picked, shorts: shortsPick});
+      /* 「转录并翻译」填的目标语言记下来，下次点这条快捷开始直接沿用（N.starterTarget 认不出就不记） */
+      app.rememberNew({entry: 'agent', picked, shorts: shortsPick, targetName: N.starterTarget(text)});
       const materials = names.length ? `\n材料：${names.join('、')}` : '';
       if (recent) {
         // 选了已有的视频：不新建，直接在它的会话里说；带着素材的那条路线照旧（含切成 Shorts 的那一行）
@@ -197,8 +206,15 @@
         }, 900);
         return;
       }
-      const ratio = shortsOn ? S.RATIO : '16:9';
       const prompt = K.withSkill(request + materials, skill);
+      if (N.linkIn(said)) {
+        /* 话里带着链接（视频网站的页面、文件地址）：不先建空白视频，直接开会话，由 Agent 把视频下载下来再建视频。
+           会话落在选中的项目里；不用项目时会话先不属于任何项目，建视频时按 §2.3 自动建项目。 */
+        app.openAgent({dir: dir || undefined, prompt, attachments: rest.filter((f) => f.url), send: true, ...run});
+        app.toast('已交给 Agent · 链接里的视频由它下载', 'positive');
+        return;
+      }
+      const ratio = shortsOn ? S.RATIO : '16:9';
       const proj = app.createProject(null, {entry: 'blank', dir, ratio, delivery: shortsOn ? 'shorts' : undefined, title: `${template ? template.title : g.k === 'free' ? 'Agent 制作' : g.title} · ${(said || names[0] || '未命名').slice(0, 16)}`});
       app.openAgent({project: proj.id, prompt, attachments: [...rest.filter((f) => f.url), ...(mediaAttachment?.name === media ? [mediaAttachment] : [])], send: true, ...run});
       app.toast(`视频已创建 · 已交给 Agent 制作${g.k === 'free' ? '' : g.title}`, 'positive');
@@ -217,7 +233,7 @@
             scene={scene} onScene={pickScene} downloading={dl} focusTick={focusTick} dir={dir} onDir={setDir}
             sel={sel} onSel={setSelPatch} ready={agentReady} can={aCan} busy={busy} onSubmit={startAgent} />
           <window.NewGateCard guide={N.gateGuide(route.goal, aGate)} avail={app.agentAvail} />
-          <window.HomeStarters items={N.homeStarters()} onPick={applyStarter} onBlank={() => createBlank()} />
+          <window.HomeStarters items={N.homeStarters({targetName: seed.targetName})} onPick={applyStarter} onBlank={() => createBlank()} />
           <window.HomeTemplateShelf scene={scene} onScene={pickScene} onExample={applyExample} shelf={tplMem && tplMem.recent} downloaded={T.downloaded(tplMem)} />
         </div>
       </Page>

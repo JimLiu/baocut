@@ -159,3 +159,11 @@ test('边转边问：回话时等那件转录（jobs_wait），结束后按记�
   assert.equal(S.waitClose({status: 'error', canceled: true}).receipt, null);
   assert.match(S.waitClose({status: 'error', error: '内存不足'}).close, /内存不足/);
 });
+
+test('planFor：带链接但目标语言没填，先问清再下载；填好了没视频就下载', () => {
+  const url = 'https://www.youtube.com/watch?v=abc123';
+  const ask = S.planFor(`转录这个视频，并翻译成[目标语言]，做成双语字幕。${url}`, false);
+  assert.equal(ask.kind, 'brief');
+  assert.equal(ask.sim, undefined);
+  assert.equal(S.planFor(`转录这个视频，并翻译成日语，做成双语字幕。${url}`, false).kind, 'download');
+});

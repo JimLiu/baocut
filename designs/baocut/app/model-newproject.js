@@ -135,18 +135,34 @@
      也不直接发送：那句话进了输入框就是用户自己的话，可以改；素材照常从输入框的「+」或拖放加。
      带着素材发出去时路线一律是 `ask`（`route`：先建视频并转录，Agent 等转录完按这句话动手）。
      措辞避开 HINTS 里的词（动画、讲解、图表…），免得没附素材时被猜成某一类制作。 */
+  /* 素材可以是文件，也可以是一条链接（视频网站的页面地址由下载工具取下来，product-design §2.7「下载视频」），
+     所以提示里两样都说。翻译成哪门语言没有缺省：上次填过就沿用（`o.targetName`，记在 prefs.newProject），
+     没填过留一个待填项（template-spec §5.5），不填也能发送，交给 Agent 的是 `[目标语言]`，由它先问。 */
+  const TARGET_SLOT = '目标语言';
+  const TRANS_TEMPLATE = `转录这个视频，并翻译成{{${TARGET_SLOT}}}，做成双语字幕。`;
   const STARTERS = [
-    {goal: 'sub',   needs: '视频', say: () => '给这个视频加上字幕。'},
-    {goal: 'trans', needs: '视频', say: (o) => `转录这个视频，并${into((o && o.targetName) || '中文')}，做成双语字幕。`},
-    {goal: 'clean', needs: '视频', say: () => '转录这个视频，找出口癖、长停顿和说错重来的地方，剪掉之前先让我看一遍。'},
-    {goal: 'a2v',   needs: '音频', say: () => '把这段音频做成视频，配上背景、声波和字幕。'},
+    {goal: 'sub',   needs: '视频', link: '视频链接', say: () => '给这个视频加上字幕。'},
+    {goal: 'trans', needs: '视频', link: '视频链接', say: (o) => (o && o.targetName ? `转录这个视频，并${into(o.targetName)}，做成双语字幕。` : TRANS_TEMPLATE)},
+    {goal: 'clean', needs: '视频', link: '视频链接', say: () => '转录这个视频，找出口癖、长停顿和说错重来的地方，剪掉之前先让我看一遍。'},
+    {goal: 'a2v',   needs: '音频', link: '链接', say: () => '把这段音频做成视频，配上背景、声波和字幕。'},
   ];
-  /** 起始页「快捷开始」那一行：[{k, goal, icon, title, prompt, tip}]。`o.targetName`：翻译成哪门语言（缺省中文）。 */
+  /** 起始页「快捷开始」那一行：[{k, goal, icon, title, prompt, tip}]。`o.targetName`：上次翻译成的语言，没有就留待填项。 */
   function homeStarters(o) {
     return STARTERS.map((x) => {
       const g = goal(x.goal);
-      return {k: g.k, goal: g.k, icon: g.icon, title: g.title, prompt: x.say(o), tip: `填入提示词，再把${x.needs}拖进输入框`};
+      return {k: g.k, goal: g.k, icon: g.icon, title: g.title, prompt: x.say(o), tip: `填入提示词，再把${x.needs}拖进输入框，或贴上${x.link}`};
     });
+  }
+  /** 话里的第一条网页链接（http / https）；没有返回 null。Home 据此不先建空白视频，直接交给 Agent 去下载。 */
+  const LINK_RE = /https?:\/\/[^\s，。、；）)」]+/i;
+  function linkIn(text) {
+    const m = LINK_RE.exec(String(text || ''));
+    return m ? m[0] : null;
+  }
+  /** 发送的那句话里「转录并翻译」的目标语言填成了什么（记下来下次沿用）；那句话已经改得认不出、或还没填，返回 null。 */
+  function starterTarget(text) {
+    const P = SLOTS();
+    return P ? P.filled(TRANS_TEMPLATE, TARGET_SLOT, text) : null;
   }
   /** 别处带着目标来（`newProject({entry: 'media', goal})`）时要填的那一条；没有对应条目返回 null。 */
   function starter(goalKey, o) { return homeStarters(o).find((x) => x.goal === goalKey) || null; }
@@ -316,7 +332,7 @@
   }
 
   /* ---------- 记忆：上次怎么做的 ----------
-     存在 prefs.newProject：{entry, goal, agentGoal, target, targets[], tpl, ratio, bilingual, shorts}。`ratio` 只是空白视频的画幅。
+     存在 prefs.newProject：{entry, goal, agentGoal, target, targets[], targetName, dir, tpl, ratio, bilingual, shorts}。`ratio` 只是空白视频的画幅。
      入口默认是 agent（页顶的框一直在）；`entry` 记的是上次用的哪条路，决定进页时下面展不展开固定流程。
      `targets` 是最近翻过的语言（去重、最多 5 门、最近的在前）。 */
   function seed(mem) {
@@ -327,6 +343,10 @@
     return {
       entry, goal: mediaGoal, agentGoal,
       target: m.target || 'en', bilingual: m.bilingual !== false,
+      /* 快捷开始「转录并翻译」上次填的目标语言（原话，不是语言代码）；没填过是 null，提示词里留待填项。 */
+      targetName: typeof m.targetName === 'string' && m.targetName.trim() ? m.targetName.trim() : null,
+      /* 起始页上次选的项目（目录 id）；null = 不用项目。目录还在不在由页面对照项目列表判断。 */
+      dir: typeof m.dir === 'string' && m.dir ? m.dir : null,
       tpl: m.tpl || null, ratio: RATIOS.includes(m.ratio) ? m.ratio : '16:9',
       shorts: m.shorts === true ? true : null,   // 亲手打开过就接着开；没拨过是 null，按那句话猜
     };
@@ -348,6 +368,9 @@
       m.bilingual = r.bilingual !== false;
       m.targets = [r.target].concat((m.targets || []).filter((c) => c !== r.target)).slice(0, RECENT_MAX);
     }
+    if (r.targetName) m.targetName = String(r.targetName).trim();
+    /* 起始页的项目选择：选了哪个记哪个，选「不用项目」记 null。 */
+    if ('dir' in r) m.dir = r.dir || null;
     if ('tpl' in r) m.tpl = r.tpl || null;
     if (r.ratio && r.entry === 'blank') m.ratio = r.ratio;
     return m;
@@ -374,7 +397,7 @@
     return g ? {entry: g.entry, goal: g.k} : {entry: 'agent'};
   }
 
-  const API = {homePrompt, homeStarters, starter, lengthLabel, lengthSeconds, ENTRIES, GOALS, RATIOS, RECENT_MAX, goal, goalsOf, flowGroups, kinds, SCENES, scene, sceneText, autoRange, syncAuto, stripAuto, applyScene, specLine, route, routeNote, BLANK, pipeline, aiGate, gateGuide,
+  const API = {homePrompt, homeStarters, starter, starterTarget, linkIn, lengthLabel, lengthSeconds, ENTRIES, GOALS, RATIOS, RECENT_MAX, goal, goalsOf, flowGroups, kinds, SCENES, scene, sceneText, autoRange, syncAuto, stripAuto, applyScene, specLine, route, routeNote, BLANK, pipeline, aiGate, gateGuide,
     oneShotNote, cta, canStart, chainOf, seed, remember, targetGroups, lastTemplate, presetOf};
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   if (typeof window !== 'undefined') Object.assign(window, {BC_NEW: API});

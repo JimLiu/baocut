@@ -352,10 +352,31 @@
     return {kind: 'brief', reads: [], write: null, task: null, close: null,
       summary: `这是场景模板「${title}」。开始制作前，先和你确认简报：\n\n1. 主题：这条视频讲什么\n2. 目标：希望观众看完做什么或记住什么\n3. 受众：给谁看\n4. 手头的材料：文件、链接或文字，没有也可以\n\n你已经说过的我不再问。画幅与时长先按模板的默认值，要改直接告诉我。回复确认或补充后，我再开始制作。`};
   }
+  /* 话里还留着没填的待填项（快捷开始、作品示例的 `{{label}}` 发出去写成 `[label]`，template-spec §5.5）：
+     先问，不猜一个值就开工——例如「转录并翻译」没写目标语言，不默认成任何一种语言（开发流程 §4）。 */
+  const MISSING_RE = /\[([^[\]\n]{1,24})\]/g;
+  function missingSlots(text) {
+    const seen = [];
+    String(text || '').replace(MISSING_RE, (_, label) => { if (!seen.includes(label)) seen.push(label); return _; });
+    return seen;
+  }
+  function askPlan(labels) {
+    return {kind: 'brief', reads: [], write: null, task: null, close: null,
+      summary: `开始之前先确认一下：${labels.map((x) => `「${x}」`).join('、')}你还没写。告诉我之后我就开始；有链接或素材的话，也可以一起发给我。`};
+  }
+  /** 有没填的待填项就先问的那一轮；没有返回 null。模板任务走 briefPlan，不在这里。 */
+  function askFor(text) {
+    const t = String(text || '');
+    if (TEMPLATE_LINE.test(t)) return null;
+    const labels = missingSlots(t);
+    return labels.length ? askPlan(labels) : null;
+  }
   function planFor(text, hasProject) {
     const t = String(text || '');
     const tpl = t.match(TEMPLATE_LINE);
     if (tpl) return briefPlan(tpl[1].trim());
+    const ask = askFor(t);
+    if (ask) return ask;
     const named = slashKind(t);
     let hit = (named && PLANS.find((p) => p.kind === named)) || PLANS.find((p) => p.re.test(t)) || CUSTOM;
     if (hit.kind === 'translate') {
@@ -902,7 +923,7 @@
   window.BC_AGENT = {
     conversationRows, workKind, workSummary,
     agoLabel, bucket, sessionTitle, sortSessions, groupSessions,
-    pickHarness, harnessLabel, compactModelLabel, harnessShort, composerFoot, intentPrompt, planFor, rulePrefix, autoAllowed, readiness,
+    pickHarness, harnessLabel, compactModelLabel, harnessShort, composerFoot, intentPrompt, planFor, askFor, missingSlots, rulePrefix, autoAllowed, readiness,
     agentAvailability, homeMode, setupGuide, providerState, providerRows, modelRows,
     normalizeMode, modeRank, nextSessionMode, isEditWrite, modeGate,
     autoAllowLabel, modeFoot, modeLabel, modeToast, MODE_KEYS: MODES,

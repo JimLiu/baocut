@@ -138,7 +138,7 @@ test('记忆：模板记 id，选「不用模板」也记；媒体项目不改�
 
 test('记忆：坏值回落默认', () => {
   assert.deepEqual(N.seed({entry: 'x', goal: 'anim', agentGoal: 'nope', ratio: '4:3', shorts: 'yes'}),
-    {entry: 'agent', goal: 'sub', agentGoal: null, target: 'en', bilingual: true, tpl: null, ratio: '16:9', shorts: null});
+    {entry: 'agent', goal: 'sub', agentGoal: null, target: 'en', bilingual: true, targetName: null, dir: null, tpl: null, ratio: '16:9', shorts: null});
 });
 
 test('记忆：Agent 只记亲手点的类型，不动空白项目的画幅', () => {
@@ -299,7 +299,7 @@ test('快捷开始：四条都对应媒体目标，提示词是一句话；带�
     assert.ok(g && g.entry === 'media' && !g.agentOnly, x.k);
     assert.deepEqual([x.title, x.icon], [g.title, g.icon], x.k);
     assert.match(x.prompt, /^[^\n！!]+。$/, x.k);
-    assert.match(x.tip, /^填入提示词，再把(视频|音频)拖进输入框$/, x.k);
+    assert.match(x.tip, /^填入提示词，再把(视频|音频)拖进输入框，或贴上(视频链接|链接)$/, x.k);
     /* route 对带素材的输入不看措辞：先建视频并转录，再由 Agent 按这句话做（goal 恒为 ask）。 */
     const name = x.goal === 'a2v' ? 'x.mp3' : 'x.mp4';
     const withMedia = N.route(x.prompt, [{name, kind: 'media'}], null);
@@ -309,9 +309,45 @@ test('快捷开始：四条都对应媒体目标，提示词是一句话；带�
     assert.deepEqual([bare.goal, bare.by], ['free', 'none'], x.k);
   }
   assert.equal(N.starter('sub').prompt, '给这个视频加上字幕。');
-  assert.equal(N.starter('trans').prompt, '转录这个视频，并翻译成中文，做成双语字幕。');
+  assert.equal(N.starter('sub').tip, '填入提示词，再把视频拖进输入框，或贴上视频链接');
+  assert.equal(N.starter('trans').prompt, '转录这个视频，并翻译成{{目标语言}}，做成双语字幕。');
   assert.equal(N.starter('trans', {targetName: 'English'}).prompt, '转录这个视频，并翻译成 English，做成双语字幕。');
-  assert.equal(N.starter('a2v').tip, '填入提示词，再把音频拖进输入框');
+  assert.equal(N.starter('trans', {targetName: '日语'}).prompt, '转录这个视频，并翻译成日语，做成双语字幕。');
+  assert.equal(N.starter('a2v').tip, '填入提示词，再把音频拖进输入框，或贴上链接');
   assert.equal(N.starter('ask'), null);
   assert.equal(N.starter('blank'), null);
+});
+
+test('快捷开始「转录并翻译」：目标语言没有缺省，没填过留待填项，发出去前不猜（开发流程 §4）', () => {
+  require('./model-prompt-slots.js');
+  const tpl = N.starter('trans').prompt;
+  assert.equal(N.homePrompt(tpl, null, {}), '转录这个视频，并翻译成[目标语言]，做成双语字幕。');
+  /* 认出用户填的语言，下次沿用；还是占位符、或那句话改得认不出时不记 */
+  assert.equal(N.starterTarget('转录这个视频，并翻译成日语，做成双语字幕。'), '日语');
+  assert.equal(N.starterTarget('转录这个视频，并翻译成 English，做成双语字幕。https://example.com/v/1'), 'English');
+  assert.equal(N.starterTarget(tpl), null);
+  assert.equal(N.starterTarget('给这个视频加上字幕。'), null);
+  assert.equal(N.starterTarget(''), null);
+  let m = N.remember({}, {entry: 'agent', targetName: N.starterTarget('转录这个视频，并翻译成法语，做成双语字幕。')});
+  assert.equal(N.seed(m).targetName, '法语');
+  m = N.remember(m, {entry: 'agent', targetName: null});
+  assert.equal(N.seed(m).targetName, '法语', '这一次没认出来不冲掉上次的');
+  assert.equal(N.starter('trans', {targetName: N.seed(m).targetName}).prompt, '转录这个视频，并翻译成法语，做成双语字幕。');
+});
+
+test('起始页的项目：记上次选的，选「不用项目」记 null；别的记忆不动它', () => {
+  let m = N.remember({}, {dir: 'd3'});
+  assert.equal(N.seed(m).dir, 'd3');
+  m = N.remember(m, {entry: 'agent', picked: null, shorts: null});
+  assert.equal(N.seed(m).dir, 'd3');
+  m = N.remember(m, {dir: null});
+  assert.equal(N.seed(m).dir, null);
+  assert.equal(N.seed({dir: 42}).dir, null);
+});
+
+test('话里的链接：认 http / https，止于空白与中文标点', () => {
+  assert.equal(N.linkIn('转录这个视频 https://www.youtube.com/watch?v=abc123，做成字幕'), 'https://www.youtube.com/watch?v=abc123');
+  assert.equal(N.linkIn('http://x.com/a/status/1'), 'http://x.com/a/status/1');
+  assert.equal(N.linkIn('给这个视频加上字幕。'), null);
+  assert.equal(N.linkIn(''), null);
 });

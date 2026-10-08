@@ -56,3 +56,15 @@ test('example：占位符换成 example，缺 example 用 label', () => {
   assert.equal(P.example('{{产品或服务}}', null), '产品或服务');
   assert.equal(P.example('', fields), '');
 });
+
+test('filled：按占位符前后几个字认出填进去的值；认不出或没填返回 null', () => {
+  const tpl = '转录这个视频，并翻译成{{目标语言}}，做成双语字幕。';
+  assert.equal(P.filled(tpl, '目标语言', '转录这个视频，并翻译成日语，做成双语字幕。'), '日语');
+  assert.equal(P.filled(tpl, '目标语言', '转录这段视频，并翻译成 Español，做成双语字幕吧'), 'Español');
+  assert.equal(P.filled(tpl, '目标语言', tpl), null);
+  assert.equal(P.filled(tpl, '目标语言', '转录这个视频，并翻译成[目标语言]，做成双语字幕。'), null);
+  assert.equal(P.filled(tpl, '目标语言', '转录这个视频，并翻译成，做成双语字幕。'), null);
+  assert.equal(P.filled(tpl, '目标语言', '转录这个视频，做成字幕。'), null);
+  assert.equal(P.filled(tpl, '受众', '转录这个视频，并翻译成日语，做成双语字幕。'), null);
+  assert.equal(P.filled('{{目标语言}}', '目标语言', '日语'), null, '占位符前后没有原文时无从定位');
+});

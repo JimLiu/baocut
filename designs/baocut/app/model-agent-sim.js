@@ -208,6 +208,9 @@
     const AG = window.BC_AGENT;
     const t = String(text || '');
     if (ctx && ctx.noTranscriber && TRANSCRIBE_RE.test(t) && !/^\s*\//.test(t)) return noTranscriberPlan();
+    /* 还有没填的待填项（如快捷开始「转录并翻译」的目标语言）：先问，链接也等问清了再下 */
+    const ask = AG.askFor && AG.askFor(t);
+    if (ask) return ask;
     const url = URL_RE.exec(t);
     if (url && !/^\s*\//.test(t) && (DOWNLOAD_RE.test(t) || !hasProject)) return downloadPlan(url[0]);
     let plan = AG.planFor(t, hasProject);

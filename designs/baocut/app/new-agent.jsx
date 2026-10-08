@@ -92,20 +92,29 @@
       </form>
     </BCModal>;
   }
+  /* 输入框下沿的项目托盘（product-design §2.3）：会话可以不属于任何项目，所以第一项是「不用项目」；
+     其余是项目（按最近活动排，同侧栏）与「新建项目」。选中哪个由页面记住，下次进来还是它（page-new.jsx）。
+     不用项目时说明 Agent 在哪儿干活、视频会落到哪儿：要建视频时才自动建项目，以视频命名。 */
+  const NO_PROJECT_HINT = '没选项目时，Agent 在临时文件夹里工作；要建视频时会自动建一个项目';
   function HomeProjectPicker({dir, onDir}) {
     const app = useApp();
+    const AP = window.BC_AGENT_PROJECTS;
     const [creating, setCreating] = useState(false);
-    const selected = app.dirs.find(d => d.id === dir);
+    const selected = app.dirs.find(d => d.id === dir) || null;
+    const dirs = AP.tree({dirs: app.dirs, movies: app.activeProjects, sessions: app.sessions}).projects
+      .map(p => p.dir).filter(d => !d.archived);
+    const current = <R.Text slot="description">当前</R.Text>;
     return <div className="home-create__project">
       <span className="home-project-dialog__device"><R.Icons.DeviceLaptop />这台电脑</span>
       <R.MenuTrigger>
-        <R.ActionButton size="S" isQuiet aria-label={'选择项目：' + (selected?.name || '未选择')}><R.Icons.Folder /><R.Text>{selected?.name || '选择项目'}</R.Text></R.ActionButton>
-        <R.Menu aria-label="选择项目" onAction={key => key === 'new' ? setCreating(true) : onDir(key)}>
-          <R.MenuSection>{app.dirs.map(d => <R.MenuItem key={d.id} id={d.id} textValue={d.name}><R.Icons.Folder /><R.Text>{d.name}</R.Text>{d.id === dir && <R.Text slot="description">当前项目</R.Text>}</R.MenuItem>)}</R.MenuSection>
-          <R.MenuSection><R.MenuItem id="new" textValue="新建项目"><R.Icons.Add /><R.Text>新建项目</R.Text></R.MenuItem></R.MenuSection>
+        <R.ActionButton size="S" isQuiet aria-label={'选择项目：' + (selected ? selected.name : '不用项目')}>{selected ? <R.Icons.Folder /> : <R.Icons.Chat />}<R.Text>{selected ? selected.name : '不用项目'}</R.Text></R.ActionButton>
+        <R.Menu aria-label="选择项目" onAction={key => key === 'new' ? setCreating(true) : onDir(key === 'none' ? null : key)}>
+          <R.MenuSection><R.MenuItem id="none" textValue="不用项目"><R.Icons.Chat /><R.Text>不用项目</R.Text>{!selected && current}</R.MenuItem></R.MenuSection>
+          {dirs.length > 0 && <R.MenuSection aria-label="项目"><R.Header>项目</R.Header>{dirs.map(d => <R.MenuItem key={d.id} id={d.id} textValue={d.name}><R.Icons.Folder /><R.Text>{d.name}</R.Text>{d.id === dir && current}</R.MenuItem>)}</R.MenuSection>}
+          <R.MenuSection><R.MenuItem id="new" textValue="新建项目…"><R.Icons.Add /><R.Text>新建项目…</R.Text></R.MenuItem></R.MenuSection>
         </R.Menu>
       </R.MenuTrigger>
-      {selected && <span className="home-create__project-path" title={selected.path}>{selected.path}</span>}
+      <span className="home-create__project-path" title={selected ? selected.path : NO_PROJECT_HINT}>{selected ? selected.path : NO_PROJECT_HINT}</span>
       {creating && <CreateProjectDialog onClose={() => setCreating(false)} onCreated={d => onDir(d.id)} />}
     </div>;
   }

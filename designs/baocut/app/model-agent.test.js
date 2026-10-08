@@ -590,3 +590,13 @@ test('要在面板里看结果的计划带 open：工具名能被编辑器接单
   assert.deepEqual(withOpen.map((p) => p.open.tool).sort(), ['blog', 'cover', 'crop', 'desc', 'dub', 'shortscut', 'summary', 'title']);
   withOpen.forEach((p) => { assert.ok(p.open.label && p.close.includes(`「${p.open.label}」`), p.kind); assert.ok(!/右侧/.test(p.close), p.kind); });
 });
+
+test('planFor：话里留着没填的待填项（[目标语言]）就先问，不猜一个值开工；模板任务仍走简报', () => {
+  const p = A.planFor('转录这个视频，并翻译成[目标语言]，做成双语字幕。', true);
+  assert.equal(p.kind, 'brief');
+  assert.equal(p.write, null);
+  assert.match(p.summary, /「目标语言」你还没写/);
+  assert.deepEqual(A.missingSlots('给[产品]做推广，面向[受众]，[受众]要年轻'), ['产品', '受众']);
+  assert.equal(A.askFor('转录这个视频，并翻译成日语，做成双语字幕。'), null);
+  assert.match(A.planFor('给[产品]做推广\n模板：推广短片', true).summary, /场景模板「推广短片」/);
+});

@@ -31,6 +31,13 @@
     const planFor = useCallback((text, hasProject, sess) => {
       const proj = sess && sess.project ? projects.find((p) => p.id === sess.project) : null;
       const h = sess ? D.agent.harnesses.find((x) => x.id === sess.harness) : null;
+      /* 回答「开始之前先确认一下」：上一句还留着待填项（`[目标语言]`），这一句短短一句就是答案——
+         填进上一句，按补全后的话接着做（话里的链接这时才开始下载）。 */
+      const said = String(text || '').trim();
+      const prev = sess && [...(sess.messages || [])].reverse().find((m) => m.role === 'user');
+      const missing = prev ? AG.missingSlots(prev.text) : [];
+      const answer = missing.length && said && said.length <= 32 && !/^\s*\//.test(said) && !AG.missingSlots(said).length;
+      text = answer ? String(prev.text).replace(`[${missing[0]}]`, said) : text;
       const plan = SIM.planFor(text, hasProject, {title: proj ? proj.title : null, agent: h ? AG.harnessLabel(h, sess.model, sess.activeModel) : null,
         noTranscriber: !!prefs.demoNoTranscriber});
       /* 边转边问：这条会话的转录还在跑，用户这句话又不是新的写入（回答 Agent 的问题），这一轮就等那件转录 */
@@ -111,12 +118,14 @@
     const finishDownload = (sid, tid, sim) => {
       const t = tasksRef.current.find((x) => x.id === tid) || {};
       const sess = sessionsRef.current.find((x) => x.id === sid) || {};
+      /* 视频落在会话的项目里（会话的 `dir` 也可能是刚在起始页新建的项目，演示数据里查不到它，存放路径就留空）；
+         会话不属于任何项目时标 `needsDir`，App 层按 §2.3 给它新开一个与视频同名的项目（apprail-store.jsx）。 */
       const dirRec = (D.agentProjects || []).find((d) => d.id === sess.dir) || null;
       const title = t.title || t.name || '下载的视频';
       const id = 'pd-' + tid + '-' + Date.now().toString(36);
       const movie = {...window.BC_IMPORT.movieRecord({id, title, name: t.name || `${title}.mp4`,
         saveDir: dirRec ? dirRec.path + title : null, duration: t.mediaSec, hue: t.hue,
-        dir: dirRec ? dirRec.id : null}), ctime: 0, mtime: 0, otime: 0};
+        dir: sess.dir || null}), ctime: 0, mtime: 0, otime: 0, ...(sess.dir ? {} : {needsDir: true})};
       setProjects((ps) => [movie].concat(ps));
       patchTask(tid, {status: 'done', outcome: 'done', ...SIM.done(sim), project: id});
       markTool(sid, tid, {status: 'done', took: '48s', error: null});

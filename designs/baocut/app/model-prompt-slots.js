@@ -51,6 +51,27 @@
     }).join('');
   }
 
+  /** 用户把 `template` 里那处 `{{label}}` 填成了什么（快捷开始记住上次填的值用）：在 `text` 里找紧挨着占位符的
+      前后几个字，取两者之间的文字。前后文被改掉、还是占位符、填的是空白或跨了行，都返回 null。只看第一处同名占位符。 */
+  const CONTEXT = 6;
+  const FILLED_MAX = 32;
+  function filled(template, label, text) {
+    const segs = parse(template);
+    const i = segs.findIndex((x) => x.type === 'slot' && x.label === label);
+    if (i < 0) return null;
+    const before = segs[i - 1] && segs[i - 1].type === 'text' ? segs[i - 1].text.slice(-CONTEXT) : '';
+    const after = segs[i + 1] && segs[i + 1].type === 'text' ? segs[i + 1].text.slice(0, CONTEXT) : '';
+    if (!before || !after) return null;
+    const s = String(text == null ? '' : text);
+    const from = s.indexOf(before);
+    if (from < 0) return null;
+    const start = from + before.length;
+    const end = s.indexOf(after, start);
+    if (end < 0) return null;
+    const v = s.slice(start, end).trim();
+    return v && v.length <= FILLED_MAX && !/[\n{}\[\]]/.test(v) ? v : null;
+  }
+
   /* ---------- 与 S2 PromptFieldValue 片段的互换（纯数据，app/ui.jsx 的 PromptField 用） ----------
      S2 的占位 token 是 {type: 'token', text: label, value: {type: 'placeholder', placeholderType: 'text'}}：
      画成占位样式，点一下整个选中，打字即替换，Tab / Shift+Tab 在 token 之间跳。 */
@@ -84,7 +105,7 @@
     return -1;
   }
 
-  const api = {parse, serialize, labels, forAgent, example, toTokens, fromTokens, nextSlot, isSlotToken};
+  const api = {parse, serialize, labels, forAgent, example, filled, toTokens, fromTokens, nextSlot, isSlotToken};
   if (typeof window !== 'undefined') window.BC_PROMPT_SLOTS = api;
   if (typeof module !== 'undefined') module.exports = api;
 })();
