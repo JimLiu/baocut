@@ -1,7 +1,7 @@
 import type { Sequence } from '@baocut/protocol';
 import { afterEach, expect, test, vi } from 'vitest';
 import type { RenderPlanner } from '../../render/render-planner.ts';
-import { PreviewEngine, type PreviewStatus } from './preview-engine.ts';
+import { PreviewEngine, imageKey, type PreviewStatus } from './preview-engine.ts';
 import { POLL_MS, STALL_MS } from './preview-watch.ts';
 
 // 引擎跑在浏览器里；这里补上 Node 没有的动画帧函数与 ImageData（装下像素就行）。
@@ -248,6 +248,22 @@ test('媒体在等兼容副本：画面不算出来过；进度不动满门槛�
   expect(engine.pictured).toBe(false);
   await vi.advanceTimersByTimeAsync(0);
   expect(pictures).toEqual([false, true, false, true, false, true]);
+  // 载入失败的图片不再等：这一帧照画、跳过它，画面算出来了（缺的由卡住诊断与问题提示说）。
+  const broken = { kind: 'image', itemId: 'logo', asset: { id: 'asset_img', revision: '1' }, matrix: [1, 0, 0, 1, 0, 0], opacity: 1 };
+  layers = [broken];
+  engine.retry();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(engine.pictured).toBe(false);
+  const image = Object.assign(new (globalThis.HTMLImageElement as unknown as new () => object)(), {
+    complete: true,
+    naturalWidth: 0,
+    src: 'x',
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  });
+  engine.register(imageKey(broken.asset), image as unknown as HTMLImageElement);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(engine.pictured).toBe(true);
   engine.dispose();
   vi.unstubAllGlobals();
   vi.stubGlobal('cancelAnimationFrame', () => {});

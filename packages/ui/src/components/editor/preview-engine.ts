@@ -214,7 +214,7 @@ export class PreviewEngine {
   readonly #lastPictures = new WeakMap<SourceElement, ImageData>();
   /** 画布上是不是停住那一刻按原尺寸、等齐了媒体画出的帧（与导出同一帧）。 */
   #exact = false;
-  /** 画布上出过媒体都齐了的一帧（不是等着媒体时的黑帧）；重试、换一部视频之后从头算。 */
+  /** 画布上出过没有还在来的媒体的一帧（不是等着媒体时的黑帧）；重试、换一部视频之后从头算。 */
   #pictured = false;
   readonly #pictureListeners = new Set<(pictured: boolean) => void>();
   #disposed = false;
@@ -378,8 +378,8 @@ export class PreviewEngine {
   }
 
   /**
-   * 这部视频的画面出来过没有：画布上出过这一刻的媒体都齐了的一帧（没有媒体的帧也算）。没出来之前舞台盖着载入面板
-   * （产品设计 §5.1「预览载入与卡住」），不露出等着媒体时的黑帧；重试与换一部视频之后从头算。
+   * 这部视频的画面出来过没有：画布上出过这一刻没有还在来的媒体的一帧（没有媒体的帧也算，载入失败的不算在来）。
+   * 没出来之前舞台盖着载入面板（产品设计 §5.1「预览载入与卡住」），不露出等着媒体时的黑帧；重试与换一部视频之后从头算。
    */
   get pictured(): boolean {
     return this.#pictured;
@@ -837,9 +837,13 @@ export class PreviewEngine {
     this.#setCaptionHits((rendered.captionHits ?? []).filter((hit) => hit.itemId !== LIVE_CAPTION_ITEM_ID));
     pending.add(LIVE_CAPTION_ITEM_ID);
     this.#painted = { revision: plan.sequenceRevision, frame: plan.frame };
-    const complete = [...states.values()].every((state) => state === 'ready');
-    this.#exact = quality === 'exact' && complete;
-    if (complete) this.#setPictured(true);
+    this.#exact = quality === 'exact' && [...states.values()].every((state) => state === 'ready');
+    // 画面出来了：没有还在来的媒体。载入失败的元素与取不到的素材字节不再等（这一帧照画，跳过它），只有还没有元素的在来。
+    const coming = layers.filter(isMediaLayer).some((layer) => {
+      const state = states.get(layer.itemId);
+      return state === 'pending' || (state === 'absent' && !this.#kernelDecoded(layer) && this.#sourceOf(layer) === null);
+    });
+    if (!coming) this.#setPictured(true);
     if (this.#playing) {
       this.#stats.presented++;
       sample(this.#stats.frames, plan.frame);
