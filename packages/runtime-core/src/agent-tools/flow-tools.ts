@@ -1,3 +1,4 @@
+import fs from 'node:fs/promises';
 import { z } from 'zod';
 import {
   DUB_PIPELINE,
@@ -388,15 +389,19 @@ export class FlowTools implements ToolSet {
         next: '转录已提交，不建视频。用 jobs_wait 等到 completed：outputs 的 path（pipeline.summary.files）是 TXT 与 SRT 文稿，把位置告诉用户。',
       };
     }
-    const root = await scope.createRoot(access, args.project);
+    await scope.createRoot(access, args.project, { locate: true });
     const approval = await scope.confirm(access, {
       tool: 'transcribe',
       ...confirmSummary(
         RcFlowTools.transcribeCreateSummary({ name: args.name ?? null, file, ...providerOf(args), captions: !args.noCaptions }),
       ),
     });
+    // 确认之后才为新建做准备：无项目会话在这里建项目并绑定（§3.10），流程的 `create` 目标直接是项目。
+    const root = await scope.createRoot(access, args.project);
+    // 绑定把工作目录里的东西搬进了项目，旧路径在回合里经链接指过去：换成真实路径，流程之后读的是项目里的文件。
+    const media = await fs.realpath(file).catch(() => file);
     const jobId = await this.#start(access, TRANSCRIBE_PIPELINE, args.commandId, {
-      target: { create: { ...root.scope, ...(args.name !== undefined ? { name: args.name } : {}), media: file } },
+      target: { create: { ...root.scope, ...(args.name !== undefined ? { name: args.name } : {}), media } },
       ...recognition,
       captions: !args.noCaptions,
     });

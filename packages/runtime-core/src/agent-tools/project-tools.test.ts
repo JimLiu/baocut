@@ -26,7 +26,7 @@ describe('projects_list 的空列表', () => {
     expect(next).toContain('baocut mcp install');
   });
 
-  it('会话：视频建在会话的工作目录里', async () => {
+  it('会话：不属于项目时 videos_create 先建项目并绑定', async () => {
     const { next } = await list({ kind: 'agent' } as Partial<ToolPrincipal>);
     expect(next).toContain('不属于任何项目');
   });

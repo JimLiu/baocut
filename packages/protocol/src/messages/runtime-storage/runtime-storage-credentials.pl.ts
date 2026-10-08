@@ -7,6 +7,7 @@ export const pl: RuntimeStorageCredentialsMessages = {
   internal: "Błąd odczytu lub zapisu danych uwierzytelniających",
   problem: (p) => `${p.reason}: ${p.message}`,
   fileWriteFailed: (p) => `Nie udało się zapisać pliku danych uwierzytelniających (${p.code})`,
+  fileUnreadable: (p) => `Nie można odczytać pliku danych uwierzytelniających; pozostawiono go bez zmian (${p.code})`,
   helperBadResponse: "Program pomocniczy uwierzytelniania zwrócił nieprawidłową odpowiedź",
   helperNotFound: "Nie znaleziono programu pomocniczego uwierzytelniania",
   helperTimedOut: (p) => `Program pomocniczy uwierzytelniania nie odpowiedział w ciągu ${p.seconds} s`,

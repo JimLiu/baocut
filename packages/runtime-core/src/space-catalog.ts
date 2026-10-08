@@ -24,6 +24,7 @@ import { TopicLog, type Harness, type Logger, type TopicSubscription } from '@ba
 import {
   EMPTY_MARK,
   artifactIdsOf,
+  artifactRefsOf,
   spaceJobFacts,
   type SpaceArtifactStore,
   type SpaceJobFacts,
@@ -832,6 +833,11 @@ export class SpaceCatalog {
       return ids.length > 0 && ids.every((id) => this.#marks.get(id).dismissedAt) ? [] : [facts];
     });
     if (records.length > 0) void this.#artifacts.put(records).catch((error) => this.#log.warn('Writing output records failed', { error: String(error) }));
+    // 只为产物库清扫保留的引用（§7.3）：任何留下了产物的任务（配音、翻译、说话人、写进视频的转录、它们的步骤……），
+    // 不论上面要不要留派生用的事实。不进目录，Job Ledger 修剪之后产物仍被引用。
+    const refs = jobs.flatMap((job) => artifactRefsOf(job) ?? []);
+    if (refs.length > 0)
+      void this.#artifacts.putReferences(refs).catch((error) => this.#log.warn('Writing output references failed', { error: String(error) }));
   }
 
   /** 产物全部物理删除或清除了的记录去掉；Ledger 里也没有这个任务时，清除标记也不再需要。 */
@@ -921,7 +927,12 @@ export class SpaceCatalog {
 
   #addConversation(conversation: Conversation, scan: boolean): boolean {
     this.#conversationProjects.set(conversation.id, conversation.projectId ?? null);
-    if (conversation.projectId) return false;
+    if (conversation.projectId) {
+      // 无项目会话绑定了项目（§3.10）：它的工作目录不再是来源，东西已经搬进项目，由项目来源列出。条目 id 随来源键换了，
+      // 旧来源下的用户标记（收藏、显示名）不跟过去。
+      this.#removeSource(`conv:${conversation.id}`);
+      return false;
+    }
     return this.#addSource(
       {
         key: `conv:${conversation.id}`,

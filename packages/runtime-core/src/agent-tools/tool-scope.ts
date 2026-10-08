@@ -243,8 +243,9 @@ export interface ToolScope<A extends ToolAccess = ToolAccess> {
    * 新建视频的位置。`project` 是调用方给的项目（项目 id 或已登记项目目录的路径）：会话里不给时用会话的来源目录，
    * 给了只能是会话所属的项目；对外服务必须给（缺了 `INVALID_ARGUMENTS`），看不到的项目与不存在的一样回答 `PROJECT_NOT_FOUND`；
    * 终端里按 cwd 解析成项目目录。`note` 是给调用方的说明（例如落到了默认项目），`videos_create` 带进结果。
+   * 会话里不属于项目的会话第一次新建时先建项目并绑定（§3.10）；`locate` 只找位置、不为新建做这些准备（确认之前、删除视频时）。
    */
-  createRoot(access: A, project?: string): VideoRoot | Promise<VideoRoot>;
+  createRoot(access: A, project?: string, options?: { locate?: boolean }): VideoRoot | Promise<VideoRoot>;
   /** 打开（或接上已经打开的）范围里的视频。范围之外的与不存在的一样回答 `VIDEO_NOT_FOUND`。 */
   open(video: string, access: A): Promise<VideoOpenResult>;
   /** `importAsset.path` 相对的目录；`confine` 不为空时路径（按真实路径）必须在它里面。 */
@@ -317,8 +318,8 @@ export class ScopeRouter implements ToolScope<ToolAccess> {
   listVideos(access: ToolAccess): Promise<Record<string, unknown>> {
     return this.#of(access.principal).listVideos(access);
   }
-  createRoot(access: ToolAccess, project?: string): VideoRoot | Promise<VideoRoot> {
-    return this.#of(access.principal).createRoot(access, project);
+  createRoot(access: ToolAccess, project?: string, options?: { locate?: boolean }): VideoRoot | Promise<VideoRoot> {
+    return this.#of(access.principal).createRoot(access, project, options);
   }
   open(video: string, access: ToolAccess): Promise<VideoOpenResult> {
     return this.#of(access.principal).open(video, access);

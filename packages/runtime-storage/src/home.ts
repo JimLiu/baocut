@@ -10,7 +10,8 @@ import path from 'node:path';
  *   runtime.lock          实例锁
  *   store/projects.json   项目登记
  *   store/space.json      Space 的用户标记（收藏、显示名、回收站）与删除的视频
- *   store/space-artifacts.json  Space 的产物记录：产出产物的任务的派生用事实，不随 Job Ledger 的修剪丢失
+ *   store/space-artifacts.json  Space 的产物记录：产出产物的任务的派生用事实，加上只为产物库清扫保留的产物引用
+ *                         与清扫起点，不随 Job Ledger 的修剪丢失
  *   store/conversations/<id>.jsonl  会话：只追加的日志，文件头 + 快照 + item/meta 行，膨胀后压缩（架构设计 §3.10）
  *   store/jobs.jsonl      后台任务账本（转写等）：只追加，每次追加 fsync，膨胀后压缩（架构设计 §7.3）
  *   store/applications.jsonl 应用账本：任务结果应用到视频的记录，格式同上
@@ -24,11 +25,17 @@ import path from 'node:path';
  *   store/agent-probes.json Agent 的探测缓存：每个 Driver 最近一次探测的本机事实，启动时先用它（架构设计 §3.11）
  *   staging/jobs/<id>/    任务进行中的 Worker 输出，结束后删除
  *   staging/node-jobs/<id>/ 别的机器提交的远端任务：上传的媒体与结果，随任务删除
- *   artifacts/<摘要>.json  任务的原始结果，按内容寻址
+ *   artifacts/<sha256>.<扩展名>  内容寻址的产物库：转写结果、合成的音频与图片、导出的文件等，`artifactId` 去掉
+ *                         `sha256:` 就是文件名。Runtime 在后台清扫：账本与 Space 产物记录都没有引用、修改时间超过 1 小时
+ *                         且不早于清扫起点的删掉，残留的 `.tmp` 超过 1 小时删掉（架构设计 §7.3）
  *   models/<org>/<repo>/  本地模型文件的缺省位置（设置 `models.dir` 可以改，`BAOCUT_MODELS_DIR` 优先）
- *   scratch/<id>/         无项目会话的工作目录
- *   cache/media/<摘要>/    素材的分析结果（波形峰值、缩略图），按内容摘要存，删掉会重新生成
- *   cache/content-index/index.db 跨视频检索的内容索引：SQLite + FTS5（架构设计 §5.11），删掉会重新读
+ *   scratch/<id>/         无项目会话的工作目录；第一次新建视频时搬进新建的项目（架构设计 §3.10）
+ *   cache/                派生缓存，总大小有上限（设置 `cache.maxSizeMiB`，默认 2048 MiB）：超过时按修改时间删最旧的，
+ *                         降到上限的 90%；`content-index/` 与 `baocut-composition-host/` 不删（`cache-limit.ts`）
+ *   cache/media/<摘要>/    素材的分析结果（波形峰值、缩略图、帧），按内容摘要存，删掉会重新生成；`cache/media/playback/`
+ *                         是播放用的转码，`cache/media/files/` 是文件的帧
+ *   cache/content-index/index.db 跨视频检索的内容索引：SQLite + FTS5（架构设计 §5.11），删掉会重新读；运行中不删
+ *   cache/baocut-composition-host/ 代码画面宿主的脚本
  *   library/<glossaries|voices|brand>/<id>/ 用户库的条目（架构设计 §5.9）：条目头、各版本的内容与按摘要命名的文件
  *   logs/runtime.log
  * ```

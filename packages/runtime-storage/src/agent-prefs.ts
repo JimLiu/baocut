@@ -5,7 +5,7 @@ import {
   type AgentPreferences,
   type DriverId,
 } from '@baocut/protocol';
-import { readJson, writeJsonAtomic } from './json-file.ts';
+import { JsonStoreFile, type StoreOptions } from './store-file.ts';
 
 interface AgentPrefsFile extends AgentPreferences {
   schemaVersion: 1;
@@ -26,20 +26,21 @@ export function defaultAgentPreferences(): AgentPreferences {
 
 /**
  * Agent 偏好（设置 › Agent 提供方）。整份读进内存，改一次写一次；写串行，后一次覆盖前一次。
- * 文件里不认识或坏掉的字段按默认值处理，不让一个手改坏的文件拦住 Runtime 启动。
+ * 文件里不认识或坏掉的字段按默认值处理，不让一个手改坏的文件拦住 Runtime 启动；整个文件不是 JSON 时改名保留、取默认值，
+ * 更新版本写下的不改写（`store-file.ts`）。
  */
 export class AgentPrefsStore {
-  readonly #file: string;
+  readonly #file: JsonStoreFile;
   #prefs: AgentPreferences = defaultAgentPreferences();
   #saving: Promise<void> = Promise.resolve();
 
-  constructor(file: string) {
-    this.#file = file;
+  constructor(file: string, options: StoreOptions = {}) {
+    this.#file = new JsonStoreFile(file, options.log);
   }
 
   async load(): Promise<AgentPreferences> {
-    const data = await readJson<Partial<AgentPrefsFile>>(this.#file).catch(() => null);
-    this.#prefs = normalize(data ?? {});
+    const { value } = await this.#file.read({ recognize: (raw) => raw as Partial<AgentPrefsFile>, tolerateReadErrors: true });
+    this.#prefs = normalize(value ?? {});
     return this.get();
   }
 
@@ -57,7 +58,7 @@ export class AgentPrefsStore {
     update(next);
     this.#prefs = normalize(next);
     const snapshot: AgentPrefsFile = { schemaVersion: 1, ...this.#prefs };
-    this.#saving = this.#saving.catch(() => {}).then(() => writeJsonAtomic(this.#file, snapshot));
+    this.#saving = this.#saving.catch(() => {}).then(() => this.#file.write(snapshot));
     await this.#saving;
     return this.get();
   }

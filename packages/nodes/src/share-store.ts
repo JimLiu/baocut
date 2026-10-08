@@ -1,10 +1,13 @@
 import fs from 'node:fs/promises';
-import { readJson, writeJsonAtomic } from '@baocut/runtime-storage';
+import { readJsonOrQuarantine, writeJsonAtomic, type StoreLog } from '@baocut/runtime-storage';
 import type { PairedClient } from './pairing.ts';
 
 /**
  * 共享状态的持久文件（节点协议规范 §11）：`<home>/store/node-share.json`，权限 0600。
  * 开关、`nodeId`、名字、端口、`allowAnySource`、各能力的开关与已配对客户端（盐与哈希，没有令牌明文）。配对码与锁定不落盘。
+ *
+ * 里面有配对客户端，不能静默丢：文件读不了、不是 JSON、认不出或由更新的版本写下时不改名、不从空开始，`loadShareFile`
+ * 返回 `unreadable`，节点服务进入降级状态（共享关着、不能修改，`ShareStatus.error` 说明原因），文件原样留着。
  */
 
 /** 能力分项开关之前写下的文件里没有 `capabilities`：那一版只能共享这些能力，而且一律开着。 */
@@ -29,9 +32,23 @@ export interface ShareFile {
   clients: PairedClient[];
 }
 
-export async function loadShareFile(file: string): Promise<ShareFile | null> {
-  const data = await readJson<ShareFile>(file).catch(() => null);
-  if (!data || data.formatVersion !== 1 || typeof data.enabled !== 'boolean' || !Array.isArray(data.clients)) return null;
+/** 读共享状态：没有（或空文件）时 null；读不了或认不出时 `{ unreadable: 原因 }`。 */
+export async function loadShareFile(file: string, log?: StoreLog): Promise<ShareFile | { unreadable: string } | null> {
+  try {
+    const read = await readJsonOrQuarantine(file, { log, version: { key: 'formatVersion', known: 1 }, quarantine: false, recognize: parseShareFile });
+    if (read.status === 'ok') return read.value;
+    if (read.status === 'missing' || read.status === 'empty') return null;
+    return { unreadable: read.status };
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code ?? 'unknown';
+    log?.warn('Share file could not be read; left in place', { code });
+    return { unreadable: code };
+  }
+}
+
+function parseShareFile(raw: Record<string, unknown>): ShareFile | null {
+  const data = raw as unknown as ShareFile;
+  if (data.formatVersion !== 1 || typeof data.enabled !== 'boolean' || !Array.isArray(data.clients)) return null;
   const clients = data.clients.filter(
     (c) =>
       c &&

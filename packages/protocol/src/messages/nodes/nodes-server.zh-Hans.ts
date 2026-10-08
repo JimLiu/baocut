@@ -39,5 +39,6 @@ export const zhHans: NodesServerMessages = {
   pairingLocked: '配对已锁定',
   pairingCodeInvalid: '配对码错误、过期或不存在',
   portInUse: (p) => `端口 ${p.port} 已被占用`,
+  shareFileUnreadable: (p) => `读不了共享设置文件（node-share.json，${p.reason}），已原样保留；修好或移走它之后才能修改共享`,
   cannotListen: (p) => `节点服务无法监听：${p.code}`,
 };

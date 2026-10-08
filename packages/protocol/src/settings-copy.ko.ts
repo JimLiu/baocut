@@ -24,6 +24,7 @@ export const ko: SettingDescriptionMessages = {
   'fonts.fileEndpoint': '글꼴 파일의 기본 URL(미러, https://. 파일은 이 경로 아래에서만 가져옵니다). null이면 https://fonts.gstatic.com을 사용합니다',
   'space.trashRetentionDays':
     'Space 휴지통에 항목을 보관할 일수(1–3650): 이보다 오래된, 참조되지 않는 항목과 삭제된 영상은 주기적으로 영구 삭제됩니다',
+  'cache.maxSizeMiB': '데이터 폴더 캐시의 크기 상한(MiB, 256–1048576): 넘으면 가장 오래된 캐시 파일(미디어 분석, 재생용 변환본)부터 삭제해 상한의 90%까지 줄입니다. 영상 간 검색 색인은 삭제하지 않습니다',
   'resources.capacity':
     '고급: 리소스 스케줄링에 쓰는 머신 용량 { memoryMiB, gpuMemoryMiB, cpuThreads }. 항목을 null로 두면 자동으로 감지하고, null이면 모두 감지합니다(메모리와 CPU는 시스템에서 가져오고, Apple 실리콘의 GPU 메모리는 통합 메모리로 추정)',
   'runtime.idleExitMinutes':

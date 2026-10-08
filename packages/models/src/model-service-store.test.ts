@@ -119,7 +119,7 @@ describe('ModelServiceStore', () => {
     expect((await open()).getDefault('transcribe')).toBeNull();
   });
 
-  it('认不出的文件与条目：丢掉坏的部分，不报错', async () => {
+  it('认不出的条目丢掉；凭据文件坏了时打开照样成功，Provider 报告凭据不可用', async () => {
     await fs.mkdir(path.dirname(paths.modelServicesFile), { recursive: true });
     await fs.writeFile(
       paths.modelServicesFile,
@@ -135,7 +135,24 @@ describe('ModelServiceStore', () => {
     expect(store.getDefault('transcribe')).toBeNull();
     expect(store.getDefault('generateImage')).toEqual({ providerId: 'ok', modelId: 'm' });
     expect(store.hasCredential('ok')).toBe(false);
-    expect(store.credentialProblem('ok')).toBeNull();
+    expect(store.credentialProblem('ok')).not.toBeNull();
+    // 凭据文件原样留着。
+    expect(await fs.readFile(credentialsFile, 'utf8')).toBe('{not json');
+  });
+
+  it('配置文件不是 JSON：改名保留、从空开始；更新版本写下的：不改名，修改也不覆盖它', async () => {
+    await fs.mkdir(path.dirname(paths.modelServicesFile), { recursive: true });
+    await fs.writeFile(paths.modelServicesFile, '{ not json');
+    expect((await open()).providerIds()).toEqual([]);
+    const names = await fs.readdir(path.dirname(paths.modelServicesFile));
+    expect(names.some((n) => n.startsWith(`${path.basename(paths.modelServicesFile)}.corrupt-`))).toBe(true);
+
+    const text = JSON.stringify({ formatVersion: 3, providers: { openai: { enabled: true } } });
+    await fs.writeFile(paths.modelServicesFile, text);
+    const store = await open();
+    expect(store.providerIds()).toEqual([]);
+    await store.setDefault('transcribe', null);
+    expect(await fs.readFile(paths.modelServicesFile, 'utf8')).toBe(text);
   });
 
   it('之前版本的密钥文件（formatVersion 1，键是 providerId）照原样读出；迁成账号 main，写第 2 版的配置，再删旧键', async () => {

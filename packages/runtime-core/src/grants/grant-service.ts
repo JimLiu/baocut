@@ -160,7 +160,7 @@ export class GrantService implements JobAdmission {
   }
 
   static async open(options: GrantServiceOptions): Promise<GrantService> {
-    const store = await GrantStore.open(options.file, options.now ? { now: options.now } : {});
+    const store = await GrantStore.open(options.file, { log: options.log.child('grants'), ...(options.now ? { now: options.now } : {}) });
     return new GrantService(store, options);
   }
 

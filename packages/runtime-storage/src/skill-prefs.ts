@@ -1,5 +1,5 @@
 import { SKILL_ID_PATTERN } from '@baocut/protocol';
-import { readJson, writeJsonAtomic } from './json-file.ts';
+import { JsonStoreFile, type StoreOptions } from './store-file.ts';
 
 /** skill 开关的存储形态：`enabled` 只放用户改过、与来源默认值不同的那些。 */
 export interface SkillPrefs {
@@ -12,20 +12,21 @@ interface SkillPrefsFile extends SkillPrefs {
 
 /**
  * Agent skill 的开关（架构设计 §3.8）。只存相对来源默认值的差量：默认值以后改了，用户没动过的 skill 跟着新默认走。
- * 整份读进内存，改一次写一次；写串行。文件里不认识或坏掉的条目丢掉，不拦住 Runtime 启动。
+ * 整份读进内存，改一次写一次；写串行。文件里不认识或坏掉的条目丢掉，不拦住 Runtime 启动；整个文件不是 JSON 时改名保留、
+ * 从空开始，更新版本写下的不改写（`store-file.ts`）。
  */
 export class SkillPrefsStore {
-  readonly #file: string;
+  readonly #file: JsonStoreFile;
   #prefs: SkillPrefs = { enabled: {} };
   #saving: Promise<void> = Promise.resolve();
 
-  constructor(file: string) {
-    this.#file = file;
+  constructor(file: string, options: StoreOptions = {}) {
+    this.#file = new JsonStoreFile(file, options.log);
   }
 
   async load(): Promise<SkillPrefs> {
-    const data = await readJson<Partial<SkillPrefsFile>>(this.#file).catch(() => null);
-    this.#prefs = normalize(data ?? {});
+    const { value } = await this.#file.read({ recognize: (raw) => raw as Partial<SkillPrefsFile>, tolerateReadErrors: true });
+    this.#prefs = normalize(value ?? {});
     return this.get();
   }
 
@@ -63,7 +64,7 @@ export class SkillPrefsStore {
     update(next);
     this.#prefs = normalize(next);
     const snapshot: SkillPrefsFile = { schemaVersion: 1, ...this.#prefs };
-    this.#saving = this.#saving.catch(() => {}).then(() => writeJsonAtomic(this.#file, snapshot));
+    this.#saving = this.#saving.catch(() => {}).then(() => this.#file.write(snapshot));
     await this.#saving;
     return this.get();
   }

@@ -1,4 +1,3 @@
-import fs from 'node:fs/promises';
 import type {
   ApplicationState,
   ExportSettings,
@@ -11,7 +10,9 @@ import type {
   PipelineRun,
   TextJobResult,
 } from '@baocut/protocol';
-import { readJson, writeJsonAtomic } from './json-file.ts';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { JsonStoreFile, type StoreOptions } from './store-file.ts';
 
 /**
  * Space 派生条目时从一个任务读的事实（架构设计 §5.7）：正好是 `space-derive` 用到的字段，`JobRecord` 可以直接当它用。
@@ -155,9 +156,49 @@ export function artifactIdsOf(facts: SpaceJobFacts): string[] {
   return [...ids];
 }
 
+/**
+ * 只为产物库的清扫保留的引用（架构设计 §7.3）：一个结束了的任务的结果、流程步骤的产出与应用里出现过的全部产物 id。
+ * 不是 Space 的条目来源，不参与派生、不进目录：配音的句子音频、原始转写结果、流程的中间产物这些内部产物只靠它在
+ * Job Ledger 修剪之后仍被引用（视频文档里的配音版本、`rawResultArtifactId` 还指着它们，清扫看不到视频文档）。
+ */
+export interface RetainedArtifactRefs {
+  jobId: Id;
+  kind: JobKind;
+  videoId: Id | null;
+  endedAt: string | null;
+  artifactIds: string[];
+}
+
+const ARTIFACT_ID = /sha256:[0-9a-f]{64}/g;
+
+/** 文本里的全部 `sha256:<64 位 hex>`。 */
+function artifactIdsInText(text: string, into: Set<string>): Set<string> {
+  for (const match of text.matchAll(ARTIFACT_ID)) into.add(match[0]);
+  return into;
+}
+
+/**
+ * 一个任务要留下的产物引用：结束了、结果（含输出）、流程步骤或应用里出现了产物 id。只看这几处，不看 `inputHash`、
+ * `contentHash` 这类同样写成 `sha256:` 的摘要。没有时 null。
+ */
+export function artifactRefsOf(job: JobRecord): RetainedArtifactRefs | null {
+  if (!TERMINAL.has(job.state)) return null;
+  const text = JSON.stringify({ result: job.result ?? null, steps: job.pipeline?.steps ?? null, applications: job.applications ?? null });
+  const ids = [...artifactIdsInText(text, new Set())].sort();
+  if (ids.length === 0) return null;
+  return { jobId: job.jobId, kind: job.kind, videoId: job.videoId, endedAt: job.endedAt, artifactIds: ids };
+}
+
 interface SpaceArtifactsFile {
   schemaVersion: 1;
   jobs: unknown[];
+  /** 只为清扫保留的引用（`RetainedArtifactRefs`）；旧文件没有。 */
+  references?: unknown[];
+  /**
+   * 产物库清扫的起点（ISO 时间）：修改时间早于它的产物不删。旧文件没有它，读入时补成当时：开始保留引用之前修剪掉的任务的
+   * 产物无从知道还有没有人用，一律留着。
+   */
+  sweepSince?: string;
 }
 
 /**
@@ -167,35 +208,52 @@ interface SpaceArtifactsFile {
  *
  * - 任务结束且有结果时写入（`SpaceCatalog` 订阅任务变化，启动时也从 Job Ledger 补一遍）；
  * - 一条记录的产物全部被物理删除或清除之后去掉；
- * - 不是缓存：`space.rebuildIndex` 不删它。读坏了的行跳过，整个文件读不了时改名留存、从空的开始。
+ * - 另有 `references`：任何结束了、留下了产物的任务的产物 id（`RetainedArtifactRefs`），只为产物库清扫，不参与派生，
+ *   随任务结束写入，目前不去掉；
+ * - 不是缓存：`space.rebuildIndex` 不删它。读坏了的行跳过，整个文件认不出时改名留存、从空的开始；更新版本写下的不改写
+ *   （`store-file.ts`）。
  */
 export class SpaceArtifactStore {
-  readonly #file: string;
+  readonly #file: JsonStoreFile;
+  readonly #path: string;
   #jobs = new Map<Id, SpaceJobFacts>();
+  #refs = new Map<Id, RetainedArtifactRefs>();
+  #sweepSince: string = new Date().toISOString();
   #saving: Promise<void> = Promise.resolve();
 
-  constructor(file: string) {
-    this.#file = file;
+  constructor(file: string, options: StoreOptions = {}) {
+    this.#file = new JsonStoreFile(file, options.log);
+    this.#path = file;
   }
 
-  /** 读入记录。返回跳过的行数与（整个文件读不了时）留存的文件名，供日志。 */
+  /** 读入记录。返回跳过的行数与（整个文件认不出时）留存的文件名，供日志。 */
   async load(): Promise<{ skipped: number; quarantined: string | null }> {
-    let data: SpaceArtifactsFile | null;
-    try {
-      data = await readJson<SpaceArtifactsFile>(this.#file);
-    } catch {
-      const quarantined = `${this.#file}.corrupt-${Date.now()}`;
-      await fs.rename(this.#file, quarantined).catch(() => {});
-      this.#jobs = new Map();
-      return { skipped: 0, quarantined };
-    }
+    const read = await this.#file.read({
+      recognize: (raw) =>
+        Array.isArray(raw.jobs)
+          ? {
+              jobs: raw.jobs as unknown[],
+              references: Array.isArray(raw.references) ? (raw.references as unknown[]) : [],
+              sweepSince: typeof raw.sweepSince === 'string' && Number.isFinite(Date.parse(raw.sweepSince)) ? raw.sweepSince : null,
+            }
+          : null,
+    });
     this.#jobs = new Map();
+    this.#refs = new Map();
+    const since = read.value?.sweepSince ?? null;
+    this.#sweepSince = since ?? new Date().toISOString();
     let skipped = 0;
-    for (const row of Array.isArray(data?.jobs) ? data.jobs : []) {
+    for (const row of read.value?.jobs ?? []) {
       if (isFacts(row)) this.#jobs.set(row.jobId, row);
       else skipped++;
     }
-    return { skipped, quarantined: null };
+    for (const row of read.value?.references ?? []) {
+      if (isRefs(row)) this.#refs.set(row.jobId, row);
+      else skipped++;
+    }
+    // 起点要先落盘：之后的清扫都以它为准，不能每次启动往后挪。
+    if (since === null && read.status !== 'newer-version') await this.#save().catch(() => {});
+    return { skipped, quarantined: read.status === 'quarantined' ? read.renamedTo : null };
   }
 
   list(): SpaceJobFacts[] {
@@ -218,6 +276,47 @@ export class SpaceArtifactStore {
     return changed ? this.#save() : this.#saving;
   }
 
+  /** 产物库清扫的起点（毫秒）：修改时间早于它的产物不删。 */
+  sweepSince(): number {
+    return Date.parse(this.#sweepSince);
+  }
+
+  /** 只为清扫保留的引用。 */
+  references(): RetainedArtifactRefs[] {
+    return [...this.#refs.values()];
+  }
+
+  /** 写入或更新一批只为清扫保留的引用；没有变化时不落盘。 */
+  putReferences(records: readonly RetainedArtifactRefs[]): Promise<void> {
+    let changed = false;
+    for (const record of records) {
+      const before = this.#refs.get(record.jobId);
+      if (before && JSON.stringify(before) === JSON.stringify(record)) continue;
+      this.#refs.set(record.jobId, record);
+      changed = true;
+    }
+    return changed ? this.#save() : this.#saving;
+  }
+
+  /**
+   * 产物库清扫要保留的全部产物 id（架构设计 §7.3）：内存里的记录与引用，加上磁盘上这个文件与改名留存的
+   * `<文件>.corrupt-*` 的文本里出现的每个 `sha256:<hex>`。读坏了改名留存的、更新的版本写下而没有读进来的、读入时跳过的行
+   * 里的引用都还算数：宁多勿少，不因为一次读不懂就让下一轮清扫删掉它们。
+   */
+  async referencedArtifactIds(): Promise<Set<string>> {
+    const ids = artifactIdsInText(JSON.stringify({ jobs: this.list(), references: this.references() }), new Set());
+    await this.#saving.catch(() => {});
+    const dir = path.dirname(this.#path);
+    const base = path.basename(this.#path);
+    const names = await fs.readdir(dir).catch(() => [] as string[]);
+    for (const name of names) {
+      if (name !== base && !name.startsWith(`${base}.corrupt-`)) continue;
+      const text = await fs.readFile(path.join(dir, name), 'utf8').catch(() => '');
+      artifactIdsInText(text, ids);
+    }
+    return ids;
+  }
+
   remove(jobIds: readonly Id[]): Promise<void> {
     let changed = false;
     for (const jobId of jobIds) changed = this.#jobs.delete(jobId) || changed;
@@ -229,10 +328,26 @@ export class SpaceArtifactStore {
   }
 
   #save(): Promise<void> {
-    const snapshot: SpaceArtifactsFile = { schemaVersion: 1, jobs: [...this.#jobs.values()] };
-    this.#saving = this.#saving.catch(() => {}).then(() => writeJsonAtomic(this.#file, snapshot));
+    const snapshot: SpaceArtifactsFile = {
+      schemaVersion: 1,
+      jobs: [...this.#jobs.values()],
+      references: [...this.#refs.values()],
+      sweepSince: this.#sweepSince,
+    };
+    this.#saving = this.#saving.catch(() => {}).then(() => this.#file.write(snapshot));
     return this.#saving;
   }
+}
+
+function isRefs(row: unknown): row is RetainedArtifactRefs {
+  if (typeof row !== 'object' || row === null) return false;
+  const r = row as Record<string, unknown>;
+  return (
+    typeof r.jobId === 'string' &&
+    typeof r.kind === 'string' &&
+    Array.isArray(r.artifactIds) &&
+    r.artifactIds.every((id) => typeof id === 'string' && /^sha256:[0-9a-f]{64}$/.test(id))
+  );
 }
 
 function isFacts(row: unknown): row is SpaceJobFacts {

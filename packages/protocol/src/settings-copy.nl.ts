@@ -25,6 +25,7 @@ export const nl: SettingDescriptionMessages = {
   'fonts.fileEndpoint': "Basis-URL voor lettertypebestanden (spiegelserver, https://; bestanden worden alleen daaronder opgehaald); null gebruikt https://fonts.gstatic.com",
   'space.trashRetentionDays':
     "Dagen om items in de Space-prullenmand te bewaren (1–3650): oudere niet-gebruikte items en verwijderde video’s worden periodiek definitief verwijderd",
+  'cache.maxSizeMiB': 'Maximale grootte van de cache in de gegevensmap, in MiB (256–1048576): daarboven worden de oudste cachebestanden (media-analyse, afspeelkopieën) verwijderd tot 90 % is bereikt. De zoekindex over video’s heen wordt nooit verwijderd',
   'resources.capacity':
     "Geavanceerd: machinecapaciteit voor middelenplanning { memoryMiB, gpuMemoryMiB, cpuThreads }; een item ingesteld op null wordt automatisch gedetecteerd; null detecteert alles (geheugen en CPU komen van het systeem, GPU-geheugen op Apple silicon wordt geschat vanuit gedeeld geheugen)",
   'runtime.idleExitMinutes':

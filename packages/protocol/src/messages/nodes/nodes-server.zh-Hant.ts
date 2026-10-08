@@ -39,5 +39,6 @@ export const zhHant: NodesServerMessages = {
   pairingLocked: '配對已鎖定',
   pairingCodeInvalid: '配對碼錯誤、已過期或缺失',
   portInUse: (p) => `連接埠 ${p.port} 已被佔用`,
+  shareFileUnreadable: (p) => `無法讀取共享設定檔（node-share.json，${p.reason}），已原樣保留；修好或移走後才能修改共享`,
   cannotListen: (p) => `節點服務無法監聽：${p.code}`,
 };

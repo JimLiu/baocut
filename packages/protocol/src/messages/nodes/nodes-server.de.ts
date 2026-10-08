@@ -40,5 +40,6 @@ export const de: NodesServerMessages = {
   pairingLocked: "Kopplung ist gesperrt",
   pairingCodeInvalid: "Der Kopplungscode ist falsch, abgelaufen oder fehlt",
   portInUse: (p: { port: number }) => `Port ${p.port} wird bereits verwendet`,
+  shareFileUnreadable: (p) => `Die Freigabe-Einstellungsdatei (node-share.json) kann nicht gelesen werden (${p.reason}). Sie wurde unverändert gelassen; korrigieren oder entfernen Sie sie, um die Freigabe zu ändern`,
   cannotListen: (p: { code: string }) => `Der Knotendienst kann nicht lauschen: ${p.code}`,
 };

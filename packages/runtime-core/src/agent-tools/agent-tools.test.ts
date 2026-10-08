@@ -233,10 +233,13 @@ describe.skipIf(!engine || !ffmpeg)('智能体工具（真实引擎）', () => {
     // 新建不是一笔修改：没有变更卡。
     expect((await items()).some((i) => i.kind === 'video-change')).toBe(false);
 
-    // 不属于项目的会话：视频在会话的工作目录里，打开的位置写会话。
-    const {
-      conversation: { id: loose },
-    } = await client.request('conversations.create', { projectId: null });
+    // 不属于项目的会话（架构设计 §3.10）：第一次新建视频时先建项目（名字取会话标题）并登记，把会话绑定到它，工作目录里已有的
+    // 东西原样搬进项目，视频建在项目里；Space 按项目列出，删会话不影响视频。
+    const { conversation: looseConversation } = await client.request('conversations.create', { projectId: null, title: '会话里的作品' });
+    const loose = looseConversation.id;
+    const scratch = looseConversation.cwd;
+    await fs.writeFile(path.join(scratch, 'notes.txt'), '笔记');
+    const projectsBefore = runtime.harness.listProjects().length;
     const { taskId: looseTask } = await client.request('conversations.send', {
       conversationId: loose,
       text: '也建一部',
@@ -246,13 +249,40 @@ describe.skipIf(!engine || !ffmpeg)('智能体工具（真实引擎）', () => {
     await until(() => looseSession.turnId);
     const looseCreated = await tool(looseSession, 'videos_create', { name: '会话里的片' });
     expect(looseCreated.isError, JSON.stringify(looseCreated.body)).toBe(false);
+    const bound = (await client.request('conversations.get', { conversationId: loose })).conversation;
+    const boundProject = runtime.harness.listProjects().find((p) => p.id === bound.projectId)!;
+    expect(boundProject).toMatchObject({ name: '会话里的作品' });
+    expect(path.dirname(boundProject.path)).toBe(await fs.realpath(path.join(dir, 'projects')));
+    expect(bound.cwd).toBe(boundProject.path);
+    expect(runtime.harness.listProjects()).toHaveLength(projectsBefore + 1);
+    await fs.access(path.join(boundProject.path, looseCreated.body.video, 'video.db'));
+    expect(await fs.readFile(path.join(boundProject.path, 'notes.txt'), 'utf8')).toBe('笔记');
     const looseItems = (await client.request('conversations.get', { conversationId: loose })).items;
     expect(looseItems.find((i) => i.kind === 'video-created')).toMatchObject({
       taskId: looseTask,
       videoId: looseCreated.body.videoId,
-      target: { conversationId: loose, path: looseCreated.body.video },
+      target: { projectId: boundProject.id, path: looseCreated.body.video },
       videoRevision: looseCreated.body.revision,
     });
+    // 之后的工具在项目里：再建一部不另建项目，videos_list 看得到两部。
+    const second = await tool(looseSession, 'videos_create', { name: '第二部' });
+    expect(second.isError, JSON.stringify(second.body)).toBe(false);
+    expect(runtime.harness.listProjects()).toHaveLength(projectsBefore + 1);
+    const listedLoose = await tool(looseSession, 'videos_list', {});
+    expect(listedLoose.body.workspace).toBe(boundProject.path);
+    expect(listedLoose.body.videos.map((v: { path: string }) => v.path).sort()).toEqual([looseCreated.body.video, second.body.video].sort());
+    // Space：视频条目在项目来源下，旧的会话来源没有了。
+    await until(async () => {
+      const entries = (await client.request('space.list', { kind: ['video'], projectId: boundProject.id })).entries;
+      return entries.length === 2 && entries.every((e) => e.source.projectId === boundProject.id && e.source.conversationId === null);
+    });
+    // 回合结束：回合里指向项目的旧路径删掉。
+    looseSession.finish();
+    await until(async () => !(await fs.lstat(scratch).then(() => true, () => false)));
+    // 删掉会话：项目与视频都在。
+    await client.request('conversations.delete', { conversationId: loose });
+    await fs.access(path.join(boundProject.path, looseCreated.body.video, 'video.db'));
+    expect(runtime.harness.listProjects().some((p) => p.id === boundProject.id)).toBe(true);
   });
 
   it('智能体设置转场、效果、章节与闪避；删掉片段时回执说明转场为什么没了', async () => {

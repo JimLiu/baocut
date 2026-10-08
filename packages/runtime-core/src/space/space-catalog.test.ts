@@ -14,7 +14,7 @@ import {
 } from '@baocut/protocol';
 import { TopicLog, silentLogger, type Harness } from '@baocut/harness';
 import { SpaceArtifactStore, SpaceMarkStore } from '@baocut/runtime-storage';
-import { toolDefinition } from '@baocut/jobs';
+import { ArtifactStore, artifactIdOf, toolDefinition } from '@baocut/jobs';
 import { SpaceCatalog, type SpaceJobsSource } from '../space-catalog.ts';
 import { toolCandidates } from '../tool-catalogue/tool-candidates.ts';
 import { ContentIndex, type ContentReader } from './content-index.ts';
@@ -1024,6 +1024,57 @@ describe('Space 目录', () => {
     expect(await catalog.sweepTrash(30, Date.now() + 31 * 86_400_000)).toEqual({ purged: 0, kept: 1 });
     await expect(fs.readFile(path.join(projectDir, 'raw', 'clip.mp4'), 'utf8')).resolves.toBe('mp4');
     expect(catalog.get(clip.id).user.trashedAt).not.toBeNull();
+  });
+
+  it('配音流程的内部产物：只留引用、不进目录；Ledger 修剪之后仍被引用，产物库清扫不删', async () => {
+    const audio = artifactIdOf(Buffer.from('dub audio'));
+    const plan = `sha256:${'e'.repeat(64)}`;
+    const dub = job({
+      kind: 'pipeline',
+      state: 'completed',
+      videoId: 'v1',
+      inputHash: `sha256:${'f'.repeat(64)}`,
+      pipeline: {
+        name: 'dub',
+        label: '配音',
+        stoppedAt: null,
+        summary: null,
+        steps: [
+          { name: 'synthesize', label: '合成', status: 'completed', jobId: 'job_synth', attempts: 1, output: { artifactId: plan, units: { u1: { artifactId: audio } } } },
+        ],
+      } as unknown as JobRecord['pipeline'],
+    });
+    jobs.put(dub);
+    const file = path.join(tmp, 'store', 'space-artifacts.json');
+    const artifacts = new SpaceArtifactStore(file);
+    await artifacts.load();
+    const baseline = (await open()).catalog.entries().length;
+    const first = await open(undefined, artifacts);
+    // 不派生新的目录条目，也不留派生用的事实。
+    expect(first.catalog.entries()).toHaveLength(baseline);
+    expect(first.catalog.entries().some((e) => e.id === audio || e.id === plan)).toBe(false);
+    expect(artifacts.list()).toEqual([]);
+    expect(artifacts.references()).toEqual([{ jobId: dub.jobId, kind: 'pipeline', videoId: 'v1', endedAt: dub.endedAt, artifactIds: [audio, plan].sort() }]);
+    await first.catalog.close();
+    await artifacts.flush();
+
+    // Ledger 修剪掉了这次配音：重启之后引用照样在，产物库清扫不删它的音频。
+    jobs.records = [];
+    const reloaded = new SpaceArtifactStore(file);
+    await reloaded.load();
+    const refs = await reloaded.referencedArtifactIds();
+    expect(refs.has(audio) && refs.has(plan)).toBe(true);
+    expect(refs.has(dub.inputHash)).toBe(false);
+    const store = new ArtifactStore(path.join(tmp, 'artifacts'));
+    const kept = await store.put(Buffer.from('dub audio'), 'wav');
+    const orphan = await store.put(Buffer.from('orphan'), 'wav');
+    const old = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    for (const f of [kept.path, orphan.path]) await fs.utimes(f, old, old);
+    expect(kept.artifactId).toBe(audio);
+    const result = await store.sweep(refs);
+    expect(result).toMatchObject({ removed: 1 });
+    await expect(fs.stat(kept.path)).resolves.toBeTruthy();
+    await expect(fs.stat(orphan.path)).rejects.toThrow();
   });
 
   it('流程新建的视频：Job Ledger 修剪掉这次运行之后，视频条目的来源照样在', async () => {

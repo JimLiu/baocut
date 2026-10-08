@@ -25,6 +25,7 @@ export const de: SettingDescriptionMessages = {
   'fonts.fileEndpoint': "Basis-URL für Schriftdateien (Spiegelserver, https://; Dateien werden nur darunter abgerufen); null verwendet https://fonts.gstatic.com",
   'space.trashRetentionDays':
     "Aufbewahrungstage für Einträge im Space-Papierkorb (1–3650): ältere nicht referenzierte Einträge und gelöschte Videos werden regelmäßig dauerhaft gelöscht",
+  'cache.maxSizeMiB': 'Größenlimit für den Cache im Datenordner, in MiB (256–1048576): Wird es überschritten, werden die ältesten Cache-Dateien (Medienanalyse, Wiedergabekopien) gelöscht, bis 90 % erreicht sind. Der videoübergreifende Suchindex wird nie gelöscht',
   'resources.capacity':
     "Erweitert: Computerkapazität für Ressourcenplanung { memoryMiB, gpuMemoryMiB, cpuThreads }; null für einen Eintrag erkennt ihn automatisch; null erkennt alles (Speicher und CPU stammen vom System; GPU-Speicher bei Apple silicon wird aus gemeinsamem Speicher geschätzt)",
   'runtime.idleExitMinutes':
