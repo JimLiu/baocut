@@ -42,7 +42,7 @@ BaoCut 编码代理的通用规则。本文只保留全局约束和阅读入口�
 - 开始编辑前先检查 `git status`，把任务前已有或并发出现的工作区改动视为用户所有。
 - 提交前审阅最终 diff，并按风险运行适量验证；始终报告实际执行的检查和已知跳过项。
 - 只暂存本任务所属的文件或 hunk；`git add` 后复核 `git diff --cached`，不得夹带无关改动。
-- 在当前分支使用简洁、描述性的提交信息（不加署名行），并在最终回复中报告 commit hash。
+- 在当前分支按[提交分类](docs/development-workflow.md#11-提交分类)使用 `type(scope): summary`（scope 可省略），写明具体变化，不加署名行；最终回复报告 commit hash。
 - 完成任务后只创建本地 commit，不得自动 push（包括 force push）。推送必须由用户针对当前任务另行明确要求，之前任务的推送授权不得沿用。
 - 除非用户要求，不得 amend 或改写历史。只读任务与没有文件改动的任务不得创建空提交。
 - **worktree 不遗留**：在 worktree（含 subagent 的 `.claude/worktrees/agent-*`）里做的任务，完成时必须删除该 worktree 及其分支。它专用的 cargo target 目录一并删掉。删除前二选一：合并进 `main`；或不合并时先把未提交改动提交到该分支，打 `archive/<worktree 名>` tag 存档，再 `git worktree remove` + `git branch -D`。编排 subagent 的会话负责收尾它派生的 worktree。确需保留的（待用户裁决、有冲突待解）在最终回复里点名路径与原因，不得默默留下。

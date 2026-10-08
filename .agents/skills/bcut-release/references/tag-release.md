@@ -16,8 +16,10 @@ Follow current-task push authorization; source/tag pushes are external mutations
    stable semantic version, no leading zeros, positive safe-integer build. Version
    must match root/desktop package.json and lockfile and must not go backwards.
 3. Run the checks appropriate to the source change, review its diff, commit only
-   task-owned changes and record full source SHA. Local native toolchains and
-   local App packaging are not prerequisites for this route; Actions builds them.
+   task-owned changes and record full source SHA. Prepare and reconcile the full
+   changelog using [release notes](release-notes.md) before pushing the tag.
+   Local native toolchains and local App packaging are not prerequisites for
+   this route; Actions builds them.
 4. Ensure that frozen source is on remote `main` and contains the release workflow.
    Push needed source commits only when authorized. The tag must point to this
    exact commit, not whichever HEAD a later concurrent change produces. Check
@@ -44,9 +46,11 @@ jobs must pass before publishing. Mac publishes first, then all three Windows
 variants append to that same release, with public read-back before each feed update.
 The workflow preserves historical Latest, existing assets and unrelated feeds.
 
-Wait for the native jobs and both publishers; merely pushing the tag is not a
-successful publication. Report the run/release URLs, full source SHA, published
-platforms and actual verification/skips. UI/export, real model/GPU inference and
+Wait for the native jobs and both publishers, then merge the prepared changelog
+into the actual Release body and verify it by read-back as described in
+[release notes](release-notes.md). Merely pushing the tag is not a successful
+publication. Report the run/release URLs, full source SHA, published platforms
+and actual verification/skips. UI/export, real model/GPU inference and
 paid Agent calls are not automated and must not be described as passed.
 
 If a job fails, diagnose it and fix within authorized scope, then rerun failed jobs
