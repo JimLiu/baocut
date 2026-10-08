@@ -134,9 +134,9 @@ export function packagedApps(env: NodeJS.ProcessEnv, platform: NodeJS.Platform):
       .map((root) => ({ executable: path.win32.join(root, 'BaoCut.exe'), resources: path.win32.join(root, 'resources') }));
   }
   if (platform === 'darwin') {
-    return ['/Applications', path.join(os.homedir(), 'Applications')].map((dir) => ({
-      executable: path.join(dir, 'BaoCut.app', 'Contents', 'MacOS', 'BaoCut'),
-      resources: path.join(dir, 'BaoCut.app', 'Contents', 'Resources'),
+    return ['/Applications', path.posix.join(os.homedir().replaceAll('\\', '/'), 'Applications')].map((dir) => ({
+      executable: path.posix.join(dir, 'BaoCut.app', 'Contents', 'MacOS', 'BaoCut'),
+      resources: path.posix.join(dir, 'BaoCut.app', 'Contents', 'Resources'),
     }));
   }
   return [];

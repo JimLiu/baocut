@@ -181,7 +181,7 @@ describe.skipIf(!hasFfprobe)('从链接导入（假 yt-dlp）', () => {
       tool: async () => {
         if (!consented) throw new RpcError('conflict', '要先同意', { code: 'TOOL_CONSENT_REQUIRED', remedy: '在设置里同意' });
         // PATH 只有一个空目录：系统里真实的 yt-dlp 不会被用到。
-        return { command: fake.command, version: '2026.07.04', source: 'managed', env: { PATH: path.join(dir, 'empty') } };
+        return { ...fake.nodeTool, version: '2026.07.04', source: 'managed', env: { ...fake.nodeTool.env, PATH: path.join(dir, 'empty') } };
       },
       destination: async (target) => {
         destinations.push(target);

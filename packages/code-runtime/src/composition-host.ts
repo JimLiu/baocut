@@ -75,15 +75,21 @@ const DEFAULT_OPEN_TIMEOUT_MS = 20_000;
 const DEFAULT_FRAME_TIMEOUT_MS = 10_000;
 const KNOWN_CODES = new Set<string>(CODE_BUNDLE_ERROR_CODES);
 
-/** 找 Electron：`BAOCUT_ELECTRON` → 自己就在 Electron 里时用 `process.execPath` → 开发时 `require('electron')` 给出的路径 → null。 */
-export function resolveElectronBinary(env: NodeJS.ProcessEnv = process.env): string | null {
+/** 找 Electron：显式路径 → Electron 宿主 → 开发时已经安装的二进制；只读探测，不触发下载。 */
+export function resolveElectronBinary(env: NodeJS.ProcessEnv = process.env, from: string = import.meta.url): string | null {
   if (env.BAOCUT_ELECTRON) return env.BAOCUT_ELECTRON;
   if (process.versions.electron) return process.execPath;
   try {
-    const resolved: unknown = createRequire(import.meta.url)('electron');
-    if (typeof resolved === 'string' && fs.existsSync(resolved)) return resolved;
+    // Electron 44 的入口在缺少二进制时同步运行 install.js；Runtime 启动与能力探测不能执行它。
+    const packageDir = path.dirname(createRequire(from).resolve('electron'));
+    const pathFile = path.join(packageDir, 'path.txt');
+    const executable = fs.existsSync(pathFile) ? fs.readFileSync(pathFile, 'utf8').trim() : '';
+    const resolved = env.ELECTRON_OVERRIDE_DIST_PATH
+      ? path.join(env.ELECTRON_OVERRIDE_DIST_PATH, executable || 'electron')
+      : executable ? path.join(packageDir, 'dist', executable) : null;
+    if (resolved && fs.existsSync(resolved)) return resolved;
   } catch {
-    // 没装 electron 包，或在 Electron 之外 require 失败。
+    // 没装 electron 包，或安装记录不可读。
   }
   return null;
 }

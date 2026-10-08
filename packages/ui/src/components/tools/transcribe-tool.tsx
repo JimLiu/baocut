@@ -133,7 +133,7 @@ export function TranscribeTool() {
   // 链接来源的可用性与执行方式都看从链接导入；Space 条目按它是视频还是文件。
   const via = link ? 'link-import' : 'transcribe';
   const input = link ? 'link' : row ? inputKindOf('transcribe', row.kind) : 'file';
-  const block = blockOf(status, via, input);
+  const block = blockOf(status, via, input, link ? ['transcribe'] : []);
   const outDir = saveTarget(status.saveDirectory, saveOverride);
   let params: Record<string, unknown> | null = null;
   if (draft.source === 'file' && draft.path) {

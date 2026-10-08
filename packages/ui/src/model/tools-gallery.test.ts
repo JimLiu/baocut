@@ -95,6 +95,20 @@ describe('工具总览的现状行', () => {
     expect(toolCardStatus('transcribe', fixtureView(), null)).toBeNull();
   });
 
+  it('下载工具就绪但转录模型缺失：只下载能用，下载并转录显示原因与补救；模型就绪后解除阻碍', () => {
+    const download = status({
+      id: 'link-import',
+      execution: { kind: 'pipeline', method: 'pipelines.start', pipeline: 'link-import' },
+      optionalCapabilities: ['transcribe'],
+      limitations: [{ code: 'CAPABILITY_NOT_CONFIGURED', capability: 'transcribe', message: '转录模型尚未安装', remedy: '先安装模型' }],
+    });
+    const pipelines = [pipeline('link-import')];
+    expect(toolBlock(download, pipelines, 'link')).toBeNull();
+    expect(toolBlock(download, pipelines, 'link', true, ['transcribe'])).toBe('转录模型尚未安装。先安装模型');
+    expect(toolBlock({ ...download, limitations: [] }, pipelines, 'link', true, ['transcribe'])).toBeNull();
+    expect(toolBlock(download, pipelines, 'link', true, ['synthesizeSpeech'])).toBeNull();
+  });
+
   it('文本生成按能用的云端服务商计数', () => {
     // OpenAI 连上了；Google 没连。
     expect(usableCloudCount(textView(), 'generateText')).toBe(1);

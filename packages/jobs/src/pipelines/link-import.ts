@@ -90,6 +90,7 @@ const PROGRESS_INTERVAL_MS = 250;
 /** 流程用的下载工具：已安装、同意有效；否则抛 `RpcError('conflict')`（`details.code` 是 `TOOL_*`）。 */
 export interface LinkImportTool {
   command: string;
+  args?: readonly string[];
   version: string;
   source: string;
   env?: NodeJS.ProcessEnv;

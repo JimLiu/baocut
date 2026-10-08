@@ -75,6 +75,8 @@ describe('参数', () => {
       [`ERROR: [Errno 1] Operation not permitted: '/Users/a/Library/Containers/com.apple.Safari/Data/Library/Cookies/Cookies.binarycookies'`, 'LINK_COOKIES_UNAVAILABLE'],
       ['ERROR: nsig extraction failed', 'LINK_TOOL_UPDATE_REQUIRED'],
       ['ERROR: HTTP Error 403: Forbidden', 'LINK_LOGIN_REQUIRED'],
+      ["WARNING: Your yt-dlp version (2026.07.04) is older than 90 days!\nERROR: unable to download video data: HTTP Error 403: Forbidden", 'LINK_TOOL_UPDATE_REQUIRED'],
+      ["WARNING: Your yt-dlp version (2026.07.04) is older than 90 days!\nERROR: HTTP Error 403: Sign in to confirm you are not a bot", 'LINK_LOGIN_REQUIRED'],
       ['ERROR: something else', 'LINK_DOWNLOAD_FAILED'],
     ];
     for (const [stderr, code] of cases) expect(classifyFailure(stderr, 1).code, stderr).toBe(code);
@@ -175,7 +177,7 @@ describe('执行（假 yt-dlp）', () => {
   it('参数原样传到进程（不经 shell），以 - 开头的链接不会被当成选项', async () => {
     const signal = new AbortController().signal;
     const run = await runYtDlp(
-      { command: fake.command, env: { PATH: path.join(dir, 'empty') } },
+      { ...fake.nodeTool, env: { ...fake.nodeTool.env, PATH: path.join(dir, 'empty') } },
       resolveArgs('https://v.example.com/a b"c'),
       {
         signal,

@@ -30,6 +30,8 @@ const COMMON_ARGS = ['--ignore-config', '--no-plugin-dirs', '--no-cache-dir', '-
 
 export interface YtDlpTool {
   command: string;
+  /** 用解释器运行脚本时的固定参数；同样不经 shell。 */
+  args?: readonly string[];
   env?: NodeJS.ProcessEnv;
 }
 
@@ -121,7 +123,7 @@ export async function runYtDlp(
   const platform = options.platform ?? process.platform;
   const run = options.spawn ?? spawn;
   return await new Promise<RunResult>((resolve, reject) => {
-    const child: ChildProcess = run(tool.command, args, {
+    const child: ChildProcess = run(tool.command, [...(tool.args ?? []), ...args], {
       env: tool.env,
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: platform !== 'win32',
@@ -201,6 +203,12 @@ export function classifyFailure(stderr: string, exitCode: number | null): Pipeli
     }
     if (/update.*yt-dlp|yt-dlp.*outdated|signature extraction failed|nsig extraction failed|Unable to extract/i.test(errorLine)) return 'LINK_TOOL_UPDATE_REQUIRED';
     if (/Unsupported URL|is not a valid URL|no suitable extractor/i.test(errorLine)) return 'LINK_UNSUPPORTED';
+    // 旧提取器常在读完元数据后遇到 CDN 403；工具已明确报告过期时先更新，不误导用户交出浏览器 Cookie。
+    if (
+      /Your yt-dlp version .+ is older than \d+ days|yt-dlp.*outdated/i.test(text) &&
+      /HTTP Error 403|403: Forbidden/i.test(errorLine) &&
+      !/sign in|log ?in|login required|cookies|members[- ]only|private video|confirm your age|age[- ]restricted|not a bot|authentication/i.test(errorLine)
+    ) return 'LINK_TOOL_UPDATE_REQUIRED';
     if (
       /HTTP Error 401|HTTP Error 403|403: Forbidden|sign in|log ?in|login required|cookies|members[- ]only|private video|confirm your age|age[- ]restricted|not a bot|authentication/i.test(
         errorLine,

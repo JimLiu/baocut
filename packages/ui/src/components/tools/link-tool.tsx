@@ -105,7 +105,7 @@ export function LinkTool() {
   const request = urlValid(params.url) ? toolRequest(status.byId.get('link-import'), 'link', params) : null;
   const key = request ? JSON.stringify(request) : '';
   const starter = useToolStart('link-import', key);
-  const block = blockOf(status, 'link-import', 'link');
+  const block = blockOf(status, 'link-import', 'link', draft.transcribe ? ['transcribe'] : []);
   const needTool = downloader.updating ? FORM_COPY.toolUpdating : FORM_COPY.needTool;
   const why = firstWhy(block && !downloader.ready ? needTool : block,
     !urlValid(params.url) && FORM_COPY.needUrl, !downloader.ready && needTool,
