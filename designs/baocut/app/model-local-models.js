@@ -111,6 +111,18 @@
     return `${live.length} 个已装模型在用 · 共 ${all.length} 个需要`;
   }
 
+  /** 公共组件那一行右边做什么。组件不单独装：缺的时候「下载」借一只装着权重、用到它的模型去补齐（只补那只模型缺的），
+   *  挑缺得最少的那只，一样多按目录顺序；没有装着的模型用它就不给按钮，等装模型时一起下载。
+   *  → {kind: 'installed'} | {kind: 'get', target, size}（size 是补齐 target 要下的） | {kind: 'later'} */
+  function compAction(c, models, comps, on) {
+    if (on[c.id]) return {kind: 'installed'};
+    let target = null;
+    usersOf(c.id, models).filter((m) => on[m.id] && m.supported !== false).forEach((m) => {
+      if (!target || needSize(m, comps, on) < needSize(target, comps, on)) target = m;
+    });
+    return target ? {kind: 'get', target, size: needSize(target, comps, on)} : {kind: 'later'};
+  }
+
   /** 删除预览：腾出多少、哪些组件跟着走、哪些因为别人在用而保留 */
   function removal(m, models, comps, on) {
     const cmap = compMap(comps);
@@ -155,8 +167,6 @@
     (m.uses || []).forEach((id) => { next[id] = true; });
     return next;
   }
-  /** 单独补一件公共组件 */
-  const applyComp = (on, id) => Object.assign({}, on, {[id]: true});
 
   /** 初始安装表：模型行的 `installed` 与组件的 `installed` */
   function initial(models, comps) {
@@ -183,7 +193,7 @@
 
   const BC_LOCALMODELS = {
     CATS, DEFAULT_DESC, hasAuto, defaultView, defaultChoices, visionDefaultName, catOf, mb, usersOf, layout, catalog, missing, ready, half, needSize, disk, compUsage,
-    removal, removalBody, applyRemove, applyInstall, applyComp, initial, licenseLines,
+    compAction, removal, removalBody, applyRemove, applyInstall, initial, licenseLines,
   };
   if (typeof module !== 'undefined') module.exports = BC_LOCALMODELS;
   if (typeof window !== 'undefined') Object.assign(window, {BC_LOCALMODELS});
