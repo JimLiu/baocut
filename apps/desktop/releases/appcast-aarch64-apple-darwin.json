@@ -2,19 +2,15 @@
   "schema": 1,
   "target": "aarch64-apple-darwin",
   "variant": "cpu",
-  "version": "3.0.0",
-  "build": 60,
-  "date": "2026-10-07",
-  "notes": "BaoCut 3.0.0 introduces the Electron desktop generation on Apple Silicon. Install this version manually; it uses the new com.baocut.app identity.",
-  "notesLocalized": {
-    "en": "BaoCut 3.0.0 introduces the Electron desktop generation on Apple Silicon. Install this version manually; it uses the new com.baocut.app identity.",
-    "zh-Hans": "BaoCut 3.0.0 发布 Apple Silicon 上的 Electron 桌面版本。请手动安装，此版本使用新的 com.baocut.app 身份。"
-  },
+  "version": "3.0.1",
+  "build": 61,
+  "date": "2026-10-08",
+  "notes": "",
+  "notesLocalized": {},
   "app": {
     "format": "zip",
-    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.0.0-build.60/BaoCut-3.0.0-build.60-aarch64-apple-darwin.zip",
-    "size": 289274441,
-    "sha256": "73ef1882c4cbff41d85ca8af28b51dca34c42ef0d020bbb78f0f39922e395289"
-  },
-  "minimumSystemVersion": "14.0"
+    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.0.1-build.61/BaoCut-3.0.1-build.61-aarch64-apple-darwin.zip",
+    "size": 291363471,
+    "sha256": "09e0578764b3c01ce88d0a0c80cb69d3e8832e1d65e3124d9edd2ad5c9f51c82"
+  }
 }
