@@ -1,4 +1,4 @@
-import { useState, type ComponentType } from 'react';
+import { useState, type ComponentType, type ReactElement } from 'react';
 import type { ArrangeDirection, Id } from '@baocut/protocol';
 import {
   ActionButton,
@@ -11,6 +11,7 @@ import {
   MenuItem,
   MenuSection,
   Popover,
+  SubmenuTrigger,
   Text,
   ToggleButton,
   Tooltip,
@@ -267,7 +268,8 @@ function RowTool({ tool, props, actions }: { tool: Tool; props: ToolProps; actio
 
 const KEYS: Partial<Record<ToolId, string>> = { copy: `${MOD_KEY}D`, delete: '⌫' };
 
-function MenuTool({ tool }: { tool: Tool }) {
+/** 一行菜单项；`submenu` 给的是悬停 / 点开就飞出的二级菜单（原型里二级菜单都是飞出的）。 */
+function MenuTool({ tool, submenu }: { tool: Tool; submenu?: ReactElement }) {
   const Icon = TOOL_ICON[tool.id];
   const item = (
     // DialogTrigger 也给菜单提供了「选中即收起」的状态：下钻项要留在弹层里换页，不能跟着收起。
@@ -277,6 +279,14 @@ function MenuTool({ tool }: { tool: Tool }) {
       {KEYS[tool.id] ? <Keyboard>{KEYS[tool.id]}</Keyboard> : null}
     </MenuItem>
   );
+  if (submenu && tool.action.kind !== 'off') {
+    return (
+      <SubmenuTrigger>
+        {item}
+        {submenu}
+      </SubmenuTrigger>
+    );
+  }
   if (tool.action.kind !== 'off') return item;
   return (
     <UnavailableMenuItemTrigger isUnavailable>
@@ -291,8 +301,8 @@ const ARRANGE_ICON: Record<ArrangeDirection, ComponentType> = { front: SortUp, f
 const ARRANGE_KEY: Record<ArrangeDirection, string> = { front: 'F', forward: `${MOD_KEY}↑`, backward: `${MOD_KEY}↓`, back: 'B' };
 
 /**
- * 「层级」下钻页：往前的两行、一条线、往后的两行。走不动的方向灰着（独占一条轨道、已经在同类轨道的最上 / 最下）；
- * 点一行就提交一笔并收起弹层。
+ * 「层级」的飞出菜单：往前的两行、一条线、往后的两行。走不动的方向灰着（独占一条轨道、已经在同类轨道的最上 / 最下）；
+ * 点一行就提交一笔并收起整个弹层。
  */
 function ArrangeSub({ props, actions, onDone }: { props: ToolProps; actions: EditorActions; onDone(): void }) {
   const { item, sequence, canChange } = props;
@@ -325,7 +335,7 @@ function ArrangeSub({ props, actions, onDone }: { props: ToolProps; actions: Edi
 }
 
 /** 下钻一层的编辑：不透明度、行高、字距、调整时间。与属性页同一套控件，拖动中只叠草稿，松手一笔提交。 */
-function SubPage({ tool, props, actions, onBack, onDone }: { tool: Tool; props: ToolProps; actions: EditorActions; onBack(): void; onDone(): void }) {
+function SubPage({ tool, props, onBack }: { tool: Tool; props: ToolProps; onBack(): void }) {
   const { item, sequence, edit, canChange } = props;
   const style = item.type === 'text' ? asObject(item.style) : {};
   const textCommit = (patch: Record<string, unknown>) =>
@@ -367,7 +377,6 @@ function SubPage({ tool, props, actions, onBack, onDone }: { tool: Tool; props: 
           />
         ) : null}
         {tool.id === 'adjust-timing' ? <TimeSection {...props} /> : null}
-        {tool.id === 'arrange' ? <ArrangeSub props={props} actions={actions} onDone={onDone} /> : null}
       </div>
     </>
   );
@@ -383,6 +392,8 @@ export function StageToolbarMenu({ groups, props, actions }: { groups: MenuGroup
   const onAction = (key: string | number) => {
     const tool = tools.get(String(key) as ToolId);
     if (!tool || tool.action.kind === 'off') return;
+    // 「层级」是飞出的二级菜单，由 SubmenuTrigger 自己开合；其余下钻项在弹层里换一页。
+    if (tool.id === 'arrange') return;
     if (tool.action.kind === 'sub') return setSub(tool);
     setOpen(false);
     runTool(tool, props, actions);
@@ -403,7 +414,7 @@ export function StageToolbarMenu({ groups, props, actions }: { groups: MenuGroup
       <Popover placement="bottom end" aria-label={COPY.more}>
         <div className={pop}>
           {sub ? (
-            <SubPage tool={sub} props={props} actions={actions} onBack={() => setSub(null)} onDone={() => setOpen(false)} />
+            <SubPage tool={sub} props={props} onBack={() => setSub(null)} />
           ) : (
             <>
               {rows.map((g, i) => (
@@ -423,7 +434,11 @@ export function StageToolbarMenu({ groups, props, actions }: { groups: MenuGroup
                   {lists.map((g, i) => (
                     <MenuSection key={i}>
                       {g.tools.map((tool) => (
-                        <MenuTool key={tool.id} tool={tool} />
+                        <MenuTool
+                          key={tool.id}
+                          tool={tool}
+                          submenu={tool.id === 'arrange' ? <ArrangeSub props={props} actions={actions} onDone={() => setOpen(false)} /> : undefined}
+                        />
                       ))}
                     </MenuSection>
                   ))}
