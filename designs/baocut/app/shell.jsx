@@ -502,7 +502,7 @@
             ) : null}
             {editor ? (
               <div className="tweaks__sec">
-                <div className="tweaks__lb">预览载入<em>载入中满 10 秒还没出画面就说卡在哪一步，给「重试」（§5.1）</em></div>
+                <div className="tweaks__lb">预览载入<em>载入中满 10 秒还没出画面就说卡在哪一步，给「重试」；转换中进度在走就不算卡住，满 10 秒没动才算（§5.1）</em></div>
                 <div className="tweaks__rad">
                   {window.BC_STAGE_LOAD.DEMOS.map(([k, l]) => (
                     <BCAction key={k} className={cx('tweaks__opt', app.stageLoadDemo.mode === k && 'is-on')}

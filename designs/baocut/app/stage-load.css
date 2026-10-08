@@ -1,9 +1,13 @@
 /* 预览载入与卡住（stage-load.jsx，产品设计 §5.1）：盖住整块画面——产品里此刻画布上还什么都没有，演示画面、元素与
    字幕都不该露出来。`.frame` 是 color-scheme: light，这里的 gray-1000 是近黑、gray-25 是近白，深浅主题一样。
-   卡片的样子与「主媒体放不出来」那张（.stagemedia）一致，多一行按钮。
+   卡片的样子与「主媒体放不出来」那张（.stagemedia）一致，多一行按钮。转换中（.stageload__prep）不是卡片：
+   标题、进度条、在转哪个媒体、只转一次，居中一列，文字层级与卡片相同。
    整块接住指针：点在黑块上不能选中、框选底下看不见的画面元素（事件也不再冒泡给 .frame / .stage，见 stage-load.jsx）。 */
 .stageload { position: absolute; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--gray-1000); pointer-events: auto; cursor: default; }
 .stageload__busy { display: flex; align-items: center; gap: 8px; color: color-mix(in srgb, var(--gray-25) 72%, transparent); font-size: 12px; }
+.stageload__prep { display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: min(440px, 100%); color: color-mix(in srgb, var(--gray-25) 72%, transparent); font-size: 12px; line-height: 1.5; text-align: center; overflow-wrap: anywhere; }
+.stageload__prept { font-size: 14px; font-weight: 700; color: var(--gray-25); font-variant-numeric: tabular-nums; }
+.stageload__bar { width: 240px; max-width: 100%; }
 .stageload__card { display: flex; flex-direction: column; gap: 6px; max-width: min(440px, 100%); padding: 12px 16px; border-radius: 10px; background: color-mix(in srgb, var(--gray-25) 8%, transparent); color: color-mix(in srgb, var(--gray-25) 72%, transparent); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .stageload__t { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--gray-25); }
 .stageload__t > .ic { flex: none; color: var(--orange-600); }
