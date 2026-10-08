@@ -1,11 +1,12 @@
 import type { JobRecord, JobWarning } from '@baocut/protocol';
-import { readJson, writeJsonAtomic } from '@baocut/runtime-storage';
 import type { VideoPlace } from './application-ledger.ts';
 import type { GenerationInputSpec, TaskInputSpec, TranscribeInputSpec } from './input-hash.ts';
+import { RecordJournal, type LedgerOptions } from './record-journal.ts';
 
 /**
- * Job 账本：`<runtime-home>/store/jobs.json`（与其他存储一样是 JSON 文件，原子写，并且 fsync 文件与目录，§7.3）。
- * 每条是公开的 `JobRecord` 加上冻结的任务规格；写入串行，后发起的写一定落在后面。
+ * Job 账本：`<runtime-home>/store/jobs.jsonl`（只追加的 JSONL，每次追加都 fsync，行数多了整份压缩，§7.3；
+ * 格式见 `record-journal.ts`）。每条是公开的 `JobRecord` 加上冻结的任务规格；写入串行，后发起的写一定落在后面。
+ * 旧的 `jobs.json` 在第一次读时导入，之后改名为 `jobs.json.migrated`。
  */
 
 export interface StoredJob {
@@ -41,11 +42,6 @@ export interface HostedJobSpec {
   hosted: string;
 }
 
-interface LedgerFile {
-  formatVersion: 1;
-  jobs: StoredJob[];
-}
-
 /** 终结的状态：`needs-reconciliation` 也算（不再执行，等用户用 `jobs.reconcile` 决定）。 */
 const TERMINAL = new Set(['completed', 'failed', 'cancelled', 'interrupted', 'needs-reconciliation']);
 
@@ -55,28 +51,46 @@ export function isTerminal(state: JobRecord['state']): boolean {
 
 export class JobLedger {
   readonly file: string;
-  #chain: Promise<void> = Promise.resolve();
+  readonly #journal: RecordJournal;
 
-  constructor(file: string) {
+  constructor(file: string, options: LedgerOptions = {}) {
     this.file = file;
+    this.#journal = new RecordJournal({
+      file,
+      keyField: 'jobId',
+      key: jobKey,
+      moveOnPut: false,
+      legacy: file.endsWith('.jsonl') ? { file: file.slice(0, -1), records: legacyJobs } : undefined,
+      compaction: options.compaction,
+      log: options.log,
+    });
   }
 
   async load(): Promise<StoredJob[]> {
-    const data = await readJson<LedgerFile>(this.file).catch(() => null);
-    if (!data || data.formatVersion !== 1 || !Array.isArray(data.jobs)) return [];
-    return data.jobs.filter((job) => job && typeof job.record?.jobId === 'string');
+    return (await this.#journal.load()) as StoredJob[];
   }
 
-  /** 排队写入一份完整的快照（按创建先后）。返回这次写入完成的 Promise。 */
+  /**
+   * 排队写入一份完整的快照（按创建先后）：只追加与上次相比变化了的任务与删掉的任务；没有变化时不写。
+   * 返回这次写入（没有变化时是之前排着的写入）完成的 Promise。
+   */
   save(jobs: readonly StoredJob[]): Promise<void> {
-    const data: LedgerFile = { formatVersion: 1, jobs: structuredClone([...jobs]) };
-    const next = this.#chain.then(() => writeJsonAtomic(this.file, data, { durable: true }));
-    this.#chain = next.catch(() => {});
-    return next;
+    return this.#journal.replace(jobs.map((job) => [job.record.jobId, job] as const));
   }
 
   /** 等所有排队的写入完成。 */
   flush(): Promise<void> {
-    return this.#chain;
+    return this.#journal.flush();
   }
+}
+
+function jobKey(value: unknown): string | null {
+  const jobId = (value as Partial<StoredJob> | null)?.record?.jobId;
+  return typeof jobId === 'string' ? jobId : null;
+}
+
+/** 旧格式 `jobs.json`：`{ formatVersion: 1, jobs: StoredJob[] }`。 */
+function legacyJobs(data: unknown): unknown[] | null {
+  const file = data as { formatVersion?: unknown; jobs?: unknown } | null;
+  return file?.formatVersion === 1 && Array.isArray(file.jobs) ? file.jobs : null;
 }

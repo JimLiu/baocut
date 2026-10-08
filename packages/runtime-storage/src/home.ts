@@ -103,7 +103,7 @@ export function resolveRuntimeHome(env: NodeJS.ProcessEnv = process.env): Runtim
     cacheDir: path.join(root, 'cache'),
     logsDir: path.join(root, 'logs'),
     projectsDir,
-    jobsFile: path.join(root, 'store', 'jobs.json'),
+    jobsFile: path.join(root, 'store', 'jobs.jsonl'),
     nodeShareFile: path.join(root, 'store', 'node-share.json'),
     nodesFile: path.join(root, 'store', 'nodes.json'),
     modelServicesFile: path.join(root, 'store', 'model-services.json'),
