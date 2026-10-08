@@ -12,6 +12,8 @@ export const it: ExportJobMessages = {
   outputsOf: (done: number, total: number) => pluralForm('it', total, { one: `Scritto ${done} / ${total} file`, other: `Scritti ${done} / ${total} file` }),
   outputs: (done: number) => pluralForm('it', done, { one: `${done} file scritto`, other: `${done} file scritti` }),
   bytesOf: (done: string, total: string) => `Incluso nel pacchetto: ${done} / ${total}`, bytes: (done: string) => `Incluso nel pacchetto: ${done}`,
+  fps: (n) => `${n} fps`,
+  timeLeft: (clock) => `Mancano ${clock}`,
   mono: 'Mono', stereo: 'Stereo',
   entries: (n: number) => pluralForm('it', n, { one: `${n} voce`, other: `${n} voci` }), files: (n: number) => `${n} file`,
   assetRevisions: (n: number) => pluralForm('it', n, { one: `${n} versione del materiale`, other: `${n} versioni dei materiali` }), missing: (n: number) => pluralForm('it', n, { one: `${n} mancante`, other: `${n} mancanti` }), clips: (n: number) => `${n} clip`,

@@ -36,6 +36,8 @@ export const ru: ExportJobMessages = {
   outputs: (done: number) => pluralForm('ru', done, { one: `Записан ${done} файл`, few: `Записаны ${done} файла`, many: `Записано ${done} файлов`, other: `Записано ${done} файла` }),
   bytesOf: (done: string, total: string) => `Упаковано: ${done} / ${total}`,
   bytes: (done: string) => `Упаковано: ${done}`,
+  fps: (n) => `${n} к/с`,
+  timeLeft: (clock) => `Осталось ${clock}`,
   mono: "Моно",
   stereo: "Стерео",
   entries: (n: number) => pluralForm('ru', n, { one: `${n} запись`, few: `${n} записи`, many: `${n} записей`, other: `${n} записи` }),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_LOUDNESS_TARGET, transcriptStamp } from './exports.ts';
+import { burnedCaptionLanguages, DEFAULT_LOUDNESS_TARGET, transcriptStamp } from './exports.ts';
 import { methodParamSchemas } from './schemas.ts';
 
 describe('导出设置', () => {
@@ -83,5 +83,36 @@ describe('导出设置', () => {
     expect(audio({ integratedLufs: -16, truePeakDb: -20.5 })).toBe(false);
     expect(audio({ integratedLufs: -16, truePeakDb: -1, lra: 11 })).toBe(false);
     expect(audio(null)).toBe(true);
+  });
+
+  it('成片的字幕语言：画进画面的字幕轨从上到下、去重；隐藏、别的轨独显、停用的实例与没写语言的文档不算', () => {
+    const track = (id: string, order: number, extra: Record<string, unknown> = {}) => ({
+      id,
+      order,
+      kind: 'subtitle' as const,
+      locked: false,
+      visible: true,
+      muted: false,
+      solo: { enabled: false, group: 'visual' as const },
+      ...extra,
+    });
+    const caption = (id: string, trackId: string, documentId: string, enabled = true) =>
+      ({ id, trackId, type: 'caption', enabled, documentId, span: { fromFrame: 0, durationFrames: 30 } }) as never;
+    const documents = { zh: { language: 'zh-Hans' }, en: { language: 'en' }, en2: { language: 'en' }, none: {}, ja: { language: 'ja' } };
+    const sequence = {
+      tracks: [track('low', 1), track('high', 3), track('hidden', 5, { visible: false }), track('off', 4)],
+      items: [
+        caption('a', 'low', 'zh'),
+        caption('b', 'high', 'en'),
+        caption('c', 'high', 'en2'),
+        caption('d', 'hidden', 'ja'),
+        caption('e', 'off', 'ja', false),
+        caption('f', 'low', 'none'),
+      ],
+    };
+    expect(burnedCaptionLanguages(sequence, documents)).toEqual(['en', 'zh-Hans']);
+    const solo = { ...sequence, tracks: sequence.tracks.map((t) => (t.id === 'low' ? { ...t, solo: { enabled: true, group: 'visual' as const } } : t)) };
+    expect(burnedCaptionLanguages(solo, documents)).toEqual(['zh-Hans']);
+    expect(burnedCaptionLanguages({ tracks: [], items: [] }, documents)).toEqual([]);
   });
 });

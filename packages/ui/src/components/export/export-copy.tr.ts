@@ -27,6 +27,7 @@ export const tr: ExportMessages = {
   noEstimate: "Bu sürümde süre ve boyut tahmini henüz yok",
   place: "Konum",
   defaultPlace: "projedeki exports/",
+  sourcePlace: (dir) => `Orijinal videonun klasörü · ${dir}`,
   pickPlace: "Konum seç",
   resetPlace: "Varsayılan konumu kullan",
   pickFailed: (message) => `Konum seçilemedi: ${message}`,

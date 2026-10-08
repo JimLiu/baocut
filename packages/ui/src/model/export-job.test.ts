@@ -9,6 +9,7 @@ import {
   exportOutputs,
   exportPhaseLabel,
   exportProgressLine,
+  exportSpeedParts,
   exportTitle,
   exportView,
   latestLiveExport,
@@ -86,6 +87,13 @@ describe('导出任务', () => {
     expect(exportProgressLine(exportJob({ jobId: 'j', progress: { done: 1, total: 3, unit: 'outputs' } }))).toBe('已写 1 / 3 个文件');
     expect(exportProgressLine(exportJob({ jobId: 'j', progress: { done: 120 * 1024 ** 2, total: 1.2 * 1024 ** 3, unit: 'bytes' } }))).toBe('已打包 120 MB / 1.2 GB');
     expect(exportProgressLine(exportJob({ jobId: 'j', progress: null }))).toBeNull();
+  });
+
+  it('速度与剩余时间：分:秒，超过一小时写时；算不出时不写', () => {
+    expect(exportSpeedParts({ rate: 58.4, fps: 58.4, secondsLeft: 83.2 })).toEqual(['58 fps', '剩余 1:24']);
+    expect(exportSpeedParts({ rate: 2.46, fps: 2.46, secondsLeft: 3723 })).toEqual(['2.5 fps', '剩余 1:02:03']);
+    expect(exportSpeedParts({ rate: 10, fps: null, secondsLeft: 10 })).toEqual(['剩余 0:10']);
+    expect(exportSpeedParts(null)).toEqual([]);
   });
 
   it('输出读实际路径：重名时 Runtime 加过的序号照实显示', () => {

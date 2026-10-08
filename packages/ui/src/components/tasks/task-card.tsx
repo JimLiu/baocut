@@ -15,9 +15,11 @@ import UserAvatar from '@react-spectrum/s2/icons/UserAvatar';
 import Translate from '@react-spectrum/s2/icons/Translate';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { TASK_VIEW_COPY } from '../../copy.ts';
+import { exportSpeedParts } from '../../model/export-job.ts';
 import type { TaskKind, TaskRow, TaskTone } from '../../model/task-list.ts';
 import { agoLabel } from '../../model/format.ts';
 import { useDirectory } from '../../state/directory-store.ts';
+import { useExportSpeed } from '../../state/jobs-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { AgentIcon } from '../agent-icon.tsx';
 import { LegacyImportCardNote } from '../legacy-import/legacy-import-task.tsx';
@@ -149,11 +151,12 @@ export function useOpenConversation(row: Pick<TaskRow, 'conversationId'>): (() =
   return () => go({ tab: 'home', conversationId, projectId: null });
 }
 
-/** 任务卡（原型 page-tasks.jsx `TaskCard`）：种类图标、标题 ＋ 状态与来源 chip、「在哪 · 何时」、进度；打开会话 / 详情 / 取消。 */
+/** 任务卡（原型 page-tasks.jsx `TaskCard`）：种类图标、标题 ＋ 状态与来源 chip、「在哪 · 何时」（在跑的导出再加 fps 与剩余时间）、进度；打开会话 / 详情 / 取消。 */
 export function TaskCard({ row, now }: { row: TaskRow; now: number }) {
   const go = useShell((s) => s.go);
   const act = useTaskAction();
   const openConversation = useOpenConversation(row);
+  const speed = exportSpeedParts(useExportSpeed(row.origin === 'job' ? row.id : null));
   return (
     <div className={card}>
       <KindIcon row={row} />
@@ -165,7 +168,7 @@ export function TaskCard({ row, now }: { row: TaskRow; now: number }) {
           <StatusBadge row={row} />
           <SourceBadge chip={row.chip} />
         </div>
-        <div className={sub}>{[row.where, agoLabel(row.startedAt, now)].filter(Boolean).join(' · ')}</div>
+        <div className={sub}>{[row.where, agoLabel(row.startedAt, now), ...speed].filter(Boolean).join(' · ')}</div>
         {row.progress !== null ? (
           <div className={bar}>
             <ProgressBar

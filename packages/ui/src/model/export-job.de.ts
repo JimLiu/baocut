@@ -37,6 +37,8 @@ export const de: ExportJobMessages = {
   outputs: (done: number) => `Geschrieben: ${pluralForm('de', done, { one: "Datei", other: "Dateien" })}`,
   bytesOf: (done: string, total: string) => `Verpackt: ${done} / ${total}`,
   bytes: (done: string) => `Verpackt: ${done}`,
+  fps: (n) => `${n} fps`,
+  timeLeft: (clock) => `Noch ${clock}`,
   mono: "Mono",
   stereo: "Stereo",
   entries: (n: number) => pluralForm('de', n, { one: "Eintrag", other: "Einträge" }),

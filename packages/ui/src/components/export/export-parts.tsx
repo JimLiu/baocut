@@ -151,8 +151,11 @@ export function FileRows({ names }: { names: readonly string[] }) {
   );
 }
 
-/** 位置：默认由 Runtime 决定（项目下的 exports/）；可以挑一个目录，挑过的按视频记着（`useExportPlaces`）。 */
-export function PlaceRow({ videoId }: { videoId: Id }) {
+/**
+ * 位置：没挑过时导到原视频所在的文件夹（`sourceDir`，桌面端、素材链在视频目录外时才有）；没有时由 Runtime 决定（项目下的 exports/）。
+ * 可以挑一个目录，挑过的按视频记着（`useExportPlaces`），「用默认位置」回到上面的缺省。
+ */
+export function PlaceRow({ videoId, sourceDir }: { videoId: Id; sourceDir: string | null }) {
   const dir = useExportPlaces((s) => s.dirs[videoId] ?? null);
   const setDir = useExportPlaces((s) => s.setDir);
   const pickDir = usePickDir();
@@ -172,7 +175,7 @@ export function PlaceRow({ videoId }: { videoId: Id }) {
           {dir ? <TextLink onPress={() => setDir(videoId, null)}>{EXPORT_COPY.resetPlace}</TextLink> : null}
         </span>
       }>
-      {dir ? shortenPath(dir) : EXPORT_COPY.defaultPlace}
+      {dir ? shortenPath(dir) : sourceDir ? EXPORT_COPY.sourcePlace(shortenPath(sourceDir)) : EXPORT_COPY.defaultPlace}
     </SumRow>
   );
 }

@@ -420,6 +420,15 @@
     return '≈ ' + Math.floor(m / 60) + ' 小时 ' + (m % 60) + ' 分';
   }
 
+  /** 导出中的剩余时间（product-design §8.3）：`0:45`、`12:03`，超过一小时 `1:02:03`；按整秒向上取。 */
+  function fmtLeft(ms) {
+    const total = Math.max(0, Math.ceil((ms || 0) / 1000));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const ss = String(total % 60).padStart(2, '0');
+    return h ? h + ':' + String(m).padStart(2, '0') + ':' + ss : m + ':' + ss;
+  }
+
   function fmtSize(bytes) {
     if (bytes >= 1e9) return (bytes / 1e9).toFixed(1) + ' GB';
     return Math.max(1, Math.round(bytes / 1e6)) + ' MB';
@@ -493,13 +502,22 @@
     return parts;
   }
 
-  /** `<源名> <langTag>[ 片段N | 第2章 | 0m45s-1m18s].mp4`——langTag 随画面上开着的字幕轨
-   *  联动（round15 #18）；范围后缀由 `spanOf` 给的 `tag` 决定，老口径的 `index` 仍认。 */
+  /** `<源名>[.<语言>][ 片段N | 第2章 | 0m45s-1m18s].mp4`——语言是画面上开着的字幕轨的语言代码，几条用 `-` 连
+   *  （`kelang-ep42.zh-ja.mp4`，与字幕文件同一个写法，product-design §8.3）；范围后缀由 `spanOf` 给的 `tag` 决定，
+   *  老口径的 `index` 仍认。 */
   function videoName(base, eff, span) {
-    const tag = subsOn(eff).map((l) => String(l.lang || l.id).toUpperCase()).join('-');
+    const tag = subsOn(eff).map((l) => String(l.lang || l.id)).join('-');
     let seg = '';
     if (span && !span.whole) seg = span.tag != null ? span.tag : ' 片段' + span.index;
-    return base + (tag ? ' ' + tag : '') + seg + '.mp4';
+    return base + (tag ? '.' + tag : '') + seg + '.mp4';
+  }
+
+  /** 没选位置时导到哪（product-design §8.3）：原视频所在的文件夹；原视频不是本机文件（链接），或表面拿不到本机路径
+   *  （`nextToSource` 为 false，Web）时放项目的 exports/。 */
+  function exportPlace(src, nextToSource) {
+    const p = src && src.path;
+    if (nextToSource === false || !p || /^[a-z]+:\/\//i.test(p) || p.lastIndexOf('/') < 0) return '项目下的 exports/';
+    return '原视频所在的文件夹 · ' + (p.slice(0, p.lastIndexOf('/')) || '/');
   }
 
   /* 字幕格式（第 239 轮加 ASS）：SRT / VTT 是纯文本时间轴，ASS 带样式头——把当前字幕样式
@@ -751,10 +769,10 @@
     videoSegments, rangeOptions, defaultRange, rangeSpan,
     RANGE_MODES, chapterOptions, defaultChapter, toggleId, runsOf, clampCustom, spanOf, spanFiles, inRuns, stepIn,
     fmtT, parseT, fileT,
-    QUALITY, QUALITY_KEYS, estimate, fmtEta, fmtSize, LAN_BPS, uploadBytes, remoteEstimate, remoteNote,
+    QUALITY, QUALITY_KEYS, estimate, fmtEta, fmtLeft, fmtSize, LAN_BPS, uploadBytes, remoteEstimate, remoteNote,
     cropRect, fitBox, offKeys,
     PROJECT_TARGETS, targetMeta, bakeFormatsFor, BAKE_FORMAT_LABEL, BAKE_POLICIES, elementDelivery, deliverySummary,
-    summary, videoName, SUB_FORMATS, subtitleNames, taskSub,
+    summary, videoName, exportPlace, SUB_FORMATS, subtitleNames, taskSub,
     TX_FORMATS, txLangOptions, txLangChecked, txLangLocked, txLangToggle, txLangPick, transcriptName, transcriptSummary,
     TASK_LABEL, pillLabel, preparationView, reviewLabel, cancelCopy,
   };

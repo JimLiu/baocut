@@ -35,6 +35,8 @@ export const zhHans: ExportJobMessages = {
   outputs: (done: number) => `已写 ${done} 个文件`,
   bytesOf: (done: string, total: string) => `已打包 ${done} / ${total}`,
   bytes: (done: string) => `已打包 ${done}`,
+  fps: (n) => `${n} fps`,
+  timeLeft: (clock) => `剩余 ${clock}`,
   mono: '单声道',
   stereo: '立体声',
   entries: (n: number) => `${n} 条`,

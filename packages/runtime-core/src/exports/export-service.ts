@@ -8,6 +8,7 @@ import {
   PACKAGE_EXTENSION,
   RpcError,
   SUPPORTED_EXPORT_KINDS,
+  burnedCaptionLanguages,
   nowIso,
   refOf,
   transcriptStamp,
@@ -680,7 +681,10 @@ export class ExportService {
     const frozenFonts = await this.#freezeFonts([...faces.values()]);
     fonts = frozenFonts.fonts;
 
-    const { dir, outputs } = await this.#destination(request, plan.videoName, '', settings.format, ranges, plan.parts.length, (i) => {
+    // 画面里烧着字幕时，默认文件名带上这些字幕的语言（「视频名.zh-Hans.mp4」），与字幕导出的后缀同一个写法。
+    const sequence = video.sequences[settings.sequenceId ?? video.rootSequenceId];
+    const suffix = burnCaptions && sequence ? burnedCaptionLanguages(sequence, video.documents).join('-') : '';
+    const { dir, outputs } = await this.#destination(request, plan.videoName, suffix, settings.format, ranges, plan.parts.length, (i) => {
       const range = plan.parts[i]!.video.range;
       return { start: range.startSeconds, end: range.endSeconds };
     });

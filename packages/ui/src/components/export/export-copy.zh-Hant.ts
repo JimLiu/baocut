@@ -27,6 +27,7 @@ export const zhHant: ExportMessages = {
   noEstimate: '這個版本還無法預估所需時間與檔案大小',
   place: '位置',
   defaultPlace: '專案中的 exports/',
+  sourcePlace: (dir) => `原影片所在的資料夾 · ${dir}`,
   pickPlace: '選擇位置',
   resetPlace: '使用預設位置',
   pickFailed: (message: string) => `無法選擇位置：${message}`,

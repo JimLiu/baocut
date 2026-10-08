@@ -6,6 +6,7 @@ import ChevronLeft from '@react-spectrum/s2/icons/ChevronLeft';
 import InfoCircle from '@react-spectrum/s2/icons/InfoCircle';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { TASK_VIEW_COPY } from '../../copy.ts';
+import { exportSpeedParts } from '../../model/export-job.ts';
 import { agoLabel } from '../../model/format.ts';
 import { isLinkImport } from '../../model/link-import.ts';
 import { jobRemedy, taskFacts } from '../../model/task-facts.ts';
@@ -14,7 +15,7 @@ import { chargesOnRetry, reconcileOptions } from '../../model/task-reconcile.ts'
 import { rerunOf, toolOfTask } from '../../model/tool-rerun.ts';
 import { toolRunOf } from '../../model/tool-runs.ts';
 import { useRuntime } from '../../runtime/context.tsx';
-import { useJobs } from '../../state/jobs-store.ts';
+import { useExportSpeed, useJobs } from '../../state/jobs-store.ts';
 import { useLegacyImport } from '../../state/legacy-import-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useTasks } from '../../state/tasks-store.ts';
@@ -90,6 +91,7 @@ function TaskDetailBody({ row, job, task, backButton }: { row: TaskRow; job?: Jo
   const act = useTaskAction();
   const openConversation = useOpenConversation(row);
   const now = useNow(1000, row.live);
+  const speed = exportSpeedParts(useExportSpeed(job?.jobId));
   const remedy = job ? jobRemedy(job) : null;
   const failed = job ? job.state === 'failed' : task?.status === 'failed';
   // 视频工具的运行（转录、翻译字幕、翻译配音）：步骤、停住的说明与重试都在 ToolRunPanel 里，不再另写一段失败说明。
@@ -113,7 +115,7 @@ function TaskDetailBody({ row, job, task, backButton }: { row: TaskRow; job?: Jo
           />
         </div>
       ) : null}
-      {row.live && row.phase ? <p className={phaseLine}>{row.phase}</p> : null}
+      {row.live && row.phase ? <p className={phaseLine}>{[row.phase, ...speed].join(' · ')}</p> : null}
       {job && toolRun ? <ToolRunPanel job={job} tool={toolRun} /> : null}
       {row.action ? (
         <div className={actionRow}>

@@ -11,6 +11,7 @@ import {
 } from '@baocut/protocol';
 import { JOB_PHASE_LABEL } from '../copy.ts';
 import { jobWaitText } from './localized-text.ts';
+import type { ExportSpeed } from './export-speed.ts';
 import { formatClock } from './format.ts';
 import { fmtSize } from './task-facts.ts';
 import { jobLive, jobPercent, jobRetrying } from './task-list.ts';
@@ -72,6 +73,8 @@ const en = {
   outputs: (done: number) => `Wrote ${plural(done, 'file', 'files')}`,
   bytesOf: (done: string, total: string) => `Packaged ${done} / ${total}`,
   bytes: (done: string) => `Packaged ${done}`,
+  fps: (n: string) => `${n} fps`,
+  timeLeft: (clock: string) => `${clock} left`,
   mono: 'Mono',
   stereo: 'Stereo',
   entries: (n: number) => plural(n, 'entry', 'entries'),
@@ -90,7 +93,7 @@ const M = defineMessages(en, { 'zh-Hans': zhHans, 'zh-Hant': zhHant, ja, ko, es,
 /**
  * 导出任务（`kind: 'export'` 的 JobRecord）在界面上的读法（设计稿 export.jsx 的运行 / 完成 / 取消态，架构设计 §9.11）：
  * 顶栏按钮、弹层与后台任务读同一条记录。进度只读 Runtime 报的 `progress`，没有总量时不念百分比；
- * 设计稿的剩余时间与 fps 没有来源，不写。
+ * 速度（fps）与预计剩余时间由界面按最近几秒的进度推算（`export-speed.ts`），算不出时不写。
  */
 
 export type ExportTab = 'video' | 'audio' | 'subtitles' | 'transcript' | 'project';
@@ -220,6 +223,15 @@ export function exportProgressLine(job: Pick<JobRecord, 'progress' | 'state'>): 
     default:
       return null;
   }
+}
+
+/** 速度与预计剩余时间：「58 fps」「剩余 1:23」，超过一小时「剩余 1:02:03」；进度单位不是帧时只有剩余时间。算不出时空。 */
+export function exportSpeedParts(speed: ExportSpeed | null): string[] {
+  if (!speed) return [];
+  const parts: string[] = [];
+  if (speed.fps != null) parts.push(M.fps(new Intl.NumberFormat(intlLocale(), { maximumFractionDigits: speed.fps < 10 ? 1 : 0 }).format(speed.fps)));
+  parts.push(M.timeLeft(formatClock(Math.ceil(speed.secondsLeft))));
+  return parts;
 }
 
 const basename = (file: string) => file.split(/[\\/]/).pop() || file;

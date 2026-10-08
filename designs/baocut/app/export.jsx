@@ -98,13 +98,13 @@
         const left = Math.max(0, total * (1 - next / 100));
         // 帧率按「已走帧数 / 已走秒数」现算：4K 慢、720p 快，与预估一致
         const fps = t.frames && !t.via ? Math.round(t.frames / (total / 1000)) : 0;   // 远端的帧率这边量不到，不编
-        // 任务卡的芯片念「编码中 · 剩余 18 秒 · 230 fps · 31%」：速度与剩余两样都要，
+        // 任务卡的芯片念「编码中 · 剩余 0:18 · 230 fps · 31%」：速度与剩余两样都要（剩余写 m:ss，超过一小时 h:mm:ss，product-design §8.3），
         // 与导出弹层的读数行同一组数；音频没有帧，不写 fps
         // 远端导出（J4）：前一截是上传素材，之后是那台机器在编码
         const uploading = t.via && next < (t.uploadShare || 0) * 100;
         app.patchTask(t.id, {pct: Math.floor(next), pctFine: next, leftMs: left, fps,
-          phase: uploading ? '上传素材到 ' + t.via + ' · 剩余 ' + X.fmtEta(left).replace('≈ ', '')
-            : (t.via ? '在 ' + t.via + ' 上' : '') + (t.exportTab === 'audio' ? '混音中 · 剩余 ' : '编码中 · 剩余 ') + X.fmtEta(left).replace('≈ ', '')
+          phase: uploading ? '上传素材到 ' + t.via + ' · 剩余 ' + X.fmtLeft(left)
+            : (t.via ? '在 ' + t.via + ' 上' : '') + (t.exportTab === 'audio' ? '混音中 · 剩余 ' : '编码中 · 剩余 ') + X.fmtLeft(left)
             + (fps ? ' · ' + fps + ' fps' : '')});
         if (next >= 100) {
           app.patchTask(t.id, {pct: 100, pctFine: 100, status: 'done', outcome: 'done', phase: null, leftMs: 0,
@@ -337,7 +337,7 @@
                 ? <span>{X.preparationView(watched).label} · 已用 {X.preparationView(watched).seconds} 秒</span>
                 : <>
               <b className="t-mono">{watched.pct}%</b>
-              <span>剩余 {X.fmtEta(watched.leftMs || 0)}</span>
+              {watched.leftMs ? <span className="t-mono">剩余 {X.fmtLeft(watched.leftMs)}</span> : null}
               {watched.fps ? <span className="t-mono">{watched.fps} fps</span> : null}
                 </>}
             </div>
@@ -479,6 +479,7 @@
                   <div className="xsum__row"><span>将导出</span><b>{parts.concat(loud.on ? ['响度 ' + window.BC_LOUD.fmtDb(loud.lufs) + ' LUFS'] : []).join(' · ')}</b></div>
                   {files.map((f) => <div key={f} className="xsum__row"><span>文件</span><b className="t-mono">{f}</b></div>)}
                   {coverFile ? <div className="xsum__row"><span>封面</span><b className="t-mono">{coverFile}</b></div> : null}
+                  <div className="xsum__row"><span>位置</span><b>{X.exportPlace(proj.src, window.BC_SURFACE.exportNextToSource)}</b></div>
                   <div className="xsum__row"><span>预计</span><b>{span.empty ? '—' : (rest ? X.fmtEta(rest.totalMs) + ' · 在 ' + via.name + ' 上' : est.eta) + ' · 约 ' + est.size}</b></div>
                 </div>
                 </div>

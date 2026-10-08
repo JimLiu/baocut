@@ -1,5 +1,6 @@
 import type { Id } from './domain.ts';
 import type { JobWarning } from './jobs.ts';
+import type { DocumentRecord, Sequence } from './video.ts';
 
 /**
  * 导出（架构设计 §9.11、§9.13）：冻结 → 预检 → 在 staging 里生成 → 校验 → 原子发布。一次导出是一个 Job
@@ -113,6 +114,27 @@ export function transcriptStamp(seconds: number): string {
   return h > 0 ? `${pad(h)}:${pad(m)}:${pad(total % 60)}` : `${pad(m)}:${pad(total % 60)}`;
 }
 
+/**
+ * 成片画面里烧着的字幕是哪些语言（成片的默认文件名后缀，命令与协议规范 §4）：启用的字幕实例所在的字幕轨这次画进画面
+ * （可见；有视觉组的轨在独显时只算独显的），取它们字幕文档的语言。按时间线从上到下排，去重；没写语言的文档不算。
+ * 导出面板的预计文件名与 Runtime 的默认命名读同一份。
+ */
+export function burnedCaptionLanguages(sequence: Pick<Sequence, 'tracks' | 'items'>, documents: Readonly<Record<Id, Pick<DocumentRecord, 'language'>>>): string[] {
+  const visualSolo = sequence.tracks.some((t) => t.solo.enabled && t.solo.group === 'visual');
+  const languages: string[] = [];
+  const tracks = sequence.tracks
+    .filter((t) => t.kind === 'subtitle' && t.visible && (!visualSolo || (t.solo.enabled && t.solo.group === 'visual')))
+    .sort((a, b) => b.order - a.order);
+  for (const track of tracks) {
+    for (const item of sequence.items) {
+      if (item.trackId !== track.id || !item.enabled || item.type !== 'caption') continue;
+      const language = documents[item.documentId]?.language;
+      if (language && !languages.includes(language)) languages.push(language);
+    }
+  }
+  return languages;
+}
+
 export const DEFAULT_LOUDNESS_TARGET: Required<LoudnessTarget> = { integratedLufs: -16, truePeakDb: -1.2 };
 
 export interface AudioExportOptions {
@@ -196,7 +218,8 @@ export type ExportSettings = { purpose?: ExportPurpose } & (
 
 /**
  * 输出的位置。不给 `dir` 时是视频来源目录（项目目录；不在项目里的视频是视频目录的上一级）下的 `exports/`；
- * 给了的 `dir` 必须是已经存在、可写的绝对路径。文件名默认是「视频名.种类后缀.扩展名」，重名时加序号；
+ * 给了的 `dir` 必须是已经存在、可写的绝对路径。文件名默认是「视频名.种类后缀.扩展名」（成片的后缀是画面里烧着的字幕语言，
+ * 没有时不加，见 `burnedCaptionLanguages`），重名时加序号；
  * 给了 `fileName` 而文件已经存在时，除非 `overwrite`，以 `EXPORT_DESTINATION_EXISTS` 拒绝。
  */
 export interface ExportDestination {

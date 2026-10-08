@@ -35,6 +35,8 @@ export const zhHant: ExportJobMessages = {
   outputs: (done: number) => `已寫入 ${done} 個檔案`,
   bytesOf: (done: string, total: string) => `已封裝 ${done} / ${total}`,
   bytes: (done: string) => `已封裝 ${done}`,
+  fps: (n) => `${n} fps`,
+  timeLeft: (clock) => `剩餘 ${clock}`,
   mono: '單聲道',
   stereo: '立體聲',
   entries: (n: number) => `${n} 個項目`,

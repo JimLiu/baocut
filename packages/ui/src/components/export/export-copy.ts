@@ -49,6 +49,7 @@ const en = {
   noEstimate: 'Time and size estimates aren’t available in this version yet',
   place: 'Location',
   defaultPlace: 'exports/ in the project',
+  sourcePlace: (dir: string) => `Original video’s folder · ${dir}`,
   pickPlace: 'Choose location',
   resetPlace: 'Use default location',
   pickFailed: (message: string) => `Couldn’t choose a location: ${message}`,

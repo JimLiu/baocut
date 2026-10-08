@@ -1195,8 +1195,11 @@ describe.skipIf(!engine || !worker || !ffmpeg)('成片导出（真实引擎 + Re
     };
     // 字号 30（540 短边）在 180 高的画布上是 10 像素；字在 y≈155 附近。
     expect(bright(job.result!.outputs![0]!.path!)).toBeGreaterThan(20);
+    // 默认文件名带上烧进画面的字幕语言；不烧时没有后缀。
+    expect(path.basename(job.result!.outputs![0]!.path!)).toBe('字幕.zh.mp4');
     const off = await exportOnce({ videoId, settings: { kind: 'video', format: 'mp4', range, burnCaptions: false } });
     expect(bright(off.result!.outputs![0]!.path!)).toBe(0);
+    expect(path.basename(off.result!.outputs![0]!.path!)).toBe('字幕.mp4');
     // 导出面板的字体清点跟着同一个选择：字幕不烧进画面时，只给字幕用的族不在清单里。
     const families = async (burnCaptions?: boolean) =>
       (await client.request('fonts.usage', { videoId, ...(burnCaptions === undefined ? {} : { burnCaptions }) })).families.map(

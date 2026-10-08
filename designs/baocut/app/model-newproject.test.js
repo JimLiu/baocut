@@ -351,3 +351,11 @@ test('话里的链接：认 http / https，止于空白与中文标点', () => {
   assert.equal(N.linkIn('给这个视频加上字幕。'), null);
   assert.equal(N.linkIn(''), null);
 });
+
+test('要处理现成素材的话：快捷开始的四句都认，做新视频的话不认', () => {
+  for (const x of N.homeStarters()) assert.ok(N.wantsSource(x.prompt), x.goal);
+  assert.ok(N.wantsSource('Add subtitles to this video'));
+  assert.ok(!N.wantsSource('做一条 60 秒的产品介绍动画'));
+  assert.ok(!N.wantsSource('Make a short video about our launch'));
+  assert.ok(!N.wantsSource(''));
+});

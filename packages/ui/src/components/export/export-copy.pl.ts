@@ -28,6 +28,7 @@ export const pl: ExportMessages = {
   noEstimate: "Szacunki czasu i rozmiaru jeszcze niedostępne",
   place: "Lokalizacja",
   defaultPlace: "exports/ projektu",
+  sourcePlace: (dir) => `Folder oryginalnego wideo · ${dir}`,
   pickPlace: "Wybierz lokalizację",
   resetPlace: "Użyj domyślnej lokalizacji",
   pickFailed: (message: string) => `Nie udało się wybrać lokalizacji: ${message}`,
