@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { JsonlCorruptError, appendJsonl, compactJsonl, quarantineFile, readJsonl } from './jsonl-file.ts';
 
 const HEADER = { op: 'header', formatVersion: 2 };
@@ -58,5 +58,23 @@ describe('jsonl-file', () => {
     expect(text).toBe(`${JSON.stringify(HEADER)}\n{"a":9}\n`);
     expect(bytes).toBe(Buffer.byteLength(text));
     expect(await fs.readdir(path.dirname(file))).toEqual(['ledger.jsonl']);
+  });
+
+  it('durable: false：追加与压缩都不 fsync，内容与缺省时相同', async () => {
+    const probe = await fs.open(path.join(dir, 'probe'), 'w');
+    const proto = Object.getPrototypeOf(probe) as { sync: () => Promise<void> };
+    await probe.close();
+    const sync = vi.spyOn(proto, 'sync');
+    try {
+      await appendJsonl(file, ['{"a":1}'], { header: HEADER, durable: false });
+      await appendJsonl(file, ['{"a":2}'], { header: HEADER, durable: false });
+      await compactJsonl(file, ['{"a":3}'], { header: HEADER, durable: false });
+      expect(sync).not.toHaveBeenCalled();
+      expect(await fs.readFile(file, 'utf8')).toBe(`${JSON.stringify(HEADER)}\n{"a":3}\n`);
+      await appendJsonl(file, ['{"a":4}'], { header: HEADER });
+      expect(sync).toHaveBeenCalled();
+    } finally {
+      sync.mockRestore();
+    }
   });
 });

@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { CheckResult, Conversation, DriverId, Id, Seq, TaskContract, TimelineItem } from '@baocut/protocol';
 import { readJson } from './json-file.ts';
-import { appendJsonl, readJsonl, writeJsonlAtomic } from './jsonl-file.ts';
+import { JsonlCorruptError, appendJsonl, compactJsonl, quarantineFile, readJsonl } from './jsonl-file.ts';
 
 /**
  * 会话的持久形态（Runtime Store，架构设计 §3.10）。
@@ -29,8 +29,11 @@ export interface TaskContractLog {
   checkResults: CheckResult[];
 }
 
+/** 会话日志的文件头（第一行）。 */
+export const CONVERSATION_LOG_HEADER = { op: 'header', formatVersion: 2 } as const;
+
 /**
- * 会话日志 `<id>.jsonl` 的行。第一行总是 `snapshot`（完整记录，压缩后的基线）；之后的行按顺序重放：
+ * 会话日志 `<id>.jsonl` 的行（文件头之后）。第一行总是 `snapshot`（完整记录，压缩后的基线）；之后的行按顺序重放：
  * `item` 按 `item.id` 原地替换或追加到末尾，`meta` 替换给出的字段，`tasks` 按 taskId 整体替换。
  */
 export type ConversationLogLine =
@@ -169,26 +172,35 @@ export class ConversationStore {
   }
 
   async #loadLog(file: string): Promise<void> {
-    const read = await readJsonl(file);
-    if (!read) return;
     const name = path.basename(file);
-    const [first, ...rest] = read.values;
-    const firstIsBad = read.bad.length > 0 && read.bad[0]!.line === 1;
-    if (firstIsBad || !isSnapshot(first)) {
-      const target = `${file}.corrupt-${timestamp()}`;
-      await fs.rename(file, target);
+    const quarantine = async (): Promise<void> => {
+      const target = await quarantineFile(file);
       this.#log?.warn('Unrecognized conversation log renamed and skipped', { file: name, renamedTo: path.basename(target) });
+    };
+    let read: Awaited<ReturnType<typeof readJsonl>>;
+    try {
+      read = await readJsonl(file);
+    } catch (error) {
+      if (error instanceof JsonlCorruptError) return quarantine();
+      throw error;
+    }
+    if (!read) return;
+    const header = read.header as { op?: unknown; formatVersion?: unknown } | null;
+    if (header?.op !== 'header') return quarantine();
+    if (header.formatVersion !== CONVERSATION_LOG_HEADER.formatVersion) {
+      this.#log?.warn('Conversation log has an unknown format version; skipped', { file: name, formatVersion: header.formatVersion });
       return;
     }
+    const [first, ...rest] = read.rows;
+    if (!isSnapshot(first)) return quarantine();
     const { op: _op, ...record } = first;
     if (record.schemaVersion !== 1) {
       this.#log?.warn('Conversation log has an unknown schema version; skipped', { file: name, schemaVersion: record.schemaVersion });
       return;
     }
-    for (const bad of read.bad) {
-      if (bad.tail) this.#log?.warn('Conversation log ends with a partial line; skipped it', { file: name, line: bad.line });
-      else this.#log?.warn('Conversation log has an unreadable line; skipped it', { file: name, line: bad.line });
-    }
+    // 末尾残行：跳过，且不记落盘副本——下次保存写快照整份替换，残行不会留成中间的坏行。
+    if (read.truncatedTail) this.#log?.warn('Conversation log ends with a partial line; skipped it', { file: name });
+    if (read.skipped > 0) this.#log?.warn('Conversation log has unreadable lines; skipped them', { file: name, count: read.skipped });
     const index = new Map(record.items.map((item, i) => [item.id, i]));
     for (const line of rest as ConversationLogLine[]) {
       if (line?.op === 'item' && line.item?.id) {
@@ -208,8 +220,7 @@ export class ConversationStore {
     }
     const id = record.conversation.id;
     this.#records.set(id, record);
-    // 末尾有残行时不记落盘副本：下次保存写快照整份替换，免得新行接在残行后面一起读不出来。
-    if (!read.bad.some((bad) => bad.tail)) this.#persisted.set(id, { ...persistedOf(record), lines: read.lines, bytes: read.bytes });
+    if (!read.truncatedTail) this.#persisted.set(id, { ...persistedOf(record), lines: read.lines, bytes: read.bytes });
   }
 
   /** 旧格式 `<id>.json`（整份记录）：写成 `<id>.jsonl` 的快照行，再把旧文件改名为 `.json.migrated`。 */
@@ -225,7 +236,7 @@ export class ConversationStore {
       return;
     }
     const id = record.conversation.id;
-    const bytes = await writeJsonlAtomic(this.#file(id), [{ op: 'snapshot', ...record }]);
+    const bytes = await writeSnapshot(this.#file(id), record);
     await fs.rename(file, `${file}.migrated`);
     this.#records.set(id, record);
     this.#persisted.set(id, { ...persistedOf(record), lines: 1, bytes });
@@ -262,13 +273,17 @@ export class ConversationStore {
       const tooLong = totalLines > live * COMPACT_LINE_FACTOR + COMPACT_LINE_SLACK;
       const tooBig = totalBytes > liveBytes * COMPACT_BYTE_FACTOR + COMPACT_BYTE_SLACK;
       if (!tooLong && !tooBig) {
-        const written = await appendJsonl(this.#file(id), lines);
+        const written = await appendJsonl(
+          this.#file(id),
+          lines.map((line) => JSON.stringify(line)),
+          { header: CONVERSATION_LOG_HEADER, durable: false },
+        );
         this.#persisted.set(id, { ...now, lines: totalLines, bytes: before.bytes + written });
         return;
       }
     }
     // 新会话、顺序变了（删除或插队）、或日志太长：整份记录写成一行快照，原子替换。
-    const bytes = await writeJsonlAtomic(this.#file(id), [{ op: 'snapshot', ...record }]);
+    const bytes = await writeSnapshot(this.#file(id), record);
     this.#persisted.set(id, { ...now, lines: 1, bytes });
   }
 }
@@ -326,8 +341,9 @@ function liveSize(now: Omit<Persisted, 'lines' | 'bytes'>): number {
   return bytes;
 }
 
-function timestamp(): string {
-  return new Date().toISOString().replace(/[:.]/g, '-');
+/** 文件头加一行快照，原子替换（不 fsync：会话不要求断电后也在）。 */
+function writeSnapshot(file: string, record: ConversationRecord): Promise<number> {
+  return compactJsonl(file, [JSON.stringify({ op: 'snapshot', ...record })], { header: CONVERSATION_LOG_HEADER, durable: false });
 }
 
 function reasonOf(error: unknown): string {

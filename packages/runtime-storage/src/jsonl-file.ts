@@ -12,7 +12,16 @@ import { syncDir } from './json-file.ts';
  * - `compactJsonl`：把文件头与全部行写到临时文件、fsync、改名替换、再 fsync 目录。
  *
  * 三者都不排队：同一个文件的追加与压缩由调用方放在同一条串行写链上。macOS 上 Node 的 fsync 不是 `F_FULLFSYNC`。
+ *
+ * `durable: false`（缺省 true）：追加与压缩都不 fsync 文件与目录，给不要求断电后也在的数据用（会话记录，§3.10）。
  */
+
+export interface JsonlWriteOptions {
+  header: unknown;
+  mode?: number;
+  /** 缺省 true：fsync 文件，新建或改名时再 fsync 目录。false 时都不做。 */
+  durable?: boolean;
+}
 
 export interface JsonlReadResult {
   /** 第一行（文件头）；空文件时 null。 */
@@ -79,7 +88,8 @@ export async function readJsonl(file: string): Promise<JsonlReadResult | null> {
  * 追加若干行（已经序列化、不含换行）并 fsync。文件不在或是空的时先写 `header`，并 fsync 目录（让新建的文件落盘）。
  * 文件末尾没有换行（上次写了一半）时先补一个换行，新行不会接在残行后面。返回写入的字节数。
  */
-export async function appendJsonl(file: string, rows: readonly string[], options: { header: unknown; mode?: number }): Promise<number> {
+export async function appendJsonl(file: string, rows: readonly string[], options: JsonlWriteOptions): Promise<number> {
+  const durable = options.durable ?? true;
   const dir = path.dirname(file);
   await fs.mkdir(dir, { recursive: true });
   // `a+`：写入总在末尾，还能读最后一个字节。
@@ -100,16 +110,17 @@ export async function appendJsonl(file: string, rows: readonly string[], options
     for (const row of rows) text += `${row}\n`;
     written = Buffer.byteLength(text);
     await handle.writeFile(text);
-    await handle.sync();
+    if (durable) await handle.sync();
   } finally {
     await handle.close().catch(() => {});
   }
-  if (created) await syncDir(dir);
+  if (created && durable) await syncDir(dir);
   return written;
 }
 
 /** 原子地把文件换成文件头加这些行：临时文件写完 fsync，改名，再 fsync 目录。返回新文件的字节数。 */
-export async function compactJsonl(file: string, rows: readonly string[], options: { header: unknown; mode?: number }): Promise<number> {
+export async function compactJsonl(file: string, rows: readonly string[], options: JsonlWriteOptions): Promise<number> {
+  const durable = options.durable ?? true;
   const dir = path.dirname(file);
   await fs.mkdir(dir, { recursive: true });
   const tmp = `${file}.${randomUUID()}.tmp`;
@@ -118,7 +129,7 @@ export async function compactJsonl(file: string, rows: readonly string[], option
   const handle = await fs.open(tmp, 'w', options.mode ?? 0o644);
   try {
     await handle.writeFile(text);
-    await handle.sync();
+    if (durable) await handle.sync();
   } catch (error) {
     await handle.close().catch(() => {});
     await fs.rm(tmp, { force: true }).catch(() => {});
@@ -129,7 +140,7 @@ export async function compactJsonl(file: string, rows: readonly string[], option
     await fs.rm(tmp, { force: true }).catch(() => {});
     throw error;
   });
-  await syncDir(dir);
+  if (durable) await syncDir(dir);
   return Buffer.byteLength(text);
 }
 

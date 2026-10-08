@@ -35,10 +35,12 @@ function agentMessage(id: string, text: string, streaming = true): TimelineItem 
 
 async function lines(id = 'conv_1'): Promise<Record<string, unknown>[]> {
   const text = await fs.readFile(path.join(dir, `${id}.jsonl`), 'utf8');
-  return text
+  const [header, ...rows] = text
     .split('\n')
     .filter((line) => line.trim() !== '')
     .map((line) => JSON.parse(line) as Record<string, unknown>);
+  expect(header).toEqual({ op: 'header', formatVersion: 2 });
+  return rows;
 }
 
 async function reload(): Promise<ConversationStore> {
@@ -167,30 +169,33 @@ describe('ConversationStore', () => {
     expect(warnings).toEqual([]);
   });
 
-  it('认不出的文件改名为 .corrupt-<时间> 并跳过；空文件同样处理', async () => {
+  it('认不出的文件改名为 .corrupt-<时间> 并跳过：文件头不对、没有快照、空文件', async () => {
     await fs.writeFile(path.join(dir, 'conv_bad.jsonl'), 'not json\n{"op":"item"}\n');
     await fs.writeFile(path.join(dir, 'conv_empty.jsonl'), '');
-    await fs.writeFile(path.join(dir, 'conv_noshot.jsonl'), '{"op":"item","item":{"id":"x"}}\n');
+    await fs.writeFile(path.join(dir, 'conv_noheader.jsonl'), `${JSON.stringify({ op: 'snapshot', ...record('conv_noheader') })}\n`);
+    await fs.writeFile(path.join(dir, 'conv_noshot.jsonl'), '{"op":"header","formatVersion":2}\n{"op":"item","item":{"id":"x"}}\n');
     const store = new ConversationStore(dir, { log });
     expect(await store.load()).toEqual([]);
     const names = await fs.readdir(dir);
     expect(names.filter((n) => n.endsWith('.jsonl'))).toEqual([]);
-    for (const id of ['conv_bad', 'conv_empty', 'conv_noshot']) {
+    for (const id of ['conv_bad', 'conv_empty', 'conv_noheader', 'conv_noshot']) {
       expect(names.some((n) => n.startsWith(`${id}.jsonl.corrupt-`))).toBe(true);
     }
-    expect(warnings).toHaveLength(3);
+    expect(warnings).toHaveLength(4);
     // 改名后的文件下次启动不再读。
     warnings = [];
     expect(await (await reload()).list()).toEqual([]);
     expect(warnings).toEqual([]);
   });
 
-  it('不认识的 schemaVersion：记日志，不读', async () => {
-    await fs.writeFile(path.join(dir, 'conv_v2.jsonl'), `${JSON.stringify({ op: 'snapshot', ...record('conv_v2'), schemaVersion: 2 })}\n`);
+  it('不认识的 formatVersion 或 schemaVersion：记日志，不读，文件留着', async () => {
+    const header = '{"op":"header","formatVersion":2}\n';
+    await fs.writeFile(path.join(dir, 'conv_v2.jsonl'), `${header}${JSON.stringify({ op: 'snapshot', ...record('conv_v2'), schemaVersion: 2 })}\n`);
+    await fs.writeFile(path.join(dir, 'conv_f3.jsonl'), `{"op":"header","formatVersion":3}\n${JSON.stringify({ op: 'snapshot', ...record('conv_f3') })}\n`);
     await fs.writeFile(path.join(dir, 'conv_old.json'), JSON.stringify({ ...record('conv_old'), schemaVersion: 9 }));
     expect(await (await reload()).list()).toEqual([]);
-    expect(warnings.map((w) => w.fields?.schemaVersion)).toEqual([2, 9]);
-    expect((await fs.readdir(dir)).sort()).toEqual(['conv_old.json', 'conv_v2.jsonl']);
+    expect(warnings.map((w) => w.fields?.formatVersion ?? w.fields?.schemaVersion).sort()).toEqual([2, 3, 9]);
+    expect((await fs.readdir(dir)).sort()).toEqual(['conv_f3.jsonl', 'conv_old.json', 'conv_v2.jsonl']);
   });
 
   it('压缩：日志超过阈值时整份记录写成一行快照，内容等价', async () => {
