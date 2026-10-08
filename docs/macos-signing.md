@@ -115,7 +115,7 @@ xcrun notarytool history --keychain-profile baocut-notary
 
 ### 5.1 Secrets 与变量
 
-后续在发布 Environment（建议命名 `macos-release`）配置以下值；本地备份不自动上传到 GitHub。
+在发布 Environment `macos-release` 配置以下值；该环境只允许 `main` 分支使用。本地备份不自动上传到 GitHub，上传需由持有人明确授权。
 
 | 名称 | 类型 | 内容 |
 | --- | --- | --- |
@@ -134,7 +134,7 @@ xcrun notarytool history --keychain-profile baocut-notary
 
 ### 5.2 临时钥匙串
 
-以下是签名前的准备步骤，**不是当前仓库已执行的 Actions 发布流水线**。在 step 的 `env` 中将上表对应 Secret / Variable 映射为同名环境变量；不要开启 shell tracing 或打印环境。
+以下展示签名前的准备步骤；工作流中的实现为 `apps/desktop/tools/macos-ci-keychain.mjs`。在 step 的 `env` 中将上表对应 Secret / Variable 映射为同名环境变量；不要开启 shell tracing 或打印环境。工作流存在不代表已经在 Actions 上通过验证。
 
 ```bash
 set -euo pipefail
@@ -198,6 +198,27 @@ rm -f "$RUNNER_TEMP/baocut-signing.p12" "$RUNNER_TEMP/baocut-notary.p8" \
 ```
 
 自托管 runner 还要保证取消任务后会运行清理或由宿主清理任务遗留的材料。上传 artifacts 使用明确的发布文件列表，不能上传整个 `$RUNNER_TEMP` 或签名备份目录。
+
+### 5.4 手动工作流
+
+`.github/workflows/desktop-macos.yml` 只允许从本仓库 `main` 手动触发，源 commit 固定为当次工作流的 SHA。`macos-15` 原生 arm64 runner 使用独立临时钥匙串；只有凭据准备 step 接收私密值，发布 job 不接收证书或公证密码。
+
+```bash
+# 首次先验证：导入私钥、签名并运行探针、核对完整指纹、校验 Apple 公证访问，最后清理。
+gh workflow run desktop-macos.yml --repo JimLiu/baocut --ref main -f mode=validate
+
+# 只生成已签名、公证且自检过的候选，不创建公开 Release。
+gh workflow run desktop-macos.yml --repo JimLiu/baocut --ref main -f mode=package -f build=<新BUILD>
+
+# 构建并发布新 build；不能复用已公开的版本/build。
+gh workflow run desktop-macos.yml --repo JimLiu/baocut --ref main -f mode=publish -f build=<新BUILD>
+```
+
+`package` / `publish` 要求 build 高于当前 Mac 更新源，并在访问 Secrets 前拒绝已存在的 release tag。候选只上传 ZIP、DMG、各自校验文件、去掉本机路径的报告和 appcast 共六个公共文件。报告明确标注原生启动检查通过、UI/导出、真实模型推理与付费 Agent 调用未运行。
+
+`publish` 在独立 Mac job 重新核对候选来源、签名、公证记录、文件摘要与 App 的更新源解析结果；保持 Release tag 与公开资产不可变、旧 skill 的 Latest 不变。公开下载读回后再次验证解压 App 的签名、票据、Gatekeeper 与 Runtime，以及 DMG 的签名、票据和 Gatekeeper，最后才由 bot 提交和推送 Mac appcast。工作流默认 `validate`，配置签名环境不自动发布新版本。
+
+本地检查为 `node --test apps/desktop/tools/macos-release.test.mjs` 和 `actionlint .github/workflows/desktop-macos.yml`。首次真实 Actions 的凭据验证、完整构建和公开发布分别记录结果，不能互相替代。
 
 ## 6. 发布与备份完成条件
 
