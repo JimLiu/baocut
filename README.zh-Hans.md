@@ -19,14 +19,14 @@
 
 ## 下载与安装
 
-[BaoCut 3.0.0（Build 60）](https://github.com/JimLiu/baocut/releases/tag/baocut-v3.0.0-build.60) 已提供 macOS 与 Windows 安装包。包内包含 Runtime 和原生 Worker；只有开发时才需要 Node.js 和 Rust。
+[BaoCut 3.0.1（Build 61）](https://github.com/JimLiu/baocut/releases/tag/baocut-v3.0.1-build.61) 已提供 macOS 与 Windows 安装包。包内包含 Runtime 和原生 Worker；只有开发时才需要 Node.js 和 Rust。
 
 | 平台 | 安装包 | ZIP | 适用范围 |
 | --- | --- | --- | --- |
-| macOS 14+ · Apple Silicon | [DMG](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.0-build.60/BaoCut-3.0.0-build.60-aarch64-apple-darwin.dmg) | [ZIP](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.0-build.60/BaoCut-3.0.0-build.60-aarch64-apple-darwin.zip) | Apple Silicon Mac，已通过 Developer ID 签名与 Apple 公证 |
-| Windows x64 · CPU | [安装 EXE](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.0-build.60/BaoCut-3.0.0-build.60-win-x64-setup.exe) | [ZIP](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.0-build.60/BaoCut-3.0.0-build.60-win-x64.zip) | 使用 CPU 推理 |
-| Windows x64 · CUDA | [安装 EXE](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.0-build.60/BaoCut-3.0.0-build.60-win-x64-cuda-setup.exe) | [ZIP](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.0-build.60/BaoCut-3.0.0-build.60-win-x64-cuda.zip) | CUDA 13 支持的 NVIDIA 显卡，从 RTX 30 / Ampere 起 |
-| Windows x64 · Vulkan | [安装 EXE](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.0-build.60/BaoCut-3.0.0-build.60-win-x64-vulkan-setup.exe) | [ZIP](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.0-build.60/BaoCut-3.0.0-build.60-win-x64-vulkan.zip) | 支持 Vulkan 的 AMD / Intel 显卡或较旧的 NVIDIA 显卡；Whisper 使用 GPU，candle 使用 CPU |
+| macOS 14+ · Apple Silicon | [DMG](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.1-build.61/BaoCut-3.0.1-build.61-aarch64-apple-darwin.dmg) | [ZIP](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.1-build.61/BaoCut-3.0.1-build.61-aarch64-apple-darwin.zip) | Apple Silicon Mac，已通过 Developer ID 签名与 Apple 公证 |
+| Windows x64 · CPU | [安装 EXE](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.1-build.61/BaoCut-3.0.1-build.61-win-x64-setup.exe) | [ZIP](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.1-build.61/BaoCut-3.0.1-build.61-win-x64.zip) | 使用 CPU 推理 |
+| Windows x64 · CUDA | [安装 EXE](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.1-build.61/BaoCut-3.0.1-build.61-win-x64-cuda-setup.exe) | [ZIP](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.1-build.61/BaoCut-3.0.1-build.61-win-x64-cuda.zip) | CUDA 13 支持的 NVIDIA 显卡，从 RTX 30 / Ampere 起 |
+| Windows x64 · Vulkan | [安装 EXE](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.1-build.61/BaoCut-3.0.1-build.61-win-x64-vulkan-setup.exe) | [ZIP](https://github.com/JimLiu/baocut/releases/download/baocut-v3.0.1-build.61/BaoCut-3.0.1-build.61-win-x64-vulkan.zip) | 支持 Vulkan 的 AMD / Intel 显卡或较旧的 NVIDIA 显卡；Whisper 使用 GPU，candle 使用 CPU |
 
 macOS 打开 DMG 后，将 BaoCut 拖入“应用程序”。Windows 先安装 [Microsoft Visual C++ v14 x64 Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist/)，再运行安装器或解压 ZIP。Windows 包未签名，GPU 版需要兼容的显卡驱动。校验文件与验证说明见发布页；应用通过各平台的更新源检查 GitHub Releases 中的新版本。
 
@@ -127,7 +127,7 @@ BAOCUT_HOME=.dev/baocut-home npm run cli -- status
 BaoCut 正在积极开发，macOS Apple Silicon 与 Windows x64 安装包见上方，验证覆盖仍在完善：
 
 - Codex CLI 与 Claude Code 已有端到端验证。外部智能体的 CLI 链路已通过；MCP 链路在修复后通过脚本客户端复核，仍待 Claude Code 复跑。详见[验收记录](docs/acceptance/agent-surface-e2e.md)。其他内置引擎尚未在 BaoCut 中逐一验证。
-- 已实现 Apple Silicon（MLX、Core ML）和 Windows（whisper.cpp、candle）的本地推理后端。Mac arm64 包已通过 Developer ID 签名与 Apple 公证。Windows CPU、CUDA、Vulkan 包已通过原生构建、安装、同版覆盖升级与 ZIP 自检，但未签名，GPU 推理尚未在实际显卡上验证。Windows 凭据助手目前返回 `unsupported`，在线服务与远端节点的凭据功能不可用。见[桌面端说明](apps/desktop/README.md)。
+- 已实现 Apple Silicon（MLX、Core ML）和 Windows（whisper.cpp、candle）的本地推理后端。Mac arm64 包已通过 Developer ID 签名与 Apple 公证。Windows CPU、CUDA、Vulkan 包已通过原生构建、安装、同版覆盖升级与 ZIP 自检，但未签名，GPU 推理尚未在实际显卡上验证。Windows 已包含 Credential Manager 存储与 v2 凭据迁移；CI 尚未实测真实凭据迁移。见[桌面端说明](apps/desktop/README.md)。
 - 部分本地模型权重（例如 OmniVoice、Qwen-Image）带有非商业许可，应用会在选择前提示。
 - 完整产品范围、发布阶段与当前进度见[产品设计 §11](docs/product/product-design.md#11-发布路线与成功指标)。
 

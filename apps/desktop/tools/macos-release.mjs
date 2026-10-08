@@ -19,6 +19,12 @@ function command(program, args) {
 }
 const api = (endpoint) => JSON.parse(command('gh', ['api', endpoint]));
 
+/** GitHub's by-tag endpoint excludes drafts; authenticated release lists include them. */
+export function findMacRelease(repo, tag, get = api) {
+  const releases = get(`repos/${repo}/releases?per_page=100`);
+  return releases.find((release) => release.tag_name === tag);
+}
+
 export function publicReport(report) {
   const sanitized = Object.fromEntries(['schema', 'product', 'appId', 'version', 'build', 'target', 'sourceCommit', 'minimumSystemVersion',
     'portable', 'installer', 'notarySubmissionId', 'dmgNotarySubmissionId', 'notarized', 'unsigned', 'signingSha1',
@@ -79,8 +85,7 @@ async function publishCandidate(directory, env) {
   ensure(report.workflowCommit === env.GITHUB_SHA && report.candidateRunId === Number(env.GITHUB_RUN_ID) &&
     report.checks?.nativeWorkerProbes === 'passed' && report.checks?.signingAndGatekeeper === 'passed', 'Missing native candidate provenance or verification');
   const latestId = api(`repos/${repo}/releases/latest`).id;
-  const releases = api(`repos/${repo}/releases?per_page=100`);
-  let release = releases.find((value) => value.tag_name === tag);
+  let release = findMacRelease(repo, tag);
   // Create the exact lightweight tag explicitly; a draft release may not create it yet.
   const remoteTag = command('git', ['ls-remote', '--tags', 'origin', `refs/tags/${tag}`]).trim();
   if (!remoteTag) {
@@ -94,7 +99,8 @@ async function publishCandidate(directory, env) {
     writeFileSync(notes, `BaoCut ${report.version} (Build ${report.build}) for Apple Silicon, macOS 14+.\n\nBundle ID: com.baocut.app. Developer ID signed, hardened runtime and Apple notarization accepted for both App and DMG.\n\nRuntime and native Worker startup, signer fingerprint, staple and Gatekeeper checks passed. UI/export, real model inference and paid Agent calls were not exercised by this workflow. ffmpeg/ffprobe and an agent engine are external dependencies.\n\nSource: ${report.sourceCommit}\nActions: ${report.candidateRunUrl}\n`);
     command('gh', ['release', 'create', tag, '--repo', repo, '--target', report.sourceCommit, '--draft', '--latest=false',
       '--title', `BaoCut ${report.version} (Build ${report.build}) — macOS`, '--notes-file', notes]);
-    release = api(`repos/${repo}/releases/tags/${tag}`);
+    release = findMacRelease(repo, tag);
+    ensure(release, 'Created draft release is not visible yet; retry publication with the same candidate');
   }
   // Tags and existing assets are immutable, including partially completed uploads.
   for (const name of item.names) {
