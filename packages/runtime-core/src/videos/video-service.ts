@@ -706,12 +706,17 @@ export class VideoService {
     const channel = this.#channels.get(videoId);
     if (!channel?.session) return;
     if (channel.session.closeTimer) clearTimeout(channel.session.closeTimer);
+    const { ref: { path }, leases } = channel.session;
     channel.session = null;
     channel.log.publish({ type: 'video.closed', reason });
     this.#log.info('Video closed', { videoId, reason });
     const host = this.#host;
-    if (host?.alive)
-      await host.request('videos.close', { videoId }).catch((error) => this.#log.warn('Closing the video failed', { error: String(error) }));
+    if (!host?.alive) return;
+    // 放下写锁之前清理 `blobs/`（架构设计 §5.2、§5.5）：只在正常关闭（打开者走光或空闲）且没有任务租约时做；
+    // 被删除的视频正在搬走、引擎出错的不做。便携包导入在登记会话之前完成，走不到这里。失败只记日志，照常关闭。
+    if ((reason === 'closed' || reason === 'idle') && leases === 0)
+      await host.request('videos.gcBlobs', { path }).catch((error) => this.#log.warn('Cleaning up video blobs failed', { error: String(error) }));
+    await host.request('videos.close', { videoId }).catch((error) => this.#log.warn('Closing the video failed', { error: String(error) }));
   }
 
   async #hostFor(videoId: Id): Promise<EngineHost> {
