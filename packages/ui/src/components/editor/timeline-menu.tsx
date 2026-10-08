@@ -20,15 +20,18 @@ import { useEditorActions } from './editor-context.tsx';
 import { DubBlockMenu } from './timeline-dub.tsx';
 import {
   MOD_KEY,
+  canRemoveSelectionSpan,
   canSplitAt,
   copySelection,
   cutSelection,
   deleteSelection,
   duplicateSelection,
   pasteClipboard,
+  removeSelectionSpan,
   setItemEnabled,
   splitAtPlayhead,
 } from './timeline-commands.ts';
+import { TIMELINE_RIPPLE_COPY as RIPPLE } from './timeline-ripple-copy.ts';
 
 /** 右键的是哪一件、指针在哪（视口坐标）。 */
 export interface TimelineMenuTarget {
@@ -39,7 +42,7 @@ export interface TimelineMenuTarget {
 
 /**
  * 时间线片段的右键菜单（原型 timeline-menu.jsx）：片段名做标题；在播放头分割；复制、剪切、粘贴、再制；
- * 停用或启用这一件；删除。命令与快捷键是同一份（timeline-commands）。
+ * 停用或启用这一件；删除；从所有轨道删除这一段（⇧Delete，等于框选所有轨道再删）。命令与快捷键是同一份（timeline-commands）。
  *
  * 菜单开在指针那一点：用一个 `position: fixed` 的 0 尺寸锚当触发器（时间线是滚动区，浮层挂在片段上会跟着滚、
  * 也会被裁），受控打开。原型只给视频块「在播放头分割」；这里每一类都给，与 S、⌘B 一致，播放头不在这一件里时禁用。
@@ -93,11 +96,11 @@ function TimelineItemMenu({
   const dub = item ? dubBlocks?.get(item.id) : undefined;
   const enabled = item?.enabled ?? true;
   const canSplit = !!item && canSplitAt(sequence, item.id, useEditor.getState().playhead);
+  // 选中的只有字幕时没有能拿的段（字幕实例铺满整条轨）。
+  const canRemoveSpan = canRemoveSelectionSpan(sequence);
   const disabled = editable
-    ? canSplit
-      ? []
-      : ['split']
-    : ['split', 'cut', 'paste', 'duplicate', 'toggle', 'delete'];
+    ? [...(canSplit ? [] : ['split']), ...(canRemoveSpan ? [] : ['removeSpan'])]
+    : ['split', 'cut', 'paste', 'duplicate', 'toggle', 'delete', 'removeSpan'];
 
   const run = (key: string) => {
     if (!item) return;
@@ -116,6 +119,8 @@ function TimelineItemMenu({
         return setItemEnabled(actions, item.id, !enabled);
       case 'delete':
         return void deleteSelection(actions);
+      case 'removeSpan':
+        return void removeSelectionSpan(actions);
     }
   };
 
@@ -190,6 +195,12 @@ function TimelineItemMenu({
             <DeleteIcon />
             <Text slot="label">{COPY.remove}</Text>
             <Keyboard>⌫</Keyboard>
+          </MenuItem>
+          <MenuItem id="removeSpan" textValue={RIPPLE.removeSpan}>
+            <DeleteIcon />
+            <Text slot="label">{RIPPLE.removeSpan}</Text>
+            <Text slot="description">{canRemoveSpan ? RIPPLE.removeSpanHint : RIPPLE.removeSpanCaptions}</Text>
+            <Keyboard>⇧⌫</Keyboard>
           </MenuItem>
         </MenuSection>
       </Menu>

@@ -25,6 +25,7 @@ import LockOpen from '@react-spectrum/s2/icons/LockOpen';
 import Shapes from '@react-spectrum/s2/icons/Shapes';
 import TextIcon from '@react-spectrum/s2/icons/Text';
 import TextNumbers from '@react-spectrum/s2/icons/TextNumbers';
+import Translate from '@react-spectrum/s2/icons/Translate';
 import Video from '@react-spectrum/s2/icons/Video';
 import Visibility from '@react-spectrum/s2/icons/Visibility';
 import VisibilityOff from '@react-spectrum/s2/icons/VisibilityOff';
@@ -45,6 +46,7 @@ import {
   timelineRows,
   type ClipKind,
 } from '../../model/editor.ts';
+import { captionKindLabel } from '../../model/caption-tracks.ts';
 import { importAndPlace, isPlaceable, moveOperation, placeAsset, trimBounds, trimOperation } from '../../model/editor-ops.ts';
 import { kindOfFileName } from '../../model/space.ts';
 import type { Rect } from '../../model/stage-pose.ts';
@@ -62,6 +64,7 @@ import { marqueeItems, marqueeSelection, type MarqueeLane } from '../../model/ti
 import { rulerTicks, spanIndex, spansIn, type SpanIndex } from '../../model/timeline-window.ts';
 import { anchoredScroll, clipSpanAt, selectionSpan, zoomFloor, zoomPlan, type ZoomAction } from '../../model/timeline-zoom.ts';
 import { langName } from '../../model/tools-models.ts';
+import { headTags, subtitleTrackLanguage, type HeadLanguage } from '../../model/track-heads.ts';
 import { TIMELINE_ZOOM_COPY as ZOOM_COPY } from '../../copy.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useEditor } from '../../state/editor-store.ts';
@@ -90,7 +93,12 @@ const HEAD = 144;
 const PAD = 12;
 const MAC = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
 const RULER = 24;
-const ROW_HEIGHT: Record<Track['kind'], number> = { visual: 64, audio: 48, subtitle: 40 };
+/**
+ * 行高：放视频的画面行要画胶片条与原声波形，高一些；别的行（图片、文字、声音、配音、字幕）看不到缩略图，一样矮，与字幕行同高
+ * （原型 LANE_H，2026-10-08）。
+ */
+const MEDIA_ROW_HEIGHT = 64;
+const ROW_HEIGHT = 40;
 /** 吸附阈值（像素，原型 10px）。 */
 const SNAP_PX = 10;
 /** 按下后移动超过这么多像素才算拖动。 */
@@ -171,6 +179,17 @@ const header = style({
   '--iconPrimary': { type: 'fill', value: 'currentColor' },
 });
 const headerLabel = style({ flexGrow: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+/** 字幕行与配音行的语言标签（ZH、EN、PT-BR，原型 `.thd__lang`）：任何界面语言下都放得下，全名在悬停说明里。 */
+const headerTag = style({
+  flexShrink: 0,
+  marginEnd: 'auto',
+  paddingX: 4,
+  borderRadius: 'sm',
+  backgroundColor: 'gray-200',
+  fontWeight: 'bold',
+  lineHeight: '[16px]',
+  whiteSpace: 'nowrap',
+});
 const headerToggles = style({ display: 'flex', alignItems: 'center', flexShrink: 0 });
 /**
  * 配音行头「有句过快或没合成」的小黄点（设计稿 `.thd__fast`：不是出错，不用橙红）。行头只有 144px，点占在名字后面会把
@@ -417,6 +436,26 @@ export function Timeline({
   const fps = sequence.fps;
   const perSecond = fps.num / fps.den;
   const rows = useMemo(() => timelineRows(sequence), [sequence]);
+  // 放视频的画面行（高一些，见 MEDIA_ROW_HEIGHT）。
+  const mediaTracks = useMemo(() => new Set(sequence.items.filter((item) => item.type === 'video').map((item) => item.trackId)), [sequence]);
+  const rowHeight = (track: Track) => (track.kind === 'visual' && mediaTracks.has(track.id) ? MEDIA_ROW_HEIGHT : ROW_HEIGHT);
+  // 字幕行与配音行头上的语言标签，字幕行是原文还是译文（model/track-heads.ts）。
+  const heads = useMemo(() => {
+    const languages: HeadLanguage[] = [];
+    const kinds = new Map<Id, 'original' | 'translation'>();
+    for (const { track } of rows) {
+      if (track.kind === 'subtitle') {
+        const info = subtitleTrackLanguage(sequence, track, documents);
+        if (!info) continue;
+        kinds.set(track.id, info.kind);
+        languages.push({ trackId: track.id, group: 'subtitle', language: info.language });
+      } else if (track.kind === 'audio') {
+        const group = dubTrackGroup(sequence, track.id);
+        if (group) languages.push({ trackId: track.id, group: 'dub', language: group.language });
+      }
+    }
+    return { tags: headTags(languages), kinds };
+  }, [rows, sequence, documents]);
   const duration = durationSeconds(sequence);
   const laneWidth = Math.max(viewport - HEAD, PAD * 2 + (duration + 30) * pps);
   const tracks = useMemo(() => new Map(sequence.tracks.map((t) => [t.id, t])), [sequence.tracks]);
@@ -1061,18 +1100,25 @@ export function Timeline({
       text: DUB_COPY.stretching(rate, stretching.stretch.seconds),
     };
   })();
-  /** 行头；配音行整条轨只放一组配音时写「配音 · 语言」，句数、小黄点与末尾的 ⋯ 见 DubTrackHeader。 */
+  /**
+   * 行头。字幕行写语言标签（译文换翻译图标），全名与原文 / 译文进悬停说明；配音行整条轨只放一组配音时写语言标签、全名
+   * 「配音 · 语言」进悬停说明，句数、小黄点与末尾的 ⋯ 见 DubTrackHeader。
+   */
   const trackHeader = (track: Track, label: string) => {
     const group = track.kind === 'audio' ? dubTrackGroup(sequence, track.id) : null;
+    const tag = heads.tags.get(track.id);
     if (!group) {
       // 配音分离出的分轨：行头写「背景声 · 语言」「人声 · 语言」，同配音行。
       const stem = track.kind === 'audio' ? stemTrackOf(sequence, track.id) : null;
       const name = stem?.language ? DUB_COPY.stemTrackLabel(stem.stem, langName(stem.language)) : label;
+      const kind = heads.kinds.get(track.id);
       return (
         <TrackHeader
           track={track}
           label={name}
-          hint={name}
+          tag={tag}
+          icon={kind === 'translation' ? Translate : undefined}
+          hint={kind ? `${name} · ${captionKindLabel(kind)}` : name}
           flag={false}
           editable={editable}
           sequenceId={sequence.id}
@@ -1087,6 +1133,7 @@ export function Timeline({
         track={track}
         group={group}
         name={name}
+        tag={tag}
         sequence={sequence}
         documents={documents}
         blocks={dubs}
@@ -1149,7 +1196,7 @@ export function Timeline({
               jobId={jobId}
               sequence={sequence}
               assets={assets}
-              height={ROW_HEIGHT.subtitle}
+              height={ROW_HEIGHT}
               rowClass={row}
               headerClass={header({ isOff: false })}
               laneClass={lane({ isDropTarget: false })}
@@ -1165,7 +1212,7 @@ export function Timeline({
               key={source.assetId}
               source={source}
               sequence={sequence}
-              height={ROW_HEIGHT.subtitle}
+              height={ROW_HEIGHT}
               rowClass={row}
               headerClass={header({ isOff: false })}
               laneClass={lane({ isDropTarget: false })}
@@ -1180,7 +1227,7 @@ export function Timeline({
               key={track.id}
               className={row}
               style={{
-                height: ROW_HEIGHT[track.kind],
+                height: rowHeight(track),
                 // 拖行头时这一行跟着指针走（不换父节点，指针捕获不断），压在别的行上面。
                 transform: draggingTrack?.trackId === track.id ? `translateY(${draggingTrack.offsetY}px)` : undefined,
                 zIndex: draggingTrack?.trackId === track.id ? 6 : undefined,
@@ -1242,7 +1289,7 @@ export function Timeline({
               documents={documents}
               xOfFrame={(frame) => HEAD + xOfFrame(frame)}
               top={RULER}
-              height={rows.reduce((sum, { track }) => sum + ROW_HEIGHT[track.kind], (liveRows.length + transcripts.length) * ROW_HEIGHT.subtitle)}
+              height={rows.reduce((sum, { track }) => sum + rowHeight(track), (liveRows.length + transcripts.length) * ROW_HEIGHT)}
               pps={pps}
               frames={{ from: windowFrom, to: windowTo }}
               editable={editable}
@@ -1250,7 +1297,7 @@ export function Timeline({
           )}
 
           {sequence.items.length === 0 && rows.length ? (
-            <div className={emptyBox} style={{ top: RULER + 8, left: HEAD + PAD, height: ROW_HEIGHT[rows[0]!.track.kind] - 16 }}>
+            <div className={emptyBox} style={{ top: RULER + 8, left: HEAD + PAD, height: rowHeight(rows[0]!.track) - 16 }}>
               {E.emptyTimeline}
             </div>
           ) : null}
@@ -1309,6 +1356,7 @@ function DubTrackHeader({
   track,
   group,
   name,
+  tag,
   sequence,
   documents,
   blocks,
@@ -1319,6 +1367,8 @@ function DubTrackHeader({
   track: Track;
   group: DubGroup;
   name: string;
+  /** 语言标签（EN、ZH），没有语言时不给、行头写全名。 */
+  tag?: string;
   sequence: Sequence;
   documents: Record<Id, DocumentRecord>;
   blocks: ReadonlyMap<Id, DubBlock>;
@@ -1331,6 +1381,7 @@ function DubTrackHeader({
     <TrackHeader
       track={track}
       label={name}
+      tag={tag}
       hint={`${name} · ${DUB_REGEN_COPY.headLine(counts)}`}
       flag={counts.fast > 0 || counts.failed > 0}
       menu={<DubHeadMenu group={group} label={name} sequence={sequence} documents={documents} blocks={blocks} />}
@@ -1345,6 +1396,8 @@ function DubTrackHeader({
 function TrackHeader({
   track,
   label,
+  tag,
+  icon,
   hint,
   flag,
   menu,
@@ -1354,7 +1407,12 @@ function TrackHeader({
   onDragStart,
 }: {
   track: Track;
+  /** 全名：没有标签时写在行头上，开关的读屏名也用它。 */
   label: string;
+  /** 语言标签（字幕行、配音行）：给了就写它，不写全名。 */
+  tag?: string;
+  /** 换掉按类别的图标（译文字幕行是翻译图标）。 */
+  icon?: typeof Video;
   /** 悬停在名字上的说明（配音行写句数、过快与静音）。 */
   hint: string;
   /** 配音行有句过快：名字后面一个小黄点。 */
@@ -1371,7 +1429,7 @@ function TrackHeader({
   const update = (patch: { visible?: boolean; muted?: boolean; locked?: boolean }, what: string) =>
     void apply([{ type: 'updateTrack', sequenceId, trackId: track.id, ...patch }], what);
   const off = track.kind === 'audio' ? track.muted : !track.visible;
-  const Icon = TRACK_ICON[track.kind];
+  const Icon = icon ?? TRACK_ICON[track.kind];
   return (
     <div
       className={header({ isOff: off, isDraggable: draggable })}
@@ -1380,9 +1438,15 @@ function TrackHeader({
         onDragStart(event);
       }}>
       <Icon styles={clipIcon} data-bc-icons="own" />
-      <span className={headerLabel} title={hint}>
-        {label}
-      </span>
+      {tag ? (
+        <span className={headerTag} title={hint}>
+          {tag}
+        </span>
+      ) : (
+        <span className={headerLabel} title={hint}>
+          {label}
+        </span>
+      )}
       {flag ? <span className={headerFlag} title={hint} /> : null}
       <span className={headerToggles}>
         {track.kind !== 'audio' ? (

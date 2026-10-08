@@ -34,6 +34,7 @@ import {
   flushNudge,
   nudgeTime,
   pasteClipboard,
+  removeSelectionSpan,
   selectAtPlayhead,
   splitAtPlayhead,
 } from './timeline-commands.ts';
@@ -462,7 +463,8 @@ function useEditorKeys(
         case 'Delete':
         case 'Backspace':
           handled();
-          void deleteSelection(actions);
+          // ⇧Delete：选中片段盖住的时间从所有轨道拿掉、后面前移；Delete 只删片段（所有轨道都空了的那段合拢）。
+          void (event.shiftKey ? removeSelectionSpan(actions) : deleteSelection(actions));
           return;
         case 'Escape':
           // 菜单、对话框、拖动各自先接 Esc（belongsToEditor、时间线的捕获监听）；到这里只剩取消选中。

@@ -8,12 +8,14 @@ import { pasteOperations } from '../../model/item-clipboard.ts';
 import { createdItemIds } from '../../model/new-items.ts';
 import { fallbackUndoOperations, mutedItemsOf } from '../../model/dub-undo.ts';
 import { dubGroups, muteOperations } from '../../model/timeline-dub.ts';
+import { gapsAfterDelete, rippleOperations, selectionSpans, shiftFrame, type FrameSpan } from '../../model/timeline-ripple.ts';
 import { langName } from '../../model/tools-models.ts';
 import { useClipboard } from '../../state/clipboard-store.ts';
 import { useEditor, type NudgeDraft } from '../../state/editor-store.ts';
 import { canEdit, useVideo } from '../../state/video-store.ts';
 import { TIMELINE_DUB_COPY as DUB } from './dub-copy.ts';
 import type { EditorActions } from './editor-context.tsx';
+import { TIMELINE_RIPPLE_COPY as RIPPLE } from './timeline-ripple-copy.ts';
 
 /**
  * 时间线上对选中片段的命令：快捷键（video-editor 的 useEditorKeys）与右键菜单（timeline-menu）走同一份，
@@ -107,16 +109,66 @@ export async function cutSelection(actions: EditorActions): Promise<void> {
   undoToast(actions, COPY.cut(items.length), receipt);
 }
 
-/** Delete：删除选中的片段，提示带撤销。键盘、走带、检查器与右键菜单都走这一条，可删的片段由 `deletableItemIds` 定。 */
+/**
+ * Delete：删除选中的片段，删掉的那几段里所有轨道都空了的部分一并合拢（model/timeline-ripple.ts），同一笔事务、一条撤销记录，
+ * 提示带撤销。键盘、走带、检查器与右键菜单都走这一条，可删的片段由 `deletableItemIds` 定。
+ */
 export async function deleteSelection(actions: EditorActions): Promise<void> {
   const ctx = live();
   if (!ctx?.editable) return;
   const itemIds = deletableItemIds(ctx.sequence, useEditor.getState().selection);
   if (!itemIds.length) return say(COPY.pick(COPY.remove));
-  const receipt = await actions.apply([{ type: 'deleteItems', sequenceId: ctx.sequence.id, itemIds }], COPY.labelDelete);
-  if (!receipt) return;
+  if (!(await removeItems(actions, ctx, itemIds))) return;
   useEditor.getState().select([]);
-  undoToast(actions, COPY.deleted(itemIds.length), receipt);
+}
+
+/**
+ * 删掉这几件并合拢空出来的那几段。合拢的段后面有锁住的轨道或片段时不合拢（引擎会整笔拒绝，删除也跟着丢），照删、提示里说一声。
+ * 提交成功返回 true。
+ */
+async function removeItems(actions: EditorActions, ctx: Live, itemIds: readonly Id[]): Promise<boolean> {
+  const plan = rippleOperations(ctx.sequence, gapsAfterDelete(ctx.sequence, itemIds), itemIds);
+  const receipt = await actions.apply(
+    [{ type: 'deleteItems', sequenceId: ctx.sequence.id, itemIds: [...itemIds] }, ...plan.operations],
+    COPY.labelDelete,
+  );
+  if (!receipt) return false;
+  followPlayhead(actions, ctx.sequence, plan.spans);
+  const deleted = COPY.deleted(itemIds.length);
+  const seconds = (plan.frames * ctx.sequence.fps.den) / ctx.sequence.fps.num;
+  undoToast(actions, plan.frames ? RIPPLE.closed(deleted, seconds) : plan.locked.length ? RIPPLE.gapKept(deleted) : deleted, receipt);
+  return true;
+}
+
+/**
+ * ⇧Delete 与右键菜单的「从所有轨道删除这一段」：选中片段（字幕实例除外）盖住的时间从每一条轨上拿掉，后面的内容与章节前移、
+ * 总长变短，等于框选所有轨道再删。一笔事务，提示带撤销。后面有锁住的轨道或片段时整件不做，说明要先解锁。
+ */
+export async function removeSelectionSpan(actions: EditorActions): Promise<void> {
+  const ctx = live();
+  if (!ctx?.editable) return;
+  const plan = rippleOperations(ctx.sequence, selectionSpans(ctx.sequence, useEditor.getState().selection));
+  if (plan.locked.length) return say(RIPPLE.locked);
+  if (!plan.operations.length) return say(RIPPLE.pickSpan);
+  const receipt = await actions.apply(plan.operations, RIPPLE.labelRemoveSpan);
+  if (!receipt) return;
+  followPlayhead(actions, ctx.sequence, plan.spans);
+  useEditor.getState().select([]);
+  undoToast(actions, RIPPLE.removed((plan.frames * ctx.sequence.fps.den) / ctx.sequence.fps.num), receipt);
+}
+
+/** 选中的片段里有没有能「从所有轨道删除」的（右键菜单的那一项灰不灰）：只有字幕时没有。 */
+export function canRemoveSelectionSpan(sequence: Sequence): boolean {
+  return selectionSpans(sequence, useEditor.getState().selection).length > 0;
+}
+
+/** 拿掉了几段时播放头跟着内容走：段后的前移，落在段里的回到段首（原型 `ripple` 的 `shiftTime`）。 */
+function followPlayhead(actions: EditorActions, sequence: Sequence, spans: readonly FrameSpan[]): void {
+  if (!spans.length) return;
+  const perSecond = sequence.fps.num / sequence.fps.den;
+  const at = useEditor.getState().playhead;
+  const to = shiftFrame(at * perSecond, spans) / perSecond;
+  if (to !== at) actions.seek(to);
 }
 
 /** ⌘V：把剪贴板粘回复制它的那个视频。 */
@@ -295,15 +347,13 @@ export function arrangeSelection(actions: EditorActions, direction: ArrangeDirec
   return true;
 }
 
-/** 工具条的「删除」：删掉这几件，选区里去掉它们，提示带撤销。 */
+/** 工具条的「删除」：删掉这几件（空出来的那几段同 Delete 一样合拢），选区里去掉它们，提示带撤销。 */
 export async function deleteItems(actions: EditorActions, itemIds: readonly Id[]): Promise<void> {
   const ctx = live();
   if (!ctx?.editable || !itemIds.length) return;
-  const receipt = await actions.apply([{ type: 'deleteItems', sequenceId: ctx.sequence.id, itemIds: [...itemIds] }], COPY.labelDelete);
-  if (!receipt) return;
+  if (!(await removeItems(actions, ctx, itemIds))) return;
   const { selection, select } = useEditor.getState();
   select(selection.filter((id) => !itemIds.includes(id)));
-  undoToast(actions, COPY.deleted(itemIds.length), receipt);
 }
 
 /** 多选页的对齐与分布：整批一笔事务、一步撤销，提示带撤销；没有要挪的就只说一声，不提交空事务。 */

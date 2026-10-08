@@ -667,7 +667,8 @@ export const fr: CopyMessages = {
     done: "Je l'ai compris",
     hint: "Dans un champ texte, ces touches agissent sur le champ.",
     rows: [
-      ["Supprimer la sélection", "Supprimer"],
+      ["Supprimer la sélection (les trous vides sur toutes les pistes se referment)", "Supprimer"],
+      ["Supprimer le passage sélectionné de toutes les pistes (la suite avance)", "⇧Supprimer"],
       ["Désélectionner / fermer la fenêtre contextuelle", "Esc"],
       ["Lecture / pause", "Space / K"],
       ["Annuler / rétablir", "⌘Z / ⇧⌘Z"],

@@ -64,6 +64,11 @@ export function captionKind(documentId: Id, documents: Record<Id, DocumentRecord
   return parent?.kind === 'translation' ? 'translation' : 'original';
 }
 
+/** 原文 / 译文的叫法（时间线字幕行头的悬停说明）。 */
+export function captionKindLabel(kind: 'original' | 'translation'): string {
+  return kind === 'translation' ? M.translation : M.original;
+}
+
 /** 语言标签 → 这门语言自己的叫法（`en` → English，`ja` → 日本語）；认不出时原样返回。 */
 export function languageName(tag: string): string {
   try {

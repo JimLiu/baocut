@@ -711,7 +711,8 @@ const en = {
     done: 'Got it',
     hint: 'While the cursor is in a text field, these keys go to the text field.',
     rows: [
-      ['Delete selection', 'Delete'],
+      ['Delete selection (gaps left empty on every track close up)', 'Delete'],
+      ['Delete the selected span from all tracks (later content moves up)', '⇧Delete'],
       ['Deselect / close popover', 'Esc'],
       ['Play / pause', 'Space / K'],
       ['Undo / redo', '⌘Z / ⇧⌘Z'],

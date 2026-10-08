@@ -696,7 +696,8 @@ export const pl: CopyMessages = {
     done: "Rozumiem",
     hint: "Gdy kursor jest w polu tekstowym, te klawisze działają w tym polu.",
     rows: [
-      ["Usuń zaznaczenie", "Usuń"],
+      ["Usuń zaznaczenie (luki puste na wszystkich ścieżkach się zamykają)", "Usuń"],
+      ["Usuń zaznaczony odcinek ze wszystkich ścieżek (dalsza część się przesuwa)", "⇧Usuń"],
       ["Odznacz / zamknij okno podręczne", "Esc"],
       ["Odtwarzanie / pauza", "Space / K"],
       ["Cofnij / ponów", "⌘Z / ⇧⌘Z"],
