@@ -1,154 +1,43 @@
 ---
 name: bcut-release
-description: Build, sign, notarize, verify and publish BaoCut Electron desktop releases, or prepare portable signing backups. Use for App version bumps, Mac releases and GitHub release continuation; excludes video-production craft skills and legacy standalone bcut CLI releases.
+description: Release BaoCut Electron desktop apps through GitHub Actions tags by default; use local/manual packaging only when explicitly requested. Also handles App version bumps, release continuation and portable signing backups; excludes craft skills and legacy standalone CLI releases.
 ---
 
 # BaoCut desktop releases
 
-This is the Electron v3 App. The older baocut-app skill is a reference, not an
-executable workflow for this checkout. Do not call its GPUI builder, modify its
-website, or require standalone CLI/npm/Homebrew releases.
+This is the Electron v3 App (`com.baocut.app`). The older baocut-app skill is a
+reference, not this checkout's executable workflow. Keep this developer skill
+outside the App's craft `skills/`; do not invoke legacy GPUI/npm/Homebrew releases.
 
-Read [desktop packaging](../../../apps/desktop/README.md) and
-[signing and recovery](../../../docs/macos-signing.md). Repository commit/push
-requirements apply. Keep this developer skill outside the App's craft skills.
+## Select the workflow
 
-## Freeze the release
+| User intent | Read and follow |
+| --- | --- |
+| Ordinary release/publish request; no method specified | [Tag release](references/tag-release.md) — **default**. Prepare the version and frozen source, then push its release tag; Actions builds/releases Mac arm64 and Windows CPU/CUDA/Vulkan. |
+| Explicit local package/candidate, traditional or manual release, single-platform recovery/continuation | [Traditional release](references/traditional-release.md). Honor the requested platforms and local-only/public scope. |
+| Signing identity, portable backups or GitHub credentials only | [Signing/backups](references/signing-backups.md). Do not create a tag or publish. |
 
-- Inspect git status before edits; preserve unrelated work. Follow worktree cleanup
-  rules if isolation is needed. Never build distributable bytes from dirty source.
-- `apps/desktop/package.json` owns the App version; synchronize the root package
-  version and lockfile with `npm version --no-git-tag-version`. Do not bump Cargo
-  or protocol versions for an App release. Bundle ID is `com.baocut.app`.
-- Build numbers strictly increase; the first v3 candidate is 3.0.0 build 60,
-  following v2 build 59. Query actual releases before selecting later builds.
-- Check Node >=22.18, Rust/wasm32, Xcode, native arm64 and disk space. Run affected
-  tests/typecheck, desktop/Web builds, file-font/model-asset checks. Review generated
-  tracked changes, commit the intended source and record full HEAD before packaging.
+Load only the reference needed for the selected intent. Do not ask users to choose
+between the two release methods when they have not specified one: use tag release.
+Do not silently fall back to traditional packaging after an Actions failure.
+A specific local-only or platform-only instruction overrides the default all-platform
+scope; follow the user's explicit method and limits.
 
-## macOS candidate
+## Shared release constraints
 
-Select a full certificate SHA-1 from the external signing inventory, not its name:
-several Developer ID certificates may share one name. Verify its encrypted PKCS#12
-backup and validate `${BAOCUT_NOTARY_PROFILE:-baocut-notary}` with `notarytool history`.
-Never print secrets or export the entire login keychain.
+- Inspect git status before edits; preserve unrelated or concurrent work. Commit
+  task-owned source changes before freezing a release. Follow repository commit,
+  current-task push authorization and worktree cleanup rules; do not reuse push
+  authorization from another task or request it again when already granted here.
+- `apps/desktop/package.json` owns the App version. Synchronize root version and
+  lockfile through npm; do not bump Cargo or protocol versions for an App release.
+- Query actual releases/feeds before choosing a build. Builds strictly increase;
+  already published tags/files are immutable and historical skill Latest is preserved.
+- Keep the tag and all platform artifacts tied to one full source SHA. Never ship
+  dirty-source binaries, private signing materials or intermediate notary submissions.
+- Report actual checks and skips. A tag push or credential check alone is not a
+  completed release; publication requires successful jobs, public read-back and feeds.
 
-From the repo root, use a new output directory:
-
-```bash
-npm run package:mac -- \
-  --build <BUILD> --sign-sha1 <CERTIFICATE_SHA1> \
-  --out /absolute/path/to/new-release-directory \
-  --download-base-url 'https://github.com/jimliu/baocut/releases/download/baocut-v<VERSION>-build.<BUILD>'
-```
-
-The builder packages default MLX/Core ML Workers and their release `mlx.metallib`.
-If several Metal libraries exist, pass `--metallib` from that same Worker build;
-never use an unrelated user cache. `--bin-dir` is for verified same-commit release
-outputs only; record their provenance. CI may pass `--sign-keychain` too.
-
-Electron-builder assembles a directory; `macos-distribution.mjs` signs inside out
-with the exact fingerprint, checks native linkage, notarizes/staples the App,
-verifies the final ZIP extraction, and separately signs/notarizes/staples the DMG.
-Distribute `BaoCut-<VERSION>-build.<BUILD>-aarch64-apple-darwin.{zip,dmg}` and their
-checksums, never the intermediate `notary-submission.zip` or an unsigned directory.
-`app-release.json` records source commit, hashes/sizes, signer and notarization IDs.
-
-The packager probes the exact extracted App's Runtime and native programs. Also
-launch that App outside the repo with isolated data, inspect its real UI and
-exercise preview/export. Record optional model/agent/ffmpeg dependencies and skips.
-Never remove quarantine or disable Gatekeeper to make a check pass.
-
-## Publish verified bytes
-
-An explicit request to publish this version to GitHub authorizes release publication.
-Repository rules separately require explicit permission to push task commits;
-request it after the candidate and build commit are reviewable. The release tag
-must identify the exact build commit, not a different remote branch HEAD.
-
-1. Inspect existing tags/assets. Preserve immutable bytes; differing bytes require
-   a new build. Identical assets may be skipped during a retry.
-2. Once the build commit is remote, create a draft `baocut-v<VERSION>-build.<BUILD>`
-   targeting it, with `--latest=false`. Retain its actual URL for the final report
-   and open it in the Codex browser when useful. Write notes through a body file, including new Bundle ID,
-   architecture, signing/notarization and verified dependencies. Preserve the old
-   skill's GitHub Latest.
-3. Upload ZIP, DMG, checksums, sanitized report and appcast. Remove local-only paths
-   from the report. No private signing materials or intermediate submissions belong
-   in release assets.
-4. Publish, freshly download ZIP/DMG, compare hashes/sizes, extract ZIP and repeat
-   signing/fingerprint, staple, Gatekeeper and packaged Runtime checks. Validate
-   DMG signature/ticket too.
-5. Last copy the generated appcast to `apps/desktop/releases/`, parse it with the App
-   parser, commit and (when authorized) push the pointer. Read back its actual raw
-   GitHub URL and `app.url`. Preserve other platform pointers.
-
-Windows uses the existing `package:win*` commands and native validation in the
-desktop README. A Mac-only release does not require Windows publication.
-
-## Automatic all-platform releases
-
-Routine releases use `desktop-release.yml`, triggered by a human pushing an exact
-`baocut-v<VERSION>-build.<BUILD>` tag, for example `baocut-v3.0.1-build.61`.
-The stable semantic version must match root/desktop package.json and lockfile;
-no leading zeros, prerelease suffix or reused build. Build increases across all
-platform feeds, version never goes backwards, and source must already belong to
-`main`. The tag is the frozen source for all builders. Do not create or push a
-release tag when the user asks only to configure automation.
-
-Mac arm64 and Windows x64 CPU/CUDA/Vulkan build in parallel through reusable
-workflows. All native jobs must pass before either publisher runs. Publish Mac
-first, then all Windows variants into that same immutable release; verify public
-read-back before advancing each platform feed. Preserve historical Latest and old
-assets. Report actual runs and all hardware/UI/model skips. Rerun failed jobs using
-existing validated artifacts; never rebuild or overwrite an already published build.
-The manual platform workflows below remain verification/recovery tools.
-
-## Windows Actions continuation
-
-Build from the published Mac tag with `desktop-windows.yml`, using the same build
-number and that release's HTTPS download directory. Select CPU/CUDA/Vulkan explicitly;
-each variant has a separate native build and installer/ZIP validation job.
-Windows is unsigned; Apple Developer ID credentials are neither useful nor needed
-for this path. Never inject the Mac signing backup into these workflows.
-
-After the selected native jobs finish successfully, dispatch `desktop-windows-publish.yml` with its
-`candidate_run_id`, the existing `release_tag`, and a comma-separated `variants`
-list. Publish only variants whose native job passed and whose artifact exists.
-The publisher checks candidate workflow/repository/source against the Mac report,
-verifies each file and update feed, appends immutable assets, independently reads
-them back, and then commits/pushes only Windows update pins. It preserves Mac assets
-and the historical skill's Latest. The run URL and full source SHA are recorded in
-the supplemental Windows reports. A rerun may skip identical assets, never overwrite
-different bytes. Failed or unverified GPU variants remain unpublished; native startup
-does not imply inference has been tested on CUDA/Vulkan hardware.
-
-## macOS Actions
-
-Use `desktop-macos.yml` on this repository's `main` for manual verification or
-recovery; routine all-platform releases use the tag workflow above. Its protected `macos-release`
-Environment contains the exact encrypted PKCS#12 identity and separate notarization
-credentials. An explicit request to configure these GitHub signing Secrets authorizes
-that upload; a request for local backups alone does not. Never print any credential.
-
-First use `mode=validate`: import into a temporary keychain, sign/execute a probe,
-compare the actual certificate fingerprint and validate Apple access, then clean up.
-Only after an actual successful run report CI credentials as verified. `mode=package`
-builds a signed and notarized candidate without creating a public release.
-`mode=publish` also publishes the verified archives and updates only the
-Mac appcast. Both require a new increasing build and freeze the workflow SHA as
-the source. Current Build 60 is immutable. Do not trigger publication merely because
-the user asked to configure CI.
-
-The publisher independently downloads the six public assets and performs native
-signature, staple, Gatekeeper and Runtime checks before advancing the feed. Old
-Latest and other platforms' assets/feeds remain intact. UI/export, real model and
-paid Agent checks are not automated; the report must preserve these skips.
-
-## Completion
-
-Report version/build, architecture, full source commit, local paths or release URL,
-artifact facts, signer fingerprint, both notary IDs and runtime/visual checks/skips.
-Publication requires public read-back and the updated feed. Report local backup,
-off-machine recovery and actual CI execution separately. A request to save local
-backups does not authorize uploading signing credentials into GitHub Secrets.
+The [desktop guide](../../../apps/desktop/README.md) owns packaging mechanics;
+mode-specific references explain when to load it. Requests only to change release
+configuration must not create a release tag or publish.
