@@ -4,6 +4,12 @@ dist/
 .dev/
 *.log
 .DS_Store
+# 签名私钥与证书备份只保存在仓库外
+*.p12
+*.pfx
+*.p8
+*.keychain
+*.keychain-db
 /target/
 # 机器专属的 Cargo 覆盖（target 目录等）；模板见 .cargo/config.local.toml.example
 .cargo/config.local.toml
