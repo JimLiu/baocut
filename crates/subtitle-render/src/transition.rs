@@ -748,6 +748,8 @@ pub enum ConfettiPeekUndo {
 }
 
 pub struct OverlayRenderPlan {
+    /// 动态栅格的资源名取法，见 [`DynamicAssetNames`]。
+    pub dynamic_asset_names: DynamicAssetNames,
     /// 分层文字动画（`textMotion` / `wordBackground`）的逐条编译期量，与
     /// [`Self::cues`] / [`Self::translations`] 下标一一对应；`None` = 这一条的
     /// 最终样式（整条轨叠逐条覆盖）不带新动画。是否走 CPU 光栅按帧看这里，

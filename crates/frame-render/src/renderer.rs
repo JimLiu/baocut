@@ -22,7 +22,7 @@ use render_raster::fonts::{FaceLog, FaceUse};
 use render_raster::source::{Lottie, MediaTime, VizParams, VizSource, VizTrack};
 use serde::Serialize;
 use serde_json::{Value, json};
-use subtitle_render::{OverlayIncludes, OverlayRenderPlan, TimelineVisualElement};
+use subtitle_render::{DynamicAssetNames, OverlayIncludes, OverlayRenderPlan, TimelineVisualElement};
 use tiny_skia::{BlendMode, Color, FilterQuality, IntSize, Pixmap, PixmapPaint, Rect, Transform};
 use video_model::{AssetRecord, Fx, Id, Sequence, TimelineItem, VersionRef};
 
@@ -623,7 +623,7 @@ impl FrameRenderer {
                 watermarks: false,
             };
             let engine = self.take_engine();
-            let plan = OverlayRenderPlan::compile_with_text_engine(
+            let mut plan = OverlayRenderPlan::compile_with_text_engine(
                 &json!({ "style": {}, "cues": [] }),
                 self.options.width,
                 self.options.height,
@@ -635,6 +635,8 @@ impl FrameRenderer {
                 engine,
             )
             .map_err(RenderError::render)?;
+            // 画出的层不读 DrawOp 指纹：动态栅格的资源名不必逐帧哈希整帧像素。
+            plan.set_dynamic_asset_names(DynamicAssetNames::Slot);
             self.elements = Some(plan);
         }
         Ok(self.elements.as_mut().expect("刚编好"))

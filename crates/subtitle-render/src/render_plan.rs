@@ -518,6 +518,22 @@ pub enum SceneIdentity {
     Skip,
 }
 
+/// 每帧动态栅格（文字、媒体元素、字幕层）在 DrawOp 指令流里的资源名怎么取。
+///
+/// 动态表在每帧组装前清空，资源名只需在**这一帧**里唯一；像素指纹进名字是为了让
+/// 内容变化进入 `draw_op_fingerprint`（预览去重、跨引擎对拍要它）。不读这个指纹的
+/// 宿主（frame-render 的导出与预览）付不起逐帧哈希整帧解码像素（1080p 一帧
+/// 8.3 MB），改用 [`Self::Slot`]。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DynamicAssetNames {
+    /// `kind:owner:像素指纹`：内容变了指令流就变。缺省，其余宿主与测试用这一档。
+    #[default]
+    PixelFingerprint,
+    /// `kind:owner#序号`：只保证同一帧里唯一，不哈希像素；`draw_op_fingerprint`
+    /// 不再反映动态栅格的内容，**不得**拿它去重或对拍。
+    Slot,
+}
+
 /// 模板前景恒在正片、字幕与元素之上。
 ///
 /// 两个 feature 共用：场景本身无 I/O，`host` 由 [`crate::host::OverlayHost::template_scene`]
@@ -1422,6 +1438,7 @@ impl OverlayRenderPlan {
             chrome: None,
             chrome_error: None,
             sequence,
+            dynamic_asset_names: DynamicAssetNames::default(),
         })
     }
 
@@ -2391,6 +2408,19 @@ impl OverlayRenderPlan {
     /// S14：把字幕入场压成单位姿态。默认 `false`，与 2.0 前逐字节一致。
     pub fn set_suppress_transition(&mut self, suppress: bool) {
         self.suppress_transition = suppress;
+    }
+
+    /// 见 [`DynamicAssetNames`]。
+    pub fn set_dynamic_asset_names(&mut self, names: DynamicAssetNames) {
+        self.dynamic_asset_names = names;
+    }
+
+    /// 这一帧第 `slot` 个动态栅格的资源名（[`DynamicAssetNames`]）。
+    fn dynamic_asset_name(&self, kind: &str, owner: &str, rgba: &[u8], slot: usize) -> String {
+        match self.dynamic_asset_names {
+            DynamicAssetNames::PixelFingerprint => dynamic_raster_asset_name(kind, owner, rgba),
+            DynamicAssetNames::Slot => format!("{kind}:{owner}#{slot}"),
+        }
     }
 
     /// 把底层视频解码器切到**随机访问**：向前跳太远时重开而不是逐帧抽干
@@ -6473,6 +6503,8 @@ impl OverlayRenderPlan {
         if let Some(boundary) = self.element_next_change(time, &active) {
             next_change = Some(next_change.map_or(boundary, |current| current.min(boundary)));
         }
+        // 动态栅格在这一帧里的序号（[`DynamicAssetNames::Slot`] 的资源名用）。
+        let mut slot = 0usize;
         for mut element in active {
             let time = self.sample_time_for(&element.id, time);
             element.keyframe_place(time);
@@ -6487,7 +6519,9 @@ impl OverlayRenderPlan {
             match element.kind {
                 ElementKind::Text => {
                     let pixmap = self.render_text_element(&element, time)?;
-                    let asset_name = dynamic_raster_asset_name("text", &element.id, pixmap.data());
+                    let asset_name =
+                        self.dynamic_asset_name("text", &element.id, pixmap.data(), slot);
+                    slot += 1;
                     self.media
                         .dynamic
                         .insert(asset_name.clone(), Arc::new(pixmap));
@@ -6528,7 +6562,8 @@ impl OverlayRenderPlan {
                 | ElementKind::Whiteboard => {
                     if let Some(pixmap) = self.render_media_element(&element, time, pose)? {
                         let asset_name =
-                            dynamic_raster_asset_name("media", &element.id, pixmap.data());
+                            self.dynamic_asset_name("media", &element.id, pixmap.data(), slot);
+                        slot += 1;
                         self.media
                             .dynamic
                             .insert(asset_name.clone(), Arc::new(pixmap));
@@ -6546,7 +6581,7 @@ impl OverlayRenderPlan {
         }
         if let Some(subtitle) = subtitle {
             let subtitle_asset_name =
-                dynamic_raster_asset_name("subtitle", "layer", subtitle.rgba.as_slice());
+                self.dynamic_asset_name("subtitle", "layer", subtitle.rgba.as_slice(), slot);
             let subtitle_pixmap = Pixmap::from_vec(
                 (*subtitle.rgba).clone(),
                 IntSize::from_wh(self.width, self.height).context("subtitle layer 尺寸非法")?,
