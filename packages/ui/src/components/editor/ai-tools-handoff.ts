@@ -1,4 +1,4 @@
-import { RpcError, newId, nowIso, type AttachmentRef, type EditorContext, type Id, type SkillSendRef, type VideoRef } from '@baocut/protocol';
+import { RpcError, newId, nowIso, type EditorContext, type Id, type VideoRef } from '@baocut/protocol';
 import { ToastQueue } from '@react-spectrum/s2';
 import { mergeDraft, pickHandoff } from '../../model/ai-tools-handoff.ts';
 import { enqueueMessage } from '../../model/message-queue.ts';
@@ -12,24 +12,21 @@ import { AI_TOOLS_COPY as C } from './ai-tools-copy.ts';
 
 /**
  * 发到会话里；会话正忙（或前面还排着话）就排到队尾，等这一轮结束按顺序发（同会话页的输入框）。
- * `extra`：已经上传完的图片与点选的 skill（悬浮会话的输入框带得出来）。别的错误抛给调用方。
+ * 别的错误抛给调用方。
  */
 export async function sendOrQueue(
   runtime: RuntimeSession,
   conversationId: Id,
   text: string,
   context: EditorContext | null,
-  extra: { attachments?: AttachmentRef[]; skill?: SkillSendRef } = {},
 ): Promise<'sent' | 'queued'> {
-  const attachments = extra.attachments ?? [];
   const enqueue = () =>
     useShell.getState().setQueue(conversationId, (queue) =>
       enqueueMessage(queue, {
         id: newId('queue'),
         text,
-        attachments,
+        attachments: [],
         ...(context ? { context } : {}),
-        ...(extra.skill ? { skill: extra.skill } : {}),
         queuedAt: nowIso(),
       }),
     );
@@ -40,14 +37,7 @@ export async function sendOrQueue(
     return 'queued';
   }
   try {
-    await runtime.send(
-      conversationId,
-      text,
-      context ?? undefined,
-      attachments.length ? attachments.map((a) => a.id) : undefined,
-      undefined,
-      extra.skill,
-    );
+    await runtime.send(conversationId, text, context ?? undefined);
     return 'sent';
   } catch (error) {
     // 刚好有任务开跑（别的窗口、别的入口）：这句话排队，不丢。

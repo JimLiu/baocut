@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { DEFAULT_AGENT_MODE, RpcError, type AttachmentRef, type Id, type SkillSendRef } from '@baocut/protocol';
+import { DEFAULT_AGENT_MODE, type AttachmentRef, type Id, type SkillSendRef } from '@baocut/protocol';
 import { ActionButton, ToastQueue, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
 import Comment from '@react-spectrum/s2/icons/Comment';
 import Minimize from '@react-spectrum/s2/icons/Minimize';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { Button as RACButton } from 'react-aria-components';
-import { AGENT_PICKER } from '../../copy.ts';
-import { mergeDraft } from '../../model/ai-tools-handoff.ts';
 import { applyAgentChange, draftSelection } from '../../model/agent-choice.ts';
 import { sendFailureMessage } from '../../model/agent-skills.ts';
 import { gateGuide, homeGate } from '../../model/home-brief.ts';
@@ -23,10 +21,8 @@ import { useSetting } from '../../state/settings-store.ts';
 import { routeVideo, useShell } from '../../state/shell-store.ts';
 import { useVideo } from '../../state/video-store.ts';
 import { Composer } from '../composer.tsx';
-import { S } from '../shell-copy.ts';
 import { useEditorReference } from '../use-editor-reference.ts';
 import { AgentGateLine } from './agent-gate-line.tsx';
-import { sendOrQueue } from './ai-tools-handoff.ts';
 import { QUICK_CHAT_COPY as COPY } from './quick-chat-copy.ts';
 
 // 展开的卡片让开右侧竖排的工具栏（48px 宽的一列加 24px 间距）；最小化的圆形图标照旧贴在右下角、工具栏下方。
@@ -93,24 +89,22 @@ function draftKeyOf(videoKey: string | null): string {
  * 右边 Agent · 模型 · 推理强度，选择的语义也一样（按这个视频的草稿记，发出时带给新会话，选过的访问模式记成默认）。
  *
  * 发出即转到 Home 的这条会话，第一句话就是这段 prompt，编辑器此刻的状态随它带进去，会话里出这部视频的视频卡，点「打开编辑器」回来
- * （`video-cards.ts` `openingVideo`）。发送前不建空会话；项目里的视频每次都新建一条项目会话，回到 Space 仍从空的输入框开始。
- * 不属于项目的视频在它所属会话的临时目录里，只有那条会话的智能体读写得到：新会话碰不到它，所以话发到那条会话（忙就排队），
- * 访问模式与 Agent 也是那条会话的。
+ * （`video-cards.ts` `openingVideo`）。发送前不建空会话；每次都新建一条会话，回到 Space 仍从空的输入框开始。会话归入视频所在的项目；
+ * 视频不属于项目（在某条无项目会话的工作目录里）时新会话也不属于项目，显示在「最近」。
  */
 export function VideoQuickChat() {
   const runtime = useRuntime();
   const source = useVideo((s) => s.video?.ref?.source ?? null);
   const projectId = source?.projectId ?? null;
   const owner = projectId ? null : (source?.conversationId ?? null);
-  const ownerMeta = useConversationMeta(owner);
   const key = useShell((s) => {
     const target = routeVideo(s.route);
     return target ? targetKey(target) : null;
   });
   const draftKey = draftKeyOf(key);
-  // 图标上的点看这里最近发起的那条会话；不属于项目的视频就是它所属的会话。被删了（目录里找不到）就不亮。
+  // 图标上的点看这里最近发起的那条会话；被删了（目录里找不到）就不亮。
   const started = useShell((s) => (key ? (s.videoChats[key] ?? null) : null));
-  const watched = useConversationMeta(owner ?? started);
+  const watched = useConversationMeta(started);
   const prefMin = useShell((s) => s.videoChatMin);
   // 工具页（`aitools`）开着时，展开的卡片正好盖住页底的「交给 Agent」：这段时间按最小化显示，但不改记在本机的偏好；
   // 用户自己点开图标则这一次照常展开（`peek`），工具页关掉就复位，回到偏好的状态。工具页上的点开、最小化都只动 `peek`，不碰偏好。
@@ -130,6 +124,9 @@ export function VideoQuickChat() {
       ? null
       : (drivers?.find((d) => d.id === choice?.driverId) ?? defaultDriver(drivers, checking));
   const { model, effort } = draftSelection(driver, choice);
+  // 引用标签与发送时取的编辑器状态按视频自己的来源（项目，或它所在的那条无项目会话）认，不按新会话：新会话发出前还不存在。
+  // 不属于项目的视频，新会话的智能体打不开它（工具只认会话自己的工作目录，`VIDEO_OUTSIDE_WORKSPACE`）；
+  // 状态照样带上，为的是视频卡，也让智能体知道用户在看哪部视频。
   const editor = useEditorReference({ conversationId: owner, projectId });
   // 默认展开时不抢编辑器的焦点；用户自己点开的才把光标放进输入框（Composer 挂上时聚焦一次）。
   const [opened, setOpened] = useState(false);
@@ -144,7 +141,7 @@ export function VideoQuickChat() {
     requestAnimationFrame(() => triggerRef.current?.focus());
   };
 
-  /** 新建一条会话（项目里的视频归那个项目），转到它，再把第一句话发出去（同起始页 `onSend`）。 */
+  /** 新建一条会话（项目里的视频归那个项目，否则不属于项目），转到它，再把第一句话发出去（同起始页 `onSend`）。 */
   const startConversation = async (text: string, attachments: AttachmentRef[], skill: SkillSendRef | undefined, videoKey: string) => {
     // 编辑器此刻的状态在离开 Space 之前取：引用标签只认眼前显示的视频。
     const context = await editor.capture();
@@ -189,22 +186,6 @@ export function VideoQuickChat() {
     }
   };
 
-  /** 不属于项目的视频：转到它所属的那条会话接着说，忙就排队（同会话页的输入框）。 */
-  const continueOwner = async (conversationId: Id, text: string, attachments: AttachmentRef[], skill: SkillSendRef | undefined) => {
-    const context = await editor.capture();
-    useShell.getState().go({ tab: 'home', conversationId, projectId: null });
-    try {
-      await sendOrQueue(runtime, conversationId, text, context ?? null, { attachments, skill });
-      editor.reset();
-    } catch (error) {
-      ToastQueue.negative(sendFailureMessage(error), { timeout: 5000 });
-      useShell.getState().setDraft(conversationId, mergeDraft(useShell.getState().drafts[conversationId], text));
-      useDraftImages.getState().move(draftKey, conversationId);
-      useDraftSkills.getState().move(draftKey, conversationId);
-    }
-    return true;
-  };
-
   // 输入框里按 Esc 收起；补全弹层开着时 Esc 先关弹层。
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     const target = event.target as HTMLElement;
@@ -237,11 +218,10 @@ export function VideoQuickChat() {
     );
   }
 
-  const ownerControls = owner && ownerMeta;
   return (
     <aside className={`${dock({ isOpen: true })} ${panel}`} aria-label={COPY.label} onKeyDown={onKeyDown}>
       <div className={head}>
-        <span className={title}>{ownerControls ? ownerMeta.title || COPY.fresh : COPY.fresh}</span>
+        <span className={title}>{COPY.fresh}</span>
         <TooltipTrigger>
           <ActionButton isQuiet size="S" aria-label={COPY.minimize} onPress={minimize}>
             <Minimize />
@@ -252,40 +232,22 @@ export function VideoQuickChat() {
       <div className={body}>
         <Composer
           draftKey={draftKey}
-          driverId={ownerControls ? ownerMeta.driverId : (driver?.id ?? null)}
-          model={ownerControls ? ownerMeta.model : model}
-          effort={ownerControls ? ownerMeta.effort : effort}
-          // 所属会话做过活（视频就是它建的），Agent 已经固定。
-          lockedTo={ownerControls ? ownerMeta.driverId : null}
-          onAgentChange={(change) => {
-            if (!owner) {
-              useShell.getState().setDraftAgent(draftKey, applyAgentChange(choice, driver?.id ?? null, change));
-              return;
-            }
-            void runtime.updateConversation(owner, change).catch((error: Error) => {
-              const message = error instanceof RpcError && error.code === 'conflict' ? AGENT_PICKER.locked : S.conversationView.switchFailed(error.message);
-              ToastQueue.negative(message, { timeout: 5000 });
-            });
-          }}
-          accessMode={(ownerControls ? ownerMeta.accessMode : draftMode) ?? defaultMode ?? DEFAULT_AGENT_MODE}
-          onAccessModeChange={(accessMode) => {
-            if (!owner) {
-              useShell.getState().setDraftAccessMode(draftKey, accessMode);
-              return;
-            }
-            void runtime
-              .updateConversation(owner, { accessMode })
-              .catch((error: Error) => ToastQueue.negative(S.conversationView.accessModeFailed(error.message), { timeout: 5000 }));
-          }}
+          driverId={driver?.id ?? null}
+          model={model}
+          effort={effort}
+          lockedTo={null}
+          onAgentChange={(change) => useShell.getState().setDraftAgent(draftKey, applyAgentChange(choice, driver?.id ?? null, change))}
+          accessMode={draftMode ?? defaultMode ?? DEFAULT_AGENT_MODE}
+          onAccessModeChange={(accessMode) => useShell.getState().setDraftAccessMode(draftKey, accessMode)}
           busy={false}
           placeholder={COPY.placeholder}
           autoFocus={opened}
           reference={editor.reference}
-          mentionScope={{ projectId, conversationId: owner }}
+          mentionScope={{ projectId, conversationId: null }}
           onSend={async (text, attachments, skill) => {
             // 视频还没载入（不知道它在哪个项目）时先不发，话留在输入框里。
             if (!source || !key) return false;
-            return owner ? continueOwner(owner, text, attachments, skill) : startConversation(text, attachments, skill, key);
+            return startConversation(text, attachments, skill, key);
           }}
         />
       </div>
