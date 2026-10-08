@@ -194,17 +194,23 @@ export function createHandlers({
   const locateMedia = (target: FileTarget) => locateFileTarget(harness, space, target);
 
   /**
-   * 新建视频的位置：项目目录。给的是会话时用它所属的项目；不属于项目的会话先建项目并绑定（架构设计 §3.10），视频建在项目里。
+   * 新建视频的位置：项目目录。给的是会话时用它的来源：所属项目，不属于项目时是会话的工作目录（架构设计 §3.10，不为视频建项目）。
    */
-  const videoRoot = async (p: { projectId?: Id; conversationId?: Id }): Promise<{ root: string; scope: { projectId: Id } }> => {
+  const videoRoot = async (p: {
+    projectId?: Id;
+    conversationId?: Id;
+  }): Promise<{ root: string; scope: { projectId: Id } | { conversationId: Id } }> => {
     if (p.projectId) {
       const project = harness.listProjects().find((x) => x.id === p.projectId);
       if (!project) throw new RpcError('not-found', RcRuntime.projectNotFound());
       return { root: project.path, scope: { projectId: project.id } };
     }
     if (p.conversationId) {
-      const project = await harness.ensureConversationProject(p.conversationId);
-      return { root: project.path, scope: { projectId: project.id } };
+      const { conversation } = harness.getConversation(p.conversationId);
+      const project = conversation.projectId ? harness.listProjects().find((x) => x.id === conversation.projectId) : undefined;
+      return project
+        ? { root: project.path, scope: { projectId: project.id } }
+        : { root: conversation.cwd, scope: { conversationId: conversation.id } };
     }
     throw new RpcError('invalid-request', RcRuntime.newVideoNeedsTarget());
   };

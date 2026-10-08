@@ -424,11 +424,6 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       return { root: conversation.cwd, scope: { conversationId: conversation.id } };
     };
     const conversationRoot = (conversationId: Id) => conversationSource(conversationId).root;
-    // 流程按会话新建视频（`create: { conversationId }`）：不属于项目的会话先建项目并绑定（§3.10），视频建在项目里。
-    const conversationCreateSource = async (conversationId: Id): Promise<{ root: string; scope: { projectId: Id } }> => {
-      const project = await requireHarness().ensureConversationProject(conversationId);
-      return { root: project.path, scope: { projectId: project.id } };
-    };
     const models = await openModelJobs({
       home,
       credentials,
@@ -473,7 +468,8 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
           return entryPlace(spaceRef, entryId);
         },
         projectRoot,
-        conversationSource: conversationCreateSource,
+        // 流程按会话新建视频（`create: { conversationId }`）：建在会话的来源里，不属于项目时是它的工作目录（§3.10）。
+        conversationSource,
       },
       // 任务下的 Job 与流程应用结果时带上任务合同的保护范围（§3.2）。任务已经不在了（会话删掉了）时没有保护。
       taskProtections: async (taskId, videoId) => {
@@ -623,6 +619,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       budgets: models.grants,
       // 把无项目会话工作目录里的东西搬进项目时（§3.10），打开着的视频目录跳过。
       openVideoDirs: () => videos.openRefs().map((ref) => ref.path),
+      closeIdleVideos: (dir) => videos.closeIdleIn(dir),
       log,
     });
     stops.add('harness', () => harness.shutdown(), 'Stopping the Harness failed');

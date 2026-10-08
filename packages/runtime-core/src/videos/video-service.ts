@@ -383,6 +383,21 @@ export class VideoService {
     }
   }
 
+  /**
+   * 目录 `dir` 里没有打开者、没有租约、只在宽限期里等着关的视频：现在就关。搬视频目录之前用（无项目会话放进项目、删会话，
+   * 架构设计 §3.10）：会话的智能体刚放下的视频不必等宽限期过去。
+   */
+  async closeIdleIn(dir: string): Promise<void> {
+    const root = path.resolve(dir);
+    for (const [videoId, channel] of this.#channels) {
+      const session = channel.session;
+      if (!session || session.openers.size > 0 || session.leases > 0) continue;
+      const rel = path.relative(root, path.resolve(session.ref.path));
+      if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) continue;
+      await this.#closeSession(videoId, 'idle');
+    }
+  }
+
   #scheduleIdleClose(videoId: Id, channel: Channel): void {
     const session = channel.session;
     if (!session || session.openers.size > 0 || session.leases > 0 || session.closeTimer) return;

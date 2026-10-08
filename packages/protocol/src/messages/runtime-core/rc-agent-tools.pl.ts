@@ -84,4 +84,5 @@ export const pl: RcAgentToolsMessages = {
 
   registerProjectSummary: (p) => `Zarejestruj istniejący folder ${p.path} jako projekt${p.name ? ` (${p.name})` : ""}`,
   createProjectSummary: (p) => `Utwórz folder projektu ${p.path}${p.name ? ` (${p.name})` : ""}`,
+  adoptSessionSummary: (p) => `Utwórz projekt ${p.name ? `„${p.name}”` : 'o nazwie pierwszego wideo'} i przenieś do niego wideo i pliki tej sesji`,
 };

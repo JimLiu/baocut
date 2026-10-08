@@ -99,4 +99,5 @@ export const zhHans: RcAgentToolsMessages = {
 
   registerProjectSummary: (p) => `把已有的目录登记为项目 ${p.path}${p.name ? `（${p.name}）` : ''}`,
   createProjectSummary: (p) => `新建项目目录 ${p.path}${p.name ? `（${p.name}）` : ''}`,
+  adoptSessionSummary: (p) => `新建项目${p.name ? `「${p.name}」` : '（以第一个视频命名）'}，把这个会话的视频与文件搬进去`,
 };

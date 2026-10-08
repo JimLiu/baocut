@@ -692,7 +692,7 @@ export class VideoTools implements ToolSet {
 
   async #create(args: z.infer<(typeof schemas)['videos_create']>, principal: ToolPrincipal) {
     const access = this.#scope.authorize(principal, true);
-    // 位置先解析（对外服务缺 project、看不到的项目不弹确认）；确认之后才为新建做准备（无项目会话建项目并绑定，§3.10）。
+    // 位置先解析（对外服务缺 project、看不到的项目不弹确认）；确认之后才为新建做准备（终端登记项目）。
     await this.#scope.createRoot(access, args.project, { locate: true });
     const approval = await this.#scope.confirm(access, {
       tool: 'videos_create',
@@ -966,7 +966,6 @@ export class VideoTools implements ToolSet {
       tool: 'videos_import_package',
       ...confirmSummary(RcAgentTools.importPackageSummary({ file: path.basename(args.file) })),
     });
-    // 绑定项目会把工作目录里的东西搬进项目：相对路径在绑定之后按新的工作目录解析。
     const { root, scope, note } = await this.#scope.createRoot(access, args.project);
     const file = path.resolve(this.#scope.saveRoot(access), args.file);
     let opened = await this.#deps.packages.import({ ...scope, path: file }, root, scope, principal, {

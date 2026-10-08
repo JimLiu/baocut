@@ -131,4 +131,6 @@ export const de: RcAgentToolsMessages = {
   registerProjectSummary: (p: { path: string; name: string | null }) =>
     `Vorhandenen Ordner registrieren: ${p.path} als Projekt${p.name ? ` (${p.name})` : ""}`,
   createProjectSummary: (p: { path: string; name: string | null }) => `Projektordner erstellen: ${p.path}${p.name ? ` (${p.name})` : ""}`,
+  adoptSessionSummary: (p: { name: string | null }) =>
+    `Projekt ${p.name ? `„${p.name}“` : 'mit dem Namen des ersten Videos'} erstellen und die Videos und Dateien dieser Sitzung dorthin verschieben`,
 };

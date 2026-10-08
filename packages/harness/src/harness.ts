@@ -100,7 +100,7 @@ import type { Logger } from './logger.ts';
 import { addNotice, finishTask, projectAgentEvent, refreshActivity, type RunContext } from './projector.ts';
 import { TopicLog, type TopicSubscription } from './topic-log.ts';
 import { NO_TASK_BUDGET, assertAgentPatch, buildContract, carriedInput, reviseContract, type TaskBudgetPort } from './task-contracts.ts';
-import { containsVideo, isInside, moveEntries, removeIfEmpty, reusableProjectDir } from './scratch.ts';
+import { containsVideo, firstVideoName, isInside, moveEntries, moveInto, removeIfEmpty, reusableProjectDir } from './scratch.ts';
 
 export interface HarnessOptions {
   home: RuntimeHome;
@@ -134,10 +134,12 @@ export interface HarnessOptions {
   /** 任务预算的账本（架构设计 §3.2、§7.8）：每个任务建立时登记它的预算策略。没有时合同不带 `budgetPolicyRef`、不能设预算。 */
   budgets?: TaskBudgetPort;
   /**
-   * 此刻打开着的视频目录（真实路径）。把会话工作目录里的东西搬进项目时跳过它们（与包含它们的目录），留到下次（重启时）再搬。
+   * 此刻打开着的视频目录（真实路径）。把会话工作目录里的东西搬进项目时跳过它们（与包含它们的目录），关掉之后再搬。
    * 没有时当作都没有打开。
    */
   openVideoDirs?: () => readonly string[];
+  /** 搬工作目录之前，把其中没人再用、只在宽限期里等着关的视频现在就关掉（§3.10）。 */
+  closeIdleVideos?: (dir: string) => Promise<void>;
 }
 
 /** 附件仓库：`attachments.prepare` 登记、经上传地址收下的图片，发送时换成本地文件交给 Driver。 */
@@ -163,6 +165,8 @@ const SESSION_IDLE_MS = 10 * 60_000;
 const STALE_RECHECK_MS = 60_000;
 /** 无项目会话绑定项目时，选定的项目目录先记在工作目录里的这个文件（§3.10 的幂等键）；绑定完成后删掉。 */
 const BIND_INTENT_FILE = '.baocut-binding.json';
+/** 搬进项目时因为视频开着留下的工作目录，隔多久再搬一次。 */
+const FOLD_RETRY_MS = 30_000;
 /**
  * 运行中出现这些错误，说明这个 Driver 的探测结果可能过时了（刚退出登录、卸载、升级了 CLI、模型表变了）：
  * 后台强制重新探测它（§3.11）。不直接改写缓存里的状态：探测是唯一的事实来源。
@@ -242,7 +246,10 @@ export class Harness {
   readonly #binding = new Map<Id, Promise<Project>>();
   /** 回合进行中绑定了项目的会话：回合结束时收拾工作目录里剩下的东西，并关掉原生会话（下一轮在项目目录里起）。 */
   readonly #rebound = new Set<Id>();
+  /** 搬进项目时因为视频开着没搬完的工作目录 → 下次再搬的计时器（视频关掉后搬走，§3.10）。 */
+  readonly #foldRetries = new Map<string, ReturnType<typeof setTimeout>>();
   readonly #openVideoDirs: () => readonly string[];
+  readonly #closeIdleVideos: (dir: string) => Promise<void>;
   readonly #directory: TopicLog<DirectorySnapshot, DirectoryEvent>;
   readonly #tasks: TopicLog<TasksSnapshot, TasksEvent>;
   readonly #agentsTopic: TopicLog<AgentsSnapshot, AgentsEvent>;
@@ -262,6 +269,7 @@ export class Harness {
     this.#providers = options.providers ?? null;
     this.#attachments = options.attachments ?? null;
     this.#openVideoDirs = options.openVideoDirs ?? (() => []);
+    this.#closeIdleVideos = options.closeIdleVideos ?? (async () => {});
     this.#agents = new AgentManager(
       this.#drivers,
       (id, session, event) => this.#onAgentEvent(id, session, event),
@@ -491,9 +499,11 @@ export class Harness {
   // ---- 无项目会话绑定项目（架构设计 §3.10） ----
 
   /**
-   * 无项目的会话第一次需要新建视频时：先在项目目录下建立项目并登记（与 `createProject` 同一条路径，名字取会话标题，没有标题用默认名），
-   * 再把会话绑定到它（`projectId` 从 null 变为它，工作目录换成项目目录），工作目录里已有的东西原样搬进项目目录（相对路径不变）。
-   * 之后视频建在项目里，Space 按项目列出，删会话不影响它们。已经属于项目的会话直接返回那个项目。
+   * 把无项目的会话放进一个新项目（用户明确要建项目时由智能体的 `projects_adopt_session` 调用；删除还有视频的会话之前也走这里）：先在项目目录下
+   * 建立项目并登记（与 `createProject` 同一条路径；名字是给的 `name`，不给时取工作目录里最早建的视频的名字，没有视频时取会话标题，
+   * 再没有用默认名），再把会话绑定到它（`projectId` 从 null 变为它，工作目录换成项目目录），工作目录里已有的东西原样搬进项目目录
+   * （相对路径不变）。之后视频建在项目里，Space 按项目列出，删会话不影响它们。已经属于项目的会话直接返回那个项目。
+   * 新建视频本身不绑定：无项目会话的视频就建在它的工作目录里。
    *
    * 幂等：会话记录上的 `projectId` 是持久的锚点，绑定之后再来的调用（重试、同一命令的重复提交、崩溃后恢复的流程）都拿回同一个项目；
    * 同一个会话同时到来的调用共用一趟。选定的项目目录在建之前先记在工作目录的 `.baocut-binding.json` 里：项目建好、会话还没绑定之间
@@ -502,7 +512,7 @@ export class Harness {
    * 回合进行中绑定时，原生会话仍以原来的工作目录起着：旧路径换成指向项目目录的链接（Windows 是目录联接），回合里按旧路径的读写
    * 落到项目里；回合结束时删掉链接并关掉原生会话（下一轮在项目目录里起，按恢复句柄续上）。
    */
-  ensureConversationProject(conversationId: Id): Promise<Project> {
+  ensureConversationProject(conversationId: Id, options: { name?: string } = {}): Promise<Project> {
     const state = this.#require(conversationId);
     if (state.conversation.projectId) {
       const project = this.#projects.get(state.conversation.projectId);
@@ -511,12 +521,12 @@ export class Harness {
     }
     const running = this.#binding.get(conversationId);
     if (running) return running;
-    const run = this.#bind(state).finally(() => this.#binding.delete(conversationId));
+    const run = this.#bind(state, options.name).finally(() => this.#binding.delete(conversationId));
     this.#binding.set(conversationId, run);
     return run;
   }
 
-  async #bind(state: ConversationState): Promise<Project> {
+  async #bind(state: ConversationState, name: string | undefined): Promise<Project> {
     const id = state.id;
     const scratch = this.#ownScratch(state.conversation);
     const intentFile = scratch ? path.join(scratch, BIND_INTENT_FILE) : null;
@@ -531,7 +541,7 @@ export class Harness {
       if (dir && isInside(this.#home.projectsDir, dir) && (await reusableProjectDir(dir))) project = await this.openProject(dir);
     }
     project ??= await this.#newProjectDir(
-      state.conversation.title,
+      name?.trim() || (scratch ? await firstVideoName(scratch) : null) || state.conversation.title,
       intentFile ? (dir) => fs.writeFile(intentFile, JSON.stringify({ path: dir })) : undefined,
     );
     // 会话可能在这期间被删掉了：项目留着，不再绑定。
@@ -566,7 +576,29 @@ export class Harness {
     if (!stat.isDirectory()) return;
     await this.#foldScratch(state, scratch, project);
     await fs.rm(path.join(scratch, BIND_INTENT_FILE), { force: true });
-    await removeIfEmpty(scratch);
+    if (!(await removeIfEmpty(scratch))) await this.#retryFoldLater(scratch, project.id, state?.id ?? null);
+  }
+
+  /** 工作目录里还有开着的视频没搬：过一会儿再搬，直到搬完（视频关掉之后）。回合还在用旧目录时等回合结束（`#afterRebind`）。 */
+  async #retryFoldLater(scratch: string, projectId: Id, conversationId: Id | null): Promise<void> {
+    if (this.#closing || this.#foldRetries.has(scratch)) return;
+    const real = await fs.realpath(scratch).catch(() => null);
+    if (!real || !this.#openVideoDirs().some((dir) => isInside(real, dir))) return;
+    const timer = setTimeout(() => {
+      this.#foldRetries.delete(scratch);
+      const project = this.#projects.get(projectId);
+      if (this.#closing || !project) return;
+      if (conversationId && this.#runs.has(conversationId)) {
+        void this.#retryFoldLater(scratch, projectId, conversationId);
+        return;
+      }
+      const state = conversationId ? (this.#states.get(conversationId) ?? null) : null;
+      void this.#clearScratch(state, scratch, project).catch((error: unknown) =>
+        this.#log.warn('Failed to move the rest of a session folder into its project', { projectId, error: String(error) }),
+      );
+    }, FOLD_RETRY_MS);
+    timer.unref?.();
+    this.#foldRetries.set(scratch, timer);
   }
 
   /** 会话自己的、在 Runtime Home 的 scratch 下的工作目录；别处的（项目目录）为 null。 */
@@ -576,12 +608,13 @@ export class Harness {
   }
 
   /**
-   * 把会话工作目录里的东西原样搬进项目目录（打开着的视频目录跳过，留到下次），并把会话里指向旧工作目录的视频卡改指向项目。
+   * 把会话工作目录里的东西原样搬进项目目录（打开着的视频目录跳过，关掉后再搬），并把会话里指向旧工作目录的视频卡改指向项目。
    * 打开着的视频由引擎按打开的文件继续读写；跳过它们只是为了不在 Windows 上改名失败。
    */
   async #foldScratch(state: ConversationState | null, scratch: string, project: Project): Promise<void> {
     const real = await fs.realpath(scratch).catch(() => null);
     if (!real) return;
+    await this.#closeIdleVideos(real).catch(() => {});
     let moved: Map<string, string>;
     try {
       moved = await moveEntries(real, project.path, { skip: new Set([BIND_INTENT_FILE]), busy: this.#openVideoDirs() });
@@ -609,25 +642,42 @@ export class Harness {
   }
 
   /**
-   * 启动时收拾 scratch（§3.10），在客户端连上之前跑：
+   * 启动时收拾会话的工作目录（§3.10），在客户端连上之前跑：
    *
-   * - 仍有会话、没有项目、工作目录里有视频的（升级前建的）：与第一次新建视频一样建项目、搬进去、绑定；
+   * - 旧版本放在 Runtime Home 里的（`legacyScratchDir`）：无项目会话的搬到 `scratchDir`，会话的工作目录跟着换；
    * - 已经属于项目的会话还留着的工作目录或链接（回合中绑定后没来得及收拾）：链接删掉，目录里剩下的东西搬进项目，删掉空目录；
    * - 没有对应会话的：有视频的把其中不隐藏的条目搬进「恢复的视频」项目（按界面语言命名，已有就沿用），然后删掉；没有视频的直接删掉。
    *
-   * 一个目录出错不影响别的，记日志后留着，下次启动再试。
+   * 无项目会话自己的工作目录不动：里面的视频就留在那里。一个目录出错不影响别的，记日志后留着，下次启动再试。
    */
-  async migrateScratch(): Promise<{ bound: number; folded: number; recovered: number; removed: number }> {
-    const result = { bound: 0, folded: 0, recovered: 0, removed: 0 };
+  async migrateScratch(): Promise<{ moved: number; folded: number; recovered: number; removed: number }> {
+    const result = { moved: 0, folded: 0, recovered: 0, removed: 0 };
+    const recovered: { project: Project | null } = { project: null };
+    const legacy = this.#home.legacyScratchDir;
+    if (legacy) {
+      await this.#tidyScratchDir(legacy, result, recovered, true);
+      await this.#relocateLegacyCwds(legacy, result);
+      await removeIfEmpty(legacy);
+    }
+    await this.#tidyScratchDir(this.#home.scratchDir, result, recovered, false);
+    if (result.moved || result.folded || result.recovered || result.removed) this.#log.info('Tidied session folders', result);
+    return result;
+  }
+
+  async #tidyScratchDir(
+    base: string,
+    result: { moved: number; folded: number; recovered: number; removed: number },
+    recovered: { project: Project | null },
+    legacy: boolean,
+  ): Promise<void> {
     let entries: import('node:fs').Dirent[];
     try {
-      entries = await fs.readdir(this.#home.scratchDir, { withFileTypes: true });
+      entries = await fs.readdir(base, { withFileTypes: true });
     } catch {
-      return result;
+      return;
     }
-    let recovered: Project | null = null;
     for (const entry of entries) {
-      const dir = path.join(this.#home.scratchDir, entry.name);
+      const dir = path.join(base, entry.name);
       // 回合中绑定时留下的链接：启动时没有回合，删掉。
       if (entry.isSymbolicLink()) {
         await fs.unlink(dir).catch(() => {});
@@ -642,12 +692,15 @@ export class Harness {
           await this.#clearScratch(state, dir, project);
           result.folded++;
         } else if (state) {
-          if (!(await containsVideo(dir))) continue;
-          await this.ensureConversationProject(state.id);
-          result.bound++;
+          if (!legacy || path.resolve(state.conversation.cwd) !== path.resolve(dir)) continue;
+          // 旧位置的工作目录：整个搬到新位置。视频卡按会话与相对路径定位，不用改。
+          await fs.mkdir(this.#home.scratchDir, { recursive: true });
+          const name = await moveInto(dir, this.#home.scratchDir, entry.name);
+          state.updateConversation({ cwd: path.join(this.#home.scratchDir, name) }, { touch: false });
+          result.moved++;
         } else if (await containsVideo(dir)) {
-          recovered ??= await this.#recoveredProject();
-          await moveEntries(await fs.realpath(dir), recovered.path, { skipHidden: true });
+          recovered.project ??= await this.#recoveredProject();
+          await moveEntries(await fs.realpath(dir), recovered.project.path, { skipHidden: true });
           await fs.rm(dir, { recursive: true, force: true });
           result.recovered++;
         } else {
@@ -658,8 +711,21 @@ export class Harness {
         this.#log.warn('Failed to tidy a session folder; will retry next start', { folder: entry.name, error: String(error) });
       }
     }
-    if (result.bound || result.folded || result.recovered || result.removed) this.#log.info('Tidied session folders', result);
-    return result;
+    await this.#store.flush();
+  }
+
+  /** 工作目录还指着旧位置、目录却已经不在的无项目会话：换到新位置（建出空目录），以后的文件写到那里。 */
+  async #relocateLegacyCwds(legacy: string, result: { moved: number }): Promise<void> {
+    for (const state of this.#states.values()) {
+      const { conversation } = state;
+      if (conversation.projectId || !isInside(legacy, conversation.cwd)) continue;
+      if (await fs.lstat(conversation.cwd).then(() => true, () => false)) continue;
+      const cwd = path.join(this.#home.scratchDir, conversation.id);
+      await fs.mkdir(cwd, { recursive: true }).catch(() => {});
+      state.updateConversation({ cwd }, { touch: false });
+      result.moved++;
+    }
+    await this.#store.flush();
   }
 
   /** 收容没有会话的视频的项目：按界面语言命名；那个目录已经登记（或在那里）就沿用，不每次启动都新建一个。 */
@@ -725,7 +791,8 @@ export class Harness {
     });
 
     const id = newId('conv');
-    // 无项目会话的工作目录在 Runtime Home 的 scratch 下；第一次新建视频时建项目并绑定，东西搬进项目（§3.10，`ensureConversationProject`）。
+    // 无项目会话的工作目录在 `scratchDir` 下（系统给应用的数据目录），新建的视频也在这里；用户要建项目时才绑定，东西搬进项目
+    // （§3.10，`ensureConversationProject`）。
     const cwd = project ? project.path : path.join(this.#home.scratchDir, id);
     await fs.mkdir(cwd, { recursive: true });
     const now = nowIso();
@@ -891,8 +958,8 @@ export class Harness {
 
   /**
    * 只删会话记录（架构设计 §3.10）：不碰项目目录。运行中的任务先停下。
-   * 不属于项目、工作目录里还有视频的（升级前建的）先与第一次新建视频一样建项目并搬进去，视频不随会话消失；搬不了的留在原处，
-   * 下次启动收进「恢复的视频」。属于项目的会话还留着的工作目录，剩下的东西搬进项目；没有视频的工作目录随会话删掉。
+   * 不属于项目、工作目录里还有视频的，先建一个以视频命名的项目并搬进去（`ensureConversationProject`），视频不随会话消失；搬不了的
+   * 留在原处，下次启动收进「恢复的视频」。属于项目的会话还留着的工作目录，剩下的东西搬进项目；没有视频的工作目录随会话删掉。
    */
   async deleteConversation(id: Id): Promise<void> {
     const state = this.#require(id);
@@ -1911,6 +1978,8 @@ export class Harness {
       this.#finish(state, run, 'stopped', null);
     }
     for (const id of [...this.#idleTimers.keys()]) this.#cancelIdle(id);
+    for (const timer of this.#foldRetries.values()) clearTimeout(timer);
+    this.#foldRetries.clear();
     await this.#agents.releaseAll();
     // 之后才完成的探测不再写缓存、不再推送。
     this.#drivers.close();

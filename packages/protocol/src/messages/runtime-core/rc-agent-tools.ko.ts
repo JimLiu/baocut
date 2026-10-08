@@ -103,4 +103,5 @@ export const ko: RcAgentToolsMessages = {
 
   registerProjectSummary: (p) => `기존 폴더를 프로젝트로 등록: ${p.path}${p.name ? `(${p.name})` : ''}`,
   createProjectSummary: (p) => `프로젝트 폴더 ${p.path}${p.name ? `(${p.name})` : ''} 만들기`,
+  adoptSessionSummary: (p) => `프로젝트${p.name ? ` '${p.name}'` : '(첫 번째 동영상 이름)'}를 만들고 이 세션의 동영상과 파일을 옮기기`,
 };

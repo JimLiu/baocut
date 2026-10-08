@@ -84,4 +84,5 @@ export const ru: RcAgentToolsMessages = {
 
   registerProjectSummary: (p) => `Зарегистрировать существующую папку ${p.path} как проект${p.name ? ` (${p.name})` : ""}`,
   createProjectSummary: (p) => `Создать папку проекта ${p.path}${p.name ? ` (${p.name})` : ""}`,
+  adoptSessionSummary: (p) => `Создать проект ${p.name ? `«${p.name}»` : 'с названием первого видео'} и перенести в него видео и файлы этой сессии`,
 };

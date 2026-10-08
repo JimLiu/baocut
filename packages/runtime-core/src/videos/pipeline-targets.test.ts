@@ -315,7 +315,7 @@ describe.skipIf(!engine)('视频工具的目标（真实引擎）', () => {
       expect(entry.origin).toMatchObject({ source: 'imported', projectId: project.id, videoId, jobId, capability: 'link-import' });
     });
 
-    it('智能体新建视频：风险仍是 command、项目默认是会话的；别的项目拒绝，不属于项目的会话先建项目并绑定', async () => {
+    it('智能体新建视频：风险仍是 command、项目默认是会话的；别的项目拒绝，不属于项目的会话建在它的工作目录里', async () => {
       const {
         conversation: { id: conversationId },
       } = await client.request('conversations.create', { projectId: project.id });
@@ -382,7 +382,8 @@ describe.skipIf(!engine)('视频工具的目标（真实引擎）', () => {
       expect(hidden).toMatchObject({ isError: true, body: { error: { code: 'PROJECT_NOT_FOUND' } } });
       expect(runtime.harness.approvals.pending()).toEqual([]);
 
-      // 不给项目：与 videos_create 一样，确认之后先建项目并把会话绑定到它（§3.10），流程的新建目标直接是那个项目，文件仍进下载目录。
+      // 不给项目：与 videos_create 一样建在会话的工作目录里（§3.10），不建项目；流程的新建目标是会话，文件仍进下载目录。
+      const projectsBefore = runtime.harness.listProjects().length;
       const creating = tool(looseSession, 'download', {
         url: 'https://video.example.com/watch?v=abc',
         newVideo: true,
@@ -391,42 +392,37 @@ describe.skipIf(!engine)('视频工具的目标（真实引擎）', () => {
       const approval = await until(() => runtime.harness.approvals.pending()[0]);
       expect(approval).toMatchObject({ action: { name: 'download' }, risk: 'command' });
       expect(approval.action.summary).toContain('新建视频「会话里的视频」并放上时间线');
-      // 确认之前不建项目。
-      expect(runtime.harness.conversationOf(loose)?.projectId).toBeNull();
       await client.request('approvals.respond', { approvalId: approval.approvalId, decision: 'allow' });
       const looseStarted = await creating;
       expect(looseStarted).toMatchObject({ isError: false, body: { jobId: expect.stringMatching(/^job_/) } });
       expect(looseStarted.body).not.toHaveProperty('notice');
-      const boundId = runtime.harness.conversationOf(loose)!.projectId!;
-      const boundProject = runtime.harness.listProjects().find((p) => p.id === boundId)!;
-      expect(boundProject).toBeTruthy();
-      expect(runtime.harness.conversationOf(loose)!.cwd).toBe(boundProject.path);
+      expect(runtime.harness.conversationOf(loose)).toMatchObject({ projectId: null, cwd: looseCwd });
+      expect(runtime.harness.listProjects()).toHaveLength(projectsBefore);
       const looseJob = await settled(looseStarted.body.jobId);
       expect(looseJob).toMatchObject({
         state: 'completed',
-        pipeline: { params: { create: { projectId: boundId, name: '会话里的视频' } } },
+        pipeline: { params: { create: { conversationId: loose, name: '会话里的视频' } } },
       });
       const looseSummary = looseJob.pipeline!.summary as unknown as LinkImportSummary;
       expect(looseSummary).toMatchObject({ createdVideo: true, videoId: expect.any(String), assetId: expect.any(String) });
       expect(path.dirname(looseSummary.files.media)).toBe(await fs.realpath(process.env.BAOCUT_DOWNLOADS_DIR!));
       await until(() => runtime.videos.ref(looseSummary.videoId!) === null);
-      // 原来的项目里没有多出视频；视频在新项目里，会话自己的 videos_list 看得到。
+      // 原来的项目里没有多出视频；视频在会话的工作目录里，会话自己的 videos_list 看得到。
       expect(await videoDirs()).toHaveLength(1);
-      expect(looseCwd).not.toBe(boundProject.path);
       const listed = await tool(looseSession, 'videos_list', {});
       expect(listed.isError).toBe(false);
       const videos = listed.body.videos as Array<{ path: string }>;
       expect(videos).toHaveLength(1);
-      expect(await fs.stat(path.join(boundProject.path, videos[0]!.path, 'video.db'))).toBeTruthy();
+      expect(await fs.stat(path.join(looseCwd, videos[0]!.path, 'video.db'))).toBeTruthy();
       const inspected = await tool(looseSession, 'videos_inspect', { video: videos[0]!.path });
       expect(inspected).toMatchObject({ isError: false, body: { videoId: looseSummary.videoId, name: '会话里的视频' } });
       await settle();
       const looseEntry = (await client.request('space.list', { videoId: looseSummary.videoId!, kind: 'video' })).entries[0]!;
-      expect(looseEntry.source).toMatchObject({ projectId: boundId, conversationId: null });
+      expect(looseEntry.source).toMatchObject({ projectId: null, conversationId: loose });
       expect(looseEntry.origin).toMatchObject({ jobId: looseJob.jobId, conversationId: loose });
     });
 
-    it('按不属于项目的会话新建（`create: { conversationId }`）：先建项目并绑定，视频建在项目里；同一命令重复提交不建第二个项目', async () => {
+    it('按不属于项目的会话新建（`create: { conversationId }`）：视频建在会话的工作目录里，不建项目；同一命令重复提交是同一个任务', async () => {
       const {
         conversation: { id: loose, cwd: scratch },
       } = await client.request('conversations.create', { projectId: null, title: '链接里的片' });
@@ -441,23 +437,18 @@ describe.skipIf(!engine)('视频工具的目标（真实引擎）', () => {
       const job = await settled(jobId);
       expect(job).toMatchObject({ state: 'completed' });
       const summary = job.pipeline!.summary as unknown as LinkImportSummary;
-      const bound = runtime.harness.conversationOf(loose)!;
-      const boundProject = runtime.harness.listProjects().find((p) => p.id === bound.projectId)!;
-      expect(boundProject).toMatchObject({ name: '链接里的片' });
-      expect(bound.cwd).toBe(boundProject.path);
-      expect(runtime.harness.listProjects()).toHaveLength(before + 1);
+      expect(runtime.harness.conversationOf(loose)).toMatchObject({ projectId: null, cwd: scratch });
+      expect(runtime.harness.listProjects()).toHaveLength(before);
       await until(() => runtime.videos.ref(summary.videoId!) === null);
-      const dirs = (await fs.readdir(boundProject.path)).filter((name) => !name.startsWith('.'));
+      const dirs = (await fs.readdir(scratch)).filter((name) => !name.startsWith('.'));
       expect(dirs).toHaveLength(1);
-      await fs.access(path.join(boundProject.path, dirs[0]!, 'video.db'));
-      // 会话的旧工作目录没有回合在用：删掉了。
-      expect(await fs.lstat(scratch).then(() => true, () => false)).toBe(false);
-      // 同一命令再提交：同一个任务，不另建项目与视频。
+      await fs.access(path.join(scratch, dirs[0]!, 'video.db'));
+      // 同一命令再提交：同一个任务，不另建视频。
       expect((await client.request('pipelines.start', request)).jobId).toBe(jobId);
-      expect(runtime.harness.listProjects()).toHaveLength(before + 1);
+      expect(runtime.harness.listProjects()).toHaveLength(before);
       await settle();
       const entry = (await client.request('space.list', { videoId: summary.videoId!, kind: 'video' })).entries[0]!;
-      expect(entry.source).toMatchObject({ projectId: boundProject.id, conversationId: null });
+      expect(entry.source).toMatchObject({ projectId: null, conversationId: loose });
     });
 
     it('不属于项目的会话只下载之后，按媒体的 artifactId 导入视频（bytes 收进视频，来源是这次下载）', async () => {

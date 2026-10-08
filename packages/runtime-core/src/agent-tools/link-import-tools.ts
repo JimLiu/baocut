@@ -245,8 +245,7 @@ async function start(deps: LinkImportToolsDeps, args: LinkImportRequest, princip
     );
     return { jobId: null, installJobId: installed.jobId, tool: toolView(installed.tool), ...approvalField(approval), next: installNext };
   }
-  // 落点先解析（范围之外的不弹确认）。
-  // 落点先只找位置（看不到的项目不弹确认）；新建视频的确认之后再取一次，无项目会话那时才建项目并绑定（§3.10）。
+  // 落点先只找位置（范围之外、看不到的项目不弹确认）；新建视频的确认之后再取一次（终端那时才登记项目）。
   let target = await targetOf(deps, args, access, { locate: true });
   const placed = args.video !== undefined || args.newVideo === true || args.project !== undefined;
   // 文件进项目的 downloads/：对外服务只能写进项目（§12.8），有落点就进；智能体只在只给 project（只下载到项目）时进，
@@ -342,7 +341,7 @@ async function targetOf(
   const { scope } = deps;
   if (args.video !== undefined) return { videoId: (await scope.open(args.video, access)).ref.videoId };
   // 新建的位置只在要用时才取：终端的范围取它时会登记项目（或建默认项目）；看不到的项目与不存在的一样回答。
-  // 只下载（不新建视频）时只找位置：会话不因此绑定项目。
+  // 只下载（不新建视频）时只找位置。
   const source = (await scope.createRoot(access, args.project, { locate: options.locate || !args.newVideo })).scope;
   if (args.newVideo) return { target: { create: { ...source, ...(args.name ? { name: args.name } : {}) } } };
   return source;

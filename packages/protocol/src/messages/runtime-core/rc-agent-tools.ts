@@ -175,6 +175,8 @@ const en = {
   registerProjectSummary: (p: { path: string; name: string | null }) =>
     `Register the existing folder ${p.path} as a project${p.name ? ` (${p.name})` : ''}`,
   createProjectSummary: (p: { path: string; name: string | null }) => `Create project folder ${p.path}${p.name ? ` (${p.name})` : ''}`,
+  adoptSessionSummary: (p: { name: string | null }) =>
+    `Create a project ${p.name ? `“${p.name}”` : 'named after the first video'} and move this session’s videos and files into it`,
 };
 
 export type RcAgentToolsMessages = typeof en;

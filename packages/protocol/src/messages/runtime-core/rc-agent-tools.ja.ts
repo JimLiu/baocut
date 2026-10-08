@@ -108,4 +108,5 @@ export const ja: RcAgentToolsMessages = {
 
   registerProjectSummary: (p) => `既存のフォルダ ${p.path} をプロジェクトとして登録${p.name ? `（${p.name}）` : ''}`,
   createProjectSummary: (p) => `プロジェクトフォルダ ${p.path} を作成${p.name ? `（${p.name}）` : ''}`,
+  adoptSessionSummary: (p) => `プロジェクト${p.name ? `「${p.name}」` : '（最初の動画の名前）'}を作成し、このセッションの動画とファイルを移動`,
 };

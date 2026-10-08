@@ -39,6 +39,9 @@ description: 任务的查看、等待、取消与重跑；跨视频检索、视�
 | 列出视频 | {{tool:videos_list}} |
 | 列出项目 | {{tool:projects_list}} |
 | 新建项目（用户要求时） | {{tool:projects_create}}，{{arg:path}}；可给 {{arg:name}} |
+<!-- surface: agent -->
+| 把这个会话收进新项目（会话不属于项目、用户要求时） | {{tool:projects_adopt_session}}；默认以视频命名，可给 {{arg:name}} |
+<!-- /surface -->
 | 跨视频按文稿、字幕、译文、章节、说话人找 | {{tool:space_search}}，{{arg:query}}；可给 {{arg:videoIds}}、{{arg:kinds}}、{{arg:speaker}} |
 | 列出 Space 条目（视频、导出的文件、生成的图片与音频） | {{tool:space_list}}；可按 {{arg:kind}}、{{arg:videoId}} 筛选 |
 | 删除视频（移进回收站；用户明确要求时） | {{tool:videos_delete}}，{{arg:video}} |

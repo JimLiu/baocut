@@ -48,5 +48,5 @@ export const fr: RcAgentToolsMessages = {
   grantSummary: (p) => `Partager des données avec ${p.recipients} : ${p.items}`, grantSummaryItem: (p) => `${p.purpose} (${p.maxCalls === null ? 'sans limite d’appels' : `${p.maxCalls} ${pluralForm('fr', p.maxCalls, { one: 'appel maximum', other: 'appels maximum' })}`})`,
   testModelSummary: (p) => `Vérifier le paquet de modèle local ${p.bundleId} : l’exécuter de bout en bout sur un exemple fixe`,
   installModelSummary: (p) => `Télécharger le modèle local ${p.bundleId} : ${p.estimated ? `environ ${p.size} (taille inconnue, estimée)` : p.size}${p.resumed ? `, reprise des ${p.resumed} déjà téléchargés` : ''}, depuis ${p.source} (${p.parts})`,
-  registerProjectSummary: (p) => `Enregistrer le dossier existant ${p.path} comme projet${p.name ? ` (${p.name})` : ''}`, createProjectSummary: (p) => `Créer le dossier du projet ${p.path}${p.name ? ` (${p.name})` : ''}`,
+  registerProjectSummary: (p) => `Enregistrer le dossier existant ${p.path} comme projet${p.name ? ` (${p.name})` : ''}`, createProjectSummary: (p) => `Créer le dossier du projet ${p.path}${p.name ? ` (${p.name})` : ''}`, adoptSessionSummary: (p) => `Créer un projet ${p.name ? `« ${p.name} »` : 'nommé d’après la première vidéo'} et y déplacer les vidéos et fichiers de cette session`,
 };

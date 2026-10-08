@@ -151,21 +151,21 @@ export class AgentScope implements ToolScope<AgentAccess> {
   }
 
   /**
-   * 新建视频的位置：会话所属的项目。给了 `project` 时只能是会话所属的项目（按 id 或目录），别的与不存在的一样回答。
-   * 不属于项目的会话第一次新建视频时，先建项目并把会话绑定到它（§3.10，`Harness.ensureConversationProject`），视频建在项目里；
-   * `locate` 时只找位置（确认之前、删除视频时），不绑定，会话还没有项目时回答会话的工作目录。
+   * 新建视频的位置：会话的来源，也就是所属项目的目录，不属于项目时是会话的工作目录（§3.10，视频留在那里，不为它建项目）。
+   * 给了 `project` 时只能是会话所属的项目（按 id 或目录），别的与不存在的一样回答。
    */
-  async createRoot(access: AgentAccess, project?: string, options: { locate?: boolean } = {}): Promise<VideoRoot> {
+  async createRoot(access: AgentAccess, project?: string): Promise<VideoRoot> {
     const source = this.source(access.conversation);
     if (
       project !== undefined &&
       !('projectId' in source.scope && (project === source.scope.projectId || path.resolve(project) === path.resolve(source.root)))
     ) {
-      throw new ToolError('PROJECT_NOT_FOUND', `找不到项目「${project}」：只能在会话所属的项目里新建；不给 project 时建在会话的项目里`);
+      throw new ToolError(
+        'PROJECT_NOT_FOUND',
+        `找不到项目「${project}」：只能在会话所属的项目里新建；不给 project 时建在会话的项目里，不属于项目的会话建在它的工作目录里`,
+      );
     }
-    if (options.locate || 'projectId' in source.scope) return source;
-    const bound = await this.#harness.ensureConversationProject(access.conversation.id);
-    return { root: bound.path, scope: { projectId: bound.id } };
+    return source;
   }
 
   /** `importAsset.path` 相对会话的工作目录；绝对路径与 `~/` 照常接受（用户给的素材常在别处）。 */

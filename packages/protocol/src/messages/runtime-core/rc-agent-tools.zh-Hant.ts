@@ -103,4 +103,5 @@ export const zhHant: RcAgentToolsMessages = {
 
   registerProjectSummary: (p) => `將現有資料夾 ${p.path} 登記為專案${p.name ? `（${p.name}）` : ''}`,
   createProjectSummary: (p) => `建立專案資料夾 ${p.path}${p.name ? `（${p.name}）` : ''}`,
+  adoptSessionSummary: (p) => `建立專案${p.name ? `「${p.name}」` : '（以第一部影片命名）'}，把這個對話的影片與檔案移進去`,
 };

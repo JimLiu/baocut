@@ -166,6 +166,8 @@ export const TOOL_RISK: Readonly<Record<string, RiskLevel>> = {
   // 新建项目：在会话的来源目录里是 `edit`，别处是写项目目录之外（`high`），调用时按路径给出；这里是默认值。
   projects_list: 'read',
   projects_create: 'high',
+  // 把无项目会话放进新项目（§3.10）：只在 BaoCut 的项目目录下建一个新目录、搬会话自己的工作目录，不覆盖文件。
+  projects_adopt_session: 'edit',
   skills_list: 'read',
   // 用户库（§5.9）：只读。
   library_list: 'read',
@@ -243,7 +245,8 @@ export interface ToolScope<A extends ToolAccess = ToolAccess> {
    * 新建视频的位置。`project` 是调用方给的项目（项目 id 或已登记项目目录的路径）：会话里不给时用会话的来源目录，
    * 给了只能是会话所属的项目；对外服务必须给（缺了 `INVALID_ARGUMENTS`），看不到的项目与不存在的一样回答 `PROJECT_NOT_FOUND`；
    * 终端里按 cwd 解析成项目目录。`note` 是给调用方的说明（例如落到了默认项目），`videos_create` 带进结果。
-   * 会话里不属于项目的会话第一次新建时先建项目并绑定（§3.10）；`locate` 只找位置、不为新建做这些准备（确认之前、删除视频时）。
+   * 会话里不属于项目的会话建在它的工作目录里（§3.10），不建项目；`locate` 只找位置、不为新建做准备（确认之前、删除视频时；
+   * 终端的范围不登记项目）。
    */
   createRoot(access: A, project?: string, options?: { locate?: boolean }): VideoRoot | Promise<VideoRoot>;
   /** 打开（或接上已经打开的）范围里的视频。范围之外的与不存在的一样回答 `VIDEO_NOT_FOUND`。 */

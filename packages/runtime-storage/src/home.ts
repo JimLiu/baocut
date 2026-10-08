@@ -29,7 +29,7 @@ import path from 'node:path';
  *                         `sha256:` 就是文件名。Runtime 在后台清扫：账本与 Space 产物记录都没有引用、修改时间超过 1 小时
  *                         且不早于清扫起点的删掉，残留的 `.tmp` 超过 1 小时删掉（架构设计 §7.3）
  *   models/<org>/<repo>/  本地模型文件的缺省位置（设置 `models.dir` 可以改，`BAOCUT_MODELS_DIR` 优先）
- *   scratch/<id>/         无项目会话的工作目录；第一次新建视频时搬进新建的项目（架构设计 §3.10）
+ *   scratch/<id>/         旧版本放无项目会话工作目录的地方：启动时搬到 `scratchDir`（架构设计 §3.10）
  *   cache/                派生缓存，总大小有上限（设置 `cache.maxSizeMiB`，默认 2048 MiB）：超过时按修改时间删最旧的，
  *                         降到上限的 90%；`content-index/` 与 `baocut-composition-host/` 不删（`cache-limit.ts`）
  *   cache/media/<摘要>/    素材的分析结果（波形峰值、缩略图、帧），按内容摘要存，删掉会重新生成；`cache/media/playback/`
@@ -42,6 +42,10 @@ import path from 'node:path';
  *
  * 「新建项目」的目录不在 Home 里，而在 `projectsDir`：默认 `~/BaoCut`，
  * 指定了 `BAOCUT_HOME`（开发、测试）时跟着放到 `<home>/projects`，`BAOCUT_PROJECTS_DIR` 可以覆盖。
+ *
+ * 无项目会话的工作目录（`scratchDir`，一个会话一个子目录，视频可以一直留在里面）放在系统给应用的数据目录里（`defaultSessionsDir`）；
+ * Home 不是默认的 `~/.baocut`（开发、测试）时跟着放到 `<home>/scratch`，`BAOCUT_SESSIONS_DIR` 可以覆盖。按 Home 的位置决定而不是
+ * 按有没有给 `BAOCUT_HOME`：桌面端拉起 Runtime 时总会给出它。
  */
 export interface RuntimeHome {
   root: string;
@@ -52,7 +56,10 @@ export interface RuntimeHome {
   /** Space 的产物记录（架构设计 §5.7）。 */
   spaceArtifactsFile: string;
   conversationsDir: string;
+  /** 无项目会话的工作目录（架构设计 §3.10）。 */
   scratchDir: string;
+  /** 旧版本放无项目会话工作目录的地方（`<home>/scratch`）；与 `scratchDir` 相同时为 null。启动时搬过去。 */
+  legacyScratchDir: string | null;
   cacheDir: string;
   logsDir: string;
   projectsDir: string;
@@ -92,13 +99,25 @@ export interface RuntimeHome {
   libraryDir: string;
 }
 
-export function resolveRuntimeHome(env: NodeJS.ProcessEnv = process.env): RuntimeHome {
-  const root = path.resolve(env.BAOCUT_HOME || path.join(os.homedir(), '.baocut'));
+export function resolveRuntimeHome(
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform,
+  userHome: string = os.homedir(),
+): RuntimeHome {
+  const defaultRoot = path.join(userHome, '.baocut');
+  const root = path.resolve(env.BAOCUT_HOME || defaultRoot);
   const projectsDir = env.BAOCUT_PROJECTS_DIR
     ? path.resolve(env.BAOCUT_PROJECTS_DIR)
     : env.BAOCUT_HOME
       ? path.join(root, 'projects')
-      : path.join(os.homedir(), 'BaoCut');
+      : path.join(userHome, 'BaoCut');
+  const homeScratch = path.join(root, 'scratch');
+  const isDefaultRoot = platform === 'win32' ? root.toLowerCase() === defaultRoot.toLowerCase() : root === defaultRoot;
+  const scratchDir = env.BAOCUT_SESSIONS_DIR
+    ? path.resolve(env.BAOCUT_SESSIONS_DIR)
+    : isDefaultRoot
+      ? defaultSessionsDir(env, platform, userHome)
+      : homeScratch;
   return {
     root,
     discoveryFile: path.join(root, 'runtime.json'),
@@ -107,7 +126,8 @@ export function resolveRuntimeHome(env: NodeJS.ProcessEnv = process.env): Runtim
     spaceFile: path.join(root, 'store', 'space.json'),
     spaceArtifactsFile: path.join(root, 'store', 'space-artifacts.json'),
     conversationsDir: path.join(root, 'store', 'conversations'),
-    scratchDir: path.join(root, 'scratch'),
+    scratchDir,
+    legacyScratchDir: path.resolve(scratchDir) === path.resolve(homeScratch) ? null : homeScratch,
     cacheDir: path.join(root, 'cache'),
     logsDir: path.join(root, 'logs'),
     projectsDir,
@@ -132,4 +152,14 @@ export function resolveRuntimeHome(env: NodeJS.ProcessEnv = process.env): Runtim
     modelsDir: env.BAOCUT_MODELS_DIR ? path.resolve(env.BAOCUT_MODELS_DIR) : path.join(root, 'models'),
     libraryDir: path.join(root, 'library'),
   };
+}
+
+/**
+ * 系统给应用的数据目录里放无项目会话的地方：macOS `~/Library/Application Support/BaoCut/Sessions`，
+ * Windows `%LOCALAPPDATA%\BaoCut\Sessions`（不随漫游配置同步：里面是媒体），其余 `${XDG_DATA_HOME:-~/.local/share}/BaoCut/Sessions`。
+ */
+export function defaultSessionsDir(env: NodeJS.ProcessEnv = process.env, platform: NodeJS.Platform = process.platform, userHome = os.homedir()): string {
+  if (platform === 'darwin') return path.posix.join(userHome, 'Library', 'Application Support', 'BaoCut', 'Sessions');
+  if (platform === 'win32') return path.win32.join(env.LOCALAPPDATA || path.win32.join(userHome, 'AppData', 'Local'), 'BaoCut', 'Sessions');
+  return path.posix.join(env.XDG_DATA_HOME || path.posix.join(userHome, '.local', 'share'), 'BaoCut', 'Sessions');
 }

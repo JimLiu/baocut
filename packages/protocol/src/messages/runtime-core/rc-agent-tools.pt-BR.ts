@@ -128,4 +128,6 @@ export const ptBR: RcAgentToolsMessages = {
   registerProjectSummary: (p: { path: string; name: string | null }) =>
     `Registrar a pasta existente ${p.path} como projeto${p.name ? ` (${p.name})` : ""}`,
   createProjectSummary: (p: { path: string; name: string | null }) => `Criar pasta de projeto ${p.path}${p.name ? ` (${p.name})` : ""}`,
+  adoptSessionSummary: (p: { name: string | null }) =>
+    `Criar um projeto ${p.name ? `“${p.name}”` : 'com o nome do primeiro vídeo'} e mover para ele os vídeos e arquivos desta sessão`,
 };

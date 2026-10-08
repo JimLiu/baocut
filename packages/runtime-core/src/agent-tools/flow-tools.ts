@@ -396,9 +396,9 @@ export class FlowTools implements ToolSet {
         RcFlowTools.transcribeCreateSummary({ name: args.name ?? null, file, ...providerOf(args), captions: !args.noCaptions }),
       ),
     });
-    // 确认之后才为新建做准备：无项目会话在这里建项目并绑定（§3.10），流程的 `create` 目标直接是项目。
+    // 确认之后才为新建做准备（终端登记项目）；无项目会话的视频建在它的工作目录里（§3.10）。
     const root = await scope.createRoot(access, args.project);
-    // 绑定把工作目录里的东西搬进了项目，旧路径在回合里经链接指过去：换成真实路径，流程之后读的是项目里的文件。
+    // 用真实路径：会话在回合里绑定了项目时，旧路径经链接指向项目，流程之后读的是项目里的文件。
     const media = await fs.realpath(file).catch(() => file);
     const jobId = await this.#start(access, TRANSCRIBE_PIPELINE, args.commandId, {
       target: { create: { ...root.scope, ...(args.name !== undefined ? { name: args.name } : {}), media } },

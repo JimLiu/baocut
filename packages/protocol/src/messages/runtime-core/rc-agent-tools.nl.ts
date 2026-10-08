@@ -130,4 +130,6 @@ export const nl: RcAgentToolsMessages = {
   registerProjectSummary: (p: { path: string; name: string | null }) =>
     `Bestaande map registreren: ${p.path} als project${p.name ? ` (${p.name})` : ""}`,
   createProjectSummary: (p: { path: string; name: string | null }) => `Projectmap maken: ${p.path}${p.name ? ` (${p.name})` : ""}`,
+  adoptSessionSummary: (p: { name: string | null }) =>
+    `Project ${p.name ? `‘${p.name}’` : 'met de naam van de eerste video'} maken en de video’s en bestanden van deze sessie erheen verplaatsen`,
 };
