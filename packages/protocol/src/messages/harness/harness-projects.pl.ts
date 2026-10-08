@@ -6,7 +6,7 @@ export const pl: HarnessProjectsMessages = {
   folderInaccessible: (p) => `Folder nie istnieje lub jest niedostępny: ${p.dir}`,
   markerReadFailed: (p) => `Nie udało się odczytać znacznika projektu: ${p.error}`,
   markerNewer: (p) => `Ten projekt utworzono w nowszej wersji BaoCut (wersja znacznika projektu ${p.version}). Zaktualizuj BaoCut, a następnie otwórz go ponownie`,
-  untitledProject: "Projekt bez tytułu",
+  untitledProject: "Projekt bez tytułu", recoveredVideos: "Odzyskane filmy",
   createFolderFailed: (p) => `Nie udało się utworzyć folderu projektu: ${p.error}`,
   tooManySameName: "Zbyt wiele folderów projektów ma tę nazwę. Wybierz inną",
   markerNotWritable: (p) => `Folder projektu jest niezapisywalny, więc nie można zapisać znacznika projektu .bcut/project.json: ${p.dir}`,

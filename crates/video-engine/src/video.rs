@@ -624,6 +624,22 @@ impl Video {
         crate::asset_usage::unused_assets(&self.state)
     }
 
+    /// 清理视频目录的 `blobs/`（[`crate::gc`]）：删掉库里没有任何记录提到的 blob 与过了 `staging_grace` 的 staging 残留。
+    /// 只在写入模式下可用：写锁保证没有别的写入者正往 `blobs/` 发布。还有冻结任务租约、导出或便携包导入时由调用方
+    /// 决定不调用。读引用集合失败时报错且什么都不删；单个条目删不掉只记进回执。
+    pub fn gc_blobs(&self, staging_grace: std::time::Duration) -> EngineResult<crate::gc::BlobGcReport> {
+        if self.mode != OpenMode::Write {
+            return Err(ErrorBody::read_only());
+        }
+        let referenced = self.store.referenced_content_hashes()?;
+        Ok(crate::gc::gc_blob_dir(
+            &self.dir,
+            &referenced,
+            staging_grace,
+            std::time::SystemTime::now(),
+        ))
+    }
+
     /// 一个文档版本存下的正文文本，原样不动：摘要就是按它算的（便携包按原样收进去，视频格式规范 §8）。
     pub fn document_text(&self, document_id: &str, revision: &str) -> EngineResult<String> {
         self.store

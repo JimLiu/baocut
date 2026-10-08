@@ -612,6 +612,31 @@ impl Store {
         Ok((undo, redo))
     }
 
+    /// 库里提到过的全部内容摘要（`sha256:` 后的十六进制），供 `blobs/` 的 GC 判断引用（[`crate::gc`]）。
+    ///
+    /// 宁多勿少：素材的每个版本（不只当前版本）、代码包版本，加上当前实体与撤销记录正文里出现的摘要。
+    /// 不按存储方式筛：`collectAssets` 把链接素材收进来时不产生新版本，`asset_versions` 里那一行仍写着 `linked`，
+    /// 真实的存储方式只在实体与撤销记录里。多算进来的摘要（链接素材、文档）在 `blobs/` 里没有对应的条目，不影响结果。
+    /// 不按 videoId 筛：认领项目换过标识的视频，库里只有这一个视频。
+    pub fn referenced_content_hashes(&self) -> EngineResult<std::collections::HashSet<String>> {
+        let mut hashes = std::collections::HashSet::new();
+        for sql in [
+            "SELECT content_hash FROM asset_versions",
+            "SELECT content_hash FROM bundle_versions",
+            "SELECT body FROM asset_versions",
+            "SELECT body FROM bundle_versions",
+            "SELECT body FROM entities",
+            "SELECT changes FROM undo_records",
+        ] {
+            let mut stmt = self.conn.prepare(sql)?;
+            let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+            for text in rows {
+                crate::gc::collect_hashes(&text?, &mut hashes);
+            }
+        }
+        Ok(hashes)
+    }
+
     /// 视频的 id（`videos` 表只有一行）。
     pub fn video_id(&self) -> EngineResult<Id> {
         self.conn

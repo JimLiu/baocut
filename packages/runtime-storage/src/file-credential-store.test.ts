@@ -1,7 +1,8 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { migrateFileCredentials } from './credential-migration.ts';
 import { FileCredentialStore } from './file-credential-store.ts';
 
 describe('FileCredentialStore', () => {
@@ -62,11 +63,51 @@ describe('FileCredentialStore', () => {
     expect((await new FileCredentialStore(file).keys()).sort()).toEqual(['node:a', 'node:b', 'node:c', 'node:d', 'node:e']);
   });
 
-  it('文件损坏时从空开始；不合规的 key 与空密钥是调用方的错误', async () => {
+  it('文件损坏时不从空开始：每个操作报告不可用，文件不改名、不覆盖；修好之后不用重建就恢复', async () => {
     await fs.mkdir(path.dirname(file), { recursive: true });
     await fs.writeFile(file, '{ not json');
+    const warn = vi.fn();
+    const store = new FileCredentialStore(file, { log: { info: () => {}, warn } });
+    await expect(store.get('provider:openai')).rejects.toMatchObject({ name: 'CredentialStoreError', code: 'unavailable' });
+    await expect(store.set('provider:openai', 'sk-a')).rejects.toMatchObject({ code: 'unavailable' });
+    expect(await fs.readFile(file, 'utf8')).toBe('{ not json');
+    expect(await fs.readdir(path.dirname(file))).toEqual([path.basename(file)]);
+    expect(warn).toHaveBeenCalled();
+    await fs.writeFile(file, JSON.stringify({ formatVersion: 2, credentials: { 'provider:openai': 'sk-b' } }));
+    expect(await store.get('provider:openai')).toBe('sk-b');
+  });
+
+  it('更新版本写下的文件：报告不可用，不改写', async () => {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    const text = JSON.stringify({ formatVersion: 3, secrets: {} });
+    await fs.writeFile(file, text);
+    const store = new FileCredentialStore(file);
+    await expect(store.has('provider:openai')).rejects.toMatchObject({ code: 'unavailable' });
+    await expect(store.delete('provider:openai')).rejects.toMatchObject({ code: 'unavailable' });
+    expect(await fs.readFile(file, 'utf8')).toBe(text);
+  });
+
+  it('迁到钥匙串时文件认不出：什么也不迁、不删，记 warn', async () => {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, '{ not json');
+    const warn = vi.fn();
+    const target = { kind: 'keychain' as const, get: vi.fn(), set: vi.fn(), delete: vi.fn(), has: vi.fn() };
+    const result = await migrateFileCredentials(new FileCredentialStore(file), target, { info: () => {}, warn });
+    expect(result).toEqual({ migrated: [], failed: [] });
+    expect(target.set).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalled();
+    expect(await fs.readFile(file, 'utf8')).toBe('{ not json');
+  });
+
+  it('空文件按没有处理', async () => {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, '');
     const store = new FileCredentialStore(file);
     expect(await store.get('provider:openai')).toBeNull();
+  });
+
+  it('不合规的 key 与空密钥是调用方的错误', () => {
+    const store = new FileCredentialStore(file);
     expect(() => store.get('openai')).toThrow(TypeError);
     expect(() => store.set('provider:x y', 's')).toThrow(TypeError);
     expect(() => store.set('provider:x', '')).toThrow(TypeError);

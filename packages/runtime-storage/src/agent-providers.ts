@@ -1,5 +1,5 @@
 import { isBuiltinDriverId, isDriverId, type CustomAgentProvider } from '@baocut/protocol';
-import { readJson, writeJsonAtomic } from './json-file.ts';
+import { JsonStoreFile, type StoreOptions } from './store-file.ts';
 
 interface AgentProvidersFile {
   schemaVersion: 1;
@@ -10,20 +10,24 @@ interface AgentProvidersFile {
  * 用户添加的 ACP 智能体（`<home>/store/agent-providers.json`，架构设计 §3.11），按添加顺序。
  * 整份读进内存，改一次写一次（原子写，写串行，后一次覆盖前一次）；`env` 可能含密钥，文件权限 0600。
  *
- * 文件坏了当没有（不拦住 Runtime 启动）；单条不合法（id 写法不对、与内置的或前面的重名、命令为空）的丢掉。
+ * 文件坏了改名保留、当没有（不拦住 Runtime 启动），更新版本写下的不改写（`store-file.ts`）；单条不合法（id 写法不对、
+ * 与内置的或前面的重名、命令为空）的丢掉。
  */
 export class AgentProviderStore {
-  readonly #file: string;
+  readonly #file: JsonStoreFile;
   #providers: CustomAgentProvider[] = [];
   #saving: Promise<void> = Promise.resolve();
 
-  constructor(file: string) {
-    this.#file = file;
+  constructor(file: string, options: StoreOptions = {}) {
+    this.#file = new JsonStoreFile(file, options.log);
   }
 
   async load(): Promise<CustomAgentProvider[]> {
-    const data = await readJson<Partial<AgentProvidersFile>>(this.#file).catch(() => null);
-    const raw = data && typeof data === 'object' && Array.isArray(data.providers) ? data.providers : [];
+    const { value } = await this.#file.read({
+      recognize: (raw) => (Array.isArray(raw.providers) ? (raw.providers as unknown[]) : null),
+      tolerateReadErrors: true,
+    });
+    const raw = value ?? [];
     const seen = new Set<string>();
     this.#providers = [];
     for (const entry of raw) {
@@ -70,7 +74,7 @@ export class AgentProviderStore {
       schemaVersion: 1,
       providers: structuredClone(this.#providers),
     };
-    this.#saving = this.#saving.catch(() => {}).then(() => writeJsonAtomic(this.#file, snapshot, { mode: 0o600 }));
+    this.#saving = this.#saving.catch(() => {}).then(() => this.#file.write(snapshot, { mode: 0o600 }));
     return this.#saving;
   }
 }

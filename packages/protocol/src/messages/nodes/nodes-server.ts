@@ -55,6 +55,7 @@ const en = {
   pairingLocked: 'Pairing is locked',
   pairingCodeInvalid: 'The pairing code is wrong, expired, or missing',
   portInUse: (p: { port: number }) => `Port ${p.port} is already in use`,
+  shareFileUnreadable: (p: { reason: string }) => `The sharing settings file (node-share.json) can't be read (${p.reason}). It was left untouched; fix or remove it to change sharing`,
   cannotListen: (p: { code: string }) => `The node service can't listen: ${p.code}`,
 };
 

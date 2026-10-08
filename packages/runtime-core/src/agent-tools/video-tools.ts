@@ -686,12 +686,13 @@ export class VideoTools implements ToolSet {
 
   async #create(args: z.infer<(typeof schemas)['videos_create']>, principal: ToolPrincipal) {
     const access = this.#scope.authorize(principal, true);
-    // 位置先解析（对外服务缺 project、看不到的项目不弹确认）。
-    const { root, scope, note } = await this.#scope.createRoot(access, args.project);
+    // 位置先解析（对外服务缺 project、看不到的项目不弹确认）；确认之后才为新建做准备（无项目会话建项目并绑定，§3.10）。
+    await this.#scope.createRoot(access, args.project, { locate: true });
     const approval = await this.#scope.confirm(access, {
       tool: 'videos_create',
       ...confirmSummary(RcAgentTools.createVideoSummary({ name: args.name })),
     });
+    const { root, scope, note } = await this.#scope.createRoot(access, args.project);
     const opened = await this.#videos.create(
       {
         name: args.name,
@@ -931,12 +932,14 @@ export class VideoTools implements ToolSet {
   /** 打开便携包（`videos.importPackage` 同一个入口，视频格式规范 §8）：位置同 `videos_create`；给了 name 时目录用它，并改视频名。 */
   async #importPackage(args: z.infer<(typeof schemas)['videos_import_package']>, principal: ToolPrincipal) {
     const access = this.#scope.authorize(principal, true);
-    const { root, scope, note } = await this.#scope.createRoot(access, args.project);
-    const file = path.resolve(this.#scope.saveRoot(access), args.file);
+    await this.#scope.createRoot(access, args.project, { locate: true });
     const approval = await this.#scope.confirm(access, {
       tool: 'videos_import_package',
-      ...confirmSummary(RcAgentTools.importPackageSummary({ file: path.basename(file) })),
+      ...confirmSummary(RcAgentTools.importPackageSummary({ file: path.basename(args.file) })),
     });
+    // 绑定项目会把工作目录里的东西搬进项目：相对路径在绑定之后按新的工作目录解析。
+    const { root, scope, note } = await this.#scope.createRoot(access, args.project);
+    const file = path.resolve(this.#scope.saveRoot(access), args.file);
     let opened = await this.#deps.packages.import({ ...scope, path: file }, root, scope, principal, {
       ...(args.name ? { name: args.name } : {}),
     });

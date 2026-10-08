@@ -22,6 +22,7 @@ const en = {
   internal: 'Error reading or writing the credential',
   problem: (p: { reason: string; message: string }) => `${p.reason}: ${p.message}`,
   fileWriteFailed: (p: { code: string }) => `Couldn't write the credential file (${p.code})`,
+  fileUnreadable: (p: { code: string }) => `The credential file can't be read and was left untouched (${p.code})`,
   helperBadResponse: 'The credential helper returned an invalid response',
   helperNotFound: "The credential helper program wasn't found",
   helperTimedOut: (p: { seconds: number }) => `The credential helper didn't respond within ${p.seconds} seconds`,

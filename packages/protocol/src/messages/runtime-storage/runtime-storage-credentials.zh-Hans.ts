@@ -7,6 +7,7 @@ export const zhHans: RuntimeStorageCredentialsMessages = {
   internal: '读写凭据出错',
   problem: (p) => `${p.reason}：${p.message}`,
   fileWriteFailed: (p) => `写不进凭据文件（${p.code}）`,
+  fileUnreadable: (p) => `读不了凭据文件，已原样保留（${p.code}）`,
   helperBadResponse: '凭据助手的响应不合规',
   helperNotFound: '没有找到凭据助手程序',
   helperTimedOut: (p) => `凭据助手 ${p.seconds} 秒内没有回应`,

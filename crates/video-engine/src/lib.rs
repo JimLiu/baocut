@@ -14,6 +14,7 @@ pub mod ducking;
 pub mod effects;
 mod elements;
 pub mod error;
+pub mod gc;
 pub mod ids;
 pub mod import;
 mod item_keyframes;

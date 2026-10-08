@@ -68,7 +68,7 @@ export class VideoDeleteTools implements ToolSet {
     const space = this.#deps.space();
     const access = scope.authorize(principal, true);
     // 先在会话的来源目录里找到它（范围之外的不弹确认，与不存在的一样回答）。
-    const { root, scope: source } = await scope.createRoot(access);
+    const { root, scope: source } = await scope.createRoot(access, undefined, { locate: true });
     const known = videos.ref(args.video);
     const info = await space.videoEntryAt(known ? known.path : path.resolve(root, args.video));
     const sameSource =

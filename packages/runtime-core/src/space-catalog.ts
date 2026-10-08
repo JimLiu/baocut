@@ -921,7 +921,12 @@ export class SpaceCatalog {
 
   #addConversation(conversation: Conversation, scan: boolean): boolean {
     this.#conversationProjects.set(conversation.id, conversation.projectId ?? null);
-    if (conversation.projectId) return false;
+    if (conversation.projectId) {
+      // 无项目会话绑定了项目（§3.10）：它的工作目录不再是来源，东西已经搬进项目，由项目来源列出。条目 id 随来源键换了，
+      // 旧来源下的用户标记（收藏、显示名）不跟过去。
+      this.#removeSource(`conv:${conversation.id}`);
+      return false;
+    }
     return this.#addSource(
       {
         key: `conv:${conversation.id}`,

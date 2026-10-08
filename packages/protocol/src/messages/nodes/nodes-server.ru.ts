@@ -39,5 +39,6 @@ export const ru: NodesServerMessages = {
   pairingLocked: "Сопряжение заблокировано",
   pairingCodeInvalid: "Код сопряжения неверный, просрочен или отсутствует",
   portInUse: (p) => `Порт ${p.port} уже занят`,
+  shareFileUnreadable: (p) => `Не удаётся прочитать файл настроек общего доступа (node-share.json) (${p.reason}). Он оставлен без изменений; исправьте или удалите его, чтобы изменить общий доступ`,
   cannotListen: (p) => `Сервис узла не может слушать подключения: ${p.code}`,
 };

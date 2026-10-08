@@ -189,17 +189,18 @@ export function createHandlers({
   /** 文件定位到来源目录与文件。目录内的检查在媒体通道（或视频服务）里做。 */
   const locateMedia = (target: FileTarget) => locateFileTarget(harness, space, target);
 
-  /** 新建视频的位置：项目目录，或不属于项目的会话的工作目录。 */
-  const videoRoot = (p: { projectId?: Id; conversationId?: Id }): { root: string; scope: { projectId: Id } | { conversationId: Id } } => {
+  /**
+   * 新建视频的位置：项目目录。给的是会话时用它所属的项目；不属于项目的会话先建项目并绑定（架构设计 §3.10），视频建在项目里。
+   */
+  const videoRoot = async (p: { projectId?: Id; conversationId?: Id }): Promise<{ root: string; scope: { projectId: Id } }> => {
     if (p.projectId) {
       const project = harness.listProjects().find((x) => x.id === p.projectId);
       if (!project) throw new RpcError('not-found', RcRuntime.projectNotFound());
       return { root: project.path, scope: { projectId: project.id } };
     }
     if (p.conversationId) {
-      const { conversation } = harness.getConversation(p.conversationId);
-      if (conversation.projectId) return videoRoot({ projectId: conversation.projectId });
-      return { root: conversation.cwd, scope: { conversationId: conversation.id } };
+      const project = await harness.ensureConversationProject(p.conversationId);
+      return { root: project.path, scope: { projectId: project.id } };
     }
     throw new RpcError('invalid-request', RcRuntime.newVideoNeedsTarget());
   };
@@ -356,13 +357,13 @@ export function createHandlers({
       },
       'media.peaks': async (p) => analysis.peaks(await videos.mediaSource(p.videoId, p.assetId, p.revision)),
       'media.thumbnail': async (p) => analysis.thumbnail(await videos.mediaSource(p.videoId, p.assetId, p.revision), p.at),
-      'videos.create': (p, principal) => {
-        const { root, scope } = videoRoot(p);
+      'videos.create': async (p, principal) => {
+        const { root, scope } = await videoRoot(p);
         return videos.create(p, root, scope, principal);
       },
       // 便携包（视频格式规范 §8）：建成来源目录里的一个新视频。不给智能体与对外服务（它们没有这个方法的入口）。
-      'videos.importPackage': (p, principal) => {
-        const { root, scope } = videoRoot(p);
+      'videos.importPackage': async (p, principal) => {
+        const { root, scope } = await videoRoot(p);
         return packages.import(p, root, scope, principal);
       },
       'videos.open': (p, principal) => videos.open(locateMedia(p), principal),

@@ -19,7 +19,7 @@ import {
   type Localized,
   type MessageRef,
 } from '@baocut/protocol';
-import { readJson, writeJsonAtomic } from '@baocut/runtime-storage';
+import { readJsonOrQuarantine, writeJsonAtomic } from '@baocut/runtime-storage';
 import { ToolDownloadError, downloadToolFile, type ToolDownloadOptions } from './tool-download.ts';
 import { BUILTIN_TOOL_MANIFESTS, compareVersions, platformKey, toolOffer, type ToolManifest } from './tool-manifests.ts';
 import { envValue, findOnPath, isExecutableFile, runVersionProbe, windowsScriptKind } from './tool-probe.ts';
@@ -160,6 +160,8 @@ export class ExternalToolService {
   readonly #platform: string;
   readonly #status = new Map<string, ExternalToolStatus>();
   #store: StoreFile | null = null;
+  /** 记录文件是更新的版本写下的：不覆盖它。 */
+  #readOnly = false;
   #writes: Promise<void> = Promise.resolve();
 
   constructor(options: ExternalToolServiceOptions) {
@@ -809,9 +811,15 @@ export class ExternalToolService {
 
   async #load(): Promise<StoreFile> {
     if (this.#store) return this.#store;
-    const raw = await readJson<StoreFile>(this.#options.storeFile).catch(() => null);
-    this.#store =
-      raw && raw.version === STORE_VERSION && raw.tools && typeof raw.tools === 'object' ? raw : { version: STORE_VERSION, tools: {} };
+    // 不是 JSON 或认不出时改名保留、从空开始；更新版本写下的不改名（`store-file.ts`）。读不了时照旧从空开始。
+    const read = await readJsonOrQuarantine<StoreFile>(this.#options.storeFile, {
+      log: this.#options.log,
+      version: { key: 'version', known: STORE_VERSION },
+      recognize: (raw) =>
+        raw.version === STORE_VERSION && raw.tools && typeof raw.tools === 'object' && !Array.isArray(raw.tools) ? (raw as unknown as StoreFile) : null,
+    }).catch(() => null);
+    if (read?.status === 'newer-version') this.#readOnly = true;
+    this.#store = read?.status === 'ok' ? read.value : { version: STORE_VERSION, tools: {} };
     return this.#store;
   }
 
@@ -824,7 +832,8 @@ export class ExternalToolService {
     const write = this.#writes.then(async () => {
       const store = await this.#load();
       store.tools[name] = change(store.tools[name] ?? { userPath: null, consent: null, managed: null });
-      await writeJsonAtomic(this.#options.storeFile, store, { mode: 0o600 });
+      // 更新版本写下的文件不覆盖：改动只留在内存里。
+      if (!this.#readOnly) await writeJsonAtomic(this.#options.storeFile, store, { mode: 0o600 });
     });
     this.#writes = write.catch(() => {});
     await write;

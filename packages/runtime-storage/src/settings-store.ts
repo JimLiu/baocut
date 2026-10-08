@@ -11,7 +11,7 @@ import {
   type SettingsView,
 } from '@baocut/protocol';
 import { settingValueSchemas, settingsPatchSchema } from '@baocut/protocol/schemas';
-import { readJson, writeJsonAtomic } from './json-file.ts';
+import { JsonStoreFile, isPlainObject, type StoreOptions } from './store-file.ts';
 import { RuntimeStorageFiles as SF } from '@baocut/protocol/messages/runtime-storage';
 
 interface SettingsFile {
@@ -26,29 +26,22 @@ export type SettingsChange = Partial<SettingValues>;
  * Runtime 持有的偏好设置（架构设计 §5.10），文件是 `<runtime-home>/store/settings.json`。
  *
  * - 写入整批校验、串行执行：校验 → 写临时文件再改名 → 换内存 → 通知。写盘失败时内存不变，崩溃不留半份文件。
- * - 文件里不合 schema 的取值（手工改坏的）按默认值处理，不让 Runtime 起不来；文件整个不是合法的 JSON 时启动失败，
- *   与其他 Runtime Store 文件一致。
+ * - 文件里不合 schema 的取值（手工改坏的）按默认值处理，不让 Runtime 起不来；文件整个不是合法的 JSON 或认不出时
+ *   改名保留、全部取默认值；更新版本写下的不改写，修改只留在内存里（`store-file.ts`，与其他 Runtime Store 文件一致）。
  */
 export class SettingsStore implements SettingsReader {
-  readonly #file: string;
+  readonly #file: JsonStoreFile;
   #raw: Record<string, unknown> = {};
   #queue: Promise<unknown> = Promise.resolve();
   readonly #listeners = new Set<(changed: SettingsChange) => void>();
 
-  constructor(file: string) {
-    this.#file = file;
+  constructor(file: string, options: StoreOptions = {}) {
+    this.#file = new JsonStoreFile(file, options.log);
   }
 
   async load(): Promise<void> {
-    const data = await readJson<SettingsFile>(this.#file);
-    if (data === null) {
-      this.#raw = {};
-      return;
-    }
-    if (typeof data !== 'object' || typeof data.values !== 'object' || data.values === null || Array.isArray(data.values)) {
-      throw new Error(`Malformed settings file: ${this.#file}`);
-    }
-    this.#raw = { ...data.values };
+    const { value } = await this.#file.read({ recognize: (raw) => (isPlainObject(raw.values) ? raw.values : null) });
+    this.#raw = { ...value };
   }
 
   /** 一个键的有效值：用户设过且合 schema 的取值，否则是默认值。 */
@@ -115,7 +108,7 @@ export class SettingsStore implements SettingsReader {
     }
     if (!sameValue(next, this.#raw)) {
       const file: SettingsFile = { schemaVersion: 1, values: next };
-      await writeJsonAtomic(this.#file, file);
+      await this.#file.write(file);
     }
     this.#raw = next;
     if (Object.keys(changed).length > 0) {

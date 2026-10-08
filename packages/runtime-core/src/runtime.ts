@@ -28,6 +28,7 @@ import {
 import type { CapacitySource, JobManager } from '@baocut/jobs';
 import {
   AgentPrefsStore,
+  AgentProbeStore,
   AgentProviderStore,
   SkillPrefsStore,
   ConversationStore,
@@ -338,7 +339,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     for (const driver of options.drivers?.(log) ?? builtin()) drivers.register(driver);
     // 用户添加的 ACP 智能体（§3.11）：排在内置的后面，按添加顺序；在 Harness 读探测缓存之前注册，缓存里的条目才认得它们。
     // 运行中的添加与移除由 Harness 经同一个存储与工厂处理。
-    const customProviders = new AgentProviderStore(home.agentProvidersFile);
+    const customProviders = new AgentProviderStore(home.agentProvidersFile, { log: log.child('agent-providers') });
     const createCustomDriver = (provider: CustomAgentProvider) => (options.customDriver ?? createCustomAcpDriver)(provider, log);
     for (const provider of await customProviders.load()) {
       if (drivers.has(provider.id)) continue;
@@ -385,7 +386,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     // 新视频采用用户库里默认启用的条目（§5.9）。
     videos.onCreated((videoId, principal) => library.adoptDefaults(videoId, principal));
     // 偏好设置在模型任务之前读入：模型目录（`models.dir`，§6.3）决定模型目录的根。
-    const settings = await openSettings(home);
+    const settings = await openSettings(home, log);
     let settingsStore: RuntimeSettings['store'] | null = settings.store;
     // 从链接导入（§7.9）在 JobManager 建好时登记；外部工具服务与 Harness 在后面才有，流程用到时再取。
     let externalToolsRef: ExternalToolService | null = null;
@@ -417,6 +418,11 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       return { root: conversation.cwd, scope: { conversationId: conversation.id } };
     };
     const conversationRoot = (conversationId: Id) => conversationSource(conversationId).root;
+    // 流程按会话新建视频（`create: { conversationId }`）：不属于项目的会话先建项目并绑定（§3.10），视频建在项目里。
+    const conversationCreateSource = async (conversationId: Id): Promise<{ root: string; scope: { projectId: Id } }> => {
+      const project = await requireHarness().ensureConversationProject(conversationId);
+      return { root: project.path, scope: { projectId: project.id } };
+    };
     const models = await openModelJobs({
       home,
       credentials,
@@ -461,7 +467,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
           return entryPlace(spaceRef, entryId);
         },
         projectRoot,
-        conversationSource,
+        conversationSource: conversationCreateSource,
       },
       // 任务下的 Job 与流程应用结果时带上任务合同的保护范围（§3.2）。任务已经不在了（会话删掉了）时没有保护。
       taskProtections: async (taskId, videoId) => {
@@ -565,7 +571,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     stops.add('nodes', () => nodes.close(), 'Stopping the node service failed');
     // 智能体的工具通道：会话令牌在原生会话建立时发放、释放时收回（架构设计 §3.5）。
     // Agent 的 skill（§3.8）：开关只存差量；目录每次重读。开着的 skill 的索引在每个原生会话开始时附在指导后面。
-    const skillPrefs = new SkillPrefsStore(home.skillPrefsFile);
+    const skillPrefs = new SkillPrefsStore(home.skillPrefsFile, { log: log.child('skill-prefs') });
     await skillPrefs.load();
     const skills = new SkillCatalog({
       builtinDir: options.skillsDir === undefined ? resolveBuiltinSkillsDir() : options.skillsDir,
@@ -597,8 +603,9 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     const harness = await Harness.open({
       home,
       conversations: new ConversationStore(home.conversationsDir, { log: log.child('conversations') }),
-      prefs: new AgentPrefsStore(home.agentPrefsFile),
-      projects: new ProjectStore(home.projectsFile),
+      prefs: new AgentPrefsStore(home.agentPrefsFile, { log: log.child('agent-prefs') }),
+      probes: new AgentProbeStore(home.agentProbesFile, { log: log.child('agent-probes') }),
+      projects: new ProjectStore(home.projectsFile, { log: log.child('projects') }),
       drivers,
       providers: { store: customProviders, create: createCustomDriver },
       settings: settings.store,
@@ -608,9 +615,13 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       attachments,
       // 任务预算（§3.2、§7.8）：合同的预算策略登记在授权账本里，任务里的每次外发调用在授权之外还要通过它。
       budgets: models.grants,
+      // 把无项目会话工作目录里的东西搬进项目时（§3.10），打开着的视频目录跳过。
+      openVideoDirs: () => videos.openRefs().map((ref) => ref.path),
       log,
     });
     stops.add('harness', () => harness.shutdown(), 'Stopping the Harness failed');
+    // 升级前留在会话工作目录里的视频搬进项目，没有会话的工作目录收拾掉（§3.10）。在 Space 首次扫描与客户端连上之前。
+    await harness.migrateScratch().catch((error: unknown) => log.warn('Failed to tidy session folders', { error: String(error) }));
     // 默认 Agent 存在偏好设置里（`agent.defaultDriver`，§3.11）：设置页、CLI、`agents.setDefault` 改了它都推送新的 Agent 视图。
     // 默认 Agent 没设过默认模型时 `DriverInfo.defaultModel` 取 `agent.defaultModel`，改了它也推送。
     settings.store.onChange((changed) => {
@@ -703,10 +714,10 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     });
     stops.add('services', () => services.manager.close(), 'Stopping external services failed');
 
-    const marks = new SpaceMarkStore(home.spaceFile);
+    const marks = new SpaceMarkStore(home.spaceFile, { log: log.child('space-marks') });
     await marks.load();
     // Space 的产物记录（§5.7）：产出产物的任务的派生用事实，Job Ledger 修剪之后条目照样在。
-    const spaceArtifacts = new SpaceArtifactStore(home.spaceArtifactsFile);
+    const spaceArtifacts = new SpaceArtifactStore(home.spaceArtifactsFile, { log: log.child('space-artifacts') });
     const retained = await spaceArtifacts.load();
     if (retained.skipped > 0 || retained.quarantined) log.warn('Skipped unreadable parts of the Space output records', retained);
     // 跨视频的内容索引（§5.11）：派生缓存，只经 VideoService 的只读查询读视频；有视频索引完成时 Space 目录重算派生状态。

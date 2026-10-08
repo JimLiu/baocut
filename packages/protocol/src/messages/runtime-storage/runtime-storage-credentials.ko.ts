@@ -7,6 +7,7 @@ export const ko: RuntimeStorageCredentialsMessages = {
   internal: '자격 증명을 읽거나 쓰는 중 오류가 발생했습니다',
   problem: (p) => `${p.reason}: ${p.message}`,
   fileWriteFailed: (p) => `자격 증명 파일을 쓰지 못했습니다(${p.code})`,
+  fileUnreadable: (p) => `자격 증명 파일을 읽을 수 없어 그대로 두었습니다(${p.code})`,
   helperBadResponse: '자격 증명 도우미가 잘못된 응답을 반환했습니다',
   helperNotFound: '자격 증명 도우미 프로그램을 찾지 못했습니다',
   helperTimedOut: (p) => `자격 증명 도우미가 ${p.seconds}초 안에 응답하지 않았습니다`,

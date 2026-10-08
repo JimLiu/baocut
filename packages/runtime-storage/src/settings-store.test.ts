@@ -122,10 +122,25 @@ describe('SettingsStore', () => {
     expect((await open()).get('agent.defaultAccessMode')).toBe('fullAccess');
   });
 
-  it('文件不是合法的 JSON 时打开失败', async () => {
+  it('文件不是合法的 JSON 时改名保留、全部取默认值', async () => {
     await fs.mkdir(path.dirname(file), { recursive: true });
     await fs.writeFile(file, '{ not json');
-    await expect(open()).rejects.toThrow();
+    const store = await open();
+    expect(store.get('offline.strict')).toBe(SETTING_DEFAULTS['offline.strict']);
+    const names = await fs.readdir(path.dirname(file));
+    expect(names.some((n) => n.startsWith(`${path.basename(file)}.corrupt-`))).toBe(true);
+    expect(names).not.toContain(path.basename(file));
+  });
+
+  it('更新版本写下的文件：取默认值，不改名也不覆盖', async () => {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    const text = JSON.stringify({ schemaVersion: 2, settings: { 'offline.strict': true } });
+    await fs.writeFile(file, text);
+    const store = await open();
+    expect(store.get('offline.strict')).toBe(SETTING_DEFAULTS['offline.strict']);
+    await store.set({ 'offline.strict': !SETTING_DEFAULTS['offline.strict'] });
+    expect(await fs.readFile(file, 'utf8')).toBe(text);
+    expect(await fs.readdir(path.dirname(file))).toEqual([path.basename(file)]);
   });
 
   it('并发的修改串行执行，后一笔看得到前一笔', async () => {

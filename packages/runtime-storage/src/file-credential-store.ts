@@ -6,7 +6,8 @@ import {
   providerCredentialKey,
   type CredentialStore,
 } from './credential-store.ts';
-import { readJson, writeJsonAtomic } from './json-file.ts';
+import { writeJsonAtomic } from './json-file.ts';
+import { readJsonOrQuarantine, type StoreLog } from './store-file.ts';
 import { RuntimeStorageCredentials as SC } from '@baocut/protocol/messages/runtime-storage';
 
 /**
@@ -15,7 +16,10 @@ import { RuntimeStorageCredentials as SC } from '@baocut/protocol/messages/runti
  * - 文件是 `{ formatVersion: 2, credentials: { "<key>": "<密钥>" } }`，key 带命名空间（`provider:openai`、`node:<nodeId>`）。
  * - 之前的版本写的是 `{ formatVersion: 1, credentials: { "<providerId>": "<密钥>" } }`：照原样读入，每个 providerId 当作
  *   `provider:<providerId>`；下一次写入时换成新格式。
- * - 第一次操作时读文件，之后内存里的状态是权威、文件是它的快照；写入串行。文件不存在或认不出时从空开始。
+ * - 第一次操作时读文件，之后内存里的状态是权威、文件是它的快照；写入串行。文件不存在（或是空文件）时从空开始。
+ * - 文件读不了、不是 JSON、认不出或由更新的版本写下时不从空开始，也不改名、不覆盖：每个操作都以
+ *   `CredentialStoreError('unavailable')` 失败（Provider 与节点如实报告凭据不可用），同一个原因只记一次 warn；下一次操作重新读文件，
+ *   修好或移走文件之后不用重启就恢复。
  */
 export class FileCredentialStore implements CredentialStore {
   readonly kind = 'file' as const;
@@ -23,8 +27,13 @@ export class FileCredentialStore implements CredentialStore {
   #entries: Map<string, string> | null = null;
   #chain: Promise<unknown> = Promise.resolve();
 
-  constructor(file: string) {
+  readonly #log: StoreLog | undefined;
+  /** 上一次读文件失败的原因：同一个原因只记一次日志。 */
+  #unreadable: string | null = null;
+
+  constructor(file: string, options: { log?: StoreLog } = {}) {
     this.file = file;
+    this.#log = options.log;
   }
 
   get(key: string): Promise<string | null> {
@@ -79,8 +88,27 @@ export class FileCredentialStore implements CredentialStore {
   }
 
   async #load(): Promise<Map<string, string>> {
-    if (!this.#entries) this.#entries = parse(await readJson<unknown>(this.file).catch(() => null));
-    return this.#entries;
+    if (this.#entries) return this.#entries;
+    let code: string;
+    try {
+      const read = await readJsonOrQuarantine(this.file, {
+        log: this.#unreadable === null ? this.#log : undefined,
+        version: { key: 'formatVersion', known: 2 },
+        quarantine: false,
+        recognize: parse,
+      });
+      if (read.status === 'ok' || read.status === 'missing' || read.status === 'empty') {
+        this.#unreadable = null;
+        return (this.#entries = read.value ?? new Map());
+      }
+      code = read.status;
+    } catch (error) {
+      code = (error as NodeJS.ErrnoException).code ?? 'unknown';
+      if (this.#unreadable !== code) this.#log?.warn('Credential file could not be read; left in place', { code });
+    }
+    this.#unreadable = code;
+    // 不缓存：每个操作都报告不可用，文件修好之后下一次操作就能读到。
+    throw new CredentialStoreError('unavailable', SC.fileUnreadable({ code }).text);
   }
 
   async #write(entries: Map<string, string>): Promise<void> {
@@ -96,11 +124,10 @@ export class FileCredentialStore implements CredentialStore {
   }
 }
 
-function parse(value: unknown): Map<string, string> {
+function parse(value: Record<string, unknown>): Map<string, string> | null {
+  const { formatVersion, credentials } = value;
+  if ((formatVersion !== 1 && formatVersion !== 2) || typeof credentials !== 'object' || credentials === null || Array.isArray(credentials)) return null;
   const entries = new Map<string, string>();
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return entries;
-  const { formatVersion, credentials } = value as { formatVersion?: unknown; credentials?: unknown };
-  if ((formatVersion !== 1 && formatVersion !== 2) || typeof credentials !== 'object' || credentials === null) return entries;
   for (const [id, secret] of Object.entries(credentials as Record<string, unknown>)) {
     if (typeof secret !== 'string' || !secret) continue;
     // 第 1 版的键是不带命名空间的 providerId。

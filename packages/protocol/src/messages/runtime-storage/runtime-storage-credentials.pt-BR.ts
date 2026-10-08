@@ -7,6 +7,7 @@ export const ptBR: RuntimeStorageCredentialsMessages = {
   internal: "Erro ao ler ou gravar a credencial",
   problem: (p) => `${p.reason}: ${p.message}`,
   fileWriteFailed: (p) => `Não foi possível gravar o arquivo de credenciais (${p.code})`,
+  fileUnreadable: (p) => `Não foi possível ler o arquivo de credenciais; ele foi mantido intacto (${p.code})`,
   helperBadResponse: "O auxiliar de credenciais retornou uma resposta inválida",
   helperNotFound: "O programa auxiliar de credenciais não foi encontrado",
   helperTimedOut: (p) => `O auxiliar de credenciais não respondeu em ${p.seconds} segundos`,

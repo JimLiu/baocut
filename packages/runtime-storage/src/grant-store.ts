@@ -21,7 +21,8 @@ import {
   type TaskBudgetLimits,
   type TaskBudgetPolicy,
 } from '@baocut/protocol';
-import { readJson, writeJsonAtomic } from './json-file.ts';
+import { writeJsonAtomic } from './json-file.ts';
+import { readJsonOrQuarantine, type StoreLog } from './store-file.ts';
 import { RuntimeStorageGrants as SG } from '@baocut/protocol/messages/runtime-storage';
 
 /**
@@ -96,6 +97,7 @@ export interface GrantStoreOptions {
   maxEnded?: number;
   /** 任务预算最多留多少条（默认 1000），超出时淘汰最旧的、没有预留的。 */
   maxTaskBudgets?: number;
+  log?: StoreLog;
 }
 
 interface StoredGrant {
@@ -178,13 +180,21 @@ export class GrantStore {
     this.#maxTaskBudgets = options.maxTaskBudgets ?? 1000;
   }
 
+  /**
+   * 读账本。文件不是 JSON、认不出或由更新的版本写下时抛出（Runtime 启动失败），文件原样留着：授权与预留不能静默丢掉，
+   * 也不能被这一版覆盖（`store-file.ts` 的 `quarantine: false`）。空文件按没有处理。
+   */
   static async open(file: string, options: GrantStoreOptions = {}): Promise<GrantStore> {
     const store = new GrantStore(file, options);
-    const data = await readJson<GrantsFile>(file);
+    const read = await readJsonOrQuarantine(file, {
+      log: options.log,
+      quarantine: false,
+      recognize: (raw) => (Array.isArray(raw.grants) && Array.isArray(raw.reservations) ? (raw as unknown as GrantsFile) : null),
+    });
+    if (read.status === 'unrecognized') throw new Error(`Malformed grants file: ${file}`);
+    if (read.status === 'newer-version') throw new Error(`Grants file was written by a newer version (schemaVersion ${read.version}): ${file}`);
+    const data = read.value;
     if (data !== null) {
-      if (typeof data !== 'object' || !Array.isArray(data.grants) || !Array.isArray(data.reservations)) {
-        throw new Error(`Malformed grants file: ${file}`);
-      }
       for (const grant of data.grants) store.#grants.set(grant.grantId, grant);
       for (const r of data.reservations) if (store.#grants.has(r.grantId)) store.#reservations.set(r.reservationId, r);
       for (const budget of Array.isArray(data.taskBudgets) ? data.taskBudgets : []) store.#taskBudgets.set(budget.taskId, budget);

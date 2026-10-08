@@ -1230,22 +1230,32 @@ describe('Runtime 启动失败', () => {
     }
   });
 
-  it('启动中途失败（Space 标记文件损坏）：已经起来的服务停掉，没起来的不碰', async () => {
+  it('启动中途失败（Space 标记文件读不了）：已经起来的服务停掉，没起来的不碰', async () => {
     const { sharePort } = await prepareHome();
-    await fs.writeFile(home.spaceFile, '{ 损坏');
+    // 文件系统层面读不了（这里是同名目录）：不当作坏文件改名，启动失败。
+    await fs.mkdir(home.spaceFile, { recursive: true });
     const calls = recordStops();
 
     const error = await startupError(boot({ watchSpace: true }));
-    expect(error).toBeInstanceOf(SyntaxError);
+    expect(error).toMatchObject({ code: 'EISDIR' });
     expect(calls).toEqual(['services', 'nodes', 'jobs', 'initiator', 'analysis', 'videos', 'harness']);
     expect(await portFree(sharePort)).toBe(true);
     expect(await childProcesses()).toEqual([]);
     expect(await readDiscovery(home)).toBeNull();
 
     vi.restoreAllMocks();
-    await fs.rm(home.spaceFile);
+    await fs.rm(home.spaceFile, { recursive: true });
     const runtime = await boot();
     await runtime.close();
+  });
+
+  it('Space 标记文件不是 JSON：改名保留，照常启动', async () => {
+    await prepareHome();
+    await fs.writeFile(home.spaceFile, '{ 损坏');
+    const runtime = await boot();
+    await runtime.close();
+    const names = await fs.readdir(path.dirname(home.spaceFile));
+    expect(names.some((n) => n.startsWith(`${path.basename(home.spaceFile)}.corrupt-`))).toBe(true);
   });
 
   it('停止某一步出错：后面的步骤照常执行，抛出的仍是启动失败的原始错误', async () => {

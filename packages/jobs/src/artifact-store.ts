@@ -2,13 +2,15 @@ import { createHash, randomUUID } from 'node:crypto';
 import { constants, createReadStream } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { syncDir } from '@baocut/runtime-storage';
 import { sha256Hex } from './input-hash.ts';
 
 /**
  * 最小的内容寻址产物库（架构设计 §5.1、§7.3）：`<artifacts>/<sha256hex>.<ext>`，`artifactId = 'sha256:<hex>'`。
  * 转写结果是 `.json`；生成的媒体按格式（`.mp3`、`.wav`、`.flac`、`.png`、`.jpg`、`.webp`）；导出的文件按格式
  * （字幕与文稿 `.srt`、`.vtt`、`.ass`、`.md`、`.txt`、`.json`，音频 `.wav`、`.mp3`、`.m4a`，成片 `.mp4`、`.webm`）。
- * 写入是临时文件加 rename；同一内容只存一份，发布后不可变。
+ * 写入是临时文件写完（或克隆完）fsync、rename、再 fsync 目录：兑现时内容与改名都已交给磁盘，任务账本引用的产物断电后也是完整的
+ * （macOS 上 Node 的 fsync 不是 `F_FULLFSYNC`）。同一内容只存一份，发布后不可变。
  */
 
 /** 产物文件可用的扩展名。 */
@@ -147,8 +149,15 @@ export class ArtifactStore {
     if (!exists) {
       await fs.mkdir(this.dir, { recursive: true });
       const tmp = `${file}.${randomUUID()}.tmp`;
-      await fs.writeFile(tmp, bytes, { mode: 0o644 });
-      await fs.rename(tmp, file);
+      await publish(tmp, file, async () => {
+        const handle = await fs.open(tmp, 'w', 0o644);
+        try {
+          await handle.writeFile(bytes);
+          await handle.sync();
+        } finally {
+          await handle.close();
+        }
+      });
     } else await touch(file);
     return { artifactId: `sha256:${hex}`, path: file };
   }
@@ -171,9 +180,17 @@ export class ArtifactStore {
     if (!exists) {
       await fs.mkdir(this.dir, { recursive: true });
       const tmp = `${file}.${randomUUID()}.tmp`;
-      await fs.copyFile(source, tmp, constants.COPYFILE_FICLONE);
-      await fs.chmod(tmp, 0o644);
-      await fs.rename(tmp, file);
+      await publish(tmp, file, async () => {
+        await fs.copyFile(source, tmp, constants.COPYFILE_FICLONE);
+        await fs.chmod(tmp, 0o644);
+        // 克隆（或复制）出来的文件同样要 fsync。用 r+ 打开：Windows 上只读句柄不能 fsync。
+        const handle = await fs.open(tmp, 'r+');
+        try {
+          await handle.sync();
+        } finally {
+          await handle.close();
+        }
+      });
     } else await touch(file);
     return { artifactId: `sha256:${hex}`, path: file, byteLength };
   }
@@ -201,7 +218,10 @@ export class ArtifactStore {
     return null;
   }
 
-  /** 产物在、内容与摘要相符（写入没有 fsync，崩溃之后可能残缺）。 */
+  /**
+   * 产物在、内容与摘要相符。写入会 fsync 之后才改名，正常情况下不会残缺；仍然核对，覆盖这个改动之前写下的产物、
+   * 磁盘自己的写缓存（macOS 的 fsync 不清它）与外部改动。
+   */
   async verify(artifactId: string): Promise<boolean> {
     const file = await this.locate(artifactId);
     if (!file) return false;
@@ -218,6 +238,18 @@ export class ArtifactStore {
     const file = await this.locate(artifactId);
     return file ? fs.readFile(file).catch(() => null) : null;
   }
+}
+
+/** 写临时文件（`write` 负责写完并 fsync）、改名到位、fsync 目录；失败时删掉临时文件。 */
+async function publish(tmp: string, file: string, write: () => Promise<void>): Promise<void> {
+  try {
+    await write();
+    await fs.rename(tmp, file);
+  } catch (error) {
+    await fs.rm(tmp, { force: true }).catch(() => {});
+    throw error;
+  }
+  await syncDir(path.dirname(file));
 }
 
 /**
