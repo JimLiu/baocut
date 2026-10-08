@@ -8,7 +8,7 @@ export const nl: HarnessProjectsMessages = {
   markerNewer: (p: { version: number }) =>
     `Dit project is gemaakt met een nieuwere versie van BaoCut (projectmarkeringsversie ${p.version}). Werk BaoCut bij en open het opnieuw`,
 
-  untitledProject: "Naamloos project",
+  untitledProject: "Naamloos project", recoveredVideos: "Herstelde video’s",
   createFolderFailed: (p: { error: string }) => `Kan de projectmap niet maken: ${p.error}`,
   tooManySameName: "Te veel projectmappen hebben deze naam. Kies een andere naam",
   markerNotWritable: (p: { dir: string }) =>

@@ -244,7 +244,8 @@ async function start(deps: LinkImportToolsDeps, args: LinkImportRequest, princip
     return { jobId: null, installJobId: installed.jobId, tool: toolView(installed.tool), ...approvalField(approval), next: installNext };
   }
   // 落点先解析（范围之外的不弹确认）。
-  const target = await targetOf(deps, args, access);
+  // 落点先只找位置（看不到的项目不弹确认）；新建视频的确认之后再取一次，无项目会话那时才建项目并绑定（§3.10）。
+  let target = await targetOf(deps, args, access, { locate: true });
   const placed = args.video !== undefined || args.newVideo === true || args.project !== undefined;
   // 说清楚文件去哪、视频怎么变。
   const about = {
@@ -274,6 +275,7 @@ async function start(deps: LinkImportToolsDeps, args: LinkImportRequest, princip
           risk: 'high',
         });
   if (status.consent?.state !== 'granted') await tools.consent({ name: status.name, grant: true, via: 'agent-approval' });
+  if (args.newVideo) target = await targetOf(deps, args, access);
   const { jobId } = await pipelines.start(
     {
       pipeline: LINK_IMPORT_PIPELINE,
@@ -330,11 +332,13 @@ async function targetOf(
   deps: LinkImportToolsDeps,
   args: LinkImportRequest,
   access: ToolAccess,
+  options: { locate?: boolean } = {},
 ): Promise<{ videoId: Id } | { target: PipelineVideoTarget } | { projectId: Id } | { conversationId: Id }> {
   const { scope } = deps;
   if (args.video !== undefined) return { videoId: (await scope.open(args.video, access)).ref.videoId };
   // 新建的位置只在要用时才取：终端的范围取它时会登记项目（或建默认项目）；看不到的项目与不存在的一样回答。
-  const source = (await scope.createRoot(access, args.project)).scope;
+  // 只下载（不新建视频）时只找位置：会话不因此绑定项目。
+  const source = (await scope.createRoot(access, args.project, { locate: options.locate || !args.newVideo })).scope;
   if (args.newVideo) return { target: { create: { ...source, ...(args.name ? { name: args.name } : {}) } } };
   return source;
 }

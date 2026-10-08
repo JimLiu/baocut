@@ -24,6 +24,8 @@ const en = {
     `This project was created by a newer version of BaoCut (project marker version ${p.version}). Update BaoCut, then open it again`,
   /** 新建项目没给名字时的目录名。 */
   untitledProject: 'Untitled project',
+  /** 启动时收容没有对应会话的视频（升级前留在会话工作目录里的）的项目名，也是它的目录名。 */
+  recoveredVideos: 'Recovered videos',
   createFolderFailed: (p: { error: string }) => `Couldn't create the project folder: ${p.error}`,
   tooManySameName: 'Too many project folders have this name. Choose another name',
   markerNotWritable: (p: { dir: string }) =>

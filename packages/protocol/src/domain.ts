@@ -35,9 +35,12 @@ export type ConversationActivity = 'idle' | 'running' | 'stopping' | 'awaiting-a
 export interface Conversation {
   id: Id;
   title: string;
-  /** 可空：不属于任何项目的会话（架构设计 §3.10）。绑定后不改绑。 */
+  /**
+   * 可空：不属于任何项目的会话（架构设计 §3.10）。可以从 null 绑定一次（第一次新建视频时 Runtime 建项目并绑定，经
+   * `conversation.upsert` / `conversation.updated` 推送），之后不改绑到另一个项目。
+   */
   projectId: Id | null;
-  /** 智能体的工作目录：项目目录，或无项目会话的临时目录。 */
+  /** 智能体的工作目录：项目目录，或无项目会话的临时目录（绑定项目后换成项目目录）。 */
   cwd: string;
   /** 会话的 Agent。没有任务之前可以换，之后固定（原生会话不能跨 Agent 续）。 */
   driverId: DriverId;

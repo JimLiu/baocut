@@ -28,6 +28,7 @@ import {
   type ScopedProject,
   type ToolPrincipal,
   type ToolScope,
+  type VideoRoot,
 } from './tool-scope.ts';
 
 /** 会话里一次调用的授权：会话与进行中的任务。 */
@@ -69,7 +70,17 @@ export class AgentScope implements ToolScope<AgentAccess> {
       throw new ToolError('PLAN_ONLY', '当前是规划模式（只读）：说明你打算怎么改，等用户切换到可以修改的模式后再改');
     }
     const submitter: JobSubmitter = { kind: 'agent', id: run.conversation.id, taskId: run.taskId };
-    return { principal, conversation: run.conversation, taskId: run.taskId, submitter };
+    // 会话每次都取此刻的记录：调用中途绑定了项目（新建视频时，§3.10）之后，工作目录与来源目录跟着换。
+    const harness = this.#harness;
+    const captured = run.conversation;
+    return {
+      principal,
+      get conversation(): Conversation {
+        return harness.conversationOf(captured.id) ?? captured;
+      },
+      taskId: run.taskId,
+      submitter,
+    };
   }
 
   /** 按会话此刻的访问模式与风险决定（§3.12）：自动、等用户，或拒绝。结果里的模式记进工具结果。 */
@@ -133,14 +144,22 @@ export class AgentScope implements ToolScope<AgentAccess> {
     };
   }
 
-  /** 会话的来源目录；给了 `project` 时只能是会话所属的项目（按 id 或目录），别的与不存在的一样回答。 */
-  createRoot(access: AgentAccess, project?: string): { root: string; scope: { projectId: Id } | { conversationId: Id } } {
+  /**
+   * 新建视频的位置：会话所属的项目。给了 `project` 时只能是会话所属的项目（按 id 或目录），别的与不存在的一样回答。
+   * 不属于项目的会话第一次新建视频时，先建项目并把会话绑定到它（§3.10，`Harness.ensureConversationProject`），视频建在项目里；
+   * `locate` 时只找位置（确认之前、删除视频时），不绑定，会话还没有项目时回答会话的工作目录。
+   */
+  async createRoot(access: AgentAccess, project?: string, options: { locate?: boolean } = {}): Promise<VideoRoot> {
     const source = this.source(access.conversation);
-    if (project === undefined) return source;
-    if ('projectId' in source.scope && (project === source.scope.projectId || path.resolve(project) === path.resolve(source.root))) {
-      return source;
+    if (
+      project !== undefined &&
+      !('projectId' in source.scope && (project === source.scope.projectId || path.resolve(project) === path.resolve(source.root)))
+    ) {
+      throw new ToolError('PROJECT_NOT_FOUND', `找不到项目「${project}」：只能在会话所属的项目里新建；不给 project 时建在会话的项目里`);
     }
-    throw new ToolError('PROJECT_NOT_FOUND', `找不到项目「${project}」：只能在会话所属的项目里新建；不给 project 时建在会话的工作目录`);
+    if (options.locate || 'projectId' in source.scope) return source;
+    const bound = await this.#harness.ensureConversationProject(access.conversation.id);
+    return { root: bound.path, scope: { projectId: bound.id } };
   }
 
   /** `importAsset.path` 相对会话的工作目录；绝对路径与 `~/` 照常接受（用户给的素材常在别处）。 */

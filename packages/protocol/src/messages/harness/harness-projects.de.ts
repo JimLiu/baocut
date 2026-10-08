@@ -8,7 +8,7 @@ export const de: HarnessProjectsMessages = {
   markerNewer: (p: { version: number }) =>
     `Dieses Projekt wurde mit einer neueren BaoCut-Version erstellt (Version der Projektmarkierung ${p.version}). BaoCut aktualisieren und erneut öffnen`,
 
-  untitledProject: "Unbenanntes Projekt",
+  untitledProject: "Unbenanntes Projekt", recoveredVideos: "Wiederhergestellte Videos",
   createFolderFailed: (p: { error: string }) => `Projektordner konnte nicht erstellt werden: ${p.error}`,
   tooManySameName: "Zu viele Projektordner mit diesem Namen. Einen anderen Namen auswählen",
   markerNotWritable: (p: { dir: string }) =>

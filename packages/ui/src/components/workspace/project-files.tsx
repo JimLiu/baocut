@@ -83,12 +83,13 @@ export function ProjectFiles({ conversationId, onOpenFile, onOpenVideo }: Projec
   const rootLabel = project?.name ?? COPY.scratchRoot;
   const searching = query.length > 0;
 
-  // 换会话时回到根目录、清掉搜索。
+  // 换会话或会话绑定了项目（工作目录换了，架构设计 §3.10）时回到根目录、清掉搜索。
+  const projectId = conversation?.projectId ?? null;
   useEffect(() => {
     setDir('');
     setInput('');
     setQuery('');
-  }, [conversationId]);
+  }, [conversationId, projectId]);
 
   useEffect(() => {
     const text = input.trim();
@@ -108,7 +109,7 @@ export function ProjectFiles({ conversationId, onOpenFile, onOpenVideo }: Projec
     return () => {
       current = false;
     };
-  }, [runtime, conversationId, dir, query, searching, attempt]);
+  }, [runtime, conversationId, projectId, dir, query, searching, attempt]);
 
   const entries = load.status === 'ready' ? load.result.entries : [];
   const byPath = useMemo(() => new Map(entries.map((e) => [e.path, e])), [entries]);
