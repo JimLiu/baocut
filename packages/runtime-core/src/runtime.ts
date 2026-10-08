@@ -898,6 +898,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     stops.add('activity', () => activity.stop(), null);
     legacyUpgrade.start({
       models: models.services.store,
+      isBusy: () => models.jobs.list().some((job) => !isTerminal(job.state)),
       refreshModels: () => models.services.refresh(),
       engine: options.engineHost !== undefined ? options.engineHost : resolveEngineHostCommand(),
       openProject: async (dir, name) => {

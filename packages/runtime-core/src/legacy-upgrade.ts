@@ -13,6 +13,7 @@ import {
   isFile,
   legacyRoots,
   legacyProjectVersion,
+  discoverLegacyProjects,
   readLegacySource,
   readV1Preferences,
   type LegacyObject,
@@ -20,6 +21,7 @@ import {
 } from './legacy-upgrade-sources.ts';
 
 interface SourceState {
+  absent?: true;
   settings?: true;
   cloud?: true;
   credentials: string[];
@@ -30,6 +32,7 @@ interface SourceState {
 }
 interface UpgradeState {
   schemaVersion: 1;
+  complete?: true;
   sources: Record<string, SourceState>;
 }
 export interface ImportRequest {
@@ -57,6 +60,8 @@ export class LegacyUpgrade {
   readonly #file: string;
   #state: UpgradeState = { schemaVersion: 1, sources: {} };
   #sources: LegacySource[] = [];
+  #v1PreferenceFile: string | null = null;
+  #primaryRoot: string | null = null;
   #abort = new AbortController();
   #running: Promise<void> | null = null;
   active = false;
@@ -65,6 +70,9 @@ export class LegacyUpgrade {
     this.#file = path.join(options.home.root, 'store', 'legacy-upgrade.json');
   }
   async #save(): Promise<void> {
+    if (Object.values(this.#state.sources).length && Object.values(this.#state.sources).every((s) => s.complete))
+      this.#state.complete = true;
+    else delete this.#state.complete;
     await writeJsonAtomic(this.#file, this.#state, { mode: 0o600 });
   }
 
@@ -84,8 +92,15 @@ export class LegacyUpgrade {
     const loaded = await readJson<UpgradeState>(this.#file);
     if (loaded && (loaded.schemaVersion !== 1 || !loaded.sources)) throw new Error('Unsupported legacy upgrade marker');
     this.#state = loaded ?? this.#state;
-    const settings = new SettingsStore(this.#options.home.settingsFile);
-    await settings.load();
+    if (this.#state.complete) return;
+    // Seed all roots before checkpointing so a crash cannot prematurely mark the whole scan complete.
+    for (const root of roots) this.#state.sources[path.resolve(root)] ??= { credentials: [], projects: {}, pending: [], unsupported: [] };
+    // Completed sources do not open settings, old registries, plists or directories.
+    if (roots.every((root) => this.#state.sources[path.resolve(root)]?.complete)) {
+      await this.#save();
+      return;
+    }
+    let settings: SettingsStore | null = null;
     const prefFile =
       this.#options.v1Preferences !== undefined
         ? this.#options.v1Preferences
@@ -96,21 +111,32 @@ export class LegacyUpgrade {
               path.resolve(process.env.BAOCUT_HOME) === path.join(os.homedir(), '.baocut'))
           ? path.join(os.homedir(), 'Library', 'Preferences', 'com.jimliu.baocut.plist')
           : null;
+    this.#v1PreferenceFile = prefFile;
+    this.#primaryRoot = path.resolve(roots[0]!);
     for (const root of roots) {
       const id = path.resolve(root);
       if (this.#state.sources[id]?.complete) continue;
       const state = (this.#state.sources[id] ??= { credentials: [], projects: {}, pending: [], unsupported: [] });
       state.pending = [];
+      if (state.settings) {
+        this.#sources.push({ root: id, config: {}, preferences: {}, cloud: {}, projects: [] });
+        continue;
+      }
       try {
         const v1Files = prefFile ? [path.join(path.dirname(prefFile), 'VoiceInk.plist'), prefFile] : [];
         const existingV1Files: string[] = [];
         for (const file of v1Files) if (await isFile(file)) existingV1Files.push(file);
         const source =
-          (await readLegacySource(id, platform)) ??
+          (await readLegacySource(id, platform, { discoverProjects: false })) ??
           (existingV1Files.length && id === path.resolve(roots[0]!)
             ? { root: id, config: {}, preferences: {}, cloud: {}, projects: [] }
             : null);
-        if (!source) continue;
+        if (!source) {
+          state.absent = true;
+          state.complete = true;
+          await this.#save();
+          continue;
+        }
         if (id === path.resolve(roots[0]!)) source.v1PreferenceFiles = existingV1Files;
         this.#sources.push(source);
         const v1: LegacyObject = {};
@@ -120,6 +146,10 @@ export class LegacyUpgrade {
             source.config['llm.default'] = `provider:${v1['vk-ai-last-provider']}/${v1['vk-ai-last-model']}`;
         }
         if (!state.settings) {
+          if (!settings) {
+            settings = new SettingsStore(this.#options.home.settingsFile);
+            await settings.load();
+          }
           await importLegacySettings(settings, source, v1, platform);
           const mapped = new Set(['language', 'vk-url-savedir', 'appAutoUpdate', 'agentChatDefaults', 'agentLastMode']);
           state.unsupported.push(
@@ -145,6 +175,8 @@ export class LegacyUpgrade {
     engine: string | null;
     openProject: (dir: string, name?: string) => Promise<unknown>;
     refreshModels?: () => Promise<unknown>;
+    /** Do not compete with active user jobs; in-flight imports finish at the project boundary. */
+    isBusy?: () => boolean;
     env: () => Promise<NodeJS.ProcessEnv>;
   }): void {
     this.active = this.#sources.length > 0;
@@ -161,13 +193,46 @@ export class LegacyUpgrade {
     await this.#running;
   }
 
+  async #waitForIdle(busy?: () => boolean): Promise<boolean> {
+    while (!this.#abort.signal.aborted && busy?.()) {
+      await new Promise<void>((resolve) => {
+        const finish = () => {
+          clearTimeout(timer);
+          this.#abort.signal.removeEventListener('abort', finish);
+          resolve();
+        };
+        const timer = setTimeout(finish, 500);
+        this.#abort.signal.addEventListener('abort', finish, { once: true });
+      });
+    }
+    return !this.#abort.signal.aborted;
+  }
+
   async #run(deps: Parameters<LegacyUpgrade['start']>[0]): Promise<void> {
     await new Promise<void>((resolve) => setImmediate(resolve));
-    for (const source of this.#sources) {
+    for (const prepared of this.#sources) {
+      let source = prepared;
       const state = this.#state.sources[source.root]!;
       if (this.#abort.signal.aborted) return;
+      if (!(await this.#waitForIdle(deps.isBusy))) return;
       try {
         if (!state.cloud) {
+          source = (await readLegacySource(prepared.root, this.#options.platform, { discoverProjects: false })) ?? prepared;
+          source.config = { ...source.config, ...prepared.config };
+          source.v1PreferenceFiles = prepared.v1PreferenceFiles;
+          if (!source.v1PreferenceFiles && this.#v1PreferenceFile && source.root === this.#primaryRoot) {
+            source.v1PreferenceFiles = [];
+            for (const file of [path.join(path.dirname(this.#v1PreferenceFile), 'VoiceInk.plist'), this.#v1PreferenceFile]) {
+              if (await isFile(file)) source.v1PreferenceFiles.push(file);
+            }
+          }
+          if (!source.config['llm.default'] && source.v1PreferenceFiles?.length) {
+            const v1: LegacyObject = {};
+            for (const file of source.v1PreferenceFiles) Object.assign(v1, await readV1Preferences(file));
+            if (v1['vk-ai-last-provider'] && v1['vk-ai-last-model']) {
+              source.config['llm.default'] = `provider:${v1['vk-ai-last-provider']}/${v1['vk-ai-last-model']}`;
+            }
+          }
           const cloud = await importLegacyCloud(
             source,
             deps.models,
@@ -196,13 +261,57 @@ export class LegacyUpgrade {
       } catch {
         state.pending.push('cloud-settings-unavailable');
       }
+      try {
+        const inventory = path.join(this.#options.home.root, 'store', 'legacy-upgrade', `${key(source.root)}.json`);
+        const cached = await readJson<{ projects: LegacySource['projects'] }>(inventory);
+        if (cached) {
+          if (!Array.isArray(cached.projects)) throw new Error('Invalid legacy inventory');
+          source.projects = cached.projects;
+        } else {
+          const discovered = await readLegacySource(source.root, this.#options.platform, { discoverProjects: false });
+          if (!discovered && !source.v1PreferenceFiles?.length) throw new Error('Legacy source unavailable');
+          source.projects = discovered ? await discoverLegacyProjects(discovered, this.#options.platform) : [];
+          await writeJsonAtomic(inventory, { projects: source.projects }, { mode: 0o600 });
+        }
+      } catch {
+        state.pending.push('project-discovery-unavailable');
+        await this.#save();
+        continue;
+      }
+      const completed = new Set(
+        Object.values(this.#state.sources).flatMap((s) =>
+          Object.entries(s.projects)
+            .filter(([, p]) => p.complete)
+            .map(([p]) => p),
+        ),
+      );
       for (const project of source.projects) {
-        if (this.#abort.signal.aborted) return;
+        if (completed.has(project.path)) continue;
+        if (!(await this.#waitForIdle(deps.isBusy))) return;
         try {
           const canonical = await fs.realpath(project.path);
-          if (Object.values(this.#state.sources).some((s) => s.projects[canonical]?.complete)) continue;
+          if (completed.has(canonical)) continue;
           const record = (state.projects[canonical] ??= { target: path.join(this.#options.home.projectsDir, `legacy-${key(canonical)}`) });
           if (record.complete) continue;
+          const previous = await readJson<{ assets?: { missing?: string[] } }>(path.join(record.target, 'import-report.json'));
+          if (previous?.assets?.missing?.length) {
+            let unavailable = false;
+            for (const file of previous.assets.missing) {
+              if (
+                !(await fs.access(file).then(
+                  () => true,
+                  () => false,
+                ))
+              ) {
+                unavailable = true;
+                break;
+              }
+            }
+            if (unavailable) {
+              state.pending.push(`project:${project.path}`);
+              continue;
+            }
+          }
           const version = await legacyProjectVersion(canonical, this.#options.platform);
           if (!version || !deps.engine) throw new Error('import-unavailable');
           await this.#save();
@@ -213,6 +322,7 @@ export class LegacyUpgrade {
           const report = await readJson<{ name?: string }>(path.join(record.target, 'import-report.json'));
           await deps.openProject(record.target, report?.name ?? project.entry.title);
           record.complete = true;
+          completed.add(canonical);
           await this.#save();
         } catch {
           state.pending.push(`project:${project.path}`);
@@ -256,6 +366,13 @@ export async function runProjectImport(request: ImportRequest, env: NodeJS.Proce
       const child = spawn(process.execPath, [...(worker.endsWith('.ts') ? ['--experimental-strip-types'] : []), worker, file], {
         env: { ...env, ELECTRON_RUN_AS_NODE: '1' },
         stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+      });
+      child.once('spawn', () => {
+        try {
+          if (child.pid) os.setPriority(child.pid, os.constants.priority.PRIORITY_BELOW_NORMAL);
+        } catch {
+          /* Optional on restricted hosts. */
+        }
       });
       let force: ReturnType<typeof setTimeout> | undefined;
       const cancel = () => {

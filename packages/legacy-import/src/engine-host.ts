@@ -2,6 +2,7 @@
 // Engine Host 的最小客户端：stdin/stdout 每行一个 JSON（见 crates/engine-host/src/main.rs）。
 // 脚本不依赖 packages/ 里的协议类型：这里只声明导入用到的几个形状。
 
+import os from 'node:os';
 import { spawn } from 'node:child_process';
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createInterface } from 'node:readline';
@@ -41,6 +42,13 @@ export class EngineHost {
 
   constructor(binary: string, ffprobe: string) {
     this.#child = spawn(binary, [], { env: { ...process.env, BAOCUT_FFPROBE: ffprobe }, stdio: ['pipe', 'pipe', 'pipe'] });
+    this.#child.once('spawn', () => {
+      try {
+        if (this.#child.pid) os.setPriority(this.#child.pid, os.constants.priority.PRIORITY_BELOW_NORMAL);
+      } catch {
+        /* Optional on restricted hosts. */
+      }
+    });
     this.#child.stderr.on('data', (chunk) => process.stderr.write(chunk));
     this.#child.stdin.on('error', () => {});
     this.#child.on('error', (error) => {
