@@ -218,8 +218,9 @@
            这一层的键都要有一个「被选中的东西」才有意义，观看面上没有——继续接只会
            让人在看片时按 ⌫ 删掉一件元素，而画面上根本看不见它没了。 */
         if (c.fs) return;
-        // 弹层自己接键：对话框 / sheet 铺 `.scrim`，Popover（含右键菜单）挂 `data-pop`
-        if (document.querySelector('.scrim, [data-pop], dialog[open], [role="dialog"][data-rac], [role="alertdialog"]')) return;
+        // 弹层自己接键：对话框 / sheet 铺 `.scrim`，Popover（含右键菜单）挂 `data-pop`。提示条不算：S2 的 toast 也是
+        // role=alertdialog，挂在 toast 区（role=region）里，不排除的话它在的那几秒里 ⌘Z 等键全被吞掉（2026-10-08）。
+        if (document.querySelector('.scrim, [data-pop], dialog[open], [role="dialog"][data-rac], [role="alertdialog"]:not([role="region"] *)')) return;
         const meta = e.metaKey || e.ctrlKey;
         const k = e.key;
         const low = k.length === 1 ? k.toLowerCase() : k;

@@ -274,7 +274,7 @@
     useEffect(() => {
       const key = e => {
         if (!SURF.help) return;
-        if (e.key !== 'F1' || document.querySelector('.scrim, .wz-scrim, dialog[open], [role="dialog"][data-rac], [role="alertdialog"]')) return;
+        if (e.key !== 'F1' || document.querySelector('.scrim, .wz-scrim, dialog[open], [role="dialog"][data-rac], [role="alertdialog"]:not([role="region"] *)')) return;
         e.preventDefault(); showHelp();
       };
       window.addEventListener('keydown', key);

@@ -42,8 +42,9 @@
     useEffect(() => {
       const onKey = (e) => {
         // 模态框开着时快捷键归它：本目录的 <dialog> / aria-modal 框，和 S2 的 Dialog（RAC 渲染，带 data-rac，
-        // 自己不写 aria-modal——遮罩外的内容由它设 aria-hidden）。原型开关面板、任务药丸的浮层也是 role=dialog，不算
-        if (document.querySelector('dialog[open], [role="dialog"][aria-modal="true"], [role="dialog"][data-rac], [role="alertdialog"]')) return;
+        // 自己不写 aria-modal——遮罩外的内容由它设 aria-hidden）。原型开关面板、任务药丸的浮层也是 role=dialog，不算；
+        // 提示条（S2 toast，toast 区 role=region 里的 role=alertdialog）也不算
+        if (document.querySelector('dialog[open], [role="dialog"][aria-modal="true"], [role="dialog"][data-rac], [role="alertdialog"]:not([role="region"] *)')) return;
         const inField = /^(INPUT|TEXTAREA)$/.test((e.target || {}).tagName || '');
         const meta = e.metaKey || e.ctrlKey;
         if (meta && e.key === '[') { e.preventDefault(); app.back(); }

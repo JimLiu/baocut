@@ -34,7 +34,7 @@
     const app = useApp();
     useEffect(() => {
       const onKey = (e) => {
-        if (document.querySelector('dialog[open], [role="dialog"][data-rac], [role="alertdialog"]')) return;
+        if (document.querySelector('dialog[open], [role="dialog"][data-rac], [role="alertdialog"]:not([role="region"] *)')) return;
         if (e.ctrlKey && e.metaKey && e.key.toLowerCase() === 's') { e.preventDefault(); app.toggleSidebar(); }
       };
       window.addEventListener('keydown', onKey);
