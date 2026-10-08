@@ -217,6 +217,14 @@ const en = {
     unavailable: (provider: string) => `${provider} isn't available right now`,
     goConnect: 'Connect',
     switchTo: (name: string) => `Switch to ${name}`,
+    /** 门卡上的下载按钮带大小（设计稿 tool-tts.jsx、image-gen.jsx 的「下载 {size}」）。 */
+    downloadSize: (size: string) => `Download ${size}`,
+    /** 选中的本机语音模型没装时换用装好的那只（设计稿 tool-tts.jsx「换用已装的 X」）。 */
+    switchToInstalled: (name: string) => `Switch to installed ${name}`,
+    /** 语音合成页的下载卡说明（设计稿 panel-tts.jsx `TtsModelGate`）；`Paused` 再加一句续传。 */
+    ttsDownloadBody: 'Downloading doesn’t use the task queue; once installed, this page’s main button works.',
+    ttsDownloadBodyPaused:
+      'Downloading doesn’t use the task queue; once installed, this page’s main button works. The download stopped partway; resuming continues from there.',
   },
 
   image: {

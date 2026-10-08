@@ -380,6 +380,7 @@ export const ko: CopyMessages = {
     fontDownload: '글꼴 다운로드',
     voiceClone: '목소리 복제',
     agentTranslate: '번역',
+    legacyImport: '이전 프로젝트 가져오기',
   },
   jobPhase: {
     queued: '대기 중',

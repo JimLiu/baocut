@@ -5,9 +5,12 @@
 ## 目录
 
 - [1. 规范与实现](#1-规范与实现)
+  - [1.1 提交分类](#11-提交分类)
+  - [1.2 合并前提交整理](#12-合并前提交整理)
 - [2. 验证](#2-验证)
 - [3. 多端同步](#3-多端同步)
 - [4. 语言与平台](#4-语言与平台)
+  - [4.1 跨平台系统集成](#41-跨平台系统集成)
 - [5. 工作区与产物](#5-工作区与产物)
   - [5.3 开发态数据与会话记录](#53-开发态数据与会话记录)
 
@@ -20,6 +23,35 @@
 - 业务语义与状态所有权遵守[架构设计 §1](architecture/architecture-design.md#1-总体架构)；不在 UI、脚本或多个客户端复制权威逻辑。
 - 文档按[写作规则](README.md#写作规则)整合到所属主题，一事一处、一个主题一篇，正文保留目录；不为本流程建立独立变更日志，也不往 README 追加过程记录。
 
+### 1.1 提交分类
+
+自动与手动提交都使用 `type(scope): summary`；type 与 scope 用英文，summary 与正文默认用英文，用户明确指定其他语言时按要求处理。scope 是二级分类，使用稳定的模块或功能主题名（lowercase-dashed），如 `file-location`、`preview`、`release`。同一类修复的多个提交必须沿用同一个 scope，优先复用已有分类，不在每个提交中换名称；其他无法合理归属的单独事项可省略 scope。按实际变更目的选类型，便于发布时从 commits／PR 整理日志：
+
+| type | 适用变化 |
+| --- | --- |
+| `feat` | 新增或扩展产品能力、用户可见行为 |
+| `fix` | 修复缺陷，使行为符合预期 |
+| `docs` | 文档、规范、开发代理指令或 skill 的说明变更 |
+| `refactor` | 重构实现，不改变外部行为 |
+| `perf` | 改善性能 |
+| `test` | 仅新增或调整测试 |
+| `build` | 构建、打包机制或依赖变化 |
+| `ci` | 持续集成与发布工作流变化 |
+| `chore` | 不属于以上类型的日常维护，如版本号与已验证发布版本钉更新 |
+| `revert` | 撤销既有变更；正文注明被撤销的 commit 与原因 |
+
+summary 写清动作、对象及关键结果，不使用 `update`、`fix some issues`、`auto commit` 等空泛摘要。例如同类文件定位修复统一为 `fix(file-location): handle Windows extended paths`、`fix(file-location): handle directory names with spaces`；发布说明使用 `docs(release): require complete batched changelog summaries`。需要解释原因、影响或兼容性时写进正文；破坏兼容的变化在类型／scope 后加 `!`，并在正文用 `BREAKING CHANGE:` 写明影响与迁移方式。
+
+每个 commit 表达一个可理解的变更目的。一个功能或修复及其对应文档、测试同属一个提交，类型按主要目的选择；互不相关的改动分开提交，不为分类拆散同一变更。发布日志仍须核对实际内容，不能仅凭类型跳过来源或推断用户影响。
+
+### 1.2 合并前提交整理
+
+任务分支或 worktree 合并回 `main` 前，先审阅该分支相对合入基线的全部改动，把开发过程中的尝试、补丁、修正和对应测试／文档归并为 1–N 条有意义的事项提交。数量由独立事项决定：同一功能或同一修复通常一条，多个独立事项保留少量分开的提交；不按原始提交数量机械保留，也不把互不相关的内容压成一条笼统的「合并分支」。同一 scope 只辅助归类，不代表所有修复都必须压成一条。
+
+整理后的每条提交按 §1.1 命名，摘要描述最终交付结果，正文列出需要保留的具体修复、限制、迁移要求与 PR／issue 依据，使它可以直接作为 changelog 的来源。已撤销的尝试不写成最终能力；独立修复不能在归并时丢掉。PR squash 合入时，PR 标题与 squash 正文也遵循这些要求，不能沿用临时分支名或流水账。
+
+可以在本任务独占分支中 squash／rebase，或在合入时生成整理后的提交。整理仅限本任务尚未合入的内容，不改写 `main` 或已发布 tag 的历史；共享分支与他人提交保留原历史，通过合入时归并达到相同结果。核对整理前后的净改动等价，处理冲突后按实际影响重新验证，并在合入后确认提交边界与摘要。分支整理不包含 push 或 force push 授权；worktree、分支与专用 target 的清理仍遵守根 AGENTS.md。
+
 ## 2. 验证
 
 先根据改动范围选检查，再执行。行为变化补充或调整能覆盖该行为的测试；修 bug 优先覆盖原失败场景。通过标准与测试层次见[验收与测试](acceptance/acceptance-spec.md)，下表只提供当前仓库的执行入口。
@@ -31,7 +63,7 @@
 | TypeScript / React | `npm run typecheck`；`npm test -- <测试文件>` 跑受影响测试，跨模块影响难以收窄时跑 `npm test` |
 | Rust | `cargo fmt --all -- --check`；`cargo test --locked -p <受影响 crate>`，跨 crate 时覆盖相关消费者，广泛改动再跑 `cargo test --locked --workspace` |
 | Rust ↔ WASM | `npm run build:wasm`，并验证实际消费方；仅宿主 Rust 测试通过不足以证明 WASM 可构建、可加载 |
-| Electron 装配或打包 | `npm run build`；渲染进程的资源加载（字体、WASM、`base`）、Electron 版本、fuse 或打包配置有变化时跑 `npm run check:file-fonts`（会先构建）；Runtime 按路径读的随应用分发的数据（`packages/models/assets` 等）、主进程的构建入口或打包配置有变化时跑 `npm run check:model-assets`（会先构建；用 Electron 的 Node 运行产物里的自检入口，原地与模拟打包各核对一遍每个文件都解析得到）；用 `npm run dev` 或 `npm start` 检查受影响流程，按任务选择开发态或打包后的运行方式 |
+| Electron 装配或打包 | `npm run build`；渲染进程的资源加载（字体、WASM、`base`）、Electron 版本、fuse 或打包配置有变化时跑 `npm run check:file-fonts`（会先构建）；Runtime 按路径读的随应用分发的数据（`packages/models/assets` 等）、主进程的构建入口或打包配置有变化时跑 `npm run check:model-assets`（会先构建；用 Electron 的 Node 运行产物里的自检入口，原地与模拟打包各核对一遍每个文件都解析得到）；用 `npm run dev` 或 `npm start` 检查受影响流程，按任务选择开发态或打包后的运行方式；改了开发态的进程监管（`apps/desktop/tools/dev-runner.mjs`、`dev-process-group.mjs`）时跑 `node --test apps/desktop/tools/dev-process-group.test.mjs`，并在终端里按 Ctrl+C、关掉终端各停一次，确认 electron-vite、Electron 与 Runtime 都退出 |
 | Windows 安装包 | 改了打包脚本、`<resources>` 布局、随应用分发的原生程序或 Runtime / Worker 的路径解析时跑。Windows 上在 MSVC 环境里 `npm run package:win`（CUDA 版 `npm run package:win:cuda`，NVIDIA 专用、candle 与 Whisper 都走 CUDA，要 CUDA Toolkit 13.1；Vulkan 版 `npm run package:win:vulkan`，给 AMD / Intel 显卡、Whisper 走 Vulkan，要 Vulkan SDK）出 NSIS 与 zip 到 `apps/desktop/dist/<变体>`，再 `node apps/desktop/tools/check-packaged-app.mjs <win-unpacked 或安装目录>` 起一遍每个 Worker 并核对 Runtime 的解析；没有 Windows 机器时手动触发 `desktop-windows` 工作流。macOS 上只能用 `--target x86_64-pc-windows-gnu --bin-dir <交叉编译的目录>` 核对包的结构，不能代替 Windows 上的自检。细节见[桌面端 README](../apps/desktop/README.md#windows-打包) |
 | 预览性能（可选） | 改预览的出帧路径（`preview-engine`、`render-planner`、预览 WASM、frame-render 与光栅）时可跑。内核逐帧：`npm run build:wasm` 后 `node tools/preview-bench.ts`，缺省画一致性夹具拼成的合成场景，按阶段（求计划、送画面、画帧、取帧）报 p50/p95 并逐层消融；`--video <视频目录>` 量本机的视频（先 `cargo build -p engine-host`，只用副本），`--wasm` 给两份时逐帧轮流画，比改动前后。机器忙时绝对值会飘，看输出里的负载，比值以轮流画的为准。端到端：`npm run bench:preview`（会先构建，要 `engine-host`）在 Electron 的隐藏窗口里以生产构建连隔离的 Runtime（临时 Home、不注册智能体、不碰钥匙串、只放行本机请求），打开视频，拖几下播放头、跳一下再放一段，报画上去的帧率、掉帧、长任务、每个 tick 的主线程时间、媒体元素的偏差与重新定位，以及拖动与跳转到第一次画上去、到画上精确那一帧的时间；缺省场景是 ffmpeg 生成的合成素材，`-- --video <视频目录>` 量本机视频的副本 |
 | 面板性能（可选） | 改虚拟列表（字幕、译文、文稿）、时间线的裁剪与缩放、页签切换、字幕查找替换等面板的渲染路径时可跑（M12）。`npm run bench:panels`（会先构建，要 `engine-host` 或 `BAOCUT_ENGINE_HOST`、ffmpeg 与 ffprobe、Google Chrome 或 `BAOCUT_CHROME`）用渲染进程的真实生产构建（`electron-vite build` 的产物原样由本地 HTTP 服务提供），在系统临时目录里起隔离的 Runtime（临时 Home、不注册智能体、不碰钥匙串，网关只放行这个本地来源），程序化合成大小两档夹具（ffmpeg 生成的纯色素材、逐词转写、字幕、译文、剪口与配音块），用无头 Chrome 经 CDP 注入宿主桥后打开，屏蔽 Typekit；每档 3 次新载入，每次载入前等 1 分钟负载降到 3 以下（最多等 3 分钟），量各面板挂载数、连续滚动的帧间隔 P95、页签切换、时间线缩放一步与整片入镜、字幕全部替换与撤销的最长任务，输出环境、两档规模和与[验收与测试 §4](acceptance/acceptance-spec.md#4-性能目标) M12 基线逐行对应的表。`-- --tier small --runs 1` 只跑一档一次，`-- --json <文件>` 另存每次的原始结果；临时目录与 Chrome 用户目录都在仓库外，结束时删掉。负载高时操作的绝对值会飘，挂载数应与基线一致 |
@@ -72,6 +104,16 @@
 - 给人看的文字走统一的多语言机制（[仓库约定 §5](repo-conventions.md#5-文案与多语言)），英文与每种出货语言同时写；布局不假定固定字数或文字方向。
 - 平台专属 API、依赖与后端通过目标配置或能力检测隔离，避免无条件引入 Apple-only 等接口。平台不可用时有明确行为，不静默更换用户指定的后端。
 - 修改提示词、缺省值、语言校验或平台分支后，审阅改动中的语言与平台假设，按 §2 验证相关路径并报告未覆盖环境。
+
+### 4.1 跨平台系统集成
+
+修改文件或目录的打开、定位、选择、拖入，以及系统菜单、外部程序启动等宿主能力时，必须审计 Windows、macOS 与 Web 的适用性，不以开发机上的表现推断其他平台。
+
+- **文案与动作一致**：文件管理器定位统一采用[术语表](glossary.md#界面英文用词)的「在文件夹中显示 / Show in Folder」，不在共享界面写死 Finder 等平台名称。区分「在 BaoCut 中打开」「用系统默认应用打开」与「在文件夹中显示」；项目未登记或当前格式不能在应用内打开，不等于磁盘上的文件或目录不能被定位，提示须写清受限的是哪种动作。
+- **路径跨边界检查**：追踪 Runtime / Rust 返回的路径、界面拼接与宿主调用，分别检查文件与目录。Windows 覆盖盘符路径、UNC 网络共享、`\\?\C:\…` 与 `\\?\UNC\server\share\…` 扩展路径、混合分隔符，以及空格和非 ASCII 名称；macOS 覆盖 POSIX 路径。使用目标平台的路径规则与既有转换入口，不把 `path.normalize` 当作移除 Windows 扩展命名空间的保证，不盲目删除未知命名空间前缀。
+- **按宿主能力提供入口**：桌面端通过宿主桥调用系统接口；Web 不能定位 Runtime 所在电脑的本机目录，不提供暗示可用的操作。其他平台缺失的能力有明确的隐藏、禁用或解释行为，不显示可点却静默无效的按钮。
+- **覆盖原失败场景**：除路径单元测试外，在目标系统分别定位源文件、项目目录与视频目录，覆盖 CLI 创建后进入桌面端、关闭后重开，以及不存在或不可访问的目标；检查实际打开的文件管理器与选中的目标、失败提示和控制台。路径转换测试或 IPC 调用成功不足以证明系统文件管理器已打开。
+- **如实报告验证边界**：按 §2 执行与影响相称的检查；没有 Windows / macOS 实机时仍验证可执行的路径分支，并明确列出未测的系统交互，不把本机或模拟测试结果写成跨平台通过。
 
 ## 5. 工作区与产物
 

@@ -98,14 +98,21 @@ export interface DubReceipt {
   undoing: boolean;
 }
 
+/** 开始前先下载分离模型（设计稿 panel-dub.jsx「下载模型并…」）：下载任务结束时照 `resume` 开始，没装好就不开始。 */
+export interface DubInstallWait {
+  jobId: Id;
+  resume: Extract<DubResume, { kind: 'start' }>;
+}
+
 interface DubRunState {
   runs: Record<Id, DubRun>;
   problems: Record<Id, DubProblem>;
   asks: Record<Id, DubAsk>;
   receipts: Record<Id, DubReceipt>;
+  installs: Record<Id, DubInstallWait>;
 }
 
-const EMPTY: DubRunState = { runs: {}, problems: {}, asks: {}, receipts: {} };
+const EMPTY: DubRunState = { runs: {}, problems: {}, asks: {}, receipts: {}, installs: {} };
 
 export const useDubRun = create<DubRunState>()(() => ({ ...EMPTY }));
 
@@ -263,6 +270,16 @@ export async function startDub(params: DubParams, intent: DubIntent): Promise<Id
 }
 
 /**
+ * 分离模型的下载任务提交了：下完（`completed`）就用同一份参数开始配音；失败或取消时不开始，提示一句（下载自己的提示说原因）。
+ * 等着的时候离开这一页也不断（同 speakers-run.ts 的 `awaitInstall`）。
+ */
+export function awaitDubInstall(installJobId: Id, params: DubParams, intent: DubIntent): void {
+  const wait: DubInstallWait = { jobId: installJobId, resume: { kind: 'start', params, intent } };
+  useDubRun.setState((s) => ({ installs: { ...s.installs, [intent.videoId]: wait }, problems: without(s.problems, intent.videoId) }));
+  settle(useJobs.getState().jobs);
+}
+
+/**
  * 用户在确认框里按了「发放并继续」：发 `grants.create`（只限这个视频、按次计、金额未知），成功后接着开始或重试。
  * 发放失败时留在询问上、写明原因。返回新开始的任务 ID（重试时是原来的任务）。
  */
@@ -313,7 +330,7 @@ export async function cancelDub(jobId: Id): Promise<void> {
   }
 }
 
-/** 盯着从这里提交的任务：结束了就收尾。每一轮只收一次——先同步改掉状态，后面的事件看到不是 `running` 就跳过。 */
+/** 盯着从这里提交的任务与等着的下载：结束了就收尾。每一轮只收一次——先同步改掉状态，后面的事件看到不是 `running` 就跳过。 */
 function settle(jobs: readonly JobRecord[]): void {
   for (const run of Object.values(useDubRun.getState().runs)) {
     if (run.status !== 'running' || !run.jobId) continue;
@@ -322,6 +339,13 @@ function settle(jobs: readonly JobRecord[]): void {
     if (run.retriedAt !== null && job.updatedAt === run.retriedAt) continue;
     patchRun(run.videoId, { status: 'settling' });
     finish({ ...run, status: 'settling' }, job);
+  }
+  for (const [videoId, wait] of Object.entries(useDubRun.getState().installs)) {
+    const job = jobs.find((candidate) => candidate.jobId === wait.jobId);
+    if (!job || isJobLive(job)) continue;
+    useDubRun.setState((s) => ({ installs: without(s.installs, videoId) }));
+    if (job.state === 'completed') void startDub(wait.resume.params, wait.resume.intent);
+    else deps?.toast(job.state === 'cancelled' ? 'neutral' : 'negative', C.separateDownloadStopped);
   }
 }
 

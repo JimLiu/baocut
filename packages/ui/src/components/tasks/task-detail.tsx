@@ -15,9 +15,11 @@ import { rerunOf, toolOfTask } from '../../model/tool-rerun.ts';
 import { toolRunOf } from '../../model/tool-runs.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useJobs } from '../../state/jobs-store.ts';
+import { useLegacyImport } from '../../state/legacy-import-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useTasks } from '../../state/tasks-store.ts';
 import { AgentIcon } from '../agent-icon.tsx';
+import { LegacyImportDetail } from '../legacy-import/legacy-import-task.tsx';
 import { useNow } from '../use-now.ts';
 import { UtilityPage } from '../utility-page.tsx';
 import { LinkImportDetail } from './link-import-detail.tsx';
@@ -57,6 +59,7 @@ export function TaskDetail({ taskId }: { taskId: Id }) {
   const row = rows.find((r) => r.id === taskId);
   const job = useJobs((s) => s.jobs.find((j) => j.jobId === taskId));
   const task = useTasks((s) => s.tasks.find((t) => t.taskId === taskId));
+  const legacyRun = useLegacyImport((s) => s.run);
   const go = useShell((s) => s.go);
   const backButton = (
     <ActionButton isQuiet size="S" styles={back} onPress={() => go({ tab: 'tasks' })}>
@@ -75,6 +78,8 @@ export function TaskDetail({ taskId }: { taskId: Id }) {
       </UtilityPage>
     );
   }
+  // 导入旧版项目有自己的一页（计数、没导入的原因与补救、已导入 / 已跳过）。
+  if (row.origin === 'legacy-import' && legacyRun) return <LegacyImportDetail row={row} run={legacyRun} backButton={backButton} />;
   // 从链接导入有自己的一页（三步、补救、下载工具）。
   if (job && isLinkImport(job) && !toolRunOf(job)) return <LinkImportDetail row={row} job={job} backButton={backButton} />;
   return <TaskDetailBody row={row} job={job} task={task} backButton={backButton} />;

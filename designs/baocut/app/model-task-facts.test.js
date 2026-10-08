@@ -96,6 +96,15 @@ test('下载：已传输字节；撤销与取消的状态念法', () => {
   assert.strictEqual(F.statusLabel({status: 'error', canceled: true}), '已取消');
 });
 
+test('旧版项目导入：项目数与导入目录两格；跑完留了待处理的，状态带上那一句', () => {
+  const t = {kind: 'legacy-import', status: 'done', projectsDone: 4, projectsTotal: 8, dest: '~/Documents/BaoCut', attention: '4 个待处理'};
+  const rows = Object.fromEntries(F.details(t, '导入旧版项目'));
+  assert.strictEqual(rows['项目'], '已导入 4/8');
+  assert.strictEqual(rows['导入到'], '~/Documents/BaoCut');
+  assert.strictEqual(rows['状态'], '已完成 · 4 个待处理');
+  assert.strictEqual(F.statusLabel({status: 'done'}), '已完成');
+});
+
 test('智能裁剪任务的详情多出目标画幅 / 场景 / 原片三行', () => {
   const rows = Object.fromEntries(F.details({kind: 'crop', status: 'queued', stage: 'review', source: 'app', started: '刚刚',
     crop: {ratio: '9:16', scene: '多人对谈', source: 'lecture.mp4'}}, '智能裁剪'));

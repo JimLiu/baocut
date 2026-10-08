@@ -172,6 +172,10 @@ export const ja: ToolsMessages = {
     unavailable: (provider: string) => `${provider} は現在使用できません`,
     goConnect: '接続',
     switchTo: (name: string) => `${name} に切り替える`,
+    downloadSize: (size: string) => `${size} をダウンロード`,
+    switchToInstalled: (name: string) => `インストール済みの ${name} に切り替える`,
+    ttsDownloadBody: 'ダウンロードはタスクキューを使いません。インストールが済むと、このページのメインボタンが使えます。',
+    ttsDownloadBodyPaused: 'ダウンロードはタスクキューを使いません。インストールが済むと、このページのメインボタンが使えます。ダウンロードは途中で止まっています。再開するとそこから続けます。',
   },
   image: {
     title: '画像を生成',

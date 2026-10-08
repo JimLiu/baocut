@@ -3,9 +3,10 @@ import type { Id, JobRecord } from '@baocut/protocol';
 import { ActionButton, Button, Text, ToastQueue } from '@react-spectrum/s2';
 import AudioWave from '@react-spectrum/s2/icons/AudioWave';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
+import { downloadableBundle } from '../../model/models-install.ts';
 import { modelReason, saveTarget, withSaveDir } from '../../model/tool-frame.ts';
 import { entryReason } from '../../model/tool-space-input.ts';
-import { findOption, initialModelKey, modelOptions } from '../../model/tools-models.ts';
+import { findOption, initialModelKey, installedAlternative, modelOptions } from '../../model/tools-models.ts';
 import {
   draftFromJob,
   headerChip,
@@ -27,6 +28,7 @@ import { useTools } from '../../state/tools-store.ts';
 import { useVoices } from '../../state/voices-store.ts';
 import { useNow } from '../use-now.ts';
 import { EmptyCard, PageStatus } from '../models/model-parts.tsx';
+import { LocalDownloadGate } from './local-model-gate.tsx';
 import { ModelRow, SaveDirRow } from './tool-frame.tsx';
 import {
   BarStatus,
@@ -44,7 +46,7 @@ import {
 } from './tool-parts.tsx';
 import { ToolSourceSwitch } from './tool-run-view.tsx';
 import { SpacePicker } from './tool-video-picker.tsx';
-import { FORM_COPY, FRAME_COPY, GALLERY_COPY, RECORD_COPY, SAVE_COPY, TTS_COPY } from './tools-copy.ts';
+import { FORM_COPY, FRAME_COPY, GALLERY_COPY, GATE_COPY, RECORD_COPY, SAVE_COPY, TTS_COPY } from './tools-copy.ts';
 import { TtsRecord } from './tts-record.tsx';
 import { OptionsSection, VoiceSection } from './tts-sections.tsx';
 import { useSubmitFailed, useToolRecords } from './use-tool-records.ts';
@@ -64,6 +66,7 @@ export function TtsTool() {
   const runtime = useRuntime();
   const go = useShell((s) => s.go);
   const view = useModels((s) => s.capabilities);
+  const bundles = useModels((s) => s.bundles);
   const draft = useTools((s) => s.tts);
   const patch = useTools((s) => s.patchTts);
   // 我的声音：还没读到时 null（库音色先不判克隆状态，交给 Runtime 核对）。
@@ -97,6 +100,9 @@ export function TtsTool() {
       ? { text: FORM_COPY.needEntry, bad: tried }
       : ttsStatus(draft, option, tried, myVoices, material);
   const toSettings = () => go({ tab: 'models', category: 'tts', page: option?.local ? 'local' : 'cloud' });
+  // 选中的本机模型还没装：模型一行下面给下载卡（设计稿 tool-tts.jsx `TtsModelGate`），有装好的本机模型时再给「换用已装的 X」。
+  const gateBundle = downloadableBundle(bundles, option);
+  const installed = gateBundle ? installedAlternative(options, option) : null;
 
   const generate = () => {
     setTried(true);
@@ -183,7 +189,24 @@ export function TtsTool() {
         selected={option}
         onSelect={(o) => patch(switchModel(draft, o))}
         factsOf={(o) => speechModelLine(o.info)}
-      />
+        localGate={!!gateBundle}>
+        {gateBundle && option ? (
+          <LocalDownloadGate
+            bundle={gateBundle}
+            name={option.label}
+            category="tts"
+            body={(paused) => (paused ? GATE_COPY.ttsDownloadBodyPaused : GATE_COPY.ttsDownloadBody)}
+            extra={
+              installed ? (
+                <Button variant="secondary" size="S" onPress={() => patch(switchModel(draft, installed))}>
+                  <AudioWave />
+                  <Text>{GATE_COPY.switchToInstalled(installed.label)}</Text>
+                </Button>
+              ) : null
+            }
+          />
+        ) : null}
+      </ModelRow>
 
       {option ? <VoiceSection key={option.key} draft={draft} option={option} voices={myVoices} patch={patch} /> : null}
       {option ? <OptionsSection draft={draft} option={option} patch={patch} /> : null}

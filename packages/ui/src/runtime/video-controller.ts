@@ -54,9 +54,9 @@ export class VideoController {
       const handle = await this.#client.request('media.resolve', { videoId, assetId: asset.id, revision: asset.revision });
       return handle.url;
     });
-    this.mediaUrls = new MediaUrlCache((videoId, asset, signal) =>
+    this.mediaUrls = new MediaUrlCache((videoId, asset, signal, onProgress) =>
       this.#client.request('media.resolve', { videoId, assetId: asset.id, revision: asset.revision })
-        .then(handle => preparePlaybackMedia(this.#client, handle, signal)),
+        .then(handle => preparePlaybackMedia(this.#client, handle, signal, { onProgress })),
     );
     const videoId = () => {
       const id = useVideo.getState().video?.videoId;

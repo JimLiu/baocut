@@ -119,6 +119,36 @@ test('组件副题与体积写法', () => {
   assert.equal(L.mb(662), '662 MB');
 });
 
+test('公共组件那一行：装好写体积，缺的借一只装着的模型补齐，没人装着就等装模型时一起下', () => {
+  const asr = M.filter((m) => L.catOf(m) === 'asr');
+  const tok = C.find((c) => c.id === 'whisper-tokenizer');
+  let on = L.initial(M, C);
+  assert.deepEqual(L.compAction(C.find((c) => c.id === 'vad'), asr, C, on), {kind: 'installed'});
+  // 演示数据：Whisper large-v3 装着、分词器缺 → 借它补齐，只下它缺的
+  const get = L.compAction(tok, asr, C, on);
+  assert.equal(get.kind, 'get');
+  assert.equal(get.target.id, 'whisper-large-v3');
+  assert.equal(get.size, tok.size);
+  // 删掉 Whisper large-v3：没有装着的模型用分词器，不给按钮
+  on = L.applyRemove(on, byId('whisper-large-v3'), M, C);
+  assert.deepEqual(L.compAction(tok, asr, C, on), {kind: 'later'});
+  // 补齐之后组件装好，其他用它的模型一起用上
+  on = L.applyInstall(L.initial(M, C), get.target);
+  assert.equal(L.compAction(tok, asr, C, on).kind, 'installed');
+});
+
+test('公共组件借谁补齐：缺得最少的那只，一样多按目录顺序；不认这台电脑的不借', () => {
+  const comps = [{id: 'c', size: 10}, {id: 'd', size: 50}];
+  const models = [{id: 'a', uses: ['c', 'd']}, {id: 'b', uses: ['c']}, {id: 'e', uses: ['c']}, {id: 'x', uses: ['c'], supported: false}];
+  const on = {a: true, b: true, e: true, x: true};
+  const act = L.compAction(comps[0], models, comps, on);
+  assert.equal(act.target.id, 'b', 'a 还缺 d，b 只缺 c；b 与 e 一样多取靠前的');
+  assert.equal(act.size, 10);
+  assert.equal(L.compAction(comps[0], models, comps, {a: true}).target.id, 'a');
+  assert.equal(L.compAction(comps[0], models, comps, {a: true}).size, 60, '补齐 a 连 d 一起下');
+  assert.deepEqual(L.compAction(comps[0], models, comps, {x: true}), {kind: 'later'});
+});
+
 test('语音合成：引擎表里的每只模型都有设置行；只有 OmniVoice 标不能商用（2026-09-26）', () => {
   require('./model-tts.js');
   const TTS = global.window.BC_TTS;

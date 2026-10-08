@@ -7,4 +7,8 @@ export const es: RcRuntimeMessages = {
  alreadyRunning: (p) => `El Runtime ya está en ejecución (pid ${p.pid})`, harnessNotReady: 'Harness aún no está listo', spaceNotReady: 'El catálogo de Space aún no está listo', externalToolsNotReady: 'El servicio de herramientas externas aún no está listo', externalToolNotRegistered: (p) => `La herramienta externa ${p.name} no está registrada`, offlineStrictNoDownload: 'El modo sin conexión estricto no descarga desde enlaces', offlineStrictRemedy: 'Descarga el vídeo en tu navegador primero y elige el archivo local; o desactiva el modo sin conexión estricto en Ajustes', noSuchTool: (p) => `No existe esa herramienta: ${p.toolId}`,
  statusLocalOnly: 'El estado del Runtime solo está disponible para la CLI local y la aplicación de escritorio', stopCliOnly: 'Solo la CLI puede pedir que el Runtime se detenga', stopNotCliLaunched: 'Este Runtime no se inició desde la CLI (lo inició la aplicación de escritorio o se inició manualmente), por lo que la CLI no lo detiene',
  runtimeInUse: (p) => `Este Runtime sigue en uso (aplicación de escritorio: ${p.desktop}, otras conexiones de CLI: ${p.cli}, tareas sin terminar: ${p.activeJobs}). Espera a que terminen o ciérralas y después detenlo`, stopNotSupported: 'Este Runtime no se puede detener mediante la pasarela',
+  legacyPromptGone: "Esta pregunta de importación ya se respondió o ya no está abierta",
+  legacyImportFolderReserved: "Elige una carpeta fuera de las carpetas de datos de BaoCut y sus versiones anteriores",
+  legacyImportFolderUnwritable: "No se puede crear ni escribir en esta carpeta",
+  legacyImportLocalOnly: "Solo la aplicación de escritorio y la CLI local pueden decidir cómo se importan los proyectos anteriores",
 };

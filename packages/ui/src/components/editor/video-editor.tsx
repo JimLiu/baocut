@@ -93,6 +93,11 @@ export function VideoEditor() {
         runtime.videos.assets,
         // 本机没有、字体目录里有的族按设置下载，下载好了再注入（§9.1）。
         runtimeFonts(downloadingResolve((params) => runtime.client.request('fonts.resolve', params))),
+        // 在等兼容副本的媒体（卡住诊断分清在转换与在等媒体）：按当前打开的视频问媒体地址缓存。
+        (asset) => {
+          const videoId = useVideo.getState().video?.videoId;
+          return videoId ? runtime.videos.mediaUrls.progress(videoId, asset) : undefined;
+        },
       ),
     [runtime],
   );

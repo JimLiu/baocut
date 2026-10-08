@@ -168,6 +168,10 @@ export const zhHant: ToolsMessages = {
     unavailable: (provider: string) => `${provider} 目前無法使用`,
     goConnect: '前往連接',
     switchTo: (name: string) => `改用 ${name}`,
+    downloadSize: (size: string) => `下載 ${size}`,
+    switchToInstalled: (name: string) => `改用已安裝的 ${name}`,
+    ttsDownloadBody: '下載不佔用任務佇列；安裝後，這一頁的主按鈕就能使用。',
+    ttsDownloadBodyPaused: '下載不佔用任務佇列；安裝後，這一頁的主按鈕就能使用。下載中途停止了，繼續下載會從中斷處接續。',
   },
   image: {
     title: '生成圖片',

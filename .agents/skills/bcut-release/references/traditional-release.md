@@ -15,6 +15,8 @@ Check Node >=22.18 and the platform toolchain. Mac builds require native arm64,
 Rust/wasm32, Xcode/Metal and enough disk space. Run affected tests/typecheck and
 builds; check file fonts/model assets when affected. Commit the intended source
 and record full HEAD before packaging. Preserve unrelated working-tree changes.
+Prepare the changelog and reconcile its complete commit/PR coverage using
+[release notes](release-notes.md); local-only candidates keep these notes locally.
 
 ## macOS candidate
 
@@ -68,9 +70,9 @@ remote branch HEAD.
    a new build. Identical assets may be skipped during a retry.
 2. Once the build commit is remote, create a draft `baocut-v<VERSION>-build.<BUILD>`
    targeting it, with `--latest=false`. Retain its actual URL for the final report
-   and open it in the Codex browser when useful. Write notes through a body file, including new Bundle ID,
-   architecture, signing/notarization and verified dependencies. Preserve the old
-   skill's GitHub Latest.
+   and open it in the Codex browser when useful. Write the prepared changelog with
+   `--notes-file`, including new Bundle ID, architecture, signing/notarization and
+   verified dependencies. Preserve the old skill's GitHub Latest.
 3. Upload ZIP, DMG, checksums, sanitized report and appcast. Remove local-only paths
    from the report. No private signing materials or intermediate submissions belong
    in release assets.
@@ -117,10 +119,14 @@ The publisher independently downloads the six public assets and performs native
 signature, staple, Gatekeeper and Runtime checks before advancing the feed.
 UI/export, real model inference and paid Agent calls are not automated; preserve
 those skips in the report. Credential setup alone does not authorize publication.
+After all selected publishers finish, merge and read back the prepared changelog
+following [release notes](release-notes.md). For platform continuation, preserve
+the existing version's changelog and verify it survives the platform note updates.
 
 ## Report the result
 
 For a local candidate, provide its paths, hashes/sizes, source SHA, actual signer
 and notarization IDs, checks and skips; say clearly that it is not public. For a
 published release, include its URL and verify public downloads and the live feed.
+Also report the changelog comparison range and completed coverage reconciliation.
 A local-only request must not trigger a tag push or GitHub publication.

@@ -165,6 +165,10 @@ export const vi: ToolsMessages = {
     unavailable: (provider) => `${provider} hiện không dùng được`,
     goConnect: "Kết nối",
     switchTo: (name) => `Chuyển sang ${name}`,
+    downloadSize: (size) => `Tải ${size}`,
+    switchToInstalled: (name) => `Chuyển sang ${name} đã cài`,
+    ttsDownloadBody: 'Tải xuống không dùng hàng đợi tác vụ; sau khi cài, nút chính trên trang hoạt động.',
+    ttsDownloadBodyPaused: 'Tải xuống không dùng hàng đợi tác vụ; sau khi cài, nút chính trên trang hoạt động. Tải đã dừng giữa chừng; tiếp tục sẽ tải từ đó.',
   },
   image: {
     title: "Tạo hình ảnh",

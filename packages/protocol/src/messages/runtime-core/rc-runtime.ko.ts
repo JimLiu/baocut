@@ -54,4 +54,8 @@ export const ko: RcRuntimeMessages = {
   runtimeInUse: (p) =>
     `이 Runtime은 아직 사용 중입니다(데스크톱 앱 ${p.desktop}, 다른 CLI 연결 ${p.cli}, 끝나지 않은 작업 ${p.activeJobs}). 이들이 끝나거나 닫힌 뒤 중지하세요`,
   stopNotSupported: '이 Runtime은 게이트웨이를 통해 중지할 수 없습니다',
+  legacyPromptGone: "이 가져오기 질문은 이미 답했거나 더 이상 유효하지 않습니다",
+  legacyImportFolderReserved: "BaoCut 및 이전 버전의 데이터 폴더 밖에 있는 폴더를 선택하세요",
+  legacyImportFolderUnwritable: "이 폴더를 만들거나 쓸 수 없습니다",
+  legacyImportLocalOnly: "이전 프로젝트를 어떻게 가져올지는 데스크톱 앱이나 로컬 CLI에서만 정할 수 있습니다",
 };

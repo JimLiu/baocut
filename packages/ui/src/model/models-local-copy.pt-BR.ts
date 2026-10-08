@@ -19,6 +19,7 @@ export const ptBR: ModelsLocalMessages = {
   chipBusy: "Em execução",
   chipUnloading: "Descarregando",
   chipUnavailable: "Indisponível",
+  chipMissing: (names) => `Falta: ${names.join(', ')}`,
   capability: {
     transcribe: "Transcrever",
     align: "Alinhar",
@@ -29,6 +30,7 @@ export const ptBR: ModelsLocalMessages = {
   },
   auto: "Automático",
   notInstalled: (name) => `${name} (não instalado)`,
-  componentName: { aligner: "Alinhador forçado", speaker: "Embedding de falante", vad: "VAD (detecção de atividade de voz)" },
+  componentName: { aligner: "Alinhador forçado", speaker: "Embedding de falante", vad: "VAD (detecção de atividade de voz)", tokenizer: "Tokenizador", segmentation: "Segmentação de falantes", codec: "Codec de voz", aux: "Modelos auxiliares" },
+  componentDesc: { vad: "Encontra os trechos em que alguém fala", aligner: "Alinha o texto ao tempo de cada palavra", tokenizer: "Converte entre o texto e os tokens do modelo", speaker: "Distingue os falantes", segmentation: "Encontra onde cada pessoa começa e para de falar", codec: "Transforma os tokens acústicos de volta em forma de onda", aux: "Modelos adicionais de que o modelo principal precisa" },
   weights: "Pesos do modelo",
 };

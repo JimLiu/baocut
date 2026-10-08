@@ -3,7 +3,7 @@ import { pluralForm } from '@baocut/protocol';
 
 export const ptBR: TranscribeSetupMessages = {
   title: 'Configurações de transcrição', language: 'Idioma', model: 'Modelo de fala',
-  manageModels: 'Gerenciar modelos de fala', modelsLoading: 'Carregando modelos de fala…', noDefault: 'Ainda não há modelo de fala padrão',
+  manageModels: 'Gerenciar modelos de fala', modelsLoading: 'Carregando modelos de fala…', downloadThenSelect: (name: string, pct: number | null) => `Baixando ${name}${pct === null ? '' : ` · ${pct}%`} · será selecionado ao terminar`, noDefault: 'Ainda não há modelo de fala padrão',
   hint: 'Dicas de reconhecimento', glossary: 'Glossário', manageGlossary: 'Gerenciar glossários', glossaryLoading: 'Carregando glossários…',
   glossaryEmpty: 'Ainda não há glossários de transcrição. Crie um em Configurações › Glossário para registrar a grafia correta de nomes e termos.',
   glossaryFailed: (message: string) => `Não foi possível ler os glossários ativados neste vídeo: ${message}`,

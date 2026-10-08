@@ -362,10 +362,13 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     });
     stops.add('videos', () => videos.shutdown(), 'Stopping the video engine failed');
     const media = new MediaRegistry({ log, originAllowed: (origin) => originAllowed(origin, options.allowedOrigins) });
+    // 生成的音频与图片、参考录音都用 ffprobe 解码校验（与引擎同一个 ffprobe）；WebM 播放也用它探测编码。
+    const ffprobe = async () => ({ command: process.env.BAOCUT_FFPROBE || 'ffprobe', env: await toolEnv() });
     const analysis = new MediaAnalysis({
       cacheDir: path.join(home.cacheDir, 'media'),
       log,
       ffmpeg: async () => ({ command: process.env.BAOCUT_FFMPEG || 'ffmpeg', env: await toolEnv() }),
+      ffprobe,
     });
     stops.add('analysis', () => analysis.close(), 'Stopping media analysis failed');
     const modelWorker = options.modelWorker !== undefined ? options.modelWorker : resolveModelWorkerCommand();
@@ -377,8 +380,6 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     // 发起端在 JobManager 之前：远端节点 Provider 是 JobManager 的 Provider 之一。
     const initiator = await openNodeInitiator(home, credentials, log, options.initiator);
     stops.add('initiator', () => initiator.close(), 'Stopping the node initiator failed');
-    // 生成的音频与图片、参考录音都用 ffprobe 解码校验（与引擎同一个 ffprobe）。
-    const ffprobe = async () => ({ command: process.env.BAOCUT_FFPROBE || 'ffprobe', env: await toolEnv() });
     // 用户库在 JobManager 之前：转写的术语表与合成的库音色由任务冻结、固定。产物来源在任务库建好之后才有。
     let artifacts: { locate(artifactId: string): Promise<string | null> } | null = null;
     const library = await LibraryService.open({
@@ -856,6 +857,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       agentSkillsDir,
       activity,
       requestStop: options.requestStop ?? null,
+      legacyUpgrade,
     };
     // Web 服务（§4.8）用同一组处理函数，只把媒体句柄换成它自己的（同源地址、要会话）；白名单在它的网关入口上。
     services.web.bind({ runtime: info, handlers: createHandlers({ ...handlerDeps, media: services.web.media }) });
@@ -898,6 +900,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     stops.add('activity', () => activity.stop(), null);
     legacyUpgrade.start({
       models: models.services.store,
+      nodes: initiator.store,
       isBusy: () => models.jobs.list().some((job) => !isTerminal(job.state)),
       refreshModels: () => models.services.refresh(),
       engine: options.engineHost !== undefined ? options.engineHost : resolveEngineHostCommand(),

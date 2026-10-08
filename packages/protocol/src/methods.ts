@@ -128,7 +128,9 @@ import type {
   ServiceStatus,
 } from './services.ts';
 import type { WebAccessLink, WebSession } from './web.ts';
+import type { LegacyImportAnswer, LegacyImportRetry, LegacyImportSetSkipped, LegacyImportSnapshot } from './legacy-import.ts';
 import type { Seq } from './domain.ts';
+import type { PlaybackCodec } from './limits.ts';
 import type {
   DocumentContent,
   EditOperation,
@@ -159,6 +161,23 @@ export interface RpcMethods {
    * （`details.code: 'RUNTIME_NOT_OWNED'`），有桌面端连着时 `conflict`（`RUNTIME_IN_USE`）。响应先回，随后按停止顺序收尾。
    */
   'runtime.stop': { params: Record<string, never>; result: { stopping: true } };
+  /** 旧版项目的导入询问与这次启动里的导入（架构设计 §2.7）：与 `legacy-import` 主题的快照相同。不在 Web 服务的白名单里。 */
+  'legacyImport.get': { params: Record<string, never>; result: LegacyImportSnapshot };
+  /**
+   * 回答导入询问：`import` 记下目录并开始在后台导入，`never` 记下以后不再导入。`promptId` 不是正在等的询问时 `not-found`；
+   * `directory` 不是绝对路径、落在旧版或 Runtime 自己的数据目录里、建不了或写不了时 `invalid-request`。
+   */
+  'legacyImport.answer': { params: LegacyImportAnswer; result: Record<string, never> };
+  /**
+   * 重新导入没导入的旧版项目（`paths` 缺省 = 全部没导入的；点名的跳过项也重新导入，清掉跳过的记录）。其他任务在跑时先排队等。
+   * 没有这次的导入、或没有可以重试的时 `queued: 0`。只给桌面界面与 CLI（`forbidden`）。
+   */
+  'legacyImport.retry': { params: LegacyImportRetry; result: { queued: number } };
+  /**
+   * 跳过没导入的项目：记下，以后不再自动导入；`skipped: false` 撤销跳过。`changed` 是改了的个数（不在这次导入里、
+   * 或状态不对的路径忽略）。只给桌面界面与 CLI（`forbidden`）。
+   */
+  'legacyImport.setSkipped': { params: LegacyImportSetSkipped; result: { changed: number } };
 
   /** Agent 列表与偏好（设置 › Agent 提供方）。探测结果短时缓存。 */
   'agents.list': { params: Record<string, never>; result: AgentsView };
@@ -490,8 +509,11 @@ export interface RpcMethods {
    * 文件来自 Space 条目，或会话工作目录、项目目录里的路径（例如智能体改过的文件）。
    */
   'media.resolve': { params: MediaTarget; result: MediaHandle };
-  /** Prepare/poll a browser-compatible playback copy of an already granted file; original bytes remain at media.resolve. */
-  'media.playback': { params: { url: string }; result: MediaPlayback };
+  /**
+   * 已签发的文件句柄的播放地址（架构设计 §4.5）：WebM 的编码都在 `playable` 里时直接给原句柄，否则准备兼容副本并轮询；
+   * 原始字节始终经 media.resolve。
+   */
+  'media.playback': { params: { url: string; playable?: PlaybackCodec[] }; result: MediaPlayback };
   /** 与一个视频放在同一目录里的字幕文件（播放器叠加用）。只列出，不读内容。 */
   'media.subtitles': { params: FileTarget; result: { tracks: SubtitleTrack[] } };
   /**
@@ -1119,7 +1141,8 @@ export interface SubtitleTrack {
 export type FileContentKind = 'text' | 'image' | 'pdf' | 'audio' | 'video' | 'archive' | 'binary';
 export type TextEncoding = 'utf-8' | 'utf-16le' | 'utf-16be';
 
-export type MediaPlayback = { status: 'pending'; retryAfterMs: number } | { status: 'ready'; media: MediaHandle };
+/** `progress`：兼容副本编码到了源时长的几成（0–1）；还不知道时省略。 */
+export type MediaPlayback = { status: 'pending'; retryAfterMs: number; progress?: number } | { status: 'ready'; media: MediaHandle };
 
 export interface MediaHandle {
   /** Runtime 根据至多 64 KiB 的文件前缀识别；旧 Runtime 可以不提供。 */

@@ -10,6 +10,7 @@ import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { S } from './shell-copy.ts';
 import { useShell, railTabOf, type Tab } from '../state/shell-store.ts';
 import { isJobLive, useJobs } from '../state/jobs-store.ts';
+import { useLegacyImport } from '../state/legacy-import-store.ts';
 import { isLive, useTasks } from '../state/tasks-store.ts';
 import { UpdateRailButton } from './app-update/update-rail-button.tsx';
 import { useShellPeekControls } from './shell-peek.tsx';
@@ -74,7 +75,11 @@ const alertDot = style({
 export function Rail() {
   const route = useShell((s) => s.route);
   const goTab = useShell((s) => s.goTab);
-  const running = useTasks((s) => s.tasks.filter(isLive).length) + useJobs((s) => s.jobs.filter(isJobLive).length);
+  // 在跑的后台任务：Agent 任务、Job，和正在导入旧版项目的那一轮。
+  const running =
+    useTasks((s) => s.tasks.filter(isLive).length) +
+    useJobs((s) => s.jobs.filter(isJobLive).length) +
+    useLegacyImport((s) => (s.run && s.run.state !== 'finished' ? 1 : 0));
   // 只有服务出错才亮（原型：每项服务各自的灯在服务页里）；顺带在连上 Runtime 时读一次共享状态。
   const servicesAlert = useServicesAlert();
   // 侧栏隐藏时悬停入口浮出该区域的侧栏（产品设计 §2.5；设置没有侧栏，在 shell-peek 里跳过）。

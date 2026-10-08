@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { ImageModelInfo, JobRecord, ModelBundleStatus, SpeechModelInfo } from '@baocut/protocol';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { ImageModelInfo, JobRecord, ModelBundleStatus, ModelComponentStatus, SpeechModelInfo } from '@baocut/protocol';
 import {
   ActionButton,
   AlertDialog,
   Button,
   DialogContainer,
+  Disclosure,
+  DisclosurePanel,
+  DisclosureTitle,
   Menu,
   MenuItem,
   MenuTrigger,
@@ -16,6 +19,8 @@ import {
   Tooltip,
   TooltipTrigger,
 } from '@react-spectrum/s2';
+import AlertTriangleIcon from '@react-spectrum/s2/icons/AlertTriangle';
+import CheckmarkCircleIcon from '@react-spectrum/s2/icons/CheckmarkCircle';
 import ChevronDownIcon from '@react-spectrum/s2/icons/ChevronDown';
 import ChevronRightIcon from '@react-spectrum/s2/icons/ChevronRight';
 import DeleteIcon from '@react-spectrum/s2/icons/Delete';
@@ -23,7 +28,7 @@ import DownloadIcon from '@react-spectrum/s2/icons/Download';
 import MoreIcon from '@react-spectrum/s2/icons/More';
 import PauseIcon from '@react-spectrum/s2/icons/Pause';
 import SearchIcon from '@react-spectrum/s2/icons/Search';
-import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
+import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import {
   bundleActions,
   installFailure,
@@ -41,6 +46,10 @@ import {
   bundleFacts,
   bundleName,
   canReenable,
+  componentDesc,
+  componentLabel,
+  hasOwnFiles,
+  installingPlacement,
   isBundleInstalled,
   licenseLines,
   licenseLineText,
@@ -48,8 +57,15 @@ import {
   localGroups,
   localImageModels,
   LOCAL_PROVIDER,
+  missingParts,
+  needBytes,
+  sharedAction,
+  sharedComponents,
+  sharedRepair,
+  sharedUsage,
   VIEW_CAPABILITY,
   type LocalDefaultCapability,
+  type SharedComponent,
 } from '../../model/models-local.ts';
 import { canClone, familyDesc, installedBytes, licenseBrief, localSpeechModels, ttsBrief, ttsChips } from '../../model/models-tts-local.ts';
 import { chooseVoice, quickDefaults } from '../../model/tts-quick-test.ts';
@@ -65,7 +81,7 @@ import { useVoiceHandoff } from '../../state/voice-handoff-store.ts';
 import { ImageTryDialog } from './image-try-dialog.tsx';
 import { InstallDialog } from './install-dialog.tsx';
 import { removeBundle, stopInstall, type InstallMode } from './local-model-actions.ts';
-import { LOCAL_INSTALL_COPY as INSTALL } from './local-models-copy.ts';
+import { LOCAL_INSTALL_COPY as INSTALL, LOCAL_SHARED_COPY as SHARED } from './local-models-copy.ts';
 import { chooseLocalDefault } from './model-actions.ts';
 import { ModelCheckLine } from './model-check-line.tsx';
 import { Card, Chips, EmptyCard, PageStatus, SettingRow } from './model-parts.tsx';
@@ -111,11 +127,20 @@ const detailRepo = style({ font: 'code-xs', color: 'gray-800', overflowWrap: 'an
 const modelSummary = style({ marginTop: 4, font: 'ui-sm', color: 'gray-700', overflowWrap: 'anywhere' });
 const detailKey = style({ flexShrink: 0, color: 'gray-600' });
 const detailLink = style({ color: 'gray-800', overflowWrap: 'anywhere', userSelect: 'text' });
+const fold = style({ marginTop: 24 });
+const foldSummary = style({ marginStart: 8, font: 'ui-sm', fontWeight: 'normal', color: 'gray-600' });
+const sideNote = style({ font: 'ui-xs', color: 'gray-600' });
+const okIcon = iconStyle({ size: 'S', color: 'positive' });
+const missIcon = iconStyle({ size: 'S', color: 'notice' });
 
 type Confirm = { kind: 'remove' | 'discard'; bundle: ModelBundleStatus };
+/** 打开着的下载 / 补齐 / 修复对话框；`note` 是从公共组件那一行借模型补齐时换上的那一句。 */
+type Install = { bundle: ModelBundleStatus; mode: InstallMode; note?: string };
 
 /**
- * 模型 › 本地模型（设计稿 settings-local.jsx:200-308）：`models` 主题里的模型包按「已安装 / 可下载」分组，顶上是默认模型。
+ * 模型 › 本地模型（设计稿 settings-local.jsx:200-308）：`models` 主题里的模型包按「已安装 / 可下载」分组（权重在、缺公共组件的
+ * 也在「已安装」，行上「补齐」），顶上是默认模型，下面是折叠的「公共组件」（这一类两只及以上模型共用的组件；缺的借一只用到它的
+ * 模型补齐）。
  * 下载与修复先看计划再确认（install-dialog.tsx）；进度、检查结论与模型包状态都从 `models` / `jobs` 主题读，
  * 这里不轮询、不在本地改状态。现在语音识别、语音合成、图像生成与音源分离有本机模型包，其余类给空态。
  * 音源分离的默认模型与语音识别一样有「自动选择」（配音的分离一步用它）；行与语音识别一样在行上露「检查」。
@@ -141,8 +166,16 @@ function LocalPage({ category, kind }: { category: ModelCategory; kind: LocalDef
   const bundles = useModels((s) => s.bundles);
   const jobs = useJobs((s) => s.jobs);
   const [busy, setBusy] = useState<string | null>(null);
-  const [install, setInstall] = useState<{ bundle: ModelBundleStatus; mode: InstallMode } | null>(null);
+  const [install, setInstall] = useState<Install | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
+  // 公共组件区：没动过时有待补全的就展开（设计稿 settings-local.jsx `sharedExpanded`）。
+  const [sharedOpen, setSharedOpen] = useState<boolean | null>(null);
+  // 下载中的行不换组（`localGroups` 的 `placed`）：每次画完记下它们这一次在哪一组。
+  const placed = useRef<ReadonlyMap<string, boolean>>(new Map());
+  const groups = localGroups(bundles, category, placed.current);
+  useEffect(() => {
+    placed.current = installingPlacement(groups);
+  });
   const speech = useMemo(() => (kind === 'synthesize' ? localSpeechModels(view) : new Map<string, SpeechModelInfo>()), [kind, view]);
   const images = useMemo(() => (kind === 'image' ? localImageModels(view) : new Map<string, ImageModelInfo>()), [kind, view]);
   const quickOpen = useTtsQuick((s) => s.open);
@@ -154,7 +187,8 @@ function LocalPage({ category, kind }: { category: ModelCategory; kind: LocalDef
 
   const synth = kind === 'synthesize';
   const picker = localDefaultPicker(view, bundles, kind);
-  const groups = localGroups(bundles, category);
+  const shared = sharedComponents(bundles, category);
+  const repair = sharedRepair(shared).length;
   const current = view?.[VIEW_CAPABILITY[kind]].default;
   const defaultId = current?.providerId === LOCAL_PROVIDER ? current.modelId : null;
   const cloneNames = synth
@@ -222,6 +256,7 @@ function LocalPage({ category, kind }: { category: ModelCategory; kind: LocalDef
       bundles={bundles}
       jobs={jobs}
       isDefault={bundle.bundleId === defaultId}
+      ownFiles={hasOwnFiles(bundle, shared)}
       kind={kind}
       speech={synth ? { model: speech.get(bundle.bundleId) ?? null, cloneNames } : null}
       image={kind === 'image' ? (images.get(bundle.bundleId) ?? null) : null}
@@ -288,6 +323,28 @@ function LocalPage({ category, kind }: { category: ModelCategory; kind: LocalDef
         )}
       </section>
 
+      {shared.length ? (
+        <Disclosure isQuiet size="S" styles={fold} isExpanded={sharedOpen ?? repair > 0} onExpandedChange={setSharedOpen}>
+          <DisclosureTitle>
+            {SHARED.title}
+            <span className={foldSummary}>{repair ? SHARED.summaryRepair(repair) : SHARED.summaryCount(shared.length)}</span>
+          </DisclosureTitle>
+          <DisclosurePanel>
+            <p className={groupNote}>{SHARED.note}</p>
+            <Card label={SHARED.title}>
+              {shared.map((c) => (
+                <SharedRow
+                  key={c.key}
+                  component={c}
+                  shared={shared}
+                  onGet={(target) => setInstall({ bundle: target, mode: 'complete', note: SHARED.completeNote(bundleName(target)) })}
+                />
+              ))}
+            </Card>
+          </DisclosurePanel>
+        </Disclosure>
+      ) : null}
+
       {install ? (
         <InstallDialog
           bundleId={install.bundle.bundleId}
@@ -295,6 +352,7 @@ function LocalPage({ category, kind }: { category: ModelCategory; kind: LocalDef
           license={install.bundle.license ?? speech.get(install.bundle.bundleId)?.local?.license ?? null}
           {...(kind === 'image' ? { licenseUse: IMAGE.licenseUse } : {})}
           mode={install.mode}
+          {...(install.note ? { note: install.note } : {})}
           onClose={() => setInstall(null)}
           onStarted={install.mode === 'repair' ? (jobId) => useModelCheck.getState().setRepair(install.bundle.bundleId, jobId) : undefined}
           onRecheck={install.mode === 'repair' ? () => void startCheck(runtime, install.bundle.bundleId) : undefined}
@@ -321,6 +379,70 @@ function LocalPage({ category, kind }: { category: ModelCategory; kind: LocalDef
 
 function canCloneModel(model: SpeechModelInfo | undefined): boolean {
   return !!model && canClone(model);
+}
+
+/** 组成明细里的大小：装好的写占了多少，缺的写要下多少（设计稿「缺 · 大小」）；不知道时不写。 */
+function componentSize(c: ModelComponentStatus): string | null {
+  const bytes = c.state === 'installed' ? c.bytes : (c.estimatedBytes ?? null);
+  return bytes !== null ? fmtSize(bytes) : null;
+}
+
+/**
+ * 公共组件区的一行（设计稿 settings-local.jsx `SharedCard`）：装没装、名字、做什么与谁在用，右边是已装的大小、借来补齐的那只模型的进度、
+ * 「下载 {大小}」（= 补齐 `sharedAction` 挑的那只模型，走同一个确认对话框）或「装模型时一起下载」。组件不单独装。
+ */
+function SharedRow({
+  component: c,
+  shared,
+  onGet,
+}: {
+  component: SharedComponent;
+  shared: readonly SharedComponent[];
+  onGet: (target: ModelBundleStatus) => void;
+}) {
+  const action = sharedAction(c, shared);
+  const usage = sharedUsage(c, shared);
+  const size = c.bytes !== null ? fmtSize(c.bytes) : null;
+  const progress = action.kind === 'running' && action.bundle.install ? installProgressView(action.bundle.install) : null;
+  const status = INSTALL.componentLine(c.installed ? 'installed' : 'missing', null);
+  const sub = [componentDesc(c.component), usage.live ? SHARED.usage(usage.live, usage.all) : SHARED.usageNone(usage.all)];
+  return (
+    <div className={modelRow}>
+      <div className={modelHead}>
+        {c.installed ? (
+          <CheckmarkCircleIcon styles={okIcon} aria-label={status} />
+        ) : (
+          <AlertTriangleIcon styles={missIcon} aria-label={status} />
+        )}
+        <div className={modelMain}>
+          <div className={modelId}>{componentLabel(c.component)}</div>
+          <div className={modelFacts}>{sub.filter(Boolean).join(' · ')}</div>
+        </div>
+        <div className={modelActions}>
+          {action.kind === 'installed' ? <span className={sideNote}>{INSTALL.componentLine('installed', size)}</span> : null}
+          {action.kind === 'get' ? (
+            <Button variant="secondary" size="S" onPress={() => onGet(action.target)}>
+              <DownloadIcon />
+              <Text>{size ? INSTALL.downloadSize(size) : INSTALL.download}</Text>
+            </Button>
+          ) : null}
+          {action.kind === 'later' ? <span className={sideNote}>{SHARED.withModel(size)}</span> : null}
+        </div>
+      </div>
+      {progress ? (
+        <div className={progressRow}>
+          <ProgressBar
+            size="S"
+            aria-label={progress.label}
+            isIndeterminate={progress.percent === null}
+            value={progress.percent ?? undefined}
+            styles={progressBar}
+          />
+          <span className={rowNote({ tone: 'running' })}>{progress.label}</span>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 /** 试听面板的锚点：「我的声音」的试听克隆与「克隆新音色…」回来时滚到这一行。 */
@@ -370,6 +492,7 @@ function BundleRow({
   bundles,
   jobs,
   isDefault,
+  ownFiles,
   kind,
   speech,
   image,
@@ -385,6 +508,8 @@ function BundleRow({
   bundles: readonly ModelBundleStatus[];
   jobs: readonly JobRecord[];
   isDefault: boolean;
+  /** 模型包自己的文件在盘上（`hasOwnFiles`）：权重在、缺组件的给「补齐」不给「下载」。 */
+  ownFiles: boolean;
   kind: LocalDefaultCapability;
   /** 语音合成的行：本机列出的模型（没装好时可能没有）与装好了的克隆模型名；语音识别的行为 null。 */
   speech: { model: SpeechModelInfo | null; cloneNames: readonly string[] } | null;
@@ -401,8 +526,13 @@ function BundleRow({
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<'pause' | null>(null);
   const [trying, setTrying] = useState(false);
-  const actions = bundleActions(bundle);
-  const check = useBundleCheck(bundle, kind, jobs);
+  const actions = bundleActions(bundle, ownFiles);
+  const check = useBundleCheck(bundle, kind, jobs, ownFiles);
+  // 缺组件的（设计稿 settings-local.jsx 的 `half`）自动展开详情，看得到缺的是哪几件、各多大。
+  const half = missingParts(bundle, ownFiles).length > 0;
+  useEffect(() => {
+    if (half) setOpen(true);
+  }, [half]);
   // 这一行发起的修复在跑：进度与取消写在检查那一条状态里，不再另起一条下载进度。
   const repairing = check.state.phase === 'repairing';
   const checkBusy = repairing || check.state.phase === 'checking' || check.starting;
@@ -464,17 +594,30 @@ function BundleRow({
       </TooltipTrigger>,
     );
   }
+  // 下载与补齐的按钮写上还要下多少（设计稿 settings-local.jsx「补齐 {大小}」）；有组件不知道大小时只写动作。
+  const need = needBytes(bundle);
+  const needSize = need !== null && need > 0 ? fmtSize(need) : null;
+  // 自己的文件在盘上、还缺组件（装好了缺可选的对齐器、说话人模型，或权重在、缺公共组件）：「补齐」只下载缺的那几件，不再给「下载」
+  // （设计稿 settings-local.jsx 的 `half`）。
+  if (actions.complete) {
+    buttons.push(
+      <Button key="complete" variant="accent" size="S" onPress={() => onInstall('complete')}>
+        <DownloadIcon />
+        <Text>{needSize ? INSTALL.completeSize(needSize) : INSTALL.complete}</Text>
+      </Button>,
+    );
+  }
   if (actions.install) {
     buttons.push(
       <Button key="install" variant="secondary" size="S" onPress={() => onInstall('install')}>
         <DownloadIcon />
-        <Text>{INSTALL.download}</Text>
+        <Text>{needSize ? INSTALL.downloadSize(needSize) : INSTALL.download}</Text>
       </Button>,
     );
   }
   if (actions.resume) {
     buttons.push(
-      <Button key="resume" variant="accent" size="S" onPress={() => onInstall('install')}>
+      <Button key="resume" variant="accent" size="S" onPress={() => onInstall(ownFiles ? 'complete' : 'install')}>
         <DownloadIcon />
         <Text>{INSTALL.resume}</Text>
       </Button>,
@@ -557,7 +700,7 @@ function BundleRow({
         <div className={modelMain}>
           <div className={modelName}>
             <span className={modelId}>{name}</span>
-            <Chips chips={kind !== 'transcribe' ? ttsChips(bundle, isDefault) : bundleChips(bundle, isDefault)} />
+            <Chips chips={kind !== 'transcribe' ? ttsChips(bundle, isDefault, ownFiles) : bundleChips(bundle, isDefault, ownFiles)} />
           </div>
           {brief ? <div className={modelSummary}>{brief.summary}</div> : null}
           <div className={modelFacts}>
@@ -636,11 +779,11 @@ function BundleRow({
           {bundle.components?.length ? (
             bundle.components.map((c) => (
               <li key={`${c.component}:${c.repo}`} className={detailLine}>
-                <span>{c.component}</span>
+                <span>{componentLabel(c.component)}</span>
                 <span className={detailRepo}>
                   {c.repo}@{c.revision.slice(0, 7)}
                 </span>
-                <span>{INSTALL.componentLine(c.state, c.bytes !== null ? fmtSize(c.bytes) : null)}</span>
+                <span>{INSTALL.componentLine(c.state, componentSize(c))}</span>
                 {c.sharedWith.length ? <span>{INSTALL.sharedWith(c.sharedWith)}</span> : null}
               </li>
             ))

@@ -390,7 +390,12 @@
     }, ask.body);
   }
 
-  /* ---------- Toast ---------- */
+  /* ---------- Toast ----------
+     toast 只停几秒（2026-10-08 用户要求：「toast 只显示几秒即可，不用一直在那里」）。S2 不让带按钮的 toast 自动关，
+     这里自己计时关掉；指针停在 toast 上或焦点在里面时顺延，免得正要点「撤销」时它消失。 */
+
+  const TOAST_MS = 5000;
+  const toastHeld = () => !!document.querySelector('[role="region"] [role="alertdialog"]:hover, [role="region"] [role="alertdialog"]:focus-within');
 
   function ToastHost({toasts, onDismiss}) {
     const active = useRef(new Map());
@@ -400,10 +405,16 @@
       for (const t of toasts || []) {
         if (active.current.has(t.id)) continue;
         const variant = ['positive', 'negative', 'info'].includes(t.tone) ? t.tone : 'neutral';
-        active.current.set(t.id, S.ToastQueue[variant](t.text, {
-          timeout: 5000, actionLabel: t.action?.label, onAction: t.action?.run, shouldCloseOnAction: true,
-          onClose: () => onDismiss?.(t.id)
-        }));
+        let timer = null;
+        const close = S.ToastQueue[variant](t.text, {
+          timeout: TOAST_MS, actionLabel: t.action?.label, onAction: t.action?.run, shouldCloseOnAction: true,
+          onClose: () => { clearTimeout(timer); onDismiss?.(t.id); }
+        });
+        if (t.action) {
+          const arm = () => { timer = setTimeout(() => (toastHeld() ? arm() : close()), TOAST_MS); };
+          arm();
+        }
+        active.current.set(t.id, () => { clearTimeout(timer); close(); });
       }
     }, [toasts, onDismiss]);
     useEffect(() => () => { for (const close of active.current.values()) close(); active.current.clear(); }, []);

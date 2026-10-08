@@ -1,3 +1,5 @@
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
@@ -25,11 +27,17 @@ if (args[0] === '--version') {
   process.stdout.write(`fake-acp ${scenario.version}\n`);
   process.exit(0);
 }
+// 像 cursor-agent 为 @ 文件建索引跑的 rg：在智能体的进程组里，不理会 SIGTERM。装好信号处理之后才说 ready，免得请停来得太早、
+// 它照常被 SIGTERM 结束，测不到强杀。
+const HELPER = "process.on('SIGTERM', () => {}); process.stdout.write('ready'); setInterval(() => {}, 1000);";
+const helper = scenario.helper ? spawn(process.execPath, ['-e', HELPER], { stdio: ['ignore', 'pipe', 'ignore'] }) : null;
+if (helper) await once(helper.stdout, 'data');
 log({
   kind: 'start',
   cwd: process.cwd(),
   args,
   env: { NO_BROWSER: process.env.NO_BROWSER, NO_OPEN_BROWSER: process.env.NO_OPEN_BROWSER },
+  ...(helper ? { helper: helper.pid } : {}),
 });
 
 type Message = {
@@ -146,6 +154,7 @@ async function handleRequest(message: Message): Promise<void> {
   const fail = (error: unknown) => send({ id, error });
   switch (message.method) {
     case 'initialize':
+      if (scenario.exitOnInitialize) process.exit(1);
       return reply({
         protocolVersion: 1,
         agentCapabilities: {

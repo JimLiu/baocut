@@ -168,6 +168,10 @@ export const ru: ToolsMessages = {
     unavailable: (provider: string) => `${provider} сейчас недоступно`,
     goConnect: "Подключить",
     switchTo: (name: string) => `Переключить на ${name}`,
+    downloadSize: (size: string) => `Скачать ${size}`,
+    switchToInstalled: (name: string) => `Переключить на установленную ${name}`,
+    ttsDownloadBody: 'Загрузка не использует очередь задач; после установки основная кнопка страницы станет доступна.',
+    ttsDownloadBodyPaused: 'Загрузка не использует очередь задач; после установки основная кнопка страницы станет доступна. Загрузка остановилась; возобновление продолжит с этого места.',
   },
   image: {
     title: "Сгенерировать изображение",

@@ -46,9 +46,9 @@ export const SPACE_CATEGORIES: { key: SpaceCategory; label: string; group: 'kind
   },
 ];
 
-export type SpaceSort = 'recent' | 'name' | 'kind';
+export type SpaceSort = 'recent' | 'created' | 'updated' | 'name' | 'kind';
 
-export const SPACE_SORTS: readonly { readonly key: SpaceSort; readonly label: string }[] = (['recent', 'name', 'kind'] as const).map((key) => ({
+export const SPACE_SORTS: readonly { readonly key: SpaceSort; readonly label: string }[] = (['recent', 'created', 'updated', 'name', 'kind'] as const).map((key) => ({
   key,
   get label() {
     return M.sort[key];
@@ -159,6 +159,14 @@ export function viewEntries(entries: readonly SpaceEntry[], query: SpaceQuery): 
   });
   const recent = (a: SpaceEntry, b: SpaceEntry) => b.lastActivityAt.localeCompare(a.lastActivityAt);
   return rows.sort((a, b) => {
+    if (query.sort === 'created' || query.sort === 'updated') {
+      const key = query.sort === 'created' ? 'createdAt' : 'updatedAt';
+      const at = (entry: SpaceEntry) => {
+        const time = entry[key] ? Date.parse(entry[key]!) : NaN;
+        return Number.isFinite(time) ? time : -Infinity;
+      };
+      return at(b) - at(a) || 0;
+    }
     if (query.sort === 'name') return a.name.localeCompare(b.name, intlLocale()) || recent(a, b);
     if (query.sort === 'kind') return KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || recent(a, b);
     return recent(a, b);

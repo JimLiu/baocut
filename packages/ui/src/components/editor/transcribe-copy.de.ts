@@ -6,6 +6,7 @@ export const de: TranscribeSetupMessages = {
   model: "Sprachmodell",
   manageModels: "Sprachmodelle verwalten",
   modelsLoading: "Sprachmodelle werden geladen…",
+  downloadThenSelect: (name: string, pct: number | null) => `${name} wird heruntergeladen${pct === null ? '' : ` · ${pct}%`} · danach automatisch ausgewählt`,
   noDefault: "Noch kein Standard-Sprachmodell",
   hint: "Erkennungshinweise",
   glossary: "Glossar",

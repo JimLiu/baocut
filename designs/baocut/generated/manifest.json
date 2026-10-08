@@ -121,6 +121,8 @@
       "app/model-tool-update.js",
       "app/model-tool-cookies.js",
       "app/model-tool-save-dir.js",
+      "app/model-legacy-import.js",
+      "app/model-legacy-import-run.js",
       "app/model-tool-handover.js",
       "app/model-tool-space-input.js",
       "app/model-tool-extract.js",
@@ -171,6 +173,8 @@
       "app/tool-setup.jsx",
       "app/page-projects.jsx",
       "app/project-info.jsx",
+      "app/legacy-import.jsx",
+      "app/legacy-import-task.jsx",
       "app/home-templates.jsx",
       "app/composer-insert-menu.jsx",
       "app/new-agent.jsx",
@@ -398,11 +402,12 @@
       "app/font-library.css",
       "app/agent-messages.css",
       "app/agent-cards.css",
+      "app/legacy-import.css",
       "app/subtitle-motion.css"
     ],
-    "js": "generated/app.js?v=c8bdcdbf6cd5",
-    "css": "generated/app.css?v=0b7b07d1b497",
-    "bytes": 3731032
+    "js": "generated/app.js?v=558b0cce97ad",
+    "css": "generated/app.css?v=79fcd023c015",
+    "bytes": 3761813
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -630,9 +635,9 @@
       "app/font-library.css",
       "app/subtitle-motion.css"
     ],
-    "js": "generated/web.js?v=2c7b24d85652",
-    "css": "generated/web.css?v=c8e11f76f3d8",
-    "bytes": 2312779
+    "js": "generated/web.js?v=2b9eccbabf1c",
+    "css": "generated/web.css?v=292ed043c621",
+    "bytes": 2315878
   },
   "components": {
     "file": "Components.html",
@@ -657,8 +662,8 @@
       "vendor/react-spectrum-s2/react-spectrum-s2-font.css",
       "app/spectrum.css"
     ],
-    "js": "generated/components.js?v=cbb7b656fc67",
+    "js": "generated/components.js?v=6452bc166565",
     "css": "generated/components.css?v=a20328515032",
-    "bytes": 113563
+    "bytes": 113863
   }
 }

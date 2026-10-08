@@ -7,5 +7,6 @@ export const ptBR: MainMessages = {
   openProjectTitle: 'Abrir pasta do projeto', open: 'Abrir', choose: 'Escolher', importAssetsTitle: 'Importar mídias', importButton: 'Importar', mediaFilter: 'Vídeos, áudio e imagens', allFilesFilter: 'Todos os arquivos', openFileTitle: 'Abrir arquivo', save: 'Salvar',
   runtimeNoDiscovery: 'O Runtime iniciou, mas não gravou seu arquivo de descoberta', runtimeTimeout: 'O Runtime demorou demais para iniciar',
   runtimeExited: (code: number | null) => `O Runtime não iniciou (código de saída ${code})`,
+  runtimeQuitting: 'O app está sendo encerrado',
   webCreateNotWindow: 'Somente janelas do aplicativo podem criar abas web', webTooManyTabs: 'Há abas web demais abertas', webTabMissing: 'Esta aba web não existe mais', webClearNotWindow: 'Somente janelas do aplicativo podem limpar dados web', webOpenNotWindow: 'Somente janelas do aplicativo podem abrir links externos', webOpenScheme: 'Somente URLs http e https podem ser abertas',
 };

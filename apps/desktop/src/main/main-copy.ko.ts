@@ -49,6 +49,7 @@ export const ko: MainMessages = {
   runtimeNoDiscovery: 'Runtime이 시작되었지만 디스커버리 파일을 쓰지 않았습니다',
   runtimeTimeout: 'Runtime이 시작하는 데 너무 오래 걸렸습니다',
   runtimeExited: (code: number | null) => `Runtime을 시작하지 못했습니다(종료 코드 ${code})`,
+  runtimeQuitting: '앱을 종료하는 중입니다',
 
   webCreateNotWindow: '앱 윈도우에서만 웹 탭을 만들 수 있습니다',
   webTooManyTabs: '열린 웹 탭이 너무 많습니다',

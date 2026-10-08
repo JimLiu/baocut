@@ -7,6 +7,7 @@ export const ru: TranscribeSetupMessages = {
   model: "Речевая модель",
   manageModels: "Управлять речевыми моделями",
   modelsLoading: "Загрузка речевых моделей…",
+  downloadThenSelect: (name: string, pct: number | null) => `Скачивается ${name}${pct === null ? '' : ` · ${pct}%`} · после загрузки будет выбрана автоматически`,
   noDefault: "Речевая модель по умолчанию ещё не задана",
   hint: "Подсказки распознавания",
   glossary: "Глоссарий",

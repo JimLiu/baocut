@@ -19,6 +19,7 @@ export const pl: ModelsLocalMessages = {
   chipBusy: "W toku",
   chipUnloading: "Zwalnianie",
   chipUnavailable: "Niedostępne",
+  chipMissing: (names) => `Brak: ${names.join(', ')}`,
   capability: {
     transcribe: "Transkrybuj",
     align: "Wyrównaj",
@@ -29,6 +30,7 @@ export const pl: ModelsLocalMessages = {
   },
   auto: "Automatycznie",
   notInstalled: (name) => `${name} (niezainstalowany)`,
-  componentName: { aligner: "Wymuszone dopasowanie", speaker: "Embedding mówcy", vad: "VAD (wykrywanie aktywności głosowej)" },
+  componentName: { aligner: "Wymuszone dopasowanie", speaker: "Embedding mówcy", vad: "VAD (wykrywanie aktywności głosowej)", tokenizer: "Tokenizer", segmentation: "Segmentacja mówców", codec: "Kodek mowy", aux: "Modele pomocnicze" },
+  componentDesc: { vad: "Wyszukuje fragmenty, w których ktoś mówi", aligner: "Dopasowuje tekst do czasu każdego słowa", tokenizer: "Zamienia tekst na tokeny modelu i z powrotem", speaker: "Rozróżnia mówców", segmentation: "Wyszukuje, gdzie każda osoba zaczyna i kończy mówić", codec: "Zamienia tokeny akustyczne z powrotem w falę dźwiękową", aux: "Dodatkowe modele potrzebne modelowi głównemu" },
   weights: "Wagi modelu",
 };

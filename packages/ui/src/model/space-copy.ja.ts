@@ -15,7 +15,7 @@ export const ja: SpaceMessages = {
   categoryAll: 'すべて',
   favorite: 'お気に入り',
   trash: 'ゴミ箱',
-  sort: { recent: '最近のアクティビティ', name: '名前', kind: '種類' },
+  sort: { created: '作成日時', updated: '更新日時', recent: '最近のアクティビティ', name: '名前', kind: '種類' },
   status: {
     generating: '生成中',
     candidate: '候補',

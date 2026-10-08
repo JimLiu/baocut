@@ -49,6 +49,7 @@ export const ja: MainMessages = {
   runtimeNoDiscovery: 'Runtime は起動しましたが、検出ファイルを書き込みませんでした',
   runtimeTimeout: 'Runtime の起動に時間がかかりすぎています',
   runtimeExited: (code: number | null) => `Runtime を起動できませんでした（終了コード ${code}）`,
+  runtimeQuitting: 'アプリを終了しています',
 
   webCreateNotWindow: 'Web タブを作成できるのはアプリのウインドウだけです',
   webTooManyTabs: '開いている Web タブが多すぎます',

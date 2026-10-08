@@ -20,6 +20,7 @@
     tts: {icon: 'wave', label: '生成语音'}, dub: {icon: 'translate', label: '翻译配音'},
     compress: {icon: 'video', label: '压缩视频'}, merge: {icon: 'layers', label: '合并视频'},
     image: {icon: 'image', label: '生成图片'}, link: {icon: 'link', label: '从链接导入'},
+    'legacy-import': {icon: 'projects', label: '导入旧版项目'},
   };
 
   /* 跑完的 AI run 在这里也能撤销 / 恢复。
@@ -48,17 +49,18 @@
     const k = KIND[t.kind] || KIND.transcribe;
     /* 取消过的任务（第 120 轮，`t.canceled`）留在「已完成」一节但念「已取消」，
        不叫失败——失败是链路坏了，取消是用户自己停的。 */
-    const tone = t.canceled ? 'neutral' : t.status === 'error' ? 'negative' : t.status === 'done' ? 'positive'
+    /* 跑完但留了要人处理的（旧版项目导入有没导入的，`t.attention`「4 个待处理」）：念那一句，用提醒色 */
+    const attention = t.status === 'done' && !t.canceled && t.attention;
+    const tone = t.canceled ? 'neutral' : t.status === 'error' ? 'negative' : attention ? 'notice' : t.status === 'done' ? 'positive'
                : t.status === 'queued' ? 'info' : 'accent';
+    const hue = {negative: 'red', positive: 'green', neutral: 'gray', notice: 'orange'}[tone] || 'blue';
     /* 「等人」只在任务还活着时成立：候选被丢掉或任务被取消之后，那一行念「已取消」，也不再给回去的按钮 */
     const review = t.stage === 'review' && t.status === 'queued' && !t.canceled;
-    const label = t.stage === 'repair' ? '需要你确认' : review ? window.BC_EXPORT.reviewLabel(t.kind) : t.canceled ? '已取消' : t.status === 'error' ? '失败' : t.undone ? '已撤销' : t.status === 'done' ? '已完成'
+    const label = t.stage === 'repair' ? '需要你确认' : review ? window.BC_EXPORT.reviewLabel(t.kind) : t.canceled ? '已取消' : t.status === 'error' ? '失败' : t.undone ? '已撤销' : attention ? attention : t.status === 'done' ? '已完成'
                 : t.status === 'queued' ? '排队中' : `${t.phase}${t.pct == null ? '' : ` · ${t.pct}%`}`;
     return (
       <Card layer className="task">
-        <span className="kicon" style={{
-          background: `var(--${tone === 'negative' ? 'red' : tone === 'positive' ? 'green' : tone === 'neutral' ? 'gray' : 'blue'}-200)`,
-          color: `var(--${tone === 'negative' ? 'red' : tone === 'positive' ? 'green' : tone === 'neutral' ? 'gray' : 'blue'}-${tone === 'neutral' ? '800' : '1000'})`}}>
+        <span className="kicon" style={{background: `var(--${hue}-200)`, color: `var(--${hue}-${tone === 'neutral' ? '800' : '1000'})`}}>
           {t.status === 'running' && !t.canceled && (t.kind === 'transcribe' || t.kind === 'retranscribe')
             ? <window.RSP.AI.PixelLoader icon={window.RSP.AI.microphone} size={16} />
             : <Ic n={k.icon} className="ic--16" />}
@@ -73,6 +75,8 @@
           <div className="task__s">{[F.cardSub(t) || t.sub, t.started].filter(Boolean).join(' · ')}</div>
           {t.status === 'running' ? <div className="task__pg"><Progress value={t.pct || 0} indeterminate={t.pct == null} /></div> : null}
           {t.status === 'queued' && t.stage !== 'repair' && !review ? <div className="task__pg"><Progress indeterminate /></div> : null}
+          {/* 旧版项目导入没导入的：原因一句、怎么办一句、全部重试 / 全部跳过（legacy-import-task.jsx） */}
+          {t.legacy && window.LegacyImportCardNote ? <window.LegacyImportCardNote t={t} /> : null}
         </div>
         <UndoActions t={t} />
         {t.session ? <Btn variant="quiet" size="s" onClick={() => app.openSession(t.session)}>打开会话</Btn> : null}
@@ -294,6 +298,8 @@
         {t.tool && window.ToolTaskPanel ? <window.ToolTaskPanel t={t} /> : null}
         {/* 工具运行的结果与操作、直接任务的重试（page-tasks-outputs.jsx，product-design §2.7「进度与失败」） */}
         {window.TaskOutputs ? <window.TaskOutputs t={t} /> : null}
+        {/* 旧版项目导入：计数、没导入的原因与补救、已导入 / 已跳过（legacy-import-task.jsx） */}
+        {t.legacy && window.LegacyImportTaskPanel ? <window.LegacyImportTaskPanel t={t} /> : null}
         {t.cancellable && (t.status === 'running' || t.status === 'queued') ? (
           <div className="row gap8" style={{marginTop: 12}}>
             <Btn variant="negative" size="m" className="task-cancel-action" onClick={() => app.cancelTask(t)}>

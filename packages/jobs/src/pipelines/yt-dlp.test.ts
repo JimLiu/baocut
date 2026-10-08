@@ -46,10 +46,17 @@ describe('参数', () => {
       expect(args).toEqual(expect.arrayContaining(['--ignore-config', '--no-plugin-dirs', '--no-playlist']));
     }
     const download = downloadArgs('https://v.example.com/a', { output: '/s/dl/media.%(ext)s', audioOnly: true, subtitleLanguages: [] });
-    expect(download).toContain('ba/b');
+    expect(download[download.indexOf('-f') + 1]).toBe('ba[ext=m4a]/ba/b');
+    expect(download).not.toContain('--merge-output-format');
     expect(download).toContain('--check-formats');
     expect(download).not.toContain('--write-subs');
     expect(download[download.indexOf('-o') + 1]).toBe('/s/dl/media.%(ext)s');
+  });
+
+  it('默认要 MP4：优先 MP4 画面与 M4A 声音、合并成 MP4，没有时退回最好的任意格式', () => {
+    const args = downloadArgs('https://v.example.com/a', { output: '/s/dl/media.%(ext)s', audioOnly: false, subtitleLanguages: [] });
+    expect(args[args.indexOf('-f') + 1]).toBe('bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b');
+    expect(args[args.indexOf('--merge-output-format') + 1]).toBe('mp4/webm/mkv');
   });
 
   it('进度行只认自己的前缀；跨流累计，不知道总数时不报', () => {

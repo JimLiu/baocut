@@ -22,6 +22,7 @@ export const de: ModelsLocalMessages = {
   chipBusy: "Läuft",
   chipUnloading: "Wird entladen",
   chipUnavailable: "Nicht verfügbar",
+  chipMissing: (names) => `Fehlt: ${names.join(', ')}`,
 
   capability: {
     transcribe: "Transkribieren",
@@ -36,6 +37,7 @@ export const de: ModelsLocalMessages = {
 
   notInstalled: (name: string) => `${name} (nicht installiert)`,
 
-  componentName: { aligner: "Erzwungener Ausrichter", speaker: "Sprecher-Embedding", vad: "VAD (Sprachaktivitätserkennung)" } as Record<string, string>,
+  componentName: { aligner: "Erzwungener Ausrichter", speaker: "Sprecher-Embedding", vad: "VAD (Sprachaktivitätserkennung)", tokenizer: "Tokenizer", segmentation: "Sprechersegmentierung", codec: "Sprach-Codec", aux: "Hilfsmodelle" } as Record<string, string>,
+  componentDesc: { vad: "Findet die Abschnitte, in denen jemand spricht", aligner: "Richtet den Text auf das Timing jedes Worts aus", tokenizer: "Wandelt zwischen Text und den Tokens des Modells um", speaker: "Unterscheidet die Sprecher", segmentation: "Findet, wo jede Person zu sprechen beginnt und aufhört", codec: "Wandelt akustische Tokens zurück in eine Wellenform", aux: "Zusätzliche Modelle, die das Hauptmodell braucht" },
   weights: "Modellgewichte",
 };

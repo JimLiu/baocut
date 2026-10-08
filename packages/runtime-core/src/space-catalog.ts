@@ -142,7 +142,7 @@ export async function scanDirectory(root: string, limits: ScanLimits = DEFAULT_S
       }
       try {
         const stat = await fsp.stat(full);
-        files.push({ relPath, kind, size: stat.size, mtimeMs: stat.mtimeMs });
+        files.push({ relPath, kind, size: stat.size, mtimeMs: stat.mtimeMs, birthtimeMs: stat.birthtimeMs });
       } catch {
         // 扫描期间被删掉了。
       }
@@ -155,7 +155,7 @@ export async function scanDirectory(root: string, limits: ScanLimits = DEFAULT_S
  * 视频目录的大小与最近活动：`video.db` 加上受管理的素材；WAL 里还没合并的写入也算活动。
  * 不是视频目录返回 null。不打开数据库，不碰写入锁。
  */
-async function inspectVideoDir(dir: string): Promise<{ size: number; mtimeMs: number } | null> {
+async function inspectVideoDir(dir: string): Promise<{ size: number; mtimeMs: number; birthtimeMs: number } | null> {
   // 改名之前的目录只有 `movie.db`：照样列出，引擎打开它时就地升级成 `video.db`。
   const current = await fsp.stat(path.join(dir, 'video.db')).catch(() => null);
   const dbFile = current ? 'video.db' : 'movie.db';
@@ -174,7 +174,7 @@ async function inspectVideoDir(dir: string): Promise<{ size: number; mtimeMs: nu
     const stat = await fsp.stat(path.join(dir, 'blobs', blob.name)).catch(() => null);
     if (stat) size += stat.size;
   }
-  return { size, mtimeMs };
+  return { size, mtimeMs, birthtimeMs: db.birthtimeMs };
 }
 
 /** Space 目录读 Job Ledger 用到的那一部分（`JobManager`）。 */
@@ -1144,7 +1144,7 @@ async function isVideoDir(dir: string): Promise<boolean> {
 
 async function statOf(file: string): Promise<FileStat | null> {
   const stat = await fsp.stat(file).catch(() => null);
-  return stat?.isFile() ? { path: file, size: stat.size, mtimeMs: stat.mtimeMs } : null;
+  return stat?.isFile() ? { path: file, size: stat.size, mtimeMs: stat.mtimeMs, birthtimeMs: stat.birthtimeMs } : null;
 }
 
 /** 复制进目录，重名时加序号；返回目录里的文件名。 */

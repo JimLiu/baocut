@@ -197,6 +197,10 @@ export const fr: ToolsMessages = {
     unavailable: (provider: string) => `${provider} est actuellement indisponible`,
     goConnect: "Connecter",
     switchTo: (name: string) => `Passer à ${name}`,
+    downloadSize: (size: string) => `Télécharger ${size}`,
+    switchToInstalled: (name: string) => `Passer au modèle installé ${name}`,
+    ttsDownloadBody: 'Téléchargement hors file de tâches ; bouton principal actif après installation.',
+    ttsDownloadBodyPaused: 'Téléchargement hors file de tâches ; bouton principal actif après installation. Téléchargement interrompu ; reprise au même point.',
   },
 
   image: {

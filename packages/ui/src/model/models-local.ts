@@ -1,9 +1,17 @@
-import { localizeText, type ImageModelInfo, type ModelBundleStatus, type ModelCapabilitiesView, type ModelLicense } from '@baocut/protocol';
+import {
+  localizeText,
+  type ImageModelInfo,
+  type ModelBundleStatus,
+  type ModelCapabilitiesView,
+  type ModelComponentStatus,
+  type ModelLicense,
+} from '@baocut/protocol';
 import type { ModelCategory } from './settings-nav.ts';
 import { M } from './models-local-copy.ts';
 
 /**
- * 模型 › 本地模型（设计稿 settings-local.jsx）：`models` 主题里的模型包按类分「已安装 / 可下载」，加上默认模型菜单。
+ * 模型 › 本地模型（设计稿 settings-local.jsx）：`models` 主题里的模型包按类分「已安装 / 可下载」（自己的文件在不在盘上，见
+ * `localGroups`），加上默认模型菜单。
  * 安装、修复与删除的确认、进度和补救在 models-install.ts，检查在 model-check.ts。
  */
 
@@ -38,8 +46,8 @@ export interface LocalGroups {
 }
 
 /**
- * 模型包装好了没有：各组件都装好（含加载失败、停用、校验不符的）就算；没有组件信息时按状态，`not-installed` 与第一次下载中的不算。
- * 修复中的模型包组件仍在，留在「已安装」；第一次下载、补齐组件中的在「可下载」，进度显示在那一行。
+ * 模型包装好了没有（能用）：必需组件都装好（含加载失败、停用、校验不符的）就算；没有组件信息时按状态，`not-installed` 与第一次
+ * 下载中的不算。分组不看它：权重在、缺公共组件的也在「已安装」（`localGroups`）。
  */
 export function isBundleInstalled(bundle: Pick<ModelBundleStatus, 'state' | 'components'>): boolean {
   const required = bundle.components?.filter((c) => !c.optional);
@@ -47,10 +55,52 @@ export function isBundleInstalled(bundle: Pick<ModelBundleStatus, 'state' | 'com
   return bundle.state !== 'not-installed' && bundle.state !== 'downloading';
 }
 
-/** 这一类的模型包，按装好没有分组（见 `isBundleInstalled`）。 */
-export function localGroups(bundles: readonly ModelBundleStatus[], category: ModelCategory): LocalGroups {
+/**
+ * 「补齐」要下载的组件（设计稿 settings-local.jsx 的 `half`）：模型包自己的文件在盘上（`ownFiles`，见 `hasOwnFiles`；默认按装好
+ * 没有算），还缺的组件。装好了的只会缺可选组件（对齐器、说话人模型），照常可用，补上之后多出词级时间、跨块合并说话人；权重在、缺
+ * 公共组件的补上才能用。`models.install` 只下载缺的这几件。自己的文件不在的、这台电脑跑不了的不算（前者走「下载」，后者补了也
+ * 用不上）。
+ */
+export function missingParts(
+  bundle: Pick<ModelBundleStatus, 'state' | 'reason' | 'components'>,
+  ownFiles = isBundleInstalled(bundle),
+): ModelComponentStatus[] {
+  if (!ownFiles || bundle.reason === 'unsupported' || bundle.reason === 'worker-missing') return [];
+  return (bundle.components ?? []).filter((c) => c.state === 'missing');
+}
+
+/** 组件给人看的名字；没列的用组件名。 */
+export function componentLabel(component: string): string {
+  return M.componentName[component] ?? component;
+}
+
+/** 组件做什么的一句（公共组件那一行）；没列的 null。 */
+export function componentDesc(component: string): string | null {
+  return M.componentDesc[component] ?? null;
+}
+
+/**
+ * 这一类的模型包分「已安装 / 可下载」（设计稿 model-local-models.js `catalog`）：自己的文件在盘上的（`hasOwnFiles`）在「已安装」，
+ * 权重在、缺公共组件的也是，行上「补齐」。`placed`：下载中的模型包上一次在哪一组（true 为「已安装」）。Runtime 每装好一个组件
+ * 就更新一次状态，第一次下载时权重先到，行会在下载途中跳进「已安装」；记着的按记着的放，下载结束（或丢掉）再按文件归组。
+ */
+export function localGroups(
+  bundles: readonly ModelBundleStatus[],
+  category: ModelCategory,
+  placed?: ReadonlyMap<string, boolean>,
+): LocalGroups {
   const mine = bundles.filter((b) => bundleCategory(b) === category).sort((a, b) => a.bundleId.localeCompare(b.bundleId));
-  return { installed: mine.filter(isBundleInstalled), available: mine.filter((b) => !isBundleInstalled(b)) };
+  const shared = sharedComponents(bundles, category);
+  const installed = (b: ModelBundleStatus) => (b.install ? placed?.get(b.bundleId) : undefined) ?? hasOwnFiles(b, shared);
+  return { installed: mine.filter(installed), available: mine.filter((b) => !installed(b)) };
+}
+
+/** 下载中的模型包这一次在哪一组：交给下一次 `localGroups` 的 `placed`。 */
+export function installingPlacement(groups: LocalGroups): Map<string, boolean> {
+  const placed = new Map<string, boolean>();
+  for (const b of groups.installed) if (b.install) placed.set(b.bundleId, true);
+  for (const b of groups.available) if (b.install) placed.set(b.bundleId, false);
+  return placed;
 }
 
 export type ChipTone = 'accent' | 'positive' | 'notice' | 'negative' | 'neutral';
@@ -59,8 +109,11 @@ export interface ModelChip {
   tone: ChipTone;
 }
 
-/** 一行模型包的标签：默认、Worker 状态、不可用的原因。只是「已安装、没加载」时不加标签。 */
-export function bundleChips(bundle: ModelBundleStatus, isDefault: boolean): ModelChip[] {
+/**
+ * 一行模型包的标签：默认、Worker 状态、不可用的原因，缺的组件（`missingParts`，`ownFiles` 同它）。只是「已安装、没加载」时不加
+ * 标签；正在下载的不写缺什么。
+ */
+export function bundleChips(bundle: ModelBundleStatus, isDefault: boolean, ownFiles = isBundleInstalled(bundle)): ModelChip[] {
   const chips: ModelChip[] = isDefault ? [{ label: M.chipDefault, tone: 'accent' }] : [];
   switch (bundle.state) {
     case 'loading':
@@ -79,12 +132,17 @@ export function bundleChips(bundle: ModelBundleStatus, isDefault: boolean): Mode
       chips.push({ label: bundle.reason ? M.reason[bundle.reason] : M.chipUnavailable, tone: 'negative' });
       break;
     case 'not-installed':
-      // 装过但文件不对的给个提示；从没装过的不加标签。
-      if (bundle.reason && bundle.reason !== 'missing-manifest') chips.push({ label: M.reason[bundle.reason], tone: 'notice' });
+      // 装过但文件不对的给个提示；从没装过的不加标签。缺组件（`incomplete`）的由下面「缺 …」说清楚是哪几件，别人装上了
+      // 公共组件、自己一件没有的也不算装过。
+      if (bundle.reason && bundle.reason !== 'missing-manifest' && bundle.reason !== 'incomplete') {
+        chips.push({ label: M.reason[bundle.reason], tone: 'notice' });
+      }
       break;
     case 'installed':
       break;
   }
+  const missing = bundle.install && bundle.install.state !== 'paused' ? [] : missingParts(bundle, ownFiles);
+  if (missing.length) chips.push({ label: M.chipMissing(missing.map((c) => componentLabel(c.component))), tone: 'notice' });
   return chips;
 }
 
@@ -173,6 +231,131 @@ export function localDefaultChoice(key: string): { providerId: string | null; mo
   return key === AUTO_DEFAULT ? { providerId: null } : { providerId: LOCAL_PROVIDER, modelId: key };
 }
 
+// ---- 公共组件 ----
+
+/**
+ * 同一个组件：组件名 + 仓库 + 版本。只看仓库会把 IndexTTS2 的权重（`tts`）与 IndexTTS 2.5 借来的辅助件（`aux`）算成公共组件，
+ * 设计稿把后者算作 2.5 自己的（model-local-models.js `layout`）。
+ */
+function componentKey(c: Pick<ModelComponentStatus, 'component' | 'repo' | 'revision'>): string {
+  return `${c.component}:${c.repo}@${c.revision}`;
+}
+
+/** 公共组件区里的顺序（设计稿 data.js `setComponents`：VAD、对齐器、分词器、声纹嵌入……）；没列的排后面。 */
+const SHARED_ORDER = ['vad', 'aligner', 'tokenizer', 'speaker', 'segmentation', 'codec', 'aux'];
+
+export interface SharedComponent {
+  key: string;
+  /** 组件名（`vad`、`aligner`……）。 */
+  component: string;
+  repo: string;
+  installed: boolean;
+  /** 装好时占的，没装时要下载的；都不知道时 null。 */
+  bytes: number | null;
+  /** 声明它的模型包，按 ID 排（与「已安装 / 可下载」同序）。 */
+  users: ModelBundleStatus[];
+}
+
+/**
+ * 一类的公共组件（设计稿 model-local-models.js `layout`）：这一类里两只及以上模型包声明的同一个组件。公共与否只看目录、不看装没装，
+ * 删掉一只模型不会让组件从这里消失。没有组件信息的旧快照没有公共组件。
+ */
+export function sharedComponents(bundles: readonly ModelBundleStatus[], category: ModelCategory): SharedComponent[] {
+  const byKey = new Map<string, { status: ModelComponentStatus[]; users: ModelBundleStatus[] }>();
+  const mine = bundles.filter((b) => bundleCategory(b) === category).sort((a, b) => a.bundleId.localeCompare(b.bundleId));
+  for (const bundle of mine) {
+    for (const c of bundle.components ?? []) {
+      const key = componentKey(c);
+      const entry = byKey.get(key) ?? { status: [], users: [] };
+      entry.status.push(c);
+      if (!entry.users.includes(bundle)) entry.users.push(bundle);
+      byKey.set(key, entry);
+    }
+  }
+  const rank = (component: string) => {
+    const i = SHARED_ORDER.indexOf(component);
+    return i < 0 ? SHARED_ORDER.length : i;
+  };
+  return [...byKey.entries()]
+    .filter(([, e]) => e.users.length >= 2)
+    .map(([key, e]) => {
+      const first = e.status[0]!;
+      const installed = e.status.some((c) => c.state === 'installed');
+      const sized = e.status.find((c) => (installed ? c.state === 'installed' && c.bytes !== null : c.estimatedBytes != null));
+      const bytes = installed ? (sized?.bytes ?? first.estimatedBytes ?? null) : (sized?.estimatedBytes ?? null);
+      return { key, component: first.component, repo: first.repo, installed, bytes, users: e.users };
+    })
+    .sort((a, b) => rank(a.component) - rank(b.component) || a.key.localeCompare(b.key));
+}
+
+/**
+ * 模型包自己的文件在盘上（设计稿的 `on[m.id]`，权重在）：装好了，或者公共组件、可选组件以外有装好的组件——权重在、缺公共组件的
+ * （`incomplete`）也算。只是公共组件被别的模型装上了的、只有可选组件的不算。
+ */
+export function hasOwnFiles(bundle: ModelBundleStatus, shared: readonly SharedComponent[]): boolean {
+  if (isBundleInstalled(bundle)) return true;
+  const keys = new Set(shared.map((c) => c.key));
+  return (bundle.components ?? []).some((c) => c.state === 'installed' && !c.optional && !keys.has(componentKey(c)));
+}
+
+/**
+ * 装齐这只模型包还要下载多少（设计稿 `needSize`）：缺的组件的清单大小之和，可选的也算（安装与补齐都下载它）。有组件不知道大小，
+ * 或没有组件信息时 null。
+ */
+export function needBytes(bundle: Pick<ModelBundleStatus, 'components'>): number | null {
+  if (!bundle.components?.length) return null;
+  let total = 0;
+  for (const c of bundle.components) {
+    if (c.state !== 'missing') continue;
+    if (c.estimatedBytes == null) return null;
+    total += c.estimatedBytes;
+  }
+  return total;
+}
+
+const installing = (b: ModelBundleStatus) => !!b.install && b.install.state !== 'paused';
+const cannotRun = (b: ModelBundleStatus) => b.reason === 'unsupported' || b.reason === 'worker-missing';
+
+export type SharedAction =
+  | { kind: 'installed' }
+  /** 用到它的模型包正在下载（这里点的补齐，或行上的下载、补齐）：缺的组件跟着它下，显示它的进度。 */
+  | { kind: 'running'; bundle: ModelBundleStatus }
+  /** 「下载」= 补齐 `target`（只下它缺的）。 */
+  | { kind: 'get'; target: ModelBundleStatus }
+  /** 没有自己文件在盘上的模型用它：不给按钮，等装模型时一起下载。 */
+  | { kind: 'later' };
+
+/**
+ * 公共组件那一行右边做什么（设计稿 model-local-models.js `compAction`）。组件不单独装：缺的时候借一只文件在盘上、用到它、这台电脑
+ * 跑得了的模型包去补齐，挑要下得最少的那只（大小不知道的排后面），一样多按 ID 顺序。
+ */
+export function sharedAction(c: SharedComponent, shared: readonly SharedComponent[]): SharedAction {
+  if (c.installed) return { kind: 'installed' };
+  const running = c.users.find(installing);
+  if (running) return { kind: 'running', bundle: running };
+  let target: ModelBundleStatus | null = null;
+  let best = Infinity;
+  for (const b of c.users) {
+    if (cannotRun(b) || !hasOwnFiles(b, shared)) continue;
+    const need = needBytes(b) ?? Infinity;
+    if (!target || need < best) {
+      target = b;
+      best = need;
+    }
+  }
+  return target ? { kind: 'get', target } : { kind: 'later' };
+}
+
+/** 公共组件那一行的副题（设计稿 `compUsage`）：文件在盘上的模型几只在用、一共几只需要。 */
+export function sharedUsage(c: SharedComponent, shared: readonly SharedComponent[]): { live: number; all: number } {
+  return { live: c.users.filter((b) => hasOwnFiles(b, shared)).length, all: c.users.length };
+}
+
+/** 待补全的公共组件（设计稿 `catalog.repair`）：缺着，又有文件在盘上的模型要用它。有的话公共组件区自动展开。 */
+export function sharedRepair(shared: readonly SharedComponent[]): SharedComponent[] {
+  return shared.filter((c) => !c.installed && c.users.some((b) => hasOwnFiles(b, shared)));
+}
+
 // ---- 许可 ----
 
 export interface LicenseLine {
@@ -193,7 +376,7 @@ export function licenseLines(bundle: Pick<ModelBundleStatus, 'components'>, weig
     const license = c.license;
     if (!license) continue;
     if (!weights || license.name !== weights.name || /^CC-BY/.test(license.name)) {
-      lines.push({ part: M.componentName[c.component] ?? c.component, component: true, license });
+      lines.push({ part: componentLabel(c.component), component: true, license });
     }
   }
   return lines;

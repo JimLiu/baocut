@@ -17,7 +17,7 @@ export const de: SpaceMessages = {
   categoryAll: "Alle",
   favorite: "Favoriten",
   trash: "Papierkorb",
-  sort: { recent: "Letzte Aktivität", name: "Name", kind: "Typ" },
+  sort: { created: 'Erstellungsdatum', updated: 'Aktualisierungsdatum', recent: "Letzte Aktivität", name: "Name", kind: "Typ" },
   status: {
     generating: "Wird erzeugt",
     candidate: "Kandidat",

@@ -19,6 +19,7 @@ export const ru: ModelsLocalMessages = {
   chipBusy: "Выполняется",
   chipUnloading: "Выгрузка",
   chipUnavailable: "Недоступно",
+  chipMissing: (names) => `Не хватает: ${names.join(', ')}`,
   capability: {
     transcribe: "Расшифровать",
     align: "Выравнивание",
@@ -29,6 +30,7 @@ export const ru: ModelsLocalMessages = {
   },
   auto: "Автоматически",
   notInstalled: (name) => `${name} (не установлено)`,
-  componentName: { aligner: "Принудительное выравнивание", speaker: "Эмбеддинг говорящего", vad: "VAD (обнаружение голосовой активности)" },
+  componentName: { aligner: "Принудительное выравнивание", speaker: "Эмбеддинг говорящего", vad: "VAD (обнаружение голосовой активности)", tokenizer: "Токенизатор", segmentation: "Сегментация говорящих", codec: "Речевой кодек", aux: "Вспомогательные модели" },
+  componentDesc: { vad: "Находит участки, где кто-то говорит", aligner: "Привязывает текст ко времени каждого слова", tokenizer: "Переводит текст в токены модели и обратно", speaker: "Различает говорящих", segmentation: "Находит, где каждый говорящий начинает и заканчивает речь", codec: "Превращает акустические токены обратно в звуковую волну", aux: "Дополнительные модели, нужные основной модели" },
   weights: "Веса модели",
 };

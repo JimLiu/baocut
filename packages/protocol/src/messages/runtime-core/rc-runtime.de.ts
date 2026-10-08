@@ -52,4 +52,8 @@ export const de: RcRuntimeMessages = {
   runtimeInUse: (p: { desktop: number; cli: number; activeJobs: number }) =>
     `Diese Runtime wird noch verwendet (Desktop-App: ${p.desktop}, andere CLI-Verbindungen: ${p.cli}, nicht abgeschlossene Aufgaben: ${p.activeJobs}). Auf den Abschluss warten oder schließen; dann stoppen`,
   stopNotSupported: "Diese Runtime kann nicht über das Gateway gestoppt werden",
+  legacyPromptGone: "Diese Importfrage wurde bereits beantwortet oder ist nicht mehr offen",
+  legacyImportFolderReserved: "Einen Ordner außerhalb der Datenordner von BaoCut und seinen früheren Versionen wählen",
+  legacyImportFolderUnwritable: "Dieser Ordner kann nicht erstellt oder beschrieben werden",
+  legacyImportLocalOnly: "Nur die Desktop-App und die lokale CLI können entscheiden, wie frühere Projekte importiert werden",
 };

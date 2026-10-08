@@ -1,5 +1,5 @@
-/* 预览还没出画面时的舞台（产品设计 §5.1「预览载入与卡住」）：载入中是一块安静的载入态，卡住了是画面正中一张卡，
-   说卡在哪一步、给「重试」。判据与文案全在 `BC_STAGE_LOAD`（model-stage-load.js）；这里只按它排一次计时器、
+/* 预览还没出画面时的舞台（产品设计 §5.1「预览载入与卡住」）：载入中是一块安静的载入态；媒体要先转换才能播放时
+   是「正在准备预览 · N%」与进度条，点名在转哪个媒体；卡住了是画面正中一张卡，说卡在哪一步、给「重试」。判据与文案全在 `BC_STAGE_LOAD`（model-stage-load.js）；这里只按它排一次计时器、
    把结论画出来。挂在 `.frame` 上，盖住演示画面（产品里此刻画布上什么都没有）。 */
 (function () {
   const {useState} = React;
@@ -25,6 +25,19 @@
     const names = {media: src ? window.BC_STAGE_MEDIA.fileName(src.name || src.path) : null};
     const n = X.notice(d, Date.now(), names, 'zh');
     if (!n) return null;
+    if (n.kind === 'preparing') {
+      return (
+        <div className="stageload" role="status" aria-label={n.label} {...block}>
+          <div className="stageload__prep">
+            <div className="stageload__prept">{n.label}</div>
+            <R.ProgressBar size="S" staticColor="white" value={n.pct == null ? 0 : n.pct} isIndeterminate={n.pct == null}
+              aria-label={n.label} UNSAFE_className="stageload__bar" />
+            <div className="stageload__step">{n.detail}</div>
+            <div>{n.body}</div>
+          </div>
+        </div>
+      );
+    }
     if (n.kind === 'loading') {
       return (
         <div className="stageload" role="status" aria-label={n.label} {...block}>

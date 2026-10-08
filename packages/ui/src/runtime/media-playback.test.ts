@@ -21,6 +21,47 @@ describe('compatible playback handles', () => {
     } finally { vi.useRealTimers(); }
   });
 
+  it('reports how far the copy is on every pending poll, null while the Runtime does not know yet', async () => {
+    vi.useFakeTimers();
+    try {
+      const request = vi.fn<() => Promise<MediaPlayback>>()
+        .mockResolvedValueOnce({ status: 'pending', retryAfterMs: 250 })
+        .mockResolvedValueOnce({ status: 'pending', retryAfterMs: 250, progress: 0.42 })
+        .mockResolvedValueOnce({ status: 'ready', media: compatible });
+      const onProgress = vi.fn();
+      const pending = preparePlaybackMedia({ request }, original, undefined, { playable: [], onProgress });
+      await vi.advanceTimersByTimeAsync(500);
+      expect(await pending).toBe(compatible);
+      expect(onProgress.mock.calls).toEqual([[null], [0.42]]);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('tells the Runtime which WebM codecs this browser decodes and plays the original it hands back', async () => {
+    const request = vi.fn<() => Promise<MediaPlayback>>().mockResolvedValue({ status: 'ready', media: original });
+    expect(await preparePlaybackMedia({ request }, original, undefined, { playable: ['vp9', 'opus'] })).toBe(original);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).toHaveBeenCalledWith('media.playback', { url: original.url, playable: ['vp9', 'opus'] });
+  });
+
+  it('asks only by URL when this browser decodes no WebM codec', async () => {
+    const request = vi.fn<() => Promise<MediaPlayback>>().mockResolvedValue({ status: 'ready', media: compatible });
+    expect(await preparePlaybackMedia({ request }, original, undefined, { playable: [] })).toBe(compatible);
+    expect(request).toHaveBeenCalledWith('media.playback', { url: original.url });
+  });
+
+  it('detects decodable codecs with canPlayType, counting only confident answers', async () => {
+    vi.resetModules();
+    const answers: Record<string, string> = { 'video/webm; codecs="vp9"': 'probably', 'audio/webm; codecs="opus"': 'probably', 'video/webm; codecs="vp8"': 'maybe' };
+    const canPlayType = vi.fn((type: string) => answers[type] ?? '');
+    vi.stubGlobal('document', { createElement: () => ({ canPlayType }) });
+    try {
+      const { playableCodecs } = await import('./media-playback.ts');
+      expect(playableCodecs()).toEqual(['vp9', 'opus']);
+      playableCodecs();
+      expect(canPlayType).toHaveBeenCalledTimes(5);
+    } finally { vi.unstubAllGlobals(); }
+  });
+
   it('passes ordinary media through without requesting conversion', async () => {
     const request = vi.fn();
     const mp4 = { ...original, mimeType: 'video/mp4' };

@@ -36,6 +36,11 @@ export interface RuntimeSupervisorOptions {
    * 已知文件夹与 Linux 的 XDG 目录（例如 `~/下载`），Runtime 自己只能猜 `~/Downloads`。取不到时为 null。
    */
   downloadsDir: string | null;
+  /**
+   * 系统的文稿 / 文档文件夹（`app.getPath('documents')`）：旧版项目导入询问的默认目录在它下面（架构设计 §2.7）。取不到时为
+   * null，Runtime 用 `~/Documents`。
+   */
+  documentsDir: string | null;
   /** 操作系统的首选语言（BCP 47，按优先顺序）：界面语言跟随系统时 Runtime 按它选语言。拉起时才取。 */
   systemLanguages: () => readonly string[];
 }
@@ -52,13 +57,19 @@ export class RuntimeSupervisor {
   readonly #options: RuntimeSupervisorOptions;
   #child: ChildProcess | null = null;
   #ensuring: Promise<ConnectionTarget> | null = null;
+  /** 应用开始退出（调过 `stop`）之后不再拉起 Runtime。 */
+  #stopped = false;
 
   constructor(options: RuntimeSupervisorOptions) {
     this.#options = options;
   }
 
-  /** 渲染进程每次（重新）连接前调用；Runtime 不在了就再起一个。 */
+  /**
+   * 渲染进程每次（重新）连接前调用；Runtime 不在了就再起一个。应用退出途中不起：自己的 Runtime 停下后窗口还开着，界面会按
+   * 重连退避再来要连接，这时起的 Runtime 没人再停，主进程退出后成了孤儿。
+   */
   connection(): Promise<ConnectionTarget> {
+    if (this.#stopped) return Promise.reject(new Error(M.runtimeQuitting));
     this.#ensuring ??= this.#ensure().finally(() => {
       this.#ensuring = null;
     });
@@ -68,6 +79,8 @@ export class RuntimeSupervisor {
   async #ensure(): Promise<ConnectionTarget> {
     const existing = await this.#discover();
     if (existing) return existing;
+    // 读发现文件期间可能开始了退出。
+    if (this.#stopped) throw new Error(M.runtimeQuitting);
     await this.#spawn();
     const started = await this.#discover();
     if (!started) throw new Error(M.runtimeNoDiscovery);
@@ -81,19 +94,23 @@ export class RuntimeSupervisor {
   }
 
   #spawn(): Promise<void> {
-    const { home, script, allowedOrigins, echoLogs, credentialStore, resources, downloadsDir, systemLanguages } = this.#options;
+    const { home, script, allowedOrigins, echoLogs, credentialStore, resources, downloadsDir, documentsDir, systemLanguages } =
+      this.#options;
     const args = [script, ...(echoLogs ? [] : ['--quiet']), '--credential-store', credentialStore];
     const child = spawn(process.execPath, args, {
       env: {
         ...process.env,
         ELECTRON_RUN_AS_NODE: '1',
         BAOCUT_HOME: home.root,
+        BAOCUT_PROJECTS_DIR: home.projectsDir,
         ...(this.#options.legacyAutoDetect ? { BAOCUT_LEGACY_AUTO_DETECT: '1' } : {}),
         BAOCUT_ALLOWED_ORIGINS: allowedOrigins.join(','),
         // 以 Node 方式运行的 Runtime 不一定能拿到 resourcesPath：Worker、凭据助手、内置模板等的位置由主进程告诉它。
         ...(resources ? packagedResourceEnv(resources) : {}),
         // 系统的下载文件夹；环境里已经给了（测试指到临时目录）时不覆盖。
         ...(downloadsDir && !process.env.BAOCUT_DOWNLOADS_DIR ? { BAOCUT_DOWNLOADS_DIR: downloadsDir } : {}),
+        // 系统的文稿文件夹：同上。
+        ...(documentsDir && !process.env.BAOCUT_DOCUMENTS_DIR ? { BAOCUT_DOCUMENTS_DIR: documentsDir } : {}),
         // 从桌面启动的进程多半没有 LANG：系统语言由主进程告诉它。
         BAOCUT_SYSTEM_LANGUAGES: systemLanguages().join(','),
       },
@@ -132,10 +149,11 @@ export class RuntimeSupervisor {
   }
 
   /**
-   * 只停自己起的 Runtime；连上的别人的 Runtime 不动。经 IPC 通道请它按停止顺序收尾（各平台一样，Windows 上没有能被处理的
-   * SIGTERM），超过 `timeoutMs` 强杀。Runtime 自己另有 15 秒的兜底退出。
+   * 应用退出时调。只停自己起的 Runtime；连上的别人的 Runtime 不动。经 IPC 通道请它按停止顺序收尾（各平台一样，Windows 上
+   * 没有能被处理的 SIGTERM），超过 `timeoutMs` 强杀。Runtime 自己另有 15 秒的兜底退出。此后 `connection` 不再拉起 Runtime。
    */
   async stop(timeoutMs = 8_000): Promise<void> {
+    this.#stopped = true;
     const child = this.#child;
     if (!child) return;
     await stopChild(child, timeoutMs);

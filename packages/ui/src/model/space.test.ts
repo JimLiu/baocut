@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SpaceEntry } from '@baocut/protocol';
 import {
+  SPACE_SORTS,
   countByCategory,
   entryPath,
   formatBytes,
@@ -61,6 +62,21 @@ describe('viewEntries', () => {
 
   it('默认按最近活动排', () => {
     expect(viewEntries(rows, query).map((e) => e.id)).toEqual(['c', 'b', 'a']);
+  });
+
+  it('创建与更新时间各自倒序，时间相同保持次序，未知与无效时间放在末尾', () => {
+    const dated = [
+      entry('old', { createdAt: '2026-10-01T01:00:00Z', updatedAt: '2026-10-01T04:00:00Z' }),
+      entry('new', { createdAt: '2026-10-01T03:00:00+00:00', updatedAt: '2026-10-01T02:00:00Z' }),
+      entry('tie', { createdAt: '2026-10-01T03:00:00.000Z', updatedAt: '2026-10-01T02:00:00.000Z' }),
+      entry('legacy'),
+      entry('unknown', { createdAt: null, updatedAt: null }),
+      entry('invalid', { createdAt: 'invalid', updatedAt: '' }),
+    ];
+    expect(viewEntries(dated, { ...query, sort: 'created' }).map((e) => e.id)).toEqual(['new', 'tie', 'old', 'legacy', 'unknown', 'invalid']);
+    expect(viewEntries(dated, { ...query, sort: 'updated' }).map((e) => e.id)).toEqual(['old', 'new', 'tie', 'legacy', 'unknown', 'invalid']);
+    expect(viewEntries(dated, { ...query, sort: 'created', search: 'old' }).map((e) => e.id)).toEqual(['old']);
+    expect(SPACE_SORTS.map((s) => s.key)).toEqual(['recent', 'created', 'updated', 'name', 'kind']);
   });
 
   it('按项目筛选；none 是不属于任何项目的', () => {

@@ -270,6 +270,50 @@ describe('Space 目录', () => {
     await fs.rm(tmp, { recursive: true, force: true });
   });
 
+  it('文件与视频的创建时间独立于更新时间；视频的 WAL 写入计入更新时间', async () => {
+    const imagePath = path.join(projectDir, 'cover.png');
+    const dbPath = path.join(videoDir, 'video.db');
+    const updated = new Date('2026-01-01T10:00:00Z');
+    const walUpdated = new Date('2026-01-01T11:00:00Z');
+    await fs.utimes(imagePath, updated, updated);
+    await fs.utimes(dbPath, updated, updated);
+    await fs.writeFile(`${dbPath}-wal`, 'wal');
+    await fs.utimes(`${dbPath}-wal`, walUpdated, walUpdated);
+    const { catalog } = await open();
+    const image = byName(catalog, 'cover.png');
+    const video = byName(catalog, '访谈');
+    const birth = (stat: { birthtimeMs: number }) => stat.birthtimeMs > 0 ? new Date(stat.birthtimeMs).toISOString() : null;
+    expect(image.createdAt).toBe(birth(await fs.stat(imagePath)));
+    expect(image.updatedAt).toBe(updated.toISOString());
+    expect(video.createdAt).toBe(birth(await fs.stat(dbPath)));
+    expect(video.updatedAt).toBe(walUpdated.toISOString());
+    const created = image.createdAt;
+    await fs.utimes(imagePath, walUpdated, walUpdated);
+    await catalog.rescan();
+    expect(byName(catalog, 'cover.png').createdAt).toBe(created);
+    expect(byName(catalog, 'cover.png').updatedAt).toBe(walUpdated.toISOString());
+  });
+
+  it('生成占位与产物提供创建、更新时间，产物的文件修改不冒充创建时间', async () => {
+    const createdAt = '2026-01-01T09:00:00.000Z';
+    const updatedAt = '2026-01-01T10:00:00.000Z';
+    const running = job({ kind: 'generateImage', state: 'running', createdAt, updatedAt });
+    jobs.records = [running];
+    const { catalog } = await open();
+    expect(catalog.entries().find((e) => e.id === running.jobId)).toMatchObject({ createdAt, updatedAt });
+    const file = path.join(otherDir, 'generated.png');
+    await fs.writeFile(file, 'png');
+    const editedAt = '2026-01-01T12:00:00.000Z';
+    await fs.utimes(file, new Date(editedAt), new Date(editedAt));
+    const artifactId = 'sha256:timestamps';
+    jobs.files.set(artifactId, file);
+    jobs.put({ ...running, state: 'completed', endedAt: updatedAt, result: {
+      artifactId, outputs: [imageOutput(artifactId, null)], documentId: null,
+    } } as JobRecord);
+    await catalog.idle();
+    expect(catalog.entries().find((e) => e.id === artifactId)).toMatchObject({ createdAt: updatedAt, updatedAt: editedAt });
+  });
+
   /** 一组覆盖各种派生状态的任务。 */
   async function seedJobs(): Promise<{ applied: string; candidate: string; exported: string }> {
     const art = path.join(tmp, 'artifacts');

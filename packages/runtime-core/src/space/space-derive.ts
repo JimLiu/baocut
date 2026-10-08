@@ -33,6 +33,7 @@ export interface ScannedFile {
   kind: SpaceEntryKind;
   size: number;
   mtimeMs: number;
+  birthtimeMs?: number;
 }
 
 export interface ScannedItem {
@@ -52,6 +53,7 @@ export interface FileStat {
   path: string;
   size: number;
   mtimeMs: number;
+  birthtimeMs?: number;
 }
 
 /** 条目的 bytes 在哪里（媒体通道与物理删除用）。 */
@@ -123,6 +125,8 @@ export function deriveEntries(input: DeriveInput): Map<Id, DerivedEntry> {
       relPath: item.file.relPath,
       size: item.file.size,
       lastActivityAt: new Date(item.file.mtimeMs).toISOString(),
+      createdAt: birthTime(item.file),
+      updatedAt: new Date(item.file.mtimeMs).toISOString(),
       status: null,
       user: { favorite: false, displayName: null, trashedAt: null },
     };
@@ -161,6 +165,8 @@ export function deriveEntries(input: DeriveInput): Map<Id, DerivedEntry> {
         relPath: record.relPath,
         size: 0,
         lastActivityAt: record.importedAt,
+        createdAt: record.importedAt,
+        updatedAt: null,
         status: 'missing',
         statusDetail: { reason: RcSpace.importedFileGone().text },
         user: { favorite: false, displayName: null, trashedAt: null },
@@ -274,6 +280,8 @@ export function deriveEntries(input: DeriveInput): Map<Id, DerivedEntry> {
         relPath: record.relPath,
         size: record.size,
         lastActivityAt: record.trashedAt,
+        createdAt: null,
+        updatedAt: null,
         status: null,
         user: { favorite: false, displayName: null, trashedAt: null },
         ...(record.videoId ? { ref: { videoId: record.videoId } } : {}),
@@ -332,6 +340,8 @@ function placeholder(job: SpaceJobFacts, status: 'generating' | 'failed', origin
       relPath: name,
       size: 0,
       lastActivityAt: job.updatedAt,
+      createdAt: job.createdAt,
+      updatedAt: job.updatedAt,
       status,
       statusDetail:
         status === 'failed'
@@ -372,6 +382,8 @@ function artifactEntry(
       relPath: fileName,
       size: file?.size ?? byteLength,
       lastActivityAt: job.endedAt ?? job.updatedAt,
+      createdAt: job.endedAt ?? job.createdAt,
+      updatedAt: file ? new Date(file.mtimeMs).toISOString() : job.endedAt ?? job.updatedAt,
       status: file === null ? 'missing' : null,
       ...(file === null ? { statusDetail: { reason: RcSpace.outputFileGone().text } } : {}),
       user: { favorite: false, displayName: null, trashedAt: null },
@@ -459,6 +471,8 @@ function exportEntry(
       relPath: fileName,
       size: stat?.size ?? output.byteLength,
       lastActivityAt: job.endedAt ?? job.updatedAt,
+      createdAt: birthTime(stat) ?? job.endedAt ?? job.createdAt,
+      updatedAt: stat ? new Date(stat.mtimeMs).toISOString() : job.endedAt ?? job.updatedAt,
       ...state,
       user: { favorite: false, displayName: null, trashedAt: null },
       ref: { artifactId: output.artifactId },
@@ -529,4 +543,10 @@ function fileNameOf(job: SpaceJobFacts, ext: string, index: number | null): stri
     .replace(/[-:]/g, '')
     .replace('T', '-');
   return `${labelOf(job.kind)}-${at}${index !== null ? `-${index}` : ''}.${ext}`;
+}
+
+/** birthtime 不可用时不以 ctime 或修改时间冒充创建时间。 */
+function birthTime(stat: { birthtimeMs?: number } | null): string | null {
+  const at = stat?.birthtimeMs;
+  return at !== undefined && Number.isFinite(at) && at > 0 ? new Date(at).toISOString() : null;
 }

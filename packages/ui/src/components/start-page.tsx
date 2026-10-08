@@ -38,6 +38,7 @@ import { useSpace } from '../state/space-store.ts';
 import { useStartBrief, useStartBriefOf } from '../state/start-brief-store.ts';
 import { useVideo } from '../state/video-store.ts';
 import { Composer } from './composer.tsx';
+import { LegacyImportBanner } from './legacy-import/legacy-import-task.tsx';
 import { createBlankVideo } from './start/blank-video.ts';
 import { BriefTokens } from './start/brief-tokens.tsx';
 import { GateCard } from './start/gate-card.tsx';
@@ -270,6 +271,8 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
   return (
     <div ref={pageRef} className={page}>
       <div className={column({ isNarrow: narrow })}>
+        {/* 旧版项目导入在跑 / 留了没导入的（只在桌面端有导入）。 */}
+        <LegacyImportBanner />
         <h1 className={title}>{HOME_COPY.title}</h1>
         <Composer
           draftKey={draftKey}

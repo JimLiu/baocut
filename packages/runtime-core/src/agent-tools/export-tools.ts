@@ -325,11 +325,11 @@ function settingsOf(args: Args): ExportSettings {
   }
   const allowed = args.kind === 'subtitles' ? ['srt', 'vtt', 'ass', 'json'] : ['md', 'txt', 'json'];
   const onlyTranscript = (['frontmatter', 'chapters', 'speakers', 'skipCut'] as const).filter((key) => args[key] !== undefined);
-  // i18n-ignore: 给模型的工具说明、错误与下一步
+  // i18n-ignore-start: 给模型的工具说明、错误与下一步
   if (args.kind !== 'transcript' && onlyTranscript.length > 0)
     throw new ToolError('INVALID_ARGUMENTS', `${onlyTranscript.join('、')} 只用于文稿（kind transcript）`);
-  // i18n-ignore: 给模型的工具说明、错误与下一步
   if (!allowed.includes(args.format)) throw new ToolError('INVALID_ARGUMENTS', `${args.kind} 的格式是 ${allowed.join('、')}`);
+  // i18n-ignore-end
   return {
     kind: args.kind,
     format: args.format,

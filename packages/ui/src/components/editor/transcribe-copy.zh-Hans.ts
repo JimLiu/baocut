@@ -6,6 +6,7 @@ export const zhHans: TranscribeSetupMessages = {
   model: '语音模型',
   manageModels: '管理语音模型',
   modelsLoading: '正在读取语音模型…',
+  downloadThenSelect: (name: string, pct: number | null) => `正在下载 ${name}${pct === null ? '' : ` · ${pct}%`} · 下完自动选中`,
   noDefault: '还没有默认的语音模型',
   hint: '识别提示',
   glossary: '术语表',

@@ -35,8 +35,13 @@ scope; follow the user's explicit method and limits.
   already published tags/files are immutable and historical skill Latest is preserved.
 - Keep the tag and all platform artifacts tied to one full source SHA. Never ship
   dirty-source binaries, private signing materials or intermediate notary submissions.
+- For every new published version/build, follow [release notes](references/release-notes.md):
+  inventory the full commit/PR range, summarize large ranges in batches, reconcile
+  coverage and publish the consolidated changelog. A local candidate keeps the
+  same notes locally; platform continuation reuses the existing version's range.
 - Report actual checks and skips. A tag push or credential check alone is not a
-  completed release; publication requires successful jobs, public read-back and feeds.
+  completed release; publication requires successful jobs, public read-back, feeds
+  and verified release notes.
 
 The [desktop guide](../../../apps/desktop/README.md) owns packaging mechanics;
 mode-specific references explain when to load it. Requests only to change release

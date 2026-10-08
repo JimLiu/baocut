@@ -99,6 +99,7 @@
   function statusLabel(t) {
     if (t.undone) return '已撤销';
     if (t.canceled) return '已取消';
+    if (t.status === 'done' && has(t.attention)) return `已完成 · ${t.attention}`;
     return {running: '进行中', queued: '排队中', done: '已完成', error: '失败'}[t.status] || t.status;
   }
 
@@ -237,6 +238,9 @@
       : t.kind === 'shorts-cut' ? (SHORTS_CUT_STAGE[t.stage] || t.stage) : t.stage);
     if (t.crop) { add('目标画幅', t.crop.ratio); add('场景', t.crop.scene); add('原片', t.crop.source); }
     if (has(t.linesDone) && has(t.linesTotal)) add('行数', `${fmtCount(t.linesDone)}/${fmtCount(t.linesTotal)}`);
+    // 旧版项目导入：导入了几个、导入到哪
+    if (has(t.projectsDone) && has(t.projectsTotal)) add('项目', `已导入 ${fmtCount(t.projectsDone)}/${fmtCount(t.projectsTotal)}`);
+    add('导入到', t.dest);
     const im = images(t);
     if (im) { add('图片', `${im.done}/${im.total}`); add('花费', imagesCost(im)); }
     if (t.kind === 'export') {

@@ -98,7 +98,7 @@ npm install
 npm run dev
 ```
 
-Development mode starts Electron and Vite, launches the Runtime on demand and stops it on exit. Data goes to `.dev/baocut-home` inside the repo, never to `~/.baocut`. `npm run dev` first builds the native workers and WASM with cargo; if cargo is not on PATH it looks in `CARGO_HOME/bin` and next to rustup, and installs the `wasm32-unknown-unknown` target when missing. Electron 44 does not download its binary at install time; `npm run dev` and `npm start` fetch it before launching.
+Development mode starts Electron and Vite, launches the Runtime on demand and stops it on exit. Data goes to `.dev/baocut-home` inside the repo, never to `~/.baocut`. `npm run dev` first builds the native workers and WASM with cargo; if cargo is not on PATH it looks in `CARGO_HOME/bin` and next to rustup, and installs the `wasm32-unknown-unknown` target when missing. Electron 44 does not download its binary at install time; `npm run dev` and `npm start` fetch it before launching. `npm run dev` runs electron-vite under a small supervisor (`apps/desktop/tools/dev-runner.mjs`): closing the terminal, Ctrl+C, or a SIGTERM to the script asks electron-vite, Electron and the Runtime to quit together, force-kills them if they are still running 12 s later, and exits only once they are gone.
 
 Drive the Runtime the desktop app started, from a terminal:
 

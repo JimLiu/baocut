@@ -448,6 +448,32 @@ export class RuntimeSession {
     return this.client.request('nodes.share.setCapability', { capability, enabled });
   }
 
+  /**
+   * 旧版项目的导入询问与这次启动里的导入（架构设计 §2.7）：只有桌面界面订阅，Web 服务不开放这个主题。每次变化给出完整的状态。
+   * 断线重连后客户端重新订阅、重取快照，Runtime 换了（重启）时询问与导入的标识跟着换。同一个主题只有一个订阅者（后订的顶掉先订的）。
+   */
+  watchLegacyImport(onChange: (state: import('@baocut/protocol').LegacyImportSnapshot) => void): () => void {
+    let state: import('@baocut/protocol').LegacyImportSnapshot = { prompt: null, run: null };
+    return this.client.subscribeLegacyImport({
+      snapshot: (snapshot) => onChange((state = { prompt: snapshot.prompt, run: snapshot.run ?? null })),
+      event: (event) => onChange((state = event.type === 'prompt.updated' ? { ...state, prompt: event.prompt } : { ...state, run: event.run })),
+    });
+  }
+
+  async answerLegacyImport(answer: import('@baocut/protocol').LegacyImportAnswer): Promise<void> {
+    await this.client.request('legacyImport.answer', answer);
+  }
+
+  /** 重试没导入的旧版项目（`paths` 缺省 = 全部没导入的）；点名的跳过项改为导入。返回重新排队的个数。 */
+  async retryLegacyImport(paths?: string[]): Promise<number> {
+    return (await this.client.request('legacyImport.retry', paths ? { paths } : {})).queued;
+  }
+
+  /** 跳过没导入的旧版项目（以后不再自动导入），或撤销跳过。返回改了的个数。 */
+  async skipLegacyImport(paths: string[], skipped: boolean): Promise<number> {
+    return (await this.client.request('legacyImport.setSkipped', { paths, skipped })).changed;
+  }
+
   /** 在局域网里找开着共享的节点（不含这台电脑）。 */
   async discoverNodes(timeoutMs?: number): Promise<import('@baocut/protocol').DiscoveredNode[]> {
     const { nodes } = await this.client.request('nodes.discover', timeoutMs === undefined ? {} : { timeoutMs });

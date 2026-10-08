@@ -49,6 +49,7 @@ export const zhHant: MainMessages = {
   runtimeNoDiscovery: 'Runtime 已啟動，但未寫入探索檔案',
   runtimeTimeout: 'Runtime 啟動時間過長',
   runtimeExited: (code: number | null) => `Runtime 無法啟動（結束代碼 ${code}）`,
+  runtimeQuitting: '應用程式正在結束',
 
   webCreateNotWindow: '只有應用程式視窗可以建立網頁分頁',
   webTooManyTabs: '開啟的網頁分頁太多',

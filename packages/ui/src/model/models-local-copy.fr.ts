@@ -22,6 +22,7 @@ export const fr: ModelsLocalMessages = {
   chipBusy: "En cours",
   chipUnloading: "Déchargement",
   chipUnavailable: "Indisponible",
+  chipMissing: (names) => `Manquant : ${names.join(', ')}`,
 
   capability: {
     transcribe: "Transcrire",
@@ -36,6 +37,7 @@ export const fr: ModelsLocalMessages = {
 
   notInstalled: (name: string) => `${name} (non installé)`,
 
-  componentName: { aligner: "Aligneur forcé", speaker: "Représentation des locuteurs", vad: "VAD (détection d’activité vocale)" } as Record<string, string>,
+  componentName: { aligner: "Aligneur forcé", speaker: "Représentation des locuteurs", vad: "VAD (détection d’activité vocale)", tokenizer: "Tokeniseur", segmentation: "Segmentation des locuteurs", codec: "Codec vocal", aux: "Modèles auxiliaires" } as Record<string, string>,
+  componentDesc: { vad: "Repère les passages où quelqu’un parle", aligner: "Aligne le texte sur le minutage de chaque mot", tokenizer: "Convertit entre le texte et les jetons du modèle", speaker: "Distingue les locuteurs", segmentation: "Repère où chaque personne commence et cesse de parler", codec: "Reconvertit les jetons acoustiques en forme d’onde", aux: "Modèles supplémentaires requis par le modèle principal" },
   weights: "Poids du modèle",
 };

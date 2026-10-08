@@ -86,6 +86,26 @@ describe('AcpDriver.probe（假 ACP 智能体）', () => {
     expect(probe.detail).toContain('API key is missing');
   });
 
+  it.skipIf(process.platform === 'win32')('探测结束时，临时进程派生的进程（cursor-agent 启动时跑的 rg 那样）一起结束', async () => {
+    fake.scenario({ loggedIn: false, cursorModels: true, version: '2026.04.17', helper: true });
+    const helpers = () => fake.log().flatMap((e) => (e.kind === 'start' && e.helper ? [e.helper] : []));
+    try {
+      const probe = await new AcpDriver('cursor', silentLogger, { locate: fake.locate }).probe();
+      expect(probe.state).toBe('signed-out');
+      expect(helpers()).toHaveLength(1);
+      expect(() => process.kill(helpers()[0]!, 0)).toThrow();
+    } finally {
+      // 断言失败时也不留下测试自己的进程。
+      for (const pid of helpers()) {
+        try {
+          process.kill(pid, 'SIGKILL');
+        } catch {
+          // 已经结束
+        }
+      }
+    }
+  });
+
   it('没装：not-installed，说怎么装；太旧：outdated', async () => {
     fake.scenario({ installed: false });
     const missing = await new AcpDriver('kimi', silentLogger, { locate: fake.locate }).probe();

@@ -26,6 +26,9 @@ function credentialStoreKind(value: string): 'file' | 'keychain' {
  * 有问题时退出码 1。打包产物的检查（`apps/desktop/tools/check-packaged-app.mjs`）用它。
  */
 async function main(): Promise<void> {
+  // stdout 只送就绪消息：读它的一端（桌面端主进程）不在了就送不到，不让写入失败（EPIPE）成为未捕获的异常。stderr 上的
+  // 回显由日志自己处理（`createFileLogger`）。
+  process.stdout.on('error', () => {});
   const { values } = parseArgs({
     options: {
       host: { type: 'string', default: '127.0.0.1' },
@@ -96,6 +99,8 @@ async function main(): Promise<void> {
   onStopRequest = () => stop('runtime.stop');
   process.on('SIGTERM', () => stop('SIGTERM'));
   process.on('SIGINT', () => stop('SIGINT'));
+  // 终端关了（直接在终端里跑时）：照常收尾。不处理的话默认动作是立即结束，来不及按停止顺序收尾、删发现文件。
+  process.on('SIGHUP', () => stop('SIGHUP'));
   // 由父进程以 IPC 通道启动时（桌面端），父进程经通道发 `{ type: 'stop' }` 请 Runtime 停下：Windows 上 SIGTERM 等于直接
   // 结束进程，处理不到。通道断开（父进程退出或崩溃）不停：Runtime 照旧留着，下一次启动经发现文件找回它（架构设计 §2.2）。
   process.on('message', (message) => {

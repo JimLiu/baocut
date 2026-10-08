@@ -437,6 +437,7 @@ export const pl: CopyMessages = {
     fontDownload: "Pobierz czcionkę",
     voiceClone: "Sklonuj głos",
     agentTranslate: "Przetłumacz",
+    legacyImport: "Zaimportuj wcześniejsze projekty",
   },
   /** Job 的阶段（`JobPhase`）：列表与胶囊念「识别中 · 45%」。 */
   jobPhase: {

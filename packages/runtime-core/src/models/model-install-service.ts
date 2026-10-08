@@ -126,7 +126,7 @@ export class ModelInstallService {
     options.jobs.onChange((job) => {
       if (job.kind !== 'modelInstall' || !job.bundleId || !isTerminal(job.state)) return;
       if (this.#catalog.installState(job.bundleId)?.jobId === job.jobId) this.#catalog.setInstallState(job.bundleId, null);
-      if (job.state === 'completed') this.#reloadDiarizationUsers(job.bundleId);
+      if (job.state === 'completed') this.#reloadAfterInstall(job.bundleId);
     });
   }
 
@@ -672,14 +672,15 @@ export class ModelInstallService {
   }
 
   /**
-   * 「说话人区分」模型包装好之后：用它的识别模型包已经加载的 Worker 没有它的组件，空闲的先卸载，下一个任务重新加载时带上。
-   * 正在跑任务的不打断（它按没有组件处理、报 `diarization-unavailable`），空闲后照常按超时卸载。
+   * 装好、补齐或修好之后，已经加载的 Worker 还是旧的组件：这个模型包自己的（补上的可选组件、换掉的坏文件都没读到），以及用这个「说话人区分」
+   * 模型包的识别模型包（没有它的组件）。空闲的先卸载，下一个任务重新加载时带上。正在跑任务的不打断（按原来的组件跑完，缺「说话人区分」的
+   * 报 `diarization-unavailable`），空闲后照常按超时卸载。
    */
-  #reloadDiarizationUsers(packId: string): void {
-    for (const user of this.#catalog.diarizationUsers(packId)) {
+  #reloadAfterInstall(bundleId: string): void {
+    for (const id of [bundleId, ...this.#catalog.diarizationUsers(bundleId)]) {
       void this.#options.provider
-        .unload(user)
-        .catch((error: unknown) => this.#log.warn('Unloading the recognition model package failed', { bundleId: user, error: String(error) }));
+        .unload(id)
+        .catch((error: unknown) => this.#log.warn('Unloading the model package failed', { bundleId: id, error: String(error) }));
     }
   }
 

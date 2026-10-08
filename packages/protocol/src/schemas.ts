@@ -17,7 +17,7 @@ import { FONT_PARAM_SCHEMAS } from './fonts-schemas.ts';
 import { COMPOSITION_PARAM_SCHEMAS } from './code-bundle-schemas.ts';
 import { TOOL_CATALOGUE_PARAM_SCHEMAS } from './tool-catalogue-schemas.ts';
 import { DRIVER_ID_PATTERN, isBuiltinDriverId } from './domain.ts';
-import { ATTACHMENT_UPLOAD_MIME_TYPES, ATTACHMENT_MIME_TYPES, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS_PER_MESSAGE, MAX_PROJECT_FILES_LIMIT } from './limits.ts';
+import { ATTACHMENT_UPLOAD_MIME_TYPES, ATTACHMENT_MIME_TYPES, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS_PER_MESSAGE, MAX_PROJECT_FILES_LIMIT, PLAYBACK_CODECS } from './limits.ts';
 
 /**
  * 入站校验（Runtime 侧）。单独的子路径导出，界面打包不带上 zod。
@@ -38,6 +38,7 @@ const topic = z.union([
   z.literal('grants'),
   z.literal('agent-setup'),
   z.literal('agents'),
+  z.literal('legacy-import'),
   z.string().regex(/^conversation:[A-Za-z0-9_-]+$/),
   z.string().regex(/^video:[A-Za-z0-9_-]+$/),
 ]);
@@ -626,6 +627,13 @@ export const methodParamSchemas = {
   'runtime.info': empty,
   'runtime.status': empty,
   'runtime.stop': empty,
+  'legacyImport.get': empty,
+  'legacyImport.answer': z.discriminatedUnion('decision', [
+    z.object({ promptId: id, decision: z.literal('import'), directory: filePath }).strict(),
+    z.object({ promptId: id, decision: z.literal('never') }).strict(),
+  ]),
+  'legacyImport.retry': z.object({ paths: z.array(filePath).min(1).max(10_000).optional() }).strict(),
+  'legacyImport.setSkipped': z.object({ paths: z.array(filePath).min(1).max(10_000), skipped: z.boolean() }).strict(),
   'agents.list': empty,
   'agents.detect': z.object({ driverId: driverId.optional() }),
   'agents.configure': z.object({
@@ -805,7 +813,9 @@ export const methodParamSchemas = {
   ...TEMPLATE_PARAM_SCHEMAS,
   ...SKILL_PARAM_SCHEMAS,
   'media.resolve': mediaTarget,
-  'media.playback': z.object({ url: z.string().min(1).max(8192) }).strict(),
+  'media.playback': z
+    .object({ url: z.string().min(1).max(8192), playable: z.array(z.enum(PLAYBACK_CODECS)).max(PLAYBACK_CODECS.length).optional() })
+    .strict(),
   'media.subtitles': fileTarget,
   'media.peaks': z.object(assetTarget).strict(),
   'media.thumbnail': z.object({ ...assetTarget, at: z.number().finite().nonnegative().max(1_000_000) }).strict(),

@@ -6,6 +6,7 @@ export const ja: TranscribeSetupMessages = {
   model: '音声モデル',
   manageModels: '音声モデルを管理',
   modelsLoading: '音声モデルを読み込み中…',
+  downloadThenSelect: (name: string, pct: number | null) => `${name} をダウンロード中${pct === null ? '' : ` · ${pct}%`} · 完了すると自動で選択されます`,
   noDefault: '既定の音声モデルがまだありません',
   hint: '認識のヒント',
   glossary: '用語集',

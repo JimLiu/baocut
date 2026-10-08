@@ -19,6 +19,7 @@ export const ja: ModelsLocalMessages = {
   chipBusy: '実行中',
   chipUnloading: '解放中',
   chipUnavailable: '使用不可',
+  chipMissing: (names) => `${names.join('、')} が不足`,
   capability: {
     transcribe: '文字起こし',
     align: 'アライメント',
@@ -29,6 +30,7 @@ export const ja: ModelsLocalMessages = {
   },
   auto: '自動',
   notInstalled: (name) => `${name}（未インストール）`,
-  componentName: { aligner: '強制アライナ', speaker: '話者埋め込み', vad: 'VAD（音声区間検出）' },
+  componentName: { aligner: '強制アライナ', speaker: '話者埋め込み', vad: 'VAD（音声区間検出）', tokenizer: 'トークナイザ', segmentation: '話者セグメンテーション', codec: '音声コーデック', aux: '補助モデル' },
+  componentDesc: { vad: '人が話している区間を切り出す', aligner: 'テキストを単語単位のタイミングに合わせる', tokenizer: 'テキストとモデルのトークンを相互に変換する', speaker: '話者を聞き分ける', segmentation: '各話者が話し始め、話し終える位置を見つける', codec: '音響トークンを波形に戻す', aux: 'メインモデルが使う追加のモデル' },
   weights: 'モデルの重み',
 };

@@ -16,7 +16,21 @@ import type { HostBridge } from '../../host.ts';
 import { RuntimeSession } from '../../runtime/session.ts';
 import { useJobs } from '../../state/jobs-store.ts';
 import { useVideo, type OpenVideo } from '../../state/video-store.ts';
-import { bindDub, cancelDub, confirmGrant, dismissAsk, resetDub, retryDub, startDub, undoDub, useDubRun, type DubDeps, type DubIntent } from './dub-run.ts';
+import { DUB_COPY } from './dub-copy.ts';
+import {
+  awaitDubInstall,
+  bindDub,
+  cancelDub,
+  confirmGrant,
+  dismissAsk,
+  resetDub,
+  retryDub,
+  startDub,
+  undoDub,
+  useDubRun,
+  type DubDeps,
+  type DubIntent,
+} from './dub-run.ts';
 
 const sequence = {
   id: 'seq',
@@ -389,5 +403,42 @@ describe('撤销这组配音', () => {
     ]);
     expect(deps.runtime.videos.clearError).toHaveBeenCalled();
     expect(useDubRun.getState().receipts.vid).toMatchObject({ undone: 'partial', undoing: false });
+  });
+});
+
+describe('先下载分离模型再开始', () => {
+  const install = (state: JobRecord['state'], jobId = 'inst1'): JobRecord => ({ ...job(state), jobId, kind: 'modelInstall', videoId: null });
+  const separated: DubParams = { ...params, separateBackground: true };
+
+  it('下载任务完成就用同一份参数开始；还在下时不动', async () => {
+    const { deps } = fake();
+    bindDub(deps);
+    awaitDubInstall('inst1', separated, intent);
+    expect(useDubRun.getState().installs.vid?.jobId).toBe('inst1');
+
+    useJobs.setState({ jobs: [install('running')] });
+    expect(deps.runtime.startDub).not.toHaveBeenCalled();
+    useJobs.setState({ jobs: [install('completed')] });
+    await flush();
+    expect(deps.runtime.startDub).toHaveBeenCalledTimes(1);
+    expect(deps.runtime.startDub).toHaveBeenCalledWith(separated);
+    expect(useDubRun.getState().installs.vid).toBeUndefined();
+    expect(useDubRun.getState().runs.vid?.jobId).toBe('p1');
+  });
+
+  it('下载失败或取消：不开始，提示一句（取消不报错）', async () => {
+    const { deps, toasts } = fake();
+    bindDub(deps);
+    awaitDubInstall('inst1', separated, intent);
+    useJobs.setState({ jobs: [install('failed')] });
+    awaitDubInstall('inst2', separated, intent);
+    useJobs.setState({ jobs: [install('failed'), install('cancelled', 'inst2')] });
+    await flush();
+    expect(deps.runtime.startDub).not.toHaveBeenCalled();
+    expect(useDubRun.getState().installs).toEqual({});
+    expect(toasts).toEqual([
+      ['negative', DUB_COPY.separateDownloadStopped, false],
+      ['neutral', DUB_COPY.separateDownloadStopped, false],
+    ]);
   });
 });

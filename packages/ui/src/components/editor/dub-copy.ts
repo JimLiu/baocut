@@ -81,6 +81,13 @@ const dub = {
   separateHint: 'The voice-over replaces only the speech; music and ambient sound stay',
   separateMissing: 'No separation model is available on this computer; even if turned on, separation is skipped and the original audio is processed as a whole.',
   installSeparate: 'Install separation model…',
+  /** 分离开着、分离模型还没装时的门卡与主按钮（设计稿 panel-dub-setup.jsx「还要下载 X · 大小」「下载模型并配成…」）。 */
+  separateDownload: (name: string) => `${name} needs to be downloaded`,
+  separateDownloadBody: 'The button below downloads it first and starts the voice-over once it’s installed. Downloading doesn’t use the task queue.',
+  separateWaiting: (name: string, pct: number | null) =>
+    `Downloading ${name}${pct === null ? '' : ` · ${pct}%`} · the voice-over starts once it’s installed`,
+  ctaDownload: (language: string) => `Download model and voice in ${language}`,
+  separateDownloadStopped: 'The separation model didn’t finish downloading, so the voice-over didn’t start.',
   original: 'Original audio',
   originalPicker: 'What happens to the original audio when the voice-over plays',
   originalLabel: { duck: 'Lower', mute: 'Mute', keep: 'Keep' } satisfies Record<DubOriginalAudio, string>,

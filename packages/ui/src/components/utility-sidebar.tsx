@@ -116,7 +116,12 @@ export function UtilitySidebar({ kind }: { kind: UtilityKind }) {
                         row.id,
                         row.title,
                         { tab: 'tasks', taskId: row.id },
-                        row.tone === 'negative' ? AlertTriangle : group.id === 'active' ? Clock : CheckmarkCircle,
+                        // 失败的，和跑完但留了要人处理的（旧版项目导入有没导入的）念提醒图标。
+                        row.tone === 'negative' || (row.origin === 'legacy-import' && row.tone === 'notice')
+                          ? AlertTriangle
+                          : group.id === 'active'
+                            ? Clock
+                            : CheckmarkCircle,
                         row.live && !row.queued && !row.waiting ? (
                           <span className={progress}>
                             <ProgressCircle size="S" isIndeterminate aria-label={S.common.working} />

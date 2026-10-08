@@ -66,10 +66,11 @@ const en = {
   openFileTitle: 'Open file',
   save: 'Save',
 
-  // ---- Runtime 起不来（runtime-supervisor.ts，经 `getConnection` 到界面）----
+  // ---- Runtime 起不来或不再拉起（runtime-supervisor.ts，经 `getConnection` 到界面）----
   runtimeNoDiscovery: 'Runtime started but didn’t write its discovery file',
   runtimeTimeout: 'Runtime took too long to start',
   runtimeExited: (code: number | null) => `Runtime failed to start (exit code ${code})`,
+  runtimeQuitting: 'The app is quitting',
 
   // ---- 网页标签（web-tabs.ts）----
   webCreateNotWindow: 'Only app windows can create web tabs',

@@ -52,4 +52,8 @@ export const zhHant: RcRuntimeMessages = {
   runtimeInUse: (p) =>
     `這個 Runtime 仍在使用中（桌面應用程式：${p.desktop}、其他 CLI 連線：${p.cli}、未完成的任務：${p.activeJobs}）。請等它們結束或將它們關閉後再停止`,
   stopNotSupported: '無法透過閘道停止這個 Runtime',
+  legacyPromptGone: "這個匯入詢問已經回答過，或已不再有效",
+  legacyImportFolderReserved: "請選擇不在 BaoCut 及舊版資料資料夾內的資料夾",
+  legacyImportFolderUnwritable: "無法建立或寫入這個資料夾",
+  legacyImportLocalOnly: "舊版專案怎麼匯入只能由桌面 App 或本機 CLI 決定",
 };

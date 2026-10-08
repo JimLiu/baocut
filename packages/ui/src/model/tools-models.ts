@@ -143,6 +143,11 @@ export function localModelOptions<C extends OnlineCapability>(
     );
 }
 
+/** 选中的本机模型还没装时换用哪只（设计稿 tool-tts.jsx「换用已装的 X」）：菜单里第一只装好能用的本机模型；没有时 null。 */
+export function installedAlternative<M>(options: readonly ToolModelOption<M>[], selected: ToolModelOption<M> | null): ToolModelOption<M> | null {
+  return options.find((o) => o.local && o.usable && o.key !== selected?.key) ?? null;
+}
+
 /** 「模型」一行的菜单：这种能力已配置的云端模型在前、本机模型在后。 */
 export function modelOptions<C extends OnlineCapability>(view: ModelCapabilitiesView, capability: C): ToolModelOption<ModelInfoByCapability[C]>[] {
   return [...cloudModelOptions(view, capability), ...localModelOptions(view, capability)];

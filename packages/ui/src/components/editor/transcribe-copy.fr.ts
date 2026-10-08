@@ -6,6 +6,7 @@ export const fr: TranscribeSetupMessages = {
   model: "Modèle vocal",
   manageModels: "Gérer les modèles vocaux",
   modelsLoading: "Chargement des modèles vocaux…",
+  downloadThenSelect: (name: string, pct: number | null) => `Téléchargement de ${name}${pct === null ? '' : ` · ${pct}%`} · sélectionné automatiquement à la fin`,
   noDefault: "Aucun modèle vocal par défaut",
   hint: "Indications de reconnaissance",
   glossary: "Glossaire",

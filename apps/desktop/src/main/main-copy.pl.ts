@@ -49,6 +49,7 @@ export const pl: MainMessages = {
   runtimeNoDiscovery: "Runtime uruchomił się, ale nie zapisał pliku wykrywania",
   runtimeTimeout: "Uruchamianie Runtime trwało zbyt długo",
   runtimeExited: (code: number | null) => `Runtime nie został uruchomiony (kod zakończenia ${code})`,
+  runtimeQuitting: 'Aplikacja jest zamykana',
 
   webCreateNotWindow: "Tylko okna aplikacji mogą tworzyć karty internetowe",
   webTooManyTabs: "Otwarto zbyt wiele kart internetowych",

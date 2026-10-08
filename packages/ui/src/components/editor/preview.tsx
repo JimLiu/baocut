@@ -211,6 +211,7 @@ export function Preview({ videoId, sequence }: { videoId: Id | null; sequence: S
         {fw > 0 && fh > 0 ? (
           <StageLoadNotice
             engine={engine}
+            videoId={videoId}
             status={status}
             frame={{ left: (box.width - fw) / 2, top: (box.height - fh) / 2, width: fw, height: fh }}
             suppressed={stageMedia.notice !== null}

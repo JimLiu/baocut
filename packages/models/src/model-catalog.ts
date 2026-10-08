@@ -402,6 +402,7 @@ export class ModelCatalog {
       revision: source.revision,
       state: check.ok ? 'installed' : 'missing',
       bytes: check.ok ? (check.bytes ?? 0) : null,
+      estimatedBytes: weightBytes([source], this.#manifests),
       sharedWith: this.#sharers(bundleId, source),
       ...(source.optional ? { optional: true } : {}),
       ...(source.license ? { license: source.license } : {}),

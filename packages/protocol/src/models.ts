@@ -86,6 +86,11 @@ export interface ModelComponentStatus {
   state: 'installed' | 'missing';
   /** 已经装好时它占的字节数（清单里的大小之和）；没装时 null。 */
   bytes: number | null;
+  /**
+   * 这个组件的下载大小（字节），按内置清单；没有登记清单时 null。装没装都给，供缺组件时显示要下多少（Runtime 总是给；旧的快照可能
+   * 没有）。
+   */
+  estimatedBytes?: number | null;
   /** 同样用到这个组件（同一仓库与版本）的其他模型包。 */
   sharedWith: string[];
   /** 可选的组件（对齐器、说话人模型）：安装与修复照样下载，缺它时模型包仍算装好、照常可用。 */

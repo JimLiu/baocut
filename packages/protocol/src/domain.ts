@@ -690,6 +690,10 @@ export interface SpaceEntry {
   relPath: string;
   size: number;
   lastActivityAt: string;
+  /** ISO 时间；旧 Runtime 可不提供，无法确定时为 null。创建时间不使用文件的状态变更时间（ctime）。 */
+  createdAt?: string | null;
+  /** 内容的最近更新时间；与创建时间独立，旧 Runtime 可不提供。 */
+  updatedAt?: string | null;
   status: SpaceEntryStatus | null;
   user: { favorite: boolean; displayName: string | null; trashedAt: string | null };
   /** 指向的对象：视频（视频条目）、产物（生成与导出的结果）或任务（占位）。普通文件没有。 */

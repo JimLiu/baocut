@@ -49,6 +49,7 @@ export const ru: MainMessages = {
   runtimeNoDiscovery: "Runtime запущен, но не записал файл обнаружения",
   runtimeTimeout: "Runtime запускается слишком долго",
   runtimeExited: (code: number | null) => `Runtime не запущен (код завершения ${code})`,
+  runtimeQuitting: 'Приложение закрывается',
 
   webCreateNotWindow: "Только окна приложения могут создавать веб-вкладки",
   webTooManyTabs: "Открыто слишком много веб-вкладок",

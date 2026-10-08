@@ -1,6 +1,6 @@
 import type { TranscribeSetupMessages } from './transcribe-copy.ts';
 export const nl: TranscribeSetupMessages = {
-  title: 'Transcriptie-instellingen', language: 'Taal', model: 'Spraakmodel', manageModels: 'Spraakmodellen beheren', modelsLoading: 'Spraakmodellen laden…', noDefault: 'Er is nog geen standaardspraakmodel', hint: 'Herkenningshints', glossary: 'Woordenlijst', manageGlossary: 'Woordenlijsten beheren', glossaryLoading: 'Woordenlijsten laden…',
+  title: 'Transcriptie-instellingen', language: 'Taal', model: 'Spraakmodel', manageModels: 'Spraakmodellen beheren', modelsLoading: 'Spraakmodellen laden…', downloadThenSelect: (name, pct) => `${name} wordt gedownload${pct === null ? '' : ` · ${pct}%`} · wordt daarna automatisch gekozen`, noDefault: 'Er is nog geen standaardspraakmodel', hint: 'Herkenningshints', glossary: 'Woordenlijst', manageGlossary: 'Woordenlijsten beheren', glossaryLoading: 'Woordenlijsten laden…',
   glossaryEmpty: 'Er is nog geen transcriptwoordenlijst. Maak er een in Instellingen › Woordenlijst om de juiste schrijfwijze van eigennamen vast te leggen.',
   glossaryFailed: (message) => `Kan de ingeschakelde woordenlijsten voor deze video niet lezen: ${message}`,
   glossaryNote: 'Vink een woordenlijst aan om deze voor deze video in te schakelen. Elke volgende transcriptie gebruikt deze; je kunt dit ongedaan maken.',

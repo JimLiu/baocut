@@ -73,6 +73,12 @@ export interface PreviewAssets extends AssetSource {
   forgetPending?(): void;
 }
 
+/**
+ * 预览要的媒体是不是在等兼容副本（浏览器放不了的 WebM，Runtime 在转换，`media.playback` 回 pending）：转换到了几成
+ * （0–1，Runtime 还不知道时 null），不在等是 undefined。卡住诊断用它分清「在转换」与「在等媒体」。
+ */
+export type PreviewPreparing = (asset: VersionRef) => number | null | undefined;
+
 /** 视频或图片层的源元素。 */
 export type SourceElement = HTMLVideoElement | HTMLImageElement;
 
@@ -208,6 +214,9 @@ export class PreviewEngine {
   readonly #lastPictures = new WeakMap<SourceElement, ImageData>();
   /** 画布上是不是停住那一刻按原尺寸、等齐了媒体画出的帧（与导出同一帧）。 */
   #exact = false;
+  /** 画布上出过没有还在来的媒体的一帧（不是等着媒体时的黑帧）；重试、换一部视频之后从头算。 */
+  #pictured = false;
+  readonly #pictureListeners = new Set<(pictured: boolean) => void>();
   #disposed = false;
   readonly #documents: PreviewDocuments | null;
   readonly #assets: PreviewAssets | null;
@@ -232,6 +241,7 @@ export class PreviewEngine {
   /** 监听音量（快捷键 ↑/↓、M，见 model/preview-volume）：乘在每个声音上，只是这个窗口听到的大小。 */
   #monitor = { volume: 1, muted: false };
   readonly #fonts: FontSource | null;
+  readonly #preparing: PreviewPreparing | null;
   /** 报过缺的字体族（常设：渲染内核重新载入后也照这份去要）。 */
   readonly #fontsMissing = new Set<string>();
   /** 问过本机字体的 face（每个只问一次，键是族名、字重与斜体）与还在取的 face 的族。 */
@@ -248,12 +258,14 @@ export class PreviewEngine {
     documents: PreviewDocuments | null = null,
     assets: PreviewAssets | null = null,
     fonts: FontSource | null = null,
+    preparing: PreviewPreparing | null = null,
   ) {
     this.#callbacks = callbacks;
     this.#load = load;
     this.#documents = documents;
     this.#assets = assets;
     this.#fonts = fonts;
+    this.#preparing = preparing;
     this.#watchSources();
     this.#watch.start();
     this.#attachPlanner();
@@ -330,6 +342,7 @@ export class PreviewEngine {
   }
 
   setVideo(sequence: Sequence, assets: Record<Id, AssetRecord>, documents: Record<Id, DocumentRecord> = {}): void {
+    if (this.#video && this.#video.sequence.id !== sequence.id) this.#setPictured(false);
     this.#video = { sequence, assets };
     this.#documentRecords = documents;
     this.#slotCounts = new Map(videoSlots(sequence).map(({ asset, count }) => [`${asset.id}:${asset.revision}`, count]));
@@ -362,6 +375,21 @@ export class PreviewEngine {
   /** 画布上是不是停住那一刻的精确画面：播放中、拖动中、等不及定位与缺了媒体画出的都不是。 */
   get exact(): boolean {
     return this.#exact;
+  }
+
+  /**
+   * 这部视频的画面出来过没有：画布上出过这一刻没有还在来的媒体的一帧（没有媒体的帧也算，载入失败的不算在来）。
+   * 没出来之前舞台盖着载入面板（产品设计 §5.1「预览载入与卡住」），不露出等着媒体时的黑帧；重试与换一部视频之后从头算。
+   */
+  get pictured(): boolean {
+    return this.#pictured;
+  }
+
+  /** `pictured` 变了时通知；订阅时先给一次当前的。 */
+  onPicture(listener: (pictured: boolean) => void): () => void {
+    this.#pictureListeners.add(listener);
+    listener(this.#pictured);
+    return () => this.#pictureListeners.delete(listener);
   }
 
   get monitor(): { volume: number; muted: boolean } {
@@ -420,6 +448,7 @@ export class PreviewEngine {
   retry(): void {
     if (this.#disposed) return;
     this.#watch.reset();
+    this.#setPictured(false);
     this.#documents?.forgetPending?.();
     this.#assets?.forgetPending?.();
     this.#sentDocuments = null;
@@ -561,12 +590,19 @@ export class PreviewEngine {
     for (const element of this.#elements.values()) this.#listen(element, false);
     this.#elements.clear();
     this.#statusListeners.clear();
+    this.#pictureListeners.clear();
   }
 
   #setStatus(status: PreviewStatus): void {
     if (JSON.stringify(status) === JSON.stringify(this.#status)) return;
     this.#status = status;
     for (const listener of this.#statusListeners) listener(status);
+  }
+
+  #setPictured(pictured: boolean): void {
+    if (pictured === this.#pictured) return;
+    this.#pictured = pictured;
+    for (const listener of this.#pictureListeners) listener(pictured);
   }
 
   #loadVideo(): void {
@@ -802,6 +838,12 @@ export class PreviewEngine {
     pending.add(LIVE_CAPTION_ITEM_ID);
     this.#painted = { revision: plan.sequenceRevision, frame: plan.frame };
     this.#exact = quality === 'exact' && [...states.values()].every((state) => state === 'ready');
+    // 画面出来了：没有还在来的媒体。载入失败的元素与取不到的素材字节不再等（这一帧照画，跳过它），只有还没有元素的在来。
+    const coming = layers.filter(isMediaLayer).some((layer) => {
+      const state = states.get(layer.itemId);
+      return state === 'pending' || (state === 'absent' && !this.#kernelDecoded(layer) && this.#sourceOf(layer) === null);
+    });
+    if (!coming) this.#setPictured(true);
     if (this.#playing) {
       this.#stats.presented++;
       sample(this.#stats.frames, plan.frame);
@@ -1078,6 +1120,13 @@ export class PreviewEngine {
     return this.#problems.length > 0 ? { kind: 'ready', problems: this.#problems } : { kind: 'ready' };
   }
 
+  /** 媒体元素的状态；还没有元素、是因为 Runtime 在准备兼容副本时，说在等副本、带上进度。 */
+  #probe(element: Parameters<typeof probeElement>[0], asset: VersionRef): Pick<MediaProbe, 'wait' | 'element' | 'progress'> {
+    const probe = probeElement(element);
+    const progress = probe.wait === 'no-element' ? this.#preparing?.(asset) : undefined;
+    return progress === undefined ? probe : { ...probe, wait: 'preparing', progress };
+  }
+
   /** 给卡住诊断的快照：卡在哪一步、哪些媒体层与声音还没好、哪些文档与字体还在取。 */
   #snapshot(): PreviewSnapshot {
     const plan = this.#plan;
@@ -1104,13 +1153,13 @@ export class PreviewEngine {
             wantedSeconds,
             element: null,
           });
-        } else media.push({ itemId: layer.itemId, assetId: layer.asset.id, kind: layer.kind, wantedSeconds, ...probeElement(this.#sourceOf(layer)) });
+        } else media.push({ itemId: layer.itemId, assetId: layer.asset.id, kind: layer.kind, wantedSeconds, ...this.#probe(this.#sourceOf(layer), layer.asset) });
       }
       // 只出声的（音频实例，或轨道隐藏的视频）：元素没有这一刻的数据就没有声音。
       for (const voice of plan.voices) {
         if (media.some((probe) => probe.itemId === voice.itemId)) continue;
         const key = voice.source === 'audio' ? audioKey(voice.itemId) : this.#slotOf.get(voice.itemId);
-        const probe = probeElement(key ? (this.#elements.get(key) as HTMLMediaElement | undefined) : null);
+        const probe = this.#probe(key ? (this.#elements.get(key) as HTMLMediaElement | undefined) : null, voice.asset);
         if (probe.wait === 'position') continue;
         media.push({
           itemId: voice.itemId,

@@ -10,8 +10,11 @@ import type { StallReport, StallStep } from './preview-watch.ts';
 /** 载入这么久还没好才露出转圈（打开很快的视频不闪一下）。 */
 export const SPINNER_DELAY_MS = 500;
 
+/** 转换没完成前最多显示 99%：挂着 100% 读起来像卡死（设计稿 model-stage-load.js 的 `MAX_PCT`）。 */
+const MAX_PERCENT = 99;
+
 /** 卡住提示说的是哪一类（与设计稿 model-stage-load.js 的步骤同一套）。 */
-export type StallTopic = 'engine' | 'video' | 'media' | 'captions' | 'fonts' | 'paint';
+export type StallTopic = 'engine' | 'video' | 'media' | 'prepare' | 'captions' | 'fonts' | 'paint';
 
 export function stallTopic(step: StallStep): StallTopic {
   switch (step) {
@@ -23,6 +26,8 @@ export function stallTopic(step: StallStep): StallTopic {
       return 'video';
     case 'media-pending':
       return 'media';
+    case 'media-preparing':
+      return 'prepare';
     case 'documents-pending':
       return 'captions';
     case 'fonts-loading':
@@ -42,8 +47,9 @@ export interface StallNames {
 /** 卡在哪一步的那一句；点名的对象查不到名字时用通用说法。 */
 export function stallDetail(report: Pick<StallReport, 'step' | 'media' | 'documents' | 'fonts'>, names: StallNames): string {
   const topic = stallTopic(report.step);
-  if (topic === 'media') {
+  if (topic === 'media' || topic === 'prepare') {
     const name = firstName(report.media.map((probe) => probe.assetId).filter((id): id is Id => Boolean(id)), names.asset);
+    if (topic === 'prepare') return name ? E.stall.prepare(name) : E.stall.prepareUnnamed;
     return name ? E.stall.media(name) : E.stall.mediaUnnamed;
   }
   if (topic === 'captions') {
@@ -55,6 +61,12 @@ export function stallDetail(report: Pick<StallReport, 'step' | 'media' | 'docume
     return family ? E.stall.fonts(family.trim()) : E.stall.paint;
   }
   return topic === 'engine' ? E.stall.engine : topic === 'video' ? E.stall.video : E.stall.paint;
+}
+
+/** 转换进度（0–1）→ 显示的百分比：向下取整、封顶 99；不知道进度是 null（进度条不定）。 */
+export function preparePercent(progress: number | null | undefined): number | null {
+  if (typeof progress !== 'number' || !(progress >= 0)) return null;
+  return Math.min(MAX_PERCENT, Math.floor(progress * 100));
 }
 
 /** 已经等了几秒（`now` 与 `since` 是诊断的同一个时钟）。 */

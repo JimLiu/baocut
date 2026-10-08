@@ -1,6 +1,7 @@
 /* 设置 › 本地模型 —— §17.3（2026-09-13 分类重排）。
    按能力分类显示默认模型、已安装与可下载列表；公共组件与下载存储收进折叠区，
-   已安装模型缺少公共组件时自动展开。只有一只模型
+   已安装模型缺少公共组件时自动展开。公共组件不单独装（2026-10-08）：缺的那一行「下载」借一只装着、用到它的
+   模型去补齐，先确认要下的，进度同时显示在那只模型行与这一行；没有装着的模型用它时不给按钮，写「装模型时一起下载」。只有一只模型
    用的组件跟着那只模型的展开区走。算法全在 `BC_LOCALMODELS`，这里只画。
    语音合成行只写能拿它做什么（出声方式 / 要不要录音 / 情绪 / 语言 / 体积），仓库名、语速库与组成
    收进展开区；装好后点「试听」展开试听面板，选好再点「生成试听」（`TtsQuickTest`）。
@@ -25,30 +26,36 @@
     );
   }
 
-  function SharedCard({shared, models, comps, on, onGet}) {
+  function SharedCard({shared, models, comps, on, dl, onGet}) {
     if (!shared.length) return null;
     return (
       <div className="lmshared">
         <div className="lmshared__hd">
           <span className="t-detail-xs">这一类的多只模型共用，装一次就够；最后一只用它的模型删除时一起回收。</span>
         </div>
-        {shared.map((c) => (
-          <div className="lmshared__row" key={c.id}>
-            <Ic n={on[c.id] ? 'ok' : 'alert'} className={cx('ic--14', on[c.id] ? 'lmpart__ok' : 'lmpart__miss')} />
-            <span className="grow lmrow__txt">
-              <span className="t-ui">{c.name}</span>
-              <span className="t-detail-xs">{c.desc} · {LM.compUsage(c, models, on)}</span>
-            </span>
-            {on[c.id]
-              ? <span className="t-detail-xs">已装 · {mb(c.size)}</span>
-              : <Btn variant="secondary" size="s" onClick={() => onGet(c)}>下载 {mb(c.size)}</Btn>}
-          </div>
-        ))}
+        {shared.map((c) => {
+          const act = LM.compAction(c, models, comps, on);
+          // 用到它的模型正在下载（这里点的补齐或行上的下载 / 补齐）：缺的组件跟着那只模型下，显示同一个进度
+          const busy = on[c.id] ? null : models.find((m) => dl[m.id] >= 0 && (m.uses || []).includes(c.id));
+          return (
+            <div className="lmshared__row" key={c.id}>
+              <Ic n={on[c.id] ? 'ok' : 'alert'} className={cx('ic--14', on[c.id] ? 'lmpart__ok' : 'lmpart__miss')} />
+              <span className="grow lmrow__txt">
+                <span className="t-ui">{c.name}</span>
+                <span className="t-detail-xs">{c.desc} · {LM.compUsage(c, models, on)}</span>
+              </span>
+              {busy ? <div className="lmrow__pg"><Progress value={dl[busy.id]} /></div>
+                : act.kind === 'installed' ? <span className="t-detail-xs">已装 · {mb(c.size)}</span>
+                : act.kind === 'get' ? <Btn variant="secondary" size="s" icon="download" onClick={() => onGet(act)}>下载 {mb(c.size)}</Btn>
+                : <span className="t-detail-xs">装模型时一起下载 · {mb(c.size)}</span>}
+            </div>
+          );
+        })}
       </div>
     );
   }
 
-  function ModelRow({row, cat, on, comps, dflt, onInstall, onRemove, onWork}) {
+  function ModelRow({row, cat, on, comps, dflt, pct, onDownload, onRemove, onWork}) {
     const app = useApp();
     const {m, own, common} = row;
     const cmap = {};
@@ -58,7 +65,6 @@
     const lack = LM.missing(m, comps, on);
     const [open, setOpen] = useState(false);
     const [pop, setPop] = useState(false);
-    const [pct, setPct] = useState(-1);
     const [test, setTest] = useState(false);
     // 「克隆新音色…」的回程：试听面板只在点过「试听」后才在，回来时先把它展开，认领的是面板自己
     const handoff = app.voiceHandoff;
@@ -74,8 +80,7 @@
     const checkBusy = check.phase === 'checking' || check.phase === 'repairing';
     // 图像生成行的「试画」走共用对话框（image-gen.jsx ImageProbeDialog）：能改提示词、看结果图、下载；不算检查
     const [imgProbe, setImgProbe] = useState(false);
-    const timer = useRef(null);
-    useEffect(() => () => { clearInterval(timer.current); clearTimeout(timer.current); clearInterval(ckTimer.current); }, []);
+    useEffect(() => () => { clearInterval(ckTimer.current); }, []);
     // 下载 / 检查 / 修复期间模型目录不能改（settings-models-dir.jsx 读这张表）
     const working = pct >= 0 || check.phase === 'repairing' ? 'downloading' : check.phase === 'checking' ? 'testing' : null;
     useEffect(() => { onWork(m.id, working); }, [working]);
@@ -90,19 +95,8 @@
     // 说话人区分包自己不跑任务，没有检查：行上与 ⋯ 里都不给（修复照常）
     const checkable = !m.pack;
 
-    const startDownload = () => {
-      setPct(0);
-      clearInterval(timer.current);
-      let progress = 0;
-      timer.current = setInterval(() => {
-        progress += 10;
-        if (progress >= 100) {
-          clearInterval(timer.current);
-          setPct(-1);
-          onInstall(m);
-        } else setPct(progress);
-      }, 120);
-    };
+    // 下载进度由本地模型页统一管（公共组件那一行借这只模型补齐时显示同一个进度）
+    const startDownload = () => onDownload(m);
     const download = () => (on[m.id] || !window.withModelLicense ? startDownload() : window.withModelLicense(app, m.id, startDownload));
     /* 检查：结果由原型开关「下次检查的结果」决定（shell.jsx TweaksPanel）；修复之后那一次总是通过 */
     const remember = () => {
@@ -287,6 +281,9 @@
     const [storageOpen, setStorageOpen] = useState(false);
     const [sharedOpen, setSharedOpen] = useState(null);
     const [pop, setPop] = useState(null);
+    const [dl, setDl] = useState({});   // 模型 id → 下载 / 补齐进度 0–99
+    const dlTimers = useRef({});
+    useEffect(() => () => Object.values(dlTimers.current).forEach(clearInterval), []);
     const [work, setWork] = useState({});   // 模型 id → 'downloading' | 'testing'
     const onWork = React.useCallback((id, kind) => setWork((w) => {
       if ((w[id] || null) === kind) return w;
@@ -320,10 +317,25 @@
     const installed = LM.defaultChoices(models, comps, on, cat);
     const view = LM.defaultView(cat, dflt, cloudName, installed);
 
-    const install = (m) => {
+    const install = (m, completing) => {
       setOn((t) => LM.applyInstall(t, m));
       app.setModelInstalled(m.id, true);
-      app.toast(`已下载「${m.name}」`, 'positive');
+      app.toast(completing ? `已补齐「${m.name}」` : `已下载「${m.name}」`, 'positive');
+    };
+    // 下载与补齐（行上的按钮、公共组件那一行）：演示进度走完才算装上
+    const startDownload = (m) => {
+      const completing = !!on[m.id];
+      clearInterval(dlTimers.current[m.id]);
+      setDl((d) => ({...d, [m.id]: 0}));
+      let progress = 0;
+      dlTimers.current[m.id] = setInterval(() => {
+        progress += 10;
+        if (progress < 100) { setDl((d) => ({...d, [m.id]: progress})); return; }
+        clearInterval(dlTimers.current[m.id]);
+        delete dlTimers.current[m.id];
+        setDl((d) => { const next = {...d}; delete next[m.id]; return next; });
+        install(m, completing);
+      }, 120);
     };
     const remove = (m) => {
       const r = LM.removal(m, models, comps, on);
@@ -338,7 +350,14 @@
         },
       });
     };
-    const getComp = (c) => { setOn((t) => LM.applyComp(t, c.id)); app.toast(`已下载「${c.name}」`, 'positive'); };
+    // 公共组件的「下载」= 补齐用到它的一只已装模型（compAction 挑的），确认框写清这次下哪几件
+    const getComp = ({target: m, size}) => app.confirm({
+      title: `补齐「${m.name}」？`,
+      body: `公共组件跟着用到它的模型下载：这次补上「${m.name}」缺的 ${LM.missing(m, comps, on).map((x) => x.name).join('、')}，`
+        + `共 ${mb(size)}；装好的文件不动。`,
+      confirmLabel: `下载 ${mb(size)}`,
+      run: () => startDownload(m),
+    });
 
     return (
       <>
@@ -368,13 +387,14 @@
           {group.id === 'installed' && group.rows.length ? <p className="t-detail-xs lmgroup__note">{CK.CAPTION}</p> : null}
           {group.rows.length ? <div className="lmlist">
             {group.rows.map((row) => <ModelRow key={row.m.id} row={row} cat={cat} on={on} comps={comps}
-              dflt={row.m.id === view.checked && LM.ready(row.m, comps, on)} onInstall={install} onRemove={remove} onWork={onWork} />)}
+              dflt={row.m.id === view.checked && LM.ready(row.m, comps, on)} pct={dl[row.m.id] ?? -1}
+              onDownload={startDownload} onRemove={remove} onWork={onWork} />)}
           </div> : <p className="t-detail">{group.id === 'installed' ? '还没有安装模型，从下面选择一个下载。' : '这一类的模型已全部安装。'}</p>}
         </section>)}
         {lay.shared.length > 0 && <ModelDisclosure label="公共组件"
           summary={catalog.repair.length ? `${catalog.repair.length} 个组件待补全` : `${lay.shared.length} 个共享组件`}
           expanded={sharedExpanded} onToggle={() => setSharedOpen(!sharedExpanded)}>
-          <SharedCard shared={lay.shared} models={models.filter((m) => LM.catOf(m) === cat)} comps={comps} on={on} onGet={getComp} />
+          <SharedCard shared={lay.shared} models={models.filter((m) => LM.catOf(m) === cat)} comps={comps} on={on} dl={dl} onGet={getComp} />
         </ModelDisclosure>}
         <ModelDisclosure label="下载与存储" summary={`已用 ${mb(LM.disk(models, comps, on))}`}
           expanded={storageOpen} onToggle={() => setStorageOpen(!storageOpen)}>

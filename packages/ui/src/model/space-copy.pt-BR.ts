@@ -15,7 +15,7 @@ export const ptBR: SpaceMessages = {
   categoryAll: "Todos",
   favorite: "Favoritos",
   trash: "Lixeira",
-  sort: { recent: "Atividade recente", name: "Nome", kind: "Tipo" },
+  sort: { created: 'Data de criação', updated: 'Data de atualização', recent: "Atividade recente", name: "Nome", kind: "Tipo" },
   status: {
     generating: "Gerando",
     candidate: "Candidato",

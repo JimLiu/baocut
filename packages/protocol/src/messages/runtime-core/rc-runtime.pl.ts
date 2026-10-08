@@ -51,4 +51,8 @@ export const pl: RcRuntimeMessages = {
   stopNotCliLaunched: "Ten Runtime nie został uruchomiony przez CLI (przez aplikację komputerową lub ręcznie), więc CLI go nie zatrzymuje",
   runtimeInUse: (p) => `Runtime nadal używany (aplikacja komputerowa: ${p.desktop}, inne połączenia CLI: ${p.cli}, nieukończone zadania: ${p.activeJobs}). Poczekaj na ukończenie lub zamknij, a potem zatrzymaj`,
   stopNotSupported: "Nie można zatrzymać Runtime przez bramę",
+  legacyPromptGone: "Na to pytanie o import już odpowiedziano lub nie jest już aktualne",
+  legacyImportFolderReserved: "Wybierz folder poza folderami danych BaoCut i jego wcześniejszych wersji",
+  legacyImportFolderUnwritable: "Nie można utworzyć tego folderu ani w nim zapisywać",
+  legacyImportLocalOnly: "O tym, jak zaimportować wcześniejsze projekty, może decydować tylko aplikacja na komputer lub lokalne CLI",
 };

@@ -26,8 +26,14 @@ export interface BundleCheck {
 /**
  * 一行模型包的「检查」（model/model-check.ts）：状态从 `jobs` / `models` 主题算；提交被拒与这一行发起的修复记在
  * state/model-check-store.ts。修复任务完成后自动再检查一次；失败、取消或被打断就不检查，原因照常写在行上。
+ * `ownFiles`：模型包自己的文件在盘上（`bundleActions` 的同名参数），权重在、缺组件的也能修复。
  */
-export function useBundleCheck(bundle: ModelBundleStatus, subject: CheckSubject, jobs: readonly JobRecord[]): BundleCheck {
+export function useBundleCheck(
+  bundle: ModelBundleStatus,
+  subject: CheckSubject,
+  jobs: readonly JobRecord[],
+  ownFiles: boolean,
+): BundleCheck {
   const runtime = useRuntime();
   const id = bundle.bundleId;
   const rejection = useModelCheck((s) => s.rejections[id] ?? null);
@@ -35,7 +41,7 @@ export function useBundleCheck(bundle: ModelBundleStatus, subject: CheckSubject,
   const [starting, setStarting] = useState(false);
   const state = checkState({ bundle, jobs, subject, rejection, repairJobId });
   const route = checkRoute(bundle);
-  const can: CheckAbilities = { repair: bundleActions(bundle).repair && state.phase !== 'repairing', recheck: route !== null };
+  const can: CheckAbilities = { repair: bundleActions(bundle, ownFiles).repair && state.phase !== 'repairing', recheck: route !== null };
 
   const start = useCallback(async () => {
     setStarting(true);

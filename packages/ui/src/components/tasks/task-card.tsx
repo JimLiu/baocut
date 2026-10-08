@@ -5,6 +5,7 @@ import AudioWave from '@react-spectrum/s2/icons/AudioWave';
 import Download from '@react-spectrum/s2/icons/Download';
 import Export from '@react-spectrum/s2/icons/Export';
 import FolderMoveTo from '@react-spectrum/s2/icons/FolderMoveTo';
+import FolderOpen from '@react-spectrum/s2/icons/FolderOpen';
 import Image from '@react-spectrum/s2/icons/Image';
 import Layers from '@react-spectrum/s2/icons/Layers';
 import Microphone from '@react-spectrum/s2/icons/Microphone';
@@ -19,13 +20,14 @@ import { agoLabel } from '../../model/format.ts';
 import { useDirectory } from '../../state/directory-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { AgentIcon } from '../agent-icon.tsx';
+import { LegacyImportCardNote } from '../legacy-import/legacy-import-task.tsx';
 import { TK } from './tasks-copy.ts';
 import { actionLabel, useTaskAction } from './use-task-actions.ts';
 
 /**
  * 种类图标（原型 page-tasks.jsx `KIND`）：转录 mic、语音 wave、图片 image、导出 export；Agent 任务用智能体图标。
  * 原型没画的种类：生成文本 AI、固定流程与其中一步 layers、模型安装 download、模型测试 checkmark、工具安装与更新 tools、音色克隆 user、
- * 智能体自己翻译 translate。
+ * 智能体自己翻译 translate。导入旧版项目用原型的 projects（FolderOpen）。
  */
 export const KIND_ICON: Record<TaskKind, ComponentType> = {
   agent: AgentIcon,
@@ -44,6 +46,7 @@ export const KIND_ICON: Record<TaskKind, ComponentType> = {
   fontDownload: Download,
   voiceClone: UserAvatar,
   agentTranslate: Translate,
+  legacyImport: FolderOpen,
 };
 
 /** 原型 `.chip--*` 的色调对到 S2 Badge：accent 蓝、info 靛、notice 橙、neutral 灰。 */
@@ -173,6 +176,8 @@ export function TaskCard({ row, now }: { row: TaskRow; now: number }) {
             />
           </div>
         ) : null}
+        {/* 旧版项目导入没导入的：原因一句、怎么办一句、全部重试 / 全部跳过。 */}
+        {row.origin === 'legacy-import' ? <LegacyImportCardNote /> : null}
       </div>
       {openConversation ? (
         <ActionButton isQuiet size="S" onPress={openConversation}>

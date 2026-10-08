@@ -115,7 +115,16 @@ describe('ModelCatalog', () => {
       estimatedBytes: 714_289_971,
       license: expect.objectContaining({ name: 'Apache-2.0', commercialUse: true }),
       components: [
-        { component: 'asr', repo: asr.repo, revision: asr.revision, state: 'installed', bytes: 20, sharedWith: [] },
+        // 每个组件也带按清单估的下载大小（装好的照样给），界面在缺组件时据此写要下多少。
+        {
+          component: 'asr',
+          repo: asr.repo,
+          revision: asr.revision,
+          state: 'installed',
+          bytes: 20,
+          estimatedBytes: 713_031_680,
+          sharedWith: [],
+        },
         // 大一档的 Qwen3-ASR 用同一个 VAD。
         {
           component: 'vad',
@@ -123,6 +132,7 @@ describe('ModelCatalog', () => {
           revision: vad.revision,
           state: 'installed',
           bytes: 13,
+          estimatedBytes: 1_258_291,
           sharedWith: ['qwen3-asr-1.7b@mlx-8bit', 'whisper-large-v3@coreml', 'whisper-large-v3-turbo@coreml'],
         },
         // 可选的对齐器没装：模型包照样算装好。
@@ -132,6 +142,7 @@ describe('ModelCatalog', () => {
           revision: QWEN3_FORCED_ALIGNER.revision,
           state: 'missing',
           bytes: null,
+          estimatedBytes: 983_141_596,
           sharedWith: [
             'qwen3-asr-1.7b@mlx-8bit',
             'whisper-large-v3@coreml',

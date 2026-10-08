@@ -167,6 +167,10 @@ export const zhHans: ToolsMessages = {
     unavailable: (provider: string) => `${provider} 现在不可用`,
     goConnect: '去连接',
     switchTo: (name: string) => `换用可用的 ${name}`,
+    downloadSize: (size: string) => `下载 ${size}`,
+    switchToInstalled: (name: string) => `换用已装的 ${name}`,
+    ttsDownloadBody: '下载不占任务队列，装好后这一页的主按钮就能按。',
+    ttsDownloadBodyPaused: '下载不占任务队列，装好后这一页的主按钮就能按。下载停在一半，继续下载会从这里续传。',
   },
   image: {
     title: '生成图片',
