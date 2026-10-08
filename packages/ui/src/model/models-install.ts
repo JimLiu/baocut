@@ -1,5 +1,5 @@
 import type { JobRecord, ModelBundleStatus, ModelInstallPlan, ModelInstallProgress } from '@baocut/protocol';
-import { isBundleInstalled, missingParts } from './models-local.ts';
+import { isBundleInstalled, LOCAL_PROVIDER, missingParts } from './models-local.ts';
 import { fmtSize } from './task-facts.ts';
 import { M } from './models-install-copy.ts';
 import { jobErrorText, remedyText } from './localized-text.ts';
@@ -93,6 +93,55 @@ export function installProgressView(install: ModelInstallProgress): InstallProgr
         running: false,
       };
   }
+}
+
+// ---- 就地下载（设计稿 tool-tts.jsx、image-gen.jsx、panel-aitools.jsx、panel-dub-setup.jsx 的「下载 {size}」） ----
+
+/** 这只模型包能不能就地下载：还没装好，这台电脑也跑得了。装好了的、跑不了的（`unsupported`、`worker-missing`）不算。 */
+export function canDownload(bundle: Pick<ModelBundleStatus, 'state' | 'reason' | 'components'>): boolean {
+  return !isBundleInstalled(bundle) && bundle.reason !== 'unsupported' && bundle.reason !== 'worker-missing';
+}
+
+/** 本机的这只模型能就地下载时它的模型包；云端、节点、装好了的、这台电脑跑不了的为 null。 */
+export function downloadableBundle(
+  bundles: readonly ModelBundleStatus[],
+  ref: { providerId: string; modelId: string } | null,
+): ModelBundleStatus | null {
+  if (!ref || ref.providerId !== LOCAL_PROVIDER) return null;
+  const bundle = bundles.find((b) => b.bundleId === ref.modelId);
+  return bundle && canDownload(bundle) ? bundle : null;
+}
+
+/**
+ * 配音要分离背景声、本机又没有能用的分离模型时就地下载哪一只：按 ID 排第一只能下载的（Runtime 挑分离默认值也按 ID 排）。
+ * 都下载不了（这台电脑跑不了）时 null。
+ */
+export function separationDownload(bundles: readonly ModelBundleStatus[]): ModelBundleStatus | null {
+  return (
+    bundles
+      .filter((b) => b.capability === 'separate')
+      .sort((a, b) => a.bundleId.localeCompare(b.bundleId))
+      .find(canDownload) ?? null
+  );
+}
+
+export interface DownloadView {
+  /** `idle` 还没开始，`paused` 停在一半（接着下），`running` 正在下（排队、下载、校验）。 */
+  state: 'idle' | 'paused' | 'running';
+  /** 要下载多少：下载计划给的总量，没有时按随附清单估的 `estimatedBytes`；都没有时 null。 */
+  size: string | null;
+  /** 正在下时的百分比；总量未知、排队或校验中时 null。 */
+  percent: number | null;
+}
+
+/** 就地下载那一处此刻的样子：按钮上写多大，下载中写进度。 */
+export function downloadView(bundle: Pick<ModelBundleStatus, 'install' | 'estimatedBytes'>): DownloadView {
+  const install = bundle.install;
+  const total = install?.totalBytes || bundle.estimatedBytes || null;
+  const size = total ? fmtSize(total) : null;
+  if (!install) return { state: 'idle', size, percent: null };
+  const progress = installProgressView(install);
+  return progress.running ? { state: 'running', size, percent: progress.percent } : { state: 'paused', size, percent: null };
 }
 
 // ---- 失败与补救 ----

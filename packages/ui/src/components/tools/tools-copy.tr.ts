@@ -165,6 +165,10 @@ export const tr: ToolsMessages = {
     unavailable: (provider) => `${provider} şu anda kullanılamıyor`,
     goConnect: "Bağlan",
     switchTo: (name) => `${name} adlı modele geç`,
+    downloadSize: (size) => `${size} indir`,
+    switchToInstalled: (name) => `Yüklü ${name} modeline geç`,
+    ttsDownloadBody: 'İndirme görev sırasını kullanmaz; yüklendiğinde sayfanın ana düğmesi çalışır.',
+    ttsDownloadBodyPaused: 'İndirme görev sırasını kullanmaz; yüklendiğinde sayfanın ana düğmesi çalışır. İndirme yarıda durdu; sürdürme kaldığı yerden devam eder.',
   },
   image: {
     title: "Görsel oluştur",

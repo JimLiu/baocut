@@ -197,6 +197,10 @@ export const ptBR: ToolsMessages = {
     unavailable: (provider: string) => `${provider} não está disponível agora`,
     goConnect: "Conectar",
     switchTo: (name: string) => `Trocar para ${name}`,
+    downloadSize: (size: string) => `Baixar ${size}`,
+    switchToInstalled: (name: string) => `Trocar para ${name} instalado`,
+    ttsDownloadBody: 'Download fora da fila; botão principal funciona após instalar.',
+    ttsDownloadBodyPaused: 'Download fora da fila; botão principal funciona após instalar. Download interrompido; retoma de onde parou.',
   },
 
   image: {

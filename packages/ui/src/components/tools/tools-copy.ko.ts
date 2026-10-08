@@ -178,6 +178,10 @@ export const ko: ToolsMessages = {
     unavailable: (provider: string) => `지금은 ${provider}을(를) 사용할 수 없습니다`,
     goConnect: '연결',
     switchTo: (name: string) => `${name}(으)로 전환`,
+    downloadSize: (size: string) => `${size} 다운로드`,
+    switchToInstalled: (name: string) => `설치된 ${name}(으)로 전환`,
+    ttsDownloadBody: '다운로드는 작업 대기열을 쓰지 않으며, 설치가 끝나면 이 페이지의 기본 버튼을 쓸 수 있습니다.',
+    ttsDownloadBodyPaused: '다운로드는 작업 대기열을 쓰지 않으며, 설치가 끝나면 이 페이지의 기본 버튼을 쓸 수 있습니다. 다운로드가 중간에 멈췄습니다. 재개하면 멈춘 지점부터 이어서 받습니다.',
   },
   image: {
     title: '이미지 생성',

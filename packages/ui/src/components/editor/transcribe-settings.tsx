@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { MAX_SELECTED_GLOSSARIES, type DocumentRecord, type Id, type LibraryEntrySummary, type LibrarySelection } from '@baocut/protocol';
 import {
+  MAX_SELECTED_GLOSSARIES,
+  type DocumentRecord,
+  type Id,
+  type LibraryEntrySummary,
+  type LibrarySelection,
+  type ModelBundleStatus,
+} from '@baocut/protocol';
+import {
+  Button,
   Checkbox,
   Disclosure,
   DisclosurePanel,
@@ -10,13 +18,16 @@ import {
   Picker,
   PickerItem,
   PickerSection,
+  ProgressBar,
   Text,
   TextArea,
   ToastQueue,
 } from '@react-spectrum/s2';
+import DownloadIcon from '@react-spectrum/s2/icons/Download';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { entryKey } from '../../model/library-entry.ts';
 import { isLocalProvider } from '../../model/models-cloud.ts';
+import { downloadableBundle, downloadView } from '../../model/models-install.ts';
 import {
   budgetLine,
   DEFAULT_TRANSCRIBE_SETUP,
@@ -39,10 +50,13 @@ import { toggleGlossary } from '../../model/translate-setup.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { getLibraryEntry } from '../../runtime/library-commands.ts';
 import type { RuntimeSession } from '../../runtime/session.ts';
+import { isJobLive, useJobs } from '../../state/jobs-store.ts';
 import { useLibrary } from '../../state/library-store.ts';
 import { useModels } from '../../state/models-store.ts';
 import { useShell } from '../../state/shell-store.ts';
+import { InstallDialog } from '../models/install-dialog.tsx';
 import { SectionLink } from '../tools/tool-parts.tsx';
+import { GATE_COPY } from '../tools/tools-copy.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { TRANSCRIBE_SETUP_COPY as C } from './transcribe-copy.ts';
 import { patchSetup, useSubtitleRun } from './transcribe-run.ts';
@@ -58,6 +72,8 @@ const secTitle = style({ flexGrow: 1, margin: 0, font: 'detail', fontWeight: 'bo
 const hint = style({ margin: 0, marginTop: '[6px]', font: 'ui-xs', color: { default: 'gray-600', isWarn: 'orange-1000' }, lineHeight: '[1.5]' });
 const blocked = style({ margin: 0, marginBottom: 8, font: 'ui-xs', color: 'gray-700', lineHeight: '[1.5]' });
 const field = style({ width: 'full' });
+const pendingLine = style({ display: 'flex', flexDirection: 'column', gap: 4, marginTop: '[6px]' });
+const downloadRow = style({ display: 'flex', marginTop: 8 });
 const glossaryList = style({ display: 'flex', flexDirection: 'column', gap: 4 });
 const glossaryRow = style({ display: 'flex', flexDirection: 'column', minWidth: 0 });
 const glossaryMeta = style({ paddingStart: 24, font: 'ui-xs', color: { default: 'gray-600', isOff: 'orange-1000' } });
@@ -132,6 +148,19 @@ interface ProviderGroup {
   items: TranscribeModelOption[];
 }
 
+/** 能就地下载的模型包怎么下：「下载 {大小}」，停在一半时「继续下载…」，在下时写进度。 */
+function downloadAction(bundle: ModelBundleStatus): string {
+  const view = downloadView(bundle);
+  if (view.state === 'running') return GATE_COPY.downloading(view.percent);
+  return view.state === 'paused' ? GATE_COPY.resume : view.size ? GATE_COPY.downloadSize(view.size) : GATE_COPY.downloadButton;
+}
+
+/** 菜单里一项下面那行：还没装、这台电脑能下载的在原因后面写怎么下；其余写原因。 */
+function itemNote(o: TranscribeModelOption, bundle: ModelBundleStatus | null): string | null {
+  if (!bundle) return o.why;
+  return o.why ? `${o.why} · ${downloadAction(bundle)}` : downloadAction(bundle);
+}
+
 function groups(options: readonly TranscribeModelOption[]): ProviderGroup[] {
   const out: ProviderGroup[] = [];
   for (const o of options) {
@@ -169,7 +198,33 @@ export function TranscribeSettings({ videoId, documents, editable }: { videoId: 
   const blockedBy = view ? hintBlock(option, options) : null;
   const usedContents = used.map((r) => contents[r.id]).filter((c): c is NonNullable<GlossaryContentState> => !!c);
   const budget = hintBudget(setup.prompt, usedContents);
-  const disabledKeys = options.filter((o) => !o.usable && o.key !== option?.key).map((o) => o.key);
+
+  // 没装的本机模型不置灰（设计稿 panel-aitools.jsx）：点它先走安装对话框，下完自动选中；在下的点了就只等着。
+  // 选中的那只没装时，下拉下面给「下载 {大小}」（在下时给进度），下完不用再选。
+  const bundles = useModels((s) => s.bundles);
+  const jobs = useJobs((s) => s.jobs);
+  const [installing, setInstalling] = useState<{ option: TranscribeModelOption; bundle: ModelBundleStatus } | null>(null);
+  const [pending, setPending] = useState<{ key: string; jobId: Id | null } | null>(null);
+  const pendingOption = pending ? (options.find((o) => o.key === pending.key) ?? null) : null;
+  const pendingBundle = pendingOption ? (bundles.find((b) => b.bundleId === pendingOption.modelId) ?? null) : null;
+  const pendingJob = pending?.jobId ? jobs.find((j) => j.jobId === pending.jobId) : undefined;
+  const pendingFailed = !!pendingJob && !isJobLive(pendingJob) && pendingJob.state !== 'completed';
+  useEffect(() => {
+    if (!pending) return;
+    if (pendingOption?.usable) {
+      setPending(null);
+      if (pendingOption.key !== option?.key) patch({ model: pendingOption.key, language: effectiveLanguage(setup.language, pendingOption) });
+    } else if (!pendingOption || pendingFailed) setPending(null);
+    // 只跟着等的那只能不能用、下载有没有失败走；patch 每次渲染都是新的。
+  }, [pending, pendingOption?.usable, pendingFailed]);
+  const download = (o: TranscribeModelOption, bundle: ModelBundleStatus) => {
+    if (downloadView(bundle).state !== 'running') setInstalling({ option: o, bundle });
+    else if (o.key !== option?.key) setPending({ key: o.key, jobId: bundle.install?.jobId ?? null });
+  };
+  const disabledKeys = options.filter((o) => !o.usable && o.key !== option?.key && !downloadableBundle(bundles, o)).map((o) => o.key);
+  const selectedDownload = option && !pending ? downloadableBundle(bundles, option) : null;
+  const pendingProgress = pendingBundle ? downloadView(pendingBundle) : null;
+  const selectedProgress = selectedDownload ? downloadView(selectedDownload) : null;
   const toModels = () =>
     go({ tab: 'models', category: 'asr', page: view && option && !isLocalProvider(view, 'transcribe', option.providerId) ? 'cloud' : 'local' });
 
@@ -225,7 +280,9 @@ export function TranscribeSettings({ videoId, documents, editable }: { videoId: 
                 onSelectionChange={(key) => {
                   const next = options.find((o) => o.key === key);
                   if (!next || next.key === option?.key) return;
-                  patch({ model: next.key, language: effectiveLanguage(setup.language, next) });
+                  const bundle = downloadableBundle(bundles, next);
+                  if (bundle) download(next, bundle);
+                  else patch({ model: next.key, language: effectiveLanguage(setup.language, next) });
                 }}>
                 {groups(options).map((g) => (
                   <PickerSection key={g.providerId} id={`provider:${g.providerId}`}>
@@ -235,13 +292,68 @@ export function TranscribeSettings({ videoId, documents, editable }: { videoId: 
                     {g.items.map((o) => (
                       <PickerItem key={o.key} id={o.key} textValue={`${o.provider} · ${o.label}`}>
                         <Text slot="label">{o.label}</Text>
-                        {o.why ? <Text slot="description">{o.why}</Text> : null}
+                        {itemNote(o, downloadableBundle(bundles, o)) ? (
+                          <Text slot="description">{itemNote(o, downloadableBundle(bundles, o))}</Text>
+                        ) : null}
                       </PickerItem>
                     ))}
                   </PickerSection>
                 ))}
               </Picker>
-              <p className={hint({ isWarn: !!option && !option.usable })}>{modelFacts(picked)}</p>
+              {pending && pendingOption ? (
+                <div className={pendingLine} role="status">
+                  <p className={hint({})}>{C.downloadThenSelect(pendingOption.label, pendingProgress?.percent ?? null)}</p>
+                  <ProgressBar
+                    size="S"
+                    aria-label={C.downloadThenSelect(pendingOption.label, null)}
+                    isIndeterminate={pendingProgress?.percent == null}
+                    {...(pendingProgress?.percent == null ? {} : { value: pendingProgress.percent })}
+                    styles={field}
+                  />
+                </div>
+              ) : (
+                <>
+                  <p className={hint({ isWarn: !!option && !option.usable })}>{modelFacts(picked)}</p>
+                  {selectedDownload && option && selectedProgress?.state === 'running' ? (
+                    <div className={pendingLine} role="status">
+                      <p className={hint({})}>{GATE_COPY.downloading(selectedProgress.percent)}</p>
+                      <ProgressBar
+                        size="S"
+                        aria-label={GATE_COPY.downloading(null)}
+                        isIndeterminate={selectedProgress.percent === null}
+                        {...(selectedProgress.percent === null ? {} : { value: selectedProgress.percent })}
+                        styles={field}
+                      />
+                    </div>
+                  ) : selectedDownload && option ? (
+                    <div className={downloadRow}>
+                      <Button variant="secondary" size="S" onPress={() => download(option, selectedDownload)}>
+                        <DownloadIcon />
+                        <Text>{downloadAction(selectedDownload)}</Text>
+                      </Button>
+                    </div>
+                  ) : null}
+                </>
+              )}
+              {installing ? (
+                <InstallDialog
+                  bundleId={installing.bundle.bundleId}
+                  name={installing.option.label}
+                  license={installing.bundle.license ?? null}
+                  mode="install"
+                  onClose={() => setInstalling(null)}
+                  // 下的是已经选中的那只时不用等着选，照常提示「开始下载」。
+                  {...(installing.option.key === option?.key
+                    ? {}
+                    : {
+                        onStarted: (jobId: Id) => {
+                          setInstalling(null);
+                          setPending({ key: installing.option.key, jobId });
+                          ToastQueue.neutral(C.downloadThenSelect(installing.option.label, null), { timeout: 4000 });
+                        },
+                      })}
+                />
+              ) : null}
             </>
           )}
 

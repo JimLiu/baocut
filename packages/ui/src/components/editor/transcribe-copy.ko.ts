@@ -6,6 +6,7 @@ export const ko: TranscribeSetupMessages = {
   model: '음성 모델',
   manageModels: '음성 모델 관리',
   modelsLoading: '음성 모델을 불러오는 중…',
+  downloadThenSelect: (name: string, pct: number | null) => `${name} 다운로드 중${pct === null ? '' : ` · ${pct}%`} · 완료되면 자동으로 선택됩니다`,
   noDefault: '아직 기본 음성 모델이 없습니다',
   hint: '인식 힌트',
   glossary: '용어집',

@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { DocumentRecord, DubOriginalAudio, Id, LibraryEntrySummary, SpeakerVoiceBinding, SpeechModelInfo, TextModelInfo } from '@baocut/protocol';
+import type {
+  DocumentRecord,
+  DubOriginalAudio,
+  DubParams,
+  Id,
+  LibraryEntrySummary,
+  SpeakerVoiceBinding,
+  SpeechModelInfo,
+  TextModelInfo,
+} from '@baocut/protocol';
 import {
   Button,
   Content,
@@ -8,6 +17,7 @@ import {
   NumberField,
   Picker,
   PickerItem,
+  ProgressBar,
   SegmentedControl,
   SegmentedControlItem,
   Switch,
@@ -16,6 +26,7 @@ import {
   TextField,
   ToastQueue,
 } from '@react-spectrum/s2';
+import DownloadIcon from '@react-spectrum/s2/icons/Download';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { guessLanguage } from '../../model/cue-edit.ts';
 import {
@@ -36,6 +47,8 @@ import {
   type SpeakerRow,
   type VoiceChoice,
 } from '../../model/dub-setup.ts';
+import { downloadView, separationDownload } from '../../model/models-install.ts';
+import { bundleName } from '../../model/models-local.ts';
 import { textModelLine } from '../../model/models-text.ts';
 import { cloudModelOptions, findOption, initialModelKey, langName, parseModelKey, type ToolModelOption } from '../../model/tools-models.ts';
 import { speechModelLine } from '../../model/tools-tts.ts';
@@ -47,11 +60,12 @@ import { useModels } from '../../state/models-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { canEdit, useVideo } from '../../state/video-store.ts';
 import { useVoices } from '../../state/voices-store.ts';
+import { InstallDialog } from '../models/install-dialog.tsx';
 import { ModelGate, ModelLine } from '../tools/tool-model.tsx';
 import { SectionLink } from '../tools/tool-parts.tsx';
 import { GATE_COPY } from '../tools/tools-copy.ts';
 import { DUB_COPY as C, DUB_SPEAKER_SOURCE } from './dub-copy.ts';
-import { bindDub, startDub, useDubRun, type DubDeps } from './dub-run.ts';
+import { awaitDubInstall, bindDub, startDub, useDubRun, type DubDeps, type DubIntent } from './dub-run.ts';
 import { DubNotices, DubRunHead, useDubLive } from './dub-status.tsx';
 import { useEditorActions } from './editor-context.tsx';
 import { PanelHead } from './panel-head.tsx';
@@ -104,6 +118,9 @@ const footer = style({
 });
 const alertActions = style({ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 });
 const blankTop = style({ marginTop: 12 });
+const gateTop = style({ marginTop: 8 });
+const progressRow = style({ display: 'flex', alignItems: 'center', gap: 8, font: 'ui-sm', color: 'gray-800' });
+const progressBar = style({ width: 120 });
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
@@ -249,6 +266,13 @@ function DubSetupPage({
   const [separatePick, setSeparatePick] = useState<boolean | null>(null);
   const separate = separatePick ?? separateReady;
   const toSeparate = () => go({ tab: 'models', category: 'sep', page: 'local' });
+  // 分离开着、本机还没有分离模型、这台电脑能下载：门卡写要下载哪只，主按钮「下载模型并配成…」先下载再开始（设计稿 panel-dub-setup.jsx）。
+  const bundles = useModels((s) => s.bundles);
+  const sepBundle = useMemo(() => (separateReady ? null : separationDownload(bundles)), [separateReady, bundles]);
+  const sepDownload = separate && sepBundle ? sepBundle : null;
+  const sepView = sepDownload ? downloadView(sepDownload) : null;
+  const sepWait = useDubRun((s) => s.installs[videoId] ?? null);
+  const [sepConfirm, setSepConfirm] = useState<{ params: DubParams; intent: DubIntent } | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -274,7 +298,7 @@ function DubSetupPage({
   const sentenceCount = sentences ? sentences.length : null;
 
   const start = async () => {
-    if (!language || busy || submitting || !editable) return;
+    if (!language || busy || submitting || sepWait || !editable) return;
     // 不灰掉按钮：说清楚差什么，把那一节带到眼前（同翻译设置页）。
     if (!voiceReady) {
       voiceSection.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -291,25 +315,31 @@ function DubSetupPage({
       ToastQueue.neutral(textModels.length ? (textModel?.why ?? C.textMissingTitle) : C.textMissingTitle, { timeout: 4000 });
       return;
     }
-    setSubmitting(true);
     const voiceKey = voiceModel ? parseModelKey(voiceModel.key) : null;
     const textKey = needTranslate && textModel ? parseModelKey(textModel.key) : null;
-    const jobId = await startDub(
-      dubParams({
-        videoId,
-        speechDocumentId: speech.id,
-        translationId: language.translationId,
-        targetLanguage: language.language,
-        voiceModel: voiceKey ? { providerId: voiceKey.providerId, modelId: voiceKey.modelId } : null,
-        voice: paramVoice,
-        textModel: textKey ? { providerId: textKey.providerId, modelId: textKey.modelId } : null,
-        style: styleHint,
-        originalAudio,
-        duckDb,
-        separateBackground: separate,
-      }),
-      { videoId, language: language.language, videoName },
-    );
+    const params = dubParams({
+      videoId,
+      speechDocumentId: speech.id,
+      translationId: language.translationId,
+      targetLanguage: language.language,
+      voiceModel: voiceKey ? { providerId: voiceKey.providerId, modelId: voiceKey.modelId } : null,
+      voice: paramVoice,
+      textModel: textKey ? { providerId: textKey.providerId, modelId: textKey.modelId } : null,
+      style: styleHint,
+      originalAudio,
+      duckDb,
+      separateBackground: separate,
+    });
+    const intent: DubIntent = { videoId, language: language.language, videoName };
+    if (sepDownload) {
+      // 已经在下（设置页点的）：等它下完；否则先走安装对话框，提交了下载再等。
+      const jobId = sepView?.state === 'running' ? sepDownload.install?.jobId : null;
+      if (jobId) awaitDubInstall(jobId, params, intent);
+      else setSepConfirm({ params, intent });
+      return;
+    }
+    setSubmitting(true);
+    const jobId = await startDub(params, intent);
     setSubmitting(false);
     if (jobId) onStarted?.();
   };
@@ -454,8 +484,38 @@ function DubSetupPage({
         <Switch size="S" isSelected={separate} onChange={setSeparatePick}>
           {C.separate}
         </Switch>
-        <p className={hint}>{separate && !separateReady ? C.separateMissing : C.separateHint}</p>
-        {separate && !separateReady ? <SectionLink onPress={toSeparate}>{C.installSeparate}</SectionLink> : null}
+        {sepDownload ? (
+          <div className={gateTop}>
+            <InlineAlert variant="notice">
+              <Heading>
+                {sepView?.size ? `${C.separateDownload(bundleName(sepDownload))} · ${sepView.size}` : C.separateDownload(bundleName(sepDownload))}
+              </Heading>
+              <Content>
+                {C.separateDownloadBody}
+                <div className={alertActions}>
+                  {sepView?.state === 'running' ? (
+                    <span className={progressRow} role="status">
+                      <ProgressBar
+                        size="S"
+                        aria-label={GATE_COPY.downloading(sepView.percent)}
+                        isIndeterminate={sepView.percent === null}
+                        {...(sepView.percent === null ? {} : { value: sepView.percent })}
+                        styles={progressBar}
+                      />
+                      {GATE_COPY.downloading(sepView.percent)}
+                    </span>
+                  ) : null}
+                  <SectionLink onPress={toSeparate}>{GATE_COPY.manageLocal}</SectionLink>
+                </div>
+              </Content>
+            </InlineAlert>
+          </div>
+        ) : (
+          <>
+            <p className={hint}>{separate && !separateReady ? C.separateMissing : C.separateHint}</p>
+            {separate && !separateReady ? <SectionLink onPress={toSeparate}>{C.installSeparate}</SectionLink> : null}
+          </>
+        )}
         <div className={row}>
           <span className={rowLabel}>{C.original}</span>
           <SegmentedControl aria-label={C.originalPicker} selectedKey={originalAudio} onSelectionChange={(key) => setOriginalAudio(key as DubOriginalAudio)}>
@@ -480,7 +540,9 @@ function DubSetupPage({
             <span className={unit}>{C.duckUnit}</span>
           </div>
         ) : null}
-        <p className={hint}>{C.mixHint({ separated: separate && separateReady, original: originalAudio, duckDb: clampDuckDb(duckDb) })}</p>
+        <p className={hint}>
+          {C.mixHint({ separated: separate && (separateReady || !!sepDownload), original: originalAudio, duckDb: clampDuckDb(duckDb) })}
+        </p>
 
         {needTranslate ? (
           <>
@@ -541,16 +603,37 @@ function DubSetupPage({
         ) : null}
       </div>
       <div className={footer}>
-        <Button variant="accent" styles={field} isDisabled={!language || busy || !editable} isPending={submitting} onPress={() => void start()}>
-          {C.cta(languageLabel ?? '…')}
+        <Button
+          variant="accent"
+          styles={field}
+          isDisabled={!language || busy || !editable}
+          isPending={submitting || !!sepWait}
+          onPress={() => void start()}>
+          {sepDownload && !sepWait ? <DownloadIcon /> : null}
+          <Text>{sepDownload && !sepWait ? C.ctaDownload(languageLabel ?? '…') : C.cta(languageLabel ?? '…')}</Text>
         </Button>
-        <p className={hint}>
+        <p className={hint} role={sepWait ? 'status' : undefined}>
           {busy
             ? C.busy
             : !editable
               ? C.readOnly
-              : C.ctaHint(languageLabel ?? '…', { separated: separate && separateReady, original: originalAudio })}
+              : sepWait && sepBundle
+                ? C.separateWaiting(bundleName(sepBundle), sepView?.state === 'running' ? sepView.percent : null)
+                : C.ctaHint(languageLabel ?? '…', { separated: separate && (separateReady || !!sepDownload), original: originalAudio })}
         </p>
+        {sepConfirm && sepDownload ? (
+          <InstallDialog
+            bundleId={sepDownload.bundleId}
+            name={bundleName(sepDownload)}
+            license={sepDownload.license ?? null}
+            mode="install"
+            onClose={() => setSepConfirm(null)}
+            onStarted={(jobId) => {
+              setSepConfirm(null);
+              awaitDubInstall(jobId, sepConfirm.params, sepConfirm.intent);
+            }}
+          />
+        ) : null}
       </div>
     </>
   );

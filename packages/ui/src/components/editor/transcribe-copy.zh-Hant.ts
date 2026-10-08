@@ -6,6 +6,7 @@ export const zhHant: TranscribeSetupMessages = {
   model: '語音模型',
   manageModels: '管理語音模型',
   modelsLoading: '正在載入語音模型…',
+  downloadThenSelect: (name: string, pct: number | null) => `正在下載 ${name}${pct === null ? '' : ` · ${pct}%`} · 下載完成後自動選取`,
   noDefault: '還沒有預設的語音模型',
   hint: '辨識提示',
   glossary: '術語表',

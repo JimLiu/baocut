@@ -24,6 +24,9 @@ const en = {
   model: 'Speech model',
   manageModels: 'Manage speech models',
   modelsLoading: 'Loading speech models…',
+  /** 在菜单里点了还没装的本机模型：下载开始时的提示与模型下拉下面那一行（设计稿 panel-aitools.jsx「下完自动选中」）。 */
+  downloadThenSelect: (name: string, pct: number | null) =>
+    `Downloading ${name}${pct === null ? '' : ` · ${pct}%`} · it’ll be selected when done`,
   noDefault: 'No default speech model yet',
   hint: 'Recognition hints',
   glossary: 'Glossary',

@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { RpcError, type JobRecord, type ModelComponentStatus, type ModelInstallPlan } from '@baocut/protocol';
+import { RpcError, type JobRecord, type ModelBundleStatus, type ModelComponentStatus, type ModelInstallPlan } from '@baocut/protocol';
 import {
   bundleActions,
+  canDownload,
+  downloadableBundle,
+  downloadView,
   installFailure,
   installPlanView,
   installProgressView,
@@ -10,9 +13,11 @@ import {
   removalEstimate,
   removedToast,
   rpcProblem,
+  separationDownload,
 } from './models-install.ts';
 import { isBundleInstalled, localGroups } from './models-local.ts';
 import { bundle } from './models-test-fixtures.ts';
+import { fmtSize } from './task-facts.ts';
 
 const MB = 1024 * 1024;
 const GB = 1024 * MB;
@@ -230,5 +235,46 @@ describe('分组与每行能做什么', () => {
     // 必需组件缺：没装好，走「下载」，不是补齐
     const partial = bundle(QWEN, { state: 'not-installed', reason: 'incomplete', components: [component('w', { state: 'missing' }), aligner] });
     expect(bundleActions(partial)).toMatchObject({ complete: false, install: true });
+  });
+});
+
+describe('就地下载（工具页、转录设置、配音的「下载 {大小}」）', () => {
+  const missing = (bundleId: string, patch: Partial<ModelBundleStatus> = {}) =>
+    bundle(bundleId, { state: 'not-installed', components: [component('w', { state: 'missing' })], estimatedBytes: 1.2 * GB, ...patch });
+  const ready = (bundleId: string) => bundle(bundleId, { state: 'ready', components: [component('w')] });
+
+  it('没装好、这台电脑也跑得了才能下载', () => {
+    expect(canDownload(missing(QWEN))).toBe(true);
+    expect(canDownload(ready(QWEN))).toBe(false);
+    expect(canDownload(missing(QWEN, { state: 'error', reason: 'unsupported' }))).toBe(false);
+    expect(canDownload(missing(QWEN, { state: 'error', reason: 'worker-missing' }))).toBe(false);
+  });
+
+  it('只认本机的模型，按模型 ID 找模型包；云端、装好了的、找不到的为 null', () => {
+    const bundles = [missing(QWEN), ready('kokoro-82m')];
+    expect(downloadableBundle(bundles, { providerId: 'local', modelId: QWEN })?.bundleId).toBe(QWEN);
+    expect(downloadableBundle(bundles, { providerId: 'openai', modelId: QWEN })).toBeNull();
+    expect(downloadableBundle(bundles, { providerId: 'local', modelId: 'kokoro-82m' })).toBeNull();
+    expect(downloadableBundle(bundles, { providerId: 'local', modelId: 'gone' })).toBeNull();
+    expect(downloadableBundle(bundles, null)).toBeNull();
+  });
+
+  it('分离模型：按 ID 排第一只能下载的（与 Runtime 挑分离默认值同序）；都下载不了时 null', () => {
+    const sep = (bundleId: string, patch: Partial<ModelBundleStatus> = {}) => missing(bundleId, { capability: 'separate', ...patch });
+    const list = [missing(QWEN), sep('z@mlx'), sep('a@candle', { state: 'error', reason: 'unsupported' }), sep('b@mlx')];
+    expect(separationDownload(list)?.bundleId).toBe('b@mlx');
+    expect(separationDownload([missing(QWEN), sep('a@candle', { state: 'error', reason: 'unsupported' })])).toBeNull();
+  });
+
+  it('下载的样子：大小先用下载任务的总量、再用估计值；在下写百分比，停在一半是暂停', () => {
+    expect(downloadView(missing(QWEN))).toEqual({ state: 'idle', size: fmtSize(1.2 * GB), percent: null });
+    const { estimatedBytes: _, ...unknown } = missing(QWEN);
+    expect(downloadView(unknown)).toEqual({ state: 'idle', size: null, percent: null });
+    const running = missing(QWEN, { install: { jobId: 'j', state: 'downloading', receivedBytes: 0.6 * GB, totalBytes: 2 * GB } });
+    expect(downloadView(running)).toEqual({ state: 'running', size: fmtSize(2 * GB), percent: 30 });
+    const queued = missing(QWEN, { install: { jobId: 'j', state: 'queued', receivedBytes: 0, totalBytes: null } });
+    expect(downloadView(queued)).toEqual({ state: 'running', size: fmtSize(1.2 * GB), percent: null });
+    const paused = missing(QWEN, { install: { jobId: null, state: 'paused', receivedBytes: 5, totalBytes: 10 } });
+    expect(downloadView(paused).state).toBe('paused');
   });
 });

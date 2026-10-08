@@ -197,6 +197,10 @@ export const de: ToolsMessages = {
     unavailable: (provider: string) => `${provider} ist derzeit nicht verfügbar`,
     goConnect: "Verbinden",
     switchTo: (name: string) => `Wechseln zu ${name}`,
+    downloadSize: (size: string) => `${size} herunterladen`,
+    switchToInstalled: (name: string) => `Zum installierten ${name} wechseln`,
+    ttsDownloadBody: 'Download verwendet keine Aufgabenwarteschlange; nach Installation funktioniert der Hauptbutton.',
+    ttsDownloadBodyPaused: 'Download verwendet keine Aufgabenwarteschlange; nach Installation funktioniert der Hauptbutton. Gestoppter Download wird an derselben Stelle fortgesetzt.',
   },
 
   image: {

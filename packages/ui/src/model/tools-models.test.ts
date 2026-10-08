@@ -9,6 +9,7 @@ import {
   detectLang,
   findOption,
   initialModelKey,
+  installedAlternative,
   langName,
   languageOptions,
   languagesShort,
@@ -63,6 +64,14 @@ describe('本机模型', () => {
     expect(all.filter((o) => !o.local).length).toBeGreaterThan(0);
     // 文本生成没有本机 Provider。
     expect(localModelOptions(view, 'generateText')).toEqual([]);
+  });
+
+  it('选中的本机模型没装：换用菜单里第一只装好的本机模型（云端不算）；没有时 null', () => {
+    const options = modelOptions(withLocalSpeech(), 'synthesizeSpeech');
+    const missing = findOption(options, 'local/index-tts2');
+    expect(installedAlternative(options, missing)?.key).toBe('local/kokoro-82m');
+    expect(installedAlternative(options, findOption(options, 'local/kokoro-82m'))).toBeNull();
+    expect(installedAlternative(options.filter((o) => o.key !== 'local/kokoro-82m'), missing)).toBeNull();
   });
 });
 

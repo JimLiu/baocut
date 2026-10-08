@@ -7,6 +7,7 @@ export const pl: TranscribeSetupMessages = {
   model: "Model mowy",
   manageModels: "Zarządzaj modelami mowy",
   modelsLoading: "Wczytywanie modeli mowy…",
+  downloadThenSelect: (name: string, pct: number | null) => `Pobieranie ${name}${pct === null ? '' : ` · ${pct}%`} · po zakończeniu zostanie wybrany automatycznie`,
   noDefault: "Nie ma jeszcze domyślnego modelu mowy",
   hint: "Wskazówki rozpoznawania",
   glossary: "Słownik",
