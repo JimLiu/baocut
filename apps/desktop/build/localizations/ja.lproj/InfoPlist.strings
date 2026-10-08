@@ -1,0 +1,2 @@
+"NSLocalNetworkUsageDescription" = "BaoCut は Remote Compute ノードを検出して接続するために、ローカルネットワークへのアクセスを必要とします。";
+"NSMicrophoneUsageDescription" = "BaoCut は文字起こし用の音声を録音するため、また「マイボイス」でクローン用にあなたの声を録音するためにマイクを使用します。";

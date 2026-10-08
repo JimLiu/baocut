@@ -63,7 +63,7 @@ interface FakeOptions {
 
 /** 假的外部命令；记下每一条调用。ditto 解开（`-x`）或拷贝时在目标里建一个只有 Info.plist 的 BaoCut.app。 */
 function fakeExec(options: FakeOptions = {}): { exec: Exec; calls: string[][] } {
-  const plist = { CFBundleIdentifier: 'com.jimliu.baocut', CFBundleShortVersionString: '2.3.0', CFBundleVersion: '57', ...options.plist };
+  const plist = { CFBundleIdentifier: 'com.baocut.app', CFBundleShortVersionString: '2.3.0', CFBundleVersion: '57', ...options.plist };
   const calls: string[][] = [];
   const ok = (stdout = '', stderr = ''): ExecResult => ({ code: 0, stdout, stderr });
   const exec: Exec = async (file, args) => {
@@ -126,6 +126,12 @@ describe('macOS 校验与就位', () => {
 
   it('身份或版本对不上：报校验失败，清掉解开的目录', async () => {
     const deps = macDeps(fakeExec({ plist: { CFBundleVersion: '56' } }).exec);
+    expect(await prepareMac(info(), archive(), deps)).toMatchObject({ type: 'failed', failure: 'verify' });
+    expect(await fs.readdir(cacheDir)).toEqual([]);
+  });
+
+  it('旧 BaoCut Bundle ID 不能替换新应用，即使版本和签名相同', async () => {
+    const deps = macDeps(fakeExec({ plist: { CFBundleIdentifier: 'com.jimliu.baocut' } }).exec);
     expect(await prepareMac(info(), archive(), deps)).toMatchObject({ type: 'failed', failure: 'verify' });
     expect(await fs.readdir(cacheDir)).toEqual([]);
   });

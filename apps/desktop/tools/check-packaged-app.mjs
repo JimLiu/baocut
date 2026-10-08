@@ -40,6 +40,7 @@ for (const name of [
   'BAOCUT_MODEL_ASSETS_DIR',
   'BAOCUT_WEB_DIST',
   'BAOCUT_ELECTRON',
+  'PMETAL_METALLIB_PATH',
 ]) {
   delete env[name];
 }
@@ -51,8 +52,8 @@ if (arg === '--dev') {
   script = path.resolve(HERE, '../out/main/runtime.js');
 } else {
   const appDir = path.resolve(arg);
-  command = path.join(appDir, process.platform === 'win32' ? 'BaoCut.exe' : 'BaoCut');
-  const resources = path.join(appDir, 'resources');
+  command = path.join(appDir, process.platform === 'darwin' ? 'Contents/MacOS/BaoCut' : process.platform === 'win32' ? 'BaoCut.exe' : 'BaoCut');
+  const resources = path.join(appDir, process.platform === 'darwin' ? 'Contents/Resources' : 'resources');
   for (const { source, fileName } of DISTRIBUTED_NOTICES) {
     const file = path.join(resources, fileName);
     if (!existsSync(file) || !readFileSync(file).equals(readFileSync(path.resolve(HERE, '../../..', source)))) {

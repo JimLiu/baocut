@@ -11,7 +11,7 @@ import type { AppUpdateFailure, AppUpdateFormat, AppUpdateInfo, AppUpdateState }
 /** 覆盖更新源的环境变量：`https://…`、`file:///…` 或绝对路径（演练与测试用；开发构建设了它也启用更新）。 */
 export const APPCAST_ENV = 'BAOCUT_UPDATE_APPCAST';
 /** 正式包的 bundle 标识。新包的 `CFBundleIdentifier` 必须恰为它；Windows 安装包的 appId 也是它（打包脚本从这里取）。 */
-export const BUNDLE_ID = 'com.jimliu.baocut';
+export const BUNDLE_ID = 'com.baocut.app';
 /** 产品名：Windows 上可执行文件与 NSIS 卸载程序的文件名都由它得出（打包脚本从这里取）。 */
 export const PRODUCT_NAME = 'BaoCut';
 /** electron-builder 的 NSIS 安装器放在 exe 旁边的卸载程序（模板 common.nsh 的 `UNINSTALL_FILENAME`）。有它才是安装版。 */
@@ -19,7 +19,7 @@ export const NSIS_UNINSTALLER = `Uninstall ${PRODUCT_NAME}.exe`;
 /** 标准版的变体名（打包脚本的 `--variant cpu`）；它的更新源文件名不带后缀。 */
 export const STANDARD_VARIANT = 'cpu';
 /** 下载页：自动安装走不通时打开它。 */
-export const DOWNLOAD_PAGE = 'https://baocut.app/v2/';
+export const DOWNLOAD_PAGE = 'https://github.com/jimliu/baocut/releases';
 /** 启动后多久做第一次自动检查（秒）。 */
 export const FIRST_CHECK_DELAY_S = 15;
 /** 两次自动检查的间隔（秒）。 */
@@ -50,7 +50,7 @@ export function feedFileName(target: FeedTarget, variant: string | null): string
 }
 
 export function feedUrl(target: FeedTarget, variant: string | null = null): string {
-  return `https://baocut.app/v2/${feedFileName(target, variant)}`;
+  return `https://raw.githubusercontent.com/jimliu/baocut/main/apps/desktop/releases/${feedFileName(target, variant)}`;
 }
 
 const WINDOWS_DRIVE_PATH = /^[A-Za-z]:[\\/]/;

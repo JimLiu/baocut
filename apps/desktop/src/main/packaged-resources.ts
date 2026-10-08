@@ -49,7 +49,7 @@ export function packagedResources(resourcesPath: string, pathApi: path.PlatformP
 }
 
 /** 交给 Runtime 的环境变量（Runtime 各自的解析函数第一个看的就是它们）。 */
-export function packagedResourceEnv(resources: PackagedResources): Record<string, string> {
+export function packagedResourceEnv(resources: PackagedResources, platform: NodeJS.Platform = process.platform): Record<string, string> {
   return {
     BAOCUT_BIN_DIR: resources.binDir,
     BAOCUT_TEMPLATES_DIR: resources.templatesDir,
@@ -57,5 +57,6 @@ export function packagedResourceEnv(resources: PackagedResources): Record<string
     BAOCUT_AGENT_SKILLS_DIR: resources.agentSkillsDir,
     BAOCUT_MODEL_ASSETS_DIR: resources.modelAssetsDir,
     BAOCUT_WEB_DIST: resources.webDist,
+    ...(platform === 'darwin' ? { PMETAL_METALLIB_PATH: path.join(resources.binDir, 'mlx.metallib') } : {}),
   };
 }

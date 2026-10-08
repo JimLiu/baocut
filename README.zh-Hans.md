@@ -98,6 +98,7 @@ BAOCUT_HOME=.dev/baocut-home npm run cli -- status
 | `npm run dev:designs` | 用 Vite 启动可交互原型，起始地址为 `http://127.0.0.1:4331/#/home`，源码变化后自动构建并刷新。首次运行前执行 `npm --prefix designs/baocut ci`；见[原型 README](designs/baocut/README.md)。 |
 | `npm run build` | 构建 WASM、工具目录、外部智能体 skill，以及主进程、preload、Runtime 与界面；桌面产物位于 `apps/desktop/out`。 |
 | `npm start` | 构建并以生产方式运行桌面端，界面从文件加载；原生 Worker 与 WASM 分别用 `npm run build:engine`、`npm run build:wasm` 构建。 |
+| `npm run package:mac -- --build <n> --sign-sha1 <SHA1> --out <新目录>` | Apple Silicon 的签名、公证 ZIP 与 DMG，见[桌面端打包说明](apps/desktop/README.md#macos-打包)。 |
 | `npm run package:win` / `npm run package:win:cuda` / `npm run package:win:vulkan` | Windows x64 的 NSIS 安装包（按用户安装）与 zip，不签名；分别使用 CPU、CUDA（NVIDIA）或 Vulkan（Whisper 使用 GPU，candle 仍使用 CPU）配置。见[桌面端 README](apps/desktop/README.md#windows-打包)。 |
 | `npm run runtime` | 单独启动 Runtime，默认主目录为 `~/.baocut`。 |
 | `npm run cli -- --help` | 查看 `baocut` 命令一览。工具命令从 Runtime 的工具目录派生，与 MCP 共用；`baocut help <command>` 查看参数，`baocut spec` 输出机器可读目录。没有 Runtime 时自动在后台启动，空闲后退出；可用 `baocut runtime status\|ensure\|stop` 管理。退出码：0 成功、1 失败、2 需要用户处理、3 Runtime 不可用、4 参数错误。见 [Agent 面设计 §5](docs/design/agent-surface/agent-surface-design.md#5-cli-约定)。 |
@@ -111,7 +112,7 @@ BAOCUT_HOME=.dev/baocut-home npm run cli -- status
 BaoCut 正在积极开发，各平台的安装包与验证覆盖仍在完善：
 
 - Codex CLI 与 Claude Code 已有端到端验证。外部智能体的 CLI 链路已通过；MCP 链路在修复后通过脚本客户端复核，仍待 Claude Code 复跑。详见[验收记录](docs/acceptance/agent-surface-e2e.md)。其他内置引擎尚未在 BaoCut 中逐一验证。
-- 已实现 Apple Silicon（MLX、Core ML）和 Windows（whisper.cpp、candle）的本地推理后端。Windows 安装包不签名；CUDA 配置在[桌面端记录](apps/desktop/README.md#windows-打包)中尚未实际构建，Whisper 的 CUDA 与 Vulkan 路径尚未实测。Windows 凭据助手目前返回 `unsupported`，在线服务与远端节点的凭据功能不可用。macOS 暂无安装包，需要从源码运行。
+- 已实现 Apple Silicon（MLX、Core ML）和 Windows（whisper.cpp、candle）的本地推理后端。Windows 安装包不签名；CUDA 配置在[桌面端记录](apps/desktop/README.md#windows-打包)中尚未实际构建，Whisper 的 CUDA 与 Vulkan 路径尚未实测。Windows 凭据助手目前返回 `unsupported`，在线服务与远端节点的凭据功能不可用。Mac arm64 已有 Developer ID 签名、公证的打包流程，见[桌面端说明](apps/desktop/README.md#macos-打包)。
 - 部分本地模型权重（例如 OmniVoice、Qwen-Image）带有非商业许可，应用会在选择前提示。
 - 完整产品范围、发布阶段与当前进度见[产品设计 §11](docs/product/product-design.md#11-发布路线与成功指标)。
 

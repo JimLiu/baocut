@@ -9,6 +9,27 @@ BaoCut 的 Electron 桌面端：主进程（`src/main`）、preload 与渲染进
 | `tools/` | 对构建产物的检查（`check-file-fonts.mjs`、`check-model-assets.mjs`）、性能测量与打包脚本 |
 | `build/` | 打包用的资源：`icon.ico`（Windows）、`icon.icns`（macOS）、`icon.png`（1024），都由 `tools/app-icon/` 生成，`npm run icons` 重新导出，不手改 |
 
+## macOS 打包
+
+Apple Silicon、macOS 14+、Node 22.18+、Rust 与 Xcode 命令行工具上，从干净、已提交的仓库根运行：
+
+```sh
+npm run package:mac -- --build 60 \
+  --sign-sha1 <Developer-ID-证书完整-SHA1> \
+  --out /仓库外/全新产物目录 \
+  --download-base-url https://github.com/jimliu/baocut/releases/download/baocut-v3.0.0-build.60
+```
+
+版本从 `apps/desktop/package.json` 读取，App ID 为 `com.baocut.app`。build 号接着既有发布递增；上面的 60 是首个 3.0.0 候选，后续发布不复用。签名与加密备份见[签名说明](../../docs/macos-signing.md)，开发代理使用[发布 skill](../../.agents/skills/bcut-release/SKILL.md)。公证 profile 默认 `baocut-notary`，可用 `--notary-profile` 或 `BAOCUT_NOTARY_PROFILE` 覆盖；CI 独立钥匙串传 `--sign-keychain`。
+
+构建桌面与 Web 后，打包器用 `cargo build --release --locked --target aarch64-apple-darwin` 构建 Worker 与凭据助手；Model Worker 保留默认 MLX / Core ML 后端。同一次构建的 `mlx.metallib` 随包进入 `Contents/Resources/bin`，Runtime 通过 `PMETAL_METALLIB_PATH` 指定它。找到多份时必须用 `--metallib` 指向本次构建产物，不能借用开发机的缓存。`--bin-dir` 只用于已核对来源 commit 的 release 程序。
+
+Electron-builder 先装成 `BaoCut.app`；签名脚本用完整证书指纹选择身份，从内向外签名，不用 `--deep` 签名。App 和 DMG 都需 Apple 公证为 `Accepted`，随后 staple；最终 ZIP 从已 staple 的 App 生成，重新解压复验签名、公证票据与 Gatekeeper，并用解压出的应用执行 Runtime 与 Worker 自检。产物为 `BaoCut-<版本>-build.<n>-aarch64-apple-darwin.zip`、`.dmg`、对应 `.sha256`、`app-release.json` 与公证记录。中间 `notary-submission.zip` 不分发。输出目录必须全新或为空。
+
+包内资源与 Windows 用同一布局；Mac 的 `<resources>` 是 `Contents/Resources`。`node apps/desktop/tools/check-packaged-app.mjs /路径/BaoCut.app` 对真实包检查。仍需从仓库外、用独立 `BAOCUT_HOME` 启动 `verified-extraction/BaoCut.app` 检查页面与功能，签名成功不替代预览、导出、模型与 Agent 验收。ffmpeg 与 Agent 可执行文件沿用受管外部工具发现，不假装包含在安装包内。
+
+发布通过 GitHub Releases，归档文件名与内容不可变。`--download-base-url` 生成 App 自己的解析器验证过的 ZIP 更新清单；公开归档读回通过后才更新 `apps/desktop/releases/` 的版本钉。新版使用独立 ID，不将旧版官网的更新源直接换成新包；旧 skill 的 GitHub Latest 保持原状。具体顺序见发布 skill。
+
 ## Windows 打包
 
 在 Windows x64 上，从仓库根运行：

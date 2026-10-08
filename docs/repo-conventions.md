@@ -41,7 +41,7 @@
 - **TypeScript 不直接碰 Rust 内部**：只经 `bindings/` 的入口（WASM），或 Worker 进程的 IPC（如 `engine-host` 的 stdio JSON 行）。
 - **依赖不成环**，方向按架构设计 §13.1。
 - **测试就近放**：TypeScript 的单元测试与被测文件同目录（`seek.ts` 旁边是 `seek.test.ts`）；Rust 的集成测试放 crate 的 `tests/`，夹具放 `tests/fixtures/`。
-- **生成物不进 git**：构建出的文件（如 `packages/ui/src/render/generated/`）写进 `.gitignore`，由 `tools/` 的脚本生成。
+- **生成物不进 git**：构建出的文件（如 `packages/ui/src/render/generated/`）写进 `.gitignore`，由 `tools/` 的脚本生成。已验证发布产物的更新清单是版本钉，例外提交到 `apps/desktop/releases/`，仅在公开归档验收后更新。开发代理使用的发布 skill 放在 `.agents/skills/`，不进入 Runtime 加载的 `skills/` 或应用资源。
 - **随应用分发的数据文件不按模块相对路径找**：Runtime 与主进程被打进 `apps/desktop/out/main/` 的 bundle，`new URL('../x', import.meta.url)`、`__dirname` 指的是 bundle 的位置，到了打包后的应用里还在 asar 里面（子进程按路径读不到）。按路径读的数据要有一个解析函数，依次找环境变量、打包后的 `<resources>/<目录>`、从模块往上找仓库里的源目录，打包后的位置由主进程经环境变量告诉 Runtime；现有的是内置模板（`BAOCUT_TEMPLATES_DIR`）、内置 Agent skill（`BAOCUT_SKILLS_DIR`）、Web 客户端（`BAOCUT_WEB_DIST`）与模型数据 `packages/models/assets`（`BAOCUT_MODEL_ASSETS_DIR`，打包后是 `<resources>/model-assets`）。随应用分发的原生程序（Worker、凭据助手）同理，经 `process-host` 的 `findBundledBinary` 找：`BAOCUT_BIN_DIR`（打包后是 `<resources>/bin`，Windows 上带 `.exe`），开发时退回 cargo 产物目录。`<resources>` 下的布局只在 `apps/desktop/src/main/packaged-resources.ts` 定义，主进程、打包脚本与产物自检共用。新增这类文件放进已有的目录，或照同样的办法加一个，并让 `npm run check:model-assets` 一类对构建产物的检查覆盖它。能 `import` 的数据（JSON）直接打进 bundle。
 
 新增模块：

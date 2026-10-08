@@ -1,0 +1,2 @@
+"NSLocalNetworkUsageDescription" = "BaoCut 需要访问局域网，用来发现并连接远端算力节点（Remote Compute）。";
+"NSMicrophoneUsageDescription" = "BaoCut 需要使用麦克风录制音频，用于转录，或在「我的声音」里录一段你的声音用来克隆。";

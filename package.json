@@ -1,6 +1,6 @@
 {
   "name": "baocut",
-  "version": "0.1.0",
+  "version": "3.0.0",
   "private": true,
   "description": "BaoCut: an AI video agent with an editable video at the center",
   "license": "SEE LICENSE IN LICENSE",
@@ -42,7 +42,8 @@
     "cli": "node apps/cli/src/main.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "pretest": "npm run build:catalog && npm run build:agent-skill",
-    "test": "vitest run"
+    "test": "vitest run",
+    "package:mac": "npm run build && npm run build:web && node apps/desktop/tools/package-desktop.mjs --platform mac"
   },
   "engines": {
     "node": ">=22.18.0"

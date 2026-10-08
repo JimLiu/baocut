@@ -1,0 +1,2 @@
+"NSLocalNetworkUsageDescription" = "BaoCut potrzebuje dostępu do sieci lokalnej, aby wykrywać węzły Remote Compute i łączyć się z nimi.";
+"NSMicrophoneUsageDescription" = "BaoCut używa mikrofonu do nagrywania dźwięku do transkrypcji oraz do nagrania Twojego głosu do sklonowania w sekcji Moje głosy.";

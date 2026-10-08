@@ -77,8 +77,8 @@ describe('更新源', () => {
     expect(feedTarget('win32', 'x64')).toBe('x86_64-pc-windows-msvc');
     expect(feedTarget('darwin', 'x64')).toBeNull();
     expect(feedTarget('linux', 'x64')).toBeNull();
-    expect(feedUrl('aarch64-apple-darwin')).toBe('https://baocut.app/v2/appcast-aarch64-apple-darwin.json');
-    expect(feedUrl('x86_64-pc-windows-msvc')).toBe('https://baocut.app/v2/appcast-x86_64-pc-windows-msvc.json');
+    expect(feedUrl('aarch64-apple-darwin')).toBe('https://raw.githubusercontent.com/jimliu/baocut/main/apps/desktop/releases/appcast-aarch64-apple-darwin.json');
+    expect(feedUrl('x86_64-pc-windows-msvc')).toBe('https://raw.githubusercontent.com/jimliu/baocut/main/apps/desktop/releases/appcast-x86_64-pc-windows-msvc.json');
   });
 
   it('Windows 的 CUDA、Vulkan 版各读自己的更新源，标准版不带后缀', () => {
@@ -88,7 +88,7 @@ describe('更新源', () => {
     expect(feedFileName(win, 'cuda')).toBe('appcast-x86_64-pc-windows-msvc-cuda.json');
     expect(feedFileName(win, 'vulkan')).toBe('appcast-x86_64-pc-windows-msvc-vulkan.json');
     expect(feedFileName(win, '../x')).toBe('appcast-x86_64-pc-windows-msvc.json');
-    expect(feedUrl(win, 'cuda')).toBe('https://baocut.app/v2/appcast-x86_64-pc-windows-msvc-cuda.json');
+    expect(feedUrl(win, 'cuda')).toBe('https://raw.githubusercontent.com/jimliu/baocut/main/apps/desktop/releases/appcast-x86_64-pc-windows-msvc-cuda.json');
   });
 
   it('Windows 的本地路径与 file:// 地址', () => {
@@ -301,7 +301,7 @@ describe('何时启用', () => {
     hasFeedTarget: true,
     packaged: true,
     windows: false,
-    bundleId: 'com.jimliu.baocut',
+    bundleId: 'com.baocut.app',
     exeInAppBundle: true,
   };
 

@@ -1,0 +1,2 @@
+"NSLocalNetworkUsageDescription" = "BaoCut needs access to your local network to discover and connect to Remote Compute nodes.";
+"NSMicrophoneUsageDescription" = "BaoCut uses the microphone to record audio for transcription and to record your voice for cloning in My voices.";

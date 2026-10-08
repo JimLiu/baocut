@@ -92,6 +92,7 @@ BAOCUT_HOME=.dev/baocut-home npm run cli -- status
 | `npm run dev:designs` | Start the interactive prototype with Vite at `http://127.0.0.1:4331/#/home`, rebuilding and reloading on source changes. First run `npm --prefix designs/baocut ci`; see the [prototype README](designs/baocut/README.md). |
 | `npm run build` | Build main process, preload, Runtime and UI into `apps/desktop/out` |
 | `npm start` | Build and run the desktop app the production way (UI loaded from files) |
+| `npm run package:mac -- --build <n> --sign-sha1 <SHA1> --out <new-directory>` | Signed and notarized Apple Silicon ZIP and DMG; see the [desktop guide](apps/desktop/README.md#macos-打包). |
 | `npm run package:win` / `package:win:cuda` / `package:win:vulkan` | Windows x64 installer (NSIS, per-user) and zip, unsigned: CPU, CUDA (NVIDIA) or Vulkan (AMD / Intel) model worker. See [desktop README](apps/desktop/README.md#windows-打包) |
 | `npm run runtime` | Start the Runtime alone (default home `~/.baocut`) |
 | `npm run cli -- --help` | The `baocut` CLI. Tool commands derive from the Runtime's tool catalog (same as MCP); `baocut help <command>` for arguments, `baocut spec` for a machine-readable catalog. Starts a Runtime in the background when none is running and lets it exit when idle (`baocut runtime status\|ensure\|stop`). Exit codes: 0 ok, 1 failed, 2 user action needed, 3 Runtime unavailable, 4 bad arguments. Design in [Agent surface §5](docs/design/agent-surface/agent-surface-design.md#5-cli-约定) |
@@ -105,7 +106,7 @@ BAOCUT_HOME=.dev/baocut-home npm run cli -- status
 BaoCut is under active development and not yet released as a packaged app for every platform. What is true today:
 
 - Codex CLI and Claude Code are validated end to end, including an external-agent run over CLI and MCP ([record](docs/acceptance/agent-surface-e2e.md)). Other engines are built in but not individually tested in BaoCut.
-- Local inference is implemented for Apple Silicon (MLX, Core ML) and Windows (whisper.cpp, candle). The Windows installer is unsigned; CUDA and Vulkan variants build but have not been tested on hardware. There is no macOS installer yet; run from source.
+- Local inference is implemented for Apple Silicon (MLX, Core ML) and Windows (whisper.cpp, candle). The Windows installer is unsigned; CUDA and Vulkan variants build but have not been tested on hardware. Mac arm64 packaging supports Developer ID signing and notarization; see the [desktop guide](apps/desktop/README.md#macos-打包).
 - Some local model weights (OmniVoice, Qwen-Image) carry non-commercial licenses. The app says so before you pick them.
 - Full product scope, release stages and the current position on them: [Product design §11](docs/product/product-design.md).
 

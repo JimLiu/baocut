@@ -1,5 +1,6 @@
-// 桌面端打包（`npm run package:win`、`npm run package:win:cuda`、`npm run package:win:vulkan`）：把构建好的 Electron 产物、Runtime 要按路径读的东西与 Rust 的
-// Worker 装成 Windows x64 的安装包（NSIS，按用户安装、不要管理员）与 zip，不签名。规则见开发流程 §2、架构设计 §14。
+// 桌面端打包：Windows x64 用 package:win* 出未签名 NSIS / ZIP；Apple Silicon 用 package:mac 出 Developer ID 签名、公证的 ZIP / DMG。
+// 两个平台共用 staging 与 Runtime 资源布局。Mac 要 --build、--sign-sha1、全新输出目录与干净提交，签名流程在 macos-distribution.mjs。
+// Mac 选项：--platform mac、--notary-profile、--sign-keychain、--metallib；Windows 专属选项与流程如下。
 //
 // 先要有：`npm run build`（out/）与 `npm run build:web`（apps/web/dist）；根的 package:win 脚本会先跑它们。
 // 步骤：
@@ -48,6 +49,7 @@ import { BUNDLE_ID, PRODUCT_NAME, feedFileName, feedTarget, parseManifest, relea
 import { BUNDLED_EXECUTABLES, RESOURCE_DIRS } from '../src/main/packaged-resources.ts';
 import { ensureCargo } from '../../../tools/cargo-path.mjs';
 import { DISTRIBUTED_NOTICES } from '../../../tools/third-party-notices.ts';
+import { distributeMac, runMac, signingPreflight } from './macos-distribution.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DESKTOP = path.resolve(HERE, '..');
@@ -56,7 +58,7 @@ const ROOT = path.resolve(DESKTOP, '../..');
 /** 应用更新认的 bundle 标识；产品名决定 exe 与 NSIS 卸载程序的文件名（应用靠 `Uninstall BaoCut.exe` 认出安装版）。 */
 const APP_ID = BUNDLE_ID;
 /** 应用更新源的 target（应用按 win32 / x64 算出来的那个；与编 Worker 的 --target 无关）。 */
-const FEED_TARGET = feedTarget('win32', 'x64');
+let FEED_TARGET;
 
 /**
  * Model Worker 的后端，按显卡分三档：
@@ -104,12 +106,17 @@ const CUDA_NOTICE = [
 const { values: options } = parseArgs({
   options: {
     variant: { type: 'string', default: 'cpu' },
-    target: { type: 'string', default: 'x86_64-pc-windows-msvc' },
+    platform: { type: 'string', default: 'win' },
+    target: { type: 'string' },
+    'sign-sha1': { type: 'string' },
+    'notary-profile': { type: 'string', default: process.env.BAOCUT_NOTARY_PROFILE || 'baocut-notary' },
+    'sign-keychain': { type: 'string' },
+    metallib: { type: 'string' },
     'bin-dir': { type: 'string' },
     'cuda-redist': { type: 'string' },
     'worker-features': { type: 'string', default: '' },
     out: { type: 'string' },
-    targets: { type: 'string', default: 'nsis,zip' },
+    targets: { type: 'string' },
     'keep-staging': { type: 'boolean', default: false },
     build: { type: 'string' },
     'download-base-url': { type: 'string' },
@@ -168,11 +175,17 @@ function modelWorkerBuildEnv() {
   return env;
 }
 
+const isMac = options.platform === 'mac';
+if (!['win', 'mac'].includes(options.platform)) fail('--platform must be win or mac');
+options.target ??= isMac ? 'aarch64-apple-darwin' : 'x86_64-pc-windows-msvc';
+options.targets ??= isMac ? 'dmg,zip' : 'nsis,zip';
+FEED_TARGET = feedTarget(isMac ? 'darwin' : 'win32', isMac ? 'arm64' : 'x64');
 const variant = VARIANTS[options.variant];
 if (!variant) fail(`不认识的变体 ${options.variant}（cpu、cuda 或 vulkan）`);
-if (!options.target.includes('windows')) fail(`目前只打 Windows 的包，--target 是 ${options.target}`);
-const exe = (name) => `${name}.exe`;
-const outDir = path.resolve(options.out ?? path.join(DESKTOP, 'dist', options.variant));
+if (isMac ? options.target !== 'aarch64-apple-darwin' : !options.target.includes('windows')) fail(`Unsupported target: ${options.target}`);
+if (isMac && (process.platform !== 'darwin' || process.arch !== 'arm64' || options.variant !== 'cpu')) fail('macOS release requires native Apple Silicon and no Windows GPU variant');
+const exe = (name) => isMac ? name : `${name}.exe`;
+const outDir = path.resolve(options.out ?? path.join(DESKTOP, 'dist', isMac ? 'mac' : options.variant));
 const packageTargets = options.targets.split(',').filter(Boolean);
 const build = options.build === undefined || options.build === '' ? 0 : Number(options.build);
 if (!Number.isInteger(build) || build < 0) fail(`--build 要正整数，收到 ${options.build}`);
@@ -180,12 +193,21 @@ const downloadBase = options['download-base-url'] || null;
 if (downloadBase) {
   if (!/^https:\/\/[^\s?#]+$/.test(downloadBase)) fail(`--download-base-url 要不带查询参数的 https 地址，收到 ${downloadBase}`);
   if (build === 0) fail('--download-base-url 要同时给 --build');
-  if (!packageTargets.includes('nsis')) fail('--download-base-url 要出 nsis 安装器');
+  if (!isMac && !packageTargets.includes('nsis')) fail('--download-base-url 要出 nsis 安装器');
 }
 const rolloutHours = options['rollout-hours'] === undefined || options['rollout-hours'] === '' ? null : Number(options['rollout-hours']);
 if (rolloutHours !== null) {
   if (!Number.isFinite(rolloutHours) || rolloutHours < 0) fail(`--rollout-hours 要不小于 0 的数，收到 ${options['rollout-hours']}`);
   if (!downloadBase) fail('--rollout-hours 要同时给 --download-base-url');
+}
+
+let sourceCommit = null;
+if (isMac) {
+  if (build === 0 || options.targets !== 'dmg,zip') fail('Mac release requires --build and --targets dmg,zip');
+  if (existsSync(outDir) && readdirSync(outDir).length) fail('Mac release output directory must be new or empty');
+  if (runMac('git', ['status', '--porcelain=v1', '--untracked-files=all']).trim()) fail('Commit source changes before building a Mac release');
+  sourceCommit = runMac('git', ['rev-parse', 'HEAD']).trim();
+  signingPreflight(options['sign-sha1'], options['notary-profile'], options['sign-keychain']);
 }
 
 for (const required of [
@@ -207,8 +229,8 @@ if (options['bin-dir']) {
   ensureCargo();
   const cargo = ['build', '--release', '--locked', '--target', options.target];
   run('cargo', [...cargo, ...BUNDLED_EXECUTABLES.filter((name) => name !== 'model-worker').flatMap((name) => ['-p', name])]);
-  const features = [...variant.modelWorkerFeatures, ...options['worker-features'].split(',').filter(Boolean)];
-  run('cargo', [...cargo, '-p', 'model-worker', '--no-default-features', '--features', features.join(',')], modelWorkerBuildEnv());
+  const features = [...(isMac ? [] : variant.modelWorkerFeatures), ...options['worker-features'].split(',').filter(Boolean)];
+  run('cargo', [...cargo, '-p', 'model-worker', ...(isMac ? [] : ['--no-default-features']), ...(features.length ? ['--features', features.join(',')] : [])], isMac ? process.env : modelWorkerBuildEnv());
   const metadata = spawnSync('cargo', ['metadata', '--format-version', '1', '--no-deps'], {
     cwd: ROOT,
     encoding: 'utf8',
@@ -247,6 +269,7 @@ try {
         main: 'out/main/index.js',
         // 应用更新读这两个（app-update-ipc.ts）：build 号比清单，变体决定读哪一份更新源。没有 build 号的包不检查更新。
         ...(build > 0 ? { baocutBuild: build } : {}),
+        ...(isMac ? { baocutSourceCommit: sourceCommit } : {}),
         baocutVariant: options.variant,
         dependencies,
       },
@@ -283,6 +306,13 @@ try {
     }
     writeFileSync(path.join(bin, 'CUDA-RUNTIME-NOTICE.txt'), CUDA_NOTICE);
   }
+  if (isMac) {
+    const buildDir = path.join(binSource, 'build');
+    const candidates = existsSync(buildDir) ? readdirSync(buildDir).filter((name) => name.startsWith('pmetal-mlx-sys-')).map((name) => path.join(buildDir, name, 'out/build/lib/mlx.metallib')).filter((file) => existsSync(file)) : [];
+    const metallib = options.metallib || (candidates.length === 1 ? candidates[0] : null);
+    if (!metallib || !existsSync(metallib)) fail('Require exactly one release mlx.metallib or pass --metallib from the same build');
+    cpSync(metallib, path.join(bin, 'mlx.metallib'));
+  }
   cpSync(path.join(ROOT, 'templates'), path.join(resDir, RESOURCE_DIRS.templates), { recursive: true });
   cpSync(path.join(ROOT, 'skills'), path.join(resDir, RESOURCE_DIRS.skills), { recursive: true });
   cpSync(path.join(ROOT, 'agent-skills'), path.join(resDir, RESOURCE_DIRS.agentSkills), { recursive: true });
@@ -290,14 +320,14 @@ try {
   cpSync(path.join(ROOT, 'apps/web/dist'), path.join(resDir, RESOURCE_DIRS.web), { recursive: true });
 
   // 4. electron-builder。
-  const { build, Platform, Arch } = await import('electron-builder');
+  const { build: buildElectron, Platform, Arch } = await import('electron-builder');
   const electronVersion = JSON.parse(readFileSync(path.join(resolvePackage('electron', ROOT), 'package.json'), 'utf8')).version;
   const onWindows = process.platform === 'win32';
   const buildPart = build > 0 ? `-build.${build}` : '';
-  const artifact = `${PRODUCT_NAME}-\${version}${buildPart}-win-x64${variant.suffix}`;
-  await build({
+  const artifact = `${PRODUCT_NAME}-\${version}${buildPart}-${isMac ? 'aarch64-apple-darwin' : `win-x64${variant.suffix}`}`;
+  await buildElectron({
     projectDir: appDir,
-    targets: Platform.WINDOWS.createTarget(packageTargets, Arch.x64),
+    targets: isMac ? Platform.MAC.createTarget(['dir'], Arch.arm64) : Platform.WINDOWS.createTarget(packageTargets, Arch.x64),
     publish: 'never',
     config: {
       appId: APP_ID,
@@ -315,6 +345,20 @@ try {
       ],
       // 不改 Electron 的 fuse：渲染进程靠 GrantFileProtocolExtraPrivileges 读 file:// 的模块与字体，Runtime 靠 RunAsNode 以
       // Node 方式启动（架构设计 §9.1 的字体一节）。要关就得先把渲染进程改由自定义协议供给。
+      mac: {
+        icon: path.join(DESKTOP, 'build', 'icon.icns'),
+        category: 'public.app-category.video',
+        minimumSystemVersion: '14.0',
+        bundleVersion: String(build),
+        identity: null,
+        notarize: false,
+        extendInfo: {
+          NSLocalNetworkUsageDescription: 'BaoCut discovers and connects to local compute devices for transcription and generation.',
+          NSMicrophoneUsageDescription: 'BaoCut needs microphone access to record audio for transcription.',
+          NSBonjourServices: ['_baocut-node._tcp'],
+        },
+        extraFiles: [{ from: path.join(DESKTOP, 'build/localizations'), to: 'Resources' }],
+      },
       win: {
         icon: path.join(DESKTOP, 'build', 'icon.ico'),
         artifactName: `${artifact}.\${ext}`,
@@ -331,7 +375,7 @@ try {
   });
 
   // 5. 核对解开的包。
-  const unpacked = path.join(outDir, 'win-unpacked');
+  const unpacked = isMac ? path.join(outDir, 'mac-arm64', `${PRODUCT_NAME}.app`) : path.join(outDir, 'win-unpacked');
   verifyUnpacked(unpacked, options.variant);
   for (const name of readdirSync(outDir)) {
     const file = path.join(outDir, name);
@@ -340,7 +384,24 @@ try {
   }
 
   // 6. 发布报告与更新源。
-  writeReleaseFiles(`${PRODUCT_NAME}-${desktop.version}${buildPart}-win-x64${variant.suffix}`, desktop.version);
+  if (isMac) {
+    const stem = `${PRODUCT_NAME}-${desktop.version}${buildPart}-aarch64-apple-darwin`;
+    const distribution = await distributeMac({ app: unpacked, output: outDir, stem, version: desktop.version, build, appId: APP_ID,
+      signingSha1: options['sign-sha1'], profile: options['notary-profile'], keychain: options['sign-keychain'],
+      executables: BUNDLED_EXECUTABLES.map((name) => path.join(unpacked, 'Contents/Resources/bin', name)),
+      entitlements: path.join(DESKTOP, 'build/entitlements.mac.plist') });
+    run(process.execPath, [path.join(HERE, 'check-packaged-app.mjs'), distribution.verifiedApp]);
+    const report = { schema: 1, product: PRODUCT_NAME, appId: APP_ID, version: desktop.version, build, target: FEED_TARGET,
+      sourceCommit, minimumSystemVersion: '14.0', ...distribution };
+    writeFileSync(path.join(outDir, 'app-release.json'), `${JSON.stringify(report, null, 2)}\n`);
+    if (downloadBase) {
+      const manifest = releaseManifest({ target: FEED_TARGET, variant: 'cpu', version: desktop.version, build, date: new Date().toISOString().slice(0, 10),
+        format: 'zip', url: `${downloadBase.replace(/\/+$/, '')}/${distribution.portable.file}`, size: distribution.portable.size, sha256: distribution.portable.sha256 });
+      const text = `${JSON.stringify(manifest, null, 2)}\n`;
+      if (!parseManifest(text, FEED_TARGET, false).ok) fail('Mac appcast validation failed');
+      writeFileSync(path.join(outDir, feedFileName(FEED_TARGET, null)), text);
+    }
+  } else writeReleaseFiles(`${PRODUCT_NAME}-${desktop.version}${buildPart}-win-x64${variant.suffix}`, desktop.version);
 } finally {
   if (options['keep-staging']) console.log(`临时目录留着：${staging}`);
   else rmSync(staging, { recursive: true, force: true });
@@ -473,13 +534,13 @@ function copyClosure(names, fromDir, toModules) {
 /** 解开的包里应有的东西：与主进程交给 Runtime 的位置（packaged-resources.ts）逐项对上。 */
 function verifyUnpacked(dir, variantName) {
   const problems = [];
-  const resources = path.join(dir, 'resources');
+  const resources = path.join(dir, isMac ? 'Contents/Resources' : 'resources');
   for (const { source, fileName } of DISTRIBUTED_NOTICES) {
     const file = path.join(resources, fileName);
     if (!existsSync(file)) problems.push(`没有 resources/${fileName}`);
     else if (!readFileSync(file).equals(readFileSync(path.join(ROOT, source)))) problems.push(`resources/${fileName} 与源码声明不一致`);
   }
-  if (!existsSync(path.join(dir, `${PRODUCT_NAME}.exe`))) problems.push(`没有 ${PRODUCT_NAME}.exe`);
+  if (!existsSync(path.join(dir, isMac ? `Contents/MacOS/${PRODUCT_NAME}` : `${PRODUCT_NAME}.exe`))) problems.push(`没有 ${PRODUCT_NAME}.exe`);
   for (const name of BUNDLED_EXECUTABLES) {
     if (!existsSync(path.join(resources, RESOURCE_DIRS.bin, exe(name)))) problems.push(`没有 resources/${RESOURCE_DIRS.bin}/${exe(name)}`);
   }

@@ -16,7 +16,7 @@ describe('packagedResources', () => {
   });
 
   it('hands the Runtime one environment variable per location', () => {
-    const env = packagedResourceEnv(packagedResources('/r', path.posix));
+    const env = packagedResourceEnv(packagedResources('/r', path.posix), 'win32');
     expect(env).toEqual({
       BAOCUT_BIN_DIR: '/r/bin',
       BAOCUT_TEMPLATES_DIR: '/r/templates',
@@ -25,5 +25,9 @@ describe('packagedResources', () => {
       BAOCUT_MODEL_ASSETS_DIR: '/r/model-assets',
       BAOCUT_WEB_DIST: '/r/web',
     });
+  });
+  it('pins macOS MLX to the shipped Metal library', () => {
+    expect(packagedResourceEnv(packagedResources('/r'), 'darwin').PMETAL_METALLIB_PATH).toBe('/r/bin/mlx.metallib');
+    expect(packagedResourceEnv(packagedResources('/r'), 'win32')).not.toHaveProperty('PMETAL_METALLIB_PATH');
   });
 });
