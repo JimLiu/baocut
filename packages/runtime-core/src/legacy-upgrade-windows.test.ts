@@ -131,3 +131,25 @@ it('preserves Windows model directories and UNC download directories through set
   expect(store.get('downloads.directory')).toBe('\\\\nas\\media\\Exports');
   await expect(store.set({ 'downloads.directory': '\\\\nas' })).rejects.toThrow();
 });
+
+it('imports the v2 download folder, but leaves the old default ~/Downloads to the host Downloads folder', async () => {
+  const cases: [NodeJS.Platform, string, string, string | null][] = [
+    ['win32', 'C:\\Users\\Jim', 'D:\\Videos\\Downie', 'D:\\Videos\\Downie'],
+    ['win32', 'C:\\Users\\Jim', '~/Downloads', null],
+    ['win32', 'C:\\Users\\Jim', 'c:\\users\\jim\\downloads\\', null],
+    ['darwin', '/Users/jim', '/Volumes/ExtremeSSD/Downie', '/Volumes/ExtremeSSD/Downie'],
+    ['darwin', '/Users/jim', '~/Downloads', null],
+    ['darwin', '/Users/jim', '/Users/jim/Downloads/', null],
+    ['darwin', '/Users/jim', '~/Downloads/BaoCut', '/Users/jim/Downloads/BaoCut'],
+  ];
+  for (const [index, [platform, home, saved, expected]] of cases.entries()) {
+    const store = new SettingsStore(path.join(dir, `settings-${index}.json`));
+    await store.load();
+    const root = platform === 'win32' ? `${home}\\AppData\\Roaming\\BaoCut` : `${home}/Library/Application Support/BaoCut`;
+    const source = { root, config: {}, preferences: { 'vk-url-savedir': saved }, cloud: {}, projects: [] };
+    const imported = await importLegacySettings(store, source, {}, platform, home);
+    await store.load();
+    expect(store.get('downloads.directory'), `${platform} ${saved}`).toBe(expected);
+    expect(imported.includes('downloads.directory')).toBe(expected !== null);
+  }
+});

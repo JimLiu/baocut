@@ -16,6 +16,7 @@ export const ko: VideoInfoMessages = {
     contents: '내용',
     translation: '번역',
     location: '위치',
+    file: '원본 파일',
     media: '미디어',
     transcript: '전사',
     channel: '채널',
@@ -23,5 +24,7 @@ export const ko: VideoInfoMessages = {
     platform: '플랫폼',
     mediaId: '영상 ID',
     url: 'URL',
+    title: '원래 제목',
+    description: '설명',
   },
 };

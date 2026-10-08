@@ -51,6 +51,27 @@ test('来源信息逐项放行，网址导入才有', () => {
   assert.strictEqual(PI.prettyDate('2026-04-20'), null);
 });
 
+test('原标题与原简介：标题与项目标题一样时省略，简介限高、复制全文', () => {
+  const p = fromUrl();
+  p.source = Object.assign({}, p.source, {title: '科浪电台 · 第 42 期', desc: '第一段\n第二段'});
+  const meta = PI.sections(p, '03:12', [])[1];
+  assert.deepStrictEqual(meta.rows.map((r) => r.label),
+    ['原标题', '频道', '发布', '平台', '播放量', '视频 ID', '原简介']);
+  const desc = meta.rows[6];
+  assert.strictEqual(desc.long, true, '原简介在框里限高滚动');
+  assert.ok(PI.copyText(p.title, '', [meta]).includes('原简介: 第一段\n  第二段\n'), '复制走全文');
+  // 没改过名：原标题就是 hero 那行，不重复。
+  p.source.title = p.title;
+  assert.ok(!PI.sections(p, '03:12', [])[1].rows.some((r) => r.label === '原标题'));
+});
+
+test('位置那一行带着要在文件夹中显示的路径', () => {
+  const loc = PI.sections(local(), '03:12', [])[0].rows[0];
+  assert.strictEqual(loc.label, '位置');
+  assert.strictEqual(loc.reveal, '~/Movies/口播/talk-take2.mp4');
+  assert.ok(!PI.sections(local(), '03:12', [])[0].rows[1].reveal, '别的行没有');
+});
+
 test('省略号只进眼睛不进剪贴板', () => {
   const long = '“The default way to code is vibecoding.” OpenAI chief research officer.mp4';
   const short = PI.elideMiddle(long, PI.HERO_NAME_MAX);

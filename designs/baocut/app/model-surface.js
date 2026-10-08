@@ -30,12 +30,14 @@
       /* 按需下载的字体（product-design §5.9）：选字框是「内置 / 本机 / 已下载 / 可下载」一张表，打开视频时自动下载
          用到的字体（编辑器顶上一条字体条），导出面板说明字体的下载状态。Web 对应的浏览器会话没有 `fonts.*`，保持原来的三段选字框。 */
       fontDownloads: true,
+      /* 在文件夹中显示：交给系统的文件管理器（访达 / 资源管理器）打开所在文件夹。浏览器做不到，Web 不画这颗按钮。 */
+      reveal: true,
     },
     web: {
       id: 'web', name: 'BaoCut Web',
       ai: false, agent: false, pages: false, help: false, windowChrome: false,
       importMedia: true, flashFix: false, remote: false,
-      sidebarDefaultOpen: false, appRail: false, fontDownloads: false,
+      sidebarDefaultOpen: false, appRail: false, fontDownloads: false, reveal: false,
     },
   };
 

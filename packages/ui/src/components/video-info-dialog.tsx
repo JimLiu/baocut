@@ -1,7 +1,23 @@
 import { useRef, useState } from 'react';
 import { live, type SpaceEntry } from '@baocut/protocol';
-import { Button, ButtonGroup, Content, Dialog, DialogContainer, Heading, TextArea, TextField, ToastQueue } from '@react-spectrum/s2';
+import {
+  ActionButton,
+  Button,
+  ButtonGroup,
+  Content,
+  Dialog,
+  DialogContainer,
+  Heading,
+  TextArea,
+  TextField,
+  ToastQueue,
+  Tooltip,
+  TooltipTrigger,
+} from '@react-spectrum/s2';
+import Folder from '@react-spectrum/s2/icons/Folder';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
+import { revealLabel } from '../copy.ts';
+import { useRuntime } from '../runtime/context.tsx';
 import { S } from './shell-copy.ts';
 import { entryPath } from '../model/space.ts';
 import { copyText, elideMiddle, entryFacts, HERO_NAME_MAX, heroLine, sections, type InfoRow, type VideoInfoFacts } from '../model/video-info.ts';
@@ -12,7 +28,8 @@ import { copyText, elideMiddle, entryFacts, HERO_NAME_MAX, heroLine, sections, t
  *
  * 只有名字能改（编辑器那条路，`renameVideo`）：失焦、回车或点「完成」时提交一次，不是每敲一个字一笔修改；空的或没改的
  * 还原。按 Esc 关掉时丢掉没提交的草稿。简介、备注没有地方存，置灰写明原因。
- * 不放「在文件夹中显示」「重新关联媒体」：前者在视频栏的菜单里，后者是缺媒体时的事。
+ * 「位置」「源文件」行尾有「在文件夹中显示」（行的 `reveal`），交给主机的文件管理器；Web 的主机做不到，不画。原简介限高滚动。
+ * 不放「重新关联媒体」：那是缺媒体时的事。
  */
 export const VIDEO_INFO_COPY = live(() => S.videoInfo);
 const C = VIDEO_INFO_COPY;
@@ -35,7 +52,11 @@ const value = style({
   whiteSpace: 'pre-wrap',
   overflowWrap: 'anywhere',
   userSelect: 'text',
+  maxHeight: { isLong: 160 },
+  overflowY: { isLong: 'auto' },
+  overscrollBehavior: { isLong: 'contain' },
 });
+const rowAction = style({ flexShrink: 0, alignSelf: 'center', marginY: -4 });
 const form = style({ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 12 });
 const full = style({ width: 'full' });
 
@@ -57,6 +78,8 @@ export function VideoInfoDialog({ facts, extras = [], onRename, renameNote = nul
   const pending = useRef<Promise<boolean> | null>(null);
   const list = sections(facts, extras);
   const heroText = heroLine(facts.source);
+  const host = useRuntime().host;
+  const canReveal = host.platform !== 'web';
 
   /** 提交名字的草稿；没有草稿、空的或没改时还原并当作成功。失败时留着草稿，错误由改名的一方提示。 */
   const commit = (): Promise<boolean> => {
@@ -121,7 +144,20 @@ export function VideoInfoDialog({ facts, extras = [], onRename, renameNote = nul
                       {s.rows.map((r) => (
                         <div key={r.label} className={rowLine}>
                           <dt className={label}>{r.label}</dt>
-                          <dd className={value({ isMono: r.mono })}>{r.value}</dd>
+                          <dd className={value({ isMono: r.mono, isLong: !!r.long })}>{r.value}</dd>
+                          {r.reveal && canReveal ? (
+                            <TooltipTrigger>
+                              <ActionButton
+                                isQuiet
+                                size="S"
+                                styles={rowAction}
+                                aria-label={`${revealLabel()}: ${r.label}`}
+                                onPress={() => void host.revealPath(r.reveal!)}>
+                                <Folder />
+                              </ActionButton>
+                              <Tooltip>{revealLabel()}</Tooltip>
+                            </TooltipTrigger>
+                          ) : null}
                         </div>
                       ))}
                     </dl>

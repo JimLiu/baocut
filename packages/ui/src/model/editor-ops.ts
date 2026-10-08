@@ -364,7 +364,18 @@ export function assetFilePath(asset: AssetRecord, videoDir: string | null): stri
   if (path.startsWith('/') || /^[A-Za-z]:[\\/]/.test(path) || path.startsWith('\\\\')) return path;
   if (!videoDir) return null;
   const windows = /^[A-Za-z]:\\/.test(videoDir) || videoDir.startsWith('\\\\');
-  return `${videoDir.replace(/[\\/]+$/, '')}${windows ? '\\' : '/'}${path.replace(/^[\\/]+/, '')}`;
+  // 链到视频目录外的（`../downloads/a.webm`）折掉 `.` 与 `..`，显示与交给文件管理器的都是干净的路径。
+  const sep = windows ? '\\' : '/';
+  const parts = videoDir.replace(/[\\/]+$/, '').split(/[\\/]/);
+  // 不越过根：`/`（分出来是空串）、`C:`，或 UNC 的 `\\server\share`。
+  const root = videoDir.startsWith('\\\\') ? 4 : 1;
+  for (const segment of path.split(/[\\/]+/)) {
+    if (!segment || segment === '.') continue;
+    if (segment === '..') {
+      if (parts.length > root) parts.pop();
+    } else parts.push(segment);
+  }
+  return parts.length === 1 ? `${parts[0]}${sep}` : parts.join(sep);
 }
 
 /** 配音组里的一行文件（设计稿 `.agfile`）：分离出的背景声（与人声）各一行，每句一行；没合成、过长、译文过期的句没有实例，也列出来。 */

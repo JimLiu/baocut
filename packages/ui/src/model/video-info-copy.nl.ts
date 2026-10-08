@@ -18,6 +18,7 @@ export const nl: VideoInfoMessages = {
     contents: "Inhoud",
     translation: "Vertaling",
     location: "Locatie",
+    file: "Bestand",
     media: "Media",
     transcript: "Transcriptie",
     channel: "Kanaal",
@@ -25,5 +26,7 @@ export const nl: VideoInfoMessages = {
     platform: "Platform",
     mediaId: "Video-ID",
     url: "URL",
+    title: "Oorspronkelijke titel",
+    description: "Omschrijving",
   },
 };

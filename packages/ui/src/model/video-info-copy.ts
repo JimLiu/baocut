@@ -32,6 +32,7 @@ const en = {
     contents: 'Contents',
     translation: 'Translation',
     location: 'Location',
+    file: 'Source file',
     media: 'Media',
     transcript: 'Transcription',
     channel: 'Channel',
@@ -39,6 +40,8 @@ const en = {
     platform: 'Platform',
     mediaId: 'Video ID',
     url: 'URL',
+    title: 'Original title',
+    description: 'Description',
   },
 };
 export type VideoInfoMessages = typeof en;

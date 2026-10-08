@@ -7,5 +7,5 @@ export const es: VideoInfoMessages = {
   paragraphs: (count: number) => `${count} ${pluralForm('es', count, { one: 'párrafo', other: 'párrafos' })}`,
   list: (names: readonly string[]) => names.join(', '),
   sourceKind: { 'link-import': 'Importado desde URL', 'user-import': 'Archivo local', generated: 'Generado', library: 'Biblioteca del usuario' },
-  row: { contents: 'Contenido', translation: 'Traducción', location: 'Ubicación', media: 'Medios', transcript: 'Transcripción', channel: 'Canal', published: 'Publicado', platform: 'Plataforma', mediaId: 'ID de vídeo', url: 'URL' },
+  row: { contents: 'Contenido', translation: 'Traducción', location: 'Ubicación', file: 'Archivo', media: 'Medios', transcript: 'Transcripción', channel: 'Canal', published: 'Publicado', platform: 'Plataforma', mediaId: 'ID de vídeo', url: 'URL', title: 'Título original', description: 'Descripción' },
 };

@@ -7,5 +7,5 @@ export const fr: VideoInfoMessages = {
   chapters: (count) => `${count} ${pluralForm('fr', count, { one: 'chapitre', other: 'chapitres' })}`,
   paragraphs: (count) => `${count} ${pluralForm('fr', count, { one: 'paragraphe', other: 'paragraphes' })}`, list: (names) => names.join(', '),
   sourceKind: { 'link-import': 'Importé depuis une URL', 'user-import': 'Fichier local', generated: 'Généré', library: 'Bibliothèque utilisateur' },
-  row: { contents: 'Contenu', translation: 'Traduction', location: 'Emplacement', media: 'Médias', transcript: 'Transcription', channel: 'Chaîne', published: 'Publication', platform: 'Plateforme', mediaId: 'ID vidéo', url: 'URL' },
+  row: { contents: 'Contenu', translation: 'Traduction', location: 'Emplacement', file: 'Fichier', media: 'Médias', transcript: 'Transcription', channel: 'Chaîne', published: 'Publication', platform: 'Plateforme', mediaId: 'ID vidéo', url: 'URL', title: 'Titre d’origine', description: 'Description' },
 };

@@ -17,6 +17,7 @@ export const pl: VideoInfoMessages = {
     contents: "Zawartość",
     translation: "Tłumaczenie",
     location: "Lokalizacja",
+    file: "Plik",
     media: "Multimedia",
     transcript: "Transkrypcja",
     channel: "Kanał",
@@ -24,5 +25,7 @@ export const pl: VideoInfoMessages = {
     platform: "Platforma",
     mediaId: "ID wideo",
     url: "Adres URL",
+    title: "Oryginalny tytuł",
+    description: "Opis",
   },
 };

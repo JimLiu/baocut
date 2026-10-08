@@ -17,6 +17,7 @@ export const ru: VideoInfoMessages = {
     contents: "Содержимое",
     translation: "Перевод",
     location: "Расположение",
+    file: "Файл",
     media: "Медиа",
     transcript: "Расшифровка",
     channel: "Канал",
@@ -24,5 +25,7 @@ export const ru: VideoInfoMessages = {
     platform: "Платформа",
     mediaId: "ID видео",
     url: "Ссылка",
+    title: "Исходное название",
+    description: "Описание",
   },
 };

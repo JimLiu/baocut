@@ -16,6 +16,7 @@ export const ja: VideoInfoMessages = {
     contents: '内容',
     translation: '翻訳',
     location: '場所',
+    file: '元ファイル',
     media: 'メディア',
     transcript: '文字起こし',
     channel: 'チャンネル',
@@ -23,5 +24,7 @@ export const ja: VideoInfoMessages = {
     platform: 'プラットフォーム',
     mediaId: '動画 ID',
     url: 'URL',
+    title: '元のタイトル',
+    description: '説明',
   },
 };

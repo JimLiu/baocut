@@ -16,6 +16,7 @@ export const tr: VideoInfoMessages = {
     contents: 'İçerik',
     translation: 'Çeviri',
     location: 'Konum',
+    file: 'Dosya',
     media: 'Medya',
     transcript: 'Yazıya dökme',
     channel: 'Kanal',
@@ -23,5 +24,7 @@ export const tr: VideoInfoMessages = {
     platform: 'Platform',
     mediaId: 'Video ID',
     url: 'URL',
+    title: 'Orijinal başlık',
+    description: 'Açıklama',
   },
 };

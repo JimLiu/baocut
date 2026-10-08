@@ -16,6 +16,7 @@ export const zhHant: VideoInfoMessages = {
     contents: '內容',
     translation: '譯文',
     location: '位置',
+    file: '來源檔案',
     media: '媒體',
     transcript: '轉錄',
     channel: '頻道',
@@ -23,5 +24,7 @@ export const zhHant: VideoInfoMessages = {
     platform: '平台',
     mediaId: '影片 ID',
     url: '網址',
+    title: '原標題',
+    description: '原簡介',
   },
 };

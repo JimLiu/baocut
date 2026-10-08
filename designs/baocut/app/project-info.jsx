@@ -11,27 +11,34 @@
    一段视频的来龙去脉贴进工单、贴给同事、贴回 Agent 会话，逐行手抄是最没道理的事。
    唯一的例外是 hero 那行的文件名——屏幕上它可能中间省略，复制走完整值。
 
-   红线（App v2 明确不做，这里也不画）：在文件夹中显示 / 重新关联媒体…。
-   前者是文件管理器的活，后者是项目卡 ⋯ 菜单里那条已有入口，详情框不做第二个门。 */
+   「位置」行尾有一颗「在文件夹中显示」（2026-10-08 用户要求）：看详情时最常接着要做的
+   就是去访达 / 资源管理器里找这份文件——尤其是从网址导入的，它落在下载目录里，不在项目
+   旁边。只在能交给系统文件管理器的表面画（`BC_SURFACE.reveal`，Web 没有）。
+   「原简介」（下载时记下的平台简介）可以很长，限高滚动，不把框撑到一屏以外。
+
+   红线（这里也不画）：重新关联媒体…。那是项目卡 ⋯ 菜单里已有的入口，详情框不做第二个门。 */
 (function () {
   const {useMemo} = React;
   const T = window.BC_TIME;
   const PI = window.BC_PINFO;
 
-  function Row({r}) {
+  function Row({r, onReveal}) {
     return (
       <div className="pinfo__row">
         <span className="pinfo__k">{r.label}</span>
-        <span className={cx('pinfo__v', r.mono && 't-mono')}>{r.value}</span>
+        <span className={cx('pinfo__v', r.mono && 't-mono', r.long && 'pinfo__v--long')}>{r.value}</span>
+        {r.reveal && onReveal
+          ? <IconBtn icon="folder" size="s" className="pinfo__act" tip="在文件夹中显示" onClick={() => onReveal(r.reveal)} />
+          : null}
       </div>
     );
   }
 
-  function Section({s}) {
+  function Section({s, onReveal}) {
     return (
       <div className="pinfo__sec">
         <div className="pinfo__st">{s.title}</div>
-        {s.rows.map((r, i) => <Row key={s.title + i} r={r} />)}
+        {s.rows.map((r, i) => <Row key={s.title + i} r={r} onReveal={onReveal} />)}
       </div>
     );
   }
@@ -60,6 +67,7 @@
       if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
       app.toast('已复制视频详情', 'positive');
     };
+    const reveal = window.BC_SURFACE.reveal ? (path) => app.toast(`已在文件夹中显示 ${path}（演示）`) : null;
     return (
       <Dialog open title="视频详情" width={500} onClose={app.closeProjectInfo}
         footer={[
@@ -76,7 +84,7 @@
             </div>
           </div>
         </div>
-        {secs.map((s) => <Section key={s.title} s={s} />)}
+        {secs.map((s) => <Section key={s.title} s={s} onReveal={reveal} />)}
         <div className="pinfo__form">
           <EditRow label="标题" value={p.title} onChange={(v) => app.patchProject(p.id, {title: v})} />
           <EditRow label="网址" value={p.url} onChange={(v) => app.patchProject(p.id, {url: v})} />

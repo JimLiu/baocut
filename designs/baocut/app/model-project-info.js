@@ -16,7 +16,11 @@
 
    3. **省略号只进眼睛，不进剪贴板。** hero 那行的源文件名可以是一整段被当成文件名
       的标题，显示时中间省略（[elideMiddle](#elideMiddle)）；复制走的是完整值，
-      「位置」行也始终是完整路径。 */
+      「位置」行也始终是完整路径。原简介在框里限高滚动，复制同样是全文。
+
+   网址导入的项目带着下载时记下的页面标题与简介（「原标题」「原简介」，YouTube 那一份）：
+   原标题与项目标题一样时省略（hero 已经写着），改过名才有用；原简介是平台上的原文，
+   和下面可编辑的「简介」不是一回事，所以名字前面带「原」。 */
 (function () {
   /** hero 第二行（源文件名）在 500pt 对话框里放得下的字符数。 */
   const HERO_NAME_MAX = 56;
@@ -42,8 +46,8 @@
     return name ? `${srcTypeLabel(p)} · ${name}` : srcTypeLabel(p);
   }
 
-  function row(label, value, mono) {
-    return {label, value, mono: !!mono};
+  function row(label, value, mono, extra) {
+    return Object.assign({label, value, mono: !!mono}, extra || {});
   }
 
   /** 千分位。App v2 `fmt_count` 同口径。 */
@@ -91,7 +95,8 @@
   function mediaRows(p, durationText) {
     const rows = [];
     const path = ((p.src && p.src.path) || '').trim();
-    if (path) rows.push(row('位置', path, true));
+    // `reveal`：这一行的值是磁盘上的位置，框里在它旁边放「在文件夹中显示」（表面能做到时）。
+    if (path) rows.push(row('位置', path, true, {reveal: path}));
     const media = [durationText];
     if (p.src && p.src.res) media.push(p.src.res);
     if (p.src && p.src.format) media.push(p.src.format);
@@ -105,12 +110,17 @@
     const s = p.source;
     if (!s) return [];
     const rows = [];
+    const title = (s.title || '').trim();
+    if (title && title !== (p.title || '').trim()) rows.push(row('原标题', title));
     if (s.uploader) rows.push(row('频道', s.uploader));
     const date = prettyDate(s.publishedAt);
     if (date) rows.push(row('发布', date));
     if (s.platform) rows.push(row('平台', s.platform));
     if (typeof s.views === 'number' && s.views >= 0) rows.push(row('播放量', fmtCount(s.views)));
     if (s.videoId) rows.push(row('视频 ID', s.videoId, true));
+    const desc = (s.desc || '').trim();
+    // 原简介可以很长（YouTube 上限五千字）：`long` 让框里限高滚动，复制仍是全文。
+    if (desc) rows.push(row('原简介', desc, false, {long: true}));
     return rows;
   }
 

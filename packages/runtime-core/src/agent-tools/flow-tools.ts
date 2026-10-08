@@ -109,7 +109,7 @@ const schemas = {
       .boolean()
       .optional()
       .describe(
-        '可选。不建视频：给 file 时在 outDir（不给时下载目录）写 <文件名>.txt 与 .srt；给 url 时下载的文件与文稿放进 project 的 downloads/ 或下载目录',
+        '可选。不建视频：给 file 时在 outDir（不给时下载目录）写 <文件名>.txt 与 .srt；给 url 时下载的文件与文稿放进下载目录（给了 project 时是那个项目的 downloads/）',
       ),
     outDir: pathArg.optional().describe('可选。只与 file、noVideo 一起给：文稿的输出目录（不存在时创建）'),
     language: languageArg.optional().describe('可选。断言语言（BCP 47，例如 en、zh-CN）；不给时自动检测'),
