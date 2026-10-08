@@ -124,9 +124,11 @@ describe('编辑器模型', () => {
     expect(trackRows(seq).map((r) => r.label)).toEqual(['画面 2', '画面 1', '音频']);
   });
 
-  it('轨道行：字幕轨道在最上面，同类不止一条时按顺序编号', () => {
+  it('轨道行：字幕与画面是同一叠，按 order 排，同类不止一条时按顺序编号', () => {
     const seq = sequence([track('v1', 0, 'visual'), track('a1', 1, 'audio'), track('s1', 2, 'subtitle'), track('s2', 3, 'subtitle')], []);
     expect(trackRows(seq).map((r) => r.label)).toEqual(['字幕 2', '字幕 1', '画面', '音频']);
+    const over = sequence([track('s1', 0, 'subtitle'), track('v1', 1, 'visual'), track('s2', 2, 'subtitle'), track('v2', 3, 'visual')], []);
+    expect(trackRows(over).map((r) => r.label)).toEqual(['画面 2', '字幕 2', '画面 1', '字幕 1']);
   });
 
   it('轨道行：有名字的轨道写「类别 · 名字」，不再编号', () => {

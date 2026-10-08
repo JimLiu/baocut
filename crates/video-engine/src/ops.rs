@@ -221,15 +221,15 @@ pub enum EditOperation {
     },
     /// 调整一个画面实例的叠放次序（画布上的「前移一层 / 后移一层 / 移到最前 / 移到最后」）。叠放次序就是轨道的上下：
     /// 实例与别的实例共用一条轨道时，把它拆到相邻新建的一条轨道上（上面或下面的轨道整体让一格）；它独占一条轨道时，
-    /// 轨道整条在同类轨道里挪位（相邻两条互换，或挪到最上 / 最下，其余轨道顺次让位）。已经在最前 / 最后时拒绝。
+    /// 轨道整条在同一叠里挪位（画面与字幕轨道是同一叠：相邻两条互换，或挪到最上 / 最下，其余轨道顺次让位）。已经在最前 / 最后时拒绝。
     ArrangeItem {
         #[serde(default)]
         sequence_id: Option<Id>,
         item_id: Id,
         direction: ArrangeDirection,
     },
-    /// 把一条轨道挪到同类的另一条轨道上面或下面（时间线上拖动行头）。同类轨道原有的那组 `order` 值按新次序重新分配，
-    /// 别的种类的轨道不动。
+    /// 把一条轨道挪到同一叠里另一条轨道的上面或下面（时间线上拖动行头）。画面与字幕轨道是同一叠，声音轨道另一叠；
+    /// 这一叠原有的那组 `order` 值按新次序重新分配，另一叠不动。
     MoveTrack {
         #[serde(default)]
         sequence_id: Option<Id>,
@@ -2621,12 +2621,26 @@ fn create_track(state: &mut VideoState, sequence_id: &str, kind: TrackKind, name
     Ok(id)
 }
 
-/// 序列里同一种类的轨道，按 `order` 从低到高（画面上从下到上）。
-fn tracks_of_kind(state: &VideoState, sequence_id: &str, kind: TrackKind) -> Vec<(Id, i64)> {
+/// 叠放分组：画面轨道与字幕轨道合成在同一叠里（渲染按 `order` 统一排序，字幕不自动在最上），声音另算一叠。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum StackingGroup {
+    Picture,
+    Sound,
+}
+
+fn stacking_group(kind: TrackKind) -> StackingGroup {
+    match kind {
+        TrackKind::Audio => StackingGroup::Sound,
+        TrackKind::Visual | TrackKind::Subtitle => StackingGroup::Picture,
+    }
+}
+
+/// 序列里同一叠的轨道，按 `order` 从低到高（画面上从下到上）。
+fn tracks_in_stack(state: &VideoState, sequence_id: &str, group: StackingGroup) -> Vec<(Id, i64)> {
     let mut tracks: Vec<(Id, i64)> = state
         .tracks
         .values()
-        .filter(|t| t.sequence_id == sequence_id && t.value.kind == kind)
+        .filter(|t| t.sequence_id == sequence_id && stacking_group(t.value.kind) == group)
         .map(|t| (t.value.id.clone(), t.value.order))
         .collect();
     tracks.sort_by(|a, b| a.1.cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
@@ -2642,7 +2656,7 @@ fn open_track_slot(state: &mut VideoState, sequence_id: &str, slot: i64) {
     }
 }
 
-/// 同类轨道按新的次序重新领取它们原有的那组 `order` 值：集合不变，只换谁拿哪个，别的种类的轨道不受影响。
+/// 同一叠的轨道按新的次序重新领取它们原有的那组 `order` 值：集合不变，只换谁拿哪个，另一叠的轨道不受影响。
 fn reassign_track_orders(state: &mut VideoState, ordered: &[Id], orders: &[i64]) {
     debug_assert_eq!(ordered.len(), orders.len());
     for (id, order) in ordered.iter().zip(orders) {
@@ -2664,7 +2678,7 @@ fn arrange_item(state: &mut VideoState, sequence_id: Option<&str>, item_id: &str
         .items
         .values()
         .any(|p| p.sequence_id == sequence_id && p.value.base().track_id == track_id && p.value.base().id != item_id);
-    let same_kind = tracks_of_kind(state, &sequence_id, kind);
+    let same_kind = tracks_in_stack(state, &sequence_id, stacking_group(kind));
     let index = same_kind
         .iter()
         .position(|(id, _)| *id == track_id)
@@ -2703,7 +2717,7 @@ fn arrange_item(state: &mut VideoState, sequence_id: Option<&str>, item_id: &str
         state.items.get_mut(item_id).expect("刚检查过").value.base_mut().track_id = new_track;
         return Ok(());
     }
-    // 独占一条轨道：整条轨道在同类轨道里挪位，其余轨道顺次让位。
+    // 独占一条轨道：整条轨道在同一叠里挪位（画面与字幕一叠），其余轨道顺次让位。
     let orders: Vec<i64> = same_kind.iter().map(|(_, order)| *order).collect();
     let mut ordered: Vec<Id> = same_kind.into_iter().map(|(id, _)| id).collect();
     let moved = ordered.remove(index);
@@ -2747,10 +2761,10 @@ fn move_track(
         .get(target)
         .filter(|t| t.sequence_id == sequence_id)
         .ok_or_else(|| ErrorBody::not_found(kinds::track(), target))?;
-    if anchor.value.kind != kind {
+    if stacking_group(anchor.value.kind) != stacking_group(kind) {
         return Err(ErrorBody::invalid_operation(msg!(
-            "engine.moveTrackKind",
-            "A track can only be placed next to a track of the same kind"
+            "engine.moveTrackStack",
+            "Picture and subtitle tracks stack together and audio tracks separately; a track can only be placed next to one in its own stack"
         ))
         .entities([track_id.to_string(), target.to_string()]));
     }
@@ -2761,9 +2775,9 @@ fn move_track(
         );
     }
     ensure_track_editable(state, track_id)?;
-    let same_kind = tracks_of_kind(state, &sequence_id, kind);
-    let orders: Vec<i64> = same_kind.iter().map(|(_, order)| *order).collect();
-    let mut ordered: Vec<Id> = same_kind.into_iter().map(|(id, _)| id).collect();
+    let stack = tracks_in_stack(state, &sequence_id, stacking_group(kind));
+    let orders: Vec<i64> = stack.iter().map(|(_, order)| *order).collect();
+    let mut ordered: Vec<Id> = stack.into_iter().map(|(id, _)| id).collect();
     let index = ordered.iter().position(|id| id == track_id).expect("刚检查过");
     let moved = ordered.remove(index);
     let anchor_at = ordered.iter().position(|id| id == target).expect("刚检查过");

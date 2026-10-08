@@ -16,7 +16,7 @@ import {
 } from '@baocut/protocol';
 import { languageName } from './caption-tracks.ts';
 import { DUB_EXTENSION } from './dub-undo.ts';
-import { itemFrames, trackAccepts, trackRows } from './editor.ts';
+import { itemFrames, stackingGroup, trackAccepts, trackRows } from './editor.ts';
 import { zhHans } from './editor-ops.zh-Hans.ts';
 import { zhHant } from './editor-ops.zh-Hant.ts';
 import { ja } from './editor-ops.ja.ts';
@@ -625,7 +625,7 @@ export function audioAside(groups: number, files: number): string {
 
 /**
  * 这一件还能不能往这个方向换一层。叠放次序就是轨道的上下（命令协议规范 §4.2 `arrangeItem`）：与别的片段共用一条轨道的
- * 总能拆到相邻新建的轨道上；独占一条轨道、又已经在同类轨道的最上 / 最下时不能再走。声音与字幕没有叠放次序。
+ * 总能拆到相邻新建的轨道上；独占一条轨道、又已经在这一叠（画面与字幕轨道同一叠）的最上 / 最下时不能再走。声音没有叠放次序，字幕实例不从画布上调。
  */
 export function canArrange(sequence: Sequence, itemId: Id, direction: ArrangeDirection): boolean {
   const item = sequence.items.find((candidate) => candidate.id === itemId);
@@ -634,7 +634,8 @@ export function canArrange(sequence: Sequence, itemId: Id, direction: ArrangeDir
   if (!track) return false;
   if (sequence.items.some((other) => other.trackId === item.trackId && other.id !== itemId)) return true;
   const upward = direction === 'forward' || direction === 'front';
-  return sequence.tracks.some((other) => other.kind === track.kind && (upward ? other.order > track.order : other.order < track.order));
+  const group = stackingGroup(track.kind);
+  return sequence.tracks.some((other) => stackingGroup(other.kind) === group && (upward ? other.order > track.order : other.order < track.order));
 }
 
 /** 「层级」的一笔；走不动时 null（菜单项灰着，快捷键什么都不做）。 */

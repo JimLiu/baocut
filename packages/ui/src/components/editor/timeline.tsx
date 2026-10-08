@@ -41,6 +41,7 @@ import {
   rulerLabel,
   rulerStep,
   snapTargets,
+  stackingGroup,
   trackRows,
   type ClipKind,
 } from '../../model/editor.ts';
@@ -304,7 +305,7 @@ const emptyBox = style({
   pointerEvents: 'none',
 });
 
-/** 拖行头的落点：同类的另一行，放在它显示上的上面还是下面。 */
+/** 拖行头的落点：同一叠里的另一行，放在它显示上的上面还是下面。 */
 interface TrackDrop {
   trackId: Id;
   position: 'above' | 'below';
@@ -315,7 +316,7 @@ interface TrackDrop {
  * （model/editor.ts 的 `trackRows`），所以声音行的「上面」是 `order` 更小的那边。
  */
 function trackPlacement(kind: Track['kind'], position: TrackDrop['position']): 'above' | 'below' {
-  if (kind !== 'audio') return position;
+  if (stackingGroup(kind) === 'picture') return position;
   return position === 'above' ? 'below' : 'above';
 }
 
@@ -344,7 +345,7 @@ type Gesture =
     }
   | { kind: 'trim'; itemId: Id; edge: 'start' | 'end'; frame: number; snap: number | null }
   | {
-      /** 按住行头拖，换这条轨道在同类轨道里的上下：目标是同类的另一行，放在它上面或下面（显示上的上下）。 */
+      /** 按住行头拖，换这条轨道在同一叠里的上下：目标是同一叠（画面与字幕一叠、声音一叠）的另一行，放在它上面或下面（显示上的上下）。 */
       kind: 'track';
       trackId: Id;
       originY: number;
@@ -631,8 +632,9 @@ export function Timeline({
     });
   };
 
-  /** 同类的行不止一条时行头可以拖着换顺序（锁着的不拖，只读时不拖）。 */
-  const canDragTrack = (track: Track) => editable && !track.locked && rows.filter((r) => r.track.kind === track.kind).length > 1;
+  /** 同一叠（画面与字幕一叠、声音一叠）的行不止一条时行头可以拖着换顺序（锁着的不拖，只读时不拖）。 */
+  const canDragTrack = (track: Track) =>
+    editable && !track.locked && rows.filter((r) => stackingGroup(r.track.kind) === stackingGroup(track.kind)).length > 1;
 
   /** 按住行头：拖起来就换这条轨道的上下（设计稿里行头可拖）。按在开关钮上不算。 */
   const onHeaderPointerDown = (event: ReactPointerEvent<HTMLDivElement>, track: Track) => {
@@ -686,12 +688,13 @@ export function Timeline({
     if (gesture.kind === 'track') {
       const dy = event.clientY - gesture.originY;
       if (!gesture.started && Math.abs(dy) < DRAG_PX) return;
-      // 落点取指针所在的同类行；指针在行与行的缝里、或拖出了最上 / 最下一行（底下那行常被裁掉一截）时取最近的一行，按在它上半还是下半分上下。
+      // 落点取指针所在的同一叠的行；指针在行与行的缝里、或拖出了最上 / 最下一行（底下那行常被裁掉一截）时取最近的一行，按在它上半还是下半分上下。
       const own = tracks.get(gesture.trackId);
       let target: TrackDrop | null = null;
       let nearest = Number.POSITIVE_INFINITY;
       for (const [id, element] of laneRefs.current) {
-        if (id === gesture.trackId || tracks.get(id)?.kind !== own?.kind) continue;
+        const kind = tracks.get(id)?.kind;
+        if (id === gesture.trackId || !kind || !own || stackingGroup(kind) !== stackingGroup(own.kind)) continue;
         const rect = element.getBoundingClientRect();
         const middle = (rect.top + rect.bottom) / 2;
         const distance = Math.abs(event.clientY - middle);
@@ -1360,7 +1363,7 @@ function TrackHeader({
   menu?: ReactNode;
   editable: boolean;
   sequenceId: Id;
-  /** 同类的行不止一条时可以拖着换顺序。 */
+  /** 同一叠的行不止一条时可以拖着换顺序。 */
   draggable: boolean;
   onDragStart(event: ReactPointerEvent<HTMLDivElement>): void;
 }) {

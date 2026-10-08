@@ -78,16 +78,24 @@ function labelled(tracks: Track[]): TrackRow[] {
   });
 }
 
+/** 叠放分组：画面与字幕轨道合成在同一叠里（渲染按 `order` 统一排序），声音另算一叠。 */
+export type StackingGroup = 'picture' | 'sound';
+
+export function stackingGroup(kind: Track['kind']): StackingGroup {
+  return kind === 'audio' ? 'sound' : 'picture';
+}
+
 /**
- * 时间线上的轨道行：字幕轨道在最上面（字幕画在画面之上），然后是视觉轨道（序号大的在更上面，与画面的叠放一致），
- * 音频轨道在下。
+ * 时间线上的轨道行：画面与字幕轨道是同一叠，按 `order` 从大到小（上面的行盖住下面的，与画面的叠放一致；
+ * 字幕不自动在最上），音频轨道在下。编号按种类各自数。
  */
 export function trackRows(sequence: Sequence): TrackRow[] {
   const byOrder = [...sequence.tracks].sort((a, b) => a.order - b.order);
   const subtitle = labelled(byOrder.filter((t) => t.kind === 'subtitle'));
   const visual = labelled(byOrder.filter((t) => t.kind === 'visual'));
   const audio = labelled(byOrder.filter((t) => t.kind === 'audio'));
-  return [...subtitle.reverse(), ...visual.reverse(), ...audio];
+  const picture = [...subtitle, ...visual].sort((a, b) => b.track.order - a.track.order);
+  return [...picture, ...audio];
 }
 
 export function rootSequence(video: VideoSnapshot): Sequence | null {

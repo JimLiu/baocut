@@ -347,7 +347,28 @@ fn splitting_a_clip_out_drops_the_transition_with_its_former_neighbour() {
 }
 
 #[test]
-fn move_track_reorders_tracks_of_the_same_kind_only() {
+fn a_picture_clip_can_be_brought_in_front_of_a_subtitle_track() {
+    let mut f = fixture();
+    let (v2, _) = (track(&f.video, "V2"), ());
+    apply(&mut f.video, "cmd_s1", vec![json!({ "type": "addTrack", "kind": "subtitle" })]).unwrap();
+    let s1 = track(&f.video, "S1");
+    assert!(order(&f.video, &s1) > order(&f.video, &v2));
+
+    // 进度条独占 V2，上面只有字幕轨道：前移一层就是与字幕轨道互换，画面盖到字幕上。
+    let committed = arrange(&mut f.video, "cmd_fwd", &f.progress, "forward").unwrap();
+    assert!(order(&f.video, &v2) > order(&f.video, &s1));
+    assert!(committed.receipt.created_ids.is_empty());
+    assert_eq!(track_of(&f.video, &f.progress), v2);
+
+    // 再往前已经到顶。
+    let err = arrange(&mut f.video, "cmd_top", &f.progress, "forward").unwrap_err();
+    assert_eq!(err.code, "INVALID_OPERATION");
+    undo(&mut f.video, "cmd_undo", &committed);
+    assert!(order(&f.video, &s1) > order(&f.video, &v2));
+}
+
+#[test]
+fn move_track_reorders_tracks_within_one_stack() {
     let mut f = fixture();
     let (v1, a1, v2) = (track(&f.video, "V1"), track(&f.video, "A1"), track(&f.video, "V2"));
     apply(&mut f.video, "cmd_v3", vec![json!({ "type": "addTrack", "kind": "visual" })]).unwrap();
@@ -388,7 +409,20 @@ fn move_track_reorders_tracks_of_the_same_kind_only() {
     assert_eq!(visual_stack(&f.video), ["V3", "V1", "V2"]);
     assert_eq!([order(&f.video, &v3), order(&f.video, &v1), order(&f.video, &v2)], [0, 2, 3]);
 
-    // 不同种类、自己、锁定、不存在。
+    // 画面与字幕是同一叠：画面轨道可以放到字幕轨道上面（画面盖住字幕）。
+    apply(&mut f.video, "cmd_s1", vec![json!({ "type": "addTrack", "kind": "subtitle" })]).unwrap();
+    let s1 = track(&f.video, "S1");
+    assert!(order(&f.video, &s1) > order(&f.video, &v2));
+    apply(
+        &mut f.video,
+        "cmd_over_subs",
+        vec![json!({ "type": "moveTrack", "trackId": v2, "target": s1, "position": "above" })],
+    )
+    .unwrap();
+    assert!(order(&f.video, &v2) > order(&f.video, &s1));
+    assert!(order(&f.video, &s1) > order(&f.video, &v1));
+
+    // 声音另一叠、自己、锁定、不存在。
     let err = apply(
         &mut f.video,
         "cmd_kind",

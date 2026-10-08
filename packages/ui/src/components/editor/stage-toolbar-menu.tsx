@@ -301,7 +301,7 @@ const ARRANGE_ICON: Record<ArrangeDirection, ComponentType> = { front: SortUp, f
 const ARRANGE_KEY: Record<ArrangeDirection, string> = { front: 'F', forward: `${MOD_KEY}↑`, backward: `${MOD_KEY}↓`, back: 'B' };
 
 /**
- * 「层级」的飞出菜单：往前的两行、一条线、往后的两行。走不动的方向灰着（独占一条轨道、已经在同类轨道的最上 / 最下）；
+ * 「层级」的飞出菜单：往前的两行、一条线、往后的两行。走不动的方向灰着（独占一条轨道、已经在画面与字幕这一叠的最上 / 最下）；
  * 点一行就提交一笔并收起整个弹层。
  */
 function ArrangeSub({ props, actions, onDone }: { props: ToolProps; actions: EditorActions; onDone(): void }) {
