@@ -72,6 +72,39 @@ describe('删除后合拢', () => {
     const short = sequence(tracks, [videoItem('v', 'v1', 0, 300), audioItem('a', 'a1', 0, 9.99)]);
     expect(gapsAfterDelete(short, ['v'])).toEqual([]);
   });
+
+  it('跟着视频的字幕：视频删了那一截字幕也没了，合拢；没有作用实例的字幕照旧占着', () => {
+    const scoped = sequence(tracks, [
+      videoItem('vL', 'v1', 0, 300),
+      videoItem('vR', 'v1', 300, 600),
+      captionItem('c', 's1', 'doc', 0, 900, { scopeItemIds: ['vL', 'vR'] }),
+    ]);
+    expect(gapsAfterDelete(scoped, ['vL'])).toEqual([{ start: 0, end: 300 }]);
+    const withMusic = sequence(tracks, [...scoped.items, audioItem('m', 'a1', 0, 5)]);
+    expect(gapsAfterDelete(withMusic, ['vL']), '用户放的音频照旧占着').toEqual([{ start: 150, end: 300 }]);
+    const plain = sequence(tracks, [videoItem('vL', 'v1', 0, 300), videoItem('vR', 'v1', 300, 600), captionItem('c', 's1', 'doc', 0, 900)]);
+    expect(gapsAfterDelete(plain, ['vL'])).toEqual([]);
+  });
+
+  it('配音分离出的背景声不算占着，合拢时一起拿掉那一段；配音块算占着', () => {
+    const stem = { 'baocut.dub': { stem: 'background', groupId: 'g1' } };
+    const separated = sequence(tracks, [
+      videoItem('vL', 'v1', 0, 300),
+      videoItem('vR', 'v1', 300, 600),
+      audioItem('bg', 'a1', 0, 30, { extensions: stem }),
+    ]);
+    expect(gapsAfterDelete(separated, ['vL'])).toEqual([{ start: 0, end: 300 }]);
+    expect(rippleOperations(separated, [{ start: 0, end: 300 }], ['vL']).operations[0]).toMatchObject({ trackIds: ['v1', 'a1'] });
+    const dubbed = sequence(tracks, [
+      videoItem('vL', 'v1', 0, 300),
+      videoItem('vR', 'v1', 300, 600),
+      audioItem('d', 'a1', 30, 3, { extensions: { 'baocut.dub': { groupId: 'g1', sentenceId: 's1' } } }),
+    ]);
+    expect(gapsAfterDelete(dubbed, ['vL'])).toEqual([
+      { start: 0, end: 30 },
+      { start: 120, end: 300 },
+    ]);
+  });
 });
 
 describe('从所有轨道删除一段', () => {

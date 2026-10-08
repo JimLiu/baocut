@@ -1,12 +1,13 @@
-import type { EditOperation, Id, Sequence } from '@baocut/protocol';
+import type { CaptionItem, EditOperation, Id, Sequence } from '@baocut/protocol';
 import { removeChapterOperation, sequenceChapters } from './chapters.ts';
 import { itemFrames } from './editor.ts';
+import { dubStemOf } from './timeline-dub.ts';
 
 /**
  * 时间线的「删掉一段并前移」（原型 model-ripple.js 的 `BC_RIPPLE`）。两个入口共用这一份：
  *
  * - 删除选中（Delete、走带的删除钮、检查器、右键菜单、画布工具条）：删完以后，删掉的那几段里**所有轨道都空了**的部分合拢，
- *   后面的内容前移、总长变短；还有别的轨占着（只删了视频、字幕还在）就留空隙。
+ *   后面的内容前移、总长变短；还有别的轨占着（例如一段文字、一段自己放的音频）就留空隙。什么算占着见 `gapsAfterDelete`。
  * - 从所有轨道删除一段（右键菜单、⇧Delete）：选中片段盖住的时间从每一条轨上拿掉，跨在边上的裁掉落在段里的部分，后面的内容前移。
  *
  * 都编译成引擎的 `removeRange`（命令协议规范 §4.2，波纹删除），从右往左排，前面那段的帧不受后面那段影响。章节标记不归
@@ -77,8 +78,13 @@ function outward(spans: readonly FrameSpan[]): FrameSpan[] {
 }
 
 /**
- * 删掉这几件之后要合拢的空隙（整帧）：删掉的那几段里，留下的片段在任何一条轨上都不再盖到的部分。字幕实例按它自己的区间算
- * （只删视频、字幕还在时不合拢）；终点跟着序列末尾的实例（`untilSequenceEnd`）不算占着——它本来就随总长伸缩。
+ * 删掉这几件之后要合拢的空隙（整帧）：删掉的那几段里，留下的片段在任何一条轨上都不再盖到的部分（原型 editor-keys.jsx 的 `cover`）。
+ *
+ * - 字幕实例只在它的句子还出得来的地方算占着（与原型按句算、句间停顿也算占着同一个意思）：有作用实例（`scopeItemIds`）时，
+ *   句子只投在留下的作用实例下面（caption-cues.ts `placeCues`），作用实例删掉了那一截字幕也跟着没了；没有作用实例的按它自己的区间算。
+ * - 配音分离出的背景声与人声分轨不算占着（原型的「背景声」「原声」行）：它们跟着画面走，合拢时与视频一起被拿掉那一段。配音块算占着。
+ * - 终点跟着序列末尾的实例（`untilSequenceEnd`）不算占着——它本来就随总长伸缩。
+ *
  * 首尾相接时音频小数帧留下的不到一帧的缝不算。
  */
 export function gapsAfterDelete(sequence: Sequence, deletedIds: readonly Id[]): FrameSpan[] {
@@ -87,9 +93,25 @@ export function gapsAfterDelete(sequence: Sequence, deletedIds: readonly Id[]): 
   const cover: FrameSpan[] = [];
   for (const item of sequence.items) {
     if (gone.has(item.id)) deleted.push(itemFrames(item, sequence.fps));
-    else if (!item.untilSequenceEnd) cover.push(itemFrames(item, sequence.fps));
+    else if (item.type === 'caption') cover.push(...captionCover(sequence, item, gone));
+    else if (!item.untilSequenceEnd && !dubStemOf(item)) cover.push(itemFrames(item, sequence.fps));
   }
   return inward(uncoveredSpans(deleted, cover));
+}
+
+/** 删掉 `gone` 之后字幕实例还占着的时间：作用实例留下的区间（裁在字幕实例自己的区间里）；没有作用实例时是它自己的区间。 */
+function captionCover(sequence: Sequence, item: CaptionItem, gone: ReadonlySet<Id>): FrameSpan[] {
+  const own = itemFrames(item, sequence.fps);
+  const scope = item.scopeItemIds ?? [];
+  if (scope.length === 0) return item.untilSequenceEnd ? [] : [own];
+  const byId = new Map(sequence.items.map((other) => [other.id, other]));
+  return scope.flatMap((id) => {
+    const scoped = byId.get(id);
+    if (!scoped || gone.has(id)) return [];
+    const range = itemFrames(scoped, sequence.fps);
+    const span = { start: Math.max(range.start, own.start), end: Math.min(range.end, own.end) };
+    return span.end > span.start ? [span] : [];
+  });
 }
 
 /**

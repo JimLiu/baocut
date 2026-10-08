@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AudioItem, Sequence, Track, VideoItem } from '@baocut/protocol';
+import type { AudioItem, CaptionItem, Sequence, Track, VideoItem } from '@baocut/protocol';
 import { itemBox, marqueeItems, marqueeSelection, type MarqueeLayout } from './timeline-marquee.ts';
 
 const fps = { num: 30, den: 1 };
@@ -104,6 +104,25 @@ describe('时间线框选', () => {
     expect(marqueeItems(seq, layout, { x: 156 + 95, y: 30, w: 5, h: 10 })).toEqual(['clip1']);
     const locked = sequence(seq.tracks, [video('clip1', 'v1', 0, 300, true), video('clip2', 'v1', 300, 150)]);
     expect(marqueeItems(locked, layout, { x: 156, y: 30, w: 200, h: 10 })).toEqual(['clip2']);
+  });
+
+  it('字幕实例不选：框过字幕行只选到别的轨上的片段', () => {
+    const caption: CaptionItem = {
+      id: 'cap',
+      trackId: 's1',
+      type: 'caption',
+      enabled: true,
+      locked: false,
+      paintOrder: 0,
+      followPolicy: { kind: 'sequence-fixed' },
+      span: { fromFrame: 0, durationFrames: 450 },
+      documentId: 'doc',
+      scopeItemIds: ['clip1', 'clip2'],
+    };
+    const withCaption = sequence([track('s1', 1, 'subtitle'), ...seq.tracks], [...seq.items, caption]);
+    const lanes = [{ trackId: 's1', top: 24, height: 40 }, ...layout.lanes.map((lane) => ({ ...lane, top: lane.top + 40 }))];
+    expect(marqueeItems(withCaption, { ...layout, lanes }, { x: 156, y: 30, w: 40, h: 60 })).toEqual(['clip1']);
+    expect(marqueeItems(withCaption, { ...layout, lanes }, { x: 156, y: 30, w: 40, h: 10 })).toEqual([]);
   });
 
   it('矩形可以从右下往左上拉', () => {

@@ -97,6 +97,14 @@ export function dubTrackGroup(sequence: Sequence, trackId: Id): DubGroup | null 
 
 export type DubStem = 'background' | 'vocals';
 
+/** 配音分离出的分轨实例（背景声或人声）：哪一种、哪一组；别的实例是 null。 */
+export function dubStemOf(item: SequenceItem): { stem: DubStem; groupId: string } | null {
+  const own = item.extensions?.[DUB_EXTENSION];
+  return isObject(own) && (own.stem === 'background' || own.stem === 'vocals') && text(own.groupId)
+    ? { stem: own.stem as DubStem, groupId: own.groupId as string }
+    : null;
+}
+
 /**
  * 只放一组配音分离出的同一种分轨的轨道（设计稿 model-timeline.js 的「背景声」行）：哪一种、哪一组、这组的语言。
  * 空的轨道、混着别的实例、别的分轨或别的组的不算。
@@ -104,12 +112,7 @@ export type DubStem = 'background' | 'vocals';
 export function stemTrackOf(sequence: Sequence, trackId: Id): { stem: DubStem; groupId: string; language: string | null } | null {
   const items = sequence.items.filter((item) => item.trackId === trackId);
   if (items.length === 0) return null;
-  const marks = items.map((item) => {
-    const own = item.extensions?.[DUB_EXTENSION];
-    return isObject(own) && (own.stem === 'background' || own.stem === 'vocals') && text(own.groupId)
-      ? { stem: own.stem as DubStem, groupId: own.groupId as string }
-      : null;
-  });
+  const marks = items.map(dubStemOf);
   const first = marks[0];
   if (!first || marks.some((m) => !m || m.stem !== first.stem || m.groupId !== first.groupId)) return null;
   const language = dubGroups(sequence).find((g) => g.groupId === first.groupId)?.language ?? null;
