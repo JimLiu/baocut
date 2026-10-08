@@ -106,6 +106,8 @@ pub struct VideoDecoder {
     /// 启动过解码流：之后再启动（倒退、远跳、关掉之后再用到）都算重开。
     started: bool,
     restarts: u32,
+    /// 当前帧的代号：每换上一帧加一，重开之后接着数，不回头。
+    generation: u64,
 }
 
 impl VideoDecoder {
@@ -124,10 +126,11 @@ impl VideoDecoder {
             ended: false,
             started: false,
             restarts: 0,
+            generation: 0,
         }
     }
 
-    /// 重开解码流的次数：第一次启动不算，倒退、远跳与闲置关掉（[`close`](Self::close)）之后再用到都算。
+    /// 顺序导出里只有素材闲置后又用到、倒退或远跳时才不是 0。
     /// 顺序导出里应当是 0。
     pub fn restarts(&self) -> u32 {
         self.restarts
@@ -135,6 +138,12 @@ impl VideoDecoder {
 
     /// 源时刻 `seconds` 的画面。
     pub fn frame_at(&mut self, seconds: f64) -> Result<&Picture, MediaError> {
+        self.advance(seconds)?;
+        Ok(&self.current.as_ref().expect("advance 成功就有当前帧").picture)
+    }
+
+    /// 走到源时刻 `seconds` 的画面（规则同 [`frame_at`](Self::frame_at)），返回当前帧的代号：与上一次相同说明还是同一帧。
+    pub fn advance(&mut self, seconds: f64) -> Result<u64, MediaError> {
         let target = seconds + EPSILON;
         let behind = self.current.as_ref().is_some_and(|c| target < c.seconds);
         let far = self.next.as_ref().is_some_and(|n| seconds - n.seconds > JUMP_SECONDS);
@@ -157,6 +166,7 @@ impl VideoDecoder {
             match &self.next {
                 Some(next) if next.seconds <= target || self.current.is_none() => {
                     let next = self.next.take().expect("上面看过");
+                    self.generation += 1;
                     if let Some(old) = self.current.replace(next) {
                         self.recycle(old.picture.data);
                     }
@@ -165,12 +175,25 @@ impl VideoDecoder {
             }
         }
         match &self.current {
-            Some(current) => Ok(&current.picture),
+            Some(_) => Ok(self.generation),
             None => Err(MediaError::new(
                 "EXPORT_DECODE_FAILED",
                 format!("{} 里解不出画面", self.path.display()),
             )),
         }
+    }
+
+    /// 把当前帧的像素换出来，留下 `spare`（长度不限，之后回收给读帧线程）：调用方拿走像素，不再复制一遍。
+    /// 换出之后当前帧的像素不再有效，直到 [`advance`](Self::advance) 换上新的一帧（代号变了）；
+    /// 同一帧不要再用 [`frame_at`](Self::frame_at) 读。没有当前帧时为 `None`。
+    pub fn swap_current(&mut self, spare: Vec<u8>) -> Option<Picture> {
+        let current = self.current.as_mut()?;
+        let data = std::mem::replace(&mut current.picture.data, spare);
+        Some(Picture {
+            width: current.picture.width,
+            height: current.picture.height,
+            data,
+        })
     }
 
     /// 停下解码进程，留着最后一帧之外的状态都丢掉。

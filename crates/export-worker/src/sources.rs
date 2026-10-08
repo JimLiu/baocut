@@ -1,6 +1,7 @@
 //! 媒体层的画面：每个视频实例一条顺序解码流，图片解一次（SVG 与 GIF 图片由帧光栅从素材字节自己解，见 `asset_bytes`；
 //! 这里的 SVG 分支只接媒体类型没记成 SVG、文件却是 `.svg` 的素材）；解出来的非预乘 RGBA
-//! 换成预乘的画面交给帧光栅。Lottie 贴纸要的素材字节按冻结的位置读；声波要的素材频谱从冻结的声音文件算，每个素材版本
+//! 换成预乘的画面交给帧光栅。视频帧的像素从解码器换过来（不复制），解码器还在同一帧时原样再用；探测说素材不带透明时
+//! alpha 全是 255、本来就是预乘的，不逐像素预乘。Lottie 贴纸要的素材字节按冻结的位置读；声波要的素材频谱从冻结的声音文件算，每个素材版本
 //! 算一次（[`frame_render::spectrum::analyze_file`]）。
 //! 一段时间没用到的解码流关掉（子进程不攒着），再用到时从目标前的关键帧重开。
 
@@ -12,7 +13,7 @@ use media_core::Tools;
 use media_core::decode::{VideoDecoder, decode_still};
 use media_core::probe::probe_picture;
 use render_graph::{LayerKind, VisualLayer};
-use tiny_skia::Pixmap;
+use tiny_skia::{IntSize, Pixmap};
 use video_model::VersionRef;
 
 use crate::input::Input;
@@ -24,7 +25,12 @@ const IDLE_FRAMES: u64 = 90;
 enum Media {
     Video {
         decoder: Box<VideoDecoder>,
+        /// 当前帧（预乘）。像素是从解码器换出来的，不复制。
         pixmap: Option<Pixmap>,
+        /// `pixmap` 是解码器的哪一帧（[`VideoDecoder::advance`] 的代号）。
+        generation: u64,
+        /// 素材可能带透明：要逐像素预乘；不带时解出来的 alpha 都是 255，预乘不改任何值，跳过。
+        alpha: bool,
     },
     Still(Pixmap),
 }
@@ -74,7 +80,7 @@ impl<'a> Sources<'a> {
         }
     }
 
-    /// 解码流重新定位的总次数（顺序导出里应当是 0）。
+    /// 解码流重开的总次数（倒退、远跳与闲置关掉后再用到；顺序导出里没有这些时是 0）。
     pub fn restarts(&self) -> u32 {
         self.media
             .values()
@@ -120,6 +126,7 @@ impl<'a> Sources<'a> {
                         width: info.width,
                         height: info.height,
                         svg: false,
+                        alpha: info.alpha,
                     };
                     self.pictures.insert(key, picture.clone());
                     return Ok(Some(picture));
@@ -156,6 +163,18 @@ fn decode_error(e: media_core::MediaError) -> RenderError {
     RenderError::new(e.code, e.message)
 }
 
+/// 非预乘的 RGBA 就地换成预乘的。
+fn premultiply(data: &mut [u8]) {
+    for px in data.chunks_exact_mut(4) {
+        let a = px[3] as u32;
+        if a < 255 {
+            for c in &mut px[..3] {
+                *c = ((*c as u32 * a + 127) / 255) as u8;
+            }
+        }
+    }
+}
+
 impl LayerMedia for Sources<'_> {
     fn picture(&mut self, layer: &VisualLayer) -> Result<Option<&Pixmap>, RenderError> {
         let id = layer.item_id.clone();
@@ -183,6 +202,8 @@ impl LayerMedia for Sources<'_> {
                 Media::Video {
                     decoder: Box::new(VideoDecoder::new(&self.tools, &info.path, origin, info.width, info.height)),
                     pixmap: None,
+                    generation: 0,
+                    alpha: info.alpha,
                 }
             };
             self.media.insert(id.clone(), media);
@@ -190,30 +211,29 @@ impl LayerMedia for Sources<'_> {
         self.last_used.insert(id.clone(), self.frame);
         match self.media.get_mut(&id).expect("上面放进去了") {
             Media::Still(pixmap) => Ok(Some(pixmap)),
-            Media::Video { decoder, pixmap } => {
+            Media::Video {
+                decoder,
+                pixmap,
+                generation,
+                alpha,
+            } => {
                 let seconds = layer.source_seconds.unwrap_or(0.0).max(0.0);
-                let picture = decoder.frame_at(seconds).map_err(decode_error)?;
-                if pixmap
-                    .as_ref()
-                    .is_none_or(|p| p.width() != picture.width || p.height() != picture.height)
-                {
-                    *pixmap = Some(
-                        Pixmap::new(picture.width, picture.height)
-                            .ok_or_else(|| RenderError::new("EXPORT_DECODE_FAILED", "画面的尺寸不对"))?,
-                    );
-                }
-                let target = pixmap.as_mut().expect("上面放进去了");
-                let data = target.data_mut();
-                data.copy_from_slice(&picture.data);
-                for px in data.chunks_exact_mut(4) {
-                    let a = px[3] as u32;
-                    if a < 255 {
-                        for c in &mut px[..3] {
-                            *c = ((*c as u32 * a + 127) / 255) as u8;
-                        }
+                let current = decoder.advance(seconds).map_err(decode_error)?;
+                if pixmap.is_none() || *generation != current {
+                    // 换上新的一帧：上一帧的缓冲还给解码器，新一帧的像素直接做成画面。
+                    let spare = pixmap.take().map(Pixmap::take).unwrap_or_default();
+                    let mut picture = decoder.swap_current(spare).expect("advance 成功就有当前帧");
+                    if *alpha {
+                        premultiply(&mut picture.data);
                     }
+                    let size = IntSize::from_wh(picture.width, picture.height)
+                        .ok_or_else(|| RenderError::new("EXPORT_DECODE_FAILED", "画面的尺寸不对"))?;
+                    *pixmap = Some(
+                        Pixmap::from_vec(picture.data, size).ok_or_else(|| RenderError::new("EXPORT_DECODE_FAILED", "画面的尺寸不对"))?,
+                    );
+                    *generation = current;
                 }
-                Ok(Some(target))
+                Ok(pixmap.as_ref())
             }
         }
     }

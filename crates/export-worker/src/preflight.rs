@@ -29,6 +29,8 @@ pub struct AssetPicture {
     pub width: u32,
     pub height: u32,
     pub svg: bool,
+    /// 解出来的画面可能带透明（[`media_core::probe::PictureInfo::alpha`]）；不带时视频帧不用逐像素预乘。
+    pub alpha: bool,
 }
 
 /// SVG 图片光栅的长边：画面（输出里按画布画的那一块）的长边（画中画放大到整屏时也不糊）。
@@ -99,6 +101,7 @@ pub fn run(input: &Input, tools: &Tools) -> Result<Preflight, Failure> {
                         width: pixmap.width(),
                         height: pixmap.height(),
                         svg: true,
+                        alpha: true,
                     }),
                     Err(e) => Err(("asset-undecodable", format!("SVG 图片解不开：{e}"))),
                 };
@@ -116,6 +119,7 @@ pub fn run(input: &Input, tools: &Tools) -> Result<Preflight, Failure> {
                             width,
                             height,
                             svg: false,
+                            alpha: true,
                         })
                     }
                     Err(e) => Err(("asset-undecodable", format!("GIF 图片解不开：{e}"))),
@@ -127,6 +131,7 @@ pub fn run(input: &Input, tools: &Tools) -> Result<Preflight, Failure> {
                     width: info.width,
                     height: info.height,
                     svg: false,
+                    alpha: info.alpha,
                 }),
                 Ok(None) => Err(("no-video-stream", "素材里没有画面".to_string())),
                 Err(e) if e.code == "EXPORT_TOOL_MISSING" => Err(("tool-missing", e.message)),

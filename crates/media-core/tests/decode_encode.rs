@@ -71,7 +71,7 @@ fn decoder_walks_forward_and_restarts_on_backward_jumps() {
     let dir = tempfile::tempdir().unwrap();
     let path = red_then_blue(&tools, dir.path());
     let info = probe_picture(&tools, &path).unwrap().expect("有画面");
-    assert_eq!((info.width, info.height), (64, 36));
+    assert_eq!((info.width, info.height, info.alpha), (64, 36, false));
     let mut decoder = VideoDecoder::new(&tools, &path, 0.0, 32, 18);
     assert!(is_red(center(decoder.frame_at(0.0).unwrap())));
     assert!(is_red(center(decoder.frame_at(0.95).unwrap())));
@@ -97,6 +97,29 @@ fn decoder_walks_forward_and_restarts_on_backward_jumps() {
 }
 
 #[test]
+fn decoder_hands_over_frames_and_tells_when_the_frame_changes() {
+    let Some(tools) = tools() else { return };
+    let dir = tempfile::tempdir().unwrap();
+    let path = red_then_blue(&tools, dir.path());
+    let mut decoder = VideoDecoder::new(&tools, &path, 0.0, 32, 18);
+    let first = decoder.advance(0.0).unwrap();
+    let picture = decoder.swap_current(Vec::new()).unwrap();
+    assert_eq!((picture.width, picture.height, picture.data.len()), (32, 18, 32 * 18 * 4));
+    assert!(is_red(center(&picture)));
+    // 还没到下一帧（10 fps）：代号不变，调用方接着用换走的像素。
+    assert_eq!(decoder.advance(0.05).unwrap(), first);
+    // 换上新的一帧：代号变了，换出来的是新的像素；还回去的缓冲之后被回收。
+    let second = decoder.advance(1.0).unwrap();
+    assert_ne!(second, first);
+    let picture = decoder.swap_current(picture.data).unwrap();
+    assert!(is_blue(center(&picture)));
+    assert_eq!(picture.data.len(), 32 * 18 * 4);
+    // 重开之后代号接着数，不回到用过的值。
+    assert!(decoder.advance(0.2).unwrap() > second);
+    assert!(is_red(center(&decoder.swap_current(Vec::new()).unwrap())));
+}
+
+#[test]
 fn still_decodes_first_frame_and_probe_reports_missing_video() {
     let Some(tools) = tools() else { return };
     let dir = tempfile::tempdir().unwrap();
@@ -113,6 +136,7 @@ fn still_decodes_first_frame_and_probe_reports_missing_video() {
             png.to_str().unwrap(),
         ],
     );
+    assert!(!probe_picture(&tools, &png).unwrap().unwrap().alpha);
     let picture = decode_still(&tools, &png, 8, 4).unwrap();
     assert_eq!(picture.data.len(), 8 * 4 * 4);
     let px = &picture.data[0..4];
@@ -123,6 +147,37 @@ fn still_decodes_first_frame_and_probe_reports_missing_video() {
         &["-f", "lavfi", "-i", "sine=frequency=440:duration=0.2", wav.to_str().unwrap()],
     );
     assert_eq!(probe_picture(&tools, &wav).unwrap(), None);
+    // 带 alpha 的像素格式，与像素格式写着不带 alpha、容器标了 alpha_mode 的 VP9 WebM，都算可能带透明。
+    let rgba = dir.path().join("rgba.png");
+    ffmpeg(
+        &tools,
+        &[
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=red@0.5:s=8x4,format=rgba",
+            "-frames:v",
+            "1",
+            rgba.to_str().unwrap(),
+        ],
+    );
+    assert!(probe_picture(&tools, &rgba).unwrap().unwrap().alpha);
+    if encoders(&tools).unwrap().contains("libvpx-vp9") {
+        let webm = dir.path().join("alpha.webm");
+        ffmpeg(
+            &tools,
+            &[
+                "-f",
+                "lavfi",
+                "-i",
+                "color=c=red@0.5:s=16x16:d=0.2,format=yuva420p",
+                "-c:v",
+                "libvpx-vp9",
+                webm.to_str().unwrap(),
+            ],
+        );
+        assert!(probe_picture(&tools, &webm).unwrap().unwrap().alpha);
+    }
     assert!(probe_picture(&tools, &dir.path().join("missing.png")).is_err());
 }
 
