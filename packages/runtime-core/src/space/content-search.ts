@@ -1,24 +1,24 @@
 import type { Id, SpaceSearchDocumentKind, SpaceSearchHit } from '@baocut/protocol';
-import type { ContentSegment } from './content-extract.ts';
+import type { CandidateFilter, SegmentRow } from './content-store.ts';
 
 /**
- * 内容索引上的检索（架构设计 §5.11）。不引入检索库：在内存里逐段做子串匹配。
+ * 内容索引上的检索（架构设计 §5.11）。段落存在 SQLite 库里（`content-store.ts`），FTS5 的 trigram 索引缩小候选范围，
+ * 命中与片段仍按下面的规则在这里判定：
  *
  * - 文字先做 NFKC 与小写：全角半角、大小写不区分。
- * - 查询按空白切成几个词，同一段里都出现才算命中。中文不分词：子串匹配本身就是按字符的匹配，「剪辑」能找到「视频剪辑」，
- *   代价是没有词边界（「剪」也会命中「剪刀」）。
+ * - 查询按空白切成几个词，同一段里都出现才算命中。中文不分词：按字符的子串匹配，「剪辑」能找到「视频剪辑」，
+ *   代价是没有词边界（「剪」也会命中「剪刀」）。三个字符以上的词走 FTS 的 MATCH，更短的退回子串过滤（逐段扫）。
  * - 没有相关度排序：按调用方给的视频顺序（最近活动在前），同一个视频里按时间。
- * - 代价是线性的：每次检索扫一遍范围内全部段落。几千个视频、每个几百段（几 MB 文字）时在几十毫秒以内；
- *   再大时换成按二元组（bigram）的倒排索引，接口不变。
  */
 
 export interface SearchableVideo {
+  /** 视频目录的真实路径（内容索引的键）。 */
+  dir: string;
   videoId: Id;
   videoName: string;
   entryId: Id | null;
   projectId: Id | null;
   revision: string;
-  segments: readonly ContentSegment[];
 }
 
 export interface SearchQuery {
@@ -26,6 +26,11 @@ export interface SearchQuery {
   kinds?: readonly SpaceSearchDocumentKind[];
   speaker?: string;
   limit: number;
+}
+
+/** 给出可能命中的段落（`ContentStore.candidates`）。 */
+export interface SegmentSource {
+  candidates(filter: CandidateFilter): SegmentRow[];
 }
 
 const SNIPPET_MAX = 120;
@@ -39,19 +44,27 @@ export function searchTerms(query: string): string[] {
   return [...new Set(normalizeText(query).split(/\s+/).filter(Boolean))];
 }
 
-export function searchSegments(videos: readonly SearchableVideo[], query: SearchQuery): { hits: SpaceSearchHit[]; truncated: boolean } {
+export function searchSegments(
+  source: SegmentSource,
+  videos: readonly SearchableVideo[],
+  query: SearchQuery,
+): { hits: SpaceSearchHit[]; truncated: boolean } {
   const terms = searchTerms(query.query);
   const speaker = query.speaker ? normalizeText(query.speaker.trim()) : null;
-  const kinds = query.kinds && query.kinds.length > 0 ? new Set(query.kinds) : null;
+  const kinds = query.kinds && query.kinds.length > 0 ? query.kinds : null;
+  if (videos.length === 0) return { hits: [], truncated: false };
+  const byDir = new Map<string, SegmentRow[]>();
+  for (const video of videos) byDir.set(video.dir, []);
+  for (const row of source.candidates({ terms, kinds, speaker })) byDir.get(row.dir)?.push(row);
   const hits: SpaceSearchHit[] = [];
   for (const video of videos) {
-    const matched: SpaceSearchHit[] = [];
-    for (const segment of video.segments) {
-      if (kinds && !kinds.has(segment.kind)) continue;
-      if (speaker !== null && !(segment.speaker !== null && normalizeText(segment.speaker).includes(speaker))) continue;
+    const rows = byDir.get(video.dir)!;
+    rows.sort((a, b) => a.start - b.start || kindOrder(a.kind) - kindOrder(b.kind) || a.id - b.id);
+    for (const segment of rows) {
       const found = matchTerms(segment.text, terms);
       if (!found) continue;
-      matched.push({
+      if (hits.length >= query.limit) return { hits, truncated: true };
+      hits.push({
         videoId: video.videoId,
         videoName: video.videoName,
         entryId: video.entryId,
@@ -64,11 +77,6 @@ export function searchSegments(videos: readonly SearchableVideo[], query: Search
         speaker: segment.speaker,
         indexedRevision: video.revision,
       });
-    }
-    matched.sort((a, b) => a.time.start - b.time.start || kindOrder(a.documentKind) - kindOrder(b.documentKind));
-    for (const hit of matched) {
-      if (hits.length >= query.limit) return { hits, truncated: true };
-      hits.push(hit);
     }
   }
   return { hits, truncated: false };
