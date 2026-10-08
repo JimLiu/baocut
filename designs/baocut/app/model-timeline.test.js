@@ -836,3 +836,12 @@ test('层级四项：独占一轨时与相邻同类轨换位，走到边为 null
     {subTracks: [], music: false}).rows;
   assert.deepStrictEqual(TL.arrangePlan(shared, 'a', 'front'), {split: true});
 });
+
+test('画布叠放次序：时间线上越靠上的画面轨道名次越大，跟着 trackOrder 变', () => {
+  assert.deepStrictEqual(TL.stackRank(orderFixture()), {stk: 2, img: 1, vid: 0});
+  const moved = TL.trackOrderAfterDrop(orderFixture(), {}, 'el:video@0', {key: 'el:sticker@0', position: 'above'});
+  assert.deepStrictEqual(TL.stackRank(orderFixture(moved)), {vid: 2, stk: 1, img: 0});
+  const shared = TL.rows([{id: 'a', kind: 'image', start: 0, end: 2}, {id: 'b', kind: 'image', start: 3, end: 5}],
+    {subTracks: [], music: false}).rows;
+  assert.deepStrictEqual(TL.stackRank(shared), {a: 0, b: 0}, '同一条轨道上的名次相同');
+});

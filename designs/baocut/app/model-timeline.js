@@ -508,6 +508,16 @@
   /** 一类在显示上的键序（自上而下），由模型序换算。 */
   function trackDisplay(cls, orderAsc) { return displayKeys(cls, orderAsc || []); }
 
+  /* 画布叠放次序（product-design §5.1「叠放次序」）：时间线上越靠上的画面轨道越在前面。
+     返回元素 id → 名次（0 = 最底下，越大越在前）；同一条轨道上的元素名次相同（时间上不重叠，
+     谁前谁后无从比较）。不在画面轨道上的元素（模板、声音）不在表里。 */
+  function stackRank(rows) {
+    const list = unitsOf(rows, 'picture');
+    const rank = {};
+    list.forEach((u, i) => { rowEls(u.rows[0]).forEach((e) => { rank[e.id] = list.length - 1 - i; }); });
+    return rank;
+  }
+
   /* 画布元素的「层级」四项（F / ⌘↑ / ⌘↓ / B）落在轨道上：画面元素独占一条轨时与相邻的同类轨换位
      （前移 = 拖到上一条之上，移到最前 = 拖到最上一条之上），走到边就灰掉；与别的元素共一条轨时
      引擎会把它拆到一条新的相邻轨上——本原型的道由同类共道派生、拆不出新轨，只报一个 `split`。 */
@@ -876,7 +886,7 @@
     clampPxps, zoomIn, zoomOut, zoomLabel, fitPxps, minPxps, zoomedScroll, zoomPlan, zoomKey,
     chapterAt, playbackSpans, prevChapterStart, nextChapterStart, clipAt, splitSpan, rows, laneSwitch, rowEls, rowOfEl,
     trackClass, trackUnits, trackPlacement, moveTrack, canDragTrack, trackDropChanges, trackDropAt, trackOrderAfterDrop,
-    trackDisplay, ARRANGE_DIRS, arrangePlan,
+    trackDisplay, stackRank, ARRANGE_DIRS, arrangePlan,
     LANE_EPSILON, laneFit, rowGaps,
     MEDIA_KINDS, isMediaKind, COVER_KINDS, covers, coverSpans,
     SNAP_PX, LABEL_MIN_W, TRIM_MIN, HANDLE_W, CUE_TEXT_INSET, THUMB_W, MEDIA_MIN_W,

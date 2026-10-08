@@ -12,7 +12,7 @@
      · **播放中点一件 = 暂停 ＋ 选中**：不暂停的话手柄下一帧就被起播那条规则收走。
    ============================================================================ */
 (function () {
-  const {useEffect} = React;
+  const {useEffect, useMemo} = React;
   const D = window.BC_DATA;
   const P = window.BC_POSE;
   const PV = window.BC_PREV;
@@ -130,6 +130,13 @@
     // 删掉的不再画；停用的（第 120 轮，时间轴行头那只眼睛）也不画——它还在文档里，只是这一轮不上画面
     const live = (id) => (ctx.elements || []).some((e) => e.id === id) && !((ctx.elDocs || {})[id] || {}).hidden;
     const userEls = (ctx.elements || []).filter((e) => e.added && e.kind !== 'audio');
+    /* 叠放次序（product-design §5.1）：时间线上越靠上的画面轨道越在前面——拖行头、画布「层级」改的
+       `trackOrder` 在这里落到画面上。元素同在 z-index 1 上，按名次从底到顶排 DOM 顺序（后画的盖住
+       先画的）；不抬 z-index，免得压过字幕、参考线与统一框。名次只看画面轨道，与字幕 / 声音行无关。 */
+    const rank = useMemo(() => window.BC_TL.stackRank(window.BC_TL.rows(ctx.elements || [],
+      {subTracks: [], audio: false, music: false, trackOrder: ctx.trackOrder}).rows), [ctx.elements, ctx.trackOrder]);
+    const byStack = (list) => list.map((e, i) => [e, i])
+      .sort((a, b) => (rank[a[0].id] ?? -1) - (rank[b[0].id] ?? -1) || a[1] - b[1]).map((x) => x[0]);
     /* 按需那六类「在不在画面上」与「选没选中」第 115 轮起分开：选中一次就留在画面上
        （进 `ctx.shown`），取消选中不再让它消失，删除才拿走。 */
     const shown = ctx.shown || [];
@@ -515,12 +522,12 @@
 
     return (
       <React.Fragment>
-          {CANVAS_ELEMENTS
+          {byStack(CANVAS_ELEMENTS
             .filter((e) => live(e.id))
             .concat(ON_DEMAND.filter((o) => live(o.id) && (shown.indexOf(o.id) >= 0 || ctx.isSel('element', o.id))))
             /* 用户造出来的元素（第 58 轮）。上面两张表是**每类一条**的演示装置，认的是
                kind；这些认 id——同一类可以有很多条。 */
-            .concat(userEls.map((u) => Object.assign({}, u, {added: true}))).map((e) => {
+            .concat(userEls.map((u) => Object.assign({}, u, {added: true})))).map((e) => {
             /* 命中一律按 id（第 115 轮）：此前演示元素按 kind 认，同类两件必然同时亮，
                而多选也无从表达。`alt` 只影响「按哪一族画工具条」，不再参与命中。 */
             /* 多选时**不各自出手柄**（§6）：统一框只画一个，成员各留一条细描边。 */
