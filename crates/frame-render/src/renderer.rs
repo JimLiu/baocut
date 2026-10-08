@@ -23,7 +23,7 @@ use render_raster::source::{Lottie, MediaTime, VizParams, VizSource, VizTrack};
 use serde::Serialize;
 use serde_json::{Value, json};
 use subtitle_render::{DynamicAssetNames, OverlayIncludes, OverlayRenderPlan, TimelineVisualElement};
-use tiny_skia::{BlendMode, Color, FilterQuality, IntSize, Pixmap, PixmapPaint, Rect, Transform};
+use tiny_skia::{BlendMode, Color, FilterQuality, IntSize, Pixmap, PixmapPaint, PixmapRef, Rect, Transform};
 use video_model::{AssetRecord, Fx, Id, Sequence, TimelineItem, VersionRef};
 
 use crate::caption_words::{SpeechWords, place};
@@ -1059,17 +1059,19 @@ impl FrameRenderer {
             self.warn(RENDER_NOTE, format!("{}：{note}", first.item_id));
         }
         self.note_missing_fonts(&first.item_id, missing);
-        if let Some((pixmap, blend_mode)) = rendered {
+        if let Some(layer) = rendered {
             let opacity = first.opacity.clamp(0.0, 1.0) as f32 * style_opacity;
-            // 字幕层大片透明：只在字的外包矩形里叠（与整幅画逐字节相同）。
-            if render_raster::plan::composite_bounded(&mut self.frame, &pixmap, opacity, blend_mode).is_none() {
+            let pixmap = PixmapRef::from_bytes(&layer.rgba, layer.width, layer.height)
+                .ok_or_else(|| RenderError::render(anyhow::anyhow!("字幕层的尺寸不对")))?;
+            // 字幕层大片透明：只在内核给的字外包矩形里叠（与整幅画逐字节相同），不复制、不重扫。
+            if render_raster::plan::composite_bounded_rect(&mut self.frame, pixmap, layer.rect, opacity, layer.blend).is_none() {
                 self.frame.draw_pixmap(
                     0,
                     0,
-                    pixmap.as_ref(),
+                    pixmap,
                     &PixmapPaint {
                         opacity,
-                        blend_mode,
+                        blend_mode: layer.blend,
                         quality: FilterQuality::Nearest,
                     },
                     Transform::identity(),

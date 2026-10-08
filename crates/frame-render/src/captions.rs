@@ -18,7 +18,7 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use subtitle_render::{CaptionCompositeMode, OverlayIncludes, OverlayRenderPlan, TemplateScene};
 use timeline::template::TemplateDoc;
-use tiny_skia::{BlendMode, IntSize, Pixmap};
+use tiny_skia::BlendMode;
 
 use crate::caption_words::{Placement, SpeechWords, WordTimes, cue_words_indexed};
 use crate::documents::FrozenDocument;
@@ -313,6 +313,16 @@ pub struct CaptionHit {
     pub rotation: f64,
 }
 
+/// 一帧字幕层：预乘 RGBA（与内核帧缓存共用）、非零像素的外包矩形与混合方式。
+pub struct CaptionLayer {
+    pub rgba: Arc<Vec<u8>>,
+    pub width: u32,
+    pub height: u32,
+    /// `(left, top, right, bottom)`，像素、右下开区间；盖住全部非零像素。
+    pub rect: (usize, usize, usize, usize),
+    pub blend: BlendMode,
+}
+
 /// 一组字幕编好的内核计划。
 pub struct CaptionPlan {
     plan: OverlayRenderPlan,
@@ -434,22 +444,31 @@ impl CaptionPlan {
         self.plan.into_text_engine()
     }
 
-    /// 文档时钟上 `seconds` 这一刻的字幕层与它的混合方式；这一刻没有字幕时为 `None`。
-    pub fn render(&mut self, seconds: f64) -> Result<Option<(Pixmap, BlendMode)>> {
+    /// 文档时钟上 `seconds` 这一刻的字幕层；这一刻没有字幕时为 `None`。
+    ///
+    /// 像素与内核的帧缓存共用一份（不复制整幅缓冲），连同内核算好的内容框一起交出，调用方不必再扫描。
+    pub fn render(&mut self, seconds: f64) -> Result<Option<CaptionLayer>> {
         let frame = self.plan.render_subtitle_frame(seconds.max(0.0))?;
-        if frame.bounds.is_none() {
+        let Some(bounds) = frame.bounds else {
             return Ok(None);
+        };
+        let (width, height) = (self.plan.width, self.plan.height);
+        if frame.rgba.len() != width as usize * height as usize * 4 {
+            anyhow::bail!("字幕层的尺寸不对");
         }
-        let size = IntSize::from_wh(self.plan.width, self.plan.height).ok_or_else(|| anyhow::anyhow!("字幕画布尺寸非法"))?;
-        let rgba = Arc::try_unwrap(frame.rgba).unwrap_or_else(|shared| (*shared).clone());
-        let pixmap = Pixmap::from_vec(rgba, size).ok_or_else(|| anyhow::anyhow!("字幕层的尺寸不对"))?;
         let blend = match frame.composite {
             CaptionCompositeMode::Normal => BlendMode::SourceOver,
             CaptionCompositeMode::Difference => BlendMode::Difference,
             CaptionCompositeMode::Exclusion => BlendMode::Exclusion,
             CaptionCompositeMode::Screen => BlendMode::Screen,
         };
-        Ok(Some((pixmap, blend)))
+        Ok(Some(CaptionLayer {
+            rgba: frame.rgba,
+            width,
+            height,
+            rect: (bounds.cols.start, bounds.rows.start, bounds.cols.end, bounds.rows.end),
+            blend,
+        }))
     }
 
     /// 与光栅同源的行几何；不在 UI 里估算字宽或重做显示时机。

@@ -25,8 +25,8 @@ pub use capability::{
     PreflightReport, preflight, preflight_effects,
 };
 pub use executor_cpu::{
-    CpuExecutor, PassExecutor, composite_bounded, execute_plan, execute_plan_with_fingerprints,
-    execute_plan_with_inputs,
+    CpuExecutor, PassExecutor, composite_bounded, composite_bounded_rect, execute_plan,
+    execute_plan_with_fingerprints, execute_plan_with_inputs,
 };
 #[cfg(feature = "gpu-runtime")]
 pub use executor_gpu::GpuExecutor;

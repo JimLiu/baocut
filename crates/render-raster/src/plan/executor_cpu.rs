@@ -303,14 +303,54 @@ pub fn composite_bounded(
         .then(|| bounded(out, layer, opacity.clamp(0.0, 1.0), blend))
 }
 
+/// 与 [`composite_bounded`] 相同，但内容框由调用方给（`(left, top, right, bottom)`，像素、右下开区间），
+/// 不再扫描图层。框必须盖住图层全部非零像素；任何这样的超集都与整幅画逐字节相同（src 全零时九种混合
+/// 都不动 dst）。超出图层的部分按图层尺寸截掉。
+pub fn composite_bounded_rect(
+    out: &mut Pixmap,
+    layer: tiny_skia::PixmapRef<'_>,
+    rect: (usize, usize, usize, usize),
+    opacity: f32,
+    blend: tiny_skia::BlendMode,
+) -> Option<bool> {
+    BlendMode::ALL
+        .iter()
+        .any(|&mode| super::blend_to_skia(mode) == blend)
+        .then(|| {
+            let (left, top, right, bottom) = rect;
+            let right = right.min(layer.width() as usize);
+            let bottom = bottom.min(layer.height() as usize);
+            fill_content(
+                out,
+                layer,
+                (left, top, right, bottom),
+                opacity.clamp(0.0, 1.0),
+                blend,
+            )
+        })
+}
+
 fn bounded(out: &mut Pixmap, layer: &Pixmap, opacity: f32, blend: tiny_skia::BlendMode) -> bool {
     if opacity <= 0.0 {
         return false;
     }
-    let Some((left, top, right, bottom)) = content_rect(layer.data(), layer.width() as usize)
-    else {
+    let Some(rect) = content_rect(layer.data(), layer.width() as usize) else {
         return false;
     };
+    fill_content(out, layer.as_ref(), rect, opacity, blend)
+}
+
+/// 只在 `(left, top, right, bottom)` 里按整幅 `draw_pixmap` 的画法叠 `layer`。
+fn fill_content(
+    out: &mut Pixmap,
+    layer: tiny_skia::PixmapRef<'_>,
+    (left, top, right, bottom): (usize, usize, usize, usize),
+    opacity: f32,
+    blend: tiny_skia::BlendMode,
+) -> bool {
+    if opacity <= 0.0 {
+        return false;
+    }
     let Some(rect) =
         tiny_skia::Rect::from_ltrb(left as f32, top as f32, right as f32, bottom as f32)
     else {
@@ -320,7 +360,7 @@ fn bounded(out: &mut Pixmap, layer: &Pixmap, opacity: f32, blend: tiny_skia::Ble
     // 填充矩形从整幅收窄到内容框。
     let paint = tiny_skia::Paint {
         shader: tiny_skia::Pattern::new(
-            layer.as_ref(),
+            layer,
             tiny_skia::SpreadMode::Pad,
             tiny_skia::FilterQuality::Nearest,
             opacity,
