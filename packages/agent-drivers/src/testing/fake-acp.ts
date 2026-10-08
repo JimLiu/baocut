@@ -61,6 +61,13 @@ export interface FakeAcpScenario {
   models: 'legacy' | 'config' | 'none';
   /** 回答 `cursor/list_available_models`。 */
   cursorModels: boolean;
+  /**
+   * 启动时派生一个一直运行、不理会 SIGTERM 的子进程（像 cursor-agent 启动时为 @ 文件建索引跑的 `rg`），自己退出时不管它。
+   * 进程号记在 `start` 日志的 `helper` 里。
+   */
+  helper: boolean;
+  /** 收到 `initialize` 时不应答，直接以退出码 1 退出。 */
+  exitOnInitialize: boolean;
   turn: FakeAcpTurn;
 }
 
@@ -71,6 +78,8 @@ export interface FakeAcpLogEntry {
   cwd?: string;
   args?: string[];
   env?: Record<string, string | undefined>;
+  /** `helper` 场景里派生的子进程。 */
+  helper?: number;
   msg?: { id?: number | string; method?: string; params?: unknown; result?: unknown; error?: unknown };
 }
 
@@ -99,6 +108,8 @@ const DEFAULT_SCENARIO: FakeAcpScenario = {
   allowAll: false,
   models: 'legacy',
   cursorModels: false,
+  helper: false,
+  exitOnInitialize: false,
   turn: { reply: 'done' },
 };
 

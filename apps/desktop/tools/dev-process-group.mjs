@@ -7,9 +7,9 @@
 //
 // 取舍：POSIX 上子进程用 `detached`（setsid）自成一个进程组，`kill(-pgid)` 一次就够到孙进程（Electron）与曾孙（Runtime），
 // electron-vite 重新构建主进程时换上的新 Electron 也在组里。代价是终端关掉时内核的 SIGHUP 不再直接送到组里，全靠这里转发；
-// 这个进程自己被 SIGKILL 时组会留下（用 `kill -- -<pgid>` 收拾）。Runtime 起的导出 Worker 自成一组，不在这里，由 Runtime 的
-// 停止顺序收尾。Windows 没有进程组：Ctrl+C 与关掉控制台本来就送到控制台上的每个进程，这里只在超时后用 `taskkill /T /F` 强杀
-// 子进程树。
+// 这个进程自己被 SIGKILL 时组会留下（用 `kill -- -<pgid>` 收拾）。Runtime 起的导出 Worker、ACP 智能体与 OpenCode 服务各自
+// 成组，不在这里，由 Runtime 的停止顺序收尾（ACP 智能体在 Runtime 退出时还会被整组强杀）。Windows 没有进程组：Ctrl+C 与关掉
+// 控制台本来就送到控制台上的每个进程，这里只在超时后用 `taskkill /T /F` 强杀子进程树。
 
 import { spawn, spawnSync } from 'node:child_process';
 
