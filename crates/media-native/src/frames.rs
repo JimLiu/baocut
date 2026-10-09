@@ -82,6 +82,34 @@ pub(crate) trait FrameSource {
         let _ = time_seconds;
         Ok(None)
     }
+    /// 同 [`next_decoded`](Self::next_decoded)，像素写进调用方给的缓冲（长度按帧改），返回时间与实际尺寸。
+    ///
+    /// 给 [`SequentialDecoder`] 用：成片导出逐帧取，缓冲在调用方与读帧线程之间轮换，不逐帧分配。缺省实现
+    /// 换进新分配的像素（语义相同，只是没省掉分配）；平台能直接写进缓冲的覆盖它。
+    fn next_decoded_into(&mut self, data: &mut Vec<u8>) -> Result<Option<DecodedInto>> {
+        Ok(self.next_decoded()?.map(|decoded| {
+            let RgbaFrame {
+                width,
+                height,
+                data: pixels,
+            } = decoded.frame;
+            *data = pixels;
+            DecodedInto {
+                pts_seconds: decoded.pts_seconds,
+                duration_seconds: decoded.duration_seconds,
+                width,
+                height,
+            }
+        }))
+    }
+}
+
+/// [`FrameSource::next_decoded_into`] 写进缓冲的那一帧的时间与尺寸。
+pub(crate) struct DecodedInto {
+    pub(crate) pts_seconds: f64,
+    pub(crate) duration_seconds: Option<f64>,
+    pub(crate) width: u32,
+    pub(crate) height: u32,
 }
 
 /// 时间戳比较容差：1 微秒。合成帧率与源帧率都是有理数，f64 换算后的误差远小于
@@ -128,16 +156,140 @@ pub fn open_frame_stream(path: &Path, from_seconds: f64, fps: f64) -> Result<Fra
     } else {
         bail!("from_seconds 必须是有限值，实得 {from_seconds}");
     };
+    let source = open_source(path, from, None)?;
+    Ok(FrameStream::new(source, from, fps))
+}
+
+/// 平台顺序解码器。`size` 是想要的交付尺寸（摆正后的显示方向）：平台能在解码链路上缩放的就让它直接交付这个尺寸
+/// （macOS），不能的交原尺寸，由调用方补一次 CPU 重采样。
+fn open_source(path: &Path, from: f64, size: Option<(u32, u32)>) -> Result<Box<dyn FrameSource>> {
     #[cfg(target_os = "macos")]
-    let source = crate::macos::open_frame_source(path, from)?;
+    let source = crate::macos::open_frame_source(path, from, size)?;
     #[cfg(target_os = "windows")]
-    let source = crate::windows::open_frame_source(path, from)?;
+    let source = {
+        // Media Foundation 的 source reader 这里不请求缩放（v2 的导出后端也没有）：交原尺寸，
+        // `SequentialDecoder` 在 CPU 上补重采样。
+        let _ = size;
+        crate::windows::open_frame_source(path, from)?
+    };
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     let source: Box<dyn FrameSource> = {
-        let _ = (path, from);
+        let _ = (path, from, size);
         bail!("unsupported: 当前平台没有原生顺序帧流后端（请安装 ffmpeg 走兜底路径）")
     };
-    Ok(FrameStream::new(source, from, fps))
+    Ok(source)
+}
+
+/// 按时间戳顺序交帧的原生解码器：不做帧率重采样，每次交出解码顺序上的下一帧与它的呈现时刻。
+///
+/// 给按**任意有理时刻**前进的调用方（成片导出：变速片段的源时刻不落在任何固定网格上）用：「取 pts ≤ 目标时刻的
+/// 最后一帧」由调用方按交出的时刻自己判断。与 [`FrameStream`] 共用平台解码器，差别只在这一层。
+///
+/// - 像素是紧排的 top-down RGBA8（alpha 恒 255，视频帧没有透明度）。BGRA → RGBA 的换算留在本 crate 里。
+/// - 交付尺寸：打开时给了 `size` 就恒为那个尺寸。平台在解码链路上缩放（macOS 的 `AVAssetReaderTrackOutput`
+///   输出设置带宽高）；平台没照做（Windows 的 source reader 不请求缩放）时在 CPU 上按盒式滤波补一次。
+/// - 时刻是素材时间轴上的**绝对值**（与 [`FrameStream`] 同一个原点）。
+pub struct SequentialDecoder {
+    source: Box<dyn FrameSource>,
+    size: Option<(u32, u32)>,
+    /// 平台交的尺寸与 `size` 不符时先解进这里，再重采样进调用方的缓冲。
+    scratch: Vec<u8>,
+}
+
+// SAFETY：与 `FrameStream` 同一条理由——平台对象（AVAssetReader / IMFSourceReader）没有线程亲和性；契约是单线程独占，
+// 跨线程移动之后只由新线程使用。
+unsafe impl Send for SequentialDecoder {}
+
+/// [`SequentialDecoder::next_into`] 交出的一帧的时间与尺寸（像素在调用方的缓冲里）。
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DecodedFrameInfo {
+    /// 素材时间轴上的呈现时刻（秒）。
+    pub pts_seconds: f64,
+    /// 这一帧的呈现时长（秒）；容器与轨道都没给时为 `None`。
+    pub duration_seconds: Option<f64>,
+    pub width: u32,
+    pub height: u32,
+}
+
+/// 打开 `path` 从 `from_seconds`（素材时间轴，秒）起读的顺序解码器；`size` 是想要的交付尺寸（显示方向）。
+///
+/// 起点语义同 [`open_frame_stream`]：第一帧是覆盖 `from_seconds` 的那一帧（平台从它之前的关键帧解起，更早的帧
+/// 由平台层或调用方按时刻丢掉）。返回 `Err` 就是这条片源原生解不了，调用方回落 ffmpeg。
+pub fn open_sequential_decoder(
+    path: &Path,
+    from_seconds: f64,
+    size: Option<(u32, u32)>,
+) -> Result<SequentialDecoder> {
+    if !from_seconds.is_finite() {
+        bail!("from_seconds 必须是有限值，实得 {from_seconds}");
+    }
+    if let Some((width, height)) = size
+        && (width == 0 || height == 0)
+    {
+        bail!("交付尺寸必须为正，实得 {width}x{height}");
+    }
+    let source = open_source(path, from_seconds.max(0.0), size)?;
+    Ok(SequentialDecoder::new(source, size))
+}
+
+impl SequentialDecoder {
+    pub(crate) fn new(source: Box<dyn FrameSource>, size: Option<(u32, u32)>) -> Self {
+        Self {
+            source,
+            size,
+            scratch: Vec::new(),
+        }
+    }
+
+    /// 交付尺寸（显示方向）：打开时给了就是它，否则是平台报的源尺寸。
+    pub fn size(&self) -> (u32, u32) {
+        self.size.unwrap_or_else(|| self.source.size())
+    }
+
+    /// 解码顺序上的下一帧写进 `data`（长度改成一帧）；`None` = 片源解完。
+    pub fn next_into(&mut self, data: &mut Vec<u8>) -> Result<Option<DecodedFrameInfo>> {
+        let Some((width, height)) = self.size else {
+            return Ok(self.source.next_decoded_into(data)?.map(info));
+        };
+        let Some(decoded) = self.source.next_decoded_into(data)? else {
+            return Ok(None);
+        };
+        if (decoded.width, decoded.height) == (width, height) {
+            return Ok(Some(info(decoded)));
+        }
+        // 平台没按请求的尺寸交：在 CPU 上补一次重采样（与单帧抽取的收口同一个盒式滤波）。
+        std::mem::swap(data, &mut self.scratch);
+        let frame = RgbaFrame::new(
+            decoded.width,
+            decoded.height,
+            std::mem::take(&mut self.scratch),
+        )?;
+        let resized = crate::scale::resize_rgba(&frame, width, height);
+        self.scratch = frame.data;
+        *data = resized.data;
+        Ok(Some(DecodedFrameInfo {
+            width,
+            height,
+            ..info(decoded)
+        }))
+    }
+
+    /// 在同一片源上从 `from_seconds` 重新起读。`Err` = 平台不支持或重开失败，解码器处于未定义状态，调用方丢掉它重开。
+    pub fn reopen(&mut self, from_seconds: f64) -> Result<()> {
+        if !from_seconds.is_finite() {
+            bail!("from_seconds 必须是有限值，实得 {from_seconds}");
+        }
+        self.source.reopen(from_seconds.max(0.0))
+    }
+}
+
+fn info(decoded: DecodedInto) -> DecodedFrameInfo {
+    DecodedFrameInfo {
+        pts_seconds: decoded.pts_seconds,
+        duration_seconds: decoded.duration_seconds,
+        width: decoded.width,
+        height: decoded.height,
+    }
 }
 
 impl FrameStream {
@@ -469,6 +621,51 @@ mod tests {
         let mut empty = stream(Vec::new(), 0.0, 2.0);
         assert!(empty.next_frame().unwrap().is_none());
         assert_eq!(empty.terminal_frame(), None);
+    }
+
+    /// 顺序解码器按解码顺序原样交帧（不重采样），时刻是片源自己的；写进调用方的缓冲。
+    #[test]
+    fn the_sequential_decoder_passes_frames_in_order_with_their_own_times() {
+        let mut decoder = SequentialDecoder::new(Box::new(ScriptedSource::new(cfr(3, 10.0))), None);
+        assert_eq!(decoder.size(), (1, 1));
+        let mut data = Vec::new();
+        let mut seen = Vec::new();
+        while let Some(info) = decoder.next_into(&mut data).unwrap() {
+            assert_eq!((info.width, info.height, data.len()), (1, 1, 4));
+            seen.push((info.pts_seconds, data[0]));
+        }
+        assert_eq!(seen, vec![(0.0, 0), (0.1, 1), (0.2, 2)]);
+        // 原地重开：从覆盖起点的那一帧起再交。
+        decoder.reopen(0.15).unwrap();
+        assert_eq!(
+            decoder.next_into(&mut data).unwrap().unwrap().pts_seconds,
+            0.1
+        );
+    }
+
+    /// 平台没按请求的尺寸交帧时补一次 CPU 重采样：交出的永远是请求的尺寸，字节数对得上。
+    #[test]
+    fn the_sequential_decoder_resamples_when_the_platform_ignores_the_requested_size() {
+        let mut decoder =
+            SequentialDecoder::new(Box::new(ScriptedSource::new(cfr(2, 10.0))), Some((3, 2)));
+        assert_eq!(decoder.size(), (3, 2));
+        let mut data = vec![9; 7];
+        let info = decoder.next_into(&mut data).unwrap().unwrap();
+        assert_eq!((info.width, info.height), (3, 2));
+        assert_eq!(data, [0, 0, 0, 255].repeat(6));
+        let info = decoder.next_into(&mut data).unwrap().unwrap();
+        assert_eq!((info.pts_seconds, data.len()), (0.1, 24));
+        assert_eq!(data[..4], [1, 1, 1, 255]);
+        assert!(decoder.next_into(&mut data).unwrap().is_none());
+    }
+
+    /// 非法的起点与交付尺寸在碰平台之前就被拒。
+    #[test]
+    fn the_sequential_decoder_rejects_bad_arguments_before_touching_the_platform() {
+        let path = Path::new("/nonexistent.mp4");
+        assert!(open_sequential_decoder(path, f64::NAN, None).is_err());
+        assert!(open_sequential_decoder(path, 0.0, Some((0, 10))).is_err());
+        assert!(open_sequential_decoder(path, 0.0, None).is_err());
     }
 
     /// 空片源：一帧都不交，直接 EOF（不是 panic，也不是无限 dup）。

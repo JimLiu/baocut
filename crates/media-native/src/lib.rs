@@ -66,10 +66,14 @@ mod playback_windows;
 mod windows;
 
 pub use encode::{
-    AUDIO_BITRATE, AUDIO_CHANNELS, AUDIO_SAMPLE_RATE, Mp4Writer, encode_available, encode_backend,
-    frame_rate_rational, open_mp4_writer, open_mp4_writer_with_bitrate, video_bitrate,
+    AUDIO_BITRATE, AUDIO_CHANNELS, AUDIO_SAMPLE_RATE, AudioInput, Mp4Options, Mp4Writer, PcmFormat,
+    WavLayout, crf_bitrate, encode_available, encode_backend, frame_rate_rational, open_mp4_writer,
+    open_mp4_writer_with_bitrate, open_mp4_writer_with_options, read_wav_layout, video_bitrate,
 };
-pub use frames::{FrameStream, open_frame_stream, prewarm_frame_stream};
+pub use frames::{
+    DecodedFrameInfo, FrameStream, SequentialDecoder, open_frame_stream, open_sequential_decoder,
+    prewarm_frame_stream,
+};
 #[cfg(target_os = "windows")]
 pub use playback_windows::{
     DxgiAdapterLuid, DxgiFrameServer, DxgiPlaybackState, DxgiVideoFrame, open_dxgi_frame_server,

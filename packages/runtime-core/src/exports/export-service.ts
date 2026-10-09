@@ -778,6 +778,13 @@ export class ExportService {
             frames: result.frames,
             renderSeconds: result.renderSeconds,
             decoderRestarts: result.decoderRestarts,
+            ...(result.video
+              ? {
+                  videoDecoder: result.video.decoder,
+                  videoEncoder: result.video.encoder,
+                  videoFallbacks: result.video.fallbacks.map((f) => `${f.scope}:${f.reason}${f.assetId ? `@${f.assetId}` : ''}`),
+                }
+              : {}),
           });
           task.phase('validating', { done: done + result.frames, total, unit: 'frames' });
           const probed = await probeVideo(ffprobe, outFile, task.signal);

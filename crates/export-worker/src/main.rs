@@ -14,6 +14,7 @@
 
 mod input;
 mod master;
+mod native;
 mod preflight;
 mod render;
 mod sources;

@@ -23,8 +23,10 @@
 //! 下来，省掉整幅 4K 位图。但它只缩不放、且遵守自己的取整规则，所以最终尺寸由
 //! 位图上下文说了算——按 [`crate::scaled_height`] 算出目标高，建一个恰好
 //! `w × h` 的 RGBA 上下文，让 CoreGraphics 把 CGImage 画进去。上下文的第一行
-//! 内存就是图像顶行，因此不需要额外翻转。顺序流不缩放：渲染管线要的是源尺寸
-//! 原样，缩放是合成层的事。
+//! 内存就是图像顶行，因此不需要额外翻转。顺序流缺省不缩放（`bcut-render` 的帧流
+//! 要源尺寸原样）；成片导出的顺序解码器（[`crate::SequentialDecoder`]）给了交付
+//! 尺寸时，`AVAssetReaderTrackOutput` 的输出设置带上宽高，解码链路直接交那个尺寸
+//! （移植自 v2 `native_video.rs` 的 `reader_pixel_settings`）。
 
 #![allow(deprecated)]
 
@@ -62,7 +64,7 @@ use objc2_core_video::{
 use objc2_foundation::{NSDictionary, NSNumber, NSString, NSURL};
 use objc2_video_toolbox::{VTDecodeFrameFlags, VTDecodeInfoFlags, VTDecompressionSession};
 
-use crate::frames::{DecodedFrame, FrameSource};
+use crate::frames::{DecodedFrame, DecodedInto, FrameSource};
 use crate::{RgbaFrame, scale};
 
 /// 取帧时间的时基。600 是 24/25/30/60 fps 的公倍数，Apple 自家示例的惯用值：
@@ -182,14 +184,23 @@ fn draw_into_rgba(image: &CGImage, width: u32, height: u32) -> Result<RgbaFrame>
 /// 的原生输出格式之一（不用多一次转换），字节序换算只是逐像素交换 R/B。
 const OUTPUT_PIXEL_FORMAT: u32 = kCVPixelFormatType_32BGRA;
 
-pub(crate) fn open_frame_source(path: &Path, from_seconds: f64) -> Result<Box<dyn FrameSource>> {
+/// `size` 是想要的交付尺寸（摆正后的显示方向）：给了就让解码链路直接交这个尺寸（见 [`start_reader`]）。
+pub(crate) fn open_frame_source(
+    path: &Path,
+    from_seconds: f64,
+    size: Option<(u32, u32)>,
+) -> Result<Box<dyn FrameSource>> {
     if !path.is_file() {
         bail!("媒体文件不存在：{}", path.display());
     }
-    objc2::rc::autoreleasepool(|_| unsafe { open_inner(path, from_seconds) })
+    objc2::rc::autoreleasepool(|_| unsafe { open_inner(path, from_seconds, size) })
 }
 
-unsafe fn open_inner(path: &Path, from_seconds: f64) -> Result<Box<dyn FrameSource>> {
+unsafe fn open_inner(
+    path: &Path,
+    from_seconds: f64,
+    size: Option<(u32, u32)>,
+) -> Result<Box<dyn FrameSource>> {
     let url = NSURL::fileURLWithPath(&NSString::from_str(&path.to_string_lossy()));
     let asset = unsafe { AVURLAsset::URLAssetWithURL_options(&url, None) };
     let media_type = unsafe { AVMediaTypeVideo }.context("AVMediaTypeVideo 未链接")?;
@@ -218,13 +229,24 @@ unsafe fn open_inner(path: &Path, from_seconds: f64) -> Result<Box<dyn FrameSour
     if coded_width == 0 || coded_height == 0 {
         bail!("unsupported: 源媒体没有有效的视频尺寸");
     }
-    let (width, height) = if matches!(rotation, 90 | 270) {
-        (coded_height, coded_width)
-    } else {
-        (coded_width, coded_height)
+    let (width, height) = match size {
+        Some(size) => size,
+        None if matches!(rotation, 90 | 270) => (coded_height, coded_width),
+        None => (coded_width, coded_height),
     };
+    // 解码端交付尺寸是编码方向（摆正之前）：90/270 度的素材宽高对调（v2 `EncodeTarget::decoded_size`）。
+    // 与源尺寸相同就不请求，免得解码器多走一次缩放。
+    let delivery = size
+        .map(|(w, h)| {
+            if matches!(rotation, 90 | 270) {
+                (h, w)
+            } else {
+                (w, h)
+            }
+        })
+        .filter(|delivery| *delivery != (coded_width, coded_height));
 
-    let (reader, output) = unsafe { start_reader(&asset, &track, from_seconds)? };
+    let (reader, output) = unsafe { start_reader(&asset, &track, from_seconds, delivery)? };
     Ok(Box::new(AssetReaderFrames {
         asset,
         track,
@@ -234,6 +256,7 @@ unsafe fn open_inner(path: &Path, from_seconds: f64) -> Result<Box<dyn FrameSour
         height,
         coded_width,
         coded_height,
+        delivery,
         rotation,
         track_frame_duration,
         finished: false,
@@ -248,6 +271,37 @@ fn cf_key(key: &CFString) -> &NSString {
     unsafe { &*ptr::from_ref(key).cast::<NSString>() }
 }
 
+/// 顺序流的像素输出设置：32BGRA，给了 `delivery`（编码方向的宽高）时再带上宽高，让解码链路直接交这个尺寸。
+///
+/// 移植自 v2 `native_video.rs` 的 `reader_pixel_settings`：成片导出每帧要的是画面里的尺寸，4K 素材在解码端就缩到
+/// 1080p，省掉一次整幅 4K 的 BGRA 搬运与 CPU 重采样。不给宽高时交源尺寸原样（`bcut-render` 的帧流要的是这个）。
+/// `kCVPixelBuffer…Key` 是 `CFStringRef`，与 `NSString *` toll-free bridged，直接按指针换类型（[`cf_key`]）。
+unsafe fn reader_pixel_settings(
+    delivery: Option<(u32, u32)>,
+) -> Retained<NSDictionary<NSString, AnyObject>> {
+    let format = NSNumber::new_u32(OUTPUT_PIXEL_FORMAT);
+    let Some((width, height)) = delivery else {
+        return NSDictionary::from_slices(
+            &[cf_key(unsafe { kCVPixelBufferPixelFormatTypeKey })],
+            &[format.as_ref() as &AnyObject],
+        );
+    };
+    let width = NSNumber::new_u32(width);
+    let height = NSNumber::new_u32(height);
+    NSDictionary::from_slices(
+        &[
+            cf_key(unsafe { kCVPixelBufferPixelFormatTypeKey }),
+            cf_key(unsafe { kCVPixelBufferWidthKey }),
+            cf_key(unsafe { kCVPixelBufferHeightKey }),
+        ],
+        &[
+            format.as_ref() as &AnyObject,
+            width.as_ref() as &AnyObject,
+            height.as_ref() as &AnyObject,
+        ],
+    )
+}
+
 /// 在已解析的 `asset` / `track` 上建一个从 `from_seconds` 起读的 reader。
 ///
 /// 拆出来是为了 [`AssetReaderFrames::reopen`]：随机访问跳转只换 reader，不重
@@ -256,16 +310,11 @@ unsafe fn start_reader(
     asset: &AVURLAsset,
     track: &AVAssetTrack,
     from_seconds: f64,
+    delivery: Option<(u32, u32)>,
 ) -> Result<(Retained<AVAssetReader>, Retained<AVAssetReaderTrackOutput>)> {
     let reader = unsafe { AVAssetReader::assetReaderWithAsset_error(asset) }
         .map_err(|error| anyhow!("unsupported: 建立 AVAssetReader 失败（{error}）"))?;
-    // 输出设置只指定像素格式：尺寸交给上层（`bcut-render` 要的是源尺寸原样）。
-    // `kCVPixelBufferPixelFormatTypeKey` 是 `CFStringRef`，与 `NSString *`
-    // toll-free bridged（Apple 平台的既定 ABI），直接按指针换类型即可。
-    let key = cf_key(unsafe { kCVPixelBufferPixelFormatTypeKey });
-    let value = NSNumber::new_u32(OUTPUT_PIXEL_FORMAT);
-    let settings: Retained<NSDictionary<NSString, AnyObject>> =
-        NSDictionary::from_slices(&[key], &[value.as_ref() as &AnyObject]);
+    let settings = unsafe { reader_pixel_settings(delivery) };
     let output = unsafe {
         AVAssetReaderTrackOutput::assetReaderTrackOutputWithTrack_outputSettings(
             track,
@@ -276,7 +325,7 @@ unsafe fn start_reader(
     // 不需要 AVFoundation 再复制一份。
     unsafe { output.setAlwaysCopiesSampleData(false) };
     if !unsafe { reader.canAddOutput(&output) } {
-        bail!("unsupported: AVAssetReader 不接受该视频轨的 32BGRA 输出");
+        bail!("unsupported: AVAssetReader 不接受该视频轨的 32BGRA 输出（交付尺寸 {delivery:?}）");
     }
     unsafe { reader.addOutput(&output) };
     if from_seconds > 0.0 {
@@ -357,6 +406,8 @@ struct AssetReaderFrames {
     /// `AVAssetReaderTrackOutput` 交出的帧同尺寸（clean aperture 已裁掉）。
     coded_width: u32,
     coded_height: u32,
+    /// 向解码端请求的交付尺寸（编码方向）；`None` = 源尺寸原样。`reopen` 沿用。
+    delivery: Option<(u32, u32)>,
     rotation: u16,
     /// 轨道级的帧时长（秒）；样本自带的 duration 无效时用它。
     track_frame_duration: Option<f64>,
@@ -621,7 +672,7 @@ impl FrameSource for AssetReaderFrames {
     fn reopen(&mut self, from_seconds: f64) -> Result<()> {
         self.cancel();
         let (reader, output) = objc2::rc::autoreleasepool(|_| unsafe {
-            start_reader(&self.asset, &self.track, from_seconds)
+            start_reader(&self.asset, &self.track, from_seconds, self.delivery)
         })?;
         self.reader = reader;
         self.output = output;
@@ -650,6 +701,56 @@ impl FrameSource for AssetReaderFrames {
                 self.keyframes_disabled = true;
                 self.keyframes = None;
                 Ok(None)
+            }
+        }
+    }
+
+    fn next_decoded_into(&mut self, data: &mut Vec<u8>) -> Result<Option<DecodedInto>> {
+        if self.finished {
+            return Ok(None);
+        }
+        loop {
+            // 每帧一个 autorelease 池（同 `next_decoded`）。
+            let step = objc2::rc::autoreleasepool(|_| -> Result<Option<Option<DecodedInto>>> {
+                let Some(sample) = (unsafe { self.output.copyNextSampleBuffer() }) else {
+                    return Ok(None);
+                };
+                let pts_seconds =
+                    unsafe { CMSampleBufferGetPresentationTimeStamp(&sample).seconds() };
+                let duration_seconds = unsafe { CMSampleBufferGetDuration(&sample).seconds() }
+                    .filter_positive()
+                    .or(self.track_frame_duration);
+                let Some(image) = (unsafe { CMSampleBufferGetImageBuffer(&sample) }) else {
+                    return Ok(Some(None));
+                };
+                let (width, height) = if self.rotation == 0 {
+                    // 不转的素材（绝大多数）直接从像素缓冲换进调用方的缓冲：不分配、不再复制一遍。
+                    unsafe { pixel_buffer_into_rgba(image.as_ref(), data)? }
+                } else {
+                    let frame = unsafe { pixel_buffer_to_rgba(image.as_ref(), self.rotation)? };
+                    *data = frame.data;
+                    (frame.width, frame.height)
+                };
+                Ok(Some(Some(DecodedInto {
+                    pts_seconds,
+                    duration_seconds,
+                    width,
+                    height,
+                })))
+            })?;
+            match step {
+                Some(Some(frame)) => return Ok(Some(frame)),
+                Some(None) => continue,
+                None => {
+                    self.finished = true;
+                    if unsafe { self.reader.status() } != AVAssetReaderStatus::Completed {
+                        let detail = unsafe { self.reader.error() }
+                            .map(|error| error.to_string())
+                            .unwrap_or_else(|| "未知错误".to_owned());
+                        bail!("AVAssetReader 解码中断（{detail}）");
+                    }
+                    return Ok(None);
+                }
             }
         }
     }
@@ -735,6 +836,40 @@ unsafe fn pixel_buffer_to_rgba(
         bail!("解锁 CVPixelBuffer 失败");
     }
     Ok(scale::rotate_rgba(&frame, rotation))
+}
+
+/// `CVPixelBuffer`（32BGRA、不需要摆正）→ 紧排的 top-down RGBA8，写进 `data`（长度改成一帧）。返回宽高。
+unsafe fn pixel_buffer_into_rgba(
+    buffer: &objc2_core_video::CVPixelBuffer,
+    data: &mut Vec<u8>,
+) -> Result<(u32, u32)> {
+    let flags = CVPixelBufferLockFlags::ReadOnly;
+    if unsafe { CVPixelBufferLockBaseAddress(buffer, flags) } != 0 {
+        bail!("锁定 CVPixelBuffer 失败");
+    }
+    let width = CVPixelBufferGetWidth(buffer);
+    let height = CVPixelBufferGetHeight(buffer);
+    let stride = CVPixelBufferGetBytesPerRow(buffer);
+    let base = CVPixelBufferGetBaseAddress(buffer);
+    let outcome = if base.is_null() || width == 0 || height == 0 || stride < width * 4 {
+        Err(anyhow!("AVFoundation 返回了不完整的 32BGRA 视频帧"))
+    } else {
+        let row = width * 4;
+        data.resize(row * height, 0);
+        for (y, out) in data.chunks_exact_mut(row).enumerate() {
+            let source =
+                unsafe { std::slice::from_raw_parts(base.cast::<u8>().add(y * stride), row) };
+            swizzle_bgra_to_rgba_row(source, out);
+        }
+        Ok((width as u32, height as u32))
+    };
+    // 解锁无条件执行，不因上面的错误提前返回而漏掉。
+    let unlocked = unsafe { CVPixelBufferUnlockBaseAddress(buffer, flags) };
+    let size = outcome?;
+    if unlocked != 0 {
+        bail!("解锁 CVPixelBuffer 失败");
+    }
+    Ok(size)
 }
 
 /// 一行 32BGRA → RGBA（alpha 压成 255）。

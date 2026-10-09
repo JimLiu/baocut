@@ -844,6 +844,7 @@ dependencies = [
  "font-files",
  "frame-render",
  "media-core",
+ "media-native",
  "render-graph",
  "serde",
  "serde_json",

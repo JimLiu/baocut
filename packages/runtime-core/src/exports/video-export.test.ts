@@ -510,6 +510,18 @@ describe.skipIf(!engine || !worker || !ffmpeg)('成片导出（真实引擎 + Re
     near(pixel(frame, 160, 100, 35 + 60), [255, 0, 0]);
     // 画中画的绿图：画布上中心在 (40, 40)，缩一半落在画面的 (20, 20)，也就是输出的 (20, 55)。
     near(pixel(frame, 160, 20, 35 + 20), [0, 255, 0]);
+
+    // HEVC：原生写入器只编 H.264，这一路回落 ffmpeg（libx265）编码，成片照样完整（本机 ffmpeg 没有 libx265 时略过）。
+    const encoders = execFileSync('ffmpeg', ['-hide_banner', '-encoders'], { encoding: 'utf8' });
+    if (encoders.includes('libx265')) {
+      const hevc = await exportOnce({
+        videoId,
+        settings: { kind: 'video', format: 'mp4', codec: 'hevc', range: { start: 3, end: 4 }, fps: { num: 15, den: 1 } },
+      });
+      const hevcOut = hevc.result!.outputs![0]!;
+      expect(hevcOut.media).toMatchObject({ kind: 'video', width: 320, height: 180, frames: 15, videoCodec: 'hevc', audioCodec: 'aac' });
+      near(pixel(frameAt(hevcOut.path!, 7, 15, 320, 180), 320, 200, 120), [0, 0, 255]);
+    }
   }, 60_000);
 
   it('内部检查的三段预览正常渲染、校验与发布，用途保留在快照和任务记录', async () => {
@@ -596,6 +608,14 @@ describe.skipIf(!engine || !worker || !ffmpeg)('成片导出（真实引擎 + Re
   it.skipIf(process.platform === 'win32')(
     'Worker 崩溃（被 SIGKILL）：任务失败，staging 清掉，它启动的 ffmpeg 随进程组一起停下',
     async () => {
+      // 原生编解码不起 ffmpeg 子进程：这里关掉原生（`BAOCUT_EXPORT_NATIVE=0`），让 Worker 走 ffmpeg 兜底，
+      // 测的是兜底路径上的子进程随进程组收掉。Worker 继承本进程的环境。
+      const previousNative = process.env.BAOCUT_EXPORT_NATIVE;
+      process.env.BAOCUT_EXPORT_NATIVE = '0';
+      onTestFinished(() => {
+        if (previousNative === undefined) delete process.env.BAOCUT_EXPORT_NATIVE;
+        else process.env.BAOCUT_EXPORT_NATIVE = previousNative;
+      });
       const videoId = await newVideo('崩溃');
       const long = await fixture('long.mp4');
       const { sequenceId } = video(videoId);

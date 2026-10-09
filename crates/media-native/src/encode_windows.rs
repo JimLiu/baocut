@@ -25,8 +25,8 @@ use windows::Win32::Media::MediaFoundation::*;
 use windows::core::{GUID, PCWSTR};
 
 use crate::encode::{
-    AUDIO_BITRATE, AUDIO_CHANNELS, AUDIO_LEAD_SECONDS, AUDIO_SAMPLE_RATE, Mp4Sink, PcmChunk,
-    PcmSource, frame_rate_rational, video_bitrate,
+    AUDIO_CHANNELS, AUDIO_LEAD_SECONDS, AUDIO_SAMPLE_RATE, Mp4Sink, PcmChunk, PcmSource,
+    WriterSetup,
 };
 use crate::windows::{Runtime, media_feature_error, pack_ratio, wide_path};
 
@@ -139,7 +139,14 @@ unsafe fn pcm_type() -> Result<IMFMediaType> {
     Ok(media_type)
 }
 
-unsafe fn aac_type() -> Result<IMFMediaType> {
+/// AAC-LC 输出类型。MF 的 AAC 编码器只接受 96/128/160/192 kbps 四档
+/// （`MF_MT_AUDIO_AVG_BYTES_PER_SECOND` 取 12000/16000/20000/24000），
+/// 其余请求就近取档。
+unsafe fn aac_type(bitrate: u32) -> Result<IMFMediaType> {
+    let bytes_per_second = [12_000u32, 16_000, 20_000, 24_000]
+        .into_iter()
+        .min_by_key(|candidate| candidate.abs_diff(bitrate / 8))
+        .unwrap_or(16_000);
     let media_type = unsafe { MFCreateMediaType()? };
     unsafe {
         media_type.SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Audio)?;
@@ -147,7 +154,7 @@ unsafe fn aac_type() -> Result<IMFMediaType> {
         media_type.SetUINT32(&MF_MT_AUDIO_NUM_CHANNELS, AUDIO_CHANNELS)?;
         media_type.SetUINT32(&MF_MT_AUDIO_SAMPLES_PER_SECOND, AUDIO_SAMPLE_RATE)?;
         media_type.SetUINT32(&MF_MT_AUDIO_BITS_PER_SAMPLE, 16)?;
-        media_type.SetUINT32(&MF_MT_AUDIO_AVG_BYTES_PER_SECOND, AUDIO_BITRATE / 8)?;
+        media_type.SetUINT32(&MF_MT_AUDIO_AVG_BYTES_PER_SECOND, bytes_per_second)?;
         media_type.SetUINT32(&MF_MT_AUDIO_BLOCK_ALIGNMENT, 1)?;
         media_type.SetUINT32(&MF_MT_AAC_PAYLOAD_TYPE, 0)?;
         media_type.SetUINT32(&MF_MT_AAC_AUDIO_PROFILE_LEVEL_INDICATION, 0x29)?;
@@ -265,29 +272,22 @@ pub(crate) struct SinkWriter {
     _runtime: Runtime,
 }
 
-pub(crate) fn open(
-    out: &Path,
-    width: u32,
-    height: u32,
-    fps: f64,
-    audio: Option<PcmSource>,
-    bitrate: Option<u32>,
-) -> Result<Box<dyn Mp4Sink>> {
+pub(crate) fn open(out: &Path, setup: WriterSetup) -> Result<Box<dyn Mp4Sink>> {
     let runtime = Runtime::start()?;
-    let writer = unsafe { open_inner(runtime, out, width, height, fps, audio, bitrate) }?;
+    let writer = unsafe { open_inner(runtime, out, setup) }?;
     Ok(Box::new(writer) as Box<dyn Mp4Sink>)
 }
 
-unsafe fn open_inner(
-    runtime: Runtime,
-    out: &Path,
-    width: u32,
-    height: u32,
-    fps: f64,
-    audio: Option<PcmSource>,
-    bitrate: Option<u32>,
-) -> Result<SinkWriter> {
-    let (fps_num, fps_den) = frame_rate_rational(fps);
+unsafe fn open_inner(runtime: Runtime, out: &Path, setup: WriterSetup) -> Result<SinkWriter> {
+    let WriterSetup {
+        width,
+        height,
+        fps_num,
+        fps_den,
+        bitrate,
+        audio,
+        audio_bitrate,
+    } = setup;
     let exact_fps = f64::from(fps_num) / f64::from(fps_den);
     let faststart = faststart_finalize_works(out);
     if !faststart {
@@ -313,11 +313,14 @@ unsafe fn open_inner(
     let encoded_video =
         unsafe { video_type(&MFVideoFormat_H264, width, height, fps_num, fps_den)? };
     unsafe {
-        encoded_video.SetUINT32(
-            &MF_MT_AVG_BITRATE,
-            bitrate.unwrap_or_else(|| video_bitrate(width, height, exact_fps)),
-        )?;
+        encoded_video.SetUINT32(&MF_MT_AVG_BITRATE, bitrate)?;
         encoded_video.SetUINT32(&MF_MT_MPEG2_PROFILE, 100)?;
+        // BT.709 色彩标记写在输出类型上，H.264 MFT 据此填 VUI（primaries /
+        // transfer / matrix）。是否真的进了码流尚未在 Windows 上 ffprobe 核验。
+        encoded_video.SetUINT32(&MF_MT_VIDEO_PRIMARIES, MFVideoPrimaries_BT709.0 as u32)?;
+        encoded_video.SetUINT32(&MF_MT_TRANSFER_FUNCTION, MFVideoTransFunc_709.0 as u32)?;
+        encoded_video.SetUINT32(&MF_MT_YUV_MATRIX, MFVideoTransferMatrix_BT709.0 as u32)?;
+        encoded_video.SetUINT32(&MF_MT_VIDEO_NOMINAL_RANGE, MFNominalRange_16_235.0 as u32)?;
         // GOP 必须显式给死：编码器默认的关键帧间隔在本仓库实测能稀到只剩首帧
         // 一个关键帧。GOP 长度不进 avcC/序列头，不影响格式描述的相等性判定。
         encoded_video.SetUINT32(
@@ -357,7 +360,7 @@ unsafe fn open_inner(
 
     let audio = match audio {
         Some(source) => {
-            let encoded_audio = unsafe { aac_type()? };
+            let encoded_audio = unsafe { aac_type(audio_bitrate)? };
             let stream = unsafe { writer.AddStream(&encoded_audio) }
                 .map_err(|error| media_feature_error("unsupported: 创建 AAC-LC 输出流", error))?;
             let pcm = unsafe { pcm_type()? };
