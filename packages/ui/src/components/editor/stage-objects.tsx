@@ -5,6 +5,7 @@ import { STAGE_COPY } from '../../copy.ts';
 import { applyDrafts, type ItemDraft } from '../../model/item-draft.ts';
 import { DEFAULT_CAPTION_STYLE, captionStyleRoot } from '../../model/property-values.ts';
 import {
+  CAPTION_X,
   CAPTION_Y,
   captionBox,
   movedCaptionStyle,
@@ -71,7 +72,7 @@ import { openFlow, setCompare } from './translate-run.ts';
  *   不动松手才选中它。⇧ / ⌘ 单击切换多选（主视频不进多选），点空白清空。
  * - 拖动中只改草稿：单件走 store 的草稿（预览与属性页一起跟手）；多件用引擎的临时覆盖（属性页不跟），
  *   松手按起手状态算出的终值提交**一笔**事务，失败就回到原值。真的动过才吞掉随后补发的 click。
- * - 字幕没有 `place`，按在它上面拖动是上下挪字幕样式的锚线（原型 stage.jsx 的字幕 SelectionBox，见 model/stage-caption-move）：
+ * - 字幕没有 `place`，按在它上面拖动是挪字幕样式的水平中心与锚线（原型 stage.jsx 的字幕 SelectionBox，见 model/stage-caption-move）：
  *   拖动中走 store 的文档草稿（预览与属性页一起跟手），松手写入样式文档，用同一份样式的字幕一起动。
  * - 只读、锁定或正在播放时不出把手，只读时点选照常；播放中按下画面只暂停（原型 stage.jsx），停下后再点选。
  */
@@ -178,7 +179,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
   const [angle, setAngle] = useState<number | null>(null);
   const [override, setOverride] = useState<Override | null>(null);
   const [editing, setEditing] = useState<Id | null>(null);
-  const [captionShift, setCaptionShift] = useState<{ hits: CaptionHit[]; dy: number } | null>(null);
+  const [captionShift, setCaptionShift] = useState<{ hits: CaptionHit[]; dx: number; dy: number } | null>(null);
 
   const canvas = sequence.canvas;
   // 媒体框的高按源的宽高比推，要查素材表。
@@ -332,19 +333,20 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     });
     const box = captionBox(lines);
     if (!box) return null;
-    return { move: { box, y0: num(root.y, CAPTION_Y), p0 }, record, body, root, hits: lines.filter((hit) => hit.itemId === item.id) };
+    const move = { box, x0: num(root.x, CAPTION_X), y0: num(root.y, CAPTION_Y), p0 };
+    return { move, record, body, root, hits: lines.filter((hit) => hit.itemId === item.id) };
   };
 
   const showCaption = (drag: CaptionDrag, result: CaptionMoveFrame) => {
-    previewCaptionStyle(drag.record, drag.body, movedCaptionStyle(drag.root, result.y));
-    setCaptionShift({ hits: drag.hits, dy: result.dy });
+    previewCaptionStyle(drag.record, drag.body, movedCaptionStyle(drag.root, result));
+    setCaptionShift({ hits: drag.hits, dx: result.dx, dy: result.dy });
     setGuides(result.guides);
   };
 
   const commitCaption = (drag: CaptionDrag, result: CaptionMoveFrame) => {
-    if (result.y === drag.move.y0) return useEditor.getState().clearDrafts();
+    if (result.x === drag.move.x0 && result.y === drag.move.y0) return useEditor.getState().clearDrafts();
     const { record, body, root } = drag;
-    saveCaptionStyle(apply, { sequence: latest.current, record, body, before: root, style: movedCaptionStyle(root, result.y), label: STAGE_COPY.move });
+    saveCaptionStyle(apply, { sequence: latest.current, record, body, before: root, style: movedCaptionStyle(root, result), label: STAGE_COPY.move });
   };
 
   const finishMarquee = (p: Press, clientX: number, clientY: number, additive: boolean) => {
@@ -675,7 +677,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
       <div ref={spaceRef} className={space} style={frame}>
         {boxes}
         {(captionShift
-          ? captionShift.hits.map((hit) => ({ ...hit, cy: hit.cy + captionShift.dy }))
+          ? captionShift.hits.map((hit) => ({ ...hit, cx: hit.cx + captionShift.dx, cy: hit.cy + captionShift.dy }))
           : captionHits.filter((hit) => selection.includes(hit.itemId))
         ).map((hit, index) => (
           <ThinBox key={`${hit.itemId}:${hit.cueId}:${index}`} pose={hit} view={view} />
