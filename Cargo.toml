@@ -86,6 +86,8 @@ opt-level = 3
 opt-level = 3
 [profile.dev.package.media-core]
 opt-level = 3
+[profile.dev.package.media-native]
+opt-level = 3
 [profile.dev.package.render-graph]
 opt-level = 3
 [profile.dev.package.cosmic-text]
