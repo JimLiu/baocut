@@ -22,9 +22,6 @@ jobs:
       contents: read
     env:
       CI: true
-      # Enable Node's built-in localStorage polyfill so zustand persist middleware
-      # works under vitest (image-request, settings-link tests etc.).
-      NODE_OPTIONS: "--localstorage-file ${{ runner.temp }}/baocut-localstorage.db"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -42,6 +39,10 @@ jobs:
       - name: Prebuild web client (web-service.test.ts requires dist output)
         run: npm run build:web
       - name: Run Vitest suite (unit + Runtime e2e)
+        env:
+          # Enable Node 22's experimental Web Storage so zustand persist middleware
+          # works under vitest (image-request, settings-link tests etc.).
+          NODE_OPTIONS: "--experimental-webstorage --localstorage-file ${{ runner.temp }}/baocut-localstorage.db"
         run: npm test
 
   rust-tests:
@@ -52,7 +53,6 @@ jobs:
       contents: read
     env:
       CARGO_INCREMENTAL: "0"
-      CARGO_TARGET_DIR: ${{ runner.temp }}/baocut-target
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -66,4 +66,6 @@ jobs:
       # reformatted with the current rustfmt. Right now ~20 source blocks are
       # drifting, which would mask real test/typecheck failures on every PR.
       - name: Rust workspace tests (locked)
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/baocut-target
         run: cargo test --locked --workspace
