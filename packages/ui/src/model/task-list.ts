@@ -114,12 +114,35 @@ function jobConversation(job: JobRecord): Id | null {
   return job.submitter.kind === 'agent' ? job.submitter.id : null;
 }
 
+/** 转录流程的名字（Runtime 的 `TRANSCRIBE_PIPELINE`）。 */
+const TRANSCRIBE_PIPELINE = 'transcribe';
+
+/**
+ * 转录流程（`pipelines.start` 的 `transcribe`：编辑器的生成字幕、重新转录，智能体与命令行的转录）的父任务。它把识别交给一个
+ * `transcribe` Job，在任务表里与那次转写同样念「转录」，不念通用的「流程」。
+ */
+function isTranscribePipeline(job: Pick<JobRecord, 'kind' | 'pipeline'>): boolean {
+  return job.kind === 'pipeline' && job.pipeline?.name === TRANSCRIBE_PIPELINE;
+}
+
+/** 转写的素材：转写 Job 记在自己身上；转录流程的父任务记在冻结参数里（给定素材时）或落点里（取代文稿、另建视频）。 */
+function transcribeAsset(job: JobRecord): Id | null {
+  if (job.assetId) return job.assetId;
+  const params = isTranscribePipeline(job) ? job.pipeline!.params : null;
+  if (!params) return null;
+  const landing = params.landing && typeof params.landing === 'object' ? (params.landing as { assetId?: unknown }) : null;
+  const assetId = params.assetId ?? landing?.assetId;
+  return typeof assetId === 'string' && assetId ? assetId : null;
+}
+
 function jobTitle(job: JobRecord, video: OpenVideoFacts | null): string {
   const g = job.generation;
   if (g?.capability === 'generateImage' && g.prompt.trim()) return clip(g.prompt, 40);
   if (g?.capability === 'synthesizeSpeech' && g.text.trim()) return clip(g.text, 40);
-  if (job.kind === 'transcribe' && video) {
-    const asset = job.assetId ? video.assets[job.assetId]?.name : undefined;
+  if (job.kind === 'transcribe' || isTranscribePipeline(job)) {
+    if (!video) return kindLabel('transcribe');
+    const assetId = transcribeAsset(job);
+    const asset = assetId ? video.assets[assetId]?.name : undefined;
     return [kindLabel('transcribe'), video.name, asset].filter(Boolean).join(' · ');
   }
   // 从链接导入：「从链接导入 · 标题」（标题还没解析出来时写网站）。
@@ -205,11 +228,13 @@ export function jobRow(job: JobRecord, ctx: TaskContext): TaskRow {
       : running
         ? { label: pct == null ? phase! : `${phase} · ${pct}%`, tone: 'accent' as const }
         : JOB_ENDED[job.state as keyof typeof JOB_ENDED];
+  // 转录流程念「转录」、画转写的图标：与它转写期间合成的那一行（`taskRows`）同一个种类，前后不跳。
+  const kind: TaskKind = isTranscribePipeline(job) ? 'transcribe' : job.kind;
   return {
     id: job.jobId,
     origin: 'job',
-    kind: job.kind,
-    kindText: isLinkImport(job) ? linkKindLabel() : kindLabel(job.kind),
+    kind,
+    kindText: isLinkImport(job) ? linkKindLabel() : kindLabel(kind),
     title: jobTitle(job, video),
     where: jobWhere(job),
     startedAt: job.startedAt ?? job.createdAt,
@@ -276,8 +301,11 @@ export function agentRow(task: TaskSummary, ctx: TaskContext): TaskRow {
   };
 }
 
-/** 还在跑的从链接导入正在等的那次转录：流程以自己的 jobId 为提交者提交（`video-create.ts` `transcribeInVideo`）。 */
-function liveLinkTranscribe(parent: JobRecord, jobs: readonly JobRecord[]): JobRecord | null {
+/**
+ * 还在跑的固定流程正在等的那次转录：从链接导入与转录流程都以自己的 jobId 为提交者提交转写（`video-create.ts`
+ * `transcribeInVideo`、转录流程的「转写」一步）。
+ */
+function livePipelineTranscribe(parent: JobRecord, jobs: readonly JobRecord[]): JobRecord | null {
   return (
     jobs.find(
       (j) =>
@@ -291,15 +319,16 @@ function liveLinkTranscribe(parent: JobRecord, jobs: readonly JobRecord[]): JobR
 
 export interface TaskRowsOptions {
   /**
-   * 从链接导入走到转录时与它的转录合成一行（原型 model-import.js `attach`：同一个任务变成转录，念转录的阶段与模型 · 本机）。
-   * 任务详情按 ID 找原样的那一行，传 false。
+   * 固定流程走到转录时与它的转录合成一行（原型 model-import.js `attach`：同一个任务变成转录，念转录的阶段与模型 · 本机）：
+   * 从链接导入与转录流程（生成字幕、重新转录）都是。任务详情按 ID 找原样的那一行，传 false。
    */
   fold?: boolean;
 }
 
 /**
  * 合成一张表，后起的在前。固定流程的步骤（`parentJobId`）折叠在父任务下，不单独成行（与 `jobs.list` 一致）；
- * `fold` 时从链接导入在转录期间沿用自己的 ID、标题与取消，种类、阶段、进度与「在哪」换成那次转录的。
+ * `fold` 时流程在转录期间沿用自己的 ID、标题、来源与取消，种类、阶段、进度与「在哪」换成那次转录的——流程按步骤数报的
+ * 进度（转录流程转写那一步就是 2/4）不当转写的进度念，转写也不另成一行。
  */
 export function taskRows(
   tasks: readonly TaskSummary[],
@@ -313,7 +342,7 @@ export function taskRows(
     .filter((j) => !j.parentJobId)
     .map((j) => {
       const row = jobRow(j, ctx);
-      const child = fold && row.live && isLinkImport(j) ? liveLinkTranscribe(j, jobs) : null;
+      const child = fold && row.live && j.kind === 'pipeline' ? livePipelineTranscribe(j, jobs) : null;
       if (!child) return row;
       folded.add(child.jobId);
       const { kind, kindText, where, queued, label, tone, phase, pct, progress } = jobRow(child, ctx);

@@ -277,17 +277,71 @@ describe('taskRows / taskGroups', () => {
     expect([active.label, history.label]).toEqual(['进行中', '历史']);
   });
 
-  it('固定流程的步骤折叠在父任务下，不单独成行；别的流程提交的转录仍是自己一行', () => {
-    const rows = taskRows(
-      [],
-      [
-        job({ jobId: 'parent', kind: 'pipeline' }),
-        job({ jobId: 'step', kind: 'pipeline-step', parentJobId: 'parent' }),
-        job({ jobId: 'asr', kind: 'transcribe', submitter: { kind: 'pipeline', id: 'parent' } }),
-      ],
-      ctx,
-    );
-    expect(rows.map((r) => r.id).sort()).toEqual(['asr', 'parent']);
+  it('固定流程的步骤折叠在父任务下，不单独成行；流程提交的、还在跑的转录与它合成一行', () => {
+    const jobs = [
+      job({ jobId: 'parent', kind: 'pipeline' }),
+      job({ jobId: 'step', kind: 'pipeline-step', parentJobId: 'parent' }),
+      job({ jobId: 'asr', kind: 'transcribe', submitter: { kind: 'pipeline', id: 'parent' } }),
+    ];
+    expect(taskRows([], jobs, ctx).map((r) => r.id)).toEqual(['parent']);
+    expect(
+      taskRows([], jobs, ctx, { fold: false })
+        .map((r) => r.id)
+        .sort(),
+    ).toEqual(['asr', 'parent']);
+  });
+
+  it('转录流程（重新转录）：与它的转写合成一行，念转录的标题、阶段与转写的进度，不念「流程」与按步骤数的 50%', () => {
+    const replace = { documentId: 'd1', revision: '1', fingerprint: 'f', translations: 'carry' };
+    const steps = [
+      { name: 'target', label: '目标', status: 'skipped' as const, jobId: null, attempts: 0, output: null },
+      { name: 'transcribe', label: '转写', status: 'running' as const, jobId: 'step', attempts: 1, output: null },
+    ];
+    const pipeline = {
+      name: 'transcribe',
+      params: { videoId: 'v1', landing: { kind: 'replace', assetId: 'a1', replace } },
+      steps,
+      current: 1,
+      stoppedAt: null,
+      summary: null,
+    };
+    const parent = job({
+      jobId: 'retx',
+      kind: 'pipeline',
+      assetId: null,
+      modelId: 'qwen3-asr-1.7b@mlx-8bit',
+      progress: { done: 2, total: 4, unit: 'steps' },
+      submitter: { kind: 'agent', id: 'c1', taskId: 't1' },
+      pipeline,
+    });
+    const asr = job({
+      jobId: 'asr',
+      kind: 'transcribe',
+      modelId: 'qwen3-asr-1.7b@mlx-8bit',
+      progress: { done: 1, total: 34, unit: 'segments' },
+      submitter: { kind: 'pipeline', id: 'retx' },
+    });
+    const [row, ...rest] = taskRows([], [parent, asr], ctx);
+    expect(rest).toEqual([]);
+    expect(row).toMatchObject({
+      id: 'retx',
+      title: '转录 · 主视频 · interview.mp4',
+      kind: 'transcribe',
+      kindText: '转录',
+      where: 'qwen3-asr-1.7b@mlx-8bit · 本机',
+      label: '识别中 · 2%',
+      pct: 2,
+      chip: 'agent',
+      conversationId: 'c1',
+      action: { type: 'cancel', jobId: 'retx' },
+    });
+    // 转写排队时这一行也在排队。
+    expect(taskRows([], [parent, { ...asr, state: 'queued', progress: null }], ctx)[0]).toMatchObject({ id: 'retx', queued: true, label: '排队中' });
+    // 转写做完、流程还在写回：仍念「转录」与它的标题，不露「流程」。
+    const writing = taskRows([], [{ ...parent, phase: 'applying', progress: { done: 3, total: 4, unit: 'steps' } }, { ...asr, state: 'completed' }], ctx);
+    expect(writing.find((r) => r.id === 'retx')).toMatchObject({ kind: 'transcribe', kindText: '转录', title: '转录 · 主视频 · interview.mp4' });
+    // 编辑器没开着这个视频时只念种类。
+    expect(jobRow(parent, { ...ctx, video: null })).toMatchObject({ title: '转录', kindText: '转录' });
   });
 
   it('从链接导入走到转录：与它的转录合成一行，沿用导入的 ID、标题与取消，念转录的阶段、进度与模型 · 本机', () => {
