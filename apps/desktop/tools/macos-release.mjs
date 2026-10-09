@@ -1,6 +1,6 @@
 // Native candidates and public read-back share the App's actual update parser.
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { BUNDLE_ID, feedFileName, parseManifest } from '../src/main/app-update-rules.ts';
@@ -11,8 +11,8 @@ import { validateReleaseRef } from './desktop-release-rules.mjs';
 const TARGET = 'aarch64-apple-darwin';
 const FEED = feedFileName(TARGET, null);
 const ensure = (ok, message) => { if (!ok) throw new Error(message); };
-function command(program, args) {
-  const result = spawnSync(program, args, { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
+function command(program, args, options = {}) {
+  const result = spawnSync(program, args, { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, ...options });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`${program} failed: ${result.stderr || result.stdout}`);
   return result.stdout;
@@ -21,8 +21,43 @@ const api = (endpoint) => JSON.parse(command('gh', ['api', endpoint]));
 
 /** GitHub's by-tag endpoint excludes drafts; authenticated release lists include them. */
 export function findMacRelease(repo, tag, get = api) {
-  const releases = get(`repos/${repo}/releases?per_page=100`);
-  return releases.find((release) => release.tag_name === tag);
+  for (let page = 1; ; page++) {
+    const releases = get(`repos/${repo}/releases?per_page=100&page=${page}`);
+    const release = releases.find((item) => item.tag_name === tag);
+    if (release || releases.length < 100) return release;
+  }
+}
+
+export function createMacDraft(repo, tag, report, notes, run = command) {
+  // The create response is authoritative; a subsequent list can omit a new draft.
+  const release = JSON.parse(run('gh', ['api', `repos/${repo}/releases`, '--method', 'POST', '--input', '-'], {
+    input: JSON.stringify({ tag_name: tag, target_commitish: report.sourceCommit,
+      name: `BaoCut ${report.version} (Build ${report.build}) — macOS`, body: notes,
+      draft: true, prerelease: false, make_latest: 'false' }),
+  }));
+  ensure(Number.isSafeInteger(release.id) && release.id > 0 && release.tag_name === tag &&
+    release.draft === true && release.target_commitish === report.sourceCommit && Array.isArray(release.assets),
+  'Created draft release identity differs from the candidate');
+  return release;
+}
+
+export function uploadMacAsset(repo, releaseId, file, run = command) {
+  return run('gh', ['api', `https://uploads.github.com/repos/${repo}/releases/${releaseId}/assets?name=${encodeURIComponent(path.basename(file))}`,
+    '--method', 'POST', '--header', 'Content-Type: application/octet-stream', '--input', file]);
+}
+
+export function downloadMacAsset(repo, assetId, file, run = command) {
+  const output = openSync(file, 'wx');
+  try {
+    // Stream large archives to disk instead of buffering them in spawnSync.
+    run('gh', ['api', `repos/${repo}/releases/assets/${assetId}`, '--header', 'Accept: application/octet-stream'],
+      { stdio: ['ignore', output, 'pipe'] });
+  } finally { closeSync(output); }
+}
+
+export function publishMacDraft(repo, releaseId, run = command) {
+  return run('gh', ['api', `repos/${repo}/releases/${releaseId}`, '--method', 'PATCH', '--input', '-'],
+    { input: JSON.stringify({ draft: false, make_latest: 'false' }) });
 }
 
 export function publicReport(report) {
@@ -95,24 +130,21 @@ async function publishCandidate(directory, env) {
   command('git', ['fetch', 'origin', `refs/tags/${tag}:refs/tags/${tag}`]);
   ensure(command('git', ['rev-parse', `${tag}^{commit}`]).trim() === report.sourceCommit, 'Release tag differs from the build source');
   if (!release) {
-    const notes = path.join(env.RUNNER_TEMP, 'mac-release-notes.md');
-    writeFileSync(notes, `BaoCut ${report.version} (Build ${report.build}) for Apple Silicon, macOS 14+.\n\nBundle ID: com.baocut.app. Developer ID signed, hardened runtime and Apple notarization accepted for both App and DMG.\n\nRuntime and native Worker startup, signer fingerprint, staple and Gatekeeper checks passed. UI/export, real model inference and paid Agent calls were not exercised by this workflow. ffmpeg/ffprobe and an agent engine are external dependencies.\n\nSource: ${report.sourceCommit}\nActions: ${report.candidateRunUrl}\n`);
-    command('gh', ['release', 'create', tag, '--repo', repo, '--target', report.sourceCommit, '--draft', '--latest=false',
-      '--title', `BaoCut ${report.version} (Build ${report.build}) — macOS`, '--notes-file', notes]);
-    release = findMacRelease(repo, tag);
-    ensure(release, 'Created draft release is not visible yet; retry publication with the same candidate');
+    const notes = `BaoCut ${report.version} (Build ${report.build}) for Apple Silicon, macOS 14+.\n\nBundle ID: com.baocut.app. Developer ID signed, hardened runtime and Apple notarization accepted for both App and DMG.\n\nRuntime and native Worker startup, signer fingerprint, staple and Gatekeeper checks passed. UI/export, real model inference and paid Agent calls were not exercised by this workflow. ffmpeg/ffprobe and an agent engine are external dependencies.\n\nSource: ${report.sourceCommit}\nActions: ${report.candidateRunUrl}\n`;
+    release = createMacDraft(repo, tag, report, notes);
   }
+  console.log(`Using release ID ${release.id} for ${tag}.`);
   // Tags and existing assets are immutable, including partially completed uploads.
   for (const name of item.names) {
     const file = path.join(directory, name);
     const previous = release.assets.find((asset) => asset.name === name);
     if (previous) {
       const existing = path.join(env.RUNNER_TEMP, `existing-${name}`);
-      command('gh', ['release', 'download', tag, '--repo', repo, '--pattern', name, '--output', existing]);
+      downloadMacAsset(repo, previous.id, existing);
       ensure(await fileHash(existing) === await fileHash(file), `Existing immutable asset differs: ${name}`);
-    } else command('gh', ['release', 'upload', tag, '--repo', repo, file]);
+    } else uploadMacAsset(repo, release.id, file);
   }
-  command('gh', ['release', 'edit', tag, '--repo', repo, '--draft=false', '--latest=false']);
+  publishMacDraft(repo, release.id);
   const readback = path.join(env.RUNNER_TEMP, 'mac-public-readback');
   mkdirSync(readback);
   for (const name of item.names) {
