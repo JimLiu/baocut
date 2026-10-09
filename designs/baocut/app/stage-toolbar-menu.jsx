@@ -304,7 +304,7 @@
         'detach-audio': 'link', 'save-to-brand-kit': 'brand',
         // 第 84 轮补的三行：滤镜是交叠圆，效果借 AI 星，调整与属性同一枚旋钮
         filters: 'filters', effects: 'sparkle', adjust: 'tune',
-        case: 'text', 'apply-style-to-global': 'captions', 'hide-subs': 'eyeoff',
+        case: 'text', 'apply-style-to-global': 'captions', 'hide-subs': 'eyeoff', disable: 'eyeoff',
       }[id] || 'more';
       const hit = () => {
         if (hasSub) { setSub(open ? null : id); return; }
@@ -333,6 +333,8 @@
         } else if (id === 'replace-sticker') {
           onClose(); ctx.setTab('elements'); ctx.setPaneHidden(false); ctx.setPaneView(null);
         } else if (id === 'hide-subs') { onClose(); ctx.setSubsOn(false); }
+        /* 停用片段（v2 的「隐藏」）：画面与导出跳过它，条子随选中框一起消失；在时间线上右键可重新启用。 */
+        else if (id === 'disable') toast('已停用这个片段：画面与导出都跳过它，在时间线上右键可重新启用', true);
         else if (id === 'detach-audio') toast('已把这一段的声音分离成独立音频轨', true);
         /* 「应用到所有字幕」在**仅这一条**那一档有第二层意思（第 102 轮）：把这一条
            自己改过的那几项推上去，成为全部字幕的样式，覆盖表随之清空。这正是用户

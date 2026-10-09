@@ -35,6 +35,10 @@
    属性面板那两个入口照旧：文字是 Edit text 的「存为文字样式 +」（`panel-text.jsx`），
    字幕是属性页页脚那条 savebar（`panel-subprops.jsx`）。
 
+   **不透明度与停用片段**（2026-10-09，对照 BaoCut v2 已上线的条子补齐）：v2 除视频外每一类的溢出菜单都有
+   不透明度与「隐藏」，这里补回缺的那几类。「隐藏」用时间线菜单的同一个词「停用片段」（`updateItem.enabled`，
+   画面与导出跳过它，在时间线上右键可重新启用），摆在删除前一格；视频那一条 v2 没有，这里也不加。
+
    不上条子的（记录在案，不画）：魔法工具、改稿、生成视频、清理音频、配音改写这类 AI 入口，
    BaoCut 的对应物在 AI 工具面板，不从画布条子上开第二个口子；第 145 轮普通视频
    的 `transitions` 已补原型选择器，独立于核心格式，等待评审后落地。
@@ -64,6 +68,7 @@
     arrange:         {label: '层级', sub: true},
     properties:      {label: '属性'},
     'adjust-timing': {label: '调整时间', sub: true},
+    disable:         {label: '停用片段'},
     delete:          {label: '删除', tone: 'neg'},
     'flip-horizontal': {label: '水平翻转', row: true},
     'flip-vertical': {label: '垂直翻转', row: true},
@@ -126,9 +131,10 @@
       visible: [['color', 'font', 'size'], ['text-styles', 'animation']],
       more: [[['bold', 'italic'], ['align-left', 'align-center', 'align-right']],
              ['line-height', 'letter-spacing'],
+             ['opacity'],
              ['copy', 'arrange', 'save-to-brand-kit'],
              ['properties'],
-             ['adjust-timing', 'delete']],
+             ['adjust-timing', 'disable', 'delete']],
     },
     // 文本组：只有解组与删除两件，而且**没有 more**
     textgroup: {
@@ -151,22 +157,24 @@
       more: [[['flip-vertical', 'flip-horizontal'], ['fit-canvas', 'fill-canvas']],
              ['opacity', 'round-corners'],
              ['copy', 'arrange'],
-             ['adjust-timing', 'replace-image', 'save-to-brand-kit', 'delete']],
+             ['adjust-timing', 'replace-image', 'save-to-brand-kit', 'disable', 'delete']],
     },
     shape: {
       visible: [['color'], ['border'], ['animation']],
       more: [[['flip-vertical', 'flip-horizontal'], ['fit-canvas', 'fill-canvas']],
+             ['opacity'],
              ['copy', 'arrange'],
              ['properties'],
-             ['adjust-timing', 'delete']],
+             ['adjust-timing', 'disable', 'delete']],
     },
     // 贴纸走 `SVG` 那一条：素材里有几个填充色就列几个
     sticker: {
       visible: [['fill-list'], ['animation']],
       more: [[['flip-vertical', 'flip-horizontal'], ['fit-canvas', 'fill-canvas']],
+             ['opacity'],
              ['copy', 'arrange'],
              ['properties'],
-             ['adjust-timing', 'delete']],
+             ['adjust-timing', 'disable', 'delete']],
     },
     /* 彩纸（第 231 轮）：条子上只留动画；颜色 / 形状 / 运动 / 发射都在专属属性页，
        条子上摆不下也不该摆（一颗「属性」进那一页）。不做翻转与适配画布——它已铺满。 */
@@ -190,18 +198,18 @@
       more: [[['flip-vertical', 'flip-horizontal'], ['fit-canvas', 'fill-canvas']],
              ['opacity', 'round-corners'],
              ['copy', 'arrange'],
-             ['adjust-timing', 'replace-sticker', 'delete']],
+             ['adjust-timing', 'replace-sticker', 'disable', 'delete']],
     },
     /* 色点（1–2 枚）排在样式下拉**之前**（第 213 轮）。
        此前这两族的颜色只能钻进属性页改，而浮动条的基线是「大部分类型都能直接在条子上改色」。
        两条彩虹边框（`colors == 0`）一格都不出——判据在那两张表里。 */
     progress: {
       visible: [['progress-colors'], ['progress-picker'], ['animation']],
-      more: [['copy', 'arrange'], ['adjust-timing', 'delete']],
+      more: [['opacity'], ['copy', 'arrange'], ['adjust-timing', 'disable', 'delete']],
     },
     wave: {
       visible: [['wave-colors'], ['wave-picker'], ['animation']],
-      more: [['volume-levels'], ['copy', 'arrange'], ['adjust-timing', 'delete']],
+      more: [['volume-levels', 'opacity'], ['copy', 'arrange'], ['adjust-timing', 'disable', 'delete']],
     },
     /* 计时（第 88 轮）。**它是一条文字元素**（ADR-CT01），所以条子照 `text` 那一条
        摆「颜色 字体 字号」，只把最前面换成这一类独有的模式下拉；`text-styles` 不摆——
@@ -215,7 +223,7 @@
          用户点名要的，B / I 顺带从属性页镜到这里——文字元素这两行本来就在 `more` 里，
          计时是同一条元素，两处形状不同只会让人以为它是另一种东西。 */
       more: [[['bold', 'italic'], ['align-left', 'align-center', 'align-right']],
-             ['copy', 'arrange'], ['properties'], ['adjust-timing', 'delete']],
+             ['opacity'], ['copy', 'arrange'], ['properties'], ['adjust-timing', 'disable', 'delete']],
     },
     /* 第 102 轮重排了 `more`：
          · 第一段是**两簇一行**：B / I 一簇，大小写与对齐同簇。我们此前把 `case`

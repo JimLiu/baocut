@@ -78,9 +78,10 @@ test('文字的条子与菜单逐项钉死（不做 Text Behind Person）', () =
   assert.deepStrictEqual(B.more('text'), [
     [['bold', 'italic'], ['align-left', 'align-center', 'align-right']],
     ['line-height', 'letter-spacing'],
+    ['opacity'],
     ['copy', 'arrange', 'save-to-brand-kit'],
     ['properties'],
-    ['adjust-timing', 'delete'],
+    ['adjust-timing', 'disable', 'delete'],
   ]);
   const flat = B.more('text').filter((g) => !B.isRow(g)).reduce((a, g) => a.concat(g), []);
   assert.strictEqual(flat.indexOf('hide-text-behind'), -1, 'Text Behind Person 两处都不画');
@@ -109,7 +110,24 @@ test('十五类的条子上都没有「存到品牌库」，菜单里只有文�
   assert.deepStrictEqual(B.more('video').slice(-1)[0],
     ['adjust-timing', 'crop-video', 'replace-video', 'detach-audio', 'save-to-brand-kit', 'delete']);
   assert.deepStrictEqual(B.more('image').slice(-1)[0],
-    ['adjust-timing', 'replace-image', 'save-to-brand-kit', 'delete']);
+    ['adjust-timing', 'replace-image', 'save-to-brand-kit', 'disable', 'delete']);
+});
+
+/* 对照 BaoCut v2 已上线的条子（2026-10-09）：v2 除视频外每一类的溢出菜单都有不透明度与「隐藏」。
+   这里的「隐藏」叫停用片段，与时间线菜单同一个词，摆在删除前一格；视频那一条 v2 没有。 */
+test('除视频与彩纸 / 白板外，每一类的菜单里都有不透明度与停用片段', () => {
+  const flat = (groups) => {
+    const ids = [];
+    const walk = (g) => g.forEach((x) => (Array.isArray(x) ? walk(x) : ids.push(x)));
+    (groups || []).forEach(walk);
+    return ids;
+  };
+  ['text', 'image', 'shape', 'sticker', 'stickerimg', 'progress', 'wave', 'counter'].forEach((k) => {
+    const menu = flat(B.more(k));
+    assert.ok(menu.indexOf('opacity') >= 0, k + ' 的菜单里少了不透明度');
+    assert.strictEqual(menu.indexOf('disable'), menu.indexOf('delete') - 1, k + ' 的停用片段该在删除前一格');
+  });
+  assert.strictEqual(flat(B.more('video')).indexOf('disable'), -1, '视频那一条 v2 没有隐藏');
 });
 
 test('翻转与适应画布在溢出菜单的第一段：一行两簇、四枚图标钮', () => {
