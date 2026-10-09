@@ -54,6 +54,27 @@ pub fn format(text: &str) -> String {
     format_with_options(text, Options::default())
 }
 
+/// 字幕显示用的间距投影：只补 CJK ⇄ ASCII 字母数字间距，不改大小写或标点。
+/// 沿用原文排版的片段边界与韩文保护；含谚文的片段、路径和 URL 原样保留。
+pub fn display_spacing(text: &str) -> String {
+    let mut output = String::with_capacity(text.len());
+    for part in text.split_inclusive([' ', '\n', '\r']) {
+        if contains_hangul(part) || path_re().is_match(part) {
+            output.push_str(part);
+            continue;
+        }
+        let mut previous = None;
+        for ch in part.chars() {
+            if needs_pangu_space(previous, Some(ch)) {
+                output.push(' ');
+            }
+            output.push(ch);
+            previous = Some(ch);
+        }
+    }
+    output
+}
+
 pub fn format_with_options(text: &str, options: Options) -> String {
     if text.is_empty() {
         return String::new();
@@ -763,6 +784,29 @@ mod tests {
         }
         // 译文排版不变（voice-ink 的既有向量）。
         assert_eq!(format("한국어hello"), "한국어 hello");
+    }
+
+    #[test]
+    fn display_spacing_reuses_source_hangul_and_path_guards() {
+        for text in [
+            "AI가 2박 3일 600원",
+            "중국어中文AI가",
+            "ᄀAI ᄂ2",
+            "https://example.com/中文AI",
+            "path/中文AI",
+        ] {
+            assert_eq!(display_spacing(text), text);
+        }
+        for (text, expected) in [
+            ("让Claude创建Artifact", "让 Claude 创建 Artifact"),
+            ("中文AI AI가", "中文 AI AI가"),
+            ("AIを使う", "AI を使う"),
+            ("v3版本\n用AI", "v3 版本\n用 AI"),
+        ] {
+            assert_eq!(display_spacing(text), expected);
+            assert_eq!(display_spacing(expected), expected);
+        }
+        assert_eq!(display_spacing("中文ios，ＡＩ！"), "中文 ios，ＡＩ！");
     }
 
     /// 韩文译文：助词、量词贴着拉丁词或数字写，排版不拆开，也不动模型写下的

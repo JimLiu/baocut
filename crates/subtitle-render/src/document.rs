@@ -1934,12 +1934,15 @@ pub fn display_padding(buffer: f64, gap: f64, lead_in: f64, tail: f64) -> f64 {
     buffer.max(0.0).min(gap.max(0.0) * buffer.max(0.0) / cap)
 }
 
+/// 显示间距不依赖标点开关或语言标签：源字幕、译文和导入字幕都可能混排。
+/// 仅在汉字/假名与 ASCII 字母数字的直接邻接处补空格，不改正文、大小写或词时刻。
 pub fn projected_text(text: &str, language: &str, enabled: bool) -> String {
-    if enabled {
+    let text = if enabled {
         target_delivery_projection(text, language)
     } else {
         text.to_owned()
-    }
+    };
+    speech_doc::autocorrect::display_spacing(&text)
 }
 
 pub fn derived_words(
@@ -1975,7 +1978,10 @@ pub fn derived_words(
     if !explicit.is_empty() {
         return explicit;
     }
-    let tokens: Vec<&str> = text
+    // 没有逐词时间时，按显示间距切分；否则无空格的混排句会被当成一个词，
+    // 折行与推算高亮和显式带空格的同一句不同。已有词的 ID 与时间不动。
+    let spaced = speech_doc::autocorrect::display_spacing(text);
+    let tokens: Vec<&str> = spaced
         .split_whitespace()
         .filter(|token| !token.is_empty())
         .collect();

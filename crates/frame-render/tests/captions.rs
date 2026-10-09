@@ -87,6 +87,24 @@ fn greenish(p: [u8; 4]) -> bool {
 }
 
 #[test]
+fn mixed_script_captions_render_like_explicitly_spaced_text() {
+    for kind in ["original", "translation"] {
+        for style in [None, Some(studio(json!({"punct": false}))), Some(studio(json!({"punct": true})))] {
+            let render = |text: &str| {
+                let mut docs = vec![caption_doc("d", "sequence", &[(0.0, 3.0, text)], kind)];
+                if let Some(body) = &style {
+                    docs.push(style_doc("s", body.clone()));
+                }
+                draw(docs, vec![caption("c", "d", style.as_ref().map(|_| "s"), 90, &[])], 1.0)
+            };
+            let actual = render("让Claude创建Artifact");
+            assert!(painted(&actual) > 0);
+            assert!(actual == render("让 Claude 创建 Artifact"), "{kind} {style:?}");
+        }
+    }
+}
+
+#[test]
 fn studio_caption_draws_the_active_cue_at_the_anchor() {
     let documents = || {
         vec![

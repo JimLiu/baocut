@@ -20,6 +20,39 @@ async function setup(): Promise<{ planner: RenderPlanner; video: VideoSnapshot }
 }
 
 describe.skipIf(!built)('帧计划器（WASM）', () => {
+  it('中英文字幕自动补间距，与显式空格的实际像素一致', async () => {
+    const { planner, video } = await setup();
+    planner.addFonts(planner.fontFiles().map((name) => new Uint8Array(readFileSync(`${fonts}${name}`))));
+    const sequence = video.sequences[video.rootSequenceId]!;
+    planner.setVideo({
+      sequence: {
+        ...sequence,
+        tracks: [{ id: 'trk_caption', order: 0, kind: 'subtitle', locked: false, visible: true, muted: false, solo: { enabled: false, group: 'visual' } }],
+        items: [{
+          id: 'item_caption', trackId: 'trk_caption', enabled: true, locked: false, paintOrder: 0,
+          followPolicy: { kind: 'sequence-fixed' }, span: { fromFrame: 0, durationFrames: 90 },
+          type: 'caption', documentId: 'doc_caption', scopeItemIds: [],
+        }],
+      },
+      assets: {},
+    });
+    const render = (text: string, lineKind: 'original' | 'translation') => {
+      planner.setDocuments([{
+        documentId: 'doc_caption', kind: 'caption', lineKind,
+        body: { schema: 'baocut.caption/1', clock: 'sequence', timescale: 1000, cues: [{ id: 'c1', start: 0, end: 3000, text }] },
+      }]);
+      const result = planner.render(1, 640, 360, { transparent: true });
+      expect(result.skipped).toEqual([]);
+      expect(result.captionHits).toHaveLength(1);
+      return new Uint8ClampedArray(planner.frame());
+    };
+    for (const kind of ['original', 'translation'] as const) {
+      const actual = render('让Claude创建一个Artifact', kind);
+      expect(actual.some((byte, i) => i % 4 === 3 && byte > 0)).toBe(true);
+      expect(Buffer.from(actual).equals(Buffer.from(render('让 Claude 创建一个 Artifact', kind)))).toBe(true);
+    }
+  });
+
   it('与原生 Rust 的金标准逐字节一致', async () => {
     const { planner } = await setup();
     const lines = readFileSync(`${fixtures}plan-golden.txt`, 'utf8').trimEnd().split('\n');

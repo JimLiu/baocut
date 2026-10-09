@@ -1770,8 +1770,10 @@ interface CaptionStyleBody {
 
 - Studio 样式（`baocut.legacy-studio-style/0.1`）：`style` 是 v2 的字幕样式，逐词动画写在 `style.wordAnimation`（或 `style.anim`）里，`catalogId` 指逐词动画目录的一格。
 - 定位框样式（`baocut.boxed-caption-style/<N>`）：`canvas` 是样式所在画布的像素尺寸，`box` 是字幕框（相对画布中心的像素），`style` 是字号、颜色、对齐、底板等外观；渲染时换算成等价的 Studio 样式。`style.animationPresetId` 选逐词动画，取值是目录的 id，按那一格画，与 Studio 样式选中同一格相同；省略表示不动画。
-- 逐词动画目录有 19 格：`none`、`boxHighlight`、`flipClock`、`highlight`、`karaoke`、`impact`、`reveal`、`floatInTop`、`floatInBottom`、`scaleIn`、`dropIn`、`impactPop`、`colourHighlight`、`rotateFlipClock`、`rotateHighlight`、`stack`、`stomp`、`bounce`、`paint`。`reveal` 是逐字显现：没念到的词不画，念到一个就整个显出来。句子没有词时按 §3.8 的空白切分推算，不带空格的一句是一个词、开头就整句显出来。
+- 逐词动画目录有 19 格：`none`、`boxHighlight`、`flipClock`、`highlight`、`karaoke`、`impact`、`reveal`、`floatInTop`、`floatInBottom`、`scaleIn`、`dropIn`、`impactPop`、`colourHighlight`、`rotateFlipClock`、`rotateHighlight`、`stack`、`stomp`、`bounce`、`paint`。`reveal` 是逐字显现：没念到的词不画，念到一个就整个显出来。句子没有词时先应用显示间距，再按 §3.8 的空白切分推算；补间距后仍不带空格的一句是一个词、开头就整句显出来。
 - 引擎写入定位框样式时核对：`style` 是对象，`style.animationPresetId` 出现时是目录里的 id，否则拒绝整份文档（`INVALID_OPERATION`）。Studio 样式的正文不核对；内核遇到认不出的 `catalogId` 按动画名画。
+
+**显示间距**。预览与烧录在汉字、假名与 ASCII 字母数字直接相邻处补一个半角空格（如 `让Claude创建Artifact` → `让 Claude 创建 Artifact`）。原文、译文与导入字幕共用这条规则，不依赖语言标签、样式种类或 `punct` 开关；已有空白与换行保留，标点旁不额外补空格。按空格、LF、CR 分片，含谚文的片段以及路径、URL 沿用 v2 的保护规则，原样保留间距（如 `AI가`、`2박`、`600원`）；其他片段照常补间距。该投影不修改字幕正文、转写词 ID、词时刻、译文对齐范围或导出的 SRT、VTT。
 
 **默认预设**。没有样式文档的字幕实例按默认预设画；新建字幕层时种下的 Studio 样式（编辑器里第一次改样式或套用画廊里的卡、把译文双语放上画面，智能体与固定流程建双语字幕层）也是这一份。它是新建项目的「经典」涂装加一个开关，不分语言：
 

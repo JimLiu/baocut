@@ -897,6 +897,65 @@ mod tests {
     }
 
     #[test]
+    fn caption_projection_spaces_mixed_scripts_without_changing_word_timing() {
+        let text = "让Claude创建一个Artifact，使用v3版本。";
+        let expected = "让 Claude 创建一个 Artifact，使用 v3 版本。";
+        let data = json!({"text": text, "start": 0.0, "end": 3.0, "words": [
+            {"id": "w0", "text": "让", "t0": 0.0, "t1": 0.2},
+            {"id": "w1", "text": "Claude", "t0": 0.2, "t1": 0.8},
+            {"id": "w2", "text": "创建一个Artifact", "t0": 0.8, "t1": 2.0},
+            {"id": "w3", "text": "，使用v3版本。", "t0": 2.0, "t1": 3.0}
+        ]});
+        let original = data.clone();
+        let items = timed_items(&[data.clone()], "text", &json!({"punct": false}), "zh");
+        let item = &items[0];
+        assert_eq!(item.text, expected);
+        assert_eq!(data, original);
+        let runs = timed_runs(&item.text, &item.words, "");
+        assert_eq!(
+            runs.iter().map(|run| run.text.as_str()).collect::<String>(),
+            expected
+        );
+        assert_eq!(
+            runs.iter().filter_map(|run| run.word).collect::<Vec<_>>(),
+            [0, 1, 2, 3]
+        );
+        for (index, word) in item.words.iter().enumerate() {
+            assert_eq!(word.id, original["words"][index]["id"].as_str().unwrap());
+            assert_eq!(word.start, original["words"][index]["t0"].as_f64().unwrap());
+            assert_eq!(word.end, original["words"][index]["t1"].as_f64().unwrap());
+        }
+        assert_eq!(
+            projected_text(text, "zh", true),
+            "让 Claude 创建一个 Artifact 使用 v3 版本"
+        );
+        assert_eq!(projected_text(expected, "zh", false), expected);
+        let inferred = |text| {
+            derived_words(&json!({}), text, 0.0, 3.0, "zh", false)
+                .into_iter()
+                .map(|word| (word.id, word.text, word.start, word.end))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(inferred(text), inferred(expected));
+        // Content determines spacing even for imported subtitles without a language tag.
+        assert_eq!(projected_text(text, "", false), expected);
+        assert_eq!(projected_text("AIを使う", "ja", false), "AI を使う");
+        assert_eq!(projected_text("中文AI AI가", "ko", false), "中文 AI AI가");
+        for text in [
+            "Hello, world.",
+            "AI가 2박 3일 600원",
+            "중국어中文AI가",
+            "ᄀAI ᄂ2",
+            "https://example.com/中文AI",
+            "中文，English。",
+            "让 Claude\n创建 Artifact",
+            "รหัสF07",
+        ] {
+            assert_eq!(projected_text(text, "", false), text);
+        }
+    }
+
+    #[test]
     fn title_case_preserves_word_timing_across_mixed_cjk_and_latin_text() {
         let words = vec![
             Word {
