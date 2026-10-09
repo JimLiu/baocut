@@ -12,6 +12,7 @@
 //! 标准输入收到 `cancel` 一行或被关闭（Runtime 退出）时取消：停下合成，杀掉解码与编码的子进程，删掉没写完的输出。
 //! 独立进程让合成的崩溃与内存不影响 Runtime 与引擎；引擎宿主照常处理编辑请求，导出读的是启动时冻结的输入。
 
+mod delivery;
 mod input;
 mod master;
 mod native;

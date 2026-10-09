@@ -17,6 +17,7 @@ use render_graph::{LayerKind, VisualLayer};
 use tiny_skia::{IntSize, Pixmap};
 use video_model::VersionRef;
 
+use crate::delivery::delivery_size;
 use crate::input::Input;
 use crate::native::{self, Fallback};
 use crate::preflight::AssetPicture;
@@ -55,6 +56,8 @@ pub struct Sources<'a> {
     native_unavailable: Option<(&'static str, String)>,
     /// 没挂原生的素材（可能带透明）。
     decode_fallbacks: Vec<Fallback>,
+    /// 画布（画面那一块）的尺寸：铺满的视频按它定解码端的交付尺寸（[`crate::delivery`]）。
+    canvas: (u32, u32),
 }
 
 /// 视频解码用了哪些后端（`done.video.decoder`）：没有视频时 `None`，都一样时是那个后端名，不一样时是 `mixed`。
@@ -78,6 +81,7 @@ impl<'a> Sources<'a> {
             native: native::decode(),
             native_unavailable: native::decode_unavailable(),
             decode_fallbacks: Vec::new(),
+            canvas: (input.output.picture().width, input.output.picture().height),
         }
     }
 
@@ -153,6 +157,17 @@ impl<'a> Sources<'a> {
                 decoder.close();
             }
         }
+    }
+
+    /// 根序列里的实例（帧光栅按根序列的实例画，见 `frame-render` 的 `SequenceContext`）。
+    fn root_item(&self, item_id: &str) -> Option<&video_model::TimelineItem> {
+        self.input
+            .document
+            .sequences
+            .get(&self.input.sequence_id)?
+            .items
+            .iter()
+            .find(|item| item.base().id == item_id)
     }
 
     fn picture_info(&mut self, layer: &VisualLayer) -> Result<Option<AssetPicture>, RenderError> {
@@ -249,7 +264,12 @@ impl LayerMedia for Sources<'_> {
             } else {
                 let asset = layer.asset.as_ref().expect("上面查过");
                 let origin = self.input.pts_origin(&asset.id, &asset.revision);
-                let mut decoder = VideoDecoder::new(&self.tools, &info.path, origin, info.width, info.height);
+                // 铺满画布、比画布大的视频让解码器直接交画布里的尺寸，帧光栅不再整幅重采样（[`crate::delivery`]）。
+                let (width, height) = self
+                    .root_item(&id)
+                    .and_then(|item| delivery_size(item, (info.width, info.height), self.canvas))
+                    .unwrap_or((info.width, info.height));
+                let mut decoder = VideoDecoder::new(&self.tools, &info.path, origin, width, height);
                 match &self.native {
                     Some(_) if info.alpha => self.decode_fallbacks.push(Fallback::decoder(
                         Some(&asset.id),
