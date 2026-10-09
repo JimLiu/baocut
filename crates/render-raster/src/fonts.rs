@@ -344,7 +344,21 @@ fn resolve_cjk_chain(db: &fontdb::Database) -> Vec<String> {
 /// 之后所有字重都用这个名字，字重只管字重。
 fn resolve_sans_family(db: &fontdb::Database) -> Option<String> {
     let name = db.family_name(&Family::SansSerif).to_owned();
-    family_in_db(db, &name).then_some(name)
+    if family_in_db(db, &name) {
+        return Some(name);
+    }
+    // fontdb's generic name can refer to an absent Arial on Linux. Resolve a
+    // concrete Latin family before the CJK fallback gets a chance to take over.
+    [
+        "Arial",
+        "DejaVu Sans",
+        "Liberation Sans",
+        "Noto Sans",
+        "Arimo",
+    ]
+    .into_iter()
+    .find(|family| family_in_db(db, family))
+    .map(str::to_owned)
 }
 
 /// 排版用的字符分类。
@@ -2081,8 +2095,12 @@ mod tests {
     /// 字」的「𠮷」（思源黑体没有），weight 400 落 PingFang SC，weight 700 落
     /// YuKyokasho Yoko，同一句话换个字重就换一款字。
     #[test]
+    #[cfg(feature = "media")]
     fn a_glyph_the_fallback_lacks_picks_one_font_at_every_weight() {
-        let mut engine = TextEngine::new();
+        let mut engine = TextEngine::with_document_fonts(&[
+            include_bytes!("../assets/fonts/Arimo.ttf").to_vec(),
+            include_bytes!("../tests/fixtures/fonts/cjk-fallback-probe.ttf").to_vec(),
+        ]);
         let text = "名字里有个𠮷字";
         let picked = [100u16, 400, 550, 700, 900]
             .into_iter()
@@ -2097,6 +2115,7 @@ mod tests {
             1,
             "缺字的回退随字重漂了：{picked:?}（同一段文本必须整体用同一款回退字体）"
         );
+        assert_eq!(picked, HashSet::from(["Source Han Sans SC".to_owned()]));
     }
 
     /// 中文行里的弯引号 / 破折号 / 省略号 / 间隔号跟着汉字走，不留在拉丁族。
@@ -2172,6 +2191,25 @@ mod tests {
         assert_eq!(families.len(), 1, "缺省无衬线族随字重漂了：{families:?}");
     }
 
+    #[test]
+    fn an_uninstalled_generic_sans_name_resolves_to_an_available_latin_family() {
+        let mut db = fontdb::Database::new();
+        db.load_font_data(include_bytes!("../assets/fonts/Arimo.ttf").to_vec());
+        db.set_sans_serif_family("Absent Sans");
+        load_bundled_cjk_font(&mut db);
+        assert_eq!(resolve_sans_family(&db).as_deref(), Some("Arimo"));
+        let mut engine = TextEngine::with_font_system(
+            FontSystem::new_with_locale_and_db("en-US".to_owned(), db),
+            false,
+        );
+        for weight in [100, 400, 700, 900] {
+            let families = families_by_char(&mut engine, "he said “yes”—really…", "", weight)
+                .into_iter()
+                .collect::<HashSet<_>>();
+            assert_eq!(families, HashSet::from(["Arimo".to_owned()]));
+        }
+    }
+
     /// 全角标点属于 CJK：它们和汉字同属一段，跟着汉字用同一个族。
     #[test]
     fn fullwidth_punctuation_counts_as_cjk() {
@@ -2239,7 +2277,7 @@ mod tests {
     /// [`colr_face_with_solid_fallback_outline_uses_the_color_channel`] 用 checked-in
     /// 探针字体无条件覆盖。
     #[test]
-    fn color_emoji_falls_back_to_the_bitmap_channel() {
+    fn system_color_emoji_fonts_use_the_bitmap_channel() {
         let mut engine = TextEngine::with_system_and_fonts(&[]);
         let emoji_family = ["Apple Color Emoji", "Noto Color Emoji", "Segoe UI Emoji"]
             .into_iter()
@@ -2248,7 +2286,9 @@ mod tests {
             eprintln!("跳过：本机没有安装彩色 emoji 字体");
             return;
         };
-        let shaped = engine.shape("A😀B", "", 64.0, 400);
+        // Other installed fonts may also cover emoji with monochrome outlines.
+        // Select the detected color font so this test exercises its color tables.
+        let shaped = engine.shape("A😀B", emoji_family, 64.0, 400);
         assert!(!shaped.glyphs.is_empty(), "shaping 不应为空");
         let mut bitmaps = 0_usize;
         let mut outlines = 0_usize;
