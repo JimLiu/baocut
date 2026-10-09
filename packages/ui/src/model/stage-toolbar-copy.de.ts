@@ -55,7 +55,7 @@ export const de: StageToolbarMessages = {
 
   offReason: {
     animation: "Das Videoformat unterstützt noch keine Animationen: Es gibt weder ein beschreibbares Feld noch eine Bearbeitungsoperation dafür.",
-    brand: "Im Marken-Kit können noch keine Clips gespeichert werden.",
+    brand: "Das Medium dieses Clips kann nicht im Marken-Kit gespeichert werden.",
     roundCorners: "Der Eckenradius von Videos und Bildern kann noch nicht geschrieben werden (die Darstellungsoperation nimmt keinen Radius an).",
     filters: "Filter (LUT) sind im Videoformat reserviert und werden beim Schreiben abgelehnt.",
     crop: "Intelligentes Zuschneiden benötigt ein Modell und hat noch keinen Einstiegspunkt. Demnächst verfügbar.",
@@ -66,6 +66,7 @@ export const de: StageToolbarMessages = {
     captionAnimation: 'Das Videoformat unterstützt noch keine Untertitel-Animationen: Ein Untertitelstil hat kein Feld dafür.',
     captionDefaultStyle: 'Diese Untertitel verwenden noch den Standardstil. Ändern Sie zuerst eine Einstellung und speichern Sie ihn dann im Marken-Kit.',
     brandText: 'Das Marken-Kit hat noch keinen Bereich für Textstile.',
+    brandWeb: 'Das Marken-Kit ist nur in der Desktop-App und der CLI verfügbar.',
   },
   arrange: { front: 'In den Vordergrund', forward: 'Eine Ebene nach vorne', backward: 'Eine Ebene nach hinten', back: 'In den Hintergrund', label: 'Stapelreihenfolge ändern' },
   subtitleBar: 'Untertitel-Werkzeugleiste',

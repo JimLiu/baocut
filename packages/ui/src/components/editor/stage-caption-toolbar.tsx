@@ -71,7 +71,8 @@ export function StageCaptionToolbar({
   const primary = items[0]!;
   const { record, body, root, chip, own, sharing, paired } = useCaptionStyle(primary, sequence, records);
   const styled = !!record;
-  const spec = useMemo(() => captionToolbar({ paired, styled }), [paired, styled]);
+  const web = runtime.host.platform === 'web';
+  const spec = useMemo(() => captionToolbar({ paired, styled, web }), [paired, styled, web]);
 
   // 条子落在整块字幕上方：双语时两行一起算，选中下面一行也不会盖住上面一行。
   const byId = new Map(sequence.items.map((item) => [item.id, item]));

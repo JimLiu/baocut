@@ -55,7 +55,7 @@ export const nl: StageToolbarMessages = {
 
   offReason: {
     animation: "Het videoformaat ondersteunt nog geen animaties: er is geen veld om te schrijven en geen bewerkingsactie voor.",
-    brand: "De merkkit kan nog geen clips opslaan.",
+    brand: "De media van deze clip kunnen niet in de merkkit worden opgeslagen.",
     roundCorners: "De hoekradius voor video’s en afbeeldingen kan nog niet worden geschreven (de actie voor weergave accepteert geen radius).",
     filters: "Filters (LUT) zijn een gereserveerde naam in het videoformaat en worden bij het schrijven geweigerd.",
     crop: "Slim bijsnijden vereist een model en heeft nog geen toegangspunt. Binnenkort beschikbaar.",
@@ -66,6 +66,7 @@ export const nl: StageToolbarMessages = {
     captionAnimation: 'Het videoformaat ondersteunt nog geen ondertitelanimaties: een ondertitelstijl heeft er geen veld voor.',
     captionDefaultStyle: 'Deze ondertitels gebruiken nog de standaardstijl. Wijzig eerst een instelling en sla hem daarna op in de merkkit.',
     brandText: 'De merkkit heeft nog geen sectie voor tekststijlen.',
+    brandWeb: 'De merkkit is alleen beschikbaar in de desktop-app en de CLI.',
   },
   arrange: { front: 'Naar voorgrond', forward: 'Naar voren', backward: 'Naar achteren', back: 'Naar achtergrond', label: 'Stapelvolgorde wijzigen' },
   subtitleBar: 'Ondertitelwerkbalk',

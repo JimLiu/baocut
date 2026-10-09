@@ -20,7 +20,7 @@ export const es: StageToolbarMessages = {
   },
   offReason: {
     animation: 'El formato de vídeo aún no admite animaciones: no hay un campo donde escribirlas ni una operación para editarlas.',
-    brand: 'El kit de marca aún no puede guardar clips.',
+    brand: 'El material de este clip no se puede guardar en el kit de marca.',
     roundCorners: 'Aún no se puede escribir el radio de esquina de vídeos e imágenes (la operación de apariencia no acepta un radio).',
     filters: 'Los filtros (LUT) son un nombre reservado en el formato de vídeo y se rechazan al escribir.',
     crop: 'El recorte inteligente necesita un modelo y aún no tiene un punto de acceso. Próximamente.',
@@ -31,6 +31,7 @@ export const es: StageToolbarMessages = {
     captionAnimation: 'El formato de vídeo aún no admite animaciones de subtítulos: un estilo de subtítulos no tiene un campo para ellas.',
     captionDefaultStyle: 'Estos subtítulos aún usan el estilo predeterminado. Cambia cualquier ajuste primero y luego guárdalo en el kit de marca.',
     brandText: 'El kit de marca aún no tiene una sección de estilos de texto.',
+    brandWeb: 'El kit de marca solo está disponible en la aplicación de escritorio y la CLI.',
   },
   arrange: { front: 'Traer al frente', forward: 'Traer adelante', backward: 'Enviar atrás', back: 'Enviar al fondo', label: 'Cambiar orden de apilamiento' },
   subtitleBar: 'Barra de herramientas de subtítulos',

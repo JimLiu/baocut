@@ -53,7 +53,7 @@ export const pl: StageToolbarMessages = {
   },
   offReason: {
     animation: "Format wideo nie ma jeszcze animacji: brak pola do zapisu i operacji edycji.",
-    brand: "Zestaw marki nie przechowuje jeszcze klipów.",
+    brand: "Multimediów tego klipu nie można zapisać w zestawie marki.",
     roundCorners: "Nie można jeszcze zapisać promienia narożników wideo i obrazów (operacja appearance nie przyjmuje promienia).",
     filters: "Filtry (LUT) są zarezerwowaną nazwą w formacie wideo i są odrzucane przy zapisie.",
     crop: "Inteligentne kadrowanie wymaga modelu i nie ma jeszcze punktu wejścia. Wkrótce.",
@@ -64,6 +64,7 @@ export const pl: StageToolbarMessages = {
     captionAnimation: 'Format wideo nie ma jeszcze animacji napisów: styl napisów nie ma na nie pola.',
     captionDefaultStyle: 'Te napisy nadal używają stylu domyślnego. Najpierw zmień dowolne ustawienie, a potem zapisz go w zestawie marki.',
     brandText: 'Zestaw marki nie ma jeszcze sekcji stylów tekstu.',
+    brandWeb: 'Zestaw marki jest dostępny tylko w aplikacji komputerowej i CLI.',
   },
   arrange: { front: 'Przenieś na wierzch', forward: 'Przesuń do przodu', backward: 'Przesuń do tyłu', back: 'Przenieś na spód', label: 'Zmień kolejność warstw' },
   subtitleBar: 'Pasek narzędzi napisów',

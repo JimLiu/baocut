@@ -6,8 +6,9 @@ import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { STAGE_TOOLBAR_COPY as COPY } from '../../copy.ts';
 import { colorParts, patchShape, patchTextStyle, withAlpha } from '../../model/property-values.ts';
 import { aabbOf, poseOf, type PlacedItem, type Rect } from '../../model/stage-pose.ts';
-import { toolbarFor, toolbarPlacement, type Size, type Tool, type ToolbarSpec } from '../../model/stage-toolbar.ts';
+import { itemAsset, toolbarFor, toolbarPlacement, type Size, type Tool, type ToolbarSpec } from '../../model/stage-toolbar.ts';
 import { asObject, num } from '../../render/text-style.ts';
+import { useRuntime } from '../../runtime/context.tsx';
 import { useVideo } from '../../state/video-store.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { ToolbarFontField } from './font-field.tsx';
@@ -297,10 +298,13 @@ export function StageToolbar({
   view: View;
   yielding: boolean;
 }) {
+  const runtime = useRuntime();
   const actions = useEditorActions();
   const edit = useItemEdit(sequence, item);
   const assets = useVideo((s) => s.video?.state?.video.assets) ?? NO_ASSETS;
-  const spec = useMemo(() => toolbarFor(item), [item]);
+  const asset = itemAsset(item, assets);
+  const web = runtime.host.platform === 'web';
+  const spec = useMemo(() => toolbarFor(item, { asset, web }), [item, asset, web]);
 
   const aabb = aabbOf(poseOf(item, sequence.canvas, assets));
   const box = { x: frame.left + aabb.x * view.kx, y: frame.top + aabb.y * view.ky, w: aabb.w * view.kx, h: aabb.h * view.ky };
@@ -311,7 +315,7 @@ export function StageToolbar({
     <FloatingBar box={box} knob yielding={yielding} label={COPY.label}>
       <ToolbarBody
         spec={spec}
-        host={itemHost(props, actions)}
+        host={itemHost(props, actions, runtime)}
         render={(tool) => (tool.action.kind === 'pop' ? <PopTool tool={tool} props={props} /> : undefined)}
       />
     </FloatingBar>

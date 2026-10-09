@@ -53,7 +53,7 @@ export const zhHant: StageToolbarMessages = {
   },
   offReason: {
     animation: '影片格式目前還沒有動畫：沒有可寫入的欄位，也沒有對應的編輯操作。',
-    brand: '品牌庫目前還無法儲存片段。',
+    brand: '這個片段的素材無法存入品牌庫。',
     roundCorners: '影片與圖片的圓角目前還無法寫入（外觀操作不接受圓角半徑）。',
     filters: '濾鏡（LUT）是影片格式中的保留名稱，寫入時會被拒絕。',
     crop: '智慧裁切需要模型，目前還沒有入口。即將推出。',
@@ -64,6 +64,7 @@ export const zhHant: StageToolbarMessages = {
     captionAnimation: '影片格式目前還沒有字幕動畫：字幕樣式裡沒有對應的欄位。',
     captionDefaultStyle: '這些字幕還在使用預設樣式。先改任意一項，再儲存到品牌庫。',
     brandText: '品牌庫目前還沒有文字樣式這一節。',
+    brandWeb: '品牌庫只能在桌面應用程式和命令列中使用。',
   },
   arrange: { front: '移到最前', forward: '前移一層', backward: '後移一層', back: '移到最後', label: '調整堆疊順序' },
   subtitleBar: '字幕工具列',

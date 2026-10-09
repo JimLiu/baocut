@@ -16,7 +16,7 @@ export const fr: StageToolbarMessages = {
   },
   offReason: {
     animation: 'Le format vidéo ne prend pas encore en charge les animations : aucun champ ni aucune opération de modification ne permet de les enregistrer.',
-    brand: 'Le kit de marque ne peut pas encore stocker de clips.',
+    brand: 'Le média de ce clip ne peut pas être stocké dans le kit de marque.',
     roundCorners: 'Le rayon des coins des vidéos et des images ne peut pas encore être enregistré (l’opération d’apparence n’accepte pas de rayon).',
     filters: 'Les filtres (LUT) sont un nom réservé dans le format vidéo et sont refusés à l’écriture.',
     crop: 'Le recadrage intelligent nécessite un modèle et n’a pas encore de point d’entrée. Bientôt disponible.',
@@ -27,6 +27,7 @@ export const fr: StageToolbarMessages = {
     captionAnimation: 'Le format vidéo ne prend pas encore en charge les animations de sous-titres : un style de sous-titres n’a aucun champ pour elles.',
     captionDefaultStyle: 'Ces sous-titres utilisent encore le style par défaut. Modifiez d’abord un réglage, puis enregistrez-le dans le kit de marque.',
     brandText: 'Le kit de marque n’a pas encore de section pour les styles de texte.',
+    brandWeb: 'Le kit de marque n’est disponible que dans l’application de bureau et le CLI.',
   },
   arrange: { front: 'Mettre au premier plan', forward: 'Avancer', backward: 'Reculer', back: 'Mettre à l’arrière-plan', label: 'Modifier l’ordre de superposition' },
   subtitleBar: 'Barre d’outils des sous-titres',

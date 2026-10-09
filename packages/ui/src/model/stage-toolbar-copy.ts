@@ -67,10 +67,10 @@ const en = {
     case: 'Case',
     'hide-subs': 'Hide subtitles',
   },
-  /** 协议里还没有对应操作的几格：为什么不能用。 */
+  /** 不能用的几格为什么不能用：协议里还没有对应操作、素材取不到原文件、浏览器里没有品牌库等。 */
   offReason: {
     animation: 'The video format has no animations yet: there is no field to write and no edit operation for it.',
-    brand: 'The brand kit cannot store clips yet.',
+    brand: "This clip's media can't be stored in the brand kit.",
     roundCorners: 'Corner radius for videos and images cannot be written yet (the appearance operation does not take a radius).',
     filters: 'Filters (LUT) are a reserved name in the video format and are rejected on write.',
     crop: 'Smart crop needs a model and has no entry point yet. Coming soon.',
@@ -81,6 +81,7 @@ const en = {
     captionAnimation: 'Subtitle animations are not in the video format yet: a subtitle style has no field for them.',
     captionDefaultStyle: 'These subtitles still use the default style. Change any setting first, then save it to the brand kit.',
     brandText: 'The brand kit has no section for text styles yet.',
+    brandWeb: 'The brand kit is only available in the desktop app and the CLI.',
   },
   /** 「层级」下钻页的四行与这一笔的名字。 */
   arrange: {

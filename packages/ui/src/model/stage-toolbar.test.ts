@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import type { Place } from '@baocut/protocol';
+import type { AssetRecord, AssetRevision, Place } from '@baocut/protocol';
+import { assetLibrarySource } from './library-brand.ts';
 import type { PlacedItem } from './stage-pose.ts';
 import {
   BAR,
   OFF_REASON,
   TOOL_LABEL,
   barKindOf,
+  brandTarget,
   captionCase,
   captionToolbar,
+  itemAsset,
   nextCaptionCase,
   toolbarFor,
   toolbarPlacement,
@@ -29,6 +32,17 @@ const composition = (source: unknown) => ({ id: 'c', type: 'composition', place,
 const element = (type: string, more: Record<string, unknown> = {}) => ({ id: 'e', type, place, ...more }) as unknown as PlacedItem;
 const sticker = () => element('sticker', { sticker: { source: 'template', templateId: 'heart' } });
 const counter = () => element('text', { counter: { mode: 'countdown' }, style: {} });
+/** 片段画的素材：缺省是收进视频目录的（存不进品牌库）。 */
+const media = (kind: AssetRecord['kind'], patch: Partial<AssetRevision> = {}): AssetRecord => ({
+  id: `asset_${kind}`,
+  kind,
+  name: '片头',
+  currentRevision: 'r1',
+  revisions: {
+    r1: { revision: 'r1', contentHash: 'sha256:00', byteLength: 10, mediaType: 'image/png', storage: { mode: 'managed' }, provenance: { origin: 'import' }, ...patch },
+  },
+});
+const linkedVideo = () => media('video', { storage: { mode: 'linked', locator: { path: '/Volumes/素材/片头.mp4' }, frozen: false } });
 
 const ids = (groups: Tool[][]) => groups.map((g) => g.map((t) => t.id));
 const menuIds = (more: MenuGroup[] | null) =>
@@ -155,9 +169,9 @@ describe('每一格做什么', () => {
     }
   });
 
-  it('协议里没有对应操作的几格不能用：动画、存到品牌库、圆角、滤镜、替换、分离音频、智能裁剪', () => {
+  it('协议里没有对应操作的几格不能用：动画、圆角、滤镜、替换、分离音频、智能裁剪', () => {
     const spec = toolbarFor(video());
-    for (const id of ['animation', 'save-to-brand-kit', 'round-corners', 'filters', 'replace-video', 'detach-audio', 'crop-video']) {
+    for (const id of ['animation', 'round-corners', 'filters', 'replace-video', 'detach-audio', 'crop-video']) {
       expect(find(spec, id)?.action.kind, id).toBe('off');
     }
   });
@@ -210,9 +224,32 @@ describe('每一格做什么', () => {
     expect(find(spec, 'bold')?.action).toEqual({ kind: 'jump', section: null });
   });
 
-  it('存到品牌库：文字说的是品牌库还没有文字样式一栏，其余说的是还存不了素材', () => {
+  it('存到品牌库：文字说的是品牌库还没有文字样式一栏；视频、图片取得到素材的原文件才能存', () => {
     expect(find(toolbarFor(text()), 'save-to-brand-kit')?.action).toEqual({ kind: 'off', reason: OFF_REASON.brandText });
     expect(find(toolbarFor(video()), 'save-to-brand-kit')?.action).toEqual({ kind: 'off', reason: OFF_REASON.brand });
+    expect(find(toolbarFor(video(), { asset: media('audio') }), 'save-to-brand-kit')?.action).toEqual({ kind: 'off', reason: OFF_REASON.brand });
+    expect(find(toolbarFor(video(), { asset: linkedVideo() }), 'save-to-brand-kit')?.action).toEqual({ kind: 'command' });
+    const generated = media('image', { provenance: { origin: 'generated', source: { artifactId: 'sha256:ab' } } });
+    expect(find(toolbarFor(image(), { asset: generated }), 'save-to-brand-kit')?.action).toEqual({ kind: 'command' });
+    const embedded = media('image');
+    const found = assetLibrarySource(embedded);
+    expect(find(toolbarFor(image(), { asset: embedded }), 'save-to-brand-kit')?.action).toEqual({ kind: 'off', reason: 'reason' in found ? found.reason : '' });
+  });
+
+  it('浏览器里存不了品牌库（Web 服务不放行 library.*）：素材片段与字幕都说明在哪能用；文字仍说没有文字样式一栏', () => {
+    const web = { kind: 'off', reason: OFF_REASON.brandWeb };
+    expect(find(toolbarFor(video(), { asset: linkedVideo(), web: true }), 'save-to-brand-kit')?.action).toEqual(web);
+    expect(find(captionToolbar({ paired: false, styled: true, web: true }), 'save-to-brand-kit')?.action).toEqual(web);
+    expect(find(toolbarFor(text(), { web: true }), 'save-to-brand-kit')?.action).toEqual({ kind: 'off', reason: OFF_REASON.brandText });
+  });
+
+  it('按下去存的就是条子上判过的那一节与来源', () => {
+    const asset = linkedVideo();
+    const item = { ...video(), assetRef: { id: asset.id, revision: 'r1' } } as unknown as PlacedItem;
+    expect(itemAsset(item, { [asset.id]: asset })).toBe(asset);
+    expect(itemAsset(shape(), { [asset.id]: asset })).toBeUndefined();
+    expect(brandTarget(asset)).toEqual({ kind: 'video', source: { path: '/Volumes/素材/片头.mp4' } });
+    expect(brandTarget(undefined)).toEqual({ reason: OFF_REASON.brand });
   });
 
   it('图形：颜色与描边开弹层；图形参数是固定字段，哪种图形都能改', () => {

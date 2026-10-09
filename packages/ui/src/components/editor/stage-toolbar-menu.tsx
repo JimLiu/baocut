@@ -62,9 +62,11 @@ import { canArrange } from '../../model/editor-ops.ts';
 import { fitCanvas } from '../../model/geometry-panel.ts';
 import { patchTextStyle } from '../../model/property-values.ts';
 import { placeFields, poseOf, type PlacedItem } from '../../model/stage-pose.ts';
-import { ARRANGE_COPY, ARRANGE_ROWS, type InspectorSection, type MenuGroup, type Tool, type ToolId } from '../../model/stage-toolbar.ts';
+import { ARRANGE_COPY, ARRANGE_ROWS, brandTarget, itemAsset, type InspectorSection, type MenuGroup, type Tool, type ToolId } from '../../model/stage-toolbar.ts';
 import { asObject, num } from '../../render/text-style.ts';
+import type { RuntimeSession } from '../../runtime/session.ts';
 import { useEditor } from '../../state/editor-store.ts';
+import { saveAssetToBrand } from './brand-save.ts';
 import type { EditorActions } from './editor-context.tsx';
 import { ValueRow } from './inspector-controls.tsx';
 import { OpacityRow, TimeSection, type ItemPageProps } from './inspector-sections.tsx';
@@ -209,7 +211,7 @@ export function toolIsOn(id: ToolId, item: PlacedItem): boolean {
 }
 
 /** 一下就生效的格：命令、开关、跳到属性页。改值的写法与属性页同一条（`edit.commit`）。 */
-export function runTool(tool: Tool, { item, sequence, assets, edit }: ToolProps, actions: EditorActions): void {
+export function runTool(tool: Tool, { item, sequence, assets, edit }: ToolProps, actions: EditorActions, runtime: RuntimeSession): void {
   const target = { sequenceId: sequence.id, itemId: item.id };
   const text = (patch: Record<string, unknown>) =>
     item.type === 'text' && edit.commit([{ type: 'setStyle', ...target, style: patchTextStyle(item.style, patch) }]);
@@ -219,6 +221,12 @@ export function runTool(tool: Tool, { item, sequence, assets, edit }: ToolProps,
     case 'command':
       if (tool.id === 'copy') return void duplicateItems(actions, [item.id]);
       if (tool.id === 'delete') return void deleteItems(actions, [item.id]);
+      if (tool.id === 'save-to-brand-kit') {
+        const asset = itemAsset(item, assets);
+        const target = brandTarget(asset);
+        if (asset && 'source' in target) void saveAssetToBrand(runtime, asset, target.kind, target.source);
+        return;
+      }
       if (tool.id === 'fit-canvas' || tool.id === 'fill-canvas') {
         const pose = poseOf(item, sequence.canvas, assets);
         const fields = placeFields(
@@ -418,10 +426,10 @@ function ItemSubPage({ tool, props }: { tool: Tool; props: ToolProps }) {
 }
 
 /** 选中画面上的一件时，条子与菜单上的格怎么动。 */
-export function itemHost(props: ToolProps, actions: EditorActions): ToolHost {
+export function itemHost(props: ToolProps, actions: EditorActions, runtime: RuntimeSession): ToolHost {
   return {
     isOn: (id) => toolIsOn(id, props.item),
-    run: (tool) => runTool(tool, props, actions),
+    run: (tool) => runTool(tool, props, actions, runtime),
     subPage: (tool) => <ItemSubPage tool={tool} props={props} />,
     submenu: (tool, close) => (tool.id === 'arrange' ? <ArrangeSub props={props} actions={actions} onDone={close} /> : undefined),
   };

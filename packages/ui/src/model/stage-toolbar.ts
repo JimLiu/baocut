@@ -1,5 +1,6 @@
-import { live, type ArrangeDirection } from '@baocut/protocol';
+import { live, type ArrangeDirection, type AssetRecord, type BrandMediaKind, type Id, type LibrarySource } from '@baocut/protocol';
 import { asObject } from '../render/text-style.ts';
+import { assetLibrarySource, brandKindForAsset } from './library-brand.ts';
 import { editableTextStyle } from './property-values.ts';
 import type { PlacedItem, Rect } from './stage-pose.ts';
 import { M, type StageToolbarMessages } from './stage-toolbar-copy.ts';
@@ -281,8 +282,31 @@ function textStyleAction(item: PlacedItem, action: ToolAction): ToolAction {
   return off(M.textStyleLocked(String(asObject(item.style).schema)));
 }
 
+/** 条子之外要知道的：这一件的素材（存到品牌库从哪里取文件），界面是不是在浏览器里。 */
+export interface BarContext {
+  asset?: AssetRecord;
+  /** 浏览器会话里调不了品牌库（`library.*` 不在 Web 服务的白名单里）。 */
+  web?: boolean;
+}
+
+/** 片段画的那个素材（视频、图片，以及按素材画的贴纸与占位框）。 */
+export function itemAsset(item: PlacedItem, assets: Record<Id, AssetRecord>): AssetRecord | undefined {
+  return 'assetRef' in item && item.assetRef ? assets[item.assetRef.id] : undefined;
+}
+
+/**
+ * 素材片段存到品牌库存进哪一节、从哪取文件：取得到原文件才能存（生成的用产物，链接的用原文件），取不到时给原因。
+ * 条子上这一格能不能用与按下去存什么走同一条判断。
+ */
+export function brandTarget(asset: AssetRecord | undefined): { kind: BrandMediaKind; source: LibrarySource } | { reason: string } {
+  const kind = asset && brandKindForAsset(asset);
+  if (!asset || !kind) return { reason: OFF_REASON.brand };
+  const found = assetLibrarySource(asset);
+  return 'source' in found ? { kind, source: found.source } : found;
+}
+
 /** 一格在这一件上落成什么。 */
-export function toolAction(id: ToolId, item: PlacedItem, kind: BarKind): ToolAction {
+export function toolAction(id: ToolId, item: PlacedItem, kind: BarKind, context: BarContext = {}): ToolAction {
   switch (id) {
     case 'color':
       // 计时的颜色、字体、字号是生成器参数，控件在属性页上。
@@ -341,9 +365,13 @@ export function toolAction(id: ToolId, item: PlacedItem, kind: BarKind): ToolAct
     case 'arrange':
       // 四个方向在菜单里下钻一层（原型 stage-toolbar-menu.jsx 的 OrderSub）；走不动的方向灰着。
       return SUB;
-    case 'save-to-brand-kit':
+    case 'save-to-brand-kit': {
       // 品牌库收素材与字幕样式，没有文字样式这一节。
-      return off(item.type === 'text' ? OFF_REASON.brandText : OFF_REASON.brand);
+      if (item.type === 'text') return off(OFF_REASON.brandText);
+      if (context.web) return off(OFF_REASON.brandWeb);
+      const target = brandTarget(context.asset);
+      return 'reason' in target ? off(target.reason) : COMMAND;
+    }
     case 'round-corners':
       return off(OFF_REASON.roundCorners);
     case 'filters':
@@ -381,12 +409,12 @@ function specOf(kind: BarKind, layout: Layout, tool: (id: ToolId) => Tool): Tool
 }
 
 /** 选中这一件时条子与菜单的样子。 */
-export function toolbarFor(item: PlacedItem): ToolbarSpec {
+export function toolbarFor(item: PlacedItem, context: BarContext = {}): ToolbarSpec {
   const kind = barKindOf(item);
   // 还没有自己一条的元素也要能改叠放次序：只给一颗「属性」，菜单里放通用的复制 / 层级 / 时长 / 删除。
   const layout: Layout =
     kind === 'other' || kind === 'subtitle' ? { visible: [['properties']], more: [['copy', 'arrange'], ['adjust-timing', 'delete']] } : BAR[kind];
-  return specOf(kind, layout, (id) => ({ id, label: TOOL_LABEL[id], action: toolAction(id, item, kind) }));
+  return specOf(kind, layout, (id) => ({ id, label: TOOL_LABEL[id], action: toolAction(id, item, kind, context) }));
 }
 
 // ---- 字幕 ----
@@ -396,10 +424,12 @@ export interface CaptionBarInput {
   paired: boolean;
   /** 字幕已经有自己的样式文档：才有东西存进品牌库（还在用缺省样式时没有）。 */
   styled: boolean;
+  /** 浏览器会话里调不了品牌库。 */
+  web?: boolean;
 }
 
 /** 字幕条子上的一格落成什么：文字样式那几格与文字元素同一套形态，写的是字幕样式文档。 */
-function captionAction(id: ToolId, { styled }: CaptionBarInput): ToolAction {
+function captionAction(id: ToolId, { styled, web }: CaptionBarInput): ToolAction {
   switch (id) {
     case 'color':
     case 'font':
@@ -417,6 +447,7 @@ function captionAction(id: ToolId, { styled }: CaptionBarInput): ToolAction {
     case 'sub-animation':
       return off(OFF_REASON.captionAnimation);
     case 'save-to-brand-kit':
+      if (web) return off(OFF_REASON.brandWeb);
       return styled ? COMMAND : off(OFF_REASON.captionDefaultStyle);
     default:
       // 换行、Edit、Styles、大小写一档档轮换、隐藏字幕：一下就生效。

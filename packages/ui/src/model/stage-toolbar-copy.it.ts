@@ -7,7 +7,7 @@ export const it: StageToolbarMessages = {
   },
   offReason: {
     animation: 'Il formato video non ha ancora animazioni: non esiste un campo da scrivere né un’operazione di modifica.',
-    brand: 'Il kit del brand non può ancora memorizzare clip.',
+    brand: 'Il media di questa clip non può essere memorizzato nel kit del brand.',
     roundCorners: 'Il raggio degli angoli per video e immagini non può ancora essere scritto (l’operazione di aspetto non accetta un raggio).',
     filters: 'I filtri (LUT) sono un nome riservato nel formato video e vengono rifiutati in scrittura.',
     crop: 'Il ritaglio intelligente richiede un modello e non ha ancora un punto di accesso. Prossimamente.',
@@ -18,6 +18,7 @@ export const it: StageToolbarMessages = {
     captionAnimation: 'Il formato video non ha ancora animazioni dei sottotitoli: uno stile dei sottotitoli non ha un campo per esse.',
     captionDefaultStyle: 'Questi sottotitoli usano ancora lo stile predefinito. Cambia prima un’impostazione, poi salvalo nel kit del brand.',
     brandText: 'Il kit del brand non ha ancora una sezione per gli stili di testo.',
+    brandWeb: 'Il kit del brand è disponibile solo nell’app desktop e nella CLI.',
   },
   arrange: { front: 'Porta in primo piano', forward: 'Porta avanti', backward: 'Porta indietro', back: 'Porta in secondo piano', label: 'Cambia ordine di sovrapposizione' },
   subtitleBar: 'Barra dei sottotitoli',

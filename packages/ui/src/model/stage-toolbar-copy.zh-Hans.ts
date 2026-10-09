@@ -53,7 +53,7 @@ export const zhHans: StageToolbarMessages = {
   },
   offReason: {
     animation: '视频格式里还没有动画：没有可写的字段，也没有对应的修改操作。',
-    brand: '品牌库还没有存入片段的接口。',
+    brand: '这个片段的素材存不进品牌库。',
     roundCorners: '视频与图片的圆角还没有可写的操作（改外观的操作不收圆角）。',
     filters: '滤镜（LUT）在视频格式里是保留名，写入时会被拒绝。',
     crop: '智能裁剪要跑模型，还没有可用的入口，即将推出。',
@@ -64,6 +64,7 @@ export const zhHans: StageToolbarMessages = {
     captionAnimation: '视频格式里还没有字幕动画：字幕样式里没有对应的字段。',
     captionDefaultStyle: '这些字幕还在用缺省样式。先改任意一项，再存到品牌库。',
     brandText: '品牌库里还没有文字样式这一节。',
+    brandWeb: '品牌库只能在桌面应用和命令行里用。',
   },
   arrange: { front: '移到最前', forward: '前移一层', backward: '后移一层', back: '移到最后', label: '调整叠放次序' },
   subtitleBar: '字幕工具条',

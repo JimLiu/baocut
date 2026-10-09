@@ -53,7 +53,7 @@ export const ko: StageToolbarMessages = {
   },
   offReason: {
     animation: '영상 형식에는 아직 애니메이션이 없습니다. 기록할 필드도, 이를 위한 편집 기능도 없습니다.',
-    brand: '브랜드 키트에는 아직 클립을 저장할 수 없습니다.',
+    brand: '이 클립의 소재는 브랜드 키트에 저장할 수 없습니다.',
     roundCorners: '영상과 이미지의 모서리 반경은 아직 기록할 수 없습니다(외형 편집 기능은 반경 값을 받지 않습니다).',
     filters: '필터(LUT)는 영상 형식에서 예약된 이름이라 기록할 때 거부됩니다.',
     crop: '스마트 자르기는 모델이 필요하며 아직 진입점이 없습니다. 곧 제공됩니다.',
@@ -64,6 +64,7 @@ export const ko: StageToolbarMessages = {
     captionAnimation: '영상 형식에는 아직 자막 애니메이션이 없습니다. 자막 스타일에 해당 필드가 없습니다.',
     captionDefaultStyle: '이 자막은 아직 기본 스타일을 사용합니다. 먼저 설정을 하나 바꾼 다음 브랜드 키트에 저장하세요.',
     brandText: '브랜드 키트에는 아직 텍스트 스타일 섹션이 없습니다.',
+    brandWeb: '브랜드 키트는 데스크톱 앱과 CLI에서만 사용할 수 있습니다.',
   },
   arrange: { front: '맨 앞으로 가져오기', forward: '앞으로 가져오기', backward: '뒤로 보내기', back: '맨 뒤로 보내기', label: '쌓임 순서 변경' },
   subtitleBar: '자막 도구 모음',

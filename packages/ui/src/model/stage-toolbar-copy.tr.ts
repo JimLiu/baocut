@@ -53,7 +53,7 @@ export const tr: StageToolbarMessages = {
   },
   offReason: {
     animation: 'Video biçiminde henüz animasyon yok: yazılacak alan ve düzenleme işlemi yok.',
-    brand: 'Marka kiti henüz klip saklayamıyor.',
+    brand: 'Bu klibin medyası marka kitine kaydedilemez.',
     roundCorners: 'Video ve görsellerin köşe yarıçapı henüz yazılamıyor (görünüm işlemi yarıçap kabul etmiyor).',
     filters: 'Filtreler (LUT) video biçiminde ayrılmış bir addır ve yazılırken reddedilir.',
     crop: 'Akıllı kırpma model gerektirir ve henüz giriş noktası yok. Yakında.',
@@ -64,6 +64,7 @@ export const tr: StageToolbarMessages = {
     captionAnimation: 'Video biçiminde henüz altyazı animasyonu yok: altyazı stilinde bunun için bir alan yok.',
     captionDefaultStyle: 'Bu altyazılar hâlâ varsayılan stili kullanıyor. Önce herhangi bir ayarı değiştirin, sonra marka kitine kaydedin.',
     brandText: 'Marka kitinde henüz metin stilleri bölümü yok.',
+    brandWeb: 'Marka kiti yalnızca masaüstü uygulamasında ve CLI’da kullanılabilir.',
   },
   arrange: { front: 'En öne getir', forward: 'Öne getir', backward: 'Arkaya gönder', back: 'En arkaya gönder', label: 'Yığılma sırasını değiştir' },
   subtitleBar: 'Altyazı araç çubuğu',

@@ -53,7 +53,7 @@ export const vi: StageToolbarMessages = {
   },
   offReason: {
     animation: 'Định dạng video chưa có hoạt ảnh: không có trường để ghi và thao tác chỉnh sửa tương ứng.',
-    brand: 'Bộ thương hiệu chưa thể lưu clip.',
+    brand: 'Không thể lưu tư liệu của clip này vào bộ thương hiệu.',
     roundCorners: 'Chưa thể ghi bán kính góc cho video và hình ảnh (thao tác ngoại hình không nhận bán kính).',
     filters: 'Bộ lọc (LUT) là tên dành riêng trong định dạng video và bị từ chối khi ghi.',
     crop: 'Cắt thông minh cần mô hình và chưa có điểm truy cập. Sắp ra mắt.',
@@ -64,6 +64,7 @@ export const vi: StageToolbarMessages = {
     captionAnimation: 'Định dạng video chưa có hoạt ảnh phụ đề: kiểu phụ đề không có trường cho nó.',
     captionDefaultStyle: 'Phụ đề này vẫn dùng kiểu mặc định. Hãy đổi một thiết lập bất kỳ trước, rồi lưu vào bộ thương hiệu.',
     brandText: 'Bộ thương hiệu chưa có mục kiểu chữ.',
+    brandWeb: 'Bộ thương hiệu chỉ dùng được trong ứng dụng máy tính và CLI.',
   },
   arrange: { front: 'Đưa lên trên cùng', forward: 'Đưa lên trước', backward: 'Đưa ra sau', back: 'Đưa xuống dưới cùng', label: 'Thay đổi thứ tự xếp chồng' },
   subtitleBar: 'Thanh công cụ phụ đề',

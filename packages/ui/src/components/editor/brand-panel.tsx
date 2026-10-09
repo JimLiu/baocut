@@ -49,7 +49,7 @@ import { NewColorDialog } from './brand-color-dialog.tsx';
 import { BrandRow, type BrandRowAction } from './brand-rows.tsx';
 import { Note, SecHead } from './inspector-controls.tsx';
 import { PanelHead, panelBody } from './panel-head.tsx';
-import { saveCaptionStyleToBrand } from './brand-save.ts';
+import { saveAssetToBrand, saveCaptionStyleToBrand } from './brand-save.ts';
 import { useBrandApply } from './use-brand-apply.ts';
 import { BRAND_COPY as IB } from './brand-copy.ts';
 
@@ -174,11 +174,7 @@ export function BrandPanel({
     if (!candidate.source) return;
     setAdding(section.kind);
     try {
-      const name = clip(candidate.asset.name) || IB.untitled;
-      await putLibraryEntry(runtime, { library: 'brand', content: { name, kind: section.kind }, source: candidate.source });
-      ToastQueue.positive(IB.addedOne(section.title, name), { timeout: 4000 });
-    } catch (error) {
-      ToastQueue.negative(libraryErrorText(IB.actionSaveToBrand, error), { timeout: 6000 });
+      await saveAssetToBrand(runtime, candidate.asset, section.kind, candidate.source);
     } finally {
       setAdding(null);
     }

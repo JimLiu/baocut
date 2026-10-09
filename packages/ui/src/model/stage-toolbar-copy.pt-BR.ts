@@ -7,7 +7,7 @@ export const ptBR: StageToolbarMessages = {
   },
   offReason: {
     animation: 'O formato de vídeo ainda não tem animações: não há campo para gravar nem operação de edição.',
-    brand: 'O kit de marca ainda não pode armazenar clipes.',
+    brand: 'A mídia deste clipe não pode ser armazenada no kit de marca.',
     roundCorners: 'Ainda não é possível gravar o raio dos cantos de vídeos e imagens (a operação de aparência não aceita raio).',
     filters: 'Filtros (LUT) são um nome reservado no formato de vídeo e são rejeitados ao gravar.',
     crop: 'O recorte inteligente precisa de um modelo e ainda não tem ponto de entrada. Em breve.',
@@ -18,6 +18,7 @@ export const ptBR: StageToolbarMessages = {
     captionAnimation: 'O formato de vídeo ainda não tem animações de legenda: um estilo de legenda não tem campo para elas.',
     captionDefaultStyle: 'Estas legendas ainda usam o estilo padrão. Altere qualquer ajuste primeiro e depois salve-o no kit de marca.',
     brandText: 'O kit de marca ainda não tem uma seção de estilos de texto.',
+    brandWeb: 'O kit de marca só está disponível no aplicativo desktop e na CLI.',
   },
   arrange: { front: 'Trazer para a frente', forward: 'Avançar', backward: 'Recuar', back: 'Enviar para trás', label: 'Alterar ordem de sobreposição' },
   subtitleBar: 'Barra de ferramentas de legendas',
