@@ -30,12 +30,20 @@ jobs:
         with:
           node-version: "22"
           package-manager-cache: false
+      - uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # action 1.97.1
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
       - name: Install ffmpeg (media probe / export tests)
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Install npm dependencies
         run: npm ci
       - name: TypeScript typecheck
         run: npm run typecheck
+      - name: Build WASM required by UI and Runtime tests
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/baocut-target
+        run: npm run build:wasm
       - name: Prebuild web client (web-service.test.ts requires dist output)
         run: npm run build:web
       - name: Run Vitest suite (unit + Runtime e2e)
