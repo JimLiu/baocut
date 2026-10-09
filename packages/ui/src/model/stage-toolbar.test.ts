@@ -1,7 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import type { Place } from '@baocut/protocol';
 import type { PlacedItem } from './stage-pose.ts';
-import { BAR, TOOL_LABEL, barKindOf, toolbarFor, toolbarPlacement, type MenuGroup, type Tool, type ToolbarSpec } from './stage-toolbar.ts';
+import {
+  BAR,
+  OFF_REASON,
+  TOOL_LABEL,
+  barKindOf,
+  captionCase,
+  captionToolbar,
+  nextCaptionCase,
+  toolbarFor,
+  toolbarPlacement,
+  type MenuGroup,
+  type Tool,
+  type ToolbarSpec,
+} from './stage-toolbar.ts';
 
 const place: Place = { x: 50, y: 50, w: 10 };
 const linear = { kind: 'linear', sourceIn: { ticks: '0', timescale: 1 }, rate: { num: 1, den: 1 } };
@@ -34,12 +47,26 @@ const SAMPLES = [
   element('visualizer', { visualizer: { style: 'bars' } }),
   counter(),
   element('confetti', { confetti: {} }),
+  element('whiteboard', { whiteboard: {} }),
   composition({ kind: 'bundle', assetRef: { id: 'a', revision: 1 } }),
 ];
 
 describe('按类型归类', () => {
-  it('文字 / 视频 / 图片 / 图形 / 贴纸 / 进度 / 声波 / 计时各走自己的一条；彩纸与代码包合成退回「其他」', () => {
-    expect(SAMPLES.map(barKindOf)).toEqual(['text', 'video', 'image', 'shape', 'sticker', 'sticker', 'progress', 'wave', 'counter', 'other', 'other']);
+  it('文字 / 视频 / 图片 / 图形 / 贴纸 / 进度 / 声波 / 计时 / 彩纸 / 白板各走自己的一条；代码包合成退回「其他」', () => {
+    expect(SAMPLES.map(barKindOf)).toEqual([
+      'text',
+      'video',
+      'image',
+      'shape',
+      'sticker',
+      'sticker',
+      'progress',
+      'wave',
+      'counter',
+      'confetti',
+      'whiteboard',
+      'other',
+    ]);
   });
 });
 
@@ -86,16 +113,24 @@ describe('配置表照原型摆', () => {
     }
   });
 
-  it('「属性」只在文字、图形、贴纸、计时的菜单里', () => {
+  it('「属性」只在文字、图形、贴纸、计时、彩纸、白板的菜单里', () => {
     const withProps = Object.entries(BAR)
       .filter(([, layout]) => (layout.more ?? []).some((g) => g.flat().includes('properties')))
       .map(([kind]) => kind)
       .sort();
-    expect(withProps).toEqual(['counter', 'shape', 'sticker', 'text']);
+    expect(withProps).toEqual(['confetti', 'counter', 'shape', 'sticker', 'text', 'whiteboard']);
   });
 
   it('条子上都没有「存到品牌库」', () => {
     for (const layout of Object.values(BAR)) expect(layout.visible.flat()).not.toContain('save-to-brand-kit');
+  });
+
+  it('彩纸与白板：条子上一颗「动画」，菜单是复制 / 层级、属性、时长 / 删除', () => {
+    for (const item of [element('confetti', { confetti: {} }), element('whiteboard', { whiteboard: {} })]) {
+      const spec = toolbarFor(item);
+      expect(ids(spec.visible)).toEqual([['animation']]);
+      expect(menuIds(spec.more)).toEqual([['copy', 'arrange'], ['properties'], ['adjust-timing', 'delete']]);
+    }
   });
 
   it('认不出的合成只有一颗「属性」，菜单里只剩通用的复制 / 层级 / 时长 / 删除', () => {
@@ -175,9 +210,75 @@ describe('每一格做什么', () => {
     expect(find(spec, 'bold')?.action).toEqual({ kind: 'jump', section: null });
   });
 
+  it('存到品牌库：文字说的是品牌库还没有文字样式一栏，其余说的是还存不了素材', () => {
+    expect(find(toolbarFor(text()), 'save-to-brand-kit')?.action).toEqual({ kind: 'off', reason: OFF_REASON.brandText });
+    expect(find(toolbarFor(video()), 'save-to-brand-kit')?.action).toEqual({ kind: 'off', reason: OFF_REASON.brand });
+  });
+
   it('图形：颜色与描边开弹层；图形参数是固定字段，哪种图形都能改', () => {
     expect(find(toolbarFor(shape()), 'border')?.action).toEqual({ kind: 'pop' });
     expect(find(toolbarFor(shape({ shape: 'star', fill: '#FF0000' })), 'color')?.action).toEqual({ kind: 'pop' });
+  });
+});
+
+describe('字幕的工具条', () => {
+  it('双语：条子是「原文 | 译文 │ 颜色 字体 字号 │ 编辑 样式 动画」，菜单照原型', () => {
+    const spec = captionToolbar({ paired: true, styled: true });
+    expect(spec.kind).toBe('subtitle');
+    expect(ids(spec.visible)).toEqual([['sub-scope'], ['color', 'font', 'size'], ['sub-edit', 'sub-style', 'sub-animation']]);
+    expect(menuIds(spec.more)).toEqual([
+      [
+        ['bold', 'italic'],
+        ['align-left', 'align-center', 'align-right', 'case'],
+      ],
+      ['line-height', 'letter-spacing'],
+      ['save-to-brand-kit', 'hide-subs'],
+    ]);
+  });
+
+  it('只有一种行时没有「原文 | 译文」那一段', () => {
+    expect(ids(captionToolbar({ paired: false, styled: true }).visible)).toEqual([
+      ['color', 'font', 'size'],
+      ['sub-edit', 'sub-style', 'sub-animation'],
+    ]);
+  });
+
+  it('没有删除，也没有格式里不存在的「这一句 / 全部」与「套用到全局」', () => {
+    const tools = allTools(captionToolbar({ paired: true, styled: true })).map((t) => t.id as string);
+    for (const id of ['delete', 'sub-cue-scope', 'apply-style-to-global']) expect(tools).not.toContain(id);
+  });
+
+  it('颜色字体字号开弹层，B / I / 对齐是开关，行高字距下钻，动画不能用并写了原因', () => {
+    const spec = captionToolbar({ paired: true, styled: true });
+    expect(find(spec, 'color')?.action).toEqual({ kind: 'pop' });
+    expect(find(spec, 'size')?.action).toEqual({ kind: 'pop' });
+    expect(find(spec, 'italic')?.action).toEqual({ kind: 'toggle' });
+    expect(find(spec, 'align-right')?.action).toEqual({ kind: 'toggle' });
+    expect(find(spec, 'letter-spacing')?.action).toEqual({ kind: 'sub' });
+    expect(find(spec, 'sub-edit')?.action).toEqual({ kind: 'command' });
+    expect(find(spec, 'hide-subs')?.action).toEqual({ kind: 'command' });
+    expect(find(spec, 'sub-animation')?.action).toEqual({ kind: 'off', reason: OFF_REASON.captionAnimation });
+    for (const tool of allTools(spec)) {
+      expect(tool.label).toBe(TOOL_LABEL[tool.id]);
+      expect(tool.label.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('还在用缺省样式时存不了品牌库；有样式文档就能存', () => {
+    expect(find(captionToolbar({ paired: false, styled: false }), 'save-to-brand-kit')?.action).toEqual({
+      kind: 'off',
+      reason: OFF_REASON.captionDefaultStyle,
+    });
+    expect(find(captionToolbar({ paired: false, styled: true }), 'save-to-brand-kit')?.action).toEqual({ kind: 'command' });
+  });
+
+  it('大小写按「原样 → 全大写 → 首字母大写 → 全小写」轮换；capitalize 算首字母大写', () => {
+    expect(captionCase(undefined)).toBe('none');
+    expect(captionCase('capitalize')).toBe('title');
+    expect(nextCaptionCase(undefined)).toBe('uppercase');
+    expect(nextCaptionCase('uppercase')).toBe('title');
+    expect(nextCaptionCase('capitalize')).toBe('lowercase');
+    expect(nextCaptionCase('lowercase')).toBe('none');
   });
 });
 

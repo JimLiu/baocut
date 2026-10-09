@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveLineStyle, type Json } from '../render/text-style.ts';
-import { editLine, followRatio, followShared, lineOverrides, lineSize, lineView, withCaptionStyle } from './caption-lines.ts';
+import { editBlock, editLine, followRatio, followShared, lineOverrides, lineSize, lineView, withCaptionStyle } from './caption-lines.ts';
 
 /** 渲染器在 540 短边的画布上画出来的字号 = 30 号口径的有效字号。 */
 const drawn = (root: Json, kind: 'original' | 'translation', compact: boolean) =>
@@ -67,5 +67,19 @@ describe('原文 / 译文各自改', () => {
       style: { b: 1 },
       extra: 2,
     });
+  });
+});
+
+describe('两行一起改', () => {
+  it('写根样式，两行覆盖里的同名键都去掉，别的覆盖留着', () => {
+    const root = { fontColor: '#FFFFFF', origStyle: { fontColor: '#f00', bold: true }, transStyle: { fontColor: '#0f0' } };
+    expect(editBlock(root, { fontColor: '#FFE14D' })).toEqual({ fontColor: '#FFE14D', origStyle: { bold: true } });
+  });
+
+  it('字号按原文行换算回根字号，单独设的字号去掉，译文跟比例', () => {
+    const next = editBlock({ fontSize: 30, origStyle: { fontSize: 18 }, transStyle: { fontSize: 40 } }, { fontSize: 24 });
+    expect(next).toEqual({ fontSize: 36 });
+    expect(drawn(next, 'original', true)).toBeCloseTo(24);
+    expect(drawn(next, 'translation', true)).toBeCloseTo(24 * (32 / 20));
   });
 });

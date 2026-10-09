@@ -3,7 +3,6 @@ import type {
   AssetRecord,
   BrandContent,
   BrandMediaKind,
-  CaptionStyleBody,
   DocumentRecord,
   Id,
   LibraryEntry,
@@ -29,19 +28,17 @@ import Import from '@react-spectrum/s2/icons/Import';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import {
   BRAND_FILE_FILTERS,
-  BRAND_NAME_MAX,
   BRAND_SECTIONS,
   brandCandidates,
   captionStyleCandidates,
-  captionStyleProblem,
   captionStyleTargets,
+  clipBrandName,
   isBrandMediaKind,
   nameFromPath,
   type BrandCandidate,
   type BrandSection,
   type CaptionStyleCandidate,
 } from '../../model/library-brand.ts';
-import { isDefaultStyleName } from '../../model/caption-presets.ts';
 import { isVersionConflict, libraryErrorText } from '../../model/library-entry.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { importLibraryFile, putLibraryEntry, removeLibraryEntry } from '../../runtime/library-commands.ts';
@@ -52,6 +49,7 @@ import { NewColorDialog } from './brand-color-dialog.tsx';
 import { BrandRow, type BrandRowAction } from './brand-rows.tsx';
 import { Note, SecHead } from './inspector-controls.tsx';
 import { PanelHead, panelBody } from './panel-head.tsx';
+import { saveCaptionStyleToBrand } from './brand-save.ts';
 import { useBrandApply } from './use-brand-apply.ts';
 import { BRAND_COPY as IB } from './brand-copy.ts';
 
@@ -80,7 +78,7 @@ type DialogState =
   | { type: 'color' }
   | null;
 
-const clip = (name: string) => [...name.trim()].slice(0, BRAND_NAME_MAX).join('');
+const clip = clipBrandName;
 const fileName = (path: string) => path.split(/[\\/]/).pop() || path;
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
@@ -188,29 +186,11 @@ export function BrandPanel({
 
   /** 把视频里正在用的一份字幕样式存进来（读那份 `caption-style` 文档的当前版本）。 */
   const saveStyle = async (candidate: CaptionStyleCandidate) => {
-    const video = useVideo.getState().video;
     const record = documents[candidate.documentId];
-    if (!video?.videoId || !record) return;
+    if (!record) return;
     setAdding('captionStyle');
     try {
-      const { body } = await runtime.client.request('documents.read', {
-        videoId: video.videoId,
-        documentId: record.id,
-        revision: record.currentRevision,
-      });
-      const problem = captionStyleProblem(body);
-      if (problem) {
-        ToastQueue.negative(IB.saveProblem(problem), { timeout: 6000 });
-        return;
-      }
-      const videoName = video.state?.video.name;
-      // 缺省的样式文档都叫同一个名字（按建它时的语言）：带上视频名，存了几份也分得清。
-      const isDefaultName = isDefaultStyleName(record.name) || record.name === IB.captionStyle;
-      const name = clip(isDefaultName && videoName ? IB.captionStyleName(videoName) : record.name) || IB.captionStyle;
-      await putLibraryEntry(runtime, { library: 'brand', content: { name, kind: 'captionStyle', style: body as CaptionStyleBody } });
-      ToastQueue.positive(IB.savedStyle(name), { timeout: 4000 });
-    } catch (error) {
-      ToastQueue.negative(libraryErrorText(IB.actionSaveStyle, error), { timeout: 6000 });
+      await saveCaptionStyleToBrand(runtime, record);
     } finally {
       setAdding(null);
     }

@@ -10,7 +10,7 @@ import { useRuntime } from '../../runtime/context.tsx';
 import { DUB_REGEN_COPY as C } from './dub-copy.ts';
 import { closeDubFit, regenDeps, retextAndRegenerate, useDubRegen, type FitRequest } from './dub-regen.ts';
 import { useEditorActions } from './editor-context.tsx';
-import { useDocumentBody } from './timeline-cues.tsx';
+import { useDocumentBody } from './use-document-body.ts';
 import { rateText } from './timeline-dub.tsx';
 
 /**

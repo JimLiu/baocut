@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
+import { useMemo, type ReactNode, type RefObject } from 'react';
 import type { CaptionItem, DocumentRecord, Sequence } from '@baocut/protocol';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { placedCues } from '../../model/caption-cues.ts';
 import { readCaptions } from '../../render/captions.ts';
-import { useRuntime } from '../../runtime/context.tsx';
+import { useDocumentBody } from './use-document-body.ts';
 import { useVisibleLane } from './use-visible-lane.ts';
 
 const cueLayer = style({ position: 'absolute', inset: 0, pointerEvents: 'none' });
@@ -27,18 +27,6 @@ const cueText = style({ truncate: true, minWidth: 0 });
 const LABEL_MIN_PX = 45;
 /** 相邻两句之间留的缝。 */
 const GAP_PX = 2;
-
-/** 文档当前版本的正文（经视频的文档缓存，与预览共用）；还没取到是 undefined。 */
-export function useDocumentBody(record: DocumentRecord | undefined): unknown {
-  const documents = useRuntime().videos.documents;
-  const id = record?.id;
-  const revision = record?.currentRevision;
-  useEffect(() => {
-    if (id && revision) documents.load(id, revision);
-  }, [documents, id, revision]);
-  const subscribe = useCallback((listener: () => void) => documents.subscribe(listener), [documents]);
-  return useSyncExternalStore(subscribe, () => (id && revision ? documents.peek(id, revision) : undefined));
-}
 
 /**
  * 字幕片段里的句子（照旧版网页时间线）：一句一块，块里写句子的文字，窄了就只留色块。只画看得见的部分；

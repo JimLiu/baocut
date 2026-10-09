@@ -45,6 +45,12 @@ export const de: StageToolbarMessages = {
     'replace-video': "Video ersetzen",
     'replace-image': "Bild ersetzen",
     'detach-audio': "Audio abtrennen",
+    'sub-scope': 'Zu bearbeitende Zeile',
+    'sub-edit': 'Bearbeiten',
+    'sub-style': 'Stile',
+    'sub-animation': 'Animation',
+    case: 'Groß-/Kleinschreibung',
+    'hide-subs': 'Untertitel ausblenden',
   },
 
   offReason: {
@@ -57,7 +63,11 @@ export const de: StageToolbarMessages = {
     detach: "Audio abtrennen ist noch nicht angebunden: In derselben Bearbeitung muss ein Audioclip hinzugefügt und das Video stummgeschaltet werden.",
     speed: "Dieser Clip wird nicht mit konstanter Geschwindigkeit abgespielt. Seine Geschwindigkeit kann hier daher nicht geändert werden.",
     sound: "Dieser Clip hat keinen Ton.",
+    captionAnimation: 'Das Videoformat unterstützt noch keine Untertitel-Animationen: Ein Untertitelstil hat kein Feld dafür.',
+    captionDefaultStyle: 'Diese Untertitel verwenden noch den Standardstil. Ändern Sie zuerst eine Einstellung und speichern Sie ihn dann im Marken-Kit.',
+    brandText: 'Das Marken-Kit hat noch keinen Bereich für Textstile.',
   },
   arrange: { front: 'In den Vordergrund', forward: 'Eine Ebene nach vorne', backward: 'Eine Ebene nach hinten', back: 'In den Hintergrund', label: 'Stapelreihenfolge ändern' },
+  subtitleBar: 'Untertitel-Werkzeugleiste',
   textStyleLocked: (schema: string) => `Dieser Text verwendet das Stilformat ${schema} und kann hier noch nicht bearbeitet werden.`,
 };

@@ -124,6 +124,11 @@ export const BRAND_FILE_FILTERS: Record<BrandMediaKind, { name: string; extensio
 /** 名字的上限（与 Runtime 一致）。 */
 export const BRAND_NAME_MAX = 200;
 
+/** 条目名去掉首尾空白，截到上限（按字符，不切开代理对）。 */
+export function clipBrandName(name: string): string {
+  return [...name.trim()].slice(0, BRAND_NAME_MAX).join('');
+}
+
 /** 本机文件的默认条目名：文件名去掉扩展名。 */
 export function nameFromPath(path: string): string {
   const base = path.split(/[\\/]/).pop() ?? '';

@@ -36,7 +36,7 @@ import { canEdit, useVideo } from '../../state/video-store.ts';
 import { openAiTool } from './ai-tools-nav.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { usePlaybackFollow } from './use-playback-follow.ts';
-import { useDocumentBody } from './timeline-cues.tsx';
+import { useDocumentBody } from './use-document-body.ts';
 import { TRANSLATE_COPY as C } from './translate-copy.ts';
 import { editTranslation, putOnScreen, type CompareMode } from './translate-run.ts';
 import { useVirtualRows } from './use-virtual-rows.ts';

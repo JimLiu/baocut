@@ -38,7 +38,7 @@ import { SectionLink } from '../tools/tool-parts.tsx';
 import { GATE_COPY } from '../tools/tools-copy.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { PanelHead } from './panel-head.tsx';
-import { useDocumentBody } from './timeline-cues.tsx';
+import { useDocumentBody } from './use-document-body.ts';
 import { TRANSLATE_COPY as C } from './translate-copy.ts';
 import { startTranslate, useTranslateRun } from './translate-run.ts';
 

@@ -1,4 +1,4 @@
-import { useState, type ComponentType, type ReactElement } from 'react';
+import { useState, type ComponentType, type ReactElement, type ReactNode } from 'react';
 import type { ArrangeDirection, Id } from '@baocut/protocol';
 import {
   ActionButton,
@@ -31,6 +31,7 @@ import CornerRadius from '@react-spectrum/s2/icons/CornerRadius';
 import Crop from '@react-spectrum/s2/icons/Crop';
 import Delete from '@react-spectrum/s2/icons/Delete';
 import Duplicate from '@react-spectrum/s2/icons/Duplicate';
+import Edit from '@react-spectrum/s2/icons/Edit';
 import Effects from '@react-spectrum/s2/icons/Effects';
 import Filters from '@react-spectrum/s2/icons/Filters';
 import FlipHorizontal from '@react-spectrum/s2/icons/FlipHorizontal';
@@ -52,6 +53,7 @@ import TextBold from '@react-spectrum/s2/icons/TextBold';
 import TextItalic from '@react-spectrum/s2/icons/TextItalic';
 import TextVariableFontSettings from '@react-spectrum/s2/icons/TextVariableFontSettings';
 import ViewTransparency from '@react-spectrum/s2/icons/ViewTransparency';
+import VisibilityOff from '@react-spectrum/s2/icons/VisibilityOff';
 import VolumeTwo from '@react-spectrum/s2/icons/VolumeTwo';
 import ZoomFitToScreen from '@react-spectrum/s2/icons/ZoomFitToScreen';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -75,9 +77,27 @@ import { INSPECTOR_COPY as IC } from './inspector-copy.ts';
  * 工具条的溢出菜单（原型 stage-toolbar-menu.jsx）与工具条、菜单共用的动作：
  * 第一段是图标钮一行（翻转 · 适应画布，或 B / I · 三对齐），其余是菜单项；滑杆与时间这几项在同一个弹层里下钻一层
  * （原型是向右展开的子菜单，这里收在弹层里，免得盖住画面）。不能用的项灰着，点开说明原因。
+ *
+ * 每一格怎么动由 `ToolHost` 给：画面上的片段一份（`itemHost`），字幕一份（stage-caption-toolbar），菜单只管摆。
  */
 
 export type ToolProps = ItemPageProps<PlacedItem>;
+
+/** 条子与菜单上的格怎么动（画面元素与字幕各给一份）。 */
+export interface ToolHost {
+  /** 开关类的格现在是不是开着。 */
+  isOn(id: ToolId): boolean;
+  /** 一下就生效的格：命令、开关、跳到别处。 */
+  run(tool: Tool): void;
+  /** 下钻一层的编辑（滑杆、时间）。 */
+  subPage(tool: Tool): ReactNode;
+  /** 飞出的二级菜单（层级）；`close` 收起整个弹层。 */
+  submenu?(tool: Tool, close: () => void): ReactElement | undefined;
+  /** 图标钮上画什么：缺省是 `TOOL_ICON` 里的图标（字幕的大小写钮画字形）。 */
+  face?(tool: Tool): ReactNode;
+  /** 图标钮的悬停提示与读屏名；缺省是显示名。 */
+  label?(tool: Tool): string;
+}
 
 const pop = style({ display: 'flex', flexDirection: 'column', width: 232 });
 const row = style({ display: 'flex', alignItems: 'center', gap: 12, paddingX: 4, paddingY: '[2px]' });
@@ -119,6 +139,10 @@ export const TOOL_ICON: Partial<Record<ToolId, ComponentType>> = {
   'replace-video': Replace,
   'replace-image': Replace,
   'detach-audio': AudioWave,
+  'sub-edit': Edit,
+  'sub-style': Brush,
+  'sub-animation': Animation,
+  'hide-subs': VisibilityOff,
 };
 
 /** 属性页所在的那一栏（side-panel 的 aria-label，跟着界面语言）。 */
@@ -236,13 +260,14 @@ export function OffNote({ tool }: { tool: Tool }) {
 }
 
 /** 菜单第一段那一行图标钮：开关用 ToggleButton，命令用 ActionButton；不能用的灰着、点开说原因。 */
-function RowTool({ tool, props, actions }: { tool: Tool; props: ToolProps; actions: EditorActions }) {
+function RowTool({ tool, host }: { tool: Tool; host: ToolHost }) {
   const Icon = TOOL_ICON[tool.id];
-  const icon = Icon ? <Icon /> : <Text>{tool.label}</Text>;
+  const icon = host.face?.(tool) ?? (Icon ? <Icon /> : <Text>{tool.label}</Text>);
+  const label = host.label?.(tool) ?? tool.label;
   if (tool.action.kind === 'off')
     return (
       <DialogTrigger>
-        <ActionButton isQuiet size="S" aria-label={E.withNote(tool.label, COPY.unavailable)}>
+        <ActionButton isQuiet size="S" aria-label={E.withNote(label, COPY.unavailable)}>
           {icon}
         </ActionButton>
         <OffNote tool={tool} />
@@ -250,18 +275,18 @@ function RowTool({ tool, props, actions }: { tool: Tool; props: ToolProps; actio
     );
   const button =
     tool.action.kind === 'toggle' ? (
-      <ToggleButton isQuiet size="S" aria-label={tool.label} isSelected={toolIsOn(tool.id, props.item)} onChange={() => runTool(tool, props, actions)}>
+      <ToggleButton isQuiet size="S" aria-label={label} isSelected={host.isOn(tool.id)} onChange={() => host.run(tool)}>
         {icon}
       </ToggleButton>
     ) : (
-      <ActionButton isQuiet size="S" aria-label={tool.label} onPress={() => runTool(tool, props, actions)}>
+      <ActionButton isQuiet size="S" aria-label={label} onPress={() => host.run(tool)}>
         {icon}
       </ActionButton>
     );
   return (
     <TooltipTrigger placement="top">
       {button}
-      <Tooltip>{tool.label}</Tooltip>
+      <Tooltip>{label}</Tooltip>
     </TooltipTrigger>
   );
 }
@@ -334,13 +359,76 @@ function ArrangeSub({ props, actions, onDone }: { props: ToolProps; actions: Edi
   );
 }
 
-/** 下钻一层的编辑：不透明度、行高、字距、调整时间。与属性页同一套控件，拖动中只叠草稿，松手一笔提交。 */
-function SubPage({ tool, props, onBack }: { tool: Tool; props: ToolProps; onBack(): void }) {
+/** 行高与字距两行滑杆（文字元素与字幕共用）：与属性页同一套控件，拖动中只叠草稿，松手一笔提交。 */
+export function SpacingRow({
+  id,
+  style,
+  isDisabled,
+  onLive,
+  onCommit,
+}: {
+  id: 'line-height' | 'letter-spacing';
+  style: Record<string, unknown>;
+  isDisabled: boolean;
+  onLive(patch: Record<string, unknown>): void;
+  onCommit(patch: Record<string, unknown>): void;
+}) {
+  return id === 'line-height' ? (
+    <ValueRow
+      label={IC.lineHeight}
+      value={Math.round(num(style.lineHeight, 1.2) * 100)}
+      min={90}
+      max={200}
+      unit="%"
+      isDisabled={isDisabled}
+      onLive={(v) => onLive({ lineHeight: v / 100 })}
+      onCommit={(v) => onCommit({ lineHeight: v / 100 })}
+    />
+  ) : (
+    <ValueRow
+      label={IC.letterSpacing}
+      value={num(style.letterSpacing, 0)}
+      min={-10}
+      max={30}
+      step={0.5}
+      digits={1}
+      isDisabled={isDisabled}
+      onLive={(letterSpacing) => onLive({ letterSpacing })}
+      onCommit={(letterSpacing) => onCommit({ letterSpacing })}
+    />
+  );
+}
+
+/** 画面上的片段下钻一层的编辑：不透明度、行高、字距、调整时间。 */
+function ItemSubPage({ tool, props }: { tool: Tool; props: ToolProps }) {
   const { item, sequence, edit, canChange } = props;
-  const style = item.type === 'text' ? asObject(item.style) : {};
-  const textCommit = (patch: Record<string, unknown>) =>
-    item.type === 'text' && edit.commit([{ type: 'setStyle', sequenceId: sequence.id, itemId: item.id, style: patchTextStyle(item.style, patch) }]);
-  const textLive = (patch: Record<string, unknown>) => item.type === 'text' && edit.live({ style: patchTextStyle(item.style, patch) });
+  if (tool.id === 'opacity') return <OpacityRow {...props} />;
+  if (tool.id === 'adjust-timing') return <TimeSection {...props} />;
+  if ((tool.id === 'line-height' || tool.id === 'letter-spacing') && item.type === 'text')
+    return (
+      <SpacingRow
+        id={tool.id}
+        style={asObject(item.style)}
+        isDisabled={!canChange}
+        onLive={(patch) => edit.live({ style: patchTextStyle(item.style, patch) })}
+        onCommit={(patch) => edit.commit([{ type: 'setStyle', sequenceId: sequence.id, itemId: item.id, style: patchTextStyle(item.style, patch) }])}
+      />
+    );
+  return null;
+}
+
+/** 选中画面上的一件时，条子与菜单上的格怎么动。 */
+export function itemHost(props: ToolProps, actions: EditorActions): ToolHost {
+  return {
+    isOn: (id) => toolIsOn(id, props.item),
+    run: (tool) => runTool(tool, props, actions),
+    subPage: (tool) => <ItemSubPage tool={tool} props={props} />,
+    submenu: (tool, close) => (tool.id === 'arrange' ? <ArrangeSub props={props} actions={actions} onDone={close} /> : undefined),
+  };
+}
+
+/** 下钻的那一页：顶上一颗返回与这一格的名字。 */
+function SubPage({ tool, onBack, children }: { tool: Tool; onBack(): void; children: ReactNode }) {
   return (
     <>
       <div className={subHead}>
@@ -349,54 +437,30 @@ function SubPage({ tool, props, onBack }: { tool: Tool; props: ToolProps; onBack
         </ActionButton>
         <span>{tool.label}</span>
       </div>
-      <div className={subBody}>
-        {tool.id === 'opacity' ? <OpacityRow {...props} /> : null}
-        {tool.id === 'line-height' ? (
-          <ValueRow
-            label={IC.lineHeight}
-            value={Math.round(num(style.lineHeight, 1.2) * 100)}
-            min={90}
-            max={200}
-            unit="%"
-            isDisabled={!canChange}
-            onLive={(v) => void textLive({ lineHeight: v / 100 })}
-            onCommit={(v) => void textCommit({ lineHeight: v / 100 })}
-          />
-        ) : null}
-        {tool.id === 'letter-spacing' ? (
-          <ValueRow
-            label={IC.letterSpacing}
-            value={num(style.letterSpacing, 0)}
-            min={-10}
-            max={30}
-            step={0.5}
-            digits={1}
-            isDisabled={!canChange}
-            onLive={(letterSpacing) => void textLive({ letterSpacing })}
-            onCommit={(letterSpacing) => void textCommit({ letterSpacing })}
-          />
-        ) : null}
-        {tool.id === 'adjust-timing' ? <TimeSection {...props} /> : null}
-      </div>
+      <div className={subBody}>{children}</div>
     </>
   );
 }
 
 /** 溢出菜单：⋯ 钮开一个弹层。命令与跳转点了就收起；下钻项留在弹层里换一页。 */
-export function StageToolbarMenu({ groups, props, actions }: { groups: MenuGroup[]; props: ToolProps; actions: EditorActions }) {
+export function StageToolbarMenu({ groups, host }: { groups: MenuGroup[]; host: ToolHost }) {
   const [open, setOpen] = useState(false);
   const [sub, setSub] = useState<Tool | null>(null);
   const tools = new Map(groups.flatMap((g) => (g.kind === 'row' ? g.clusters.flat() : g.tools)).map((t) => [t.id, t]));
   const rows = groups.filter((g): g is Extract<MenuGroup, { kind: 'row' }> => g.kind === 'row');
   const lists = groups.filter((g): g is Extract<MenuGroup, { kind: 'list' }> => g.kind === 'list');
+  const submenus = new Map(lists.flatMap((g) => g.tools).flatMap((tool) => {
+    const menu = host.submenu?.(tool, () => setOpen(false));
+    return menu ? [[tool.id, menu] as const] : [];
+  }));
   const onAction = (key: string | number) => {
     const tool = tools.get(String(key) as ToolId);
     if (!tool || tool.action.kind === 'off') return;
-    // 「层级」是飞出的二级菜单，由 SubmenuTrigger 自己开合；其余下钻项在弹层里换一页。
-    if (tool.id === 'arrange') return;
+    // 飞出的二级菜单（层级）由 SubmenuTrigger 自己开合；其余下钻项在弹层里换一页。
+    if (submenus.has(tool.id)) return;
     if (tool.action.kind === 'sub') return setSub(tool);
     setOpen(false);
-    runTool(tool, props, actions);
+    host.run(tool);
   };
   return (
     <DialogTrigger
@@ -414,7 +478,9 @@ export function StageToolbarMenu({ groups, props, actions }: { groups: MenuGroup
       <Popover placement="bottom end" aria-label={COPY.more}>
         <div className={pop}>
           {sub ? (
-            <SubPage tool={sub} props={props} onBack={() => setSub(null)} />
+            <SubPage tool={sub} onBack={() => setSub(null)}>
+              {host.subPage(sub)}
+            </SubPage>
           ) : (
             <>
               {rows.map((g, i) => (
@@ -422,7 +488,7 @@ export function StageToolbarMenu({ groups, props, actions }: { groups: MenuGroup
                   {g.clusters.map((c, j) => (
                     <span key={j} className={cluster}>
                       {c.map((tool) => (
-                        <RowTool key={tool.id} tool={tool} props={props} actions={actions} />
+                        <RowTool key={tool.id} tool={tool} host={host} />
                       ))}
                     </span>
                   ))}
@@ -434,11 +500,7 @@ export function StageToolbarMenu({ groups, props, actions }: { groups: MenuGroup
                   {lists.map((g, i) => (
                     <MenuSection key={i}>
                       {g.tools.map((tool) => (
-                        <MenuTool
-                          key={tool.id}
-                          tool={tool}
-                          submenu={tool.id === 'arrange' ? <ArrangeSub props={props} actions={actions} onDone={() => setOpen(false)} /> : undefined}
-                        />
+                        <MenuTool key={tool.id} tool={tool} submenu={submenus.get(tool.id)} />
                       ))}
                     </MenuSection>
                   ))}

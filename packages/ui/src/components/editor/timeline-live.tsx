@@ -22,7 +22,7 @@ import { jobLive, jobPercent } from '../../model/task-list.ts';
 import { assetDuration } from '../../model/transcript-cut.ts';
 import { useJobs, useLiveSegments } from '../../state/jobs-store.ts';
 import { SUBTITLE_COPY as C } from './subtitle-copy.ts';
-import { useDocumentBody } from './timeline-cues.tsx';
+import { useDocumentBody } from './use-document-body.ts';
 
 const icon = iconStyle({ size: 'XS' });
 const label = style({ flexGrow: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });

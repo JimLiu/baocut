@@ -19,7 +19,7 @@ import { CaptionThumb, openGallery } from './caption-gallery.tsx';
 import { draftedBody } from './draft-documents.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { CAPTION_STYLE_COPY as S, SUBTITLE_COPY as C } from './subtitle-copy.ts';
-import { useDocumentBody } from './timeline-cues.tsx';
+import { useDocumentBody } from './use-document-body.ts';
 import { TRANSLATE_COPY as T } from './translate-copy.ts';
 
 const home = style({

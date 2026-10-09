@@ -16,6 +16,7 @@ export const es: StageToolbarMessages = {
     'round-corners': 'Radio de esquina', filters: 'Filtros', effects: 'Efectos',
     'crop-video': 'Recorte inteligente', 'replace-video': 'Reemplazar vídeo',
     'replace-image': 'Reemplazar imagen', 'detach-audio': 'Separar audio',
+    'sub-scope': 'Línea que editar', 'sub-edit': 'Editar', 'sub-style': 'Estilos', 'sub-animation': 'Animación', case: 'Mayúsculas', 'hide-subs': 'Ocultar subtítulos',
   },
   offReason: {
     animation: 'El formato de vídeo aún no admite animaciones: no hay un campo donde escribirlas ni una operación para editarlas.',
@@ -27,7 +28,11 @@ export const es: StageToolbarMessages = {
     detach: 'Separar audio aún no está conectado: necesita añadir un clip de audio y silenciar el vídeo en la misma edición.',
     speed: 'Este clip no se reproduce a una velocidad constante, por lo que no se puede cambiar su velocidad aquí.',
     sound: 'Este clip no tiene sonido.',
+    captionAnimation: 'El formato de vídeo aún no admite animaciones de subtítulos: un estilo de subtítulos no tiene un campo para ellas.',
+    captionDefaultStyle: 'Estos subtítulos aún usan el estilo predeterminado. Cambia cualquier ajuste primero y luego guárdalo en el kit de marca.',
+    brandText: 'El kit de marca aún no tiene una sección de estilos de texto.',
   },
   arrange: { front: 'Traer al frente', forward: 'Traer adelante', backward: 'Enviar atrás', back: 'Enviar al fondo', label: 'Cambiar orden de apilamiento' },
+  subtitleBar: 'Barra de herramientas de subtítulos',
   textStyleLocked: (schema: string) => `Este texto usa el formato de estilo ${schema} y aún no se puede editar aquí.`,
 };

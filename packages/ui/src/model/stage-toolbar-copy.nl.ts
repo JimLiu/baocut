@@ -45,6 +45,12 @@ export const nl: StageToolbarMessages = {
     'replace-video': "Video vervangen",
     'replace-image': "Afbeelding vervangen",
     'detach-audio': "Audio loskoppelen",
+    'sub-scope': 'Te bewerken regel',
+    'sub-edit': 'Bewerken',
+    'sub-style': 'Stijlen',
+    'sub-animation': 'Animatie',
+    case: 'Hoofdletters',
+    'hide-subs': 'Ondertitels verbergen',
   },
 
   offReason: {
@@ -57,7 +63,11 @@ export const nl: StageToolbarMessages = {
     detach: "Audio loskoppelen is nog niet aangesloten: er moet in dezelfde bewerking een audioclip worden toegevoegd en de video moet worden gedempt.",
     speed: "Deze clip speelt niet af met een constante snelheid, dus de snelheid kan hier niet worden gewijzigd.",
     sound: "Deze clip heeft geen geluid.",
+    captionAnimation: 'Het videoformaat ondersteunt nog geen ondertitelanimaties: een ondertitelstijl heeft er geen veld voor.',
+    captionDefaultStyle: 'Deze ondertitels gebruiken nog de standaardstijl. Wijzig eerst een instelling en sla hem daarna op in de merkkit.',
+    brandText: 'De merkkit heeft nog geen sectie voor tekststijlen.',
   },
   arrange: { front: 'Naar voorgrond', forward: 'Naar voren', backward: 'Naar achteren', back: 'Naar achtergrond', label: 'Stapelvolgorde wijzigen' },
+  subtitleBar: 'Ondertitelwerkbalk',
   textStyleLocked: (schema: string) => `Deze tekst gebruikt het stijlformaat ${schema} en kan hier nog niet worden bewerkt.`,
 };

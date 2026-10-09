@@ -52,7 +52,7 @@ import { SUBTITLE_COPY as C } from './subtitle-copy.ts';
 import { SubtitleEmpty } from './subtitle-empty.tsx';
 import { SubtitleLive } from './subtitle-live.tsx';
 import { SubtitleStrip } from './subtitle-strip.tsx';
-import { useDocumentBody } from './timeline-cues.tsx';
+import { useDocumentBody } from './use-document-body.ts';
 import { TranscribeProblemAlert, TranscribeProgress } from './transcribe-progress.tsx';
 import { TRANSLATE_COPY } from './translate-copy.ts';
 import { TranslateFlow } from './translate-flow.tsx';

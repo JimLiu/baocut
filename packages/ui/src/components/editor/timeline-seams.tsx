@@ -18,7 +18,7 @@ import { spanIndex, spansIn } from '../../model/timeline-window.ts';
 import { cutSetRecord, readCutSet, type TrackedCut } from '../../model/transcript-cut.ts';
 import { CUT_BAND_COPY as C } from './cut-band-copy.ts';
 import { useEditorActions } from './editor-context.tsx';
-import { useDocumentBody } from './timeline-cues.tsx';
+import { useDocumentBody } from './use-document-body.ts';
 import { mediaCandidates } from './transcribe-run.ts';
 import { applyRestore, applyRetime } from './transcript-actions.ts';
 import { TRANSCRIPT_COPY } from './transcript-copy.ts';

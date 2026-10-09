@@ -13,8 +13,23 @@ import { M, type StageToolbarMessages } from './stage-toolbar-copy.ts';
  * 跳到属性页的某一节，或者写明为什么还不能用（协议里没有对应的操作）。条子只管画，不再按类型手写第二遍。
  */
 
-/** 条子按哪一类摆（原型的 kind；合成按内置生成器分）。认不出的合成退回一颗「属性」。 */
-export type BarKind = 'text' | 'video' | 'image' | 'shape' | 'sticker' | 'progress' | 'wave' | 'counter' | 'other';
+/**
+ * 条子按哪一类摆（原型的 kind；合成按内置生成器分）。认不出的合成退回一颗「属性」。
+ * `subtitle` 是字幕的条子（字幕不是画面上的片段，见 `captionToolbar`）。
+ */
+export type BarKind =
+  | 'text'
+  | 'video'
+  | 'image'
+  | 'shape'
+  | 'sticker'
+  | 'progress'
+  | 'wave'
+  | 'counter'
+  | 'confetti'
+  | 'whiteboard'
+  | 'subtitle'
+  | 'other';
 
 export type ToolId =
   | 'color'
@@ -58,7 +73,13 @@ export type ToolId =
   | 'crop-video'
   | 'replace-video'
   | 'replace-image'
-  | 'detach-audio';
+  | 'detach-audio'
+  | 'sub-scope'
+  | 'sub-edit'
+  | 'sub-style'
+  | 'sub-animation'
+  | 'case'
+  | 'hide-subs';
 
 /**
  * 每一格的显示名（原型 `ITEM`）。图标钮的名字是悬停提示。
@@ -79,8 +100,8 @@ const FLIP_FIT: Row = [
   ['fit-canvas', 'fill-canvas'],
 ];
 
-/** 原型 `BAR` 里与画面上的片段对得上的几类，分组与次序逐项照抄（字幕、模板、文本组等 BaoCut 画布上没有）。 */
-export const BAR: Record<Exclude<BarKind, 'other'>, Layout> = {
+/** 原型 `BAR` 里与画面上的片段对得上的几类，分组与次序逐项照抄（模板、文本组等 BaoCut 画布上没有；字幕见 `SUBTITLE_BAR`）。 */
+export const BAR: Record<Exclude<BarKind, 'other' | 'subtitle'>, Layout> = {
   text: {
     visible: [
       ['color', 'font', 'size'],
@@ -145,11 +166,40 @@ export const BAR: Record<Exclude<BarKind, 'other'>, Layout> = {
       ['adjust-timing', 'delete'],
     ],
   },
+  // 彩纸与白板手绘：颜色、形状、手、纸都在专属属性页，条子上只留动画；已铺满画面，不做翻转与适配画布。
+  confetti: {
+    visible: [['animation']],
+    more: [['copy', 'arrange'], ['properties'], ['adjust-timing', 'delete']],
+  },
+  whiteboard: {
+    visible: [['animation']],
+    more: [['copy', 'arrange'], ['properties'], ['adjust-timing', 'delete']],
+  },
+};
+
+/**
+ * 字幕的条子（原型 `BAR.subtitle`）：最前是换一行来编辑（双语两行时），然后是颜色 字体 字号，
+ * 再是 Edit / Styles / Animation；菜单是 B / I 与三对齐加大小写、行高与字距、存到品牌库与隐藏字幕。没有删除：
+ * 字幕的内容真相在转录文档里，画布上只给隐藏。
+ *
+ * 原型第一段里的「全部字幕 / 仅这一条」（`sub-cue-scope`）与菜单里的「应用到所有字幕」（`apply-style-to-global`）不摆：
+ * 视频格式的字幕样式是一整份文档，没有逐条的覆盖可写（同 caption-presets.ts 的说明）。
+ */
+export const SUBTITLE_BAR: Layout = {
+  visible: [['sub-scope'], ['color', 'font', 'size'], ['sub-edit', 'sub-style', 'sub-animation']],
+  more: [
+    [
+      ['bold', 'italic'],
+      ['align-left', 'align-center', 'align-right', 'case'],
+    ],
+    ['line-height', 'letter-spacing'],
+    ['save-to-brand-kit', 'hide-subs'],
+  ],
 };
 
 /**
  * 按元素种类归类：带计时读数的文字是计时，声波是 `wave`（动画贴纸与贴纸同一条：原型里 Lottie 也走能分色的那一边）。
- * 彩纸、手绘、占位框、白板与代码包合成还没有自己的一条，退回一颗「属性」。
+ * 手绘、占位框与代码包合成在原型与旧版里都没有自己的一条，退回一颗「属性」。
  */
 export function barKindOf(item: PlacedItem): BarKind {
   switch (item.type) {
@@ -164,9 +214,10 @@ export function barKindOf(item: PlacedItem): BarKind {
     case 'visualizer':
       return 'wave';
     case 'confetti':
+    case 'whiteboard':
+      return item.type;
     case 'draw':
     case 'placeholder':
-    case 'whiteboard':
     case 'composition':
       return 'other';
   }
@@ -291,7 +342,8 @@ export function toolAction(id: ToolId, item: PlacedItem, kind: BarKind): ToolAct
       // 四个方向在菜单里下钻一层（原型 stage-toolbar-menu.jsx 的 OrderSub）；走不动的方向灰着。
       return SUB;
     case 'save-to-brand-kit':
-      return off(OFF_REASON.brand);
+      // 品牌库收素材与字幕样式，没有文字样式这一节。
+      return off(item.type === 'text' ? OFF_REASON.brandText : OFF_REASON.brand);
     case 'round-corners':
       return off(OFF_REASON.roundCorners);
     case 'filters':
@@ -303,17 +355,20 @@ export function toolAction(id: ToolId, item: PlacedItem, kind: BarKind): ToolAct
       return off(OFF_REASON.replace);
     case 'detach-audio':
       return off(OFF_REASON.detach);
+    case 'sub-scope':
+    case 'sub-edit':
+    case 'sub-style':
+    case 'sub-animation':
+    case 'case':
+    case 'hide-subs':
+      // 字幕条子专用（见 `captionAction`），画面元素的配置表里没有。
+      return COMMAND;
   }
 }
 
 const isRow = (group: Group | Row): group is Row => group.some((entry) => Array.isArray(entry));
 
-/** 选中这一件时条子与菜单的样子。 */
-export function toolbarFor(item: PlacedItem): ToolbarSpec {
-  const kind = barKindOf(item);
-  const tool = (id: ToolId): Tool => ({ id, label: TOOL_LABEL[id], action: toolAction(id, item, kind) });
-  // 还没有自己一条的元素也要能改叠放次序：只给一颗「属性」，菜单里放通用的复制 / 层级 / 时长 / 删除。
-  const layout: Layout = kind === 'other' ? { visible: [['properties']], more: [['copy', 'arrange'], ['adjust-timing', 'delete']] } : BAR[kind];
+function specOf(kind: BarKind, layout: Layout, tool: (id: ToolId) => Tool): ToolbarSpec {
   return {
     kind,
     visible: layout.visible.map((group) => group.map(tool)),
@@ -323,6 +378,70 @@ export function toolbarFor(item: PlacedItem): ToolbarSpec {
         )
       : null,
   };
+}
+
+/** 选中这一件时条子与菜单的样子。 */
+export function toolbarFor(item: PlacedItem): ToolbarSpec {
+  const kind = barKindOf(item);
+  // 还没有自己一条的元素也要能改叠放次序：只给一颗「属性」，菜单里放通用的复制 / 层级 / 时长 / 删除。
+  const layout: Layout =
+    kind === 'other' || kind === 'subtitle' ? { visible: [['properties']], more: [['copy', 'arrange'], ['adjust-timing', 'delete']] } : BAR[kind];
+  return specOf(kind, layout, (id) => ({ id, label: TOOL_LABEL[id], action: toolAction(id, item, kind) }));
+}
+
+// ---- 字幕 ----
+
+export interface CaptionBarInput {
+  /** 原文与译文共用这份样式（双语两行）：条子最前才有换行的两枚 chip。 */
+  paired: boolean;
+  /** 字幕已经有自己的样式文档：才有东西存进品牌库（还在用缺省样式时没有）。 */
+  styled: boolean;
+}
+
+/** 字幕条子上的一格落成什么：文字样式那几格与文字元素同一套形态，写的是字幕样式文档。 */
+function captionAction(id: ToolId, { styled }: CaptionBarInput): ToolAction {
+  switch (id) {
+    case 'color':
+    case 'font':
+    case 'size':
+      return POP;
+    case 'bold':
+    case 'italic':
+    case 'align-left':
+    case 'align-center':
+    case 'align-right':
+      return TOGGLE;
+    case 'line-height':
+    case 'letter-spacing':
+      return SUB;
+    case 'sub-animation':
+      return off(OFF_REASON.captionAnimation);
+    case 'save-to-brand-kit':
+      return styled ? COMMAND : off(OFF_REASON.captionDefaultStyle);
+    default:
+      // 换行、Edit、Styles、大小写一档档轮换、隐藏字幕：一下就生效。
+      return COMMAND;
+  }
+}
+
+/** 选中字幕时条子与菜单的样子。只有一种行用这份样式时，第一段（换行）整段不出。 */
+export function captionToolbar(input: CaptionBarInput): ToolbarSpec {
+  const layout: Layout = input.paired ? SUBTITLE_BAR : { ...SUBTITLE_BAR, visible: SUBTITLE_BAR.visible.filter((g) => !g.includes('sub-scope')) };
+  return specOf('subtitle', layout, (id) => ({ id, label: TOOL_LABEL[id], action: captionAction(id, input) }));
+}
+
+/** 字幕大小写的四档（属性页的「大小写」下拉同一套；`capitalize` 算首字母大写）。 */
+export const CAPTION_CASES = ['none', 'uppercase', 'title', 'lowercase'] as const;
+export type CaptionCase = (typeof CAPTION_CASES)[number];
+
+export function captionCase(transform: unknown): CaptionCase {
+  if (transform === 'uppercase' || transform === 'lowercase') return transform;
+  return transform === 'title' || transform === 'capitalize' ? 'title' : 'none';
+}
+
+/** 菜单里那一颗大小写钮按一下换到下一档（原型 `case`：原样 → 全大写 → 首字母大写 → 全小写 → 原样）。 */
+export function nextCaptionCase(transform: unknown): CaptionCase {
+  return CAPTION_CASES[(CAPTION_CASES.indexOf(captionCase(transform)) + 1) % CAPTION_CASES.length]!;
 }
 
 // ---- 落位 ----

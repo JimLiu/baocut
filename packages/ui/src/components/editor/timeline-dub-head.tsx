@@ -30,7 +30,7 @@ import { DUB_REGEN_COPY as C, TIMELINE_DUB_COPY as DUB } from './dub-copy.ts';
 import { openDubFit } from './dub-regen.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { deleteDubGroup } from './timeline-commands.ts';
-import { useDocumentBody } from './timeline-cues.tsx';
+import { useDocumentBody } from './use-document-body.ts';
 
 /**
  * 一条配音轨此刻的句子：时间线上的块、计划里没合成的、排队重配的，以及它们的计数。行头名字的提示与 ⋯ 的头部共用这一份

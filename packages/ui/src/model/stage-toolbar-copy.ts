@@ -60,6 +60,12 @@ const en = {
     'replace-video': 'Replace video',
     'replace-image': 'Replace image',
     'detach-audio': 'Detach audio',
+    'sub-scope': 'Line to edit',
+    'sub-edit': 'Edit',
+    'sub-style': 'Styles',
+    'sub-animation': 'Animation',
+    case: 'Case',
+    'hide-subs': 'Hide subtitles',
   },
   /** 协议里还没有对应操作的几格：为什么不能用。 */
   offReason: {
@@ -72,6 +78,9 @@ const en = {
     detach: 'Detach audio is not wired up yet: it needs to add an audio clip and mute the video in the same edit.',
     speed: 'This clip does not play at a constant rate, so its speed cannot be changed here.',
     sound: 'This clip has no sound.',
+    captionAnimation: 'Subtitle animations are not in the video format yet: a subtitle style has no field for them.',
+    captionDefaultStyle: 'These subtitles still use the default style. Change any setting first, then save it to the brand kit.',
+    brandText: 'The brand kit has no section for text styles yet.',
   },
   /** 「层级」下钻页的四行与这一笔的名字。 */
   arrange: {
@@ -81,6 +90,8 @@ const en = {
     back: 'Send to back',
     label: 'Change stacking order',
   },
+  /** 字幕工具条的名字（读屏）。 */
+  subtitleBar: 'Subtitle toolbar',
   textStyleLocked: (schema: string) => `This text uses the ${schema} style format and cannot be edited here yet.`,
 };
 

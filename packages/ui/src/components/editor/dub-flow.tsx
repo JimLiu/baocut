@@ -69,7 +69,7 @@ import { awaitDubInstall, bindDub, startDub, useDubRun, type DubDeps, type DubIn
 import { DubNotices, DubRunHead, useDubLive } from './dub-status.tsx';
 import { useEditorActions } from './editor-context.tsx';
 import { PanelHead } from './panel-head.tsx';
-import { useDocumentBody } from './timeline-cues.tsx';
+import { useDocumentBody } from './use-document-body.ts';
 import { GlossarySection, useVideoSelection } from './translate-flow.tsx';
 import { EDITOR_COPY as E } from './editor-copy.ts';
 

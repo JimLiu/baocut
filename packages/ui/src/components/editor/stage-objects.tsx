@@ -57,16 +57,15 @@ import { num, type Json } from '../../render/text-style.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useEditor } from '../../state/editor-store.ts';
 import { canEdit, useVideo } from '../../state/video-store.ts';
-import { openGallery } from './caption-gallery.tsx';
+import { openCaptionEditor } from './caption-open.ts';
 import { previewCaptionStyle, saveCaptionStyle } from './caption-style-edit.ts';
 import { draftedBody } from './draft-documents.ts';
 import { useEditorActions } from './editor-context.tsx';
 import type { PreviewEngine } from './preview-engine.ts';
 import { GroupBox, Guides, ItemBox, Marquee, ThinBox, type View } from './stage-boxes.tsx';
+import { StageCaptionToolbar } from './stage-caption-toolbar.tsx';
 import { StageTextEdit } from './stage-text-edit.tsx';
 import { StageToolbar } from './stage-toolbar.tsx';
-import { focusDocument } from './transcribe-run.ts';
-import { openFlow, setCompare } from './translate-run.ts';
 
 /**
  * 舞台叠加层（原型 stage-objects.jsx、stage-marquee.jsx、stage.jsx）：盖在预览画布上，接画面上的点选、多选、拖动、
@@ -222,6 +221,15 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
   const group = !single && others.length >= 2 ? others : null;
   const groupBounds = group ? boundsOf(group.map((item) => aabbOf(poseFor(item)))) : null;
   const groupChangeable = !!group && group.every(changeable);
+  // 选中的全是字幕、用同一份样式、都能改、此刻画面上有它们：出字幕的工具条（字幕没有布局框，不走上面那几件）。
+  const pickedCaptions = selection.map((id) => byId.get(id)).filter((item): item is CaptionItem => item?.type === 'caption');
+  const captionBar =
+    pickedCaptions.length &&
+    pickedCaptions.length === selection.length &&
+    pickedCaptions.every((item) => item.styleDocumentId === pickedCaptions[0]!.styleDocumentId && changeable(item)) &&
+    captionHits.some((hit) => selection.includes(hit.itemId))
+      ? pickedCaptions
+      : null;
 
   // ---- 引擎的临时覆盖（多件拖动、改字时藏起画布上的那段字） ----
 
@@ -601,17 +609,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     const item = hit ? byId.get(hit) : undefined;
     if (item?.type === 'caption') {
       select([item.id]);
-      const video = useVideo.getState().video;
-      if (video?.videoId) {
-        const records = video.state?.video.documents ?? {};
-        const source = records[item.documentId]?.sourceDocumentId;
-        const translation = source && records[source]?.kind === 'translation' ? source : null;
-        setCompare(video.videoId, { mode: translation ? 'trans' : 'src', documentId: translation });
-        openGallery(video.videoId, false);
-        openFlow(video.videoId, false);
-        focusDocument(video.videoId, item.documentId);
-      }
-      useEditor.getState().showPanel('subtitle');
+      openCaptionEditor(item);
       return;
     }
     if (!item || item.type !== 'text' || item.counter || !changeable(item)) return;
@@ -742,6 +740,9 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
       </div>
       {single && !editingItem && changeable(single) ? (
         <StageToolbar key={single.id} item={single} sequence={sequence} frame={frame} view={view} yielding={active !== null} />
+      ) : null}
+      {captionBar && !editing ? (
+        <StageCaptionToolbar items={captionBar} sequence={sequence} hits={captionHits} frame={frame} view={view} yielding={active !== null} />
       ) : null}
     </div>
   );

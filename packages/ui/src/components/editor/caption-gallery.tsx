@@ -29,7 +29,7 @@ import { Note, SecHead, Seg } from './inspector-controls.tsx';
 import { PanelHead, panelBody } from './panel-head.tsx';
 import { CAPTION_STYLE_COPY as S } from './subtitle-copy.ts';
 import { captionThumb } from './thumb-scenes.ts';
-import { useDocumentBody } from './timeline-cues.tsx';
+import { useDocumentBody } from './use-document-body.ts';
 import { SUBTITLE_COPY as C } from './subtitle-copy.ts';
 
 /** 画廊开着的视频（推进来的一页，同翻译设置页 `openFlow`）。 */

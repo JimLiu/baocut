@@ -24,7 +24,7 @@ import { useVideo } from '../../state/video-store.ts';
 import { openAiTool } from './ai-tools-nav.ts';
 import { openDubFit } from './dub-regen.ts';
 import { useEditorActions } from './editor-context.tsx';
-import { useDocumentBody } from './timeline-cues.tsx';
+import { useDocumentBody } from './use-document-body.ts';
 import { DUB_GROUP_COPY as C } from './dub-group-copy.ts';
 
 /**

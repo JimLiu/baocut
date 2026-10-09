@@ -1,23 +1,18 @@
 import type { CaptionItem, DocumentRecord, Id } from '@baocut/protocol';
 import { ActionButton, Button, Switch } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { editLine, followRatio, followShared, lineOverrides, lineSize, lineView } from '../../model/caption-lines.ts';
-import { captionChips, captionKind, onScreen } from '../../model/caption-tracks.ts';
-import { DEFAULT_CAPTION_STYLE, captionStyleRoot } from '../../model/property-values.ts';
 import { asObject, num, type Json, type LineKind } from '../../render/text-style.ts';
-import { useEditor } from '../../state/editor-store.ts';
 import { useVideo } from '../../state/video-store.ts';
-import { openGallery } from './caption-gallery.tsx';
+import { openCaptionStyles } from './caption-open.ts';
 import { previewCaptionStyle, saveCaptionStyle } from './caption-style-edit.ts';
-import { draftedBody, dropStaleDraft } from './draft-documents.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { Note, PRow, Sec, SecHead, Seg, ValueRow } from './inspector-controls.tsx';
 import { DeleteItem, TimeSection, type ItemPageProps } from './inspector-sections.tsx';
 import { TextStyleEditor } from './inspector-text-style.tsx';
 import { CAPTION_STYLE_COPY as S } from './subtitle-copy.ts';
-import { chooseChip } from './transcribe-run.ts';
-import { useDocumentBody } from './timeline-cues.tsx';
+import { useCaptionStyle } from './use-caption-style.ts';
 import { INSPECTOR_COPY as IC } from './inspector-copy.ts';
 
 const ORDERS = [
@@ -70,24 +65,8 @@ export function CaptionPage(props: ItemPageProps<CaptionItem> & { documents: Rec
   const { item, sequence, documents, canChange } = props;
   const { apply } = useEditorActions();
   const videoId = useVideo((s) => s.video?.videoId ?? null);
-  const record = item.styleDocumentId ? documents[item.styleDocumentId] : undefined;
-  const loaded = useDocumentBody(record);
-  const draft = useEditor((s) => s.documentDraft);
-  const body = record ? draftedBody(draft, record.id, record.currentRevision, loaded) : DEFAULT_CAPTION_STYLE;
-  useEffect(() => {
-    if (record) dropStaleDraft(record.id, record.currentRevision, loaded);
-  }, [record, loaded]);
-  const root = body === undefined ? null : captionStyleRoot(body);
-
   // 这份样式管哪几种行：画面上用它的字幕；还没有样式时是画面上同样没有样式、第一次修改会一起挂上的那些。
-  const chips = captionChips(sequence, documents);
-  const chip = chips.find((c) => c.itemIds.includes(item.id));
-  const own = captionKind(item.documentId, documents);
-  const sharing = onScreen(chips).filter((c) =>
-    item.styleDocumentId ? c.styleDocumentId === item.styleDocumentId : !c.styleDocumentId && !c.locked,
-  );
-  const kinds = new Set<LineKind>([own, ...sharing.map((c) => c.kind)]);
-  const paired = kinds.size > 1;
+  const { record, body, root, chip, own, sharing, paired } = useCaptionStyle(item, sequence, documents);
   const [picked, setPicked] = useState<{ itemId: Id; kind: LineKind } | null>(null);
   const kind: LineKind = paired && picked?.itemId === item.id ? picked.kind : own;
 
@@ -156,11 +135,7 @@ export function CaptionPage(props: ItemPageProps<CaptionItem> & { documents: Rec
           <Button
             variant="secondary"
             size="S"
-            onPress={() => {
-              chooseChip(videoId, chip.key);
-              openGallery(videoId, true);
-              useEditor.getState().showPanel('subtitle');
-            }}>
+            onPress={() => openCaptionStyles(chip.key)}>
             {S.open}
           </Button>
         </div>

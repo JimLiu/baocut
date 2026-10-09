@@ -87,6 +87,26 @@ export function editLine(root: Json, patch: Json, kind: LineKind, own: boolean, 
   return next;
 }
 
+/**
+ * 双语两行一起选中（舞台上框选或 ⇧ 点选了同一份样式的原文与译文）时的一笔修改：写根样式，两行覆盖里的同名键都去掉
+ * （不然那一行看不见这一笔）。字号按原文行算（显示的也是原文行的有效字号）：换算回根字号，两行覆盖里单独设的字号去掉，
+ * 译文跟比例。
+ */
+export function editBlock(root: Json, patch: Json): Json {
+  const { fontSize, ...rest } = patch;
+  const next: Json = { ...root, ...rest };
+  const keys = typeof fontSize === 'number' ? [...Object.keys(rest), 'fontSize'] : Object.keys(rest);
+  for (const key of Object.values(LINE_STYLE_KEY)) {
+    if (!isObject(root[key])) continue;
+    const partial = { ...root[key] };
+    for (const name of keys) delete partial[name];
+    if (Object.keys(partial).length) next[key] = partial;
+    else delete next[key];
+  }
+  if (typeof fontSize === 'number') next.fontSize = round(fontSize / lineSize(root, 'original', true).bi);
+  return next;
+}
+
 /** 这一行覆盖里单独设了几项（null 是「盖掉根样式的值」，也算）。 */
 export function lineOverrides(root: Json, kind: LineKind): number {
   const partial = root[LINE_STYLE_KEY[kind]];

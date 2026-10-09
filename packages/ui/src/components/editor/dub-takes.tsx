@@ -15,7 +15,7 @@ import { regenDeps, regenerateUnits, useDubRegen } from './dub-regen.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { Note, SecHead } from './inspector-controls.tsx';
 import type { ItemPageProps } from './inspector-sections.tsx';
-import { useDocumentBody } from './timeline-cues.tsx';
+import { useDocumentBody } from './use-document-body.ts';
 
 /**
  * 属性页里一句配音的版本（设计稿 panel-audio-sentence.jsx 的「版」）：一版一行，新的在上——第 k 版、种子、时长、对齐加的速；
