@@ -19,6 +19,7 @@ AI 组件来自 `@react-spectrum/ai` **0.4.0**（Apache-2.0），与 S2 共用 P
 
 - 运行期没有 `style()` 宏。定制走 `UNSAFE_className` / `UNSAFE_style` 加本目录的 CSS 类和 token。
 - `RSP.UNSAFE_PortalProvider` 来自 React Aria，用于把全屏播放器的 S2 菜单与音量弹层挂到全屏容器内。
+- `RSP.AriaSlider` / `RSP.SliderTrack` / `RSP.SliderThumb` 与 `RSP.TooltipContext` / `RSP.TooltipTriggerStateContext` 来自 React Aria Components，给舞台工具条的音量杆用：杆上不写数字，悬停或拖动时由 `RSP.Tooltip` 写当前音量（S2 的 `Slider` 总带一个读数）。
 - 图标是 `RSP.Icons.X`。图标颜色随文字：`--iconPrimary: currentColor; fill: currentColor`。
 - 像素加载图形是 `RSP.AI.PixelLoader`，图形在 `RSP.AI.loader`（`@react-spectrum/ai/loader` 的全部导出）。原型只用 `app/model-agent-loader.js` 列出的图案类图形；字母类图形与含字母的预设拼的是第三方字标，不用。`RSP.AI.Alert` 也已导出。
 - 每个入口根上只有一个 `RSP.Provider`（`main.jsx`、`web-main.jsx` 或 `components-page.jsx`）：`locale="zh-CN"`，配色跟随外观偏好，`router.navigate` 把 S2 链接交给共享 URL 路由。

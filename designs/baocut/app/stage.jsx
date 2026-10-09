@@ -1,5 +1,5 @@
-/* 舞台与舞台工具条 —— §11。
-   舞台工具条严格只有 6 件（W2 收口）：比例 chip · spacer · 字幕 · 音量 · 变速 · 全屏。
+/* 舞台与舞台工具条 —— product-design §5.3。
+   舞台工具条：画幅 · 倍速 · spacer · 字幕 · 音量 · 全屏。左边两件是图标加当前值，右边三件只有图标。
    所有弹层一律向上翻（工具条贴着时间轴）。 */
 (function () {
   const {useState} = React;
@@ -410,33 +410,32 @@
     );
   }
 
+  /* 舞台下沿的工具条（product-design §5.3）：左边画幅、倍速，图标加当前值；右边字幕显隐、音量、全屏，只有图标。
+     音量钮只管监听音量：切听配音还是原声在配音轨行头的菜单里（timeline-dub.jsx）。 */
   function StageBar({ctx}) {
     const app = useApp();
+    const R = window.RSP;
     const {ratio, setRatio, ratioLock, vol, setVol, muted, setMuted, speed, setSpeed,
            subsOn, setSubsOn, fs, setFs, pop, setPop} = ctx;
     const [custom, setCustom] = useState(false);
     const toggle = (k) => setPop(pop === k ? null : k);
     const close = () => setPop(null);
-    /* 画幅锁（第 218 轮）：模板锁着画幅时，钮上多一枚锁，弹层顶上先说是谁锁的、去哪解；
+    /* 画幅锁（第 218 轮）：模板锁着画幅时，钮上的画幅图标换成一枚锁，弹层顶上先说是谁锁的、去哪解；
        九档只剩锁定那一档能点（点了也只是关弹层），其余全灰——不是藏起来：
        用户得看见「本来有这些档，是模板不让改」。解锁不放这里：它是模板的设置。 */
     const lock = ratioLock || null;
     const portrait = window.BC_SHORTS.isPortrait(ratio);
-    const TTS = window.BC_TTS;
-    const dubs = (ctx.dubs || []).filter((d) => d.role !== 'narration');   // 旁白组不进音源切换（2026-09-23）
-    const activeDub = dubs.find((d) => d.lang === TTS.activeDubLang(dubs, ctx.dubOff)) || dubs[dubs.length - 1] || null;
-    const dubSrc = activeDub
-      ? TTS.sourceOf({muted, dubOff: ctx.dubOff, lang: activeDub.lang, ducked: activeDub.original === 'duck' && !muted})
-      : null;
 
     return (
       <div className="stagebar">
         <div style={{position: 'relative'}}>
-          <BCAction className={cx('pickb', 'aspchip', pop === 'ratio' && 'is-open', lock && 'is-locked')}
-            title={lock ? lock.note : '画幅'} onClick={() => toggle('ratio')}>
-            {lock ? <Ic n="lock" className="ic--12" /> : null}
-            <span>{ratio}</span><Ic n="chevdown" className="pickb__chev" />
-          </BCAction>
+          <Tip label={lock ? lock.note : '画幅'}>
+            <R.ActionButton size="S" isQuiet aria-label={'画幅 ' + ratio} onPress={() => toggle('ratio')}
+              UNSAFE_className={cx('stagebar__chip', lock && 'is-locked')}>
+              {lock ? <Ic n="lock" /> : <R.Icons.AspectRatio />}
+              <R.Text>{ratio}</R.Text>
+            </R.ActionButton>
+          </Tip>
           <Popover open={pop === 'ratio'} onClose={close} dir="up" align="left" width={236}>
             {lock ? (
               <div className="locknote">
@@ -465,72 +464,48 @@
           </Popover>
         </div>
 
-        <div className="spacer" />
-
-        <IconBtn icon="captions" size="s" onLayer on={subsOn}
-          tip={subsOn ? '隐藏字幕' : '显示字幕'} onClick={() => setSubsOn(!subsOn)} />
-
-        {/* 音源住在音量按钮里（2026-09-11）：工具条严格只有 6 件，配音不另起一件。
-            时间轴上有配音时这件变成一枚带语种的 chip——看得见在听哪一种，点开就能切原声。 */}
+        {/* 倍速与全屏播放器共用一份（ctx.speed），退出全屏后保持。 */}
         <div style={{position: 'relative'}}>
-          {dubs.length ? (
-            <BCAction className={cx('pickb', 'pickb--s', 'srcchip', pop === 'vol' && 'is-open')}
-              title={'音源与音量 · 现在是' + TTS.sourceLabel(dubSrc, activeDub.langName || activeDub.lang)}
-              onClick={() => toggle('vol')}>
-              <Ic n={volIcon(vol, muted)} className="ic--14" />
-              <span>{dubSrc === 'original' ? '原声' : (window.BC_TL.languageBadge(activeDub.lang) || '配音')}</span>
-            </BCAction>
-          ) : (
-            <IconBtn icon={volIcon(vol, muted)} size="s" onLayer tip="音量" onClick={() => toggle('vol')} />
-          )}
-          <Popover open={pop === 'vol'} onClose={close} dir="up" align="right" width={dubs.length ? 248 : 210} className="pop--pad">
-            {dubs.length ? (
-              <div className="srcpick">
-                <Menu>
-                  <MenuHead>音源</MenuHead>
-                  {dubs.map((d) => (
-                    <MenuItem key={d.lang} icon="wave" label={'配音 · ' + (d.langName || d.lang)}
-                      sub={d.original === 'duck' ? '原声压低到 −18 dB' : '原声静音'}
-                      on={dubSrc === 'dub' && activeDub.lang === d.lang}
-                      onClick={() => ctx.setDubSource('dub', d.lang)} />
-                  ))}
-                  <MenuItem icon="audio" label="原声" sub="视频里的原始声音 · 配音组全部静音" on={dubSrc === 'original'}
-                    onClick={() => ctx.setDubSource('original', activeDub.lang)} />
-                  <MenuItem icon="translate" label={'两者 · ' + (activeDub.langName || activeDub.lang)} sub="对照校听用 · 这组的背景声关"
-                    on={dubSrc === 'both'} onClick={() => ctx.setDubSource('both', activeDub.lang)} />
-                </Menu>
-                <MenuRule />
-              </div>
-            ) : null}
-            <div className="row gap8">
-              <IconBtn icon={volIcon(vol, muted)} size="s" onClick={() => setMuted(!muted)} tip={muted ? '取消静音' : '静音'} />
-              <Slider value={muted ? 0 : vol} onChange={(v) => { setVol(v); setMuted(false); }} step={25} />
-              <span className="t-mono t-detail" style={{width: 34, textAlign: 'right'}}>
-                {muted ? '静音' : vol + '%'}
-              </span>
-            </div>
-          </Popover>
-        </div>
-
-        <div style={{position: 'relative'}}>
-          <BCAction className={cx('pickb', 'pickb--s', pop === 'speed' && 'is-open')}
-            style={{fontFamily: 'var(--mono)', minWidth: 48, justifyContent: 'center'}}
-            onClick={() => toggle('speed')}>{speed}x</BCAction>
-          <Popover open={pop === 'speed'} onClose={close} dir="up" align="right" width={120}>
+          <Tip label="倍速">
+            <R.ActionButton size="S" isQuiet aria-label={'倍速 ' + speed + '×'} onPress={() => toggle('speed')}
+              UNSAFE_className="stagebar__chip">
+              <R.Icons.SpeedFast />
+              <R.Text>{speed}×</R.Text>
+            </R.ActionButton>
+          </Tip>
+          <Popover open={pop === 'speed'} onClose={close} dir="up" align="left" width={120}>
             <Menu>
               {D.speeds.map((s) => (
-                <MenuItem key={s} label={s + 'x'} on={s === speed} onClick={() => { setSpeed(s); close(); }} />
+                <MenuItem key={s} label={s + '×'} on={s === speed} onClick={() => { setSpeed(s); close(); }} />
               ))}
             </Menu>
           </Popover>
         </div>
 
-        {/* 真全屏要在**这一拍**里要（第 222 轮）：浏览器只认用户手势当场发出的
-            requestFullscreen，挪到覆盖层挂载后再要会被静默拒绝——那正是此前
-            「点全屏只占了一部分」的一半原因（另一半是当时压根没有覆盖层）。 */}
-        <IconBtn icon={fs ? 'exitfs' : 'fullscreen'} size="s" onLayer
-          tip={fs ? '退出全屏' : '全屏'}
-          onClick={() => { if (!fs) window.enterFullscreen(); setFs(!fs); }} />
+        <div className="spacer" />
+
+        {/* 纯图标的小号钮框只比图标宽 4px，挨着排会挤成一团：组内拉开 12px。 */}
+        <div className="stagebar__icons">
+          <IconBtn icon="captions" size="s" onLayer on={subsOn}
+            tip={subsOn ? '隐藏字幕' : '显示字幕'} onClick={() => setSubsOn(!subsOn)} />
+
+          <div style={{position: 'relative'}}>
+            <IconBtn icon={volIcon(vol, muted)} size="s" onLayer tip="音量" onClick={() => toggle('vol')} />
+            <Popover open={pop === 'vol'} onClose={close} dir="up" align="right" width={240} className="pop--pad" label="音量">
+              <div className="stvol-row">
+                <IconBtn icon={volIcon(vol, muted)} size="s" onClick={() => setMuted(!muted)} tip={muted ? '取消静音' : '静音'} />
+                <VolumeSlider value={muted ? 0 : vol} onChange={(v) => { setVol(v); setMuted(false); }} />
+              </div>
+            </Popover>
+          </div>
+
+          {/* 真全屏要在**这一拍**里要（第 222 轮）：浏览器只认用户手势当场发出的
+              requestFullscreen，挪到覆盖层挂载后再要会被静默拒绝——那正是此前
+              「点全屏只占了一部分」的一半原因（另一半是当时压根没有覆盖层）。 */}
+          <IconBtn icon={fs ? 'exitfs' : 'fullscreen'} size="s" onLayer
+            tip={fs ? '退出全屏' : '全屏'}
+            onClick={() => { if (!fs) window.enterFullscreen(); setFs(!fs); }} />
+        </div>
 
         <Dialog open={custom} title="自定义画幅比" onClose={() => setCustom(false)} width={300}
           footer={[
@@ -544,6 +519,49 @@
           </div>
         </Dialog>
       </div>
+    );
+  }
+
+  /* 音量杆（product-design §5.3；与 packages/ui 的 stage-bar.tsx 同一种做法）：杆上不写数字，
+     鼠标停在杆上或拖着拇指时，拇指上方出 S2 提示写当前音量。提示锚在整条杆上、横向偏到拇指的位置，拖动时跟着走。
+     步长 5：↑ / ↓ 一档 10，25 一档的杆会把 70% 吸成 75%。 */
+  function VolumeSlider({value, onChange}) {
+    const R = window.RSP;
+    const trackRef = React.useRef(null);
+    return (
+      <R.AriaSlider aria-label="音量" className="stvol" minValue={0} maxValue={100} step={5} value={value}
+        formatOptions={{style: 'unit', unit: 'percent'}} onChange={onChange}>
+        <R.SliderTrack ref={trackRef} className="stvol__track">
+          {({state, isHovered}) => {
+            const at = state.getThumbPercent(0);
+            const shift = (at - 0.5) * (trackRef.current ? trackRef.current.clientWidth : 0);
+            return (
+              <>
+                <div className="stvol__rail" />
+                <div className="stvol__fill" style={{width: at * 100 + '%'}} />
+                <R.SliderThumb className="stvol__thumb" />
+                <TrackTip anchorRef={trackRef} open={isHovered || state.isThumbDragging(0)} crossOffset={shift}>
+                  {state.getThumbValueLabel(0)}
+                </TrackTip>
+              </>
+            );
+          }}
+        </R.SliderTrack>
+      </R.AriaSlider>
+    );
+  }
+
+  /* 由调用方决定开合、锚在任意元素上的 S2 提示。TooltipTrigger 要一个能聚焦的触发器，杆上那个是拇指里藏起来的
+     input，鼠标碰不到；这里直接把开合与锚点交给 react-aria 的提示上下文。读屏从滑杆自己的读数念音量。 */
+  function TrackTip({anchorRef, open, crossOffset, children}) {
+    const R = window.RSP;
+    const state = React.useMemo(() => ({isOpen: open, open() {}, close() {}, shouldSkipAnimation: false}), [open]);
+    return (
+      <R.TooltipTriggerStateContext.Provider value={state}>
+        <R.TooltipContext.Provider value={{triggerRef: anchorRef, crossOffset}}>
+          <R.Tooltip>{children}</R.Tooltip>
+        </R.TooltipContext.Provider>
+      </R.TooltipTriggerStateContext.Provider>
     );
   }
 

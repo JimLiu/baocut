@@ -123,7 +123,8 @@
     const [hovering, setHovering] = useState(false);
     const [scrubbing, setScrubbing] = useState(false);
     const [volDragging, setVolDragging] = useState(false);
-    const [capMode, setCapMode] = useState(() => PL.defaultCaptionMode(SUB.tracks(ctx.subStyle)));
+    /* product-design §5.3：舞台上隐藏了字幕时从关闭起步，否则显示画面上实有的全部字幕 */
+    const [capMode, setCapMode] = useState(() => (ctx.subsOn ? PL.defaultCaptionMode(SUB.tracks(ctx.subStyle)) : 'off'));
 
     /* 成片时钟（第 197 轮，与 transport 同一口径）：已剪段不占时间，进度条与时间码
        都读折过的秒；拖到某一点再折回时间轴时钟去 seek。观看面尤其不能露出缝——

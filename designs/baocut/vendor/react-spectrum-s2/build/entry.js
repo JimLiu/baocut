@@ -67,6 +67,9 @@ export {SideNavItemLink} from '@react-spectrum/s2/SideNav';
 export {SideNavSection} from '@react-spectrum/s2/SideNav';
 export {Slider} from '@react-spectrum/s2/Slider';
 export {UNSAFE_PortalProvider} from 'react-aria/PortalProvider';
+// 舞台工具条的音量杆（stage.jsx）：不写数字的细杆 + 由调用方开合的 S2 提示，与 packages/ui 的 stage-bar.tsx 同一种做法。
+export {Slider as AriaSlider, SliderTrack, SliderThumb} from 'react-aria-components/Slider';
+export {TooltipContext, TooltipTriggerStateContext} from 'react-aria-components/Tooltip';
 export {StatusLight} from '@react-spectrum/s2/StatusLight';
 export {SubmenuTrigger} from '@react-spectrum/s2/ActionMenu';
 export {Switch} from '@react-spectrum/s2/Switch';
@@ -171,6 +174,7 @@ import I_Project from '@react-spectrum/s2/icons/Project';
 import I_ProjectCreate from '@react-spectrum/s2/icons/ProjectCreate';
 import I_Tag from '@react-spectrum/s2/icons/Tag';
 import I_AspectRatio from '@react-spectrum/s2/icons/AspectRatio';
+import I_SpeedFast from '@react-spectrum/s2/icons/SpeedFast';
 import I_Visibility from '@react-spectrum/s2/icons/Visibility';
 import I_Data from '@react-spectrum/s2/icons/Data';
 import I_Target from '@react-spectrum/s2/icons/Target';
@@ -290,6 +294,7 @@ export const Icons = {
   ProjectCreate: I_ProjectCreate,
   Tag: I_Tag,
   AspectRatio: I_AspectRatio,
+  SpeedFast: I_SpeedFast,
   Visibility: I_Visibility,
   Data: I_Data,
   Target: I_Target,

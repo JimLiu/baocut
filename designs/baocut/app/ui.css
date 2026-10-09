@@ -969,11 +969,22 @@ body { font-size: 14px; }
 .subline.is-member { outline: 2px dashed var(--blue-400); outline-offset: 1px; }
 .subs.is-on { outline: 2px solid var(--blue-800); outline-offset: 4px; border-radius: 4px; }
 
-/* 舞台工具条（§11：严格 6 件） */
-.stagebar { display: flex; align-items: center; gap: 6px; flex: none; height: 42px; padding: 7px 12px; background: var(--gray-100); border-top: 1px solid var(--gray-200); position: relative; }
-/* @ds-allow: 舞台工具条按 §11 与 apps/baocut/stage/transport.rs 钉死 28×28；
-   它是坐在 gray-100 层上的工具条簇，不是独立的 S2 控件，改成 24/32 会同时偏离规格与实现 */
-.aspchip { height: 28px; border-radius: 7px; padding: 0 9px; font-size: 12px; font-weight: 500; }
+/* 舞台工具条（product-design §5.3）：左边画幅、倍速是 S2 小号钮（图标 ＋ 当前值），右边三枚纯图标钮成一组。 */
+.stagebar { display: flex; align-items: center; gap: 4px; flex: none; height: 42px; padding: 0 12px; background: var(--gray-100); border-top: 1px solid var(--gray-200); position: relative; }
+.stagebar__chip { font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* 小号纯图标钮的框只比图标宽 4px，照 4px 排会挤在一起；拉到 12px，和左边「文字到下一个图标」差不多 */
+.stagebar__icons { display: flex; align-items: center; gap: 12px; }
+
+/* 音量弹层：静音钮 ＋ 一条不写数字的细杆，读数在悬停提示里（stage.jsx 的 VolumeSlider） */
+.stvol-row { display: flex; align-items: center; gap: 8px; }
+.stvol { flex: 1 1 auto; min-width: 0; padding-right: 8px; }
+.stvol__track { position: relative; height: 20px; width: 100%; cursor: default; }
+.stvol__rail, .stvol__fill { position: absolute; top: 8px; height: 4px; border-radius: 9999px; }
+.stvol__rail { left: 0; right: 0; background: var(--gray-300); }
+.stvol__fill { left: 0; background: var(--blue-900); }
+/* react-aria 给拇指的是 translate(-50%, -50%)：顶边放在杆的竖向中线上，拇指才压在细轨正中 */
+.stvol__thumb { top: 50%; width: 14px; height: 14px; box-sizing: border-box; border-radius: 9999px; background: var(--gray-25); border: 2px solid var(--gray-800); box-shadow: var(--sh-elev); }
+.stvol__thumb[data-focus-visible] { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 
 /* ---------- Timeline ---------- */
 .tl { display: flex; flex-direction: column; min-height: 0; flex: none; background: var(--gray-25); border-top: 1px solid var(--gray-200); }
@@ -2103,8 +2114,6 @@ div.blkw { display: inline; }
 .fthumb--btn.is-playing svg { opacity: 0.45; }
 .fthumb__prog { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--gray-300); }
 .fthumb__prog i { display: block; height: 100%; background: var(--blue-800); }
-.srcchip { height: 28px; font-size: 12px; font-weight: 500; }
-.srcpick { margin: -2px -2px 8px; }
 .finfo { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .finfo b { font-size: 12px; font-weight: 700; color: var(--gray-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .finfo span { font-size: 10px; color: var(--gray-600); }
@@ -3070,8 +3079,8 @@ html.is-col-resize, html.is-col-resize * { cursor: col-resize !important; }
 /* ---------- 画幅锁 · 模板行 · 建项模板画廊（第 218 轮） ---------- */
 .ic--12 { width: 12px; height: 12px; }
 /* 舞台画幅钮锁态：多一枚锁，字色压暗一档，hover 仍开弹层（弹层里说明是谁锁的） */
-.aspchip.is-locked { gap: 4px; color: var(--gray-700); }
-.aspchip.is-locked .ic { color: var(--gray-600); }
+.stagebar__chip.is-locked { color: var(--gray-700); }
+.stagebar__chip.is-locked .ic { color: var(--gray-600); }
 /* 弹层顶上的锁说明：图标 + 一段话 + 一个「去模板设置」 */
 .locknote { display: flex; gap: 8px; margin: 4px 4px 6px; padding: 10px; border-radius: 8px; background: var(--gray-100); color: var(--gray-800); }
 .locknote > .ic { flex: none; margin-top: 2px; color: var(--gray-600); }
