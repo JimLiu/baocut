@@ -17,7 +17,7 @@ description: 文稿与字幕的机制：转录、润色写回、自己翻译并�
 
 - 在哪个视频上做：{{tool:videos_inspect}} 看文档清单。kind 为 `speech` 的是转写，`translation` 是译文，`caption` 是字幕层的文档。已有的接着用：已有转写不再转一遍，已有同一语言的译文在它上面改。
 - 要转写时先 {{tool:models_capabilities}}（能力 `transcribe`）看有没有可用的转写服务。
-- 原文语言、人名与术语：用户说了就记下，转写时给 {{tool:transcribe}} 的 {{arg:language}} 与 {{arg:hint}}。
+- 原文语言、人名与术语：用户说了就记下。语言转写时给 {{tool:transcribe}} 的 {{arg:language}}；人名与术语只在转写模型收识别提示时给 {{arg:hint}}：{{tool:models_capabilities}} 里要用的模型（不给模型时是默认的那只）`acceptsHint` 为 true 才给。默认的 MOSS 不收，带了提交即拒；这时人名与术语留给润色，不为了用上提示换模型。
 - 来源元数据：从链接导入的素材在 {{tool:videos_inspect}} 的 `assets[].source` 里有标题、发布者、简介与作者章节（见 [media](media.md)）。润色时当背景参考，说话人实名时当证据之一。
 
 ## 命令与例子
@@ -32,7 +32,9 @@ description: 文稿与字幕的机制：转录、润色写回、自己翻译并�
 | 要先润色再上字幕 | 加 {{arg:noCaptions}}：字幕层等润色之后再建 |
 | 用户明说只要文稿文件 | 加 {{arg:noVideo}}：只写 TXT 与 SRT，不建视频；本机文件可给 {{arg:outDir}} |
 
-可选 {{arg:language}}（不给时自动识别）、{{arg:hint}}（人名、术语、专有名词）、{{arg:diarize}}（区分说话人）。视频里这份素材已有文稿时不在同一部视频里加第二份：缺省（{{arg:target}} 为 new-video）另建一部视频，链接同一份素材；{{arg:target}} 为 replace 时取代当前文稿，一笔可撤销的事务里结转译文、字幕与配音（{{arg:translations}} 为 discard 时不结转译文）。文稿在转录之后被用户改过时取代以 `TRANSCRIPT_EDITED` 拒绝：先问用户，确认丢掉那些修改再加 {{arg:acceptEdited}}。
+可选 {{arg:language}}（不给时自动识别）、{{arg:hint}}（人名、术语、专有名词；只给收提示的模型，见前置检查）、{{arg:diarize}}（区分说话人）。视频里这份素材已有文稿时不在同一部视频里加第二份：缺省（{{arg:target}} 为 new-video）另建一部视频，链接同一份素材；{{arg:target}} 为 replace 时取代当前文稿，一笔可撤销的事务里结转译文、字幕与配音（{{arg:translations}} 为 discard 时不结转译文）。文稿在转录之后被用户改过时取代以 `TRANSCRIPT_EDITED` 拒绝：先问用户，确认丢掉那些修改再加 {{arg:acceptEdited}}。
+
+重转（另建视频或取代）与换模型只在用户要求时做：不因为自己觉得识别得不够好就重转，少量错字、人名与术语听错在润色时改（{{skill:polish-transcript}}）。结果不能用（空的、语言认错、大段乱码）时先问用户再重转。
 
 ### 润色写回
 
@@ -107,7 +109,7 @@ description: 文稿与字幕的机制：转录、润色写回、自己翻译并�
 
 ## 验收
 
-- 转写、译文、字幕层都在视频里，没有重复的转写与重复的字幕层。
+- 转写、译文、字幕层都在视频里，没有重复的转写与重复的字幕层；没有用户没要求的重转或换模型。
 - 润色在翻译之前，翻译用的是润色之后重新读到的句子。
 - 多位说话人时，证据够的都实名了；留着占位名的在报告里说明。
 - 译文句数等于转写句数；术语与专名全文一致。

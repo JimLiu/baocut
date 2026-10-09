@@ -12,14 +12,14 @@
 
 - **交付物**：原文字幕、译文字幕还是双语字幕；要不要文件（字幕文件、带字幕的成片）。用户说「翻译成某种语言」是要译文字幕，说「双语」是双语字幕；只说转录、加字幕时是原文字幕。
 - **目标语言**：用 BCP 47 标签（如 `zh-Hans`、`en`、`ja`、`es`）。要翻译、用户又没说译成什么时问一次。
-- **原文语言、人名与术语**：用户说了就记下，转写和润色都用得上；没说的让转写自动识别。
+- **原文语言、人名与术语**：用户说了就记下。语言给转写；人名与术语在转写模型收识别提示时给转写当 hint（见第 3 步），不收时只在润色时用。没说语言的让转写自动识别。
 - **来源元数据**：从链接导入的素材，`baocut videos inspect` 的 `assets[].source` 有标题、发布者、简介（`description`，最多 1200 字符）与作者的章节（`chapters`）；转写或下载完成时 `pipeline.summary.description` 与 `pipeline.summary.sourceChapters` 也给出简介和作者章节的条数。润色、说话人实名、章节都用它。
 - **在哪个视频上做**：编辑器里打开的或用户点名的视频就在它上面做；`baocut videos inspect` 看已有的素材、转写、译文与字幕层，已有的接着用。
 - 用户明确只要一个字幕文件、不要视频或项目时，不走这个流程，按 `translate-subtitles` 的文件一节做（只转录不翻译时就交下载目录里的文稿）。
 
 ## 2. 建视频并导入
 
-- **链接**：`baocut transcribe` 给 `url`（可给 language、hint、name、noCaptions），它新建视频、下载导入、放上时间线、转写并建字幕层；用户说了原文语言或给了人名术语时带上 language 与 hint。`baocut download` 给 `newVideo: true` 与 `transcribe: true` 也新建视频并转写，但只用默认设置、不建字幕层。`baocut jobs inspect` 等到 completed：`pipeline.summary.videoId` 是新视频，`pipeline.summary.assetId` 是素材。新建的视频在之后的步骤失败时保留，不要再建一次。
+- **链接**：`baocut transcribe` 给 `url`（可给 language、hint、name、noCaptions），它新建视频、下载导入、放上时间线、转写并建字幕层；用户说了原文语言时带上 language，给了人名术语、而转写模型收提示时带上 hint（见第 3 步）。`baocut download` 给 `newVideo: true` 与 `transcribe: true` 也新建视频并转写，但只用默认设置、不建字幕层。`baocut jobs inspect` 等到 completed：`pipeline.summary.videoId` 是新视频，`pipeline.summary.assetId` 是素材。新建的视频在之后的步骤失败时保留，不要再建一次。
 - **本机文件**：`baocut transcribe` 给 `file`（可给 language、hint、name），它新建视频、导入、放上时间线并转写；第 3 步的转写就在这一步里。只要建视频不要转写时，`baocut videos create` 新建视频（名字取文件名；竖屏素材给竖屏的宽高），用 `baocut assets import` 导入并放上时间线（给 place）。
 - 链接下载失败时照 error.details.remedy 告诉用户怎么补救，不要用别的方式下载。
 
@@ -27,6 +27,8 @@
 
 - 第 2 步用 `baocut transcribe` 或带了 `transcribe: true` 的 `baocut download` 时已经在转；已有视频要转写、或要带 language、hint 时用 `baocut transcribe` 给 video（可给 asset；先 `baocut models capabilities` 看有没有可用的转写服务）。
 - 要润色时给 `baocut transcribe` 加 `noCaptions: true`：字幕层在润色之后由第 7 步建（`baocut transcribe` 默认转完就建一层，润色前建的要删掉重建）。
+- **hint 看模型**：带 hint 之前先在 `baocut models capabilities` 里看要用的转写模型（不给 model 时是默认的那只）的 `acceptsHint`。默认的 MOSS 不收提示，带了提交即拒：这时不带 hint，人名与术语留到第 4 步润色，也不为了用上 hint 换到收提示的模型。
+- **转一次就用它**：不因为自己觉得识别得不够好就换模型或重转（`baocut transcribe` 的 `target: replace`）。少量错字、人名与术语听错是正常的，第 4 步润色会改。只有用户要求换模型或重转，或者结果不能用（空的、语言认错、大段乱码）并且先问过用户，才重转。
 - `baocut jobs inspect` 等到 completed：`pipeline.summary.documentId` 是新转写（`baocut transcribe` 给 url 或 `baocut download` 带 `transcribe: true` 时同样在 `pipeline.summary.documentId`）。
 - 返回 CAPABILITY_NOT_CONFIGURED 时照它的 next 告诉用户要启用哪项服务，停在这里。
 
