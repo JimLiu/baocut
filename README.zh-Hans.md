@@ -15,8 +15,6 @@
 
 ---
 
-开发维护、问题反馈和贡献统一在 [jimliu/baocut](https://github.com/jimliu/baocut) 进行。此前独立的 BaoCut skill 保存在[旧版归档分支](https://github.com/jimliu/baocut/tree/archive/legacy-2026-10-07)及 `legacy-2026-10-07` tag。
-
 ## 下载与安装
 
 [BaoCut 3.1.0（Build 62）](https://github.com/JimLiu/baocut/releases/tag/baocut-v3.1.0-build.62) 已提供 macOS 与 Windows 安装包。包内包含 Runtime 和原生 Worker；只有开发时才需要 Node.js 和 Rust。

@@ -15,8 +15,6 @@
 
 ---
 
-Development, issues and contributions are maintained at [jimliu/baocut](https://github.com/jimliu/baocut). The earlier standalone BaoCut skill is preserved on the [legacy archive branch](https://github.com/jimliu/baocut/tree/archive/legacy-2026-10-07) and the `legacy-2026-10-07` tag.
-
 ## Download and install
 
 [BaoCut 3.1.0 (Build 62)](https://github.com/JimLiu/baocut/releases/tag/baocut-v3.1.0-build.62) is available for macOS and Windows. Packaged apps include the Runtime and native workers; Node.js and Rust are only needed for development.
