@@ -2,15 +2,15 @@
   "schema": 1,
   "target": "x86_64-pc-windows-msvc",
   "variant": "vulkan",
-  "version": "3.0.1",
-  "build": 61,
-  "date": "2026-10-08",
+  "version": "3.1.0",
+  "build": 62,
+  "date": "2026-10-09",
   "notes": "",
   "notesLocalized": {},
   "app": {
     "format": "exe",
-    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.0.1-build.61/BaoCut-3.0.1-build.61-win-x64-vulkan-setup.exe",
-    "size": 216847991,
-    "sha256": "7f098709b4bd9f54aff36992e7c039fbca019191e82d97e8cab03a97d34c38a6"
+    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.1.0-build.62/BaoCut-3.1.0-build.62-win-x64-vulkan-setup.exe",
+    "size": 217025144,
+    "sha256": "32c3303b083dd82ace2eb4faaf1baecced92c0f55ebe8213c0645d388dd47690"
   }
 }
