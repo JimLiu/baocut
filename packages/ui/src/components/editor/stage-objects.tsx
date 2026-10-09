@@ -1,8 +1,17 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
-import type { Id, Place, Revision, Sequence, SequenceItem } from '@baocut/protocol';
+import type { CaptionItem, DocumentRecord, Id, Place, Revision, Sequence, SequenceItem } from '@baocut/protocol';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { STAGE_COPY } from '../../copy.ts';
 import { applyDrafts, type ItemDraft } from '../../model/item-draft.ts';
+import { DEFAULT_CAPTION_STYLE, captionStyleRoot } from '../../model/property-values.ts';
+import {
+  CAPTION_Y,
+  captionBox,
+  movedCaptionStyle,
+  stepCaptionMove,
+  type CaptionMove,
+  type CaptionMoveFrame,
+} from '../../model/stage-caption-move.ts';
 import {
   gestureOperations,
   gesturePatch,
@@ -39,9 +48,13 @@ import {
   type Rect,
 } from '../../model/stage-pose.ts';
 import type { CaptionHit } from '../../render/render-planner.ts';
+import { num, type Json } from '../../render/text-style.ts';
+import { useRuntime } from '../../runtime/context.tsx';
 import { useEditor } from '../../state/editor-store.ts';
 import { canEdit, useVideo } from '../../state/video-store.ts';
 import { openGallery } from './caption-gallery.tsx';
+import { previewCaptionStyle, saveCaptionStyle } from './caption-style-edit.ts';
+import { draftedBody } from './draft-documents.ts';
 import { useEditorActions } from './editor-context.tsx';
 import type { PreviewEngine } from './preview-engine.ts';
 import { GroupBox, Guides, ItemBox, Marquee, ThinBox, type View } from './stage-boxes.tsx';
@@ -58,6 +71,8 @@ import { openFlow, setCompare } from './translate-run.ts';
  *   不动松手才选中它。⇧ / ⌘ 单击切换多选（主视频不进多选），点空白清空。
  * - 拖动中只改草稿：单件走 store 的草稿（预览与属性页一起跟手）；多件用引擎的临时覆盖（属性页不跟），
  *   松手按起手状态算出的终值提交**一笔**事务，失败就回到原值。真的动过才吞掉随后补发的 click。
+ * - 字幕没有 `place`，按在它上面拖动是上下挪字幕样式的锚线（原型 stage.jsx 的字幕 SelectionBox，见 model/stage-caption-move）：
+ *   拖动中走 store 的文档草稿（预览与属性页一起跟手），松手写入样式文档，用同一份样式的字幕一起动。
  * - 只读、锁定或正在播放时不出把手，只读时点选照常；播放中按下画面只暂停（原型 stage.jsx），停下后再点选。
  */
 
@@ -81,13 +96,23 @@ const LABEL: Record<Gesture['kind'], string> = {
   'group-scale': STAGE_COPY.groupScale,
 };
 
-/** 一次按下：过了阈值做什么（几何手势或框选），没动就松手算一次点击做什么。 */
+/** 拖字幕：起手时的样式文档、正文与根样式，起手时选中那件的行框（拖动中平移着画，预览重画回来的行框会晚一拍）。 */
+interface CaptionDrag {
+  move: CaptionMove;
+  record: DocumentRecord | undefined;
+  body: unknown;
+  root: Json;
+  hits: CaptionHit[];
+}
+
+/** 一次按下：过了阈值做什么（几何手势、拖字幕或框选），没动就松手算一次点击做什么。 */
 interface Press {
   pointerId: number;
   client0: Point;
   frame: DOMRect;
   env: StageEnv;
   gesture: Gesture | null;
+  caption: CaptionDrag | null;
   marquee: { additive: boolean } | null;
   click: () => void;
   moved: boolean;
@@ -134,6 +159,7 @@ function useVisibleItems(engine: PreviewEngine): Id[] {
 
 export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: FrameRect }) {
   const { engine, apply, pause } = useEditorActions();
+  const documents = useRuntime().videos.documents;
   const selection = useEditor((s) => s.selection);
   const playing = useEditor((s) => s.playing);
   const editable = useVideo((s) => canEdit(s.video));
@@ -152,6 +178,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
   const [angle, setAngle] = useState<number | null>(null);
   const [override, setOverride] = useState<Override | null>(null);
   const [editing, setEditing] = useState<Id | null>(null);
+  const [captionShift, setCaptionShift] = useState<{ hits: CaptionHit[]; dy: number } | null>(null);
 
   const canvas = sequence.canvas;
   // 媒体框的高按源的宽高比推，要查素材表。
@@ -288,6 +315,38 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     });
   };
 
+  // ---- 拖字幕 ----
+
+  /** 按在一件字幕上：样式正文此刻在手、这组字幕（同一份样式）此刻画在画面上，才起手。 */
+  const captionDragOf = (item: CaptionItem, p0: Point): CaptionDrag | null => {
+    const record = item.styleDocumentId ? useVideo.getState().video?.state?.video.documents[item.styleDocumentId] : undefined;
+    if (item.styleDocumentId && !record) return null;
+    const body = record
+      ? draftedBody(useEditor.getState().documentDraft, record.id, record.currentRevision, documents.peek(record.id, record.currentRevision))
+      : DEFAULT_CAPTION_STYLE;
+    const root = body === undefined ? null : captionStyleRoot(body);
+    if (!root) return null;
+    const lines = engine.captionHits.filter((hit) => {
+      const other = byId.get(hit.itemId);
+      return other?.type === 'caption' && other.styleDocumentId === item.styleDocumentId;
+    });
+    const box = captionBox(lines);
+    if (!box) return null;
+    return { move: { box, y0: num(root.y, CAPTION_Y), p0 }, record, body, root, hits: lines.filter((hit) => hit.itemId === item.id) };
+  };
+
+  const showCaption = (drag: CaptionDrag, result: CaptionMoveFrame) => {
+    previewCaptionStyle(drag.record, drag.body, movedCaptionStyle(drag.root, result.y));
+    setCaptionShift({ hits: drag.hits, dy: result.dy });
+    setGuides(result.guides);
+  };
+
+  const commitCaption = (drag: CaptionDrag, result: CaptionMoveFrame) => {
+    if (result.y === drag.move.y0) return useEditor.getState().clearDrafts();
+    const { record, body, root } = drag;
+    saveCaptionStyle(apply, { sequence: latest.current, record, body, before: root, style: movedCaptionStyle(root, result.y), label: STAGE_COPY.move });
+  };
+
   const finishMarquee = (p: Press, clientX: number, clientY: number, additive: boolean) => {
     const seq = latest.current;
     const r = marqueeRect({ x: p.client0.x, y: p.client0.y }, { x: clientX, y: clientY });
@@ -305,6 +364,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
 
   const reset = () => {
     setActive(null);
+    setCaptionShift(null);
     setGuides([]);
     setAngle(null);
     setMarquee(null);
@@ -339,6 +399,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     const handleEl = target.closest<HTMLElement>('[data-handle]');
     const inGroup = !!target.closest('[data-group]');
     let gesture: Gesture | null = null;
+    let caption: CaptionDrag | null = null;
     let marqueeMode: Press['marquee'] = null;
     let click = () => {};
     let moving = new Set<Id>();
@@ -361,6 +422,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
       const item = byId.get(hit);
       if (item?.type === 'caption') useEditor.getState().showPanel('props');
       if (item && isPlaced(item) && changeable(item)) gesture = { kind: 'move', member: memberOf(item, seq.canvas, assets), p0: p };
+      else if (item?.type === 'caption' && changeable(item)) caption = captionDragOf(item, p);
       moving = new Set([hit]);
     } else {
       // 空白、主视频面、或按着 ⇧ / ⌘：拖过 4px 起框选，不动松手是一次点击。
@@ -374,6 +436,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
       frame: fr,
       env: { canvas: seq.canvas, others: snapRects(moving), pxScale: seq.canvas.width / fr.width },
       gesture,
+      caption,
       marquee: marqueeMode,
       click,
       moved: false,
@@ -394,15 +457,20 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     }
     const fr = frameEl.getBoundingClientRect();
     if (!(fr.width > 0)) return;
-    rootEl.style.cursor = hitTest(toCanvas(latest.current.canvas, fr, event.clientX, event.clientY)) ? 'pointer' : '';
+    const hit = hitTest(toCanvas(latest.current.canvas, fr, event.clientX, event.clientY));
+    const item = hit ? byId.get(hit) : undefined;
+    // 选中的字幕没有自己的选中框接指针：能拖时在这里换成移动光标。
+    const movable = item?.type === 'caption' && changeable(item) && useEditor.getState().selection.includes(item.id);
+    rootEl.style.cursor = movable ? 'move' : hit ? 'pointer' : '';
   };
 
   const flush = (p: Press) => {
     p.raf = 0;
     const queued = p.queued;
-    if (!queued || !p.gesture) return;
+    if (!queued) return;
     p.queued = null;
-    show(p.gesture, stepGesture(p.gesture, queued.p, queued.mods, p.env));
+    if (p.gesture) show(p.gesture, stepGesture(p.gesture, queued.p, queued.mods, p.env));
+    else if (p.caption) showCaption(p.caption, stepCaptionMove(p.caption.move, queued.p, queued.mods, p.env));
   };
 
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
@@ -412,13 +480,14 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     const dx = event.clientX - p.client0.x;
     const dy = event.clientY - p.client0.y;
     if (!p.moved) {
-      if (p.gesture) {
+      if (p.gesture || p.caption) {
         if (Math.abs(dx) < DEAD_ZONE && Math.abs(dy) < DEAD_ZONE) return;
       } else if (!p.marquee || !marqueeRect(p.client0, { x: event.clientX, y: event.clientY }).on) return;
       p.moved = true;
-      setActive(p.gesture?.kind ?? 'marquee');
+      setActive(p.gesture?.kind ?? (p.caption ? 'move' : 'marquee'));
+      if (p.caption && rootRef.current) rootRef.current.style.cursor = 'grabbing';
     }
-    if (p.gesture) {
+    if (p.gesture || p.caption) {
       p.queued = { p: toCanvas(p.env.canvas, p.frame, event.clientX, event.clientY), mods: modsOf(event) };
       if (!p.raf) p.raf = requestAnimationFrame(() => flush(p));
       return;
@@ -436,7 +505,9 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     swallowClick();
     reset();
     // 松开的位置也算上：快速拖动时浏览器会合并 pointermove。
-    if (p.gesture) commit(p.gesture, stepGesture(p.gesture, toCanvas(p.env.canvas, p.frame, event.clientX, event.clientY), modsOf(event), p.env));
+    const at = toCanvas(p.env.canvas, p.frame, event.clientX, event.clientY);
+    if (p.gesture) commit(p.gesture, stepGesture(p.gesture, at, modsOf(event), p.env));
+    else if (p.caption) commitCaption(p.caption, stepCaptionMove(p.caption.move, at, modsOf(event), p.env));
     else if (p.marquee) finishMarquee(p, event.clientX, event.clientY, p.marquee.additive);
   };
 
@@ -446,6 +517,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     press.current = null;
     if (p.raf) cancelAnimationFrame(p.raf);
     if (p.moved && p.gesture) discard(p.gesture);
+    else if (p.moved && p.caption) useEditor.getState().clearDrafts();
     reset();
   };
 
@@ -602,7 +674,10 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     >
       <div ref={spaceRef} className={space} style={frame}>
         {boxes}
-        {captionHits.filter((hit) => selection.includes(hit.itemId)).map((hit, index) => (
+        {(captionShift
+          ? captionShift.hits.map((hit) => ({ ...hit, cy: hit.cy + captionShift.dy }))
+          : captionHits.filter((hit) => selection.includes(hit.itemId))
+        ).map((hit, index) => (
           <ThinBox key={`${hit.itemId}:${hit.cueId}:${index}`} pose={hit} view={view} />
         ))}
         {marquee ? <Marquee rect={marquee} /> : null}

@@ -1,16 +1,15 @@
-import { useCaptionPreferences } from '../../state/caption-preferences-store.ts';
-import type { CaptionItem, DocumentRecord, EditOperation, Id } from '@baocut/protocol';
+import type { CaptionItem, DocumentRecord, Id } from '@baocut/protocol';
 import { ActionButton, Button, Switch } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { useEffect, useState } from 'react';
-import { editLine, followRatio, followShared, lineOverrides, lineSize, lineView, withCaptionStyle } from '../../model/caption-lines.ts';
-import { captionStyleOperations } from '../../model/caption-presets.ts';
+import { editLine, followRatio, followShared, lineOverrides, lineSize, lineView } from '../../model/caption-lines.ts';
 import { captionChips, captionKind, onScreen } from '../../model/caption-tracks.ts';
 import { DEFAULT_CAPTION_STYLE, captionStyleRoot } from '../../model/property-values.ts';
 import { asObject, num, type Json, type LineKind } from '../../render/text-style.ts';
 import { useEditor } from '../../state/editor-store.ts';
 import { useVideo } from '../../state/video-store.ts';
 import { openGallery } from './caption-gallery.tsx';
+import { previewCaptionStyle, saveCaptionStyle } from './caption-style-edit.ts';
 import { draftedBody, dropStaleDraft } from './draft-documents.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { Note, PRow, Sec, SecHead, Seg, ValueRow } from './inspector-controls.tsx';
@@ -93,23 +92,10 @@ export function CaptionPage(props: ItemPageProps<CaptionItem> & { documents: Rec
   const kind: LineKind = paired && picked?.itemId === item.id ? picked.kind : own;
 
   const preview = (next: Json) => {
-    if (!record || body === undefined) return;
-    useEditor.getState().setDocumentDraft({ documentId: record.id, baseRevision: record.currentRevision, body: withCaptionStyle(body, next) });
+    if (body !== undefined) previewCaptionStyle(record, body, next);
   };
   const save = (next: Json, singleLine?: LineKind) => {
-    if (body === undefined) return;
-    const nextBody = withCaptionStyle(body, next);
-    let operations: EditOperation[];
-    if (record) {
-      useEditor.getState().setDocumentDraft({ documentId: record.id, baseRevision: record.currentRevision, body: nextBody });
-      operations = [{ type: 'putDocument', documentId: record.id, kind: record.kind, body: nextBody }];
-    } else {
-      operations = captionStyleOperations(sequence, undefined, nextBody);
-    }
-    void apply(operations, IC.editCaptionStyle).then((receipt) => {
-      if (!receipt) useEditor.getState().clearDrafts();
-      else if (root) useCaptionPreferences.getState().remember(root, next, singleLine);
-    });
+    if (body !== undefined) saveCaptionStyle(apply, { sequence, record, body, before: root, style: next, label: IC.editCaptionStyle }, singleLine);
   };
 
   if (body === undefined)
