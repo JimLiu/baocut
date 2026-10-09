@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { BrowserWindow, Menu, app, dialog, ipcMain, nativeTheme, shell } from 'electron';
+import { BrowserWindow, Menu, app, dialog, ipcMain, nativeTheme, session, shell } from 'electron';
 import { onLocaleChange, setLocale } from '@baocut/protocol';
 import { resolveRuntimeHome } from '@baocut/runtime-storage';
 import { appMenuTemplate } from './app-menu.ts';
@@ -14,6 +14,7 @@ import { installWebTabs } from './web-tabs.ts';
 import { openLocalFile } from './open-local-file.ts';
 import { installStdioErrorGuards } from './stdio-errors.ts';
 import { saveDialogPath } from './save-dialog-path.ts';
+import { desktopRuntimeHeaders, desktopRuntimeResponseHeaders, isDesktopRuntimeRequest } from './runtime-origin.ts';
 
 /**
  * 桌面端主进程：找到或启动 Runtime、开窗口、提供少量原生能力（选目录、在文件夹中显示）。
@@ -57,6 +58,14 @@ export function startDesktopApp(): void {
 
   /** 应用更新的服务；就绪之前退出时还没有。 */
   let updates: AppUpdateService | null = null;
+  const appContents = new Set<number>();
+  let runtimeEndpoint: string | null = null;
+
+  async function connection() {
+    const target = await supervisor.connection();
+    runtimeEndpoint = target.endpoint;
+    return target;
+  }
 
   function createWindow(): BrowserWindow {
     const win = new BrowserWindow({
@@ -79,6 +88,9 @@ export function startDesktopApp(): void {
       },
     });
     win.once('ready-to-show', () => win.show());
+    const contentsId = win.webContents.id;
+    appContents.add(contentsId);
+    win.webContents.once('destroyed', () => appContents.delete(contentsId));
 
     // 开发时把渲染进程的警告和错误也打到终端。
     if (isDev) {
@@ -105,7 +117,7 @@ export function startDesktopApp(): void {
     return win;
   }
 
-  ipcMain.handle('baocut:connection', () => supervisor.connection());
+  ipcMain.handle('baocut:connection', () => connection());
 
   // 选目录：默认是打开项目目录；界面给了标题（例如选保存位置）时用它，按钮写「选择」。标题来自渲染进程，只收短字符串。
   ipcMain.handle('baocut:pick-directory', async (event, request?: { title?: unknown }) => {
@@ -225,12 +237,24 @@ export function startDesktopApp(): void {
   installWebTabs({ appOrigins: devServerUrl ? [new URL(devServerUrl).origin] : [] });
 
   app.whenReady().then(() => {
+    if (isDev && devServerUrl) {
+      const appOrigin = new URL(devServerUrl).origin;
+      const requests = session.defaultSession.webRequest;
+      requests.onBeforeSendHeaders((details, callback) => {
+        const trusted = isDesktopRuntimeRequest(details, runtimeEndpoint, appOrigin, appContents);
+        callback({ requestHeaders: trusted ? desktopRuntimeHeaders(details.requestHeaders) : details.requestHeaders });
+      });
+      requests.onHeadersReceived((details, callback) => {
+        const trusted = isDesktopRuntimeRequest(details, runtimeEndpoint, appOrigin, appContents);
+        callback({ responseHeaders: trusted ? desktopRuntimeResponseHeaders(details.responseHeaders ?? {}, appOrigin) : details.responseHeaders });
+      });
+    }
     // 界面还没告诉主进程语言之前，菜单与对话框按系统的首选语言（BAOCUT_LOCALE 设了时以它为准）。
     setLocale(startupLocale(app.getPreferredSystemLanguages()));
     installAppMenu();
     // 先把 Runtime 拉起来，窗口加载期间并行进行。
     // i18n-ignore: 诊断日志，只打到主进程的终端
-    void supervisor.connection().catch((error) => console.error('[baocut] Runtime 启动失败', error));
+    void connection().catch((error) => console.error('[baocut] Runtime 启动失败', error));
     // 应用自动更新（架构设计 §2.6）：检查、下载、校验都在 Main 里，Runtime 不参与。
     updates = installAppUpdates();
     // macOS 的 Dock 图标不认 BrowserWindow 的 icon，开发态单独设。

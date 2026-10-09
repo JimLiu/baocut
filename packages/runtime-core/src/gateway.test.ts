@@ -1,4 +1,5 @@
 import net from 'node:net';
+import { WebSocket } from 'ws';
 import { describe, expect, it } from 'vitest';
 import { silentLogger } from '@baocut/harness';
 import { PROTOCOL_VERSION, RUNTIME_VERSION, type RuntimeInfo } from '@baocut/protocol';
@@ -50,6 +51,35 @@ async function settledCounts(expected: HandleCounts, ms = 1_000): Promise<Handle
 }
 
 describe('网关', () => {
+  it('rejects unlisted development origins while opaque desktop origins still require the token', async () => {
+    const gateway = newGateway();
+    const endpoint = await gateway.listen();
+    async function connect(origin: string, token = 'token') {
+      const socket = new WebSocket(endpoint, { origin });
+      const result = within(new Promise<Record<string, unknown>>((resolve, reject) => {
+        socket.once('error', reject);
+        socket.once('open', () => socket.send(JSON.stringify({
+          type: 'hello', token, protocolVersion: PROTOCOL_VERSION,
+          client: { kind: 'desktop', name: 'fixture', version: RUNTIME_VERSION },
+        })));
+        socket.once('message', (data) => resolve(JSON.parse(data.toString())));
+        socket.once('close', (code, reason) => resolve({ code, reason: reason.toString() }));
+      }), 2_000);
+      try {
+        return await result;
+      } finally {
+        socket.terminate();
+      }
+    }
+    try {
+      expect(await connect('http://localhost:5174')).toEqual({ code: 1008, reason: 'origin not allowed' });
+      expect(await connect('null')).toMatchObject({ type: 'welcome' });
+      expect(await connect('null', 'wrong-token')).toMatchObject({ type: 'fatal', error: { code: 'unauthenticated' } });
+    } finally {
+      await gateway.close();
+    }
+  });
+
   it('端口被占用：listen 带着原始错误拒绝，不留下监听或心跳定时器', async () => {
     const blocker = net.createServer();
     await new Promise<void>((resolve) => blocker.listen(0, '127.0.0.1', resolve));

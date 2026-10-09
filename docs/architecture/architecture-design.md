@@ -2731,6 +2731,8 @@ Electron Renderer 关闭 Node integration，启用 context isolation 与 sandbox
 
 本机的 WebSocket 仍然需要认证、Origin 校验与作用域校验。媒体通道的句柄限定到视频、素材版本和使用方（§5.6）。
 
+**桌面开发态复用连接**。Vite 的来源可能随端口变化，CLI 先启动的 Runtime 也可能没有开发来源白名单。Electron 主进程仅对已登记的应用窗口、来源等于当前 Vite 地址的请求框架、目标等于已发现 Runtime 的 `127.0.0.1` 精确端口的 WebSocket / HTTP 请求，将已有 `Origin` 映射为网关已支持的 `null`；HTTP 回答中对应的 `Access-Control-Allow-Origin: null` 映射回应用来源。令牌、媒体与附件句柄校验不变，不重启共享 Runtime、不扩大其白名单。外部网页、其他端口与未知框架不得走该映射；打包后的 `file://` 与 Web 服务连接保持各自已有规则。
+
 ### 12.3 视频写入权
 
 Engine Host 只接受 Runtime 的私有授权通道。智能体进程、模型进程和代码 Worker 不获得 VideoStore 的路径与写权限。
