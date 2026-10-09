@@ -1,4 +1,4 @@
-import { defineMessages, transcriptStamp } from '@baocut/protocol';
+import { defineMessages, transcriptMarkdownText, transcriptOneLine, transcriptStamp } from '@baocut/protocol';
 import type { TextRange } from './text-find.ts';
 import { editWordText, rawWordId, type TranscriptWord } from './transcript-cut.ts';
 import { readTranslation, speechSentences, unitText } from './translation-doc.ts';
@@ -27,9 +27,8 @@ import { vi } from './transcript-text.vi.ts';
  * - 译文按句对应到段：一句归它第一个词所在的那一段，段里各句的译文按次序接起来。
  */
 
-/** 复制时的说话人行与复制回执（译文在 `transcript-text.<语言>.ts`）。 */
+/** 复制回执（译文在 `transcript-text.<语言>.ts`）。 */
 const en = {
-  speakerHead: (speaker: string) => `${speaker}:`,
   receipt: (paragraphs: number, amount: string) => `${paragraphs} ${paragraphs === 1 ? 'paragraph' : 'paragraphs'} · ${amount}`,
   characters: (n: number) => `${n} ${n === 1 ? 'character' : 'characters'}`,
   words: (n: number) => `${n} ${n === 1 ? 'word' : 'words'}`,
@@ -189,19 +188,79 @@ export function viewText(para: Pick<CopyParagraph, 'text' | 'translation'>, view
   return para.text;
 }
 
+/** 只要文字（「只复制文字」与选区的复制）：段与段之间空一行，不带说话人与时间。 */
+export function copyText(paras: readonly CopyParagraph[], options: { view: TranscriptView }): string {
+  return paras.map((para) => viewText(para, options.view)).join('\n\n');
+}
+
+/** 文稿的一节：章节（第一章之前、不写章节时 null）与归它的段。 */
+export interface CopySection {
+  chapter: { title: string; start: number } | null;
+  paras: readonly CopyParagraph[];
+}
+
+export interface TranscriptWriteOptions {
+  format: 'md' | 'txt';
+  view: TranscriptView;
+  speakers: boolean;
+  timestamps: boolean;
+  /** Markdown 开头的一级标题（视频名）；节选（这一段、这一章）不写。 */
+  title?: string | null;
+}
+
 /**
- * 复制成纯文本：段与段之间空一行；带时间码或说话人时先写一行 `mm:ss 说话人：`，正文另起一行。没有说话人的段只写时间码。
+ * 按导出文稿的写法排出几节段落（命令与协议规范 §4.4，与 Runtime text-export.ts 的 `writeMarkdown` / `writeText` 逐行对应）：
+ * 复制这一段、这一章，以及只看译文时的全文——这几种 Runtime 排不了（范围导出的时间从范围起点算、Markdown 总带标题；
+ * 主文档不收译文）。其余的全文复制走 `exports.renderText`，与导出的文件逐字节相同。
+ *
+ * - Markdown：章节 `## 名字`（带时间戳时 ` · mm:ss`），段 `**说话人:** 正文 [mm:ss]`，双语的译文另起一块 `> 译文`；标记字符转义。
+ * - 纯文本：章节 `— 名字 —`，段 `说话人: 正文 [mm:ss]`，双语的译文紧接下一行。
+ * - 只看译文时译文当正文写；正文是空的段不写，没有段落的章不写。块与块之间空一行，末尾不加换行。
  */
-export function copyText(paras: readonly CopyParagraph[], options: { view: TranscriptView; time?: boolean; speaker?: boolean }): string {
-  return paras
-    .map((para) => {
-      const head: string[] = [];
-      if (options.time) head.push(timeStamp(para.start));
-      if (options.speaker && para.speaker) head.push(M.speakerHead(para.speaker));
-      const text = viewText(para, options.view);
-      return head.length ? `${head.join(' ')}\n${text}` : text;
-    })
-    .join('\n\n');
+export function writeTranscript(sections: readonly CopySection[], options: TranscriptWriteOptions): string {
+  const md = options.format === 'md';
+  const stamp = (seconds: number) => (options.timestamps ? transcriptStamp(seconds) : null);
+  const out: string[] = [];
+  if (md && options.title) out.push(`# ${transcriptMarkdownText(options.title)}`);
+  for (const section of sections) {
+    const paras = section.paras.filter((p) => (options.view === 'translation' ? p.translation : p.text).trim());
+    if (!paras.length) continue;
+    const chapter = section.chapter;
+    if (chapter) {
+      const at = stamp(chapter.start);
+      out.push(md ? `## ${transcriptMarkdownText(transcriptOneLine(chapter.title))}${at ? ` · ${at}` : ''}` : `— ${transcriptOneLine(chapter.title)} —`);
+    }
+    for (const p of paras) {
+      const text = options.view === 'translation' ? p.translation : p.text;
+      const translation = options.view === 'both' ? p.translation : '';
+      const at = stamp(p.start);
+      const end = at ? ` [${at}]` : '';
+      const speaker = options.speakers ? p.speaker : null;
+      if (md) {
+        out.push(`${speaker ? `**${transcriptMarkdownText(speaker)}:** ` : ''}${transcriptMarkdownText(text)}${end}`);
+        if (translation) out.push(`> ${transcriptMarkdownText(translation)}`);
+      } else {
+        const head = `${speaker ? `${speaker}: ` : ''}${text}${end}`;
+        out.push(translation ? `${head}\n${translation}` : head);
+      }
+    }
+  }
+  return out.join('\n\n');
+}
+
+/** 按章节分节：一段归它开始时已经开始的最后一章（与导出同一个归法）。`chapters` 按开始排好。 */
+export function chapterSections(paras: readonly CopyParagraph[], chapters: readonly { title: string; start: number }[]): CopySection[] {
+  const out: { chapter: CopySection['chapter']; paras: CopyParagraph[] }[] = [];
+  let current = -1;
+  for (const para of paras) {
+    const index = chapters.findLastIndex((c) => c.start <= para.start + 1e-6);
+    const heading = index >= 0 && index !== current;
+    if (index >= 0) current = index;
+    const last = out.at(-1);
+    if (last && !heading) last.paras.push(para);
+    else out.push({ chapter: heading ? chapters[index]! : null, paras: [para] });
+  }
+  return out;
 }
 
 /** 复制的回执：段数加字数——中文按字、拉丁文字按词（两种语言的「量」不是一回事），哪种多按哪种算。 */

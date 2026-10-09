@@ -4,6 +4,8 @@ import {
   EXPORT_MAX_LINES_PER_CUE,
   refOf,
   TRANSCRIPT_PARAGRAPH,
+  transcriptMarkdownText as markdownText,
+  transcriptOneLine as oneLine,
   transcriptStamp,
   type JobWarning,
   type Localized,
@@ -686,15 +688,6 @@ function paragraphsOf(segments: TextSegment[], breaks: readonly number[] = []): 
 
 function joinSentences(texts: string[]): string {
   return joinWords(texts, false);
-}
-
-function markdownText(text: string): string {
-  return text.replace(/([\\`*_[\]<>#|])/g, '\\$1');
-}
-
-/** 空白（含换行）折成一个空格：小标题、文首的值都只占一行。 */
-function oneLine(text: string): string {
-  return text.split(/\s+/).filter(Boolean).join(' ');
 }
 
 /** 文首元信息的一个值：折成一行，再按 JSON 写成双引号字符串（合法的 YAML 标量）。 */

@@ -114,6 +114,16 @@ export function transcriptStamp(seconds: number): string {
   return h > 0 ? `${pad(h)}:${pad(m)}:${pad(total % 60)}` : `${pad(m)}:${pad(total % 60)}`;
 }
 
+/** Markdown 文稿里的文字（正文、说话人、章节名）：转义 Markdown 的标记字符。导出的文稿与编辑器文稿面板的复制同一个写法。 */
+export function transcriptMarkdownText(text: string): string {
+  return text.replace(/([\\`*_[\]<>#|])/g, '\\$1');
+}
+
+/** 空白（含换行）折成一个空格：文稿的小标题、文首的值都只占一行。 */
+export function transcriptOneLine(text: string): string {
+  return text.split(/\s+/).filter(Boolean).join(' ');
+}
+
 /**
  * 成片画面里烧着的字幕是哪些语言（成片的默认文件名后缀，命令与协议规范 §4）：启用的字幕实例所在的字幕轨这次画进画面
  * （可见；有视觉组的轨在独显时只算独显的），取它们字幕文档的语言。按时间线从上到下排，去重；没写语言的文档不算。

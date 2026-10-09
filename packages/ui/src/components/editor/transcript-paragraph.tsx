@@ -3,7 +3,6 @@ import type { Id } from '@baocut/protocol';
 import { ActionButton, Header, Heading, Menu, MenuItem, MenuSection, MenuTrigger, Text, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
 import ChevronDown from '@react-spectrum/s2/icons/ChevronDown';
 import ChevronUp from '@react-spectrum/s2/icons/ChevronUp';
-import Copy from '@react-spectrum/s2/icons/Copy';
 import Cut from '@react-spectrum/s2/icons/Cut';
 import More from '@react-spectrum/s2/icons/More';
 import Play from '@react-spectrum/s2/icons/Play';
@@ -14,12 +13,13 @@ import { displayWidth } from '../../model/speech-cues.ts';
 import type { TextRange } from '../../model/text-find.ts';
 import { playedEnd, type TranscriptParagraph, type TranscriptWord } from '../../model/transcript-cut.ts';
 import { wordHighlights, type ParagraphText, type TranscriptView, type WordHighlight } from '../../model/transcript-text.ts';
+import { scopeCopyItems, useScopeCopy } from './transcript-copy-button.tsx';
 import { TRANSCRIPT_COPY as C, TRANSCRIPT_TOOLS_COPY as T } from './transcript-copy.ts';
 import { useHoldRow } from './use-virtual-rows.ts';
 
 /**
  * 文稿里的一段（设计稿 panels.jsx `ParaRow`）：头行是说话人、段首时间（点了跳过去），右边悬停才出的 ↑ ↓（挪到相邻章）、
- * 播放本段与 ⋯ 菜单（复制这一段、换到哪一章、剪掉这一段）；下面是词（看原文、双语时）与译文行（看译文、双语时）。
+ * 播放本段与 ⋯ 菜单（复制这一段——按复制设置或只要文字、换到哪一章、剪掉这一段）；下面是词（看原文、双语时）与译文行（看译文、双语时）。
  * 查找命中标在词上（盖住词间空格时连空格一起标）与译文行上。动作都交回文稿面板做（`onAction`）。
  *
  * 段落是文稿虚拟列表里的一行：与上一行的 8px 间距由列表的行外层给；⋯ 菜单开着时要求列表别卸掉这一行（菜单挂在这一行的钮上）。
@@ -33,7 +33,8 @@ export interface ParaMarks {
 }
 
 /** 段落行上的动作。 */
-export type ParagraphAction = 'play' | 'up' | 'down' | 'copy' | 'copy-timed' | 'cut';
+/** `copy` 只要文字，`copy-set` 按复制设置（transcript-copy-button.tsx）。 */
+export type ParagraphAction = 'play' | 'up' | 'down' | 'copy' | 'copy-set' | 'cut';
 
 /** 段落挪到相邻章的两种做法，与挪不了的原因。有两章以上才有。 */
 export interface ParagraphMoves {
@@ -222,6 +223,7 @@ export const Paragraph = memo(
     onAction(assetId: Id, index: number, action: ParagraphAction, moves: ParagraphMoves | null): void;
   }) {
     const [hovered, setHovered] = useState(false);
+    const scopeCopy = useScopeCopy('para');
     const [focused, setFocused] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     useHoldRow(menuOpen);
@@ -283,14 +285,7 @@ export const Paragraph = memo(
                   <Header>
                     <Heading>{T.copyScopeHead(T.scopePara)}</Heading>
                   </Header>
-                  <MenuItem id="copy" textValue={T.copyText}>
-                    <Copy />
-                    <Text slot="label">{T.copyText}</Text>
-                  </MenuItem>
-                  <MenuItem id="copy-timed" textValue={T.copyTimed}>
-                    <Copy />
-                    <Text slot="label">{T.copyTimed}</Text>
-                  </MenuItem>
+                  {scopeCopyItems(scopeCopy)}
                 </MenuSection>
                 {moves ? (
                   <MenuSection>

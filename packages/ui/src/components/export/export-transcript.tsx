@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Id, TranscriptExportFormat } from '@baocut/protocol';
-import { ActionButton, Checkbox, Picker, PickerItem, SegmentedControl, SegmentedControlItem, Switch } from '@react-spectrum/s2';
+import { ActionButton, Picker, PickerItem, SegmentedControl, SegmentedControlItem, Switch } from '@react-spectrum/s2';
 import Checkmark from '@react-spectrum/s2/icons/Checkmark';
 import Copy from '@react-spectrum/s2/icons/Copy';
 import Transcript from '@react-spectrum/s2/icons/Transcript';
@@ -14,6 +14,7 @@ import { copyToClipboard } from '../editor/transcript-actions.ts';
 import { EXPORT_COPY } from './export-copy.ts';
 import { SubmitFoot } from './export-footer.tsx';
 import { FileRows, Lane, Lanes, Note, PlaceRow, Quick, QuickField, Sec, SumRow, Summary } from './export-parts.tsx';
+import { TranscriptIncludeChecks } from './transcript-include.tsx';
 import type { ExportEnv, ExportSubmit } from './use-export-submit.ts';
 import { useRenderedText } from './use-rendered-text.ts';
 
@@ -22,7 +23,8 @@ import { useRenderedText } from './use-rendered-text.ts';
  *
  * 落到 Runtime（text-export.ts，写法见命令与协议规范 §4.4）的是：主文档（转写，没有时取时间轴上的字幕）、可选一份译文
  * 作双语对照、md / txt，以及五个选项——文首元信息（只 Markdown；勾选跨会话记住，没存过时勾选）、章节标题（来自序列上的
- * 章节标记，视频没有章节时置灰）、段落时间戳、说话人、跳过已剪段（关掉时是剪之前的整份原文，时间按素材算）。
+ * 章节标记，视频没有章节时置灰）、段落时间戳、说话人、跳过已剪段（关掉时是剪之前的整份原文，时间按素材算）。五个开关与
+ * 文稿面板的复制设置共用（transcript-include.tsx）。
  * 分段与文稿面板同一套规则（`TRANSCRIPT_PARAGRAPH`）。
  * 与设计稿的出入：译文不能单独成稿（主文档只认转写与字幕），原文那一行锁着开；译文一次配一门。
  *
@@ -30,7 +32,6 @@ import { useRenderedText } from './use-rendered-text.ts';
  * 与导出的文件逐字节相同：预览框固定高度、可滚动，铺全文；复制成功时图标换成绿色对勾，3 秒后换回。
  */
 
-const checks = style({ display: 'flex', flexWrap: 'wrap', columnGap: 16, rowGap: 4 });
 const row = style({ marginTop: 12 });
 /** 复制成功后对勾停留多久。 */
 const COPIED_MS = 3000;
@@ -172,23 +173,12 @@ export function ExportTranscriptTab({ env, submitter, onClose }: { env: ExportEn
       <Note>{format.note}</Note>
 
       <Sec>{EXPORT_COPY.include}</Sec>
-      <div className={checks}>
-        <Checkbox size="S" isDisabled={form.format !== 'md'} isSelected={effective.frontmatter} onChange={setFrontmatter}>
-          {EXPORT_COPY.frontmatter}
-        </Checkbox>
-        <Checkbox size="S" isDisabled={!hasChapters} isSelected={effective.chapters} onChange={(chapters) => set({ chapters })}>
-          {EXPORT_COPY.chapters}
-        </Checkbox>
-        <Checkbox size="S" isSelected={form.timestamps} onChange={(timestamps) => set({ timestamps })}>
-          {EXPORT_COPY.timestamps}
-        </Checkbox>
-        <Checkbox size="S" isSelected={form.speakers} onChange={(speakers) => set({ speakers })}>
-          {EXPORT_COPY.speakers}
-        </Checkbox>
-        <Checkbox size="S" isSelected={form.skipCut} onChange={(skipCut) => set({ skipCut })}>
-          {EXPORT_COPY.skipCut}
-        </Checkbox>
-      </div>
+      {/* 与文稿面板的复制设置同一组开关（transcript-include.tsx） */}
+      <TranscriptIncludeChecks
+        value={effective}
+        disabled={{ frontmatter: form.format !== 'md', chapters: !hasChapters }}
+        onChange={(key, on) => (key === 'frontmatter' ? setFrontmatter(on) : set({ [key]: on }))}
+      />
       {form.format !== 'md' ? <Note>{EXPORT_COPY.frontmatterMdOnly}</Note> : null}
       {!hasChapters ? <Note>{EXPORT_COPY.transcriptNoChapters}</Note> : null}
       {!form.skipCut ? <Note>{EXPORT_COPY.keepCutNote}</Note> : null}

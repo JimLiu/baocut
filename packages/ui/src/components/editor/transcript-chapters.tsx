@@ -1,7 +1,6 @@
 import { useRef, useState, type HTMLAttributes, type Ref } from 'react';
 import type { Id, Sequence } from '@baocut/protocol';
 import { ActionButton, Header, Heading, Menu, MenuItem, MenuSection, MenuTrigger, Text, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
-import Copy from '@react-spectrum/s2/icons/Copy';
 import Cut from '@react-spectrum/s2/icons/Cut';
 import Delete from '@react-spectrum/s2/icons/Delete';
 import Edit from '@react-spectrum/s2/icons/Edit';
@@ -14,6 +13,7 @@ import { removeChapter, renameChapter } from './chapter-commands.ts';
 import { CHAPTER_COPY as C } from './chapter-copy.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { applyChapterCut } from './transcript-actions.ts';
+import { scopeCopyItems, useScopeCopy } from './transcript-copy-button.tsx';
 import { TRANSCRIPT_TOOLS_COPY as T } from './transcript-copy.ts';
 import { useHoldRow } from './use-virtual-rows.ts';
 
@@ -23,8 +23,8 @@ import { useHoldRow } from './use-virtual-rows.ts';
  * `chapter` 为 null 时是「第一章之前」。头行本身就是文稿虚拟列表里的一行（`rowProps`：量高的 ref 与列表项属性），吸顶靠它是
  * 那一节外层的直接子元素；菜单开着、章名输入框开着时要求列表别卸掉这一行。
  *
- * 最右是「这一章…」菜单（设计稿 `.chead__b` + `ScopeMenu`，悬停、焦点在上面或菜单开着时显出来）：复制这一章（文字 / 带时间码
- * 与说话人，由文稿面板按这一章的段拼）、改名、剪掉这一章（`removeRange` 删掉这段时间，删标记，后面的章前移，一笔事务）、
+ * 最右是「这一章…」菜单（设计稿 `.chead__b` + `ScopeMenu`，悬停、焦点在上面或菜单开着时显出来）：复制这一章（按复制设置 /
+ * 只要文字，由文稿面板按这一章的段排）、改名、剪掉这一章（`removeRange` 删掉这段时间，删标记，后面的章前移，一笔事务）、
  * 删除章节标记（内容不动）。「第一章之前」只有复制。设计稿菜单里只对一章重跑转录、润色、识别说话人的几项没有做（按章的重跑
  * 还没有）；拖段落换章也没有做，用段落行的 ↑ ↓。
  */
@@ -120,8 +120,8 @@ export function TranscriptChapterHead({
   paragraphs: number;
   /** 剪掉这一章时声明的轨道（与文稿里剪一段同一套：取用了素材的轨道、链接的轨道与字幕轨）。 */
   cutTrackIds: readonly Id[];
-  /** 复制这一章的段。 */
-  onCopy(options: { time?: boolean; speaker?: boolean }): void;
+  /** 复制这一章的段：按复制设置，或只要文字。 */
+  onCopy(withSettings: boolean): void;
 }) {
   const actions = useEditorActions();
   const editable = useVideo((s) => canEdit(s.video));
@@ -130,6 +130,8 @@ export function TranscriptChapterHead({
   const [rowHovered, setRowHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // 「第一章之前」没有章节标题可写，按这一段算。
+  const scopeCopy = useScopeCopy(chapter ? 'chapter' : 'para');
   // Enter 写入后输入框卸掉时还可能来一次失焦：只写一次。
   const settled = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -193,8 +195,7 @@ export function TranscriptChapterHead({
 
   const cutPlan = chapter ? cutChapterOperations(sequence, sequenceChapters(sequence), chapter, cutTrackIds) : null;
   const onAction = (key: string) => {
-    if (key === 'copy') onCopy({});
-    else if (key === 'copy-timed') onCopy({ time: true, speaker: true });
+    if (key === 'copy' || key === 'copy-set') onCopy(key === 'copy-set');
     else if (!chapter || !editable) return;
     else if (key === 'rename') {
       startEdit();
@@ -225,14 +226,7 @@ export function TranscriptChapterHead({
             <Header>
               <Heading>{T.copyScopeHead(scope)}</Heading>
             </Header>
-            <MenuItem id="copy" textValue={T.copyText}>
-              <Copy />
-              <Text slot="label">{T.copyText}</Text>
-            </MenuItem>
-            <MenuItem id="copy-timed" textValue={T.copyTimed}>
-              <Copy />
-              <Text slot="label">{T.copyTimed}</Text>
-            </MenuItem>
+            {scopeCopyItems(scopeCopy)}
           </MenuSection>
           {chapter ? (
             <MenuSection>

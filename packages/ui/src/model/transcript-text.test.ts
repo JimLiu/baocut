@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { compileFind, findRanges } from './text-find.ts';
 import type { TranscriptWord } from './transcript-cut.ts';
 import {
+  chapterSections,
   copyReceipt,
   lengthReceipt,
   copyText,
@@ -10,6 +11,7 @@ import {
   replaceInParagraph,
   timeStamp,
   wordHighlights,
+  writeTranscript,
   type CopyParagraph,
 } from './transcript-text.ts';
 
@@ -142,14 +144,56 @@ describe('复制', () => {
     expect(copyText(paras, { view: 'source' })).toBe('大家好，欢迎收看。\n\nThen we start.');
   });
 
-  it('带时间码与说话人：头一行，正文另起；没有说话人的段只写时间码', () => {
-    expect(copyText(paras, { view: 'source', time: true, speaker: true })).toBe('00:12 主持人：\n大家好，欢迎收看。\n\n01:05\nThen we start.');
-    expect(copyText(paras.slice(0, 1), { view: 'source', speaker: true })).toBe('主持人：\n大家好，欢迎收看。');
-  });
-
   it('译文与双语：双语是原文一行、译文一行', () => {
     expect(copyText(paras, { view: 'translation' })).toBe('Hello everyone.\n\n然后我们开始。');
     expect(copyText(paras.slice(0, 1), { view: 'both' })).toBe('大家好，欢迎收看。\nHello everyone.');
+  });
+
+  it('按导出文稿的写法排（§4.4）：Markdown 说话人加粗、时间戳在段尾，标记字符转义', () => {
+    const md = { format: 'md', view: 'source', speakers: true, timestamps: true } as const;
+    expect(writeTranscript([{ chapter: null, paras }], md)).toBe('**主持人:** 大家好，欢迎收看。 [00:12]\n\nThen we start. [01:05]');
+    expect(writeTranscript([{ chapter: null, paras: [{ ...paras[1]!, text: 'a*b_c #1' }] }], { ...md, timestamps: false })).toBe('a\\*b\\_c \\#1');
+    // 双语的译文另起一块引用；只看译文时译文当正文写。
+    expect(writeTranscript([{ chapter: null, paras: paras.slice(0, 1) }], { ...md, view: 'both', timestamps: false })).toBe(
+      '**主持人:** 大家好，欢迎收看。\n\n> Hello everyone.',
+    );
+    expect(writeTranscript([{ chapter: null, paras }], { ...md, view: 'translation', speakers: false, timestamps: false })).toBe(
+      'Hello everyone.\n\n然后我们开始。',
+    );
+  });
+
+  it('纯文本：说话人后跟冒号，双语译文紧接下一行；标题只在 Markdown 写', () => {
+    const txt = { format: 'txt', view: 'both', speakers: true, timestamps: false, title: '访谈' } as const;
+    expect(writeTranscript([{ chapter: null, paras }], txt)).toBe('主持人: 大家好，欢迎收看。\nHello everyone.\n\nThen we start.\n然后我们开始。');
+    expect(writeTranscript([{ chapter: null, paras: paras.slice(1) }], { ...txt, format: 'md', view: 'source' })).toBe('# 访谈\n\nThen we start.');
+  });
+
+  it('章节：Markdown 是二级标题（带时间戳时加 · mm:ss），纯文本是 — 名字 —；正文是空的段与没有段的章不写', () => {
+    const sections = [
+      { chapter: { title: '开场', start: 0 }, paras: paras.slice(0, 1) },
+      { chapter: { title: '空章', start: 30 }, paras: [{ ...paras[1]!, text: ' ' }] },
+      { chapter: { title: '正题\n第一部分', start: 60 }, paras: paras.slice(1) },
+    ];
+    expect(writeTranscript(sections, { format: 'md', view: 'source', speakers: false, timestamps: true })).toBe(
+      '## 开场 · 00:00\n\n大家好，欢迎收看。 [00:12]\n\n## 正题 第一部分 · 01:00\n\nThen we start. [01:05]',
+    );
+    expect(writeTranscript(sections, { format: 'txt', view: 'source', speakers: false, timestamps: false })).toBe(
+      '— 开场 —\n\n大家好，欢迎收看。\n\n— 正题 第一部分 —\n\nThen we start.',
+    );
+  });
+
+  it('按章分节：段归它开始时已经开始的最后一章；第一章之前的段没有标题；同一章接着的段不重复标题', () => {
+    const chapters = [
+      { title: '一', start: 10 },
+      { title: '二', start: 60 },
+    ];
+    const at = (start: number): CopyParagraph => ({ start, speaker: null, text: String(start), translation: '' });
+    const sections = chapterSections([at(0), at(10), at(30), at(65), at(5)], chapters);
+    expect(sections.map((s) => [s.chapter?.title ?? null, s.paras.map((p) => p.start)])).toEqual([
+      [null, [0]],
+      ['一', [10, 30]],
+      ['二', [65, 5]],
+    ]);
   });
 
   it('回执：段数加字数，中文按字、拉丁按词，哪种多按哪种', () => {

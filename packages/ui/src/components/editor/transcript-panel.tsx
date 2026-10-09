@@ -83,7 +83,6 @@ import {
 } from '../../model/transcript-cut.ts';
 import {
   copyReceipt,
-  copyText,
   paragraphText,
   paragraphTranslations,
   replaceInParagraph,
@@ -102,6 +101,7 @@ import { EditorContext, useEditorActions, type EditorActions } from './editor-co
 import { PanelHead } from './panel-head.tsx';
 import { applyCut, applyParagraphMove, applyRestore, applyTextReplace, copyToClipboard } from './transcript-actions.ts';
 import { TranscriptChapterEmpty, TranscriptChapterHead } from './transcript-chapters.tsx';
+import { copyScope, TranscriptCopyButton } from './transcript-copy-button.tsx';
 import { TRANSCRIPT_COPY as C, TRANSCRIPT_TOOLS_COPY as T } from './transcript-copy.ts';
 import { TranscriptFindBar } from './transcript-find-bar.tsx';
 import { LiveTranscript, useLiveTranscriptJob } from './transcript-live.tsx';
@@ -120,10 +120,11 @@ import { EDITOR_COPY as E } from './editor-copy.ts';
  * - 「剪辑音画」：拖选或 ⇧ 点选一段词，⌫ 或「剪掉」编成一笔 `addCuts`；已剪的词选中后「恢复」是新的一笔事务（AT-08）。
  *
  * 页头（设计稿 `.panelhd`）：查找和替换（⌘F；命中在词上标出，替换落到转写正文的词上，一次替换是一笔事务、可撤销；译文只查
- * 不改）、复制全文（文字 / 带说话人 / 带时间码与说话人）。模式标签旁是语言钮：有译文文档时可以只看译文或双语对照，
- * 译文按句归到段（段级跟随，没有词级时间）。只看译文时不能改字、不能剪。
+ * 不改）、复制全文（一点按记住的组合复制，下拉是「复制设置」，见 transcript-copy-button.tsx）。模式标签旁是语言钮：有译文
+ * 文档时可以只看译文或双语对照，译文按句归到段（段级跟随，没有词级时间）。只看译文时不能改字、不能剪。
  *
- * 段落行（设计稿 `ParaRow`）：悬停时出 ↑ ↓（把这一段挪到相邻章，有两章以上才有）、播放本段、⋯（复制这一段、换章、剪掉这一段）。
+ * 段落行（设计稿 `ParaRow`）：悬停时出 ↑ ↓（把这一段挪到相邻章，有两章以上才有）、播放本段、⋯（复制这一段——按复制设置或
+ * 只要文字、换章、剪掉这一段）。
  * 章节头行的「这一章…」菜单见 transcript-chapters.tsx。选区可以复制（⌘C）。
  *
  * 面板有焦点时 ⌫ / Delete 一律在这里截住（没有选区时什么也不做），免得落到时间线上删掉选中的片段。
@@ -411,6 +412,8 @@ export function TranscriptPanel({
   const cache = useRuntime().videos.documents;
   const editable = useVideo((s) => canEdit(s.video));
   const videoId = useVideo((s) => s.video?.videoId ?? null);
+  const videoName = useVideo((s) => s.video?.state?.video?.name ?? null);
+  const videoReady = useVideo((s) => s.video?.status === 'ready');
   const web = useRuntime().host.platform === 'web';
   const mode = useTranscriptMode((s) => s.mode);
   const setMode = useTranscriptMode((s) => s.setMode);
@@ -652,18 +655,14 @@ export function TranscriptPanel({
     setMatchIndex(0);
   };
 
-  // ---- 复制（设计稿 `copyAll` / `ScopeMenu`）：纯文字，按当前语言视图 ----
+  // ---- 复制（设计稿 transcript-copy.jsx）：按当前语言视图；全文见复制钮，节选按复制设置或只要文字 ----
 
-  // 全部段落的复制文本与「几段 · 几字」只在复制或打开复制菜单时才算：切到文稿页签、换视图时不扫一遍全文。
+  // 全部段落只在复制或打开复制设置时才算：切到文稿页签、换视图时不扫一遍全文。
   const allParagraphs = useMemo(() => {
     let paras: CopyParagraph[] | undefined;
     const whole = (m: SourceModel) => copyParagraphs(m, [...m.paragraphs.keys()]);
     return () => (paras ??= models.flatMap(whole));
   }, [models]);
-  const copyAll = (opts: { time?: boolean; speaker?: boolean }) => {
-    const paras = allParagraphs();
-    void copyToClipboard(copyText(paras, { view, ...opts }), T.copied(T.scopeAll, copyReceipt(paras, view)));
-  };
 
   const copySelection = () => {
     if (!model || !selected.size) return;
@@ -688,8 +687,8 @@ export function TranscriptPanel({
     );
   };
 
-  /** 「这一章」的复制：这份转写里归这一章的段（章节头行的菜单调）。`chapter` 为 null 是第一章之前。 */
-  const copyChapter = useStable((assetId: Id, rows: readonly ChapterRow[], chapter: ChapterSpan | null, opts: { time?: boolean; speaker?: boolean }) => {
+  /** 「这一章」的复制：这份转写里归这一章的段（章节头行的菜单调）。`chapter` 为 null 是第一章之前（没有章节标题可写）。 */
+  const copyChapter = useStable((assetId: Id, rows: readonly ChapterRow[], chapter: ChapterSpan | null, withSettings: boolean) => {
     const target = byAsset.get(assetId);
     if (!target) return;
     const indices: number[] = [];
@@ -698,9 +697,14 @@ export function TranscriptPanel({
       if (row.kind === 'chapter') under = row.chapter?.id ?? null;
       else if (under === (chapter?.id ?? null)) indices.push(row.index);
     }
-    const paras = copyParagraphs(target, indices);
-    const scope = T.scopeChapter(chapter ? chapter.title : CHAPTER_COPY.beforeFirst);
-    void copyToClipboard(copyText(paras, { view, ...opts }), T.copied(scope, copyReceipt(paras, view)));
+    void copyScope({
+      scope: chapter ? 'chapter' : 'para',
+      label: T.scopeChapter(chapter ? chapter.title : CHAPTER_COPY.beforeFirst),
+      paras: copyParagraphs(target, indices),
+      chapter,
+      view,
+      withSettings,
+    });
   });
 
   // ---- 动作 ----
@@ -783,12 +787,16 @@ export function TranscriptPanel({
         if (!useEditor.getState().playing) actions.togglePlay();
         return;
       case 'copy':
-      case 'copy-timed': {
-        const paras = copyParagraphs(target, [index]);
-        const opts = action === 'copy-timed' ? { time: true, speaker: true } : {};
-        void copyToClipboard(copyText(paras, { view, ...opts }), T.copied(T.scopePara, copyReceipt(paras, view)));
+      case 'copy-set':
+        void copyScope({
+          scope: 'para',
+          label: T.scopePara,
+          paras: copyParagraphs(target, [index]),
+          chapter: null,
+          view,
+          withSettings: action === 'copy-set',
+        });
         return;
-      }
       case 'up':
       case 'down': {
         const move = action === 'up' ? moves?.up : moves?.down;
@@ -963,31 +971,22 @@ export function TranscriptPanel({
           </ActionButton>
           <Tooltip>{T.findTip}</Tooltip>
         </TooltipTrigger>
-        <MenuTrigger align="end">
-          <TooltipTrigger>
-            <ActionButton isQuiet size="S" aria-label={T.copyMenu} isDisabled={!loadedParagraphs}>
-              <Copy />
-            </ActionButton>
-            <Tooltip>{T.copyMenu}</Tooltip>
-          </TooltipTrigger>
-          <Menu
-            aria-label={T.copyMenu}
-            onAction={(key) => copyAll(key === 'timed' ? { time: true, speaker: true } : key === 'speaker' ? { speaker: true } : {})}>
-            <MenuSection>
-              <Header>
-                <Heading>{T.copyAllHead(viewLabel)}</Heading>
-              </Header>
-              <MenuItem id="text" textValue={T.copyText}>
-                <Text slot="label">{T.copyText}</Text>
-                <Text slot="description">
-                  <CopyReceipt paragraphs={allParagraphs} view={view} />
-                </Text>
-              </MenuItem>
-              <MenuItem id="speaker">{T.copySpeaker}</MenuItem>
-              <MenuItem id="timed">{T.copyTimed}</MenuItem>
-            </MenuSection>
-          </Menu>
-        </MenuTrigger>
+        <TranscriptCopyButton
+          input={{
+            videoId,
+            ready: videoReady,
+            revision: `${sequence.revision}|${records.map((r) => `${r.id}@${r.currentRevision}`).join(',')}`,
+            sources: sources.map((s) => ({ documentId: s.record.id, translationId: translationRecords.get(s.record.id)?.id ?? null })),
+            view,
+            viewLabel,
+            hasChapters: chapters.length > 0,
+            chapters,
+            title: videoName,
+            paragraphs: allParagraphs,
+            documents,
+            disabled: !loadedParagraphs || !videoReady,
+          }}
+        />
         {!web && videoId ? (
           <MenuTrigger align="end">
             <TooltipTrigger>
@@ -1174,11 +1173,6 @@ export function TranscriptPanel({
 /** 文稿头上工具菜单的两组（原型 panels.jsx）：整理文稿，和只读文稿的写作、发布。找可剪的口在剪辑模式的提示条上，翻译在字幕页。 */
 const TIDY_TOOLS: readonly AiToolId[] = ['retranscribe', 'polish', 'chapters', 'speakers'];
 const WRITE_TOOLS: readonly AiToolId[] = ['summary', 'blog', 'title', 'desc', 'cover'];
-
-/** 复制菜单里「几段 · 几字」：菜单打开才渲染这一项，才扫全文。 */
-function CopyReceipt({ paragraphs, view }: { paragraphs: () => readonly CopyParagraph[]; view: TranscriptView }) {
-  return copyReceipt(paragraphs(), view);
-}
 
 function ToolMenuItem({ id }: { id: AiToolId }) {
   const tool = aiTool(id);
@@ -1477,7 +1471,7 @@ function TranscriptList({
   onCommit(assetId: Id, index: number, text: string): void;
   onCancel(): void;
   onParagraph(assetId: Id, index: number, action: ParagraphAction, moves: ParagraphMoves | null): void;
-  onCopyChapter(assetId: Id, rows: readonly ChapterRow[], chapter: ChapterSpan | null, opts: { time?: boolean; speaker?: boolean }): void;
+  onCopyChapter(assetId: Id, rows: readonly ChapterRow[], chapter: ChapterSpan | null, withSettings: boolean): void;
   /** 滚动容器上的键盘与指针处理（选词、拖选、⌫ 截住……）。 */
   bodyProps: React.HTMLAttributes<HTMLDivElement>;
 }) {
@@ -1634,7 +1628,7 @@ function TranscriptList({
               chapter={chapter}
               paragraphs={row.count}
               cutTrackIds={chapterTracks}
-              onCopy={(opts) => onCopyChapter(model.assetId, sectionOf(model).rows, chapter, opts)}
+              onCopy={(withSettings) => onCopyChapter(model.assetId, sectionOf(model).rows, chapter, withSettings)}
             />
           </RowHoldContext.Provider>
         );
