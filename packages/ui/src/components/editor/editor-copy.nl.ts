@@ -49,7 +49,6 @@ export const nl: EditorMessages = {
   openingAria: "Video openen",
   opening: "Video openen…",
   resizeTimeline: "Grootte van tijdlijn wijzigen",
-  workingDraft: "Werkconcept",
   previewCanvas: "Voorbeeld",
   previewFailed: "Het voorbeeld kan niet worden getekend",
   emptyDrag: "Sleep media naar de tijdlijn",

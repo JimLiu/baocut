@@ -48,7 +48,6 @@ export const ko: EditorMessages = {
   openingAria: '영상 여는 중',
   opening: '영상 여는 중…',
   resizeTimeline: '타임라인 크기 조정',
-  workingDraft: '작업 중인 초안',
   previewCanvas: '미리보기',
   previewFailed: '미리보기를 그릴 수 없습니다',
   emptyDrag: '소재를 타임라인으로 끌어 오세요',

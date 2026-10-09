@@ -1,0 +1,26 @@
+import type { StageBarMessages } from './stage-bar-copy.ts';
+
+export const zhHans: StageBarMessages = {
+  bar: '预览控件',
+  ratio: '画幅',
+  ratioReadOnly: '画幅 · 视频是只读的',
+  ratioChange: (ratio: string) => `画幅 ${ratio}`,
+  ratioApplied: (ratio: string) => `画幅已改为 ${ratio}`,
+  original: '原始',
+  originalHint: (ratio: string) => `与视频文件一致 · ${ratio}`,
+  originalNone: '没有可以对照的视频文件',
+  custom: '自定义…',
+  customTitle: '自定义画幅比',
+  customWidth: '宽',
+  customHeight: '高',
+  customSize: (width: number, height: number) => `短边不变 · 新尺寸 ${width} × ${height}`,
+  customInvalid: '请输入两个大于 0 的数',
+  customTooLong: (max: number) => `长边会超过 ${max} 像素 · 换一个不那么极端的比例`,
+  apply: '应用',
+  safeArea: '平台安全区',
+  safeAreaHint: '标出平台按钮和文案会挡住的地方',
+  safeAreaPortraitOnly: '竖屏画幅才有平台按钮遮挡',
+  safeZones: { top: '状态栏', right: '点赞 · 评论 · 分享', bottom: '账号 · 文案 · 评论' },
+  showCaptions: '显示字幕',
+  hideCaptions: '隐藏字幕',
+};

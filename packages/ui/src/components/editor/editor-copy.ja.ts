@@ -48,7 +48,6 @@ export const ja: EditorMessages = {
   openingAria: '動画を開いています',
   opening: '動画を開いています…',
   resizeTimeline: 'タイムラインの高さを調整',
-  workingDraft: '作業中のドラフト',
   previewCanvas: 'プレビュー',
   previewFailed: 'プレビューを描画できません',
   emptyDrag: 'タイムラインに素材をドラッグ',

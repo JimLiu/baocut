@@ -1,0 +1,26 @@
+import type { StageBarMessages } from './stage-bar-copy.ts';
+
+export const de: StageBarMessages = {
+  bar: 'Vorschausteuerung',
+  ratio: 'Seitenverhältnis',
+  ratioReadOnly: 'Seitenverhältnis · das Video ist schreibgeschützt',
+  ratioChange: (ratio: string) => `Seitenverhältnis ${ratio}`,
+  ratioApplied: (ratio: string) => `Seitenverhältnis auf ${ratio} geändert`,
+  original: 'Original',
+  originalHint: (ratio: string) => `Wie die Videodatei · ${ratio}`,
+  originalNone: 'Keine Videodatei zum Abgleichen',
+  custom: 'Benutzerdefiniert…',
+  customTitle: 'Benutzerdefiniertes Seitenverhältnis',
+  customWidth: 'Breite',
+  customHeight: 'Höhe',
+  customSize: (width: number, height: number) => `Die kurze Seite bleibt gleich · neue Größe ${width} × ${height}`,
+  customInvalid: 'Gib zwei Zahlen größer als 0 ein',
+  customTooLong: (max: number) => `Die lange Seite wäre länger als ${max} Pixel · versuch ein weniger extremes Verhältnis`,
+  apply: 'Anwenden',
+  safeArea: 'Sicherer Bereich der Plattform',
+  safeAreaHint: 'Markiert, wo Schaltflächen und Texte der Plattform das Bild verdecken',
+  safeAreaPortraitOnly: 'Nur Hochformate werden von Plattform-Schaltflächen verdeckt',
+  safeZones: { top: 'Statusleiste', right: 'Gefällt mir · Kommentieren · Teilen', bottom: 'Konto · Text · Kommentare' },
+  showCaptions: 'Untertitel einblenden',
+  hideCaptions: 'Untertitel ausblenden',
+};

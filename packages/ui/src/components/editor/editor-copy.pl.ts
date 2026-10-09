@@ -49,7 +49,6 @@ export const pl: EditorMessages = {
   openingAria: "Otwieranie wideo",
   opening: "Otwieranie wideo…",
   resizeTimeline: "Zmień rozmiar osi czasu",
-  workingDraft: "Wersja robocza",
   previewCanvas: "Podgląd",
   previewFailed: "Nie można narysować podglądu",
   emptyDrag: "Przeciągnij materiały na oś czasu",

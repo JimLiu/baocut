@@ -49,7 +49,6 @@ export const fr: EditorMessages = {
   openingAria: "Ouverture de la vidéo",
   opening: "Ouverture de la vidéo…",
   resizeTimeline: "Redimensionner la timeline",
-  workingDraft: "Brouillon de travail",
   previewCanvas: "Aperçu",
   previewFailed: "L’aperçu ne peut pas être dessiné",
   emptyDrag: "Glissez des médias sur la timeline",

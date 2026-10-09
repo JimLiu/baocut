@@ -1,0 +1,26 @@
+import type { StageBarMessages } from './stage-bar-copy.ts';
+
+export const pl: StageBarMessages = {
+  bar: 'Sterowanie podglądem',
+  ratio: 'Proporcje',
+  ratioReadOnly: 'Proporcje · wideo jest tylko do odczytu',
+  ratioChange: (ratio: string) => `Proporcje ${ratio}`,
+  ratioApplied: (ratio: string) => `Zmieniono proporcje na ${ratio}`,
+  original: 'Oryginalne',
+  originalHint: (ratio: string) => `Jak w pliku wideo · ${ratio}`,
+  originalNone: 'Brak pliku wideo do dopasowania',
+  custom: 'Własne…',
+  customTitle: 'Własne proporcje',
+  customWidth: 'Szerokość',
+  customHeight: 'Wysokość',
+  customSize: (width: number, height: number) => `Krótszy bok się nie zmienia · nowy rozmiar ${width} × ${height}`,
+  customInvalid: 'Wpisz dwie liczby większe od 0',
+  customTooLong: (max: number) => `Dłuższy bok przekroczyłby ${max} pikseli · wybierz mniej skrajne proporcje`,
+  apply: 'Zastosuj',
+  safeArea: 'Bezpieczny obszar platformy',
+  safeAreaHint: 'Zaznacza, gdzie przyciski i teksty platformy zasłaniają obraz',
+  safeAreaPortraitOnly: 'Przyciski platformy zasłaniają tylko pionowy kadr',
+  safeZones: { top: 'Pasek stanu', right: 'Polub · skomentuj · udostępnij', bottom: 'Konto · opis · komentarze' },
+  showCaptions: 'Pokaż napisy',
+  hideCaptions: 'Ukryj napisy',
+};

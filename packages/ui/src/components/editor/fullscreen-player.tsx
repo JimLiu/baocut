@@ -73,7 +73,8 @@ import './fullscreen-player.css';
  * 编辑器的全屏播放器（原型 player.jsx、model-player.js；判据在 model/player.ts）。预览舞台进了全屏（preview.tsx）时盖在画面上：
  *
  * - 画面不重画：还是预览引擎那一份，只是字幕按档位过滤（`engine.setCaptionView`）、倍速乘在时钟上（`engine.setRate`）。
- *   这两样都是这个窗口的视图态，不进视频、不进撤销、不影响导出；退出全屏时还原。
+ *   这两样都是这个窗口的视图态，不进视频、不进撤销、不影响导出。字幕档位只管这一次全屏，退出时回到舞台的字幕显隐；
+ *   倍速与舞台工具条共用一份（editor-store），退出全屏后照旧。
  * - 控件：进度条（章节刻痕、悬停气泡里一格画面 + 时码 + 章节名、拖动）· 播放 · 上一章 / 下一章 · 音量（悬停展开滑杆）·
  *   时码 · 字幕四档 · 倍速 · 键表 · 退出全屏。在播且鼠标 3 秒不动时连同指针一起收起（`chromeHidden`）。
  * - 键盘：全屏时播放器独占（捕获阶段接、编辑器的快捷键让位，见 video-editor 的 `useEditorKeys`），键表是 `PLAYER_KEYS`。
@@ -150,27 +151,18 @@ export function FullscreenPlayer({
   useEffect(() => engine.onMonitor((gain) => setLevelState(monitorLevel(gain))), [engine]);
   const setLevel = useCallback((next: MonitorLevel) => engine.setMonitor(monitorGain(next)), [engine]);
 
-  const [rate, setRateState] = useState(() => engine.rate);
-  const setRate = (next: number) => {
-    engine.setRate(next);
-    setRateState(engine.rate);
-  };
+  // 倍速与舞台工具条共用一份（editor-store），交给引擎的是 preview.tsx。
+  const rate = useEditor((s) => s.rate);
+  const setRate = useEditor((s) => s.setRate);
 
-  // 字幕档位：选过的档还在就用它，否则按画面上实有的字幕取默认档。
-  const [picked, setPicked] = useState<CaptionMode | null>(null);
+  // 字幕档位：选过的档还在就用它，否则按画面上实有的字幕取默认档；舞台上隐藏了字幕时从「关闭」起步。
+  const [picked, setPicked] = useState<CaptionMode | null>(() => (useEditor.getState().captionsHidden ? 'off' : null));
   const { hasSource, hasTranslation } = useMemo(() => captionAvailability(sequence, documents), [sequence, documents]);
   const mode = effectiveCaptionMode(picked, hasSource, hasTranslation);
   const modes = captionModes(hasSource, hasTranslation);
   const languages = useMemo(() => captionLanguages(sequence, documents), [sequence, documents]);
+  // 退出全屏后由 preview.tsx 按舞台的字幕显隐还原。
   useEffect(() => engine.setCaptionView(mode), [engine, mode]);
-  // 退出全屏：字幕与倍速回到编辑器的样子（编辑器里没有倍速，留着 1.5× 就再也调不回来）。
-  useEffect(
-    () => () => {
-      engine.setCaptionView(null);
-      engine.setRate(1);
-    },
-    [engine],
-  );
 
   // ---- 收起 ----
   const [popup, setPopup] = useState<'captions' | 'rate' | null>(null);

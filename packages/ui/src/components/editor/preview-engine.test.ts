@@ -751,6 +751,12 @@ test('转录中的临时字幕：叠进送给计划器的序列，文档不向 R
   expect(engine.captionHits).toEqual([]);
   expect(seen.at(-1)).toEqual({ kind: 'ready' });
 
+  // 舞台隐藏字幕（`off`）时临时字幕也不叠，放开后接着叠。
+  engine.setCaptionView('off');
+  expect(videos.at(-1)!.items.map((item) => item.id)).toEqual(['v']);
+  engine.setCaptionView(null);
+  expect(videos.at(-1)!.items.map((item) => item.id)).toEqual(['v', 'bc-live-caption']);
+
   engine.setLiveCaption('job_t', null);
   expect(videos.at(-1)).toBe(timed);
   engine.dispose();

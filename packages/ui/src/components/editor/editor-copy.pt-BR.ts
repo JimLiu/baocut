@@ -49,7 +49,6 @@ export const ptBR: EditorMessages = {
   openingAria: "Abrindo vídeo",
   opening: "Abrindo vídeo…",
   resizeTimeline: "Redimensionar linha do tempo",
-  workingDraft: "Rascunho de trabalho",
   previewCanvas: "Visualização",
   previewFailed: "Não foi possível desenhar a prévia",
   emptyDrag: "Arraste mídias à linha do tempo",

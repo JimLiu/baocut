@@ -1,25 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type SyntheticEvent } from 'react';
 import { itemRangeSeconds, type AssetRecord, type AudioItem, type DocumentRecord, type Id, type Sequence, type VersionRef } from '@baocut/protocol';
-import { ActionButton, Content, ContextualHelp, Heading, StatusLight, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
-import FullScreen from '@react-spectrum/s2/icons/FullScreen';
+import { Content, ContextualHelp, Heading, StatusLight } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { formatFps, videoSlots } from '../../model/editor.ts';
+import { isPortrait } from '../../model/stage-bar.ts';
 import type { MediaOutcome } from '../../model/stage-media.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useEditor } from '../../state/editor-store.ts';
 import { useEditorActions } from './editor-context.tsx';
-import { FULLSCREEN_PLAYER_COPY as F } from './fullscreen-player-copy.ts';
-import { FullscreenPlayer, enterPreviewFullscreen, exitPreviewFullscreen } from './fullscreen-player.tsx';
+import { FullscreenPlayer, exitPreviewFullscreen } from './fullscreen-player.tsx';
 import { audioKey, imageKey, videoKey, type MediaKey, type PreviewStatus } from './preview-engine.ts';
 import { StageLoadNotice } from './stage-load-notice.tsx';
 import { StageMediaNotice } from './stage-media-notice.tsx';
+import { StageBar, SafeAreaOverlay } from './stage-bar.tsx';
 import { StageObjects } from './stage-objects.tsx';
 import { useAssetUrl } from './use-asset-url.ts';
 import { useStageMedia } from './use-stage-media.ts';
 import { EDITOR_COPY as E } from './editor-copy.ts';
 
 const wrap = style({ display: 'flex', flexDirection: 'column', flexGrow: 1, minHeight: 0, minWidth: 0, backgroundColor: 'gray-100' });
-/** 预览顶部的标志（产品设计 §5.4）：现在看的是当前工作稿，不是候选。 */
+/** 预览顶部一行：序列名、画布与帧率，右边是画不出来的东西（产品设计 §5.4：看的是当前工作稿时不另加标志）。 */
 const head = style({
   display: 'flex',
   alignItems: 'center',
@@ -29,15 +29,6 @@ const head = style({
   flexShrink: 0,
   font: 'ui-sm',
   color: 'gray-700',
-});
-const badge = style({
-  font: 'ui-xs',
-  fontWeight: 'bold',
-  color: 'gray-900',
-  backgroundColor: 'gray-25',
-  borderRadius: 'full',
-  paddingX: 8,
-  paddingY: 2,
 });
 const problemsAt = style({ display: 'flex', alignItems: 'center', gap: 2, marginStart: 'auto' });
 const problemList = style({ margin: 0, paddingStart: 16 });
@@ -49,26 +40,6 @@ const frame = style({
   borderRadius: { default: 'sm', isFullscreen: 'none' },
   backgroundColor: 'black',
   boxShadow: { default: 'emphasized', isFullscreen: 'none' },
-});
-/**
- * 舞台下沿的工具条（原型 stage.jsx 的 `StageBar`、ui.css 的 `.stagebar`）：42px 高、上边一道线，紧贴舞台、在走带之上。
- * 原型这一条左边是画幅，右边依次是字幕显隐、音量、倍速、全屏；这里先只有最右端的全屏钮。
- */
-const stageBar = style({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'end',
-  boxSizing: 'border-box',
-  height: 42,
-  flexShrink: 0,
-  paddingX: 12,
-  backgroundColor: 'gray-100',
-  borderTopWidth: 1,
-  borderBottomWidth: 0,
-  borderStartWidth: 0,
-  borderEndWidth: 0,
-  borderStyle: 'solid',
-  borderColor: 'gray-200',
 });
 const surface = style({ position: 'absolute', inset: 0, width: 'full', height: 'full' });
 /** 源元素不显示，只给画布供帧。不用 display: none，免得浏览器不给它解码。 */
@@ -111,7 +82,7 @@ const AUDIO_AHEAD = 30;
 
 /**
  * 预览：按帧计划把各层合成到画布上（WASM 求计划并画成一帧，与导出同一个渲染内核），按画布比例摆在舞台中间。
- * 全屏播放（F 或舞台下沿工具条右端那枚钮）时舞台整格进浏览器的全屏：画面贴边、不画舞台点选层，盖上全屏播放器（fullscreen-player.tsx）。
+ * 画面下沿是舞台工具条（stage-bar.tsx）。全屏播放（F 或工具条右端那枚钮）时舞台整格进浏览器的全屏：画面贴边、不画舞台点选层，盖上全屏播放器（fullscreen-player.tsx）。
  */
 export function Preview({
   videoId,
@@ -126,6 +97,9 @@ export function Preview({
 }) {
   const { engine } = useEditorActions();
   const fullscreen = useEditor((s) => s.fullscreen);
+  const rate = useEditor((s) => s.rate);
+  const captionsHidden = useEditor((s) => s.captionsHidden);
+  const safeArea = useEditor((s) => s.safeArea);
   const [status, setStatus] = useState<PreviewStatus>({ kind: 'loading' });
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -142,6 +116,12 @@ export function Preview({
   }, [engine, mediaUrls, videoId]);
 
   useEffect(() => engine.onStatus(setStatus), [engine]);
+  // 倍速与字幕显隐是这个窗口的观看态（editor-store），只在这里交给引擎：舞台工具条与全屏播放器都只改 store。
+  // 全屏里的字幕档位归全屏播放器管，退出全屏再按舞台的显隐还原。
+  useEffect(() => engine.setRate(rate), [engine, rate]);
+  useEffect(() => {
+    if (!fullscreen) engine.setCaptionView(captionsHidden ? 'off' : null);
+  }, [engine, fullscreen, captionsHidden]);
   // 全屏以浏览器的 `fullscreenchange` 为准：浏览器自己的 Esc 退出不经过我们的键盘层。
   // 预览卸下（换视频、离开编辑器）时舞台还在全屏就退出来，不留一个没有播放器的全屏。
   useEffect(() => {
@@ -224,7 +204,6 @@ export function Preview({
   return (
     <div className={wrap}>
       <div className={head}>
-        <span className={badge}>{E.workingDraft}</span>
         <span>
           {sequence.name} · {cw}×{ch} · {formatFps(sequence.fps)}
         </span>
@@ -269,6 +248,7 @@ export function Preview({
               <span className={notice}>{E.emptyOr}</span>
             </div>
           ) : null}
+          {safeArea && !fullscreen && isPortrait(sequence.canvas) ? <SafeAreaOverlay /> : null}
         </div>
         {fw > 0 && fh > 0 && !fullscreen ? <StageObjects sequence={sequence} frame={frameRect} /> : null}
         {fullscreen ? (
@@ -279,15 +259,7 @@ export function Preview({
           notices
         )}
       </div>
-      <div className={stageBar}>
-        {/* 进全屏要在这一下点击里向浏览器要（只认瞬时的用户激活），不能挪进状态或副作用。 */}
-        <TooltipTrigger placement="top">
-          <ActionButton size="S" isQuiet aria-label={F.enter} onPress={() => enterPreviewFullscreen(stageRef.current)}>
-            <FullScreen />
-          </ActionButton>
-          <Tooltip>{F.enterTip}</Tooltip>
-        </TooltipTrigger>
-      </div>
+      <StageBar stageRef={stageRef} sequence={sequence} assets={assets} />
     </div>
   );
 }

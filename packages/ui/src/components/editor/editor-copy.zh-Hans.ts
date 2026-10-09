@@ -48,7 +48,6 @@ export const zhHans: EditorMessages = {
   openingAria: '正在打开视频',
   opening: '正在打开视频…',
   resizeTimeline: '调整时间线高度',
-  workingDraft: '当前工作稿',
   previewCanvas: '预览画面',
   previewFailed: '预览画不出来',
   emptyDrag: '把素材拖到时间线上',

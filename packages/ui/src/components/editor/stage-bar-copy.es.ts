@@ -1,0 +1,26 @@
+import type { StageBarMessages } from './stage-bar-copy.ts';
+
+export const es: StageBarMessages = {
+  bar: 'Controles de la vista previa',
+  ratio: 'Relación de aspecto',
+  ratioReadOnly: 'Relación de aspecto · el vídeo es de solo lectura',
+  ratioChange: (ratio: string) => `Relación de aspecto ${ratio}`,
+  ratioApplied: (ratio: string) => `Relación de aspecto cambiada a ${ratio}`,
+  original: 'Original',
+  originalHint: (ratio: string) => `Igual que el archivo de vídeo · ${ratio}`,
+  originalNone: 'No hay ningún archivo de vídeo con el que coincidir',
+  custom: 'Personalizada…',
+  customTitle: 'Relación de aspecto personalizada',
+  customWidth: 'Ancho',
+  customHeight: 'Alto',
+  customSize: (width: number, height: number) => `El lado corto no cambia · tamaño nuevo ${width} × ${height}`,
+  customInvalid: 'Escribe dos números mayores que 0',
+  customTooLong: (max: number) => `El lado largo pasaría de ${max} píxeles · prueba una proporción menos extrema`,
+  apply: 'Aplicar',
+  safeArea: 'Zona segura de la plataforma',
+  safeAreaHint: 'Marca dónde tapan la imagen los botones y textos de la plataforma',
+  safeAreaPortraitOnly: 'Solo los formatos verticales tienen botones de la plataforma encima',
+  safeZones: { top: 'Barra de estado', right: 'Me gusta · comentar · compartir', bottom: 'Cuenta · texto · comentarios' },
+  showCaptions: 'Mostrar subtítulos',
+  hideCaptions: 'Ocultar subtítulos',
+};

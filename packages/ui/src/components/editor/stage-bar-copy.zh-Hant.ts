@@ -1,0 +1,26 @@
+import type { StageBarMessages } from './stage-bar-copy.ts';
+
+export const zhHant: StageBarMessages = {
+  bar: '預覽控制項',
+  ratio: '長寬比',
+  ratioReadOnly: '長寬比 · 影片為唯讀',
+  ratioChange: (ratio: string) => `長寬比 ${ratio}`,
+  ratioApplied: (ratio: string) => `長寬比已改為 ${ratio}`,
+  original: '原始',
+  originalHint: (ratio: string) => `與影片檔案一致 · ${ratio}`,
+  originalNone: '沒有可以對照的影片檔案',
+  custom: '自訂…',
+  customTitle: '自訂長寬比',
+  customWidth: '寬',
+  customHeight: '高',
+  customSize: (width: number, height: number) => `短邊不變 · 新尺寸 ${width} × ${height}`,
+  customInvalid: '請輸入兩個大於 0 的數',
+  customTooLong: (max: number) => `長邊會超過 ${max} 像素 · 換一個不那麼極端的比例`,
+  apply: '套用',
+  safeArea: '平台安全區',
+  safeAreaHint: '標出平台按鈕和文案會擋住的地方',
+  safeAreaPortraitOnly: '直式畫面才有平台按鈕遮擋',
+  safeZones: { top: '狀態列', right: '按讚 · 留言 · 分享', bottom: '帳號 · 文案 · 留言' },
+  showCaptions: '顯示字幕',
+  hideCaptions: '隱藏字幕',
+};

@@ -49,7 +49,6 @@ export const ru: EditorMessages = {
   openingAria: "Открытие видео",
   opening: "Открытие видео…",
   resizeTimeline: "Изменить размер таймлайна",
-  workingDraft: "Рабочий черновик",
   previewCanvas: "Предварительный просмотр",
   previewFailed: "Не удалось отрисовать предпросмотр",
   emptyDrag: "Перетащите материалы на таймлайн",

@@ -1,0 +1,26 @@
+import type { StageBarMessages } from './stage-bar-copy.ts';
+
+export const ptBR: StageBarMessages = {
+  bar: 'Controles da prévia',
+  ratio: 'Proporção',
+  ratioReadOnly: 'Proporção · o vídeo é somente leitura',
+  ratioChange: (ratio: string) => `Proporção ${ratio}`,
+  ratioApplied: (ratio: string) => `Proporção alterada para ${ratio}`,
+  original: 'Original',
+  originalHint: (ratio: string) => `Igual ao arquivo de vídeo · ${ratio}`,
+  originalNone: 'Não há arquivo de vídeo para acompanhar',
+  custom: 'Personalizada…',
+  customTitle: 'Proporção personalizada',
+  customWidth: 'Largura',
+  customHeight: 'Altura',
+  customSize: (width: number, height: number) => `O lado menor não muda · novo tamanho ${width} × ${height}`,
+  customInvalid: 'Digite dois números maiores que 0',
+  customTooLong: (max: number) => `O lado maior passaria de ${max} pixels · tente uma proporção menos extrema`,
+  apply: 'Aplicar',
+  safeArea: 'Área segura da plataforma',
+  safeAreaHint: 'Marca onde os botões e textos da plataforma cobrem a imagem',
+  safeAreaPortraitOnly: 'Só formatos verticais têm botões da plataforma por cima',
+  safeZones: { top: 'Barra de status', right: 'Curtir · comentar · compartilhar', bottom: 'Conta · legenda · comentários' },
+  showCaptions: 'Mostrar legendas',
+  hideCaptions: 'Ocultar legendas',
+};

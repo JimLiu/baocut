@@ -63,7 +63,6 @@ const en = {
   openingAria: 'Opening video',
   opening: 'Opening video…',
   resizeTimeline: 'Resize timeline',
-  workingDraft: 'Working draft',
   previewCanvas: 'Preview',
   previewFailed: 'The preview can’t be drawn',
   emptyDrag: 'Drag assets onto the timeline',

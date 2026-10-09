@@ -1,0 +1,26 @@
+import type { StageBarMessages } from './stage-bar-copy.ts';
+
+export const vi: StageBarMessages = {
+  bar: 'Điều khiển bản xem trước',
+  ratio: 'Tỷ lệ khung hình',
+  ratioReadOnly: 'Tỷ lệ khung hình · video chỉ đọc',
+  ratioChange: (ratio: string) => `Tỷ lệ khung hình ${ratio}`,
+  ratioApplied: (ratio: string) => `Đã đổi tỷ lệ khung hình thành ${ratio}`,
+  original: 'Gốc',
+  originalHint: (ratio: string) => `Giống tệp video · ${ratio}`,
+  originalNone: 'Không có tệp video để khớp theo',
+  custom: 'Tùy chỉnh…',
+  customTitle: 'Tỷ lệ khung hình tùy chỉnh',
+  customWidth: 'Rộng',
+  customHeight: 'Cao',
+  customSize: (width: number, height: number) => `Cạnh ngắn giữ nguyên · kích thước mới ${width} × ${height}`,
+  customInvalid: 'Nhập hai số lớn hơn 0',
+  customTooLong: (max: number) => `Cạnh dài sẽ vượt quá ${max} pixel · hãy thử tỷ lệ bớt cực đoan hơn`,
+  apply: 'Áp dụng',
+  safeArea: 'Vùng an toàn của nền tảng',
+  safeAreaHint: 'Đánh dấu chỗ nút và chữ của nền tảng che hình',
+  safeAreaPortraitOnly: 'Chỉ khung dọc mới bị nút của nền tảng che',
+  safeZones: { top: 'Thanh trạng thái', right: 'Thích · bình luận · chia sẻ', bottom: 'Tài khoản · chú thích · bình luận' },
+  showCaptions: 'Hiện phụ đề',
+  hideCaptions: 'Ẩn phụ đề',
+};

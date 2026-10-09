@@ -35,6 +35,18 @@ describe('编辑器右侧面板', () => {
     expect(useEditor.getState()).toMatchObject({ videoId: 'v2', panelTab: 'audio' });
   });
 
+  it('舞台工具条的观看态（倍速、字幕隐藏、安全区）换视频时复位，同一个视频重开不动', () => {
+    useEditor.setState({ videoId: null });
+    useEditor.getState().attach('v1');
+    useEditor.getState().setRate(1.5);
+    useEditor.getState().setCaptionsHidden(true);
+    useEditor.getState().setSafeArea(true);
+    useEditor.getState().attach('v1');
+    expect(useEditor.getState()).toMatchObject({ rate: 1.5, captionsHidden: true, safeArea: true });
+    useEditor.getState().attach('v2');
+    expect(useEditor.getState()).toMatchObject({ rate: 1, captionsHidden: false, safeArea: false });
+  });
+
   it('拖缝：宽度钳在上限内；拖到收起线以下就收起，记住的宽度不变', () => {
     useEditor.getState().dragPanel(420.4);
     expect(useEditor.getState().panelWidth).toBe(420);

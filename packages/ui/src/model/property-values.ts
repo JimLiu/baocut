@@ -64,11 +64,14 @@ export type AspectKey = (typeof ASPECTS)[number]['key'];
 /** 换画幅：短边不变，长边按比例取到偶数（编码器要偶数尺寸）。 */
 export function aspectCanvas(canvas: { width: number; height: number }, key: AspectKey): { width: number; height: number } {
   const aspect = ASPECTS.find((a) => a.key === key)!;
+  return ratioCanvas(canvas, aspect.w, aspect.h);
+}
+
+/** 换成任意 `w:h`（舞台工具条的画幅表、自定义画幅）：同 `aspectCanvas`，短边不变，长边取偶数。 */
+export function ratioCanvas(canvas: { width: number; height: number }, w: number, h: number): { width: number; height: number } {
   const short = Math.min(canvas.width, canvas.height);
   const even = (value: number) => Math.max(2, Math.round(value / 2) * 2);
-  return aspect.w >= aspect.h
-    ? { width: even((short * aspect.w) / aspect.h), height: short }
-    : { width: short, height: even((short * aspect.h) / aspect.w) };
+  return w >= h ? { width: even((short * w) / h), height: short } : { width: short, height: even((short * h) / w) };
 }
 
 /** 画布是哪一种画幅；都不是返回 null。 */

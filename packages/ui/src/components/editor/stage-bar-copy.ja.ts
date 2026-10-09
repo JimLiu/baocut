@@ -1,0 +1,26 @@
+import type { StageBarMessages } from './stage-bar-copy.ts';
+
+export const ja: StageBarMessages = {
+  bar: 'プレビューのコントロール',
+  ratio: 'アスペクト比',
+  ratioReadOnly: 'アスペクト比 · 動画は読み取り専用です',
+  ratioChange: (ratio: string) => `アスペクト比 ${ratio}`,
+  ratioApplied: (ratio: string) => `アスペクト比を ${ratio} に変更しました`,
+  original: 'オリジナル',
+  originalHint: (ratio: string) => `動画ファイルと同じ · ${ratio}`,
+  originalNone: '合わせる動画ファイルがありません',
+  custom: 'カスタム…',
+  customTitle: 'カスタムのアスペクト比',
+  customWidth: '幅',
+  customHeight: '高さ',
+  customSize: (width: number, height: number) => `短辺はそのまま · 新しいサイズ ${width} × ${height}`,
+  customInvalid: '0 より大きい数を 2 つ入力してください',
+  customTooLong: (max: number) => `長辺が ${max} ピクセルを超えます · もう少し穏やかな比率にしてください`,
+  apply: '適用',
+  safeArea: 'プラットフォームのセーフエリア',
+  safeAreaHint: 'プラットフォームのボタンや文字で隠れる場所を示します',
+  safeAreaPortraitOnly: '縦長の画面でだけプラットフォームのボタンが重なります',
+  safeZones: { top: 'ステータスバー', right: 'いいね · コメント · シェア', bottom: 'アカウント · キャプション · コメント' },
+  showCaptions: '字幕を表示',
+  hideCaptions: '字幕を非表示',
+};

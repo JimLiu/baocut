@@ -261,3 +261,56 @@ html.bc-col-resize * {
   padding: 0;
   border-radius: 100%;
 }
+
+/*
+ * 竖幅画布上的平台安全区（stage-bar.tsx 的 `SafeAreaOverlay`；原型 ui.css `.safearea`）：盖在画面上、不接指针。
+ * 斜纹遮挡区与标签贴在视频上，画面亮度不定，所以和全屏播放器一样不吃明暗主题，用 rgba 的黑与白。
+ */
+.bc-safearea {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+}
+.bc-safearea-zone {
+  position: absolute;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 4px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.bc-safearea-zone::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(135deg, rgb(0 0 0 / 40%) 0 6px, rgb(0 0 0 / 22%) 6px 12px);
+}
+.bc-safearea-zone--right {
+  justify-content: flex-end;
+}
+.bc-safearea-tag {
+  position: relative;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: 9999px;
+  background: rgb(0 0 0 / 80%);
+  color: #fff;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.bc-safearea-zone--right .bc-safearea-tag {
+  writing-mode: vertical-rl;
+  height: auto;
+  width: 20px;
+  padding: 6px 0;
+  justify-content: center;
+}
+.bc-safearea-box {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px dashed rgb(255 255 255 / 80%);
+}

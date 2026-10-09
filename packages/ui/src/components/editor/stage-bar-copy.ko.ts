@@ -1,0 +1,26 @@
+import type { StageBarMessages } from './stage-bar-copy.ts';
+
+export const ko: StageBarMessages = {
+  bar: '미리보기 컨트롤',
+  ratio: '화면 비율',
+  ratioReadOnly: '화면 비율 · 동영상이 읽기 전용입니다',
+  ratioChange: (ratio: string) => `화면 비율 ${ratio}`,
+  ratioApplied: (ratio: string) => `화면 비율을 ${ratio}(으)로 바꿨습니다`,
+  original: '원본',
+  originalHint: (ratio: string) => `동영상 파일과 같음 · ${ratio}`,
+  originalNone: '맞출 동영상 파일이 없습니다',
+  custom: '사용자 지정…',
+  customTitle: '사용자 지정 화면 비율',
+  customWidth: '너비',
+  customHeight: '높이',
+  customSize: (width: number, height: number) => `짧은 변은 그대로 · 새 크기 ${width} × ${height}`,
+  customInvalid: '0보다 큰 수를 두 개 입력하세요',
+  customTooLong: (max: number) => `긴 변이 ${max}픽셀을 넘습니다 · 덜 극단적인 비율을 써 보세요`,
+  apply: '적용',
+  safeArea: '플랫폼 안전 영역',
+  safeAreaHint: '플랫폼의 버튼과 문구가 가리는 곳을 표시합니다',
+  safeAreaPortraitOnly: '세로 화면에서만 플랫폼 버튼이 가립니다',
+  safeZones: { top: '상태 표시줄', right: '좋아요 · 댓글 · 공유', bottom: '계정 · 문구 · 댓글' },
+  showCaptions: '자막 표시',
+  hideCaptions: '자막 숨기기',
+};

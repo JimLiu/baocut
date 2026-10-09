@@ -1,0 +1,26 @@
+import type { StageBarMessages } from './stage-bar-copy.ts';
+
+export const tr: StageBarMessages = {
+  bar: 'Önizleme denetimleri',
+  ratio: 'En boy oranı',
+  ratioReadOnly: 'En boy oranı · video salt okunur',
+  ratioChange: (ratio: string) => `En boy oranı ${ratio}`,
+  ratioApplied: (ratio: string) => `En boy oranı ${ratio} olarak değiştirildi`,
+  original: 'Özgün',
+  originalHint: (ratio: string) => `Video dosyasıyla aynı · ${ratio}`,
+  originalNone: 'Eşleştirilecek video dosyası yok',
+  custom: 'Özel…',
+  customTitle: 'Özel en boy oranı',
+  customWidth: 'Genişlik',
+  customHeight: 'Yükseklik',
+  customSize: (width: number, height: number) => `Kısa kenar aynı kalır · yeni boyut ${width} × ${height}`,
+  customInvalid: '0’dan büyük iki sayı girin',
+  customTooLong: (max: number) => `Uzun kenar ${max} pikseli aşar · daha az uç bir oran deneyin`,
+  apply: 'Uygula',
+  safeArea: 'Platform güvenli alanı',
+  safeAreaHint: 'Platformun düğmelerinin ve yazılarının görüntüyü kapattığı yerleri gösterir',
+  safeAreaPortraitOnly: 'Platform düğmeleri yalnızca dikey kareleri kapatır',
+  safeZones: { top: 'Durum çubuğu', right: 'Beğen · yorum yap · paylaş', bottom: 'Hesap · açıklama · yorumlar' },
+  showCaptions: 'Altyazıyı göster',
+  hideCaptions: 'Altyazıyı gizle',
+};

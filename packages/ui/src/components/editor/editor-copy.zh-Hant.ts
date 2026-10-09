@@ -48,7 +48,6 @@ export const zhHant: EditorMessages = {
   openingAria: '正在開啟影片',
   opening: '正在開啟影片…',
   resizeTimeline: '調整時間軸大小',
-  workingDraft: '目前的工作草稿',
   previewCanvas: '預覽',
   previewFailed: '無法繪製預覽',
   emptyDrag: '將素材拖曳到時間軸上',

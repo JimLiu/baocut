@@ -1,0 +1,26 @@
+import type { StageBarMessages } from './stage-bar-copy.ts';
+
+export const nl: StageBarMessages = {
+  bar: 'Voorvertoningsbediening',
+  ratio: 'Beeldverhouding',
+  ratioReadOnly: 'Beeldverhouding · de video is alleen-lezen',
+  ratioChange: (ratio: string) => `Beeldverhouding ${ratio}`,
+  ratioApplied: (ratio: string) => `Beeldverhouding gewijzigd in ${ratio}`,
+  original: 'Origineel',
+  originalHint: (ratio: string) => `Gelijk aan het videobestand · ${ratio}`,
+  originalNone: 'Er is geen videobestand om op af te stemmen',
+  custom: 'Aangepast…',
+  customTitle: 'Aangepaste beeldverhouding',
+  customWidth: 'Breedte',
+  customHeight: 'Hoogte',
+  customSize: (width: number, height: number) => `De korte zijde blijft gelijk · nieuwe grootte ${width} × ${height}`,
+  customInvalid: 'Voer twee getallen groter dan 0 in',
+  customTooLong: (max: number) => `De lange zijde zou groter worden dan ${max} pixels · probeer een minder extreme verhouding`,
+  apply: 'Toepassen',
+  safeArea: 'Veilige zone van het platform',
+  safeAreaHint: 'Laat zien waar knoppen en tekst van het platform het beeld bedekken',
+  safeAreaPortraitOnly: 'Alleen staande beelden hebben platformknoppen in de weg',
+  safeZones: { top: 'Statusbalk', right: 'Liken · reageren · delen', bottom: 'Account · tekst · reacties' },
+  showCaptions: 'Ondertitels tonen',
+  hideCaptions: 'Ondertitels verbergen',
+};

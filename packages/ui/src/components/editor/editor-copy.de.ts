@@ -49,7 +49,6 @@ export const de: EditorMessages = {
   openingAria: "Video wird geöffnet",
   opening: "Video wird geöffnet…",
   resizeTimeline: "Zeitleistengröße ändern",
-  workingDraft: "Arbeitsentwurf",
   previewCanvas: "Vorschau",
   previewFailed: "Die Vorschau kann nicht gezeichnet werden",
   emptyDrag: "Materialien in die Zeitleiste ziehen",

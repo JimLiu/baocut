@@ -245,9 +245,12 @@ export class PreviewEngine {
   /** 监听音量（快捷键 ↑/↓、M，见 model/preview-volume）：乘在每个声音上，只是这个窗口听到的大小。 */
   #monitor = { volume: 1, muted: false };
   readonly #monitorListeners = new Set<(monitor: { volume: number; muted: boolean }) => void>();
-  /** 播放倍速（全屏播放器的倍速菜单）：时钟与媒体元素一起乘，只是这个窗口看的快慢。 */
+  /** 播放倍速（舞台工具条与全屏播放器的倍速菜单，同一份）：时钟与媒体元素一起乘，只是这个窗口看的快慢。 */
   #rate = 1;
-  /** 全屏播放器的字幕档位（model/player `captionView`）：送去画的序列上临时停用不该露的字幕；`null` 照视频原样画。 */
+  /**
+   * 字幕档位（model/player `captionView`）：全屏播放器的四档，或舞台工具条隐藏字幕时的 `off`。送去画的序列上临时停用不该露的字幕，
+   * `off` 连转录中的临时字幕也不叠；`null` 照视频原样画。
+   */
   #captionMode: CaptionMode | null = null;
   readonly #fonts: FontSource | null;
   readonly #preparing: PreviewPreparing | null;
@@ -435,7 +438,7 @@ export class PreviewEngine {
     if (this.#playing) this.#sync();
   }
 
-  /** 全屏播放器的字幕档位：按档位停用不该露的字幕再交给渲染内核，`null` 回到视频原样。不进视频、不进撤销、不影响导出。 */
+  /** 字幕档位（全屏的四档、舞台隐藏字幕的 `off`）：按档位停用不该露的字幕再交给渲染内核，`null` 回到视频原样。不进视频、不进撤销、不影响导出。 */
   setCaptionView(mode: CaptionMode | null): void {
     if (mode === this.#captionMode) return;
     this.#captionMode = mode;
@@ -651,13 +654,13 @@ export class PreviewEngine {
 
   #loadVideo(): void {
     if (!this.#planner || !this.#video) return;
-    // 全屏的字幕档位先停掉不该露的字幕；转录中的临时字幕不在档位里，照常叠。
+    // 字幕档位先停掉不该露的字幕；转录中的临时字幕不分原文译文，只有 `off` 时不叠。
     const video = this.#captionMode
       ? { ...this.#video, sequence: captionView(this.#video.sequence, this.#documentRecords, this.#captionMode) }
       : this.#video;
     try {
       // 转录中的临时字幕叠一层上去；内核不收这一层时（不该发生）丢掉它照原样送，不让它拖垮整个预览。
-      if (this.#liveDocuments) {
+      if (this.#liveDocuments && this.#captionMode !== 'off') {
         try {
           this.#planner.setVideo({ ...video, sequence: withLiveCaption(video.sequence) });
           this.#videoError = null;

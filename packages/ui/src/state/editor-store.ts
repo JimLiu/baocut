@@ -104,6 +104,16 @@ export interface EditorStore {
    */
   fullscreen: boolean;
   setFullscreen(fullscreen: boolean): void;
+  /**
+   * 舞台下沿工具条的观看态（原型 stage.jsx `StageBar`；都不持久化，换视频时复位）：只是这个窗口怎么看，不进视频、不进撤销、
+   * 不影响导出。倍速舞台与全屏播放器共用一份；字幕隐藏只管舞台（全屏有自己的四档）；平台安全区只在竖幅画布上画。
+   */
+  rate: number;
+  setRate(rate: number): void;
+  captionsHidden: boolean;
+  setCaptionsHidden(hidden: boolean): void;
+  safeArea: boolean;
+  setSafeArea(on: boolean): void;
 }
 
 /** 还没提交（或正在提交）的时间微调：哪几件、累计挪了多少帧、按哪个视频版本算的。 */
@@ -144,6 +154,9 @@ export const useEditor = create<EditorStore>()(
                 playing: false,
                 draft: null,
                 documentDraft: null,
+                rate: 1,
+                captionsHidden: false,
+                safeArea: false,
                 ...(landing ? { panelTab: landing } : {}),
               },
         ),
@@ -182,6 +195,12 @@ export const useEditor = create<EditorStore>()(
       setShortcutsOpen: (shortcutsOpen) => set({ shortcutsOpen }),
       fullscreen: false,
       setFullscreen: (fullscreen) => set({ fullscreen }),
+      rate: 1,
+      setRate: (rate) => set({ rate }),
+      captionsHidden: false,
+      setCaptionsHidden: (captionsHidden) => set({ captionsHidden }),
+      safeArea: false,
+      setSafeArea: (safeArea) => set({ safeArea }),
     }),
     {
       name: 'baocut.editor',

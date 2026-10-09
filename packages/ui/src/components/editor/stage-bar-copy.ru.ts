@@ -1,0 +1,26 @@
+import type { StageBarMessages } from './stage-bar-copy.ts';
+
+export const ru: StageBarMessages = {
+  bar: 'Управление предпросмотром',
+  ratio: 'Соотношение сторон',
+  ratioReadOnly: 'Соотношение сторон · видео только для чтения',
+  ratioChange: (ratio: string) => `Соотношение сторон ${ratio}`,
+  ratioApplied: (ratio: string) => `Соотношение сторон изменено на ${ratio}`,
+  original: 'Исходное',
+  originalHint: (ratio: string) => `Как у видеофайла · ${ratio}`,
+  originalNone: 'Нет видеофайла, с которым можно сравнить',
+  custom: 'Своё…',
+  customTitle: 'Своё соотношение сторон',
+  customWidth: 'Ширина',
+  customHeight: 'Высота',
+  customSize: (width: number, height: number) => `Короткая сторона не меняется · новый размер ${width} × ${height}`,
+  customInvalid: 'Введите два числа больше 0',
+  customTooLong: (max: number) => `Длинная сторона превысит ${max} пикселей · выберите менее крайнее соотношение`,
+  apply: 'Применить',
+  safeArea: 'Безопасная зона платформы',
+  safeAreaHint: 'Показывает, где кнопки и текст платформы закрывают кадр',
+  safeAreaPortraitOnly: 'Кнопки платформы перекрывают только вертикальный кадр',
+  safeZones: { top: 'Строка состояния', right: 'Лайк · комментарий · репост', bottom: 'Аккаунт · подпись · комментарии' },
+  showCaptions: 'Показать субтитры',
+  hideCaptions: 'Скрыть субтитры',
+};
