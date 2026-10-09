@@ -3,6 +3,7 @@ import type { CaptionItem, DocumentRecord, Sequence, Track } from '@baocut/proto
 import { mergedLineStyle, type Json } from '../render/text-style.ts';
 import {
   CAPTION_PRESETS,
+  CLASSIC_WORD_ANIMATION,
   PAINT_KEYS,
   WORD_KEYS,
   applyPreset,
@@ -22,7 +23,7 @@ import {
 } from './caption-presets.ts';
 import type { CaptionChip } from './caption-tracks.ts';
 import { DEFAULT_CAPTION_STYLE } from './property-values.ts';
-import type { CaptionStyleBody } from './caption-style-body.ts';
+import { parseStudioStyle, type CaptionStyleBody } from './caption-style-body.ts';
 
 const preset = (id: string) => CAPTION_PRESETS.find((p) => p.id === id)!;
 const STUDIO = 'baocut.legacy-studio-style/0.1';
@@ -239,7 +240,17 @@ describe('套用', () => {
   it('默认预设（规范 §5.6）是「经典」涂装，逗号句号照原文画；画廊里亮的是「经典」', () => {
     const style = DEFAULT_CAPTION_STYLE.style as Json;
     expect(DEFAULT_CAPTION_STYLE.schema).toBe(STUDIO);
-    expect(style).toEqual({ ...preset('classic').style, punct: true });
+    expect(style).toEqual({ ...preset('classic').style, wordAnimation: CLASSIC_WORD_ANIMATION, punct: true });
+    // 与流程、内核各自的字面量相同（三处一起改）。
+    expect(CLASSIC_WORD_ANIMATION).toEqual({
+      animationId: 'magic-wbw',
+      animationName: 'Color',
+      catalogId: 'colourHighlight',
+      spoken: {},
+      active: { color: '#18E1D6' },
+      unspoken: {},
+    });
+    expect(parseStudioStyle(style).activeWord).toMatchObject({ mode: 'color', color: '#18E1D6' });
     expect(style.textOutline).toEqual({ on: true, color: '#000000', width: 14 });
     expect(currentPreset(style, ['original', 'translation'])?.id).toBe('classic');
     expect(presetModified(style, preset('classic'), ['original', 'translation'])).toBe(false);

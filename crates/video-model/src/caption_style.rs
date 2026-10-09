@@ -48,6 +48,7 @@ pub fn default_studio_style() -> Value {
         "dropShadow": { "on": true, "blur": 0.12, "distance": 0.08, "rotation": 45, "color": "#000000", "opacity": 0.9 },
         "outline": true,
         "glow": { "on": false },
+        "wordAnimation": { "animationId": "magic-wbw", "animationName": "Color", "catalogId": "colourHighlight", "spoken": {}, "active": { "color": "#18E1D6" }, "unspoken": {} },
         "punct": true
     })
 }
@@ -119,6 +120,8 @@ mod tests {
         assert_eq!(style["textOutline"], json!({ "on": true, "color": "#000000", "width": 14 }));
         assert_eq!(style["background"], json!(false));
         assert_eq!(style["punct"], json!(true));
+        assert_eq!(style["wordAnimation"]["catalogId"], json!("colourHighlight"));
+        assert_eq!(style["wordAnimation"]["active"]["color"], json!("#18E1D6"));
         assert!(caption_style_body_problems(&json!({ "schema": STUDIO_STYLE_SCHEMA, "style": style })).is_empty());
     }
 

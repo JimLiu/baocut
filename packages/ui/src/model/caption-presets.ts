@@ -202,6 +202,13 @@ export function presetStyle(preset: CaptionPreset, kind: LineKind = 'original'):
   return pick(compileCaptionStyle(preset.body, roleOf(kind)), [...PAINT_KEYS, ...WORD_KEYS]);
 }
 
+/**
+ * 「经典」卡的当前词（变色 #18E1D6）：默认预设（`DEFAULT_CAPTION_STYLE`，规范 §5.6）带上它，新字幕不套卡也与画廊里亮着的
+ * 「经典」一致。流程（`packages/jobs/src/pipelines/caption-layer.ts`）与内核（`video_model::caption_style::default_studio_style`）
+ * 各留一份同样的字面量，三处一起改。
+ */
+export const CLASSIC_WORD_ANIMATION: Json = presetStyle(CAPTION_PRESETS.find((p) => p.id === 'classic')!).wordAnimation as Json;
+
 /** 分区陈列：按 `PRESET_GROUPS` 的次序，空区不出。 */
 export function presetGroups(): { key: PresetCategory; label: string; presets: CaptionPreset[] }[] {
   return PRESET_GROUPS.map((g) => ({ key: g.key, label: g.label, presets: CAPTION_PRESETS.filter((p) => p.category === g.key) })).filter(

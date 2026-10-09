@@ -1775,7 +1775,7 @@ interface CaptionStyleBody {
 
 **默认预设**。没有样式文档的字幕实例按默认预设画；新建字幕层时种下的 Studio 样式（编辑器里第一次改样式或套用画廊里的卡、把译文双语放上画面，智能体与固定流程建双语字幕层）也是这一份。它是新建项目的「经典」涂装加一个开关，不分语言：
 
-- 白字、`fontWeight` 700，黑色描边 `textOutline: { on: true, color: '#000000', width: 14 }`（`width` 按字号的比例换算成笔宽，描边随字号缩放），黑色投影 `dropShadow: { on: true, distance: 0.08, rotation: 45, blur: 0.12, opacity: 0.9 }`；底板关着（`background: false`）。浅色画面上靠描边与投影看清。
+- 白字、`fontWeight` 700，黑色描边 `textOutline: { on: true, color: '#000000', width: 14 }`（`width` 按字号的比例换算成笔宽，描边随字号缩放），黑色投影 `dropShadow: { on: true, distance: 0.08, rotation: 45, blur: 0.12, opacity: 0.9 }`；底板关着（`background: false`）。浅色画面上靠描边与投影看清。当前词变色 `wordAnimation: { animationId: 'magic-wbw', animationName: 'Color', catalogId: 'colourHighlight', active: { color: '#18E1D6' } }`（画廊里「经典」卡自带的当前词样式，[字幕样式模型设计](../design/subtitle/caption-style-model-design.md) §4），没有词时间的行照常整行画。
 - `punct: true`：普通逗号、句号在烧录与预览里换成一个空格（数字、网址这类 ASCII 写法里的不换），只有标点的一句不画。Studio 样式的 `punct` 缺省（没写）也是 true；用户在属性页的「标点」里切换为 false 时照原文画。该投影不修改转写正文或导出的 SRT、VTT。界面新建字幕时可以用用户记住的属性覆盖预设（产品设计 §5.9）。
 - 有样式文档时照它画，没写的键按内核的兜底（无描边、`punct` 为 true），不拿默认预设去补；已有项目里正文为空的样式文档（`style: {}`）因此画法不变。
 

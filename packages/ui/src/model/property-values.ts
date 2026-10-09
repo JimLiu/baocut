@@ -1,7 +1,7 @@
 import { engineRanges } from '@baocut/editor-wasm';
 import type { Rate, ShapeProps } from '@baocut/protocol';
 import { STUDIO_STYLE, asObject, parseColor, type Json } from '../render/text-style.ts';
-import { CLASSIC } from './caption-presets.ts';
+import { CLASSIC, CLASSIC_WORD_ANIMATION } from './caption-presets.ts';
 
 /** 属性页里数值与落盘字段之间的换算：变速、音量、画幅、颜色，以及整体替换的样式对象怎么补丁。 */
 
@@ -133,7 +133,7 @@ export function editableTextStyle(style: unknown): boolean {
  * `video_model::caption_style::default_studio_style`），新建字幕样式也种这一份。涂装是「经典」，`punct: true` 让逗号、
  * 句号换成空格。流程那份在 `packages/jobs/src/pipelines/caption-layer.ts`，三处一起改。
  */
-export const DEFAULT_CAPTION_STYLE: Json = { schema: STUDIO_STYLE, style: { ...CLASSIC, punct: true } };
+export const DEFAULT_CAPTION_STYLE: Json = { schema: STUDIO_STYLE, style: { ...CLASSIC, wordAnimation: CLASSIC_WORD_ANIMATION, punct: true } };
 
 /** Studio 字幕样式的根对象；别的 schema 返回 null（属性页只读）。 */
 export function captionStyleRoot(body: unknown): Json | null {

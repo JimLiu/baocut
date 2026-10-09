@@ -68,7 +68,7 @@ export interface CaptionVideos extends PipelineVideos {
 const STUDIO_STYLE = 'baocut.legacy-studio-style/0.1';
 /**
  * 双语时新建的字幕样式：默认预设（视频格式规范 §5.6「默认预设」），与编辑器的 `DEFAULT_CAPTION_STYLE`
- * （`packages/ui/src/model/property-values.ts`，「经典」涂装加 `punct: true`）和渲染内核没有样式文档时的
+ * （`packages/ui/src/model/property-values.ts`，「经典」涂装、它的当前词变色加 `punct: true`）和渲染内核没有样式文档时的
  * `video_model::caption_style::default_studio_style` 逐字段相同；jobs 不能依赖 UI，所以这里各留一份，三处一起改。
  */
 export const DEFAULT_CAPTION_STYLE_BODY: Json = {
@@ -94,6 +94,7 @@ export const DEFAULT_CAPTION_STYLE_BODY: Json = {
     dropShadow: { on: true, blur: 0.12, distance: 0.08, rotation: 45, color: '#000000', opacity: 0.9 },
     outline: true,
     glow: { on: false },
+    wordAnimation: { animationId: 'magic-wbw', animationName: 'Color', catalogId: 'colourHighlight', spoken: {}, active: { color: '#18E1D6' }, unspoken: {} },
     punct: true,
   },
 };

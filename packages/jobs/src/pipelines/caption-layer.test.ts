@@ -241,6 +241,7 @@ describe('planCaptionLayer：智能体的 captions_create', () => {
       fontColor: '#FFFFFF',
       textOutline: { on: true, color: '#000000', width: 14 },
       background: false,
+      wordAnimation: { catalogId: 'colourHighlight', active: { color: '#18E1D6' } },
       punct: true,
     });
     expect(created.operations.at(-1)).toMatchObject({ items: [{ styleDocumentRef: 'caption-style' }] });
