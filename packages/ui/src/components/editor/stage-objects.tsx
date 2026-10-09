@@ -2,13 +2,17 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEve
 import type { CaptionItem, DocumentRecord, Id, Place, Revision, Sequence, SequenceItem } from '@baocut/protocol';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { STAGE_COPY } from '../../copy.ts';
+import { captionKind } from '../../model/caption-tracks.ts';
 import { applyDrafts, type ItemDraft } from '../../model/item-draft.ts';
 import { DEFAULT_CAPTION_STYLE, captionStyleRoot } from '../../model/property-values.ts';
 import {
   CAPTION_X,
   CAPTION_Y,
   captionBox,
+  lineMoveStart,
   movedCaptionStyle,
+  movedLineStyle,
+  restackedRootY,
   stepCaptionMove,
   type CaptionMove,
   type CaptionMoveFrame,
@@ -73,7 +77,8 @@ import { openFlow, setCompare } from './translate-run.ts';
  * - 拖动中只改草稿：单件走 store 的草稿（预览与属性页一起跟手）；多件用引擎的临时覆盖（属性页不跟），
  *   松手按起手状态算出的终值提交**一笔**事务，失败就回到原值。真的动过才吞掉随后补发的 click。
  * - 字幕没有 `place`，按在它上面拖动是挪字幕样式的水平中心与锚线（原型 stage.jsx 的字幕 SelectionBox，见 model/stage-caption-move）：
- *   拖动中走 store 的文档草稿（预览与属性页一起跟手），松手写入样式文档，用同一份样式的字幕一起动。
+ *   拖动中走 store 的文档草稿（预览与属性页一起跟手），松手写入样式文档，用同一份样式的字幕一起动。双语时只拖选中的那一行
+ *   （原型里每条字幕轨各拖各的），⇧ / ⌘ 单击把两行都选上再拖才整组动。
  * - 只读、锁定或正在播放时不出把手，只读时点选照常；播放中按下画面只暂停（原型 stage.jsx），停下后再点选。
  */
 
@@ -97,12 +102,18 @@ const LABEL: Record<Gesture['kind'], string> = {
   'group-scale': STAGE_COPY.groupScale,
 };
 
-/** 拖字幕：起手时的样式文档、正文与根样式，起手时选中那件的行框（拖动中平移着画，预览重画回来的行框会晚一拍）。 */
+/**
+ * 拖字幕：起手时的样式文档、正文与根样式，拖到某处时根样式变成什么（整组挪根样式，双语单拖一行写那一行的覆盖），
+ * 起手时拖的那些行的行框（拖动中平移着画，预览重画回来的行框会晚一拍）。`remember` 是松手后记进新字幕选项：
+ * 单拖一行的位置在行覆盖里，新字幕选项不记它，为了另一行不跳而挪的根样式锚线也不该记。
+ */
 interface CaptionDrag {
   move: CaptionMove;
   record: DocumentRecord | undefined;
   body: unknown;
   root: Json;
+  restyle: (to: { x: number; y: number }) => Json;
+  remember: boolean;
   hits: CaptionHit[];
 }
 
@@ -318,27 +329,53 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
 
   // ---- 拖字幕 ----
 
-  /** 按在一件字幕上：样式正文此刻在手、这组字幕（同一份样式）此刻画在画面上，才起手。 */
-  const captionDragOf = (item: CaptionItem, p0: Point): CaptionDrag | null => {
-    const record = item.styleDocumentId ? useVideo.getState().video?.state?.video.documents[item.styleDocumentId] : undefined;
+  /**
+   * 按在一件字幕上：样式正文此刻在手、要拖的行此刻画在画面上，才起手。`group` 是两行都选中了（整组动）；否则同一份样式
+   * 在这一帧里原文、译文两种行都有（渲染器按双语排，见 frame-render 的 `compile`），只拖这一行。
+   */
+  const captionDragOf = (item: CaptionItem, p0: Point, group: boolean): CaptionDrag | null => {
+    const records = useVideo.getState().video?.state?.video.documents ?? {};
+    const record = item.styleDocumentId ? records[item.styleDocumentId] : undefined;
     if (item.styleDocumentId && !record) return null;
     const body = record
       ? draftedBody(useEditor.getState().documentDraft, record.id, record.currentRevision, documents.peek(record.id, record.currentRevision))
       : DEFAULT_CAPTION_STYLE;
     const root = body === undefined ? null : captionStyleRoot(body);
     if (!root) return null;
-    const lines = engine.captionHits.filter((hit) => {
-      const other = byId.get(hit.itemId);
-      return other?.type === 'caption' && other.styleDocumentId === item.styleDocumentId;
+    const sharing = (id: Id) => {
+      const other = byId.get(id);
+      return other?.type === 'caption' && other.styleDocumentId === item.styleDocumentId ? other : null;
+    };
+    const lines = engine.captionHits.filter((hit) => sharing(hit.itemId));
+    const own = captionKind(item.documentId, records);
+    const paired = (engine.plan?.layers ?? []).some((layer) => {
+      const other = layer.kind === 'caption' ? sharing(layer.itemId) : null;
+      return !!other && captionKind(other.documentId, records) !== own;
     });
+    if (paired && !group) {
+      const hits = lines.filter((hit) => hit.itemId === item.id);
+      const box = captionBox(hits);
+      if (!box) return null;
+      const canvas = latest.current.canvas;
+      const { x0, y0, detached } = lineMoveStart(root, own, box, canvas);
+      const rest = lines.filter((hit) => {
+        const other = sharing(hit.itemId);
+        return !!other && captionKind(other.documentId, records) !== own;
+      });
+      const anchorY = detached ? null : restackedRootY(root, own, rest, canvas);
+      const restyle = (to: { x: number; y: number }) => movedLineStyle(root, own, to, detached, anchorY);
+      return { move: { box, x0, y0, p0 }, record, body, root, restyle, remember: false, hits };
+    }
     const box = captionBox(lines);
     if (!box) return null;
     const move = { box, x0: num(root.x, CAPTION_X), y0: num(root.y, CAPTION_Y), p0 };
-    return { move, record, body, root, hits: lines.filter((hit) => hit.itemId === item.id) };
+    const selected = useEditor.getState().selection;
+    const hits = lines.filter((hit) => (group ? selected.includes(hit.itemId) : hit.itemId === item.id));
+    return { move, record, body, root, restyle: (to) => movedCaptionStyle(root, to), remember: true, hits };
   };
 
   const showCaption = (drag: CaptionDrag, result: CaptionMoveFrame) => {
-    previewCaptionStyle(drag.record, drag.body, movedCaptionStyle(drag.root, result));
+    previewCaptionStyle(drag.record, drag.body, drag.restyle(result));
     setCaptionShift({ hits: drag.hits, dx: result.dx, dy: result.dy });
     setGuides(result.guides);
   };
@@ -346,7 +383,8 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
   const commitCaption = (drag: CaptionDrag, result: CaptionMoveFrame) => {
     if (result.x === drag.move.x0 && result.y === drag.move.y0) return useEditor.getState().clearDrafts();
     const { record, body, root } = drag;
-    saveCaptionStyle(apply, { sequence: latest.current, record, body, before: root, style: movedCaptionStyle(root, result), label: STAGE_COPY.move });
+    const before = drag.remember ? root : null;
+    saveCaptionStyle(apply, { sequence: latest.current, record, body, before, style: drag.restyle(result), label: STAGE_COPY.move });
   };
 
   const finishMarquee = (p: Press, clientX: number, clientY: number, additive: boolean) => {
@@ -420,11 +458,23 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
       if (groupChangeable) gesture = { kind: 'group-move', members: group.map((item) => memberOf(item, seq.canvas, assets)), p0: p };
     } else if (hit && !additive) {
       // 按在一件上：没选中的先选中，拖动就移动它（原型要先选中才能拖；这里与常见剪辑器一致，按下即可拖）。
-      if (!useEditor.getState().selection.includes(hit) || useEditor.getState().selection.length > 1) select([hit]);
+      // 选中的全是同一份样式的字幕（双语两行都选上了）时按下不收成一件，拖动整组动；不动就松手才只留这一行。
       const item = byId.get(hit);
+      const current = useEditor.getState().selection;
+      const captionGroup =
+        item?.type === 'caption' &&
+        current.length > 1 &&
+        current.includes(hit) &&
+        current.every((id) => {
+          const other = byId.get(id);
+          return other?.type === 'caption' && other.styleDocumentId === item.styleDocumentId;
+        });
+      if (captionGroup) click = () => select([hit]);
+      else if (!current.includes(hit) || current.length > 1) select([hit]);
       if (item?.type === 'caption') useEditor.getState().showPanel('props');
       if (item && isPlaced(item) && changeable(item)) gesture = { kind: 'move', member: memberOf(item, seq.canvas, assets), p0: p };
-      else if (item?.type === 'caption' && changeable(item)) caption = captionDragOf(item, p);
+      else if (item?.type === 'caption' && changeable(item) && (!captionGroup || current.every((id) => changeable(byId.get(id)!))))
+        caption = captionDragOf(item, p, captionGroup);
       moving = new Set([hit]);
     } else {
       // 空白、主视频面、或按着 ⇧ / ⌘：拖过 4px 起框选，不动松手是一次点击。
