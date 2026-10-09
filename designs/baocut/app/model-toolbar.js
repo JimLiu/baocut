@@ -177,15 +177,16 @@
              ['adjust-timing', 'disable', 'delete']],
     },
     /* 彩纸（第 231 轮）：条子上只留动画；颜色 / 形状 / 运动 / 发射都在专属属性页，
-       条子上摆不下也不该摆（一颗「属性」进那一页）。不做翻转与适配画布——它已铺满。 */
+       条子上摆不下也不该摆（一颗「属性」进那一页）。不做翻转与适配画布——它已铺满。
+       菜单照 v2 的通用菜单（2026-10-09）补上不透明度与停用片段：属性页本来就能调不透明度。 */
     confetti: {
       visible: [['animation']],
-      more: [['copy', 'arrange'], ['properties'], ['adjust-timing', 'delete']],
+      more: [['opacity'], ['copy', 'arrange'], ['properties'], ['adjust-timing', 'disable', 'delete']],
     },
-    /* 白板手绘：与彩纸同一口径——手 / 纸 / 画时都在专属属性页，条子上只留动画。 */
+    /* 白板手绘：与彩纸同一口径——手 / 纸 / 画时都在专属属性页，条子上只留动画，菜单同样带不透明度与停用片段。 */
     whiteboard: {
       visible: [['animation']],
-      more: [['copy', 'arrange'], ['properties'], ['adjust-timing', 'delete']],
+      more: [['opacity'], ['copy', 'arrange'], ['properties'], ['adjust-timing', 'disable', 'delete']],
     },
     /* **位图 / 动态贴纸走 `stickers` 一条**（第 84 轮，用户：「动态贴纸本质
        也是视频」）。与上面那条 `sticker`（`SVG`）的差别：位图没有填充色可换，

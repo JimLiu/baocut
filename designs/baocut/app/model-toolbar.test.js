@@ -113,16 +113,17 @@ test('十五类的条子上都没有「存到品牌库」，菜单里只有文�
     ['adjust-timing', 'replace-image', 'save-to-brand-kit', 'disable', 'delete']);
 });
 
-/* 对照 BaoCut v2 已上线的条子（2026-10-09）：v2 除视频外每一类的溢出菜单都有不透明度与「隐藏」。
-   这里的「隐藏」叫停用片段，与时间线菜单同一个词，摆在删除前一格；视频那一条 v2 没有。 */
-test('除视频与彩纸 / 白板外，每一类的菜单里都有不透明度与停用片段', () => {
+/* 对照 BaoCut v2 已上线的条子（2026-10-09）：v2 除视频外每一类的溢出菜单都有不透明度与「隐藏」
+   （彩纸与白板在 v2 没有自己的一条，走通用菜单，也有）。这里的「隐藏」叫停用片段，与时间线菜单同一个词，
+   摆在删除前一格；视频那一条 v2 没有。 */
+test('除视频外，每一类的菜单里都有不透明度与停用片段', () => {
   const flat = (groups) => {
     const ids = [];
     const walk = (g) => g.forEach((x) => (Array.isArray(x) ? walk(x) : ids.push(x)));
     (groups || []).forEach(walk);
     return ids;
   };
-  ['text', 'image', 'shape', 'sticker', 'stickerimg', 'progress', 'wave', 'counter'].forEach((k) => {
+  ['text', 'image', 'shape', 'sticker', 'stickerimg', 'progress', 'wave', 'counter', 'confetti', 'whiteboard'].forEach((k) => {
     const menu = flat(B.more(k));
     assert.ok(menu.indexOf('opacity') >= 0, k + ' 的菜单里少了不透明度');
     assert.strictEqual(menu.indexOf('disable'), menu.indexOf('delete') - 1, k + ' 的停用片段该在删除前一格');
