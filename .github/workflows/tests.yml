@@ -1,0 +1,64 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ts-tests:
+    name: TypeScript tests + typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      CI: true
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Install ffmpeg (media probe / export tests)
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install npm dependencies
+        run: npm ci
+      - name: TypeScript typecheck
+        run: npm run typecheck
+      - name: Run Vitest suite (unit + Runtime e2e)
+        run: npm test
+
+  rust-tests:
+    name: Rust tests + fmt check
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_TARGET_DIR: ${{ runner.temp }}/baocut-target
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Install system dependencies (ffmpeg, cmake, libclang)
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg cmake clang libclang-dev pkg-config
+      - uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # action 1.97.1
+        with:
+          toolchain: stable
+          components: rustfmt
+      - name: Rust format check
+        run: cargo fmt --all -- --check
+      - name: Rust workspace tests (locked)
+        run: cargo test --locked --workspace
