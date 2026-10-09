@@ -1,9 +1,12 @@
 // 成片导出的基准（开发流程 §2 的可选检查）：合成一段带双语字幕的 1080p 夹具，用 Render Worker（`export-worker render`）
 // 按导出同样的输入画完整段、编码成 MP4，报墙钟时间、Worker 自报的合成时间（`renderSeconds`）、帧数、每帧毫秒、输出帧率与负载。
+// 同一段画面按两种摆法各跑一遍（`PLACEMENTS`）：`cover` 是旧夹具的形状；`contain` 是真实项目里主视频的形状
+// （`mode: fullscreen`、`fit: contain`、`bg: black`，源与输出同大）。两者几何上都是恒等，帧率应相近（±10%）；
+// `contain` 明显慢说明 subtitle-render 里带底的路径多做了事（commit 099c1db 修过恒等直通；烧字幕时仍有残余差距）。
 //
 // 夹具（都在系统临时目录里，结束时删掉，`--keep` 保留）：
 // - 画面：ffmpeg 的 `testsrc2`，1920×1080、30 fps、H.264（每 2 秒一个关键帧），缺省 60 秒（`--seconds`）；没有声音，
-//   测的是画面的解码、合成与编码，不含声音的混音与封装；
+//   测的是画面的解码、合成与编码，不含声音的混音与封装；两种摆法共用这一段，各写一份 Worker 输入；
 // - 字幕：每 2.5 秒一句。原文是英文，带逐词时刻的转写（`baocut.speech/1`，句子用 `words` 指向转写里的词），按逐词变色画；
 //   译文中英混排，与原文共用一份样式文档（双语叠成一组）。`--mono` 只烧原文，`--no-captions` 关掉烧字幕（`burnCaptions: false`）。
 // Worker 的输入用 Runtime 的 `workerInput`（`packages/runtime-core/src/exports/video-export.ts`）拼，视频与文档按引擎
@@ -15,7 +18,7 @@
 // `studio-transition`（入场姿态＋出场）、`studio-wordbox`（药丸高亮块随词缩放淡入）、`designed`（Designed Caption 配方＋逐词强调）、
 // `boxed-reveal`（定位框样式＋逐字显现，原文与译文各一个框；词到了才亮出来，只在词界变）、`boxed-motion`（同样的框，词入场连续位移）。
 // `--worker` 缺省是 `<target>/release/export-worker`（`cargo build --release -p export-worker`；打包的应用用 release），
-// 没有时退回 debug 并警告。`--runs` 大于 1 时报中位数与最好的一次。机器忙时绝对值会飘，看输出里的负载。
+// 没有时退回 debug 并警告。`--runs` 大于 1 时每种摆法各报中位数与最好的一次。机器忙时绝对值会飘，看输出里的负载。
 // 环境：CARGO_TARGET_DIR（找 export-worker），BAOCUT_FFMPEG / BAOCUT_FFPROBE（缺省 PATH 里的 ffmpeg、ffprobe）。
 
 import { spawn, spawnSync } from "node:child_process";
@@ -44,6 +47,13 @@ const FPS = 30;
 /** 每句字幕的间隔与长度（秒）。 */
 const CUE_EVERY = 2.5;
 const CUE_LENGTH = 2.3;
+
+/** 主视频的摆法：`cover` 是旧夹具的形状，`contain` 是真实项目的形状（全屏 + contain + 黑底，源与输出同大）。 */
+const PLACEMENTS = [
+  { id: "cover", fit: "cover" },
+  { id: "contain", fit: "contain", bg: "black" },
+] as const;
+type Placement = (typeof PLACEMENTS)[number];
 
 type Captions = "bilingual" | "mono" | "none";
 
@@ -389,6 +399,7 @@ function plan(
   seconds: number,
   captions: Captions,
   style: StyleName,
+  placement: Placement,
   bytes: number,
 ): VideoPlanResult {
   const frames = seconds * FPS;
@@ -402,8 +413,9 @@ function plan(
       trackId: "trk_v1",
       assetRef: { id: assetId, revision: "rev_1" },
       embeddedAudio: { enabled: false, volume: 1 },
-      fit: "cover",
       mode: "fullscreen",
+      fit: placement.fit,
+      ...("bg" in placement ? { bg: placement.bg } : {}),
       place: {},
       span: { fromFrame: 0, durationFrames: frames },
       timeMap: {
@@ -498,7 +510,8 @@ function plan(
 
 interface Fixture {
   dir: string;
-  inputFile: string;
+  /** 每种摆法一份 Worker 输入，共用同一段画面。 */
+  inputs: { placement: Placement; inputFile: string }[];
   outputFile: string;
   cues: number;
 }
@@ -537,23 +550,29 @@ function makeFixture(
       },
     ],
   ]);
-  const input = workerInput({
-    plan: plan(seconds, captions, style, statSync(clip).size),
-    part: 0,
-    assets: assets as never,
-    output,
-    outputPath: outputFile,
-    audioPath: null,
-    burnCaptions: captions !== "none",
-    onUnsupported: "fail",
-    ffmpeg: which(FFMPEG),
-    ffprobe: which(FFPROBE),
+  const ffmpeg = which(FFMPEG);
+  const ffprobe = which(FFPROBE);
+  const bytes = statSync(clip).size;
+  const inputs = PLACEMENTS.map((placement) => {
+    const input = workerInput({
+      plan: plan(seconds, captions, style, placement, bytes),
+      part: 0,
+      assets: assets as never,
+      output,
+      outputPath: outputFile,
+      audioPath: null,
+      burnCaptions: captions !== "none",
+      onUnsupported: "fail",
+      ffmpeg,
+      ffprobe,
+    });
+    const inputFile = join(dir, `${placement.id}.input.json`);
+    writeFileSync(inputFile, JSON.stringify(input));
+    return { placement, inputFile };
   });
-  const inputFile = join(dir, "1.input.json");
-  writeFileSync(inputFile, JSON.stringify(input));
   return {
     dir,
-    inputFile,
+    inputs,
     outputFile,
     cues: Math.ceil((seconds - 0.5) / CUE_EVERY),
   };
@@ -573,6 +592,8 @@ function which(tool: string): string {
 // ---------- 运行 ----------
 
 interface Result {
+  /** 主视频的摆法（`PLACEMENTS` 的 id）。 */
+  placement: Placement["id"];
   captions: Captions;
   style: StyleName;
   worker: string;
@@ -596,12 +617,13 @@ interface Result {
 /** 跑一次 `export-worker render`。stdin 保持开着：Worker 把 stdin 关闭当作取消。 */
 function render(
   worker: string,
-  fixture: Fixture,
+  inputFile: string,
+  outputFile: string,
 ): Promise<{ done: any; wallSeconds: number }> {
-  rmSync(fixture.outputFile, { force: true });
+  rmSync(outputFile, { force: true });
   return new Promise((resolvePromise, reject) => {
     const started = process.hrtime.bigint();
-    const child = spawn(worker, ["render", fixture.inputFile], {
+    const child = spawn(worker, ["render", inputFile], {
       stdio: ["pipe", "pipe", "pipe"],
     });
     child.stdin.on("error", () => {});
@@ -692,66 +714,91 @@ async function main(): Promise<void> {
   );
   const results: Result[] = [];
   try {
-    for (let i = 0; i < options.runs; i++) {
-      const loadBefore = loadavg()[0]!;
-      const { done, wallSeconds } = await render(worker.path, fixture);
-      const loadAfter = loadavg()[0]!;
-      const frames = Number(done.frames);
-      const renderSeconds = Number(done.renderSeconds);
-      const result: Result = {
-        captions: options.captions,
-        style: options.style,
-        worker: worker.path,
-        profile: worker.profile,
-        seconds: options.seconds,
-        frames,
-        wallSeconds,
-        renderSeconds,
-        overheadSeconds: wallSeconds - renderSeconds,
-        msPerFrame: (renderSeconds * 1000) / frames,
-        fps: frames / renderSeconds,
-        decoderRestarts: Number(done.decoderRestarts),
-        video: done.video
-          ? `${done.video.decoder ?? "-"}→${done.video.encoder}` +
-            (done.video.fallbacks.length
-              ? `（回落 ${done.video.fallbacks.map((f: { scope: string; reason: string }) => `${f.scope}:${f.reason}`).join("、")}）`
-              : "")
-          : "未报",
-        outputBytes: statSync(fixture.outputFile).size,
-        loadBefore,
-        loadAfter,
-      };
-      results.push(result);
-      const skipped = (done.skipped ?? []).length;
-      const warnings = (done.warnings ?? []).length + skipped;
-      if (skipped)
-        console.warn(
-          `警告：Worker 跳过了字幕（样式没画出来）：${JSON.stringify(done.skipped)}`,
+    for (const { placement, inputFile } of fixture.inputs) {
+      const label =
+        placement.id === "cover"
+          ? "cover（旧夹具）"
+          : "contain（真实项目：fullscreen + contain + 黑底）";
+      console.log(`摆法 ${label}`);
+      const own: Result[] = [];
+      for (let i = 0; i < options.runs; i++) {
+        const loadBefore = loadavg()[0]!;
+        const { done, wallSeconds } = await render(
+          worker.path,
+          inputFile,
+          fixture.outputFile,
         );
-      print(
-        `第 ${i + 1} 次`,
-        result,
-        ` · 解码重开 ${result.decoderRestarts} 次 · 输出 ${round(result.outputBytes / 1e6, 1)} MB · ` +
-          `编解码 ${result.video} · ` +
-          `负载 ${loadBefore.toFixed(1)}→${loadAfter.toFixed(1)}/${cpus().length}${warnings ? ` · 警告与跳过 ${warnings} 项` : ""}`,
-      );
+        const loadAfter = loadavg()[0]!;
+        const frames = Number(done.frames);
+        const renderSeconds = Number(done.renderSeconds);
+        const result: Result = {
+          placement: placement.id,
+          captions: options.captions,
+          style: options.style,
+          worker: worker.path,
+          profile: worker.profile,
+          seconds: options.seconds,
+          frames,
+          wallSeconds,
+          renderSeconds,
+          overheadSeconds: wallSeconds - renderSeconds,
+          msPerFrame: (renderSeconds * 1000) / frames,
+          fps: frames / renderSeconds,
+          decoderRestarts: Number(done.decoderRestarts),
+          video: done.video
+            ? `${done.video.decoder ?? "-"}→${done.video.encoder}` +
+              (done.video.fallbacks.length
+                ? `（回落 ${done.video.fallbacks.map((f: { scope: string; reason: string }) => `${f.scope}:${f.reason}`).join("、")}）`
+                : "")
+            : "未报",
+          outputBytes: statSync(fixture.outputFile).size,
+          loadBefore,
+          loadAfter,
+        };
+        own.push(result);
+        results.push(result);
+        const skipped = (done.skipped ?? []).length;
+        const warnings = (done.warnings ?? []).length + skipped;
+        if (skipped)
+          console.warn(
+            `警告：Worker 跳过了字幕（样式没画出来）：${JSON.stringify(done.skipped)}`,
+          );
+        print(
+          `  第 ${i + 1} 次`,
+          result,
+          ` · 解码重开 ${result.decoderRestarts} 次 · 输出 ${round(result.outputBytes / 1e6, 1)} MB · ` +
+            `编解码 ${result.video} · ` +
+            `负载 ${loadBefore.toFixed(1)}→${loadAfter.toFixed(1)}/${cpus().length}${warnings ? ` · 警告与跳过 ${warnings} 项` : ""}`,
+        );
+      }
+      if (own.length > 1) {
+        const pick = (key: keyof Result) => own.map((r) => r[key] as number);
+        const summary = {
+          wallSeconds: median(pick("wallSeconds")),
+          renderSeconds: median(pick("renderSeconds")),
+          overheadSeconds: median(pick("overheadSeconds")),
+          frames: own[0]!.frames,
+          msPerFrame: median(pick("msPerFrame")),
+          fps: median(pick("fps")),
+        };
+        print(`  中位数（${own.length} 次）`, summary);
+        const best = own.reduce((a, b) =>
+          b.renderSeconds < a.renderSeconds ? b : a,
+        );
+        print("  最好的一次", best);
+      }
     }
-    if (results.length > 1) {
-      const pick = (key: keyof Result) => results.map((r) => r[key] as number);
-      const summary = {
-        wallSeconds: median(pick("wallSeconds")),
-        renderSeconds: median(pick("renderSeconds")),
-        overheadSeconds: median(pick("overheadSeconds")),
-        frames: results[0]!.frames,
-        msPerFrame: median(pick("msPerFrame")),
-        fps: median(pick("fps")),
-      };
-      print(`中位数（${results.length} 次）`, summary);
-      const best = results.reduce((a, b) =>
-        b.renderSeconds < a.renderSeconds ? b : a,
-      );
-      print("最好的一次", best);
-    }
+    // 两种摆法都是恒等几何，帧率应相近；contain 明显慢说明带底的恒等直通丢了。
+    const fpsOf = (id: Placement["id"]) =>
+      median(results.filter((r) => r.placement === id).map((r) => r.fps));
+    const cover = fpsOf("cover");
+    const contain = fpsOf("contain");
+    console.log(
+      `对比：cover ${round(cover, 1)} fps · contain ${round(contain, 1)} fps · contain/cover ${round(contain / cover, 2)}` +
+        (Math.abs(contain / cover - 1) > 0.1
+          ? "（相差超过 10%：查 subtitle-render 里全屏 + contain + bg 的路径，先看 render_media_element 的恒等直通，再看烧字幕时的合成）"
+          : ""),
+    );
     if (options.json)
       writeFileSync(
         options.json,
