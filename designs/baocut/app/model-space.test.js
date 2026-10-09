@@ -50,7 +50,7 @@ test('整理标记盖在投影上：收藏 / 回收站可以覆盖记录上的�
 
 test('分类与计数：回收站只收已移入的，其余分类不含它们', () => {
   const n = SP.counts(all());
-  assert.equal(n.all, 8);
+  assert.equal(n.all, 6, '「全部」数卡片：m1 的成片与字幕收在 m1 里');
   assert.equal(n.movie, 5);
   assert.equal(n.final, 1);
   assert.equal(n.subtitle, 1);
@@ -65,10 +65,13 @@ test('分类与计数：回收站只收已移入的，其余分类不含它们',
 
 test('排序：最近活动 / 名称 / 类型', () => {
   const list = all();
-  assert.deepEqual(SP.view(list, {cat: 'all'}).map((x) => x.id), ['o3', 'm2', 'o2', 'm3', 'o1', 'm1', 'm4', 'm6']);
+  // m1 自己 120 分钟前改过，它的字幕 18 分钟前导出：整张卡按 18 排
+  assert.deepEqual(SP.view(list, {cat: 'all'}).map((x) => x.id), ['o3', 'm2', 'm1', 'm3', 'm4', 'm6']);
+  assert.deepEqual(SP.view(list, {cat: 'all', sort: 'updated'}).map((x) => x.id), ['o3', 'm2', 'm3', 'm1', 'm4', 'm6'],
+    '更新时间只看视频自己');
   assert.deepEqual(SP.view(list, {cat: 'movie', sort: 'name'}).map((x) => x.name), ['访谈', '课程', '切片', '双语版', '主视频']);
-  assert.deepEqual(SP.view(list, {sort: 'kind'}).map((x) => x.kind),
-    ['movie', 'movie', 'movie', 'movie', 'movie', 'final', 'image', 'subtitle']);
+  assert.deepEqual(SP.view(list, {sort: 'kind'}).map((x) => x.kind), ['movie', 'movie', 'movie', 'movie', 'movie', 'image']);
+  assert.deepEqual(SP.view(list, {cat: 'final'}).map((x) => x.id), ['o1'], '按类型看仍逐个文件列出');
 });
 
 test('筛选：项目 / 状态 / 切自 / 搜索（名称或文件）', () => {
@@ -78,8 +81,40 @@ test('筛选：项目 / 状态 / 切自 / 搜索（名称或文件）', () => {
   assert.deepEqual(SP.view(list, {status: 'generating'}).map((x) => x.id), ['o3', 'm2', 'm3']);
   assert.deepEqual(SP.view(list, {status: 'none', cat: 'movie'}).map((x) => x.id), ['m1', 'm6']);
   assert.deepEqual(SP.view(list, {from: 'm1'}).map((x) => x.id), ['m6']);
-  assert.deepEqual(SP.view(list, {q: 'EN.SRT'}).map((x) => x.id), ['o2']);
+  assert.deepEqual(SP.view(list, {q: 'EN.SRT'}).map((x) => [x.id, x.hits]), [['m1', ['o2']]], '搜到视频名下的文件，出现的是视频');
+  assert.deepEqual(SP.view(list, {q: '双语'}).map((x) => [x.id, x.hits]), [['m1', undefined]], '视频自己对上就不记 hits');
+  assert.deepEqual(SP.view(list, {cat: 'subtitle', q: 'EN.SRT'}).map((x) => x.id), ['o2']);
+  assert.deepEqual(SP.view(list, {status: 'stale'}).map((x) => [x.id, x.hits]), [['m1', ['o1']]]);
   assert.deepEqual(SP.view(list, {cat: 'trash'}).map((x) => x.id), ['o4', 'm5']);
+});
+
+test('一部视频只出现一次：它的文件收进视频，按类型看、视频进了回收站时才各自出现', () => {
+  const tpl = {id: 't1', kind: 'template', name: '双语模板', dir: 'd1', movie: 'm1', mtime: 4000};
+  const list = SP.items({movies, outputs: outputs.concat([tpl]), dirs});
+  const top = SP.group(list);
+  const m1 = top.find((x) => x.id === 'm1');
+  assert.deepEqual(m1.files.map((f) => f.id), ['o1', 'o2'], '成片在前');
+  assert.equal(m1.activity, 18);
+  assert.ok(!top.some((x) => x.id === 'o1' || x.id === 'o2'));
+  assert.ok(top.some((x) => x.id === 't1'), '模板不收进视频');
+  assert.equal(list.find((x) => x.id === 'm1').files, undefined, '投影本身不动');
+  assert.equal(SP.filesSummary(m1), '成片 1 · 字幕 1');
+  assert.deepEqual(SP.filesOf(list, 'm1').map((f) => f.id), ['o1', 'o2']);
+  assert.deepEqual(SP.filesOf(list, 'm2'), []);
+  assert.equal(SP.hitsText(SP.view(list, {q: 'en.srt'})[0]), '找到 英文字幕.srt');
+  assert.equal(SP.hitsText({hits: ['o1', 'o2'], files: m1.files}), '找到 双语版.mp4 等 2 个文件');
+  assert.equal(SP.hitsText(m1), '');
+  assert.deepEqual(SP.filesAttention(m1), {status: 'stale', text: '成片来源已变'});
+  assert.deepEqual(SP.filesAttention({files: [{kind: 'final', status: 'generating', pct: 40}]}), {status: 'generating', text: '成片生成中 · 40%'});
+  assert.deepEqual(SP.filesAttention({files: [{kind: 'final', status: 'missing'}, {kind: 'audio', status: 'missing'}]}), {status: 'missing', text: '2 个文件缺失'});
+  assert.equal(SP.filesAttention({files: [{kind: 'image', status: 'candidate'}]}), null, '候选是常态，不抢状态灯');
+
+  const trashedMovie = SP.items({movies, outputs, dirs, marks: {trash: {m1: true}}});
+  const ids = SP.view(trashedMovie, {cat: 'all'}).map((x) => x.id);
+  assert.ok(ids.includes('o1') && ids.includes('o2'), '视频进了回收站，它导出的文件留在 Space 里各自出现');
+  const trashedFile = SP.items({movies, outputs, dirs, marks: {trash: {o2: true}}});
+  assert.deepEqual(SP.group(trashedFile).find((x) => x.id === 'm1').files.map((f) => f.id), ['o1'], '回收站里的文件不算');
+  assert.deepEqual(SP.view(trashedFile, {cat: 'trash'}).map((x) => x.id).sort(), ['m5', 'o2', 'o4']);
 });
 
 test('「项目」筛选的选项：出现过的项目，再加「不属于任何项目」', () => {

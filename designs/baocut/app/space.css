@@ -61,6 +61,11 @@
 .sp-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .sp-name > svg { flex: none; width: 16px; height: 16px; color: var(--gray-600); --iconPrimary: currentColor; fill: currentColor; }
 .sp-name__t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 收了文件的视频：名字下面一行灰字写「N 个文件 · 成片 2 · 字幕 1」，搜到文件时写找到的是哪个 */
+.sp-name__body { display: flex; flex-direction: column; min-width: 0; }
+.sp-name__sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; line-height: 16px; color: var(--gray-600); }
+/* 卡片底栏：状态在左，「N 个文件」推到右边 */
+.sp-files { margin-inline-start: auto; }
 /* 列表行里的缩略图（§4.3）：spacious 行高 48，缩略图取控件高度 32、16:9，上下各留 8。 */
 .sp-prev--small { flex: none; width: auto; height: 32px; aspect-ratio: 16 / 9; border-radius: 4px; overflow: hidden; }
 .sp-prev--small.sp-prev--kind > svg { width: 16px; height: 16px; }
@@ -85,6 +90,19 @@
 .spv__src { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .spv__foot { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .spv__hint { margin: 0; font-size: 12px; line-height: 18px; color: var(--gray-600); }
+
+/* 视频查看框里的「文件」：这部视频导出、生成的文件，一行一个 */
+.spv__files { display: flex; flex-direction: column; gap: 8px; }
+.spv__files-h { display: flex; align-items: baseline; gap: 6px; margin: 0; font-size: 14px; font-weight: 700; color: var(--gray-900); }
+.spv__files-n { font-weight: 400; color: var(--gray-600); }
+.spv__files-list { display: flex; flex-direction: column; border: 1px solid var(--gray-200); border-radius: 10px; overflow: hidden; }
+.spv__file { display: flex; align-items: center; gap: 12px; padding: 8px 12px; outline: none; cursor: pointer; }
+.spv__file + .spv__file { border-top: 1px solid var(--gray-200); }
+.spv__file[data-hovered] { background: var(--gray-75); }
+.spv__file[data-focus-visible] { outline: 2px solid var(--blue-900); outline-offset: -2px; }
+.spv__file-body { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.spv__file-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: var(--gray-900); }
+.spv__file-d { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--gray-600); }
 
 /* 文档阅读与源码共用原始文字，详情在宽窗口里单独成栏。 */
 .spv--document { display: grid; grid-template-columns: minmax(0, 1fr) 240px; align-items: start; gap: 24px; }

@@ -4,7 +4,9 @@
    动作是 在会话中继续 · 用工具处理… · 查看来源会话或任务（工具的结果可以再做一次）· 在文件夹中显示 · 二次编辑 · 收藏（§4.5）。
    去工具页、任务页与会话的入口按 BC_SURFACE.pages / .agent 收（这个文件只在 App 入口加载，收法照共享组件的规矩写）。
    二次编辑**不覆盖原条目**（§4.6）：字幕与文档就地改字、另存为新版本；图片 / 音频 / 模板另存一份新版本；
-   成片回到来源视频（或以它为素材新建视频）；视频就是打开编辑器。 */
+   成片回到来源视频（或以它为素材新建视频）；视频就是打开编辑器。
+   一部视频在 Space 里只有一张卡：它导出、生成的文件列在这部视频的查看框里（BC_SPACE.filesOf），点一个换成那个文件；
+   文件的查看框里「查看视频」换回来。源文件是视频的一条事实，不另成条目。 */
 (function () {
   const {useState, useEffect} = React;
   const SP = window.BC_SPACE;
@@ -25,6 +27,28 @@
     })}</article>;
   }
 
+  /** 视频名下的文件：一行一个，点开换成那个文件的查看框。 */
+  function MovieFiles({files, onSwitch}) {
+    const R = window.RSP;
+    return (
+      <section className="spv__files" aria-label="这部视频的文件">
+        <h3 className="spv__files-h">文件<span className="spv__files-n">{files.length}</span></h3>
+        <R.GridList aria-label="这部视频的文件" items={files} className="spv__files-list" onAction={(k) => onSwitch(String(k))}>
+          {(f) => (
+            <R.GridListItem id={f.id} textValue={f.name} className="spv__file">
+              <window.SpaceItemPreview it={f} small />
+              <span className="spv__file-body">
+                <span className="spv__file-t">{f.name}</span>
+                <span className="spv__file-d">{[SP.KINDS[f.kind].label, SP.durationText(f), SP.specText(f)].filter(Boolean).join(' · ')}</span>
+              </span>
+              <window.SpaceItemStatus it={f} />
+            </R.GridListItem>
+          )}
+        </R.GridList>
+      </section>
+    );
+  }
+
   /* S2 的 Dialog 会把 children 在标题区、正文区、底栏各渲染一遍（每处只露自己那个 slot），
      所以这里不能有自己的 state——编辑态放在外面的 SpaceViewer 里，三处共用。 */
   function ViewerBody({it, movies, dirs, close, onSwitch, editing, setEditing, text, setText, source, setSource}) {
@@ -36,6 +60,9 @@
     const route = SP.editRoute(it);
     const document = it.kind === 'doc' && /\.md$/i.test(it.file || it.name) && !!it.text;
     const versions = it.kind === 'movie' ? [] : SP.versionsOf(it, app.spaceItems);
+    const files = it.kind === 'movie' ? SP.filesOf(app.spaceItems, it.id) : [];
+    /* 文件属于一部还在的视频：「查看视频」换回那部视频的查看框（它的文件都列在那里） */
+    const host = it.kind !== 'movie' && it.movie ? app.spaceItems.find((x) => x.id === it.movie && x.kind === 'movie' && !x.trashed) : null;
     // 产物的文件路径相对它的项目目录；已经是绝对路径（外接盘、未归类）的照写
     const abs = /^[/~]/.test(it.file || '');
     const path = it.kind === 'movie' ? (d ? AP.moviePath(d, mv) : '')
@@ -98,6 +125,7 @@
                   : <window.SpaceItemPreview it={it} movie={mv && it.kind === 'movie' ? mv : null} big />}
               </div>
             )}
+            {files.length ? <MovieFiles files={files} onSwitch={onSwitch} /> : null}
             <dl className="spv__facts">
               <Fact k="来源">
                 <span className="spv__src">
@@ -110,10 +138,17 @@
                   {org && SURF.pages && orgTask ? (
                     <R.ActionButton size="S" isQuiet onPress={() => { close(); app.go({r: 'task', id: orgTask.id}); }}>查看任务</R.ActionButton>
                   ) : null}
+                  {host ? <R.ActionButton size="S" isQuiet onPress={() => onSwitch(host.id)}>查看视频</R.ActionButton> : null}
                 </span>
               </Fact>
               {loc && (org || loc.isSaveDir) ? <Fact k="位置">{loc.label}{loc.isSaveDir ? '（默认保存位置）' : ''}</Fact> : null}
-              <Fact k="文件"><span className="spv__path">{path}</span></Fact>
+              <Fact k={it.kind === 'movie' ? '目录' : '文件'}><span className="spv__path">{path}</span></Fact>
+              {it.kind === 'movie' && mv && mv.src && mv.src.name ? (
+                <Fact k="源文件">
+                  <span className="spv__path">{mv.src.path || mv.src.name}</span>
+                  {mv.src.state === 'missing' ? <span className="sp-muted">（找不到）</span> : null}
+                </Fact>
+              ) : null}
               {SP.durationText(it) ? <Fact k="时长">{SP.durationText(it)}</Fact> : null}
               {SP.specText(it) ? <Fact k="规格">{SP.specText(it)}</Fact> : null}
               <Fact k="最近活动">{SP.agoText(it.mtime) || '—'}</Fact>
@@ -176,7 +211,7 @@
             <>
               <R.Button variant="secondary" onPress={close}>关闭</R.Button>
               {!it.trashed && it.tool && window.BC_HOME_TOOLS.moviePatch(it) && <R.Button variant="secondary" onPress={() => { close(); app.createMovieFromOutput(it); }}>创建视频</R.Button>}
-              {it.trashed ? null : <R.Button variant="secondary" onPress={edit} isDisabled={it.status === 'missing' || it.status === 'generating'}>{editLabel}</R.Button>}
+              {it.trashed || route === 'editor' ? null : <R.Button variant="secondary" onPress={edit} isDisabled={it.status === 'missing' || it.status === 'generating'}>{editLabel}</R.Button>}
               {it.kind === 'movie' || SURF.agent
                 ? <R.Button variant="accent" onPress={cont} isDisabled={it.kind !== 'movie' && !!it.trashed}>{it.kind === 'movie' ? '打开视频' : '在会话中继续'}</R.Button>
                 : null}

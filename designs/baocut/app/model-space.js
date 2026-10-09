@@ -5,7 +5,7 @@
    与产物记录（data.js `spaceOutputs` ＋ 二次编辑另存出来的新版本）投影出来。用户自己的整理——
    收藏、移入回收站——是盖在投影上的一层标记（`marks`），重建投影不丢它们。
 
-   这里算：条目投影、分类与计数、搜索 / 排序 / 按项目与状态筛选、状态与来源的文字、
+   这里算：条目投影、把视频的文件收进视频（一部视频只出现一次）、分类与计数、搜索 / 排序 / 按项目与状态筛选、状态与来源的文字、
    时长与规格两列（§4.3）、视频菜单里的转录动作（§4.4），以及二次编辑「另存为新版本」（新加一条，原条目不动，§4.6）。 */
 (function () {
   const root = typeof window !== 'undefined' ? window : globalThis;
@@ -115,42 +115,128 @@
     return it.kind === cat;
   }
 
-  /** 各分类的条目数（侧栏行尾）。 */
+  /* ---------- 一部视频只出现一次 ----------
+     成片、字幕、文稿、封面、配乐这些从某部视频导出或为它生成的文件（记录上的 `movie`）在「全部」与「视频」里
+     收进那部视频的卡片：一部视频一张卡，卡上写它有几个文件，查看框里逐个列出。按类型看（成片 / 字幕 / 文档 …）、
+     收藏与回收站仍然逐个文件列出——那是在找某一类文件。模板不收：它是拿去套别的视频的，自己就是一件东西。
+     视频不在了或进了回收站，它的文件各自出现（product-design §4.9：删除视频不带走它导出的条目）。 */
+  const FOLDED_CATS = ['all', 'movie'];
+  const folds = (it) => it.kind !== 'movie' && it.kind !== 'template' && !!it.movie;
+  /* 文件在卡片与查看框里的次序：成片在前，然后按类型、再按最近活动 */
+  const FILE_ORDER = ['final', 'subtitle', 'doc', 'image', 'audio'];
+
+  /**
+   * 把属于视频的文件收进视频：返回顶层条目，视频条目多出 `files`（它名下不在回收站里的文件）与
+   * `activity`（视频与这些文件里最近的一次活动，「最近活动」排序与卡片上的相对时间用它）。原条目不动。
+   */
+  function group(list) {
+    const all = list || [];
+    const hosts = new Map();
+    all.forEach((it) => { if (it.kind === 'movie' && !it.trashed) hosts.set(it.id, []); });
+    const top = [];
+    all.forEach((it) => {
+      if (!it.trashed && folds(it) && hosts.has(it.movie)) hosts.get(it.movie).push(it);
+      else top.push(it);
+    });
+    const fin = (x) => (Number.isFinite(x) ? x : Infinity);
+    return top.map((it) => {
+      if (!hosts.has(it.id)) return it;
+      const files = hosts.get(it.id).slice().sort((a, b) =>
+        (FILE_ORDER.indexOf(a.kind) - FILE_ORDER.indexOf(b.kind)) || (fin(a.mtime) - fin(b.mtime)));
+      const activity = files.reduce((m, f) => Math.min(m, fin(f.mtime)), fin(it.mtime));
+      return Object.assign({}, it, {files, activity: Number.isFinite(activity) ? activity : null});
+    });
+  }
+
+  /** 各分类的条目数（侧栏行尾）。「全部」与「视频」数的是卡片：一部视频连同它的文件算一个。 */
   function counts(list) {
     const n = {};
-    CATS.concat(SPECIAL).forEach((c) => { n[c.k] = 0; });
-    (list || []).forEach((it) => { CATS.concat(SPECIAL).forEach((c) => { if (inCat(it, c.k)) n[c.k]++; }); });
+    const cats = CATS.concat(SPECIAL);
+    cats.forEach((c) => { n[c.k] = 0; });
+    (list || []).forEach((it) => { cats.forEach((c) => { if (FOLDED_CATS.indexOf(c.k) < 0 && inCat(it, c.k)) n[c.k]++; }); });
+    group(list).forEach((it) => { FOLDED_CATS.forEach((k) => { if (inCat(it, k)) n[k]++; }); });
     return n;
   }
 
   const lc = (x) => String(x || '').toLowerCase();
 
   /**
-   * 列表区：分类 → 筛选 → 搜索 → 排序。
+   * 列表区：分类 → 筛选 → 搜索 → 排序。「全部」与「视频」先把文件收进视频（group），
+   * 视频本身或它的任何一个文件对得上搜索 / 状态，这张卡就留下；只靠文件对上的，`hits` 记下是哪几个文件。
    * @param {Array} list items() 的结果
    * @param {{cat?, q?, sort?, dir?, status?, from?}} o
    *   dir：项目 id，'none' = 不属于任何项目；status：状态键，'none' = 无状态；from：只看从这部视频切出来的
    */
   function view(list, o) {
     const opt = o || {};
+    const cat = opt.cat || 'all';
     const q = lc(opt.q).trim();
-    let rows = (list || []).filter((it) => inCat(it, opt.cat || 'all'));
+    const nameHit = (it) => lc(it.name).indexOf(q) >= 0 || lc(it.file).indexOf(q) >= 0;
+    const statusHit = (it) => (opt.status === 'none' ? !it.status : it.status === opt.status);
+    let rows = (FOLDED_CATS.indexOf(cat) >= 0 ? group(list) : (list || [])).filter((it) => inCat(it, cat));
     if (opt.from) rows = rows.filter((it) => it.origin === opt.from);
     if (opt.dir) rows = rows.filter((it) => (opt.dir === 'none' ? !it.dir : it.dir === opt.dir));
-    if (opt.status) rows = rows.filter((it) => (opt.status === 'none' ? !it.status : it.status === opt.status));
-    if (q) rows = rows.filter((it) => lc(it.name).indexOf(q) >= 0 || lc(it.file).indexOf(q) >= 0);
+    if (q || opt.status) {
+      rows = rows.map((it) => {
+        const self = (!q || nameHit(it)) && (!opt.status || statusHit(it));
+        // 「无状态」只看视频自己：文件没有状态不说明什么
+        const hits = (it.files || []).filter((f) => (!q || nameHit(f)) && (!opt.status || (opt.status !== 'none' && statusHit(f))));
+        if (self) return it;
+        return hits.length ? Object.assign({}, it, {hits: hits.map((f) => f.id)}) : null;
+      }).filter(Boolean);
+    }
     const sort = opt.sort || 'recent';
     const idx = new Map(rows.map((r, i) => [r, i]));
     // 演示时间是距今的分钟数：数值越小，实际时间越新（§4.3，时间倒序）。
     const t = (it, key = 'mtime') => (Number.isFinite(it[key]) ? it[key] : Infinity);
+    const recent = (it) => (Number.isFinite(it.activity) ? it.activity : t(it));
     return rows.slice().sort((a, b) => {
       let d = 0;
       if (sort === 'name') d = String(a.name).localeCompare(String(b.name), 'zh-Hans-CN');
       else if (sort === 'kind') d = (KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind)) || (t(a) - t(b));
       else if (sort === 'created') d = t(a, 'ctime') - t(b, 'ctime');
-      else d = t(a) - t(b);
+      else if (sort === 'updated') d = t(a) - t(b);
+      else d = recent(a) - recent(b);
       return d || (idx.get(a) - idx.get(b));
     });
+  }
+
+  /** 一部视频名下的文件（与卡片上收进去的是同一批）；视频不在或在回收站里时没有。 */
+  function filesOf(list, movieId) {
+    const m = group(list).find((x) => x.id === movieId && x.files);
+    return m ? m.files : [];
+  }
+
+  /** 只靠名下文件对上搜索或筛选时，卡片的描述行写是哪个文件（「找到 英文字幕.srt」「找到 a.srt 等 2 个文件」）。 */
+  function hitsText(it) {
+    const hs = (it && it.hits) || [];
+    if (!hs.length) return '';
+    const f = (it.files || []).find((x) => x.id === hs[0]);
+    const name = f ? f.name : '';
+    return hs.length === 1 ? `找到 ${name}` : `找到 ${name} 等 ${hs.length} 个文件`;
+  }
+
+  /** 卡片上「N 个文件」的明细（「成片 2 · 字幕 1 · 文档 1」），无障碍标签与提示用。 */
+  function filesSummary(it) {
+    const fs = (it && it.files) || [];
+    const n = {};
+    fs.forEach((f) => { n[f.kind] = (n[f.kind] || 0) + 1; });
+    return KIND_ORDER.filter((k) => n[k]).map((k) => `${KINDS[k].label} ${n[k]}`).join(' · ');
+  }
+
+  /* 视频自己没有状态时，卡片的状态灯替它名下的文件说话：生成中、失败、缺失、来源已变要让人看见（§4.4）；
+     候选、已应用、已发布是常态，不抢位置。 */
+  const ATTENTION = ['generating', 'failed', 'missing', 'stale'];
+  /** 视频名下最该被看见的文件状态：{status, text}（「成片来源已变」「2 个文件缺失」）；没有返回 null。 */
+  function filesAttention(it) {
+    const fs = (it && it.files) || [];
+    for (const k of ATTENTION) {
+      const hit = fs.filter((f) => f.status === k);
+      if (!hit.length) continue;
+      const one = hit.length === 1;
+      return {status: k, text: `${one ? KINDS[hit[0].kind].label : `${hit.length} 个文件`}${one ? statusText(hit[0]) : STATUS[k].label}`};
+    }
+    return null;
   }
 
   /** 「项目」筛选的选项：条目里出现过的项目（按名称），有不属于项目的条目时末尾加一项。 */
@@ -365,7 +451,7 @@
 
   root.BC_SPACE = {
     KINDS, KIND_ORDER, CATS, SPECIAL, STATUS, SORTS, TRANSCRIBE, isCat, movieStatus, transcribeAction,
-    items, inCat, counts, view, dirOptions, statusText, formatBytes, durationText, durationClock, specText, sourceText, toolName, agoText,
+    items, inCat, group, filesOf, counts, view, hitsText, filesSummary, filesAttention, dirOptions, statusText, formatBytes, durationText, durationClock, specText, sourceText, toolName, agoText,
     documentBlocks, editRoute, versionsOf, versionName, newVersion, IMPORT_ACCEPT, kindOfFile, assetRecord, recentMovies,
   };
 })();

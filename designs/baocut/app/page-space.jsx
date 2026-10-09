@@ -3,6 +3,7 @@
 
    Space 是派生的视图，不是第二份存储（§4.1）：条目是所有项目里的视频、素材与产物的投影
    （BC_SPACE.items，apprail-store.jsx 的 spaceItems）。收藏 / 回收站是盖在投影上的整理标记。
+   「全部」与「视频」里一部视频只出现一次，它的成片、字幕、文稿收在卡片里（BC_SPACE.view → group）。
    左边是分类侧栏，主区是 工具条（搜索 · 项目 · 状态 · 排序 · 网格 / 列表 · 新建）+ 列表区。
    视频点开保留分类侧栏，右下角快捷聊天提交后转入 Home；编辑器与 Home 共用（openMovie via 'space'）；
    其它条目点开是轻量的查看框（space-viewer.jsx）。 */
@@ -51,7 +52,7 @@
             </R.SideNavSection>
           </R.SideNav>
         </div>
-        <div className="hside__note">Space 是所有项目里视频、素材与产物的视图；文件仍在各自的项目目录里。</div>
+        <div className="hside__note">Space 是所有项目里视频、素材与产物的视图；文件仍在各自的项目目录里。视频导出、生成的文件收在视频里，按类型看时逐个列出。</div>
       </div>
     );
   }
