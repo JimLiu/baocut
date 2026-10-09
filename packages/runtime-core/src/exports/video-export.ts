@@ -166,10 +166,20 @@ export type WorkerEvent =
       warnings: Array<{ code: string; detail: string }>;
       decoderRestarts: number;
       renderSeconds: number;
+      /** 画面编解码走了哪条路（架构设计 §9.11「画面」）：后端名（`avfoundation`、`media-foundation`、`ffmpeg`，解码混用时
+       *  `mixed`，没有视频素材时 `decoder` 为 `null`）与原生回落 ffmpeg 的记录。旧版 Worker 不报，所以可选。 */
+      video?: WorkerVideoBackends;
     }
   | { event: 'mastered'; frames: number; inputLufs: number; lufs: number; truePeak: number; staticGainDb: number }
   | { event: 'cancelled'; frame: number; total: number }
   | { event: 'error'; code: string; message: string; details: Record<string, unknown> | null };
+
+/** `done.video`：编解码后端与回落记录。`reason` 是英文代码（如 `codec`、`odd-size`、`open-failed`、`alpha-unsupported`）。 */
+export interface WorkerVideoBackends {
+  decoder: string | null;
+  encoder: string;
+  fallbacks: Array<{ scope: 'decoder' | 'encoder'; assetId?: string; reason: string; message: string }>;
+}
 
 /** 取消之后等 Worker 自己收尾（杀掉 ffmpeg、删掉没写完的输出）多久，过了就强杀。 */
 const CANCEL_GRACE_MS = 5_000;

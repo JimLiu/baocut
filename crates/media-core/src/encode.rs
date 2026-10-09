@@ -1,7 +1,8 @@
 //! 编码：原始 RGBA 帧写进 ffmpeg 的标准输入，按 bt709 转成 yuv420p 编码，混好的声音文件一并封装。
 //!
 //! 声音补静音、截到画面的长度（帧数 ÷ 帧率），两条流等长。取消时杀掉编码器（不让它收尾写出半个文件）并删掉输出。
-//! [`QueuedEncoder`] 把写管道挪到单独的线程，合成不等编码器读完一帧。
+//! [`QueuedEncoder`] 把写管道挪到单独的线程，合成不等编码器读完一帧。写线程独占的输出是一个 [`FrameSink`]：
+//! ffmpeg 的 [`Encoder`]，或调用方在写线程里打开的平台原生写入器（[`QueuedEncoder::spawn`]）。
 
 use std::io::{ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
@@ -297,6 +298,29 @@ impl Encoder {
     }
 }
 
+/// [`QueuedEncoder`] 写线程独占的编码输出：ffmpeg 的 [`Encoder`]，或调用方给的原生写入器。
+///
+/// 约定同 [`Encoder`]：`write` 收一整帧 RGBA；`finish` 收尾，失败时不留半个文件；`abort` 停下并删掉输出。
+pub trait FrameSink {
+    fn write(&mut self, rgba: &[u8]) -> Result<(), MediaError>;
+    fn finish(self: Box<Self>) -> Result<(), MediaError>;
+    fn abort(self: Box<Self>);
+}
+
+impl FrameSink for Encoder {
+    fn write(&mut self, rgba: &[u8]) -> Result<(), MediaError> {
+        Encoder::write(self, rgba)
+    }
+
+    fn finish(self: Box<Self>) -> Result<(), MediaError> {
+        Encoder::finish(*self)
+    }
+
+    fn abort(self: Box<Self>) {
+        Encoder::abort(*self)
+    }
+}
+
 impl Drop for Encoder {
     fn drop(&mut self) {
         if self.stdin.is_some() {
@@ -327,18 +351,39 @@ pub struct QueuedEncoder {
 impl QueuedEncoder {
     /// `depth` 是排队等着写的帧数（至少 1）。
     pub fn new(encoder: Encoder, depth: usize, fill: [u8; 4]) -> QueuedEncoder {
-        let depth = depth.max(1);
         let frame_bytes = encoder.frame_bytes;
+        let opened = QueuedEncoder::spawn(frame_bytes, depth, fill, move || Ok(Box::new(encoder) as Box<dyn FrameSink>));
+        match opened {
+            Ok(queued) => queued,
+            Err(_) => unreachable!("现成的编码器不会打开失败"),
+        }
+    }
+
+    /// 在写线程里打开编码输出（`open`），打开成功才返回；打开失败原样返回错误，调用方可以换一种输出再来。
+    /// 输出在写线程里构造并只在那里用，不要求 `Send`（平台写入器常常不是）。`frame_bytes` 是一帧 RGBA 的字节数。
+    pub fn spawn<F>(frame_bytes: usize, depth: usize, fill: [u8; 4], open: F) -> Result<QueuedEncoder, MediaError>
+    where
+        F: FnOnce() -> Result<Box<dyn FrameSink>, MediaError> + Send + 'static,
+    {
+        let depth = depth.max(1);
         let (frames, queued) = sync_channel::<Vec<u8>>(depth);
         let (recycle, empty) = channel::<Vec<u8>>();
-        for _ in 0..=depth {
-            let _ = recycle.send(fill.repeat(frame_bytes / 4));
-        }
         let finishing = Arc::new(AtomicBool::new(false));
         let aborting = Arc::new(AtomicBool::new(false));
         let (finish, abort) = (Arc::clone(&finishing), Arc::clone(&aborting));
+        let (opened, open_result) = channel::<Result<(), MediaError>>();
+        let refill = recycle.clone();
         let writer = std::thread::spawn(move || {
-            let mut encoder = encoder;
+            let mut encoder = match open() {
+                Ok(sink) => {
+                    let _ = opened.send(Ok(()));
+                    sink
+                }
+                Err(e) => {
+                    let _ = opened.send(Err(e));
+                    return Ok(());
+                }
+            };
             for frame in queued {
                 if abort.load(Ordering::SeqCst) {
                     break;
@@ -357,14 +402,26 @@ impl QueuedEncoder {
                 Ok(())
             }
         });
-        QueuedEncoder {
+        let failed = match open_result.recv() {
+            Ok(Ok(())) => None,
+            Ok(Err(e)) => Some(e),
+            Err(_) => Some(MediaError::new("EXPORT_ENCODE_FAILED", "写编码器的线程崩溃了")),
+        };
+        if let Some(e) = failed {
+            let _ = writer.join();
+            return Err(e);
+        }
+        for _ in 0..=depth {
+            let _ = refill.send(fill.repeat(frame_bytes / 4));
+        }
+        Ok(QueuedEncoder {
             frames: Some(frames),
             empty,
             finishing,
             aborting,
             writer: Some(writer),
             frame_bytes,
-        }
+        })
     }
 
     /// 取一个帧缓冲（长度是一帧，内容是上一次用它时留下的）。缓冲都在队列里时等写线程写完一帧。

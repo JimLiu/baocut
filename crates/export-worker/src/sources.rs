@@ -4,19 +4,21 @@
 //! alpha 全是 255、本来就是预乘的，不逐像素预乘。Lottie 贴纸要的素材字节按冻结的位置读；声波要的素材频谱从冻结的声音文件算，每个素材版本
 //! 算一次（[`frame_render::spectrum::analyze_file`]）。
 //! 一段时间没用到的解码流关掉（子进程不攒着），再用到时从目标前的关键帧重开。
+//! 视频先走平台原生解码（[`crate::native`]），每个素材各自回落 ffmpeg；图片仍经 ffmpeg 解。
 
 use std::collections::HashMap;
 
 use frame_render::support::{UnsupportedItem, kind_name};
 use frame_render::{LayerMedia, RenderError, premultiplied};
 use media_core::Tools;
-use media_core::decode::{VideoDecoder, decode_still};
+use media_core::decode::{NativeDecode, VideoDecoder, decode_still};
 use media_core::probe::probe_picture;
 use render_graph::{LayerKind, VisualLayer};
 use tiny_skia::{IntSize, Pixmap};
 use video_model::VersionRef;
 
 use crate::input::Input;
+use crate::native::{self, Fallback};
 use crate::preflight::AssetPicture;
 
 /// 解码流闲置这么多输出帧之后关掉。
@@ -30,7 +32,9 @@ enum Media {
         /// `pixmap` 是解码器的哪一帧（[`VideoDecoder::advance`] 的代号）。
         generation: u64,
         /// 素材可能带透明：要逐像素预乘；不带时解出来的 alpha 都是 255，预乘不改任何值，跳过。
+        /// 带透明的素材不走原生解码（原生把 alpha 压成 255），所以原生解出来的帧总是不用预乘。
         alpha: bool,
+        asset_id: String,
     },
     Still(Pixmap),
 }
@@ -46,6 +50,17 @@ pub struct Sources<'a> {
     skipped: Vec<UnsupportedItem>,
     /// `素材ID@版本` → 素材频谱；算不出来（没有冻结的位置、没有声音）时是 `None`，声波按占位画并报提示。
     spectra: HashMap<String, Option<Vec<u8>>>,
+    /// 挂给视频解码器的原生帧源；原生整体不可用时 `None`（原因在 `native_unavailable`）。
+    native: Option<NativeDecode>,
+    native_unavailable: Option<(&'static str, String)>,
+    /// 没挂原生的素材（可能带透明）。
+    decode_fallbacks: Vec<Fallback>,
+}
+
+/// 视频解码用了哪些后端（`done.video.decoder`）：没有视频时 `None`，都一样时是那个后端名，不一样时是 `mixed`。
+pub struct DecodeReport {
+    pub decoder: Option<&'static str>,
+    pub fallbacks: Vec<Fallback>,
 }
 
 impl<'a> Sources<'a> {
@@ -60,7 +75,42 @@ impl<'a> Sources<'a> {
             frame: 0,
             skipped: Vec::new(),
             spectra: HashMap::new(),
+            native: native::decode(),
+            native_unavailable: native::decode_unavailable(),
+            decode_fallbacks: Vec::new(),
         }
+    }
+
+    /// 视频解码的后端与回落记录（每个素材、每种原因记一次）。
+    pub fn decode_report(&self) -> DecodeReport {
+        let mut backends: Vec<&'static str> = Vec::new();
+        let mut fallbacks = self.decode_fallbacks.clone();
+        let mut ids: Vec<&String> = self.media.keys().collect();
+        ids.sort();
+        for id in ids {
+            let Some(Media::Video { decoder, asset_id, .. }) = self.media.get(id) else {
+                continue;
+            };
+            if !backends.contains(&decoder.backend()) {
+                backends.push(decoder.backend());
+            }
+            if let Some(fallback) = decoder.fallback() {
+                fallbacks.push(Fallback::decoder(Some(asset_id), fallback.reason, fallback.message.clone()));
+            }
+        }
+        if !backends.is_empty()
+            && let Some((reason, message)) = &self.native_unavailable
+        {
+            fallbacks.insert(0, Fallback::decoder(None, reason, message.clone()));
+        }
+        let mut seen = std::collections::HashSet::new();
+        fallbacks.retain(|f| seen.insert((f.asset_id.clone(), f.reason)));
+        let decoder = match backends.as_slice() {
+            [] => None,
+            [only] => Some(*only),
+            _ => Some("mixed"),
+        };
+        DecodeReport { decoder, fallbacks }
     }
 
     /// 开始第 `k` 个输出帧：关掉闲置的解码流。
@@ -199,11 +249,22 @@ impl LayerMedia for Sources<'_> {
             } else {
                 let asset = layer.asset.as_ref().expect("上面查过");
                 let origin = self.input.pts_origin(&asset.id, &asset.revision);
+                let mut decoder = VideoDecoder::new(&self.tools, &info.path, origin, info.width, info.height);
+                match &self.native {
+                    Some(_) if info.alpha => self.decode_fallbacks.push(Fallback::decoder(
+                        Some(&asset.id),
+                        "alpha-unsupported",
+                        "素材可能带透明，原生解码不保留 alpha",
+                    )),
+                    Some(native) => decoder = decoder.with_native(native.clone()),
+                    None => {}
+                }
                 Media::Video {
-                    decoder: Box::new(VideoDecoder::new(&self.tools, &info.path, origin, info.width, info.height)),
+                    decoder: Box::new(decoder),
                     pixmap: None,
                     generation: 0,
                     alpha: info.alpha,
+                    asset_id: asset.id.clone(),
                 }
             };
             self.media.insert(id.clone(), media);
@@ -216,6 +277,7 @@ impl LayerMedia for Sources<'_> {
                 pixmap,
                 generation,
                 alpha,
+                ..
             } => {
                 let seconds = layer.source_seconds.unwrap_or(0.0).max(0.0);
                 let current = decoder.advance(seconds).map_err(decode_error)?;

@@ -36,9 +36,11 @@ use objc2::runtime::AnyObject;
 use objc2_av_foundation::{
     AVAssetWriter, AVAssetWriterInput, AVAssetWriterInputPixelBufferAdaptor, AVAssetWriterStatus,
     AVFileTypeMPEG4, AVMediaTypeAudio, AVMediaTypeVideo, AVVideoAverageBitRateKey, AVVideoCodecKey,
-    AVVideoCodecTypeH264, AVVideoCompressionPropertiesKey, AVVideoExpectedSourceFrameRateKey,
+    AVVideoCodecTypeH264, AVVideoColorPrimaries_ITU_R_709_2, AVVideoColorPrimariesKey,
+    AVVideoColorPropertiesKey, AVVideoCompressionPropertiesKey, AVVideoExpectedSourceFrameRateKey,
     AVVideoHeightKey, AVVideoMaxKeyFrameIntervalKey, AVVideoProfileLevelH264HighAutoLevel,
-    AVVideoProfileLevelKey, AVVideoWidthKey,
+    AVVideoProfileLevelKey, AVVideoTransferFunction_ITU_R_709_2, AVVideoTransferFunctionKey,
+    AVVideoWidthKey, AVVideoYCbCrMatrix_ITU_R_709_2, AVVideoYCbCrMatrixKey,
 };
 use objc2_avf_audio::{AVEncoderBitRateKey, AVFormatIDKey, AVNumberOfChannelsKey, AVSampleRateKey};
 use objc2_core_audio_types::{
@@ -59,8 +61,8 @@ use objc2_core_video::{
 use objc2_foundation::{NSDictionary, NSNumber, NSString, NSURL, ns_string};
 
 use crate::encode::{
-    AUDIO_BITRATE, AUDIO_CHANNELS, AUDIO_LEAD_SECONDS, AUDIO_SAMPLE_RATE, Mp4Sink, PcmChunk,
-    PcmSource, frame_rate_rational, video_bitrate,
+    AUDIO_CHANNELS, AUDIO_LEAD_SECONDS, AUDIO_SAMPLE_RATE, Mp4Sink, PcmChunk, PcmSource,
+    WriterSetup,
 };
 
 /// 编码器背压时的短睡步长；短睡而不是自旋，避免整核空转（与导出后端同值）。
@@ -107,6 +109,24 @@ unsafe fn video_output_settings(
             &source_frame_rate,
         ],
     );
+    // BT.709 色彩标记：不给的话 VideoToolbox 写出的码流 primaries / transfer /
+    // matrix 全是 unknown（ffprobe 实测），播放端按 601 猜就会偏色。给了之后
+    // BGRA→YUV 的转换矩阵也随之定为 709，与 ffmpeg 兜底路径的
+    // `-colorspace bt709` 合同一致。
+    let color = object_dictionary(
+        &[
+            unsafe { AVVideoColorPrimariesKey }.expect("AVVideoColorPrimariesKey"),
+            unsafe { AVVideoTransferFunctionKey }.expect("AVVideoTransferFunctionKey"),
+            unsafe { AVVideoYCbCrMatrixKey }.expect("AVVideoYCbCrMatrixKey"),
+        ],
+        &[
+            unsafe { AVVideoColorPrimaries_ITU_R_709_2 }
+                .expect("AVVideoColorPrimaries_ITU_R_709_2"),
+            unsafe { AVVideoTransferFunction_ITU_R_709_2 }
+                .expect("AVVideoTransferFunction_ITU_R_709_2"),
+            unsafe { AVVideoYCbCrMatrix_ITU_R_709_2 }.expect("AVVideoYCbCrMatrix_ITU_R_709_2"),
+        ],
+    );
     let width = NSNumber::numberWithUnsignedInt(width);
     let height = NSNumber::numberWithUnsignedInt(height);
     object_dictionary(
@@ -115,12 +135,14 @@ unsafe fn video_output_settings(
             unsafe { AVVideoWidthKey }.expect("AVVideoWidthKey"),
             unsafe { AVVideoHeightKey }.expect("AVVideoHeightKey"),
             unsafe { AVVideoCompressionPropertiesKey }.expect("AVVideoCompressionPropertiesKey"),
+            unsafe { AVVideoColorPropertiesKey }.expect("AVVideoColorPropertiesKey"),
         ],
         &[
             unsafe { AVVideoCodecTypeH264 }.expect("AVVideoCodecTypeH264"),
             &width,
             &height,
             &compression,
+            &color,
         ],
     )
 }
@@ -139,11 +161,11 @@ unsafe fn adaptor_settings(width: u32, height: u32) -> Retained<NSDictionary<NSS
     )
 }
 
-unsafe fn audio_output_settings() -> Retained<NSDictionary<NSString, AnyObject>> {
+unsafe fn audio_output_settings(bitrate: u32) -> Retained<NSDictionary<NSString, AnyObject>> {
     let format = NSNumber::numberWithUnsignedInt(kAudioFormatMPEG4AAC);
     let sample_rate = NSNumber::numberWithDouble(f64::from(AUDIO_SAMPLE_RATE));
     let channels = NSNumber::numberWithUnsignedInt(AUDIO_CHANNELS);
-    let bitrate = NSNumber::numberWithUnsignedInt(AUDIO_BITRATE);
+    let bitrate = NSNumber::numberWithUnsignedInt(bitrate);
     object_dictionary(
         &[
             unsafe { AVFormatIDKey }.expect("AVFormatIDKey"),
@@ -272,26 +294,21 @@ pub(crate) struct AvWriter {
     _temporary: tempfile::TempDir,
 }
 
-pub(crate) fn open(
-    out: &Path,
-    width: u32,
-    height: u32,
-    fps: f64,
-    audio: Option<PcmSource>,
-    bitrate: Option<u32>,
-) -> Result<Box<dyn Mp4Sink>> {
-    objc2::rc::autoreleasepool(|_| open_inner(out, width, height, fps, audio, bitrate))
+pub(crate) fn open(out: &Path, setup: WriterSetup) -> Result<Box<dyn Mp4Sink>> {
+    objc2::rc::autoreleasepool(|_| open_inner(out, setup))
         .map(|writer| Box::new(writer) as Box<dyn Mp4Sink>)
 }
 
-fn open_inner(
-    out: &Path,
-    width: u32,
-    height: u32,
-    fps: f64,
-    audio: Option<PcmSource>,
-    bitrate: Option<u32>,
-) -> Result<AvWriter> {
+fn open_inner(out: &Path, setup: WriterSetup) -> Result<AvWriter> {
+    let WriterSetup {
+        width,
+        height,
+        fps_num,
+        fps_den,
+        bitrate,
+        audio,
+        audio_bitrate,
+    } = setup;
     // AVAssetWriter 拒绝已存在的输出路径，而调用方常常先建好临时文件再交给我们
     // （`bcut-render` 就是 `tempfile_in` 出来的空文件）。ffmpeg 那条路径是 `-y`
     // 覆盖，语义要一致。
@@ -302,7 +319,6 @@ fn open_inner(
             return Err(error).with_context(|| format!("清理旧输出 {}", out.display()));
         }
     }
-    let (fps_num, fps_den) = frame_rate_rational(fps);
     let exact_fps = f64::from(fps_num) / f64::from(fps_den);
     // guard 先于 writer 创建，局部变量逆序析构时 writer 先释放：AVFoundation
     // 收束完自己的影子文件，TempDir 再兜底清理。
@@ -325,7 +341,6 @@ fn open_inner(
         writer.setShouldOptimizeForNetworkUse(true);
     }
 
-    let bitrate = bitrate.unwrap_or_else(|| video_bitrate(width, height, exact_fps));
     let video_settings = unsafe { video_output_settings(width, height, bitrate, exact_fps) };
     let video_input = unsafe {
         AVAssetWriterInput::initWithMediaType_outputSettings(
@@ -359,7 +374,7 @@ fn open_inner(
             AVAssetWriterInput::initWithMediaType_outputSettings(
                 AVAssetWriterInput::alloc(),
                 AVMediaTypeAudio.expect("AVMediaTypeAudio"),
-                Some(&audio_output_settings()),
+                Some(&audio_output_settings(audio_bitrate)),
             )
         };
         unsafe { input.setExpectsMediaDataInRealTime(false) };

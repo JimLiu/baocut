@@ -306,3 +306,106 @@ fn queued_encoder_writes_every_frame_and_reports_a_dead_encoder() {
     assert_eq!(error.code, "EXPORT_ENCODE_FAILED");
     queued.abort();
 }
+
+#[test]
+fn a_failing_native_source_falls_back_to_ffmpeg_from_the_same_time() {
+    use media_core::decode::{FeedOpener, FrameFeed, NativeDecode};
+    use std::sync::Arc;
+
+    let Some(tools) = tools() else { return };
+    let dir = tempfile::tempdir().unwrap();
+    let path = red_then_blue(&tools, dir.path());
+    let open: FeedOpener = Arc::new(|_: &Path, _: f64, _: u32, _: u32| -> Result<Box<dyn FrameFeed>, String> {
+        Err("unsupported: 测试里的原生解码".into())
+    });
+    let native = NativeDecode {
+        backend: "test-native",
+        open,
+    };
+    let mut decoder = VideoDecoder::new(&tools, &path, 0.0, 32, 18).with_native(native);
+    assert_eq!(decoder.backend(), "test-native");
+    // 从 1.2 秒起：原生打不开，ffmpeg 接着从 1.2 秒解，画面是蓝的。
+    assert!(is_blue(center(decoder.frame_at(1.2).unwrap())));
+    assert_eq!(decoder.backend(), "ffmpeg");
+    assert_eq!(decoder.fallback().map(|f| f.reason), Some("open-failed"));
+    // 回落不算重开；之后的倒退照常重开（只走 ffmpeg）。
+    assert_eq!(decoder.restarts(), 0);
+    assert!(is_red(center(decoder.frame_at(0.3).unwrap())));
+    assert_eq!(decoder.restarts(), 1);
+}
+
+#[test]
+fn queued_encoder_opens_its_sink_on_the_writer_thread_and_reports_open_failures() {
+    use media_core::MediaError;
+    use media_core::encode::FrameSink;
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Default)]
+    struct Log {
+        frames: Vec<u8>,
+        finished: bool,
+        aborted: bool,
+    }
+    /// 记账的输出：故意不是 `Send`（`Rc`），只在写线程里构造和使用。
+    struct Recording {
+        log: Arc<Mutex<Log>>,
+        _not_send: std::rc::Rc<()>,
+    }
+    impl FrameSink for Recording {
+        fn write(&mut self, rgba: &[u8]) -> Result<(), MediaError> {
+            self.log.lock().unwrap().frames.push(rgba[0]);
+            Ok(())
+        }
+        fn finish(self: Box<Self>) -> Result<(), MediaError> {
+            self.log.lock().unwrap().finished = true;
+            Ok(())
+        }
+        fn abort(self: Box<Self>) {
+            self.log.lock().unwrap().aborted = true;
+        }
+    }
+
+    let opened = |log: &Arc<Mutex<Log>>| {
+        let log = Arc::clone(log);
+        QueuedEncoder::spawn(16, 2, [9, 9, 9, 255], move || {
+            Ok(Box::new(Recording {
+                log,
+                _not_send: std::rc::Rc::new(()),
+            }) as Box<dyn FrameSink>)
+        })
+        .unwrap()
+    };
+
+    let log = Arc::new(Mutex::new(Log::default()));
+    let mut queued = opened(&log);
+    for i in 0..5u8 {
+        let mut frame = queued.buffer().unwrap();
+        assert_eq!(frame.len(), 16);
+        if i == 0 {
+            assert_eq!(frame[..4], [9, 9, 9, 255], "缓冲铺好了底色");
+        }
+        frame[0] = i;
+        queued.submit(frame).unwrap();
+    }
+    queued.finish().unwrap();
+    {
+        let done = log.lock().unwrap();
+        assert_eq!(
+            (done.frames.clone(), done.finished, done.aborted),
+            (vec![0, 1, 2, 3, 4], true, false)
+        );
+    }
+
+    let log = Arc::new(Mutex::new(Log::default()));
+    opened(&log).abort();
+    {
+        let done = log.lock().unwrap();
+        assert_eq!((done.finished, done.aborted), (false, true));
+    }
+
+    // 打不开：错误原样交回，调用方可以换一种输出。
+    let error = QueuedEncoder::spawn(16, 2, [0; 4], || Err(MediaError::new("EXPORT_ENCODE_FAILED", "原生写入器打不开")))
+        .err()
+        .expect("打开失败要报出来");
+    assert!(error.message.contains("原生写入器打不开"));
+}

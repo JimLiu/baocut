@@ -1,4 +1,5 @@
-//! 预检（架构设计 §9.13）：范围里画不出来的东西逐项列出，素材能不能解出画面，本机 ffmpeg 有没有要用的编码器。
+//! 预检（架构设计 §9.13）：范围里画不出来的东西逐项列出，素材能不能解出画面，编码走原生还是 ffmpeg、走 ffmpeg 时
+//! 本机 ffmpeg 有没有要用的编码器。素材探测仍然经 ffprobe。
 //! 导出启动时跑一次（不过就不创建任务），执行时再跑一次（拿到每个素材的画面尺寸，并确认冻结之后没有变）。
 
 use std::collections::HashMap;
@@ -15,6 +16,7 @@ use video_model::VersionRef;
 
 use crate::Failure;
 use crate::input::Input;
+use crate::native::{self, EncoderPlan};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Warning {
@@ -43,7 +45,12 @@ pub struct Preflight {
     pub frames: u64,
     pub items: Vec<UnsupportedItem>,
     pub warnings: Vec<Warning>,
+    /// 要用的编码器里本机 ffmpeg 缺的那些（走原生写入器时为空）。
     pub missing_encoders: Vec<String>,
+    /// 改走 ffmpeg 时缺的编码器（原生打不开、回落时用来报 `EXPORT_TOOL_MISSING`）。
+    pub ffmpeg_missing: Vec<String>,
+    /// 编码走原生还是 ffmpeg（[`native::choose_encoder`]）。
+    pub encoder: EncoderPlan,
     pub pictures: HashMap<(String, String), AssetPicture>,
 }
 
@@ -182,16 +189,22 @@ pub fn run(input: &Input, tools: &Tools) -> Result<Preflight, Failure> {
 
     let settings = input.encode_settings()?;
     let available = encoders(tools).map_err(|e| Failure::new(e.code, e.message))?;
-    let mut missing_encoders = Vec::new();
+    let mut ffmpeg_missing = Vec::new();
     let mut wanted = vec![settings.codec.encoder()];
     if settings.audio.is_some() {
         wanted.push(settings.container.audio_encoder());
     }
     for name in wanted {
         if !available.contains(name) {
-            missing_encoders.push(name.to_string());
+            ffmpeg_missing.push(name.to_string());
         }
     }
+    // 走原生写入器时不用 ffmpeg 的编码器，缺了也不拦；原生执行时打不开再回落 ffmpeg 时才要它们。
+    let encoder = native::choose_encoder(&settings);
+    let missing_encoders = match encoder {
+        EncoderPlan::Native(_) => Vec::new(),
+        EncoderPlan::Ffmpeg(_) => ffmpeg_missing.clone(),
+    };
     let mut seen = std::collections::HashSet::new();
     items.retain(|item| seen.insert(item.key()));
     Ok(Preflight {
@@ -199,6 +212,8 @@ pub fn run(input: &Input, tools: &Tools) -> Result<Preflight, Failure> {
         items,
         warnings,
         missing_encoders,
+        ffmpeg_missing,
+        encoder,
         pictures,
     })
 }

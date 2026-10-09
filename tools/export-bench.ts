@@ -586,6 +586,8 @@ interface Result {
   msPerFrame: number;
   fps: number;
   decoderRestarts: number;
+  /** Worker 报的画面编解码后端（`done.video`），如 `avfoundation→avfoundation`；`BAOCUT_EXPORT_NATIVE=0` 时是 ffmpeg。 */
+  video: string;
   outputBytes: number;
   loadBefore: number;
   loadAfter: number;
@@ -709,6 +711,12 @@ async function main(): Promise<void> {
         msPerFrame: (renderSeconds * 1000) / frames,
         fps: frames / renderSeconds,
         decoderRestarts: Number(done.decoderRestarts),
+        video: done.video
+          ? `${done.video.decoder ?? "-"}→${done.video.encoder}` +
+            (done.video.fallbacks.length
+              ? `（回落 ${done.video.fallbacks.map((f: { scope: string; reason: string }) => `${f.scope}:${f.reason}`).join("、")}）`
+              : "")
+          : "未报",
         outputBytes: statSync(fixture.outputFile).size,
         loadBefore,
         loadAfter,
@@ -724,6 +732,7 @@ async function main(): Promise<void> {
         `第 ${i + 1} 次`,
         result,
         ` · 解码重开 ${result.decoderRestarts} 次 · 输出 ${round(result.outputBytes / 1e6, 1)} MB · ` +
+          `编解码 ${result.video} · ` +
           `负载 ${loadBefore.toFixed(1)}→${loadAfter.toFixed(1)}/${cpus().length}${warnings ? ` · 警告与跳过 ${warnings} 项` : ""}`,
       );
     }
