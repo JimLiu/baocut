@@ -55,4 +55,25 @@ describe('文档草稿', () => {
     useEditor.setState({ documentDraft: null });
     expect(listener).toHaveBeenCalledTimes(1);
   });
+
+  it('提交后预览自己去取新版本，取到就丢掉草稿：撤销回到旧版本时画旧正文，不再露出草稿', async () => {
+    const bodies = new Map<string, unknown>([['doc_style@r1', { y: 86 }]]);
+    const inner = { peek: (id: string, rev: string) => bodies.get(`${id}@${rev}`), load: vi.fn(), subscribe: () => () => {} };
+    const documents = new DraftDocuments(inner);
+    useEditor.setState({ documentDraft: draft });
+    // 提交了，文档到了 r2，正文还没取到：先画草稿，并且去取 r2（预览拿到的不是 undefined，自己不会去取）。
+    expect(documents.peek('doc_style', 'r2')).toEqual({ y: 40 });
+    expect(inner.load).toHaveBeenCalledWith('doc_style', 'r2');
+    bodies.set('doc_style@r2', { y: 40 });
+    expect(documents.peek('doc_style', 'r2')).toEqual({ y: 40 });
+    await Promise.resolve();
+    expect(useEditor.getState().documentDraft).toBeNull();
+    // 撤销：文档回到 r1。
+    expect(documents.peek('doc_style', 'r1')).toEqual({ y: 86 });
+    // 拖动中（还在草稿所基于的版本上）不去取。
+    inner.load.mockClear();
+    useEditor.setState({ documentDraft: draft });
+    documents.peek('doc_style', 'r1');
+    expect(inner.load).not.toHaveBeenCalled();
+  });
 });

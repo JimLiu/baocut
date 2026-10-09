@@ -29,8 +29,12 @@ export class DraftDocuments implements PreviewDocuments {
   peek(documentId: Id, revision: Revision): unknown {
     const body = this.#inner.peek(documentId, revision);
     const draft = useEditor.getState().documentDraft;
-    if (draft?.documentId === documentId && draft.baseRevision !== revision && body !== undefined)
-      queueMicrotask(() => dropStaleDraft(documentId, revision, body));
+    // 文档已经离开草稿所基于的版本（提交了）：新正文到了就丢掉草稿；还没到就在这里去取——这时返回的是草稿，
+    // 预览拿不到 undefined 就不会自己去取，草稿永远丢不掉，撤销回到旧版本时画面又停在草稿上。
+    if (draft?.documentId === documentId && draft.baseRevision !== revision) {
+      if (body === undefined) this.#inner.load(documentId, revision);
+      else queueMicrotask(() => dropStaleDraft(documentId, revision, body));
+    }
     return draftedBody(draft, documentId, revision, body);
   }
 
