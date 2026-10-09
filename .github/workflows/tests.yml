@@ -32,7 +32,6 @@ jobs:
           package-manager-cache: false
       - uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # action 1.97.1
         with:
-          toolchain: stable
           targets: wasm32-unknown-unknown
       - name: Install ffmpeg (media probe / export tests)
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
@@ -64,8 +63,6 @@ jobs:
       - name: Install system dependencies (ffmpeg, cmake, libclang)
         run: sudo apt-get update && sudo apt-get install -y ffmpeg cmake clang libclang-dev pkg-config
       - uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # action 1.97.1
-        with:
-          toolchain: stable
       # TODO: re-enable `cargo fmt --all -- --check` once the whole tree has been
       # reformatted with the current rustfmt. Right now ~20 source blocks are
       # drifting, which would mask real test/typecheck failures on every PR.
