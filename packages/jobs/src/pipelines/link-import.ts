@@ -186,7 +186,7 @@ const PARAMS_SCHEMA = {
     language: { type: 'string', description: '转写的断言语言（BCP 47）；不给时自动检测。只与 transcribe 一起给' },
     provider: { type: 'string', description: '转写的 Provider；不给时用默认值。只与 transcribe 一起给' },
     model: { type: 'string', description: '转写的模型；不给时用 Provider 的默认模型。只与 transcribe 一起给' },
-    hint: { type: 'string', maxLength: HINT_MAX, description: '识别提示（同 models.transcribe 的 hint）。只与 transcribe 一起给' },
+    hint: { type: 'string', maxLength: HINT_MAX, description: '识别提示（同 models.transcribe 的 hint；模型不收提示时提交即拒）。只与 transcribe 一起给' },
     diarize: { type: 'boolean', description: '区分说话人；不给时按模型。只与 transcribe 和视频目标一起给' },
     captions: { type: 'boolean', default: false, description: '转写之后建立字幕层。只与 transcribe 和视频目标一起给' },
     saveTo: {
@@ -267,16 +267,18 @@ export function linkImportPipeline(deps: LinkImportDeps): PipelineDefinition<Fro
       if (params.transcribe) {
         if (!deps.transcribe) throw new RpcError('conflict', JobsLinkImport.cannotTranscribe(), { code: 'CAPABILITY_NOT_CONFIGURED' });
         if (!params.videoId && !params.create && !deps.transcribe.submitFile) throw new RpcError('conflict', JobsLinkImport.fileTranscribeUnavailable(), { code: 'CAPABILITY_NOT_CONFIGURED' });
-        // 重试时用冻结的选择；第一次提交时用给定的 Provider 与模型（不给时默认值）。
+        // 重试时用冻结的选择；第一次提交时用给定的 Provider 与模型（不给时默认值），带识别提示时一并核对模型收不收，
+        // 不等下载完才失败。
         const frozenSelection = retry ? (params as FrozenLinkImportParams).transcription : undefined;
-        const given: { provider?: string; model?: string } = retry ? {} : (params as CheckedLinkImportParams);
+        const given: { provider?: string; model?: string; hint?: string } = retry ? {} : (params as CheckedLinkImportParams);
         transcription = await deps.transcribe.check(
           frozenSelection
             ? { provider: frozenSelection.providerId, model: frozenSelection.modelId }
-            : given.provider !== undefined || given.model !== undefined
+            : given.provider !== undefined || given.model !== undefined || given.hint
               ? {
                   ...(given.provider !== undefined ? { provider: given.provider } : {}),
                   ...(given.model !== undefined ? { model: given.model } : {}),
+                  ...(given.hint ? { hint: given.hint } : {}),
                 }
               : undefined,
         );

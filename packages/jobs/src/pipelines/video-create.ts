@@ -113,8 +113,11 @@ export async function importMedia(
 
 /** 流程里的转写：提交前检查配置、提交、等待与取消（复用 `models.transcribe` 的提交）。 */
 export interface PipelineTranscriber {
-  /** 选定 Provider 与模型（没有配置时抛 `CAPABILITY_NOT_CONFIGURED`）。 */
-  check(target?: { provider?: string; model?: string }): Promise<{ providerId: string; modelId: string }>;
+  /**
+   * 选定 Provider 与模型（没有配置时抛 `CAPABILITY_NOT_CONFIGURED`）。给了识别提示时一并核对模型收不收提示（不收时
+   * `invalid-request`），在提交流程时就拒绝，不等下载、提交转写时才失败。
+   */
+  check(target?: { provider?: string; model?: string; hint?: string }): Promise<{ providerId: string; modelId: string }>;
   submit(request: TranscribeRequest, submitter: JobSubmitter): Promise<{ jobId: Id }>;
   /** 没有视频的转写（文件的转录）。`language` 是断言的语言（BCP 47）。 */
   submitFile?(

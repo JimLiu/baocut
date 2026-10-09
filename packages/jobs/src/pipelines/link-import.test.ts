@@ -221,6 +221,7 @@ describe.skipIf(!hasFfprobe)('从链接导入（假 yt-dlp）', () => {
       transcribe: {
         check: async (target) => {
           checked.push(target);
+          if (target?.hint && target.model === 'no-hint') throw new RpcError('invalid-request', '这个模型不收识别提示');
           return { providerId: target?.provider ?? 'local', modelId: target?.model ?? 'fake' };
         },
         submit: async (request, submitter) => {
@@ -453,7 +454,7 @@ describe.skipIf(!hasFfprobe)('从链接导入（假 yt-dlp）', () => {
     const parent = await finished(jobId);
     expect(parent.error).toBeNull();
     expect(parent.state).toBe('completed');
-    expect(checked).toEqual([{ provider: 'openai', model: 'whisper-1' }]);
+    expect(checked).toEqual([{ provider: 'openai', model: 'whisper-1', hint: '人名：山田' }]);
     expect(parent.pipeline!.params).toMatchObject({
       transcription: { providerId: 'openai', modelId: 'whisper-1' },
       language: 'ja',
@@ -571,13 +572,17 @@ describe.skipIf(!hasFfprobe)('从链接导入（假 yt-dlp）', () => {
     expect(applied).toEqual([]);
   });
 
-  it('解析到内网地址的主机、本地地址在提交时拒绝，不留下原始链接', async () => {
+  it('解析到内网地址的主机、本地地址、模型不收的识别提示在提交时拒绝，不下载、不留下原始链接', async () => {
     await expect(start({ url: `https://evil.example.com/a?token=${SECRET}` })).rejects.toMatchObject({
       code: 'invalid-request',
       details: { code: 'LINK_PRIVATE_ADDRESS' },
     });
     await expect(start({ url: 'http://169.254.169.254/latest' })).rejects.toMatchObject({ details: { code: 'LINK_PRIVATE_ADDRESS' } });
     await expect(start({ url: 'https://video.example.com/a', projectId: 'missing' })).rejects.toMatchObject({ code: 'not-found' });
+    // 转写模型不收给的识别提示：提交时就拒绝，不先下载。
+    await expect(
+      start({ url: 'https://video.example.com/a', transcribe: true, model: 'no-hint', hint: '人名：山田' }),
+    ).rejects.toMatchObject({ code: 'invalid-request', message: '这个模型不收识别提示' });
     await expect(fs.stat(sourcesFile)).rejects.toMatchObject({ code: 'ENOENT' });
     expect(await fake.calls()).toEqual([]);
   });

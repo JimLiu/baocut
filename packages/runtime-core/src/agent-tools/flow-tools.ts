@@ -116,7 +116,14 @@ const schemas = {
     provider: providerArg.optional().describe('可选。转写的服务商（models_capabilities 列出的 providerId）；不给时用默认值'),
     model: providerArg.optional().describe('可选。转写模型；只与 provider 一起给'),
     diarize: z.boolean().optional().describe('可选。区分说话人；不给时按模型，能区分的区分'),
-    hint: z.string().min(1).max(1000).optional().describe('可选。识别提示：人名、术语、专有名词；视频里启用的转写术语表照样用上'),
+    hint: z
+      .string()
+      .min(1)
+      .max(1000)
+      .optional()
+      .describe(
+        '可选。识别提示：人名、术语、专有名词；视频里启用的转写术语表照样用上。只有收提示的模型能给（models_capabilities 里的 acceptsHint；MOSS 不收），不收时提交即拒：别带，人名与术语留给润色',
+      ),
     noCaptions: z.boolean().optional().describe('可选。转写之后不建字幕层（默认建）'),
     commandId: commandIdArg.optional().describe('可选。重试同一次提交时带上同一个值，不会重复创建任务'),
   }),

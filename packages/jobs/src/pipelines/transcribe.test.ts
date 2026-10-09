@@ -203,8 +203,9 @@ class FakeTranscriber implements PipelineTranscriber {
     this.videos = videos;
   }
 
-  async check(target?: { provider?: string; model?: string }) {
+  async check(target?: { provider?: string; model?: string; hint?: string }) {
     if (target?.provider === 'missing') throw new RpcError('conflict', '没有配置', { code: 'CAPABILITY_NOT_CONFIGURED' });
+    if (target?.hint && target.model === 'no-hint') throw new RpcError('invalid-request', '这个模型不收识别提示');
     return { providerId: target?.provider ?? 'local', modelId: target?.model ?? 'fake-asr' };
   }
 
@@ -542,12 +543,17 @@ describe('转录流程', () => {
     expect(transcriber.submitted.map((s) => [s.assetId, s.hint])).toEqual([['asset_b', '播客']]);
   });
 
-  it('启动前检查：视频没打开、转写没配置、媒体文件不在', async () => {
+  it('启动前检查：视频没打开、转写没配置、模型不收给的识别提示、媒体文件不在', async () => {
     await expect(start({ videoId: 'vid_x' })).rejects.toMatchObject({ code: 'not-found' });
     videos.add('vid_1', [{ assetId: 'asset_a' }]);
     await expect(start({ videoId: 'vid_1', provider: 'missing' })).rejects.toMatchObject({
       details: { code: 'CAPABILITY_NOT_CONFIGURED' },
     });
+    // 给了识别提示而模型不收：提交时就拒绝，不等提交转写。
+    const noHint = { code: 'invalid-request', message: '这个模型不收识别提示' };
+    await expect(start({ videoId: 'vid_1', model: 'no-hint', hint: '播客' })).rejects.toMatchObject(noHint);
+    await expect(start({ file: media, model: 'no-hint', hint: '播客' })).rejects.toMatchObject(noHint);
+    expect(transcriber.submitted).toEqual([]);
     await expect(start({ target: { create: { projectId: 'p1', media: path.join(dir, 'nope.mp4') } } })).rejects.toMatchObject({
       code: 'not-found',
       details: { code: 'INPUT_NOT_FOUND' },
