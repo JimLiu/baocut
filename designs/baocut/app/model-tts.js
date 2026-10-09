@@ -1094,7 +1094,7 @@
     if (!b || Math.abs((b.rate || 1) - 1) < 0.005) return '';
     return b.rate.toFixed(2) + '×' + (b.fast ? ' · 过快' : '');
   }
-  /** 音源开关（行头 ⋯、播放条的音源按钮、配音收据共用）：听 `lang` 的配音 / 听原声 / 两者都听。
+  /** 音源开关（行头 ⋯、配音收据共用）：听 `lang` 的配音 / 听原声 / 两者都听。
    *  一次翻原声轨与各语言配音组（配音行 + 各自的背景声行）的停用位——各行的喇叭仍可单独拧，这里只是常用组合：
    *  - dub：只开这一种语言的组（配音 + 它的背景声）；原声静音（选了「压低」则留着压低）；
    *  - original：所有组全关（原声本身就带背景，再叠一层会重）；
@@ -1123,7 +1123,7 @@
     if (orig && !dub) return 'original';
     return orig && dub ? 'both' : 'none';
   }
-  /** 播放条音源按钮的字：「配音 · English」「原声」「两者 · English」，都没开写「静音」 */
+  /** 音源的读法（切换后的提示等）：「配音 · English」「原声」「两者 · English」，都没开写「静音」 */
   function sourceLabel(src, langName) {
     if (src === 'dub') return '配音 · ' + (langName || '');
     if (src === 'both') return '两者 · ' + (langName || '');

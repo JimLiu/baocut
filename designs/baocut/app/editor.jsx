@@ -151,7 +151,7 @@
       setBedOff(shut);
     }, []);
     /* 配音块拉伸（2026-09-11）：拖块右缘改这一句的播放时长，语速 = 合成时长 / 新时长，
-       夹在 0.7–2.0×；只动这一块。音源切换（行头 ⋯、播放条音源按钮、配音收据）一次翻原声、
+       夹在 0.7–2.0×；只动这一块。音源切换（行头 ⋯、配音收据）一次翻原声、
        各语言配音与背景声的停用位，规则在 `BC_TTS.switchSource`。 */
     const stretchDub = useCallback((lang, id, dur) => {
       setDubs((cur) => cur.map((d) => (d.lang !== lang ? d
