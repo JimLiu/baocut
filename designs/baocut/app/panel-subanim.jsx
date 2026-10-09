@@ -37,7 +37,12 @@
        接管整条的配方。所以这一页里选任意一格，都会把配方撤掉——否则画面上仍是配方说了算，
        这一笔等于没点。 */
     const cap = src.caption && D.subtitle.designed.find((g) => g.id === src.caption);
-    const patch = (k) => ({wordAnim: k, caption: null, textMotion: null, wordBackground: null});
+    /* 两轴（2026-10-09）：这一格同时写成当前词 ＋ 动效（`BC_CS.fromAnim`，十九格往返一一对应），
+       画布走两轴路，只写 `wordAnim` 的话画面上不会变。 */
+    const patch = (k) => {
+      const f = window.BC_CS.fromAnim(k, src.activeColor);
+      return {wordAnim: k, activeWord: f.activeWord, motion: f.motion, caption: null, textMotion: null, wordBackground: null};
+    };
     const set = (k) => {
       ctx.setPeek(null);
       /* 倒鸭子（`kinetic`，2026-09-17）是整条轨的，不在 cue 覆盖表的白名单里：选任意一格

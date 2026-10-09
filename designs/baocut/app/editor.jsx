@@ -891,6 +891,21 @@
            再点同一张卡时保留用户已调过的那份（换一版 / 固定块都在里面），套别的卡一律清掉
            ——与 `caption` 同一条规矩：留着上一份配方，画面上就还是它说了算。 */
         if (isSrc) out.kinetic = p.kinetic ? (t.kinetic || window.BC_DZ.defaults(window.BC_DATA.subtitle.kineticDemo)) : null;
+        /* 两轴（2026-10-09，caption-style-model-design §4/§5）：当前词与动效照这张卡的正文落
+           （`BC_CS.toTrack`，派生键 `wordAnim` / `textMotion` / `wordBackground` 一并重算）；品牌库旧卡
+           没有正文，按它的 `anim` 查十九格表。译文轨没有词级时间戳：当前词恒为「无」，动效只留「出现时」。 */
+        const CS = window.BC_CS;
+        const body = CS.byKey(CS.family(p.id));
+        const role = isSrc ? 'source' : 'translation';
+        if (body && (p.activeWord || !p.anim) && !p.caption) {
+          const w = CS.toTrack(body, {role});
+          CS.WORD_KEYS.forEach((k) => { if (k !== 'activeColor') out[k] = w[k]; });
+          if (isSrc && w.activeColor) out.activeColor = w.activeColor;
+        } else {
+          const w = window.subWordOf(p, role, paint);
+          out.activeWord = w.aw;
+          out.motion = w.motion;
+        }
         return out;
       });
       /* Shorts 内置预设（`p.layout === 'shorts'`，契约 6）：涂装之外还要**落位**——字号约画宽 5.5%、

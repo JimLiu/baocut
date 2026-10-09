@@ -157,103 +157,11 @@
   const lookCss = (key, fz) => paintCss(lookPaint(key), fz);
   const isMono = (key) => !!((key && typeof key === 'object' ? key : D.subtitle.looks[key]) || {}).mono;
 
-  /* ---------- 共用节拍器 ----------
-     画廊里三十多张卡，每张自己起一个 `setInterval` 会各跑各的相位，一屏卡片看上去
-     像在随机闪。所以整页共用一个节拍器：一个 interval、一个计数、所有订阅者同相位。
-     没人订阅时它自己停——面板一关就不再空转。
-
-     `prefers-reduced-motion` 下不走表，停在当前词落在第二个词的那一帧。那一帧仍然
-     认得出是哪一种动画（取帧表本来就是按「签名帧」设计的），只是不动。 */
-  /* 拍数是从 **epoch 算出来的**，不是自增计数（第 71 轮）：动效字幕的 canvas 走的是
-     连续时间线 `t = (now − epoch) / 1000`，两边要同相位，唯一的办法是共用同一个原点。
-     自增计数会随「谁先订阅」漂移——同一屏上 `WordLine` 的当前词与 canvas 的当前词
-     就会错开一拍。epoch 由 app/subcaption.jsx 在加载时定下（它排在本文件前面）。 */
-  const BEAT_MS = 620;
-  const beat = (() => {
-    let id = null;
-    const subs = new Set();
-    const now = () => Math.floor((window.captionNow() - window.captionEpoch) / BEAT_MS);
-    return {
-      now: now,
-      sub(fn) {
-        subs.add(fn);
-        if (!id) id = setInterval(() => { const t = now(); subs.forEach((f) => f(t)); }, BEAT_MS);
-        return () => { subs.delete(fn); if (!subs.size) { clearInterval(id); id = null; } };
-      },
-    };
-  })();
-  const REDUCED = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-
-  /** 当前词的下标；`on` 为假时返回 -1（没有当前词）。
-      `n` 个词跑 `n + 1` 拍——多出来的那一拍是念完之后的静息，没有它，循环回第一个
-      词的时候看不出「重新开始」，卡拉OK 会像卡住。 */
-  function useSubBeat(n, on) {
-    const [t, setT] = React.useState(beat.now());
-    React.useEffect(() => { if (on && !REDUCED) return beat.sub(setT); }, [on]);
-    if (!on || !n) return -1;
-    if (REDUCED) return Math.min(1, n - 1);
-    return t % (n + 1);
-  }
-
-  /* ---------- 一行字幕，按词画 ----------
-     `cur` = 当前词下标。词与词之间补不补空格由 `BC_WA.joint` 决定（CJK 直接相接、
-     拉丁按词补），所以中英混排不会多出一个空格或者粘成一坨。
-     不动的样式直接把整句交出去——没有理由为一条静止的字幕拆三十个 span。 */
-  /** 整行那一档（`group: 'block'`）摆在**行**上的那一份：签名帧 ＋ 真运动轨。
-   *  轨只在进场那一段挂着（`cur <= 1`）——一直挂着的话每次取帧表变了它都会重跑一遍。 */
-  function lineMotion(anim, cur) {
-    const s = SA.lineFrame(anim, cur, REDUCED);
-    const run = cur <= 1 && !REDUCED ? SA.motion(anim, BEAT_MS, 'block') : null;
-    return run ? Object.assign(s, {animation: run}) : s;
-  }
-
-  function WordLine({text, anim, active, cur, plate, highlight, cueId}) {
-    const words = React.useMemo(() => WA.split(text), [text]);
-    /* `blockScaling` 那两条要把变形原点挪到**行心**（见 ui.css 的 `.wd--bs`），所以得
-       量一次每个词的中心到行心有多远。只在这两条上量，其余动效一个 rect 都不读；
-       量在布局之后、字体就位之后各一次，不跟着节拍器跑。 */
-    const bs = SA.blockScaled(anim);
-    const refs = React.useRef([]);
-    React.useLayoutEffect(() => {
-      if (!bs) return;
-      const measure = () => {
-        const el = refs.current.filter(Boolean);
-        if (!el.length) return;
-        const box = el[0].parentElement.getBoundingClientRect();
-        const mid = box.left + box.width / 2;
-        el.forEach((s) => {
-          const r = s.getBoundingClientRect();
-          s.style.setProperty('--wa-ox', (mid - (r.left + r.width / 2)).toFixed(1) + 'px');
-        });
-      };
-      measure();
-      // 字体是异步来的，换了字宽行心就变了——就位之后再量一次
-      if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
-    }, [bs, text, anim]);
-    // 整行那一档（`group: 'block'`）不落在词上——它没有「当前词」这回事
-    if (!SA.hasScope(anim, 'word') && !(highlight && highlight.on)) {
-      // 不动：整句交出去，没有理由拆三十个 span
-      return plate ? <span style={plate}>{text}</span> : text;
-    }
-    /* **当前那个词挂一条真的关键帧轨**（第 65 轮）。取帧表给的是签名帧，它承诺
-       「认得出是哪一种」；真正在跑的那一段由 `WA.motion()` 给，起止姿态与缓动逐条对着
-       轨上的关键帧。CSS 动画压过内联样式，所以跑的时候是轨说了算，跑完落在末帧
-       （＝落位），下一拍取帧表接手也是落位——两者对得上，不会跳。 */
-    const run = REDUCED ? null : SA.motion(anim, BEAT_MS, 'word');
-    const inner = words.map((w, i) => (
-      <React.Fragment key={i}>
-        {i ? WA.joint(words[i - 1], w) : ''}
-        <span className={cx('wd', bs && 'wd--bs')} ref={(el) => { refs.current[i] = el; }}
-          style={Object.assign(SA.frame(anim, i, cur, REDUCED), run && i === cur ? {animation: run} : null)}>
-          {window.BC_SI.isMarked(highlight, cueId, w, i)
-            ? <span style={{color: highlight.color, fontFamily: highlight.font || 'inherit',
-              fontWeight: highlight.bold ? 800 : 400, fontStyle: highlight.italic ? 'italic' : 'normal',
-              fontSize: (highlight.scale || 100) + '%'}}>{w}</span> : w}</span>
-      </React.Fragment>
-    ));
-    // 逐行那一档：整句包一块，`box-decoration-break: clone` 让折行各自贴一块
-    return plate ? <span style={plate}>{inner}</span> : inner;
-  }
+  /* 共用节拍器、`WordLine` 与 `lineMotion` 住在 app/sub-wordline.jsx（2026-10-09 拆出）：
+     画布与导出预览也用它们，四处同一段代码。 */
+  const REDUCED = window.subReduced;
+  const lineMotion = window.lineMotion;
+  const WordLine = window.WordLine;
 
   /** 这一门语言的样例文字，取不到就落回默认那门（**英文**——BaoCut 不是一个中文 App）。
       画廊传的是固定的样张语言对（`D.subtitle.specimen`），预览条传的是轨自己的语言：
@@ -296,17 +204,13 @@
         ? [['orig', p.look, L.main], ['trans', p.look2 || p.look, L.sub]]
         : [['trans', p.look2 || p.look, L.main], ['orig', p.look, L.sub]])
       : p.form === 'trans' ? [['trans', p.look, L.main]] : [['orig', p.look, L.main]];
-    const anim = p.anim || 'none';
     const srcRow = rows.find((r) => r[0] === 'orig');
     const n = srcRow ? WA.split(sampleOf(srcRow[2], 'thumb')).length : 0;
-    /* 动效字幕**永远在动**：它没有 `anim`（`SA.moves('none')` 是假），但一次一词 /
-       逐词堆叠本身就是它的动画——不跑节拍器，那一区 17 张卡会全是静帧。 */
-    const cur = useSubBeat(n, !!srcRow && (p.caption ? true : SA.moves(anim)));
-    if (rows.some(row => lookPaint(row[1]).textMotion)) {
-      return <span className="sthumb">{rows.map(([role, look, lang], i) => <window.SubTextMotion key={i}
-        paint={lookPaint(look)} text={sampleOf(lang, 'thumb')} fz={i ? Math.round(fz * .8) : fz}
-        loop still={REDUCED} surface timed={role === 'orig'} />)}</span>;
-    }
+    /* 两轴（当前词 ＋ 动效，2026-10-09）：每一行按角色取——目录卡读 `BC_CS` 的正文，品牌库旧卡
+       按 `anim` 查十九格表。源语言行带当前词，译文行只带「出现时」那几段动效（没有词级时间戳）。 */
+    const words = rows.map((r) => window.subWordOf(p, r[0] === 'orig' ? 'source' : 'translation', lookPaint(r[1])));
+    /* 动效字幕**永远在动**：一次一词 / 逐词堆叠本身就是它的动画，不跑节拍器那一区会全是静帧。 */
+    const {cur, cycle} = window.useSubCycle(Math.max(n, 1), p.caption ? true : words.some(window.subWordMoves));
     /* 动效字幕走**第二条渲染路径**：配方自带涂装、排版与四档时间通道，画在 canvas 上，
        所以这里既不画 look 也不画行叠——整格交给 `CaptionCanvas`（app/subcaption.jsx）。
        时钟是它自己的循环时间线（与本文件的节拍器同 epoch），所以不用把 `cur` 传下去。 */
@@ -333,24 +237,22 @@
         {rows.map(([role, look, lang], i) => {
           const paint = lookPaint(look);
           const rowFz = i === 1 ? Math.round(fz * 0.8) : fz;
+          const w = words[i];
+          /* **底板要往里传**：`line` 那一档的底由 `WordLine` 画（`box-decoration-break` 管折行），
+             外层只画 `block` 那一档；不传的话白板样式在画廊里等于没画。 */
           return (
-            <span key={role + i} className={cx('sthumb__l', isMono(look) && 't-mono')}
-              /* 整行入场（`flipClock` / `scaleIn`）摆在**行**上：那一档本来就是
-                 整条 cue 跑一遍的，落到词上就成了另一件事 */
-              style={Object.assign(paintCss(paint, rowFz),
-                role === 'orig' ? lineMotion(anim, cur) : null)}>
-              {/* **底板要往里传**：`line` 那一档的底由 `WordLine` 画（`box-decoration-break`
-                  管折行），外层只画 `block` 那一档。不传的话画面上就是「Ali 的白板没了、
-                  黑字直接落在深底上」——一整类样式在画廊里等于没画。 */}
-              <WordLine text={sampleOf(lang, 'thumb')} active={paint.activeColor}
-                anim={role === 'orig' ? anim : 'none'} cur={cur}
-                plate={plateCss(paint, rowFz)} />
+            <span key={role + i} className={cx('sthumb__l', isMono(look) && 't-mono')} style={paintCss(paint, rowFz)}>
+              <WordLine text={sampleOf(lang, 'thumb')} aw={w.aw} motion={w.motion} wordBox={w.wordBox}
+                cur={role === 'orig' ? cur : -1} cycle={cycle} still={REDUCED} plate={plateCss(paint, rowFz)} />
             </span>
           );
         })}
       </span>
     );
   }
+
+  /** 两轴三件铺成 `WordLine` 的 props；旧轨（没有 `activeWord`）给空，走旧路。 */
+  const wordProps = (w) => (w ? {aw: w.aw, motion: w.motion, wordBox: w.wordBox} : {});
 
   /* ---------- 预览条 ----------
      属性页顶部那一条。画的是**这几条轨长什么样**：按 timeline 的行序排、当下在编辑的
@@ -374,7 +276,10 @@
     const cap = src.caption || null;
     const currentText = ctx.curCue && (ctx.cueText ? ctx.cueText(ctx.curCue.id) : ctx.curCue.text);
     const n = WA.split(currentText || sampleOf(src.lang, 'line')).length;
-    const cur = useSubBeat(n, cap ? true : SA.moves(anim));
+    // 两轴（2026-10-09）：轨上有 `activeWord` 就走两轴路，与画布、缩略图同一个组件
+    const srcWord = window.subWordOfTrack(src, true);
+    const {cur, cycle} = window.useSubCycle(n, cap ? true : srcWord ? list.some((t) =>
+      window.subWordMoves(window.subWordOfTrack(S.line(st, t.id, cueId), t.role === 'source'))) : SA.moves(anim));
     const w = S.writable(st, scope);
     return (
       <div className="spp" aria-label="当前字幕样式预览">
@@ -388,7 +293,7 @@
             <div key={t.id} className={cx('spp__l', list.length > 1 && w === t.id && 'is-target',
               cap && t.role === 'source' ? 'spp__l--cap' : ln.kinetic && t.role === 'source' ? 'spp__l--kin' : ln.mono && 't-mono')}
               style={(cap || ln.kinetic) && t.role === 'source' ? null : Object.assign(paintCss(ln, fz),
-                t.role === 'source' ? lineMotion(anim, cur) : null)}>
+                t.role === 'source' && !ln.activeWord ? lineMotion(anim, cur) : null)}>
               {/* 配方接管整条：涂装、排版与时间通道都归它，这一行不读轨上的那几格。
                   倒鸭子同理，小样按这一条 cue 的句子切三段循环放（daoyazi-stage.jsx）。 */}
               {ln.kinetic && t.role === 'source'
@@ -396,8 +301,8 @@
                 : cap && t.role === 'source'
                 ? <window.CaptionCanvas presetK={cap} text={text}
                   loop fz={fz} still={REDUCED} />
-                : <WordLine text={text} active={ln.activeColor}
-                  anim={t.role === 'source' ? anim : 'none'} cur={cur}
+                : <WordLine text={text} active={ln.activeColor} {...wordProps(window.subWordOfTrack(ln, t.role === 'source'))}
+                  anim={t.role === 'source' ? anim : 'none'} cur={t.role === 'source' ? cur : -1} cycle={cycle} still={REDUCED}
                   highlight={t.role === 'source' ? ln.highlight : null} cueId={cueId}
                   plate={plateCss(ln, fz)} />}
             </div>
@@ -414,6 +319,8 @@
       <div className={cx('scard', on && 'is-on')}>
         <BCAction className="scard__b" onClick={onPick} {...peek}>
           <SubThumb p={p} rows={rows} />
+          {/* 角标说的是当前词那一轴（变色 / 扫色 / 逐词显现…）：缩略图在动，角标给它一个名字 */}
+          <span className="scard__badge">{window.BC_CS.badge(window.subWordOf(p, 'source', lookPaint(p.look)).aw)}</span>
           {on ? <i className="scard__tick"><Ic n="check" className="ic--14" /></i> : null}
         </BCAction>
         <div className="scard__f">
@@ -465,14 +372,16 @@
        （`bi` / `orig` / `trans`），陈列与套用时一律按 `screen` 走——它们本来就只是一份涂装。
        画廊里没有「存到品牌库」——存是编辑完之后的动作，入口在属性页页脚那一条。 */
     const brand = D.brand.subStyles.map((b) => Object.assign({anim: 'none'}, b, {form: 'screen', look2: b.look2 || b.look}));
-    const catalog = React.useMemo(() => S.screenCatalog(D.subtitle.catalog), []);
+    /* 陈列（2026-10-09，caption-style-model-design §7）：一份预设一张卡，按 `BC_CS.CATEGORIES` 分区，
+       不再按家族别名折叠——同一族的两份 Studio 设计当前词不同，折掉就看不见那一份了。 */
+    const catalog = React.useMemo(() => window.BC_CS.galleryCards(D.subtitle.catalog), []);
     const groups = S.gallery(catalog, D.subtitle.cats, ['screen']);
     const rowsOf = (p) => S.screenRows(st, p, D.subtitle.specimen.main, scopeId);
     /* 勾在哪张卡上：全部 → 画面上每一条轨都勾在它上才算（`currentCard`）；指到一条轨 →
        看那条轨自己勾的（`presetOf`）。混搭时「全部」那一档没有勾，入口卡印两个名字。 */
     const onCard = (p) => scopeT
       ? S.family(S.presetOf(st, scopeT)) === S.family(p.id)
-      : !!S.currentCard(st, [p]);
+      : !!S.currentCard(st, [p], true);
 
     /* 悬停即预览：鼠标停在一张卡上，画面里立刻是套上去的样子；移开就回来（§13.2）。
        预览与真的套上去走**同一段代码**（`ctx.stagePreset`）——预览要是自己算一遍，
@@ -581,6 +490,5 @@
       onBack={() => go('home')} onEdit={() => go('props')} />;
   }
 
-  Object.assign(window, {SubStyleTab, SubGallery, SubThumb, SubPreview,
-    WordLine, useSubBeat, subBeatMs: BEAT_MS, subReduced: REDUCED, lineMotion, sampleOf, paintCss, plateCss, withAlpha, lookCss, lookPaint, isMono});
+  Object.assign(window, {SubStyleTab, SubGallery, SubThumb, SubPreview, sampleOf, paintCss, plateCss, withAlpha, lookCss, lookPaint, isMono});
 })();

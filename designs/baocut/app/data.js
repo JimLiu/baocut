@@ -900,13 +900,18 @@
       /* 强调词由用户在属性页点选，不自动猜测重点。 */
       highlight: {on: false, marks: {}, color: L.activeColor, font: null,
         bold: true, italic: false, scale: 100}});
+    /* 两轴写法（caption-style-model-design §4/§5）：当前词是轨上的一等字段，`wordAnim` 留作
+       兼容投影。译文轨没有词级时间戳，不带当前词。 */
+    if (window.BC_CS) srcT.activeWord = window.BC_CS.fromAnim('colourHighlight', L.activeColor).activeWord;
     return [trans, srcT];
   }
 
   const subtitle = {
     /* 分类：与「形态」正交的另一根轴。形态决定这份样式出现在哪个 Tab，
        分类决定它排在画廊的哪一区。 */
-    cats: [
+    /* 第 2026-10-09 轮起分区来自 `BC_CS.CATEGORIES`（caption-style-model-design §7）：
+       基础 / 社交 / 商务 / 复古 / 动效 / 动态排版。下面这份旧表只在模型没装上时兜底。 */
+    cats: window.BC_CS ? window.BC_CS.CATEGORIES.slice() : [
       /* 「动效字幕」那一区第 74 轮**下架**（用户裁决：当前还不适合上这个功能）。
          这是隐藏不是删除：25 份配方注册表（`designed`）、presetIR 解释器与 canvas
          渲染路径（model-motioncaption.js / subcaption.jsx / stage 的分流）全部原样留着，
@@ -997,14 +1002,15 @@
        第 74 轮起**不进目录**——那一区下架了（见 cats 处的注释）。渲染路径、属性页的
        「来自样式」行与 `stagePreset` 清 `caption` 的写法都保留：它们对着 `designed`
        注册表工作，不依赖目录里有没有那几张卡。 */
-    catalog: window.BC_DS.cards('orig').concat(window.BC_VS.cards('orig'),
+    /* 每张卡经 `BC_CS.annotate` 补上新分区与两轴（`activeWord` / `motion`）；`anim` 仍在，作兼容投影。 */
+    catalog: ((list) => window.BC_CS ? list.map(window.BC_CS.annotate) : list)(window.BC_DS.cards('orig').concat(window.BC_VS.cards('orig'),
       /* 倒鸭子那一张：`kinetic: true` 是它的记号，`stagePreset` 见到就在源语言轨上种
          `BC_DZ.defaults(kineticDemo)`；套别的卡时清掉。`look` 只给译文行与「换回普通字幕」
          用——源语言轨的排版与颜色由 `kinetic` 自己的配色决定，canvas 不读涂装。 */
       [{id: 'daoyazi', name: '倒鸭子', cat: 'kinetic', form: 'orig', look: 'casper', anim: 'none', kinetic: true}],
       window.BC_DS.cards('bi'), window.BC_VS.cards('bi'),
       window.BC_DS.cards('trans'), window.BC_VS.cards('trans'),
-      window.BC_SD ? window.BC_SD.cards('orig').concat(window.BC_SD.cards('bi'), window.BC_SD.cards('trans')) : []),
+      window.BC_SD ? window.BC_SD.cards('orig').concat(window.BC_SD.cards('bi'), window.BC_SD.cards('trans')) : [])),
 
     /* 倒鸭子的演示实例记录：几个主角词，让画廊套上去第一眼就看得见「独占一块、字号 1.5 倍」。
        下标按 `BC_WA.split` 的演示切词（g2 = 「朋友。」，g5 = 「问题」，g6 = 「上传」）。 */

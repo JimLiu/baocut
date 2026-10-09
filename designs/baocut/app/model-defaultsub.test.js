@@ -23,6 +23,7 @@ require('./model-wordanim.js');
 require('./model-motioncaption.js');
 require('./model-template.js');
 require('./model-cut.js');
+require('./model-captionstyle.js'); // data.js 的分区与两轴（当前词 / 动效）
 require('./data.js');
 const V = window.BC_VS;
 const DS = window.BC_DS;
@@ -87,11 +88,12 @@ test('三形态三个前缀，双语两行同款，仅译文没有词通道', ()
   assert.equal(DS.cards('trans')[0].anim, 'none');
 });
 
-test('它是画廊第一区的第一张，且涂装真的查得到', () => {
-  assert.equal(D.subtitle.cats[0].k, 'default');
+test('它是画廊第一区（基础）的第一张，且涂装真的查得到', () => {
+  assert.equal(D.subtitle.cats[0].k, 'basic', '第一区是「基础」（caption-style-model-design §7）');
   const groups = S.gallery(D.subtitle.catalog, D.subtitle.cats, ['orig']);
-  assert.equal(groups[0].cat.k, 'default');
-  assert.deepEqual(groups[0].items.map((c) => c.id), ['v-classic']);
+  assert.equal(groups[0].cat.k, 'basic');
+  assert.deepEqual(groups[0].items.map((c) => c.id), ['v-classic', 'v-shorts', 'v-simple'],
+    '基础区：经典、Shorts、简洁');
   D.subtitle.catalog.forEach((c) => {
     assert.ok(D.subtitle.looks[c.look], c.id + ' 的涂装没登记');
     if (c.look2) assert.ok(D.subtitle.looks[c.look2], c.id + ' 的译文行涂装没登记');
@@ -120,16 +122,16 @@ test('Shorts 涂装：键集同目录涂装，粗体、描边 ＋ 投影、无�
   assert.ok(D.fonts.all.some((f) => f.n === L.font));
 });
 
-test('Shorts 卡：三形态三个前缀、逐词弹跳（仅译文没有词通道）、带落位记号，自成一区排在默认之后', () => {
+test('Shorts 卡：三形态三个前缀、逐词弹跳（仅译文没有词通道）、带落位记号，在基础区里排在经典之后', () => {
   assert.deepEqual(['orig', 'bi', 'trans'].map((f) => DS.cards(f)[1].id), ['v-shorts', 'vb-shorts', 'vt-shorts']);
   assert.equal(DS.cards('orig')[1].anim, 'bounce');
   assert.equal(DS.cards('trans')[1].anim, 'none');
   assert.equal(DS.cards('bi')[1].look2, 'shorts');
   ['orig', 'bi', 'trans'].forEach((f) => assert.equal(DS.cards(f)[1].layout, 'shorts'));
-  assert.deepEqual(D.subtitle.cats.slice(0, 2).map((c) => c.k), ['default', 'shorts']);
+  assert.equal(D.subtitle.cats[0].k, 'basic');
   const groups = S.gallery(S.screenCatalog(D.subtitle.catalog), D.subtitle.cats, ['screen']);
-  assert.deepEqual(groups[1].items.map((c) => c.id), ['v-shorts']);
-  assert.equal(groups[1].items[0].layout, 'shorts');
+  assert.deepEqual(groups[0].items.map((c) => c.id).slice(0, 2), ['v-classic', 'v-shorts']);
+  assert.equal(groups[0].items[1].layout, 'shorts');
   const ids = D.subtitle.catalog.map((c) => c.id);
   assert.equal(ids.filter((id) => S.family(id) === 'shorts').length, 3);
 });

@@ -17,6 +17,7 @@ require('./model-motioncaption.js');   // data.js 的动效字幕那一区派生
 require('./model-template.js');
 require('./model-cut.js');   // data.js 的剪口建议派生自它（第 192 轮）
 require('./model-defaultsub.js'); // data.js 的画廊第一区（默认样式那张卡）
+require('./model-captionstyle.js'); // data.js 的分区与两轴（当前词 / 动效）
 require('./data.js');
 const S = window.BC_SUB;
 const P = window.BC_POSE;
@@ -131,12 +132,14 @@ test('比例链 hint 只长在并排的译文轨上', () => {
     '画面上只有译文一条时没有可比的原文行');
 });
 
-test('逐词动画与强调词只跟着源语言轨走——译文轨就是少这两段', () => {
-  ['wordAnim', 'highlight'].forEach((k) => {
+test('当前词与强调词只跟着源语言轨走——译文轨就是少这两段；动效两条轨都有', () => {
+  ['activeWord', 'highlight'].forEach((k) => {
     assert.ok(has(S.sections(mono(), 'zh'), k));
     assert.ok(has(S.sections(bi(), 'zh'), k));
     assert.ok(!has(S.sections(bi(), 'en'), k), k + ' 不该长在译文轨上');
   });
+  assert.ok(!has(S.sections(mono(), 'zh'), 'wordAnim'), '「字幕动画」段已拆成当前词与动效');
+  ['zh', 'en'].forEach((id) => assert.ok(has(S.sections(bi(), id), 'motion'), id + ' 轨应有动效段'));
 });
 
 test('可写轨永远是一条轨——没有「谁也不写」这一档', () => {
@@ -548,7 +551,7 @@ test('每一个可覆盖的键都恰好属于一段——否则改得了退不�
 test('两个作用域是同一页——段的门控只看轨，不看作用域', () => {
   const st = bi();
   assert.deepEqual(S.sections(st, 'zh'), S.sections(st, 'zh', CUE));
-  assert.ok(has(S.sections(st, 'zh'), 'wordAnim') && has(S.sections(st, 'zh'), 'highlight'));
+  assert.ok(has(S.sections(st, 'zh'), 'activeWord') && has(S.sections(st, 'zh'), 'highlight'));
   assert.ok(has(S.sections(st, 'en'), 'ratioNote'));
 });
 
@@ -633,10 +636,11 @@ test('覆盖表是纯函数产物，不改入参文档', () => {
   assert.equal(JSON.stringify(st), before);
 });
 
-test('倒鸭子（kinetic）：源语言轨的段换成 wordAnim / kinetic / highlight，没有位置；换语言时随角色清掉', () => {
+test('倒鸭子（kinetic）：源语言轨的段换成 kinetic / highlight，没有位置；换语言时随角色清掉', () => {
   const st = {tracks: [T('zh', 'source', {kinetic: {seed: 1}}), T('en', 'translation')]};
   const list = S.sections(st, 'zh');
-  assert.deepEqual(list.filter((k) => k !== 'saveFoot' && k !== 'bilingual' && k !== 'display'), ['wordAnim', 'kinetic', 'highlight']);
+  assert.deepEqual(list.filter((k) => k !== 'saveFoot' && k !== 'bilingual' && k !== 'display'), ['kinetic', 'highlight']);
+  assert.ok(!has(list, 'activeWord') && !has(list, 'motion'), '动态排版的面板取代当前词与动效');
   assert.ok(!has(list, 'position'), '字幕区域由 kinetic 自己的三档决定');
   assert.ok(!has(S.sections(st, 'en'), 'kinetic'), '译文轨没有这一段');
   assert.ok(S.CUE_KEYS.indexOf('kinetic') < 0, 'kinetic 是整条轨的，不进 cue 覆盖表');

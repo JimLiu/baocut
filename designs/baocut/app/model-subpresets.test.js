@@ -22,6 +22,7 @@ require('./model-motioncaption.js');   // data.js 的动效字幕那一区派生
 require('./model-template.js');
 require('./model-cut.js');   // data.js 的剪口建议派生自它（第 192 轮）
 require('./model-defaultsub.js'); // data.js 的画廊第一区（默认样式那张卡）
+require('./model-captionstyle.js'); // data.js 的分区与两轴（当前词 / 动效）
 require('./data.js');
 const V = window.BC_VS;
 const D = window.BC_DATA;

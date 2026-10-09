@@ -119,6 +119,8 @@
       delete next.kinetic;
       delete next.activeColor;
       delete next.highlight;
+      // 当前词只对有词级时间的轨成立（caption-style-model-design §4）
+      if (next.activeWord) next.activeWord = {mode: 'none', spoken: 'keep', unspoken: 'keep'};
       delete next.emoji;
     }
     return tracks(st).map((t) => (t.id === outId ? next : t));
@@ -192,10 +194,14 @@
        ——文字 / 描边 / 阴影 / 底板四段在它上面是空控件，让位给「倒鸭子」那一段；动画段
        留着（那一行印「倒鸭子 · 来自样式」并能换回逐词动效），强调词留着（它就是倒鸭子的
        强调词）。位置也不在：字幕区域由它自己的「字幕区域」三档决定。 */
-    if (track && track.kinetic) return ['wordAnim', 'kinetic', 'highlight'];
+    /* 字幕样式模型（caption-style-model-design §9，2026-10-09）：「字幕动画」一行拆成
+       「当前词」（activeWord）与「动效」（motion）两段。当前词只长在有词级时间的轨上；
+       动效（入场 / 退场 / 循环）是整条的事，译文轨也有，只是没有「念到时」那一档。
+       倒鸭子接管时这两段都让位给它那一段（§9 末段），换回普通字幕走画廊。 */
+    if (track && track.kinetic) return ['kinetic', 'highlight'];
     const list = ['text', 'outline', 'shadow', 'background'];
-    if (hasWordTiming(track)) list.push('wordAnim', 'highlight');
-    else if (track && track.textMotion) list.push('wordAnim');
+    if (hasWordTiming(track)) list.push('activeWord', 'motion', 'highlight');
+    else if (track) list.push('motion');
     return list;
   }
 
@@ -254,6 +260,8 @@
     // 词级那三件 ＋ 强调词（第 102.1 轮）。`caption` 也在里面：动画页选任意一格都会
     // 顺手把配方撤掉，那一笔要能落在覆盖表上，否则在这一档里选动效等于没选。
     'wordAnim', 'caption', 'activeColor', 'highlight', 'textMotion', 'wordBackground', 'nativeStyle',
+    // 新正文的两个维度（caption-style-model-design §3.4 / §3.5），上面那几件由它们派生
+    'activeWord', 'motion',
     'y', 'valign', 'x', 'width',
   ];
   /** 段 → 它管着哪几个键。`clearSection` 与段头上那个计数读同一份，所以「这一段有
@@ -264,7 +272,11 @@
     outline: ['outline', 'outlineW', 'outlineColor'],
     shadow: ['shadow', 'shDist', 'shBlur', 'shAngle', 'shColor'],
     background: ['plate', 'bg', 'opacity', 'corners'],
-    wordAnim: ['wordAnim', 'caption', 'activeColor', 'textMotion', 'wordBackground', 'nativeStyle'],
+    /* 「字幕动画」一段拆成两段（caption-style-model-design §11）：当前词管念到的词长什么样，
+       动效管整条怎么进出。派生键各归其源：`activeColor` / `wordBackground` 跟当前词走，
+       目录格 `wordAnim`、配方 `caption`、Studio 的 `textMotion` / `nativeStyle` 跟动效走。 */
+    activeWord: ['activeWord', 'activeColor', 'wordBackground'],
+    motion: ['motion', 'wordAnim', 'caption', 'textMotion', 'nativeStyle'],
     highlight: ['highlight'],
     position: ['y', 'valign', 'x', 'width'],
   };
@@ -412,10 +424,12 @@
    *  都勾在同一族**才算「套的是它」；各轨勾在不同的卡上（第 152 轮「套到」单独给一条
    *  换过）返回 null，调用方用 `styleNames` 印「Ali · Kitty」那种混搭名。找不到（品牌库
    *  里删掉了、或从没套过）也返回 null。 */
-  function currentCard(st, catalog) {
+  /*  `exact`（2026-10-09 字幕样式模型）：画廊不再按家族别名折叠，一份预设一张卡，所以
+   *  画廊的勾按 id 的家族**原样**比——按别名比的话点 Hustle 会把经典也勾上。 */
+  function currentCard(st, catalog, exact) {
     const vis = tracks(st).filter((t) => !t.hidden);
     const keys = vis.length ? vis.map((t) => family(presetOf(st, t))) : [family(st && st.preset)];
-    const representative = key => window.BC_SD ? window.BC_SD.representative(key) : key;
+    const representative = key => !exact && window.BC_SD ? window.BC_SD.representative(key) : key;
     const k = representative(keys[0]);
     if (!k || keys.some((x) => representative(x) !== k)) return null;
     return (catalog || []).find((p) => representative(family(p.id)) === k) || null;

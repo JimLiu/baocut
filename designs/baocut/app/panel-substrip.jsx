@@ -113,8 +113,9 @@
    *  勾在不同的卡上）：全部同一张印一个名字，混搭印「Ali · Kitty」。 */
   function SubStyleEntry({ctx, ops, editId, noCard}) {
     const st = ctx.subStyle;
-    const catalog = React.useMemo(() => S.screenCatalog(D.subtitle.catalog), []);
-    const cur = S.currentCard(st, catalog) || S.currentCard(st, D.brand.subStyles);
+    // 与画廊同一份陈列（`BC_CS.galleryCards`，不按家族别名折叠），勾哪张卡按家族精确比
+    const catalog = React.useMemo(() => window.BC_CS.galleryCards(D.subtitle.catalog), []);
+    const cur = S.currentCard(st, catalog, true) || S.currentCard(st, D.brand.subStyles, true);
     const name = S.styleNames(st, [catalog, D.brand.subStyles]).join(' · ');
     /* 预览画的是**轨上现在的涂装**，不是那张卡的目录涂装：属性页改过字色之后，
        入口卡要跟着变——否则它在说「你套的是 X」而画面上早已不是 X。所以 look 取轨
@@ -130,7 +131,8 @@
         {noCard ? null : ctx.subsOn ? (
           <BCAction className="substyle-entry" aria-label="编辑字幕样式" onClick={() => ctx.setPaneView('subprops')}>
             <span className="substyle-entry__preview">
-              <window.SubThumb p={Object.assign({}, p, {anim})} rows={rows} fz={10} />
+              <window.SubThumb p={Object.assign({}, p, {anim}, src && src.activeWord
+                ? {activeWord: src.activeWord, motion: src.motion || null} : null)} rows={rows} fz={10} />
             </span>
             <span className="substyle-entry__copy">
               <strong>{cur ? cur.name : name}</strong>

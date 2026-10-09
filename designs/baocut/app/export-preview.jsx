@@ -139,7 +139,9 @@
                   ) : (
                     <div className={cx('subline', ln.mono && 't-mono')} style={window.paintCss(ln, fzl)}>
                       <window.WordLine text={text} anim={isSrc ? ln.wordAnim || 'none' : 'none'}
-                        active={ln.activeColor} cur={window.BC_WA.at(pt, cue.start, cue.end, n)}
+                        {...(window.subWordOfTrack(ln, isSrc) || {})}
+                        clock={{t: pt - cue.start, dur: cue.end - cue.start}} still={window.subReduced}
+                        active={ln.activeColor} cur={isSrc ? window.BC_WA.at(pt, cue.start, cue.end, n) : -1}
                         plate={window.plateCss(ln, fzl)} />
                     </div>
                   )}

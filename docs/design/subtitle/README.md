@@ -51,6 +51,7 @@
 | --- | --- |
 | [`bcut-subtitle-agent-workflow.md`](bcut-subtitle-agent-workflow.md) | 字幕 Agent 阶段编排、对齐策略、worker 与续跑经验（内部开发资料，不复制回 `skills/`） |
 | [`bcut-glossary-design.md`](bcut-glossary-design.md) | 术语库：跨项目专名表，分转录术语表与翻译术语表，按命中编译进 `ai/context.md`；转录选表与自定义提示词（2026-09-20 原型先行，产品规格 [§15.10](../product/product-design/15-glossary.md)） |
+| [`caption-style-model-design.md`](caption-style-model-design.md) | **字幕样式模型**：七个独立维度（字体 / 涂装 / 落位 / 当前词 / 动效 / 强调词 / 排版模式）组合出样式，预设只是取值；每份预设自带当前词样式，KTV 扫色是当前词的一种模式，倒鸭子是排版模式；新正文到 Studio 样式的编译表（提案，原型先行 2026-10-09） |
 | [`bcut-daoyazi-caption-design.md`](bcut-daoyazi-caption-design.md) | 「倒鸭子」跨句动态排版字幕：`CaptionSequencePlan` 复用 `MotionProgram`、`wordAnimation.caption.seed` + `options.daoyazi`（核心与 App v2 已落地 2026-09-17） |
 | [`bcut-daoyazi-caption-style.example.json`](bcut-daoyazi-caption-style.example.json) | 上一篇的示例载荷 |
 | [`bcut-subtitle-style-motion-design.md`](bcut-subtitle-style-motion-design.md) | 31 套字幕/文字设计与 17 个动画原语的行为分析、BaoCut 能力差异、共享渲染迁移与验收方案（提案，尚未实施） |

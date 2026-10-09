@@ -63,6 +63,7 @@
       "app/model-subcanvas.js",
       "app/model-subinspector.js",
       "app/model-wordanim.js",
+      "app/model-captionstyle.js",
       "app/model-color.js",
       "app/model-fonts.js",
       "app/font-library-data.js",
@@ -277,11 +278,14 @@
       "app/pet-sticker.jsx",
       "app/subcaption.jsx",
       "app/subtitle-motion.jsx",
+      "app/sub-wordline.jsx",
       "app/panel-substyle.jsx",
       "app/panel-substrip.jsx",
       "app/subtitle-canvas.jsx",
       "app/panel-subanim.jsx",
       "app/panel-daoyazi.jsx",
+      "app/panel-subactive.jsx",
+      "app/panel-submotion.jsx",
       "app/panel-subprops.jsx",
       "app/panel-translate.jsx",
       "app/panel-subtitle.jsx",
@@ -406,11 +410,12 @@
       "app/agent-messages.css",
       "app/agent-cards.css",
       "app/legacy-import.css",
-      "app/subtitle-motion.css"
+      "app/subtitle-motion.css",
+      "app/subtitle-active.css"
     ],
-    "js": "generated/app.js?v=50496a3f70fa",
-    "css": "generated/app.css?v=6a9cd1cc9937",
-    "bytes": 3783851
+    "js": "generated/app.js?v=9ec1f0b4fd25",
+    "css": "generated/app.css?v=157245762630",
+    "bytes": 3814859
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -464,6 +469,7 @@
       "app/model-subcanvas.js",
       "app/model-subinspector.js",
       "app/model-wordanim.js",
+      "app/model-captionstyle.js",
       "app/model-color.js",
       "app/model-fonts.js",
       "app/font-library-data.js",
@@ -573,11 +579,14 @@
       "app/pet-sticker.jsx",
       "app/subcaption.jsx",
       "app/subtitle-motion.jsx",
+      "app/sub-wordline.jsx",
       "app/panel-substyle.jsx",
       "app/panel-substrip.jsx",
       "app/subtitle-canvas.jsx",
       "app/panel-subanim.jsx",
       "app/panel-daoyazi.jsx",
+      "app/panel-subactive.jsx",
+      "app/panel-submotion.jsx",
       "app/panel-subprops.jsx",
       "app/panel-translate.jsx",
       "app/panel-subtitle.jsx",
@@ -639,11 +648,12 @@
       "vendor/react-spectrum-s2/react-spectrum-s2-font.css",
       "app/spectrum.css",
       "app/font-library.css",
-      "app/subtitle-motion.css"
+      "app/subtitle-motion.css",
+      "app/subtitle-active.css"
     ],
-    "js": "generated/web.js?v=24bc775a9f81",
-    "css": "generated/web.css?v=18ffdb56c9d4",
-    "bytes": 2335939
+    "js": "generated/web.js?v=95d59cb3367c",
+    "css": "generated/web.css?v=697c5fd18b48",
+    "bytes": 2366570
   },
   "components": {
     "file": "Components.html",

@@ -1742,17 +1742,19 @@ interface LayoutProfile {
   breakRules: string[];
 }
 
-interface CaptionStyle {
-  id: Id;
-  revision: Revision;
-  fontRef: Id;
-  size: number;
-  color: string;
-  stroke?: { color: string; width: number };
-  shadow?: { color: string; blur: number; offset: [number, number] };
-  background?: { color: string; padding: number; radius?: number };
-  position: { anchor: 'top' | 'bottom' | 'custom'; offset: [number, number] };
-  highlight?: { mode: 'word' | 'none'; color?: string };
+interface CaptionStyleBody {
+  // 目标合同 `baocut.caption-style/1`：七个彼此独立的维度各取一个值，预设只是取值。
+  // 维度定义、当前词模式（含 KTV 扫色）、倒鸭子的 `layout.sequence` 与到 Studio 样式的编译
+  // 见 docs/design/subtitle/caption-style-model-design.md。
+  schema: 'baocut.caption-style/1';
+  typography: Typography;          // 字体、字重、字号（占短边比例）、行高、字距、大小写、对齐
+  surface: Surface;                // 字色、描边、阴影、发光、底板、逐词底块
+  layout: Layout;                  // mode 'line' | 'sequence'（倒鸭子）、锚点、y、宽、行数
+  activeWord: ActiveWord;          // 必填：none | color | box | scale | lift | underline | sweep，
+                                   // 外加念过 / 没念到的词的三态；无词时间的轨恒 none
+  motion?: Motion;                 // 入场 / 退场 / 循环，trigger 'enter' | 'spoken'
+  emphasis?: EmphasisLook;         // 强调词的外观；哪些词是强调词记在实例上（§3.8）
+  preset?: { id: Id; revision: Revision };
 }
 ```
 
@@ -1764,7 +1766,7 @@ interface CaptionStyle {
 - 原片中已经烧录的字幕位于源像素里，只关闭新的字幕层不会让它消失；覆盖、重构或修复必须声明新操作的性质。
 - 没有可信词时间的导入字幕可以作为普通字幕，不输出伪精确的逐词动画。
 
-**已落盘的样式正文**。`CaptionStyle` 还没有落盘；字幕样式文档的正文是下面两种之一，渲染内核都读：
+**已落盘的样式正文**。`CaptionStyleBody` 还没有落盘，落盘时由一层确定的编译折成 Studio 样式（设计稿 §8），内核不换；现在字幕样式文档的正文是下面两种之一，渲染内核都读：
 
 - Studio 样式（`baocut.legacy-studio-style/0.1`）：`style` 是 v2 的字幕样式，逐词动画写在 `style.wordAnimation`（或 `style.anim`）里，`catalogId` 指逐词动画目录的一格。
 - 定位框样式（`baocut.boxed-caption-style/<N>`）：`canvas` 是样式所在画布的像素尺寸，`box` 是字幕框（相对画布中心的像素），`style` 是字号、颜色、对齐、底板等外观；渲染时换算成等价的 Studio 样式。`style.animationPresetId` 选逐词动画，取值是目录的 id，按那一格画，与 Studio 样式选中同一格相同；省略表示不动画。
@@ -2208,7 +2210,7 @@ interface PackageManifest {
 | 链接素材的失效检测（§4.2） | 只记了修改时间；缺失的报告已定：`videos.assetStatus` 列出读不到的素材版本与原因，视频照常打开 | 何时重新核对内容；`frozen` 的确切含义；缺失素材在导出里的表现 |
 | 文档正文的校验（§4.4、§4.6） | 引擎只核对 `baocut.speech/1`、`baocut.translation/2` 补充字段的形状与定位框字幕样式的逐词动画（§5.6） | 哪些 `kind` 由引擎完整校验；`kind` 与 `schema` 的登记处 |
 | §5 的模型与已落盘的正文格式（§4.6） | 不一致；译文按 §5.3 的是 `baocut.translation/2`，旧项目导入的 `/1` 只读兼容（§5.3），不迁移；`baocut.speech/1` 补上了字幕与翻译核心读写的字段，与 `TranscriptDoc` 无损互换（§5.2） | 句子与字幕行存结果，还是存派生算法的版本加人工钉子；过期如何发现。已定：译文的句子派生与原文指纹只有字幕与翻译核心的一套（§5.3），原来翻译流程的 `baocut.sentences/1` 与 `sha256:` 指纹删除 |
-| `caption-style`（§5.6） | 已落盘的是 Studio 样式与定位框样式两种正文，引擎只核对定位框样式的逐词动画；`CaptionStyle` 未落盘。默认预设已落盘（§5.6「默认预设」）：一份不分语言的 Studio 样式 | 与 `LayoutProfile`、`CaptionStyle` 的关系；阅读预算的单位；是否按语言分开默认预设 |
+| `caption-style`（§5.6） | 已落盘的是 Studio 样式与定位框样式两种正文，引擎只核对定位框样式的逐词动画；`CaptionStyleBody`（按维度组合的目标合同，[设计稿](../design/subtitle/caption-style-model-design.md)）未落盘，原型先行。默认预设已落盘（§5.6「默认预设」）：一份不分语言的 Studio 样式 | 与 `LayoutProfile`、`CaptionStyle` 的关系；阅读预算的单位；是否按语言分开默认预设 |
 | 导出记录与导入记录（§4.6） | 借用文档 | 产物记录是否成为一等概念；与依赖链接的衔接 |
 | `Provenance` 的结构化字段、`LicenseState`、`ColorInfo`（§4） | 未纳入 | 生成记录、派生关系、授权与许可状态的字段；颜色元数据的字段 |
 | 视频级的 `extensions`（§1.4） | 只有实例与文档有 | 是否需要 |

@@ -552,6 +552,34 @@
       "#FFF6D8": "Generated subtitle artwork colors from the shared core catalogue; not application chrome.",
       "#3A1A08": "Generated subtitle artwork colors from the shared core catalogue; not application chrome.",
       "#FF6A1A": "Generated subtitle artwork colors from the shared core catalogue; not application chrome."
+    },
+    "app/model-captionstyle.js": {
+      "#000000": "caption art — active-word, box and fallback colours painted into the video frame by the built-in caption styles (caption-style-model-design)",
+      "#000000cc": "caption art — active-word, box and fallback colours painted into the video frame by the built-in caption styles (caption-style-model-design)",
+      "#131313": "caption art — active-word, box and fallback colours painted into the video frame by the built-in caption styles (caption-style-model-design)",
+      "#18E1D6": "caption art — active-word, box and fallback colours painted into the video frame by the built-in caption styles (caption-style-model-design)",
+      "#191919": "caption art — active-word, box and fallback colours painted into the video frame by the built-in caption styles (caption-style-model-design)",
+      "#6147FF": "caption art — active-word, box and fallback colours painted into the video frame by the built-in caption styles (caption-style-model-design)",
+      "#FC75E9": "caption art — active-word, box and fallback colours painted into the video frame by the built-in caption styles (caption-style-model-design)",
+      "#FF6A1A": "caption art — active-word, box and fallback colours painted into the video frame by the built-in caption styles (caption-style-model-design)",
+      "#FF6B5B": "caption art — active-word, box and fallback colours painted into the video frame by the built-in caption styles (caption-style-model-design)",
+      "#FF9B42": "caption art — active-word, box and fallback colours painted into the video frame by the built-in caption styles (caption-style-model-design)",
+      "#FFD84D": "caption art — active-word, box and fallback colours painted into the video frame by the built-in caption styles (caption-style-model-design)",
+      "#FFE14D": "caption art — active-word, box and fallback colours painted into the video frame by the built-in caption styles (caption-style-model-design)",
+      "#FFE547": "caption art — active-word, box and fallback colours painted into the video frame by the built-in caption styles (caption-style-model-design)",
+      "#FFFFFF": "caption art — active-word, box and fallback colours painted into the video frame by the built-in caption styles (caption-style-model-design)"
+    },
+    "app/model-captionstyle.test.js": {
+      "#000000": "caption art fixture — expected video-frame colours of the caption-style model",
+      "#00FF00": "caption art fixture — expected video-frame colours of the caption-style model",
+      "#18E1D6": "caption art fixture — expected video-frame colours of the caption-style model",
+      "#6147FF": "caption art fixture — expected video-frame colours of the caption-style model",
+      "#FC75E9": "caption art fixture — expected video-frame colours of the caption-style model",
+      "#FF0000": "caption art fixture — expected video-frame colours of the caption-style model",
+      "#FF6A1A": "caption art fixture — expected video-frame colours of the caption-style model",
+      "#FFD84D": "caption art fixture — expected video-frame colours of the caption-style model",
+      "#FFE14D": "caption art fixture — expected video-frame colours of the caption-style model",
+      "#FFFFFF": "caption art fixture — expected video-frame colours of the caption-style model"
     }
   }
 }

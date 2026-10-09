@@ -4,7 +4,7 @@
    两条进来的路：画廊卡片右下角的铅笔，以及**在画布上点一条字幕**。
 
    这一页只有一种形态：**当下这一条轨的样子**（第 47 轮去掉「整组」）。字体、字号、
-   颜色、行数、底板、描边、阴影、位置都在这一页；源语言轨多两段（逐词动画、强调词），
+   颜色、行数、底板、描边、阴影、位置都在这一页；源语言轨多两段（当前词、强调词；动效两条轨都有），
    译文轨少这两段、多一行比例链——因为词级时间戳只有源语言轨有。画面上叠着两行时
    多一段「双语」（上下次序，第 152 轮）。
 
@@ -64,8 +64,6 @@
     const memoryKey = w + ':' + (cueId || 'all');
     const memory = remembered.current[memoryKey] || (remembered.current[memoryKey] = {});
     if (ln && ln.opacity > 0) memory.opacity = ln.opacity;
-    if (ln && ln.textMotion) memory.animation = {textMotion: ln.textMotion, wordAnim: 'none', caption: null};
-    else if (ln && (ln.caption || ln.wordAnim !== 'none')) memory.animation = {wordAnim: ln.wordAnim, caption: ln.caption};
 
     /* 段头右侧那句作用域：说清这一笔落在哪里，比控件本身还重要。
        写的是**角色在前**（原文（中文）/ 译文（English））——这一屏上用户想的是「原文
@@ -294,42 +292,15 @@
               </BCDisclosure>
             </>
           ));
-        case 'wordAnim': {
-          if (ln.textMotion || (memory.animation && memory.animation.textMotion)) return card(k, '文字动画', !!ln.textMotion, v => set(window.BC_SI.toggleAnimation(ln, v, memory.animation)),
-            <window.SubTextMotionControls paint={ln} set={set} />);
-          /* 一行里显示当下生效的那一个：**动效字幕在时显示它**——它接管整条，
-             这一行要是还印着底下那个词通道的名字，用户会以为自己选的是逐词动效。 */
-          /* 倒鸭子（`ln.kinetic`，2026-09-17）与动效字幕同一条规矩：接管时这一行印它的名字，
-             关掉这一段就把它清掉（回到轨上普通的涂装），换别的动画也清掉（panel-subanim.jsx）。 */
-          const kin = !!ln.kinetic;
-          const cap = ln.caption && D.subtitle.designed.find((x) => x.id === ln.caption);
-          const a = kin ? {name: '倒鸭子'} : cap || D.subtitle.anims.find((x) => x.k === ln.wordAnim);
-          const off = !cap && !kin && ln.wordAnim === 'none';
-          const colourLabel = !cap && !kin && window.BC_SI.colourLabel(ln.wordAnim);
-          const taken = cap || kin;
-          return card(k, '字幕动画', !off,
-            (v) => {
-              if (kin && !v) ctx.setSubTrack(w, {kinetic: null});
-              set(window.BC_SI.toggleAnimation(ln, v, memory.animation));
-            }, (
-            <>
-              <BCAction className="subanim-entry" onClick={onAnim}>
-                <span className="subanim-entry__preview"><window.AnimDemo demo={taken ? 'none' : ln.wordAnim} playing={false} active={ln.activeColor} /></span>
-                <span className="subanim-entry__copy"><strong>{a ? a.name : ln.wordAnim}</strong><span>更换动画</span></span>
-                {/* 配方接管时这一行印的是配方的名字：印底下那条词通道的名字，
-                    用户会以为自己选的是逐词动效 */}
-                {taken ? <span className="t-detail-xs" style={{marginRight: 6}}>{kin ? '动态排版' : '动效字幕'} · 来自样式</span> : null}
-                <NavChevron />
-              </BCAction>
-              <p className="hint">{kin ? '这份样式接管整条字幕的排版与镜头，下面「倒鸭子」一段是它的设置。选择其他动画会换回普通字幕。'
-                : cap ? '这份样式自带排版与动画。选择其他动画会替换它。' : window.BC_SI.description(ln.wordAnim)}</p>
-              {colourLabel ? <PRow label={colourLabel}>
-                <ColorField value={ln.activeColor} scope="当前词" open={pop === 'active'} onToggle={() => tg('active')}
-                  onPick={(c, live) => { set({activeColor: c}); if (!live) setPop(null); }} inline />
-              </PRow> : null}
-            </>
-          ));
-        }
+        /* 「字幕动画」那一行（十九格里挑一格）2026-10-09 拆成两段（caption-style-model-design §9）：
+           「当前词」（panel-subactive.jsx）与「动效」（panel-submotion.jsx）。动态排版的轨
+           不出这两段——倒鸭子那一段取代它们（段的门控在 model-substyle.js）。 */
+        case 'activeWord':
+          return <window.SubActiveSection key={k} ln={ln} track={track} set={set} first={first} aside={aside}
+            action={revert('activeWord', '当前词')} pop={pop} tg={tg} setPop={setPop} />;
+        case 'motion':
+          return <window.SubMotionSection key={k} ln={ln} track={track} set={set} first={first} aside={aside}
+            action={revert('motion', '动效')} />;
         case 'kinetic':
           /* 倒鸭子那一段整段在 panel-daoyazi.jsx（行数纪律）。它写的是整条轨的 `kinetic`，
              不走这里的 `set`（cue 覆盖表的白名单里没有它，走了会被静默丢掉）。 */
@@ -516,7 +487,7 @@
         ) : null}
         <window.SubScopeBar ctx={ctx} trackId={w} />
         <div className="pscroll bc-scroll subprops">
-          {['text', 'ratioNote', 'wordAnim', 'kinetic', 'outline', 'shadow', 'background', 'highlight', 'position', 'bilingual', 'display'].filter((k) => body.includes(k)).map((k, i) => sec(k, i === 0))}
+          {['text', 'ratioNote', 'outline', 'shadow', 'background', 'activeWord', 'motion', 'kinetic', 'highlight', 'position', 'bilingual', 'display'].filter((k) => body.includes(k)).map((k, i) => sec(k, i === 0))}
           <BCAction className="danger" onClick={drop}><Ic n="trash" className="ic--16" />从画面上拿下这条字幕</BCAction>
         </div>
         {foot ? sec('saveFoot') : null}

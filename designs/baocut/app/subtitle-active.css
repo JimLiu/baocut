@@ -1,0 +1,110 @@
+/* 两轴字幕（当前词 ＋ 动效）的画法与关键帧——app/sub-wordline.jsx 用。
+   这里只动 transform / opacity / filter / clip-path；颜色全部由内联样式与 `--aw-c` 给，
+   这份表里不写任何色值（导出画面的色值只在登记过的模型文件里）。
+   `--mo-k` 是强弱（intensity，0–1.5），`--mo-r` 是倾斜那一档的附加旋转。 */
+
+.aw-a {
+  display: inline-block;
+  position: relative;
+  transition-property: color, background-color, transform, opacity;
+  transition-timing-function: ease-out;
+}
+.aw-w,
+.aw-g,
+.aw-ln {
+  display: inline-block;
+}
+.aw-ln {
+  max-width: 100%;
+}
+/* 扫色的引导点：贴在当前词上沿，跟着扫到的位置走 */
+.aw-guide {
+  position: absolute;
+  top: -0.32em;
+  left: 0;
+  width: 0.22em;
+  height: 0.22em;
+  margin-left: -0.11em;
+  border-radius: 50%;
+  pointer-events: none;
+}
+/* 预告下一句：小一号、变淡，排在这一句下面 */
+.aw-next {
+  display: block;
+  font-size: 0.72em;
+  opacity: 0.55;
+  margin-top: 0.2em;
+}
+
+@keyframes bc-aw-ink { to { color: var(--aw-c); } }
+@keyframes bc-aw-guide { from { left: 0; } to { left: 100%; } }
+
+/* ---- 入场 ---- */
+@keyframes bc-mo-typewriter { from { opacity: 0; } }
+@keyframes bc-mo-fade-up { from { opacity: 0; transform: translateY(calc(0.5em * var(--mo-k, 1))); } }
+@keyframes bc-mo-rise { from { opacity: 0; transform: translateY(calc(0.9em * var(--mo-k, 1))); } }
+@keyframes bc-mo-cascade { from { opacity: 0; transform: translateY(calc(-0.6em * var(--mo-k, 1))); } }
+@keyframes bc-mo-pop {
+  from { opacity: 0; transform: scale(calc(1 - 0.6 * var(--mo-k, 1))); }
+  60% { opacity: 1; transform: scale(calc(1 + 0.1 * var(--mo-k, 1))); }
+}
+@keyframes bc-mo-blur-in { from { opacity: 0; filter: blur(calc(0.3em * var(--mo-k, 1))); } }
+@keyframes bc-mo-slide-mask {
+  from { opacity: 0; clip-path: inset(0 100% 0 0); transform: translateX(calc(-0.4em * var(--mo-k, 1))); }
+  to { opacity: 1; clip-path: inset(0 0 0 0); transform: none; }
+}
+@keyframes bc-mo-wave-in {
+  from { opacity: 0; transform: translateY(calc(0.6em * var(--mo-k, 1))); }
+  60% { opacity: 1; transform: translateY(calc(-0.15em * var(--mo-k, 1))); }
+}
+@keyframes bc-mo-drop-in {
+  from { opacity: 0; transform: translateY(calc(-0.8em * var(--mo-k, 1))); }
+  70% { opacity: 1; transform: translateY(calc(0.06em * var(--mo-k, 1))); }
+}
+@keyframes bc-mo-float-in-top { from { opacity: 0; transform: translateY(calc(-0.5em * var(--mo-k, 1))); } }
+@keyframes bc-mo-float-in-bottom { from { opacity: 0; transform: translateY(calc(0.5em * var(--mo-k, 1))); } }
+@keyframes bc-mo-scale-in { from { opacity: 0; transform: scale(calc(1 - 0.6 * var(--mo-k, 1))); } }
+@keyframes bc-mo-impact {
+  from { opacity: 0; transform: scale(calc(1 + 0.6 * var(--mo-k, 1))); }
+  70% { opacity: 1; transform: scale(calc(1 - 0.04 * var(--mo-k, 1))); }
+}
+@keyframes bc-mo-flip {
+  from { opacity: 0; transform: perspective(4em) rotateX(90deg) rotate(var(--mo-r, 0deg)); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes bc-mo-stomp {
+  from { opacity: 0; transform: translateY(calc(-0.4em * var(--mo-k, 1))) scale(calc(1 + 0.3 * var(--mo-k, 1))); }
+  60% { opacity: 1; transform: scale(1.04, 0.94); }
+}
+@keyframes bc-mo-stack { from { opacity: 0; transform: translateY(calc(0.4em * var(--mo-k, 1))) scale(0.8); } }
+
+/* ---- 退场（只写终点，起点就是落位） ---- */
+@keyframes bc-mo-out-fade-down { to { opacity: 0; transform: translateY(calc(0.5em * var(--mo-k, 1))); } }
+@keyframes bc-mo-out-sink { to { opacity: 0; transform: translateY(calc(0.9em * var(--mo-k, 1))); } }
+@keyframes bc-mo-out-pop-out { to { opacity: 0; transform: scale(calc(1 - 0.7 * var(--mo-k, 1))); } }
+@keyframes bc-mo-out-blur-out { to { opacity: 0; filter: blur(calc(0.3em * var(--mo-k, 1))); } }
+@keyframes bc-mo-out-typewriter-erase { to { opacity: 0; } }
+
+/* ---- 循环 ---- */
+@keyframes bc-mo-loop-pulse { 50% { transform: scale(calc(1 + 0.06 * var(--mo-k, 1))); } }
+@keyframes bc-mo-loop-wave { 50% { transform: translateY(calc(-0.25em * var(--mo-k, 1))); } }
+@keyframes bc-mo-loop-shimmer { 50% { opacity: calc(1 - 0.35 * var(--mo-k, 1)); } }
+@keyframes bc-mo-loop-swing {
+  25% { transform: rotate(calc(4deg * var(--mo-k, 1))); }
+  75% { transform: rotate(calc(-4deg * var(--mo-k, 1))); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aw-a { transition: none; }
+}
+
+/* 画廊卡上的当前词角标 */
+.scard__badge { position: absolute; bottom: 4px; left: 4px; padding: 0 4px; border-radius: 4px; font-size: 10px; line-height: 14px; font-weight: 700; color: var(--gray-25); background: var(--gray-800); pointer-events: none; }
+
+/* 属性页「当前词」「动效」两段（panel-subactive.jsx / panel-submotion.jsx）：格子沿用 `.angrid` / `.ancell` */
+.subact { display: flex; flex-direction: column; gap: 8px; }
+.subact__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.subact__grid .ancell__f { height: 48px; overflow: hidden; }
+.subact__sample { display: block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: clip; line-height: 1.3; }
+.subact__row { display: flex; flex-direction: column; gap: 4px; }
+.subact .ancell { display: flex; flex-direction: column; align-items: stretch; min-width: 0; padding: 0; }

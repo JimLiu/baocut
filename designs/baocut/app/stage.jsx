@@ -66,8 +66,10 @@
        播放头本来就在推进，仍然跟播放头——那才是画面的真实时间。 */
     const previewing = !!ctx.peek;
     const cueWords = cue ? window.BC_WA.split(cue.text).length : 0;
+    // 扫色的「预告下一句」要读下一条 cue（演示口径：cue 表里排在这一条后面的那条）
+    const nextCue = cue ? (ctx.cues || [])[(ctx.cues || []).indexOf(cue) + 1] || null : null;
     const subPreviewing = !!(ctx.peek && ctx.peek.kind === 'sub' && !ctx.peek.win);
-    const beatCur = window.useSubBeat(cueWords, subPreviewing);
+    const {cur: beatCur, cycle: beatCycle} = window.useSubCycle(cueWords, subPreviewing);
     const k = fit.w / 880;                       // 画面缩放系数，元素尺寸跟着走
     /* 叠放次序（product-design §5.1）：画面元素与字幕是同一叠，名次读时间线行（`BC_TL.stackRank`），
        拖行头、画布「层级」换过的次序在这里落到画面上。名次只在 `.stagestack` 里比，不出这一层。 */
@@ -264,7 +266,19 @@
                  那一格退回节拍器的循环时间线（与画廊同相位）。 */
               const cap = isSrc ? ln.caption : null;
               const wcur = subPreviewing ? beatCur : window.BC_WA.at(playT, cue.start, cue.end, n);
-              const line = ln.textMotion || ln.wordBackground ? (
+              /* 两轴（2026-10-09）：轨上有 `activeWord` 就走与缩略图同一个 `WordLine`——画布 = 缩略图。
+                 播放头口径给 `clock`（动画暂停在负延迟上，拖播放头逐帧对得上）；悬停预览跟节拍器。 */
+              const word = window.subWordOfTrack(ln, isSrc);
+              const line = word && !cap ? (
+                <div className={cx('subline', ln.mono && 't-mono')} style={window.paintCss(ln, fzl)}>
+                  <window.WordLine text={displayText} aw={word.aw} motion={word.motion} wordBox={word.wordBox}
+                    cur={isSrc ? wcur : -1} cycle={beatCycle} still={window.subReduced}
+                    clock={subPreviewing ? null : {t: playT - cue.start, dur: cue.end - cue.start}}
+                    next={isSrc && nextCue ? window.BC_SUB_PREFS.displayText(nextCue.text, doc.punct !== false) : null}
+                    highlight={isSrc ? ln.highlight : null} cueId={cue.id}
+                    plate={window.plateCss(ln, fzl)} />
+                </div>
+              ) : ln.textMotion || ln.wordBackground ? (
                 <div className="subline subline--cap"><window.SubTextMotion paint={ln} text={displayText}
                   fz={fzl} t={playT - cue.start} dur={cue.end - cue.start} loop={subPreviewing} timed={isSrc} /></div>
               ) : cap ? (
