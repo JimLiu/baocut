@@ -62,7 +62,6 @@ export const de: StageToolbarMessages = {
     crop: "Intelligentes Zuschneiden benötigt ein Modell und hat noch keinen Einstiegspunkt. Demnächst verfügbar.",
     speed: "Dieser Clip wird nicht mit konstanter Geschwindigkeit abgespielt. Seine Geschwindigkeit kann hier daher nicht geändert werden.",
     sound: "Dieser Clip hat keinen Ton.",
-    captionAnimation: 'Untertitel-Animationen lassen sich im Editor noch nicht auswählen.',
     captionDefaultStyle: 'Diese Untertitel verwenden noch den Standardstil. Ändern Sie zuerst eine Einstellung und speichern Sie ihn dann im Marken-Kit.',
     brandText: 'Das Marken-Kit hat noch keinen Bereich für Textstile.',
     brandWeb: 'Das Marken-Kit ist nur in der Desktop-App und der CLI verfügbar.',

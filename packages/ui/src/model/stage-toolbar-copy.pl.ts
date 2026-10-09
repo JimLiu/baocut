@@ -60,7 +60,6 @@ export const pl: StageToolbarMessages = {
     crop: "Inteligentne kadrowanie wymaga modelu i nie ma jeszcze punktu wejścia. Wkrótce.",
     speed: "Klip nie odtwarza się ze stałą prędkością, więc nie można tu jej zmienić.",
     sound: "Ten klip nie ma dźwięku.",
-    captionAnimation: 'Animacji napisów nie można jeszcze wybrać w edytorze.',
     captionDefaultStyle: 'Te napisy nadal używają stylu domyślnego. Najpierw zmień dowolne ustawienie, a potem zapisz go w zestawie marki.',
     brandText: 'Zestaw marki nie ma jeszcze sekcji stylów tekstu.',
     brandWeb: 'Zestaw marki jest dostępny tylko w aplikacji komputerowej i CLI.',

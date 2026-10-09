@@ -1,4 +1,5 @@
 import type { CaptionItem } from '@baocut/protocol';
+import { create } from 'zustand';
 import { useEditor } from '../../state/editor-store.ts';
 import { useVideo } from '../../state/video-store.ts';
 import { openGallery } from './caption-gallery.tsx';
@@ -31,4 +32,16 @@ export function openCaptionStyles(chipKey: string | undefined): void {
     openGallery(videoId, true);
   }
   useEditor.getState().showPanel('subtitle');
+}
+
+/** 属性页里要滚到的那一段（字幕工具条的「动画」→「当前词」）；属性页滚到之后清掉。 */
+export const useCaptionSection = create<{ focus: 'active' | null }>(() => ({ focus: null }));
+
+/** 字幕工具条的「动画」：选中这条字幕、打开属性页，滚到「当前词」那一段（倒鸭子时是倒鸭子那一段）。 */
+export function openCaptionActive(item: CaptionItem): void {
+  const videoId = useVideo.getState().video?.videoId;
+  if (videoId) openGallery(videoId, false);
+  useEditor.getState().select([item.id]);
+  useCaptionSection.setState({ focus: 'active' });
+  useEditor.getState().showPanel('props');
 }

@@ -60,7 +60,6 @@ export const ko: StageToolbarMessages = {
     crop: '스마트 자르기는 모델이 필요하며 아직 진입점이 없습니다. 곧 제공됩니다.',
     speed: '이 클립은 일정한 속도로 재생되지 않으므로 여기서 속도를 바꿀 수 없습니다.',
     sound: '이 클립에는 소리가 없습니다.',
-    captionAnimation: '편집기에서는 아직 자막 애니메이션을 고를 수 없습니다.',
     captionDefaultStyle: '이 자막은 아직 기본 스타일을 사용합니다. 먼저 설정을 하나 바꾼 다음 브랜드 키트에 저장하세요.',
     brandText: '브랜드 키트에는 아직 텍스트 스타일 섹션이 없습니다.',
     brandWeb: '브랜드 키트는 데스크톱 앱과 CLI에서만 사용할 수 있습니다.',

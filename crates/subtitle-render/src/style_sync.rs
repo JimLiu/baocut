@@ -88,6 +88,7 @@ const LOOK_KEYS: &[(&str, &str)] = &[
     ("textOutline", "textOutline"),
     ("dropShadow", "dropShadow"),
     ("glow", "glow"),
+    ("emphasisLook", "emphasisLook"),
 ];
 
 /// 需要改写字段名或形状的外观键，与上面那批合起来就是 `linePartial` 的全集。
@@ -1285,6 +1286,24 @@ mod tests {
             style[CONTEXTS_KEY]["bi"]["orig"]["style"]["fontColor"],
             "#ffffff"
         );
+    }
+
+    #[test]
+    fn emphasis_look_sinks_into_the_context_and_projects_back() {
+        let look = json!({"color": "#FF00AA", "bold": true, "scale": 1.3});
+        let mut style = flat();
+        style["emphasisLook"] = look.clone();
+        reconcile(&mut style, &changed(&["emphasisLook"]), None);
+        assert_eq!(
+            style[CONTEXTS_KEY]["sub"]["orig"]["style"]["emphasisLook"],
+            look
+        );
+        assert!(is_line_look_key("emphasisLook"));
+        let contexts = style[CONTEXTS_KEY].clone();
+        let mut projected = style.clone();
+        projected["emphasisLook"] = Value::Null;
+        project_flat(&mut projected, &contexts, "sub");
+        assert_eq!(projected["emphasisLook"], look);
     }
 
     #[test]

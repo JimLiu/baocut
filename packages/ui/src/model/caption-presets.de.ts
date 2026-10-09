@@ -1,10 +1,10 @@
 import type { CaptionPresetsMessages } from './caption-presets.ts';
 
 export const de: CaptionPresetsMessages = {
-  groupDefault: "Standard",
-  groupSocial: "Social Media",
-  groupBusiness: "Geschäftlich",
-  classic: "Klassisch",
+  categories: { basic: 'Basis', social: 'Social Media', business: 'Geschäftlich', retro: 'Retro', motion: 'Bewegung', kinetic: 'Kinetische Typo' },
+  classic: 'Klassisch',
+  simple: 'Schlicht',
+  daoyazi: 'Kinetische Untertitel',
   studio: {
     'studio-focus': "Gesprochene Betonung",
     'studio-word-tiles': "Wortkacheln",

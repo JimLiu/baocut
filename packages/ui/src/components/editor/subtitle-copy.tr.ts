@@ -173,7 +173,6 @@ export const trCaptionStyle: CaptionStyleMessages = {
   scopeAll: "Hepsi",
   hint: "Her kart, şu anda ekranda olan altyazıları gösterir. Uygulamak yalnızca görünümü değiştirir; satır eklemez veya kaldırmaz. Satır eklemek veya kaldırmak için üstteki şeridi ya da zaman çizelgesindeki altyazı izi başlığını kullanın.",
   hintScope: "“Uygulanacak satır” tek bir satırı gösteriyorsa yalnızca o satır değişir; diğerleri yerinde kalır.",
-  hintMotion: "Çince adları olan Sosyal kartları normalde sözcük sözcük veya karakter karakter hareket eder; burada yalnızca sabit görünümleri uygulanabilir.",
   edit: "Bu stili düzenle",
   applied: (name,lines) => `${name} adlı stil uygulandı · ${lines} yeniden biçimlendirildi`,
   appliedOne: (line,name,others) => `${line}: ${name} adlı stil uygulandı${others ? ` · ${others} değişmedi` : ''}`,

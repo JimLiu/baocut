@@ -911,6 +911,12 @@ pub struct GlyphChunk {
     pub font_weight: u16,
     pub italic: bool,
     pub shaped: render_raster::fonts::ShapedLine,
+    /// 这一片自己的填充色（`emphasisLook` 强调词）。逐词动画的颜色仍优先，
+    /// `None` 落回行样式的 `color`。
+    pub color: Option<SubtitleColor>,
+    /// 相对行字号的缩放（`emphasisLook.scale`）。基线按未缩放的字形度量定位，
+    /// 放大的词绕基线长高而不是整体下沉；1.0 时与旧口径逐位一致。
+    pub metric_scale: f64,
 }
 
 #[derive(Clone, Default)]

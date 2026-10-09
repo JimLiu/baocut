@@ -178,7 +178,6 @@ export const ptBRCaptionStyle: CaptionStyleMessages = {
   scopeAll: "Todos",
   hint: "Cada cartão é pintado com as legendas que estão na sua tela agora. Aplicar um só muda o visual — nunca adiciona nem remove uma faixa; para isso use a faixa de trilhas acima ou os cabeçalhos de legenda na linha do tempo.",
   hintScope: "Aponte “Aplicar a” para uma faixa e só ela muda; a outra fica como está.",
-  hintMotion: "Cartões Social com nomes chineses normalmente animam por palavra ou caractere; só o visual estático pode ser aplicado aqui.",
   edit: "Editar este estilo",
   applied: (name: string, lines: string) => `Aplicado “${name}” · estilo alterado em ${lines}`,
   appliedOne: (line: string, name: string, others: string) => `Aplicado “${name}” a ${line}${others ? ` · ${others} inalteradas` : ""}`,

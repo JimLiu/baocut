@@ -4,19 +4,25 @@ import { mergedLineStyle, type Json } from '../render/text-style.ts';
 import {
   CAPTION_PRESETS,
   PAINT_KEYS,
+  WORD_KEYS,
   applyPreset,
   captionStyleOperations,
   currentPreset,
+  editWordStyle,
   fontFamilyOf,
   galleryTarget,
   lookStyle,
   presetGroups,
+  presetBadge,
+  presetModified,
   presetOn,
+  presetStyle,
   thumbScene,
   type DesignLook,
 } from './caption-presets.ts';
 import type { CaptionChip } from './caption-tracks.ts';
 import { DEFAULT_CAPTION_STYLE } from './property-values.ts';
+import type { CaptionStyleBody } from './caption-style-body.ts';
 
 const preset = (id: string) => CAPTION_PRESETS.find((p) => p.id === id)!;
 const STUDIO = 'baocut.legacy-studio-style/0.1';
@@ -48,35 +54,22 @@ const look = (patch: Partial<DesignLook> = {}): DesignLook => ({
 });
 
 describe('分区与次序', () => {
-  it('照 data.js 目录：默认、Shorts、社交、商务；动态排版与复古没有卡不出', () => {
-    expect(presetGroups().map((g) => [g.label, g.presets.map((p) => p.id)])).toEqual([
-      ['默认', ['classic']],
-      ['Shorts', ['shorts']],
-      [
-        '社交',
-        [
-          'ali',
-          'karl',
-          'lime',
-          'phantom',
-          'bulb',
-          'vegas',
-          'studio-focus',
-          'studio-word-tiles',
-          'studio-word-drop',
-          'studio-paper-typewriter',
-          'studio-line-swipe',
-          'studio-soft-focus',
-          'studio-rise-settle',
-          'studio-kinetic-wave',
-          'studio-ktv',
-        ],
-      ],
-      ['商务', ['simple']],
+  it('六个分区按气质分：基础 3、社交 20、商务 6、复古 6、动效 7、动态排版 1', () => {
+    const groups = presetGroups();
+    expect(groups.map((g) => [g.key, g.label, g.presets.length])).toEqual([
+      ['basic', '基础', 3],
+      ['social', '社交', 20],
+      ['business', '商务', 6],
+      ['retro', '复古', 6],
+      ['motion', '动效', 7],
+      ['kinetic', '动态排版', 1],
     ]);
+    expect(groups[0]!.presets.map((p) => p.id)).toEqual(['classic', 'shorts', 'simple']);
+    expect(groups[5]!.presets.map((p) => [p.id, p.name])).toEqual([['daoyazi', '倒鸭子']]);
+    expect(new Set(CAPTION_PRESETS.map((p) => p.id)).size).toBe(43);
   });
 
-  it('每张卡都是完整的涂装：只写涂装键，阴影与发光两个槽都给值', () => {
+  it('每张卡的涂装完整：只有涂装键，阴影与发光两个槽都给值，不带字号', () => {
     for (const p of CAPTION_PRESETS) {
       expect(Object.keys(p.style).filter((key) => !PAINT_KEYS.includes(key))).toEqual([]);
       for (const key of ['fontFamily', 'fontWeight', 'fontColor', 'textAlign', 'textTransform', 'background', 'textOutline', 'dropShadow', 'glow']) {
@@ -86,10 +79,15 @@ describe('分区与次序', () => {
     }
   });
 
-  it('Studio 设计带着动效的标出来；经典与 look 涂装不标', () => {
-    expect(CAPTION_PRESETS.filter((p) => p.motion).map((p) => p.id)).toHaveLength(9);
-    expect(preset('classic').motion).toBeUndefined();
-    expect(preset('ali').motion).toBeUndefined();
+  it('每张卡显式写出当前词；套上去只写涂装键与词级键', () => {
+    for (const p of CAPTION_PRESETS) {
+      expect(p.body.activeWord.mode, p.id).toBeDefined();
+      expect(p.body.preset).toEqual({ id: p.id, revision: 1 });
+      expect(Object.keys(presetStyle(p)).filter((key) => !PAINT_KEYS.includes(key) && !WORD_KEYS.includes(key)), p.id).toEqual([]);
+    }
+    expect(preset('classic').body.activeWord).toMatchObject({ mode: 'color', color: '#18E1D6' });
+    expect(preset('studio-ktv').body.activeWord).toMatchObject({ mode: 'sweep', sweep: { unit: 'grapheme', guide: true, nextLine: true } });
+    expect(preset('daoyazi').body.layout.mode).toBe('sequence');
   });
 });
 
@@ -190,10 +188,32 @@ describe('套用', () => {
     expect(currentPreset(style, ['original', 'translation'])?.id).toBe('karl');
   });
 
-  it('改过一项就不算这张卡了', () => {
+  it('改过一项：仍亮着来源卡，标「已修改」；没记来源卡的旧样式按涂装比', () => {
     const style = applyPreset(body, preset('karl'), 'all').style as Json;
-    expect(presetOn({ ...style, fontColor: '#123456' }, preset('karl'), ['original'])).toBe(false);
-    expect(currentPreset({ ...style, fontColor: '#123456' }, ['original'])).toBeNull();
+    expect(presetModified(style, preset('karl'), ['original'])).toBe(false);
+    const changed = { ...style, fontColor: '#123456' };
+    expect(presetOn(changed, preset('karl'), ['original'])).toBe(true);
+    expect(presetModified(changed, preset('karl'), ['original'])).toBe(true);
+    const legacy = { ...changed, stylePreset: undefined };
+    delete legacy.stylePreset;
+    expect(currentPreset(legacy, ['original'])).toBeNull();
+    expect(currentPreset({ ...preset('lime').style }, ['original'])?.id).toBe('lime');
+  });
+
+  it('套卡把当前词与动效一起换掉：旧的 anim / karaokeColor / textMotion 清掉', () => {
+    const old = { ...body, style: { ...body.style, anim: { name: 'Bounce' }, karaokeColor: '#FF0000', textMotion: { version: 1, in: { preset: 'pop' } } } };
+    const style = applyPreset(old, preset('studio-ktv'), 'all').style as Json;
+    expect(style.anim).toBeUndefined();
+    expect(style.karaokeColor).toBeUndefined();
+    expect(style.textMotion).toEqual({ version: 1, karaoke: { color: '#FF6A1A', guide: true, nextLine: true } });
+    expect(style.stylePreset).toEqual({ id: 'studio-ktv', revision: 1 });
+  });
+
+  it('角标：当前词模式；倒鸭子标排版模式', () => {
+    expect(presetBadge(preset('classic'))).toBe('color');
+    expect(presetBadge(preset('studio-ktv'))).toBe('sweep');
+    expect(presetBadge(preset('phantom'))).toBe('box');
+    expect(presetBadge(preset('daoyazi'))).toBe('sequence');
   });
 
   it('只给译文：写进 transStyle，根上有、卡上没有的涂装键写 null，原文不动', () => {
@@ -222,6 +242,7 @@ describe('套用', () => {
     expect(style).toEqual({ ...preset('classic').style, punct: true });
     expect(style.textOutline).toEqual({ on: true, color: '#000000', width: 14 });
     expect(currentPreset(style, ['original', 'translation'])?.id).toBe('classic');
+    expect(presetModified(style, preset('classic'), ['original', 'translation'])).toBe(false);
   });
 
   it('没有样式文档时从空样式套', () => {
@@ -330,5 +351,34 @@ describe('缩略图', () => {
     const swapped = thumbScene({ order: 'orig' }, ['original', 'translation'], { width: 160, height: 66 }, 13);
     expect(swapped.lines.find((l) => l.kind === 'original')?.text).toBe('Words are truth');
     expect(thumbScene({}, ['translation'], { width: 88, height: 48 }, 10).lines).toEqual([{ kind: 'translation', text: 'Words are truth' }]);
+  });
+});
+
+describe('属性页改词级维度', () => {
+  const sweep = (b: CaptionStyleBody): CaptionStyleBody => ({ ...b, activeWord: { ...b.activeWord, mode: 'sweep', color: '#FF0000' } });
+
+  it('全部套的卡：写根样式，只动词级键；来源卡留着、标「已修改」', () => {
+    const style = applyPreset(undefined, preset('classic'), 'all').style as Json;
+    const next = editWordStyle(style, 'original', true, sweep);
+    for (const key of PAINT_KEYS) expect(next[key], key).toEqual(style[key]);
+    expect(next.textMotion).toMatchObject({ karaoke: { color: '#FF0000' } });
+    expect(next.origStyle).toBeUndefined();
+    expect(presetOn(next, preset('classic'), ['original'])).toBe(true);
+    expect(presetModified(next, preset('classic'), ['original'])).toBe(true);
+  });
+
+  it('只套给原文的卡：写进 origStyle；译文双语时写进 transStyle、按译文编译', () => {
+    const style = applyPreset(applyPreset(undefined, preset('classic'), 'all'), preset('karl'), 'original').style as Json;
+    const next = editWordStyle(style, 'original', true, sweep);
+    expect((next.origStyle as Json).textMotion).toMatchObject({ karaoke: { color: '#FF0000' } });
+    expect(next.textMotion).toEqual(style.textMotion);
+    const motion = editWordStyle(style, 'translation', true, (b) => ({
+      ...b,
+      motion: { in: { preset: 'rise', unit: 'cue', trigger: 'spoken', durationSeconds: 0.36, intensity: 1, easing: 'easeOutQuad' } },
+    }));
+    const trans = motion.transStyle as Json;
+    expect((trans.wordAnimation as Json).catalogId).toBe('none');
+    expect((trans.textMotion as Json).in).toMatchObject({ preset: 'rise' });
+    expect(motion.wordAnimation).toEqual(style.wordAnimation);
   });
 });

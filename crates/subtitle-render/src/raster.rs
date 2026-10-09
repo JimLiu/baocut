@@ -358,23 +358,45 @@ fn layout_text_with(
     part_ranges: Option<&[Range<usize>]>,
     balance_cjk: bool,
 ) -> (Vec<LayoutLine>, f64) {
-    let weight = style.font_weight;
     let mut tokens = Vec::new();
     for run in timed_runs(&item.text, &item.words, &style.text_transform) {
+        // `emphasisLook`：强调词换字族 / 字重 / 斜体并按 scale 放大字号，宽度随
+        // shaping 一起变，邻词不会叠上。非强调词沿用行样式，逐位不变。
+        let variant = run
+            .word
+            .and_then(|index| item.words.get(index))
+            .and_then(|word| style.emphasis.as_deref()?.variant(&word.id));
+        let scale = variant.as_ref().map_or(1.0, |variant| variant.scale);
+        let font_name = variant
+            .as_ref()
+            .and_then(|variant| variant.font_name)
+            .unwrap_or(&style.font_name);
+        let font_size = if variant.is_some() {
+            style.font_size * scale
+        } else {
+            style.font_size
+        };
+        // 字距不随强调缩放：绘制端逐字形按行样式的 `letter_spacing` 落位。
+        let letter_spacing = style.letter_spacing;
+        let weight = match variant.as_ref().and_then(|variant| variant.bold) {
+            Some(true) => style.font_weight.max(700),
+            Some(false) if style.font_weight >= 700 => 400,
+            _ => style.font_weight,
+        };
+        let italic = variant
+            .as_ref()
+            .and_then(|variant| variant.italic)
+            .unwrap_or(style.italic);
+        let shaped_italic = style.shaped_italic && italic;
+        let color = variant.as_ref().and_then(|variant| variant.color);
         // 时间跨度不是不可折行的词：译片可能把整句作为一个带时间的 run。
         // 先按 Unicode 词边界排版，超宽单词再按字形簇兜底；每片保留原 word
         // 和字节偏移，让逐词动效与分片高亮仍引用原来的时间跨度。
         let mut pieces = Vec::new();
         let run_width = text_engine
-            .shape_styled(
-                &run.text,
-                &style.font_name,
-                style.font_size,
-                weight,
-                style.shaped_italic,
-            )
+            .shape_styled(&run.text, font_name, font_size, weight, shaped_italic)
             .width
-            + style.letter_spacing * run.text.graphemes(true).count().saturating_sub(1) as f64;
+            + letter_spacing * run.text.graphemes(true).count().saturating_sub(1) as f64;
         let boundaries = if run.word.is_some()
             && run_width <= wrap_width
             && !run.text.contains(['\n', '\r'])
@@ -389,15 +411,10 @@ fn layout_text_with(
             run.text.split_word_bound_indices().collect::<Vec<_>>()
         };
         for (offset, piece) in boundaries {
-            let shaped = text_engine.shape_styled(
-                piece,
-                &style.font_name,
-                style.font_size,
-                weight,
-                style.shaped_italic,
-            );
+            let shaped =
+                text_engine.shape_styled(piece, font_name, font_size, weight, shaped_italic);
             let width = shaped.width
-                + style.letter_spacing * piece.graphemes(true).count().saturating_sub(1) as f64;
+                + letter_spacing * piece.graphemes(true).count().saturating_sub(1) as f64;
             if width > wrap_width {
                 pieces.extend(
                     piece
@@ -413,26 +430,23 @@ fn layout_text_with(
                 tokens.push(LayoutToken::HardBreak);
                 continue;
             }
-            let shaped = text_engine.shape_styled(
-                &piece,
-                &style.font_name,
-                style.font_size,
-                weight,
-                style.shaped_italic,
-            );
+            let shaped =
+                text_engine.shape_styled(&piece, font_name, font_size, weight, shaped_italic);
             let width = shaped.width
-                + style.letter_spacing * piece.graphemes(true).count().saturating_sub(1) as f64;
+                + letter_spacing * piece.graphemes(true).count().saturating_sub(1) as f64;
             let chunk = GlyphChunk {
                 text: piece.clone(),
                 word: run.word,
                 part: part_ranges
                     .and_then(|ranges| ranges.iter().position(|range| range.contains(&offset))),
                 width,
-                font_name: style.font_name.clone(),
-                font_size: style.font_size,
+                font_name: font_name.to_owned(),
+                font_size,
                 font_weight: weight,
-                italic: style.italic && !style.shaped_italic,
+                italic: italic && !shaped_italic,
                 shaped,
+                color,
+                metric_scale: scale,
             };
             if piece.trim().is_empty() {
                 tokens.push(LayoutToken::Space(chunk));
@@ -950,6 +964,8 @@ pub fn layout_inline_caption_text(
                 font_weight: spec.weight,
                 italic: spec.italic,
                 shaped,
+                color: None,
+                metric_scale: 1.0,
             });
         }
     }
@@ -1040,6 +1056,8 @@ pub fn layout_caption_text(
                     font_weight: base_font.weight,
                     italic: base_font.italic,
                     shaped,
+                    color: None,
+                    metric_scale: 1.0,
                 }
             });
             let incoming = width + space.as_ref().map_or(0.0, |chunk| chunk.width);
@@ -1065,6 +1083,8 @@ pub fn layout_caption_text(
                 font_weight: spec.weight,
                 italic: spec.italic,
                 shaped,
+                color: None,
+                metric_scale: 1.0,
             });
         }
         if band_index + 1 < bands.len()
@@ -1371,7 +1391,11 @@ pub fn word_transform_for_motion(
 
 /// CPU raster 与 R2 glyph scene 共用的基线口径。
 pub fn glyph_baseline(line_top: f64, line_height: f64, chunk: &GlyphChunk, bounce: f64) -> f64 {
-    line_top + (line_height + chunk.shaped.ascent - chunk.shaped.descent) / 2.0 - bounce
+    // 放大的强调词按未缩放度量定位：与同行其余词共用基线。除以 1.0 在 IEEE 下
+    // 是恒等且运算顺序与旧式相同，普通片的基线逐位不变。
+    let scale = chunk.metric_scale;
+    line_top + (line_height + chunk.shaped.ascent / scale - chunk.shaped.descent / scale) / 2.0
+        - bounce
 }
 
 /// CPU raster 与 R2 glyph scene 共用的单字形画布变换。先在字形局部应用合成
@@ -2853,7 +2877,7 @@ pub fn draw_line_layout(
                         if let Some(fill) = caption_recipe_glyph_paint(
                             animation,
                             &visual,
-                            visual.color.unwrap_or(layout.style.color),
+                            visual.color.or(chunk.color).unwrap_or(layout.style.color),
                             chunk_opacity,
                             replacement.is_none(),
                         ) {
@@ -2907,7 +2931,7 @@ pub fn draw_line_layout(
                     chunk.width,
                     (layout.style.font_size * 0.06).max(1.0),
                     layout.style.font_size * 0.03,
-                    visual.color.unwrap_or(layout.style.color),
+                    visual.color.or(chunk.color).unwrap_or(layout.style.color),
                     chunk_opacity,
                     group_transform,
                 ));

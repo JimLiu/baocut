@@ -173,7 +173,6 @@ export const jaCaptionStyle: CaptionStyleMessages = {
   scopeAll: 'すべて',
   hint: '各カードには、いま画面にある字幕がそのまま表示されています。適用しても見た目が変わるだけで、行が増えたり減ったりはしません。行を追加したり外したりするには、上のトラックバーかタイムラインの字幕トラックヘッダーを使ってください。',
   hintScope: '「適用先」で 1 行を指定すると、その行だけが変わり、ほかは何も変わりません。',
-  hintMotion: 'ソーシャルにある中国語名のカードは本来、単語単位または文字単位のアニメーションが付いています。ここで適用できるのは静止した見た目だけです。',
   edit: 'このスタイルを編集',
   applied: (name: string, lines: string) => `「${name}」を適用しました · ${lines} のスタイルを変更`,
   appliedOne: (line: string, name: string, others: string) => `${line} に「${name}」を適用しました${others ? ` · ${others} は変更なし` : ''}`,

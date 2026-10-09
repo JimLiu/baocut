@@ -11,6 +11,10 @@ import { useEditorActions } from './editor-context.tsx';
 import { Note, PRow, Sec, SecHead, Seg, ValueRow } from './inspector-controls.tsx';
 import { DeleteItem, TimeSection, type ItemPageProps } from './inspector-sections.tsx';
 import { TextStyleEditor } from './inspector-text-style.tsx';
+import { CaptionActiveSection, type WordSectionProps } from './inspector-caption-active.tsx';
+import { CaptionMotionSection } from './inspector-caption-motion.tsx';
+import { CaptionSequenceSection } from './inspector-caption-sequence.tsx';
+import { lineBody } from '../../model/caption-presets.ts';
 import { CAPTION_STYLE_COPY as S } from './subtitle-copy.ts';
 import { useCaptionStyle } from './use-caption-style.ts';
 import { INSPECTOR_COPY as IC } from './inspector-copy.ts';
@@ -100,6 +104,10 @@ export function CaptionPage(props: ItemPageProps<CaptionItem> & { documents: Rec
   const liveLine = (patch: Json) => preview(editLine(root, patch, kind, paired, paired));
   const commitLine = (patch: Json) => save(editLine(root, patch, kind, paired, paired), paired ? undefined : kind);
 
+  // 当前词、动效与倒鸭子（字幕样式模型设计 §9）：只改词级键，写到这一行该在的地方（`editWordStyle`）。
+  const word: WordSectionProps = { root, kind, paired, isDisabled: disabled, onLive: preview, onCommit: (next) => save(next) };
+  const sequenceMode = kind === 'original' && lineBody(root, kind).layout.mode === 'sequence';
+
   const y = num(root.y, 86);
   const anchor: Anchor = root.verticalAlign === 'top' || root.verticalAlign === 'bottom' ? root.verticalAlign : 'center';
   const place = y <= 20 ? 'top' : y >= 80 ? 'bottom' : 'middle';
@@ -170,6 +178,14 @@ export function CaptionPage(props: ItemPageProps<CaptionItem> & { documents: Rec
           sizeNote={sizeNote}
         />
       </Sec>
+      {sequenceMode ? (
+        <CaptionSequenceSection {...word} canvas={sequence.canvas} />
+      ) : (
+        <>
+          <CaptionActiveSection {...word} />
+          <CaptionMotionSection {...word} />
+        </>
+      )}
       <SecHead>{IC.position}</SecHead>
       <Sec>
         <PRow label={S.place}>

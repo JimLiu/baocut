@@ -1,5 +1,6 @@
 import type { AssetRecord, Rate, VersionRef } from '@baocut/protocol';
 import { thumbScene } from '../../model/caption-presets.ts';
+import { wordAnimationPayload } from '../../model/caption-word-animation.ts';
 import type { VisualLayer } from '../../model/new-items.ts';
 import { poseOf, type PlacedItem } from '../../model/stage-pose.ts';
 import { presetLayers, type MeasureText, type TextPreset } from '../../model/text-presets.ts';
@@ -342,7 +343,7 @@ export interface CaptionSample {
 /**
  * 字幕样式卡的样张：按这份样式排英中两句，大的那一行 `px` 设备像素。缩略图不折行：先不带动画、在四倍宽的画布上
  * 画一遍量出样张的宽高，放不下就整体缩小；之后每一刻都用这个字号，逐词动画（落入、弹跳……）不会让字号跟着跳。
- * 逐词动画照这份样式自己的（套卡只换涂装，动画不变）。
+ * 逐词动画与动效照这份样式自己的（套卡连当前词与动效一起换，卡上动的就是套上去的样子）。
  */
 export function captionSample(planner: RenderPlanner, root: Json, kinds: readonly LineKind[], px: number, width: number, height: number): CaptionSample {
   const scene = thumbScene(root, kinds, { width, height }, px);
@@ -351,7 +352,9 @@ export function captionSample(planner: RenderPlanner, root: Json, kinds: readonl
   const period = words ? (words + 1) * CAPTION_BEAT : 0;
   const duration = period || 10;
   const still = words ? (Math.min(1, words - 1) + SAMPLE_ON) * CAPTION_BEAT : duration / 2;
-  const plain = { ...scene.root, anim: { name: 'None' } };
+  // 量宽时不带动画：逐词动画、textMotion 都摘掉（`wordAnimation` 盖过旧键 `anim`，两个都写成「无」）；逐词底块留着，它占宽。
+  const { textMotion: _motion, ...still0 } = scene.root;
+  const plain = { ...still0, anim: { name: 'None' }, wordAnimation: wordAnimationPayload('none') };
   const wide = renderThumb(planner, { ...captionScene(plain, scene.lines, { width: width * 4, height }, duration), seconds: still }, width * 4, height);
   const bounds = opaqueBounds(wide.image);
   const fit = bounds ? Math.min(1, (width * 0.92) / bounds.width, (height * 0.9) / bounds.height) : 1;

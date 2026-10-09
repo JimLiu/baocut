@@ -11,7 +11,9 @@ import {
   applyPreset,
   captionStyleOperations,
   galleryTarget,
+  presetBadge,
   presetGroups,
+  presetModified,
   presetOn,
   type CaptionPreset,
   type PresetScope,
@@ -21,6 +23,7 @@ import { DEFAULT_CAPTION_STYLE, captionStyleRoot } from '../../model/property-va
 import { asObject, type Json, type LineKind } from '../../render/text-style.ts';
 import { useEditor } from '../../state/editor-store.ts';
 import { canEdit, useVideo } from '../../state/video-store.ts';
+import { CAPTION_PANEL_COPY as P } from './caption-panel-copy.ts';
 import { CaptionThumb } from './caption-thumb.tsx';
 import { draftedBody, dropStaleDraft } from './draft-documents.ts';
 import { useEditorActions } from './editor-context.tsx';
@@ -89,6 +92,20 @@ const tick = style({
   '--iconPrimary': { type: 'fill', value: 'gray-25' },
 });
 const tickIcon = iconStyle({ size: 'XS' });
+/** 左上角的当前词角标（原型 .scard__badge）：画在缩略图上，浅底深字，不随主题变。 */
+const badge = style({
+  position: 'absolute',
+  top: '[6px]',
+  insetStart: '[6px]',
+  paddingX: 4,
+  borderRadius: 'sm',
+  backgroundColor: 'transparent-white-800',
+  font: 'ui-xs',
+  color: 'gray-900',
+  pointerEvents: 'none',
+});
+const modifiedRow = style({ display: 'flex', alignItems: 'center', gap: 4, paddingStart: 8, paddingEnd: 4, paddingBottom: 4 });
+const modifiedText = style({ flexGrow: 1, minWidth: 0, font: 'ui-xs', color: 'gray-600' });
 const foot = style({ display: 'flex', alignItems: 'center', gap: 4, paddingY: 4, paddingStart: 8, paddingEnd: 4 });
 const cardName = style({
   flexGrow: 1,
@@ -104,6 +121,7 @@ const hint = style({ marginTop: 16, marginBottom: 0, font: 'ui-xs', color: 'gray
 function GalleryCard({
   preset,
   on,
+  modified,
   root,
   kinds,
   isDisabled,
@@ -112,12 +130,16 @@ function GalleryCard({
 }: {
   preset: CaptionPreset;
   on: boolean;
+  /** 亮着、但改过别的维度（原型「已修改 · 还原」）；点「还原」= 再套一次这张卡。 */
+  modified: boolean;
   root: Json;
   kinds: readonly LineKind[];
   isDisabled: boolean;
   onPick(): void;
   onEdit(): void;
 }) {
+  const mode = presetBadge(preset);
+  const badgeLabel = mode === 'sequence' ? P.badgeSequence : P.modes[mode];
   return (
     <div className={card({ isOn: on })}>
       <RACButton
@@ -127,6 +149,9 @@ function GalleryCard({
         isDisabled={isDisabled}
         onPress={onPick}>
         <CaptionThumb root={root} kinds={kinds} px={13} />
+        <span className={badge} title={P.badgeTip(badgeLabel)}>
+          {badgeLabel}
+        </span>
         {on ? (
           <span className={tick}>
             <Checkmark styles={tickIcon} data-bc-icons="own" />
@@ -144,6 +169,14 @@ function GalleryCard({
           <Tooltip>{S.edit}</Tooltip>
         </TooltipTrigger>
       </div>
+      {on && modified ? (
+        <div className={modifiedRow}>
+          <span className={modifiedText}>{P.modified}</span>
+          <ActionButton isQuiet size="XS" aria-label={P.revertLabel(preset.name)} isDisabled={isDisabled} onPress={onPick}>
+            {P.revert}
+          </ActionButton>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -201,6 +234,7 @@ export function CaptionGallery({
   const kindsKey = target.kinds.join(',');
   const kinds = useMemo(() => (kindsKey ? (kindsKey.split(',') as LineKind[]) : []), [kindsKey]);
   const onCard = (preset: CaptionPreset) => !!root && presetOn(root, preset, scope === 'all' ? kinds : [scope]);
+  const changedCard = (preset: CaptionPreset) => !!root && presetModified(root, preset, scope === 'all' ? kinds : [scope]);
 
   const current = chips.find((c) => c.key === selected && c.state !== 'shelved') ?? showing[0] ?? null;
   const disabled = !editable || !root;
@@ -272,6 +306,7 @@ export function CaptionGallery({
                       key={preset.id}
                       preset={preset}
                       on={onCard(preset)}
+                      modified={changedCard(preset)}
                       root={previews.get(preset.id) ?? root}
                       kinds={kinds}
                       isDisabled={disabled}
@@ -285,7 +320,7 @@ export function CaptionGallery({
             <p className={hint}>
               {S.hint}
               {kinds.length > 1 ? S.hintScope : null}
-              {S.hintMotion}
+              {P.galleryHint}
             </p>
           </>
         )}

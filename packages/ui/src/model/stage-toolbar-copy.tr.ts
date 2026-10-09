@@ -60,7 +60,6 @@ export const tr: StageToolbarMessages = {
     crop: 'Akıllı kırpma model gerektirir ve henüz giriş noktası yok. Yakında.',
     speed: 'Bu klip sabit hızda oynatılmadığından hızı burada değiştirilemez.',
     sound: 'Bu klipte ses yok.',
-    captionAnimation: 'Altyazı animasyonları henüz düzenleyicide seçilemiyor.',
     captionDefaultStyle: 'Bu altyazılar hâlâ varsayılan stili kullanıyor. Önce herhangi bir ayarı değiştirin, sonra marka kitine kaydedin.',
     brandText: 'Marka kitinde henüz metin stilleri bölümü yok.',
     brandWeb: 'Marka kiti yalnızca masaüstü uygulamasında ve CLI’da kullanılabilir.',

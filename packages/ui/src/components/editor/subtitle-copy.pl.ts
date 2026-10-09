@@ -172,7 +172,6 @@ export const plCaptionStyle: CaptionStyleMessages = {
   scopeAll: "Wszystko",
   hint: "Karty pokazują obecne napisy. Zastosowanie zmienia tylko wygląd, nie dodaje ani nie usuwa wierszy. Użyj paska powyżej lub nagłówka ścieżki dla dodawania i zdejmowania.",
   hintScope: "Gdy „Zastosuj do” wskazuje wiersz, zmienia tylko jego, reszta bez ruchu.",
-  hintMotion: "Karty Social z chińskimi nazwami zwykle animują słowa lub znaki; tutaj tylko wygląd statyczny.",
   edit: "Edytuj ten styl",
   applied: (name: string, lines: string) => `Zastosowano „${name}” · zmieniono styl: ${lines}`,
   appliedOne: (line: string, name: string, others: string) => `Zastosowano „${name}” do ${line}${others ? ` · ${others} bez zmian` : ""}`,

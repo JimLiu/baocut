@@ -1296,6 +1296,17 @@ impl OverlayRenderPlan {
             original_style.font_name.as_str(),
             translation_style.font_name.as_str(),
         ];
+        // `emphasisLook.fontFamily` 只落在强调词上，缺字体同样要报。
+        for style in [&original_style, &translation_style] {
+            if let Some(family) = style
+                .emphasis
+                .as_deref()
+                .and_then(|look| look.font_name.as_deref())
+                && !families.contains(&family)
+            {
+                families.push(family);
+            }
+        }
         let mut override_families = cue_original
             .values()
             .chain(cue_translation.values())
@@ -3166,7 +3177,7 @@ impl OverlayRenderPlan {
                     let opacity = block_opacity
                         * part_opacity
                         * clamp(visual.opacity.unwrap_or(1.0), 0.0, 1.0);
-                    let color = visual.color.unwrap_or(layout.style.color);
+                    let color = visual.color.or(chunk.color).unwrap_or(layout.style.color);
                     let paint = glyph_uniform_paint(&look.animation, &visual, opacity);
                     let bounce = visual.bottom_em.unwrap_or(0.0) * layout.style.font_size;
                     // 稳定 geometry 已把 glyph 放到未动画的画布坐标。run uniform
@@ -4060,7 +4071,10 @@ impl OverlayRenderPlan {
                     let run_transform = Transform::from_translate(part_dx as f32, part_dy as f32);
                     let fill_uniform = element_draw::GlyphRunUniform {
                         transform: transform_array(run_transform),
-                        color: glyph_uniform_color(layout.style.color, part_opacity),
+                        color: glyph_uniform_color(
+                            chunk.color.unwrap_or(layout.style.color),
+                            part_opacity,
+                        ),
                         color_opacity: part_opacity as f32,
                         clip: None,
                         paint: element_draw::GlyphPaint::Solid,
@@ -4163,7 +4177,7 @@ impl OverlayRenderPlan {
                             baseline + layout.style.font_size * 0.10 + part_dy,
                             chunk.width,
                             layout.style.font_size,
-                            layout.style.color,
+                            chunk.color.unwrap_or(layout.style.color),
                             part_opacity,
                             Transform::identity(),
                         );

@@ -173,7 +173,6 @@ export const koCaptionStyle: CaptionStyleMessages = {
   scopeAll: '전체',
   hint: '각 카드는 지금 화면에 있는 자막을 그대로 보여 줍니다. 카드를 적용하면 모양만 바뀌며 줄이 늘거나 줄지 않습니다. 줄을 추가하거나 내리려면 위의 트랙 바나 타임라인의 자막 트랙 헤더를 사용하세요.',
   hintScope: '“적용 대상”이 한 줄을 가리키면 그 줄만 바뀌고 나머지는 그대로입니다.',
-  hintMotion: '소셜 카드 중 중국어 이름이 붙은 카드는 원래 단어 단위나 글자 단위 애니메이션이 있지만, 여기서는 정적인 모양만 적용할 수 있습니다.',
   edit: '이 스타일 편집',
   applied: (name: string, lines: string) => `“${name}” 적용됨 · ${lines} 스타일 변경됨`,
   appliedOne: (line: string, name: string, others: string) => `${line}에 “${name}” 적용됨${others ? ` · ${others} 변경 없음` : ''}`,

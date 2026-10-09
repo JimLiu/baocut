@@ -13,7 +13,6 @@ export const it: StageToolbarMessages = {
     crop: 'Il ritaglio intelligente richiede un modello e non ha ancora un punto di accesso. Prossimamente.',
     speed: 'Questa clip non viene riprodotta a velocità costante, quindi non puoi cambiarne la velocità qui.',
     sound: 'Questa clip non ha suono.',
-    captionAnimation: 'Le animazioni dei sottotitoli non si possono ancora scegliere nell’editor.',
     captionDefaultStyle: 'Questi sottotitoli usano ancora lo stile predefinito. Cambia prima un’impostazione, poi salvalo nel kit del brand.',
     brandText: 'Il kit del brand non ha ancora una sezione per gli stili di testo.',
     brandWeb: 'Il kit del brand è disponibile solo nell’app desktop e nella CLI.',

@@ -60,7 +60,6 @@ export const vi: StageToolbarMessages = {
     crop: 'Cắt thông minh cần mô hình và chưa có điểm truy cập. Sắp ra mắt.',
     speed: 'Clip này không phát ở tốc độ cố định nên không thể đổi tốc độ tại đây.',
     sound: 'Clip này không có âm thanh.',
-    captionAnimation: 'Chưa thể chọn hoạt ảnh phụ đề trong trình chỉnh sửa.',
     captionDefaultStyle: 'Phụ đề này vẫn dùng kiểu mặc định. Hãy đổi một thiết lập bất kỳ trước, rồi lưu vào bộ thương hiệu.',
     brandText: 'Bộ thương hiệu chưa có mục kiểu chữ.',
     brandWeb: 'Bộ thương hiệu chỉ dùng được trong ứng dụng máy tính và CLI.',

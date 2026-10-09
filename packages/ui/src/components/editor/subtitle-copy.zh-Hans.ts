@@ -174,7 +174,6 @@ export const zhCaptionStyle: CaptionStyleMessages = {
   scopeAll: '全部',
   hint: '每张卡画的都是你画面上现在这几条字幕。套一张只换涂装，不会多一条、也不会少一条——想加一条或拿下一条，用上面的轨条或时间轴的字幕行头。',
   hintScope: '「套到」指到一条时只换那一条，别的一根线都不动。',
-  hintMotion: '社交里那几张中文名的卡原本带逐词或逐字动效，这里只换得上它们的静态涂装。',
   edit: '编辑这份样式',
   applied: (name: string, lines: string) => `已套用「${name}」· 已给 ${lines} 换上这份样式`,
   appliedOne: (line: string, name: string, others: string) => `已给 ${line} 换上「${name}」${others ? `· ${others}没动` : ''}`,

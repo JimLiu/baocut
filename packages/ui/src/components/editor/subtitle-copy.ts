@@ -207,7 +207,6 @@ const captionStyle = {
   scopeAll: 'All',
   hint: 'Each card shows the subtitles currently on your screen. Applying one only changes the look—it never adds or removes a line. To add or take off a line, use the strip above or the subtitle track header on the timeline.',
   hintScope: 'When “Apply to” points at one line, only that line changes; nothing else moves.',
-  hintMotion: 'The Social cards with Chinese names normally animate word by word or character by character; only their static look can be applied here.',
   edit: 'Edit this style',
   applied: (name: string, lines: string) => `Applied “${name}” · restyled ${lines}`,
   appliedOne: (line: string, name: string, others: string) => `Applied “${name}” to ${line}${others ? ` · ${others} unchanged` : ''}`,

@@ -2210,7 +2210,7 @@ interface PackageManifest {
 | 链接素材的失效检测（§4.2） | 只记了修改时间；缺失的报告已定：`videos.assetStatus` 列出读不到的素材版本与原因，视频照常打开 | 何时重新核对内容；`frozen` 的确切含义；缺失素材在导出里的表现 |
 | 文档正文的校验（§4.4、§4.6） | 引擎只核对 `baocut.speech/1`、`baocut.translation/2` 补充字段的形状与定位框字幕样式的逐词动画（§5.6） | 哪些 `kind` 由引擎完整校验；`kind` 与 `schema` 的登记处 |
 | §5 的模型与已落盘的正文格式（§4.6） | 不一致；译文按 §5.3 的是 `baocut.translation/2`，旧项目导入的 `/1` 只读兼容（§5.3），不迁移；`baocut.speech/1` 补上了字幕与翻译核心读写的字段，与 `TranscriptDoc` 无损互换（§5.2） | 句子与字幕行存结果，还是存派生算法的版本加人工钉子；过期如何发现。已定：译文的句子派生与原文指纹只有字幕与翻译核心的一套（§5.3），原来翻译流程的 `baocut.sentences/1` 与 `sha256:` 指纹删除 |
-| `caption-style`（§5.6） | 已落盘的是 Studio 样式与定位框样式两种正文，引擎只核对定位框样式的逐词动画；`CaptionStyleBody`（按维度组合的目标合同，[设计稿](../design/subtitle/caption-style-model-design.md)）未落盘，原型先行。默认预设已落盘（§5.6「默认预设」）：一份不分语言的 Studio 样式 | 与 `LayoutProfile`、`CaptionStyle` 的关系；阅读预算的单位；是否按语言分开默认预设 |
+| `caption-style`（§5.6） | 已落盘的是 Studio 样式与定位框样式两种正文，引擎只核对定位框样式的逐词动画；`CaptionStyleBody`（按维度组合的目标合同，[设计稿](../design/subtitle/caption-style-model-design.md)）已在编辑器与原型落地（编译到 Studio 样式），尚未作为正文落盘。默认预设已落盘（§5.6「默认预设」）：一份不分语言的 Studio 样式 | 与 `LayoutProfile`、`CaptionStyle` 的关系；阅读预算的单位；是否按语言分开默认预设 |
 | 导出记录与导入记录（§4.6） | 借用文档 | 产物记录是否成为一等概念；与依赖链接的衔接 |
 | `Provenance` 的结构化字段、`LicenseState`、`ColorInfo`（§4） | 未纳入 | 生成记录、派生关系、授权与许可状态的字段；颜色元数据的字段 |
 | 视频级的 `extensions`（§1.4） | 只有实例与文档有 | 是否需要 |

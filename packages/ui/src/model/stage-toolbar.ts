@@ -459,13 +459,11 @@ function captionAction(id: ToolId, { styled, web }: CaptionBarInput): ToolAction
     case 'line-height':
     case 'letter-spacing':
       return SUB;
-    case 'sub-animation':
-      return off(OFF_REASON.captionAnimation);
     case 'save-to-brand-kit':
       if (web) return off(OFF_REASON.brandWeb);
       return styled ? COMMAND : off(OFF_REASON.captionDefaultStyle);
     default:
-      // 换行、Edit、Styles、大小写一档档轮换、隐藏字幕：一下就生效。
+      // 换行、Edit、Styles、动画（打开属性页的「当前词」）、大小写一档档轮换、隐藏字幕：一下就生效。
       return COMMAND;
   }
 }

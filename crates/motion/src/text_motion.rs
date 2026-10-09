@@ -74,6 +74,25 @@ pub struct Karaoke {
     /// Two-line lyric layout: the next cue waits under the one being sung.
     #[serde(default)]
     pub next_line: bool,
+    /// How the sung fill advances: grapheme by grapheme across each word's
+    /// window (default), or a whole word at once the instant it starts.
+    #[serde(default, skip_serializing_if = "KaraokeUnit::is_grapheme")]
+    pub unit: KaraokeUnit,
+}
+/// Granularity of the karaoke sweep (`textMotion.karaoke.unit`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum KaraokeUnit {
+    /// Continuous fill inside the word being sung.
+    #[default]
+    Grapheme,
+    /// Each word turns fully sung at its start; gaps and the last word hold.
+    Word,
+}
+impl KaraokeUnit {
+    pub fn is_grapheme(&self) -> bool {
+        *self == Self::Grapheme
+    }
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -373,9 +392,14 @@ impl CompiledTextMotion {
     /// How far the karaoke sweep has come at `time`, in words: `3.4` means
     /// three words sung and 40% of the fourth. `None` without a sweep or before
     /// the first timed word. Ends shorter than their start fill at once.
+    /// With `unit: word` the sweep snaps to whole words: the word whose start
+    /// has passed is already fully sung (`index + 1`).
     pub fn karaoke_sung(&self, time: f64, starts: &[f64], ends: &[f64]) -> Option<f64> {
-        self.spec.karaoke.as_ref()?;
+        let karaoke = self.spec.karaoke.as_ref()?;
         let index = self.active_word(time, starts)?;
+        if karaoke.unit == KaraokeUnit::Word {
+            return Some(index as f64 + 1.0);
+        }
         let (start, end) = (
             starts[index],
             ends.get(index).copied().unwrap_or(starts[index]),
@@ -583,6 +607,53 @@ mod tests {
             serde_json::from_value(serde_json::json!({"version":1,"karaoke":{"color":"orange"}}))
                 .unwrap();
         assert!(bad.compile().is_err());
+    }
+    #[test]
+    fn karaoke_unit_word_snaps_to_whole_words() {
+        let default: TextMotion = serde_json::from_value(serde_json::json!(
+            {"version":1,"karaoke":{"color":"#FF7A1A"}}
+        ))
+        .unwrap();
+        // Old documents keep their shape on round-trip.
+        assert!(
+            serde_json::to_value(&default).unwrap()["karaoke"]
+                .get("unit")
+                .is_none()
+        );
+        assert_eq!(default.karaoke.unwrap().unit, KaraokeUnit::Grapheme);
+        assert!(
+            serde_json::from_value::<TextMotion>(serde_json::json!(
+                {"version":1,"karaoke":{"color":"#FF7A1A","unit":"letter"}}
+            ))
+            .is_err()
+        );
+        let m: TextMotion = serde_json::from_value(serde_json::json!(
+            {"version":1,"karaoke":{"color":"#FF7A1A","unit":"word"}}
+        ))
+        .unwrap();
+        let p = m.compile().unwrap();
+        // Word windows [0.5, 0.9), gap, [1.2, 1.6), [1.6, 2.4).
+        let (starts, ends) = ([0.5, 1.2, 1.6], [0.9, 1.6, 2.4]);
+        assert_eq!(p.karaoke_sung(0.2, &starts, &ends), None);
+        // A word is fully sung the instant it starts, not partway through.
+        assert_eq!(p.karaoke_sung(0.5, &starts, &ends), Some(1.0));
+        assert_eq!(p.karaoke_sung(0.7, &starts, &ends), Some(1.0));
+        assert_eq!(p.karaoke_sung(0.89, &starts, &ends), Some(1.0));
+        // The gap holds the previous word.
+        assert_eq!(p.karaoke_sung(1.0, &starts, &ends), Some(1.0));
+        assert_eq!(p.karaoke_sung(1.2, &starts, &ends), Some(2.0));
+        assert_eq!(p.karaoke_sung(1.59, &starts, &ends), Some(2.0));
+        assert_eq!(p.karaoke_sung(1.6, &starts, &ends), Some(3.0));
+        // The last word holds to the end of the cue.
+        assert_eq!(p.karaoke_sung(2.0, &starts, &ends), Some(3.0));
+        assert_eq!(p.karaoke_sung(9.0, &starts, &ends), Some(3.0));
+        for t in [0.5, 0.63, 0.77, 1.05, 1.33, 1.9, 2.3] {
+            let sung = p.karaoke_sung(t, &starts, &ends).unwrap();
+            assert_eq!(sung.fract(), 0.0, "partial word at {t}");
+        }
+        let round_trip: TextMotion =
+            serde_json::from_value(serde_json::to_value(&m).unwrap()).unwrap();
+        assert_eq!(round_trip, m);
     }
     #[test]
     fn validation_rejects_wrong_slot_and_versions() {

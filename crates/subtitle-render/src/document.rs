@@ -482,6 +482,138 @@ pub struct LineStyle {
     pub background_min_width: f64,
     pub line_height: f64,
     pub text_transform: String,
+    /// 普通（非配方）字幕的强调词外观：样式根的 `emphasisLook` 作用在
+    /// `captionEmphasis` 里 role 为 emphasis / hero 的词上。设计字幕（配方）
+    /// 有自己的强调通道，此处恒为 `None`；没有 `emphasisLook` 时也为 `None`，
+    /// 排版与像素与旧行为逐位一致。
+    pub emphasis: Option<Arc<EmphasisLook>>,
+}
+
+/// `emphasisLook` 的取值范围（缩放绕词的基线中心，夹在这一区间）。
+pub const EMPHASIS_LOOK_SCALE_RANGE: (f64, f64) = (0.8, 1.6);
+/// hero 词在 `emphasisLook.scale` 之上再放大的倍数（结果仍夹进上面的区间）。
+pub const EMPHASIS_LOOK_HERO_FACTOR: f64 = 1.15;
+
+/// 一个被强调的词：`captionEmphasis[<wordId>]`。
+#[derive(Debug, Clone, PartialEq)]
+pub struct EmphasisWord {
+    pub hero: bool,
+    /// 逐词颜色，优先于 [`EmphasisLook::color`]。
+    pub color: Option<SubtitleColor>,
+}
+
+/// 普通字幕强调词的外观（样式根 `emphasisLook`）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct EmphasisLook {
+    pub color: Option<SubtitleColor>,
+    /// 已映射成实际 shaping 字族（与 [`font_name`] 同口径）。
+    pub font_name: Option<String>,
+    pub bold: Option<bool>,
+    pub italic: Option<bool>,
+    /// 已夹进 [`EMPHASIS_LOOK_SCALE_RANGE`]。
+    pub scale: f64,
+    pub words: HashMap<String, EmphasisWord>,
+}
+
+/// 一个强调词实际用的字形参数。
+#[derive(Debug, Clone, PartialEq)]
+pub struct EmphasisVariant<'a> {
+    pub color: Option<SubtitleColor>,
+    pub font_name: Option<&'a str>,
+    pub bold: Option<bool>,
+    pub italic: Option<bool>,
+    pub scale: f64,
+}
+
+impl EmphasisLook {
+    /// 词 `id` 的强调外观；不在 `captionEmphasis` 里返回 `None`。
+    pub fn variant(&self, id: &str) -> Option<EmphasisVariant<'_>> {
+        let word = self.words.get(id)?;
+        let (low, high) = EMPHASIS_LOOK_SCALE_RANGE;
+        Some(EmphasisVariant {
+            color: word.color.or(self.color),
+            font_name: self.font_name.as_deref(),
+            bold: self.bold,
+            italic: self.italic,
+            scale: if word.hero {
+                (self.scale * EMPHASIS_LOOK_HERO_FACTOR).clamp(low, high)
+            } else {
+                self.scale
+            },
+        })
+    }
+}
+
+/// `captionEmphasis` 里 role 为 emphasis / hero 的词：`(词 ID, role, 逐词颜色, 原条目)`。
+/// 设计字幕配方与普通字幕的 `emphasisLook` 共用这一份判据。
+pub fn caption_emphasis_words(
+    style: &Value,
+) -> impl Iterator<Item = (&String, &str, Option<SubtitleColor>, &Value)> {
+    style
+        .get("captionEmphasis")
+        .and_then(Value::as_object)
+        .into_iter()
+        .flatten()
+        .filter_map(|(id, value)| {
+            let role = value
+                .get("role")
+                .and_then(Value::as_str)
+                .unwrap_or("normal");
+            matches!(role, "emphasis" | "hero").then(|| {
+                (
+                    id,
+                    role,
+                    value
+                        .get("color")
+                        .and_then(Value::as_str)
+                        .and_then(parse_css_color),
+                    value,
+                )
+            })
+        })
+}
+
+/// 从（合并后的）行样式解出 [`EmphasisLook`]。没有 `emphasisLook`、没有强调词、
+/// 或这一行走设计字幕配方时返回 `None`。
+pub fn emphasis_look(style: &Value) -> Option<Arc<EmphasisLook>> {
+    let look = style.get("emphasisLook")?.as_object()?;
+    let animation = style
+        .get("wordAnimation")
+        .or_else(|| style.get("anim"))
+        .unwrap_or(&Value::Null);
+    if designed_caption(style, animation).is_some() {
+        return None;
+    }
+    let words = caption_emphasis_words(style)
+        .map(|(id, role, color, _)| {
+            (
+                id.clone(),
+                EmphasisWord {
+                    hero: role == "hero",
+                    color,
+                },
+            )
+        })
+        .collect::<HashMap<_, _>>();
+    if words.is_empty() {
+        return None;
+    }
+    let (low, high) = EMPHASIS_LOOK_SCALE_RANGE;
+    Some(Arc::new(EmphasisLook {
+        color: look
+            .get("color")
+            .and_then(Value::as_str)
+            .and_then(parse_css_color),
+        font_name: look
+            .get("fontFamily")
+            .and_then(Value::as_str)
+            .filter(|family| !family.trim().is_empty())
+            .map(|family| font_name(&serde_json::json!({ "fontFamily": family }))),
+        bold: look.get("bold").and_then(Value::as_bool),
+        italic: look.get("italic").and_then(Value::as_bool),
+        scale: finite(look.get("scale"), 1.0).clamp(low, high),
+        words,
+    }))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2411,6 +2543,7 @@ pub fn resolve_line_style(
             .and_then(Value::as_str)
             .unwrap_or("")
             .to_owned(),
+        emphasis: emphasis_look(&style),
     }
 }
 
@@ -2537,27 +2670,12 @@ pub fn designed_caption(style: &Value, animation: &Value) -> Option<DesignedCapt
     }
     let palette = caption.get("palette").unwrap_or(&Value::Null);
     let mut overrides = HashMap::new();
-    for (id, value) in style
-        .get("captionEmphasis")
-        .and_then(Value::as_object)
-        .into_iter()
-        .flatten()
-    {
-        let role = value
-            .get("role")
-            .and_then(Value::as_str)
-            .unwrap_or("normal");
-        if !matches!(role, "emphasis" | "hero") {
-            continue;
-        }
+    for (id, role, color, value) in caption_emphasis_words(style) {
         overrides.insert(
             id.clone(),
             CaptionWordOverride {
                 role: role.to_owned(),
-                color: value
-                    .get("color")
-                    .and_then(Value::as_str)
-                    .and_then(parse_css_color),
+                color,
                 emoji: value
                     .get("emoji")
                     .and_then(Value::as_str)

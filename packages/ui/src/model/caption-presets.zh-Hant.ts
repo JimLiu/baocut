@@ -1,10 +1,10 @@
 import type { CaptionPresetsMessages } from './caption-presets.ts';
 
 export const zhHant: CaptionPresetsMessages = {
-  groupDefault: '預設',
-  groupSocial: '社群',
-  groupBusiness: '商務',
+  categories: { basic: '基礎', social: '社群', business: '商務', retro: '復古', motion: '動效', kinetic: '動態排版' },
   classic: '經典',
+  simple: '簡潔',
+  daoyazi: '倒鴨子',
   studio: {
     'studio-focus': '朗讀強調',
     'studio-word-tiles': '逐詞底塊',

@@ -45,6 +45,8 @@ mod tests {
                     font_weight: 400,
                     italic: false,
                     shaped: Default::default(),
+                    color: None,
+                    metric_scale: 1.0,
                 };
                 let token = if piece == "\n" {
                     LayoutToken::HardBreak
@@ -2203,6 +2205,174 @@ mod tests {
         assert!(blank.rgba.is_empty());
     }
 
+    fn emphasis_document(look: Option<Value>, emphasis: Option<Value>) -> Value {
+        let mut doc = document("None", "none");
+        doc["cues"][0]["words"][0]["id"] = json!("w1");
+        doc["cues"][0]["words"][1]["id"] = json!("w2");
+        if let Some(look) = look {
+            doc["style"]["emphasisLook"] = look;
+        }
+        if let Some(emphasis) = emphasis {
+            doc["style"]["captionEmphasis"] = emphasis;
+        }
+        doc
+    }
+
+    /// Opaque, saturated `#FF00AA`-ish pixels.
+    fn magenta_pixels(rgba: &[u8]) -> usize {
+        rgba.chunks_exact(4)
+            .filter(|p| p[3] == 255 && p[0] > 230 && p[1] < 40 && (140..200).contains(&p[2]))
+            .count()
+    }
+
+    #[test]
+    fn emphasis_look_recolours_and_widens_emphasised_words_in_line_captions() {
+        let plain = emphasis_document(None, None);
+        let styled = emphasis_document(
+            Some(json!({"color": "#FF00AA", "bold": true, "scale": 1.4})),
+            Some(json!({"w2": {"anchorText": "world", "role": "emphasis"}})),
+        );
+        let mut base = OverlayRenderPlan::compile(&plain, 640, 360, 3.0, 30.0, None).unwrap();
+        let mut plan = OverlayRenderPlan::compile(&styled, 640, 360, 3.0, 30.0, None).unwrap();
+        let chunks = |plan: &mut OverlayRenderPlan| {
+            plan.active_layouts(1.5)[0].lines[0]
+                .chunks
+                .iter()
+                .map(|chunk| {
+                    (
+                        chunk.word,
+                        chunk.width,
+                        chunk.font_size,
+                        chunk.color,
+                        chunk.metric_scale,
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        let (before, after) = (chunks(&mut base), chunks(&mut plan));
+        let word = |chunks: &[(Option<usize>, f64, f64, Option<SubtitleColor>, f64)], index| {
+            chunks
+                .iter()
+                .copied()
+                .find(|chunk| chunk.0 == Some(index))
+                .unwrap()
+        };
+        // The first word is untouched; the emphasised one is 1.4× and wider.
+        assert_eq!(word(&before, 0), word(&after, 0));
+        let (plain_world, styled_world) = (word(&before, 1), word(&after, 1));
+        assert!((styled_world.2 - plain_world.2 * 1.4).abs() < 1e-9);
+        assert!(
+            styled_world.1 > plain_world.1 * 1.3,
+            "{styled_world:?} vs {plain_world:?}"
+        );
+        assert_eq!(styled_world.3, parse_css_color("#FF00AA"));
+        assert_eq!(styled_world.4, 1.4);
+        let line_width = |plan: &mut OverlayRenderPlan| plan.active_layouts(1.5)[0].lines[0].width;
+        assert!(line_width(&mut plan) - line_width(&mut base) > plain_world.1 * 0.3);
+        // The scaled word sits on the same baseline as its neighbour.
+        let layout = plan.active_layouts(1.5).remove(0);
+        let line = &layout.lines[0];
+        let baselines = line
+            .chunks
+            .iter()
+            .filter(|chunk| chunk.word.is_some())
+            .map(|chunk| glyph_baseline(0.0, line.height, chunk, 0.0))
+            .collect::<Vec<_>>();
+        assert!((baselines[0] - baselines[1]).abs() < 1e-6, "{baselines:?}");
+
+        assert_eq!(
+            magenta_pixels(&base.render_subtitle_frame(1.5).unwrap().rgba),
+            0
+        );
+        assert!(magenta_pixels(&plan.render_subtitle_frame(1.5).unwrap().rgba) > 100);
+        // The GPU scene path paints the same per-word fill.
+        let magenta_uniform = "color: [1.0, 0.0, 0.6666667, 1.0]";
+        let scene = |plan: &mut OverlayRenderPlan| {
+            format!(
+                "{:?}",
+                plan.subtitle_scene_frame(1.5)
+                    .expect("GPU scene")
+                    .scene
+                    .nodes
+            )
+        };
+        assert!(!scene(&mut base).contains(magenta_uniform));
+        assert!(scene(&mut plan).contains(magenta_uniform));
+        // The animated GPU path too: under a Color animation the unspoken
+        // emphasised word keeps its own fill while "Hello" is active.
+        let mut animated = styled.clone();
+        animated["style"]["wordAnimation"] = json!({"animationName": "Color"});
+        let mut animated =
+            OverlayRenderPlan::compile(&animated, 640, 360, 3.0, 30.0, None).unwrap();
+        let nodes = format!(
+            "{:?}",
+            animated
+                .subtitle_scene_frame(0.9)
+                .expect("animated GPU scene")
+                .scene
+                .nodes
+        );
+        assert!(nodes.contains(magenta_uniform));
+
+        // A per-word colour in `captionEmphasis` wins over the look colour; hero
+        // grows a little more than emphasis.
+        let hero = emphasis_document(
+            Some(json!({"color": "#FF00AA", "scale": 1.2})),
+            Some(json!({"w2": {"role": "hero", "color": "#00FF66"}})),
+        );
+        let mut hero = OverlayRenderPlan::compile(&hero, 640, 360, 3.0, 30.0, None).unwrap();
+        let hero_world = word(&chunks(&mut hero), 1);
+        assert_eq!(hero_world.3, parse_css_color("#00FF66"));
+        assert!((hero_world.4 - 1.2 * EMPHASIS_LOOK_HERO_FACTOR).abs() < 1e-9);
+        assert_eq!(
+            magenta_pixels(&hero.render_subtitle_frame(1.5).unwrap().rgba),
+            0
+        );
+
+        // Scale is clamped to the documented range.
+        let big = emphasis_document(
+            Some(json!({"scale": 9})),
+            Some(json!({"w2": {"role": "hero"}})),
+        );
+        let mut big = OverlayRenderPlan::compile(&big, 640, 360, 3.0, 30.0, None).unwrap();
+        assert_eq!(word(&chunks(&mut big), 1).4, EMPHASIS_LOOK_SCALE_RANGE.1);
+    }
+
+    #[test]
+    fn emphasis_look_is_inert_without_the_look_and_under_designed_captions() {
+        let plain = emphasis_document(None, None);
+        let roles_only = emphasis_document(
+            None,
+            Some(json!({"w2": {"role": "hero", "color": "#FF00AA"}})),
+        );
+        let normal_role = emphasis_document(
+            Some(json!({"color": "#FF00AA", "scale": 1.4})),
+            Some(json!({"w2": {"role": "normal"}})),
+        );
+        let mut base = OverlayRenderPlan::compile(&plain, 640, 360, 3.0, 30.0, None).unwrap();
+        for doc in [&roles_only, &normal_role] {
+            let mut plan = OverlayRenderPlan::compile(doc, 640, 360, 3.0, 30.0, None).unwrap();
+            assert!(plan.active_layouts(1.5)[0].style.emphasis.is_none());
+            for time in [0.6, 1.5, 2.4] {
+                assert_eq!(
+                    plan.render_subtitle_frame(time).unwrap().rgba,
+                    base.render_subtitle_frame(time).unwrap().rgba,
+                    "emphasis changed pixels at {time}"
+                );
+            }
+        }
+        // Designed captions keep their own emphasis channel.
+        let mut designed = emphasis_document(
+            Some(json!({"color": "#FF00AA", "scale": 1.4})),
+            Some(json!({"w2": {"role": "hero"}})),
+        );
+        designed["style"]["wordAnimation"]["caption"] = json!({
+            "schema": 1, "style": {"id": "caption-highlight", "version": 1}, "content": "orig"
+        });
+        assert!(emphasis_look(&designed["style"]).is_none());
+        let line = resolve_line_style(&designed["style"], LineKind::Original, 640, 360, false);
+        assert!(line.emphasis.is_none());
+    }
     #[test]
     fn designed_caption_palette_tuning_and_word_roles_reach_the_renderer() {
         let mut styled = document("None", "none");

@@ -178,7 +178,6 @@ export const frCaptionStyle: CaptionStyleMessages = {
   scopeAll: "Tout",
   hint: "Chaque carte montre les sous-titres actuellement affichés. L’appliquer change seulement l’aspect, jamais le nombre de lignes. Pour ajouter ou retirer une ligne, utilisez la bande ci-dessus ou l’en-tête de piste.",
   hintScope: "Si « Appliquer à » vise une ligne, seule celle-ci change ; le reste ne bouge pas.",
-  hintMotion: "Les cartes Social aux noms chinois s’animent normalement mot ou caractère par caractère ; seul leur aspect statique est applicable ici.",
   edit: "Modifier ce style",
   applied: (name: string, lines: string) => `Appliqué : « ${name} » · style modifié pour ${lines}`,
   appliedOne: (line: string, name: string, others: string) => `« ${name} » appliqué à ${line}${others ? ` · ${others} inchangés` : ""}`,

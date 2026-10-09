@@ -437,7 +437,11 @@ fn draw_text_motion_layout(
                     (px + pose.dx + offset_x + shift.0) as f32,
                     (py + pose.dy + margin + shift.1) as f32,
                 );
-            let mut color = base_color;
+            // An `emphasisLook` word starts from its own fill; the sweep and
+            // speech emphasis still paint over it. The chunk's own colour is
+            // cleared so `draw_line_layout` honours `one.style.color`.
+            let mut group = group;
+            let mut color = group.chunk.color.take().unwrap_or(base_color);
             if sweep >= 1.0 {
                 color = sung_color.unwrap_or(color);
             }
@@ -1012,6 +1016,53 @@ mod text_motion_raster_tests {
         assert_ne!(a, b);
     }
 
+    /// `unit: word` never paints a partially-sung word: across the whole first
+    /// word window (0–0.4 s) the fill is identical, and the gap holds it.
+    #[test]
+    fn karaoke_word_unit_fills_whole_words_at_once() {
+        let mut style = ktv_style();
+        style["textMotion"]["karaoke"]["guide"] = json!(false);
+        style["textMotion"]["karaoke"]["unit"] = json!("word");
+        let plan_of = |style: &Value| plan(style, "HOLD ON TIGHT", 640, 360);
+        let mut plan = plan_of(&style);
+        let first = sung_and_unsung(&plan.render_subtitle_frame(0.02).unwrap().rgba);
+        assert!(first.0 > 50 && first.1 > 50, "{first:?}");
+        for time in [0.1, 0.2, 0.3, 0.38, 0.5] {
+            assert_eq!(
+                sung_and_unsung(&plan.render_subtitle_frame(time).unwrap().rgba),
+                first,
+                "first word partially sung at {time}"
+            );
+        }
+        // The grapheme sweep at the same instant is still partway through "HOLD".
+        let mut grapheme = ktv_style();
+        grapheme["textMotion"]["karaoke"]["guide"] = json!(false);
+        let partial =
+            sung_and_unsung(&mut plan_of(&grapheme).render_subtitle_frame(0.2).unwrap().rgba);
+        assert!(partial.0 < first.0, "{partial:?} vs {first:?}");
+        let second = sung_and_unsung(&plan.render_subtitle_frame(0.62).unwrap().rgba);
+        assert!(second.0 > first.0, "{second:?} vs {first:?}");
+        let (sung, unsung) = sung_and_unsung(&plan.render_subtitle_frame(3.9).unwrap().rgba);
+        assert!(sung > 200 && unsung == 0, "{sung} / {unsung}");
+    }
+
+    /// An `emphasisLook` word keeps its own fill under text motion until the
+    /// karaoke sweep reaches it; the sung colour then wins.
+    #[test]
+    fn emphasis_look_fill_yields_to_the_karaoke_sweep() {
+        let magenta = |rgba: &[u8]| {
+            rgba.chunks_exact(4)
+                .filter(|p| p[3] == 255 && p[0] > 230 && p[1] < 40 && (140..200).contains(&p[2]))
+                .count()
+        };
+        let mut style = ktv_style();
+        style["textMotion"]["karaoke"]["guide"] = json!(false);
+        style["emphasisLook"] = json!({"color": "#FF00AA", "scale": 1.3});
+        style["captionEmphasis"] = json!({"preview-2": {"role": "emphasis"}});
+        let mut plan = plan(&style, "HOLD ON TIGHT", 640, 360);
+        assert!(magenta(&plan.render_subtitle_frame(0.02).unwrap().rgba) > 50);
+        assert_eq!(magenta(&plan.render_subtitle_frame(3.9).unwrap().rgba), 0);
+    }
     #[test]
     fn karaoke_guide_dot_rides_the_sweep_above_the_line() {
         let render = |guide: bool, time: f64| {

@@ -1,10 +1,10 @@
 import type { CaptionPresetsMessages } from './caption-presets.ts';
 
 export const ru: CaptionPresetsMessages = {
-  groupDefault: "По умолчанию",
-  groupSocial: "Соцсети",
-  groupBusiness: "Деловые",
-  classic: "Классический",
+  categories: { basic: 'Базовые', social: 'Соцсети', business: 'Деловые', retro: 'Ретро', motion: 'Анимация', kinetic: 'Кинетика' },
+  classic: 'Классический',
+  simple: 'Простой',
+  daoyazi: 'Кинетические субтитры',
   studio: {
     'studio-focus': "Акцент на речи",
     'studio-word-tiles': "Слова на плитках",

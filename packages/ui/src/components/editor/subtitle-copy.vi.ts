@@ -173,7 +173,6 @@ export const viCaptionStyle: CaptionStyleMessages = {
   scopeAll: "Tất cả",
   hint: "Mỗi thẻ hiển thị phụ đề hiện có trên màn hình. Áp dụng chỉ đổi diện mạo, không thêm hoặc bớt dòng. Để thêm hoặc gỡ dòng, dùng dải phía trên hoặc tiêu đề rãnh phụ đề trên dòng thời gian.",
   hintScope: "Khi “Áp dụng cho” trỏ tới một dòng, chỉ dòng đó thay đổi; các dòng khác giữ nguyên.",
-  hintMotion: "Các thẻ Mạng xã hội có tên tiếng Trung thường chuyển động theo từng từ hoặc ký tự; tại đây chỉ áp dụng được diện mạo tĩnh.",
   edit: "Chỉnh kiểu này",
   applied: (name,lines) => `Đã áp dụng “${name}” · đổi kiểu ${lines}`,
   appliedOne: (line,name,others) => `Đã áp dụng “${name}” cho ${line}${others ? ` · ${others} giữ nguyên` : ''}`,

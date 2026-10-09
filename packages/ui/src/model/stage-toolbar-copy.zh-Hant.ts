@@ -60,7 +60,6 @@ export const zhHant: StageToolbarMessages = {
     crop: '智慧裁切需要模型，目前還沒有入口。即將推出。',
     speed: '這個片段不是以固定速率播放，因此無法在這裡變更速度。',
     sound: '這個片段沒有聲音。',
-    captionAnimation: '編輯器裡還不能選字幕動畫。',
     captionDefaultStyle: '這些字幕還在使用預設樣式。先改任意一項，再儲存到品牌庫。',
     brandText: '品牌庫目前還沒有文字樣式這一節。',
     brandWeb: '品牌庫只能在桌面應用程式和命令列中使用。',

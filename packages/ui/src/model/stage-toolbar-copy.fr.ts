@@ -22,7 +22,6 @@ export const fr: StageToolbarMessages = {
     crop: 'Le recadrage intelligent nécessite un modèle et n’a pas encore de point d’entrée. Bientôt disponible.',
     speed: 'Ce clip n’est pas lu à vitesse constante ; sa vitesse ne peut donc pas être modifiée ici.',
     sound: 'Ce clip n’a pas de son.',
-    captionAnimation: 'On ne peut pas encore choisir d’animation de sous-titres dans l’éditeur.',
     captionDefaultStyle: 'Ces sous-titres utilisent encore le style par défaut. Modifiez d’abord un réglage, puis enregistrez-le dans le kit de marque.',
     brandText: 'Le kit de marque n’a pas encore de section pour les styles de texte.',
     brandWeb: 'Le kit de marque n’est disponible que dans l’application de bureau et le CLI.',

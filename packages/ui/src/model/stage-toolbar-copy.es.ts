@@ -26,7 +26,6 @@ export const es: StageToolbarMessages = {
     crop: 'El recorte inteligente necesita un modelo y aún no tiene un punto de acceso. Próximamente.',
     speed: 'Este clip no se reproduce a una velocidad constante, por lo que no se puede cambiar su velocidad aquí.',
     sound: 'Este clip no tiene sonido.',
-    captionAnimation: 'Todavía no se pueden elegir animaciones de subtítulos en el editor.',
     captionDefaultStyle: 'Estos subtítulos aún usan el estilo predeterminado. Cambia cualquier ajuste primero y luego guárdalo en el kit de marca.',
     brandText: 'El kit de marca aún no tiene una sección de estilos de texto.',
     brandWeb: 'El kit de marca solo está disponible en la aplicación de escritorio y la CLI.',

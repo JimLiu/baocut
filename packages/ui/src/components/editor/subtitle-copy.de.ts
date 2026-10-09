@@ -177,7 +177,6 @@ export const deCaptionStyle: CaptionStyleMessages = {
   scopeAll: "Alle",
   hint: "Jede Karte zeigt Ihre derzeit sichtbaren Untertitel. Anwenden ändert nur die Darstellung; niemals wird eine Zeile hinzugefügt oder entfernt. Zum Hinzufügen oder Ausblenden den Streifen oben oder den Untertitelspur-Kopf in der Zeitleiste verwenden.",
   hintScope: "Wenn „Anwenden auf“ auf eine Zeile zeigt, ändert sich nur diese Zeile; alles andere bleibt gleich.",
-  hintMotion: "Social-Karten mit chinesischen Namen animieren normalerweise Wort für Wort oder Zeichen für Zeichen; hier kann nur ihr statisches Aussehen angewendet werden.",
   edit: "Diesen Stil bearbeiten",
   applied: (name: string, lines: string) => `Angewendet: „${name}“ · neu gestaltet: ${lines}`,
   appliedOne: (line: string, name: string, others: string) => `Angewendet: „${name}“ auf ${line}${others ? ` · ${others} unverändert` : ""}`,

@@ -13,7 +13,6 @@ export const ptBR: StageToolbarMessages = {
     crop: 'O recorte inteligente precisa de um modelo e ainda não tem ponto de entrada. Em breve.',
     speed: 'Este clipe não reproduz em velocidade constante, então a velocidade não pode ser alterada aqui.',
     sound: 'Este clipe não tem som.',
-    captionAnimation: 'Ainda não é possível escolher animações de legenda no editor.',
     captionDefaultStyle: 'Estas legendas ainda usam o estilo padrão. Altere qualquer ajuste primeiro e depois salve-o no kit de marca.',
     brandText: 'O kit de marca ainda não tem uma seção de estilos de texto.',
     brandWeb: 'O kit de marca só está disponível no aplicativo desktop e na CLI.',

@@ -1,10 +1,10 @@
 import type { CaptionPresetsMessages } from './caption-presets.ts';
 
 export const ptBR: CaptionPresetsMessages = {
-  groupDefault: "Padrão",
-  groupSocial: "Social",
-  groupBusiness: "Negócios",
-  classic: "Clássico",
+  categories: { basic: 'Básico', social: 'Social', business: 'Negócios', retro: 'Retrô', motion: 'Movimento', kinetic: 'Tipografia cinética' },
+  classic: 'Clássico',
+  simple: 'Simples',
+  daoyazi: 'Legendas cinéticas',
   studio: {
     'studio-focus': "Ênfase na fala",
     'studio-word-tiles': "Blocos de palavras",

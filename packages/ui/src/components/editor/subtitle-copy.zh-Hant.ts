@@ -173,7 +173,6 @@ export const zhHantCaptionStyle: CaptionStyleMessages = {
   scopeAll: '全部',
   hint: '每張卡片顯示的都是你畫面上目前的字幕。套用只會改變外觀——不會增加或移除任何一行。要加上或拿下一行，請使用上方的軌條或時間軸上的字幕軌標頭。',
   hintScope: '「套用到」指向某一行時，只有那一行會變更，其他都不會動。',
-  hintMotion: '「社群」裡那幾張中文名稱的卡片原本會逐詞或逐字呈現動畫；這裡只能套用它們的靜態外觀。',
   edit: '編輯這份樣式',
   applied: (name: string, lines: string) => `已套用「${name}」 · 已更新 ${lines} 的樣式`,
   appliedOne: (line: string, name: string, others: string) => `已將「${name}」套用到${line}${others ? ` · ${others}維持不變` : ''}`,

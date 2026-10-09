@@ -313,7 +313,7 @@ describe('字幕的工具条', () => {
     for (const id of ['delete', 'sub-cue-scope', 'apply-style-to-global']) expect(tools).not.toContain(id);
   });
 
-  it('颜色字体字号开弹层，B / I / 对齐是开关，行高字距下钻，动画不能用并写了原因', () => {
+  it('颜色字体字号开弹层，B / I / 对齐是开关，行高字距下钻，动画打开属性页的「当前词」', () => {
     const spec = captionToolbar({ paired: true, styled: true });
     expect(find(spec, 'color')?.action).toEqual({ kind: 'pop' });
     expect(find(spec, 'size')?.action).toEqual({ kind: 'pop' });
@@ -322,7 +322,7 @@ describe('字幕的工具条', () => {
     expect(find(spec, 'letter-spacing')?.action).toEqual({ kind: 'sub' });
     expect(find(spec, 'sub-edit')?.action).toEqual({ kind: 'command' });
     expect(find(spec, 'hide-subs')?.action).toEqual({ kind: 'command' });
-    expect(find(spec, 'sub-animation')?.action).toEqual({ kind: 'off', reason: OFF_REASON.captionAnimation });
+    expect(find(spec, 'sub-animation')?.action).toEqual({ kind: 'command' });
     for (const tool of allTools(spec)) {
       expect(tool.label).toBe(TOOL_LABEL[tool.id]);
       expect(tool.label.length).toBeGreaterThan(0);

@@ -1,10 +1,10 @@
 import type { CaptionPresetsMessages } from './caption-presets.ts';
 
 export const zhHans: CaptionPresetsMessages = {
-  groupDefault: '默认',
-  groupSocial: '社交',
-  groupBusiness: '商务',
+  categories: { basic: '基础', social: '社交', business: '商务', retro: '复古', motion: '动效', kinetic: '动态排版' },
   classic: '经典',
+  simple: '简洁',
+  daoyazi: '倒鸭子',
   studio: {
     'studio-focus': '朗读强调',
     'studio-word-tiles': '逐词底块',

@@ -77,7 +77,6 @@ const en = {
     crop: 'Smart crop needs a model and has no entry point yet. Coming soon.',
     speed: 'This clip does not play at a constant rate, so its speed cannot be changed here.',
     sound: 'This clip has no sound.',
-    captionAnimation: "Subtitle animations can't be picked in the editor yet.",
     captionDefaultStyle: 'These subtitles still use the default style. Change any setting first, then save it to the brand kit.',
     brandText: 'The brand kit has no section for text styles yet.',
     brandWeb: 'The brand kit is only available in the desktop app and the CLI.',

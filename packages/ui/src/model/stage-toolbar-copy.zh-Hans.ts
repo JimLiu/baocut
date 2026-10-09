@@ -60,7 +60,6 @@ export const zhHans: StageToolbarMessages = {
     crop: '智能裁剪要跑模型，还没有可用的入口，即将推出。',
     speed: '这一段的时间映射不是恒定速率，不能在这里变速。',
     sound: '这一件没有声音。',
-    captionAnimation: '编辑器里还不能选字幕动画。',
     captionDefaultStyle: '这些字幕还在用缺省样式。先改任意一项，再存到品牌库。',
     brandText: '品牌库里还没有文字样式这一节。',
     brandWeb: '品牌库只能在桌面应用和命令行里用。',

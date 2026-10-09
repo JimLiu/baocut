@@ -14,7 +14,7 @@ import { useRuntime } from '../../runtime/context.tsx';
 import { useEditor } from '../../state/editor-store.ts';
 import { useVideo } from '../../state/video-store.ts';
 import { saveCaptionStyleToBrand } from './brand-save.ts';
-import { openCaptionEditor, openCaptionStyles } from './caption-open.ts';
+import { openCaptionActive, openCaptionEditor, openCaptionStyles } from './caption-open.ts';
 import { previewCaptionStyle, saveCaptionStyle } from './caption-style-edit.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { EDITOR_COPY as E } from './editor-copy.ts';
@@ -132,6 +132,8 @@ export function StageCaptionToolbar({
           return openCaptionEditor(primary);
         case 'sub-style':
           return openCaptionStyles(chip?.key);
+        case 'sub-animation':
+          return openCaptionActive(primary);
         case 'hide-subs':
           return useEditor.getState().setCaptionsHidden(true);
         case 'save-to-brand-kit':

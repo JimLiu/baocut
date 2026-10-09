@@ -62,7 +62,6 @@ export const nl: StageToolbarMessages = {
     crop: "Slim bijsnijden vereist een model en heeft nog geen toegangspunt. Binnenkort beschikbaar.",
     speed: "Deze clip speelt niet af met een constante snelheid, dus de snelheid kan hier niet worden gewijzigd.",
     sound: "Deze clip heeft geen geluid.",
-    captionAnimation: 'Ondertitelanimaties kunnen nog niet in de editor worden gekozen.',
     captionDefaultStyle: 'Deze ondertitels gebruiken nog de standaardstijl. Wijzig eerst een instelling en sla hem daarna op in de merkkit.',
     brandText: 'De merkkit heeft nog geen sectie voor tekststijlen.',
     brandWeb: 'De merkkit is alleen beschikbaar in de desktop-app en de CLI.',
