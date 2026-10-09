@@ -185,11 +185,16 @@
             /* 画面上的字幕 = timeline 上那几条字幕轨，**各自摆各自的**（第 47 轮去掉了
                「组」）。每条轨自带锚点 ＋ 偏移，所以拖一条只动那一条；此前整栈共用一对
                锚点/偏移，拖动是把两行一起挪，属性页也得为此单开一档「整组」。
+               要两行一起挪：⇧ / ⌘ 点选或框选把几条轨都选上，拖统一框（stage-marquee.jsx 的
+               `SubsMultiBox`，2026-10-09）。
 
                点一条 = 选中那条轨 → 属性页直接落到它自己的属性上。这与「点画布元素 →
                属性页」是同一条规矩，只是字幕轨是派生出来的，文本与时间不可在这里改。 */
             const goProps = (trackId) => (e) => {
               e.stopPropagation();
+              /* 在字幕上起手、拖过阈值的框选，松手补发的 click 落在这一行上：吞掉，不然框中的又被收成这一条。 */
+              if (mq.swallow()) return;
+              if (e.shiftKey || e.metaKey || e.ctrlKey) { ctx.pick({kind: 'subs', trackId}, {toggle: true}); return; }
               ctx.pick({kind: 'subs', trackId});
               ctx.setTab('subtitle');   // 第 152 轮起原文 / 译文都在同一个 Tab，选中决定编辑对象
               ctx.setPaneHidden(false);
@@ -203,6 +208,9 @@
                差别只在谁在驱动「当前词」：画廊跟节拍器循环，画面跟**播放头**。
                演示口径下词位是把 cue 的时长均分出来的（`BC_WA.at`），真实实现读
                transcript `words[]` 的起止——登记在 README 分歧台账。 */
+            /* 选中了两条及以上的字幕轨：逐条的选中框收起，只留细描边，统一框接管拖动（同元素的多选，§6）。 */
+            const subSel = window.BC_SELECT.subMembers(ctx.sels);
+            const subMulti = subSel.length >= 2;
             /* 停用的轨（第 120 轮）：行留在时间轴上，画面与导出都跳过它 */
             return window.BC_SUB.tracks(doc)
               .filter((t) => !t.hidden)
@@ -273,9 +281,12 @@
                     plate={window.plateCss(ln, fzl)} />
                 </div>
               );
-              if (!picked) {
+              /* `data-subs` 给框选与统一框量行框用；不挂 `data-el`，免得没选中的字幕变成元素拖动时的吸附对象。 */
+              if (subMulti || !picked) {
+                const mine = subMulti && subSel.some((s) => s.trackId === t.id);
                 return (
-                  <div key={t.id} className="subs" style={pos} onClick={goProps(t.id)}>{line}</div>
+                  <div key={t.id} className={cx('subs', mine && 'selthin')} data-subs={t.id} style={pos}
+                    onClick={goProps(t.id)}>{line}</div>
                 );
               }
               /* 字幕多半贴底：所有弹层一律向上开，工具条抬高跨过（它没有旋转把手，
@@ -296,7 +307,12 @@
                     if (next.y != null || next.x != null) ctx.setSubTrack(t.id, next);
                   }}
                   frameRef={frameRef} onGuides={setGuides}
-                  onClick={(e) => { e.stopPropagation(); ctx.pick({kind: 'subs', trackId: t.id}); }}>
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    /* 拖完补派的 click 不是点选（同元素，stage-elements.jsx）：⇧ 拖一次不该把它移出选中。 */
+                    if (window.swallowDrag && window.swallowDrag()) return;
+                    ctx.pick({kind: 'subs', trackId: t.id}, {toggle: e.shiftKey || e.metaKey || e.ctrlKey});
+                  }}>
                   {line}
                 </window.SelectionBox>
               );
@@ -307,6 +323,7 @@
           {/* 多选统一框（第 115 轮）：≥2 件时逐件手柄收起，改画一个可整体拖动与
               等比缩放的外包框。 */}
           {player ? null : <window.MultiBox ctx={ctx} frameRef={frameRef} />}
+          {player ? null : <window.SubsMultiBox ctx={ctx} frameRef={frameRef} />}
           {player ? null : <window.Marquee box={mq.box} />}
 
           {/* §5 的对齐参考线：1px accent，松手消失 */}

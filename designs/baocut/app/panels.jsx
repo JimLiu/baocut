@@ -561,8 +561,10 @@
   function PanelView({ctx}) {
     /* 版面编辑器开着时右栏整个让给它（舞台那边同步换成 TemplateStudioStage） */
     if (ctx.tplStudio && ctx.tab === 'elements') return <window.TemplateStudioPanel ctx={ctx} />;
-    /* 多选（第 115 轮）：右栏换成批量摘要，属性页只认 primary，多选时会误导 */
+    /* 多选（第 115 轮）：右栏换成批量摘要，属性页只认 primary，多选时会误导。几条字幕轨一起选中时同理，
+       不管停在哪个 Tab（字幕轨的多选不换 Tab，见 editor.jsx）。 */
     if ((ctx.sels || []).length > 1 && ctx.tab === 'elements') return <window.MultiSelectPanel ctx={ctx} />;
+    if (window.BC_SELECT.subMembers(ctx.sels).length > 1) return <window.MultiSelectPanel ctx={ctx} />;
     if (ctx.liveJob?.origin === 'url' && ctx.liveJob.status === 'error' && ['transcript', 'subtitle'].includes(ctx.tab)) return <>
       <div className="panelhd"><span className="t-title-sm">字幕生成</span></div>
       <window.LiveHead job={ctx.liveJob} dur={D.DUR} onCancel={ctx.cancelLive} />

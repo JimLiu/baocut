@@ -10,12 +10,17 @@
    还会补发一次 click，不吞的话刚框中的东西会立刻被清掉。
 
    主视频不参与框选（§6）：它铺满整幅画面，任何一个框都与它相交，框谁都等于连它一起选。
-   它只能点选。字幕行同理（`subs:` 不是可多选的 kind）。
+   它只能点选。2026-09-16 起项目原片是普通视频元素，没有 `clip:` 键可认，改按「盒子盖满整幅画面」认
+   （与 App 的 `isMainVideo` 同一个用意）。字幕轨（2026-10-09 起）参与框选：框住双语两行就两行都选上，拖统一框一起挪；
+   同一框里既有元素又有字幕轨时只留元素（`BC_SELECT.marqueePick`）。
 
    **统一框**（`MultiBox`）。选到 ≥2 件时，逐件的手柄全部收起（成员只留一条细描边
    `.selthin`），改画一个外包框 `.selbox.is-multi`：可整体拖动、四角等比缩放，**没有
    旋转钮**——绕组中心转要同时改每件的 rot 与位置，语义上更接近「成组」，这一轮不做。
    两种手势都只记一条历史（`history.begin()` → mouseup `commit()`）。
+
+   **字幕轨的统一框**（`SubsMultiBox`，2026-10-09）。选到 ≥2 条字幕轨时画的外包框：只能整体拖动，
+   没有四角（字幕的大小是字号，不是倍率）；按下不拖就松手，只留按在的那一条。
    ============================================================================ */
 (function () {
   const {useState, useRef, useCallback, useEffect} = React;
@@ -24,18 +29,25 @@
 
   const rectOf = (n) => n.getBoundingClientRect();
 
-  /** 帧内可框选的对象：`data-el` 上挂的普通元素，排除主视频与字幕。 */
+  /** 节点在框选里的键：字幕轨是 `subs:<轨 id>`（选中的那条挂在选中框的 `data-el` 上，其余挂 `data-subs`）。 */
+  const pickKey = (n) => (n.dataset.subs ? 'subs:' + n.dataset.subs : String(n.dataset.el || ''));
+
+  /** 盒子盖满整幅画面（各边容 1px 的取整差）：铺满画面的原片，任何一个框都与它相交。 */
+  const coversFrame = (r, fr) => r.left <= fr.left + 1 && r.top <= fr.top + 1
+    && r.right >= fr.right - 1 && r.bottom >= fr.bottom - 1;
+
+  /** 帧内可框选的对象：`data-el` 上挂的普通元素与画面字幕轨，排除主视频与盖满画面的元素。 */
   const pickables = (frameEl) => {
     if (!frameEl) return [];
     const fr = rectOf(frameEl);
-    return Array.prototype.slice.call(frameEl.querySelectorAll('[data-el]'))
+    return Array.prototype.slice.call(frameEl.querySelectorAll('[data-el], [data-subs]'))
       .filter((n) => {
-        const k = String(n.dataset.el || '');
-        return k && k.indexOf('clip:') !== 0 && k.indexOf('subs:') !== 0 && n.offsetWidth > 0;
+        const k = pickKey(n);
+        return k && k.indexOf('clip:') !== 0 && n.offsetWidth > 0 && !coversFrame(rectOf(n), fr);
       })
       .map((n) => {
         const r = rectOf(n);
-        return {id: n.dataset.el, x: r.left - fr.left, y: r.top - fr.top, w: r.width, h: r.height};
+        return {id: pickKey(n), x: r.left - fr.left, y: r.top - fr.top, w: r.width, h: r.height};
       });
   };
 
@@ -84,10 +96,9 @@
         if (!live) return;                       // 没过阈值：这就是一次普通点击
         swallowRef.current = true;
         const ids = S.hitRect(pickables(frameEl), live);
-        const hits = ids.map((id) => ({kind: 'element', id,
+        const hits = ids.map((id) => (id.indexOf('subs:') === 0 ? {kind: 'subs', trackId: id.slice(5)} : {kind: 'element', id,
           elKind: (((ctx.elements || []).filter((x) => x.id === id)[0]) || {}).kind}));
-        const base = add ? (ctx.sels || []).filter((s) => S.canMulti(s.kind)) : [];
-        ctx.pickMany(S.dedupe(base.concat(hits)));
+        ctx.pickMany(S.marqueePick(add ? ctx.sels : [], hits));
       };
       liveRef.current = {move, up};
       window.addEventListener('mousemove', move);
@@ -108,15 +119,17 @@
   const writePose = (ctx, s, patch) => ctx.setElPose(s.id, patch);
 
   /** 统一框的外包盒。**必须在 layout 阶段量**：render 里读 DOM 读到的是上一帧的位置，
-      撤销或整体拖动之后框会慢一拍留在原地。每次渲染后重量一遍，值没变就不 setState。 */
-  const useBounds = (members, frameRef, deps) => {
+      撤销或整体拖动之后框会慢一拍留在原地。每次渲染后重量一遍，值没变就不 setState。
+      `query` 给出成员在帧里的节点选择器（元素按 `data-el`，字幕轨按 `data-subs`）。 */
+  const elQuery = (s) => '[data-el="' + memberKey(s) + '"]';
+  const useBounds = (members, frameRef, deps, query = elQuery) => {
     const [b, setB] = useState(null);
     React.useLayoutEffect(() => {
       const frameEl = frameRef.current;
       if (!frameEl || members.length < 2) { setB((p) => (p == null ? p : null)); return; }
       const fr = rectOf(frameEl);
       const rects = members.map((s) => {
-        const n = frameEl.querySelector('[data-el="' + memberKey(s) + '"]');
+        const n = frameEl.querySelector(query(s));
         if (!n) return null;
         const r = rectOf(n);
         return {id: memberKey(s), x: r.left - fr.left, y: r.top - fr.top, w: r.width, h: r.height};
@@ -130,8 +143,33 @@
 
   const memberKey = (s) => s.id;
 
+  /** 一次组手势：起手把每件的摆位冻住（`start`），全程按同一个 delta / 同一个 f 写回去。
+      没动就松手时调 `still(p0)`（可省）。 */
+  const runGesture = (ctx, setDrag, e, start, step, still) => {
+    e.preventDefault(); e.stopPropagation();
+    const p0 = {x: e.clientX, y: e.clientY};
+    let moved = false;
+    setDrag(true);
+    if (ctx.history) ctx.history.begin();
+    const move = (ev) => {
+      if (!moved && Math.abs(ev.clientX - p0.x) < P.DEAD_ZONE
+                 && Math.abs(ev.clientY - p0.y) < P.DEAD_ZONE) return;
+      moved = true;
+      step(start, p0, {x: ev.clientX, y: ev.clientY});
+    };
+    const up = () => {
+      setDrag(false);
+      if (ctx.history) { if (moved) ctx.history.commit(); else ctx.history.cancel(); }
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      if (!moved && still) still(p0);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+
   function MultiBox({ctx, frameRef}) {
-    const members = (ctx.sels || []).filter((s) => S.canMulti(s.kind));
+    const members = S.elMembers(ctx.sels);
     const [drag, setDrag] = useState(false);
     const b = useBounds(members, frameRef, [ctx.selKeys, ctx.elDocs, ctx.playing]);
     if (members.length < 2 || ctx.playing || !b) return null;
@@ -139,29 +177,8 @@
     if (!frameEl) return null;
     const fr = rectOf(frameEl);
 
-    /* 一次组手势：起手把每件的 pose 冻住，全程按同一个 delta / 同一个 f 写回去。 */
-    const gesture = (e, step) => {
-      e.preventDefault(); e.stopPropagation();
-      const p0 = {x: e.clientX, y: e.clientY};
-      const start = members.map((s) => Object.assign({sel: s}, poseOfSel(ctx, s)));
-      let moved = false;
-      setDrag(true);
-      if (ctx.history) ctx.history.begin();
-      const move = (ev) => {
-        if (!moved && Math.abs(ev.clientX - p0.x) < P.DEAD_ZONE
-                   && Math.abs(ev.clientY - p0.y) < P.DEAD_ZONE) return;
-        moved = true;
-        step(start, p0, {x: ev.clientX, y: ev.clientY});
-      };
-      const up = () => {
-        setDrag(false);
-        if (ctx.history) { if (moved) ctx.history.commit(); else ctx.history.cancel(); }
-        window.removeEventListener('mousemove', move);
-        window.removeEventListener('mouseup', up);
-      };
-      window.addEventListener('mousemove', move);
-      window.addEventListener('mouseup', up);
-    };
+    const gesture = (e, step) => runGesture(ctx, setDrag, e,
+      members.map((s) => Object.assign({sel: s}, poseOfSel(ctx, s))), step);
 
     const startMove = (e) => {
       if (e.button !== 0) return;
@@ -200,5 +217,59 @@
     );
   }
 
-  Object.assign(window, {useMarquee, Marquee, MultiBox});
+  /* ---------- 字幕轨的统一框 ---------- */
+  /* 字幕轨的水平中心与锚线夹在整幅画面里（同单条拖动的 `BC_POSE.subClampY`）。 */
+  const SUB_LIMITS = {x: [0, 100], y: [0, 100]};
+  const subQuery = (s) => '[data-subs="' + s.trackId + '"]';
+
+  function SubsMultiBox({ctx, frameRef}) {
+    const members = S.subMembers(ctx.sels);
+    const [drag, setDrag] = useState(false);
+    /* 行框随这一刻的字幕文本变（播放头换句），也随样式变。 */
+    const b = useBounds(members, frameRef, [ctx.selKeys, ctx.subStyle, ctx.playing, ctx.playT], subQuery);
+    if (members.length < 2 || ctx.playing || !b) return null;
+    const frameEl = frameRef.current;
+    if (!frameEl) return null;
+    const fr = rectOf(frameEl);
+
+    /* 每条轨写回自己的水平中心 `x` 与锚线 `y`（与单条拖动同一对值，stage.jsx 的 SelectionBox）；
+       位移先按全组夹进画面再逐条加，没动的那一轴不写。 */
+    const startMove = (e) => {
+      if (e.button !== 0) return;
+      const start = members.map((s) => {
+        const t = window.BC_SUB.byId(ctx.subStyle, s.trackId) || {};
+        return {trackId: s.trackId, x: t.x == null ? 50 : t.x, y: t.y == null ? 86 : t.y};
+      });
+      runGesture(ctx, setDrag, e, start, (list, p0, p) => {
+        const d = S.groupShift(list, (p.x - p0.x) / fr.width * 100, (p.y - p0.y) / fr.height * 100, SUB_LIMITS);
+        list.forEach((it) => {
+          const patch = {};
+          if (d.dx) patch.x = P.subClampY(it.x + d.dx);
+          if (d.dy) patch.y = P.subClampY(it.y + d.dy);
+          ctx.setSubTrack(it.trackId, patch);
+        });
+      }, (p0) => {
+        /* 按下不拖：只留按在的那一条（与 App 一致）；按在两行之间的空隙里就不动选中。 */
+        const hit = members.find((s) => {
+          const n = frameEl.querySelector(subQuery(s));
+          const r = n && rectOf(n);
+          return r && p0.x >= r.left && p0.x <= r.right && p0.y >= r.top && p0.y <= r.bottom;
+        });
+        if (!hit) return;
+        ctx.pick({kind: 'subs', trackId: hit.trackId});
+        ctx.setTab('subtitle');
+        ctx.setPaneView('subprops');
+      });
+    };
+
+    return (
+      <div className={cx('selbox', 'is-multi', drag && 'is-drag')}
+        style={{position: 'absolute', left: b.x, top: b.y, width: b.w, height: b.h}}
+        onMouseDown={startMove} onClick={(ev) => ev.stopPropagation()}>
+        <div className="multichip">已选 {members.length} 条字幕</div>
+      </div>
+    );
+  }
+
+  Object.assign(window, {useMarquee, Marquee, MultiBox, SubsMultiBox});
 })();

@@ -147,8 +147,8 @@
     );
   }
 
-  /** 多选判据与画布一致：能多选的那几类选中了两件及以上，几何段只读。 */
-  const geometryReadOnly = (ctx) => (ctx.sels || []).filter((s) => window.BC_SELECT.canMulti(s.kind)).length >= 2;
+  /** 多选判据与画布一致：元素那一家选中了两件及以上，几何段只读。 */
+  const geometryReadOnly = (ctx) => window.BC_SELECT.elMembers(ctx.sels).length >= 2;
 
   Object.assign(window, {GeometryView, LayerGeometry, ElementGeometry, geometryReadOnly});
 })();

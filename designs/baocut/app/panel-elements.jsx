@@ -311,6 +311,26 @@
   function MultiSelectPanel({ctx}) {
     const app = useApp();
     const sels = ctx.sels || [];
+    /* 只选了几条字幕轨（双语两行，2026-10-09）：对齐、复制这些元素动作对它们不成立，这一页只说清能做什么——
+       在画面上拖其中一条整组动；改样式、删除都是「这一条轨」的事，要单选。 */
+    const subs = window.BC_SELECT.subMembers(sels);
+    if (subs.length && subs.length === sels.length) {
+      const names = subs.map((s) => (window.BC_SUB.byId(ctx.subStyle, s.trackId) || {}).name || s.trackId);
+      return (
+        <div className="pview">
+          <div className="panelhd">
+            <IconBtn icon="back" size="s" tip="取消选中" onClick={() => ctx.clearSel()} />
+            <span className="t-title-sm grow">已选 {subs.length} 条字幕</span>
+          </div>
+          <div className="pscroll bc-scroll">
+            <div className="col gap6">
+              <span className="t-label">{names.join(' · ')}</span>
+              <p className="hint">在画面上拖其中一条，这几条字幕一起移动，记一条撤销。要改样式或删除，单选其中一条。</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
     const els = sels.filter((s) => s.kind === 'element');
     const ids = els.map((s) => s.id);
     const first = els.length ? {id: els[0].id,

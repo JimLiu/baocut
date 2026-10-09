@@ -216,7 +216,8 @@
     const selection = window.useSelectionStore({onPick: () => { setPaneHidden(false); setPaneView(null); },
       onPickSub: () => setPaneHidden(false), stage: () => stageRef.current});
     const {sel, sels, pick, pickSub, clearSel, isSel} = selection;
-    useEffect(() => { if (sels.length > 1) setTab('elements'); }, [sels]);
+    /* 多选元素换到元素 Tab 看批量摘要；只选了几条字幕轨（双语两行）留在字幕 Tab，右栏换成字幕轨的那一份（panels.jsx）。 */
+    useEffect(() => { if (window.BC_SELECT.elMembers(sels).length > 1) setTab('elements'); }, [sels]);
     /* 起播 = 退出编辑态 ＋ 清空选中 ＋ 收起手柄（§2，第 115 轮）。包在**这一层**，
        transport 上那颗按钮、空格键、文稿面板里的「播到这里」走的是同一条路——
        三处各写一遍这条规矩必然漂。迁移判据是纯模型 `BC_SELECT.playState`。 */

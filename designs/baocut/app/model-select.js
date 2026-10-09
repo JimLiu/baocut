@@ -10,12 +10,14 @@
    `key()` 给出可比较的字符串键：`kind:id[:trackId]`。
 
    多选对 kind = element 与 cue 开放（§1；2026-09-16 起没有 clip——项目原片是普通视频元素；2026-10-08 起
-   时间轴框选也拾取字幕条，跨轨删除要连字幕一起删）：subs / member 各自都带着 "钻进去改这一件" 的语义，
-   选两条没有对应的批量动作，一律退化成单选。
+   时间轴框选也拾取字幕条，跨轨删除要连字幕一起删）。2026-10-09 起画面上的字幕轨（subs）也能多选：双语两行
+   各摆各的，⇧ / ⌘ 点选或框选把两行都选上，拖其中一行就整组一起动。字幕轨只与字幕轨一起选（`family`）：
+   元素的批量动作（对齐、复制、等比缩放）对字幕轨不成立，字幕轨的拖动也不该带上元素。member 带着
+   「钻进去改这一件」的语义，选两件没有对应的批量动作，仍退化成单选。
    ============================================================================ */
 (function () {
-  /* 允许多选的是元素与字幕条；其余 kind 在 add/toggle 下也只会落成单选。 */
-  const MULTI_KINDS = ['element', 'cue'];
+  /* 允许多选的是元素、字幕条与画面字幕轨；其余 kind 在 add/toggle 下也只会落成单选。 */
+  const MULTI_KINDS = ['element', 'cue', 'subs'];
   /* 帧步进：原型统一按 30fps 说话（§12.3 的时间码也是这一档）。 */
   const FRAME = 1 / 30;
   /* 粘贴每重复一次再偏 2%（§4）。 */
@@ -29,6 +31,11 @@
   const round1 = (v) => Math.round(v * 10) / 10;
 
   const canMulti = (kind) => MULTI_KINDS.indexOf(kind) >= 0;
+  /* 能一起多选的一家：画面字幕轨自成一家，元素与字幕条是另一家。 */
+  const family = (kind) => (kind === 'subs' ? 'subs' : 'el');
+  /* 多选里元素那一家（统一框、几何只读、元素批量面板读它）与字幕轨那一家（字幕的整组拖动读它）。 */
+  const elMembers = (sels) => (sels || []).filter((s) => canMulti(s.kind) && family(s.kind) === 'el');
+  const subMembers = (sels) => (sels || []).filter((s) => s.kind === 'subs');
 
   /* 归一化：只补齐结构，不丢字段。 */
   const norm = (sel) => {
@@ -68,8 +75,8 @@
     if (!s) return [];
     const o = opts || {};
     if (!(o.add || o.toggle) || !canMulti(s.kind)) return [s];
-    /* 混选里把不能多选的项先请出去（例如先选了字幕轨再 shift 点元素）。 */
-    const base = (sels || []).filter((x) => canMulti(x.kind));
+    /* 混选里把不能多选的项与另一家先请出去（例如先选了字幕轨再 shift 点元素，或反过来）。 */
+    const base = (sels || []).filter((x) => canMulti(x.kind) && family(x.kind) === family(s.kind));
     const k = key(s);
     const at = keys(base).indexOf(k);
     if (at >= 0) {
@@ -91,6 +98,13 @@
     x: Math.min(r.x, r.x + r.w), y: Math.min(r.y, r.y + r.h),
     w: Math.abs(r.w), h: Math.abs(r.h),
   });
+
+  /* 框选的结果：追加时的原选中 ＋ 这一框命中的。两家都有时元素那一家留下、字幕轨请出去——框住一件贴纸
+     连带框到底下的字幕是常事，框字幕的人只框字幕。 */
+  const marqueePick = (base, hits) => {
+    const all = dedupe((base || []).filter((s) => canMulti(s.kind)).concat(hits || []));
+    return elMembers(all).length ? elMembers(all) : all;
+  };
 
   /* 框选命中：矩形相交（边贴边不算）。rects 形如 {id, x, y, w, h}。 */
   const hitRect = (rects, marquee) => {
@@ -152,7 +166,8 @@
 
   /* ---------- 删除的对象 ----------
      Delete 键与 transport 的删除钮共用这一条判据：选中里有元素或字幕条就删它们（多件一并，
-     `cues` 是字幕条 id，同一条在几行上都选中只记一次），否则主选是字幕轨就拿下那条轨；空选不删。
+     `cues` 是字幕条 id，同一条在几行上都选中只记一次），否则只选了一条字幕轨就拿下那条轨；空选不删。
+     选了几条字幕轨不删：拿下一条轨是整种语言的字幕一起没了，要单选那一条再删。
      返回 null 表示没有可删的。文稿剪辑的选区不在 sels 里（product-design §5.7：同一个删除键不跨模式生效）。 */
   const removeTarget = (sels, primarySel) => {
     const ids = (sels || []).filter((s) => s.kind === 'element').map((s) => s.id);
@@ -160,7 +175,7 @@
       .filter((id, i, all) => all.indexOf(id) === i);
     if (ids.length || cues.length) return {kind: 'elements', ids, cues};
     const s = primarySel;
-    if (s && s.kind === 'subs') return {kind: 'subs', trackId: s.trackId};
+    if (s && s.kind === 'subs' && subMembers(sels).length <= 1) return {kind: 'subs', trackId: s.trackId};
     return null;
   };
 
@@ -218,7 +233,7 @@
   Object.assign(window, {
     BC_SELECT: {
       MULTI_KINDS, FRAME, PASTE_STEP, LIMITS, MARQUEE_MIN,
-      canMulti, norm, key, keys, same, has, primary, dedupe, apply,
+      canMulti, family, elMembers, subMembers, marqueePick, norm, key, keys, same, has, primary, dedupe, apply,
       visibleAt, normRect, hitRect, marqueeRect, boundsOf, groupShift, groupScale, playState,
       seekForSel, removeTarget,
       pasteId, pasteOffset, pasteSpan, nudge, frameStep,

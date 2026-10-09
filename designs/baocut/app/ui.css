@@ -955,7 +955,8 @@ body { font-size: 14px; }
    整叠在模板 chrome、参考线、统一框与舞台胶囊之下。 */
 .stagestack { position: absolute; inset: 0; z-index: 1; isolation: isolate; }
 .stagestack__dz { position: absolute; inset: 0; pointer-events: none; }
-.subs { position: absolute; left: 8%; right: 8%; bottom: 7%; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
+/* 画面上的字幕不在这里改字，不让文字被选中：⇧ 点第二行加选时浏览器会把两行之间的文字刷成选区。 */
+.subs { position: absolute; left: 8%; right: 8%; bottom: 7%; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; user-select: none; }
 /* 字色、底板、描边、阴影由 paintCss 内联给出（画布 / 缩略图 / 预览条同源，
    第 45 轮）。这里只留下不随样式变的那几件：最大宽度、命中区、选中标记。 */
 .subline { max-width: 100%; cursor: pointer; }

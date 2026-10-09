@@ -33,9 +33,9 @@ test('add 追加、toggle 反选', () => {
   assert.deepEqual(S.keys(S.apply(two, EL('a'), {add: true})), ['element:a', 'element:b']);
 });
 
-test('element 与 cue 能多选（2026-09-16 起没有 clip），其余退化单选', () => {
-  assert.ok(S.canMulti('element') && S.canMulti('cue') && !S.canMulti('clip'));
-  assert.ok(!S.canMulti('subs') && !S.canMulti('member'));
+test('element、cue 与画面字幕轨能多选（2026-09-16 起没有 clip），其余退化单选', () => {
+  assert.ok(S.canMulti('element') && S.canMulti('cue') && S.canMulti('subs') && !S.canMulti('clip'));
+  assert.ok(!S.canMulti('member'));
   /* 元素与字幕条可以混选（时间轴框选跨轨） */
   const mixed = S.apply([EL('a')], {kind: 'cue', id: 'c1', trackId: 'zh'}, {add: true});
   assert.deepEqual(S.keys(mixed), ['element:a', 'cue:c1:zh']);
@@ -44,6 +44,30 @@ test('element 与 cue 能多选（2026-09-16 起没有 clip），其余退化单
   /* 反过来：选着字幕轨再 shift 点元素，字幕轨被请出去 */
   const back = S.apply([{kind: 'subs', trackId: 't1'}], EL('a'), {add: true});
   assert.deepEqual(S.keys(back), ['element:a']);
+});
+
+test('字幕轨只与字幕轨一起多选：双语两行能都选上，点到另一家就换家', () => {
+  const zh = {kind: 'subs', trackId: 'zh'};
+  const en = {kind: 'subs', trackId: 'en'};
+  const both = S.apply([zh], en, {toggle: true});
+  assert.deepEqual(S.keys(both), ['subs::zh', 'subs::en']);
+  assert.deepEqual(S.keys(S.apply(both, zh, {toggle: true})), ['subs::en']);
+  /* 选着元素再 ⇧ 点字幕轨：元素请出去 */
+  assert.deepEqual(S.keys(S.apply([EL('a'), EL('b')], zh, {toggle: true})), ['subs::zh']);
+  /* 两家各自的成员 */
+  const cue = {kind: 'cue', id: 'c1', trackId: 'zh'};
+  assert.deepEqual(S.keys(S.elMembers([EL('a'), cue, zh])), ['element:a', 'cue:c1:zh']);
+  assert.deepEqual(S.keys(S.subMembers([EL('a'), zh, en])), ['subs::zh', 'subs::en']);
+});
+
+test('框选：只框到字幕轨就选字幕轨，元素与字幕轨都框到时只留元素', () => {
+  const zh = {kind: 'subs', trackId: 'zh'};
+  const en = {kind: 'subs', trackId: 'en'};
+  assert.deepEqual(S.keys(S.marqueePick([], [zh, en])), ['subs::zh', 'subs::en']);
+  assert.deepEqual(S.keys(S.marqueePick([], [zh, EL('a')])), ['element:a']);
+  /* 追加框选：原选中里不能多选的项不带进来，另一家照同一条规则让位 */
+  assert.deepEqual(S.keys(S.marqueePick([zh, {kind: 'member', id: 'm1'}], [en])), ['subs::zh', 'subs::en']);
+  assert.deepEqual(S.keys(S.marqueePick([EL('a')], [zh])), ['element:a']);
 });
 
 test('primary 是最后一次点中的那件', () => {
@@ -172,6 +196,8 @@ test('removeTarget：与 Delete 键同一条判据，元素与字幕条优先、
   const cue = {kind: 'cue', id: 'c3'};
   assert.deepEqual(S.removeTarget([el('a'), el('b')], el('b')), {kind: 'elements', ids: ['a', 'b'], cues: []});
   assert.deepEqual(S.removeTarget([subs], subs), {kind: 'subs', trackId: 'src'});
+  /* 选了几条字幕轨不删（拿下一条轨是整种语言的字幕），要单选再删 */
+  assert.equal(S.removeTarget([subs, {kind: 'subs', trackId: 'en'}], {kind: 'subs', trackId: 'en'}), null);
   assert.deepEqual(S.removeTarget([subs, el('a')], subs), {kind: 'elements', ids: ['a'], cues: []});   // 混选：元素先
   assert.deepEqual(S.removeTarget([cue], cue), {kind: 'elements', ids: [], cues: [cue.id]});
   /* 同一条字幕在原文、译文两行都框中：只删一次 */

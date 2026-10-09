@@ -125,8 +125,8 @@
     const selId = sel && sel.kind === 'element' ? sel.id
       : sel && sel.kind === 'member' && ctx.groupOf ? ((ctx.groupOf(sel.id) || {}).id || null)
       : null;
-    /* 统一框接管手柄的判据（§6）：可多选的那两类里选了两件及以上。 */
-    const multi = (ctx.sels || []).filter((s) => window.BC_SELECT.canMulti(s.kind)).length >= 2;
+    /* 统一框接管手柄的判据（§6）：元素那一家（元素与字幕条）里选了两件及以上；字幕轨的多选另画（stage-marquee.jsx）。 */
+    const multi = window.BC_SELECT.elMembers(ctx.sels).length >= 2;
     // 删掉的不再画；停用的（第 120 轮，时间轴行头那只眼睛）也不画——它还在文档里，只是这一轮不上画面
     const live = (id) => (ctx.elements || []).some((e) => e.id === id) && !((ctx.elDocs || {})[id] || {}).hidden;
     const userEls = (ctx.elements || []).filter((e) => e.added && e.kind !== 'audio');

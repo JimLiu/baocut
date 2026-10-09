@@ -79,6 +79,7 @@
     const excuse = (verb) => {
       const s = ref.current.sel;
       if (s && s.kind === 'cue') app.toast('选中的是一条字幕 · 在 Subtitle 面板里改');
+      else if (SEL.subMembers(ref.current.sels).length > 1) app.toast(`选中了几条字幕 · 单选一条再${verb}`);
       else app.toast(`先选中要${verb}的元素`);
     };
 
