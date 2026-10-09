@@ -8,5 +8,5 @@ export const fr: ThreadMessages = {
   },
   message: { contextTitle: 'État de l’éditeur envoyé avec le message', context: (videoName, revision, playhead, selected) => `« ${videoName} » · Version ${revision} · Tête de lecture ${playhead}${selected ? ` · ${selected} ${pluralForm('fr', selected, { one: 'clip sélectionné', other: 'clips sélectionnés' })}` : ''}` },
   output: { aria: (name, detail) => `${name}, ${detail}` },
-  steps: { working: (summary) => `En cours · ${summary}`, failed: (n) => `${n} en échec`, thinking: 'Réflexion', viewFile: (name) => `Afficher ${name}`, input: 'Entrée', error: 'Erreur', output: 'Résultat', waiting: 'En attente du résultat', noOutput: 'Aucun résultat' },
+  steps: { more: (n) => `${n} en cours`, failed: (n) => `${n} en échec`, thinking: 'Réflexion', viewFile: (name) => `Afficher ${name}`, input: 'Entrée', error: 'Erreur', output: 'Résultat', waiting: 'En attente du résultat', noOutput: 'Aucun résultat' },
 };

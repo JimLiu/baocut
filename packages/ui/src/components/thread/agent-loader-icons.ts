@@ -9,7 +9,6 @@ const TABLE: Record<LoaderIcon, Cell[]> = loader;
 export type LoaderKey = 'thinking' | (string & {});
 
 const SEQUENCES = new Map<string, Cell[][] | undefined>();
-const ICONS = new Map<string, Cell[] | undefined>();
 
 /**
  * 正在跑的那一步与回合页脚播的序列。按键缓存，数组引用稳定（PixelLoader 拿到新引用会从第一个图重播）；
@@ -22,10 +21,4 @@ export function loaderSequence(key: LoaderKey): Cell[][] | undefined {
     SEQUENCES.set(key, cells.length ? cells : undefined);
   }
   return SEQUENCES.get(key);
-}
-
-/** 工作组标题前静止的单个图：序列里的第一个。 */
-export function loaderIcon(key: LoaderKey): Cell[] | undefined {
-  if (!ICONS.has(key)) ICONS.set(key, loaderSequence(key)?.[0]);
-  return ICONS.get(key);
 }

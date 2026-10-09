@@ -207,7 +207,8 @@ describe('threadCards：放置', () => {
       tool('c2', 't1'),
       change('x2', 'mov_1', 't1'),
     ];
-    expect(cards(items, [])).toEqual({ 'change/x2': ['video:mov_1[]'] });
+    // 回执与步骤是同一组：卡挂在第二组步骤后面
+    expect(cards(items, [])).toEqual({ 'steps/c2': ['video:mov_1[]'] });
   });
 
   it('新建视频的记录挂在它前面最近的一块后面；之后的转录 Job 把卡挪到这个任务最后一组步骤', () => {
@@ -252,7 +253,7 @@ describe('threadCards：放置', () => {
     const items = [user('u1', 't1'), change('x1', 'mov_b', 't1'), change('x2', 'mov_a', 't1'), tool('c1', 't1'), reply('a1', 't1')];
     const a = job({ videoId: 'mov_a' });
     const b = job({ videoId: 'mov_b' });
-    expect(cards(items, [a, b])).toEqual({ 'steps/c1': [`video:mov_b[${b.jobId}]`, `video:mov_a[${a.jobId}]`] });
+    expect(cards(items, [a, b])).toEqual({ 'steps/change/x1': [`video:mov_b[${b.jobId}]`, `video:mov_a[${a.jobId}]`] });
   });
 });
 
@@ -268,9 +269,9 @@ describe('threadCards：一条会话一部视频一张卡（产品设计 §3.2.2
       user('u3', 't3', 30),
       reply('a3', 't3'),
     ];
-    expect(cards(items, [])).toEqual({ 'change/x2': ['video:mov_1[]'] });
+    expect(cards(items, [])).toEqual({ 'steps/change/x2': ['video:mov_1[]'] });
     // 只到第一轮时卡在第一轮的引用后面
-    expect(cards(items.slice(0, 3), [])).toEqual({ 'change/x1': ['video:mov_1[]'] });
+    expect(cards(items.slice(0, 3), [])).toEqual({ 'steps/change/x1': ['video:mov_1[]'] });
   });
 
   // 第一轮的任务提交了转录，第二轮只是聊天：卡跟不跟过去，看转录在第二轮开始时结束没有。
@@ -354,7 +355,7 @@ describe('threadCards：随第一句话带进来的视频（产品设计 §3.2.2
   });
 
   it('智能体后来改了这部视频：仍是一张卡，挪到最后的引用', () => {
-    expect(cards([opened('u1', 't1', 10), change('x1', 'mov_1', 't1'), reply('a1', 't1')], [])).toEqual({ 'change/x1': ['video:mov_1[]'] });
+    expect(cards([opened('u1', 't1', 10), change('x1', 'mov_1', 't1'), reply('a1', 't1')], [])).toEqual({ 'steps/change/x1': ['video:mov_1[]'] });
   });
 
   it('只认第一条：之后的消息带着编辑器状态不出卡，也不挪卡', () => {

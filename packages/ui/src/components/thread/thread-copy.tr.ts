@@ -27,7 +27,7 @@ export const tr: ThreadMessages = {
     aria: (name, detail) => `${name}, ${detail}`,
   },
   steps: {
-    working: (summary) => `Çalışıyor · ${summary}`,
+    more: (n) => `${n} çalışıyor`,
     failed: (n) => `${n} başarısız`,
     thinking: "Düşünüyor",
     viewFile: (name) => `${name} adlı dosyayı gör`,

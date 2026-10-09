@@ -28,7 +28,7 @@ export const ja: ThreadMessages = {
     aria: (name, detail) => `${name}、${detail}`,
   },
   steps: {
-    working: (summary) => `処理中 · ${summary}`,
+    more: (n) => `${n} 件を実行中`,
     failed: (n) => `${n} 件失敗`,
     thinking: '思考',
     viewFile: (name) => `${name} を表示`,

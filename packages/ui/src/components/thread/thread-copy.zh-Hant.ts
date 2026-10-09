@@ -28,7 +28,7 @@ export const zhHant: ThreadMessages = {
     aria: (name, detail) => `${name}，${detail}`,
   },
   steps: {
-    working: (summary) => `處理中 · ${summary}`,
+    more: (n) => `等 ${n} 項`,
     failed: (n) => `${n} 項失敗`,
     thinking: '思考',
     viewFile: (name) => `檢視 ${name}`,

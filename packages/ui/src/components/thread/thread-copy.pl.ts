@@ -28,7 +28,7 @@ export const pl: ThreadMessages = {
     aria: (name, detail) => `${name}, ${detail}`,
   },
   steps: {
-    working: (summary) => `Przetwarzanie · ${summary}`,
+    more: (n) => `w toku: ${n}`,
     failed: (n) => `${n} z niepowodzeniem`,
     thinking: "Rozumowanie",
     viewFile: (name) => `Zobacz ${name}`,

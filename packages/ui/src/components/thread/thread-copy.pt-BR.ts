@@ -16,5 +16,5 @@ export const ptBR: ThreadMessages = {
     context: (videoName, revision, playhead, selected) => `“${videoName}” · Versão ${revision} · Indicador de reprodução ${playhead}${selected ? ` · ${pluralForm('pt-BR', selected, { one: `${selected} clipe selecionado`, other: `${selected} clipes selecionados` })}` : ''}`,
   },
   output: { aria: (name, detail) => `${name}, ${detail}` },
-  steps: { working: (summary) => `Em andamento · ${summary}`, failed: (n) => `${n} com falha`, thinking: 'Pensando', viewFile: (name) => `Ver ${name}`, input: 'Entrada', error: 'Erro', output: 'Saída', waiting: 'Aguardando saída', noOutput: 'Sem saída' },
+  steps: { more: (n) => `${n} em andamento`, failed: (n) => `${n} com falha`, thinking: 'Pensando', viewFile: (name) => `Ver ${name}`, input: 'Entrada', error: 'Erro', output: 'Saída', waiting: 'Aguardando saída', noOutput: 'Sem saída' },
 };

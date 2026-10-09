@@ -44,7 +44,8 @@ const en = {
     aria: (name: string, detail: string) => `${name}, ${detail}`,
   },
   steps: {
-    working: (summary: string) => `Working · ${summary}`,
+    /** 几步一起跑时，摘要行在那一步的类别名后面写的（`n` 是在跑的步数）。 */
+    more: (n: number) => `${n} running`,
     failed: (n: number) => `${n} failed`,
     thinking: 'Thinking',
     viewFile: (name: string) => `View ${name}`,

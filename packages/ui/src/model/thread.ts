@@ -6,11 +6,15 @@ import { M } from './thread-copy.ts';
 
 type Item<K extends TimelineItem['kind']> = Extract<TimelineItem, { kind: K }>;
 
-/** 一组连续的执行步骤（推理与工具调用），默认折叠成一行摘要（产品设计 §3.2.2）。 */
+/**
+ * 一组连续的执行过程（推理、工具调用与视频修改的回执），默认折叠成一行摘要（产品设计 §3.2.2）。
+ * `undone`：这个会话里之后被撤销了的那些修改的事务 id（回执行据此写「已撤销」）。
+ */
 export interface StepsBlock {
   type: 'steps';
   id: Id;
-  items: (Item<'reasoning'> | Item<'tool-call'>)[];
+  items: (Item<'reasoning'> | Item<'tool-call'> | Item<'video-change'>)[];
+  undone: ReadonlySet<Id>;
 }
 
 export type ThreadBlock =
@@ -19,14 +23,12 @@ export type ThreadBlock =
   | StepsBlock
   | { type: 'approval'; id: Id; item: Item<'approval'> }
   | { type: 'notice'; id: Id; item: Item<'notice'> }
-  /** 智能体对视频的一笔修改（产品设计 §6.5 变更卡）。`undone`：之后这个会话里已经撤销了它。 */
-  | { type: 'change'; id: Id; item: Item<'video-change'>; undone: boolean }
   /** 任务的状态行：放在这个任务的最后，写「已工作 X」或停止、失败的原因。 */
   | { type: 'task'; id: Id; item: Item<'task'> };
 
 /**
  * 把条目排成线程块。按出现顺序；连续的步骤合并成一组；任务条目移到它的最后一个条目之后。
- * 变更卡打断步骤组：修改落在哪一步之后，就显示在哪里。
+ * 视频修改的回执（产品设计 §6.5 变更卡）也是过程，与步骤收进同一组：两段文字之间只有一行摘要，回执在展开后按先后排。
  */
 export function buildThread(items: readonly TimelineItem[]): ThreadBlock[] {
   const tasks = new Map<Id, Item<'task'>>();
@@ -52,13 +54,13 @@ export function buildThread(items: readonly TimelineItem[]): ThreadBlock[] {
       flushTasksEndingAt(i);
       return;
     }
-    if (item.kind === 'reasoning' || item.kind === 'tool-call') {
+    if (item.kind === 'reasoning' || item.kind === 'tool-call' || item.kind === 'video-change') {
       if (item.kind === 'reasoning' && !item.text.trim()) {
         flushTasksEndingAt(i);
         return;
       }
       if (!steps) {
-        steps = { type: 'steps', id: `steps/${item.id}`, items: [] };
+        steps = { type: 'steps', id: `steps/${item.id}`, items: [], undone };
         blocks.push(steps);
       }
       steps.items.push(item);
@@ -77,9 +79,6 @@ export function buildThread(items: readonly TimelineItem[]): ThreadBlock[] {
           break;
         case 'notice':
           blocks.push({ type: 'notice', id: item.id, item });
-          break;
-        case 'video-change':
-          blocks.push({ type: 'change', id: item.id, item, undone: undone.has(item.transactionId) });
           break;
         case 'task':
           break;
@@ -192,7 +191,10 @@ function stepPaths(item: Item<'tool-call'>, kind: StepKind, cwd?: string | null)
 
 /**
  * 一组步骤的一句话摘要：按种类首次出现的顺序归纳，读取与修改按去重后的路径计数，
- * 视频修改单独计笔数（「读取了 2 个文件、运行了命令」）。只有思考时写「思考」。
+ * 视频修改按回执计笔数（「读取了 2 个文件、运行了命令」）。只有思考时写「思考」。
+ *
+ * 笔数只数回执：提交视频修改的工具在调用里放回执（`edits_apply` 之外，转写、翻译这些也会提交），
+ * 一次成功的 `edits_apply` 既是一次工具调用又有一张回执，按调用数会重复，失败的调用又没有提交。
  */
 export function stepsSummary(items: StepsBlock['items'], cwd?: string | null): string {
   type Key = Exclude<StepKind, 'other'> | 'video' | 'tool';
@@ -200,12 +202,15 @@ export function stepsSummary(items: StepsBlock['items'], cwd?: string | null): s
   const paths: Partial<Record<Key, Set<string>>> = {};
   let videoEdits = 0;
   for (const item of items) {
+    if (item.kind === 'video-change') {
+      if (!order.includes('video')) order.push('video');
+      videoEdits++;
+      continue;
+    }
     if (item.kind !== 'tool-call') continue;
-    const isVideoEdit = ['edits_apply', 'edits_undo'].includes(videoTool(item) ?? '');
     const { kind } = toolStep(item, cwd);
-    const key: Key = isVideoEdit ? 'video' : kind === 'other' ? 'tool' : kind;
+    const key: Key = kind === 'other' ? 'tool' : kind;
     if (!order.includes(key)) order.push(key);
-    if (isVideoEdit) videoEdits++;
     for (const path of stepPaths(item, kind, cwd)) (paths[key] ??= new Set()).add(path);
   }
   const P = M.phrase;

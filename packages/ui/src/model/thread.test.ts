@@ -105,10 +105,17 @@ const change = (id: string, taskId: string, undoOf: string | null = null): Timel
 });
 
 describe('buildThread：变更卡', () => {
-  it('打断步骤组，并标出之后被撤销的那一笔', () => {
+  it('回执与步骤收进同一组，并标出之后被撤销的那一笔', () => {
     const blocks = buildThread([user('u1', 't1'), tool('c1', 't1'), change('tx1', 't1'), tool('c2', 't1'), change('tx2', 't1', 'tx1')]);
-    expect(blocks.map((b) => b.type)).toEqual(['user', 'steps', 'change', 'steps', 'change']);
-    expect(blocks.filter((b) => b.type === 'change').map((b) => (b.type === 'change' ? b.undone : null))).toEqual([true, false]);
+    expect(blocks.map((b) => b.type)).toEqual(['user', 'steps']);
+    const steps = blocks[1]!;
+    expect(steps.type === 'steps' && steps.items.map((i) => i.id)).toEqual(['c1', 'change/tx1', 'c2', 'change/tx2']);
+    expect(steps.type === 'steps' && [...steps.undone]).toEqual(['tx1']);
+  });
+
+  it('没有步骤时回执自己成一组，被回复隔开的回执各成一组', () => {
+    const blocks = buildThread([user('u1', 't1'), change('tx1', 't1'), agent('a1', 't1'), change('tx2', 't1')]);
+    expect(blocks.map((b) => b.type)).toEqual(['user', 'steps', 'agent', 'steps']);
   });
 });
 
@@ -244,9 +251,17 @@ describe('视频工具', () => {
     expect(toolTitle(call('other.tool', null))).toBe('other.tool');
   });
 
-  it('摘要单独计视频修改', () => {
-    const items = [call('baocut.videos_inspect', null), call('baocut.edits_apply', null), call('baocut.edits_undo', null)];
+  it('摘要按回执计视频修改的笔数：修改工具的调用本身算调用了工具', () => {
+    const items = [
+      call('baocut.videos_inspect', null),
+      call('baocut.edits_apply', null),
+      change('tx1', 't'),
+      call('baocut.edits_undo', null),
+      change('tx2', 't', 'tx1'),
+    ] as Parameters<typeof stepsSummary>[0];
     expect(stepsSummary(items)).toBe('调用了工具、提交了 2 笔视频修改');
+    expect(stepsSummary([call('baocut.edits_apply', null)])).toBe('调用了工具');
+    expect(stepsSummary([change('tx1', 't')] as Parameters<typeof stepsSummary>[0])).toBe('提交了 1 笔视频修改');
   });
 });
 

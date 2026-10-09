@@ -1,6 +1,5 @@
 import { memo, useRef, useState, type ReactNode } from 'react';
-import type { TimelineItem } from '@baocut/protocol';
-import { ResponseStatus, ResponseStatusPanel, ResponseStatusTitle } from '@react-spectrum/ai';
+import type { Id, TimelineItem } from '@baocut/protocol';
 import { PixelLoader } from '@react-spectrum/ai/loader';
 import AlertTriangle from '@react-spectrum/s2/icons/AlertTriangle';
 import Asset from '@react-spectrum/s2/icons/Asset';
@@ -36,15 +35,18 @@ import Tools from '@react-spectrum/s2/icons/Tools';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { T } from './thread-copy.ts';
 import type { BaoCutStepKind } from '../../model/agent-tool-steps.ts';
-import { diffLines, looksLikeDiff, nextToolStatus, stepError, stepMeta } from '../../model/agent-turn.ts';
+import { diffLines, elapsedLabel, looksLikeDiff, nextToolStatus, stepError, stepMeta } from '../../model/agent-turn.ts';
 import { changedFiles, stepsSummary, toolStep, type StepKind, type StepsBlock } from '../../model/thread.ts';
 import { useShell } from '../../state/shell-store.ts';
-import { loaderIcon, loaderSequence } from './agent-loader-icons.ts';
+import { useNow } from '../use-now.ts';
+import { loaderSequence } from './agent-loader-icons.ts';
+import { ChangeCard } from './change-card.tsx';
 import { CopyButton } from './copy-button.tsx';
 import './agent-thread.css';
 
 type Step = StepsBlock['items'][number];
 type ToolCall = Extract<TimelineItem, { kind: 'tool-call' }>;
+type Reasoning = Extract<TimelineItem, { kind: 'reasoning' }>;
 
 const group = style({ display: 'flex', flexDirection: 'column', gap: 4, marginStart: 36 });
 const files = style({ display: 'flex', flexWrap: 'wrap', gap: 4, paddingX: 8 });
@@ -97,49 +99,71 @@ const TOOL_ICON: Record<BaoCutStepKind, ReactNode> = {
 };
 
 /**
- * 一组执行步骤：S2 AI 的 ResponseStatus 收成一句话（「读取了 2 个文件、运行了命令」），点开是步骤行；
- * 正在跑的那一条在折叠时也露在下面（产品设计 §3.2.2）。
- * 跑着时标题前是正在跑的那一步类别的第一个像素图，静止不动（agent-thread.css 停掉它的动画）；动画只留在正在跑的那一行。
+ * 一组执行过程（产品设计 §3.2.2）：两段文字之间只有一行灰字摘要 + 箭头（「读取了 2 个文件、运行了命令」），不放图标；
+ * 有失败也是灰字，只多写「N 项失败」。点开是一个带边框的框：一步一行、一张修改回执一行（§6.5 变更卡，撤销与恢复在行里），
+ * 行间分隔线；框里每一行还能再点开看输入、输出与错误。
+ * 会话在跑、这一组里有一步在跑时，摘要行换成那一步：类别的像素加载图形 + 扫光的类别名 + 已用时间，默认也折叠；
+ * 几步一起跑时写「等 N 项」。点开后框里那一行用静止图标：一个会话里在动的只有摘要行与回合页脚。
  */
 export const StepsGroup = memo(function StepsGroup({
   items,
+  undone,
   live,
   conversationId,
   cwd,
 }: {
   items: StepsBlock['items'];
+  undone: StepsBlock['undone'];
   live: boolean;
   conversationId: string;
   cwd?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const failed = items.filter((i) => i.kind === 'tool-call' && i.status === 'failed').length;
-  const current = live
-    ? items.findLast((i) => (i.kind === 'tool-call' && i.status === 'running') || (i.kind === 'reasoning' && i.streaming))
-    : undefined;
-  const summary = stepsSummary(items, cwd);
-  const title = [current ? T.steps.working(summary) : summary, failed ? T.steps.failed(failed) : null].filter(Boolean).join(' · ');
-  const icon = loaderIcon(current?.kind === 'tool-call' ? stepLoaderKey(current, cwd) : 'thinking');
+  const running = live
+    ? items.filter((i): i is ToolCall | Reasoning => (i.kind === 'tool-call' && i.status === 'running') || (i.kind === 'reasoning' && i.streaming))
+    : [];
+  const current = running.at(-1);
   return (
     <section className={`${group} bc-steps-group`}>
-      <ResponseStatus status={current ? 'pending' : 'success'} isExpanded={open} onExpandedChange={setOpen}>
-        <ResponseStatusTitle pixelLoader={icon}>{title}</ResponseStatusTitle>
-        <ResponseStatusPanel>
-          <ol className="bc-steps">
-            {items.map((item) => (
-              <StepRow key={item.id} item={item} conversationId={conversationId} cwd={cwd} />
-            ))}
-          </ol>
-        </ResponseStatusPanel>
-      </ResponseStatus>
-      {!open && current ? (
-        <ol className="bc-steps">
-          <StepRow item={current} conversationId={conversationId} cwd={cwd} />
+      <button type="button" className={`bc-work__head${current ? ' is-live' : ''}`} aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        {current ? (
+          <LiveHead item={current} count={running.length} cwd={cwd} />
+        ) : (
+          <span className="bc-work__sum">{[stepsSummary(items, cwd), failed ? T.steps.failed(failed) : null].filter(Boolean).join(' · ')}</span>
+        )}
+        <span className="bc-work__chev">{open ? <ChevronDown /> : <ChevronRight />}</span>
+      </button>
+      {open ? (
+        <ol className="bc-steps bc-steps--box">
+          {items.map((item) => (
+            <StepRow key={item.id} item={item} still={!!current} undone={undone} conversationId={conversationId} cwd={cwd} />
+          ))}
         </ol>
       ) : null}
     </section>
   );
 });
+
+/** 在跑的摘要行：那一步的类别名与已用时间（自己每秒跳，组不跟着重渲）。几步一起跑时不写时间，写「等 N 项」。 */
+function LiveHead({ item, count, cwd }: { item: ToolCall | Reasoning; count: number; cwd?: string | null }) {
+  const now = useNow(1000);
+  const label = item.kind === 'tool-call' ? toolStep(item, cwd).label : T.steps.thinking;
+  const started = Date.parse(item.createdAt);
+  return (
+    <>
+      <span className="bc-work__loader">
+        <PixelLoader icon={loaderSequence(item.kind === 'tool-call' ? stepLoaderKey(item, cwd) : 'reasoning')} size={14} />
+      </span>
+      <span className="bc-work__sum bc-shimmer">{label}</span>
+      {count > 1 ? (
+        <span className="bc-work__meta">{T.steps.more(count)}</span>
+      ) : Number.isFinite(started) ? (
+        <span className="bc-work__meta">{elapsedLabel(now - started)}</span>
+      ) : null}
+    </>
+  );
+}
 
 /** 步骤的加载图形键：BaoCut 自己的工具按它的类别（与图标同一个优先级），其余按通用类别。 */
 function stepLoaderKey(item: ToolCall, cwd?: string | null): string {
@@ -156,8 +180,23 @@ function RowLoader({ kind }: { kind: string }) {
   );
 }
 
-const StepRow = memo(function StepRow({ item, conversationId, cwd }: { item: Step; conversationId: string; cwd?: string | null }) {
-  return item.kind === 'reasoning' ? <ReasoningRow item={item} /> : <ToolRow item={item} conversationId={conversationId} cwd={cwd} />;
+/** `still`：加载图形已在摘要行上，这一行在跑时用静止图标、只留扫光。 */
+const StepRow = memo(function StepRow({
+  item,
+  still,
+  undone,
+  conversationId,
+  cwd,
+}: {
+  item: Step;
+  still: boolean;
+  undone: ReadonlySet<Id>;
+  conversationId: string;
+  cwd?: string | null;
+}) {
+  if (item.kind === 'reasoning') return <ReasoningRow item={item} still={still} />;
+  if (item.kind === 'video-change') return <ChangeCard item={item} undone={undone.has(item.transactionId)} conversationId={conversationId} />;
+  return <ToolRow item={item} still={still} conversationId={conversationId} cwd={cwd} />;
 });
 
 /** 思考只露第一行（去掉 Markdown 加粗），全文在展开里。 */
@@ -166,14 +205,14 @@ function firstLine(text: string): string {
   return line.replace(/\*\*/g, '').trim();
 }
 
-function ReasoningRow({ item }: { item: Extract<Step, { kind: 'reasoning' }> }) {
+function ReasoningRow({ item, still }: { item: Reasoning; still: boolean }) {
   const [open, setOpen] = useState(false);
   const head = firstLine(item.text);
   const more = item.text.trim() !== head;
   return (
     <li className="bc-step">
       <button type="button" className="bc-step__row" aria-expanded={more ? open : undefined} onClick={() => more && setOpen((v) => !v)}>
-        {item.streaming ? (
+        {item.streaming && !still ? (
           <RowLoader kind="reasoning" />
         ) : (
           <span className="bc-step__ic">
@@ -200,7 +239,7 @@ function useLatchedStatus(status: ToolCall['status']): ToolCall['status'] {
   return latched.current;
 }
 
-function ToolRow({ item, conversationId, cwd }: { item: ToolCall; conversationId: string; cwd?: string | null }) {
+function ToolRow({ item, still, conversationId, cwd }: { item: ToolCall; still: boolean; conversationId: string; cwd?: string | null }) {
   const [open, setOpen] = useState(false);
   const openPane = useShell((s) => s.openPane);
   const status = useLatchedStatus(item.status);
@@ -213,7 +252,7 @@ function ToolRow({ item, conversationId, cwd }: { item: ToolCall; conversationId
   return (
     <li className={`bc-step${failed ? ' is-failed' : ''}`}>
       <button type="button" className="bc-step__row" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-        {running ? <RowLoader kind={loaderKey} /> : <span className="bc-step__ic">{icon}</span>}
+        {running && !still ? <RowLoader kind={loaderKey} /> : <span className="bc-step__ic">{icon}</span>}
         <span className={`bc-step__label${running ? ' bc-shimmer' : ''}`}>{step.label}</span>
         <span className="bc-step__sum">{step.summary}</span>
         {stepMeta(item, status).map((meta) => (

@@ -16,5 +16,5 @@ export const it: ThreadMessages = {
     context: (videoName, revision, playhead, selected) => `«${videoName}» · Versione ${revision} · Testina di riproduzione ${playhead}${selected ? ` · ${pluralForm('it', selected, { one: `${selected} clip selezionata`, other: `${selected} clip selezionate` })}` : ''}`,
   },
   output: { aria: (name, detail) => `${name}, ${detail}` },
-  steps: { working: (summary) => `In corso · ${summary}`, failed: (n) => pluralForm('it', n, { one: `${n} non riuscito`, other: `${n} non riusciti` }), thinking: 'Ragionamento', viewFile: (name) => `Visualizza ${name}`, input: 'Input', error: 'Errore', output: 'Output', waiting: 'In attesa di output', noOutput: 'Nessun output' },
+  steps: { more: (n) => `${n} in corso`, failed: (n) => pluralForm('it', n, { one: `${n} non riuscito`, other: `${n} non riusciti` }), thinking: 'Ragionamento', viewFile: (name) => `Visualizza ${name}`, input: 'Input', error: 'Errore', output: 'Output', waiting: 'In attesa di output', noOutput: 'Nessun output' },
 };

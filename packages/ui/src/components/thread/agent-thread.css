@@ -179,6 +179,84 @@
   text-underline-offset: 2px;
 }
 
+/* ---------- 工作记录 ---------- */
+/* 两段文字之间的那一行摘要（steps-group.tsx）：灰字 + 箭头，不放图标，字号跟正文；悬停与点开时字色加深。
+   在跑时前面是那一步的像素加载图形，类别名扫光，后面灰字的已用时间。 */
+.bc-work__head {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 4px;
+  max-width: 100%;
+  min-height: 24px;
+  padding: 2px 8px;
+  margin-inline-start: -8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  text-align: start;
+  color: var(--bc-at-muted);
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.bc-work__head.is-live {
+  gap: 8px;
+}
+.bc-work__head:focus-visible {
+  outline: 2px solid var(--bc-at-focus);
+  outline-offset: -2px;
+}
+.bc-work__head:hover .bc-work__sum:not(.bc-shimmer),
+.bc-work__head[aria-expanded='true'] .bc-work__sum:not(.bc-shimmer) {
+  color: var(--bc-at-text);
+}
+.bc-work__head:hover .bc-work__chev {
+  color: var(--bc-at-muted);
+}
+.bc-work__sum {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bc-work__loader {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+.bc-work__meta {
+  flex: none;
+  color: var(--bc-at-faint);
+  white-space: nowrap;
+}
+.bc-work__chev {
+  flex: none;
+  display: inline-flex;
+  color: var(--bc-at-faint);
+}
+/* 点开后是一个带边框的框：一步一行、一张回执一行，行间分隔线；行再点开，详情在框里。 */
+.bc-steps--box {
+  border: 1px solid var(--bc-at-line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.bc-steps--box > li + li {
+  border-top: 1px solid var(--bc-at-line);
+}
+.bc-steps--box .bc-step__row {
+  min-height: 32px;
+  padding: 6px 12px;
+  border-radius: 0;
+}
+.bc-steps--box .bc-step__detail {
+  margin: 0 12px 12px 40px;
+}
+
 /* ---------- 工具步骤行 ---------- */
 .bc-steps {
   list-style: none;
@@ -231,12 +309,6 @@
   justify-content: center;
   width: 20px;
   height: 20px;
-}
-/* 工作组标题前的像素图静止：S2 的 ResponseStatus 在 pending 时一定播 PixelLoader、没有暂停的开关，
-   去掉动画后像素格停在原位、整体不透明，就是一枚静止的图；动画只留在正在跑的那一步（.bc-step__loader）与回合页脚。 */
-.bc-steps-group h3 div[aria-hidden='true'][style*='-group-o'],
-.bc-steps-group h3 div[aria-hidden='true'][style*='-group-o'] > div {
-  animation: none !important;
 }
 .bc-step__label {
   flex: none;

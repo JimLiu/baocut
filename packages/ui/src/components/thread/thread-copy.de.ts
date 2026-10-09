@@ -30,7 +30,7 @@ export const de: ThreadMessages = {
     aria: (name: string, detail: string) => `${name}, ${detail}`,
   },
   steps: {
-    working: (summary: string) => `In Arbeit · ${summary}`,
+    more: (n: number) => `${n} laufen`,
     failed: (n: number) => `${n} fehlgeschlagen`,
     thinking: "Denkt nach",
     viewFile: (name: string) => `Anzeigen: ${name}`,

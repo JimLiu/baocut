@@ -47,7 +47,7 @@ type Task = Extract<TimelineItem, { kind: 'task' }>;
 // ---- 间距 ----
 
 /** 线程里一行的种类。`block` 是同一条回复里的 Markdown 块，`footer` 是回合页脚。 */
-export type RowKind = 'user' | 'assistant' | 'tool' | 'approval' | 'notice' | 'change' | 'block' | 'footer';
+export type RowKind = 'user' | 'assistant' | 'tool' | 'approval' | 'notice' | 'block' | 'footer';
 
 const GAPS: Partial<Record<`${RowKind}>${RowKind}`, number>> = {
   'user>user': 4,

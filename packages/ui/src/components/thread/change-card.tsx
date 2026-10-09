@@ -17,20 +17,11 @@ import { useVideoHistory } from './use-video-history.ts';
 
 type VideoChange = Extract<TimelineItem, { kind: 'video-change' }>;
 
-/** 回执（原型 ui.css `.arcpt` :2817-2823）：生效中是绿底细边，撤销之后转灰。 */
-const card = style({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 4,
-  paddingX: 12,
-  paddingY: 8,
-  marginStart: 36,
-  borderRadius: '[10px]',
-  borderWidth: 1,
-  borderStyle: 'solid',
-  borderColor: { default: 'green-300', isUndone: 'gray-200' },
-  backgroundColor: { default: 'green-100', isUndone: 'gray-50' },
-});
+/**
+ * 回执是工作记录框里的一行（原型 agent-messages.css `.asteps--box .arcpt`）：不另起底色与边框，行间分隔线由框给；
+ * 生效中图标是绿色，撤销之后转灰。
+ */
+const row = style({ display: 'flex', flexDirection: 'column', gap: 4, paddingX: 12, paddingY: 4 });
 const head = style({ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, minHeight: 32 });
 const icon = style({ display: 'flex', flexShrink: 0, color: { default: 'green-1100', isUndone: 'gray-600' } });
 const title = style({
@@ -38,8 +29,8 @@ const title = style({
   flexBasis: 0,
   minWidth: 0,
   font: 'ui-sm',
-  fontWeight: 'bold',
-  color: { default: 'green-1100', isUndone: 'gray-700' },
+  fontWeight: 'medium',
+  color: { default: 'gray-800', isUndone: 'gray-700' },
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
@@ -67,8 +58,8 @@ function editorHolds(target: FileTarget, videoId: Id): boolean {
 }
 
 /**
- * 变更卡（产品设计 §6.5，原型 agent-thread.jsx `ReceiptMsg` :193-215）：Agent 经工具提交的一笔视频修改。
- * 内容全部来自引擎的回执，不取 Agent 自己的说法。
+ * 变更卡（产品设计 §6.5，原型 agent-steps.jsx `ReceiptStep`）：Agent 经工具提交的一笔视频修改，是工作记录展开后框里的一行
+ * （steps-group.tsx）。内容全部来自引擎的回执，不取 Agent 自己的说法。
  *
  * - 撤销：先确认（原型 `ConfirmDialog`）。编辑器开着这个视频时走编辑器的命令队列；没开着时在后台打开视频撤销再关掉
  *   （`undoInBackground`），不再要求视频开在旁边。编辑器正在打开它时先等打开完。撤销冲突由引擎判断。
@@ -153,7 +144,7 @@ export const ChangeCard = memo(function ChangeCard({
   const Icon = isUndone ? Undo : CheckmarkCircle;
 
   return (
-    <div className={card({ isUndone })} role="group" aria-label={T.change.aria(item.label)} data-role="video-change">
+    <li className={row} aria-label={T.change.aria(item.label)} data-role="video-change">
       <div className={head}>
         <span className={icon({ isUndone })} aria-hidden>
           <Icon />
@@ -207,6 +198,6 @@ export const ChangeCard = memo(function ChangeCard({
           </AlertDialog>
         ) : null}
       </DialogContainer>
-    </div>
+    </li>
   );
 });

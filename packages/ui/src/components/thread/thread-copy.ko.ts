@@ -28,7 +28,7 @@ export const ko: ThreadMessages = {
     aria: (name, detail) => `${name}, ${detail}`,
   },
   steps: {
-    working: (summary) => `진행 중 · ${summary}`,
+    more: (n) => `${n}개 진행 중`,
     failed: (n) => `${n}개 실패`,
     thinking: '생각 중',
     viewFile: (name) => `${name} 보기`,

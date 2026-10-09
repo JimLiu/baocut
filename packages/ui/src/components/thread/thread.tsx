@@ -9,7 +9,6 @@ import { threadCards, type ThreadCard } from '../../model/video-cards.ts';
 import { useConversationMeta } from '../../state/directory-store.ts';
 import { useSpace } from '../../state/space-store.ts';
 import { ApprovalCard } from './approval-card.tsx';
-import { ChangeCard } from './change-card.tsx';
 import {
   beginScrollbarDrag,
   endScrollbarDrag,
@@ -108,7 +107,7 @@ export function Thread({
   const showColumn = blocks.length > 0 || running;
   const { scrollerRef, columnRef } = useFollowBottom(conversationId, blocks, showColumn);
 
-  // 「当前」的内容块：步骤组在跑时折叠行下面露出正在跑的那一条。
+  // 「当前」的内容块：步骤组在跑时摘要行换成正在跑的那一步。
   const lastContent = blocks.findLast((block) => block.type !== 'task');
   const turnList = useMemo(() => turns(blocks), [blocks]);
   // 失败的恢复区只挂在最后一个任务上，而且会话空闲时才出：之后又跑过别的，旧的失败就不再给出路。
@@ -377,12 +376,10 @@ function Block({
         </>
       );
     case 'steps':
-      return <StepsGroup items={block.items} live={live} conversationId={conversationId} cwd={cwd} />;
+      return <StepsGroup items={block.items} undone={block.undone} live={live} conversationId={conversationId} cwd={cwd} />;
     case 'approval':
       return <ApprovalCard item={block.item} conversationId={conversationId} />;
     case 'notice':
       return <NoticeLine item={block.item} />;
-    case 'change':
-      return <ChangeCard item={block.item} undone={block.undone} conversationId={conversationId} />;
   }
 }
