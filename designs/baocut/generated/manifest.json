@@ -162,6 +162,7 @@
       "app/voice-picker.jsx",
       "app/export-preview.jsx",
       "app/export-range.jsx",
+      "app/transcript-copy.jsx",
       "app/export-transcript.jsx",
       "app/export-audio.jsx",
       "app/export-loudness.jsx",
@@ -413,9 +414,9 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/app.js?v=735edb5a04a3",
-    "css": "generated/app.css?v=f04b4bc691f7",
-    "bytes": 3815831
+    "js": "generated/app.js?v=0d9212a8468b",
+    "css": "generated/app.css?v=e365c0e58225",
+    "bytes": 3819062
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -536,6 +537,7 @@
       "app/store.jsx",
       "app/export-preview.jsx",
       "app/export-range.jsx",
+      "app/transcript-copy.jsx",
       "app/export-transcript.jsx",
       "app/export-audio.jsx",
       "app/export-loudness.jsx",
@@ -651,9 +653,9 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/web.js?v=7b16e1278cc8",
-    "css": "generated/web.css?v=2f0c83879ae0",
-    "bytes": 2366711
+    "js": "generated/web.js?v=09781e4e9bb9",
+    "css": "generated/web.css?v=0fea30af06b5",
+    "bytes": 2369919
   },
   "components": {
     "file": "Components.html",
@@ -679,7 +681,7 @@
       "app/spectrum.css"
     ],
     "js": "generated/components.js?v=21bc3b6ce948",
-    "css": "generated/components.css?v=106d9269c791",
+    "css": "generated/components.css?v=5c4ec8eb8f0b",
     "bytes": 114327
   }
 }

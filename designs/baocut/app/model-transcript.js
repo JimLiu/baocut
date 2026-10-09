@@ -220,7 +220,7 @@
   /* ---------- 文稿导出正文（导出弹层「文稿」页） ----------
      段落是读的文章，不是带时间轴的行：
        · md：`# 标题`；章节成 `## 章名 · mm:ss`（时间戳关掉时只写章名）；
-       · txt：标题一行，章节成 `— 章名 —`；
+       · txt：没有标题（command-protocol-spec §4.4），章节成 `— 章名 —`；
        · 说话人开着时**每段**都带标签（不论有几位说话人）：md `**名字:** 正文`、txt `名字: 正文`；
        · 段落时间戳写在段末 ` [mm:ss]`（满一小时 `[hh:mm:ss]`），不加反引号；
          双语对照时跟在原文段后面；译文不带标签与时间戳——md 里是原文段后单独一段引用 `> 译文`，
@@ -243,7 +243,7 @@
       const chs = (sections || []).filter((sec) => sec.chapter).map((sec) => sec.chapter);
       out.push(frontmatter(o.meta, {speakers: o.speaker ? used : [], chapters: o.chapters ? chs : []}));
     }
-    if (o.title) out.push(md ? '# ' + o.title : o.title);
+    if (o.title && md) out.push('# ' + o.title);
     (sections || []).forEach((sec) => {
       if (!sec.paras.length) return;
       if (o.chapters && sec.chapter) {
@@ -296,7 +296,69 @@
     return out.join('\n');
   }
 
+  /* ---------- 文稿正文的选项（导出「文稿」页与文稿面板的复制共用，2026-10-09） ----------
+     一套词、一个顺序：格式（Markdown / 纯文本）加五个开关。导出页与「复制设置」都从这张表取标签，
+     不各写一份。复制出来的正文与同样设置的导出逐字相同（都走 exportText），差别只在两处：
+     语言跟文稿面板当前的视图走；组合记在偏好 `txCopy`，与导出页分开记——导出多半是存档，
+     复制多半是贴进聊天或文档，缺省本来就不一样。 */
+  const TEXT_OPTS = [
+    {k: 'frontmatter', label: '文首元信息'},
+    {k: 'chapters', label: '章节标题'},
+    {k: 'time', label: '段落时间戳'},
+    {k: 'speaker', label: '说话人'},
+    {k: 'skipCut', label: '跳过已剪段'},
+  ];
+  const FMT_LABEL = {md: 'Markdown', txt: '纯文本'};
+
+  /** 复制的缺省：纯文本、只要正文——与改版前菜单里的「复制文字」同一个结果。 */
+  const COPY_DEFAULTS = {fmt: 'txt', frontmatter: false, chapters: false, time: false, speaker: false, skipCut: true};
+
+  /** 偏好里存的组合 → 完整选项；缺的、类型不对的取缺省。 */
+  function copyOpts(saved) {
+    const s = saved && typeof saved === 'object' ? saved : {};
+    const out = {fmt: s.fmt === 'md' || s.fmt === 'txt' ? s.fmt : COPY_DEFAULTS.fmt};
+    TEXT_OPTS.forEach(({k}) => { out[k] = typeof s[k] === 'boolean' ? s[k] : COPY_DEFAULTS[k]; });
+    return out;
+  }
+
+  /** 生效值：文首元信息只在 Markdown 里写，章节标题要视频有章节。
+      置灰的开关保留用户的勾选（换回 Markdown、有了章节就回来），只是这一次不算。 */
+  function textEffective(o, has) {
+    return Object.assign({}, o, {
+      frontmatter: !!o.frontmatter && o.fmt === 'md',
+      chapters: !!o.chapters && !!(has && has.chapters),
+    });
+  }
+
+  /** 组合写成一串零件（复制钮的提示、复制后的回执、范围菜单的副题）：格式，再列开着的前四项；
+      跳过已剪段是缺省，关掉时才写「含已剪段」。scope 同 textArgs：只列对这个范围生效的——
+      范围复制不写文首元信息，这一段没有章节标题、也不按跳过已剪段丢（是用户点名要的那段）。 */
+  function textParts(eff, scope) {
+    const part = scope === 'chapter' || scope === 'para';
+    const e = Object.assign({}, eff, part ? {frontmatter: false} : null, scope === 'para' ? {chapters: false, skipCut: true} : null);
+    const parts = [FMT_LABEL[e.fmt] || FMT_LABEL.txt];
+    TEXT_OPTS.forEach(({k, label}) => { if (k !== 'skipCut' && e[k]) parts.push(label); });
+    if (!e.skipCut) parts.push('含已剪段');
+    return parts;
+  }
+
+  /** 按范围把生效选项摊成 exportText 的参数。
+      all：与导出同一份正文——Markdown 以 `# 标题` 开头，开着文首元信息时前面再加 YAML；纯文本没有标题。
+      chapter：不写标题与文首元信息，章节标题照开关；para：只这一段，也不写章节标题。
+      base：{lang, speakers, title, meta} */
+  function textArgs(eff, scope, base) {
+    const b = base || {};
+    const whole = !scope || scope === 'all';
+    return {
+      fmt: eff.fmt, lang: b.lang, speakers: b.speakers, time: !!eff.time, speaker: !!eff.speaker,
+      chapters: scope === 'para' ? false : !!eff.chapters,
+      title: whole && eff.fmt === 'md' ? b.title : '',
+      meta: whole && eff.frontmatter ? b.meta : null,
+    };
+  }
+
   window.BC_TX = {paraText, hasWordTiming, initialSegmentsProvisional, copyText, copyReceipt, stamp, exportText, projectMeta, frontmatter,
+    TEXT_OPTS, FMT_LABEL, COPY_DEFAULTS, copyOpts, textEffective, textParts, textArgs,
     LIVE_SAVE_PCT, LIVE_SAVE_TICKS, liveAtPct, liveSaving, liveSlice, LIVE_STAGES, liveStage, liveAt, cueRecognized, liveTrackSlice,
     paraSrc, cueSpans, cueOfRange, applyParaEdit};
 })();

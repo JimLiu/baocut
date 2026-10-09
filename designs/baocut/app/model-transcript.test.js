@@ -239,9 +239,9 @@ test('exportText：只有一位说话人时也每段都带标签', () => {
     '林澈: 欢迎回到《码与远方》。\n\n林澈: 谢谢邀请。');
 });
 
-test('exportText txt：章节 `— 章名 —`，标签 `名字: `，时间戳在段末', () => {
+test('exportText txt：没有标题，章节 `— 章名 —`，标签 `名字: `，时间戳在段末', () => {
   const txt = TX.exportText(sections, {fmt: 'txt', lang: 'src', chapters: true, time: true, speaker: true, speakers, title: 'ep42'});
-  assert.equal(txt, 'ep42\n\n— 开场 —\n\n林澈: 欢迎回到《码与远方》。 [00:00]\n\n— 现场访谈 —\n\n周远: 谢谢邀请。 [01:05]');
+  assert.equal(txt, '— 开场 —\n\n林澈: 欢迎回到《码与远方》。 [00:00]\n\n— 现场访谈 —\n\n周远: 谢谢邀请。 [01:05]');
   assert.equal(TX.exportText(sections, {fmt: 'txt', lang: 'trans', chapters: true}),
     '— 开场 —\n\nWelcome back to Code & Wander.\n\n— 现场访谈 —\n\nThanks for having me.');
 });
@@ -301,4 +301,52 @@ test('frontmatter：与内核同一份字段顺序，缺的不写、换行折成
   assert.ok(!TX.exportText(sections, {fmt: 'txt', lang: 'src', meta}).includes('---'));
   const bare = TX.exportText(sections, {fmt: 'md', lang: 'src', meta: TX.projectMeta({title: 't', duration: 65}, {language: 'zh'})});
   assert.ok(bare.startsWith('---\ntitle: "t"\nduration: "01:05"\nlanguage: "zh"\n---\n\n'));
+});
+
+/* ---------- 文稿正文的选项：导出页与复制共用 ---------- */
+
+test('复制组合：缺省是纯文本只要正文，坏值回落缺省', () => {
+  assert.deepEqual(TX.copyOpts(undefined), TX.COPY_DEFAULTS);
+  assert.deepEqual(TX.copyOpts({fmt: 'docx', time: 'yes', speaker: true}),
+    Object.assign({}, TX.COPY_DEFAULTS, {speaker: true}));
+  assert.equal(TX.copyOpts({fmt: 'md'}).fmt, 'md');
+  assert.deepEqual(TX.TEXT_OPTS.map((o) => o.k), ['frontmatter', 'chapters', 'time', 'speaker', 'skipCut']);
+});
+
+test('生效值：文首元信息只在 Markdown，章节标题要有章节；勾选本身保留', () => {
+  const o = {fmt: 'txt', frontmatter: true, chapters: true, time: false, speaker: true, skipCut: true};
+  const e = TX.textEffective(o, {chapters: false});
+  assert.equal(e.frontmatter, false);
+  assert.equal(e.chapters, false);
+  assert.equal(o.frontmatter, true);
+  assert.equal(TX.textEffective(Object.assign({}, o, {fmt: 'md'}), {chapters: true}).frontmatter, true);
+});
+
+test('组合零件：格式在前，跳过已剪段是缺省不写，关掉才写「含已剪段」', () => {
+  assert.deepEqual(TX.textParts(TX.COPY_DEFAULTS), ['纯文本']);
+  const full = {fmt: 'md', frontmatter: true, chapters: true, time: true, speaker: true, skipCut: false};
+  assert.deepEqual(TX.textParts(full), ['Markdown', '文首元信息', '章节标题', '段落时间戳', '说话人', '含已剪段']);
+  assert.deepEqual(TX.textParts(full, 'chapter'), ['Markdown', '章节标题', '段落时间戳', '说话人', '含已剪段']);
+  assert.deepEqual(TX.textParts(full, 'para'), ['Markdown', '段落时间戳', '说话人']);
+});
+
+test('复制全文与同样设置的导出逐字相同；纯文本没有标题', () => {
+  const meta = {title: 'ep42', duration: '01:10'};
+  const eff = TX.textEffective({fmt: 'md', frontmatter: true, chapters: true, time: true, speaker: true, skipCut: true}, {chapters: true});
+  const base = {lang: 'src', speakers, title: 'ep42', meta};
+  const copied = TX.exportText(sections, TX.textArgs(eff, 'all', base));
+  assert.equal(copied, TX.exportText(sections, {fmt: 'md', lang: 'src', chapters: true, time: true, speaker: true, speakers, title: 'ep42', meta}));
+  assert.ok(copied.startsWith('---\ntitle: "ep42"'));
+  assert.ok(copied.includes('\n---\n\n# ep42\n\n## 开场 · 00:00'));
+  const plain = TX.exportText(sections, TX.textArgs(TX.COPY_DEFAULTS, 'all', base));
+  assert.equal(plain, '欢迎回到《码与远方》。\n\n谢谢邀请。');
+});
+
+test('范围复制：这一章不写标题与文首元信息、章节标题照开关；这一段连章节标题也不写', () => {
+  const eff = {fmt: 'md', frontmatter: true, chapters: true, time: true, speaker: true, skipCut: true};
+  const base = {lang: 'src', speakers, title: 'ep42', meta: {title: 'ep42'}};
+  assert.equal(TX.exportText([sections[1]], TX.textArgs(eff, 'chapter', base)),
+    '## 现场访谈 · 00:22\n\n**周远:** 谢谢邀请。 [01:05]');
+  assert.equal(TX.exportText([{chapter: null, index: 0, paras: [paras[0]]}], TX.textArgs(eff, 'para', base)),
+    '**林澈:** 欢迎回到《码与远方》。 [00:00]');
 });

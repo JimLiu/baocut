@@ -2504,6 +2504,22 @@ div.blkw { display: inline; }
 .xtxpv__copy { position: absolute; top: 4px; right: 20px; }
 .xtxpv__copy.is-done .ic { color: var(--green-900); }
 
+/* 文稿面板头的复制（transcript-copy.jsx，2026-10-09）：复制钮与下拉挨在一起读成一个控件；
+   下拉只有 16px 宽，少占面板头的地方（头上同时有「初始分段」时，面板窄于约 322px 标题仍会折行）。
+   下拉打开「复制设置」，预览框与导出页同一种只读等宽正文，矮一些 */
+.txc { display: inline-flex; align-items: center; }
+.txc__more { display: inline-flex; }
+.txc__chev { width: 16px; min-width: 16px; padding: 0; }
+.txc__pop { display: flex; flex-direction: column; gap: 12px; }
+.txc__hd { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
+.txc__title { font-size: 14px; font-weight: 700; color: var(--gray-900); }
+.txc__lang { overflow: hidden; font-size: 12px; color: var(--gray-600); white-space: nowrap; text-overflow: ellipsis; }
+.txc__row { display: flex; align-items: center; gap: 8px; }
+.txc__pv { overflow: hidden; border-radius: 8px; background: var(--gray-25); box-shadow: inset 0 0 0 1px var(--gray-200); }
+.txc__pvtext { box-sizing: border-box; height: 144px; margin: 0; padding: 8px 12px; overflow: auto; font-family: var(--mono); font-size: 11px; line-height: 16px; color: var(--gray-800); white-space: pre-wrap; overflow-wrap: anywhere; }
+.txc__ft { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.txc__rc { font-size: 12px; color: var(--gray-600); font-variant-numeric: tabular-nums; }
+
 /* 六入口开场提示条（§9）：任何点击或导航即消 */
 .opentoast { display: flex; align-items: center; gap: 8px; flex: none; margin: 10px 12px 0; padding: 8px 12px; border-radius: 8px; background: var(--blue-200); color: var(--blue-1000); font-size: 12px; cursor: pointer; }
 .opentoast:hover { background: var(--blue-300); }

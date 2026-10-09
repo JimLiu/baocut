@@ -9,7 +9,8 @@
             至少留一行（唯一开着的那行置灰）；双语只配一门译文，开另一门会换掉当前那门
      格式   Markdown（章节成小标题、说话人加粗）/ 纯文本
      带什么 文首元信息 · 章节标题 · 段落时间戳 · 说话人 · 跳过已剪段——都是真开关
-            （文首元信息 = YAML frontmatter，只 Markdown 生效、纯文本时置灰；勾选记在偏好 `txFrontmatter`，缺省勾选；
+            （开关的词与顺序取自 BC_TX.TEXT_OPTS，与文稿面板的复制设置同一组；
+             文首元信息 = YAML frontmatter，只 Markdown 生效、纯文本时置灰；勾选记在偏好 `txFrontmatter`，缺省勾选；
              章节标题只在视频没有章节时置灰；说话人与跳过已剪段任何时候都能切）
      出去是什么样   底下一块只读、可滚动的预览，整篇正文照最终排法排出来；右上角的图标按钮复制全文，
             复制成功后变成绿色对勾，3 秒后变回复制图标（2026-10-07 定稿；底栏不再有「复制文本」）
@@ -98,13 +99,9 @@
         <div className="xnote">{(X.TX_FORMATS.find((f) => f.k === fmt) || X.TX_FORMATS[0]).note}</div>
 
         <div className="cpsec">带什么</div>
-        <div className="xopts">
-          <Checkbox on={eff.frontmatter} onChange={() => app.setPref('txFrontmatter', !frontmatter)} label="文首元信息" disabled={fmt !== 'md'} />
-          <Checkbox on={eff.chapters} onChange={() => flip('chapters')} label="章节标题" disabled={!hasCh} />
-          <Checkbox on={st.time} onChange={() => flip('time')} label="段落时间戳" />
-          <Checkbox on={st.speaker} onChange={() => flip('speaker')} label="说话人" />
-          <Checkbox on={st.skipCut} onChange={() => flip('skipCut')} label="跳过已剪段" />
-        </div>
+        {/* 与文稿面板的复制设置同一组开关（transcript-copy.jsx） */}
+        <TxTextChecks eff={eff} disabled={{frontmatter: fmt !== 'md', chapters: !hasCh}}
+          onFlip={(k) => (k === 'frontmatter' ? app.setPref('txFrontmatter', !frontmatter) : flip(k))} />
         {fmt !== 'md' ? <div className="xnote">文首元信息只在 Markdown 里写</div> : null}
         {!hasCh ? <div className="xnote">这部视频没有章节 · 章节标题来自时间轴上的章节标记</div> : null}
         {st.skipCut

@@ -46,13 +46,8 @@
      两处各写一遍迟早会漂成两张表。 */
   function ScopeMenu({ctx, scope, lang, paras, onClose}) {
     const app = useApp();
-    const copy = (opts) => {
-      const txt = TX.copyText(paras, Object.assign({lang, speakers: D.speakers}, opts));
-      copyToClipboard(txt).then((ok) => ok
-        ? app.toast(`已复制 ${scope.label} · ${TX.copyReceipt(paras, lang)}`, 'positive')
-        : app.toast('复制失败 · 浏览器拒绝了剪贴板权限', 'negative'));
-      onClose();
-    };
+    /* 按复制设置 / 只复制文字（transcript-copy.jsx） */
+    const copyItems = useScopeCopyItems({ctx, scope, lang, paras, onClose});
     const run = (tool, name) => {
       ctx.requestAi(tool, {kind: scope.kind, label: scope.label, count: paras.length});
       onClose();
@@ -61,8 +56,7 @@
     return (
       <Menu>
         <MenuHead>复制{scope.label}</MenuHead>
-        <MenuItem icon="copy" label="复制文字" onClick={() => copy({})} />
-        <MenuItem icon="copy" label="带时间码与说话人" onClick={() => copy({time: true, speaker: true})} />
+        {copyItems}
         {AI ? <>
           <MenuRule />
           <MenuHead>只对{scope.label}重跑</MenuHead>
@@ -245,7 +239,7 @@
        换语言不改档、勾「同时显示原文」不改语言。 */
     const [transCode, setTransCode] = useState(null);
     const [edit, setEdit] = useState(null);
-    const [pop, setPop] = useState(null);        // 'ai' | 'lang' | 'copy'
+    const [pop, setPop] = useState(null);        // 'ai' | 'lang'
     const [drag, setDrag] = useState(null);      // {id, from} 拖动中的段
     const [over, setOver] = useState(-1);        // 当前悬停的落点章节
     const [chMenu, setChMenu] = useState(null);  // 打开菜单的章节 id
@@ -354,14 +348,6 @@
       ctx.moveParaChapter(id, dir);
     };
 
-    const copyAll = (opts) => {
-      const txt = TX.copyText(paras, Object.assign({lang, speakers: D.speakers}, opts));
-      copyToClipboard(txt).then((ok) => ok
-        ? app.toast(`已复制全文 · ${TX.copyReceipt(paras, lang)}`, 'positive')
-        : app.toast('复制失败 · 浏览器拒绝了剪贴板权限', 'negative'));
-      setPop(null);
-    };
-
     /* 改字态里整段剪光的段不占卡片：连着剪光的几段折成一条剪缝（BC_CUT.seamRows / CutSeam）。
        剪辑态不折——那一态的正文本来就要把已剪的字划着给人看。 */
     const allCutOf = (p) => { const ev = editViewOf(p); return !!ev && ev.text === ''; };
@@ -420,16 +406,8 @@
           ) : null}
           <IconBtn icon="search" size="s" tip="查找和替换 · ⌘F" on={find.open}
             onClick={() => (find.open ? find.close() : find.setOpen(true))} />
-          <S.MenuTrigger align="end" isOpen={pop === 'copy'} onOpenChange={(open) => setPop(open ? 'copy' : null)}>
-            <S.ActionButton size="S" isQuiet aria-label="复制文稿"><S.Icons.Copy /></S.ActionButton>
-            <S.Menu aria-label="复制文稿">
-              <S.MenuSection><S.Header>复制全文 · {curShort}</S.Header>
-                <S.MenuItem textValue="复制文字" onAction={() => copyAll({})}><S.Text slot="label">复制文字</S.Text><S.Text slot="description">{TX.copyReceipt(paras, lang)}</S.Text></S.MenuItem>
-                <S.MenuItem onAction={() => copyAll({speaker: true})}>带说话人</S.MenuItem>
-                <S.MenuItem onAction={() => copyAll({time: true, speaker: true})}>带时间码与说话人</S.MenuItem>
-              </S.MenuSection>
-            </S.Menu>
-          </S.MenuTrigger>
+          {/* 复制钮一点就按记住的组合复制全文，旁边的下拉是复制设置（transcript-copy.jsx） */}
+          <TranscriptCopy ctx={ctx} paras={paras} lang={lang} langLabel={curShort} transCode={trLang && trLang.code} />
           {AI && <S.MenuTrigger align="end" isOpen={pop === 'ai'} onOpenChange={(open) => setPop(open ? 'ai' : null)}>
             <S.ActionButton size="S" isQuiet aria-label="整理文稿"><S.Icons.MagicWand /></S.ActionButton>
             <S.Menu aria-label="整理文稿">
