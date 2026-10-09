@@ -30,19 +30,22 @@ jobs:
         with:
           node-version: "22"
           package-manager-cache: false
+      - uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # action 1.97.1
+        with:
+          targets: wasm32-unknown-unknown
       - name: Install ffmpeg (media probe / export tests)
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Install npm dependencies
         run: npm ci
       - name: TypeScript typecheck
         run: npm run typecheck
+      - name: Build WASM required by UI and Runtime tests
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/baocut-target
+        run: npm run build:wasm
       - name: Prebuild web client (web-service.test.ts requires dist output)
         run: npm run build:web
       - name: Run Vitest suite (unit + Runtime e2e)
-        env:
-          # Enable Node 22's experimental Web Storage so zustand persist middleware
-          # works under vitest (image-request, settings-link tests etc.).
-          NODE_OPTIONS: "--experimental-webstorage --localstorage-file ${{ runner.temp }}/baocut-localstorage.db"
         run: npm test
 
   rust-tests:
@@ -60,8 +63,6 @@ jobs:
       - name: Install system dependencies (ffmpeg, cmake, libclang)
         run: sudo apt-get update && sudo apt-get install -y ffmpeg cmake clang libclang-dev pkg-config
       - uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # action 1.97.1
-        with:
-          toolchain: stable
       # TODO: re-enable `cargo fmt --all -- --check` once the whole tree has been
       # reformatted with the current rustfmt. Right now ~20 source blocks are
       # drifting, which would mask real test/typecheck failures on every PR.

@@ -111,7 +111,7 @@ export function resolveRuntimeLaunch(
       return {
         command: app.executable,
         args: [path.join(app.resources, 'app.asar', 'out', 'main', 'runtime.js'), '--credential-store', 'keychain'],
-        env: { ELECTRON_RUN_AS_NODE: '1', ...packagedResourceEnv(app.resources) },
+        env: { ELECTRON_RUN_AS_NODE: '1', ...packagedResourceEnv(app.resources, platform) },
         source: 'packaged',
       };
     }
@@ -146,7 +146,7 @@ export function packagedApps(env: NodeJS.ProcessEnv, platform: NodeJS.Platform):
  * 打包后的 Runtime 按路径读的东西：与桌面端 `apps/desktop/src/main/packaged-resources.ts` 的 `packagedResourceEnv` 相同
  * （CLI 不依赖桌面端的包；`connection.test.ts` 核对两边一致）。
  */
-export function packagedResourceEnv(resources: string): Record<string, string> {
+export function packagedResourceEnv(resources: string, platform: NodeJS.Platform = process.platform): Record<string, string> {
   return {
     BAOCUT_BIN_DIR: path.join(resources, 'bin'),
     BAOCUT_TEMPLATES_DIR: path.join(resources, 'templates'),
@@ -154,6 +154,7 @@ export function packagedResourceEnv(resources: string): Record<string, string> {
     BAOCUT_AGENT_SKILLS_DIR: path.join(resources, 'agent-skills'),
     BAOCUT_MODEL_ASSETS_DIR: path.join(resources, 'model-assets'),
     BAOCUT_WEB_DIST: path.join(resources, 'web'),
+    ...(platform === 'darwin' ? { PMETAL_METALLIB_PATH: path.join(resources, 'bin', 'mlx.metallib') } : {}),
   };
 }
 

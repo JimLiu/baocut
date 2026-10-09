@@ -82,9 +82,14 @@ fn video_doc() -> Value {
 }
 
 fn store(dir: &Path) -> MediaStore {
+    store_with_decoder(dir, None)
+}
+
+fn store_with_decoder(dir: &Path, decoder: Option<&str>) -> MediaStore {
     let doc = video_doc();
-    let assets = Arc::new(load_assets(&doc, dir).expect("load_assets"));
-    let mut media = MediaStore::new(assets, PLAN_FPS);
+    let mut assets = load_assets(&doc, dir).expect("load_assets");
+    assets.videos.get_mut("clip").unwrap().decoder = decoder.map(str::to_owned);
+    let mut media = MediaStore::new(Arc::new(assets), PLAN_FPS);
     media.set_random_access(true);
     media
 }
@@ -122,8 +127,16 @@ fn snapping_lands_on_the_preceding_keyframe_and_releases_exactly() {
         exact_frame(dir.path(), 3.5)
     };
     assert_eq!(snapped, expected, "拖动中 t=3.5 应落在它之前的关键帧上");
-    // 同一个 GOP 内继续拖：仍是那一帧（不重开、不重解）。
-    assert_eq!(frame(&mut media, 3.8), snapped, "同一 GOP 内应复用近似帧");
+    // 原生流在同一 GOP 内复用近似帧；ffmpeg 后端不吸附，继续精确取帧。
+    let expected_next = if native {
+        snapped
+    } else {
+        exact_frame(dir.path(), 3.8)
+    };
+    assert!(
+        frame(&mut media, 3.8) == expected_next,
+        "同一 GOP 内的后续帧应遵守后端的吸附能力"
+    );
     // 松手：精确路径必须给出与从未吸附过相同的帧。
     media.set_keyframe_snap(false);
     assert_eq!(
@@ -168,4 +181,30 @@ fn keyframe_snap_is_off_by_default() {
     let mut media = store(dir.path());
     frame(&mut media, 0.0);
     assert_eq!(frame(&mut media, 3.5), exact_frame(dir.path(), 3.5));
+}
+
+/// 点名 ffmpeg 的 H.264 解码器，在有原生后端的机器上也覆盖不吸附的路径。
+#[test]
+fn ffmpeg_keyframe_snap_keeps_exact_frames_within_the_same_gop() {
+    let Some((dir, _assets)) = fixture() else {
+        return;
+    };
+    let exact = |time| frame(&mut store_with_decoder(dir.path(), Some("h264")), time);
+    let expected_start = exact(3.5);
+    let expected_next = exact(3.8);
+    assert!(
+        expected_start != expected_next,
+        "夹具在两个时刻必须是不同画面"
+    );
+    let mut media = store_with_decoder(dir.path(), Some("h264"));
+    frame(&mut media, 0.0);
+    assert_eq!(
+        media.video_backend("clip"),
+        Some(render_raster::media::FFMPEG_BACKEND)
+    );
+    media.set_keyframe_snap(true);
+    assert!(frame(&mut media, 3.5) == expected_start);
+    assert!(frame(&mut media, 3.8) == expected_next);
+    media.set_keyframe_snap(false);
+    assert!(frame(&mut media, 3.8) == expected_next);
 }

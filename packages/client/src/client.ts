@@ -83,8 +83,9 @@ interface TopicEntry {
   handlers: TopicHandlers<unknown, unknown>;
   /** 本地镜像所在的水位；null 表示需要快照。 */
   seq: Seq | null;
-  /** 订阅请求在途：期间到达的事件都已被它的响应覆盖，丢弃。 */
+  /** 订阅请求在途；响应处理前到达的事件在快照或补发之后按序应用。 */
   pending: boolean;
+  buffered: SequencedEvent<unknown>[];
 }
 
 interface PendingRequest {
@@ -151,7 +152,7 @@ export class BaoCutClient {
   }
 
   subscribe<S, E>(topic: Topic, handlers: TopicHandlers<S, E>): () => void {
-    const entry: TopicEntry = { topic, handlers: handlers as TopicHandlers<unknown, unknown>, seq: null, pending: false };
+    const entry: TopicEntry = { topic, handlers: handlers as TopicHandlers<unknown, unknown>, seq: null, pending: false, buffered: [] };
     this.#topics.set(topic, entry);
     if (this.#state.status === 'connected') this.#resubscribe(entry);
     return () => {
@@ -360,8 +361,13 @@ export class BaoCutClient {
       else pending.reject(frame.error ? RpcError.from(frame.error) : new RpcError('internal', C.unknownError()));
     } else if (frame.type === 'event') {
       const entry = this.#topics.get(frame.topic);
-      if (!entry || entry.pending || entry.seq === null) return;
-      this.#deliver(entry, { seq: frame.seq, event: frame.event });
+      if (!entry) return;
+      const event = { seq: frame.seq, event: frame.event };
+      if (entry.pending) {
+        entry.buffered.push(event);
+      } else if (entry.seq !== null) {
+        this.#deliver(entry, event);
+      }
     }
   }
 
@@ -369,23 +375,30 @@ export class BaoCutClient {
 
   #resubscribe(entry: TopicEntry): void {
     entry.pending = true;
+    entry.buffered = [];
     const params = entry.seq === null ? { topic: entry.topic } : { topic: entry.topic, afterSeq: entry.seq };
     this.#send('subscribe', params).then(
       (raw) => {
         if (this.#topics.get(entry.topic) !== entry) return;
         entry.pending = false;
+        const buffered = entry.buffered;
+        entry.buffered = [];
         const result = raw as RpcResult<'subscribe'>;
         if (result.mode === 'snapshot') {
           entry.seq = result.seq;
           entry.handlers.snapshot(result.snapshot, result.seq);
-          return;
+        } else {
+          for (const event of result.events) {
+            if (!this.#deliver(entry, event)) return;
+          }
         }
-        for (const event of result.events) {
-          if (!this.#deliver(entry, event)) return;
+        for (const event of buffered) {
+          if (this.#topics.get(entry.topic) !== entry || !this.#deliver(entry, event)) return;
         }
       },
       (error: unknown) => {
         entry.pending = false;
+        entry.buffered = [];
         if (this.#topics.get(entry.topic) !== entry) return;
         // 主题不存在（例如会话已被删除）：交给调用方从目录里得知，不再重试。不允许订阅（Web 服务的白名单之外）同样不重试。
         if (error instanceof RpcError && (error.code === 'not-found' || error.code === 'forbidden')) return;

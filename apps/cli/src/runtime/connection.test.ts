@@ -14,9 +14,11 @@ import {
 } from './connection.ts';
 
 describe('Runtime 的入口与版本门', () => {
-  it('打包后的资源位置与桌面端一致', () => {
+  it.each(['darwin', 'win32', 'linux'] as const)('%s 打包后的资源位置与桌面端一致', (platform) => {
     const resources = path.join(os.tmpdir(), 'BaoCut', 'resources');
-    expect(packagedResourceEnv(resources)).toEqual(desktopResourceEnv(packagedResources(resources)));
+    const env = packagedResourceEnv(resources, platform);
+    expect(env).toEqual(desktopResourceEnv(packagedResources(resources), platform));
+    expect(env.PMETAL_METALLIB_PATH).toBe(platform === 'darwin' ? path.join(resources, 'bin', 'mlx.metallib') : undefined);
   });
 
   it('说明书的来源：BAOCUT_AGENT_SKILLS_DIR 优先；没有时回落到仓库里的 agent-skills/，都没有时 null', () => {
