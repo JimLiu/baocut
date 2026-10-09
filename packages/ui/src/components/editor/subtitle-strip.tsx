@@ -15,7 +15,8 @@ import { DEFAULT_CAPTION_STYLE, captionStyleRoot, patchCaptionStyle } from '../.
 import type { LineKind } from '../../render/text-style.ts';
 import { useEditor } from '../../state/editor-store.ts';
 import { canEdit, useVideo } from '../../state/video-store.ts';
-import { CaptionThumb, openGallery } from './caption-gallery.tsx';
+import { openGallery } from './caption-gallery.tsx';
+import { CaptionThumb } from './caption-thumb.tsx';
 import { draftedBody } from './draft-documents.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { CAPTION_STYLE_COPY as S, SUBTITLE_COPY as C } from './subtitle-copy.ts';

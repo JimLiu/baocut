@@ -1,6 +1,6 @@
 import type { AssetRecord, Id, Rate, Sequence, SequenceItem, Track, VersionRef } from '@baocut/protocol';
 import { loadRenderPlanner } from './preview-wasm.ts';
-import type { FrozenDocument, RenderPlanner } from './render-planner.ts';
+import type { FrozenDocument, RenderPlanner, SpeechTranscript } from './render-planner.ts';
 
 /**
  * 界面里的缩略图（元素格、文字预设卡、字幕样式卡、品牌库的 Lottie 贴纸）也由渲染内核画：把要画的几层摆成一个只有
@@ -39,6 +39,8 @@ export interface ThumbScene {
   assetBytes?: readonly { asset: VersionRef; bytes: Uint8Array }[];
   /** 声波层的频谱（BCS1）：给所有声波层。 */
   spectrum?: Uint8Array;
+  /** 字幕的词从哪份转写来（字幕文档的 `sourceDocumentId` 指向它）：逐词动画按这些词推进。 */
+  speech?: readonly SpeechTranscript[];
 }
 
 const FPS: Rate = { num: 30, den: 1 };
@@ -88,9 +90,29 @@ export function thumbSequence(scene: ThumbScene): Sequence {
   };
 }
 
+const NO_SPEECH: readonly SpeechTranscript[] = [];
+
+/** 各实例上一次送进去的场景（只比引用）与转写：同一张缩略图接着画下一刻时不再重送。 */
+const loaded = new WeakMap<RenderPlanner, { scene: ThumbScene | null; speech: readonly SpeechTranscript[] }>();
+
+/** 两个场景除了画哪一刻都相同（同一份层、文档、素材，同样大小与长度）。 */
+function sameScene(a: ThumbScene, b: ThumbScene): boolean {
+  return (
+    a.layers === b.layers &&
+    a.documents === b.documents &&
+    a.assets === b.assets &&
+    a.assetBytes === b.assetBytes &&
+    a.spectrum === b.spectrum &&
+    a.fps === b.fps &&
+    a.duration === b.duration &&
+    a.canvas.width === b.canvas.width &&
+    a.canvas.height === b.canvas.height
+  );
+}
+
 /**
  * 把场景画成 `width`×`height` 的透明底画面（与场景画布同比例）。`problems` 是画不出来的东西与内核的提示。
- * 画面复制出来，之后再调 WASM 也不受影响。
+ * 画面复制出来，之后再调 WASM 也不受影响。只换了 `seconds` 的同一个场景（动起来的缩略图）不重送序列与文档。
  */
 export function renderThumb(
   planner: RenderPlanner,
@@ -100,13 +122,20 @@ export function renderThumb(
 ): { image: ImageData; problems: string[] } {
   const w = Math.max(1, Math.round(width));
   const h = Math.max(1, Math.round(height));
-  planner.setVideo({ sequence: thumbSequence(scene), assets: scene.assets ?? {} });
-  planner.setDocuments(scene.documents ?? []);
-  for (const { asset, bytes } of scene.assetBytes ?? []) planner.setAsset(asset, bytes);
-  if (scene.spectrum) {
-    for (const [index, layer] of scene.layers.entries())
-      if (layer.type === 'visualizer') planner.setSpectrum(`thumb_item_${index}`, scene.spectrum);
+  const last = loaded.get(planner) ?? { scene: null, speech: NO_SPEECH };
+  const speech = scene.speech ?? NO_SPEECH;
+  // 转写留在实例里：没带转写的场景要清掉上一张字幕卡送进去的那份。
+  if (speech !== last.speech) planner.setSpeech(speech);
+  if (!last.scene || !sameScene(last.scene, scene)) {
+    planner.setVideo({ sequence: thumbSequence(scene), assets: scene.assets ?? {} });
+    planner.setDocuments(scene.documents ?? []);
+    for (const { asset, bytes } of scene.assetBytes ?? []) planner.setAsset(asset, bytes);
+    if (scene.spectrum) {
+      for (const [index, layer] of scene.layers.entries())
+        if (layer.type === 'visualizer') planner.setSpectrum(`thumb_item_${index}`, scene.spectrum);
+    }
   }
+  loaded.set(planner, { scene, speech });
   planner.clearPictures();
   const rendered = planner.render(scene.seconds, w, h, { transparent: true });
   const image = new ImageData(new Uint8ClampedArray(planner.frame()), w, h);

@@ -5,7 +5,7 @@ import { ELEMENT_TILES } from '../../model/element-catalog.ts';
 import { TEXT_PRESETS } from '../../model/text-presets.ts';
 import { RenderPlanner } from '../../render/render-planner.ts';
 import { opaqueBounds, thumbSequence } from '../../render/thumbnails.ts';
-import { captionThumb, confettiThumb, layerThumb, lottieMeta, lottieThumb, presetThumb, type ThumbPicture } from './thumb-scenes.ts';
+import { CAPTION_BEAT, captionFrame, captionSample, captionThumb, confettiThumb, layerThumb, lottieMeta, lottieThumb, presetThumb, type ThumbPicture } from './thumb-scenes.ts';
 
 // 缩略图由编出来的预览 WASM 画（与导出同一个内核）；Node 没有 ImageData，补一个装下像素的。
 vi.stubGlobal('ImageData', function (data: Uint8ClampedArray, width: number, height: number) {
@@ -113,6 +113,31 @@ describe.skipIf(!built)('缩略图由渲染内核画', () => {
     expect(huge.width).toBeLessThanOrEqual(Math.ceil(320 * 0.92) + 2);
     expect(huge.width).toBeGreaterThan(320 * 0.8);
     expect(huge.height).toBeLessThan(single.height * 2.5);
+  });
+
+  it('字幕样式卡动起来：原文一拍一个词、念完停一拍，逐词动画照样式自己的；字号按不动时量', () => {
+    const sample = captionSample(planner, {}, ['original'], 26, 320, 132);
+    // 英文原文三个词：一圈四拍。
+    expect(sample.period).toBeCloseTo(4 * CAPTION_BEAT);
+    const at = (seconds: number) => captionFrame(planner, sample, seconds, 320, 132).blits[0]!.image.data;
+    // 没写逐词动画按变色走：念到第二个词时画面换了，同一拍里不变。
+    expect(at(0.1)).not.toEqual(at(0.1 + CAPTION_BEAT));
+    expect(at(0.1)).toEqual(at(0.4));
+    // 不动的那一格停在第二个词念到三成五。
+    expect(captionThumb(planner, {}, ['original'], 26, 320, 132).blits[0]!.image.data).toEqual(at(1.35 * CAPTION_BEAT));
+    // 关掉逐词动画的样式一圈都一样。
+    const none = captionSample(planner, { anim: { name: 'None' } }, ['original'], 26, 320, 132);
+    expect(captionFrame(planner, none, 0.1, 320, 132).blits[0]!.image.data).toEqual(
+      captionFrame(planner, none, 0.1 + CAPTION_BEAT, 320, 132).blits[0]!.image.data,
+    );
+    // 落入会让词变大变小：量字号时不带动画，同一份涂装缩到同一个字号。
+    const scale = (root: Record<string, unknown>, px: number) => {
+      const style = captionSample(planner, root, ['original'], px, 320, 132).scene.documents![0]!.body as { style: { scale: number } };
+      return style.style.scale;
+    };
+    expect(scale({ anim: { catalogId: 'dropIn' } }, 120)).toBe(scale({}, 120));
+    // 120 像素放不下，缩过；26 像素放得下，没缩。
+    expect(scale({}, 120) / scale({}, 26)).toBeLessThan(120 / 26);
   });
 
   it('品牌库的 Lottie 贴纸：停在正中那一帧，播起来画面会变', () => {

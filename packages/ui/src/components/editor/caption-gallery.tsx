@@ -1,5 +1,5 @@
 import { useCaptionPreferences } from '../../state/caption-preferences-store.ts';
-import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { DocumentRecord, Id, Sequence } from '@baocut/protocol';
 import { ActionButton, ToastQueue, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
 import Checkmark from '@react-spectrum/s2/icons/Checkmark';
@@ -8,7 +8,6 @@ import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro'
 import { Button as RACButton } from 'react-aria-components';
 import { create } from 'zustand';
 import {
-  THUMB_BACKDROP,
   applyPreset,
   captionStyleOperations,
   galleryTarget,
@@ -22,13 +21,12 @@ import { DEFAULT_CAPTION_STYLE, captionStyleRoot } from '../../model/property-va
 import { asObject, type Json, type LineKind } from '../../render/text-style.ts';
 import { useEditor } from '../../state/editor-store.ts';
 import { canEdit, useVideo } from '../../state/video-store.ts';
+import { CaptionThumb } from './caption-thumb.tsx';
 import { draftedBody, dropStaleDraft } from './draft-documents.ts';
 import { useEditorActions } from './editor-context.tsx';
-import { KernelThumb, type ThumbDraw } from './kernel-thumb.tsx';
 import { Note, SecHead, Seg } from './inspector-controls.tsx';
 import { PanelHead, panelBody } from './panel-head.tsx';
 import { CAPTION_STYLE_COPY as S } from './subtitle-copy.ts';
-import { captionThumb } from './thumb-scenes.ts';
 import { useDocumentBody } from './use-document-body.ts';
 import { SUBTITLE_COPY as C } from './subtitle-copy.ts';
 
@@ -42,28 +40,6 @@ export function openGallery(videoId: Id, open: boolean): void {
     else delete next[videoId];
     return { open: next };
   });
-}
-
-/** 缩略图的灰底（原型 .sthumb 的渐变）。 */
-function backdrop(context: CanvasRenderingContext2D, width: number, height: number): void {
-  const fill = context.createLinearGradient(0, 0, width, height);
-  fill.addColorStop(0, THUMB_BACKDROP[0]);
-  fill.addColorStop(1, THUMB_BACKDROP[1]);
-  context.fillStyle = fill;
-  context.fillRect(0, 0, width, height);
-}
-
-/**
- * 一张字幕样式缩略图（原型 `SubThumb`）：灰底上按这份样式画英中样张，由渲染内核画（与预览、导出同一套字体、描边、
- * 底板与阴影）。大的那一行 `px` 像素；放不下时整体缩小，不折行。
- */
-export function CaptionThumb({ root, kinds, px }: { root: Json; kinds: readonly LineKind[]; px: number }) {
-  const key = kinds.join(',');
-  const draw = useCallback<ThumbDraw>(
-    (planner, width, height, ratio) => captionThumb(planner, root, key ? (key.split(',') as LineKind[]) : [], px * ratio, width, height),
-    [root, key, px],
-  );
-  return <KernelThumb draw={draw} backdrop={backdrop} />;
 }
 
 const scopeRow = style({ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, paddingX: 12, paddingTop: 8 });

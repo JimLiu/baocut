@@ -4,7 +4,7 @@ import type { VisualLayer } from '../../model/new-items.ts';
 import { poseOf, type PlacedItem } from '../../model/stage-pose.ts';
 import { presetLayers, type MeasureText, type TextPreset } from '../../model/text-presets.ts';
 import { CONFETTI_RANGES, confettiDefaults } from '../../render/confetti.ts';
-import type { FrozenDocument, RenderPlanner } from '../../render/render-planner.ts';
+import type { FrozenDocument, RenderPlanner, SpeechTranscript } from '../../render/render-planner.ts';
 import { STUDIO_STYLE, type Json, type LineKind } from '../../render/text-style.ts';
 import { opaqueBounds, renderThumb, type ThumbLayer, type ThumbScene } from '../../render/thumbnails.ts';
 
@@ -268,10 +268,45 @@ function sceneThumb(
   return { blits: [{ image, source: whole(image), target }], problems };
 }
 
-/** 字幕样张的场景：每种行一份字幕文档（一句，从 0 到 10 秒），共用一份样式文档。 */
-function captionScene(root: Json, lines: readonly { kind: LineKind; text: string }[], canvas: Size): ThumbScene {
-  // 样张是静止的：不带入场与逐词高亮（卡片画的是样式，不是某一刻）。
-  const style = { ...root, anim: { name: 'None' } };
+/** 字幕样张一个词念多久（秒，原型 panel-substyle.jsx 的节拍 620ms）：一个词一拍，念完再停一拍，循环。 */
+export const CAPTION_BEAT = 0.62;
+
+/** 不动的样张停在哪一刻：第二个词念到三成五（原型 `SAMPLE_ON`），看得出是哪一种逐词动画。 */
+const SAMPLE_ON = 0.35;
+
+/** 汉字、假名逐字成词，别的按空白切（内核也把转写里多字的 CJK 词逐字拆开）。 */
+const SAMPLE_WORD = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]|[^\s\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]+/gu;
+
+/** 样张的词。 */
+export function sampleWords(text: string): string[] {
+  return text.match(SAMPLE_WORD) ?? [];
+}
+
+const SAMPLE_SPEECH = 'thumb_speech';
+const speeches = new Map<string, SpeechTranscript[]>();
+
+/** 样张原文那一句的转写：一个词一拍。同一句给同一份（内核里的转写不必每张卡重送）。 */
+function sampleSpeech(text: string): SpeechTranscript[] {
+  let speech = speeches.get(text);
+  if (!speech) {
+    const words = sampleWords(text).map((word, index) => ({
+      id: `w${index}`,
+      text: word,
+      start: Math.round(index * CAPTION_BEAT * 1000),
+      end: Math.round((index + 1) * CAPTION_BEAT * 1000),
+    }));
+    speech = [{ documentId: SAMPLE_SPEECH, body: { schema: 'baocut.speech/1', clock: 'sequence', timescale: 1000, words } }];
+    speeches.set(text, speech);
+  }
+  return speech;
+}
+
+/**
+ * 字幕样张的场景：每种行一份字幕文档（一句，从 0 到 `duration` 秒），共用一份样式文档。原文那一句指向样张的转写，
+ * 逐词动画按它的词一拍一拍推进；译文没有逐词时间（与画面上一样）。
+ */
+function captionScene(style: Json, lines: readonly { kind: LineKind; text: string }[], canvas: Size, duration: number): ThumbScene {
+  const original = lines.find((line) => line.kind === 'original');
   const documents: FrozenDocument[] = [
     { documentId: 'thumb_style', kind: 'caption-style', schema: STUDIO_STYLE, body: { schema: STUDIO_STYLE, style } },
     ...lines.map((line): FrozenDocument => ({
@@ -279,11 +314,12 @@ function captionScene(root: Json, lines: readonly { kind: LineKind; text: string
       kind: 'caption',
       schema: 'baocut.caption/1',
       lineKind: line.kind,
+      ...(line.kind === 'original' ? { sourceDocumentId: SAMPLE_SPEECH } : {}),
       body: {
         schema: 'baocut.caption/1',
         clock: 'sequence',
         timescale: 1000,
-        cues: [{ id: 'c0', start: 0, end: 10_000, text: line.text }],
+        cues: [{ id: 'c0', start: 0, end: Math.round(duration * 1000), text: line.text }],
       },
     })),
   ];
@@ -293,13 +329,43 @@ function captionScene(root: Json, lines: readonly { kind: LineKind; text: string
     styleDocumentId: 'thumb_style',
     scopeItemIds: [],
   }));
-  return { canvas, layers, documents, seconds: 5, duration: 10 };
+  return { canvas, layers, documents, seconds: 0, duration, ...(original ? { speech: sampleSpeech(original.text) } : {}) };
+}
+
+/** 量好的字幕样张：场景（`seconds` 由取帧时给）、一圈多长（秒，没有原文行时为 0）与不动时停的那一刻。 */
+export interface CaptionSample {
+  scene: ThumbScene;
+  period: number;
+  still: number;
 }
 
 /**
- * 字幕样式卡：按这份样式画英中样张，大的那一行 `px` 设备像素。缩略图不折行：先在四倍宽的画布上画一遍量出样张的
- * 宽高，放不下就整体缩小再画。底色由组件铺。
+ * 字幕样式卡的样张：按这份样式排英中两句，大的那一行 `px` 设备像素。缩略图不折行：先不带动画、在四倍宽的画布上
+ * 画一遍量出样张的宽高，放不下就整体缩小；之后每一刻都用这个字号，逐词动画（落入、弹跳……）不会让字号跟着跳。
+ * 逐词动画照这份样式自己的（套卡只换涂装，动画不变）。
  */
+export function captionSample(planner: RenderPlanner, root: Json, kinds: readonly LineKind[], px: number, width: number, height: number): CaptionSample {
+  const scene = thumbScene(root, kinds, { width, height }, px);
+  const original = scene.lines.find((line) => line.kind === 'original');
+  const words = original ? sampleWords(original.text).length : 0;
+  const period = words ? (words + 1) * CAPTION_BEAT : 0;
+  const duration = period || 10;
+  const still = words ? (Math.min(1, words - 1) + SAMPLE_ON) * CAPTION_BEAT : duration / 2;
+  const plain = { ...scene.root, anim: { name: 'None' } };
+  const wide = renderThumb(planner, { ...captionScene(plain, scene.lines, { width: width * 4, height }, duration), seconds: still }, width * 4, height);
+  const bounds = opaqueBounds(wide.image);
+  const fit = bounds ? Math.min(1, (width * 0.92) / bounds.width, (height * 0.9) / bounds.height) : 1;
+  const sized = fit < 1 ? { ...scene.root, scale: (typeof scene.root.scale === 'number' ? scene.root.scale : 1) * fit } : scene.root;
+  return { scene: captionScene(sized, scene.lines, { width, height }, duration), period, still };
+}
+
+/** 样张在 `seconds` 那一刻的画面（格子大小，透明底；底色由组件铺）。 */
+export function captionFrame(planner: RenderPlanner, sample: CaptionSample, seconds: number, width: number, height: number): ThumbPicture {
+  const { image, problems } = renderThumb(planner, { ...sample.scene, seconds }, width, height);
+  return { blits: [{ image, source: whole(image), target: whole(image) }], problems };
+}
+
+/** 字幕样式卡不动的那一格（`captionSample` 的 `still` 那一刻）。 */
 export function captionThumb(
   planner: RenderPlanner,
   root: Json,
@@ -308,11 +374,6 @@ export function captionThumb(
   width: number,
   height: number,
 ): ThumbPicture {
-  const scene = thumbScene(root, kinds, { width, height }, px);
-  const wide = renderThumb(planner, captionScene(scene.root, scene.lines, { width: width * 4, height }), width * 4, height);
-  const bounds = opaqueBounds(wide.image);
-  const fit = bounds ? Math.min(1, (width * 0.92) / bounds.width, (height * 0.9) / bounds.height) : 1;
-  const sized = fit < 1 ? { ...scene.root, scale: (typeof scene.root.scale === 'number' ? scene.root.scale : 1) * fit } : scene.root;
-  const { image, problems } = renderThumb(planner, captionScene(sized, scene.lines, { width, height }), width, height);
-  return { blits: [{ image, source: whole(image), target: whole(image) }], problems };
+  const sample = captionSample(planner, root, kinds, px, width, height);
+  return captionFrame(planner, sample, sample.still, width, height);
 }

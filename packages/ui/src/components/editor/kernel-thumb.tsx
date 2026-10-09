@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { RenderPlanner } from '../../render/render-planner.ts';
 import { drawImage, scheduleThumb, thumbnailPlanner } from '../../render/thumbnails.ts';
 import type { ThumbPicture } from './thumb-scenes.ts';
@@ -14,7 +14,7 @@ type Size = { width: number; height: number };
 let loaded: RenderPlanner | null = null;
 
 /** 缩略图共用的渲染内核实例：载入（含字体）之前为 null。 */
-function useThumbPlanner(): RenderPlanner | null {
+export function useThumbPlanner(): RenderPlanner | null {
   const [planner, setPlanner] = useState(loaded);
   useEffect(() => {
     if (planner) return;
@@ -33,14 +33,9 @@ function useThumbPlanner(): RenderPlanner | null {
   return planner;
 }
 
-/**
- * 由渲染内核画的缩略图画布：按自己的 CSS 尺寸铺满设备像素，尺寸或 `draw` 变了就重画。平时排队画（一屏几十个格子
- * 不一口气卡住界面）；`live` 时（悬停播放，每一帧都换 `draw`）直接画。内核载入之前格子留空。
- */
-export function KernelThumb({ draw, live = false, backdrop }: { draw: ThumbDraw; live?: boolean; backdrop?: ThumbBackdrop }) {
-  const ref = useRef<HTMLCanvasElement>(null);
+/** 画布的 CSS 尺寸（跟着 ResizeObserver 走，没变时同一个对象）；还没量到时为 null。 */
+export function useCanvasSize(ref: RefObject<HTMLCanvasElement | null>): Size | null {
   const [size, setSize] = useState<Size | null>(null);
-  const planner = useThumbPlanner();
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
@@ -50,7 +45,18 @@ export function KernelThumb({ draw, live = false, backdrop }: { draw: ThumbDraw;
     });
     observer.observe(canvas);
     return () => observer.disconnect();
-  }, []);
+  }, [ref]);
+  return size;
+}
+
+/**
+ * 由渲染内核画的缩略图画布：按自己的 CSS 尺寸铺满设备像素，尺寸或 `draw` 变了就重画。平时排队画（一屏几十个格子
+ * 不一口气卡住界面）；`live` 时（悬停播放，每一帧都换 `draw`）直接画。内核载入之前格子留空。
+ */
+export function KernelThumb({ draw, live = false, backdrop }: { draw: ThumbDraw; live?: boolean; backdrop?: ThumbBackdrop }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const size = useCanvasSize(ref);
+  const planner = useThumbPlanner();
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas || !size || size.width <= 0 || size.height <= 0) return;
