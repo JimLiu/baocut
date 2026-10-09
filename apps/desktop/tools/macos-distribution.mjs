@@ -99,7 +99,7 @@ export async function distributeMac({ app, output, stem, version, build, appId, 
   runMac('ditto', [app, path.join(dmgRoot, 'BaoCut.app')]);
   runMac('ln', ['-s', '/Applications', path.join(dmgRoot, 'Applications')]);
   const dmg = path.join(output, `${stem}.dmg`);
-  runMac('hdiutil', ['create', '-volname', `BaoCut ${version}`, '-srcfolder', dmgRoot, '-ov', '-format', 'UDZO', dmg]);
+  runMac('hdiutil', ['create', '-volname', `BaoCut ${version}`, '-srcfolder', dmgRoot, '-ov', '-format', 'ULFO', dmg]);
   runMac('codesign', ['--sign', signingSha1, '--timestamp', ...(keychain ? ['--keychain', keychain] : []), dmg]);
   const dmgRaw = runMac('xcrun', ['notarytool', 'submit', dmg, '--keychain-profile', profile,
     ...(keychain ? ['--keychain', keychain] : []), '--wait', '--output-format', 'json']);

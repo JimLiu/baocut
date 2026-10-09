@@ -10,6 +10,7 @@ publish.workspace = true
 # （内置字体、素材频谱的解码与分析）。SVG 光栅两侧都有（`render-raster/svg`）：图片层的 SVG 在内核里画。
 [features]
 default = ["host"]
+external-fonts = ["host", "render-raster/external-fonts", "subtitle-render/external-fonts"]
 host = ["subtitle-render/host", "render-raster/media", "waveform/dsp"]
 wasm-safe = ["subtitle-render/wasm-safe", "render-raster/wasm-safe", "render-raster/svg"]
 
