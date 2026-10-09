@@ -385,6 +385,7 @@ export const THUMB_BACKDROP = ['#CFD2D6', '#A8ACB3'] as const;
  * 缩略图用的样式与行：涂装照搬，落位换成「居中、占满宽、固定字号」——原型缩略图按固定字号画（`SubThumb` fz 13），
  * 不随画面上的字号与位置走；双语比例、次序与间距保留，两行的相对大小与画面一致。
  * `px` 是大的那一行在缩略图上的像素（覆盖里单独写的字号不算，按比例链）。
+ * 行覆盖里的落位也去掉：在画面上单独拖过的一行（`origStyle` / `transStyle` 的 `x`、`y`、`verticalAlign`）在缩略图里仍叠回两行的堆栈。
  */
 export function thumbScene(
   root: Json,
@@ -396,6 +397,10 @@ export function thumbScene(
     const { fontSize: _size, fontSizeBasis: _basis, ...rest } = asObject(style);
     return rest;
   };
+  const unplaced = (style: unknown): Json => {
+    const { x: _x, y: _y, verticalAlign: _align, ...rest } = sized(style);
+    return rest;
+  };
   const out: Json = {
     ...sized(root),
     x: 50,
@@ -404,7 +409,7 @@ export function thumbScene(
     verticalAlign: 'center',
     fontSize: 30,
   };
-  for (const key of Object.values(LINE_STYLE_KEY)) if (isObject(root[key])) out[key] = sized(root[key]);
+  for (const key of Object.values(LINE_STYLE_KEY)) if (isObject(root[key])) out[key] = unplaced(root[key]);
   const shown = kinds.length ? kinds : (['original'] as const);
   const bilingual = shown.length > 1;
   const largest = Math.max(...shown.map((kind) => lineSize(out, kind, bilingual).size));

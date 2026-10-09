@@ -354,6 +354,9 @@ describe('缩略图', () => {
     expect(scene.root.scale).toBeCloseTo((13 * 540) / (32 * 66));
     expect(thumbScene({}, ['original'], { width: 160, height: 66 }, 13).root.scale).toBeCloseTo((13 * 540) / (30 * 66));
     expect(scene.root.transStyle).toEqual({ fontColor: '#fff' });
+    // 画面上单独拖过的一行（行覆盖里的落位）在缩略图里叠回堆栈。
+    const dragged = { ...root, origStyle: { x: 30, y: 12, verticalAlign: 'center', fontColor: '#ff0' } };
+    expect(thumbScene(dragged, ['original', 'translation'], { width: 160, height: 66 }, 13).root.origStyle).toEqual({ fontColor: '#ff0' });
     expect(scene.bilingual).toBe(true);
     expect(scene.lines).toEqual([
       { kind: 'original', text: '词是真相' },
