@@ -480,7 +480,7 @@ interface Word {
 interface Warning {
   code:
     | 'alignment-failed' | 'timing-adjusted' | 'backend-degraded' | 'diarization-unavailable' | 'segment-degenerate' | 'range-clamped'
-    | 'hint-ignored'                    // 模型没有提示通道，`hint` 没有交给模型（§2.5.1）
+    | 'hint-ignored'                    // 模型没有提示通道，`hint` 没有交给模型（§2.5.1）；Runtime 对不接受提示的模型不送 `hint`，提交时自己记这个警告
     | 'segment-incomplete';             // 模型有一块没写完整，已保留识别出的部分，之后可能缺字
   segmentId?: string;
   detail?: string;

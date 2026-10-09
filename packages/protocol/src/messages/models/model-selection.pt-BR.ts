@@ -9,7 +9,6 @@ export const ptBR: ModelsModelSelectionMessages = {
   noSuchProvider: (p: { provider: string }) => `Provedor inexistente: ${p.provider}`,
   noProviderForModel: (p: { model: string }) => `Nenhum provedor oferece este modelo: ${p.model}`,
   ambiguousModel: (p: { model: string }) => `Vários provedores têm o modelo ${p.model}; informe também provider`,
-  noHint: (p: { modelId: string }) => `Modelo ${p.modelId} não aceita dica de termos (hint)`,
   languageUnsupported: (p: { modelId: string; language: string }) => `Modelo ${p.modelId} não aceita o idioma ${p.language}`,
   providerNoModel: (p: { provider: string; modelId: string }) => `${p.provider} não tem esse modelo: ${p.modelId}`,
   defaultModelGone: (p: { modelId: string; provider: string }) => `O modelo padrão ${p.modelId} não está mais entre os modelos de ${p.provider}`,

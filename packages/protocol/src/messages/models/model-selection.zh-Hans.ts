@@ -9,7 +9,6 @@ export const zhHans: ModelsModelSelectionMessages = {
   noSuchProvider: (p: { provider: string }) => `没有这个 Provider：${p.provider}`,
   noProviderForModel: (p: { model: string }) => `没有 Provider 提供这个模型：${p.model}`,
   ambiguousModel: (p: { model: string }) => `多个 Provider 都有模型 ${p.model}，请同时指定 provider`,
-  noHint: (p: { modelId: string }) => `模型 ${p.modelId} 不接受术语提示（hint）`,
   languageUnsupported: (p: { modelId: string; language: string }) => `模型 ${p.modelId} 不支持语言 ${p.language}`,
   providerNoModel: (p: { provider: string; modelId: string }) => `${p.provider} 没有这个模型：${p.modelId}`,
   defaultModelGone: (p: { modelId: string; provider: string }) => `默认的模型 ${p.modelId} 已不在 ${p.provider} 的模型里`,

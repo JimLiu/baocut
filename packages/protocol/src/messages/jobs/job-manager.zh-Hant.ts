@@ -9,6 +9,7 @@ export const zhHant: JobsManagerMessages = {
   onlyHostedRerun: '只有託管任務可以這樣重新執行',
   notEnded: '任務尚未結束',
   hintTooLong: '術語提示不能超過 1200 字',
+  hintIgnored: (p: { model: string }) => `${p.model} 不接受辨識提示，這次的提示沒有用上`,
   onlyAudioVideo: '只能轉錄音訊或影片素材',
   pathNotAbsolute: '路徑必須是絕對路徑',
   trackInvalid: 'track 必須是非負整數',

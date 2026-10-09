@@ -9,6 +9,7 @@ export const pl: JobsManagerMessages = {
   onlyHostedRerun: "Tylko zarządzane zadania można tak ponowić",
   notEnded: "Zadanie jeszcze nieukończone",
   hintTooLong: "Wskazówka terminologiczna najwyżej 1200 znaków",
+  hintIgnored: (p: { model: string }) => `${p.model} nie przyjmuje wskazówek rozpoznawania; wskazówka nie została użyta`,
   onlyAudioVideo: "Transkrybować można tylko materiały audio i wideo",
   pathNotAbsolute: "Ścieżki muszą być bezwzględne",
   trackInvalid: "track musi być nieujemną liczbą całkowitą",

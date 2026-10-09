@@ -11,6 +11,7 @@ export const de: JobsManagerMessages = {
   onlyHostedRerun: "Nur verwaltete Aufgaben können so erneut ausgeführt werden",
   notEnded: "Die Aufgabe ist noch nicht abgeschlossen",
   hintTooLong: "Der Begriffshinweis darf höchstens 1200 Zeichen lang sein",
+  hintIgnored: (p: { model: string }) => `${p.model} unterstützt keine Erkennungshinweise; der Hinweis wurde nicht verwendet`,
   onlyAudioVideo: "Nur Audio- oder Videomaterial kann transkribiert werden",
   pathNotAbsolute: "Pfade müssen absolut sein",
   trackInvalid: "track muss eine nichtnegative ganze Zahl sein",

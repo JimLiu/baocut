@@ -151,7 +151,7 @@ const PARAMS_SCHEMA = {
     hint: {
       type: 'string',
       maxLength: HINT_MAX,
-      description: '识别提示（同 models.transcribe 的 hint；模型不收提示时提交即拒）；视频里启用的转写术语表照样拼进去',
+      description: '识别提示（同 models.transcribe 的 hint；模型不收提示时不交给模型，转写任务记 hint-ignored 提醒）；视频里启用的转写术语表照样拼进去',
     },
     diarize: { type: 'boolean', description: '区分说话人（同 models.transcribe 的 diarize）；不给时按模型，能区分的区分' },
     captionStyle: {
@@ -214,7 +214,6 @@ export function transcribePipeline(deps: TranscribeDeps): PipelineDefinition<Fro
       const selection = await deps.transcriber.check({
         ...(params.provider !== undefined ? { provider: params.provider } : {}),
         ...(params.model !== undefined ? { model: params.model } : {}),
-        ...(params.hint ? { hint: params.hint } : {}),
       });
       const frozen: FrozenTranscribeParams = {
         ...params,
@@ -446,7 +445,6 @@ async function prepareFile(deps: TranscribeDeps, params: CheckedTranscribeParams
   const selection = await deps.transcriber.check({
     ...(params.provider !== undefined ? { provider: params.provider } : {}),
     ...(params.model !== undefined ? { model: params.model } : {}),
-    ...(params.hint ? { hint: params.hint } : {}),
   });
   const frozen: FrozenTranscribeParams = {
     ...params,

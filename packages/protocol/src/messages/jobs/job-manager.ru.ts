@@ -9,6 +9,7 @@ export const ru: JobsManagerMessages = {
   onlyHostedRerun: "Так повторяются только управляемые задачи",
   notEnded: "Задача ещё не завершена",
   hintTooLong: "Терминологическая подсказка не более 1200 символов",
+  hintIgnored: (p: { model: string }) => `${p.model} не принимает подсказки распознавания; подсказка не использована`,
   onlyAudioVideo: "Расшифровывать можно только аудио- и видеоматериалы",
   pathNotAbsolute: "Пути должны быть абсолютными",
   trackInvalid: "track должен быть неотрицательным целым числом",

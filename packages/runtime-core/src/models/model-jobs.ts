@@ -31,15 +31,7 @@ import {
   type ProbeToolResolver,
   type CapacitySource,
 } from '@baocut/jobs';
-import {
-  LocalProviderSource,
-  ModelCatalog,
-  ModelServiceStore,
-  ModelServices,
-  UsageLedger,
-  checkTranscribeOptions,
-  type ProviderSource,
-} from '@baocut/models';
+import { LocalProviderSource, ModelCatalog, ModelServiceStore, ModelServices, UsageLedger, type ProviderSource } from '@baocut/models';
 import {
   RpcError,
   type Actor,
@@ -587,10 +579,8 @@ function pipelineVideos(videos: VideoService, guard: TaskGuard): PipelineVideos 
 /** 流程里的转写：选定 Provider 与模型、提交 `transcribe` Job（提交者是父任务）、等待与取消。 */
 function pipelineTranscriber(jobs: JobManager, services: ModelServices): PipelineTranscriber {
   return {
-    check: async ({ hint, ...target } = {}) => {
-      const selection = await services.selectTranscribe(target);
-      // 与 `models.transcribe` 同一判断：只有空白的提示当作没给。
-      if (hint?.trim()) checkTranscribeOptions(selection, { hint: hint.trim(), assertedLanguage: null });
+    check: async (target) => {
+      const selection = await services.selectTranscribe(target ?? {});
       return { providerId: selection.providerId, modelId: selection.modelId };
     },
     submit: (request, submitter) => jobs.submitTranscribe(request, submitter),

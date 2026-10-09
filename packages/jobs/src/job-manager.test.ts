@@ -68,6 +68,15 @@ const BUNDLES: BundleDefinition[] = [
     diarization: FAKE_DIARIZATION.bundleId,
   })),
   FAKE_DIARIZATION,
+  // 自己切段、不收识别提示的模型包（MOSS 那样）。
+  {
+    bundleId: 'fake-moss@cpu',
+    capability: 'transcribe',
+    backend: 'candle',
+    device: 'cpu',
+    label: 'Fake MOSS',
+    components: { asr: { family: 'moss-transcribe-diarize', repo: 'test/asr', revision: 'r-asr' } },
+  },
 ];
 
 async function writeRepo(root: string, repo: string, revision: string): Promise<void> {
@@ -414,6 +423,21 @@ describe('JobManager（假 Model Worker）', () => {
     expect(manager.inspect(off).warnings).toEqual([]);
     expect(manager.inspect(off).transcribe?.diarize).toBe(false);
     expect(lastSpeech().speakers).toEqual([]);
+  });
+
+  it('模型不收识别提示：照常转写，提示不交给模型，任务从排队到结束都带 hint-ignored 提醒', async () => {
+    await start();
+    const { jobId } = await submit('fake-moss@cpu', { hint: '人名：山田', diarize: false });
+    const queued = manager.inspect(jobId).warnings;
+    expect(queued).toEqual([expect.objectContaining({ code: 'hint-ignored', detail: expect.stringContaining('Fake MOSS') })]);
+    await manager.settled(jobId);
+    const job = manager.inspect(jobId);
+    expect(job.state).toBe('completed');
+    expect(job.warnings).toEqual(queued);
+    // 提示没进输入：不带提示的同样提交，输入摘要相同，也没有提醒。
+    const { jobId: plain } = await submit('fake-moss@cpu', { diarize: false });
+    await manager.settled(plain);
+    expect(manager.inspect(plain)).toMatchObject({ state: 'completed', inputHash: job.inputHash, warnings: [] });
   });
 
   it('相同输入的在途任务去重；commandId 去重；输入不同就是新任务', async () => {

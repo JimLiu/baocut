@@ -3,7 +3,7 @@ import { pluralForm } from '../../i18n.ts';
 export const es: JobsManagerMessages = {
  runtimeStopping: 'El Runtime se está cerrando', jobNotFound: 'La tarea no existe', noBundle: 'No existe ese paquete de modelos', noBundleId: (p) => `No existe ese paquete de modelos: ${p.bundleId}`,
  jobIdExists: 'El ID de tarea ya existe', onlyHostedRerun: 'Solo se pueden volver a ejecutar de esta forma tareas alojadas', notEnded: 'La tarea aún no ha terminado',
- hintTooLong: 'La pista de términos no puede superar los 1200 caracteres', onlyAudioVideo: 'Solo se pueden transcribir materiales de audio o vídeo', pathNotAbsolute: 'Las rutas deben ser absolutas', trackInvalid: 'track debe ser un entero no negativo',
+ hintTooLong: 'La pista de términos no puede superar los 1200 caracteres', hintIgnored: (p) => `${p.model} no admite pistas de reconocimiento; la pista no se usó`, onlyAudioVideo: 'Solo se pueden transcribir materiales de audio o vídeo', pathNotAbsolute: 'Las rutas deben ser absolutas', trackInvalid: 'track debe ser un entero no negativo',
  noGeneration: 'Este Runtime no ofrece generación', videoNotOpen: 'El vídeo no está abierto', contentHashInvalid: 'El hash de contenido debe ser sha256:<hex>', timescaleInvalid: 'timescale debe ser un entero positivo', rangeInvalid: 'range no es válido',
  bundleCannotTranscribe: 'Este paquete de modelos no puede transcribir', bundleUnavailable: 'El paquete de modelos no está disponible ahora', localInferenceUnavailable: 'La inferencia local no está disponible',
  invalidLanguageTag: (p) => `No es una etiqueta de idioma BCP 47 válida: ${p.tag}`, cannotReadInput: 'No se pudo leer el archivo de entrada',

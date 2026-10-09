@@ -1167,7 +1167,7 @@ library/
 - **音色包** `.bcvoice` 是一个 UTF-8 的 JSON 文件，参考录音以 base64 内嵌：`format: "baocut.voice-package"`、`version: 1`、`name`、`language`、`transcript`、`origin`、`consent`、`reference: { fileName, mediaType, sha256, byteLength, data }`。整个文件 ≤ 32 MiB，录音 ≤ 20 MiB。导入时校验格式与版本、字段、base64、解出的长度与摘要、文件头是 wav、mp3 或 flac 且与 `mediaType` 一致，最后用 ffprobe 解码一遍；包里的声明时间沿用。各 Provider 上的克隆不导出：换机器或换账号都要重新克隆。
 - **品牌库**带文件的条目导出原文件；颜色与字幕样式导出 `{ "format": "baocut.library-item", "version": 1, "library": "brand", "content": { … } }`。
 
-**转写用术语表**。`models.transcribe` 的 `glossaries: [{ id, version? }]`（最多 20 张，只能是转写用的，否则 `LIBRARY_ENTRY_NOT_APPLICABLE`）在提交时解析并冻结；解析在 JobManager 里，网关的 `models.transcribe` 与转录流程（智能体的 `transcribe` 工具，用视频启用的术语表）走同一条路，合成的 `library:<id>` 音色同样。模型接受提示（`acceptsHint`）时，各表的规范写法按顺序去重、用「、」连接，接在用户提示的下一行，整体不超过 1200 字，放不下的写法舍去并计数；不接受提示时忽略术语表，不报错。`JobRecord.library.glossaryHint` 记下 `status`（`sent`、`unsupported`）、送出的条数与舍去的条数。误听写法不进提示，留给文稿润色。
+**转写用术语表**。`models.transcribe` 的 `glossaries: [{ id, version? }]`（最多 20 张，只能是转写用的，否则 `LIBRARY_ENTRY_NOT_APPLICABLE`）在提交时解析并冻结；解析在 JobManager 里，网关的 `models.transcribe` 与转录流程（智能体的 `transcribe` 工具，用视频启用的术语表）走同一条路，合成的 `library:<id>` 音色同样。模型接受提示（`acceptsHint`）时，各表的规范写法按顺序去重、用「、」连接，接在用户提示的下一行，整体不超过 1200 字，放不下的写法舍去并计数；不接受提示时忽略术语表，不报错；用户给的 `hint` 同样不交给模型，任务从提交起带 `hint-ignored` 警告，完成时与结果的警告并在一起。`JobRecord.library.glossaryHint` 记下 `status`（`sent`、`unsupported`）、送出的条数与舍去的条数。误听写法不进提示，留给文稿润色。
 
 `library` 命名空间提供 `list`、`get`、`put`、`remove`、`import`、`export`、`applyToVideo`、`getVideoSelection`、`setVideoSelection`、`createVoiceClone`、`removeVoiceClone` 与短期文件句柄 `openHandle`（命令与协议规范 §4.1）；变化经 `library` 主题送达（快照是全部条目的摘要，之后是 `entry.upsert` 与 `entry.removed`）。CLI 是 `baocut library`（克隆是 `baocut library voice-clone <id> --provider <p>` 与 `voice-clone-remove <id> --provider <p> [--local-only]`；视频里启用的条目是 `baocut library video-selection <videoId>`，带 `--transcribe-glossaries`、`--translate-glossaries`、`--speaker-voice <转写>:<说话人>=<音色>[@<Provider>]` 时改）。
 
@@ -1495,7 +1495,7 @@ Worker 内部用 f32 秒计算，输出一律换算为声明 `timescale` 的整�
 
 **已有转写的说话人区分**（AI 工具「识别说话人」）。不重新转写：固定流程 `speakers`（§7.9）把视频里一份 `speech` 文档的词时间与它的素材交给只装「说话人区分」模型包的 Worker（`job.run` 的 `diarize`，Model Worker 协议规范 §2.5.5），算法与第 7 步相同，结果是每个词的说话人。Runtime 再整理成提案：按重叠时长复用已有的说话人（保留 ID 与名字，库里的音色绑定与配音的说话人绑定不断），复用不上的新建；经字幕与翻译核心试算一次应用，得出每位说话人的句数与试听片段，以及会重切的译文条数。提案存成产物，摘要给界面的确认页，流程本身不改视频。用户确认（可以改名）后由 `edits.applySpeakers` 应用，一笔可撤销的编辑：转写写新版本，`baocut.translation/2` 的译文按新的说话人边界重切、写新版本（不重译）；字幕层不重新生成，与改原文相同由界面提示过期。文稿或参与试算的译文在识别之后改过时拒绝应用（`STALE_JOB_INPUT`），要重新识别。参数、摘要与拒绝见命令与协议规范 §4.1（`pipelines`、`edits`）。这一步只在本机跑；智能体与 MCP 对外服务暂不提供，工具页的「交给 Agent」发的是意图句。
 
-**任务规格**。`models.transcribe` 的 JobSpec 冻结：素材版本引用与内容 hash、音轨选择、可选的时间范围、语言（断言或偏好）、Provider 与模型包、是否区分说话人（`diarize`；不给时按模型：`speakers` 是 `native` 或 `pack` 的区分）、术语提示、`outputContract: 'baocut.asr-result/v1'`。输入 hash 由这些字段计算；相同输入 hash 的已发布 Artifact 直接复用（§7.3）。
+**任务规格**。`models.transcribe` 的 JobSpec 冻结：素材版本引用与内容 hash、音轨选择、可选的时间范围、语言（断言或偏好）、Provider 与模型包、是否区分说话人（`diarize`；不给时按模型：`speakers` 是 `native` 或 `pack` 的区分）、术语提示（模型不接受提示时为空）、`outputContract: 'baocut.asr-result/v1'`。输入 hash 由这些字段计算；相同输入 hash 的已发布 Artifact 直接复用（§7.3）。
 
 **输出合同 `baocut.asr-result/v1`**。字段与校验规则见 Model Worker 协议规范 §6。要点：所有时间是整数 tick，`clock: 'source-asset'`；`outcome` 区分 `transcribed`、`no-audio-track`、`no-speech`；每个词带 `timingQuality`；结果带 `coverage`、结构化 `warnings` 与完整的 `provenance`。Runtime 在发布前执行校验，失败按 §6.5 处理。
 

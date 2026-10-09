@@ -11,6 +11,7 @@ export const ptBR: JobsManagerMessages = {
   onlyHostedRerun: "Só tarefas hospedadas podem ser executadas novamente assim",
   notEnded: "A tarefa ainda não terminou",
   hintTooLong: "A dica de termos não pode ultrapassar 1200 caracteres",
+  hintIgnored: (p: { model: string }) => `${p.model} não aceita dicas de reconhecimento; a dica não foi usada`,
   onlyAudioVideo: "Só mídias de áudio ou vídeo podem ser transcritas",
   pathNotAbsolute: "Os caminhos devem ser absolutos",
   trackInvalid: "track deve ser um inteiro não negativo",

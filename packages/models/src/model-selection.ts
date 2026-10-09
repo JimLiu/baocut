@@ -145,15 +145,12 @@ export function effectiveChoice<C extends ModelServiceCapability>(
   }
 }
 
-/** 转写请求与模型的特性是否相容（提交时检查，不在执行到一半时失败）。 */
-export function checkTranscribeOptions(
-  choice: ModelChoice<'transcribe'>,
-  options: { hint: string | null; assertedLanguage: string | null },
-): void {
+/**
+ * 转写请求与模型的特性是否相容（提交时检查，不在执行到一半时失败）。识别提示不在这里把关：模型不收提示时提示被忽略，
+ * 任务记 `hint-ignored` 提醒（JobManager 提交时处理），不拒绝。
+ */
+export function checkTranscribeOptions(choice: ModelChoice<'transcribe'>, options: { assertedLanguage: string | null }): void {
   const model: TranscribeModelInfo = choice.model;
-  if (options.hint && !model.acceptsHint) {
-    throw new RpcError('invalid-request', M.noHint({ modelId: choice.modelId }), { providerId: choice.providerId });
-  }
   if (options.assertedLanguage && model.languages !== 'any') {
     const primary = options.assertedLanguage.toLowerCase().split('-')[0]!;
     if (!model.languages.some((tag) => tag.toLowerCase() === primary || tag.toLowerCase() === options.assertedLanguage!.toLowerCase())) {

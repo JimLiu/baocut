@@ -9,7 +9,6 @@ export const nl: ModelsModelSelectionMessages = {
   noSuchProvider: (p: { provider: string }) => `Deze aanbieder bestaat niet: ${p.provider}`,
   noProviderForModel: (p: { model: string }) => `Geen aanbieder biedt dit model aan: ${p.model}`,
   ambiguousModel: (p: { model: string }) => `Meerdere aanbieders hebben model ${p.model}; geef ook provider op`,
-  noHint: (p: { modelId: string }) => `Model ${p.modelId} accepteert geen terminologiehint (hint)`,
   languageUnsupported: (p: { modelId: string; language: string }) => `Model ${p.modelId} ondersteunt niet de taal ${p.language}`,
   providerNoModel: (p: { provider: string; modelId: string }) => `${p.provider} heeft dit model niet: ${p.modelId}`,
   defaultModelGone: (p: { modelId: string; provider: string }) => `Het standaardmodel ${p.modelId} staat niet meer bij de modellen van ${p.provider}`,

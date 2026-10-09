@@ -9,7 +9,6 @@ export const ja: ModelsModelSelectionMessages = {
   noSuchProvider: (p: { provider: string }) => `そのプロバイダはありません：${p.provider}`,
   noProviderForModel: (p: { model: string }) => `このモデルを提供するプロバイダはありません：${p.model}`,
   ambiguousModel: (p: { model: string }) => `複数のプロバイダにモデル ${p.model} があります。provider も指定してください`,
-  noHint: (p: { modelId: string }) => `モデル ${p.modelId} は用語のヒント（hint）を受け付けません`,
   languageUnsupported: (p: { modelId: string; language: string }) => `モデル ${p.modelId} は言語 ${p.language} に対応していません`,
   providerNoModel: (p: { provider: string; modelId: string }) => `${p.provider} にそのモデルはありません：${p.modelId}`,
   defaultModelGone: (p: { modelId: string; provider: string }) => `既定のモデル ${p.modelId} は ${p.provider} のモデルにもうありません`,

@@ -24,7 +24,6 @@ const en = {
   noSuchProvider: (p: { provider: string }) => `No such provider: ${p.provider}`,
   noProviderForModel: (p: { model: string }) => `No provider offers this model: ${p.model}`,
   ambiguousModel: (p: { model: string }) => `Several providers have model ${p.model}; also specify provider`,
-  noHint: (p: { modelId: string }) => `Model ${p.modelId} does not accept a terminology hint (hint)`,
   languageUnsupported: (p: { modelId: string; language: string }) => `Model ${p.modelId} does not support language ${p.language}`,
   providerNoModel: (p: { provider: string; modelId: string }) => `${p.provider} has no such model: ${p.modelId}`,
   defaultModelGone: (p: { modelId: string; provider: string }) => `The default model ${p.modelId} is no longer among the models of ${p.provider}`,

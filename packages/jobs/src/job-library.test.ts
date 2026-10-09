@@ -231,13 +231,18 @@ describe('任务里的用户库', () => {
     ).toBe('pruned');
   });
 
-  it('模型不接受提示：忽略术语表并在记录里说明，不报错', async () => {
+  it('模型不接受提示：忽略术语表与用户的提示，在记录里说明并提醒，不报错', async () => {
     acceptsHint = false;
     const a = (await glossary('甲', ['BaoCut', 'Rust'])).entry;
-    const { jobId } = await manager.submitTranscribe({ videoId: 'mov_1', assetId: 'ast_1', glossaries: [{ id: a.id }] }, submitter);
+    const { jobId } = await manager.submitTranscribe(
+      { videoId: 'mov_1', assetId: 'ast_1', hint: '人名：山田', glossaries: [{ id: a.id }] },
+      submitter,
+    );
     const run = await until(() => transcriber.runs[0]);
     expect(run.options.hint ?? null).toBeNull();
-    expect(manager.inspect(jobId).library).toMatchObject({ glossaryHint: { status: 'unsupported', terms: 0, dropped: 2 } });
+    const job = manager.inspect(jobId);
+    expect(job.library).toMatchObject({ glossaryHint: { status: 'unsupported', terms: 0, dropped: 2 } });
+    expect(job.warnings).toEqual([expect.objectContaining({ code: 'hint-ignored', detail: expect.stringContaining('asr') })]);
     await manager.cancel(jobId);
   });
 

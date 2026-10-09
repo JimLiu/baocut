@@ -9,7 +9,6 @@ export const ko: ModelsModelSelectionMessages = {
   noSuchProvider: (p: { provider: string }) => `해당 공급자가 없습니다: ${p.provider}`,
   noProviderForModel: (p: { model: string }) => `이 모델을 제공하는 공급자가 없습니다: ${p.model}`,
   ambiguousModel: (p: { model: string }) => `여러 공급자에 ${p.model} 모델이 있습니다. provider도 지정하세요`,
-  noHint: (p: { modelId: string }) => `${p.modelId} 모델은 용어 힌트(hint)를 받지 않습니다`,
   languageUnsupported: (p: { modelId: string; language: string }) => `${p.modelId} 모델은 ${p.language} 언어를 지원하지 않습니다`,
   providerNoModel: (p: { provider: string; modelId: string }) => `${p.provider}에 해당 모델이 없습니다: ${p.modelId}`,
   defaultModelGone: (p: { modelId: string; provider: string }) =>

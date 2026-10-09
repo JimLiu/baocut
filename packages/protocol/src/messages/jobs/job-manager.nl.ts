@@ -11,6 +11,7 @@ export const nl: JobsManagerMessages = {
   onlyHostedRerun: "Alleen beheerde taken kunnen op deze manier opnieuw worden uitgevoerd",
   notEnded: "De taak is nog niet voltooid",
   hintTooLong: "De termhint mag niet langer zijn dan 1200 tekens",
+  hintIgnored: (p: { model: string }) => `${p.model} accepteert geen herkenningshints; de hint is niet gebruikt`,
   onlyAudioVideo: "Alleen audio- of videomedia kunnen worden getranscribeerd",
   pathNotAbsolute: "Paden moeten absoluut zijn",
   trackInvalid: "spoor moet een niet-negatief geheel getal zijn",

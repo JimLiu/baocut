@@ -215,16 +215,12 @@ describe('selectModel', () => {
     );
   });
 
-  it('checkTranscribeOptions：模型不接受 hint 或不支持断言的语言时 invalid-request', () => {
+  it('checkTranscribeOptions：模型不支持断言的语言时 invalid-request；不收提示不在这里拒绝', () => {
     const choice = select({ provider: 'openai' });
     const strict = { ...choice, model: model('m', { acceptsHint: false, languages: ['en', 'zh'] }) };
-    expect(() => checkTranscribeOptions(strict, { hint: 'BaoCut', assertedLanguage: null })).toThrow(
-      expect.objectContaining({ code: 'invalid-request' }),
-    );
-    expect(() => checkTranscribeOptions(strict, { hint: null, assertedLanguage: 'ja' })).toThrow(
-      expect.objectContaining({ code: 'invalid-request' }),
-    );
-    expect(() => checkTranscribeOptions(strict, { hint: null, assertedLanguage: 'zh-Hans' })).not.toThrow();
-    expect(() => checkTranscribeOptions(choice, { hint: 'BaoCut', assertedLanguage: 'ja' })).not.toThrow();
+    expect(() => checkTranscribeOptions(strict, { assertedLanguage: 'ja' })).toThrow(expect.objectContaining({ code: 'invalid-request' }));
+    expect(() => checkTranscribeOptions(strict, { assertedLanguage: 'zh-Hans' })).not.toThrow();
+    expect(() => checkTranscribeOptions(strict, { assertedLanguage: null })).not.toThrow();
+    expect(() => checkTranscribeOptions(choice, { assertedLanguage: 'ja' })).not.toThrow();
   });
 });

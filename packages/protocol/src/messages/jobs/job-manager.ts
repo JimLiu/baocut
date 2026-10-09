@@ -25,6 +25,7 @@ const en = {
   onlyHostedRerun: 'Only hosted tasks can be re-run this way',
   notEnded: "The task hasn't finished yet",
   hintTooLong: "The term hint can't be longer than 1200 characters",
+  hintIgnored: (p: { model: string }) => `${p.model} doesn't take recognition hints, so the hint wasn't used`,
   onlyAudioVideo: 'Only audio or video assets can be transcribed',
   pathNotAbsolute: 'Paths must be absolute',
   trackInvalid: 'track must be a non-negative integer',

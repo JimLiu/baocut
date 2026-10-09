@@ -9,6 +9,7 @@ export const zhHans: JobsManagerMessages = {
   onlyHostedRerun: '只有托管任务可以这样重新执行',
   notEnded: '任务还没有结束',
   hintTooLong: '术语提示不能超过 1200 字符',
+  hintIgnored: (p: { model: string }) => `${p.model} 不收识别提示，这次的提示没有用上`,
   onlyAudioVideo: '只能转写音频或视频素材',
   pathNotAbsolute: '路径必须是绝对路径',
   trackInvalid: 'track 应为非负整数',

@@ -122,7 +122,7 @@ const schemas = {
       .max(1000)
       .optional()
       .describe(
-        '可选。识别提示：人名、术语、专有名词；视频里启用的转写术语表照样用上。只有收提示的模型能给（models_capabilities 里的 acceptsHint；MOSS 不收），不收时提交即拒：别带，人名与术语留给润色',
+        '可选。识别提示：人名、术语、专有名词；视频里启用的转写术语表照样用上。只有收提示的模型用得上（models_capabilities 里的 acceptsHint；MOSS 不收）：不收时提示被忽略，转写任务记 hint-ignored 提醒；这时别带，人名与术语留给润色',
       ),
     noCaptions: z.boolean().optional().describe('可选。转写之后不建字幕层（默认建）'),
     commandId: commandIdArg.optional().describe('可选。重试同一次提交时带上同一个值，不会重复创建任务'),

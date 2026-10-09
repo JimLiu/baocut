@@ -9,7 +9,6 @@ export const pl: ModelsModelSelectionMessages = {
   noSuchProvider: (p: { provider: string }) => `Brak takiego dostawcy: ${p.provider}`,
   noProviderForModel: (p: { model: string }) => `Żaden dostawca nie udostępnia modelu: ${p.model}`,
   ambiguousModel: (p: { model: string }) => `Kilku dostawców ma model ${p.model}; podaj także provider`,
-  noHint: (p: { modelId: string }) => `Model ${p.modelId} nie przyjmuje wskazówek terminologicznych (hint)`,
   languageUnsupported: (p: { modelId: string; language: string }) => `Model ${p.modelId} nie obsługuje języka ${p.language}`,
   providerNoModel: (p: { provider: string; modelId: string }) => `${p.provider} nie ma takiego modelu: ${p.modelId}`,
   defaultModelGone: (p: { modelId: string; provider: string }) => `Model domyślny ${p.modelId} nie jest już wśród modeli dostawcy ${p.provider}`,

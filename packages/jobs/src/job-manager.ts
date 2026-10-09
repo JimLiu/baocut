@@ -813,9 +813,10 @@ export class JobManager {
     });
 
     const language = normalizeLanguage(request.language);
-    const userHint = request.hint?.trim() ? request.hint.trim() : null;
-    if (userHint && userHint.length > 1200) throw new RpcError('invalid-request', J.hintTooLong());
-    checkTranscribeOptions(selection, { hint: userHint, assertedLanguage: language.mode === 'assert' ? language.tag : null });
+    const given = request.hint?.trim() ? request.hint.trim() : null;
+    if (given && given.length > 1200) throw new RpcError('invalid-request', J.hintTooLong());
+    checkTranscribeOptions(selection, { assertedLanguage: language.mode === 'assert' ? language.tag : null });
+    const { hint: userHint, warnings } = hintFor(selection, given);
     // 术语表在提交时读出并冻结版本；规范写法拼进提示（模型接受提示时）。
     const glossaries = request.glossaries?.length
       ? transcribeGlossaries(this.#options.library, request.glossaries, userHint, selection.model.acceptsHint, submitter)
@@ -885,7 +886,7 @@ export class JobManager {
       endedAt: null,
       error: null,
       result: null,
-      warnings: [],
+      warnings,
       // 定下的语言与说话人区分（`diarize` 是生效的值），视频卡上那一行用的模型与参数据此显示（产品设计 §3.2.2）。
       transcribe: { language: spec.language, diarize: spec.diarize, ...(replace ? { replace } : {}) },
       ...(glossaries ? { library: glossaries.use } : {}),
@@ -931,9 +932,10 @@ export class JobManager {
       ...(request.model !== undefined ? { model: request.model } : {}),
     });
     const language = normalizeLanguage(request.language);
-    const hint = request.hint?.trim() ? request.hint.trim() : null;
-    if (hint && hint.length > 1200) throw new RpcError('invalid-request', J.hintTooLong());
-    checkTranscribeOptions(selection, { hint, assertedLanguage: language.mode === 'assert' ? language.tag : null });
+    const given = request.hint?.trim() ? request.hint.trim() : null;
+    if (given && given.length > 1200) throw new RpcError('invalid-request', J.hintTooLong());
+    checkTranscribeOptions(selection, { assertedLanguage: language.mode === 'assert' ? language.tag : null });
+    const { hint, warnings } = hintFor(selection, given);
     const track = request.track ?? 0;
     if (!Number.isSafeInteger(track) || track < 0) throw new RpcError('invalid-request', J.trackInvalid());
     const contentHash = `sha256:${await fileSha256(request.file)}`;
@@ -976,7 +978,7 @@ export class JobManager {
       endedAt: null,
       error: null,
       result: null,
-      warnings: [],
+      warnings,
       ...(grantUse ? { grant: grantUse } : {}),
     };
     const mediaType = request.mediaType && /^(audio|video)\//.test(request.mediaType) ? request.mediaType : null;
@@ -2493,7 +2495,7 @@ export class JobManager {
 
     this.#phase(entry, 'publishing');
     const artifactId = artifactIdOf(bytes);
-    const warnings: JobWarning[] = [...result.warnings];
+    const warnings: JobWarning[] = [...submitWarnings(record.warnings), ...result.warnings];
     if (result.outcome !== 'transcribed') warnings.push({ code: result.outcome });
     record.warnings = warnings;
     // 没有视频的转写（§7.9）只发布原始结果。
@@ -2523,7 +2525,7 @@ export class JobManager {
     result: AsrResult,
   ): Promise<void> {
     const record = entry.record;
-    const warnings: JobWarning[] = [...result.warnings];
+    const warnings: JobWarning[] = [...submitWarnings(record.warnings), ...result.warnings];
     if (result.outcome !== 'transcribed') warnings.push({ code: result.outcome });
     record.warnings = warnings;
     await fs.mkdir(path.dirname(target.resultFile), { recursive: true });
@@ -2891,6 +2893,19 @@ function normalizeLanguage(language: TranscribeRequest['language']): TranscribeI
   const tag = canonicalLanguageTag(language.tag);
   if (!tag) throw new RpcError('invalid-request', J.invalidLanguageTag({ tag: language.tag }));
   return language.mode === 'assert' ? { mode: 'assert', tag } : { mode: 'prefer', tag };
+}
+
+/**
+ * 模型不收识别提示（MOSS 这类）时不拒绝提交：提示不交给模型（也不进输入摘要），任务上记一条 `hint-ignored` 提醒。
+ */
+function hintFor(selection: TranscribeSelection, hint: string | null): { hint: string | null; warnings: JobWarning[] } {
+  if (!hint || selection.model.acceptsHint) return { hint, warnings: [] };
+  return { hint: null, warnings: [jobWarning('hint-ignored', J.hintIgnored({ model: selection.model.label }))] };
+}
+
+/** 提交时就记下的提醒：结果的提醒取代执行中收到的那些时保留下来。 */
+function submitWarnings(warnings: readonly JobWarning[]): JobWarning[] {
+  return warnings.filter((w) => w.code === 'hint-ignored');
 }
 
 /** 按流算文件的 sha256（小写十六进制）。读不了时 `invalid-request`。 */
