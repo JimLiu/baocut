@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { AssetRecord, DocumentRecord, ExportSettings, Id, Sequence } from '@baocut/protocol';
 import { ToastQueue } from '@react-spectrum/s2';
 import { tabOfKind, type ExportTab } from '../../model/export-job.ts';
 import { explainExportError, type ExportProblem } from '../../model/export-rejection.ts';
-import { exportTargetDir } from '../../model/export-settings.ts';
+import { defaultFileNames, exportTargetDir } from '../../model/export-settings.ts';
+import { pickExportDestination } from '../../model/export-destination.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useExportPlaces } from '../../state/export-store.ts';
 import { EXPORT_COPY } from './export-copy.ts';
@@ -43,6 +44,7 @@ export interface ExportPart {
 }
 
 /**
+ * 桌面端先确认保存目的地，取消时不建任务；Web 沿用 Runtime 目的地。
  * 提交一次导出（`exports.create`，架构设计 §9.11）：通过了就是一条 Job，交给弹层盯着它的进度；
  * 被拒时没有建任务，按 Runtime 的拒绝码整理成一句标题、逐项清单与能做的补救。不重试、不伪造结果。
  */
@@ -50,26 +52,41 @@ export function useExportSubmit(env: ExportEnv, onStarted: (jobId: Id, tab: Expo
   const runtime = useRuntime();
   const savedDir = useExportPlaces((s) => s.dirs[env.videoId] ?? null);
   const [busy, setBusy] = useState(false);
+  const pending = useRef(false);
   const [problem, setProblem] = useState<ExportProblem | null>(null);
   const [rejected, setRejected] = useState<ExportSettings | null>(null);
   // 几份里第一份就被拒（还没有建任务）：补救（换个位置）拿着被拒的那份重提时，从它起把剩下的几份一起重提。
   const [batch, setBatch] = useState<{ rejected: ExportSettings; parts: readonly ExportPart[] } | null>(null);
   const placeFor = (settings: ExportSettings, dir: string | null | undefined) => exportTargetDir(settings.kind, dir, savedDir, env.sourceDir);
+  const namesFor = (settings: ExportSettings) => defaultFileNames(env.videoName, settings, env.documents, env.sequence);
+  const pickDestination = async (names: readonly string[], target: string | null) => {
+    try {
+      return await pickExportDestination(runtime.host, names, target, EXPORT_COPY);
+    } catch (error) {
+      ToastQueue.negative(EXPORT_COPY.pickFailed(error instanceof Error ? error.message : String(error)), { timeout: 5000 });
+      return null;
+    }
+  };
 
   const submit = async (settings: ExportSettings, dir?: string | null) => {
     if (batch && settings === batch.rejected) return submitEach(batch.parts, dir);
+    if (pending.current) return;
+    pending.current = true;
     setBatch(null);
     const target = placeFor(settings, dir);
     setBusy(true);
     setProblem(null);
     try {
-      const jobId = await runtime.createExport({ videoId: env.videoId, settings, ...(target ? { destination: { dir: target } } : {}) });
+      const destination = await pickDestination(namesFor(settings), target);
+      if (!destination) return;
+      const jobId = await runtime.createExport({ videoId: env.videoId, settings, destination });
       setRejected(null);
       onStarted(jobId, tabOfKind(settings.kind));
     } catch (error) {
       setRejected(settings);
       setProblem(explainExportError(error, { kind: settings.kind, stage: 'rejected', documents: env.documents }));
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   };
@@ -80,14 +97,18 @@ export function useExportSubmit(env: ExportEnv, onStarted: (jobId: Id, tab: Expo
    * 用提示说清楚后面几份没导。
    */
   const submitEach = async (parts: readonly ExportPart[], dir?: string | null) => {
+    if (!parts.length || pending.current) return;
+    pending.current = true;
     setBusy(true);
     setProblem(null);
     setBatch(null);
     const started: Id[] = [];
     try {
+      const names = parts.flatMap((part) => part.fileName ? [part.fileName] : namesFor(part.settings));
+      const picked = await pickDestination(names, placeFor(parts[0]!.settings, dir));
+      if (!picked) return;
       for (const [index, part] of parts.entries()) {
-        const target = placeFor(part.settings, dir);
-        const destination = { ...(target ? { dir: target } : {}), ...(part.fileName ? { fileName: part.fileName } : {}) };
+        const destination = { ...(part.fileName ? { fileName: part.fileName } : {}), ...picked };
         try {
           started.push(
             await runtime.createExport({ videoId: env.videoId, settings: part.settings, ...(Object.keys(destination).length ? { destination } : {}) }),
@@ -110,6 +131,7 @@ export function useExportSubmit(env: ExportEnv, onStarted: (jobId: Id, tab: Expo
         onStarted(started[0]!, tabOfKind(parts[0]!.settings.kind));
       }
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   };

@@ -13,6 +13,7 @@ import { RuntimeSupervisor } from './runtime-supervisor.ts';
 import { installWebTabs } from './web-tabs.ts';
 import { openLocalFile } from './open-local-file.ts';
 import { installStdioErrorGuards } from './stdio-errors.ts';
+import { saveDialogPath } from './save-dialog-path.ts';
 
 /**
  * 桌面端主进程：找到或启动 Runtime、开窗口、提供少量原生能力（选目录、在文件夹中显示）。
@@ -181,15 +182,14 @@ export function startDesktopApp(): void {
 
   ipcMain.handle('baocut:pick-save-path', async (event, raw: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender);
-    const opts = (raw ?? {}) as { title?: unknown; buttonLabel?: unknown; defaultName?: unknown; filters?: unknown };
-    // 只取文件名，目录交给系统对话框（默认是上次的位置）。
-    const name = typeof opts.defaultName === 'string' ? path.basename(opts.defaultName).slice(0, 200) : '';
+    const opts = (raw ?? {}) as { title?: unknown; buttonLabel?: unknown; defaultName?: unknown; defaultDir?: unknown; filters?: unknown };
+    const defaultPath = saveDialogPath(opts.defaultName, opts.defaultDir);
     const options: Electron.SaveDialogOptions = {
       title: dialogText(opts.title) ?? M.save,
       buttonLabel: dialogText(opts.buttonLabel) ?? M.save,
       filters: dialogFilters(opts.filters),
       properties: ['createDirectory', 'showOverwriteConfirmation'],
-      ...(name ? { defaultPath: name } : {}),
+      ...(defaultPath ? { defaultPath } : {}),
     };
     const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
     return result.canceled || !result.filePath ? null : result.filePath;
