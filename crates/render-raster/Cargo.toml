@@ -27,7 +27,7 @@ publish.workspace = true
 # pollster 1）等「GPU 合成与预览 WASM」批再解析进 Cargo.lock，这一批只是占位。
 [features]
 default = ["media"]
-# App 发布档改读签名包里的共享字体目录（`Contents/Resources/fonts`），不把内置字体编进二进制。
+# App 发布档改读签名包里的共享字体（Electron 用 `Resources/web/assets`，旧 native App 用 `Resources/fonts`）。
 external-fonts = ["media"]
 media = [
     "dep:tempfile",

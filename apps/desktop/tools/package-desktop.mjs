@@ -50,6 +50,8 @@ import { BUNDLED_EXECUTABLES, RESOURCE_DIRS } from '../src/main/packaged-resourc
 import { ensureCargo } from '../../../tools/cargo-path.mjs';
 import { DISTRIBUTED_NOTICES } from '../../../tools/third-party-notices.ts';
 import { distributeMac, runMac, signingPreflight } from './macos-distribution.mjs';
+import { macElectronLanguages, shareMacFonts } from './macos-package-resources.mjs';
+import { LOCALES } from '../../../packages/protocol/src/i18n.ts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DESKTOP = path.resolve(HERE, '..');
@@ -228,7 +230,8 @@ if (options['bin-dir']) {
 } else {
   ensureCargo();
   const cargo = ['build', '--release', '--locked', '--target', options.target];
-  run('cargo', [...cargo, ...BUNDLED_EXECUTABLES.filter((name) => name !== 'model-worker').flatMap((name) => ['-p', name])]);
+  run('cargo', [...cargo, ...BUNDLED_EXECUTABLES.filter((name) => name !== 'model-worker').flatMap((name) => ['-p', name]),
+    ...(isMac ? ['--features', 'export-worker/external-fonts'] : [])]);
   const features = [...(isMac ? [] : variant.modelWorkerFeatures), ...options['worker-features'].split(',').filter(Boolean)];
   run('cargo', [...cargo, '-p', 'model-worker', ...(isMac ? [] : ['--no-default-features']), ...(features.length ? ['--features', features.join(',')] : [])], isMac ? process.env : modelWorkerBuildEnv());
   const metadata = spawnSync('cargo', ['metadata', '--format-version', '1', '--no-deps'], {
@@ -318,6 +321,11 @@ try {
   cpSync(path.join(ROOT, 'agent-skills'), path.join(resDir, RESOURCE_DIRS.agentSkills), { recursive: true });
   cpSync(path.join(ROOT, 'packages/models/assets'), path.join(resDir, RESOURCE_DIRS.modelAssets), { recursive: true });
   cpSync(path.join(ROOT, 'apps/web/dist'), path.join(resDir, RESOURCE_DIRS.web), { recursive: true });
+  if (isMac) {
+    const fonts = shareMacFonts({ appDir, webDir: path.join(resDir, RESOURCE_DIRS.web),
+      fontSource: path.join(ROOT, 'crates/render-raster/assets/fonts'), exportWorker: path.join(bin, 'export-worker') });
+    console.log(`Shared ${Object.keys(fonts.manifest).length} fonts; removed ${(fonts.savedBytes / 2 ** 20).toFixed(1)} MiB from app.asar`);
+  }
 
   // 4. electron-builder。
   const { build: buildElectron, Platform, Arch } = await import('electron-builder');
@@ -346,6 +354,7 @@ try {
       // 不改 Electron 的 fuse：渲染进程靠 GrantFileProtocolExtraPrivileges 读 file:// 的模块与字体，Runtime 靠 RunAsNode 以
       // Node 方式启动（架构设计 §9.1 的字体一节）。要关就得先把渲染进程改由自定义协议供给。
       mac: {
+        electronLanguages: macElectronLanguages(LOCALES),
         icon: path.join(DESKTOP, 'build', 'icon.icns'),
         category: 'public.app-category.video',
         minimumSystemVersion: '14.0',
@@ -391,6 +400,8 @@ try {
       executables: BUNDLED_EXECUTABLES.map((name) => path.join(unpacked, 'Contents/Resources/bin', name)),
       entitlements: path.join(DESKTOP, 'build/entitlements.mac.plist') });
     run(process.execPath, [path.join(HERE, 'check-packaged-app.mjs'), distribution.verifiedApp]);
+    run(process.execPath, [path.join(HERE, 'check-file-fonts.mjs'),
+      `--out=${path.join(distribution.verifiedApp, 'Contents/Resources/app.asar/out')}`]);
     const report = { schema: 1, product: PRODUCT_NAME, appId: APP_ID, version: desktop.version, build, target: FEED_TARGET,
       sourceCommit, minimumSystemVersion: '14.0', ...distribution };
     writeFileSync(path.join(outDir, 'app-release.json'), `${JSON.stringify(report, null, 2)}\n`);

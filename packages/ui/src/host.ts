@@ -28,7 +28,7 @@ export interface HostBridge {
   pickFiles?(options: PickFilesOptions): Promise<string[]>;
   /** 会话附件的统一选择器：本机文件和目录；支持的图片可附带原始字节。Web 没有本机路径能力。 */
   pickMessageFiles?(options: PickMessageFilesOptions): Promise<MessageFile[]>;
-  /** 选一个保存位置（系统的存储对话框）。取消时返回 null。没有它的宿主里，界面把导出入口置灰。 */
+  /** 选一个保存位置（系统的存储对话框）。取消时返回 null。没有它时，原生另存为不可用；视频导出仍可交给 Runtime 保存。 */
   pickSavePath?(options: PickSavePathOptions): Promise<string | null>;
   /** 应用自动更新（架构设计 §2.6，桌面端才有）。没有它的宿主里，更新相关的界面一概不出现。 */
   updates?: UpdatesHost;
@@ -71,6 +71,8 @@ export interface PickSavePathOptions {
   buttonLabel?: string;
   /** 建议的文件名（只取文件名部分，目录由系统对话框决定）。 */
   defaultName?: string;
+  /** 系统保存对话框初始打开的绝对目录；不给时沿用系统的位置。 */
+  defaultDir?: string;
   filters?: FileFilter[];
 }
 

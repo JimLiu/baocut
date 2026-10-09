@@ -6,12 +6,13 @@
 // 检查自己的主进程只开一个隐藏窗口：不启动 Runtime（因而不碰钥匙串、不启动任何智能体），不读写真实的应用数据目录，
 // 除 file:、data:、blob: 以外的请求一律拦下（不联网）。退出码：0 通过，1 不通过，2 超时或起不来。
 
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, existsSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const OUT = resolve(dirname(fileURLToPath(import.meta.url)), '../out');
+// --out=<Resources/app.asar/out> also checks the final packaged font layout.
+const OUT = resolve(process.argv.find((arg) => arg.startsWith('--out='))?.slice(6) ?? resolve(dirname(fileURLToPath(import.meta.url)), '../out'));
 /** Electron 里的检查自己的时限；外面再多给一些，连 Electron 起不来、卡住也收得住。 */
 const CHECK_TIMEOUT_MS = 60_000;
 const LAUNCH_TIMEOUT_MS = 90_000;
@@ -27,7 +28,8 @@ const HASHED_FONT = /^(.+)-[A-Za-z0-9_-]{8}\.ttf$/;
 /** node 一侧：临时的 Home、项目、下载与 Electron 数据目录，启动 Electron，超时就杀掉，结束后删掉临时目录。 */
 async function launch() {
   for (const file of ['renderer/index.html', 'preload/index.js']) {
-    if (!existsSync(join(OUT, file))) {
+    // Plain Node cannot read ASAR paths; the Electron child validates them.
+    if (!OUT.includes('app.asar') && !existsSync(join(OUT, file))) {
       console.error(`没有 ${join(OUT, file)}：先运行 npm run build`);
       process.exit(2);
     }
@@ -40,7 +42,7 @@ async function launch() {
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.ELECTRON_RENDERER_URL;
   const { spawn } = await import('node:child_process');
-  const child = spawn(electron, [fileURLToPath(import.meta.url), `--baocut-temp=${temp}`], {
+  const child = spawn(electron, [fileURLToPath(import.meta.url), `--baocut-temp=${temp}`, `--out=${OUT}`], {
     env,
     stdio: ['ignore', 'inherit', 'inherit'],
   });
@@ -107,10 +109,14 @@ async function check() {
   win.webContents.on('render-process-gone', (_event, details) => finish(1, `渲染进程退出：${details.reason}`));
 
   const assets = join(OUT, 'renderer/assets');
-  const shipped = readdirSync(assets).flatMap((name) => {
+  let shipped = readdirSync(assets).flatMap((name) => {
     const match = HASHED_FONT.exec(name);
     return match ? [{ file: name, font: `${match[1]}.ttf` }] : [];
   });
+  if (shipped.length === 0) {
+    const manifest = JSON.parse(readFileSync(resolve(OUT, '../../web/assets/bundled-fonts.json'), 'utf8'));
+    shipped = Object.entries(manifest).map(([font, file]) => ({ font, file }));
+  }
   const entry = readdirSync(assets).find((name) => /^kernel-check-.*\.js$/.test(name));
   if (!entry) return finish(1, `${assets} 里没有自检入口 kernel-check-*.js：渲染进程的构建没有带上它`);
 

@@ -24,9 +24,13 @@ npm run package:mac -- --build 60 \
 
 构建桌面与 Web 后，打包器用 `cargo build --release --locked --target aarch64-apple-darwin` 构建 Worker 与凭据助手；Model Worker 保留默认 MLX / Core ML 后端。同一次构建的 `mlx.metallib` 随包进入 `Contents/Resources/bin`，Runtime 通过 `PMETAL_METALLIB_PATH` 指定它。找到多份时必须用 `--metallib` 指向本次构建产物，不能借用开发机的缓存。`--bin-dir` 只用于已核对来源 commit 的 release 程序。
 
+Mac 的 Export Worker 另开 `export-worker/external-fonts`：内置字体只保留在 `Contents/Resources/web/assets`，`bundled-fonts.json` 将内核的原始文件名映射到 Vite 的哈希文件名；桌面 `app.asar` 内的字体 URL 在 staging 时改指向同一目录，Web 的地址不变。打包前逐份核对桌面、Web 与原生字体的字节，并拒绝仍嵌入字体的 `--bin-dir` Export Worker。普通开发构建与 Windows 打包仍用原有字体布局。Electron 只保留应用出货语言及其 Chromium 地区、性别变体，英文兜底保留。DMG 使用 LZFSE（`ULFO`）压缩。
+
 Electron-builder 先装成 `BaoCut.app`；签名脚本用完整证书指纹选择身份，从内向外签名，不用 `--deep` 签名。App 和 DMG 都需 Apple 公证为 `Accepted`，随后 staple；最终 ZIP 从已 staple 的 App 生成，重新解压复验签名、公证票据与 Gatekeeper，并用解压出的应用执行 Runtime 与 Worker 自检。产物为 `BaoCut-<版本>-build.<n>-aarch64-apple-darwin.zip`、`.dmg`、对应 `.sha256`、`app-release.json` 与公证记录。中间 `notary-submission.zip` 不分发。输出目录必须全新或为空。
 
 包内资源与 Windows 用同一布局；Mac 的 `<resources>` 是 `Contents/Resources`。`node apps/desktop/tools/check-packaged-app.mjs /路径/BaoCut.app` 对真实包检查。仍需从仓库外、用独立 `BAOCUT_HOME` 启动 `verified-extraction/BaoCut.app` 检查页面与功能，签名成功不替代预览、导出、模型与 Agent 验收。ffmpeg 与 Agent 可执行文件沿用受管外部工具发现，不假装包含在安装包内。
+
+共享字体的产物检查用 `node apps/desktop/tools/check-file-fonts.mjs --out=/路径/BaoCut.app/Contents/Resources/app.asar/out`：隐藏 Electron 窗口读取最终 ASAR 中的页面和字体 URL，核对清单中的字体全部加载并注入预览内核；不启动 Runtime，也不读取用户数据。
 
 发布通过 GitHub Releases，归档文件名与内容不可变。`--download-base-url` 生成 App 自己的解析器验证过的 ZIP 更新清单；公开归档读回通过后才更新 `apps/desktop/releases/` 的版本钉。新版使用独立 ID，不将旧版官网的更新源直接换成新包；旧 skill 的 GitHub Latest 保持原状。具体顺序见发布 skill。
 

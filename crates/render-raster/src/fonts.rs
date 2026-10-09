@@ -188,8 +188,8 @@ pub fn bundled_display_fonts() -> &'static [&'static [u8]] {
     })
 }
 
-/// App-only release mode: all three signed executables read the same sealed
-/// `Contents/Resources/fonts` tree instead of embedding 25 MB three times.
+/// App-only release mode: Electron's export worker reads the same sealed Web
+/// assets as the file:// preview. Older native Apps use `Resources/fonts`.
 #[cfg(feature = "external-fonts")]
 pub fn external_bundled_font(name: &str) -> &'static [u8] {
     static FONTS: OnceLock<HashMap<String, Vec<u8>>> = OnceLock::new();
@@ -197,7 +197,7 @@ pub fn external_bundled_font(name: &str) -> &'static [u8] {
         let executable = crate::exec::current_exe()
             .expect("bundled font lookup requires the current executable");
         let directory = app_fonts_dir(&executable)
-            .expect("external-fonts requires a BaoCut.app/Contents/MacOS executable");
+            .expect("external-fonts requires an executable inside BaoCut.app");
         load_external_fonts_at(&directory)
     });
     fonts
@@ -208,16 +208,42 @@ pub fn external_bundled_font(name: &str) -> &'static [u8] {
 
 #[cfg(feature = "external-fonts")]
 fn app_fonts_dir(executable: &std::path::Path) -> Option<std::path::PathBuf> {
-    let macos = executable.parent()?;
-    (macos.file_name()? == "MacOS").then_some(())?;
-    let contents = macos.parent()?;
+    let parent = executable.parent()?;
+    let (contents, fonts) = if parent.file_name()? == "MacOS" {
+        (parent.parent()?, "Resources/fonts")
+    } else {
+        (parent.file_name()? == "bin").then_some(())?;
+        let resources = parent.parent()?;
+        (resources.file_name()? == "Resources").then_some(())?;
+        (resources.parent()?, "Resources/web/assets")
+    };
     (contents.file_name()? == "Contents").then_some(())?;
     (contents.parent()?.extension()? == "app").then_some(())?;
-    Some(contents.join("Resources/fonts"))
+    Some(contents.join(fonts))
 }
 
 #[cfg(feature = "external-fonts")]
 fn load_external_fonts_at(directory: &std::path::Path) -> HashMap<String, Vec<u8>> {
+    let manifest = directory.join("bundled-fonts.json");
+    if manifest.exists() {
+        let names: HashMap<String, String> = serde_json::from_slice(
+            &std::fs::read(&manifest).expect("cannot read bundled font manifest"),
+        )
+        .expect("invalid bundled font manifest");
+        assert!(!names.is_empty(), "empty bundled font manifest");
+        return names
+            .into_iter()
+            .map(|(name, file)| {
+                assert!(
+                    file.ends_with(".ttf") && !file.contains(['/', '\\']) && !file.starts_with('.'),
+                    "bundled font manifest must reference a TTF filename"
+                );
+                let bytes = std::fs::read(directory.join(&file))
+                    .unwrap_or_else(|error| panic!("cannot read bundled font {file}: {error}"));
+                (name, bytes)
+            })
+            .collect();
+    }
     let entries = std::fs::read_dir(directory).unwrap_or_else(|error| {
         panic!(
             "cannot read bundled fonts at {}: {error}",
@@ -1942,6 +1968,19 @@ mod tests {
             std::path::Path::new("/Applications/BaoCut.app/Contents/Resources/fonts")
         );
         assert!(app_fonts_dir(std::path::Path::new("/tmp/bcut-serve")).is_none());
+        assert_eq!(
+            app_fonts_dir(std::path::Path::new(
+                "/Applications/BaoCut.app/Contents/Resources/bin/export-worker"
+            ))
+            .unwrap(),
+            std::path::Path::new("/Applications/BaoCut.app/Contents/Resources/web/assets")
+        );
+        assert!(
+            app_fonts_dir(std::path::Path::new(
+                "/tmp/Contents/Resources/bin/export-worker"
+            ))
+            .is_none()
+        );
 
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("Example.ttf"), b"font").unwrap();
@@ -1949,6 +1988,30 @@ mod tests {
         let fonts = load_external_fonts_at(dir.path());
         assert_eq!(fonts.len(), 1);
         assert_eq!(fonts["Example.ttf"], b"font");
+        std::fs::rename(
+            dir.path().join("Example.ttf"),
+            dir.path().join("Example-12345678.ttf"),
+        )
+        .unwrap();
+        std::fs::write(
+            dir.path().join("bundled-fonts.json"),
+            br#"{"Example.ttf":"Example-12345678.ttf"}"#,
+        )
+        .unwrap();
+        assert_eq!(load_external_fonts_at(dir.path())["Example.ttf"], b"font");
+    }
+
+    #[cfg(feature = "external-fonts")]
+    #[test]
+    #[should_panic(expected = "bundled font manifest must reference a TTF filename")]
+    fn external_font_manifest_cannot_escape_the_resource_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("bundled-fonts.json"),
+            br#"{"Example.ttf":"../Example.ttf"}"#,
+        )
+        .unwrap();
+        load_external_fonts_at(dir.path());
     }
 
     /// 本机上这一段文本每个字实际落到的 family，按字重报出来。

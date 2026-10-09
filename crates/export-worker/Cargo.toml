@@ -10,6 +10,9 @@ publish.workspace = true
 name = "export-worker"
 path = "src/main.rs"
 
+[features]
+external-fonts = ["frame-render/external-fonts"]
+
 [dependencies]
 audio-dsp.workspace = true
 editor-semantics.workspace = true
