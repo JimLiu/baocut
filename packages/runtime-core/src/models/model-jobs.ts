@@ -589,7 +589,8 @@ function pipelineTranscriber(jobs: JobManager, services: ModelServices): Pipelin
   return {
     check: async ({ hint, ...target } = {}) => {
       const selection = await services.selectTranscribe(target);
-      if (hint) checkTranscribeOptions(selection, { hint, assertedLanguage: null });
+      // 与 `models.transcribe` 同一判断：只有空白的提示当作没给。
+      if (hint?.trim()) checkTranscribeOptions(selection, { hint: hint.trim(), assertedLanguage: null });
       return { providerId: selection.providerId, modelId: selection.modelId };
     },
     submit: (request, submitter) => jobs.submitTranscribe(request, submitter),
