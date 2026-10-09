@@ -10,6 +10,7 @@ export const pl: AssetReplaceMessages = {
   unused: "Ten materiał nie jest używany na osi czasu, więc nie ma czego zastąpić.",
   tooShort: "Nowy materiał jest zbyt krótki nawet na jedną klatkę.",
   allLocked: "Wszystkie używające go klipy są zablokowane (lub są wyrenderowanym zastępnikiem kompozycji). Najpierw je odblokuj.",
+  clipLocked: 'Ten klip jest zablokowany. Najpierw go odblokuj.',
   durationUnknown: "Długość materiału jest nieznana, więc klipy na razie zachowają obecną długość.",
   longEnoughMany: "Nowy materiał jest wystarczająco długi. Długość klipów i oś czasu pozostają bez zmian.",
   longEnoughOne: "Nowy materiał jest wystarczająco długi. Klip zachowuje długość, a oś czasu pozostaje bez zmian.",

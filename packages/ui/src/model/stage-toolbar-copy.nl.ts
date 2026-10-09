@@ -60,8 +60,6 @@ export const nl: StageToolbarMessages = {
     roundCorners: "Het voorbeeld kan nog geen afgeronde hoeken tekenen, dus ze zijn hier niet in te stellen.",
     filters: "Filters (LUT) zijn een gereserveerde naam in het videoformaat en worden bij het schrijven geweigerd.",
     crop: "Slim bijsnijden vereist een model en heeft nog geen toegangspunt. Binnenkort beschikbaar.",
-    replace: "Er is nog geen actie om het mediabestand van een clip te vervangen.",
-    detach: "Audio loskoppelen is nog niet aangesloten: er moet in dezelfde bewerking een audioclip worden toegevoegd en de video moet worden gedempt.",
     speed: "Deze clip speelt niet af met een constante snelheid, dus de snelheid kan hier niet worden gewijzigd.",
     sound: "Deze clip heeft geen geluid.",
     captionAnimation: 'Ondertitelanimaties kunnen nog niet in de editor worden gekozen.',
@@ -72,5 +70,6 @@ export const nl: StageToolbarMessages = {
   arrange: { front: 'Naar voorgrond', forward: 'Naar voren', backward: 'Naar achteren', back: 'Naar achtergrond', label: 'Stapelvolgorde wijzigen' },
   subtitleBar: 'Ondertitelwerkbalk',
   disabledNotice: 'Clip uitgeschakeld. Klik er met de rechtermuisknop op in de tijdlijn om het weer in te schakelen.',
+  detachedNotice: 'Het geluid is losgemaakt naar een nieuw audiospoor. De videoclip is gedempt.',
   textStyleLocked: (schema: string) => `Deze tekst gebruikt het stijlformaat ${schema} en kan hier nog niet worden bewerkt.`,
 };

@@ -8,6 +8,7 @@ export const ptBR: AssetReplaceMessages = {
   unused: 'Esta mídia não é usada na linha do tempo, então não há o que substituir.',
   tooShort: 'A nova mídia é curta demais para preencher um quadro.',
   allLocked: 'Todos os clipes que a usam estão bloqueados (ou são substitutos pré-renderizados de uma composição). Desbloqueie primeiro.',
+  clipLocked: 'Este clipe está bloqueado. Desbloqueie primeiro.',
   durationUnknown: 'A duração da mídia é desconhecida, então os clipes mantêm a duração atual por enquanto.',
   longEnoughMany: 'A nova mídia é longa o suficiente. Nenhum destes clipes muda de duração, e a linha do tempo permanece igual.',
   longEnoughOne: 'A nova mídia é longa o suficiente. O clipe mantém sua duração, e a linha do tempo permanece igual.',

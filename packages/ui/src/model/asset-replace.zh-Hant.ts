@@ -9,6 +9,7 @@ export const zhHant: AssetReplaceMessages = {
   unused: '時間軸上沒有用到這個素材，不需要替換。',
   tooShort: '新素材太短，填不滿一個影格。',
   allLocked: '用到它的片段都已鎖定（或是合成的預先渲染替身），請先解除鎖定。',
+  clipLocked: '這一段已鎖定，請先解除鎖定。',
   durationUnknown: '素材長度不明，片段暫時保留目前的長度。',
   longEnoughMany: '新素材夠長。這些片段的長度都不變，時間軸也維持不變。',
   longEnoughOne: '新素材夠長。片段保留原本的長度，時間軸也維持不變。',

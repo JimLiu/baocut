@@ -1,5 +1,5 @@
 import { useMemo, useState, type ComponentType } from 'react';
-import type { AssetRecord, Sequence } from '@baocut/protocol';
+import type { AssetRecord, Id, Sequence } from '@baocut/protocol';
 import { mediaTimeToSeconds } from '@baocut/protocol';
 import {
   Button,
@@ -35,6 +35,7 @@ import { MEDIA_COPY as MC } from './media-copy.ts';
  * 替换素材（设计稿 video-replace.jsx 的 `VideoReplaceDialog`，搬到素材库这一层）：左边是正在替换的素材与它用在哪几段，
  * 右边从视频素材里挑一份同类的，或选一个本地文件（同一笔事务里导入）。时间规则见 model/asset-replace.ts；确认后一笔提交，
  * 撤销一步回去。设计稿的「同时改视频画幅」不在这里：协议里改画幅是另一件事，替换只换素材。
+ * 从画布工具条打开时带 `itemId`：只换选中的那一段（设计稿 `openVideoReplace(el.id)`），左边的说明随之改成这一段。
  */
 
 const KIND_ICON: Record<PlaceableKind, ComponentType<{ slot?: string }>> = { video: Video, image: Image, audio: MusicNote };
@@ -116,11 +117,13 @@ export interface AssetReplaceDialogProps {
   asset: AssetRecord & { kind: PlaceableKind };
   sequence: Sequence;
   assets: Record<string, AssetRecord>;
+  /** 只换这一段（画布工具条）；缺省换掉用到这个素材的每一段。 */
+  itemId?: Id;
   onClose(): void;
 }
 
 /** 一个素材的替换窗口。状态放在 Dialog 外层（S2 的 Dialog 会把 children 在几个 slot 里各渲染一遍）。 */
-export function AssetReplaceDialog({ asset, sequence, assets, onClose }: AssetReplaceDialogProps) {
+export function AssetReplaceDialog({ asset, sequence, assets, itemId, onClose }: AssetReplaceDialogProps) {
   const runtime = useRuntime();
   const { apply, undo } = useEditorActions();
   const Icon = KIND_ICON[asset.kind];
@@ -138,9 +141,9 @@ export function AssetReplaceDialog({ asset, sequence, assets, onClose }: AssetRe
   const pick = chosen ? assets[chosen] : undefined;
   const source: ReplaceSource | null =
     tab === 'library' ? (pick ? { from: 'library', asset: pick } : null) : file ? { from: 'file', path: file.path, name: file.name, kind: file.kind } : null;
-  const plan = frozen?.plan ?? (source ? planAssetReplace({ sequence, asset, source, align }) : null);
+  const plan = frozen?.plan ?? (source ? planAssetReplace({ sequence, asset, source, align, itemId }) : null);
   // 不管换成什么都会被拒的情形（都锁着、没用到）在选之前就说。
-  const precheck = frozen?.precheck ?? planAssetReplace({ sequence, asset, source: { from: 'file', path: '', name: '', kind: asset.kind } });
+  const precheck = frozen?.precheck ?? planAssetReplace({ sequence, asset, source: { from: 'file', path: '', name: '', kind: asset.kind }, itemId });
   const blocked = !precheck.ok ? precheck.reason : null;
   const sideEffects = plan ? replaceSideEffects(plan) : [];
   const kept = precheck.ok ? precheck.kept : [];
@@ -182,15 +185,15 @@ export function AssetReplaceDialog({ asset, sequence, assets, onClose }: AssetRe
             <Heading slot="title">{MC.replaceKind(asset.kind)}</Heading>
             <Content>
               <div className={layout}>
-                <aside className={aside} aria-label={MC.replacingThis}>
-                  <span className={sectionTitle}>{MC.replacingThis}</span>
+                <aside className={aside} aria-label={itemId ? MC.replacingClip : MC.replacingThis}>
+                  <span className={sectionTitle}>{itemId ? MC.replacingClip : MC.replacingThis}</span>
                   <span className={targetThumb} aria-hidden>
                     <Icon />
                   </span>
                   <span className={strong}>{asset.name}</span>
                   <span className={detail}>{assetMeta(asset) || MC.kindName(asset.kind)}</span>
                   <p className={detail}>
-                    {MC.replaceRule}
+                    {itemId ? MC.replaceClipRule : MC.replaceRule}
                   </p>
                   <span className={note}>
                     <InfoCircle />

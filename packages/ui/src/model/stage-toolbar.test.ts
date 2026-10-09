@@ -23,7 +23,7 @@ const place: Place = { x: 50, y: 50, w: 10 };
 const linear = { kind: 'linear', sourceIn: { ticks: '0', timescale: 1 }, rate: { num: 1, den: 1 } };
 const text = (style: unknown = { fontSize: 40 }) => ({ id: 't', type: 'text', text: '标题', place, style }) as unknown as PlacedItem;
 const video = (timeMap: unknown = linear) =>
-  ({ id: 'v', type: 'video', mode: 'pip', place, timeMap, embeddedAudio: { enabled: true, volume: 1 } }) as unknown as PlacedItem;
+  ({ id: 'v', type: 'video', mode: 'pip', place, assetRef: { id: 'asset_video', revision: 'r1' }, timeMap, embeddedAudio: { enabled: true, volume: 1 } }) as unknown as PlacedItem;
 const image = () => ({ id: 'i', type: 'image', mode: 'pip', place }) as unknown as PlacedItem;
 const shape = (value: unknown = { shape: 'rect', fill: '#3B63FB' }) =>
   ({ id: 's', type: 'shape', place, shape: value }) as unknown as PlacedItem;
@@ -167,11 +167,25 @@ describe('每一格做什么', () => {
     }
   });
 
-  it('还接不上的几格不能用：动画、圆角（预览画不出）、滤镜、替换、分离音频、智能裁剪', () => {
+  it('还接不上的几格不能用：动画、圆角（预览画不出）、滤镜、智能裁剪', () => {
     const spec = toolbarFor(video());
-    for (const id of ['animation', 'round-corners', 'filters', 'replace-video', 'detach-audio', 'crop-video']) {
+    for (const id of ['animation', 'round-corners', 'filters', 'crop-video']) {
       expect(find(spec, id)?.action.kind, id).toBe('off');
     }
+  });
+
+  it('替换视频 / 替换图片是命令（开替换窗口，只换这一段）', () => {
+    expect(find(toolbarFor(video()), 'replace-video')?.action).toEqual({ kind: 'command' });
+    expect(find(toolbarFor(image()), 'replace-image')?.action).toEqual({ kind: 'command' });
+  });
+
+  it('分离音频：素材有音轨且视频自带的声音开着时是命令，否则说没有声音', () => {
+    const withSound = media('video', { audio: { sampleRate: 48000, channels: 2 } });
+    const clip = video();
+    expect(find(toolbarFor(clip, { asset: withSound }), 'detach-audio')?.action).toEqual({ kind: 'command' });
+    expect(find(toolbarFor(clip, { asset: media('video') }), 'detach-audio')?.action).toEqual({ kind: 'off', reason: OFF_REASON.sound });
+    const muted = { ...clip, embeddedAudio: { enabled: false, volume: 1 } } as PlacedItem;
+    expect(find(toolbarFor(muted, { asset: withSound }), 'detach-audio')?.action).toEqual({ kind: 'off', reason: OFF_REASON.sound });
   });
 
   // BaoCut v2 已上线的条子（stage-toolbar.logic.ts 的 MEDIA_MORE / PLAIN_MORE）：除视频外每一类的菜单都有不透明度与「隐藏」。

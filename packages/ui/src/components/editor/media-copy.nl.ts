@@ -63,6 +63,8 @@ export const nl: MediaMessages = {
   replacedMany: (kind: PlaceableKind, n: number) => `Vervangen: ${noun[kind]} op de tijdlijn · ${n} clips`,
   replacingThis: "Deze media vervangen",
   replaceRule: "Clips op de tijdlijn die deze media gebruiken worden samen vervangen: positie, bijsnijden, stijl en volume blijven behouden en de nieuwe media spelen vanaf het begin. Als de nieuwe media korter zijn, worden de clips korter en schuiven latere clips op hetzelfde spoor naar voren.",
+  replacingClip: 'Deze clip vervangen',
+  replaceClipRule: 'Alleen deze clip wordt vervangen; andere clips met deze media blijven ongewijzigd. Positie, bijsnijden, stijl en volume blijven behouden en de nieuwe media spelen vanaf het begin. Als de nieuwe media korter zijn, wordt de clip korter en schuiven latere clips op hetzelfde spoor naar voren.',
   replaceCancelNote: "Sluit het venster om te annuleren. Na bevestiging kun je het ongedaan maken.",
   pickNew: (kind: PlaceableKind) => `Nieuwe media kiezen: ${noun[kind]}`,
   sourceTabs: "Waar de nieuwe media vandaan komen",

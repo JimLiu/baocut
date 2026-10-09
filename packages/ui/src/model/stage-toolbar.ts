@@ -1,5 +1,6 @@
 import { live, type ArrangeDirection, type AssetRecord, type BrandMediaKind, type Id, type LibrarySource } from '@baocut/protocol';
 import { asObject } from '../render/text-style.ts';
+import { canDetachAudio } from './detach-audio.ts';
 import { assetLibrarySource, brandKindForAsset } from './library-brand.ts';
 import { editableTextStyle } from './property-values.ts';
 import type { PlacedItem, Rect } from './stage-pose.ts';
@@ -393,9 +394,11 @@ export function toolAction(id: ToolId, item: PlacedItem, kind: BarKind, context:
       return off(OFF_REASON.crop);
     case 'replace-video':
     case 'replace-image':
-      return off(OFF_REASON.replace);
+      // 打开替换素材的窗口，只换这一段（asset-replace.ts 的 `itemId`）。
+      return COMMAND;
     case 'detach-audio':
-      return off(OFF_REASON.detach);
+      // 分离之后视频自带的声音关了，再按这一格也是「没有声音」。
+      return item.type === 'video' && canDetachAudio(item, context.asset) ? COMMAND : off(OFF_REASON.sound);
     case 'sub-scope':
     case 'sub-edit':
     case 'sub-style':

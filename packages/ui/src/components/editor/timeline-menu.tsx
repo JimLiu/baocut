@@ -17,6 +17,7 @@ import { useEditor } from '../../state/editor-store.ts';
 import { canEdit, useVideo } from '../../state/video-store.ts';
 import { DubFitHost } from './dub-fit-dialog.tsx';
 import { useEditorActions } from './editor-context.tsx';
+import { ItemReplaceHost } from './item-replace.tsx';
 import { DubBlockMenu } from './timeline-dub.tsx';
 import {
   MOD_KEY,
@@ -47,7 +48,8 @@ export interface TimelineMenuTarget {
  * 菜单开在指针那一点：用一个 `position: fixed` 的 0 尺寸锚当触发器（时间线是滚动区，浮层挂在片段上会跟着滚、
  * 也会被裁），受控打开。原型只给视频块「在播放头分割」；这里每一类都给，与 S、⌘B 一致，播放头不在这一件里时禁用。
  * 配音块换成块菜单（timeline-dub.tsx `DubBlockMenu`）：听这一句、静音、重新生成、改译文并重配、删除这几句。
- * 「改译文并重配」的对话框也常驻挂在这里（dub-fit-dialog.tsx），块菜单、配音行头与配音组卡都经 `openDubFit` 打开它。
+ * 「改译文并重配」的对话框也常驻挂在这里（dub-fit-dialog.tsx），块菜单、配音行头与配音组卡都经 `openDubFit` 打开它；
+ * 画布工具条「替换视频 / 替换图片」的替换窗口同样挂在这里（item-replace.tsx）。
  */
 export function TimelineMenu(props: {
   target: TimelineMenuTarget | null;
@@ -62,6 +64,7 @@ export function TimelineMenu(props: {
     <>
       <TimelineItemMenu {...props} />
       <DubFitHost sequence={props.sequence} documents={props.documents} blocks={props.dubBlocks ?? EMPTY_BLOCKS} />
+      <ItemReplaceHost sequence={props.sequence} assets={props.assets} />
     </>
   );
 }

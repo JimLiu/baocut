@@ -64,6 +64,8 @@ export const ptBR: MediaMessages = {
   replacedMany: (kind: PlaceableKind, n: number) => `Substituído ${noun[kind]} na linha do tempo · ${n} clipes`,
   replacingThis: "Substituindo esta mídia",
   replaceRule: "Todos os clipes que usam a mídia são substituídos: posição, recorte, estilo e volume mantidos; nova mídia começa do início. Se menor, clipes encurtam e os seguintes avançam.",
+  replacingClip: 'Substituindo este clipe',
+  replaceClipRule: 'Só este clipe é substituído; os outros clipes que usam a mídia não mudam. Posição, recorte, estilo e volume são mantidos, e a nova mídia começa do início. Se for menor, o clipe encurta e os seguintes na mesma faixa avançam.',
   replaceCancelNote: "Feche para cancelar. Você pode desfazer após confirmar.",
   pickNew: (kind: PlaceableKind) => `Escolher nova mídia de ${noun[kind]}`,
   sourceTabs: "Origem da nova mídia",

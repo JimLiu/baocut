@@ -58,8 +58,6 @@ export const ko: StageToolbarMessages = {
     roundCorners: '미리보기에서 아직 둥근 모서리를 그릴 수 없어 여기서 설정할 수 없습니다.',
     filters: '필터(LUT)는 영상 형식에서 예약된 이름이라 기록할 때 거부됩니다.',
     crop: '스마트 자르기는 모델이 필요하며 아직 진입점이 없습니다. 곧 제공됩니다.',
-    replace: '아직 클립의 소재를 바꾸는 기능이 없습니다.',
-    detach: '오디오 분리는 아직 연결되지 않았습니다. 같은 편집에서 오디오 클립을 추가하고 영상을 음소거해야 합니다.',
     speed: '이 클립은 일정한 속도로 재생되지 않으므로 여기서 속도를 바꿀 수 없습니다.',
     sound: '이 클립에는 소리가 없습니다.',
     captionAnimation: '편집기에서는 아직 자막 애니메이션을 고를 수 없습니다.',
@@ -70,5 +68,6 @@ export const ko: StageToolbarMessages = {
   arrange: { front: '맨 앞으로 가져오기', forward: '앞으로 가져오기', backward: '뒤로 보내기', back: '맨 뒤로 보내기', label: '쌓임 순서 변경' },
   subtitleBar: '자막 도구 모음',
   disabledNotice: '클립을 비활성화했습니다. 타임라인에서 마우스 오른쪽 버튼을 클릭하면 다시 활성화할 수 있습니다.',
+  detachedNotice: '소리를 새 오디오 트랙으로 분리했습니다. 비디오 클립은 음소거되었습니다.',
   textStyleLocked: (schema: string) => `이 텍스트는 ${schema} 스타일 형식을 사용하므로 아직 여기서 편집할 수 없습니다.`,
 };

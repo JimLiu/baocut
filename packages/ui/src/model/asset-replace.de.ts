@@ -9,6 +9,7 @@ export const de: AssetReplaceMessages = {
   unused: "Dieses Material wird nicht in der Zeitleiste verwendet; nichts zu ersetzen.",
   tooShort: "Das neue Material ist kürzer als ein einzelner Frame.",
   allLocked: "Alle verwendenden Clips sind gesperrt (oder vorgerenderte Kompositionsersatzdarstellungen). Zuerst entsperren.",
+  clipLocked: 'Dieser Clip ist gesperrt. Zuerst entsperren.',
   durationUnknown: "Materiallänge unbekannt; Clips behalten vorerst ihre Länge.",
   longEnoughMany: "Neues Material ist lang genug. Cliplängen und Zeitleiste bleiben unverändert.",
   longEnoughOne: "Neues Material ist lang genug. Cliplänge und Zeitleiste bleiben unverändert.",

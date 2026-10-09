@@ -45,6 +45,8 @@ import { vi } from './asset-replace.vi.ts';
  * - 新素材的时长不知道（本地文件要导入之后才探测）：先保留片段原时长（设计稿 `keep`），新文件不够长时引擎整笔拒绝。
  * - 锁着的片段（或在锁着的轨道上）与合成的预渲染替身保持原样；同轨的波纹挪到锁着的片段为止。
  *
+ * 画布工具条上的「替换视频 / 替换图片」只换选中的那一段（`itemId`）：同样的规则，只是用到这个素材的别的片段不动。
+ *
  * 协议里没有「给实例换素材」的操作，删了再写回的实例是新 ID：挂在它们上面的转场被引擎去掉，按它们投影的字幕、
  * 以它们为触发或目标的闪避对不上了。计划里数出这几样，替换框照实写出来。
  */
@@ -59,6 +61,8 @@ export interface AssetReplaceInput {
   source: ReplaceSource;
   /** 按原素材时间对齐：原来取用的那一段在新素材里放得下时，源时间照旧。 */
   align?: boolean;
+  /** 只换这一段（画布工具条）；缺省换掉时间线上用到这个素材的每一段。 */
+  itemId?: Id;
 }
 
 export interface ReplacedInstance {
@@ -220,6 +224,7 @@ const en = {
   unused: 'This asset isn’t used on the timeline, so there’s nothing to replace.',
   tooShort: 'The new asset is too short to fill a single frame.',
   allLocked: 'Every clip that uses it is locked (or is a prerendered stand-in for a composition). Unlock them first.',
+  clipLocked: 'This clip is locked. Unlock it first.',
   durationUnknown: 'The asset’s length is unknown, so the clips keep their current length for now.',
   longEnoughMany: 'The new asset is long enough. None of these clips change length, and the timeline stays the same.',
   longEnoughOne: 'The new asset is long enough. The clip keeps its length, and the timeline stays the same.',
@@ -253,7 +258,7 @@ const usesAsset = (item: SequenceItem, assetId: Id) =>
   (item.type === 'composition' && item.prerender?.id === assetId);
 
 /** 算一次替换：换哪些片段、各变多长、同轨挪哪些，以及那一笔操作。不改时间线，只算。 */
-export function planAssetReplace({ sequence, asset, source, align = false }: AssetReplaceInput): AssetReplacePlan {
+export function planAssetReplace({ sequence, asset, source, align = false, itemId }: AssetReplaceInput): AssetReplacePlan {
   const fail = (reason: string) => ({ ok: false as const, reason });
   const kind = asset.kind;
   if (kind !== 'video' && kind !== 'image' && kind !== 'audio') return fail(M.cantReplaceKind);
@@ -263,7 +268,7 @@ export function planAssetReplace({ sequence, asset, source, align = false }: Ass
   const fps = sequence.fps;
   const toSeconds = (frames: number) => (frames * fps.den) / fps.num;
   const lockedTracks = new Set(sequence.tracks.filter((t) => t.locked).map((t) => t.id));
-  const users = sequence.items.filter((item) => usesAsset(item, asset.id));
+  const users = sequence.items.filter((item) => usesAsset(item, asset.id) && (itemId === undefined || item.id === itemId));
   if (!users.length) return fail(M.unused);
 
   const duration = sourceDuration(source);
@@ -289,7 +294,7 @@ export function planAssetReplace({ sequence, asset, source, align = false }: Ass
       timings.set(item.id, timing);
     }
   }
-  if (!timings.size) return fail(M.allLocked);
+  if (!timings.size) return fail(itemId === undefined ? M.allLocked : M.clipLocked);
 
   // 同轨的波纹：按起点排，变短的片段之后的往前挪累计的帧数；碰到锁着的片段就停（它和它后面的不动）。
   const shiftOf = new Map<Id, number>();

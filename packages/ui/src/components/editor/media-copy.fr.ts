@@ -64,6 +64,8 @@ export const fr: MediaMessages = {
   replacedMany: (kind: PlaceableKind, n: number) => `Remplacé : ${noun[kind]} sur la timeline · ${n} clips`,
   replacingThis: "Remplacement de ce média",
   replaceRule: "Tous les clips utilisant ce média sont remplacés : position, recadrage, style et volume conservés, nouveau média lu depuis son début. S’il est plus court, les clips raccourcissent et les suivants de la même piste avancent.",
+  replacingClip: 'Remplacement de ce clip',
+  replaceClipRule: 'Seul ce clip est remplacé ; les autres clips utilisant ce média ne changent pas. Position, recadrage, style et volume sont conservés, et le nouveau média est lu depuis son début. S’il est plus court, le clip raccourcit et les suivants de la même piste avancent.',
   replaceCancelNote: "Fermez la fenêtre pour annuler. Annulable après confirmation.",
   pickNew: (kind: PlaceableKind) => `Choisir le nouveau ${noun[kind]}`,
   sourceTabs: "Origine du nouveau média",

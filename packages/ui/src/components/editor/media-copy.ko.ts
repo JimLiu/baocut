@@ -63,6 +63,8 @@ export const ko: MediaMessages = {
   replacedMany: (kind: PlaceableKind, n: number) => `타임라인의 ${noun[kind]} 교체됨 · 클립 ${n}개`,
   replacingThis: '이 소재를 교체하는 중',
   replaceRule: '타임라인에서 이 소재를 사용하는 클립이 함께 교체됩니다. 위치, 자르기, 스타일, 볼륨은 유지되고 새 소재는 처음부터 재생됩니다. 새 소재가 더 짧으면 클립이 짧아지고 같은 트랙의 뒤쪽 클립이 앞으로 당겨집니다.',
+  replacingClip: '이 클립을 교체하는 중',
+  replaceClipRule: '이 클립만 교체하며 같은 소재를 쓰는 다른 클립은 그대로입니다. 위치, 자르기, 스타일, 볼륨은 유지되고 새 소재는 처음부터 재생됩니다. 새 소재가 더 짧으면 클립이 짧아지고 같은 트랙의 뒤쪽 클립이 앞으로 당겨집니다.',
   replaceCancelNote: '창을 닫으면 취소됩니다. 확인한 뒤에도 실행 취소할 수 있습니다.',
   pickNew: (kind: PlaceableKind) => `새 ${noun[kind]} 선택`,
   sourceTabs: '새 소재의 출처',

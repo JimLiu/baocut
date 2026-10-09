@@ -65,6 +65,8 @@ export const pl: MediaMessages = {
   replacedMany: (kind: PlaceableKind, n: number) => pluralForm('pl', n, { one: `Materiał ${noun[kind]} zastąpiono na osi czasu · ${n} klip`, few: `Materiał ${noun[kind]} zastąpiono na osi czasu · ${n} klipy`, many: `Materiał ${noun[kind]} zastąpiono na osi czasu · ${n} klipów`, other: `Materiał ${noun[kind]} zastąpiono na osi czasu · ${n} klipu` }),
   replacingThis: "Zastępowanie materiału",
   replaceRule: "Klipy tego materiału są zastępowane razem: pozycja, przycięcie, styl i głośność zachowane, nowy materiał od początku. Jeśli krótszy, klipy skracają się, późniejsze na tej samej ścieżce przesuwają wcześniej.",
+  replacingClip: 'Zastępowanie klipu',
+  replaceClipRule: 'Zastępowany jest tylko ten klip; inne klipy z tym materiałem się nie zmieniają. Pozycja, przycięcie, styl i głośność zachowane, nowy materiał od początku. Jeśli krótszy, klip się skraca, a późniejsze na tej samej ścieżce przesuwają się wcześniej.',
   replaceCancelNote: "Zamknij okno, aby anulować. Po potwierdzeniu można cofnąć.",
   pickNew: (kind: PlaceableKind) => `Wybierz nowy materiał: ${noun[kind]}`,
   sourceTabs: "Źródło nowego materiału",

@@ -58,8 +58,6 @@ export const vi: StageToolbarMessages = {
     roundCorners: 'Bản xem trước chưa vẽ được góc bo tròn, nên chưa thể đặt ở đây.',
     filters: 'Bộ lọc (LUT) là tên dành riêng trong định dạng video và bị từ chối khi ghi.',
     crop: 'Cắt thông minh cần mô hình và chưa có điểm truy cập. Sắp ra mắt.',
-    replace: 'Chưa có thao tác đổi tư liệu của clip.',
-    detach: 'Tách âm thanh chưa được kết nối: cần thêm clip âm thanh và tắt tiếng video trong cùng một chỉnh sửa.',
     speed: 'Clip này không phát ở tốc độ cố định nên không thể đổi tốc độ tại đây.',
     sound: 'Clip này không có âm thanh.',
     captionAnimation: 'Chưa thể chọn hoạt ảnh phụ đề trong trình chỉnh sửa.',
@@ -70,5 +68,6 @@ export const vi: StageToolbarMessages = {
   arrange: { front: 'Đưa lên trên cùng', forward: 'Đưa lên trước', backward: 'Đưa ra sau', back: 'Đưa xuống dưới cùng', label: 'Thay đổi thứ tự xếp chồng' },
   subtitleBar: 'Thanh công cụ phụ đề',
   disabledNotice: 'Đã tắt clip. Nhấp chuột phải vào clip trên dòng thời gian để bật lại.',
+  detachedNotice: 'Đã tách âm thanh sang một rãnh âm thanh mới. Clip video đã tắt tiếng.',
   textStyleLocked: (schema: string) => `Văn bản này dùng định dạng kiểu ${schema} và chưa thể chỉnh sửa tại đây.`,
 };

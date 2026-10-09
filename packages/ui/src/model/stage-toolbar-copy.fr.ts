@@ -20,8 +20,6 @@ export const fr: StageToolbarMessages = {
     roundCorners: 'L’aperçu n’affiche pas encore les coins arrondis ; ils ne peuvent donc pas être réglés ici.',
     filters: 'Les filtres (LUT) sont un nom réservé dans le format vidéo et sont refusés à l’écriture.',
     crop: 'Le recadrage intelligent nécessite un modèle et n’a pas encore de point d’entrée. Bientôt disponible.',
-    replace: 'Aucune opération ne permet encore de remplacer le média d’un clip.',
-    detach: 'Le détachement de l’audio n’est pas encore intégré : il faut ajouter un clip audio et couper le son de la vidéo dans la même modification.',
     speed: 'Ce clip n’est pas lu à vitesse constante ; sa vitesse ne peut donc pas être modifiée ici.',
     sound: 'Ce clip n’a pas de son.',
     captionAnimation: 'On ne peut pas encore choisir d’animation de sous-titres dans l’éditeur.',
@@ -32,5 +30,6 @@ export const fr: StageToolbarMessages = {
   arrange: { front: 'Mettre au premier plan', forward: 'Avancer', backward: 'Reculer', back: 'Mettre à l’arrière-plan', label: 'Modifier l’ordre de superposition' },
   subtitleBar: 'Barre d’outils des sous-titres',
   disabledNotice: 'Clip désactivé. Faites un clic droit dessus dans la timeline pour le réactiver.',
+  detachedNotice: 'Le son a été détaché sur une nouvelle piste audio. Le clip vidéo est coupé.',
   textStyleLocked: (schema) => `Ce texte utilise le format de style ${schema} et ne peut pas encore être modifié ici.`,
 };

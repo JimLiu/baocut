@@ -1,7 +1,8 @@
-import type { ArrangeDirection, Id, Sequence, SequenceItem, TransactionReceipt, VideoSnapshot } from '@baocut/protocol';
+import type { ArrangeDirection, Id, Sequence, SequenceItem, TransactionReceipt, VideoItem, VideoSnapshot } from '@baocut/protocol';
 import { ToastQueue } from '@react-spectrum/s2';
 import { TIMELINE_EDIT_COPY as COPY } from '../../copy.ts';
 import { frameAt, itemFrames, itemLabel, rootSequence } from '../../model/editor.ts';
+import { detachAudioOperations } from '../../model/detach-audio.ts';
 import { arrangeOperation, deletableItemIds, itemsAtFrame, moveOperation, nudgeDelta, splitOperations } from '../../model/editor-ops.ts';
 import { ARRANGE_COPY } from '../../model/stage-toolbar.ts';
 import { pasteOperations } from '../../model/item-clipboard.ts';
@@ -235,6 +236,13 @@ export async function setItemEnabled(actions: EditorActions, itemId: Id, enabled
   if (!ctx?.editable) return;
   const receipt = await actions.apply([{ type: 'updateItem', sequenceId: ctx.sequence.id, itemId, enabled }], enabled ? COPY.labelEnable : COPY.labelDisable);
   if (receipt && notice) undoToast(actions, notice, receipt);
+}
+
+/** 分离音频（画布工具条）：一笔里新建音频轨放这一段的声音、关掉视频自带的声音（detach-audio.ts）；提示带撤销。 */
+export async function detachAudio(actions: EditorActions, sequence: Sequence, item: VideoItem, label: string, notice: string): Promise<void> {
+  if (!live()?.editable) return;
+  const receipt = await actions.apply(detachAudioOperations(sequence, item), label);
+  if (receipt) undoToast(actions, notice, receipt);
 }
 
 /** ⌘A：选中播放头下的片段（原型 selectAll）。 */

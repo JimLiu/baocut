@@ -64,6 +64,8 @@ export const zhHans: MediaMessages = {
   replacedMany: (kind: PlaceableKind, n: number) => `已替换时间线上的${noun[kind]} · ${n} 段`,
   replacingThis: '正在替换这个素材',
   replaceRule: '时间线上用到它的片段一起换：位置、裁剪、样式与音量保留，新素材从头用起；新素材不够长时片段变短，同一条轨道上后面的片段跟着往前挪。',
+  replacingClip: '正在替换这一段',
+  replaceClipRule: '只换这一段，用到同一素材的其他片段不变：位置、裁剪、样式与音量保留，新素材从头用起；新素材不够长时这一段变短，同一条轨道上后面的片段跟着往前挪。',
   replaceCancelNote: '关闭窗口可取消。确认后可撤销。',
   pickNew: (kind: PlaceableKind) => `选新的${noun[kind]}`,
   sourceTabs: '新素材从哪来',

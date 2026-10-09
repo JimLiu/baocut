@@ -58,8 +58,6 @@ export const zhHant: StageToolbarMessages = {
     roundCorners: '預覽還畫不出圓角，暫時不能在這裡設定。',
     filters: '濾鏡（LUT）是影片格式中的保留名稱，寫入時會被拒絕。',
     crop: '智慧裁切需要模型，目前還沒有入口。即將推出。',
-    replace: '目前還沒有替換片段素材的操作。',
-    detach: '分離音訊尚未接上：需要在同一次編輯中新增音訊片段，並將影片本身靜音。',
     speed: '這個片段不是以固定速率播放，因此無法在這裡變更速度。',
     sound: '這個片段沒有聲音。',
     captionAnimation: '編輯器裡還不能選字幕動畫。',
@@ -70,5 +68,6 @@ export const zhHant: StageToolbarMessages = {
   arrange: { front: '移到最前', forward: '前移一層', backward: '後移一層', back: '移到最後', label: '調整堆疊順序' },
   subtitleBar: '字幕工具列',
   disabledNotice: '已停用片段。在時間軸上按右鍵可重新啟用。',
+  detachedNotice: '已將聲音分離到一條新的音訊軌，影片片段已靜音。',
   textStyleLocked: (schema: string) => `這段文字使用 ${schema} 樣式格式，目前還無法在這裡編輯。`,
 };

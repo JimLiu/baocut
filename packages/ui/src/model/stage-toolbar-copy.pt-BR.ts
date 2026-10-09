@@ -11,8 +11,6 @@ export const ptBR: StageToolbarMessages = {
     roundCorners: 'A pré-visualização ainda não desenha cantos arredondados, então não dá para ajustá-los aqui.',
     filters: 'Filtros (LUT) são um nome reservado no formato de vídeo e são rejeitados ao gravar.',
     crop: 'O recorte inteligente precisa de um modelo e ainda não tem ponto de entrada. Em breve.',
-    replace: 'Ainda não há operação para trocar a mídia de um clipe.',
-    detach: 'Desvincular áudio ainda não foi conectado: é preciso adicionar um clipe de áudio e silenciar o vídeo na mesma edição.',
     speed: 'Este clipe não reproduz em velocidade constante, então a velocidade não pode ser alterada aqui.',
     sound: 'Este clipe não tem som.',
     captionAnimation: 'Ainda não é possível escolher animações de legenda no editor.',
@@ -23,5 +21,6 @@ export const ptBR: StageToolbarMessages = {
   arrange: { front: 'Trazer para a frente', forward: 'Avançar', backward: 'Recuar', back: 'Enviar para trás', label: 'Alterar ordem de sobreposição' },
   subtitleBar: 'Barra de ferramentas de legendas',
   disabledNotice: 'Clipe desativado. Clique com o botão direito nele na linha do tempo para ativá-lo de novo.',
+  detachedNotice: 'O som foi separado em uma nova faixa de áudio. O clipe de vídeo foi silenciado.',
   textStyleLocked: (schema: string) => `Este texto usa o formato de estilo ${schema} e ainda não pode ser editado aqui.`,
 };

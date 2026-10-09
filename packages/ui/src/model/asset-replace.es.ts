@@ -8,6 +8,7 @@ export const es: AssetReplaceMessages = {
   unused: 'Este material no se usa en la línea de tiempo, por lo que no hay nada que reemplazar.',
   tooShort: 'El material nuevo es demasiado corto para llenar un solo fotograma.',
   allLocked: 'Todos los clips que lo usan están bloqueados (o son sustitutos prerrenderizados de una composición). Primero desbloquéalos.',
+  clipLocked: 'Este clip está bloqueado. Primero desbloquéalo.',
   durationUnknown: 'Se desconoce la duración del material, por lo que los clips conservan su duración actual por ahora.',
   longEnoughMany: 'El material nuevo tiene suficiente duración. Ninguno de estos clips cambia de duración y la línea de tiempo sigue igual.',
   longEnoughOne: 'El material nuevo tiene suficiente duración. El clip conserva su duración y la línea de tiempo sigue igual.',

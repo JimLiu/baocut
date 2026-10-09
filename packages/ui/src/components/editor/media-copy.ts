@@ -79,6 +79,8 @@ const en = {
   replacedMany: (kind: PlaceableKind, n: number) => `Replaced the ${noun[kind]} on the timeline · ${n} clips`,
   replacingThis: 'Replacing this asset',
   replaceRule: 'Clips on the timeline that use it are replaced together: position, crop, style, and volume are kept, and the new asset plays from its start. If the new asset is shorter, the clips get shorter and later clips on the same track move up.',
+  replacingClip: 'Replacing this clip',
+  replaceClipRule: 'Only this clip is replaced; other clips that use the asset stay as they are. Position, crop, style, and volume are kept, and the new asset plays from its start. If the new asset is shorter, the clip gets shorter and later clips on the same track move up.',
   replaceCancelNote: 'Close the window to cancel. You can undo after confirming.',
   pickNew: (kind: PlaceableKind) => `Choose the new ${noun[kind]}`,
   sourceTabs: 'Where the new asset comes from',

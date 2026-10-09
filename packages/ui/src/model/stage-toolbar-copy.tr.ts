@@ -58,8 +58,6 @@ export const tr: StageToolbarMessages = {
     roundCorners: 'Önizleme henüz yuvarlak köşeleri çizemiyor, bu yüzden burada ayarlanamaz.',
     filters: 'Filtreler (LUT) video biçiminde ayrılmış bir addır ve yazılırken reddedilir.',
     crop: 'Akıllı kırpma model gerektirir ve henüz giriş noktası yok. Yakında.',
-    replace: 'Klipin medyasını değiştirecek işlem henüz yok.',
-    detach: 'Sesi ayırma henüz bağlanmadı: aynı düzenlemede ses klipi eklenip videonun sesi kapatılmalı.',
     speed: 'Bu klip sabit hızda oynatılmadığından hızı burada değiştirilemez.',
     sound: 'Bu klipte ses yok.',
     captionAnimation: 'Altyazı animasyonları henüz düzenleyicide seçilemiyor.',
@@ -70,5 +68,6 @@ export const tr: StageToolbarMessages = {
   arrange: { front: 'En öne getir', forward: 'Öne getir', backward: 'Arkaya gönder', back: 'En arkaya gönder', label: 'Yığılma sırasını değiştir' },
   subtitleBar: 'Altyazı araç çubuğu',
   disabledNotice: 'Klip devre dışı bırakıldı. Yeniden etkinleştirmek için zaman çizelgesinde sağ tıklayın.',
+  detachedNotice: 'Ses yeni bir ses izine ayrıldı. Video klibin sesi kapatıldı.',
   textStyleLocked: (schema: string) => `Bu metin ${schema} stil biçimini kullanıyor ve henüz burada düzenlenemiyor.`,
 };

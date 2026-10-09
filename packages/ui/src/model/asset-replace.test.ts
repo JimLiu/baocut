@@ -160,6 +160,27 @@ describe('planAssetReplace', () => {
     expect(plan.operations.map((o) => o.type)).toEqual(['deleteItems', 'moveItems', 'insertItems']);
   });
 
+  it('只换一段（画布工具条的 itemId）：用同一素材的别的片段不换，同轨在它后面的照样跟着挪', () => {
+    const seq = sequence([
+      clip('a', 'v1', 'main', 0, 28),
+      clip('b', 'v1', 'main', 28, 45.2, 28),
+      clip('c', 'v1', 'main', 45.2, 78, 45.2),
+      clip('d', 'v1', 'other', 80, 90),
+    ]);
+    const main = asset('main', 'video', 206);
+    const plan = ok(planAssetReplace({ sequence: seq, asset: main, source: { from: 'library', asset: asset('x', 'video', 10) }, itemId: 'b' }));
+    expect(plan.replaced.map((r) => [r.itemId, r.newStart, +r.newEnd.toFixed(3)])).toEqual([['b', 28, 38]]);
+    expect(op(plan, 'deleteItems')!.itemIds).toEqual(['b']);
+    // b 从 17.2 秒变成 10 秒：c（同一素材，没换）与 d 都往前 7.2 秒。
+    expect(op(plan, 'moveItems')!.moves).toEqual([
+      { itemId: 'c', offset: { unit: 'frames', value: -216 } },
+      { itemId: 'd', offset: { unit: 'frames', value: -216 } },
+    ]);
+    const locked = sequence([{ ...clip('b', 'v1', 'main', 28, 45.2, 28), locked: true }]);
+    const refused = planAssetReplace({ sequence: locked, asset: main, source: { from: 'library', asset: asset('x', 'video', 10) }, itemId: 'b' });
+    expect(refused).toEqual({ ok: false, reason: '这一段锁着，先解锁再换。' });
+  });
+
   it('按原素材时间对齐：原来取用的那一段放得下就照旧，放不下按普通替换（设计稿「同源成片」）', () => {
     const seq = sequence(lane());
     const covered = ok(

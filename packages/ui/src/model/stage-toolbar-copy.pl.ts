@@ -58,8 +58,6 @@ export const pl: StageToolbarMessages = {
     roundCorners: "Podgląd nie rysuje jeszcze zaokrąglonych narożników, więc nie można ich tu ustawić.",
     filters: "Filtry (LUT) są zarezerwowaną nazwą w formacie wideo i są odrzucane przy zapisie.",
     crop: "Inteligentne kadrowanie wymaga modelu i nie ma jeszcze punktu wejścia. Wkrótce.",
-    replace: "Nie ma jeszcze operacji zamiany materiału klipu.",
-    detach: "Oddzielanie audio nie jest jeszcze podłączone: wymaga dodania klipu audio i wyciszenia wideo w tej samej zmianie.",
     speed: "Klip nie odtwarza się ze stałą prędkością, więc nie można tu jej zmienić.",
     sound: "Ten klip nie ma dźwięku.",
     captionAnimation: 'Animacji napisów nie można jeszcze wybrać w edytorze.',
@@ -70,5 +68,6 @@ export const pl: StageToolbarMessages = {
   arrange: { front: 'Przenieś na wierzch', forward: 'Przesuń do przodu', backward: 'Przesuń do tyłu', back: 'Przenieś na spód', label: 'Zmień kolejność warstw' },
   subtitleBar: 'Pasek narzędzi napisów',
   disabledNotice: 'Klip wyłączony. Kliknij go prawym przyciskiem na osi czasu, aby włączyć go ponownie.',
+  detachedNotice: 'Dźwięk odłączono na nową ścieżkę audio. Klip wideo jest wyciszony.',
   textStyleLocked: (schema: string) => `Ten tekst używa ${schema} – formatu stylu, którego nie można jeszcze tu edytować.`,
 };

@@ -63,6 +63,8 @@ export const de: MediaMessages = {
   replacedMany: (kind: PlaceableKind, n: number) => `Ersetzt: ${noun[kind]} in der Zeitleiste · ${n} Clips`,
   replacingThis: "Dieses Material ersetzen",
   replaceRule: "Clips in der Zeitleiste, die es verwenden, werden gemeinsam ersetzt: Position, Zuschnitt, Stil und Lautstärke bleiben erhalten; das neue Material spielt ab seinem Beginn. Ist es kürzer, werden die Clips kürzer und nachfolgende Clips auf derselben Spur rücken nach.",
+  replacingClip: 'Diesen Clip ersetzen',
+  replaceClipRule: 'Nur dieser Clip wird ersetzt; andere Clips mit demselben Material bleiben unverändert. Position, Zuschnitt, Stil und Lautstärke bleiben erhalten; das neue Material spielt ab seinem Beginn. Ist es kürzer, wird der Clip kürzer und nachfolgende Clips auf derselben Spur rücken nach.',
   replaceCancelNote: "Fenster schließen zum Abbrechen. Nach Bestätigung kann rückgängig gemacht werden.",
   pickNew: (kind: PlaceableKind) => `Neues Material auswählen: ${noun[kind]}`,
   sourceTabs: "Herkunft des neuen Materials",

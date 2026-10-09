@@ -63,6 +63,8 @@ export const zhHant: MediaMessages = {
   replacedMany: (kind: PlaceableKind, n: number) => `已替換時間軸上的${noun[kind]} · ${n} 個片段`,
   replacingThis: '正在替換這個素材',
   replaceRule: '時間軸上使用它的片段會一起替換：保留位置、裁切、樣式與音量，新素材從開頭播放。如果新素材較短，片段會變短，同一軌道上後面的片段會往前移。',
+  replacingClip: '正在替換這一段',
+  replaceClipRule: '只替換這一段，使用同一素材的其他片段不變：保留位置、裁切、樣式與音量，新素材從開頭播放。如果新素材較短，這一段會變短，同一軌道上後面的片段會往前移。',
   replaceCancelNote: '關閉視窗即可取消。確認後可以還原。',
   pickNew: (kind: PlaceableKind) => `選擇新的${noun[kind]}`,
   sourceTabs: '新素材的來源',

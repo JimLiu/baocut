@@ -58,8 +58,6 @@ export const ja: StageToolbarMessages = {
     roundCorners: 'プレビューはまだ角の丸みを描けないため、ここでは設定できません。',
     filters: 'フィルタ（LUT）は動画フォーマットの予約名で、書き込むと拒否されます。',
     crop: 'スマートクロップにはモデルが必要で、まだ入口がありません。近日対応予定です。',
-    replace: 'クリップの素材を差し替える操作はまだありません。',
-    detach: '音声の分離はまだ実装されていません。同じ編集で音声クリップを追加し、動画の音声をミュートする必要があります。',
     speed: 'このクリップは一定の速度で再生されないため、ここでは速度を変更できません。',
     sound: 'このクリップには音声がありません。',
     captionAnimation: 'エディタではまだ字幕アニメーションを選べません。',
@@ -70,5 +68,6 @@ export const ja: StageToolbarMessages = {
   arrange: { front: '最前面へ移動', forward: '前面へ移動', backward: '背面へ移動', back: '最背面へ移動', label: '重なり順を変更' },
   subtitleBar: '字幕ツールバー',
   disabledNotice: 'クリップを無効化しました。タイムラインで右クリックすると再び有効化できます。',
+  detachedNotice: '音声を新しいオーディオトラックに分離しました。ビデオクリップはミュートされています。',
   textStyleLocked: (schema: string) => `このテキストは ${schema} スタイル形式のため、ここではまだ編集できません。`,
 };

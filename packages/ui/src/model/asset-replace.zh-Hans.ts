@@ -9,6 +9,7 @@ export const zhHans: AssetReplaceMessages = {
   unused: '时间线上没有用到这个素材，不用替换。',
   tooShort: '新素材太短，放不下一帧。',
   allLocked: '用到它的片段都锁着（或是合成的预渲染替身），先解锁再换。',
+  clipLocked: '这一段锁着，先解锁再换。',
   durationUnknown: '素材时长未知，先保留片段原时长。',
   longEnoughMany: '新素材够长，这几段片段长度都不变，时间线不变。',
   longEnoughOne: '新素材够长，片段长度不变，时间线不变。',

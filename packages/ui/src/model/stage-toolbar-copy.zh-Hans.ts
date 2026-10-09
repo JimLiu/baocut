@@ -58,8 +58,6 @@ export const zhHans: StageToolbarMessages = {
     roundCorners: '预览还画不出圆角，暂时不能在这里设置。',
     filters: '滤镜（LUT）在视频格式里是保留名，写入时会被拒绝。',
     crop: '智能裁剪要跑模型，还没有可用的入口，即将推出。',
-    replace: '还没有给片段换素材的操作。',
-    detach: '分离音频还没接上：要在同一笔里新建音频片段并关掉视频自带的声音。',
     speed: '这一段的时间映射不是恒定速率，不能在这里变速。',
     sound: '这一件没有声音。',
     captionAnimation: '编辑器里还不能选字幕动画。',
@@ -70,5 +68,6 @@ export const zhHans: StageToolbarMessages = {
   arrange: { front: '移到最前', forward: '前移一层', backward: '后移一层', back: '移到最后', label: '调整叠放次序' },
   subtitleBar: '字幕工具条',
   disabledNotice: '已停用片段。在时间线上右键它可重新启用。',
+  detachedNotice: '已把声音分离到一条新的音频轨，视频片段已静音。',
   textStyleLocked: (schema: string) => `这段文字的样式是 ${schema}，还不能在这里改。`,
 };

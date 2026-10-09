@@ -24,8 +24,6 @@ export const es: StageToolbarMessages = {
     roundCorners: 'La vista previa aún no dibuja esquinas redondeadas, así que no se pueden ajustar aquí.',
     filters: 'Los filtros (LUT) son un nombre reservado en el formato de vídeo y se rechazan al escribir.',
     crop: 'El recorte inteligente necesita un modelo y aún no tiene un punto de acceso. Próximamente.',
-    replace: 'Aún no hay una operación para cambiar el material de un clip.',
-    detach: 'Separar audio aún no está conectado: necesita añadir un clip de audio y silenciar el vídeo en la misma edición.',
     speed: 'Este clip no se reproduce a una velocidad constante, por lo que no se puede cambiar su velocidad aquí.',
     sound: 'Este clip no tiene sonido.',
     captionAnimation: 'Todavía no se pueden elegir animaciones de subtítulos en el editor.',
@@ -36,5 +34,6 @@ export const es: StageToolbarMessages = {
   arrange: { front: 'Traer al frente', forward: 'Traer adelante', backward: 'Enviar atrás', back: 'Enviar al fondo', label: 'Cambiar orden de apilamiento' },
   subtitleBar: 'Barra de herramientas de subtítulos',
   disabledNotice: 'Clip desactivado. Haz clic derecho en él en la línea de tiempo para volver a activarlo.',
+  detachedNotice: 'Se separó el sonido en una nueva pista de audio. El clip de vídeo queda silenciado.',
   textStyleLocked: (schema: string) => `Este texto usa el formato de estilo ${schema} y aún no se puede editar aquí.`,
 };

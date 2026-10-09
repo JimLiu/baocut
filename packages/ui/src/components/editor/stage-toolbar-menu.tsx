@@ -71,7 +71,8 @@ import { saveAssetToBrand } from './brand-save.ts';
 import type { EditorActions } from './editor-context.tsx';
 import { ValueRow } from './inspector-controls.tsx';
 import { OpacityRow, TimeSection, type ItemPageProps } from './inspector-sections.tsx';
-import { MOD_KEY, arrangeItem, deleteItems, duplicateItems, setItemEnabled } from './timeline-commands.ts';
+import { openItemReplace } from './item-replace.tsx';
+import { MOD_KEY, arrangeItem, deleteItems, detachAudio, duplicateItems, setItemEnabled } from './timeline-commands.ts';
 import { EDITOR_COPY as E } from './editor-copy.ts';
 import { ELEMENTS_COPY as EL } from './elements-copy.ts';
 import { INSPECTOR_COPY as IC } from './inspector-copy.ts';
@@ -225,6 +226,12 @@ export function runTool(tool: Tool, { item, sequence, assets, edit }: ToolProps,
       if (tool.id === 'delete') return void deleteItems(actions, [item.id]);
       // 停用之后画面上没有它了，条子随选中框一起收起；提示带撤销，并说在时间线上右键可重新启用。
       if (tool.id === 'disable') return void setItemEnabled(actions, item.id, false, TOOLBAR_COPY.disabledNotice);
+      if (tool.id === 'detach-audio' && item.type === 'video') return void detachAudio(actions, sequence, item, tool.label, TOOLBAR_COPY.detachedNotice);
+      if (tool.id === 'replace-video' || tool.id === 'replace-image') {
+        const asset = itemAsset(item, assets);
+        if (asset) openItemReplace(item.id, asset.id);
+        return;
+      }
       if (tool.id === 'save-to-brand-kit') {
         const asset = itemAsset(item, assets);
         const target = brandTarget(asset);

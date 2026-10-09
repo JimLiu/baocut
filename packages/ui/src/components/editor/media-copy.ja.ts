@@ -63,6 +63,8 @@ export const ja: MediaMessages = {
   replacedMany: (kind: PlaceableKind, n: number) => `タイムライン上の${noun[kind]}を置き換えました · ${n} 個のクリップ`,
   replacingThis: 'この素材を置き換えています',
   replaceRule: 'タイムライン上でこの素材を使っているクリップをまとめて置き換えます。位置、クロップ、スタイル、音量は保持され、新しい素材は先頭から使われます。新しい素材のほうが短い場合はクリップが短くなり、同じトラックの後ろのクリップが前に詰められます。',
+  replacingClip: 'このクリップを置き換えています',
+  replaceClipRule: 'このクリップだけを置き換え、同じ素材を使う他のクリップはそのままです。位置、クロップ、スタイル、音量は保持され、新しい素材は先頭から使われます。新しい素材のほうが短い場合はクリップが短くなり、同じトラックの後ろのクリップが前に詰められます。',
   replaceCancelNote: 'ウインドウを閉じるとキャンセルできます。確定後も取り消せます。',
   pickNew: (kind: PlaceableKind) => `新しい${noun[kind]}を選択`,
   sourceTabs: '新しい素材の取得元',

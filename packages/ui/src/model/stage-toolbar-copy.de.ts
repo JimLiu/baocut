@@ -60,8 +60,6 @@ export const de: StageToolbarMessages = {
     roundCorners: "Die Vorschau kann abgerundete Ecken noch nicht zeichnen, daher lassen sie sich hier nicht einstellen.",
     filters: "Filter (LUT) sind im Videoformat reserviert und werden beim Schreiben abgelehnt.",
     crop: "Intelligentes Zuschneiden benötigt ein Modell und hat noch keinen Einstiegspunkt. Demnächst verfügbar.",
-    replace: "Es gibt noch keine Operation, um das Material eines Clips auszutauschen.",
-    detach: "Audio abtrennen ist noch nicht angebunden: In derselben Bearbeitung muss ein Audioclip hinzugefügt und das Video stummgeschaltet werden.",
     speed: "Dieser Clip wird nicht mit konstanter Geschwindigkeit abgespielt. Seine Geschwindigkeit kann hier daher nicht geändert werden.",
     sound: "Dieser Clip hat keinen Ton.",
     captionAnimation: 'Untertitel-Animationen lassen sich im Editor noch nicht auswählen.',
@@ -72,5 +70,6 @@ export const de: StageToolbarMessages = {
   arrange: { front: 'In den Vordergrund', forward: 'Eine Ebene nach vorne', backward: 'Eine Ebene nach hinten', back: 'In den Hintergrund', label: 'Stapelreihenfolge ändern' },
   subtitleBar: 'Untertitel-Werkzeugleiste',
   disabledNotice: 'Clip deaktiviert. Rechtsklicken Sie ihn auf der Zeitleiste, um ihn wieder zu aktivieren.',
+  detachedNotice: 'Der Ton wurde auf eine neue Audiospur getrennt. Der Videoclip ist stummgeschaltet.',
   textStyleLocked: (schema: string) => `Dieser Text verwendet das Stilformat ${schema} und kann hier noch nicht bearbeitet werden.`,
 };
