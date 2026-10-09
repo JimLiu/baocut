@@ -39,8 +39,7 @@ const badge = style({
   paddingX: 8,
   paddingY: 2,
 });
-const headEnd = style({ display: 'flex', alignItems: 'center', gap: 8, marginStart: 'auto' });
-const problemsAt = style({ display: 'flex', alignItems: 'center', gap: 2 });
+const problemsAt = style({ display: 'flex', alignItems: 'center', gap: 2, marginStart: 'auto' });
 const problemList = style({ margin: 0, paddingStart: 16 });
 /** 舞台：全屏播放时整格进浏览器的全屏（`enterPreviewFullscreen`），画面之外一律纯黑。 */
 const stage = style({ position: 'relative', flexGrow: 1, minHeight: 0, backgroundColor: { default: 'transparent', isFullscreen: 'black' } });
@@ -50,6 +49,26 @@ const frame = style({
   borderRadius: { default: 'sm', isFullscreen: 'none' },
   backgroundColor: 'black',
   boxShadow: { default: 'emphasized', isFullscreen: 'none' },
+});
+/**
+ * 舞台下沿的工具条（原型 stage.jsx 的 `StageBar`、ui.css 的 `.stagebar`）：42px 高、上边一道线，紧贴舞台、在走带之上。
+ * 原型这一条左边是画幅，右边依次是字幕显隐、音量、倍速、全屏；这里先只有最右端的全屏钮。
+ */
+const stageBar = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'end',
+  boxSizing: 'border-box',
+  height: 42,
+  flexShrink: 0,
+  paddingX: 12,
+  backgroundColor: 'gray-100',
+  borderTopWidth: 1,
+  borderBottomWidth: 0,
+  borderStartWidth: 0,
+  borderEndWidth: 0,
+  borderStyle: 'solid',
+  borderColor: 'gray-200',
 });
 const surface = style({ position: 'absolute', inset: 0, width: 'full', height: 'full' });
 /** 源元素不显示，只给画布供帧。不用 display: none，免得浏览器不给它解码。 */
@@ -92,7 +111,7 @@ const AUDIO_AHEAD = 30;
 
 /**
  * 预览：按帧计划把各层合成到画布上（WASM 求计划并画成一帧，与导出同一个渲染内核），按画布比例摆在舞台中间。
- * 全屏播放（F 或顶上那枚钮）时舞台整格进浏览器的全屏：画面贴边、不画舞台点选层，盖上全屏播放器（fullscreen-player.tsx）。
+ * 全屏播放（F 或舞台下沿工具条右端那枚钮）时舞台整格进浏览器的全屏：画面贴边、不画舞台点选层，盖上全屏播放器（fullscreen-player.tsx）。
  */
 export function Preview({
   videoId,
@@ -209,16 +228,7 @@ export function Preview({
         <span>
           {sequence.name} · {cw}×{ch} · {formatFps(sequence.fps)}
         </span>
-        <span className={headEnd}>
-          {status.kind === 'ready' && status.problems ? <Problems problems={status.problems} /> : null}
-          {/* 进全屏要在这一下点击里向浏览器要（只认瞬时的用户激活），不能挪进状态或副作用。 */}
-          <TooltipTrigger placement="bottom">
-            <ActionButton size="S" isQuiet aria-label={F.enter} onPress={() => enterPreviewFullscreen(stageRef.current)}>
-              <FullScreen />
-            </ActionButton>
-            <Tooltip>{F.enterTip}</Tooltip>
-          </TooltipTrigger>
-        </span>
+        {status.kind === 'ready' && status.problems ? <Problems problems={status.problems} /> : null}
       </div>
       <div ref={stageRef} className={stage({ isFullscreen: fullscreen })} data-preview-stage>
         <div className={frame({ isFullscreen: fullscreen })} style={frameRect}>
@@ -268,6 +278,15 @@ export function Preview({
         ) : (
           notices
         )}
+      </div>
+      <div className={stageBar}>
+        {/* 进全屏要在这一下点击里向浏览器要（只认瞬时的用户激活），不能挪进状态或副作用。 */}
+        <TooltipTrigger placement="top">
+          <ActionButton size="S" isQuiet aria-label={F.enter} onPress={() => enterPreviewFullscreen(stageRef.current)}>
+            <FullScreen />
+          </ActionButton>
+          <Tooltip>{F.enterTip}</Tooltip>
+        </TooltipTrigger>
       </div>
     </div>
   );
