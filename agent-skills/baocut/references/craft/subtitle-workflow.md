@@ -27,7 +27,7 @@
 
 - 第 2 步用 `baocut transcribe` 或带了 `transcribe: true` 的 `baocut download` 时已经在转；已有视频要转写、或要带 language、hint 时用 `baocut transcribe` 给 video（可给 asset；先 `baocut models capabilities` 看有没有可用的转写服务）。
 - 要润色时给 `baocut transcribe` 加 `noCaptions: true`：字幕层在润色之后由第 7 步建（`baocut transcribe` 默认转完就建一层，润色前建的要删掉重建）。
-- **hint 看模型**：带 hint 之前先在 `baocut models capabilities` 里看要用的转写模型（不给 model 时是默认的那只）的 `acceptsHint`。默认的 MOSS 不收提示，带了提交即拒：这时不带 hint，人名与术语留到第 4 步润色，也不为了用上 hint 换到收提示的模型。
+- **hint 看模型**：带 hint 之前先在 `baocut models capabilities` 里看要用的转写模型（不给 model 时是默认的那只）的 `acceptsHint`。默认的 MOSS 不收提示：带了也照常转写，但提示被忽略，转写任务带 `hint-ignored` 提醒。这时不带 hint，人名与术语留到第 4 步润色，也不为了用上 hint 换到收提示的模型。
 - **转一次就用它**：不因为自己觉得识别得不够好就换模型或重转（`baocut transcribe` 的 `target: replace`）。少量错字、人名与术语听错是正常的，第 4 步润色会改。只有用户要求换模型或重转，或者结果不能用（空的、语言认错、大段乱码）并且先问过用户，才重转。
 - `baocut jobs inspect` 等到 completed：`pipeline.summary.documentId` 是新转写（`baocut transcribe` 给 url 或 `baocut download` 带 `transcribe: true` 时同样在 `pipeline.summary.documentId`）。
 - 返回 CAPABILITY_NOT_CONFIGURED 时照它的 next 告诉用户要启用哪项服务，停在这里。

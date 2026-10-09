@@ -17,7 +17,7 @@ description: 文稿与字幕的机制：转录、润色写回、自己翻译并�
 
 - 在哪个视频上做：{{tool:videos_inspect}} 看文档清单。kind 为 `speech` 的是转写，`translation` 是译文，`caption` 是字幕层的文档。已有的接着用：已有转写不再转一遍，已有同一语言的译文在它上面改。
 - 要转写时先 {{tool:models_capabilities}}（能力 `transcribe`）看有没有可用的转写服务。
-- 原文语言、人名与术语：用户说了就记下。语言转写时给 {{tool:transcribe}} 的 {{arg:language}}；人名与术语只在转写模型收识别提示时给 {{arg:hint}}：{{tool:models_capabilities}} 里要用的模型（不给模型时是默认的那只）`acceptsHint` 为 true 才给。默认的 MOSS 不收，带了提交即拒；这时人名与术语留给润色，不为了用上提示换模型。
+- 原文语言、人名与术语：用户说了就记下。语言转写时给 {{tool:transcribe}} 的 {{arg:language}}；人名与术语只在转写模型收识别提示时给 {{arg:hint}}：{{tool:models_capabilities}} 里要用的模型（不给模型时是默认的那只）`acceptsHint` 为 true 才给。默认的 MOSS 不收，带了也照常转写，但提示被忽略、转写任务带 `hint-ignored` 提醒；这时人名与术语留给润色，不为了用上提示换模型。
 - 来源元数据：从链接导入的素材在 {{tool:videos_inspect}} 的 `assets[].source` 里有标题、发布者、简介与作者章节（见 [media](media.md)）。润色时当背景参考，说话人实名时当证据之一。
 
 ## 命令与例子
