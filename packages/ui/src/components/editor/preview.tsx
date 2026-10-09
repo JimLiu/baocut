@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type SyntheticEvent } from 'react';
-import { itemRangeSeconds, type AudioItem, type Id, type Sequence, type VersionRef } from '@baocut/protocol';
-import { Content, ContextualHelp, Heading, StatusLight } from '@react-spectrum/s2';
+import { itemRangeSeconds, type AssetRecord, type AudioItem, type DocumentRecord, type Id, type Sequence, type VersionRef } from '@baocut/protocol';
+import { ActionButton, Content, ContextualHelp, Heading, StatusLight, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
+import FullScreen from '@react-spectrum/s2/icons/FullScreen';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { formatFps, videoSlots } from '../../model/editor.ts';
 import type { MediaOutcome } from '../../model/stage-media.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useEditor } from '../../state/editor-store.ts';
 import { useEditorActions } from './editor-context.tsx';
+import { FULLSCREEN_PLAYER_COPY as F } from './fullscreen-player-copy.ts';
+import { FullscreenPlayer, enterPreviewFullscreen, exitPreviewFullscreen } from './fullscreen-player.tsx';
 import { audioKey, imageKey, videoKey, type MediaKey, type PreviewStatus } from './preview-engine.ts';
 import { StageLoadNotice } from './stage-load-notice.tsx';
 import { StageMediaNotice } from './stage-media-notice.tsx';
@@ -36,15 +39,17 @@ const badge = style({
   paddingX: 8,
   paddingY: 2,
 });
-const problemsAt = style({ display: 'flex', alignItems: 'center', gap: 2, marginStart: 'auto' });
+const headEnd = style({ display: 'flex', alignItems: 'center', gap: 8, marginStart: 'auto' });
+const problemsAt = style({ display: 'flex', alignItems: 'center', gap: 2 });
 const problemList = style({ margin: 0, paddingStart: 16 });
-const stage = style({ position: 'relative', flexGrow: 1, minHeight: 0 });
+/** 舞台：全屏播放时整格进浏览器的全屏（`enterPreviewFullscreen`），画面之外一律纯黑。 */
+const stage = style({ position: 'relative', flexGrow: 1, minHeight: 0, backgroundColor: { default: 'transparent', isFullscreen: 'black' } });
 const frame = style({
   position: 'absolute',
   overflow: 'hidden',
-  borderRadius: 'sm',
+  borderRadius: { default: 'sm', isFullscreen: 'none' },
   backgroundColor: 'black',
-  boxShadow: 'emphasized',
+  boxShadow: { default: 'emphasized', isFullscreen: 'none' },
 });
 const surface = style({ position: 'absolute', inset: 0, width: 'full', height: 'full' });
 /** 源元素不显示，只给画布供帧。不用 display: none，免得浏览器不给它解码。 */
@@ -85,9 +90,23 @@ const AUDIO_STEP = 10;
 const AUDIO_BEHIND = 10;
 const AUDIO_AHEAD = 30;
 
-/** 预览：按帧计划把各层合成到画布上（WASM 求计划并画成一帧，与导出同一个渲染内核），按画布比例摆在舞台中间。 */
-export function Preview({ videoId, sequence }: { videoId: Id | null; sequence: Sequence }) {
+/**
+ * 预览：按帧计划把各层合成到画布上（WASM 求计划并画成一帧，与导出同一个渲染内核），按画布比例摆在舞台中间。
+ * 全屏播放（F 或顶上那枚钮）时舞台整格进浏览器的全屏：画面贴边、不画舞台点选层，盖上全屏播放器（fullscreen-player.tsx）。
+ */
+export function Preview({
+  videoId,
+  sequence,
+  assets,
+  documents,
+}: {
+  videoId: Id | null;
+  sequence: Sequence;
+  assets: Record<Id, AssetRecord>;
+  documents: Record<Id, DocumentRecord>;
+}) {
   const { engine } = useEditorActions();
+  const fullscreen = useEditor((s) => s.fullscreen);
   const [status, setStatus] = useState<PreviewStatus>({ kind: 'loading' });
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -104,6 +123,19 @@ export function Preview({ videoId, sequence }: { videoId: Id | null; sequence: S
   }, [engine, mediaUrls, videoId]);
 
   useEffect(() => engine.onStatus(setStatus), [engine]);
+  // 全屏以浏览器的 `fullscreenchange` 为准：浏览器自己的 Esc 退出不经过我们的键盘层。
+  // 预览卸下（换视频、离开编辑器）时舞台还在全屏就退出来，不留一个没有播放器的全屏。
+  useEffect(() => {
+    const element = stageRef.current;
+    const { setFullscreen } = useEditor.getState();
+    const sync = () => setFullscreen(!!element && document.fullscreenElement === element);
+    document.addEventListener('fullscreenchange', sync);
+    return () => {
+      document.removeEventListener('fullscreenchange', sync);
+      if (element && document.fullscreenElement === element) exitPreviewFullscreen();
+      setFullscreen(false);
+    };
+  }, []);
   useEffect(() => {
     engine.attachCanvas(canvasRef.current);
     return () => engine.attachCanvas(null);
@@ -121,7 +153,8 @@ export function Preview({ videoId, sequence }: { videoId: Id | null; sequence: S
   }, []);
 
   const { width: cw, height: ch } = sequence.canvas;
-  const scale = Math.max(0, Math.min((box.width - PADDING * 2) / cw, (box.height - PADDING * 2) / ch));
+  const padding = fullscreen ? 0 : PADDING;
+  const scale = Math.max(0, Math.min((box.width - padding * 2) / cw, (box.height - padding * 2) / ch));
   const fw = Math.floor(cw * scale);
   const fh = Math.floor(ch * scale);
   // 画布按显示尺寸（乘设备像素比）画，不超过序列画布本身。
@@ -151,6 +184,23 @@ export function Preview({ videoId, sequence }: { videoId: Id | null; sequence: S
     return items.map((item) => ({ key: audioKey(item.id), asset: item.assetRef }));
   }, [sequence, audioWindow]);
   const media = { ...visuals, audios };
+  const frameRect = { left: (box.width - fw) / 2, top: (box.height - fh) / 2, width: fw, height: fh };
+  // 舞台上的提示卡；全屏时夹在播放器的画面点击层与控件之间（点不到卡下面的画面，卡上的钮照常点）。
+  const notices =
+    fw > 0 && fh > 0 ? (
+      <>
+        <StageMediaNotice media={stageMedia} frame={frameRect} />
+        {/* 载入与卡住盖在画面与舞台点选层之上，接住指针。 */}
+        <StageLoadNotice
+          engine={engine}
+          videoId={videoId}
+          status={status}
+          frame={frameRect}
+          suppressed={stageMedia.notice !== null}
+          onRetry={retry}
+        />
+      </>
+    ) : null;
 
   return (
     <div className={wrap}>
@@ -159,10 +209,19 @@ export function Preview({ videoId, sequence }: { videoId: Id | null; sequence: S
         <span>
           {sequence.name} · {cw}×{ch} · {formatFps(sequence.fps)}
         </span>
-        {status.kind === 'ready' && status.problems ? <Problems problems={status.problems} /> : null}
+        <span className={headEnd}>
+          {status.kind === 'ready' && status.problems ? <Problems problems={status.problems} /> : null}
+          {/* 进全屏要在这一下点击里向浏览器要（只认瞬时的用户激活），不能挪进状态或副作用。 */}
+          <TooltipTrigger placement="bottom">
+            <ActionButton size="S" isQuiet aria-label={F.enter} onPress={() => enterPreviewFullscreen(stageRef.current)}>
+              <FullScreen />
+            </ActionButton>
+            <Tooltip>{F.enterTip}</Tooltip>
+          </TooltipTrigger>
+        </span>
       </div>
-      <div ref={stageRef} className={stage}>
-        <div className={frame} style={{ width: fw, height: fh, left: (box.width - fw) / 2, top: (box.height - fh) / 2 }}>
+      <div ref={stageRef} className={stage({ isFullscreen: fullscreen })} data-preview-stage>
+        <div className={frame({ isFullscreen: fullscreen })} style={frameRect}>
           <canvas ref={canvasRef} className={surface} aria-label={E.previewCanvas} data-preview-status={status.kind} />
           <div className={sources} aria-hidden>
             {media.videos.map(({ key, asset }) => (
@@ -201,23 +260,14 @@ export function Preview({ videoId, sequence }: { videoId: Id | null; sequence: S
             </div>
           ) : null}
         </div>
-        {fw > 0 && fh > 0 ? (
-          <StageObjects sequence={sequence} frame={{ left: (box.width - fw) / 2, top: (box.height - fh) / 2, width: fw, height: fh }} />
-        ) : null}
-        {fw > 0 && fh > 0 ? (
-          <StageMediaNotice media={stageMedia} frame={{ left: (box.width - fw) / 2, top: (box.height - fh) / 2, width: fw, height: fh }} />
-        ) : null}
-        {/* 载入与卡住盖在画面与舞台点选层之上，接住指针。 */}
-        {fw > 0 && fh > 0 ? (
-          <StageLoadNotice
-            engine={engine}
-            videoId={videoId}
-            status={status}
-            frame={{ left: (box.width - fw) / 2, top: (box.height - fh) / 2, width: fw, height: fh }}
-            suppressed={stageMedia.notice !== null}
-            onRetry={retry}
-          />
-        ) : null}
+        {fw > 0 && fh > 0 && !fullscreen ? <StageObjects sequence={sequence} frame={frameRect} /> : null}
+        {fullscreen ? (
+          <FullscreenPlayer stage={stageRef} sequence={sequence} assets={assets} documents={documents}>
+            {notices}
+          </FullscreenPlayer>
+        ) : (
+          notices
+        )}
       </div>
     </div>
   );

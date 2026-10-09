@@ -696,7 +696,7 @@ export const pl: CopyMessages = {
   shortcutSheet: {
     title: "Skróty klawiaturowe",
     done: "Rozumiem",
-    hint: "Gdy kursor jest w polu tekstowym, te klawisze działają w tym polu.",
+    hint: "Gdy kursor jest w polu tekstowym, te klawisze działają w tym polu. Odtwarzanie pełnoekranowe ma własne skróty: naciśnij ? na pełnym ekranie, aby je zobaczyć.",
     rows: [
       ["Usuń zaznaczenie (luki puste na wszystkich ścieżkach się zamykają)", "Usuń"],
       ["Usuń zaznaczony odcinek ze wszystkich ścieżek (dalsza część się przesuwa)", "⇧Usuń"],

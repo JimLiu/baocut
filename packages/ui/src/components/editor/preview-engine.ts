@@ -1,6 +1,7 @@
 import type { AssetRecord, DocumentRecord, FontFaceQuery, Id, Revision, Sequence, VersionRef } from '@baocut/protocol';
 import { durationSeconds, videoSlots } from '../../model/editor.ts';
 import { LIVE_CAPTION_ITEM_ID, liveCaptionCues, liveCaptionDocuments, withLiveCaption, type LiveCue } from '../../model/live-caption.ts';
+import { captionView, type CaptionMode } from '../../model/player.ts';
 import type { AssetDecoder, AssetSource } from '../../render/asset-source.ts';
 import { SPECTRUM_MAX_BYTES, spectrumDecoder } from '../../render/audio-spectrum.ts';
 import { isMediaLayer, type FramePlan, type MediaLayer, type VisualLayer } from '../../render/frame-plan.ts';
@@ -156,6 +157,9 @@ export interface PreviewCallbacks {
 const RESYNC_SECONDS = 0.25;
 /** 暂停时要逐帧对准。 */
 const EXACT_SECONDS = 1e-3;
+/** 媒体元素收得下的播放速度（浏览器的 playbackRate 范围）。 */
+const MIN_RATE = 0.0625;
+const MAX_RATE = 16;
 /** 有层还在定位时先不画（留着上一帧），最多等这么久，之后照画，免得一直停在旧画面上。 */
 const HOLD_PLAYING_MS = 250;
 const HOLD_PAUSED_MS = 1000;
@@ -240,6 +244,11 @@ export class PreviewEngine {
   #spectrum: AssetDecoder<Uint8Array> | null = null;
   /** 监听音量（快捷键 ↑/↓、M，见 model/preview-volume）：乘在每个声音上，只是这个窗口听到的大小。 */
   #monitor = { volume: 1, muted: false };
+  readonly #monitorListeners = new Set<(monitor: { volume: number; muted: boolean }) => void>();
+  /** 播放倍速（全屏播放器的倍速菜单）：时钟与媒体元素一起乘，只是这个窗口看的快慢。 */
+  #rate = 1;
+  /** 全屏播放器的字幕档位（model/player `captionView`）：送去画的序列上临时停用不该露的字幕；`null` 照视频原样画。 */
+  #captionMode: CaptionMode | null = null;
   readonly #fonts: FontSource | null;
   readonly #preparing: PreviewPreparing | null;
   /** 报过缺的字体族（常设：渲染内核重新载入后也照这份去要）。 */
@@ -399,6 +408,40 @@ export class PreviewEngine {
   /** 换监听音量：停着时元素都暂停，下一次对元素时生效；播放中下一帧就生效。不进视频、不影响导出。 */
   setMonitor(monitor: { volume: number; muted: boolean }): void {
     this.#monitor = { volume: Math.max(0, Math.min(1, monitor.volume)), muted: monitor.muted };
+    for (const listener of this.#monitorListeners) listener(this.#monitor);
+  }
+
+  /** 监听音量变了时通知（全屏播放器的音量钮与滑杆）；订阅时先给一次当前的。 */
+  onMonitor(listener: (monitor: { volume: number; muted: boolean }) => void): () => void {
+    this.#monitorListeners.add(listener);
+    listener(this.#monitor);
+    return () => this.#monitorListeners.delete(listener);
+  }
+
+  get rate(): number {
+    return this.#rate;
+  }
+
+  /** 换播放倍速：播放中从此刻起按新倍速走（时钟在这一刻重新起算），媒体元素下一帧跟上。不进视频、不影响导出。 */
+  setRate(rate: number): void {
+    const next = Math.max(MIN_RATE, Math.min(MAX_RATE, rate));
+    if (!(next > 0) || next === this.#rate) return;
+    if (this.#playing) {
+      const now = performance.now();
+      this.#timeStart += ((now - this.#clockStart) / 1000) * this.#rate;
+      this.#clockStart = now;
+    }
+    this.#rate = next;
+    if (this.#playing) this.#sync();
+  }
+
+  /** 全屏播放器的字幕档位：按档位停用不该露的字幕再交给渲染内核，`null` 回到视频原样。不进视频、不进撤销、不影响导出。 */
+  setCaptionView(mode: CaptionMode | null): void {
+    if (mode === this.#captionMode) return;
+    this.#captionMode = mode;
+    this.#dirty = true;
+    this.#loadVideo();
+    this.#refresh();
   }
 
   /**
@@ -536,7 +579,7 @@ export class PreviewEngine {
     const step = () => {
       if (!this.#playing || !this.#video) return;
       const started = performance.now();
-      const now = this.#timeStart + (performance.now() - this.#clockStart) / 1000;
+      const now = this.#timeStart + ((performance.now() - this.#clockStart) / 1000) * this.#rate;
       const limit = durationSeconds(this.#video.sequence);
       if (now >= limit) {
         this.#time = limit;
@@ -591,6 +634,7 @@ export class PreviewEngine {
     this.#elements.clear();
     this.#statusListeners.clear();
     this.#pictureListeners.clear();
+    this.#monitorListeners.clear();
   }
 
   #setStatus(status: PreviewStatus): void {
@@ -607,11 +651,15 @@ export class PreviewEngine {
 
   #loadVideo(): void {
     if (!this.#planner || !this.#video) return;
+    // 全屏的字幕档位先停掉不该露的字幕；转录中的临时字幕不在档位里，照常叠。
+    const video = this.#captionMode
+      ? { ...this.#video, sequence: captionView(this.#video.sequence, this.#documentRecords, this.#captionMode) }
+      : this.#video;
     try {
       // 转录中的临时字幕叠一层上去；内核不收这一层时（不该发生）丢掉它照原样送，不让它拖垮整个预览。
       if (this.#liveDocuments) {
         try {
-          this.#planner.setVideo({ ...this.#video, sequence: withLiveCaption(this.#video.sequence) });
+          this.#planner.setVideo({ ...video, sequence: withLiveCaption(video.sequence) });
           this.#videoError = null;
           return;
         } catch (error) {
@@ -620,7 +668,7 @@ export class PreviewEngine {
           this.#liveDocuments = null;
         }
       }
-      this.#planner.setVideo(this.#video);
+      this.#planner.setVideo(video);
       this.#videoError = null;
     } catch (error) {
       if (!(error instanceof PlanFailure)) throw error;
@@ -739,7 +787,7 @@ export class PreviewEngine {
     }
     // 偏得不多就调速追上（领先就放慢），不再定位。
     const correction = Math.abs(drift) > 0.02 ? Math.max(-0.5, Math.min(0.5, -drift * 2)) : 0;
-    element.playbackRate = Math.max(0.0625, Math.min(16, target.rate * (1 + correction)));
+    element.playbackRate = Math.max(MIN_RATE, Math.min(MAX_RATE, target.rate * this.#rate * (1 + correction)));
     if (element.paused) void element.play().catch(() => {});
   }
 

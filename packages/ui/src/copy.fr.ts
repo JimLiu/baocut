@@ -667,7 +667,7 @@ export const fr: CopyMessages = {
   shortcutSheet: {
     title: "Raccourcis clavier",
     done: "Je l'ai compris",
-    hint: "Dans un champ texte, ces touches agissent sur le champ.",
+    hint: "Dans un champ texte, ces touches agissent sur le champ. La lecture plein écran a ses propres raccourcis : appuyez sur ? en plein écran pour les voir.",
     rows: [
       ["Supprimer la sélection (les trous vides sur toutes les pistes se referment)", "Supprimer"],
       ["Supprimer le passage sélectionné de toutes les pistes (la suite avance)", "⇧Supprimer"],

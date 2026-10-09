@@ -1,4 +1,4 @@
-import type { FontFaceQuery, Sequence } from '@baocut/protocol';
+import type { DocumentRecord, FontFaceQuery, Sequence } from '@baocut/protocol';
 import { expect, test, vi } from 'vitest';
 import type { LoadedFace, LocalFont } from '../../render/local-fonts.ts';
 import type { CaptionHit, RenderPlanner } from '../../render/render-planner.ts';
@@ -753,5 +753,103 @@ test('转录中的临时字幕：叠进送给计划器的序列，文档不向 R
 
   engine.setLiveCaption('job_t', null);
   expect(videos.at(-1)).toBe(timed);
+  engine.dispose();
+});
+
+test('倍速：播放中从换的那一刻起按新倍速走钟，媒体元素跟着乘上倍速', async () => {
+  const { video } = fakeMedia();
+  const frames: FrameRequestCallback[] = [];
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => frames.push(callback));
+  let now = 1000;
+  const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+  const asset = { id: 'asset_v', revision: 'r1' };
+  const planAt = (seconds: number) => ({
+    sequenceId: 'seq',
+    sequenceRevision: 'r1',
+    frame: Math.floor(seconds * 30 + 1e-6),
+    canvas: { width: 1920, height: 1080, background: '#000000', backgroundAlpha: 1 },
+    layers: [{ kind: 'video', itemId: 'clip', asset, sourceSeconds: seconds, sourceRate: 1.5, matrix: [1, 0, 0, 1, 0, 0], opacity: 1 }],
+    voices: [],
+  });
+  const planner = { ...fakePlanner(), planAt } as unknown as RenderPlanner;
+  const times: number[] = [];
+  const engine = new PreviewEngine({ onTime: (seconds) => times.push(seconds), onEnded: () => {} }, () => Promise.resolve(planner));
+  engine.register(videoKey(asset, 0), video as unknown as HTMLVideoElement);
+  const timed = {
+    ...sequence,
+    items: [{ id: 'clip', trackId: 't', type: 'video', assetRef: asset, span: { fromFrame: 0, durationFrames: 300 } }],
+  } as unknown as Sequence;
+  try {
+    engine.setVideo(timed, {});
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    engine.play();
+    expect(video.playbackRate).toBe(1.5);
+    now = 2000;
+    engine.setRate(2);
+    expect(engine.rate).toBe(2);
+    expect(video.playbackRate).toBe(3);
+    // 换倍速之前走了 1 秒，之后的 1 秒按 2 倍走。
+    now = 3000;
+    frames.at(-1)!(now);
+    expect(times.at(-1)).toBeCloseTo(3);
+    engine.setRate(100);
+    expect(engine.rate).toBe(16);
+  } finally {
+    engine.dispose();
+    clock.mockRestore();
+    vi.unstubAllGlobals();
+    vi.stubGlobal('requestAnimationFrame', () => 0);
+    vi.stubGlobal('cancelAnimationFrame', () => {});
+    vi.stubGlobal('ImageData', function (data: Uint8ClampedArray, width: number, height: number) {
+      return { data, width, height };
+    });
+  }
+});
+
+test('字幕档位：送给计划器的序列上停用不该露的字幕，换视频时照样停，收起后照原样送', async () => {
+  const videos: Sequence[] = [];
+  const planner = { ...fakePlanner(), setVideo: ({ sequence: s }: { sequence: Sequence }) => videos.push(s) } as unknown as RenderPlanner;
+  const engine = new PreviewEngine({ onTime: () => {}, onEnded: () => {} }, () => Promise.resolve(planner));
+  const documents = {
+    speech: { id: 'speech', kind: 'speech' },
+    trans: { id: 'trans', kind: 'translation' },
+    orig: { id: 'orig', kind: 'caption', sourceDocumentId: 'speech' },
+    en: { id: 'en', kind: 'caption', sourceDocumentId: 'trans' },
+  } as unknown as Record<string, DocumentRecord>;
+  const captioned = {
+    ...sequence,
+    items: [
+      { id: 'a', trackId: 's', type: 'caption', enabled: true, documentId: 'orig', span: { fromFrame: 0, durationFrames: 30 } },
+      { id: 'b', trackId: 's', type: 'caption', enabled: true, documentId: 'en', span: { fromFrame: 0, durationFrames: 30 } },
+    ],
+  } as unknown as Sequence;
+  const enabled = (s: Sequence | undefined) => s?.items.map((item) => `${item.id}:${item.enabled}`);
+  engine.setVideo(captioned, {}, documents);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(videos.at(-1)).toBe(captioned);
+
+  engine.setCaptionView('trans');
+  expect(enabled(videos.at(-1))).toEqual(['a:false', 'b:true']);
+  const edited = { ...captioned, revision: '2' } as Sequence;
+  engine.setVideo(edited, {}, documents);
+  expect(videos.at(-1)?.revision).toBe('2');
+  expect(enabled(videos.at(-1))).toEqual(['a:false', 'b:true']);
+
+  engine.setCaptionView(null);
+  expect(videos.at(-1)).toBe(edited);
+  engine.dispose();
+});
+
+test('监听音量变了时通知订阅者；订阅时先给一次当前的', () => {
+  const engine = new PreviewEngine({ onTime: () => {}, onEnded: () => {} }, () => Promise.resolve(fakePlanner()));
+  const seen: { volume: number; muted: boolean }[] = [];
+  const stop = engine.onMonitor((monitor) => seen.push(monitor));
+  engine.setMonitor({ volume: 0.4, muted: true });
+  stop();
+  engine.setMonitor({ volume: 1, muted: false });
+  expect(seen).toEqual([
+    { volume: 1, muted: false },
+    { volume: 0.4, muted: true },
+  ]);
   engine.dispose();
 });

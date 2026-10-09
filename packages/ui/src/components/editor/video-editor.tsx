@@ -18,6 +18,7 @@ import { EditorContext, type EditorActions } from './editor-context.tsx';
 import { FontBar } from './font-bar.tsx';
 import { VideoBar } from './video-bar.tsx';
 import { PreviewEngine } from './preview-engine.ts';
+import { enterPreviewFullscreen } from './fullscreen-player.tsx';
 import { Preview } from './preview.tsx';
 import { SidePanel } from './side-panel.tsx';
 import { StageLiveCaptions } from './stage-live.tsx';
@@ -188,7 +189,7 @@ export function VideoEditor() {
           <div className={body}>
             <div className={column}>
               <FontBar videoId={video.videoId} />
-              <Preview videoId={video.videoId} sequence={shown} />
+              <Preview videoId={video.videoId} sequence={shown} assets={snapshot.assets} documents={snapshot.documents} />
               <StageLiveCaptions videoId={video.videoId} sequence={shown} documents={snapshot.documents} />
               <Transport sequence={sequence} onZoom={(action) => timeline.current?.zoom(action)} />
               <TimelineSplitter />
@@ -299,7 +300,7 @@ function hasTextSelection(): boolean {
 /**
  * 编辑器快捷键（原型 editor-keys.jsx:170-296，清单见 shortcut-sheet）。命令与右键菜单同一份（timeline-commands）。
  * 字母键都不带 ⇧（⇧⌘B 等是外壳的键）。播放中 ↑/↓ 与 M 调预览的监听音量（model/preview-volume，不进视频）；
- * F 把预览画面放到全屏（编辑器没有原型那样的全屏播放器，只放大画面，播放的键照常）。
+ * F 进全屏播放（fullscreen-player.tsx）；全屏时键盘整个让给全屏播放器（它在捕获阶段接自己的键），这里一个都不接。
  *
  * 舞台的方向键：舞台已经处理掉（`defaultPrevented`，它推动了选中元素）时，←/→ 不移播放头；舞台有焦点但没选中时照常逐帧；
  * ⌥←/→ 始终是时间微调（原型：⌥←/→ 让给时间微调）。
@@ -317,6 +318,8 @@ function useEditorKeys(
       const root = rootRef.current;
       const seq = latest.current;
       if (!root || !seq || !belongsToEditor(event, root)) return;
+      // 全屏播放时键盘归全屏播放器（原型 editor-keys：第 222 轮的让位），连 ⌘Z、删除这类编辑键也不接——看不见的时间线不该被改。
+      if (useEditor.getState().fullscreen) return;
       const mod = MAC ? event.metaKey : event.ctrlKey;
       const letter = letterOf(event);
       const arrow = event.key === 'ArrowLeft' || event.key === 'ArrowRight';
@@ -448,10 +451,11 @@ function useEditorKeys(
         return;
       }
       if (!event.altKey && !event.shiftKey && letter === 'f') {
-        // 选中画布上的一件时 F 是「移到最前」；没选中时是全屏，要在按键这一拍里请求（浏览器只认用户手势）。
+        // 选中画布上的一件时 F 是「移到最前」；没选中时进全屏播放，要在按键这一拍里请求（浏览器只认用户手势）。
+        // 退出由全屏播放器那侧接（同一个键）。
         handled();
         if (arrangeSelection(actions, 'front')) return;
-        toggleFullscreen(root);
+        enterPreviewFullscreen(root.querySelector<HTMLElement>('[data-preview-stage]'));
         return;
       }
       if (!event.altKey && !event.shiftKey && letter === 'b') {
@@ -496,17 +500,6 @@ function setMonitor(actions: EditorActions, before: MonitorLevel, next: MonitorL
   closeVolumeToast?.();
   const text = next.muted ? PREVIEW_KEYS_COPY.muted : before.muted ? PREVIEW_KEYS_COPY.unmuted(next.volume) : PREVIEW_KEYS_COPY.volume(next.volume);
   closeVolumeToast = ToastQueue.neutral(text, { timeout: 5000 });
-}
-
-/** F：预览画面全屏（按画布比例留黑边）；已经全屏时退出。 */
-function toggleFullscreen(root: HTMLElement): void {
-  if (document.fullscreenElement) {
-    void document.exitFullscreen().catch(() => {});
-    return;
-  }
-  const canvas = root.querySelector<HTMLCanvasElement>('canvas[data-preview-status]');
-  if (!canvas) return;
-  void canvas.requestFullscreen().catch(() => ToastQueue.neutral(PREVIEW_KEYS_COPY.fullscreenFailed, { timeout: 5000 }));
 }
 
 /** 攒着的 ⌥←/→ 微调：换了选区、点了别处、窗口失焦、离开编辑器时提交。 */

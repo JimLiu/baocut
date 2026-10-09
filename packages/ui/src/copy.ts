@@ -712,7 +712,7 @@ const en = {
   shortcutSheet: {
     title: 'Keyboard shortcuts',
     done: 'Got it',
-    hint: 'While the cursor is in a text field, these keys go to the text field.',
+    hint: 'While the cursor is in a text field, these keys go to the text field. Full-screen playback has its own shortcut list: press ? in full screen to see it.',
     rows: [
       ['Delete selection (gaps left empty on every track close up)', 'Delete'],
       ['Delete the selected span from all tracks (later content moves up)', '⇧Delete'],

@@ -9,7 +9,8 @@ const MAC = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
 
 /**
  * 编辑器快捷键清单（原型 editor-keys.jsx 的 SHEET 与对话框）：`?` 打开，只列编辑器里真有的键。
- * 原型借全屏播放器的 ↑/↓、M、F 也在清单里：音量与静音只管预览听到的大小（不进视频），F 只把预览画面放到全屏。
+ * 原型借全屏播放器的 ↑/↓、M、F 也在清单里：音量与静音只管预览听到的大小（不进视频），F 进全屏播放；
+ * 全屏播放器有自己的一张键表（fullscreen-player.tsx，在全屏里按 ? 看），不列在这里。
  * 帮助中心（help-keys）用同一份 rows。
  */
 export function ShortcutSheet() {

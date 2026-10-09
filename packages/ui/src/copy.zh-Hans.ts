@@ -617,7 +617,7 @@ export const zhHans: CopyMessages = {
   shortcutSheet: {
     title: '快捷键',
     done: '知道了',
-    hint: '光标在输入框里时这些键全部让位给输入。',
+    hint: '光标在输入框里时这些键全部让位给输入。全屏播放有自己的一张键表——在全屏里按 ? 看。',
     rows: [
       ['删除选中（所有轨道都空了的那段自动合拢）', 'Delete'],
       ['从所有轨道删除所选这一段（后面的内容前移）', '⇧Delete'],

@@ -98,6 +98,12 @@ export interface EditorStore {
   /** 快捷键清单（`?`）开着。 */
   shortcutsOpen: boolean;
   setShortcutsOpen(open: boolean): void;
+  /**
+   * 预览在全屏播放（不持久化）：跟着浏览器的 `fullscreenchange` 走（preview.tsx），浏览器自己的 Esc 退出也算。
+   * 全屏时键盘归全屏播放器，编辑器的快捷键让位。
+   */
+  fullscreen: boolean;
+  setFullscreen(fullscreen: boolean): void;
 }
 
 /** 还没提交（或正在提交）的时间微调：哪几件、累计挪了多少帧、按哪个视频版本算的。 */
@@ -174,6 +180,8 @@ export const useEditor = create<EditorStore>()(
       setNudge: (nudge) => set({ nudge }),
       shortcutsOpen: false,
       setShortcutsOpen: (shortcutsOpen) => set({ shortcutsOpen }),
+      fullscreen: false,
+      setFullscreen: (fullscreen) => set({ fullscreen }),
     }),
     {
       name: 'baocut.editor',
