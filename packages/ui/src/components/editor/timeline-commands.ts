@@ -226,11 +226,15 @@ export function canSplitAt(sequence: Sequence, itemId: Id, playhead: number): bo
   return splitOperations(sequence, [itemId], frameAt(playhead, sequence.fps)).length > 0;
 }
 
-/** 停用或启用一件片段：还在时间线上，画面与导出都跳过（`updateItem.enabled`）。 */
-export function setItemEnabled(actions: EditorActions, itemId: Id, enabled: boolean): void {
+/**
+ * 停用或启用一件片段：还在时间线上，画面与导出都跳过（`updateItem.enabled`）。
+ * 给了 `notice` 时提交后出一条带撤销的提示（画布工具条上停用：片段从画面上消失，要说清楚去哪重新启用）。
+ */
+export async function setItemEnabled(actions: EditorActions, itemId: Id, enabled: boolean, notice?: string): Promise<void> {
   const ctx = live();
   if (!ctx?.editable) return;
-  void actions.apply([{ type: 'updateItem', sequenceId: ctx.sequence.id, itemId, enabled }], enabled ? COPY.labelEnable : COPY.labelDisable);
+  const receipt = await actions.apply([{ type: 'updateItem', sequenceId: ctx.sequence.id, itemId, enabled }], enabled ? COPY.labelEnable : COPY.labelDisable);
+  if (receipt && notice) undoToast(actions, notice, receipt);
 }
 
 /** ⌘A：选中播放头下的片段（原型 selectAll）。 */

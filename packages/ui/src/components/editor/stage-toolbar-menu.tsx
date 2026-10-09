@@ -62,6 +62,7 @@ import { canArrange } from '../../model/editor-ops.ts';
 import { fitCanvas } from '../../model/geometry-panel.ts';
 import { patchTextStyle } from '../../model/property-values.ts';
 import { placeFields, poseOf, type PlacedItem } from '../../model/stage-pose.ts';
+import { M as TOOLBAR_COPY } from '../../model/stage-toolbar-copy.ts';
 import { ARRANGE_COPY, ARRANGE_ROWS, brandTarget, itemAsset, type InspectorSection, type MenuGroup, type Tool, type ToolId } from '../../model/stage-toolbar.ts';
 import { asObject, num } from '../../render/text-style.ts';
 import type { RuntimeSession } from '../../runtime/session.ts';
@@ -70,7 +71,7 @@ import { saveAssetToBrand } from './brand-save.ts';
 import type { EditorActions } from './editor-context.tsx';
 import { ValueRow } from './inspector-controls.tsx';
 import { OpacityRow, TimeSection, type ItemPageProps } from './inspector-sections.tsx';
-import { MOD_KEY, arrangeItem, deleteItems, duplicateItems } from './timeline-commands.ts';
+import { MOD_KEY, arrangeItem, deleteItems, duplicateItems, setItemEnabled } from './timeline-commands.ts';
 import { EDITOR_COPY as E } from './editor-copy.ts';
 import { ELEMENTS_COPY as EL } from './elements-copy.ts';
 import { INSPECTOR_COPY as IC } from './inspector-copy.ts';
@@ -121,6 +122,7 @@ export const TOOL_ICON: Partial<Record<ToolId, ComponentType>> = {
   arrange: Order,
   'save-to-brand-kit': Brand,
   'adjust-timing': Clock,
+  disable: VisibilityOff,
   delete: Delete,
   bold: TextBold,
   italic: TextItalic,
@@ -221,6 +223,8 @@ export function runTool(tool: Tool, { item, sequence, assets, edit }: ToolProps,
     case 'command':
       if (tool.id === 'copy') return void duplicateItems(actions, [item.id]);
       if (tool.id === 'delete') return void deleteItems(actions, [item.id]);
+      // 停用之后画面上没有它了，条子随选中框一起收起；提示带撤销，并说在时间线上右键可重新启用。
+      if (tool.id === 'disable') return void setItemEnabled(actions, item.id, false, TOOLBAR_COPY.disabledNotice);
       if (tool.id === 'save-to-brand-kit') {
         const asset = itemAsset(item, assets);
         const target = brandTarget(asset);

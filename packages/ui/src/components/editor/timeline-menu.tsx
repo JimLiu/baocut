@@ -116,7 +116,7 @@ function TimelineItemMenu({
       case 'duplicate':
         return void duplicateSelection(actions);
       case 'toggle':
-        return setItemEnabled(actions, item.id, !enabled);
+        return void setItemEnabled(actions, item.id, !enabled);
       case 'delete':
         return void deleteSelection(actions);
       case 'removeSpan':

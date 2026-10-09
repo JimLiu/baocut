@@ -40,6 +40,7 @@ const en = {
     arrange: 'Order',
     'save-to-brand-kit': 'Save to brand kit',
     'adjust-timing': 'Adjust timing',
+    disable: 'Disable clip',
     delete: 'Delete',
     bold: 'Bold',
     italic: 'Italic',
@@ -69,16 +70,16 @@ const en = {
   },
   /** 不能用的几格为什么不能用：协议里还没有对应操作、素材取不到原文件、浏览器里没有品牌库等。 */
   offReason: {
-    animation: 'The video format has no animations yet: there is no field to write and no edit operation for it.',
+    animation: "Animations can't be picked in the editor yet.",
     brand: "This clip's media can't be stored in the brand kit.",
-    roundCorners: 'Corner radius for videos and images cannot be written yet (the appearance operation does not take a radius).',
+    roundCorners: "The preview can't draw rounded corners yet, so they can't be set here.",
     filters: 'Filters (LUT) are a reserved name in the video format and are rejected on write.',
     crop: 'Smart crop needs a model and has no entry point yet. Coming soon.',
     replace: 'There is no operation to swap the asset of a clip yet.',
     detach: 'Detach audio is not wired up yet: it needs to add an audio clip and mute the video in the same edit.',
     speed: 'This clip does not play at a constant rate, so its speed cannot be changed here.',
     sound: 'This clip has no sound.',
-    captionAnimation: 'Subtitle animations are not in the video format yet: a subtitle style has no field for them.',
+    captionAnimation: "Subtitle animations can't be picked in the editor yet.",
     captionDefaultStyle: 'These subtitles still use the default style. Change any setting first, then save it to the brand kit.',
     brandText: 'The brand kit has no section for text styles yet.',
     brandWeb: 'The brand kit is only available in the desktop app and the CLI.',
@@ -93,6 +94,8 @@ const en = {
   },
   /** 字幕工具条的名字（读屏）。 */
   subtitleBar: 'Subtitle toolbar',
+  /** 从画布工具条停用片段之后的提示（带撤销）：片段从画面上消失，说清楚去哪重新启用。 */
+  disabledNotice: 'Clip disabled. Right-click it on the timeline to enable it again.',
   textStyleLocked: (schema: string) => `This text uses the ${schema} style format and cannot be edited here yet.`,
 };
 

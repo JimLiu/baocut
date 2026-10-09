@@ -97,9 +97,10 @@ describe('配置表照原型摆', () => {
         ['align-left', 'align-center', 'align-right'],
       ],
       ['line-height', 'letter-spacing'],
+      ['opacity'],
       ['copy', 'arrange', 'save-to-brand-kit'],
       ['properties'],
-      ['adjust-timing', 'delete'],
+      ['adjust-timing', 'disable', 'delete'],
     ]);
   });
 
@@ -147,13 +148,10 @@ describe('配置表照原型摆', () => {
     }
   });
 
-  it('认不出的合成只有一颗「属性」，菜单里只剩通用的复制 / 层级 / 时长 / 删除', () => {
+  it('认不出的合成只有一颗「属性」，菜单是通用的不透明度、复制 / 层级、时长 / 停用 / 删除', () => {
     const spec = toolbarFor(composition({ kind: 'bundle', assetRef: { id: 'a', revision: 1 } }));
     expect(ids(spec.visible)).toEqual([['properties']]);
-    expect(menuIds(spec.more)).toEqual([
-      ['copy', 'arrange'],
-      ['adjust-timing', 'delete'],
-    ]);
+    expect(menuIds(spec.more)).toEqual([['opacity'], ['copy', 'arrange'], ['adjust-timing', 'disable', 'delete']]);
     expect(spec.visible[0]![0]!.action).toEqual({ kind: 'jump', section: null });
   });
 });
@@ -169,10 +167,26 @@ describe('每一格做什么', () => {
     }
   });
 
-  it('协议里没有对应操作的几格不能用：动画、圆角、滤镜、替换、分离音频、智能裁剪', () => {
+  it('还接不上的几格不能用：动画、圆角（预览画不出）、滤镜、替换、分离音频、智能裁剪', () => {
     const spec = toolbarFor(video());
     for (const id of ['animation', 'round-corners', 'filters', 'replace-video', 'detach-audio', 'crop-video']) {
       expect(find(spec, id)?.action.kind, id).toBe('off');
+    }
+  });
+
+  // BaoCut v2 已上线的条子（stage-toolbar.logic.ts 的 MEDIA_MORE / PLAIN_MORE）：除视频外每一类的菜单都有不透明度与「隐藏」。
+  it('对照 v2：除视频、彩纸、白板外每一类的菜单里都有不透明度（下钻）与停用片段（命令，删除前一格）', () => {
+    for (const item of SAMPLES) {
+      const spec = toolbarFor(item);
+      const kind = barKindOf(item);
+      const last = menuIds(spec.more).at(-1) as string[];
+      if (kind === 'video' || kind === 'confetti' || kind === 'whiteboard') {
+        expect(find(spec, 'disable'), kind).toBeUndefined();
+        continue;
+      }
+      expect(find(spec, 'opacity')?.action, kind).toEqual({ kind: 'sub' });
+      expect(find(spec, 'disable')?.action, kind).toEqual({ kind: 'command' });
+      expect(last.slice(-2), kind).toEqual(['disable', 'delete']);
     }
   });
 

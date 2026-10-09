@@ -55,6 +55,7 @@ export type ToolId =
   | 'arrange'
   | 'save-to-brand-kit'
   | 'adjust-timing'
+  | 'disable'
   | 'delete'
   | 'bold'
   | 'italic'
@@ -101,7 +102,10 @@ const FLIP_FIT: Row = [
   ['fit-canvas', 'fill-canvas'],
 ];
 
-/** 原型 `BAR` 里与画面上的片段对得上的几类，分组与次序逐项照抄（模板、文本组等 BaoCut 画布上没有；字幕见 `SUBTITLE_BAR`）。 */
+/**
+ * 原型 `BAR` 里与画面上的片段对得上的几类，分组与次序逐项照抄（模板、文本组等 BaoCut 画布上没有；字幕见 `SUBTITLE_BAR`）。
+ * 不透明度与「停用片段」照 BaoCut v2 已上线的条子补齐：除视频外每一类的菜单里都有（v2 叫「隐藏」），停用片段摆在删除前一格。
+ */
 export const BAR: Record<Exclude<BarKind, 'other' | 'subtitle'>, Layout> = {
   text: {
     visible: [
@@ -114,9 +118,10 @@ export const BAR: Record<Exclude<BarKind, 'other' | 'subtitle'>, Layout> = {
         ['align-left', 'align-center', 'align-right'],
       ],
       ['line-height', 'letter-spacing'],
+      ['opacity'],
       ['copy', 'arrange', 'save-to-brand-kit'],
       ['properties'],
-      ['adjust-timing', 'delete'],
+      ['adjust-timing', 'disable', 'delete'],
     ],
   },
   video: {
@@ -134,26 +139,23 @@ export const BAR: Record<Exclude<BarKind, 'other' | 'subtitle'>, Layout> = {
   },
   image: {
     visible: [['animation'], ['adjust']],
-    more: [FLIP_FIT, ['opacity', 'round-corners'], ['copy', 'arrange'], ['adjust-timing', 'replace-image', 'save-to-brand-kit', 'delete']],
+    more: [FLIP_FIT, ['opacity', 'round-corners'], ['copy', 'arrange'], ['adjust-timing', 'replace-image', 'save-to-brand-kit', 'disable', 'delete']],
   },
   shape: {
     visible: [['color'], ['border'], ['animation']],
-    more: [FLIP_FIT, ['copy', 'arrange'], ['properties'], ['adjust-timing', 'delete']],
+    more: [FLIP_FIT, ['opacity'], ['copy', 'arrange'], ['properties'], ['adjust-timing', 'disable', 'delete']],
   },
   sticker: {
     visible: [['fill-list'], ['animation']],
-    more: [FLIP_FIT, ['copy', 'arrange'], ['properties'], ['adjust-timing', 'delete']],
+    more: [FLIP_FIT, ['opacity'], ['copy', 'arrange'], ['properties'], ['adjust-timing', 'disable', 'delete']],
   },
   progress: {
     visible: [['progress-colors'], ['progress-picker'], ['animation']],
-    more: [
-      ['copy', 'arrange'],
-      ['adjust-timing', 'delete'],
-    ],
+    more: [['opacity'], ['copy', 'arrange'], ['adjust-timing', 'disable', 'delete']],
   },
   wave: {
     visible: [['wave-colors'], ['wave-picker'], ['animation']],
-    more: [['volume-levels'], ['copy', 'arrange'], ['adjust-timing', 'delete']],
+    more: [['volume-levels', 'opacity'], ['copy', 'arrange'], ['adjust-timing', 'disable', 'delete']],
   },
   counter: {
     visible: [['counter-mode'], ['color', 'font', 'size'], ['animation']],
@@ -162,9 +164,10 @@ export const BAR: Record<Exclude<BarKind, 'other' | 'subtitle'>, Layout> = {
         ['bold', 'italic'],
         ['align-left', 'align-center', 'align-right'],
       ],
+      ['opacity'],
       ['copy', 'arrange'],
       ['properties'],
-      ['adjust-timing', 'delete'],
+      ['adjust-timing', 'disable', 'delete'],
     ],
   },
   // 彩纸与白板手绘：颜色、形状、手、纸都在专属属性页，条子上只留动画；已铺满画面，不做翻转与适配画布。
@@ -176,6 +179,15 @@ export const BAR: Record<Exclude<BarKind, 'other' | 'subtitle'>, Layout> = {
     visible: [['animation']],
     more: [['copy', 'arrange'], ['properties'], ['adjust-timing', 'delete']],
   },
+};
+
+/**
+ * 还没有自己一条的元素（手绘、占位框、代码包合成）：条子上只给一颗「属性」，菜单是 v2 那几类共有的
+ * 不透明度、复制 / 层级、时长、停用片段与删除。
+ */
+export const OTHER_BAR: Layout = {
+  visible: [['properties']],
+  more: [['opacity'], ['copy', 'arrange'], ['adjust-timing', 'disable', 'delete']],
 };
 
 /**
@@ -353,6 +365,7 @@ export function toolAction(id: ToolId, item: PlacedItem, kind: BarKind, context:
       return jump(null);
     case 'copy':
     case 'delete':
+    case 'disable':
     case 'fit-canvas':
     case 'fill-canvas':
       return COMMAND;
@@ -411,9 +424,7 @@ function specOf(kind: BarKind, layout: Layout, tool: (id: ToolId) => Tool): Tool
 /** 选中这一件时条子与菜单的样子。 */
 export function toolbarFor(item: PlacedItem, context: BarContext = {}): ToolbarSpec {
   const kind = barKindOf(item);
-  // 还没有自己一条的元素也要能改叠放次序：只给一颗「属性」，菜单里放通用的复制 / 层级 / 时长 / 删除。
-  const layout: Layout =
-    kind === 'other' || kind === 'subtitle' ? { visible: [['properties']], more: [['copy', 'arrange'], ['adjust-timing', 'delete']] } : BAR[kind];
+  const layout: Layout = kind === 'other' || kind === 'subtitle' ? OTHER_BAR : BAR[kind];
   return specOf(kind, layout, (id) => ({ id, label: TOOL_LABEL[id], action: toolAction(id, item, kind, context) }));
 }
 
