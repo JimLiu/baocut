@@ -2,15 +2,15 @@
   "schema": 1,
   "target": "x86_64-pc-windows-msvc",
   "variant": "cpu",
-  "version": "3.1.0",
-  "build": 62,
+  "version": "3.1.1",
+  "build": 64,
   "date": "2026-10-09",
   "notes": "",
   "notesLocalized": {},
   "app": {
     "format": "exe",
-    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.1.0-build.62/BaoCut-3.1.0-build.62-win-x64-setup.exe",
-    "size": 211732935,
-    "sha256": "91a2fda6a190e6e5126fb75c691d0a569680c9491b0366105aca3ba431de091d"
+    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.1.1-build.64/BaoCut-3.1.1-build.64-win-x64-setup.exe",
+    "size": 211782650,
+    "sha256": "bf1fb6a9ced669081dbea430855c46d3a3a4605701bc140128c5ccf841a83317"
   }
 }
