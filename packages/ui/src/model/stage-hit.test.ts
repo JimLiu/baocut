@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Sequence, SequenceItem } from '@baocut/protocol';
 import type { VisualLayer } from '../render/frame-plan.ts';
-import { hitAt, isMainVideo, layerContains, marqueeHits, unitPoint, visibleItems } from './stage-hit.ts';
+import { hitAt, isMainVideo, layerContains, marqueeHits, marqueeSelection, unitPoint, visibleItems } from './stage-hit.ts';
 import { poseContains } from './stage-pose.ts';
 
 type Matrix = VisualLayer['matrix'];
@@ -87,6 +87,15 @@ describe('主视频与框选', () => {
     ];
     expect(marqueeHits(candidates, { x: 50, y: 50, w: 100, h: 20 })).toEqual(['a']);
     expect(marqueeHits(candidates, { x: 50, y: 50, w: 200, h: 100 })).toEqual(['a', 'b', 'c']);
+  });
+
+  it('框选结果：只框到字幕就选字幕（双语两行），字幕与元素都框到只留元素；追加时并上原选中', () => {
+    const isCaption = (id: string) => id === 'orig' || id === 'trans';
+    expect(marqueeSelection([], ['orig', 'trans'], isCaption)).toEqual(['orig', 'trans']);
+    expect(marqueeSelection([], ['logo', 'orig'], isCaption)).toEqual(['logo']);
+    expect(marqueeSelection(['orig'], ['trans', 'orig'], isCaption)).toEqual(['orig', 'trans']);
+    expect(marqueeSelection(['logo'], ['orig'], isCaption)).toEqual(['logo']);
+    expect(marqueeSelection([], [], isCaption)).toEqual([]);
   });
 });
 

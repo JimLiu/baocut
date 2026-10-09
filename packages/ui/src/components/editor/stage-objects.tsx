@@ -30,7 +30,7 @@ import {
   type Modifiers,
   type StageEnv,
 } from '../../model/stage-gesture.ts';
-import { hitAt, isMainVideo, marqueeHits, visibleItems } from '../../model/stage-hit.ts';
+import { hitAt, isMainVideo, marqueeHits, marqueeSelection, visibleItems } from '../../model/stage-hit.ts';
 import {
   DEAD_ZONE,
   aabbOf,
@@ -78,7 +78,7 @@ import { openFlow, setCompare } from './translate-run.ts';
  *   松手按起手状态算出的终值提交**一笔**事务，失败就回到原值。真的动过才吞掉随后补发的 click。
  * - 字幕没有 `place`，按在它上面拖动是挪字幕样式的水平中心与锚线（原型 stage.jsx 的字幕 SelectionBox，见 model/stage-caption-move）：
  *   拖动中走 store 的文档草稿（预览与属性页一起跟手），松手写入样式文档，用同一份样式的字幕一起动。双语时只拖选中的那一行
- *   （原型里每条字幕轨各拖各的），⇧ / ⌘ 单击把两行都选上再拖才整组动。
+ *   （原型里每条字幕轨各拖各的），框选或 ⇧ / ⌘ 单击把两行都选上再拖才整组动（框选同时框到画面元素时只留元素）。
  * - 只读、锁定或正在播放时不出把手，只读时点选照常；播放中按下画面只暂停（原型 stage.jsx），停下后再点选。
  */
 
@@ -397,9 +397,14 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
       const item = byId.get(id);
       return item && isPlaced(item) && !isMainVideo(item, seq) ? [{ id, rect: aabbOf(poseOf(item, seq.canvas, assets)) }] : [];
     });
-    const hits = marqueeHits(candidates, rect);
+    // 字幕按画出来的行框参与框选（一件字幕这一帧可能有几行，合成一个框）。
+    const captions = [...new Set(engine.captionHits.map((hit) => hit.itemId))].flatMap((id) => {
+      const rect = captionBox(engine.captionHits.filter((hit) => hit.itemId === id));
+      return rect ? [{ id, rect }] : [];
+    });
+    const hits = marqueeHits([...candidates, ...captions], rect);
     const base = additive ? useEditor.getState().selection.filter((id) => !isMain(id)) : [];
-    select([...new Set([...base, ...hits])]);
+    select(marqueeSelection(base, hits, (id) => byId.get(id)?.type === 'caption'));
   };
 
   const reset = () => {
@@ -458,7 +463,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
       if (groupChangeable) gesture = { kind: 'group-move', members: group.map((item) => memberOf(item, seq.canvas, assets)), p0: p };
     } else if (hit && !additive) {
       // 按在一件上：没选中的先选中，拖动就移动它（原型要先选中才能拖；这里与常见剪辑器一致，按下即可拖）。
-      // 选中的全是同一份样式的字幕（双语两行都选上了）时按下不收成一件，拖动整组动；不动就松手才只留这一行。
+      // 选中的全是同一份样式的字幕（双语两行都框选或 ⇧ / ⌘ 点选上了）时按下不收成一件，拖动整组动；不动就松手才只留这一行。
       const item = byId.get(hit);
       const current = useEditor.getState().selection;
       const captionGroup =

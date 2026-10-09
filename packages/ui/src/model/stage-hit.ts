@@ -92,3 +92,12 @@ export function isMainVideo(item: SequenceItem, sequence: Sequence): boolean {
 export function marqueeHits(candidates: readonly { id: Id; rect: Rect }[], marquee: Rect): Id[] {
   return candidates.filter((c) => rectsCross(c.rect, marquee)).map((c) => c.id);
 }
+
+/**
+ * 框选的结果：追加时的原选中加上这一框命中的。字幕与画面元素都在里面时只留元素：框住一件贴纸连带框到底下的字幕是常事，
+ * 框字幕的人只框字幕（原型 model-select.js 的 `marqueePick`）。只框到字幕时，同一份样式的双语两行都选上，按下拖动就整组动。
+ */
+export function marqueeSelection(base: readonly Id[], hits: readonly Id[], isCaption: (id: Id) => boolean): Id[] {
+  const all = [...new Set([...base, ...hits])];
+  return all.some((id) => !isCaption(id)) ? all.filter((id) => !isCaption(id)) : all;
+}
