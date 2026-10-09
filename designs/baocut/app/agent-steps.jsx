@@ -9,7 +9,7 @@
      product-design §3.2.2）；点开是一个带边框的框，按先后一行一步、一行一张回执（回执的撤销 / 恢复在行里），行间分隔线；
      框里每一行还能再点开看输入、输出与错误。
      会话在跑、这一组里有一步在跑时，摘要行换成那一步：加载图形 + 扫光的类别名 + 进度与已用时间，默认也折叠；点开后框里那一行换成静止图标。
-   - 回合页脚：运行中「正在工作 · 0:42」每秒跳（只有这个小组件自己计时，线程不跟着每秒重渲），前面一个通用序列的加载图形（与正文左边对齐，不进头像那一列），等你允许时不放；
+   - 回合页脚：运行中「正在工作 · 0:42」每秒跳（只有这个小组件与摘要行上的那一步自己计时，线程不跟着每秒重渲），前面一个通用序列的加载图形（与正文左边对齐，不进头像那一列），等你允许时不放；
      完成后「已工作 1:03」，hover 换成结束时刻；右侧复制这一轮的回复正文（Markdown 源码，不含工具与思考）。
    - 加载图形（product-design §3.2.2 的「进行状态」）：@react-spectrum/ai 的 PixelLoader。哪个类别用哪几个图只写在
      model-agent-loader.js（BC_AGENT_LOADER），这里按键把名字换成像素格并缓存——PixelLoader 拿到新的数组引用会从头播。
@@ -113,6 +113,14 @@
     </ol>;
   }
 
+  /* 摘要行上那一步的已用时间：自己每秒跳（同回合页脚），线程不跟着重渲。 */
+  function StepClock({elapsedMs}) {
+    const [start] = useState(() => Date.now() - elapsedMs);
+    const [now, setNow] = useState(() => Date.now());
+    useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+    return <span className="awork__meta">{TURN.formatElapsed(now - start)}</span>;
+  }
+
   /* 摘要行跑完后不放图标、不放动画，有失败也不变色：失败是过程常态，点开看那一步的「错误」。
      在跑时写最后开始的那一步，进度与已用时间读它的任务记录；几步一起跑时只写「等 N 项」（进度只属于其中一步，不写）。 */
   function WorkMsg({m, live, className}) {
@@ -126,13 +134,14 @@
     if (current) {
       const step = TURN.toolStep(current);
       const task = current.taskId ? app.tasks.find((t) => t.id === current.taskId) : null;
-      const meta = running.length > 1 ? [`等 ${running.length} 项`]
-        : [task && task.status === 'running' && task.pct != null ? `${task.pct}%` : null,
-          task && task.elapsedMs ? TURN.formatElapsed(task.elapsedMs) : null].filter(Boolean);
+      const one = running.length === 1;
+      const pct = one && task && task.status === 'running' && task.pct != null ? `${task.pct}%` : null;
       head = <>
         <span className="awork__loader"><A.PixelLoader icon={agentLoader(step.kind)} size={14} /></span>
         <span className="awork__sum is-shimmer">{step.label}</span>
-        {meta.map((x) => <span key={x} className="awork__meta">{x}</span>)}
+        {one ? null : <span className="awork__meta">{`等 ${running.length} 项`}</span>}
+        {pct ? <span className="awork__meta">{pct}</span> : null}
+        {one && task && task.elapsedMs != null ? <StepClock key={current.id} elapsedMs={task.elapsedMs} /> : null}
       </>;
     } else {
       head = <span className="awork__sum">{[AG.workSummary(m.items), failed ? `${failed} 项失败` : null].filter(Boolean).join(' · ')}</span>;
