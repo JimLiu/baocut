@@ -130,3 +130,99 @@ fn scaled_pip_element_still_resamples() {
     // 缩到一半后画布四角必须是空的，证明走的是真变换而不是直通。
     assert_eq!(&rendered.data()[..4], &[0, 0, 0, 0]);
 }
+
+/// 不透明噪声：在 `noise` 基础上把 alpha 拉满（premultiplied 下颜色通道仍 ≤ alpha）。
+fn opaque_noise(width: u32, height: u32) -> Pixmap {
+    let mut pixmap = noise(width, height);
+    for chunk in pixmap.data_mut().chunks_exact_mut(4) {
+        chunk[3] = 255;
+    }
+    pixmap
+}
+
+/// 全屏 + contain + `bg` 的元素在画布上渲染一次。
+fn render_fullscreen(source: Pixmap, bg: &str) -> Pixmap {
+    let mut assets = render_raster::LoadedAssets::default();
+    assets.images.insert("probe".to_owned(), Arc::new(source));
+    let mut plan =
+        OverlayRenderPlan::compile(&studio_document(), WIDTH, HEIGHT, 3.0, 30.0, None).unwrap();
+    plan.media.base = render_raster::MediaStore::new(Arc::new(assets), 30.0);
+    plan.load_projected_timeline_elements(&json!({
+        "timeline": {"tracks": [{"id": "t1", "kind": "overlay", "elements": [{
+            "id": "el-1", "kind": "image", "srcId": "probe",
+            "start": 0.0, "end": 3.0,
+            "mode": "fullscreen", "fit": "contain", "bg": bg
+        }]}]}
+    }))
+    .unwrap();
+    let element = plan.elements[0].clone();
+    plan.render_media_element(&element, 1.0, Default::default())
+        .unwrap()
+        .expect("媒体元素必须出图")
+}
+
+/// 旧背景板路径的参考结果：画布铺底色，再 contain 贴源图。
+fn backdrop_reference(source: &Pixmap, color: tiny_skia::Color) -> Pixmap {
+    let mut local = Pixmap::new(WIDTH, HEIGHT).unwrap();
+    local.fill(color);
+    draw_fit_pixmap(&mut local, source, Fit::Contain, 1.0);
+    local
+}
+
+/// 同尺寸不透明源 + 黑底：背景板完全被盖住，输出逐字节等于源图，也等于旧路径。
+#[test]
+fn opaque_fullscreen_contain_with_black_bg_passes_the_source_through() {
+    let source = opaque_noise(WIDTH, HEIGHT);
+    let reference = backdrop_reference(&source, tiny_skia::Color::BLACK);
+    assert_eq!(
+        reference.data(),
+        source.data(),
+        "旧背景板路径对不透明源应是恒等"
+    );
+    let rendered = render_fullscreen(source.clone(), "black");
+    assert_eq!(rendered.data(), source.data());
+    assert_eq!(rendered.data(), reference.data());
+}
+
+/// 只要有一个半透明像素，就必须仍走背景板：黑底从该像素透出来。
+#[test]
+fn translucent_fullscreen_contain_with_black_bg_keeps_the_backdrop() {
+    let mut source = opaque_noise(WIDTH, HEIGHT);
+    let index = ((HEIGHT / 2 * WIDTH + WIDTH / 2) * 4) as usize;
+    source.data_mut()[index..index + 4].copy_from_slice(&[10, 20, 30, 64]);
+    let reference = backdrop_reference(&source, tiny_skia::Color::BLACK);
+    assert_ne!(reference.data(), source.data());
+    let rendered = render_fullscreen(source.clone(), "black");
+    assert_eq!(rendered.data(), reference.data());
+    assert_ne!(rendered.data(), source.data());
+    assert_eq!(
+        rendered.data()[index + 3],
+        255,
+        "黑底应把半透明像素垫成不透明"
+    );
+}
+
+/// 纯色底同样被不透明源完全遮住。
+#[test]
+fn opaque_fullscreen_contain_with_color_bg_passes_the_source_through() {
+    let source = opaque_noise(WIDTH, HEIGHT);
+    let reference =
+        backdrop_reference(&source, tiny_skia::Color::from_rgba8(0x33, 0x66, 0x99, 255));
+    let rendered = render_fullscreen(source.clone(), "#336699");
+    assert_eq!(rendered.data(), source.data());
+    assert_eq!(rendered.data(), reference.data());
+}
+
+/// 尺寸不同（需要缩放与留边）时仍走背景板：结果等于旧路径的 letterbox 参考。
+#[test]
+fn smaller_fullscreen_contain_with_bg_still_letterboxes() {
+    let source = opaque_noise(WIDTH / 2, HEIGHT / 2 - 20);
+    let color = tiny_skia::Color::from_rgba8(0x33, 0x66, 0x99, 255);
+    let reference = backdrop_reference(&source, color);
+    let rendered = render_fullscreen(source, "#336699");
+    assert_eq!(rendered.width(), WIDTH);
+    assert_eq!(rendered.height(), HEIGHT);
+    assert_eq!(rendered.data(), reference.data());
+    // 左上角是留边，露出底色。
+    assert_eq!(&rendered.data()[..4], &[0x33, 0x66, 0x99, 255]);
+}

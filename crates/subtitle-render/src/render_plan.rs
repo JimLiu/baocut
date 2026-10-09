@@ -5486,9 +5486,13 @@ impl OverlayRenderPlan {
         // 贴到全透明画布上是逐字节拷贝（`tests/identity_media_pass_through.rs` 实测
         // 位精确），于是直接接管 `filtered`，省掉一次 8.3 MB 清零分配和一次全幅
         // Bilinear 重采样。恒等 PIP（`detach_main_video` 归一化后的主画面）每帧都走这条。
-        let mut local = if !has_backdrop
-            && local_width == filtered.width()
+        // 有背景板（全屏 + contain + `bg`）时，只要源图逐像素不透明，源就盖满整个盒子，
+        // 背景板（黑 / 纯色 / 模糊）完全被遮住，source-over 的结果也恰是源字节，同样直通；
+        // 任一像素半透明则仍走背景板路径，让底色透出来。alpha 扫描只在尺寸已吻合且有
+        // 背景板时才跑，其余情形零开销。
+        let mut local = if local_width == filtered.width()
             && local_height == filtered.height()
+            && (!has_backdrop || is_opaque(&filtered))
         {
             filtered
         } else {
@@ -9167,4 +9171,9 @@ impl OverlayRenderPlan {
         }
         Ok(drawn)
     }
+}
+
+/// 逐像素检查 alpha 是否全为 255（premultiplied 下即不透明，source-over 时完全遮住下层）。
+fn is_opaque(pixmap: &Pixmap) -> bool {
+    pixmap.data().chunks_exact(4).all(|pixel| pixel[3] == 255)
 }
