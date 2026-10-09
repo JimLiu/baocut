@@ -172,13 +172,14 @@ export const BAR: Record<Exclude<BarKind, 'other' | 'subtitle'>, Layout> = {
     ],
   },
   // 彩纸与白板手绘：颜色、形状、手、纸都在专属属性页，条子上只留动画；已铺满画面，不做翻转与适配画布。
+  // 菜单与别的几类一样带不透明度与停用片段（v2 里它们走通用菜单）。
   confetti: {
     visible: [['animation']],
-    more: [['copy', 'arrange'], ['properties'], ['adjust-timing', 'delete']],
+    more: [['opacity'], ['copy', 'arrange'], ['properties'], ['adjust-timing', 'disable', 'delete']],
   },
   whiteboard: {
     visible: [['animation']],
-    more: [['copy', 'arrange'], ['properties'], ['adjust-timing', 'delete']],
+    more: [['opacity'], ['copy', 'arrange'], ['properties'], ['adjust-timing', 'disable', 'delete']],
   },
 };
 

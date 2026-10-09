@@ -140,11 +140,11 @@ describe('配置表照原型摆', () => {
     for (const layout of Object.values(BAR)) expect(layout.visible.flat()).not.toContain('save-to-brand-kit');
   });
 
-  it('彩纸与白板：条子上一颗「动画」，菜单是复制 / 层级、属性、时长 / 删除', () => {
+  it('彩纸与白板：条子上一颗「动画」，菜单是不透明度、复制 / 层级、属性、时长 / 停用 / 删除', () => {
     for (const item of [element('confetti', { confetti: {} }), element('whiteboard', { whiteboard: {} })]) {
       const spec = toolbarFor(item);
       expect(ids(spec.visible)).toEqual([['animation']]);
-      expect(menuIds(spec.more)).toEqual([['copy', 'arrange'], ['properties'], ['adjust-timing', 'delete']]);
+      expect(menuIds(spec.more)).toEqual([['opacity'], ['copy', 'arrange'], ['properties'], ['adjust-timing', 'disable', 'delete']]);
     }
   });
 
@@ -189,12 +189,12 @@ describe('每一格做什么', () => {
   });
 
   // BaoCut v2 已上线的条子（stage-toolbar.logic.ts 的 MEDIA_MORE / PLAIN_MORE）：除视频外每一类的菜单都有不透明度与「隐藏」。
-  it('对照 v2：除视频、彩纸、白板外每一类的菜单里都有不透明度（下钻）与停用片段（命令，删除前一格）', () => {
+  it('对照 v2：除视频外每一类的菜单里都有不透明度（下钻）与停用片段（命令，删除前一格）', () => {
     for (const item of SAMPLES) {
       const spec = toolbarFor(item);
       const kind = barKindOf(item);
       const last = menuIds(spec.more).at(-1) as string[];
-      if (kind === 'video' || kind === 'confetti' || kind === 'whiteboard') {
+      if (kind === 'video') {
         expect(find(spec, 'disable'), kind).toBeUndefined();
         continue;
       }
