@@ -305,5 +305,3 @@ BaoCut is **source-available** under the [BaoCut Community License 1.0](LICENSE)
 - Selling the software or a modified version, rebranding it, offering it as a hosted service or API, or embedding BaoCut code or engines in a commercial software product requires a separate written commercial license. Publishing modified sources does not waive this.
 - Independently written plugins and clients that contain no BaoCut code and only use public interfaces are not covered by this license; bundling or hosting BaoCut itself still is.
 - Third-party code, assets, fonts and models keep their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Rights already granted under earlier licenses (such as Apache-2.0) are not withdrawn.
-
-For commercial licensing contact Jim Liu: <junminliu@gmail.com>. Contributors keep their copyright; this license is not a contributor agreement.

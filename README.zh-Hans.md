@@ -285,7 +285,7 @@ templates/          内置创作模板
 tools/              构建与检查脚本
 ```
 
-依赖方向与各层职责见[架构设计 §11、§13](docs/architecture/architecture-design.md#11-客户端架构)，文件放置与命名见[仓库约定](docs/repo-conventions.md)。
+依赖方向与各层职责见 [架构设计 §11、§13](docs/architecture/architecture-design.md#11-客户端架构)，文件放置与命名见[仓库约定](docs/repo-conventions.md)。
 
 </details>
 
@@ -299,5 +299,3 @@ BaoCut 采用 [BaoCut Community License 1.0](LICENSE)，属于源码可用（sou
 - 销售原版或修改版软件、换皮销售、提供商业托管平台或 API，以及把 BaoCut 代码或引擎集成到对外商业软件产品中，需要事先取得单独的书面商业授权。公开修改版源码不豁免这些要求。
 - 独立编写、不包含 BaoCut 代码、仅调用公开接口的插件或客户端不因互操作而受本许可约束；附带分发或商业托管 BaoCut 本身仍须遵守软件许可。
 - 第三方代码、素材、字体与模型遵守各自许可，见[第三方声明](THIRD_PARTY_NOTICES.md)。历史版本已经按 Apache-2.0 等许可授出的权利不被撤回。
-
-商业授权请联系 Jim Liu：<junminliu@gmail.com>。贡献者保留版权；本许可不代替贡献者协议。
