@@ -96,8 +96,9 @@ const volumeSlider = style({ width: 80, paddingX: 8, flexShrink: 0 });
 const track = style({ position: 'relative', height: 20, width: 'full', cursor: 'default' });
 const rail = style({ position: 'absolute', insetX: 0, top: 8, height: 4, borderRadius: 'full', backgroundColor: 'gray-300' });
 const fill = style({ position: 'absolute', insetStart: 0, top: 8, height: 4, borderRadius: 'full', backgroundColor: 'accent' });
+// react-aria 给拇指的是 translate(-50%, -50%)：顶边放在杆的竖向中线上，拇指才压在细轨正中。
 const thumb = style({
-  top: '[3px]',
+  top: '[50%]',
   size: 14,
   borderRadius: 'full',
   backgroundColor: 'white',
