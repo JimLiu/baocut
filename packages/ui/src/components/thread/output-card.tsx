@@ -145,8 +145,9 @@ const outputDetail = style({ font: 'ui-xs', color: 'gray-600', overflow: 'hidden
 const outputTail = style({ display: 'flex', flexShrink: 0, color: 'gray-600' });
 
 /**
- * 视频卡的真帧：用 Space 的封面（`space.thumbnail`），不用打开编辑器。
- * 编辑器开着这部视频时优先用当前快照的封面（`media.thumbnail`），没取到时仍画 Space 的封面。
+ * 视频卡的真帧：用 Space 的封面（`space.thumbnail`，宽够卡片在 2 倍屏上画），不用打开编辑器。
+ * Space 还没有封面、编辑器开着这部视频时，先画当前快照的封面（`media.thumbnail`，胶片条那一档，较糊）；
+ * 编辑器里改了封面那一帧，等条目更新后 Space 的封面跟上。
  */
 function usePoster(output: ConversationOutput): string | null {
   const thumbnail = useEntryThumbnail(output.kind === 'video' ? output.entry : null);
@@ -159,8 +160,8 @@ function usePoster(output: ConversationOutput): string | null {
       : null,
   );
   const frame = useMemo(() => (snapshot ? posterFrame(snapshot) : null), [snapshot]);
-  const editorPoster = frame ? media.thumbnail(frame.asset, frame.at) : null;
-  return editorPoster ?? (thumbnail?.kind === 'image' ? thumbnail.url : null);
+  if (thumbnail?.kind === 'image') return thumbnail.url;
+  return frame ? media.thumbnail(frame.asset, frame.at) : null;
 }
 
 /** 编辑器开着这部视频、文档里已经有转录（`speech`）：视频卡的「已转录」不必等 Job 记录。 */

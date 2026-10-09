@@ -125,8 +125,8 @@ export type SpaceOpenForEditResult =
     }
   | { mode: 'new-video'; source: { entryId: Id }; projectId: Id | null };
 
-/** `space.thumbnail` 画面的宽（像素）：网格卡片在 2 倍屏上也清楚。比原图宽时不放大。 */
-export const SPACE_THUMBNAIL_WIDTH = 320;
+/** `space.thumbnail` 画面的宽（像素）：会话里的视频卡最宽 360，在 2 倍屏上也清楚；网格卡片更窄。比原图宽时不放大。 */
+export const SPACE_THUMBNAIL_WIDTH = 720;
 /** `space.thumbnail` 正文摘要最多多少字节（UTF-8，截在字符边界上）。 */
 export const SPACE_EXCERPT_MAX_BYTES = 1536;
 

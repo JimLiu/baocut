@@ -108,7 +108,7 @@ describe.skipIf(!engine || !ffmpeg)('Space 缩略图（真实引擎 + ffmpeg）'
     fixtures = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-thumb-fixtures-'));
     clip = path.join(fixtures, 'clip.mp4');
     ffmpegTo(clip, [
-      ...['-f', 'lavfi', '-i', 'testsrc=size=640x360:rate=30:duration=2'],
+      ...['-f', 'lavfi', '-i', 'testsrc=size=960x480:rate=30:duration=2'],
       ...['-f', 'lavfi', '-i', 'sine=frequency=440:duration=2'],
       ...['-c:v', 'mpeg4', '-c:a', 'aac', '-shortest'],
     ]);
@@ -169,7 +169,7 @@ describe.skipIf(!engine || !ffmpeg)('Space 缩略图（真实引擎 + ffmpeg）'
   it('来源目录里的文件：视频与图片取一帧，文档与字幕取开头的文字，别的没有', async () => {
     const at = (name: string) => path.join(project.path, name);
     await fs.copyFile(clip, at('素材.mp4'));
-    ffmpegTo(at('透明.png'), ['-f', 'lavfi', '-i', 'color=c=red@0.5:s=640x480,format=rgba', '-frames:v', '1']);
+    ffmpegTo(at('透明.png'), ['-f', 'lavfi', '-i', 'color=c=red@0.5:s=960x720,format=rgba', '-frames:v', '1']);
     ffmpegTo(at('照片.jpg'), ['-f', 'lavfi', '-i', 'testsrc=size=1000x500:rate=1:duration=1', '-frames:v', '1']);
     ffmpegTo(at('声音.wav'), ['-f', 'lavfi', '-i', 'sine=frequency=440:duration=1']);
     const notes = `# 剪辑笔记\n\n${'今天讲剪辑技巧。'.repeat(200)}`;
@@ -185,9 +185,9 @@ describe.skipIf(!engine || !ffmpeg)('Space 缩略图（真实引擎 + ffmpeg）'
     await fs.writeFile(at('假图.png'), `#EXTM3U\n#EXTINF:2,\nfile://${clip}\n`);
     await settle();
 
-    expectImage(await thumbnail('素材.mp4'), 'image/jpeg', 320, 180);
-    expectImage(await thumbnail('透明.png'), 'image/png', 320, 240);
-    expectImage(await thumbnail('照片.jpg'), 'image/jpeg', 320, 160);
+    expectImage(await thumbnail('素材.mp4'), 'image/jpeg', 720, 360);
+    expectImage(await thumbnail('透明.png'), 'image/png', 720, 540);
+    expectImage(await thumbnail('照片.jpg'), 'image/jpeg', 720, 360);
 
     const excerpt = await thumbnail('笔记.md');
     expect(excerpt.kind).toBe('text');
@@ -235,8 +235,8 @@ describe.skipIf(!engine || !ffmpeg)('Space 缩略图（真实引擎 + ffmpeg）'
       const [entry] = (await client.request('space.list', { videoId, kind: 'video' })).entries;
       return client.request('space.thumbnail', { entryId: entry!.id });
     };
-    expectImage(await ofVideo(managed.videoId), 'image/jpeg', 320, 180);
-    expectImage(await ofVideo(linked.videoId), 'image/jpeg', 320, 180);
+    expectImage(await ofVideo(managed.videoId), 'image/jpeg', 720, 360);
+    expectImage(await ofVideo(linked.videoId), 'image/jpeg', 720, 360);
     expect(await ofVideo(empty.videoId)).toEqual({ kind: 'none' });
 
     // 媒体通道按视频条目给主素材（会话里视频卡的就地播放）：同样不打开视频；没有片段的 not-found。
@@ -292,7 +292,8 @@ describe.skipIf(!engine || !ffmpeg)('Space 缩略图（真实引擎 + ffmpeg）'
       await settle();
       const { entries } = await client.request('space.list', { kind: 'export' });
       expect(entries).toHaveLength(1);
-      expectImage(await client.request('space.thumbnail', { entryId: entries[0]!.id }), 'image/jpeg', 320, 180);
+      // 成片按默认的 16:9 画布渲染：720 宽对应的 405 取偶数。
+      expectImage(await client.request('space.thumbnail', { entryId: entries[0]!.id }), 'image/jpeg', 720, 406);
     },
     120_000,
   );

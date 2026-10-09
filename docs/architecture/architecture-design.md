@@ -1068,7 +1068,7 @@ interface SpaceEntry {
 - **bytes**。`media.resolve` 给 `entryId` 时由目录定位：来源目录里的条目限定到来源目录，产物与来源目录之外的导出限定到那一个文件；占位与缺失的条目没有 bytes。
 - **`space.import`**。项目目录里的文件原地登记；项目之外的复制进项目的 `imports/`（重名时加序号），返回 `copied: true`。视频目录里、隐藏目录与依赖目录里的文件，以及认不出类型的文件拒绝（`SPACE_IMPORT_UNSUPPORTED`）。
 - **`space.openForEdit`**。视频条目返回 `video`；有来源视频的返回 `source-video`，带冻结版本、当前版本与 `changed`；没有来源视频的返回 `new-video` 与建议的项目。只回答去哪里，不打开视频。
-- **`space.thumbnail`**（`space/space-thumbnails.ts`）。网格卡片与列表名称列的缩略图，客户端在条目可见时按需取。回答 `image`（宽不超过 320、高不超过宽的 3 倍、不放大；PNG、GIF、WebP 来源输出 PNG 保留透明，其余 JPEG）、`text`（开头约 1.5 KB 的 UTF-8 文字，截在字符边界上）或 `none`，不含本机路径；条目不在或看不到是 `not-found`，主体规则与 `space.get` 相同，Web 只读模式下照常可用。各种类的取法：
+- **`space.thumbnail`**（`space/space-thumbnails.ts`）。网格卡片与列表名称列的缩略图，客户端在条目可见时按需取。回答 `image`（宽不超过 720、高不超过宽的 3 倍、不放大；PNG、GIF、WebP 来源输出 PNG 保留透明，其余 JPEG）、`text`（开头约 1.5 KB 的 UTF-8 文字，截在字符边界上）或 `none`，不含本机路径；条目不在或看不到是 `not-found`，主体规则与 `space.get` 相同，Web 只读模式下照常可用。各种类的取法：
   - 视频：工作稿的封面那一帧（与界面的海报帧同一条规则，`@baocut/protocol` 的 `posterFrame`）。素材版本与时间取自内容索引的视频事实（§5.11），还没有索引时让索引先读这一个（至多等 15 秒）。素材文件经 Engine Host 的内部只读查询 `videos.resolveAsset { path, assetId, revision? }`（不在网关的方法表里）找：已经打开的视频用打开的那一份，没有打开的只读打开、找完就放下，不取写锁；复制进来的素材的存放方式是引擎内部的约定，不在 Runtime 里另算一份，链接素材照引擎的长度与位置检查，再照媒体通道的规则放行。回收站里的视频与时间线上没有画面的视频是 `none`。
   - 成片与视频文件：1 秒与时长的 10% 中较早的那一帧，取不到（视频更短）时退回第一帧。图片取第一帧。只认扩展名对应的解复用器（MP4/MOV、WebM/MKV、AVI；PNG、JPEG、WebP、GIF、BMP 强制按格式读），SVG、HEIC、AVIF 是 `none`。
   - 文档与字幕：Markdown、纯文本与字幕（SRT、WebVTT、ASS/SSA）取开头的文字，去掉 BOM；字幕只留台词（去掉序号、时间码、头部、样式与标签）。认 UTF-8 与带 BOM 的 UTF-16，别的编码与二进制是 `none`；PDF、Word、RTF 是 `none`。
