@@ -289,13 +289,13 @@
 
               <div style={{position: 'relative'}}>
                 <BCAction className="plspeed" onClick={() => setPop(pop === 'speed' ? null : 'speed')}>
-                  {ctx.speed}x
+                  {ctx.speed}×
                 </BCAction>
                 <Popover open={pop === 'speed'} onClose={() => setPop(null)} dir="up" align="right"
                   width={128}>
                   <Menu>
                     {D.speeds.map((s) => (
-                      <MenuItem key={s} label={s + 'x'} on={s === ctx.speed}
+                      <MenuItem key={s} label={s + '×'} on={s === ctx.speed}
                         onClick={() => { ctx.setSpeed(s); setPop(null); }} />
                     ))}
                   </Menu>
