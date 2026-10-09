@@ -14,7 +14,8 @@ export function checkEnvironment({
   const checks = [];
   const add = (label, ok, hint, required = true) => checks.push({ label, ok, hint, required });
   const [major, minor] = nodeVersion.split('.').map(Number);
-  add('Node.js 22.18+', major > 22 || (major === 22 && minor >= 18), 'Install Node.js 22.18+ from https://nodejs.org and reopen your terminal.');
+  // Vite 的 Node 22 下限是 22.12；直接运行 .ts 的 npm scripts 显式启用类型擦除。
+  add('Node.js 22.12+', major > 22 || (major === 22 && minor >= 12), 'Install Node.js 22.12+ from https://nodejs.org and reopen your terminal.');
   if (lite) return checks;
 
   add('Cargo', probe('cargo', ['--version']), 'Install Rust from https://rustup.rs and reopen your terminal.');

@@ -84,14 +84,14 @@ macOS 打开 DMG 后，将 BaoCut 拖入“应用程序”。Windows 先安装 [
 
 | 目标 | `npm ci` 后的命令 | 依赖与限制 |
 | --- | --- | --- |
-| 完整桌面开发 | `npm run dev` | Node.js 22.18+、Rust、CMake 与下方平台构建工具；启动前构建原生 Worker 与 WASM。 |
-| 无 Rust 的外壳／界面开发 | `npm run dev:lite` | Node.js 22.18+；跳过原生与 WASM 构建。全新检出中，视频编辑、预览、导出、本地推理与语音处理不可用；已有构建产物仍可能被使用。 |
+| 完整桌面开发 | `npm run dev` | Node.js 22.12+、Rust、CMake 与下方平台构建工具；启动前构建原生 Worker 与 WASM。 |
+| 无 Rust 的外壳／界面开发 | `npm run dev:lite` | Node.js 22.12+；跳过原生与 WASM 构建。全新检出中，视频编辑、预览、导出、本地推理与语音处理不可用；已有构建产物仍可能被使用。 |
 
 智能体对话还需要安装并登录智能体引擎。媒体分析、转写音频准备与成片导出需要 PATH 中可用的 `ffmpeg` 和 `ffprobe`，两者不随应用分发。只打开应用无需登录智能体。
 
 ### 1. 按操作系统安装工具
 
-先安装 [Git](https://git-scm.com/downloads) 与 [Node.js](https://nodejs.org/en/download) 22.18+。重新打开终端，检查 `git --version`、`node --version`、`npm --version`。选择 lite 模式时，可以跳过以下 Rust／编译器步骤，直接进入第 2 步。
+先安装 [Git](https://git-scm.com/downloads) 与 [Node.js](https://nodejs.org/en/download) 22.12+。重新打开终端，检查 `git --version`、`node --version`、`npm --version`。选择 lite 模式时，可以跳过以下 Rust／编译器步骤，直接进入第 2 步。
 
 **macOS**
 
@@ -147,7 +147,7 @@ npm run doctor
 npm run dev
 ```
 
-`doctor` 列出缺失工具与修复提示，缺少源码构建的必需工具时返回非零退出码。FFmpeg 只给警告，因为它是媒体流程依赖。检查不会安装系统工具，也不能证明所有 SDK 与 Rust 依赖都能编译。`npm run setup` 检查环境并构建原生 Worker 与 WASM，不打开 Electron；`npm run dev` 自动执行它，任一构建失败便停止启动。使用 rustup 时，WASM 构建会自动补装目标。首次构建需要下载依赖，耗时与磁盘占用可能较大；后续复用 Cargo 缓存。PATH 中没有 Cargo 时，脚本也会检查 `CARGO_HOME/bin` 与 rustup 所在目录。
+直接运行 TypeScript 源码的 npm scripts 会显式启用类型擦除，因此 Node.js 22.12–22.17 也可使用，无需更换本机 Node。`doctor` 列出缺失工具与修复提示，缺少源码构建的必需工具时返回非零退出码。FFmpeg 只给警告，因为它是媒体流程依赖。检查不会安装系统工具，也不能证明所有 SDK 与 Rust 依赖都能编译。`npm run setup` 检查环境并构建原生 Worker 与 WASM，不打开 Electron；`npm run dev` 自动执行它，任一构建失败便停止启动。使用 rustup 时，WASM 构建会自动补装目标。首次构建需要下载依赖，耗时与磁盘占用可能较大；后续复用 Cargo 缓存。PATH 中没有 Cargo 时，脚本也会检查 `CARGO_HOME/bin` 与 rustup 所在目录。
 
 没有 Rust 时，用以下命令**替代** `doctor` 与 `dev`：
 
