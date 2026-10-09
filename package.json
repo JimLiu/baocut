@@ -28,12 +28,12 @@
     "prebuild": "npm run build:wasm && npm run build:catalog && npm run build:agent-skill",
     "build": "npm run build --workspace=@baocut/desktop",
     "start": "npm run start --workspace=@baocut/desktop",
-    "runtime": "node apps/runtime/src/main.ts",
+    "runtime": "node --experimental-strip-types apps/runtime/src/main.ts",
     "build:engine": "node tools/build-engine.mjs",
     "build:wasm": "node tools/build-wasm.mjs",
     "build:web": "npm run build --workspace=@baocut/web",
-    "build:catalog": "node tools/catalog-snapshot.ts",
-    "build:agent-skill": "node tools/sync-agent-skill.ts",
+    "build:catalog": "node --experimental-strip-types tools/catalog-snapshot.ts",
+    "build:agent-skill": "node --experimental-strip-types tools/sync-agent-skill.ts",
     "package:win": "npm run build && npm run build:web && node apps/desktop/tools/package-desktop.mjs --variant cpu",
     "package:win:cuda": "npm run build && npm run build:web && node apps/desktop/tools/package-desktop.mjs --variant cuda",
     "package:win:vulkan": "npm run build && npm run build:web && node apps/desktop/tools/package-desktop.mjs --variant vulkan",
@@ -43,14 +43,14 @@
     "bench:panels": "npm run build && node apps/desktop/tools/panels-bench.mjs",
     "icons": "node tools/app-icon/render.mjs",
     "precli": "npm run build:catalog",
-    "cli": "node apps/cli/src/main.ts",
+    "cli": "node --experimental-strip-types apps/cli/src/main.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "pretest": "npm run build:catalog && npm run build:agent-skill",
     "test": "vitest run",
     "package:mac": "npm run build && npm run build:web && node apps/desktop/tools/package-desktop.mjs --platform mac"
   },
   "engines": {
-    "node": ">=22.18.0"
+    "node": ">=22.12.0"
   },
   "devDependencies": {
     "@types/node": "^24.19.1",

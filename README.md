@@ -90,14 +90,14 @@ For normal use, choose a [packaged app](#download-and-install): it includes the 
 
 | Goal | Command after `npm ci` | Requirements / limits |
 | --- | --- | --- |
-| Full desktop development | `npm run dev` | Node.js 22.18+, Rust, CMake and platform build tools below. Builds native workers and WASM before launching. |
-| Shell/UI development without Rust | `npm run dev:lite` | Node.js 22.18+. Skips native and WASM builds. On a fresh checkout, video editing, preview, export, local inference and speech processing are unavailable; existing outputs may still be used. |
+| Full desktop development | `npm run dev` | Node.js 22.12+, Rust, CMake and platform build tools below. Builds native workers and WASM before launching. |
+| Shell/UI development without Rust | `npm run dev:lite` | Node.js 22.12+. Skips native and WASM builds. On a fresh checkout, video editing, preview, export, local inference and speech processing are unavailable; existing outputs may still be used. |
 
 Agent conversations additionally need an installed, signed-in agent engine. Media analysis, transcription preparation and export need `ffmpeg` and `ffprobe` on PATH. Neither is bundled. Opening the app does not require an agent login.
 
 ### 1. Install the tools for your OS
 
-Install [Git](https://git-scm.com/downloads) and [Node.js](https://nodejs.org/en/download) 22.18+ first. Open a new terminal and check `git --version`, `node --version` and `npm --version`. For lite mode, skip the Rust/compiler steps below and continue at step 2.
+Install [Git](https://git-scm.com/downloads) and [Node.js](https://nodejs.org/en/download) 22.12+ first. Open a new terminal and check `git --version`, `node --version` and `npm --version`. For lite mode, skip the Rust/compiler steps below and continue at step 2.
 
 **macOS**
 
@@ -153,7 +153,7 @@ npm run doctor
 npm run dev
 ```
 
-`doctor` reports missing tools with installation hints and exits nonzero for missing source-build prerequisites. FFmpeg is a warning because it is needed for media workflows, not to compile the app. The check does not install tools or prove all SDKs and Rust dependencies can build. `npm run setup` checks prerequisites and builds native workers and WASM without opening Electron; `npm run dev` runs it automatically and stops if either build fails. Rustup-based WASM builds install the target when missing. The first build downloads dependencies and can take considerable time and disk space; later runs reuse Cargo's cache. Cargo is also discovered in `CARGO_HOME/bin` and next to rustup when absent from PATH.
+The npm scripts that run TypeScript source explicitly enable type stripping, so Node.js 22.12–22.17 also work without changing your Node installation. `doctor` reports missing tools with installation hints and exits nonzero for missing source-build prerequisites. FFmpeg is a warning because it is needed for media workflows, not to compile the app. The check does not install tools or prove all SDKs and Rust dependencies can build. `npm run setup` checks prerequisites and builds native workers and WASM without opening Electron; `npm run dev` runs it automatically and stops if either build fails. Rustup-based WASM builds install the target when missing. The first build downloads dependencies and can take considerable time and disk space; later runs reuse Cargo's cache. Cargo is also discovered in `CARGO_HOME/bin` and next to rustup when absent from PATH.
 
 Without Rust, use this **instead of** `doctor` and `dev`:
 
