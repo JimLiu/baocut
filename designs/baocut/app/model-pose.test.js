@@ -188,10 +188,10 @@ test('整幅覆盖层与模板一个手势都不吃', () => {
   assert.deepStrictEqual(P.caps('没这个类型'), {});
 });
 
-test('字幕只有竖胶囊，且只在竖直方向可拖', () => {
+test('字幕只有竖胶囊，上下左右都可拖', () => {
   const c = P.caps('subtitle');
   assert.ok(c.width && c.move && !c.scale && !c.rot);
-  assert.strictEqual(c.axis, 'y');
+  assert.strictEqual(c.axis, undefined, '不锁轴：水平中心 x 也跟着拖');
   assert.strictEqual(c.resize, 'width');
   assert.deepStrictEqual(P.handlesFor('subtitle', 400, 60), ['w', 'e'], '没有四角：它没有 pose.scale');
 });

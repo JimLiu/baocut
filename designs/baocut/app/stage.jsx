@@ -279,17 +279,21 @@
                 );
               }
               /* 字幕多半贴底：所有弹层一律向上开，工具条抬高跨过（它没有旋转把手，
-                 但下方没有位置）——§16.3。竖直拖动写回**这一条轨**的锚点 ＋ 偏移，
-                 横向不动（每条轨都是通栏的，没有 x 这一维）。 */
+                 但下方没有位置）——§16.3。拖动写回**这一条轨**的锚线 `y` 与水平中心 `x`，
+                 与属性页「位置」里的距顶、水平位置是同一对值；吸附与参考线同元素的移动。 */
               return (
                 <window.SelectionBox key={t.id} kind="subtitle" id={'subs:' + t.id}
                   el={D.elements[0]} ctx={ctx} st={subSt(t.id)} set={subSet(t.id)}
                   bottomAnchored style={pos}
                   inner={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}
-                  pose={{x: 50, y, w: ln.width || 84, scale: 1, rot: 0}}
+                  pose={{x, y, w: ln.width || 84, scale: 1, rot: 0}}
                   setPose={(patch) => {
-                    // 拖动直接写锚线 y——它是绝对的，不需要「换锚点再折算」那一套
-                    if (patch.y != null) ctx.setSubTrack(t.id, {y: P.subClampY(patch.y)});
+                    // 拖动直接写锚线 y 与水平中心 x——都是绝对的帧百分比，不需要「换锚点再折算」那一套。
+                    // 宽度柄的补丁（带 w）不改宽也不挪 x：只认移动。
+                    const next = {};
+                    if (patch.y != null) next.y = P.subClampY(patch.y);
+                    if (patch.x != null && patch.w == null) next.x = P.subClampY(patch.x);
+                    if (next.y != null || next.x != null) ctx.setSubTrack(t.id, next);
                   }}
                   frameRef={frameRef} onGuides={setGuides}
                   onClick={(e) => { e.stopPropagation(); ctx.pick({kind: 'subs', trackId: t.id}); }}>

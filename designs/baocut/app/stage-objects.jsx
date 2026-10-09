@@ -172,7 +172,7 @@
           /* 视频按盒子放宽限位：放大后可以把顶部 / 底部推出画面裁掉。 */
           const lim = videoSelection
             ? P.mediaLimits(g.size, {w: g.fr.width, h: g.fr.height}) : P.limitsFor(kind);
-          const d = {dx: cap.axis === 'y' ? 0 : p.x - g.p0.x, dy: p.y - g.p0.y};
+          const d = {dx: p.x - g.p0.x, dy: p.y - g.p0.y};
           const r = P.dragPos(g.start, d, {w: g.fr.width, h: g.fr.height}, lim);
           if (!r) return null;
           const frame = {w: g.fr.width, h: g.fr.height};
@@ -180,7 +180,7 @@
             frame, g.others, mod.snap);
           const x = P.round1(r.x + (sn.dx / frame.w) * 100);
           const y = P.round1(r.y + (sn.dy / frame.h) * 100);
-          return cap.axis === 'y' ? {y} : {x, y};
+          return {x, y};
         }, setDragging);
     };
 

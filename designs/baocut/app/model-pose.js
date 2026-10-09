@@ -113,8 +113,8 @@
        盒子看。用户裁决把容器变成可拉宽的（同轮补了三档对齐），拉宽出来的留白正是
        对齐要对的那段距离，两件事互为前提，缺一个另一个就是空控件。*/
     counter:   {move: true,  scale: true,  width: true,  rot: true, resize: 'text'},
-    /* 字幕：§16 的 wrapWidth——只有左右两个竖胶囊；竖直可拖，写的是 stack.offset。*/
-    subtitle:  {move: true,  scale: false, width: true,  rot: false, axis: 'y', resize: 'width'},
+    /* 字幕：§16 的 wrapWidth——只有左右两个竖胶囊；上下左右都可拖，写的是锚线 `y` 与水平中心 `x`。*/
+    subtitle:  {move: true,  scale: false, width: true,  rot: false, resize: 'width'},
     overlay:   {},
     /* 取景框是有独立几何的 role=frame 元素；只补与 App 同源的旋转能力。*/
     vframe:    {rot: true},
@@ -417,7 +417,7 @@
   function subShift(valign) {
     return valign === 'top' ? 0 : valign === 'center' ? -50 : -100;
   }
-  /** 锚线的帧百分比，夹在画面里。核心侧的尺是 `stylepane::clamp_position` 的 0–100。 */
+  /** 锚线（或水平中心 `x`）的帧百分比，夹在画面里。核心侧的尺是 `stylepane::clamp_position` 的 0–100。 */
   function subClampY(y) { return round1(clamp(y, 0, 100)); }
 
   window.BC_POSE = {
