@@ -5,6 +5,7 @@ export {
   DEFAULT_CANDLE_TRANSCRIBE_BUNDLE,
   DEFAULT_TRANSCRIBE_BUNDLE,
   DEFAULT_TRANSCRIBE_BUNDLES,
+  QWEN3_ASR_0_6B_BUNDLE,
   backendSupported,
   candleResidentBytes,
   defaultTranscribeBundle,

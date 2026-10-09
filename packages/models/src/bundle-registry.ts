@@ -117,10 +117,12 @@ export interface SpeechBundleProfile {
   slow: boolean;
 }
 
-/** Apple Silicon 上的默认转写模型包。按平台取默认用 `defaultTranscribeBundle`。 */
-export const DEFAULT_TRANSCRIBE_BUNDLE = 'qwen3-asr-0.6b@mlx-4bit';
+/** Apple Silicon 上的默认转写模型包（MOSS Transcribe）。按平台取默认用 `defaultTranscribeBundle`。 */
+export const DEFAULT_TRANSCRIBE_BUNDLE = 'moss-transcribe-diarize@mlx-8bit';
 /** 别的平台（Windows、Linux、Intel Mac）上的默认转写模型包：同一份权重，candle 后端。 */
-export const DEFAULT_CANDLE_TRANSCRIBE_BUNDLE = 'qwen3-asr-0.6b@candle';
+export const DEFAULT_CANDLE_TRANSCRIBE_BUNDLE = 'moss-transcribe-diarize@candle';
+/** Qwen3-ASR 0.6B 的 MLX 模型包（下载最小的识别模型包）。 */
+export const QWEN3_ASR_0_6B_BUNDLE = 'qwen3-asr-0.6b@mlx-4bit';
 /** 各平台的默认转写模型包（不知道对方平台时，例如远端节点还没回报模型包，按这个顺序找）。 */
 export const DEFAULT_TRANSCRIBE_BUNDLES: readonly string[] = [DEFAULT_TRANSCRIBE_BUNDLE, DEFAULT_CANDLE_TRANSCRIBE_BUNDLE];
 
@@ -319,7 +321,7 @@ const WHISPER_LARGE_V3_LABEL = 'Whisper large-v3';
 const WHISPER_TURBO_LABEL = 'Whisper large-v3 turbo';
 
 const QWEN3_ASR_0_6B: BundleDefinition = {
-  bundleId: DEFAULT_TRANSCRIBE_BUNDLE,
+  bundleId: QWEN3_ASR_0_6B_BUNDLE,
   capability: 'transcribe',
   backend: 'mlx',
   device: 'metal',
@@ -369,7 +371,7 @@ const QWEN3_ASR_1_7B: BundleDefinition = {
 
 // 自己切段、自带说话人（没有 VAD）；装了说话人模型时用它合并跨块的说话人，装了对齐器时长行的词时间对齐出来。
 const MOSS_TRANSCRIBE_DIARIZE: BundleDefinition = {
-  bundleId: 'moss-transcribe-diarize@mlx-8bit',
+  bundleId: DEFAULT_TRANSCRIBE_BUNDLE,
   capability: 'transcribe',
   backend: 'mlx',
   device: 'metal',
@@ -500,9 +502,9 @@ export const BUNDLES: readonly BundleDefinition[] = [
     diarization: SPEAKER_DIARIZATION_BUNDLE,
   },
   MOSS_TRANSCRIBE_DIARIZE,
-  onCandle(QWEN3_ASR_0_6B, DEFAULT_CANDLE_TRANSCRIBE_BUNDLE),
+  onCandle(QWEN3_ASR_0_6B, 'qwen3-asr-0.6b@candle'),
   onCandle(QWEN3_ASR_1_7B, 'qwen3-asr-1.7b@candle'),
-  onCandle(MOSS_TRANSCRIBE_DIARIZE, 'moss-transcribe-diarize@candle'),
+  onCandle(MOSS_TRANSCRIBE_DIARIZE, DEFAULT_CANDLE_TRANSCRIBE_BUNDLE),
   SPEAKER_DIARIZATION,
   onCandle(SPEAKER_DIARIZATION, SPEAKER_DIARIZATION_CANDLE_BUNDLE),
   // whisper.cpp 的 Whisper：登记的设备是 `cpu`；Worker 握手报告了 GPU 时 Runtime 改用它（`cuda` 或 `vulkan`，与 candle 同一做法）。

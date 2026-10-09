@@ -178,7 +178,8 @@ describe.skipIf(!engine || !ffmpeg)('转写（真实引擎 + 假 Model Worker）
     await until(() => jobs);
     expect(jobs!.jobs).toEqual([]);
 
-    expect((await client.request('models.list', {})).bundles[0]).toMatchObject({ bundleId: DEFAULT_TRANSCRIBE_BUNDLE, state: 'installed' });
+    const bundleOf = async () => (await client.request('models.list', {})).bundles.find((b) => b.bundleId === DEFAULT_TRANSCRIBE_BUNDLE);
+    expect(await bundleOf()).toMatchObject({ state: 'installed' });
     const { videoId, assetId } = await videoWithAudio();
     const { jobId } = await client.request('models.transcribe', { videoId, assetId, commandId: 'cmd_transcribe_1' });
     expect(await client.request('models.transcribe', { videoId, assetId, commandId: 'cmd_transcribe_1' })).toEqual({ jobId });
@@ -221,7 +222,7 @@ describe.skipIf(!engine || !ffmpeg)('转写（真实引擎 + 假 Model Worker）
 
     const { entries } = await client.request('videos.history', { videoId });
     expect(entries[0]).toMatchObject({ actor: { kind: 'system', id: 'system:jobs' } });
-    expect((await client.request('models.list', {})).bundles[0]!.state).toBe('ready');
+    expect((await bundleOf())!.state).toBe('ready');
 
     // 同样的输入再提交一次是新的任务（上一个已经结束）。P0 不替换已有的 speech 文档（可能有手工修改，
     // 架构设计 §7.3），而是新增一份。

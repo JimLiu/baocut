@@ -116,7 +116,7 @@ async function installGate(ctx: RunContext): Promise<ExitCode | null> {
  * CLI 不依赖那个包，`run.test.ts` 核对两边一致；CLI 与它连的 Runtime 在同一台机器上。
  */
 export function defaultTranscribeBundle(platform: NodeJS.Platform = process.platform, arch: string = process.arch): string {
-  return platform === 'darwin' && arch === 'arm64' ? 'qwen3-asr-0.6b@mlx-4bit' : 'qwen3-asr-0.6b@candle';
+  return platform === 'darwin' && arch === 'arm64' ? 'moss-transcribe-diarize@mlx-8bit' : 'moss-transcribe-diarize@candle';
 }
 
 /**

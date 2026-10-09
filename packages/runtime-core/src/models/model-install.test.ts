@@ -4,7 +4,14 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { BaoCutClient, applyJobsEvent, applyModelsEvent } from '@baocut/client';
 import { FAKE_MODEL_WORKER } from '@baocut/jobs';
-import { BUNDLES, MODELS_ENDPOINT_ENV, MODEL_ASSETS_ENV, defaultTranscribeBundle, resolveModelAssetsDir } from '@baocut/models';
+import {
+  BUNDLES,
+  MODELS_ENDPOINT_ENV,
+  MODEL_ASSETS_ENV,
+  QWEN3_ASR_0_6B_BUNDLE,
+  defaultTranscribeBundle,
+  resolveModelAssetsDir,
+} from '@baocut/models';
 import {
   serveRepo,
   startFakeModelSource,
@@ -29,17 +36,16 @@ import { ToolDriver, mcp, tool, until } from '../agent-tools/testing/fake-agent.
 /**
  * 模型安装端到端（架构设计 §6.3）：网关的 `models.install / cancelInstall / repair / remove / test` → JobManager → 下载器 →
  * 本机回环地址上的假模型来源（合成的仓库与清单）；自检走假的 Model Worker。模型目录是临时目录，不访问真实网络、不下载
- * 真实的模型。转写用这台机器默认的模型包（Apple Silicon 是 MLX 的，别的平台是 candle 的）；语音合成的模型包是 MLX 的，
+ * 真实的模型。转写用这台机器上的 Qwen3-ASR 0.6B（Apple Silicon 是 MLX 的，别的平台是 candle 的）；语音合成的模型包是 MLX 的，
  * 只在 Apple Silicon 的 macOS 上测。
  */
 
-/** 这台机器上的默认转写模型包：Apple Silicon 是 MLX 的，别的平台是 candle 的（同样的仓库）。 */
-const DEFAULT_TRANSCRIBE_BUNDLE = defaultTranscribeBundle(process.platform, process.arch);
-
 const appleSilicon = process.platform === 'darwin' && process.arch === 'arm64';
+/** 这台机器上的 Qwen3-ASR 0.6B 模型包：Apple Silicon 是 MLX 的，别的平台是 candle 的（同样的仓库）。 */
+const TRANSCRIBE_BUNDLE = appleSilicon ? QWEN3_ASR_0_6B_BUNDLE : 'qwen3-asr-0.6b@candle';
 if (!appleSilicon) console.warn('跳过语音合成模型包的安装测试：它们是 MLX 的，只在 Apple Silicon 的 macOS 上可用');
 
-const def = BUNDLES.find((b) => b.bundleId === DEFAULT_TRANSCRIBE_BUNDLE)!;
+const def = BUNDLES.find((b) => b.bundleId === TRANSCRIBE_BUNDLE)!;
 const repos: SyntheticRepo[] = [
   {
     repo: def.components.asr!.repo,
@@ -82,7 +88,7 @@ const separateRepo: SyntheticRepo = {
   revision: separateDef.components.separator!.revision,
   files: { 'htdemucs_ft_config.json': Buffer.from('{"synthetic":"sep"}'), 'htdemucs_ft.safetensors': syntheticBytes(50_000, 15) },
 };
-/** 「说话人区分」模型包（这台机器上默认转写模型包用的那个）：Pyannote 分段与 WeSpeaker 两个组件，没有单独的检查。 */
+/** 「说话人区分」模型包（这台机器上 Qwen3-ASR 用的那个）：Pyannote 分段与 WeSpeaker 两个组件，没有单独的检查。 */
 const diarizationDef = BUNDLES.find((b) => b.bundleId === def.diarization)!;
 const diarizationRepos: SyntheticRepo[] = [
   {
@@ -96,7 +102,22 @@ const diarizationRepos: SyntheticRepo[] = [
     files: { 'config.json': Buffer.from('{"synthetic":"spk"}'), 'model.safetensors': syntheticBytes(20_000, 17) },
   },
 ];
-const TOTAL = repos.reduce((sum, r) => sum + Object.values(r.files).reduce((s, b) => s + b.length, 0), 0);
+const repoBytes = (r: SyntheticRepo) => Object.values(r.files).reduce((s, b) => s + b.length, 0);
+const TOTAL = repos.reduce((sum, r) => sum + repoBytes(r), 0);
+/**
+ * 这台机器默认的转写模型包（MOSS）：自己的识别权重，加上与上面共用的对齐器与说话人模型（WeSpeaker）。智能体的下载工具
+ * 不给 `bundleId` 时装它。
+ */
+const DEFAULT_TRANSCRIBE_BUNDLE = defaultTranscribeBundle(process.platform, process.arch);
+const defaultDef = BUNDLES.find((b) => b.bundleId === DEFAULT_TRANSCRIBE_BUNDLE)!;
+const defaultAsrRepo: SyntheticRepo = {
+  repo: defaultDef.components.asr!.repo,
+  revision: defaultDef.components.asr!.revision,
+  files: { 'config.json': Buffer.from('{"synthetic":"moss"}'), 'model.safetensors': syntheticBytes(90_000, 18) },
+};
+const DEFAULT_TOTAL = Object.values(defaultDef.components)
+  .map((c) => [defaultAsrRepo, ...repos, ...diarizationRepos].find((r) => r.repo === c!.repo)!)
+  .reduce((sum, r) => sum + repoBytes(r), 0);
 
 interface Side {
   dir: string;
@@ -126,7 +147,7 @@ async function startSide(source: FakeModelSource, free: { bytes: number | null }
     modelInstall: {
       env: { [MODELS_ENDPOINT_ENV]: source.endpoint },
       installer: {
-        manifests: [...repos, ...diarizationRepos, speechRepo, imageRepo, separateRepo].map((r) => syntheticManifest(r)),
+        manifests: [...repos, ...diarizationRepos, defaultAsrRepo, speechRepo, imageRepo, separateRepo].map((r) => syntheticManifest(r)),
         freeBytes: async () => free.bytes,
         backoffMs: () => 5,
       },
@@ -165,7 +186,7 @@ async function stopSide(side: Side | undefined): Promise<void> {
 }
 
 const bundleOf = (side: Side): ModelBundleStatus | undefined =>
-  side.models()?.bundles.find((b) => b.bundleId === DEFAULT_TRANSCRIBE_BUNDLE);
+  side.models()?.bundles.find((b) => b.bundleId === TRANSCRIBE_BUNDLE);
 const jobOf = (side: Side, jobId: string): JobRecord | undefined => side.jobs()?.jobs.find((j) => j.jobId === jobId);
 const terminal = (job: JobRecord | undefined) => job && ['completed', 'failed', 'cancelled', 'interrupted'].includes(job.state) && job;
 
@@ -176,7 +197,7 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
 
   beforeEach(async () => {
     source = await startFakeModelSource();
-    for (const repo of [...repos, ...diarizationRepos, speechRepo, imageRepo, separateRepo]) serveRepo(source, repo);
+    for (const repo of [...repos, ...diarizationRepos, defaultAsrRepo, speechRepo, imageRepo, separateRepo]) serveRepo(source, repo);
     free.bytes = 10 * 1024 * 1024 * 1024;
   });
 
@@ -191,7 +212,7 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
     expect(bundleOf(side)).toMatchObject({ state: 'not-installed', reason: 'missing-manifest' });
 
     // 第一步：只给计划，不创建任务。
-    const first = await side.client.request('models.install', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE });
+    const first = await side.client.request('models.install', { bundleId: TRANSCRIBE_BUNDLE });
     expect(first.jobId).toBeNull();
     expect(first.plan).toMatchObject({
       downloadBytes: TOTAL,
@@ -204,18 +225,18 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
 
     // 字节数对不上：拒绝并给新的计划。
     const changed = await side.client
-      .request('models.install', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE, confirmBytes: TOTAL + 1 })
+      .request('models.install', { bundleId: TRANSCRIBE_BUNDLE, confirmBytes: TOTAL + 1 })
       .catch((e: unknown) => e);
     expect(changed).toBeInstanceOf(RpcError);
     expect(changed).toMatchObject({ code: 'conflict', details: { code: 'MODEL_INSTALL_SIZE_CHANGED', plan: { confirmBytes: TOTAL } } });
 
     // 第二步：确认。下载放慢，好在中途取消。
     source.throttle(8 * 1024, 20);
-    const submitted = await side.client.request('models.install', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE, confirmBytes: TOTAL });
+    const submitted = await side.client.request('models.install', { bundleId: TRANSCRIBE_BUNDLE, confirmBytes: TOTAL });
     const jobId = submitted.jobId!;
     expect(jobId).toMatch(/^job_/);
     // 同一个模型包正在安装：再提交返回同一个任务。
-    expect((await side.client.request('models.install', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE, confirmBytes: TOTAL })).jobId).toBe(jobId);
+    expect((await side.client.request('models.install', { bundleId: TRANSCRIBE_BUNDLE, confirmBytes: TOTAL })).jobId).toBe(jobId);
 
     const downloading = await until(() => {
       const job = jobOf(side!, jobId);
@@ -223,7 +244,7 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
     });
     expect(downloading).toMatchObject({
       kind: 'modelInstall',
-      bundleId: DEFAULT_TRANSCRIBE_BUNDLE,
+      bundleId: TRANSCRIBE_BUNDLE,
       progress: { unit: 'bytes', total: TOTAL },
     });
     expect(downloading.submitter).toMatchObject({ kind: 'connection' });
@@ -231,11 +252,11 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
     expect(status.install).toMatchObject({ jobId, state: 'downloading', totalBytes: TOTAL });
     expect(side.modelEvents.some((e) => e.type === 'bundle.updated' && e.bundle.state === 'downloading')).toBe(true);
     // 下载中不能自检。
-    const busy = await side.client.request('models.test', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE }).catch((e: unknown) => e);
+    const busy = await side.client.request('models.test', { bundleId: TRANSCRIBE_BUNDLE }).catch((e: unknown) => e);
     expect(busy).toMatchObject({ code: 'conflict', details: { code: 'MODEL_UNAVAILABLE' } });
 
     // 取消：任务 cancelled，暂存区留着，模型包报告暂停。
-    const cancelled = await side.client.request('models.cancelInstall', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE });
+    const cancelled = await side.client.request('models.cancelInstall', { bundleId: TRANSCRIBE_BUNDLE });
     expect(cancelled.bundle).toMatchObject({ state: 'not-installed', install: { state: 'paused', jobId: null, totalBytes: TOTAL } });
     const paused = cancelled.bundle.install!.receivedBytes;
     expect(paused).toBeGreaterThan(0);
@@ -245,12 +266,12 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
 
     // 再装：只算剩下的字节，续传。
     source.throttle(64 * 1024, 0);
-    const again = await side.client.request('models.install', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE });
+    const again = await side.client.request('models.install', { bundleId: TRANSCRIBE_BUNDLE });
     expect(again.plan.resumedBytes).toBe(paused);
     expect(again.plan.downloadBytes).toBe(TOTAL - paused);
     const before = source.requests.length;
     const resumed = await side.client.request('models.install', {
-      bundleId: DEFAULT_TRANSCRIBE_BUNDLE,
+      bundleId: TRANSCRIBE_BUNDLE,
       confirmBytes: again.plan.confirmBytes,
     });
     const done = await until(() => terminal(jobOf(side!, resumed.jobId!)));
@@ -259,7 +280,7 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
     expect(source.requests.slice(before).some((r) => r.range !== null)).toBe(true);
     await until(() => bundleOf(side!)?.state === 'installed');
     expect(bundleOf(side!)!.install).toBeUndefined();
-    const listed = (await side.client.request('models.list', {})).bundles.find((b) => b.bundleId === DEFAULT_TRANSCRIBE_BUNDLE)!;
+    const listed = (await side.client.request('models.list', {})).bundles.find((b) => b.bundleId === TRANSCRIBE_BUNDLE)!;
     expect(listed).toMatchObject({ state: 'installed' });
     expect(listed.components!.map((c) => c.state)).toEqual(['installed', 'installed', 'installed']);
     // 本机转写的能力随之可用。
@@ -268,12 +289,12 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
       const local = capabilities.transcribe.providers.find((p) => p.providerId === 'local');
       return local?.available === true;
     });
-    expect((await side.client.request('models.install', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE })).plan.upToDate).toBe(true);
+    expect((await side.client.request('models.install', { bundleId: TRANSCRIBE_BUNDLE })).plan.upToDate).toBe(true);
 
     // 自检：样本走完整的 Worker 流程，结果记在模型包上。
-    const { jobId: testJob } = await side.client.request('models.test', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE });
+    const { jobId: testJob } = await side.client.request('models.test', { bundleId: TRANSCRIBE_BUNDLE });
     const tested = await until(() => terminal(jobOf(side!, testJob)), 15_000);
-    expect(tested).toMatchObject({ kind: 'modelTest', state: 'completed', bundleId: DEFAULT_TRANSCRIBE_BUNDLE });
+    expect(tested).toMatchObject({ kind: 'modelTest', state: 'completed', bundleId: TRANSCRIBE_BUNDLE });
     expect(tested.result).toMatchObject({ documentId: null, artifactId: expect.any(String) });
     const selfTest = await until(() => bundleOf(side!)?.selfTest);
     expect(selfTest).toMatchObject({ state: 'passed', jobId: testJob });
@@ -284,9 +305,9 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
 
   it('删除：自检进行中拒绝（MODEL_IN_USE），结束后删除；修复只补缺的文件；严格离线拒绝下载', async () => {
     side = await startSide(source, free);
-    const plan = await side.client.request('models.install', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE });
+    const plan = await side.client.request('models.install', { bundleId: TRANSCRIBE_BUNDLE });
     const { jobId } = await side.client.request('models.install', {
-      bundleId: DEFAULT_TRANSCRIBE_BUNDLE,
+      bundleId: TRANSCRIBE_BUNDLE,
       confirmBytes: plan.plan.confirmBytes,
     });
     expect((await until(() => terminal(jobOf(side!, jobId!)))).state).toBe('completed');
@@ -297,7 +318,7 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
     const weights = Buffer.from(repos[0]!.files['model.safetensors']!);
     weights[0] = weights[0]! ^ 0xff;
     await fs.writeFile(path.join(asrDir, 'model.safetensors'), weights);
-    const repair = await side.client.request('models.repair', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE });
+    const repair = await side.client.request('models.repair', { bundleId: TRANSCRIBE_BUNDLE });
     expect(repair.plan.components.map((c) => [c.component, c.action, c.files])).toEqual([
       ['asr', 'download', ['config.json', 'model.safetensors']],
       ['vad', 'keep', []],
@@ -305,7 +326,7 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
     ]);
     const before = source.requests.length;
     const repaired = await side.client.request('models.repair', {
-      bundleId: DEFAULT_TRANSCRIBE_BUNDLE,
+      bundleId: TRANSCRIBE_BUNDLE,
       confirmBytes: repair.plan.confirmBytes,
     });
     expect((await until(() => terminal(jobOf(side!, repaired.jobId!)))).state).toBe('completed');
@@ -319,33 +340,33 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
 
     // 慢的自检在跑：删除被拒绝。
     await fs.writeFile(side.control, JSON.stringify({ faults: ['slow'] }));
-    const { jobId: testJob } = await side.client.request('models.test', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE });
+    const { jobId: testJob } = await side.client.request('models.test', { bundleId: TRANSCRIBE_BUNDLE });
     // Worker 已经在执行（有了进度），不只是排上队。
     await until(() => jobOf(side!, testJob)?.progress, 10_000);
-    const refused = await side.client.request('models.remove', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE }).catch((e: unknown) => e);
+    const refused = await side.client.request('models.remove', { bundleId: TRANSCRIBE_BUNDLE }).catch((e: unknown) => e);
     expect(refused).toMatchObject({ code: 'conflict', details: { code: 'MODEL_IN_USE', jobIds: [testJob] } });
     expect((await fs.stat(asrDir)).isDirectory()).toBe(true);
 
     await side.client.request('jobs.cancel', { jobId: testJob });
     await until(() => terminal(jobOf(side!, testJob)));
     // 转写有出厂默认：指向被删模型包的默认值保留，报告为不可用（§6.8）。
-    await side.client.request('models.setDefault', { capability: 'transcribe', providerId: 'local', modelId: DEFAULT_TRANSCRIBE_BUNDLE });
-    const removed = await side.client.request('models.remove', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE });
+    await side.client.request('models.setDefault', { capability: 'transcribe', providerId: 'local', modelId: TRANSCRIBE_BUNDLE });
+    const removed = await side.client.request('models.remove', { bundleId: TRANSCRIBE_BUNDLE });
     expect(removed.removed.sort()).toEqual(repos.map((r) => r.repo).sort());
     expect(removed.kept).toEqual([]);
     expect(removed.bundle).toMatchObject({ state: 'not-installed', reason: 'missing-manifest' });
     expect(await fs.stat(asrDir).catch(() => null)).toBeNull();
     await until(() => bundleOf(side!)?.state === 'not-installed');
     const kept = (await side.client.request('models.capabilities', {})).capabilities.transcribe;
-    expect(kept.default).toEqual({ providerId: 'local', modelId: DEFAULT_TRANSCRIBE_BUNDLE });
+    expect(kept.default).toEqual({ providerId: 'local', modelId: TRANSCRIBE_BUNDLE });
     expect(kept.effective).toBeNull();
 
     // 空间不足：确认后的任务失败，错误带补救说明。
     free.bytes = 1000;
-    const tight = await side.client.request('models.install', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE });
+    const tight = await side.client.request('models.install', { bundleId: TRANSCRIBE_BUNDLE });
     expect(tight.plan.availableBytes).toBe(1000);
     const failing = await side.client.request('models.install', {
-      bundleId: DEFAULT_TRANSCRIBE_BUNDLE,
+      bundleId: TRANSCRIBE_BUNDLE,
       confirmBytes: tight.plan.confirmBytes,
     });
     const failed = await until(() => terminal(jobOf(side!, failing.jobId!)));
@@ -359,7 +380,7 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
 
     // 严格离线：不下载。
     await side.client.request('settings.set', { values: { 'offline.strict': true } });
-    const offline = await side.client.request('models.install', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE }).catch((e: unknown) => e);
+    const offline = await side.client.request('models.install', { bundleId: TRANSCRIBE_BUNDLE }).catch((e: unknown) => e);
     expect(offline).toMatchObject({ code: 'conflict', details: { code: 'OFFLINE_STRICT' } });
     const unknown = await side.client.request('models.remove', { bundleId: 'nope' }).catch((e: unknown) => e);
     expect(unknown).toMatchObject({ code: 'not-found' });
@@ -367,27 +388,27 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
 
   it('补齐可选组件：装好的模型包缺对齐器时照常算装好，安装只下载它；装好后空闲的 Worker 先卸下，下一个任务带上它', async () => {
     side = await startSide(source, free);
-    const plan = await side.client.request('models.install', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE });
+    const plan = await side.client.request('models.install', { bundleId: TRANSCRIBE_BUNDLE });
     const { jobId } = await side.client.request('models.install', {
-      bundleId: DEFAULT_TRANSCRIBE_BUNDLE,
+      bundleId: TRANSCRIBE_BUNDLE,
       confirmBytes: plan.plan.confirmBytes,
     });
     expect((await until(() => terminal(jobOf(side!, jobId!)))).state).toBe('completed');
     // 自检加载了 Worker，跑完空闲着（`jobIdleMs` 是一分钟）。
-    const { jobId: testJob } = await side.client.request('models.test', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE });
+    const { jobId: testJob } = await side.client.request('models.test', { bundleId: TRANSCRIBE_BUNDLE });
     expect((await until(() => terminal(jobOf(side!, testJob)), 15_000)).state).toBe('completed');
     const provider = side.runtime.models.provider;
-    expect(provider.workerPid(DEFAULT_TRANSCRIBE_BUNDLE)).not.toBeNull();
+    expect(provider.workerPid(TRANSCRIBE_BUNDLE)).not.toBeNull();
 
     // 对齐器不在了：模型包还算装好，组件报告缺。
     const aligner = repos[2]!;
     await fs.rm(path.join(side.home.modelsDir, ...aligner.repo.split('/')), { recursive: true });
-    const listed = (await side.client.request('models.list', {})).bundles.find((b) => b.bundleId === DEFAULT_TRANSCRIBE_BUNDLE)!;
+    const listed = (await side.client.request('models.list', {})).bundles.find((b) => b.bundleId === TRANSCRIBE_BUNDLE)!;
     expect(listed.state).not.toBe('not-installed');
     expect(listed.components!.find((c) => c.component === 'aligner')).toMatchObject({ optional: true, state: 'missing', bytes: null });
 
     // 安装只下载对齐器，装好的组件不动。
-    const complete = await side.client.request('models.install', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE });
+    const complete = await side.client.request('models.install', { bundleId: TRANSCRIBE_BUNDLE });
     expect(complete.plan.upToDate).toBe(false);
     expect(complete.plan.components.map((c) => [c.component, c.action])).toEqual([
       ['asr', 'keep'],
@@ -396,14 +417,14 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
     ]);
     const before = source.requests.length;
     const completed = await side.client.request('models.install', {
-      bundleId: DEFAULT_TRANSCRIBE_BUNDLE,
+      bundleId: TRANSCRIBE_BUNDLE,
       confirmBytes: complete.plan.confirmBytes,
     });
     expect((await until(() => terminal(jobOf(side!, completed.jobId!)))).state).toBe('completed');
     expect(new Set(source.requests.slice(before).filter((r) => r.method === 'GET').map((r) => r.repo))).toEqual(new Set([aligner.repo]));
     // 旧的 Worker 没有对齐器：空闲的卸下，下一个任务重新加载。
-    await until(() => provider.workerPid(DEFAULT_TRANSCRIBE_BUNDLE) === null);
-    expect((await side.client.request('models.list', {})).bundles.find((b) => b.bundleId === DEFAULT_TRANSCRIBE_BUNDLE)!.components!.map((c) => c.state)).toEqual([
+    await until(() => provider.workerPid(TRANSCRIBE_BUNDLE) === null);
+    expect((await side.client.request('models.list', {})).bundles.find((b) => b.bundleId === TRANSCRIBE_BUNDLE)!.components!.map((c) => c.state)).toEqual([
       'installed',
       'installed',
       'installed',
@@ -420,8 +441,8 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
     const speakers = async () =>
       (await side!.client.request('models.capabilities', {})).capabilities.transcribe.providers
         .find((p) => p.providerId === 'local')!
-        .models.find((m) => m.modelId === DEFAULT_TRANSCRIBE_BUNDLE)?.speakers;
-    await install(DEFAULT_TRANSCRIBE_BUNDLE);
+        .models.find((m) => m.modelId === TRANSCRIBE_BUNDLE)?.speakers;
+    await install(TRANSCRIBE_BUNDLE);
     expect(await speakers()).toBe('none');
     expect(side.models()!.bundles.find((b) => b.bundleId === diarizationDef.bundleId)).toMatchObject({
       capability: 'diarize',
@@ -436,7 +457,7 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
 
     // 识别模型包的慢自检在跑：它的 Worker 加载着这个模型包的组件，删除被拒绝。
     await fs.writeFile(side.control, JSON.stringify({ faults: ['slow'] }));
-    const { jobId: testJob } = await side.client.request('models.test', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE });
+    const { jobId: testJob } = await side.client.request('models.test', { bundleId: TRANSCRIBE_BUNDLE });
     await until(() => jobOf(side!, testJob)?.progress, 10_000);
     const refused = await side.client.request('models.remove', { bundleId: diarizationDef.bundleId }).catch((e: unknown) => e);
     expect(refused).toMatchObject({ code: 'conflict', details: { code: 'MODEL_IN_USE', jobIds: [testJob] } });
@@ -621,20 +642,20 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
       try {
         side = await startSide(source, free);
         await fs.writeFile(side.control, JSON.stringify({ capabilities: ['transcribe', 'synthesize'] }));
-        for (const bundleId of [DEFAULT_TRANSCRIBE_BUNDLE, SPEECH_BUNDLE]) {
+        for (const bundleId of [TRANSCRIBE_BUNDLE, SPEECH_BUNDLE]) {
           const plan = (await side.client.request('models.install', { bundleId })).plan;
           const { jobId } = await side.client.request('models.install', { bundleId, confirmBytes: plan.confirmBytes });
           expect((await until(() => terminal(jobOf(side!, jobId!)), 15_000)).state).toBe('completed');
         }
         const statusOf = (bundleId: string) => side!.models()?.bundles.find((b) => b.bundleId === bundleId);
-        await until(() => statusOf(SPEECH_BUNDLE)?.state === 'installed' && statusOf(DEFAULT_TRANSCRIBE_BUNDLE)?.state === 'installed');
+        await until(() => statusOf(SPEECH_BUNDLE)?.state === 'installed' && statusOf(TRANSCRIBE_BUNDLE)?.state === 'installed');
 
         // 提交时：模型数据目录是空的。
         const empty = path.join(assets, 'empty');
         await fs.mkdir(empty);
         process.env[MODEL_ASSETS_ENV] = empty;
         const jobsBefore = side.jobs()!.jobs.length;
-        for (const bundleId of [DEFAULT_TRANSCRIBE_BUNDLE, SPEECH_BUNDLE]) {
+        for (const bundleId of [TRANSCRIBE_BUNDLE, SPEECH_BUNDLE]) {
           const refused = await side.client.request('models.test', { bundleId }).catch((e: unknown) => e);
           expect(refused).toBeInstanceOf(RpcError);
           expect(refused).toMatchObject({ code: 'conflict', details: { code: 'APP_FILE_MISSING', file: expect.stringContaining(empty) } });
@@ -672,10 +693,10 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
   it('暂停后丢弃：cancelInstall 带 discard 删掉暂存区', async () => {
     side = await startSide(source, free);
     source.throttle(8 * 1024, 20);
-    const { plan } = await side.client.request('models.install', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE });
-    const { jobId } = await side.client.request('models.install', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE, confirmBytes: plan.confirmBytes });
+    const { plan } = await side.client.request('models.install', { bundleId: TRANSCRIBE_BUNDLE });
+    const { jobId } = await side.client.request('models.install', { bundleId: TRANSCRIBE_BUNDLE, confirmBytes: plan.confirmBytes });
     await until(() => (jobOf(side!, jobId!)?.progress?.done ?? 0) > 10_000);
-    const result = await side.client.request('models.cancelInstall', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE, discard: true });
+    const result = await side.client.request('models.cancelInstall', { bundleId: TRANSCRIBE_BUNDLE, discard: true });
     expect(result.bundle.install).toBeUndefined();
     expect(await fs.readdir(side.home.modelsDir)).toEqual([]);
   });
@@ -709,7 +730,7 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
     expect(result.body).toMatchObject({
       jobId: expect.stringMatching(/^job_/),
       bundleId: DEFAULT_TRANSCRIBE_BUNDLE,
-      downloadBytes: TOTAL,
+      downloadBytes: DEFAULT_TOTAL,
       size: expect.stringMatching(/KB$/),
       source: source.endpoint,
       approval: { mode: 'autoAcceptEdits', risk: 'command', decidedBy: 'user' },

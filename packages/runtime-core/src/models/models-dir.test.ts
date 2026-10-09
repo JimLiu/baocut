@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { BaoCutClient, applyJobsEvent, applyModelsEvent } from '@baocut/client';
 import { FAKE_MODEL_WORKER } from '@baocut/jobs';
-import { BUNDLES, INSTALL_RECORD_FILE, MOVE_JOURNAL_FILE, defaultTranscribeBundle } from '@baocut/models';
+import { BUNDLES, INSTALL_RECORD_FILE, MOVE_JOURNAL_FILE, QWEN3_ASR_0_6B_BUNDLE } from '@baocut/models';
 import { syntheticBytes, writeSyntheticRepo, type SyntheticRepo } from '@baocut/models/testing';
 import { RpcError, WEB_DEFAULT_METHODS, WEB_READ_METHODS, type JobRecord, type JobsSnapshot, type ModelsSnapshot } from '@baocut/protocol';
 import { resolveRuntimeHome, type RuntimeHome } from '@baocut/runtime-storage';
@@ -17,10 +17,10 @@ import { until } from '../agent-tools/testing/fake-agent.ts';
  * `@baocut/models` 的单元测试覆盖。
  */
 
-/** 这台机器上的默认转写模型包：Apple Silicon 是 MLX 的，别的平台是 candle 的（同样的仓库）。 */
-const DEFAULT_TRANSCRIBE_BUNDLE = defaultTranscribeBundle(process.platform, process.arch);
+/** 这台机器上的 Qwen3-ASR 0.6B 模型包：Apple Silicon 是 MLX 的，别的平台是 candle 的（同样的仓库）。 */
+const TRANSCRIBE_BUNDLE = process.platform === 'darwin' && process.arch === 'arm64' ? QWEN3_ASR_0_6B_BUNDLE : 'qwen3-asr-0.6b@candle';
 
-const def = BUNDLES.find((b) => b.bundleId === DEFAULT_TRANSCRIBE_BUNDLE)!;
+const def = BUNDLES.find((b) => b.bundleId === TRANSCRIBE_BUNDLE)!;
 const repos: SyntheticRepo[] = [
   {
     repo: def.components.asr!.repo,
@@ -110,7 +110,7 @@ const rejection = async (promise: Promise<unknown>): Promise<RpcError> => {
   return error as RpcError;
 };
 const codeOf = (error: RpcError) => (error.details as { code?: string } | undefined)?.code;
-const bundleState = (s: Side) => s.models()?.bundles.find((b) => b.bundleId === DEFAULT_TRANSCRIBE_BUNDLE);
+const bundleState = (s: Side) => s.models()?.bundles.find((b) => b.bundleId === TRANSCRIBE_BUNDLE);
 const jobOf = (s: Side, jobId: string): JobRecord | undefined => s.jobs()?.jobs.find((j) => j.jobId === jobId);
 const terminal = (job: JobRecord | undefined) => job && ['completed', 'failed', 'cancelled', 'interrupted'].includes(job.state) && job;
 const repoDir = (root: string, repo: string) => path.join(root, ...repo.split('/'));
@@ -151,7 +151,7 @@ describe('模型目录', () => {
     const before = await fs.readdir(other);
     const inspection = await side.client.request('models.inspectDir', { path: other });
     expect(inspection).toMatchObject({ path: other, exists: true, writable: true, problem: null, freeBytes: free.bytes });
-    expect(inspection.found.bundleIds).toContain(DEFAULT_TRANSCRIBE_BUNDLE);
+    expect(inspection.found.bundleIds).toContain(TRANSCRIBE_BUNDLE);
     expect(inspection.found.bytes).toBe(TOTAL);
     expect(inspection.move).toMatchObject({ requiredBytes: 0, sameVolume: true, fits: true });
     expect(await fs.readdir(other)).toEqual(before);
@@ -213,7 +213,7 @@ describe('模型目录', () => {
     const busy = await rejection(side.client.request('models.setDir', { path: null, mode: 'switch' }));
     expect(codeOf(busy)).toBe('MODEL_IN_USE');
     expect((busy.details as { jobIds: string[] }).jobIds).toContain(jobId);
-    const install = await rejection(side.client.request('models.install', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE }));
+    const install = await rejection(side.client.request('models.install', { bundleId: TRANSCRIBE_BUNDLE }));
     expect(codeOf(install)).toBe('MODEL_IN_USE');
 
     release();
@@ -301,7 +301,7 @@ describe('模型目录', () => {
     expect((await side.client.request('models.setDir', { path: small, mode: 'switch' })).dir).toMatchObject({ path: small, usedBytes: 0 });
   });
 
-  // 自检要用默认的转写模型包（MLX），只在 Apple Silicon 的 macOS 上能跑。
+  // 自检要用 Qwen3-ASR 0.6B 的 MLX 模型包，只在 Apple Silicon 的 macOS 上能跑。
   it('有任务在用本地模型时拒绝（MODEL_IN_USE），结束后卸下空闲的 Worker 再换', async () => {
     side = await startSide();
     const defaultDir = path.join(tmp, 'home', 'models');
@@ -311,7 +311,7 @@ describe('模型目录', () => {
     for (const repo of repos) await writeSyntheticRepo(other, repo);
 
     await fs.writeFile(side.control, JSON.stringify({ faults: ['slow'] }));
-    const { jobId: testJob } = await side.client.request('models.test', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE });
+    const { jobId: testJob } = await side.client.request('models.test', { bundleId: TRANSCRIBE_BUNDLE });
     await until(() => jobOf(side!, testJob)?.progress, 10_000);
     for (const mode of ['switch', 'move'] as const) {
       const refused = await rejection(side.client.request('models.setDir', { path: other, mode }));
@@ -325,7 +325,7 @@ describe('模型目录', () => {
     await fs.writeFile(side.control, '{}');
     const result = await side.client.request('models.setDir', { path: other, mode: 'switch' });
     expect(result.dir).toMatchObject({ path: other, modelCount: 1 });
-    const { jobId: again } = await side.client.request('models.test', { bundleId: DEFAULT_TRANSCRIBE_BUNDLE });
+    const { jobId: again } = await side.client.request('models.test', { bundleId: TRANSCRIBE_BUNDLE });
     expect((await until(() => terminal(jobOf(side!, again)), 15_000)).state).toBe('completed');
   });
 

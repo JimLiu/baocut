@@ -6,8 +6,8 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   BUNDLES,
-  DEFAULT_TRANSCRIBE_BUNDLE,
   platformBundles,
+  QWEN3_ASR_0_6B_BUNDLE,
   QWEN3_FORCED_ALIGNER,
   SPEAKER_DIARIZATION_BUNDLE,
   WESPEAKER,
@@ -38,7 +38,7 @@ async function writeRepo(root: string, repo: string, revision: string, files: Re
   return dir;
 }
 
-const def = BUNDLES.find((b) => b.bundleId === DEFAULT_TRANSCRIBE_BUNDLE)!;
+const def = BUNDLES.find((b) => b.bundleId === QWEN3_ASR_0_6B_BUNDLE)!;
 const asr = def.components.asr!;
 const vad = def.components.vad!;
 
@@ -75,18 +75,18 @@ describe('ModelCatalog', () => {
   it('换模型目录的根之后按新目录重算；移动期间模型包不可用', async () => {
     const catalog = new ModelCatalog({ root, ...mac });
     await installBoth();
-    expect((await catalog.status(DEFAULT_TRANSCRIBE_BUNDLE))?.state).toBe('installed');
+    expect((await catalog.status(QWEN3_ASR_0_6B_BUNDLE))?.state).toBe('installed');
     const changed: string[] = [];
     catalog.onChange((id) => changed.push(id));
     catalog.setRelocating(true);
-    expect(await catalog.status(DEFAULT_TRANSCRIBE_BUNDLE)).toMatchObject({ state: 'error', reason: 'relocating' });
+    expect(await catalog.status(QWEN3_ASR_0_6B_BUNDLE)).toMatchObject({ state: 'error', reason: 'relocating' });
     catalog.setRelocating(false);
     const empty = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-catalog-empty-'));
     try {
       catalog.setRoot(empty);
       expect(catalog.root).toBe(empty);
-      expect(changed).toContain(DEFAULT_TRANSCRIBE_BUNDLE);
-      expect((await catalog.status(DEFAULT_TRANSCRIBE_BUNDLE))?.state).toBe('not-installed');
+      expect(changed).toContain(QWEN3_ASR_0_6B_BUNDLE);
+      expect((await catalog.status(QWEN3_ASR_0_6B_BUNDLE))?.state).toBe('not-installed');
     } finally {
       await fs.rm(empty, { recursive: true, force: true });
     }
@@ -94,7 +94,7 @@ describe('ModelCatalog', () => {
 
   it('缺清单、缺文件、大小不符、版本不符都是 not-installed；只缺一部分组件是 incomplete；齐全是 installed', async () => {
     const catalog = new ModelCatalog({ root, ...mac });
-    expect(await catalog.status(DEFAULT_TRANSCRIBE_BUNDLE)).toMatchObject({
+    expect(await catalog.status(QWEN3_ASR_0_6B_BUNDLE)).toMatchObject({
       state: 'not-installed',
       reason: 'missing-manifest',
       capability: 'transcribe',
@@ -104,8 +104,8 @@ describe('ModelCatalog', () => {
       detailRef: { key: 'modelsModelCatalog.noManifest', params: { repo: expect.any(String) } },
     });
     await installBoth();
-    expect(await catalog.status(DEFAULT_TRANSCRIBE_BUNDLE)).toEqual({
-      bundleId: DEFAULT_TRANSCRIBE_BUNDLE,
+    expect(await catalog.status(QWEN3_ASR_0_6B_BUNDLE)).toEqual({
+      bundleId: QWEN3_ASR_0_6B_BUNDLE,
       capability: 'transcribe',
       backend: 'mlx',
       device: 'metal',
@@ -160,20 +160,20 @@ describe('ModelCatalog', () => {
     // ASR 好、VAD 坏：缺一部分组件，报告 incomplete 并点名缺的组件与原因，不当成整包没装。
     const weights = path.join(catalog.repoDir(vad.repo), 'model.safetensors');
     await fs.writeFile(weights, 'weights-vad-longer');
-    let status = await catalog.status(DEFAULT_TRANSCRIBE_BUNDLE);
+    let status = await catalog.status(QWEN3_ASR_0_6B_BUNDLE);
     expect(status).toMatchObject({ state: 'not-installed', reason: 'incomplete' });
     expect(status!.detail).toContain('大小不符');
     expect(status!.components!.map((c) => c.state)).toEqual(['installed', 'missing', 'missing']);
     await fs.rm(weights);
-    status = await catalog.status(DEFAULT_TRANSCRIBE_BUNDLE);
+    status = await catalog.status(QWEN3_ASR_0_6B_BUNDLE);
     expect(status).toMatchObject({ state: 'not-installed', reason: 'incomplete' });
     expect(status!.detail).toContain('缺少 model.safetensors');
 
     await writeRepo(root, vad.repo, 'other-revision', { 'model.safetensors': 'x' });
-    expect((await catalog.status(DEFAULT_TRANSCRIBE_BUNDLE))!.detail).toContain('版本不是');
+    expect((await catalog.status(QWEN3_ASR_0_6B_BUNDLE))!.detail).toContain('版本不是');
     // 两个组件都缺：报第一个组件的具体原因。
     await fs.rm(path.join(catalog.repoDir(asr.repo), 'config.json'));
-    expect(await catalog.status(DEFAULT_TRANSCRIBE_BUNDLE)).toMatchObject({ state: 'not-installed', reason: 'missing-file' });
+    expect(await catalog.status(QWEN3_ASR_0_6B_BUNDLE)).toMatchObject({ state: 'not-installed', reason: 'missing-file' });
     expect(await catalog.status('nope')).toBeNull();
   });
 
@@ -185,7 +185,7 @@ describe('ModelCatalog', () => {
     expect(speaker.license).toMatchObject({ name: 'CC-BY-4.0', commercialUse: true });
     expect(speaker.license!.summary).toMatch(/署名：.*WeSpeaker.*pyannote\.audio/);
     expect(moss!.components!.find((c) => c.component === 'asr')).not.toHaveProperty('license');
-    const qwen = await catalog.status(DEFAULT_TRANSCRIBE_BUNDLE);
+    const qwen = await catalog.status(QWEN3_ASR_0_6B_BUNDLE);
     expect(qwen!.components!.find((c) => c.component === 'vad')).not.toHaveProperty('license');
   });
 
@@ -195,7 +195,7 @@ describe('ModelCatalog', () => {
     const file = weightBytes([separate.components.separator!]);
     expect(file).toBeGreaterThan(300_000_000);
     expect(await catalog.workerWeightBytes(separate.bundleId)).toBe(file! * 2);
-    expect(await catalog.workerWeightBytes(DEFAULT_TRANSCRIBE_BUNDLE)).toBe(weightBytes([asr, vad]));
+    expect(await catalog.workerWeightBytes(QWEN3_ASR_0_6B_BUNDLE)).toBe(weightBytes([asr, vad]));
     const speech = BUNDLES.find((b) => b.capability === 'synthesize')!;
     expect(await catalog.workerWeightBytes(speech.bundleId)).toBeNull();
   });
@@ -237,10 +237,10 @@ describe('ModelCatalog', () => {
   it('mlx 只在 darwin/arm64 上可用；别的平台不列出，硬登记进去的是 error / unsupported', async () => {
     await installBoth();
     const linux = new ModelCatalog({ root, platform: 'linux', arch: 'x64' });
-    expect(await linux.status(DEFAULT_TRANSCRIBE_BUNDLE)).toBeNull();
+    expect(await linux.status(QWEN3_ASR_0_6B_BUNDLE)).toBeNull();
     for (const platform of ['linux', 'darwin'] as const) {
       const forced = new ModelCatalog({ root, platform, arch: 'x64', bundles: [def] });
-      expect(await forced.status(DEFAULT_TRANSCRIBE_BUNDLE)).toMatchObject({ state: 'error', reason: 'unsupported' });
+      expect(await forced.status(QWEN3_ASR_0_6B_BUNDLE)).toMatchObject({ state: 'error', reason: 'unsupported' });
     }
   });
 
@@ -257,7 +257,7 @@ describe('ModelCatalog', () => {
         'speaker-diarization@mlx',
       ]),
     );
-    expect(silicon.defaultTranscribeBundle()).toBe('qwen3-asr-0.6b@mlx-4bit');
+    expect(silicon.defaultTranscribeBundle()).toBe('moss-transcribe-diarize@mlx-8bit');
 
     for (const [platform, arch] of [
       ['linux', 'x64'],
@@ -286,7 +286,7 @@ describe('ModelCatalog', () => {
         'qwen-image-2.1@candle',
         'htdemucs-ft@candle',
       ]);
-      expect(catalog.defaultTranscribeBundle()).toBe('qwen3-asr-0.6b@candle');
+      expect(catalog.defaultTranscribeBundle()).toBe('moss-transcribe-diarize@candle');
     }
 
     const linux = new ModelCatalog({ root, platform: 'linux', arch: 'x64' });
@@ -380,15 +380,15 @@ describe('ModelCatalog', () => {
     // MLX 的设备是登记好的，不随握手变。
     const silicon = new ModelCatalog({ root, ...mac });
     silicon.setWorkerDevice('mlx', 'cpu');
-    expect(await silicon.status(DEFAULT_TRANSCRIBE_BUNDLE)).toMatchObject({ device: 'metal' });
+    expect(await silicon.status(QWEN3_ASR_0_6B_BUNDLE)).toMatchObject({ device: 'metal' });
   });
 
   it('bundleFor 按协议规范 §4 给出绝对目录与清单里的文件', async () => {
     await installBoth();
     const catalog = new ModelCatalog({ root, ...mac, threads: 3 });
-    const bundle = await catalog.bundleFor(DEFAULT_TRANSCRIBE_BUNDLE);
+    const bundle = await catalog.bundleFor(QWEN3_ASR_0_6B_BUNDLE);
     expect(bundle).toEqual({
-      bundleId: DEFAULT_TRANSCRIBE_BUNDLE,
+      bundleId: QWEN3_ASR_0_6B_BUNDLE,
       backend: 'mlx',
       device: 'metal',
       threads: 3,
@@ -423,10 +423,10 @@ describe('ModelCatalog', () => {
     const catalog = new ModelCatalog({ root, ...mac });
     const pack = catalog.definition(SPEAKER_DIARIZATION_BUNDLE)!;
     expect(pack).toMatchObject({ capability: 'diarize', label: '说话人区分' });
-    expect(catalog.definition(DEFAULT_TRANSCRIBE_BUNDLE)!.diarization).toBe(SPEAKER_DIARIZATION_BUNDLE);
+    expect(catalog.definition(QWEN3_ASR_0_6B_BUNDLE)!.diarization).toBe(SPEAKER_DIARIZATION_BUNDLE);
     expect(catalog.diarizationUsers(SPEAKER_DIARIZATION_BUNDLE)).toEqual(
       expect.arrayContaining([
-        DEFAULT_TRANSCRIBE_BUNDLE,
+        QWEN3_ASR_0_6B_BUNDLE,
         'qwen3-asr-1.7b@mlx-8bit',
         'whisper-large-v3@coreml',
         'whisper-large-v3-turbo@coreml',
@@ -437,14 +437,14 @@ describe('ModelCatalog', () => {
       (await new LocalProviderSource({ catalog, transcriber: null }).describe('local', 'view'))!.capabilities.transcribe!.models;
 
     // 没装：识别模型包不带说话人组件。
-    const before = await catalog.workerWeightBytes(DEFAULT_TRANSCRIBE_BUNDLE);
-    expect(Object.keys((await catalog.bundleFor(DEFAULT_TRANSCRIBE_BUNDLE)).components).sort()).toEqual(['asr', 'vad']);
-    expect(await catalog.speakers(DEFAULT_TRANSCRIBE_BUNDLE)).toBe('none');
+    const before = await catalog.workerWeightBytes(QWEN3_ASR_0_6B_BUNDLE);
+    expect(Object.keys((await catalog.bundleFor(QWEN3_ASR_0_6B_BUNDLE)).components).sort()).toEqual(['asr', 'vad']);
+    expect(await catalog.speakers(QWEN3_ASR_0_6B_BUNDLE)).toBe('none');
     expect(await catalog.speakers('moss-transcribe-diarize@mlx-8bit')).toBe('native');
     // 没装也说出要哪个模型包（界面据此给「下载」）；MOSS 自己区分，不给。
     expect(await local()).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ modelId: DEFAULT_TRANSCRIBE_BUNDLE, speakers: 'none', diarizationPack: SPEAKER_DIARIZATION_BUNDLE }),
+        expect.objectContaining({ modelId: QWEN3_ASR_0_6B_BUNDLE, speakers: 'none', diarizationPack: SPEAKER_DIARIZATION_BUNDLE }),
       ]),
     );
     expect((await local()).find((m) => m.modelId === 'moss-transcribe-diarize@mlx-8bit')).not.toHaveProperty('diarizationPack');
@@ -455,18 +455,18 @@ describe('ModelCatalog', () => {
     const speaker = pack.components.speaker!;
     expect(speaker.optional).toBeFalsy();
     await writeRepo(root, segmentation.repo, segmentation.revision, { 'config.json': '{}', 'model.safetensors': 'weights-seg' });
-    expect(await catalog.speakers(DEFAULT_TRANSCRIBE_BUNDLE)).toBe('none');
+    expect(await catalog.speakers(QWEN3_ASR_0_6B_BUNDLE)).toBe('none');
     await writeRepo(root, speaker.repo, speaker.revision, { 'config.json': '{}', 'model.safetensors': 'weights-spk' });
 
     expect((await catalog.status(SPEAKER_DIARIZATION_BUNDLE))?.state).toBe('installed');
-    expect(await catalog.speakers(DEFAULT_TRANSCRIBE_BUNDLE)).toBe('pack');
-    const bundle = await catalog.bundleFor(DEFAULT_TRANSCRIBE_BUNDLE);
+    expect(await catalog.speakers(QWEN3_ASR_0_6B_BUNDLE)).toBe('pack');
+    const bundle = await catalog.bundleFor(QWEN3_ASR_0_6B_BUNDLE);
     expect(bundle.components.segmentation).toMatchObject({ family: 'pyannote-segmentation', revision: segmentation.revision });
     expect(bundle.components.speaker).toMatchObject({ family: 'wespeaker', revision: speaker.revision });
-    expect(await catalog.workerWeightBytes(DEFAULT_TRANSCRIBE_BUNDLE)).toBeGreaterThan(before!);
+    expect(await catalog.workerWeightBytes(QWEN3_ASR_0_6B_BUNDLE)).toBeGreaterThan(before!);
     expect(await local()).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ modelId: DEFAULT_TRANSCRIBE_BUNDLE, speakers: 'pack', diarizationPack: SPEAKER_DIARIZATION_BUNDLE }),
+        expect.objectContaining({ modelId: QWEN3_ASR_0_6B_BUNDLE, speakers: 'pack', diarizationPack: SPEAKER_DIARIZATION_BUNDLE }),
       ]),
     );
   });
@@ -478,7 +478,7 @@ describe('ModelCatalog', () => {
     manifest.files[0].path = '../escape.json';
     await fs.writeFile(manifestFile, JSON.stringify(manifest));
     const catalog = new ModelCatalog({ root, ...mac });
-    const status = await catalog.status(DEFAULT_TRANSCRIBE_BUNDLE);
+    const status = await catalog.status(QWEN3_ASR_0_6B_BUNDLE);
     expect(status).toMatchObject({ state: 'not-installed', reason: 'incomplete' });
     expect(status!.detail).toContain('没有清单');
   });
@@ -486,31 +486,31 @@ describe('ModelCatalog', () => {
   it('verify 显式校验 sha256 并缓存结果；enable 清掉', async () => {
     await installBoth();
     const catalog = new ModelCatalog({ root, ...mac });
-    expect((await catalog.verify(DEFAULT_TRANSCRIBE_BUNDLE)).ok).toBe(true);
+    expect((await catalog.verify(QWEN3_ASR_0_6B_BUNDLE)).ok).toBe(true);
     // 同样大小、内容不同：只有 verify 发现得了。
     await fs.writeFile(path.join(catalog.repoDir(asr.repo), 'model.safetensors'), 'weights-ASR');
-    expect(await catalog.status(DEFAULT_TRANSCRIBE_BUNDLE)).toMatchObject({ state: 'installed' });
-    const result = await catalog.verify(DEFAULT_TRANSCRIBE_BUNDLE);
+    expect(await catalog.status(QWEN3_ASR_0_6B_BUNDLE)).toMatchObject({ state: 'installed' });
+    const result = await catalog.verify(QWEN3_ASR_0_6B_BUNDLE);
     expect(result.ok).toBe(false);
     expect(result.problems).toEqual([{ repo: asr.repo, path: 'model.safetensors', problem: 'hash-mismatch' }]);
-    expect(await catalog.status(DEFAULT_TRANSCRIBE_BUNDLE)).toMatchObject({ state: 'not-installed', reason: 'hash-mismatch' });
-    catalog.enable(DEFAULT_TRANSCRIBE_BUNDLE);
-    expect(await catalog.status(DEFAULT_TRANSCRIBE_BUNDLE)).toMatchObject({ state: 'installed' });
+    expect(await catalog.status(QWEN3_ASR_0_6B_BUNDLE)).toMatchObject({ state: 'not-installed', reason: 'hash-mismatch' });
+    catalog.enable(QWEN3_ASR_0_6B_BUNDLE);
+    expect(await catalog.status(QWEN3_ASR_0_6B_BUNDLE)).toMatchObject({ state: 'installed' });
   });
 
   it('运行状态、停用与没有 Worker 叠加在磁盘状态之上', async () => {
     await installBoth();
     let worker = true;
     const catalog = new ModelCatalog({ root, ...mac, workerAvailable: () => worker });
-    catalog.setRuntimeState(DEFAULT_TRANSCRIBE_BUNDLE, 'busy');
-    expect(await catalog.status(DEFAULT_TRANSCRIBE_BUNDLE)).toMatchObject({ state: 'busy' });
-    catalog.setRuntimeState(DEFAULT_TRANSCRIBE_BUNDLE, null);
-    expect(await catalog.status(DEFAULT_TRANSCRIBE_BUNDLE)).toMatchObject({ state: 'installed' });
-    catalog.block(DEFAULT_TRANSCRIBE_BUNDLE, 'error', 'resource', '反复崩溃');
-    expect(await catalog.status(DEFAULT_TRANSCRIBE_BUNDLE)).toMatchObject({ state: 'error', reason: 'resource', detail: '反复崩溃' });
-    catalog.enable(DEFAULT_TRANSCRIBE_BUNDLE);
+    catalog.setRuntimeState(QWEN3_ASR_0_6B_BUNDLE, 'busy');
+    expect(await catalog.status(QWEN3_ASR_0_6B_BUNDLE)).toMatchObject({ state: 'busy' });
+    catalog.setRuntimeState(QWEN3_ASR_0_6B_BUNDLE, null);
+    expect(await catalog.status(QWEN3_ASR_0_6B_BUNDLE)).toMatchObject({ state: 'installed' });
+    catalog.block(QWEN3_ASR_0_6B_BUNDLE, 'error', 'resource', '反复崩溃');
+    expect(await catalog.status(QWEN3_ASR_0_6B_BUNDLE)).toMatchObject({ state: 'error', reason: 'resource', detail: '反复崩溃' });
+    catalog.enable(QWEN3_ASR_0_6B_BUNDLE);
     worker = false;
-    expect(await catalog.status(DEFAULT_TRANSCRIBE_BUNDLE)).toMatchObject({ state: 'error', reason: 'worker-missing' });
+    expect(await catalog.status(QWEN3_ASR_0_6B_BUNDLE)).toMatchObject({ state: 'error', reason: 'worker-missing' });
   });
 
   const realRoot = '/Users/jim/Library/Application Support/BaoCut/models';
@@ -523,9 +523,9 @@ describe('ModelCatalog', () => {
 
   it.skipIf(!realAvailable)('读这台机器上真实的模型目录（只查大小，不算 hash）', async () => {
     const catalog = new ModelCatalog({ root: realRoot });
-    const status = await catalog.status(DEFAULT_TRANSCRIBE_BUNDLE);
+    const status = await catalog.status(QWEN3_ASR_0_6B_BUNDLE);
     expect(status?.state).toBe('installed');
-    const bundle = await catalog.bundleFor(DEFAULT_TRANSCRIBE_BUNDLE);
+    const bundle = await catalog.bundleFor(QWEN3_ASR_0_6B_BUNDLE);
     expect(bundle.components.asr!.files.length).toBeGreaterThan(0);
     expect(bundle.components.vad!.files.map((f) => f.path)).toContain('model.safetensors');
   });

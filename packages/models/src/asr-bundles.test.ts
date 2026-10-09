@@ -360,6 +360,21 @@ describe('可选组件', () => {
     expect(await wordTimestamps()).toBe('native');
   });
 
+  it('MOSS 是默认的转写模型；没装时默认退回已装好的识别模型，都没装时仍标 MOSS', async () => {
+    const qwen = BUNDLES.find((b) => b.bundleId === 'qwen3-asr-0.6b@mlx-4bit')!;
+    const catalog = new ModelCatalog({ root, bundles: [qwen, MOSS], ...mac, threads: 2 });
+    const defaults = async () => {
+      const view = await new LocalProviderSource({ catalog, transcriber: null }).describe('local', 'view');
+      return view!.capabilities.transcribe!.models.filter((m) => m.default).map((m) => m.modelId);
+    };
+    expect(catalog.defaultTranscribeBundle()).toBe(MOSS.bundleId);
+    expect(await defaults()).toEqual([MOSS.bundleId]);
+    await install(qwen, 'required');
+    expect(await defaults()).toEqual([qwen.bundleId]);
+    await install(MOSS, 'required');
+    expect(await defaults()).toEqual([MOSS.bundleId]);
+  });
+
   it('扫描模型目录：必需组件齐了就认出模型包', async () => {
     await install(MOSS, 'required');
     const scan = await scanModelsDir(root, [WHISPER_SHAPED, MOSS]);
