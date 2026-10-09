@@ -39,10 +39,6 @@ jobs:
       - name: Prebuild web client (web-service.test.ts requires dist output)
         run: npm run build:web
       - name: Run Vitest suite (unit + Runtime e2e)
-        env:
-          # Enable Node 22's experimental Web Storage so zustand persist middleware
-          # works under vitest (image-request, settings-link tests etc.).
-          NODE_OPTIONS: "--experimental-webstorage --localstorage-file ${{ runner.temp }}/baocut-localstorage.db"
         run: npm test
 
   rust-tests:

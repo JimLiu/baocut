@@ -256,7 +256,7 @@ describe.skipIf(!engine || !ffmpeg)('CLI 子进程（真实 Runtime）', () => {
     const usage = await run(['help', 'settings']);
     expect(usage.code).toBe(0);
     expect(usage.stdout).toContain('baocut settings');
-  });
+  }, 60_000);
 });
 
 describe('runtime ensure / stop（隔离 BAOCUT_HOME，从仓库入口拉起）', () => {

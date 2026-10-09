@@ -6,7 +6,7 @@ import { resolveElectronBinary } from './composition-host.ts';
 
 const roots: string[] = [];
 function installation() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-electron-discovery-'));
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-electron-discovery-')));
   roots.push(root);
   const dir = path.join(root, 'node_modules', 'electron');
   fs.mkdirSync(dir, { recursive: true });
