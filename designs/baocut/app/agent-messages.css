@@ -63,9 +63,29 @@
 .astep__row > * { min-width: 0; }
 .astep__ic { flex: none; color: var(--gray-600); }
 .astep.is-failed .astep__ic { color: var(--red-900); }
-/* 工作组标题前的像素图静止：S2 的 ResponseStatus 在 pending 时一定播 PixelLoader、没有暂停的开关，
-   去掉动画后像素格停在原位、整体不透明，就是一枚静止的图；动画只留在正在跑的那一步（.astep__loader） */
-.awork h3 div[aria-hidden="true"][style*="-group-o"], .awork h3 div[aria-hidden="true"][style*="-group-o"] > div { animation: none !important; }
+/* 工作记录：两段文字之间只有这一行灰字摘要 + 箭头（agent-steps.jsx 的 WorkMsg）。不放图标、有失败也不变色，点开时字色加深；
+   字号跟正文。在跑时摘要行前面是那一步的加载图形，类别名扫光，后面灰字的进度与时间。
+   点开后是一个带边框的框：一步一行、行间分隔线，变更回执也是其中一行（不再是缩进到头像那一列的绿卡）；框里的行再点开，详情在框里。 */
+.awork { min-width: 0; }
+.awork--row { margin-left: 34px; }
+.ath--compact .awork--row { margin-left: 0; }
+.awork__head.awork__head { display: inline-flex; align-items: center; justify-content: flex-start; gap: 4px; max-width: 100%; height: auto; min-height: 24px;
+  padding: 2px 8px; margin-left: -8px; text-align: left; font-size: 14px; font-weight: 400; color: var(--gray-600); }
+.ath--compact .awork__head.awork__head { font-size: 12px; }
+.awork__head:hover .awork__sum:not(.is-shimmer), .awork__head:hover .awork__chev { color: var(--gray-800); }
+.awork__sum { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.awork__chev { flex: none; color: var(--gray-500); }
+.awork__head[aria-expanded="true"] .awork__sum:not(.is-shimmer) { color: var(--gray-800); }
+.awork.is-live .awork__head.awork__head { gap: 8px; }
+.awork__loader { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; }
+.awork__meta { flex: none; color: var(--gray-500); white-space: nowrap; }
+.asteps--box { margin-top: 4px; border: 1px solid var(--gray-200); border-radius: 10px; overflow: hidden; }
+.asteps--box > li + li { border-top: 1px solid var(--gray-200); }
+.asteps--box .astep__row.astep__row { min-height: 32px; padding: 6px 12px; border-radius: 0; }
+.asteps--box .astep__label { color: var(--gray-700); }
+.asteps--box .astep__detail { margin: 0 12px 12px 36px; }
+.asteps--box .arcpt { margin: 0; min-height: 32px; padding: 4px 12px; border-radius: 0; background: transparent; box-shadow: none; }
+.asteps--box .arcpt__t { font-weight: 500; color: var(--gray-800); }
 .astep__loader { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; }
 .astep__label { flex: none; font-weight: 500; color: var(--gray-800); white-space: nowrap; }
 .astep__sum { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); color: var(--gray-600); }

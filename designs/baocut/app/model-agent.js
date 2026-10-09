@@ -872,19 +872,21 @@
     return rows;
   }
 
-  // Preserve chronological boundaries, especially permission cards and receipts.
+  // 保留先后，审批卡打断分组。
   // 第 191 轮：紧跟在一条回答后面的工具挂到那条回答身上（`work`），画在正文下面；
   // 前面不是回答（审批之后、轮次开头）的工具才独立成一组。
+  // 2026-10-09：变更回执（receipt）也是过程，与工具收进同一组：两段文字之间只留一行摘要，回执与撤销在展开后（product-design §3.2.2）。
+  const isWork = (m) => m.role === 'tool' || m.role === 'receipt';
   function conversationRows(messages) {
     const rows = [];
     for (const m of messages) {
       const last = rows[rows.length - 1];
-      if (m.role === 'tool' && last && last.role === 'work') last.items.push(m);
-      else if (m.role === 'tool' && last && last.role === 'assistant') {
+      if (isWork(m) && last && last.role === 'work') last.items.push(m);
+      else if (isWork(m) && last && last.role === 'assistant') {
         if (!last.work) rows[rows.length - 1] = {...last, work: []};
         rows[rows.length - 1].work.push(m);
       }
-      else if (m.role === 'tool') rows.push({id: `work-${m.id}`, role: 'work', items: [m]});
+      else if (isWork(m)) rows.push({id: `work-${m.id}`, role: 'work', items: [m]});
       else rows.push(m);
     }
     return rows;
@@ -893,10 +895,11 @@
   // 工具行的种类：演示数据带 kind（command / read / edit / search / other）；没有 kind 的老数据按 cmd 的写法推——「读取 …」是读文件，其余是命令。
   const WORK_KINDS = {
     command: '运行了命令', file_change: '修改了', file_read: '读取了',
-    search: '搜索了', plan: '做了计划', tool: '调用了工具',
+    search: '搜索了', plan: '做了计划', tool: '调用了工具', video: '提交了',
   };
   const KIND_ALIAS = {read: 'file_read', edit: 'file_change', other: 'tool'};
   function workKind(item) {
+    if (item.role === 'receipt') return 'video'; // 变更回执：写进视频的一笔修改
     if (item.tool) return 'tool'; // BaoCut 自己的工具（model-agent-tools.js）
     const k = KIND_ALIAS[item.kind] || item.kind;
     if (k && WORK_KINDS[k]) return k;
@@ -907,17 +910,20 @@
     if (item.summary) return String(item.summary).trim();
     return String(item.cmd || '').replace(/^读取\s*/, '').split(' · ')[0].trim();
   }
-  // 组头一句话：按种类归纳、首次出现排序（「读取了 2 个文件、运行了命令」）；文件按去重后的路径计数。没有就退回计数。
+  // 组头一句话：按种类归纳、首次出现排序（「读取了 2 个文件、运行了命令」）；文件按去重后的路径计数，回执按笔数。没有就退回计数。
   function workSummary(items) {
     const kinds = [];
     const paths = {};
+    let edits = 0;
     for (const it of items) {
       const k = workKind(it);
       if (!kinds.includes(k)) kinds.push(k);
       if (k === 'file_read' || k === 'file_change') (paths[k] = paths[k] || new Set()).add(workPath(it));
+      if (k === 'video') edits++;
     }
     if (!kinds.length) return `${items.length} 项活动`;
-    return kinds.map((k) => (paths[k] ? `${WORK_KINDS[k]} ${paths[k].size} 个文件` : WORK_KINDS[k])).join('、');
+    return kinds.map((k) => (paths[k] ? `${WORK_KINDS[k]} ${paths[k].size} 个文件`
+      : k === 'video' ? `${WORK_KINDS.video} ${edits} 笔视频修改` : WORK_KINDS[k])).join('、');
   }
 
   window.BC_AGENT = {

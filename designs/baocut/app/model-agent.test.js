@@ -7,10 +7,23 @@ const A = global.window.BC_AGENT;
 test('conversationRows groups adjacent tools without crossing answers or permissions', () => {
   const messages = ['user', 'tool', 'tool', 'permission', 'tool', 'assistant', 'receipt'].map((role, i) => ({id: String(i), role}));
   const rows = A.conversationRows(messages);
-  assert.deepEqual(rows.map((r) => r.role), ['user', 'work', 'permission', 'work', 'assistant', 'receipt']);
+  assert.deepEqual(rows.map((r) => r.role), ['user', 'work', 'permission', 'work', 'assistant']);
   assert.deepEqual(rows[1].items.map((m) => m.id), ['1', '2']);
+  assert.deepEqual(rows[4].work.map((m) => m.id), ['6']);
   assert.equal(messages.length, 7);
   assert.deepEqual(A.conversationRows([]), []);
+});
+
+test('conversationRows：变更回执与工具收进同一组，两段文字之间只有一行', () => {
+  const messages = [{id: 'u', role: 'user'}, {id: 'a', role: 'assistant', text: 'x'}, {id: 't1', role: 'tool', tool: 'speech_search'},
+    {id: 'r1', role: 'receipt', text: '已写入译文'}, {id: 't2', role: 'tool', tool: 'exports_create'}, {id: 'r2', role: 'receipt', text: '已应用'},
+    {id: 'b', role: 'assistant', text: 'y'}, {id: 'p', role: 'permission'}, {id: 'r3', role: 'receipt', text: '已应用'}, {id: 'u2', role: 'user'},
+    {id: 'r4', role: 'receipt', text: '已应用'}];
+  const rows = A.conversationRows(messages);
+  assert.deepEqual(rows.map((r) => r.role), ['user', 'assistant', 'assistant', 'permission', 'work', 'user', 'work']);
+  assert.deepEqual(rows[1].work.map((m) => m.id), ['t1', 'r1', 't2', 'r2']);
+  assert.deepEqual(rows[4].items.map((m) => m.id), ['r3']);
+  assert.deepEqual(rows[6].items.map((m) => m.id), ['r4']);
 });
 
 test('conversationRows：紧跟回答的工具挂到那条回答的 work 上，原消息不被改写', () => {
@@ -38,6 +51,8 @@ test('workSummary：读 / 改的文件按去重后的路径计数，新 kind 与
   assert.equal(A.workSummary([{cmd: '读取 a · 1 段'}, {cmd: 'bcut a'}, {cmd: '读取 b'}, {cmd: '读取 a · 2 段'}]), '读取了 2 个文件、运行了命令');
   assert.equal(A.workSummary([{kind: 'edit', summary: '分镜.md'}, {kind: 'edit', summary: '分镜.md'}, {kind: 'edit', summary: 'notes.md'}]), '修改了 2 个文件');
   assert.equal(A.workSummary([{kind: 'search', summary: '口癖'}, {kind: 'other', summary: '本机模型'}]), '搜索了、调用了工具');
+  assert.equal(A.workKind({role: 'receipt', text: '已应用'}), 'video');
+  assert.equal(A.workSummary([{tool: 'edits_apply'}, {role: 'receipt'}, {cmd: 'bcut x'}, {role: 'receipt'}]), '调用了工具、提交了 2 笔视频修改、运行了命令');
 });
 
 test('agoLabel：刚刚 / 分钟 / 小时 / 昨天 / 天', () => {

@@ -2742,14 +2742,7 @@ div.blkw { display: inline; }
 .ath__scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .ath .amsg--user { flex-direction: column; align-items: flex-end; gap: 4px; }
 .awork { font-size: 12px; color: var(--gray-600); }
-.awork summary { padding: 6px 4px; cursor: pointer; }
-.awork summary .ic { display: inline-block; vertical-align: middle; }
-.awork__toggle { display: flex; align-items: center; gap: 6px; min-height: 28px; width: 100%; padding: 4px; background: transparent; border: 0; color: inherit; text-align: left; cursor: pointer; border-radius: 6px; }
-.awork__toggle:hover, .awork__actions button:hover { background: var(--gray-100); }
-.awork__rows { border-left: 1px solid var(--gray-200); padding-left: 12px; margin-left: 8px; display: flex; flex-direction: column; gap: 4px; }
-.awork__rows .atool { border: 0; background: transparent; margin: 0; }
-.awork__failed { color: var(--gray-600); }
-.awork__failed.is-stopped { color: var(--red-900); }
+.awork__actions button:hover { background: var(--gray-100); }
 .awork__section { border: 1px solid var(--gray-200); border-radius: 8px; background: var(--gray-50); overflow: hidden; margin: 4px 0; }
 .awork__section header { display: flex; justify-content: space-between; align-items: center; padding: 0 8px; font-size: 11px; color: var(--gray-600); }
 .awork__section pre { max-height: 240px; overflow: auto; overscroll-behavior: contain; white-space: pre-wrap; overflow-wrap: anywhere; padding: 8px; margin: 0; font-size: 12px; line-height: 1.5; font-family: var(--mono); color: var(--gray-800); }

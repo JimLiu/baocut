@@ -107,7 +107,7 @@
           {m.text ? <AgentMarkdown text={m.text} streaming={!!m.streaming} /> : null}
           {m.open && movie && app.openTool ? <div className="amsg__open"><Btn variant="secondary" size="s" onClick={() => app.openTool(movie, m.open.tool, sess.id)}>{`打开${m.open.label}`}</Btn></div> : null}
           {m.error ? <ErrorMsg m={m} sess={sess} /> : null}
-          {m.work ? <WorkMsg m={{id: `work-${m.id}`, items: m.work}} live={live} stopped={!!m.error}
+          {m.work ? <WorkMsg m={{id: `work-${m.id}`, items: m.work}} live={live}
             className={m.text ? `agap-${TURN.gapBetween('assistant', 'tool')}` : null} /> : null}
         </div>
       </div>
@@ -156,37 +156,12 @@
     );
   }
 
-  /* 收据：写进项目之后的那一行。撤销位存在任务记录上（与后台任务页同源）。 */
-  function ReceiptMsg({m, sess}) {
-    const app = useApp();
-    const task = m.taskId ? app.tasks.find((t) => t.id === m.taskId) : null;
-    const undone = !!(task && task.undone);
-    const canUndo = !!(task && task.undoable);
-    return (
-      <div className={cx('arcpt', undone && 'is-undone')}>
-        <Ic n={undone ? 'undo' : 'ok'} className="ic--16 arcpt__ic" />
-        <span className="arcpt__t">{undone ? '已撤销 · 改动已还原' : m.text}</span>
-        {canUndo
-          ? (undone
-              ? <BCAction className="ccbtn ccbtn--redo" onClick={() => { app.patchTask(task.id, {undone: false}); app.toast('已恢复', 'positive'); }}>恢复</BCAction>
-              : <BCAction className="ccbtn ccbtn--undo" onClick={() => app.confirm({
-                  title: '撤销这一步？', body: (task.undoBody || '这一跑写进视频的改动会被移除。') + '随时可以按「恢复」放回去。',
-                  tone: 'negative', confirmLabel: '撤销',
-                  run: () => { app.patchTask(task.id, {undone: true}); app.toast('已撤销'); },
-                })}>撤销</BCAction>)
-          : null}
-
-      </div>
-    );
-  }
-
   function Message({m, sess}) {
     if (m.role === 'user') return <UserMsg m={m} />;
-    if (m.role === 'work') return <WorkMsg m={m} live={sess.status === 'running'} />;
+    if (m.role === 'work') return <WorkMsg m={m} live={sess.status === 'running'} className="awork--row" />;
     if (m.role === 'assistant') return <AssistantMsg m={m} live={sess.status === 'running'} sess={sess} />;
     if (m.role === 'tool') return <AgentToolSteps items={[m]} />;
     if (m.role === 'permission') return <PermissionMsg m={m} sid={sess.id} />;
-    if (m.role === 'receipt') return <ReceiptMsg m={m} sess={sess} />;
     return null;
   }
 
