@@ -3,7 +3,8 @@
    预填模板（意图句 + 固定约束，BC_AIPROMPT.template），用户直接改这段话；它与会话输入框是同一个控件
    （PromptField + 「+」菜单 + 附件），`@` 能引用章节、说话人与译文，`/` 不在这里（已经在工具页里了）。
    框上默认挂着这个工具的内置 skill（BC_AIPROMPT.TOOL_SKILL）：摘掉就只按提示词做；「+ › 使用 Skill」还能再挂别的。
-   底栏随「用」变：交给 Agent 时只有访问模式（哪家 · 哪个模型由上面的「用」一行定，同一屏不放两处），直接调模型时是文本模型。
+   底栏随「用」变：交给 Agent 时是访问模式 + 家 · 模型的 chip（与「用」一行是同一份状态，改一处另一处跟着变），直接调模型时是文本模型。
+   直接调模型时挂着的 skill 会作为系统提示词发出，只带 SKILL.md 和用到的 references/——框下一行提醒。
    主按钮在框下面，全宽、写明动作；再下面一行 hint 说清按下去会去哪。 */
 (function () {
   const {useState, useRef} = React;
@@ -44,7 +45,7 @@
    *   context             直接调模型时发给模型的上下文（BC_AIPROMPT.contextPack 的返回）
    *   label               直接调模型时主按钮的字（交给 Agent 时固定「交给 Agent」）
    *   readonly            写作与发布类：不写进视频（hint 用）
-   *   onStart(payload)    {text, attachments, skillIds, mode}（家 · 模型由 runner.cur 定，宿主从那里取）
+   *   onStart(payload)    {text, attachments, skillIds, mode, effort}（家 · 模型由 runner.cur 定，宿主从那里取）
    */
   function ToolPrompt({ctx, tool, runner, value, onChange, defaultText, session, context, label, readonly, onStart, disabled}) {
     const app = useApp();
@@ -56,6 +57,13 @@
     const dropSkill = (id) => setSkillIds((ids) => ids.filter((x) => x !== id));
     const [reading, setReading] = useState(false);
     const [mode, setMode] = useAccessMode();
+    const [effort, setEffort] = useState('mid');
+    const curH = runner.cur && runner.cur.harness ? runner.cur.harness : (app.harness ? app.harness.id : null);
+    const curM = runner.cur && runner.cur.model ? runner.cur.model : null;
+    const pickAgent = (p) => {
+      if (p.effort) { setEffort(p.effort); return; }
+      runner.pick({k: p.model ? `agent:${p.harness}:${p.model}` : `agent:${p.harness}`, kind: 'agent', harness: p.harness, model: p.model});
+    };
     const ref = useRef(null);
     const boxRef = useRef(null);
     const narrow = window.useComposerNarrow(boxRef);
@@ -88,7 +96,7 @@
     };
     const start = () => {
       if (disabled || reading) return;
-      onStart({text: window.BC_AGENT_SKILLS.withSkills(text.trim(), skills), attachments, skillIds, mode});
+      onStart({text: window.BC_AGENT_SKILLS.withSkills(text.trim(), skills), attachments, skillIds, mode, effort});
     };
     const model = runner.apiModel;
     const hint = P.hint({agent, session: session && session.k, model: model ? model.name : null, readonly, cloud: !!model});
@@ -123,7 +131,8 @@
               <window.ComposerInsertMenu onFiles={addFiles} onSkill={addSkill} />
               {agent ? <window.AccessPicker value={mode} compact narrow={narrow} onChange={setMode} /> : null}
               <span className="spacer" />
-              {agent ? null
+              {agent
+                ? <window.ProviderModelPicker sel={{harness: curH, model: curM, effort}} compact={narrow} onChange={pickAgent} />
                 : <window.ToolModelPick value={model ? model.id : (D.transModels[0] || {}).id}
                     onChange={(m) => runner.pick({k: `api:${m.id}`, kind: 'api', model: m.id})} />}
             </>} />
@@ -132,6 +141,12 @@
           <div className="aitp__ctx">
             <Ic n="info" className="ic--14" />
             <span>没挂 skill：只按上面的提示词做。<BCAction className="tsetup__lnk" onClick={() => addSkill(builtinId)}>加回这个工具的 skill</BCAction></span>
+          </div>
+        ) : null}
+        {!agent && skills.length ? (
+          <div className="aitp__ctx">
+            <Ic n="info" className="ic--14" />
+            <span>{`挂着的 Skill 会作为系统提示词发给模型：只带 SKILL.md 和用到的 references/，不带别的文件。`}</span>
           </div>
         ) : null}
         {!agent ? (

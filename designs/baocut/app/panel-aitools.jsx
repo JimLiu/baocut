@@ -125,7 +125,7 @@
       if (runner.agent) {
         /* 发出去的就是框里那段话（payload.text）；会话、附件、家 · 模型、访问模式都来自提示词框 */
         const intent = {text: payload ? payload.text : defaultText};
-        const o = payload ? {sid: session && session.k === 'current' ? session.sid : null, attachments: payload.attachments, mode: payload.mode} : null;
+        const o = payload ? {sid: session && session.k === 'current' ? session.sid : null, attachments: payload.attachments, mode: payload.mode, effort: payload.effort} : null;
         // 剪口播两页留在原地画进度（§15.3）；其余页回列表，进度在顶栏胶囊与后台任务页
         if (id === 'cleanup' || id === 'stale') {
           const sess = sendToAgent(app, ctx, runner.cur, intent, null, o);

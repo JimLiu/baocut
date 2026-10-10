@@ -5,7 +5,6 @@
 .aigrp__sub { margin: -2px 2px 4px; font-size: 11px; line-height: 1.5; color: var(--gray-600); }
 
 /* ---------- 设置态 ---------- */
-.wrsetup .tsetup__lb { width: 48px; }
 .wrsetup__note { font-size: 11px; color: var(--gray-500); }
 .wrsetup__why { padding: 0 0 8px 56px; font-size: 11px; line-height: 1.5; color: var(--gray-600); }
 .wrsetup__grow { flex: 1 1 120px; min-width: 0; }

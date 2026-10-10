@@ -196,7 +196,7 @@
       const payload = raw && typeof raw.text === 'string' ? raw : null;
       if (runner.agent) {
         return sendToAgent(app, ctx, runner.cur, {text: payload ? payload.text : defaultText}, onBack,
-          payload ? {sid: session && session.k === 'current' ? session.sid : null, attachments: payload.attachments, mode: payload.mode} : null);
+          payload ? {sid: session && session.k === 'current' ? session.sid : null, attachments: payload.attachments, mode: payload.mode, effort: payload.effort} : null);
       }
       setPhase('run');
       const tid = ai.begin({

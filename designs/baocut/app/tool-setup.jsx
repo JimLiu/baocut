@@ -62,7 +62,10 @@
         ) : (
           <>
             <div className="rpick__tabs">
-              <Segmented items={tabs.map((t) => ({k: t.k, label: tabLabel(t)}))} value={curTab} onChange={(k) => { setTab(k); lv.setLevel(null); }} />
+              {/* 弹层里的页签统一用 S2 SegmentedControl（与设置 › Skills 的来源页签同款） */}
+              <window.RSP.SegmentedControl aria-label="谁来做" isJustified selectedKey={curTab} onSelectionChange={(k) => { setTab(String(k)); lv.setLevel(null); }}>
+                {tabs.map((t) => <window.RSP.SegmentedControlItem key={t.k} id={t.k}><window.RSP.Text>{tabLabel(t)}</window.RSP.Text></window.RSP.SegmentedControlItem>)}
+              </window.RSP.SegmentedControl>
             </div>
             <MenuHead>{grp.desc}</MenuHead>
             <div className="rpick__list">

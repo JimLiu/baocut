@@ -2929,8 +2929,6 @@ div.blkw { display: inline; }
 /* 「用」下拉的两段开关（2026-09-20）：段铺满弹层宽，两段等宽；开关在限高列表**外面**，
    装了再多家 Agent，列表在自己里面滚，开关与「直接调模型」那一段始终看得见。 */
 .rpick__tabs { padding: 4px 4px 2px; }
-.rpick__tabs .seg { display: flex; width: 100%; }
-.rpick__tabs .seg__b { flex: 1 1 0; min-width: 0; }
 .rpick__list { max-height: 300px; overflow-y: auto; }
 .tsetup--compact .tsetup__sum { padding: 8px 10px; }
 .tsetup--compact .tsetup__rows { padding: 2px 10px 6px; }

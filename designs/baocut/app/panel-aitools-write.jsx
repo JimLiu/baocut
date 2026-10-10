@@ -269,7 +269,7 @@
     const defaultText = P.template(id, AG.intentPrompt({kind: id, extra}, ctx.proj), {lang: nameOf(s.lang)});
     const context = P.contextPack(id, {paras: tsc && tsc.k !== 'all' ? tsc.count : STEP[id].count, scope: tsc && tsc.k !== 'all' ? tsc.label : null,
       chapters: (ctx.chapters || []).length, words: 6200});
-    const opts = (pl) => pl ? {sid: session && session.k === 'current' ? session.sid : null, attachments: pl.attachments, mode: pl.mode} : null;
+    const opts = (pl) => pl ? {sid: session && session.k === 'current' ? session.sid : null, attachments: pl.attachments, mode: pl.mode, effort: pl.effort} : null;
     /** pl：提示词框的 payload（首次）；refine：结果页「再改一句」的话，接在上次那段话后面 */
     const start = (pl, refine) => {
       const base = pl ? pl.text : (prompt != null ? prompt : defaultText);
@@ -417,7 +417,7 @@
       const base = pl ? pl.text : (prompt != null ? prompt : defaultText);
       const tail = kind === 'more' ? '在已有候选之外再来一批，角度不与已有的重复。'
         : kind === 'like' ? `照「${W.findCand(st.titles, like).title}」这个方向再来几个。` : '';
-      const o = pl ? {sid: session && session.k === 'current' ? session.sid : null, attachments: pl.attachments, mode: pl.mode} : null;
+      const o = pl ? {sid: session && session.k === 'current' ? session.sid : null, attachments: pl.attachments, mode: pl.mode, effort: pl.effort} : null;
       setPhase('done');
       g.run(runner, {text: tail ? `${base}\n${tail}` : base}, () => fill(kind, like), o);
     };

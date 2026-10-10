@@ -99,8 +99,10 @@
 .gls-hits__row { display: flex; align-items: center; gap: 8px; padding: 2px 0; color: var(--gray-800); }
 
 /* ---------- 项目里：设置态一行、术语改动、候选回流（glossary-tool.jsx） ---------- */
-.gls-opt { flex-wrap: wrap; gap: 8px; }
-.gls-opt .tsetup__optsub { min-width: 140px; }
+/* 复选框一行、选择器靠右（与别的设置行同一列），说明文字独占第二行、缩进到复选框文字下 */
+.gls-opt { flex-wrap: wrap; gap: 0 8px; padding: 4px 0 6px; }
+.gls-opt > :first-child { flex: 1 1 auto; }
+.gls-opt .tsetup__optsub { order: 3; flex: 1 1 100%; min-width: 0; padding-left: 24px; }
 .gls-fix__n { margin-top: 4px; color: var(--gray-600); }
 .gls-harv { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; padding: 12px; border: 1px solid var(--gray-200); border-radius: 10px; }
 .gls-harv > b { font-size: 14px; }
