@@ -105,9 +105,11 @@
     'user>user': 4, 'user>assistant': 0, 'tool>tool': 0, 'user>tool': 16,
     'assistant>tool': 4, 'tool>assistant': 4, 'block>block': 12,
   };
-  function gapBetween(prev, next) {
+  function gapBetween(prev, next, prevHasCards = false) {
     if (!prev) return 0;
     if (next === 'footer') return 4; // 页脚贴着这一轮的最后一行
+    // product-design §3.2.2：结构化卡片与下一条消息分开，不沿用正文／工具行的紧凑间距。
+    if (prevHasCards) return 24;
     const g = GAPS[`${prev}>${next}`];
     return g == null ? 16 : g;
   }

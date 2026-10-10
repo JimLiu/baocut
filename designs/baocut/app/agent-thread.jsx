@@ -470,7 +470,7 @@
                 const foot = footerAt.get(i);
                 const showFoot = foot && (foot.live || (foot.turn.replied && foot.turn.user));
                 return <React.Fragment key={m.id}>
-                  <div className={cx('ath__row', `agap-${TURN.gapBetween(i ? TURN.rowKind(rows[i - 1]) : null, kind)}`)}>
+                  <div className={cx('ath__row', `agap-${TURN.gapBetween(i ? TURN.rowKind(rows[i - 1]) : null, kind, i > 0 && !!cardAt?.get(rows[i - 1].id)?.length)}`)}>
                     <Message m={m} sess={cur} />
                     {cardAt && cardAt.has(m.id) && window.AgentRowCards ? <window.AgentRowCards cards={cardAt.get(m.id)} sess={cur} /> : null}
                   </div>

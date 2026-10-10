@@ -6,6 +6,7 @@
 .agap-4 { margin-top: 4px; }
 .agap-12 { margin-top: 12px; }
 .agap-16 { margin-top: 16px; }
+.agap-24 { margin-top: 24px; }
 .ath__row { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 
 /* ---------- Markdown 正文 ---------- */

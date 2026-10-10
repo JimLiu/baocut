@@ -85,6 +85,16 @@ test('gapBetween：相邻种类定间距', () => {
   assert.equal(T.rowKind({role: 'receipt'}), 'receipt');
 });
 
+test('gapBetween：卡片与后续消息留出间距，页脚仍贴近上一行', () => {
+  for (const prev of ['user', 'assistant', 'tool']) {
+    for (const next of ['user', 'assistant', 'tool', 'permission']) {
+      assert.equal(T.gapBetween(prev, next, true), 24, `${prev}>${next}`);
+    }
+    assert.equal(T.gapBetween(prev, 'footer', true), 4);
+  }
+  assert.equal(T.gapBetween(null, 'assistant', true), 0);
+});
+
 test('turns：按用户消息切回合，正文用空行连接、不含工具', () => {
   const rows = [
     {id: 'u1', role: 'user', text: 'a'},
