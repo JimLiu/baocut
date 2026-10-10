@@ -58,7 +58,8 @@ const fileTarget = z.union([
 const revision = z.string().regex(/^\d+$/);
 const assetTarget = { videoId: id, assetId: id, revision: revision.optional() };
 const attachmentTarget = z.object({ conversationId: id, attachmentId: id }).strict();
-const mediaTarget = z.union([fileTarget, attachmentTarget, z.object(assetTarget).strict()]);
+const localFileTarget = z.object({ localPath: filePath }).strict();
+const mediaTarget = z.union([fileTarget, attachmentTarget, z.object(assetTarget).strict(), localFileTarget]);
 const positiveInt = z.number().int().positive();
 /**
  * 编辑操作只在这里查外形；字段与语义由引擎校验（架构设计 §13.2：单源定义），

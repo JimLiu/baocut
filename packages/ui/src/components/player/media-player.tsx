@@ -181,7 +181,7 @@ export function MediaPlayer({
         (error: Error) => !cancelled && setUrl({ status: 'error', message: error.message }),
       );
     // 视频里的素材、消息附的图片没有旁边的字幕文件。
-    ('videoId' in target || 'attachmentId' in target ? Promise.resolve([]) : runtime.listSubtitles(target)).then(
+    ('videoId' in target || 'attachmentId' in target || 'localPath' in target ? Promise.resolve([]) : runtime.listSubtitles(target)).then(
       (found) => !cancelled && setTracks(found),
       (error: Error) => !cancelled && setTracksError(error.message),
     );

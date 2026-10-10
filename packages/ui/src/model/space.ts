@@ -350,6 +350,12 @@ for (const [kind, exts] of [
 }
 
 /** 与 Runtime 的 Space 分类同一张表；会话里改过的文件也按它决定怎么预览。 */
+/** 只按文件名判断的查看方式（文件查看器载入之前的判断，打不开的类型交给系统默认应用）；认不出时 null。 */
+export function previewModeOfFileName(fileName: string): ReturnType<typeof previewKind> {
+  const kind = kindOfFileName(fileName);
+  return documentPreview(fileName) ?? (kind ? previewKind({ kind, fileName }) : isPlainText(fileName) ? 'text' : null);
+}
+
 export function kindOfFileName(fileName: string): SpaceEntryKind | null {
   const dot = fileName.lastIndexOf('.');
   return dot < 0 ? null : (KIND_BY_EXT[fileName.slice(dot + 1).toLowerCase()] ?? null);

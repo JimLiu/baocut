@@ -809,6 +809,34 @@ describe('Runtime（假 Driver）', () => {
     expect(mixed.code).toBe('invalid-request');
   });
 
+  it('本机文件（{ localPath }）：只发给桌面客户端，以文件自己的目录为根，只给普通文件', async () => {
+    const downloads = path.join(dir, 'Downie');
+    await fs.mkdir(path.join(downloads, 'folder'), { recursive: true });
+    const article = path.join(downloads, 'talk.blog.zh-CN.md');
+    await fs.writeFile(article, '# 标题\n');
+    await fs.writeFile(path.join(dir, 'secret.txt'), 'secret');
+    await fs.symlink(path.join(dir, 'secret.txt'), path.join(downloads, 'link.md'));
+    const { endpoint, token } = runtime.discovery;
+    const desktop = new BaoCutClient({ resolve: async () => ({ endpoint, token }), client: { kind: 'desktop', name: 'test', version: '0' }, reconnect: false });
+    await desktop.connect();
+    try {
+      const handle = await desktop.request('media.resolve', { localPath: article });
+      expect(handle).toMatchObject({ fileName: 'talk.blog.zh-CN.md', contentKind: 'text', size: Buffer.byteLength('# 标题\n') });
+      expect(await (await fetch(handle.url)).text()).toBe('# 标题\n');
+      // 目录、不存在的、相对路径都不发；指到别的目录的符号链接按真实路径拒绝。
+      expect((await rejection(desktop.request('media.resolve', { localPath: path.join(downloads, 'folder') }))).code).toBe('not-found');
+      expect((await rejection(desktop.request('media.resolve', { localPath: path.join(downloads, 'nope.md') }))).code).toBe('not-found');
+      expect((await rejection(desktop.request('media.resolve', { localPath: 'talk.blog.zh-CN.md' }))).code).toBe('not-found');
+      expect((await rejection(desktop.request('media.resolve', { localPath: path.join(downloads, 'link.md') }))).code).toBe('forbidden');
+      // 不能和别的定位混用。
+      expect((await rejection(desktop.request('media.resolve', { localPath: article, entryId: 'sp_x' } as never))).code).toBe('invalid-request');
+    } finally {
+      desktop.close();
+    }
+    // 不是桌面客户端（CLI）：按原来的访问范围拒绝。
+    expect((await rejection(client.request('media.resolve', { localPath: article }))).code).toBe('forbidden');
+  });
+
   it('字幕：列出视频同目录的字幕文件，同名的在前；定位可以是项目里的路径', async () => {
     const project = path.join(dir, 'film');
     await fs.mkdir(path.join(project, 'clips'), { recursive: true });

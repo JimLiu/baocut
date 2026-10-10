@@ -4,10 +4,10 @@ import { ProgressCircle, SegmentedControl, SegmentedControlItem } from '@react-s
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { S } from './shell-copy.ts';
 import { targetKey } from '../model/media.ts';
-import { isPlainText, kindOfFileName, previewKind } from '../model/space.ts';
+import { previewModeOfFileName } from '../model/space.ts';
 import { useRuntime } from '../runtime/context.tsx';
 import { DocumentContent } from './document-preview.tsx';
-import { documentPreview, TEXT_PREVIEW_LIMIT, PDF_PREVIEW_LIMIT, type DocumentPreview, type FilePreviewMode, resolvedPreviewMode, readPreviewText } from '../model/file-preview.ts';
+import { TEXT_PREVIEW_LIMIT, PDF_PREVIEW_LIMIT, type DocumentPreview, type FilePreviewMode, resolvedPreviewMode, readPreviewText } from '../model/file-preview.ts';
 import { CompactPlayer } from './media/compact-player.tsx';
 import { MediaPlayer } from './player/media-player.tsx';
 import { P } from './player/player-copy.ts';
@@ -50,8 +50,7 @@ export function FilePreview({ target, fileName, sourceMode, playback, onResolved
   imagePanel?: { conversationId?: string | null; gallery: ImageCandidate[]; onSelect(image: ImageCandidate): void };
 }) {
   const runtime = useRuntime();
-  const kind = kindOfFileName(fileName);
-  const legacyMode = documentPreview(fileName) ?? (kind ? previewKind({ kind, fileName }) : isPlainText(fileName) ? 'text' : null);
+  const legacyMode = previewModeOfFileName(fileName);
   const [localSource, setLocalSource] = useState(false);
   const source = sourceMode ?? localSource;
   const key = targetKey(target);

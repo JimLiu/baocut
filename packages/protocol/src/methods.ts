@@ -1114,10 +1114,18 @@ export interface AttachmentTarget {
 }
 
 /**
- * 媒体通道的定位：文件，或一个已打开的视频里的素材（受管理的素材在视频目录的 `blobs/` 里），
- * 或会话里某条消息附的图片。
+ * 桌面端的本机文件（架构设计 §4.5）：工作目录之外、没有产物记录的文档或媒体副本，在文件标签里只读预览。绝对路径；
+ * Runtime 只对桌面客户端发放，以文件自己的目录为根检查，只给普通文件。不是 `FileTarget`：不能拿去打开、删除视频。
  */
-export type MediaTarget = FileTarget | AssetTarget | AttachmentTarget;
+export interface LocalFileTarget {
+  localPath: string;
+}
+
+/**
+ * 媒体通道的定位：文件，或一个已打开的视频里的素材（受管理的素材在视频目录的 `blobs/` 里），
+ * 或会话里某条消息附的图片，或桌面端的本机文件。
+ */
+export type MediaTarget = FileTarget | AssetTarget | AttachmentTarget | LocalFileTarget;
 
 export interface VideoOpenResult {
   ref: VideoRef;

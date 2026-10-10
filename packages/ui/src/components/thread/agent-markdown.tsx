@@ -8,7 +8,7 @@ import { gapBetween, parsePathToken, pathTip, type PathToken } from '../../model
 import { useShell } from '../../state/shell-store.ts';
 import { useDirectory } from '../../state/directory-store.ts';
 import { useSpace } from '../../state/space-store.ts';
-import { markdownAbsolutePath, markdownFileOutsideScope, markdownFilePath, markdownFileTarget } from '../../model/markdown-file-link.ts';
+import { markdownFilePath, markdownOpenAction } from '../../model/markdown-file-link.ts';
 import { settingsLink } from '../../model/settings-link.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { S } from '../shell-copy.ts';
@@ -91,10 +91,28 @@ function CodeBlock({ code }: { code: string }) {
   );
 }
 
+/**
+ * 打开回复里的文件路径（显式链接与行内路径同一套，见 `markdownOpenAction`）：文件标签，或桌面端查看器不支持的类型交给
+ * 系统默认应用（打不开时在文件夹中显示）。
+ */
+function openMarkdownPath(path: string, scope: { conversationId: string; cwd: string | null }, runtime: ReturnType<typeof useRuntime>): void {
+  const action = markdownOpenAction(path, scope, useSpace.getState().entries, useDirectory.getState(), { desktop: !!runtime.host.openFile });
+  if (action.kind === 'pane') {
+    useShell.getState().openPane({ kind: 'file', target: action.target });
+    return;
+  }
+  const absolute = action.path;
+  void runtime.host.openFile!(absolute).then(async (error) => {
+    if (error === null) await runtime.host.revealPath(absolute);
+    else if (error) ToastQueue.negative(S.filePreview.failed(error));
+  }).catch((error: Error) => ToastQueue.negative(S.filePreview.failed(error.message)));
+}
+
 /** 正文里的文件路径：点了在功能区打开文件查看器；tooltip 是相对路径与行范围。 */
 function PathLink({ raw, token }: { raw: string; token: PathToken }) {
-  const { conversationId, cwd } = useContext(PathScope);
-  const openPane = useShell((s) => s.openPane);
+  const scope = useContext(PathScope);
+  const { cwd } = scope;
+  const runtime = useRuntime();
   const path = token.path.startsWith('./') ? token.path.slice(2) : token.path;
   return (
     <TooltipTrigger delay={400}>
@@ -102,7 +120,7 @@ function PathLink({ raw, token }: { raw: string; token: PathToken }) {
         isQuiet
         size="XS"
         UNSAFE_className="bc-amd-path"
-        onPress={() => openPane({ kind: 'file', target: { conversationId, path } })}>
+        onPress={() => openMarkdownPath(path, scope, runtime)}>
         {raw}
       </ActionButton>
       <Tooltip>{pathTip(token, cwd)}</Tooltip>
@@ -135,16 +153,7 @@ function MarkdownLink({ href, children, title }: { href?: string; children?: Rea
   const open = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     if (event.type === 'auxclick' && event.button !== 1) return;
-    const target = markdownFileTarget(path, scope, useSpace.getState().entries, useDirectory.getState());
-    if (!('entryId' in target) && markdownFileOutsideScope(path, scope.cwd) && runtime.host.openFile) {
-      const absolute = markdownAbsolutePath(path, scope.cwd)!;
-      void runtime.host.openFile(absolute).then(async (error) => {
-        if (error === null) await runtime.host.revealPath(absolute);
-        else if (error) ToastQueue.negative(S.filePreview.failed(error));
-      }).catch((error: Error) => ToastQueue.negative(S.filePreview.failed(error.message)));
-      return;
-    }
-    useShell.getState().openPane({ kind: 'file', target });
+    openMarkdownPath(path, scope, runtime);
   };
   return <a href={href} title={title ?? path} onClick={open} onAuxClick={open}>{children}</a>;
 }

@@ -839,6 +839,10 @@ describe('Web 服务', () => {
     expect(
       details(await readonlyPage.request('media.resolve', { projectId: project.id, path: '../outside.txt' }).catch((e: unknown) => e)),
     ).not.toBeNull();
+    // 本机路径（{ localPath }）只发给桌面客户端：浏览器按 Runtime 的访问范围拒绝，不扩大本机文件权限。
+    const local = path.join(project.path, 'notes.txt');
+    expect((await desktop.request('media.resolve', { localPath: local })).fileName).toBe('notes.txt');
+    expect(details(await readonlyPage.request('media.resolve', { localPath: local }).catch((e: unknown) => e))).toMatchObject({ code: 'forbidden' });
   });
 
   it('访问代码与会话令牌不出现在 services.list、主题、日志、配置文件与审计里', async () => {

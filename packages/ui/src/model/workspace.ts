@@ -62,6 +62,7 @@ export function targetKey(target: MediaTarget): string {
   if ('attachmentId' in target) return `a:${target.conversationId}:${target.attachmentId}`;
   if ('assetId' in target) return `v:${target.videoId}:${target.assetId}:${target.revision??''}`;
   if ('entryId' in target) return `e:${target.entryId}`;
+  if ('localPath' in target) return `l:${target.localPath}`;
   if ('projectId' in target) return `p:${target.projectId}:${target.path}`;
   return `c:${target.conversationId}:${target.path}`;
 }
@@ -235,8 +236,8 @@ export function workspaceTitle(item: WorkspaceItem, name?: string | null): strin
   if (item.kind === 'web') return name || webTitle(item.url);
   if (name) return name;
   if (item.kind==='file'&&item.name) return item.name;
-  const path = 'path' in item.target ? item.target.path.replace(/\/+$/, '') : '';
-  const base = path.slice(path.lastIndexOf('/') + 1);
+  const path = ('path' in item.target ? item.target.path : 'localPath' in item.target ? item.target.localPath : '').replace(/[\\/]+$/, '');
+  const base = path.slice(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1);
   return base || (item.kind === 'video' ? M.videoUnavailable : M.fileUnavailable);
 }
 

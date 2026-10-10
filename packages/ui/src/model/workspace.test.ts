@@ -169,6 +169,11 @@ describe('标签名与条目', () => {
     expect(workspaceTitle(files)).toBe('项目文件');
     expect(workspaceTitle(web)).toBe('新标签页');
     expect(workspaceTitle({ kind: 'web', id: 'w', url: 'https://example.com/a' })).toBe('example.com');
+    // 桌面端工作目录之外的本机文件：标签名取路径最后一段，键与会话路径分开。
+    const local = { kind: 'file' as const, target: { localPath: 'D:\\Downie\\talk.md' } };
+    expect(workspaceTitle(local)).toBe('talk.md');
+    expect(workspaceTitle({ kind: 'file', target: { localPath: '/Volumes/SSD/talk.md' } })).toBe('talk.md');
+    expect(itemKey(local)).toBe('file:l:D:\\Downie\\talk.md');
     expect(workspaceTitle({ kind: 'web', id: 'w', url: 'https://example.com/a' }, '示例页面')).toBe('示例页面');
     expect(workspaceTitle(video, '宣传片')).toBe('宣传片');
     expect(workspaceTitle(video)).toBe('第一部');

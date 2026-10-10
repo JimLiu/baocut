@@ -5,6 +5,7 @@ export function targetKey(target: MediaTarget): string {
   if ('entryId' in target) return `entry:${target.entryId}`;
   if ('videoId' in target) return `video:${target.videoId}:${target.assetId}:${target.revision ?? ''}`;
   if ('attachmentId' in target) return `attachment:${target.conversationId}:${target.attachmentId}`;
+  if ('localPath' in target) return `local:${target.localPath}`;
   if ('conversationId' in target) return `conv:${target.conversationId}:${target.path}`;
   return `project:${target.projectId}:${target.path}`;
 }

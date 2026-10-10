@@ -67,6 +67,7 @@ const missing = style({ display: 'flex', alignItems: 'center', justifyContent: '
 /**
  * 功能区的单个文件（产品设计 §3.3，原型 home-workspace.jsx `WorkspaceFiles` 的单文件视图）：头部是图标、文件名与类别，
  * 「在 Space 中显示」与「在文件夹中显示」；视频与音频用播放器，其余用查看器；页脚是磁盘上的路径。宽度由功能区决定。
+ * 桌面端工作目录之外的本机文件（`{ localPath }`）只读预览，保留「用默认应用打开」与「在文件夹中显示」，不在 Space 中显示。
  */
 export function FilePane({ target, conversationId, fileNameHint, active = true }: { active?:boolean; fileNameHint?:string; target: MediaTarget; conversationId?: string | null }) {
   const runtime = useRuntime();
@@ -81,13 +82,15 @@ export function FilePane({ target, conversationId, fileNameHint, active = true }
   const entry = entryOfTarget(entries, target);
   if ('entryId' in target && !entry) return <div className={missing}>{WORKSPACE_COPY.fileMissing}</div>;
 
-  const relPath = 'path' in target ? target.path : (entry?.relPath ?? '');
+  // 桌面端工作目录之外的本机文件（`{ localPath }`）：没有来源目录，名字取路径的最后一段，按绝对路径打开与定位。
+  const local = 'localPath' in target ? target.localPath : null;
+  const relPath = 'path' in target ? target.path : local ? (local.split(/[\\/]/).pop() ?? '') : (entry?.relPath ?? '');
   const fileName = entry?.fileName ?? resolved?.handle.fileName ?? fileNameHint ?? relPath.split(/[\\/]/).pop()!;
   const kind = entry?.kind ?? kindOfFileName(fileName);
   const conversation = 'conversationId' in target ? conversations.find((c) => c.id === target.conversationId) : undefined;
   const projectId = 'projectId' in target ? target.projectId : (entry?.source.projectId ?? conversation?.projectId ?? null);
   const root = 'projectId' in target ? projects.find((p) => p.id === target.projectId)?.path : conversation?.cwd;
-  const absolute = entry ? entryPath(entry, { projects, conversations }) : 'path' in target ? markdownAbsolutePath(relPath, root ?? null) : null;
+  const absolute = local ?? (entry ? entryPath(entry, { projects, conversations }) : 'path' in target ? markdownAbsolutePath(relPath, root ?? null) : null);
   const mode = resolved?.mode;
   const detectedKind = resolved?.handle.contentKind;
   const typeLabel = detectedKind ? ({ text: KIND_LABEL.document, pdf: KIND_LABEL.document, image: KIND_LABEL.image, audio: KIND_LABEL.audio, video: KIND_LABEL['video-file'], archive: '', binary: '' })[detectedKind] : kind ? KIND_LABEL[kind] : '';
@@ -113,7 +116,7 @@ export function FilePane({ target, conversationId, fileNameHint, active = true }
             else if (error) ToastQueue.negative(S.filePreview.failed(error));
           }).catch((error: Error) => ToastQueue.negative(S.filePreview.failed(error.message)));
         }}>{M.openDefault}</ActionButton>}
-        {'attachmentId' in target ? null : <ActionButton isQuiet onPress={() => go({ tab: 'space', category: 'all', projectId })}>
+        {'attachmentId' in target || local ? null : <ActionButton isQuiet onPress={() => go({ tab: 'space', category: 'all', projectId })}>
           {WORKSPACE_COPY.showInSpace}
         </ActionButton>}
         {absolute ? (

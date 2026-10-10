@@ -743,7 +743,7 @@ WebM 播放通过 `media.playback { url, playable? }` 取播放地址：`url` �
 
 每个客户端到每个 Runtime 一条多路复用的业务 WebSocket；视频、会话和任务按资源订阅。视频与音频的 bytes、预览帧和缩略图经过认证的 HTTP Range、受限句柄或专门的媒体通道传输，不把每一帧的 Base64 塞进对话事件。小于 1 MB 的单张缩略图可以走请求的响应（时间线胶片条的 `media.thumbnail`、Space 卡片的 `space.thumbnail`，§5.7）：客户端按需请求，不进事件流，也不随订阅推送。
 
-`media.resolve` 在 `resolveInside` 的真实路径与权限检查之后，读取至多 64 KiB 前缀识别内容类型。目标是视频条目（`{ entryId }`，视频是一个目录）时，给它的主素材：封面那一帧所在的素材版本，与 Space 缩略图同一个来源，不打开视频、不取写锁；它是素材原片，没有套用时间线上的剪辑、字幕与叠加，会话里的视频卡就地播放用（产品设计 §3.2.2）；没有封面时 `not-found`。`MediaHandle` 可附带 `contentKind`（text/image/pdf/audio/video/archive/binary）与 `textEncoding`（UTF-8、带 BOM 的 UTF-16LE/BE），HTTP MIME 与检测结果一致；字段缺省时旧客户端行为保持兼容。压缩包只认头部，不为预览解压。文本载入时再次限制实际接收字节数，并以严格解码拒绝截断编码或后续出现的二进制控制字符；媒体依然走受限 Range 通道，采样不扩大可读目录。同一受限句柄的 `?download=1` 返回带 UTF-8 文件名的附件响应，下载大视频直接走流式传输，不先把完整文件读进界面内存。
+`media.resolve` 在 `resolveInside` 的真实路径与权限检查之后，读取至多 64 KiB 前缀识别内容类型。目标是视频条目（`{ entryId }`，视频是一个目录）时，给它的主素材：封面那一帧所在的素材版本，与 Space 缩略图同一个来源，不打开视频、不取写锁；它是素材原片，没有套用时间线上的剪辑、字幕与叠加，会话里的视频卡就地播放用（产品设计 §3.2.2）；没有封面时 `not-found`。桌面端另有本机文件目标 `{ localPath }`（只在 `MediaTarget` 里，不是 `FileTarget`，不能拿去打开或删除视频）：回复里工作目录之外、没有产物记录的文档或媒体副本在文件标签里只读预览用。Runtime 只对桌面客户端（`principal.kind === 'desktop'`）发放，其余主体（浏览器、CLI、对外服务）按原来的访问范围 `forbidden`；路径必须是绝对路径，以文件自己的目录为根走同一个 `resolveInside`，只给普通文件，目录、不存在的路径与经符号链接指到别的目录的都拒绝，内容识别与大小上限不变，不发放目录。`MediaHandle` 可附带 `contentKind`（text/image/pdf/audio/video/archive/binary）与 `textEncoding`（UTF-8、带 BOM 的 UTF-16LE/BE），HTTP MIME 与检测结果一致；字段缺省时旧客户端行为保持兼容。压缩包只认头部，不为预览解压。文本载入时再次限制实际接收字节数，并以严格解码拒绝截断编码或后续出现的二进制控制字符；媒体依然走受限 Range 通道，采样不扩大可读目录。同一受限句柄的 `?download=1` 返回带 UTF-8 文件名的附件响应，下载大视频直接走流式传输，不先把完整文件读进界面内存。
 
 播放时钟和拖动留在界面本地。`requestGeneration` 保证旧的异步帧不会覆盖新的 seek。流式文本可以合并小块，但保留消息身份与完成边界；终态事件和权限事件不可因节流而丢失。客户端可以显示缓存，但「已连接」不等于「数据已追平」。
 
