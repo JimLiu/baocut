@@ -2,10 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { COPY_DEFAULTS, copyAllSettings, copyEffective, copyIncludes, scopeIsPlain, type TranscriptCopyPrefs } from './transcript-copy-options.ts';
 
 const all: TranscriptCopyPrefs = { format: 'md', frontmatter: true, chapters: true, timestamps: true, speakers: true, skipCut: false };
+const bodyOnly: TranscriptCopyPrefs = { format: 'txt', frontmatter: false, chapters: false, timestamps: false, speakers: false, skipCut: true };
 
 describe('文稿面板复制的组合', () => {
-  it('缺省是纯文本、只带正文：节选只有一项「复制文字」', () => {
+  it('缺省是 Markdown、五个开关全开', () => {
+    expect(COPY_DEFAULTS).toEqual({ format: 'md', frontmatter: true, chapters: true, timestamps: true, speakers: true, skipCut: true });
     const eff = copyEffective(COPY_DEFAULTS, { hasChapters: true, translationOnly: false });
+    expect(copyIncludes(eff, 'all')).toEqual(['frontmatter', 'chapters', 'timestamps', 'speakers']);
+    expect(scopeIsPlain(eff, 'para')).toBe(false);
+  });
+
+  it('纯文本、只带正文时，节选只有一项「复制文字」', () => {
+    const eff = copyEffective(bodyOnly, { hasChapters: true, translationOnly: false });
     expect(copyIncludes(eff, 'all')).toEqual([]);
     expect(scopeIsPlain(eff, 'chapter')).toBe(true);
     expect(scopeIsPlain(eff, 'para')).toBe(true);
@@ -24,8 +32,8 @@ describe('文稿面板复制的组合', () => {
     expect(copyIncludes(all, 'chapter')).toEqual(['chapters', 'timestamps', 'speakers']);
     expect(copyIncludes(all, 'para')).toEqual(['timestamps', 'speakers']);
     // 纯文本这一段只开了章节：写出来与只要文字一样。
-    expect(scopeIsPlain({ ...COPY_DEFAULTS, chapters: true }, 'para')).toBe(true);
-    expect(scopeIsPlain({ ...COPY_DEFAULTS, chapters: true }, 'chapter')).toBe(false);
+    expect(scopeIsPlain({ ...bodyOnly, chapters: true }, 'para')).toBe(true);
+    expect(scopeIsPlain({ ...bodyOnly, chapters: true }, 'chapter')).toBe(false);
   });
 
   it('全文交给 Runtime 的设置：每份转写一份，配上它的译文，文首只写在第一份', () => {

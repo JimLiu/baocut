@@ -305,11 +305,12 @@ test('frontmatter：与内核同一份字段顺序，缺的不写、换行折成
 
 /* ---------- 文稿正文的选项：导出页与复制共用 ---------- */
 
-test('复制组合：缺省是纯文本只要正文，坏值回落缺省', () => {
+test('复制组合：缺省是 Markdown、五个开关全开，坏值回落缺省', () => {
   assert.deepEqual(TX.copyOpts(undefined), TX.COPY_DEFAULTS);
-  assert.deepEqual(TX.copyOpts({fmt: 'docx', time: 'yes', speaker: true}),
-    Object.assign({}, TX.COPY_DEFAULTS, {speaker: true}));
-  assert.equal(TX.copyOpts({fmt: 'md'}).fmt, 'md');
+  assert.deepEqual(TX.COPY_DEFAULTS, {fmt: 'md', frontmatter: true, chapters: true, time: true, speaker: true, skipCut: true});
+  assert.deepEqual(TX.copyOpts({fmt: 'docx', time: 'yes', speaker: false}),
+    Object.assign({}, TX.COPY_DEFAULTS, {speaker: false}));
+  assert.deepEqual(TX.copyOpts({fmt: 'txt', chapters: false}), Object.assign({}, TX.COPY_DEFAULTS, {fmt: 'txt', chapters: false}));
   assert.deepEqual(TX.TEXT_OPTS.map((o) => o.k), ['frontmatter', 'chapters', 'time', 'speaker', 'skipCut']);
 });
 
@@ -323,7 +324,8 @@ test('生效值：文首元信息只在 Markdown，章节标题要有章节；�
 });
 
 test('组合零件：格式在前，跳过已剪段是缺省不写，关掉才写「含已剪段」', () => {
-  assert.deepEqual(TX.textParts(TX.COPY_DEFAULTS), ['纯文本']);
+  assert.deepEqual(TX.textParts(TX.COPY_DEFAULTS), ['Markdown', '文首元信息', '章节标题', '段落时间戳', '说话人']);
+  assert.deepEqual(TX.textParts({fmt: 'txt', frontmatter: false, chapters: false, time: false, speaker: false, skipCut: true}), ['纯文本']);
   const full = {fmt: 'md', frontmatter: true, chapters: true, time: true, speaker: true, skipCut: false};
   assert.deepEqual(TX.textParts(full), ['Markdown', '文首元信息', '章节标题', '段落时间戳', '说话人', '含已剪段']);
   assert.deepEqual(TX.textParts(full, 'chapter'), ['Markdown', '章节标题', '段落时间戳', '说话人', '含已剪段']);
@@ -338,7 +340,8 @@ test('复制全文与同样设置的导出逐字相同；纯文本没有标题',
   assert.equal(copied, TX.exportText(sections, {fmt: 'md', lang: 'src', chapters: true, time: true, speaker: true, speakers, title: 'ep42', meta}));
   assert.ok(copied.startsWith('---\ntitle: "ep42"'));
   assert.ok(copied.includes('\n---\n\n# ep42\n\n## 开场 · 00:00'));
-  const plain = TX.exportText(sections, TX.textArgs(TX.COPY_DEFAULTS, 'all', base));
+  const bodyOnly = {fmt: 'txt', frontmatter: false, chapters: false, time: false, speaker: false, skipCut: true};
+  const plain = TX.exportText(sections, TX.textArgs(bodyOnly, 'all', base));
   assert.equal(plain, '欢迎回到《码与远方》。\n\n谢谢邀请。');
 });
 

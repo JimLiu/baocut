@@ -3,7 +3,7 @@ import { transcriptSettings } from './export-settings.ts';
 
 /**
  * 文稿面板复制记住的组合（设计稿 transcript-copy.jsx、偏好 `txCopy`）：格式与导出「文稿」页同一组五个开关。
- * 没存过时是纯文本、只带正文，与原来的「复制文字」一样。与导出页的「文首元信息」偏好分开记。
+ * 没存过时是 Markdown、五个开关全开；格式与开关都记住，下次打开还是上一次的选择。与导出页的「文首元信息」偏好分开记。
  */
 export interface TranscriptCopyPrefs {
   format: 'md' | 'txt';
@@ -15,11 +15,11 @@ export interface TranscriptCopyPrefs {
 }
 
 export const COPY_DEFAULTS: TranscriptCopyPrefs = {
-  format: 'txt',
-  frontmatter: false,
-  chapters: false,
-  timestamps: false,
-  speakers: false,
+  format: 'md',
+  frontmatter: true,
+  chapters: true,
+  timestamps: true,
+  speakers: true,
   skipCut: true,
 };
 

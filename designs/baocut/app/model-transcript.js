@@ -310,8 +310,8 @@
   ];
   const FMT_LABEL = {md: 'Markdown', txt: '纯文本'};
 
-  /** 复制的缺省：纯文本、只要正文——与改版前菜单里的「复制文字」同一个结果。 */
-  const COPY_DEFAULTS = {fmt: 'txt', frontmatter: false, chapters: false, time: false, speaker: false, skipCut: true};
+  /** 复制的缺省：Markdown、五个开关全开。格式与开关都记在偏好里，下次打开还是上一次的选择。 */
+  const COPY_DEFAULTS = {fmt: 'md', frontmatter: true, chapters: true, time: true, speaker: true, skipCut: true};
 
   /** 偏好里存的组合 → 完整选项；缺的、类型不对的取缺省。 */
   function copyOpts(saved) {
