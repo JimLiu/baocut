@@ -202,7 +202,9 @@ export type TimelineItem =
       attachments?: AttachmentRef[];
       /** 发送时挂上的场景模板（模板包规范 §5.2）：只是标记，提示词正文与简报引导只交给智能体，不在 `text` 里。 */
       template?: TemplateMessageRef;
-      /** 发送时点选的 skill（架构设计 §3.8）：只是标记，`SKILL.md` 正文只交给智能体，不在 `text` 里。 */
+      /** 发送时点选的 skill（架构设计 §3.8），按挂上的顺序：只是标记，`SKILL.md` 正文只交给智能体，不在 `text` 里。 */
+      skills?: SkillMessageRef[];
+      /** 旧记录：只能点一个 skill 时写的标记。读的时候与 `skills` 一样对待（`messageSkills`），新消息不再写。 */
       skill?: SkillMessageRef;
     })
   | (TimelineBase & { kind: 'agent-message'; text: string; streaming: boolean })

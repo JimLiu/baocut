@@ -28,7 +28,7 @@ import { templatePrompt } from '../runtime/template-commands.ts';
 import { defaultDriver, useConnection } from '../state/connection-store.ts';
 import { useDirectory, useProject } from '../state/directory-store.ts';
 import { useDraftImages } from '../state/draft-images-store.ts';
-import { useDraftSkillId, useDraftSkills } from '../state/draft-skills-store.ts';
+import { useDraftSkillIds, useDraftSkills } from '../state/draft-skills-store.ts';
 import { useSetting } from '../state/settings-store.ts';
 import { useHomeMemory } from '../state/home-memory-store.ts';
 import { useHomeTemplates } from '../state/home-templates-store.ts';
@@ -122,9 +122,10 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
   const catalog = useTemplateCatalogLoader();
   const template = templateOf(catalog.templates, brief.template);
   const shelf = useHomeTemplates((s) => s.recent);
-  // 「+ › 使用 Skill」点选的那个：标记和模板排在一行（列表由输入框取）。
-  const skillId = useDraftSkillId(draftKey);
-  const skillName = useSkills((s) => (skillId ? (s.skills.find((k) => k.id === skillId)?.name ?? skillId) : null));
+  // 「+ › 使用 Skill」点选的那几个：标记和模板排在一行（列表由输入框取）。
+  const skillIds = useDraftSkillIds(draftKey);
+  const skillCatalog = useSkills((s) => s.skills);
+  const pickedSkills = skillIds.map((id) => ({ id, name: skillCatalog.find((k) => k.id === id)?.name ?? id }));
   // 「+ › 最近的视频」：还能选的项目里最近活动的视频。
   const spaceEntries = useSpace((s) => s.entries);
   const recent = recentVideos(
@@ -299,8 +300,8 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
           start={{
             tokens: (
               <BriefTokens
-                skill={skillName}
-                onRemoveSkill={() => useDraftSkills.getState().set(draftKey, null)}
+                skills={pickedSkills}
+                onRemoveSkill={(id) => useDraftSkills.getState().remove(draftKey, id)}
                 template={template}
                 materials={brief.materials}
                 onRemoveTemplate={() => pickScene(null)}
@@ -321,7 +322,7 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
               onPick: pickRecent,
             },
           }}
-          onSend={async (raw, attachments, skill) => {
+          onSend={async (raw, attachments, skills) => {
             // 素材在发出去时写进这条消息（原型 `AgentHero` 的 brief），没填的待填项写成「[label]」（规范 §5.5，homeBrief）；挂着的场景模板与点选的 skill 只传标识，
             // 简报引导、模板正文与 SKILL.md 由 Runtime 拼给智能体（模板包规范 §5.2、产品设计 §6.9），
             // 会话里的消息另带「模板：标题」「Skill：名称」的标记。
@@ -362,7 +363,7 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
                 context,
                 attachments.map((a) => a.id),
                 sceneRef,
-                skill,
+                skills,
               );
               editor.reset();
               return true;

@@ -110,12 +110,12 @@ export function QueuedMessages({
                     {QUEUE_COPY.images(message.attachments.length)}
                   </span>
                 ) : null}
-                {message.skill ? (
-                  <span className={meta}>
+                {(message.skills ?? []).map((skill) => (
+                  <span key={skill.id} className={meta}>
                     <Code />
-                    {SKILL_COPY.token(skills.find((k) => k.id === message.skill!.id)?.name ?? message.skill.id)}
+                    {SKILL_COPY.token(skills.find((k) => k.id === skill.id)?.name ?? skill.id)}
                   </span>
-                ) : null}
+                ))}
                 <ActionButton isQuiet size="S" aria-label={QUEUE_COPY.edit} onPress={() => setEditing({ id: message.id, text: message.text })}>
                   <Edit />
                 </ActionButton>

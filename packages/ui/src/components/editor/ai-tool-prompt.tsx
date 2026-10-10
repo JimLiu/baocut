@@ -6,6 +6,7 @@ import InfoCircle from '@react-spectrum/s2/icons/InfoCircle';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { AGENT_PICKER, SKILL_COPY } from '../../copy.ts';
 import { applyAgentChange, draftSelection, harnessLabel, type AgentChange, type AgentChoice } from '../../model/agent-choice.ts';
+import { appendSkillId } from '../../model/agent-skills.ts';
 import { handoffHint, sessionOptions, TOOL_SKILL, type AiToolId, type SessionOption } from '../../model/ai-tools.ts';
 import { currentConversation, messageCount } from '../../model/ai-tools-handoff.ts';
 import { gateGuide, homeGate, type GateGuide } from '../../model/home-brief.ts';
@@ -179,8 +180,9 @@ export function SessionRow({ handoff }: { handoff: ToolHandoff }) {
 /**
  * 参数页的提示词框与主按钮（原型 tool-prompt.jsx，产品设计 §5.10 第 3、4 段）：预填模板（没改过就跟着范围与勾选项变，
  * 改过才出「恢复默认」），默认挂着这个工具的内置 skill（标着「这个工具的做法」，摘掉后框下一行说明并给加回），
- * 「+ › 使用 Skill」换挂别的；底栏是访问模式与「家 · 模型」（与「用」一行同一份）。按下就按「会话」行交出去，`onDone` 回列表。
- * 一条消息眼下只能带一个 skill（`conversations.send` 的 `skill`）：再挂一个就替换挂着的那个。
+ * 「+ › 使用 Skill」再挂别的（接在后面，已经挂着的不重复，加回内置的也接在后面，同原型 `addSkill`），每个可以单独摘掉；
+ * 底栏是访问模式与「家 · 模型」（与「用」一行同一份）。按下就按「会话」行交出去，挂着的 skill 按顺序一起发（`conversations.send`
+ * 的 `skills`），`onDone` 回列表。
  */
 export function AiToolPrompt({
   videoId,
@@ -226,7 +228,7 @@ export function AiToolPrompt({
       <InfoCircle styles={noticeIcon} />
       <span>
         {C.noSkill}{' '}
-        <Link variant="secondary" onPress={() => setSkillIds([builtin])}>
+        <Link variant="secondary" onPress={() => setSkillIds((ids) => appendSkillId(ids, builtin))}>
           {C.addSkillBack}
         </Link>
       </span>
@@ -260,7 +262,7 @@ export function AiToolPrompt({
           text,
           onText: (next) => setValue(next === template ? null : next),
           tokens,
-          onSkill: (id) => setSkillIds([id]),
+          onSkill: (id) => setSkillIds((ids) => appendSkillId(ids, id)),
           notice: noSkill,
           cta: C.cta,
           hint: handoffHint(session?.key ?? 'new'),

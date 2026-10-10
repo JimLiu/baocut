@@ -1037,10 +1037,10 @@ export class Harness {
      */
     template?: { ref: TemplateMessageRef; instructions: string };
     /**
-     * 点选的 skill（架构设计 §3.8），由 Runtime 解析好：`ref` 记在用户消息上，`instructions`（`SKILL.md` 正文与同目录文件）
-     * 只附在交给智能体的文字后面，排在模板段之后。
+     * 点选的 skill（架构设计 §3.8），由 Runtime 按挂上的顺序解析好：`refs` 记在用户消息上，`instructions`（每个 skill 一段
+     * `SKILL.md` 正文与同目录文件）只附在交给智能体的文字后面，排在模板段之后。
      */
-    skill?: { ref: SkillMessageRef; instructions: string };
+    skills?: { refs: SkillMessageRef[]; instructions: string };
   }): Promise<{ taskId: Id }> {
     const key = `send:${params.commandId}`;
     const done = this.#commands.get(key);
@@ -1107,7 +1107,7 @@ export class Harness {
       ...(references.length > 0 ? { references } : {}),
       ...(attached.length ? { attachments: attached.map((a) => a.ref) } : {}),
       ...(params.template ? { template: params.template.ref } : {}),
-      ...(params.skill ? { skill: params.skill.ref } : {}),
+      ...(params.skills?.refs.length ? { skills: params.skills.refs } : {}),
     });
     state.upsert({
       kind: 'task',
@@ -1143,7 +1143,7 @@ export class Harness {
       stopTimer: null,
     };
     this.#runs.set(state.id, run);
-    const agentText = [params.text, params.template?.instructions, params.skill?.instructions, fileAttachmentsText(attached)].filter(Boolean).join('\n\n');
+    const agentText = [params.text, params.template?.instructions, params.skills?.instructions, fileAttachmentsText(attached)].filter(Boolean).join('\n\n');
     void this.#startRun(state, run, {
       text: withSpaceReferences(withEditorContext(agentText, params.context), references),
       ...imagesOf(attached),

@@ -144,7 +144,7 @@ export function VideoQuickChat() {
   };
 
   /** 新建一条会话（项目里的视频归那个项目，否则不属于项目），转到它，再把第一句话发出去（同起始页 `onSend`）。 */
-  const startConversation = async (text: string, attachments: AttachmentRef[], skill: SkillSendRef | undefined, videoKey: string) => {
+  const startConversation = async (text: string, attachments: AttachmentRef[], skills: SkillSendRef[], videoKey: string) => {
     // 编辑器此刻的状态在离开 Space 之前取：引用标签只认眼前显示的视频。
     const context = await editor.capture();
     let conversationId: Id | null = null;
@@ -170,7 +170,7 @@ export function VideoQuickChat() {
         context,
         attachments.map((a) => a.id),
         undefined,
-        skill,
+        skills,
       );
       editor.reset();
       return true;
@@ -246,10 +246,10 @@ export function VideoQuickChat() {
           autoFocus={opened}
           reference={editor.reference}
           mentionScope={{ projectId, conversationId: null }}
-          onSend={async (text, attachments, skill) => {
+          onSend={async (text, attachments, skills) => {
             // 视频还没载入（不知道它在哪个项目）时先不发，话留在输入框里。
             if (!source || !key) return false;
-            return startConversation(text, attachments, skill, key);
+            return startConversation(text, attachments, skills, key);
           }}
         />
       </div>

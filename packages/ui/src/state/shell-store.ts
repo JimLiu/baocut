@@ -12,7 +12,7 @@ import {
   type LanguagePreference,
 } from '@baocut/protocol';
 import { parseAgentChoice, type AgentChoice } from '../model/agent-choice.ts';
-import { isQueuedMessage, type QueuedMessage } from '../model/message-queue.ts';
+import { readQueuedMessage, type QueuedMessage } from '../model/message-queue.ts';
 import {
   isModelCategory,
   isModelPage,
@@ -608,7 +608,7 @@ function cleanQueues(value: unknown): Record<Id, QueuedMessage[]> {
   if (!value || typeof value !== 'object') return {};
   return Object.fromEntries(
     Object.entries(value).flatMap(([id, raw]) => {
-      const queue = Array.isArray(raw) ? raw.filter(isQueuedMessage) : [];
+      const queue = Array.isArray(raw) ? raw.flatMap((m) => readQueuedMessage(m) ?? []) : [];
       return queue.length ? [[id, queue]] : [];
     }),
   );

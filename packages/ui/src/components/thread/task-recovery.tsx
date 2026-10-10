@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { DriverId, Id, TimelineItem } from '@baocut/protocol';
+import { messageSkills, type DriverId, type Id, type TimelineItem } from '@baocut/protocol';
 import { ActionButton, Button, Menu, MenuItem, MenuTrigger, Text, ToastQueue } from '@react-spectrum/s2';
 import Refresh from '@react-spectrum/s2/icons/Refresh';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -61,14 +61,14 @@ export function TaskRecovery({ item, conversationId }: { item: Task; conversatio
     setPending(true);
     try {
       await before?.();
-      // 那一轮点选的 skill 也一起重发（只带 id，Runtime 读它当前的 SKILL.md）。
+      // 那一轮点选的 skill 也按原顺序一起重发（只带 id，Runtime 读它当前的 SKILL.md）。
       await runtime.send(
         conversationId,
         message.text,
         undefined,
         message.attachments?.map((a) => a.id),
         undefined,
-        message.skill ? { id: message.skill.id } : undefined,
+        messageSkills(message).map((s) => ({ id: s.id })),
       );
     } catch (error) {
       ToastQueue.negative(RECOVERY_COPY.resendFailed((error as Error).message), { timeout: 5000 });

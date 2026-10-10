@@ -3,6 +3,7 @@ import {
   editQueuedMessage,
   enqueueMessage,
   isQueuedMessage,
+  readQueuedMessage,
   removeQueuedMessage,
   sendQueueHead,
   sendQueuedNow,
@@ -51,6 +52,17 @@ describe('排队的增删改', () => {
     expect(isQueuedMessage({ ...msg('a'), skill: { id: 'subtitle-style' } })).toBe(true);
     expect(isQueuedMessage({ ...msg('a'), skill: 'subtitle-style' })).toBe(false);
     expect(isQueuedMessage({ ...msg('a'), skill: {} })).toBe(false);
+    expect(isQueuedMessage({ ...msg('a'), skills: [{ id: 'a' }, { id: 'b' }] })).toBe(true);
+    expect(isQueuedMessage({ ...msg('a'), skills: [{ id: 'a' }, {}] })).toBe(false);
+    expect(isQueuedMessage({ ...msg('a'), skills: { id: 'a' } })).toBe(false);
+  });
+
+  it('读回时把只能点一个 skill 时存的 skill 换成 skills', () => {
+    expect(readQueuedMessage({ ...msg('a'), skill: { id: 'old' } })).toEqual({ ...msg('a'), skills: [{ id: 'old' }] });
+    expect(readQueuedMessage({ ...msg('a'), skills: [{ id: 'x' }, { id: 'y' }] })).toEqual({ ...msg('a'), skills: [{ id: 'x' }, { id: 'y' }] });
+    expect(readQueuedMessage({ ...msg('a'), skill: { id: 'x' }, skills: [{ id: 'x' }, { id: 'y' }] })?.skills).toEqual([{ id: 'x' }, { id: 'y' }]);
+    expect(readQueuedMessage(msg('a'))).toEqual(msg('a'));
+    expect(readQueuedMessage({ id: 'a' })).toBeNull();
   });
 });
 

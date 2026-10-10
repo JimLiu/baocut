@@ -71,7 +71,7 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
   const lockedTo = items.some((i) => i.kind === 'task') ? meta.driverId : null;
 
   /** 忙的时候发的话先排队，带上此刻的编辑器状态与点选的 skill；任务结束后按顺序发出。 */
-  const enqueue = async (text: string, attachments: AttachmentRef[], skill?: SkillSendRef) => {
+  const enqueue = async (text: string, attachments: AttachmentRef[], skills: SkillSendRef[]) => {
     const context = await editor.capture();
     useShell.getState().setQueue(conversationId, (queue) =>
       enqueueMessage(queue, {
@@ -79,7 +79,7 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
         text,
         attachments,
         ...(context ? { context } : {}),
-        ...(skill ? { skill } : {}),
+        ...(skills.length ? { skills } : {}),
         queuedAt: nowIso(),
       }),
     );
@@ -90,7 +90,7 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
   const sendNow = async (messageId: Id) => {
     setSendingNow(messageId);
     // 带 skill 的不插话（协议的 steer 不收 skill），留在队列等这一轮结束：提示说的是这个原因，不是 Agent 不支持插话。
-    const withSkill = !!useShell.getState().queues[conversationId]?.find((m) => m.id === messageId)?.skill;
+    const withSkill = !!useShell.getState().queues[conversationId]?.find((m) => m.id === messageId)?.skills?.length;
     try {
       const result = await sendQueuedMessageNow(runtime, conversationId, messageId);
       if (result.status === 'deferred')
@@ -152,10 +152,10 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
         }
         mentionScope={{ projectId: meta.projectId, conversationId }}
         queue={<QueuedMessages conversationId={conversationId} sending={sendingNow} onSendNow={(id) => void sendNow(id)} />}
-        onSend={async (text, attachments, skill) => {
+        onSend={async (text, attachments, skills) => {
           // 前面还有排队的：排到最后，保持先后；会话空着就先发队首那一条。
           if (busy || useShell.getState().queues[conversationId]?.length) {
-            await enqueue(text, attachments, skill);
+            await enqueue(text, attachments, skills);
             if (!busy)
               void drainQueue(runtime, conversationId).then((result) => {
                 if (result.status === 'failed') reportQueueFailure(result.error);
@@ -169,14 +169,14 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
               await editor.capture(),
               attachments.map((a) => a.id),
               undefined,
-              skill,
+              skills,
             );
             editor.reset();
             return true;
           } catch (error) {
             // 刚好有任务开跑（别的窗口、别的入口）：这句话排队，不丢。
             if (error instanceof RpcError && error.code === 'busy') {
-              await enqueue(text, attachments, skill);
+              await enqueue(text, attachments, skills);
               return true;
             }
             ToastQueue.negative(sendFailureMessage(error), { timeout: 5000 });

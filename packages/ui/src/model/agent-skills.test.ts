@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { RpcError, type SkillSummary } from '@baocut/protocol';
 import {
+  appendSkillId,
   clipLine,
   countSkills,
   filterSkills,
@@ -72,6 +73,13 @@ describe('输入框「+ › 使用 Skill」的条目', () => {
     expect(clipLine('😀😀😀😀😀', 3)).toBe('😀😀…');
     const [item] = skillMenuItems([skill('long', { description: 'x'.repeat(200) })]);
     expect([...item!.description]).toHaveLength(60);
+  });
+
+  it('挂上的 skill 接在后面，已经挂着的不重复（内置的摘掉再加回也接在后面）', () => {
+    expect(appendSkillId([], 'a')).toEqual(['a']);
+    expect(appendSkillId(['a'], 'b')).toEqual(['a', 'b']);
+    expect(appendSkillId(['a', 'b'], 'a')).toEqual(['a', 'b']);
+    expect(appendSkillId(['b'], 'builtin')).toEqual(['b', 'builtin']);
   });
 });
 

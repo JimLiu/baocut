@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { RpcError, SKILL_LIMITS, SKILL_SOURCE_FILE, normalizeSkillId } from '@baocut/protocol';
 import { SkillPrefsStore } from '@baocut/runtime-storage';
 import { SkillCatalog } from './skill-catalog.ts';
-import { skillIndexBlock, skillSendBlock } from './skill-brief.ts';
+import { resolveSendSkills, skillIndexBlock, skillSendBlock } from './skill-brief.ts';
 import { writeSkill } from './testing/skill-fixtures.ts';
 
 async function rejection(promise: Promise<unknown>): Promise<RpcError> {
@@ -180,5 +180,24 @@ describe('skill 目录', () => {
     expect(block).toContain('用户安装的 skill');
     await writeSkill(builtin, 'caption-layout');
     expect(skillSendBlock(await catalog.require('caption-layout'))).not.toContain('用户安装');
+  });
+
+  it('点选几个：按挂上的顺序各一段，重复的只算第一次；一个时与单段逐字节相同；空清单不附文字', async () => {
+    await writeSkill(builtin, 'caption-layout');
+    await writeSkill(user, 'mine');
+    expect(await resolveSendSkills(catalog, [])).toBeNull();
+
+    const one = await resolveSendSkills(catalog, [{ id: 'mine' }]);
+    expect(one?.instructions).toBe(skillSendBlock(await catalog.require('mine')));
+    expect(one?.refs).toEqual([{ id: 'mine', name: 'mine', origin: 'personal' }]);
+
+    const two = await resolveSendSkills(catalog, [{ id: 'mine' }, { id: 'caption-layout' }, { id: 'mine' }]);
+    expect(two?.refs.map((r) => r.id)).toEqual(['mine', 'caption-layout']);
+    expect(two?.instructions).toBe(
+      `${skillSendBlock(await catalog.require('mine'))}\n\n${skillSendBlock(await catalog.require('caption-layout'))}`,
+    );
+    expect(two?.instructions.match(/<baocut-skill id=/g)).toHaveLength(2);
+
+    expect((await rejection(resolveSendSkills(catalog, [{ id: 'mine' }, { id: 'nope' }]))).details).toMatchObject({ code: 'SKILL_NOT_FOUND' });
   });
 });

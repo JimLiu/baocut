@@ -7,7 +7,7 @@ import type { LoadedSkill, SkillCatalog } from './skill-catalog.ts';
  *
  * - 会话开始时的索引：开着的 skill 的 id、名称与描述，附在开发者指令后面；正文由智能体相关时用 `skills_read` 取（分层渐进加载）。
  *   说明书页（`baocut-catalog-*` 这类，指导里按 id 引用）排在前面，总在索引里。
- * - 点选时的正文：用户在这条消息上点选的 skill，`SKILL.md` 正文与同目录文件的清单附在交给智能体的文字后面。
+ * - 点选时的正文：用户在这条消息上点选的 skill（一个或几个，按挂上的顺序），每个的 `SKILL.md` 正文与同目录文件的清单各包一段，附在交给智能体的文字后面。
  *
  * 用户安装的（不是内置的）skill 带一行说明：这是用户装的参考指导，不扩大权限，与 BaoCut 的规则冲突时以规则为准。
  */
@@ -43,16 +43,26 @@ export function skillIndexBlock(skills: readonly LoadedSkill[]): string {
   return lines.join('\n');
 }
 
-/** 发送时解析好的 skill：消息上的标记，以及附在交给智能体的文字后面的那一段。 */
-export interface ResolvedSkill {
-  ref: SkillMessageRef;
+/** 发送时解析好的 skill：消息上的标记（按挂上的顺序），以及附在交给智能体的文字后面的那一段。 */
+export interface ResolvedSkills {
+  refs: SkillMessageRef[];
   instructions: string;
 }
 
-/** 解析 `conversations.send` 的 `skill`：开着、关着的都可以点选；没有这个 skill 时 `not-found`（`SKILL_NOT_FOUND`）。 */
-export async function resolveSendSkill(catalog: SkillCatalog, request: SkillSendRef): Promise<ResolvedSkill> {
-  const skill = await catalog.require(request.id);
-  return { ref: { id: skill.id, name: skill.name, origin: skill.origin }, instructions: skillSendBlock(skill) };
+/**
+ * 解析 `conversations.send` 点选的 skill（已经由 `sendSkillRefs` 合成有序清单）：开着、关着的都可以点选；重复的 id 只算第一次；
+ * 每个 skill 一段 `<baocut-skill>`，按顺序用空行隔开，只有一个时就是那一段。有一个不存在时整条 `not-found`（`SKILL_NOT_FOUND`）。
+ * 清单为空时返回 null。
+ */
+export async function resolveSendSkills(catalog: SkillCatalog, requests: readonly SkillSendRef[]): Promise<ResolvedSkills | null> {
+  const ids = [...new Set(requests.map((r) => r.id))];
+  if (ids.length === 0) return null;
+  const skills: LoadedSkill[] = [];
+  for (const id of ids) skills.push(await catalog.require(id));
+  return {
+    refs: skills.map((skill) => ({ id: skill.id, name: skill.name, origin: skill.origin })),
+    instructions: skills.map(skillSendBlock).join('\n\n'),
+  };
 }
 
 /** 交给智能体的点选段：正文与同目录文件，包在 `<baocut-skill>` 里。 */

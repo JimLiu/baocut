@@ -5,7 +5,7 @@
  * packages/app/src/composer/actions.ts（`sendQueuedComposerMessageNow`、`editQueuedComposerMessage`），modified：
  * 立即发送先走 `conversations.steer`，按它的结果决定移出、留在队列还是改走 `conversations.send`；队列按会话存在 shell-store。
  */
-import type { AttachmentRef, EditorContext, Id, SkillSendRef } from '@baocut/protocol';
+import { sendSkillRefs, type AttachmentRef, type EditorContext, type Id, type SkillSendRef } from '@baocut/protocol';
 
 export interface QueuedMessage {
   id: Id;
@@ -14,8 +14,8 @@ export interface QueuedMessage {
   attachments: AttachmentRef[];
   /** 入队那一刻编辑器的状态；走 `conversations.send` 时带上（`steer` 不收上下文）。 */
   context?: EditorContext;
-  /** 点选的 skill；走 `conversations.send` 时带上（`steer` 不收 skill，带 skill 的不插话，等这一轮结束再发）。 */
-  skill?: SkillSendRef;
+  /** 点选的 skill，按挂上的顺序；走 `conversations.send` 时带上（`steer` 不收 skill，带 skill 的不插话，等这一轮结束再发）。 */
+  skills?: SkillSendRef[];
   queuedAt: string;
 }
 
@@ -36,7 +36,11 @@ export function editQueuedMessage(queue: readonly QueuedMessage[], id: Id, text:
   });
 }
 
-/** 读回持久化的一条：形状不对的不要。 */
+function isSkillRef(value: unknown): value is SkillSendRef {
+  return !!value && typeof value === 'object' && typeof (value as SkillSendRef).id === 'string';
+}
+
+/** 读回持久化的一条：形状不对的不要。只能点一个 skill 时存的 `skill` 也认（`readQueuedMessage` 把它换成 `skills`）。 */
 export function isQueuedMessage(value: unknown): value is QueuedMessage {
   if (!value || typeof value !== 'object') return false;
   const m = value as Record<string, unknown>;
@@ -47,8 +51,17 @@ export function isQueuedMessage(value: unknown): value is QueuedMessage {
     Array.isArray(m.attachments) &&
     m.attachments.every((a) => !!a && typeof a === 'object' && typeof (a as AttachmentRef).id === 'string') &&
     (m.context === undefined || (!!m.context && typeof m.context === 'object')) &&
-    (m.skill === undefined || (!!m.skill && typeof m.skill === 'object' && typeof (m.skill as SkillSendRef).id === 'string'))
+    (m.skill === undefined || isSkillRef(m.skill)) &&
+    (m.skills === undefined || (Array.isArray(m.skills) && m.skills.every(isSkillRef)))
   );
+}
+
+/** 读回持久化的一条，旧的单个 `skill` 换成 `skills`；形状不对时为 null。 */
+export function readQueuedMessage(value: unknown): QueuedMessage | null {
+  if (!isQueuedMessage(value)) return null;
+  const { skill, skills, ...base } = value as QueuedMessage & { skill?: SkillSendRef };
+  const refs = sendSkillRefs({ ...(skill ? { skill } : {}), ...(skills ? { skills } : {}) });
+  return refs.length ? { ...base, skills: refs } : base;
 }
 
 /** 一条会话的队列：读最新的，整条写回。 */

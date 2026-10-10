@@ -20,8 +20,10 @@ const absolutePath = z
   .max(4096)
   .regex(/^(?:\/|[A-Za-z]:[\\/])[^\0]*$/, { error: () => V.absolutePath().text });
 
-/** `conversations.send` 的 `skill`。 */
+/** `conversations.send` 的 `skill`（单个）与 `skills` 的每一项。 */
 export const skillSendRefSchema = z.object({ id: skillId }).strict();
+/** `conversations.send` 的 `skills`：按挂上的顺序，最多 `SKILL_LIMITS.perMessage` 个；重复的 id 由 Runtime 只算第一次。 */
+export const skillSendListSchema = z.array(skillSendRefSchema).max(SKILL_LIMITS.perMessage);
 
 export const SKILL_PARAM_SCHEMAS = {
   'skills.list': z.object({}).strict(),

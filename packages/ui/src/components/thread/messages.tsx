@@ -2,7 +2,7 @@ import {ImageLightbox} from '../media/image-lightbox.tsx';
 import {useShell} from '../../state/shell-store.ts';
 import {IMAGE as IMAGE_COPY} from '../image-preview-copy.ts';
 import { memo, useEffect, useState } from 'react';
-import { localizeText, type AttachmentRef, type Id, type MediaHandle, type TimelineItem } from '@baocut/protocol';
+import { localizeText, messageSkills, type AttachmentRef, type Id, type MediaHandle, type TimelineItem } from '@baocut/protocol';
 import { UserMessage as UserBubble } from '@react-spectrum/ai';
 import { ActionButton, Card, Content, Text } from '@react-spectrum/s2';
 import AIMark from '@react-spectrum/s2/icons/AIMark';
@@ -159,13 +159,13 @@ export const UserMessage = memo(function UserMessage({ item, conversationId }: {
           <span>{HOME_COPY.templateToken(item.template.title)}</span>
         </div>
       ) : null}
-      {item.skill ? (
-        // 发送时点选的 skill（产品设计 §6.9）：只是标记，SKILL.md 正文交给了智能体，不在正文里。
-        <div className={contextLine} title={item.skill.id}>
+      {messageSkills(item).map((skill) => (
+        // 发送时点选的 skill（产品设计 §6.9），按挂上的顺序各一行：只是标记，SKILL.md 正文交给了智能体，不在正文里。
+        <div key={skill.id} className={contextLine} title={skill.id}>
           <Code />
-          <span>{SKILL_COPY.token(item.skill.name)}</span>
+          <span>{SKILL_COPY.token(skill.name)}</span>
         </div>
-      ) : null}
+      ))}
       <div className={actions}>
         <CopyButton text={item.text} />
       </div>

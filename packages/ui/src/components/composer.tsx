@@ -107,7 +107,7 @@ import { useRuntime } from '../runtime/context.tsx';
 import type { MessageFile } from '../host.ts';
 import { useDraftFileList, useDraftFiles } from '../state/draft-files-store.ts';
 import { useConnection } from '../state/connection-store.ts';
-import { useDraftSkillId, useDraftSkills } from '../state/draft-skills-store.ts';
+import { useDraftSkillIds, useDraftSkills } from '../state/draft-skills-store.ts';
 import { imageEntry, uploadDraftImages, useDraftImageList, useDraftImages, type DraftImage } from '../state/draft-images-store.ts';
 import { useShell } from '../state/shell-store.ts';
 import { useSpace } from '../state/space-store.ts';
@@ -207,8 +207,11 @@ export interface ComposerProps {
   autoFocus?: boolean;
   /** @ 候选的范围：会话所在的项目，或它自己的工作目录。 */
   mentionScope: MentionScope;
-  /** 发送；图片已经上传完，`skill` 是「+ › 使用 Skill」点选的那个。返回 false 表示没有发出去，保留草稿（含点选的 skill）。 */
-  onSend(text: string, attachments: AttachmentRef[], skill?: SkillSendRef): Promise<boolean>;
+  /**
+   * 发送；图片已经上传完，`skills` 是「+ › 使用 Skill」点选的那几个（按挂上的顺序，没有时为空）。
+   * 返回 false 表示没有发出去，保留草稿（含点选的 skill）。
+   */
+  onSend(text: string, attachments: AttachmentRef[], skills: SkillSendRef[]): Promise<boolean>;
   onStop?(): void;
   /** 输入框上方的引用标签（产品设计 §3.2.3）：随这条消息交给智能体的编辑器状态。可以移除。 */
   reference?: { label: string; description: string; onRemove(): void } | null;
@@ -237,7 +240,7 @@ export interface ComposerTool {
   onText(text: string): void;
   /** 正文上方：挂着的 skill（工具页自己画，标着哪个是这个工具的做法）。 */
   tokens: ReactNode;
-  /** 「+ › 使用 Skill」点选了一个。 */
+  /** 「+ › 使用 Skill」点选了一个：接在挂着的后面，已经挂着的不重复。 */
   onSkill(id: string): void;
   /** 框与主按钮之间的说明行（没挂 skill 时的那一行）。 */
   notice?: ReactNode;
@@ -295,10 +298,10 @@ export function Composer(props: ComposerProps) {
   const images = useDraftImageList(draftKey);
   const files = useDraftFileList(draftKey);
   const [picking, setPicking] = useState(false);
-  // 「+ › 使用 Skill」点选的那个（按草稿键存，一条消息最多一个）与 skill 列表（挂上、重连时取）。
-  const skillId = useDraftSkillId(draftKey);
+  // 「+ › 使用 Skill」点选的那几个（按草稿键存，按挂上的顺序，不重复）与 skill 列表（挂上、重连时取）。
+  const skillIds = useDraftSkillIds(draftKey);
   const skills = useSkillsLoader();
-  const skillName = skillId ? (skills.skills.find((s) => s.id === skillId)?.name ?? skillId) : null;
+  const skillName = (id: string) => skills.skills.find((s) => s.id === id)?.name ?? id;
   const [sending, setSending] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [prompt, setPrompt, selectSlot] = usePromptValue(draft, (text) => setDraft(draftKey, text));
@@ -527,14 +530,14 @@ export function Composer(props: ComposerProps) {
       return;
     }
     setDraft(draftKey, '');
-    const picked = skillId;
+    const picked = skillIds;
     try {
-      const ok = await onSend(text, attachments, picked ? { id: picked } : undefined);
+      const ok = await onSend(text, attachments, picked.map((id) => ({ id })));
       if (ok) {
         useDraftImages.getState().clear(draftKey);
         useDraftFiles.getState().sent(draftKey, sentFiles);
-        // 发出去了：点选的 skill 跟着清掉（这期间换了别的就留着）。
-        if (useDraftSkills.getState().skills[draftKey] === picked) useDraftSkills.getState().set(draftKey, null);
+        // 发出去了：发出去的那几个 skill 跟着摘掉（这期间新挂的留着）。
+        for (const id of picked) useDraftSkills.getState().remove(draftKey, id);
       } else setDraft(draftKey, originalText);
     } finally {
       setSending(false);
@@ -655,7 +658,7 @@ export function Composer(props: ComposerProps) {
           }
           if (!id.startsWith('skill:')) return;
           if (tool) tool.onSkill(id.slice('skill:'.length));
-          else useDraftSkills.getState().set(draftKey, id.slice('skill:'.length));
+          else useDraftSkills.getState().add(draftKey, id.slice('skill:'.length));
           refocus();
         }}
       >
@@ -838,14 +841,17 @@ export function Composer(props: ComposerProps) {
             </div>
           )}
           {/* 会话输入框上点选的 skill（起始页的画在 start.tokens 里，和模板一排）。 */}
-          {!start && !tool && skillId && skillName ? (
+          {!start && !tool && skillIds.length ? (
             <div className={composerTokenList}>
-              <ComposerToken
-                icon={<Code />}
-                label={SKILL_COPY.token(skillName)}
-                removeLabel={SKILL_COPY.remove(skillName)}
-                onRemove={() => useDraftSkills.getState().set(draftKey, null)}
-              />
+              {skillIds.map((id) => (
+                <ComposerToken
+                  key={id}
+                  icon={<Code />}
+                  label={SKILL_COPY.token(skillName(id))}
+                  removeLabel={SKILL_COPY.remove(skillName(id))}
+                  onRemove={() => useDraftSkills.getState().remove(draftKey, id)}
+                />
+              ))}
             </div>
           ) : null}
           {reference || spaceReferences ? (

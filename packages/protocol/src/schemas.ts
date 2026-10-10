@@ -12,7 +12,7 @@ import { WEB_METHOD_PATTERN } from './web.ts';
 import { SPACE_PARAM_SCHEMAS } from './space-schemas.ts';
 import { EXTERNAL_TOOL_PARAM_SCHEMAS } from './external-tools-schemas.ts';
 import { TEMPLATE_PARAM_SCHEMAS, templateSendRefSchema } from './template-schemas.ts';
-import { SKILL_PARAM_SCHEMAS, skillSendRefSchema } from './skill-schemas.ts';
+import { SKILL_PARAM_SCHEMAS, skillSendListSchema, skillSendRefSchema } from './skill-schemas.ts';
 import { FONT_PARAM_SCHEMAS } from './fonts-schemas.ts';
 import { COMPOSITION_PARAM_SCHEMAS } from './code-bundle-schemas.ts';
 import { TOOL_CATALOGUE_PARAM_SCHEMAS } from './tool-catalogue-schemas.ts';
@@ -730,6 +730,7 @@ export const methodParamSchemas = {
     contract: contractInput.optional(),
     template: templateSendRefSchema.optional(),
     skill: skillSendRefSchema.optional(),
+    skills: skillSendListSchema.optional(),
   }),
   'conversations.steer': z.object({
     conversationId: id,
@@ -1238,4 +1239,4 @@ export {
   type TemplateManifestResult,
   type TemplateTranslationResult,
 } from './template-schemas.ts';
-export { skillSendRefSchema } from './skill-schemas.ts';
+export { skillSendListSchema, skillSendRefSchema } from './skill-schemas.ts';

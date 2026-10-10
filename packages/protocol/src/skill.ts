@@ -45,6 +45,8 @@ export const SKILL_LIMITS = {
   readFileBytes: 256 * 1024,
   /** 文件在目录内的相对路径的长度上限。 */
   path: 300,
+  /** 一条消息最多点选几个 skill（`conversations.send` 的 `skills`）。 */
+  perMessage: 20,
 } as const;
 
 /**
@@ -173,14 +175,38 @@ export interface SkillRemoveResult extends SkillListResult {
   removed: { id: string; path: string };
 }
 
-/** 发送消息时点选的 skill（`conversations.send` 的 `skill`）：开着的、关着的都可以点。 */
+/**
+ * 发送消息时点选的 skill（`conversations.send` 的 `skills` 每一项，或单个的 `skill`）：开着的、关着的都可以点。
+ * 一条消息可以带几个，按挂上的顺序交给智能体，重复的 id 只算第一次。
+ */
 export interface SkillSendRef {
   id: string;
 }
 
-/** 用户消息上的 skill 标记：会话里显示「Skill：名称」，不含正文。 */
+/** 用户消息上的 skill 标记：会话里每个显示一个「Skill：名称」，不含正文。 */
 export interface SkillMessageRef {
   id: string;
   name: string;
   origin: SkillOrigin;
+}
+
+/**
+ * `conversations.send` 点选的 skill 合成一份有序清单：单个的 `skill` 在前，`skills` 按顺序接在后面，重复的 id 只留第一次。
+ * 两个都没给时是空清单。
+ */
+export function sendSkillRefs(params: { skill?: SkillSendRef; skills?: readonly SkillSendRef[] }): SkillSendRef[] {
+  const seen = new Set<string>();
+  const out: SkillSendRef[] = [];
+  for (const ref of [...(params.skill ? [params.skill] : []), ...(params.skills ?? [])]) {
+    if (seen.has(ref.id)) continue;
+    seen.add(ref.id);
+    out.push({ id: ref.id });
+  }
+  return out;
+}
+
+/** 用户消息上的 skill 标记，按挂上的顺序；兼容只写了单个 `skill` 的旧记录。 */
+export function messageSkills(message: { skill?: SkillMessageRef; skills?: readonly SkillMessageRef[] }): SkillMessageRef[] {
+  if (message.skills?.length) return [...message.skills];
+  return message.skill ? [message.skill] : [];
 }

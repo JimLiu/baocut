@@ -15,27 +15,33 @@ const KIND_ICON = { media: Video, image: ImageIcon, document: FileText } as cons
  * 素材只列名字，悬停看完整路径；发出去时路径写进那条消息。标记的样子在 composer-token.tsx，会话输入框上的 skill 标记同款。
  */
 export function BriefTokens({
-  skill,
+  skills,
   template,
   materials,
   onRemoveSkill,
   onRemoveTemplate,
   onRemoveMaterial,
 }: {
-  /** 点选的 skill 的名字；没选时为 null。 */
-  skill: string | null;
+  /** 点选的 skill，按挂上的顺序；没选时为空。 */
+  skills: readonly { id: string; name: string }[];
   template: HomeTemplate | null;
   materials: readonly HomeMaterial[];
-  onRemoveSkill(): void;
+  onRemoveSkill(id: string): void;
   onRemoveTemplate(): void;
   onRemoveMaterial(path: string): void;
 }) {
-  if (!skill && !template && !materials.length) return null;
+  if (!skills.length && !template && !materials.length) return null;
   return (
     <div className={composerTokenList}>
-      {skill ? (
-        <ComposerToken icon={<Code />} label={SKILL_COPY.token(skill)} removeLabel={SKILL_COPY.remove(skill)} onRemove={onRemoveSkill} />
-      ) : null}
+      {skills.map((skill) => (
+        <ComposerToken
+          key={skill.id}
+          icon={<Code />}
+          label={SKILL_COPY.token(skill.name)}
+          removeLabel={SKILL_COPY.remove(skill.name)}
+          onRemove={() => onRemoveSkill(skill.id)}
+        />
+      ))}
       {template ? (
         // 输入框上方选中的模板（原型 `.home-template-token`）：小封面、名字、移除。
         <ComposerToken

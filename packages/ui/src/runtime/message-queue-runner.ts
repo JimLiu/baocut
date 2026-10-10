@@ -23,13 +23,13 @@ function transport(runtime: RuntimeSession, conversationId: Id): QueueTransport 
   return {
     // 插话不带编辑器状态：协议的 steer 不收上下文。也不收 skill：带 skill 的不插话，回合还在跑就等它结束，已经结束就直接发。
     steer: (m) =>
-      m.skill
+      m.skills?.length
         ? Promise.resolve(
             useDirectory.getState().conversations.find((c) => c.id === conversationId)?.activeTaskId ? 'unsupported' : 'no-active-turn',
           )
         : runtime.steer(conversationId, m.text, ids(m)),
     send: async (m) => {
-      await runtime.send(conversationId, m.text, m.context, ids(m), undefined, m.skill);
+      await runtime.send(conversationId, m.text, m.context, ids(m), undefined, m.skills);
     },
   };
 }

@@ -351,8 +351,10 @@ export interface RpcMethods {
    * 附在交给智能体的文字后面；会话里的消息仍是 `text`，另带一个模板标记。没有这个模板时 `not-found`（`TEMPLATE_NOT_FOUND`）；
    * 作品示例（`kind: 'example'`）的正文本来就是用户输入，`invalid-request`（`TEMPLATE_NOT_SCENE`）；`assets` 里有清单没登记的路径时
    * `invalid-request`（`TEMPLATE_FILE_NOT_FOUND`）。
-   * `skill`：点选的 skill（架构设计 §3.8），开着的、关着的都可以。Runtime 读目录里当前的 `SKILL.md`，把正文与「同目录还有哪些文件、
-   * 用 `skills_read` 取」附在交给智能体的文字后面（在模板段之后）；消息上另带一个 skill 标记。没有这个 skill 时 `not-found`（`SKILL_NOT_FOUND`）。
+   * `skills`：点选的 skill（架构设计 §3.8），按挂上的顺序，开着的、关着的都可以；`skill` 是只点一个时的旧写法，两个都给时 `skill`
+   * 排在最前，重复的 id 只算第一次（`sendSkillRefs`）。Runtime 读目录里当前的 `SKILL.md`，每个 skill 把正文与「同目录还有哪些文件、
+   * 用 `skills_read` 取」包成一段，按顺序附在交给智能体的文字后面（在模板段之后）；消息上按同样的顺序带 skill 标记。
+   * 有一个不存在时整条 `not-found`（`SKILL_NOT_FOUND`）。
    */
   'conversations.send': {
     params: {
@@ -366,6 +368,7 @@ export interface RpcMethods {
       contract?: TaskContractInput;
       template?: TemplateSendRef;
       skill?: SkillSendRef;
+      skills?: SkillSendRef[];
     };
     result: { taskId: Id };
   };

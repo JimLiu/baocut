@@ -44,7 +44,7 @@ describe('Agent skill 端到端', () => {
     await client.connect();
   }
 
-  async function send(text: string, skill?: string): Promise<{ conversationId: Id; session: ToolSession }> {
+  async function send(text: string, skill?: string, skills?: string[]): Promise<{ conversationId: Id; session: ToolSession }> {
     const { conversation } = await client.request('conversations.create', {});
     const before = driver.sessions.length;
     await client.request('conversations.send', {
@@ -52,6 +52,7 @@ describe('Agent skill 端到端', () => {
       text,
       commandId: newId('cmd'),
       ...(skill ? { skill: { id: skill } } : {}),
+      ...(skills ? { skills: skills.map((id) => ({ id })) } : {}),
     });
     // 每个对话一个原生会话：新出现的那个就是这条消息的。
     const session = await until(() => driver.sessions[before]);
@@ -148,11 +149,35 @@ describe('Agent skill 端到端', () => {
     expect(turn).toContain('每行不超过 16 个字。');
     expect(turn).toContain('references/fonts.md');
     const message = runtime.harness.getConversation(conversationId).items.find((i) => i.kind === 'user-message');
-    expect(message).toMatchObject({ text: '排一下字幕', skill: { id: 'caption-layout', name: 'caption-layout', origin: 'builtin' } });
+    expect(message).toMatchObject({ text: '排一下字幕', skills: [{ id: 'caption-layout', name: 'caption-layout', origin: 'builtin' }] });
 
     const { conversation } = await client.request('conversations.create', {});
     const missing = await rejection(
       client.request('conversations.send', { conversationId: conversation.id, text: 'x', commandId: newId('cmd'), skill: { id: 'nope' } }),
+    );
+    expect(missing).toMatchObject({ code: 'not-found', details: { code: 'SKILL_NOT_FOUND' } });
+  });
+
+  it('一条消息点选几个 skill：按挂上的顺序各一段，旧写法的 skill 排在最前，重复的只算一次', async () => {
+    await writeSkill(builtin, 'caption-layout');
+    await writeSkill(builtin, 'b-roll');
+    await boot();
+    const { conversationId, session } = await send('剪一下', 'b-roll', ['caption-layout', 'b-roll']);
+    const turn = session.inputs[0]!;
+    expect(turn.indexOf('<baocut-skill id="b-roll">')).toBeGreaterThan(0);
+    expect(turn.indexOf('<baocut-skill id="caption-layout">')).toBeGreaterThan(turn.indexOf('<baocut-skill id="b-roll">'));
+    expect(turn.match(/<baocut-skill id=/g)).toHaveLength(2);
+    const message = runtime.harness.getConversation(conversationId).items.find((i) => i.kind === 'user-message');
+    expect(message).toMatchObject({ skills: [{ id: 'b-roll' }, { id: 'caption-layout' }] });
+
+    const { conversation } = await client.request('conversations.create', {});
+    const missing = await rejection(
+      client.request('conversations.send', {
+        conversationId: conversation.id,
+        text: 'x',
+        commandId: newId('cmd'),
+        skills: [{ id: 'caption-layout' }, { id: 'nope' }],
+      }),
     );
     expect(missing).toMatchObject({ code: 'not-found', details: { code: 'SKILL_NOT_FOUND' } });
   });

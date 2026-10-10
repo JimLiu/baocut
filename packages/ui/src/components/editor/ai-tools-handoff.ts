@@ -42,8 +42,7 @@ export async function sendOrQueue(
   message: OutgoingMessage,
   context: EditorContext | null,
 ): Promise<'sent' | 'queued'> {
-  const { text, attachments } = message;
-  const skill = message.skills[0];
+  const { text, attachments, skills } = message;
   const enqueue = () =>
     useShell.getState().setQueue(conversationId, (queue) =>
       enqueueMessage(queue, {
@@ -51,7 +50,7 @@ export async function sendOrQueue(
         text,
         attachments,
         ...(context ? { context } : {}),
-        ...(skill ? { skill } : {}),
+        ...(skills.length ? { skills } : {}),
         queuedAt: nowIso(),
       }),
     );
@@ -68,7 +67,7 @@ export async function sendOrQueue(
       context ?? undefined,
       attachments.map((a) => a.id),
       undefined,
-      skill,
+      skills,
     );
     return 'sent';
   } catch (error) {
@@ -144,8 +143,7 @@ export async function handToAgent(runtime: RuntimeSession, request: HandoffReque
     const after = useShell.getState();
     after.setDraft(conversationId, mergeDraft(after.drafts[conversationId], request.text));
     useDraftImages.getState().move(draftKey, conversationId);
-    const skill = request.skills[0];
-    if (skill) useDraftSkills.getState().set(conversationId, skill.id);
+    for (const skill of request.skills) useDraftSkills.getState().add(conversationId, skill.id);
     return true;
   }
 }

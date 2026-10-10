@@ -168,7 +168,8 @@ export class RuntimeSession {
    * `context`：编辑器当时的状态（打开的视频、版本、选区、播放头），随消息交给智能体。
    * `attachments`：已经上传完的图片（`uploadAttachment` 返回的 id）。
    * `template`：挂着的场景模板（模板包规范 §5.2），Runtime 据此给智能体拼简报引导与模板正文；`text` 仍是用户自己的话。
-   * `skill`：输入框「+ › 使用 Skill」点选的 skill（产品设计 §6.9），Runtime 把 `SKILL.md` 正文附给智能体，消息上另带标记。
+   * `skills`：输入框「+ › 使用 Skill」点选的 skill（产品设计 §6.9），按挂上的顺序；Runtime 把每个的 `SKILL.md` 正文附给智能体，
+   * 消息上另带标记。空的不传。
    */
   async send(
     conversationId: Id,
@@ -176,7 +177,7 @@ export class RuntimeSession {
     context?: EditorContext,
     attachments?: Id[],
     template?: TemplateSendRef,
-    skill?: SkillSendRef,
+    skills?: readonly SkillSendRef[],
   ): Promise<Id> {
     const { taskId } = await this.client.request('conversations.send', {
       conversationId,
@@ -185,7 +186,7 @@ export class RuntimeSession {
       ...(context ? { context } : {}),
       ...(attachments?.length ? { attachments } : {}),
       ...(template ? { template } : {}),
-      ...(skill ? { skill } : {}),
+      ...(skills?.length ? { skills: skills.map((s) => ({ id: s.id })) } : {}),
     });
     return taskId;
   }

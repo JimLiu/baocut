@@ -105,6 +105,11 @@ export function clipLine(text: string, max = 60): string {
   return chars.length > max ? `${chars.slice(0, max - 1).join('')}…` : flat;
 }
 
+/** 输入框上挂 skill：接在后面，已经挂着的不重复（产品设计 §6.9「点选」，原型 tool-prompt.jsx `addSkill`）。 */
+export function appendSkillId(ids: readonly string[], id: string): string[] {
+  return ids.includes(id) ? [...ids] : [...ids, id];
+}
+
 export interface SkillMenuItem {
   id: string;
   name: string;
