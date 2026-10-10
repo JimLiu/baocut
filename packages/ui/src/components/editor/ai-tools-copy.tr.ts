@@ -87,4 +87,8 @@ export const tr: AiToolsMessages = {
   undone: 'Geri alındı',
   undoFailed: 'Geri alınamadı',
   stateResult: 'Sonuç hazır',
+  statePercent: (percent) => `%${percent}`,
+  statePending: (count) => `${count} bekliyor`,
+  stateStale: (count) => `${count} eskimiş`,
+  stateLast: (when) => `Son · ${when}`,
 };

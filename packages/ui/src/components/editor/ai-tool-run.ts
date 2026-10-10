@@ -67,9 +67,11 @@ interface AiToolRunState {
   results: Record<string, AiToolResult>;
   receipts: Record<string, AiToolReceipt>;
   problems: Record<string, AiToolProblem>;
+  /** 收据上撤销过的任务（`jobId`）：收据关掉之后列表仍写「已撤销」，不写「上次」。 */
+  undoneJobs: Record<Id, true>;
 }
 
-const EMPTY: AiToolRunState = { runs: {}, results: {}, receipts: {}, problems: {} };
+const EMPTY: AiToolRunState = { runs: {}, results: {}, receipts: {}, problems: {}, undoneJobs: {} };
 
 export const useAiToolRun = create<AiToolRunState>()(() => ({ ...EMPTY }));
 
@@ -256,4 +258,5 @@ export async function undoAiTool(key: string): Promise<void> {
     return;
   }
   patch({ busy: false, undone: true });
+  useAiToolRun.setState((s) => ({ undoneJobs: { ...s.undoneJobs, [receipt.jobId]: true } }));
 }

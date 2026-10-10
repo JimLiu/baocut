@@ -123,4 +123,8 @@ export const ja: AiToolsMessages = {
   undone: '元に戻しました',
   undoFailed: '元に戻せませんでした',
   stateResult: '結果あり',
+  statePercent: (percent) => `${percent}%`,
+  statePending: (count) => `${count} 件未確定`,
+  stateStale: (count) => `${count} 文が古い`,
+  stateLast: (when) => `前回 · ${when}`,
 };

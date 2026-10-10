@@ -124,4 +124,8 @@ export const zhHans: AiToolsMessages = {
   undone: '已撤销',
   undoFailed: '没能撤销',
   stateResult: '有结果',
+  statePercent: (percent) => `${percent}%`,
+  statePending: (count) => `${count} 处待定`,
+  stateStale: (count) => `${count} 句过期`,
+  stateLast: (when) => `上次 · ${when}`,
 };

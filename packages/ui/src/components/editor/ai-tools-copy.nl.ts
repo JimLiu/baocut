@@ -120,4 +120,8 @@ export const nl: AiToolsMessages = {
   undone: 'Ongedaan gemaakt',
   undoFailed: 'Ongedaan maken mislukt',
   stateResult: 'Resultaat klaar',
+  statePercent: (percent) => `${percent}%`,
+  statePending: (count) => `${count} open`,
+  stateStale: (count) => `${count} verouderd`,
+  stateLast: (when) => `Laatst · ${when}`,
 };

@@ -120,4 +120,8 @@ export const de: AiToolsMessages = {
   undone: 'Rückgängig gemacht',
   undoFailed: 'Rückgängig machen fehlgeschlagen',
   stateResult: 'Ergebnis bereit',
+  statePercent: (percent) => `${percent} %`,
+  statePending: (count) => `${count} offen`,
+  stateStale: (count) => `${count} veraltet`,
+  stateLast: (when) => `Zuletzt · ${when}`,
 };

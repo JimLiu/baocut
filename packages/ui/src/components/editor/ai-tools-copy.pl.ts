@@ -122,4 +122,8 @@ export const pl: AiToolsMessages = {
   undone: 'Cofnięto',
   undoFailed: 'Nie udało się cofnąć',
   stateResult: 'Wynik gotowy',
+  statePercent: (percent) => `${percent}%`,
+  statePending: (count) => `${count} do decyzji`,
+  stateStale: (count) => `Nieaktualne: ${count}`,
+  stateLast: (when) => `Ostatnio · ${when}`,
 };

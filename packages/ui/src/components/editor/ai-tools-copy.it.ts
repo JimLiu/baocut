@@ -86,4 +86,8 @@ export const it: AiToolsMessages = {
   undone: 'Annullato',
   undoFailed: 'Impossibile annullare',
   stateResult: 'Risultato pronto',
+  statePercent: (percent) => `${percent}%`,
+  statePending: (count) => `${count} in sospeso`,
+  stateStale: (count) => (count === 1 ? '1 obsoleta' : `${count} obsolete`),
+  stateLast: (when) => `Ultima · ${when}`,
 };

@@ -87,4 +87,8 @@ export const vi: AiToolsMessages = {
   undone: 'Đã hoàn tác',
   undoFailed: 'Không hoàn tác được',
   stateResult: 'Đã có kết quả',
+  statePercent: (percent) => `${percent}%`,
+  statePending: (count) => `${count} chờ quyết định`,
+  stateStale: (count) => `${count} câu đã cũ`,
+  stateLast: (when) => `Lần trước · ${when}`,
 };

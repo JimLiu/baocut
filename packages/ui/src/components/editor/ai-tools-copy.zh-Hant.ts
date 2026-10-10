@@ -123,4 +123,8 @@ export const zhHant: AiToolsMessages = {
   undone: '已復原',
   undoFailed: '沒能復原',
   stateResult: '有結果',
+  statePercent: (percent) => `${percent}%`,
+  statePending: (count) => `${count} 處待定`,
+  stateStale: (count) => `${count} 句過期`,
+  stateLast: (when) => `上次 · ${when}`,
 };

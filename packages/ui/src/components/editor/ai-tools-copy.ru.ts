@@ -122,4 +122,8 @@ export const ru: AiToolsMessages = {
   undone: 'Отменено',
   undoFailed: 'Не удалось отменить',
   stateResult: 'Есть результат',
+  statePercent: (percent) => `${percent}%`,
+  statePending: (count) => `Не решено: ${count}`,
+  stateStale: (count) => `Устарело: ${count}`,
+  stateLast: (when) => `Последний · ${when}`,
 };

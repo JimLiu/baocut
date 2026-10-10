@@ -81,4 +81,8 @@ export const es: AiToolsMessages = {
   undone: 'Deshecho',
   undoFailed: 'No se pudo deshacer',
   stateResult: 'Resultado listo',
+  statePercent: (percent) => `${percent} %`,
+  statePending: (count) => `${count} pendientes`,
+  stateStale: (count) => (count === 1 ? '1 desactualizada' : `${count} desactualizadas`),
+  stateLast: (when) => `Última · ${when}`,
 };

@@ -123,4 +123,8 @@ export const ko: AiToolsMessages = {
   undone: '실행 취소됨',
   undoFailed: '실행 취소하지 못했습니다',
   stateResult: '결과 있음',
+  statePercent: (percent) => `${percent}%`,
+  statePending: (count) => `${count}곳 미정`,
+  stateStale: (count) => `${count}문장 오래됨`,
+  stateLast: (when) => `지난번 · ${when}`,
 };

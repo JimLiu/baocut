@@ -1,5 +1,5 @@
 import { useMemo, type ComponentType } from 'react';
-import type { DocumentRecord, Id, Sequence } from '@baocut/protocol';
+import type { AiToolKind, DocumentRecord, Id, Sequence } from '@baocut/protocol';
 import { Badge, Button, Link } from '@react-spectrum/s2';
 import ChevronRight from '@react-spectrum/s2/icons/ChevronRight';
 import Comment from '@react-spectrum/s2/icons/Comment';
@@ -30,6 +30,12 @@ import { PanelHead } from './panel-head.tsx';
 import { useShallow } from 'zustand/react/shallow';
 import { useSpeakersRun } from './speakers-run.ts';
 import { useAiToolRun } from './ai-tool-run.ts';
+import { aiToolJobFacts, aiToolRowState, EDITORIAL_PROPOSAL_KIND, pendingCutCount, type AiToolRowState } from '../../model/ai-tool-row-state.ts';
+import { agoLabel } from '../../model/format.ts';
+import { isStale, pairRows, readTranslation, speechSentences } from '../../model/translation-doc.ts';
+import { useJobs } from '../../state/jobs-store.ts';
+import { useNow } from '../use-now.ts';
+import { useDocumentBodies } from './use-document-body.ts';
 
 const body = style({ flexGrow: 1, minHeight: 0, overflowY: 'auto', paddingX: 12, paddingTop: 12, paddingBottom: 16 });
 /** 顶上那张卡与列表的行（原型 .atagent、.drill.ail__row）：左图标、两行字、右边状态与箭头，整行可点。 */
@@ -77,6 +83,8 @@ const text = style({ display: 'flex', flexDirection: 'column', gap: '[2px]', fle
 const name = style({ font: 'ui', fontWeight: 'bold', color: 'inherit' });
 const sub = style({ font: 'ui-xs', color: 'gray-600' });
 const iconBox = style({ display: 'flex', flexShrink: 0, color: 'gray-700' });
+/** 状态 chip（原型 .ail__st，`Chip` 即 S2 Badge subtle）：不被两行字挤窄。 */
+const stateChip = style({ flexShrink: 0 });
 const chev = style({ display: 'flex', flexShrink: 0, color: 'gray-500' });
 /** 没有文稿时的说明卡（原型 .aicard.ail__empty）。 */
 const emptyCard = style({
@@ -109,23 +117,115 @@ const TOOL_ICON: Partial<Record<AiToolId, ComponentType>> = {
   cover: Image,
 };
 
-/** 一行右边的状态：在跑 > 待处理 > 已有的结果（原型 panel-aitools-list.jsx `rowState`）。只报编辑器手里有的事实。 */
-function useRowStates(videoId: Id, sequence: Sequence): Partial<Record<AiToolId, { text: string; tone: 'informative' | 'notice' | 'neutral' }>> {
+const STALE_LISTED = AI_TOOLS.some((t) => t.id === 'stale' && LIST_GROUPS.includes(t.group));
+
+type RowTone = 'informative' | 'notice' | 'neutral';
+/** 色调同原型的 Chip：在跑 accent → informative，过期与要人看的 notice，其余（含原型的 info）neutral。 */
+const ROW_TONE: Record<AiToolRowState['kind'], RowTone> = {
+  running: 'informative',
+  result: 'notice',
+  review: 'notice',
+  pending: 'neutral',
+  stale: 'notice',
+  chapters: 'neutral',
+  last: 'neutral',
+  undone: 'neutral',
+};
+
+function rowText(state: AiToolRowState, now: number): string {
+  switch (state.kind) {
+    case 'running':
+      return state.percent === null ? C.stateRunning : C.statePercent(state.percent);
+    case 'result':
+      return C.stateResult;
+    case 'review':
+      return C.stateReview;
+    case 'pending':
+      return C.statePending(state.count);
+    case 'stale':
+      return C.stateStale(state.count);
+    case 'chapters':
+      return C.stateChapters(state.count);
+    case 'last':
+      return C.stateLast(agoLabel(state.at, now));
+    case 'undone':
+      return C.undone;
+  }
+}
+
+/** 过期的译文句子（`enabled` 为假时不取正文）：时间线上每份译文对着它译自的那份转写逐句配对（同字幕面板与配音页的判断）。读不出来时 0，不去猜。 */
+function useStaleSentences(documents: Record<Id, DocumentRecord>, enabled: boolean): number {
+  const translations = useMemo(
+    () =>
+      enabled
+        ? Object.values(documents).filter((d) => d.kind === 'translation' && d.sourceDocumentId && documents[d.sourceDocumentId]?.kind === 'speech')
+        : [],
+    [documents, enabled],
+  );
+  const speeches = useMemo(() => [...new Set(translations.map((t) => t.sourceDocumentId!))].map((id) => documents[id]!), [translations, documents]);
+  const speechBodies = useDocumentBodies(speeches);
+  const translationBodies = useDocumentBodies(translations);
+  return useMemo(() => {
+    const sentencesOf = new Map(speeches.map((s, i) => [s.id, speechBodies[i] === undefined ? null : speechSentences(speechBodies[i])]));
+    let n = 0;
+    translations.forEach((t, i) => {
+      const sentences = sentencesOf.get(t.sourceDocumentId!);
+      const parsed = readTranslation(translationBodies[i]);
+      if (sentences && parsed) n += pairRows(sentences, parsed).filter((r) => r.unit && isStale(r.state)).length;
+    });
+    return n;
+  }, [speeches, speechBodies, translations, translationBodies]);
+}
+
+/** 剪辑提案里还没定的建议（找可剪的口写的，视频格式规范 §6.2）。 */
+function usePendingCuts(documents: Record<Id, DocumentRecord>): number {
+  const proposals = useMemo(() => Object.values(documents).filter((d) => d.kind === EDITORIAL_PROPOSAL_KIND), [documents]);
+  const bodies = useDocumentBodies(proposals);
+  return useMemo(() => pendingCutCount(proposals.map((record, i) => ({ record, body: bodies[i] })), documents), [proposals, bodies, documents]);
+}
+
+/**
+ * 一行右边的状态（原型 panel-aitools-list.jsx `rowState`，判断见 `aiToolRowState`）：在跑的（直接调模型的任务、识别说话人）、
+ * 要人看的结果、找可剪的口留下的建议、过期的译文、时间线上的章节、上次跑完的时间或已撤销。只报编辑器手里有的事实。
+ */
+function useRowStates(videoId: Id, sequence: Sequence, documents: Record<Id, DocumentRecord>): Partial<Record<AiToolId, { text: string; tone: RowTone }>> {
   const chapters = useMemo(() => chapterPieces(sequence).length, [sequence]);
+  const pendingCuts = usePendingCuts(documents);
+  // 刷新过期译文这一行在列表里时才去取转写与译文的正文（它所在的翻译组还在各自面板里，见 `LIST_GROUPS`）。
+  const staleSentences = useStaleSentences(documents, STALE_LISTED);
   const speakersRunning = useSpeakersRun((s) => !!s.runs[videoId] || !!s.installs[videoId]);
   const speakersPending = useSpeakersRun((s) => !!s.proposals[videoId]);
-  const states: Partial<Record<AiToolId, { text: string; tone: 'informative' | 'notice' | 'neutral' }>> = {};
-  if (speakersRunning) states.speakers = { text: C.stateRunning, tone: 'informative' };
-  else if (speakersPending) states.speakers = { text: C.stateReview, tone: 'notice' };
-  if (chapters) states.chapters = { text: C.stateChapters(chapters), tone: 'neutral' };
-  // 直接调模型的任务（键「视频 · 工具」）：在跑的、出了结果还没看完的。
+  // 直接调模型的任务（键「视频 · 工具」）：从这里提交、还没拿到任务号的；出了结果还没看完的；撤销过的。
   const prefix = `${videoId}:`;
-  const directRunning = useAiToolRun(useShallow((s) => Object.values(s.runs).filter((r) => r.videoId === videoId).map((r) => r.tool)));
-  const directDone = useAiToolRun(
-    useShallow((s) => [...Object.keys(s.results), ...Object.keys(s.receipts)].filter((k) => k.startsWith(prefix)).map((k) => k.slice(prefix.length))),
+  const submitting = useAiToolRun(useShallow((s) => Object.values(s.runs).filter((r) => r.videoId === videoId).map((r) => r.tool)));
+  // 撤销过的收据不算没看完：那一行写「已撤销」。
+  const unread = useAiToolRun(
+    useShallow((s) =>
+      [...Object.keys(s.results), ...Object.entries(s.receipts).filter(([, r]) => !r.undone).map(([k]) => k)]
+        .filter((k) => k.startsWith(prefix))
+        .map((k) => k.slice(prefix.length)),
+    ),
   );
-  for (const tool of directDone) states[tool as AiToolId] = { text: C.stateResult, tone: 'notice' };
-  for (const tool of directRunning) states[tool] = { text: C.stateRunning, tone: 'informative' };
+  const undoneJobs = useAiToolRun((s) => s.undoneJobs);
+  // 任务镜像里这个视频的 `ai-tool` 任务：别处（CLI、另一个窗口）提交的也在。
+  const jobs = useJobs((s) => s.jobs);
+  const jobFacts = useMemo(() => aiToolJobFacts(jobs, videoId), [jobs, videoId]);
+  const now = useNow(30_000);
+  const states: Partial<Record<AiToolId, { text: string; tone: RowTone }>> = {};
+  for (const t of AI_TOOLS) {
+    const job = jobFacts[t.id];
+    const running = job?.running ?? (submitting.includes(t.id as AiToolKind) || (t.id === 'speakers' && speakersRunning) ? { percent: null } : null);
+    const state = aiToolRowState(t.id, {
+      running,
+      result: unread.includes(t.id),
+      review: t.id === 'speakers' && speakersPending,
+      pendingCuts,
+      staleSentences,
+      chapters,
+      last: job?.last ? { at: job.last.at, undone: !!undoneJobs[job.last.jobId] } : null,
+    });
+    if (state) states[t.id] = { text: rowText(state, now), tone: ROW_TONE[state.kind] };
+  }
   return states;
 }
 
@@ -189,7 +289,7 @@ export function AiToolsList({ videoId, sequence, documents }: { videoId: Id; seq
   const checking = useConnection((s) => s.checking);
   const guide = gateGuide(homeGate(drivers, checking));
   const hasTranscript = Object.values(documents).some((d) => d.kind === 'speech');
-  const states = useRowStates(videoId, sequence);
+  const states = useRowStates(videoId, sequence, documents);
   return (
     <>
       <PanelHead title={EL.tabAiTools} />
@@ -221,7 +321,7 @@ export function AiToolsList({ videoId, sequence, documents }: { videoId: Id; seq
                     <span className={sub}>{t.desc}</span>
                   </span>
                   {state ? (
-                    <Badge size="S" variant={state.tone}>
+                    <Badge size="S" variant={state.tone} fillStyle="subtle" styles={stateChip}>
                       {state.text}
                     </Badge>
                   ) : null}

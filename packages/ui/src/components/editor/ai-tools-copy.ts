@@ -147,6 +147,10 @@ const en = {
   undone: 'Undone',
   undoFailed: 'Couldn’t undo',
   stateResult: 'Result ready',
+  statePercent: (percent: number) => `${percent}%`,
+  statePending: (count: number) => `${count} pending`,
+  stateStale: (count: number) => `${count} stale`,
+  stateLast: (when: string) => `Last · ${when}`,
 };
 
 export type AiToolsMessages = typeof en;

@@ -120,4 +120,8 @@ export const ptBR: AiToolsMessages = {
   undone: 'Desfeito',
   undoFailed: 'Não foi possível desfazer',
   stateResult: 'Resultado pronto',
+  statePercent: (percent) => `${percent}%`,
+  statePending: (count) => `${count} pendente${count === 1 ? '' : 's'}`,
+  stateStale: (count) => `${count} desatualizada${count === 1 ? '' : 's'}`,
+  stateLast: (when) => `Última · ${when}`,
 };

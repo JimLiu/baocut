@@ -113,6 +113,9 @@ describe('直接调模型的运行', () => {
     await undoAiTool(key);
     expect(undone).toHaveLength(1);
     expect(toasts).toEqual([]);
+    // 收据关掉之后列表仍知道那一次撤销过。
+    closeAiToolResult(key);
+    expect(useAiToolRun.getState().undoneJobs).toEqual({ p1: true });
   });
 
   it('提交被拒（没配文本模型）：问题卡带原因，不留运行', async () => {
