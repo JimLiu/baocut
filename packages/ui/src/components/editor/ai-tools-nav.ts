@@ -38,3 +38,23 @@ export function closeAiTool(videoId: Id | null, to?: PanelTab): void {
   if (videoId) setAiToolPage(videoId, null);
   if (to && useEditor.getState().panelTab === 'aitools') useEditor.setState({ panelTab: to });
 }
+
+/** 留在原地的工具页（`agentStaysOnPage`）交出去的那一次：发到哪条会话、哪个任务（排了队的还没有）、什么时候交的。 */
+export interface AiToolAgentRun {
+  conversationId: Id;
+  taskId: Id | null;
+  handedAt: string;
+}
+
+/**
+ * 找可剪的口与刷新过期译文交给 Agent 后，按「视频 · 工具」（`toolDraftKey`）记着那一次，不持久化：有就在工具页原地画进度卡
+ * （原型 panel-aitools.jsx `phase === 'agent'`），回列表再进来还在；「重新设置」「完成」清掉，会话不受影响。
+ */
+export const useAiToolAgentRuns = create<{ runs: Record<string, AiToolAgentRun> }>(() => ({ runs: {} }));
+
+export function setAiToolAgentRun(key: string, run: AiToolAgentRun | null): void {
+  useAiToolAgentRuns.setState((s) => {
+    const { [key]: _drop, ...rest } = s.runs;
+    return { runs: run ? { ...rest, [key]: run } : rest };
+  });
+}

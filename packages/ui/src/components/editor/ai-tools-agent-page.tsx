@@ -4,6 +4,7 @@ import { Checkbox, NumberField, Picker, PickerItem, TextField, ToastQueue } from
 import InfoCircle from '@react-spectrum/s2/icons/InfoCircle';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import {
+  agentStaysOnPage,
   aiTool,
   canvasRatio,
   CLEANUP_OPTIONS,
@@ -16,6 +17,7 @@ import {
   isWritingTool,
   TITLE_COUNT,
   toolEffect,
+  toolDraftKey,
   toolTemplate,
   writingExtra,
   type AgentToolId,
@@ -33,10 +35,12 @@ import { useModels } from '../../state/models-store.ts';
 import { AsrMoreOptions, useSpeakerState } from '../tools/asr-more-options.tsx';
 import { directHasScope, directParams, directTool, scopedParagraphs } from './ai-tool-direct.ts';
 import { DirectModelGate, DirectModelPicker, DirectProblem, DirectReceiptView, DirectResultView, DirectRunView, useDirectModel } from './ai-tool-direct-view.tsx';
+import { AiToolAgentRun } from './ai-tool-agent-run.tsx';
 import { AgentUseRow, AiToolPrompt, SessionRow, useToolHandoff, type DirectPrompt } from './ai-tool-prompt.tsx';
 import { closeAiToolResult, runKey, startAiTool, useAiToolRun } from './ai-tool-run.ts';
+import type { Handoff } from './ai-tools-handoff.ts';
 import { AI_TOOLS_COPY as C } from './ai-tools-copy.ts';
-import type { AiToolPreset } from './ai-tools-nav.ts';
+import { setAiToolAgentRun, useAiToolAgentRuns, type AiToolPreset } from './ai-tools-nav.ts';
 import { PanelHead } from './panel-head.tsx';
 import { EDITOR_COPY as E } from './editor-copy.ts';
 import { useDocumentBody } from './use-document-body.ts';
@@ -106,7 +110,8 @@ function Option({
 /**
  * 交给 Agent 的工具页（原型 panel-aitools.jsx `DocFlow`、panel-aitools-write.jsx、panel-aitools-cover.jsx 的设置态，产品设计 §5.10「参数页」）：
  * 说明卡（名字、说明、会不会改视频），设置行（「用」、范围、会话，再接工具自己的勾选项与数字），提示词框（预填模板、挂着这个工具的
- * skill），主按钮与一行去向。语言、风格、篇幅、视角写在提示词里，不再是下拉。按下就发出去，工具页回到列表。
+ * skill），主按钮与一行去向。语言、风格、篇幅、视角写在提示词里，不再是下拉。按下就发出去，工具页回到列表；找可剪的口与刷新过期译文
+ * 留在原地（`agentStaysOnPage`），这一页换成进度卡（`AiToolAgentRun`），「重新设置」或结束后的「完成」回到这里。
  */
 export function AiAgentToolPage({
   videoId,
@@ -146,6 +151,10 @@ export function AiAgentToolPage({
   const receipt = useAiToolRun((s) => s.receipts[key] ?? null);
   const problem = useAiToolRun((s) => s.problems[key] ?? null);
   const modelSection = useRef<HTMLDivElement>(null);
+  // 留在原地的工具交出去的那一次：有就画进度卡。
+  const stays = agentStaysOnPage(tool);
+  const draftKey = toolDraftKey(videoId, tool);
+  const agentRun = useAiToolAgentRuns((s) => (stays ? (s.runs[draftKey] ?? null) : null));
 
   const [pre, setPre] = useState(true);
   const [cleanup, setCleanup] = useState<Record<CleanupKey, boolean>>({ fillers: true, pauses: true, repeats: true });
@@ -244,6 +253,8 @@ export function AiAgentToolPage({
           ),
       }
     : null;
+
+  if (agentRun) return <AiToolAgentRun videoId={videoId} tool={tool} run={agentRun} onBack={onBack} />;
 
   // 直接调模型跑着、出了结果或收据：这一页换成那一态（同识别说话人的四态页）。结果与收据页的「返回」与「完成」一样回到参数页
   // （设置与提示词都还在），参数页的「返回」才回列表；跑着时没有参数页可回，「返回」回列表、任务在后台接着跑。
@@ -411,6 +422,7 @@ export function AiAgentToolPage({
           handoff={handoff}
           isDisabled={staleEmpty}
           onDone={onBack}
+          {...(stays ? { onHandedOff: (h: Handoff) => setAiToolAgentRun(draftKey, { conversationId: h.conversationId, taskId: h.taskId, handedAt: h.handedAt }) } : {})}
           direct={direct}
         />
       </div>

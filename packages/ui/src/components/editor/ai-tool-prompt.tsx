@@ -26,7 +26,7 @@ import { AgentGateLine } from './agent-gate-line.tsx';
 import { contextItems, contextLine, directBlocked, directCta, directHint, type DirectContext } from './ai-tool-direct.ts';
 import { attachAiToolSkill, detachAiToolSkill, restoreAiToolPrompt, setAiToolPrompt, useAiToolPrompts, useAiToolSkills } from './ai-tool-run.ts';
 import { AI_TOOLS_COPY as C } from './ai-tools-copy.ts';
-import { handToAgent } from './ai-tools-handoff.ts';
+import { handToAgent, type Handoff } from './ai-tools-handoff.ts';
 
 const row = style({ display: 'flex', alignItems: 'start', gap: 8 });
 const rowLabel = style({ flexShrink: 0, width: 56, paddingTop: 4, font: 'ui-sm', color: 'gray-700' });
@@ -214,7 +214,7 @@ export interface DirectPrompt {
  * 改过才出「恢复默认」），默认挂着这个工具的内置 skill（标着「这个工具的做法」，摘掉后框下一行说明并给加回），
  * 「+ › 使用 Skill」再挂别的（接在后面，已经挂着的不重复，加回内置的也接在后面，同原型 `addSkill`），每个可以单独摘掉；
  * 底栏是访问模式与「家 · 模型」（与「用」一行同一份）。按下就按「会话」行交出去，挂着的 skill 按顺序一起发（`conversations.send`
- * 的 `skills`），`onDone` 回列表。
+ * 的 `skills`），`onDone` 回列表；给了 `onHandedOff` 的（找可剪的口、刷新过期译文）不切到会话，交给它在原地画进度。
  * 「用」选了直接调模型（`direct`）时：底栏换成文本模型的选择，框下写挂着的 skill 作系统提示词、发给模型的上下文，主按钮写
  * 这个工具的动作，下面一行说调哪只模型、结果去哪、花不花钱；按下去由工具页提交 `ai-tool` 流程，留在原地看进度与结果。
  */
@@ -225,6 +225,7 @@ export function AiToolPrompt({
   handoff,
   isDisabled,
   onDone,
+  onHandedOff,
   direct,
 }: {
   videoId: Id;
@@ -233,6 +234,8 @@ export function AiToolPrompt({
   handoff: ToolHandoff;
   isDisabled?: boolean;
   onDone(): void;
+  /** 留在原地（`agentStaysOnPage`）：交出去后不切到会话、不回列表，由工具页画进度卡。话没发出去（放进了会话的输入框）时照常 `onDone`。 */
+  onHandedOff?(handoff: Handoff): void;
   /** 「用」选了直接调模型：底栏换成文本模型的选择，框下多两行（skill 作系统提示词、发给模型的），按下去走 `ai-tool` 流程。 */
   direct?: DirectPrompt | null;
 }) {
@@ -368,9 +371,11 @@ export function AiToolPrompt({
                     skills: skillIds.map((id) => ({ id })),
                     create: handoff.create,
                     draftKey,
-                  }).then((ok) => {
-                    if (ok) onDone();
-                    return ok;
+                    stay: !!onHandedOff,
+                  }).then((result) => {
+                    if (result && onHandedOff && !result.drafted) onHandedOff(result);
+                    else if (result) onDone();
+                    return !!result;
                   }),
               }
         }

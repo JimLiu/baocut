@@ -33,7 +33,7 @@ export interface OutgoingMessage {
 }
 
 /**
- * 发到会话里；会话正忙（或前面还排着话）就排到队尾，等这一轮结束按顺序发（同会话页的输入框）。
+ * 发到会话里；会话正忙（或前面还排着话）就排到队尾，等这一轮结束按顺序发（同会话页的输入框）。发出去的带上任务号，排队的没有。
  * 别的错误抛给调用方。
  */
 export async function sendOrQueue(
@@ -41,7 +41,7 @@ export async function sendOrQueue(
   conversationId: Id,
   message: OutgoingMessage,
   context: EditorContext | null,
-): Promise<'sent' | 'queued'> {
+): Promise<{ status: 'sent'; taskId: Id } | { status: 'queued' }> {
   const { text, attachments, skills } = message;
   const enqueue = () =>
     useShell.getState().setQueue(conversationId, (queue) =>
@@ -58,10 +58,10 @@ export async function sendOrQueue(
   if (busy || useShell.getState().queues[conversationId]?.length) {
     enqueue();
     if (!busy) void drainQueue(runtime, conversationId);
-    return 'queued';
+    return { status: 'queued' };
   }
   try {
-    await runtime.send(
+    const taskId = await runtime.send(
       conversationId,
       text,
       context ?? undefined,
@@ -69,12 +69,12 @@ export async function sendOrQueue(
       undefined,
       skills,
     );
-    return 'sent';
+    return { status: 'sent', taskId };
   } catch (error) {
     // 刚好有任务开跑（别的窗口、别的入口）：这句话排队，不丢。
     if (!(error instanceof RpcError && error.code === 'busy')) throw error;
     enqueue();
-    return 'queued';
+    return { status: 'queued' };
   }
 }
 
@@ -87,21 +87,44 @@ export interface HandoffRequest extends OutgoingMessage {
   create?: { accessMode?: AgentMode; driverId?: DriverId; model?: string | null; effort?: string | null };
   /** 提示词框的草稿键：没发出去时附件从这里挪到那条会话的输入框。 */
   draftKey: string;
+  /** 留在原地（`agentStaysOnPage`）：会话照样建好、话照样发出去，只是不切过去，工具页原地画进度。 */
+  stay?: boolean;
+}
+
+/** 交出去了：发到哪条会话；直接发出去的带任务号，排了队或没发出去（话放进了那条会话的输入框）的没有。 */
+export interface Handoff {
+  conversationId: Id;
+  taskId: Id | null;
+  /** 话没发出去、放进了那条会话的输入框：那条会话已经打开到眼前（`stay` 的也是），工具页没有进度可画。 */
+  drafted: boolean;
+  /** 交出去的那一刻：排了队的按它认后来开始的任务（`agentRunState`）。 */
+  handedAt: string;
+}
+
+/**
+ * 把那条会话打开到眼前：会话在左、正开着的视频作为功能区的标签留在右边；从 Space 打开的视频同样转到 Home（悬浮会话只是新会话的
+ * 输入框，不显示会话，产品设计 §5.1）。完整视图退回分屏，窄窗口选中会话标签（用户自己点的，不算智能体抢界面）。
+ */
+export function showConversation(conversationId: Id): void {
+  const target = routeVideo(useShell.getState().route);
+  if (target) useShell.getState().openPane({ kind: 'video', target }, { conversationId });
+  else useShell.getState().go({ tab: 'home', conversationId, projectId: null });
+  useShell.getState().revealConversation();
 }
 
 /**
  * 交给 Agent（原型 tool-prompt.jsx `onStart` → `sendToAgent`）：参数页就是确认，按「会话」行新开一条会话（缺省）或接着这个视频
- * 当前的那条，把提示词框里的话连同附件与挂着的 skill **直接发出去**；接着的那条正忙时排队。会话在左、这个视频作为功能区的标签留在
- * 右边，会话露出来；从 Space 打开的视频同样转到 Home（悬浮会话只是新会话的输入框，不显示会话，产品设计 §5.1）。
- * 返回 false：没发出去，提示词框原样留着。会话已经建好、话没发出去时，话、附件与 skill 放进那条会话的输入框，也算交出去了。
+ * 当前的那条，把提示词框里的话连同附件与挂着的 skill **直接发出去**；接着的那条正忙时排队。那条会话打开到眼前（`showConversation`）；
+ * `stay` 的不切过去，只记成 Space 里这个视频的悬浮会话（原型 store.jsx `land` 的 `stay`）。
+ * 返回 null：没发出去，提示词框原样留着。会话已经建好、话没发出去时，话、附件与 skill 放进那条会话的输入框，也算交出去了。
  */
-export async function handToAgent(runtime: RuntimeSession, request: HandoffRequest): Promise<boolean> {
-  const { video, session, create, draftKey } = request;
+export async function handToAgent(runtime: RuntimeSession, request: HandoffRequest): Promise<Handoff | null> {
+  const { video, session, create, draftKey, stay } = request;
   const source = video?.source ?? null;
   const plan = planHandoff({ session, source, conversations: useDirectory.getState().conversations });
   if (plan.kind === 'none') {
     ToastQueue.negative(C.noConversation, { timeout: 5000 });
-    return false;
+    return null;
   }
   const shell = useShell.getState();
   const shown = routeVideo(shell.route);
@@ -115,7 +138,7 @@ export async function handToAgent(runtime: RuntimeSession, request: HandoffReque
       if (create?.accessMode) void setDefaultAccessMode(runtime, create.accessMode).catch(() => {});
     } catch (error) {
       ToastQueue.negative(C.createFailed(error instanceof Error ? error.message : String(error)), { timeout: 5000 });
-      return false;
+      return null;
     }
   } else conversationId = plan.conversationId;
   // 编辑器此刻的状态：版本、选区与播放头是按下按钮那一刻的。
@@ -123,20 +146,19 @@ export async function handToAgent(runtime: RuntimeSession, request: HandoffReque
 
   // 悬浮会话记着这一条：最小化的图标按它亮状态点。
   if (floating) useShell.getState().setVideoChat(floating, conversationId);
-  // 建会话要等一会儿：以那时的位置为准。项目起始页上开着的标签带到新会话（同首页发出第一句时）。
-  const now = useShell.getState().route;
-  const target = routeVideo(now);
-  if (plan.kind === 'create' && now.tab === 'home' && now.conversationId === null) {
-    useShell.getState().carryWorkspace(workspaceKey(null, now.projectId), conversationId);
+  if (!stay) {
+    // 建会话要等一会儿：以那时的位置为准。项目起始页上开着的标签带到新会话（同首页发出第一句时）。
+    const now = useShell.getState().route;
+    if (plan.kind === 'create' && now.tab === 'home' && now.conversationId === null) {
+      useShell.getState().carryWorkspace(workspaceKey(null, now.projectId), conversationId);
+    }
+    showConversation(conversationId);
   }
-  if (target) useShell.getState().openPane({ kind: 'video', target }, { conversationId });
-  else useShell.getState().go({ tab: 'home', conversationId, projectId: null });
-  // 会话得露出来：完整视图退回分屏；窄窗口选中会话标签（用户自己点的交给 AI，不算智能体抢界面）。
-  useShell.getState().revealConversation();
+  const handedAt = nowIso();
   try {
     const result = await sendOrQueue(runtime, conversationId, request, context);
-    ToastQueue.info(result === 'queued' ? C.queued : plan.kind === 'create' ? C.sentNew : C.sentCurrent, { timeout: 5000 });
-    return true;
+    ToastQueue.info(result.status === 'queued' ? C.queued : plan.kind === 'create' ? C.sentNew : C.sentCurrent, { timeout: 5000 });
+    return { conversationId, taskId: result.status === 'sent' ? result.taskId : null, drafted: false, handedAt };
   } catch (error) {
     ToastQueue.negative(sendFailureMessage(error), { timeout: 5000 });
     // 没发出去：话放进那条会话的输入框（接在已有的字后面），图片与 skill 一起挪过去，不吞掉。本机文件的路径已经写在话里。
@@ -144,6 +166,8 @@ export async function handToAgent(runtime: RuntimeSession, request: HandoffReque
     after.setDraft(conversationId, mergeDraft(after.drafts[conversationId], request.text));
     useDraftImages.getState().move(draftKey, conversationId);
     for (const skill of request.skills) useDraftSkills.getState().add(conversationId, skill.id);
-    return true;
+    // 留在原地的也把会话带到眼前：话在那条会话的输入框里等着重发。
+    if (stay) showConversation(conversationId);
+    return { conversationId, taskId: null, drafted: true, handedAt };
   }
 }

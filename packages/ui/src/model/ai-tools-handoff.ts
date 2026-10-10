@@ -1,4 +1,4 @@
-import type { Id } from '@baocut/protocol';
+import type { Id, MessageRef, TimelineItem } from '@baocut/protocol';
 
 /** 视频的来源（`VideoRef.source`）：属于哪个项目，或在哪条无项目会话的工作目录里。 */
 export interface HandoffSource {
@@ -69,6 +69,56 @@ export function messageCount(items: readonly { kind: string }[]): number {
   let n = 0;
   for (const item of items) if (item.kind === 'user-message' || item.kind === 'agent-message') n++;
   return n;
+}
+
+/**
+ * 留在原地的工具页（找可剪的口、刷新过期译文，`agentStaysOnPage`）交出去的那一次走到哪了，从那条会话的时间线读（原型
+ * model-agent.js `sessionProgress`）：话还排着或任务还没出现时是 `starting`；任务在跑时有待批的审批就是 `waiting`（等用户去会话里
+ * 放行），否则 `running`，`step` 是最近一步的标题；任务结束按它的状态。结果本身（剪辑建议、重译的句子）照常写进视频，这里只报进度。
+ */
+export type AgentRunState =
+  | { kind: 'starting' }
+  | { kind: 'running'; step: string | null }
+  | { kind: 'waiting'; step: string | null }
+  | { kind: 'done' }
+  | { kind: 'failed'; error: string | null; errorRef: MessageRef | null }
+  | { kind: 'stopped' };
+
+/**
+ * 认任务：发出去时拿到了任务号就按它；排了队的（会话正忙）没有，认交出去之后才开始的第一个任务——同一句话可能在这条会话里
+ * 发过不止一次，不按正文认。
+ */
+export function agentRunState({
+  taskId,
+  handedAt,
+  items,
+}: {
+  taskId: Id | null;
+  handedAt: string;
+  items: readonly TimelineItem[] | undefined;
+}): AgentRunState {
+  if (!items) return { kind: 'starting' };
+  let task: Extract<TimelineItem, { kind: 'task' }> | null = null;
+  for (const item of items) {
+    if (item.kind !== 'task') continue;
+    if (taskId ? item.id === taskId : item.startedAt >= handedAt) {
+      task = item;
+      break;
+    }
+  }
+  if (!task) return { kind: 'starting' };
+  const id = task.id;
+  if (task.status === 'completed') return { kind: 'done' };
+  if (task.status === 'stopped') return { kind: 'stopped' };
+  if (task.status === 'failed') return { kind: 'failed', error: task.error, errorRef: task.errorRef ?? null };
+  let step: string | null = null;
+  let waiting = false;
+  for (const item of items) {
+    if (item.taskId !== id) continue;
+    if (item.kind === 'tool-call') step = item.title;
+    else if (item.kind === 'approval') waiting = item.status === 'pending';
+  }
+  return waiting ? { kind: 'waiting', step } : { kind: 'running', step };
 }
 
 /**

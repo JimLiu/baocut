@@ -15,15 +15,16 @@ import TextParagraph from '@react-spectrum/s2/icons/TextParagraph';
 import UserGroup from '@react-spectrum/s2/icons/UserGroup';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { Button as RACButton } from 'react-aria-components';
-import { AI_TOOL_GROUP_LABEL, AI_TOOLS, groupSub, laterNote, LIST_GROUPS, type AiToolId } from '../../model/ai-tools.ts';
+import { AI_TOOL_GROUP_LABEL, AI_TOOLS, groupSub, laterNote, LIST_GROUPS, toolDraftKey, type AiToolId } from '../../model/ai-tools.ts';
 import { chapterPieces } from '../../model/export-range.ts';
 import { useConnection, defaultDriver } from '../../state/connection-store.ts';
+import { useDirectory } from '../../state/directory-store.ts';
 import { useEditor } from '../../state/editor-store.ts';
 import { routeVideo, useShell } from '../../state/shell-store.ts';
 import { useVideo } from '../../state/video-store.ts';
 import { useGateFix } from '../start/gate-card.tsx';
 import { AI_TOOLS_COPY as C } from './ai-tools-copy.ts';
-import { openAiTool } from './ai-tools-nav.ts';
+import { openAiTool, useAiToolAgentRuns } from './ai-tools-nav.ts';
 import { ELEMENTS_COPY as EL } from './elements-copy.ts';
 import { gateGuide, homeGate, type GateGuide } from '../../model/home-brief.ts';
 import { PanelHead } from './panel-head.tsx';
@@ -185,7 +186,8 @@ function usePendingCuts(documents: Record<Id, DocumentRecord>): number {
 }
 
 /**
- * 一行右边的状态（原型 panel-aitools-list.jsx `rowState`，判断见 `aiToolRowState`）：在跑的（直接调模型的任务、识别说话人）、
+ * 一行右边的状态（原型 panel-aitools-list.jsx `rowState`，判断见 `aiToolRowState`）：在跑的（直接调模型的任务、识别说话人、留在原地
+ * 交给 Agent 而那条会话还在跑的）、
  * 要人看的结果、找可剪的口留下的建议、过期的译文、时间线上的章节、上次跑完的时间或已撤销。只报编辑器手里有的事实。
  */
 function useRowStates(videoId: Id, sequence: Sequence, documents: Record<Id, DocumentRecord>): Partial<Record<AiToolId, { text: string; tone: RowTone }>> {
@@ -210,11 +212,21 @@ function useRowStates(videoId: Id, sequence: Sequence, documents: Record<Id, Doc
   // 任务镜像里这个视频的 `ai-tool` 任务：别处（CLI、另一个窗口）提交的也在。
   const jobs = useJobs((s) => s.jobs);
   const jobFacts = useMemo(() => aiToolJobFacts(jobs, videoId), [jobs, videoId]);
+  // 找可剪的口与刷新过期译文交给 Agent 后留在原地：那条会话还有任务在跑（排着队的也算）。
+  const agentRuns = useAiToolAgentRuns((s) => s.runs);
+  const conversations = useDirectory((s) => s.conversations);
+  const agentBusy = (tool: AiToolId) => {
+    const run = agentRuns[toolDraftKey(videoId, tool)];
+    const active = run ? (conversations.find((c) => c.id === run.conversationId)?.activeTaskId ?? null) : null;
+    return !!active && (run?.taskId === null || run?.taskId === active);
+  };
   const now = useNow(30_000);
   const states: Partial<Record<AiToolId, { text: string; tone: RowTone }>> = {};
   for (const t of AI_TOOLS) {
     const job = jobFacts[t.id];
-    const running = job?.running ?? (submitting.includes(t.id as AiToolKind) || (t.id === 'speakers' && speakersRunning) ? { percent: null } : null);
+    const running =
+      job?.running ??
+      (submitting.includes(t.id as AiToolKind) || (t.id === 'speakers' && speakersRunning) || agentBusy(t.id) ? { percent: null } : null);
     const state = aiToolRowState(t.id, {
       running,
       result: unread.includes(t.id),

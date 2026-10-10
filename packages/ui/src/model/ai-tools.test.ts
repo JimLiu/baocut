@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   AI_TOOL_GROUP_LABEL,
   AI_TOOLS,
+  agentStaysOnPage,
   aiTool,
   canvasRatio,
   cleanupExtra,
@@ -70,6 +71,13 @@ describe('AI 工具目录', () => {
     expect(hasScope('title')).toBe(true);
     expect(hasScope('chapters')).toBe(false);
     expect(hasScope('stale')).toBe(false);
+  });
+
+  it('交给 Agent 后只有找可剪的口与刷新过期译文留在原地', () => {
+    expect(agentStaysOnPage('cleanup')).toBe(true);
+    expect(agentStaysOnPage('stale')).toBe(true);
+    expect(agentStaysOnPage('polish')).toBe(false);
+    expect(agentStaysOnPage('blog')).toBe(false);
   });
 });
 

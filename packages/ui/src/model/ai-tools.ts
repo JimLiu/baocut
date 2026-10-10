@@ -375,6 +375,14 @@ export function isWritingTool(id: AiToolId): id is 'summary' | 'blog' | 'title' 
 }
 
 /**
+ * 交给 Agent 后工具页留不留在原地（产品设计 §5.10「交给智能体」，原型 model-ai-prompt.js `agentLeavesPage`）：找可剪的口与
+ * 刷新过期译文留在原地画进度，会话照样建好、话照样发出去，只是不切过去；其余工具回列表、那条会话打开到眼前。
+ */
+export function agentStaysOnPage(id: AgentToolId): boolean {
+  return id === 'cleanup' || id === 'stale';
+}
+
+/**
  * 设置页给不给「范围」一行：范围会进意图句的工具才给（润色、说话人、重新转录、找可剪的口按 `scope` 写进句子，
  * 写作与发布折成「只看…」）。生成章节与刷新过期译文的句子里没有范围，给了也不起作用。
  */

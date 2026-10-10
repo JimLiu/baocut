@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { currentConversation, mergeDraft, messageCount, planHandoff } from './ai-tools-handoff.ts';
+import type { TimelineItem } from '@baocut/protocol';
+import { agentRunState, currentConversation, mergeDraft, messageCount, planHandoff } from './ai-tools-handoff.ts';
 
 const at = (id: string, projectId: string | null, updatedAt: string, archived = false) => ({ id, projectId, title: id, archived, updatedAt });
 const conversations = [
@@ -63,5 +64,52 @@ describe('填进输入框的草稿', () => {
 
   it('没有要填的：原样留着', () => {
     expect(mergeDraft('写了一半', '')).toBe('写了一半');
+  });
+});
+
+describe('留在原地的工具页：交出去的那一次走到哪了', () => {
+  const base = { createdAt: '2026-10-10T08:00:00Z' };
+  const task = (id: string, status: 'running' | 'completed' | 'failed' | 'stopped', startedAt = '2026-10-10T08:00:00Z') =>
+    ({ ...base, kind: 'task', id, taskId: id, goal: 'x', status, startedAt, endedAt: null, error: status === 'failed' ? '没连上' : null }) as TimelineItem;
+  const call = (taskId: string, title: string) =>
+    ({ ...base, kind: 'tool-call', id: `call-${title}`, taskId, tool: 'command', title, detail: null, output: '', status: 'completed', exitCode: 0, durationMs: 1 }) as TimelineItem;
+  const approval = (taskId: string, status: 'pending' | 'accepted') =>
+    ({ ...base, kind: 'approval', id: `ap-${status}`, taskId, approvalId: 'a1', request: { kind: 'command', command: 'bcut cleanup', cwd: null, reason: null }, status, decidedAt: null }) as TimelineItem;
+  const handedAt = '2026-10-10T08:00:00Z';
+
+  it('时间线还没读到、或任务还没出现：正在开始', () => {
+    expect(agentRunState({ taskId: 't1', handedAt, items: undefined })).toEqual({ kind: 'starting' });
+    expect(agentRunState({ taskId: 't1', handedAt, items: [task('t0', 'completed')] })).toEqual({ kind: 'starting' });
+  });
+
+  it('在跑：最近一步的标题；有待批的审批就是等放行，批了接着跑', () => {
+    expect(agentRunState({ taskId: 't1', handedAt, items: [task('t1', 'running'), call('t1', '读文稿'), call('t1', '找停顿')] })).toEqual({
+      kind: 'running',
+      step: '找停顿',
+    });
+    expect(agentRunState({ taskId: 't1', handedAt, items: [task('t1', 'running'), call('t1', '读文稿'), approval('t1', 'pending')] })).toEqual({
+      kind: 'waiting',
+      step: '读文稿',
+    });
+    expect(agentRunState({ taskId: 't1', handedAt, items: [task('t1', 'running'), approval('t1', 'accepted')] })).toEqual({ kind: 'running', step: null });
+  });
+
+  it('别的任务的步骤与审批不算', () => {
+    expect(agentRunState({ taskId: 't1', handedAt, items: [task('t0', 'running'), approval('t0', 'pending'), task('t1', 'running')] })).toEqual({
+      kind: 'running',
+      step: null,
+    });
+  });
+
+  it('任务结束按它的状态', () => {
+    expect(agentRunState({ taskId: 't1', handedAt, items: [task('t1', 'completed')] })).toEqual({ kind: 'done' });
+    expect(agentRunState({ taskId: 't1', handedAt, items: [task('t1', 'stopped')] })).toEqual({ kind: 'stopped' });
+    expect(agentRunState({ taskId: 't1', handedAt, items: [task('t1', 'failed')] })).toEqual({ kind: 'failed', error: '没连上', errorRef: null });
+  });
+
+  it('排了队没有任务号：认交出去之后开始的第一个任务，不认之前同一句话的那次', () => {
+    const items = [task('t0', 'completed', '2026-10-10T07:00:00Z'), task('t1', 'running', '2026-10-10T08:00:05Z'), task('t2', 'completed', '2026-10-10T08:10:00Z')];
+    expect(agentRunState({ taskId: null, handedAt, items })).toEqual({ kind: 'running', step: null });
+    expect(agentRunState({ taskId: null, handedAt, items: items.slice(0, 1) })).toEqual({ kind: 'starting' });
   });
 });
