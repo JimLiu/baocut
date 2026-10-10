@@ -2,15 +2,15 @@
   "schema": 1,
   "target": "x86_64-pc-windows-msvc",
   "variant": "cuda",
-  "version": "3.1.1",
-  "build": 64,
-  "date": "2026-10-09",
+  "version": "3.2.0",
+  "build": 65,
+  "date": "2026-10-10",
   "notes": "",
   "notesLocalized": {},
   "app": {
     "format": "exe",
-    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.1.1-build.64/BaoCut-3.1.1-build.64-win-x64-cuda-setup.exe",
-    "size": 750006632,
-    "sha256": "956d93228a5499640616eeb7ca083de91de19770030db7440f3745a664cddc82"
+    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.2.0-build.65/BaoCut-3.2.0-build.65-win-x64-cuda-setup.exe",
+    "size": 751077486,
+    "sha256": "2638bd0297a5b2af52c3f0c41da63c1a8fe065d4e9de521bcd202b01243fab47"
   }
 }
