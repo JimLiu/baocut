@@ -3,17 +3,21 @@ import { RpcError, type AiToolSummary, type JobRecord, type TransactionReceipt, 
 import { toolDraftKey } from '../../model/ai-tools.ts';
 import { useJobs } from '../../state/jobs-store.ts';
 import {
+  attachAiToolSkill,
   bindAiToolRun,
   closeAiToolResult,
+  detachAiToolSkill,
   resetAiToolRun,
   restoreAiToolPrompt,
   retryAiTool,
   setAiToolPrompt,
+  setAiToolSkills,
   runKey,
   startAiTool,
   undoAiTool,
   useAiToolPrompts,
   useAiToolRun,
+  useAiToolSkills,
   type AiToolRunDeps,
 } from './ai-tool-run.ts';
 
@@ -178,5 +182,49 @@ describe('提示词框里改过的字', () => {
     setAiToolPrompt(toolDraftKey('vid', 'blog'), 'B', template);
     setAiToolPrompt(toolDraftKey('other', 'summary'), 'C', template);
     expect(useAiToolPrompts.getState().prompts).toEqual({ [draftKey]: 'A', 'aitool:vid:blog': 'B', 'aitool:other:summary': 'C' });
+  });
+});
+
+describe('提示词框上挂着的 skill', () => {
+  const draftKey = toolDraftKey('vid', 'summary');
+  const defaults = ['video-summary'];
+  const stored = () => useAiToolSkills.getState().skills[draftKey];
+
+  it('摘掉内置的、跑完、结果页「完成」之后还摘着；加回成缺省那一份就不再存', async () => {
+    fake();
+    detachAiToolSkill(draftKey, 'video-summary', defaults);
+    expect(stored()).toEqual([]);
+    const key = runKey('vid', 'summary');
+    await startAiTool({ videoId: 'vid', tool: 'summary', prompt: 'Summarize.' }, 'gpt-5-mini');
+    useJobs.setState({ jobs: [job('p1', 'completed', textSummary)] });
+    expect(useAiToolRun.getState().results[key]).toBeDefined();
+    closeAiToolResult(key);
+    expect(stored()).toEqual([]);
+
+    attachAiToolSkill(draftKey, 'video-summary', defaults);
+    expect(stored()).toBeUndefined();
+    expect(useAiToolSkills.getState().skills).toEqual({});
+  });
+
+  it('接在后面、不重复；加回内置的也接在后面', () => {
+    attachAiToolSkill(draftKey, 'house-style', defaults);
+    attachAiToolSkill(draftKey, 'house-style', defaults);
+    expect(stored()).toEqual(['video-summary', 'house-style']);
+    detachAiToolSkill(draftKey, 'video-summary', defaults);
+    attachAiToolSkill(draftKey, 'video-summary', defaults);
+    expect(stored()).toEqual(['house-style', 'video-summary']);
+    setAiToolSkills(draftKey, defaults, defaults);
+    expect(stored()).toBeUndefined();
+  });
+
+  it('按「视频 · 工具」分开存', () => {
+    attachAiToolSkill(draftKey, 'a', defaults);
+    detachAiToolSkill(toolDraftKey('vid', 'blog'), 'video-blog', ['video-blog']);
+    attachAiToolSkill(toolDraftKey('other', 'summary'), 'c', defaults);
+    expect(useAiToolSkills.getState().skills).toEqual({
+      [draftKey]: ['video-summary', 'a'],
+      'aitool:vid:blog': [],
+      'aitool:other:summary': ['video-summary', 'c'],
+    });
   });
 });

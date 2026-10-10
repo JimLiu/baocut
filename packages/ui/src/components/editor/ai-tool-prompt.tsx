@@ -6,7 +6,6 @@ import InfoCircle from '@react-spectrum/s2/icons/InfoCircle';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { AGENT_PICKER, SKILL_COPY } from '../../copy.ts';
 import { applyAgentChange, draftSelection, harnessLabel, type AgentChange, type AgentChoice } from '../../model/agent-choice.ts';
-import { appendSkillId } from '../../model/agent-skills.ts';
 import { handoffHint, sessionOptions, TOOL_SKILL, toolDraftKey, type AgentToolId, type AiToolId, type SessionOption } from '../../model/ai-tools.ts';
 import { currentConversation, messageCount } from '../../model/ai-tools-handoff.ts';
 import { gateGuide, homeGate, type GateGuide } from '../../model/home-brief.ts';
@@ -25,7 +24,7 @@ import { S } from '../shell-copy.ts';
 import { useSkillsLoader } from '../use-skills.ts';
 import { AgentGateLine } from './agent-gate-line.tsx';
 import { contextItems, contextLine, directBlocked, directCta, directHint, type DirectContext } from './ai-tool-direct.ts';
-import { restoreAiToolPrompt, setAiToolPrompt, useAiToolPrompts } from './ai-tool-run.ts';
+import { attachAiToolSkill, detachAiToolSkill, restoreAiToolPrompt, setAiToolPrompt, useAiToolPrompts, useAiToolSkills } from './ai-tool-run.ts';
 import { AI_TOOLS_COPY as C } from './ai-tools-copy.ts';
 import { handToAgent } from './ai-tools-handoff.ts';
 
@@ -242,7 +241,10 @@ export function AiToolPrompt({
   // 改过的提示词不放组件状态：运行态、结果与收据页会换掉这个框，回列表也会，「完成」或回来时还要在（ai-tool-run.ts）。
   const edited = useAiToolPrompts((s) => s.prompts[draftKey]);
   const builtin = TOOL_SKILL[tool] ?? null;
-  const [skillIds, setSkillIds] = useState<string[]>(() => (builtin ? [builtin] : []));
+  // 挂着的 skill 同理：摘掉的内置 skill、后挂上的都要在「完成」或回来时还在；没存过就是这个工具的内置 skill。
+  const defaultSkills = useMemo(() => (builtin ? [builtin] : []), [builtin]);
+  const skillIds = useAiToolSkills((s) => s.skills[draftKey]) ?? defaultSkills;
+  const attachSkill = (id: string) => attachAiToolSkill(draftKey, id, defaultSkills);
   const catalog = useSkillsLoader();
   const nameOf = (id: string) => catalog.skills.find((s) => s.id === id)?.name ?? id;
   const session = handoff.session;
@@ -257,7 +259,7 @@ export function AiToolPrompt({
           label={SKILL_COPY.token(nameOf(id))}
           {...(id === builtin ? { note: C.skillNote } : {})}
           removeLabel={SKILL_COPY.remove(nameOf(id))}
-          onRemove={() => setSkillIds((ids) => ids.filter((x) => x !== id))}
+          onRemove={() => detachAiToolSkill(draftKey, id, defaultSkills)}
         />
       ))}
     </div>
@@ -267,7 +269,7 @@ export function AiToolPrompt({
       <InfoCircle styles={noticeIcon} />
       <span>
         {C.noSkill}{' '}
-        <Link variant="secondary" onPress={() => setSkillIds((ids) => appendSkillId(ids, builtin))}>
+        <Link variant="secondary" onPress={() => attachSkill(builtin)}>
           {C.addSkillBack}
         </Link>
       </span>
@@ -323,7 +325,7 @@ export function AiToolPrompt({
                 text,
                 onText: (next) => setAiToolPrompt(draftKey, next, template),
                 tokens,
-                onSkill: (id) => setSkillIds((ids) => appendSkillId(ids, id)),
+                onSkill: attachSkill,
                 notice: (
                   <>
                     {noSkill}
@@ -352,7 +354,7 @@ export function AiToolPrompt({
                 text,
                 onText: (next) => setAiToolPrompt(draftKey, next, template),
                 tokens,
-                onSkill: (id) => setSkillIds((ids) => appendSkillId(ids, id)),
+                onSkill: attachSkill,
                 notice: noSkill,
                 cta: C.cta,
                 hint: handoffHint(session?.key ?? 'new'),

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { AI_TOOL_PIPELINE, type AiToolKind, type AiToolParams, type AiToolSummary, type Id, type JobRecord, type TransactionReceipt, type UndoTarget } from '@baocut/protocol';
+import { appendSkillId } from '../../model/agent-skills.ts';
 import { jobErrorText } from '../../model/localized-text.ts';
 import { jobRemedy, rejectionRemedy, type Remedy } from '../../model/task-facts.ts';
 import { isJobLive, useJobs } from '../../state/jobs-store.ts';
@@ -92,6 +93,34 @@ export function restoreAiToolPrompt(key: string): void {
   useAiToolPrompts.setState((s) => ({ prompts: without(s.prompts, key) }));
 }
 
+/**
+ * 工具页提示词框上挂着的 skill（按挂上的顺序，不重复），键同 `useAiToolPrompts`。理由同上：框卸掉再回来，摘掉的内置 skill
+ * 不能自己回来，「+ › 使用 Skill」挂上的也不能丢。没有这一项就是缺省那一份（`defaults`，这个工具的内置 skill）。
+ */
+export const useAiToolSkills = create<{ skills: Record<string, string[]> }>()(() => ({ skills: {} }));
+
+const sameIds = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((id, i) => id === b[i]);
+
+/** 挂着的 skill 变了：与缺省那一份一样就删掉这一项。 */
+export function setAiToolSkills(key: string, ids: readonly string[], defaults: readonly string[]): void {
+  useAiToolSkills.setState((s) => ({ skills: sameIds(ids, defaults) ? without(s.skills, key) : { ...s.skills, [key]: [...ids] } }));
+}
+
+/** 这个框现在挂着的 skill：存过的，或缺省那一份。 */
+export function aiToolSkills(key: string, defaults: readonly string[]): readonly string[] {
+  return useAiToolSkills.getState().skills[key] ?? defaults;
+}
+
+/** 挂上一个 skill：接在后面，已经挂着的不重复。 */
+export function attachAiToolSkill(key: string, id: string, defaults: readonly string[]): void {
+  setAiToolSkills(key, appendSkillId(aiToolSkills(key, defaults), id), defaults);
+}
+
+/** 摘掉一个 skill。 */
+export function detachAiToolSkill(key: string, id: string, defaults: readonly string[]): void {
+  setAiToolSkills(key, aiToolSkills(key, defaults).filter((x) => x !== id), defaults);
+}
+
 /** 用到的会话能力；测试给假的。 */
 export interface AiToolRunDeps {
   runtime: {
@@ -119,6 +148,7 @@ export function resetAiToolRun(): void {
   deps = null;
   useAiToolRun.setState({ ...EMPTY });
   useAiToolPrompts.setState({ prompts: {} });
+  useAiToolSkills.setState({ skills: {} });
 }
 
 const without = <T>(record: Record<string, T>, key: string): Record<string, T> => {
