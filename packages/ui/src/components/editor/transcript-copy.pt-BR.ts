@@ -73,9 +73,6 @@ export const ptBRTranscript: TranscriptMessages = {
 
 export const ptBRTranscriptTools: TranscriptToolsMessages = {
 
-  toolsMenu: "Organizar transcrição",
-  toolsTidy: "Organizar toda a transcrição",
-  toolsFrom: "Começar pela transcrição",
 
   findTip: "Localizar e substituir · ⌘F",
   findLabel: "Localizar e substituir",

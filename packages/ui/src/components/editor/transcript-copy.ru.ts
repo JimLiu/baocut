@@ -71,9 +71,6 @@ export const ruTranscript: TranscriptMessages = {
 
 export const ruTranscriptTools: TranscriptToolsMessages = {
 
-  toolsMenu: "Привести расшифровку в порядок",
-  toolsTidy: "Привести всю расшифровку в порядок",
-  toolsFrom: "Начать с расшифровки",
 
   findTip: "Найти и заменить · ⌘F",
   findLabel: "Найти и заменить",

@@ -25,7 +25,6 @@ export const ko: SpeakersMessages = {
   manySpeech: '영상에 전사본이 여러 개 있어 첫 번째 전사본을 사용합니다',
   start: '시작',
   startHint: '끝나면 검토 페이지가 열립니다. 적용 전에 확인하는 도구는 이것뿐입니다.',
-  agentHint: '이 요청을 영상의 세션으로 보내며, Agent가 바로 시작합니다.',
   readOnly: '영상이 읽기 전용이라 화자를 식별할 수 없습니다.',
   web: '브라우저에서는 화자를 식별할 수 없습니다',
   webBody: '화자 식별은 이 컴퓨터의 기기 내 성문 모델을 사용합니다. BaoCut 데스크톱 앱을 사용하세요.',

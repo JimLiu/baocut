@@ -27,7 +27,6 @@ export const fr: SpeakersMessages = {
   manySpeech: "La vidéo a plusieurs transcriptions ; la première est utilisée",
   start: "Début",
   startHint: "À la fin, une page de vérification s’ouvre ; seul cet outil demande confirmation avant application.",
-  agentHint: "Envoie cette demande à la session de la vidéo ; l’Agent démarre immédiatement.",
   readOnly: "La vidéo est en lecture seule ; identification des locuteurs impossible.",
   web: "Identification des locuteurs indisponible dans le navigateur",
   webBody: "L’identification utilise le modèle local d’empreinte vocale sur cet ordinateur. Utilisez l’application de bureau BaoCut.",

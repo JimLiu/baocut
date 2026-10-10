@@ -185,8 +185,8 @@ export const vi: HelpGuidesMessages = {
           "Gõ / ở đầu ô nhập phiên (hoặc chọn “Dùng công cụ” dưới “+”) để liệt kê công cụ cho video: Trau chuốt bản chép lời, Tạo chương, Nhận dạng người nói, Chép lời lại, Tìm phần có thể cắt, Dịch phụ đề, Cập nhật bản dịch cũ, Lồng tiếng bản dịch, Viết tóm tắt, Viết bài blog, Gợi ý tiêu đề, Viết mô tả, Tạo bìa và Xuất. Chọn một, thêm yêu cầu phía sau rồi gửi; Agent bắt đầu làm. Với video mở từ Space, phiên nằm góc dưới phải; công cụ này không có trên web."
         ],
         [
-          "Hoặc mở từ bảng liên quan",
-          "Menu “Chỉnh bản chép lời” góc trên phải bảng Bản chép lời có Chép lời lại, Trau chuốt bản chép lời, Tạo chương và Nhận dạng người nói, cùng Viết tóm tắt, Viết bài blog, Gợi ý tiêu đề, Viết mô tả và Tạo bìa từ bản chép lời; thanh gợi ý trong chế độ cắt có “Tìm phần có thể cắt”. Nhấp để mở trang cài đặt, chọn phạm vi và tùy chọn rồi nhấp “Giao cho Agent”; yêu cầu gửi thẳng đến phiên của video. Dịch phụ đề là “+ Dịch sang…” trong bảng Phụ đề; Lồng tiếng bản dịch ở bảng Âm thanh và menu rãnh lồng tiếng. Với hai công cụ này, chọn mô hình trên trang cài đặt và bắt đầu trực tiếp."
+          "Hoặc mở thẻ Công cụ AI",
+          "Thẻ “Công cụ AI” ở thanh bên phải trình chỉnh sửa liệt kê công cụ theo nhóm: trau chuốt bản chép lời, tạo chương, nhận diện người nói, chép lời lại và tìm đoạn cần cắt, rồi viết tóm tắt, bài blog, tiêu đề, mô tả và ảnh bìa. “Tìm đoạn cần cắt” trên thanh gợi ý của chế độ cắt cũng mở cùng trang đó. Chọn một công cụ để mở trang của nó, rồi chọn phạm vi và tùy chọn. Ô lời nhắn bên dưới viết sẵn yêu cầu theo đó và gắn skill của công cụ; bạn có thể sửa. Ở dòng “Phiên”, chọn phiên mới hoặc phiên hiện tại rồi bấm “Giao cho Agent”. Dịch phụ đề nằm ở “+ Dịch sang…” trong bảng Phụ đề, dịch lồng tiếng nằm trong bảng Âm thanh và menu của rãnh lồng tiếng; với hai mục này bạn chọn mô hình ở trang cài đặt và bắt đầu ngay.",
         ],
         [
           "Kiểm tra kết quả",

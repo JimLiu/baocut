@@ -25,7 +25,6 @@ export const zhHant: SpeakersMessages = {
   manySpeech: '影片有好幾份逐字稿，將使用第一份',
   start: '開始',
   startHint: '完成後會開啟審閱頁面——這是唯一一個要先確認才會套用的工具。',
-  agentHint: '會把這個請求傳送到這部影片的對話中，Agent 隨即開始處理。',
   readOnly: '這部影片是唯讀的，無法辨識說話者。',
   web: '無法在瀏覽器中辨識說話者',
   webBody: '辨識說話者需要使用這台電腦上的本機聲紋模型，請使用 BaoCut 桌面版。',

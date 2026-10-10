@@ -27,7 +27,6 @@ export const ptBR: SpeakersMessages = {
   manySpeech: "Várias transcrições; usa a primeira",
   start: "Início",
   startHint: "Ao concluir, abre revisão; só esta ferramenta exige confirmação antes de aplicar.",
-  agentHint: "Envia à sessão do vídeo e inicia o agente imediatamente.",
   readOnly: "Vídeo em leitura apenas; identificação indisponível.",
   web: "Não é possível identificar falantes no navegador",
   webBody: "Identificação usa o modelo local deste computador. Use o aplicativo desktop BaoCut.",

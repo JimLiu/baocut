@@ -174,4 +174,40 @@ export const ptBR: AiToolsMessages = {
 
   endSentence: (text: string) => (/[.!?]$/.test(text) ? text : `${text}.`),
   joinPrompt: (head: string, extra: readonly string[]) => [head, ...extra].join(" "),
+  groupSub: { writing: 'Para quem lê: saber do que o vídeo trata sem assistir', publish: 'Para quem publica o vídeo: dar vontade de clicar e cumprir o que promete' },
+  laterNote: 'Traduzir legendas ainda fica no painel Legendas e Traduzir dublagem no painel Áudio; eles vêm para cá depois.',
+  effect: {
+    polish: 'Altera a transcrição: aplicado ao terminar, desfeito em uma etapa',
+    chapters: 'Altera os capítulos: aplicado ao terminar, desfeito em uma etapa',
+    speakers: 'Você confirma o resultado primeiro; ele só é gravado no vídeo quando você aplica',
+    retranscribe: 'Substitui a transcrição deste intervalo: aplicado ao terminar, desfeito em uma etapa',
+    cleanup: 'Só propõe cortes; nada é cortado até você confirmar',
+    stale: 'Retraduz só as frases desatualizadas; o resto não muda',
+    summary: 'Não altera o vídeo: o resultado é para ler e copiar',
+    blog: 'Não altera o vídeo: o resultado é para ler e copiar',
+    title: 'Não altera o vídeo: escolha um para usar',
+    desc: 'Não altera o vídeo: o resultado é para ler e copiar',
+    cover: 'Não altera o vídeo: escolha uma para usar',
+  },
+  standMarkdown: (language) => (language ? `Escreva em Markdown, em ${language}.` : 'Escreva em Markdown, no mesmo idioma da transcrição.'),
+  standLanguage: (language) => (language ? `Escreva em ${language}.` : 'Escreva no mesmo idioma da transcrição.'),
+  standing: {
+    summary: ['Comece pela conclusão e depois liste os pontos principais, cada um com código de tempo (mm:ss).', 'Tamanho moderado: de três a cinco parágrafos.'],
+    blog: ['Escolha o ponto de vista pela origem do vídeo: como autor se o vídeo for meu, como espectador se for de outra pessoa.', 'Estilo simples, sem tom de propaganda.'],
+    title: ['Coloque cada candidato em uma linha.'],
+    desc: ['Inclua os códigos de tempo dos capítulos e uma linha de tags.'],
+    cover: ['O texto da capa fica no idioma da transcrição.'],
+    polish: ['Não reescreva minhas palavras nem remova nada; corrija só o que for claramente um erro.'],
+    chapters: ['Agrupe por assunto, com um título curto para cada capítulo.'],
+  },
+  sessionNew: 'Nova sessão',
+  sessionNewSub: 'Usa este vídeo como contexto; uma tarefa por sessão, sem reenviar um histórico longo',
+  sessionCurrent: (title) => `Continuar “${title}”`,
+  sessionUntitled: 'a sessão deste vídeo',
+  sessionCurrentSub: (messages) =>
+    messages === null
+      ? 'Reenvia o histórico da sessão, o que custa mais quando o cache do prompt expira'
+      : `${messages === 1 ? '1 mensagem' : `${messages} mensagens`} até agora · reenvia o histórico, o que custa mais quando o cache do prompt expira`,
+  hintNew: 'Inicia uma nova sessão com este vídeo como contexto. Acompanhe por lá; qualquer mudança do agente no vídeo pode ser desfeita.',
+  hintCurrent: 'Envia para a sessão atual deste vídeo, com o vídeo como contexto. Acompanhe por lá; qualquer mudança do agente no vídeo pode ser desfeita.',
 };

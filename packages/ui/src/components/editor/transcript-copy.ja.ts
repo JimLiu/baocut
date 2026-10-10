@@ -71,10 +71,6 @@ export const jaTranscript: TranscriptMessages = {
 };
 
 export const jaTranscriptTools: TranscriptToolsMessages = {
-  // 工具菜单（原型 panels.jsx 文稿头上的 ✦，产品设计 §5.10）：整理文稿的四件，和从文稿出发的写作、发布
-  toolsMenu: '文字起こしを整える',
-  toolsTidy: '文字起こし全体を整える',
-  toolsFrom: '文字起こしから始める',
   // 查找替换
   findTip: '検索と置換 · ⌘F',
   findLabel: '検索と置換',

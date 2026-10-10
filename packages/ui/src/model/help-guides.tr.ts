@@ -185,8 +185,8 @@ export const tr: HelpGuidesMessages = {
           "Oturum girdisinin başında / yazın (veya “+” altında “Araç kullan” seçin); bu video için araçlar listelenir: Dökümü düzelt, Bölüm oluştur, Konuşmacıları belirle, Yeniden yazıya dök, Kesimleri bul, Altyazıları çevir, Eski çevirileri güncelle, Çeviri dublajı, Özet yaz, Blog yazısı yaz, Başlık öner, Açıklama yaz, Kapak oluştur ve Dışa aktar. Birini seçip ardından gereksinimlerinizi ekleyin ve gönderin; ajan çalışmaya başlar. Space içinden açılan videoda oturum sağ alttadır; bu araçlar web üzerinde yoktur."
         ],
         [
-          "Veya ilgili panelden aç",
-          "Döküm panelinin sağ üstündeki “Dökümü düzenle” menüsünde Yeniden yazıya dök, Dökümü düzelt, Bölüm oluştur ve Konuşmacıları belirle vardır; dökümden başlayan Özet yaz, Blog yazısı yaz, Başlık öner, Açıklama yaz ve Kapak oluştur da vardır. Kesim modundaki ipucu çubuğunda “Kesimleri bul” bulunur. Birine tıklayın, ayarlar sayfasında aralık ve seçenekleri seçin, sonra “Ajana ver” tıklayın; istek doğrudan video oturumuna gider. Altyazıları çevir, Altyazı panelindeki “+ … diline çevir” düğmesidir; Çeviri dublajı Ses panelinde ve dublaj izi menüsündedir. Bu ikisinde ayarlar sayfasında model seçip doğrudan başlarsınız."
+          "Ya da AI araçları sekmesini aç",
+          "Düzenleyicinin sağındaki “AI araçları” sekmesi araçları gruplar hâlinde listeler: dökümü düzeltme, bölüm oluşturma, konuşmacıları tanıma, yeniden döküm ve kesilecek yerleri bulma; ardından özet, blog yazısı, başlık, açıklama ve kapak. Kesme modu ipucu çubuğundaki “Kesilecek yerleri bul” da aynı sayfayı açar. Birini seçip sayfasını aç, kapsamı ve seçenekleri belirle. Alttaki istem kutusu bunlara göre isteği yazar ve aracın skill’ini ekler; metni düzenleyebilirsin. “Oturum” satırında yeni oturumu ya da mevcut oturumu seç ve “Ajana ver”e tıkla. Altyazı çevirisi Altyazılar panelindeki “+ Çevir…” içinde, seslendirme çevirisi Ses panelinde ve seslendirme kanalının menüsündedir; bu ikisinde ayarlar sayfasında bir model seçip doğrudan başlarsın.",
         ],
         [
           "Sonuçları denetle",

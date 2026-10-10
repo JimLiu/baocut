@@ -49,6 +49,7 @@ export const zhHans: ElementsMessages = {
   layersInTurn: (name: string, count: number) => `${name} · ${count} 层，依次出现`,
   tabTranscript: '文稿',
   tabSubtitle: '字幕',
+  tabAiTools: 'AI 工具',
   tabImage: '图片',
   tabVideo: '视频',
   tabAudio: '音频',

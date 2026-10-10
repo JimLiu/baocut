@@ -94,7 +94,6 @@ import { existingTranslations } from '../../model/translate-setup.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useEditor, type WordSelection } from '../../state/editor-store.ts';
 import { canEdit, useVideo } from '../../state/video-store.ts';
-import { aiTool, type AiToolId } from '../../model/ai-tools.ts';
 import { openAiTool } from './ai-tools-nav.ts';
 import { CHAPTER_COPY } from './chapter-copy.ts';
 import { EditorContext, useEditorActions, type EditorActions } from './editor-context.tsx';
@@ -987,34 +986,6 @@ export function TranscriptPanel({
             disabled: !loadedParagraphs || !videoReady,
           }}
         />
-        {!web && videoId ? (
-          <MenuTrigger align="end">
-            <TooltipTrigger>
-              <ActionButton isQuiet size="S" aria-label={T.toolsMenu}>
-                <AIMark />
-              </ActionButton>
-              <Tooltip>{T.toolsMenu}</Tooltip>
-            </TooltipTrigger>
-            <Menu aria-label={T.toolsMenu} onAction={(key) => openAiTool(videoId, key as AiToolId)}>
-              <MenuSection>
-                <Header>
-                  <Heading>{T.toolsTidy}</Heading>
-                </Header>
-                {TIDY_TOOLS.map((id) => (
-                  <ToolMenuItem key={id} id={id} />
-                ))}
-              </MenuSection>
-              <MenuSection>
-                <Header>
-                  <Heading>{T.toolsFrom}</Heading>
-                </Header>
-                {WRITE_TOOLS.map((id) => (
-                  <ToolMenuItem key={id} id={id} />
-                ))}
-              </MenuSection>
-            </Menu>
-          </MenuTrigger>
-        ) : null}
       </PanelHead>
       {finding ? (
         <TranscriptFindBar
@@ -1167,20 +1138,6 @@ export function TranscriptPanel({
         </div>
       ) : null}
     </div>
-  );
-}
-
-/** 文稿头上工具菜单的两组（原型 panels.jsx）：整理文稿，和只读文稿的写作、发布。找可剪的口在剪辑模式的提示条上，翻译在字幕页。 */
-const TIDY_TOOLS: readonly AiToolId[] = ['retranscribe', 'polish', 'chapters', 'speakers'];
-const WRITE_TOOLS: readonly AiToolId[] = ['summary', 'blog', 'title', 'desc', 'cover'];
-
-function ToolMenuItem({ id }: { id: AiToolId }) {
-  const tool = aiTool(id);
-  return (
-    <MenuItem id={id} textValue={tool.name}>
-      <Text slot="label">{tool.name}</Text>
-      <Text slot="description">{tool.desc}</Text>
-    </MenuItem>
   );
 }
 

@@ -1,42 +1,52 @@
 import { describe, expect, it } from 'vitest';
-import { mergeDraft, pickHandoff } from './ai-tools-handoff.ts';
+import { currentConversation, mergeDraft, messageCount, planHandoff } from './ai-tools-handoff.ts';
 
+const at = (id: string, projectId: string | null, updatedAt: string, archived = false) => ({ id, projectId, title: id, archived, updatedAt });
 const conversations = [
-  { id: 'c1', projectId: 'p1' },
-  { id: 'c2', projectId: 'p2' },
-  { id: 'c3', projectId: null },
+  at('c1', 'p1', '2026-10-01T00:00:00Z'),
+  at('c4', 'p1', '2026-10-05T00:00:00Z'),
+  at('c5', 'p1', '2026-10-08T00:00:00Z', true),
+  at('c2', 'p2', '2026-10-09T00:00:00Z'),
+  at('c3', null, '2026-10-02T00:00:00Z'),
 ];
+const inProject = { projectId: 'p1', conversationId: null };
+const outside = { projectId: null, conversationId: 'c3' };
 
-describe('交给 Agent 落到哪条会话', () => {
-  it('当前会话和视频同属一个项目：就用它', () => {
-    expect(pickHandoff({ source: { projectId: 'p1', conversationId: null }, current: 'c1', conversations })).toEqual({
-      kind: 'existing',
-      conversationId: 'c1',
-    });
+describe('「接着」指哪条会话', () => {
+  it('当前就在一条同项目的会话里：就是它，哪怕不是最近的、已归档', () => {
+    expect(currentConversation({ source: inProject, current: 'c1', conversations })?.id).toBe('c1');
+    expect(currentConversation({ source: inProject, current: 'c5', conversations })?.id).toBe('c5');
   });
 
-  it('当前会话在别的项目、或不在会话里：在视频的项目里新建', () => {
-    expect(pickHandoff({ source: { projectId: 'p1', conversationId: null }, current: 'c2', conversations })).toEqual({ kind: 'create', projectId: 'p1' });
-    expect(pickHandoff({ source: { projectId: 'p1', conversationId: null }, current: null, conversations })).toEqual({ kind: 'create', projectId: 'p1' });
-    // 列表里还没有的会话（刚删掉）不算
-    expect(pickHandoff({ source: { projectId: 'p1', conversationId: null }, current: 'gone', conversations })).toEqual({ kind: 'create', projectId: 'p1' });
+  it('当前会话在别的项目、不在会话里或刚删掉：这个项目里最近更新、没归档的那条', () => {
+    expect(currentConversation({ source: inProject, current: 'c2', conversations })?.id).toBe('c4');
+    expect(currentConversation({ source: inProject, current: null, conversations })?.id).toBe('c4');
+    expect(currentConversation({ source: inProject, current: 'gone', conversations })?.id).toBe('c4');
+    expect(currentConversation({ source: { projectId: 'p9', conversationId: null }, current: null, conversations })).toBeNull();
   });
 
-  it('视频在一条无项目会话的目录里：用那条会话', () => {
-    expect(pickHandoff({ source: { projectId: null, conversationId: 'c3' }, current: 'c1', conversations })).toEqual({
-      kind: 'existing',
-      conversationId: 'c3',
-    });
-    expect(pickHandoff({ source: { projectId: null, conversationId: 'c3' }, current: 'c3', conversations })).toEqual({
-      kind: 'existing',
-      conversationId: 'c3',
-    });
+  it('视频在一条无项目会话的目录里：就是那条；那条不在了就没有', () => {
+    expect(currentConversation({ source: outside, current: 'c1', conversations })?.id).toBe('c3');
+    expect(currentConversation({ source: { projectId: null, conversationId: 'gone' }, current: null, conversations })).toBeNull();
+    expect(currentConversation({ source: null, current: 'c1', conversations })).toBeNull();
+  });
+});
+
+describe('交给 Agent 发到哪', () => {
+  it('新会话建在视频的项目里；视频不属于项目时交不出去', () => {
+    expect(planHandoff({ session: 'new', source: inProject, conversations })).toEqual({ kind: 'create', projectId: 'p1' });
+    expect(planHandoff({ session: 'new', source: outside, conversations })).toEqual({ kind: 'none' });
+    expect(planHandoff({ session: 'new', source: null, conversations })).toEqual({ kind: 'none' });
   });
 
-  it('没有视频、或来源的会话已经不在：交不出去', () => {
-    expect(pickHandoff({ source: null, current: 'c1', conversations })).toEqual({ kind: 'none' });
-    expect(pickHandoff({ source: { projectId: null, conversationId: 'gone' }, current: 'c1', conversations })).toEqual({ kind: 'none' });
-    expect(pickHandoff({ source: { projectId: null, conversationId: null }, current: 'c1', conversations })).toEqual({ kind: 'none' });
+  it('接着的那条要还在', () => {
+    expect(planHandoff({ session: { id: 'c4' }, source: inProject, conversations })).toEqual({ kind: 'existing', conversationId: 'c4' });
+    expect(planHandoff({ session: { id: 'gone' }, source: inProject, conversations })).toEqual({ kind: 'none' });
+  });
+
+  it('消息数只数说的话', () => {
+    expect(messageCount([{ kind: 'user-message' }, { kind: 'reasoning' }, { kind: 'tool-call' }, { kind: 'agent-message' }, { kind: 'task' }])).toBe(2);
+    expect(messageCount([])).toBe(0);
   });
 });
 

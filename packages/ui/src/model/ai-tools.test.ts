@@ -1,6 +1,34 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { LOCALES, setLocale } from '@baocut/protocol';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AI_TOOL_GROUP_LABEL, AI_TOOLS, aiTool, canvasRatio, cleanupExtra, hasScope, intentPrompt, isAiToolId, LENGTHS, writingExtra } from './ai-tools.ts';
+import {
+  AI_TOOL_GROUP_LABEL,
+  AI_TOOLS,
+  aiTool,
+  canvasRatio,
+  cleanupExtra,
+  defaultSkillIds,
+  groupSub,
+  handoffHint,
+  hasScope,
+  intentPrompt,
+  isAiToolId,
+  laterNote,
+  LENGTHS,
+  LIST_GROUPS,
+  sessionOptions,
+  standingLines,
+  TOOL_SKILL,
+  toolEffect,
+  toolTemplate,
+  writingExtra,
+  type AgentToolId,
+} from './ai-tools.ts';
+
+/** 仓库根 `skills/`：随应用分发的内置 skill，一个目录一个 id。 */
+const SKILLS_DIR = path.resolve(import.meta.dirname, '../../../../skills');
+const AGENT_TOOLS: AgentToolId[] = ['polish', 'chapters', 'speakers', 'retranscribe', 'cleanup', 'stale', 'summary', 'blog', 'title', 'desc', 'cover'];
 
 describe('AI 工具目录', () => {
   it('五组十五个工具，次序与原型一致', () => {
@@ -115,6 +143,89 @@ describe('画布比例', () => {
   });
 });
 
+describe('AI 工具 Tab', () => {
+  it('列表第一批只有从文稿出发的三组，写作与发布各有一句副题；脚注说清翻译在哪', () => {
+    expect(LIST_GROUPS).toEqual(['transcript', 'writing', 'publish']);
+    expect(AI_TOOLS.filter((t) => LIST_GROUPS.includes(t.group)).map((t) => t.id)).toEqual([
+      'polish',
+      'chapters',
+      'speakers',
+      'retranscribe',
+      'cleanup',
+      'summary',
+      'blog',
+      'title',
+      'desc',
+      'cover',
+    ]);
+    expect(groupSub('transcript')).toBeNull();
+    expect(groupSub('writing')).toMatch(/读的人/);
+    expect(groupSub('publish')).toMatch(/发视频的人/);
+    expect(laterNote()).toMatch(/字幕面板.*音频面板.*搬到这里/);
+  });
+
+  it('每个工具都有一句「会不会改视频」', () => {
+    for (const id of AGENT_TOOLS) expect(toolEffect(id), id).toBeTruthy();
+    expect(toolEffect('polish')).toMatch(/撤销/);
+    expect(toolEffect('cleanup')).toMatch(/确认之前/);
+    for (const id of ['summary', 'blog', 'title', 'desc', 'cover'] as const) expect(toolEffect(id)).toMatch(/^不改视频/);
+  });
+
+  it('模板 = 意图句 + 固定约束：写作类带 Markdown 与语言，整理类不带', () => {
+    const intent = intentPrompt({ tool: 'summary', title: 'A' });
+    const lines = toolTemplate('summary', intent, { language: '英语' }).split('\n');
+    expect(lines[0]).toBe(intent);
+    expect(lines[1]).toBe('用 Markdown 写，用英语。');
+    expect(lines.join('\n')).toMatch(/mm:ss/);
+    // 没给语言：跟文稿
+    expect(standingLines('desc')[0]).toBe('用 Markdown 写，语言与文稿相同。');
+    expect(standingLines('title', { language: ' ' })[0]).toBe('语言与文稿相同。');
+    const polish = toolTemplate('polish', '润色。');
+    expect(polish).not.toMatch(/Markdown/);
+    expect(polish).toMatch(/不改写我的表达/);
+    // 没有固定约束的工具只有意图句；空意图句不留空行
+    expect(toolTemplate('cleanup', '找口癖。')).toBe('找口癖。');
+    expect(toolTemplate('cleanup', '  ')).toBe('');
+  });
+
+  it('会话去向：缺省新会话；这个视频有说过话的会话时才给「接着」，标上消息数', () => {
+    const none = sessionOptions({ canCreate: true, current: null });
+    expect(none.options.map((o) => o.key)).toEqual(['new']);
+    expect(none.fallback).toBe('new');
+    const has = sessionOptions({ canCreate: true, current: { id: 'c9', title: '剪口癖', messages: 2 } });
+    expect(has.options.map((o) => o.key)).toEqual(['new', 'current']);
+    expect(has.options[1]).toMatchObject({ conversationId: 'c9', label: '接着「剪口癖」' });
+    expect(has.options[1]!.sub).toMatch(/已有 2 条消息/);
+    // 还没取到消息数：照样给，不写数
+    expect(sessionOptions({ canCreate: true, current: { id: 'c9', title: ' ', messages: null } }).options[1]!.label).toBe('接着「这个视频的会话」');
+    // 还没说过话的空会话不算
+    expect(sessionOptions({ canCreate: true, current: { id: 'c2', title: 'x', messages: 0 } }).options).toHaveLength(1);
+    // 视频不属于项目：新会话看不到它，只能接着它所在的会话
+    const only = sessionOptions({ canCreate: false, current: { id: 'c3', title: 'x', messages: 4 } });
+    expect(only.options.map((o) => o.key)).toEqual(['current']);
+    expect(only.fallback).toBe('current');
+    expect(sessionOptions({ canCreate: false, current: null }).fallback).toBeNull();
+  });
+
+  it('主按钮下那行随去向变', () => {
+    expect(handoffHint('new')).toMatch(/^新开一条会话/);
+    expect(handoffHint('current')).toMatch(/^发到这个视频当前的会话/);
+  });
+
+  it('每个交给 Agent 的工具都配一个内置 skill，id 都在仓库的 skills/ 里；列表里没有就不挂', () => {
+    const builtin = new Set(fs.readdirSync(SKILLS_DIR, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name));
+    for (const id of AGENT_TOOLS) expect(TOOL_SKILL[id], id).toBeTruthy();
+    for (const [tool, id] of Object.entries(TOOL_SKILL)) {
+      expect(builtin.has(id!), `${tool} → ${id}`).toBe(true);
+      expect(fs.existsSync(path.join(SKILLS_DIR, id!, 'SKILL.md')), `${id}/SKILL.md`).toBe(true);
+    }
+    const list = [{ id: 'polish-transcript' }, { id: 'video-summary' }];
+    expect(defaultSkillIds('polish', list)).toEqual(['polish-transcript']);
+    expect(defaultSkillIds('chapters', list)).toEqual([]);
+    expect(defaultSkillIds('crop', list)).toEqual([]);
+  });
+});
+
 describe('英文界面', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -158,5 +269,19 @@ describe('英文界面', () => {
     expect(intentPrompt({ tool: 'title' })).toContain('Suggest 6 title candidates');
     expect(cleanupExtra({ fillers: false, pauses: false, repeats: true })).toEqual(['Don’t look for filler words and long pauses']);
     expect(writingExtra('blog', { length: 'long', style: 'pop', view: 'viewer' })).toEqual(['Length: Long', 'Style: Explainer', 'Point of view: viewer']);
+    expect(toolTemplate('summary', 'Summarize.', { language: 'French' }).split('\n')[1]).toBe('Write in Markdown, in French.');
+    expect(sessionOptions({ canCreate: true, current: { id: 'c', title: 'Cut', messages: 1 } }).options[1]!.sub).toMatch(/^1 message so far/);
+    expect(handoffHint('new')).toMatch(/^Starts a new session/);
+  });
+
+  it('每种界面语言都给全了 AI 工具 Tab 的文案', () => {
+    vi.stubEnv('BAOCUT_LOCALE', undefined);
+    for (const locale of LOCALES) {
+      setLocale(locale);
+      for (const id of AGENT_TOOLS) expect(toolEffect(id), `${locale} ${id}`).toBeTruthy();
+      expect(standingLines('summary', { language: 'X' })[0], locale).toContain('X');
+      expect(sessionOptions({ canCreate: true, current: { id: 'c', title: 'T', messages: 3 } }).options[1]!.sub, locale).toContain('3');
+      expect(groupSub('writing'), locale).toBeTruthy();
+    }
   });
 });

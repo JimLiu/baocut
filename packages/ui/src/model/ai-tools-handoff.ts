@@ -1,34 +1,74 @@
 import type { Id } from '@baocut/protocol';
 
-/**
- * 工具页「交给 Agent」发到哪条会话（原型 panel-aitools-flows.jsx `sendToAgent`：直接发到这个视频的会话里）。
- *
- * 1. 当前就在一条会话里、它和视频同属一个项目（或它就是视频所在的那条无项目会话）：就用它。
- * 2. 视频属于项目：在这个项目里新建一条会话。
- * 3. 视频不属于项目、在某条会话的工作目录里：用那条会话（新建的会话看不到它的目录）。
- * 4. 都不是：交不出去，说明原因。
- */
-export type HandoffPlan = { kind: 'existing'; conversationId: Id } | { kind: 'create'; projectId: Id } | { kind: 'none' };
-
-export interface HandoffInput {
-  /** 视频的来源（`VideoRef.source`）；视频还没打开时 null。 */
-  source: { projectId: Id | null; conversationId: Id | null } | null;
-  /** 当前所在的会话（Home 的 `conversationId`，或 Space 里这个视频的悬浮会话）；没有时 null。 */
-  current: Id | null;
-  conversations: readonly { id: Id; projectId: Id | null }[];
+/** 视频的来源（`VideoRef.source`）：属于哪个项目，或在哪条无项目会话的工作目录里。 */
+export interface HandoffSource {
+  projectId: Id | null;
+  conversationId: Id | null;
 }
 
-export function pickHandoff({ source, current, conversations }: HandoffInput): HandoffPlan {
-  if (!source) return { kind: 'none' };
+/** 挑会话要看的会话字段（目录里的 `Conversation`）。 */
+export interface HandoffConversation {
+  id: Id;
+  projectId: Id | null;
+  title: string;
+  archived: boolean;
+  updatedAt: string;
+}
+
+/**
+ * 「会话」行的「接着这个视频当前的会话」指哪一条（原型 model-ai-prompt.js `sessionOptions`：这个项目里最近的那条）：
+ *
+ * 1. 当前就在一条会话里（Home 左侧的，或 Space 里这个视频的悬浮会话最近发起的那条），它和视频同属一个项目、或就是视频所在的
+ *    那条无项目会话：就是它。
+ * 2. 视频属于项目：这个项目里最近更新、没归档的那条。
+ * 3. 视频不属于项目：它所在的那条会话（新建的会话看不到它的目录）。
+ *
+ * 都没有时 null。有没有说过话（消息数）由调用方另看：没说过话的不给「接着」（`sessionOptions`）。
+ */
+export function currentConversation<T extends HandoffConversation>({
+  source,
+  current,
+  conversations,
+}: {
+  source: HandoffSource | null;
+  current: Id | null;
+  conversations: readonly T[];
+}): T | null {
+  if (!source) return null;
+  const belongs = (c: T) => (source.projectId ? c.projectId === source.projectId : c.id === source.conversationId);
   const here = current ? conversations.find((c) => c.id === current) : undefined;
-  if (here && (source.projectId ? here.projectId === source.projectId : here.id === source.conversationId)) {
-    return { kind: 'existing', conversationId: here.id };
-  }
-  if (source.projectId) return { kind: 'create', projectId: source.projectId };
-  if (source.conversationId && conversations.some((c) => c.id === source.conversationId)) {
-    return { kind: 'existing', conversationId: source.conversationId };
-  }
-  return { kind: 'none' };
+  if (here && belongs(here)) return here;
+  if (!source.projectId) return conversations.find(belongs) ?? null;
+  let latest: T | null = null;
+  for (const c of conversations) if (!c.archived && belongs(c) && (!latest || c.updatedAt > latest.updatedAt)) latest = c;
+  return latest;
+}
+
+/** 交给 Agent 发到哪：新建一条（在视频的项目里），或接着已有的那条。 */
+export type HandoffPlan = { kind: 'existing'; conversationId: Id } | { kind: 'create'; projectId: Id } | { kind: 'none' };
+
+/**
+ * 按「会话」行的选择定下发到哪（产品设计 §5.10「交给智能体」）：新会话建在视频的项目里——视频不属于项目时新会话看不到它，
+ * 交不出去（「会话」行这时不给新会话）；接着的那条要还在目录里。
+ */
+export function planHandoff({
+  session,
+  source,
+  conversations,
+}: {
+  session: 'new' | { id: Id };
+  source: HandoffSource | null;
+  conversations: readonly { id: Id }[];
+}): HandoffPlan {
+  if (session === 'new') return source?.projectId ? { kind: 'create', projectId: source.projectId } : { kind: 'none' };
+  return conversations.some((c) => c.id === session.id) ? { kind: 'existing', conversationId: session.id } : { kind: 'none' };
+}
+
+/** 一条会话里的消息数（「会话」行写「已有 n 条消息」）：用户说的与 Agent 回的都算，工具调用、思考与通知不算。 */
+export function messageCount(items: readonly { kind: string }[]): number {
+  let n = 0;
+  for (const item of items) if (item.kind === 'user-message' || item.kind === 'agent-message') n++;
+  return n;
 }
 
 /**

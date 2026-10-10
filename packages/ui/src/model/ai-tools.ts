@@ -260,6 +260,55 @@ const en = {
     cover: (o: IntentArgs & { count: number }) =>
       `Make ${o.count} cover candidates for ${o.p}: pick key frames first, use a different base-image approach for each, and check them at a small size before showing me.`,
   },
+  /** 列表页（AI 工具 Tab）分组下的一句副题：说清这一组给谁用。 */
+  groupSub: {
+    writing: 'For readers: what the video covers, without having to watch it',
+    publish: 'For whoever posts the video: make people want to click, then deliver on it',
+  } as Partial<Record<AiToolGroup, string>>,
+  /** 列表页脚注：第一批没搬进来的工具在哪。 */
+  laterNote: 'Translate subtitles is still in the Subtitles panel and Translate voice-over in the Audio panel; they’ll move here later.',
+  /** 工具页说明卡上的一行：按下去会不会改视频。 */
+  effect: {
+    polish: 'Changes the transcript: applied when done, and one step undoes it',
+    chapters: 'Changes the chapters: applied when done, and one step undoes it',
+    speakers: 'You confirm the result first; it’s written into the video only when you apply it',
+    retranscribe: 'Replaces the transcript in this range: applied when done, and one step undoes it',
+    cleanup: 'Only proposes cuts; nothing is cut until you confirm',
+    stale: 'Retranslates only the outdated sentences; nothing else changes',
+    summary: 'Doesn’t change the video: the result is for you to read and copy',
+    blog: 'Doesn’t change the video: the result is for you to read and copy',
+    title: 'Doesn’t change the video: pick one to use',
+    desc: 'Doesn’t change the video: the result is for you to read and copy',
+    cover: 'Doesn’t change the video: pick one to use',
+  } as Record<AgentToolId, string>,
+  /** 模板里的固定约束（以前是语言、风格、篇幅、视角的下拉）。`language` 是语言名；没有时跟文稿。 */
+  standMarkdown: (language: string | null) =>
+    language ? `Write in Markdown, in ${language}.` : 'Write in Markdown, in the same language as the transcript.',
+  standLanguage: (language: string | null) => (language ? `Write in ${language}.` : 'Write in the same language as the transcript.'),
+  standing: {
+    summary: ['Lead with the conclusion, then list the key points, each with a timecode (mm:ss).', 'Keep it moderate: three to five paragraphs.'],
+    blog: [
+      'Choose the point of view from the video’s source: write as the author if it’s my own video, and as a viewer if it’s someone else’s.',
+      'Keep the style plain, with no marketing tone.',
+    ],
+    title: ['Put each candidate on its own line.'],
+    desc: ['Include chapter timecodes and a line of tags.'],
+    cover: ['Text on the cover uses the transcript’s language.'],
+    polish: ['Don’t rewrite my wording or remove anything; only fix what is clearly a slip.'],
+    chapters: ['Group by topic, with a short title for each chapter.'],
+  } as Partial<Record<AgentToolId, readonly string[]>>,
+  /** 交给 Agent 发到哪条会话。 */
+  sessionNew: 'New session',
+  sessionNewSub: 'Takes this video as context; one task per session, with no long history to resend',
+  sessionCurrent: (title: string) => `Continue “${title}”`,
+  sessionUntitled: 'this video’s session',
+  sessionCurrentSub: (messages: number | null) =>
+    messages === null
+      ? 'Resends the session’s history, which costs more once the prompt cache expires'
+      : `${messages === 1 ? '1 message' : `${messages} messages`} so far · resends the history, which costs more once the prompt cache expires`,
+  /** 主按钮下那行：按下去会去哪。 */
+  hintNew: 'Starts a new session with this video as context. Follow along there; any change the Agent makes to the video can be undone.',
+  hintCurrent: 'Sends to this video’s current session, with this video as context. Follow along there; any change the Agent makes to the video can be undone.',
   /** 附加要求补句末标点；意图句与附加要求怎么接。 */
   endSentence: (text: string) => (/[.!?]$/.test(text) ? text : `${text}.`),
   joinPrompt: (head: string, extra: readonly string[]) => [head, ...extra].join(' '),
@@ -481,4 +530,100 @@ export function intentPrompt(intent: AiIntent): string {
     head,
     extra.map((x) => M.endSentence(x)),
   );
+}
+
+// ---- AI 工具 Tab：列表、模板、内置 skill、会话去向（产品设计 §5.10、§6.9；原型 model-ai-prompt.js） ----
+
+/** 列表页第一批只列从文稿出发的三组；翻译与画面的工具仍从各自面板进来，脚注说清去处。 */
+export const LIST_GROUPS: readonly AiToolGroup[] = ['transcript', 'writing', 'publish'];
+
+/** 分组下的一句副题；没有时不画。 */
+export function groupSub(group: AiToolGroup): string | null {
+  return M.groupSub[group] ?? null;
+}
+
+/** 列表页脚注。 */
+export function laterNote(): string {
+  return M.laterNote;
+}
+
+/**
+ * 每个工具配一个内置 skill（仓库根 `skills/<id>/`）：工具页的提示词框默认挂着它，可以摘掉，也可以再挂别的。
+ * 翻译字幕与刷新过期译文共用一个；起标题与写简介共用一个。
+ */
+export const TOOL_SKILL: Readonly<Partial<Record<AiToolId, string>>> = {
+  retranscribe: 'subtitle-workflow',
+  polish: 'polish-transcript',
+  chapters: 'video-chapters',
+  speakers: 'speaker-labeling',
+  cleanup: 'talking-head-cut',
+  translate: 'translate-subtitles',
+  stale: 'translate-subtitles',
+  summary: 'video-summary',
+  blog: 'video-blog',
+  title: 'titles-and-description',
+  desc: 'titles-and-description',
+  cover: 'cover-and-title',
+  shortscut: 'shorts-segments',
+};
+
+/** 打开工具页时默认挂的 skill：这个工具的内置 skill 还在列表里就挂它（关着的也挂：点选不看开关，§6.9）。 */
+export function defaultSkillIds(tool: AiToolId, available: readonly { id: string }[]): string[] {
+  const id = TOOL_SKILL[tool];
+  return id && available.some((s) => s.id === id) ? [id] : [];
+}
+
+/** 工具页说明卡上那一行「会不会改视频」。 */
+export function toolEffect(tool: AgentToolId): string {
+  return M.effect[tool];
+}
+
+/** 模板里意图句下面的几行固定约束；`language` 是语言名（「英语」），没有时跟文稿的语言。 */
+export function standingLines(tool: AgentToolId, opts: { language?: string | null } = {}): string[] {
+  const language = opts.language?.trim() || null;
+  const own = [...(M.standing[tool] ?? [])];
+  if (tool === 'summary' || tool === 'blog' || tool === 'desc') return [M.standMarkdown(language), ...own];
+  if (tool === 'title') return [M.standLanguage(language), ...own];
+  return own;
+}
+
+/** 预填进提示词框的模板：第一行意图句（`intentPrompt` 的结果，范围与勾选项已折在里面），下面一行一条固定约束。 */
+export function toolTemplate(tool: AgentToolId, intent: string, opts: { language?: string | null } = {}): string {
+  return [intent.trim(), ...standingLines(tool, opts)].filter(Boolean).join('\n');
+}
+
+/** 「会话」一行的一个选项。 */
+export interface SessionOption {
+  key: 'new' | 'current';
+  label: string;
+  sub: string;
+  /** 「接着」的那条会话。 */
+  conversationId?: string;
+}
+
+/**
+ * 交给 Agent 时发到哪条会话（原型 `sessionOptions`）：缺省新会话、这部视频作为上下文；这部视频有一条说过话的会话时才给「接着」，
+ * 标上已有几条消息（还没取到时不写数）。视频不属于项目时新会话看不到它，只能接着它所在的那条会话。
+ */
+export function sessionOptions(input: {
+  canCreate: boolean;
+  current: { id: string; title: string; messages: number | null } | null;
+}): { options: SessionOption[]; fallback: 'new' | 'current' | null } {
+  const options: SessionOption[] = [];
+  if (input.canCreate) options.push({ key: 'new', label: M.sessionNew, sub: M.sessionNewSub });
+  const cur = input.current;
+  if (cur && cur.messages !== 0) {
+    options.push({
+      key: 'current',
+      conversationId: cur.id,
+      label: M.sessionCurrent(cur.title.trim() || M.sessionUntitled),
+      sub: M.sessionCurrentSub(cur.messages),
+    });
+  }
+  return { options, fallback: options[0]?.key ?? null };
+}
+
+/** 主按钮下那行：按下去会去哪。 */
+export function handoffHint(session: 'new' | 'current'): string {
+  return session === 'current' ? M.hintCurrent : M.hintNew;
 }

@@ -49,6 +49,7 @@ export const zhHant: ElementsMessages = {
   layersInTurn: (name: string, count: number) => `${name} · ${count} 個圖層，依序出現`,
   tabTranscript: '逐字稿',
   tabSubtitle: '字幕',
+  tabAiTools: 'AI 工具',
   tabImage: '圖片',
   tabVideo: '影片',
   tabAudio: '音訊',

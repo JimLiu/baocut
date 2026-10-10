@@ -71,10 +71,6 @@ export const zhHantTranscript: TranscriptMessages = {
 };
 
 export const zhHantTranscriptTools: TranscriptToolsMessages = {
-  // 工具菜单（原型 panels.jsx 文稿头上的 ✦，产品设计 §5.10）：整理文稿的四件，和从文稿出发的写作、发布
-  toolsMenu: '整理逐字稿',
-  toolsTidy: '整理整份逐字稿',
-  toolsFrom: '從逐字稿開始',
   // 查找替换
   findTip: '尋找與取代 · ⌘F',
   findLabel: '尋找與取代',

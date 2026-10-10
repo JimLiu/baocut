@@ -72,10 +72,6 @@ export const koTranscript: TranscriptMessages = {
 };
 
 export const koTranscriptTools: TranscriptToolsMessages = {
-  // 工具菜单（原型 panels.jsx 文稿头上的 ✦，产品设计 §5.10）：整理文稿的四件，和从文稿出发的写作、发布
-  toolsMenu: '전사본 정리',
-  toolsTidy: '전사본 전체 정리',
-  toolsFrom: '전사본에서 시작',
   // 查找替换
   findTip: '찾기 및 바꾸기 · ⌘F',
   findLabel: '찾기 및 바꾸기',

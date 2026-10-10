@@ -20,12 +20,12 @@ export const PANEL_WIDTH_MAX = 560;
 export const PANEL_COLLAPSE_BELOW = 340;
 
 /**
- * 右侧面板的页：文稿、字幕、元素、文字、三类素材库、品牌与属性（选中片段时是片段的属性，否则是视频的）。
- * `aitools` 是工具页的宿主，不在工具栏上：从所在面板的入口打开（产品设计 §5.10）。
+ * 右侧面板的页：文稿、字幕、AI 工具、元素、文字、三类素材库、品牌与属性（选中片段时是片段的属性，否则是视频的）。
+ * `aitools` 是 AI 工具 Tab：列表页与各工具的参数页（产品设计 §5.10），只在桌面端。
  */
 export type PanelTab = 'transcript' | 'subtitle' | 'aitools' | 'elements' | 'text' | 'image' | 'video' | 'audio' | 'brand' | 'props';
 
-/** 网页宿主没有工具页（原型 model-surface.js `WEB_RAIL_DROP`）：记着的是它时落回文稿。 */
+/** 网页宿主没有 AI 工具 Tab（原型 model-surface.js `WEB_RAIL_DROP`）：工具栏不显示它，记着的是它时落回文稿。 */
 export function hostPanelTab(tab: PanelTab, web: boolean): PanelTab {
   return web && tab === 'aitools' ? 'transcript' : tab;
 }

@@ -49,6 +49,7 @@ export const ko: ElementsMessages = {
   layersInTurn: (name: string, count: number) => `${name} · 레이어 ${count}개, 차례로 나타남`,
   tabTranscript: '전사본',
   tabSubtitle: '자막',
+  tabAiTools: 'AI 도구',
   tabImage: '이미지',
   tabVideo: '영상',
   tabAudio: '오디오',

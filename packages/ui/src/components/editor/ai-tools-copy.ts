@@ -21,7 +21,6 @@ const en = {
   // 设置态
   who: 'Use',
   whoAgent: 'Hand off to the Agent',
-  whoAgentSub: 'Runs in this video’s session',
   whoModel: 'Call a model directly',
   whoModelSub: 'The Runtime has no workflow for this yet, so only the Agent can do it',
   scope: 'Scope',
@@ -29,13 +28,8 @@ const en = {
   scopeChapter: (index: number, label: string) => `Chapter ${index} · ${label}`,
   scopeNoChapters: 'The timeline has no chapters yet, so only the whole video is available',
   byAgent: 'Done by the Agent',
-  preview: 'What will be sent to the Agent',
   cta: 'Hand off to the Agent',
-  ctaHint: 'Sends the message above to this video’s session, and the Agent starts right away. Adjust it above first if needed.',
-  ctaNoVideo: 'The video isn’t open yet, so there’s nothing to hand off.',
-  sent: 'Handed off to the Agent · running in the session',
   queued: 'The Agent is busy · the message is queued and will be sent when this turn ends',
-  sendFailed: (message: string) => `Couldn’t send: ${message}`,
   noConversation: 'This video isn’t in any project or session, so it can’t be handed off to the Agent.',
   createFailed: (message: string) => `Couldn’t create a session: ${message}`,
 
@@ -43,8 +37,6 @@ const en = {
   prePolish: 'Polish first (auto paragraphs)',
   prePolishOn: 'Chapters are grouped by paragraph',
   prePolishOff: 'An unpolished transcript has only 1 paragraph, so chapters will be coarse',
-  noteTitle: 'Custom instructions (optional)',
-  notePlaceholder: 'Extra requirements, such as keeping it conversational or not changing brand names…',
   staleEdited: 'Sentences edited in the original',
   staleEditedSub: 'You changed words in the transcript, but the translation is still the old one',
   staleCut: 'Sentences cut from the original',
@@ -56,14 +48,6 @@ const en = {
   retranscribeSpeakers: 'Identify speakers after transcribing',
 
   // 写作与发布
-  length: 'Length',
-  style: 'Style',
-  styleCustom: 'Describe how to write it, in your own words',
-  view: 'Point of view',
-  viewAuto: 'Auto: the Agent decides from the video’s source',
-  language: 'Language',
-  languageWrite: 'Same as the interface',
-  languagePublish: 'Same as the transcript',
   platform: 'Where to post',
   platformPlaceholder: 'The platform to post on (optional); it follows that platform’s rules and reminds you to check',
   titleCount: 'Candidates',
@@ -74,15 +58,31 @@ const en = {
   coverRatio: 'Aspect ratio',
   coverRatioProject: 'Same as the video canvas',
   coverText: 'Cover text',
-  writeNote: 'Anything else (optional)',
-  writeNotePlaceholder: 'For example, lead with the conclusion or mention the guest’s name',
-  titleNote: 'One requirement (optional)',
-  titleNotePlaceholder: 'For example, no questions, or include the guest’s name',
-  coverNotePlaceholder: 'For example, no red, or put the person on the right',
 
   // 还做不了的
   soon: 'Coming soon',
   chaptersPolishFirst: 'Polish and split into paragraphs first, then generate chapters',
+
+  // AI 工具 Tab：列表页、提示词框与交出去
+  session: 'Session',
+  promptLabel: 'What to tell the Agent',
+  promptPlaceholder: 'What to do and how; use @ to reference chapters or speakers',
+  restoreDefault: 'Restore default',
+  skillNote: 'How this tool works',
+  noSkill: 'No skill attached: the Agent follows only the prompt above.',
+  addSkillBack: 'Add this tool’s skill back',
+  sentNew: 'Handed off to the Agent · new session',
+  sentCurrent: 'Handed off to the Agent · continuing the current session',
+  agentCardTitle: 'For anything not listed below, tell the Agent in a sentence',
+  agentCardSomeAgent: 'the Agent',
+  agentCardOutside: 'Opens the session this video belongs to, with the video as context →',
+  noTranscriptTitle: 'This video has no transcript yet',
+  noTranscriptBody: 'These tools all start from the transcript: polishing, chapters, summaries and titles need a transcription first.',
+  goTranscribe: 'Go to Transcript',
+  stateRunning: 'Running',
+  stateReview: 'To review',
+  agentCardNew: (agent: string) => `Starts a new session with this video as context; runs in ${agent} on this computer and asks before writing →`,
+  stateChapters: (count: number) => (count === 1 ? '1 chapter' : `${count} chapters`),
 };
 
 export type AiToolsMessages = typeof en;

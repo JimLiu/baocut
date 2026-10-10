@@ -183,8 +183,8 @@ export const fr: HelpGuidesMessages = {
           "Tapez / au début (ou « Utiliser un outil » sous « + ») : Améliorer la transcription, Générer les chapitres, Identifier les locuteurs, Retranscrire, Trouver les coupes, Traduire les sous-titres, Actualiser les traductions obsolètes, Traduire le doublage, Écrire un résumé, Écrire un article de blog, Proposer des titres, Écrire une description, Créer une couverture, Exporter. Choisissez, ajoutez vos exigences et envoyez ; l’Agent démarre. Pour une vidéo Space, session en bas à droite ; outils indisponibles sur le web.",
         ],
         [
-          "Ou ouvrir depuis le panneau",
-          "« Organiser la transcription » en haut à droite propose retranscription, amélioration, chapitres, locuteurs et écriture de résumé, blog, titres, description, couverture. En mode coupe, « Trouver les coupes ». Choisissez plage et options, puis « Confier à l’Agent » ; demande envoyée à la session. Traduction via « + Traduire en… », doublage via Audio ou menu de piste ; ces deux choisissent un modèle et démarrent directement.",
+          "Ou ouvrir l’onglet Outils IA",
+          "L’onglet « Outils IA » du rail droit de l’éditeur regroupe les outils : polir la transcription, générer des chapitres, identifier les intervenants, retranscrire et trouver des coupes, puis écrire un résumé, un article de blog, des titres, une description ou une couverture ; « Trouver des coupes » dans la barre du mode coupe ouvre la même page. Choisissez-en un pour ouvrir sa page, puis la portée et les options. La zone de texte en dessous rédige la demande d’après elles, avec le skill de l’outil attaché ; vous pouvez la modifier. Dans la ligne « Session », choisissez une nouvelle session ou la session en cours, puis cliquez sur « Confier à l’Agent ». Traduire les sous-titres se trouve dans « + Traduire en… » du panneau Sous-titres, et traduire le doublage dans le panneau Audio et le menu de la piste de doublage ; pour ces deux-là, on choisit un modèle sur la page de réglages et on démarre directement.",
         ],
         [
           "Vérifier les résultats",

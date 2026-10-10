@@ -18,9 +18,8 @@ import {
 } from '@react-spectrum/s2';
 import Edit from '@react-spectrum/s2/icons/Edit';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import { intentPrompt } from '../../model/ai-tools.ts';
+import { intentPrompt, toolTemplate } from '../../model/ai-tools.ts';
 import { chapterPieces } from '../../model/export-range.ts';
-import { gateGuide, homeGate } from '../../model/home-brief.ts';
 import {
   clipLabel,
   clipWindow,
@@ -36,7 +35,6 @@ import { fmtSize } from '../../model/task-facts.ts';
 import { speakerPackFacts } from '../../model/transcribe-speakers.ts';
 import { staleCaptions } from '../../model/transcript-cut.ts';
 import { useRuntime } from '../../runtime/context.tsx';
-import { useConnection } from '../../state/connection-store.ts';
 import { useEditor } from '../../state/editor-store.ts';
 import { isJobLive, useJobs } from '../../state/jobs-store.ts';
 import { useModels } from '../../state/models-store.ts';
@@ -45,7 +43,8 @@ import { canEdit, useVideo } from '../../state/video-store.ts';
 import { InstallDialog } from '../models/install-dialog.tsx';
 import { AgentGateLine } from './agent-gate-line.tsx';
 import { closeAiTool } from './ai-tools-nav.ts';
-import { handToAgent } from './ai-tools-handoff.ts';
+import { AiToolPrompt, SessionRow, useToolHandoff } from './ai-tool-prompt.tsx';
+import { harnessLabel } from '../../model/agent-choice.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { PanelHead } from './panel-head.tsx';
 import { SPEAKERS_COPY as C } from './speakers-copy.ts';
@@ -288,12 +287,10 @@ function SetupView({
   problem: SpeakersProblem | null;
   onBack(): void;
 }) {
-  const runtime = useRuntime();
-  const ref = useVideo((s) => s.video?.ref ?? null);
+  const handoff = useToolHandoff();
+  const ref = handoff.ref;
   const editable = useVideo((s) => canEdit(s.video));
-  const drivers = useConnection((s) => s.drivers);
-  const checking = useConnection((s) => s.checking);
-  const guide = gateGuide(homeGate(drivers, checking));
+  const guide = handoff.guide;
   const pack = useModels((s) => diarizePack(s.bundles));
   const ready = diarizePackReady(pack);
   const facts = speakerPackFacts(pack, fmtSize);
@@ -309,22 +306,14 @@ function SetupView({
   const scope = scopeIndex >= 0 ? C.chapterScope(scopeIndex + 1, chapters[scopeIndex]!.label) : null;
 
   const [installing, setInstalling] = useState(false);
-  const [busy, setBusy] = useState(false);
   const install = pack?.install;
   const downloading = !!install && install.state !== 'paused';
   const pct = downloading && install.totalBytes ? Math.min(100, Math.floor((install.receivedBytes / install.totalBytes) * 100)) : null;
 
-  const blocked = agent ? !!guide || !ref : !pack || !speech || !editable || downloading || !!waiting;
+  const blocked = !pack || !speech || !editable || downloading || !!waiting;
+  // 交给 Agent：提示词框里的模板（意图句 + 固定约束），挂着说话人标注的 skill（产品设计 §5.10）。
+  const template = toolTemplate('speakers', intentPrompt({ tool: 'speakers', title: ref?.name ?? null, scope }));
   const start = async () => {
-    if (agent) {
-      setBusy(true);
-      try {
-        if (await handToAgent(runtime, ref, intentPrompt({ tool: 'speakers', title: ref?.name ?? null, scope }))) onBack();
-      } finally {
-        setBusy(false);
-      }
-      return;
-    }
     if (!ready) {
       setInstalling(true);
       return;
@@ -362,7 +351,7 @@ function SetupView({
                     {C.local} · {C.localSub}
                   </Radio>
                   <Radio value="agent">
-                    {C.agent} · {C.agentSub}
+                    {C.agent} · {agent ? harnessLabel(handoff.driver, handoff.model) : C.agentSub}
                   </Radio>
                 </RadioGroup>
                 {agent && guide ? <AgentGateLine guide={guide} /> : null}
@@ -401,7 +390,9 @@ function SetupView({
                 )}
               </div>
             </div>
+            {agent ? <SessionRow handoff={handoff} /> : null}
           </div>
+          {agent ? <AiToolPrompt videoId={videoId} tool="speakers" template={template} handoff={handoff} onDone={onBack} /> : null}
           {!agent && localHint ? (
             <div className={stack} role={downloading || waiting ? 'status' : undefined}>
               <p className={hint}>{localHint}</p>
@@ -418,12 +409,14 @@ function SetupView({
           ) : null}
         </div>
       </div>
-      <div className={footer}>
-        <Button variant="accent" styles={field} isDisabled={blocked} isPending={busy} onPress={() => void start()}>
-          {C.start}
-        </Button>
-        <p className={hint}>{agent ? C.agentHint : C.startHint}</p>
-      </div>
+      {agent ? null : (
+        <div className={footer}>
+          <Button variant="accent" styles={field} isDisabled={blocked} onPress={() => void start()}>
+            {C.start}
+          </Button>
+          <p className={hint}>{C.startHint}</p>
+        </div>
+      )}
       {installing && pack ? (
         <InstallDialog
           bundleId={pack.bundleId}

@@ -49,6 +49,7 @@ export const de: ElementsMessages = {
   layersInTurn: (name: string, count: number) => `${name} · ${count} Ebenen, nacheinander erscheinend`,
   tabTranscript: "Transkript",
   tabSubtitle: "Untertitel",
+  tabAiTools: "KI-Werkzeuge",
   tabImage: "Bilder",
   tabVideo: "Video",
   tabAudio: "Audio",

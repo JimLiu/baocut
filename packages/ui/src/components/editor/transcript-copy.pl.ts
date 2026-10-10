@@ -71,9 +71,6 @@ export const plTranscript: TranscriptMessages = {
 
 export const plTranscriptTools: TranscriptToolsMessages = {
 
-  toolsMenu: "Uporządkuj transkrypcję",
-  toolsTidy: "Uporządkuj całą transkrypcję",
-  toolsFrom: "Zacznij od transkrypcji",
 
   findTip: "Znajdź i zastąp · ⌘F",
   findLabel: "Znajdź i zastąp",

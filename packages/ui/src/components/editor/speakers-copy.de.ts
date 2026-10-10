@@ -25,7 +25,6 @@ export const de: SpeakersMessages = {
   manySpeech: "Das Video hat mehrere Transkripte; das erste wird verwendet",
   start: "Starten",
   startHint: "Nach Abschluss öffnet sich eine Prüfseite – dies ist das einzige Werkzeug, bei dem vor dem Anwenden bestätigt wird.",
-  agentHint: "Sendet diese Anfrage an die Sitzung des Videos; der Agent beginnt sofort.",
   readOnly: "Das Video ist schreibgeschützt; Sprecher können nicht erkannt werden.",
   web: "Sprecher können im Browser nicht erkannt werden",
   webBody: "Sprechererkennung verwendet das lokale Stimmabdruckmodell auf diesem Computer. Die BaoCut-Desktop-App verwenden.",

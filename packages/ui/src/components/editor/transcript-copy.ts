@@ -112,10 +112,6 @@ export const TRANSCRIPT_COPY = defineMessages(en, { 'zh-Hans': zhTranscript, 'zh
  * `ParaRow`（↑ ↓、播放、⋯）、`ScopeMenu`（复制这一段 / 这一章）。
  */
 const tools = {
-  // 工具菜单（原型 panels.jsx 文稿头上的 ✦，产品设计 §5.10）：整理文稿的四件，和从文稿出发的写作、发布
-  toolsMenu: 'Tidy transcript',
-  toolsTidy: 'Tidy the whole transcript',
-  toolsFrom: 'Start from the transcript',
   // 查找替换
   findTip: 'Find and replace · ⌘F',
   findLabel: 'Find and replace',

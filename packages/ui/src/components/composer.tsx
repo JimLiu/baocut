@@ -9,6 +9,7 @@ import {
   type ComponentRef,
   type ComponentType,
   type DragEvent,
+  type KeyboardEvent,
   type ReactNode,
 } from 'react';
 import {
@@ -30,6 +31,7 @@ import {
   PromptFieldToolbar,
   PromptTokenField,
   type PromptFieldAttachment,
+  type PromptFieldValue,
 } from '@react-spectrum/ai';
 import {
   ActionButton,
@@ -158,6 +160,8 @@ const tag = style({
 const tagText = style({ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 });
 const spacer = style({ flexGrow: 1 });
 const insertMenu = style({ width: 280, maxWidth: '[calc(100vw - 32px)]' });
+const toolCta = style({ width: 'full', marginTop: 8 });
+const toolHint = style({ margin: 0, marginTop: '[6px]', font: 'ui-xs', color: 'gray-600', lineHeight: '[1.5]' });
 const foot = style({ font: 'ui-xs', color: { default: 'gray-500', isError: 'negative' }, paddingX: 4, paddingTop: 4, minHeight: 16 });
 
 /** 斜杠命令的图标（原型 data.js `agent.slash`）。 */
@@ -217,6 +221,33 @@ export interface ComposerProps {
   queue?: ReactNode;
   /** 新会话起始页（原型 new-agent.jsx `AgentHero`）才传；会话里不传，输入区保持原样。 */
   start?: ComposerStart;
+  /** AI 工具参数页的提示词框（原型 tool-prompt.jsx）才传；正文由工具页持有，不进会话草稿。 */
+  tool?: ComposerTool;
+}
+
+/**
+ * AI 工具参数页的提示词框（产品设计 §5.10 参数页第 3、4 段）：同一个输入框，正文是工具页持有的提示词（没改过时是模板，
+ * 跟着范围与勾选项变），没有 `/`（已经在工具页里了），`@` 与附件照旧；「+ › 使用 Skill」挂到工具页的 skill 列表上。
+ * 工具栏里没有发送钮：主按钮在框下面，全宽、写明动作，再下面一行说清按下去会去哪。Enter 换行，不发送。
+ */
+export interface ComposerTool {
+  /** 框里的话：没改过时是 `defaultText`。 */
+  text: string;
+  /** 用户改了正文。 */
+  onText(text: string): void;
+  /** 正文上方：挂着的 skill（工具页自己画，标着哪个是这个工具的做法）。 */
+  tokens: ReactNode;
+  /** 「+ › 使用 Skill」点选了一个。 */
+  onSkill(id: string): void;
+  /** 框与主按钮之间的说明行（没挂 skill 时的那一行）。 */
+  notice?: ReactNode;
+  /** 主按钮的字与它下面那行去向说明。 */
+  cta: string;
+  hint: string;
+  /** 主按钮不能按（视频还没打开、勾选项全没选……）。 */
+  isDisabled?: boolean;
+  /** 按下主按钮：图片已经上传完。返回 false 表示没有交出去，附件留着。 */
+  onStart(text: string, attachments: AttachmentRef[]): Promise<boolean>;
 }
 
 /** 起始页的输入框：模板 token 与素材、「+」菜单（文件和文件夹、使用 Skill、最近的视频）与拖放，正文空着时按附件判断能不能发。 */
@@ -245,11 +276,14 @@ export interface ComposerStart {
  */
 export function Composer(props: ComposerProps) {
   const { draftKey, driverId, model, effort, lockedTo, onAgentChange, accessMode, onAccessModeChange } = props;
-  const { busy, queueWhileBusy, stopping, placeholder, autoFocus, mentionScope, onSend, onStop, reference, queue, start } = props;
+  const { busy, queueWhileBusy, stopping, placeholder, autoFocus, mentionScope, onSend, onStop, reference, queue, start, tool } = props;
   const spaceReferences = props.spaceReferences?.items.length ? props.spaceReferences : null;
   const runtime = useRuntime();
-  const draft = useShell((s) => s.drafts[draftKey] ?? '');
-  const setDraft = useShell((s) => s.setDraft);
+  const shellDraft = useShell((s) => s.drafts[draftKey] ?? '');
+  const setShellDraft = useShell((s) => s.setDraft);
+  // 工具页的提示词框：正文在工具页手里，不写会话草稿。
+  const draft = tool ? tool.text : shellDraft;
+  const setDraft = (key: string, text: string) => (tool ? tool.onText(text) : setShellDraft(key, text));
   const connected = useConnection((s) => s.state.status === 'connected');
   const drivers = useConnection((s) => s.drivers);
   // 找不到这个 Agent 的探测结果时一律显示「正在检测」：通常它在 `checking` 里（首次探测还没完）；
@@ -310,7 +344,7 @@ export function Composer(props: ComposerProps) {
   const hasText = draft.trim().length > 0;
   // 起始页：正文空着时，附了图片或素材也能发（只选模板不行）。
   const hasContent = hasText || !!files.length || !!images.length || (!!start && start.canSendEmpty(images.length));
-  const canSend = (!busy || !!queueWhileBusy) && !sending && !picking && !uploading && !blocked && hasContent;
+  const canSend = (!busy || !!queueWhileBusy) && !sending && !picking && !uploading && !blocked && hasContent && !tool?.isDisabled;
   const [over, setOver] = useState(false);
   const dragDepth = useRef(0);
 
@@ -480,6 +514,18 @@ export function Composer(props: ComposerProps) {
       setSending(false);
       return;
     }
+    if (tool) {
+      // 工具页：正文留在框里（交出去之后工具页回到列表），只在交出去之后清掉附件。
+      try {
+        if (await tool.onStart(text, attachments)) {
+          useDraftImages.getState().clear(draftKey);
+          useDraftFiles.getState().sent(draftKey, sentFiles);
+        }
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
     setDraft(draftKey, '');
     const picked = skillId;
     try {
@@ -510,6 +556,8 @@ export function Composer(props: ComposerProps) {
     const active = activeCompletion(before);
     if (!active || active.raw !== filterValue) return null;
     if (active.kind === 'slash') {
+      // 工具页里没有 `/`：已经在一个工具里了。
+      if (tool) return null;
       const matches = slashMatches(active.query);
       return matches.length ? matches.map((command) => <SlashItem key={command.cmd} command={command} insert />) : null;
     }
@@ -601,7 +649,8 @@ export function Composer(props: ComposerProps) {
             return;
           }
           if (!id.startsWith('skill:')) return;
-          useDraftSkills.getState().set(draftKey, id.slice('skill:'.length));
+          if (tool) tool.onSkill(id.slice('skill:'.length));
+          else useDraftSkills.getState().set(draftKey, id.slice('skill:'.length));
           refocus();
         }}
       >
@@ -680,7 +729,7 @@ export function Composer(props: ComposerProps) {
             </SubmenuTrigger>
           ) : null}
         </MenuSection>
-        {!start ? (
+        {!start && !tool ? (
           <MenuSection aria-label={COMPOSER_MENU.slash}>
             <SubmenuTrigger>
               <MenuItem id="slash" textValue={COMPOSER_MENU.slash}>
@@ -708,7 +757,7 @@ export function Composer(props: ComposerProps) {
   );
 
   return (
-    <div ref={wrapRef} className={wrap({ isCompact: compact, isStart: !!start })}>
+    <div ref={wrapRef} className={wrap({ isCompact: compact, isStart: !!start || !!tool })}>
       {queue}
       <input
         ref={filePicker}
@@ -725,8 +774,9 @@ export function Composer(props: ComposerProps) {
       <div
         data-composer={draftKey}
         data-composer-start={start ? '' : undefined}
-        className={start ? dropZone({ isOver: over }) : undefined}
+        className={start || tool ? dropZone({ isOver: over }) : undefined}
         {...dropProps}
+        onKeyDownCapture={tool ? (event) => toolEnter(event, prompt, setPrompt) : undefined}
       >
         <PromptField
           ref={ref}
@@ -743,6 +793,7 @@ export function Composer(props: ComposerProps) {
           aiDisclaimer={<></>}
         >
           {start?.tokens}
+          {tool?.tokens}
           {!!files.length && (
             <div className={composerTokenList}>
               {files.map((file) => (
@@ -782,7 +833,7 @@ export function Composer(props: ComposerProps) {
             </div>
           )}
           {/* 会话输入框上点选的 skill（起始页的画在 start.tokens 里，和模板一排）。 */}
-          {!start && skillId && skillName ? (
+          {!start && !tool && skillId && skillName ? (
             <div className={composerTokenList}>
               <ComposerToken
                 icon={<Code />}
@@ -893,7 +944,7 @@ export function Composer(props: ComposerProps) {
                   onChange={onAgentChange}
                 />
               ) : null}
-              {submit}
+              {tool ? null : submit}
             </div>
           </PromptFieldToolbar>
         </PromptField>
@@ -913,8 +964,31 @@ export function Composer(props: ComposerProps) {
           {footText}
         </div>
       ) : null}
+      {tool ? (
+        <>
+          {tool.notice}
+          <Button variant="accent" styles={toolCta} isDisabled={!canSend} isPending={sending} onPress={() => void send()}>
+            {tool.cta}
+          </Button>
+          <p className={toolHint}>{tool.hint}</p>
+        </>
+      ) : null}
     </div>
   );
+}
+
+/**
+ * 提示词框里的 Enter 换行、不发送（主按钮在框下面）。PromptField 总把 Enter 当提交，所以在它之前接住；
+ * 补全弹层开着（选候选）、输入法组合中、带修饰键时照旧交给它。
+ */
+function toolEnter(event: KeyboardEvent<HTMLDivElement>, value: PromptFieldValue, setValue: (value: PromptFieldValue) => void) {
+  const target = event.target as HTMLElement;
+  if (event.key !== 'Enter' || event.shiftKey || event.altKey || event.metaKey || event.ctrlKey || event.nativeEvent.isComposing) return;
+  if (target.getAttribute('role') !== 'textbox' || target.getAttribute('aria-expanded') === 'true') return;
+  event.preventDefault();
+  event.stopPropagation();
+  const { start, end } = value.selectedRange;
+  setValue(value.replaceRange(start, end, '\n'));
 }
 
 /** 斜杠命令一行：图标、`/命令 · 标签`、一句副文案。`insert`：补全弹层里用，选中替换正在敲的 /token。 */

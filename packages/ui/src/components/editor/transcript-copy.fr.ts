@@ -73,9 +73,6 @@ export const frTranscript: TranscriptMessages = {
 
 export const frTranscriptTools: TranscriptToolsMessages = {
 
-  toolsMenu: "Organiser la transcription",
-  toolsTidy: "Organiser toute la transcription",
-  toolsFrom: "Partir de la transcription",
 
   findTip: "Rechercher et remplacer · ⌘F",
   findLabel: "Rechercher et remplacer",

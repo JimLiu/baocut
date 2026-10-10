@@ -49,6 +49,7 @@ export const nl: ElementsMessages = {
   layersInTurn: (name: string, count: number) => `${name} · ${count} lagen, verschijnen na elkaar`,
   tabTranscript: "Transcript",
   tabSubtitle: "Ondertitels",
+  tabAiTools: "AI-tools",
   tabImage: "Afbeeldingen",
   tabVideo: "Video",
   tabAudio: "Audio",

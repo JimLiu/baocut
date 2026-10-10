@@ -20,6 +20,7 @@ const chip = style({
   boxSizing: 'border-box',
 });
 const chipText = style({ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 });
+const chipNote = style({ flexShrink: 0, font: 'ui-xs', color: 'gray-600' });
 const closeIcon = iconStyle({ size: 'XS' });
 
 /** 输入框正文上方的一枚可移除标记：模板、本机素材、点选的 skill 共用一个样子。 */
@@ -27,6 +28,7 @@ export function ComposerToken({
   icon,
   label,
   title,
+  note,
   removeLabel,
   onRemove,
   onOpen,
@@ -35,6 +37,8 @@ export function ComposerToken({
   label: string;
   /** 悬停看到的完整说明（例如素材的完整路径）。 */
   title?: string;
+  /** 名字后面一句淡色的说明（AI 工具页上「这个工具的做法」）。 */
+  note?: string;
   removeLabel: string;
   onRemove(): void;
   onOpen?: () => void;
@@ -52,6 +56,7 @@ export function ComposerToken({
           <span className={chipText}>{label}</span>
         </>
       )}
+      {note ? <span className={chipNote}>{note}</span> : null}
       <ActionButton isQuiet size="XS" aria-label={removeLabel} onPress={onRemove}>
         <Close styles={closeIcon} data-bc-icons="own" />
       </ActionButton>

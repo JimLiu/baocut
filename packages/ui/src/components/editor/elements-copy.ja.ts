@@ -49,6 +49,7 @@ export const ja: ElementsMessages = {
   layersInTurn: (name: string, count: number) => `${name} · ${count} レイヤーが順に表示`,
   tabTranscript: '文字起こし',
   tabSubtitle: '字幕',
+  tabAiTools: 'AI ツール',
   tabImage: '画像',
   tabVideo: '動画',
   tabAudio: '音声',

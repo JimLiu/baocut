@@ -64,6 +64,7 @@ const en = {
   layersInTurn: (name: string, count: number) => `${name} · ${count} layers, appearing in turn`,
   tabTranscript: 'Transcript',
   tabSubtitle: 'Subtitles',
+  tabAiTools: 'AI tools',
   tabImage: 'Images',
   tabVideo: 'Video',
   tabAudio: 'Audio',

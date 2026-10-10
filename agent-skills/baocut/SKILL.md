@@ -28,6 +28,7 @@ BaoCut 是以**可编辑视频**为中心的剪辑工具：素材在时间线上
 | 转录、加字幕、出字幕 | 建可编辑视频，转写，建原文字幕层；要文件再导出 | [subtitles](references/catalog/subtitles.md) | {{skill:subtitle-workflow}} |
 | 翻译字幕、翻成某种语言、双语字幕 | 在视频里**自己**逐句翻译，建译文或双语字幕层 | [subtitles](references/catalog/subtitles.md) | {{skill:translate-subtitles}} |
 | 润色、校对转写 | 改错字、术语与标点，写回同一份转写，词的时间不变 | [subtitles](references/catalog/subtitles.md) | {{skill:polish-transcript}} |
+| 识别说话人、标说话人名字 | 没区分过的按声纹重新转录并区分；凭证据起真名，用户确认后写回转写的 speakers | [subtitles](references/catalog/subtitles.md) | {{skill:speaker-labeling}} |
 | 配音、翻译配音 | 先自己翻译，再按译文逐句合成、放上配音轨 | [voice](references/catalog/voice.md) | {{skill:translate-subtitles}}（翻译那一步） |
 | 旁白、念一段话 | 语音合成，按需放进视频 | [voice](references/catalog/voice.md) | — |
 | 旁白成片、给画面配多句旁白 | 先量语速算字数，一个能锁住音色的声音一次合成，画面剪到旁白上 | [voice](references/catalog/voice.md) | {{skill:narration}} |
@@ -37,6 +38,7 @@ BaoCut 是以**可编辑视频**为中心的剪辑工具：素材在时间线上
 | 总结、提炼要点 | 读带时间的文稿，写总结与可跳转的要点 | [subtitles](references/catalog/subtitles.md) | {{skill:video-summary}} |
 | 写成博客、公众号文章 | 读文稿写成完整文章 | [subtitles](references/catalog/subtitles.md) | {{skill:video-blog}} |
 | 起标题、写简介 | 标题候选与简介，每句由视频兑现 | [subtitles](references/catalog/subtitles.md) | {{skill:titles-and-description}} |
+| 做封面、封面大字 | 标题与封面文案候选，挑定后按画幅生成封面图，导入为候选素材 | [media](references/catalog/media.md) | {{skill:cover-and-title}} |
 | 下载这个链接 | 新建视频并导入；用户明说只要文件才只下载 | [media](references/catalog/media.md) | — |
 | 压缩、转码、合并、提取音频 | 文件到文件，不建视频，原文件不动 | [media](references/catalog/media.md) | — |
 | 截几帧、看看画面 | 按时刻取帧成图片再看 | [media](references/catalog/media.md) | — |

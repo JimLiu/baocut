@@ -1,3 +1,4 @@
+import { pluralForm } from '@baocut/protocol';
 import type { AiToolsMessages } from './ai-tools-copy.ts';
 
 export const ru: AiToolsMessages = {
@@ -5,7 +6,6 @@ export const ru: AiToolsMessages = {
 
   who: "Выбрать",
   whoAgent: "Передать агенту",
-  whoAgentSub: "Выполняется в сессии этого видео",
   whoModel: "Вызвать модель напрямую",
   whoModelSub: "В Runtime ещё нет процесса для этого, выполнить может только агент",
   scope: "Область",
@@ -13,21 +13,14 @@ export const ru: AiToolsMessages = {
   scopeChapter: (index: number, label: string) => `Глава ${index} · ${label}`,
   scopeNoChapters: "На таймлайне ещё нет глав, доступно только всё видео",
   byAgent: "Выполняется агентом",
-  preview: "Что будет отправлено агенту",
   cta: "Передать агенту",
-  ctaHint: "Отправляет сообщение выше в сессию видео, агент сразу начинает. При необходимости сначала измените сообщение.",
-  ctaNoVideo: "Видео ещё не открыто, передавать нечего.",
-  sent: "Передано агенту · выполняется в сессии",
   queued: "Агент занят · сообщение в очереди и отправится после итерации",
-  sendFailed: (message: string) => `Не удалось отправить: ${message}`,
   noConversation: "Видео вне проекта или сессии, передать агенту нельзя.",
   createFailed: (message: string) => `Не удалось создать сессию: ${message}`,
 
   prePolish: "Сначала отредактировать (автоабзацы)",
   prePolishOn: "Главы группируются по абзацам",
   prePolishOff: "Неотредактированная расшифровка имеет только 1 абзац, главы будут грубыми",
-  noteTitle: "Свои указания (необязательно)",
-  notePlaceholder: "Дополнительные требования: разговорный тон или сохранение названий брендов…",
   staleEdited: "Предложения с правками в оригинале",
   staleEditedSub: "Слова в расшифровке изменены, перевод ещё старый",
   staleCut: "Предложения с вырезанием из оригинала",
@@ -38,14 +31,6 @@ export const ru: AiToolsMessages = {
 
   retranscribeSpeakers: "Определить говорящих после расшифровки",
 
-  length: "Длина",
-  style: "Стиль",
-  styleCustom: "Опишите своими словами, как написать",
-  view: "Точка зрения",
-  viewAuto: "Авто: агент определяет по источнику видео",
-  language: "Язык",
-  languageWrite: "Как в интерфейсе",
-  languagePublish: "Как в тексте",
   platform: "Где публиковать",
   platformPlaceholder: "Платформа публикации (по желанию); соблюдает правила и напоминает проверить",
   titleCount: "Варианты",
@@ -56,12 +41,27 @@ export const ru: AiToolsMessages = {
   coverRatio: "Соотношение сторон",
   coverRatioProject: "Как холст видео",
   coverText: "Текст на обложке",
-  writeNote: "Что-нибудь ещё (по желанию)",
-  writeNotePlaceholder: "Например, начать с вывода или упомянуть имя гостя",
-  titleNote: "Одно требование (по желанию)",
-  titleNotePlaceholder: "Например, без вопросов или с именем гостя",
-  coverNotePlaceholder: "Например, без красного или человек справа",
 
   soon: "Скоро",
   chaptersPolishFirst: "Сначала отредактировать и разбить на абзацы, затем создать главы",
+
+  session: 'Сессия',
+  promptLabel: 'Что сказать агенту',
+  promptPlaceholder: 'Что и как сделать; @ — ссылка на главу или говорящего',
+  restoreDefault: 'Вернуть по умолчанию',
+  skillNote: 'Метод этого инструмента',
+  noSkill: 'Skill не прикреплён: агент следует только тексту выше.',
+  addSkillBack: 'Вернуть skill этого инструмента',
+  sentNew: 'Передано агенту · новая сессия',
+  sentCurrent: 'Передано агенту · в текущей сессии',
+  agentCardTitle: 'То, чего нет ниже, поручите агенту одной фразой',
+  agentCardSomeAgent: 'агенте',
+  agentCardOutside: 'Откроет сессию этого видео, видео — в контексте →',
+  noTranscriptTitle: 'У этого видео пока нет расшифровки',
+  noTranscriptBody: 'Все эти инструменты работают от расшифровки: для правки, глав, резюме и заголовков сначала нужна транскрипция.',
+  goTranscribe: 'К расшифровке',
+  stateRunning: 'Идёт',
+  stateReview: 'Ждёт проверки',
+  agentCardNew: (agent) => `Новая сессия с этим видео в контексте; работает в ${agent} на этом компьютере и спрашивает перед записью →`,
+  stateChapters: (count) => pluralForm('ru', count, { one: `${count} глава`, few: `${count} главы`, many: `${count} глав`, other: `${count} главы` }),
 };

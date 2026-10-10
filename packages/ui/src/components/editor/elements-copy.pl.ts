@@ -50,6 +50,7 @@ export const pl: ElementsMessages = {
   layersInTurn: (name: string, count: number) => pluralForm('pl', count, { one: `${name} · ${count} warstwa, pojawianie się kolejno`, few: `${name} · ${count} warstwy, pojawianie się kolejno`, many: `${name} · ${count} warstw, pojawianie się kolejno`, other: `${name} · ${count} warstwy, pojawianie się kolejno` }),
   tabTranscript: "Transkrypcja",
   tabSubtitle: "Napisy",
+  tabAiTools: "Narzędzia AI",
   tabImage: "Obrazy",
   tabVideo: "Wideo",
   tabAudio: "Dźwięk",

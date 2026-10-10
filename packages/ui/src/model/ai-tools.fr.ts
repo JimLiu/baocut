@@ -173,4 +173,40 @@ export const fr: AiToolsMessages = {
 
   endSentence: (text: string) => (/[.!?]$/.test(text) ? text : `${text}.`),
   joinPrompt: (head: string, extra: readonly string[]) => [head, ...extra].join(" "),
+  groupSub: { writing: 'Pour les lecteurs : savoir de quoi parle la vidéo sans la regarder', publish: 'Pour qui publie la vidéo : donner envie de cliquer, puis tenir la promesse' },
+  laterNote: 'Traduire les sous-titres est encore dans le panneau Sous-titres et Traduire le doublage dans le panneau Audio ; ils arriveront ici plus tard.',
+  effect: {
+    polish: 'Modifie la transcription : appliqué à la fin, annulable en une étape',
+    chapters: 'Modifie les chapitres : appliqué à la fin, annulable en une étape',
+    speakers: 'Vous confirmez d’abord le résultat ; il n’est écrit dans la vidéo qu’une fois appliqué',
+    retranscribe: 'Remplace la transcription de cette plage : appliqué à la fin, annulable en une étape',
+    cleanup: 'Propose seulement des coupes ; rien n’est coupé avant votre confirmation',
+    stale: 'Retraduit seulement les phrases obsolètes ; le reste ne change pas',
+    summary: 'Ne modifie pas la vidéo : le résultat est à lire et à copier',
+    blog: 'Ne modifie pas la vidéo : le résultat est à lire et à copier',
+    title: 'Ne modifie pas la vidéo : choisissez-en un à utiliser',
+    desc: 'Ne modifie pas la vidéo : le résultat est à lire et à copier',
+    cover: 'Ne modifie pas la vidéo : choisissez-en une à utiliser',
+  },
+  standMarkdown: (language) => (language ? `Écris en Markdown, en ${language}.` : 'Écris en Markdown, dans la même langue que la transcription.'),
+  standLanguage: (language) => (language ? `Écris en ${language}.` : 'Écris dans la même langue que la transcription.'),
+  standing: {
+    summary: ['Commence par la conclusion, puis liste les points clés, chacun avec son code temporel (mm:ss).', 'Longueur modérée : trois à cinq paragraphes.'],
+    blog: ['Choisis le point de vue selon la source de la vidéo : en tant qu’auteur si c’est ma vidéo, en tant que spectateur si c’est celle de quelqu’un d’autre.', 'Style simple, sans ton marketing.'],
+    title: ['Mets chaque proposition sur sa propre ligne.'],
+    desc: ['Inclus les codes temporels des chapitres et une ligne de tags.'],
+    cover: ['Le texte de la couverture est dans la langue de la transcription.'],
+    polish: ['Ne réécris pas mes formulations et ne supprime rien ; corrige seulement les erreurs évidentes.'],
+    chapters: ['Regroupe par sujet, avec un titre court pour chaque chapitre.'],
+  },
+  sessionNew: 'Nouvelle session',
+  sessionNewSub: 'Prend cette vidéo comme contexte ; une tâche par session, sans renvoyer un long historique',
+  sessionCurrent: (title) => `Continuer « ${title} »`,
+  sessionUntitled: 'la session de cette vidéo',
+  sessionCurrentSub: (messages) =>
+    messages === null
+      ? 'Renvoie l’historique de la session, ce qui coûte plus cher une fois le cache du prompt expiré'
+      : `${messages <= 1 ? `${messages} message` : `${messages} messages`} jusqu’ici · renvoie l’historique, ce qui coûte plus cher une fois le cache du prompt expiré`,
+  hintNew: 'Démarre une nouvelle session avec cette vidéo comme contexte. Suivez-la là-bas ; toute modification de la vidéo par l’agent peut être annulée.',
+  hintCurrent: 'Envoie à la session actuelle de cette vidéo, avec la vidéo comme contexte. Suivez-la là-bas ; toute modification de la vidéo par l’agent peut être annulée.',
 };

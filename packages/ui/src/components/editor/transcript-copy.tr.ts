@@ -71,10 +71,6 @@ export const trTranscript: TranscriptMessages = {
 };
 
 export const trTranscriptTools: TranscriptToolsMessages = {
-  // 工具菜单（原型 panels.jsx 文稿头上的 ✦，产品设计 §5.10）：整理文稿的四件，和从文稿出发的写作、发布
-  toolsMenu: "Dökümü düzenle",
-  toolsTidy: "Tüm dökümü düzenle",
-  toolsFrom: "Dökümden başla",
   // 查找替换
   findTip: "Bul ve değiştir · ⌘F",
   findLabel: "Bul ve değiştir",

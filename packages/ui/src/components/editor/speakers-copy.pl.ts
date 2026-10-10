@@ -23,7 +23,6 @@ export const pl: SpeakersMessages = {
   manySpeech: "Wideo ma kilka transkrypcji; używa pierwszej",
   start: "Początek",
   startHint: "Po ukończeniu otwiera się strona przeglądu – tylko to narzędzie potwierdza się przed zastosowaniem.",
-  agentHint: "Wysyła żądanie do sesji wideo, agent zaczyna od razu.",
   readOnly: "Wideo tylko do odczytu, nie można rozpoznać mówców.",
   web: "Nie można rozpoznać mówców w przeglądarce",
   webBody: "Rozpoznawanie używa lokalnego modelu na komputerze. Użyj aplikacji komputerowej BaoCut.",

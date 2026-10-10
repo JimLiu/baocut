@@ -42,7 +42,6 @@ const en = {
   manySpeech: 'The video has several transcripts; the first one is used',
   start: 'Start',
   startHint: 'When it finishes, a review page opens—this is the only tool you confirm before it applies.',
-  agentHint: 'Sends this request to the video’s session, and the Agent starts right away.',
   readOnly: 'The video is read-only, so speakers can’t be identified.',
   web: 'Speakers can’t be identified in the browser',
   webBody: 'Identifying speakers uses the on-device voiceprint model on this computer. Use the BaoCut desktop app.',

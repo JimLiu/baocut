@@ -71,10 +71,6 @@ export const viTranscript: TranscriptMessages = {
 };
 
 export const viTranscriptTools: TranscriptToolsMessages = {
-  // 工具菜单（原型 panels.jsx 文稿头上的 ✦，产品设计 §5.10）：整理文稿的四件，和从文稿出发的写作、发布
-  toolsMenu: "Chỉnh bản chép lời",
-  toolsTidy: "Chỉnh toàn bản chép lời",
-  toolsFrom: "Bắt đầu từ bản chép lời",
   // 查找替换
   findTip: "Tìm và thay · ⌘F",
   findLabel: "Tìm và thay",

@@ -49,6 +49,7 @@ export const ptBR: ElementsMessages = {
   layersInTurn: (name: string, count: number) => `${name} · ${count} camadas que aparecem em sequência`,
   tabTranscript: "Transcrição",
   tabSubtitle: "Legendas",
+  tabAiTools: "Ferramentas de IA",
   tabImage: "Imagem",
   tabVideo: "Vídeo",
   tabAudio: "Áudio",

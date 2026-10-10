@@ -16,7 +16,7 @@ import { defaultDriver, useConnection } from '../../state/connection-store.ts';
 import { useConversationMeta } from '../../state/directory-store.ts';
 import { useDraftImages } from '../../state/draft-images-store.ts';
 import { useDraftSkills } from '../../state/draft-skills-store.ts';
-import { useEditor } from '../../state/editor-store.ts';
+import { hostPanelTab, useEditor } from '../../state/editor-store.ts';
 import { useSetting } from '../../state/settings-store.ts';
 import { routeVideo, useShell } from '../../state/shell-store.ts';
 import { useVideo } from '../../state/video-store.ts';
@@ -108,7 +108,9 @@ export function VideoQuickChat() {
   const prefMin = useShell((s) => s.videoChatMin);
   // 工具页（`aitools`）开着时，展开的卡片正好盖住页底的「交给 Agent」：这段时间按最小化显示，但不改记在本机的偏好；
   // 用户自己点开图标则这一次照常展开（`peek`），工具页关掉就复位，回到偏好的状态。工具页上的点开、最小化都只动 `peek`，不碰偏好。
-  const toolsOpen = useEditor((s) => s.panelTab === 'aitools');
+  // 网页宿主没有 AI 工具 Tab：记着的 `aitools` 在那里落回文稿，不算开着。
+  const web = runtime.host.platform === 'web';
+  const toolsOpen = useEditor((s) => hostPanelTab(s.panelTab, web) === 'aitools');
   const [peek, setPeek] = useState(false);
   const min = toolsOpen ? !peek : prefMin;
   const drivers = useConnection((s) => s.drivers);

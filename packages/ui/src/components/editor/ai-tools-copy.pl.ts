@@ -1,3 +1,4 @@
+import { pluralForm } from '@baocut/protocol';
 import type { AiToolsMessages } from './ai-tools-copy.ts';
 
 export const pl: AiToolsMessages = {
@@ -5,7 +6,6 @@ export const pl: AiToolsMessages = {
 
   who: "Wybierz",
   whoAgent: "Przekaż agentowi",
-  whoAgentSub: "Działa w sesji tego wideo",
   whoModel: "Wywołaj model bezpośrednio",
   whoModelSub: "Runtime nie ma jeszcze procesu dla tego, więc może wykonać tylko agent",
   scope: "Zakres",
@@ -13,21 +13,14 @@ export const pl: AiToolsMessages = {
   scopeChapter: (index: number, label: string) => `Rozdział ${index} · ${label}`,
   scopeNoChapters: "Oś czasu nie ma jeszcze rozdziałów, dostępne tylko całe wideo",
   byAgent: "Wykonuje agent",
-  preview: "Co zostanie wysłane agentowi",
   cta: "Przekaż agentowi",
-  ctaHint: "Wysyła powyższą wiadomość do sesji wideo, agent zaczyna od razu. W razie potrzeby najpierw dostosuj wiadomość.",
-  ctaNoVideo: "Wideo nie jest jeszcze otwarte, nie ma czego przekazać.",
-  sent: "Przekazano agentowi · działa w sesji",
   queued: "Agent zajęty · wiadomość w kolejce, zostanie wysłana po turze",
-  sendFailed: (message: string) => `Nie udało się wysłać: ${message}`,
   noConversation: "Wideo jest poza projektem lub sesją, nie można przekazać agentowi.",
   createFailed: (message: string) => `Nie udało się utworzyć sesji: ${message}`,
 
   prePolish: "Najpierw popraw (automatyczne akapity)",
   prePolishOn: "Rozdziały są grupowane według akapitów",
   prePolishOff: "Niepoprawiona transkrypcja ma tylko 1 akapit, więc rozdziały będą ogólne",
-  noteTitle: "Własne instrukcje (opcjonalnie)",
-  notePlaceholder: "Dodatkowe wymagania: swobodny ton lub zachowanie nazw marek…",
   staleEdited: "Zdania zmienione w oryginale",
   staleEditedSub: "Zmieniono słowa transkrypcji, ale tłumaczenie nadal stare",
   staleCut: "Zdania wycięte z oryginału",
@@ -38,14 +31,6 @@ export const pl: AiToolsMessages = {
 
   retranscribeSpeakers: "Rozpoznaj mówców po transkrypcji",
 
-  length: "Długość",
-  style: "Styl",
-  styleCustom: "Opisz własnymi słowami, jak napisać",
-  view: "Punkt widzenia",
-  viewAuto: "Automatyczny: agent decyduje na podstawie źródła wideo",
-  language: "Język",
-  languageWrite: "Tak jak interfejs",
-  languagePublish: "Jak w transkrypcji",
   platform: "Gdzie publikować",
   platformPlaceholder: "Platforma publikacji (opcjonalnie); przestrzega jej zasad i przypomina o sprawdzeniu",
   titleCount: "Propozycje",
@@ -56,12 +41,27 @@ export const pl: AiToolsMessages = {
   coverRatio: "Proporcje",
   coverRatioProject: "Tak jak płótno wideo",
   coverText: "Tekst na okładce",
-  writeNote: "Coś jeszcze (opcjonalnie)",
-  writeNotePlaceholder: "Na przykład zacznij od wniosku lub wspomnij imię gościa",
-  titleNote: "Jedno wymaganie (opcjonalnie)",
-  titleNotePlaceholder: "Na przykład bez pytań lub z imieniem gościa",
-  coverNotePlaceholder: "Na przykład bez czerwieni lub osoba po prawej",
 
   soon: "Wkrótce",
   chaptersPolishFirst: "Najpierw popraw i podziel na akapity, potem generuj rozdziały",
+
+  session: 'Sesja',
+  promptLabel: 'Co przekazać agentowi',
+  promptPlaceholder: 'Co i jak zrobić; @ odwołuje się do rozdziału lub mówcy',
+  restoreDefault: 'Przywróć domyślne',
+  skillNote: 'Sposób działania tego narzędzia',
+  noSkill: 'Brak skilla: agent kieruje się tylko tekstem powyżej.',
+  addSkillBack: 'Przywróć skill tego narzędzia',
+  sentNew: 'Przekazano agentowi · nowa sesja',
+  sentCurrent: 'Przekazano agentowi · w bieżącej sesji',
+  agentCardTitle: 'Czego nie ma poniżej, powiedz agentowi jednym zdaniem',
+  agentCardSomeAgent: 'agencie',
+  agentCardOutside: 'Otwiera sesję tego wideo, z wideo jako kontekstem →',
+  noTranscriptTitle: 'To wideo nie ma jeszcze transkrypcji',
+  noTranscriptBody: 'Wszystkie te narzędzia wychodzą od transkrypcji: poprawki, rozdziały, podsumowania i tytuły wymagają jej najpierw.',
+  goTranscribe: 'Przejdź do transkrypcji',
+  stateRunning: 'W toku',
+  stateReview: 'Do przejrzenia',
+  agentCardNew: (agent) => `Nowa sesja z tym wideo jako kontekstem; działa w ${agent} na tym komputerze i pyta przed zapisem →`,
+  stateChapters: (count) => pluralForm('pl', count, { one: `${count} rozdział`, few: `${count} rozdziały`, many: `${count} rozdziałów`, other: `${count} rozdziału` }),
 };

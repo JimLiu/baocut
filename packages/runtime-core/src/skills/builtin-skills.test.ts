@@ -8,10 +8,12 @@ import { SkillCatalog, resolveBuiltinSkillsDir, type LoadedSkill } from './skill
 
 /** 仓库根 `skills/` 里随应用分发的内置 skill。新增或改名时同步这里与 `skills/README.md`。 */
 const EXPECTED_IDS = [
+  'cover-and-title',
   'motion-graphics',
   'narration',
   'polish-transcript',
   'shorts-segments',
+  'speaker-labeling',
   'subtitle-workflow',
   'talking-head-cut',
   'titles-and-description',

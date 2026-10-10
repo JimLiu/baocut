@@ -8,10 +8,12 @@
 | --- | --- |
 | `subtitle-workflow` | 转录与字幕 |
 | `polish-transcript` | 润色转写 |
+| `speaker-labeling` | 说话人标注 |
 | `translate-subtitles` | 翻译字幕 |
 | `video-summary` | 视频内容总结 |
 | `video-blog` | 写成博客文章 |
 | `titles-and-description` | 起标题与写简介 |
+| `cover-and-title` | 封面与标题 |
 | `video-chapters` | 分章节 |
 | `talking-head-cut` | 剪口播 |
 | `shorts-segments` | 切短视频 |

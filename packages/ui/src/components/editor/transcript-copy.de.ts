@@ -72,9 +72,6 @@ export const deTranscript: TranscriptMessages = {
 
 export const deTranscriptTools: TranscriptToolsMessages = {
 
-  toolsMenu: "Transkript aufräumen",
-  toolsTidy: "Gesamtes Transkript aufräumen",
-  toolsFrom: "Mit dem Transkript beginnen",
 
   findTip: "Suchen und ersetzen · ⌘F",
   findLabel: "Suchen und ersetzen",

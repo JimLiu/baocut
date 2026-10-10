@@ -49,6 +49,7 @@ export const fr: ElementsMessages = {
   layersInTurn: (name: string, count: number) => `${name} · ${count} calques apparaissant successivement`,
   tabTranscript: "Transcription",
   tabSubtitle: "Sous-titres",
+  tabAiTools: "Outils IA",
   tabImage: "Images",
   tabVideo: "Vidéo",
   tabAudio: "Audio",

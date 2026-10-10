@@ -362,7 +362,7 @@ function SwitchActions({ job, entry }: { job: JobRecord; entry: SpaceEntry | nul
   const refresh = () => {
     const editor = useEditor.getState();
     editor.attach(sw.videoId);
-    setAiToolPage(sw.videoId, { tool: 'stale', preset: null, from: 'subtitle' });
+    setAiToolPage(sw.videoId, { tool: 'stale', preset: null });
     editor.showPanel('aitools');
     useShell.getState().openVideo(target);
   };

@@ -5,6 +5,7 @@ import Apps from '@react-spectrum/s2/icons/Apps';
 import Brand from '@react-spectrum/s2/icons/Brand';
 import CloseCaptions from '@react-spectrum/s2/icons/CloseCaptions';
 import Image from '@react-spectrum/s2/icons/Image';
+import MagicWand from '@react-spectrum/s2/icons/MagicWand';
 import MusicNote from '@react-spectrum/s2/icons/MusicNote';
 import Properties from '@react-spectrum/s2/icons/Properties';
 import TextIcon from '@react-spectrum/s2/icons/Text';
@@ -23,7 +24,7 @@ import { TextPanel } from './text-panel.tsx';
 import { TranscriptPanel } from './transcript-panel.tsx';
 import { ELEMENTS_COPY as EL } from './elements-copy.ts';
 
-/** 工具栏上的页，次序与原型一致。工具页（`aitools`）不在这里：它从所在面板的入口打开，盖在面板上（产品设计 §5.10）。 */
+/** 工具栏上的页，次序与原型一致。AI 工具（`aitools`）是第三个，网页宿主不显示（产品设计 §5.10）。 */
 const TABS: { key: PanelTab; label: string; Icon: ComponentType }[] = [
   {
     key: 'transcript',
@@ -38,6 +39,13 @@ const TABS: { key: PanelTab; label: string; Icon: ComponentType }[] = [
       return EL.tabSubtitle;
     },
     Icon: CloseCaptions,
+  },
+  {
+    key: 'aitools',
+    get label() {
+      return EL.tabAiTools;
+    },
+    Icon: MagicWand,
   },
   {
     key: 'elements',
@@ -206,7 +214,7 @@ export function SidePanel({
             size="M"
             selectedKeys={hidden ? [] : [tab]}
             onSelectionChange={(keys) => showPanel(([...keys][0] as PanelTab | undefined) ?? null)}>
-            {TABS.map(({ key, label, Icon }) => (
+            {TABS.filter(({ key }) => hostPanelTab(key, web) === key).map(({ key, label, Icon }) => (
               <TooltipTrigger key={key} placement="start" delay={300}>
                 <ToggleButton id={key} aria-label={label}>
                   <Icon />
