@@ -15,6 +15,7 @@ import {
   stepError,
   stepMeta,
   turns,
+  type RowKind,
 } from './agent-turn.ts';
 import { buildThread } from './thread.ts';
 
@@ -78,6 +79,16 @@ describe('gapBetween', () => {
     expect(gapBetween('approval', 'footer')).toBe(4);
     expect(gapBetween('user', 'footer')).toBe(4);
     expect(gapBetween(null, 'user')).toBe(0);
+  });
+
+  it('卡片后与消息留出间距，页脚和第一行仍沿用原间距', () => {
+    const preceding: RowKind[] = ['user', 'assistant', 'tool'];
+    const following: RowKind[] = ['user', 'assistant', 'tool', 'approval', 'notice'];
+    for (const prev of preceding) {
+      for (const next of following) expect(gapBetween(prev, next, true)).toBe(24);
+      expect(gapBetween(prev, 'footer', true)).toBe(4);
+    }
+    expect(gapBetween(null, 'assistant', true)).toBe(0);
   });
 
   it('线程块的行种类', () => {

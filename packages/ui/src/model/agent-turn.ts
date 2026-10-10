@@ -59,10 +59,11 @@ const GAPS: Partial<Record<`${RowKind}>${RowKind}`, number>> = {
   'block>block': 12,
 };
 
-/** 相邻两行的间距：按种类查表，任何行到页脚是 4，第一行是 0，其余 16。 */
-export function gapBetween(prev: RowKind | null, next: RowKind): number {
+/** 相邻两行的间距：卡片后留 24，任何行到页脚是 4，第一行是 0，其余按种类查表。 */
+export function gapBetween(prev: RowKind | null, next: RowKind, prevHasCards = false): number {
   if (!prev) return 0;
   if (next === 'footer') return 4;
+  if (prevHasCards) return 24;
   return GAPS[`${prev}>${next}`] ?? 16;
 }
 

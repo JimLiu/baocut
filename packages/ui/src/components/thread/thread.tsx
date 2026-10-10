@@ -118,11 +118,12 @@ export function Thread({
   const footerAfter = new Map(turnList.map((turn, i) => [turn.end, { turn, last: i === turnList.length - 1 }]));
   const rows: ReactNode[] = [];
   let prev: RowKind | null = null;
+  let prevHasCards = false;
   blocks.forEach((block, i) => {
     if (block.type !== 'task') {
       const kind = rowKind(block);
       rows.push(
-        <div key={block.id} className={row} style={{ marginTop: gapBetween(prev, kind) }}>
+        <div key={block.id} className={row} style={{ marginTop: gapBetween(prev, kind, prevHasCards) }}>
           <Block
             block={block}
             conversationId={conversationId}
@@ -134,6 +135,7 @@ export function Thread({
         </div>,
       );
       prev = kind;
+      prevHasCards = !!cards.get(block.id)?.length || (block.type === 'agent' && !!outputs.get(block.id)?.length);
     }
     const foot = footerAfter.get(i);
     if (!foot) return;
@@ -150,6 +152,7 @@ export function Thread({
       </div>,
     );
     prev = 'footer';
+    prevHasCards = false;
   });
 
   return (
