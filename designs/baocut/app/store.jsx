@@ -522,7 +522,7 @@
        有项目的会话一律进那个项目的编辑器并开左抽屉——Agent 改了什么当场看得到；
        只有没绑项目的会话（首页起的那种）才去全屏 Agent 页。
        `prompt` 只落成草稿（composer 里可改），`send` 为 true 才直接发。 */
-    const land = useCallback((sess) => {
+    const land = useCallback((sess, how) => {
       /* App rail（2026-10-01，§3）：会话的家是 Home。正开着的视频就是这条会话的写入目标
          （或会话在同一个项目里、还没选视频）时，转入 Home 会话并在右侧保留视频；否则去 Home 看这条会话——
          视频从会话顶部打开（store 扩展里的 openMovie）。 */
@@ -530,11 +530,13 @@
         const movieId = route.r === 'editor' ? route.id : route.movie;
         const mv = projects.find((p) => p.id === movieId);
         const fits = mv && (sess.project === mv.id || (!sess.project && sess.dir && sess.dir === mv.dir));
+        const where = window.BC_APP_IA.landTarget(route, fits, how && how.stay);
         if (fits) {
           if (!sess.project) patchSession(sess.id, {project: mv.id});
-          /* product-design §5.1：从 Space 打开的视频，会话在右下角的悬浮会话里进行，不离开编辑器 */
-          /* 悬浮会话只在从 Space 打开时才有（shell.jsx）；别的入口开着的视频转成 Home 会话 + 右侧视频，会话才到眼前 */
-          if (route.r === 'editor' && route.via === 'space') { setMovieChat(mv.id, sess.id); setPref('movieChatMin', false); return; }
+          /* product-design §5.1：从 Space 打开的视频，会话在右下角的悬浮会话里进行，不离开编辑器；
+             留在原地的工具（stay）同样只记下会话、不改路由，工具页原地画进度卡。
+             别的入口开着的视频转成 Home 会话 + 右侧视频，会话才到眼前（悬浮会话只在 Space 入口渲染，shell.jsx） */
+          if (where === 'chat') { setMovieChat(mv.id, sess.id); setPref('movieChatMin', false); return; }
           go({r: 'agent', id: sess.id, movie: mv.id, ...(route.tab ? {tab: route.tab} : {})});
         } else {
           go({r: 'agent', id: sess.id});
@@ -554,7 +556,7 @@
       let sess = o.sid ? sessionsRef.current.find((x) => x.id === o.sid) : null;
       if (!sess) sess = newSession({project: o.project || movieId || null, dir: o.dir, prompt: o.send ? '' : o.prompt, harness: o.harness, model: o.model, effort: o.effort, mode: o.mode});
       else if (o.prompt && !o.send) patchSession(sess.id, {draft: o.prompt});
-      land(sess);
+      land(sess, {stay: !!o.stay});
       if (o.send && (o.prompt || o.attachments?.length)) setTimeout(() => sendAgent(sess.id, o.prompt, sess, o.attachments), 0);
       return sess;
     }, [route, newSession, patchSession, land, sendAgent]);

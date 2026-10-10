@@ -118,3 +118,13 @@ test('快捷聊天转入 Home 的正常会话，保留视频和 Tab，关闭视�
   assert.equal(NAV.current(NAV.back(history)).via, 'space');
   assert.deepEqual(NAV.current(NAV.fwd(NAV.back(history))), route);
 });
+
+test('打开会话落在哪：Space 入口与留在原地的工具只记悬浮会话，别的入口转成 Home 会话 + 右侧视频', () => {
+  const L = IA.landTarget;
+  assert.equal(L({r: 'editor', id: 'p1'}, true, false), 'movie');
+  assert.equal(L({r: 'editor', id: 'p1'}, true, true), 'chat');
+  assert.equal(L({r: 'editor', id: 'p1', via: 'space'}, true, false), 'chat');
+  assert.equal(L({r: 'agent', id: 's1', movie: 'p1'}, true, false), 'movie');
+  assert.equal(L({r: 'agent', id: 's1', movie: 'p1'}, true, true), 'chat');
+  assert.equal(L({r: 'home'}, false, true), 'agent');
+});

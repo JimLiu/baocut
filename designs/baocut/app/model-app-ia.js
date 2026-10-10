@@ -105,6 +105,16 @@
     return {r: 'agent', id: sid, movie: route.id, ...(route.tab ? {tab: route.tab} : {})};
   }
 
+  /** 打开一条会话时落在哪（store 的 land）。`fits`：会话写的就是正开着的视频。
+      'chat'：只记成这部视频的悬浮会话、不改路由——从 Space 打开的视频（悬浮会话在场），
+      或调用方要留在原地（`stay`：找可剪的口、刷新过期译文在工具页画进度卡，§5.10）；
+      'movie'：转成 Home 会话、右侧保留视频，会话到眼前；'agent'：去 Home 看这条会话。 */
+  function landTarget(route, fits, stay) {
+    if (!fits) return 'agent';
+    if (stay || (route && route.r === 'editor' && route.via === 'space')) return 'chat';
+    return 'movie';
+  }
+
   /* ---------- 侧栏链接 ----------
      S2 的 SideNav 用 href 表示「这一行去哪」，点击交给根 Provider 的 router.navigate。
      链接只在 App 内部流转（`#/…`），这里是两个方向的换算。 */
@@ -112,5 +122,5 @@
   const routeFromHref = href => window.BC_NAV.routeFromHref(href);
 
   const root = typeof window !== 'undefined' ? window : globalThis;
-  root.BC_APP_IA = {TABS, SECONDARY, END, SECTIONS, taskGroups, tabOf, sideOf, sidebarRoute, movieChatRoute, railTarget, lastOf, closeMovieTarget, hrefFor, routeFromHref};
+  root.BC_APP_IA = {TABS, SECONDARY, END, SECTIONS, taskGroups, tabOf, sideOf, sidebarRoute, movieChatRoute, landTarget, railTarget, lastOf, closeMovieTarget, hrefFor, routeFromHref};
 })();

@@ -124,7 +124,8 @@
       `sid` 接着现有会话，`attachments` 随话发出，`harness / model / effort / mode` 是底栏两枚选择器定的（只对新会话生效）。 */
   function sendToAgent(app, ctx, runner, intent, onBack, opts) {
     const o = opts || {};
-    const sess = app.openAgent({project: ctx.proj.id, send: true, sid: o.sid || null,
+    // 不传 onBack 的页留在原地（stay）：不改路由，工具页不重挂载，进度卡接着画
+    const sess = app.openAgent({project: ctx.proj.id, send: true, sid: o.sid || null, stay: !onBack,
       harness: o.harness || runner.harness, model: o.model || runner.model, effort: o.effort, mode: o.mode,
       attachments: o.attachments && o.attachments.length ? o.attachments : undefined,
       prompt: window.BC_AGENT.intentPrompt(intent, ctx.proj)});
