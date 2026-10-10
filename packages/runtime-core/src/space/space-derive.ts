@@ -11,7 +11,8 @@ import { RcSpace } from '@baocut/protocol/messages/runtime-core';
  * - 扫描到的文件与视频目录是基础条目；视频目录在内容索引里有记录时带上 `ref.videoId`，与根序列的时长、画布尺寸（`media`）。
  * - 导出发布到来源目录里的文件，与扫描到的那个文件合成一个条目：带上导出的来源与 `published` / `source-changed`。
  *   发布到来源目录之外的导出单独成条，`id` 是 artifactId。文件到文件的流程（文件转码、字幕文件的翻译，§7.9）发布的文件同样处理，
- *   来源是 `generated`，`capability` 是流程名，带执行者。
+ *   来源是 `generated`，`capability` 是流程名，带执行者。智能体用 `downloads_save` 交出的文件（§3.5）同样处理，`capability`
+ *   是 `downloads-save`，不带服务商。
  * - 生成的图片、音频与文本是产物条目（`id` 为 artifactId）：导入了视频的是 `candidate`，时间线用上了是 `applied`。
  * - 排队与运行中的生成、导出是 `generating` 占位；失败的是 `failed` 占位，用户清除或同样的输入后来成功了就不再显示。
  * - 转写的原始结果与导出的冻结快照不是可交付的产物，不进目录；代理、缩略图、波形本来就不在 Artifact Store 里。
@@ -203,6 +204,8 @@ export function deriveEntries(input: DeriveInput): Map<Id, DerivedEntry> {
       // 文件到文件的流程：完成时发布的文件，与导出一样合进扫描到的文件或单独成条。
       if (isFilePipelineJob(job) && job.state === 'completed' && job.result) {
         const origin: SpaceEntryOrigin = { ...originOf(job, null, input), capability: job.pipeline!.name };
+        // `downloads_save` 交出的文件（§3.5）：智能体自己复制的，没有服务商与模型。
+        if (job.pipeline!.name === 'downloads-save') delete origin.provider;
         for (const output of job.result.outputs ?? []) {
           const download = job.pipeline?.name === 'link-import';
           const projectId = job.pipeline?.params?.projectId;

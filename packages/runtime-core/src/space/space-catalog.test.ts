@@ -1300,6 +1300,46 @@ describe('Space 目录', () => {
     expect(projectOf(byName(catalog, 'cover.png'))).toBe('assigned-project');
     expect(byName(catalog, 'clip.zh-CN.srt')).toMatchObject({ ref: { artifactId: 'sha256:in' }, origin });
   });
+  it('downloads_save 交出的文件：登记为交付物，来源目录之外单独成条、带会话与流程名，不带服务商；重启之后照样在', async () => {
+    const downloads = path.join(tmp, 'Downloads');
+    await fs.mkdir(downloads);
+    const delivered = path.join(downloads, 'talk.blog.zh-CN.md');
+    await fs.writeFile(delivered, '# 标题\n');
+    const file = path.join(tmp, 'store', 'space-artifacts.json');
+    const artifacts = new SpaceArtifactStore(file);
+    await artifacts.load();
+    const first = await open(undefined, artifacts);
+    const artifactId = `sha256:${'a'.repeat(64)}`;
+    await first.catalog.recordHandover({
+      path: delivered,
+      bytes: 9,
+      artifactId,
+      submitter: { kind: 'agent', id: 'conv_1', taskId: 'task_1' },
+      at: '2026-10-10T00:00:00.000Z',
+    });
+    const entry = first.catalog.get(artifactId);
+    expect(entry).toMatchObject({
+      kind: 'document',
+      fileName: 'talk.blog.zh-CN.md',
+      source: { projectId: null, conversationId: null },
+      status: 'published',
+      file: { path: delivered },
+      ref: { artifactId },
+      origin: { source: 'generated', capability: 'downloads-save', conversationId: 'conv_1', taskId: 'task_1' },
+      media: { mediaType: 'text/markdown' },
+    });
+    expect(entry.origin?.provider).toBeUndefined();
+    expect(first.catalog.locateBytes(artifactId)).toEqual({ root: downloads, file: delivered });
+    await first.catalog.close();
+
+    // 不经 Job Ledger：产物记录里的这一条读回来认得，重启之后条目还在。
+    const reloaded = new SpaceArtifactStore(file);
+    await reloaded.load();
+    expect(reloaded.list().map((facts) => facts.pipeline)).toEqual([{ name: 'downloads-save' }]);
+    const { catalog } = await open(undefined, reloaded);
+    expect(catalog.get(artifactId)).toEqual(entry);
+  });
+
   it('工具的 Space 条目输入：换成文件路径或文字；回收站、种类不合、没有文件在提交时拒绝；保存位置里的结果带 file', async () => {
     const subtitle = path.join(projectDir, 'raw', 'talk.srt');
     await fs.writeFile(subtitle, '1\n00:00:01,000 --> 00:00:02,000\n<i>Hello</i>\n\n2\n00:00:03,000 --> 00:00:04,000\nworld\n');

@@ -327,7 +327,9 @@ export interface GeneratedOutput {
     /** 便携包：包里的文件数与收进来的、标为缺失的素材版本数，文档版本数。 */
     | { kind: 'package'; files: number; assets: number; missingAssets: number; documents: number }
     /** 工程导出：写进工程的片段数与没能表达、逐项报告的对象数。 */
-    | { kind: 'project'; clips: number; omitted: number; durationSec: number };
+    | { kind: 'project'; clips: number; omitted: number; durationSec: number }
+    /** 交给用户的文件（`downloads_save`）：原样复制，不解码、不解析。 */
+    | { kind: 'file' };
   /**
    * 写在产物库之外的输出（导出、文件转码写到用户选的目录）：发布到的绝对路径。文件转码时 `artifactId` 是文件内容的
    * 摘要 `sha256:<hex>`，`artifacts.openHandle` 找不到它。

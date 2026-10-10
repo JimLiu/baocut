@@ -1,8 +1,10 @@
+import crypto from 'node:crypto';
 import type { Stats } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import { sanitizeFileName } from '@baocut/jobs';
+import type { JobSubmitter } from '@baocut/protocol';
 import { RcAgentTools } from '@baocut/protocol/messages/runtime-core';
 import { inside, refuseVideoDirectory } from './artifact-save.ts';
 import { formatBytes } from './model-install-tools.ts';
@@ -19,6 +21,8 @@ import { approvalField, confirmSummary, type ToolPrincipal, type ToolScope } fro
  *   导入那样加序号（`名字-2.srt`）。文件名清理过（与下载的文件同一套规则），扩展名沿用源文件的。写完按真实路径确认在下载目录里。
  * - 风险 `command`（§3.12）：写的是工作目录以外的新文件，`autoAcceptEdits` 下照样询问；只进下载目录、不覆盖，与从链接导入
  *   下载文件同级。只给会话里的智能体（`surfaces` 只有 `agent`）：对外服务与 CLI 没有会话工作目录。
+ * - 交出的文件登记为 Space 交付物（`register`，§5.7）：与从链接下载的文件同一条路，进 Space 的产物记录，按产物记录定位，
+ *   回复里的链接按条目在文件标签里打开。登记失败不影响复制的结果。
  */
 
 /**
@@ -35,6 +39,18 @@ export interface DownloadToolsDeps {
   scope: ToolScope;
   /** 此刻的下载目录（设置 `downloads.directory`，否则主机的下载文件夹）。 */
   downloadsDirectory: () => string;
+  /** 复制完成后把文件登记为 Space 交付物（`SpaceCatalog.recordHandover`）。没有时不登记（测试、工具目录）。 */
+  register?: (handover: DownloadHandover) => Promise<void>;
+}
+
+/** 一次 `downloads_save` 交出的文件：下载目录里的真实路径、字节数、内容摘要与提交者。 */
+export interface DownloadHandover {
+  path: string;
+  bytes: number;
+  /** `sha256:<hex>`：复制时按写出的内容算。 */
+  artifactId: string;
+  submitter: JobSubmitter;
+  at: string;
 }
 
 // i18n-ignore-start: 给模型的工具说明、错误与下一步
@@ -101,6 +117,10 @@ export class DownloadTools implements ToolSet {
       ...confirmSummary(RcAgentTools.downloadSaveSummary({ source: plan.source, size: formatBytes(plan.bytes), target: planned })),
     });
     const saved = await plan.commit();
+    // 登记是附带的：文件已经交出去了，登记失败（Space 还没就绪、写记录失败）不让这次调用失败。
+    await this.#deps
+      .register?.({ path: saved.path, bytes: saved.bytes, artifactId: saved.artifactId, submitter: access.submitter, at: new Date().toISOString() })
+      .catch(() => {});
     return {
       path: saved.path,
       bytes: saved.bytes,
@@ -117,7 +137,14 @@ export interface DownloadSavePlan {
   directory: string;
   name: string;
   bytes: number;
-  commit(): Promise<{ path: string; bytes: number }>;
+  commit(): Promise<SavedDownload>;
+}
+
+/** 写好的文件：真实路径、字节数与内容摘要（`sha256:<hex>`）。 */
+export interface SavedDownload {
+  path: string;
+  bytes: number;
+  artifactId: string;
 }
 
 interface PrepareParams {
@@ -191,7 +218,7 @@ async function copyInto(
   directory: string,
   name: string,
   max: number,
-): Promise<{ path: string; bytes: number }> {
+): Promise<SavedDownload> {
   // 不跟随符号链接打开源，再按句柄核对它还是检查过的那个文件。
   let source: fs.FileHandle;
   try {
@@ -231,6 +258,7 @@ async function copyInto(
         throw unavailable(directory, error);
       }
       let bytes = 0;
+      const hash = crypto.createHash('sha256');
       try {
         // 按块从句柄读、往句柄写，不把整个文件读进内存；读到的超过上限（检查之后文件变大了）时放弃。
         const buffer = Buffer.allocUnsafe(1024 * 1024);
@@ -239,6 +267,7 @@ async function copyInto(
           if (bytesRead === 0) break;
           bytes += bytesRead;
           if (bytes > max) throw tooLarge(bytes, max);
+          hash.update(buffer.subarray(0, bytesRead));
           for (let written = 0; written < bytesRead;) written += (await out.write(buffer, written, bytesRead - written)).bytesWritten;
         }
       } catch (error) {
@@ -251,7 +280,7 @@ async function copyInto(
         await fs.rm(target, { force: true });
         throw unavailable(directory);
       }
-      return { path: target, bytes };
+      return { path: target, bytes, artifactId: `sha256:${hash.digest('hex')}` };
     }
     // i18n-ignore: 给模型的工具说明、错误与下一步
     throw new ToolError('DOWNLOAD_NAME_EXHAUSTED', `下载目录里同名的文件太多：换一个 name`);

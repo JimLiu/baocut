@@ -4,12 +4,14 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import {
   RpcError,
+  newId,
   nowIso,
   type Conversation,
   type DirectoryEvent,
   type DirectorySnapshot,
   type Id,
   type JobRecord,
+  type JobSubmitter,
   type Project,
   type SpaceEntry,
   type SpaceEntryKind,
@@ -32,6 +34,7 @@ import {
   type TrashedVideo,
 } from '@baocut/runtime-storage';
 import type { ContentIndex } from './space/content-index.ts';
+import { mimeTypeOf } from './media.ts';
 import {
   deriveEntries,
   type DeriveSource,
@@ -814,6 +817,51 @@ export class SpaceCatalog {
   }
 
   // ---- 产物记录（§14「Space 与 Job Ledger 的保留」）----
+
+  /**
+   * 智能体用 `downloads_save` 交出的文件登记为交付物（架构设计 §3.5、§5.7）：与从链接下载的文件同一条路，写进产物记录一条
+   * `downloads-save` 的文件到文件记录（不经 Job Ledger），派生成条目（`id` 是内容摘要，来源目录之外的单独成条），
+   * 回复里的链接按条目打开。写完重算一次，返回时目录里已经有它。没有产物记录时不登记。
+   */
+  async recordHandover(handover: { path: string; bytes: number; artifactId: string; submitter: JobSubmitter; at: string }): Promise<void> {
+    if (!this.#artifacts) return;
+    const facts: SpaceJobFacts = {
+      jobId: newId('job'),
+      kind: 'pipeline',
+      state: 'completed',
+      videoId: null,
+      providerId: 'local',
+      modelId: 'downloads-save',
+      inputHash: handover.artifactId,
+      submitter: handover.submitter,
+      createdAt: handover.at,
+      updatedAt: handover.at,
+      endedAt: handover.at,
+      error: null,
+      progress: null,
+      result: {
+        artifactId: handover.artifactId,
+        outputs: [
+          {
+            artifactId: handover.artifactId,
+            mediaType: mimeTypeOf(handover.path).split(';')[0]!,
+            byteLength: handover.bytes,
+            assetId: null,
+            media: { kind: 'file' },
+            path: handover.path,
+          },
+        ],
+      },
+      pipeline: { name: 'downloads-save' },
+    };
+    await this.#artifacts.put([facts]);
+    // 来源目录之外的发布路径按缓存的文件状态派生：先忘掉这条路径（同名文件之前可能记成不在了），再重算。
+    this.#pathStats.delete(handover.path);
+    await this.#enqueue(async () => {
+      await this.#refreshStats(false);
+      this.#recompute(true);
+    });
+  }
 
   /** 任务输入：Ledger 里的任务，加上产物记录里 Ledger 已经修剪掉的。 */
   #jobFacts(): SpaceJobFacts[] {

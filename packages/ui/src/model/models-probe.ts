@@ -130,6 +130,8 @@ export function outputFacts(output: GeneratedOutput): string {
       return M.packageFacts(media.files, type);
     case 'project':
       return M.projectFacts(media.clips, media.durationSec.toFixed(1), type);
+    case 'file':
+      return type;
   }
 }
 

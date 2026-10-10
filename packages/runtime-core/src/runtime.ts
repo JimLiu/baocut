@@ -696,6 +696,9 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         new DownloadTools({
           scope: toolScope,
           downloadsDirectory: () => resolveDownloadsDirectory(settings.store.get('downloads.directory')),
+          // 交出的文件登记为 Space 交付物（§3.5）；Space 目录在后面才建好，调用时再取。
+          register: (handover) =>
+            space.recordHandover(handover).catch((error: unknown) => log.warn('Registering a handed-over download failed', { error: String(error) })),
         }),
         new VideoDeleteTools({
           space: () => space,

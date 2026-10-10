@@ -1,9 +1,10 @@
+import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AgentPrincipal } from './grants.ts';
-import { DownloadTools, downloadFileName, prepareDownloadSave } from './download-tools.ts';
+import { DownloadTools, downloadFileName, prepareDownloadSave, type DownloadHandover } from './download-tools.ts';
 import { ToolError } from './tool-catalog.ts';
 import { TOOL_RISK, toolRisk, type ToolConfirmation, type ToolScope } from './tool-scope.ts';
 
@@ -57,6 +58,22 @@ function fakeScope(write = true): { scope: ToolScope; confirmed: ToolConfirmatio
 const principal = { kind: 'agent', conversationId: 'conv_1' } as unknown as AgentPrincipal;
 
 describe('downloads_save', () => {
+  it('复制之后登记为 Space 交付物：下载目录里的真实路径、字节数、内容摘要与提交者；登记失败不影响结果', async () => {
+    await fs.writeFile(path.join(root, 'post.md'), '# 你好\n');
+    const { scope } = fakeScope();
+    const handovers: DownloadHandover[] = [];
+    const tools = new DownloadTools({ scope, downloadsDirectory: () => downloads, register: async (handover) => void handovers.push(handover) });
+    const saved = (await tools.dispatch('downloads_save', { path: 'post.md' }, principal)) as Record<string, unknown>;
+    const expected = `sha256:${createHash('sha256').update('# 你好\n').digest('hex')}`;
+    expect(handovers).toEqual([
+      { path: path.join(downloads, 'post.md'), bytes: saved.bytes, artifactId: expected, submitter: { kind: 'agent', id: 'conv_1', taskId: 'task_1' }, at: expect.any(String) },
+    ]);
+
+    const failing = new DownloadTools({ scope, downloadsDirectory: () => downloads, register: () => Promise.reject(new Error('space not ready')) });
+    const second = (await failing.dispatch('downloads_save', { path: 'post.md' }, principal)) as Record<string, unknown>;
+    expect(second.path).toBe(path.join(downloads, 'post-2.md'));
+  });
+
   it('复制到下载目录（不存在时新建）；重名时加序号，不覆盖；风险 command，确认之后才写', async () => {
     await fs.mkdir(path.join(root, 'out'));
     await fs.writeFile(path.join(root, 'out', 'talk.zh-Hans.srt'), '1\n00:00:00,000 --> 00:00:01,000\n你好\n');
@@ -130,7 +147,7 @@ describe('downloads_save', () => {
     await fs.symlink(victim, path.join(downloads, 'notes.txt'));
     const plan = await prepareDownloadSave({ root, path: 'notes.txt', downloadsDir: downloads });
     const saved = await plan.commit();
-    expect(saved).toEqual({ path: path.join(downloads, 'notes-2.txt'), bytes: 4 });
+    expect(saved).toMatchObject({ path: path.join(downloads, 'notes-2.txt'), bytes: 4 });
     expect(await fs.readFile(victim, 'utf8')).toBe('keep');
   });
 

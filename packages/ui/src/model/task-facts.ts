@@ -273,7 +273,9 @@ function outputRow(output: GeneratedOutput, index: number): OutputRow {
           ? [TASK_VIEW_COPY.entries(media.entries), size]
           : media.kind === 'package'
             ? [TASK_VIEW_COPY.packageFiles(media.files), size]
-            : [TASK_VIEW_COPY.projectClips(media.clips), formatClock(media.durationSec), size];
+            : media.kind === 'project'
+              ? [TASK_VIEW_COPY.projectClips(media.clips), formatClock(media.durationSec), size]
+              : [size];
     return {
       key: output.artifactId,
       kind: 'document',
