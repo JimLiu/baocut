@@ -146,11 +146,11 @@
     {goal: 'clean', needs: '视频', link: '视频链接', say: () => '转录这个视频，找出口癖、长停顿和说错重来的地方，剪掉之前先让我看一遍。'},
     {goal: 'a2v',   needs: '音频', link: '链接', say: () => '把这段音频做成视频，配上背景、声波和字幕。'},
   ];
-  /** 起始页「快捷开始」那一行：[{k, goal, icon, title, prompt, tip}]。`o.targetName`：上次翻译成的语言，没有就留待填项。 */
+  /** 起始页「快捷开始」那一行：[{k, goal, icon, hue, title, prompt, tip}]（hue 是卡片插画的色系）。`o.targetName`：上次翻译成的语言，没有就留待填项。 */
   function homeStarters(o) {
     return STARTERS.map((x) => {
       const g = goal(x.goal);
-      return {k: g.k, goal: g.k, icon: g.icon, title: g.title, prompt: x.say(o), tip: `填入提示词，再把${x.needs}拖进输入框，或贴上${x.link}`};
+      return {k: g.k, goal: g.k, icon: g.icon, hue: g.hue, title: g.title, prompt: x.say(o), tip: `填入提示词，再把${x.needs}拖进输入框，或贴上${x.link}`};
     });
   }
   /** 话里的第一条网页链接（http / https）；没有返回 null。Home 据此不先建空白视频，直接交给 Agent 去下载。 */

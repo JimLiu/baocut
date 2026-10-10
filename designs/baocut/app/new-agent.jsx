@@ -11,21 +11,29 @@
 
   /* 快捷开始（product-design §3.2.1：主入口是输入框，这些只是可选的起点）：处理已有视频或音频的几件常见事。
      点一下只把一句提示词放进输入框，不展开表单、不发送；素材照常从输入框的「+」或拖放加。条目与提示词在 BC_NEW.homeStarters。
-     行尾的「新建空白视频」不是提示词：不经过 Agent，直接建一部空白视频进编辑器。 */
+     它们比模板常用，所以排在模板前面、做成和模板卡同宽的带色卡片：上面一幅按色系画的小插画，下面是名字。
+     标题行尾的「新建空白视频」不是提示词：不经过 Agent，直接建一部空白视频进编辑器。 */
+  /* 插画里的小色块（<i>）各几块：画法在 new-project.css 的 .home-quick__screen--<k>。 */
+  const STARTER_ART = {sub: 2, trans: 4, clean: 9, a2v: 7};
   function HomeStarters({items, onPick, onBlank}) {
-    return <div className="home-quick" role="group" aria-label="快捷开始">
-      <span className="home-quick__label" aria-hidden="true">快捷开始</span>
-      <div className="home-quick__items">
-        {items.map(x => <R.TooltipTrigger key={x.k} placement="bottom">
-          <R.ActionButton isQuiet size="S" onPress={() => onPick(x)}><Ic n={x.icon} className="ic--16" /><R.Text>{x.title}</R.Text></R.ActionButton>
-          <R.Tooltip>{x.tip}</R.Tooltip>
-        </R.TooltipTrigger>)}
+    return <section className="home-quick" aria-label="快捷开始">
+      <div className="home-shelf__hd">
+        <h2 className="home-shelf__title">快捷开始</h2>
+        <span className="spacer" />
+        <R.TooltipTrigger placement="bottom">
+          <R.ActionButton isQuiet size="S" onPress={onBlank}><Ic n="blank" className="ic--16" /><R.Text>新建空白视频</R.Text></R.ActionButton>
+          <R.Tooltip>不转录、不排队，直接进编辑器</R.Tooltip>
+        </R.TooltipTrigger>
       </div>
-      <R.TooltipTrigger placement="bottom">
-        <R.ActionButton isQuiet size="S" onPress={onBlank}><Ic n="blank" className="ic--16" /><R.Text>新建空白视频</R.Text></R.ActionButton>
-        <R.Tooltip>不转录、不排队，直接进编辑器</R.Tooltip>
-      </R.TooltipTrigger>
-    </div>;
+      <div className="home-quick__grid">
+        {items.map(x => <button key={x.k} type="button" className={`home-quick__card home-quick__card--${x.hue}`} title={x.tip} onClick={() => onPick(x)}>
+          <span className="home-quick__art" aria-hidden="true">
+            <span className={`home-quick__screen home-quick__screen--${x.k}`}>{Array.from({length: STARTER_ART[x.k] || 0}, (_, i) => <i key={i} />)}</span>
+          </span>
+          <span className="home-quick__name">{x.title}</span>
+        </button>)}
+      </div>
+    </section>;
   }
   /* 待填提示（template-spec §5.5；product-design §2.6）：输入框里还有占位符时，框下面一行说还有几处、是哪些，
      不填也能发送；「填下一处」把焦点放回输入框并选中下一个占位符（同 Tab）。没有待填项时只留一个空的 status 区。 */

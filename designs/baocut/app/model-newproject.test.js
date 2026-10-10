@@ -294,10 +294,12 @@ test('交给 Agent 的话：没填的占位符写成 [label]，填过的就是�
 test('快捷开始：四条都对应媒体目标，提示词是一句话；带着素材一律走 ask，没附素材也不会被猜成某一类制作', () => {
   const list = N.homeStarters();
   assert.deepEqual(list.map((x) => x.k), ['sub', 'trans', 'clean', 'a2v']);
+  /* 卡片按色系区分，四张不撞色 */
+  assert.equal(new Set(list.map((x) => x.hue)).size, list.length);
   for (const x of list) {
     const g = N.GOALS.find((goal) => goal.k === x.goal);
     assert.ok(g && g.entry === 'media' && !g.agentOnly, x.k);
-    assert.deepEqual([x.title, x.icon], [g.title, g.icon], x.k);
+    assert.deepEqual([x.title, x.icon, x.hue], [g.title, g.icon, g.hue], x.k);
     assert.match(x.prompt, /^[^\n！!]+。$/, x.k);
     assert.match(x.tip, /^填入提示词，再把(视频|音频)拖进输入框，或贴上(视频链接|链接)$/, x.k);
     /* route 对带素材的输入不看措辞：先建视频并转录，再由 Agent 按这句话做（goal 恒为 ask）。 */
