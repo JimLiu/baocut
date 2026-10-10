@@ -12,7 +12,6 @@ export const zhHant: AiToolsMessages = {
   scopeAll: '整部影片',
   scopeChapter: (index: number, label: string) => `第 ${index} 章 · ${label}`,
   scopeNoChapters: '時間軸上還沒有章節，因此只能選擇整部影片',
-  byAgent: '由 Agent 完成',
   cta: '交給 Agent',
   queued: 'Agent 忙碌中 · 訊息已排入佇列，會在這一輪結束時傳送',
   noConversation: '這部影片不在任何專案或對話中，因此無法交給 Agent。',

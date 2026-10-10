@@ -11,7 +11,6 @@ export const de: AiToolsMessages = {
   scopeAll: "Ganzes Video",
   scopeChapter: (index: number, label: string) => `Kapitel ${index} · ${label}`,
   scopeNoChapters: "Die Zeitleiste hat noch keine Kapitel; nur das gesamte Video ist verfügbar",
-  byAgent: "Vom Agenten ausgeführt",
   cta: "An den Agenten übergeben",
   queued: "Der Agent ist beschäftigt · Nachricht eingereiht; wird nach Ende dieser Runde gesendet",
   noConversation: "Dieses Video liegt in keinem Projekt oder keiner Sitzung und kann daher nicht an den Agenten übergeben werden.",

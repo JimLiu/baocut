@@ -11,7 +11,6 @@ export const fr: AiToolsMessages = {
   scopeAll: "Toute la vidéo",
   scopeChapter: (index: number, label: string) => `Le chapitre ${index} · ${label}`,
   scopeNoChapters: "La timeline n’a aucun chapitre ; seule la vidéo entière est disponible",
-  byAgent: "Effectué par l’Agent",
   cta: "Confier à l’Agent",
   queued: "L’Agent est occupé · message en file, envoyé à la fin du tour",
   noConversation: "Cette vidéo n’appartient à aucun projet ni session ; elle ne peut pas être confiée à l’Agent.",

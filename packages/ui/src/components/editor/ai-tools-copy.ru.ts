@@ -12,7 +12,6 @@ export const ru: AiToolsMessages = {
   scopeAll: "Всё видео",
   scopeChapter: (index: number, label: string) => `Глава ${index} · ${label}`,
   scopeNoChapters: "На таймлайне ещё нет глав, доступно только всё видео",
-  byAgent: "Выполняется агентом",
   cta: "Передать агенту",
   queued: "Агент занят · сообщение в очереди и отправится после итерации",
   noConversation: "Видео вне проекта или сессии, передать агенту нельзя.",

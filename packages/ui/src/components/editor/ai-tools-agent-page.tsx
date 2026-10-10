@@ -1,7 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import type { Id, Sequence } from '@baocut/protocol';
-import { Badge, Checkbox, NumberField, Picker, PickerItem, TextField } from '@react-spectrum/s2';
-import AIMark from '@react-spectrum/s2/icons/AIMark';
+import { Checkbox, NumberField, Picker, PickerItem, TextField } from '@react-spectrum/s2';
 import InfoCircle from '@react-spectrum/s2/icons/InfoCircle';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import {
@@ -63,7 +62,6 @@ const field = style({ width: 'full' });
 /** 说明卡最后一行：按下去会不会改视频（原型 .ail__effect）。 */
 const effect = style({ display: 'flex', alignItems: 'start', gap: '[6px]', marginTop: 4, color: 'gray-700' });
 const effectIcon = iconStyle({ size: 'S' });
-const badgeIcon = iconStyle({ size: 'XS' });
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -162,12 +160,7 @@ export function AiAgentToolPage({
 
   return (
     <>
-      <PanelHead title={info.name} back={{ label: C.back, onPress: onBack }}>
-        <Badge size="S" variant="neutral">
-          <AIMark styles={badgeIcon} data-bc-icons="own" />
-          {C.byAgent}
-        </Badge>
-      </PanelHead>
+      <PanelHead title={info.name} back={{ label: C.back, onPress: onBack }} />
       <div className={`${body} bc-scroll`}>
         <div className={card}>
           <span className={cardTitle}>{info.name}</span>

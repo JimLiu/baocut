@@ -27,7 +27,6 @@ const en = {
   scopeAll: 'Whole video',
   scopeChapter: (index: number, label: string) => `Chapter ${index} · ${label}`,
   scopeNoChapters: 'The timeline has no chapters yet, so only the whole video is available',
-  byAgent: 'Done by the Agent',
   cta: 'Hand off to the Agent',
   queued: 'The Agent is busy · the message is queued and will be sent when this turn ends',
   noConversation: 'This video isn’t in any project or session, so it can’t be handed off to the Agent.',

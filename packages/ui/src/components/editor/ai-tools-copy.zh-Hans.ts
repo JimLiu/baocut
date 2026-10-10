@@ -12,7 +12,6 @@ export const zhHans: AiToolsMessages = {
   scopeAll: '整篇',
   scopeChapter: (index: number, label: string) => `第 ${index} 章 · ${label}`,
   scopeNoChapters: '时间线上还没有章节，只能整篇',
-  byAgent: '由 Agent 完成',
   cta: '交给 Agent',
   queued: 'Agent 正在忙 · 这句话已排队，等这一轮结束再发',
   noConversation: '这个视频不在任何项目或会话里，没法交给 Agent。',

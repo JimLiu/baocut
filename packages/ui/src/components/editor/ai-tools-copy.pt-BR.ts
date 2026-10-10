@@ -11,7 +11,6 @@ export const ptBR: AiToolsMessages = {
   scopeAll: "Vídeo inteiro",
   scopeChapter: (index: number, label: string) => `Capítulo ${index} · ${label}`,
   scopeNoChapters: "Sem capítulos na linha do tempo; apenas o vídeo inteiro está disponível",
-  byAgent: "Feito pelo agente",
   cta: "Passar para o agente",
   queued: "O agente está ocupado · mensagem na fila, enviada ao fim deste turno",
   noConversation: "O vídeo não pertence a projeto ou sessão e não pode ser entregue ao agente.",

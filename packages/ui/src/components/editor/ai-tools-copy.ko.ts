@@ -12,7 +12,6 @@ export const ko: AiToolsMessages = {
   scopeAll: '영상 전체',
   scopeChapter: (index: number, label: string) => `챕터 ${index} · ${label}`,
   scopeNoChapters: '타임라인에 아직 챕터가 없어 영상 전체만 선택할 수 있습니다',
-  byAgent: 'Agent가 처리',
   cta: 'Agent에게 맡기기',
   queued: 'Agent가 작업 중 · 메시지가 대기열에 있으며 이번 턴이 끝나면 보냅니다',
   noConversation: '이 영상은 어떤 프로젝트나 세션에도 속하지 않아 Agent에게 맡길 수 없습니다.',

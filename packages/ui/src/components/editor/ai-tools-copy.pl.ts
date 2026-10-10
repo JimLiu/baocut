@@ -12,7 +12,6 @@ export const pl: AiToolsMessages = {
   scopeAll: "Całe wideo",
   scopeChapter: (index: number, label: string) => `Rozdział ${index} · ${label}`,
   scopeNoChapters: "Oś czasu nie ma jeszcze rozdziałów, dostępne tylko całe wideo",
-  byAgent: "Wykonuje agent",
   cta: "Przekaż agentowi",
   queued: "Agent zajęty · wiadomość w kolejce, zostanie wysłana po turze",
   noConversation: "Wideo jest poza projektem lub sesją, nie można przekazać agentowi.",

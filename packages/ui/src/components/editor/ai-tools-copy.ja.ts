@@ -12,7 +12,6 @@ export const ja: AiToolsMessages = {
   scopeAll: '全編',
   scopeChapter: (index: number, label: string) => `チャプター ${index} · ${label}`,
   scopeNoChapters: 'タイムラインにまだチャプターがないため、全編のみ選べます',
-  byAgent: 'Agent が実行',
   cta: 'Agent に任せる',
   queued: 'Agent は作業中です · メッセージはキューに入り、このターンが終わると送信されます',
   noConversation: 'この動画はどのプロジェクトにもセッションにも属していないため、Agent に任せられません。',

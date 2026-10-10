@@ -11,7 +11,6 @@ export const nl: AiToolsMessages = {
   scopeAll: "Hele video",
   scopeChapter: (index: number, label: string) => `Hoofdstuk ${index} · ${label}`,
   scopeNoChapters: "De tijdlijn heeft nog geen hoofdstukken, dus alleen de hele video is beschikbaar",
-  byAgent: "Uitgevoerd door de agent",
   cta: "Overdragen aan de agent",
   queued: "De agent is bezig · het bericht staat in de wachtrij en wordt verzonden wanneer deze beurt eindigt",
   noConversation: "Deze video staat niet in een project of sessie, dus kan niet worden overgedragen aan de agent.",
