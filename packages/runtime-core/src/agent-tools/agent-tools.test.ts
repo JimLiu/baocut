@@ -132,9 +132,10 @@ describe.skipIf(!engine || !ffmpeg)('智能体工具（真实引擎）', () => {
         if (event.type === 'video.event') videoEvents.push(event.event);
       },
     });
-    const context: EditorContext = { videoId, videoName: '样片', videoPath, revision: '0', selection: [], playheadSeconds: 0 };
+    const context: EditorContext = { videoId, videoName: '样片', videoPath, revision: '0', selection: [], playheadSeconds: 0, uiLanguage: 'zh-Hans' };
     const { taskId, session } = await send('把 clip.mp4 放到 1 秒处', { context });
     expect(session.inputs[0]).toContain('<baocut-editor-context>');
+    expect(session.inputs[0]).toContain('用户的界面语言是 zh-Hans。');
     expect((await items()).find((i) => i.kind === 'user-message')).toMatchObject({ text: '把 clip.mp4 放到 1 秒处', context });
 
     const listed = await tool(session, 'videos_list', {});

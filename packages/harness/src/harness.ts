@@ -2472,6 +2472,7 @@ export function withEditorContext(text: string, context: EditorContext | undefin
     `用户在 BaoCut 编辑器里打开着视频「${context.videoName}」（video: ${JSON.stringify(context.videoPath)}，videoId: ${context.videoId}，用户看到的版本 ${context.revision}）。`,
     `播放头在 ${context.playheadSeconds.toFixed(3)} 秒。`,
     context.selection.length ? `时间线上选中的片段：${context.selection.join('、')}。` : '时间线上没有选中片段。',
+    ...(context.uiLanguage ? [`用户的界面语言是 ${context.uiLanguage}。`] : []),
     '「这个」「选中的」「这里」指的就是上面这些。修改前先用 videos_inspect 读取当前版本：用户可能刚改过。',
   ];
   // i18n-ignore-end

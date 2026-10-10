@@ -327,6 +327,8 @@ export interface EditorContext {
   /** 选中的时间线片段。 */
   selection: Id[];
   playheadSeconds: number;
+  /** 用户的界面语言（BCP 47，如 `zh-Hans`、`en`）；skill 据此定输出语言（用户提问的语言优先）。旧客户端不给。 */
+  uiLanguage?: string;
 }
 
 /**

@@ -150,6 +150,7 @@ const PARAMS_SCHEMA = {
     skills: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] }, description: '作为系统提示词的 skill，按顺序' },
     provider: { type: 'string', description: '文本模型的 Provider；不给时用默认值' },
     model: { type: 'string' },
+    uiLanguage: { type: 'string', description: '用户的界面语言（BCP 47，如 zh-Hans、en），写进系统提示词' },
     // i18n-ignore-end
   },
   required: ['videoId', 'tool', 'prompt'],
@@ -199,7 +200,16 @@ export function aiToolPipeline(deps: AiToolDeps): PipelineDefinition<FrozenAiToo
         modelId: selection.modelId,
         videoId: params.videoId,
         contentHash: `sha256:${sha256Hex(
-          canonicalJson({ videoId: params.videoId, tool: params.tool, prompt: params.prompt, range: params.range ?? null, documentId, revision, inputs: frozen.artifactId }),
+          canonicalJson({
+            videoId: params.videoId,
+            tool: params.tool,
+            prompt: params.prompt,
+            range: params.range ?? null,
+            documentId,
+            revision,
+            inputs: frozen.artifactId,
+            ...(params.uiLanguage ? { uiLanguage: params.uiLanguage } : {}),
+          }),
         )}`,
       };
     },
@@ -336,7 +346,13 @@ async function generate(deps: AiToolDeps, context: PipelineStepContext<FrozenAiT
   const ctx = outputs.context as ContextOutput;
   const body = await readJson<ContextBody>(artifacts, ctx.artifactId);
   const inputs = await readJson<FrozenInputs>(deps.artifacts, params.frozen.artifactId);
-  const base = { tool: params.tool, system: inputs.system, prompt: params.prompt, attachments: inputs.attachments };
+  const base = {
+    tool: params.tool,
+    system: inputs.system,
+    prompt: params.prompt,
+    attachments: inputs.attachments,
+    ...(params.uiLanguage ? { uiLanguage: params.uiLanguage } : {}),
+  };
   const target = { provider: params.provider, model: params.model };
   const schema = outputSchema(params.tool);
 

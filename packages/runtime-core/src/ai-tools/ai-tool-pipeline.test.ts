@@ -36,6 +36,13 @@ describe('交给模型的消息', () => {
     expect(only!.content).toBe('<request>\nTitles\n</request>');
   });
 
+  it('系统提示词：给了界面语言时在 skill 与输出格式之间说明，不给时不写', () => {
+    const [system] = aiToolMessages({ tool: 'summary', system: 'RULES', prompt: '', transcript: null, attachments: [], uiLanguage: 'zh-Hans' });
+    expect(system!.content).toBe(`RULES\n\nThe user's interface language is zh-Hans.\n\n${system!.content.slice(system!.content.indexOf('Output:'))}`);
+    const [bare] = aiToolMessages({ tool: 'summary', system: '', prompt: '', transcript: null, attachments: [] });
+    expect(bare!.content).not.toContain('interface language');
+  });
+
   it('润色给编了号的词，段落之间空一行', () => {
     const words = [word('w1', 'Hello', 0, true), word('w2', 'world', 1), word('w3', 'Next', 5, true)];
     const [, user] = aiToolMessages({ tool: 'polish', system: '', prompt: '', transcript: null, words: { items: words, offset: 0, total: 3 }, attachments: [] });
@@ -98,6 +105,8 @@ describe('交给模型的消息', () => {
 
   it('参数：工具与范围按协议校验，不合时 invalid-request 并指出哪个键', () => {
     expect(parseAiToolParams({ videoId: 'v', tool: 'blog', prompt: 'p' })).toEqual({ videoId: 'v', tool: 'blog', prompt: 'p' });
+    expect(parseAiToolParams({ videoId: 'v', tool: 'blog', prompt: 'p', uiLanguage: 'pt-BR' })).toEqual({ videoId: 'v', tool: 'blog', prompt: 'p', uiLanguage: 'pt-BR' });
+    expect(() => parseAiToolParams({ videoId: 'v', tool: 'blog', prompt: 'p', uiLanguage: 'not a tag' })).toThrow(expect.objectContaining({ code: 'invalid-request', details: expect.objectContaining({ key: 'uiLanguage' }) }));
     expect(() => parseAiToolParams({ videoId: 'v', tool: 'cover', prompt: 'p' })).toThrow(expect.objectContaining({ code: 'invalid-request', details: expect.objectContaining({ key: 'tool' }) }));
     expect(() => parseAiToolParams({ videoId: 'v', tool: 'chapters', prompt: 'p', range: { start: 0, end: 5 } })).toThrow(RpcError);
   });
@@ -230,7 +239,7 @@ describe('ai-tool 流程', () => {
   }
 
   it('只给结果的工具：一次正文调用，skill 作为系统提示词，附件只带文本，不写视频', async () => {
-    const record = await run({ tool: 'summary', skills: [{ id: 'video-summary' }, { id: 'mine' }], attachments: ['att_txt', 'att_img'] });
+    const record = await run({ tool: 'summary', skills: [{ id: 'video-summary' }, { id: 'mine' }], attachments: ['att_txt', 'att_img'], uiLanguage: 'zh-Hans' });
     expect(record.state).toBe('completed');
     expect(record.pipeline!.steps.map((s) => [s.name, s.status])).toEqual([
       ['context', 'completed'],
@@ -240,6 +249,7 @@ describe('ai-tool 流程', () => {
     expect(requests).toHaveLength(1);
     expect(requests[0]!.responseFormat).toEqual({ type: 'text' });
     expect(requests[0]!.messages[0]!.content).toContain('<skill id="video-summary">BODY</skill>\n<skill id="mine">BODY</skill>');
+    expect(requests[0]!.messages[0]!.content).toContain("The user's interface language is zh-Hans.");
     expect(requests[0]!.messages[1]!.content).toContain('<transcript>\n## Intro');
     expect(requests[0]!.messages[1]!.content).toContain('Glossary: BaoCut');
     expect(requests[0]!.messages[1]!.content).not.toContain('PNG');

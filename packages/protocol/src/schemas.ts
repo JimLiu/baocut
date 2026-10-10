@@ -6,6 +6,7 @@ import { MODEL_API_MAX_CONCURRENT_LIMIT, SERVICE_IDS, SERVICE_LEVELS } from './s
 import { AGENT_MODES, LEGACY_AGENT_MODES, normalizeAgentMode } from './access.ts';
 import { GRANT_DATA_KINDS } from './grants.ts';
 import { LANGUAGE_PREFERENCES } from './i18n.ts';
+import { languageTag } from './language-schemas.ts';
 import { USAGE_PERIODS } from './usage.ts';
 import { MAX_SELECTED_GLOSSARIES, MAX_SPEAKER_VOICES } from './library.ts';
 import { WEB_METHOD_PATTERN } from './web.ts';
@@ -65,18 +66,6 @@ const positiveInt = z.number().int().positive();
  */
 const editOperation = z.looseObject({ type: z.string().min(1).max(50) });
 const undoTarget = z.union([z.enum(['undo', 'redo']), z.object({ transaction: id }).strict()]);
-/** BCP 47 语言标签：交给 `Intl.getCanonicalLocales` 判断。 */
-const languageTag = z
-  .string()
-  .min(1)
-  .max(35)
-  .refine((tag) => {
-    try {
-      return Intl.getCanonicalLocales(tag).length === 1;
-    } catch {
-      return false;
-    }
-  }, { error: () => V.languageTagInvalid().text });
 const bundleId = z.string().min(1).max(200);
 /** Provider：`local`、`node:<nodeId 或别名>`、`openai`、`google`、`custom:<slug>`；认不认识由 Runtime 判断。 */
 const providerId = z.string().trim().min(1).max(300);
@@ -209,6 +198,7 @@ const editorContext = z
     revision,
     selection: z.array(id).max(200),
     playheadSeconds: z.number().finite().nonnegative(),
+    uiLanguage: languageTag.optional(),
   })
   .strict();
 

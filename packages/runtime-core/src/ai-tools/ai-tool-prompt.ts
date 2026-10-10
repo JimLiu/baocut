@@ -2,7 +2,7 @@ import type { AiToolKind, TextMessage } from '@baocut/protocol';
 // i18n-ignore-file: 这个文件只生成交给文本模型的提示词与输出格式，不在界面显示
 
 /**
- * AI 工具「直接调模型」（产品设计 §5.10）交给文本模型的消息：系统提示词是挂着的 skill（`skillSystemPrompt`），加上这个工具
+ * AI 工具「直接调模型」（产品设计 §5.10）交给文本模型的消息：系统提示词是挂着的 skill（`skillSystemPrompt`）、用户的界面语言（给了时），加上这个工具
  * 要的输出格式；用户消息是提示词框里的文字与这个视频的上下文（文稿、附件）。润色给编了号的词（只能一词对一词地改），
  * 其余工具给带时间码与说话人的 Markdown 文稿（与导出文稿同一份写法）。
  */
@@ -91,11 +91,14 @@ export interface AiToolMessageInput {
   /** 润色这一批的词（编号从 `offset + 1` 起）。 */
   words?: { items: readonly ContextWord[]; offset: number; total: number };
   attachments: readonly ContextAttachment[];
+  /** 用户的界面语言（BCP 47）；给了时在系统提示词里说明，输出用什么语言由 skill 与输出格式决定。 */
+  uiLanguage?: string;
 }
 
 /** 交给模型的消息：系统一条，用户一条。 */
 export function aiToolMessages(input: AiToolMessageInput): TextMessage[] {
-  const system = [input.system.trim(), OUTPUT[input.tool]].filter(Boolean).join('\n\n');
+  const language = input.uiLanguage ? `The user's interface language is ${input.uiLanguage}.` : '';
+  const system = [input.system.trim(), language, OUTPUT[input.tool]].filter(Boolean).join('\n\n');
   const parts: string[] = [];
   parts.push(input.prompt.trim() ? `<request>\n${input.prompt.trim()}\n</request>` : '<request />');
   if (input.words) {

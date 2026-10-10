@@ -118,6 +118,8 @@ export function directParams(o: {
   attachments: readonly Id[];
   skills: readonly string[];
   model: { providerId: string; modelId: string } | null;
+  /** 界面语言（`getLocale()`）。 */
+  uiLanguage: string;
 }): AiToolParams {
   return {
     videoId: o.videoId,
@@ -128,5 +130,6 @@ export function directParams(o: {
     ...(o.attachments.length ? { attachments: [...o.attachments] } : {}),
     ...(o.skills.length ? { skills: o.skills.map((id) => ({ id })) } : {}),
     ...(o.model ? { provider: o.model.providerId, model: o.model.modelId } : {}),
+    uiLanguage: o.uiLanguage,
   };
 }

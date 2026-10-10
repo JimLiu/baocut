@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
-import type { DocumentRecord, Id, Sequence } from '@baocut/protocol';
+import { getLocale, type DocumentRecord, type Id, type Sequence } from '@baocut/protocol';
 import { Checkbox, NumberField, Picker, PickerItem, TextField, ToastQueue } from '@react-spectrum/s2';
 import InfoCircle from '@react-spectrum/s2/icons/InfoCircle';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -222,6 +222,7 @@ export function AiAgentToolPage({
               attachments,
               skills,
               model: model.ref,
+              uiLanguage: getLocale(),
             }),
             model.name ?? '',
           ),

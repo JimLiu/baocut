@@ -13,7 +13,7 @@ import {
   type RuntimeHome,
 } from '@baocut/runtime-storage';
 import { DriverRegistry } from './agent-manager.ts';
-import { Harness } from './harness.ts';
+import { Harness, withEditorContext } from './harness.ts';
 import { silentLogger } from './logger.ts';
 
 /** 项目标记 `.bcut/project.json` 与 `openProject` 的判定顺序（架构设计 §5.1）。全部在临时目录里。 */
@@ -428,5 +428,19 @@ describe('无项目会话绑定项目', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('withEditorContext', () => {
+  const base = { videoId: 'vid', videoName: '样片', videoPath: 'videos/样片', revision: '3', selection: [], playheadSeconds: 1.5 };
+
+  it('带界面语言时在上下文块里写一行', () => {
+    const text = withEditorContext('剪一下', { ...base, uiLanguage: 'zh-Hans' });
+    expect(text).toContain('<baocut-editor-context>');
+    expect(text).toContain('\n用户的界面语言是 zh-Hans。\n');
+  });
+
+  it('旧客户端没给界面语言时不写这一行', () => {
+    expect(withEditorContext('剪一下', base)).not.toContain('界面语言');
   });
 });

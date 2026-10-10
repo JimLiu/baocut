@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { MAX_ATTACHMENTS_PER_MESSAGE } from './limits.ts';
 import { AI_TOOL_KINDS, AI_TOOL_PROMPT_MAX } from './pipelines.ts';
+import { languageTag } from './language-schemas.ts';
 import { skillSendListSchema } from './skill-schemas.ts';
 
 /**
@@ -22,6 +23,7 @@ export const aiToolParamsSchema = z
     skills: skillSendListSchema.optional(),
     provider: z.string().min(1).max(128).optional(),
     model: z.string().min(1).max(256).optional(),
+    uiLanguage: languageTag.optional(),
   })
   .strict()
   .refine((p) => !(p.tool === 'chapters' && p.range), { path: ['range'] });

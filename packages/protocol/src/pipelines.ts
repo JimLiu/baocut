@@ -747,6 +747,8 @@ export interface AiToolParams {
   /** 文本模型；不给时用文本生成的默认值（架构设计 §6.2）。 */
   provider?: string;
   model?: string;
+  /** 用户的界面语言（BCP 47，如 `zh-Hans`、`en`），写进系统提示词；不给时不写。 */
+  uiLanguage?: string;
 }
 
 /** 发给模型的上下文（`AiToolSummary.context`，同工具页那行「发给模型的」）。 */

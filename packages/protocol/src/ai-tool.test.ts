@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aiToolParamsSchema } from './schemas.ts';
+import { aiToolParamsSchema, methodParamSchemas } from './schemas.ts';
 import { AI_TOOL_APPLY_KINDS, AI_TOOL_KINDS, AI_TOOL_PROMPT_MAX } from './pipelines.ts';
 import { MAX_ATTACHMENTS_PER_MESSAGE } from './limits.ts';
 import { SKILL_LIMITS } from './skill.ts';
@@ -20,6 +20,7 @@ describe('ai-tool 流程的参数', () => {
         skills: [{ id: 'polish-transcript' }, { id: 'video-summary' }],
         provider: 'openai',
         model: 'gpt-5',
+        uiLanguage: 'zh-Hans',
       }),
     ).toBe(true);
     expect(ok({ ...base, prompt: '' })).toBe(true);
@@ -33,6 +34,8 @@ describe('ai-tool 流程的参数', () => {
 
   it('拒绝多余字段、空视频、过长的提示词与倒着的范围', () => {
     expect(ok({ ...base, extra: 1 })).toBe(false);
+    expect(ok({ ...base, uiLanguage: '' })).toBe(false);
+    expect(ok({ ...base, uiLanguage: 'not a tag' })).toBe(false);
     expect(ok({ ...base, videoId: '' })).toBe(false);
     expect(ok({ ...base, prompt: 'x'.repeat(AI_TOOL_PROMPT_MAX + 1) })).toBe(false);
     expect(ok({ ...base, range: { start: 10, end: 10 } })).toBe(false);
@@ -50,5 +53,20 @@ describe('ai-tool 流程的参数', () => {
     expect(ok({ ...base, attachments: Array.from({ length: MAX_ATTACHMENTS_PER_MESSAGE + 1 }, (_, i) => `att_${i}`) })).toBe(false);
     expect(ok({ ...base, skills: [{ id: 'Not An Id' }] })).toBe(false);
     expect(ok({ ...base, skills: Array.from({ length: SKILL_LIMITS.perMessage + 1 }, (_, i) => ({ id: `s${i}` })) })).toBe(false);
+  });
+});
+
+describe('编辑器上下文的界面语言', () => {
+  const send = methodParamSchemas['conversations.send'];
+  const context = { videoId: 'vid_1', videoName: '样片', videoPath: 'videos/样片', revision: '3', selection: [], playheadSeconds: 0 };
+  const ok = (extra: Record<string, unknown>) =>
+    send.safeParse({ conversationId: 'c', text: 'hi', commandId: 'k', context: { ...context, ...extra } }).success;
+
+  it('可选：旧客户端不给也收；给了要是 BCP 47 标签', () => {
+    expect(ok({})).toBe(true);
+    expect(ok({ uiLanguage: 'zh-Hans' })).toBe(true);
+    expect(ok({ uiLanguage: 'pt-BR' })).toBe(true);
+    expect(ok({ uiLanguage: '' })).toBe(false);
+    expect(ok({ uiLanguage: 'not a tag' })).toBe(false);
   });
 });

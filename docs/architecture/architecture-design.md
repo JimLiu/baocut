@@ -393,6 +393,8 @@ P0 由一个用户可以理解的执行主体对结果负责。内部的分析�
 
 `ContextBuilder` 提供：`videoRevision`、`sequenceId`、选中的 item / occurrence / 词 ID、有效文稿、当前的源时间与输出时间、必要的帧和相关约束。
 
+发送时的编辑器上下文（`EditorContext`：打开的视频与版本、选中的片段、播放头）另带用户的界面语言 `uiLanguage`（BCP 47 标签，可选），附在用户消息后的 `<baocut-editor-context>` 里；AI 工具的「直接调模型」经 `ai-tool` 流程的 `uiLanguage` 参数写进系统提示词。skill 据此决定输出语言：用户提问用的语言优先，其次是界面语言，最后是文稿的语言。
+
 - 先摘要与检索，再按需扩展，不默认把完整视频和全文外发。
 - 只读到文件名不能声称理解了内容。`ContextEvidence` 记录实际读取的范围与方法。
 - 检查记录包含 `method`、`inputRefs`、`coveredRanges`、`uncoveredRanges`、`findings` 和 `confidence`；它不是被展示出来的内部推理。

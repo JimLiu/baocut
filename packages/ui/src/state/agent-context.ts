@@ -1,4 +1,4 @@
-import type { EditorContext, Id } from '@baocut/protocol';
+import { getLocale, type EditorContext, type Id } from '@baocut/protocol';
 import { targetKey } from '../model/workspace.ts';
 import { useEditor } from './editor-store.ts';
 import { routeVideo, useShell, type Route } from './shell-store.ts';
@@ -34,7 +34,7 @@ function inScope(video: OpenVideo | null, scope: ContextScope, shown: string | n
     : scope.conversationId !== null && source.conversationId === scope.conversationId;
 }
 
-/** 发送时取一次：版本、选区与播放头都是这一刻的。 */
+/** 发送时取一次：版本、选区与播放头都是这一刻的；另带界面语言，skill 据此定输出语言。 */
 export function captureEditorContext(scope: ContextScope): EditorContext | null {
   const video = useVideo.getState().video;
   if (!inScope(video, scope, routeKey(useShell.getState().route)) || !video.state || !video.videoId) return null;
@@ -49,6 +49,7 @@ export function captureEditorContext(scope: ContextScope): EditorContext | null 
     revision: snapshot.revision,
     selection,
     playheadSeconds: editor.videoId === video.videoId ? Math.round(editor.playhead * 1000) / 1000 : 0,
+    uiLanguage: getLocale(),
   };
 }
 

@@ -131,6 +131,7 @@ describe('范围里的段数与流程参数', () => {
         attachments: ['att_1'],
         skills: ['summarize', 'house-style'],
         model: { providerId: 'openai', modelId: 'gpt-5-mini' },
+        uiLanguage: 'zh-Hans',
       }),
     ).toEqual({
       videoId: 'vid',
@@ -142,9 +143,10 @@ describe('范围里的段数与流程参数', () => {
       skills: [{ id: 'summarize' }, { id: 'house-style' }],
       provider: 'openai',
       model: 'gpt-5-mini',
+      uiLanguage: 'zh-Hans',
     });
     expect(
-      directParams({ videoId: 'vid', tool: 'chapters', prompt: 'x', range: { start: 1, end: 2 }, documentId: null, attachments: [], skills: [], model: null }),
-    ).toEqual({ videoId: 'vid', tool: 'chapters', prompt: 'x' });
+      directParams({ videoId: 'vid', tool: 'chapters', prompt: 'x', range: { start: 1, end: 2 }, documentId: null, attachments: [], skills: [], model: null, uiLanguage: 'en' }),
+    ).toEqual({ videoId: 'vid', tool: 'chapters', prompt: 'x', uiLanguage: 'en' });
   });
 });
