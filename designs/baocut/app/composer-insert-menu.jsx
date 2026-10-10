@@ -54,9 +54,9 @@
   }
 
   /* 选用的 skill 在输入框上的 token（画法同 Home 的模板 token）。 */
-  function ComposerSkillToken({skill, onRemove}) {
+  function ComposerSkillToken({skill, onRemove, note}) {
     if (!skill) return null;
-    return <div className="cins-token"><Ic n="skill" className="ic--16" /><span>Skill：{skill.name}</span>
+    return <div className="cins-token"><Ic n="skill" className="ic--16" /><span>Skill：{skill.name}{note ? <span className="cins-token__note">{` · ${note}`}</span> : null}</span>
       <IconBtn icon="close" size="xs" tip={'移除 Skill：' + skill.name} onClick={onRemove} /></div>;
   }
 

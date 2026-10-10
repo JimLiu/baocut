@@ -2,6 +2,7 @@
    以前工具页是「还有什么要求」一只框子加一块只读的「会发给 Agent 的话」——同一段话出现两次。现在只有一只框：
    预填模板（意图句 + 固定约束，BC_AIPROMPT.template），用户直接改这段话；它与会话输入框是同一个控件
    （PromptField + 「+」菜单 + 附件），`@` 能引用章节、说话人与译文，`/` 不在这里（已经在工具页里了）。
+   框上默认挂着这个工具的内置 skill（BC_AIPROMPT.TOOL_SKILL）：摘掉就只按提示词做；「+ › 使用 Skill」还能再挂别的。
    底栏随「用」变：交给 Agent 时只有访问模式（哪家 · 哪个模型由上面的「用」一行定，同一屏不放两处），直接调模型时是文本模型。
    主按钮在框下面，全宽、写明动作；再下面一行 hint 说清按下去会去哪。 */
 (function () {
@@ -43,18 +44,21 @@
    *   context             直接调模型时发给模型的上下文（BC_AIPROMPT.contextPack 的返回）
    *   label               直接调模型时主按钮的字（交给 Agent 时固定「交给 Agent」）
    *   readonly            写作与发布类：不写进视频（hint 用）
-   *   onStart(payload)    {text, attachments, skillId, mode}（家 · 模型由 runner.cur 定，宿主从那里取）
+   *   onStart(payload)    {text, attachments, skillIds, mode}（家 · 模型由 runner.cur 定，宿主从那里取）
    */
   function ToolPrompt({ctx, tool, runner, value, onChange, defaultText, session, context, label, readonly, onStart, disabled}) {
     const app = useApp();
     const [attachments, setAttachments] = useState([]);
-    const [skillId, setSkillId] = useState(null);
+    const [skillIds, setSkillIds] = useState(() => P.defaultSkills(tool, app.agentSkills));
+    const skills = skillIds.map((id) => window.BC_AGENT_SKILLS.byId(app.agentSkills, id)).filter(Boolean);
+    const builtinId = P.TOOL_SKILL[tool];
+    const addSkill = (id) => setSkillIds((ids) => (ids.includes(id) ? ids : ids.concat([id])));
+    const dropSkill = (id) => setSkillIds((ids) => ids.filter((x) => x !== id));
     const [reading, setReading] = useState(false);
     const [mode, setMode] = useAccessMode();
     const ref = useRef(null);
     const boxRef = useRef(null);
     const narrow = window.useComposerNarrow(boxRef);
-    const skill = window.BC_AGENT_SKILLS.byId(app.agentSkills, skillId);
     const agent = !!runner.agent;
     // 模板随范围、勾选项变：用户没改过（value 为 null）就一直显示最新模板，改过的那段话是用户的，不动
     const edited = value != null;
@@ -84,13 +88,15 @@
     };
     const start = () => {
       if (disabled || reading) return;
-      onStart({text: window.BC_AGENT_SKILLS.withSkill(text.trim(), skill), attachments, skillId, mode});
+      onStart({text: window.BC_AGENT_SKILLS.withSkills(text.trim(), skills), attachments, skillIds, mode});
     };
     const model = runner.apiModel;
     const hint = P.hint({agent, session: session && session.k, model: model ? model.name : null, readonly, cloud: !!model});
     // 直接调模型而这个模型看不了图：附了图片就说一声，不拦
     const images = !agent && attachments.filter((a) => window.BC_ATTACHMENTS.kind(a) === 'image').length;
-    const ctxItems = (context || []).concat(attachments.length ? [{k: 'attachments', label: '附件', detail: `${attachments.length} 个`}] : []);
+    const ctxItems = (context || []).concat(attachments.length ? [{k: 'attachments', label: '附件', detail: `${attachments.length} 个`}] : [],
+      skills.length ? [{k: 'skills', label: 'Skill', detail: skills.map((s) => s.name).join('、')}] : []);
+    const noSkill = builtinId && !skillIds.includes(builtinId);
     return (
       <div ref={boxRef} className="aitp">
         <div className="aitp__hd">
@@ -104,7 +110,7 @@
           <PromptField inputRef={ref} busy={false} canSubmit={false} hasAttachments={!!attachments.length}
             renderCompletions={completions}
             attachments={<>
-              <window.ComposerSkillToken skill={skill} onRemove={() => setSkillId(null)} />
+              {skills.map((s) => <window.ComposerSkillToken key={s.id} skill={s} note={s.id === builtinId ? '这个工具的做法' : null} onRemove={() => dropSkill(s.id)} />)}
               <ComposerAttachments items={attachments} onRemove={(i) => setAttachments(attachments.filter((_, n) => n !== i))} />
             </>}
             inputProps={{rows: 5, value: text, disabled, 'aria-label': agent ? '要对 Agent 说的话' : '提示词',
@@ -114,7 +120,7 @@
             }}
             toolbar={<>
               {/* product-design §3.2.3：附件共用「文件和文件夹」入口，Skill 挂成 token，@ 引用走补全 */}
-              <window.ComposerInsertMenu onFiles={addFiles} onSkill={setSkillId} />
+              <window.ComposerInsertMenu onFiles={addFiles} onSkill={addSkill} />
               {agent ? <window.AccessPicker value={mode} compact narrow={narrow} onChange={setMode} /> : null}
               <span className="spacer" />
               {agent ? null
@@ -122,6 +128,12 @@
                     onChange={(m) => runner.pick({k: `api:${m.id}`, kind: 'api', model: m.id})} />}
             </>} />
         </div>
+        {noSkill ? (
+          <div className="aitp__ctx">
+            <Ic n="info" className="ic--14" />
+            <span>没挂 skill：只按上面的提示词做。<BCAction className="tsetup__lnk" onClick={() => addSkill(builtinId)}>加回这个工具的 skill</BCAction></span>
+          </div>
+        ) : null}
         {!agent ? (
           <div className="aitp__ctx">
             <Ic n="info" className="ic--14" />

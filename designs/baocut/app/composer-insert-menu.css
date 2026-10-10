@@ -1,2 +1,3 @@
 /* 输入框「+」菜单选用的 skill token（composer-insert-menu.jsx）。画法同 Home 的模板 token（new-project.css 的 .home-template-token）。 */
 .cins-token { display: inline-flex; align-self: flex-start; align-items: center; gap: 6px; max-width: 100%; padding: 2px 2px 2px 8px; margin-bottom: 12px; border-radius: 8px; background: var(--gray-100); color: var(--gray-800); font-size: 12px; }
+.cins-token__note { color: var(--gray-600); }

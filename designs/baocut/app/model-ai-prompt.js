@@ -11,6 +11,19 @@
   const GROUPS_LATER = ['翻译', '画面'];
   const LATER_NOTE = '翻译字幕、翻译配音、智能裁剪与剪成短视频还在字幕、音频、视频面板里，之后搬到这里。';
 
+  /* 每个工具各配一个内置 skill（§5.10、§6.9）：提示词框默认挂着它。摘掉 = 只按提示词做；还可以再挂别的已添加 skill。 */
+  const TOOL_SKILL = {
+    retranscribe: 'transcribe-captions', polish: 'transcript-polish', chapters: 'chaptering', speakers: 'speaker-labeling',
+    cleanup: 'talking-head-cut', translate: 'subtitle-translation', stale: 'subtitle-translation',
+    summary: 'video-summary', blog: 'blog-from-video', title: 'title-and-description', desc: 'title-and-description',
+    cover: 'cover-and-title', shortscut: 'shorts-slicing',
+  };
+  /** 工具页打开时默认挂的 skill id 列表：这个工具的内置 skill 还在列表里就挂它（关着也挂——点选不看开关，§6.9）。 */
+  function defaultSkills(tool, list) {
+    const id = TOOL_SKILL[tool];
+    return id && (list || []).some((s) => s.id === id) ? [id] : [];
+  }
+
   /* 每个工具页顶上一句：会不会改视频。新用户第一眼要知道的是「按下去会发生什么」。 */
   const EFFECT = {
     polish: '会改文稿：完成后应用，一步撤销',
@@ -60,6 +73,7 @@
     if (c.chapters) items.push({k: 'chapters', label: '章节', detail: `${c.chapters} 章`});
     if (tool === 'stale' && c.stale) items.push({k: 'translation', label: '译文', detail: `过期的 ${c.stale} 句及前后各一句`});
     if (c.attachments) items.push({k: 'attachments', label: '附件', detail: `${c.attachments} 个`});
+    if (c.skills && c.skills.length) items.push({k: 'skills', label: 'Skill', detail: c.skills.join('、')});
     return items;
   }
   function contextLine(items) {
@@ -89,5 +103,5 @@
     return `${who}，不经过对话；${c.readonly ? '结果给你读、挑、拷走，不写进视频' : '完成即应用，可一键撤销'}。${c.cloud ? '云端模型按用量计费。' : '本机模型，不出本机。'}`;
   }
 
-  Object.assign(window, {BC_AIPROMPT: {GROUPS_NOW, GROUPS_LATER, LATER_NOTE, EFFECT, standing, template, contextPack, contextLine, sessionOptions, hint}});
+  Object.assign(window, {BC_AIPROMPT: {GROUPS_NOW, GROUPS_LATER, LATER_NOTE, EFFECT, TOOL_SKILL, defaultSkills, standing, template, contextPack, contextLine, sessionOptions, hint}});
 })();

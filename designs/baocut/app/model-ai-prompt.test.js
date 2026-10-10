@@ -32,6 +32,30 @@ test('每个工具都有一句「会不会改视频」', () => {
   assert.match(P.EFFECT.polish, /撤销/);
 });
 
+test('每个第一批工具都配一个内置 skill；默认挂它，列表里没有就不挂', () => {
+  // data.js 要先有这些模型；换一个 window 装，不碰上面的 P
+  const saved = global.window; global.window = {};
+  ['substyle', 'pose', 'shape-paths', 'elements', 'textpresets', 'wordanim', 'subanim', 'subpresets', 'motioncaption', 'template', 'cut', 'defaultsub']
+    .forEach((m) => require(`./model-${m}.js`));
+  require('./data.js');
+  require('./model-agent-skills.js');
+  const list = window.BC_DATA.agentSkills;
+  const K = window.BC_AGENT_SKILLS;
+  global.window = saved;
+  ['polish', 'chapters', 'speakers', 'retranscribe', 'cleanup', 'stale', 'summary', 'blog', 'title', 'desc', 'cover']
+    .forEach((k) => {
+      const id = P.TOOL_SKILL[k];
+      assert.ok(id, k);
+      const s = K.byId(list, id);
+      assert.ok(s && s.source === 'builtin', `${k} → ${id}`);
+      assert.deepEqual(P.defaultSkills(k, list), [id]);
+    });
+  assert.deepEqual(P.defaultSkills('polish', []), []);
+  assert.deepEqual(P.defaultSkills('nope', list), []);
+  const items = P.contextPack('summary', {paras: 3, skills: ['视频内容总结']});
+  assert.match(P.contextLine(items), /Skill 视频内容总结$/);
+});
+
 test('上下文包按工具取材，折成一行', () => {
   const items = P.contextPack('summary', {paras: 42, words: 6200, chapters: 4, attachments: 1});
   assert.deepEqual(items.map((i) => i.k), ['transcript', 'chapters', 'attachments']);

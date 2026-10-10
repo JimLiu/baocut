@@ -16,8 +16,8 @@ const list = () => [
   {id: 'd', name: '章节标记', summary: '分章节', source: 'third-party', author: '示例作者 A', category: '社区', enabled: false, updated: '2026-08-30', files: []},
 ];
 
-test('演示数据：7–9 条，三种来源都有，每条有 SKILL.md 与 frontmatter，至少两条带 references/；第三方默认关', () => {
-  assert.ok(DEMO.length >= 7 && DEMO.length <= 9);
+test('演示数据：15–20 条（AI 工具 Tab 每个工具一条内置），三种来源都有，每条有 SKILL.md 与 frontmatter，至少两条带 references/；第三方默认关', () => {
+  assert.ok(DEMO.length >= 15 && DEMO.length <= 20, String(DEMO.length));
   assert.equal(new Set(DEMO.map((s) => s.id)).size, DEMO.length);
   K.SOURCES.forEach((s) => assert.ok(DEMO.some((x) => x.source === s.k), s.k));
   DEMO.forEach((s) => {
@@ -75,6 +75,10 @@ test('选用的 skill 在提示词末尾带一行', () => {
   assert.equal(K.withSkill('重排字幕', s), '重排字幕\n使用 skill：字幕排版');
   assert.equal(K.withSkill('', s), '使用 skill：字幕排版');
   assert.equal(K.withSkill('重排字幕', null), '重排字幕');
+  // 一条消息挂几个：每个一行、按挂的顺序，重复与空的略过（AI 工具页）
+  const s2 = {id: 'b', name: '分章节'};
+  assert.equal(K.withSkills('做', [s, s2, s, null]), '做\n使用 skill：字幕排版\n使用 skill：分章节');
+  assert.equal(K.withSkills('做', []), '做');
 });
 
 test('来源与更新时间一行', () => {

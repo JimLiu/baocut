@@ -62,6 +62,11 @@
     const p = String(prompt || '');
     return line ? (p ? p + '\n' + line : line) : p;
   }
+  /** 一条消息挂几个 skill（AI 工具页，§5.10）：每个一行，顺序照挂的顺序；空的、重复的略过。 */
+  function withSkills(prompt, skills) {
+    const seen = new Set();
+    return (skills || []).filter((s) => s && s.id && !seen.has(s.id) && seen.add(s.id)).reduce((p, s) => withSkill(p, s), String(prompt || ''));
+  }
 
   /** 「来源 · 更新于 …」：updated 是 YYYY-MM-DD 就写成「9 月 28 日」，否则是相对时间原样（「刚刚」）。 */
   function updatedLabel(skill) {
@@ -184,7 +189,7 @@
   }
 
   root.BC_AGENT_SKILLS = {
-    SOURCES, TABS, THIRD_PARTY_NOTE, sourceLabel, find, counts, byId, toggle, add, remove, menuItems, promptLine, withSkill,
+    SOURCES, TABS, THIRD_PARTY_NOTE, sourceLabel, find, counts, byId, toggle, add, remove, menuItems, promptLine, withSkill, withSkills,
     updatedLabel, metaLine, fromFolder, parseGithub, fromGithub, fileTree, fileBlocks, snapshot, apply,
   };
 })();
