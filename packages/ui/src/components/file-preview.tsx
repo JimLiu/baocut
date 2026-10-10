@@ -120,7 +120,7 @@ export function FilePreview({ target, fileName, sourceMode, playback, onResolved
   if (mode === 'pdf') return <Suspense fallback={<ProgressCircle isIndeterminate aria-label={S.filePreview.loading} />}><PdfPreview url={handle.url} fileName={fileName} /></Suspense>;
   if (['text', 'markdown', 'html', 'table', 'json'].includes(mode!)) return <div className={richFrame}>
     {sourceMode === undefined && mode !== 'text' && <DocumentViewControl mode={mode as DocumentPreview} source={source} onChange={setLocalSource} />}
-    <DocumentContent mode={mode as DocumentPreview} text={text ?? ''} source={source} fileName={fileName} />
+    <DocumentContent mode={mode as DocumentPreview} text={text ?? ''} source={source} fileName={fileName} target={target} />
   </div>;
   return null;
 }
