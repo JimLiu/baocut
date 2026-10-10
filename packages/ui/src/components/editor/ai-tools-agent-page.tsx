@@ -34,7 +34,7 @@ import { AsrMoreOptions, useSpeakerState } from '../tools/asr-more-options.tsx';
 import { directHasScope, directParams, directTool, scopedParagraphs } from './ai-tool-direct.ts';
 import { DirectModelGate, DirectModelPicker, DirectProblem, DirectReceiptView, DirectResultView, DirectRunView, useDirectModel } from './ai-tool-direct-view.tsx';
 import { AgentUseRow, AiToolPrompt, SessionRow, useToolHandoff, type DirectPrompt } from './ai-tool-prompt.tsx';
-import { runKey, startAiTool, useAiToolRun } from './ai-tool-run.ts';
+import { closeAiToolResult, runKey, startAiTool, useAiToolRun } from './ai-tool-run.ts';
 import { AI_TOOLS_COPY as C } from './ai-tools-copy.ts';
 import type { AiToolPreset } from './ai-tools-nav.ts';
 import { PanelHead } from './panel-head.tsx';
@@ -245,11 +245,12 @@ export function AiAgentToolPage({
       }
     : null;
 
-  // 直接调模型跑着、出了结果或收据：这一页换成那一态（同识别说话人的四态页），「完成」回到设置态。
+  // 直接调模型跑着、出了结果或收据：这一页换成那一态（同识别说话人的四态页）。结果与收据页的「返回」与「完成」一样回到参数页
+  // （设置与提示词都还在），参数页的「返回」才回列表；跑着时没有参数页可回，「返回」回列表、任务在后台接着跑。
   if (kind && (run || result || receipt)) {
     return (
       <>
-        <PanelHead title={info.name} back={{ label: C.back, onPress: onBack }} />
+        <PanelHead title={info.name} back={{ label: C.back, onPress: run ? onBack : () => closeAiToolResult(key) }} />
         <div className={`${body} bc-scroll`}>
           {run ? (
             <DirectRunView run={run} />

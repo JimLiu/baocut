@@ -243,9 +243,11 @@ export function SpeakerFlow({
     );
   }
 
+  // 收据页的「返回」与「完成」一样回到设置页（提示词还在），设置页的「返回」才回列表。
+  const showsReceipt = !run && !proposal && !!receipt;
   return (
     <>
-      <PanelHead title={C.title} back={{ label: C.back, onPress: onBack }}>
+      <PanelHead title={C.title} back={{ label: C.back, onPress: showsReceipt ? () => closeSpeakers(videoId) : onBack }}>
         {run ? (
           <Badge size="S" variant="informative">
             {C.background}
@@ -264,7 +266,7 @@ export function SpeakerFlow({
           applying={proposal.applying}
         />
       ) : receipt ? (
-        <DoneView videoId={videoId} receipt={receipt} sequence={sequence} documents={documents} onBack={onBack} />
+        <DoneView videoId={videoId} receipt={receipt} sequence={sequence} documents={documents} />
       ) : (
         <SetupView videoId={videoId} sequence={sequence} documents={documents} problem={problem} onBack={onBack} />
       )}
@@ -702,22 +704,18 @@ function DoneView({
   receipt,
   sequence,
   documents,
-  onBack,
 }: {
   videoId: Id;
   receipt: SpeakersReceipt;
   sequence: Sequence;
   documents: Record<Id, DocumentRecord>;
-  onBack(): void;
 }) {
   const { summary, names } = receipt;
   const speech = documents[summary.source.documentId];
   const stale = useMemo(() => (speech ? staleCaptions(sequence, documents, speech) : []), [sequence, documents, speech]);
   const running = useSpeakersRun((s) => !!s.runs[videoId]);
-  const finish = () => {
-    closeSpeakers(videoId);
-    onBack();
-  };
+  // 「完成」回到设置页，不回列表。
+  const finish = () => closeSpeakers(videoId);
   return (
     <div className={`${body} bc-scroll`}>
       <div className={stack}>
