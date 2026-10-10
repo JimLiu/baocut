@@ -55,6 +55,105 @@ export const SPACE_SORTS: readonly { readonly key: SpaceSort; readonly label: st
   },
 }));
 
+/*
+ * 一部视频只出现一次（产品设计 §4.3）：从某部视频导出、为它生成或下载的文件（`origin.videoId`）在「全部」与「视频」里
+ * 收进那部视频的卡片，卡片写它有几个文件，查看框里逐个列出。按类型看、收藏与回收站仍然逐个文件列出——那是在找某一类文件或
+ * 自己标记过的那几个。模板不收：它是拿去套别的视频的，自己就是一件东西。视频不在了或进了回收站，它的文件各自出现（§4.9）。
+ */
+const FOLDED: readonly SpaceCategory[] = ['all', 'video'];
+/** 收进视频的文件的次序（原型 FILE_ORDER）：成片在前，然后是源文件、字幕、文档、图片、音频。 */
+const FILE_ORDER: readonly SpaceEntryKind[] = ['export', 'video-file', 'subtitle', 'document', 'image', 'audio', 'package'];
+
+/** 列表区的一行。收了文件的视频多出 `files`、`activityAt`；只靠名下文件对上搜索或状态筛选的，`hits` 是对上的文件。 */
+export type SpaceRow = SpaceEntry & {
+  /** 收进这部视频的文件：先按类型、再按最近活动（新的在前）。 */
+  files?: SpaceEntry[];
+  /** 视频与这些文件里最近的一次活动：「最近活动」排序与这一行的相对时间用它。 */
+  activityAt?: string;
+  hits?: Id[];
+};
+
+/** 条目出自哪部视频（由它导出、为它生成或下载的）；视频本身与回收站里的条目为 null。删除视频时列出的也是这些（§4.9）。 */
+export function fromVideoId(entry: Pick<SpaceEntry, 'kind' | 'origin' | 'user'>): Id | null {
+  return entry.kind !== 'video' && !entry.user.trashedAt ? (entry.origin?.videoId ?? null) : null;
+}
+
+/** 能收文件的视频条目：不在回收站里、知道 videoId。同一个 videoId 有两处时（复制了视频目录）收进先列出的那个。 */
+function hostIds(entries: readonly SpaceEntry[]): Map<Id, Id> {
+  const hosts = new Map<Id, Id>();
+  for (const entry of entries) {
+    if (entry.kind !== 'video' || entry.user.trashedAt || !entry.ref || !('videoId' in entry.ref)) continue;
+    if (!hosts.has(entry.ref.videoId)) hosts.set(entry.ref.videoId, entry.id);
+  }
+  return hosts;
+}
+
+const newestFirst = (a: Pick<SpaceEntry, 'lastActivityAt'>, b: Pick<SpaceEntry, 'lastActivityAt'>) => b.lastActivityAt.localeCompare(a.lastActivityAt);
+
+/** 把属于视频的文件收进视频：返回顶层的行，收了文件的视频是带 `files` 的副本；原条目不动。 */
+export function groupEntries(entries: readonly SpaceEntry[]): SpaceRow[] {
+  const hosts = hostIds(entries);
+  const files = new Map<Id, SpaceEntry[]>();
+  const top: SpaceEntry[] = [];
+  for (const entry of entries) {
+    const videoId = entry.kind === 'template' ? null : fromVideoId(entry);
+    const host = videoId ? hosts.get(videoId) : undefined;
+    if (host) files.set(host, [...(files.get(host) ?? []), entry]);
+    else top.push(entry);
+  }
+  return top.map((entry) => {
+    const own = files.get(entry.id);
+    if (!own) return entry;
+    own.sort((a, b) => FILE_ORDER.indexOf(a.kind) - FILE_ORDER.indexOf(b.kind) || newestFirst(a, b));
+    const activityAt = own.reduce((at, f) => (f.lastActivityAt > at ? f.lastActivityAt : at), entry.lastActivityAt);
+    return { ...entry, files: own, activityAt };
+  });
+}
+
+/** 视频条目名下的文件（与卡片上收进去的是同一批）；不是视频、视频在回收站里或没有文件时为空。 */
+export function filesOf(entries: readonly SpaceEntry[], entryId: Id): SpaceEntry[] {
+  return groupEntries(entries).find((row) => row.id === entryId)?.files ?? [];
+}
+
+/** 文件收在哪部视频里（查看框的「查看视频」回到它）；没有收进视频时 null。 */
+export function hostVideoOf(entries: readonly SpaceEntry[], entry: SpaceEntry): SpaceEntry | null {
+  const videoId = entry.kind === 'template' ? null : fromVideoId(entry);
+  const host = videoId ? hostIds(entries).get(videoId) : undefined;
+  return host ? (entries.find((e) => e.id === host) ?? null) : null;
+}
+
+/** 只靠名下文件对上搜索或筛选时，这一行的说明写是哪个文件（「找到 英文字幕.srt」）；不是这种行时 null。 */
+export function hitsText(row: SpaceRow): string | null {
+  const first = row.hits?.length ? row.files?.find((f) => f.id === row.hits![0]) : undefined;
+  return first ? M.foundFiles(first.name, row.hits!.length) : null;
+}
+
+/** 「N 个文件」的明细：「成片 2 · 字幕 1」，按分类侧栏的次序。 */
+export function filesSummary(row: SpaceRow): string {
+  const counts = new Map<SpaceEntryKind, number>();
+  for (const file of row.files ?? []) counts.set(file.kind, (counts.get(file.kind) ?? 0) + 1);
+  return KIND_ORDER.filter((kind) => counts.has(kind))
+    .map((kind) => M.kindCount(KIND_LABEL[kind], counts.get(kind)!))
+    .join(' · ');
+}
+
+/*
+ * 视频自己没有状态时，卡片的状态灯替名下的文件说话：生成中、失败、缺失、来源已变要让人看见（§4.4）；
+ * 候选、已应用、已发布是常态，不抢位置。
+ */
+const ATTENTION: readonly SpaceEntryStatus[] = ['generating', 'failed', 'missing', 'source-changed'];
+
+/** 名下文件里最该被看见的状态：{status, text}（「成片 来源已变」「2 个文件缺失」）；视频自己有状态或没有要说的时 null。 */
+export function filesAttention(row: SpaceRow): { status: SpaceEntryStatus; text: string } | null {
+  if (row.status) return null;
+  for (const status of ATTENTION) {
+    const hit = (row.files ?? []).filter((f) => f.status === status);
+    if (hit.length === 1) return { status, text: M.fileStatus(KIND_LABEL[hit[0]!.kind], statusText(hit[0]!)!) };
+    if (hit.length > 1) return { status, text: M.filesStatus(hit.length, SPACE_STATUS[status].label) };
+  }
+  return null;
+}
+
 /** 回收站只收已移入的；其余分类都不含回收站里的。 */
 export function inCategory(entry: SpaceEntry, category: SpaceCategory): boolean {
   if (category === 'trash') return entry.user.trashedAt !== null;
@@ -64,10 +163,14 @@ export function inCategory(entry: SpaceEntry, category: SpaceCategory): boolean 
   return entry.kind === category;
 }
 
+/** 各分类的条目数（侧栏行尾）。「全部」与「视频」数的是卡片：一部视频连同收进去的文件算一个（`groupEntries`）。 */
 export function countByCategory(entries: readonly SpaceEntry[]): Record<SpaceCategory, number> {
   const counts = Object.fromEntries(SPACE_CATEGORIES.map((c) => [c.key, 0])) as Record<SpaceCategory, number>;
   for (const entry of entries) {
-    for (const { key } of SPACE_CATEGORIES) if (inCategory(entry, key)) counts[key]++;
+    for (const { key } of SPACE_CATEGORIES) if (!FOLDED.includes(key) && inCategory(entry, key)) counts[key]++;
+  }
+  for (const row of groupEntries(entries)) {
+    for (const key of FOLDED) if (inCategory(row, key)) counts[key]++;
   }
   return counts;
 }
@@ -145,19 +248,26 @@ export interface SpaceQuery {
   status?: SpaceStatusFilter;
 }
 
-export function viewEntries(entries: readonly SpaceEntry[], query: SpaceQuery): SpaceEntry[] {
+/**
+ * 列表区：分类 → 项目 → 状态 → 搜索 → 排序。「全部」与「视频」先把文件收进视频（`groupEntries`），视频本身或它的任何一个文件
+ * 对得上状态与搜索，这一行就留下；只靠文件对上的，`hits` 记下是哪几个文件。「无状态」只看视频自己：文件没有状态不说明什么。
+ */
+export function viewEntries(entries: readonly SpaceEntry[], query: SpaceQuery): SpaceRow[] {
   const q = query.search.trim().toLowerCase();
   const status = query.status ?? 'any';
-  const rows = entries.filter((entry) => {
-    const project = entryProjectId(entry);
-    return (
-      inCategory(entry, query.category) &&
-      (query.projectId === null || (query.projectId === 'none' ? project === null : project === query.projectId)) &&
-      (status === 'any' || (status === 'none' ? entry.status === null : entry.status === status)) &&
-      (!q || entry.name.toLowerCase().includes(q) || entry.relPath.toLowerCase().includes(q))
-    );
+  const matches = (entry: SpaceEntry, self: boolean) =>
+    (status === 'any' || (status === 'none' ? self && entry.status === null : entry.status === status)) &&
+    (!q || entry.name.toLowerCase().includes(q) || entry.relPath.toLowerCase().includes(q));
+  const base: readonly SpaceRow[] = FOLDED.includes(query.category) ? groupEntries(entries) : entries;
+  const rows = base.flatMap((row): SpaceRow[] => {
+    const project = entryProjectId(row);
+    if (!inCategory(row, query.category)) return [];
+    if (query.projectId !== null && (query.projectId === 'none' ? project !== null : project !== query.projectId)) return [];
+    if (matches(row, true)) return [row];
+    const hits = (row.files ?? []).filter((file) => matches(file, false));
+    return hits.length ? [{ ...row, hits: hits.map((file) => file.id) }] : [];
   });
-  const recent = (a: SpaceEntry, b: SpaceEntry) => b.lastActivityAt.localeCompare(a.lastActivityAt);
+  const recent = (a: SpaceRow, b: SpaceRow) => (b.activityAt ?? b.lastActivityAt).localeCompare(a.activityAt ?? a.lastActivityAt);
   return rows.sort((a, b) => {
     if (query.sort === 'created' || query.sort === 'updated') {
       const key = query.sort === 'created' ? 'createdAt' : 'updatedAt';

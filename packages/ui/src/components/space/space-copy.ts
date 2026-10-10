@@ -29,6 +29,16 @@ const en = {
   // 列表与菜单
   openVideo: 'Open video',
   viewInfo: 'View info',
+  /** 收了文件的视频（产品设计 §4.3）：菜单项、卡片上的「N 个文件」、列表名称下的一行、查看框里的文件列表与回到视频。 */
+  viewInfoFiles: 'View info and files',
+  filesButton: (n: number) => count(n, 'file', 'files'),
+  /** `summary` 是按类型的明细（「Export 2 · Subtitles 1」）。 */
+  filesButtonLabel: (n: number, summary: string) => `${count(n, 'file', 'files')}: ${summary}`,
+  filesLine: (n: number, summary: string) => `${count(n, 'file', 'files')} · ${summary}`,
+  filesTitle: 'Files',
+  filesListLabel: "This video's files",
+  viewVideo: 'View video',
+  factFolder: 'Folder',
   /** 视频条目的转录动作（产品设计 §4.4）：没转录过、转录过、上次失败。 */
   transcribe: { first: 'Transcribe…', redo: 'Re-transcribe…', retry: 'Retry transcription…' },
   info: 'Video details…',
@@ -207,7 +217,7 @@ const en = {
   sidebarLabel: 'Space categories',
   kindsHeader: 'Categories',
   mineHeader: 'Organize',
-  sidebarNote: 'Space shows the videos, assets, and outputs in all your projects. The files stay in their own project folders.',
+  sidebarNote: 'Space shows the videos, assets, and outputs in all your projects. The files stay in their own project folders. Files exported or generated from a video are grouped with it; browse by type to see them one by one.',
   all: 'All',
   emptyFiltered: 'No matching items',
   emptyTrash: 'Trash is empty',

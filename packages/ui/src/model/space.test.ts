@@ -4,7 +4,13 @@ import {
   SPACE_SORTS,
   countByCategory,
   entryPath,
+  filesAttention,
+  filesOf,
+  filesSummary,
   formatBytes,
+  groupEntries,
+  hitsText,
+  hostVideoOf,
   inCategory,
   measureText,
   previewKind,
@@ -98,6 +104,78 @@ describe('viewEntries', () => {
     ).toEqual([
       { key: 'p1', label: '宣传片' },
       { key: 'none', label: '不属于任何项目' },
+    ]);
+  });
+});
+
+describe('一部视频只出现一次', () => {
+  const query = { category: 'all' as const, projectId: null, search: '', sort: 'recent' as const };
+  const at = (h: number) => `2026-10-01T${String(h).padStart(2, '0')}:00:00.000Z`;
+  const from = (videoId: string) => ({ source: 'exported' as const, projectId: 'p1', videoId });
+  // 截图里的情形：一部下载转录的视频，连同下载的源文件、导出的成片、字幕与文稿
+  const video = entry('v', { kind: 'video', name: '洗碗机', ref: { videoId: 'vid1' }, lastActivityAt: at(1) });
+  const files = [
+    entry('mp4', { kind: 'video-file', name: '洗碗机.mp4', origin: { ...from('vid1'), source: 'imported' }, lastActivityAt: at(2) }),
+    entry('final', { kind: 'export', name: '洗碗机 · 成片.mp4', origin: from('vid1'), lastActivityAt: at(3) }),
+    entry('srt', { kind: 'subtitle', name: '英文字幕.srt', origin: from('vid1'), lastActivityAt: at(4) }),
+    entry('md', { kind: 'document', name: 'transcript.md', origin: from('vid1'), lastActivityAt: at(5), status: 'source-changed' }),
+  ];
+  const other = entry('other', { kind: 'image', name: '海报.png', lastActivityAt: at(3) });
+  const list = [video, ...files, other];
+
+  it('「全部」与「视频」里视频收下它的文件，卡片数按一部算；按类型看仍逐个列出', () => {
+    expect(viewEntries(list, query).map((e) => e.id)).toEqual(['v', 'other']);
+    const [row] = viewEntries(list, query);
+    expect(row!.files!.map((f) => f.id)).toEqual(['final', 'mp4', 'srt', 'md']);
+    expect(row!.activityAt).toBe(at(5));
+    expect(viewEntries(list, { ...query, category: 'export' }).map((e) => e.id)).toEqual(['final']);
+    const counts = countByCategory(list);
+    expect([counts.all, counts.video, counts.export, counts.subtitle, counts.document]).toEqual([2, 1, 1, 1, 1]);
+  });
+
+  it('最近活动按视频与文件里最近的一次排；更新时间只看视频自己', () => {
+    const late = entry('late', { kind: 'image', lastActivityAt: at(4) });
+    expect(viewEntries([...list, late], query).map((e) => e.id)).toEqual(['v', 'late', 'other']);
+  });
+
+  it('搜索与状态穿过文件：只靠文件对上时记下是哪个文件，「无状态」只看视频自己', () => {
+    const [byFile] = viewEntries(list, { ...query, search: 'SRT' });
+    expect([byFile!.id, byFile!.hits]).toEqual(['v', ['srt']]);
+    expect(hitsText(byFile!)).toBe('找到 英文字幕.srt');
+    expect(hitsText({ ...byFile!, hits: ['final', 'mp4'] })).toBe('找到 洗碗机 · 成片.mp4 等 2 个文件');
+    const [self] = viewEntries(list, { ...query, search: '洗碗机' });
+    expect([self!.id, self!.hits]).toEqual(['v', undefined]);
+    expect(viewEntries(list, { ...query, status: 'source-changed' }).map((e) => [e.id, e.hits])).toEqual([['v', ['md']]]);
+    expect(viewEntries(list, { ...query, status: 'none' }).map((e) => e.id)).toEqual(['v', 'other']);
+  });
+
+  it('卡片的明细与状态：视频自己没有状态时替最该被看见的文件说话', () => {
+    const [row] = groupEntries(list);
+    expect(filesSummary(row!)).toBe('成片 1 · 视频素材 1 · 字幕 1 · 文档 1');
+    expect(filesAttention(row!)).toEqual({ status: 'source-changed', text: '文档来源已变' });
+    const busy = groupEntries([video, ...files.map((f) => ({ ...f, status: 'missing' as const })), { ...files[1]!, id: 'gen', status: 'generating' as const }]);
+    expect(filesAttention(busy[0]!)).toEqual({ status: 'generating', text: '成片生成中' });
+    expect(filesAttention(groupEntries([video, ...files.map((f) => ({ ...f, status: 'missing' as const }))])[0]!)!.text).toBe('4 个文件缺失');
+    expect(filesAttention({ ...row!, status: 'missing' })).toBeNull();
+  });
+
+  it('模板、回收站里的文件不收；视频进了回收站，它的文件各自出现', () => {
+    const template = entry('tpl', { kind: 'template', origin: from('vid1') });
+    const trashedFile = entry('old', { kind: 'export', origin: from('vid1') }, { trashedAt: at(6) });
+    expect(viewEntries([video, template, trashedFile], query).map((e) => e.id)).toEqual(['v', 'tpl']);
+    const gone = { ...video, user: { ...video.user, trashedAt: at(6) } };
+    expect(viewEntries([gone, ...files], query).map((e) => e.id)).toEqual(['md', 'srt', 'final', 'mp4']);
+  });
+
+  it('查看框：视频列出名下的文件，文件回到所属的视频；同一个 videoId 有两处时收进先列出的那个', () => {
+    expect(filesOf(list, 'v').map((f) => f.id)).toEqual(['final', 'mp4', 'srt', 'md']);
+    expect(filesOf(list, 'other')).toEqual([]);
+    expect(hostVideoOf(list, files[2]!)?.id).toBe('v');
+    expect(hostVideoOf(list, other)).toBeNull();
+    const copy = entry('v2', { kind: 'video', ref: { videoId: 'vid1' } });
+    expect(viewEntries([video, copy, ...files], query).map((e) => [e.id, e.files?.length])).toEqual([
+      ['v', 4],
+      ['v2', undefined],
     ]);
   });
 });

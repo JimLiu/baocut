@@ -2,12 +2,21 @@ import { pluralForm } from '@baocut/protocol';
 import { revealLabel } from '../../copy.ts';
 import type { SpaceMessages } from './space-copy.ts';
 
+const files = (n: number) => pluralForm('ru', n, { one: `${n} файл`, few: `${n} файла`, many: `${n} файлов`, other: `${n} файла` });
 export const ru: SpaceMessages = {
   searchPlaceholder: "Поиск имён, файлов и речи в видео",
   searchLabel: "Поиск в Space",
 
   openVideo: "Открыть видео",
   viewInfo: "Показать сведения",
+  viewInfoFiles: "Показать сведения и файлы",
+  filesButton: (n: number) => files(n),
+  filesButtonLabel: (n: number, summary: string) => `${files(n)}: ${summary}`,
+  filesLine: (n: number, summary: string) => `${files(n)} · ${summary}`,
+  filesTitle: "Файлы",
+  filesListLabel: "Файлы этого видео",
+  viewVideo: "Показать видео",
+  factFolder: "Папка",
   transcribe: { first: 'Расшифровать…', redo: 'Расшифровать заново…', retry: 'Повторить расшифровку…' },
   info: "Сведения о видео…",
   view: "Открыть",
@@ -162,7 +171,7 @@ export const ru: SpaceMessages = {
   sidebarLabel: "Категории Space",
   kindsHeader: "Категории",
   mineHeader: "Организовать",
-  sidebarNote: "Space показывает видео, материалы и результаты всех проектов. Файлы остаются в папках проектов.",
+  sidebarNote: "Space показывает видео, материалы и результаты всех проектов. Файлы остаются в папках проектов. Файлы, экспортированные или созданные из видео, собраны вместе с ним; при просмотре по типам они показаны по отдельности.",
   all: "Все",
   emptyFiltered: "Нет подходящих элементов",
   emptyTrash: "Корзина пуста",

@@ -45,6 +45,13 @@ const en = {
   noProject: 'Not in a project',
   removedProject: 'Removed project',
   conversation: (title: string) => `Session “${title}”`,
+  /** 卡片「N 个文件」的明细里的一项：类型与个数。 */
+  kindCount: (kind: string, n: number) => `${kind} ${n}`,
+  /** 只靠名下文件对上搜索或筛选时写是哪个文件：`n` 是对上的文件数。 */
+  foundFiles: (name: string, n: number) => (n === 1 ? `Found: ${name}` : `Found: ${name} and ${n - 1} more`),
+  /** 视频自己没有状态时替名下文件说话：一个文件写类型与状态，几个文件写个数与状态。 */
+  fileStatus: (kind: string, status: string) => `${kind}: ${status}`,
+  filesStatus: (n: number, status: string) => `${n} ${n === 1 ? 'file' : 'files'}: ${status}`,
 };
 export type SpaceMessages = typeof en;
 export const M = defineMessages(en, { 'zh-Hans': zhHans, 'zh-Hant': zhHant, ja, ko, es, fr, de, nl, 'pt-BR': ptBR, it, ru, pl, tr, vi });

@@ -1,5 +1,5 @@
 import { live, type Id, type SpaceEntry, type SpaceEntryReference, type SpaceReference } from '@baocut/protocol';
-import { KIND_LABEL, kindOfFileName } from './space.ts';
+import { fromVideoId, KIND_LABEL, kindOfFileName } from './space.ts';
 import { M } from './space-actions-copy.ts';
 
 /**
@@ -109,9 +109,9 @@ export function purgeBlock(entry: Pick<SpaceEntry, 'status' | 'user' | 'ref'>): 
 /** 阻止删除的引用的种类（架构设计 §5.5 的引用图）。 */
 export const REFERENCE_KIND_LABEL: Record<SpaceReference['kind'], string> = live(() => M.referenceKind);
 
-/** 删除视频时一起列出的条目（产品设计 §4.9）：由它导出、生成的条目留在 Space 里。 */
+/** 删除视频时一起列出的条目（产品设计 §4.9）：由它导出、生成的条目留在 Space 里。与卡片上收进视频的是同一条判定（`fromVideoId`）。 */
 export function relatedEntries(entries: readonly SpaceEntry[], videoId: Id): SpaceEntry[] {
-  return entries.filter((entry) => entry.kind !== 'video' && entry.origin?.videoId === videoId && !entry.user.trashedAt);
+  return entries.filter((entry) => fromVideoId(entry) === videoId);
 }
 
 /** 视频条目的 videoId；不是视频或还没打开过（没有 ref）时 null。 */

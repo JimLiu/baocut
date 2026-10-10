@@ -30,4 +30,8 @@ export const zhHant: SpaceMessages = {
   noProject: '不屬於任何專案',
   removedProject: '已移除的專案',
   conversation: (title: string) => `對話「${title}」`,
+  kindCount: (kind: string, n: number) => `${kind} ${n}`,
+  foundFiles: (name: string, n: number) => (n === 1 ? `找到 ${name}` : `找到 ${name} 等 ${n} 個檔案`),
+  fileStatus: (kind: string, status: string) => `${kind}${status}`,
+  filesStatus: (n: number, status: string) => `${n} 個檔案${status}`,
 };

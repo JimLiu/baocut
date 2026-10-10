@@ -2,12 +2,21 @@ import { pluralForm } from '@baocut/protocol';
 import { revealLabel } from '../../copy.ts';
 import type { SpaceMessages } from './space-copy.ts';
 
+const files = (n: number) => pluralForm('pl', n, { one: `${n} plik`, few: `${n} pliki`, many: `${n} plików`, other: `${n} pliku` });
 export const pl: SpaceMessages = {
   searchPlaceholder: "Szukaj nazw, plików i mowy w wideo",
   searchLabel: "Szukaj w Space",
 
   openVideo: "Otwórz wideo",
   viewInfo: "Zobacz informacje",
+  viewInfoFiles: "Zobacz informacje i pliki",
+  filesButton: (n: number) => files(n),
+  filesButtonLabel: (n: number, summary: string) => `${files(n)}: ${summary}`,
+  filesLine: (n: number, summary: string) => `${files(n)} · ${summary}`,
+  filesTitle: "Pliki",
+  filesListLabel: "Pliki tego wideo",
+  viewVideo: "Zobacz wideo",
+  factFolder: "Folder",
   transcribe: { first: 'Transkrybuj…', redo: 'Transkrybuj ponownie…', retry: 'Ponów transkrypcję…' },
   info: "Szczegóły wideo…",
   view: "Pokaż",
@@ -162,7 +171,7 @@ export const pl: SpaceMessages = {
   sidebarLabel: "Kategorie Space",
   kindsHeader: "Kategorie",
   mineHeader: "Organizuj",
-  sidebarNote: "Space pokazuje wideo, materiały i wyniki wszystkich projektów. Pliki zostają w folderach projektów.",
+  sidebarNote: "Space pokazuje wideo, materiały i wyniki wszystkich projektów. Pliki zostają w folderach projektów. Pliki wyeksportowane lub wygenerowane z wideo są zgrupowane razem z nim; przeglądaj według typu, aby zobaczyć je osobno.",
   all: "Wszystko",
   emptyFiltered: "Brak pasujących elementów",
   emptyTrash: "Kosz pusty",

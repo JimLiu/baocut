@@ -30,4 +30,8 @@ export const ptBR: SpaceMessages = {
   noProject: "Fora de um projeto",
   removedProject: "Projeto removido",
   conversation: (title: string) => `Sessão “${title}”`,
+  kindCount: (kind: string, n: number) => `${kind} ${n}`,
+  foundFiles: (name: string, n: number) => (n === 1 ? `Encontrado: ${name}` : `Encontrado: ${name} e mais ${n - 1}`),
+  fileStatus: (kind: string, status: string) => `${kind}: ${status}`,
+  filesStatus: (n: number, status: string) => `${n} ${n === 1 ? 'arquivo' : 'arquivos'}: ${status}`,
 };

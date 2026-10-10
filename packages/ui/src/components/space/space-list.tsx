@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useRef, type ComponentType, type ReactNode } from 'react';
 import type { SpaceEntry, SpaceEntryKind } from '@baocut/protocol';
 import {
+  ActionButton,
   ActionMenu,
   Card,
   CardPreview,
@@ -30,6 +31,7 @@ import Filmstrip from '@react-spectrum/s2/icons/Filmstrip';
 import Folder from '@react-spectrum/s2/icons/Folder';
 import Image from '@react-spectrum/s2/icons/Image';
 import InfoCircle from '@react-spectrum/s2/icons/InfoCircle';
+import Layers from '@react-spectrum/s2/icons/Layers';
 import MusicNote from '@react-spectrum/s2/icons/MusicNote';
 import OpenIn from '@react-spectrum/s2/icons/OpenIn';
 import Preview from '@react-spectrum/s2/icons/Preview';
@@ -42,7 +44,17 @@ import Video from '@react-spectrum/s2/icons/Video';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { agoLabel } from '../../model/format.ts';
 import { continueBlock, entryJobId, entryMenuKey, isFailedPlaceholder, purgeBlock } from '../../model/space-actions.ts';
-import { formatBytes, KIND_LABEL, measureText, SPACE_STATUS, statusText } from '../../model/space.ts';
+import {
+  filesAttention,
+  filesSummary,
+  formatBytes,
+  hitsText,
+  KIND_LABEL,
+  measureText,
+  SPACE_STATUS,
+  statusText,
+  type SpaceRow,
+} from '../../model/space.ts';
 import type { SpaceTranscribeAction } from '../../model/tool-targets.ts';
 import { useEntryThumbnail } from '../use-entry-thumbnail.ts';
 import { SPACE_COPY as COPY } from './space-copy.ts';
@@ -51,6 +63,8 @@ import { SPACE_COPY as COPY } from './space-copy.ts';
  * Space 的列表区（产品设计 §4.3–§4.4；原型 space-list.jsx）：网格是 CardView，列表是 TableView（名称、类型、来源、
  * 时长或尺寸、状态、最近活动）。两者都虚拟化，高度由外框给。这里只画；动作交给页面。
  * 卡片与名称列都先放缩略图（§4.3），列表的行高因此用 spacious 密度。
+ * 「全部」与「视频」里一部视频只有一行（model/space.ts `groupEntries`）：它导出、生成的文件收在卡片的「N 个文件」与
+ * 名称下面那行里；视频自己没有状态时，状态替这些文件里最该被看见的那个说话。
  */
 
 export type EntryAction =
@@ -177,6 +191,10 @@ const missingFlag = style({
 const muted = style({ font: 'ui-sm', color: 'gray-600' });
 const nameCell = style({ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 });
 const nameText = style({ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+const nameBody = style({ display: 'flex', flexDirection: 'column', minWidth: 0 });
+const nameSub = style({ font: 'ui-xs', color: 'gray-600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+/** 卡片底栏：状态在左，「N 个文件」推到右边（原型 sp-files）。 */
+const filesButton = style({ marginStart: 'auto' });
 const visuallyHidden = style({
   position: 'absolute',
   width: 1,
@@ -236,14 +254,40 @@ export function EntryThumb({ entry, small }: { entry: SpaceEntry; small?: boolea
   );
 }
 
-/** 状态：灯 + 字（原型 ItemStatus）。没有状态时列表里写一道横线，卡片上写最近活动（`quiet`）。 */
-function EntryStatus({ entry, now, quiet }: { entry: SpaceEntry; now: number; quiet?: boolean }) {
+/** 最近活动：收了文件的视频取它和文件里最近的一次。 */
+const activityOf = (row: SpaceRow) => row.activityAt ?? row.lastActivityAt;
+
+/**
+ * 状态：灯 + 字（原型 ItemStatus）。视频自己没有状态时看名下的文件（`filesAttention`）；都没有时列表里写一道横线，
+ * 卡片上写最近活动（`quiet`）。
+ */
+function EntryStatus({ entry, now, quiet }: { entry: SpaceRow; now: number; quiet?: boolean }) {
   const text = statusText(entry);
-  if (!entry.status || !text) return <span className={muted}>{quiet ? agoLabel(entry.lastActivityAt, now) : COPY.noValue}</span>;
+  const files = entry.status ? null : filesAttention(entry);
+  if (files) {
+    return (
+      <StatusLight size="S" variant={SPACE_STATUS[files.status].tone}>
+        {files.text}
+      </StatusLight>
+    );
+  }
+  if (!entry.status || !text) return <span className={muted}>{quiet ? agoLabel(activityOf(entry), now) : COPY.noValue}</span>;
   return (
     <StatusLight size="S" variant={SPACE_STATUS[entry.status].tone}>
       {text}
     </StatusLight>
+  );
+}
+
+/** 卡片上的「N 个文件」：点开是这部视频的查看框，文件逐个列在里面（原型 FilesButton）。 */
+function FilesButton({ row, onAction }: { row: SpaceRow; onAction: (action: EntryAction, entry: SpaceEntry) => void }) {
+  const n = row.files?.length ?? 0;
+  if (!n) return null;
+  return (
+    <ActionButton size="S" isQuiet styles={filesButton} aria-label={COPY.filesButtonLabel(n, filesSummary(row))} onPress={() => onAction('view', row)}>
+      <Layers />
+      <Text>{COPY.filesButton(n)}</Text>
+    </ActionButton>
   );
 }
 
@@ -267,7 +311,7 @@ function transcribeItem(action: SpaceTranscribeAction) {
 }
 
 function entryMenu(
-  entry: SpaceEntry,
+  entry: SpaceRow,
   canReveal: boolean,
   onAction: (action: EntryAction, entry: SpaceEntry) => void,
   transcribe: SpaceTranscribeAction | null,
@@ -276,6 +320,7 @@ function entryMenu(
   const failed = isFailedPlaceholder(entry);
   const jobId = entryJobId(entry);
   const isVideo = entry.kind === 'video' && !trashed;
+  const viewLabel = isVideo ? (entry.files?.length ? COPY.viewInfoFiles : COPY.viewInfo) : COPY.view;
   const disabled: EntryAction[] = [];
   if (!canReveal) disabled.push('reveal');
   if (continueBlock(entry)) disabled.push('continue');
@@ -295,9 +340,9 @@ function entryMenu(
             <Text>{COPY.openVideo}</Text>
           </MenuItem>
         ) : null}
-        <MenuItem id="view" textValue={isVideo ? COPY.viewInfo : COPY.view}>
+        <MenuItem id="view" textValue={viewLabel}>
           <Preview />
-          <Text>{isVideo ? COPY.viewInfo : COPY.view}</Text>
+          <Text>{viewLabel}</Text>
         </MenuItem>
         {isVideo ? (
           <MenuItem id="info" textValue={COPY.info}>
@@ -372,7 +417,7 @@ function measureOf(entry: SpaceEntry): string {
 const primaryAction = (entry: SpaceEntry): EntryAction => (entry.kind === 'video' && !entry.user.trashedAt ? 'open' : 'view');
 
 interface ListProps {
-  entries: SpaceEntry[];
+  entries: SpaceRow[];
   now: number;
   sourceOf: (entry: SpaceEntry) => string;
   /** 条目在磁盘上有没有能在文件夹中显示的路径。 */
@@ -424,7 +469,7 @@ export function SpaceGrid(props: ListProps) {
           <Content>
             <Text slot="title">{entry.name}</Text>
             {entryMenu(entry, canReveal(entry), act, transcribeAction(entry))}
-            <Text slot="description">{[KIND_LABEL[entry.kind], measureOf(entry)].filter(Boolean).join(' · ')}</Text>
+            <Text slot="description">{hitsText(entry) ?? [KIND_LABEL[entry.kind], measureOf(entry)].filter(Boolean).join(' · ')}</Text>
           </Content>
           <Footer>
             <EntryStatus entry={entry} now={now} quiet />
@@ -433,6 +478,7 @@ export function SpaceGrid(props: ListProps) {
                 <StarFilled />
               </span>
             ) : null}
+            <FilesButton row={entry} onAction={act} />
           </Footer>
         </Card>
       )}
@@ -465,12 +511,18 @@ function columnName(id: ColumnId): string {
 export function SpaceTable(props: ListProps) {
   const { entries, now, sourceOf, canReveal, onAction, transcribeAction, empty } = props;
   const { act, dependencies } = useListDeps(props, sourceOf);
-  const cell = (entry: SpaceEntry, column: ColumnId): ReactNode => {
+  const cell = (entry: SpaceRow, column: ColumnId): ReactNode => {
     if (column === 'name') {
+      // 收了文件的视频：名字下面一行写「N 个文件 · 成片 2 · 字幕 1」，只靠文件对上搜索时写找到的是哪个
+      const n = entry.files?.length ?? 0;
+      const sub = hitsText(entry) ?? (n ? COPY.filesLine(n, filesSummary(entry)) : null);
       return (
         <span className={nameCell}>
           <EntryThumb entry={entry} small />
-          <span className={nameText}>{entry.name}</span>
+          <span className={nameBody}>
+            <span className={nameText}>{entry.name}</span>
+            {sub ? <span className={nameSub}>{sub}</span> : null}
+          </span>
           {entry.user.favorite ? (
             <span className={favMark} aria-label={COPY.favorited}>
               <StarFilled />
@@ -483,7 +535,7 @@ export function SpaceTable(props: ListProps) {
     if (column === 'source') return sourceOf(entry);
     if (column === 'size') return measureOf(entry) || <span className={muted}>{COPY.noValue}</span>;
     if (column === 'status') return <EntryStatus entry={entry} now={now} />;
-    if (column === 'activity') return agoLabel(entry.lastActivityAt, now);
+    if (column === 'activity') return agoLabel(activityOf(entry), now);
     return entryMenu(entry, canReveal(entry), act, transcribeAction(entry));
   };
   return (

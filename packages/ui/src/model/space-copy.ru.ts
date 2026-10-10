@@ -1,3 +1,4 @@
+import { pluralForm } from '@baocut/protocol';
 import type { SpaceMessages } from './space-copy.ts';
 
 export const ru: SpaceMessages = {
@@ -30,4 +31,9 @@ export const ru: SpaceMessages = {
   noProject: "Вне проекта",
   removedProject: "Удалённый проект",
   conversation: (title: string) => `Сессия «${title}»`,
+  kindCount: (kind: string, n: number) => `${kind} ${n}`,
+  foundFiles: (name: string, n: number) => (n === 1 ? `Найдено: ${name}` : `Найдено: ${name} и ещё ${n - 1}`),
+  fileStatus: (kind: string, status: string) => `${kind}: ${status}`,
+  filesStatus: (n: number, status: string) =>
+    `${pluralForm('ru', n, { one: `${n} файл`, few: `${n} файла`, many: `${n} файлов`, other: `${n} файла` })}: ${status}`,
 };

@@ -17,10 +17,12 @@ import {
 import Chat from '@react-spectrum/s2/icons/Chat';
 import Clock from '@react-spectrum/s2/icons/Clock';
 import Edit from '@react-spectrum/s2/icons/Edit';
+import Filmstrip from '@react-spectrum/s2/icons/Filmstrip';
 import Folder from '@react-spectrum/s2/icons/Folder';
 import Star from '@react-spectrum/s2/icons/Star';
 import StarFilled from '@react-spectrum/s2/icons/StarFilled';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
+import { Button as RACButton } from 'react-aria-components';
 import { agoLabel } from '../../model/format.ts';
 import { targetKey } from '../../model/media.ts';
 import {
@@ -37,6 +39,7 @@ import { formatBytes, isPlayable, KIND_LABEL, measureText, SPACE_STATUS, statusT
 import { FilePreview } from '../file-preview.tsx';
 import type { EntryTools } from '../tools/use-entry-tools.ts';
 import { SPACE_COPY as COPY } from './space-copy.ts';
+import { EntryThumb } from './space-list.tsx';
 import { ToolActions, ToolFacts } from './space-viewer-tools.tsx';
 
 const facts = style({
@@ -54,6 +57,29 @@ const footerRow = style({ display: 'flex', flexWrap: 'wrap', alignItems: 'center
 const headerRow = style({ display: 'flex', alignItems: 'center', gap: 8 });
 const alerts = style({ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 });
 const hint = style({ font: 'ui-sm', color: 'gray-600', marginTop: 12, marginBottom: 0 });
+const filesSection = style({ display: 'flex', flexDirection: 'column', gap: 8 });
+const filesHead = style({ display: 'flex', alignItems: 'baseline', gap: 8, margin: 0, font: 'ui', fontWeight: 'bold', color: 'gray-900' });
+const filesCount = style({ fontWeight: 'normal', color: 'gray-600' });
+const fileList = style({ display: 'flex', flexDirection: 'column', gap: 2, margin: 0, padding: 0, listStyleType: 'none' });
+const fileRow = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+  width: 'full',
+  paddingX: 8,
+  paddingY: 4,
+  borderWidth: 0,
+  borderRadius: 'default',
+  textAlign: 'start',
+  backgroundColor: { default: 'transparent', isHovered: 'gray-100', isFocusVisible: 'gray-100' },
+  outlineStyle: { default: 'none', isFocusVisible: 'solid' },
+  outlineColor: 'focus-ring',
+  outlineWidth: 2,
+  cursor: 'default',
+});
+const fileBody = style({ display: 'flex', flexDirection: 'column', flexGrow: 1, minWidth: 0 });
+const fileName = style({ font: 'ui', color: 'gray-900', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+const fileMeta = style({ font: 'ui-xs', color: 'gray-600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
 
 /** 查看框里的动作（由页面接到 Runtime）。 */
 export interface ViewerActions {
@@ -70,6 +96,8 @@ export interface ViewerActions {
   onClear(entry: SpaceEntry): void;
   onTask(jobId: Id): void;
   onConversation(conversationId: Id): void;
+  /** 换成另一个条目的查看框：视频名下的文件，或文件所属的视频。 */
+  onSwitch(entryId: Id): void;
   onClose(): void;
 }
 
@@ -78,6 +106,8 @@ export interface ViewerActions {
  * 生成方式、工具与位置、版本），缺失、失败、来源已变时如实提示。动作是 在会话中继续 · 查看来源会话 · 在文件夹中显示 · 二次编辑 ·
  * 收藏 · 重命名 · 用工具处理… · 再做一次（工具做出来的）；
  * 回收站里的是恢复与彻底删除，失败的占位是清除与查看任务。做不了的按钮置灰，原因写在下面。
+ * 一部视频在「全部」与「视频」里只有一行（§4.3）：它导出、生成的文件列在这部视频的查看框里，点一个换成那个文件；
+ * 文件的查看框里「查看视频」换回来。
  * 条目由外层传进来：S2 的 Dialog 会在几个 slot 里各渲染一遍 children，这里不放状态。
  */
 export function SpaceViewer({
@@ -88,6 +118,8 @@ export function SpaceViewer({
   now,
   actions,
   tools = null,
+  files = [],
+  host = null,
 }: {
   entry: SpaceEntry | null;
   source: string;
@@ -99,12 +131,26 @@ export function SpaceViewer({
   actions: ViewerActions;
   /** 与工具有关的几样（components/tools/use-entry-tools.ts）。 */
   tools?: EntryTools | null;
+  /** 视频名下的文件（model/space.ts `filesOf`）。 */
+  files?: readonly SpaceEntry[];
+  /** 文件所属的视频（`hostVideoOf`）。 */
+  host?: SpaceEntry | null;
 }) {
   return (
     <DialogContainer onDismiss={actions.onClose}>
       {entry ? (
         <Dialog size={isPlayable(entry.fileName) && entry.kind !== 'video' ? 'XL' : 'L'}>
-          <ViewerBody entry={entry} source={source} path={path} conversation={conversation} now={now} actions={actions} tools={tools} />
+          <ViewerBody
+            entry={entry}
+            source={source}
+            path={path}
+            conversation={conversation}
+            now={now}
+            actions={actions}
+            tools={tools}
+            files={files}
+            host={host}
+          />
         </Dialog>
       ) : null}
     </DialogContainer>
@@ -119,6 +165,8 @@ function ViewerBody({
   now,
   actions,
   tools,
+  files,
+  host,
 }: {
   entry: SpaceEntry;
   source: string;
@@ -127,6 +175,8 @@ function ViewerBody({
   now: number;
   actions: ViewerActions;
   tools: EntryTools | null;
+  files: readonly SpaceEntry[];
+  host: SpaceEntry | null;
 }) {
   const trashed = entry.user.trashedAt !== null;
   const failed = isFailedPlaceholder(entry);
@@ -167,10 +217,11 @@ function ViewerBody({
       <Content>
         {hasFile ? <FilePreview key={entry.id} target={{ entryId: entry.id }} fileName={entry.fileName}
           playback={{ layout: 'row', memoryKey: entry.source.projectId ? targetKey({ projectId: entry.source.projectId, path: entry.relPath }) : undefined }} /> : null}
+        {isVideo && files.length ? <VideoFiles files={files} onSwitch={actions.onSwitch} /> : null}
         <dl className={facts}>
           <dt className={term}>{COPY.factSource}</dt>
           <dd className={value}>{source}</dd>
-          <dt className={term}>{COPY.factFile}</dt>
+          <dt className={term}>{isVideo ? COPY.factFolder : COPY.factFile}</dt>
           <dd className={value}>{path ?? entry.relPath}</dd>
           {measure ? (
             <>
@@ -266,6 +317,12 @@ function ViewerBody({
               <Text>{COPY.viewTask}</Text>
             </ActionButton>
           ) : null}
+          {host ? (
+            <ActionButton isQuiet onPress={() => actions.onSwitch(host.id)}>
+              <Filmstrip />
+              <Text>{COPY.viewVideo}</Text>
+            </ActionButton>
+          ) : null}
           {trashed ? null : <ToolActions entry={entry} tools={tools} onClose={actions.onClose} />}
         </span>
       </Footer>
@@ -321,5 +378,39 @@ function ViewerBody({
         )}
       </ButtonGroup>
     </>
+  );
+}
+
+/** 视频名下的文件（原型 MovieFiles）：一行一个，点开换成那个文件的查看框。 */
+function VideoFiles({ files, onSwitch }: { files: readonly SpaceEntry[]; onSwitch: (entryId: Id) => void }) {
+  return (
+    <section className={filesSection} aria-label={COPY.filesListLabel}>
+      <h3 className={filesHead}>
+        {COPY.filesTitle}
+        <span className={filesCount}>{files.length}</span>
+      </h3>
+      <ul className={fileList}>
+        {files.map((file) => {
+          const status = statusText(file);
+          const measure = measureText(file) ?? (file.size > 0 ? formatBytes(file.size) : null);
+          return (
+            <li key={file.id}>
+              <RACButton className={(s) => fileRow(s)} onPress={() => onSwitch(file.id)}>
+                <EntryThumb entry={file} small />
+                <span className={fileBody}>
+                  <span className={fileName}>{file.name}</span>
+                  <span className={fileMeta}>{[KIND_LABEL[file.kind], measure].filter(Boolean).join(' · ')}</span>
+                </span>
+                {file.status && status ? (
+                  <StatusLight size="S" variant={SPACE_STATUS[file.status].tone}>
+                    {status}
+                  </StatusLight>
+                ) : null}
+              </RACButton>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }

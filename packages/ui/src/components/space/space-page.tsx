@@ -59,6 +59,8 @@ import {
 import {
   countByCategory,
   entryPath,
+  filesOf,
+  hostVideoOf,
   videoTargetOf,
   projectOptions,
   SPACE_CATEGORIES,
@@ -271,6 +273,9 @@ function SpaceMain({ category, projectId }: { category: SpaceCategory; projectId
   const label = SPACE_CATEGORIES.find((c) => c.key === category)?.label ?? COPY.all;
   const viewing = viewingId ? (entries.find((e) => e.id === viewingId) ?? null) : null;
   const info = infoId ? (entries.find((e) => e.id === infoId) ?? null) : null;
+  // 视频的查看框列出名下的文件，文件的查看框能回到所属的视频（§4.3）：从哪个分类、哪里打开都一样，所以按全部条目算。
+  const viewingFiles = useMemo(() => (viewing?.kind === 'video' ? filesOf(entries, viewing.id) : []), [entries, viewing]);
+  const viewingHost = useMemo(() => (viewing ? hostVideoOf(entries, viewing) : null), [entries, viewing]);
   const viewingTools = useEntryTools(viewing);
   const viewingConversationId = viewing ? entryConversationId(viewing) : null;
   const viewingConversation = viewingConversationId ? conversations.find((c) => c.id === viewingConversationId) : undefined;
@@ -483,6 +488,7 @@ function SpaceMain({ category, projectId }: { category: SpaceCategory; projectId
     onClear: purgeNow,
     onTask: (jobId) => go({ tab: 'tasks', taskId: jobId }),
     onConversation: (conversationId) => go({ tab: 'home', conversationId, projectId: null }),
+    onSwitch: (entryId) => setViewingId(entryId),
     onClose: () => setViewingId(null),
   };
 
@@ -673,6 +679,8 @@ function SpaceMain({ category, projectId }: { category: SpaceCategory; projectId
         now={now}
         actions={viewerActions}
         tools={viewingTools}
+        files={viewingFiles}
+        host={viewingHost}
       />
       <SpaceDialogs
         dialog={dialog}

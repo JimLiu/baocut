@@ -30,4 +30,8 @@ export const ja: SpaceMessages = {
   noProject: 'プロジェクトに属していません',
   removedProject: '削除されたプロジェクト',
   conversation: (title: string) => `セッション「${title}」`,
+  kindCount: (kind: string, n: number) => `${kind} ${n}`,
+  foundFiles: (name: string, n: number) => (n === 1 ? `一致: ${name}` : `一致: ${name} ほか ${n - 1} 件`),
+  fileStatus: (kind: string, status: string) => `${kind}: ${status}`,
+  filesStatus: (n: number, status: string) => `${n} 個のファイル: ${status}`,
 };

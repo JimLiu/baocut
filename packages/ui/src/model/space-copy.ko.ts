@@ -30,4 +30,8 @@ export const ko: SpaceMessages = {
   noProject: '프로젝트에 속하지 않음',
   removedProject: '제거된 프로젝트',
   conversation: (title: string) => `세션 “${title}”`,
+  kindCount: (kind: string, n: number) => `${kind} ${n}`,
+  foundFiles: (name: string, n: number) => (n === 1 ? `일치: ${name}` : `일치: ${name} 외 ${n - 1}개`),
+  fileStatus: (kind: string, status: string) => `${kind}: ${status}`,
+  filesStatus: (n: number, status: string) => `파일 ${n}개: ${status}`,
 };

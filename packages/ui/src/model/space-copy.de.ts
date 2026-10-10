@@ -32,4 +32,8 @@ export const de: SpaceMessages = {
   noProject: "Nicht in einem Projekt",
   removedProject: "Entferntes Projekt",
   conversation: (title: string) => `Sitzung „${title}“`,
+  kindCount: (kind: string, n: number) => `${kind} ${n}`,
+  foundFiles: (name: string, n: number) => (n === 1 ? `Treffer: ${name}` : `Treffer: ${name} und ${n - 1} weitere`),
+  fileStatus: (kind: string, status: string) => `${kind}: ${status}`,
+  filesStatus: (n: number, status: string) => `${n} ${n === 1 ? 'Datei' : 'Dateien'}: ${status}`,
 };
