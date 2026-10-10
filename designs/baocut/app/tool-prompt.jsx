@@ -2,7 +2,7 @@
    以前工具页是「还有什么要求」一只框子加一块只读的「会发给 Agent 的话」——同一段话出现两次。现在只有一只框：
    预填模板（意图句 + 固定约束，BC_AIPROMPT.template），用户直接改这段话；它与会话输入框是同一个控件
    （PromptField + 「+」菜单 + 附件），`@` 能引用章节、说话人与译文，`/` 不在这里（已经在工具页里了）。
-   底栏随「用」变：交给 Agent 时是访问模式与 Agent · 模型（与会话输入框同一套选择器），直接调模型时是文本模型。
+   底栏随「用」变：交给 Agent 时只有访问模式（哪家 · 哪个模型由上面的「用」一行定，同一屏不放两处），直接调模型时是文本模型。
    主按钮在框下面，全宽、写明动作；再下面一行 hint 说清按下去会去哪。 */
 (function () {
   const {useState, useRef} = React;
@@ -28,17 +28,10 @@
     );
   }
 
-  /* 交给 Agent 时底栏那两枚选择器的状态：家 · 模型跟新会话默认档（输入框底栏那枚 chip），访问模式继承上一条会话。 */
-  function useAgentSel() {
+  /* 交给 Agent 时底栏的访问模式：继承上一条会话（与会话输入框同一规则）。家 · 模型不在这里——「用」一行已经定了。 */
+  function useAccessMode() {
     const app = useApp();
-    const h = app.harness;
-    const [sel, setSel] = useState(() => ({
-      harness: h ? h.id : null,
-      model: h ? window.BC_AGENT_SETUP.defaultModel(h, app.prefs.agentModels) : null,
-      effort: 'mid',
-      mode: AG.nextSessionMode(app.sessions[0], app.prefs.agentMode),
-    }));
-    return [sel, (patch) => setSel((s) => Object.assign({}, s, patch))];
+    return useState(() => AG.nextSessionMode(app.sessions[0], app.prefs.agentMode));
   }
 
   /**
@@ -50,14 +43,14 @@
    *   context             直接调模型时发给模型的上下文（BC_AIPROMPT.contextPack 的返回）
    *   label               直接调模型时主按钮的字（交给 Agent 时固定「交给 Agent」）
    *   readonly            写作与发布类：不写进视频（hint 用）
-   *   onStart(payload)    {text, attachments, skillId, harness, model, effort, mode}
+   *   onStart(payload)    {text, attachments, skillId, mode}（家 · 模型由 runner.cur 定，宿主从那里取）
    */
   function ToolPrompt({ctx, tool, runner, value, onChange, defaultText, session, context, label, readonly, onStart, disabled}) {
     const app = useApp();
     const [attachments, setAttachments] = useState([]);
     const [skillId, setSkillId] = useState(null);
     const [reading, setReading] = useState(false);
-    const [sel, patchSel] = useAgentSel();
+    const [mode, setMode] = useAccessMode();
     const ref = useRef(null);
     const boxRef = useRef(null);
     const narrow = window.useComposerNarrow(boxRef);
@@ -91,8 +84,7 @@
     };
     const start = () => {
       if (disabled || reading) return;
-      onStart({text: window.BC_AGENT_SKILLS.withSkill(text.trim(), skill), attachments, skillId,
-        harness: sel.harness, model: sel.model, effort: sel.effort, mode: sel.mode});
+      onStart({text: window.BC_AGENT_SKILLS.withSkill(text.trim(), skill), attachments, skillId, mode});
     };
     const model = runner.apiModel;
     const hint = P.hint({agent, session: session && session.k, model: model ? model.name : null, readonly, cloud: !!model});
@@ -123,10 +115,9 @@
             toolbar={<>
               {/* product-design §3.2.3：附件共用「文件和文件夹」入口，Skill 挂成 token，@ 引用走补全 */}
               <window.ComposerInsertMenu onFiles={addFiles} onSkill={setSkillId} />
-              {agent ? <window.AccessPicker value={sel.mode} compact narrow={narrow} onChange={(k) => patchSel({mode: k})} /> : null}
+              {agent ? <window.AccessPicker value={mode} compact narrow={narrow} onChange={setMode} /> : null}
               <span className="spacer" />
-              {agent
-                ? <window.ProviderModelPicker sel={sel} compact={narrow} onChange={patchSel} />
+              {agent ? null
                 : <window.ToolModelPick value={model ? model.id : (D.transModels[0] || {}).id}
                     onChange={(m) => runner.pick({k: `api:${m.id}`, kind: 'api', model: m.id})} />}
             </>} />

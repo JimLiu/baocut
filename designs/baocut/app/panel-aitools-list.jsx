@@ -2,7 +2,7 @@
    顶部一张卡：不在列表里的活用一句话交给 Agent（新会话、这部视频作为上下文）；没有可用 Agent 时换成配置引导。
    下面按组列工具，第一批只有从文稿出发的三组（整理文稿 / 写作 / 发布），翻译与画面的工具仍从各自面板进来、
    列表脚注说清去处。每行：名字、一句说明、这部视频上的状态（在跑 / 待处理 / 已选用 / 上次什么时候）。
-   没有文稿的视频：整张列表换成一张说明卡——这些工具都从文稿出发，先转录。 */
+   没有文稿的视频：顶上加一张说明卡（这些工具都从文稿出发，先转录），工具行置灰不可点，让新用户仍看得见有什么。 */
 (function () {
   const D = window.BC_DATA;
   const AG = window.BC_AGENT;
@@ -72,7 +72,7 @@
                 const st = rowState(app, ctx, k);
                 const sub = WF ? WF.listStatus(ctx.proj.id, k, t.desc) : t.desc;
                 return (
-                  <button className={cx('drill ail__row', !hasTranscript && 'is-off')} key={k} onClick={() => onOpen(k)} aria-disabled={!hasTranscript || undefined}>
+                  <button className={cx('drill ail__row', !hasTranscript && 'is-off')} key={k} disabled={!hasTranscript} onClick={() => onOpen(k)}>
                     <span className="ic2"><Ic n={t.icon} className="ic--16" /></span>
                     <span className="tt"><b>{t.name}</b><span>{sub}</span></span>
                     {st ? <Chip tone={st.tone} pill className="ail__st">{st.text}</Chip> : null}

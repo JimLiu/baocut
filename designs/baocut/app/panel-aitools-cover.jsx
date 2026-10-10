@@ -186,8 +186,7 @@
     const defaultText = P.template('cover', AG.intentPrompt({kind: 'cover', count, extra}, ctx.proj), {});
     const start = (pl) => {
       const plan = coverPlan();
-      const o = {sid: session && session.k === 'current' ? session.sid : null, attachments: pl.attachments,
-        harness: pl.harness, model: pl.model, effort: pl.effort, mode: pl.mode};
+      const o = {sid: session && session.k === 'current' ? session.sid : null, attachments: pl.attachments, mode: pl.mode};
       const sess = sendToAgent(app, ctx, runner.cur, {text: pl.text}, null, o);
       startRun(pid, plan, sess ? sess.id : null);
       setPhase('gallery');

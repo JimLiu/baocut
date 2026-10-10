@@ -142,7 +142,7 @@
         <div className="flowcta">
           <Btn variant="accent" onClick={onStart} style={{width: '100%'}}>{ag ? '交给 Agent' : label}</Btn>
         </div>
-        <div className="hint">{ag ? '会在这部视频的会话里进行；读完视频、写入前都会先问你。' : hintApi}</div>
+        <div className="hint">{ag ? window.BC_AIPROMPT.hint({agent: true, session: 'new'}) : hintApi}</div>
       </>
     );
   }
@@ -180,7 +180,11 @@
 
   function SpeakerFlow({scope, clearScope, onBack, ctx}) {
     const app = useApp();
+    const P = window.BC_AIPROMPT;
     const runner = window.useToolRunner(STEP.speakers);
+    const [prompt, setPrompt] = useState(null);
+    const [session, setSession] = useState(null);
+    const defaultText = P.template('speakers', window.BC_AGENT.intentPrompt({kind: 'speakers', scope: scope ? scope.label : null}, ctx.proj), {});
     const [phase, setPhase] = useState('setup');
     const [pct, setPct] = useState(0);
     const ai = useAiTask();
@@ -188,8 +192,12 @@
     const [play, setPlay] = useState({});
     const timer = useRef(null);
     useEffect(() => () => clearInterval(timer.current), []);
-    const start = () => {
-      if (runner.agent) return sendToAgent(app, ctx, runner.cur, {kind: 'speakers', scope: scope ? scope.label : null}, onBack);
+    const start = (raw) => {
+      const payload = raw && typeof raw.text === 'string' ? raw : null;
+      if (runner.agent) {
+        return sendToAgent(app, ctx, runner.cur, {text: payload ? payload.text : defaultText}, onBack,
+          payload ? {sid: session && session.k === 'current' ? session.sid : null, attachments: payload.attachments, mode: payload.mode} : null);
+      }
       setPhase('run');
       const tid = ai.begin({
         kind: 'speakers', flow: 'speakers', project: ctx.proj.id,
@@ -221,11 +229,18 @@
             <div className="aicard">
               <b>区分是谁在说话</b>
               <span>按声纹重新识别说话人，字幕与文稿都会标上名字；识别结果先给你确认，应用前不改任何数据。</span>
+              <span className="ail__effect"><Ic n="info" className="ic--14" />{P.EFFECT.speakers}</span>
             </div>
             <window.ToolSetup plan={{step: STEP.speakers}} runner={runner} chapters={ctx.chapters}
-              hint={runner.agent ? null : '本机声纹模型约 32 MB，首次运行会下载，此后离线可用。'} />
-            <RunCta runner={runner} label="开始识别" onStart={start}
-              hintApi="识别完成后进入确认页——这是唯一需要先确认再应用的工具。" />
+              hint={runner.agent ? null : '本机声纹模型约 32 MB，首次运行会下载，此后离线可用。'}>
+              {runner.agent ? <window.ToolSessionRow ctx={ctx} value={session && session.k} onChange={setSession} /> : null}
+            </window.ToolSetup>
+            {/* 直接跑的是本机声纹模型，没有提示词；交给 Agent 才有提示词框（§5.10） */}
+            {runner.agent
+              ? <window.ToolPrompt ctx={ctx} tool="speakers" runner={runner} value={prompt} onChange={setPrompt} defaultText={defaultText}
+                  session={session || {k: 'new'}} onStart={start} label="开始识别" />
+              : <RunCta runner={runner} label="开始识别" onStart={() => start(null)}
+                  hintApi="识别完成后进入确认页——这是唯一需要先确认再应用的工具。" />}
           </>
         ) : null}
 
