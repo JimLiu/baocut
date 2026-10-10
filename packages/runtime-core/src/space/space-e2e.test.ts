@@ -83,6 +83,32 @@ describe.skipIf(!engine)('Space（真实引擎）', () => {
     await runtime.space.idle();
   }
 
+  it('视频内部标题不同于迁移目录名时，列表、改名和重建使用真实标题', async () => {
+    const legacyName = 'legacy-title-fixture';
+    const video = await videoWithCaption(legacyName, 'Interview transcript');
+    await settle();
+    const entry = (await client.request('space.list', { videoId: video.videoId, kind: 'video' })).entries[0]!;
+    const name = 'Khan Academy CEO | Sal Khan';
+    await client.request('edits.apply', {
+      videoId: video.videoId,
+      commandId: newId('cmd'),
+      expectedRevision: runtime.videos.mirror(video.videoId)!.video.revision,
+      operations: [{ type: 'renameVideo', name }],
+    });
+    await runtime.space.idle();
+    const listed = () => client.request('space.list', { videoId: video.videoId, kind: 'video' });
+    expect((await listed()).entries).toEqual([
+      expect.objectContaining({ id: entry.id, name, fileName: legacyName, relPath: video.relPath }),
+    ]);
+
+    await client.request('videos.close', { videoId: video.videoId });
+    await client.request('space.rebuildIndex', {});
+    await runtime.space.idle();
+    expect((await listed()).entries[0]).toMatchObject({ id: entry.id, name, fileName: legacyName });
+    const reopened = await client.request('videos.open', { projectId: project.id, path: video.relPath });
+    expect(reopened.snapshot.video.name).toBe(name);
+  });
+
   it('打开的与没打开的视频都能检索；编辑之后增量更新；重建期间不完整', async () => {
     const open = await videoWithCaption('访谈', '今天讲剪辑技巧');
     const closed = await videoWithCaption('Vlog', '周末去爬山，顺便剪辑');

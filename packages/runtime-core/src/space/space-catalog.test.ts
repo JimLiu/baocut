@@ -270,6 +270,51 @@ describe('Space 目录', () => {
     await fs.rm(tmp, { recursive: true, force: true });
   });
 
+  it('迁移视频显示内部标题，标题更新和重建保留自定义名称的优先级', async () => {
+    const legacyName = 'legacy-36f5c7c183fd6724';
+    const legacyDir = path.join(projectDir, legacyName);
+    const content = { ...videoContent('legacy-video', 'rev-1'), name: 'Khan Academy CEO: The Real AI Opportunity | Sal Khan' };
+    await fs.mkdir(legacyDir);
+    await fs.writeFile(path.join(legacyDir, 'video.db'), 'db');
+    reader.videos.set(legacyDir, content);
+    const { catalog, index } = await open();
+    const entry = byName(catalog, legacyName);
+    expect(entry).toMatchObject({ name: content.name, fileName: legacyName, relPath: legacyName, ref: { videoId: content.videoId } });
+    expect(byName(catalog, 'clip.mp4').name).toBe('clip.mp4');
+
+    const events: SpaceEvent[] = [];
+    catalog.subscribe(undefined, (event) => events.push(event.event));
+    const renamed = { ...content, name: '可汗学院访谈', revision: 'rev-2' };
+    reader.videos.set(legacyDir, renamed);
+    index.touched(legacyDir, renamed.revision);
+    await catalog.idle();
+    expect(catalog.get(entry.id)?.name).toBe(renamed.name);
+    expect(events).toContainEqual(expect.objectContaining({ type: 'entry.upsert', entry: expect.objectContaining({ id: entry.id, name: renamed.name }) }));
+
+    await catalog.update({ entryId: entry.id, displayName: 'My interview' });
+    reader.videos.set(legacyDir, { ...renamed, name: 'インタビュー', revision: 'rev-3' });
+    index.touched(legacyDir, 'rev-3');
+    await catalog.idle();
+    expect(catalog.get(entry.id)?.name).toBe('My interview');
+    await catalog.rebuild();
+    await catalog.idle();
+    expect(catalog.get(entry.id)?.name).toBe('My interview');
+    await catalog.update({ entryId: entry.id, displayName: null });
+    expect(catalog.get(entry.id)).toMatchObject({ name: 'インタビュー', fileName: legacyName });
+  });
+
+  it.each(['', '  '])('视频标题为空（%j）时回退目录名', async (name) => {
+    reader.videos.set(videoDir, { ...videoContent('v1', 'rev-1'), name });
+    const { catalog } = await open();
+    expect(byName(catalog, '访谈')).toMatchObject({ name: '访谈', ref: { videoId: 'v1' } });
+  });
+
+  it('未索引的视频仍以目录名列出', async () => {
+    reader.failing.add(videoDir);
+    const { catalog } = await open();
+    expect(byName(catalog, '访谈')).toMatchObject({ name: '访谈', fileName: '访谈', kind: 'video' });
+  });
+
   it('文件与视频的创建时间独立于更新时间；视频的 WAL 写入计入更新时间', async () => {
     const imagePath = path.join(projectDir, 'cover.png');
     const dbPath = path.join(videoDir, 'video.db');
@@ -867,14 +912,14 @@ describe('Space 目录', () => {
   });
 
   it('工具的候选输入：按工具的规则筛视频，带文稿与已有的译文；没有索引的照样列出；分页、项目、回收站与主体', async () => {
-    reader.videos.set(videoDir, speechContent('v1', 'rev-1', 'en'));
+    reader.videos.set(videoDir, { ...speechContent('v1', 'rev-1', 'en'), name: '访谈' });
     const plain = path.join(projectDir, '没有转写');
     const broken = path.join(projectDir, '读不了');
     for (const dir of [plain, broken]) {
       await fs.mkdir(dir);
       await fs.writeFile(path.join(dir, 'video.db'), 'db');
     }
-    reader.videos.set(plain, videoContent('v2', 'r1'));
+    reader.videos.set(plain, { ...videoContent('v2', 'r1'), name: '没有转写' });
     reader.videos.set(broken, videoContent('v3', 'r1'));
     reader.failing.add(broken);
     const { catalog } = await open();

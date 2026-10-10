@@ -136,6 +136,7 @@ export function deriveEntries(input: DeriveInput): Map<Id, DerivedEntry> {
       derived.videoDir = dir;
       const known = input.videoAt(dir);
       if (known) {
+        if (known.name.trim()) entry.name = known.name;
         entry.ref = { videoId: known.videoId };
         // 「时长或尺寸」一列：工作稿根序列的时长与画布尺寸（索引读到之后；快照不全时没有）。
         const timeline = known.facts.timeline;
