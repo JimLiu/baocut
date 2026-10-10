@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TimelineItem } from '@baocut/protocol';
-import { agentRunState, currentConversation, mergeDraft, messageCount, planHandoff } from './ai-tools-handoff.ts';
+import { adoptRestoredRuns, agentRunState, currentConversation, mergeDraft, messageCount, planHandoff } from './ai-tools-handoff.ts';
 
 const at = (id: string, projectId: string | null, updatedAt: string, archived = false) => ({ id, projectId, title: id, archived, updatedAt });
 const conversations = [
@@ -111,5 +111,44 @@ describe('留在原地的工具页：交出去的那一次走到哪了', () => {
     const items = [task('t0', 'completed', '2026-10-10T07:00:00Z'), task('t1', 'running', '2026-10-10T08:00:05Z'), task('t2', 'completed', '2026-10-10T08:10:00Z')];
     expect(agentRunState({ taskId: null, handedAt, items })).toEqual({ kind: 'running', step: null });
     expect(agentRunState({ taskId: null, handedAt, items: items.slice(0, 1) })).toEqual({ kind: 'starting' });
+  });
+});
+
+describe('重启后接上还在跑的那一次', () => {
+  const conversations = [
+    { id: 'c1', activeTaskId: 't1' },
+    { id: 'c2', activeTaskId: null },
+    { id: 'c3', activeTaskId: 't9' },
+  ];
+  const none = () => false;
+
+  it('任务还在跑：接上，去掉 restored；跑完了、换了任务、会话不在了：丢掉', () => {
+    const runs = {
+      live: { conversationId: 'c1', taskId: 't1', restored: true },
+      done: { conversationId: 'c2', taskId: 't2', restored: true },
+      other: { conversationId: 'c3', taskId: 't3', restored: true },
+      gone: { conversationId: 'c4', taskId: 't4', restored: true },
+    };
+    expect(adoptRestoredRuns(runs, { ready: true, conversations, queued: none })).toEqual({ live: { conversationId: 'c1', taskId: 't1' } });
+  });
+
+  it('排了队没有任务号：会话在忙或话还在队里就接上', () => {
+    const runs = {
+      busy: { conversationId: 'c3', taskId: null, restored: true },
+      waiting: { conversationId: 'c2', taskId: null, restored: true },
+      idle: { conversationId: 'c2', taskId: null, restored: true },
+    };
+    const adopted = adoptRestoredRuns({ busy: runs.busy, idle: runs.idle }, { ready: true, conversations, queued: none });
+    expect(adopted).toEqual({ busy: { conversationId: 'c3', taskId: null } });
+    expect(adoptRestoredRuns({ waiting: runs.waiting }, { ready: true, conversations, queued: (id) => id === 'c2' })).toEqual({
+      waiting: { conversationId: 'c2', taskId: null },
+    });
+  });
+
+  it('目录还没读到、或没有上次留下的：原样返回', () => {
+    const restored = { a: { conversationId: 'c2', taskId: 't2', restored: true } };
+    expect(adoptRestoredRuns(restored, { ready: false, conversations, queued: none })).toBe(restored);
+    const fresh = { a: { conversationId: 'c2', taskId: 't2' } };
+    expect(adoptRestoredRuns(fresh, { ready: true, conversations, queued: none })).toBe(fresh);
   });
 });

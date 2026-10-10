@@ -217,6 +217,7 @@ function useRowStates(videoId: Id, sequence: Sequence, documents: Record<Id, Doc
   const conversations = useDirectory((s) => s.conversations);
   const agentBusy = (tool: AiToolId) => {
     const run = agentRuns[toolDraftKey(videoId, tool)];
+    if (run?.restored) return false;
     const active = run ? (conversations.find((c) => c.id === run.conversationId)?.activeTaskId ?? null) : null;
     return !!active && (run?.taskId === null || run?.taskId === active);
   };

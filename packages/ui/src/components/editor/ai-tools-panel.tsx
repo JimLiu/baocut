@@ -3,12 +3,14 @@ import type { DocumentRecord, Id, Sequence } from '@baocut/protocol';
 import { ToastQueue } from '@react-spectrum/s2';
 import { aiTool, type AgentToolId } from '../../model/ai-tools.ts';
 import { useRuntime } from '../../runtime/context.tsx';
+import { useDirectory } from '../../state/directory-store.ts';
+import { useShell } from '../../state/shell-store.ts';
 import { useVideo } from '../../state/video-store.ts';
 import { useBindAiToolRun } from './ai-tool-direct-view.tsx';
 import { AiAgentToolPage } from './ai-tools-agent-page.tsx';
 import { AI_TOOLS_COPY as C } from './ai-tools-copy.ts';
 import { AiToolsList } from './ai-tools-list.tsx';
-import { closeAiTool, useAiToolsNav } from './ai-tools-nav.ts';
+import { closeAiTool, syncAiToolAgentRuns, useAiToolsNav } from './ai-tools-nav.ts';
 import { AiToolSoon } from './ai-tools-soon.tsx';
 import { DubFlow } from './dub-flow.tsx';
 import { SpeakerFlow } from './speaker-flow.tsx';
@@ -41,6 +43,11 @@ export function AiToolsPanel({ sequence, documents }: { sequence: Sequence; docu
   useEffect(() => bindTranslate({ runtime, toast: translateToast }), [runtime]);
   // 直接调模型的任务在列表页也要收尾（列表上的状态、回到工具页时的结果）。
   useBindAiToolRun();
+  // 重启前交给 Agent 的找可剪的口、刷新过期译文：那条会话还在跑就接上，跑完了就不再画进度卡。
+  const ready = useDirectory((s) => s.ready);
+  const conversations = useDirectory((s) => s.conversations);
+  const queues = useShell((s) => s.queues);
+  useEffect(() => syncAiToolAgentRuns({ ready, conversations, queued: (id) => !!queues[id]?.length }), [ready, conversations, queues]);
   const videoId = useVideo((s) => s.video?.videoId ?? null);
   const page = useAiToolsNav((s) => (videoId ? (s.pages[videoId] ?? null) : null));
   if (!videoId) return null;

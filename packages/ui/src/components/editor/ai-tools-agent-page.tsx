@@ -154,6 +154,7 @@ export function AiAgentToolPage({
   // 留在原地的工具交出去的那一次：有就画进度卡。
   const stays = agentStaysOnPage(tool);
   const draftKey = toolDraftKey(videoId, tool);
+  // 重启后读回来、还没认过的（`restored`）先不画：认上了才接着画，跑完了的会被丢掉。
   const agentRun = useAiToolAgentRuns((s) => (stays ? (s.runs[draftKey] ?? null) : null));
 
   const [pre, setPre] = useState(true);
@@ -254,7 +255,7 @@ export function AiAgentToolPage({
       }
     : null;
 
-  if (agentRun) return <AiToolAgentRun videoId={videoId} tool={tool} run={agentRun} onBack={onBack} />;
+  if (agentRun && !agentRun.restored) return <AiToolAgentRun videoId={videoId} tool={tool} run={agentRun} onBack={onBack} />;
 
   // 直接调模型跑着、出了结果或收据：这一页换成那一态（同识别说话人的四态页）。结果与收据页的「返回」与「完成」一样回到参数页
   // （设置与提示词都还在），参数页的「返回」才回列表；跑着时没有参数页可回，「返回」回列表、任务在后台接着跑。

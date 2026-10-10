@@ -121,6 +121,45 @@ export function agentRunState({
   return waiting ? { kind: 'waiting', step } : { kind: 'running', step };
 }
 
+/** 记在本机的一次交接（`useAiToolAgentRuns`）：`restored` 是上次打开 App 时留下、这次还没认过的。 */
+export interface StoredAgentRun {
+  conversationId: Id;
+  taskId: Id | null;
+  restored?: boolean;
+}
+
+/**
+ * 重启后接上还在跑的那一次（原型 panel-aitools.jsx「重新打开工具页时接上还在跑的那条」）：上次留下的记录，那条会话的任务还在跑
+ * （发出去时拿到任务号的要是同一个任务；排了队的，会话在忙或话还在队里）就接上、去掉 `restored`，工具页照常画进度、跑完给结果；
+ * 已经跑完、会话不在了的丢掉，工具页回参数页。目录还没读到时不动。这次打开后交出去的不受影响。没有变化时返回原对象。
+ */
+export function adoptRestoredRuns<T extends StoredAgentRun>(
+  runs: Record<string, T>,
+  {
+    ready,
+    conversations,
+    queued,
+  }: { ready: boolean; conversations: readonly { id: Id; activeTaskId: Id | null }[]; queued: (conversationId: Id) => boolean },
+): Record<string, T> {
+  if (!ready) return runs;
+  let changed = false;
+  const next: Record<string, T> = {};
+  for (const [key, run] of Object.entries(runs)) {
+    if (!run.restored) {
+      next[key] = run;
+      continue;
+    }
+    changed = true;
+    const active = conversations.find((c) => c.id === run.conversationId)?.activeTaskId ?? null;
+    const live = run.taskId ? active === run.taskId : active !== null || queued(run.conversationId);
+    if (live) {
+      const { restored: _drop, ...adopted } = run;
+      next[key] = adopted as T;
+    }
+  }
+  return changed ? next : runs;
+}
+
 /**
  * 没发出去时把那句话放回输入框（比如 Agent 没连上、发送失败）：输入框里本来有字就接在后面（空一行），不覆盖用户写了一半的话；同一句已经在里面就不重复放。
  */
