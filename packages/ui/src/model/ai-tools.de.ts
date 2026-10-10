@@ -174,6 +174,7 @@ export const de: AiToolsMessages = {
   extraLanguage: (language: string) => `Schreiben in ${language}`,
   extraView: (view: string) => `Perspektive: ${view}`,
   extraPlatform: (platform: string) => `Veröffentlichung auf: ${platform}. Regeln befolgen und mich nach Abschluss an eine Prüfung erinnern`,
+  extraFrames: 'Wo ein Bild nötig ist, Schlüsselbilder aus dem Video nehmen und in den Artikel einfügen, jeweils mit einer Bildunterschrift',
   extraIdea: (idea: string) => `Kernaussage des Titelbilds: ${idea}`,
   extraRatio: (ratio: string) => `Seitenverhältnis ${ratio}`,
   extraCoverText: (label: string) => `Titelbildtext: ${label}`,

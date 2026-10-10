@@ -142,6 +142,7 @@ export const fr: AiToolsMessages = {
   extraLanguage: (language: string) => `Écrivez en ${language}`,
   extraView: (view: string) => `Point de vue : ${view}`,
   extraPlatform: (platform: string) => `Publication sur : ${platform}. Suivez ses règles et rappelez-moi de vérifier à la fin`,
+  extraFrames: 'Là où une image est utile, prenez des images clés de la vidéo et insérez-les dans l’article, chacune avec une légende',
   extraIdea: (idea: string) => `Message unique de la couverture : ${idea}`,
   extraRatio: (ratio: string) => `Format ${ratio}`,
   extraCoverText: (label: string) => `Texte sur la couverture : ${label}`,

@@ -98,6 +98,7 @@ export const vi: AiToolsMessages = {
   extraLanguage: (language) => `Viết bằng ${language}`,
   extraView: (view) => `Góc nhìn: ${view}`,
   extraPlatform: (platform) => `Xuất bản lên: ${platform}. Tuân theo quy tắc và nhắc tôi kiểm tra khi xong`,
+  extraFrames: 'Chỗ nào cần hình minh họa, lấy khung hình chính từ video chèn vào bài, mỗi ảnh kèm một câu chú thích',
   extraIdea: (idea) => `Điều duy nhất ảnh bìa cần nói: ${idea}`,
   extraRatio: (ratio) => `Tỷ lệ khung hình ${ratio}`,
   extraCoverText: (label) => `Chữ trên ảnh bìa: ${label}`,

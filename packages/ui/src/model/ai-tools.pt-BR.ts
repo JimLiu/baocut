@@ -143,6 +143,7 @@ export const ptBR: AiToolsMessages = {
   extraLanguage: (language: string) => `Escreva em ${language}`,
   extraView: (view: string) => `Ponto de vista: ${view}`,
   extraPlatform: (platform: string) => `Publicando em: ${platform}. Siga suas regras e me lembre de verificar ao terminar`,
+  extraFrames: 'Onde for preciso uma imagem, tire quadros-chave do vídeo e coloque-os no artigo, cada um com uma legenda',
   extraIdea: (idea: string) => `Mensagem única da capa: ${idea}`,
   extraRatio: (ratio: string) => `Proporção ${ratio}`,
   extraCoverText: (label: string) => `Texto da capa: ${label}`,

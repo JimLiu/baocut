@@ -101,6 +101,7 @@ export const ja: AiToolsMessages = {
   extraLanguage: (language: string) => `${language}で書いてください`,
   extraView: (view: string) => `視点：${view}`,
   extraPlatform: (platform: string) => `公開先：${platform}。その規約に沿って書き、書き終えたら確認するよう知らせてください`,
+  extraFrames: '図が必要な箇所には動画からキーフレームを取り出して本文に挿入し、それぞれに一文のキャプションを付けてください',
   extraIdea: (idea: string) => `サムネイルで伝えたいこと：${idea}`,
   extraRatio: (ratio: string) => `アスペクト比 ${ratio}`,
   extraCoverText: (label: string) => `サムネイルの文字：${label}`,

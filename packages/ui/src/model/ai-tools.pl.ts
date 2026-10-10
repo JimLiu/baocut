@@ -113,6 +113,7 @@ export const pl: AiToolsMessages = {
   extraLanguage: (language: string) => `Napisz po ${language}`,
   extraView: (view: string) => `Punkt widzenia: ${view}`,
   extraPlatform: (platform: string) => `Publikacja na: ${platform}. Przestrzegaj zasad i przypomnij sprawdzić po ukończeniu`,
+  extraFrames: 'Tam, gdzie potrzebna jest ilustracja, weź klatki kluczowe z wideo i wstaw je do artykułu, każdą z podpisem',
   extraIdea: (idea: string) => `Główne przesłanie okładki: ${idea}`,
   extraRatio: (ratio: string) => `Proporcje ${ratio}`,
   extraCoverText: (label: string) => `Tekst okładki: ${label}`,

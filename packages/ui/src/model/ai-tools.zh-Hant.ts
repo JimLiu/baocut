@@ -98,6 +98,7 @@ export const zhHant: AiToolsMessages = {
   extraLanguage: (language: string) => `用${language}寫`,
   extraView: (view: string) => `視角：${view}`,
   extraPlatform: (platform: string) => `要發布到：${platform}，請依它的規定寫，寫完提醒我核對`,
+  extraFrames: '需要配圖的地方從影片裡擷取關鍵影格插進正文，每張配一句圖說',
   extraIdea: (idea: string) => `封面要傳達的一件事：${idea}`,
   extraRatio: (ratio: string) => `長寬比 ${ratio}`,
   extraCoverText: (label: string) => `封面上的文字：${label}`,

@@ -233,6 +233,7 @@ const en = {
   extraLanguage: (language: string) => `Write in ${language}`,
   extraView: (view: string) => `Point of view: ${view}`,
   extraPlatform: (platform: string) => `Publishing to: ${platform}. Follow its rules, and remind me to check when you’re done`,
+  extraFrames: 'Where a picture is needed, grab keyframes from the video and put them in the article, each with a caption',
   extraIdea: (idea: string) => `The one thing the cover should say: ${idea}`,
   extraRatio: (ratio: string) => `Aspect ratio ${ratio}`,
   extraCoverText: (label: string) => `Text on the cover: ${label}`,
@@ -450,6 +451,8 @@ export interface WritingSettings {
   idea?: string;
   ratio?: string | null;
   coverText?: CoverText | null;
+  /** 写博客：在需要配图的地方从视频取关键帧插进正文（只有交给 Agent 才拿得到画面）。 */
+  frames?: boolean;
   note?: string;
 }
 
@@ -465,6 +468,7 @@ export function writingExtra(tool: 'summary' | 'blog' | 'title' | 'desc' | 'cove
   if ((tool === 'blog' || tool === 'desc') && (s.view === 'author' || s.view === 'viewer')) out.push(M.extraView(M.viewName[s.view]));
   const platform = (s.platform ?? '').trim();
   if ((tool === 'title' || tool === 'desc') && platform) out.push(M.extraPlatform(platform));
+  if (tool === 'blog' && s.frames) out.push(M.extraFrames);
   if (tool === 'cover') {
     const idea = (s.idea ?? '').trim();
     if (idea) out.push(M.extraIdea(idea));

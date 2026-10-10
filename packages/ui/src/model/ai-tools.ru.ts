@@ -113,6 +113,7 @@ export const ru: AiToolsMessages = {
   extraLanguage: (language: string) => `Написать на ${language}`,
   extraView: (view: string) => `Точка зрения: ${view}`,
   extraPlatform: (platform: string) => `Публикация в: ${platform}. Соблюдайте правила и напомните проверить после завершения`,
+  extraFrames: 'Там, где нужна иллюстрация, возьмите ключевые кадры из видео и вставьте их в статью, каждый с подписью',
   extraIdea: (idea: string) => `Главное сообщение обложки: ${idea}`,
   extraRatio: (ratio: string) => `Соотношение сторон ${ratio}`,
   extraCoverText: (label: string) => `Текст обложки: ${label}`,

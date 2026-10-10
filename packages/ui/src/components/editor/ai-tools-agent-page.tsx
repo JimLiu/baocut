@@ -80,10 +80,22 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function Option({ label, sub, isSelected, onChange }: { label: string; sub: string; isSelected: boolean; onChange(on: boolean): void }) {
+function Option({
+  label,
+  sub,
+  isSelected,
+  isDisabled,
+  onChange,
+}: {
+  label: string;
+  sub: string;
+  isSelected: boolean;
+  isDisabled?: boolean;
+  onChange(on: boolean): void;
+}) {
   return (
     <div className={option}>
-      <Checkbox size="S" isSelected={isSelected} onChange={onChange}>
+      <Checkbox size="S" isSelected={isSelected} isDisabled={isDisabled} onChange={onChange}>
         {label}
       </Checkbox>
       <span className={optionSub}>{sub}</span>
@@ -140,6 +152,9 @@ export function AiAgentToolPage({
   const [stale, setStale] = useState({ edited: true, cut: true });
 
   const [platform, setPlatform] = useState('');
+  // 写博客的「添加关键帧插图」：默认不加；画面只有 Agent 取得到，直接调模型时置灰、也不进模板。
+  const [frames, setFrames] = useState(false);
+  const framesOn = tool === 'blog' && frames && !viaModel;
   const [count, setCount] = useState<number>(tool === 'cover' ? COVER_COUNT.initial : TITLE_COUNT.initial);
   const [idea, setIdea] = useState('');
   const [ratio, setRatio] = useState<CoverRatio>('project');
@@ -162,6 +177,7 @@ export function AiAgentToolPage({
         idea,
         ratio: ratio === 'project' ? projectRatio : ratio,
         coverText,
+        frames: framesOn,
       })
     : [
         tool === 'chapters' && pre && !viaModel ? C.chaptersPolishFirst : null,
@@ -307,6 +323,15 @@ export function AiAgentToolPage({
             </Row>
           ) : null}
 
+          {tool === 'blog' ? (
+            <Option
+              label={C.framesLabel}
+              sub={viaModel ? C.framesSubModel : C.framesSub}
+              isSelected={framesOn}
+              isDisabled={!!viaModel}
+              onChange={setFrames}
+            />
+          ) : null}
           {viaModel ? null : <SessionRow handoff={handoff} />}
 
           {tool === 'chapters' && !viaModel ? <Option label={C.prePolish} sub={pre ? C.prePolishOn : C.prePolishOff} isSelected={pre} onChange={setPre} /> : null}

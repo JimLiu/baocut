@@ -98,6 +98,7 @@ export const tr: AiToolsMessages = {
   extraLanguage: (language) => `${language} dilinde yaz`,
   extraView: (view) => `Bakış açısı: ${view}`,
   extraPlatform: (platform) => `Yayınlanacak yer: ${platform}. Kurallarını izle ve bitince denetlememi hatırlat`,
+  extraFrames: 'Görsel gereken yerlerde videodan anahtar kareler alıp yazıya ekle, her birine bir satır açıklama yaz',
   extraIdea: (idea) => `Kapağın söylemesi gereken tek şey: ${idea}`,
   extraRatio: (ratio) => `En boy oranı ${ratio}`,
   extraCoverText: (label) => `Kapaktaki metin: ${label}`,

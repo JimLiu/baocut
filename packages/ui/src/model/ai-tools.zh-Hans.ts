@@ -98,6 +98,7 @@ export const zhHans: AiToolsMessages = {
   extraLanguage: (language: string) => `用${language}写`,
   extraView: (view: string) => `视角：${view}`,
   extraPlatform: (platform: string) => `要发到：${platform}，按它的规定写，写完提醒我核对`,
+  extraFrames: '需要配图的地方从视频里取关键帧插进正文，每张配一句图注',
   extraIdea: (idea: string) => `封面要说的一件事：${idea}`,
   extraRatio: (ratio: string) => `画幅 ${ratio}`,
   extraCoverText: (label: string) => `封面上的字：${label}`,

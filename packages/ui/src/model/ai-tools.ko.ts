@@ -136,6 +136,7 @@ export const ko: AiToolsMessages = {
   extraLanguage: (language: string) => `작성 언어: ${language}`,
   extraView: (view: string) => `시점: ${view}`,
   extraPlatform: (platform: string) => `게시할 곳: ${platform}. 해당 플랫폼의 규칙에 맞춰 쓰고, 다 쓰면 확인하라고 알려 주세요`,
+  extraFrames: '그림이 필요한 곳에는 영상에서 키프레임을 뽑아 본문에 넣고, 장마다 한 줄 캡션을 달아 주세요',
   extraIdea: (idea: string) => `커버가 전달할 한 가지: ${idea}`,
   extraRatio: (ratio: string) => `화면 비율 ${ratio}`,
   extraCoverText: (label: string) => `커버 문구: ${label}`,

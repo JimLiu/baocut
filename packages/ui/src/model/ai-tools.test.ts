@@ -125,6 +125,15 @@ describe('设置态折成附加要求', () => {
     expect(writingExtra('desc', { style: 'custom', customStyle: ' ', view: 'auto' })).toEqual([]);
   });
 
+  it('写博客的关键帧插图：勾上才加一行，别的工具不加', () => {
+    const pic = '需要配图的地方从视频里取关键帧插进正文，每张配一句图注';
+    expect(writingExtra('blog', { style: 'plain', frames: true })).toContain(pic);
+    expect(writingExtra('blog', { style: 'plain' })).not.toContain(pic);
+    expect(writingExtra('blog', { style: 'plain', frames: false })).not.toContain(pic);
+    expect(writingExtra('summary', { style: 'plain', frames: true })).not.toContain(pic);
+    expect(intentPrompt({ tool: 'blog', extra: writingExtra('blog', { frames: true }) })).toContain(`${pic}。`);
+  });
+
   it('做封面：要说的事、画幅、封面字', () => {
     expect(writingExtra('cover', { idea: '一句话讲清', ratio: '9:16', coverText: 'phrase', length: 'long' })).toEqual([
       '封面要说的一件事：一句话讲清',
@@ -269,6 +278,9 @@ describe('英文界面', () => {
     expect(intentPrompt({ tool: 'title' })).toContain('Suggest 6 title candidates');
     expect(cleanupExtra({ fillers: false, pauses: false, repeats: true })).toEqual(['Don’t look for filler words and long pauses']);
     expect(writingExtra('blog', { length: 'long', style: 'pop', view: 'viewer' })).toEqual(['Length: Long', 'Style: Explainer', 'Point of view: viewer']);
+    expect(writingExtra('blog', { frames: true })).toEqual([
+      'Where a picture is needed, grab keyframes from the video and put them in the article, each with a caption',
+    ]);
     expect(toolTemplate('summary', 'Summarize.', { language: 'French' }).split('\n')[1]).toBe('Write in Markdown, in French.');
     expect(sessionOptions({ canCreate: true, current: { id: 'c', title: 'Cut', messages: 1 } }).options[1]!.sub).toMatch(/^1 message so far/);
     expect(handoffHint('new')).toMatch(/^Starts a new session/);
