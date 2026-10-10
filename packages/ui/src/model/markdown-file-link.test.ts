@@ -112,4 +112,25 @@ describe('产物链接目标', () => {
       expect(markdownOpenAction('/Downloads/raw.mkv', scope, [], dirs, web)).toEqual({ kind: 'pane', target: { conversationId: 'c1', path: '/Downloads/raw.mkv' } });
     });
   });
+
+  describe('回复正文里的图片（ThreadMediaPreview 取句柄用同一判定）', () => {
+    const desktop = { desktop: true };
+    const web = { desktop: false };
+    const image = (src: string, host: { desktop: boolean }, entries: SpaceEntry[] = []) => markdownOpenAction(markdownFilePath(src)!, scope, entries, dirs, host);
+    it('桌面端：工作目录外、没有条目的图片按本机路径取句柄，file URL 与相对路径一样', () => {
+      expect(image('/Volumes/SSD/shots/cover%20one.png', desktop)).toEqual({ kind: 'pane', target: { localPath: '/Volumes/SSD/shots/cover one.png' } });
+      expect(image('file:///Volumes/SSD/shots/cover.webp', desktop)).toEqual({ kind: 'pane', target: { localPath: '/Volumes/SSD/shots/cover.webp' } });
+      expect(image('../c2/frame.jpg', desktop)).toEqual({ kind: 'pane', target: { localPath: '/scratch/c2/frame.jpg' } });
+    });
+    it('浏览器：工作目录外的图片仍按会话路径请求，由 Runtime 报告不可用', () => {
+      expect(image('/Volumes/SSD/shots/cover.png', web)).toEqual({ kind: 'pane', target: { conversationId: 'c1', path: '/Volumes/SSD/shots/cover.png' } });
+    });
+    it('工作目录里的图片与登记过的图片，桌面与浏览器一样', () => {
+      const shot = { ...exported, id: 'img1', kind: 'image' as const, fileName: 'cover.png', file: { path: '/Volumes/SSD/shots/cover.png' } };
+      for (const host of [desktop, web]) {
+        expect(image('./out/frame.png', host)).toEqual({ kind: 'pane', target: { conversationId: 'c1', path: './out/frame.png' } });
+        expect(image('/Volumes/SSD/shots/cover.png', host, [shot])).toEqual({ kind: 'pane', target: { entryId: 'img1' } });
+      }
+    });
+  });
 });

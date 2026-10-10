@@ -1,22 +1,19 @@
 import { createContext, memo, useContext, useEffect, useMemo, useId, useRef, useState, type ReactNode } from 'react';
 import Markdown, { defaultUrlTransform, type Components } from 'react-markdown';
-import { ActionButton, ToastQueue, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
+import { ActionButton, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
 import { Link } from '@react-spectrum/s2/Link';
 import Settings from '@react-spectrum/s2/icons/Settings';
 import { advanceCut, closeStreamingTail, revealStep, splitBlocks } from '../../model/agent-stream.ts';
 import { gapBetween, parsePathToken, pathTip, type PathToken } from '../../model/agent-turn.ts';
 import { useShell } from '../../state/shell-store.ts';
-import { useDirectory } from '../../state/directory-store.ts';
-import { useSpace } from '../../state/space-store.ts';
-import { markdownFilePath, markdownOpenAction } from '../../model/markdown-file-link.ts';
+import { markdownFilePath } from '../../model/markdown-file-link.ts';
 import { settingsLink } from '../../model/settings-link.ts';
 import { useRuntime } from '../../runtime/context.tsx';
-import { S } from '../shell-copy.ts';
 import { CopyButton } from './copy-button.tsx';
 import { T } from './thread-copy.ts';
 import { remarkPlugins } from './remark-plugins.ts';
 import './agent-thread.css';
-import { ThreadMediaPreview } from './thread-media-preview.tsx';
+import { openMarkdownPath, ThreadMediaPreview } from './thread-media-preview.tsx';
 
 /**
  * Agent 回复正文（产品设计 §3.2.2）：逐字匀速显示，按 Markdown 块渲染。
@@ -89,23 +86,6 @@ function CodeBlock({ code }: { code: string }) {
       </span>
     </div>
   );
-}
-
-/**
- * 打开回复里的文件路径（显式链接与行内路径同一套，见 `markdownOpenAction`）：文件标签，或桌面端查看器不支持的类型交给
- * 系统默认应用（打不开时在文件夹中显示）。
- */
-function openMarkdownPath(path: string, scope: { conversationId: string; cwd: string | null }, runtime: ReturnType<typeof useRuntime>): void {
-  const action = markdownOpenAction(path, scope, useSpace.getState().entries, useDirectory.getState(), { desktop: !!runtime.host.openFile });
-  if (action.kind === 'pane') {
-    useShell.getState().openPane({ kind: 'file', target: action.target });
-    return;
-  }
-  const absolute = action.path;
-  void runtime.host.openFile!(absolute).then(async (error) => {
-    if (error === null) await runtime.host.revealPath(absolute);
-    else if (error) ToastQueue.negative(S.filePreview.failed(error));
-  }).catch((error: Error) => ToastQueue.negative(S.filePreview.failed(error.message)));
 }
 
 /** 正文里的文件路径：点了在功能区打开文件查看器；tooltip 是相对路径与行范围。 */
