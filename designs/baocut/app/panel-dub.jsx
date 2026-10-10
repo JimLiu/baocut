@@ -322,7 +322,7 @@
     return (
       <div className="pscroll bc-scroll">
         <div className="flowh">
-          <IconBtn icon="back" size="s" tip="返回" onClick={phase === 'compare' || phase === 'readings' ? () => setPhase('setup') : onBack} />
+          <IconBtn icon="back" size="s" tip="返回" onClick={phase === 'compare' || phase === 'readings' || phase === 'done' ? () => setPhase('setup') : onBack} />
           <b>{locked ? '重新生成配音' : '翻译配音'}</b>
           {phase === 'run' || phase === 'translate' ? <Chip tone="accent">后台运行中</Chip> : null}
           {phase === 'download' ? <Chip tone="notice">下载中</Chip> : null}
@@ -381,7 +381,7 @@
         {phase === 'done' && res ? (
           <>
             <window.Receipt text={receipt} undone={ai.undone} onUndo={undo} onRedo={redo}
-              onAgain={() => setPhase('setup')} onDone={onBack} />
+              onAgain={() => setPhase('setup')} onDone={() => setPhase('setup')} />
             {rdTally.n && !ai.undone ? (
               <div className={cx('rdrcpt', rdTally.m && 'rdrcpt--warn')}>
                 <span className="grow">{RD.receiptLine(rdTally.n, rdTally.m)}</span>

@@ -3,7 +3,9 @@
    五个工具都不改文稿，所以**不落任务收据、没有撤销**（§15.1）；选用标题 / 封面是文件写入，取消选用就是反向操作。
    设置态沿用 ToolSetup 的「用 / 范围」两行（交给 Agent 时多一行「会话」）；篇幅、风格、语言、视角 2026-10-09 起不再是下拉——
    都写在提示词模板里（BC_AIPROMPT.template），用户直接改那段话；候选数与发到哪仍是行。
-   交给 Agent 后留在这一页：Agent 跑的是同一条 `bcut ai …`，结果落进项目，这一页读出来（原型里按计时器演示）。
+   交给 Agent：发出提示词后这一页回到列表、那条会话到眼前，生成在会话里进行；写完的结果落进写作记录，
+   再进这个工具（或 Agent 收尾时把人带回来，landed）就停在成稿上。只有直接调模型才在这一页画进度、出结果（§5.10）。
+   结果页的「返回」回参数页（设置与提示词都在），参数页的「返回」才回列表。
    已选用的标题、封面候选库放在模块级 store（按项目），写简介、做封面、工具列表读同一份。纯逻辑在 model-writing.js。 */
 (function () {
   const {useState, useEffect, useRef} = React;
@@ -142,27 +144,24 @@
           <BCAction className="tsetup__lnk" onClick={() => onOpenTool('title')}>去起标题</BCAction></div>;
   }
 
-  /* ---------- 一次生成：直接调模型走进度条，交给 Agent 走会话 ---------- */
-  function useGen(ctx) {
+  /* ---------- 一次生成：交给 Agent 走会话（这一页回列表），直接调模型在这一页走进度条 ---------- */
+  function useGen(ctx, onBack) {
     const app = useApp();
     const [busy, setBusy] = useState(null);
     const [pct, setPct] = useState(0);
     const timer = useRef(null);
     useEffect(() => () => clearInterval(timer.current), []);
-    /** runner：useToolRunner 的返回；intent：给 Agent 的意图；done：出结果 */
-    const run = (runner, intent, done, opts) => {
-      let sid = null;
-      if (runner.agent) {
-        const sess = sendToAgent(app, ctx, runner.cur, intent, null, opts);
-        sid = sess ? sess.id : null;
-      }
-      setBusy({agent: runner.agent, label: runner.cur ? runner.cur.label : '', sid,
-        model: runner.apiModel ? runner.apiModel.name : (D.transModels[0] || {}).name});
+    /** runner：useToolRunner 的返回；intent：给 Agent 的意图；start：直接调模型时进进度页；done：出结果。
+        交给 Agent 时 sendToAgent 把这一页带回列表、会话到眼前，start / done 都不调。 */
+    const run = (runner, intent, start, done, opts) => {
+      if (runner.agent) { sendToAgent(app, ctx, runner.cur, intent, onBack, opts); return; }
+      start();
+      setBusy({model: runner.apiModel ? runner.apiModel.name : (D.transModels[0] || {}).name});
       setPct(0);
       let p = 0;
       clearInterval(timer.current);
       timer.current = setInterval(() => {
-        p = Math.min(100, p + (runner.agent ? 5 : 9));
+        p = Math.min(100, p + 9);
         setPct(p);
         if (p >= 100) { clearInterval(timer.current); setBusy(null); done(); }
       }, 90);
@@ -170,19 +169,7 @@
     return {busy, pct, run};
   }
   function GenJob({g, title}) {
-    const app = useApp();
     if (!g.busy) return null;
-    if (g.busy.agent) {
-      return (
-        <div className="ajob">
-          <div className="ajhead"><b>{title}</b><span className="ajpct">{g.pct}%</span></div>
-          <div className="wrrun">
-            <span className="t-detail-xs">{`${g.busy.label} 在会话里跑，结果写回视频后出现在这里`}</span>
-            {g.busy.sid ? <BCAction className="tsetup__lnk" onClick={() => app.openSession(g.busy.sid)}>在会话里看</BCAction> : null}
-          </div>
-        </div>
-      );
-    }
     return <Job title={title} pct={g.pct} stages={['读文稿', '写', '检查']} cur={g.pct < 30 ? 0 : g.pct < 85 ? 1 : 2}
       activity={`${g.busy.model} · 在飞 1`} />;
   }
@@ -259,7 +246,7 @@
     const [tsc, setTsc] = useState(null);
     const out = st.out[id] || null;
     const [phase, setPhase] = useState(out ? 'done' : 'setup');
-    const g = useGen(ctx);
+    const g = useGen(ctx, onBack);
     const picked = W.pickedTitle(st.titles);
     const [prompt, setPrompt] = useState(null);
     const [session, setSession] = useState(null);
@@ -277,8 +264,7 @@
     const start = (pl, refine) => {
       const base = pl ? pl.text : (prompt != null ? prompt : defaultText);
       const text = refine ? `${base}\n${refine}` : base;
-      setPhase('done');
-      g.run(runner, {text}, () => fill(refine), opts(pl));
+      g.run(runner, {text}, () => setPhase('done'), () => fill(refine), opts(pl));
     };
     /* 成稿写进这部视频的写作记录；Agent 在会话里写完的也落在同一处（landed）。 */
     const fill = (refine) => {
@@ -309,7 +295,7 @@
     const seek = (sec) => ctx.seek(sec);
     return (
       <div className="pscroll bc-scroll">
-        <Head t={t} onBack={onBack} busy={!!g.busy} />
+        <Head t={t} onBack={P.backTarget(phase) === 'setup' ? () => setPhase('setup') : onBack} busy={!!g.busy} />
         {phase === 'setup' ? setup : (
           <>
             <GenJob g={g} title={`${t.name}…`} />
@@ -408,7 +394,7 @@
     const [tsc, setTsc] = useState(null);
     const [phase, setPhase] = useState(st.titles.batches.length ? 'done' : 'setup');
     const [more, setMore] = useState(false);
-    const g = useGen(ctx);
+    const g = useGen(ctx, onBack);
     const cur = W.current(st.titles);
     const [prompt, setPrompt] = useState(null);
     const [session, setSession] = useState(null);
@@ -423,8 +409,7 @@
       const tail = kind === 'more' ? '在已有候选之外再来一批，角度不与已有的重复。'
         : kind === 'like' ? `照「${W.findCand(st.titles, like).title}」这个方向再来几个。` : '';
       const o = pl ? {sid: session && session.k === 'current' ? session.sid : null, attachments: pl.attachments, mode: pl.mode, effort: pl.effort} : null;
-      setPhase('done');
-      g.run(runner, {text: tail ? `${base}\n${tail}` : base}, () => fill(kind, like), o);
+      g.run(runner, {text: tail ? `${base}\n${tail}` : base}, () => setPhase('done'), () => fill(kind, like), o);
     };
     const fill = (kind, like) => {
       const platform = s.platform;
@@ -438,7 +423,7 @@
     );
     return (
       <div className="pscroll bc-scroll">
-        <Head t={t} onBack={onBack} busy={!!g.busy} />
+        <Head t={t} onBack={P.backTarget(phase) === 'setup' ? () => setPhase('setup') : onBack} busy={!!g.busy} />
         {phase === 'setup' ? (
           <>
             <div className="aicard"><b>{t.name}</b><span>{t.desc}</span><span className="ail__effect"><Ic n="info" className="ic--14" />{P.EFFECT.title}</span></div>

@@ -187,9 +187,9 @@
     const start = (pl) => {
       const plan = coverPlan();
       const o = {sid: session && session.k === 'current' ? session.sid : null, attachments: pl.attachments, mode: pl.mode, effort: pl.effort};
-      const sess = sendToAgent(app, ctx, runner.cur, {text: pl.text}, null, o);
+      /* 交给 Agent（§5.10）：这一页回到列表、那条会话到眼前；候选在会话里做，做好的登记进候选库（startRun 演示） */
+      const sess = sendToAgent(app, ctx, runner.cur, {text: pl.text}, onBack, o);
       startRun(pid, plan, sess ? sess.id : null);
-      setPhase('gallery');
     };
     const takeFrame = (f) => {
       set((c) => ({covers: W.addCover(c.covers, W.frameCover(f, realRatio))}));
@@ -304,8 +304,8 @@
               onRemove={() => { set((x) => ({covers: W.removeCover(x.covers, c.id)})); app.toast('已删除这张候选'); }}
               onRevise={(note) => {
                 if (!app.harness) { app.toast('照这张再改要交给 Agent · 先去 设置 › Agent 连接一个'); return; }
-                sendToAgent(app, ctx, agentItem || runner.cur, {kind: 'cover', count: 1, extra: [`照候选 #${noOf(c)}（${c.idea}）再改：${note}`, '新的一张登记在它旁边，原来那张留着']});
                 startRevise(pid, c.id, note);
+                sendToAgent(app, ctx, agentItem || runner.cur, {kind: 'cover', count: 1, extra: [`照候选 #${noOf(c)}（${c.idea}）再改：${note}`, '新的一张登记在它旁边，原来那张留着']}, onBack);
               }} />
           ))}
           {run && run.made < run.total ? <div className="cvc cvc--ghost"><span className="t-detail-xs">下一张在做…</span></div> : null}
@@ -323,7 +323,8 @@
     return (
       <div className="pscroll bc-scroll">
         <div className="flowh">
-          <IconBtn icon="back" size="s" tip="返回" onClick={onBack} />
+          {/* 候选页的「返回」回参数页，参数页的「返回」回列表（§5.10） */}
+          <IconBtn icon="back" size="s" tip="返回" onClick={P.backTarget(phase) === 'setup' ? () => setPhase('setup') : onBack} />
           <b>{t.name}</b>
           {run ? <Chip tone="accent">进行中</Chip> : null}
           <span className="spacer" />

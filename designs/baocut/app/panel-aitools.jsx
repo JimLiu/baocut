@@ -126,8 +126,8 @@
         /* 发出去的就是框里那段话（payload.text）；会话、附件、家 · 模型、访问模式都来自提示词框 */
         const intent = {text: payload ? payload.text : defaultText};
         const o = payload ? {sid: session && session.k === 'current' ? session.sid : null, attachments: payload.attachments, mode: payload.mode, effort: payload.effort} : null;
-        // 剪口播两页留在原地画进度（§15.3）；其余页回列表，进度在顶栏胶囊与后台任务页
-        if (id === 'cleanup' || id === 'stale') {
+        // 剪口播两页留在原地画进度（§15.3）；其余页回列表、那条会话到眼前，进度在顶栏胶囊与后台任务页
+        if (!P.agentLeavesPage(id)) {
           const sess = sendToAgent(app, ctx, runner.cur, intent, null, o);
           setSid(sess.id); setPhase('agent');
           return;
@@ -193,7 +193,8 @@
     return (
       <div className="pscroll bc-scroll">
         <div className="flowh">
-          <IconBtn icon="back" size="s" tip="返回" onClick={onBack} />
+          {/* 收据页的「返回」回参数页（设置与提示词都在），参数页的「返回」回列表（§5.10） */}
+          <IconBtn icon="back" size="s" tip="返回" onClick={P.backTarget(phase) === 'setup' ? () => setPhase('setup') : onBack} />
           <b>{t.name}</b>
           {phase === 'run' ? <Chip tone="accent">后台运行中</Chip> : phase === 'agent' ? <Chip tone="accent">Agent 进行中</Chip> : null}
         </div>
@@ -324,7 +325,7 @@
           <>
             <Receipt text={jobUndone ? (id === 'cleanup' ? '已撤销 · 剪辑建议已移除 · 已接受的剪辑不受影响' : '已撤销 · 改动已还原') : receipt} undone={jobUndone}
               onUndo={() => setUndone(true)} onRedo={() => setUndone(false)}
-              onAgain={start} onDone={onBack} />
+              onAgain={start} onDone={() => setPhase('setup')} />
             {jobUndone ? (
               <div className="aicard"><b>已撤销</b><span>「再跑一次」可重来——设置会保留，不用重新填。</span></div>
             ) : id === 'polish' ? (

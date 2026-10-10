@@ -218,7 +218,7 @@
     return (
       <div className="pscroll bc-scroll">
         <div className="flowh">
-          <IconBtn icon="back" size="s" tip="返回" onClick={onBack} />
+          <IconBtn icon="back" size="s" tip="返回" onClick={P.backTarget(phase) === 'setup' ? () => setPhase('setup') : onBack} />
           <b>识别说话人</b>
           {phase === 'run' ? <Chip tone="accent">后台运行中</Chip> : null}
         </div>
@@ -291,7 +291,7 @@
           <>
             <Receipt text={undone ? '已撤销 · 说话人标注已还原' : '已应用 · 识别出 3 位说话人 · 9.2s · 本机声纹模型'}
               undone={undone} onUndo={() => ai.setUndone(true)} onRedo={() => ai.setUndone(false)}
-              onAgain={start} onDone={onBack} />
+              onAgain={start} onDone={() => setPhase('setup')} />
             {undone
               ? <div className="aicard"><b>已撤销</b><span>「再跑一次」可重来——识别设置会保留。</span></div>
               : <>

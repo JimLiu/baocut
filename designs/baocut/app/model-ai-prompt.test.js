@@ -89,3 +89,14 @@ test('hint 随谁来做与去向变', () => {
   assert.match(P.hint({agent: false, model: 'gpt-4o', readonly: true, cloud: true}), /直接调 gpt-4o.*不写进视频.*按用量计费/);
   assert.match(P.hint({agent: false, model: 'qwen', readonly: false, cloud: false}), /完成即应用.*不出本机/);
 });
+
+test('结果页的「返回」回参数页，参数页与进度页的「返回」回列表', () => {
+  ['done', 'confirm', 'gallery'].forEach((ph) => assert.equal(P.backTarget(ph), 'setup'));
+  ['setup', 'run', 'agent', 'download', undefined].forEach((ph) => assert.equal(P.backTarget(ph), 'list'));
+});
+
+test('交给 Agent 后缺省离开工具页；找可剪的口与刷新过期译文留在原地', () => {
+  ['summary', 'blog', 'desc', 'title', 'cover', 'polish', 'chapters', 'speakers', 'translate', 'shortscut'].forEach((t) => assert.equal(P.agentLeavesPage(t), true, t));
+  assert.equal(P.agentLeavesPage('cleanup'), false);
+  assert.equal(P.agentLeavesPage('stale'), false);
+});

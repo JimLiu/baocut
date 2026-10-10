@@ -533,7 +533,8 @@
         if (fits) {
           if (!sess.project) patchSession(sess.id, {project: mv.id});
           /* product-design §5.1：从 Space 打开的视频，会话在右下角的悬浮会话里进行，不离开编辑器 */
-          if (route.r === 'editor') { setMovieChat(mv.id, sess.id); setPref('movieChatMin', false); return; }
+          /* 悬浮会话只在从 Space 打开时才有（shell.jsx）；别的入口开着的视频转成 Home 会话 + 右侧视频，会话才到眼前 */
+          if (route.r === 'editor' && route.via === 'space') { setMovieChat(mv.id, sess.id); setPref('movieChatMin', false); return; }
           go({r: 'agent', id: sess.id, movie: mv.id, ...(route.tab ? {tab: route.tab} : {})});
         } else {
           go({r: 'agent', id: sess.id});

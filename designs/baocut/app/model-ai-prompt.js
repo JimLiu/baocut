@@ -103,5 +103,19 @@
     return `${who}，不经过对话；${c.readonly ? '结果给你读、挑、拷走，不写进视频' : '完成即应用，可一键撤销'}。${c.cloud ? '云端模型按用量计费。' : '本机模型，不出本机。'}`;
   }
 
-  Object.assign(window, {BC_AIPROMPT: {GROUPS_NOW, GROUPS_LATER, LATER_NOTE, EFFECT, TOOL_SKILL, defaultSkills, standing, template, contextPack, contextLine, sessionOptions, hint}});
+  /* 工具页的导航（§5.10）：结果页 / 收据页 / 确认页 / 候选页的「返回」回参数页，设置与提示词都在；
+     参数页（以及进度页）的「返回」回列表。 */
+  const RESULT_PHASES = ['done', 'confirm', 'gallery'];
+  function backTarget(phase) {
+    return RESULT_PHASES.indexOf(phase) >= 0 ? 'setup' : 'list';
+  }
+  /* 交给 Agent 之后这一页去哪：缺省回列表、那条会话到眼前，生成在会话里进行；
+     找可剪的口与刷新过期译文留在原地画进度（§5.10、§15.3）。 */
+  const STAY_ON_AGENT = ['cleanup', 'stale'];
+  function agentLeavesPage(tool) {
+    return STAY_ON_AGENT.indexOf(tool) < 0;
+  }
+
+  Object.assign(window, {BC_AIPROMPT: {GROUPS_NOW, GROUPS_LATER, LATER_NOTE, EFFECT, TOOL_SKILL, defaultSkills, standing, template, contextPack, contextLine, sessionOptions, hint,
+    backTarget, agentLeavesPage}});
 })();

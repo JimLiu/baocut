@@ -68,9 +68,12 @@
 
     const go = () => {
       if (runner.agent) {
+        /* 交给 Agent（§5.10）：面板收起回到列表、那条会话到眼前；找片段在会话里进行，
+           store 按会话进度倒推，找好后 Agent 收尾把人带回挑片段页 */
         const sess = sendToAgent(app, ctx, runner.cur, {kind: 'shortscut',
           extra: SC.agentExtra(p, {scopeName: scope ? scope.label : null, children: kids.length})});
         app.shortsCut.findViaAgent(proj, {sid: sess.id, sentences, scope, runner: runner.cur.label});
+        onBack();
         return;
       }
       app.shortsCut.find(proj, {title: ctx.proj.title, sentences, scope, runner: runner.apiModel ? runner.apiModel.name : runner.cur.label});
