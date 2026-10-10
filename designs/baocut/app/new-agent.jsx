@@ -26,7 +26,7 @@
         </R.TooltipTrigger>
       </div>
       <div className="home-quick__grid">
-        {items.map(x => <button key={x.k} type="button" className={`home-quick__card home-quick__card--${x.hue}`} title={x.tip} onClick={() => onPick(x)}>
+        {items.map(x => <button key={x.k} type="button" className={`home-quick__card home-quick__card--${x.hue}`} title={x.tip} aria-label={x.title} onClick={() => onPick(x)}>
           <span className="home-quick__art" aria-hidden="true">
             <span className={`home-quick__screen home-quick__screen--${x.k}`}>{Array.from({length: STARTER_ART[x.k] || 0}, (_, i) => <i key={i} />)}</span>
           </span>
