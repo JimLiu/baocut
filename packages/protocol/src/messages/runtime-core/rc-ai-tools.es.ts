@@ -1,0 +1,25 @@
+import type { RcAiToolsMessages } from './rc-ai-tools.ts';
+
+export const es: RcAiToolsMessages = {
+  label: "Herramienta de IA (llamada directa al modelo)",
+  description: "Envía una instrucción con la transcripción, los capítulos y los adjuntos de este video directamente a un modelo de texto, sin agente ni conversación. Pulir y capítulos se escriben en el video como un cambio que se puede deshacer; las demás herramientas devuelven texto para leer y copiar.",
+  stepPrepare: "Reunir contexto",
+  stepGenerate: "Llamar al modelo",
+  stepApply: "Escribir en el video",
+  paramsInvalid: (p) => `Falta el parámetro ${p.key} o no es válido`,
+  videoNotOpen: "El video no está abierto",
+  noStructuredOutput: (p) => `El modelo ${p.model} no admite salida estructurada, así que no puede pulir la transcripción ni crear capítulos`,
+  noTranscript: "El video no tiene transcripción. Transcríbelo primero.",
+  multipleTranscripts: "El video tiene más de una transcripción. Usa documentId para elegir una.",
+  notSpeech: (p) => `El documento ${p.documentId} no es una transcripción`,
+  nothingInRange: "No hay transcripción en este rango",
+  outputInvalid: "La respuesta del modelo no tenía el formato esperado. Reintenta o prueba otro modelo.",
+  polishMismatch: "Las correcciones del modelo no coinciden con las palabras de la transcripción, así que no se escribió nada",
+  noChapters: "El modelo no devolvió capítulos utilizables",
+  sourceChanged: "La transcripción cambió mientras el modelo trabajaba, así que no se escribió nada. Reintenta para usar la versión actual.",
+  videoClosed: "Se cerró el video",
+  rejected: "El cambio fue rechazado, así que no se escribió nada en el video",
+  transactionPolish: "Pulir transcripción",
+  transactionChapters: "Generar capítulos",
+  notReady: "El Runtime aún se está iniciando. Inténtalo de nuevo en un momento.",
+};

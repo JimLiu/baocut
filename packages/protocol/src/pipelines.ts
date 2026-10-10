@@ -712,3 +712,71 @@ export interface ApplySpeakersParams {
   names?: Record<Id, string>;
   commandId: Id;
 }
+
+/**
+ * AI 工具的「直接调模型」（`ai-tool`，产品设计 §5.10）：不经过对话，把提示词与这个视频的上下文（文稿、章节、附件）直接交给
+ * 一个文本模型；挂着的 skill 作为系统提示词，只带 `SKILL.md` 与它用到的 `references/` 文件。`polish`、`chapters` 完成即写进
+ * 视频（一笔可撤销的事务）；其余工具的结果只给人读、挑、拷走，不写进视频（`AiToolSummary.text`）。
+ * 文本模型没有配置时 `pipelines.start` 以 `CAPABILITY_NOT_CONFIGURED` 拒绝，不改交智能体。
+ */
+export const AI_TOOL_PIPELINE = 'ai-tool';
+
+/** 能直接调模型的工具。重新转录、找可剪的口、重译过期句、做封面不在其中（产品设计 §5.10）。 */
+export const AI_TOOL_KINDS = ['polish', 'chapters', 'summary', 'blog', 'title', 'desc'] as const;
+export type AiToolKind = (typeof AI_TOOL_KINDS)[number];
+
+/** 完成即写进视频的工具；其余只给结果。 */
+export const AI_TOOL_APPLY_KINDS: readonly AiToolKind[] = ['polish', 'chapters'];
+
+/** 提示词的上限（字符）。 */
+export const AI_TOOL_PROMPT_MAX = 20_000;
+
+export interface AiToolParams {
+  videoId: Id;
+  tool: AiToolKind;
+  /** 工具页提示词框里的文字（发送时的原样）。 */
+  prompt: string;
+  /** 范围：时间线上的一段（秒，同 `ExportRange`）；不给时整篇。`chapters` 总是整篇，不接受范围。 */
+  range?: { start: number; end: number };
+  /** 用哪份 `speech` 文档；视频里只有一份时可以不给。 */
+  documentId?: Id;
+  /** 提示词框里的附件（`attachments.prepare` 登记的）：文本文件附上全文；图片与别的文件不发，摘要里计数。 */
+  attachments?: Id[];
+  /** 挂着的 skill，按挂上的顺序；重复的只算第一次。 */
+  skills?: { id: string }[];
+  /** 文本模型；不给时用文本生成的默认值（架构设计 §6.2）。 */
+  provider?: string;
+  model?: string;
+}
+
+/** 发给模型的上下文（`AiToolSummary.context`，同工具页那行「发给模型的」）。 */
+export interface AiToolContext {
+  /** 文稿的段数与字数（字母文字按词、中日文按字）；没有文稿时 0。 */
+  paragraphs: number;
+  characters: number;
+  /** 视频已有的章节数（随文稿给出）。 */
+  chapters: number;
+  /** 附上全文的附件数，与没发的（图片、不是文本的文件）。 */
+  attachments: number;
+  skippedAttachments: number;
+  /** 作为系统提示词的 skill，与一起带上的 `references/` 文件数。 */
+  skills: string[];
+  references: number;
+}
+
+/** `ai-tool` 完成时父任务的 `pipeline.summary`。 */
+export interface AiToolSummary {
+  videoId: Id;
+  tool: AiToolKind;
+  providerId: string;
+  modelId: string;
+  context: AiToolContext;
+  /** 写进视频的那笔事务与改了几处（润色：改了文字的词数；章节：写入的章数）；只给结果的工具为 null。 */
+  applied: { transactionId: Id | null; changes: number } | null;
+  /** 只给结果的工具：模型写的正文（Markdown）。写进视频的工具为 null。 */
+  text: string | null;
+  /** 模型输出的产物（原样）。 */
+  artifactId: Id;
+  /** 模型的停止原因：`length` 表示输出到了上限、可能不完整。 */
+  finishReason: 'stop' | 'length';
+}

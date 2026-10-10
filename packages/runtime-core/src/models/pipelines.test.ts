@@ -191,6 +191,7 @@ describe.skipIf(!engine)('固定流程（真实引擎 + 假供应商）', () => 
       ['transcribe', ['target', 'create', 'transcribe', 'captions']],
       ['speakers', ['diarize', 'propose']],
       ['link-import', ['target', 'resolve', 'download', 'verify', 'publish', 'create', 'import', 'transcribe', 'captions']],
+      ['ai-tool', ['context', 'generate', 'apply']],
     ]);
     // 视频由 videoId 或 target 给出：videoId 不再必填。
     expect(pipelines[1]!.paramsSchema).toMatchObject({

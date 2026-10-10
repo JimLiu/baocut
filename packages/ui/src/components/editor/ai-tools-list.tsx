@@ -27,7 +27,9 @@ import { openAiTool } from './ai-tools-nav.ts';
 import { ELEMENTS_COPY as EL } from './elements-copy.ts';
 import { gateGuide, homeGate, type GateGuide } from '../../model/home-brief.ts';
 import { PanelHead } from './panel-head.tsx';
+import { useShallow } from 'zustand/react/shallow';
 import { useSpeakersRun } from './speakers-run.ts';
+import { useAiToolRun } from './ai-tool-run.ts';
 
 const body = style({ flexGrow: 1, minHeight: 0, overflowY: 'auto', paddingX: 12, paddingTop: 12, paddingBottom: 16 });
 /** 顶上那张卡与列表的行（原型 .atagent、.drill.ail__row）：左图标、两行字、右边状态与箭头，整行可点。 */
@@ -116,6 +118,14 @@ function useRowStates(videoId: Id, sequence: Sequence): Partial<Record<AiToolId,
   if (speakersRunning) states.speakers = { text: C.stateRunning, tone: 'informative' };
   else if (speakersPending) states.speakers = { text: C.stateReview, tone: 'notice' };
   if (chapters) states.chapters = { text: C.stateChapters(chapters), tone: 'neutral' };
+  // 直接调模型的任务（键「视频 · 工具」）：在跑的、出了结果还没看完的。
+  const prefix = `${videoId}:`;
+  const directRunning = useAiToolRun(useShallow((s) => Object.values(s.runs).filter((r) => r.videoId === videoId).map((r) => r.tool)));
+  const directDone = useAiToolRun(
+    useShallow((s) => [...Object.keys(s.results), ...Object.keys(s.receipts)].filter((k) => k.startsWith(prefix)).map((k) => k.slice(prefix.length))),
+  );
+  for (const tool of directDone) states[tool as AiToolId] = { text: C.stateResult, tone: 'notice' };
+  for (const tool of directRunning) states[tool] = { text: C.stateRunning, tone: 'informative' };
   return states;
 }
 

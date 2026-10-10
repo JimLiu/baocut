@@ -1,0 +1,25 @@
+import type { RcAiToolsMessages } from './rc-ai-tools.ts';
+
+export const de: RcAiToolsMessages = {
+  label: "KI-Werkzeug (Modell direkt aufrufen)",
+  description: "Sendet eine Anweisung mit Transkript, Kapiteln und Anhängen dieses Videos direkt an ein Textmodell, ohne Agent und ohne Unterhaltung. Überarbeitung und Kapitel werden als eine rückgängig machbare Änderung ins Video geschrieben; die anderen Werkzeuge liefern Text zum Lesen und Kopieren.",
+  stepPrepare: "Kontext sammeln",
+  stepGenerate: "Modell aufrufen",
+  stepApply: "Ins Video schreiben",
+  paramsInvalid: (p) => `Parameter ${p.key} fehlt oder ist ungültig`,
+  videoNotOpen: "Das Video ist nicht geöffnet",
+  noStructuredOutput: (p) => `Modell ${p.model} unterstützt keine strukturierte Ausgabe und kann das Transkript daher weder überarbeiten noch Kapitel erstellen`,
+  noTranscript: "Das Video hat kein Transkript. Zuerst transkribieren.",
+  multipleTranscripts: "Das Video hat mehr als ein Transkript. Mit documentId eines auswählen.",
+  notSpeech: (p) => `Dokument ${p.documentId} ist kein Transkript`,
+  nothingInRange: "In diesem Bereich gibt es kein Transkript",
+  outputInvalid: "Die Antwort des Modells hatte nicht das erwartete Format. Erneut versuchen oder ein anderes Modell wählen.",
+  polishMismatch: "Die Korrekturen des Modells passen nicht zu den Wörtern des Transkripts; es wurde nichts geschrieben",
+  noChapters: "Das Modell hat keine brauchbaren Kapitel geliefert",
+  sourceChanged: "Das Transkript wurde geändert, während das Modell arbeitete; es wurde nichts geschrieben. Erneut versuchen, um die aktuelle Version zu verwenden.",
+  videoClosed: "Das Video wurde geschlossen",
+  rejected: "Die Änderung wurde abgelehnt; ins Video wurde nichts geschrieben",
+  transactionPolish: "Transkript überarbeiten",
+  transactionChapters: "Kapitel erstellen",
+  notReady: "Die Runtime startet noch. Gleich noch einmal versuchen.",
+};

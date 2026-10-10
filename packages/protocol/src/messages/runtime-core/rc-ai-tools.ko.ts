@@ -1,0 +1,25 @@
+import type { RcAiToolsMessages } from './rc-ai-tools.ts';
+
+export const ko: RcAiToolsMessages = {
+  label: "AI 도구(모델 직접 호출)",
+  description: "프롬프트와 이 동영상의 스크립트, 챕터, 첨부 파일을 에이전트나 대화 없이 텍스트 모델에 바로 보냅니다. 다듬기와 챕터는 실행 취소할 수 있는 한 번의 변경으로 동영상에 기록되고, 나머지 도구는 읽고 복사할 텍스트를 돌려줍니다.",
+  stepPrepare: "컨텍스트 모으기",
+  stepGenerate: "모델 호출",
+  stepApply: "동영상에 기록",
+  paramsInvalid: (p) => `매개변수 ${p.key}이(가) 없거나 올바르지 않습니다`,
+  videoNotOpen: "동영상이 열려 있지 않습니다",
+  noStructuredOutput: (p) => `모델 ${p.model}은(는) 구조화된 출력을 지원하지 않아 스크립트 다듬기나 챕터 작성에 쓸 수 없습니다`,
+  noTranscript: "동영상에 스크립트가 없습니다. 먼저 받아쓰기하세요.",
+  multipleTranscripts: "동영상에 스크립트가 여러 개 있습니다. documentId로 하나를 지정하세요.",
+  notSpeech: (p) => `문서 ${p.documentId}은(는) 스크립트가 아닙니다`,
+  nothingInRange: "이 범위에 스크립트가 없습니다",
+  outputInvalid: "모델의 응답이 요청한 형식이 아닙니다. 다시 시도하거나 다른 모델을 써 보세요.",
+  polishMismatch: "모델의 수정이 스크립트의 단어와 맞지 않아 기록하지 않았습니다",
+  noChapters: "모델이 쓸 수 있는 챕터를 돌려주지 않았습니다",
+  sourceChanged: "모델이 작업하는 동안 스크립트가 바뀌어 기록하지 않았습니다. 다시 시도하면 현재 버전을 씁니다.",
+  videoClosed: "동영상이 닫혔습니다",
+  rejected: "변경이 거부되어 동영상에 아무것도 기록되지 않았습니다",
+  transactionPolish: "스크립트 다듬기",
+  transactionChapters: "챕터 생성",
+  notReady: "Runtime이 아직 시작 중입니다. 잠시 후 다시 시도하세요.",
+};

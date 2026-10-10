@@ -1,0 +1,25 @@
+import type { RcAiToolsMessages } from './rc-ai-tools.ts';
+
+export const zhHant: RcAiToolsMessages = {
+  label: "AI 工具（直接呼叫模型）",
+  description: "把提示詞連同這部影片的文稿、章節與附件直接交給文字模型，不經過 Agent 與對話。潤飾與章節作為一筆可復原的修改寫進影片；其他工具給出文字，供你閱讀與複製。",
+  stepPrepare: "收集上下文",
+  stepGenerate: "呼叫模型",
+  stepApply: "寫進影片",
+  paramsInvalid: (p) => `參數 ${p.key} 缺少或不合規`,
+  videoNotOpen: "影片沒有開啟",
+  noStructuredOutput: (p) => `模型 ${p.model} 不支援結構化輸出，不能潤飾文稿或分章節`,
+  noTranscript: "影片還沒有轉寫，請先轉寫。",
+  multipleTranscripts: "影片裡有不止一份轉寫，用 documentId 指定一份。",
+  notSpeech: (p) => `文件 ${p.documentId} 不是轉寫`,
+  nothingInRange: "這個範圍裡沒有文稿",
+  outputInvalid: "模型的回覆不是要求的格式。重試，或換一個模型。",
+  polishMismatch: "模型給的修改與文稿的詞對不上，沒有寫入",
+  noChapters: "模型沒有給出可用的章節",
+  sourceChanged: "模型工作期間文稿改過，沒有寫入。重試會使用目前版本。",
+  videoClosed: "影片已經關閉",
+  rejected: "這筆修改被拒絕，影片沒有變動",
+  transactionPolish: "潤飾文稿",
+  transactionChapters: "產生章節",
+  notReady: "Runtime 還在啟動，請稍後再試。",
+};

@@ -4,6 +4,7 @@ import { ToastQueue } from '@react-spectrum/s2';
 import { aiTool, type AgentToolId } from '../../model/ai-tools.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useVideo } from '../../state/video-store.ts';
+import { useBindAiToolRun } from './ai-tool-direct-view.tsx';
 import { AiAgentToolPage } from './ai-tools-agent-page.tsx';
 import { AI_TOOLS_COPY as C } from './ai-tools-copy.ts';
 import { AiToolsList } from './ai-tools-list.tsx';
@@ -38,6 +39,8 @@ const translateToast: TranslateDeps['toast'] = (kind, message, undo) =>
 export function AiToolsPanel({ sequence, documents }: { sequence: Sequence; documents: Record<Id, DocumentRecord> }) {
   const runtime = useRuntime();
   useEffect(() => bindTranslate({ runtime, toast: translateToast }), [runtime]);
+  // 直接调模型的任务在列表页也要收尾（列表上的状态、回到工具页时的结果）。
+  useBindAiToolRun();
   const videoId = useVideo((s) => s.video?.videoId ?? null);
   const page = useAiToolsNav((s) => (videoId ? (s.pages[videoId] ?? null) : null));
   if (!videoId) return null;
@@ -69,6 +72,7 @@ export function AiToolsPanel({ sequence, documents }: { sequence: Sequence; docu
       tool={tool.id as AgentToolId}
       preset={page.preset}
       sequence={sequence}
+      documents={documents}
       onBack={back}
     />
   );

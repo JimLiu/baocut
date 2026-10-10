@@ -1,0 +1,25 @@
+import type { RcAiToolsMessages } from './rc-ai-tools.ts';
+
+export const ja: RcAiToolsMessages = {
+  label: "AI ツール（モデルを直接呼び出し）",
+  description: "プロンプトとこの動画の文字起こし・チャプター・添付ファイルを、エージェントや会話を通さずにテキストモデルへ直接送ります。校正とチャプターは取り消せる 1 回の変更として動画に書き込み、その他のツールは読んでコピーするためのテキストを返します。",
+  stepPrepare: "コンテキストを集める",
+  stepGenerate: "モデルを呼び出す",
+  stepApply: "動画に書き込む",
+  paramsInvalid: (p) => `パラメーター ${p.key} がないか、正しくありません`,
+  videoNotOpen: "動画が開かれていません",
+  noStructuredOutput: (p) => `モデル ${p.model} は構造化出力に対応していないため、文字起こしの校正やチャプター作成には使えません`,
+  noTranscript: "動画に文字起こしがありません。先に文字起こししてください。",
+  multipleTranscripts: "動画に文字起こしが複数あります。documentId で 1 つ指定してください。",
+  notSpeech: (p) => `ドキュメント ${p.documentId} は文字起こしではありません`,
+  nothingInRange: "この範囲に文字起こしがありません",
+  outputInvalid: "モデルの返答が求めた形式ではありませんでした。再試行するか、別のモデルを試してください。",
+  polishMismatch: "モデルの修正が文字起こしの単語と対応しないため、書き込みませんでした",
+  noChapters: "モデルから使えるチャプターが返りませんでした",
+  sourceChanged: "モデルの処理中に文字起こしが変更されたため、書き込みませんでした。再試行すると現在の版を使います。",
+  videoClosed: "動画が閉じられました",
+  rejected: "変更が拒否されたため、動画には何も書き込まれていません",
+  transactionPolish: "文字起こしを校正",
+  transactionChapters: "チャプターを生成",
+  notReady: "Runtime はまだ起動中です。少し待ってからもう一度お試しください。",
+};

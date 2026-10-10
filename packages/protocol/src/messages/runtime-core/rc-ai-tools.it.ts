@@ -1,0 +1,25 @@
+import type { RcAiToolsMessages } from './rc-ai-tools.ts';
+
+export const it: RcAiToolsMessages = {
+  label: "Strumento IA (chiamata diretta al modello)",
+  description: "Invia un prompt con la trascrizione, i capitoli e gli allegati di questo video direttamente a un modello di testo, senza agente né conversazione. Revisione e capitoli vengono scritti nel video come un'unica modifica annullabile; gli altri strumenti restituiscono testo da leggere e copiare.",
+  stepPrepare: "Raccogli contesto",
+  stepGenerate: "Chiama il modello",
+  stepApply: "Scrivi nel video",
+  paramsInvalid: (p) => `Il parametro ${p.key} manca o non è valido`,
+  videoNotOpen: "Il video non è aperto",
+  noStructuredOutput: (p) => `Il modello ${p.model} non supporta l'output strutturato, quindi non può rivedere la trascrizione né creare capitoli`,
+  noTranscript: "Il video non ha una trascrizione. Trascrivilo prima.",
+  multipleTranscripts: "Il video ha più di una trascrizione. Usa documentId per sceglierne una.",
+  notSpeech: (p) => `Il documento ${p.documentId} non è una trascrizione`,
+  nothingInRange: "Non c'è trascrizione in questo intervallo",
+  outputInvalid: "La risposta del modello non era nel formato previsto. Riprova o usa un altro modello.",
+  polishMismatch: "Le correzioni del modello non corrispondono alle parole della trascrizione, quindi non è stato scritto nulla",
+  noChapters: "Il modello non ha restituito capitoli utilizzabili",
+  sourceChanged: "La trascrizione è cambiata mentre il modello lavorava, quindi non è stato scritto nulla. Riprova per usare la versione attuale.",
+  videoClosed: "Il video è stato chiuso",
+  rejected: "La modifica è stata rifiutata, quindi nel video non è stato scritto nulla",
+  transactionPolish: "Rivedi trascrizione",
+  transactionChapters: "Genera capitoli",
+  notReady: "Il Runtime si sta ancora avviando. Riprova tra poco.",
+};

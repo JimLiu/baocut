@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { DEFAULT_AGENT_MODE, RpcError, type AgentMode, type DriverInfo, type Id, type VideoRef } from '@baocut/protocol';
 import { ActionButton, Link, Picker, PickerItem, Radio, RadioGroup, Text, ToastQueue } from '@react-spectrum/s2';
 import Code from '@react-spectrum/s2/icons/Code';
@@ -7,13 +7,14 @@ import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro'
 import { AGENT_PICKER, SKILL_COPY } from '../../copy.ts';
 import { applyAgentChange, draftSelection, harnessLabel, type AgentChange, type AgentChoice } from '../../model/agent-choice.ts';
 import { appendSkillId } from '../../model/agent-skills.ts';
-import { handoffHint, sessionOptions, TOOL_SKILL, type AiToolId, type SessionOption } from '../../model/ai-tools.ts';
+import { handoffHint, sessionOptions, TOOL_SKILL, type AgentToolId, type AiToolId, type SessionOption } from '../../model/ai-tools.ts';
 import { currentConversation, messageCount } from '../../model/ai-tools-handoff.ts';
 import { gateGuide, homeGate, type GateGuide } from '../../model/home-brief.ts';
 import { targetKey } from '../../model/workspace.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { defaultDriver, useConnection } from '../../state/connection-store.ts';
 import { useDirectory } from '../../state/directory-store.ts';
+import type { AiToolRunner } from '../../state/ai-tool-runner-store.ts';
 import { useSetting } from '../../state/settings-store.ts';
 import { routeVideo, useShell } from '../../state/shell-store.ts';
 import { useTimeline } from '../../state/timeline-store.ts';
@@ -23,6 +24,7 @@ import { ComposerToken, composerTokenList } from '../composer-token.tsx';
 import { S } from '../shell-copy.ts';
 import { useSkillsLoader } from '../use-skills.ts';
 import { AgentGateLine } from './agent-gate-line.tsx';
+import { contextItems, contextLine, directBlocked, directCta, directHint, type DirectContext } from './ai-tool-direct.ts';
 import { AI_TOOLS_COPY as C } from './ai-tools-copy.ts';
 import { handToAgent } from './ai-tools-handoff.ts';
 
@@ -131,22 +133,39 @@ export function useToolHandoff(): ToolHandoff {
   };
 }
 
-/** 参数页的「用」一行：交给 Agent（写着家 · 模型，与提示词框底栏的 chip 是同一份），直接调模型置灰写原因；没有可用的 Agent 时给去处。 */
-export function AgentUseRow({ handoff }: { handoff: ToolHandoff }) {
+/**
+ * 参数页的「用」一行：交给 Agent（写着家 · 模型，与提示词框底栏的 chip 是同一份），或直接调模型（写着哪只文本模型）。
+ * 直接调模型做不了的工具那一项置灰、下面写原因；交给 Agent 而没有可用的 Agent 时给去处。
+ */
+export function AgentUseRow({
+  handoff,
+  tool,
+  runner = 'agent',
+  onRunner,
+  modelName = null,
+}: {
+  handoff: ToolHandoff;
+  tool: AgentToolId;
+  runner?: AiToolRunner;
+  onRunner?(runner: AiToolRunner): void;
+  modelName?: string | null;
+}) {
+  const blocked = directBlocked(tool);
   return (
     <div className={row}>
       <span className={rowLabel}>{C.who}</span>
       <div className={rowBody}>
-        <RadioGroup aria-label={C.who} size="S" value="agent">
+        <RadioGroup aria-label={C.who} size="S" value={runner} onChange={(value) => onRunner?.(value as AiToolRunner)}>
           <Radio value="agent">
             {C.whoAgent} · {harnessLabel(handoff.driver, handoff.model)}
           </Radio>
-          <Radio value="model" isDisabled>
-            {C.whoModel}
+          <Radio value="model" isDisabled={!!blocked || !onRunner}>
+            {runner === 'model' && modelName ? `${C.whoModel} · ${modelName}` : C.whoModel}
           </Radio>
         </RadioGroup>
-        <p className={hint}>{C.whoModelSub}</p>
-        {handoff.guide ? <AgentGateLine guide={handoff.guide} /> : null}
+        {blocked ? <p className={hint}>{blocked}</p> : null}
+        {runner === 'model' && tool === 'polish' ? <p className={hint}>{C.modelPolishNote}</p> : null}
+        {runner === 'agent' && handoff.guide ? <AgentGateLine guide={handoff.guide} /> : null}
       </div>
     </div>
   );
@@ -177,12 +196,27 @@ export function SessionRow({ handoff }: { handoff: ToolHandoff }) {
   );
 }
 
+/** 直接调模型时提示词框要的东西（工具页持有模型与运行，见 ai-tools-agent-page.tsx）。 */
+export interface DirectPrompt {
+  context: Omit<DirectContext, 'attachments' | 'skills'>;
+  model: { name: string | null; local: boolean; ready: boolean };
+  /** 底栏右边的文本模型选择。 */
+  picker: ReactNode;
+  /** 选中的模型不能用时框下的门卡。 */
+  gate: ReactNode;
+  /** 模型不能用时按下主按钮：说清差什么、把门卡带到眼前；不灰掉按钮。 */
+  onNotReady(): void;
+  onStart(prompt: string, attachments: Id[], skills: string[]): Promise<boolean>;
+}
+
 /**
  * 参数页的提示词框与主按钮（原型 tool-prompt.jsx，产品设计 §5.10 第 3、4 段）：预填模板（没改过就跟着范围与勾选项变，
  * 改过才出「恢复默认」），默认挂着这个工具的内置 skill（标着「这个工具的做法」，摘掉后框下一行说明并给加回），
  * 「+ › 使用 Skill」再挂别的（接在后面，已经挂着的不重复，加回内置的也接在后面，同原型 `addSkill`），每个可以单独摘掉；
  * 底栏是访问模式与「家 · 模型」（与「用」一行同一份）。按下就按「会话」行交出去，挂着的 skill 按顺序一起发（`conversations.send`
  * 的 `skills`），`onDone` 回列表。
+ * 「用」选了直接调模型（`direct`）时：底栏换成文本模型的选择，框下写挂着的 skill 作系统提示词、发给模型的上下文，主按钮写
+ * 这个工具的动作，下面一行说调哪只模型、结果去哪、花不花钱；按下去由工具页提交 `ai-tool` 流程，留在原地看进度与结果。
  */
 export function AiToolPrompt({
   videoId,
@@ -191,6 +225,7 @@ export function AiToolPrompt({
   handoff,
   isDisabled,
   onDone,
+  direct,
 }: {
   videoId: Id;
   tool: AiToolId;
@@ -198,6 +233,8 @@ export function AiToolPrompt({
   handoff: ToolHandoff;
   isDisabled?: boolean;
   onDone(): void;
+  /** 「用」选了直接调模型：底栏换成文本模型的选择，框下多两行（skill 作系统提示词、发给模型的），按下去走 `ai-tool` 流程。 */
+  direct?: DirectPrompt | null;
 }) {
   const runtime = useRuntime();
   const draftKey = `aitool:${videoId}:${tool}`;
@@ -234,11 +271,30 @@ export function AiToolPrompt({
       </span>
     </p>
   ) : null;
+  // 直接调模型：挂着 skill 时说清它们怎么发；再一行写发给模型的上下文（附件数由输入框给）。
+  const skillsNotice =
+    direct && skillIds.length ? (
+      <p className={notice}>
+        <InfoCircle styles={noticeIcon} />
+        <span>{C.skillsAsSystem}</span>
+      </p>
+    ) : null;
+  const contextNotice = direct
+    ? ({ count, images }: { count: number; images: number }) => (
+        <p className={notice}>
+          <InfoCircle styles={noticeIcon} />
+          <span>
+            {contextLine(contextItems({ ...direct.context, attachments: count, skills: skillIds.map(nameOf) }))}
+            {images ? C.contextImages(images) : ''}
+          </span>
+        </p>
+      )
+    : undefined;
 
   return (
     <div className={box}>
       <div className={boxHead}>
-        <span className={boxTitle}>{C.promptLabel}</span>
+        <span className={boxTitle}>{direct ? C.modelPromptLabel : C.promptLabel}</span>
         {value !== null ? (
           <ActionButton isQuiet size="XS" onPress={() => setValue(null)}>
             {C.restoreDefault}
@@ -247,7 +303,8 @@ export function AiToolPrompt({
       </div>
       <Composer
         draftKey={draftKey}
-        driverId={handoff.driverId}
+        // 直接调模型不经过 Agent：不按 Agent 的状态拦发送，也不出 Agent 选择。
+        driverId={direct ? null : handoff.driverId}
         model={handoff.model}
         effort={handoff.effort}
         lockedTo={handoff.lockedTo}
@@ -258,29 +315,61 @@ export function AiToolPrompt({
         placeholder={C.promptPlaceholder}
         mentionScope={{ projectId: handoff.ref?.source?.projectId ?? null, conversationId: handoff.ref?.source?.conversationId ?? null }}
         onSend={async () => false}
-        tool={{
-          text,
-          onText: (next) => setValue(next === template ? null : next),
-          tokens,
-          onSkill: (id) => setSkillIds((ids) => appendSkillId(ids, id)),
-          notice: noSkill,
-          cta: C.cta,
-          hint: handoffHint(session?.key ?? 'new'),
-          isDisabled: isDisabled || !session || !!handoff.guide || !handoff.ref,
-          onStart: (message, attachments) =>
-            handToAgent(runtime, {
-              video: handoff.ref,
-              session: session?.key === 'current' && session.conversationId ? { id: session.conversationId } : 'new',
-              text: message,
-              attachments,
-              skills: skillIds.map((id) => ({ id })),
-              create: handoff.create,
-              draftKey,
-            }).then((ok) => {
-              if (ok) onDone();
-              return ok;
-            }),
-        }}
+        tool={
+          direct
+            ? {
+                text,
+                onText: (next) => setValue(next === template ? null : next),
+                tokens,
+                onSkill: (id) => setSkillIds((ids) => appendSkillId(ids, id)),
+                notice: (
+                  <>
+                    {noSkill}
+                    {skillsNotice}
+                    {direct.gate}
+                  </>
+                ),
+                picker: direct.picker,
+                context: contextNotice,
+                cta: directCta(direct.context.tool),
+                hint: directHint({ tool: direct.context.tool, model: direct.model.name, local: direct.model.local }),
+                isDisabled: isDisabled || !handoff.ref,
+                onStart: async (message, attachments) => {
+                  if (!direct.model.ready) {
+                    direct.onNotReady();
+                    return false;
+                  }
+                  return direct.onStart(
+                    message,
+                    attachments.map((a) => a.id),
+                    skillIds,
+                  );
+                },
+              }
+            : {
+                text,
+                onText: (next) => setValue(next === template ? null : next),
+                tokens,
+                onSkill: (id) => setSkillIds((ids) => appendSkillId(ids, id)),
+                notice: noSkill,
+                cta: C.cta,
+                hint: handoffHint(session?.key ?? 'new'),
+                isDisabled: isDisabled || !session || !!handoff.guide || !handoff.ref,
+                onStart: (message, attachments) =>
+                  handToAgent(runtime, {
+                    video: handoff.ref,
+                    session: session?.key === 'current' && session.conversationId ? { id: session.conversationId } : 'new',
+                    text: message,
+                    attachments,
+                    skills: skillIds.map((id) => ({ id })),
+                    create: handoff.create,
+                    draftKey,
+                  }).then((ok) => {
+                    if (ok) onDone();
+                    return ok;
+                  }),
+              }
+        }
       />
     </div>
   );

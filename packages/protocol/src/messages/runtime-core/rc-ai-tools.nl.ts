@@ -1,0 +1,25 @@
+import type { RcAiToolsMessages } from './rc-ai-tools.ts';
+
+export const nl: RcAiToolsMessages = {
+  label: "AI-tool (model rechtstreeks aanroepen)",
+  description: "Stuurt een prompt met de transcriptie, hoofdstukken en bijlagen van deze video rechtstreeks naar een tekstmodel, zonder agent of gesprek. Polijsten en hoofdstukken worden als één ongedaan te maken wijziging in de video geschreven; de andere tools geven tekst terug om te lezen en te kopiëren.",
+  stepPrepare: "Context verzamelen",
+  stepGenerate: "Model aanroepen",
+  stepApply: "In video schrijven",
+  paramsInvalid: (p) => `Parameter ${p.key} ontbreekt of is ongeldig`,
+  videoNotOpen: "De video is niet geopend",
+  noStructuredOutput: (p) => `Model ${p.model} ondersteunt geen gestructureerde uitvoer en kan de transcriptie dus niet polijsten of hoofdstukken maken`,
+  noTranscript: "De video heeft geen transcriptie. Transcribeer eerst.",
+  multipleTranscripts: "De video heeft meer dan één transcriptie. Kies er een met documentId.",
+  notSpeech: (p) => `Document ${p.documentId} is geen transcriptie`,
+  nothingInRange: "Er is geen transcriptie in dit bereik",
+  outputInvalid: "Het antwoord van het model had niet de verwachte vorm. Probeer opnieuw of kies een ander model.",
+  polishMismatch: "De correcties van het model passen niet bij de woorden van de transcriptie, dus er is niets geschreven",
+  noChapters: "Het model gaf geen bruikbare hoofdstukken terug",
+  sourceChanged: "De transcriptie is gewijzigd terwijl het model bezig was, dus er is niets geschreven. Probeer opnieuw om de huidige versie te gebruiken.",
+  videoClosed: "De video is gesloten",
+  rejected: "De wijziging is geweigerd, dus er is niets in de video geschreven",
+  transactionPolish: "Transcriptie polijsten",
+  transactionChapters: "Hoofdstukken maken",
+  notReady: "De Runtime start nog op. Probeer het zo opnieuw.",
+};

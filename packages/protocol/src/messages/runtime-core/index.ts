@@ -21,3 +21,4 @@ export * from './rc-grants.ts';
 export * from './rc-skills.ts';
 export * from './rc-templates.ts';
 export * from './rc-runtime.ts';
+export * from './rc-ai-tools.ts';

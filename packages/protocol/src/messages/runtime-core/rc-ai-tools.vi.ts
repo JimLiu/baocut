@@ -1,0 +1,25 @@
+import type { RcAiToolsMessages } from './rc-ai-tools.ts';
+
+export const vi: RcAiToolsMessages = {
+  label: "Công cụ AI (gọi mô hình trực tiếp)",
+  description: "Gửi lời nhắc kèm bản chép lời, chương và tệp đính kèm của video này thẳng tới một mô hình văn bản, không qua tác tử hay cuộc trò chuyện. Chỉnh sửa bản chép lời và chương được ghi vào video thành một thay đổi có thể hoàn tác; các công cụ khác trả về văn bản để đọc và sao chép.",
+  stepPrepare: "Thu thập ngữ cảnh",
+  stepGenerate: "Gọi mô hình",
+  stepApply: "Ghi vào video",
+  paramsInvalid: (p) => `Thiếu tham số ${p.key} hoặc tham số không hợp lệ`,
+  videoNotOpen: "Video chưa được mở",
+  noStructuredOutput: (p) => `Mô hình ${p.model} không hỗ trợ đầu ra có cấu trúc nên không thể chỉnh sửa bản chép lời hay tạo chương`,
+  noTranscript: "Video chưa có bản chép lời. Hãy chép lời trước.",
+  multipleTranscripts: "Video có nhiều bản chép lời. Dùng documentId để chọn một bản.",
+  notSpeech: (p) => `Tài liệu ${p.documentId} không phải bản chép lời`,
+  nothingInRange: "Không có bản chép lời trong khoảng này",
+  outputInvalid: "Câu trả lời của mô hình không đúng định dạng yêu cầu. Thử lại hoặc chọn mô hình khác.",
+  polishMismatch: "Các sửa đổi của mô hình không khớp với các từ trong bản chép lời nên không ghi gì",
+  noChapters: "Mô hình không trả về chương nào dùng được",
+  sourceChanged: "Bản chép lời đã thay đổi trong lúc mô hình làm việc nên không ghi gì. Thử lại để dùng phiên bản hiện tại.",
+  videoClosed: "Video đã bị đóng",
+  rejected: "Thay đổi bị từ chối nên không ghi gì vào video",
+  transactionPolish: "Chỉnh sửa bản chép lời",
+  transactionChapters: "Tạo chương",
+  notReady: "Runtime vẫn đang khởi động. Hãy thử lại sau giây lát.",
+};

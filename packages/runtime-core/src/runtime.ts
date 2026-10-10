@@ -106,6 +106,7 @@ import { TemplateCatalog, resolveBuiltinTemplatesDir } from './templates/templat
 import { SkillCatalog, resolveBuiltinSkillsDir } from './skills/skill-catalog.ts';
 import { SkillInstaller } from './skills/skill-installer.ts';
 import { skillIndexBlock } from './skills/skill-brief.ts';
+import { aiToolDefinition } from './ai-tools/ai-tool-wiring.ts';
 import { resolveBuiltinAgentSkillsDir } from './skills/agent-skill-renderer.ts';
 import { SkillTools } from './agent-tools/skill-tools.ts';
 import { JobTools } from './agent-tools/job-tools.ts';
@@ -116,7 +117,7 @@ import { CompositionService, SharedCompositionHost } from './compositions/compos
 import { findOnPath } from './external-tools/tool-probe.ts';
 import { resolveElectronBinary } from '@baocut/code-runtime';
 import type { GithubFetchOptions } from './skills/skill-github.ts';
-import { RcRuntime } from '@baocut/protocol/messages/runtime-core';
+import { RcAiTools, RcRuntime } from '@baocut/protocol/messages/runtime-core';
 
 export interface StartRuntimeOptions {
   home?: RuntimeHome;
@@ -396,6 +397,12 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     let settingsStore: RuntimeSettings['store'] | null = settings.store;
     // 从链接导入（§7.9）在 JobManager 建好时登记；外部工具服务与 Harness 在后面才有，流程用到时再取。
     let externalToolsRef: ExternalToolService | null = null;
+    // AI 工具「直接调模型」的流程用到的 skill 目录、附件与导出服务：它们在后面几步才建好，调用时再取。
+    let aiToolRefs: { skills: SkillCatalog; attachments: AttachmentStore; exports: ExportService } | null = null;
+    const aiToolRef = () => {
+      if (!aiToolRefs) throw new RpcError('busy', RcAiTools.notReady());
+      return aiToolRefs;
+    };
     let harnessRef: Harness | null = null;
     // 流程的 `{ entryId }` 目标按 Space 目录解析（§7.9）：Space 在后面才建，解析时再取。
     let spaceRef: SpaceCatalog | null = null;
@@ -507,6 +514,15 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
           },
           context,
         ),
+        aiToolDefinition(
+          {
+            videos,
+            skills: () => aiToolRef().skills,
+            attachments: () => aiToolRef().attachments,
+            exports: () => aiToolRef().exports,
+          },
+          context,
+        ),
       ],
       ...(options.jobFaults ? { faults: options.jobFaults } : {}),
     });
@@ -596,6 +612,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       originAllowed: (origin) => originAllowed(origin, options.allowedOrigins),
     });
     stops.add('attachments', () => attachments.close(), null);
+    aiToolRefs = { skills, attachments, exports };
 
     // 偏好设置（前面已经读入）：新会话的默认 Driver 与访问模式从这里冻结（§3.11、§3.12）。
     // 改了机器容量：排队的任务按新的容量重新看一遍。

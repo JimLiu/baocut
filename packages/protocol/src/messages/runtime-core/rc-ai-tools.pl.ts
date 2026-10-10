@@ -1,0 +1,25 @@
+import type { RcAiToolsMessages } from './rc-ai-tools.ts';
+
+export const pl: RcAiToolsMessages = {
+  label: "Narzędzie AI (bezpośrednie wywołanie modelu)",
+  description: "Wysyła polecenie z transkrypcją, rozdziałami i załącznikami tego filmu prosto do modelu tekstowego, bez agenta i rozmowy. Korekta i rozdziały są zapisywane w filmie jako jedna zmiana, którą można cofnąć; pozostałe narzędzia zwracają tekst do przeczytania i skopiowania.",
+  stepPrepare: "Zbierz kontekst",
+  stepGenerate: "Wywołaj model",
+  stepApply: "Zapisz w filmie",
+  paramsInvalid: (p) => `Brak parametru ${p.key} lub jest nieprawidłowy`,
+  videoNotOpen: "Film nie jest otwarty",
+  noStructuredOutput: (p) => `Model ${p.model} nie obsługuje danych strukturalnych, więc nie może poprawić transkrypcji ani utworzyć rozdziałów`,
+  noTranscript: "Film nie ma transkrypcji. Najpierw ją utwórz.",
+  multipleTranscripts: "Film ma więcej niż jedną transkrypcję. Wybierz jedną za pomocą documentId.",
+  notSpeech: (p) => `Dokument ${p.documentId} nie jest transkrypcją`,
+  nothingInRange: "W tym zakresie nie ma transkrypcji",
+  outputInvalid: "Odpowiedź modelu nie miała oczekiwanego formatu. Spróbuj ponownie lub wybierz inny model.",
+  polishMismatch: "Poprawki modelu nie pasują do słów transkrypcji, więc nic nie zapisano",
+  noChapters: "Model nie zwrócił użytecznych rozdziałów",
+  sourceChanged: "Transkrypcja zmieniła się w trakcie pracy modelu, więc nic nie zapisano. Spróbuj ponownie, aby użyć bieżącej wersji.",
+  videoClosed: "Film został zamknięty",
+  rejected: "Zmiana została odrzucona, więc w filmie nic nie zapisano",
+  transactionPolish: "Popraw transkrypcję",
+  transactionChapters: "Utwórz rozdziały",
+  notReady: "Runtime jeszcze się uruchamia. Spróbuj ponownie za chwilę.",
+};

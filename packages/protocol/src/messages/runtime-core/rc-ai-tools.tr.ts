@@ -1,0 +1,25 @@
+import type { RcAiToolsMessages } from './rc-ai-tools.ts';
+
+export const tr: RcAiToolsMessages = {
+  label: "Yapay zekâ aracı (modeli doğrudan çağırma)",
+  description: "İstemi bu videonun transkripti, bölümleri ve ekleriyle birlikte ajan ya da sohbet olmadan doğrudan bir metin modeline gönderir. Düzeltme ve bölümler videoya geri alınabilir tek bir değişiklik olarak yazılır; diğer araçlar okuyup kopyalamanız için metin döndürür.",
+  stepPrepare: "Bağlamı topla",
+  stepGenerate: "Modeli çağır",
+  stepApply: "Videoya yaz",
+  paramsInvalid: (p) => `${p.key} parametresi eksik veya geçersiz`,
+  videoNotOpen: "Video açık değil",
+  noStructuredOutput: (p) => `${p.model} modeli yapılandırılmış çıktıyı desteklemiyor; bu yüzden transkripti düzeltemez veya bölüm oluşturamaz`,
+  noTranscript: "Videonun transkripti yok. Önce yazıya dökün.",
+  multipleTranscripts: "Videoda birden fazla transkript var. documentId ile birini seçin.",
+  notSpeech: (p) => `${p.documentId} belgesi bir transkript değil`,
+  nothingInRange: "Bu aralıkta transkript yok",
+  outputInvalid: "Modelin yanıtı beklenen biçimde değildi. Yeniden deneyin veya başka bir model seçin.",
+  polishMismatch: "Modelin düzeltmeleri transkriptteki kelimelerle eşleşmiyor; hiçbir şey yazılmadı",
+  noChapters: "Model kullanılabilir bölüm döndürmedi",
+  sourceChanged: "Model çalışırken transkript değişti; hiçbir şey yazılmadı. Güncel sürümü kullanmak için yeniden deneyin.",
+  videoClosed: "Video kapatıldı",
+  rejected: "Değişiklik reddedildi; videoya hiçbir şey yazılmadı",
+  transactionPolish: "Transkripti düzelt",
+  transactionChapters: "Bölüm oluştur",
+  notReady: "Runtime hâlâ başlatılıyor. Birazdan yeniden deneyin.",
+};

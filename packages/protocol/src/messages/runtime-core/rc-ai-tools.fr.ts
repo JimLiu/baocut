@@ -1,0 +1,25 @@
+import type { RcAiToolsMessages } from './rc-ai-tools.ts';
+
+export const fr: RcAiToolsMessages = {
+  label: "Outil IA (appel direct au modèle)",
+  description: "Envoie une consigne avec la transcription, les chapitres et les pièces jointes de cette vidéo directement à un modèle de texte, sans agent ni conversation. La relecture et les chapitres sont écrits dans la vidéo en une modification annulable ; les autres outils renvoient du texte à lire et à copier.",
+  stepPrepare: "Rassembler le contexte",
+  stepGenerate: "Appeler le modèle",
+  stepApply: "Écrire dans la vidéo",
+  paramsInvalid: (p) => `Le paramètre ${p.key} est manquant ou non valide`,
+  videoNotOpen: "La vidéo n’est pas ouverte",
+  noStructuredOutput: (p) => `Le modèle ${p.model} ne prend pas en charge la sortie structurée ; il ne peut donc ni relire la transcription ni créer des chapitres`,
+  noTranscript: "La vidéo n’a pas de transcription. Transcrivez-la d’abord.",
+  multipleTranscripts: "La vidéo a plusieurs transcriptions. Choisissez-en une avec documentId.",
+  notSpeech: (p) => `Le document ${p.documentId} n’est pas une transcription`,
+  nothingInRange: "Il n’y a pas de transcription dans cette plage",
+  outputInvalid: "La réponse du modèle n’avait pas le format attendu. Réessayez ou essayez un autre modèle.",
+  polishMismatch: "Les corrections du modèle ne correspondent pas aux mots de la transcription ; rien n’a été écrit",
+  noChapters: "Le modèle n’a renvoyé aucun chapitre utilisable",
+  sourceChanged: "La transcription a changé pendant que le modèle travaillait ; rien n’a été écrit. Réessayez pour utiliser la version actuelle.",
+  videoClosed: "La vidéo a été fermée",
+  rejected: "La modification a été refusée ; rien n’a été écrit dans la vidéo",
+  transactionPolish: "Relire la transcription",
+  transactionChapters: "Générer des chapitres",
+  notReady: "Le Runtime démarre encore. Réessayez dans un instant.",
+};

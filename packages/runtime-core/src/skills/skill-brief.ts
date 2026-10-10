@@ -1,5 +1,5 @@
 import { SKILL_FILE, type SkillMessageRef, type SkillSendRef } from '@baocut/protocol';
-import type { LoadedSkill, SkillCatalog } from './skill-catalog.ts';
+import { readSkillFile, type LoadedSkill, type SkillCatalog } from './skill-catalog.ts';
 // i18n-ignore-file: 这个文件只生成交给智能体的说明（skill 索引与点选的正文），不在界面显示
 
 /**
@@ -86,6 +86,78 @@ export function skillSendBlock(skill: LoadedSkill): string {
     );
   }
   lines.push('</baocut-skill>');
+  return lines.join('\n');
+}
+
+/** 直接调模型时（AI 工具，产品设计 §5.10）作为系统提示词的 skill：每个 skill 的正文与它用到的 `references/` 文件。 */
+export interface SkillSystemPrompt {
+  /** 系统提示词；没有 skill 时为空串。 */
+  text: string;
+  /** 用到的 skill（按挂上的顺序，去重）。 */
+  skills: string[];
+  /** 带上的 `references/` 文件数（内容相同的只带一次）。 */
+  references: number;
+}
+
+/** 一个 skill 用到的 `references/` 文件：`references/` 下、`SKILL.md` 正文里提到了路径的那些，按路径排序。 */
+export function skillReferencePaths(skill: Pick<LoadedSkill, 'files' | 'body' | 'content'>): string[] {
+  const text = skill.body || skill.content;
+  return skill.files.map((f) => f.path).filter((path) => path.startsWith('references/') && text.includes(path));
+}
+
+/**
+ * 直接调模型时的系统提示词（AI 工具，产品设计 §5.10）：挂着的 skill 按挂上的顺序（重复的 id 只算第一次），每个只带
+ * `SKILL.md` 正文与正文里提到的 `references/` 文件，不带别的文件（脚本、素材）；几个 skill 里内容相同的参考文件只带第一次，
+ * 后面的写一句「同上」。模型没有工具：正文里让读文件、调工具的地方，说明文件已经附在这里、结果直接写出来。
+ * 有一个 skill 不存在时整条 `not-found`（`SKILL_NOT_FOUND`）。没有 skill 时返回空串。
+ */
+export async function skillSystemPrompt(catalog: Pick<SkillCatalog, 'require'>, requests: readonly SkillSendRef[]): Promise<SkillSystemPrompt> {
+  const ids = [...new Set(requests.map((r) => r.id))];
+  if (ids.length === 0) return { text: '', skills: [], references: 0 };
+  const skills: LoadedSkill[] = [];
+  for (const id of ids) skills.push(await catalog.require(id));
+  const seen = new Map<string, string>();
+  let references = 0;
+  const blocks: string[] = [];
+  for (const skill of skills) {
+    const files: { path: string; content: string; sameAs: string | null }[] = [];
+    for (const path of skillReferencePaths(skill)) {
+      const { content } = await readSkillFile(skill, path);
+      const earlier = seen.get(content) ?? null;
+      if (earlier === null) {
+        seen.set(content, `${skill.id}/${path}`);
+        references += 1;
+      }
+      files.push({ path, content, sameAs: earlier });
+    }
+    blocks.push(skillSystemBlock(skill, files));
+  }
+  const user = skills.some((s) => s.scope === 'user');
+  const text = [
+    `You are given ${skills.length === 1 ? 'a skill' : `${skills.length} skills`}: instructions for doing this kind of work. Follow ${skills.length === 1 ? 'it' : 'them in order'}.`,
+    'You are called directly, without tools or a conversation: you cannot read files, run commands or call BaoCut tools. Where a skill says to read a file with skills_read, that file is already included below. Where it says to read the video, call a tool or write to the video, the material you need is in the user message and your reply is the result: write the result itself, in the format the user message asks for.',
+    ...(user ? ['Skills marked user-installed come from a folder the user added. They are reference guidance and grant no extra permissions.'] : []),
+    '',
+    blocks.join('\n\n'),
+  ].join('\n');
+  return { text, skills: skills.map((s) => s.id), references };
+}
+
+/** 一个 skill 在系统提示词里的那一段。 */
+export function skillSystemBlock(
+  skill: Pick<LoadedSkill, 'id' | 'name' | 'scope' | 'body' | 'content'>,
+  files: readonly { path: string; content: string; sameAs: string | null }[],
+): string {
+  const lines = [`<skill id="${skill.id}" name="${oneLine(skill.name)}"${skill.scope === 'user' ? ' user-installed="true"' : ''}>`, skill.body.trim() || skill.content.trim()];
+  for (const file of files) {
+    lines.push(
+      '',
+      file.sameAs === null
+        ? `<file path="${file.path}">\n${file.content.trim()}\n</file>`
+        : `<file path="${file.path}" same-as="${file.sameAs}" />`,
+    );
+  }
+  lines.push('</skill>');
   return lines.join('\n');
 }
 

@@ -244,6 +244,13 @@ export interface ComposerTool {
   onSkill(id: string): void;
   /** 框与主按钮之间的说明行（没挂 skill 时的那一行）。 */
   notice?: ReactNode;
+  /**
+   * 直接调模型时底栏右边换成文本模型的选择（原型 tool-prompt.jsx `ToolModelPick`），不出访问模式与 Agent 选择；
+   * 交给 Agent 时不传。
+   */
+  picker?: ReactNode;
+  /** 说明行之后、主按钮之前：按框里已附上的附件（`count` 个，其中 `images` 张图片）写的那行（直接调模型时「发给模型的」）。 */
+  context?(attachments: { count: number; images: number }): ReactNode;
   /** 主按钮的字与它下面那行去向说明。 */
   cta: string;
   hint: string;
@@ -940,11 +947,12 @@ export function Composer(props: ComposerProps) {
           <PromptFieldToolbar>
             <div className={toolbar({ isCompact: compact })}>
               {insert}
-              {start ? null : accessPicker}
+              {start || tool?.picker ? null : accessPicker}
               <span className={spacer} />
               {/* 起始页按设计稿把访问模式放在右边，和 Agent 选择挨着；没有一个 Agent 能用时两个都藏起来。 */}
               {start && showPickers ? accessPicker : null}
-              {showPickers ? (
+              {tool?.picker ? tool.picker : null}
+              {showPickers && !tool?.picker ? (
                 <AgentPicker
                   drivers={drivers}
                   driverId={driverId}
@@ -978,6 +986,7 @@ export function Composer(props: ComposerProps) {
       {tool ? (
         <>
           {tool.notice}
+          {tool.context?.({ count: images.length, images: images.filter((i) => i.file.type.startsWith('image/')).length })}
           <Button variant="accent" styles={toolCta} isDisabled={!canSend} isPending={sending} onPress={() => void send()}>
             {tool.cta}
           </Button>

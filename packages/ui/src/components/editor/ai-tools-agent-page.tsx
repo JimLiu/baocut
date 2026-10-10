@@ -1,6 +1,6 @@
-import { useMemo, useState, type ReactNode } from 'react';
-import type { Id, Sequence } from '@baocut/protocol';
-import { Checkbox, NumberField, Picker, PickerItem, TextField } from '@react-spectrum/s2';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
+import type { DocumentRecord, Id, Sequence } from '@baocut/protocol';
+import { Checkbox, NumberField, Picker, PickerItem, TextField, ToastQueue } from '@react-spectrum/s2';
 import InfoCircle from '@react-spectrum/s2/icons/InfoCircle';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import {
@@ -25,14 +25,21 @@ import {
 } from '../../model/ai-tools.ts';
 import { chapterPieces } from '../../model/export-range.ts';
 import { bundleName } from '../../model/models-local.ts';
+import { readSpeechWords } from '../../model/speech-cues.ts';
+import { transcriptParagraphs, transcriptWords } from '../../model/transcript-cut.ts';
 import { transcribeModelInfo } from '../../model/transcribe-speakers.ts';
+import { useAiToolRunner, type AiToolRunner } from '../../state/ai-tool-runner-store.ts';
 import { useModels } from '../../state/models-store.ts';
 import { AsrMoreOptions, useSpeakerState } from '../tools/asr-more-options.tsx';
-import { AgentUseRow, AiToolPrompt, SessionRow, useToolHandoff } from './ai-tool-prompt.tsx';
+import { directHasScope, directParams, directTool, scopedParagraphs } from './ai-tool-direct.ts';
+import { DirectModelGate, DirectModelPicker, DirectProblem, DirectReceiptView, DirectResultView, DirectRunView, useDirectModel } from './ai-tool-direct-view.tsx';
+import { AgentUseRow, AiToolPrompt, SessionRow, useToolHandoff, type DirectPrompt } from './ai-tool-prompt.tsx';
+import { runKey, startAiTool, useAiToolRun } from './ai-tool-run.ts';
 import { AI_TOOLS_COPY as C } from './ai-tools-copy.ts';
 import type { AiToolPreset } from './ai-tools-nav.ts';
 import { PanelHead } from './panel-head.tsx';
 import { EDITOR_COPY as E } from './editor-copy.ts';
+import { useDocumentBody } from './use-document-body.ts';
 
 const body = style({ flexGrow: 1, minHeight: 0, overflowY: 'auto', paddingX: 12, paddingTop: 12, paddingBottom: 16 });
 /** 工具页顶上那张说明卡（原型 .aicard）。 */
@@ -47,6 +54,7 @@ const card = style({
   color: 'gray-800',
   lineHeight: '[1.5]',
 });
+const problemBox = style({ marginBottom: 12 });
 const cardTitle = style({ font: 'ui', fontWeight: 'bold', color: 'gray-900' });
 const secHead = style({ marginTop: 16, marginBottom: 8, font: 'detail', fontWeight: 'bold', color: 'gray-700' });
 /** 设置态里的一行（原型 .tsetup__row）：左边标签、右边控件。 */
@@ -93,12 +101,14 @@ export function AiAgentToolPage({
   tool,
   preset,
   sequence,
+  documents,
   onBack,
 }: {
   videoId: Id;
   tool: AgentToolId;
   preset: AiToolPreset | null;
   sequence: Sequence;
+  documents: Record<Id, DocumentRecord>;
   onBack(): void;
 }) {
   const handoff = useToolHandoff();
@@ -110,6 +120,20 @@ export function AiAgentToolPage({
   const [scopeKey, setScopeKey] = useState<string>('all');
   const scopeIndex = chapters.findIndex((c) => c.id === scopeKey);
   const scope = scopeIndex >= 0 ? C.scopeChapter(scopeIndex + 1, chapters[scopeIndex]!.label) : null;
+
+  // 「用」：按工具记住交给 Agent 还是直接调模型（直接调模型做不了的工具总是交给 Agent）。
+  const kind = directTool(tool);
+  const savedRunner = useAiToolRunner((s) => s.runners[tool]);
+  const setRunner = useAiToolRunner((s) => s.setRunner);
+  const runner: AiToolRunner = kind && savedRunner === 'model' ? 'model' : 'agent';
+  const viaModel = runner === 'model' && kind ? kind : null;
+  const model = useDirectModel(kind ?? 'summary');
+  const key = kind ? runKey(videoId, kind) : '';
+  const run = useAiToolRun((s) => s.runs[key] ?? null);
+  const result = useAiToolRun((s) => s.results[key] ?? null);
+  const receipt = useAiToolRun((s) => s.receipts[key] ?? null);
+  const problem = useAiToolRun((s) => s.problems[key] ?? null);
+  const modelSection = useRef<HTMLDivElement>(null);
 
   const [pre, setPre] = useState(true);
   const [cleanup, setCleanup] = useState<Record<CleanupKey, boolean>>({ fillers: true, pauses: true, repeats: true });
@@ -140,7 +164,7 @@ export function AiAgentToolPage({
         coverText,
       })
     : [
-        tool === 'chapters' && pre ? C.chaptersPolishFirst : null,
+        tool === 'chapters' && pre && !viaModel ? C.chaptersPolishFirst : null,
         ...(tool === 'cleanup' ? cleanupExtra(cleanup) : []),
         tool === 'stale' && preset?.language ? C.staleOnly(preset.language) : null,
         tool === 'retranscribe' && speakers.s.step ? C.retranscribeSpeakers : null,
@@ -158,10 +182,79 @@ export function AiAgentToolPage({
   const template = toolTemplate(tool, intent);
   const staleEmpty = tool === 'stale' && !stale.edited && !stale.cut;
 
+  // 直接调模型：发给模型的是哪份转写、范围里几段（口径同文稿面板）。
+  const speech = useMemo(() => Object.values(documents).find((d) => d.kind === 'speech' && !!d.sourceAssetId) ?? null, [documents]);
+  const speechBody = useDocumentBody(viaModel && speech ? speech : undefined);
+  const range = viaModel && directHasScope(viaModel) && scopeIndex >= 0 ? chapters[scopeIndex]! : null;
+  const paragraphs = useMemo(() => {
+    const assetId = speech?.sourceAssetId;
+    const read = speechBody === undefined || !assetId ? null : readSpeechWords(speechBody);
+    return read && assetId ? transcriptParagraphs(transcriptWords(sequence, assetId, read.words)) : [];
+  }, [speechBody, speech, sequence]);
+  const direct: DirectPrompt | null = viaModel
+    ? {
+        context: {
+          tool: viaModel,
+          paragraphs: scopedParagraphs(paragraphs, range),
+          scope: range ? scope : null,
+          chapters: chapters.length,
+        },
+        model: { name: model.name, local: model.local, ready: model.ready },
+        picker: <DirectModelPicker model={model} />,
+        gate: (
+          <div ref={modelSection}>
+            <DirectModelGate model={model} />
+          </div>
+        ),
+        onNotReady: () => {
+          // 不灰掉按钮：说清楚差什么，把门卡带到眼前（同翻译页）。
+          modelSection.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          ToastQueue.neutral(model.selected?.why ?? C.noTextModel, { timeout: 4000 });
+        },
+        onStart: (prompt, attachments, skills) =>
+          startAiTool(
+            directParams({
+              videoId,
+              tool: viaModel,
+              prompt,
+              range: range ? { start: range.start, end: range.end } : null,
+              documentId: speech?.id ?? null,
+              attachments,
+              skills,
+              model: model.ref,
+            }),
+            model.name ?? '',
+          ),
+      }
+    : null;
+
+  // 直接调模型跑着、出了结果或收据：这一页换成那一态（同识别说话人的四态页），「完成」回到设置态。
+  if (kind && (run || result || receipt)) {
+    return (
+      <>
+        <PanelHead title={info.name} back={{ label: C.back, onPress: onBack }} />
+        <div className={`${body} bc-scroll`}>
+          {run ? (
+            <DirectRunView run={run} />
+          ) : result ? (
+            <DirectResultView runKey={key} result={result} model={result.summary.modelId} />
+          ) : receipt ? (
+            <DirectReceiptView runKey={key} receipt={receipt} />
+          ) : null}
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <PanelHead title={info.name} back={{ label: C.back, onPress: onBack }} />
       <div className={`${body} bc-scroll`}>
+        {problem ? (
+          <div className={problemBox}>
+            <DirectProblem runKey={key} problem={problem} />
+          </div>
+        ) : null}
         <div className={card}>
           <span className={cardTitle}>{info.name}</span>
           {(info.setup ?? [info.desc]).map((line) => (
@@ -181,9 +274,15 @@ export function AiAgentToolPage({
         ) : null}
 
         <div className={rows}>
-          <AgentUseRow handoff={handoff} />
+          <AgentUseRow
+            handoff={handoff}
+            tool={tool}
+            runner={runner}
+            onRunner={(next) => setRunner(tool, next)}
+            modelName={model.name}
+          />
 
-          {hasScope(tool) ? (
+          {(viaModel ? directHasScope(viaModel) : hasScope(tool)) ? (
             <Row label={C.scope}>
               <Picker
                 aria-label={C.scope}
@@ -207,9 +306,9 @@ export function AiAgentToolPage({
             </Row>
           ) : null}
 
-          <SessionRow handoff={handoff} />
+          {viaModel ? null : <SessionRow handoff={handoff} />}
 
-          {tool === 'chapters' ? <Option label={C.prePolish} sub={pre ? C.prePolishOn : C.prePolishOff} isSelected={pre} onChange={setPre} /> : null}
+          {tool === 'chapters' && !viaModel ? <Option label={C.prePolish} sub={pre ? C.prePolishOn : C.prePolishOff} isSelected={pre} onChange={setPre} /> : null}
           {tool === 'cleanup' ? (
             <div className={options}>
               {CLEANUP_OPTIONS.map((o) => (
@@ -277,7 +376,16 @@ export function AiAgentToolPage({
           ) : null}
         </div>
 
-        <AiToolPrompt key={tool} videoId={videoId} tool={tool} template={template} handoff={handoff} isDisabled={staleEmpty} onDone={onBack} />
+        <AiToolPrompt
+          key={tool}
+          videoId={videoId}
+          tool={tool}
+          template={template}
+          handoff={handoff}
+          isDisabled={staleEmpty}
+          onDone={onBack}
+          direct={direct}
+        />
       </div>
     </>
   );

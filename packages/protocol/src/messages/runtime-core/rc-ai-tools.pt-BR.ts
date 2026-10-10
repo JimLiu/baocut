@@ -1,0 +1,25 @@
+import type { RcAiToolsMessages } from './rc-ai-tools.ts';
+
+export const ptBR: RcAiToolsMessages = {
+  label: "Ferramenta de IA (chamada direta ao modelo)",
+  description: "Envia um prompt com a transcrição, os capítulos e os anexos deste vídeo direto para um modelo de texto, sem agente nem conversa. Polimento e capítulos são gravados no vídeo como uma alteração que pode ser desfeita; as outras ferramentas devolvem texto para ler e copiar.",
+  stepPrepare: "Reunir contexto",
+  stepGenerate: "Chamar o modelo",
+  stepApply: "Gravar no vídeo",
+  paramsInvalid: (p) => `O parâmetro ${p.key} está ausente ou é inválido`,
+  videoNotOpen: "O vídeo não está aberto",
+  noStructuredOutput: (p) => `O modelo ${p.model} não oferece saída estruturada, então não pode polir a transcrição nem criar capítulos`,
+  noTranscript: "O vídeo não tem transcrição. Transcreva primeiro.",
+  multipleTranscripts: "O vídeo tem mais de uma transcrição. Use documentId para escolher uma.",
+  notSpeech: (p) => `O documento ${p.documentId} não é uma transcrição`,
+  nothingInRange: "Não há transcrição neste intervalo",
+  outputInvalid: "A resposta do modelo não veio no formato esperado. Tente de novo ou use outro modelo.",
+  polishMismatch: "As correções do modelo não batem com as palavras da transcrição, então nada foi gravado",
+  noChapters: "O modelo não devolveu capítulos utilizáveis",
+  sourceChanged: "A transcrição mudou enquanto o modelo trabalhava, então nada foi gravado. Tente de novo para usar a versão atual.",
+  videoClosed: "O vídeo foi fechado",
+  rejected: "A alteração foi recusada, então nada foi gravado no vídeo",
+  transactionPolish: "Polir transcrição",
+  transactionChapters: "Gerar capítulos",
+  notReady: "O Runtime ainda está iniciando. Tente de novo em instantes.",
+};
