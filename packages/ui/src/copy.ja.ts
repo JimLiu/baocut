@@ -250,7 +250,7 @@ export const ja: CopyMessages = {
   },
   home: {
     title: 'どんな動画を作りますか？',
-    templates: 'テンプレート',
+    templates: '動画作成テンプレート',
     quickStart: 'クイックスタート',
     blankVideo: '新しい空の動画',
     blankVideoTip: '文字起こしも待機もなく、すぐにエディタへ',

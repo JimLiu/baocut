@@ -250,7 +250,7 @@ export const ko: CopyMessages = {
   },
   home: {
     title: '어떤 영상을 만들까요?',
-    templates: '템플릿',
+    templates: '영상 제작 템플릿',
     quickStart: '빠른 시작',
     blankVideo: '새 빈 영상',
     blankVideoTip: '전사도 대기열도 없이 바로 편집기로',

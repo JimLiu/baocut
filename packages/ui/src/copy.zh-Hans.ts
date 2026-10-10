@@ -251,7 +251,7 @@ export const zhHans: CopyMessages = {
   },
   home: {
     title: '想做个什么视频？',
-    templates: '模板',
+    templates: '视频创作模板',
     quickStart: '快捷开始',
     blankVideo: '新建空白视频',
     blankVideoTip: '不转录、不排队，直接进编辑器',

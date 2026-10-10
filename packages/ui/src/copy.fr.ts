@@ -277,7 +277,7 @@ export const fr: CopyMessages = {
 
   home: {
     title: "Quelle vidéo voulez-vous créer ?",
-    templates: "Modèles",
+    templates: "Modèles de vidéo",
     quickStart: "Démarrage rapide",
     blankVideo: "Nouvelle vidéo vide",
     blankVideoTip: "Sans transcription ni file — directement dans l’éditeur",

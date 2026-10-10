@@ -193,9 +193,9 @@
   function HomeTemplateShelf({scene, onScene, onExample, shelf, downloaded}) {
     const [library, setLibrary] = useState(false);
     const use = k => { setLibrary(false); if (T.isExample(T.get(k))) onExample(k); else onScene(k); };
-    return <><section className="home-shelf" aria-label="模板">
+    return <><section className="home-shelf" aria-label="视频创作模板">
       <div className="home-shelf__hd">
-        <h2 className="home-shelf__title">模板</h2>
+        <h2 className="home-shelf__title">视频创作模板</h2>
         <span className="spacer" />
         <R.ActionButton isQuiet size="S" onPress={() => setLibrary(true)}><Ic n="grid" className="ic--16" /><R.Text>全部模板</R.Text></R.ActionButton>
       </div>

@@ -295,7 +295,7 @@ export const ru: CopyMessages = {
   /** Home 起始页（产品设计 §3.2.1；原型 page-new.jsx Home、new-agent.jsx）。 */
   home: {
     title: "Какое видео вы хотите создать?",
-    templates: "Шаблоны",
+    templates: "Шаблоны видео",
     quickStart: "Быстрый старт",
     blankVideo: "Новое пустое видео",
     blankVideoTip: "Без расшифровки и очереди — сразу в редактор",

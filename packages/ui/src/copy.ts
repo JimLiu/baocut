@@ -309,7 +309,7 @@ const en = {
   /** Home 起始页（产品设计 §3.2.1；原型 page-new.jsx Home、new-agent.jsx）。 */
   home: {
     title: 'What video do you want to make?',
-    templates: 'Templates',
+    templates: 'Video templates',
     quickStart: 'Quick start',
     blankVideo: 'New blank video',
     blankVideoTip: 'No transcription, no queue — straight to the editor',

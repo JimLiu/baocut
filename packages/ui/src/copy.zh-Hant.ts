@@ -242,7 +242,7 @@ export const zhHant: CopyMessages = {
   },
   home: {
     title: '想做什麼樣的影片？',
-    templates: '範本',
+    templates: '影片創作範本',
     quickStart: '快速開始',
     blankVideo: '新增空白影片',
     blankVideoTip: '不轉錄、不排隊，直接進入編輯器',
