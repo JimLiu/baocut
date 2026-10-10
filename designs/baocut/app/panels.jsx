@@ -239,7 +239,7 @@
        换语言不改档、勾「同时显示原文」不改语言。 */
     const [transCode, setTransCode] = useState(null);
     const [edit, setEdit] = useState(null);
-    const [pop, setPop] = useState(null);        // 'ai' | 'lang'
+    const [pop, setPop] = useState(null);        // 'lang'
     const [drag, setDrag] = useState(null);      // {id, from} 拖动中的段
     const [over, setOver] = useState(-1);        // 当前悬停的落点章节
     const [chMenu, setChMenu] = useState(null);  // 打开菜单的章节 id
@@ -408,39 +408,8 @@
             onClick={() => (find.open ? find.close() : find.setOpen(true))} />
           {/* 复制钮一点就按记住的组合复制全文，旁边的下拉是复制设置（transcript-copy.jsx） */}
           <TranscriptCopy ctx={ctx} paras={paras} lang={lang} langLabel={curShort} transCode={trLang && trLang.code} />
-          {AI && <S.MenuTrigger align="end" isOpen={pop === 'ai'} onOpenChange={(open) => setPop(open ? 'ai' : null)}>
-            <S.ActionButton size="S" isQuiet aria-label="整理文稿"><S.Icons.MagicWand /></S.ActionButton>
-            <S.Menu aria-label="整理文稿">
-              <S.MenuSection><S.Header>整理全文</S.Header>
-                <S.MenuItem textValue="重新转录" onAction={() => { setPop(null); ctx.requestAi('retranscribe', null); }}>
-                  <S.Icons.Redo /><S.Text slot="label">重新转录</S.Text><S.Text slot="description">换一个模型识别全文</S.Text>
-                </S.MenuItem>
-                <S.MenuItem textValue="润色并重新分段" onAction={() => { setPop(null); ctx.requestAi('polish', null); }}>
-                  <S.Icons.MagicWand /><S.Text slot="label">润色并重新分段</S.Text><S.Text slot="description">逐段对照修改，可还原</S.Text>
-                </S.MenuItem>
-                <S.MenuItem textValue="生成章节" onAction={() => { setPop(null); ctx.requestAi('chapters', null); }}>
-                  <S.Icons.ListBulleted /><S.Text slot="label">生成章节</S.Text><S.Text slot="description">需先完成文稿润色</S.Text>
-                </S.MenuItem>
-                <S.MenuItem textValue="识别说话人" onAction={() => { setPop(null); ctx.requestAi('speakers', null); }}>
-                  <S.Icons.Microphone /><S.Text slot="label">识别说话人</S.Text><S.Text slot="description">区分声音，确认后应用</S.Text>
-                </S.MenuItem>
-              </S.MenuSection>
-              <S.MenuSection><S.Header>从文稿出发</S.Header>
-                {[['shortscut', '剪成短视频', '挑几段，各做成一支竖屏短视频'], ['summary', '写总结', '正文加带时间的要点'], ['blog', '写博客', '改写成一篇文章'],
-                  ['title', '起标题', '几个角度不同的候选'], ['desc', '写简介', '带章节时间码和标签'], ['cover', '做封面', '从关键帧出发做几张候选']]
-                  .filter(([k]) => !(k === 'shortscut' && window.BC_SHORTS.isShorts(ctx.proj))).map(([k, label, sub]) =>
-                  <S.MenuItem key={k} textValue={label} onAction={() => { setPop(null); ctx.requestAi(k, null); }}>
-                    <S.Text slot="label">{label}</S.Text><S.Text slot="description">{sub}</S.Text>
-                  </S.MenuItem>)}
-              </S.MenuSection>
-              <S.MenuSection aria-label="会话">
-                <S.MenuItem textValue="交给 Agent" onAction={() => { setPop(null); if (app.harness) app.openAgent({project: ctx.proj.id}); else app.go({r: 'settings', sec: 'agent'}); }}>
-                  <Ic n="agent" /><S.Text slot="label">交给 Agent…</S.Text>
-                  <S.Text slot="description">{app.harness ? '用一句话描述需要做的事' : '先连接 Agent'}</S.Text>
-                </S.MenuItem>
-              </S.MenuSection>
-            </S.Menu>
-          </S.MenuTrigger>}
+          {/* 2026-10-09：这里原来有一只 ✦ 菜单（整理全文 / 从文稿出发 / 交给 Agent）。AI 工具有了自己的 Tab（rail 第三格，
+              product-design §5.10），同一份工具列表只留一处；按章 / 按段的入口仍在下面的 ScopeMenu 里，带着范围去那个 Tab。 */}
         </div>
         <FindBar find={find} placeholder="在文稿里查找" hint={lockHint} />
         <div className="tsctop">

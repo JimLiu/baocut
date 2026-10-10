@@ -1,7 +1,8 @@
 /* AI 工具 · 写作与发布 —— §15.11（AI 工具重设计 §8，2026-09-28）。
    写作（给读的人）：写总结、写博客；发布（给发视频的人）：起标题、写简介（本文件）、做封面（panel-aitools-cover.jsx）。
    五个工具都不改文稿，所以**不落任务收据、没有撤销**（§15.1）；选用标题 / 封面是文件写入，取消选用就是反向操作。
-   设置态沿用 ToolSetup 的「用 / 范围」两行，下面加篇幅、风格、语言、视角等行；交给 Agent 时这些折进意图句（BC_WRITING.intentExtra）。
+   设置态沿用 ToolSetup 的「用 / 范围」两行（交给 Agent 时多一行「会话」）；篇幅、风格、语言、视角 2026-10-09 起不再是下拉——
+   都写在提示词模板里（BC_AIPROMPT.template），用户直接改那段话；候选数与发到哪仍是行。
    交给 Agent 后留在这一页：Agent 跑的是同一条 `bcut ai …`，结果落进项目，这一页读出来（原型里按计时器演示）。
    已选用的标题、封面候选库放在模块级 store（按项目），写简介、做封面、工具列表读同一份。纯逻辑在 model-writing.js。 */
 (function () {
@@ -9,7 +10,9 @@
   const W = window.BC_WRITING;
   const L = window.BC_LANGUAGES;
   const D = window.BC_DATA;
+  const AG = window.BC_AGENT;
   const {TOOLS, STEP, sendToAgent, RunCta, Job} = window.BC_AIFLOWS;
+  const P = window.BC_AIPROMPT;
 
   /* ---------- 按项目的共享演示状态 ---------- */
   const store = {data: {}, subs: new Set()};
@@ -117,27 +120,8 @@
     const note = W.platformNote(platform);
     return note ? <div className="wrmeta"><span className="t-detail-xs">{note}</span></div> : null;
   }
-  function LengthRow({s}) {
-    return <Row label="篇幅"><Segmented size="s" items={W.LENGTHS} value={s.length} onChange={s.setLength} /></Row>;
-  }
-  function StyleRow({s}) {
-    return <Row label="风格"><StylePick value={s.style} custom={s.custom} onChange={s.setStyle} onCustom={s.setCustom} /></Row>;
-  }
-  function LangRow({s}) {
-    return <Row label="语言"><LangPick value={s.lang} onChange={s.setLang} why={s.langWhy} /></Row>;
-  }
-  function ViewRow({s}) {
-    return (
-      <>
-        <Row label="视角"><Segmented size="s" items={W.VIEWS} value={s.view} onChange={s.setView} /></Row>
-        {s.rv.auto
-          ? <div className="wrsetup__why">按{W.VIEW_NAME[s.rv.view]}写：{s.rv.reason}</div>
-          : null}
-      </>
-    );
-  }
+  /* 2026-10-09：篇幅 / 风格 / 语言 / 视角四行撤了——都写在提示词模板里（BC_AIPROMPT.standing）；LangPick / StylePick 仍导出给别处用。 */
 
-  /* ---------- 页头 / 已选用的标题 ---------- */
   function Head({t, onBack, busy}) {
     return (
       <div className="flowh">
@@ -166,10 +150,10 @@
     const timer = useRef(null);
     useEffect(() => () => clearInterval(timer.current), []);
     /** runner：useToolRunner 的返回；intent：给 Agent 的意图；done：出结果 */
-    const run = (runner, intent, done) => {
+    const run = (runner, intent, done, opts) => {
       let sid = null;
       if (runner.agent) {
-        const sess = sendToAgent(app, ctx, runner.cur, intent);
+        const sess = sendToAgent(app, ctx, runner.cur, intent, null, opts);
         sid = sess ? sess.id : null;
       }
       setBusy({agent: runner.agent, label: runner.cur ? runner.cur.label : '', sid,
@@ -277,11 +261,22 @@
     const [phase, setPhase] = useState(out ? 'done' : 'setup');
     const g = useGen(ctx);
     const picked = W.pickedTitle(st.titles);
-    const start = (refine) => {
-      const extra = s.extra({picked: id === 'desc' ? picked : null, note: [s.note, refine].filter(Boolean).join('；')});
-      if (tsc && tsc.k !== 'all') extra.unshift(`只看${tsc.label.replace(/^第 \d+ 章 · /, '')}`);
+    const [prompt, setPrompt] = useState(null);
+    const [session, setSession] = useState(null);
+    /* 模板：意图句（范围、发到哪、已选用的标题折在里面）+ Markdown / 语言 / 篇幅等固定约束 */
+    const extra = W.intentExtra(id, {platform: s.platform, picked: id === 'desc' ? picked : null});
+    if (tsc && tsc.k !== 'all') extra.unshift(`只看${tsc.label.replace(/^第 \d+ 章 · /, '')}`);
+    const defaultText = P.template(id, AG.intentPrompt({kind: id, extra}, ctx.proj), {lang: nameOf(s.lang)});
+    const context = P.contextPack(id, {paras: tsc && tsc.k !== 'all' ? tsc.count : STEP[id].count, scope: tsc && tsc.k !== 'all' ? tsc.label : null,
+      chapters: (ctx.chapters || []).length, words: 6200});
+    const opts = (pl) => pl ? {sid: session && session.k === 'current' ? session.sid : null, attachments: pl.attachments,
+      harness: pl.harness, model: pl.model, effort: pl.effort, mode: pl.mode} : null;
+    /** pl：提示词框的 payload（首次）；refine：结果页「再改一句」的话，接在上次那段话后面 */
+    const start = (pl, refine) => {
+      const base = pl ? pl.text : (prompt != null ? prompt : defaultText);
+      const text = refine ? `${base}\n${refine}` : base;
       setPhase('done');
-      g.run(runner, {kind: id, extra}, () => fill(refine));
+      g.run(runner, {text}, () => fill(refine), opts(pl));
     };
     /* 成稿写进这部视频的写作记录；Agent 在会话里写完的也落在同一处（landed）。 */
     const fill = (refine) => {
@@ -295,19 +290,16 @@
     const setup = (
       <>
         {id === 'desc' ? <PickedLine pid={pid} onOpenTool={onOpenTool} /> : null}
-        <div className="aicard"><b>{t.name}</b><span>{t.desc}</span></div>
+        <div className="aicard"><b>{t.name}</b><span>{t.desc}</span><span className="ail__effect"><Ic n="info" className="ic--14" />{P.EFFECT[id]}</span></div>
         <div className="wrsetup">
           <window.ToolSetup plan={{step: STEP[id]}} runner={runner} scope={tsc} onScope={setTsc} chapters={ctx.chapters}>
-            <LengthRow s={s} />
-            <StyleRow s={s} />
-            {id !== 'summary' ? <ViewRow s={s} /> : null}
-            <LangRow s={s} />
             {id === 'desc' ? <PlatformRow s={s} /> : null}
+            {runner.agent ? <window.ToolSessionRow ctx={ctx} value={session && session.k} onChange={setSession} /> : null}
           </window.ToolSetup>
         </div>
-        <SecHead>还有什么要求（可选）</SecHead>
-        <Field area placeholder="比如开头先讲结论、提一下嘉宾的名字" value={s.note} onChange={(e) => s.setNote(e.target.value)} />
-        <RunCta runner={runner} label={id === 'desc' ? '写简介' : id === 'blog' ? '写博客' : '写总结'} onStart={() => start()} hintApi={API_HINT} />
+        <window.ToolPrompt ctx={ctx} tool={id} runner={runner} value={prompt} onChange={setPrompt} defaultText={defaultText}
+          session={session || {k: 'new'}} context={context} readonly onStart={(pl) => start(pl)}
+          label={id === 'desc' ? '写简介' : id === 'blog' ? '写博客' : '写总结'} />
       </>
     );
     const seek = (sec) => ctx.seek(sec);
@@ -355,7 +347,7 @@
                     : id === 'blog'
                       ? [{label: '复制 Markdown', text: out.text, what: ' Markdown'}]
                       : [{label: '复制全文', text: out.body + '\n\n' + out.points.map((p) => `${W.mmss(p.t)} ${p.text}`).join('\n'), what: '全文'}]}
-                  onRefine={(q) => start(q)} onAgain={() => start()} onSetup={() => setPhase('setup')} />
+                  onRefine={(q) => start(null, q)} onAgain={() => start(null)} onSetup={() => setPhase('setup')} />
               </>
             ) : null}
           </>
@@ -414,13 +406,22 @@
     const [more, setMore] = useState(false);
     const g = useGen(ctx);
     const cur = W.current(st.titles);
-    const gen = (kind, like) => {
-      const extra = s.extra({note: s.note});
-      if (tsc && tsc.k !== 'all') extra.unshift(`只看${tsc.label.replace(/^第 \d+ 章 · /, '')}`);
-      if (kind === 'more') extra.push('在已有候选之外再来一批，角度不与已有的重复');
-      if (kind === 'like') extra.push(`照「${W.findCand(st.titles, like).title}」这个方向再来几个`);
+    const [prompt, setPrompt] = useState(null);
+    const [session, setSession] = useState(null);
+    const extra = W.intentExtra('title', {platform: s.platform});
+    if (tsc && tsc.k !== 'all') extra.unshift(`只看${tsc.label.replace(/^第 \d+ 章 · /, '')}`);
+    const defaultText = P.template('title', AG.intentPrompt({kind: 'title', count: s.count, extra}, ctx.proj), {lang: nameOf(s.lang)});
+    const context = P.contextPack('title', {paras: tsc && tsc.k !== 'all' ? tsc.count : STEP.title.count, scope: tsc && tsc.k !== 'all' ? tsc.label : null,
+      chapters: (ctx.chapters || []).length, words: 6200});
+    /** kind：first（提示词框的 payload 在 pl 里）/ more / like——后两种接在上次那段话后面 */
+    const gen = (kind, like, pl) => {
+      const base = pl ? pl.text : (prompt != null ? prompt : defaultText);
+      const tail = kind === 'more' ? '在已有候选之外再来一批，角度不与已有的重复。'
+        : kind === 'like' ? `照「${W.findCand(st.titles, like).title}」这个方向再来几个。` : '';
+      const o = pl ? {sid: session && session.k === 'current' ? session.sid : null, attachments: pl.attachments,
+        harness: pl.harness, model: pl.model, effort: pl.effort, mode: pl.mode} : null;
       setPhase('done');
-      g.run(runner, {kind: 'title', count: s.count, extra}, () => fill(kind, like));
+      g.run(runner, {text: tail ? `${base}\n${tail}` : base}, () => fill(kind, like), o);
     };
     const fill = (kind, like) => {
       const platform = s.platform;
@@ -437,7 +438,7 @@
         <Head t={t} onBack={onBack} busy={!!g.busy} />
         {phase === 'setup' ? (
           <>
-            <div className="aicard"><b>{t.name}</b><span>{t.desc}</span></div>
+            <div className="aicard"><b>{t.name}</b><span>{t.desc}</span><span className="ail__effect"><Ic n="info" className="ic--14" />{P.EFFECT.title}</span></div>
             <div className="wrsetup">
               <window.ToolSetup plan={{step}} runner={runner} scope={tsc} onScope={setTsc} chapters={ctx.chapters}>
                 <Row label="候选数">
@@ -445,14 +446,12 @@
                     disabledDec={s.count <= W.TITLE_COUNT.min} disabledInc={s.count >= W.TITLE_COUNT.max} decTip="少一个" incTip="多一个" />
                   <span className="wrsetup__note">{`${W.TITLE_COUNT.min}–${W.TITLE_COUNT.max} 个，角度各不相同`}</span>
                 </Row>
-                <StyleRow s={s} />
-                <LangRow s={s} />
                 <PlatformRow s={s} />
+                {runner.agent ? <window.ToolSessionRow ctx={ctx} value={session && session.k} onChange={setSession} /> : null}
               </window.ToolSetup>
             </div>
-            <SecHead>一句要求（可选）</SecHead>
-            <Field placeholder="比如别用问句、把嘉宾的名字放进去" value={s.note} onChange={(e) => s.setNote(e.target.value)} />
-            <RunCta runner={runner} label="起标题" onStart={() => gen('first')} hintApi={API_HINT} />
+            <window.ToolPrompt ctx={ctx} tool="title" runner={runner} value={prompt} onChange={setPrompt} defaultText={defaultText}
+              session={session || {k: 'new'}} context={context} readonly onStart={(pl) => gen('first', null, pl)} label="起标题" />
           </>
         ) : (
           <>
@@ -506,5 +505,5 @@
   }
 
   Object.assign(window, {BC_WRITEFLOWS: {WriteFlow, useWriting, setWriting: setS, getWriting: getS, listStatus, LangPick, StylePick, Row,
-    StyleRow, useWrSettings, PickedLine, nameOf, langCtx}});
+    useWrSettings, PickedLine, nameOf, langCtx}});
 })();

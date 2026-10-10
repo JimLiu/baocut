@@ -552,7 +552,7 @@
       const movieId = route.r === 'editor' ? route.id : route.movie;
       let sess = o.sid ? sessionsRef.current.find((x) => x.id === o.sid) : null;
       if (!sess) sess = newSession({project: o.project || movieId || null, dir: o.dir, prompt: o.send ? '' : o.prompt, harness: o.harness, model: o.model, effort: o.effort, mode: o.mode});
-      else if (o.prompt) patchSession(sess.id, {draft: o.prompt});
+      else if (o.prompt && !o.send) patchSession(sess.id, {draft: o.prompt});
       land(sess);
       if (o.send && (o.prompt || o.attachments?.length)) setTimeout(() => sendAgent(sess.id, o.prompt, sess, o.attachments), 0);
       return sess;

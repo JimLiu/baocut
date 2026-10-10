@@ -845,6 +845,9 @@
     {k: 'transcript', icon: 'transcript', label: '文稿'},
     // 第 152 轮：翻译并入字幕 Tab（双语对照跟着轨条选中的译文轨走），rail 收成 10 项
     {k: 'subtitle',   icon: 'captions',   label: '字幕'},
+    /* 2026-10-09：AI 工具回到 rail 第三格（product-design §5.10）。v3 曾决定不设独立 Tab、只从对话斜杠命令与
+       面板按钮进工具页——实际用下来不好找；现在它有自己的列表页，Web 表面仍不落（model-surface.js）。 */
+    {k: 'aitools',    icon: 'sparkle',    label: 'AI 工具'},
     {k: 'elements',   icon: 'elements',   label: '元素'},
     {k: 'text',       icon: 'text',       label: '文字'},
     {k: 'image',      icon: 'image',      label: '图片'},

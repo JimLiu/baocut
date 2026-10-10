@@ -120,10 +120,15 @@
 
   /** 工具页选了 Agent 之后按下主按钮：设置态就是确认，**直接发送**到这个项目的会话，
       抽屉打开、工具页回到列表。范围与勾选项折进 intent.extra。 */
-  function sendToAgent(app, ctx, runner, intent, onBack) {
-    const sess = app.openAgent({project: ctx.proj.id, send: true, harness: runner.harness, model: runner.model,
+  /** 交给 Agent（§5.10）。缺省新开一条会话、这部视频作为上下文；`opts` 来自工具页的提示词框：
+      `sid` 接着现有会话，`attachments` 随话发出，`harness / model / effort / mode` 是底栏两枚选择器定的（只对新会话生效）。 */
+  function sendToAgent(app, ctx, runner, intent, onBack, opts) {
+    const o = opts || {};
+    const sess = app.openAgent({project: ctx.proj.id, send: true, sid: o.sid || null,
+      harness: o.harness || runner.harness, model: o.model || runner.model, effort: o.effort, mode: o.mode,
+      attachments: o.attachments && o.attachments.length ? o.attachments : undefined,
       prompt: window.BC_AGENT.intentPrompt(intent, ctx.proj)});
-    app.toast(`已交给 ${runner.label} · 在会话里进行`);
+    app.toast(`已交给 ${runner.label} · ${o.sid ? '接着当前会话' : '新会话'}`);
     // 第 196 轮：不传 onBack 的页（找可剪的口）留在原地画进度卡，会话 id 交给调用方
     if (onBack) onBack();
     return sess;

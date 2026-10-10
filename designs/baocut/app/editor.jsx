@@ -27,23 +27,19 @@
 
     /* ---- 编辑器自己的状态：不进全局 store（只有这一屏用） ---- */
     /* 音频转视频的本地项目落在 Elements（声波已选中，§9 a2v 行）；其余本地 / URL 项目落在文稿 */
-    /* 落点过一遍表面（Web 没有工具页，退回文稿；model-surface.js） */
+    /* 落点过一遍表面（Web 没有 AI 工具 Tab，退回文稿；model-surface.js） */
     const [localTab, setLocalTab] = useState(() => window.BC_SURFACE.landingTab(app.crop.sessions[projectId]?.open || app.shortsCut.sessions[projectId]?.open ? 'aitools' : initiallyEmpty ? 'video'
       : localMedia ? (localMedia.audio && proj.entry === 'a2v' ? 'elements' : 'transcript')
       : proj.origin === 'url' ? 'transcript' : setup.tab));
     const routeTab = D.rail.some(item => item.k === app.route.tab) ? window.BC_SURFACE.landingTab(app.route.tab) : null;
     const tab = routeTab || localTab;
-    /* 工具页不在 rail 上（product-design §5.10）：它盖在发起它的那个 Tab 上，返回时回到那里。 */
-    const tabRef = useRef(tab);
-    tabRef.current = tab;
-    const aiFrom = useRef('transcript');
+    /* AI 工具是 rail 第三格（product-design §5.10，2026-10-09）：从别的面板下单只是切到它并打开那页，
+       工具页的「返回」回它自己的列表，不再记发起它的 Tab。 */
     const setTab = useCallback(next => {
       const value = window.BC_SURFACE.landingTab(next);
-      if (value === 'aitools' && tabRef.current !== 'aitools') aiFrom.current = tabRef.current;
       setLocalTab(value);
       app.replace({...app.route, tab:value});
     }, [app.route, app.replace]);
-    const closeAi = useCallback(() => setTab(aiFrom.current || 'transcript'), [setTab]);
     useEffect(() => {
       if (app.route.tab !== tab) app.replace({...app.route, tab});
     }, [app.route, tab, app.replace]);
@@ -1244,7 +1240,7 @@
       ...els,
       ...tpl,
       elements: tpl.withTemplateRow(els.elements, els.elDocs),
-      aiReq, requestAi, openCrop, cropInstance, openVideoReplace, replaceWithOutput, applyReplacePlan, clearAiReq: () => setAiReq(null), closeAi,
+      aiReq, requestAi, openCrop, cropInstance, openVideoReplace, replaceWithOutput, applyReplacePlan, clearAiReq: () => setAiReq(null),
       clearOpening: () => setOpening(null),
     };
     /* ⌘A 读这一份（元素投影在 ctx 里才算齐）；键盘层与剪贴板见 editor-keys.jsx。 */
@@ -1330,7 +1326,7 @@
           else { setTab(key); setPaneHidden(false); }
         }} UNSAFE_className="editor-tools bc-scroll">
         {window.BC_SURFACE.rail(D.rail).map(r => <S.TooltipTrigger key={r.k}>
-          <S.ToggleButton id={r.k} aria-label={r.label} UNSAFE_className="editor-tools__button">{r.k === 'transcript' ? <S.Icons.Transcript /> : <Ic n={r.icon} />}</S.ToggleButton>
+          <S.ToggleButton id={r.k} aria-label={r.label} UNSAFE_className="editor-tools__button">{r.k === 'transcript' ? <S.Icons.Transcript /> : r.k === 'aitools' ? <S.Icons.MagicWand /> : <Ic n={r.icon} />}</S.ToggleButton>
           <S.Tooltip placement="left">{r.label}</S.Tooltip>
         </S.TooltipTrigger>)}
       </S.ToggleButtonGroup>

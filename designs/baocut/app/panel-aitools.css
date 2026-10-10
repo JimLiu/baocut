@@ -1,0 +1,23 @@
+/* AI 工具 Tab —— product-design §5.10（2026-10-09）。panel-aitools-list.jsx（列表页）与 tool-prompt.jsx（提示词框）。
+   颜色一律 token；布局类都带 ail__ / aitp__ 前缀。 */
+
+/* ---------- 列表页 ---------- */
+.ail__row.is-off { opacity: 0.55; }
+.ail__chev { flex: none; color: var(--gray-500); }
+.ail__empty { margin-bottom: 4px; }
+.ail__empty .chiprow { margin-top: 4px; }
+.ail__later { margin-top: 14px; }
+
+/* 工具页首那张卡里的「会不会改视频」一行 */
+.ail__effect { display: flex; align-items: center; gap: 5px; margin-top: 2px; color: var(--gray-600); }
+.ail__effect .ic--14 { flex: none; color: var(--gray-500); }
+
+/* ---------- 提示词框 ---------- */
+.aitp { margin-top: 12px; }
+.aitp__hd { display: flex; align-items: center; gap: 8px; min-height: 24px; padding: 0 2px 4px; color: var(--gray-600); }
+.aitp__hd .tsetup__lnk { flex: none; }
+.aitp__box { border-radius: 10px; }
+.aitp__box textarea { min-height: 96px; }
+.aitp__ctx { display: flex; align-items: flex-start; gap: 6px; margin-top: 8px; padding: 0 2px; font-size: 11px; line-height: 1.6; color: var(--gray-600); }
+.aitp__ctx .ic--14 { flex: none; margin-top: 2px; color: var(--gray-500); }
+.ail__st { flex: none; white-space: nowrap; }

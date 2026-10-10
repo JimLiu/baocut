@@ -43,7 +43,7 @@
     },
   };
 
-  /* Web 不落的 Tab。`aitools` 是工具页的宿主（不在 rail 上，product-design §5.10），Web 没有 AI 入口，落到它时退回文稿。 */
+  /* Web 不落的 Tab。`aitools` 是 rail 第三格（product-design §5.10），Web 没有 AI 入口，不列它，落到它时退回文稿。 */
   const WEB_RAIL_DROP = ['aitools'];
 
   const resolveId = (raw) => (raw === 'web' ? 'web' : 'app');

@@ -11,6 +11,7 @@
   const AG = window.BC_AGENT;
   const IM = window.BC_CLOUD_IMAGE;
   const {TOOLS, STEP, sendToAgent} = window.BC_AIFLOWS;
+  const P = window.BC_AIPROMPT;
   const WF = window.BC_WRITEFLOWS;
   const {CoverArt, FrameArt} = window.BC_COVERART;
 
@@ -132,7 +133,6 @@
     const t = TOOLS.cover;
     const pid = ctx.proj.id;
     const [st, set] = WF.useWriting(pid);
-    const s = WF.useWrSettings('cover', ctx);
     const picked = W.pickedTitle(st.titles);
     const [idea, setIdea] = useState(picked || '');
     useEffect(() => { if (picked && !idea) setIdea(picked); }, [picked]);
@@ -176,13 +176,19 @@
       set((c) => ({covers: coverPlan().reduce((lib, x) => W.addCover(lib, x), c.covers)}));
       setPhase('gallery');
     }, [landed]);
-    const start = () => {
+    /* 提示词模板（§5.10）：意图句里折着要说的一件事、画幅、封面字、路线、钉住的帧；风格不再是下拉，直接改这段话 */
+    const [prompt, setPrompt] = useState(null);
+    const [session, setSession] = useState(null);
+    const extra = W.intentExtra('cover', {idea: idea.trim() || null, ratio: realRatio, textMode, routes,
+      pins: W.pinned(frames).map((f) => f.t), picked});
+    if (tsc && tsc.k !== 'all') extra.unshift(`关键帧只从${tsc.label.replace(/^第 \d+ 章 · /, '')}里挑`);
+    if (view.view === 'viewer') extra.push('这是别人的视频：只用真实画面，不重绘其中的人');
+    const defaultText = P.template('cover', AG.intentPrompt({kind: 'cover', count, extra}, ctx.proj), {});
+    const start = (pl) => {
       const plan = coverPlan();
-      const extra = W.intentExtra('cover', {style: s.style, custom: s.custom, idea: idea.trim() || null, ratio: realRatio, textMode, routes,
-        pins: W.pinned(frames).map((f) => f.t), picked, note: s.note});
-      if (tsc && tsc.k !== 'all') extra.unshift(`关键帧只从${tsc.label.replace(/^第 \d+ 章 · /, '')}里挑`);
-      if (view.view === 'viewer') extra.push('这是别人的视频：只用真实画面，不重绘其中的人');
-      const sess = sendToAgent(app, ctx, runner.cur, {kind: 'cover', count, extra});
+      const o = {sid: session && session.k === 'current' ? session.sid : null, attachments: pl.attachments,
+        harness: pl.harness, model: pl.model, effort: pl.effort, mode: pl.mode};
+      const sess = sendToAgent(app, ctx, runner.cur, {text: pl.text}, null, o);
       startRun(pid, plan, sess ? sess.id : null);
       setPhase('gallery');
     };
@@ -201,10 +207,8 @@
     const cta = (() => {
       if (runner.agent) {
         return (
-          <>
-            <div className="flowcta"><Btn variant="accent" style={{width: '100%'}} onClick={start}>交给 Agent</Btn></div>
-            <div className="hint">会在左侧会话里做：挑帧、定想法、做底图、合成、登记。候选一张一张出现在这一页。</div>
-          </>
+          <window.ToolPrompt ctx={ctx} tool="cover" runner={runner} value={prompt} onChange={setPrompt} defaultText={defaultText}
+            session={session || {k: 'new'}} readonly onStart={start} label="做封面" />
         );
       }
       if (app.harness && agentItem) {
@@ -229,7 +233,7 @@
     const setup = (
       <>
         <WF.PickedLine pid={pid} onOpenTool={onOpenTool} />
-        <div className="aicard"><b>{t.name}</b><span>{t.desc}</span></div>
+        <div className="aicard"><b>{t.name}</b><span>{t.desc}</span><span className="ail__effect"><Ic n="info" className="ic--14" />{P.EFFECT.cover}</span></div>
         <SecHead>要说的一件事</SecHead>
         <Field placeholder="这支视频最想让人点开的那一点；可空，空着就让 Agent 从文稿里找" value={idea} onChange={(e) => setIdea(e.target.value)} />
         <div className="wrsetup">
@@ -252,7 +256,7 @@
               </Picker>
               <span className="wrsetup__note">字由代码排，跟文稿的语言</span>
             </WF.Row>
-            <WF.StyleRow s={s} />
+            {runner.agent ? <window.ToolSessionRow ctx={ctx} value={session && session.k} onChange={setSession} /> : null}
           </window.ToolSetup>
         </div>
         <SecHead aside="一次出的几张尽量走不同的路线">可以用的路线</SecHead>
@@ -275,8 +279,6 @@
         <SecHead aside="进页面就在本机挑好，不用模型">关键帧</SecHead>
         <FrameStrip frames={frames} sel={sel} onSel={setSel} onAddNow={addNow} onUse={takeFrame}
           onPin={(tt) => set(() => ({frames: W.togglePin(frames, tt)}))} />
-        <SecHead>还有什么要求（可选）</SecHead>
-        <Field area placeholder="比如别用红色、人物放右边" value={s.note} onChange={(e) => s.setNote(e.target.value)} />
         {cta}
       </>
     );

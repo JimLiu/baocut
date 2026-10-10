@@ -1,5 +1,7 @@
-/* 工具页 —— product-design §5.10。没有目录页、也不在 rail 上：每个工具从对话的斜杠命令、所在面板的按钮进来。
-   每个工具页设置态第一行「用」决定一切，缺省交给 Agent：主按钮「交给 Agent」，按下直接发送到这部视频的会话；
+/* AI 工具 Tab —— product-design §5.10（2026-10-09 起是 rail 第三格）。列表页在 panel-aitools-list.jsx；
+   从对话的斜杠命令、别的面板的按钮进来时直接打开那一页，「返回」回列表。
+   每个工具页设置态第一行「用」决定一切，缺省交给 Agent：主按钮「交给 Agent」，按下新开一条会话、把这部视频作为上下文
+   （「会话」行可改成接着当前会话）；要对 Agent 说的话预填成模板，与会话输入框同一个控件（tool-prompt.jsx）；
    改选模型 → 三态 + 收据（设置 → 后台进度 → 完成即应用 + 收据，撤销 / 再跑一次 / 完成，没有应用前确认，
    唯一例外是识别说话人）。前置条件（章节要先润色）是勾选项，不是闸门，按钮永不置灰。
    共享层与两条独立 flow 在 panel-aitools-flows.jsx；写作与发布五个工具不落收据、没有撤销，
@@ -10,6 +12,7 @@
   const AG = window.BC_AGENT;
   const CUT = window.BC_CUT;
   const AICUT = window.BC_AICUT;
+  const P = window.BC_AIPROMPT;
   const {TOOLS, UNDO_BODY, STEP, useAiTask, fakeRun, handToAgent, sendToAgent, RunCta, Job, ScopeBar,
     SpeakerFlow, TranslateFlow} = window.BC_AIFLOWS;
 
@@ -42,9 +45,10 @@
        错字、标点一起看，逐条复核和撤销才在同一处；独立一遍等于让人把同一篇文稿读两次。 */
     const gl = window.useGlossary(ctx.proj.id, {kind: 'asr', from: D.srcLang.code});
     const [useTerms, setUseTerms] = useState(true);
-    /* 2026-09-20：润色也能写一句自定义指令（原来只有写作工具有，见 panel-aitools-write.jsx）。
-       同一段文字两条路都收得到——直接跑模型进 `--instructions`，交给 Agent 进意图句。 */
-    const [note, setNote] = useState('');
+    /* 2026-10-09：「自定义指令」并进提示词框——框里就是会发出去的那段话（模板 + 用户改动）。
+       null = 没改过，一直显示最新模板；两条路都收这段话：直接调模型进 `--instructions`，交给 Agent 就是那条消息。 */
+    const [prompt, setPrompt] = useState(null);
+    const [session, setSession] = useState(null);
     /* 重新转录的识别提示：选哪几张转录术语表 + 自定义提示词，能不能用由语音模型说了算 */
     const [asrHint, setAsrHint] = useState({packs: null, prompt: ''});
     const termRows = id === 'polish' && useTerms ? gl.review() : [];
@@ -97,7 +101,20 @@
     /* 第 196 轮：进度计时器**不随页面卸载清掉**——任务是后台的（顶栏胶囊、文稿剪辑条、后台任务页都在读
        同一条记录），切走工具页不能让它停在半路。回来时接上记录读进度（下面的接管效果），不再起第二个计时器。 */
 
-    const start = () => {
+    /* 模板：意图句（范围、勾选项折在里面）+ 几行固定约束，预填进提示词框 */
+    const intentBase = {kind: id, scope: eff ? eff.label : null, edited: si.edited, cut: si.cut, extra: [
+      id === 'chapters' && pre ? '先润色并分段，再生成章节' : null,
+      asr ? `用 ${model.name}` : null,
+      sp && sp.step ? '转写后识别说话人' : null,
+      ...(id === 'cleanup' ? AICUT.cleanupExtra(opts) : []),
+    ]};
+    const defaultText = P.template(id, AG.intentPrompt(intentBase, ctx.proj), {lang: D.srcLang.name});
+    const context = P.contextPack(id, {paras: eff ? eff.count : STEP[id].count, scope: eff ? eff.label : null,
+      chapters: (ctx.chapters || []).length, stale: si.count});
+
+    const start = (raw) => {
+      // 收据上的「再跑一次」直接传点击事件进来：没有提示词框的 payload 就用当前模板
+      const payload = raw && typeof raw.text === 'string' ? raw : null;
       if (sp && sp.missing && !runner.agent) {
         app.downloadModel(RUNS.DIARIZE_PACK);
         setWaitPack(true);
@@ -105,21 +122,18 @@
         return;
       }
       setRan(si);
-      const intent = {kind: id, scope: eff ? eff.label : null, edited: si.edited, cut: si.cut, extra: [
-        id === 'chapters' && pre ? '先润色并分段，再生成章节' : null,
-        asr ? `用 ${model.name}` : null,
-        sp && sp.step ? '转写后识别说话人' : null,
-        ...(id === 'cleanup' ? AICUT.cleanupExtra(opts) : []),
-        id === 'polish' ? note : null,
-      ]};
       if (runner.agent) {
-        // 剪口播两页留在原地画进度（§15.3）；其余页仍回列表，进度在顶栏胶囊与后台任务页
+        /* 发出去的就是框里那段话（payload.text）；会话、附件、家 · 模型、访问模式都来自提示词框 */
+        const intent = {text: payload ? payload.text : defaultText};
+        const o = payload ? {sid: session && session.k === 'current' ? session.sid : null, attachments: payload.attachments,
+          harness: payload.harness, model: payload.model, effort: payload.effort, mode: payload.mode} : null;
+        // 剪口播两页留在原地画进度（§15.3）；其余页回列表，进度在顶栏胶囊与后台任务页
         if (id === 'cleanup' || id === 'stale') {
-          const sess = sendToAgent(app, ctx, runner.cur, intent);
+          const sess = sendToAgent(app, ctx, runner.cur, intent, null, o);
           setSid(sess.id); setPhase('agent');
           return;
         }
-        return sendToAgent(app, ctx, runner.cur, intent, onBack);
+        return sendToAgent(app, ctx, runner.cur, intent, onBack, o);
       }
       setPhase('run');
       const tid = ai.begin({
@@ -190,6 +204,7 @@
             <div className="aicard">
               <b>{t.name}</b>
               {t.setup.map((l, i) => <span key={i}>{l}</span>)}
+              <span className="ail__effect"><Ic n="info" className="ic--14" />{P.EFFECT[id]}</span>
             </div>
             {asr ? (
               <>
@@ -197,6 +212,7 @@
                 <window.ToolSetup plan={{step: STEP[id]}} runner={runner} scope={tscope} onScope={pickScope} chapters={ctx.chapters}>
                   {/* 识别提示能不能用由这只语音模型说了算（§15.10 能力门）：选表 + 自定义提示词 */}
                   <window.AsrHintBlock model={model} lang={D.srcLang.code} value={asrHint} onChange={setAsrHint} />
+                  {runner.agent ? <window.ToolSessionRow ctx={ctx} value={session && session.k} onChange={setSession} /> : null}
                 </window.ToolSetup>
                 <SecHead>语音模型</SecHead>
                 <div className="sec">
@@ -257,22 +273,21 @@
                 ) : null}
                 {id === 'cleanup' ? <AICUT.CleanupOptions opts={opts} onChange={setOpts} /> : null}
                 {id === 'stale' ? <AICUT.StaleOptions pick={stalePick} onChange={setStalePick} edited={3} impact={staleIm} /> : null}
+                {runner.agent ? <window.ToolSessionRow ctx={ctx} value={session && session.k} onChange={setSession} /> : null}
               </window.ToolSetup>
             )}
-            {/* 润色的自定义指令：摆在勾选之后、CTA 之前，与写作工具同序 */}
-            {id === 'polish' ? (
-              <>
-                <SecHead>自定义指令（可选）</SecHead>
-                <Field area placeholder="补充要求，比如保留口语感、不要改品牌名…" value={note}
-                  onChange={(e) => setNote(e.target.value)} />
-              </>
-            ) : null}
             {/* 找可剪的口：两条路各自的引导——选谁来做之前先看清会发生什么（§15.3） */}
             {id === 'cleanup' ? <AICUT.CleanupGuide agent={runner.agent} runnerLabel={runner.cur && runner.cur.label} /> : null}
-            <RunCta runner={runner} label={id === 'stale' ? `刷新 ${si.count} 句` : sp && sp.missing ? (waitPack ? '正在下载模型…' : '下载模型并开始') : '开始'} onStart={start}
-              hintApi={id === 'cleanup'
-                ? '本机找停顿、模型找口癖与重复；建议写进文稿与时间轴，接受前不影响播放和导出。'
-                : '默认设置就能开始；完成后自动应用，随时可一键撤销。'} />
+            {/* 提示词框（§5.10）：交给 Agent 时是会发出的那条消息；直接调模型时是指令，下面一行写清随它发出的上下文。
+                重新转录直接跑的是本机语音模型，没有提示词，仍是一枚「开始」。 */}
+            {asr && !runner.agent ? (
+              <RunCta runner={runner} label={sp && sp.missing ? (waitPack ? '正在下载模型…' : '下载模型并开始') : '开始'} onStart={() => start(null)}
+                hintApi="默认设置就能开始；完成后自动应用，随时可一键撤销。" />
+            ) : (
+              <window.ToolPrompt ctx={ctx} tool={id} runner={runner} value={prompt} onChange={setPrompt} defaultText={defaultText}
+                session={session || {k: 'new'}} context={context} onStart={start}
+                label={id === 'stale' ? `刷新 ${si.count} 句` : id === 'cleanup' ? '找可剪的口' : '开始'} />
+            )}
           </>
         ) : null}
 
@@ -449,12 +464,10 @@
       setScope(sc);
       setLanded(!!agent);
     }, [ctx.aiReq]);
-    const idle = !open && !ctx.aiReq && !cropOpen && !shortsOpen;
-    useEffect(() => { if (idle) ctx.closeAi(); }, [idle]);
-
     if (cropOpen) return <window.CropPanel ctx={ctx} onBack={back} />;
     if (shortsOpen) return <window.ShortsCutPanel ctx={ctx} onBack={back} />;
-    if (!open) return null;
+    // 没打开哪一页就是列表（panel-aitools-list.jsx）；工具页的「返回」回这里
+    if (!open) return <window.AiToolsList ctx={ctx} onOpen={(k) => { setOpen(k); setScope(null); setLanded(false); }} />;
     const t = TOOLS[open];
     const clearScope = () => setScope(null);
     if (t.kind === 'spk') return <div className="pview"><SpeakerFlow scope={scope} clearScope={clearScope} onBack={back} ctx={ctx} /></div>;

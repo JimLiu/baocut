@@ -108,6 +108,7 @@
       "app/model-vendors.js",
       "app/model-usage.js",
       "app/model-writing.js",
+      "app/model-ai-prompt.js",
       "app/model-tts.js",
       "app/model-voices.js",
       "app/model-crop.js",
@@ -174,6 +175,7 @@
       "app/shell.jsx",
       "app/agent-picker.jsx",
       "app/tool-setup.jsx",
+      "app/tool-prompt.jsx",
       "app/page-projects.jsx",
       "app/project-info.jsx",
       "app/legacy-import.jsx",
@@ -304,6 +306,7 @@
       "app/panel-aitools-cover-art.jsx",
       "app/panel-aitools-write.jsx",
       "app/panel-aitools-cover.jsx",
+      "app/panel-aitools-list.jsx",
       "app/panel-aitools.jsx",
       "app/panel-elements-tile.jsx",
       "app/panel-elements-sections.jsx",
@@ -397,6 +400,7 @@
       "app/tools.css",
       "app/image-gen.css",
       "app/panel-aitools-write.css",
+      "app/panel-aitools.css",
       "vendor/react-spectrum-s2/react-spectrum-s2.css",
       "vendor/react-spectrum-s2/react-spectrum-s2-font.css",
       "app/home-workspace.css",
@@ -414,9 +418,9 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/app.js?v=7620e8a27f8a",
-    "css": "generated/app.css?v=bae5fedcdd7d",
-    "bytes": 3824614
+    "js": "generated/app.js?v=555ca2edfd97",
+    "css": "generated/app.css?v=08282d398282",
+    "bytes": 3835811
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -653,9 +657,9 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/web.js?v=d2ed59fe0c51",
+    "js": "generated/web.js?v=ce42dde969af",
     "css": "generated/web.css?v=0fea30af06b5",
-    "bytes": 2370616
+    "bytes": 2367263
   },
   "components": {
     "file": "Components.html",
