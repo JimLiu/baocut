@@ -9,10 +9,11 @@ import { TemplateCover, TemplateKindBadge } from './template-cover.tsx';
 import { TemplateLibrary } from './template-library.tsx';
 
 const section = style({ marginTop: 32 });
-const head = style({ display: 'flex', alignItems: 'center', gap: 8, minHeight: 24, marginBottom: '[6px]' });
-const heading = style({ margin: 0, flexGrow: 1, font: 'ui', fontWeight: 'bold', color: 'gray-900' });
+// 标题行与网格也给起始页的「快捷开始」那一节用（home-starters.tsx），两节的标题与卡片列对齐。
+export const shelfHead = style({ display: 'flex', alignItems: 'center', gap: 8, minHeight: 24, marginBottom: '[6px]' });
+export const shelfHeading = style({ margin: 0, flexGrow: 1, font: 'ui', fontWeight: 'bold', color: 'gray-900' });
 // 卡片自带 6px 内边距：网格向两侧各探出 6px，封面的边才和输入框对齐。
-const grid = style({
+export const shelfGrid = style({
   display: 'grid',
   gridTemplateColumns: { default: '[repeat(4, minmax(0, 1fr))]', isNarrow: '[repeat(2, minmax(0, 1fr))]' },
   rowGap: 12,
@@ -139,8 +140,8 @@ export function HomeTemplateShelf({
   const cards = templateShelf(catalog, shelf);
   return (
     <section className={section} aria-labelledby="home-shelf-title">
-      <div className={head}>
-        <h2 id="home-shelf-title" className={heading}>
+      <div className={shelfHead}>
+        <h2 id="home-shelf-title" className={shelfHeading}>
           {HOME_COPY.templates}
         </h2>
         <ActionButton isQuiet size="S" onPress={() => setLibrary(true)}>
@@ -149,7 +150,7 @@ export function HomeTemplateShelf({
         </ActionButton>
       </div>
       {cards.length ? (
-        <div className={grid({ isNarrow: narrow })} role="list">
+        <div className={shelfGrid({ isNarrow: narrow })} role="list">
           {cards.map((t) => (
             <div key={t.id} role="listitem">
               <ShelfCard template={t} picked={scene === t.id} onScene={onScene} onExample={onExample} />

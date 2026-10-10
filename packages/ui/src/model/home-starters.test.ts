@@ -18,6 +18,11 @@ describe('homeStarters', () => {
     ]);
   });
 
+  it('卡片按色系区分，四张不撞色', () => {
+    const tones = homeStarters().map((s) => s.tone);
+    expect(new Set(tones).size).toBe(tones.length);
+  });
+
   it('每条都有一句完整的提示词；提示里说要拖进来的是视频还是音频，也可以贴链接', () => {
     for (const s of homeStarters()) expect(s.prompt).toMatch(/。$/);
     expect(starterOf('sub').tip).toBe('填入提示词，再把视频拖进输入框，或贴上视频链接');

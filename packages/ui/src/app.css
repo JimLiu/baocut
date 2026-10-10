@@ -412,6 +412,133 @@ svg[role='img'][viewBox='0 0 20 20']:not(
 }
 
 /*
+ * 起始页「快捷开始」卡片（components/start/home-starters.tsx；原型 new-project.css .home-quick）：
+ * 色系由深到浅的底，正中一块小屏，屏里按这件事画几笔。颜色变量（--bc-quick-*）由组件给（style 宏里的 S2 token），这里只有几何。
+ */
+.bc-quick-card {
+  transition:
+    background-color 150ms cubic-bezier(0.45, 0, 0.4, 1),
+    transform 150ms cubic-bezier(0.45, 0, 0.4, 1);
+}
+.bc-quick-card:active {
+  transform: scale(0.96);
+}
+.bc-quick-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 10;
+  border-radius: 8px;
+  background: linear-gradient(180deg, var(--bc-quick-300), var(--bc-quick-200));
+}
+.bc-quick-screen {
+  display: flex;
+  box-sizing: border-box;
+  width: 58%;
+  aspect-ratio: 16 / 10;
+  padding: 8px;
+  gap: 4px;
+  border: 1px solid var(--bc-quick-400);
+  border-radius: 8px;
+  background: var(--bc-quick-screen);
+  transition: transform 150ms cubic-bezier(0.45, 0, 0.4, 1);
+}
+.bc-quick-card:hover .bc-quick-screen {
+  transform: scale(1.04);
+}
+.bc-quick-screen i {
+  display: block;
+  flex: none;
+  border-radius: 4px;
+  background: var(--bc-quick-1000);
+}
+/* 加字幕：上面是画面，下面两行字幕 */
+.bc-quick-screen[data-kind='sub'] {
+  flex-direction: column;
+  align-items: center;
+}
+.bc-quick-screen[data-kind='sub']::before {
+  content: '';
+  flex: 1;
+  align-self: stretch;
+  border-radius: 4px;
+  background: var(--bc-quick-200);
+}
+.bc-quick-screen[data-kind='sub'] i {
+  width: 72%;
+  height: 4px;
+}
+.bc-quick-screen[data-kind='sub'] i:nth-child(2) {
+  width: 48%;
+  background: var(--bc-quick-400);
+}
+/* 转录并翻译：原文（灰）与译文（色）一行对一行 */
+.bc-quick-screen[data-kind='trans'] {
+  flex-direction: column;
+  justify-content: center;
+}
+.bc-quick-screen[data-kind='trans'] i {
+  height: 4px;
+}
+.bc-quick-screen[data-kind='trans'] i:nth-child(odd) {
+  background: var(--bc-quick-mute);
+}
+.bc-quick-screen[data-kind='trans'] i:nth-child(1) {
+  width: 84%;
+}
+.bc-quick-screen[data-kind='trans'] i:nth-child(2) {
+  width: 64%;
+}
+.bc-quick-screen[data-kind='trans'] i:nth-child(3) {
+  width: 72%;
+  margin-top: 4px;
+}
+.bc-quick-screen[data-kind='trans'] i:nth-child(4) {
+  width: 52%;
+}
+/* 剪口播：一段波形，中间要剪掉的几拍是灰的；音频转视频：一张封面圆片配一段波形 */
+.bc-quick-screen[data-kind='clean'],
+.bc-quick-screen[data-kind='a2v'] {
+  align-items: center;
+  justify-content: center;
+}
+.bc-quick-screen[data-kind='clean'] i,
+.bc-quick-screen[data-kind='a2v'] i {
+  width: 4px;
+  height: 40%;
+}
+.bc-quick-screen[data-kind='clean'] i:nth-child(2),
+.bc-quick-screen[data-kind='a2v'] i:nth-child(3) {
+  height: 70%;
+}
+.bc-quick-screen[data-kind='clean'] i:nth-child(3),
+.bc-quick-screen[data-kind='a2v'] i:nth-child(5) {
+  height: 55%;
+}
+.bc-quick-screen[data-kind='clean'] i:nth-child(5),
+.bc-quick-screen[data-kind='a2v'] i:nth-child(6) {
+  height: 85%;
+}
+.bc-quick-screen[data-kind='clean'] i:nth-child(7) {
+  height: 60%;
+}
+.bc-quick-screen[data-kind='clean'] i:nth-child(8) {
+  height: 75%;
+}
+.bc-quick-screen[data-kind='clean'] i:nth-child(n + 4):nth-child(-n + 6) {
+  background: var(--bc-quick-mute);
+}
+.bc-quick-screen[data-kind='a2v'] i:first-child {
+  width: 20px;
+  height: 20px;
+  margin-inline-end: 4px;
+  border-radius: 9999px;
+}
+.bc-quick-screen[data-kind='a2v'] i:nth-child(n + 2) {
+  background: var(--bc-quick-400);
+}
+
+/*
  * 「全部模板」弹窗的两栏（components/start/template-library.tsx；原型 home-templates.css .home-tpl）：
  * 左边找，右边看；两栏各自滚动，弹窗高度不随翻页与换模板跳动。窄窗口叠成上下，整块一起滚。
  * 分隔线的颜色变量由组件给（style 宏里的 S2 token）。

@@ -390,7 +390,7 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
         />
         <SlotHint labels={gate === null || gate.ok ? slots : []} onNext={() => setSlotTick((n) => n + 1)} />
         {guide ? <GateCard guide={guide} /> : null}
-        <HomeStarters target={lastTarget} onPick={applyStarter} onBlank={createBlank} />
+        <HomeStarters target={lastTarget} narrow={narrow} onPick={applyStarter} onBlank={createBlank} />
         <HomeTemplateShelf
           catalog={catalog.templates}
           scene={brief.template}
