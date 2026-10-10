@@ -67,9 +67,9 @@ describe('发给模型的那一行', () => {
   it('文稿、章节、附件、skill 按次序写；润色不带章节', () => {
     const c = { paragraphs: 12, scope: null, chapters: 3, attachments: 2, skills: ['Summary', 'House style'] };
     expect(contextLine(contextItems({ tool: 'summary', ...c }))).toBe(
-      'Sent to the model: prompt + transcript 12 paragraphs · chapters 3 · attachments 2 · Skill Summary and House style',
+      'Sent to the model: prompt + transcript 12 paragraphs · chapters 3 · attachments 2 · Skill Summary, House style',
     );
-    expect(contextItems({ tool: 'polish', ...c })).toEqual(['transcript 12 paragraphs', 'attachments 2', 'Skill Summary and House style']);
+    expect(contextItems({ tool: 'polish', ...c })).toEqual(['transcript 12 paragraphs', 'attachments 2', 'Skill Summary, House style']);
   });
 
   it('选了某一章时写章名；单数；中文', () => {
@@ -80,6 +80,16 @@ describe('发给模型的那一行', () => {
     expect(contextLine(contextItems({ tool: 'summary', paragraphs: 5, scope: null, chapters: 2, attachments: 0, skills: [] }))).toBe(
       '发给模型的：提示词 + 文稿 5 段 · 章节 2 章',
     );
+  });
+
+  it('skill 名字按各语言自己的列举写法：中文日文用「、」，不写成句子里的「和」', () => {
+    const c = { tool: 'summary' as const, paragraphs: 0, scope: null, chapters: 0, attachments: 0, skills: ['总结', '我的风格', '三点'] };
+    use('zh-Hans');
+    expect(contextItems(c)).toEqual(['Skill 总结、我的风格、三点']);
+    use('ja');
+    expect(contextItems(c)).toEqual(['Skill 总结、我的风格、三点']);
+    use('de');
+    expect(contextItems(c)).toEqual(['Skill 总结, 我的风格, 三点']);
   });
 });
 

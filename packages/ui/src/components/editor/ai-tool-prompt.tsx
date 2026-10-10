@@ -7,7 +7,7 @@ import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro'
 import { AGENT_PICKER, SKILL_COPY } from '../../copy.ts';
 import { applyAgentChange, draftSelection, harnessLabel, type AgentChange, type AgentChoice } from '../../model/agent-choice.ts';
 import { appendSkillId } from '../../model/agent-skills.ts';
-import { handoffHint, sessionOptions, TOOL_SKILL, type AgentToolId, type AiToolId, type SessionOption } from '../../model/ai-tools.ts';
+import { handoffHint, sessionOptions, TOOL_SKILL, toolDraftKey, type AgentToolId, type AiToolId, type SessionOption } from '../../model/ai-tools.ts';
 import { currentConversation, messageCount } from '../../model/ai-tools-handoff.ts';
 import { gateGuide, homeGate, type GateGuide } from '../../model/home-brief.ts';
 import { targetKey } from '../../model/workspace.ts';
@@ -25,6 +25,7 @@ import { S } from '../shell-copy.ts';
 import { useSkillsLoader } from '../use-skills.ts';
 import { AgentGateLine } from './agent-gate-line.tsx';
 import { contextItems, contextLine, directBlocked, directCta, directHint, type DirectContext } from './ai-tool-direct.ts';
+import { restoreAiToolPrompt, setAiToolPrompt, useAiToolPrompts } from './ai-tool-run.ts';
 import { AI_TOOLS_COPY as C } from './ai-tools-copy.ts';
 import { handToAgent } from './ai-tools-handoff.ts';
 
@@ -237,14 +238,15 @@ export function AiToolPrompt({
   direct?: DirectPrompt | null;
 }) {
   const runtime = useRuntime();
-  const draftKey = `aitool:${videoId}:${tool}`;
-  const [value, setValue] = useState<string | null>(null);
+  const draftKey = toolDraftKey(videoId, tool);
+  // 改过的提示词不放组件状态：运行态、结果与收据页会换掉这个框，回列表也会，「完成」或回来时还要在（ai-tool-run.ts）。
+  const edited = useAiToolPrompts((s) => s.prompts[draftKey]);
   const builtin = TOOL_SKILL[tool] ?? null;
   const [skillIds, setSkillIds] = useState<string[]>(() => (builtin ? [builtin] : []));
   const catalog = useSkillsLoader();
   const nameOf = (id: string) => catalog.skills.find((s) => s.id === id)?.name ?? id;
   const session = handoff.session;
-  const text = value ?? template;
+  const text = edited ?? template;
 
   const tokens = skillIds.length ? (
     <div className={composerTokenList}>
@@ -295,8 +297,8 @@ export function AiToolPrompt({
     <div className={box}>
       <div className={boxHead}>
         <span className={boxTitle}>{direct ? C.modelPromptLabel : C.promptLabel}</span>
-        {value !== null ? (
-          <ActionButton isQuiet size="XS" onPress={() => setValue(null)}>
+        {edited !== undefined ? (
+          <ActionButton isQuiet size="XS" onPress={() => restoreAiToolPrompt(draftKey)}>
             {C.restoreDefault}
           </ActionButton>
         ) : null}
@@ -319,7 +321,7 @@ export function AiToolPrompt({
           direct
             ? {
                 text,
-                onText: (next) => setValue(next === template ? null : next),
+                onText: (next) => setAiToolPrompt(draftKey, next, template),
                 tokens,
                 onSkill: (id) => setSkillIds((ids) => appendSkillId(ids, id)),
                 notice: (
@@ -348,7 +350,7 @@ export function AiToolPrompt({
               }
             : {
                 text,
-                onText: (next) => setValue(next === template ? null : next),
+                onText: (next) => setAiToolPrompt(draftKey, next, template),
                 tokens,
                 onSkill: (id) => setSkillIds((ids) => appendSkillId(ids, id)),
                 notice: noSkill,

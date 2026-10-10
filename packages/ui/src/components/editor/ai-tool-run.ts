@@ -75,6 +75,23 @@ const EMPTY: AiToolRunState = { runs: {}, results: {}, receipts: {}, problems: {
 
 export const useAiToolRun = create<AiToolRunState>()(() => ({ ...EMPTY }));
 
+/**
+ * 工具页提示词框里改过的字，键是 `toolDraftKey`（视频 · 工具）。跑着、出了结果或收据时这一页换成那一态，提示词框卸掉；
+ * 回列表也一样。字放在这里，「完成」、切换「用」或回列表再进来都还在。没有这一项就是没改过（框跟着模板走）；
+ * 改成空也算改过，不弹回模板。
+ */
+export const useAiToolPrompts = create<{ prompts: Record<string, string> }>()(() => ({ prompts: {} }));
+
+/** 框里的字变了：与模板一字不差就是没改过（删掉这一项）。 */
+export function setAiToolPrompt(key: string, text: string, template: string): void {
+  useAiToolPrompts.setState((s) => ({ prompts: text === template ? without(s.prompts, key) : { ...s.prompts, [key]: text } }));
+}
+
+/** 「恢复默认」：回到模板。 */
+export function restoreAiToolPrompt(key: string): void {
+  useAiToolPrompts.setState((s) => ({ prompts: without(s.prompts, key) }));
+}
+
 /** 用到的会话能力；测试给假的。 */
 export interface AiToolRunDeps {
   runtime: {
@@ -101,6 +118,7 @@ export function resetAiToolRun(): void {
   unwatch = null;
   deps = null;
   useAiToolRun.setState({ ...EMPTY });
+  useAiToolPrompts.setState({ prompts: {} });
 }
 
 const without = <T>(record: Record<string, T>, key: string): Record<string, T> => {

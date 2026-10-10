@@ -1,14 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RpcError, type AiToolSummary, type JobRecord, type TransactionReceipt, type UndoTarget } from '@baocut/protocol';
+import { toolDraftKey } from '../../model/ai-tools.ts';
 import { useJobs } from '../../state/jobs-store.ts';
 import {
   bindAiToolRun,
   closeAiToolResult,
   resetAiToolRun,
+  restoreAiToolPrompt,
   retryAiTool,
+  setAiToolPrompt,
   runKey,
   startAiTool,
   undoAiTool,
+  useAiToolPrompts,
   useAiToolRun,
   type AiToolRunDeps,
 } from './ai-tool-run.ts';
@@ -143,5 +147,36 @@ describe('直接调模型的运行', () => {
     expect(useAiToolRun.getState().runs[key]).toBeUndefined();
     expect(useAiToolRun.getState().problems[key]).toBeUndefined();
     expect(toasts).toHaveLength(1);
+  });
+});
+
+describe('提示词框里改过的字', () => {
+  const draftKey = toolDraftKey('vid', 'summary');
+  const template = 'Summarize this video.';
+  const edited = () => useAiToolPrompts.getState().prompts[draftKey];
+
+  it('跑完、结果页「完成」之后还在；改回模板与「恢复默认」才回到模板', async () => {
+    fake();
+    setAiToolPrompt(draftKey, 'Summarize in three bullets.', template);
+    const key = runKey('vid', 'summary');
+    await startAiTool({ videoId: 'vid', tool: 'summary', prompt: 'Summarize in three bullets.' }, 'gpt-5-mini');
+    useJobs.setState({ jobs: [job('p1', 'completed', textSummary)] });
+    expect(useAiToolRun.getState().results[key]).toBeDefined();
+    closeAiToolResult(key);
+    expect(edited()).toBe('Summarize in three bullets.');
+
+    setAiToolPrompt(draftKey, template, template);
+    expect(edited()).toBeUndefined();
+    setAiToolPrompt(draftKey, '', template);
+    expect(edited()).toBe('');
+    restoreAiToolPrompt(draftKey);
+    expect(edited()).toBeUndefined();
+  });
+
+  it('按「视频 · 工具」分开存', () => {
+    setAiToolPrompt(draftKey, 'A', template);
+    setAiToolPrompt(toolDraftKey('vid', 'blog'), 'B', template);
+    setAiToolPrompt(toolDraftKey('other', 'summary'), 'C', template);
+    expect(useAiToolPrompts.getState().prompts).toEqual({ [draftKey]: 'A', 'aitool:vid:blog': 'B', 'aitool:other:summary': 'C' });
   });
 });

@@ -1,5 +1,6 @@
-import { AI_TOOL_APPLY_KINDS, AI_TOOL_KINDS, intlLocale, type AiToolKind, type AiToolParams, type Id } from '@baocut/protocol';
+import { AI_TOOL_APPLY_KINDS, AI_TOOL_KINDS, type AiToolKind, type AiToolParams, type Id } from '@baocut/protocol';
 import type { AgentToolId } from '../../model/ai-tools.ts';
+import { S } from '../shell-copy.ts';
 import { AI_TOOLS_COPY as C } from './ai-tools-copy.ts';
 
 /**
@@ -82,7 +83,8 @@ export function contextItems(c: DirectContext): string[] {
   if (c.paragraphs > 0) items.push(C.contextTranscript(c.paragraphs, c.scope));
   if (c.tool !== 'polish' && c.paragraphs > 0 && c.chapters > 0) items.push(C.contextChapters(c.chapters));
   if (c.attachments > 0) items.push(C.contextAttachments(c.attachments));
-  if (c.skills.length) items.push(C.contextSkills(new Intl.ListFormat(intlLocale(), { style: 'long', type: 'conjunction' }).format(c.skills)));
+  // 并列的名字按产品自己的列举写法（中文「A、B」），不是句子里的「和」。
+  if (c.skills.length) items.push(C.contextSkills(S.list(c.skills)));
   return items;
 }
 

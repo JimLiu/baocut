@@ -593,6 +593,9 @@ export function toolTemplate(tool: AgentToolId, intent: string, opts: { language
   return [intent.trim(), ...standingLines(tool, opts)].filter(Boolean).join('\n');
 }
 
+/** 工具页提示词框的草稿键：附件、图片与改过的提示词都挂在它下面。 */
+export const toolDraftKey = (videoId: string, tool: AiToolId): string => `aitool:${videoId}:${tool}`;
+
 /** 「会话」一行的一个选项。 */
 export interface SessionOption {
   key: 'new' | 'current';
