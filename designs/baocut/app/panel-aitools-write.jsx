@@ -263,8 +263,11 @@
     const picked = W.pickedTitle(st.titles);
     const [prompt, setPrompt] = useState(null);
     const [session, setSession] = useState(null);
-    /* 模板：意图句（范围、发到哪、已选用的标题折在里面）+ Markdown / 语言 / 篇幅等固定约束 */
-    const extra = W.intentExtra(id, {platform: s.platform, picked: id === 'desc' ? picked : null});
+    /* 写博客：关键帧插图默认不加；画面只有智能体取得到，直接调模型时这一项置灰、也不进模板 */
+    const [frames, setFrames] = useState(false);
+    const framesOn = id === 'blog' && frames && !!runner.agent;
+    /* 模板：意图句（范围、发到哪、已选用的标题、插图折在里面）+ Markdown / 语言 / 篇幅等固定约束 */
+    const extra = W.intentExtra(id, {platform: s.platform, picked: id === 'desc' ? picked : null, frames: framesOn});
     if (tsc && tsc.k !== 'all') extra.unshift(`只看${tsc.label.replace(/^第 \d+ 章 · /, '')}`);
     const defaultText = P.template(id, AG.intentPrompt({kind: id, extra}, ctx.proj), {lang: nameOf(s.lang)});
     const context = P.contextPack(id, {paras: tsc && tsc.k !== 'all' ? tsc.count : STEP[id].count, scope: tsc && tsc.k !== 'all' ? tsc.label : null,
@@ -293,6 +296,8 @@
         <div className="wrsetup">
           <window.ToolSetup plan={{step: STEP[id]}} runner={runner} scope={tsc} onScope={setTsc} chapters={ctx.chapters}>
             {id === 'desc' ? <PlatformRow s={s} /> : null}
+            {id === 'blog' ? <window.ToolOption on={framesOn} onChange={setFrames} disabled={!runner.agent} label="添加关键帧插图"
+              sub={runner.agent ? '从视频里取画面，插在需要配图的地方；默认不加' : '直接调模型拿不到画面，交给智能体才能加'} /> : null}
             {runner.agent ? <window.ToolSessionRow ctx={ctx} value={session && session.k} onChange={setSession} /> : null}
           </window.ToolSetup>
         </div>

@@ -250,6 +250,11 @@ test('交给 Agent 的附加要求：只写用户定下的，视角写出推断�
   assert.ok(W.intentExtra('title', {style: 'plain', platform: '某视频站'}).includes(where));
   assert.ok(W.intentExtra('desc', {style: 'plain', platform: '某视频站'}).includes(where));
   assert.ok(!W.intentExtra('blog', {style: 'plain', platform: '某视频站'}).includes(where));
+  const pic = '需要配图的地方从视频里取关键帧插进正文，每张配一句图注';
+  assert.ok(W.intentExtra('blog', {style: 'plain', frames: true}).includes(pic));
+  assert.ok(!W.intentExtra('blog', {style: 'plain'}).includes(pic));
+  assert.ok(!W.intentExtra('blog', {style: 'plain', frames: false}).includes(pic));
+  assert.ok(!W.intentExtra('summary', {style: 'plain', frames: true}).includes(pic));
   assert.match(W.platformNote(' 某视频站 '), /^要发到 某视频站：/);
   assert.strictEqual(W.platformNote('  '), null);
   const kept = W.addBatch(W.emptyTitles(), {cands: [{title: 'A'}], platform: '某视频站'});

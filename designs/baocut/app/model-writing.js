@@ -303,6 +303,7 @@
       out.push(x.view.auto ? `视角：${VIEW_NAME[x.view.view]}（自动推断：${x.view.reason}）` : `视角：${VIEW_NAME[x.view.view]}`);
     }
     if ((tool === 'title' || tool === 'desc') && x.platform) out.push(`要发到：${x.platform}，按它的规定写，写完提醒我核对`);
+    if (tool === 'blog' && x.frames) out.push('需要配图的地方从视频里取关键帧插进正文，每张配一句图注');
     if ((tool === 'desc' || tool === 'cover') && x.picked) out.push(`已选用的标题：${x.picked}`);
     if (tool === 'cover') {
       if (x.idea) out.push(`封面要说的一件事：${x.idea}`);

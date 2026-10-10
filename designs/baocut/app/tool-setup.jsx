@@ -200,10 +200,10 @@
   }
 
   /** 设置态里的一行勾选项（第 111 轮）：前置条件不再是闸门，而是一件可以顺手一起做的事。 */
-  function ToolOption({on, onChange, label, sub}) {
+  function ToolOption({on, onChange, label, sub, disabled}) {
     return (
       <div className="tsetup__row tsetup__row--opt">
-        <Checkbox on={on} onChange={onChange} label={label} />
+        <Checkbox on={on} onChange={onChange} label={label} disabled={disabled} />
         {sub ? <span className="t-detail-xs tsetup__optsub">{sub}</span> : null}
       </div>
     );
