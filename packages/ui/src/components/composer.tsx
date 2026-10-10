@@ -624,7 +624,12 @@ export function Composer(props: ComposerProps) {
     (driver ? composerFoot(driver.name, localizeText(driver.account, driver.accountRef) ?? null, accessMode) : AGENT_PICKER.detecting);
   // 窄的时候省掉说明性的脚注（原型 compact），挡住发送的原因照样显示。
   // 起始页的设计稿没有脚注：只留上传失败与挡住发送的原因；Agent 都用不了时下面有指引卡，不再重复。
-  const showFoot = start ? !!uploadError || (!!blocked && start.ready) : !(compact && !blocked && !uploadError);
+  // 工具页的提示词框也没有脚注（原型 tool-prompt.jsx）：按键说明不适用（Enter 换行、没有 /），去向写在主按钮下面。
+  const showFoot = start
+    ? !!uploadError || (!!blocked && start.ready)
+    : tool
+      ? !!uploadError || !!blocked
+      : !(compact && !blocked && !uploadError);
   const showPickers = !start || start.ready;
   const accessPicker = <AccessPicker value={accessMode} compact={compact} onChange={changeAccessMode} />;
 
