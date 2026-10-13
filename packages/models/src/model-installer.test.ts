@@ -183,6 +183,40 @@ describe('ModelInstaller', () => {
     expect(await fs.stat(path.join(root, 'acme', 'vad')).catch(() => null)).not.toBeNull();
   });
 
+  it('旧 master 缓存按固定清单验证复用，只下载缺组件；规划不修改旧 manifest', async () => {
+    const { catalog, installer } = setup();
+    await run(installer, 'test-a@mlx');
+    const dir = catalog.repoDir(asrA.repo);
+    const manifestFile = path.join(dir, '.bcut-manifest.json');
+    const manifest = JSON.parse(await fs.readFile(manifestFile, 'utf8'));
+    manifest.revision = 'master'; await fs.writeFile(manifestFile, JSON.stringify(manifest));
+    await fs.rm(catalog.repoDir(vad.repo), { recursive: true });
+    const before = source.requests.length;
+    const detail = await installer.plan('test-a@mlx');
+    expect(detail.plan.downloadBytes).toBe(bytesOf(vad));
+    expect(JSON.parse(await fs.readFile(manifestFile, 'utf8')).revision).toBe('master');
+    await installer.install(detail, { signal: new AbortController().signal });
+    expect(source.requests.slice(before).filter((r) => r.method === 'GET').map((r) => r.repo)).toEqual([vad.repo, vad.repo]);
+    expect(await fs.readFile(path.join(dir, 'model.safetensors'))).toEqual(asrA.files['model.safetensors']);
+    expect(JSON.parse(await fs.readFile(manifestFile, 'utf8')).revision).toBe(asrA.revision);
+    expect((await catalog.verify('test-a@mlx')).ok).toBe(true);
+  });
+
+  it('旧 revision 中同大小的损坏权重不能复用，其他有效文件无需重下', async () => {
+    const { catalog, installer } = setup(); await run(installer, 'test-a@mlx');
+    const dir = catalog.repoDir(asrA.repo);
+    const file = path.join(dir, '.bcut-manifest.json');
+    const manifest = JSON.parse(await fs.readFile(file, 'utf8')); manifest.revision = 'master';
+    await fs.writeFile(file, JSON.stringify(manifest));
+    const bad = Buffer.from(asrA.files['model.safetensors']!); bad[0] = bad[0]! ^ 0xff;
+    await fs.writeFile(path.join(dir, 'model.safetensors'), bad);
+    const before = source.requests.length; const detail = await installer.plan('test-a@mlx');
+    expect(detail.plan.downloadBytes).toBe(bad.length);
+    await installer.install(detail, { signal: new AbortController().signal });
+    expect(source.requests.slice(before).filter((r) => r.method === 'GET').map((r) => r.file)).toEqual(['model.safetensors']);
+    expect((await catalog.verify('test-a@mlx')).ok).toBe(true);
+  });
+
   it('修复只重下坏的与缺的文件，好文件原样复用', async () => {
     const { catalog, installer } = setup();
     await run(installer, 'test-a@mlx');

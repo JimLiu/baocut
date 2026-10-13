@@ -456,7 +456,8 @@ export class ModelInstaller {
       const stat = await fs.stat(full).catch(() => null);
       let good = false;
       if (stat?.isFile() && (file.size === null || stat.size === file.size)) {
-        if (repair) good = (await sha256File(full)) === file.sha256;
+        // Old caches can pin a branch (master) while v3 pins a commit: verify bytes, never trust a renamed revision.
+        if (repair || (onDisk !== null && onDisk.revision !== source.revision)) good = (await sha256File(full)) === file.sha256;
         else {
           const entry = listed.get(file.path);
           good = entry !== undefined && entry.sha256 === file.sha256 && entry.size === stat.size;

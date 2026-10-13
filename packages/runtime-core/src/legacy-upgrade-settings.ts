@@ -3,6 +3,7 @@ import { localeOfTag } from '@baocut/protocol';
 import { settingValueSchemas } from '@baocut/protocol/schemas';
 import os from 'node:os';
 import path from 'node:path';
+import fs from 'node:fs/promises';
 import { MODELSCOPE_ENDPOINT } from '@baocut/models';
 import { SettingsStore } from '@baocut/runtime-storage';
 import { legacyPath, type LegacyObject, type LegacySource } from './legacy-upgrade-sources.ts';
@@ -14,11 +15,14 @@ export async function importLegacySettings(
   v1: LegacyObject = {},
   platform = process.platform,
   userHome = os.homedir(),
+  currentModelsDir?: string,
 ): Promise<string[]> {
   const { config: c, preferences: p } = source;
   const language = p.language ?? v1['vk-lang'];
   const patch: Partial<Record<SettingKey, unknown>> = {
-    'models.dir': legacyPath(c['models.dir'] ?? v1['vk-models-dir'], source.root, undefined, platform),
+    'models.dir': store.snapshot(['models.dir']).sources['models.dir'] === 'user' ? null :
+      (legacyPath(c['models.dir'] ?? v1['vk-models-dir'], source.root, undefined, platform)
+        ?? await legacyDefaultModelsDirectory(source.root, platform, currentModelsDir)),
     'downloads.directory': legacyDownloads(p['vk-url-savedir'] ?? c['download.dir'] ?? v1['vk-url-savedir'], source.root, platform, userHome),
     'ui.language': language === 'system' ? 'system' : localeOfTag(typeof language === 'string' ? language : undefined),
     'updates.autoDownload': p.appAutoUpdate,
@@ -40,6 +44,18 @@ export async function importLegacySettings(
   }
   await store.set(accepted);
   return Object.keys(accepted);
+}
+
+/** Adopt the old default only when it contains entries and the new default has no cache to displace. */
+export async function legacyDefaultModelsDirectory(root: string, platform: NodeJS.Platform, currentModelsDir?: string): Promise<string | null> {
+  const paths = platform === 'win32' ? path.win32 : path.posix;
+  const candidate = paths.join(root, 'models');
+  const populated = async (dir: string) => {
+    try { return (await fs.stat(dir)).isDirectory() && (await fs.readdir(dir)).length > 0; }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false; throw error; }
+  };
+  if (currentModelsDir && await populated(currentModelsDir)) return null;
+  return await populated(candidate) ? candidate : null;
 }
 
 /**

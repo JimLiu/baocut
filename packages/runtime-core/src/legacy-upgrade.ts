@@ -19,7 +19,7 @@ import {
 import { RcRuntime } from '@baocut/protocol/messages/runtime-core';
 import type { ModelServiceStore } from '@baocut/models';
 import { SettingsStore, readJson, writeJsonAtomic, type RuntimeHome } from '@baocut/runtime-storage';
-import { importLegacySettings } from './legacy-upgrade-settings.ts';
+import { importLegacySettings, legacyDefaultModelsDirectory } from './legacy-upgrade-settings.ts';
 import { importLegacyCloud } from './legacy-upgrade-cloud.ts';
 import { importLegacyServices, importLegacyNodes } from './legacy-upgrade-services.ts';
 import type { NodeStore } from '@baocut/nodes';
@@ -39,6 +39,7 @@ import {
 interface SourceState {
   absent?: true;
   settings?: true;
+  modelDirectoryChecked?: true;
   cloud?: true;
   services?: true;
   nodes?: true;
@@ -282,6 +283,32 @@ export class LegacyUpgrade {
     const loaded = await readJson<UpgradeState>(this.#file);
     if (loaded && (loaded.schemaVersion !== 1 || !loaded.sources)) throw new Error('Unsupported legacy upgrade marker');
     this.#state = loaded ?? this.#state;
+    // Early releases marked settings complete even when no settings file was written.
+    // Backfill only that case; an existing settings file may contain later user choices.
+    let modelDirectoryCheckpointChanged = false;
+    for (const root of roots) {
+      const state = this.#state.sources[path.resolve(root)];
+      if (!state?.settings || state.modelDirectoryChecked) continue;
+      try {
+        if (!(await isFile(this.#options.home.settingsFile))) {
+          const oldConfig = await readJson<{ values?: LegacyObject }>(path.join(root, 'config.json'));
+          for (const key of ['transcribe.model', 'transcribe.sourceLang']) {
+            if (oldConfig?.values?.[key] !== undefined) state.unsupported.push(`setting:${key}`);
+          }
+          const modelsDir = await legacyDefaultModelsDirectory(root, platform, this.#options.home.modelsDir);
+          if (modelsDir) {
+            const store = new SettingsStore(this.#options.home.settingsFile);
+            await store.load();
+            await store.set({ 'models.dir': modelsDir });
+          }
+        }
+        state.modelDirectoryChecked = true;
+        modelDirectoryCheckpointChanged = true;
+      } catch (error) {
+        this.#options.log.warn('Legacy model directory recovery deferred', { error: String(error) });
+      }
+    }
+    if (modelDirectoryCheckpointChanged) await this.#save();
     if (this.#state.complete && Object.values(this.#state.sources).every((s) => s.services && s.nodes)) return;
     // Seed all roots before checkpointing so a crash cannot prematurely mark the whole scan complete.
     for (const root of roots) this.#state.sources[path.resolve(root)] ??= { credentials: [], projects: {}, pending: [], unsupported: [] };
@@ -347,7 +374,7 @@ export class LegacyUpgrade {
             settings = new SettingsStore(this.#options.home.settingsFile);
             await settings.load();
           }
-          await importLegacySettings(settings, source, v1, platform);
+          await importLegacySettings(settings, source, v1, platform, undefined, this.#options.home.modelsDir);
           const mapped = new Set(['language', 'vk-url-savedir', 'appAutoUpdate', 'agentChatDefaults', 'agentLastMode', 'serveEnabled', 'servePort']);
           state.unsupported.push(
             ...Object.keys(source.preferences)
@@ -355,7 +382,11 @@ export class LegacyUpgrade {
               .map((key) => `preference:${key}`),
           );
           if ((source.config['models.endpoint'] ?? v1['vk-download-source']) === 'cdn') state.unsupported.push('setting:models.endpoint');
+          // v3 has no equivalent persistent input-language setting; local model defaults require a ready bundle.
+          for (const key of ['transcribe.model', 'transcribe.sourceLang']) if (source.config[key] !== undefined) state.unsupported.push(`setting:${key}`);
+          if (v1['vk-default-model'] !== undefined) state.unsupported.push('preference:vk-default-model');
           state.settings = true;
+          state.modelDirectoryChecked = true;
           await this.#save();
         }
         if (!state.services) {

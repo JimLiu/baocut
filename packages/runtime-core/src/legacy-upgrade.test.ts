@@ -56,6 +56,72 @@ async function prompted(upgrade: LegacyUpgrade) {
 }
 
 describe('legacy startup upgrade', () => {
+  it('adopts a populated old default model directory without changing its files, preserving current caches and choices', async () => {
+    const s = await setup();
+    const oldModels = path.join(s.root, 'models');
+    await fs.mkdir(path.join(oldModels, 'acme'), { recursive: true });
+    const manifest = path.join(oldModels, 'acme', 'manifest.json');
+    await fs.writeFile(manifest, '{"revision":"master"}');
+    const source = (await readLegacySource(s.root, process.platform, { discoverProjects: false }))!;
+    source.config = {}; source.preferences = {};
+    const settings = new SettingsStore(s.home.settingsFile); await settings.load();
+    await importLegacySettings(settings, source, {}, process.platform, undefined, s.home.modelsDir);
+    expect(settings.get('models.dir')).toBe(oldModels);
+    expect(await fs.readFile(manifest, 'utf8')).toBe('{"revision":"master"}');
+    await settings.set({ 'models.dir': '/current/models' });
+    await importLegacySettings(settings, source, {}, process.platform, undefined, s.home.modelsDir);
+    expect(settings.get('models.dir')).toBe('/current/models');
+    await settings.set({ 'models.dir': null });
+    await fs.mkdir(s.home.modelsDir, { recursive: true });
+    await fs.writeFile(path.join(s.home.modelsDir, 'new-cache'), 'current');
+    await importLegacySettings(settings, source, {}, process.platform, undefined, s.home.modelsDir);
+    expect(settings.get('models.dir')).toBeNull();
+  });
+
+  it('backfills an old completed settings marker with no settings file once, without resurrecting a later reset', async () => {
+    const s = await setup();
+    const oldModels = path.join(s.root, 'models');
+    await fs.mkdir(oldModels, { recursive: true }); await fs.writeFile(path.join(oldModels, 'weights'), 'old bytes');
+    await writeJsonAtomic(path.join(s.root, 'config.json'), { values: { 'transcribe.model': 'moss-transcribe-diarize', 'transcribe.sourceLang': 'en' } });
+    await writeJsonAtomic(path.join(s.home.root, 'store', 'legacy-upgrade.json'), {
+      schemaVersion: 1, complete: true, sources: { [s.root]: {
+        settings: true, cloud: true, services: true, nodes: true, complete: true,
+        credentials: [], projects: {}, pending: [], unsupported: [],
+      } },
+    });
+    const options = { ...s, roots: [s.root], v1Preferences: null, platform: process.platform };
+    await new LegacyUpgrade(options).prepare();
+    const settings = new SettingsStore(s.home.settingsFile); await settings.load();
+    expect(settings.get('models.dir')).toBe(oldModels);
+    const marker = await readJson<any>(path.join(s.home.root, 'store', 'legacy-upgrade.json'));
+    expect(marker.sources[s.root]).toMatchObject({ modelDirectoryChecked: true });
+    expect(marker.sources[s.root].unsupported).toEqual(expect.arrayContaining(['setting:transcribe.model', 'setting:transcribe.sourceLang']));
+    await settings.set({ 'models.dir': null });
+    await new LegacyUpgrade(options).prepare(); await settings.load();
+    expect(settings.get('models.dir')).toBeNull();
+    expect(await fs.readFile(path.join(oldModels, 'weights'), 'utf8')).toBe('old bytes');
+  });
+
+  it('does not backfill a completed source over an existing settings file or an empty old cache', async () => {
+    const s = await setup();
+    const settings = new SettingsStore(s.home.settingsFile); await settings.load();
+    await settings.set({ 'ui.language': 'ja' });
+    await fs.mkdir(path.join(s.root, 'models'), { recursive: true });
+    await fs.writeFile(path.join(s.root, 'models', 'old'), 'old');
+    await writeJsonAtomic(path.join(s.home.root, 'store', 'legacy-upgrade.json'), { schemaVersion: 1, complete: true, sources: { [s.root]: {
+      settings: true, cloud: true, services: true, nodes: true, complete: true, credentials: [], projects: {}, pending: [], unsupported: [],
+    } } });
+    await new LegacyUpgrade({ ...s, roots: [s.root], v1Preferences: null, platform: process.platform }).prepare();
+    await settings.load(); expect(settings.get('models.dir')).toBeNull();
+    await settings.set({ 'ui.language': null });
+    await fs.rm(path.join(s.root, 'models'), { recursive: true });
+    await fs.mkdir(path.join(s.root, 'models'));
+    const source = (await readLegacySource(s.root, process.platform, { discoverProjects: false }))!;
+    source.config = {}; source.preferences = {};
+    await importLegacySettings(settings, source, {}, process.platform, undefined, s.home.modelsDir);
+    expect(settings.get('models.dir')).toBeNull();
+  });
+
   it('isolates custom homes and discovers platform-specific roots', () => {
     expect(legacyRoots({ BAOCUT_HOME: '/test' }, 'darwin', '/user')).toEqual([]);
     expect(legacyRoots({ BAOCUT_HOME: '/user/.baocut' }, 'darwin', '/user')).toEqual(legacyRoots({}, 'darwin', '/user'));
