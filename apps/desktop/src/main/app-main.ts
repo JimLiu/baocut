@@ -13,6 +13,7 @@ import { packagedResources } from './packaged-resources.ts';
 import { RuntimeSupervisor } from './runtime-supervisor.ts';
 import { installWebTabs } from './web-tabs.ts';
 import { openLocalFile } from './open-local-file.ts';
+import { showInFolder } from './reveal-path.ts';
 import { installStdioErrorGuards } from './stdio-errors.ts';
 import { saveDialogPath, saveFileData } from './save-dialog-path.ts';
 import { desktopRuntimeHeaders, desktopRuntimeResponseHeaders, isDesktopRuntimeRequest } from './runtime-origin.ts';
@@ -222,8 +223,7 @@ export function startDesktopApp(): void {
   });
 
   ipcMain.handle('baocut:reveal', (_event, target: unknown) => {
-    // 界面拼出来的路径可能混着 `/` 与 `\`（目录接相对路径），Windows 上先规范成本机的分隔符。
-    if (typeof target === 'string' && path.isAbsolute(target)) shell.showItemInFolder(path.normalize(target));
+    showInFolder(target, (file) => shell.showItemInFolder(file));
   });
 
   ipcMain.handle('baocut:open-file', (event, target: unknown) => {
