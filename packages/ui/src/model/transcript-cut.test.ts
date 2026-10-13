@@ -11,6 +11,7 @@ import type {
   VideoItem,
 } from '@baocut/protocol';
 import { readSpeechWords, type SpeechWord } from './speech-cues.ts';
+import { copyText, paragraphText } from './transcript-text.ts';
 import {
   centerScrollTop,
   cutOperations,
@@ -192,6 +193,23 @@ const CUT_SET: CutSetBody = {
 const cutsOf = (ops: EditOperation[]) => ops.map((op) => (op.type === 'addCuts' ? [op.sequenceId, op.assetId, op.cuts] : op.type));
 
 describe('transcriptWords', () => {
+  it.each([
+    ['ลลิตา', 'ไม่ได้'], ['ຂ້ອຍ', 'ຮັກ'], ['ကျွန်တော်', 'ပါ'], ['ខ្ញុំ', 'ចូលចិត្ត'],
+  ])('文稿段落保留 glue 词缝和正常空格：%s + %s', (before, after) => {
+    const source = readSpeechWords({ schema: 'baocut.speech/1', timescale: 1000, words: [
+      { id: 'a', start: 0, end: 500, text: before },
+      { id: 'b', start: 500, end: 1000, text: after, glue: true },
+      { id: 'c', start: 1000, end: 1500, text: before },
+    ] })!;
+    const result = transcriptWords(whole(), 'asset_a', source.words);
+    expect(result.map((word) => word.spaced)).toEqual([false, false, true]);
+    const para = paragraphText(result);
+    expect(para.text).toBe(`${before}${after} ${before}`);
+    expect(para.text.indexOf(`${before}${after}`)).toBe(0);
+    expect(paragraphText(result, true).text).toBe(para.text);
+    expect(copyText([{ start: 0, speaker: null, text: para.text, translation: '' }], { view: 'source' })).toBe(para.text);
+  });
+
   it('从时间线推导剪没剪：投不到的词是剪掉，剪口落在词中间的只剩一部分', () => {
     const list = words(0.8);
     list[3] = { ...list[3]!, start: 3.5, end: 4.5 };
