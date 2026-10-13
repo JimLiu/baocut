@@ -30,6 +30,8 @@ macOS 打开 DMG 后，将 BaoCut 拖入“应用程序”。Windows 先安装 [
 
 智能体功能需要已登录的智能体引擎，例如 Codex CLI 或 Claude Code。媒体分析、转写音频准备与导出还需要 `ffmpeg` 和 `ffprobe`；安装包不包含这些外部工具。
 
+Fish Audio S2 Pro 可在本机使用 MLX 社区 8-bit 权重，支持内置音色和参考录音加原文克隆（Built with Fish Audio；研究及非商业用途许可）。
+
 本地模型默认从 Hugging Face 下载。连不上或速度慢时，可在各模型页本机模型底部的“下载与存储”（或“设置 › 通用 › 模型下载来源”）选 ModelScope 改从 ModelScope 下载（ModelScope 上没有的少数模型文件仍从 Hugging Face 下载，文件都按内置校验值核对），也可以选“自定义”填镜像的基址。
 
 ## 为什么选择 BaoCut

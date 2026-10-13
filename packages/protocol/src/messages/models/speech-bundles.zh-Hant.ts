@@ -1,6 +1,7 @@
 import type { ModelsSpeechBundlesMessages } from './speech-bundles.ts';
 
 export const zhHant: ModelsSpeechBundlesMessages = {
+  fishS2ProLicense: "S2 Pro 權重採用 Fish Audio Research License：可用於研究及非商業用途；商用需另獲 Fish Audio 許可",
   qwen3TtsLicense: '上游 Qwen3-TTS 模型卡標示 Apache-2.0，可商用；MLX 轉換沿用相同授權',
   indexTts2License: '可商用，但上個月月活躍使用者超過 1 億或去年營收超過人民幣 10 億元的主體須另向 bilibili 申請；再散布時須附上協議全文；不得用它改進 IndexTTS 以外的商用模型',
   indexTts25License: '可商用，但上個月月活躍使用者超過 1 億或去年營收超過人民幣 10 億元的主體須另向 bilibili 申請；再散布時須附上協議全文；輔助權重來自 IndexTTS2，適用相同協議',

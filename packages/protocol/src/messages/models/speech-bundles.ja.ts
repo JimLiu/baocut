@@ -1,6 +1,7 @@
 import type { ModelsSpeechBundlesMessages } from './speech-bundles.ts';
 
 export const ja: ModelsSpeechBundlesMessages = {
+  fishS2ProLicense: "S2 Pro の重みは Fish Audio Research License に基づき、研究および非商用用途に利用できます。商用利用には Fish Audio の別途ライセンスが必要です",
   qwen3TtsLicense:
     '上流の Qwen3-TTS のモデルカードには Apache-2.0 と記載されており、商用利用が可能です。MLX 変換版も同じライセンスを引き継いでいます',
   indexTts2License:

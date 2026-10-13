@@ -13,3 +13,6 @@
 .semset__chs { display: flex; flex-wrap: wrap; gap: 8px 24px; }
 .semset__ch { display: flex; align-items: flex-start; gap: 8px; }
 .semset__chx { display: flex; flex-direction: column; }
+/* 上次安装没下完：哪一部分、连的哪里（download-dialog.jsx 的 outcome） */
+.semset__fail { display: flex; align-items: flex-start; gap: 6px; margin: 0; font-size: 12px; line-height: 16px; color: var(--red-900); }
+.semset__fail .ic { flex: none; margin-top: 1px; }

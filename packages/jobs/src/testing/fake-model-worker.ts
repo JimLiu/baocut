@@ -57,7 +57,7 @@ import zlib from 'node:zlib';
 const WORKER_VERSION = '0.0.0-fake';
 const DEFAULT_TRANSCRIPT = 'testing one two three baocut is ready';
 const TRANSCRIBE_FAMILIES = ['qwen3-asr', 'whisper-mlx', 'whisper-coreml', 'whisper-ggml', 'moss-transcribe-diarize'];
-const SYNTHESIZE_FAMILIES = ['qwen3-tts', 'indextts2', 'indextts2.5', 'gpt-sovits', 'voxcpm2', 'omnivoice'];
+const SYNTHESIZE_FAMILIES = ['qwen3-tts', 'indextts2', 'indextts2.5', 'gpt-sovits', 'voxcpm2', 'omnivoice', 'fish-s2-pro'];
 const SEPARATE_FAMILIES = ['htdemucs-ft'];
 const IMAGE_FAMILIES = ['qwen-image'];
 

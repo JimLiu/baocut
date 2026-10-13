@@ -396,6 +396,30 @@ const MLX_SPEECH_BUNDLES: readonly BundleDefinition[] = [
       slow: false,
     },
   },
+  {
+    ...MLX,
+    bundleId: 'fish-s2-pro@mlx-8bit',
+    label: 'Fish Audio S2 Pro',
+    components: {
+      tts: { family: 'fish-s2-pro', repo: 'mlx-community/fish-audio-s2-pro-8bit',
+        revision: 'c8d4481b3f7cbfe64d855c8b7cda7739502fc3ff', weightBits: 8, parameters: 4_561_852_416 },
+      codec: { family: 'fish-s2-pro-codec', repo: 'aufklarer/Fish-Audio-S2-Pro-MLX-codec',
+        revision: '254339851f9f39b68d06cc9284addab5fb32be13', weightBits: 32, parameters: 391_430_530 },
+    },
+    license: {
+      name: 'Fish Audio Research License',
+      url: 'https://huggingface.co/fishaudio/s2-pro/blob/main/LICENSE.md',
+      commercialUse: false,
+      get summary() { return M.fishS2ProLicense().text; },
+    },
+    speech: {
+      family: 'fish-s2-pro', residentBytes: 5 * 1024 ** 3, languages: 'any', voiceModes: ['preset', 'clone'],
+      presets: 'builtin-reference',
+      reference: { recommendedSeconds: [10, 30], withTranscriptSeconds: [0, 30], acceptsTranscript: true, requiresTranscript: true },
+      voiceDescription: null, instructions: null, emotion: false, knobs: {},
+      maxDurationSec: null, acceptsSeed: true, readings: 'unsupported', sampleRate: 44_100, slow: true,
+    },
+  },
 ];
 
 /** MLX 模型包的 candle 变体：同一仓库与特性，ID 是 `<模型>@candle`，登记的设备是 `cpu`（Worker 报告 CUDA 时 Runtime 改用 `cuda`）。 */

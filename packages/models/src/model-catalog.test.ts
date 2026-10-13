@@ -286,6 +286,7 @@ describe('ModelCatalog', () => {
         'gpt-sovits-v2@candle',
         'voxcpm2@candle',
         'omnivoice@candle',
+        'fish-s2-pro@candle',
         'qwen-image-2.1-turbo@candle',
         'qwen-image-2.1@candle',
         'yue2-3b@audio-cpp-q8',
@@ -320,6 +321,7 @@ describe('ModelCatalog', () => {
       'GPT-SoVITS v2',
       'VoxCPM2',
       'OmniVoice',
+      'Fish Audio S2 Pro',
       'Qwen-Image-2.1 Turbo',
       'Qwen-Image-2.1',
       'YuE2 3B',
@@ -381,6 +383,7 @@ describe('ModelCatalog', () => {
         'gpt-sovits-v2@candle',
         'voxcpm2@candle',
         'omnivoice@candle',
+        'fish-s2-pro@candle',
         'speaker-diarization@candle',
       ].sort(),
     );
@@ -603,5 +606,16 @@ describe('ModelCatalog audio.cpp 引擎组件', () => {
     const elsewhere = new ModelCatalog({ root, platform: 'darwin', arch: 'arm64', toolsDir: path.join(root, 'tools') });
     expect(elsewhere.toolsDir).toBe(path.join(root, 'tools'));
     expect(await elsewhere.status(YUE)).toMatchObject({ state: 'not-installed', reason: 'incomplete' });
+  });
+});
+
+
+describe('Fish S2 Pro resource admission', () => {
+  it('uses bounded packed weights on MLX and Candle rather than expanding all parameters', async () => {
+    const root = path.join(os.tmpdir(), 'unused-fish-footprint');
+    const mlx = new ModelCatalog({root,platform:'darwin',arch:'arm64'});
+    const candle = new ModelCatalog({root,platform:'win32',arch:'x64'});
+    expect(await mlx.workerFootprint('fish-s2-pro@mlx-8bit')).toEqual({bytes:5*1024**3,pool:'gpuMemory'});
+    expect(await candle.workerFootprint('fish-s2-pro@candle')).toEqual({bytes:5*1024**3,pool:'memory'});
   });
 });

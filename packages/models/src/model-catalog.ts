@@ -383,7 +383,7 @@ export class ModelCatalog {
    * （分离按两倍，见 `workerWeightBytes`）、计在 GPU 内存；candle 按设备换算：`cuda` 计在 GPU 内存，`cpu` 计在内存。candle 的
    * 分离在两种设备上都升成 f32（同 v2），同样按文件的两倍。GGML 的 Whisper 权重按存储字节，VAD 与对齐器在 candle 的 CPU 上按
    * `cpu` 换算，合计在设备不是 `cpu`（`cuda` 或 `vulkan`）时计在 GPU 内存、`cpu` 时计在内存（架构设计 §6.5）。合成只算 candle 的模型包（同样按设备换算）；
-   * MLX 的合成模型包按固定的需求，null。不知道多大时 null。
+   * 合成模型包登记了 `speech.residentBytes` 时优先用它（Fish 的量化计算与分阶段 codec）；其余 MLX 合成模型包按固定需求，null。不知道多大时 null。
    */
   async workerFootprint(bundleId: string): Promise<WorkerFootprint | null> {
     const def = this.#bundles.get(bundleId);
@@ -391,6 +391,9 @@ export class ModelCatalog {
       // LiteRT-LM 在 CPU 上：模型文件与 C 库映射进内存，加上推理的工作区，计在内存。
       const bytes = weightBytes(requiredSources(def), this.#manifests, this.#platformKey);
       return bytes === null ? null : { bytes: bytes + EMBEDDING_WORKER_OVERHEAD_BYTES, pool: 'memory' };
+    }
+    if (def?.capability === 'synthesize' && def.speech?.residentBytes !== undefined) {
+      return {bytes: def.speech.residentBytes, pool: this.#device(def) === 'cpu' ? 'memory' : 'gpuMemory'};
     }
     const synthesizeOnCandle = def?.capability === 'synthesize' && def.backend === 'candle';
     const local = def?.capability === 'transcribe' || def?.capability === 'separate' || def?.capability === 'diarize';

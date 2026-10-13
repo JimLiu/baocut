@@ -219,6 +219,10 @@ pub fn request_for(engine: &dyn TtsEngine, params: &SynthesizeRunParams) -> Resu
             (VoiceSpec::Default, Some(description.to_owned()))
         }
     };
+    if kind == TtsEngineKind::FishS2Pro && matches!(&voice, VoiceSpec::Clone { reference_text: None, .. }) {
+        return Err(ErrorBody::invalid_params("Fish S2 Pro requires the reference transcript")
+            .with_details(json!({ "engine": kind.as_str(), "reason": "reference-transcript-required" })));
+    }
     Ok(TtsRequest {
         text: options.text.clone(),
         language: options
@@ -274,6 +278,10 @@ fn check_reference_length(kind: TtsEngineKind, request: &TtsRequest, seconds: f6
     else {
         return Ok(());
     };
+    if kind == TtsEngineKind::FishS2Pro && seconds > 30.0 {
+        return Err(ErrorBody::invalid_params("Fish S2 Pro reference must be at most 30 seconds")
+            .with_details(json!({ "engine": kind.as_str(), "reason": "reference-duration", "seconds": seconds, "range": [0, 30] })));
+    }
     if kind != TtsEngineKind::GptSovits {
         return Ok(());
     }

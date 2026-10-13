@@ -146,6 +146,7 @@ export function planLocalVoice(choice: ModelChoice<'synthesizeSpeech'>, request:
   if (request.reference) {
     requireMode('clone', M.modeClone());
     const transcript = request.reference.transcript?.trim() ? request.reference.transcript.trim() : null;
+    checkReferenceTranscript(choice.model, transcript);
     if (transcript && local.reference && !local.reference.acceptsTranscript) {
       throw new RpcError('invalid-request', M.noReferenceTranscript({ modelId: choice.modelId }), where);
     }
@@ -311,4 +312,13 @@ export function synthesizeRunOf(parameters: {
       seed: parameters.seed,
     },
   };
+}
+
+/** A model requiring ICL reference text must not silently synthesize without it. */
+export function checkReferenceTranscript(model: SpeechModelInfo, transcript: string | null | undefined): void {
+  if (model.local?.reference?.requiresTranscript && !transcript?.trim()) {
+    throw new RpcError('invalid-request', M.referenceTranscriptRequired(), {
+      modelId: model.modelId, reason: 'reference-transcript-required',
+    });
+  }
 }

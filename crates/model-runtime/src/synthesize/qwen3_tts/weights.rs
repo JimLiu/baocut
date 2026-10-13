@@ -43,6 +43,55 @@ impl Weights {
         Ok(Self { tensors })
     }
 
+    /// Evaluate and convert one tensor at a time, excluding unused buffers
+    /// before reading them into memory. Used by Fish's quantized model and codec.
+    pub(crate) fn load_filtered(files: &[&Path], keep: impl Fn(&str) -> bool, dtype: Option<Dtype>) -> Result<Self> {
+        Self::load_filtered_rows(files, keep, dtype, |_| None)
+    }
+
+    /// Retain selected rows before materialization. Packed weights and their
+    /// affine parameters use the same row order, without changing precision.
+    pub(crate) fn load_filtered_rows(
+        files: &[&Path],
+        keep: impl Fn(&str) -> bool,
+        dtype: Option<Dtype>,
+        rows: impl Fn(&str) -> Option<Vec<i32>>,
+    ) -> Result<Self> {
+        #[cfg(all(feature = "backend-mlx", target_os = "macos", target_arch = "aarch64"))]
+        let mut tensors = crate::synthesize::tensor::host::load_safetensors_filtered_deferred(files, keep)?;
+        #[cfg(not(all(feature = "backend-mlx", target_os = "macos", target_arch = "aarch64")))]
+        let mut tensors = crate::synthesize::tensor::host::load_safetensors_filtered_rows(files, keep, &rows)?;
+        #[cfg(all(feature = "backend-mlx", target_os = "macos", target_arch = "aarch64"))]
+        crate::synthesize::tensor::memory::set_cache_limit(128 << 20);
+        let mut keys: Vec<_> = tensors.keys().cloned().collect();
+        keys.sort();
+        for key in keys {
+            let value = tensors.remove(&key).expect("listed key");
+            #[cfg(all(feature = "backend-mlx", target_os = "macos", target_arch = "aarch64"))]
+            let value = if let Some(rows) = rows(&key) {
+                use crate::synthesize::tensor::ops::indexing::IndexOp;
+                anyhow::ensure!(value.ndim() > 0 && !rows.is_empty(), "empty selected weight rows: {key}");
+                anyhow::ensure!(
+                    rows.iter().all(|&r| r >= 0 && r < value.dim(0)),
+                    "selected weight row out of bounds: {key}"
+                );
+                value.index(&Array::from_slice(&rows, &[rows.len() as i32]))
+            } else {
+                value
+            };
+            let target = dtype.unwrap_or(if value.dtype() == Dtype::Float16 {
+                Dtype::Bfloat16
+            } else {
+                value.dtype()
+            });
+            let value = value.as_dtype(target)?;
+            value.eval()?;
+            tensors.insert(key, value);
+            crate::synthesize::tensor::host::clear_memory_cache()?;
+        }
+        Ok(Self { tensors })
+    }
+
     /// 直接由张量表构造（合成权重的单测用；VoxCPM2 / OmniVoice 的单测会用到）。
     #[cfg(test)]
     #[allow(dead_code)]
@@ -100,5 +149,51 @@ impl Weights {
             }
         }
         Weights { tensors: taken }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn selected_rows_preserve_packed_values_order_and_vector_biases() {
+        let _lock = crate::synthesize::tensor::host::TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        crate::synthesize::tensor::host::ensure_device().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("selected.safetensors");
+        // Write a backend-independent fixture: packed U32 matrix and F32 bias.
+        let header = serde_json::json!({
+            "p.weight": {"dtype":"U32","shape":[4,2],"data_offsets":[0,32]},
+            "p.bias": {"dtype":"F32","shape":[4],"data_offsets":[32,48]},
+            "skip.weight": {"dtype":"F32","shape":[4],"data_offsets":[48,64]}
+        });
+        let mut header = serde_json::to_vec(&header).unwrap();
+        while header.len() % 8 != 0 {
+            header.push(b' ');
+        }
+        let mut data = (header.len() as u64).to_le_bytes().to_vec();
+        data.extend(header);
+        for value in 0..8u32 {
+            data.extend(value.to_le_bytes());
+        }
+        for value in [0.5f32, 1.5, 2.5, 3.5, 10., 20., 30., 40.] {
+            data.extend(value.to_le_bytes());
+        }
+        std::fs::write(&path, data).unwrap();
+        let mut weights = Weights::load_filtered_rows(&[&path], |k| k.starts_with("p."), None, |_| Some(vec![3, 1, 3])).unwrap();
+        assert_eq!(weights.keys(), ["p.bias", "p.weight"]);
+        let packed = weights.take("p.weight").unwrap();
+        assert_eq!(packed.shape(), &[3, 2]);
+        assert_eq!(&*packed.as_slice::<u32>(), &[6, 7, 2, 3, 6, 7]);
+        let bias = weights.take("p.bias").unwrap();
+        assert_eq!(bias.shape(), &[3]);
+        assert_eq!(&*bias.as_slice::<f32>(), &[3.5, 1.5, 3.5]);
+        for rows in [vec![], vec![-1], vec![4]] {
+            assert!(Weights::load_filtered_rows(&[&path], |_| true, None, |_| Some(rows.clone())).is_err());
+        }
+        let mut complete = Weights::load_filtered(&[&path], |_| true, None).unwrap();
+        assert_eq!(complete.take("p.weight").unwrap().shape(), &[4, 2]);
+        assert_eq!(complete.keys(), ["p.bias", "skip.weight"]);
     }
 }

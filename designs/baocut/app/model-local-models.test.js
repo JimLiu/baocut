@@ -47,6 +47,7 @@ test('公共组件按同一分类里声明它的模型数算：两只以上放�
   assert.deepEqual(tts.rows.find((r) => r.m.id === 'qwen3-tts-1.7b-base').common, ['tts-codec']);
   assert.deepEqual(tts.rows.find((r) => r.m.id === 'index-tts2.5').own.map((c) => c.id), ['indextts-aux']);
   assert.deepEqual(tts.rows.find((r) => r.m.id === 'indextts2').own, []);
+  assert.deepEqual(tts.rows.find((r) => r.m.id === 'fish-s2-pro').own.map((c) => c.id), ['fish-s2-pro-codec']);
   assert.deepEqual(L.layout(M, C, 'sep').shared, []);
 });
 
@@ -149,7 +150,7 @@ test('公共组件借谁补齐：缺得最少的那只，一样多按目录顺�
   assert.deepEqual(L.compAction(comps[0], models, comps, {x: true}), {kind: 'later'});
 });
 
-test('语音合成：引擎表里的每只模型都有设置行；只有 OmniVoice 标不能商用（2026-09-26）', () => {
+test('语音合成：引擎表里的每只模型都有设置行；OmniVoice 与 Fish S2 Pro 标不能商用（2026-09-26）', () => {
   require('./model-tts.js');
   const TTS = global.window.BC_TTS;
   Object.keys(TTS.MODELS).forEach((id) => {
@@ -162,7 +163,7 @@ test('语音合成：引擎表里的每只模型都有设置行；只有 OmniVoi
   assert.equal(byId('voxcpm2').size, 2870);
   assert.equal(byId('omnivoice').size, 1049);
   const nc = M.filter((m) => m.license && m.license.commercialUse === false).map((m) => m.id);
-  assert.deepEqual(nc, ['omnivoice', 'qwen-image-2.1-turbo', 'qwen-image-2.1', 'yue2-3b']);
+  assert.deepEqual(nc, ['omnivoice', 'fish-s2-pro', 'qwen-image-2.1-turbo', 'qwen-image-2.1', 'yue2-3b']);
   assert.equal(byId('omnivoice').license.name, 'CC-BY-NC-4.0');
   // 新行各自一个仓库：公共组件照旧只有 12Hz 编解码器
   const tts = L.layout(M, C, 'tts');
@@ -218,8 +219,7 @@ test('详情的许可行：权重的许可，加上要署名或许可不同的�
   M.filter((m) => m.license).forEach((m) => assert.ok(m.license.name && m.license.url && m.license.summary, m.id));
 });
 
-test('下载来源：设置里的一个基址对应 Hugging Face / ModelScope / 自定义，环境变量优先且只读', () => {
-  assert.deepEqual(L.SOURCES.map((s) => s.id), ['hf', 'ms', 'custom']);
+test('下载来源的基础规则：基址认回 Hugging Face / ModelScope / 镜像，镜像地址的校验', () => {
   assert.equal(L.sourceOf(null), 'hf');
   assert.equal(L.sourceOf(''), 'hf');
   assert.equal(L.sourceOf('https://huggingface.co/'), 'hf');
@@ -227,7 +227,6 @@ test('下载来源：设置里的一个基址对应 Hugging Face / ModelScope / 
   assert.equal(L.sourceOf('https://modelscope.cn/'), 'ms', '按主机认，不要求写成 www');
   assert.equal(L.sourceOf('https://hf-mirror.com'), 'custom');
   assert.equal(L.sourceOf('https://modelscope.cn.example.com'), 'custom', '只认 modelscope.cn 本身');
-  assert.equal(L.SOURCES.find((s) => s.id === 'ms').endpoint, L.MS_ENDPOINT, '选 ModelScope 存进去的基址认得回 ms');
   assert.equal(L.sourceOf(L.MS_ENDPOINT), 'ms');
 
   assert.equal(L.endpointError(''), null);
@@ -237,13 +236,6 @@ test('下载来源：设置里的一个基址对应 Hugging Face / ModelScope / 
   assert.match(L.endpointError('ftp://mirror.example'), /http/);
   assert.match(L.endpointError('https://user:pw@mirror.example'), /账号/);
   assert.match(L.endpointError('https://mirror.example/?token=1'), /查询参数/);
-
-  assert.deepEqual(L.effectiveSource(null, null), {id: 'hf', endpoint: null, label: 'Hugging Face', locked: false, source: 'default'});
-  assert.deepEqual(L.effectiveSource(null, 'https://hf-mirror.com/'),
-    {id: 'custom', endpoint: 'https://hf-mirror.com', label: 'hf-mirror.com', locked: false, source: 'setting'});
-  const env = L.effectiveSource('https://www.modelscope.cn', 'https://hf-mirror.com');
-  assert.deepEqual([env.id, env.label, env.locked, env.source], ['ms', 'ModelScope', true, 'env'], '环境变量盖过设置');
-  assert.match(L.sourceNote(), /BAOCUT_MODELS_ENDPOINT/);
 });
 
 test('音乐生成：audio.cpp 引擎是 YuE2 的组件，跟着模型一起下载，缺了是半装', () => {

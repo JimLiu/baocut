@@ -1,0 +1,39 @@
+/* 下载来源与下载确认框（2026-10-13 设计稿）—— 只在 App 加载（download-sources.jsx、download-dialog.jsx）。 */
+
+/* ---------- 设置 › 通用 › 下载来源与离线 ---------- */
+.dlsrc__lead { margin: 0 0 8px; color: var(--gray-600); }
+.dlsrc { display: flex; flex-direction: column; gap: 8px; padding: 16px 0; border-bottom: 1px solid var(--gray-100); }
+.dlsrc__head { display: flex; align-items: center; gap: 8px; }
+.dlsrc__head b { font-size: 14px; font-weight: 500; color: var(--gray-900); }
+.dlsrc__desc { color: var(--gray-600); }
+.dlsrc__list { margin-top: 4px; }
+.dlsrc__row { display: flex; align-items: center; gap: 12px; min-height: 32px; }
+.dlsrc__row + .dlsrc__row { border-top: 1px solid var(--gray-100); }
+.dlsrc__meta { flex: 1 1 auto; min-width: 0; color: var(--gray-600); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dlsrc__act { display: flex; gap: 4px; flex: none; }
+.dlsrc__note { margin: 0; color: var(--gray-600); }
+.dlsrc__form { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 10px; background: var(--gray-75); }
+.dlsrc__fields { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; }
+.dlsrc__fields > :first-child { flex: 0 1 180px; min-width: 140px; }
+.dlsrc__base { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.dlsrc__err { font-size: 11px; color: var(--red-900); }
+.dlsrc__formact { display: flex; justify-content: flex-end; gap: 8px; }
+.dlsrc__picker { flex: none; }
+
+/* ---------- 下载确认框 ---------- */
+.dldlg { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.dldlg__lead { margin: 0; font-size: 16px; color: var(--gray-900); }
+.dldlg__grp { display: flex; flex-direction: column; border: 1px solid var(--gray-200); border-radius: 10px; overflow: hidden; }
+.dldlg__gh { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--gray-75); border-bottom: 1px solid var(--gray-200); }
+.dldlg__gt { font-size: 12px; font-weight: 700; color: var(--gray-800); }
+.dldlg__part { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; }
+.dldlg__part + .dldlg__part { border-top: 1px solid var(--gray-100); }
+.dldlg__pl { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--gray-900); }
+.dldlg__ps { flex: none; color: var(--gray-600); }
+.dldlg__part.is-keep .dldlg__pn { color: var(--gray-600); }
+.dldlg__url { font-size: 11px; color: var(--gray-600); overflow-wrap: anywhere; user-select: text; }
+.dldlg__note { margin: 0; color: var(--gray-600); }
+.dldlg__lnk { margin-left: 4px; }
+.dldlg__lic { padding: 12px; border-radius: 10px; background: var(--orange-100); }
+.dldlg__lic b, .dldlg__lic span { font-size: 12px; line-height: 16px; }
+.dldlg__lic .t-detail-xs { font-size: 11px; overflow-wrap: anywhere; }

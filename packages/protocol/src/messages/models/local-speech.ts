@@ -16,6 +16,7 @@ import { vi } from './local-speech.vi.ts';
 
 /** `packages/models/src/local-speech.ts` 给人看的文字：本地语音合成的耗时提示与提交时拒绝的原因。 */
 const en = {
+  referenceTranscriptRequired: "Enter the transcript of the reference recording",
   paceQwen06: 'about 55 times slower than real time, so a 3-second line takes two to three minutes',
   paceQwen17: 'expected to be slower than the 0.6B (about 55 times slower than real time); this one has not been measured',
   paceIndexTts2: 'expected to be about the same as IndexTTS 2.5 (120–145 times slower than real time); this one has not been measured',

@@ -378,3 +378,16 @@ describe('自检的判定', () => {
     expect(speechSelfTestRequest(none)).toEqual({ text: SPEECH_SELF_TEST_SENTENCES.en, language: 'en' });
   });
 });
+
+
+describe('Fish reference transcript', () => {
+  const fish = local('fish-s2-pro@mlx-8bit');
+  it('rejects absent or blank transcripts before starting a generation job', () => {
+    for (const transcript of [undefined, '', '  ']) {
+      expect(() => plan(fish, {reference: {file: '/r.wav', transcript}})).toThrow();
+    }
+    expect(plan(fish, {reference: {file: '/r.wav', transcript: 'Hello'}})).toMatchObject({mode: 'clone', transcript: 'Hello'});
+    expect(plan(fish, {})).toMatchObject({mode: 'preset', builtin: { id: 'zh-female' }});
+    expect(() => plan(fish, {voiceDescription: 'Warm voice'})).toThrow();
+  });
+});

@@ -76,6 +76,28 @@ const MUSIC_PINNED_HUB =
 
 export const REPO_MANIFESTS: readonly RepoManifestSpec[] = [
   {
+    repo: 'mlx-community/fish-audio-s2-pro-8bit',
+    revision: 'c8d4481b3f7cbfe64d855c8b7cda7739502fc3ff',
+    files: [
+      { path: 'config.json', size: 2315, sha256: '363895eff17c1f15a18e9bbc8ffddf3d5546219378cc37d96862892d4f93aace' },
+      { path: 'model.safetensors', size: 4847260185, sha256: 'bf31b4e5fb713a565750e120ebadd54de245eb1214e46d14fc5108f1e79171a1' },
+      { path: 'tokenizer.json', size: 12217872, sha256: 'f24e08099d45a8adf3f52f5f0b03276e433bb9d689bb15fcbcc48ce58744588b' },
+    ],
+    estimatedBytes: 4859480372,
+    provenance: 'Pinned Hugging Face revision; all files downloaded and their sizes and SHA256 verified locally',
+  },
+  {
+    repo: 'aufklarer/Fish-Audio-S2-Pro-MLX-codec',
+    revision: '254339851f9f39b68d06cc9284addab5fb32be13',
+    sourceRepo: 'aufklarer/Fish-Audio-S2-Pro-MLX-fp16',
+    files: [
+      { path: 'LICENSE.md', size: 10360, sha256: 'aa7d9206e9d710590987a3636934f643529c00cd490323594e6206aaa0c32d80' },
+      { path: 'codec.safetensors', size: 1088063508, sha256: '26da752caffb1919be8087f3428957ef11d3cf4b575c9eb7ffea93a8150437ae' },
+    ],
+    estimatedBytes: 1088073868,
+    provenance: 'Pinned Hugging Face revision; codec and upstream license downloaded and their sizes and SHA256 verified locally',
+  },
+  {
     repo: 'aufklarer/Qwen3-ASR-0.6B-MLX-4bit',
     revision: 'bc441bd1e4295c1f42d9879f056049a925b6e013',
     files: [

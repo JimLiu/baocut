@@ -82,7 +82,7 @@ Every surface talks to the same local Runtime over the same protocol and edits t
 
 **Bring your own agent engine.** Claude Code and Codex CLI are validated end to end. GitHub Copilot CLI, Pi and OpenCode are built in, and any Agent Client Protocol agent (Gemini CLI, Cursor Agent, Grok, Kimi Code, or one you add) plugs in through the same driver.
 
-**Bring your own models.** Capabilities (transcribe, speak, generate image, generate text, separate audio) are decoupled from providers. Run local models on Apple Silicon (MLX, Core ML) or on Windows (whisper.cpp + candle, with CUDA and Vulkan builds), or point a capability at OpenAI, Anthropic, Google, ElevenLabs, DeepSeek, Moonshot, Qwen, Zhipu, MiniMax, Volcengine, xAI, Mistral, Groq, OpenRouter, SiliconFlow or any OpenAI-compatible endpoint. A usage ledger tracks cost per job. One machine can share its local models with others on the LAN.
+**Bring your own models.** Capabilities (transcribe, speak, generate image, generate text, separate audio) are decoupled from providers. Run local models on Apple Silicon (MLX, Core ML) or on Windows (whisper.cpp + candle, with CUDA and Vulkan builds), run Fish Audio S2 Pro locally with the MLX community 8-bit weights (Built with Fish Audio; research/non-commercial license), or point a capability at OpenAI, Anthropic, Google, ElevenLabs, DeepSeek, Moonshot, Qwen, Zhipu, MiniMax, Volcengine, xAI, Mistral, Groq, OpenRouter, SiliconFlow or any OpenAI-compatible endpoint. A usage ledger tracks cost per job. One machine can share its local models with others on the LAN.
 
 ## Run from source
 

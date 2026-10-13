@@ -6,6 +6,7 @@ pub use crate::backend::mlx::qwen3::gelu_same_dtype;
 pub mod host {
     #[cfg(test)]
     pub(crate) use crate::backend::mlx::runtime::MLX_TEST_LOCK as TEST_LOCK;
+    pub(crate) use crate::backend::mlx::runtime::load_safetensors_filtered_deferred;
     pub use crate::backend::mlx::runtime::{
         ModelMemoryCacheGuard, clear_memory_cache, configure_memory_cache, ensure_metal_device as ensure_device, load_safetensors,
         speech_timing_enabled,

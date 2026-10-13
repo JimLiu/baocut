@@ -51,7 +51,7 @@
           <span className="grow">{downloading ? `正在下载「${pack.name}」· ${pct}%` : `${pack.name} · ${pack.size} MB`}</span>
           {downloading
             ? <Progress value={pct} thin className="asrmore__bar" />
-            : <Btn variant="secondary" size="s" icon="download" onClick={() => app.downloadModel(RUNS.DIARIZE_PACK)}>下载</Btn>}
+            : <Btn variant="secondary" size="s" icon="download" onClick={() => window.askModelDownload(app, RUNS.DIARIZE_PACK, () => app.downloadModel(RUNS.DIARIZE_PACK))}>下载</Btn>}
         </div> : null}
       </div>
     </BCDisclosure>;

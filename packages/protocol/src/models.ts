@@ -516,7 +516,7 @@ export interface LocalSpeechTraits {
    */
   builtinVoices: 'reference' | 'description' | null;
   /** `clone` 的参考录音：建议时长（秒）；给了原文时的建议时长（有的模型给原文时要更短的参考）。 */
-  reference: { recommendedSeconds: [number, number]; withTranscriptSeconds: [number, number] | null; acceptsTranscript: boolean } | null;
+  reference: { recommendedSeconds: [number, number]; withTranscriptSeconds: [number, number] | null; acceptsTranscript: boolean; requiresTranscript?: boolean } | null;
   /** `describe` 接受什么；不支持 `describe` 时 null。 */
   voiceDescription: SpeechVoiceDescription | null;
   /** `instructions` 的含义：`style` 为语气与风格说明（与音色无关）；不接受时 null。 */

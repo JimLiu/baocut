@@ -337,6 +337,7 @@ BaoCut 的 Qwen3-ASR、Whisper、强制对齐、Silero VAD、Qwen3-TTS、VoxCPM2
 | `crates/model-runtime/src/synthesize/index_tts2/segmenter.rs` | `Sources/IndexTTS2TTS/IndexTTS2TextSegmenter.swift` | 移植改写 |
 | `crates/model-runtime/src/synthesize/index_tts2/sentencepiece.rs` | `Sources/AudioCommon/SentencePieceModel.swift` | 移植改写 |
 | `crates/model-runtime/src/synthesize/index_tts2/tokenizer.rs` | `Sources/IndexTTS2TTS/IndexTTS2Tokenizer.swift` | 移植改写 |
+| `crates/model-runtime/src/synthesize/fish_s2_pro/` | `Sources/FishAudioTTS/FishAudioConfig.swift / FishAudioDualAR.swift / FishAudioCodec.swift / FishAudioGeneration.swift / FishAudioInputBuilder.swift / FishAudioPrompt.swift / FishAudioWeightLoading.swift / FishAudioTTSModel.swift` | 移植改写（Rust、MLX / candle、校验过的模型包、种子与取消；DAC RoPE 对照 Fish 官方相邻维度配对修正、VQ 距离按上游 DAC 归一化） |
 | `crates/model-runtime/src/synthesize/omnivoice/backbone.rs` | `Sources/OmniVoiceTTS/OmniVoiceBackbone.swift / Sources/OmniVoiceTTS/OmniVoiceDiffusion.swift` | 移植改写 |
 | `crates/model-runtime/src/synthesize/omnivoice/codec.rs` | `Sources/OmniVoiceTTS/OmniVoiceCodec.swift / Sources/OmniVoiceTTS/OmniVoiceCodecEncoder.swift` | 移植改写 |
 | `crates/model-runtime/src/synthesize/omnivoice/config.rs` | `Sources/OmniVoiceTTS/Configuration.swift` | 移植改写 |
@@ -359,6 +360,10 @@ BaoCut 的 Qwen3-ASR、Whisper、强制对齐、Silero VAD、Qwen3-TTS、VoxCPM2
 | `crates/model-runtime/src/synthesize/voxcpm2/engine.rs` | `Sources/VoxCPM2TTS/VoxCPM2TTS.swift` | 移植改写 |
 | `crates/model-runtime/src/synthesize/voxcpm2/minicpm.rs` | `Sources/VoxCPM2TTS/MiniCPM4.swift / Sources/VoxCPM2TTS/VoxCPM2TTS.swift` | 移植改写 |
 | `crates/model-runtime/src/synthesize/voxcpm2/tokenizer.rs` | `Sources/VoxCPM2TTS/VoxCPM2TTS.swift` | 移植改写 |
+
+Fish Audio TTS 的来源按 speech-swift `cbcdfc6be5e723952d29ab6e32af5e22ad8e70fa` 核对。
+
+Built with Fish Audio. S2 Pro 的可选下载权重采用 [Fish Audio Research License](https://huggingface.co/fishaudio/s2-pro/blob/main/LICENSE.md)，安装清单包含上游完整 `LICENSE.md`。This model is licensed under the Fish Audio Research License, Copyright © 39 AI, INC. All Rights Reserved.
 
 TTS 与人声分离模块的 `mod.rs` 另汇总来源与修改范围。上游许可副本与来源路径按 speech-swift `1f54e56cf137078ed681a03e0955e777f7314610` 核对；该版本号用于定位声明来源，不表示当前实现与该版本完全相同。
 

@@ -1,6 +1,7 @@
 import type { ModelsLocalSpeechMessages } from './local-speech.ts';
 
 export const pl: ModelsLocalSpeechMessages = {
+  referenceTranscriptRequired: "Wpisz transkrypcję nagrania referencyjnego",
   paceQwen06: "około 55 razy wolniej niż w czasie rzeczywistym: 3-sekundowa wypowiedź zajmuje dwie-trzy minuty",
   paceQwen17: "oczekiwana wolniejsza od 0.6B (około 55 razy wolniej niż w czasie rzeczywistym); tej nie zmierzono",
   paceIndexTts2: "oczekiwana podobna do IndexTTS 2.5 (120–145 razy wolniej niż w czasie rzeczywistym); tej nie zmierzono",

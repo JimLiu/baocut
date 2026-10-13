@@ -1,6 +1,7 @@
 import type { ModelsLocalSpeechMessages } from './local-speech.ts';
 
 export const it: ModelsLocalSpeechMessages = {
+  referenceTranscriptRequired: "Inserisci la trascrizione della registrazione di riferimento",
   paceQwen06: 'circa 55 volte più lento del tempo reale; una frase di 3 secondi richiede da due a tre minuti',
   paceQwen17: 'si prevede che sia più lento dello 0.6B (circa 55 volte più lento del tempo reale); questo non è stato misurato',
   paceIndexTts2: 'si prevede che sia simile a IndexTTS 2.5 (120–145 volte più lento del tempo reale); questo non è stato misurato',

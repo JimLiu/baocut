@@ -136,9 +136,12 @@
       // 收据上的「再跑一次」直接传点击事件进来：没有提示词框的 payload 就用当前模板
       const payload = raw && typeof raw.text === 'string' ? raw : null;
       if (sp && sp.missing && !runner.agent) {
-        app.downloadModel(RUNS.DIARIZE_PACK);
-        setWaitPack(true);
-        app.toast('正在下载「说话人区分」· 下完接着重新转录');
+        // 先过下载确认框（download-dialog.jsx）：大小、来源，确认后才下
+        window.askModelDownload(app, RUNS.DIARIZE_PACK, () => {
+          app.downloadModel(RUNS.DIARIZE_PACK);
+          setWaitPack(true);
+          app.toast('正在下载「说话人区分」· 下完接着重新转录');
+        });
         return;
       }
       setRan(si);
@@ -270,9 +273,11 @@
                             onClick={() => {
                               if (on) { setModel(m); setPop(false); return; }
                               if (dl) return;
-                              app.downloadModel(m.id);
-                              setPendingModel(m);
-                              app.toast(`正在下载 ${m.name} · ${m.size} · 下完自动选中`);
+                              window.askModelDownload(app, m.id, () => {
+                                app.downloadModel(m.id);
+                                setPendingModel(m);
+                                app.toast(`正在下载 ${m.name} · ${m.size} · 下完自动选中`);
+                              });
                             }} />
                         );
                       })}

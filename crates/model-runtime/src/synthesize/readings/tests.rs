@@ -261,13 +261,14 @@ fn a_multi_character_reading_passes_index_tts25_losslessly() {
 
 /// 各引擎怎么吃读音（v2 读音设计稿 §3 表）的测试常量：新增引擎在这里加一行、在
 /// `TtsEngineKind::readings_support` 加一个分支，两处对不上就红。
-const DOC_TABLE: [(TtsEngineKind, ReadingsSupport); 6] = [
+const DOC_TABLE: [(TtsEngineKind, ReadingsSupport); 7] = [
     (TtsEngineKind::IndexTts25, ReadingsSupport::Annotated),
     (TtsEngineKind::IndexTts2, ReadingsSupport::InlinePinyin),
     (TtsEngineKind::Qwen3Tts, ReadingsSupport::Homophone),
     (TtsEngineKind::GptSovits, ReadingsSupport::Unsupported),
     (TtsEngineKind::VoxCpm2, ReadingsSupport::Unsupported),
     (TtsEngineKind::OmniVoice, ReadingsSupport::Unsupported),
+    (TtsEngineKind::FishS2Pro, ReadingsSupport::Unsupported),
 ];
 
 #[test]

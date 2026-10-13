@@ -56,7 +56,7 @@
     );
   }
 
-  function ModelRow({row, cat, on, comps, dflt, pct, onDownload, onRemove, onWork}) {
+  function ModelRow({row, cat, on, comps, dflt, pct, fail, onDownload, onRemove, onWork}) {
     const app = useApp();
     const {m, own, common} = row;
     const cmap = {};
@@ -90,15 +90,15 @@
     useEffect(() => { if (!ready) { setTest(false); clearInterval(ckTimer.current); setCheck({phase: 'idle'}); } }, [ready]);
     const brief = cat === 'tts' ? TTS.modelBrief(m.id) : null;
     // 不许商用的权重（OmniVoice、Qwen-Image-2.1 与 Turbo，data.js 该行 `license.commercialUse: false`）：行上标「仅限非商用」、写许可提要，
-    // 下载权重前先弹「许可」确认（panel-tts-local.jsx）；权重已在、只补齐组件时不再问
+    // 下载确认框里写许可（download-dialog.jsx）；权重已在、只补齐组件时不再写
     const lic = window.ttsLicenseOf ? window.ttsLicenseOf(m.id) : null;
     const lics = LM.licenseLines(m, comps);
     // 说话人区分包自己不跑任务，没有检查：行上与 ⋯ 里都不给（修复照常）
     const checkable = !m.pack;
 
     // 下载进度由本地模型页统一管（公共组件那一行借这只模型补齐时显示同一个进度）
-    const startDownload = () => onDownload(m);
-    const download = () => (on[m.id] || !window.withModelLicense ? startDownload() : window.withModelLicense(app, m.id, startDownload));
+    // 下载与补齐都先过下载确认框（download-dialog.jsx）：大小、来源（可就地换），确认后才下
+    const download = () => onDownload(m);
     /* 检查：结果由原型开关「下次检查的结果」决定（shell.jsx TweaksPanel）；修复之后那一次总是通过 */
     const remember = () => {
       const c = checkNow.current;
@@ -202,6 +202,8 @@
           )}
         </div>
 
+        {/* 上次下载没下完：哪一部分、连的哪里；下好的留着，「补齐」只下缺的（可以先在确认框里换来源） */}
+        {fail && pct < 0 ? <p className="lmrow__fail" role="status"><Ic n="alert" className="ic--14" /><span>{fail}</span></p> : null}
         {ready ? <window.ModelCheckLine st={check} cat={cat} m={m} onAction={onCheck} /> : null}
         {test && ready && cat === 'tts' ? <window.TtsQuickTest m={m} check={check} onCheck={onCheck} /> : null}
         {/* 音乐生成行的「试听」（settings-music.jsx）：固定几秒纯音乐，只挑风格；慢，面板里写清预计耗时 */}
@@ -272,64 +274,24 @@
     </R.Disclosure>;
   }
 
-  /* 下载来源（architecture-design §6.3「来源」、§5.10 `models.downloadEndpoint`）：Hugging Face / ModelScope / 自定义，
-     判断在 BC_LOCALMODELS。各能力页共用一个设置，存 prefs.modelsEndpoint（null 是 Hugging Face）。选「自定义」先出基址框，
-     填好保存才改用它；原型开关里设了 BAOCUT_MODELS_ENDPOINT 时只读。 */
-  function SourceRow() {
+  /* 下载来源（2026-10-13 设计稿，download-sources.jsx）：两种来源各一个紧凑选择器，改的与 设置 › 通用 › 下载来源与离线 是同一个「在用」；
+     添加、编辑、删除镜像在通用页，这里给一个去那儿的入口。 */
+  function SourceRows() {
     const app = useApp();
     const Row = window.ShellRow;
-    const saved = app.prefs.modelsEndpoint || null;
-    const eff = LM.effectiveSource(app.prefs.modelsEndpointEnv, saved);
-    const [pop, setPop] = useState(false);
-    const [custom, setCustom] = useState(false);   // 选了「自定义」、还没保存
-    const [draft, setDraft] = useState(null);
-    const picked = custom && !eff.locked ? 'custom' : eff.id;
-    const cur = LM.SOURCES.find((s) => s.id === picked);
-    const shown = draft != null ? draft : (LM.sourceOf(saved) === 'custom' ? saved : '');
-    const err = LM.endpointError(shown);
-    const next = shown.trim().replace(/\/+$/, '');
-    const choose = (s) => {
-      setPop(false);
-      if (s.id === 'custom') { setCustom(true); return; }
-      setCustom(false);
-      setDraft(null);
-      if (s.id === eff.id) return;
-      app.setPref('modelsEndpoint', s.endpoint);
-      app.toast(`下载来源已改为 ${s.name}`, 'positive');
-    };
-    const save = () => {
-      app.setPref('modelsEndpoint', next);
-      setCustom(false);
-      setDraft(null);
-      app.toast(`下载来源已改为 ${next}`, 'positive');
-    };
-    // 说明只留一句短的，选择器才不会被挤到下一行；长的补充放在下面整行
-    const notes = [
-      cur.note,
-      eff.locked ? LM.sourceNote() : null,
-      picked === 'custom' && eff.id !== 'custom' ? `填好地址并保存后改用它；现在仍从 ${eff.label} 下载。` : null,
-    ].filter(Boolean);
+    const DS = window.BC_DLSRC;
     return (
-      <Row label="下载来源" desc={cur.desc} mono={eff.locked && eff.id === 'custom' ? eff.endpoint : null}>
-        {eff.locked ? <Chip tone="notice">环境变量</Chip> : null}
-        <Picker size="s" value={cur.name} disabled={eff.locked} open={pop} popAlign="right" popWidth={260}
-          onClick={() => setPop(!pop)} onClose={() => setPop(false)}>
-          <Menu>
-            {LM.SOURCES.map((s) => <MenuItem key={s.id} label={s.name} sub={s.sub} on={s.id === picked} onClick={() => choose(s)} />)}
-          </Menu>
-        </Picker>
-        {notes.length ? <p className="lmsrc__note t-detail-xs">{notes.join(' ')}</p> : null}
-        {picked === 'custom' && !eff.locked ? (
-          <div className="lmsrc">
-            <div className="lmsrc__field">
-              <Field size="s" aria-label="镜像的基址" placeholder="https://mirror.example.com" value={shown} invalid={!!err}
-                onChange={(e) => setDraft(e.target.value)} />
-              {err ? <span className="lmsrc__err">{err}</span> : null}
-            </div>
-            <Btn variant="secondary" size="s" disabled={!next || !!err || next === saved} onClick={save}>保存</Btn>
-          </div>
-        ) : null}
-      </Row>
+      <>
+        {DS.KINDS.map((x) => (
+          <Row key={x.k} label={`${x.title} · 下载来源`} desc={x.desc}>
+            <window.DownloadSourcePicker k={x.k} />
+          </Row>
+        ))}
+        <p className="lmsrc__note t-detail-xs">
+          可以存多个镜像，下载时在确认框里也能换。
+          <BCAction className="tsetup__lnk lmsrc__lnk" onClick={() => app.go({r: 'settings', sec: 'general'})}>管理下载来源…</BCAction>
+        </p>
+      </>
     );
   }
 
@@ -350,9 +312,11 @@
       return t;
     });
     const [storageOpen, setStorageOpen] = useState(false);
+    const [, , activeOf] = window.useDlSources();
     const [sharedOpen, setSharedOpen] = useState(null);
     const [pop, setPop] = useState(null);
     const [dl, setDl] = useState({});   // 模型 id → 下载 / 补齐进度 0–99
+    const [fails, setFails] = useState({});   // 模型 id → 上次下载没下完的那一句（BC_DLSRC.failLine）
     const dlTimers = useRef({});
     useEffect(() => () => Object.values(dlTimers.current).forEach(clearInterval), []);
     const [work, setWork] = useState({});   // 模型 id → 'downloading' | 'testing'
@@ -392,9 +356,12 @@
       app.setModelInstalled(m.id, true);
       app.toast(completing ? `已补齐「${m.name}」` : `已下载「${m.name}」`, 'positive');
     };
-    // 下载与补齐（行上的按钮、公共组件那一行）：演示进度走完才算装上
-    const startDownload = (m) => {
+    // 下载与补齐（行上的按钮、公共组件那一行）：演示进度走完才算装上。outcome 来自下载确认框：
+    // 有一部分没下成时，下好的部分照样存下（安装表里记上），这只模型成了「缺 X」，行上写失败那一句，「补齐」只下缺的
+    const startDownload = (m, outcome) => {
       const completing = !!on[m.id];
+      const failed = outcome && outcome.failed;
+      setFails((f) => { const next = {...f}; delete next[m.id]; return next; });
       clearInterval(dlTimers.current[m.id]);
       setDl((d) => ({...d, [m.id]: 0}));
       let progress = 0;
@@ -404,9 +371,20 @@
         clearInterval(dlTimers.current[m.id]);
         delete dlTimers.current[m.id];
         setDl((d) => { const next = {...d}; delete next[m.id]; return next; });
-        install(m, completing);
+        if (!failed) { install(m, completing); return; }
+        const names = {[m.id]: '模型权重'};
+        comps.forEach((c) => { names[c.id] = c.name; });
+        setOn((t) => {
+          const next = {...t};
+          outcome.done.forEach((id) => { next[id] = true; });
+          return next;
+        });
+        if (outcome.done.indexOf(m.id) >= 0) app.setModelInstalled(m.id, true);
+        setFails((f) => ({...f, [m.id]: window.BC_DLSRC.failLine(failed, outcome.done.map((id) => names[id] || id))}));
+        app.toast(`「${m.name}」没下完：${failed.name}没下成`, 'negative');
       }, 120);
     };
+    const askDownload = (m) => window.askModelDownload(app, m.id, (outcome) => startDownload(m, outcome), {on});
     const remove = (m) => {
       const r = LM.removal(m, models, comps, on);
       app.confirm({
@@ -420,14 +398,8 @@
         },
       });
     };
-    // 公共组件的「下载」= 补齐用到它的一只已装模型（compAction 挑的），确认框写清这次下哪几件
-    const getComp = ({target: m, size}) => app.confirm({
-      title: `补齐「${m.name}」？`,
-      body: `公共组件跟着用到它的模型下载：这次补上「${m.name}」缺的 ${LM.missing(m, comps, on).map((x) => x.name).join('、')}，`
-        + `共 ${mb(size)}；装好的文件不动。`,
-      confirmLabel: `下载 ${mb(size)}`,
-      run: () => startDownload(m),
-    });
+    // 公共组件的「下载」= 补齐用到它的一只已装模型（compAction 挑的），同一个下载确认框写清这次下哪几件、装好的不动
+    const getComp = ({target: m}) => askDownload(m);
 
     return (
       <>
@@ -458,7 +430,7 @@
           {group.rows.length ? <div className="lmlist">
             {group.rows.map((row) => <ModelRow key={row.m.id} row={row} cat={cat} on={on} comps={comps}
               dflt={row.m.id === view.checked && LM.ready(row.m, comps, on)} pct={dl[row.m.id] ?? -1}
-              onDownload={startDownload} onRemove={remove} onWork={onWork} />)}
+              fail={fails[row.m.id] || null} onDownload={askDownload} onRemove={remove} onWork={onWork} />)}
           </div> : <p className="t-detail">{group.id === 'installed' ? '还没有安装模型，从下面选择一个下载。' : '这一类的模型已全部安装。'}</p>}
         </section>)}
         {lay.shared.length > 0 && <ModelDisclosure label="公共组件"
@@ -467,9 +439,9 @@
           <SharedCard shared={lay.shared} models={models.filter((m) => LM.catOf(m) === cat)} comps={comps} on={on} dl={dl} onGet={getComp} />
         </ModelDisclosure>}
         <ModelDisclosure label="下载与存储"
-          summary={`已用 ${mb(LM.disk(models, comps, on))} · ${LM.effectiveSource(app.prefs.modelsEndpointEnv, app.prefs.modelsEndpoint).label}`}
+          summary={`已用 ${mb(LM.disk(models, comps, on))} · ${activeOf('models').src.name}`}
           expanded={storageOpen} onToggle={() => setStorageOpen(!storageOpen)}>
-          <SourceRow />
+          <SourceRows />
           <Row label="盘上合计"
             desc={LM.CATS.map((c) => `${c.title} ${mb(LM.disk(models, comps, on, c.k))}`).join(' · ')}>
             <span className="t-mono t-detail">{mb(LM.disk(models, comps, on))}</span>

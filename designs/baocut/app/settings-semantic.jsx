@@ -1,5 +1,7 @@
 /* 设置 › 语义索引（embedding-integration-design §2.11；retrieval-spec v0.1 §4.2、§4.4、§9.1、§13.2）。偏好设置一组。
    · 模型：「文字搜索」「多模态搜索」两个包与安装状态；多模态包含文字，装了它不必再装文字包；
+     安装先过下载确认框（download-dialog.jsx）：模型文件（模型仓库）与 LiteRT-LM 运行时（GitHub 发布页）合成一次下载，各自可换来源；
+     一部分没下成时下好的留着（st.half），卡片写哪一部分、连的哪里，「补齐」只下缺的（2026-10-13）；
    · 安装不等于扫描：装完只对已有文稿建轻量文字索引；画面与声音按项目开启，开启前写明范围与开销；
    · 索引：状态、缓存大小、暂停 / 恢复 / 清理、实际后端（自检后选的那一个）；
    · 已索引的项目：每个项目按通道写完整性（「文字 2/3 部视频（1 部还在转录）」），画面 / 声音这一版不可开，写明原因；
@@ -14,9 +16,20 @@
   const SEM = D.semantic;
   const Row = window.ShellRow;
 
+  const mbOf = (n) => window.BC_LOCALMODELS.mb(n);
+  /** 这个包盘上已有的部分（上次没下完时）：id → true */
+  const haveOf = (p, st) => {
+    const on = {};
+    if (st.half && st.half.pkg === p.id) st.half.have.forEach((id) => { on[id] = true; });
+    return on;
+  };
+
   function PackageCard({p, st, set, busy, onInstall}) {
     const app = useApp();
     const has = st.install === 'full' ? true : st.install === 'text' && p.id === 'sem-text';
+    const half = st.half && st.half.pkg === p.id && !has ? st.half : null;
+    const plan = window.BC_DLSRC.plan(p.parts, haveOf(p, st));
+    const lack = half ? plan.groups.flatMap((g) => g.parts).filter((x) => !x.keep) : [];
     const covered = st.install === 'full' && p.id === 'sem-text';
     const unsupported = st.platform === 'unsupported';
     const remove = () => app.confirm({
@@ -32,13 +45,18 @@
           <span className="t-detail-xs">{p.size}</span>
           {busy === p.id ? <Chip tone="accent">正在安装</Chip>
             : covered ? <Chip>已含在多模态搜索里</Chip>
-              : has ? <Chip tone="positive">已安装</Chip> : <Chip>未安装</Chip>}
+              : has ? <Chip tone="positive">已安装</Chip>
+                : half && plan.kept ? <Chip tone="notice">缺 {lack.map((x) => x.name).join('、')}</Chip> : <Chip>未安装</Chip>}
         </div>
-        <span className="t-detail-xs">{p.desc}</span>
+        <span className="t-detail-xs">{p.desc} · {p.model}</span>
+        {half && busy !== p.id ? <p className="semset__fail" role="status"><Ic n="alert" className="ic--14" /><span>{half.note}</span></p> : null}
         {busy === p.id ? <Progress indeterminate thin label={`正在安装${p.name}`} /> : null}
         <div className="row gap8">
-          {!has && !covered && busy !== p.id
-            ? <Btn size="s" variant={p.id === 'sem-text' ? 'accent' : 'secondary'} disabled={unsupported || !!busy} onClick={() => onInstall(p)}>{`安装 · ${p.size}`}</Btn> : null}
+          {!has && !covered && busy !== p.id ? (
+            half && plan.kept
+              ? <Btn size="s" variant="accent" disabled={unsupported || !!busy} onClick={() => onInstall(p)}>{`补齐 · ${mbOf(plan.need)}`}</Btn>
+              : <Btn size="s" variant={p.id === 'sem-text' ? 'accent' : 'secondary'} icon="download" disabled={unsupported || !!busy} onClick={() => onInstall(p)}>{`安装 · ${p.size}`}</Btn>
+          ) : null}
           {has && !covered ? <Btn size="s" variant="quiet" onClick={remove}>移除</Btn> : null}
         </div>
       </div>
@@ -78,6 +96,10 @@
             <option value="none">没装</option><option value="text">文字搜索</option><option value="full">多模态搜索</option></BCSelect></label>
           <label>这台电脑<BCSelect aria-label="平台演示挡位" value={st.platform} onChange={(e) => set({platform: e.target.value})}>
             <option value="ok">支持</option><option value="unsupported">不支持</option></BCSelect></label>
+          <label>上次下载<BCSelect aria-label="上次下载演示挡位" value={st.half ? 'half' : 'ok'}
+            onChange={(e) => set(e.target.value === 'half' ? {install: 'none', half: {pkg: 'sem-full', have: ['embedding'],
+              note: window.BC_DLSRC.failLine({name: 'LiteRT-LM 运行时', host: 'github.com'}, ['模型文件'])}} : {half: null})}>
+            <option value="ok">没出错</option><option value="half">多模态搜索缺运行库</option></BCSelect></label>
           <label>索引<BCSelect aria-label="索引演示挡位" value={st.index} onChange={(e) => set({index: e.target.value})}>
             <option value="ready">已跟上</option><option value="stale">正在更新</option></BCSelect></label>
         </div>
@@ -91,14 +113,26 @@
     const [busy, setBusy] = useState(null);
     const timer = useRef(null);
     useEffect(() => () => clearTimeout(timer.current), []);
-    const install = (p) => {
-      setBusy(p.id);
-      timer.current = setTimeout(() => {
-        setBusy(null);
-        set({install: p.id === 'sem-full' ? 'full' : 'text', index: 'stale'});
-        app.toast(`已安装「${p.name}」：正在给已有文稿建文字索引（演示）`, 'positive');
-      }, 1400);
-    };
+    // 安装 / 补齐都先过下载确认框；确认后按顺序下，outcome 说哪一部分没下成（原型开关「下次下载的结果」）
+    const install = (p) => window.BC_DLASK.open({
+      name: `${p.name} · ${p.model}`, parts: p.parts, on: haveOf(p, st),
+      run: (outcome) => {
+        setBusy(p.id);
+        timer.current = setTimeout(() => {
+          setBusy(null);
+          const before = Object.keys(haveOf(p, st));
+          if (outcome.failed) {
+            const have = before.concat(outcome.done);
+            const names = have.map((id) => p.parts.find((x) => x.id === id).name);
+            set({half: {pkg: p.id, have, note: window.BC_DLSRC.failLine(outcome.failed, names)}});
+            app.toast(`「${p.name}」没装完：${outcome.failed.name}没下成`, 'negative');
+            return;
+          }
+          set((cur) => ({install: p.id === 'sem-full' ? 'full' : 'text', index: 'stale', half: cur.half && cur.half.pkg !== p.id ? cur.half : null}));
+          app.toast(`已安装「${p.name}」：正在给已有文稿建文字索引（演示）`, 'positive');
+        }, 1400);
+      },
+    });
     const unsupported = st.platform === 'unsupported';
     const installed = st.install !== 'none' && !unsupported;
     const clear = () => app.confirm({

@@ -55,7 +55,7 @@ test('按引擎落地：能吃参考音频的都走 clone', () => {
   assert.match(V.RUN_LINE, /同一颗种子/);
   ['qwen3', 'indextts2', 'gptsovits'].forEach((e) => assert.doesNotMatch(V.profileFor(e).line, /种子/));
   const chips = V.engineChips();
-  assert.deepEqual(chips.map((c) => c.ok), [true, true, true, true, true, true, true]);
+  assert.deepEqual(chips.map((c) => c.ok), [true, true, true, true, true, true, true, true]);
   assert.match(V.profileFor('omnivoice').line, /非商用/);
   assert.equal(V.auditionModel((id) => id === 'gpt-sovits-v2'), 'gpt-sovits-v2');
   assert.equal(V.auditionModel(() => true), 'indextts2');

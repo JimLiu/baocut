@@ -69,8 +69,10 @@
     const start = () => {
       if (!(dstRatio > 0)) { app.toast('先填一个有效的自定义画幅', 'negative'); return; }
       if (ready.ok) { app.crop.analyze(proj, {names: ctx.proj.speakers}); return; }
-      ready.missing.forEach((m) => app.downloadModel(m.id));
-      setPending(true);
+      window.askModelDownload(app, ready.missing.map((m) => m.id), () => {
+        ready.missing.forEach((m) => app.downloadModel(m.id));
+        setPending(true);
+      });
     };
     useEffect(() => { if (pending && ready.ok) { setPending(false); app.crop.analyze(proj, {names: ctx.proj.speakers}); } }, [pending, ready.ok]);
     const pickSource = (v) => { app.crop.set(proj, {source: {id: v.id, name: v.name, dur: v.dur, grad: v.grad, url: v.url, poster: v.poster, meta: v.meta, naturalW: v.naturalW, naturalH: v.naturalH},

@@ -1,6 +1,7 @@
 import type { ModelsLocalSpeechMessages } from './local-speech.ts';
 
 export const ru: ModelsLocalSpeechMessages = {
+  referenceTranscriptRequired: "Введите расшифровку эталонной записи",
   paceQwen06: "примерно в 55 раз медленнее реального времени: фраза на 3 секунды занимает две-три минуты",
   paceQwen17: "ожидается медленнее 0.6B (примерно в 55 раз медленнее реального времени); эта модель не измерена",
   paceIndexTts2: "ожидается примерно как IndexTTS 2.5 (в 120–145 раз медленнее реального времени); эта модель не измерена",

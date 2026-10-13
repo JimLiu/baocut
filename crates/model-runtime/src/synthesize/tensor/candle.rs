@@ -354,6 +354,68 @@ pub mod host {
         }
         Ok(out)
     }
+    /// Copy only selected raw rows from the mapping, before CPU/CUDA allocation.
+    pub(crate) fn load_safetensors_filtered_rows(
+        files: &[&Path],
+        keep: impl Fn(&str) -> bool,
+        rows: impl Fn(&str) -> Option<Vec<i32>>,
+    ) -> Result<HashMap<String, Array>> {
+        use candle_core::safetensors::Load;
+        let device = device();
+        let mut out = HashMap::new();
+        for path in files {
+            let file = std::fs::File::open(path)?;
+            // SAFETY: model files are immutable for this load; the mapping is
+            // read-only and its views are copied into owned tensors before drop.
+            let mapped = unsafe { memmap2::MmapOptions::new().map(&file)? };
+            let tensors = safetensors::SafeTensors::deserialize(&mapped)?;
+            for (key, view) in tensors.tensors() {
+                if !keep(&key) {
+                    continue;
+                }
+                let selected;
+                let view = if let Some(rows) = rows(&key) {
+                    anyhow::ensure!(!view.shape().is_empty() && !rows.is_empty(), "empty selected weight rows: {key}");
+                    let count = view.shape()[0];
+                    anyhow::ensure!(
+                        rows.iter().all(|&r| r >= 0 && (r as usize) < count),
+                        "selected weight row out of bounds: {key}"
+                    );
+                    let stride = view.data().len() / count;
+                    selected = {
+                        let mut data = Vec::with_capacity(rows.len() * stride);
+                        for &row in &rows {
+                            let start = row as usize * stride;
+                            data.extend_from_slice(&view.data()[start..start + stride]);
+                        }
+                        data
+                    };
+                    let mut shape = view.shape().to_vec();
+                    shape[0] = rows.len();
+                    safetensors::tensor::TensorView::new(view.dtype(), shape, &selected)?
+                } else {
+                    view
+                };
+                let tensor = if view.dtype() == safetensors::Dtype::BOOL {
+                    Tensor::from_raw_buffer(view.data(), DType::U8, view.shape(), &device)?
+                } else {
+                    view.load(&device)?
+                };
+                let tensor = if !device.is_cuda() && tensor.dtype().is_float() {
+                    tensor.to_dtype(DType::F32)?
+                } else {
+                    tensor
+                };
+                if out.insert(key.clone(), Array(tensor)).is_some() {
+                    bail!("duplicate tensor {key}");
+                }
+            }
+        }
+        if out.is_empty() {
+            bail!("no selected safetensors tensors");
+        }
+        Ok(out)
+    }
     /// candle 的单测与 MLX 一样串行跑：真实权重的用例峰值内存大。
     #[cfg(test)]
     pub(crate) static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

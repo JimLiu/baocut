@@ -1,6 +1,7 @@
 import type { ModelsLocalSpeechMessages } from './local-speech.ts';
 
 export const ja: ModelsLocalSpeechMessages = {
+  referenceTranscriptRequired: "参照録音の原文を入力してください",
   paceQwen06: 'リアルタイムの約 55 倍遅く、3 秒の 1 文に 2〜3 分かかります',
   paceQwen17: '0.6B（リアルタイムの約 55 倍遅い）よりさらに遅いと見込まれます。このモデルは実測していません',
   paceIndexTts2: 'IndexTTS 2.5（リアルタイムの 120〜145 倍遅い）と同程度と見込まれます。このモデルは実測していません',

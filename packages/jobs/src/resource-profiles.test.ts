@@ -55,44 +55,51 @@ describe('Model Worker 的需求', () => {
     expect(localTranscribeResources('a@mlx').holder.demand).toEqual(MODEL_WORKER_DEMAND);
   });
 
-  it.each(['darwin', 'linux', 'win32'] as const)('Apple Silicon 的资源估计不依赖测试主机 %s：嵌入按文件加余量计内存，8 GiB 放得下', async (hostPlatform) => {
-    vi.stubGlobal('process', Object.create(process, {
-      platform: { value: hostPlatform },
-      arch: { value: hostPlatform === 'darwin' ? 'arm64' : 'x64' },
-    }));
-    // 模型目录是空的：可选组件都没装。
-    const catalog = new ModelCatalog({ root: noModels, platform: 'darwin', arch: 'arm64' });
-    for (const def of catalog.definitions()) {
-      const footprint = await catalog.workerFootprint(def.bundleId);
-      const demand = localTranscribeResources(def.bundleId, footprint).holder.demand;
-      // 识别与已有转写的说话人区分（单独加载「说话人区分」模型包）都按必需组件的权重估计。
-      if (def.capability === 'transcribe' || def.capability === 'diarize') {
-        expect(footprint, def.bundleId).toEqual({ bytes: weightBytes(requiredSources(def)), pool: 'gpuMemory' });
-        expect(await catalog.workerWeightBytes(def.bundleId), def.bundleId).toBe(footprint!.bytes);
-        expect(demand.gpuMemory, def.bundleId).toBeGreaterThanOrEqual(MODEL_WORKER_DEMAND.gpuMemory!);
-      } else if (def.capability === 'separate') {
-        expect(footprint, def.bundleId).toEqual({ bytes: 2 * weightBytes(requiredSources(def))!, pool: 'gpuMemory' });
-        expect(await catalog.workerWeightBytes(def.bundleId), def.bundleId).toBe(footprint!.bytes);
-      } else if (def.capability === 'embed') {
-        // 文本嵌入跑在 CPU 上：模型文件 + LiteRT-LM 动态库的压缩包 + 余量，计在内存。
-        // 目录模拟 Apple Silicon；发布页组件的大小也按目录平台算，不能取 CI 主机的平台。
-        const bytes = weightBytes(requiredSources(def), undefined, 'darwin-arm64');
-        expect(bytes, def.bundleId).not.toBeNull();
-        expect(footprint, def.bundleId).toEqual({ bytes: bytes! + EMBEDDING_WORKER_OVERHEAD_BYTES, pool: 'memory' });
-        expect(demand.gpuMemory, def.bundleId).toBe(0);
-      } else {
-        expect(footprint, def.bundleId).toBeNull();
-        expect(demand, def.bundleId).toEqual({ memory: 1 * GiB, gpuMemory: 2 * GiB, cpuThreads: 2 });
-      }
-      for (const total of [8 * GiB, 16 * GiB]) {
-        for (const priority of ['background', 'interactive'] as const) {
-          expect(admitted(def.bundleId, footprint, total, priority), `${def.bundleId} ${total / GiB} GiB ${priority}`).toBe(true);
+  it.each(['darwin', 'linux', 'win32'] as const)(
+    'Apple Silicon 模型需求与准入不依赖测试主机 %s',
+    async (hostPlatform) => {
+      vi.stubGlobal('process', Object.create(process, {
+        platform: { value: hostPlatform },
+        arch: { value: hostPlatform === 'darwin' ? 'arm64' : 'x64' },
+      }));
+      // 模型目录是空的：可选组件都没装。
+      const catalog = new ModelCatalog({ root: noModels, platform: 'darwin', arch: 'arm64' });
+      for (const def of catalog.definitions()) {
+        const footprint = await catalog.workerFootprint(def.bundleId);
+        const demand = localTranscribeResources(def.bundleId, footprint).holder.demand;
+        // 识别与已有转写的说话人区分（单独加载「说话人区分」模型包）都按必需组件的权重估计。
+        if (def.capability === 'transcribe' || def.capability === 'diarize') {
+          expect(footprint, def.bundleId).toEqual({ bytes: weightBytes(requiredSources(def)), pool: 'gpuMemory' });
+          expect(await catalog.workerWeightBytes(def.bundleId), def.bundleId).toBe(footprint!.bytes);
+          expect(demand.gpuMemory, def.bundleId).toBeGreaterThanOrEqual(MODEL_WORKER_DEMAND.gpuMemory!);
+        } else if (def.capability === 'separate') {
+          expect(footprint, def.bundleId).toEqual({ bytes: 2 * weightBytes(requiredSources(def))!, pool: 'gpuMemory' });
+          expect(await catalog.workerWeightBytes(def.bundleId), def.bundleId).toBe(footprint!.bytes);
+        } else if (def.capability === 'embed') {
+          // 文本嵌入跑在 CPU 上：模型文件 + LiteRT-LM 动态库的压缩包 + 余量，计在内存。
+          // 目录模拟 Apple Silicon；发布页组件的大小也按目录平台算，不能取 CI 主机的平台。
+          const bytes = weightBytes(requiredSources(def), undefined, 'darwin-arm64');
+          expect(bytes, def.bundleId).not.toBeNull();
+          expect(footprint, def.bundleId).toEqual({ bytes: bytes! + EMBEDDING_WORKER_OVERHEAD_BYTES, pool: 'memory' });
+          expect(demand.gpuMemory, def.bundleId).toBe(0);
+        } else if (def.speech?.residentBytes !== undefined) {
+          expect(footprint).toEqual({ bytes: def.speech.residentBytes, pool: 'gpuMemory' });
+          expect(demand.gpuMemory).toBe(def.speech.residentBytes + GiB);
+        } else {
+          expect(footprint, def.bundleId).toBeNull();
+          expect(demand, def.bundleId).toEqual({ memory: 1 * GiB, gpuMemory: 2 * GiB, cpuThreads: 2 });
+        }
+        for (const total of [8 * GiB, 16 * GiB]) {
+          for (const priority of ['background', 'interactive'] as const) {
+            const expected = def.speech?.residentBytes !== undefined && total === 8 * GiB ? false : true;
+            expect(admitted(def.bundleId, footprint, total, priority), `${def.bundleId} ${total / GiB} GiB ${priority}`).toBe(expected);
+          }
         }
       }
-    }
-    const large = await catalog.workerFootprint('qwen3-asr-1.7b@mlx-8bit');
-    expect(localTranscribeResources('qwen3-asr-1.7b@mlx-8bit', large).holder.demand.gpuMemory).toBeGreaterThan(3.2 * GiB);
-  });
+      const large = await catalog.workerFootprint('qwen3-asr-1.7b@mlx-8bit');
+      expect(localTranscribeResources('qwen3-asr-1.7b@mlx-8bit', large).holder.demand.gpuMemory).toBeGreaterThan(3.2 * GiB);
+    },
+  );
 
   it('candle：CPU 上按参数个数 × 4 计在内存，CUDA 上按 × 2 计在 GPU 内存；16 GiB 的机器放得下 0.6B 与 MOSS', async () => {
     const catalog = new ModelCatalog({ root: noModels, platform: 'linux', arch: 'x64' });

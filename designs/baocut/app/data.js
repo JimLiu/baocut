@@ -2740,6 +2740,10 @@
      note: '参考音频克隆或挑选项造声 · 能按目标时长念 · 会念的语言最多 · int8', repo: 'aufklarer/OmniVoice-MLX-int8', uses: [],
      license: {name: 'CC-BY-NC-4.0', commercialUse: false, url: 'https://huggingface.co/k2-fsa/OmniVoice',
        summary: '代码 Apache-2.0，但预训练权重因训练数据（Emilia 等）以 CC-BY-NC 发布，只许非商业用途；MLX int8 转换包是它的派生物，受同一许可'}},
+    {id: 'fish-s2-pro', name: 'Fish Audio S2 Pro', cat: 'tts', size: 4634, installed: false,
+     note: '参考录音与原文克隆 · 正文支持语气标签 · 44.1 kHz · 8 bit', repo: 'mlx-community/fish-audio-s2-pro-8bit', uses: ['fish-s2-pro-codec'],
+     license: {name: 'Fish Audio Research License', commercialUse: false, url: 'https://huggingface.co/fishaudio/s2-pro/blob/main/LICENSE.md',
+       summary: 'Built with Fish Audio · 权重可用于研究和非商业用途，商用需另获 Fish Audio 许可'}},
     /* 音源分离：翻译配音把人声和背景拆开，配音铺在背景声上 */
     {id: 'htdemucs-ft', name: 'HTDemucs-FT', cat: 'sep', size: 321, installed: false,
      note: '人声 / 背景分离 · 每窗 7.8 s', repo: 'aufklarer/HTDemucs-FT-MLX', uses: [],
@@ -2792,6 +2796,8 @@
          '在 VoxCeleb 上训练，由 pyannote.audio（Bredin，Interspeech 2023）封装发布，许可 CC-BY-4.0；这里用的是它的 MLX 格式转换（aufklarer/WeSpeaker-ResNet34-LM-MLX）'}},
     {id: 'tts-codec', name: 'Qwen3-TTS 语音编解码器', size: 662, installed: true, repo: 'Qwen/Qwen3-TTS-Tokenizer-12Hz',
      desc: '把声学 token 还原成波形'},
+    {id: 'fish-s2-pro-codec', name: 'Fish Audio S2 Pro 语音编解码器', size: 1038, installed: false, repo: 'aufklarer/Fish-Audio-S2-Pro-MLX-fp16',
+     desc: '只下载 codec 与许可 · 将参考录音编码，将声学 token 还原为 44.1 kHz 波形'},
     {id: 'indextts-aux', name: 'IndexTTS2 辅助件', size: 1400, installed: false, repo: 'aufklarer/IndexTTS2-MLX-fp16',
      desc: 'w2v-BERT · CAM++ · BigVGAN · 情绪特征表'},
     {id: 'audiocpp-engine', name: 'audio.cpp 引擎', size: 30.5, installed: false, release: '0xShug0/audio.cpp v0.9.1',
@@ -3530,10 +3536,20 @@
   const fromCue = (video, id) => ({id: `${video}:${id}`, video, cue: id, t: C(id).start, end: C(id).end, sp: C(id).sp, text: C(id).text});
   const semantic = {
     packages: [
-      {id: 'sem-text', name: '文字搜索', size: '165 MB', channels: ['text'],
-       desc: '讲话内容与文档：Space 搜索、写作按主题选材、术语候选、翻译记忆、重录候选都用它。'},
-      {id: 'sem-full', name: '多模态搜索', size: '485 MB', channels: ['text', 'visual', 'audio'],
-       desc: '在文字之外再认画面与声音。装了它不必再装文字搜索。画面与声音的检索在后续版本开放。'},
+      /* parts：一次下载的几个部分（packages/models embedding-bundles.ts）。模型文件从模型仓库下，LiteRT-LM 运行时从 GitHub 发布页下，
+         两种来源各自可换（BC_DLSRC）；按顺序下，下好的先存下，没下成的那一部分补齐时单独下 */
+      {id: 'sem-text', name: '文字搜索', size: '200 MB', channels: ['text'], model: 'EmbeddingGemma 2 Text 270M',
+       desc: '讲话内容与文档：Space 搜索、写作按主题选材、术语候选、翻译记忆、重录候选都用它。',
+       parts: [
+         {id: 'embedding', name: '模型文件', size: 157, repo: 'litert-community/embeddinggemma-2-text-270m-litert-lm'},
+         {id: 'litertlm-runtime', name: 'LiteRT-LM 运行时', size: 43, release: 'google-ai-edge/LiteRT-LM v0.18.0'},
+       ]},
+      {id: 'sem-full', name: '多模态搜索', size: '505 MB', channels: ['text', 'visual', 'audio'], model: 'EmbeddingGemma 2 740M',
+       desc: '在文字之外再认画面与声音。装了它不必再装文字搜索。画面与声音的检索在后续版本开放。',
+       parts: [
+         {id: 'embedding', name: '模型文件', size: 462, repo: 'litert-community/embeddinggemma-2-740m-litert-lm'},
+         {id: 'litertlm-runtime', name: 'LiteRT-LM 运行时', size: 43, release: 'google-ai-edge/LiteRT-LM v0.18.0'},
+       ]},
     ],
     /* 实际后端：自检后选的那一个（v0.1 §4.4），不是「检测到显卡就用 GPU」 */
     backend: {k: 'gpu', label: 'GPU · Metal', note: '自检通过；失败会自动退回 CPU'},

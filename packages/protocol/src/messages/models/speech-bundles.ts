@@ -16,6 +16,7 @@ import { vi } from './speech-bundles.vi.ts';
 
 /** `packages/models/src/speech-bundles.ts` 给人看的文字：语音合成模型包的许可摘要（模型名、许可证名、厂商名不翻译）。 */
 const en = {
+  fishS2ProLicense: "S2 Pro weights use the Fish Audio Research License: research and non-commercial use; commercial use requires a separate Fish Audio license",
   qwen3TtsLicense: 'The upstream Qwen3-TTS model card says Apache-2.0, commercial use allowed; the MLX conversion keeps the same license',
   indexTts2License: 'Commercial use allowed, but entities with more than 100 million monthly active users last month or more than 1 billion RMB in revenue last year must apply to bilibili separately; redistribution must include the full agreement; it may not be used to improve commercial models other than IndexTTS',
   indexTts25License: 'Commercial use allowed, but entities with more than 100 million monthly active users last month or more than 1 billion RMB in revenue last year must apply to bilibili separately; redistribution must include the full agreement; the auxiliary weights come from IndexTTS2 under the same agreement',

@@ -27,17 +27,20 @@ pub enum TtsEngineKind {
     /// OmniVoice（Qwen3 底座的掩码离散扩散，音色描述 / 克隆 / 时长与语速控制，24 kHz）。
     #[serde(rename = "omnivoice")]
     OmniVoice,
+    /// Fish Audio S2 Pro, reference voice cloning and inline control, 44.1 kHz.
+    FishS2Pro,
 }
 
 impl TtsEngineKind {
     /// 全部本地引擎，按声明次序。
-    pub const ALL: [TtsEngineKind; 6] = [
+    pub const ALL: [TtsEngineKind; 7] = [
         Self::Qwen3Tts,
         Self::IndexTts2,
         Self::IndexTts25,
         Self::GptSovits,
         Self::VoxCpm2,
         Self::OmniVoice,
+        Self::FishS2Pro,
     ];
 
     /// [`Self::as_str`] 的反函数；认不出给 `None`。
@@ -56,6 +59,7 @@ impl TtsEngineKind {
             Self::GptSovits => FAMILY_GPT_SOVITS,
             Self::VoxCpm2 => FAMILY_VOXCPM2,
             Self::OmniVoice => FAMILY_OMNIVOICE,
+            Self::FishS2Pro => crate::bundle::FAMILY_FISH_S2_PRO,
         }
     }
 
@@ -72,6 +76,7 @@ impl TtsEngineKind {
             Self::GptSovits => "gpt-sovits",
             Self::VoxCpm2 => "voxcpm2",
             Self::OmniVoice => "omnivoice",
+            Self::FishS2Pro => "fish-s2-pro",
         }
     }
 
@@ -85,7 +90,7 @@ impl TtsEngineKind {
         match self {
             Self::Qwen3Tts => 4,
             Self::IndexTts2 | Self::VoxCpm2 => 2,
-            Self::IndexTts25 | Self::GptSovits | Self::OmniVoice => 1,
+            Self::IndexTts25 | Self::GptSovits | Self::OmniVoice | Self::FishS2Pro => 1,
         }
     }
 
@@ -98,7 +103,7 @@ impl TtsEngineKind {
             Self::IndexTts25 => ReadingsSupport::Annotated,
             Self::GptSovits => ReadingsSupport::Unsupported,
             // 官方都没有读音通道（上游 README）；按表面文字送。
-            Self::VoxCpm2 | Self::OmniVoice => ReadingsSupport::Unsupported,
+            Self::VoxCpm2 | Self::OmniVoice | Self::FishS2Pro => ReadingsSupport::Unsupported,
         }
     }
 
@@ -110,6 +115,7 @@ impl TtsEngineKind {
             Self::GptSovits => 32_000,
             Self::VoxCpm2 => 48_000,
             Self::OmniVoice => 24_000,
+            Self::FishS2Pro => 44_100,
         }
     }
 }
@@ -352,6 +358,7 @@ mod tests {
             (TtsEngineKind::GptSovits, "gpt-sovits"),
             (TtsEngineKind::VoxCpm2, "voxcpm2"),
             (TtsEngineKind::OmniVoice, "omnivoice"),
+            (TtsEngineKind::FishS2Pro, "fish-s2-pro"),
         ];
         for (kind, wire) in kinds {
             assert_eq!(serde_json::to_value(kind).unwrap(), json!(wire));
@@ -360,7 +367,15 @@ mod tests {
         }
         assert_eq!(TtsEngineKind::from_str("unknown-engine"), None);
         // 模型包的 family 一一对应引擎（协议规范 §4.1 的 family 列表）。
-        let families = ["qwen3-tts", "indextts2", "indextts2.5", "gpt-sovits", "voxcpm2", "omnivoice"];
+        let families = [
+            "qwen3-tts",
+            "indextts2",
+            "indextts2.5",
+            "gpt-sovits",
+            "voxcpm2",
+            "omnivoice",
+            "fish-s2-pro",
+        ];
         for (kind, family) in TtsEngineKind::ALL.into_iter().zip(families) {
             assert_eq!(kind.family(), family);
             assert_eq!(TtsEngineKind::from_family(family), Some(kind));

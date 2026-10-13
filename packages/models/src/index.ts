@@ -102,6 +102,7 @@ export {
   synthesizeRunOf,
   type LocalVoicePlan,
   type ReferenceToFreeze,
+  checkReferenceTranscript,
 } from './local-speech.ts';
 export {
   ModelCatalog,

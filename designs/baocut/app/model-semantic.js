@@ -7,7 +7,8 @@
    无 React、无 DOM，`node --test` 直接跑。 */
 (function () {
   /* ---------- 状态 ---------- */
-  const DEFAULT = {install: 'text', platform: 'ok', index: 'ready', paused: false, tm: true, terms: true};
+  /* half：上次安装没下完（2026-10-13 下载确认框）——{pkg, have: [已下好的部分 id], note: 失败那一句}；这时这个包仍算没装 */
+  const DEFAULT = {install: 'text', platform: 'ok', index: 'ready', paused: false, tm: true, terms: true, half: null};
   /* 原型演示用的 URL 开关：`?semantic=none|stale|unsupported|ready|full`（写在 hash 前面） */
   const DEMO = {
     none: {install: 'none'},

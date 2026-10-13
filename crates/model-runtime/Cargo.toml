@@ -65,6 +65,8 @@ sha2 = "0.11.0"
 unicode-general-category = "1.1"
 # OmniVoice 分词器的 NFC 规范化、GPT-SoVITS 英文规范化的 NFKD、IndexTTS2 文本前端的 NFKC。
 unicode-normalization = "0.1.25"
+# Fish S2 Pro: use the exact exported tokenizer pipeline and added tokens.
+tokenizers = { version = "0.22.2", default-features = false, features = ["onig"] }
 # 自动语言识别的兜底：模型没有报出语言时按累计文本判断。
 whatlang = "0.18"
 # raw-api：暴露 whisper_rs_sys，用于 ggml 的设备枚举与动态后端加载。

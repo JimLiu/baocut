@@ -139,6 +139,7 @@
       "app/model-tool-semantic.js",
       "app/model-dub.js",
       "app/model-local-models.js",
+      "app/model-download-sources.js",
       "app/model-local-check.js",
       "app/model-daoyazi.js",
       "app/model-glossary.js",
@@ -235,6 +236,8 @@
       "app/tool-video-merge.jsx",
       "app/settings-models-dir.jsx",
       "app/settings-model-check.jsx",
+      "app/download-sources.jsx",
+      "app/download-dialog.jsx",
       "app/settings-local.jsx",
       "app/vendor-icon.jsx",
       "app/settings-probe-dialog.jsx",
@@ -407,6 +410,7 @@
       "app/settings-providers.css",
       "app/settings-usage.css",
       "app/settings-local.css",
+      "app/download-sources.css",
       "app/settings-models-dir.css",
       "app/settings-glossary.css",
       "app/settings-voices.css",
@@ -451,9 +455,9 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/app.js?v=8796be9ffac0",
-    "css": "generated/app.css?v=16a5a811af00",
-    "bytes": 4159681
+    "js": "generated/app.js?v=e2172361ea1c",
+    "css": "generated/app.css?v=5bc1b0bad4f8",
+    "bytes": 4178725
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -696,9 +700,9 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/web.js?v=0edf71b938cd",
+    "js": "generated/web.js?v=35d2cda3d5dc",
     "css": "generated/web.css?v=5bb16902f7ad",
-    "bytes": 2494871
+    "bytes": 2495929
   },
   "components": {
     "file": "Components.html",

@@ -481,7 +481,8 @@ fn synthesis_kind(bundle: &VerifiedBundle, tts: &VerifiedFiles) -> Result<TtsEng
         }
     }
     if let Some(codec) = bundle.codec.as_ref()
-        && (kind != TtsEngineKind::Qwen3Tts || codec.family != FAMILY_QWEN3_TTS_CODEC)
+        && (!((kind == TtsEngineKind::Qwen3Tts && codec.family == FAMILY_QWEN3_TTS_CODEC)
+            || (kind == TtsEngineKind::FishS2Pro && codec.family == crate::bundle::FAMILY_FISH_S2_PRO_CODEC)))
     {
         return Err(ErrorBody::new(codes::MODEL_UNSUPPORTED, "unsupported codec model family")
             .with_details(json!({ "component": "codec", "family": codec.family, "reason": "unknown-family" })));

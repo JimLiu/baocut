@@ -62,10 +62,12 @@ const speechBundle = (bundleId: string, like: string, withCodec: boolean): Bundl
 const CLONE = 'clone@cpu';
 const SPEAKERS = 'speakers@cpu';
 const SILENT = 'clone@cpu#silent-output';
+const FISH = 'fish@cpu';
 const BUNDLES: BundleDefinition[] = [
   speechBundle(CLONE, 'qwen3-tts-0.6b-base@mlx-8bit', true),
   speechBundle(SPEAKERS, 'qwen3-tts-1.7b-customvoice@mlx-8bit', true),
   speechBundle(SILENT, 'qwen3-tts-0.6b-base@mlx-8bit', true),
+  {...speechBundle(FISH, 'fish-s2-pro@mlx-8bit', false), speech: {...real('fish-s2-pro@mlx-8bit').speech!, residentBytes: undefined}},
 ];
 
 async function writeRepo(root: string, repo: string, revision: string): Promise<void> {
@@ -303,6 +305,16 @@ describe('本地语音合成（假 Model Worker）', () => {
     await manager.settled(second.jobId);
     expect(manager.inspect(second.jobId)).toMatchObject({ state: 'failed', error: { code: 'ASSET_MISSING' } });
     expect((await recorded()).filter((r) => (r.options as { text: string }).text === '二')).toEqual([]);
+  });
+
+  it('Fish 克隆在提交时检查音色库原文，内置音色会冻结自带原文', async () => {
+    const ref=path.join(dir,'fish-ref.wav');
+    await fs.copyFile(builtinVoiceFile(builtinVoice('zh-male')!)!,ref);
+    const voice=(await library.put({library:'voices',content:{name:'Fish test',language:null,transcript:'',origin:'recorded',consent:{declared:true,statement:'test'}},file:{path:ref}})).entry;
+    const error=await rejection(manager.submitSynthesizeSpeech({text:'Hello',provider:'local',model:FISH,voice:`library:${voice.id}`},submitter));
+    expect(error).toMatchObject({code:'invalid-request',details:{reason:'reference-transcript-required'}});
+    const job=await speak({model:FISH});
+    expect(job).toMatchObject({state:'completed',generation:{reference:{source:'builtin',transcript:expect.any(String)}}});
   });
 
   it('音色库条目：直接用它的参考录音（不需要在线克隆），任务冻结条目的版本', async () => {

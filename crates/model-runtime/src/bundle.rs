@@ -132,6 +132,8 @@ pub const FAMILY_QWEN3_TTS_CODEC: &str = "qwen3-tts-tokenizer";
 /// VoxCPM2（`config.json` + `tokenizer.json` + `model.safetensors`，单组件）。
 pub const FAMILY_VOXCPM2: &str = "voxcpm2";
 /// OmniVoice（主模型 + 同一组件里 `audio_tokenizer/` 下的音频分词器）。
+pub const FAMILY_FISH_S2_PRO_CODEC: &str = "fish-s2-pro-codec";
+pub const FAMILY_FISH_S2_PRO: &str = "fish-s2-pro";
 pub const FAMILY_OMNIVOICE: &str = "omnivoice";
 /// IndexTTS2 主模型。
 pub const FAMILY_INDEXTTS2: &str = "indextts2";

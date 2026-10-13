@@ -1,6 +1,7 @@
 import type { ModelsLocalSpeechMessages } from './local-speech.ts';
 
 export const zhHans: ModelsLocalSpeechMessages = {
+  referenceTranscriptRequired: "请填写参考录音的原文",
   paceQwen06: '比实时慢约 55 倍，3 秒的一句要等两三分钟',
   paceQwen17: '预计比 0.6B（比实时慢约 55 倍）还慢，这只没有实测',
   paceIndexTts2: '预计与 IndexTTS 2.5（比实时慢 120–145 倍）相当，这只没有实测',

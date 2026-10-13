@@ -1,6 +1,7 @@
 import type { ModelsLocalSpeechMessages } from './local-speech.ts';
 
 export const nl: ModelsLocalSpeechMessages = {
+  referenceTranscriptRequired: "Voer het transcript van de referentieopname in",
   paceQwen06: "ongeveer 55 keer langzamer dan realtime, dus een zin van 3 seconden duurt twee tot drie minuten",
   paceQwen17: "naar verwachting langzamer dan 0.6B (ongeveer 55 keer langzamer dan realtime); dit model is nog niet gemeten",
   paceIndexTts2: "naar verwachting ongeveer gelijk aan IndexTTS 2.5 (120–145 keer langzamer dan realtime); dit model is nog niet gemeten",

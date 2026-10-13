@@ -10,7 +10,15 @@ use support::{WorkerProcess, error_code, result};
 const TIMEOUT: Duration = Duration::from_secs(10);
 
 /// 合成主模型的全部 family（`packages/models` 的 `ModelFamily` 里 tts 那几个）。
-const SYNTHESIS_FAMILIES: [&str; 6] = ["qwen3-tts", "indextts2", "indextts2.5", "gpt-sovits", "voxcpm2", "omnivoice"];
+const SYNTHESIS_FAMILIES: [&str; 7] = [
+    "qwen3-tts",
+    "indextts2",
+    "indextts2.5",
+    "gpt-sovits",
+    "voxcpm2",
+    "omnivoice",
+    "fish-s2-pro",
+];
 
 /// 识别主模型的全部 family（`packages/models` 的 `ModelFamily` 里 asr 那几个）。
 const TRANSCRIPTION_FAMILIES: [&str; 5] = [

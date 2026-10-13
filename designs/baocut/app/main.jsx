@@ -92,6 +92,8 @@
         </window.AppUpdateProvider>
         <window.ProjectInfoDialog />
         <window.LegacyImportDialog />
+        {/* 所有模型下载的确认框（download-dialog.jsx）：大小、按种类分组的来源（可就地换）、许可 */}
+        <window.ModelDownloadDialog />
         <ConfirmDialog ask={store.ask} onCancel={store.clearAsk}
           onConfirm={() => { const a = store.ask; store.clearAsk(); if (a && a.run) a.run(); }} />
         <ToastHost toasts={store.toasts} onDismiss={store.dismissToast} />

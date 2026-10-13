@@ -60,6 +60,7 @@ import {
   localMusicSeed,
   musicParameters,
   planLocalVoice,
+  checkReferenceTranscript,
   speechParameters,
   textParameters,
   validateAsrResult,
@@ -1071,6 +1072,7 @@ export class JobManager {
       const builtin = builtinReferenceFile(choice.model, plan);
       if (builtin) reference = await freezeReferenceFile({ ...builtin, transcript: withTranscript ? builtin.transcript : null });
     }
+    checkReferenceTranscript(choice.model, reference?.transcript);
     return { parameters: speechParameters(choice, request, { plan, reference }), ...(library ? { library } : {}) };
   }
 
@@ -1203,7 +1205,7 @@ export class JobManager {
 
     const jobId = newId('job');
     const grantUse = this.#admit(jobId, capability, selection, videoId, submitter, grant, typeof quantity === 'function' ? quantity(parameters) : quantity);
-    // 本地合成的 candle 模型包按常驻量估计 Model Worker（MLX 的是 null，用固定的需求）。
+    // 本地合成按常驻量估计 Model Worker（candle 或登记了有界常驻量的 MLX）；没有估计时用固定需求。
     const workerFootprint = capability === 'synthesizeSpeech' ? await this.#workerFootprint(selection.providerId, selection.modelId) : null;
     const now = nowIso();
     const record: JobRecord = {

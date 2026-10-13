@@ -213,13 +213,15 @@ export interface MusicBundleProfile {
  * - `voiceModes` 只列 `preset` / `clone` / `describe`：本地模型没有供应商账号里的音色（`custom`）。
  */
 export interface SpeechBundleProfile {
+  /** Quantized execution residency; mutually exclusive model stages use their maximum. */
+  residentBytes?: number;
   family: string;
   languages: 'any' | string[];
   voiceModes: Exclude<VoiceMode, 'custom'>[];
   presets: 'model' | 'builtin-reference' | 'builtin-description' | 'none';
   /** `presets: 'model'` 时模型自带的说话人。 */
   speakers?: string[];
-  reference: { recommendedSeconds: [number, number]; withTranscriptSeconds: [number, number] | null; acceptsTranscript: boolean } | null;
+  reference: { recommendedSeconds: [number, number]; withTranscriptSeconds: [number, number] | null; acceptsTranscript: boolean; requiresTranscript?: boolean } | null;
   voiceDescription: SpeechVoiceDescription | null;
   instructions: 'style' | null;
   emotion: boolean;

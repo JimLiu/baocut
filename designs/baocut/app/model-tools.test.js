@@ -212,8 +212,8 @@ test('生成记录：命名、元数据、一次只跑一条', () => {
 });
 
 test('生成语音卡状态行按已装模型数', () => {
-  assert.equal(T.ttsStatus(() => false).text, '10 个语音模型可下载');
-  assert.equal(T.ttsStatus((id) => id === 'indextts2').text, '已装 1 / 10 个语音模型');
+  assert.equal(T.ttsStatus(() => false).text, '11 个语音模型可下载');
+  assert.equal(T.ttsStatus((id) => id === 'indextts2').text, '已装 1 / 11 个语音模型');
 });
 
 test('自建 API 提供方（留的口子）：登记后只凭 cloud:<id> 就能出卡、语言、上限与记录', () => {
@@ -232,7 +232,7 @@ test('自建 API 提供方（留的口子）：登记后只凭 cloud:<id> 就能
   assert.equal(r.provider, '自家 TTS');
   assert.equal(r.chars, 11);
   assert.equal(r.engineName, '自家 TTS · kokoro-v1');
-  assert.equal(T.ttsStatus(() => false, ['custom-9']).text, '10 个语音模型可下载 · 1 家云端已连接');
+  assert.equal(T.ttsStatus(() => false, ['custom-9']).text, '11 个语音模型可下载 · 1 家云端已连接');
   assert.ok(T.validate(Object.assign({}, f, {text: 'hi'}), {voices: [], saved: ['custom-9']}).length === 0);
   assert.equal(C.engines(['custom-9']).length, 1, 'engines 不带 extra 也认登记过的自建');
   assert.equal(p.custom, true);

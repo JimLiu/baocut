@@ -3,9 +3,9 @@
      默认收起；没拨过的键不进表单、合成时也不传（副题写「按模型默认」），「恢复默认」把键删掉而不是写回默认值。
    - `OmniDescribe`：OmniVoice 的「描述」不是一句自由文字，是按类挑项（性别 / 年龄 / 音高 / 风格，念英语多英语口音、念中文多汉语方言），
      每类至多一项；上面一排三组现成挑法当起点。
-   - `withModelLicense`：权重不许商用（data.js 该行 `license.commercialUse: false`：OmniVoice、Qwen-Image-2.1 与 Turbo）的模型，
-     第一次下载前弹「许可」确认；可商用的直接下。音频面板的下载卡、设置 › 本地模型的下载 / 补齐、配音设置的「下载缺的模型」、
-     生成图片的下载卡都经这里；末尾那句按模型的类说（合成的声音 / 画出的图）。
+   - `withModelLicense`：下载前确认，交给统一的下载确认框（download-dialog.jsx，2026-10-13）。权重不许商用（data.js 该行
+     `license.commercialUse: false`：OmniVoice、Qwen-Image-2.1 与 Turbo）的模型把许可写在框里；音频面板的下载卡、配音设置的
+     「下载缺的模型」、生成图片的下载卡、我的声音都经这里；许可末尾那句按模型的类说（合成的声音 / 画出的图 / 生成的音乐，`ttsLicenseUse`）。
    词表、区间与拼接规则在 model-tts.js（`LOCAL_KNOBS` / `OMNI_DESIGN`），这里只画。
    文件名落在 `panel-tts*` 下：model-surface.test.js 的 WEB_DENY 按前缀把它挡在 BaoCutWeb.html 之外。 */
 (function () {
@@ -27,29 +27,13 @@
   /** 许可确认末尾那一句：用它做出的东西也只能用在非商业内容里（图像模型说画出的图，其余说合成的声音） */
   const licenseUse = (cat) => cat === 'image'
     ? '用它画出的图也只能用在非商业内容里；做要商用的视频请换别的图像模型。'
-    : '用它合成的声音也只能用在非商业内容里；做要商用的视频请换别的语音模型。';
+    : cat === 'music' ? '用它生成的音乐也只能用在非商业内容里；做要商用的视频请换别的音乐模型。'
+      : '用它合成的声音也只能用在非商业内容里；做要商用的视频请换别的语音模型。';
 
-  /** 下载前的许可闸：`ids` 里有不许商用的就先弹一次确认（几只一起下也只问一次），确认了才 `run`；都可商用直接 `run`。 */
+  /** 下载前确认（旧名沿用，调用方不改）：交给统一的下载确认框（download-dialog.jsx），大小、来源与不许商用的许可都写在框里，
+   *  几只一起下也只问一次，确认了才 `run`。 */
   function withModelLicense(app, ids, run) {
-    const list = [].concat(ids || []).map((id) => ({id, lic: licenseOf(id), m: D.setModels.find((x) => x.id === id)})).filter((x) => x.lic);
-    if (!list.length) { run(); return; }
-    app.confirm({
-      title: '许可',
-      body: (
-        <div className="ttslic">
-          {list.map((x) => (
-            <div key={x.id} className="ttslic__item">
-              <b>{x.m.name}</b>
-              <span>{licenseBrief(x.lic)}</span>
-              <span className="t-detail-xs">{x.lic.url}</span>
-            </div>
-          ))}
-          {[...new Set(list.map((x) => licenseUse(x.m.cat)))].map((line) => <span key={line} className="t-detail">{line}</span>)}
-        </div>
-      ),
-      confirmLabel: '我知道了，下载',
-      run,
-    });
+    window.askModelDownload(app, ids, () => run());
   }
 
   /* ---------- 数值旋钮 ---------- */
@@ -145,5 +129,5 @@
     );
   }
 
-  Object.assign(window, {TtsKnobs, OmniDescribe, withModelLicense, ttsLicenseOf: licenseOf, ttsLicenseBrief: licenseBrief});
+  Object.assign(window, {TtsKnobs, OmniDescribe, withModelLicense, ttsLicenseOf: licenseOf, ttsLicenseBrief: licenseBrief, ttsLicenseUse: licenseUse});
 })();

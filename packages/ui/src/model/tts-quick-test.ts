@@ -1,3 +1,4 @@
+import { ModelsLocalSpeech } from '@baocut/protocol/messages/models/local-speech.ts';
 import { intlLocale, live, type JobRecord, type ModelBundleStatus, type SpeechModelInfo, type SynthesizeSpeechRequest } from '@baocut/protocol';
 import { languageName } from './caption-tracks.ts';
 import { isBundleInstalled } from './models-local.ts';
@@ -406,6 +407,7 @@ export function quickForm(model: SpeechModelInfo, pick: QuickPick, mine: readonl
     if (pick.sample) request = { ...base, voice: pick.sample };
     else if (pick.file) {
       const transcript = model.local?.reference?.acceptsTranscript ? pick.transcript.trim() : '';
+      if (model.local?.reference?.requiresTranscript && !transcript) problem ??= ModelsLocalSpeech.referenceTranscriptRequired().text;
       request = { ...base, reference: { file: pick.file.path, ...(transcript ? { transcript } : {}) } };
     } else problem ??= M.referenceRequired;
   } else {

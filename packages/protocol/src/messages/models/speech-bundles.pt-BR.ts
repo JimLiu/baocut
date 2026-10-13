@@ -1,6 +1,7 @@
 import type { ModelsSpeechBundlesMessages } from './speech-bundles.ts';
 
 export const ptBR: ModelsSpeechBundlesMessages = {
+  fishS2ProLicense: "Os pesos S2 Pro usam Fish Audio Research License: pesquisa e uso não comercial; o uso comercial exige uma licença separada da Fish Audio",
   qwen3TtsLicense: 'O cartão do modelo Qwen3-TTS original indica Apache-2.0, com uso comercial permitido; a conversão MLX mantém a mesma licença',
   indexTts2License: 'Uso comercial permitido, mas entidades com mais de 100 milhões de usuários ativos mensais no mês anterior ou mais de 1 bilhão de RMB em receita no ano anterior devem solicitar autorização separadamente à bilibili; a redistribuição deve incluir o contrato completo; não pode ser usado para melhorar modelos comerciais além do IndexTTS',
   indexTts25License: 'Uso comercial permitido, mas entidades com mais de 100 milhões de usuários ativos mensais no mês anterior ou mais de 1 bilhão de RMB em receita no ano anterior devem solicitar autorização separadamente à bilibili; a redistribuição deve incluir o contrato completo; os pesos auxiliares vêm do IndexTTS2 sob o mesmo contrato',

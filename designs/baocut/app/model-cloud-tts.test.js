@@ -80,8 +80,8 @@ test('引擎：只把已连接的 API 提供方折成引擎，形状与本地引
   assert.equal(TTS.engineSpeaks('cloud:openai', 'ko'), true);
   assert.equal(TTS.engineSpeaks('cloud:openai', 'th'), true, '多语言引擎会念常用表之外的语言');
   // ENGINES 本身不变：本地七只（2026-09-26 加 VoxCPM2 / OmniVoice）
-  assert.equal(TTS.ENGINES.length, 7);
-  assert.equal(TTS.allEngines(['minimax']).length, 8);
+  assert.equal(TTS.ENGINES.length, 8);
+  assert.equal(TTS.allEngines(['minimax']).length, 9);
 });
 
 test('引擎卡与页顶 chip：标签按能力派生，联网计费用 notice；没连的多一枚「未连接」', () => {

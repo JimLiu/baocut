@@ -24,6 +24,7 @@
     'gpt-sovits-v2':              {engine: 'gptsovits', mode: 'clone', name: 'GPT-SoVITS v2'},
     'voxcpm2':                    {engine: 'voxcpm2', mode: 'clone', name: 'VoxCPM2'},
     'omnivoice':                  {engine: 'omnivoice', mode: 'clone', name: 'OmniVoice'},
+    'fish-s2-pro':                {engine: 'fish-s2-pro', mode: 'clone', name: 'Fish Audio S2 Pro'},
     'htdemucs-ft':                {engine: 'sep', name: 'HTDemucs-FT'},
   };
   /* 引擎表。`models` = 音色方式 → 要装的模型 id，它同时决定这只引擎能给哪几种音色方式：
@@ -51,6 +52,8 @@
      models: {clone: 'voxcpm2'}, builtin: 'ref', style: true},
     {id: 'omnivoice', name: 'OmniVoice', desc: '八只内置音色、用自己的录音克隆，或挑性别、年龄、音高造一个新声音；能按目标时长念，会念的语言最多；仅限非商用',
      models: {clone: 'omnivoice', describe: 'omnivoice'}, builtin: 'ref', vocab: true, duration: 60, nonCommercial: true},
+    {id: 'fish-s2-pro', name: 'Fish Audio S2 Pro', desc: 'Built with Fish Audio · 八只内置音色，或用参考录音与原文克隆；正文可加 [whisper] 等语气标签；44.1 kHz；仅限非商用',
+     models: {clone: 'fish-s2-pro'}, builtin: 'ref', slow: true, nonCommercial: true},
   ];
   /* 音色方式的固定次序与标签：预设 → 参考音频 → 描述。 */
   const VOICE_MODES = [
@@ -252,7 +255,7 @@
 
   /** 认不出的引擎 id 落到表头（Qwen3-TTS 0.6B） */
   /* 每只引擎会念的语言：能力表在共用目录里（`bcut_lang::TTS_ENGINES`），这儿只挂上来。 */
-  ENGINES.forEach((e) => { e.langs = CATALOG.ttsLangs(e.id); });
+  ENGINES.forEach((e) => { e.langs = e.id === 'fish-s2-pro' ? CATALOG.whisper.slice() : CATALOG.ttsLangs(e.id); });
   /* 云端引擎（`cloud:<provider>`，2026-09-24 云端语音合成设计稿）不在 ENGINES 里：由 model-cloud-tts.js
      按 API 提供方折成同形状的对象，这里只在本地表查不到时再问它；认不出的仍落到表头。 */
   const CLOUD = () => (typeof window !== 'undefined' && window.BC_CLOUD_TTS) || (typeof require === 'function' ? require('./model-cloud-tts.js') : null);
@@ -405,14 +408,15 @@
   /** 参考音频时长不合引擎要求时给一句话，否则 null。时长未知（刚选的本地文件）不拦，交给合成报错。 */
   function refProblem(f) {
     if (refTextRequired(f.engine) && f.mode !== 'describe' && f.ref && !String(f.refText || '').trim())
-      return 'OmniVoice 克隆要写参考录音的原文：它把参考当作正文前面那一截来续，不写原文会吞掉正文开头';
+      return f.engine === 'fish-s2-pro' ? 'Fish Audio S2 Pro 克隆要填写参考录音的原文' : 'OmniVoice 克隆要写参考录音的原文：它把参考当作正文前面那一截来续，不写原文会吞掉正文开头';
+    if (f.engine === 'fish-s2-pro' && f.ref && typeof f.ref.dur === 'number' && f.ref.dur > 30) return 'Fish Audio S2 Pro 参考录音最长 30 秒';
     if (f.engine !== 'gptsovits' || !f.ref || typeof f.ref.dur !== 'number' || !String(f.refText || '').trim()) return null;
     if (f.ref.dur >= GSV_REF.min && f.ref.dur <= GSV_REF.max) return null;
     return `GPT-SoVITS 带参考文本时参考音频要 ${GSV_REF.min}–${GSV_REF.max} 秒（现在 ${f.ref.dur.toFixed(1)} 秒）；清空参考文本也能念`;
   }
   /** 参考录音的原文是不是必填：OmniVoice 不带原文会吞掉正文开头（内核 `ref-text-required` 同样拦），
    *  内置音色与带原文的「我的声音」自带原文，只有自己的录音要手写 */
-  const refTextRequired = (engine) => engineOf(engine).id === 'omnivoice';
+  const refTextRequired = (engine) => ['omnivoice', 'fish-s2-pro'].includes(engineOf(engine).id);
   /* 内置音色（2026-09-13 两段示例 → 2026-09-21 八只）：每只引擎都有默认音色，不必自己先找录音。
      八只命名音色（zh / en / ja / es × 男女）各带一段随包录音、录音的原文和一句英文描述，
      落地方式按引擎分（`builtinKind`）：只能克隆的三只与 Qwen3-TTS Base 拿录音当参考，
@@ -538,7 +542,7 @@
     const describe = spec.mode === 'describe';
     const emotion = hasEmotion(spec.engine);
     const short = e.langs.map((c) => LANG_SHORT[c] || c);
-    const langs = short.length > 5 ? `${short.slice(0, 4).join(' / ')} 等 ${short.length} 种语言` : short.join(' / ');
+    const langs = e.id === 'fish-s2-pro' ? '中 / 英 / 日 等 80 多种语言' : short.length > 5 ? `${short.slice(0, 4).join(' / ')} 等 ${short.length} 种语言` : short.join(' / ');
     // 一只权重同时管克隆与描述（OmniVoice）：行上两样都写
     const both = !describe && !preset && e.models.describe === id;
     const summary = both ? '八只内置音色、用一段录音克隆，或挑性别、年龄、音高造一个新声音；能按目标时长念'
@@ -810,7 +814,7 @@
     const dur = estimateDuration(f.text);
     const eng = engineOf(f.engine);
     const mm = Math.floor(dur / 60), ss = Math.round(dur % 60);
-    const khz = eng.cloud ? `${Math.round((CLOUD().capabilities(eng.provider).rate || 24000) / 1000)} kHz` : '48 kHz';
+    const khz = eng.id === 'fish-s2-pro' ? '44.1 kHz' : eng.cloud ? `${Math.round((CLOUD().capabilities(eng.provider).rate || 24000) / 1000)} kHz` : '48 kHz';
     return {
       id: 'tts' + seq, name: `tts-${seq}.wav`,
       meta: `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')} · ${khz} · ${eng.family || eng.name} · ${elapsed}`,

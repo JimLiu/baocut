@@ -60,6 +60,8 @@
             <window.AppUpdateAutoRow />
           </div>
         </section>
+        {/* 下载来源与离线（2026-10-13 设计稿，download-sources.jsx）：多个来源，按种类各选一个在用 */}
+        <window.DownloadSourcesGroup />
       </>
     );
   }

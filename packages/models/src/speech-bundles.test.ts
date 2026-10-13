@@ -24,6 +24,7 @@ const MLX_IDS = [
   'gpt-sovits-v2@mlx-fp16',
   'voxcpm2@mlx-int8',
   'omnivoice@mlx-int8',
+  'fish-s2-pro@mlx-8bit',
 ];
 /** 每个 MLX 模型包都有 candle 变体：同一仓库，Apple Silicon 以外的平台列出。 */
 const CANDLE_IDS = MLX_IDS.map((id) => `${id.split('@')[0]}@candle`);
@@ -33,7 +34,7 @@ const componentsOf = (def: BundleDefinition) => Object.entries(def.components).f
 const status = { detail: undefined } as unknown as ModelBundleStatus;
 
 describe('本地语音合成模型包的登记', () => {
-  it('十个 MLX 模型包与它们的 candle 变体，都在总登记里，都是 synthesize；不登记 AuK', () => {
+  it('十一个 MLX 模型包与它们的 candle 变体，都在总登记里，都是 synthesize；不登记 AuK', () => {
     expect(SPEECH_BUNDLES.map((b) => b.bundleId)).toEqual(EXPECTED_IDS);
     for (const def of SPEECH_BUNDLES) {
       expect(BUNDLES).toContain(def);
@@ -152,7 +153,7 @@ describe('本地语音合成模型包的登记', () => {
       expect(omni.local!.voiceDescription).toMatchObject({ kind: 'vocabulary' });
       expect(omni.local!.maxDurationSec).toBe(60);
       expect(info('omnivoice@candle').local!.license.commercialUse).toBe(false);
-      for (const id of EXPECTED_IDS.filter((x) => !x.startsWith('omnivoice@'))) expect(info(id).local!.license.commercialUse).toBe(true);
+      for (const id of EXPECTED_IDS.filter((x) => !x.startsWith('omnivoice@') && !x.startsWith('fish-s2-pro@'))) expect(info(id).local!.license.commercialUse).toBe(true);
     });
 
     it('CustomVoice 列出模型自己的说话人；克隆模型列出内置音色；VoiceDesign 的内置音色是描述', () => {
@@ -189,8 +190,8 @@ describe('本地语音合成模型包的登记', () => {
         const note = of(id, on('cpu'));
         expect(note).toMatch(/^在本机的 CPU 上合成，只用到一两个核，/);
         expect(note).toContain('CUDA');
-        // 每只模型都有自己的一句，不落到兜底。
-        expect(note).not.toContain('一句要等几分钟；');
+        // 新模型尚未测出 CPU 耗时，使用通用说明。
+        if (!id.startsWith('fish-s2-pro@')) expect(note).not.toContain('一句要等几分钟；');
         expect(of(id, on('cuda'))).toBeUndefined();
         // 状态没报设备时按登记的设备（cpu）算。
         expect(of(id, status)).toBe(note);
@@ -236,5 +237,19 @@ describe('引擎的语言表与旋钮区间', () => {
       const languages = engine ? limits.languages[engine] : undefined;
       expect(speech.languages, bundle.bundleId).toEqual(languages ?? 'any');
     }
+  });
+});
+
+describe('Fish S2 Pro', () => {
+  it('registers identical MLX and Candle weights with reference cloning and a research license', () => {
+    const mlx = SPEECH_BUNDLES.find(b => b.bundleId === 'fish-s2-pro@mlx-8bit')!;
+    const candle = SPEECH_BUNDLES.find(b => b.bundleId === 'fish-s2-pro@candle')!;
+    expect(candle.components).toEqual(mlx.components);
+    expect(mlx.speech).toMatchObject({sampleRate: 44100, voiceModes: ['preset', 'clone'], reference: {requiresTranscript: true}, instructions: null, knobs: {}});
+    expect(mlx.license!.commercialUse).toBe(false);
+    const manifest = repoManifestFor(mlx.components.tts!.repo, mlx.components.tts!.revision)!;
+    const codecManifest = repoManifestFor(mlx.components.codec!.repo, mlx.components.codec!.revision)!;
+    expect(codecManifest.files.some(f => f.path === 'codec.safetensors')).toBe(true);
+    expect(manifest.files.filter(f => f.path === 'model.safetensors')).toHaveLength(1);
   });
 });

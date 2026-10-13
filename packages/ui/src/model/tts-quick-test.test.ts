@@ -144,6 +144,13 @@ describe('quickForm', () => {
     expect(quickForm(GPT_SOVITS, sample, mine).request).toMatchObject({ voice: 'en-female' });
   });
 
+  it('要求参考原文的模型：空原文不能试听，填写后提交克隆请求', () => {
+    const model = { ...QWEN_BASE, local: { ...QWEN_BASE.local!, reference: { ...QWEN_BASE.local!.reference!, requiresTranscript: true } } };
+    const pick = chooseFile(chooseVoice(quickDefaults(model), 'file'), '/a.wav');
+    expect(quickForm(model, { ...pick, transcript: '  ' }, mine)).toMatchObject({ request: null, problem: expect.stringContaining('原文') });
+    expect(quickForm(model, { ...pick, transcript: ' 参考原文 ' }, mine).request).toMatchObject({ reference: { file: '/a.wav', transcript: '参考原文' } });
+  });
+
   it('描述模型：现成描述与自己描述走 voiceDescription，内置音色走 voice；自己描述不能空', () => {
     const pick = quickDefaults(QWEN_DESIGN);
     expect(quickForm(QWEN_DESIGN, pick, mine).request).toMatchObject({ voice: 'zh-female' });

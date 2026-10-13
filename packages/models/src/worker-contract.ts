@@ -35,6 +35,8 @@ export type ModelFamily =
   | 'gpt-sovits'
   | 'voxcpm2'
   | 'omnivoice'
+  | 'fish-s2-pro'
+  | 'fish-s2-pro-codec'
   /** 人声与伴奏分离（`separator` 组件，§4.2）：HTDemucs-FT，四个子模型同在一个权重文件里。 */
   | 'htdemucs-ft'
   // 本地文生图（§4.2）：Qwen-Image-2.1（文本编码器、DiT、VAE 与分词表同在一个 `image` 组件里）。

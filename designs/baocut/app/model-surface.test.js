@@ -98,6 +98,8 @@ const WEB_DENY = [
   /^app\/model-usage/, /^app\/vendor-icon/,
   /* 设置 › Agent「添加更多 Agent」的目录与自定义命令（product-design §7.6）：只在 App 的设置页 */
   /^app\/model-agent-catalog/,
+  /* 多个下载来源与下载确认框（2026-10-13）：只在 App 的设置与下载入口；Web 不能下载本地模型 */
+  /^app\/model-download-sources/, /^app\/download-/,
   /* 任务详情里工具运行的产物与操作（2026-10-06）：只在 App 的任务页 */
   /^app\/model-task-outputs/,
   /* Home 文件标签页；Web 原型没有 Home 或会话。 */

@@ -1,6 +1,7 @@
 import type { ModelsLocalSpeechMessages } from './local-speech.ts';
 
 export const ko: ModelsLocalSpeechMessages = {
+  referenceTranscriptRequired: "참조 녹음의 원문을 입력하세요",
   paceQwen06: '실시간보다 약 55배 느려 3초짜리 대사에 2~3분이 걸립니다',
   paceQwen17: '0.6B(실시간보다 약 55배 느림)보다 느릴 것으로 예상되며, 이 모델은 측정하지 않았습니다',
   paceIndexTts2: 'IndexTTS 2.5(실시간보다 120~145배 느림)와 비슷할 것으로 예상되며, 이 모델은 측정하지 않았습니다',

@@ -20,6 +20,7 @@
 //!
 //! 引擎实例持有权重与 KV cache，不是 `Send`：在哪个线程加载就在哪个线程合成。
 
+pub mod fish_s2_pro;
 pub mod gpt_sovits;
 pub mod index_tts2;
 pub mod job;
@@ -99,6 +100,7 @@ pub const fn local_tts_available() -> bool {
 /// 这只引擎在这个构建里能不能加载。没移植的引擎报 `false`。
 pub const fn engine_available(kind: TtsEngineKind) -> bool {
     match kind {
+        TtsEngineKind::FishS2Pro => local_tts_available(),
         TtsEngineKind::Qwen3Tts => local_tts_available(),
         TtsEngineKind::VoxCpm2 => local_tts_available(),
         TtsEngineKind::OmniVoice => local_tts_available(),
@@ -137,6 +139,10 @@ pub fn load(kind: TtsEngineKind, files: EngineFiles<'_>) -> Result<Box<dyn TtsEn
 ))]
 fn load_available(kind: TtsEngineKind, files: EngineFiles<'_>) -> Result<Box<dyn TtsEngine>> {
     match kind {
+        TtsEngineKind::FishS2Pro => {
+            let codec = files.codec.ok_or_else(|| missing_component("codec"))?;
+            Ok(Box::new(fish_s2_pro::FishS2Pro::load(files.model, codec)?))
+        }
         TtsEngineKind::Qwen3Tts => {
             let codec = files.codec.ok_or_else(|| missing_component("codec"))?;
             Ok(Box::new(qwen3_tts::Qwen3Tts::load(files.model, codec)?))

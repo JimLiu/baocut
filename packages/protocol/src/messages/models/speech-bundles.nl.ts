@@ -1,6 +1,7 @@
 import type { ModelsSpeechBundlesMessages } from './speech-bundles.ts';
 
 export const nl: ModelsSpeechBundlesMessages = {
+  fishS2ProLicense: "S2 Pro-gewichten vallen onder de Fish Audio Research License: onderzoek en niet-commercieel gebruik; commercieel gebruik vereist een aparte Fish Audio-licentie",
   qwen3TtsLicense: "De oorspronkelijke Qwen3-TTS-modelkaart vermeldt Apache-2.0, commercieel gebruik toegestaan; de MLX-conversie behoudt dezelfde licentie",
   indexTts2License: "Commercieel gebruik toegestaan, maar organisaties met meer dan 100 miljoen maandelijks actieve gebruikers vorige maand of meer dan 1 miljard RMB omzet vorig jaar moeten een afzonderlijk verzoek indienen bij bilibili; herdistributie moet de volledige overeenkomst bevatten; mag niet worden gebruikt om andere commerciële modellen dan IndexTTS te verbeteren",
   indexTts25License: "Commercieel gebruik toegestaan, maar organisaties met meer dan 100 miljoen maandelijks actieve gebruikers vorige maand of meer dan 1 miljard RMB omzet vorig jaar moeten een afzonderlijk verzoek indienen bij bilibili; herdistributie moet de volledige overeenkomst bevatten; de aanvullende gewichten komen van IndexTTS2 onder dezelfde overeenkomst",

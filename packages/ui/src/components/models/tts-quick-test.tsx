@@ -1,3 +1,4 @@
+import { ModelsLocalSpeech } from '@baocut/protocol/messages/models/local-speech.ts';
 import { useMemo, useState, type ReactNode } from 'react';
 import type { SpeechModelInfo } from '@baocut/protocol';
 import { ActionButton, Button, Picker, PickerItem, ProgressBar, Text, TextArea, ToggleButton } from '@react-spectrum/s2';
@@ -370,7 +371,8 @@ export function TtsQuickTest({ bundleId, name, model, cloneNames, notice = null,
           </div>
           {pick.file && acceptsTranscript ? (
             <TextArea
-              label={COPY.transcriptLabel}
+              label={model.local?.reference?.requiresTranscript ? ModelsLocalSpeech.referenceTranscriptRequired().text : COPY.transcriptLabel}
+              isRequired={!!model.local?.reference?.requiresTranscript}
               description={COPY.transcriptHint}
               size="S"
               styles={field}

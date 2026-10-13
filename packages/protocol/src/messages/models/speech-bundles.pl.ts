@@ -1,6 +1,7 @@
 import type { ModelsSpeechBundlesMessages } from './speech-bundles.ts';
 
 export const pl: ModelsSpeechBundlesMessages = {
+  fishS2ProLicense: "Wagi S2 Pro podlegają Fish Audio Research License: badania i użycie niekomercyjne; użycie komercyjne wymaga osobnej licencji Fish Audio",
   qwen3TtsLicense: "Karta źródłowego modelu Qwen3-TTS wskazuje Apache-2.0, użytek komercyjny jest dozwolony; konwersja MLX zachowuje tę samą licencję",
   indexTts2License: "Użytek komercyjny jest dozwolony, ale podmioty z ponad 100 milionami aktywnych użytkowników w poprzednim miesiącu lub przychodem ponad 1 miliarda RMB w poprzednim roku muszą osobno wystąpić do bilibili; redystrybucja wymaga dołączenia pełnej umowy; nie wolno używać do ulepszania modeli komercyjnych innych niż IndexTTS",
   indexTts25License: "Użytek komercyjny jest dozwolony, ale podmioty z ponad 100 milionami aktywnych użytkowników w poprzednim miesiącu lub przychodem ponad 1 miliarda RMB w poprzednim roku muszą osobno wystąpić do bilibili; redystrybucja wymaga dołączenia pełnej umowy; pomocnicze wagi pochodzą z IndexTTS2 i podlegają tej samej umowie",

@@ -758,3 +758,14 @@ test('配音块：OmniVoice 要压的句按目标时长直接合成（不事后�
     assert.ok(b.every((x) => !x.timed), e);
   });
 });
+
+
+test('Fish S2 Pro：参考原文、30 秒上限与内置音色', () => {
+  assert.deepEqual(TTS.voiceModes('fish-s2-pro'), ['clone']);
+  assert.ok(TTS.refTextRequired('fish-s2-pro'));
+  assert.equal(TTS.builtinKind('fish-s2-pro', 'clone'), 'ref');
+  assert.equal(TTS.engineOf('fish-s2-pro').nonCommercial, true);
+  assert.match(TTS.refProblem({engine:'fish-s2-pro',mode:'clone',ref:{dur:5},refText:''}), /原文/);
+  assert.match(TTS.refProblem({engine:'fish-s2-pro',mode:'clone',ref:{dur:31},refText:'参考'}), /30/);
+  assert.equal(TTS.refProblem({engine:'fish-s2-pro',mode:'clone',ref:{dur:5},refText:'参考'}), null);
+});
