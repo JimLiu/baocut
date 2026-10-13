@@ -27,6 +27,31 @@ describe('offline ElevenLabs transcript import', () => {
     expect(result.body.words[0]).not.toHaveProperty('speaker');
   });
 
+  it.each([
+    ['tha', 'ลลิตา', 'ไม่ได้'],
+    ['lao', 'ຂ້ອຍ', 'ຮັກ'],
+    ['mya', 'ကျွန်တော်', 'ပါ'],
+    ['khm', 'ខ្ញុំ', 'ចូលចិត្ត'],
+    [undefined, 'inter', 'national'],
+  ])('keeps provider no-space boundaries for %s, including an absent language', (language, before, after) => {
+    const result = importElevenLabsTranscript({ language_code: language, words: [
+      word({ text: before }), word({ text: after, start: 0.5, end: 1 }),
+    ] });
+    expect(result.body.words[0]).not.toHaveProperty('glue');
+    expect(result.body.words[1]).toMatchObject({ text: after, glue: true });
+  });
+
+  it('keeps spacing boundaries across excluded audio events, without inventing gaps for those events', () => {
+    const result = importElevenLabsTranscript({ words: [
+      { type: 'spacing', text: ' ' }, word({ text: 'ลลิตา' }),
+      { type: 'spacing', text: ' ' }, { type: 'audio_event', text: '(laughter)' },
+      word({ text: 'ไม่ได้', start: 0.5, end: 1 }), { type: 'audio_event', text: '(music)' },
+      word({ text: 'ยกเลิก', start: 1, end: 1.5 }), { type: 'spacing', text: ' ' },
+    ] });
+    expect(result.body.words.map((entry) => entry.glue)).toEqual([undefined, undefined, true]);
+    expect(result.imported).toMatchObject({ wordCount: 3, skipped: { spacing: 3, audioEvents: 2 } });
+  });
+
   it('rounds seconds to integer microseconds and allows overlapping speaker times', () => {
     const result = importElevenLabsTranscript({ words: [word({ start: 0.1234567, end: 0.8 }), word({ start: 0.2, end: 0.4 })] });
     expect(result.body.words[0]!.start).toBe(123457);

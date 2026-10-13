@@ -75,6 +75,25 @@ const SPEECH = plan('speech', [
 ]);
 
 describe('字幕与文稿', () => {
+  it('导出从文稿读取 glue，原文与投影计划都保留词缝，切成字幕条后也不添空格', () => {
+    const projected = plan('speech', [
+      { id: 'w1', start: 0, end: 1, text: 'inter', sentenceId: 's1' },
+      { id: 'w2', start: 1, end: 2, text: 'national', sentenceId: 's1' },
+      { id: 'w3', start: 9, end: 10, text: 'final', sentenceId: 's1' },
+    ]);
+    const body = { schema: 'baocut.speech/1', timescale: 1, words: projected.entries.map((word) => ({
+      id: word.id, text: word.text, start: word.start, end: word.end, ...(word.id === 'w2' ? { glue: true } : {}),
+    })), sentences: [{ id: 's1', first: 'w1', last: 'w3' }] };
+    const document = doc('d', 'speech', { body });
+    for (const textPlan of [projected, sourcePlan(body, projected, true)]) {
+      const primary = { document, plan: textPlan };
+      expect(renderText(input({ kind: 'transcript', format: 'txt', primary })).content).toBe('international final\n');
+      const subtitle = renderText(input({ format: 'srt', primary, maxCharsPerLine: 13 }));
+      expect(subtitle.entries).toBe(2);
+      expect(subtitle.content).toContain('\ninternational\n');
+    }
+  });
+
   it('显示宽度与换行：全角算 2，按宽度折行', () => {
     expect(displayWidth('ab中文')).toBe(6);
     const lines = wrapLines('one two three four five six seven', 10);

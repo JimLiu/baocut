@@ -41,7 +41,7 @@ description: 文稿与字幕的机制：转录、润色写回、自己翻译并�
 
 先用 {{tool:videos_inspect}} 核对对应媒体的 `assetId`，确认 JSON 的秒数相对这份原素材。{{tool:documents_put}} 给 `format: "elevenlabs"`、`kind: "speech"`、`sourceAsset` 为这个 `assetId`，`body` 为单份 Scribe JSON 对象；只新建文稿。词必须带有效时间，不能把缺时间的文本估算成词级同步；多声道 `transcripts` 包先选出一份再导入。语言可显式给 {{arg:language}}，不给时取 JSON 的 `language_code`。
 
-结果的 `documentId` 是后续读写的文稿；`imported.wordCount` 与 `imported.skipped` 分别是写入词数和排除的空格、声音事件数，向用户报告排除项。用 {{tool:documents_read}} 读新文稿的 `translationBasis`，接下面的自译流程；要原文字幕时用 {{tool:captions_create}}。无需配转录模型或再次调用 {{tool:transcribe}}。在编辑器核对导入词时间与原素材匹配。
+结果的 `documentId` 是后续读写的文稿；`imported.wordCount` 与 `imported.skipped` 分别是写入词数和排除的空格、声音事件数，向用户报告排除项。相邻词之间没有 `spacing` token 时用 `glue` 保留无空格词缝，不按语言猜测；空格 token 的数量或具体空白字符不进入词正文。用 {{tool:documents_read}} 读新文稿的 `translationBasis`，接下面的自译流程；要原文字幕时用 {{tool:captions_create}}。无需配转录模型或再次调用 {{tool:transcribe}}。在编辑器核对导入词时间与原素材匹配。
 
 ### 润色写回
 
