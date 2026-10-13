@@ -2,12 +2,13 @@ import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { silentLogger } from '@baocut/harness';
 import { ModelServiceStore } from '@baocut/models';
 import { FileCredentialStore, SettingsStore, readJson, resolveRuntimeHome, writeJsonAtomic } from '@baocut/runtime-storage';
 import { LegacyUpgrade, defaultLegacyImportDirectory, legacyVolumeOf } from './legacy-upgrade.ts';
-import { legacyRoots, readLegacySource } from './legacy-upgrade-sources.ts';
+import { legacyRoots, readLegacySource, readV1Preferences } from './legacy-upgrade-sources.ts';
 import { importLegacyCloud } from './legacy-upgrade-cloud.ts';
 import { importLegacySettings } from './legacy-upgrade-settings.ts';
 
@@ -56,6 +57,43 @@ async function prompted(upgrade: LegacyUpgrade) {
 }
 
 describe('legacy startup upgrade', () => {
+  it.skipIf(process.platform !== 'darwin').each([
+    ['VoiceInk.plist', 'xml1'],
+    ['VoiceInk.plist', 'binary1'],
+    ['com.jimliu.baocut.plist', 'xml1'],
+    ['com.jimliu.baocut.plist', 'binary1'],
+  ] as const)('reports the unmapped v1 model from %s (%s) through the real plist reader', async (name, format) => {
+    const s = await setup();
+    const preferences = path.join(dir, 'Preferences');
+    await fs.mkdir(preferences);
+    const file = path.join(preferences, name);
+    await fs.writeFile(file, `<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict>
+  <key>vk-default-model</key><string>fixture-unmapped-model</string>
+  <key>vk-lang</key><string>ja</string>
+  <key>unrelated-secret</key><string>fixture-private-value</string>
+</dict></plist>`);
+    if (format === 'binary1') execFileSync('/usr/bin/plutil', ['-convert', 'binary1', file]);
+    const original = await fs.readFile(file);
+    expect(await readV1Preferences(file)).toEqual({ 'vk-default-model': 'fixture-unmapped-model', 'vk-lang': 'ja' });
+    const options = {
+      ...s, roots: [s.root], platform: 'darwin' as const, allowKeychain: false,
+      v1Preferences: path.join(preferences, 'com.jimliu.baocut.plist'),
+    };
+    await new LegacyUpgrade(options).prepare();
+    const markerFile = path.join(s.home.root, 'store', 'legacy-upgrade.json');
+    const marker = await readJson<any>(markerFile);
+    expect(marker.sources[s.root].unsupported).toEqual(['preference:vk-default-model']);
+    expect(JSON.stringify(marker)).not.toContain('fixture-unmapped-model');
+    expect(JSON.stringify(marker)).not.toContain('fixture-private-value');
+    expect(s.models.getDefault('transcribe')).toBeNull();
+    expect(await fs.readFile(file)).toEqual(original);
+    // The settings checkpoint retains the report without rereading a removed plist.
+    await fs.unlink(file);
+    await new LegacyUpgrade(options).prepare();
+    expect((await readJson<any>(markerFile)).sources[s.root].unsupported).toEqual(['preference:vk-default-model']);
+  });
+
   it('adopts a populated old default model directory without changing its files, preserving current caches and choices', async () => {
     const s = await setup();
     const oldModels = path.join(s.root, 'models');

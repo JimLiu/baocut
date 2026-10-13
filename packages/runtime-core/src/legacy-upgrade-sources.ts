@@ -178,6 +178,7 @@ export async function readV1Preferences(file: string): Promise<LegacyObject> {
     const result: LegacyObject = {};
     for (const key of [
       'vk-lang',
+      'vk-default-model',
       'vk-models-dir',
       'vk-url-savedir',
       'vk-download-source',
