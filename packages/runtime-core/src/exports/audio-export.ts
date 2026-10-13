@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
-import { rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import {
   refOf,
   type AudioExportFormat,
@@ -252,24 +253,34 @@ export function gainExpression(segment: AudioSegment): string | null {
  */
 export type FilterScriptOption = '-/filter_complex' | '-filter_complex_script';
 
-/** 按 `ffmpeg -h long` 的说明挑：说明里提到 `-/filter_complex`（旧选项的弃用说明）的认新写法，否则用旧选项。 */
-export function filterScriptOption(help: string): FilterScriptOption {
-  return /-\/filter_complex\b/.test(help) ? '-/filter_complex' : '-filter_complex_script';
-}
-
 const scriptOptions = new Map<string, Promise<FilterScriptOption>>();
 
-/** 这个 ffmpeg 认哪种写法（按命令缓存；问不出来时用旧选项，不缓存）。 */
-export function detectFilterScriptOption(ffmpeg: ToolCommand): Promise<FilterScriptOption> {
+/** 实际从文件读一张合成滤镜图到空输出；优先新选项，只有旧选项也成功才回退。失败不缓存，不猜选项。 */
+export function detectFilterScriptOption(ffmpeg: ToolCommand, run: typeof runTool = runTool): Promise<FilterScriptOption> {
   const known = scriptOptions.get(ffmpeg.command);
   if (known) return known;
-  const asked = runTool(ffmpeg, ['-hide_banner', '-h', 'long']).then(
-    ({ stdout }) => filterScriptOption(stdout),
-    () => {
-      scriptOptions.delete(ffmpeg.command);
-      return '-filter_complex_script' as const;
-    },
-  );
+  const asked = (async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'baocut-filter-probe-'));
+    try {
+      const file = path.join(directory, 'probe.graph');
+      await writeFile(file, 'anullsrc=r=8000:cl=mono[out]\n');
+      const probe = async (option: FilterScriptOption): Promise<FilterScriptOption> => {
+        await run(ffmpeg, ['-hide_banner', '-nostdin', '-v', 'error', option, file, '-map', '[out]', '-t', '0.001', '-f', 'null', '-'], AbortSignal.timeout(5_000));
+        return option;
+      };
+      try {
+        return await probe('-/filter_complex');
+      } catch (error) {
+        if (!(error instanceof ToolFailure) || error.kind !== 'failed') throw error;
+        return await probe('-filter_complex_script');
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  })().catch((error: unknown) => {
+    scriptOptions.delete(ffmpeg.command);
+    throw error;
+  });
   scriptOptions.set(ffmpeg.command, asked);
   return asked;
 }

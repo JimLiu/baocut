@@ -194,15 +194,13 @@ describe.skipIf(!ffmpeg)('混音的滤镜图从文件读', () => {
     expect((await fs.readdir(staging)).sort()).toEqual(['dense.wav', 'tone.wav']);
   });
 
-  it('检测出的写法与旧选项 -filter_complex_script（新版本里弃用但照样执行）在本机的 ffmpeg 上都跑得通', async () => {
-    const detected = await detectFilterScriptOption({ command: 'ffmpeg' });
-    for (const option of new Set([detected, '-filter_complex_script' as const])) {
-      const file = path.join(staging, 'mix.graph');
-      const out = path.join(staging, `${option.replace(/\W/g, '')}.wav`);
-      const { args, graph } = mixArgs(silent, new Map(), 48_000, 2, out, { option, file });
-      await fs.writeFile(file, graph);
-      await runTool({ command: 'ffmpeg' }, args);
-      expect((await fs.stat(out)).size).toBeGreaterThanOrEqual(DURATION * 48_000 * 2 * 4);
-    }
+  it('实际探测出的选项在本机 ffmpeg 上从文件读取完整混音图', async () => {
+    const option = await detectFilterScriptOption({ command: 'ffmpeg' });
+    const file = path.join(staging, 'mix.graph');
+    const out = path.join(staging, 'mix.wav');
+    const { args, graph } = mixArgs(silent, new Map(), 48_000, 2, out, { option, file });
+    await fs.writeFile(file, graph);
+    await runTool({ command: 'ffmpeg' }, args);
+    expect((await fs.stat(out)).size).toBeGreaterThanOrEqual(DURATION * 48_000 * 2 * 4);
   });
 });

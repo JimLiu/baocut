@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { assColor, assStyleMapping } from './ass-style.ts';
-import { duckingExpression, envelopeExpression, filterScriptOption, gainExpression, mixArgs } from './audio-export.ts';
+import { duckingExpression, envelopeExpression, gainExpression, mixArgs } from './audio-export.ts';
 import type { AudioPlan, AudioSegment, PlannedAsset, PlannedDocument, TextEntry, TextPlan } from './export-plan.ts';
 import {
   DestinationError,
@@ -767,7 +767,7 @@ describe('音频混音参数', () => {
     expect(silent.graph).toBe('[0:a]atrim=end_sample=88200[out]');
   });
 
-  it('滤镜图从文件读，不放在命令行上：很密的包络照样只多一个文件名；选项按 ffmpeg 的说明挑', () => {
+  it('滤镜图从文件读，不放在命令行上：很密的包络照样只多一个文件名', () => {
     const dense: Array<[number, number]> = Array.from({ length: 20_000 }, (_, i) => [0.5 + i * 0.00005, 0.5 + 0.5 * Math.sin(i / 7)]);
     const segment = { ...base.segments[0]!, gainDb: 0, envelope: dense };
     const { args, graph } = mixArgs({ ...base, segments: [segment] }, new Map([['a@1', asset]]), 48000, 2, '/tmp/out.wav', script);
@@ -779,10 +779,6 @@ describe('音频混音参数', () => {
       '/tmp/out.graph',
     ]);
     expect(args).not.toContain('-filter_complex');
-    expect(filterScriptOption('-filter_complex_script <filename>  deprecated, use -/filter_complex instead')).toBe('-/filter_complex');
-    expect(filterScriptOption('-filter_complex_script filename  read complex filtergraph description from a file')).toBe(
-      '-filter_complex_script',
-    );
   });
 
   /** 按 ffmpeg 表达式的语义求值（只用到 if/lt/clip/min/cos/sin/pow 与 PI）。 */
