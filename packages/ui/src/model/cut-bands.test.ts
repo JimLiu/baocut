@@ -88,6 +88,18 @@ describe('cutBands', () => {
 });
 
 describe('cutText', () => {
+  it.each([
+    ['ลลิตา', 'ไม่ได้'], ['ຂ້ອຍ', 'ຮັກ'], ['ကျွန်တော်', 'ပါ'], ['ខ្ញុំ', 'ចូលចិត្ត'],
+  ])('剪口文字保留 glue，区间从 glued 词起也不添前导空格：%s + %s', (before, after) => {
+    const words: SpeechWord[] = [
+      { id: 'a', start: 0, end: 0.5, text: before, paragraphStart: false },
+      { id: 'b', start: 0.5, end: 1, text: after, glue: true, paragraphStart: false },
+      { id: 'c', start: 1, end: 1.5, text: before, paragraphStart: false },
+    ];
+    expect(cutText(words, 0, 1.5)).toBe(`${before}${after} ${before}`);
+    expect(cutText(words, 0.5, 1.5)).toBe(`${after} ${before}`);
+  });
+
   it('至少一半落在剪掉区间里的词按先后拼起来；中文不空格', () => {
     expect(cutText(WORDS, 4, 6)).toBe('词4词5');
     expect(cutText(WORDS, 4.5, 6)).toBe('词5');

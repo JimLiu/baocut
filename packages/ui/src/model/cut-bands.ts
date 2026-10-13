@@ -116,6 +116,7 @@ export function cutText(words: readonly SpeechWord[], from: number, to: number):
   return joinWords(
     inside.map((word) => word.text),
     words.some((word) => /^\s/.test(word.text)),
+    inside.map((word) => word.glue === true),
   );
 }
 

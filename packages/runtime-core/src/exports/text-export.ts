@@ -99,6 +99,7 @@ export interface TextWord {
   start: number;
   end: number;
   timed: boolean;
+  glue?: true;
 }
 
 /** 一句（或一条字幕）：拆字幕条、写文稿与 JSON 的单位。 */
@@ -137,10 +138,10 @@ export function displayWidth(text: string): number {
 }
 
 /** 词拼成文字：词自带前导空格的（一些识别器的习惯）原样接；否则西文词之间加空格，全角字与标点前不加。 */
-export function joinWords(tokens: string[], leadingSpaces: boolean): string {
+export function joinWords(tokens: string[], leadingSpaces: boolean, glues: readonly boolean[] = []): string {
   if (leadingSpaces) return tokens.join('').replace(/\s+/g, ' ').trim();
   let out = '';
-  for (const raw of tokens) {
+  for (const [index, raw] of tokens.entries()) {
     const token = raw.trim();
     if (!token) continue;
     if (!out) {
@@ -149,7 +150,7 @@ export function joinWords(tokens: string[], leadingSpaces: boolean): string {
     }
     const prev = [...out].at(-1)!;
     const next = [...token][0]!;
-    const space = !WIDE.test(prev) && !WIDE.test(next) && !NO_SPACE_BEFORE.test(token);
+    const space = !glues[index] && !WIDE.test(prev) && !WIDE.test(next) && !NO_SPACE_BEFORE.test(token);
     out += space ? ` ${token}` : token;
   }
   return out;
@@ -190,7 +191,7 @@ export function wrapLines(text: string, maxWidth: number): string[] {
 
 interface SpeechBody {
   speakers?: Array<{ id: string; name?: string }>;
-  words?: Array<{ id: string; start?: number; end?: number; hidden?: boolean; text?: string }>;
+  words?: Array<{ id: string; start?: number; end?: number; hidden?: boolean; text?: string; glue?: true }>;
   sentences?: Array<{ id: string; first?: string; last?: string; wordIds?: string[] }> | null;
 }
 
@@ -353,6 +354,9 @@ export function segmentsOf(input: Pick<TextExportInput, 'primary' | 'secondary'>
       words: null,
     }));
   } else {
+    const body = (document.body ?? {}) as SpeechBody;
+    // Projection entries retain word IDs; recover the document flag for both projected and source-clock plans.
+    const glued = new Set((Array.isArray(body.words) ? body.words : []).filter((word) => word.glue === true).map((word) => word.id));
     const entries = withTranslationSentences(plan.entries, input.secondary, translation);
     const leading = entries.some((e) => /^\s/.test(e.text));
     const runs: TextEntry[][] = [];
@@ -382,12 +386,13 @@ export function segmentsOf(input: Pick<TextExportInput, 'primary' | 'secondary'>
       text: joinWords(
         words.map((w) => w.text),
         leading,
+        words.map((w) => glued.has(w.id)),
       ),
       speaker: speakerOf(words[0]!.speaker),
       translation: null,
       sentenceId: words[0]!.sentenceId ?? null,
       paragraphStart: words[0]!.paragraphStart === true || i === 0 || words[0]!.speaker !== runs[i - 1]!.at(-1)!.speaker,
-      words: words.map((w) => ({ id: w.id, text: w.text.trim(), start: w.start, end: w.end, timed: w.wordTiming })),
+      words: words.map((w) => ({ id: w.id, text: w.text.trim(), start: w.start, end: w.end, timed: w.wordTiming, ...(glued.has(w.id) ? { glue: true as const } : {}) })),
     }));
   }
   attachSecondary(input, segments, warnings, translation);
@@ -468,12 +473,13 @@ function cuesOf(segments: TextSegment[], maxWidth: number, warnings: JobWarning[
       const text = joinWords(
         group.map((w) => w.text),
         leading,
+        group.map((w) => w.glue === true),
       );
       cues.push({ start: group[0]!.start, end: Math.max(...group.map((w) => w.end)), lines: wrapLines(text, maxWidth), secondary: [] });
       group = [];
     };
     for (const word of segment.words) {
-      const candidate = joinWords([...group.map((w) => w.text), word.text], leading);
+      const candidate = joinWords([...group.map((w) => w.text), word.text], leading, [...group.map((w) => w.glue === true), word.glue === true]);
       const tooWide = group.length > 0 && displayWidth(candidate) > capacity;
       const tooLong = group.length > 0 && word.end - group[0]!.start > EXPORT_MAX_CUE_SECONDS;
       if (tooWide || tooLong) {

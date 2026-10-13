@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { captionBody, deriveCues, readSpeechWords } from './caption-cues.ts';
+import { CUE_PARAMS, captionBody, deriveCues, readSpeechWords } from './caption-cues.ts';
 
-type W = [id: string, start: number, end: number, text: string, flags?: { hidden?: boolean; timingQuality?: string }];
+type W = [id: string, start: number, end: number, text: string, flags?: { hidden?: boolean; timingQuality?: string; glue?: true }];
 
 /** 转写正文：秒写成微秒刻度（本地转写流程写的刻度）。 */
 function speechBody(list: W[]) {
@@ -23,6 +23,23 @@ function speechBody(list: W[]) {
 }
 
 describe('读转写（与编辑器的 speech-cues.ts 同一条规则）', () => {
+  it('glue 保留到字幕文字与量宽，不在无空格词缝处提前断条', () => {
+    const read = readSpeechWords(speechBody([
+      ['w1', 0, 0.5, 'inter'], ['w2', 0.5, 1, 'national', { glue: true }],
+    ]))!;
+    const cues = deriveCues(read.words, { ...CUE_PARAMS, maxChars: 13 });
+    expect(cues.map((cue) => cue.text)).toEqual(['international']);
+    expect(cues[0]!.wordIds).toEqual(['w1', 'w2']);
+  });
+
+  it('零时长词并进相邻词时仍保留 glue 指定的词缝', () => {
+    const read = readSpeechWords(speechBody([
+      ['w1', 0, 0, 'i'], ['w2', 0, 0.5, 'nter', { glue: true }],
+      ['w3', 0.5, 0.5, 'na', { glue: true }], ['w4', 0.5, 1, 'tional', { glue: true }],
+    ]))!;
+    expect(deriveCues(read.words).map((cue) => cue.text)).toEqual(['international']);
+  });
+
   it('零时长的词不丢：后面有空隙就占一小段（至多 0.08 秒），整句进同一条字幕', () => {
     // 真实样本：对齐器把「ask—you」的起止解到同一格，后面有 0.24 秒的空隙。
     const read = readSpeechWords(

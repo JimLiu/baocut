@@ -296,6 +296,38 @@ describe.skipIf(!engine || !ffmpeg)('对象的读写工具（终端目录，真�
     expect((await client.request('jobs.list', {})).jobs).toHaveLength(0);
   });
 
+  it.skipIf(!editorWasmAvailable()).each([
+    ['tha', 'ลลิตา', 'ไม่ได้'],
+    ['lao', 'ຂ້ອຍ', 'ຮັກ'],
+    ['mya', 'ကျွန်တော်', 'ပါ'],
+    ['khm', 'ខ្ញុំ', 'ចូលចិត្ត'],
+  ])('ElevenLabs %s 的无空格词缝与显式空格保留到翻译、字幕和导出', async (language, before, after) => {
+    const { videoId, assetId } = await placedVideo('词缝');
+    const expected = `${before}${after} ${before}`;
+    const created = await ok('documents_put', {
+      video: videoId, kind: 'speech', sourceAsset: assetId, format: 'elevenlabs',
+      body: { language_code: language, words: [
+        { type: 'word', text: before, start: 0, end: 0.5 },
+        { type: 'word', text: after, start: 0.5, end: 1 },
+        { type: 'spacing', text: ' ' },
+        { type: 'word', text: before, start: 1, end: 1.5 },
+      ] },
+    });
+    const read = await ok('documents_read', { video: videoId, documentId: created.documentId });
+    expect(read.translationBasis.sentences.map((entry: Loose) => entry.text).join(' ')).toBe(expected);
+    expect(read.body.words.map((entry: Loose) => entry.glue)).toEqual([undefined, true, undefined]);
+    const captions = await ok('captions_create', { video: videoId, documentId: created.documentId });
+    const caption = await client.request('documents.read', { videoId, documentId: captions.documentId });
+    expect((caption.body as Loose).cues.map((cue: Loose) => cue.text).join(' ')).toBe(expected);
+    for (const skipCut of [false, true]) {
+      const exported = await client.request('exports.renderText', {
+        videoId, settings: { kind: 'transcript', format: 'txt', documentId: created.documentId, skipCut, speakers: false },
+      });
+      expect(exported.outputs[0]!.content).toContain(expected);
+    }
+    expect((await client.request('jobs.list', {})).jobs).toHaveLength(0);
+  });
+
   it('拒绝未定时与替换式 ElevenLabs 导入，不修改视频；显式语言优先', async () => {
     const { videoId, assetId } = await placedVideo('导入检查');
     const args = { video: videoId, kind: 'speech', sourceAsset: assetId, format: 'elevenlabs', body: { language_code: 'en', words: [{ type: 'word', text: '你好', start: 0, end: 1 }] } };

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { itemRangeSeconds, mediaTimeToSeconds, type AudioItem, type Sequence, type Track, type VideoItem } from '@baocut/protocol';
 import {
   clauseEndChar,
+  CUE_PARAMS,
   countSentences,
   deriveCues,
   displayWidth,
@@ -263,6 +264,23 @@ describe('切条（cue.rs 的夹具）', () => {
 });
 
 describe('读转写', () => {
+  it('glue 保留到字幕文字与量宽，包括并入相邻词的零时长词', () => {
+    const body = (words: unknown[]) => ({ schema: 'baocut.speech/1', timescale: 1000, words, speakers: [], sentences: null });
+    const words = [
+      { id: 'w1', start: 0, end: 500, text: 'inter' },
+      { id: 'w2', start: 500, end: 1000, text: 'national', glue: true },
+    ];
+    const read = readSpeechWords(body(words))!;
+    expect(deriveCues(read.words, { ...CUE_PARAMS, maxChars: 13 }).map((cue) => cue.text)).toEqual(['international']);
+    const zero = readSpeechWords(body([
+      { id: 'w1', start: 0, end: 0, text: 'i' },
+      { id: 'w2', start: 0, end: 500, text: 'nter', glue: true },
+      { id: 'w3', start: 500, end: 500, text: 'na', glue: true },
+      { id: 'w4', start: 500, end: 1000, text: 'tional', glue: true },
+    ]))!;
+    expect(deriveCues(zero.words).map((cue) => cue.text)).toEqual(['international']);
+  });
+
   const one = sequence([video('v', 0, 300, 0)]);
 
   it('隐藏的词不进字幕（cue.rs 契约）', () => {

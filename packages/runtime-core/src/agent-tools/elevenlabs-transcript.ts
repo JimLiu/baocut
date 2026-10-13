@@ -19,12 +19,13 @@ export function importElevenLabsTranscript(input: Record<string, unknown>) {
   if ('transcripts' in input) throw new ToolError('INVALID_ARGUMENTS', 'Import one ElevenLabs transcript at a time, not a multichannel transcripts envelope.');
   const parsed = transcriptSchema.safeParse(input);
   if (!parsed.success) throw new ToolError('INVALID_ARGUMENTS', 'Expected an ElevenLabs transcript with typed words and word timestamps.');
-  const words: Array<{ id: string; text: string; start: number; end: number; speaker?: string }> = [];
+  const words: Array<{ id: string; text: string; start: number; end: number; speaker?: string; glue?: true }> = [];
   const speakers = new Map<string, { id: string; name: string }>();
   const skipped = { spacing: 0, audioEvents: 0 };
   let previousStart = -1;
+  let spacingSinceWord = false;
   for (const word of parsed.data.words) {
-    if (word.type === 'spacing') { skipped.spacing++; continue; }
+    if (word.type === 'spacing') { skipped.spacing++; spacingSinceWord = true; continue; }
     if (word.type === 'audio_event') { skipped.audioEvents++; continue; }
     if (!word.text.trim() || word.start == null || word.end == null || word.end < word.start || word.start < previousStart) {
       throw new ToolError('INVALID_ARGUMENTS', 'Speech words need nonempty text and nonnegative, ordered start/end timestamps in source seconds.');
@@ -36,7 +37,12 @@ export function importElevenLabsTranscript(input: Record<string, unknown>) {
     }
     previousStart = word.start;
     if (word.speaker_id) speakers.set(word.speaker_id, { id: word.speaker_id, name: word.speaker_id });
-    words.push({ id: `w-elevenlabs-${words.length + 1}`, text: word.text, start, end, ...(word.speaker_id ? { speaker: word.speaker_id } : {}) });
+    // Provider token boundaries remain authoritative even when the language is absent or unknown.
+    words.push({ id: `w-elevenlabs-${words.length + 1}`, text: word.text, start, end,
+      ...(word.speaker_id ? { speaker: word.speaker_id } : {}),
+      ...(words.length && !spacingSinceWord ? { glue: true as const } : {}),
+    });
+    spacingSinceWord = false;
   }
   if (!words.length) throw new ToolError('INVALID_ARGUMENTS', 'The ElevenLabs transcript has no timed speech words to import.');
   // i18n-ignore-end

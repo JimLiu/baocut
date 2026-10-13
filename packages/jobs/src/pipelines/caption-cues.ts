@@ -57,10 +57,10 @@ export function displayWidth(text: string): number {
 const spaced = (char: string) => !WIDE.test(char) || HANGUL.test(char);
 
 /** 词拼成文字：词自带前导空格的原样接；否则西文、韩文词之间加空格，汉字、假名与标点前不加。 */
-function joinCueWords(tokens: readonly string[], leadingSpaces: boolean): string {
+function joinCueWords(tokens: readonly string[], leadingSpaces: boolean, glues: readonly boolean[] = []): string {
   if (leadingSpaces) return tokens.join('').replace(/\s+/g, ' ').trim();
   let out = '';
-  for (const raw of tokens) {
+  for (const [index, raw] of tokens.entries()) {
     const token = raw.trim();
     if (!token) continue;
     if (!out) {
@@ -69,7 +69,7 @@ function joinCueWords(tokens: readonly string[], leadingSpaces: boolean): string
     }
     const prev = [...out].at(-1)!;
     const next = [...token][0]!;
-    const space = spaced(prev) && spaced(next) && !NO_SPACE_BEFORE.test(token);
+    const space = !glues[index] && spaced(prev) && spaced(next) && !NO_SPACE_BEFORE.test(token);
     out += space ? ` ${token}` : token;
   }
   return out;
@@ -125,6 +125,8 @@ export interface CueWord {
   end: number;
   /** 原样保留（不 trim）：有的识别器用前导空格表示词间空白。 */
   text: string;
+  /** 保留文稿里的无空格词缝。 */
+  glue?: true;
   speaker?: string;
   sentenceId?: string;
   /** 这一句标了段首、且这是句子的第一个成员。 */
@@ -189,8 +191,8 @@ export function readSpeechWords(body: unknown, params: CueParams = CUE_PARAMS): 
       end = slotAfter(raw, i, start, scale);
       if (end === null) {
         const previous = words.at(-1);
-        if (previous) previous.text = joinCueWords([previous.text, value], leading);
-        else carried = carried ? joinCueWords([carried, value], leading) : value;
+        if (previous) previous.text = joinCueWords([previous.text, value], leading, [false, word.glue === true]);
+        else carried = carried ? joinCueWords([carried, value], leading, [false, word.glue === true]) : value;
         return;
       }
     }
@@ -206,8 +208,9 @@ export function readSpeechWords(body: unknown, params: CueParams = CUE_PARAMS): 
         id: n === 0 ? id : `${id}~${n + 1}`,
         start: piece.start,
         end: piece.end,
-        text: n === 0 && carried ? joinCueWords([carried, piece.text], leading) : piece.text,
+        text: n === 0 && carried ? joinCueWords([carried, piece.text], leading, [false, word.glue === true]) : piece.text,
         ...(speaker !== undefined ? { speaker } : {}),
+        ...(n === 0 && word.glue === true ? { glue: true as const } : {}),
         ...(sentence ? { sentenceId: sentence.id } : {}),
         paragraphStart: n === 0 && (sentence?.paragraph ?? false),
       }),
@@ -357,6 +360,7 @@ export function deriveCues(source: readonly CueWord[], params: CueParams = CUE_P
       text: joinCueWords(
         current.map((word) => word.text),
         leading,
+        current.map((word) => word.glue === true),
       ),
       ...(first.speaker !== undefined ? { speaker: first.speaker } : {}),
       wordIds: current.map((word) => word.id),
@@ -373,8 +377,9 @@ export function deriveCues(source: readonly CueWord[], params: CueParams = CUE_P
       continue;
     }
     const tokens = current.map((w) => w.text);
-    const lineWidth = displayWidth(joinCueWords(tokens, leading));
-    const projected = displayWidth(joinCueWords([...tokens, next.text], leading));
+    const glues = current.map((word) => word.glue === true);
+    const lineWidth = displayWidth(joinCueWords(tokens, leading, glues));
+    const projected = displayWidth(joinCueWords([...tokens, next.text], leading, [...glues, next.glue === true]));
     if (autoBreak(word, next, lineWidth, projected, params)) flush();
   }
   flush();
