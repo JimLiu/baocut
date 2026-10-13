@@ -101,7 +101,7 @@ export function transcriptWords(sequence: Sequence, assetId: Id, source: readonl
     const state: WordState = sliver ? 'cut' : best >= length * KEPT_SHARE - EPS ? 'kept' : 'partial';
     const prev = words[index - 1];
     const spaced = prev
-      ? joinWords([prev.text, word.text], leading).length > joinWords([prev.text], leading).length + joinWords([word.text], leading).length
+      ? joinWords([prev.text, word.text], leading, [false, word.glue === true]).length > joinWords([prev.text], leading).length + joinWords([word.text], leading).length
       : false;
     return { ...word, index, placements, state, spaced };
   });
