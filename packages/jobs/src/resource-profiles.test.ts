@@ -1,6 +1,6 @@
 import os from 'node:os';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ResourceCapacity, ResourcePriority } from '@baocut/protocol';
 import { EMBEDDING_WORKER_OVERHEAD_BYTES, IMAGE_BUNDLES, ModelCatalog, requiredSources, weightBytes, type WorkerFootprint } from '@baocut/models';
 import { unifiedGpuEstimate } from './machine-capacity.ts';
@@ -15,6 +15,8 @@ import {
 import { ResourceScheduler } from './resource-scheduler.ts';
 
 const GiB = 1024 * 1024 * 1024;
+
+afterEach(() => vi.unstubAllGlobals());
 
 /** 按默认预留：这个模型包的 Model Worker 能不能被准入。统一内存的 Mac 有 GPU 的估计；别的机器不知道 GPU 有多少。 */
 function admitted(
@@ -53,7 +55,11 @@ describe('Model Worker 的需求', () => {
     expect(localTranscribeResources('a@mlx').holder.demand).toEqual(MODEL_WORKER_DEMAND);
   });
 
-  it('Apple Silicon：识别与分离模型包按权重估计（分离按文件的两倍），文本嵌入按文件加余量计内存，8 GiB 的 Mac 也放得下；合成模型包仍是原来的固定需求', async () => {
+  it.each(['darwin', 'linux', 'win32'] as const)('Apple Silicon 的资源估计不依赖测试主机 %s：嵌入按文件加余量计内存，8 GiB 放得下', async (hostPlatform) => {
+    vi.stubGlobal('process', Object.create(process, {
+      platform: { value: hostPlatform },
+      arch: { value: hostPlatform === 'darwin' ? 'arm64' : 'x64' },
+    }));
     // 模型目录是空的：可选组件都没装。
     const catalog = new ModelCatalog({ root: noModels, platform: 'darwin', arch: 'arm64' });
     for (const def of catalog.definitions()) {
@@ -69,7 +75,10 @@ describe('Model Worker 的需求', () => {
         expect(await catalog.workerWeightBytes(def.bundleId), def.bundleId).toBe(footprint!.bytes);
       } else if (def.capability === 'embed') {
         // 文本嵌入跑在 CPU 上：模型文件 + LiteRT-LM 动态库的压缩包 + 余量，计在内存。
-        expect(footprint, def.bundleId).toEqual({ bytes: weightBytes(requiredSources(def))! + EMBEDDING_WORKER_OVERHEAD_BYTES, pool: 'memory' });
+        // 目录模拟 Apple Silicon；发布页组件的大小也按目录平台算，不能取 CI 主机的平台。
+        const bytes = weightBytes(requiredSources(def), undefined, 'darwin-arm64');
+        expect(bytes, def.bundleId).not.toBeNull();
+        expect(footprint, def.bundleId).toEqual({ bytes: bytes! + EMBEDDING_WORKER_OVERHEAD_BYTES, pool: 'memory' });
         expect(demand.gpuMemory, def.bundleId).toBe(0);
       } else {
         expect(footprint, def.bundleId).toBeNull();
