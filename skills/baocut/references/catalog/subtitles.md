@@ -8,6 +8,7 @@ description: 文稿与字幕的机制：转录、润色写回、自己翻译并�
 
 - 有媒体（链接、本机文件、已有视频）要转录、加字幕。
 - 转写要润色或校对。
+- 已有 ElevenLabs Scribe 转录 JSON，要沿用它的词时间进入翻译或字幕，不重复转录。
 - 要译文字幕或双语字幕；原文改过之后要更新译文。
 - 要从视频内容写总结、文章、标题与简介（读文稿）。
 
@@ -35,6 +36,12 @@ description: 文稿与字幕的机制：转录、润色写回、自己翻译并�
 可选 {{arg:language}}（不给时自动识别）、{{arg:hint}}（人名、术语、专有名词；只给收提示的模型，见前置检查）、{{arg:diarize}}（区分说话人）。视频里这份素材已有文稿时不在同一部视频里加第二份：缺省（{{arg:target}} 为 new-video）另建一部视频，链接同一份素材；{{arg:target}} 为 replace 时取代当前文稿，一笔可撤销的事务里结转译文、字幕与配音（{{arg:translations}} 为 discard 时不结转译文）。文稿在转录之后被用户改过时取代以 `TRANSCRIPT_EDITED` 拒绝：先问用户，确认丢掉那些修改再加 {{arg:acceptEdited}}。
 
 重转（另建视频或取代）与换模型只在用户要求或结果不能用时做：不因为自己觉得识别得不够好就重转，少量错字、人名与术语听错在润色时改（{{skill:polish-transcript}}）。结果不能用（空的、语言认错、大段乱码）时不用先问，直接重转一次，语言认错就带上正确的 {{arg:language}}；之后告诉用户第一次的结果哪里不能用、重转改了什么、重转后的结果怎样，仍不能用时停下来问用户。
+
+### 导入已有 ElevenLabs 转录
+
+先用 {{tool:videos_inspect}} 核对对应媒体的 `assetId`，确认 JSON 的秒数相对这份原素材。{{tool:documents_put}} 给 `format: "elevenlabs"`、`kind: "speech"`、`sourceAsset` 为这个 `assetId`，`body` 为单份 Scribe JSON 对象；只新建文稿。词必须带有效时间，不能把缺时间的文本估算成词级同步；多声道 `transcripts` 包先选出一份再导入。语言可显式给 {{arg:language}}，不给时取 JSON 的 `language_code`。
+
+结果的 `documentId` 是后续读写的文稿；`imported.wordCount` 与 `imported.skipped` 分别是写入词数和排除的空格、声音事件数，向用户报告排除项。用 {{tool:documents_read}} 读新文稿的 `translationBasis`，接下面的自译流程；要原文字幕时用 {{tool:captions_create}}。无需配转录模型或再次调用 {{tool:transcribe}}。在编辑器核对导入词时间与原素材匹配。
 
 ### 润色写回
 

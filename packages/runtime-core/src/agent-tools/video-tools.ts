@@ -48,6 +48,7 @@ import { deriveVideo, prepareDerive, type DeriveDeps } from '../videos/video-der
 import { clockLabel } from './derive-plan.ts';
 import { EDIT_OPERATIONS, OPERATION_FAMILIES, OPERATION_TYPES, describeOperation } from './edit-ops.ts';
 import { ToolError, type ToolInfo, type ToolSet } from './tool-catalog.ts';
+import { importElevenLabsTranscript } from './elevenlabs-transcript.ts';
 import { approvalField, confirmSummary, type ToolAccess, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
 import { assetSegments, projectChapters, type ProjectedChapter } from './source-chapters.ts';
 import { fillTranslationAlignments } from './translation-alignment.ts';
@@ -199,6 +200,7 @@ const schemas = {
   }),
   documents_put: z.strictObject({
     video: videoArg,
+    format: z.enum(['baocut', 'elevenlabs']).optional().describe('正文格式；默认 baocut。elevenlabs 接受一份 Scribe 转录 JSON（body.words），只新建 speech 文档，必须给 sourceAsset；不会再转录'),
     document: z
       .string()
       .min(1)
@@ -217,7 +219,7 @@ const schemas = {
     body: z
       .record(z.string(), z.unknown())
       .describe(
-        '完整的正文对象，用于新建或整体替换；局部修改用 edits_apply 的 renameSpeakers、updateWords 或 patchDocument，不要上传整份正文；译文的形状（baocut.translation/2）见 documents_read 的说明',
+        '完整的正文对象，用于新建或整体替换；format 为 elevenlabs 时给单份 Scribe 转录 JSON。局部修改用 edits_apply 的 renameSpeakers、updateWords 或 patchDocument，不要上传整份正文；译文的形状（baocut.translation/2）见 documents_read 的说明',
       ),
     revision: revisionArg
       .optional()
@@ -541,6 +543,7 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
       '改已有的译文（给 document）：从它生成的字幕层由 Runtime 在同一笔里只换改过的几句的字幕条，时间照旧（结果的 syncedCaptions 是跟着换了几份字幕文档）；不要再建一层字幕。',
       '正文与原来相同时不产生新版本。不给 revision 时用最新的版本。',
       '返回与 edits_apply 相同的回执，另有文档的 documentId。',
+      '已有 ElevenLabs Scribe 转录 JSON：format "elevenlabs"、kind "speech"、sourceAsset 为对应媒体的 assetId，body 给单份转录对象。保留词时间与 speaker_id，language 不给时取 language_code；时间必须相对这份原素材，不接受缺词时间、倒序或多声道 transcripts 包。只新建，不整体替换。跳过 spacing 与 audio_event，结果 imported 报告词数与跳过数。写完用 documents_read 取得 translationBasis 再自译，或用 captions_create 建字幕，不必调用 transcribe。',
     ].join('\n'),
     effect: 'mutation',
     examples: [
@@ -1186,6 +1189,12 @@ export class VideoTools implements ToolSet {
   /** `documents_put`：编译成一个 `putDocument`（替换时 kind 取原来的），走 `edits_apply` 的同一条路径。 */
   async #putDocument(args: z.infer<(typeof schemas)['documents_put']>, principal: ToolPrincipal) {
     const access = this.#scope.authorize(principal, true);
+    // i18n-ignore: Agent tool diagnostic.
+    if (args.format === 'elevenlabs' && (args.document !== undefined || args.kind !== 'speech' || !args.sourceAsset || args.sourceDocument !== undefined)) {
+      throw new ToolError('INVALID_ARGUMENTS', 'ElevenLabs import requires a new speech document and sourceAsset; document and sourceDocument are not accepted.');
+    }
+    const imported = args.format === 'elevenlabs' ? importElevenLabsTranscript(args.body) : undefined;
+    const language = args.language ?? imported?.language;
     const approval = await this.#scope.confirm(access, {
       tool: 'documents_put',
       video: args.video,
@@ -1238,10 +1247,10 @@ export class VideoTools implements ToolSet {
       ...(args.document !== undefined ? { documentId: args.document } : {}),
       kind,
       ...(args.name !== undefined ? { name: args.name } : {}),
-      ...(args.language !== undefined ? { language: args.language } : {}),
+      ...(language !== undefined ? { language } : {}),
       ...(args.sourceAsset !== undefined ? { sourceAsset: { assetId: args.sourceAsset } } : {}),
       ...(args.sourceDocument !== undefined ? { sourceDocument: { documentId: args.sourceDocument } } : {}),
-      body: args.body,
+      body: imported?.body ?? args.body,
       ref: PUT_DOCUMENT_REF,
     };
     const submitted = await this.#submit(access, opened, principal, {
@@ -1253,6 +1262,7 @@ export class VideoTools implements ToolSet {
     return {
       ...submitted.digest,
       documentId: submitted.result.receipt.refs?.[PUT_DOCUMENT_REF] ?? args.document ?? null,
+      ...(imported ? { imported: imported.imported } : {}),
       ...(submitted.filledAlignments ? { filledAlignments: submitted.filledAlignments } : {}),
       ...(submitted.syncedCaptions ? { syncedCaptions: submitted.syncedCaptions } : {}),
       ...approvalField(approval),

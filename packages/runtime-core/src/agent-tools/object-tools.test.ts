@@ -271,6 +271,44 @@ describe.skipIf(!engine || !ffmpeg)('对象的读写工具（终端目录，真�
     expect(final.body).toEqual(expected);
   }, 60_000);
 
+  it.skipIf(!editorWasmAvailable())('离线导入 ElevenLabs JSON：词时间、说话人与语言进入真实文档，可直接准备翻译和建字幕', async () => {
+    const { videoId, assetId } = await placedVideo('已有转录');
+    const created = await ok('documents_put', {
+      video: videoId, kind: 'speech', sourceAsset: assetId, format: 'elevenlabs',
+      body: { language_code: 'en', words: [
+        { type: 'word', text: 'Hello', start: 0.25, end: 0.75, speaker_id: 'speaker_1' },
+        { type: 'spacing', text: ' ' },
+        { type: 'word', text: 'there.', start: 0.75, end: 1.25, speaker_id: 'speaker_1' },
+      ] },
+    });
+    expect(created).toMatchObject({ status: 'committed', imported: { format: 'elevenlabs', wordCount: 2, skipped: { spacing: 1, audioEvents: 0 } } });
+    expect(video(videoId).documents[created.documentId]).toMatchObject({ kind: 'speech', language: 'en', sourceAssetId: assetId });
+    const read = await ok('documents_read', { video: videoId, documentId: created.documentId });
+    expect(read.body.words).toEqual([
+      { id: 'w-elevenlabs-1', text: 'Hello', start: 250000, end: 750000, speaker: 'speaker_1' },
+      { id: 'w-elevenlabs-2', text: 'there.', start: 750000, end: 1250000, speaker: 'speaker_1' },
+    ]);
+    expect(read.translationBasis.sentences[0]).toMatchObject({ text: 'Hello there.', start: 0.25, end: 1.25 });
+    await ok('captions_create', { video: videoId, documentId: created.documentId });
+    const rendered = await client.request('exports.renderText', { videoId, settings: { kind: 'transcript', format: 'txt', documentId: created.documentId, skipCut: false, speakers: true } });
+    expect(rendered.outputs[0]!.content).toContain('Hello there.');
+    expect(rendered.outputs[0]!.content).toContain('speaker_1');
+    expect((await client.request('jobs.list', {})).jobs).toHaveLength(0);
+  });
+
+  it('拒绝未定时与替换式 ElevenLabs 导入，不修改视频；显式语言优先', async () => {
+    const { videoId, assetId } = await placedVideo('导入检查');
+    const args = { video: videoId, kind: 'speech', sourceAsset: assetId, format: 'elevenlabs', body: { language_code: 'en', words: [{ type: 'word', text: '你好', start: 0, end: 1 }] } };
+    const revision = video(videoId).revision;
+    for (const invalid of [
+      { ...args, kind: 'translation' }, { ...args, sourceAsset: undefined }, { ...args, document: 'existing' },
+      { ...args, body: { words: [{ type: 'word', text: 'untimed' }] } },
+    ]) expect(await code('documents_put', invalid)).toBe('INVALID_ARGUMENTS');
+    expect(video(videoId).revision).toBe(revision);
+    const created = await ok('documents_put', { ...args, language: 'zh-Hans' });
+    expect(video(videoId).documents[created.documentId]).toMatchObject({ language: 'zh-Hans' });
+  });
+
   it('documents_put 编译成 putDocument：新建、替换（kind 不变）、相同正文不产生新版本；参数不全时拒绝', async () => {
     const { videoId, assetId } = await placedVideo('文档');
     const created = await ok('documents_put', {
