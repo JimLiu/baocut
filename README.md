@@ -67,7 +67,7 @@ Most AI video tools render once and hand you a file. If the second sentence of t
 
 **Delivery**
 
-- Export MP4 with burned-in or sidecar subtitles, SRT / WebVTT, transcripts, audio stems, and a portable `.baocut` bundle that reopens with full edit history on another machine.
+- Export MP4 with burned-in or sidecar subtitles, SRT / WebVTT, transcripts, audio stems, and a portable `.baocut` bundle that reopens on another machine for continued editing. The bundle includes a video snapshot and all document and asset versions; it does not include the original video's complete transaction or undo history.
 
 ## Four ways in, one Runtime
 
