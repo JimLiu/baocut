@@ -1,4 +1,5 @@
 import net from 'node:net';
+import { createServer } from 'node:http';
 import { WebSocket } from 'ws';
 import { describe, expect, it } from 'vitest';
 import { silentLogger } from '@baocut/harness';
@@ -19,8 +20,8 @@ const runtime: RuntimeInfo = {
   launchedBy: null,
 };
 
-function newGateway(): Gateway {
-  return new Gateway({ token: 'token', runtime, handlers: {} as RpcHandlers, log: silentLogger });
+function newGateway(onConnect?: () => void): Gateway {
+  return new Gateway({ token: 'token', runtime, handlers: {} as RpcHandlers, log: silentLogger, onConnect });
 }
 
 /** 期限内没落定就算失败：修复前监听失败时 Promise 永远挂着。 */
@@ -30,6 +31,104 @@ function within<T>(promise: Promise<T>, ms: number): Promise<T> {
     timer = setTimeout(() => reject(new Error(`${ms} 毫秒内没有落定`)), ms);
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+function hello(token = 'token', protocolVersion = PROTOCOL_VERSION): string {
+  return JSON.stringify({
+    type: 'hello', token, protocolVersion,
+    client: { kind: 'cli', name: 'limit-fixture', version: '0' },
+  });
+}
+
+/** A real masked client header, including lengths whose payload is deliberately never sent. */
+function maskedHeader(length: number, opcode = 1, final = true): Buffer {
+  const extended = length < 126 ? 0 : length <= 0xffff ? 2 : 8;
+  const header = Buffer.alloc(2 + extended + 4);
+  header[0] = (final ? 0x80 : 0) | opcode;
+  header[1] = 0x80 | (extended === 0 ? length : extended === 2 ? 126 : 127);
+  if (extended === 2) header.writeUInt16BE(length, 2);
+  if (extended === 8) header.writeBigUInt64BE(BigInt(length), 2);
+  // An all-zero mask is valid and keeps the fixture payload readable.
+  return header;
+}
+
+function maskedFrame(payload: string | Buffer, opcode = 1, final = true): Buffer {
+  const bytes = typeof payload === 'string' ? Buffer.from(payload) : payload;
+  return Buffer.concat([maskedHeader(bytes.length, opcode, final), bytes]);
+}
+
+type WireFrame = { opcode: number; payload: Buffer };
+
+/** Minimal RFC 6455 fixture: only server frames are parsed, with bounded waits and public TCP APIs. */
+async function rawClient(endpoint: string, initialFrame?: Buffer, origin = 'null') {
+  const url = new URL(endpoint);
+  const socket = net.createConnection({ host: url.hostname, port: Number(url.port) });
+  let received = Buffer.alloc(0);
+  socket.on('data', (data) => { received = Buffer.concat([received, data]); });
+  // Rejections may destroy the transport instead of completing a WebSocket close handshake.
+  socket.on('error', () => {});
+  const closed = new Promise<void>((resolve) => socket.once('close', () => resolve()));
+  const read = <T>(consume: () => T | undefined): Promise<T> => new Promise((resolve, reject) => {
+    const cleanup = () => {
+      clearTimeout(timer);
+      socket.off('data', check);
+      socket.off('close', onClose);
+      socket.off('error', onError);
+    };
+    const check = () => {
+      const result = consume();
+      if (result !== undefined) { cleanup(); resolve(result); }
+    };
+    const onClose = () => { cleanup(); reject(new Error('transport closed before the expected frame')); };
+    const onError = (error: Error) => { cleanup(); reject(error); };
+    const timer = setTimeout(() => { cleanup(); reject(new Error('no reply within 2000 ms')); }, 2_000);
+    socket.on('data', check);
+    socket.once('close', onClose);
+    socket.once('error', onError);
+    check();
+  });
+  try {
+    await within(new Promise<void>((resolve, reject) => {
+      socket.once('connect', resolve);
+      socket.once('error', reject);
+    }), 2_000);
+    const handshake = Buffer.from([
+      `GET ${url.pathname} HTTP/1.1`, `Host: ${url.host}`,
+      'Connection: Upgrade', 'Upgrade: websocket', 'Sec-WebSocket-Version: 13',
+      'Sec-WebSocket-Key: MDEyMzQ1Njc4OWFiY2RlZg==', `Origin: ${origin}`, '', '',
+    ].join('\r\n'));
+    socket.write(initialFrame ? Buffer.concat([handshake, initialFrame]) : handshake);
+    expect(await read(() => {
+      const end = received.indexOf('\r\n\r\n');
+      if (end < 0) return undefined;
+      const headers = received.subarray(0, end).toString();
+      received = received.subarray(end + 4);
+      return headers;
+    })).toMatch(/^HTTP\/1\.1 101 /);
+  } catch (error) {
+    socket.destroy();
+    throw error;
+  }
+  const nextFrame = () => read<WireFrame>(() => {
+    if (received.length < 2) return undefined;
+    const opcode = received[0]! & 0x0f;
+    let length = received[1]! & 0x7f;
+    let offset = 2;
+    if (length === 126) {
+      if (received.length < 4) return undefined;
+      length = received.readUInt16BE(2);
+      offset = 4;
+    } else if (length === 127) {
+      if (received.length < 10) return undefined;
+      length = Number(received.readBigUInt64BE(2));
+      offset = 10;
+    }
+    if (received.length < offset + length) return undefined;
+    const payload = received.subarray(offset, offset + length);
+    received = received.subarray(offset + length);
+    return { opcode, payload };
+  });
+  return { socket, closed, nextFrame, receivedBytes: () => received.length };
 }
 
 type HandleCounts = { servers: number; timers: number };
@@ -100,6 +199,159 @@ describe('网关', () => {
     } finally {
       socket.terminate();
       await gateway.close();
+    }
+  });
+
+  it('rejects a malformed hello above 16 KiB before JSON parsing, including an opaque Origin', async () => {
+    let connected = 0;
+    const gateway = newGateway(() => connected++);
+    const endpoint = await gateway.listen();
+    try {
+      const client = await rawClient(endpoint);
+      try {
+        client.socket.write(maskedFrame('not-json'.repeat(2_049)));
+        await within(client.closed, 2_000);
+        // No JSON/token fatal reply: the oversized hello is discarded at the byte boundary.
+        expect(client.receivedBytes()).toBe(0);
+        expect(connected).toBe(0);
+      } finally {
+        client.socket.destroy();
+      }
+      // A rejected anonymous connection must leave the gateway usable.
+      const healthy = await rawClient(endpoint);
+      try {
+        healthy.socket.write(maskedFrame(hello()));
+        expect(JSON.parse((await healthy.nextFrame()).payload.toString())).toMatchObject({ type: 'welcome' });
+        expect(connected).toBe(1);
+      } finally {
+        healthy.socket.destroy();
+      }
+    } finally {
+      await gateway.close();
+    }
+  });
+
+  it.each(['unfinished', 'fragmented', 'control'] as const)('bounds pre-authentication %s wire traffic before the hello timeout', async (kind) => {
+    const gateway = newGateway();
+    const endpoint = await gateway.listen();
+    const client = await rawClient(endpoint);
+    try {
+      if (kind === 'unfinished') {
+        // ws cannot emit a message yet: the declared 1 MiB text payload remains unfinished.
+        client.socket.write(Buffer.concat([maskedHeader(1024 * 1024), Buffer.alloc(64 * 1024 + 1, 0x78)]));
+      } else if (kind === 'fragmented') {
+        const fragment = Buffer.alloc(16 * 1024, 0x78);
+        client.socket.write(Buffer.concat([
+          maskedFrame(fragment, 1, false),
+          ...Array.from({ length: 4 }, () => maskedFrame(fragment, 0, false)),
+        ]));
+      } else {
+        // 62,520 payload bytes stay below 64 KiB, but 521 masked ping frames use 65,646 wire bytes.
+        const ping = maskedFrame(Buffer.alloc(120), 9);
+        client.socket.write(Buffer.concat(Array.from({ length: 521 }, () => ping)));
+      }
+      // The existing hello timeout is 5 seconds; rejection must happen as bytes arrive.
+      await within(client.closed, 2_000);
+    } finally {
+      client.socket.destroy();
+      await gateway.close();
+    }
+  });
+
+  it('bounds rejected-Origin traffic while the peer refuses the close handshake', async () => {
+    let connected = 0;
+    const gateway = newGateway(() => connected++);
+    const endpoint = await gateway.listen();
+    const client = await rawClient(endpoint, undefined, 'http://localhost:5174');
+    try {
+      const close = await client.nextFrame();
+      expect(close.opcode).toBe(8);
+      expect(close.payload.readUInt16BE(0)).toBe(1008);
+      expect(close.payload.subarray(2).toString()).toBe('origin not allowed');
+      // Never acknowledge the close: the rejected peer can still send an unfinished payload.
+      client.socket.write(Buffer.concat([maskedHeader(1024 * 1024), Buffer.alloc(64 * 1024 + 1, 0x78)]));
+      await within(client.closed, 2_000);
+      expect(connected).toBe(0);
+    } finally {
+      client.socket.destroy();
+      await gateway.close();
+    }
+  });
+
+  it.each([
+    { token: 'wrong-token', protocolVersion: PROTOCOL_VERSION, code: 'unauthenticated' },
+    { token: 'token', protocolVersion: PROTOCOL_VERSION + 1, code: 'protocol-mismatch' },
+  ])('does not authenticate a pipelined hello after $code', async ({ token, protocolVersion, code }) => {
+    let connected = 0;
+    const gateway = newGateway(() => connected++);
+    const endpoint = await gateway.listen();
+    const client = await rawClient(endpoint);
+    try {
+      client.socket.write(Buffer.concat([maskedFrame(hello(token, protocolVersion)), maskedFrame(hello())]));
+      expect(JSON.parse((await client.nextFrame()).payload.toString())).toMatchObject({ type: 'fatal', error: { code } });
+      const close = await client.nextFrame();
+      expect(close.opcode).toBe(8);
+      expect(close.payload.readUInt16BE(0)).toBe(1008);
+      expect(connected).toBe(0);
+    } finally {
+      client.socket.destroy();
+      await gateway.close();
+    }
+  });
+
+  it('rejects an authenticated frame above 64 MiB from its header without buffering its payload', async () => {
+    const gateway = newGateway();
+    const endpoint = await gateway.listen();
+    const client = await rawClient(endpoint);
+    try {
+      client.socket.write(maskedFrame(hello()));
+      expect(JSON.parse((await client.nextFrame()).payload.toString())).toMatchObject({ type: 'welcome' });
+      client.socket.write(maskedHeader(64 * 1024 * 1024 + 1));
+      const close = await client.nextFrame();
+      expect(close.opcode).toBe(8);
+      expect(close.payload.readUInt16BE(0)).toBe(1009);
+    } finally {
+      client.socket.destroy();
+      await gateway.close();
+    }
+  });
+
+  it('enforces hello and wire budgets on externally authenticated HTTP upgrades, including upgrade head bytes', async () => {
+    let connected = 0;
+    const gateway = newGateway(() => connected++);
+    const http = createServer();
+    http.on('upgrade', (request, socket, head) => gateway.upgrade(request, socket, head, {
+      kind: 'web', name: 'session-fixture', sessionId: 'session-test',
+    }));
+    await new Promise<void>((resolve) => http.listen(0, '127.0.0.1', resolve));
+    const endpoint = `ws://127.0.0.1:${(http.address() as net.AddressInfo).port}`;
+    const clients: Awaited<ReturnType<typeof rawClient>>[] = [];
+    try {
+      const oversized = await rawClient(endpoint, maskedFrame('not-json'.repeat(2_049)));
+      clients.push(oversized);
+      await within(oversized.closed, 2_000);
+      expect(oversized.receivedBytes()).toBe(0);
+
+      const unfinished = await rawClient(endpoint, Buffer.concat([
+        maskedHeader(1024 * 1024), Buffer.alloc(64 * 1024 + 1, 0x78),
+      ]));
+      clients.push(unfinished);
+      await within(unfinished.closed, 2_000);
+      expect(connected).toBe(0);
+
+      const healthy = await rawClient(endpoint);
+      clients.push(healthy);
+      healthy.socket.write(maskedFrame(hello('cookie-authenticated')));
+      expect(JSON.parse((await healthy.nextFrame()).payload.toString())).toMatchObject({ type: 'welcome' });
+      expect(connected).toBe(1);
+      healthy.socket.write(maskedHeader(64 * 1024 * 1024 + 1));
+      const authenticatedClose = await healthy.nextFrame();
+      expect(authenticatedClose.opcode).toBe(8);
+      expect(authenticatedClose.payload.readUInt16BE(0)).toBe(1009);
+    } finally {
+      for (const client of clients) client.socket.destroy();
+      await gateway.close();
+      await new Promise<void>((resolve) => http.close(() => resolve()));
     }
   });
 

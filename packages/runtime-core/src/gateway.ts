@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { Duplex } from 'node:stream';
-import { WebSocketServer, type WebSocket } from 'ws';
+import { WebSocketServer, type RawData, type WebSocket } from 'ws';
 import {
   PROTOCOL_VERSION,
   RpcError,
@@ -70,8 +70,12 @@ const HELLO_TIMEOUT_MS = 5_000;
 const HEARTBEAT_MS = 30_000;
 /** 发送缓冲超过这个量就断开，让客户端重连后按序号补发或取快照，而不是在内存里无限堆积。 */
 const MAX_BUFFERED_BYTES = 16 * 1024 * 1024;
-// The local command gateway accepts large document submissions (ws: 0 = unlimited).
-const MAX_FRAME_BYTES = 0;
+/** Bound every message at the receiver while preserving large document submissions. */
+export const MAX_FRAME_BYTES = 64 * 1024 * 1024;
+/** A hello contains only a token, protocol version and short client metadata. */
+export const MAX_HELLO_BYTES = 16 * 1024;
+/** Count wire bytes before authentication, including incomplete and fragmented messages. */
+export const MAX_PREAUTH_BYTES = 64 * 1024;
 
 /**
  * 本机网关（架构设计 §4）。只监听回环地址：同一个端口上，WebSocket 走协议，第一帧必须是带令牌的 hello；
@@ -105,7 +109,7 @@ export class Gateway {
       });
     });
     this.#http = http;
-    this.#start(new WebSocketServer({ server: http, maxPayload: MAX_FRAME_BYTES }));
+    this.#start(new WebSocketServer({ server: http, maxPayload: MAX_FRAME_BYTES, perMessageDeflate: false }));
     const address = http.address() as AddressInfo;
     const endpoint = `ws://${host}:${address.port}`;
     this.#log.info('Gateway listening', { endpoint });
@@ -121,8 +125,8 @@ export class Gateway {
       socket.destroy();
       return;
     }
-    const server = this.#server ?? this.#start(new WebSocketServer({ noServer: true, maxPayload: MAX_FRAME_BYTES }));
-    server.handleUpgrade(request, socket, head, (ws) => this.#accept(ws, request, identity));
+    const server = this.#server ?? this.#start(new WebSocketServer({ noServer: true, maxPayload: MAX_FRAME_BYTES, perMessageDeflate: false }));
+    server.handleUpgrade(request, socket, head, (ws) => this.#accept(ws, request, identity, socket));
   }
 
   /** 断开符合条件的已认证连接（吊销浏览器会话）。 */
@@ -163,7 +167,16 @@ export class Gateway {
     }
   }
 
-  #accept(socket: WebSocket, request: IncomingMessage, identity?: GatewayIdentity): void {
+  #accept(socket: WebSocket, request: IncomingMessage, identity?: GatewayIdentity, transport: Duplex = request.socket): void {
+    // Receiver limits and malformed frames emit on the accepted socket, not the server.
+    socket.on('error', (error) => this.#log.warn('WebSocket receive error', { error: String(error) }));
+    // Even a refused origin can keep sending during the close handshake.
+    const connection = new Connection(socket, transport, this.#options, this.#log, identity ?? null);
+    this.#connections.add(connection);
+    socket.once('close', () => {
+      this.#connections.delete(connection);
+      connection.dispose();
+    });
     const origin = request.headers.origin;
     // 外层认证过的升级（Web 服务）由外层按它自己的来源规则查过。
     if (!identity && !this.#originAllowed(origin)) {
@@ -171,12 +184,6 @@ export class Gateway {
       socket.close(1008, 'origin not allowed');
       return;
     }
-    const connection = new Connection(socket, this.#options, this.#log, identity ?? null);
-    this.#connections.add(connection);
-    socket.once('close', () => {
-      this.#connections.delete(connection);
-      connection.dispose();
-    });
   }
 
   #originAllowed(origin: string | undefined): boolean {
@@ -186,6 +193,7 @@ export class Gateway {
 
 class Connection {
   readonly #socket: WebSocket;
+  readonly #transport: Duplex;
   readonly #options: GatewayOptions;
   readonly #log: Logger;
   readonly #subscriptions = new Map<Topic, () => void>();
@@ -193,17 +201,34 @@ class Connection {
   readonly #identity: GatewayIdentity | null;
   #principal: TrustedPrincipal | null = null;
   #alive = true;
+  #preauthBytes = 0;
+  readonly #limitPreauth = (chunk: Buffer | string): void => {
+    this.#preauthBytes += typeof chunk === 'string' ? Buffer.byteLength(chunk) : chunk.byteLength;
+    if (this.#preauthBytes <= MAX_PREAUTH_BYTES) return;
+    this.#log.warn('Unauthenticated receive budget exceeded', { bytes: this.#preauthBytes });
+    // Stop incomplete/fragmented input without waiting for ws to assemble a message.
+    this.#socket.terminate();
+  };
 
-  constructor(socket: WebSocket, options: GatewayOptions, log: Logger, identity: GatewayIdentity | null) {
+  constructor(socket: WebSocket, transport: Duplex, options: GatewayOptions, log: Logger, identity: GatewayIdentity | null) {
     this.#socket = socket;
+    this.#transport = transport;
     this.#options = options;
     this.#log = log;
     this.#identity = identity;
     this.#helloTimer = setTimeout(() => this.#fatal(new RpcError('unauthenticated', RcGateway.helloTimeout())), HELLO_TIMEOUT_MS);
+    // Use the public transport API; do not change ws receiver internals after hello.
+    transport.prependListener('data', this.#limitPreauth);
     socket.on('pong', () => {
       this.#alive = true;
     });
     socket.on('message', (data, isBinary) => {
+      if (socket.readyState !== socket.OPEN) return;
+      if (!this.#principal && rawDataBytes(data) > MAX_HELLO_BYTES) {
+        this.#log.warn('Handshake frame too large', { bytes: rawDataBytes(data) });
+        socket.terminate();
+        return;
+      }
       if (isBinary) return this.#fatal(new RpcError('invalid-request', RcGateway.textFramesOnly()));
       this.#onMessage(data.toString());
     });
@@ -228,6 +253,7 @@ class Connection {
 
   dispose(): void {
     clearTimeout(this.#helloTimer);
+    this.#transport.off('data', this.#limitPreauth);
     for (const unsubscribe of this.#subscriptions.values()) unsubscribe();
     this.#subscriptions.clear();
     if (this.#principal) {
@@ -279,6 +305,7 @@ class Connection {
     this.#principal = identity
       ? { connectionId: newId('conn'), kind: identity.kind, name: identity.name, sessionId: identity.sessionId }
       : { connectionId: newId('conn'), kind: hello.client.kind, name: hello.client.name };
+    this.#transport.off('data', this.#limitPreauth);
     this.#log.info('Connection ready', { ...this.#principal, version: hello.client.version });
     this.#options.onConnect?.(this.#principal);
     this.#send({ type: 'welcome', runtime: this.#options.runtime, connectionId: this.#principal.connectionId });
@@ -341,6 +368,10 @@ class Connection {
     }
     this.#socket.send(JSON.stringify(frame));
   }
+}
+
+function rawDataBytes(data: RawData): number {
+  return Array.isArray(data) ? data.reduce((bytes, part) => bytes + part.byteLength, 0) : data.byteLength;
 }
 
 function tokenMatches(given: string, expected: string): boolean {
