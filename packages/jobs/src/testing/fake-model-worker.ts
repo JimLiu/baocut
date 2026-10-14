@@ -44,7 +44,8 @@
  * 本机 embedding（`embed.run`，§2.5.6）：`capabilities` 含 `embed` 时报告它与 `embeddingCapabilities`（family 默认
  * `['embeddinggemma2-litert']`，控制文件的 `embeddingFamilies` 可以收窄）。每条文本按字符二元组哈希成 `outputSize` 维、归一化的
  * 向量（字面相近 → 余弦高），base64 编码；`embed-too-long:<i>` 时第 i 条（从 0 数）报 `INPUT_TOO_LONG`，`slow` 时一批 200 ms，
- * 运行期间状态是 `busy`。`record` 给出时参数同样追加到那个文件。
+ * 运行期间状态是 `busy`。`record` 给出时参数同样追加到那个文件。图片（`images`）读出文件内容当文字哈希；加载时没带 `vision` 报
+ * `MODEL_UNSUPPORTED`，文件读不了报 `INPUT_UNREADABLE`。`loads` 给出时每次 `model.load` 的 `{ bundleId, vision }` 追加到那个文件。
  *
  * 本文件不引用仓库里的任何包：它作为独立脚本运行。
  */
@@ -80,6 +81,7 @@ interface Control {
   embeddingFamilies?: string[];
   readingsDropped?: unknown[];
   record?: string;
+  loads?: string;
 }
 
 interface Bundle {
@@ -87,6 +89,7 @@ interface Bundle {
   backend: string;
   device: string;
   components: Record<string, { family: string; revision: string }>;
+  vision?: { tokensPerImage?: number };
 }
 
 interface RunningJob {
@@ -190,6 +193,8 @@ async function handle(request: Request): Promise<void> {
                 outputSizes: [128, 256, 512, 768],
                 maxBatch: 16,
                 maxInputTokens: 2048,
+                inputs: ['text', 'image'],
+                maxImageBatch: 4,
               },
             }
           : {}),
@@ -199,6 +204,8 @@ async function handle(request: Request): Promise<void> {
       const next = params.bundle as Bundle | undefined;
       if (!next || typeof next.bundleId !== 'string') return fail(id, 'INVALID_PARAMS', '缺少 bundle');
       bundle = next;
+      const loads = control().loads;
+      if (loads) fs.appendFileSync(loads, `${JSON.stringify({ bundleId: next.bundleId, vision: next.vision ?? null })}\n`);
       const loadFailure = faultArg('load-fail');
       if (loadFailure) {
         bundle = null;
@@ -759,7 +766,19 @@ function stats(speechSeconds: number) {
 }
 
 async function embed(id: number, params: Record<string, unknown>): Promise<void> {
-  const texts = params.texts as string[];
+  const images = params.images as string[] | undefined;
+  if (images && !bundle?.vision) {
+    return fail(id, 'MODEL_UNSUPPORTED', 'the image encoder is not loaded', false, { capability: 'embed', reason: 'vision-not-loaded' });
+  }
+  const texts: string[] = [];
+  for (const [index, image] of (images ?? []).entries()) {
+    try {
+      texts.push(fs.readFileSync(image, 'utf8'));
+    } catch {
+      return fail(id, 'INPUT_UNREADABLE', 'the image is unreadable', false, { index, reason: 'not-found' });
+    }
+  }
+  if (!images) texts.push(...(params.texts as string[]));
   const size = Number(params.outputSize);
   const started = Date.now();
   state = 'busy';

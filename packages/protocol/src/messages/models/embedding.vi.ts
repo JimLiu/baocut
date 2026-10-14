@@ -10,6 +10,7 @@ export const vi: ModelsEmbeddingMessages = {
   notNormalized: (p: { norm: string }) => `Có vectơ không có độ dài 1 (chuẩn ${p.norm})`,
   notRanked: (p: { relevant: string; irrelevant: string }) => `Câu liên quan không có điểm cao hơn câu không liên quan (cosin ${p.relevant} so với ${p.irrelevant})`,
   noModel: 'Chưa cài mô hình embedding cục bộ',
+  noVisionModel: 'Không mô hình embedding cục bộ nào đã cài đọc được hình ảnh. Hãy cài EmbeddingGemma 2 740M để tìm theo nội dung hình',
   inputTooLong: (p: { index: number; max: number }) => `Đoạn văn ${p.index} dài hơn mức mô hình nhận được (${p.max} token)`,
   modelUnavailable: (p: { problem: string }) => `Không dùng được mô hình embedding cục bộ: ${p.problem}`,
   cannotEmbed: 'Model Worker này chưa tính được embedding bằng mô hình này',

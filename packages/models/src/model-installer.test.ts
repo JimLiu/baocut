@@ -557,6 +557,8 @@ describe('ModelInstaller 发布页组件', () => {
     expect(detail.plan.confirmBytes).toBe(bytesOf(asrA) + body.length);
     // 官方地址的来源是 `/download/` 之前的部分（发布页）。
     expect(detail.plan.source).toBe(`${source.endpoint} + ${base}`);
+    // 每个组件写出自己从哪个基址下载，界面按它分组、写地址。
+    expect(detail.plan.components.map((c) => c.source)).toEqual([source.endpoint, base]);
     expect(requests).toEqual([]);
     const outcome = await installer.install(detail, { signal: new AbortController().signal });
     expect(outcome.downloadedBytes).toBe(bytesOf(asrA) + body.length);
@@ -590,6 +592,34 @@ describe('ModelInstaller 发布页组件', () => {
     await installer.install(detail, { signal: new AbortController().signal });
     expect(requests).toEqual(['/mirror/audiocpp/0.9.1/audio-test-bin.tar.gz']);
     expect(await fs.stat(path.join(engineDir, 'audiocpp_cli'))).toBeTruthy();
+  });
+
+  it('一部分没下成：失败带上那一部分与它连的基址；下好的权重留着，再计划只下缺的那一部分', async () => {
+    const body = packRelease('#!/bin/sh\nexit 0\n');
+    const rel = release(body);
+    // 镜像上没有这个包：404。
+    const { catalog, installer } = setup(rel, { toolsEndpoint: `${base}/mirror` });
+    const error = await run(installer, 'music-a@audio-cpp').catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(DownloadError);
+    expect((error as DownloadError).code).toBe('MODEL_DOWNLOAD_SOURCE');
+    expect((error as DownloadError).details).toMatchObject({
+      component: 'audiocpp-engine',
+      repo: '0xShug0/audio.cpp',
+      origin: 'github-release',
+      source: `${base}/mirror`,
+      status: 404,
+    });
+    const status = await catalog.status('music-a@audio-cpp');
+    expect(status?.components?.map((c) => [c.component, c.state])).toEqual([
+      ['music', 'installed'],
+      ['audiocpp-engine', 'missing'],
+    ]);
+    const again = await installer.plan('music-a@audio-cpp');
+    expect(again.plan.components.map((c) => [c.component, c.action])).toEqual([
+      ['music', 'keep'],
+      ['audiocpp-engine', 'download'],
+    ]);
+    expect(again.plan.downloadBytes).toBe(body.length);
   });
 
   it('摘要不符：MODEL_DOWNLOAD_INTEGRITY，删掉下载的文件，不留组件目录', async () => {

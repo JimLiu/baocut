@@ -139,6 +139,7 @@ export const pl: AiToolsMessages = {
   },
   viewName: { author: "autor", viewer: "widz" },
   extraScope: (scope: string) => `Skup się tylko na ${scope}`,
+  extraTopic: (topic: string) => `Pisz tylko o „${topic}”: najpierw znajdź przez speech_relevant fragmenty, które o tym mówią, i pisz na ich podstawie`,
   extraLength: (label: string) => `Długość: ${label}`,
   extraStyle: (style: string) => `Styl: ${style}`,
   extraLanguage: (language: string) => `Napisz po ${language}`,

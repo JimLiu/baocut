@@ -56,8 +56,7 @@ import {
   type NumberedTranscript,
 } from './ai-tool-citations.ts';
 import type { RelevantChunkSet } from '../space/semantic/context.ts';
-import { reasonOf } from '../space/semantic/errors.ts';
-import { chapterBoundaryCandidates } from './chapter-boundaries.ts';
+import { topicBoundaries, type TopicBoundaryDeps } from './topic-boundaries.ts';
 
 /**
  * AI 工具的「直接调模型」（产品设计 §5.10，`ai-tool`）：不启动智能体、不经对话，把工具页提示词框里的文字与这个视频的
@@ -121,7 +120,9 @@ export interface AiToolDeps {
    * 章节按话题找边界（创作辅助集成设计 §3.6）：本机语义模型给一组文字算文档向量（L2 归一化）。没接线或模型不可用时抛带
    * 原因码的错误，章节退回由模型决定边界。
    */
-  embed?(texts: string[], signal: AbortSignal): Promise<Float32Array[]>;
+  embed?: TopicBoundaryDeps['embed'];
+  /** 章节按话题找边界：这一版转写已建好语义索引时直接用索引里的句群与向量（不重新编码）。 */
+  topicUnits?: TopicBoundaryDeps['topicUnits'];
 }
 
 /** 启动时冻结的部分。 */
@@ -484,7 +485,7 @@ async function gatherContext(deps: AiToolDeps, context: PipelineStepContext<Froz
     if (!writing) {
       body = { transcript: params.tool === 'polish' ? null : rendered.content, words, duration: sequence.duration };
       if (params.tool === 'chapters' && params.boundaries === 'topic') {
-        const topic = await topicBoundaries(deps, words, signal);
+        const topic = await chapterBoundaries(deps, { videoId: params.videoId, documentId, words }, signal);
         boundaries = topic.facts;
         if (topic.allowed) body = { ...body, boundaries: topic.allowed };
       }
@@ -518,51 +519,20 @@ async function gatherContext(deps: AiToolDeps, context: PipelineStepContext<Froz
   };
 }
 
-/** 算向量时一段最多取这么多字符（段落很长时截断：只为判断话题，不发给文本模型）。 */
-const BOUNDARY_TEXT_CHARS = 1200;
-/** 候选说明里边界前后各取这么多字符。 */
-const BOUNDARY_CONTEXT_CHARS = 160;
-
 /**
- * 章节按话题找边界（创作辅助集成设计 §3.6）：时间线上的段落各算一个文档向量，相邻段落的余弦距离找话题转折
- * （`chapterBoundaryCandidates`）。模型只能在第一段与这些候选处分章（可以合并，不能新增）。没有语义模型时退回由模型决定，
- * 原因写进 `boundaries`；没找到转折时也由模型决定（候选 0）。
+ * 章节按话题找边界（创作辅助集成设计 §3.6，`topicBoundaries`）：模型只能在第一段与这些候选处分章（可以合并，不能新增）。
+ * 没有语义模型时退回由模型决定，原因写进 `boundaries`；没找到转折时也由模型决定（候选 0）。
  */
-async function topicBoundaries(
+async function chapterBoundaries(
   deps: AiToolDeps,
-  words: readonly ContextWord[],
+  input: { videoId: Id; documentId: Id; words: readonly ContextWord[] },
   signal: AbortSignal,
 ): Promise<{ facts: NonNullable<ContextOutput['boundaries']>; allowed: ContextBody['boundaries'] | null }> {
-  const fallback = (reason: SemanticReason | null) => ({ facts: { mode: 'model' as const, candidates: 0, reason }, allowed: null });
-  if (!deps.embed) return fallback('MODEL_NOT_INSTALLED');
-  const paragraphs: Array<{ start: number; end: number; text: string }> = [];
-  for (const w of words) {
-    const last = paragraphs[paragraphs.length - 1];
-    if (!last || w.paragraphStart) paragraphs.push({ start: w.start, end: w.end ?? w.start, text: w.text });
-    else {
-      last.text += /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(w.text) ? w.text : ` ${w.text}`;
-      last.end = Math.max(last.end, w.end ?? w.start);
-    }
-  }
-  if (paragraphs.length < 3) return fallback(null);
-  let vectors: Float32Array[];
-  try {
-    vectors = await deps.embed(paragraphs.map((p) => p.text.slice(0, BOUNDARY_TEXT_CHARS)), signal);
-  } catch (error) {
-    if (signal.aborted) throw error;
-    return fallback(reasonOf(error));
-  }
-  const result = chapterBoundaryCandidates(paragraphs.map((p, i) => ({ start: p.start, end: Math.max(p.end, paragraphs[i + 1]?.start ?? p.end), vector: vectors[i]! })));
-  if (result.candidates.length === 0) return fallback(null);
-  const lines = result.candidates.map((c) => {
-    const before = paragraphs[c.before]!.text;
-    const after = paragraphs[c.after]!.text;
-    return `[${stamp(c.at)}] … ${before.slice(-BOUNDARY_CONTEXT_CHARS)} ‖ ${after.slice(0, BOUNDARY_CONTEXT_CHARS)} …`;
-  });
-  return {
-    facts: { mode: 'topic', candidates: result.candidates.length, reason: null },
-    allowed: { starts: [paragraphs[0]!.start, ...result.candidates.map((c) => c.at)], text: lines.join('\n') },
-  };
+  const topic = await topicBoundaries(deps, input, signal);
+  const facts = { mode: topic.mode, candidates: topic.candidates.length, reason: topic.reason };
+  if (topic.mode !== 'topic' || topic.first === null) return { facts, allowed: null };
+  const lines = topic.candidates.map((c) => `[${stamp(c.at)}] … ${c.before} ‖ ${c.after} …`);
+  return { facts, allowed: { starts: [topic.first, ...topic.candidates.map((c) => c.at)], text: lines.join('\n') } };
 }
 
 /** 重写一段时再挑几个句群（以这一段的文字为意图）。 */

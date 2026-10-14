@@ -20,12 +20,15 @@
     return <><dt className="spv__k">{k}</dt><dd className="spv__v">{children}</dd></>;
   }
 
-  function DocumentReading({text}) {
+  function DocumentReading({text, onMoment}) {
+    /* 存下来的回答与写作里「视频某一刻」的出处（`/videos/<id>?t=<秒>`）点了打开那部视频、跳到那一刻（同会话里的回答） */
+    const inline = (s) => SP.documentMoments(s).map((x, k) => x.text != null ? x.text
+      : <BCAction key={k} className="spv__moment" aria-label={`跳到 ${x.label}`} onClick={() => onMoment && onMoment(x.video, x.t)}>{x.label}</BCAction>);
     return <article className="spv__reading" aria-label="文档正文">{SP.documentBlocks(text).map((b, i) => {
-      if (b.type === 'heading') { const Tag = `h${b.level}`; return <Tag key={i}>{b.text}</Tag>; }
-      if (b.type === 'list') { const Tag = b.ordered ? 'ol' : 'ul'; return <Tag key={i} start={b.ordered ? b.start : undefined}>{b.items.map((t, j) => <li key={j}>{t}</li>)}</Tag>; }
+      if (b.type === 'heading') { const Tag = `h${b.level}`; return <Tag key={i}>{inline(b.text)}</Tag>; }
+      if (b.type === 'list') { const Tag = b.ordered ? 'ol' : 'ul'; return <Tag key={i} start={b.ordered ? b.start : undefined}>{b.items.map((t, j) => <li key={j}>{inline(t)}</li>)}</Tag>; }
       if (b.type === 'code') return <pre key={i}><code>{b.text}</code></pre>;
-      return <p key={i}>{b.text}</p>;
+      return <p key={i}>{inline(b.text)}</p>;
     })}</article>;
   }
 
@@ -202,7 +205,7 @@
                       <R.SegmentedControlItem id="source">源码</R.SegmentedControlItem>
                     </R.SegmentedControl>
                   </div>
-                  {source ? <pre className="spv__text" aria-label="文档源码">{it.text}</pre> : <DocumentReading text={it.text} />}
+                  {source ? <pre className="spv__text" aria-label="文档源码">{it.text}</pre> : <DocumentReading text={it.text} onMoment={(v, t) => { close(); app.openMovie(v, {via: 'space', t}); }} />}
                 </> : it.kind === 'audio' && it.sourceUrl ? <audio controls src={it.sourceUrl} aria-label={it.name} /> : it.text ? <pre className="spv__text">{it.text}</pre>
                   : <window.SpaceItemPreview it={it} movie={mv && it.kind === 'movie' ? mv : null} big />}
               </div>

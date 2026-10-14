@@ -164,6 +164,14 @@ describe('设置态折成附加要求', () => {
     expect(writingExtra('desc', { style: 'custom', customStyle: ' ', view: 'auto' })).toEqual([]);
   });
 
+  it('交给 Agent 时带上 Space 搜索来的主题：让它先用 speech_relevant 找段落；封面不加、空白不加', () => {
+    const line = '只写「模型选型」：先用 speech_relevant 找出讲这件事的段落，再根据这些段落写';
+    expect(writingExtra('blog', { scope: null, topic: ' 模型选型 ' })).toEqual([line]);
+    expect(writingExtra('title', { topic: '模型选型' })).toEqual([line]);
+    expect(writingExtra('cover', { topic: '模型选型' })).not.toContain(line);
+    expect(writingExtra('summary', { topic: '  ' })).toEqual([]);
+  });
+
   it('写博客的关键帧插图：勾上才加一行，别的工具不加', () => {
     const pic = '需要配图的地方从视频里取关键帧插进正文，每张配一句图注';
     expect(writingExtra('blog', { style: 'plain', frames: true })).toContain(pic);

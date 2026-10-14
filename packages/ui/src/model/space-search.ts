@@ -185,6 +185,16 @@ export function groupHits<T extends SpaceSearchHit>(hits: readonly T[]): HitGrou
   return [...groups.values()];
 }
 
+/**
+ * 弱命中折起来（检索规范 §11.3，设计稿 model-space-search.js `fold`）：有明显相关的结果时，只是勉强相关的收在后面，点开才显示；
+ * 全是弱命中时照常全给（每行写「只是勉强相关」）。字面模式的命中没有 `weak`，不折。顺序不变。
+ */
+export function foldWeakHits<T extends object>(hits: readonly T[]): { shown: T[]; folded: T[] } {
+  const weak = (hit: T) => 'weak' in hit && hit.weak === true;
+  const strong = hits.filter((hit) => !weak(hit));
+  return strong.length ? { shown: strong, folded: hits.filter(weak) } : { shown: [...hits], folded: [] };
+}
+
 /** 每组先给几条，「再显示 N 条」一次再放这么多（设计稿 PAGE）。 */
 export const GROUP_PAGE = 10;
 
@@ -235,6 +245,8 @@ export interface SemanticHitRow extends SpaceSearchHit {
   matchedBy: SpaceSearchV2Hit['matchedBy'];
   inTimeline: boolean;
   needsResolve: boolean;
+  /** 弱命中：只是按意思勉强沾边（`SpaceSearchV2Hit.weak`）。 */
+  weak: boolean;
 }
 
 export function semanticHitRows(hits: readonly SpaceSearchV2Hit[]): SemanticHitRow[] {
@@ -258,6 +270,7 @@ export function semanticHitRows(hits: readonly SpaceSearchV2Hit[]): SemanticHitR
       matchedBy: hit.matchedBy,
       inTimeline: hit.actions.includes('open-in-timeline'),
       needsResolve: hit.needsResolve,
+      weak: hit.weak ?? false,
     });
   }
   return rows;
@@ -299,4 +312,24 @@ export function matchedByKind(matchedBy: readonly ('lexical' | 'semantic')[]): '
   const lexical = matchedBy.includes('lexical');
   const semantic = matchedBy.includes('semantic');
   return lexical && semantic ? 'both' : semantic ? 'semantic' : 'lexical';
+}
+
+/** 命中原因里写出的词最多几个（设计稿 model-space-search.js `why`）。 */
+export const WHY_WORDS_MAX = 3;
+
+/**
+ * 命中原因里写出的词：片段里标出来的字面命中，按出现先后、去掉重复（不分大小写），最多 `WHY_WORDS_MAX` 个。纯语义命中没有高亮，
+ * 这里为空：不编造概念名。
+ */
+export function hitWords(hit: Pick<SpaceSearchHit, 'snippet' | 'highlights'>): string[] {
+  const words: string[] = [];
+  const seen = new Set<string>();
+  for (const part of snippetParts(hit.snippet, hit.highlights)) {
+    const word = part.text.trim();
+    if (!part.hit || !word || seen.has(word.toLowerCase())) continue;
+    seen.add(word.toLowerCase());
+    words.push(word);
+    if (words.length === WHY_WORDS_MAX) break;
+  }
+  return words;
 }

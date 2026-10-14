@@ -172,6 +172,7 @@ export const ptBR: AiToolsMessages = {
   } as Record<CoverText, string>,
   viewName: { author: "author", viewer: "viewer" } as Record<'author' | 'viewer', string>,
   extraScope: (scope: string) => `Foque só em ${scope}`,
+  extraTopic: (topic: string) => `Escreva só sobre “${topic}”: primeiro encontre com speech_relevant as partes que falam disso e escreva a partir delas`,
   extraLength: (label: string) => `Duração: ${label}`,
   extraStyle: (style: string) => `Estilo: ${style}`,
   extraLanguage: (language: string) => `Escreva em ${language}`,

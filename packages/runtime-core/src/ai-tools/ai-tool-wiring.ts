@@ -96,6 +96,9 @@ export function aiToolDefinition(wiring: AiToolWiring, context: ExtraPipelineCon
               if (!semantic) throw semanticError('MODEL_NOT_INSTALLED');
               return semantic.context(USER_VIEWER).embedTexts(texts, { role: 'document', signal });
             },
+            async topicUnits(videoId, documentId) {
+              return wiring.semantic!()?.context(USER_VIEWER).topicUnits({ videoId, documentId }) ?? null;
+            },
           }
         : {}),
     }),

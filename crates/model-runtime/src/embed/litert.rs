@@ -22,6 +22,7 @@ use crate::protocol::{ErrorBody, codes};
 // ---- C API 的常量（`engine.h` / `embedding_engine.h` / `error_reporter.h`）------------------------
 
 const INPUT_DATA_TYPE_TEXT: c_int = 0;
+const INPUT_DATA_TYPE_IMAGE: c_int = 1;
 const OVERFLOW_STRATEGY_ERROR: c_int = 2;
 const LOG_SEVERITY_WARNING: c_int = 3;
 const STATUS_INVALID_ARGUMENT: c_int = 3;
@@ -44,6 +45,7 @@ struct Api {
     settings_set_num_threads: unsafe extern "C" fn(Handle, c_int),
     settings_set_cache_dir: unsafe extern "C" fn(Handle, *const c_char),
     settings_set_max_input_length: unsafe extern "C" fn(Handle, c_int),
+    settings_set_vision_tokens_per_image: unsafe extern "C" fn(Handle, c_int),
     options_create: unsafe extern "C" fn() -> Handle,
     options_delete: unsafe extern "C" fn(Handle),
     options_set_normalize: unsafe extern "C" fn(Handle, bool),
@@ -104,6 +106,7 @@ fn open_api(path: &Path) -> Result<&'static Api, ErrorBody> {
         settings_set_num_threads: symbol!(b"litert_lm_embedding_engine_settings_set_num_threads\0"),
         settings_set_cache_dir: symbol!(b"litert_lm_embedding_engine_settings_set_cache_dir\0"),
         settings_set_max_input_length: symbol!(b"litert_lm_embedding_engine_settings_set_max_input_length\0"),
+        settings_set_vision_tokens_per_image: symbol!(b"litert_lm_embedding_engine_settings_set_vision_tokens_per_image\0"),
         options_create: symbol!(b"litert_lm_embedding_options_create\0"),
         options_delete: symbol!(b"litert_lm_embedding_options_delete\0"),
         options_set_normalize: symbol!(b"litert_lm_embedding_options_set_normalize\0"),
@@ -191,6 +194,8 @@ pub struct LiteRtEmbedding {
     engine: Owned,
     _settings: Owned,
     device: String,
+    /// 加载时打开了图像编码器（`ModelBundle.vision`）。
+    vision: bool,
     /// 模型与库的本机路径：报错前从 C 侧消息里抹掉。
     private_paths: Vec<String>,
 }
@@ -227,8 +232,15 @@ pub fn load(bundle: &VerifiedBundle, phase: &mut PhaseCallback<'_>) -> Result<Lo
     let model_c = c_string(&model.to_string_lossy())?;
     let device_c = c_string(device)?;
     let cache_c = c_string(&cache_dir.to_string_lossy())?;
-    // SAFETY: 字符串都以 NUL 结尾且活过调用；vision / audio 后端传 NULL（这一阶段只用文本编码器）。
-    let settings = unsafe { (api.settings_create)(model_c.as_ptr(), device_c.as_ptr(), std::ptr::null(), std::ptr::null()) };
+    // 图像编码器只在要求时打开（多占约 1 GB），且只跑 CPU：与 G0 评测同一条路径。音频后端不用。
+    let vision_c = c_string("cpu")?;
+    let vision = if bundle.vision.is_some() {
+        vision_c.as_ptr()
+    } else {
+        std::ptr::null()
+    };
+    // SAFETY: 字符串都以 NUL 结尾且活过调用；vision 后端没要求时与 audio 后端一样传 NULL。
+    let settings = unsafe { (api.settings_create)(model_c.as_ptr(), device_c.as_ptr(), vision, std::ptr::null()) };
     let Some(settings) = Owned::new(settings, api.settings_delete) else {
         return Err(failure(
             api,
@@ -242,6 +254,9 @@ pub fn load(bundle: &VerifiedBundle, phase: &mut PhaseCallback<'_>) -> Result<Lo
         (api.settings_set_num_threads)(settings.handle, bundle.threads.clamp(1, 64) as c_int);
         (api.settings_set_cache_dir)(settings.handle, cache_c.as_ptr());
         (api.settings_set_max_input_length)(settings.handle, MAX_INPUT_TOKENS as c_int);
+        if let Some(tokens) = bundle.vision.and_then(|vision| vision.tokens_per_image) {
+            (api.settings_set_vision_tokens_per_image)(settings.handle, tokens as c_int);
+        }
     }
     phase(ModelPhase::Compiling, Some("embedding"));
     // SAFETY: `settings` 非空且活过引擎的创建。
@@ -258,6 +273,7 @@ pub fn load(bundle: &VerifiedBundle, phase: &mut PhaseCallback<'_>) -> Result<Lo
         engine,
         _settings: settings,
         device: device.to_owned(),
+        vision: bundle.vision.is_some(),
         private_paths,
     };
     log_default_options(api);
@@ -381,6 +397,19 @@ impl LiteRtEmbedding {
         })
     }
 
+    fn image_input(&self, bytes: &[u8]) -> Result<Owned, ErrorBody> {
+        // SAFETY: 指针与长度来自同一个切片；C 侧复制数据，解码在计算时做。
+        let handle = unsafe { (self.api.input_data_create)(INPUT_DATA_TYPE_IMAGE, bytes.as_ptr().cast(), bytes.len()) };
+        Owned::new(handle, self.api.input_data_delete).ok_or_else(|| {
+            failure(
+                self.api,
+                &self.private_paths,
+                "cannot create the image input",
+                codes::INFERENCE_FAILED,
+            )
+        })
+    }
+
     /// 读一个响应的向量（复制出来）。
     ///
     /// SAFETY: `response` 是活着的非空响应句柄。
@@ -485,6 +514,36 @@ impl EmbeddingEngine for LiteRtEmbedding {
                 Ok(vectors)
             }
         }
+    }
+
+    fn embed_images(&mut self, images: &[Vec<u8>], embed_options: EmbedOptions) -> Result<Vec<Vec<f32>>, ErrorBody> {
+        if !self.vision {
+            return Err(super::vision_not_loaded());
+        }
+        let options = options(self.api, embed_options)?;
+        // 逐张算：一张图就是一个只含图像的输入（不加前缀，与 G0 评测相同）。批很小，逐张算与批量没有可测的差别。
+        let mut vectors = Vec::with_capacity(images.len());
+        for (index, bytes) in images.iter().enumerate() {
+            let input = self.image_input(bytes)?;
+            let inputs = [input.handle];
+            // SAFETY: 引擎、输入、选项都非空且活过调用。
+            let response = unsafe { (self.api.compute_embedding)(self.engine.handle, inputs.as_ptr(), 1, options.handle) };
+            match Owned::new(response, self.api.response_delete) {
+                // SAFETY: 响应非空、活着。
+                Some(response) => vectors.push(unsafe { self.read_response(response.handle) }),
+                None => {
+                    // 解不开的图（坏文件、不认识的格式）是这张图的问题，不是模型故障。
+                    let mut error = failure(self.api, &self.private_paths, "image embedding failed", codes::INFERENCE_FAILED);
+                    let status = error.details.as_ref().and_then(|details| details["status"].as_i64()).unwrap_or(0) as c_int;
+                    if status == STATUS_INVALID_ARGUMENT {
+                        error.code = codes::INPUT_UNREADABLE.into();
+                    }
+                    error.details = Some(json!({ "index": index, "status": status }));
+                    return Err(error);
+                }
+            }
+        }
+        Ok(vectors)
     }
 
     fn device(&self) -> &str {

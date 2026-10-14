@@ -252,7 +252,8 @@ export async function openModelJobs(options: ModelJobsOptions): Promise<ModelJob
     idleMs: options.idleMs,
     resources,
   });
-  const embedding = new LocalEmbeddingProvider({ catalog, worker: provider });
+  // 画面检索的关键帧只从媒体分析缓存读（`MediaAnalysis` 的 `cacheDir`）。
+  const embedding = new LocalEmbeddingProvider({ catalog, worker: provider, imageRoots: [path.join(home.cacheDir, 'media')] });
   // 本地音乐生成（§6.1）：audio.cpp 引擎每个任务一个进程，不经 Model Worker。
   const music = new LocalMusicProvider({
     catalog,

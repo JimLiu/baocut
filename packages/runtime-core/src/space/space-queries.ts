@@ -6,6 +6,7 @@ import {
   type SpaceListParams,
   type SpaceListResult,
   type SpaceSearchParams,
+  type SpaceReadScope,
   type SpaceSearchResult,
 } from '@baocut/protocol';
 import type { SpaceCatalog, SpaceVideo } from '../space-catalog.ts';
@@ -17,13 +18,14 @@ import { RcSpace } from '@baocut/protocol/messages/runtime-core';
  * Space 的查询（`space.list`、`space.search`，以及智能体工具 `space_list`、`space_search`）与按主体的过滤（架构设计 §4.8）。
  *
  * - `user`：界面、CLI、Web（用户本人）：全部条目。
- * - `source`：会话里的智能体：会话的来源目录（所属项目，或会话自己的工作目录）里的条目，以及归属同一来源的产物。
+ * - `source`：会话里的智能体：会话的来源目录（所属项目，或会话自己的工作目录）里的条目，以及归属同一来源的产物。用户给会话放宽了
+ *   只读检索范围（`readScope`，`Conversation.spaceReadScope`）时，另外看得到范围里的视频（只有视频条目，不含别处的文件与产物）。
  * - `service`：对外服务的客户端：只有范围之内（已登记项目里、在 videoId 名单上）的视频，以及由这些视频生成、导出的条目；
  *   任务的产物与占位只看自己提交的。没有来源视频的文件（项目里的图片、文档）不可见。看不到的与不存在的一样回答。
  */
 export type SpaceViewer =
   | { kind: 'user' }
-  | { kind: 'source'; projectId: Id | null; conversationId: Id }
+  | { kind: 'source'; projectId: Id | null; conversationId: Id; readScope?: SpaceReadScope }
   | { kind: 'service'; videos: 'all' | ReadonlySet<Id>; owns: (record: JobRecord) => boolean; jobs: (jobId: Id) => JobRecord | null };
 
 export const USER_VIEWER: SpaceViewer = { kind: 'user' };
@@ -51,6 +53,7 @@ export function visibleTo(viewer: SpaceViewer, entry: SpaceEntry): boolean {
     case 'user':
       return true;
     case 'source':
+      if (viewer.readScope && entry.kind === 'video' && inReadScope(viewer.readScope, projectOf(entry))) return true;
       if (viewer.projectId) return projectOf(entry) === viewer.projectId;
       return (
         entry.source.conversationId === viewer.conversationId ||
@@ -175,9 +178,15 @@ export function visibleVideo(viewer: SpaceViewer, video: { projectId: Id | null;
     case 'user':
       return true;
     case 'source':
+      if (viewer.readScope && inReadScope(viewer.readScope, video.projectId)) return true;
       return viewer.projectId ? video.projectId === viewer.projectId : video.conversationId === viewer.conversationId;
     case 'service':
       // 只有已登记项目里的视频；名单在拿到 videoId 之后再查。
       return video.projectId !== null;
   }
+}
+
+/** 放宽的只读检索范围里有没有这个项目的视频：`all` 是全部，`unfiled` 是不属于项目的。 */
+function inReadScope(scope: SpaceReadScope, projectId: Id | null): boolean {
+  return scope === 'all' || projectId === null;
 }

@@ -225,6 +225,8 @@
       const pre = (id === 'blog' || id === 'summary') && window.BC_WRTOPIC.peekPreset(ctx.proj.id);
       return pre ? {k: 'topic', label: '按主题', count: pre.length} : null;
     });
+    /* 搜的那句话（useTopic 接走预选后就清掉，所以先记下）：交给 Agent 时写进意图，Agent 自己用 speech_relevant 找讲这件事的段落 */
+    const [topicQ] = useState(() => ((id === 'blog' || id === 'summary') && window.BC_WRTOPIC.peekQuery(ctx.proj.id)) || null);
     const out = st.out[id] || null;
     const [phase, setPhase] = useState(out && !(tsc && tsc.k === 'topic') ? 'done' : 'setup');
     const g = useGen(ctx, onBack);
@@ -244,6 +246,7 @@
     /* 模板：意图句（范围、发到哪、已选用的标题、插图折在里面）+ Markdown / 语言 / 篇幅等固定约束 */
     const extra = W.intentExtra(id, {platform: s.platform, picked: id === 'desc' ? picked : null, frames: framesOn});
     if (tsc && tsc.k !== 'all' && tsc.k !== 'topic') extra.unshift(`只看${tsc.label.replace(/^第 \d+ 章 · /, '')}`);
+    if (runner.agent && tp.topicOn && topicQ) extra.unshift(`只写「${topicQ}」：先用 speech_relevant 找出讲这件事的段落，再根据这些段落写`);
     const defaultText = P.template(id, AG.intentPrompt({kind: id, extra}, ctx.proj), {lang: nameOf(s.lang)});
     const context = P.contextPack(id, Object.assign({paras: tsc && tsc.k !== 'all' ? tsc.count : STEP[id].count, scope: tsc && tsc.k !== 'all' ? tsc.label : null,
       chapters: (ctx.chapters || []).length, words: 6200}, topical ? tp.context : null));

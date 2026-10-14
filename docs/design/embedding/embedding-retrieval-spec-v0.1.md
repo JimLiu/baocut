@@ -174,6 +174,8 @@ Google 模型卡的检索示例使用 `SearchQuery` 与 `Document`，查询模�
 
 `encoderProfileId` 标识实际编码实现：空间 ID、输入模态、SDK/实现版本、模型文件校验和、图签名、视觉预处理、音频预处理、视频采样方式。CPU/GPU、270M/740M 模块化结果能否共用空间必须经过测试；名称相同不充分。
 
+**实现（2026-10-13）：** 「SDK/实现版本」一项不写 LiteRT-LM 的版本号，写向量兼容标签（`EMBEDDING_VECTOR_COMPAT`，现为 `vec-v1`）：引擎小版本升级常常出逐位相同的向量，按版本号区分会让每次升级都白白重建全部索引。升级引擎、改 Worker 的嵌入实现时跑参考向量回归（`tools/embedding-eval/reference-vectors.ts`：固定文字与一张合成帧，按平台 / 设备 / 模型包存参考），任何一条余弦低于 0.9999 才把标签加一。
+
 ```text
 embeddingKey = SHA256(
   encoderProfileId
@@ -210,6 +212,8 @@ embeddingKey = SHA256(
 ### 6.2 视觉索引
 
 图像缩放、patchify、颜色转换等以固定 provider profile 为准。优先借用现有媒体解码/镜头边界能力，新增受限的采样管线；不要拿界面 160px 胶片条直接当精细内容识别输入。
+
+**首版取帧（2026-10-13 实测后维持）：** 每 8 秒源时间一帧，不按镜头切点取，也不按低分辨率签名合并相邻的相似帧。6 部真实视频上量过（[评测报告 §5](../../../tools/embedding-eval/reports/search-eval-2026-10-13.md)）：ffmpeg 场景分数要解码整部视频，约每小时 2.4 分钟，访谈每小时约 330 个镜头，按镜头取帧只比网格少约 27%，刚好抵掉解码；快剪的内容镜头比 8 秒还短，帧反而更多。相邻帧签名合并在不误并的阈值下几乎省不了帧（访谈 2–3%），能省 20% 以上的阈值会把内容不同的幻灯片并成一帧（64×36 灰度、平均差 1.5 时仍把两页不同的题目并掉）。要省编码量，先要一个能分清幻灯片文字的便宜签名。
 
 原始检查点的视频接口按帧处理，并有默认采样率；LiteRT 的可用图签名另有约束。[S2][S3] G0 必须验证所选 SDK 的多帧顺序和视频输入支持。无法可靠提供 clip 表示时，明确降级为逐关键帧检索，不声称具备动作序列理解。
 
@@ -363,11 +367,13 @@ publish 在一个事务内确认 expectedRevision、原 activeGeneration、权�
 
 ### 10.2 初始融合规则
 
-建议第一版使用基于名次的融合，以避免把原始 BM25/余弦直接相加：
+不把原始 BM25/余弦直接相加，也不按名次交错（名次融合会让每一路的第一名并列，相关的一路排不到前面）。现行做法（`z-text-visual-v3`）把每路余弦换成本次查询里的 z 分数：
 
-`score(c) = Σ w_m / (60 + rank_m(c))`
+- 扫描时累计本次查询扫到的全部余弦（不只是前 k 条）的条数、和与平方和；每路的均值、两路合并的标准差各自向先验收缩（先验按 `priorCount` 条计），标准差不低于 `devFloor`。
+- `z(c) = (cos(c) − mean_m) / dev`；文字候选的分数为 `w_semantic · z + (字面命中 ? w_lexical · lexicalBonus : 0)`，画面候选为 `w_visual · z`；只有字面命中的候选 z 记 0。
+- 按分数排，同分按两路名次中较小的、再按键。
 
-参数 60、各路候选量和权重是待校准默认值，不是相关性真理。综合模式初始每路各取 80 条，合并后保留 100 个候选，UI 默认返回 20 个片段。没有某通道的候选时不伪造其分数；所有权重和 route 记录在 rankingVersion。
+先验、`lexicalBonus`、各路候选量和权重是待校准默认值（`semantic-thresholds.json`），不是相关性真理；数字与取舍见评测报告 `tools/embedding-eval/reports/search-eval-2026-10-13.md`。综合模式初始每路各取 80 条，合并后保留 100 个候选，UI 默认返回 20 个片段。没有某通道的候选时不伪造其分数；所有权重和 route 记录在 rankingVersion。
 
 “精确文字”完整保留旧语义；“语义”不受必须包含查询词的限制；“综合”让明确的完全匹配有保底位置，但不让它吞没同义内容。可扩展可解释的分词召回；不要直接把现有中文 trigram 排名称作优质 BM25 方案。
 
@@ -415,7 +421,9 @@ API 只接受已有授权素材引用，不接受让智能体随意传任意磁�
 
 检索返回的是“命中候选”，不承诺可直接编辑：模型命中窗口与可执行剪辑区间分开表示。纯视觉命中不编造字幕；纯语义命中没有字面匹配时 highlights 为空，而不是假高亮。
 
-覆盖信息按 requested channel 给出 indexed/eligible、pending/failed/missingInput，以及 knownScopeComplete。`complete` 只指范围内所请求索引的就绪程度，不表示搜尽所有相关内容或 ANN 完全召回。
+向量一路总会给出最近的一批，不代表都相关：不是字面命中、且 z 低于 `strongZ` 或分数不到本次第一名的 `strongRatio` 倍的标 `weak`（`semantic-thresholds.json`，未校准）；字面命中从不标弱。服务端只标出、不藏起来，界面可以把弱命中折在后面。同一视频、同一时钟上时间大半重叠的讲话类命中（同一段话的文稿、字幕与译文）在综合与语义模式下只留排名靠前的一条；字面模式保持旧 `space.search` 的结果。
+
+覆盖信息按 requested channel 给出 indexed/eligible、pending/failed/missingInput、excluded（设置里没纳入该路索引的项目的视频，不计入 eligible、也不让结果不完整），以及 knownScopeComplete。`complete` 只指范围内所请求索引的就绪程度，不表示搜尽所有相关内容或 ANN 完全召回。
 
 ### 11.4 其他新增接口
 
@@ -435,7 +443,7 @@ API 只接受已有授权素材引用，不接受让智能体随意传任意磁�
 
 `MODEL_NOT_INSTALLED`、`MODEL_UNAVAILABLE`、`PROFILE_INCOMPATIBLE`、`INPUT_TOO_LONG`、`SOURCE_MISSING`、`INDEX_NOT_READY`、`INDEX_PARTIAL`、`STALE_REVISION`、`CURSOR_STALE`、`SEARCH_CANCELLED`、`RESOURCE_EXHAUSTED`、`APPEARANCE_UNAVAILABLE`。
 
-hybrid 可以退回 lexical，但结果明确给出 `effectiveMode` 和原因。纯 semantic 请求遇到不可用时不把空数组当作成功“无相关结果”。不暴露未授权资源是否存在。
+hybrid 可以退回 lexical，但结果明确给出 `effectiveMode` 和原因。纯 semantic 请求遇到不可用时不把空数组当作成功“无相关结果”。不暴露未授权资源是否存在。范围里一部视频都没有（例如会话只看自己的目录、那里没有视频）时是零条结果，不报 `INDEX_NOT_READY`：没有可扫的不是索引没好，报了会让调用方去等或去建索引。
 
 ## 12. 时间线定位与编辑安全
 
@@ -485,6 +493,8 @@ resolve 之后仍可能发生编辑，apply 时必须再次检查版本。发生
 
 设置暴露模型状态、索引项目、启用模态、缓存大小、暂停/恢复/清理和 CPU/GPU 实际后端。完整性显示例如“文字已就绪；画面 18/30 个素材完成”，而不是只有一个 60% 进度条。
 
+还要多久按这台机器量过的速度估（`indexStatus.estimates`）：每路记一个指数滑动平均（α 0.2），跟着 `encoderProfileId` 与设备存在派生库的 `meta` 里，换了模型包或设备就不用旧的。文字按「每秒视频要编码多少秒」记，只在一个视频大部分句群都是新编码时记（缓存命中多的会量得太快），没量过时不估；画面按「每帧多少秒（取帧加编码）」记，没量过时用 G0 在 CPU 上的速度（约 1.1 秒 / 帧）。待建的量按内容索引记下的时间线时长算，画面帧数按 §6.2 的取帧间隔与上限；时长未知的视频单独计数，不悄悄算成 0。画面没开时也估打开之后要建的帧数、时间与新增向量大小（每帧一条 FP32 向量；关键帧缓存可以清掉，不算在内），设置在打开画面之前给出。
+
 没有转录时，对讲话内容显示“未建立文字索引”，提供转录入口；不把视觉 embedding 失败伪装为没有相关画面。模型未安装时精确搜索立即可用。
 
 ## 14. B-roll 推荐工作流
@@ -526,6 +536,8 @@ resolve 之后仍可能发生编辑，apply 时必须再次检查版本。发生
 交互搜索高于主动分析，主动分析高于闲时全库索引。视频预览/用户发起导出拥有明确资源优先级。索引以小批次运行，批次边界可让出资源；不得启动几十个 ffmpeg 进程或每个 chunk 加载一次模型。
 
 常驻模型占用计入 holder，临时解码/张量/staging 计入单任务；Apple 统一内存避免双重计算。现有保守的 ASR 默认资源需求不能直接作为小型 embedding 的准确估计，应新增 profile 并实测。[R10]
+
+供电与散热：笔记本用电池时（设置 `semantic.pauseOnBattery`，默认开）与系统因过热降频时，构建像暂停一样停下（手上那一批编码完就停，不发布半成品），接上电源、温度回落后接着建。这个停下只在内存里，与用户的暂停（记在库里）分开：恢复只撤掉用户的暂停，`indexStatus.pauseReason` 写当前的原因，用户的暂停优先。供电由 Runtime 自己查，桌面端、CLI 拉起的 Runtime 与 Web 一样：有活要干时每 60 秒查一次，第一次开工前先查。macOS 读 `pmset -g batt`（`Battery Power`）与 `pmset -g therm`（`CPU_Speed_Limit` 低于 100 当作过热；Apple 芯片的机器多半不报这一项，这时只看电池）；Windows 读 `Win32_Battery.BatteryStatus`（1 为放电）；Linux 读 `/sys/class/power_supply`（有接通的 `Mains` / `USB` 就是接着电，否则电池 `Discharging` 才算用电池）。查不出来一律当作接着电。
 
 初始建议：单个媒体索引任务、最多两个受控解码进程；文字 batch 上限 16，视觉 batch 上限 4，音频上限 2，同时受 token/内存限制。空闲卸载可从 120 秒开始试验。OOM 时先减 batch/让出媒体编码器；若改动输入质量参数，必须改变 profile 并披露，不静默截断。
 

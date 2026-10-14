@@ -9,6 +9,9 @@
 //! `maxInputLength` 时报错（溢出策略 Error），不截断也不分块平均：超长由 Runtime 决定怎么切。
 //!
 //! 一次请求至多 [`MAX_BATCH`] 条文本，在推理线程上同步算完；中途不能取消（批很小，Runtime 取消时丢弃结果即可）。
+//!
+//! 多模态包还能嵌入图像（检索规格 §6.2 的关键帧）：`model.load` 带了 `vision` 时打开图像编码器，`embed.run` 改给 `images`
+//! （JPEG / PNG 文件的绝对路径，一次至多 [`MAX_IMAGE_BATCH`] 张）。图像不加任务前缀，Worker 读文件原样交给引擎解码。
 
 #[cfg(feature = "backend-litert")]
 pub mod litert;
@@ -32,6 +35,10 @@ pub const OUTPUT_SIZES: [u32; 4] = [128, 256, 512, 768];
 pub const MAX_INPUT_TOKENS: u32 = 2048;
 /// 单条文本的字节上限：远大于 [`MAX_INPUT_TOKENS`] 个 token 能占的字节，只挡住明显错误的请求。
 pub const MAX_TEXT_BYTES: usize = 256 * 1024;
+/// 一次 `embed.run` 至多这么多张图（CPU 上一张约 1 秒，批小一点 Runtime 取消得快）。
+pub const MAX_IMAGE_BATCH: usize = 4;
+/// 单张图的字节上限：关键帧是 512 px 的 JPEG，远小于它。
+pub const MAX_IMAGE_BYTES: u64 = 16 * 1024 * 1024;
 
 /// `embed.run` 的参数。
 #[derive(Debug, Clone, Deserialize)]
@@ -39,8 +46,12 @@ pub const MAX_TEXT_BYTES: usize = 256 * 1024;
 pub struct EmbedRunParams {
     /// 调用方给的请求 id：`worker.status` 的 `job.jobId` 报它。
     pub request_id: String,
-    /// 已经加好任务前缀的文本，1..=[`MAX_BATCH`] 条。
+    /// 已经加好任务前缀的文本，1..=[`MAX_BATCH`] 条。与 `images` 二选一。
+    #[serde(default)]
     pub texts: Vec<String>,
+    /// 图像文件（JPEG / PNG）的绝对路径，1..=[`MAX_IMAGE_BATCH`] 张。与 `texts` 二选一；要求加载时打开了图像编码器。
+    #[serde(default)]
+    pub images: Vec<String>,
     /// 引擎输出的维度，[`OUTPUT_SIZES`] 之一。
     pub output_size: u32,
     /// 让分词器加上 BOS/EOS 等特殊 token。
@@ -52,7 +63,22 @@ impl EmbedRunParams {
         if self.request_id.is_empty() {
             return Err(ErrorBody::invalid_params("requestId must not be empty"));
         }
-        if self.texts.is_empty() || self.texts.len() > MAX_BATCH {
+        match (self.texts.is_empty(), self.images.is_empty()) {
+            (false, false) => return Err(ErrorBody::invalid_params("give either texts or images, not both")),
+            (true, true) => return Err(ErrorBody::invalid_params(format!("texts must hold 1 to {MAX_BATCH} entries"))),
+            (true, false) => {
+                if self.images.len() > MAX_IMAGE_BATCH {
+                    return Err(ErrorBody::invalid_params(format!(
+                        "images must hold 1 to {MAX_IMAGE_BATCH} entries"
+                    )));
+                }
+                if let Some(index) = self.images.iter().position(|path| !std::path::Path::new(path).is_absolute()) {
+                    return Err(ErrorBody::invalid_params("image paths must be absolute").with_details(json!({ "index": index })));
+                }
+            }
+            (false, true) => {}
+        }
+        if self.texts.len() > MAX_BATCH {
             return Err(ErrorBody::invalid_params(format!("texts must hold 1 to {MAX_BATCH} entries")));
         }
         if let Some(index) = self.texts.iter().position(|text| text.trim().is_empty()) {
@@ -90,6 +116,12 @@ pub trait EmbeddingEngine {
     /// 每条文本一个向量，次序同 `texts`，每个长度都是 `options.output_size`。超长的文本是 `INPUT_TOO_LONG`（带 `index`）。
     fn embed(&mut self, texts: &[String], options: EmbedOptions) -> Result<Vec<Vec<f32>>, ErrorBody>;
 
+    /// 每张图（编码后的 JPEG / PNG 字节）一个向量，次序同 `images`。没打开图像编码器时是 `MODEL_UNSUPPORTED`。
+    fn embed_images(&mut self, images: &[Vec<u8>], options: EmbedOptions) -> Result<Vec<Vec<f32>>, ErrorBody> {
+        let _ = (images, options);
+        Err(vision_not_loaded())
+    }
+
     /// 实际跑在哪个设备上（`cpu` / `gpu`）。
     fn device(&self) -> &str;
 }
@@ -112,6 +144,8 @@ pub fn hello_capabilities() -> Option<serde_json::Value> {
             "outputSizes": OUTPUT_SIZES,
             "maxBatch": MAX_BATCH,
             "maxInputTokens": MAX_INPUT_TOKENS,
+            "inputs": ["text", "image"],
+            "maxImageBatch": MAX_IMAGE_BATCH,
         })
     })
 }
@@ -188,11 +222,21 @@ pub fn run(engine: &mut dyn EmbeddingEngine, params: &EmbedRunParams) -> Result<
         output_size: params.output_size,
         insert_special_tokens: params.insert_special_tokens,
     };
-    let vectors = engine.embed(&params.texts, options)?;
-    if vectors.len() != params.texts.len() {
+    let (vectors, expected) = if params.images.is_empty() {
+        (engine.embed(&params.texts, options)?, params.texts.len())
+    } else {
+        let images = params
+            .images
+            .iter()
+            .enumerate()
+            .map(|(index, path)| read_image(index, path))
+            .collect::<Result<Vec<_>, _>>()?;
+        (engine.embed_images(&images, options)?, images.len())
+    };
+    if vectors.len() != expected {
         return Err(
             ErrorBody::new(codes::INFERENCE_FAILED, "the engine returned a different number of vectors")
-                .with_details(json!({ "expected": params.texts.len(), "actual": vectors.len() })),
+                .with_details(json!({ "expected": expected, "actual": vectors.len() })),
         );
     }
     for (index, vector) in vectors.iter().enumerate() {
@@ -214,6 +258,24 @@ pub fn run(engine: &mut dyn EmbeddingEngine, params: &EmbedRunParams) -> Result<
         device: engine.device().to_owned(),
         elapsed_ms: started.elapsed().as_millis() as u64,
     })
+}
+
+/// 读一张图：读不了或超过 [`MAX_IMAGE_BYTES`] 是 `INPUT_UNREADABLE`（带 `index`，不带路径）。
+fn read_image(index: usize, path: &str) -> Result<Vec<u8>, ErrorBody> {
+    let unreadable = |reason: &str| {
+        ErrorBody::new(codes::INPUT_UNREADABLE, "cannot read the image").with_details(json!({ "index": index, "reason": reason }))
+    };
+    let size = std::fs::metadata(path).map_err(|_| unreadable("not-found"))?.len();
+    if size == 0 || size > MAX_IMAGE_BYTES {
+        return Err(unreadable("size"));
+    }
+    std::fs::read(path).map_err(|_| unreadable("read-failed"))
+}
+
+/// 加载的嵌入模型包没打开图像编码器（`model.load` 没带 `vision`）。
+pub fn vision_not_loaded() -> ErrorBody {
+    ErrorBody::new(codes::MODEL_UNSUPPORTED, "the loaded embedding bundle has no image encoder")
+        .with_details(json!({ "capability": "embed", "reason": "vision-not-loaded" }))
 }
 
 /// 输入超过模型的最大长度。
@@ -272,6 +334,7 @@ mod tests {
         EmbedRunParams {
             request_id: "r1".into(),
             texts: texts.iter().map(|text| (*text).to_owned()).collect(),
+            images: Vec::new(),
             output_size,
             insert_special_tokens: true,
         }
@@ -341,6 +404,43 @@ mod tests {
         let error = run(&mut long, &params(&["a", "b"], 768)).unwrap_err();
         assert_eq!(error.code, codes::INPUT_TOO_LONG);
         assert!(!error.retryable);
+    }
+
+    #[test]
+    fn images_are_an_alternative_to_texts() {
+        let both = crate::protocol::parse_params::<EmbedRunParams>(json!({
+            "requestId": "q", "texts": ["a"], "images": ["/a.jpg"], "outputSize": 768, "insertSpecialTokens": true,
+        }))
+        .unwrap();
+        assert_eq!(both.validate().unwrap_err().code, codes::INVALID_PARAMS);
+        let images = |paths: &[&str]| EmbedRunParams {
+            images: paths.iter().map(|path| (*path).to_owned()).collect(),
+            ..params(&[], 768)
+        };
+        assert!(images(&["/a.jpg"]).validate().is_ok());
+        assert_eq!(
+            images(&["/a.jpg"; MAX_IMAGE_BATCH + 1]).validate().unwrap_err().code,
+            codes::INVALID_PARAMS
+        );
+        assert_eq!(images(&["/a.jpg", "b.jpg"]).validate().unwrap_err().details.unwrap()["index"], 1);
+
+        // 文字引擎（默认实现）不接图像。
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("f.jpg");
+        std::fs::write(&file, b"jpeg").unwrap();
+        let mut engine = Fake {
+            dims_override: None,
+            too_long: None,
+        };
+        let error = run(&mut engine, &images(&[&file.to_string_lossy()])).unwrap_err();
+        assert_eq!(error.code, codes::MODEL_UNSUPPORTED);
+        assert_eq!(error.details.unwrap()["reason"], "vision-not-loaded");
+        // 读不了的图在送进引擎之前报，不带路径。
+        let missing = dir.path().join("missing.jpg");
+        let error = run(&mut engine, &images(&[&file.to_string_lossy(), &missing.to_string_lossy()])).unwrap_err();
+        assert_eq!(error.code, codes::INPUT_UNREADABLE);
+        assert_eq!(error.details.as_ref().unwrap()["index"], 1);
+        assert!(!error.message.contains("missing"));
     }
 
     #[test]

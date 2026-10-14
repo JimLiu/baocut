@@ -10,6 +10,7 @@ export const zhHans: ModelsEmbeddingMessages = {
   notNormalized: (p: { norm: string }) => `有向量的长度不是 1（范数 ${p.norm}）`,
   notRanked: (p: { relevant: string; irrelevant: string }) => `相关句子的得分没有高过无关句子（余弦 ${p.relevant} 对 ${p.irrelevant}）`,
   noModel: '没有安装本机 embedding 模型',
+  noVisionModel: '已安装的本机 embedding 模型都读不了图片。按画面检索要装 EmbeddingGemma 2 740M',
   inputTooLong: (p: { index: number; max: number }) => `第 ${p.index} 段文字超过了模型能接受的长度（${p.max} 个 token）`,
   modelUnavailable: (p: { problem: string }) => `本机 embedding 模型不可用：${p.problem}`,
   cannotEmbed: '这个 Model Worker 还不能用这个模型计算 embedding',

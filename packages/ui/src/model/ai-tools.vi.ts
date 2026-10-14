@@ -124,6 +124,7 @@ export const vi: AiToolsMessages = {
   },
   viewName: { author: "tác giả", viewer: "người xem" },
   extraScope: (scope) => `Chỉ tập trung vào ${scope}`,
+  extraTopic: (topic) => `Chỉ viết về “${topic}”: trước tiên dùng speech_relevant tìm những đoạn nói về nó, rồi viết từ những đoạn đó`,
   extraLength: (label) => `Độ dài: ${label}`,
   extraStyle: (style) => `Phong cách: ${style}`,
   extraLanguage: (language) => `Viết bằng ${language}`,

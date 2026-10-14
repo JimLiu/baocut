@@ -9,6 +9,7 @@ import {
   BUILTIN_REFERENCE_LABEL,
   CRASH_CODES,
   EMBED_MAX_BATCH,
+  EMBED_MAX_IMAGE_BATCH,
   INPUT_TOO_LONG,
   IMAGE_OUTPUT_FILE,
   IMAGE_PNG_CONTRACT,
@@ -119,6 +120,9 @@ export interface LocalProviderOptions {
 interface Loaded {
   worker: JsonLineWorker;
   hello: WorkerHello;
+  /** 加载时打开了 embedding 模型包的图像编码器（`ModelBundle.vision`）；`visionRequested` 是加载时要没要。 */
+  vision: boolean;
+  visionRequested: boolean;
 }
 
 interface ActiveJob {
@@ -173,7 +177,12 @@ interface RunSpec {
   inputDetails?: Record<string, unknown>;
 }
 
-/** 一次 `embed.run`（Model Worker 协议规范 §2.5.6）：文本已加好任务前缀，至多 `EMBED_MAX_BATCH` 条。 */
+/**
+ * 一次 `embed.run`（Model Worker 协议规范 §2.5.6）：文本已加好任务前缀，至多 `EMBED_MAX_BATCH` 条；或者一批图片
+ * （`{ images }`，绝对路径，至多 `EMBED_MAX_IMAGE_BATCH` 张）。
+ */
+export type LocalEmbedInput = readonly string[] | { images: readonly string[] };
+
 export interface LocalEmbedOptions {
   outputSize: number;
   insertSpecialTokens: boolean;
@@ -199,6 +208,8 @@ interface Slot {
   job: ActiveJob | null;
   idleTimer: ReturnType<typeof setTimeout> | null;
   crashes: number[];
+  /** 下次加载时打开图像编码器：有过图片请求后置上，空闲卸载时放下（图像编码器多占约 1 GB）。 */
+  vision: boolean;
 }
 
 const LOAD_REASON: Record<string, { state: 'not-installed' | 'error'; reason: 'load-failed' | 'unsupported' | 'resource'; label: string }> =
@@ -256,6 +267,7 @@ export class LocalTranscribeProvider implements TranscribeProvider {
     if (slot.acquiring) await slot.acquiring.catch(() => {});
     if (slot.job) return false;
     this.#clearIdle(slot);
+    slot.vision = false;
     const loaded = slot.loaded;
     if (loaded) await this.#retire(slot, loaded.worker, 'unload');
     await slot.retiring;
@@ -526,10 +538,15 @@ export class LocalTranscribeProvider implements TranscribeProvider {
    * Worker 正在跑别的（检查任务、另一批）时排队等它空下来。`embed.run` 中途不响应取消：`signal` 只在等待与加载时生效，
    * 已经交给 Worker 的一批算完再丢弃。失败是 `ProviderFailure`：超长是 `protocol`，`details.workerCode` 为 `INPUT_TOO_LONG`、
    * `details.index` 指出哪一条。
+   *
+   * 图片要打开图像编码器：Worker 没带它加载时先卸下、再带 `vision` 重新加载（之后的文字也由它编码，直到空闲卸载）。
    */
-  async embed(bundleId: string, texts: readonly string[], options: LocalEmbedOptions, signal?: AbortSignal): Promise<LocalEmbedResult> {
-    if (texts.length === 0 || texts.length > EMBED_MAX_BATCH) {
-      throw new ProviderFailure('protocol', E.embedReturned({ code: 'INVALID_PARAMS' }), { count: texts.length, max: EMBED_MAX_BATCH });
+  async embed(bundleId: string, input: LocalEmbedInput, options: LocalEmbedOptions, signal?: AbortSignal): Promise<LocalEmbedResult> {
+    const images = 'images' in input ? input.images : null;
+    const count = images ? images.length : (input as readonly string[]).length;
+    const max = images ? EMBED_MAX_IMAGE_BATCH : EMBED_MAX_BATCH;
+    if (count === 0 || count > max) {
+      throw new ProviderFailure('protocol', E.embedReturned({ code: 'INVALID_PARAMS' }), { count, max });
     }
     signal?.throwIfAborted();
     if (this.#closed) throw new ProviderFailure('unavailable', L.runtimeStopping());
@@ -558,28 +575,45 @@ export class LocalTranscribeProvider implements TranscribeProvider {
     slot.job = { jobId: requestId, route: () => {} };
     let loaded: Loaded;
     try {
-      const acquiring = this.#acquire(slot, () => {});
-      const raced = signal ? await raceAbort(acquiring, signal) : await acquiring;
-      if (raced === ABORTED) {
-        this.#release(slot);
-        acquiring.then(
-          () => this.#scheduleIdle(slot),
-          () => {},
-        );
-        throw signal!.reason;
+      if (images) slot.vision = true;
+      for (;;) {
+        // 没带图像编码器加载的（或正在这样加载的）先等它好、再卸下重来。
+        if (images && slot.loaded && !slot.loaded.vision) await this.#retire(slot, slot.loaded.worker, 'unload');
+        const acquiring = this.#acquire(slot, () => {});
+        const raced = signal ? await raceAbort(acquiring, signal) : await acquiring;
+        if (raced === ABORTED) {
+          this.#release(slot);
+          acquiring.then(
+            () => this.#scheduleIdle(slot),
+            () => {},
+          );
+          throw signal!.reason;
+        }
+        if (images && !raced.vision) {
+          // 要了 `vision` 加载的还是没有：这个模型包没有图像编码器。
+          if (raced.visionRequested) {
+            this.#release(slot);
+            this.#scheduleIdle(slot);
+            throw new ProviderFailure('load-failed', E.cannotEmbed(), { reason: 'unsupported', detail: 'no-image-encoder' });
+          }
+          continue;
+        }
+        loaded = raced;
+        break;
       }
-      loaded = raced;
     } catch (error) {
       if (slot.job?.jobId === requestId) this.#release(slot);
       throw error;
     }
     const { worker, hello } = loaded;
     this.#catalog.setRuntimeState(slot.bundleId, 'busy');
-    const params: EmbedRunParams = { requestId, texts: [...texts], ...options };
+    const params: EmbedRunParams = images
+      ? { requestId, images: [...images], ...options }
+      : { requestId, texts: [...(input as readonly string[])], ...options };
     try {
       const result = await worker.request<EmbedRunResult>('embed.run', params);
-      if (result.vectors.length !== texts.length) {
-        throw new ProviderFailure('protocol', E.countMismatch({ expected: texts.length, actual: result.vectors.length }));
+      if (result.vectors.length !== count) {
+        throw new ProviderFailure('protocol', E.countMismatch({ expected: count, actual: result.vectors.length }));
       }
       const vectors = result.vectors.map((vector) => decodeF32(vector));
       if (vectors.some((v) => v.length !== result.dims)) {
@@ -604,7 +638,7 @@ export class LocalTranscribeProvider implements TranscribeProvider {
           workerVersion: hello.workerVersion,
           ...(error.body.details !== undefined ? { workerDetails: error.body.details } : {}),
         };
-        if (error.code === INPUT_TOO_LONG) {
+        if (error.code === INPUT_TOO_LONG || error.code === 'INPUT_UNREADABLE') {
           const index = (error.body.details as { index?: unknown } | undefined)?.index;
           throw new ProviderFailure('protocol', E.embedReturned({ code: error.code }), { ...details, ...(typeof index === 'number' ? { index } : {}) });
         }
@@ -774,7 +808,7 @@ export class LocalTranscribeProvider implements TranscribeProvider {
   #slot(bundleId: string): Slot {
     let slot = this.#slots.get(bundleId);
     if (!slot) {
-      slot = { bundleId, loaded: null, acquiring: null, retiring: null, job: null, idleTimer: null, crashes: [], waiters: [] };
+      slot = { bundleId, loaded: null, acquiring: null, retiring: null, job: null, idleTimer: null, crashes: [], waiters: [], vision: false };
       this.#slots.set(bundleId, slot);
     }
     return slot;
@@ -878,11 +912,13 @@ export class LocalTranscribeProvider implements TranscribeProvider {
     }
     const device = backend?.available ? backend.devices[0] : undefined;
 
+    const vision = slot.vision;
+    let visionLoaded = false;
     try {
-      const bundle = await this.#catalog.bundleFor(
-        slot.bundleId,
-        device && (def?.backend === 'candle' || def?.backend === 'ggml') ? { device } : {},
-      );
+      const bundle = await this.#catalog.bundleFor(slot.bundleId, {
+        ...(device && (def?.backend === 'candle' || def?.backend === 'ggml') ? { device } : {}),
+        ...(vision ? { vision: true } : {}),
+      });
       // 合成的模型包要 Worker 声明 `synthesize` 且列出这个 family，分离的要声明 `separate` 且列出 `separator` 的 family，文生图的
       // 要声明 `image` 且列出 `image` 的 family，识别的要声明 `transcribe` 且列出 `asr` 的 family：不认识的 Worker 不去试
       // （`model.load` 的 `MODEL_UNSUPPORTED` 会停用模型包），也不停用模型包（换了 Worker 就能用）。
@@ -898,6 +934,11 @@ export class LocalTranscribeProvider implements TranscribeProvider {
               capabilities: hello.capabilities,
               embeddingFamilies: families,
             }),
+          );
+        }
+        if (vision && !(hello.embeddingCapabilities?.inputs ?? ['text']).includes('image')) {
+          return fail(
+            new ProviderFailure('load-failed', E.cannotEmbed(), { reason: 'unsupported', detail: 'image-input-missing', family }),
           );
         }
       } else if (bundle.components.separator) {
@@ -969,6 +1010,7 @@ export class LocalTranscribeProvider implements TranscribeProvider {
           );
         }
       }
+      visionLoaded = bundle.vision !== undefined;
       const loadResult = await worker.request<ModelLoadResult>('model.load', { bundle });
       log.info('Model Worker loaded model bundle', {
         bundleId: slot.bundleId,
@@ -996,7 +1038,7 @@ export class LocalTranscribeProvider implements TranscribeProvider {
     }
 
     this.#catalog.setRuntimeState(slot.bundleId, 'ready');
-    const loaded = { worker, hello };
+    const loaded = { worker, hello, vision: visionLoaded, visionRequested: vision };
     slot.loaded = loaded;
     return loaded;
   }
@@ -1045,6 +1087,7 @@ export class LocalTranscribeProvider implements TranscribeProvider {
       slot.idleTimer = null;
       if (slot.job || slot.loaded?.worker !== worker) return;
       this.#log.info('Model Worker idle; unloading model bundle', { bundleId: slot.bundleId, pid: worker.pid });
+      slot.vision = false;
       void this.#retire(slot, worker, 'unload');
     }, this.#idleMs);
     slot.idleTimer.unref?.();

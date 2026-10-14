@@ -153,20 +153,29 @@ export class SpaceTools implements ToolSet {
   }
 
   #viewer(principal: ToolPrincipal): SpaceViewer {
-    return spaceViewerOf(this.#deps.scope, this.#deps.jobs, principal);
+    return spaceViewerOf(this.#deps.scope, this.#deps.jobs, principal, { retrieval: true });
   }
 }
 
 /**
  * 主体 → 能看到的 Space 范围（`space_*`、语义检索的工具与生图的输入图共用）。终端里的用户本人与界面相同，看得到全部；
  * 会话里的智能体看会话的来源目录；对外服务看策略里的视频与自己提交的任务。
+ *
+ * `retrieval`：按内容检索、列出视频的只读工具（`space_*`、语义检索）才带上用户给会话放宽的检索范围（`Conversation.spaceReadScope`）；
+ * 别的用途（生图取输入图等）不放宽。
  */
-export function spaceViewerOf(scope: ToolScope, jobs: { list(): JobRecord[] }, principal: ToolPrincipal): SpaceViewer {
+export function spaceViewerOf(scope: ToolScope, jobs: { list(): JobRecord[] }, principal: ToolPrincipal, options: { retrieval?: boolean } = {}): SpaceViewer {
   const access: ToolAccess = scope.authorize(principal, false);
   if (access.principal.kind === 'local') return USER_VIEWER;
   if (access.principal.kind === 'agent') {
     const { conversation } = access as AgentAccess;
-    return { kind: 'source', projectId: conversation.projectId ?? null, conversationId: conversation.folderOf ?? conversation.id };
+    const readScope = options.retrieval ? conversation.spaceReadScope : undefined;
+    return {
+      kind: 'source',
+      projectId: conversation.projectId ?? null,
+      conversationId: conversation.folderOf ?? conversation.id,
+      ...(readScope ? { readScope } : {}),
+    };
   }
   const { policy } = access as ServiceAccess;
   const records = new Map(jobs.list().map((r) => [r.jobId, r]));

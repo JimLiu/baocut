@@ -32,20 +32,11 @@ export const de: GeneralSettingsMessages = {
   downloaderWeb: "Der Browser prüft keine Downloadwerkzeuge auf diesem Computer; in der BaoCut-Desktop-App prüfen.",
 
   sourcesGroup: "Downloadquellen und Offline",
-  modelsEndpoint: "Modelldownloadquelle",
-  toolsEndpoint: "Werkzeugdownloadquelle",
-  toolsEndpointDesc:
-    "Externe Werkzeuge wie yt-dlp werden hier unter „Basis-URL/Werkzeug/Version/Dateiname“ heruntergeladen. Leer lassen für die offizielle Release-URL. BAOCUT_TOOLS_ENDPOINT hat Vorrang.",
-  toolsEndpointPlaceholder: "Offizielle Release-URL",
   strictOffline: "Strikter Offlinemodus",
   strictOfflineDesc:
     "Bei Aktivierung werden Modelle, externe Werkzeuge und Videos über Links nicht heruntergeladen. Internetverbindungen von Cloud-Modellen und Agenten-Engines bleiben unbeeinflusst.",
   strictOfflineOn: "Strikter Offlinemodus aktiviert",
   strictOfflineOff: "Strikter Offlinemodus deaktiviert",
-  endpointChanged: (endpoint: string) => `Verwendet jetzt ${endpoint}`,
-  endpointReset: (label: string) => `${label} auf Standard zurückgesetzt`,
-  save: "Speichern",
-  resetDefault: "Auf Standard zurücksetzen",
 
   trashDays: "Aufbewahrungstage im Papierkorb",
   trashDaysDesc: (fallback: number | null) =>

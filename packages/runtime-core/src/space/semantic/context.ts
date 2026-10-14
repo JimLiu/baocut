@@ -4,7 +4,8 @@ import type { ContentReader } from '../content-index.ts';
 import { extractContent } from '../content-extract.ts';
 import { searchTerms, type SearchableVideo } from '../content-search.ts';
 import type { SpaceViewer } from '../space-queries.ts';
-import { anchorOf, type ResolvedScope, type SearchService } from '../search-service.ts';
+import { anchorOf, frameWindowOf, type ResolvedScope, type SearchService } from '../search-service.ts';
+import { encodeHitId } from './hit-id.ts';
 import { chunkVideo, joinText, type SentenceRow } from './chunks.ts';
 import { reasonOf, semanticError } from './errors.ts';
 import type { EmbeddingScheduler } from './scheduler.ts';
@@ -95,12 +96,23 @@ export interface FindRelevantChunksRequest {
   signal?: AbortSignal;
 }
 
+/**
+ * 段落配图的一处画面（创作辅助集成设计 §3.5）：一组相邻关键帧的候选窗口。`clock` 为 `sequence` 时 `startSec`/`endSec` 是当前
+ * 时间线上的位置，否则是素材的源时间（素材这一段不在时间线上，或索引落后于当前版本）；`at` 是最像的那一帧（源时间，取帧用）。
+ * `near` 表示在给的句子附近（±`windowSec`）；`weak` 是低于画面弱命中线（只标出，同一部视频里不按它筛）。
+ */
 export interface FrameCandidate {
   assetId: Id;
   videoId: Id;
+  clock: 'sequence' | 'source';
   startSec: number;
   endSec: number;
+  at: number;
   score: number;
+  near: boolean;
+  weak: boolean;
+  /** `space.resolveSearchHit` 用的命中身份。 */
+  hitId: string;
 }
 
 export interface SimilarPair {
@@ -117,10 +129,31 @@ export interface SemanticStatus {
   stale: number;
 }
 
+/**
+ * 章节边界（创作辅助集成设计 §3.6）用的句群：一份讲话转写在当前版本语义索引里的句群（时间线时间，按顺序）与它们的文档向量。
+ * `start` 是这个句群里第一句不与上一个句群重叠的句子的起点（句群之间重叠几句），即从这里往后才是新内容。
+ */
+export interface TopicUnit {
+  start: number;
+  end: number;
+  text: string;
+  vector: Float32Array;
+}
+
 export interface SemanticContext {
+  /** 当前版本已建好索引时，这份转写的句群与向量（不重新编码）；没有模型、索引不是这一版或没有这份转写时 null。 */
+  topicUnits(req: { videoId: Id; documentId: Id }): Promise<TopicUnit[] | null>;
+  /** 当前版本画面索引里、在时间线上的关键帧（按时间线秒排）与向量；没有当前版本的画面索引时 null。 */
+  timelineFrames(req: { videoId: Id }): Promise<{ at: number; vector: Float32Array }[] | null>;
   embedTexts(texts: string[], opts: { role: EmbeddingRole; profileId?: string; signal?: AbortSignal }): Promise<Float32Array[]>;
   findRelevantChunks(req: FindRelevantChunksRequest): Promise<RelevantChunkSet>;
-  matchFrames(req: { text: string; videoId: Id; near?: { sentenceId: string; windowSec: number }; limit: number }): Promise<FrameCandidate[]>;
+  /** `near`：一句讲话（稳定句子 ID）或时间线上的一段（秒），前后各放宽 `windowSec`。 */
+  matchFrames(req: {
+    text: string;
+    videoId: Id;
+    near?: { sentenceId: string; windowSec: number } | { start: number; end: number; windowSec: number };
+    limit: number;
+  }): Promise<FrameCandidate[]>;
   pairSimilar(req: { left: ChunkRef[] | string[]; right: ChunkRef[] | string[]; profileId?: string; threshold: number; signal?: AbortSignal }): Promise<SimilarPair[]>;
   status(scope: ChunkScope): Promise<SemanticStatus>;
 }
@@ -145,6 +178,9 @@ export function semanticContextFactory(deps: SemanticContextDeps): SemanticConte
 /** 字面退路最多为几部视频读内容（对回句子身份）；更多的命中没有句子身份。 */
 const LEXICAL_READ_MAX_VIDEOS = 8;
 const LEXICAL_TERM_LIMIT = 200;
+/** `matchFrames` 最多给几处、扫描时取多少帧（再按素材并组）。 */
+const MATCH_FRAMES_MAX = 20;
+const MATCH_FRAMES_SCAN = 200;
 
 export function createSemanticContext(deps: SemanticContextDeps, viewer: SpaceViewer): SemanticContext {
   const profileOf = async (purpose: 'retrieval' | 'symmetric'): Promise<EmbeddingProfile> => {
@@ -172,6 +208,46 @@ export function createSemanticContext(deps: SemanticContextDeps, viewer: SpaceVi
 
   return {
     embedTexts: (texts, opts) => embed(texts, opts.role, opts.profileId, opts.signal),
+
+    async timelineFrames({ videoId }) {
+      const store = deps.store();
+      if (!store) return null;
+      const resolved = deps.search.resolveScope(viewer, { videoIds: [videoId] }, null);
+      const entry = deps.search.resolveVisualScope(resolved, null).videos.find((v) => v.video.videoId === videoId);
+      if (entry?.state !== 'indexed' || !entry.generation) return null;
+      const partition = store.visualPartition(entry.generation.id);
+      if (!partition) return null;
+      const dims = partition.generation.dims;
+      return partition.frames
+        .flatMap((frame, i) => (frame.sequenceSec === null ? [] : [{ at: frame.sequenceSec, vector: partition.vectors.subarray(i * dims, (i + 1) * dims) }]))
+        .sort((a, b) => a.at - b.at);
+    },
+
+    async topicUnits({ videoId, documentId }) {
+      const store = deps.store();
+      const profiled = await deps.search.profile();
+      if (!store || !('profile' in profiled)) return null;
+      const entry = deps.search.resolveScope(viewer, { videoIds: [videoId] }, profiled.profile).videos.find((v) => v.video.videoId === videoId);
+      if (entry?.state !== 'indexed' || !entry.generation) return null;
+      const partition = store.partition(entry.generation.id);
+      if (!partition) return null;
+      const ofDocument = (row: { documentKind: SpaceSearchDocumentKind; documentId: Id | null; clock: 'sequence' | 'source' }) =>
+        row.documentKind === 'speech' && row.documentId === documentId && row.clock === 'sequence';
+      const dims = partition.generation.dims;
+      const picked = partition.chunks.flatMap((chunk, i) => (ofDocument(chunk) ? [{ chunk, vector: partition.vectors.subarray(i * dims, (i + 1) * dims) }] : []));
+      picked.sort((a, b) => a.chunk.ord - b.chunk.ord);
+      const rows = store.sentences(entry.generation.id).filter(ofDocument);
+      const units: TopicUnit[] = [];
+      let previous = new Set<string>();
+      for (const { chunk, vector } of picked) {
+        const ids = new Set(chunk.sentenceIds);
+        // 重叠过来的句子之后的第一句；一句太长被切成几块时没有新句子，用这一块自己的起点。
+        const fresh = rows.find((row) => row.sentenceIds.some((id) => ids.has(id) && !previous.has(id)));
+        units.push({ start: fresh?.start ?? chunk.start, end: chunk.end, text: chunk.text, vector });
+        previous = ids;
+      }
+      return units.length > 0 ? units : null;
+    },
 
     async findRelevantChunks(req) {
       const intent = req.intent.trim();
@@ -250,9 +326,55 @@ export function createSemanticContext(deps: SemanticContextDeps, viewer: SpaceVi
       return finish(chunks, req.order, resolved, 'lexical', reason, stale);
     },
 
-    async matchFrames() {
-      // 画面通道的索引还没有实现（§3.5）：调用方按锚点取帧。
-      throw semanticError('CHANNEL_UNAVAILABLE');
+    async matchFrames(req) {
+      // 一部视频里找与文字最像的画面（§3.5）：先列句子附近的，再列全片的；同一部视频里不按阈值筛，弱的标出来。
+      const resolved = deps.search.resolveScope(viewer, { videoIds: [req.videoId] }, null);
+      const scoped = resolved.videos.find((v) => v.video.videoId === req.videoId);
+      if (!scoped) throw semanticError('SOURCE_MISSING');
+      const profiled = await deps.search.visualProfile();
+      if ('reason' in profiled) throw semanticError(profiled.reason, { channel: 'visual' });
+      const visual = deps.search.resolveVisualScope(resolved, profiled.profile);
+      const limit = Math.max(1, Math.min(req.limit, MATCH_FRAMES_MAX));
+      const groups = await deps.search.frameCandidates(visual.videos, profiled.profile, req.text, MATCH_FRAMES_SCAN);
+      let around: { start: number; end: number } | null = null;
+      const near = req.near;
+      if (near && 'start' in near) around = { start: near.start - near.windowSec, end: near.end + near.windowSec };
+      else if (near && scoped.generation) {
+        const row = deps
+          .store()
+          ?.sentences(scoped.generation.id)
+          .find((s) => s.clock === 'sequence' && s.sentenceIds.includes(near.sentenceId));
+        if (row) around = { start: row.start - near.windowSec, end: row.end + near.windowSec };
+      }
+      const candidates = groups.map((group) => {
+        const window = frameWindowOf(group);
+        const near = around !== null && window.clock === 'sequence' && window.start < around.end && window.end > around.start;
+        return {
+          assetId: group.best.assetId,
+          videoId: group.video.videoId,
+          clock: window.clock,
+          startSec: window.start,
+          endSec: window.end,
+          at: group.best.sourceSec,
+          score: group.cosine,
+          near,
+          weak: group.cosine < SEMANTIC_THRESHOLDS.thresholds.visualWeakHit.value,
+          hitId: encodeHitId({
+            videoId: group.video.videoId,
+            documentId: null,
+            kind: 'frame',
+            sentenceIds: [],
+            revision: group.generation.revision,
+            clock: window.clock,
+            start: window.start,
+            end: window.end,
+            chunkId: null,
+            text: '',
+            frame: { assetId: group.best.assetId, contentHash: group.best.contentHash, sourceStart: window.sourceStart, sourceEnd: window.sourceEnd },
+          }),
+        } satisfies FrameCandidate;
+      });
+      return [...candidates.filter((c) => c.near), ...candidates.filter((c) => !c.near)].slice(0, limit);
     },
 
     async pairSimilar(req) {

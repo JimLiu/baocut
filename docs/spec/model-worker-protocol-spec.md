@@ -60,6 +60,8 @@ result: {
     outputSizes: number[];          // `embed.run` 接受的 `outputSize`：[128, 256, 512, 768]
     maxBatch: number;               // 一次 `embed.run` 至多几条：16
     maxInputTokens: number;         // 单条文本的 token 上限：2048
+    inputs: ('text' | 'image')[];   // `embed.run` 接受的输入：['text', 'image']（图像要求加载时打开图像编码器，§4.5）
+    maxImageBatch: number;          // 一次 `embed.run` 至多几张图：4
   };
 }
 ```
@@ -328,7 +330,8 @@ result: {
 ```ts
 params: {
   requestId: string;                // 调用方给的 id，非空；`worker.status` 的 `job.jobId` 报它，`job.phase` 是 'embedding'
-  texts: string[];                  // 1..maxBatch（16）条，已加好任务前缀（前缀只由 Runtime 加一次）；不得是空白；单条不超过 256 KiB（UTF-8）
+  texts?: string[];                 // 1..maxBatch（16）条，已加好任务前缀（前缀只由 Runtime 加一次）；不得是空白；单条不超过 256 KiB（UTF-8）
+  images?: string[];                // 与 texts 二选一：1..maxImageBatch（4）个 JPEG / PNG 文件的绝对路径（Runtime 已校验在允许的根目录内），单个不超过 16 MiB
   outputSize: 128 | 256 | 512 | 768; // 引擎输出的维度（Matryoshka 截断由引擎做，结果已归一化）
   insertSpecialTokens: boolean;     // 分词时加 BOS/EOS 等特殊 token；EmbeddingGemma 2 与参考实现一致时为 true
 }
@@ -343,6 +346,7 @@ result: {
 - 参数先按形状检查，再检查状态：没加载或正在跑别的是 `WORKER_BUSY`；加载的不是嵌入模型包是 `MODEL_UNSUPPORTED`（`details: { capability: 'embed', reason: 'capability-not-loaded' }`）。`texts` 为空、多于 16 条、有空白条目（`details.index`）或 `outputSize` 不在 `embeddingCapabilities.outputSizes` 里是 `INVALID_PARAMS`。
 - 超长不截断：某条超过 256 KiB，或分词后超过 `maxInputTokens`，整个请求以 `INPUT_TOO_LONG` 失败，`details.index` 是这一批里第一条超长的序号（从 0 数）。批量调用报超长时 Worker 逐条重算找出是哪一条。Runtime 把它换成整个请求里的序号（从 1 数）报给调用方，不当作模型故障、不停用模型包。
 - 引擎返回的条数、维度不对或有非有限值是 `INFERENCE_FAILED`；C 库报资源不足是 `MODEL_RESOURCE`。
+- 图像（检索规格 §6.2 的关键帧）不加前缀：Worker 读文件，原样交给引擎解码，逐张算，向量与文字在同一个空间（text-to-visual）。加载时没带 `vision` 是 `MODEL_UNSUPPORTED`（`details: { capability: 'embed', reason: 'vision-not-loaded' }`）；`texts` 与 `images` 都给、都不给、多于 4 张或路径不是绝对路径是 `INVALID_PARAMS`；文件读不了、为空或超过 16 MiB 是 `INPUT_UNREADABLE`（`details: { index, reason: 'not-found' | 'size' | 'read-failed' }`，不带路径），引擎解不开这张图（C API 状态 3）同样是 `INPUT_UNREADABLE`（带 `index`）。都不停用模型包。
 - 一批在推理线程上一次算完，不响应取消：`job.cancel` 不适用于它。Runtime 取消时不打断进行中的一批，之后的批次不再发出。Runtime 对同一个 Worker 串行发出 `embed.run`（前一批返回才发下一批），批与批之间可以穿插别的请求。
 
 ### 2.6 `job.cancel`
@@ -397,6 +401,7 @@ interface ModelBundle {
   threads: number;                    // CPU 线程数上限
   memoryBudgetBytes: number | null;   // 准入给出的预算；null 为不限制
   cacheDir?: string;                  // 引擎可写的缓存目录（绝对路径，§4.5）；只有 `litert-lm` 用，没给时用系统临时目录
+  vision?: { tokensPerImage?: number }; // 嵌入模型包打开图像编码器（§4.5、§2.5.6 的 `images`）；只有 `litert-lm` 用
 }
 
 interface ModelFiles {
@@ -506,17 +511,17 @@ audiocpp_cli --task gen --family yue2 --model <模型包目录> --threads <n>
 | 模型包 | `embedding` 组件 | 模型文件 |
 | --- | --- | --- |
 | `embeddinggemma2-text@litert-lm`（文字搜索） | `litert-community/embeddinggemma-2-text-270m-litert-lm` | `embeddinggemma-2-text-270m.litertlm`，约 157 MiB |
-| `embeddinggemma2-multimodal@litert-lm`（多模态搜索，这一阶段只用文字编码器） | `litert-community/embeddinggemma-2-740m-litert-lm` | `embeddinggemma-2-740m.litertlm`，约 462 MiB |
+| `embeddinggemma2-multimodal@litert-lm`（多模态搜索；图像编码器在加载时带 `vision` 才打开） | `litert-community/embeddinggemma-2-740m-litert-lm` | `embeddinggemma-2-740m.litertlm`，约 462 MiB |
 
-两个包的文字编码器在 LiteRT-LM 0.18.0 的 CPU 上出的向量逐位相同（实测），所以属于同一个嵌入空间（变体 `text-270m`、同一个量化兼容组）；`encoderProfileId` 仍随模型文件的 sha256 不同。许可都是 Apache-2.0。
+两个包的文字编码器在 LiteRT-LM 0.18.0 的 CPU 上出的向量逐位相同（实测），所以属于同一个嵌入空间（变体 `text-270m`、同一个量化兼容组）；`encoderProfileId` 仍随模型文件的 sha256 不同，但不带 LiteRT-LM 的版本号：升级 C 库后由参考向量回归（检索规格 §5.3）判断旧向量还能不能比较。许可都是 Apache-2.0。
 
 **C 库**。LiteRT-LM 的 C API 不随应用分发，是两个模型包共用的发布页组件 `litertlm-runtime`（`google-ai-edge/LiteRT-LM` 的 v0.18.0 Releases，许可 Apache-2.0）。下载、核对、暂存、清单、引用计数与回收照 §4.4 的引擎组件，区别是：它是交给 Worker 的动态库（`workerLibrary`），不是 Runtime 执行的程序——不做 `--version` 探测，`BAOCUT_AUDIOCPP_CLI` 之类的覆盖变量不替它，不认 `PATH`，没有清单的旧装法不算装好；装好后它和权重一样作为 `components['litertlm-runtime']` 交给 Worker（文件列表取组件目录的清单）。上游只为 macOS 发布了 C 库：`CLiteRTLM_mac.xcframework.zip` 里 `CLiteRTLM_mac.xcframework/macos-arm64_x86_64/` 下的通用 `libCLiteRTLM_mac.dylib`（arm64 + x86_64），解开到 `<runtime-home>/tools/litertlm-runtime/0.18.0/`，同目录的 `Headers/` 不解开。Windows 与 Linux 没有库包，两个模型包在那里是 `error` / `unsupported`，说明点名 LiteRT-LM 没有这个平台的版本。
 
-**加载**。Worker 在 `model.load` 时 `dlopen` `litertlm-runtime` 里唯一的动态库（同一路径在进程里只打开一次），找不到符号或打不开是 `MODEL_UNSUPPORTED`（`details: { component: 'litertlm-runtime', reason: 'symbol-missing' | 'library-load-failed' }`），`files` 里没有 `.litertlm` 或动态库是 `MODEL_NOT_INSTALLED`。引擎设置：线程数取 `threads`（1–64），缓存目录取 `cacheDir`（Runtime 给 `<runtime-home>/cache/litertlm/`，属于可回收的缓存；没给时用系统临时目录），单条输入上限 2048 token；引擎报资源不足（C API 状态 8）是 `MODEL_RESOURCE`，别的创建失败是 `MODEL_UNSUPPORTED`。模型不出 768 维时是 `MODEL_UNSUPPORTED`（`reason: 'unexpected-output-size'`）。错误信息里的本机路径都抹掉。
+**加载**。Worker 在 `model.load` 时 `dlopen` `litertlm-runtime` 里唯一的动态库（同一路径在进程里只打开一次），找不到符号或打不开是 `MODEL_UNSUPPORTED`（`details: { component: 'litertlm-runtime', reason: 'symbol-missing' | 'library-load-failed' }`），`files` 里没有 `.litertlm` 或动态库是 `MODEL_NOT_INSTALLED`。引擎设置：线程数取 `threads`（1–64），缓存目录取 `cacheDir`（Runtime 给 `<runtime-home>/cache/litertlm/`，属于可回收的缓存；没给时用系统临时目录），单条输入上限 2048 token；`ModelBundle.vision`（`{ tokensPerImage?: number }`，1–4096，缺省用模型的默认值 140）存在时图像编码器的后端设为 `cpu`，否则与音频后端一样不设（只加载文字编码器）；引擎报资源不足（C API 状态 8）是 `MODEL_RESOURCE`，别的创建失败是 `MODEL_UNSUPPORTED`。模型不出 768 维时是 `MODEL_UNSUPPORTED`（`reason: 'unexpected-output-size'`）。错误信息里的本机路径都抹掉。
 
 **向量**。Runtime 向 Worker 要 768 维（`outputSize: 768`、`insertSpecialTokens: true`），自己截到 512 维再做 L2 归一化，FP32；任务前缀（模型卡的 `task: search result | query: ` 与 `title: none | text: `）只由 Runtime 加一次，Worker 原样嵌入。一次至多 16 条，更多的按 16 条分批。
 
-**资源**。加载后常驻一个 Worker（与识别相同，资源 holder 计内存）：模型文件 + C 库压缩包 + 256 MiB 余量。2026-10-12 在 Apple M 系列的 CPU 上实测：空闲约 15 MB；文字包加载后约 365 MB、16 条约 500 字的批次峰值约 475 MB；多模态包加载后约 760 MB。
+**资源**。加载后常驻一个 Worker（与识别相同，资源 holder 计内存）：模型文件 + C 库压缩包 + 256 MiB 余量。2026-10-12 在 Apple M 系列的 CPU 上实测：空闲约 15 MB；文字包加载后约 365 MB、16 条约 500 字的批次峰值约 475 MB；多模态包加载后约 760 MB。打开图像编码器另加约 1 GB；一张关键帧在 CPU 上约 1.1 秒（2026-10-13），向量与 G0 评测的 Python 绑定对同一张图给出的一致（余弦 1.000000，`crates/model-worker/tests/embedding.rs`）。
 
 **检查**（`models.test`）。一条查询、一条相关文档、一条无关文档（英文查询、中文文档，覆盖跨语言；句子在 `packages/models/src/embedding-self-test.ts`）按上面的前缀走一遍 `model.load` → `embed.run`，截到 512 维后判定：
 

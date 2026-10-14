@@ -1,4 +1,4 @@
-import { defineMessages, templateUnfilledText, type DriverId, type DriverInfo } from '@baocut/protocol';
+import { defineMessages, templateUnfilledText, type DriverId, type DriverInfo, type SpaceReadScope } from '@baocut/protocol';
 import type { HomeTemplate } from './home-templates.ts';
 import { kindOfFileName } from './space.ts';
 import { zhHans } from './home-brief.zh-Hans.ts';
@@ -143,9 +143,14 @@ export interface HomeBriefState {
   /** 挂着的场景模板的 id（模板目录里的，model/home-templates.ts）。作品示例不挂：它的提示词直接放进输入框。 */
   template: string | null;
   materials: readonly HomeMaterial[];
+  /**
+   * 新会话的只读检索范围（`Conversation.spaceReadScope`）：Space 搜索「回答这个问题」没筛项目时挂上，建会话时交给 Runtime；
+   * 可以摘掉。没有时 null。
+   */
+  readScope: SpaceReadScope | null;
 }
 
-export const EMPTY_HOME_BRIEF: HomeBriefState = { template: null, materials: [] };
+export const EMPTY_HOME_BRIEF: HomeBriefState = { template: null, materials: [], readScope: null };
 
 /** 挂上或摘掉场景模板（原型 page-new.jsx `pickScene`）；素材不动。 */
 export function pickTemplate(state: HomeBriefState, template: Pick<HomeTemplate, 'id'> | null): HomeBriefState {

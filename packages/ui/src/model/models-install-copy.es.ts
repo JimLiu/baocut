@@ -1,7 +1,7 @@
 import type { ModelsInstallMessages } from './models-install-copy.ts';
 import { pluralForm } from '@baocut/protocol';
 const KEEP = 'Se conserva lo descargado para continuar la próxima vez.';
-const SOURCE = '«Origen de descarga de modelos» en «Ajustes › General»';
+const SOURCE = '«Ajustes › General › Orígenes de descarga»';
 const filesEs = (n: number) => `${n} ${pluralForm('es', n, { one: 'archivo', other: 'archivos' })}`;
 const andEs = (items: readonly string[]) => new Intl.ListFormat('es', { type: 'conjunction' }).format(items);
 export const es: ModelsInstallMessages = {
@@ -15,13 +15,17 @@ export const es: ModelsInstallMessages = {
  remedyNoSpace: (need, have) => `${need !== null && have !== null ? `Se necesitan ${need} y solo quedan ${have}. ` : ''}Libera espacio en disco y descarga de nuevo. ${KEEP}`,
  remedyNetwork: `Comprueba la red y descarga de nuevo. ${KEEP} Si no puedes acceder al origen predeterminado, cambia a un servidor espejo en ${SOURCE}.`,
  remedyIntegrity: `Los archivos del origen de descarga no coinciden con el tamaño o sha256 del manifiesto y se eliminaron los archivos incorrectos. Cambia a otro origen de descarga (${SOURCE}) y descarga de nuevo.`,
- remedySource: `El origen de descarga no tiene este archivo o denegó el acceso. Comprueba que el servidor espejo configurado en ${SOURCE} (o la variable de entorno BAOCUT_MODELS_ENDPOINT) esté completo.`,
+ remedySource: (env) => `El origen de descarga no tiene este archivo o denegó el acceso. Comprueba que el servidor espejo configurado en ${SOURCE} (o la variable de entorno ${env}) esté completo, o cambia a otro origen.`,
  remedyManifest: 'Al manifiesto integrado de este paquete de modelos le falta un sha256 fiable, por lo que no se puede instalar hasta que BaoCut se actualice.',
  remedyOffline: 'El modo sin conexión estricto está activado, por lo que no se descarga nada. Para descargar, primero desactívalo en Ajustes.',
  remedySizeChanged: 'El tamaño de descarga cambió. Vuelve a confirmar con el plan nuevo.',
  remedyInUse: 'Una tarea está usando este paquete de modelos (transcribiendo, sintetizando, comprobando o instalando). Espera a que termine o cancélala en Tareas en segundo plano y vuelve a eliminar.',
  remedyUnavailable: 'El paquete de modelos no está disponible ahora (no está completamente instalado, está desactivado o no es compatible con este ordenador). Primero repáralo o actívalo de nuevo.',
  remedyInstallFailed: `Prueba a descargar de nuevo. ${KEEP}`,
+ partFailed: (part) => `${part} no se descargó.`,
+ partFailedFrom: (part, host) => `${part} no se descargó desde ${host}.`,
+ partKept: 'Las partes ya descargadas se conservan, así que al completar solo se descarga lo que falta. Puedes cambiar antes el origen de descarga.',
+ sentences: (parts) => parts.join(' '),
  problemText: (message, remedy) => /[.!?。！？]$/.test(message) ? `${message} ${remedy}` : `${message}. ${remedy}`,
  removalBody: (unknown, frees, kept) => [
  unknown ? 'Elimina los archivos que solo usa este paquete de modelos.' : frees !== null ? `Libera unos ${frees}.` : null,

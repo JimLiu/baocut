@@ -7,6 +7,7 @@ import {
   downloadView,
   inlineInstallMode,
   installFailure,
+  installFailureText,
   installPlanView,
   installProgressView,
   modelProblem,
@@ -86,6 +87,34 @@ describe('确认对话框', () => {
     expect(view.lines.map((l) => l.value)).toEqual(['1.2 GB · 2 个文件', '已装好，不动']);
   });
 
+  it('按来源种类分组：发布页的组件归工具与运行库，各写出从哪个基址下载', () => {
+    const view = installPlanView(
+      plan({
+        components: [
+          { component: 'embedding', repo: 'litert/embed', revision: 'a', action: 'keep', files: [], bytes: 0 },
+          {
+            component: 'litertlm-runtime',
+            repo: 'google-ai-edge/LiteRT-LM',
+            revision: 'v0.8.0',
+            origin: 'github-release',
+            action: 'download',
+            files: ['x.tar.gz'],
+            bytes: 43 * MB,
+            source: 'https://github.com/google-ai-edge/LiteRT-LM/releases',
+          },
+        ],
+      }),
+    );
+    expect(view.groups.map((g) => [g.kind, g.downloading, g.lines.map((l) => l.label)])).toEqual([
+      ['models', false, ['模型权重 · litert/embed']],
+      ['tools', true, ['LiteRT-LM 运行时 · google-ai-edge/LiteRT-LM']],
+    ]);
+    expect(view.groups[0]!.lines[0]).toMatchObject({ keep: true, source: null });
+    expect(view.groups[1]!.lines[0]!.source).toBe('https://github.com/google-ai-edge/LiteRT-LM/releases');
+    // 旧 Runtime 不给每个组件的来源：只有合起来的那一个。
+    expect(installPlanView(plan()).lines.map((l) => l.source)).toEqual([null, null]);
+  });
+
   it('大小未知时写明是估计；有续传的部分说出来', () => {
     const view = installPlanView(plan({ downloadBytes: null, resumedBytes: 300 * MB }));
     expect(view.size).toBe('约 1.2 GB（有文件大小未知，按登记的估计）');
@@ -151,10 +180,32 @@ describe('失败与补救', () => {
     expect(installFailure(again, [failed])).toBeNull();
   });
 
+  it('一部分没下成：说出是哪一部分、连的哪里；别的部分已下好时说补齐只下缺的', () => {
+    const details = {
+      code: 'MODEL_DOWNLOAD_SOURCE',
+      component: 'litertlm-runtime',
+      origin: 'github-release',
+      source: 'https://gh.example/mirror',
+    };
+    const problem = modelProblem('MODEL_DOWNLOAD_SOURCE', '下载来源返回 404', details);
+    expect(problem.part).toEqual({ component: 'litertlm-runtime', source: 'https://gh.example/mirror' });
+    const kept = installFailureText(problem, true);
+    expect(kept.startsWith('LiteRT-LM 运行时没下成（连的是 gh.example）。下载来源返回 404')).toBe(true);
+    expect(kept.endsWith('已下好的部分留着，补齐时只下缺的；可以先换个下载来源。')).toBe(true);
+    expect(installFailureText(modelProblem('MODEL_DOWNLOAD_NETWORK', '超时', { component: 'asr' }), false)).toMatch(/^模型权重没下成。超时/);
+    // 不是某一部分的失败：照旧只有原话与补救。
+    expect(installFailureText(modelProblem('MODEL_DOWNLOAD_NETWORK', '超时', {}), true)).not.toMatch(/没下成/);
+    // 补救里的环境变量跟着这一部分的来源：发布页的部分是工具的那个。
+    expect(problem.remedy).toContain('BAOCUT_TOOLS_ENDPOINT');
+    expect(modelProblem('MODEL_DOWNLOAD_SOURCE', '404', { component: 'asr', source: 'https://hf.example' }).remedy).toContain(
+      'BAOCUT_MODELS_ENDPOINT',
+    );
+  });
+
   it('下载来源的补救按设置页上的名字说，不写设置键', () => {
     for (const code of ['MODEL_DOWNLOAD_NETWORK', 'MODEL_DOWNLOAD_INTEGRITY', 'MODEL_DOWNLOAD_SOURCE']) {
       const { remedy } = modelProblem(code, '下载失败', {});
-      expect(remedy, code).toContain('「设置 › 通用」的「模型下载来源」');
+      expect(remedy, code).toContain('「设置 › 通用」的下载来源');
       expect(remedy, code).not.toMatch(/models\.\w+/);
     }
   });

@@ -7,6 +7,8 @@ import { SearchService } from '../search-service.ts';
 import type { SpaceSearchSource } from '../space-queries.ts';
 import { semanticContextFactory, type SemanticContextFactory } from './context.ts';
 import { SemanticCoordinator, type SemanticCatalogSource, type SemanticSettings } from './coordinator.ts';
+import type { KeyframeSource } from './visual-lane.ts';
+import type { PowerState } from './power.ts';
 import { EmbeddingScheduler } from './scheduler.ts';
 import { SEMANTIC_STORE_DIR, SemanticStore, SemanticStoreTooNew } from './store.ts';
 import { InThreadVectorScanner } from './vector-index.ts';
@@ -37,7 +39,11 @@ export interface OpenSemanticOptions {
   settings: () => SemanticSettings;
   log: Logger;
   model?: () => { bundleId: string; label: string } | null;
+  /** 画面索引取关键帧；不给时不建画面索引。 */
+  frames?: KeyframeSource;
   debounceMs?: number;
+  /** 查供电与散热（`power.ts`）；不给时不因供电暂停。 */
+  power?: () => Promise<PowerState>;
   /**
    * 弱命中阈值（`findRelevantChunks` 低于它的命中标 `weak`）。不给时用 `semantic-thresholds.json` 的 `weakHit`：它是在
    * EmbeddingGemma 2（LiteRT、`model-card-v1`）上量的，别的 Provider（测试的散列向量）分数不在一个刻度上，要自己给。
@@ -66,7 +72,9 @@ export function openSemanticServices(options: OpenSemanticOptions): SemanticServ
     scanner,
     settings: options.settings,
     log,
+    ...(options.frames ? { frames: options.frames } : {}),
     ...(options.debounceMs !== undefined ? { debounceMs: options.debounceMs } : {}),
+    ...(options.power ? { power: options.power } : {}),
   });
   const search = new SearchService({
     catalog: options.catalog,

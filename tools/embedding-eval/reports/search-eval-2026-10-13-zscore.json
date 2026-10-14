@@ -1,0 +1,385 @@
+{
+  "schema": "baocut.search-eval/1",
+  "label": "z3-final",
+  "rankingVersion": "z-text-visual-v3",
+  "createdAt": "2026-10-13T23:17:04.427Z",
+  "manifest": {
+    "textVideos": 57,
+    "textQueries": 34,
+    "frameVideos": 14,
+    "frames": 170,
+    "visualQueries": 72,
+    "worker": {
+      "sha256": "efd54391f6cabef5e62ffc5e088b05addfef37fbf9406c87920c1e0479e68901"
+    },
+    "textProfile": "embeddinggemma2/text-270m/model-card-v1/512/l2/litertlm-2d079ee2/text/litertlm-0.18.0/2d079ee2f6f066b1f368e8d7c819f55214eaef1d0513b312321901f30ab286fb/cpu",
+    "visualProfile": "embeddinggemma2/text-270m/model-card-v1/512/l2/litertlm-2d079ee2/image/litertlm-0.18.0/e7a8a2204b91e0f96e92960e84a09a89212e1633dcb7575a9bf3378b4df77f4c/cpu/vt140/keyframe-512-jpeg",
+    "host": "darwin-arm64",
+    "buildMs": 12,
+    "searchMs": 28633
+  },
+  "routes": [
+    {
+      "route": "text/hybrid",
+      "target": "text",
+      "overall": {
+        "queries": 34,
+        "r1": 0.815,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 0.901,
+        "strongPerQuery": 1.088,
+        "relevantWeak": 0.074,
+        "noAnswerStrong": 0
+      },
+      "byCategory": {
+        "cross-lingual": {
+          "queries": 10,
+          "r1": 0.6,
+          "r5": 1,
+          "r10": 1,
+          "mrr": 0.783,
+          "strongPerQuery": 1.5,
+          "relevantWeak": 0.1,
+          "noAnswerStrong": null
+        },
+        "exact-word": {
+          "queries": 8,
+          "r1": 1,
+          "r5": 1,
+          "r10": 1,
+          "mrr": 1,
+          "strongPerQuery": 1.375,
+          "relevantWeak": 0,
+          "noAnswerStrong": null
+        },
+        "no-answer": {
+          "queries": 7,
+          "r1": 0,
+          "r5": 0,
+          "r10": 0,
+          "mrr": 0,
+          "strongPerQuery": 0,
+          "relevantWeak": null,
+          "noAnswerStrong": 0
+        },
+        "paraphrase": {
+          "queries": 9,
+          "r1": 0.889,
+          "r5": 1,
+          "r10": 1,
+          "mrr": 0.944,
+          "strongPerQuery": 1.222,
+          "relevantWeak": 0.111,
+          "noAnswerStrong": null
+        }
+      },
+      "failures": {}
+    },
+    {
+      "route": "text/semantic",
+      "target": "text",
+      "overall": {
+        "queries": 34,
+        "r1": 0.815,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 0.901,
+        "strongPerQuery": 1.088,
+        "relevantWeak": 0.074,
+        "noAnswerStrong": 0
+      },
+      "byCategory": {
+        "cross-lingual": {
+          "queries": 10,
+          "r1": 0.6,
+          "r5": 1,
+          "r10": 1,
+          "mrr": 0.783,
+          "strongPerQuery": 1.5,
+          "relevantWeak": 0.1,
+          "noAnswerStrong": null
+        },
+        "exact-word": {
+          "queries": 8,
+          "r1": 1,
+          "r5": 1,
+          "r10": 1,
+          "mrr": 1,
+          "strongPerQuery": 1.375,
+          "relevantWeak": 0,
+          "noAnswerStrong": null
+        },
+        "no-answer": {
+          "queries": 7,
+          "r1": 0,
+          "r5": 0,
+          "r10": 0,
+          "mrr": 0,
+          "strongPerQuery": 0,
+          "relevantWeak": null,
+          "noAnswerStrong": 0
+        },
+        "paraphrase": {
+          "queries": 9,
+          "r1": 0.889,
+          "r5": 1,
+          "r10": 1,
+          "mrr": 0.944,
+          "strongPerQuery": 1.222,
+          "relevantWeak": 0.111,
+          "noAnswerStrong": null
+        }
+      },
+      "failures": {}
+    },
+    {
+      "route": "text/lexical",
+      "target": "text",
+      "overall": {
+        "queries": 34,
+        "r1": 0.259,
+        "r5": 0.259,
+        "r10": 0.259,
+        "mrr": 0.259,
+        "strongPerQuery": 0.206,
+        "relevantWeak": 0,
+        "noAnswerStrong": 0
+      },
+      "byCategory": {
+        "cross-lingual": {
+          "queries": 10,
+          "r1": 0,
+          "r5": 0,
+          "r10": 0,
+          "mrr": 0,
+          "strongPerQuery": 0,
+          "relevantWeak": null,
+          "noAnswerStrong": null
+        },
+        "exact-word": {
+          "queries": 8,
+          "r1": 0.875,
+          "r5": 0.875,
+          "r10": 0.875,
+          "mrr": 0.875,
+          "strongPerQuery": 0.875,
+          "relevantWeak": 0,
+          "noAnswerStrong": null
+        },
+        "no-answer": {
+          "queries": 7,
+          "r1": 0,
+          "r5": 0,
+          "r10": 0,
+          "mrr": 0,
+          "strongPerQuery": 0,
+          "relevantWeak": null,
+          "noAnswerStrong": 0
+        },
+        "paraphrase": {
+          "queries": 9,
+          "r1": 0,
+          "r5": 0,
+          "r10": 0,
+          "mrr": 0,
+          "strongPerQuery": 0,
+          "relevantWeak": null,
+          "noAnswerStrong": null
+        }
+      },
+      "failures": {}
+    },
+    {
+      "route": "text+visual/hybrid",
+      "target": "text",
+      "overall": {
+        "queries": 34,
+        "r1": 0.815,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 0.901,
+        "strongPerQuery": 1.647,
+        "relevantWeak": 0.037,
+        "noAnswerStrong": 0.714
+      },
+      "byCategory": {
+        "cross-lingual": {
+          "queries": 10,
+          "r1": 0.6,
+          "r5": 1,
+          "r10": 1,
+          "mrr": 0.783,
+          "strongPerQuery": 2,
+          "relevantWeak": 0.1,
+          "noAnswerStrong": null
+        },
+        "exact-word": {
+          "queries": 8,
+          "r1": 1,
+          "r5": 1,
+          "r10": 1,
+          "mrr": 1,
+          "strongPerQuery": 1.5,
+          "relevantWeak": 0,
+          "noAnswerStrong": null
+        },
+        "no-answer": {
+          "queries": 7,
+          "r1": 0,
+          "r5": 0,
+          "r10": 0,
+          "mrr": 0,
+          "strongPerQuery": 1,
+          "relevantWeak": null,
+          "noAnswerStrong": 0.714
+        },
+        "paraphrase": {
+          "queries": 9,
+          "r1": 0.889,
+          "r5": 1,
+          "r10": 1,
+          "mrr": 0.944,
+          "strongPerQuery": 1.889,
+          "relevantWeak": 0,
+          "noAnswerStrong": null
+        }
+      },
+      "failures": {}
+    },
+    {
+      "route": "visual/semantic",
+      "target": "visual",
+      "overall": {
+        "queries": 72,
+        "r1": 0.97,
+        "r5": 0.985,
+        "r10": 1,
+        "mrr": 0.977,
+        "strongPerQuery": 1.681,
+        "relevantWeak": 0.091,
+        "noAnswerStrong": 0.5
+      },
+      "byCategory": {
+        "narration": {
+          "queries": 9,
+          "r1": 0.889,
+          "r5": 0.889,
+          "r10": 1,
+          "mrr": 0.905,
+          "strongPerQuery": 1.444,
+          "relevantWeak": 0.222,
+          "noAnswerStrong": null
+        },
+        "no-answer": {
+          "queries": 6,
+          "r1": 0,
+          "r5": 0,
+          "r10": 0,
+          "mrr": 0,
+          "strongPerQuery": 0.5,
+          "relevantWeak": null,
+          "noAnswerStrong": 0.5
+        },
+        "screen-text": {
+          "queries": 6,
+          "r1": 1,
+          "r5": 1,
+          "r10": 1,
+          "mrr": 1,
+          "strongPerQuery": 1.333,
+          "relevantWeak": 0,
+          "noAnswerStrong": null
+        },
+        "transcript": {
+          "queries": 10,
+          "r1": 0.9,
+          "r5": 1,
+          "r10": 1,
+          "mrr": 0.933,
+          "strongPerQuery": 1.6,
+          "relevantWeak": 0.1,
+          "noAnswerStrong": null
+        },
+        "visual": {
+          "queries": 41,
+          "r1": 1,
+          "r5": 1,
+          "r10": 1,
+          "mrr": 1,
+          "strongPerQuery": 1.976,
+          "relevantWeak": 0.073,
+          "noAnswerStrong": null
+        }
+      },
+      "failures": {}
+    },
+    {
+      "route": "text+visual/hybrid",
+      "target": "visual",
+      "overall": {
+        "queries": 72,
+        "r1": 0.894,
+        "r5": 0.985,
+        "r10": 1,
+        "mrr": 0.932,
+        "strongPerQuery": 1.792,
+        "relevantWeak": 0.106,
+        "noAnswerStrong": 0.667
+      },
+      "byCategory": {
+        "narration": {
+          "queries": 9,
+          "r1": 0.778,
+          "r5": 0.889,
+          "r10": 1,
+          "mrr": 0.826,
+          "strongPerQuery": 1.667,
+          "relevantWeak": 0.333,
+          "noAnswerStrong": null
+        },
+        "no-answer": {
+          "queries": 6,
+          "r1": 0,
+          "r5": 0,
+          "r10": 0,
+          "mrr": 0,
+          "strongPerQuery": 0.833,
+          "relevantWeak": null,
+          "noAnswerStrong": 0.667
+        },
+        "screen-text": {
+          "queries": 6,
+          "r1": 1,
+          "r5": 1,
+          "r10": 1,
+          "mrr": 1,
+          "strongPerQuery": 1.5,
+          "relevantWeak": 0,
+          "noAnswerStrong": null
+        },
+        "transcript": {
+          "queries": 10,
+          "r1": 0.8,
+          "r5": 1,
+          "r10": 1,
+          "mrr": 0.883,
+          "strongPerQuery": 1.5,
+          "relevantWeak": 0.1,
+          "noAnswerStrong": null
+        },
+        "visual": {
+          "queries": 41,
+          "r1": 0.927,
+          "r5": 1,
+          "r10": 1,
+          "mrr": 0.957,
+          "strongPerQuery": 2.073,
+          "relevantWeak": 0.073,
+          "noAnswerStrong": null
+        }
+      },
+      "failures": {}
+    }
+  ]
+}

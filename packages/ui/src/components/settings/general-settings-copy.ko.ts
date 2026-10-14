@@ -31,20 +31,11 @@ export const ko: GeneralSettingsMessages = {
   downloaderWeb: '브라우저에서는 이 컴퓨터의 다운로드 도구를 확인하지 않습니다. BaoCut 데스크톱 앱에서 확인하세요.',
 
   sourcesGroup: '다운로드 소스 및 오프라인',
-  modelsEndpoint: '모델 다운로드 소스',
-  toolsEndpoint: '도구 다운로드 소스',
-  toolsEndpointDesc:
-    'yt-dlp 같은 외부 도구는 여기에서 “기본 URL/도구/버전/파일 이름” 경로로 다운로드합니다. 비워 두면 공식 배포 URL을 사용합니다. BAOCUT_TOOLS_ENDPOINT 환경 변수가 있으면 이 설정보다 우선합니다.',
-  toolsEndpointPlaceholder: '공식 배포 URL',
   strictOffline: '엄격한 오프라인',
   strictOfflineDesc:
     '켜면 모델과 외부 도구를 다운로드하지 않고 링크에서 영상도 다운로드하지 않습니다. 클라우드 모델과 Agent 엔진의 온라인 연결에는 영향을 주지 않습니다.',
   strictOfflineOn: '엄격한 오프라인을 켰습니다',
   strictOfflineOff: '엄격한 오프라인을 껐습니다',
-  endpointChanged: (endpoint: string) => `이제 ${endpoint} 주소를 사용합니다`,
-  endpointReset: (label: string) => `${label}: 기본값으로 재설정됨`,
-  save: '저장',
-  resetDefault: '기본값으로 재설정',
 
   trashDays: '휴지통 보관 일수',
   trashDaysDesc: (fallback: number | null) =>

@@ -1,11 +1,19 @@
 {
-  "rankingVersion": "rrf-k60-text-v1",
+  "rankingVersion": "z-text-visual-v3",
   "fusion": {
     "k": { "value": 60, "calibrated": false },
     "weights": {
       "lexical": { "value": 1, "calibrated": false },
-      "semantic": { "value": 1, "calibrated": false }
+      "semantic": { "value": 1, "calibrated": false },
+      "visual": { "value": 1, "calibrated": false }
     },
+    "lexicalBonus": { "value": 2, "calibrated": false },
+    "devFloor": { "value": 0.02, "calibrated": false },
+    "priorCount": { "value": 20, "calibrated": false },
+    "priorTextMean": { "value": 0.59, "calibrated": false },
+    "priorTextDev": { "value": 0.038, "calibrated": false },
+    "priorVisualMean": { "value": 0.58, "calibrated": false },
+    "priorVisualDev": { "value": 0.032, "calibrated": false },
     "perRouteCandidates": { "value": 80, "calibrated": false },
     "mergedCandidates": { "value": 100, "calibrated": false }
   },
@@ -16,7 +24,10 @@
     "overlapSentences": { "value": 1, "calibrated": false }
   },
   "thresholds": {
+    "strongZ": { "value": 3, "calibrated": false },
+    "strongRatio": { "value": 0.5, "calibrated": false },
     "weakHit": { "value": 0.731, "calibrated": false },
+    "visualWeakHit": { "value": 0.7, "calibrated": false },
     "reuse": { "value": 0.9825, "calibrated": false },
     "retake": { "value": 0.93, "calibrated": false },
     "glossary": { "value": 0.86, "calibrated": false },
@@ -39,6 +50,7 @@
   },
   "chapterBoundary": {
     "k": { "value": 1.5, "calibrated": false },
+    "window": { "value": 2, "calibrated": false },
     "minChapterSec": { "value": 60, "calibrated": false },
     "maxChapters": { "value": 24, "calibrated": false }
   }

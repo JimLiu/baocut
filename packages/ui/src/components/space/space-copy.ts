@@ -222,6 +222,21 @@ const en = {
   byBoth: 'Words and meaning match',
   byLexical: 'Words match',
   bySemantic: 'Similar meaning; these words aren’t in it',
+  byWeak: 'Loosely related; these words aren’t in it',
+  /** 命中原因：原句里出现的词（最多三个，按出现先后），各语言用自己的引号。 */
+  whySaid: (words: readonly string[]) => `Says ${words.map((w) => `“${w}”`).join(', ')}`,
+  whySaidMeaning: (words: readonly string[]) => `Says ${words.map((w) => `“${w}”`).join(', ')}, and the meaning matches`,
+  /** 检索命中的预览（设计稿 space-search.jsx `Preview`）：那一刻的画面与可播的一段。 */
+  momentWhy: (why: string) => `Why it matched: ${why}`,
+  momentPlay: 'Play this part',
+  momentLoading: 'Loading this moment',
+  momentPause: 'Pause',
+  momentOpen: 'Open in timeline',
+  momentClose: 'Close',
+  momentNoClip: 'There’s no footage to play at this moment. Open it in the timeline to see it.',
+  momentFailed: (text: string) => `Couldn’t load this moment: ${text}`,
+  hitsWeakShow: (n: number) => `Show loosely related (${n})`,
+  hitsWeakHide: 'Hide loosely related',
   hitNotInTimeline: 'This line was cut from the timeline, so the video opens without moving the playhead',
   hitGone: 'This line is no longer in the video',
   hitWrite: 'Use for writing',
@@ -249,6 +264,9 @@ const en = {
   /** 某个类型分类（`label` 是分类名）下还没有条目。 */
   emptyCategory: (label: string) => `Nothing in ${label} yet`,
   emptyFilteredBody: 'Try other keywords, or clear the project and status filters.',
+  namesTitle: 'Names and files',
+  emptyNames: (query: string, filters: boolean) =>
+    `No names or files contain “${query}”${filters ? ' with the current project and status filters' : ''}.`,
   emptyTrashBody: 'Items you move to Trash show up here. You can restore them or delete them permanently.',
   emptyBody: 'Ask the agent in a session and its outputs show up here. You can also import assets from "New", or open an existing folder in Home.',
   projectPicker: 'Project',

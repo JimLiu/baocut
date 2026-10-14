@@ -84,7 +84,7 @@ export function itemKey(item: WorkspaceItem): string {
 
 export function targetKey(target: MediaTarget): string {
   if ('attachmentId' in target) return `a:${target.conversationId}:${target.attachmentId}`;
-  if ('assetId' in target) return `v:${target.videoId}:${target.assetId}:${target.revision??''}`;
+  if ('assetId' in target) return 'videoId' in target ? `v:${target.videoId}:${target.assetId}:${target.revision??''}` : `ea:${target.entryId}:${target.assetId}:${target.revision}`;
   if ('entryId' in target) return `e:${target.entryId}`;
   if ('localPath' in target) return `l:${target.localPath}`;
   if ('projectId' in target) return `p:${target.projectId}:${target.path}`;

@@ -1,7 +1,7 @@
 ---
 name: shorts-segments
 description: 用户有一个长视频（访谈、讲座、直播回放、口播），想从中切出几支能单独发布的短视频时用：读转写找出最值得发的话题，每个话题从开头的钩子剪到讲完，建成可编辑的子视频，用户在编辑器里接着调；几支、每支多长可以交给你按话题定。需要视频的转写。不用于按主题从零做一个新的短视频，也不用于把整段口播剪干净（用剪口播）。
-version: 3.5.1
+version: 3.6.0
 ---
 
 # 从长视频里切短视频
@@ -26,6 +26,10 @@ version: 3.5.1
 读带时间的文稿：export 导出字幕（kind `subtitles`、format `srt`）或带时间码的文稿（kind `transcript`、format `md`、timestamps `true`），给 purpose `preview`（只是你自己读，不是交给用户的），jobs_inspect 等到 completed，读 outputs 里的文件。这些时间是剪辑后时间线上的时间，和 videos_derive 的 start、end、取帧用的是同一个时钟。
 
 **句界怎么取**：找句子的起止不用 dump 整份 speech 文档。documents_read 读转写时，返回的 translationBasis.sentences 每一句带 start、end（秒），但那是**素材时钟**；videos_derive 的 start、end 是**时间线时钟**。父视频从 0 秒开始、原速、没有剪口地播放这条素材时，两者相同，可以直接用句子的 start、end 定区间。先确认这一点：用 videos_inspect（或 facts）看视频项的 sourceIn 是否为 0、速度是否为 1、有没有剪口。任一条不满足，就用上面导出的 SRT 或文稿里的时间线时间，或者把素材时间换算成时间线时间再传，不要把素材时间直接当时间线时间用。
+
+**用户点了话题**（「切一支讲 X 的」）时，先用 space_search_v2（`query` 写 X 的意思，`videoIds` 只给这部视频，`kinds` 给 `["speech"]`）找讲到它的几处，再按上面读那几段前后的文稿定区间；命中的时间在当前时间线上（`clock` 为 sequence）时可以直接当时间线时间用；`needsResolve` 的先用 space_resolve_search_hit 按当前版本重新定位；`weak` 的先读原文。没有语义索引时（`effectiveMode` 为 lexical）换几个关键词再找，或读全文。
+
+**已经切过的**：space_list 给 `videoId` 列出这部视频派生的短视频，读它们的名字与区间，不重复切同一段；用户要再切一支同一话题的时先问。
 
 ### 先画话题地图
 

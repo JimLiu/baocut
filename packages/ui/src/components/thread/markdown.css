@@ -18,6 +18,25 @@
 .bc-md h3, .bc-md h4 { font-size: 14px; }
 .bc-md a { color: light-dark(#3b63fb, #8ea8ff); text-decoration: none; }
 .bc-md a:hover { text-decoration: underline; }
+/* 视频某一刻的出处（video-time-link.tsx；会话里的样式见 agent-thread.css `.bc-amd-time`） */
+.bc-md .bc-amd-time {
+  display: inline;
+  height: auto;
+  min-height: 0;
+  min-width: 0;
+  padding: 0 4px;
+  margin: 0 2px;
+  border-radius: 4px;
+  vertical-align: baseline;
+  background: light-dark(#e0eaff, rgb(142 168 255 / 18%));
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: inherit;
+  color: light-dark(#2c4fd8, #a9bcff);
+  cursor: pointer;
+}
+.bc-md .bc-amd-time * { font: inherit; color: inherit; padding: 0; margin: 0; }
+.bc-md .bc-amd-time:hover { background: light-dark(#c9d9ff, rgb(142 168 255 / 28%)); }
 .bc-md code {
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
   font-size: 12.5px;

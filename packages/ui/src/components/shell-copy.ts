@@ -165,6 +165,10 @@ const en = {
     dropEditorState: 'Don’t include editor state with this message',
     spaceEntries: 'Space items sent with this message',
     dropSpaceEntries: 'Don’t include these Space items with this message',
+    readScopeAll: 'Can search all videos',
+    readScopeUnfiled: 'Can search videos not in a project',
+    readScopeHint: 'The agent can search what’s said in these videos, but can’t open or edit them',
+    dropReadScope: 'Search only this conversation’s videos',
     message: 'Message to the agent',
   },
   rail: {

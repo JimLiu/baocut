@@ -19,6 +19,7 @@ import {
   type MediaTarget,
   type Project,
   type SpaceEntry,
+  type SpaceReadScope,
   type SubtitleTrack,
   type SkillSendRef,
   type SlideAnnotation,
@@ -165,7 +166,7 @@ export class RuntimeSession {
    */
   async createConversation(
     projectId: Id | null,
-    options: { accessMode?: AgentMode; driverId?: DriverId; model?: string | null; effort?: string | null; folderOf?: Id } = {},
+    options: { accessMode?: AgentMode; driverId?: DriverId; model?: string | null; effort?: string | null; folderOf?: Id; spaceReadScope?: SpaceReadScope } = {},
   ): Promise<Conversation> {
     const { conversation } = await this.client.request('conversations.create', { projectId, commandId: newId('cmd'), ...options });
     return conversation;
@@ -280,6 +281,8 @@ export class RuntimeSession {
       driverId?: DriverId;
       model?: string | null;
       effort?: string | null;
+      /** 收回放宽的只读检索范围。 */
+      spaceReadScope?: null;
     },
   ): Promise<void> {
     await this.client.request('conversations.update', { conversationId, ...patch });

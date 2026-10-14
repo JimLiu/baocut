@@ -19,7 +19,7 @@ import { vi } from './models-install-copy.vi.ts';
 const and = (items: readonly string[]) => new Intl.ListFormat(intlLocale(), { type: 'conjunction' }).format(items);
 const files = (n: number) => `${n} ${n === 1 ? 'file' : 'files'}`;
 const KEEP = "What's already downloaded is kept, and the next download picks up where it left off.";
-const SOURCE = 'the "Model download source" in Settings › General';
+const SOURCE = 'the download sources in Settings › General';
 
 const en = {
   // ---- 确认对话框 ----
@@ -46,7 +46,8 @@ const en = {
     `${need !== null && have !== null ? `This needs ${need}, and only ${have} is left. ` : ''}Free up disk space, then download again. ${KEEP}`,
   remedyNetwork: `Check your network, then download again. ${KEEP} If the default source can't be reached, switch to a mirror in ${SOURCE}.`,
   remedyIntegrity: `The files from the download source didn't match the manifest's size or sha256, and the bad files were deleted. Switch to another download source (${SOURCE}), then download again.`,
-  remedySource: `The download source doesn't have this file or denied access. Check that the mirror set in ${SOURCE} (or the BAOCUT_MODELS_ENDPOINT environment variable) is complete.`,
+  remedySource: (env: string) =>
+    `The download source doesn't have this file or denied access. Check that the mirror set in ${SOURCE} (or the ${env} environment variable) is complete, or switch to another source.`,
   remedyManifest: "This model package's built-in manifest is missing a trusted sha256, so it can't be installed until BaoCut is updated.",
   remedyOffline: 'Strict offline mode is on, so nothing is downloaded. To download, turn off strict offline mode in Settings first.',
   remedySizeChanged: 'The download size changed. Confirm again with the new plan.',
@@ -56,6 +57,11 @@ const en = {
     "The model package can't be used right now (not fully installed, turned off, or not supported on this computer). Repair it or turn it back on first.",
   remedyInstallFailed: `Try downloading again. ${KEEP}`,
   /** Runtime 的原话接上怎么办。 */
+  partFailed: (part: string) => `${part} didn’t download.`,
+  partFailedFrom: (part: string, host: string) => `${part} didn’t download from ${host}.`,
+  partKept: 'The parts already downloaded are kept, so completing downloads only what’s missing. You can switch the download source first.',
+  /** 几句话连成一段（有的语言句间不空格）。 */
+  sentences: (parts: string[]) => parts.join(' '),
   problemText: (message: string, remedy: string) => (/[.!?。！？]$/.test(message) ? `${message} ${remedy}` : `${message}. ${remedy}`),
   // ---- 删除 ----
   /**

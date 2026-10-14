@@ -13,12 +13,15 @@
 .ssr__ansh { font-size: 14px; color: var(--gray-900); }
 .ssr__ansp { margin: 0; font-size: 12px; line-height: 1.7; color: var(--gray-800); }
 .ssr__cite { margin-left: 4px; }
-.ssr__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 8px; }
+.ssr__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 8px; }
 .ssr__card { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 10px; background: var(--gray-50);
   box-shadow: inset 0 0 0 1px var(--gray-200); }
-.ssr__main { display: flex; flex-direction: column; align-items: stretch; gap: 4px; width: 100%; padding: 4px; border-radius: 8px; text-align: left; cursor: pointer;
+.ssr__main { display: flex; align-items: flex-start; gap: 8px; width: 100%; padding: 4px; border-radius: 8px; text-align: left; cursor: pointer;
   transition: background 150ms cubic-bezier(0.45, 0, 0.4, 1); }
 .ssr__main:hover { background: var(--gray-75); }
+/* 命中那一刻的画面：卡片左边一格 16:9 的小图 */
+.ssr__thumb { flex: none; width: 96px; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; }
+.ssr__body { display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto; min-width: 0; }
 .ssr__meta { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .ssr__t { flex: none; font-size: 11px; font-variant-numeric: tabular-nums; font-weight: 700; color: var(--blue-1000); }
 .ssr__v { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--gray-600); }
@@ -27,10 +30,22 @@
 .ssr__by { font-size: 11px; color: var(--gray-600); }
 .ssr__acts { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 0 4px; }
 .ssr__empty { padding: 8px 0; color: var(--gray-600); }
+.ssr__fold { align-self: flex-start; }
 .ssr__pv { display: flex; flex-direction: column; gap: 12px; }
 .ssr__pvimg { width: 100%; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; }
+/* 预览里的那一刻：画面下面一条播放条，命中那一句标出来，播放头按这一段的真实时长走过去 */
+.ssr__mo { display: flex; flex-direction: column; gap: 8px; }
+.ssr__mobar { display: flex; align-items: center; gap: 12px; }
+.ssr__track { position: relative; flex: 1 1 auto; height: 8px; border-radius: 8px; background: var(--gray-200); }
+.ssr__hitspan { position: absolute; top: 0; bottom: 0; border-radius: 8px; background: var(--blue-800); }
+.ssr__head { position: absolute; top: -4px; bottom: -4px; left: 0; width: 2px; border-radius: 8px; background: var(--gray-900);
+  animation-name: ssr-head; animation-timing-function: linear; animation-fill-mode: forwards; }
+@keyframes ssr-head { from { left: 0; } to { left: 100%; } }
 .ssr__pvctx { display: flex; flex-direction: column; gap: 4px; }
 .ssr__pvrow { display: flex; align-items: baseline; gap: 8px; padding: 4px 8px; border-radius: 8px; font-size: 12px; line-height: 1.5; color: var(--gray-700); }
 .ssr__pvrow.is-hit { background: var(--blue-100); color: var(--gray-900); }
 /* 内容结果下面的名称匹配列表的小标题 */
 .space__sub { flex: none; margin: 0 var(--space-inset) 4px; font-size: 14px; font-weight: 700; color: var(--gray-900); }
+/* 内容结果下面，名称与文件没对上时那一行（不用大号空态） */
+.space__none { margin: 0; padding: 4px 0; color: var(--gray-600); }
+.space__grid[data-empty]:has(.space__none) { align-items: flex-start; justify-content: flex-start; }

@@ -19,6 +19,10 @@ export const ko: SettingDescriptionMessages = {
     '로컬 모델을 둘 폴더(절대 경로). null이면 데이터 폴더의 models를 사용합니다. BAOCUT_MODELS_DIR 환경 변수가 우선합니다. settings set이 아니라 models.setDir로 변경하세요',
   'tools.downloadEndpoint':
     '관리되는 외부 도구(yt-dlp)의 다운로드 소스(미러 기본 URL, http(s)://, 파일 위치는 <base>/<tool>/<version>/<file>). null이면 공식 배포 URL을 사용합니다. BAOCUT_TOOLS_ENDPOINT 환경 변수가 우선합니다',
+  'models.downloadMirrors':
+    "추가한 모델 저장소 미러({ name, base } 목록, base는 중복 없는 http(s):// 기본 URL). 선택지 목록일 뿐이며 다운로드는 models.downloadEndpoint를 따릅니다",
+  'tools.downloadMirrors':
+    "추가한 릴리스 페이지 미러({ name, base } 목록, base는 중복 없는 http(s):// 기본 URL). 선택지 목록일 뿐이며 다운로드는 tools.downloadEndpoint를 따릅니다",
   'fonts.autoDownload':
     '레이아웃에 필요하지만 이 컴퓨터에 없고 글꼴 카탈로그에 있는 글꼴을 자동으로 다운로드합니다(미리보기와 내보내기). 끄면 대체 글꼴로 그리고 안내를 표시합니다',
   'fonts.cssEndpoint': '글꼴 CSS API의 기본 URL(미러, https://). null이면 https://fonts.googleapis.com을 사용합니다',
@@ -34,8 +38,9 @@ export const ko: SettingDescriptionMessages = {
   'updates.autoDownload': '새 버전을 백그라운드에서 다운로드(자동으로 설치하지 않음)',
   'diagnostics.enabled': '익명 사용 통계와 성능 요약 보내기(미디어, 텍스트, 경로는 포함하지 않음)',
   'offline.strict': '엄격한 오프라인: 어떤 온라인 서비스에도 아무것도 보내지 않습니다',
-  'semantic.channels': '의미 색인을 만들 채널: text(말한 내용: 대본, 자막, 번역, 챕터). 화면(visual)과 소리(audio)는 아직 사용할 수 없습니다',
+  'semantic.channels': '의미 색인을 만들 채널: text(말한 내용: 대본, 자막, 번역, 챕터). 화면(visual)은 8초마다 키프레임 하나로, 멀티모달 모델 패키지가 필요하고 더 오래 걸립니다. 소리(audio)는 아직 사용할 수 없습니다',
   'semantic.indexedProjects': '의미 색인을 만들 프로젝트: all은 전체, 또는 프로젝트 ID 목록(프로젝트 밖의 영상은 all일 때만)',
+  'semantic.pauseOnBattery': '배터리 사용 중에는 의미 색인 생성을 일시 정지하고 전원에 연결하면 이어서 진행합니다(발열로 성능이 제한될 때는 항상 일시 정지)',
   'semantic.translationMemory': '번역할 때 이전에 번역한 거의 같은 문장을 제안(텍스트 검색 모델 필요)',
   'semantic.glossaryCandidates': '대본들 사이의 거의 같은 표기에서 용어 후보를 제안(텍스트 검색 모델 필요)',
 };

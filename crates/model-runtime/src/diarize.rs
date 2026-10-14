@@ -371,6 +371,7 @@ mod tests {
             threads: 1,
             memory_budget_bytes: None,
             cache_dir: None,
+            vision: None,
             asr: None,
             vad: None,
             aligner: None,

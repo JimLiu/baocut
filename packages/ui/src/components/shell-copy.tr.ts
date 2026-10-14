@@ -140,6 +140,10 @@ export const tr: ShellMessages = {
     dropEditorState: "Düzenleyici durumunu bu mesaja ekleme",
     spaceEntries: "Bu mesajla gönderilen Space öğeleri",
     dropSpaceEntries: "Bu Space öğelerini bu mesaja ekleme",
+    readScopeAll: "Tüm videolarda arayabilir",
+    readScopeUnfiled: "Proje dışındaki videolarda arayabilir",
+    readScopeHint: "Agent bu videolarda söylenenleri arayabilir ama onları açamaz veya düzenleyemez",
+    dropReadScope: "Yalnızca bu sohbetin videolarında ara",
     message: "Ajan için mesaj",
   },
   rail: {

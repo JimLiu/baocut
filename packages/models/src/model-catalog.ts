@@ -23,7 +23,7 @@ import {
   type BundleDefinition,
   type ComponentReleaseAsset,
 } from './bundle-registry.ts';
-import { EMBEDDING_WORKER_OVERHEAD_BYTES } from './embedding-bundles.ts';
+import { EMBEDDING_VISION_OVERHEAD_BYTES, EMBEDDING_WORKER_OVERHEAD_BYTES } from './embedding-bundles.ts';
 import { readInstallRecord } from './install-record.ts';
 import { stagedBytes } from './model-staging.ts';
 import { modelDetail, type ModelText } from './model-text.ts';
@@ -390,7 +390,9 @@ export class ModelCatalog {
     if (def?.capability === 'embed') {
       // LiteRT-LM 在 CPU 上：模型文件与 C 库映射进内存，加上推理的工作区，计在内存。
       const bytes = weightBytes(requiredSources(def), this.#manifests, this.#platformKey);
-      return bytes === null ? null : { bytes: bytes + EMBEDDING_WORKER_OVERHEAD_BYTES, pool: 'memory' };
+      if (bytes === null) return null;
+      const vision = def.embedding?.vision ? EMBEDDING_VISION_OVERHEAD_BYTES : 0;
+      return { bytes: bytes + EMBEDDING_WORKER_OVERHEAD_BYTES + vision, pool: 'memory' };
     }
     if (def?.capability === 'synthesize' && def.speech?.residentBytes !== undefined) {
       return {bytes: def.speech.residentBytes, pool: this.#device(def) === 'cpu' ? 'memory' : 'gpuMemory'};
@@ -569,7 +571,10 @@ export class ModelCatalog {
    * Worker 交给 `model.load` 的模型包描述（协议规范 §4）。文件不齐时抛错。`device` 是这个 Worker 握手报告的设备（candle 的
    * `cuda` 或 `cpu`，GGML 的 `cuda` / `vulkan` 或 `cpu`）；不给时用 `setWorkerDevice` 记下的，再没有就用登记的。
    */
-  async bundleFor(bundleId: string, options: { memoryBudgetBytes?: number | null; device?: string } = {}): Promise<ModelBundle> {
+  async bundleFor(
+    bundleId: string,
+    options: { memoryBudgetBytes?: number | null; device?: string; vision?: boolean } = {},
+  ): Promise<ModelBundle> {
     const def = this.#bundles.get(bundleId);
     if (!def) throw new Error(M.noBundle({ bundleId }).text);
     if (this.#relocating) throw new Error(M.moving().text);
@@ -592,6 +597,8 @@ export class ModelCatalog {
       threads: this.#threads,
       memoryBudgetBytes: options.memoryBudgetBytes ?? null,
       ...(def.backend === 'litert-lm' && this.#engineCacheDir ? { cacheDir: this.#engineCacheDir } : {}),
+      // 图像编码器多占约 1 GB：只在要编码图片时（`vision`）打开（协议规范 §4.5）。
+      ...(options.vision && def.embedding?.vision ? { vision: { tokensPerImage: def.embedding.vision.tokensPerImage } } : {}),
     };
   }
 

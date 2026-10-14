@@ -1923,6 +1923,9 @@ div.blkw { display: inline; }
 .chapc { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 10px 12px; border-radius: 8px; background: var(--gray-25); box-shadow: inset 0 0 0 1px var(--gray-200); }
 .chapc b { flex: 1 1 auto; min-width: 0; font-size: 14px; font-weight: 700; color: var(--gray-900); }
 .chapc .tm { font-size: 11px; color: var(--gray-500); font-variant-numeric: tabular-nums; }
+.chapc__hint { display: flex; align-items: baseline; gap: 8px; margin: 4px 12px 0; color: var(--gray-700); }
+.chapc__hint > span { flex: 1 1 auto; min-width: 0; }
+.chapc__hint > :last-child { flex: none; white-space: nowrap; }
 .distb { display: flex; gap: 2px; height: 8px; margin-top: 6px; }
 .distb i { border-radius: 3px; }
 .spkc { margin-top: 8px; padding: 10px 12px; border-radius: 8px; background: var(--gray-25); box-shadow: inset 0 0 0 1px var(--gray-200); }

@@ -21,8 +21,10 @@ import {
   hitTarget,
   hitVideoEntry,
   hitWhere,
+  hitWords,
   matchedByKind,
   planGroupRows,
+  foldWeakHits,
   SEARCH_DEBOUNCE_MS,
   searchNote,
   searchRequest,
@@ -46,7 +48,9 @@ import { useShell } from '../../state/shell-store.ts';
 import { useVideo } from '../../state/video-store.ts';
 import { openAiTool, setPanelLanding } from '../editor/ai-tools-nav.ts';
 import { SemanticNote } from '../semantic-note.tsx';
+import { HitPreview, MomentThumb, momentOf, momentPending, useGroupMoments } from './space-hit-moment.tsx';
 import { openHome, startDraftKey } from '../start/open-home.ts';
+import { useStartBrief } from '../../state/start-brief-store.ts';
 import { OUTPUT_COPY } from '../tools/tools-copy.ts';
 import { SPACE_COPY as COPY } from './space-copy.ts';
 
@@ -56,7 +60,7 @@ const count = style({ font: 'ui-sm', fontWeight: 'normal', color: 'gray-600' });
 const note = style({ font: 'ui-xs', color: 'gray-600', margin: 0 });
 const filters = style({ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 });
 const picker = style({ width: 140, maxWidth: 'full' });
-const list = style({ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto' });
+const list = style({ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 480, overflowY: 'auto' });
 const group = style({ display: 'flex', flexDirection: 'column', gap: 2 });
 const rows = style({ display: 'flex', flexDirection: 'column', gap: 2, margin: 0, padding: 0, listStyleType: 'none' });
 const groupHead = style({
@@ -115,7 +119,8 @@ const more = style({
 });
 const rowIcon = style({ display: 'flex', flexShrink: 0, color: 'gray-600' });
 const rowBody = style({ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 });
-const rowMeta = style({ font: 'ui-xs', color: 'gray-600' });
+const rowMeta = style({ display: 'flex', alignItems: 'center', gap: 8, font: 'ui-xs', color: 'gray-600' });
+const rowWhy = style({ font: 'ui-xs', color: 'gray-700' });
 const snippet = style({ font: 'ui-sm', color: 'gray-800', overflowWrap: 'anywhere' });
 const mark = style({ backgroundColor: 'yellow-400', color: 'gray-900', borderRadius: 'sm' });
 const chip = style({ flexShrink: 0 });
@@ -157,6 +162,8 @@ export function SpaceSearchHits({ query, projectId, entries }: { query: string; 
   const [speakers, setSpeakers] = useState<{ key: string; names: string[] }>({ key: '', names: [] });
   // 每组放到第几条；换词、换筛选时重来。
   const [shown, setShown] = useState<{ key: string; counts: Record<string, number> }>({ key: '', counts: {} });
+  // 勉强相关的点开了没有；换词、换筛选时收回去。
+  const [weakOpen, setWeakOpen] = useState('');
   const seq = useRef(0);
   const q = query.trim();
   const scopeKey = `${q}\n${projectId ?? ''}`;
@@ -196,7 +203,9 @@ export function SpaceSearchHits({ query, projectId, entries }: { query: string; 
 
   if (!state) return null;
   const found: readonly Hit[] = state.status !== 'done' ? [] : state.mode === 'lexical' ? state.result.hits : state.rows;
-  const hits = exactSpeaker(found, filter.speaker);
+  const matched = exactSpeaker(found, filter.speaker);
+  const fold = foldWeakHits(matched);
+  const hits = weakOpen === resultKey ? matched : fold.shown;
   const groups = groupHits<Hit>(hits);
   const extra =
     state.status !== 'done'
@@ -291,53 +300,111 @@ export function SpaceSearchHits({ query, projectId, entries }: { query: string; 
       ) : null}
       {groups.length ? (
         <div className={list}>
-          {groups.map((g) => {
-            const plan = planGroupRows(g.hits, counts[g.videoId]);
-            return (
-              <section key={g.videoId} className={group} aria-label={g.videoName}>
-                <RACButton className={(s) => groupHead(s)} onPress={() => openGroup(g, entries)}>
-                  <span className={rowIcon}>
-                    <Filmstrip />
-                  </span>
-                  <span className={groupTitle}>{g.videoName}</span>
-                  <span className={count}>{COPY.hitsCount(g.hits.length)}</span>
-                </RACButton>
-                <ul className={rows}>
-                  {plan.rows.map((hit, index) => (
-                    <li key={`${hit.documentId ?? 'chapter'}:${hit.time.start}:${index}`}>
-                      <RACButton className={(s) => row(s)} onPress={() => (isSemantic(hit) ? void openSemanticHit(runtime, hit, entries) : openHit(hit, entries))}>
-                        <Badge variant="neutral" fillStyle="subtle" size="S" styles={chip}>
-                          {hitChip(hit)}
-                        </Badge>
-                        <span className={rowBody}>
-                          <span className={rowMeta}>{rowWhere(hit)}</span>
-                          <span className={snippet}>
-                            {snippetParts(hit.snippet, hit.highlights).map((part, i) =>
-                              part.hit ? (
-                                <mark key={i} className={mark}>
-                                  {part.text}
-                                </mark>
-                              ) : (
-                                <span key={i}>{part.text}</span>
-                              ),
-                            )}
-                          </span>
-                        </span>
-                      </RACButton>
-                      <HitActions hit={hit} entries={entries} query={q} web={web} runtime={runtime} />
-                    </li>
-                  ))}
-                </ul>
-                {plan.more ? (
-                  <RACButton className={(s) => more(s)} onPress={() => showMore(g)}>
-                    {COPY.hitsMore(plan.more)}
-                  </RACButton>
-                ) : null}
-              </section>
-            );
-          })}
+          {groups.map((g) => (
+            <HitGroupView
+              key={g.videoId}
+              group={g}
+              rows={planGroupRows(g.hits, counts[g.videoId])}
+              entries={entries}
+              query={q}
+              web={web}
+              runtime={runtime}
+              onMore={() => showMore(g)}
+            />
+          ))}
         </div>
       ) : null}
+      {fold.folded.length ? (
+        <RACButton
+          className={(s) => more(s)}
+          aria-expanded={weakOpen === resultKey}
+          onPress={() => setWeakOpen((open) => (open === resultKey ? '' : resultKey))}>
+          {weakOpen === resultKey ? COPY.hitsWeakHide : COPY.hitsWeakShow(fold.folded.length)}
+        </RACButton>
+      ) : null}
+    </section>
+  );
+}
+
+/**
+ * 一个视频的命中（设计稿 space-search.jsx `ResultCard`）：每行左边是那一刻的那一帧，写在哪、为什么命中（原句里说到了哪些词，
+ * 或只是意思相近），点一行打开预览框就地播那一刻，「在时间线打开」才去打开视频。
+ */
+function HitGroupView({
+  group: g,
+  rows: plan,
+  entries,
+  query,
+  web,
+  runtime,
+  onMore,
+}: {
+  group: HitGroup<Hit>;
+  rows: ReturnType<typeof planGroupRows<Hit>>;
+  entries: readonly SpaceEntry[];
+  query: string;
+  web: boolean;
+  runtime: RuntimeSession;
+  onMore: () => void;
+}) {
+  const entry = hitVideoEntry(g.hits[0]!, entries);
+  const moments = useGroupMoments(runtime, entry?.id ?? null, plan.rows);
+  const [preview, setPreview] = useState<Hit | null>(null);
+  return (
+    <section className={group} aria-label={g.videoName}>
+      <RACButton className={(s) => groupHead(s)} onPress={() => openGroup(g, entries)}>
+        <span className={rowIcon}>
+          <Filmstrip />
+        </span>
+        <span className={groupTitle}>{g.videoName}</span>
+        <span className={count}>{COPY.hitsCount(g.hits.length)}</span>
+      </RACButton>
+      <ul className={rows}>
+        {plan.rows.map((hit, index) => (
+          <li key={`${hit.documentId ?? 'chapter'}:${hit.time.start}:${index}`}>
+            <RACButton className={(s) => row(s)} onPress={() => setPreview(hit)}>
+              <MomentThumb moment={momentOf(moments, hit)} pending={momentPending(moments, hit)} />
+              <span className={rowBody}>
+                <span className={rowMeta}>
+                  <Badge variant="neutral" fillStyle="subtle" size="S" styles={chip}>
+                    {hitChip(hit)}
+                  </Badge>
+                  <span>{hitWhere(hit)}</span>
+                </span>
+                <span className={rowWhy}>{whyLine(hit)}</span>
+                <span className={snippet}>
+                  {snippetParts(hit.snippet, hit.highlights).map((part, i) =>
+                    part.hit ? (
+                      <mark key={i} className={mark}>
+                        {part.text}
+                      </mark>
+                    ) : (
+                      <span key={i}>{part.text}</span>
+                    ),
+                  )}
+                </span>
+              </span>
+            </RACButton>
+            <HitActions hit={hit} entries={entries} query={query} web={web} runtime={runtime} />
+          </li>
+        ))}
+      </ul>
+      {plan.more ? (
+        <RACButton className={(s) => more(s)} onPress={onMore}>
+          {COPY.hitsMore(plan.more)}
+        </RACButton>
+      ) : null}
+      <HitPreview
+        runtime={runtime}
+        entryId={entry?.id ?? null}
+        hit={preview}
+        moment={preview ? momentOf(moments, preview) : null}
+        revision={moments?.revision ?? null}
+        where={preview ? hitWhere(preview) : ''}
+        why={preview ? whyLine(preview) : ''}
+        onOpen={() => preview && (isSemantic(preview) ? void openSemanticHit(runtime, preview, entries) : openHit(preview, entries))}
+        onClose={() => setPreview(null)}
+      />
     </section>
   );
 }
@@ -369,6 +436,9 @@ function HitActions({ hit, entries, query, web, runtime }: { hit: Hit; entries: 
  * 「回答这个问题」（创作辅助集成设计 §2.9；原型 space-search.jsx `Answer`）：Space 里不调模型，把问题交给新会话，挂上内置 skill
  * `cross-video-qa`，由智能体检索、回答并附可点的出处（回答里的视频时间链接）。按 Space 当前筛到的项目开会话、话里写明只在这个项目里找（skill 才知道要限定项目），没筛项目时是无项目会话；
  * 只放进输入框（接在已有的话后面），由用户发出。
+ *
+ * 无项目会话的智能体本来只看会话自己的视频（架构设计 §4.8），所以没筛项目时给新会话挂上只读检索范围（`Conversation.spaceReadScope`）：
+ * 「全部项目」是全部视频，「不属于项目」是不属于项目的视频。输入框上方写明，可以摘掉。
  */
 export function askAcrossVideos(question: string, projectId: Id | 'none' | null): void {
   const project = projectId && projectId !== 'none' ? projectId : null;
@@ -376,6 +446,7 @@ export function askAcrossVideos(question: string, projectId: Id | 'none' | null)
   const shell = useShell.getState();
   shell.setDraft(key, mergeDraft(shell.drafts[key], COPY.hitAskDraft(question, project !== null)));
   useDraftSkills.getState().add(key, CROSS_VIDEO_QA_SKILL);
+  useStartBrief.getState().patch(key, { readScope: project ? null : projectId === 'none' ? 'unfiled' : 'all' });
   openHome(project);
 }
 
@@ -402,13 +473,24 @@ function writeFromHit(hit: Hit, entry: SpaceEntry, query: string): void {
 }
 
 /**
- * 命中行的位置；综合搜索的命中再写怎么找到的。不在列表里写「已剪掉」：素材时间的命中也可能只是没有时间线（或译文对不上时间），
- * 是不是真剪掉了要打开时按当前版本解析才知道（`openSemanticHit`）。
+ * 为什么命中（设计稿 model-space-search.js `why`）：「讲话内容 · 说到了「剪辑」「节奏」」；两路都对上时再写意思也对得上；只按意思
+ * 找到的照写原句里没有这些字，勉强相关的另写。不给分数，不编造概念名。不在列表里写「已剪掉」：素材时间的命中也可能只是没有
+ * 时间线（或译文对不上时间），是不是真剪掉了要打开时按当前版本解析才知道（`openSemanticHit`）。
  */
-function rowWhere(hit: Hit): string {
-  if (!isSemantic(hit)) return hitWhere(hit);
-  const by = { both: COPY.byBoth, lexical: COPY.byLexical, semantic: COPY.bySemantic }[matchedByKind(hit.matchedBy)];
-  return [hitWhere(hit), by].join(' · ');
+function whyLine(hit: Hit): string {
+  // 章节标题不是讲出来的话：不挂「讲话内容」，也不写「说到了」，只说对上的是字面还是意思（类型已经在徽标上）。
+  const spoken = hit.documentKind !== 'chapter';
+  const words = spoken ? hitWords(hit) : [];
+  const kind = isSemantic(hit) ? matchedByKind(hit.matchedBy) : 'lexical';
+  const why =
+    isSemantic(hit) && hit.weak
+      ? COPY.byWeak
+      : kind === 'semantic' || !words.length
+        ? { both: COPY.byBoth, lexical: COPY.byLexical, semantic: COPY.bySemantic }[kind]
+        : kind === 'both'
+          ? COPY.whySaidMeaning(words)
+          : COPY.whySaid(words);
+  return spoken ? [COPY.channelSpeech, why].join(' · ') : why;
 }
 
 /** 点组头：打开视频，不挪播放头（设计稿：没有落点的不硬编一个）。 */

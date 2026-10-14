@@ -30,18 +30,10 @@ export const pl: GeneralSettingsMessages = {
   downloaderWeb: "Przeglądarka nie sprawdza narzędzi pobierania na komputerze; sprawdź w aplikacji komputerowej BaoCut.",
 
   sourcesGroup: "Źródła pobierania i offline",
-  modelsEndpoint: "Źródło pobierania modeli",
-  toolsEndpoint: "Źródło pobierania narzędzi",
-  toolsEndpointDesc: "Narzędzia zewnętrzne, np. yt-dlp, pobierane są stąd pod „bazowy URL/tool/version/file name”. Pozostaw puste dla oficjalnego URL wydania. Zmienna środowiskowa BAOCUT_TOOLS_ENDPOINT ma pierwszeństwo.",
-  toolsEndpointPlaceholder: "Oficjalny URL wydania",
   strictOffline: "Ścisły offline",
   strictOfflineDesc: "Po włączeniu modele, narzędzia zewnętrzne i wideo z linków nie są pobierane. Dostęp online modeli w chmurze i silników agentów bez zmian.",
   strictOfflineOn: "Włączono ścisły tryb offline",
   strictOfflineOff: "Wyłączono ścisły tryb offline",
-  endpointChanged: (endpoint: string) => `Teraz używa ${endpoint}`,
-  endpointReset: (label: string) => `${label} przywrócono domyślne`,
-  save: "Zapisz",
-  resetDefault: "Przywróć domyślne",
 
   trashDays: "Dni przechowywania w koszu",
   trashDaysDesc: (fallback: number | null) => `Wpisy bez odwołań w koszu dłużej niż ten okres i usunięte wideo są usuwane trwale (kontrola przy starcie i co 6 godzin). Wpisy z odwołaniami zostają zachowane. Wyczyść dla wartości domyślnej${fallback ? ` z ${fallback} dni` : ""}.`,

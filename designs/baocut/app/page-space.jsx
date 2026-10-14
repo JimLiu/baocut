@@ -131,12 +131,16 @@
       }
     };
     const filtered = !!(q.trim() || dir || status !== 'any' || from);
-    const empty = () => (
+    /* 搜索框有字时上面已有「讲话内容里」：名称没对上只写一行，不再用大号空态说「没有符合条件的条目」（那会像是整个搜索都没结果） */
+    const named = !!(q.trim() && cat !== 'trash');
+    const empty = () => (named ? (
+      <p className="space__none t-detail">{`${dir || status !== 'any' || from ? '在当前项目与状态筛选下，' : ''}名称和文件里没有「${q.trim()}」。`}</p>
+    ) : (
       <R.IllustratedMessage size="S">
         <R.Heading>{filtered ? '没有符合条件的条目' : cat === 'trash' ? '回收站是空的' : cat === 'fav' ? '还没有收藏' : `还没有${catLabel}`}</R.Heading>
         <R.Content>{filtered ? '换个关键词，或清除筛选。' : cat === 'trash' ? '移入回收站的条目会在这里，可以恢复。' : '在会话里让 Agent 做，或从右上角「新建」开始。'}</R.Content>
       </R.IllustratedMessage>
-    );
+    ));
 
     return (
       <div className="space">
@@ -181,7 +185,7 @@
         ) : null}
         {/* 按内容找（embedding-integration §2.1）：搜索框有字时在名称匹配上面；空着时给几条示例。回收站里不找 */}
         {cat !== 'trash' ? <window.SpaceContentSearch q={q} setQ={setQ} dir={dir} /> : null}
-        {q.trim() && cat !== 'trash' ? <h2 className="space__sub">名称与文件</h2> : null}
+        {named ? <h2 className="space__sub">名称与文件</h2> : null}
         <div className="space__list">
           {mode === 'list'
             ? <window.SpaceTable rows={rows} movies={movies} dirs={dirsById} onAct={onAct} empty={empty} />

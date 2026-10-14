@@ -17,6 +17,7 @@ import { DesignSystemTools } from './design-system-tools.ts';
 import { SpaceTools } from './space-tools.ts';
 import { SemanticTools } from './semantic-tools.ts';
 import { SpeechSentenceTools } from './speech-sentence-tools.ts';
+import { EditAidTools } from './edit-aid-tools.ts';
 import { TaskTools } from './task-tools.ts';
 import { VideoDeleteTools } from './video-delete-tools.ts';
 import { VideoTools } from './video-tools.ts';
@@ -45,6 +46,7 @@ export function allToolSets(): ToolSet[] {
     new FlowTools(none),
     new DownloadTools(none),
     new SpeechSentenceTools(none),
+    new EditAidTools(none),
     new VideoDeleteTools(none),
     new CompositionTools(none),
     new SlidesTools(none),

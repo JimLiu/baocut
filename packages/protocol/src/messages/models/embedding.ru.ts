@@ -10,6 +10,7 @@ export const ru: ModelsEmbeddingMessages = {
   notNormalized: (p: { norm: string }) => `Длина вектора не равна 1 (норма ${p.norm})`,
   notRanked: (p: { relevant: string; irrelevant: string }) => `Связанное предложение не получило оценку выше несвязанного (косинус ${p.relevant} против ${p.irrelevant})`,
   noModel: 'Локальная модель эмбеддингов не установлена',
+  noVisionModel: 'Ни одна установленная локальная модель эмбеддингов не читает изображения. Установите EmbeddingGemma 2 740M, чтобы искать по содержимому кадра',
   inputTooLong: (p: { index: number; max: number }) => `Текст ${p.index} длиннее, чем принимает модель (${p.max} токенов)`,
   modelUnavailable: (p: { problem: string }) => `Локальная модель эмбеддингов недоступна: ${p.problem}`,
   cannotEmbed: 'Этот Model Worker пока не умеет вычислять эмбеддинги этой моделью',

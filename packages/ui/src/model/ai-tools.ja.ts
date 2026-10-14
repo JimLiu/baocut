@@ -127,6 +127,7 @@ export const ja: AiToolsMessages = {
   },
   viewName: { author: '作者', viewer: '視聴者' },
   extraScope: (scope: string) => `「${scope}」だけを対象にしてください`,
+  extraTopic: (topic: string) => `「${topic}」についてだけ書く：まず speech_relevant でそれについて話している部分を見つけ、そこから書く`,
   extraLength: (label: string) => `長さ：${label}`,
   extraStyle: (style: string) => `文体：${style}`,
   extraLanguage: (language: string) => `${language}で書いてください`,

@@ -195,6 +195,11 @@ export interface ModelInstallPlan {
     files: string[];
     /** 这个组件要下载的字节数；有文件大小未知时 null。 */
     bytes: number | null;
+    /**
+     * 这个组件从哪个基址下载（不含凭据）：模型仓库的组件是模型下载来源（ModelScope 上没有的照样是公共模型仓库），
+     * 发布页组件是工具下载镜像，没有镜像时是上游发布页（`https://github.com/<owner>/<repo>/releases`）。旧 Runtime 不给。
+     */
+    source?: string;
   }>;
   /** 这次要下载的总字节数（不含暂存区里已经收到的部分）；有文件大小未知时 null。 */
   downloadBytes: number | null;

@@ -88,6 +88,11 @@ export function componentLabel(component: string): string {
   return M.componentName[component] ?? component;
 }
 
+/** 一部分给人看的名字（缺什么、哪一部分没下成）：列了名字的组件写名字，其余是模型包自己的权重。 */
+export function partLabel(component: string): string {
+  return M.componentName[component] ?? M.weights;
+}
+
 /** 组件做什么的一句（公共组件那一行）；没列的 null。 */
 export function componentDesc(component: string): string | null {
   return M.componentDesc[component] ?? null;

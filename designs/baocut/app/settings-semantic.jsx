@@ -2,9 +2,12 @@
    · 模型：「文字搜索」「多模态搜索」两个包与安装状态；多模态包含文字，装了它不必再装文字包；
      安装先过下载确认框（download-dialog.jsx）：模型文件（模型仓库）与 LiteRT-LM 运行时（GitHub 发布页）合成一次下载，各自可换来源；
      一部分没下成时下好的留着（st.half），卡片写哪一部分、连的哪里，「补齐」只下缺的（2026-10-13）；
-   · 安装不等于扫描：装完只对已有文稿建轻量文字索引；画面与声音按项目开启，开启前写明范围与开销；
+   · 安装不等于扫描：装完只对已有文稿建轻量文字索引；画面在「索引」里打开（一个开关，跟着已索引的项目走），
+     打开前写明要建多少帧、首次要多久、向量多大（indexStatus.estimates 的画面一项，2026-10-13）；
    · 索引：状态、缓存大小、暂停 / 恢复 / 清理、实际后端（自检后选的那一个）；
-   · 已索引的项目：每个项目按通道写完整性（「文字 2/3 部视频（1 部还在转录）」），画面 / 声音这一版不可开，写明原因；
+     在更新时写还要多久（按这台电脑量过的速度）；用电池、过热降频时自动停下，状态写原因，「用电池时暂停」可关（2026-10-13）；
+   · 已索引的项目：每个项目按通道写完整性（「文字 2/3 部视频（1 部还在转录）」「画面 0/30 个素材完成」），画面没开时写范围，
+     声音这一版没有；
    · 用到它的两项开关：翻译记忆、术语候选，缺省都开；
    · 这台电脑不支持时整页说明原因，精确文字搜索照常可用。
    状态在 semantic-state.jsx，规则与文案在 model-semantic.js。只在 App。 */
@@ -63,27 +66,24 @@
     );
   }
 
-  /* 一个项目：文字的完整性；画面 / 声音写明范围与开销，这一版不可开 */
+  /* 一个项目：文字与画面的完整性（画面开着时）；画面没开时写这个项目的范围；声音这一版没有。
+     画面开关只有一个（在「索引」里，设置 semantic.channels，跟着「建索引的项目」走），项目里不另设开关。 */
   function ProjectRow({p, st}) {
     const app = useApp();
     const d = (app.dirs || []).find((x) => x.id === p.dir) || {name: p.dir};
-    const full = st.install === 'full';
-    const ch = (k, label) => (
-      <div className="semset__ch">
-        <Switch on={false} disabled ariaLabel={`${d.name} · ${label}`} />
-        <span className="semset__chx">
-          <span className="t-body-sm">{label}</span>
-          <span className="t-detail-xs">{`${p[k].assets} 个素材 · ${p[k].minutes} 分钟 · ${p[k].size}`}{full ? ' · 后续版本开放' : ' · 需要多模态搜索，后续版本开放'}</span>
-        </span>
-      </div>
-    );
+    const visualOn = st.install === 'full' && st.visual;
+    const scope = (k) => `${p[k].assets} 个素材 · ${p[k].minutes} 分钟`;
+    const visual = visualOn ? {done: st.index === 'stale' ? 0 : p.visual.assets, total: p.visual.assets} : null;
     return (
       <div className="semset__proj">
         <div className="semset__projh">
           <b className="grow">{d.name}</b>
-          <span className="t-detail-xs">{S.coverageLine({text: p.text})}</span>
+          <span className="t-detail-xs">{S.coverageLine(visual ? {text: p.text, visual} : {text: p.text})}</span>
         </div>
-        <div className="semset__chs">{ch('visual', '画面')}{ch('audio', '声音')}</div>
+        <div className="semset__chs">
+          {visualOn ? null : <span className="t-detail-xs">{`画面：${scope('visual')} · 没开`}</span>}
+          <span className="t-detail-xs">{`声音：${scope('audio')} · 后续版本开放`}</span>
+        </div>
       </div>
     );
   }
@@ -102,6 +102,8 @@
             <option value="ok">没出错</option><option value="half">多模态搜索缺运行库</option></BCSelect></label>
           <label>索引<BCSelect aria-label="索引演示挡位" value={st.index} onChange={(e) => set({index: e.target.value})}>
             <option value="ready">已跟上</option><option value="stale">正在更新</option></BCSelect></label>
+          <label>供电<BCSelect aria-label="供电演示挡位" value={st.power || 'ac'} onChange={(e) => set({power: e.target.value})}>
+            <option value="ac">接着电源</option><option value="battery">用电池</option><option value="thermal">过热降频</option></BCSelect></label>
         </div>
       </BCDisclosure>
     );
@@ -141,7 +143,31 @@
       confirmLabel: '清理', tone: 'negative',
       run: () => { set({index: 'stale'}); app.toast('已清理，正在后台重建（演示）', 'positive'); },
     });
-    const indexState = st.paused ? '已暂停' : st.index === 'stale' ? '正在更新' : '已就绪';
+    const why = S.pauseReasonOf(st);
+    const indexState = why ? '已暂停' : st.index === 'stale' ? '正在更新' : '已就绪';
+    const full = st.install === 'full';
+    const visualOn = full && st.visual;
+    const eta = S.etaLine(SEM.estimate.text);
+    // 还要多久：讲话内容写在状态里，画面写在画面那一行（同 Electron / Web）
+    const visualEta = visualOn ? S.etaLine(SEM.estimate.visualLeft) : null;
+    const stateDesc = why === 'user' ? '暂停时不建新索引；已有的照常能搜，结果可能不含最近的修改。'
+      : why ? S.POWER_NOTE[why] + '。'
+        : st.index === 'stale' ? `${S.STALE_NOTE}。${eta ? eta + '。' : ''}`
+          : visualOn ? '已有文稿的文字索引与画面索引都建好了。' : '所有已有文稿都建好了文字索引。';
+    const cost = S.visualCostLine(SEM.estimate.visual);
+    // 打开画面：先确认范围与开销（v0.1 §9.1），在后台建；关掉只是不再建新的
+    const setVisual = (on) => {
+      if (!on) { set({visual: false}); app.toast('已关闭画面索引：不再建新的画面索引（演示）', 'positive'); return; }
+      app.confirm({
+        title: '打开画面索引？',
+        body: `给「已索引的项目」里的视频按内容找画面：${cost}。在后台用 CPU 建，随时可以暂停。`,
+        confirmLabel: '打开',
+        run: () => { set({visual: true, index: 'stale'}); app.toast('已打开画面索引，正在后台建（演示）', 'positive'); },
+      });
+    };
+    const visualDesc = !full ? '按画面内容找镜头、给句子配画面。需要多模态搜索。'
+      : visualOn ? `已索引的项目里的视频会按画面内容建立索引。关掉后不再建新的画面索引。${st.index === 'stale' && visualEta ? visualEta + '。' : ''}`
+        : `按画面内容找镜头、给句子配画面。打开后要建：${cost}。`;
     return (
       <>
         <h1 className="setpage__title">语义索引</h1>
@@ -156,16 +182,22 @@
           <h2>模型</h2>
           <div className="setpage__card semset__card">
             {SEM.packages.map((p) => <PackageCard key={p.id} p={p} st={st} set={set} busy={busy} onInstall={install} />)}
-            <div className="semnote"><Ic n="info" className="ic--14" /><span className="semnote__x">安装不等于扫描：装好后只给已有文稿建轻量的文字索引；画面与声音按项目开启，开启前写明范围与开销。</span></div>
+            <div className="semnote"><Ic n="info" className="ic--14" /><span className="semnote__x">安装不等于扫描：装好后只给已有文稿建轻量的文字索引；画面要在下面打开，打开前写明范围与开销。</span></div>
           </div>
         </section>
         {installed ? (
           <section className="setpage__group" aria-label="索引">
             <h2>索引</h2>
             <div className="setpage__card">
-              <Row label="状态" desc={st.paused ? '暂停时不建新索引；已有的照常能搜，结果可能不含最近的修改。' : st.index === 'stale' ? S.STALE_NOTE : '所有已有文稿都建好了文字索引。'}>
-                <Chip tone={st.paused ? 'notice' : st.index === 'stale' ? 'accent' : 'positive'}>{indexState}</Chip>
+              <Row label="状态" desc={stateDesc}>
+                <Chip tone={why ? 'notice' : st.index === 'stale' ? 'accent' : 'positive'}>{indexState}</Chip>
                 <Btn size="s" variant="secondary" onClick={() => set({paused: !st.paused})}>{st.paused ? '恢复' : '暂停'}</Btn>
+              </Row>
+              <Row label="画面" desc={visualDesc}>
+                <Switch on={visualOn} disabled={!full} onChange={setVisual} ariaLabel="画面索引" />
+              </Row>
+              <Row label="用电池时暂停" desc="笔记本用电池时先不建，接上电源后接着建。电脑过热降频时总会暂停。">
+                <Switch on={st.pauseOnBattery !== false} onChange={(v) => set({pauseOnBattery: v})} ariaLabel="用电池时暂停" />
               </Row>
               <Row label="缓存" desc="向量与索引，存在应用数据里，不进项目目录。">
                 <span className="t-body-sm">{S.fmtBytes(SEM.cacheBytes)}</span>
@@ -180,7 +212,7 @@
         {installed ? (
           <section className="setpage__group" aria-label="已索引的项目">
             <h2>已索引的项目</h2>
-            <p className="t-detail-xs semset__sub">文字：有文稿的视频自动建；画面与声音：按项目开启，这一版还没有。</p>
+            <p className="t-detail-xs semset__sub">文字：有文稿的视频自动建；画面：在上面打开后，这些项目里的视频都建；声音：这一版还没有。</p>
             <div className="setpage__card semset__card">
               {SEM.projects.map((p) => <ProjectRow key={p.dir} p={p} st={st} />)}
             </div>

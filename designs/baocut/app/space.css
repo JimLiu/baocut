@@ -111,6 +111,9 @@
 .spv__toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .spv__toolbar .spv__path { min-width: 0; color: var(--gray-600); }
 .spv__reading { max-width: 65ch; color: var(--gray-900); font-size: 14px; line-height: 1.8; overflow-wrap: anywhere; }
+/* 视频某一刻的出处：同写作结果与回答里的时间码（`.wrtime`；Web 不加载写作工具的样式，这里单写一份） */
+.spv__moment { display: inline; padding: 0 4px; border-radius: 4px; background: var(--blue-100); color: var(--blue-1000); font-size: 11px; font-variant-numeric: tabular-nums; cursor: pointer; }
+.spv__moment:hover { background: var(--blue-200); }
 .spv__reading h1 { font-size: 25px; }
 .spv__reading h2 { font-size: 20px; }
 .spv__reading h3, .spv__reading h4, .spv__reading h5, .spv__reading h6 { font-size: 16px; }

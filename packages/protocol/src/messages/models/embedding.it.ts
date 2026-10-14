@@ -10,6 +10,7 @@ export const it: ModelsEmbeddingMessages = {
   notNormalized: (p: { norm: string }) => `Un vettore non ha lunghezza unitaria (norma ${p.norm})`,
   notRanked: (p: { relevant: string; irrelevant: string }) => `La frase pertinente non ha ottenuto un punteggio più alto di quella non pertinente (coseno ${p.relevant} contro ${p.irrelevant})`,
   noModel: 'Nessun modello di embedding locale installato',
+  noVisionModel: 'Nessun modello di embedding locale installato sa leggere le immagini. Installa EmbeddingGemma 2 740M per cercare in base a ciò che si vede',
   inputTooLong: (p: { index: number; max: number }) => `Il testo ${p.index} è più lungo di quanto accetti il modello (${p.max} token)`,
   modelUnavailable: (p: { problem: string }) => `Il modello di embedding locale non è disponibile: ${p.problem}`,
   cannotEmbed: 'Questo Model Worker non sa ancora calcolare embedding con questo modello',

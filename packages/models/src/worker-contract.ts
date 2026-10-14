@@ -105,6 +105,8 @@ export interface ModelBundle {
   memoryBudgetBytes: number | null;
   /** 后端可写的缓存目录（绝对路径；LiteRT-LM 的编译缓存）。没给时 Worker 用系统临时目录。 */
   cacheDir?: string;
+  /** 嵌入模型包打开图像编码器（§4.5）；`tokensPerImage` 缺省用模型的默认值。没给时只加载文字编码器。 */
+  vision?: { tokensPerImage?: number };
 }
 
 // ---- §2 方法 ----
@@ -151,6 +153,10 @@ export interface EmbeddingCapabilities {
   maxBatch: number;
   /** 引擎的最大输入长度（token）；超过时报 `INPUT_TOO_LONG`。 */
   maxInputTokens: number;
+  /** `embed.run` 接受的输入：`['text', 'image']`。旧的 Worker 没有这个字段，只接文字。 */
+  inputs?: ('text' | 'image')[];
+  /** 一次 `embed.run` 至多几张图。 */
+  maxImageBatch?: number;
 }
 
 export interface ModelLoadResult {
@@ -508,6 +514,8 @@ export interface SegmentsHeader {
 
 /** 一次 `embed.run` 至多这么多条文本（Worker 的上限；Runtime 按它分批）。 */
 export const EMBED_MAX_BATCH = 16;
+/** 一次 `embed.run` 至多这么多张图。 */
+export const EMBED_MAX_IMAGE_BATCH = 4;
 
 /**
  * `embed.run` 的参数。文本已经加好任务前缀（`formatEmbeddingInput`），Worker 不改写；引擎按 `outputSize` 输出、开着归一化，
@@ -516,7 +524,10 @@ export const EMBED_MAX_BATCH = 16;
  */
 export interface EmbedRunParams {
   requestId: string;
-  texts: string[];
+  /** 与 `images` 二选一。 */
+  texts?: string[];
+  /** JPEG / PNG 文件的绝对路径（Runtime 已校验在允许的根目录内），不加前缀；要求 `model.load` 带了 `vision`。与 `texts` 二选一。 */
+  images?: string[];
   outputSize: number;
   insertSpecialTokens: boolean;
 }

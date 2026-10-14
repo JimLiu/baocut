@@ -18,6 +18,10 @@ export const zhHans: SettingDescriptionMessages = {
     '本地模型放在哪个文件夹（绝对路径）；null 为数据目录下的 models。环境变量 BAOCUT_MODELS_DIR 优先。用 models.setDir 更改，不能用 settings set',
   'tools.downloadEndpoint':
     '受管外部工具（yt-dlp）的下载来源（镜像的基址，http(s)://，文件在 <基址>/<工具>/<版本>/<文件名>）；null 为官方发布地址。环境变量 BAOCUT_TOOLS_ENDPOINT 优先',
+  'models.downloadMirrors':
+    "添加的模型仓库镜像（{ name, base } 的列表；base 是 http(s):// 基址，不重复）。只是备选清单，下载按 models.downloadEndpoint",
+  'tools.downloadMirrors':
+    "添加的发布页镜像（{ name, base } 的列表；base 是 http(s):// 基址，不重复）。只是备选清单，下载按 tools.downloadEndpoint",
   'fonts.autoDownload': '排字用到、本机没有、字体目录里有的字体自动下载（预览与成片导出）；关掉时照回退字体画并提示',
   'fonts.cssEndpoint': '字体 CSS 接口的基址（镜像，https://）；null 为 https://fonts.googleapis.com',
   'fonts.fileEndpoint': '字体文件的基址（镜像，https://，只从它下面取文件）；null 为 https://fonts.gstatic.com',
@@ -31,8 +35,9 @@ export const zhHans: SettingDescriptionMessages = {
   'updates.autoDownload': '有新版本时在后台下载（不自动安装）',
   'diagnostics.enabled': '发送匿名的使用统计与性能摘要（不含媒体、文本与路径）',
   'offline.strict': '严格离线：不向任何在线服务发送内容',
-  'semantic.channels': '要建语义索引的通道：text（讲话内容：文稿、字幕、译文、章节）；画面（visual）与声音（audio）还不可用',
+  'semantic.channels': '要建语义索引的通道：text（讲话内容：文稿、字幕、译文、章节）；画面（visual，每 8 秒一张关键帧，要装多模态模型包，建得较慢）；声音（audio）还不可用',
   'semantic.indexedProjects': '建语义索引的项目：all 是全部，或项目 ID 列表（不属于项目的视频只在 all 时建）',
+  'semantic.pauseOnBattery': '用电池时暂停建语义索引，接上电源后接着建（系统因过热降频时总会暂停）',
   'semantic.translationMemory': '翻译时提示以前译过的几乎相同的句子（需要文字搜索模型）',
   'semantic.glossaryCandidates': '从各份文稿里几乎相同的写法提示术语候选（需要文字搜索模型）',
 };

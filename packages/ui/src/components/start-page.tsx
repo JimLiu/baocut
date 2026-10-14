@@ -306,6 +306,8 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
                 materials={brief.materials}
                 onRemoveTemplate={() => pickScene(null)}
                 onRemoveMaterial={(path) => patch({ materials: brief.materials.filter((m) => m.path !== path) })}
+                readScope={brief.readScope}
+                onRemoveReadScope={() => patch({ readScope: null })}
               />
             ),
             ready: gate === null || gate.ok,
@@ -345,6 +347,7 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
                 ...(choice?.driverId ? { driverId: choice.driverId } : {}),
                 ...(choice && 'model' in choice ? { model: choice.model ?? null } : {}),
                 ...(choice && 'effort' in choice ? { effort: choice.effort ?? null } : {}),
+                ...(brief.readScope ? { spaceReadScope: brief.readScope } : {}),
               });
               conversationId = conversation.id;
               if (draftMode && draftMode !== defaultMode) void setDefaultAccessMode(runtime, draftMode).catch(() => {});

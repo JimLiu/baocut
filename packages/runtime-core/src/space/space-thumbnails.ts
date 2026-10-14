@@ -1,11 +1,28 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { RpcError, SPACE_EXCERPT_MAX_BYTES, SPACE_THUMBNAIL_WIDTH, type Id, type SpaceEntry, type SpaceThumbnail } from '@baocut/protocol';
+import {
+  RpcError,
+  SPACE_EXCERPT_MAX_BYTES,
+  SPACE_MOMENT_WIDTH,
+  SPACE_THUMBNAIL_WIDTH,
+  type Id,
+  type SpaceEntry,
+  type SpaceHitMoment,
+  type SpaceHitMomentsResult,
+  type SpaceHitMomentSpan,
+  type SpaceThumbnail,
+} from '@baocut/protocol';
 import { RcSpace } from '@baocut/protocol/messages/runtime-core';
 import type { Logger } from '@baocut/harness';
 import type { MediaAnalysis, MediaFrame } from '../media-analysis.ts';
 import { resolveInside } from '../media.ts';
 import type { SpaceCatalog } from '../space-catalog.ts';
+import type { ReadContentResult } from './content-extract.ts';
+import { momentPlan } from './hit-moments.ts';
+
+type MomentSource = Pick<ReadContentResult, 'revision' | 'snapshot' | 'documents'>;
+/** 留几部视频的内容：一次检索的结果通常落在几部视频里，翻回来、点开预览时不必重读。 */
+const MOMENT_SOURCES_KEPT = 16;
 
 /**
  * Space 条目的缩略图（`space.thumbnail`，架构设计 §5.7，产品设计 §4.2–§4.3）：网格的卡片与列表的名称列按需来取。
@@ -35,13 +52,17 @@ export interface SpaceThumbnailDeps {
   catalog: SpaceCatalog;
   analysis: MediaAnalysis;
   /** 按视频目录找素材版本的文件（`VideoService.assetFileAt`）。 */
-  assetFileAt: (dir: string, assetId: Id, revision: string) => Promise<{ root: string; file: string }>;
+  assetFileAt: (dir: string, assetId: Id, revision: string) => Promise<{ root: string; file: string; name?: string }>;
+  /** 按视频目录读当前内容（引擎的只读查询 `videos.readContent`）：检索命中的那一刻（`moments`）用。 */
+  readContent?: (dir: string) => Promise<ReadContentResult>;
   log: Logger;
 }
 
 export class SpaceThumbnails {
   readonly #deps: SpaceThumbnailDeps;
   readonly #log: Logger;
+  /** 检索命中那一刻用的视频内容（只留快照与文档头，不留正文），按视频目录；最近用过的在后面。 */
+  readonly #momentSources = new Map<string, { revision: string | null; content: Promise<MomentSource> }>();
 
   constructor(deps: SpaceThumbnailDeps) {
     this.#deps = deps;
@@ -100,6 +121,79 @@ export class SpaceThumbnails {
     return assetFileAt(dir, poster.assetId, poster.revision);
   }
 
+  /**
+   * 检索命中的那一刻（`space.hitMoments`，创作辅助集成设计 §2.1）：读一次视频当前的内容（不打开视频、不取写锁），每处找看得见的
+   * 素材与源时间（`momentPlan`），取一张小图。某一处找不到或取不了帧时那一处为空，不报错；视频本身读不了时报引擎的错。
+   */
+  async moments(entry: SpaceEntry, spans: readonly SpaceHitMomentSpan[]): Promise<SpaceHitMomentsResult> {
+    const { catalog, analysis, assetFileAt, readContent } = this.#deps;
+    if (entry.kind !== 'video') throw new RpcError('invalid-request', RcSpace.notVideo(), { code: 'SPACE_ENTRY_NOT_VIDEO' });
+    if (!readContent) throw new RpcError('engine-unavailable', RcSpace.engineUnavailable());
+    const dir = catalog.videoEntry(entry.id).dir;
+    const content = await this.#momentSource(dir, readContent);
+    const moments = await Promise.all(
+      spans.map(async (span): Promise<SpaceHitMoment> => {
+        const plan = momentPlan(content, span);
+        if (!plan) return { frame: { kind: 'none' }, clip: null };
+        const frame = await analysis
+          .assetFrame(plan.frame, plan.at, SPACE_MOMENT_WIDTH, () => assetFileAt(dir, plan.asset.id, plan.asset.revision))
+          .then(image, (error: unknown): SpaceHitMoment['frame'] => {
+            this.#log.debug('Search hit has no frame', { error: error instanceof Error ? error.message : String(error) });
+            return { kind: 'none' };
+          });
+        return { frame, clip: plan.clip };
+      }),
+    );
+    return { revision: content.revision, moments };
+  }
+
+  /**
+   * 命中那一刻要的视频内容。读一次要引擎把全部文稿正文与时间线投影都给出来，长视频很重；这里只用快照与文档头，所以留下这两样，
+   * 内容索引说这部视频还是同一个版本（读完了、不在排队）时直接用。同一部视频同时来的几次只读一次（`revision` 为 null 时还在读）；
+   * 读失败的不留。
+   */
+  async #momentSource(dir: string, readContent: (dir: string) => Promise<ReadContentResult>): Promise<MomentSource> {
+    const index = this.#deps.catalog.index;
+    const indexed = index?.at(dir);
+    const cached = this.#momentSources.get(dir);
+    const reading = cached?.revision === null;
+    const fresh = !!cached && !!indexed && !!index?.current(dir) && indexed.revision === cached.revision;
+    if (cached && (reading || fresh)) {
+      this.#momentSources.delete(dir);
+      this.#momentSources.set(dir, cached);
+      return cached.content;
+    }
+    const content = readContent(dir).then((full) => ({
+      revision: full.revision,
+      snapshot: full.snapshot,
+      documents: full.documents.map(({ documentId, kind, sourceAssetId, sourceDocumentId }) => ({
+        documentId,
+        kind,
+        sourceAssetId,
+        sourceDocumentId,
+      })),
+    }));
+    const entry: { revision: string | null; content: Promise<MomentSource> } = { revision: null, content };
+    content.then(
+      (source) => (entry.revision = source.revision),
+      () => this.#momentSources.get(dir) === entry && this.#momentSources.delete(dir),
+    );
+    this.#momentSources.delete(dir);
+    this.#momentSources.set(dir, entry);
+    while (this.#momentSources.size > MOMENT_SOURCES_KEPT) this.#momentSources.delete(this.#momentSources.keys().next().value!);
+    return content;
+  }
+
+  /**
+   * 视频条目里某个素材版本的文件（媒体通道 `media.resolve { entryId, assetId, revision }`，检索命中的那一段就地播放）：按视频目录找，
+   * 不打开视频。不是视频的条目 not-found。
+   */
+  async videoAsset(entryId: Id, assetId: Id, revision: string): Promise<{ root: string; file: string; name: string }> {
+    const dir = this.#deps.catalog.videoEntry(entryId).dir;
+    const found = await this.#deps.assetFileAt(dir, assetId, revision);
+    return { root: found.root, file: found.file, name: found.name ?? path.basename(found.file) };
+  }
+
   /** 视频的封面：来源目录里的视频才有（删除了的视频不在内容索引里）。 */
   async #videoPoster(entry: SpaceEntry): Promise<SpaceThumbnail> {
     const { catalog, analysis, assetFileAt } = this.#deps;
@@ -120,7 +214,7 @@ export class SpaceThumbnails {
   }
 }
 
-function image(frame: MediaFrame): SpaceThumbnail {
+function image(frame: MediaFrame): Extract<SpaceThumbnail, { kind: 'image' }> {
   return { kind: 'image', mimeType: frame.mimeType, data: frame.data.toString('base64'), width: frame.width, height: frame.height };
 }
 

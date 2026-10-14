@@ -1,4 +1,4 @@
-import { RpcError, SEMANTIC_REASONS, type RpcErrorCode, type SemanticReason } from '@baocut/protocol';
+import { RpcError, SEMANTIC_REASONS, type RpcErrorCode, type SemanticChannel, type SemanticReason } from '@baocut/protocol';
 import { EmbeddingError } from '@baocut/models';
 import { RcSemantic } from '@baocut/protocol/messages/runtime-core';
 
@@ -54,8 +54,13 @@ export function semanticMessage(reason: SemanticReason, params: { max?: number }
   }
 }
 
-export function semanticError(reason: SemanticReason, params: { max?: number } = {}): RpcError {
-  return new RpcError(CODES[reason], semanticMessage(reason, params), { reason, ...(params.max !== undefined ? { max: params.max } : {}) });
+/** `channel`：只在某一路通道不可用时给（例如只装了文字模型包时请求画面：`MODEL_NOT_INSTALLED` + `channel: 'visual'`）。 */
+export function semanticError(reason: SemanticReason, params: { max?: number; channel?: SemanticChannel } = {}): RpcError {
+  return new RpcError(CODES[reason], semanticMessage(reason, params), {
+    reason,
+    ...(params.max !== undefined ? { max: params.max } : {}),
+    ...(params.channel ? { channel: params.channel } : {}),
+  });
 }
 
 /** Provider 抛的错误换成原因码；不认识的算模型不可用。 */

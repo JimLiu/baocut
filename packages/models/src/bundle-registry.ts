@@ -148,7 +148,7 @@ export interface ImageBundleProfile {
  * `encoderProfileId`：换了量化包就是新空间，旧索引不与新查询向量比较。
  */
 export interface EmbeddingBundleProfile {
-  /** 权重系列里的变体：`text-270m`（只有文字编码器）、`740m`（完整多模态包，这一阶段只用文字编码器）。 */
+  /** 权重系列里的变体（进 `embeddingSpaceId`）：两个包的文字编码器都是 `text-270m`（向量逐位相同）。 */
   variant: string;
   /** 量化兼容组：同组的包出的向量可以互相比较。没经过一致性评测的包各自一组。 */
   quantGroup: string;
@@ -163,8 +163,22 @@ export interface EmbeddingBundleProfile {
   maxInputTokens: number;
   /** 引擎是否插入特殊 token（BOS/EOS）：与 SentenceTransformers 参考实现一致时为 true（G0 实测）。 */
   insertSpecialTokens: boolean;
-  /** 能编码的输入模态。这一阶段两个包都只开文字。 */
-  modalities: readonly ['text'];
+  /** 能编码的输入模态：文字包只有 `text`，多模态包另有 `image`（关键帧，text-to-visual）。 */
+  modalities: readonly EmbeddingModality[];
+  /**
+   * 图像编码器的配置（有 `image` 时必有）：加载时交给 Worker 的 `vision.tokensPerImage`，与关键帧的取法（长边像素、JPEG）。
+   * 三者都进 text-to-visual 的 `encoderProfileId`：改了任何一个，旧的画面向量不再与新查询比较。
+   */
+  vision?: EmbeddingVisionProfile;
+}
+
+export type EmbeddingModality = 'text' | 'image';
+
+export interface EmbeddingVisionProfile {
+  tokensPerImage: number;
+  /** 关键帧的长边（像素）。 */
+  frameEdge: number;
+  frameFormat: 'jpeg';
 }
 
 /**

@@ -24,11 +24,11 @@ export const ko: ModelsInstallMessages = {
   // ---- 失败与补救 ----
   remedyNoSpace: (need, have) =>
     `${need !== null && have !== null ? `${need} 공간이 필요한데 ${have}만 남아 있습니다. ` : ''}디스크 공간을 확보한 뒤 다시 다운로드하세요. ${KEEP}`,
-  remedyNetwork: `네트워크를 확인한 뒤 다시 다운로드하세요. ${KEEP} 기본 소스에 연결할 수 없으면 설정 › 일반의 “모델 다운로드 소스”에서 미러로 바꾸세요.`,
+  remedyNetwork: `네트워크를 확인한 뒤 다시 다운로드하세요. ${KEEP} 기본 소스에 연결할 수 없으면 설정 › 일반의 다운로드 소스에서 미러로 바꾸세요.`,
   remedyIntegrity:
-    '다운로드 소스에서 받은 파일이 매니페스트의 크기 또는 sha256과 일치하지 않아 잘못된 파일을 삭제했습니다. 다른 다운로드 소스(설정 › 일반의 “모델 다운로드 소스”)로 바꾼 뒤 다시 다운로드하세요.',
+    '다운로드 소스에서 받은 파일이 매니페스트의 크기 또는 sha256과 일치하지 않아 잘못된 파일을 삭제했습니다. 다른 다운로드 소스(설정 › 일반의 다운로드 소스)로 바꾼 뒤 다시 다운로드하세요.',
   remedySource:
-    '다운로드 소스에 이 파일이 없거나 접근이 거부되었습니다. 설정 › 일반의 “모델 다운로드 소스”(또는 BAOCUT_MODELS_ENDPOINT 환경 변수)에 지정한 미러가 완전한지 확인하세요.',
+    (env) => `다운로드 소스에 이 파일이 없거나 접근이 거부되었습니다. 설정 › 일반의 다운로드 소스(또는 ${env} 환경 변수)에 지정한 미러가 완전한지 확인하거나 다른 소스로 바꾸세요.`,
   remedyManifest: '이 모델 패키지의 내장 매니페스트에 신뢰할 수 있는 sha256이 없어, BaoCut이 업데이트될 때까지 설치할 수 없습니다.',
   remedyOffline: '엄격한 오프라인 모드가 켜져 있어 아무것도 다운로드하지 않습니다. 다운로드하려면 먼저 설정에서 엄격한 오프라인 모드를 끄세요.',
   remedySizeChanged: '다운로드 크기가 바뀌었습니다. 새 계획으로 다시 확인하세요.',
@@ -37,6 +37,10 @@ export const ko: ModelsInstallMessages = {
   remedyUnavailable:
     '지금은 이 모델 패키지를 사용할 수 없습니다(설치가 완료되지 않았거나, 꺼져 있거나, 이 컴퓨터에서 지원하지 않음). 먼저 복구하거나 다시 켜세요.',
   remedyInstallFailed: `다시 다운로드해 보세요. ${KEEP}`,
+  partFailed: (part) => `${part}을(를) 다운로드하지 못했습니다.`,
+  partFailedFrom: (part, host) => `${host}에서 ${part}을(를) 다운로드하지 못했습니다.`,
+  partKept: '이미 다운로드한 부분은 유지되므로, 보완할 때는 빠진 부분만 다운로드합니다. 먼저 다운로드 소스를 바꿀 수도 있습니다.',
+  sentences: (parts) => parts.join(' '),
   problemText: (message, remedy) => (/[.!?。！？]$/.test(message) ? `${message} ${remedy}` : `${message}. ${remedy}`),
   // ---- 删除 ----
   removalBody: (unknown, frees, kept) =>

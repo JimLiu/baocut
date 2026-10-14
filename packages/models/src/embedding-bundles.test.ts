@@ -35,8 +35,13 @@ describe('embedding 模型包的登记', () => {
       const manifest = repoManifestFor(source.repo, source.revision)!;
       expect(manifest.files).toEqual([{ path: def.embedding!.modelFile, size: expect.any(Number), sha256: def.embedding!.modelSha256 }]);
       expect(manifest.estimatedBytes).toBe(manifest.files[0]!.size);
-      expect(def.embedding).toMatchObject({ outputSize: 768, dims: 512, maxInputTokens: 2048, insertSpecialTokens: true, modalities: ['text'] });
+      expect(def.embedding).toMatchObject({ outputSize: 768, dims: 512, maxInputTokens: 2048, insertSpecialTokens: true });
     }
+    // 只有多模态包能编码图片（G0 多模态评测的取法：每张 140 个视觉 token，长边 512 px 的 JPEG）。
+    expect(TEXT.embedding!.modalities).toEqual(['text']);
+    expect(TEXT.embedding!.vision).toBeUndefined();
+    expect(MULTIMODAL.embedding!.modalities).toEqual(['text', 'image']);
+    expect(MULTIMODAL.embedding!.vision).toEqual({ tokensPerImage: 140, frameEdge: 512, frameFormat: 'jpeg' });
     // 两个包的文字编码器实测逐位相同：同一个空间（变体与量化兼容组），模型文件不同。
     expect(MULTIMODAL.embedding!.variant).toBe(TEXT.embedding!.variant);
     expect(MULTIMODAL.embedding!.quantGroup).toBe(TEXT.embedding!.quantGroup);
@@ -100,6 +105,9 @@ describe('embedding 模型包在目录里', () => {
     });
     expect(bundle.components.embedding).toMatchObject({ family: 'embeddinggemma2-litert', files: [{ path: TEXT.embedding!.modelFile }] });
     expect(bundle).toMatchObject({ backend: 'litert-lm', device: 'cpu', cacheDir: path.join(dir, 'cache', 'litertlm') });
+    // 文字包没有图像编码器：要了 `vision` 也不带。
+    expect(bundle.vision).toBeUndefined();
+    expect((await catalog.bundleFor(TEXT.bundleId, { vision: true })).vision).toBeUndefined();
     // 内存：模型文件 + 动态库压缩包 + 余量，计在内存。
     const footprint = await catalog.workerFootprint(TEXT.bundleId);
     expect(footprint).toEqual({ pool: 'memory', bytes: 164626432 + 45143303 + EMBEDDING_WORKER_OVERHEAD_BYTES });

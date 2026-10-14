@@ -20,6 +20,10 @@ export const de: SettingDescriptionMessages = {
     "Ordner für lokale Modelle (absoluter Pfad); null verwendet models im Datenordner. BAOCUT_MODELS_DIR hat Vorrang. Mit models.setDir ändern, nicht mit settings set",
   'tools.downloadEndpoint':
     "Downloadquelle für verwaltete externe Werkzeuge (yt-dlp) (Spiegelserver-Basis-URL, http(s)://, Dateien unter <base>/<tool>/<version>/<file>); null verwendet die offizielle Release-URL. BAOCUT_TOOLS_ENDPOINT hat Vorrang",
+  'models.downloadMirrors':
+    "Hinzugefügte Spiegelserver des Modell-Repositorys (Liste aus { name, base }; base ist eine http(s)://-URL ohne Duplikate). Nur eine Auswahlliste: Downloads verwenden models.downloadEndpoint",
+  'tools.downloadMirrors':
+    "Hinzugefügte Spiegelserver für Release-Seiten (Liste aus { name, base }; base ist eine http(s)://-URL ohne Duplikate). Nur eine Auswahlliste: Downloads verwenden tools.downloadEndpoint",
   'fonts.autoDownload':
     "Für Layout benötigte Schriften automatisch herunterladen, wenn sie auf diesem Computer fehlen und im Schriftkatalog stehen (Vorschau und Export); ausgeschaltet wird eine Ersatzschrift mit Hinweis verwendet",
   'fonts.cssEndpoint': "Basis-URL der Schrift-CSS-API (Spiegelserver, https://); null verwendet https://fonts.googleapis.com",
@@ -35,8 +39,9 @@ export const de: SettingDescriptionMessages = {
   'updates.autoDownload': "Neue Versionen im Hintergrund herunterladen (ohne automatische Installation)",
   'diagnostics.enabled': "Anonyme Nutzungsstatistiken und Leistungszusammenfassungen senden (keine Medien, Texte oder Pfade)",
   'offline.strict': "Strikter Offlinemodus: nichts an Onlinedienste senden",
-  'semantic.channels': 'Kanäle des semantischen Index: text (Gesprochenes: Transkripte, Untertitel, Übersetzungen, Kapitel); visual und audio sind noch nicht verfügbar',
+  'semantic.channels': 'Kanäle des semantischen Index: text (Gesprochenes: Transkripte, Untertitel, Übersetzungen, Kapitel); visual (alle 8 Sekunden ein Schlüsselbild; braucht ein multimodales Modellpaket und dauert länger); audio ist noch nicht verfügbar',
   'semantic.indexedProjects': 'Projekte, deren Videos einen semantischen Index bekommen: all oder eine Liste von Projekt-IDs (Videos außerhalb von Projekten nur bei all)',
+  'semantic.pauseOnBattery': 'Aufbau des semantischen Index im Akkubetrieb pausieren und am Netzteil fortsetzen (bei Drosselung wegen Hitze wird immer pausiert)',
   'semantic.translationMemory': 'Beim Übersetzen frühere Übersetzungen nahezu gleicher Sätze vorschlagen (benötigt das Textsuchmodell)',
   'semantic.glossaryCandidates': 'Glossarbegriffe aus nahezu gleichen Schreibweisen in Transkripten vorschlagen (benötigt das Textsuchmodell)',
 } satisfies Record<SettingKey, string>;

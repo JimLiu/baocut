@@ -35,6 +35,10 @@ const en = {
     "Folder for local models (absolute path); null uses models in the data folder. The BAOCUT_MODELS_DIR environment variable takes precedence. Change it with models.setDir, not settings set",
   'tools.downloadEndpoint':
     'Download source for managed external tools (yt-dlp) (mirror base URL, http(s)://, files at <base>/<tool>/<version>/<file>); null uses the official release URL. The BAOCUT_TOOLS_ENDPOINT environment variable takes precedence',
+  'models.downloadMirrors':
+    "Model hub mirrors you added (a list of { name, base }; base is an http(s):// URL, no duplicates). Only a list to choose from: downloads use models.downloadEndpoint",
+  'tools.downloadMirrors':
+    "Release-page mirrors you added (a list of { name, base }; base is an http(s):// URL, no duplicates). Only a list to choose from: downloads use tools.downloadEndpoint",
   'fonts.autoDownload':
     "Automatically download fonts that layout needs, that aren't on this computer, and that are in the font catalog (preview and export); when off, draws with a fallback font and shows a notice",
   'fonts.cssEndpoint': 'Base URL of the font CSS API (mirror, https://); null uses https://fonts.googleapis.com',
@@ -50,8 +54,9 @@ const en = {
   'updates.autoDownload': 'Download new versions in the background (without installing them automatically)',
   'diagnostics.enabled': 'Send anonymous usage statistics and performance summaries (no media, text, or paths)',
   'offline.strict': "Strict offline: don't send anything to any online service",
-  'semantic.channels': 'Semantic index channels to build: text (speech, captions, translations, chapters); visual and audio are not available yet',
+  'semantic.channels': 'Semantic index channels to build: text (speech, captions, translations, chapters); visual (a keyframe every 8 seconds; needs a multimodal model package and takes longer); audio is not available yet',
   'semantic.indexedProjects': 'Projects whose videos get a semantic index: all, or a list of project ids (videos outside projects only with all)',
+  'semantic.pauseOnBattery': 'Pause building the semantic index while running on battery and continue when plugged in (indexing always pauses while the system is throttling for heat)',
   'semantic.translationMemory': 'Suggest earlier translations of near-identical sentences when translating (needs the text search model)',
   'semantic.glossaryCandidates': 'Suggest glossary terms from near-identical spellings across transcripts (needs the text search model)',
 } satisfies Record<SettingKey, string>;

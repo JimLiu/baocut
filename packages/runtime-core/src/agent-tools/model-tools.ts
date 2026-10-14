@@ -193,6 +193,7 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
       '能力有转写（transcribe）、语音合成（synthesizeSpeech）、图片生成（generateImage）、音乐生成（generateMusic）、文本生成（generateText）、人声与背景分离（separateAudio）六种：各 Provider 与模型、是否可用及原因、限制（文本长度、尺寸、张数、音色、格式、时长、上下文与输出上限、推理强度）、默认值。',
       'generateMusic 只在本机（audio.cpp 引擎加本地模型包），生成很慢（几分钟到十几分钟），用 music 提交。',
       'separateAudio 只在本机，由翻译配音的「分离背景声」使用，没有对应的提交工具。',
+      '本机语义检索（文本嵌入模型包）不在这里：能不能按意思检索、视频的索引建好没有，用 space_index_status 看；装没装模型包用 models_list。',
       'generateText 是工具页与 CLI 启动的固定流程（翻译、润色等）调用的文本模型，没有对应的提交工具：会话里的翻译、润色、总结由你自己完成，它没有配置也不影响你做，你也不能经它调用别的模型。',
       'effective 是不指定 provider 时实际会用的；为 null 时不指定 provider 的调用会以 CAPABILITY_NOT_CONFIGURED 拒绝。',
       '只读。启用、配置服务与设默认值由用户在设置里完成，你不能代做。',

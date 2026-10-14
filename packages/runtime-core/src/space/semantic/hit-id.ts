@@ -8,7 +8,8 @@ export interface HitIdentity {
   v: 1;
   videoId: Id;
   documentId: Id | null;
-  kind: SpaceSearchDocumentKind;
+  /** 文字证据的文档种类；画面命中是 `frame`（身份在 `frame` 里）。 */
+  kind: SpaceSearchDocumentKind | 'frame';
   /** 稳定句子身份；章节是 `marker:<标记 ID>`；字面命中对不回句子时为空。 */
   sentenceIds: string[];
   /** 命中时的视频版本。 */
@@ -19,6 +20,15 @@ export interface HitIdentity {
   /** 语义索引的 chunk（字面命中对不回时没有）。 */
   chunkId: string | null;
   text: string;
+  /** 画面命中：素材、它的内容版本与源时间窗口（秒）。素材换了内容就不再是同一个画面。 */
+  frame?: FrameIdentity;
+}
+
+export interface FrameIdentity {
+  assetId: Id;
+  contentHash: string;
+  sourceStart: number;
+  sourceEnd: number;
 }
 
 export function encodeHitId(identity: Omit<HitIdentity, 'v'>): string {
@@ -37,7 +47,8 @@ export function decodeHitId(hitId: string): HitIdentity | null {
       (value.clock !== 'sequence' && value.clock !== 'source') ||
       typeof value.start !== 'number' ||
       typeof value.end !== 'number' ||
-      !['speech', 'caption', 'translation', 'chapter'].includes(value.kind)
+      !['speech', 'caption', 'translation', 'chapter', 'frame'].includes(value.kind) ||
+      (value.kind === 'frame' && !validFrame(value.frame))
     ) {
       return null;
     }
@@ -45,4 +56,15 @@ export function decodeHitId(hitId: string): HitIdentity | null {
   } catch {
     return null;
   }
+}
+
+function validFrame(frame: unknown): frame is FrameIdentity {
+  const f = frame as Partial<FrameIdentity> | undefined;
+  return (
+    typeof f?.assetId === 'string' &&
+    typeof f.contentHash === 'string' &&
+    typeof f.sourceStart === 'number' &&
+    typeof f.sourceEnd === 'number' &&
+    f.sourceEnd >= f.sourceStart
+  );
 }

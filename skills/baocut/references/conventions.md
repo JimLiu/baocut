@@ -114,7 +114,7 @@ Ctrl-C 先取消正在等的任务，第二次直接退出（130）。
 <!-- surface: agent -->
 ## 7. 大结果
 
-{{tool:videos_inspect}} 片段多时用 {{arg:fromSeconds}} / {{arg:toSeconds}} 读一段、{{arg:limit}} 限条数，不要一次读整条时间线。{{tool:space_search}} 用 {{arg:videoIds}} 缩小范围。
+{{tool:videos_inspect}} 片段多时用 {{arg:fromSeconds}} / {{arg:toSeconds}} 读一段、{{arg:limit}} 限条数，不要一次读整条时间线。要找某段内容时先用 {{tool:space_search_v2}} 或 {{tool:speech_relevant}} 取相关的几段，不先读整篇文稿；它们与 {{tool:space_search}} 都用 {{arg:videoIds}} 缩小范围。
 <!-- /surface -->
 
 ## 9. 时间

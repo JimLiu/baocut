@@ -1,4 +1,5 @@
 import type { JobRecord, ModelBundleStatus, ModelInstallPlan, ModelInstallProgress } from '@baocut/protocol';
+import { MODELS_ENDPOINT_ENV, TOOLS_ENDPOINT_ENV, hostOf, kindOfComponent, planKinds, type SourceKind } from './download-source.ts';
 import {
   bundleCategory,
   downloadBytes,
@@ -6,6 +7,7 @@ import {
   isBundleInstalled,
   LOCAL_PROVIDER,
   missingParts,
+  partLabel,
   sharedComponents,
 } from './models-local.ts';
 import { fmtSize } from './task-facts.ts';
@@ -27,6 +29,18 @@ export interface PlanLine {
   label: string;
   /** `412 MB`、`大小未知`、`已装好，不动` */
   value: string;
+  /** 已装好、这次不动。 */
+  keep: boolean;
+  /** 这一部分从哪个基址下载（Runtime 给的；旧 Runtime 不给时 null）；不动的也是 null。 */
+  source: string | null;
+}
+
+/** 按来源种类分的一组（设计稿 download-dialog.jsx `Group`）：每组一个来源选择器。 */
+export interface PlanGroup {
+  kind: SourceKind;
+  lines: PlanLine[];
+  /** 这一组有要下载的部分（没有时不给选择器，写「这一组已下好」）。 */
+  downloading: boolean;
 }
 
 export interface InstallPlanView {
@@ -44,10 +58,19 @@ export interface InstallPlanView {
   noSpace: string | null;
   source: string;
   lines: PlanLine[];
+  /** 按来源种类分组的 `lines`（顺序同 `SOURCE_KINDS`，没有的种类不出组）。 */
+  groups: PlanGroup[];
 }
 
 /** 计划 → 确认对话框里的几行话。 */
 export function installPlanView(plan: ModelInstallPlan): InstallPlanView {
+  const lines: PlanLine[] = plan.components.map((c) => ({
+    key: `${c.component}:${c.repo}`,
+    label: `${partLabel(c.component)} · ${c.repo}`,
+    value: c.action === 'keep' ? M.lineKeep : c.bytes !== null ? M.lineSize(fmtSize(c.bytes), c.files.length) : M.lineUnknown(c.files.length),
+    keep: c.action === 'keep',
+    source: c.action === 'keep' ? null : (c.source ?? null),
+  }));
   const exact = plan.downloadBytes !== null;
   const size = exact ? M.planSize(fmtSize(plan.confirmBytes)) : M.planSizeEstimate(fmtSize(plan.confirmBytes));
   const noSpace =
@@ -62,11 +85,11 @@ export function installPlanView(plan: ModelInstallPlan): InstallPlanView {
     space: plan.availableBytes !== null ? M.space(fmtSize(plan.availableBytes)) : null,
     noSpace,
     source: plan.source,
-    lines: plan.components.map((c) => ({
-      key: `${c.component}:${c.repo}`,
-      label: `${c.component} · ${c.repo}`,
-      value: c.action === 'keep' ? M.lineKeep : c.bytes !== null ? M.lineSize(fmtSize(c.bytes), c.files.length) : M.lineUnknown(c.files.length),
-    })),
+    lines,
+    groups: planKinds(plan).map((kind) => {
+      const own = plan.components.map((c, i) => [c, lines[i]!] as const).filter(([c]) => kindOfComponent(c) === kind);
+      return { kind, lines: own.map(([, l]) => l), downloading: own.some(([c]) => c.action === 'download') };
+    }),
   };
 }
 
@@ -168,6 +191,8 @@ export interface Problem {
   message: string;
   /** 怎么办；认不得的错误码用 Runtime 给的 `remedy`，都没有时 null。 */
   remedy: string | null;
+  /** 下载时哪一部分没下成（`details.component`）与它连的基址（`details.source`）；不是某一部分的失败时没有。 */
+  part?: { component: string; source: string | null };
 }
 
 function num(details: unknown, key: string): number | null {
@@ -180,8 +205,14 @@ function str(details: unknown, key: string): string | null {
   return typeof v === 'string' && v ? v : null;
 }
 
-/** 按错误码说清楚怎么办（模型包的安装、修复与删除）。 */
+/** 按错误码说清楚怎么办（模型包的安装、修复与删除）。下载失败带着哪一部分时一并记下。 */
 export function modelProblem(code: string | null, message: string, details: unknown): Problem {
+  const problem = codeProblem(code, message, details);
+  const component = str(details, 'component');
+  return component ? { ...problem, part: { component, source: str(details, 'source') } } : problem;
+}
+
+function codeProblem(code: string | null, message: string, details: unknown): Problem {
   switch (code) {
     case 'MODEL_DOWNLOAD_NO_SPACE': {
       const need = num(details, 'requiredBytes');
@@ -194,7 +225,8 @@ export function modelProblem(code: string | null, message: string, details: unkn
     case 'MODEL_DOWNLOAD_INTEGRITY':
       return { message, remedy: M.remedyIntegrity };
     case 'MODEL_DOWNLOAD_SOURCE':
-      return { message, remedy: M.remedySource };
+      // GitHub 发布页的部分走工具来源，环境变量也是工具的那个。
+      return { message, remedy: M.remedySource(str(details, 'origin') === 'github-release' ? TOOLS_ENDPOINT_ENV : MODELS_ENDPOINT_ENV) };
     case 'MODEL_MANIFEST_INCOMPLETE':
       return { message, remedy: M.remedyManifest };
     case 'OFFLINE_STRICT':
@@ -227,6 +259,18 @@ export function jobProblem(job: Pick<JobRecord, 'error'>): Problem | null {
 
 export function problemText(problem: Problem): string {
   return problem.remedy ? M.problemText(problem.message, problem.remedy) : problem.message;
+}
+
+/**
+ * 安装失败那一行（设计稿 model-download-sources.js `failLine`）：哪一部分没下成、连的哪里，再是原话与补救。`kept`：别的部分已经下好、
+ * 留在盘上（这只模型包还缺组件），补齐时只下缺的，可以先换来源。
+ */
+export function installFailureText(problem: Problem, kept: boolean): string {
+  const text = problemText(problem);
+  if (!problem.part) return text;
+  const name = partLabel(problem.part.component);
+  const head = problem.part.source ? M.partFailedFrom(name, hostOf(problem.part.source)) : M.partFailed(name);
+  return M.sentences([head, text, ...(kept ? [M.partKept] : [])]);
 }
 
 // ---- 每一行的安装任务 ----

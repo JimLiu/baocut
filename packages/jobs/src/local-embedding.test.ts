@@ -32,17 +32,20 @@ const PROFILE: EmbeddingBundleProfile = {
   insertSpecialTokens: true,
   modalities: ['text'],
 };
-const bundle = (bundleId: string, repo: string, sha: string): BundleDefinition => ({
+const bundle = (bundleId: string, repo: string, sha: string, extra: Partial<EmbeddingBundleProfile> = {}): BundleDefinition => ({
   bundleId,
   capability: 'embed',
   backend: 'litert-lm',
   device: 'cpu',
   label: bundleId,
   components: { embedding: { family: 'embeddinggemma2-litert', repo, revision: 'r1' } },
-  embedding: { ...PROFILE, modelSha256: sha },
+  embedding: { ...PROFILE, modelSha256: sha, ...extra },
 });
 const TEXT = bundle('emb-text@litert-lm', 'test/text', 'a'.repeat(64));
-const FULL = bundle('emb-full@litert-lm', 'test/full', 'b'.repeat(64));
+const FULL = bundle('emb-full@litert-lm', 'test/full', 'b'.repeat(64), {
+  modalities: ['text', 'image'],
+  vision: { tokensPerImage: 140, frameEdge: 512, frameFormat: 'jpeg' },
+});
 
 async function writeRepo(root: string, repo: string): Promise<void> {
   const dir = path.join(root, ...repo.split('/'));
@@ -64,10 +67,17 @@ describe('本机 embedding（假 Model Worker）', () => {
   let models: string;
   let controlFile: string;
   let recordFile: string;
+  let loadsFile: string;
   let catalog: ModelCatalog;
   let worker: LocalTranscribeProvider;
 
-  const control = (value: Record<string, unknown>) => fs.writeFile(controlFile, JSON.stringify({ record: recordFile, ...value }));
+  const control = (value: Record<string, unknown>) =>
+    fs.writeFile(controlFile, JSON.stringify({ record: recordFile, loads: loadsFile, ...value }));
+  const loads = async (): Promise<Array<Record<string, unknown>>> =>
+    (await fs.readFile(loadsFile, 'utf8').catch(() => ''))
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
   const recorded = async (): Promise<Array<Record<string, unknown>>> =>
     (await fs.readFile(recordFile, 'utf8').catch(() => ''))
       .split('\n')
@@ -78,6 +88,7 @@ describe('本机 embedding（假 Model Worker）', () => {
     dir = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-local-embedding-'));
     controlFile = path.join(dir, 'control.json');
     recordFile = path.join(dir, 'runs.jsonl');
+    loadsFile = path.join(dir, 'loads.jsonl');
     await control({ capabilities: ['embed'] });
     models = path.join(dir, 'models');
     await writeRepo(models, 'test/text');
@@ -147,6 +158,37 @@ describe('本机 embedding（假 Model Worker）', () => {
     expect(after.vectors).toHaveLength(1);
   });
 
+  it('图片：带 vision 重新加载一次，之后的文字也由它编码；多于 4 张直接拒绝', async () => {
+    await writeRepo(models, 'test/full');
+    catalog.changed(FULL.bundleId);
+    const frames = path.join(dir, 'frames');
+    await fs.mkdir(frames);
+    await fs.writeFile(path.join(frames, 'a.jpg'), 'a red car on a bridge');
+    const options = { outputSize: 768, insertSpecialTokens: true };
+    await worker.embed(FULL.bundleId, ['text first'], options);
+    const result = await worker.embed(FULL.bundleId, { images: [path.join(frames, 'a.jpg')] }, options);
+    expect(result.vectors).toHaveLength(1);
+    await worker.embed(FULL.bundleId, ['text after'], options);
+    expect(await loads()).toEqual([
+      { bundleId: FULL.bundleId, vision: null },
+      { bundleId: FULL.bundleId, vision: { tokensPerImage: 140 } },
+    ]);
+    expect((await recorded()).map((r) => r.images ?? r.texts)).toEqual([['text first'], [path.join(frames, 'a.jpg')], ['text after']]);
+    const missing = await worker.embed(FULL.bundleId, { images: [path.join(frames, 'gone.jpg')] }, options).catch((e: unknown) => e);
+    expect(missing).toMatchObject({ kind: 'protocol', details: { workerCode: 'INPUT_UNREADABLE', index: 0 } });
+    await expect(worker.embed(FULL.bundleId, { images: Array.from({ length: 5 }, () => path.join(frames, 'a.jpg')) }, options)).rejects.toBeInstanceOf(
+      ProviderFailure,
+    );
+  });
+
+  it('图片：模型包没有图像编码器时 load-failed（no-image-encoder），不反复重载', async () => {
+    const frame = path.join(dir, 'a.jpg');
+    await fs.writeFile(frame, 'x');
+    const error = await worker.embed(TEXT.bundleId, { images: [frame] }, { outputSize: 768, insertSpecialTokens: true }).catch((e: unknown) => e);
+    expect(error).toMatchObject({ kind: 'load-failed', details: { reason: 'unsupported', detail: 'no-image-encoder' } });
+    expect((await loads()).length).toBe(1);
+  });
+
   it('批大小：0 条或超过 16 条直接拒绝，不起 Worker', async () => {
     for (const texts of [[], Array.from({ length: 17 }, (_, i) => `t${i}`)]) {
       await expect(worker.embed(TEXT.bundleId, texts, { outputSize: 768, insertSpecialTokens: true })).rejects.toBeInstanceOf(ProviderFailure);
@@ -160,14 +202,49 @@ describe('本机 embedding（假 Model Worker）', () => {
       const profile = await provider.profile('retrieval');
       expect(profile).toEqual({
         embeddingSpaceId: 'embeddinggemma2/text-270m/model-card-v1/512/l2/q-test',
-        encoderProfileId: `embeddinggemma2/text-270m/model-card-v1/512/l2/q-test/text/litertlm-0.18.0/${'a'.repeat(64)}/cpu`,
+        encoderProfileId: `embeddinggemma2/text-270m/model-card-v1/512/l2/q-test/text/vec-v1/${'a'.repeat(64)}/cpu`,
         promptPairId: 'model-card-v1',
         dims: 512,
         maxInputTokens: 2048,
         device: null,
       });
       expect(provider.current()).toEqual({ bundleId: TEXT.bundleId, label: TEXT.label });
-      await expect(provider.profile('text-to-visual')).rejects.toMatchObject({ reason: 'PROFILE_INCOMPATIBLE' });
+      // 只装了文字包：画面没有能用的模型包（不是「通道关了」）。
+      const visual = await provider.profile('text-to-visual').catch((e: unknown) => e);
+      expect(visual).toMatchObject({ reason: 'MODEL_NOT_INSTALLED' });
+      expect((visual as Error).message).toContain('740M');
+      expect(provider.current()).toEqual({ bundleId: TEXT.bundleId, label: TEXT.label });
+    });
+
+    it('text-to-visual：只用有图像编码器的包，身份带模态与关键帧取法；图片只收缓存目录里的', async () => {
+      await writeRepo(models, 'test/full');
+      catalog.changed(FULL.bundleId);
+      const frames = path.join(dir, 'cache', 'media');
+      await fs.mkdir(frames, { recursive: true });
+      await fs.writeFile(path.join(frames, 'car.jpg'), 'a red car driving over a bridge');
+      await fs.writeFile(path.join(frames, 'desk.jpg'), 'a laptop and coffee cup on a desk');
+      const provider = new LocalEmbeddingProvider({ catalog, worker, selected: () => TEXT.bundleId, imageRoots: [frames] });
+      const text = await provider.profile('retrieval');
+      const visual = await provider.profile('text-to-visual');
+      expect(visual.embeddingSpaceId).toBe(text.embeddingSpaceId);
+      expect(visual.encoderProfileId).toBe(
+        `embeddinggemma2/text-270m/model-card-v1/512/l2/q-test/image/vec-v1/${'b'.repeat(64)}/cpu/vt140/keyframe-512-jpeg`,
+      );
+      expect(visual.frames).toEqual({ edge: 512, format: 'jpeg', maxBatch: 4 });
+      expect(text.frames).toBeUndefined();
+      expect(provider.current()).toEqual({ bundleId: TEXT.bundleId, label: TEXT.label });
+
+      const images = await provider.embedImages({ images: [path.join(frames, 'car.jpg'), path.join(frames, 'desk.jpg')] });
+      expect(images.vectors.map((v) => v.length)).toEqual([512, 512]);
+      expect(images.payloadDigests).toHaveLength(2);
+      const query = await provider.embed('text-to-visual', { role: 'query', inputs: [{ text: 'red car driving over a bridge' }] });
+      expect(dot(query.vectors[0]!, images.vectors[0]!)).toBeGreaterThan(dot(query.vectors[0]!, images.vectors[1]!));
+      expect((await loads()).map((l) => l.bundleId)).toEqual([FULL.bundleId]);
+
+      const outside = path.join(dir, 'elsewhere.jpg');
+      await fs.writeFile(outside, 'x');
+      await expect(provider.embedImages({ images: [outside] })).rejects.toMatchObject({ reason: 'SOURCE_MISSING' });
+      await expect(provider.embedImages({ images: [path.join(frames, 'gone.jpg')] })).rejects.toMatchObject({ reason: 'SOURCE_MISSING' });
     });
 
     it('选模型包：用户选的装好了用它，没装好按登记次序用装好的；一个都没装是 MODEL_NOT_INSTALLED', async () => {
@@ -254,7 +331,8 @@ describe('LocalEmbeddingProvider 的错误换算', () => {
     const provider = new LocalEmbeddingProvider({
       catalog,
       worker: {
-        embed: async (_bundleId, texts): Promise<LocalEmbedResult> => {
+        embed: async (_bundleId, input): Promise<LocalEmbedResult> => {
+          const texts = input as readonly string[];
           calls += 1;
           if (calls === 2) throw new ProviderFailure('protocol', 'x', { workerCode: 'INPUT_TOO_LONG', index: 1 });
           return { vectors: texts.map(() => Float32Array.from({ length: 768 }, (_, i) => (i === 0 ? 1 : 0))), dims: 768, device: 'cpu', elapsedMs: 1, workerVersion: 'w' };

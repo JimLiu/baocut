@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { ProtocolValidation as V } from './messages/protocol/protocol-validation.ts';
 import type { RpcMethod } from './methods.ts';
-import { SETTING_KEYS, type SettingKey, type SettingValues } from './settings.ts';
+import { DOWNLOAD_MIRROR_NAME_MAX, DOWNLOAD_MIRRORS_MAX, SETTING_KEYS, type SettingKey, type SettingValues } from './settings.ts';
 import { MODEL_API_MAX_CONCURRENT_LIMIT, SERVICE_IDS, SERVICE_LEVELS } from './services.ts';
 import { AGENT_MODES, LEGACY_AGENT_MODES, normalizeAgentMode } from './access.ts';
 import { GRANT_DATA_KINDS } from './grants.ts';
@@ -63,7 +63,8 @@ const revision = z.string().regex(/^\d+$/);
 const assetTarget = { videoId: id, assetId: id, revision: revision.optional() };
 const attachmentTarget = z.object({ conversationId: id, attachmentId: id }).strict();
 const localFileTarget = z.object({ localPath: filePath }).strict();
-const mediaTarget = z.union([fileTarget, attachmentTarget, z.object(assetTarget).strict(), localFileTarget]);
+const spaceAssetTarget = z.object({ entryId: id, assetId: id, revision }).strict();
+const mediaTarget = z.union([fileTarget, attachmentTarget, z.object(assetTarget).strict(), spaceAssetTarget, localFileTarget]);
 const positiveInt = z.number().int().positive();
 /**
  * 调用方给的文字旁边的消息引用（message-ref.ts）：键是 `<区域>.<名字>`，参数是标量或一层嵌套的引用。收下的引用原样存下、
@@ -429,6 +430,27 @@ const absolutePath = z
   .regex(/^(?:\/|[A-Za-z]:[\\/]|\\\\[^\\/\0]+[\\/][^\\/\0]+(?:[\\/]|$))[^\0]*$/, { error: () => V.absolutePath().text });
 
 /**
+ * 下载镜像列表（`models.downloadMirrors` / `tools.downloadMirrors`）：基址规则同下载来源，存的时候去掉结尾的 `/`、名字去掉首尾空白；
+ * 基址重复的（不分大小写）只留第一个。
+ */
+const downloadMirrors = z
+  .array(
+    z
+      .object({
+        name: z.string().trim().max(DOWNLOAD_MIRROR_NAME_MAX),
+        base: z
+          .string()
+          .trim()
+          .max(500)
+          .refine(isDownloadEndpoint, { error: () => V.downloadEndpoint().text })
+          .transform((base) => base.replace(/\/+$/, '')),
+      })
+      .strict(),
+  )
+  .max(DOWNLOAD_MIRRORS_MAX)
+  .transform((list) => list.filter((m, i) => list.findIndex((o) => o.base.toLowerCase() === m.base.toLowerCase()) === i));
+
+/**
  * 偏好设置每个键的取值（架构设计 §5.10）。键、类型、默认值与说明见 `settings.ts`；这里只管校验。
  * 写入与读取（文件里的旧值）都过这一份：不合的值不保存，读到时按默认值处理。
  */
@@ -467,6 +489,8 @@ export const settingValueSchemas = {
     .max(500)
     .refine(isDownloadEndpoint, { error: () => V.downloadEndpoint().text })
     .nullable(),
+  'models.downloadMirrors': downloadMirrors,
+  'tools.downloadMirrors': downloadMirrors,
   'fonts.autoDownload': z.boolean(),
   'fonts.cssEndpoint': z
     .string()
@@ -483,6 +507,7 @@ export const settingValueSchemas = {
   'runtime.idleExitMinutes': z.number().int().min(1).max(1440),
   'semantic.channels': z.array(z.enum(['text', 'visual', 'audio'])).max(3),
   'semantic.indexedProjects': z.union([z.literal('all'), z.array(z.string().min(1).max(200)).max(1000)]),
+  'semantic.pauseOnBattery': z.boolean(),
   'semantic.translationMemory': z.boolean(),
   'semantic.glossaryCandidates': z.boolean(),
   'resources.capacity': z
@@ -758,6 +783,7 @@ export const methodParamSchemas = {
   'conversations.create': z.object({
     projectId: id.nullable().optional(),
     folderOf: id.optional(),
+    spaceReadScope: z.enum(['all', 'unfiled']).optional(),
     title: z.string().max(200).optional(),
     commandId: id.optional(),
     driverId: driverId.optional(),
@@ -776,6 +802,7 @@ export const methodParamSchemas = {
     effort: agentEffort.optional(),
     accessMode: agentMode.nullable().optional(),
     pendingReferences: z.null().optional(),
+    spaceReadScope: z.null().optional(),
   }),
   'conversations.markRead': z.object({ conversationId: id }),
   'conversations.delete': z.object({ conversationId: id }),

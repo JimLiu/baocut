@@ -7,7 +7,7 @@ import { JobManager, PipelineRunner, type TranscribeRouter } from '@baocut/jobs'
 import type { TextGenerateRequest, TextResult } from '@baocut/models';
 import { RpcError, type AiToolSummary, type DocumentRecord, type EditOperation, type JobRecord, type TextModelInfo } from '@baocut/protocol';
 import { aiToolPipeline, parseAiToolParams, polishedBody, type AiToolDeps } from './ai-tool-pipeline.ts';
-import type { RelevantChunk, RelevantChunkSet } from '../space/semantic/context.ts';
+import type { RelevantChunk, RelevantChunkSet, TopicUnit } from '../space/semantic/context.ts';
 import { aiToolMessages, chapterDrafts, parseTimestamp, polishBatches, polishEdits, type ContextWord } from './ai-tool-prompt.ts';
 
 /**
@@ -160,6 +160,7 @@ describe('ai-tool 流程', () => {
   let wordList: ContextWord[];
   let duration: number;
   let embed: (texts: string[]) => Promise<Float32Array[]>;
+  let units: TopicUnit[] | null;
 
   const docs = (): Record<string, DocumentRecord> => ({ doc_1: { id: 'doc_1', kind: 'speech', currentRevision: revision } as DocumentRecord });
 
@@ -180,6 +181,7 @@ describe('ai-tool 流程', () => {
     embed = async () => {
       throw new RpcError('conflict', 'no model', { reason: 'MODEL_NOT_INSTALLED' });
     };
+    units = null;
     relevantSet = { chunks: [], coverage: { chapters: [], indexed: false, stale: false }, effectiveMode: 'none', reason: 'MODEL_NOT_INSTALLED' };
     reply = () => ({ text: 'RESULT' });
     const router: TranscribeRouter = {
@@ -251,6 +253,7 @@ describe('ai-tool 流程', () => {
         })),
       artifacts: jobs.artifacts,
       embed: (texts) => embed(texts),
+      topicUnits: async () => units,
       relevant: async ({ videoIds, intent, limit }) => {
         relevantCalls.push({ videoIds, intent, limit });
         return relevantSet;
@@ -538,6 +541,33 @@ describe('ai-tool 流程', () => {
       [{ unit: 'seconds', value: '180.000' }, 'Beta'],
     ]);
     expect((record.pipeline!.summary as unknown as AiToolSummary).context.boundaries).toEqual({ mode: 'topic', candidates: 1, reason: null });
+  });
+
+  it('章节按话题找边界而这一版已建好语义索引：用索引的句群与向量，不重新编码；候选吸到附近的段落开头', async () => {
+    duration = 600;
+    const topics = ['alpha', 'alpha', 'alpha', 'beta', 'beta', 'beta'];
+    wordList = topics.flatMap((topic, i) => [word(`p${i}a`, topic, i * 60, true), word(`p${i}b`, `talk${i}.`, i * 60 + 30)]);
+    // 索引的句群每 30 秒一个、比段落细；话题在 185 秒（一句的开头）转折，离 180 秒的段落开头 5 秒。
+    units = Array.from({ length: 11 }, (_, i) => {
+      const start = i === 0 ? 0 : i * 30 + 5;
+      return { start, end: i === 10 ? 330 : (i + 1) * 30 + 5, text: `unit${i}`, vector: Float32Array.from(start < 185 ? [1, 0] : [0, 1]) };
+    });
+    let embedded = 0;
+    embed = async (texts) => {
+      embedded += texts.length;
+      return texts.map(() => Float32Array.from([1, 0]));
+    };
+    reply = () => ({ json: { chapters: [{ at: '00:00', title: 'Alpha', summary: 'A' }, { at: '03:00', title: 'Beta', summary: 'B' }] } });
+    const record = await run({ tool: 'chapters', boundaries: 'topic' });
+    expect(record.state).toBe('completed');
+    expect(embedded).toBe(0);
+    expect(requests[0]!.messages[1]!.content).toContain('<chapter_candidates>\n[03:00] … unit5 ‖ unit6 …\n</chapter_candidates>');
+    expect((record.pipeline!.summary as unknown as AiToolSummary).context.boundaries).toEqual({ mode: 'topic', candidates: 1, reason: null });
+    // 索引的终点与文稿对不上（时间线改过、还没重建）：不信索引，现算段落向量。
+    units = units.map((u) => ({ ...u, end: u.end + 40 }));
+    requests = [];
+    await run({ tool: 'chapters', boundaries: 'topic' });
+    expect(embedded).toBe(6);
   });
 
   it('章节按话题找边界而没有语义模型：退回由模型决定，写明原因', async () => {

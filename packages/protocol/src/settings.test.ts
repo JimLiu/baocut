@@ -54,6 +54,28 @@ describe('偏好设置注册表', () => {
     expect(cookieBrowsersSetting([], [])).toEqual([]);
   });
 
+  it('下载镜像：基址规则同下载来源，去掉结尾的 /，基址重复（不分大小写）只留第一个', () => {
+    for (const key of ['models.downloadMirrors', 'tools.downloadMirrors'] as const) {
+      const schema = settingValueSchemas[key];
+      expect(SETTING_DEFAULTS[key]).toEqual([]);
+      expect(
+        schema.parse([
+          { name: ' 公司镜像 ', base: 'http://10.0.0.2:8080/hf/' },
+          { name: '', base: 'https://hf-mirror.com' },
+          { name: 'again', base: 'HTTP://10.0.0.2:8080/hf' },
+        ]),
+      ).toEqual([
+        { name: '公司镜像', base: 'http://10.0.0.2:8080/hf' },
+        { name: '', base: 'https://hf-mirror.com' },
+      ]);
+      expect(schema.safeParse([{ name: '', base: 'hf-mirror.com' }]).success).toBe(false);
+      expect(schema.safeParse([{ name: '', base: 'https://u:p@mirror.example' }]).success).toBe(false);
+      expect(schema.safeParse([{ name: 'x'.repeat(41), base: 'https://mirror.example' }]).success).toBe(false);
+      expect(schema.safeParse([{ base: 'https://mirror.example' }]).success).toBe(false);
+      expect(schema.safeParse(Array.from({ length: 21 }, (_, i) => ({ name: '', base: `https://m${i}.example` }))).success).toBe(false);
+    }
+  });
+
   it('访问模式：新值原样接受，旧值换成新值', () => {
     const schema = settingValueSchemas['agent.defaultAccessMode'];
     for (const mode of ['ask', 'autoAcceptEdits', 'auto', 'fullAccess', 'plan']) expect(schema.parse(mode)).toBe(mode);

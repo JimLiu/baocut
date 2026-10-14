@@ -146,6 +146,47 @@ export type SpaceThumbnail =
   | { kind: 'text'; excerpt: string }
   | { kind: 'none' };
 
+/** `space.hitMoments` 画面的宽（像素）：检索命中行的小图，2 倍屏上也清楚。比原图宽时不放大。 */
+export const SPACE_MOMENT_WIDTH = 320;
+/** `space.hitMoments` 一次最多问几处。 */
+export const SPACE_HIT_MOMENTS_MAX = 20;
+/** 那一刻前后各多放几秒（源时间，不超出命中所在的片段）。 */
+export const SPACE_MOMENT_PAD_SEC = 2;
+
+/** `space.hitMoments` 的一处：检索命中的时间（`SpaceSearchHit.time`）；源时间的命中要给它所在的文档（找素材）。 */
+export interface SpaceHitMomentSpan {
+  clock: 'sequence' | 'source';
+  startSec: number;
+  endSec: number;
+  documentId?: Id | null;
+}
+
+export interface SpaceHitMomentsParams {
+  /** 视频条目。 */
+  entryId: Id;
+  spans: SpaceHitMomentSpan[];
+}
+
+/**
+ * 检索命中的那一刻（创作辅助集成设计 §2.1「命中原因与那一刻」）：那里看得见的那一帧，与可以就地播放的一段素材。
+ *
+ * - `frame`：`image` 或 `none`（同 `SpaceThumbnail`，宽不超过 `SPACE_MOMENT_WIDTH`）。
+ * - `clip`：命中那一刻看得见的素材版本，与要播的源时间区间（命中前后各 `SPACE_MOMENT_PAD_SEC` 秒，不超出这个片段）和命中本身的
+ *   源时间区间。播的是素材原片（`media.resolve { entryId, assetId, revision }`），没有时间线上的剪辑、字幕与叠加。定格的
+ *   片段、找不到可见画面时为 null。
+ */
+export interface SpaceHitMoment {
+  frame: Extract<SpaceThumbnail, { kind: 'image' | 'none' }>;
+  clip: { assetId: Id; revision: string; from: number; to: number; hitFrom: number; hitTo: number } | null;
+}
+
+export interface SpaceHitMomentsResult {
+  /** 视频的当前版本：与命中的 `indexedRevision` 不同时，那一刻是按当前版本找的，可能对不上。 */
+  revision: string;
+  /** 与 `spans` 一一对应。 */
+  moments: SpaceHitMoment[];
+}
+
 export interface SpaceRebuildResult {
   /** 重建之后的条目数。 */
   entries: number;

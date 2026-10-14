@@ -60,3 +60,36 @@ test('翻译记忆：沿用标记、改为重译、术语不一致计数（§2.6
   assert.match(S.tmLine(byLang, {}, 'en'), /参考了 14 句/);
   assert.match(S.tmLine(byLang, {}, 'ko'), /没有找到可参考的已有译文/);
 });
+
+test('自动停下（v0.1 §16.1）：用户暂停优先；用电池看设置；过热总是停', () => {
+  assert.equal(S.pauseReasonOf({}), null);
+  assert.equal(S.pauseReasonOf({power: 'battery'}), 'battery');
+  assert.equal(S.pauseReasonOf({power: 'battery', pauseOnBattery: false}), null);
+  assert.equal(S.pauseReasonOf({power: 'thermal', pauseOnBattery: false}), 'thermal');
+  assert.equal(S.pauseReasonOf({power: 'battery', paused: true}), 'user');
+  assert.equal(S.entryNote('search', {power: 'battery'}).text, S.POWER_NOTE.battery);
+  assert.equal(S.entryNote('search', {paused: true}).text, S.PAUSED_NOTE);
+});
+
+test('还要多久（v0.1 §13.2）：量过的速度、参考速度、没有速度与时长未知各写一句', () => {
+  assert.equal(S.etaLine({videos: 0, seconds: 0}), null);
+  assert.equal(S.etaLine({videos: 3, seconds: 95, basis: 'measured'}), '还剩 3 部视频，约 2 分钟（按这台电脑的速度）');
+  assert.equal(S.etaLine({videos: 2, seconds: 30, basis: 'default'}), '还剩 2 部视频，不到 1 分钟（按参考速度估）');
+  assert.equal(S.etaLine({videos: 4, seconds: null, unknownDuration: 1}), '还剩 4 部视频；建完第一部后能估出时间');
+  assert.equal(S.etaLine({videos: 4, seconds: 600, basis: 'measured', unknownDuration: 1}), '还剩 4 部视频，约 10 分钟（按这台电脑的速度，1 部时长未知未计入）');
+  assert.equal(S.fmtDuration(5400), '约 1.5 小时');
+});
+
+test('打开画面之前写开销（v0.1 §13.2）：帧数、首次要多久、向量多大；关键帧缓存另算', () => {
+  assert.equal(S.visualCostLine(null), null);
+  assert.equal(
+    S.visualCostLine({videos: 12, unknownDuration: 0, sourceSeconds: 6600, frames: 825, seconds: 908, basis: 'default', vectorBytes: 1689600}),
+    '12 部视频共约 1.8 小时 → 约 825 帧，首次约 15 分钟（CPU 参考速度），向量约 2 MB；关键帧缓存另算，可清理',
+  );
+  assert.equal(
+    S.visualCostLine({videos: 2, unknownDuration: 1, sourceSeconds: 600, frames: 75, seconds: 60, basis: 'measured', vectorBytes: 153600}),
+    '2 部视频共约 10 分钟 → 约 75 帧，1 部时长未知未计入，首次约 1 分钟（按这台电脑的速度），向量不到 1 MB；关键帧缓存另算，可清理',
+  );
+  assert.equal(S.visualCostLine({videos: 1, unknownDuration: 1, sourceSeconds: 0, frames: 0, seconds: 0, basis: 'default', vectorBytes: 0}),
+    '1 部视频，时长未知，估不出要多久');
+});

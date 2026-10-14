@@ -22,11 +22,34 @@ fn have(tool: &str) -> bool {
 }
 
 #[test]
+fn generated_fixture_writes_do_not_affect_other_tests() {
+    let Some(first) = video_fixtures() else {
+        return;
+    };
+    let Some(second) = video_fixtures() else {
+        return;
+    };
+    let first_file = first.path().join("clip.mp4");
+    let second_file = second.path().join("clip.mp4");
+    // A different test (or ffmpeg rewriting its output) may truncate its own fixture.
+    std::fs::write(&first_file, []).expect("truncate this test's fixture");
+    let unaffected =
+        probe(&second_file).expect("another test's complete fixture must remain readable");
+    assert_eq!(unaffected.dimensions(), Some((640, 360)));
+    let first_directory = first_file.parent().unwrap().to_path_buf();
+    drop(first);
+    assert!(
+        !first_directory.exists(),
+        "completed fixture owner must clean its directory"
+    );
+}
+
+#[test]
 fn video_bitrate_matches_track_bytes_instead_of_audio_and_container() {
     let Some(dir) = video_fixtures() else {
         return;
     };
-    let path = dir.join("clip.mp4");
+    let path = dir.path().join("clip.mp4");
     let native = probe(&path).unwrap();
     let rate = native.video_bitrate(&path).unwrap();
     let external = media_probe::probe_with_ffprobe(&path, Path::new("ffprobe")).unwrap();
@@ -45,7 +68,7 @@ fn video_bitrate_matches_track_bytes_instead_of_audio_and_container() {
     assert_eq!(unavailable.video_bitrate(&path), None);
 }
 
-/// 生成一次性夹具目录（进程外幂等：同名文件在就复用）。
+/// 同步完成夹具生成；返回成功之前不会交给探测器。
 fn ff(args: &[&str]) -> bool {
     Command::new("ffmpeg")
         .args(["-y", "-loglevel", "error"])
@@ -54,16 +77,18 @@ fn ff(args: &[&str]) -> bool {
         .is_ok_and(|status| status.success())
 }
 
-/// 夹具目录；ffmpeg 不在就返回 `None`（调用方 skip）。
-fn video_fixtures() -> Option<PathBuf> {
+/// 每次调用独享夹具目录，完成或失败后由所有者清理；ffmpeg 不在就返回 `None`。
+fn video_fixtures() -> Option<tempfile::TempDir> {
     if !have("ffmpeg") {
         eprintln!("跳过：PATH 中没有 ffmpeg");
         return None;
     }
-    let dir = std::env::temp_dir().join("bcut-media-probe-fixtures");
-    std::fs::create_dir_all(&dir).ok()?;
+    let dir = tempfile::Builder::new()
+        .prefix("baocut-media-probe-")
+        .tempdir()
+        .expect("create isolated media probe fixtures");
 
-    let mp4 = dir.join("clip.mp4");
+    let mp4 = dir.path().join("clip.mp4");
     if !mp4.exists() {
         assert!(ff(&[
             "-f",
@@ -85,7 +110,7 @@ fn video_fixtures() -> Option<PathBuf> {
         ]));
     }
 
-    let silent = dir.join("silent.mp4");
+    let silent = dir.path().join("silent.mp4");
     if !silent.exists() {
         assert!(ff(&[
             "-f",
@@ -100,7 +125,7 @@ fn video_fixtures() -> Option<PathBuf> {
         ]));
     }
 
-    let rotated = dir.join("rotated-display-matrix.mp4");
+    let rotated = dir.path().join("rotated-display-matrix.mp4");
     if !rotated.exists()
         && !ff(&[
             // FFmpeg 7+ 用输入级 `-display_rotation` 写 MP4 tkhd display
@@ -117,11 +142,11 @@ fn video_fixtures() -> Option<PathBuf> {
         let _ = std::fs::remove_file(&rotated);
     }
 
-    let alpha = dir.join("alpha.webm");
+    let alpha = dir.path().join("alpha.webm");
     if !alpha.exists() {
         // `yuva420p` + libvpx-vp9 ⇒ Matroska 的 `AlphaMode` 会被写上。
         // 这台机器的 ffmpeg 没编 libvpx-vp9 时生成会失败，那就跳过 alpha 用例。
-        let _ = ff(&[
+        if !ff(&[
             "-f",
             "lavfi",
             "-i",
@@ -133,12 +158,14 @@ fn video_fixtures() -> Option<PathBuf> {
             "-pix_fmt",
             "yuva420p",
             alpha.to_str()?,
-        ]);
+        ]) {
+            let _ = std::fs::remove_file(&alpha);
+        }
     }
 
-    let opaque = dir.join("opaque.webm");
+    let opaque = dir.path().join("opaque.webm");
     if !opaque.exists() {
-        let _ = ff(&[
+        if !ff(&[
             "-f",
             "lavfi",
             "-i",
@@ -148,7 +175,9 @@ fn video_fixtures() -> Option<PathBuf> {
             "-pix_fmt",
             "yuv420p",
             opaque.to_str()?,
-        ]);
+        ]) {
+            let _ = std::fs::remove_file(&opaque);
+        }
     }
 
     Some(dir)
@@ -192,7 +221,7 @@ fn png_reports_image_kind_and_dimensions() {
 #[test]
 fn mp4_reports_video_geometry_audio_and_fps() {
     let Some(dir) = video_fixtures() else { return };
-    let probed = probe(&dir.join("clip.mp4")).expect("MP4 必须能纯 Rust 探测");
+    let probed = probe(&dir.path().join("clip.mp4")).expect("MP4 必须能纯 Rust 探测");
     assert_eq!(probed.kind, MediaKind::Video);
     assert_eq!(probed.dimensions(), Some((640, 360)));
     assert!(probed.has_audio());
@@ -204,7 +233,7 @@ fn mp4_reports_video_geometry_audio_and_fps() {
     assert_eq!(video.codec.as_deref(), Some("h264"));
     assert!(!video.alpha);
 
-    let silent = probe(&dir.join("silent.mp4")).expect("无音轨 MP4");
+    let silent = probe(&dir.path().join("silent.mp4")).expect("无音轨 MP4");
     assert!(!silent.has_audio());
     assert_eq!(silent.dimensions(), Some((320, 240)));
 }
@@ -212,7 +241,7 @@ fn mp4_reports_video_geometry_audio_and_fps() {
 #[test]
 fn rotated_mp4_keeps_encoded_dimensions_and_adds_display_dimensions() {
     let Some(dir) = video_fixtures() else { return };
-    let rotated = dir.join("rotated-display-matrix.mp4");
+    let rotated = dir.path().join("rotated-display-matrix.mp4");
     if !rotated.exists() {
         eprintln!("跳过：这台机器的 ffmpeg 不支持 -display_rotation 夹具");
         return;
@@ -233,7 +262,7 @@ fn rotated_mp4_keeps_encoded_dimensions_and_adds_display_dimensions() {
 #[test]
 fn webm_alpha_mode_is_visible_without_ffprobe() {
     let Some(dir) = video_fixtures() else { return };
-    let alpha = dir.join("alpha.webm");
+    let alpha = dir.path().join("alpha.webm");
     if !alpha.exists() {
         eprintln!("跳过：这台机器的 ffmpeg 生成不了 libvpx-vp9 的 yuva420p WebM");
         return;
@@ -247,7 +276,7 @@ fn webm_alpha_mode_is_visible_without_ffprobe() {
     let fps = probed.fps().expect("WebM 必须能问出帧率");
     assert!((fps - 24.0).abs() < 0.01, "{fps}");
 
-    let opaque = dir.join("opaque.webm");
+    let opaque = dir.path().join("opaque.webm");
     if opaque.exists() {
         let probed = probe(&opaque).expect("不透明 WebM");
         assert!(!probed.video.expect("video").alpha);
@@ -263,15 +292,17 @@ fn native_matches_ffprobe() {
     }
     let ffprobe = Path::new("ffprobe");
     let mut targets = vec![fixtures().join("speech/test-sample.wav")];
-    if let Some(dir) = video_fixtures() {
-        targets.push(dir.join("clip.mp4"));
-        targets.push(dir.join("silent.mp4"));
-        let rotated = dir.join("rotated-display-matrix.mp4");
+    // Keep the owner alive while probing the collected paths.
+    let videos = video_fixtures();
+    if let Some(dir) = videos.as_ref() {
+        targets.push(dir.path().join("clip.mp4"));
+        targets.push(dir.path().join("silent.mp4"));
+        let rotated = dir.path().join("rotated-display-matrix.mp4");
         if rotated.exists() {
             targets.push(rotated);
         }
         for name in ["alpha.webm", "opaque.webm"] {
-            let path = dir.join(name);
+            let path = dir.path().join(name);
             if path.exists() {
                 targets.push(path);
             }
@@ -331,7 +362,7 @@ fn unsupported_container_falls_back_to_ffprobe() {
         eprintln!("跳过：PATH 中没有 ffprobe");
         return;
     }
-    let avi = dir.join("clip.avi");
+    let avi = dir.path().join("clip.avi");
     if !avi.exists()
         && !ff(&[
             "-f",

@@ -204,6 +204,7 @@ export const de: AiToolsMessages = {
   } as Record<CoverText, string>,
   viewName: { author: "Autor", viewer: "Zuschauer" } as Record<'author' | 'viewer', string>,
   extraScope: (scope: string) => `Nur konzentrieren auf ${scope}`,
+  extraTopic: (topic: string) => `Schreibe nur über „${topic}“: finde zuerst mit speech_relevant die Stellen, in denen es darum geht, und schreibe daraus`,
   extraLength: (label: string) => `Länge: ${label}`,
   extraStyle: (style: string) => `Stil: ${style}`,
   extraLanguage: (language: string) => `Schreiben in ${language}`,

@@ -159,6 +159,7 @@ export class ModelInstaller {
         action: c.action,
         files: c.fetch.map((f) => f.path),
         bytes: c.action === 'keep' ? 0 : c.bytes,
+        source: this.#componentSource(c, endpoint, toolsEndpoint),
       })),
       downloadBytes,
       estimatedBytes,
@@ -202,35 +203,41 @@ export class ModelInstaller {
     report('downloading');
     const published: BcutManifest[] = [];
     for (const component of downloading) {
-      if (component.release) {
-        const onBytes = (delta: number) => {
-          received += delta;
-          if (delta > 0) downloaded += delta;
-          report('downloading');
-        };
-        published.push(await this.#installRelease(downloader, component, signal, onBytes, () => report('publishing')));
+      try {
+        if (component.release) {
+          const onBytes = (delta: number) => {
+            received += delta;
+            if (delta > 0) downloaded += delta;
+            report('downloading');
+          };
+          published.push(await this.#installRelease(downloader, component, signal, onBytes, () => report('publishing')));
+          this.#catalog.changed(detail.plan.bundleId);
+          continue;
+        }
+        const { repo, revision } = component.source;
+        if (component.reuse.length > 0) await downloader.reuse(repo, revision, this.#catalog.repoDir(repo), component.reuse);
+        const sourceRepo = this.#sourceRepo(component.source);
+        await downloader.download(
+          repo,
+          revision,
+          component.fetch,
+          signal,
+          (delta) => {
+            received += delta;
+            if (delta > 0) downloaded += delta;
+            report('downloading');
+          },
+          sourceRepo,
+        );
+        signal.throwIfAborted();
+        report('publishing');
+        published.push(await downloader.publish(repo, revision, component.files, sourceRepo));
         this.#catalog.changed(detail.plan.bundleId);
-        continue;
+      } catch (error) {
+        // 哪一部分没下成：前面下好的已经发布、留着，补齐时只下缺的（界面按它说「X 没下成」）。
+        if (error instanceof DownloadError) Object.assign(error.details, { ...this.#failedPart(component, detail), ...error.details });
+        throw error;
       }
-      const { repo, revision } = component.source;
-      if (component.reuse.length > 0) await downloader.reuse(repo, revision, this.#catalog.repoDir(repo), component.reuse);
-      const sourceRepo = this.#sourceRepo(component.source);
-      await downloader.download(
-        repo,
-        revision,
-        component.fetch,
-        signal,
-        (delta) => {
-          received += delta;
-          if (delta > 0) downloaded += delta;
-          report('downloading');
-        },
-        sourceRepo,
-      );
-      signal.throwIfAborted();
-      report('publishing');
-      published.push(await downloader.publish(repo, revision, component.files, sourceRepo));
-      this.#catalog.changed(detail.plan.bundleId);
     }
     await updateInstallRecord(this.root, (record) => {
       record.bundles[detail.plan.bundleId] = { installedAt: new Date().toISOString() };
@@ -511,16 +518,27 @@ export class ModelInstaller {
     return repoManifestFor(source.repo, source.revision, this.#manifests)?.sourceRepo ?? source.repo;
   }
 
+  /** 下载失败时记进 `details` 的那一部分：组件名、仓库、来源种类与实际连的基址（不覆盖下载器已经写的键）。 */
+  #failedPart(c: PlannedComponent, detail: InstallPlanDetail): Record<string, unknown> {
+    return {
+      component: c.component,
+      repo: c.source.repo,
+      ...(c.source.release ? { origin: 'github-release' } : {}),
+      source: this.#componentSource(c, detail.endpoint, detail.toolsEndpoint),
+    };
+  }
+
+  /** 一个组件实际从哪个基址下载：模型仓库的组件按模型下载来源（ModelScope 上没有的回到公共模型仓库），发布页组件按工具下载镜像。 */
+  #componentSource(c: PlannedComponent, endpoint: string, toolsEndpoint: string | null): string {
+    return c.source.release ? releaseSource(c.source.release, toolsEndpoint) : repoEndpoint(endpoint, this.#sourceRepo(c.source));
+  }
+
   /**
    * 计划里的来源：这次要下载的组件实际用到的基址，有几个时设置的基址在前、用「 + 」连起来；没有要下载的时是设置的基址。
    * 发布页组件的基址是工具下载镜像，没有镜像时是上游的发布页。
    */
   #sourceOf(endpoint: string, toolsEndpoint: string | null, downloading: readonly PlannedComponent[]): string {
-    const bases = new Set(
-      downloading.map((c) =>
-        c.source.release ? releaseSource(c.source.release, toolsEndpoint) : repoEndpoint(endpoint, this.#sourceRepo(c.source)),
-      ),
-    );
+    const bases = new Set(downloading.map((c) => this.#componentSource(c, endpoint, toolsEndpoint)));
     if (bases.size === 0) return endpoint;
     return [...bases].sort((a, b) => Number(b === endpoint) - Number(a === endpoint)).join(' + ');
   }

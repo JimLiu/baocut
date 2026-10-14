@@ -28,6 +28,7 @@ const en = {
   notNormalized: (p: { norm: string }) => `A vector is not unit length (norm ${p.norm})`,
   notRanked: (p: { relevant: string; irrelevant: string }) => `The related sentence did not score above the unrelated one (cosine ${p.relevant} vs ${p.irrelevant})`,
   noModel: 'No local embedding model is installed',
+  noVisionModel: 'No installed local embedding model can read images. Install EmbeddingGemma 2 740M to search by what is on screen',
   inputTooLong: (p: { index: number; max: number }) => `Text ${p.index} is longer than the model accepts (${p.max} tokens)`,
   modelUnavailable: (p: { problem: string }) => `The local embedding model is not available: ${p.problem}`,
   cannotEmbed: "This Model Worker can't compute embeddings with this model yet",

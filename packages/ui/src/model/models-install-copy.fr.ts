@@ -4,7 +4,7 @@ import { pluralForm } from '@baocut/protocol';
 const and = (items: readonly string[]) => new Intl.ListFormat('fr', { type: 'conjunction' }).format(items);
 const files = (n: number) => `${n} ${pluralForm('fr', n, { one: 'fichier', other: 'fichiers' })}`;
 const KEEP = 'Téléchargements reçus conservés ; la prochaine reprise continue au même point.';
-const SOURCE = '« Source de téléchargement des modèles » dans Réglages › Général';
+const SOURCE = 'Réglages › Général › Sources de téléchargement';
 
 export const fr: ModelsInstallMessages = {
 
@@ -31,7 +31,7 @@ export const fr: ModelsInstallMessages = {
     `${need !== null && have !== null ? `Nécessite ${need}, seulement ${have} disponibles. ` : ""}Libérez de l’espace puis retéléchargez. ${KEEP}`,
   remedyNetwork: `Vérifiez le réseau puis retéléchargez. ${KEEP} Si source par défaut inaccessible, choisissez un miroir dans ${SOURCE}.`,
   remedyIntegrity: `Taille ou sha256 non conforme au manifeste, fichiers incorrects supprimés. Changez de source (${SOURCE}), puis retéléchargez.`,
-  remedySource: `Source sans fichier ou accès refusé. Vérifiez que le miroir défini dans ${SOURCE} (ou BAOCUT_MODELS_ENDPOINT) est complet.`,
+  remedySource: (env) => `Source sans fichier ou accès refusé. Vérifiez que le miroir défini dans ${SOURCE} (ou ${env}) est complet, ou changez de source.`,
   remedyManifest: "Manifeste sans sha256 fiable ; installation après mise à jour de BaoCut seulement.",
   remedyOffline: "Hors ligne strict : aucun téléchargement. Désactivez ce mode dans Réglages pour télécharger.",
   remedySizeChanged: "Taille modifiée. Confirmez le nouveau plan.",
@@ -41,6 +41,10 @@ export const fr: ModelsInstallMessages = {
     "Paquet inutilisable (installation incomplète, désactivé ou incompatible). Réparez ou réactivez d’abord.",
   remedyInstallFailed: `Réessayez le téléchargement. ${KEEP}`,
 
+  partFailed: (part) => `${part} n’a pas été téléchargé.`,
+  partFailedFrom: (part, host) => `${part} n’a pas été téléchargé depuis ${host}.`,
+  partKept: 'Les parties déjà téléchargées sont conservées : compléter ne télécharge que ce qui manque. Vous pouvez d’abord changer de source de téléchargement.',
+  sentences: (parts) => parts.join(' '),
   problemText: (message: string, remedy: string) => (/[.!?。！？]$/.test(message) ? `${message} ${remedy}` : `${message}. ${remedy}`),
 
 

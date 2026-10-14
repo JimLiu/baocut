@@ -18,6 +18,10 @@ export const pl: SettingDescriptionMessages = {
     "Folder modeli lokalnych (ścieżka bezwzględna); null używa models w folderze danych. BAOCUT_MODELS_DIR ma pierwszeństwo. Zmieniaj przez models.setDir, nie settings set",
   'tools.downloadEndpoint':
     "Źródło zarządzanych narzędzi zewnętrznych (yt-dlp) (bazowy URL serwera lustrzanego, http(s)://, pliki w <base>/<tool>/<version>/<file>); null używa oficjalnego URL wydania. BAOCUT_TOOLS_ENDPOINT ma pierwszeństwo",
+  'models.downloadMirrors':
+    "Dodane serwery lustrzane repozytorium modeli (lista { name, base }; base to URL http(s):// bez powtórzeń). Tylko lista do wyboru: pobieranie używa models.downloadEndpoint",
+  'tools.downloadMirrors':
+    "Dodane serwery lustrzane stron wydań (lista { name, base }; base to URL http(s):// bez powtórzeń). Tylko lista do wyboru: pobieranie używa tools.downloadEndpoint",
   'fonts.autoDownload': "Automatycznie pobieraj czcionki wymagane do układu, nieobecne na komputerze i dostępne w katalogu (podgląd i eksport); po wyłączeniu używa zastępczej czcionki i powiadamia",
   'fonts.cssEndpoint': "Bazowy URL CSS API czcionek (serwer lustrzany, https://); null używa https://fonts.googleapis.com",
   'fonts.fileEndpoint': "Bazowy URL plików czcionek (serwer lustrzany, https://; pliki tylko spod niego); null używa https://fonts.gstatic.com",
@@ -31,8 +35,9 @@ export const pl: SettingDescriptionMessages = {
   'updates.autoDownload': "Pobieraj nowe wersje w tle (bez automatycznej instalacji)",
   'diagnostics.enabled': "Wysyłaj anonimowe statystyki użycia i podsumowania wydajności (bez multimediów, tekstu i ścieżek)",
   'offline.strict': "Ścisły offline: nie wysyłaj nic do usług online",
-  'semantic.channels': 'Kanały indeksu semantycznego: text (wypowiedzi: transkrypcje, napisy, tłumaczenia, rozdziały); visual i audio nie są jeszcze dostępne',
+  'semantic.channels': 'Kanały indeksu semantycznego: text (wypowiedzi: transkrypcje, napisy, tłumaczenia, rozdziały); visual (klatka kluczowa co 8 sekund; wymaga multimodalnego pakietu modelu i trwa dłużej); audio nie jest jeszcze dostępne',
   'semantic.indexedProjects': 'Projekty, których wideo dostają indeks semantyczny: all albo lista id projektów (wideo spoza projektów tylko przy all)',
+  'semantic.pauseOnBattery': 'Wstrzymuj budowanie indeksu semantycznego na baterii i wznawiaj po podłączeniu zasilania (zawsze wstrzymuje, gdy system zwalnia z powodu temperatury)',
   'semantic.translationMemory': 'Podczas tłumaczenia proponuj wcześniejsze tłumaczenia niemal identycznych zdań (wymaga modelu wyszukiwania tekstu)',
   'semantic.glossaryCandidates': 'Proponuj terminy słowniczka na podstawie niemal identycznych zapisów w transkrypcjach (wymaga modelu wyszukiwania tekstu)',
 };

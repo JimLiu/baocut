@@ -14,6 +14,10 @@ export const it: SettingDescriptionMessages = {
   'models.downloadEndpoint': 'Origine del download dei modelli locali (URL di base del mirror, http(s)://); null usa l’hub pubblico dei modelli; https://www.modelscope.cn scarica da ModelScope. La variabile d’ambiente BAOCUT_MODELS_ENDPOINT ha la precedenza',
   'models.dir': 'Cartella dei modelli locali (percorso assoluto); null usa models nella cartella dei dati. La variabile d’ambiente BAOCUT_MODELS_DIR ha la precedenza. Cambiala con models.setDir, non con settings set',
   'tools.downloadEndpoint': 'Origine del download degli strumenti esterni gestiti (yt-dlp) (URL di base del mirror, http(s)://, file in <base>/<tool>/<version>/<file>); null usa l’URL della versione ufficiale. La variabile d’ambiente BAOCUT_TOOLS_ENDPOINT ha la precedenza',
+  'models.downloadMirrors':
+    "Mirror del repository di modelli aggiunti (elenco di { name, base }; base è un URL http(s):// senza duplicati). Solo un elenco da cui scegliere: i download usano models.downloadEndpoint",
+  'tools.downloadMirrors':
+    "Mirror delle pagine di rilascio aggiunti (elenco di { name, base }; base è un URL http(s):// senza duplicati). Solo un elenco da cui scegliere: i download usano tools.downloadEndpoint",
   'fonts.autoDownload': 'Scarica automaticamente i font richiesti dal layout, assenti su questo computer e presenti nel catalogo dei font (anteprima ed esportazione); quando disattivato, usa un font alternativo e mostra un avviso',
   'fonts.cssEndpoint': 'URL di base dell’API CSS dei font (mirror, https://); null usa https://fonts.googleapis.com',
   'fonts.fileEndpoint': 'URL di base per i file dei font (mirror, https://; i file vengono recuperati solo da questo URL); null usa https://fonts.gstatic.com',
@@ -23,8 +27,9 @@ export const it: SettingDescriptionMessages = {
   'runtime.idleExitMinutes': 'Minuti durante i quali un Runtime avviato dalla CLI resta inattivo prima di terminare autonomamente (1–1440): nessuna connessione, attività o servizio esterno aperto. L’app desktop e i Runtime avviati manualmente non sono interessati',
   'updates.autoCheck': 'Verifica automaticamente gli aggiornamenti dell’app', 'updates.autoDownload': 'Scarica nuove versioni in background (senza installarle automaticamente)',
   'diagnostics.enabled': 'Invia statistiche d’utilizzo e riepiloghi delle prestazioni anonimi (senza media, testo o percorsi)', 'offline.strict': 'Rigorosamente offline: non inviare nulla a nessun servizio online',
-  'semantic.channels': 'Canali dell’indice semantico da creare: text (parlato: trascrizioni, sottotitoli, traduzioni, capitoli); visual e audio non sono ancora disponibili',
+  'semantic.channels': 'Canali dell’indice semantico da creare: text (parlato: trascrizioni, sottotitoli, traduzioni, capitoli); visual (un fotogramma chiave ogni 8 secondi; richiede un modello multimodale e più tempo); audio non è ancora disponibile',
   'semantic.indexedProjects': 'Progetti i cui video hanno un indice semantico: all, oppure un elenco di id di progetto (i video fuori dai progetti solo con all)',
+  'semantic.pauseOnBattery': 'Sospendi la creazione dell’indice semantico quando si usa la batteria e riprendi con l’alimentazione collegata (si sospende sempre se il sistema rallenta per il calore)',
   'semantic.translationMemory': 'Suggerisci traduzioni precedenti di frasi quasi identiche durante la traduzione (richiede il modello di ricerca testuale)',
   'semantic.glossaryCandidates': 'Suggerisci termini di glossario da grafie quasi identiche tra le trascrizioni (richiede il modello di ricerca testuale)',
 };

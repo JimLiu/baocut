@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
 
 /**
  * 本机 embedding 的执行接口（EmbeddingGemma 2 检索集成方案 v0.1 §3.1、§4、§5）。Provider 只处理已冻结的输入与配置，返回向量与
@@ -26,6 +27,19 @@ export interface EmbeddingProfile {
   maxInputTokens: number;
   /** 实际后端设备（`cpu` / `gpu`），还没加载时 null。 */
   device: string | null;
+  /** `text-to-visual` 才有：关键帧怎么取（长边像素、格式）与一批至多几张。取法进 `encoderProfileId`。 */
+  frames?: EmbeddingFrames;
+}
+
+export interface EmbeddingFrames {
+  edge: number;
+  format: 'jpeg';
+  maxBatch: number;
+}
+
+/** 一批关键帧（检索规格 §6.2）：Runtime 媒体分析缓存里的图片文件，绝对路径。图片不加前缀。 */
+export interface EmbeddingImageRequest {
+  images: readonly string[];
 }
 
 export interface EmbeddingInput {
@@ -43,7 +57,7 @@ export interface EmbeddingRequest {
 export interface EmbeddingResult {
   /** 与输入一一对应、按顺序；L2 归一化、维度 = `profile.dims`。 */
   vectors: Float32Array[];
-  /** 实际送进模型的文字（含前缀）摘要：`embeddingKey` 的输入（§5.3）。 */
+  /** 实际送进模型的文字（含前缀）摘要：`embeddingKey` 的输入（§5.3）。图片是文件内容的摘要。 */
   payloadDigests: string[];
 }
 
@@ -64,6 +78,11 @@ export interface EmbeddingProvider {
   profile(purpose: EmbeddingPurpose): Promise<EmbeddingProfile>;
   /** 一批输入编码。批大小由调用方控制（文字 batch 上限 16，§16.1）。 */
   embed(purpose: EmbeddingPurpose, request: EmbeddingRequest, signal?: AbortSignal): Promise<EmbeddingResult>;
+  /**
+   * 一批关键帧编码（`text-to-visual`，与它的查询文字在同一个空间）；一批至多 `profile('text-to-visual').frames.maxBatch` 张。
+   * 没有能编码图片的模型包时抛 `MODEL_NOT_INSTALLED`。不支持图片的 Provider 不实现它。
+   */
+  embedImages?(request: EmbeddingImageRequest, signal?: AbortSignal): Promise<EmbeddingResult>;
 }
 
 /**
@@ -131,7 +150,22 @@ export class HashingEmbeddingProvider implements EmbeddingProvider {
       dims: this.#dims,
       maxInputTokens: 2048,
       device: 'cpu',
+      ...(purpose === 'text-to-visual' ? { frames: { edge: 512, format: 'jpeg' as const, maxBatch: 4 } } : {}),
     };
+  }
+
+  /** 测试用：把图片文件的内容当文字编码（测试里的「关键帧」是写着画面描述的文本文件）。 */
+  async embedImages(request: EmbeddingImageRequest, signal?: AbortSignal): Promise<EmbeddingResult> {
+    signal?.throwIfAborted();
+    this.calls += 1;
+    const vectors: Float32Array[] = [];
+    const payloadDigests: string[] = [];
+    for (const image of request.images) {
+      const bytes = await fs.readFile(image);
+      payloadDigests.push(crypto.createHash('sha256').update(bytes).digest('hex'));
+      vectors.push(this.#vector(bytes.toString('utf8')));
+    }
+    return { vectors, payloadDigests };
   }
 
   async embed(purpose: EmbeddingPurpose, request: EmbeddingRequest, signal?: AbortSignal): Promise<EmbeddingResult> {

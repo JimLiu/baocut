@@ -16,6 +16,8 @@ export {
   type ComponentRelease,
   type ComponentReleaseAsset,
   type EmbeddingBundleProfile,
+  type EmbeddingModality,
+  type EmbeddingVisionProfile,
   type ImageBundleProfile,
   type MusicBundleProfile,
   type SpeechBundleProfile,
@@ -23,6 +25,7 @@ export {
 export { SPEECH_BUNDLES } from './speech-bundles.ts';
 export {
   EMBEDDING_BUNDLES,
+  EMBEDDING_VISION_OVERHEAD_BYTES,
   EMBEDDING_WORKER_OVERHEAD_BYTES,
   EMBEDDINGGEMMA2_MULTIMODAL_BUNDLE,
   EMBEDDINGGEMMA2_TEXT_BUNDLE,
@@ -30,6 +33,7 @@ export {
   LITERTLM_RUNTIME_RELEASE,
   LITERTLM_RUNTIME_TOOL,
   LITERTLM_VERSION,
+  EMBEDDING_VECTOR_COMPAT,
 } from './embedding-bundles.ts';
 export {
   EMBEDDING_SELF_TEST,
@@ -277,6 +281,8 @@ export {
   digestText,
   formatEmbeddingInput,
   truncateAndNormalize,
+  type EmbeddingFrames,
+  type EmbeddingImageRequest,
   type EmbeddingInput,
   type EmbeddingProfile,
   type EmbeddingProvider,

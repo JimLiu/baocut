@@ -47,20 +47,11 @@ const en = {
   downloaderWeb: "The browser doesn't check for download tools on this computer; check in the BaoCut desktop app.",
 
   sourcesGroup: 'Download sources and offline',
-  modelsEndpoint: 'Model download source',
-  toolsEndpoint: 'Tool download source',
-  toolsEndpointDesc:
-    'External tools like yt-dlp are downloaded from here, at “base URL/tool/version/file name”. Leave empty to use the official release URL. The BAOCUT_TOOLS_ENDPOINT environment variable takes priority over this.',
-  toolsEndpointPlaceholder: 'Official release URL',
   strictOffline: 'Strict offline',
   strictOfflineDesc:
     "When on, models and external tools aren't downloaded, and videos aren't downloaded from links. Whether cloud models and Agent engines go online isn't affected.",
   strictOfflineOn: 'Turned on strict offline',
   strictOfflineOff: 'Turned off strict offline',
-  endpointChanged: (endpoint: string) => `Now using ${endpoint}`,
-  endpointReset: (label: string) => `${label} reset to default`,
-  save: 'Save',
-  resetDefault: 'Reset to default',
 
   trashDays: 'Days to keep items in Trash',
   trashDaysDesc: (fallback: number | null) =>

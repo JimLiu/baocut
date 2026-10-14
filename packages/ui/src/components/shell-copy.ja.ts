@@ -141,6 +141,10 @@ export const ja: ShellMessages = {
     dropEditorState: 'このメッセージにエディタの状態を含めない',
     spaceEntries: 'このメッセージと一緒に送る Space の項目',
     dropSpaceEntries: 'このメッセージにこれらの Space の項目を含めない',
+    readScopeAll: 'すべての動画を検索できます',
+    readScopeUnfiled: 'プロジェクト外の動画を検索できます',
+    readScopeHint: 'Agent はこれらの動画で話された内容を検索できますが、開いたり編集したりはできません',
+    dropReadScope: 'この会話の動画だけを検索',
     message: 'Agent へのメッセージ',
   },
   rail: {

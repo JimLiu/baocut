@@ -1,5 +1,5 @@
 import { pluralForm } from '@baocut/protocol';
-const SOURCE = "«Источник скачивания моделей» в Настройки › Общие";
+const SOURCE = "Настройки › Общие › Источники скачивания";
 const and = (items: readonly string[]) => new Intl.ListFormat('ru', { type: 'conjunction' }).format(items);
 const files = (n: number) => pluralForm('ru', n, { one: `${n} файл`, few: `${n} файла`, many: `${n} файлов`, other: `${n} файла` });
 import type { ModelsInstallMessages } from './models-install-copy.ts';
@@ -25,13 +25,17 @@ export const ru: ModelsInstallMessages = {
   remedyNoSpace: (need, have) => `${need !== null && have !== null ? `Требуется ${need}, доступно только ${have}. ` : ""}Освободите место на диске и скачайте снова. ${KEEP}`,
   remedyNetwork: `Проверьте сеть и скачайте снова. ${KEEP} Если источник по умолчанию недоступен, смените зеркало в ${SOURCE}.`,
   remedyIntegrity: `Файлы источника скачивания не совпали с размером или sha256 манифеста и удалены. Смените источник скачивания (${SOURCE}), затем скачайте снова.`,
-  remedySource: `В источнике скачивания нет файла или доступ запрещён. Проверьте полноту зеркала в ${SOURCE} (или переменной окружения BAOCUT_MODELS_ENDPOINT).`,
+  remedySource: (env) => `В источнике скачивания нет файла или доступ запрещён. Проверьте полноту зеркала в ${SOURCE} (или переменной окружения ${env}) либо переключитесь на другой источник.`,
   remedyManifest: "Во встроенном манифесте пакета модели нет доверенного sha256, установка невозможна до обновления BaoCut.",
   remedyOffline: "Включён строгий офлайн-режим, скачивание отключено. Для скачивания сначала отключите режим в настройках.",
   remedySizeChanged: "Размер скачивания изменился. Подтвердите новый план снова.",
   remedyInUse: "Задача использует пакет модели (расшифровка, синтез, проверка или установка). Дождитесь завершения или отмените в «Фоновые задачи», затем удалите снова.",
   remedyUnavailable: "Пакет модели сейчас недоступен (не полностью установлен, отключён или не поддерживается компьютером). Сначала восстановите или включите.",
   remedyInstallFailed: `Попробуйте скачать снова. ${KEEP}`,
+  partFailed: (part) => `Не удалось скачать: ${part}.`,
+  partFailedFrom: (part, host) => `Не удалось скачать: ${part} (с ${host}).`,
+  partKept: 'Уже скачанные части сохраняются, поэтому при докачке скачивается только недостающее. Можно сначала сменить источник скачивания.',
+  sentences: (parts) => parts.join(' '),
   problemText: (message, remedy) => (/[.!?。！？]$/.test(message) ? `${message} ${remedy}` : `${message}. ${remedy}`),
   removalBody: (unknown, frees, kept) => [
       unknown ? "Удаляет файлы, используемые только этим пакетом модели." : frees !== null ? `Освобождает около ${frees}.` : null,

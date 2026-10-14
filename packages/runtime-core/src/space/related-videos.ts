@@ -57,7 +57,9 @@ export async function relatedVideos(
     if (other.id === entry.id) return true;
     const otherId = videoIdOf(other);
     if (otherId !== null && (otherId === videoId || otherId === parentId)) return true;
-    return videoId !== null && other.origin?.source === 'derived' && other.origin.videoId === videoId;
+    if (other.origin?.source !== 'derived') return false;
+    // 它切出的短视频，以及与它同一来源切出的其他短视频（内容都来自同一部，本来就重叠）。
+    return (videoId !== null && other.origin.videoId === videoId) || (parentId !== null && other.origin.videoId === parentId);
   };
   const byName = (reason: SemanticReason): SpaceRelatedVideosResult => ({
     basis: 'name',

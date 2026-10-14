@@ -32,20 +32,11 @@ export const ptBR: GeneralSettingsMessages = {
   downloaderWeb: "Navegador não verifica ferramentas locais; use desktop.",
 
   sourcesGroup: "Fontes de download e off-line",
-  modelsEndpoint: "Fonte de download de modelos",
-  toolsEndpoint: "Fonte de download de ferramentas",
-  toolsEndpointDesc:
-    "Ferramentas como yt-dlp baixadas em “URL base/ferramenta/versão/arquivo”. Vazio usa URL oficial. BAOCUT_TOOLS_ENDPOINT tem prioridade.",
-  toolsEndpointPlaceholder: "URL oficial de lançamento",
   strictOffline: "Off-line estrito",
   strictOfflineDesc:
     "Ativado: não baixa modelos, ferramentas ou vídeos por links. Conexões dos modelos de nuvem e agentes não mudam.",
   strictOfflineOn: "Off-line estrito ativado",
   strictOfflineOff: "Off-line estrito desativado",
-  endpointChanged: (endpoint: string) => `Agora usando ${endpoint}`,
-  endpointReset: (label: string) => `${label} redefinido ao padrão`,
-  save: "Salvar",
-  resetDefault: "Redefinir",
 
   trashDays: "Dias na Lixeira",
   trashDaysDesc: (fallback: number | null) =>

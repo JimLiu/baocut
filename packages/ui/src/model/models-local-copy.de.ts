@@ -39,8 +39,8 @@ export const de: ModelsLocalMessages = {
 
   notInstalled: (name: string) => `${name} (nicht installiert)`,
 
-  componentName: { 'audiocpp-engine': "audio.cpp-Engine", aligner: "Erzwungener Ausrichter", speaker: "Sprecher-Embedding", vad: "VAD (Sprachaktivitätserkennung)", tokenizer: "Tokenizer", segmentation: "Sprechersegmentierung", codec: "Sprach-Codec", aux: "Hilfsmodelle" } as Record<string, string>,
-  componentDesc: { 'audiocpp-engine': "Führt YuE2 aus · je nach Plattform heruntergeladen · Windows / Linux brauchen einen Vulkan-Grafiktreiber", vad: "Findet die Abschnitte, in denen jemand spricht", aligner: "Richtet den Text auf das Timing jedes Worts aus", tokenizer: "Wandelt zwischen Text und den Tokens des Modells um", speaker: "Unterscheidet die Sprecher", segmentation: "Findet, wo jede Person zu sprechen beginnt und aufhört", codec: "Wandelt akustische Tokens zurück in eine Wellenform", aux: "Zusätzliche Modelle, die das Hauptmodell braucht" },
+  componentName: { 'litertlm-runtime': "LiteRT-LM-Laufzeit", 'audiocpp-engine': "audio.cpp-Engine", aligner: "Erzwungener Ausrichter", speaker: "Sprecher-Embedding", vad: "VAD (Sprachaktivitätserkennung)", tokenizer: "Tokenizer", segmentation: "Sprechersegmentierung", codec: "Sprach-Codec", aux: "Hilfsmodelle" } as Record<string, string>,
+  componentDesc: { 'litertlm-runtime': "Führt die Modelle des semantischen Index aus · für Ihre Plattform heruntergeladen", 'audiocpp-engine': "Führt YuE2 aus · je nach Plattform heruntergeladen · Windows / Linux brauchen einen Vulkan-Grafiktreiber", vad: "Findet die Abschnitte, in denen jemand spricht", aligner: "Richtet den Text auf das Timing jedes Worts aus", tokenizer: "Wandelt zwischen Text und den Tokens des Modells um", speaker: "Unterscheidet die Sprecher", segmentation: "Findet, wo jede Person zu sprechen beginnt und aufhört", codec: "Wandelt akustische Tokens zurück in eine Wellenform", aux: "Zusätzliche Modelle, die das Hauptmodell braucht" },
   githubRelease: (repo, tag) => `GitHub-Release ${repo} ${tag}`,
   weights: "Modellgewichte",
 };

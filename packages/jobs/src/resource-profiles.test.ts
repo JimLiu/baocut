@@ -2,7 +2,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ResourceCapacity, ResourcePriority } from '@baocut/protocol';
-import { EMBEDDING_WORKER_OVERHEAD_BYTES, IMAGE_BUNDLES, ModelCatalog, requiredSources, weightBytes, type WorkerFootprint } from '@baocut/models';
+import { EMBEDDING_VISION_OVERHEAD_BYTES, EMBEDDING_WORKER_OVERHEAD_BYTES, IMAGE_BUNDLES, ModelCatalog, requiredSources, weightBytes, type WorkerFootprint } from '@baocut/models';
 import { unifiedGpuEstimate } from './machine-capacity.ts';
 import {
   MODEL_WORKER_DEMAND,
@@ -76,11 +76,15 @@ describe('Model Worker 的需求', () => {
           expect(footprint, def.bundleId).toEqual({ bytes: 2 * weightBytes(requiredSources(def))!, pool: 'gpuMemory' });
           expect(await catalog.workerWeightBytes(def.bundleId), def.bundleId).toBe(footprint!.bytes);
         } else if (def.capability === 'embed') {
-          // 文本嵌入跑在 CPU 上：模型文件 + LiteRT-LM 动态库的压缩包 + 余量，计在内存。
+          // 文本嵌入跑在 CPU 上：模型文件 + LiteRT-LM 动态库压缩包 + 工作区；有图像编码器时还计其内存余量。
           // 目录模拟 Apple Silicon；发布页组件的大小也按目录平台算，不能取 CI 主机的平台。
           const bytes = weightBytes(requiredSources(def), undefined, 'darwin-arm64');
           expect(bytes, def.bundleId).not.toBeNull();
-          expect(footprint, def.bundleId).toEqual({ bytes: bytes! + EMBEDDING_WORKER_OVERHEAD_BYTES, pool: 'memory' });
+          const vision = def.embedding?.vision ? EMBEDDING_VISION_OVERHEAD_BYTES : 0;
+          expect(footprint, def.bundleId).toEqual({
+            bytes: bytes! + EMBEDDING_WORKER_OVERHEAD_BYTES + vision,
+            pool: 'memory',
+          });
           expect(demand.gpuMemory, def.bundleId).toBe(0);
         } else if (def.speech?.residentBytes !== undefined) {
           expect(footprint).toEqual({ bytes: def.speech.residentBytes, pool: 'gpuMemory' });

@@ -75,7 +75,17 @@ export interface Conversation {
    * 发出后清空。没有时省略。
    */
   pendingReferences?: SpaceEntryReference[];
+  /**
+   * 用户给这条会话放宽的只读检索范围（架构设计 §4.8 的例外，创作辅助集成设计 §2.9「回答这个问题」）：`all` 是 Space 里的全部视频，
+   * `unfiled` 是不属于项目的全部视频。只放宽按内容检索与列出视频（`space_search`、`space_search_v2`、`space_resolve_search_hit`、
+   * `speech_relevant`、`space_list` 里的视频条目），不放宽打开、编辑视频与读别的文件。只能在建会话时由用户给
+   * （`conversations.create`），`conversations.update { spaceReadScope: null }` 收回；智能体没有工具能改它。没有时省略。
+   */
+  spaceReadScope?: SpaceReadScope;
 }
+
+/** 会话的只读检索范围（`Conversation.spaceReadScope`）。 */
+export type SpaceReadScope = 'all' | 'unfiled';
 
 /**
  * 会话里对一个 Space 条目的引用（架构设计 §5.7「从条目继续会话」）：只有条目的标识与元数据，不含文件内容；

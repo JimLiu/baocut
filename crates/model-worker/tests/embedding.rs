@@ -174,3 +174,73 @@ fn embed_run_checks_params_before_state() {
     assert_eq!(error_code(&load), "MODEL_UNSUPPORTED", "{load}");
     assert_eq!(load["error"]["details"]["component"], "litertlm-runtime");
 }
+
+/// 多模态包的图像编码器：`model.load` 带 `vision` 打开，`embed.run` 给 `images`。参考向量是 G0 评测（Python 绑定、同一个 0.18.0
+/// 的 C 库、CPU、默认 140 个视觉 token、归一化）对同一张图给出的 768 维向量，存成 JSON 数组；两条路径应给出同一个向量。
+///
+/// ```sh
+/// BAOCUT_TEST_EMBEDDING_MODEL=/path/to/embeddinggemma-2-740m.litertlm \
+/// BAOCUT_TEST_LITERTLM_LIBRARY=/path/to/libCLiteRTLM_mac.dylib \
+/// BAOCUT_TEST_EMBEDDING_FRAME=/path/to/frame.jpg \
+/// BAOCUT_TEST_EMBEDDING_FRAME_VECTOR=/path/to/frame-vector.json \
+///   cargo test -p model-worker --test embedding -- --ignored --test-threads=1 --nocapture
+/// ```
+#[test]
+#[ignore = "needs the EmbeddingGemma 2 740M .litertlm, the LiteRT-LM library, a frame and its reference vector"]
+fn embeddinggemma2_embeds_a_frame_like_the_reference() {
+    let model = std::env::var("BAOCUT_TEST_EMBEDDING_MODEL").expect("set BAOCUT_TEST_EMBEDDING_MODEL");
+    let library = std::env::var("BAOCUT_TEST_LITERTLM_LIBRARY").expect("set BAOCUT_TEST_LITERTLM_LIBRARY");
+    let frame = std::env::var("BAOCUT_TEST_EMBEDDING_FRAME").expect("set BAOCUT_TEST_EMBEDDING_FRAME");
+    let reference: Vec<f32> = serde_json::from_str(
+        &std::fs::read_to_string(std::env::var("BAOCUT_TEST_EMBEDDING_FRAME_VECTOR").expect("set BAOCUT_TEST_EMBEDDING_FRAME_VECTOR"))
+            .unwrap(),
+    )
+    .unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    let mut worker = WorkerProcess::spawn();
+    let (_, hello) = worker.call("worker.hello", json!({ "contractVersion": 1 }), QUICK);
+    assert_eq!(result(&hello)["embeddingCapabilities"]["inputs"], json!(["text", "image"]));
+    let bundle = json!({
+        "bundleId": "embeddinggemma2-multimodal@litert-lm",
+        "backend": "litert-lm",
+        "device": "cpu",
+        "threads": 4,
+        "cacheDir": cache.path().to_string_lossy(),
+        "vision": {},
+        "components": {
+            "embedding": single_file(Path::new(&model), "embeddinggemma2-litert"),
+            "litertlm-runtime": single_file(Path::new(&library), "litertlm-runtime"),
+        },
+    });
+    let (_, loaded) = worker.call("model.load", json!({ "bundle": bundle }), LOAD_TIMEOUT);
+    assert_eq!(result(&loaded)["loaded"], true, "{loaded}");
+
+    let started = std::time::Instant::now();
+    let (_, response) = worker.call(
+        "embed.run",
+        json!({ "requestId": "frame", "images": [frame], "outputSize": 768, "insertSpecialTokens": true }),
+        RUN_TIMEOUT,
+    );
+    let run = result(&response);
+    let vector = decode(&run["vectors"][0]);
+    assert_eq!(vector.len(), 768);
+    let cosine = dot(&vector, &reference) / dot(&reference, &reference).sqrt();
+    eprintln!("cos(worker, reference) = {cosine:.6}, {} ms", started.elapsed().as_millis());
+    assert!(cosine >= 0.999, "the worker's frame vector drifts from the reference: {cosine}");
+
+    // 打开图像编码器不影响文字：同一个引擎照样嵌入文本。
+    let (_, response) = worker.call(
+        "embed.run",
+        json!({ "requestId": "text", "texts": ["task: search result | query: a slide"], "outputSize": 768, "insertSpecialTokens": true }),
+        RUN_TIMEOUT,
+    );
+    assert_eq!(decode(&result(&response)["vectors"][0]).len(), 768);
+    // 一张读不了的图：INPUT_UNREADABLE，带序号。
+    let (_, response) = worker.call(
+        "embed.run",
+        json!({ "requestId": "bad", "images": [frame, "/nonexistent/frame.jpg"], "outputSize": 768, "insertSpecialTokens": true }),
+        RUN_TIMEOUT,
+    );
+    assert_eq!(error_code(&response), "INPUT_UNREADABLE", "{response}");
+    assert_eq!(response["error"]["details"]["index"], 1);
+}

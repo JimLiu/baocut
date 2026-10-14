@@ -32,8 +32,8 @@ export const zhHant: ModelsLocalMessages = {
   },
   auto: '自動',
   notInstalled: (name) => `${name}（未安裝）`,
-  componentName: { 'audiocpp-engine': 'audio.cpp 引擎', aligner: '強制對齊器', speaker: '聲紋嵌入', vad: 'VAD（語音活動偵測）', tokenizer: '分詞器', segmentation: '說話者分段', codec: '語音編解碼器', aux: '輔助模型' },
-  componentDesc: { 'audiocpp-engine': '執行 YuE2 的引擎 · 依平台下載 · Windows / Linux 需要 Vulkan 顯示卡驅動程式', vad: '切出有人說話的段落', aligner: '把文字對到逐詞時間', tokenizer: '在文字與模型的詞元之間轉換', speaker: '區分誰在說話', segmentation: '找出每個人開口與停下的位置', codec: '把聲學 token 還原成波形', aux: '主模型要用到的附加模型' },
+  componentName: { 'litertlm-runtime': 'LiteRT-LM 執行環境', 'audiocpp-engine': 'audio.cpp 引擎', aligner: '強制對齊器', speaker: '聲紋嵌入', vad: 'VAD（語音活動偵測）', tokenizer: '分詞器', segmentation: '說話者分段', codec: '語音編解碼器', aux: '輔助模型' },
+  componentDesc: { 'litertlm-runtime': '執行語意索引的模型 · 依你的平台下載', 'audiocpp-engine': '執行 YuE2 的引擎 · 依平台下載 · Windows / Linux 需要 Vulkan 顯示卡驅動程式', vad: '切出有人說話的段落', aligner: '把文字對到逐詞時間', tokenizer: '在文字與模型的詞元之間轉換', speaker: '區分誰在說話', segmentation: '找出每個人開口與停下的位置', codec: '把聲學 token 還原成波形', aux: '主模型要用到的附加模型' },
   githubRelease: (repo, tag) => `GitHub 發行版 ${repo} ${tag}`,
   weights: '模型權重',
 };

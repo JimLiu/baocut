@@ -308,6 +308,7 @@ const en = {
   } as Record<CoverText, string>,
   viewName: { author: 'author', viewer: 'viewer' } as Record<'author' | 'viewer', string>,
   extraScope: (scope: string) => `Focus only on ${scope}`,
+  extraTopic: (topic: string) => `Write only about “${topic}”: first find the parts that talk about it with speech_relevant, then write from those`,
   extraLength: (label: string) => `Length: ${label}`,
   extraStyle: (style: string) => `Style: ${style}`,
   extraLanguage: (language: string) => `Write in ${language}`,
@@ -534,6 +535,11 @@ export function canvasRatio(width: number, height: number): string {
 export interface WritingSettings {
   /** 「只看」的那一章；整篇时 null。 */
   scope?: string | null;
+  /**
+   * 只写这个主题（交给 Agent 时；创作辅助集成设计 §2.2）：Space 搜索「用于写作」带来的意图句，本机语义能用时让 Agent 先用
+   * `speech_relevant` 找出讲这件事的段落再写。直接调模型时由「按主题」选材，不进提示词。
+   */
+  topic?: string | null;
   length?: WriteLength | null;
   style?: WriteStyle | null;
   /** 风格选「自定义…」时用户写的那句。 */
@@ -557,6 +563,8 @@ export interface WritingSettings {
 export function writingExtra(tool: 'summary' | 'blog' | 'title' | 'desc' | 'cover', s: WritingSettings): string[] {
   const out: string[] = [];
   if (s.scope) out.push(M.extraScope(s.scope));
+  const topic = (s.topic ?? '').trim();
+  if (topic && tool !== 'cover') out.push(M.extraTopic(topic));
   const length = LENGTHS.find((l) => l.key === s.length);
   if (length && tool !== 'title' && tool !== 'cover') out.push(M.extraLength(length.label));
   const style = s.style === 'custom' ? (s.customStyle ?? '').trim() : (STYLES.find((x) => x.key === s.style)?.label ?? '');

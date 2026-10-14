@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { ProtocolValidation as V } from './messages/protocol/protocol-validation.ts';
-import { SPACE_LIST_MAX_LIMIT, SPACE_SEARCH_MAX_LIMIT } from './space.ts';
+import { SPACE_HIT_MOMENTS_MAX, SPACE_LIST_MAX_LIMIT, SPACE_SEARCH_MAX_LIMIT } from './space.ts';
 import { SEMANTIC_QUERY_MAX_CHARS, SPACE_RELATED_VIDEOS_MAX_LIMIT, SPACE_SEARCH_V2_MAX_LIMIT } from './semantic.ts';
 import { AI_TOOL_SERIES_MAX, AI_TOOL_TOPIC_MAX_CHUNKS } from './pipelines.ts';
 
@@ -91,6 +91,24 @@ export const SPACE_PARAM_SCHEMAS = {
   'space.purge': entry,
   'space.openForEdit': entry,
   'space.thumbnail': entry,
+  'space.hitMoments': z
+    .object({
+      entryId: id,
+      spans: z
+        .array(
+          z
+            .object({
+              clock: z.enum(['sequence', 'source']),
+              startSec: z.number().finite().nonnegative().max(1_000_000),
+              endSec: z.number().finite().nonnegative().max(1_000_000),
+              documentId: id.nullable().optional(),
+            })
+            .strict(),
+        )
+        .min(1)
+        .max(SPACE_HIT_MOMENTS_MAX),
+    })
+    .strict(),
   'space.rebuildIndex': z.object({}).strict(),
   'space.continueInConversation': z.object({ entryId: id, conversationId: id.optional(), commandId: id.optional() }).strict(),
 } as const;

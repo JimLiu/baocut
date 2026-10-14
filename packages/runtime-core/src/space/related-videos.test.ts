@@ -106,6 +106,7 @@ function world(fakes: Fake[]) {
       video: { dir: `/v/${f.videoId}`, videoId: f.videoId, videoName: f.name, entryId: f.entryId, projectId: f.projectId ?? null, revision: 'r1' },
       generation,
       usable: generation.embeddingSpaceId === 'space-a',
+      state: 'indexed',
     });
   });
   const scanned: number[] = [];
@@ -130,6 +131,7 @@ function world(fakes: Fake[]) {
         }
         return hits.sort((a, b) => b.score - a.score).slice(0, k);
       },
+      exactFrameSearch: () => [],
       invalidate: () => {},
     },
   };
@@ -183,11 +185,14 @@ describe('相关视频 · 按意思', () => {
     expect((await relatedVideos(catalog, semantic, USER_VIEWER, { entryId: 'e1' })).videos).toEqual([]);
   });
 
-  it('短视频那一头：不列它的来源视频', async () => {
+  it('短视频那一头：不列它的来源视频，也不列同一来源切出的其他短视频', async () => {
     SEMANTIC_THRESHOLDS.thresholds.related.value = 0.5;
-    const { catalog, semantic } = world(base);
+    const sibling: Fake = { entryId: 'e7', videoId: 'v7', name: 'Lens short', parent: 'v1', chunks: [{ text: 'lens', v: [0.8, 0.2, 0] }] };
+    const { catalog, semantic } = world([...base, sibling]);
     const result = await relatedVideos(catalog, semantic, USER_VIEWER, { entryId: 'e5' });
     expect(result.videos.map((v) => v.entryId)).toEqual(['e2', 'e3']);
+    // 来源视频那一头照样不列切出的短视频。
+    expect((await relatedVideos(catalog, semantic, USER_VIEWER, { entryId: 'e1' })).videos.map((v) => v.entryId)).toEqual(['e2', 'e3']);
   });
 
   it('退回名字：没有语义服务、没装模型、这部视频没建好索引或在别的向量空间', async () => {

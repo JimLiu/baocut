@@ -138,6 +138,8 @@ interface FrameOutput {
   format: 'jpeg' | 'png';
   /** 编码后的上限（字节），缺省 `THUMBNAIL_MAX_BYTES`。 */
   maxBytes?: number;
+  /** JPEG 的 `-q:v`（2–31，越小越清楚），缺省 5。 */
+  quality?: number;
 }
 
 export interface MediaAnalysisOptions {
@@ -519,6 +521,36 @@ export class MediaAnalysis {
   }
 
   /**
+   * 画面检索的关键帧（检索规格 §6.2）：素材源时间 `at` 的一帧，长边缩到 `edge`（不放大），JPEG `-q:v 3`（G0 多模态评测的取法），
+   * 写进缓存后返回文件的绝对路径（`keyframe-<毫秒>-<边>.jpg`，与给人看的帧分开）。编码器读这个文件；缓存被清掉时重新取。
+   */
+  async keyframeFile(asset: FrameAsset, at: number, edge: number, locate: () => Promise<{ root: string; file: string }>): Promise<string> {
+    const demuxers = DEMUXERS[asset.mediaType];
+    if (!demuxers) throw new RpcError('forbidden', RcRuntime.onlyAudioVideoAnalyzable());
+    const millis = frameMillis(at, asset.durationSec);
+    const file = path.join(this.#options.cacheDir, cacheKeyOf(asset.contentHash), `keyframe-${millis}-${edge}.jpg`);
+    if ((await fs.stat(file).catch(() => null))?.size) return file;
+    this.#recentFailure(file);
+    let job = this.#thumbnailJobs.get(file);
+    if (!job) {
+      const output: FrameOutput = {
+        filter: `scale=w='min(${edge},iw)':h='min(${edge},ih)':force_original_aspect_ratio=decrease:force_divisible_by=2`,
+        format: 'jpeg',
+        maxBytes: FRAME_MAX_BYTES,
+        quality: 3,
+      };
+      const started = this.#thumbnailSlots.run(async () => {
+        const { root, file: target } = await locate();
+        const { realPath } = await resolveInside(root, target);
+        return this.#computeFrame({ realPath, demuxers, seekMs: millis }, output, file);
+      });
+      job = this.#remember(file, started, this.#thumbnailJobs);
+    }
+    await job;
+    return file;
+  }
+
+  /**
    * 视频素材源时钟 `[fromSec, fromSec + durSec)` 里的镜头切换（`videos_shots`）：ffmpeg 把画面缩到 160 宽，
    * 用 `select='gt(scene,T)'` 挑出场景分数超过 `threshold` 的帧，`metadata=print` 把时刻与分数写到 stdout。
    * 输入端 `-ss` 之后 pts 从 0 起算，返回的 `at` 已加回 `fromSec`（源时钟上的秒）。要解码整段，与波形峰值共用并发名额，
@@ -680,7 +712,7 @@ export class MediaAnalysis {
       ...(input.seekMs !== null ? ['-ss', (input.seekMs / 1000).toFixed(3)] : []),
       ...(input.force ? ['-f', input.demuxers] : []),
     ];
-    const codec = output.format === 'png' ? ['-c:v', 'png'] : ['-q:v', '5', '-c:v', 'mjpeg'];
+    const codec = output.format === 'png' ? ['-c:v', 'png'] : ['-q:v', String(output.quality ?? 5), '-c:v', 'mjpeg'];
     await this.#ffmpeg(
       { realPath: input.realPath, demuxers: input.demuxers, before },
       ['-map', '0:v:0', '-frames:v', '1', '-vf', output.filter, '-f', 'image2pipe', ...codec, 'pipe:1'],

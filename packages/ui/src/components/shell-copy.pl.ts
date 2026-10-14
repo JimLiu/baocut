@@ -141,6 +141,10 @@ export const pl: ShellMessages = {
     dropEditorState: "Nie dołączaj stanu edytora do wiadomości",
     spaceEntries: "Elementy Space w wiadomości",
     dropSpaceEntries: "Nie dołączaj tych elementów Space do wiadomości",
+    readScopeAll: "Może przeszukiwać wszystkie filmy",
+    readScopeUnfiled: "Może przeszukiwać filmy spoza projektów",
+    readScopeHint: "Agent może przeszukiwać to, co mówi się w tych filmach, ale nie może ich otwierać ani edytować",
+    dropReadScope: "Przeszukuj tylko filmy z tej rozmowy",
     message: "Wiadomość do agenta",
   },
   rail: {

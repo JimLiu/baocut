@@ -2,7 +2,7 @@ import { useCallback, useEffect } from 'react';
 import { create } from 'zustand';
 import type { SemanticIndexStatus } from '@baocut/protocol';
 import { useRuntime } from '../runtime/context.tsx';
-import { indexUpdating } from '../model/semantic-status.ts';
+import { indexUpdating, visualUpdating } from '../model/semantic-status.ts';
 import { useModels } from './models-store.ts';
 
 /**
@@ -54,7 +54,7 @@ export function useSemanticStatus(options: { poll?: boolean } = {}): SemanticSta
   useEffect(() => {
     if (useSemanticState.getState().at > 0) void refresh();
   }, [models, refresh]);
-  const updating = indexUpdating(state.status) && !state.status?.paused;
+  const updating = (indexUpdating(state.status) || visualUpdating(state.status)) && !state.status?.paused;
   useEffect(() => {
     if (!options.poll || !updating) return;
     const timer = setInterval(() => void refresh(), POLL_MS);

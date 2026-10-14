@@ -402,6 +402,22 @@
     return blocks;
   }
 
+  /** 正文里「视频某一刻」的出处（integration §2.9）：`[时间](/videos/<id>?t=<秒>)` 切成 {video, t, label}，其余原样是 {text}。
+      别的链接不解析，照字面显示（同实现：文档预览里只有这种链接可点）。 */
+  function documentMoments(text) {
+    const out = [];
+    const re = /\[([^\]]+)\]\(\/videos\/([A-Za-z0-9_%-]+)\?t=(\d+(?:\.\d+)?)\)/g;
+    const s = String(text || '');
+    let at = 0, m;
+    while ((m = re.exec(s))) {
+      if (m.index > at) out.push({text: s.slice(at, m.index)});
+      out.push({label: m[1], video: decodeURIComponent(m[2]), t: Number(m[3])});
+      at = m.index + m[0].length;
+    }
+    if (at < s.length) out.push({text: s.slice(at)});
+    return out;
+  }
+
   /* ---------- 二次编辑（§4.6） ---------- */
   /** 这个条目的二次编辑走哪条路：
       editor（视频：完整编辑器）· source（有来源视频的成片：回到来源视频）· new-movie（无来源的成片：以它为素材新建视频）·
@@ -486,6 +502,6 @@
   root.BC_SPACE = {
     KINDS, KIND_ORDER, CATS, SPECIAL, STATUS, SORTS, TRANSCRIBE, isCat, movieStatus, transcribeAction,
     items, inCat, group, filesOf, shortsOf, spanText, counts, view, hitsText, filesSummary, filesAttention, dirOptions, statusText, formatBytes, durationText, durationClock, specText, sourceText, toolName, agoText,
-    documentBlocks, editRoute, versionsOf, versionName, newVersion, IMPORT_ACCEPT, kindOfFile, assetRecord, recentMovies,
+    documentBlocks, documentMoments, editRoute, versionsOf, versionName, newVersion, IMPORT_ACCEPT, kindOfFile, assetRecord, recentMovies,
   };
 })();

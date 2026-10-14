@@ -31,20 +31,11 @@ export const ja: GeneralSettingsMessages = {
   downloaderWeb: 'ブラウザではこのコンピュータのダウンロードツールを確認しません。BaoCut デスクトップアプリで確認してください。',
 
   sourcesGroup: 'ダウンロード元とオフライン',
-  modelsEndpoint: 'モデルのダウンロード元',
-  toolsEndpoint: 'ツールのダウンロード元',
-  toolsEndpointDesc:
-    'yt-dlp などの外部ツールは、ここから「ベース URL/ツール/バージョン/ファイル名」の形でダウンロードされます。空欄にすると公式のリリース URL を使用します。環境変数 BAOCUT_TOOLS_ENDPOINT が設定されている場合はそちらが優先されます。',
-  toolsEndpointPlaceholder: '公式のリリース URL',
   strictOffline: '厳格オフライン',
   strictOfflineDesc:
     'オンにすると、モデルと外部ツールをダウンロードせず、リンクから動画もダウンロードしません。クラウドモデルと Agent エンジンがオンラインに接続するかどうかには影響しません。',
   strictOfflineOn: '厳格オフラインをオンにしました',
   strictOfflineOff: '厳格オフラインをオフにしました',
-  endpointChanged: (endpoint: string) => `${endpoint} を使用します`,
-  endpointReset: (label: string) => `${label} を既定に戻しました`,
-  save: '保存',
-  resetDefault: '既定に戻す',
 
   trashDays: 'ゴミ箱の保持日数',
   trashDaysDesc: (fallback: number | null) =>

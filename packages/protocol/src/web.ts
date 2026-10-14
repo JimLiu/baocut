@@ -122,6 +122,7 @@ export const WEB_READ_METHODS: readonly RpcMethod[] = [
   'space.relatedVideos',
   'space.openForEdit',
   'space.thumbnail',
+  'space.hitMoments',
   'media.resolve',
   'media.playback',
   'media.subtitles',

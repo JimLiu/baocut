@@ -140,6 +140,10 @@ export const zhHans: ShellMessages = {
     dropEditorState: '这条消息不附带编辑器状态',
     spaceEntries: '随这条消息带上的 Space 条目',
     dropSpaceEntries: '这条消息不带这些 Space 条目',
+    readScopeAll: '可检索全部视频',
+    readScopeUnfiled: '可检索不属于项目的视频',
+    readScopeHint: 'Agent 可以按内容检索这些视频里讲的话，不能打开或修改它们',
+    dropReadScope: '只检索这条会话里的视频',
     message: '给智能体的消息',
   },
   rail: {

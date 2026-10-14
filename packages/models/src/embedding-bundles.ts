@@ -5,7 +5,7 @@ import type { BundleComponentSource, BundleDefinition, ComponentRelease } from '
 /**
  * 本机语义检索的 embedding 模型包（EmbeddingGemma 2 检索集成方案 v0.1 §4.2；Model Worker 协议规范 §4.5）。`bundleId` 是
  * `<模型>@litert-lm`。两个包给人选：「文字搜索」（`embeddinggemma2-text`，只有文字编码器）与「多模态搜索」
- * （`embeddinggemma2-multimodal`，完整的 740M 包，这一阶段只用它的文字编码器）。装了多模态包就不必再装文字包。
+ * （`embeddinggemma2-multimodal`，完整的 740M 包，另有图像编码器，用来按描述找画面）。装了多模态包就不必再装文字包。
  *
  * 权重是 litert-community 发布的 `.litertlm` 单文件，由 Model Worker 的 `litert-lm` 后端经 LiteRT-LM 的 C API 加载。C 库不随应用
  * 分发，是两个模型包共用的发布页组件 `litertlm-runtime`（`workerLibrary`）：随模型包下载、核对，解开到 `tools/litertlm-runtime/<版本>/`，
@@ -21,8 +21,15 @@ const MiB = 1024 * 1024;
 /** 组件目录与镜像路径里 C 库的名字：`<toolsDir>/litertlm-runtime/<版本>/`。 */
 export const LITERTLM_RUNTIME_TOOL = 'litertlm-runtime';
 
-/** LiteRT-LM 的版本：进 `encoderProfileId`（SDK 版本）。 */
+/** LiteRT-LM 的版本（C 库组件的版本与下载地址）。不进 `encoderProfileId`：那里只放 `EMBEDDING_VECTOR_COMPAT`。 */
 export const LITERTLM_VERSION = '0.18.0';
+
+/**
+ * 向量兼容标签，进 `encoderProfileId`（检索规格 v0.1 §5.3 的「SDK/实现版本」）。升级 LiteRT-LM、换编译选项或换 Worker 时
+ * 不跟着变；用 `tools/embedding-eval/reference-vectors.ts` 把固定的文字与合成帧重新编码，与仓库里存的参考向量比，任何一条
+ * 余弦低于 0.9999 才把它加一（旧向量随之不再比较、索引重建），再重新生成参考。
+ */
+export const EMBEDDING_VECTOR_COMPAT = 'vec-v1';
 
 const MAC_ASSET = {
   fileName: 'CLiteRTLM_mac.xcframework.zip',
@@ -78,7 +85,6 @@ const PROFILE = {
   maxInputTokens: 2048,
   // 与 SentenceTransformers 参考实现一致（逐条余弦 ≥ 0.98；不插入时只有 0.81–0.88）。
   insertSpecialTokens: true,
-  modalities: ['text'] as const,
 };
 
 export const EMBEDDINGGEMMA2_TEXT_BUNDLE = 'embeddinggemma2-text@litert-lm';
@@ -102,6 +108,7 @@ const TEXT: BundleDefinition = {
   license: APACHE_LICENSE('https://huggingface.co/litert-community/embeddinggemma-2-text-270m-litert-lm'),
   embedding: {
     ...PROFILE,
+    modalities: ['text'],
     modelFile: 'embeddinggemma-2-text-270m.litertlm',
     modelSha256: '2d079ee2f6f066b1f368e8d7c819f55214eaef1d0513b312321901f30ab286fb',
   },
@@ -124,6 +131,10 @@ const MULTIMODAL: BundleDefinition = {
   license: APACHE_LICENSE('https://huggingface.co/litert-community/embeddinggemma-2-740m-litert-lm'),
   embedding: {
     ...PROFILE,
+    modalities: ['text', 'image'],
+    // G0 多模态评测（`tools/embedding-eval/reports/g0-multimodal-2026-10-13.md`）的取法：长边 512 px 的 JPEG，每张 140 个视觉
+    // token（模型的默认值）。截到 512 维与 768 维的检索结果相同（R@1 一致，正例与无答案的分数差 ≤ 0.012）。
+    vision: { tokensPerImage: 140, frameEdge: 512, frameFormat: 'jpeg' },
     modelFile: 'embeddinggemma-2-740m.litertlm',
     modelSha256: 'e7a8a2204b91e0f96e92960e84a09a89212e1633dcb7575a9bf3378b4df77f4c',
   },
@@ -138,3 +149,6 @@ export const EMBEDDING_BUNDLES: readonly BundleDefinition[] = [TEXT, MULTIMODAL]
  * 文件 + 压缩包 + 这个余量分别约 466 MB 与 786 MB，覆盖实测值。
  */
 export const EMBEDDING_WORKER_OVERHEAD_BYTES = 256 * MiB;
+
+/** 有图像编码器的模型包另计的内存：打开图像编码器后常驻约多 1 GB（2026-10-13 实测）。按能打开计，不论这次加载有没有打开。 */
+export const EMBEDDING_VISION_OVERHEAD_BYTES = 1024 * MiB;

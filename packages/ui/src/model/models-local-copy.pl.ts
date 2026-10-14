@@ -32,8 +32,8 @@ export const pl: ModelsLocalMessages = {
   },
   auto: "Automatycznie",
   notInstalled: (name) => `${name} (niezainstalowany)`,
-  componentName: { 'audiocpp-engine': "Silnik audio.cpp", aligner: "Wymuszone dopasowanie", speaker: "Embedding mówcy", vad: "VAD (wykrywanie aktywności głosowej)", tokenizer: "Tokenizer", segmentation: "Segmentacja mówców", codec: "Kodek mowy", aux: "Modele pomocnicze" },
-  componentDesc: { 'audiocpp-engine': "Uruchamia YuE2 · pobierany zależnie od platformy · Windows / Linux wymagają sterownika GPU z Vulkan", vad: "Wyszukuje fragmenty, w których ktoś mówi", aligner: "Dopasowuje tekst do czasu każdego słowa", tokenizer: "Zamienia tekst na tokeny modelu i z powrotem", speaker: "Rozróżnia mówców", segmentation: "Wyszukuje, gdzie każda osoba zaczyna i kończy mówić", codec: "Zamienia tokeny akustyczne z powrotem w falę dźwiękową", aux: "Dodatkowe modele potrzebne modelowi głównemu" },
+  componentName: { 'litertlm-runtime': "Środowisko uruchomieniowe LiteRT-LM", 'audiocpp-engine': "Silnik audio.cpp", aligner: "Wymuszone dopasowanie", speaker: "Embedding mówcy", vad: "VAD (wykrywanie aktywności głosowej)", tokenizer: "Tokenizer", segmentation: "Segmentacja mówców", codec: "Kodek mowy", aux: "Modele pomocnicze" },
+  componentDesc: { 'litertlm-runtime': "Uruchamia modele indeksu semantycznego · pobierane dla Twojej platformy", 'audiocpp-engine': "Uruchamia YuE2 · pobierany zależnie od platformy · Windows / Linux wymagają sterownika GPU z Vulkan", vad: "Wyszukuje fragmenty, w których ktoś mówi", aligner: "Dopasowuje tekst do czasu każdego słowa", tokenizer: "Zamienia tekst na tokeny modelu i z powrotem", speaker: "Rozróżnia mówców", segmentation: "Wyszukuje, gdzie każda osoba zaczyna i kończy mówić", codec: "Zamienia tokeny akustyczne z powrotem w falę dźwiękową", aux: "Dodatkowe modele potrzebne modelowi głównemu" },
   githubRelease: (repo, tag) => `Wydanie GitHub ${repo} ${tag}`,
   weights: "Wagi modelu",
 };

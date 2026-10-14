@@ -10,6 +10,7 @@ export const ja: ModelsEmbeddingMessages = {
   notNormalized: (p: { norm: string }) => `長さが 1 でないベクトルがあります（ノルム ${p.norm}）`,
   notRanked: (p: { relevant: string; irrelevant: string }) => `関連する文のスコアが無関係な文を上回りませんでした（コサイン ${p.relevant} 対 ${p.irrelevant}）`,
   noModel: 'ローカルの埋め込みモデルがインストールされていません',
+  noVisionModel: 'インストール済みのローカル埋め込みモデルは画像を読めません。映像の内容で検索するには EmbeddingGemma 2 740M をインストールしてください',
   inputTooLong: (p: { index: number; max: number }) => `テキスト ${p.index} がモデルの受け付ける長さ（${p.max} トークン）を超えています`,
   modelUnavailable: (p: { problem: string }) => `ローカルの埋め込みモデルを使えません：${p.problem}`,
   cannotEmbed: 'この Model Worker はまだこのモデルで埋め込みを計算できません',

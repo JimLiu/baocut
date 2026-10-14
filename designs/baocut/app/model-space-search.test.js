@@ -128,3 +128,35 @@ test('编辑器查找片段：只列这部视频里意思相近、原句里没�
   assert.equal(Q.inVideo('隐', o).rows.length, 0);
   assert.equal(Q.inVideo('隐私', Object.assign({}, o, {regex: true})).rows.length, 0);
 });
+
+test('弱命中折起来：有明显相关的才折，全是弱命中时照常全给', () => {
+  const r = (id, weak) => ({id, weak});
+  assert.deepEqual(Q.fold([r('a', false), r('b', true), r('c', false), r('d', true)]), {
+    shown: [r('a', false), r('c', false)],
+    folded: [r('b', true), r('d', true)],
+  });
+  assert.deepEqual(Q.fold([r('a', true), r('b', true)]), {shown: [r('a', true), r('b', true)], folded: []});
+  assert.deepEqual(Q.fold([]), {shown: [], folded: []});
+  const res = Q.search('预算', Object.assign({}, base, {mode: 'mix', limit: 20}));
+  const f = Q.fold(res.results);
+  assert.equal(f.shown.length + f.folded.length, res.results.length);
+});
+
+test('命中原因：字面对上的写出对上的词；只按意思的写意思接近；不编概念名、不写分数', () => {
+  const st = S.status({});
+  const both = Q.search('确定性', Object.assign({mode: 'mix', scope: 'all', status: st}, base)).results[0];
+  assert.equal(Q.why(both), '说到了「确定性」，意思也对得上');
+  const exact = Q.search('确定性', Object.assign({mode: 'exact', scope: 'all', status: st}, base)).results[0];
+  assert.equal(Q.why(exact), '说到了「确定性」');
+  const sem = Q.search('我哪一期讲过离线？', Object.assign({mode: 'mix', scope: 'all', status: st}, base)).results;
+  sem.filter((x) => !x.weak).forEach((x) => assert.equal(Q.why(x), '意思接近，原句里没有这些字'));
+  assert.equal(Q.why({by: 'semantic', weak: true, text: 'x', hl: null}), Q.BY.weak);
+  // 同一个词出现两次只写一次，最多写 3 个
+  assert.equal(Q.why({by: 'exact', text: 'ab ab cd ef gh', hl: [[0, 2], [3, 5], [6, 8], [9, 11], [12, 14]]}), '说到了「ab」「cd」「ef」');
+});
+
+test('预览那一段：命中那句前后各留 2 秒，不早于 0；没有结束时间时按 4 秒', () => {
+  assert.deepEqual(Q.moment({t: 37, end: 42}), {from: 35, to: 44, hit: [37, 42]});
+  assert.deepEqual(Q.moment({t: 1, end: 3}), {from: 0, to: 5, hit: [1, 3]});
+  assert.deepEqual(Q.moment({t: 10}), {from: 8, to: 16, hit: [10, 14]});
+});

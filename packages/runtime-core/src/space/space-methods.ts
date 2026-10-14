@@ -10,7 +10,7 @@ import { USER_VIEWER, listEntries, searchContent, searchScope, visibleEntry, typ
 import { readCitations, type CitationArtifacts } from './space-citations.ts';
 import { relatedVideos } from './related-videos.ts';
 import { resolveSearchHit } from './search-hit-resolver.ts';
-import { semanticError } from './semantic/errors.ts';
+import { reasonOf, semanticError } from './semantic/errors.ts';
 import { lexicalOnlySearch, type SemanticServices } from './semantic/services.ts';
 import { RcSpace } from '@baocut/protocol/messages/runtime-core';
 
@@ -26,6 +26,7 @@ type SpaceMethod =
   | 'space.purge'
   | 'space.openForEdit'
   | 'space.thumbnail'
+  | 'space.hitMoments'
   | 'space.continueInConversation'
   | 'space.rebuildIndex'
   | 'space.searchV2'
@@ -117,6 +118,7 @@ export function spaceMethods(space: SpaceCatalog, deps: SpaceMethodDeps): Pick<R
     'space.purge': (p) => space.purge(p.entryId),
     'space.openForEdit': (p) => space.openForEdit(p.entryId),
     'space.thumbnail': (p, principal) => thumbnails.of(visibleEntry(space, viewerOf(principal), p.entryId)),
+    'space.hitMoments': (p, principal) => thumbnails.moments(visibleEntry(space, viewerOf(principal), p.entryId), p.spans),
     'space.continueInConversation': (p, principal) => {
       viewerOf(principal);
       return continueInConversation(space, harness, p);
@@ -124,16 +126,27 @@ export function spaceMethods(space: SpaceCatalog, deps: SpaceMethodDeps): Pick<R
     'space.rebuildIndex': () => space.rebuild(),
     'space.searchV2': (p, principal) => search.searchV2(viewerOf(principal), p),
     'space.indexStatus': (p, principal) => search.indexStatus(viewerOf(principal), p),
-    'space.indexBuild': (p, principal) => {
+    'space.indexBuild': async (p, principal) => {
       const viewer = viewerOf(principal);
-      if (p.channels?.some((channel) => channel !== 'text')) throw semanticError('CHANNEL_UNAVAILABLE');
-      if (!semantic?.scheduler()) throw semanticError('MODEL_NOT_INSTALLED');
+      const channels = p.channels ?? ['text'];
+      // 画面要有取帧来源（桌面与 Web 的 Runtime 都有）；声音通道还没有实现。
+      if (channels.some((channel) => channel !== 'text' && (channel !== 'visual' || !semantic?.coordinator.visual))) {
+        throw semanticError('CHANNEL_UNAVAILABLE');
+      }
+      const scheduler = semantic?.scheduler();
+      if (!semantic || !scheduler) throw semanticError('MODEL_NOT_INSTALLED');
       if (!semantic.store()) throw semanticError('INDEX_NOT_READY');
+      if (channels.includes('visual')) {
+        // 只装了文字模型包时画面建不了：现在就告诉调用方（`details.channel` 指明缺的是能读图的模型包）。
+        await scheduler.profile('text-to-visual').catch((error: unknown) => {
+          throw semanticError(reasonOf(error), { channel: 'visual' });
+        });
+      }
       // 范围与检索相同：主体看得到的、按项目与 videoId 筛过的视频。
       const dirs = new Set(searchScope(space, viewer, p).videos.map((v) => v.dir));
       const planned = semantic.coordinator.build(
         space.videos().filter((video) => dirs.has(video.dir)),
-        p.rebuild ? { rebuild: true } : {},
+        { ...(p.rebuild ? { rebuild: true } : {}), channels },
       );
       return { jobId: null, planned };
     },

@@ -175,6 +175,17 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
               }
             : null
         }
+        readScope={
+          meta.spaceReadScope
+            ? {
+                scope: meta.spaceReadScope,
+                onRemove: () =>
+                  void runtime
+                    .updateConversation(conversationId, { spaceReadScope: null })
+                    .catch((error: Error) => ToastQueue.negative(S.conversationView.removeFailed(error.message), { timeout: 5000 })),
+              }
+            : null
+        }
         slideAnnotations={{
           items: slideAnnotations.map((n) => ({ id: n.id, target: n.deck, anchor: n.anchor, label: n.label, text: n.text })),
           onRemove: (id) => useDraftSlideAnnotations.getState().remove(conversationId, id),

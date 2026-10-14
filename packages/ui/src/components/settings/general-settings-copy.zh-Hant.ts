@@ -31,19 +31,10 @@ export const zhHant: GeneralSettingsMessages = {
   downloaderWeb: '瀏覽器不會檢查這台電腦上的下載工具；請在 BaoCut 桌面應用程式中查看。',
 
   sourcesGroup: '下載來源與離線',
-  modelsEndpoint: '模型下載來源',
-  toolsEndpoint: '工具下載來源',
-  toolsEndpointDesc:
-    'yt-dlp 這類外部工具從這裡下載，位置為「基礎 URL/工具/版本/檔案名稱」。留空則使用官方發布網址。環境變數 BAOCUT_TOOLS_ENDPOINT 優先於此設定。',
-  toolsEndpointPlaceholder: '官方發布網址',
   strictOffline: '嚴格離線',
   strictOfflineDesc: '開啟後不下載模型與外部工具，也不從連結下載影片。雲端模型與 Agent 引擎是否連網不受影響。',
   strictOfflineOn: '已開啟嚴格離線',
   strictOfflineOff: '已關閉嚴格離線',
-  endpointChanged: (endpoint: string) => `已改用 ${endpoint}`,
-  endpointReset: (label: string) => `${label}已回復預設值`,
-  save: '儲存',
-  resetDefault: '回復預設值',
 
   trashDays: '垃圾桶保留天數',
   trashDaysDesc: (fallback: number | null) =>

@@ -59,6 +59,7 @@ import {
   type SettingsReader,
   type SlideAnnotation,
   type SpaceEntryReference,
+  type SpaceReadScope,
   type TaskContract,
   type TaskContractInput,
   type TaskContractPatch,
@@ -854,6 +855,8 @@ export class Harness {
     projectId?: Id | null;
     /** 用这条会话的工作目录（§3.10）：它不属于项目时新会话与它共用工作目录（`folderOf`），属于项目时新会话建在那个项目里。 */
     folderOf?: Id;
+    /** 用户给的只读检索范围（`Conversation.spaceReadScope`）。 */
+    spaceReadScope?: SpaceReadScope;
     title?: string;
     commandId?: Id;
     driverId?: DriverId;
@@ -914,6 +917,7 @@ export class Harness {
         projectId,
         cwd,
         ...(host ? { folderOf: host.id } : {}),
+        ...(params.spaceReadScope ? { spaceReadScope: params.spaceReadScope } : {}),
         driverId,
         model,
         effort,
@@ -959,6 +963,7 @@ export class Harness {
     effort?: string | null;
     accessMode?: AgentMode | Autonomy | null;
     pendingReferences?: null;
+    spaceReadScope?: null;
   }): Promise<Conversation> {
     const state = this.#require(params.conversationId);
     const conv = state.conversation;
@@ -967,6 +972,7 @@ export class Harness {
     if (params.pinned !== undefined) patch.pinned = params.pinned;
     if (params.archived !== undefined) patch.archived = params.archived;
     if (params.pendingReferences === null && state.conversation.pendingReferences) patch.pendingReferences = undefined;
+    if (params.spaceReadScope === null && state.conversation.spaceReadScope) patch.spaceReadScope = undefined;
     if (params.driverId !== undefined && params.driverId !== conv.driverId) {
       // 原生会话不能跨 Agent 续：有过任务的会话不能换。
       if (state.tasks().length > 0 || conv.activeTaskId) {

@@ -30,18 +30,10 @@ export const ru: GeneralSettingsMessages = {
   downloaderWeb: "Браузер не проверяет инструменты скачивания на компьютере; проверьте в настольном BaoCut.",
 
   sourcesGroup: "Источники скачивания и офлайн",
-  modelsEndpoint: "Источник скачивания моделей",
-  toolsEndpoint: "Источник скачивания инструментов",
-  toolsEndpointDesc: "Внешние инструменты, например yt-dlp, скачиваются отсюда по «базовый URL/tool/version/file name». Оставьте пустым для официального URL выпуска. Переменная окружения BAOCUT_TOOLS_ENDPOINT имеет приоритет.",
-  toolsEndpointPlaceholder: "Официальный URL выпуска",
   strictOffline: "Строго офлайн",
   strictOfflineDesc: "При включении модели, внешние инструменты и видео по ссылкам не скачиваются. Сетевой доступ облачных моделей и движков агентов не меняется.",
   strictOfflineOn: "Строгий офлайн-режим включён",
   strictOfflineOff: "Строгий офлайн-режим отключён",
-  endpointChanged: (endpoint: string) => `Теперь используется ${endpoint}`,
-  endpointReset: (label: string) => `${label} сброшено по умолчанию`,
-  save: "Сохранить",
-  resetDefault: "Вернуть по умолчанию",
 
   trashDays: "Дней хранения в корзине",
   trashDaysDesc: (fallback: number | null) => `Записи без ссылок в корзине дольше срока и удалённые видео удаляются навсегда (проверка при запуске и каждые 6 часов). Записи со ссылками сохраняются. Очистите для значения по умолчанию${fallback ? ` из ${fallback} дней` : ""}.`,

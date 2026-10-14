@@ -11,6 +11,10 @@ export const es: SettingDescriptionMessages = {
  'models.downloadEndpoint': 'Origen de descarga de modelos locales (URL base de servidor espejo, http(s)://); null usa el repositorio público de modelos; https://www.modelscope.cn descarga desde ModelScope. La variable de entorno BAOCUT_MODELS_ENDPOINT tiene prioridad',
  'models.dir': 'Carpeta de modelos locales (ruta absoluta); null usa models de la carpeta de datos. La variable de entorno BAOCUT_MODELS_DIR tiene prioridad. Cámbiala con models.setDir, no con settings set',
  'tools.downloadEndpoint': 'Origen de descarga de herramientas externas gestionadas (yt-dlp) (URL base de servidor espejo, http(s)://, archivos en <base>/<tool>/<version>/<file>); null usa la URL de distribución oficial. La variable de entorno BAOCUT_TOOLS_ENDPOINT tiene prioridad',
+ 'models.downloadMirrors':
+   "Servidores espejo del repositorio de modelos que añadiste (lista de { name, base }; base es una URL http(s):// sin duplicados). Solo es una lista para elegir: las descargas usan models.downloadEndpoint",
+ 'tools.downloadMirrors':
+   "Servidores espejo de páginas de versiones que añadiste (lista de { name, base }; base es una URL http(s):// sin duplicados). Solo es una lista para elegir: las descargas usan tools.downloadEndpoint",
  'fonts.autoDownload': 'Descargar automáticamente fuentes necesarias para la composición, ausentes de este ordenador y presentes en el catálogo de fuentes (vista previa y exportación); al desactivar, se dibuja con una fuente alternativa y se muestra un aviso',
  'fonts.cssEndpoint': 'URL base de la API CSS de fuentes (servidor espejo, https://); null usa https://fonts.googleapis.com',
  'fonts.fileEndpoint': 'URL base de archivos de fuentes (servidor espejo, https://; solo se obtienen archivos dentro de ella); null usa https://fonts.gstatic.com',
@@ -19,8 +23,9 @@ export const es: SettingDescriptionMessages = {
  'resources.capacity': 'Avanzado: capacidad del ordenador para planificar recursos { memoryMiB, gpuMemoryMiB, cpuThreads }; una propiedad en null se detecta automáticamente; null detecta todo (memoria y CPU del sistema, memoria de GPU en Apple silicon estimada de memoria unificada)',
  'runtime.idleExitMinutes': 'Minutos que un Runtime iniciado por la CLI permanece inactivo antes de terminar solo (1–1440): sin conexiones, tareas ni servicios externos abiertos. No afecta a la aplicación de escritorio ni a Runtimes iniciados manualmente',
  'updates.autoCheck': 'Comprobar actualizaciones de la aplicación automáticamente', 'updates.autoDownload': 'Descargar versiones nuevas en segundo plano (sin instalarlas automáticamente)', 'diagnostics.enabled': 'Enviar estadísticas anónimas de uso y resúmenes de rendimiento (sin medios, texto ni rutas)', 'offline.strict': 'Sin conexión estricto: no enviar nada a ningún servicio en línea',
-  'semantic.channels': 'Canales del índice semántico que se crean: text (lo hablado: transcripciones, subtítulos, traducciones, capítulos); visual y audio aún no están disponibles',
+  'semantic.channels': 'Canales del índice semántico que se crean: text (lo hablado: transcripciones, subtítulos, traducciones, capítulos); visual (un fotograma clave cada 8 segundos; requiere un modelo multimodal y tarda más); audio aún no está disponible',
   'semantic.indexedProjects': 'Proyectos cuyos vídeos tienen índice semántico: all, o una lista de ids de proyecto (los vídeos fuera de proyectos solo con all)',
+  'semantic.pauseOnBattery': 'Pausar la creación del índice semántico al usar la batería y continuar al conectar la corriente (siempre se pausa si el sistema se limita por calor)',
   'semantic.translationMemory': 'Sugerir traducciones anteriores de frases casi idénticas al traducir (requiere el modelo de búsqueda de texto)',
   'semantic.glossaryCandidates': 'Sugerir términos del glosario a partir de grafías casi idénticas entre transcripciones (requiere el modelo de búsqueda de texto)',
 };

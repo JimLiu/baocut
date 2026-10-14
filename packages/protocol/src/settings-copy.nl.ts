@@ -20,6 +20,10 @@ export const nl: SettingDescriptionMessages = {
     "Map voor lokale modellen (absoluut pad); null gebruikt models in de gegevensmap. De omgevingsvariabele BAOCUT_MODELS_DIR heeft voorrang. Wijzig die met models.setDir, niet settings set",
   'tools.downloadEndpoint':
     "Downloadbron voor beheerde externe tools (yt-dlp) (basis-URL van spiegelserver, http(s)://, bestanden op <base>/<tool>/<version>/<file>); null gebruikt de officiële release-URL. De omgevingsvariabele BAOCUT_TOOLS_ENDPOINT heeft voorrang",
+  'models.downloadMirrors':
+    "Toegevoegde spiegelservers van de modelrepository (lijst van { name, base }; base is een http(s)://-URL zonder dubbelingen). Alleen een keuzelijst: downloads gebruiken models.downloadEndpoint",
+  'tools.downloadMirrors':
+    "Toegevoegde spiegelservers voor releasepagina’s (lijst van { name, base }; base is een http(s)://-URL zonder dubbelingen). Alleen een keuzelijst: downloads gebruiken tools.downloadEndpoint",
   'fonts.autoDownload':
     "Download automatisch lettertypen die nodig zijn voor de lay-out, niet op deze computer staan en in de lettertypecatalogus staan (voorbeeld en export); als dit uitstaat wordt een vervangend lettertype gebruikt met een melding",
   'fonts.cssEndpoint': "Basis-URL van de lettertype-CSS-API (spiegelserver, https://); null gebruikt https://fonts.googleapis.com",
@@ -35,8 +39,9 @@ export const nl: SettingDescriptionMessages = {
   'updates.autoDownload': "Nieuwe versies op de achtergrond downloaden (zonder automatisch te installeren)",
   'diagnostics.enabled': "Anonieme gebruiksstatistieken en prestatiesamenvattingen verzenden (geen media, tekst of paden)",
   'offline.strict': "Strikte offlinemodus: niets naar onlinediensten sturen",
-  'semantic.channels': 'Kanalen van de semantische index: text (gesproken inhoud: transcripties, ondertitels, vertalingen, hoofdstukken); visual en audio zijn nog niet beschikbaar',
+  'semantic.channels': 'Kanalen van de semantische index: text (gesproken inhoud: transcripties, ondertitels, vertalingen, hoofdstukken); visual (elke 8 seconden een sleutelbeeld; vraagt een multimodaal modelpakket en duurt langer); audio is nog niet beschikbaar',
   'semantic.indexedProjects': 'Projecten waarvan de video’s een semantische index krijgen: all, of een lijst met project-id’s (video’s buiten projecten alleen bij all)',
+  'semantic.pauseOnBattery': 'Het opbouwen van de semantische index pauzeren op de accu en hervatten zodra de stroom is aangesloten (pauzeert altijd als het systeem door hitte wordt afgeremd)',
   'semantic.translationMemory': 'Bij vertalen eerdere vertalingen van bijna identieke zinnen voorstellen (vereist het tekstzoekmodel)',
   'semantic.glossaryCandidates': 'Woordenlijsttermen voorstellen op basis van bijna identieke schrijfwijzen in transcripties (vereist het tekstzoekmodel)',
 } satisfies Record<SettingKey, string>;

@@ -173,7 +173,8 @@ export function AiAgentToolPage({
   const viaModel = runner === 'model' && kind ? kind : null;
 
   // 写总结、写博客直接调模型时范围多一项「按主题」（创作辅助集成设计 §2.2）：本机语义能用且视频超过 30 分钟时缺省按主题，
-  // 用户动过范围就按用户的；生成章节直接调模型时多一行「边界」（§2.4）。交给 Agent 时都没有：Agent 自己用 `speech_relevant`。
+  // 用户动过范围就按用户的；生成章节直接调模型时多一行「边界」（§2.4）。交给 Agent 时没有这两行：Space 搜索带来的主题写进
+  // 提示词（`writingExtra` 的 `topic`），Agent 先用 `speech_relevant` 找段落；没带主题时它按内置 skill 自己判断要不要检索。
   const semantic = useSemanticStatus();
   const topicOk = topicUsable(semantic.status);
   const topicHere = !!viaModel && topicTool(tool);
@@ -239,6 +240,7 @@ export function AiAgentToolPage({
   const extra: (string | null)[] = writing
     ? writingExtra(tool, {
         scope,
+        topic: !viaModel && topicOk ? (preset?.topic ?? null) : null,
         platform,
         idea,
         ratio: ratio === 'project' ? projectRatio : ratio,

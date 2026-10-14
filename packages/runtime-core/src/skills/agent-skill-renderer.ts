@@ -101,7 +101,7 @@ const GENERATED_OPEN = /^\s*<!--\s*generated:\s*(\S+?)\s*-->\s*$/;
 const GENERATED_CLOSE = /^\s*<!--\s*\/generated\s*-->\s*$/;
 /** 占位符；前面紧挨着的「读」一并捕获（`{{skill:…}}` 在工具桥面要吞掉它，其余占位符原样放回）。「通读」「阅读」这类不算。 */
 const PLACEHOLDER = /((?<![通阅解朗宣研])读\s*)?\{\{([^{}\n]*)\}\}/g;
-const TOOL_NAME = /^[a-z]+(?:_[a-z]+)*$/;
+const TOOL_NAME = /^[a-z]+(?:_[a-z0-9]+)*$/;
 const ARG_NAME = /^[a-z][A-Za-z0-9]*$/;
 const SKILL_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const FENCE = /^\s*(```|~~~)/;

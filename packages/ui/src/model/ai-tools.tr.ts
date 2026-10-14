@@ -124,6 +124,7 @@ export const tr: AiToolsMessages = {
   },
   viewName: { author: "yazar", viewer: "izleyici" },
   extraScope: (scope) => `Yalnızca şuna odaklan: ${scope}`,
+  extraTopic: (topic) => `Yalnızca “${topic}” hakkında yaz: önce speech_relevant ile bundan söz eden bölümleri bul, sonra onlardan yaz`,
   extraLength: (label) => `Uzunluk: ${label}`,
   extraStyle: (style) => `Stil: ${style}`,
   extraLanguage: (language) => `${language} dilinde yaz`,

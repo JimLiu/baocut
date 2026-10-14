@@ -20,6 +20,18 @@ test('章节边界：装了模型缺省按话题，没装由模型决定（§2.3
   assert.equal(T.boundaryDefault(none), 'model');
 });
 
+test('章节自检：只比同一部视频的几章，标题明显不贴的、与上一章几乎重复的给提示；没装模型或索引没好时不查（§3.6）', () => {
+  const r = T.chapterHints(D.chapters, SEM.chapterCheck, ready);
+  assert.equal(r.available, true);
+  assert.deepEqual(r.hints.map((h) => [h.k, h.id]), [['title', 'c3'], ['merge', 'c4']]);
+  assert.equal(r.hints[1].prev, 'c3');
+  assert.match(r.hints[1].text, /产品演示/);
+  // 几章都偏低时不单挑哪一章：相对中位数不够低
+  assert.deepEqual(T.chapterHints(D.chapters, {titleFit: {c1: 0.40, c2: 0.38, c3: 0.36, c4: 0.41}}, ready).hints, []);
+  assert.deepEqual(T.chapterHints(D.chapters, SEM.chapterCheck, none), {available: false, hints: []});
+  assert.equal(T.chapterHints(D.chapters, SEM.chapterCheck, S.status({index: 'stale'})).available, false);
+});
+
 test('术语候选：没装模型只剩记下的误听写法并说明；勾选的一次改完（§2.5）', () => {
   const all = T.termRows(SEM.termCands, ready);
   assert.equal(all.rows.length, SEM.termCands.length);

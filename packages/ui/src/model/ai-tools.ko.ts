@@ -165,6 +165,7 @@ export const ko: AiToolsMessages = {
   },
   viewName: { author: '작성자', viewer: '시청자' },
   extraScope: (scope: string) => `${scope}만 다뤄 주세요`,
+  extraTopic: (topic: string) => `“${topic}”에 대해서만 쓰기: 먼저 speech_relevant로 그 이야기를 하는 부분을 찾은 뒤 그 부분으로 쓰기`,
   extraLength: (label: string) => `분량: ${label}`,
   extraStyle: (style: string) => `스타일: ${style}`,
   extraLanguage: (language: string) => `작성 언어: ${language}`,

@@ -10,6 +10,7 @@ export const tr: ModelsEmbeddingMessages = {
   notNormalized: (p: { norm: string }) => `Bir vektörün uzunluğu 1 değil (norm ${p.norm})`,
   notRanked: (p: { relevant: string; irrelevant: string }) => `İlgili cümle, ilgisiz cümleden yüksek puan almadı (kosinüs ${p.relevant} - ${p.irrelevant})`,
   noModel: 'Yerel gömme (embedding) modeli yüklü değil',
+  noVisionModel: "Yüklü yerel gömme (embedding) modellerinden hiçbiri görüntü okuyamıyor. Ekrandaki içeriğe göre aramak için EmbeddingGemma 2 740M'yi yükleyin",
   inputTooLong: (p: { index: number; max: number }) => `${p.index}. metin modelin kabul ettiğinden uzun (${p.max} token)`,
   modelUnavailable: (p: { problem: string }) => `Yerel gömme modeli kullanılamıyor: ${p.problem}`,
   cannotEmbed: 'Bu Model Worker bu modelle henüz gömme hesaplayamıyor',

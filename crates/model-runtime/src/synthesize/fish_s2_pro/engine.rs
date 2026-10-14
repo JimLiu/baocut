@@ -120,6 +120,7 @@ impl FishS2Pro {
             rows[0].len() + sampling.max_tokens <= c.text_config.max_seq_len,
             "Fish prompt exceeds context length"
         );
+        let _cache = super::memory::GenerationCache::new()?;
         let mut state = State::new(c.text_config.n_layer);
         let mut previous = Vec::new();
         let mut codes = vec![Vec::new(); super::CODEBOOKS];

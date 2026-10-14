@@ -218,4 +218,13 @@ describe('新会话的默认模型', () => {
     expect(conversation.model).toBe('sonnet');
     expect((await h.updateConversation({ conversationId: conversation.id, driverId: 'codex' })).model).toBe('gpt-6-sol');
   });
+
+  it('建会话时给的只读检索范围记在会话上，更新成 null 去掉；不给时没有', async () => {
+    const h = await open([claude()]);
+    expect((await h.createConversation({ driverId: 'claude' })).spaceReadScope).toBeUndefined();
+    const scoped = await h.createConversation({ driverId: 'claude', spaceReadScope: 'all' });
+    expect(h.getConversation(scoped.id).conversation.spaceReadScope).toBe('all');
+    await h.updateConversation({ conversationId: scoped.id, spaceReadScope: null });
+    expect(h.getConversation(scoped.id).conversation.spaceReadScope).toBeUndefined();
+  });
 });

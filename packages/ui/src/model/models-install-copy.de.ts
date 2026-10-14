@@ -1,7 +1,7 @@
 const and = (items: readonly string[]) => new Intl.ListFormat('de', { type: 'conjunction' }).format(items);
 const files = (n: number) => pluralForm('de', n, { one: `${n} Datei`, other: `${n} Dateien` });
 const KEEP = 'Heruntergeladene Teile bleiben erhalten; der nächste Download setzt an dieser Stelle fort.';
-const SOURCE = '„Modelldownloadquelle“ unter Einstellungen › Allgemein';
+const SOURCE = 'Einstellungen › Allgemein › Downloadquellen';
 import { pluralForm } from '@baocut/protocol';
 import type { ModelsInstallMessages } from './models-install-copy.ts';
 
@@ -30,7 +30,7 @@ export const de: ModelsInstallMessages = {
     `${need !== null && have !== null ? `Benötigt ${need}; nur ${have} verfügbar. ` : ""}Speicher freigeben und erneut herunterladen. ${KEEP}`,
   remedyNetwork: `Netzwerk prüfen und erneut herunterladen. ${KEEP} Bei nicht erreichbarer Standardquelle einen Spiegelserver wählen unter ${SOURCE}.`,
   remedyIntegrity: `Downloaddateien stimmen in Größe oder sha256 nicht mit Manifest überein; fehlerhafte Dateien gelöscht. Andere Downloadquelle wählen (${SOURCE}), dann erneut herunterladen.`,
-  remedySource: `Downloadquelle enthält Datei nicht oder verweigert Zugriff. Vollständigkeit des Spiegelservers prüfen unter ${SOURCE} (oder BAOCUT_MODELS_ENDPOINT).`,
+  remedySource: (env) => `Downloadquelle enthält Datei nicht oder verweigert Zugriff. Vollständigkeit des Spiegelservers prüfen unter ${SOURCE} (oder ${env}) oder andere Quelle wählen.`,
   remedyManifest: "Im integrierten Manifest fehlt ein vertrauenswürdiger sha256; Installation erst nach BaoCut-Aktualisierung möglich.",
   remedyOffline: "Strikter Offlinemodus aktiv; keine Downloads. Zum Herunterladen zuerst in Einstellungen ausschalten.",
   remedySizeChanged: "Downloadgröße geändert. Neuen Plan erneut bestätigen.",
@@ -40,6 +40,10 @@ export const de: ModelsInstallMessages = {
     "Modellpaket derzeit nicht verwendbar (unvollständig installiert, ausgeschaltet oder auf diesem Computer nicht unterstützt). Zuerst reparieren oder einschalten.",
   remedyInstallFailed: `Erneut herunterladen. ${KEEP}`,
 
+  partFailed: (part) => `${part} wurde nicht heruntergeladen.`,
+  partFailedFrom: (part, host) => `${part} wurde nicht von ${host} heruntergeladen.`,
+  partKept: 'Bereits heruntergeladene Teile bleiben erhalten; beim Vervollständigen wird nur Fehlendes heruntergeladen. Die Downloadquelle lässt sich vorher wechseln.',
+  sentences: (parts) => parts.join(' '),
   problemText: (message: string, remedy: string) => (/[.!?。！？]$/.test(message) ? `${message} ${remedy}` : `${message}. ${remedy}`),
 
 

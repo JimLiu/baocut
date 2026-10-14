@@ -210,6 +210,12 @@ test('文档阅读分块保留列表起始编号、段落换行和代码原文',
     {type: 'code', text: '<script>ignored()</script>'},
   ]);
 });
+test('文档里视频某一刻的出处切出来，别的链接照字面', () => {
+  assert.deepEqual(SP.documentMoments('价格在 [12:05](/videos/p1?t=725.4) 讲过，见 [官网](https://x.y)'), [
+    {text: '价格在 '}, {label: '12:05', video: 'p1', t: 725.4}, {text: ' 讲过，见 [官网](https://x.y)'},
+  ]);
+  assert.deepEqual(SP.documentMoments(''), []);
+});
 test('空文档、未闭合围栏及不支持语法都不丢弃正文', () => {
   assert.deepEqual(SP.documentBlocks(''), []);
   assert.deepEqual(SP.documentBlocks('```\nraw\n'), [{type: 'code', text: 'raw\n'}]);

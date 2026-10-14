@@ -32,8 +32,8 @@ export const ja: ModelsLocalMessages = {
   },
   auto: '自動',
   notInstalled: (name) => `${name}（未インストール）`,
-  componentName: { 'audiocpp-engine': 'audio.cpp エンジン', aligner: '強制アライナ', speaker: '話者埋め込み', vad: 'VAD（音声区間検出）', tokenizer: 'トークナイザ', segmentation: '話者セグメンテーション', codec: '音声コーデック', aux: '補助モデル' },
-  componentDesc: { 'audiocpp-engine': 'YuE2 を動かすエンジン · プラットフォームごとにダウンロード · Windows / Linux は Vulkan 対応の GPU ドライバーが必要', vad: '人が話している区間を切り出す', aligner: 'テキストを単語単位のタイミングに合わせる', tokenizer: 'テキストとモデルのトークンを相互に変換する', speaker: '話者を聞き分ける', segmentation: '各話者が話し始め、話し終える位置を見つける', codec: '音響トークンを波形に戻す', aux: 'メインモデルが使う追加のモデル' },
+  componentName: { 'litertlm-runtime': 'LiteRT-LM ランタイム', 'audiocpp-engine': 'audio.cpp エンジン', aligner: '強制アライナ', speaker: '話者埋め込み', vad: 'VAD（音声区間検出）', tokenizer: 'トークナイザ', segmentation: '話者セグメンテーション', codec: '音声コーデック', aux: '補助モデル' },
+  componentDesc: { 'litertlm-runtime': 'セマンティックインデックスのモデルを実行 · お使いのプラットフォーム用をダウンロード', 'audiocpp-engine': 'YuE2 を動かすエンジン · プラットフォームごとにダウンロード · Windows / Linux は Vulkan 対応の GPU ドライバーが必要', vad: '人が話している区間を切り出す', aligner: 'テキストを単語単位のタイミングに合わせる', tokenizer: 'テキストとモデルのトークンを相互に変換する', speaker: '話者を聞き分ける', segmentation: '各話者が話し始め、話し終える位置を見つける', codec: '音響トークンを波形に戻す', aux: 'メインモデルが使う追加のモデル' },
   githubRelease: (repo, tag) => `GitHub リリース ${repo} ${tag}`,
   weights: 'モデルの重み',
 };

@@ -418,6 +418,11 @@ export function createHandlers({
           const { root, file } = attachments.fileOf(ref);
           return { ...(await media.issue(root, file)), fileName: ref.fileName };
         }
+        if ('assetId' in p) {
+          // 视频条目里的素材版本（Space 检索命中的那一段就地播放）：按视频目录找，不打开视频；条目的可见性同 `space.get`。
+          const asset = await spaceThumbnails.videoAsset(p.entryId, p.assetId, p.revision);
+          return { ...(await media.issue(asset.root, asset.file)), fileName: asset.name };
+        }
         if ('entryId' in p && space.get(p.entryId).kind === 'video') {
           // 视频条目是一个目录：给它的主素材（封面那一帧所在的素材版本），会话里的视频卡就地播放用（产品设计 §3.2.2）。
           const { root, file } = await spaceThumbnails.videoSource(p.entryId);

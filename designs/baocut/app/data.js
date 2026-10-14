@@ -474,6 +474,10 @@
     {id: 'o16', kind: 'doc', name: '科浪 42 期 · 文稿.md', dir: 'd1', movie: 'p1', status: 'published',
      lines: 6, bytes: 2252, mtime: 32, file: '导出/kelang-ep42.transcript.md',
      text: '# 科浪访谈 第 42 期\n\n林澈：欢迎回到科浪，我是林澈。\n\n嘉宾：今天聊聊本机视频工具。\n\n林澈：先从渲染说起。'},
+    /* 存下来的跨视频问答（integration §2.9）：出处是视频某一刻的链接，在 Space 里打开文档也能点 */
+    {id: 'o30', kind: 'doc', name: '问答 · 为什么不上传素材.md', dir: 'd1', status: 'published',
+     lines: 5, bytes: 412, mtime: 40, file: '问答/why-local.md',
+     text: '# 为什么不上传素材\n\n访谈、内部会议和没发布的产品演示本来就不该往外传 [01:03](/videos/p8?t=63)；语音识别放在本机，量大时成本也低得多 [02:21](/videos/p8?t=141)。\n\n- 断网的现场也要能转写 [02:32](/videos/p8?t=152)'},
     {id: 'o3', kind: 'final', name: '第 7 条切片 · 竖版.mp4', dir: 'd1', movie: 'p5', status: 'published',
      dur: 41, res: '1080×1920', bytes: 19293798, mtime: 10080, file: '导出/shorts-07.mp4'},
     {id: 'o4', kind: 'image', name: '第 42 期封面 · 候选 A.png', dir: 'd1', movie: 'p10', session: 's6', messageId: 'm3', status: 'candidate',
@@ -3554,6 +3558,13 @@
     /* 实际后端：自检后选的那一个（v0.1 §4.4），不是「检测到显卡就用 GPU」 */
     backend: {k: 'gpu', label: 'GPU · Metal', note: '自检通过；失败会自动退回 CPU'},
     cacheBytes: 327155712,
+    /* 索引在更新时还要多久（indexStatus.estimates 的文字一项，v0.1 §13.2）：按这台电脑量过的速度 */
+    estimate: {text: {channel: 'text', videos: 3, unknownDuration: 0, sourceSeconds: 4260, seconds: 95, basis: 'measured'},
+      /* 画面没开时：打开之后要建的量（ifEnabled）。下面六个项目的画面时长加起来 110 分钟，每 8 秒一帧，CPU 参考速度 1.1 秒 / 帧，
+         多模态包画面向量 512 维 FP32 */
+      visual: {channel: 'visual', ifEnabled: true, videos: 12, unknownDuration: 0, sourceSeconds: 6600, frames: 825, seconds: 908, basis: 'default', vectorBytes: 1689600},
+      /* 打开之后在建：还剩的量 */
+      visualLeft: {channel: 'visual', ifEnabled: false, videos: 12, unknownDuration: 0, sourceSeconds: 6600, frames: 825, seconds: 908, basis: 'default', vectorBytes: 1689600}},
     /* 已索引的项目与通道（§2.11）。text：有文稿的视频里建好了几部；pending = 还在转录、没有文稿的 */
     projects: [
       {dir: 'd1', text: {done: 4, total: 4}, visual: {assets: 30, minutes: 25, size: '约 140 MB'}, audio: {assets: 6, minutes: 8, size: '约 30 MB'}},
@@ -3590,6 +3601,9 @@
     ],
     /* 已经从时间线上剪掉的句子：搜得到，但卡片上没有「在时间线打开」 */
     cutOut: ['p10:g28', 'p4:c2'],
+    /* 章节自检（integration §3.6 第 5 条）的演示分数：标题与本章内容的相似度、与上一章的相似度。
+       「产品演示」这一章实际在讲渲染的确定性，标题不贴；「观点与总结」与上一章几乎重复 */
+    chapterCheck: {titleFit: {c1: 0.61, c2: 0.58, c3: 0.31, c4: 0.55}, adjacent: {c2: 0.48, c3: 0.52, c4: 0.92}},
     examples: ['为什么不上传素材', '讲成本的那段', '渲染为什么要确定', '我哪一期讲过离线？'],
     /* 写作「按主题」挑出的句子（integration §2.2 第 1 条）：p1 的 cue id，按时间排；chapters = 覆盖的章 */
     topicPick: ['g5', 'g6', 'g7', 'g8', 'g9', 'g10', 'g12', 'g13', 'g14', 'g17', 'g18', 'g20'],

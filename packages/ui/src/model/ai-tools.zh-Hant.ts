@@ -124,6 +124,7 @@ export const zhHant: AiToolsMessages = {
   },
   viewName: { author: '作者', viewer: '觀眾' },
   extraScope: (scope: string) => `只看${scope}`,
+  extraTopic: (topic: string) => `只寫「${topic}」：先用 speech_relevant 找出講這件事的段落，再根據這些段落寫`,
   extraLength: (label: string) => `篇幅：${label}`,
   extraStyle: (style: string) => `風格：${style}`,
   extraLanguage: (language: string) => `用${language}寫`,

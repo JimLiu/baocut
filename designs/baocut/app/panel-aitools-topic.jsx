@@ -16,10 +16,12 @@
   const chOf = (t) => (D.chapters || []).find((h) => t >= h.start && t < h.end);
 
   /* ---------- Space 搜索「用于写作」带来的预选材料（§2.1）：打开写作工具时范围落在「按主题」、挑选的段落就是这几句 ---------- */
-  const preset = {movie: null, cues: null};
-  function setPreset(movie, cues) { preset.movie = movie; preset.cues = cues; }
+  const preset = {movie: null, cues: null, query: null};
+  /* query：搜的那句话；交给 Agent 时写进意图，让它自己用 speech_relevant 再找一遍 */
+  function setPreset(movie, cues, query) { preset.movie = movie; preset.cues = cues; preset.query = query || null; }
   const peekPreset = (pid) => (preset.movie === pid && preset.cues && preset.cues.length ? preset.cues : null);
-  function takePreset(pid) { const c = peekPreset(pid); if (c) { preset.movie = null; preset.cues = null; } return c; }
+  const peekQuery = (pid) => (peekPreset(pid) ? preset.query : null);
+  function takePreset(pid) { const c = peekPreset(pid); if (c) { preset.movie = null; preset.cues = null; preset.query = null; } return c; }
 
   /* ---------- 按主题 + 系列 ---------- */
   /** 写作参数页用：返回 {scopes, picked, setPicked, series, setSeries, topicOn, context}；
@@ -159,5 +161,5 @@
   /** 交给 Agent 的附加句：主题写了且能用时一句「只在讲「…」的片段里找」 */
   const shortsExtra = (topic) => { const r = TS.shortsTopic(topic, window.BC_SEMANTIC.status(window.BC_SEMSTATE.get())); return r.extra ? [r.extra] : []; };
 
-  Object.assign(window, {BC_WRTOPIC: {setPreset, peekPreset, useTopic, TopicRows, BoundaryRow, effectiveBoundary, ShortsTopicRow, shortsExtra}});
+  Object.assign(window, {BC_WRTOPIC: {setPreset, peekPreset, peekQuery, useTopic, TopicRows, BoundaryRow, effectiveBoundary, ShortsTopicRow, shortsExtra}});
 })();

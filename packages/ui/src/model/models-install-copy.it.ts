@@ -2,7 +2,7 @@ import type { ModelsInstallMessages } from './models-install-copy.ts';
 import { pluralForm } from '@baocut/protocol';
 
 const KEEP = 'Ciò che è già stato scaricato viene conservato e il prossimo download riprende da dove si è fermato.';
-const SOURCE = '«Origine del download dei modelli» in Impostazioni › Generali';
+const SOURCE = 'Impostazioni › Generali › Origini del download';
 const and = (items: readonly string[]) => new Intl.ListFormat('it', { type: 'conjunction' }).format(items);
 const files = (n: number) => `${n} file`;
 
@@ -16,12 +16,16 @@ export const it: ModelsInstallMessages = {
   remedyNoSpace: (need: string | null, have: string | null) => `${need !== null && have !== null ? `Richiede ${need} e rimangono solo ${have}. ` : ''}Libera spazio su disco, poi scarica di nuovo. ${KEEP}`,
   remedyNetwork: `Controlla la rete, poi scarica di nuovo. ${KEEP} Se l’origine predefinita non è raggiungibile, passa a un mirror in ${SOURCE}.`,
   remedyIntegrity: `I file dell’origine del download non corrispondono alla dimensione o al valore sha256 del manifesto e i file non validi sono stati eliminati. Passa a un’altra origine del download (${SOURCE}), poi scarica di nuovo.`,
-  remedySource: `L’origine del download non ha questo file o ha negato l’accesso. Verifica che il mirror impostato in ${SOURCE} (o nella variabile d’ambiente BAOCUT_MODELS_ENDPOINT) sia completo.`,
+  remedySource: (env) => `L’origine del download non ha questo file o ha negato l’accesso. Verifica che il mirror impostato in ${SOURCE} (o nella variabile d’ambiente ${env}) sia completo, oppure passa a un’altra origine.`,
   remedyManifest: 'Il manifesto integrato di questo pacchetto di modelli non ha un sha256 attendibile, quindi non può essere installato finché BaoCut non viene aggiornato.',
   remedyOffline: 'La modalità rigorosamente offline è attiva, quindi non viene scaricato nulla. Per scaricare, disattivala prima nelle Impostazioni.',
   remedySizeChanged: 'La dimensione del download è cambiata. Conferma di nuovo con il nuovo piano.',
   remedyInUse: 'Un’attività sta usando questo pacchetto di modelli (trascrizione, sintesi, verifica o installazione). Attendi il completamento o annullala in «Attività in background», poi prova a eliminare di nuovo.',
   remedyUnavailable: 'Il pacchetto di modelli non è utilizzabile al momento (installazione incompleta, disattivato o non supportato su questo computer). Riparalo o riattivalo prima.', remedyInstallFailed: `Prova a scaricare di nuovo. ${KEEP}`,
+  partFailed: (part) => `${part} non è stato scaricato.`,
+  partFailedFrom: (part, host) => `${part} non è stato scaricato da ${host}.`,
+  partKept: 'Le parti già scaricate vengono conservate, quindi il completamento scarica solo ciò che manca. Puoi prima cambiare l’origine del download.',
+  sentences: (parts) => parts.join(' '),
   problemText: (message: string, remedy: string) => /[.!?。！？]$/.test(message) ? `${message} ${remedy}` : `${message}. ${remedy}`,
   removalBody: (unknown: boolean, frees: string | null, kept: readonly { repo: string; usedBy: readonly string[] }[]) => [ unknown ? 'Elimina i file usati solo da questo pacchetto di modelli.' : frees !== null ? `Libera circa ${frees}.` : null, ...kept.map((k) => `${k.repo} viene conservato perché ${and(k.usedBy)} ${pluralForm('it', k.usedBy.length, { one: 'lo usa', other: 'lo usano' })} ancora.`), 'Per usarlo di nuovo, dovrai scaricarlo di nuovo.' ].filter(Boolean).join(' '),
   removed: (bundleId: string) => `Eliminato: ${bundleId}`,

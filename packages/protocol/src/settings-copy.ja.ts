@@ -19,6 +19,10 @@ export const ja: SettingDescriptionMessages = {
     'ローカルモデルを置くフォルダ（絶対パス）。null はデータフォルダ内の models。環境変数 BAOCUT_MODELS_DIR が優先されます。変更には settings set ではなく models.setDir を使います',
   'tools.downloadEndpoint':
     '管理対象の外部ツール（yt-dlp）のダウンロード元（ミラーのベース URL、http(s)://、ファイルは <ベース>/<ツール>/<バージョン>/<ファイル名>）。null は公式のリリース URL。環境変数 BAOCUT_TOOLS_ENDPOINT が優先されます',
+  'models.downloadMirrors':
+    "追加したモデルリポジトリのミラー（{ name, base } のリスト。base は http(s):// のベース URL で重複不可）。選択肢の一覧で、ダウンロードは models.downloadEndpoint に従います",
+  'tools.downloadMirrors':
+    "追加したリリースページのミラー（{ name, base } のリスト。base は http(s):// のベース URL で重複不可）。選択肢の一覧で、ダウンロードは tools.downloadEndpoint に従います",
   'fonts.autoDownload':
     '組版に必要で、このコンピュータになく、フォントカタログにあるフォントを自動でダウンロードします（プレビューと書き出し）。オフの場合は代替フォントで描画し、通知を表示します',
   'fonts.cssEndpoint': 'フォント CSS API のベース URL（ミラー、https://）。null は https://fonts.googleapis.com',
@@ -34,8 +38,9 @@ export const ja: SettingDescriptionMessages = {
   'updates.autoDownload': '新しいバージョンをバックグラウンドでダウンロード（自動ではインストールしません）',
   'diagnostics.enabled': '匿名の使用統計とパフォーマンスの概要を送信（メディア、テキスト、パスは含みません）',
   'offline.strict': '厳格なオフライン：オンラインサービスに何も送信しません',
-  'semantic.channels': '意味インデックスを作るチャンネル：text（発話内容：書き起こし、字幕、翻訳、チャプター）。映像（visual）と音（audio）はまだ使えません',
+  'semantic.channels': '意味インデックスを作るチャンネル：text（発話内容：書き起こし、字幕、翻訳、チャプター）。映像（visual）は 8 秒ごとのキーフレームで、マルチモーダルのモデルパッケージが必要で時間もかかります。音（audio）はまだ使えません',
   'semantic.indexedProjects': '意味インデックスを作るプロジェクト：all はすべて、またはプロジェクト ID のリスト（プロジェクト外の動画は all のときのみ）',
+  'semantic.pauseOnBattery': 'バッテリー駆動中はセマンティックインデックスの作成を一時停止し、電源につなぐと再開します（発熱で性能が制限されているときは常に一時停止）',
   'semantic.translationMemory': '翻訳時に、以前訳したほぼ同じ文を提案（テキスト検索モデルが必要）',
   'semantic.glossaryCandidates': '書き起こし間のほぼ同じ表記から用語の候補を提案（テキスト検索モデルが必要）',
 };

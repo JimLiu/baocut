@@ -141,6 +141,10 @@ export const zhHant: ShellMessages = {
     dropEditorState: '這則訊息不附帶編輯器狀態',
     spaceEntries: '隨這則訊息傳送的 Space 項目',
     dropSpaceEntries: '這則訊息不附帶這些 Space 項目',
+    readScopeAll: '可檢索全部影片',
+    readScopeUnfiled: '可檢索不屬於專案的影片',
+    readScopeHint: 'Agent 可以按內容檢索這些影片裡講的話，不能開啟或修改它們',
+    dropReadScope: '只檢索這段對話裡的影片',
     message: '給 Agent 的訊息',
   },
   rail: {

@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import Markdown, { type Components } from 'react-markdown';
-import type { MediaTarget } from '@baocut/protocol';
+import { parseVideoTimeHref, type MediaTarget } from '@baocut/protocol';
 import DOMPurify from 'dompurify';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { formatJson, parseDelimited, type DocumentPreview } from '../model/file-preview.ts';
 import { PANEL as M } from './panel-copy.ts';
 import { S } from './shell-copy.ts';
 import { remarkPlugins } from './thread/remark-plugins.ts';
+import { VideoTimeLink } from './thread/video-time-link.tsx';
 import { siblingMediaTarget, relativeImagePath } from '../model/document-image.ts';
 import { useRuntime } from '../runtime/context.tsx';
 import { useDirectory } from '../state/directory-store.ts';
@@ -74,7 +75,11 @@ function DocumentImage({ src, alt, base }: { src?: string; alt?: string; base?: 
 
 export function DocumentContent({ mode, fileName, text, source, target }: { mode: DocumentPreview; fileName: string; text: string; source: boolean; target?: MediaTarget }) {
   const markdownComponents = useMemo<Components>(() => ({
-    a: ({ children }) => <span>{children}</span>,
+    // 别的链接只显示文字；存下来的回答与写作里「视频某一刻」的出处（`/videos/<id>?t=<秒>`）同会话里一样点了跳到那一刻。
+    a: ({ href, children }) => {
+      const moment = href ? parseVideoTimeHref(href) : null;
+      return moment ? <VideoTimeLink videoId={moment.videoId} seconds={moment.seconds}>{children}</VideoTimeLink> : <span>{children}</span>;
+    },
     img: ({ src, alt }) => <DocumentImage src={typeof src === 'string' ? src : undefined} alt={alt} base={target} />,
   }), [target && JSON.stringify(target)]);
   const html = useMemo(() => mode === 'html' ? isolatedHtml(text) : '', [mode, text]);

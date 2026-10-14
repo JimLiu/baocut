@@ -171,6 +171,7 @@ export const fr: AiToolsMessages = {
   } as Record<CoverText, string>,
   viewName: { author: "auteur", viewer: "spectateur" } as Record<'author' | 'viewer', string>,
   extraScope: (scope: string) => `Concentrez-vous sur ${scope}`,
+  extraTopic: (topic: string) => `N’écrivez que sur « ${topic} » : trouvez d’abord avec speech_relevant les passages qui en parlent, puis écrivez à partir de ceux-ci`,
   extraLength: (label: string) => `Durée : ${label}`,
   extraStyle: (style: string) => `Style : ${style}`,
   extraLanguage: (language: string) => `Écrivez en ${language}`,

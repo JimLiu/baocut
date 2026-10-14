@@ -17,9 +17,11 @@ const status = (patch: Partial<SemanticIndexStatus> = {}): SemanticIndexStatus =
   model: { bundleId: 'embeddinggemma2-text@litert-lm', label: 'EmbeddingGemma 2 Text 270M', encoderProfileId: 'p', embeddingSpaceId: 's', device: 'cpu' },
   reason: null,
   channels: { text: { enabled: true, available: true }, visual: { enabled: false, available: false }, audio: { enabled: false, available: false } },
-  coverage: [{ channel: 'text', eligible: 3, indexed: 3, pending: 0, failed: 0, missingInput: 0, stale: 0, knownScopeComplete: true }],
+  coverage: [{ channel: 'text', eligible: 3, indexed: 3, pending: 0, failed: 0, missingInput: 0, excluded: 0, stale: 0, knownScopeComplete: true }],
   cacheBytes: 0,
   paused: false,
+  pauseReason: null,
+  estimates: [],
   jobId: null,
   ...patch,
 });

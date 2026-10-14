@@ -30,18 +30,10 @@ export const tr: GeneralSettingsMessages = {
   downloaderWeb: "Tarayıcı bu bilgisayardaki indirme araçlarını denetlemez; BaoCut masaüstü uygulamasında denetleyin.",
 
   sourcesGroup: "İndirme kaynakları ve çevrimdışı",
-  modelsEndpoint: "Model indirme kaynağı",
-  toolsEndpoint: "Araç indirme kaynağı",
-  toolsEndpointDesc: "Yt-dlp gibi dış araçlar buradan “temel URL/araç/sürüm/dosya adı” yoluyla indirilir. Resmi yayın URL adresini kullanmak için boş bırakın. BAOCUT_TOOLS_ENDPOINT ortam değişkeni önceliklidir.",
-  toolsEndpointPlaceholder: "Resmi yayın URL adresi",
   strictOffline: "Sıkı çevrimdışı",
   strictOfflineDesc: "Açıkken model ve dış araç indirilmez, bağlantılardan video indirilmez. Bulut modellerinin ve Ajan motorlarının internete bağlanmasını etkilemez.",
   strictOfflineOn: "Sıkı çevrimdışı açıldı",
   strictOfflineOff: "Sıkı çevrimdışı kapatıldı",
-  endpointChanged: (endpoint) => `Artık ${endpoint} kullanılıyor`,
-  endpointReset: (label) => `${label} varsayılana sıfırlandı`,
-  save: "Kaydet",
-  resetDefault: "Varsayılana sıfırla",
 
   trashDays: "Çöp sepetinde tutma süresi (gün)",
   trashDaysDesc: (fallback) => `Çöp sepetinde bu süreden uzun kalan, başvurulmayan öğeler ve silinmiş videolar kalıcı silinir (başlangıçta ve ardından her 6 saatte denetlenir). Hâlâ başvurulan öğeler tutulur. Varsayılana${fallback ? ` (${fallback} gün)` : ''} dönmek için temizleyin.`,

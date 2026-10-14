@@ -251,6 +251,29 @@ describe.skipIf(!engine || !ffmpeg)('Space 缩略图（真实引擎 + ffmpeg）'
     }
     expect((await resolveVideo(empty.videoId).then(() => null, (error: RpcError) => error))?.code).toBe('not-found');
 
+    // 检索命中的那一刻：同样不打开视频；时间线上那一秒的小图与可播的一段（素材原片），没有片段的那一处为空。
+    const [managedEntry] = (await client.request('space.list', { videoId: managed.videoId, kind: 'video' })).entries;
+    const moments = await client.request('space.hitMoments', {
+      entryId: managedEntry!.id,
+      spans: [
+        { clock: 'sequence', startSec: 0.5, endSec: 1 },
+        { clock: 'sequence', startSec: 30, endSec: 31 },
+      ],
+    });
+    expectImage(moments.moments[0]!.frame, 'image/jpeg', 320, 160);
+    const clipOf = moments.moments[0]!.clip!;
+    expect(clipOf).toMatchObject({ from: 0, to: 2, hitFrom: 0.5, hitTo: 1 });
+    expect(moments.moments[1]).toEqual({ frame: { kind: 'none' }, clip: null });
+    expect(JSON.stringify(moments)).not.toContain(dir);
+    const played = await client.request('media.resolve', { entryId: managedEntry!.id, assetId: clipOf.assetId, revision: clipOf.revision });
+    expect(played.mimeType).toMatch(/^video\//);
+    expect(played.size).toBe((await fs.stat(clip)).size);
+    const [emptyEntry] = (await client.request('space.list', { videoId: empty.videoId, kind: 'video' })).entries;
+    expect(
+      (await client.request('space.hitMoments', { entryId: emptyEntry!.id, spans: [{ clock: 'sequence', startSec: 0, endSec: 1 }] }))
+        .moments,
+    ).toEqual([{ frame: { kind: 'none' }, clip: null }]);
+
     // 取封面不打开视频、不占写锁：照样能打开来编辑。
     const reopened = await client.request('videos.open', { projectId: project.id, path: managed.relPath });
     expect(reopened.ref.videoId).toBe(managed.videoId);

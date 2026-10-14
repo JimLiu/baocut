@@ -2,10 +2,15 @@ import { useEffect, useState } from 'react';
 import type { ModelInstallPlan, ModelLicense } from '@baocut/protocol';
 import { Button, ButtonGroup, Content, Dialog, DialogContainer, Heading, ProgressCircle, ToastQueue } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
+import { DOWNLOAD_SOURCE_COPY as SRC, endpointKey, kindTitle } from '../../model/download-source.ts';
 import { CHECK_LABEL } from '../../model/model-check-copy.ts';
 import { installPlanView, problemText, rpcProblem } from '../../model/models-install.ts';
 import { licenseBrief, nonCommercial } from '../../model/models-tts-local.ts';
 import { useRuntime } from '../../runtime/context.tsx';
+import { useSetting } from '../../state/settings-store.ts';
+import { useShell } from '../../state/shell-store.ts';
+import { SectionLink } from '../tools/tool-parts.tsx';
+import { SourcePicker } from './download-sources.tsx';
 import { confirmInstall, planInstall, type InstallMode } from './local-model-actions.ts';
 import { LOCAL_INSTALL_COPY as COPY } from './local-models-copy.ts';
 import { TTS_LOCAL_COPY as TTS } from './tts-local-copy.ts';
@@ -14,7 +19,7 @@ const stack = style({ display: 'flex', flexDirection: 'column', gap: 12, minWidt
 const waiting = style({ display: 'flex', alignItems: 'center', gap: 8, font: 'ui-sm', color: 'gray-700' });
 const lead = style({ margin: 0, font: 'body', fontWeight: 'bold', color: 'gray-900' });
 const text = style({ margin: 0, font: 'ui-sm', color: 'gray-800', overflowWrap: 'anywhere' });
-const note = style({ margin: 0, font: 'ui-xs', color: 'gray-600', overflowWrap: 'anywhere', userSelect: 'text' });
+const fine = style({ margin: 0, font: 'ui-xs', color: 'gray-600', overflowWrap: 'anywhere', userSelect: 'text' });
 const problem = style({ margin: 0, font: 'ui-sm', color: 'negative-900', overflowWrap: 'anywhere' });
 const lines = style({
   display: 'flex',
@@ -28,9 +33,14 @@ const lines = style({
   borderRadius: 'lg',
   backgroundColor: 'layer-1',
 });
-const line = style({ display: 'flex', justifyContent: 'space-between', gap: 12, font: 'ui-xs', color: 'gray-800' });
+const line = style({ display: 'flex', flexDirection: 'column', gap: 2, font: 'ui-xs', color: 'gray-800' });
+const lineHead = style({ display: 'flex', justifyContent: 'space-between', gap: 12 });
 const lineLabel = style({ overflowWrap: 'anywhere', minWidth: 0 });
 const lineValue = style({ flexShrink: 0, color: 'gray-600' });
+const lineSource = style({ font: 'code-xs', color: 'gray-600', overflowWrap: 'anywhere', userSelect: 'text' });
+const groupHead = style({ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, minHeight: 32 });
+const groupTitle = style({ flexGrow: 1, font: 'ui-sm', fontWeight: 'bold', color: 'gray-900' });
+const groupHint = style({ font: 'ui-xs', color: 'gray-600' });
 const licenseBox = style({
   display: 'flex',
   flexDirection: 'column',
@@ -82,24 +92,35 @@ export function InstallDialog({
   onRecheck?: () => void;
 }) {
   const runtime = useRuntime();
+  const go = useShell((s) => s.go);
+  const web = runtime.host.platform === 'web';
   const [phase, setPhase] = useState<Phase>({ kind: 'planning' });
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  // 在框里换了来源（写的是设置）：按新来源重新做计划，先留着旧计划，算好了再换。
+  const modelsEndpoint = useSetting(endpointKey('models'));
+  const toolsEndpoint = useSetting(endpointKey('tools'));
 
   useEffect(() => {
     let live = true;
-    planInstall(runtime, mode, bundleId).then(
-      (result) => live && setPhase({ kind: 'plan', plan: result.plan, replanned: false }),
-      (error: unknown) => live && setPhase({ kind: 'failed', message: problemText(rpcProblem(error)) }),
-    );
+    setRefreshing(true);
+    planInstall(runtime, mode, bundleId)
+      .then(
+        (result) => live && setPhase({ kind: 'plan', plan: result.plan, replanned: false }),
+        (error: unknown) => live && setPhase({ kind: 'failed', message: problemText(rpcProblem(error)) }),
+      )
+      .finally(() => live && setRefreshing(false));
     return () => {
       live = false;
     };
-  }, [runtime, mode, bundleId]);
+  }, [runtime, mode, bundleId, modelsEndpoint, toolsEndpoint]);
 
   const plan = phase.kind === 'plan' ? phase.plan : null;
   const view = plan ? installPlanView(plan) : null;
-  const canConfirm = !!view && !view.upToDate && !view.noSpace && !busy;
+  const canConfirm = !!view && !view.upToDate && !view.noSpace && !busy && !refreshing;
+  const parts = view ? view.lines.filter((l) => !l.keep).length : 0;
+  const perPart = !!view && view.lines.some((l) => l.source !== null);
 
   const submit = async (close: () => void) => {
     if (!plan || !canConfirm) return;
@@ -154,15 +175,49 @@ export function InstallDialog({
                       {view.resumed ? <p className={text}>{view.resumed}</p> : null}
                       {view.space ? <p className={text}>{view.space}</p> : null}
                       {view.noSpace ? <p className={problem}>{view.noSpace}</p> : null}
-                      <ul className={lines} aria-label={COPY.details}>
-                        {view.lines.map((l) => (
-                          <li key={l.key} className={line}>
-                            <span className={lineLabel}>{l.label}</span>
-                            <span className={lineValue}>{l.value}</span>
-                          </li>
-                        ))}
-                      </ul>
-                      <p className={note}>{COPY.source(view.source)}</p>
+                      {view.groups.map((g) => (
+                        <div key={g.kind} className={stack} role="group" aria-label={kindTitle(g.kind)}>
+                          <div className={groupHead}>
+                            <span className={groupTitle}>{kindTitle(g.kind)}</span>
+                            {g.downloading ? (
+                              <>
+                                <span className={groupHint}>{SRC.source}</span>
+                                <SourcePicker kind={g.kind} isDisabled={busy} />
+                              </>
+                            ) : (
+                              <span className={groupHint}>{SRC.groupDone}</span>
+                            )}
+                          </div>
+                          <ul className={lines} aria-label={COPY.details}>
+                            {g.lines.map((l) => (
+                              <li key={l.key} className={line}>
+                                <span className={lineHead}>
+                                  <span className={lineLabel}>{l.label}</span>
+                                  <span className={lineValue}>{l.value}</span>
+                                </span>
+                                {l.source ? <span className={lineSource}>{SRC.partFrom(l.source)}</span> : null}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                      <p className={fine}>
+                        {perPart ? null : `${COPY.source(view.source)} `}
+                        {parts > 1 ? `${SRC.sequenceNote} ` : null}
+                        {web ? null : SRC.switchNote}
+                        {web ? null : (
+                          <>
+                            {' '}
+                            <SectionLink
+                              onPress={() => {
+                                close();
+                                go({ tab: 'settings', section: 'general' });
+                              }}>
+                              {SRC.manage}
+                            </SectionLink>
+                          </>
+                        )}
+                      </p>
                       {mode === 'repair' ? <p className={text}>{COPY.repairThenCheck}</p> : null}
                       {restricted ? (
                         <div className={licenseBox} role="note" aria-label={TTS.licenseTitle}>
@@ -170,7 +225,7 @@ export function InstallDialog({
                             {TTS.licenseTitle} · {name}
                           </p>
                           <p className={text}>{licenseBrief(restricted)}</p>
-                          <p className={note}>{restricted.url}</p>
+                          <p className={fine}>{restricted.url}</p>
                           <p className={text}>{licenseUse}</p>
                         </div>
                       ) : null}

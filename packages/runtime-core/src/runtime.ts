@@ -85,7 +85,9 @@ import { resolveExportWorkerCommand } from './exports/video-export.ts';
 import { ExportTools } from './agent-tools/export-tools.ts';
 import { SpaceTools } from './agent-tools/space-tools.ts';
 import { SemanticTools } from './agent-tools/semantic-tools.ts';
+import { EditAidTools } from './agent-tools/edit-aid-tools.ts';
 import { openSemanticServices, type SemanticServices } from './space/semantic/services.ts';
+import { probePower, type PowerState } from './space/semantic/power.ts';
 import type { EmbeddingProvider } from '@baocut/models';
 import { VideoDeleteTools } from './agent-tools/video-delete-tools.ts';
 import { VideoTrash } from './videos/video-trash.ts';
@@ -177,7 +179,12 @@ export interface StartRuntimeOptions {
    * 本机语义检索（EmbeddingGemma 2 检索集成方案 v0.1）的编码 Provider。不给时用本机模型包（`models.embedding`）；null 时没有
    * 语义一路：`space.searchV2` 只有字面，不建语义索引（测试注入确定性的 Provider 或关掉）。`model` 是设置页显示的模型包；`debounceMs` 是内容索引变化后多久再规划（测试缩短）。
    */
-  semantic?: { provider: EmbeddingProvider | null; model?: () => { bundleId: string; label: string } | null; debounceMs?: number };
+  semantic?: {
+    provider: EmbeddingProvider | null;
+    model?: () => { bundleId: string; label: string } | null;
+    debounceMs?: number;
+    power?: () => Promise<PowerState>;
+  };
   /** 模型安装（§6.3）的调节项。测试把下载来源指向本机的假服务，注入可用空间、内置清单与自检样本；不访问真实网络。 */
   modelInstall?: ModelJobsOptions['modelInstall'];
   /** 测试用：卡住或打断模型目录的移动、假装跨盘。 */
@@ -763,7 +770,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         // Space 目录在后面才建好：工具调用时再取。
         new SpaceTools({ space: () => space, scope: toolScope, jobs: models.jobs }),
         // 本机语义检索与按意图取材（只读）；取材的句子编号与 speech_sentences 共用一份登记。
-        new SemanticTools({ semantic: () => semanticRef, scope: toolScope, jobs: models.jobs, registry: citationRegistry }),
+        new SemanticTools({ semantic: () => semanticRef, space: () => space, scope: toolScope, jobs: models.jobs, registry: citationRegistry }),
         new SkillTools({ skills, scope: toolScope }),
         new GrantTools({ models, scope: toolScope }),
         new TaskTools({ harness, scope: toolScope }),
@@ -782,6 +789,8 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
           },
         }),
         new SpeechSentenceTools({ videos, scope: toolScope, registry: citationRegistry }),
+        // 重录与术语候选（只读，与编辑器 AI 工具页同一份实现）；语义服务在后面才建好，调用时再取。
+        new EditAidTools({ videos, library, semantic: () => semanticRef, scope: toolScope }),
         new VideoDeleteTools({
           space: () => space,
           trash: () => videoTrash,
@@ -877,10 +886,18 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       settings: () => ({
         channels: settings.store.get('semantic.channels'),
         indexedProjects: settings.store.get('semantic.indexedProjects'),
+        pauseOnBattery: settings.store.get('semantic.pauseOnBattery'),
       }),
       log,
       model: options.semantic?.model ?? (() => models.embedding.current()),
+      // 画面索引的关键帧：媒体分析按素材版本取帧，缓存在 `<home>/cache/media`（Provider 只读这里的图片）。
+      frames: {
+        keyframe: (dir, asset, at, frames) =>
+          analysis.keyframeFile(asset, at, frames.edge, () => videos.assetFileAt(dir, asset.assetId, asset.revision)),
+      },
       ...(options.semantic?.debounceMs !== undefined ? { debounceMs: options.semantic.debounceMs } : {}),
+      // 用电池、过热降频时暂停建索引（§16.1）。测试换了 Provider 时只用它给的供电状态（不给就不查，免得笔记本用电池时测试停住）。
+      ...(options.semantic ? (options.semantic.power ? { power: options.semantic.power } : {}) : { power: () => probePower() }),
     });
     semanticRef = semantic;
     stops.add('semantic-index', () => semantic.close(), 'Stopping the semantic index failed');
@@ -891,6 +908,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     });
     settings.store.onChange((changed) => {
       if ('semantic.channels' in changed || 'semantic.indexedProjects' in changed) semantic.coordinator.schedule();
+      if ('semantic.pauseOnBattery' in changed) semantic.coordinator.powerSettingChanged();
     });
     // 上次被强杀留下的导出临时文件与打开便携包的暂存目录（§5.8）：首次扫描之后在后台清一次。
     void space.ready
@@ -965,6 +983,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         catalog: space,
         analysis,
         assetFileAt: (dir, assetId, revision) => videos.assetFileAt(dir, assetId, revision),
+        readContent: (dir) => videos.readContent(dir),
         log,
       }),
       videos,

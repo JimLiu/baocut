@@ -38,6 +38,18 @@ pub struct ModelBundle {
     /// 后端可写的缓存目录（LiteRT-LM 嵌入引擎的编译缓存）。没给时后端用系统临时目录。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cache_dir: Option<String>,
+    /// 嵌入模型包打开图像编码器（LiteRT-LM 的 vision 后端，§4.5）。没给时只加载文字编码器；只有 `litert-lm` 用。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vision: Option<EmbeddingVision>,
+}
+
+/// 嵌入模型包的图像编码器设置（`ModelBundle.vision`）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct EmbeddingVision {
+    /// 每张图的视觉 token 数；没给时用模型的默认值（EmbeddingGemma 2 是 140）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tokens_per_image: Option<u32>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
@@ -334,6 +346,7 @@ pub struct VerifiedBundle {
     pub threads: u32,
     pub memory_budget_bytes: Option<u64>,
     pub cache_dir: Option<PathBuf>,
+    pub vision: Option<EmbeddingVision>,
     pub asr: Option<VerifiedFiles>,
     pub vad: Option<VerifiedFiles>,
     pub aligner: Option<VerifiedFiles>,
@@ -411,6 +424,12 @@ pub fn verify(bundle: &ModelBundle) -> Result<VerifiedBundle, ErrorBody> {
             None => None,
             Some(dir) if Path::new(dir).is_absolute() => Some(PathBuf::from(dir)),
             Some(_) => return Err(ErrorBody::invalid_params("cacheDir 必须是绝对路径")),
+        },
+        vision: match bundle.vision {
+            Some(EmbeddingVision {
+                tokens_per_image: Some(tokens),
+            }) if !(1..=4096).contains(&tokens) => return Err(ErrorBody::invalid_params("vision.tokensPerImage 必须在 1 到 4096 之间")),
+            vision => vision,
         },
         asr: c.asr.as_ref().map(|files| verify_files("asr", files)).transpose()?,
         vad: c.vad.as_ref().map(|files| verify_files("vad", files)).transpose()?,
@@ -516,6 +535,7 @@ mod tests {
             threads: 1,
             memory_budget_bytes: None,
             cache_dir: None,
+            vision: None,
         }
     }
 

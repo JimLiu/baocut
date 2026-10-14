@@ -144,6 +144,10 @@ export const ptBR: ShellMessages = {
     dropEditorState: "Não incluir estado do editor nesta mensagem",
     spaceEntries: "Itens do Space nesta mensagem",
     dropSpaceEntries: "Não incluir estes itens na mensagem",
+    readScopeAll: "Pode buscar em todos os vídeos",
+    readScopeUnfiled: "Pode buscar em vídeos fora de projetos",
+    readScopeHint: "O agente pode buscar o que é dito nesses vídeos, mas não pode abri-los nem editá-los",
+    dropReadScope: "Buscar só nos vídeos desta conversa",
     message: "Mensagem ao agente",
   },
   rail: {

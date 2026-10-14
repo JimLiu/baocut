@@ -32,8 +32,8 @@ export const zhHans: ModelsLocalMessages = {
   },
   auto: '自动选择',
   notInstalled: (name) => `${name}（未安装）`,
-  componentName: { 'audiocpp-engine': 'audio.cpp 引擎', aligner: 'Forced aligner', speaker: '声纹嵌入', vad: 'VAD 语音活动检测', tokenizer: '分词器', segmentation: '说话人分段', codec: '语音编解码器', aux: '辅助模型' },
-  componentDesc: { 'audiocpp-engine': '跑 YuE2 的引擎 · 按平台下载 · Windows / Linux 要 Vulkan 显卡驱动', vad: '切出有人说话的段落', aligner: '把文字对到逐词时间', tokenizer: '在文字与模型的词元之间转换', speaker: '区分谁在说话', segmentation: '找出每个人开口和停下的位置', codec: '把声学 token 还原成波形', aux: '主模型要用到的附加模型' },
+  componentName: { 'litertlm-runtime': 'LiteRT-LM 运行时', 'audiocpp-engine': 'audio.cpp 引擎', aligner: 'Forced aligner', speaker: '声纹嵌入', vad: 'VAD 语音活动检测', tokenizer: '分词器', segmentation: '说话人分段', codec: '语音编解码器', aux: '辅助模型' },
+  componentDesc: { 'litertlm-runtime': '运行语义索引的模型 · 按你的平台下载', 'audiocpp-engine': '跑 YuE2 的引擎 · 按平台下载 · Windows / Linux 要 Vulkan 显卡驱动', vad: '切出有人说话的段落', aligner: '把文字对到逐词时间', tokenizer: '在文字与模型的词元之间转换', speaker: '区分谁在说话', segmentation: '找出每个人开口和停下的位置', codec: '把声学 token 还原成波形', aux: '主模型要用到的附加模型' },
   githubRelease: (repo, tag) => `GitHub 发布 ${repo} ${tag}`,
   weights: '模型权重',
 };

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   LOCALES,
   LOCALE_NATIVE_NAMES,
@@ -13,7 +13,6 @@ import {
   SegmentedControl,
   SegmentedControlItem,
   Switch,
-  TextField,
   ToastQueue,
 } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -24,8 +23,6 @@ import {
   LINE_LENGTH_PRESETS,
   TRASH_DAYS,
   autoUpdateOn,
-  endpointProblem,
-  endpointValue,
   lineLengthKey,
   lineLengthText,
   trashDaysValue,
@@ -35,7 +32,8 @@ import { useRuntime } from '../../runtime/context.tsx';
 import { useAppUpdate } from '../../state/app-update-store.ts';
 import { useSetting, useSettings } from '../../state/settings-store.ts';
 import { useShell, type ColorScheme } from '../../state/shell-store.ts';
-import { ModelSourceRow } from '../models/model-source-row.tsx';
+import { DOWNLOAD_SOURCE_COPY as SOURCES } from '../../model/download-source.ts';
+import { SourceKindList } from '../models/download-sources.tsx';
 import { M } from './general-settings-copy.ts';
 import { useSaveSettings, useSettingsReady } from './save-settings.ts';
 
@@ -52,19 +50,12 @@ import { useSaveSettings, useSettingsReady } from './save-settings.ts';
 const group = style({ marginBottom: 48 });
 const groupHead = style({ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 });
 const groupTitle = style({ margin: 0, font: 'ui', fontWeight: 'medium', color: 'gray-900' });
+const groupLead = style({ marginTop: -8, marginBottom: 16, font: 'ui-sm', color: 'gray-600', overflowWrap: 'anywhere' });
 const card = style({ paddingX: 16, borderWidth: 1, borderStyle: 'solid', borderColor: 'gray-200', borderRadius: 'xl' });
 const row = style({
   display: 'flex',
   alignItems: 'center',
   gap: 12,
-  paddingY: 16,
-  borderTopWidth: 0,
-  borderXWidth: 0,
-  borderBottomWidth: { default: 1, ':last-child': 0 },
-  borderStyle: 'solid',
-  borderColor: 'gray-100',
-});
-const stackedRow = style({
   paddingY: 16,
   borderTopWidth: 0,
   borderXWidth: 0,
@@ -78,8 +69,6 @@ const rowDesc = style({ marginTop: 4, font: 'ui-sm', color: 'gray-600', overflow
 /** 置灰的原因：说明下面另起一行，比说明深一档。 */
 const rowNote = style({ marginTop: 4, font: 'ui-sm', color: 'gray-800', overflowWrap: 'anywhere' });
 const rowControl = style({ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 });
-const fieldLine = style({ display: 'flex', alignItems: 'start', flexWrap: 'wrap', gap: 8, marginTop: 12 });
-const endpointInput = style({ flexGrow: 1, minWidth: 220 });
 const languagePicker = style({ width: 200 });
 const daysField = style({ width: 112 });
 
@@ -237,23 +226,16 @@ function SaveDirRow({ web, ready }: { web: boolean; ready: boolean }) {
 }
 
 /**
- * 合同里有、设计稿这一页没画的：下载来源与严格离线。模型的下载来源与本地模型页「下载与存储」是同一行（model-source-row.tsx）。
+ * 下载来源与离线（设计稿 download-sources.jsx `DownloadSourcesGroup`）：两种来源各一个列表（download-sources.tsx），再是严格离线。
  * 浏览器里只读：Web 白名单不含 `settings.set`，置灰并写一句原因。
  */
 function SourcesGroup({ web, ready }: { web: boolean; ready: boolean }) {
   const save = useSaveSettings();
   const strict = useSetting('offline.strict');
   return (
-    <Group title={M.sourcesGroup}>
-      <ModelSourceRow label={M.modelsEndpoint} />
-      <EndpointRow
-        settingKey="tools.downloadEndpoint"
-        label={M.toolsEndpoint}
-        desc={M.toolsEndpointDesc}
-        placeholder={M.toolsEndpointPlaceholder}
-        web={web}
-        ready={ready}
-      />
+    <Group title={M.sourcesGroup} lead={SOURCES.lead}>
+      <SourceKindList kind="models" />
+      <SourceKindList kind="tools" />
       <Row label={M.strictOffline} desc={M.strictOfflineDesc} note={web ? M.webNote : undefined}>
         <Switch
           aria-label={M.strictOffline}
@@ -263,65 +245,6 @@ function SourcesGroup({ web, ready }: { web: boolean; ready: boolean }) {
         />
       </Row>
     </Group>
-  );
-}
-
-/** 一个下载来源：填基址保存，清空保存或点「恢复默认」回到默认来源。规则与合同的校验相同，不合的不让存。 */
-function EndpointRow({
-  settingKey,
-  label,
-  desc,
-  placeholder,
-  web,
-  ready,
-}: {
-  settingKey: 'tools.downloadEndpoint';
-  label: string;
-  desc: string;
-  placeholder: string;
-  web: boolean;
-  ready: boolean;
-}) {
-  const save = useSaveSettings();
-  const saved = useSetting(settingKey) ?? '';
-  const [value, setValue] = useState(saved);
-  const [busy, setBusy] = useState(false);
-  useEffect(() => setValue(saved), [saved]);
-  const next = endpointValue(value);
-  const problem = endpointProblem(value);
-  const commit = async (endpoint: string | null) => {
-    setBusy(true);
-    await save({ [settingKey]: endpoint }, endpoint ? M.endpointChanged(endpoint) : M.endpointReset(label));
-    setBusy(false);
-  };
-  const off = web || !ready || busy;
-  return (
-    <div className={stackedRow}>
-      <div className={rowLabel}>{label}</div>
-      <div className={rowDesc}>{desc}</div>
-      {web ? <div className={rowNote}>{M.webNote}</div> : null}
-      <div className={fieldLine}>
-        <TextField
-          aria-label={label}
-          size="S"
-          value={value}
-          onChange={setValue}
-          placeholder={placeholder}
-          isInvalid={problem !== null}
-          errorMessage={problem ?? undefined}
-          isDisabled={off}
-          styles={endpointInput}
-        />
-        <Button variant="secondary" size="S" isDisabled={off || problem !== null || (next ?? '') === saved} onPress={() => void commit(next)}>
-          {M.save}
-        </Button>
-        {saved ? (
-          <Button variant="secondary" size="S" isDisabled={off} onPress={() => void commit(null)}>
-            {M.resetDefault}
-          </Button>
-        ) : null}
-      </div>
-    </div>
   );
 }
 
@@ -355,12 +278,13 @@ function SpaceGroup({ web, ready }: { web: boolean; ready: boolean }) {
   );
 }
 
-export function Group({ title: text, children }: { title: string; children: ReactNode }) {
+export function Group({ title: text, lead, children }: { title: string; lead?: string; children: ReactNode }) {
   return (
     <section className={group} aria-label={text}>
       <div className={groupHead}>
         <h2 className={groupTitle}>{text}</h2>
       </div>
+      {lead ? <p className={groupLead}>{lead}</p> : null}
       <div className={card}>{children}</div>
     </section>
   );

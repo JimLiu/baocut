@@ -14,6 +14,10 @@ export const ptBR: SettingDescriptionMessages = {
   'models.downloadEndpoint': 'Fonte de download de modelos locais (URL base de espelho, http(s)://); null usa o hub público de modelos; https://www.modelscope.cn baixa do ModelScope. A variável de ambiente BAOCUT_MODELS_ENDPOINT tem prioridade',
   'models.dir': 'Pasta dos modelos locais (caminho absoluto); null usa models na pasta de dados. A variável de ambiente BAOCUT_MODELS_DIR tem prioridade. Altere com models.setDir, não com settings set',
   'tools.downloadEndpoint': 'Fonte de download de ferramentas externas gerenciadas (yt-dlp) (URL base de espelho, http(s)://, arquivos em <base>/<tool>/<version>/<file>); null usa a URL do lançamento oficial. A variável de ambiente BAOCUT_TOOLS_ENDPOINT tem prioridade',
+  'models.downloadMirrors':
+    "Espelhos do repositório de modelos que você adicionou (lista de { name, base }; base é uma URL http(s):// sem duplicatas). Só uma lista para escolher: os downloads usam models.downloadEndpoint",
+  'tools.downloadMirrors':
+    "Espelhos de páginas de lançamento que você adicionou (lista de { name, base }; base é uma URL http(s):// sem duplicatas). Só uma lista para escolher: os downloads usam tools.downloadEndpoint",
   'fonts.autoDownload': 'Baixar automaticamente fontes exigidas pelo layout, ausentes neste computador e presentes no catálogo de fontes (prévia e exportação); quando desativado, usa uma fonte alternativa e mostra um aviso',
   'fonts.cssEndpoint': 'URL base da API CSS de fontes (espelho, https://); null usa https://fonts.googleapis.com',
   'fonts.fileEndpoint': 'URL base dos arquivos de fonte (espelho, https://; arquivos só são obtidos sob esta URL); null usa https://fonts.gstatic.com',
@@ -23,8 +27,9 @@ export const ptBR: SettingDescriptionMessages = {
   'runtime.idleExitMinutes': 'Minutos que um Runtime iniciado pela CLI permanece ocioso antes de sair sozinho (1–1440): sem conexões, tarefas ou serviços externos abertos. O aplicativo de desktop e Runtimes iniciados manualmente não são afetados',
   'updates.autoCheck': 'Verificar atualizações do aplicativo automaticamente', 'updates.autoDownload': 'Baixar novas versões em segundo plano (sem instalar automaticamente)',
   'diagnostics.enabled': 'Enviar estatísticas anônimas de uso e resumos de desempenho (sem mídia, texto ou caminhos)', 'offline.strict': 'Estritamente off-line: não enviar nada a nenhum serviço online',
-  'semantic.channels': 'Canais do índice semântico a criar: text (fala: transcrições, legendas, traduções, capítulos); visual e audio ainda não estão disponíveis',
+  'semantic.channels': 'Canais do índice semântico a criar: text (fala: transcrições, legendas, traduções, capítulos); visual (um quadro-chave a cada 8 segundos; requer um pacote de modelo multimodal e leva mais tempo); audio ainda não está disponível',
   'semantic.indexedProjects': 'Projetos cujos vídeos recebem índice semântico: all, ou uma lista de ids de projeto (vídeos fora de projetos só com all)',
+  'semantic.pauseOnBattery': 'Pausar a criação do índice semântico na bateria e continuar ao ligar na tomada (sempre pausa quando o sistema reduz o desempenho por calor)',
   'semantic.translationMemory': 'Sugerir traduções anteriores de frases quase idênticas ao traduzir (requer o modelo de busca de texto)',
   'semantic.glossaryCandidates': 'Sugerir termos de glossário a partir de grafias quase idênticas entre transcrições (requer o modelo de busca de texto)',
 };

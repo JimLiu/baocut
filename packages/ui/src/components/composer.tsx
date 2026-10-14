@@ -20,6 +20,7 @@ import {
   type AttachmentRef,
   type DriverId,
   type SkillSendRef,
+  type SpaceReadScope,
 } from '@baocut/protocol';
 import {
   Attachment,
@@ -66,6 +67,7 @@ import Microphone from '@react-spectrum/s2/icons/Microphone';
 import MovieCamera from '@react-spectrum/s2/icons/MovieCamera';
 import Redo from '@react-spectrum/s2/icons/Redo';
 import Refresh from '@react-spectrum/s2/icons/Refresh';
+import Search from '@react-spectrum/s2/icons/Search';
 import Settings from '@react-spectrum/s2/icons/Settings';
 import Star from '@react-spectrum/s2/icons/Star';
 import StopProcessing from '@react-spectrum/s2/icons/StopProcessing';
@@ -234,6 +236,11 @@ export interface ComposerProps {
    */
   spaceReferences?: { items: { id: string; label: string; description: string }[]; onClear(): void } | null;
   /**
+   * 输入框上方：用户给这条会话放宽的只读检索范围（`Conversation.spaceReadScope`，「回答这个问题」开的会话）。移除即收回，之后只检索
+   * 会话自己的视频。
+   */
+  readScope?: { scope: SpaceReadScope; onRemove(): void } | null;
+  /**
    * 输入框上方：幻灯片标签里加进对话、还没发出的标注（docs/design/slides §8.2），「幻灯片标注 · N 条」。
    * 有标注时正文空着也能发（`onSend` 收到空正文，由调用方补一句）。
    */
@@ -310,6 +317,7 @@ export function Composer(props: ComposerProps) {
   const { draftKey, driverId, model, effort, lockedTo, onAgentChange, accessMode, onAccessModeChange } = props;
   const { busy, queueWhileBusy, stopping, placeholder, autoFocus, mentionScope, onSend, beforeSend, onStop, reference, queue, start, tool } = props;
   const spaceReferences = props.spaceReferences?.items.length ? props.spaceReferences : null;
+  const readScope = props.readScope ?? null;
   const slideAnnotations = props.slideAnnotations?.items.length ? props.slideAnnotations : null;
   const designAnnotations = props.designAnnotations?.items.length ? props.designAnnotations : null;
   const designSystemAnnotations = props.designSystemAnnotations?.items.length ? props.designSystemAnnotations : null;
@@ -897,8 +905,17 @@ export function Composer(props: ComposerProps) {
               ))}
             </div>
           ) : null}
-          {reference || spaceReferences || slideAnnotations || designAnnotations || designSystemAnnotations ? (
+          {reference || spaceReferences || readScope || slideAnnotations || designAnnotations || designSystemAnnotations ? (
             <div className={tags}>
+              {readScope ? (
+                <span className={tag} title={S.composer.readScopeHint}>
+                  <Search />
+                  <span className={tagText}>{readScope.scope === 'all' ? S.composer.readScopeAll : S.composer.readScopeUnfiled}</span>
+                  <ActionButton isQuiet size="XS" aria-label={S.composer.dropReadScope} onPress={readScope.onRemove}>
+                    <Close />
+                  </ActionButton>
+                </span>
+              ) : null}
               {reference ? (
                 <span className={tag} title={reference.description}>
                   <MovieCamera />

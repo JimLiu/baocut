@@ -32,6 +32,7 @@ import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro'
 import {
   bundleActions,
   installFailure,
+  installFailureText,
   installProgressView,
   problemText,
   removalBody,
@@ -88,7 +89,7 @@ import { LOCAL_INSTALL_COPY as INSTALL, LOCAL_SHARED_COPY as SHARED } from './lo
 import { chooseLocalDefault } from './model-actions.ts';
 import { ModelCheckLine } from './model-check-line.tsx';
 import { Card, Chips, EmptyCard, PageStatus, SettingRow } from './model-parts.tsx';
-import { ModelSourceFold } from './model-source-row.tsx';
+import { DownloadSourcesFold } from './download-sources.tsx';
 import { IMAGE_LOCAL_COPY as IMAGE, LOCAL_COPY, MODELS_PAGE_COPY } from './models-copy.ts';
 import { TTS_LOCAL_COPY as TTS } from './tts-local-copy.ts';
 import { TtsQuickTest } from './tts-quick-test.tsx';
@@ -372,7 +373,7 @@ function LocalPage({ category, kind }: { category: ModelCategory; kind: LocalDef
         </Disclosure>
       ) : null}
 
-      <ModelSourceFold />
+      <DownloadSourcesFold />
 
       {install ? (
         <InstallDialog
@@ -772,7 +773,7 @@ function BundleRow({
           onAction={(k) => (k === 'cancel' ? check.cancel() : k === 'repair' ? onInstall('repair') : void check.start())}
         />
       ) : null}
-      {failure ? <p className={rowNote({ tone: 'failed' })}>{INSTALL.installFailed(problemText(failure))}</p> : null}
+      {failure ? <p className={rowNote({ tone: 'failed' })}>{INSTALL.installFailed(installFailureText(failure, half))}</p> : null}
       {quickOpen && canAudition && model ? (
         <TtsQuickTest
           bundleId={id}

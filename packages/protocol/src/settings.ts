@@ -19,6 +19,20 @@ import { SETTING_DESCRIPTION_MESSAGES } from './settings-copy.ts';
  * 校验用的 zod schema 在 `schemas.ts`：这个文件随主入口进界面，不带 zod。
  */
 
+/**
+ * 用户添加的一个下载镜像（`models.downloadMirrors` / `tools.downloadMirrors`）：`base` 是基址（`http(s)://`，不含凭据、
+ * 查询与片段，结尾不带 `/`），同一个列表里不重复；`name` 是给人看的名字，空串时界面显示主机名。
+ */
+export interface DownloadMirror {
+  name: string;
+  base: string;
+}
+
+/** 一个镜像列表最多存几个。 */
+export const DOWNLOAD_MIRRORS_MAX = 20;
+/** 镜像名字的最大长度。 */
+export const DOWNLOAD_MIRROR_NAME_MAX = 40;
+
 /** 转写完成后的后续动作。 */
 export type TranscribeAfterComplete = 'open-video' | 'notify' | 'nothing';
 
@@ -61,6 +75,11 @@ export interface SettingValues {
    */
   'models.downloadEndpoint': string | null;
   /**
+   * 用户添加的模型仓库镜像（设置 › 通用 › 下载来源，架构设计 §6.3「来源」）：只是备选清单，下载只看 `models.downloadEndpoint`。
+   * 选用一个镜像就是把它的基址写进 `models.downloadEndpoint`；删掉在用的那个时界面同一批把 `models.downloadEndpoint` 恢复默认。
+   */
+  'models.downloadMirrors': DownloadMirror[];
+  /**
    * 模型目录：绝对路径；null 为缺省的 `<runtime-home>/models`。环境变量 `BAOCUT_MODELS_DIR` 优先于它（这时它不生效）。
    * 只经 `models.setDir` 更改（要先确认没有任务在用、卸下 Worker、选择移动还是只换位置），`settings.set` 不接受这个键（架构设计 §6.3）。
    */
@@ -70,6 +89,8 @@ export interface SettingValues {
    * 官方发布地址。环境变量 `BAOCUT_TOOLS_ENDPOINT` 优先于它（架构设计 §12.9）。
    */
   'tools.downloadEndpoint': string | null;
+  /** 用户添加的发布页镜像，规则同 `models.downloadMirrors`：在用的那个是 `tools.downloadEndpoint`。 */
+  'tools.downloadMirrors': DownloadMirror[];
   /**
    * 排字用到、随内核与本机都没有、字体目录里有的族自动下载（预览与成片导出，架构设计 §9.1）。关掉时照回退字体画并提示，
    * 可以在选字列表里手动下载。
@@ -106,6 +127,11 @@ export interface SettingValues {
   'semantic.channels': SemanticChannel[];
   /** 建语义索引的项目：`all`，或项目 ID 列表（不属于项目的视频只在 `all` 时建）。不影响检索的范围，只影响哪些视频排进构建。 */
   'semantic.indexedProjects': 'all' | Id[];
+  /**
+   * 用电池时暂停建语义索引（检索规格 §16.1），接上电源后接着建。Runtime 自己查供电（macOS、Windows、Linux），查不出时当作
+   * 接着电。系统因过热降频时总是暂停，不受它影响。
+   */
+  'semantic.pauseOnBattery': boolean;
   /** 翻译记忆（§2.6）：翻译时提示以前译过的几乎相同的句子。 */
   'semantic.translationMemory': boolean;
   /** 术语候选（§2.5）：从文稿里几乎相同的写法提示术语。 */
@@ -130,8 +156,10 @@ export const SETTING_KEYS = [
   'downloads.directory',
   'downloads.cookieBrowsers',
   'models.downloadEndpoint',
+  'models.downloadMirrors',
   'models.dir',
   'tools.downloadEndpoint',
+  'tools.downloadMirrors',
   'fonts.autoDownload',
   'fonts.cssEndpoint',
   'fonts.fileEndpoint',
@@ -141,6 +169,7 @@ export const SETTING_KEYS = [
   'runtime.idleExitMinutes',
   'semantic.channels',
   'semantic.indexedProjects',
+  'semantic.pauseOnBattery',
   'semantic.translationMemory',
   'semantic.glossaryCandidates',
   'updates.autoCheck',
@@ -160,8 +189,10 @@ export const SETTING_DEFAULTS: Readonly<SettingValues> = Object.freeze({
   'downloads.directory': null,
   'downloads.cookieBrowsers': 'all',
   'models.downloadEndpoint': null,
+  'models.downloadMirrors': Object.freeze([]) as unknown as DownloadMirror[],
   'models.dir': null,
   'tools.downloadEndpoint': null,
+  'tools.downloadMirrors': Object.freeze([]) as unknown as DownloadMirror[],
   'fonts.autoDownload': true,
   'fonts.cssEndpoint': null,
   'fonts.fileEndpoint': null,
@@ -171,6 +202,7 @@ export const SETTING_DEFAULTS: Readonly<SettingValues> = Object.freeze({
   'runtime.idleExitMinutes': 10,
   'semantic.channels': Object.freeze(['text']) as unknown as SemanticChannel[],
   'semantic.indexedProjects': 'all',
+  'semantic.pauseOnBattery': true,
   'semantic.translationMemory': true,
   'semantic.glossaryCandidates': true,
   'updates.autoCheck': true,

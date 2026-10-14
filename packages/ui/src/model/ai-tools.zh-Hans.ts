@@ -124,6 +124,7 @@ export const zhHans: AiToolsMessages = {
   },
   viewName: { author: '作者', viewer: '观众' },
   extraScope: (scope: string) => `只看${scope}`,
+  extraTopic: (topic: string) => `只写「${topic}」：先用 speech_relevant 找出讲这件事的段落，再根据这些段落写`,
   extraLength: (label: string) => `篇幅：${label}`,
   extraStyle: (style: string) => `风格：${style}`,
   extraLanguage: (language: string) => `用${language}写`,

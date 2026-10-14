@@ -402,22 +402,35 @@
                 {/* 一张「发现术语」清单（§2.5）：库里没有的疑似专名 + 写法不一致的专名 */}
                 {useTerms || termCand ? <window.GlossaryHarvest gl={gl} cands={useTerms} variants={termCand ? SEMT.harvestVariants() : null} /> : null}
               </>
-            ) : id === 'chapters' ? (
-              <>
+            ) : id === 'chapters' ? (() => {
+              /* 章节自检（integration §3.6 第 5 条）：本机比标题与内容、相邻两章，只提示不改；没装模型或索引没好时不查，也不说「没问题」 */
+              const chk = window.BC_TOOL_SEMANTIC.chapterHints(ctx.chapters, D.semantic.chapterCheck, window.BC_SEMANTIC.status(window.BC_SEMSTATE.get()));
+              return <>
                 <div className="signpost">点章节标题可直接改名——导出与分享页会用同一份章节。</div>
                 {ctx.chapters.map((c) => (
-                  <div className="chapc" key={c.id}>
-                    {/* 与 Transcript 章节头共用 ChapterTitle：章节名只有一份真相 */}
-                    <ChapterTitle chapter={c} size="sm" onRename={ctx.renameChapter} />
-                    <span className="tm">{window.BC_TIME.timecode(c.start, {decimals: 0})}</span>
-                  </div>
+                  <React.Fragment key={c.id}>
+                    <div className="chapc">
+                      {/* 与 Transcript 章节头共用 ChapterTitle：章节名只有一份真相 */}
+                      <ChapterTitle chapter={c} size="sm" onRename={ctx.renameChapter} />
+                      <span className="tm">{window.BC_TIME.timecode(c.start, {decimals: 0})}</span>
+                    </div>
+                    {chk.hints.filter((h) => h.id === c.id).map((h) => (
+                      <div className="chapc__hint" key={h.k}>
+                        <span className="t-detail-xs">{h.text}</span>
+                        <BCAction className="tsetup__lnk" onClick={() => ctx.seek && ctx.seek(c.start)}>跳到这一章</BCAction>
+                      </div>
+                    ))}
+                  </React.Fragment>
                 ))}
+                <div className="hint">{chk.available
+                  ? (chk.hints.length ? `本机检查：${chk.hints.length} 处可以再看看，只是提示，改不改由你` : '本机检查：标题都贴内容，相邻两章没有讲同一件事的')
+                  : '没装本机语义模型或索引还没好，没做标题与重复章节的检查'}</div>
                 <SecHead>分布 · 旧 → 新</SecHead>
                 <div className="distb"><i style={{flex: 42, background: 'var(--gray-400)'}} /><i style={{flex: 58, background: 'var(--gray-500)'}} /></div>
                 <div className="distb"><i style={{flex: 35, background: 'var(--blue-900)'}} /><i style={{flex: 42, background: 'var(--blue-600)'}} /><i style={{flex: 23, background: 'var(--blue-400)'}} /></div>
                 <div className="hint">2 章 → {ctx.chapters.length} 章 · {bnd === 'topic' ? '边界由本机按话题检测，模型只命名；重跑只换标题' : '边界与标题都由模型决定'}</div>
-              </>
-            ) : id === 'retranscribe' ? (
+              </>;
+            })() : id === 'retranscribe' ? (
               <>
                 {/* product-design §5.11：换用文稿——译文按原文配对结转，pin 按时间重锚，配音可能不一致；一笔可撤销 */}
                 <div className="aicard">

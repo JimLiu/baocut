@@ -85,6 +85,8 @@
       const ranges = r.e != null ? spans(r.c.text, ts) : null;
       return Object.assign({}, r.c, {
         by: both ? 'both' : r.e != null ? 'exact' : 'semantic',
+        /* 弱命中：只有意思一路、分数低于弱命中线（演示：概念表里排第 4 名之后的）。只标出，不藏起来 */
+        weak: r.e == null && r.s >= 3,
         channel: 'text',
         hl: ranges,                        // 纯语义命中：null，不画高亮
         inTimeline: !cut.has(r.c.id),
@@ -95,8 +97,35 @@
     return out;
   }
 
+  /** 弱命中折起来（retrieval-spec §11.3）：有明显相关的结果时，勉强相关的收在后面，点开才显示；全是弱命中时照常全给，
+      卡片上写「只是勉强相关」。返回 {shown, folded}，顺序不变。 */
+  function fold(results) {
+    const list = results || [];
+    const strong = list.filter((r) => !r.weak);
+    return strong.length ? {shown: strong, folded: list.filter((r) => r.weak)} : {shown: list, folded: []};
+  }
+
   /** 卡片右下那一小行「怎么找到的」：不写分数 */
-  const BY = {both: '字面与意思都对上', exact: '字面命中', semantic: '意思相近，原句里没有这些字'};
+  const BY = {both: '字面与意思都对上', exact: '字面命中', semantic: '意思相近，原句里没有这些字', weak: '只是勉强相关，原句里没有这些字'};
+
+  /** 这一条为什么命中（卡片上那一句，不写分数）：字面对上的写出原句里对上的词（最多 3 个，按出现顺序去重）；只按意思找到的
+      写「意思接近」。向量说不出是「因为哪个概念」才近，所以不编概念名——产品里能如实给的就是这些，再加上命中的那一帧与那一句本身。 */
+  function why(r) {
+    const words = [];
+    (r.hl || []).forEach(([s, e]) => { const w = r.text.slice(s, e); if (words.indexOf(w) < 0) words.push(w); });
+    const said = words.slice(0, 3).map((w) => `「${w}」`).join('');
+    if (r.weak) return BY.weak;
+    if (r.by === 'both' && said) return `说到了${said}，意思也对得上`;
+    if (r.by === 'exact' && said) return `说到了${said}`;
+    return '意思接近，原句里没有这些字';
+  }
+
+  /** 预览里放的那一段：命中那句的起止，前后各留 2 秒，不早于 0。返回 {from, to, hit: [start, end]} */
+  const MOMENT_PAD = 2;
+  function moment(r) {
+    const end = r.end != null && r.end > r.t ? r.end : r.t + 4;
+    return {from: Math.max(0, r.t - MOMENT_PAD), to: end + MOMENT_PAD, hit: [r.t, end]};
+  }
 
   /** 结果顶上的提示（各自一句，可同时出现）：退回字面 / 索引在更新 */
   function notices(res, st, S) {
@@ -223,7 +252,7 @@
     return out;
   }
 
-  const api = {MODES, SCOPES, terms, spans, pieces, conceptHits, search, BY, notices, coverage, answer, looksLikeQuestion,
+  const api = {MODES, SCOPES, terms, spans, pieces, conceptHits, search, fold, BY, why, MOMENT_PAD, moment, notices, coverage, answer, looksLikeQuestion,
     RELATED_SHOWN, nameTokens, sharedName, related, relatedNote, IN_VIDEO_SHOWN, inVideo};
   if (typeof window !== 'undefined') window.BC_SPACE_SEARCH = api;
 })();

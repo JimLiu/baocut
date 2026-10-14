@@ -141,6 +141,10 @@ export const ko: ShellMessages = {
     dropEditorState: '이 메시지에 편집기 상태를 포함하지 않음',
     spaceEntries: '이 메시지와 함께 보내는 Space 항목',
     dropSpaceEntries: '이 메시지에 이 Space 항목을 포함하지 않음',
+    readScopeAll: '모든 동영상 검색 가능',
+    readScopeUnfiled: '프로젝트에 속하지 않은 동영상 검색 가능',
+    readScopeHint: 'Agent는 이 동영상에서 말한 내용을 검색할 수 있지만 열거나 편집할 수는 없습니다',
+    dropReadScope: '이 대화의 동영상만 검색',
     message: 'Agent에게 보낼 메시지',
   },
   rail: {

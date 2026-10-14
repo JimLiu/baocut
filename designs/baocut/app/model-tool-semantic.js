@@ -18,6 +18,32 @@
   ];
   const boundaryDefault = (st) => (st && st.usable ? 'topic' : 'model');
 
+  /* ---------- 章节自检（§3.6 第 5 条，原型提议 2026-10-13） ----------
+     生成章节之后，本机拿语义索引里的向量查两件事，只提示、不改章节：
+     · 标题贴不贴内容：标题与这一章句群（质心）的相似度。只比同一部视频的几章——低于这几章的中位数 titleMargin 以上、
+       且低于 titleFloor 的，提示标题可能没概括这一章；
+     · 相邻两章是不是在讲同一件事：两章质心相似度高于 merge 的，提示可以考虑合并（没有合并按钮：挪边界在文稿里做）。
+     scores = {titleFit: {章节 id: 相似度}, adjacent: {章节 id: 与上一章的相似度}}；没装模型、索引没好时不查（available: false）。
+     阈值都未经校准。 */
+  const CHAPTER_CHECK = {titleFloor: 0.45, titleMargin: 0.12, merge: 0.9};
+  function chapterHints(chapters, scores, st) {
+    const list = chapters || [];
+    if (!st || !st.usable || st.stale || !scores || list.length < 2) return {available: !!(st && st.usable && !st.stale), hints: []};
+    const fit = scores.titleFit || {}, adj = scores.adjacent || {};
+    const fits = list.map((c) => fit[c.id]).filter((v) => typeof v === 'number').sort((a, b) => a - b);
+    const median = fits.length ? fits[Math.floor((fits.length - 1) / 2)] : null;
+    const hints = [];
+    list.forEach((c, i) => {
+      const f = fit[c.id];
+      if (median !== null && typeof f === 'number' && f < CHAPTER_CHECK.titleFloor && f < median - CHAPTER_CHECK.titleMargin)
+        hints.push({k: 'title', id: c.id, text: '标题可能没概括这一章：和这一章讲的内容不太贴，可以改个名'});
+      const a = adj[c.id];
+      if (i > 0 && typeof a === 'number' && a >= CHAPTER_CHECK.merge)
+        hints.push({k: 'merge', id: c.id, prev: list[i - 1].id, text: `和上一章「${list[i - 1].title}」讲的很接近，可以考虑合并`});
+    });
+    return {available: true, hints};
+  }
+
   /* ---------- 写作「按主题」（§2.2；§4 待评审第 2 条的原型提议） ----------
      缺省：整篇放得进所选模型的上下文、且视频不超过 30 分钟时用「整篇」；否则缺省「按主题」。
      没装模型时永远不缺省按主题（置灰）。 */
@@ -205,7 +231,7 @@
     return {extra: `只在讲「${t}」的片段里找`, note: '本机先圈出讲这件事的片段，再交给模型挑'};
   }
 
-  const api = {TOPIC_LONG_SEC, topicDefault, chaptersCovered, topicScope, BOUNDARY, boundaryDefault, termRows, applyTerms, variantLine, harvestRows, marks, diff, KIND, suggestKeep, retakeGroup, applyRetakes,
+  const api = {TOPIC_LONG_SEC, topicDefault, chaptersCovered, topicScope, BOUNDARY, boundaryDefault, CHAPTER_CHECK, chapterHints, termRows, applyTerms, variantLine, harvestRows, marks, diff, KIND, suggestKeep, retakeGroup, applyRetakes,
     retakeRows, illustrations, nextFrame, shortsTopic, mmss};
   if (typeof window !== 'undefined') window.BC_TOOL_SEMANTIC = api;
 })();

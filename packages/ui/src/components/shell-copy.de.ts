@@ -144,6 +144,10 @@ export const de: ShellMessages = {
     dropEditorState: "Editorzustand dieser Nachricht nicht beifügen",
     spaceEntries: "Mit dieser Nachricht gesendete Space-Einträge",
     dropSpaceEntries: "Diese Space-Einträge dieser Nachricht nicht beifügen",
+    readScopeAll: "Kann alle Videos durchsuchen",
+    readScopeUnfiled: "Kann Videos ohne Projekt durchsuchen",
+    readScopeHint: "Der Agent kann durchsuchen, was in diesen Videos gesagt wird, sie aber nicht öffnen oder bearbeiten",
+    dropReadScope: "Nur die Videos dieser Unterhaltung durchsuchen",
     message: "Nachricht an den Agenten",
   },
   rail: {

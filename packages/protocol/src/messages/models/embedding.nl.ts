@@ -10,6 +10,7 @@ export const nl: ModelsEmbeddingMessages = {
   notNormalized: (p: { norm: string }) => `Een vector heeft geen lengte 1 (norm ${p.norm})`,
   notRanked: (p: { relevant: string; irrelevant: string }) => `De verwante zin scoorde niet hoger dan de niet-verwante (cosinus ${p.relevant} tegen ${p.irrelevant})`,
   noModel: 'Er is geen lokaal embeddingmodel geïnstalleerd',
+  noVisionModel: 'Geen geïnstalleerd lokaal embeddingmodel kan afbeeldingen lezen. Installeer EmbeddingGemma 2 740M om te zoeken op wat er in beeld is',
   inputTooLong: (p: { index: number; max: number }) => `Tekst ${p.index} is langer dan het model accepteert (${p.max} tokens)`,
   modelUnavailable: (p: { problem: string }) => `Het lokale embeddingmodel is niet beschikbaar: ${p.problem}`,
   cannotEmbed: 'Deze Model Worker kan met dit model nog geen embeddings berekenen',

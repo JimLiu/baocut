@@ -42,11 +42,19 @@ description: 任务的查看、等待、取消与重跑；跨视频检索、视�
 <!-- surface: agent -->
 | 把这个会话收进新项目（会话不属于项目、用户要求时） | {{tool:projects_adopt_session}}；默认以视频命名，可给 {{arg:name}} |
 <!-- /surface -->
-| 跨视频按文稿、字幕、译文、章节、说话人找 | {{tool:space_search}}，{{arg:query}}；可给 {{arg:videoIds}}、{{arg:kinds}}、{{arg:speaker}} |
+| 跨视频按意思找讲过的内容（默认用这个） | {{tool:space_search_v2}}，{{arg:query}} 写一句意思；可给 {{arg:videoIds}}、{{arg:projectId}}、{{arg:kinds}}；改过的视频用 {{tool:space_resolve_search_hit}} 重新定位 |
+| 按意图取写作材料（总结、博客、问答，带出处编号） | {{tool:speech_relevant}}，{{arg:intent}}；可给 {{arg:videoIds}}、{{arg:order}}、{{arg:neighbors}} |
+| 讲相近内容的其他视频 | {{tool:space_related_videos}}，{{arg:videoId}} |
+| 按画面描述找镜头（跨视频） | {{tool:space_search_v2}}，{{arg:query}} 写画面描述，{{arg:channels}} 给 `["visual"]`（与 `text` 一起给时两路合在一起）；要画面索引 |
+| 为一段文字在一部视频里找画面（配图、补画面、封面候选） | {{tool:videos_match_frames}}，{{arg:videoId}}、{{arg:text}}；可给 {{arg:near}}（出处编号）或 {{arg:at}}、{{arg:limit}}；要画面索引 |
+| 语义索引建好没有、等它建好（用户刚给的素材） | {{tool:space_index_status}}；可给 {{arg:videoIds}}、{{arg:waitSec}}，画面索引给 {{arg:channel}} `visual`；失败的重试、给用户刚给的素材建画面索引用 {{tool:space_index_build}}（{{arg:channel}} `visual`） |
+| 按字面找原词、说话人 | {{tool:space_search}}，{{arg:query}}（每个词都要出现）；可给 {{arg:videoIds}}、{{arg:kinds}}、{{arg:speaker}} |
 | 列出 Space 条目（视频、导出的文件、生成的图片与音频、幻灯片） | {{tool:space_list}}；可按 {{arg:kind}}、{{arg:videoId}} 筛选 |
 | 删除视频（移进回收站；用户明确要求时） | {{tool:videos_delete}}，{{arg:video}} |
 
-{{tool:space_search}} 的时间以索引时的版本为准；要精确定位，再用 {{tool:videos_inspect}} / {{tool:documents_read}} 读当前版本。`complete` 为 false 时索引还没覆盖全部视频，结果可能不全。
+{{tool:space_search_v2}} 在这台机器装了文本嵌入模型包、建好语义索引时按意思与字面综合检索，换了说法、换了语言也能找到；没有时退回字面（`effectiveMode` 写明，`degraded.reason` 给原因），这时改用两三个关键词。`weak` 的命中只是勉强沾边，先读原文再用；`coverage` 写明有几部还没进索引、没有文稿或没纳入语义索引。{{tool:space_search}} 只按字面，时间以索引时的版本为准；要精确定位，再用 {{tool:videos_inspect}} / {{tool:documents_read}} 读当前版本。`complete` 为 false 时索引还没覆盖全部视频，结果可能不全。
+
+画面索引（这台机器装了能读图的多模态模型包时才有）按每 8 秒一张关键帧建：设置里开了画面通道时全部建，没开时只建用 {{tool:space_index_build}} 的 {{arg:channel}} `visual` 点过名的视频。画面命中的时间是一段候选窗口，不是精确时刻；`clock` 为 source 时那段素材不在当前时间线上（例如导入了还没放上去的素材），时间是素材的源时间，要用它时把素材放上时间线再裁到这一段。
 
 ### 用户库与 skill
 

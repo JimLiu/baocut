@@ -150,6 +150,18 @@ const viewTools = style({ display: 'flex', alignItems: 'center', gap: 8 });
 /** 按来源筛选时的那一条：「从「X」切出的短视频」加清除。 */
 const fromChip = style({ display: 'flex', alignItems: 'center', gap: 8, font: 'ui', color: 'gray-800' });
 const notes = style({ display: 'flex', flexDirection: 'column', gap: 8, paddingX: { default: 40, isTight: 24 }, paddingBottom: 16 });
+/** 内容命中下面那一块的小标题「名称与文件」（同原型 `space__sub`）。 */
+const namesHead = style({ font: 'title-sm', marginY: 0, paddingX: { default: 40, isTight: 24 } });
+/** 名称与文件没对上时那一行：上面已有内容命中，不用大号空态。空态容器是居中的竖排 flex，用 `marginBottom: auto` 顶到上面；网格两边少留了卡片间距，这里补上才和小标题对齐。 */
+const namesNone = style({
+  font: 'body-sm',
+  color: 'gray-700',
+  marginTop: 0,
+  marginBottom: 'auto',
+  paddingY: 4,
+  paddingX: { isGrid: 12 },
+  alignSelf: 'start',
+});
 /** CardView 在两端也留一份卡片间距（约 12）：网格少留这么多，卡片才和标题对齐。 */
 const list = style({
   display: 'flex',
@@ -568,24 +580,28 @@ function SpaceMain({ category, projectId, from }: { category: SpaceCategory; pro
       .finally(() => setRebuilding(false));
   };
 
-  const empty = () => (
-    <IllustratedMessage size="S">
-      <Heading>
-        {filtered
-          ? COPY.emptyFiltered
-          : category === 'trash'
-            ? COPY.emptyTrash
-            : category === 'favorite'
-              ? COPY.emptyFavorite
-              : category === 'all'
-                ? COPY.emptyAll
-                : COPY.emptyCategory(label)}
-      </Heading>
-      <Content>
-        {filtered ? COPY.emptyFilteredBody : category === 'trash' ? COPY.emptyTrashBody : COPY.emptyBody}
-      </Content>
-    </IllustratedMessage>
-  );
+  // 上面已有「讲话内容里」时，名称没对上只写一行；用大号的「没有符合条件的条目」会像是整个搜索都没结果。
+  const named = searchContent && connected;
+  const otherFilters = projectId !== null || status !== 'any' || !!from;
+  const empty = () =>
+    named ? (
+      <p className={namesNone({ isGrid: view === 'grid' })}>{COPY.emptyNames(query.trim(), otherFilters)}</p>
+    ) : (
+      <IllustratedMessage size="S">
+        <Heading>
+          {filtered
+            ? COPY.emptyFiltered
+            : category === 'trash'
+              ? COPY.emptyTrash
+              : category === 'favorite'
+                ? COPY.emptyFavorite
+                : category === 'all'
+                  ? COPY.emptyAll
+                  : COPY.emptyCategory(label)}
+        </Heading>
+        <Content>{filtered ? COPY.emptyFilteredBody : category === 'trash' ? COPY.emptyTrashBody : COPY.emptyBody}</Content>
+      </IllustratedMessage>
+    );
 
   const busy = scanning || rebuilding;
 
@@ -719,6 +735,7 @@ function SpaceMain({ category, projectId, from }: { category: SpaceCategory; pro
           <SpaceSearchHits query={query} projectId={projectId} entries={entries} />
         </div>
       ) : null}
+      {named ? <h2 className={namesHead({ isTight })}>{COPY.namesTitle}</h2> : null}
 
       <div className={list({ isTight, isGrid: view === 'grid' })}>
         {!ready ? (

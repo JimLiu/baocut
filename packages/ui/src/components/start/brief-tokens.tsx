@@ -1,8 +1,11 @@
 import Code from '@react-spectrum/s2/icons/Code';
 import FileText from '@react-spectrum/s2/icons/FileText';
 import ImageIcon from '@react-spectrum/s2/icons/Image';
+import Search from '@react-spectrum/s2/icons/Search';
 import Video from '@react-spectrum/s2/icons/Video';
+import type { SpaceReadScope } from '@baocut/protocol';
 import { HOME_COPY, SKILL_COPY } from '../../copy.ts';
+import { S } from '../shell-copy.ts';
 import type { HomeMaterial } from '../../model/home-brief.ts';
 import type { HomeTemplate } from '../../model/home-templates.ts';
 import { ComposerToken, composerTokenList } from '../composer-token.tsx';
@@ -21,6 +24,8 @@ export function BriefTokens({
   onRemoveSkill,
   onRemoveTemplate,
   onRemoveMaterial,
+  readScope = null,
+  onRemoveReadScope,
 }: {
   /** 点选的 skill，按挂上的顺序；没选时为空。 */
   skills: readonly { id: string; name: string }[];
@@ -29,10 +34,22 @@ export function BriefTokens({
   onRemoveSkill(id: string): void;
   onRemoveTemplate(): void;
   onRemoveMaterial(path: string): void;
+  /** 新会话的只读检索范围（「回答这个问题」挂上的）；摘掉就不放宽。 */
+  readScope?: SpaceReadScope | null;
+  onRemoveReadScope?(): void;
 }) {
-  if (!skills.length && !template && !materials.length) return null;
+  if (!skills.length && !template && !materials.length && !readScope) return null;
   return (
     <div className={composerTokenList}>
+      {readScope ? (
+        <ComposerToken
+          icon={<Search />}
+          label={readScope === 'all' ? S.composer.readScopeAll : S.composer.readScopeUnfiled}
+          title={S.composer.readScopeHint}
+          removeLabel={S.composer.dropReadScope}
+          onRemove={() => onRemoveReadScope?.()}
+        />
+      ) : null}
       {skills.map((skill) => (
         <ComposerToken
           key={skill.id}
