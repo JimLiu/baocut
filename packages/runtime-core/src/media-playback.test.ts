@@ -201,7 +201,19 @@ describe.skipIf(!tools)('media playback compatibility', () => {
       // 有了兼容副本，能直接放的客户端仍拿原文件。
       expect(await registry.playback(raw.url, playable(['vp8', 'vp9', 'opus']))).toEqual({ status: 'ready', media: raw });
       // 没有 ffprobe 认不出编码：一律做兼容副本。
-      expect(await blind.playback(await fs.realpath(source), ['vp9', 'opus'])).toMatchObject({ status: 'pending' });
+      const real = await fs.realpath(source);
+      let blindResult = await blind.playback(real, ['vp9', 'opus']);
+      expect(blindResult).toMatchObject({ status: 'pending' });
+      // 等副本发布后再清理夹具，避免后台建缓存目录与 fs.rm 竞争。
+      const blindDeadline = Date.now() + 15_000;
+      while (blindResult.status === 'pending') {
+        expect(Date.now()).toBeLessThan(blindDeadline);
+        await new Promise(resolve => setTimeout(resolve, 20));
+        blindResult = await blind.playback(real, ['vp9', 'opus']);
+      }
+      if (blindResult.status !== 'ready') throw new Error('not ready');
+      const blindProbe = JSON.parse(execFileSync(ffprobe, ['-v', 'error', '-show_streams', '-of', 'json', blindResult.file], { encoding: 'utf8' }));
+      expect(blindProbe.streams.map((stream: { codec_name: string }) => stream.codec_name)).toEqual(['h264', 'aac']);
     } finally { analysis.close(); blind.close(); await fs.rm(root, { recursive: true, force: true }); }
   }, 30_000);
 
