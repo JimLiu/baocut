@@ -215,7 +215,7 @@ describe.skipIf(!tools)('media playback compatibility', () => {
       const blindProbe = JSON.parse(execFileSync(ffprobe, ['-v', 'error', '-show_streams', '-of', 'json', blindResult.file], { encoding: 'utf8' }));
       expect(blindProbe.streams.map((stream: { codec_name: string }) => stream.codec_name)).toEqual(['h264', 'aac']);
     } finally { analysis.close(); blind.close(); await fs.rm(root, { recursive: true, force: true }); }
-  }, 30_000);
+  }, 60_000); // Two 15 s conversion budgets, plus fixture creation, probing and cleanup.
 
   it.skipIf(process.platform === 'win32')('reports the copy\'s encode progress against the probed duration', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-playback-progress-'));
