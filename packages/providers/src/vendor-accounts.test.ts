@@ -342,6 +342,37 @@ describe('账号：地区、基址、调用结果与用量', () => {
     });
   });
 
+  it.each([
+    { providerId: 'deepseek', modelId: 'deepseek-flash' },
+    { providerId: 'volcengine', modelId: 'doubao-seed-2-1-pro-260915' },
+    { providerId: 'volcengine', modelId: 'doubao-seed-2-1-lite-260915' },
+  ])('discovered $providerId model $modelId stays available and uses its API id', async ({ providerId, modelId }) => {
+    server = await startFakeProviderServer((request) => {
+      if (request.method === 'GET') {
+        return { status: 200, json: { data: [{ id: modelId }] } };
+      }
+      if ((request.json as { model?: string }).model !== modelId) {
+        return { status: 404, json: { error: { message: 'model not found' } } };
+      }
+      return chatCompletionReply(request, 'translated');
+    });
+    await withSource({ [providerId]: `${server.origin}/v1` }, async ({ source }) => {
+      await source.configure({ providerId, enabled: true });
+      await source.addAccount({ providerId, credential: VENDOR_KEY });
+      await source.refresh(providerId);
+      const view = (await source.describe(providerId, 'view'))!;
+      const model = view.capabilities.generateText!.models.find((m) => m.modelId === modelId);
+      expect(model).toBeDefined();
+      expect(model!.available).not.toBe(false);
+      expect((await generate(source, providerId, modelId)).text).toBe('translated');
+      expect(server!.requests).toHaveLength(2);
+      expect(server!.requests[0]).toMatchObject({ method: 'GET', path: '/v1/models' });
+      expect(server!.requests[1]).toMatchObject({
+        method: 'POST', path: '/v1/chat/completions', json: { model: modelId },
+      });
+    });
+  });
+
   it('调用结果：401 记为密钥无效，429 记为限速（到期时间来自 Retry-After）；不换账号；每次调用写一条用量', async () => {
     let reply: (request: RecordedRequest) => FakeReply = (request) => anthropicReply(request, 'ok');
     server = await startFakeProviderServer((request) => reply(request));

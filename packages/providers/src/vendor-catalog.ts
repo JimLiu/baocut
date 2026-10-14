@@ -59,7 +59,9 @@ export const COMPAT_VENDORS: Record<CompatVendorId, CompatVendor> = {
     vendor: { kind: 'vendor', website: 'https://platform.deepseek.com', icon: 'deepseek' },
     regions: { global: 'https://api.deepseek.com/v1' },
     jsonMode: 'json_object',
-    models: [text('deepseek-v4-pro', 'DeepSeek V4 Pro', true), text('deepseek-v4.1-flash', 'DeepSeek V4.1 Flash')],
+    // V4.1 is the model version; the API id remains deepseek-flash.
+    // https://api-docs.deepseek.com/quick_start/pricing/
+    models: [text('deepseek-v4-pro', 'DeepSeek V4 Pro', true), text('deepseek-flash', 'DeepSeek V4.1 Flash')],
   },
   moonshot: {
     get label() {
@@ -105,7 +107,9 @@ export const COMPAT_VENDORS: Record<CompatVendorId, CompatVendor> = {
     vendor: { kind: 'vendor', website: 'https://www.volcengine.com/product/ark', icon: 'volcengine' },
     regions: { cn: 'https://ark.cn-beijing.volces.com/api/v3' },
     jsonMode: 'json_object',
-    models: [text('doubao-seed-2.1-pro', 'Doubao Seed 2.1 Pro', true), text('doubao-seed-2.1-lite', 'Doubao Seed 2.1 Lite')],
+    // Ark model ids include hyphenated versions and the release date.
+    // https://docs.volcengine.com/docs/ark/responses-api-deep-thinking?lang=zh
+    models: [text('doubao-seed-2-1-pro-260915', 'Doubao Seed 2.1 Pro', true), text('doubao-seed-2-1-lite-260915', 'Doubao Seed 2.1 Lite')],
   },
   xai: {
     get label() {
