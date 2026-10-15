@@ -5,7 +5,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BaoCutClient } from '@baocut/client';
 import { writeFakeYtDlp, type FakeYtDlp } from '@baocut/jobs';
 import { LINK_COOKIE_BROWSERS, newId, type ExternalToolStatus, type JobRecord, type LinkImportSummary } from '@baocut/protocol';
@@ -249,16 +249,48 @@ describe('受管外部工具（假下载来源 + 假 yt-dlp）', () => {
     await expect(fs.stat(installed.path!)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
-  it('本机浏览器的 Cookie 库：只给支持的浏览器、名字与时间，不给路径；带上主机的平台', async () => {
+  it.each(['missing', 'present', 'denied'] as const)('本机浏览器的 Cookie 库（%s）：返回状态和主机平台，不给路径', async (state) => {
     const s = side!;
-    // 看的是这台机器真实的主目录（只看文件在不在），有哪些浏览器因机器而异；具体的查找规则在 @baocut/jobs 里用临时目录测。
-    const { platform, browsers } = await s.client.request('externalTools.cookieBrowsers', {});
-    expect(platform).toBe(process.platform);
-    for (const browser of browsers) {
-      expect(LINK_COOKIE_BROWSERS).toContain(browser.id);
-      expect(Object.keys(browser).sort()).toEqual(['id', 'label', 'lastUsedAt']);
+    const browserHome = path.join(s.dir, 'browser-home');
+    const local = path.join(browserHome, 'local');
+    const roaming = path.join(browserHome, 'roaming');
+    const config = path.join(browserHome, 'config');
+    const chromeRoot = process.platform === 'darwin'
+      ? path.join(browserHome, 'Library', 'Application Support', 'Google', 'Chrome')
+      : process.platform === 'win32' ? path.join(local, 'Google', 'Chrome', 'User Data') : path.join(config, 'google-chrome');
+    const stamp = '2026-01-02T03:04:05.000Z';
+    if (state === 'present') {
+      const file = path.join(chromeRoot, 'Default', 'Network', 'Cookies');
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      await fs.writeFile(file, 'synthetic cookie metadata fixture');
+      await fs.utimes(file, new Date(stamp), new Date(stamp));
     }
-    await expect(s.client.request('externalTools.cookieBrowsers', { name: 'yt-dlp' } as never)).rejects.toMatchObject({ code: 'invalid-request' });
+    // Runtime 仍通过真实网关调用探测器，但只允许它看临时目录中的浏览器元数据。
+    vi.spyOn(os, 'homedir').mockReturnValue(browserHome);
+    vi.stubEnv('LOCALAPPDATA', local);
+    vi.stubEnv('APPDATA', roaming);
+    vi.stubEnv('XDG_CONFIG_HOME', config);
+    if (state === 'denied') {
+      const readdir = fs.readdir.bind(fs);
+      vi.spyOn(fs, 'readdir').mockImplementation((...args: Parameters<typeof fs.readdir>) => {
+        if (args[0] === chromeRoot) return Promise.reject(Object.assign(new Error('denied'), { code: 'EACCES' }));
+        return readdir(...args);
+      });
+    }
+    try {
+      const { platform, browsers } = await s.client.request('externalTools.cookieBrowsers', {});
+      expect(platform).toBe(process.platform);
+      expect(browsers).toEqual([{
+        id: 'chrome', label: 'Chrome', lastUsedAt: state === 'present' ? stamp : null,
+        ...(state === 'missing' ? { cookieStoreMissing: true } : {}),
+        ...(state === 'denied' ? { accessDenied: true } : {}),
+      }]);
+      for (const browser of browsers) expect(LINK_COOKIE_BROWSERS).toContain(browser.id);
+      await expect(s.client.request('externalTools.cookieBrowsers', { name: 'yt-dlp' } as never)).rejects.toMatchObject({ code: 'invalid-request' });
+    } finally {
+      vi.restoreAllMocks();
+      vi.unstubAllEnvs();
+    }
   });
 
   it('指定路径：不能运行的拒绝，过旧的报告需要更新、流程拒绝；清除后回到受管副本之外的来源', async () => {
