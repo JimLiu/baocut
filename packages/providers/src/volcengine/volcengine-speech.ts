@@ -40,6 +40,7 @@ const SAMPLE_RATE = 24_000;
 const DONE = 20_000_000;
 
 /** 豆包语音合成 2.0 的音色（文档音色列表里的 2.0 通用音色）。 */
+// i18n-ignore-start: Preserve vendor voice catalog names verbatim across locales.
 const VOICES = [
   { voiceId: 'zh_female_vv_uranus_bigtts', label: 'Vivi 2.0', language: 'zh' },
   { voiceId: 'zh_female_xiaohe_uranus_bigtts', label: '小何 2.0', language: 'zh' },
@@ -55,6 +56,7 @@ const VOICES = [
   { voiceId: 'id_female_cesna_uranus_bigtts', label: 'Cesna', language: 'id' },
   { voiceId: 'es_male_mariano_uranus_bigtts', label: 'Mariano', language: 'es' },
 ];
+// i18n-ignore-end
 
 /** 豆包语音合成 2.0 支持的语言。 */
 const LANGUAGES = ['zh', 'en', 'ja', 'ko', 'es', 'pt', 'id', 'ms', 'th', 'vi', 'fil', 'de', 'fr', 'ru', 'ar'];
