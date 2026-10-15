@@ -23,7 +23,7 @@ var SESSION_ROUTE_ORDER = `If empty, replace that line.`;
 var SESSION_ROUTE_PIN = `If empty, replace that line. Replace that line only with ifHash e3b0c442, never with force; if refused, write below it.`;
 var SESSION_CARRIER_INSTRUCTION = `If the marked line is no longer empty, leave what is on it exactly as it is and write directly below it. If empty, replace that line. Replace that line only with ifHash e3b0c442, never with force; if refused, write below it. Write your answer directly in the document at the marked empty line, for a request to write or change something and for a question alike, and do not reply in this thread:`;
 function carrierBodyOf(body: string): string {
-  let mention = /^\s*@Claude\u2060?\s*/i.exec(body);
+  let mention = /^\s*@(?:Claude|Agent)\u2060?\s*/i.exec(body);
   let prefix = mention ? mention[0].trimEnd() : ``;
   let request = (mention ? body.slice(mention[0].length) : body).trim();
   return `${prefix === `` ? `` : prefix + ` `}${SESSION_CARRIER_INSTRUCTION}\n\n${request}`;
@@ -45,7 +45,7 @@ function carrierPostOf<
   };
 }
 var askWordsOf = (body: string): string =>
-  body.replace(/^\s*@Claude\u2060?\s*/i, ``).trim();
+  body.replace(/^\s*@(?:Claude|Agent)\u2060?\s*/i, ``).trim();
 var SESSION_ROUTE_INSTRUCTION = `Write your answer directly in the document at the marked line (the block this page names in blockId), whether the request asks you to write or change something or asks a question: a question's answer is written into the document at that line too, never in a comment thread and never only as a chat reply. If empty, replace that line. Replace that line only with ifHash e3b0c442, never with force; if refused, write below it.`;
 function envelopeNamesBlock(
   envelope: unknown,

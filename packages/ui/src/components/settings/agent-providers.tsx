@@ -266,7 +266,7 @@ export function AgentProviders() {
                   <p className={faqBody}>{item.body}</p>
                   {item.link === 'models' ? (
                     <div className={faqLink}>
-                      <ActionButton isQuiet size="S" onPress={() => go({ tab: 'models', category: 'llm', page: 'cloud' })}>
+                      <ActionButton isQuiet size="S" onPress={() => go({ tab: 'settings', section: 'providers' })}>
                         {AGENT_COPY.goCloudModels}
                       </ActionButton>
                     </div>

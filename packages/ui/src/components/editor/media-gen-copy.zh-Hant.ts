@@ -43,7 +43,7 @@ export const zhHantImageGen: ImageGenMessages = {
   project: '影片素材',
   gen: 'AI 生成',
   noModelTitle: '還沒有影像模型',
-  noModelBody: '連接一家雲端供應商（「模型 › 影像生成 › 雲端模型」），或下載 Qwen-Image-2.1 或 Turbo（「模型 › 影像生成 › 本機模型」），擇一即可。',
+  noModelBody: '新增一家 API 供應商（「設定 › 模型 › API 供應商」），或下載 Qwen-Image-2.1 或 Turbo（「設定 › 模型 › 影像生成 › 本機模型」），擇一即可。',
   connect: '連接雲端供應商',
   downloadLocal: '下載本機模型',
   fit: '與影片畫布相同',

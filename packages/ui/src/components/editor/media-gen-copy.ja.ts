@@ -43,7 +43,7 @@ export const jaImageGen: ImageGenMessages = {
   project: '動画の素材',
   gen: 'AI 生成',
   noModelTitle: '画像モデルがまだありません',
-  noModelBody: 'クラウドプロバイダを接続する（モデル › 画像生成 › クラウドモデル）か、Qwen-Image-2.1 または Turbo をダウンロードしてください（モデル › 画像生成 › ローカルモデル）。どちらか一方で使えます。',
+  noModelBody: 'API プロバイダを追加する（設定 › モデル › API プロバイダ）か、Qwen-Image-2.1 または Turbo をダウンロードしてください（設定 › モデル › 画像生成 › ローカルモデル）。どちらか一方で使えます。',
   connect: 'クラウドプロバイダを接続',
   downloadLocal: 'ローカルモデルをダウンロード',
   fit: '動画のキャンバスと同じ',

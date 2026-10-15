@@ -12116,8 +12116,7 @@ function resolvePlatformSessionAndSourcesRef(
       }
     : null;
 }
-// BaoCut: 批注发给智能体的状态文案称「the agent」，不称 Claude（键不变）。「@Claude」是批注里提及智能体的写法
-// （提及项的标签照原样是 Claude，正文按它识别），所以照原样保留。
+// BaoCut: 批注发给智能体的状态文案称「the agent」，不称 Claude（键不变）；提及智能体写作「@Agent」（见下面的提及项）。
 var PlatformSessionAndSourcesSent: Dynamic = {
   sent: `Sent to agent — reply will land in this thread`,
   waiting: `Still waiting to reach the agent.`,
@@ -12125,21 +12124,21 @@ var PlatformSessionAndSourcesSent: Dynamic = {
   queued: `The agent is busy with an earlier request. This one is waiting its turn.`,
   still_working: `The agent is still working on this. Its reply will land in this thread.`,
   needs_user: `The agent is waiting for your answer in your session.`,
-  ended: `The agent's session ended without replying — mention @Claude again to retry`,
+  ended: `The agent's session ended without replying — mention @Agent again to retry`,
   edited: `The agent edited the document.`,
   stopped: `Stopped before the agent replied — send it again from a reply.`,
   not_delivered: `Comment added, but it didn't reach the agent. Try again from a reply, or ask the agent directly in your session.`,
   no_listener: `Comment added. No agent session picked it up. To continue, open your agent session`,
-  sign_in: `Comment added, but the agent can't get your comment until you sign in again. Sign in from your session, then reply with @Claude.`,
+  sign_in: `Comment added, but the agent can't get your comment until you sign in again. Sign in from your session, then reply with @Agent.`,
   kept: `Not sent to agent. The comment stays here.`,
-  no_anchor: `Comment added, but the agent couldn't be pointed at this spot yet. Reply with @Claude to try again, or reload the page if that doesn't help.`,
-  refused: `Comment added, but not sent to agent — reply with @Claude to try again.`,
+  no_anchor: `Comment added, but the agent couldn't be pointed at this spot yet. Reply with @Agent to try again, or reload the page if that doesn't help.`,
+  refused: `Comment added, but not sent to agent — reply with @Agent to try again.`,
   no_session: `Comment added, but no agent session is listening here. To reach the agent, open this document next to your agent session.`,
   writers_only: `Comment added. Only people who can edit this document can send comments to the agent.`,
   off: `Comment added. Sending comments to the agent is turned off here.`,
   consent: `Comment added, but sending to the agent is turned off for you on this document.`,
-  slow_down: `Comment added, but not sent to agent — that was a few too many in a row. Wait a moment, then reply with @Claude.`,
-  too_long: `Comment added, but it's over the 4 KB the agent can be sent at once. Shorten it, or split it across replies to @Claude.`,
+  slow_down: `Comment added, but not sent to agent — that was a few too many in a row. Wait a moment, then reply with @Agent.`,
+  too_long: `Comment added, but it's over the 4 KB the agent can be sent at once. Shorten it, or split it across replies to @Agent.`,
   unreachable: `The agent isn't reachable from here right now`,
   staged: `Comment added — it's in the chat box, send it to the agent from there`,
   unavailable: `Comment added · Asking the agent isn't available here yet`,
@@ -12277,7 +12276,8 @@ function resolvePlatformSessionAndSourcesFailed2(
               ? `ended`
               : `sent`;
 }
-var platformSessionAndSourcesPattern3 = /@claude\b/i;
+// BaoCut: 提及智能体写作「@Agent」；以前的文档与手打的「@Claude」也照样算。
+var platformSessionAndSourcesPattern3 = /@(?:claude|agent)\b/i;
 function resolvePlatformSessionAndSourcesClaude(
   platformSessionAndSourcesClaude?: Dynamic,
   options?: Dynamic,
@@ -72488,8 +72488,9 @@ var resolvePlatformApiAndAuthTest: Dynamic = (
 ) =>
   typeof platformApiAndAuthTest == `string` &&
   platformApiAndAuthPattern7.test(platformApiAndAuthTest);
+// BaoCut: 智能体光标旗子上的名字叫 Agent，不叫 Claude。
 var PlatformApiAndAuthColor = {
-  name: `Claude`,
+  name: `Agent`,
   color: `#d97757`,
   connId: `claude-agent`,
 };
@@ -72688,9 +72689,10 @@ var resolvePlatformApiAndAuthSafeParse: Dynamic = (
   );
   return safeParse.success ? safeParse.data : undefined;
 };
+// BaoCut: @ 菜单里的智能体叫 Agent（批注正文里写作「@Agent」）；id 不变，发给智能体按 id 判断。
 var PlatformApiAndAuthLabel = {
   id: `claude`,
-  label: `Claude`,
+  label: `Agent`,
 };
 var PlatformApiAndAuthBongoPeoplePicked = `bongo.people.picked`;
 var PlatformApiAndAuthBongoPeopleSeenV2 = `bongo.people.seen.v2`;
@@ -74614,7 +74616,8 @@ var PlatformApiAndAuthParticipants: Dynamic = create(
             contributor.ownerUid &&
             contributor.runId
           ) {
-            let agent: Dynamic = contributor.agent ?? `Claude`;
+            // BaoCut: 没报名字的智能体叫 Agent，不叫 Claude。
+            let agent: Dynamic = contributor.agent ?? `Agent`;
             let label = `agent:${contributor.ownerUid}:${agent}`;
             let participantEntry: Dynamic = participants.get(label);
             participants.set(label, {
@@ -85523,7 +85526,7 @@ function resolveDataModelSchemasAgentRows(
     filterDataModelSchemasFilter3(options) > dataModelSchemasAgentRows.agentRows
   );
 }
-// BaoCut: 批注框「发给智能体」勾选与提示的文案称「agent」，不称 Claude；「@Claude」是提及的写法，照原样保留。
+// BaoCut: 批注框「发给智能体」勾选与提示的文案称「agent」，不称 Claude；开头的提及写作「@Agent」（id 仍是 claude）。
 var DataModelSchemasSendToClaude = `Send to agent`;
 var DataModelSchemasAddAComment = `Add a comment`;
 var DataModelSchemasReply = `Reply`;
@@ -85531,7 +85534,7 @@ var DataModelSchemasAskClaudeToEdit = `Ask the agent to edit`;
 var DataModelSchemasSendsToClaude = `Sends to agent`;
 var DataModelSchemasSendToClaudeChecked = `Send to agent checked`;
 var DataModelSchemasSendToClaudeUnchecked = `Send to agent unchecked`;
-var DataModelSchemasMessage2 = `Your comment mentions @Claude. Remove the mention to uncheck.`;
+var DataModelSchemasMessage2 = `Your comment mentions @Agent. Remove the mention to uncheck.`;
 function resolveDataModelSchemasComment(
   dataModelSchemasComment?: Dynamic,
   options: Dynamic = false,
@@ -85545,7 +85548,7 @@ function resolveDataModelSchemasComment(
 }
 var DataModelSchemasLabel3 = {
   id: `claude`,
-  label: `Claude`,
+  label: `Agent`,
 };
 function resolveDataModelSchemasLabel2(..._extraArguments: unknown[]): Dynamic {
   return {
@@ -85749,7 +85752,8 @@ function resolveDataModelSchemasValue32(
     options - dataModelSchemasValue32 < context
   );
 }
-var DataModelSchemasMessage3 = `Claude is working on it…`;
+// BaoCut: 批注里等智能体回复时的提示称「the agent」，不称 Claude。
+var DataModelSchemasMessage3 = `The agent is working on it…`;
 var DataModelSchemasState24 = 5 * 6e4;
 var DataModelSchemasState25 = 15 * 6e4;
 var dataModelSchemasMap6: Dynamic = new (Map as Dynamic)();
@@ -88053,7 +88057,8 @@ var PlatformAnnouncementsPageBug: Dynamic = {
   "char_gone:link": `the text you were adding a link to was deleted by someone else while the link box was open; no link was made`,
   block_gone_typing: `the paragraph you were typing in was removed by someone else; your text continues here`,
   block_gone_caret: `the paragraph your cursor was in was removed by someone else`,
-  block_swapped_typing: `Claude rewrote the paragraph you were typing in; the words you had typed there are kept in a paragraph of their own beside Claude’s new text`,
+  // BaoCut: 智能体改写了正在打字的段落时的提示称「the agent」，不称 Claude。
+  block_swapped_typing: `The agent rewrote the paragraph you were typing in; the words you had typed there are kept in a paragraph of their own beside the agent’s new text`,
   reseat_failed: `this page lost track of part of the document and could not put it right by itself; it is read-only until you reload — everything you typed is kept`,
   "paste_plain:link": `that link is longer than a link can be (2 048 characters), so it was pasted as plain text and not made a link`,
   paste_too_large: `what you pasted is larger than a document can take in one go (over 1 MB), so nothing was pasted; paste it in parts`,

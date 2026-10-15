@@ -29,7 +29,7 @@ export const zhHant: AgentMessages = {
   emptyNoneFound: '這台電腦上沒有偵測到 Agent；常用的幾個列在下方。',
   scanProgress: '正在檢查 Agent',
   faqLabel: '常見問題',
-  goCloudModels: '前往雲端模型',
+  goCloudModels: '前往 API 供應商',
   goSkills: '前往 Skills',
 
   moreProviders: {
@@ -151,8 +151,8 @@ export const zhHant: AgentMessages = {
     },
     {
       key: 'cloud',
-      title: 'Agent 和雲端模型有什麼不同？',
-      body: 'Agent 使用你電腦上的程式設計助理和它自己的訂閱，能執行多步驟的任務。雲端模型用 API 金鑰直接執行單一工具，依用量計費。兩者分開設定。',
+      title: 'Agent 和「API 供應商」有什麼不同？',
+      body: 'Agent 使用你電腦上的程式設計助理和它自己的訂閱，能執行多步驟的任務。「API 供應商」的模型用 API 金鑰直接執行單一工具，依用量計費。兩者分開設定。',
       link: 'models',
     },
     {

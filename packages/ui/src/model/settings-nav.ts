@@ -3,16 +3,37 @@ import { M } from './settings-nav-copy.ts';
 
 /**
  * 设置分节表（产品设计 §2.1、§7.6）：模型配置并入设置，按「偏好设置 / Agent / 模型 / 应用」分四组。
- * 模型保留独立的类型与内容路由，URL 统一放在 /settings/models 下。
+ * 「模型」组依次是 API 提供方、用量（两个普通分节，`/settings/providers`、`/settings/usage`），然后每种能力一页
+ * （`/settings/models/<类>`，本机模型与 API 提供方的模型在同一页，不分本地 / 云端两个页签；语音合成另有「我的声音」）。
  */
 
-export const SETTINGS_SECTIONS = ['general', 'shortcuts', 'fonts', 'downloader', 'semantic', 'agent', 'skills', 'glossary', 'privacy', 'diagnostics', 'about'] as const;
+export const SETTINGS_SECTIONS = [
+  'general',
+  'shortcuts',
+  'fonts',
+  'downloader',
+  'semantic',
+  'agent',
+  'skills',
+  'providers',
+  'usage',
+  'glossary',
+  'privacy',
+  'diagnostics',
+  'about',
+] as const;
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
+
+/** 「模型」组里排在能力页前面的两个分节。 */
+export const MODEL_GROUP_SECTIONS = ['providers', 'usage'] as const satisfies readonly SettingsSection[];
 
 export const MODEL_CATEGORIES = ['asr', 'tts', 'llm', 'image', 'music', 'sep', 'vision'] as const;
 export type ModelCategory = (typeof MODEL_CATEGORIES)[number];
-export const MODEL_PAGES = ['local', 'cloud', 'voices'] as const;
+/** 能力页的页签：只有语音合成有两页（模型、我的声音）。 */
+export const MODEL_PAGES = ['models', 'voices'] as const;
 export type ModelPage = (typeof MODEL_PAGES)[number];
+/** 旧的本地 / 云端页签（深链、Agent 回复里的设置链接）：都落到那一类的能力页。 */
+export const LEGACY_MODEL_PAGES = ['local', 'cloud'] as const;
 
 export interface ModelCategoryInfo {
   key: ModelCategory;
@@ -34,19 +55,19 @@ const categoryInfo = (key: ModelCategory, pages: readonly ModelPage[]): ModelCat
 });
 
 export const MODEL_CATEGORY_INFO: readonly ModelCategoryInfo[] = [
-  categoryInfo('asr', ['local', 'cloud']),
-  categoryInfo('tts', ['local', 'cloud', 'voices']),
-  categoryInfo('llm', ['cloud']),
-  categoryInfo('image', ['local', 'cloud']),
-  categoryInfo('music', ['local']),
-  categoryInfo('sep', ['local']),
-  categoryInfo('vision', ['local']),
+  categoryInfo('asr', ['models']),
+  categoryInfo('tts', ['models', 'voices']),
+  categoryInfo('llm', ['models']),
+  categoryInfo('image', ['models']),
+  categoryInfo('music', ['models']),
+  categoryInfo('sep', ['models']),
+  categoryInfo('vision', ['models']),
 ];
 
 export const MODEL_PAGE_LABEL: Record<ModelPage, string> = live(() => M.page);
 
-/** 只有一页的类在页首说一句为什么。 */
-export const ONLY_PAGE_NOTE: Partial<Record<ModelPage, string>> = live(() => M.onlyPage);
+/** 只有一种来源的类在页首说一句为什么：只有本机模型（`local`），或只有云端模型（`cloud`，文本生成）。 */
+export const ONLY_SOURCE_NOTE: Record<'local' | 'cloud', string> = live(() => M.onlyPage);
 
 export interface SettingsSectionInfo {
   key: SettingsSection;
@@ -62,7 +83,7 @@ export const SETTINGS_SECTION_INFO: readonly SettingsSectionInfo[] = SETTINGS_SE
 
 /**
  * 组 id 不能与条目 key 相同（S2 SideNav 的 section 与 item 共用一个 id 空间，撞名会抛 RangeError），所以 Agent 组叫 `agents`。
- * 模型组的条目是 MODEL_CATEGORIES，由设置页自己插在 `agents` 与 `app` 之间。
+ * 模型组的条目是 MODEL_GROUP_SECTIONS 加 MODEL_CATEGORIES，由设置页自己插在 `agents` 与 `app` 之间。
  */
 type SettingsGroupId = 'preferences' | 'agents' | 'app';
 const group = (id: SettingsGroupId, keys: readonly SettingsSection[]) => ({
@@ -105,4 +126,8 @@ export function isModelCategory(value: string | undefined): value is ModelCatego
 
 export function isModelPage(value: string | undefined): value is ModelPage {
   return (MODEL_PAGES as readonly string[]).includes(value ?? '');
+}
+
+export function isLegacyModelPage(value: string | undefined): boolean {
+  return (LEGACY_MODEL_PAGES as readonly string[]).includes(value ?? '');
 }

@@ -45,7 +45,7 @@ export const koImageGen: ImageGenMessages = {
   gen: 'AI 생성',
   noModelTitle: '아직 이미지 모델이 없습니다',
   noModelBody:
-    '클라우드 공급자를 연결하거나(모델 › 이미지 생성 › 클라우드 모델) Qwen-Image-2.1 또는 Turbo를 다운로드하세요(모델 › 이미지 생성 › 로컬 모델). 둘 중 하나면 됩니다.',
+    'API 공급자를 추가하거나(설정 › 모델 › API 공급자) Qwen-Image-2.1 또는 Turbo를 다운로드하세요(설정 › 모델 › 이미지 생성 › 로컬 모델). 둘 중 하나면 됩니다.',
   connect: '클라우드 공급자 연결',
   downloadLocal: '로컬 모델 다운로드',
   fit: '영상 캔버스와 동일',

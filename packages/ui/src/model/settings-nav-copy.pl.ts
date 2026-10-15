@@ -10,10 +10,10 @@ export const pl: SettingsNavMessages = {
     music: { label: 'Generowanie muzyki', description: 'Generuj piosenki i muzykę w tle do swoich filmów na tym komputerze.' },
     vision: { label: "Rozumienie obrazu", description: "Rozpoznawanie osób, mówców i zawartości ekranu dla inteligentnego kadrowania." },
   },
-  page: { local: "Modele lokalne", cloud: "Modele w chmurze", voices: "Moje głosy" },
+  page: { models: "Modele", voices: "Moje głosy" },
   onlyPage: {
-    local: "Ta kategoria ma tylko modele lokalne działające na tym komputerze; nie ma jeszcze modeli w chmurze.",
-    cloud: "Generowanie tekstu ma tylko modele w chmurze. Agentów kodujących ustawia się w sekcji „Agent”.",
+    local: "Ta kategoria ma tylko modele lokalne działające na tym komputerze; żaden dostawca API jeszcze jej nie oferuje.",
+    cloud: "Generowanie tekstu korzysta tylko z modeli dostawców API. Agentów kodujących ustawia się w sekcji „Agent”.",
   },
   section: {
     general: "Ogólne",
@@ -23,6 +23,8 @@ export const pl: SettingsNavMessages = {
     semantic: 'Indeks semantyczny',
     agent: "Dostawcy agentów",
     skills: "Skills",
+    providers: "Dostawcy API",
+    usage: "Użycie",
     glossary: "Słownik",
     privacy: "Prywatność i uprawnienia",
     diagnostics: "Diagnostyka",

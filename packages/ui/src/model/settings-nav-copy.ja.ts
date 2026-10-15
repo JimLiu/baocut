@@ -10,10 +10,10 @@ export const ja: SettingsNavMessages = {
     music: { label: '音楽生成', description: 'このコンピューターで楽曲や動画のBGMを生成します。' },
     vision: { label: '映像理解', description: '人物、話者、画面の内容を認識して、スマートクロップを補助します。' },
   },
-  page: { local: 'ローカルモデル', cloud: 'クラウドモデル', voices: 'マイボイス' },
+  page: { models: 'モデル', voices: 'マイボイス' },
   onlyPage: {
-    local: 'このカテゴリには、このコンピュータで実行するローカルモデルしかありません。クラウドモデルはまだありません。',
-    cloud: 'テキスト生成にはクラウドモデルしかありません。コーディング用の Agent は「Agent」で設定します。',
+    local: 'このカテゴリには、このコンピュータで実行するローカルモデルしかありません。API プロバイダからはまだ提供されていません。',
+    cloud: 'テキスト生成には API プロバイダのモデルだけを使います。コーディング用の Agent は「Agent」で設定します。',
   },
   section: {
     general: '一般',
@@ -23,6 +23,8 @@ export const ja: SettingsNavMessages = {
     semantic: 'セマンティックインデックス',
     agent: 'Agent プロバイダ',
     skills: 'Skills',
+    providers: 'API プロバイダ',
+    usage: '使用量',
     glossary: '用語集',
     privacy: 'プライバシーと権限',
     diagnostics: '診断',

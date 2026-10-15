@@ -485,7 +485,7 @@ export const ko: CopyMessages = {
     reconcileFailed: (message: string) => `처리하지 못했습니다: ${message}`,
     openFailed: (message: string) => `열지 못했습니다: ${message}`,
     remedyInstall: '구성 요소 설치',
-    remedyCloud: '클라우드 모델 설정',
+    remedyCloud: 'API 공급자 설정',
     remedyDefault: '기본 모델 선택',
     remedyNode: '원격 노드 보기',
     remedyAgent: 'Agent 설정 열기',

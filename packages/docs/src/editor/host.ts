@@ -61,9 +61,9 @@ export function annotationPath(path: string): string {
   return path.replace(/@\d+-\d+(?=;|$)/, '');
 }
 
-/** 批注正文：去掉开头提及智能体的 `@Claude`（批注本来就是发给它的）。 */
+/** 批注正文：去掉开头提及智能体的 `@Agent`（以前的文档里是 `@Claude`；批注本来就是发给它的）。 */
 export function annotationText(text: string): string {
-  return text.replace(/^\s*@Claude\b[\s⁠]*/i, '').trim().slice(0, TEXT_MAX);
+  return text.replace(/^\s*@(?:Claude|Agent)\b[\s⁠]*/i, '').trim().slice(0, TEXT_MAX);
 }
 
 export function createCommentsHost(

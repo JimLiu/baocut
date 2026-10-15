@@ -1,4 +1,4 @@
-import { getLocale, type Translations } from './i18n.ts';
+import { getLocale, translationTable, type Translations } from './i18n.ts';
 
 /**
  * 可本地化的文字（架构设计 §5.10、命令与协议规范 §11.3）：Runtime 给人看的文字除了当下语言的文本，还带一个消息引用
@@ -54,7 +54,7 @@ function lookup(key: string, locale: string): Entry | undefined {
   const area = registry.get(key.slice(0, dot));
   if (!area) return undefined;
   const name = key.slice(dot + 1);
-  return area.translations[locale]?.[name] ?? area.en[name];
+  return translationTable(area.translations[locale])?.[name] ?? area.en[name];
 }
 
 /** 按读者的语言（缺省为当前语言）展开一条引用；认不出时用 `fallback`。 */

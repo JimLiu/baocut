@@ -561,7 +561,7 @@ const en = {
     reconcileFailed: (message: string) => `Couldn’t handle it: ${message}`,
     openFailed: (message: string) => `Couldn’t open: ${message}`,
     remedyInstall: 'Install components',
-    remedyCloud: 'Set up cloud models',
+    remedyCloud: 'Set up API provider',
     remedyDefault: 'Choose default models',
     remedyNode: 'View remote nodes',
     remedyAgent: 'Open agent settings',

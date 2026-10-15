@@ -23,7 +23,7 @@ export const pl: AgentMessages = {
   emptyDisconnected: 'Połącz się z Runtime, aby sprawdzić Agentów na tym komputerze.',
   emptyNoDrivers: 'Ta wersja Runtime nie zawiera żadnych Agentów.',
   emptyNoneFound: 'Nie wykryto Agentów na tym komputerze; popularni Agenci są wymienieni poniżej.',
-  scanProgress: 'Wyszukiwanie Agentów', faqLabel: 'Częste pytania', goCloudModels: 'Przejdź do modeli w chmurze', goSkills: 'Przejdź do Skills',
+  scanProgress: 'Wyszukiwanie Agentów', faqLabel: 'Częste pytania', goCloudModels: 'Przejdź do dostawców API', goSkills: 'Przejdź do Skills',
   moreProviders: { title: (count) => `Inni obsługiwani Agenci · ${count}`, sub: (names) => `${names} · Żadnego nie wykryto na tym komputerze`, expand: 'Pokaż', collapse: 'Ukryj' },
   fullAccessOnly: 'Nie ma możliwości proszenia o zatwierdzenie kolejnych kroków, więc BaoCut może uruchamiać go tylko w trybie Pełny dostęp: nie zapyta Cię przed uruchomieniem poleceń ani zmianą plików.',
   untested: { body: 'Ten Agent nie ukończył pełnej sesji w BaoCut na rzeczywistym komputerze. Wykrywanie, logowanie i lista modeli działają jak zwykle; w razie problemów podczas sesji skorzystaj z jego dokumentacji.' },
@@ -59,7 +59,7 @@ export const pl: AgentMessages = {
   faq: [
     { key: 'cost', title: 'Czy muszę osobno płacić za BaoCut lub wykupić subskrypcję?', body: 'Nie. Agenci korzystają z Twojej obecnej subskrypcji Claude lub ChatGPT, a koszty i limity są rozliczane w tych usługach. BaoCut nie dostarcza własnego modelu, nie zbiera kluczy i niczego nie przekazuje przez chmurę. Bez takiej subskrypcji możesz pominąć Agentów; reszta BaoCut działa jak zwykle.' },
     { key: 'account', title: 'Czy BaoCut widzi moje konto i hasło?', body: 'Nie. Logowanie odbywa się w oknie Agenta. BaoCut tylko uruchamia ten program na Twoim komputerze i przekazuje mu wideo. Pyta Cię przed zmianą wideo; zasady znajdziesz w Ustawienia › Prywatność i uprawnienia.' },
-    { key: 'cloud', title: 'Czym Agent różni się od modeli w chmurze?', body: 'Agent korzysta z asystenta do programowania na Twoim komputerze i jego subskrypcji oraz może wykonywać zadania w wielu krokach. Modele w chmurze uruchamiają pojedyncze narzędzia bezpośrednio przy użyciu klucza API i są rozliczane według użycia. Te dwie możliwości konfiguruje się osobno.', link: 'models' },
+    { key: 'cloud', title: 'Czym Agent różni się od dostawców API?', body: 'Agent korzysta z asystenta do programowania na Twoim komputerze i jego subskrypcji oraz może wykonywać zadania w wielu krokach. Modele dostawców API uruchamiają pojedyncze narzędzia bezpośrednio przy użyciu klucza API i są rozliczane według użycia. Te dwie możliwości konfiguruje się osobno.', link: 'models' },
     { key: 'terminal', title: 'Chcesz sterować BaoCut przez tych Agentów z terminala?', body: 'Sesje w BaoCut nie wymagają dodatkowej konfiguracji. Aby używać Agentów w terminalu lub innych aplikacjach, zainstaluj dla nich Skill BaoCut; zobacz Ustawienia › Skills.', link: 'skills' },
   ],
   permissionsHeading: 'Ty decydujesz, kiedy najpierw zapyta', policyHeading: 'Mniej powtarzających się pytań', policyHint: 'Te reguły automatycznie zezwalają na pasujące działania; tryb dostępu również wpływa na to, czy Agent zapyta.',

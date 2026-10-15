@@ -665,6 +665,8 @@ describe('OnlineProviderSource 的生成能力', () => {
       expect(views.volcengine!.vendor?.planned).toEqual(['generateImage']);
       expect(views.siliconflow!.vendor).toMatchObject({ kind: 'relay', planned: ['synthesizeSpeech', 'transcribe'] });
       expect(views.openai!.vendor?.planned).toBeUndefined();
+      expect(views.openai!.vendor?.baseUrl).toBe('https://api.openai.com/v1');
+      expect(views.moonshot!.vendor?.regionBaseUrls).toEqual({ global: 'https://api.moonshot.ai/v1', cn: 'https://api.moonshot.cn/v1' });
       expect(Object.keys(views.elevenlabs!.capabilities)).toEqual(['synthesizeSpeech']);
       expect(views.elevenlabs!.capabilities.synthesizeSpeech!.available).toBe(true);
       // 能克隆的 Provider 在合成能力上带 voiceClone；ElevenLabs 不要求授权声明录音，没有克隆接口的不带。

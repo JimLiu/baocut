@@ -344,7 +344,7 @@ describe('生成字幕', () => {
       kind: 'failed',
       title: '转录失败',
       message: '模型加载失败',
-      remedy: { target: { tab: 'models', page: 'local' } },
+      remedy: { target: { tab: 'models' } },
     });
   });
 

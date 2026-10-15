@@ -10,10 +10,10 @@ export const zhHans: SettingsNavMessages = {
     music: { label: '音乐生成', description: '在本机生成歌曲与视频配乐。' },
     vision: { label: '画面理解', description: '识别人像、说话人和画面内容，辅助智能裁剪。' },
   },
-  page: { local: '本地模型', cloud: '云端模型', voices: '我的声音' },
+  page: { models: '模型', voices: '我的声音' },
   onlyPage: {
-    local: '这一类只有在这台电脑上运行的本地模型，暂时没有云端模型。',
-    cloud: '文本生成只有云端模型；编码 Agent 在「Agent」里设置。',
+    local: '这一类只有在这台电脑上运行的本机模型，暂时没有 API 提供方提供。',
+    cloud: '文本生成只用 API 提供方的模型；编码 Agent 在「Agent」里设置。',
   },
   section: {
     general: '通用',
@@ -23,6 +23,8 @@ export const zhHans: SettingsNavMessages = {
     semantic: '语义索引',
     agent: 'Agent 提供方',
     skills: 'Skills',
+    providers: 'API 提供方',
+    usage: '用量',
     glossary: '术语库',
     privacy: '隐私与权限',
     diagnostics: '诊断',

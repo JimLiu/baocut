@@ -25,10 +25,10 @@ const en = {
     music: { label: 'Music generation', description: 'Generate songs and background music for your videos on this computer.' },
     vision: { label: 'Visual understanding', description: 'Recognize people, speakers and what’s on screen to help with smart cropping.' },
   },
-  page: { local: 'Local models', cloud: 'Cloud models', voices: 'My voices' },
+  page: { models: 'Models', voices: 'My voices' },
   onlyPage: {
-    local: 'This category only has local models that run on this computer; there are no cloud models yet.',
-    cloud: 'Text generation only has cloud models. Coding Agents are set up under “Agent”.',
+    local: 'This category only has local models that run on this computer; no API provider offers it yet.',
+    cloud: 'Text generation only uses models from API providers. Coding Agents are set up under “Agent”.',
   },
   section: {
     general: 'General',
@@ -38,6 +38,8 @@ const en = {
     semantic: 'Semantic index',
     agent: 'Agent providers',
     skills: 'Skills',
+    providers: 'API providers',
+    usage: 'Usage',
     glossary: 'Glossary',
     privacy: 'Privacy and permissions',
     diagnostics: 'Diagnostics',

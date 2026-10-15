@@ -205,7 +205,7 @@ export function DirectModelGate({ model, body = C.modelGateBody }: { model: Dire
         <Content>
           {body}
           <div className={alertActions}>
-            <Button size="S" variant="accent" onPress={() => go({ tab: 'models', category: 'llm', page: 'cloud' })}>
+            <Button size="S" variant="accent" onPress={() => go({ tab: 'models', category: 'llm' })}>
               {GATE_COPY.goConnect}
             </Button>
           </div>
@@ -223,7 +223,7 @@ export function DirectModelGate({ model, body = C.modelGateBody }: { model: Dire
       selected={selected}
       options={model.options}
       body={body}
-      onConnect={() => go({ tab: 'models', category: 'llm', page: 'cloud' })}
+      onConnect={() => go({ tab: 'models', category: 'llm' })}
       onSwitch={(o) => model.select(o)}
     />
   );

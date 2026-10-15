@@ -131,7 +131,7 @@ export function ImageTool() {
   // 本机模型没装好时照 `imageStatus` 说「先下载」，与就地的下载卡一致。
   const reason = view && !option?.local ? modelReason(options, option, FRAME_COPY.imageNoun) : null;
   const status = reason ? { text: reason, bad: true } : imageStatus(draft, option, tried);
-  const toSettings = () => go({ tab: 'models', category: 'image', page: option?.local ? 'local' : 'cloud' });
+  const toSettings = () => go({ tab: 'models', category: 'image' });
   const shown = records.list.filter((job) => job.state !== 'cancelled');
   // 点图放大：页上做完的图收进 Space 的那些一起进查看器，可以左右切换（设计稿 image-gen.jsx `ImageViewer`）。
   const entries = useSpace((s) => s.entries);

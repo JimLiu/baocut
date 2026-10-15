@@ -2,14 +2,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   defineMessages,
   getLocale,
+  isLocaleReady,
+  lazyTranslations,
   live,
   localeOfTag,
   matchLocale,
   onLocaleChange,
   partialTranslations,
   pluralForm,
+  prepareLocale,
   resolveLanguage,
   setLocale,
+  translationTable,
 } from './i18n.ts';
 
 const initial = getLocale();
@@ -111,5 +115,70 @@ describe('message catalogs', () => {
     off();
     setLocale('en');
     expect(seen).toEqual(['zh-Hans']);
+  });
+});
+
+describe('translations loaded on demand (dev server)', () => {
+  const en = { title: 'Settings' };
+  // 每个用例用一种自己的语言：登记表在模块里，跨用例保留。
+  const lazy = (locale: Parameters<typeof lazyTranslations>[0], key: string, load: () => Promise<Record<string, unknown>>) =>
+    lazyTranslations(locale, key, load, ['table'])[0] as typeof en;
+
+  it('falls back to English until the language is prepared, and loads each file once', async () => {
+    setLocale('en');
+    const load = vi.fn(async () => ({ table: { title: '設定' } }));
+    const M = defineMessages(en, partialTranslations({ ja: lazy('ja', '/a.ja.ts', load) }));
+    expect(load).not.toHaveBeenCalled();
+    expect(isLocaleReady('ja')).toBe(false);
+    setLocale('ja');
+    expect(M.title).toBe('Settings');
+    await Promise.all([prepareLocale('ja'), prepareLocale('ja')]);
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(isLocaleReady('ja')).toBe(true);
+    expect(M.title).toBe('設定');
+  });
+
+  it('starts loading files of the current language as soon as they register', async () => {
+    setLocale('ko');
+    const load = vi.fn(async () => ({ table: { title: '설정' } }));
+    const M = defineMessages(en, partialTranslations({ ko: lazy('ko', '/a.ko.ts', load) }));
+    expect(load).toHaveBeenCalledTimes(1);
+    await prepareLocale('ko');
+    expect(M.title).toBe('설정');
+  });
+
+  it('reuses a loaded file when its catalog runs again (hot update)', async () => {
+    setLocale('en');
+    await prepareLocale('es');
+    lazy('es', '/a.es.ts', async () => ({ table: { title: 'Ajustes' } }));
+    await prepareLocale('es');
+    const again = vi.fn(async () => ({ table: { title: 'otra vez' } }));
+    const M = defineMessages(en, partialTranslations({ es: lazy('es', '/a.es.ts', again) }));
+    expect(isLocaleReady('es')).toBe(true);
+    setLocale('es');
+    expect(M.title).toBe('Ajustes');
+    expect(again).not.toHaveBeenCalled();
+  });
+
+  it('keeps English for a file that fails to load and retries on the next prepare', async () => {
+    setLocale('en');
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const load = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({ table: { title: 'Paramètres' } });
+    const M = defineMessages(en, partialTranslations({ fr: lazy('fr', '/a.fr.ts', load) }));
+    await prepareLocale('fr');
+    expect(error).toHaveBeenCalledTimes(1);
+    expect(isLocaleReady('fr')).toBe(false);
+    setLocale('fr');
+    expect(M.title).toBe('Settings');
+    await prepareLocale('fr');
+    expect(M.title).toBe('Paramètres');
+    error.mockRestore();
+  });
+
+  it('passes plain tables through', () => {
+    const table = { title: 'Einstellungen' };
+    expect(translationTable(table)).toBe(table);
+    expect(translationTable(undefined)).toBeUndefined();
+    expect(isLocaleReady('de')).toBe(true);
   });
 });

@@ -470,7 +470,7 @@ export const zhHant: CopyMessages = {
     reconcileFailed: (message: string) => `無法處理：${message}`,
     openFailed: (message: string) => `無法開啟：${message}`,
     remedyInstall: '安裝元件',
-    remedyCloud: '設定雲端模型',
+    remedyCloud: '設定 API 供應商',
     remedyDefault: '選擇預設模型',
     remedyNode: '檢視遠端節點',
     remedyAgent: '開啟 Agent 設定',

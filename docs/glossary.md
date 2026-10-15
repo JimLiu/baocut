@@ -59,6 +59,7 @@
 | 候选 / 检查点 | Candidate / Checkpoint | |
 | 任务 / 后台任务 | Task / Background tasks | |
 | 工具 / 服务 / 模型 | Tools / Services / Models | |
+| API 提供方 / 账号 / 用量 / 本机模型 | API provider / Account / Usage / Local models | 不写 Cloud models、Service provider |
 | 技能 | Skill | |
 | 设置 / 帮助 / 诊断 / 日志 | Settings / Help / Diagnostics / Logs | |
 | 术语表 / 品牌库 | Glossary / Brand kit | |

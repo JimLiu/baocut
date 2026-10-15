@@ -4,11 +4,6 @@ export const ptBR: TtsLocalMessages = {
   ttsLocal: {
 
     unset: "Não definido",
-    defaultDesc: "Pré-selecionado em nova síntese. Sem padrão, escolha a cada vez; manual vence.",
-    cloudDefault: (name: string) =>
-      `Padrão é modelo de nuvem (${name}); altere em Configurações › Modelos de nuvem. Escolher local muda para ele.`,
-    noInstalled: "Sem modelo de síntese instalado. Baixe um abaixo.",
-
     audition: "Visualização",
     hideAudition: "Ocultar prévia",
     engine: "Mecanismo",

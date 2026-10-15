@@ -65,7 +65,7 @@ const image = {
   gen: 'AI generated',
   noModelTitle: 'No image model yet',
   noModelBody:
-    'Connect a cloud provider (Models › Image generation › Cloud models) or download Qwen-Image-2.1 or Turbo (Models › Image generation › Local models)—either one works.',
+    'Add an API provider (Settings › Models › API providers) or download Qwen-Image-2.1 or Turbo (Settings › Models › Image generation › Local models)—either one works.',
   connect: 'Connect a cloud provider',
   downloadLocal: 'Download local model',
   fit: 'Same as the video canvas',

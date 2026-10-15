@@ -37,7 +37,7 @@ export const vi: AgentMessages = {
   emptyNoneFound: "Không phát hiện Agent trên máy tính này; những Agent phổ biến được liệt kê bên dưới.",
   scanProgress: "Đang kiểm tra Agent",
   faqLabel: "Câu hỏi thường gặp",
-  goCloudModels: "Đi đến mô hình đám mây",
+  goCloudModels: "Đi đến Nhà cung cấp API",
   goSkills: "Đi đến Skills",
 
   /** 「更多」折叠段（page-settings-agent.jsx）：没检测到的四家 ACP 智能体收在这里。 */
@@ -173,8 +173,8 @@ export const vi: AgentMessages = {
     },
     {
       key: "cloud",
-      title: "Agent khác mô hình đám mây thế nào?",
-      body: "Agent dùng trợ lý lập trình trên máy tính với gói đăng ký riêng và có thể thực hiện tác vụ nhiều bước. Mô hình đám mây chạy trực tiếp từng công cụ bằng khóa API và tính phí theo mức sử dụng. Hai bên được thiết lập riêng.",
+      title: "Agent khác Nhà cung cấp API thế nào?",
+      body: "Agent dùng trợ lý lập trình trên máy tính với gói đăng ký riêng và có thể thực hiện tác vụ nhiều bước. Mô hình của Nhà cung cấp API chạy trực tiếp từng công cụ bằng khóa API và tính phí theo mức sử dụng. Hai bên được thiết lập riêng.",
       link: "models",
     },
     {

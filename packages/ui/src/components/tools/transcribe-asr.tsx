@@ -71,7 +71,7 @@ export function AsrFields({ pick: p, speakers: showSpeakers = true }: { pick: As
     <Section
       title={TRANSCRIBE_TOOL_COPY.asrTitle}
       aside={
-        <ActionButton isQuiet size="S" onPress={() => go({ tab: 'models', category: 'asr', page: mode })}>
+        <ActionButton isQuiet size="S" onPress={() => go({ tab: 'models', category: 'asr' })}>
           <Text>{mode === 'cloud' ? TRANSCRIBE_TOOL_COPY.manageCloud : TRANSCRIBE_TOOL_COPY.manageLocal}</Text>
         </ActionButton>
       }>

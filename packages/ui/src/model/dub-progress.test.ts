@@ -140,9 +140,9 @@ describe('翻译配音的进度', () => {
   it('补救按停下的那一步：翻译用文本模型那家，合成用语音合成那家', () => {
     const auth = { code: 'PROVIDER_AUTH_FAILED', message: '凭据无效' };
     const atTranslate = job('failed', { error: auth }, { translate: 'failed' });
-    expect(dubRemedy(atTranslate)?.target).toEqual({ tab: 'models', category: 'llm', page: 'cloud' });
+    expect(dubRemedy(atTranslate)?.target).toEqual({ tab: 'settings', section: 'providers', providerId: 'openai' });
     const atSynth = job('failed', { error: auth }, { synthesize: 'failed' });
-    expect(dubRemedy(atSynth)?.target).toEqual({ tab: 'models', category: 'tts', page: 'cloud' });
+    expect(dubRemedy(atSynth)?.target).toEqual({ tab: 'settings', section: 'providers', providerId: 'elevenlabs' });
   });
 });
 

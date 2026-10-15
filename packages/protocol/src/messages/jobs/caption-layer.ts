@@ -13,6 +13,7 @@ import { ru } from './caption-layer.ru.ts';
 import { pl } from './caption-layer.pl.ts';
 import { tr } from './caption-layer.tr.ts';
 import { vi } from './caption-layer.vi.ts';
+// i18n-all-locales：界面按每种语言比对 styleName（ui 的 caption-presets.ts `isDefaultStyleName`），开发服务器也照常载入全部译文（tools/lazy-locales.ts）。
 
 /** `packages/jobs/src/pipelines/caption-layer.ts`：「建立字幕层」一步的步骤名、错误、警告与写进视频的名字。 */
 const en = {

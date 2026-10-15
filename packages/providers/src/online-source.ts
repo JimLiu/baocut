@@ -244,6 +244,15 @@ const BUILTINS: Record<BuiltinId, BuiltinEntry> = {
   ...(Object.fromEntries(COMPAT_VENDOR_IDS.map((id) => [id, compatEntry(id)])) as Record<CompatVendorId, BuiltinEntry>),
 };
 
+/** 目录条目加上预设的基址（界面做端点占位与查重用）。 */
+function builtinVendor(entry: BuiltinEntry): ProviderVendorInfo {
+  return {
+    ...structuredClone(entry.vendor),
+    baseUrl: entry.baseUrl,
+    ...(entry.regions ? { regionBaseUrls: { ...entry.regions } } : {}),
+  };
+}
+
 export const CUSTOM_PREFIX = 'custom:';
 export const CUSTOM_SLUG = /^[a-z0-9][a-z0-9-]{0,62}$/;
 const VERIFY_TIMEOUT_MS = 20_000;
@@ -590,7 +599,7 @@ export class OnlineProviderSource implements ProviderSource {
       providerId,
       kind: 'online',
       label: this.#label(providerId),
-      vendor: isBuiltin(providerId) ? structuredClone(BUILTINS[providerId].vendor) : { kind: 'custom' },
+      vendor: isBuiltin(providerId) ? builtinVendor(BUILTINS[providerId]) : { kind: 'custom' },
       config: this.#store.configView(providerId),
       capabilities,
     };

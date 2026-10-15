@@ -99,7 +99,7 @@ export function TtsTool() {
     : needEntry
       ? { text: FORM_COPY.needEntry, bad: tried }
       : ttsStatus(draft, option, tried, myVoices, material);
-  const toSettings = () => go({ tab: 'models', category: 'tts', page: option?.local ? 'local' : 'cloud' });
+  const toSettings = () => go({ tab: 'models', category: 'tts' });
   // 选中的本机模型还没装：模型一行下面给下载卡（设计稿 tool-tts.jsx `TtsModelGate`），有装好的本机模型时再给「换用已装的 X」。
   const gateBundle = downloadableBundle(bundles, option);
   const installed = gateBundle ? installedAlternative(options, option) : null;

@@ -484,7 +484,7 @@ export const ja: CopyMessages = {
     reconcileFailed: (message: string) => `処理できませんでした：${message}`,
     openFailed: (message: string) => `開けませんでした：${message}`,
     remedyInstall: 'コンポーネントをインストール',
-    remedyCloud: 'クラウドモデルを設定',
+    remedyCloud: 'API プロバイダを設定',
     remedyDefault: '既定のモデルを選択',
     remedyNode: 'リモートノードを表示',
     remedyAgent: 'Agent の設定を開く',

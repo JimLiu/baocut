@@ -20,7 +20,7 @@ export const ko: ModelsMessages = {
     separateDefaultDesc: '모델을 지정하지 않으면 번역 더빙의 배경음을 분리할 때 쓰이며, 명령줄 더빙에도 쓰입니다.',
     auto: '자동 선택',
     autoUses: (id: string) => `자동 선택은 지금 ${id}을(를) 사용합니다.`,
-    otherDefault: (name: string) => `지금 기본값은 ${name}입니다(클라우드 모델에서 설정). 여기서 로컬 모델을 고르면 그 모델로 바뀝니다.`,
+    otherDefault: (name: string) => `지금 기본값은 ${name}입니다. 여기서 로컬 모델을 고르면 그 모델로 바뀝니다.`,
     defaultSet: '기본값으로 설정됨',
     defaultFailed: (message: string) => `기본값으로 설정하지 못했습니다: ${message}`,
     installed: '설치됨',
@@ -36,10 +36,6 @@ export const ko: ModelsMessages = {
       '이 컴퓨터의 모델 폴더에는 음성 인식, 음성 합성, 이미지 생성, 음원 분리용 모델 패키지만 있습니다. 이 분류의 로컬 모델은 아직 지원하지 않습니다.',
   },
   imageLocal: {
-    defaultDesc: '새 이미지 작업에서 미리 선택됩니다. 기본값이 없으면 매번 모델을 직접 고르며, 직접 고른 모델이 항상 우선합니다.',
-    cloudDefault: (name: string) =>
-      `기본값은 클라우드 모델(${name})입니다. 설정 › 클라우드 모델에서 바꾸세요. 로컬 모델을 선택하면 그 모델로 바뀝니다.`,
-    noInstalled: '아직 설치된 이미지 생성 모델이 없습니다. 먼저 아래에서 하나를 다운로드하세요.',
     licenseUse: '이 모델로 만든 이미지는 비상업적 콘텐츠에만 쓸 수 있습니다. 상업적으로 쓸 영상에는 다른 이미지 모델을 고르세요.',
     tryButton: '시험해 보기',
     tryTitle: (name: string) => `${name} 시험해 보기`,
@@ -196,8 +192,8 @@ export const ko: ModelsMessages = {
     unset: '설정 안 함',
     unsetDesc: '매번 직접 선택',
     localGroup: '이 컴퓨터',
-    localWhy: (why: string) => `${why} · 로컬 모델에서 다운로드`,
-    cloudWhy: (why: string) => `${why} · 클라우드 모델에서 연결`,
+    localWhy: (why: string) => `${why} · 아래 로컬 모델에서 다운로드`,
+    cloudWhy: (why: string) => `${why} · API 공급자에서 계정 추가`,
     unavailable: (label: string) => `${label} (사용 불가)`,
   },
   codexCard: {

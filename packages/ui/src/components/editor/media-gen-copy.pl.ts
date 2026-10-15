@@ -43,7 +43,7 @@ export const plImageGen: ImageGenMessages = {
   project: "Materiały wideo",
   gen: "Wygenerowano przez AI",
   noModelTitle: "Nie ma jeszcze modelu obrazów",
-  noModelBody: "Połącz dostawcę w chmurze (Modele › Generowanie obrazów › Modele w chmurze) lub pobierz Qwen-Image-2.1 lub Turbo (Modele › Generowanie obrazów › Modele lokalne) – obie opcje działają.",
+  noModelBody: "Dodaj dostawcę API (Ustawienia › Modele › Dostawcy API) lub pobierz Qwen-Image-2.1 lub Turbo (Ustawienia › Modele › Generowanie obrazów › Modele lokalne) – obie opcje działają.",
   connect: "Połącz dostawcę w chmurze",
   downloadLocal: "Pobierz model lokalny",
   fit: "Tak jak płótno wideo",

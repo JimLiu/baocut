@@ -21,12 +21,8 @@ import { vi } from './tts-local-copy.vi.ts';
  */
 const en = {
   ttsLocal: {
-    // 默认模型（语音合成没有出厂默认，菜单里没有「自动选择」）
+    // 默认模型菜单没选时的占位（音乐生成也借用）
     unset: 'Not set',
-    defaultDesc: 'Preselected for new synthesis tasks. Without a default you pick a model each time; a manual choice always wins.',
-    cloudDefault: (name: string) =>
-      `The default is a cloud model (${name}); change it in Settings › Cloud models. Choosing a local model switches to it.`,
-    noInstalled: 'No speech synthesis model is installed yet. Download one below first.',
     // 行
     audition: 'Preview',
     hideAudition: 'Hide preview',

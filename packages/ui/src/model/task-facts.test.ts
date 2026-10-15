@@ -117,12 +117,14 @@ describe('jobRemedy', () => {
 
   it('CAPABILITY_NOT_CONFIGURED 按 remedy.action 去模型页的对应类与页，提示用它自己的', () => {
     const install = jobRemedy(failed(notConfigured({ action: 'install-model', capability: 'transcribe', hint: '装一个本地模型' })));
-    expect(install).toEqual({ label: '去补装组件', target: { tab: 'models', category: 'asr', page: 'local' }, hint: '装一个本地模型' });
+    expect(install).toEqual({ label: '去补装组件', target: { tab: 'models', category: 'asr' }, hint: '装一个本地模型' });
     expect(jobRemedy(failed(notConfigured({ action: 'configure-provider', capability: 'generateImage', hint: 'h' })))?.target).toEqual({
       tab: 'models',
       category: 'image',
-      page: 'cloud',
     });
+    expect(
+      jobRemedy(failed(notConfigured({ action: 'configure-provider', capability: 'generateImage', providerId: 'openai', hint: 'h' })))?.target,
+    ).toEqual({ tab: 'settings', section: 'providers', providerId: 'openai' });
     expect(jobRemedy(failed(notConfigured({ action: 'set-default', capability: 'synthesizeSpeech', hint: 'h' })))?.target).toEqual({
       tab: 'models',
       category: 'tts',
@@ -137,13 +139,13 @@ describe('jobRemedy', () => {
     ).toEqual({ tab: 'settings', section: 'agent' });
   });
 
-  it('按错误码兜底：凭据去云端模型，本地模型包去本地模型；别的错误不给去处', () => {
+  it('按错误码兜底：凭据去那家 API 提供方，本地模型包去能力页；别的错误不给去处', () => {
     expect(jobRemedy(failed(undefined, 'PROVIDER_AUTH_FAILED', { providerId: 'openai' }))?.target).toEqual({
-      tab: 'models',
-      category: 'asr',
-      page: 'cloud',
+      tab: 'settings',
+      section: 'providers',
+      providerId: 'openai',
     });
-    expect(jobRemedy(failed(undefined, 'MODEL_LOAD_FAILED'))?.target).toEqual({ tab: 'models', category: 'asr', page: 'local' });
+    expect(jobRemedy(failed(undefined, 'MODEL_LOAD_FAILED'))?.target).toEqual({ tab: 'models', category: 'asr' });
     expect(jobRemedy(failed(undefined, 'MODEL_LOAD_FAILED', { providerId: 'node:x' }))).toBeNull();
     expect(jobRemedy(failed(undefined, 'STALE_JOB_INPUT'))).toBeNull();
     expect(jobRemedy(job({ jobId: 'ok' }))).toBeNull();
@@ -162,8 +164,8 @@ describe('rejectionRemedy', () => {
       },
     });
     expect(rejectionRemedy('synthesizeSpeech', error)).toEqual({
-      label: '去设置云端模型',
-      target: { tab: 'models', category: 'tts', page: 'cloud' },
+      label: '去设置 API 提供方',
+      target: { tab: 'settings', section: 'providers', providerId: 'openai' },
       hint: '填一把密钥',
     });
   });

@@ -237,7 +237,7 @@ function DubSetupPage({
   const providerId = voiceModel?.providerId ?? null;
   const providerLabel = voiceModel?.provider ?? C.providerFallback;
   const library = useVoices((s) => s.voices);
-  const toTts = () => go({ tab: 'models', category: 'tts', page: 'cloud' });
+  const toTts = () => go({ tab: 'models', category: 'tts' });
   const toVoices = () => go({ tab: 'models', category: 'tts', page: 'voices' });
   const voiceSection = useRef<HTMLDivElement>(null);
 
@@ -255,7 +255,7 @@ function DubSetupPage({
   const [textModelKey, setTextModelKey] = useState<string | null>(null);
   const textModel = findOption(textModels, initialModelKey(textModels, textModelKey, view?.generateText.effective ?? null));
   const textReady = !!textModel?.usable;
-  const toLlm = () => go({ tab: 'models', category: 'llm', page: 'cloud' });
+  const toLlm = () => go({ tab: 'models', category: 'llm' });
   const textSection = useRef<HTMLDivElement>(null);
   const [styleHint, setStyleHint] = useState('');
 
@@ -266,7 +266,7 @@ function DubSetupPage({
   const separateReady = !!view?.separateAudio.effective;
   const [separatePick, setSeparatePick] = useState<boolean | null>(null);
   const separate = separatePick ?? separateReady;
-  const toSeparate = () => go({ tab: 'models', category: 'sep', page: 'local' });
+  const toSeparate = () => go({ tab: 'models', category: 'sep' });
   // 分离开着、本机还没有分离模型、这台电脑能下载：门卡写要下载哪只，主按钮「下载模型并配成…」先下载再开始（设计稿 panel-dub-setup.jsx）。
   const bundles = useModels((s) => s.bundles);
   const sepBundle = useMemo(() => (separateReady ? null : separationDownload(bundles)), [separateReady, bundles]);

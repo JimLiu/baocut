@@ -66,11 +66,18 @@ export type Route =
   | { tab: 'archived'; focus?: Id }
   /** `from`：只看从这部视频派生的视频（剪成短视频结果页的「在 Space 里看这几支」、查看框的「查看切出的短视频」）。 */
   | { tab: 'space'; category: SpaceCategory; projectId: Id | null; video?: FileTarget; from?: Id }
-  | { tab: 'settings'; section: SettingsSection }
+  /**
+   * `providerId`：API 提供方页进这一家的详情，用量页只看这一家（其余分节不用）。
+   * `from`：API 提供方页从哪里来——`add` 在列表页打开「添加 API 提供方」、在详情里直接展开「添加账号」，`custom` 打开它并聚焦
+   * 自建端点的名称（产品设计 §7.6）。页面用过就把它从路由里去掉。
+   */
+  | { tab: 'settings'; section: SettingsSection; providerId?: string; from?: ProvidersFrom }
   | { tab: 'models'; category: ModelCategory; page?: ModelPage }
   | { tab: 'tasks'; taskId?: Id }
   | { tab: 'services'; service?: string }
   | { tab: 'tools'; tool?: ToolId };
+
+export type ProvidersFrom = 'add' | 'custom';
 
 export type ColorScheme = 'system' | 'light' | 'dark';
 
@@ -690,7 +697,8 @@ export function hasSidebar(route: Route): boolean {
 /**
  * 界面内链接：`/home`、`/c/<会话>`、`/p/<项目>`（在这个项目里新建会话），Home 的功能区标签放在查询串里
  * （`?video=` / `?file=` 为 JSON 的 FileTarget，`?files=1`，`?web=<id>&url=<地址>`）；
- * `/space/<分类>[/<项目>][?video=]`、`/settings/<节>`、`/settings/models/<类>[/<页>]`、`/tasks[/<任务>]`、
+ * `/space/<分类>[/<项目>][?video=]`、`/settings/<节>`、`/settings/providers[/<提供方>][?from=add|custom]`、
+ * `/settings/usage[?id=<提供方>]`、`/settings/models/<类>[/<页>]`、`/tasks[/<任务>]`、
  * `/services[/<服务>]`、`/tools[/<工具>]`、`/archived[/<高亮的会话>]`。
  */
 export function hrefFor(route: Route): string {
@@ -709,6 +717,11 @@ export function hrefFor(route: Route): string {
       return (route.projectId ? `/space/${route.category}/${route.projectId}` : `/space/${route.category}`) + (params.length ? `?${params.join('&')}` : '');
     }
     case 'settings':
+      if (route.section === 'providers') {
+        const path = route.providerId ? `/settings/providers/${encodeURIComponent(route.providerId)}` : '/settings/providers';
+        return route.from ? `${path}?from=${route.from}` : path;
+      }
+      if (route.section === 'usage' && route.providerId) return `/settings/usage?id=${encodeURIComponent(route.providerId)}`;
       return `/settings/${route.section}`;
     case 'models':
       return route.page ? `/settings/models/${route.category}/${route.page}` : `/settings/models/${route.category}`;
@@ -757,11 +770,27 @@ export function parseHref(href: string): Route {
   }
   if (head === 'settings' && a === 'models') {
     const category = isModelCategory(b) ? b : 'asr';
+    // 旧的 `/settings/models/<类>/local|cloud` 落到那一类的能力页（不分本地 / 云端了）。
     return isModelPage(c) ? { tab: 'models', category, page: c } : { tab: 'models', category };
   }
+  if (head === 'settings' && a === 'providers') {
+    const from = query.get('from');
+    return {
+      tab: 'settings',
+      section: 'providers',
+      ...(b ? { providerId: decodeURIComponent(b) } : {}),
+      ...(from === 'add' || from === 'custom' ? { from } : {}),
+    };
+  }
+  if (head === 'settings' && a === 'usage') {
+    const id = query.get('id');
+    return id ? { tab: 'settings', section: 'usage', providerId: id } : { tab: 'settings', section: 'usage' };
+  }
   if (head === 'settings') {
-    // 旧的模型深链（本地 / 云端 / 我的声音）落到设置内对应模型配置。
-    if (a === 'local' || a === 'cloud' || a === 'voices') return { tab: 'models', category: a === 'voices' ? 'tts' : 'asr', page: a };
+    // 旧的模型深链：本地模型落到语音识别的能力页，云端模型（以前是「去连接密钥」）落到 API 提供方页，我的声音照旧。
+    if (a === 'local') return { tab: 'models', category: 'asr' };
+    if (a === 'cloud') return { tab: 'settings', section: 'providers' };
+    if (a === 'voices') return { tab: 'models', category: 'tts', page: 'voices' };
     // 旧的 `/settings/agent/<页签>`：技能、权限各去新的位置，其余留在 Agent 提供方。
     if (a === 'agent') return { tab: 'settings', section: legacyAgentSection(b) };
     return { tab: 'settings', section: isSettingsSection(a) ? a : 'general' };

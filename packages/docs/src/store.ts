@@ -112,7 +112,7 @@ export interface StoredThread {
   edited?: string;
   resolved: boolean;
   anchor?: { from: CharId; to: CharId; quote?: string };
-  /** 线程生来就是问智能体的（`@Claude …` 或「发送给智能体」）。 */
+  /** 线程生来就是问智能体的（`@Agent …`、以前的 `@Claude …`，或「发送给智能体」）。 */
   to?: string[];
   replies: StoredReply[];
   reactions: { emoji: string; by: string }[];

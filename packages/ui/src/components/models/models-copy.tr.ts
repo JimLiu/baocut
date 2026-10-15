@@ -20,7 +20,7 @@ export const tr: ModelsMessages = {
     separateDefaultDesc: "Model belirtilmediğinde çeviri dublajının arka plan sesini ayırmada ve komut satırından dublajda kullanılır.",
     auto: "Otomatik",
     autoUses: (id) => `Otomatik seçim şu anda ${id} kullanıyor.`,
-    otherDefault: (name) => `Geçerli varsayılan: ${name} (bulut modellerinde ayarlandı); burada yerel model seçmek onu değiştirir.`,
+    otherDefault: (name) => `Geçerli varsayılan: ${name}; burada yerel model seçmek onu değiştirir.`,
     defaultSet: "Varsayılan ayarlandı",
     defaultFailed: (message) => `Varsayılan ayarlanamadı: ${message}`,
     installed: "Yüklü",
@@ -35,9 +35,6 @@ export const tr: ModelsMessages = {
     emptyBody: "Bu bilgisayardaki modeller klasörü yalnızca konuşma tanıma, konuşma sentezi, görsel oluşturma ve ses kaynağı ayırma model paketlerini içerir. Bu kategorinin yerel modelleri henüz desteklenmiyor.",
   },
   imageLocal: {
-    defaultDesc: "Yeni görsel görevlerinde önceden seçilir. Varsayılan yoksa her seferinde model seçersiniz; elle yapılan seçim her zaman önceliklidir.",
-    cloudDefault: (name) => `Varsayılan bir bulut modeli (${name}); Ayarlar › Bulut modelleri bölümünden değiştirin. Yerel model seçmek ona geçer.`,
-    noInstalled: "Henüz görsel oluşturma modeli yüklü değil. Önce aşağıdan bir model indirin.",
     licenseUse: "Bu modelle oluşturulan görseller yalnızca ticari olmayan içerikte kullanılabilir; ticari kullanım planladığınız videolar için başka bir görsel modeli seçin.",
 
     tryButton: "Dene",
@@ -178,8 +175,8 @@ export const tr: ModelsMessages = {
     unset: 'Ayarlanmadı',
     unsetDesc: 'Her seferinde model seç',
     localGroup: 'Bu bilgisayar',
-    localWhy: (why: string) => `${why} · Yerel modeller bölümünden indirin`,
-    cloudWhy: (why: string) => `${why} · Bulut modelleri bölümünden bağlayın`,
+    localWhy: (why: string) => `${why} · aşağıdaki Yerel modeller bölümünden indirin`,
+    cloudWhy: (why: string) => `${why} · API sağlayıcıları bölümünden bir hesap ekleyin`,
     unavailable: (label: string) => `${label} (kullanılamıyor)`,
   },
   codexCard: {

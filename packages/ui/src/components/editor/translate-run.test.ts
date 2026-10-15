@@ -295,7 +295,7 @@ describe('提交翻译', () => {
     expect(calls).toHaveLength(1);
   });
 
-  it('没有配置文本模型：提交被拒，就地给原因、提示与去模型页的路，不留运行态', async () => {
+  it('没有配置文本模型：提交被拒，就地给原因、提示与去这家 API 提供方的路，不留运行态', async () => {
     const { deps } = fake();
     deps.runtime.startTranslate = vi.fn(async () => {
       throw new RpcError('conflict', '没有可用的文本模型', {
@@ -314,7 +314,7 @@ describe('提交翻译', () => {
       kind: 'not-configured',
       title: '还不能翻译 · 文本模型的服务商还没有填密钥',
       message: '在模型页填 OpenAI 的密钥。',
-      remedy: { target: { tab: 'models' } },
+      remedy: { target: { tab: 'settings', section: 'providers', providerId: 'openai' } },
       retry: null,
     });
   });

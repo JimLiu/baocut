@@ -14879,7 +14879,8 @@ var Composer: Dynamic = (0, React.forwardRef)(
     let value: Dynamic = resolveUiLinksAndFoundationUseContext3(`send`, `Send`);
     let value2: Dynamic = resolveUiLinksAndFoundationUseContext3(
       `claudeMention`,
-      `@Claude`,
+      // BaoCut: 批注框开头提及智能体的徽标
+      `@Agent`,
     );
     let value3: Dynamic = resolveUiLinksAndFoundationUseContext3(
       `checkboxUnchecked`,

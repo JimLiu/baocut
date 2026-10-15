@@ -1,5 +1,5 @@
 import { useEffect, useRef, useSyncExternalStore } from 'react';
-import { getLocale, intlLocale, onLocaleChange, resolveLanguage, setLocale, type LanguagePreference, type Locale } from '@baocut/protocol';
+import { getLocale, intlLocale, isLocaleReady, onLocaleChange, prepareLocale, resolveLanguage, setLocale, type LanguagePreference, type Locale } from '@baocut/protocol';
 import { useRuntime } from '../runtime/context.tsx';
 import { useConnection } from './connection-store.ts';
 import { useSetting, useSettings } from './settings-store.ts';
@@ -16,17 +16,46 @@ function systemLanguages(): readonly string[] {
   return navigator.languages?.length ? navigator.languages : [navigator.language];
 }
 
-function apply(): void {
-  setLocale(resolveLanguage(useShell.getState().language, systemLanguages()));
+function show(locale: Locale): void {
+  setLocale(locale);
   if (typeof document !== 'undefined') document.documentElement.lang = intlLocale();
 }
 
-// 模块加载时就定下语言：第一帧就用对的语言画，不先闪一下英文。
-apply();
+function resolved(): Locale {
+  return resolveLanguage(useShell.getState().language, systemLanguages());
+}
+
+let requested: Locale | null = null;
+
+/**
+ * 换到偏好对应的语言。开发服务器按需载入译文（tools/lazy-locales.ts）：还没取到的先取齐再换，界面不先闪一下英文；
+ * 连着换了几次时只换到最后一次的。出货包里译文都在，立即换。
+ */
+function apply(): void {
+  const next = resolved();
+  requested = next;
+  if (isLocaleReady(next)) {
+    show(next);
+    return;
+  }
+  void prepareLocale(next).then(() => {
+    if (requested === next) show(next);
+  });
+}
+
+// 模块加载时就定下语言：第一帧就用对的语言画，不先闪一下英文。这时就开始取它的译文，入口在第一次渲染前等齐（`localeReady`）。
+requested = resolved();
+show(requested);
+void prepareLocale(requested);
 useShell.subscribe((s, prev) => {
   if (s.language !== prev.language) apply();
 });
 if (typeof window !== 'undefined') window.addEventListener('languagechange', apply);
+
+/** 当前语言的译文取齐：入口等它完成再第一次渲染。出货包里立即完成。 */
+export function localeReady(): Promise<void> {
+  return prepareLocale(getLocale());
+}
 
 /** 当前界面语言；变化时重画调用它的组件。 */
 export function useLocale(): Locale {

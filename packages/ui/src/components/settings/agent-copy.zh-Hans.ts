@@ -29,7 +29,7 @@ export const zhHans: AgentMessages = {
   emptyNoneFound: '这台电脑上没有检测到 Agent，常用的几家都在下面。',
   scanProgress: '正在检测 Agent',
   faqLabel: '常见问题',
-  goCloudModels: '前往云端模型',
+  goCloudModels: '前往 API 提供方',
   goSkills: '前往 Skills',
 
   moreProviders: {
@@ -149,8 +149,8 @@ export const zhHans: AgentMessages = {
     },
     {
       key: 'cloud',
-      title: 'Agent 和「云端模型」有什么区别？',
-      body: 'Agent 使用你本机的编码助手与自己的订阅，能连续完成多步任务。「云端模型」用 API key 直接运行单项工具，按用量计费，两者分开设置。',
+      title: 'Agent 和「API 提供方」有什么区别？',
+      body: 'Agent 使用你本机的编码助手与自己的订阅，能连续完成多步任务。「API 提供方」的模型用 API key 直接运行单项工具，按用量计费，两者分开设置。',
       link: 'models',
     },
     {

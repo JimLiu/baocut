@@ -91,7 +91,7 @@ function HelpDialog({ mac: macDefault, onClose }: { mac: boolean; onClose(): voi
     if (cta.target === 'new') openHome(shell.route.tab === 'home' ? shell.route.projectId : null);
     else if (cta.target === 'space') shell.go(defaultRoute('space'));
     else if (cta.target === 'agent') shell.go({ tab: 'settings', section: 'agent' });
-    else if (cta.target === 'models') shell.go({ tab: 'models', category: 'asr', page: 'local' });
+    else if (cta.target === 'models') shell.go({ tab: 'models', category: 'asr' });
     else if (cta.target === 'subtitle') useEditor.getState().showPanel('subtitle');
   };
 

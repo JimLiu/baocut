@@ -232,6 +232,20 @@ describe('接口', () => {
     expect(byBody['Tighten.']).toMatchObject({ by: 'claude', via: 'mcp' });
   });
 
+  it('没带 to 的评论以 @Agent（以前的文档里是 @Claude）开头时算问智能体的', async () => {
+    const node = project.files[0]!.content.id;
+    const door = (body: unknown) => request('POST', `/docs/${grant}/api/v3/door/project/${project.id}`, { headers: { Origin: origin }, body: JSON.stringify(body) });
+    for (const body of ['@Agent\u2060 Tighten gamma', '@claude tighten beta', 'Tighten alpha']) {
+      expect((await door({ verb: 'create', object: 'utterance', payload: { value: { body, parent: { object: 'node', id: node } } } })).json()).toMatchObject({ verdict: 'allow' });
+    }
+    const query = (await door({ verb: 'query', object: 'utterance', payload: { under: { object: 'project', id: project.id } } })).json<{ data: { rows: { payload: { value: { body: string } }; to?: string }[] } }>();
+    expect(Object.fromEntries(query.data.rows.map((row) => [row.payload.value.body, row.to ?? null]))).toEqual({
+      '@Agent\u2060 Tighten gamma': 'claude',
+      '@claude tighten beta': 'claude',
+      'Tighten alpha': null,
+    });
+  });
+
   it('批注说明：挂在原文上的是评论（标签页名 › 原文），路径不对 404', async () => {
     const tab = project.files[0]!;
     const comment = (await connector.create(

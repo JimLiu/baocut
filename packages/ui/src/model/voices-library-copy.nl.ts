@@ -7,7 +7,7 @@ export const nl: VoicesLibraryMessages = {
   noConsent: "Niet gemarkeerd als je eigen stem of gebruikt met toestemming, dus wordt niet naar derden geüpload. Vink eerst de verklaring aan bij ‘Bewerken’.",
   cannotClone: (label: string) => `Deze Runtime kan niet klonen bij ${label}`,
   providerOff: (label: string, detail: string | null) =>
-    `${label} kan nu niet worden gebruikt${detail ? ` (${detail})` : ""}: schakel het eerst in en stel de sleutel in bij ‘Cloudmodellen’`,
+    `${label} kan nu niet worden gebruikt${detail ? ` (${detail})` : ""}: schakel het eerst in en voeg een account toe bij ‘API-aanbieders’`,
   consentUnstated: "Toestemming niet aangegeven",
   cloned: (label: string) => `Gekloond bij ${label}`,
   cloneStale: (label: string) => `${label}: kloon verouderd`,
@@ -26,7 +26,7 @@ export const nl: VoicesLibraryMessages = {
 
   withRemedy: (message: string, remedy: string) => `${message.replace(/[。.]$/, "")}. ${remedy}`,
   remedyConsent: "Stemmen zonder toestemmingsverklaring worden niet naar derden geüpload: vink eerst de verklaring aan bij ‘Bewerken’.",
-  remedyConfigure: "Schakel deze aanbieder in en stel de sleutel in bij ‘Cloudmodellen’.",
+  remedyConfigure: "Schakel deze aanbieder in en voeg een account toe bij ‘API-aanbieders’.",
   remedyConflict: "Deze stem is zojuist elders gewijzigd. De nieuwste versie staat hieronder; bekijk die voordat je opslaat.",
   remedyGrant: "De referentieopname naar een aanbieder sturen vereist toestemming voor uitgaand verkeer: geef die bij Instellingen en probeer het opnieuw.",
   noConsentClip: (label) => `${label} heeft een opname nodig waarin de spreker de toestemmingsverklaring voorleest. Neem die eerst op via het ⋯-menu van deze stem.`,

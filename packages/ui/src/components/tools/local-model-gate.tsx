@@ -77,7 +77,7 @@ export function LocalDownloadGate({
               </Button>
             )}
             {extra}
-            <SectionLink onPress={() => go({ tab: 'models', category, page: 'local' })}>{GATE_COPY.manageLocal}</SectionLink>
+            <SectionLink onPress={() => go({ tab: 'models', category })}>{GATE_COPY.manageLocal}</SectionLink>
           </>
         }
       />
@@ -125,7 +125,7 @@ export function LocalModelGate<M>({
         actions={
           <>
             {switchButton}
-            <SectionLink onPress={() => go({ tab: 'models', category: 'image', page: 'local' })}>{GATE_COPY.manageLocal}</SectionLink>
+            <SectionLink onPress={() => go({ tab: 'models', category: 'image' })}>{GATE_COPY.manageLocal}</SectionLink>
           </>
         }
       />

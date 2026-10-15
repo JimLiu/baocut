@@ -68,7 +68,7 @@ export function TextModelField({
       noun={FRAME_COPY.textNoun}
       manage={TRANSLATE_COPY.manageModels}
       local={false}
-      onSettings={() => go({ tab: 'models', category: 'llm', page: 'cloud' })}
+      onSettings={() => go({ tab: 'models', category: 'llm' })}
       options={options}
       selected={option}
       onSelect={(o) => onChange(o.key)}

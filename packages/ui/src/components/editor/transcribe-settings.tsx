@@ -26,7 +26,6 @@ import {
 import DownloadIcon from '@react-spectrum/s2/icons/Download';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { entryKey } from '../../model/library-entry.ts';
-import { isLocalProvider } from '../../model/models-cloud.ts';
 import { downloadableBundle, downloadView, inlineInstallMode } from '../../model/models-install.ts';
 import {
   budgetLine,
@@ -230,8 +229,7 @@ export function TranscribeSettings({ videoId, documents, editable }: { videoId: 
   const selectedDownload = option && !pending ? downloadableBundle(bundles, option) : null;
   const pendingProgress = pendingBundle ? downloadView(pendingBundle) : null;
   const selectedProgress = selectedDownload ? downloadView(selectedDownload) : null;
-  const toModels = () =>
-    go({ tab: 'models', category: 'asr', page: view && option && !isLocalProvider(view, 'transcribe', option.providerId) ? 'cloud' : 'local' });
+  const toModels = () => go({ tab: 'models', category: 'asr' });
 
   const toggle = async (id: Id, name: string, on: boolean) => {
     const next = toggleGlossary(enabled, id, on);

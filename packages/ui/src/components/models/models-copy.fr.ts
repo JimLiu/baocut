@@ -22,7 +22,7 @@ export const fr: ModelsMessages = {
     separateDefaultDesc: "Sépare le fond sonore des doublages traduits sans modèle spécifié et des doublages en ligne de commande.",
     auto: "Automatique",
     autoUses: (id: string) => `Automatique utilise actuellement ${id}.`,
-    otherDefault: (name: string) => `Le défaut actuel est ${name} (défini dans les modèles cloud) ; choisir un modèle local ici le remplace.`,
+    otherDefault: (name: string) => `Le défaut actuel est ${name} ; choisir un modèle local ici le remplace.`,
     defaultSet: "Défaut défini",
     defaultFailed: (message: string) => `Impossible de définir le défaut : ${message}`,
     installed: "Installé",
@@ -39,10 +39,6 @@ export const fr: ModelsMessages = {
   },
 
   imageLocal: {
-    defaultDesc: "Présélectionné pour les nouvelles tâches image. Sans défaut, choix à chaque fois ; choix manuel toujours prioritaire.",
-    cloudDefault: (name: string) =>
-      `Le défaut est un modèle cloud (${name}) ; changez-le dans Réglages › Modèles cloud. Choisir un modèle local le remplace.`,
-    noInstalled: "Aucun modèle d’image installé. Téléchargez-en un ci-dessous.",
     licenseUse: "Ses images sont réservées aux contenus non commerciaux ; choisissez un autre modèle pour une vidéo à usage commercial.",
 
     tryButton: "Essayer",
@@ -207,8 +203,8 @@ export const fr: ModelsMessages = {
     unset: 'Non défini',
     unsetDesc: 'Choisir un modèle à chaque fois',
     localGroup: 'Cet ordinateur',
-    localWhy: (why: string) => `${why} · téléchargez-le dans Modèles locaux`,
-    cloudWhy: (why: string) => `${why} · connectez-le dans Modèles cloud`,
+    localWhy: (why: string) => `${why} · téléchargez-le dans Modèles locaux ci-dessous`,
+    cloudWhy: (why: string) => `${why} · ajoutez un compte dans Fournisseurs d’API`,
     unavailable: (label: string) => `${label} (indisponible)`,
   },
   codexCard: {

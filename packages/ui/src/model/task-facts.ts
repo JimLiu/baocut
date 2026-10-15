@@ -148,10 +148,11 @@ export function cancellationCost(cancellation: Pick<JobCancellation, 'remote' | 
   return TASK_VIEW_COPY.costPossible;
 }
 
-/** 补救去处：与 shell 的路由同形（`models` 的类与页、设置 › Agent、服务）。 */
+/** 补救去处：与 shell 的路由同形（`models` 的类与页、设置 › Agent 或某家 API 提供方、服务）。 */
 export type RemedyTarget =
   | { tab: 'models'; category: ModelCategory; page?: ModelPage }
   | { tab: 'settings'; section: 'agent' }
+  | { tab: 'settings'; section: 'providers'; providerId: string }
   | { tab: 'services'; service: 'remote' }
   | { tab: 'tasks'; taskId: string };
 
@@ -187,7 +188,7 @@ function isCapabilityNotConfigured(details: unknown): details is CapabilityNotCo
 
 /**
  * 失败的 Job 去哪儿补：`CAPABILITY_NOT_CONFIGURED` 按 `remedy.action`（合同上它在提交时就拒绝、不建 Job，这里防御着读），
- * 其余按错误码：凭据问题去云端模型，模型包问题去本地模型。别的错误没有确定的去处，不给按钮。
+ * 其余按错误码：凭据问题去那家 API 提供方的详情，模型包问题去能力页。别的错误没有确定的去处，不给按钮。
  */
 export function jobRemedy(job: Pick<JobRecord, 'kind' | 'providerId' | 'error'>): Remedy | null {
   const error = job.error;
@@ -200,11 +201,12 @@ export function jobRemedy(job: Pick<JobRecord, 'kind' | 'providerId' | 'error'>)
     const providerId = remedy.providerId ?? error.details.providerId ?? '';
     switch (remedy.action) {
       case 'install-model':
-        return { label: TASK_VIEW_COPY.remedyInstall, target: { tab: 'models', category, page: 'local' }, hint };
+        return { label: TASK_VIEW_COPY.remedyInstall, target: { tab: 'models', category }, hint };
       case 'configure-provider':
       case 'enable-provider':
         if (providerId.startsWith('agent:')) return { label: TASK_VIEW_COPY.remedyAgent, target: { tab: 'settings', section: 'agent' }, hint };
-        return { label: TASK_VIEW_COPY.remedyCloud, target: { tab: 'models', category, page: 'cloud' }, hint };
+        if (!providerId) return { label: TASK_VIEW_COPY.remedyCloud, target: { tab: 'models', category }, hint };
+        return { label: TASK_VIEW_COPY.remedyCloud, target: { tab: 'settings', section: 'providers', providerId }, hint };
       case 'set-default':
         return { label: TASK_VIEW_COPY.remedyDefault, target: { tab: 'models', category }, hint };
       case 'pair-node':
@@ -219,10 +221,10 @@ export function jobRemedy(job: Pick<JobRecord, 'kind' | 'providerId' | 'error'>)
   if (!category) return null;
   if (error.code === 'PROVIDER_AUTH_FAILED' || error.code === 'API_KEY_INVALID') {
     if (job.providerId.startsWith('agent:')) return { label: TASK_VIEW_COPY.remedyAgent, target: { tab: 'settings', section: 'agent' }, hint: configHint };
-    return { label: TASK_VIEW_COPY.remedyCloud, target: { tab: 'models', category, page: 'cloud' }, hint: configHint };
+    return { label: TASK_VIEW_COPY.remedyCloud, target: { tab: 'settings', section: 'providers', providerId: job.providerId }, hint: configHint };
   }
   if ((error.code === 'MODEL_LOAD_FAILED' || error.code === 'MODEL_NOT_READY') && job.providerId === 'local') {
-    return { label: TASK_VIEW_COPY.remedyInstall, target: { tab: 'models', category, page: 'local' }, hint: configHint };
+    return { label: TASK_VIEW_COPY.remedyInstall, target: { tab: 'models', category }, hint: configHint };
   }
   return null;
 }

@@ -134291,8 +134291,9 @@ function isRenderedCodeAndProofreadingWin(
 }
 initializeProsemirrorCommandsDependencies2();
 initializeProsemirrorViewDependencies();
+// BaoCut: 智能体光标旗子上的名字叫 Agent，不叫 Claude。
 var RenderedCodeAndProofreadingColor = {
-  name: "Claude",
+  name: "Agent",
   color: "#d97757",
   connId: "claude-agent",
 };
@@ -222584,11 +222585,11 @@ var documentInteractionsStopClaudeWriting = "Stop Claude writing";
 var documentInteractionsMessage2 =
   "Simulated Claude. Text that appears here is sample text, not written by Claude.";
 var documentInteractionsMessage3 = "Start typing, or ask ";
-var documentInteractionsMessage4 = "@Claude";
+var documentInteractionsMessage4 = "@Agent";
 var documentInteractionsToWriteOrEdit = " to write or edit";
-var documentInteractionsMessage5 = "ask @Claude to write or edit";
+var documentInteractionsMessage5 = "ask @Agent to write or edit";
 var documentInteractionsToWrite = " to write";
-var documentInteractionsMessage6 = "ask @Claude to write";
+var documentInteractionsMessage6 = "ask @Agent to write";
 var DocumentInteractionsSection = {
   section: "write this section",
   end: "add a section on…",
@@ -298719,7 +298720,7 @@ async function loadWidgetAndHostRuntimeWhy(
   postDocumentGesture({
     type: "comment-add",
     nodeId: entry,
-    quote: "@Claude",
+    quote: "@Agent",
     prefix: value2.prefix,
     suffix: value2.suffix,
     y: value2.y,
@@ -299578,11 +299579,12 @@ var resolveWidgetAndHostRuntimeAddExtensions: Dynamic = (
             )
               return void (widgetAndHostRuntimeLimit18 = input2);
             widgetAndHostRuntimeLimit18 = false;
+            // BaoCut: 智能体在改文档的播报称「the agent」，不称 Claude。
             resolveProsePluginsValue7(
               document,
               input2
-                ? "Claude is editing this document"
-                : "Claude stopped editing",
+                ? "The agent is editing this document"
+                : "The agent stopped editing",
               {
                 key: "agent-editing",
               },

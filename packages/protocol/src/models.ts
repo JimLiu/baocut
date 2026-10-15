@@ -803,6 +803,10 @@ export interface ProviderVendorInfo {
   regions?: string[];
   website?: string;
   icon?: string;
+  /** 目录预设的基址（有地区的是第一个地区的）；自建端点没有。界面拿它做端点的占位与查重，不用来发请求。 */
+  baseUrl?: string;
+  /** 有地区的服务商：地区 → 预设的基址。 */
+  regionBaseUrls?: Record<string, string>;
   /**
    * 目录声明了、Runtime 还没实现的能力（§6.4 标 P1 的）：只给界面在 API 提供方详情里列出并标「尚未接入」，
    * 不出现在 `capabilities` 里，也不能成为默认值。

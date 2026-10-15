@@ -90,7 +90,7 @@ export function TextTool() {
   const reason = view ? modelReason(options, option, FRAME_COPY.textNoun) : null;
   const base = reason ? { text: reason, bad: true } : textStatus(draft, option, tried);
   const status = !base.bad && needEntry ? { text: FORM_COPY.needEntry, bad: tried } : base;
-  const toSettings = () => go({ tab: 'models', category: 'llm', page: option?.local ? 'local' : 'cloud' });
+  const toSettings = () => go({ tab: 'models', category: 'llm' });
   // 取消了的不列（可能已经计费的照实留一张），与生成图片一致；空态按列出来的算。
   const shown = listedRecords(records.list);
 

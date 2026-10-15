@@ -161,7 +161,7 @@ export function DubTool() {
         noun={DUB_COPY.engine}
         manage={DUB_COPY.manageEngines}
         local={false}
-        onSettings={() => go({ tab: 'models', category: 'tts', page: 'cloud' })}
+        onSettings={() => go({ tab: 'models', category: 'tts' })}
         options={engines}
         selected={engine}
         onSelect={(o) => patch({ engine: o.key })}

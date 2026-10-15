@@ -554,7 +554,7 @@ describe('jobRowView', () => {
     });
     const row = jobRowView(failed, [failed], now);
     expect(row).toMatchObject({ state: 'failed', error: '模型没装好', canRetry: false });
-    expect(row.remedy?.target).toEqual({ tab: 'models', category: 'asr', page: 'local' });
+    expect(row.remedy?.target).toEqual({ tab: 'models', category: 'asr' });
     const interrupted = job({ state: 'interrupted', endedAt: at(9) });
     expect(jobRowView(interrupted, [interrupted], now)).toMatchObject({
       state: 'interrupted',

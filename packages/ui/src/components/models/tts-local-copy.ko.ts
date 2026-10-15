@@ -2,12 +2,8 @@ import type { TtsLocalMessages } from './tts-local-copy.ts';
 
 export const ko: TtsLocalMessages = {
   ttsLocal: {
-    // 默认模型（语音合成没有出厂默认，菜单里没有「自动选择」）
+    // 默认模型菜单没选时的占位（音乐生成也借用）
     unset: '설정 안 됨',
-    defaultDesc: '새 합성 작업에 미리 선택됩니다. 기본값이 없으면 매번 모델을 직접 고르며, 직접 고른 모델이 항상 우선합니다.',
-    cloudDefault: (name: string) =>
-      `기본값은 클라우드 모델(${name})입니다. 설정 › 클라우드 모델에서 바꾸세요. 로컬 모델을 선택하면 그 모델로 바뀝니다.`,
-    noInstalled: '아직 설치된 음성 합성 모델이 없습니다. 먼저 아래에서 하나를 다운로드하세요.',
     // 行
     audition: '미리 듣기',
     hideAudition: '미리 듣기 숨기기',

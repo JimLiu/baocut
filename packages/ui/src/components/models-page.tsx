@@ -1,8 +1,6 @@
 import { useEffect, type ComponentType, type ReactNode } from 'react';
 import { Tab, TabList, TabPanel, Tabs, Text } from '@react-spectrum/s2';
 import AudioWave from '@react-spectrum/s2/icons/AudioWave';
-import Cloud from '@react-spectrum/s2/icons/Cloud';
-import DeviceLaptop from '@react-spectrum/s2/icons/DeviceLaptop';
 import ImageIcon from '@react-spectrum/s2/icons/Image';
 import Microphone from '@react-spectrum/s2/icons/Microphone';
 import MusicNote from '@react-spectrum/s2/icons/MusicNote';
@@ -11,21 +9,21 @@ import Transcript from '@react-spectrum/s2/icons/Transcript';
 import UnlinkHoriz from '@react-spectrum/s2/icons/UnlinkHoriz';
 import Visibility from '@react-spectrum/s2/icons/Visibility';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
+import { categoryCapability } from '../model/models-cloud.ts';
 import { resolveModelsRoute } from '../model/models-route.ts';
-import {
-  MODEL_PAGE_LABEL,
-  modelCategory,
-  ONLY_PAGE_NOTE,
-  type ModelCategory,
-  type ModelPage,
-} from '../model/settings-nav.ts';
+import { MODEL_PAGE_LABEL, modelCategory, ONLY_SOURCE_NOTE, type ModelCategory, type ModelPage } from '../model/settings-nav.ts';
+import { useConnection } from '../state/connection-store.ts';
+import { useModels } from '../state/models-store.ts';
 import { useShell } from '../state/shell-store.ts';
 import { CapabilityDefault } from './models/capability-default.tsx';
-import { CloudModels } from './models/cloud-models.tsx';
+import { CapabilityProviders } from './models/capability-providers.tsx';
 import { LocalModels } from './models/local-models.tsx';
+import { Lede, PageStatus } from './models/model-parts.tsx';
 import { ModelsDirCard } from './models/models-dir-card.tsx';
 import { MODELS_PAGE_COPY } from './models/models-copy.ts';
 import { MyVoices } from './models/my-voices.tsx';
+import { CAP_PROVIDERS_COPY } from './models/providers-copy.ts';
+import { TextDefault } from './models/text-default.tsx';
 import { LegacySettingsNotice } from './legacy-import/legacy-settings-report.tsx';
 
 /** 页头（.setpage__intro）：分类名 22/700，下面一句说明。 */
@@ -45,11 +43,19 @@ export const CATEGORY_ICON: Record<ModelCategory, ComponentType> = {
   sep: UnlinkHoriz,
   vision: Visibility,
 };
-/** 页签的图标（page-settings.jsx:250）。 */
-const PAGE_ICON: Record<ModelPage, ComponentType> = { local: DeviceLaptop, cloud: Cloud, voices: Microphone };
+/** 页签的图标（page-settings.jsx 的 Tab 图标）。 */
+const PAGE_ICON: Record<ModelPage, ComponentType> = { models: AudioWave, voices: Microphone };
 
-/** 设置中的模型配置（产品设计 §2.1、§7.6），共用设置导航与滚动容器。语音识别、语音合成、图像生成的默认模型在页签之上。
- * 模型类记住本地 / 云端 / 我的声音的最后一页；切换页签不增加历史记录。
+/** 只有一种来源的类：文本生成只有 API 提供方的模型，音乐、人声分离、画面理解只有本机模型。 */
+function onlySource(category: ModelCategory): 'local' | 'cloud' | null {
+  if (category === 'llm') return 'cloud';
+  return categoryCapability(category) ? null : 'local';
+}
+
+/**
+ * 能力页（产品设计 §2.1、§7.6；设计稿 settings-capability.jsx），共用设置导航与滚动容器。本机模型与 API 提供方的模型在同一页，
+ * 不分本地 / 云端：① 默认模型（文本生成另带推理强度与并发）② 本机模型 ③ API 提供方。语音合成多一个「我的声音」页签，
+ * 记住最后停的页；切换页签不增加历史记录。
  */
 export function ModelSettings({ category, page: requested }: { category: ModelCategory; page?: ModelPage }) {
   const replace = useShell((s) => s.replace);
@@ -62,18 +68,22 @@ export function ModelSettings({ category, page: requested }: { category: ModelCa
     setModelPage(location.category, location.page);
   }, [setModelPage, location.category, location.page]);
 
-  const body = (p: ModelPage): ReactNode =>
-    p === 'local' ? (
-      <>
-        <ModelsDirCard />
-        <LocalModels category={category} />
-      </>
-    ) : p === 'cloud' ? (
-      <CloudModels category={category} />
-    ) : (
-      <MyVoices />
-    );
-  const firstPage = info.pages[0]!;
+  const capability = categoryCapability(category);
+  const source = onlySource(category);
+  const models: ReactNode = (
+    <>
+      {source ? <p className={only}>{ONLY_SOURCE_NOTE[source]}</p> : null}
+      {category !== 'llm' ? (
+        <>
+          {capability ? <Lede title={CAP_PROVIDERS_COPY.local} /> : null}
+          <ModelsDirCard />
+          <LocalModels category={category} />
+        </>
+      ) : null}
+      {capability ? <ProvidersSection capability={capability} /> : null}
+    </>
+  );
+  const body = (p: ModelPage): ReactNode => (p === 'voices' ? <MyVoices /> : models);
 
   return (
     <>
@@ -81,9 +91,10 @@ export function ModelSettings({ category, page: requested }: { category: ModelCa
         <h1 className={title}>{info.label}</h1>
         <p className={lede}>{info.description}</p>
       </header>
-      {/* 同时有本机与云端模型的能力：一个默认模型放在页签之上，本地、云端页里不再各设一个（产品设计 §7.6）。 */}
+      {/* 一种能力一个默认模型，放在页签之上（产品设计 §7.6）。 */}
       {category === 'asr' ? <LegacySettingsNotice /> : null}
       <CapabilityDefault category={category} />
+      {category === 'llm' ? <TextDefault /> : null}
       {info.pages.length > 1 ? (
         <Tabs
           aria-label={MODELS_PAGE_COPY.tabs(info.label)}
@@ -109,11 +120,16 @@ export function ModelSettings({ category, page: requested }: { category: ModelCa
           ))}
         </Tabs>
       ) : (
-        <>
-          <p className={only}>{ONLY_PAGE_NOTE[firstPage]}</p>
-          {body(firstPage)}
-        </>
+        body(info.pages[0]!)
       )}
     </>
   );
+}
+
+/** 能力页的「API 提供方」一节：视图到了才画。 */
+function ProvidersSection({ capability }: { capability: NonNullable<ReturnType<typeof categoryCapability>> }) {
+  const view = useModels((s) => s.capabilities);
+  const connected = useConnection((s) => s.state.status === 'connected');
+  if (!view) return <PageStatus>{connected ? MODELS_PAGE_COPY.loading : MODELS_PAGE_COPY.offline}</PageStatus>;
+  return <CapabilityProviders key={capability} view={view} capability={capability} />;
 }

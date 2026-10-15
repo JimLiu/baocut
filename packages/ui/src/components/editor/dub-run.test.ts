@@ -267,7 +267,7 @@ describe('开始配音与授权', () => {
     expect(deps.runtime.startDub).toHaveBeenCalledTimes(1);
   });
 
-  it('没有配置语音合成：就地给提示与去模型页的路', async () => {
+  it('没有配置语音合成：就地给提示与去这家 API 提供方的路', async () => {
     const { deps } = fake();
     deps.runtime.startDub = vi.fn(async () => {
       throw new RpcError('conflict', '没有可用的语音合成', {
@@ -283,7 +283,7 @@ describe('开始配音与授权', () => {
     expect(useDubRun.getState().problems.vid).toMatchObject({
       kind: 'not-configured',
       message: '在模型页填密钥。',
-      remedy: { target: { tab: 'models', category: 'tts', page: 'cloud' } },
+      remedy: { target: { tab: 'settings', section: 'providers', providerId: 'elevenlabs' } },
     });
   });
 });

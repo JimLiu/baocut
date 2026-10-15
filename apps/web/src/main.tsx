@@ -1,7 +1,7 @@
 import '@react-spectrum/s2/page.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { App } from '@baocut/ui';
+import { App, localeReady } from '@baocut/ui';
 import { webHost } from './web-host.ts';
 
 // 访问链接的路径与查询是启动时要去的界面（`/home?video=…` 直达一个视频的编辑器）；一次性代码由登录页用掉。
@@ -10,8 +10,11 @@ import { webHost } from './web-host.ts';
 const initialHref = location.pathname + location.search;
 if (initialHref !== '/' || location.hash) history.replaceState(null, '', '/');
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App host={webHost} initialHref={initialHref === '/' ? undefined : initialHref} />
-  </StrictMode>,
+// 开发服务器按需载入当前语言的译文（tools/lazy-locales.ts），取齐再画第一帧；出货包里立即画。
+void localeReady().then(() =>
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App host={webHost} initialHref={initialHref === '/' ? undefined : initialHref} />
+    </StrictMode>,
+  ),
 );

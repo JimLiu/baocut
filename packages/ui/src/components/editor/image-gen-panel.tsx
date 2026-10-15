@@ -192,8 +192,8 @@ export function ImageGenPane({ videoId, sequence, assets }: { videoId: Id; seque
   const option = findOption(options, initialModelKey(options, draft.model, view?.generateImage.effective ?? null, imageFallback));
   const effective = option ? effectiveImageDraft(draft, option.info, canvas) : draft;
   const status = imageStatus(effective, option, tried);
-  const toConnect = () => goTo({ tab: 'models', category: 'image', page: 'cloud' });
-  const toLocal = () => goTo({ tab: 'models', category: 'image', page: 'local' });
+  const toConnect = () => goTo({ tab: 'models', category: 'image' });
+  const toLocal = () => goTo({ tab: 'models', category: 'image' });
   const listed = useMemo(() => listedRecords(videoGenerationJobs(jobs, videoId, 'generateImage', hidden)), [jobs, videoId, hidden]);
   const shown = state.allImages ? listed : listed.slice(0, 3);
 

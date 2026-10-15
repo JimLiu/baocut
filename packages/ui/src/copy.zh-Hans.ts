@@ -482,7 +482,7 @@ export const zhHans: CopyMessages = {
     reconcileFailed: (message: string) => `没能处理：${message}`,
     openFailed: (message: string) => `没能打开：${message}`,
     remedyInstall: '去补装组件',
-    remedyCloud: '去设置云端模型',
+    remedyCloud: '去设置 API 提供方',
     remedyDefault: '去选默认模型',
     remedyNode: '去看远端节点',
     remedyAgent: '去 Agent 设置',

@@ -218,7 +218,7 @@ describe('删除与错误', () => {
 
   it('错误码补一句怎么办；认不得的用 Runtime 给的 remedy', () => {
     expect(errorText('VOICE_CONSENT_REQUIRED', '音色没有授权声明', null)).toContain('勾上声明');
-    expect(errorText('CAPABILITY_NOT_CONFIGURED', 'ElevenLabs 没有启用', null)).toContain('云端模型');
+    expect(errorText('CAPABILITY_NOT_CONFIGURED', 'ElevenLabs 没有启用', null)).toContain('API 提供方');
     expect(errorText('SOMETHING', '出错了', { remedy: '换一个文件' })).toBe('出错了。换一个文件');
     expect(rpcErrorText(Object.assign(new Error('版本对不上'), { details: { code: 'LIBRARY_VERSION_CONFLICT' } }))).toContain('换成最新的内容');
   });

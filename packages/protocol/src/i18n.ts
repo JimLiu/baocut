@@ -159,12 +159,88 @@ export function defineMessages<T extends object>(en: T, translations: Translatio
     Object.defineProperty(out, key, {
       enumerable: true,
       get: () => {
-        const table = tables[current] as Partial<T> | undefined;
+        const table = translationTable(tables[current]) as Partial<T> | undefined;
         return table && key in table ? table[key] : en[key];
       },
     });
   }
   return Object.freeze(out);
+}
+
+/*
+ * 开发服务器按语言按需载入的译文（tools/lazy-locales.ts）：渲染页的目录模块对非英文译文文件的静态导入被改写成
+ * `lazyTranslations` 登记的句柄，当前语言的在第一次渲染前取齐（`prepareLocale`），其他语言换过去之前再取。
+ * 出货包、测试、Runtime 与 CLI 不改写，译文都是普通对象，`translationTable` 原样放行。
+ */
+const LAZY = Symbol('lazyTranslations');
+
+interface LazySource {
+  readonly locale: Locale;
+  /** 译文文件的绝对路径。 */
+  readonly key: string;
+  readonly load: () => Promise<Record<string, unknown>>;
+  module?: Record<string, unknown>;
+  loading?: Promise<void>;
+}
+
+interface LazyTable {
+  readonly [LAZY]: LazySource;
+  readonly name: string;
+}
+
+/** 取到的译文模块，按文件记：热更新重新执行目录模块时直接用上，不必再取，也不先闪一下英文。 */
+const lazyModules = new Map<string, Record<string, unknown>>();
+/** 还没取到的译文文件，按语言分。 */
+const lazyPending = new Map<Locale, Set<LazySource>>();
+
+function loadSource(source: LazySource): Promise<void> {
+  source.loading ??= source.load().then(
+    (module) => {
+      source.module = module;
+      lazyModules.set(source.key, module);
+      lazyPending.get(source.locale)?.delete(source);
+    },
+    (error: unknown) => {
+      // 取不到时这一份回退英文，不让等它的一方卡住；下次准备这种语言时再取。
+      source.loading = undefined;
+      console.error(`[i18n] failed to load ${source.key}`, error);
+    },
+  );
+  return source.loading;
+}
+
+/**
+ * 插件生成的代码调用：登记一个译文文件，返回它导出的各张译文表的句柄（与 `names` 一一对应）。当前语言的立即开始取，
+ * 所以入口等齐之后才执行的目录（懒加载的模块、热更新）也不会漏掉。
+ */
+export function lazyTranslations(locale: Locale, key: string, load: () => Promise<Record<string, unknown>>, names: readonly string[]): unknown[] {
+  const source: LazySource = { locale, key, load, module: lazyModules.get(key) };
+  if (!source.module) {
+    let pending = lazyPending.get(locale);
+    if (!pending) lazyPending.set(locale, (pending = new Set()));
+    pending.add(source);
+    if (locale === current) void loadSource(source);
+  }
+  return names.map((name): LazyTable => ({ [LAZY]: source, name }));
+}
+
+/** 这种语言的译文是否都已取到。出货包里总是。 */
+export function isLocaleReady(locale: Locale): boolean {
+  return !lazyPending.get(locale)?.size;
+}
+
+/** 取齐一种语言的译文；出货包里立即完成。取不到的那几份回退英文。 */
+export function prepareLocale(locale: Locale): Promise<void> {
+  const pending = lazyPending.get(locale);
+  if (!pending?.size) return Promise.resolve();
+  return Promise.all([...pending].map(loadSource)).then(() => undefined);
+}
+
+/** 目录里一种语言的译文表：按需载入的取载入的那份，还没取到时 undefined（读的一方回退英文）。 */
+export function translationTable<T>(table: T): T | undefined {
+  if (typeof table !== 'object' || table === null || !(LAZY in table)) return table;
+  const { [LAZY]: source, name } = table as unknown as LazyTable;
+  return source.module?.[name] as T | undefined;
 }
 
 /**

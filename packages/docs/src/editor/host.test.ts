@@ -22,11 +22,13 @@ function fakeLink() {
 const PATH = 'f-tab1#node1/m5j4.247@0-6;thread=t1';
 
 describe('批注', () => {
-  it('路径去掉字符偏移，正文去掉开头的 @Claude', () => {
+  it('路径去掉字符偏移，正文去掉开头的 @Agent（以前的文档里是 @Claude）', () => {
     expect(annotationPath(PATH)).toBe('f-tab1#node1/m5j4.247;thread=t1');
     expect(annotationPath('f-a#b;thread=t')).toBe('f-a#b;thread=t');
+    expect(annotationText('@Agent⁠ make it shorter ')).toBe('make it shorter');
     expect(annotationText('@Claude⁠ make it shorter ')).toBe('make it shorter');
     expect(annotationText('keep @Claude here')).toBe('keep @Claude here');
+    expect(annotationText('keep @Agent here')).toBe('keep @Agent here');
   });
 
   it('发给父窗口，父窗口收下后回线程 id', async () => {

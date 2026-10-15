@@ -10,10 +10,10 @@ export const fr: SettingsNavMessages = {
     music: { label: 'Génération de musique', description: 'Générer des chansons et des musiques de fond pour vos vidéos sur cet ordinateur.' },
     vision: { label: "Compréhension visuelle", description: "Reconnaître personnes, locuteurs et contenu pour le recadrage intelligent." },
   },
-  page: { local: "Modèles locaux", cloud: "Modèles cloud", voices: "Mes voix" },
+  page: { models: "Modèles", voices: "Mes voix" },
   onlyPage: {
-    local: "Catégorie avec modèles locaux seulement, sans cloud pour l’instant.",
-    cloud: "Texte : modèles cloud seulement. Agents de code configurés sous « Agent ».",
+    local: "Catégorie avec modèles locaux seulement ; aucun fournisseur d’API ne la propose encore.",
+    cloud: "Texte : modèles des fournisseurs d’API seulement. Agents de code configurés sous « Agent ».",
   },
   section: {
     general: "Général",
@@ -23,6 +23,8 @@ export const fr: SettingsNavMessages = {
     semantic: 'Index sémantique',
     agent: "Fournisseurs d’Agents",
     skills: "Skills",
+    providers: "Fournisseurs d’API",
+    usage: "Utilisation",
     glossary: "Glossaire",
     privacy: "Confidentialité et autorisations",
     diagnostics: "Diagnostic",

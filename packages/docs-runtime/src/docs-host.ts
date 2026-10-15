@@ -10,7 +10,7 @@
  * 另有 docsHost.chat：左下角的「Ask Agent」原版打开 claude.ai 的对话栏，独立页面里只出一块空白浮层；宿主装了 chat 时点了
  * 交给宿主（BaoCut 把焦点交给会话的输入框），没装时不显示（docs-app.tsx 的 ChatPill）。选中文字后工具栏的「Ask Agent」
  * 不经 chat：装了 comments 时打开批注框（docs-app.tsx 的 ask-claude）。
- * 空行上 @Claude 的行内提问不经这里：它要先让模型判断请求（sample）再决定由 Claude 直接写还是转成批注，独立页面不提供
+ * 空行上 @Agent 的行内提问不经这里：它要先让模型判断请求（sample）再决定由 Claude 直接写还是转成批注，独立页面不提供
  * （packages/docs-runtime/README.md「不提供」）。
  */
 import { isFrameArtifact } from "./hello-early";
@@ -37,7 +37,8 @@ export interface DocsHostComments {
   canSendToClaude(): Promise<DocsHostSendVerdict>;
   /**
    * 批注先经文档服务存进文档（door 的 create utterance 返回线程 id），之后才调这里。text 是批注正文去掉控制字符与格式字符
-   * （包括 @Claude 后面的 U+2060）后的文字，≤4096 字节；开头的 `@Claude ` 保留，例如 `@Claude please tighten this`。
+   * （包括 @Agent 后面的 U+2060）后的文字，≤4096 字节；开头的 `@Agent ` 保留，例如 `@Agent please tighten this`
+   * （以前的文档里是 `@Claude`）。
    * 成功时返回非空的 threadId。失败时 reject：错误对象的 code 是 unavailable、claude_unavailable、forbidden、not_found、
    * rate_limited 等原平台的错误码之一时按它显示，其余一律按 upstream_error。
    */

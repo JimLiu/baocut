@@ -36,7 +36,7 @@ export const de: AgentMessages = {
   emptyNoneFound: "Keine Agenten auf diesem Computer erkannt; gängige sind unten aufgeführt.",
   scanProgress: "Agenten werden geprüft",
   faqLabel: "Häufige Fragen",
-  goCloudModels: "Zu Cloud-Modellen",
+  goCloudModels: "Zu API-Anbietern",
   goSkills: "Zu Skills",
 
 
@@ -169,8 +169,8 @@ export const de: AgentMessages = {
     },
     {
       key: 'cloud',
-      title: "Wie unterscheiden sich Agenten und Cloud-Modelle?",
-      body: "Ein Agent verwendet den Coding-Assistenten auf Ihrem Computer mit dessen Abonnement und führt mehrstufige Aufgaben aus. Cloud-Modelle führen einzelne Werkzeuge direkt per API-Schlüssel aus und rechnen nach Nutzung ab. Separate Einrichtung.",
+      title: "Wie unterscheiden sich Agenten und API-Anbieter?",
+      body: "Ein Agent verwendet den Coding-Assistenten auf Ihrem Computer mit dessen Abonnement und führt mehrstufige Aufgaben aus. Modelle von API-Anbietern führen einzelne Werkzeuge direkt per API-Schlüssel aus und rechnen nach Nutzung ab. Separate Einrichtung.",
       link: "Modelle",
     },
     {

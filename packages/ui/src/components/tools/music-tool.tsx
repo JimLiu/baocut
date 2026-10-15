@@ -128,7 +128,7 @@ export function MusicTool() {
 
   const reason = view ? modelReason(options, option, COPY.noun) : null;
   const status = reason ? { text: reason, bad: true } : musicStatus(draft, option, tried);
-  const toSettings = () => go({ tab: 'models', category: 'music', page: 'local' });
+  const toSettings = () => go({ tab: 'models', category: 'music' });
   const gateBundle = downloadableBundle(bundles, option);
 
   const generate = () => {

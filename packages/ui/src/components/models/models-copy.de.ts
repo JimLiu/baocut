@@ -21,7 +21,7 @@ export const de: ModelsMessages = {
     separateDefaultDesc: "Für die Hintergrundtrennung bei übersetzten Vertonungen ohne Modellauswahl und für CLI-Vertonung verwendet.",
     auto: "Automatisch",
     autoUses: (id: string) => `Automatisch verwendet derzeit ${id}.`,
-    otherDefault: (name: string) => `Aktueller Standard ist ${name} (unter Cloud-Modellen festgelegt); Auswahl eines lokalen Modells ersetzt ihn.`,
+    otherDefault: (name: string) => `Aktueller Standard ist ${name}; Auswahl eines lokalen Modells ersetzt ihn.`,
     defaultSet: "Standard festgelegt",
     defaultFailed: (message: string) => `Standard konnte nicht festgelegt werden: ${message}`,
     installed: "Installiert",
@@ -38,10 +38,6 @@ export const de: ModelsMessages = {
   },
 
   imageLocal: {
-    defaultDesc: "Für neue Bildaufgaben vorausgewählt. Ohne Standard muss jedes Mal ein Modell gewählt werden; manuelle Auswahl hat immer Vorrang.",
-    cloudDefault: (name: string) =>
-      `Der Standard ist ein Cloud-Modell (${name}); unter Einstellungen › Cloud-Modelle ändern. Auswahl eines lokalen Modells wechselt zu diesem.`,
-    noInstalled: "Noch kein Bilderzeugungsmodell installiert. Zuerst eines unten herunterladen.",
     licenseUse: "Damit erzeugte Bilder dürfen nur in nichtkommerziellen Inhalten verwendet werden; für kommerziell geplante Videos ein anderes Bildmodell wählen.",
 
     tryButton: "Ausprobieren",
@@ -206,8 +202,8 @@ export const de: ModelsMessages = {
     unset: 'Nicht festgelegt',
     unsetDesc: 'Jedes Mal ein Modell wählen',
     localGroup: 'Dieser Computer',
-    localWhy: (why: string) => `${why} · unter Lokale Modelle herunterladen`,
-    cloudWhy: (why: string) => `${why} · unter Cloud-Modelle verbinden`,
+    localWhy: (why: string) => `${why} · unten unter Lokale Modelle herunterladen`,
+    cloudWhy: (why: string) => `${why} · unter API-Anbieter ein Konto hinzufügen`,
     unavailable: (label: string) => `${label} (nicht verfügbar)`,
   },
   codexCard: {

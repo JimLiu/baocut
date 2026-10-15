@@ -22,7 +22,7 @@ const en = {
   noConsent: 'Not marked as your own voice or used with permission, so it won’t be uploaded to a third party. Check the statement in “Edit” first.',
   cannotClone: (label: string) => `This Runtime can’t clone on ${label}`,
   providerOff: (label: string, detail: string | null) =>
-    `${label} can’t be used right now${detail ? ` (${detail})` : ''}: enable it and set the key in “Cloud models” first`,
+    `${label} can’t be used right now${detail ? ` (${detail})` : ''}: enable it and add an account under “API providers” first`,
   consentUnstated: 'Consent not stated',
   cloned: (label: string) => `Cloned on ${label}`,
   cloneStale: (label: string) => `${label} clone out of date`,
@@ -41,7 +41,7 @@ const en = {
   /** Runtime 的原因后面接一句补救（原因句末的标点先去掉）。 */
   withRemedy: (message: string, remedy: string) => `${message.replace(/[。.]$/, '')}. ${remedy}`,
   remedyConsent: 'Voices without a consent statement aren’t uploaded to third parties: check the statement in “Edit” first.',
-  remedyConfigure: 'Enable this provider and set its key in “Cloud models”.',
+  remedyConfigure: 'Enable this provider and add an account under “API providers”.',
   remedyConflict: 'This voice was just changed elsewhere. The latest version is shown below; take a look before saving.',
   remedyGrant: 'Sending the reference recording to a provider needs an outbound grant: issue one in Settings, then try again.',
   /** 这家克隆要附上本人念授权声明的录音，这只音色还没有。 */

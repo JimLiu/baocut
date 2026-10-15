@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { partialTranslations, setLocale } from './i18n.ts';
+import { lazyTranslations, partialTranslations, prepareLocale, setLocale } from './i18n.ts';
 import { defineCatalog, formatRef, localizeText } from './message-ref.ts';
 import { RpcError } from './wire.ts';
 
@@ -57,5 +57,15 @@ describe('message references', () => {
     expect(received.message).toBe('找不到 a.mov');
     expect(received.toPayload().messageRef).toEqual(payload.messageRef);
     expect(new RpcError('internal', 'raw text').toPayload()).toEqual({ code: 'internal', message: 'raw text' });
+  });
+});
+
+describe('catalogs with translations loaded on demand (dev server)', () => {
+  it('render references in English until the language is prepared', async () => {
+    const [ja] = lazyTranslations('ja', '/ref.ja.ts', async () => ({ ja: { busy: 'エンジンは使用中です' } }), ['ja']) as [{ busy: string }];
+    const L = defineCatalog('refLazyTest', { busy: 'The engine is busy' }, partialTranslations({ ja }));
+    expect(formatRef(L.busy(), 'x', 'ja')).toBe('The engine is busy');
+    await prepareLocale('ja');
+    expect(formatRef(L.busy(), 'x', 'ja')).toBe('エンジンは使用中です');
   });
 });

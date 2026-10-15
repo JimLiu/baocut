@@ -125,7 +125,7 @@ export function TranslateFlow({
   const [modelKey, setModelKey] = useState<string | null>(null);
   const option = findOption(options, initialModelKey(options, modelKey, view?.generateText.effective ?? null));
   const ready = !!option?.usable;
-  const toModels = () => go({ tab: 'models', category: 'llm', page: 'cloud' });
+  const toModels = () => go({ tab: 'models', category: 'llm' });
   const modelSection = useRef<HTMLDivElement>(null);
 
   const [styleHint, setStyleHint] = useState('');

@@ -4,10 +4,6 @@ export const pl: TtsLocalMessages = {
   ttsLocal: {
 
     unset: "Nie ustawiono",
-    defaultDesc: "Wybrany wstępnie dla nowych zadań syntezy. Bez domyślnego wybierasz model za każdym razem; ręczny wybór ma pierwszeństwo.",
-    cloudDefault: (name: string) => `Domyślny jest model w chmurze (${name}); zmień w Ustawienia › Modele w chmurze. Wybranie lokalnego przełącza na niego.`,
-    noInstalled: "Nie zainstalowano jeszcze modelu syntezy mowy. Najpierw pobierz poniżej.",
-
     audition: "Podgląd",
     hideAudition: "Ukryj podgląd",
     engine: "Silnik",

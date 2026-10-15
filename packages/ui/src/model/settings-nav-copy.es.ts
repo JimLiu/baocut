@@ -9,8 +9,8 @@ export const es: SettingsNavMessages = {
  music: { label: 'Generación de música', description: 'Genera canciones y música de fondo para tus vídeos en este equipo.' },
  vision: { label: 'Comprensión visual', description: 'Reconoce personas, hablantes y lo que hay en pantalla para ayudar con el recorte inteligente.' },
  },
- page: { local: 'Modelos locales', cloud: 'Modelos en la nube', voices: 'Mis voces' },
- onlyPage: { local: 'Esta categoría solo tiene modelos locales que se ejecutan en este ordenador; aún no hay modelos en la nube.', cloud: 'La generación de texto solo tiene modelos en la nube. Los agentes de código se configuran en «Agente».' },
- section: { general: 'General', shortcuts: 'Atajos', fonts: 'Fuentes', downloader: 'Descarga de vídeos', semantic: 'Índice semántico', agent: 'Proveedores de agentes', skills: 'Skills', glossary: 'Glosario', privacy: 'Privacidad y permisos', diagnostics: 'Diagnóstico', about: 'Acerca de' },
+ page: { models: 'Modelos', voices: 'Mis voces' },
+ onlyPage: { local: 'Esta categoría solo tiene modelos locales que se ejecutan en este ordenador; aún no la ofrece ningún proveedor de API.', cloud: 'La generación de texto solo usa modelos de proveedores de API. Los agentes de código se configuran en «Agente».' },
+ section: { general: 'General', shortcuts: 'Atajos', fonts: 'Fuentes', downloader: 'Descarga de vídeos', semantic: 'Índice semántico', agent: 'Proveedores de agentes', skills: 'Skills', providers: 'Proveedores de API', usage: 'Uso', glossary: 'Glosario', privacy: 'Privacidad y permisos', diagnostics: 'Diagnóstico', about: 'Acerca de' },
  group: { preferences: 'Preferencias', agents: 'Agente', app: 'Aplicación' },
 };

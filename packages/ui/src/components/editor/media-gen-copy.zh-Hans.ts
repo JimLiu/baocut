@@ -43,7 +43,7 @@ export const zhImageGen: ImageGenMessages = {
   project: '视频素材',
   gen: 'AI 生成',
   noModelTitle: '还没有能画图的模型',
-  noModelBody: '连一家云端服务商（模型 › 图像生成 › 云端模型），或下载 Qwen-Image-2.1 或 Turbo（模型 › 图像生成 › 本地模型），任选其一。',
+  noModelBody: '添加一家 API 提供方（设置 › 模型 › API 提供方），或下载 Qwen-Image-2.1 或 Turbo（设置 › 模型 › 图像生成 › 本机模型），任选其一。',
   connect: '连接云端服务商',
   downloadLocal: '下载本地模型',
   fit: '跟视频画布',

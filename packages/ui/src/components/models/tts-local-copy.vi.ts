@@ -2,9 +2,8 @@ import type { TtsLocalMessages } from './tts-local-copy.ts';
 
 export const vi: TtsLocalMessages = {
 ttsLocal: {
-  // 默认模型（语音合成没有出厂默认，菜单里没有「自动选择」）
-  unset: 'Chưa đặt', defaultDesc: 'Chọn sẵn cho tác vụ tổng hợp mới. Không có mặc định thì chọn mỗi lần; lựa chọn thủ công luôn ưu tiên.', cloudDefault: (name) => `Mặc định là mô hình đám mây (${name}); đổi trong Cài đặt › Mô hình đám mây. Chọn mô hình cục bộ sẽ chuyển sang nó.`, noInstalled: 'Chưa cài mô hình tổng hợp giọng nói. Tải một mô hình bên dưới trước.',
-  // 行
+  // 默认模型菜单没选时的占位（音乐生成也借用）
+  unset: 'Chưa đặt', // 行
   audition: 'Nghe thử', hideAudition: 'Ẩn nghe thử', engine: 'Bộ máy', license: 'Giấy phép', components: 'Thành phần',
   // 下载前的许可确认（设计稿 withModelLicense）
   licenseTitle: 'Giấy phép', licenseUse: 'Giọng tạo chỉ dùng trong nội dung phi thương mại; video thương mại hãy chọn mô hình khác.', licenseConfirm: (size) => `Đã hiểu, tải ${size}`,

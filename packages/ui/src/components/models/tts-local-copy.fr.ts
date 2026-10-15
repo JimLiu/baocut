@@ -4,11 +4,6 @@ export const fr: TtsLocalMessages = {
   ttsLocal: {
 
     unset: "Non défini",
-    defaultDesc: "Présélectionné pour les nouvelles synthèses. Sans défaut, choix à chaque fois ; choix manuel prioritaire.",
-    cloudDefault: (name: string) =>
-      `Le défaut est un modèle cloud (${name}) ; changez-le dans Réglages › Modèles cloud. Choisir un modèle local le remplace.`,
-    noInstalled: "Aucun modèle de synthèse installé. Téléchargez-en un ci-dessous.",
-
     audition: "Aperçu",
     hideAudition: "Masquer l’aperçu",
     engine: "Moteur",

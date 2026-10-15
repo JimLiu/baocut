@@ -194,7 +194,7 @@ export function TtsPanel({ videoId, page, sequence, assets }: { videoId: Id; pag
     );
   }
 
-  const toConnect = () => go({ tab: 'models', category: 'tts', page: 'cloud' });
+  const toConnect = () => go({ tab: 'models', category: 'tts' });
   const maxChars = option?.info.maxInputChars ?? 0;
   const over = maxChars > 0 && Array.from(draft.text.trim()).length > maxChars;
 

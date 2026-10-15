@@ -9227,12 +9227,13 @@ function addedTabs(
     }
   return items;
 }
+// BaoCut: 智能体新加标签页的提示称「the agent」，不称 Claude。
 function agentAddedTabsMessage(items?: Dynamic, ..._extraArguments: unknown[]) {
-  if (items.length > 1) return `Claude added ${items.length} tabs`;
+  if (items.length > 1) return `The agent added ${items.length} tabs`;
   let name: Dynamic = items[0]?.name;
   return name
-    ? `Claude added a tab: “${name.length > 60 ? `${name.slice(0, 59)}…` : name}”`
-    : `Claude added a tab`;
+    ? `The agent added a tab: “${name.length > 60 ? `${name.slice(0, 59)}…` : name}”`
+    : `The agent added a tab`;
 }
 var tabIdentityKey: Dynamic = (
   tabIdentityKey2?: Dynamic,
@@ -17617,8 +17618,8 @@ var ASK_NOTICE_TIMEOUT_MS = 1e4;
 var ASK_NOTICE_HOLD_MS = 4e3;
 var MAX_ASK_NOTICE_RETRIES = 40;
 var INLINE_ASK_TOAST_ID = `inline-ask`;
-var ASK_LINE_REMOVED_MESSAGE = `That line was removed — copy your text, or close this and pick @Claude again.`;
-var ASK_DOCUMENT_CHANGED_MESSAGE = `The document changed under this — copy your text, or close this and type @Claude in the document.`;
+var ASK_LINE_REMOVED_MESSAGE = `That line was removed — copy your text, or close this and pick @Agent again.`;
+var ASK_DOCUMENT_CHANGED_MESSAGE = `The document changed under this — copy your text, or close this and type @Agent in the document.`;
 var COMMENT_DRAFT_BLOCKING_MESSAGE = `Finish or discard the comment you're writing first.`;
 var CLAUDE_BUSY_MESSAGE = `Claude is busy with an earlier request. Ask again once that request is done.`;
 var CLAUDE_BUSY_REQUEST_KEPT_MESSAGE = `Claude is busy with an earlier request, so what you typed stays in the document as text. Ask again once that request is done.`;
@@ -18286,9 +18287,9 @@ function askCardRecoveryLostMessage(
 ): Dynamic {
   return !options ||
     (context !==
-      `That line was removed — copy your text, or close this and pick @Claude again.` &&
+      `That line was removed — copy your text, or close this and pick @Agent again.` &&
       context !==
-        `The document changed under this — copy your text, or close this and type @Claude in the document.`)
+        `The document changed under this — copy your text, or close this and type @Agent in the document.`)
     ? context
     : ((cardRecoveryLostMessage.lost = true),
       CLAUDE_REQUEST_UNSENDABLE_MESSAGE);
@@ -24226,10 +24227,11 @@ var resolveCommentAnchorsResolvedBy = (
     resolvePlatformSessionAndSourcesValue(
       commentAnchorsResolvedBy.resolvedBy.user,
     );
+  // BaoCut: 智能体关掉的批注上的说明称「the agent」，不称 Claude。
   return commentAnchorsResolvedBy.resolvedBy.actor.startsWith(`agent`)
     ? resolveCommentAnchorsResolvedByResult === ``
-      ? `Resolved by Claude · Reopen`
-      : `Resolved by Claude (for ${resolveCommentAnchorsResolvedByResult}) · Reopen`
+      ? `Resolved by the agent · Reopen`
+      : `Resolved by the agent (for ${resolveCommentAnchorsResolvedByResult}) · Reopen`
     : resolveCommentAnchorsResolvedByResult === ``
       ? `Reopen`
       : `Resolved by ${resolveCommentAnchorsResolvedByResult} · Reopen`;
@@ -24256,7 +24258,8 @@ var filterCommentAnchorsJoin: Dynamic = (
   ..._extraArguments: unknown[]
 ) =>
   [
-    resolveCommentAnchorsValue6(filterCommentAnchorsJoin2) && `via Claude`,
+    // BaoCut: 经智能体发的批注的署名称「the agent」，不称 Claude。
+    resolveCommentAnchorsValue6(filterCommentAnchorsJoin2) && `via the agent`,
     filterCommentAnchorsJoin2.session_author?.name,
     filterCommentAnchorsJoin2.session_author?.model,
     filterCommentAnchorsJoin2.edited && `(edited)`,
@@ -24365,13 +24368,14 @@ function UseCommentAnchorsUserComponent(
     />
   );
 }
+// BaoCut: 智能体头像的无障碍名称叫 Agent，不叫 Claude。
 function UseCommentAnchorsRoleComponent(
   ..._extraArguments: [Readonly<Record<string, unknown>>?, ...unknown[]]
 ) {
   return (
     <span
       role={`img`}
-      aria-label={`Claude`}
+      aria-label={`Agent`}
       className={`bg-fill-brand text-on-brand inline-flex size-5 shrink-0 items-center justify-center rounded-full`}
     >
       <svg
@@ -25147,12 +25151,13 @@ function CommentHeader(
     jsx
   );
 }
+// BaoCut: 表情回应名单里的智能体叫 Agent，不叫 Claude。
 var resolveCommentAnchorsStartsWith: Dynamic = (
   commentAnchorsStarts?: Dynamic,
   ..._extraArguments: unknown[]
 ): Dynamic =>
   commentAnchorsStarts.actor.startsWith(`agent`)
-    ? `Claude`
+    ? `Agent`
     : resolveEditorAnchorsAndMentionsEmail(
         commentAnchorsStarts.user,
         framePeekProfile(commentAnchorsStarts.user)?.name,
@@ -26118,6 +26123,7 @@ function PendingAsk({ asks: asks }: Dynamic, ..._extraArguments: unknown[]) {
     </jsxRuntime.Fragment>
   );
 }
+// BaoCut: 批注里智能体正在回复时的署名叫 Agent，不叫 Claude。
 function UseCommentComposerTextComponent(
   { text: text }: Dynamic,
   ..._extraArguments: unknown[]
@@ -26126,7 +26132,7 @@ function UseCommentComposerTextComponent(
     <div className={`flex flex-col gap-1`}>
       <div className={`flex items-center gap-2 text-xs`}>
         <UseCommentAnchorsRoleComponent />
-        <span className={`font-semibold`}>{`Claude`}</span>
+        <span className={`font-semibold`}>{`Agent`}</span>
       </div>
       <div className={`text-secondary flex items-center gap-1.5 text-[13px]`}>
         <UseCommentComposerDataClaudeActivityDotsComponent />
@@ -29744,7 +29750,7 @@ function CommentClaudeToggle(
         <span
           id={controlId}
           hidden={true}
-        >{`Your comment mentions @Claude. Remove the mention to uncheck.`}</span>
+        >{`Your comment mentions @Agent. Remove the mention to uncheck.`}</span>
       )}
     </span>
   );
@@ -31771,7 +31777,7 @@ var NodeThreadsCard: Dynamic = (0, React.memo)(function (
 });
 var INLINE_ASK_COMPOSER_LAYOUT = {
   regionLabel: `Ask the agent about this document`,
-  dismissedHint: `Type @Claude to talk to the agent`,
+  dismissedHint: `Type @Agent to talk to the agent`,
   bottom: 16,
   clearance: 8,
   lane: 672,
@@ -33983,7 +33989,7 @@ var isEmptyClaudeRequest = (
   ..._extraArguments: unknown[]
 ) =>
   emptyClaudeRequest
-    .replace(/^\s*@Claude\u2060?\s*/i, ``)
+    .replace(/^\s*@(?:Claude|Agent)\u2060?\s*/i, ``)
     .split(
       `
 `,
@@ -36744,7 +36750,8 @@ function getFrameGesturesValue(
   updateDocumentSelectionParse();
   return documentSelectionMap.get(frameGesturesValue);
 }
-var FrameGestures_Message = `Claude Docs was updated. You can’t undo changes from before the update.`;
+// BaoCut: 编辑器更新后的提示不提 Claude Docs。
+var FrameGestures_Message = `Docs was updated. You can’t undo changes from before the update.`;
 var FrameGesturesBack: Dynamic = {
   back: `${FrameGestures_Message} Your cursor is where you left it.`,
   away: `${FrameGestures_Message} Move back into the text to keep editing.`,
@@ -44401,6 +44408,7 @@ function UseDocumentHostStateParticipantsComponent(
     },
     [flatMapText],
   );
+  // BaoCut: 在线头像里歇着的智能体叫 Agent，不叫 Claude。
   return updateDocumentHostStateKind2.length === 0 ? null : (
     <AvatarGroup
       max={5}
@@ -44414,7 +44422,7 @@ function UseDocumentHostStateParticipantsComponent(
             <PresenceClaudeResting
               {...originalJsxProps(
                 {
-                  name: `Claude`,
+                  name: `Agent`,
                 },
                 event.key,
               )}
@@ -80346,9 +80354,10 @@ function resolveDocumentPreviewChromeShown(
 }
 var documentPreviewLimit8000 = 8e3;
 var DocumentPreview_StillLoadingThisMayTakeAMomentOnSlowerConnections = `Still loading. This may take a moment on slower connections.`;
+// BaoCut: 文档还在建时的提示称「the agent」，不称 Claude。
 var DocumentPreviewSettingUp = {
   settingUp: `Setting up this document…`,
-  long: `If Claude has stopped responding, ask it to finish setting up this document — it’ll open here automatically.`,
+  long: `If the agent has stopped responding, ask it to finish setting up this document — it’ll open here automatically.`,
 };
 var documentPreviewLimit30000 = 3e4;
 function resolveDocumentPreviewFrame(
@@ -84176,9 +84185,10 @@ function resolveSessionNavigationValue3(
     },
   };
 }
+// BaoCut: 空标签页的提示称「the agent」，不称 Claude。
 var SessionNavigationTitle = {
   title: `This tab doesn’t have any content yet`,
-  body: `If Claude is still setting up this document, the tab’s contents will appear here when they’re ready.`,
+  body: `If the agent is still setting up this document, the tab’s contents will appear here when they’re ready.`,
 };
 var sessionNavigationLimit3000 = 3e3;
 function isSessionNavigationKind(
@@ -92813,6 +92823,7 @@ function RoomTabUnbound(
     </div>
   );
 }
+// BaoCut: 连不上时的标题不提 Claude Docs。
 function RoomviewAuthorityFailed(
   {
     onRetry: onRetry,
@@ -92851,7 +92862,7 @@ function RoomviewAuthorityFailed(
         className={`text-secondary`}
       />
       <div className={`text-primary text-body font-medium`}>
-        {frame ? `Couldn’t load this document` : `Can’t reach Claude Docs`}
+        {frame ? `Couldn’t load this document` : `Can’t reach Docs`}
       </div>
       <div className={`text-secondary text-footnote max-w-md text-center`}>
         {frame

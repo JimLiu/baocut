@@ -5,6 +5,7 @@ import { defineConfig } from 'vite';
 import { LOCALE_TAGS } from '../../packages/protocol/src/i18n.ts';
 import { pdfLicenses } from '../../tools/pdf-licenses.ts';
 import { thirdPartyNotices } from '../../tools/third-party-notices.ts';
+import { lazyLocales } from '../../tools/lazy-locales.ts';
 import { s2Styles, s2StylesChunk } from '../../tools/s2-styles.ts';
 
 /**
@@ -23,6 +24,8 @@ export default defineConfig({
     pdfLicenses(resolve(import.meta.dirname, '../..')),
     thirdPartyNotices(resolve(import.meta.dirname, '../..')),
     react(),
+    // 开发服务器只载入当前语言的译文（见 tools/lazy-locales.ts）；生产构建照常打进全部语言。
+    ...lazyLocales(),
     { ...optimizeLocales.vite({ locales: Object.values(LOCALE_TAGS) }), enforce: 'pre' },
   ],
   build: {

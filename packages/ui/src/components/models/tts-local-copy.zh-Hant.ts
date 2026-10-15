@@ -2,11 +2,8 @@ import type { TtsLocalMessages } from './tts-local-copy.ts';
 
 export const zhHant: TtsLocalMessages = {
   ttsLocal: {
-    // 默认模型（语音合成没有出厂默认，菜单里没有「自动选择」）
+    // 默认模型菜单没选时的占位（音乐生成也借用）
     unset: '未設定',
-    defaultDesc: '建立新的合成任務時會預先選取它。沒有預設時每次都要選擇模型；手動選擇一律優先。',
-    cloudDefault: (name: string) => `預設是雲端模型（${name}），請在「設定 › 雲端模型」中變更。選擇本機模型就會改用它。`,
-    noInstalled: '還沒有安裝語音合成模型。請先從下方下載一個。',
     // 行
     audition: '試聽',
     hideAudition: '隱藏試聽',

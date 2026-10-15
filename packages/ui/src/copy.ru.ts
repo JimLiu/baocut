@@ -545,7 +545,7 @@ export const ru: CopyMessages = {
     reconcileFailed: (message: string) => `Не удалось обработать: ${message}`,
     openFailed: (message: string) => `Не удалось открыть: ${message}`,
     remedyInstall: "Установить компоненты",
-    remedyCloud: "Настроить облачные модели",
+    remedyCloud: "Настроить поставщика API",
     remedyDefault: "Выбрать модели по умолчанию",
     remedyNode: "Посмотреть удалённые узлы",
     remedyAgent: "Открыть настройки агента",

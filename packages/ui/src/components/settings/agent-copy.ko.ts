@@ -29,7 +29,7 @@ export const ko: AgentMessages = {
   emptyNoneFound: '이 컴퓨터에서 감지된 Agent가 없습니다. 자주 쓰는 Agent는 아래에 있습니다.',
   scanProgress: 'Agent 확인 중',
   faqLabel: '자주 묻는 질문',
-  goCloudModels: '클라우드 모델로 이동',
+  goCloudModels: 'API 공급자로 이동',
   goSkills: 'Skills로 이동',
 
   moreProviders: {
@@ -152,8 +152,8 @@ export const ko: AgentMessages = {
     },
     {
       key: 'cloud',
-      title: 'Agent는 클라우드 모델과 어떻게 다른가요?',
-      body: 'Agent는 내 컴퓨터의 코딩 어시스턴트와 그 구독을 사용하며 여러 단계의 작업을 수행할 수 있습니다. 클라우드 모델은 API 키로 단일 도구를 직접 실행하며 사용량에 따라 요금이 부과됩니다. 둘은 따로 설정합니다.',
+      title: 'Agent는 API 공급자와 어떻게 다른가요?',
+      body: 'Agent는 내 컴퓨터의 코딩 어시스턴트와 그 구독을 사용하며 여러 단계의 작업을 수행할 수 있습니다. API 공급자의 모델은 API 키로 단일 도구를 직접 실행하며 사용량에 따라 요금이 부과됩니다. 둘은 따로 설정합니다.',
       link: 'models',
     },
     {

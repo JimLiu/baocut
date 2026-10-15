@@ -1,5 +1,6 @@
 import { localizeText, type ModelCapabilitiesView, type ModelInfoBase, type ModelRef } from '@baocut/protocol';
-import { defaultKey } from './models-cloud.ts';
+import { addedProviderIds } from './api-providers.ts';
+import { defaultKey, isCustomProvider } from './models-cloud.ts';
 import type { ModelCategory } from './settings-nav.ts';
 import { imageModelOptions } from './tools-image.ts';
 import { cloudModelOptions, localModelOptions, type ToolModelOption } from './tools-models.ts';
@@ -77,14 +78,17 @@ function nodeModelOptions(view: ModelCapabilitiesView, capability: DefaultCapabi
 
 /**
  * 菜单里的模型，按这种能力的出厂顺序（架构设计 §6.2）：图像生成是能画的 Codex › 本机 › 云端（不能画的 Codex 在最后）；
- * 语音识别是本机 › 局域网节点 › 云端；语音合成是本机 › 云端。云端只列已连接服务商的模型，没连上的列它的第一只、写「未连接」。
+ * 语音识别是本机 › 局域网节点 › 云端；语音合成是本机 › 云端。云端只列已添加的 API 提供方（设计稿 settings-capability.jsx ①：
+ * 目录里没添加的在下面的「API 提供方」一节里配置）：已连接的列全部模型，没连上的列它的第一只、写「未连接」。
  */
 export function defaultModelOptions(view: ModelCapabilitiesView, capability: DefaultCapability): DefaultModelOption[] {
-  if (capability === 'generateImage') return imageModelOptions(view) as DefaultModelOption[];
+  const added = addedProviderIds(view);
+  const listed = (o: DefaultModelOption) => !!o.local || !!o.agent || o.providerId.startsWith('node:') || isCustomProvider(o.providerId) || added.has(o.providerId);
+  if (capability === 'generateImage') return (imageModelOptions(view) as DefaultModelOption[]).filter(listed);
   return [
     ...(localModelOptions(view, capability) as DefaultModelOption[]),
     ...(capability === 'transcribe' ? nodeModelOptions(view, capability) : []),
-    ...(cloudModelOptions(view, capability) as DefaultModelOption[]),
+    ...(cloudModelOptions(view, capability) as DefaultModelOption[]).filter(listed),
   ];
 }
 

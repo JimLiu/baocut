@@ -10,10 +10,10 @@ export const zhHant: SettingsNavMessages = {
     music: { label: '音樂生成', description: '在本機生成歌曲與影片配樂。' },
     vision: { label: '視覺理解', description: '辨識人物、說話者和畫面內容，協助智慧裁切。' },
   },
-  page: { local: '本機模型', cloud: '雲端模型', voices: '我的音色' },
+  page: { models: '模型', voices: '我的音色' },
   onlyPage: {
-    local: '這一類只有在這台電腦上執行的本機模型，目前還沒有雲端模型。',
-    cloud: '文字生成只有雲端模型。程式設計 Agent 在「Agent」中設定。',
+    local: '這一類只有在這台電腦上執行的本機模型，目前還沒有 API 供應商提供。',
+    cloud: '文字生成只使用 API 供應商的模型。程式設計 Agent 在「Agent」中設定。',
   },
   section: {
     general: '一般',
@@ -23,6 +23,8 @@ export const zhHant: SettingsNavMessages = {
     semantic: '語意索引',
     agent: 'Agent 供應商',
     skills: 'Skills',
+    providers: 'API 供應商',
+    usage: '用量',
     glossary: '術語表',
     privacy: '隱私與權限',
     diagnostics: '診斷',

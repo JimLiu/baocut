@@ -83,7 +83,7 @@ var sentOnce: Dynamic = (
 var askOfCardBody: Dynamic = (
   body?: Dynamic,
   ..._extraArguments: unknown[]
-): Dynamic => body.replace(/^\s*@Claude\u2060?\s*/i, ``).trim();
+): Dynamic => body.replace(/^\s*@(?:Claude|Agent)\u2060?\s*/i, ``).trim();
 var ASK_UNSENT_TOAST: Dynamic = {
   title: `Your request to Claude wasn’t sent. Copy it to keep it.`,
   label: `Copy`,

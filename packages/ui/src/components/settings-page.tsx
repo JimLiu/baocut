@@ -16,6 +16,8 @@ import {
   Tooltip,
   TooltipTrigger,
 } from '@react-spectrum/s2';
+import Cloud from '@react-spectrum/s2/icons/Cloud';
+import Data from '@react-spectrum/s2/icons/Data';
 import Download from '@react-spectrum/s2/icons/Download';
 import FileText from '@react-spectrum/s2/icons/FileText';
 import HelpCircle from '@react-spectrum/s2/icons/HelpCircle';
@@ -35,6 +37,7 @@ import {
   SETTINGS_GROUPS,
   SETTINGS_SECTION_INFO,
   MODEL_CATEGORY_INFO,
+  MODEL_GROUP_SECTIONS,
   modelPageFor,
   type ModelCategory,
   type ModelPage,
@@ -43,8 +46,10 @@ import { useRuntime } from '../runtime/context.tsx';
 import { useAppUpdate } from '../state/app-update-store.ts';
 import { useConnection } from '../state/connection-store.ts';
 import { useHelp } from '../state/help-store.ts';
-import { hrefFor, useShell, type SettingsSection, type Route } from '../state/shell-store.ts';
+import { hrefFor, useShell, type ProvidersFrom, type SettingsSection, type Route } from '../state/shell-store.ts';
 import { CATEGORY_ICON, ModelSettings } from './models-page.tsx';
+import { ProvidersSection } from './models/api-providers-page.tsx';
+import { UsagePage } from './models/usage-page.tsx';
 import { AgentIcon } from './agent-icon.tsx';
 import { UpdateStatus } from './app-update/update-status.tsx';
 import { SidebarTitle } from './page-sidebar.tsx';
@@ -171,6 +176,8 @@ const SECTION_ICON: Record<SettingsSection, ComponentType> = {
   fonts: TextIcon,
   downloader: Download,
   semantic: Search,
+  providers: Cloud,
+  usage: Data,
   agent: AgentIcon,
   skills: Code,
   glossary: FileText,
@@ -183,12 +190,15 @@ const labelOf = (key: SettingsSection) => SETTINGS_SECTION_INFO.find((s) => s.ke
 
 /**
  * 设置（产品设计 §2.1，设计稿 page-settings.jsx）：左栏按「偏好设置 / Agent / 模型 / 应用」分组、固定不滚，只滚右侧；
- * 每节一个标题加若干组行卡片。Agent 提供方自己画标题（它的标题下面紧跟一句说明和三条事实）。
+ * 每节一个标题加若干组行卡片。Agent 提供方、API 提供方与用量自己画标题（标题下面还有说明、页头按钮）。
+ * 模型组 = API 提供方、用量，再是各种能力（产品设计 §7.6）。API 提供方的详情与用量的「只看一家」由 `providerId` 给。
  * 窗口窄时左栏收起，换成正文顶上的分节下拉（换节用 replace，和点左栏一样不进前进后退）。
  * 左栏底部（窄窗时是下拉条末尾的图标按钮）是帮助中心的入口（设计稿 page-settings.jsx）。
  */
-export function SettingsPage({ section = 'general', model, platform }: {
+export function SettingsPage({ section = 'general', providerId, from, model, platform }: {
   section?: SettingsSection;
+  providerId?: string;
+  from?: ProvidersFrom;
   model?: { category: ModelCategory; page?: ModelPage };
   platform: string;
 }) {
@@ -205,22 +215,22 @@ export function SettingsPage({ section = 'general', model, platform }: {
       page: modelPageFor(item.key, model?.category === item.key ? model.page : undefined, last[item.key]),
     },
   }));
+  const sectionItem = (key: SettingsSection) => ({
+    key, label: labelOf(key), Icon: SECTION_ICON[key], route: { tab: 'settings' as const, section: key },
+  });
   const sectionGroups = SETTINGS_GROUPS.map((group) => ({
     ...group,
     // 字体只在桌面端：浏览器会话没有 `fonts.*`。
-    items: group.keys.filter((key) => key !== 'fonts' || !web).map((key) => ({
-      key, label: labelOf(key), Icon: SECTION_ICON[key], route: { tab: 'settings' as const, section: key },
-    })),
+    items: group.keys.filter((key) => key !== 'fonts' || !web).map(sectionItem),
   }));
   type NavGroup = {
     id: string;
     label: string;
     items: { key: SettingsSection | ModelCategory; label: string; Icon: ComponentType; route: Route }[];
   };
-  // 模型组夹在 Agent 与应用之间；组 id 不得与条目 key 相同（`agents` 对 `agent`）。
-  const groups: NavGroup[] = sectionGroups.flatMap((group): NavGroup[] =>
-    group.id === 'app' ? [{ id: 'models', label: S.settingsPage.models, items: modelItems }, group] : [group],
-  );
+  // 模型组夹在 Agent 与应用之间：API 提供方、用量，再是各种能力；组 id 不得与条目 key 相同（`agents` 对 `agent`）。
+  const modelGroup: NavGroup = { id: 'models', label: S.settingsPage.models, items: [...MODEL_GROUP_SECTIONS.map(sectionItem), ...modelItems] };
+  const groups: NavGroup[] = sectionGroups.flatMap((group): NavGroup[] => (group.id === 'app' ? [modelGroup, group] : [group]));
   const items = groups.flatMap((group) => group.items);
   const current = items.find((item) => item.key === selected)!;
   return (
@@ -277,11 +287,16 @@ export function SettingsPage({ section = 'general', model, platform }: {
             </TooltipTrigger>
           </div>
         </div>
-        <div key={selected} className={`${scroll} bc-scroll`}>
+        {/* 按分节与提供方换 key：进另一家的详情、换「只看一家」都是新挂上（滚回顶、读一次 `from`）。 */}
+        <div key={`${selected}:${model ? '' : (providerId ?? '')}`} className={`${scroll} bc-scroll`}>
           <div className={column}>
-            {model || section === 'agent' ? null : <h1 className={title}>{labelOf(section)}</h1>}
+            {model || section === 'agent' || section === 'providers' || section === 'usage' ? null : <h1 className={title}>{labelOf(section)}</h1>}
             {model ? (
               <ModelSettings category={model.category} page={model.page} />
+            ) : section === 'providers' ? (
+              <ProvidersSection providerId={providerId} from={from} />
+            ) : section === 'usage' ? (
+              <UsagePage providerId={providerId} />
             ) : section === 'general' ? (
               <GeneralSettings />
             ) : section === 'shortcuts' ? (

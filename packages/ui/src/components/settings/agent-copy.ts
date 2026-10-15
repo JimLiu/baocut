@@ -53,7 +53,7 @@ const en = {
   emptyNoneFound: 'No Agents detected on this computer; the common ones are listed below.',
   scanProgress: 'Checking for Agents',
   faqLabel: 'FAQ',
-  goCloudModels: 'Go to cloud models',
+  goCloudModels: 'Go to API providers',
   goSkills: 'Go to Skills',
 
   /** 「更多」折叠段（page-settings-agent.jsx）：没检测到的四家 ACP 智能体收在这里。 */
@@ -189,8 +189,8 @@ const en = {
     },
     {
       key: 'cloud',
-      title: 'How is an Agent different from cloud models?',
-      body: 'An Agent uses the coding assistant on your computer with its own subscription and can carry out multi-step tasks. Cloud models run single tools directly with an API key and are billed by usage. The two are set up separately.',
+      title: 'How is an Agent different from API providers?',
+      body: 'An Agent uses the coding assistant on your computer with its own subscription and can carry out multi-step tasks. Models from API providers run single tools directly with an API key and are billed by usage. The two are set up separately.',
       link: 'models',
     },
     {

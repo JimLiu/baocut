@@ -45,12 +45,20 @@ describe('每种能力一个默认模型', () => {
     view.generateImage.effective = { providerId: 'agent:codex', modelId: 'image-gen', source: 'factory-default' };
     const picker = capabilityDefaultPicker(view, 'generateImage');
     expect(picker).toMatchObject({ selectedKey: AUTO_KEY, clear: 'auto', autoUses: 'Codex 画图', missing: null });
+    // 没添加的 Google 不进菜单（在下面的「API 提供方」一节里配置）。
     expect(keys(picker)).toEqual([
       ['agent:codex', ['agent:codex/image-gen']],
       ['openai', ['openai/gpt-image-1']],
-      ['google', ['google/imagen-4']],
     ]);
-    expect(picker.groups[2]!.options[0]).toMatchObject({ usable: false, why: '未连接' });
+    // 添加了、还没有密钥：列它的第一只、写「未连接」。
+    // 配置是一家一份，各能力视图里同一份。
+    const enabled = { enabled: true, enabledAt: '2026-10-01T00:00:00.000Z', credential: 'missing' as const, accounts: [] };
+    for (const cap of ['transcribe', 'generateImage'] as const) {
+      view[cap].providers = view[cap].providers.map((p) => (p.providerId === 'google' ? { ...p, config: enabled } : p)) as never;
+    }
+    const added = capabilityDefaultPicker(view, 'generateImage');
+    expect(keys(added)[2]).toEqual(['google', ['google/imagen-4']]);
+    expect(added.groups[2]!.options[0]).toMatchObject({ usable: false, why: '未连接' });
   });
 
   it('设了默认时勾它，「自动」按同一个顺序推一遍，跳过 API key 登录的 Codex', () => {
@@ -79,7 +87,6 @@ describe('每种能力一个默认模型', () => {
       ['local', true],
       ['openai', false],
       ['custom:asr-box', false],
-      ['google', false],
     ]);
     const tts = capabilityDefaultPicker(fixtureView(), 'synthesizeSpeech');
     expect(tts).toMatchObject({ selectedKey: AUTO_KEY, clear: 'unset', autoUses: null });

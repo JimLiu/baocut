@@ -41,7 +41,7 @@ const en = {
     separateDefaultDesc: 'Used to separate the background audio for translated voice-overs when no model is specified, and for command-line voice-overs.',
     auto: 'Automatic',
     autoUses: (id: string) => `Automatic currently uses ${id}.`,
-    otherDefault: (name: string) => `The default is currently ${name} (set under cloud models); choosing a local model here replaces it.`,
+    otherDefault: (name: string) => `The default is currently ${name}; choosing a local model here replaces it.`,
     defaultSet: 'Default set',
     defaultFailed: (message: string) => `Couldn't set the default: ${message}`,
     installed: 'Installed',
@@ -56,12 +56,8 @@ const en = {
     emptyBody:
       'The models folder on this computer only holds model packages for speech recognition, speech synthesis, image generation and source separation. Local models for this category aren’t supported yet.',
   },
-  /** 图像生成的本地页（设计稿 model-local-models.js 的 `DEFAULT_DESC.image`）：没有出厂默认，菜单里没有「自动选择」。 */
+  /** 图像生成的本地模型：许可提示与行上的「试画」。默认模型在页顶（capability-default.tsx）。 */
   imageLocal: {
-    defaultDesc: 'Preselected for new image tasks. Without a default you pick a model each time; a manual choice always wins.',
-    cloudDefault: (name: string) =>
-      `The default is a cloud model (${name}); change it in Settings › Cloud models. Choosing a local model switches to it.`,
-    noInstalled: 'No image generation model is installed yet. Download one below first.',
     licenseUse: 'Images made with it may only be used in non-commercial content; for videos you plan to use commercially, pick another image model.',
     /** 行上的「试画」与它的对话框（设计稿 image-gen.jsx `ImageProbeDialog` 的本机分支）。 */
     tryButton: 'Try it',
@@ -228,8 +224,8 @@ const en = {
     unset: 'Not set',
     unsetDesc: 'Pick a model each time',
     localGroup: 'This computer',
-    localWhy: (why: string) => `${why} · download it under Local models`,
-    cloudWhy: (why: string) => `${why} · connect it under Cloud models`,
+    localWhy: (why: string) => `${why} · download it under Local models below`,
+    cloudWhy: (why: string) => `${why} · add an account under API providers`,
     unavailable: (label: string) => `${label} (unavailable)`,
   },
   codexCard: {

@@ -22,7 +22,7 @@ export const ptBR: ModelsMessages = {
     separateDefaultDesc: "Separa fundo em dublagens traduzidas sem modelo especificado e em dublagens pela CLI.",
     auto: "Automático",
     autoUses: (id: string) => `Automático usa atualmente ${id}.`,
-    otherDefault: (name: string) => `O padrão atual é ${name} (definido em modelos de nuvem); escolher local substitui.`,
+    otherDefault: (name: string) => `O padrão atual é ${name}; escolher local substitui.`,
     defaultSet: "Padrão definido",
     defaultFailed: (message: string) => `Não foi possível definir padrão: ${message}`,
     installed: "Instalado",
@@ -39,10 +39,6 @@ export const ptBR: ModelsMessages = {
   },
 
   imageLocal: {
-    defaultDesc: "Pré-selecionado em novas imagens. Sem padrão, escolha a cada vez; escolha manual sempre vence.",
-    cloudDefault: (name: string) =>
-      `Padrão é modelo de nuvem (${name}); altere em Configurações › Modelos de nuvem. Escolher local muda para ele.`,
-    noInstalled: "Sem modelo de imagem instalado. Baixe um abaixo.",
     licenseUse: "Imagens só para conteúdo não comercial; para vídeo comercial, escolha outro modelo.",
 
     tryButton: "Experimente",
@@ -207,8 +203,8 @@ export const ptBR: ModelsMessages = {
     unset: 'Não definido',
     unsetDesc: 'Escolher um modelo a cada vez',
     localGroup: 'Este computador',
-    localWhy: (why: string) => `${why} · baixe em Modelos locais`,
-    cloudWhy: (why: string) => `${why} · conecte em Modelos na nuvem`,
+    localWhy: (why: string) => `${why} · baixe em Modelos locais, abaixo`,
+    cloudWhy: (why: string) => `${why} · adicione uma conta em Provedores de API`,
     unavailable: (label: string) => `${label} (indisponível)`,
   },
   codexCard: {

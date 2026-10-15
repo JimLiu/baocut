@@ -19,7 +19,7 @@ export const ja: ModelsMessages = {
     separateDefaultDesc: 'モデルが指定されていない場合に、翻訳吹き替えでの背景音の分離と、コマンドラインでの吹き替えに使われます。',
     auto: '自動選択',
     autoUses: (id: string) => `自動選択では現在 ${id} を使っています。`,
-    otherDefault: (name: string) => `現在の既定は ${name} です（クラウドモデルで設定）。ここでローカルモデルを選ぶと置き換わります。`,
+    otherDefault: (name: string) => `現在の既定は ${name} です。ここでローカルモデルを選ぶと置き換わります。`,
     defaultSet: '既定に設定しました',
     defaultFailed: (message: string) => `既定に設定できませんでした：${message}`,
     installed: 'インストール済み',
@@ -35,10 +35,6 @@ export const ja: ModelsMessages = {
       'このコンピュータのモデルフォルダには、音声認識、音声合成、画像生成、音源分離のモデルパッケージしかありません。このカテゴリのローカルモデルにはまだ対応していません。',
   },
   imageLocal: {
-    defaultDesc: '新しい画像タスクで最初から選択されます。既定がない場合は毎回モデルを選びます。手動で選んだものが常に優先されます。',
-    cloudDefault: (name: string) =>
-      `既定はクラウドモデル（${name}）です。設定 › クラウドモデル で変更できます。ローカルモデルを選ぶとそちらに切り替わります。`,
-    noInstalled: '画像生成モデルがまだインストールされていません。先に下からダウンロードしてください。',
     licenseUse: 'このモデルで作成した画像は非商用のコンテンツにのみ使用できます。商用利用する予定の動画では、別の画像モデルを選んでください。',
     tryButton: '試す',
     tryTitle: (name: string) => `${name} を試す`,
@@ -194,8 +190,8 @@ export const ja: ModelsMessages = {
     unset: '未設定',
     unsetDesc: '毎回選ぶ',
     localGroup: 'このコンピュータ',
-    localWhy: (why: string) => `${why} · 「ローカルモデル」でダウンロード`,
-    cloudWhy: (why: string) => `${why} · 「クラウドモデル」で接続`,
+    localWhy: (why: string) => `${why} · 下の「ローカルモデル」でダウンロード`,
+    cloudWhy: (why: string) => `${why} · 「API プロバイダ」でアカウントを追加`,
     unavailable: (label: string) => `${label}（使用不可）`,
   },
   codexCard: {

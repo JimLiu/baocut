@@ -1430,7 +1430,7 @@ Node 管理模型目录、版本、下载计划、校验与资源准入；Rust W
 | `custom:<名字>` | 用户起的名字 | `custom` | 用户声明 | 用户声明的（兼容） | 用户填写 | Bearer，密钥可选 | 首字母头像 |
 | `agent:codex` | Codex | `agent` | `generateImage` | 全部（§6.9） | — | 没有密钥 | `codex-color` |
 
-- **`kind`** 是 `vendor`（模型厂商）、`relay`（中转平台）、`custom`（自建端点）或 `agent`（智能体，§6.9）。目录条目（`vendor`：`kind`、`regions`、`website`、`icon`、`planned`）随 Provider 描述给出，能力视图的每个 Provider 也带一份，设置界面不另查目录。`agent` 的 Provider 没有账号，不在 API 提供方列表里，只出现在能力的模型选择里。
+- **`kind`** 是 `vendor`（模型厂商）、`relay`（中转平台）、`custom`（自建端点）或 `agent`（智能体，§6.9）。目录条目（`vendor`：`kind`、`regions`、`website`、`icon`、`planned`，内置的还有预设基址 `baseUrl` 与 `regionBaseUrls`，界面只拿来做端点占位与查重）随 Provider 描述给出，能力视图的每个 Provider 也带一份，设置界面不另查目录。`agent` 的 Provider 没有账号，不在 API 提供方列表里，只出现在能力的模型选择里。
 - **一家提供方一组适配器**。表里标「兼容」的文本提供方共用一个 OpenAI 兼容的 Chat Completions 适配器（与 `custom:<名字>` 同一份实现），彼此只差基址与内置模型表；Anthropic 用自己的 Messages 适配器。`custom:<名字>` 的机制不变：用户给出地址、密钥与模型名，接入其他供应商或自建服务，能力描述由用户声明，按 `declared` 层对待（§3.6）。音色克隆（§5.9）只接 ElevenLabs（Gemini 的复刻音色要另录一段授权声明，还没接）；`separateAudio` 没有在线适配器（§6.1）。
 - **基址**。有国际与中国两个基址的提供方按账号的 `region`（`global` 或 `cn`，§6.8）取用；提供方与账号都可以改写基址，账号的改写优先，其次是提供方的，最后是目录的预设。
 - **图标**取自 lobe-icons（MIT），按 `providerId` 重命名后随界面分发，许可与清单见仓库的 `THIRD_PARTY_NOTICES.md`；各厂商的标志只用于标识 API 提供方。缺图标的用首字母头像。

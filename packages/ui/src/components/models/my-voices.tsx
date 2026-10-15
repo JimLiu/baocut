@@ -178,7 +178,7 @@ export function MyVoices() {
   /** 试听克隆：到本地模型页能克隆的那一行，展开试听、选上这只音色；一只都没装时说去下载。 */
   const auditionClone = (voice: LibraryEntrySummary) => {
     const bundleId = auditionBundle(bundles, speech);
-    const local = { tab: 'models', category: 'tts', page: 'local' } as const;
+    const local = { tab: 'models', category: 'tts' } as const;
     if (!bundleId) {
       ToastQueue.info(TTS.noCloneModel, { actionLabel: TTS.goLocal, onAction: () => goTo(local), shouldCloseOnAction: true });
       return;

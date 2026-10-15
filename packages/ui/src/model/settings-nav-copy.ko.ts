@@ -10,10 +10,10 @@ export const ko: SettingsNavMessages = {
     music: { label: '음악 생성', description: '이 컴퓨터에서 노래와 영상 배경음악을 생성합니다.' },
     vision: { label: '화면 이해', description: '인물, 화자, 화면 내용을 인식해 스마트 자르기를 돕습니다.' },
   },
-  page: { local: '로컬 모델', cloud: '클라우드 모델', voices: '내 목소리' },
+  page: { models: '모델', voices: '내 목소리' },
   onlyPage: {
-    local: '이 분류에는 이 컴퓨터에서 실행되는 로컬 모델만 있으며, 아직 클라우드 모델은 없습니다.',
-    cloud: '텍스트 생성에는 클라우드 모델만 있습니다. 코딩 Agent는 “Agent”에서 설정합니다.',
+    local: '이 분류에는 이 컴퓨터에서 실행되는 로컬 모델만 있으며, 아직 이를 제공하는 API 공급자는 없습니다.',
+    cloud: '텍스트 생성에는 API 공급자의 모델만 사용합니다. 코딩 Agent는 “Agent”에서 설정합니다.',
   },
   section: {
     general: '일반',
@@ -23,6 +23,8 @@ export const ko: SettingsNavMessages = {
     semantic: '의미 색인',
     agent: 'Agent 공급자',
     skills: 'Skills',
+    providers: 'API 공급자',
+    usage: '사용량',
     glossary: '용어집',
     privacy: '개인 정보 보호 및 권한',
     diagnostics: '진단',

@@ -258,7 +258,8 @@ function LocalPage({ category, kind }: { category: ModelCategory; kind: LocalDef
     }
   };
 
-  const noAuto = synth ? TTS : kind === 'image' ? IMAGE : kind === 'music' ? MUSIC : null;
+  // 默认模型那张卡只在人声分离与音乐生成画（其余能力的默认在页顶 capability-default.tsx）；音乐没有「自动选择」。
+  const noAuto = kind === 'music' ? MUSIC : null;
   const desc = (
     noAuto
       ? [noAuto.defaultDesc, picker.other ? noAuto.cloudDefault(picker.other) : null, picker.items.length || web ? null : noAuto.noInstalled]

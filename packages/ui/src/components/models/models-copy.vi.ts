@@ -20,7 +20,7 @@ export const vi: ModelsMessages = {
     separateDefaultDesc: "Dùng để tách âm thanh nền cho lồng tiếng bản dịch khi không chỉ định mô hình, và cho lồng tiếng từ dòng lệnh.",
     auto: "Tự động",
     autoUses: (id) => `Tự động hiện dùng ${id}.`,
-    otherDefault: (name) => `Mặc định hiện là ${name} (đặt trong mô hình đám mây); chọn mô hình cục bộ tại đây sẽ thay thế.`,
+    otherDefault: (name) => `Mặc định hiện là ${name}; chọn mô hình cục bộ tại đây sẽ thay thế.`,
     defaultSet: "Đã đặt mặc định",
     defaultFailed: (message) => `Không thể đặt mặc định: ${message}`,
     installed: "Đã cài",
@@ -35,9 +35,6 @@ export const vi: ModelsMessages = {
     emptyBody: "Thư mục mô hình trên máy tính này chỉ chứa gói mô hình nhận dạng giọng nói, tổng hợp giọng nói, tạo ảnh và tách nguồn âm thanh. Chưa hỗ trợ mô hình cục bộ cho danh mục này.",
   },
   imageLocal: {
-    defaultDesc: "Được chọn sẵn cho tác vụ ảnh mới. Nếu không có mặc định, bạn chọn mô hình mỗi lần; lựa chọn thủ công luôn được ưu tiên.",
-    cloudDefault: (name) => `Mặc định là mô hình đám mây (${name}); đổi trong Cài đặt › Mô hình đám mây. Chọn mô hình cục bộ sẽ chuyển sang mô hình đó.`,
-    noInstalled: "Chưa cài mô hình tạo ảnh. Tải một mô hình bên dưới trước.",
     licenseUse: "Ảnh tạo bằng mô hình này chỉ được dùng trong nội dung phi thương mại; với video dự định dùng thương mại, hãy chọn mô hình ảnh khác.",
 
     tryButton: "Dùng thử",
@@ -178,8 +175,8 @@ export const vi: ModelsMessages = {
     unset: 'Chưa đặt',
     unsetDesc: 'Mỗi lần tự chọn mô hình',
     localGroup: 'Máy này',
-    localWhy: (why: string) => `${why} · tải trong Mô hình trên máy`,
-    cloudWhy: (why: string) => `${why} · kết nối trong Mô hình đám mây`,
+    localWhy: (why: string) => `${why} · tải trong Mô hình cục bộ bên dưới`,
+    cloudWhy: (why: string) => `${why} · thêm tài khoản trong Nhà cung cấp API`,
     unavailable: (label: string) => `${label} (không dùng được)`,
   },
   codexCard: {

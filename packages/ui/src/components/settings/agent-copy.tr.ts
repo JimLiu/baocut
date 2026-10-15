@@ -28,7 +28,7 @@ export const tr: AgentMessages = {
   emptyNoneFound: "Bu bilgisayarda Ajan algılanmadı; yaygın olanlar aşağıda listelenir.",
   scanProgress: "Ajanlar denetleniyor",
   faqLabel: "Sık sorulan sorular",
-  goCloudModels: "Bulut modellerine git",
+  goCloudModels: "API sağlayıcılarına git",
   goSkills: "Skill bölümüne git",
 
   moreProviders: {
@@ -144,8 +144,8 @@ export const tr: AgentMessages = {
     },
     {
       key: 'cloud',
-      title: "Ajan ile “Bulut modelleri” arasındaki fark nedir?",
-      body: "Ajan yerel kodlama asistanınızı ve kendi aboneliğinizi kullanır; çok adımlı görevleri art arda tamamlayabilir. “Bulut modelleri”, API anahtarıyla tek araç çalıştırır ve kullanıma göre ücretlendirilir. Ayrı ayarlanırlar.",
+      title: "Ajan ile “API sağlayıcıları” arasındaki fark nedir?",
+      body: "Ajan yerel kodlama asistanınızı ve kendi aboneliğinizi kullanır; çok adımlı görevleri art arda tamamlayabilir. API sağlayıcılarının modelleri, API anahtarıyla tek araç çalıştırır ve kullanıma göre ücretlendirilir. Ayrı ayarlanırlar.",
       link: 'models',
     },
     {

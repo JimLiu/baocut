@@ -665,7 +665,7 @@ export class DocDoor {
     if (this.doc.threads.length >= COMMENT_LIMITS.threads) return deny('too_many', `一份文档最多 ${COMMENT_LIMITS.threads} 个线程`, { dim: 'threads' });
     const range = parent.anchor?.range;
     if (range && (!findItem(node.blocks, range[0]) || !findItem(node.blocks, range[1]))) return deny('char_gone', '评论锚定的文字已不存在');
-    const to = Array.isArray(value.to) ? value.to.filter((item): item is string => typeof item === 'string') : /^@claude\b/i.test(body.trim()) ? ['claude'] : undefined;
+    const to = Array.isArray(value.to) ? value.to.filter((item): item is string => typeof item === 'string') : /^@(?:claude|agent)\b/i.test(body.trim()) ? ['claude'] : undefined;
     const thread: StoredThread = {
       id: randomUUID(),
       nodeId: node.id,

@@ -45,7 +45,7 @@ export const frImageGen: ImageGenMessages = {
   gen: "Générée par IA",
   noModelTitle: "Aucun modèle d’image",
   noModelBody:
-    "Connectez un fournisseur cloud (Modèles › Génération d’images › Modèles cloud) ou téléchargez Qwen-Image-2.1 ou Turbo (Modèles › Génération d’images › Modèles locaux) ; les deux conviennent.",
+    "Ajoutez un fournisseur d’API (Réglages › Modèles › Fournisseurs d’API) ou téléchargez Qwen-Image-2.1 ou Turbo (Réglages › Modèles › Génération d’images › Modèles locaux) ; les deux conviennent.",
   connect: "Connecter un fournisseur cloud",
   downloadLocal: "Télécharger un modèle local",
   fit: "Comme le canevas vidéo",

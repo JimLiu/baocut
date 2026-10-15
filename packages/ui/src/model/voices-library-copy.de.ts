@@ -7,7 +7,7 @@ export const de: VoicesLibraryMessages = {
   noConsent: "Nicht als eigene Stimme oder Nutzung mit Erlaubnis gekennzeichnet; wird daher nicht an Dritte hochgeladen. Zuerst die Erklärung unter „Bearbeiten“ bestätigen.",
   cannotClone: (label: string) => `Diese Runtime kann nicht klonen bei ${label}`,
   providerOff: (label: string, detail: string | null) =>
-    `${label} kann derzeit nicht verwendet werden${detail ? ` (${detail})` : ""}: zuerst unter „Cloud-Modelle“ aktivieren und den Schlüssel festlegen`,
+    `${label} kann derzeit nicht verwendet werden${detail ? ` (${detail})` : ""}: zuerst unter „API-Anbieter“ aktivieren und ein Konto hinzufügen`,
   consentUnstated: "Einwilligung nicht angegeben",
   cloned: (label: string) => `Geklont bei ${label}`,
   cloneStale: (label: string) => `${label}: Klon veraltet`,
@@ -26,7 +26,7 @@ export const de: VoicesLibraryMessages = {
 
   withRemedy: (message: string, remedy: string) => `${message.replace(/[。.]$/, "")}. ${remedy}`,
   remedyConsent: "Stimmen ohne Einwilligungserklärung werden nicht an Dritte hochgeladen: zuerst die Erklärung unter „Bearbeiten“ bestätigen.",
-  remedyConfigure: "Diesen Anbieter unter „Cloud-Modelle“ aktivieren und seinen Schlüssel festlegen.",
+  remedyConfigure: "Diesen Anbieter unter „API-Anbieter“ aktivieren und ein Konto hinzufügen.",
   remedyConflict: "Diese Stimme wurde gerade an anderer Stelle geändert. Unten steht die aktuelle Version; vor dem Speichern prüfen.",
   remedyGrant: "Das Senden der Referenzaufnahme an einen Anbieter benötigt eine Berechtigung zur Datenübertragung: in den Einstellungen erteilen und erneut versuchen.",
   noConsentClip: (label) => `${label} braucht eine Aufnahme, in der die sprechende Person die Einwilligungserklärung vorliest. Nimm sie zuerst über das ⋯-Menü dieser Stimme auf.`,

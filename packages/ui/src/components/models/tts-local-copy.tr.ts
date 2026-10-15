@@ -2,9 +2,8 @@ import type { TtsLocalMessages } from './tts-local-copy.ts';
 
 export const tr: TtsLocalMessages = {
 ttsLocal: {
-  // 默认模型（语音合成没有出厂默认，菜单里没有「自动选择」）
-  unset: 'Ayarlı değil', defaultDesc: 'Yeni sentez görevlerinde önceden seçilir. Varsayılan yoksa her seferinde model seçersiniz; elle seçim önceliklidir.', cloudDefault: (name) => `Varsayılan bulut modeli (${name}); Ayarlar › Bulut modelleri kısmında değiştirin. Yerel model seçmek ona geçer.`, noInstalled: 'Henüz konuşma sentezi modeli yüklü değil. Önce aşağıdan indirin.',
-  // 行
+  // 默认模型菜单没选时的占位（音乐生成也借用）
+  unset: 'Ayarlı değil', // 行
   audition: 'Önizleme', hideAudition: 'Önizlemeyi gizle', engine: 'Motor', license: 'Lisans', components: 'Bileşenler',
   // 下载前的许可确认（设计稿 withModelLicense）
   licenseTitle: 'Lisans', licenseUse: 'Üretilen konuşma yalnızca ticari olmayan içerikte kullanılabilir; ticari videolar için başka konuşma modeli seçin.', licenseConfirm: (size) => `Anladım, ${size} indir`,

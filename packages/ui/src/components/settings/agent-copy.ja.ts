@@ -29,7 +29,7 @@ export const ja: AgentMessages = {
   emptyNoneFound: 'このコンピュータでは Agent が検出されませんでした。よく使われるものを下に示します。',
   scanProgress: 'Agent を確認中',
   faqLabel: 'よくある質問',
-  goCloudModels: 'クラウドモデルへ',
+  goCloudModels: 'API プロバイダへ',
   goSkills: 'Skills へ',
 
   moreProviders: {
@@ -153,8 +153,8 @@ export const ja: AgentMessages = {
     },
     {
       key: 'cloud',
-      title: 'Agent とクラウドモデルの違いは何ですか？',
-      body: 'Agent は、お使いのコンピュータのコーディングアシスタントをそのサブスクリプションで使い、複数ステップのタスクを実行できます。クラウドモデルは API キーで個々のツールを直接実行し、使用量に応じて課金されます。両者は別々に設定します。',
+      title: 'Agent と API プロバイダの違いは何ですか？',
+      body: 'Agent は、お使いのコンピュータのコーディングアシスタントをそのサブスクリプションで使い、複数ステップのタスクを実行できます。API プロバイダのモデルは API キーで個々のツールを直接実行し、使用量に応じて課金されます。両者は別々に設定します。',
       link: 'models',
     },
     {

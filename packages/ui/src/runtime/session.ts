@@ -398,9 +398,41 @@ export class RuntimeSession {
     return provider;
   }
 
-  /** 删除一个自建服务商与它的密钥。 */
+  /** 移除一个 API 提供方：配置与所有账号的密钥一并删掉，用量记录保留。内置的移除后回到「未添加」。 */
   async removeModelProvider(providerId: string): Promise<void> {
     await this.client.request('models.removeProvider', { providerId });
+  }
+
+  /** 给一个在线 Provider 加一个账号（加在最后）。`verify` 不过时 Runtime 以 `conflict` 拒绝，不保存。 */
+  async addModelAccount(
+    request: import('@baocut/protocol').AddProviderAccountRequest,
+  ): Promise<import('@baocut/protocol').ProviderView> {
+    const { provider } = await this.client.request('models.addAccount', request);
+    return provider;
+  }
+
+  /** 改一个账号：名称、密钥、启用、地区、端点；给出的字段替换，null 清除。 */
+  async updateModelAccount(
+    request: import('@baocut/protocol').UpdateProviderAccountRequest,
+  ): Promise<import('@baocut/protocol').ProviderView> {
+    const { provider } = await this.client.request('models.updateAccount', request);
+    return provider;
+  }
+
+  async removeModelAccount(providerId: string, accountId: string): Promise<import('@baocut/protocol').ProviderView> {
+    const { provider } = await this.client.request('models.removeAccount', { providerId, accountId });
+    return provider;
+  }
+
+  /** 账号的新顺序：第一个启用且有密钥的是首选。 */
+  async arrangeModelAccounts(providerId: string, order: string[]): Promise<import('@baocut/protocol').ProviderView> {
+    const { provider } = await this.client.request('models.arrangeAccounts', { providerId, order });
+    return provider;
+  }
+
+  /** 一段时间内的在线调用用量（`models.usage`）；给 `providerId` 时只算这一家。 */
+  async modelUsage(request: import('@baocut/protocol').UsageRequest): Promise<import('@baocut/protocol').UsageReport> {
+    return this.client.request('models.usage', request);
   }
 
   /** 向一家在线服务商取模型与音色列表（`models.refreshProvider`）。取不到时 `ok: false`，结果也记在它的配置里。 */

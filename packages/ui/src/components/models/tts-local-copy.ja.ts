@@ -2,12 +2,8 @@ import type { TtsLocalMessages } from './tts-local-copy.ts';
 
 export const ja: TtsLocalMessages = {
   ttsLocal: {
-    // 默认模型（语音合成没有出厂默认，菜单里没有「自动选择」）
+    // 默认模型菜单没选时的占位（音乐生成也借用）
     unset: '未設定',
-    defaultDesc: '新しい音声合成タスクで最初から選択されます。既定がない場合は毎回モデルを選びます。手動で選んだものが常に優先されます。',
-    cloudDefault: (name: string) =>
-      `既定はクラウドモデル（${name}）です。設定 › クラウドモデル で変更できます。ローカルモデルを選ぶとそちらに切り替わります。`,
-    noInstalled: '音声合成モデルがまだインストールされていません。先に下からダウンロードしてください。',
     // 行
     audition: '試聴',
     hideAudition: '試聴を隠す',

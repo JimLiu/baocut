@@ -20,7 +20,7 @@ export const zhHans: ModelsMessages = {
     separateDefaultDesc: '未指定模型时，翻译配音分离背景声用它，命令行配音也是。',
     auto: '自动选择',
     autoUses: (id: string) => `自动选择现在用 ${id}。`,
-    otherDefault: (name: string) => `现在的默认是 ${name}（在云端模型里设的）；在这里选一只本地模型会替换它。`,
+    otherDefault: (name: string) => `现在的默认是 ${name}；在这里选一只本地模型会替换它。`,
     defaultSet: '已设为默认',
     defaultFailed: (message: string) => `没能设默认：${message}`,
     installed: '已安装',
@@ -35,9 +35,6 @@ export const zhHans: ModelsMessages = {
     emptyBody: '这台电脑的模型目录里现在只有语音识别、语音合成、图像生成与音源分离的模型包，这一类的本地模型还没有接入。',
   },
   imageLocal: {
-    defaultDesc: '新建生图任务时预选它；没有默认时要手动选模型，手动选择优先。',
-    cloudDefault: (name: string) => `默认是云端模型（${name}），在设置 › 云端模型里改；选一只本地模型会改用它。`,
-    noInstalled: '还没有装好的图像生成模型：先从下面下载一只。',
     licenseUse: '用它画出的图也只能用在非商业内容里；做要商用的视频请换别的图像模型。',
     /** 行上的「试画」与它的对话框（设计稿 image-gen.jsx `ImageProbeDialog` 的本机分支）。 */
     tryButton: '试画',
@@ -178,8 +175,8 @@ export const zhHans: ModelsMessages = {
     unset: '未设置',
     unsetDesc: '每次自己选',
     localGroup: '这台电脑',
-    localWhy: (why: string) => `${why} · 在「本地模型」里下载`,
-    cloudWhy: (why: string) => `${why} · 在「云端模型」里连接`,
+    localWhy: (why: string) => `${why} · 在下面的「本机模型」里下载`,
+    cloudWhy: (why: string) => `${why} · 在「API 提供方」里添加账号`,
     unavailable: (label: string) => `${label}（不可用）`,
   },
   codexCard: {

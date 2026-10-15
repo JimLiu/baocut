@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   MODEL_CATEGORIES,
+  MODEL_GROUP_SECTIONS,
   SETTINGS_GROUPS,
   SETTINGS_SECTIONS,
   SETTINGS_SECTION_INFO,
@@ -17,8 +18,8 @@ describe('设置分组', () => {
     expect(SETTINGS_GROUPS.find((g) => g.id === 'preferences')?.keys).toEqual(['general', 'shortcuts', 'fonts', 'downloader', 'semantic']);
   });
 
-  it('每个分节恰好属于一组，且都有标签', () => {
-    expect(SETTINGS_GROUPS.flatMap((g) => g.keys).sort()).toEqual([...SETTINGS_SECTIONS].sort());
+  it('每个分节恰好属于一组（模型组的 API 提供方、用量由设置页插入），且都有标签', () => {
+    expect([...SETTINGS_GROUPS.flatMap((g) => g.keys), ...MODEL_GROUP_SECTIONS].sort()).toEqual([...SETTINGS_SECTIONS].sort());
     expect(SETTINGS_SECTION_INFO.map((s) => s.key)).toEqual([...SETTINGS_SECTIONS]);
     const label = (key: string) => SETTINGS_SECTION_INFO.find((s) => s.key === key)?.label;
     expect(label('agent')).toBe('Agent 提供方');
@@ -26,6 +27,8 @@ describe('设置分组', () => {
     expect(label('privacy')).toBe('隐私与权限');
     expect(label('downloader')).toBe('视频下载');
     expect(label('semantic')).toBe('语义索引');
+    expect(label('providers')).toBe('API 提供方');
+    expect(label('usage')).toBe('用量');
   });
 
   it('组 id 与条目 key 不重名（S2 SideNav 共用一个 id 空间，撞名会抛 RangeError）', () => {

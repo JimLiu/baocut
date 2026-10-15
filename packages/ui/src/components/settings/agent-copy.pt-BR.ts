@@ -36,7 +36,7 @@ export const ptBR: AgentMessages = {
   emptyNoneFound: "Nenhum agente local detectado; os comuns aparecem abaixo.",
   scanProgress: "Verificando agentes",
   faqLabel: "Perguntas frequentes",
-  goCloudModels: "Ir aos modelos de nuvem",
+  goCloudModels: "Ir aos provedores de API",
   goSkills: "Ir às Skills",
 
 
@@ -169,8 +169,8 @@ export const ptBR: AgentMessages = {
     },
     {
       key: 'cloud',
-      title: "Como agente difere de modelos de nuvem?",
-      body: "Agente usa assistente local com assinatura própria para várias etapas. Nuvem executa ferramentas diretas com chave API e cobrança por uso. Configurados separadamente.",
+      title: "Como agente difere de provedores de API?",
+      body: "Agente usa assistente local com assinatura própria para várias etapas. Modelos de provedores de API executam ferramentas diretas com chave API e cobrança por uso. Configurados separadamente.",
       link: "modelos",
     },
     {

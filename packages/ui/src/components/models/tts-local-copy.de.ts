@@ -4,11 +4,6 @@ export const de: TtsLocalMessages = {
   ttsLocal: {
 
     unset: "Nicht festgelegt",
-    defaultDesc: "Für neue Syntheseaufgaben vorausgewählt. Ohne Standard muss jedes Mal ein Modell gewählt werden; manuelle Auswahl hat immer Vorrang.",
-    cloudDefault: (name: string) =>
-      `Der Standard ist ein Cloud-Modell (${name}); unter Einstellungen › Cloud-Modelle ändern. Auswahl eines lokalen Modells wechselt zu diesem.`,
-    noInstalled: "Noch kein Sprachsynthesemodell installiert. Zuerst eines unten herunterladen.",
-
     audition: "Vorschau",
     hideAudition: "Vorschau ausblenden",
     engine: "Engine",
