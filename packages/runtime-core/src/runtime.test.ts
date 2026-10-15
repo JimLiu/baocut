@@ -11,6 +11,7 @@ import type { AgentDriver, AgentEvent, AgentSession, ApprovalResponse, CreateSes
 import { Harness } from '@baocut/harness';
 import { applyModelsEvent, applySettingsEvent, applySpaceEvent, applyTasksEvent } from '@baocut/client';
 import { JobManager } from '@baocut/jobs';
+import { platformBundles } from '@baocut/models';
 import { NodeInitiator, NodeService } from '@baocut/nodes';
 import {
   RpcError,
@@ -1202,7 +1203,19 @@ describe('Runtime（假 Driver）', () => {
     expect(settings).toEqual({ 'updates.autoCheck': false, 'downloads.directory': '/tmp/baocut-downloads', 'offline.strict': false });
   });
 
-  it('界面语言：改了 ui.language，不做别的操作，models 主题里的厂商名与模型包名就换成新语言', async () => {
+  it.each([
+    ['darwin', 'arm64'],
+    ['linux', 'x64'],
+    ['win32', 'x64'],
+  ] as const)('界面语言（%s/%s 目录）：改了 ui.language，models 主题里的厂商名与模型包名就换成新语言', async (platform, arch) => {
+    // 用各平台真实登记的目录跑同一条网关流程，不加载模型、不模拟宿主操作系统。
+    client.close();
+    await runtime.close();
+    runtime = await startRuntime({
+      home: resolveRuntimeHome({ BAOCUT_HOME: dir }), drivers: () => [driver], watchSpace: false,
+      modelInstall: { bundles: platformBundles(platform, arch) },
+    });
+    client = await connect();
     // 测试进程钉在简体中文（BAOCUT_LOCALE）：清掉它，让 Runtime 按 ui.language 换语言。
     vi.stubEnv('BAOCUT_LOCALE', '');
     try {
@@ -1219,7 +1232,7 @@ describe('Runtime（假 Driver）', () => {
         (mirror as ModelsSnapshot | null)?.capabilities.synthesizeSpeech.providers.find((p) => p.providerId === 'volcengine-speech')?.label;
       const diarizer = () => (mirror as ModelsSnapshot | null)?.bundles.find((b) => b.capability === 'diarize')?.label;
       // 名字不随语言变、只有许可说明随语言变的模型包也要送到。
-      const license = () => (mirror as ModelsSnapshot | null)?.bundles.find((b) => b.bundleId === 'qwen3-asr-1.7b@mlx-8bit')?.license?.summary;
+      const license = () => (mirror as ModelsSnapshot | null)?.bundles.find((b) => b.bundleId.startsWith('qwen3-asr-1.7b@'))?.license?.summary;
       await until(() => vendor() === '火山引擎（豆包语音）' && diarizer() === '说话人区分' && license()?.startsWith('上游 Qwen3-ASR'));
 
       await client.request('settings.set', { values: { 'ui.language': 'en' } });
@@ -1233,6 +1246,8 @@ describe('Runtime（假 Driver）', () => {
       fresh.subscribeModels({ snapshot: (s) => void (snapshot = s), event: () => {} });
       const reread = await until<ModelsSnapshot>(() => (snapshot as ModelsSnapshot | null) ?? undefined);
       expect(reread.capabilities.synthesizeSpeech.providers.find((p) => p.providerId === 'volcengine-speech')?.label).toBe('Volcengine (Doubao Speech)');
+      expect(reread.bundles.find((b) => b.capability === 'diarize')?.label).toBe('Speaker diarization');
+      expect(reread.bundles.find((b) => b.bundleId.startsWith('qwen3-asr-1.7b@'))?.license?.summary).toMatch(/^The upstream Qwen3-ASR/);
       fresh.close();
     } finally {
       vi.unstubAllEnvs();
