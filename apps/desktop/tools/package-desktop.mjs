@@ -14,7 +14,7 @@
 //    不直接打 apps/desktop：它的 dependencies 里有工作区的 TypeScript 包与只给渲染进程用的 React，会被原样塞进 asar。
 // 3. 资源按 `src/main/packaged-resources.ts`（主进程启动 Runtime 时用的同一份）放到 `<resources>` 下：bin/（Worker、凭据助手，
 //    CUDA 版另带 NVIDIA 运行库；bin/audiocpp/ 是内置的 audio.cpp 引擎，本地语音合成与音乐共用，由 tools/fetch-audiocpp.ts 按目标平台
-//    从上游发布页取、核对 sha256：Mac 取 Metal 包，Windows 标准版取 CPU 包，CUDA 版与 Vulkan 版取 Vulkan 包）、templates/、skills/（说明书与内置 skill）、model-assets/、web/、slides-editor/、design-editor/、
+//    从上游发布页取、核对 sha256：Mac 取 Metal 包，Windows 标准版取 CPU 包，CUDA 版与 Vulkan 版取 Vulkan 包）、templates/、stickers/（随包贴纸）、skills/（说明书与内置 skill）、model-assets/、web/、slides-editor/、design-editor/、
 //    design-system-editor/、docs-editor/。都在 asar 外面，子进程要按路径读。
 // 4. electron-builder 出包。它会把 Electron 的 win32-x64 发行包与 NSIS 工具下到自己的缓存目录（~/Library/Caches/electron-builder 等）。
 // 5. 核对解开的包：resources 里的每一项都在，asar 里有主进程、Runtime 与 editor.wasm。在 Windows 上另由 check-packaged-app.mjs 真跑一遍。
@@ -387,6 +387,7 @@ try {
     cpSync(metallib, path.join(bin, 'mlx.metallib'));
   }
   cpSync(path.join(ROOT, 'templates'), path.join(resDir, RESOURCE_DIRS.templates), { recursive: true });
+  cpSync(path.join(ROOT, 'stickers'), path.join(resDir, RESOURCE_DIRS.stickers), { recursive: true });
   cpSync(path.join(ROOT, 'skills'), path.join(resDir, RESOURCE_DIRS.skills), { recursive: true });
   cpSync(path.join(ROOT, 'packages/models/assets'), path.join(resDir, RESOURCE_DIRS.modelAssets), { recursive: true });
   cpSync(path.join(ROOT, 'apps/web/dist'), path.join(resDir, RESOURCE_DIRS.web), { recursive: true });

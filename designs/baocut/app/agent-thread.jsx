@@ -247,10 +247,12 @@
     const [reading, setReading] = useState(false);
     /* 「+ › 使用 Skill」选的那个：挂在输入框上，发送时提示词末尾带一行；换会话就清掉。 */
     const [skillId, setSkillId] = useState(null);
+    /* 项目的 BRAND.md 每条消息自动带；brandOff = 只有这条消息不用（输入框上点掉「品牌」标签，发出后复原） */
+    const [brandOff, setBrandOff] = useState(false);
     const skill = window.BC_AGENT_SKILLS.byId(app.agentSkills, skillId);
     const owner = useRef(sess.id);
     owner.current = sess.id;
-    useEffect(() => { setDraft(sess.draft || ''); setAttachments(sess.draftAttachments || []); setSkillId(null); }, [sess.id]);
+    useEffect(() => { setDraft(sess.draft || ''); setAttachments(sess.draftAttachments || []); setSkillId(null); setBrandOff(false); }, [sess.id]);
     const addFiles = async (files) => {
       if (reading || off) return;
       const key = sess.id;
@@ -305,8 +307,10 @@
     const notesCount = slideNotes.length + designNotes.length + systemNotes.length + videoNotes.length + docsNotes.length;
     const send = () => {
       if (off || reading || busy || (!draft.trim() && !attachments.length && !reference && !notesCount)) return;
-      onSend(window.BC_AGENT_SKILLS.withSkill(draft.trim(), skill), attachments, reference, slideNotes, designNotes, systemNotes, videoNotes, docsNotes);
-      setDraft(''); setSkillId(null);
+      const PB = window.BC_PROJECT_BRAND;
+      const text = window.BC_AGENT_SKILLS.withSkill(draft.trim(), skill);
+      onSend(brandOff && PB && PB.hasBrand(app.projectBrands, dirId) ? PB.withoutBrand(text) : text, attachments, reference, slideNotes, designNotes, systemNotes, videoNotes, docsNotes);
+      setDraft(''); setSkillId(null); setBrandOff(false);
       if (videoNotes.length) app.setVideoNotes(sess.project, []);
       setAttachments([]); onPatch({draftAttachments: [], ...(reference ? {draftReference: null} : {}), ...(slideNotes.length ? {draftSlideAnnotations: []} : {}),
         ...(designNotes.length ? {draftDesignAnnotations: []} : {}), ...(systemNotes.length ? {draftDesignSystemAnnotations: []} : {}),
@@ -365,6 +369,7 @@
           canSubmit={!off && !reading && (!!draft.trim() || !!attachments.length || !!reference || !!notesCount)} hasAttachments={!!attachments.length || !!reference || !!notesCount}
           renderCompletions={completions}
           attachments={<><window.ComposerSkillToken skill={skill} onRemove={() => setSkillId(null)} />
+            {window.ComposerBrandToken ? <window.ComposerBrandToken dirId={dirId} off={brandOff} onToggle={setBrandOff} /> : null}
             <window.ComposerRefToken reference={reference} onRemove={() => onPatch({draftReference: null})} />
             {/* 只读检索范围跟着会话走；只有「不属于项目的视频」显示标签，点 × 收回（同 Electron 的输入框） */}
             <window.ComposerReadScopeToken scope={sess.readScope} onRemove={() => {

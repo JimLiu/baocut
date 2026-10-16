@@ -88,6 +88,7 @@ npm run package:win:vulkan   # Vulkan 版：Whisper 用 Vulkan GPU（candle 仍�
 | --- | --- | --- |
 | `bin/` | `engine-host`、`export-worker`、`model-worker`、`speech-worker`、`credential-helper` 的 `.exe`；CUDA 版另有 NVIDIA 运行库与说明 | `BAOCUT_BIN_DIR` |
 | `templates/` | 仓库根的 `templates/` | `BAOCUT_TEMPLATES_DIR` |
+| `stickers/` | 仓库根的 `stickers/`：元素面板的随包贴纸（SVG 与 Lottie）、来源与许可 | `BAOCUT_STICKERS_DIR` |
 | `skills/` | 仓库根的 `skills/`：说明书 `baocut/` 与它下面的内置 skill `baocut/built-in-skills/` | `BAOCUT_AGENT_SKILLS_DIR`（`skills/`）、`BAOCUT_SKILLS_DIR`（`skills/baocut/built-in-skills/`） |
 | `model-assets/` | `packages/models/assets` | `BAOCUT_MODEL_ASSETS_DIR` |
 | `web/` | `apps/web/dist` | `BAOCUT_WEB_DIST` |

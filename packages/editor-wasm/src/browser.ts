@@ -51,6 +51,15 @@ export const {
   audioSheet,
   sfxRender,
   sfxRecipes,
+  templateCatalog,
+  templateNewLayer,
+  templateBlank,
+  templateInstance,
+  templateDefinition,
+  templateInfo,
+  templateRatioEquivalent,
+  templateBox,
+  templateHit,
 } = semanticsApi(editorSemantics);
 
 /** 与 Node 一侧同名，浏览器里没有文件路径。 */

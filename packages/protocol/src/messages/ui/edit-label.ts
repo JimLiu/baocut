@@ -123,6 +123,13 @@ const en = {
   removeDubGroup: (p: { language: string }) => `Remove voice-over (${languageName('en', p.language)})`,
   removeThisDubGroup: 'Remove this voice-over group',
   stretchDub: 'Change voice-over speed',
+  // 模板层（视频格式规范 §3.17）
+  applyTemplate: (p: { name: string }) => `Apply template “${p.name}”`,
+  removeTemplate: 'Remove template',
+  editTemplate: 'Edit template',
+  editTemplateLayout: 'Edit template layout',
+  lockTemplateRatio: 'Lock aspect ratio to template',
+  unlockTemplateRatio: 'Unlock template aspect ratio',
 };
 
 export type EditLabelMessages = typeof en;

@@ -157,10 +157,10 @@ const en = {
   shapeName: (name: string) => `Shape · ${name}`,
   stickerName: (label: string) => `Sticker · ${label}`,
   sections: {
-    sticker: { title: 'Stickers', note: '10 built-in + brand library' },
+    sticker: { title: 'Stickers', note: '16 packs + 10 built-in + brand kit' },
     dynamic: {
       title: 'Animated stickers',
-      note: '10 confetti + Lottie from the brand library',
+      note: '5 Noto Lottie packs + 10 confetti + brand kit',
     },
     shape: { title: 'Shapes', note: '23 tiles · 5-color cycle' },
     visualizer: {

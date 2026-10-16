@@ -21,6 +21,7 @@
 //! - `bc_speaker_proposal` / `bc_apply_speakers`：已有转写的识别说话人，见 [`speakers`]；
 //! - `bc_source_chapters`：来源自带章节（平台的 `chapters[]`、简介里的时间戳大纲或显式大纲）的解析与吸附，见 [`source_chapters`]；
 //! - `bc_audio_analysis` / `bc_audio_sheet` / `bc_sfx_render` / `bc_sfx_recipes`：音频的逐帧特征与节拍、听音表、程序化音效，见 [`audio`]（前三个的输入或输出是二进制）。
+//! - `bc_template_*`：模板层的目录、新建一层、定义与实例互换、派生量、版面框几何与命中，见 [`templates`]。
 
 pub mod audio;
 pub mod presets;
@@ -28,6 +29,7 @@ pub mod ranges;
 pub mod source_chapters;
 pub mod speakers;
 pub mod stage;
+pub mod templates;
 
 use std::cell::RefCell;
 
@@ -170,6 +172,15 @@ export! {
     bc_source_chapters => source_chapters::source_chapters;
     bc_audio_analysis => audio::audio_analysis;
     bc_sfx_recipes => audio::sfx_recipes;
+    bc_template_catalog => templates::template_catalog;
+    bc_template_new_layer => templates::template_new_layer;
+    bc_template_blank => templates::template_blank;
+    bc_template_instance => templates::template_instance;
+    bc_template_definition => templates::template_definition;
+    bc_template_info => templates::template_info;
+    bc_template_ratio_equivalent => templates::template_ratio_equivalent;
+    bc_template_box => templates::template_box;
+    bc_template_hit => templates::template_hit;
 }
 
 export! {

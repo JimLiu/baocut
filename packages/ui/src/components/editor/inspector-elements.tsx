@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type {
+  AssetRecord,
   CompositionItem,
   ConfettiItem,
   CounterProps,
@@ -7,6 +8,7 @@ import type {
   ShapeItem,
   StickerItem,
   TextItem,
+  VersionRef,
   VisualItem,
   VisualizerItem,
 } from '@baocut/protocol';
@@ -25,6 +27,7 @@ import { TransitionSection } from './inspector-transition.tsx';
 import { TextStyleEditor } from './inspector-text-style.tsx';
 import { ConfettiParams } from './inspector-confetti.tsx';
 import { ProgressParams, VisualizerParams } from './inspector-visualizers.tsx';
+import { useStickerFills } from './use-sticker-fills.ts';
 import { INSPECTOR_COPY as IC } from './inspector-copy.ts';
 
 const textArea = style({ width: 'full' });
@@ -207,11 +210,11 @@ export function ShapePage(props: ItemPageProps<ShapeItem>) {
   );
 }
 
-/** 生成类元素页的标题（贴纸、计数器、进度条、声波；计数器与时间线块的类别同名）。 */
-export function elementTitle(item: VisualItem): string {
+/** 生成类元素页的标题（贴纸、计数器、进度条、声波；计数器与时间线块的类别同名）。素材贴纸按素材分：Lottie 与 GIF 是动态贴纸。 */
+export function elementTitle(item: VisualItem, assets: Record<string, AssetRecord> = {}): string {
   switch (item.type) {
     case 'sticker':
-      return item.sticker.source === 'asset' ? IC.titleAnimatedSticker : IC.titleSticker;
+      return item.sticker.source === 'asset' && isAnimatedAsset(item.assetRef, assets) ? IC.titleAnimatedSticker : IC.titleSticker;
     case 'text':
       return item.counter ? IC.titleCounter : IC.titleText;
     case 'progress':
@@ -256,12 +259,29 @@ function ElementPage({ children, ...props }: ItemPageProps<VisualItem> & { child
   );
 }
 
-/** 贴纸：模板贴纸换色，动画贴纸选播放方式。 */
+/** 素材贴纸动不动：Lottie 与 GIF 动；素材还没到（或不认得）时按动的算，播放方式那一节照给。 */
+function isAnimatedAsset(ref: VersionRef | undefined, assets: Record<string, AssetRecord>): boolean {
+  const asset = ref ? assets[ref.id] : undefined;
+  if (!asset) return true;
+  return asset.kind === 'lottie' || asset.revisions[ref!.revision]?.mediaType === 'image/gif';
+}
+
+/** 贴纸：模板贴纸按模板的颜色换色；素材贴纸（SVG、Lottie）按素材里读出来的颜色换色，会动的再选播放方式。 */
 export function StickerPage(props: ItemPageProps<StickerItem>) {
   const params = kindParams(props, asObject(props.item.sticker));
+  const { item, assets } = props;
+  const fills = useStickerFills(item.sticker.source === 'asset' ? item.assetRef : undefined, assets);
+  if (item.sticker.source !== 'asset') {
+    return (
+      <ElementPage {...props}>
+        <StickerParams {...params} />
+      </ElementPage>
+    );
+  }
   return (
     <ElementPage {...props}>
-      {props.item.sticker.source === 'asset' ? <LottieParams {...params} /> : <StickerParams {...params} />}
+      {fills.length ? <FillColors first sources={fills} {...params} /> : null}
+      {isAnimatedAsset(item.assetRef, assets) ? <LottieParams first={!fills.length} {...params} /> : null}
     </ElementPage>
   );
 }
@@ -318,7 +338,7 @@ export function OtherElementPage(props: ItemPageProps<VisualItem>) {
   return (
     <ElementPage {...props}>
       <SecHead first>{IC.params}</SecHead>
-      <Note>{IC.paramsReadOnly(elementTitle(props.item))}</Note>
+      <Note>{IC.paramsReadOnly(elementTitle(props.item, props.assets))}</Note>
     </ElementPage>
   );
 }
@@ -347,11 +367,36 @@ interface ParamProps {
 }
 
 /** 贴纸：模板里的每一种颜色一枚色点，换色写进 `fillOverrides`（键是模板原色）。 */
-function StickerParams({ values, isDisabled, live, commit }: ParamProps) {
-  const templateId = typeof values.templateId === 'string' ? values.templateId : '';
+function StickerParams(props: ParamProps) {
+  const templateId = typeof props.values.templateId === 'string' ? props.values.templateId : '';
   const layers = STICKER_TEMPLATES[templateId];
+  if (!layers) {
+    return (
+      <>
+        <SecHead first aside={templateId || undefined}>
+          {IC.color}
+        </SecHead>
+        <Sec>
+          <Note>{IC.stickerUnknown(templateId)}</Note>
+        </Sec>
+      </>
+    );
+  }
+  const sources = [...new Set(layers.flatMap((layer) => [layer.fill, layer.stroke]).filter((c): c is string => !!c))];
+  return <FillColors first aside={templateId} sources={sources} {...props} />;
+}
+
+/** 一种源色一枚色点（原型的色卡）：换色写进 `fillOverrides`，键是源色，比较时不分大小写。 */
+function FillColors({
+  sources,
+  aside,
+  first,
+  values,
+  isDisabled,
+  live,
+  commit,
+}: ParamProps & { sources: readonly string[]; aside?: string; first?: boolean }) {
   const overrides = asObject(values.fillOverrides);
-  const sources = [...new Set((layers ?? []).flatMap((layer) => [layer.fill, layer.stroke]).filter((c): c is string => !!c))];
   const overrideOf = (source: string) => Object.entries(overrides).find(([from]) => from.toLowerCase() === source.toLowerCase());
   const withOverride = (source: string, color: string) => {
     const next = Object.fromEntries(Object.entries(overrides).filter(([from]) => from.toLowerCase() !== source.toLowerCase()));
@@ -360,8 +405,8 @@ function StickerParams({ values, isDisabled, live, commit }: ParamProps) {
   return (
     <>
       <SecHead
-        first
-        aside={templateId || undefined}
+        first={first}
+        aside={aside || undefined}
         action={
           Object.keys(overrides).length ? (
             <ActionButton isQuiet size="XS" isDisabled={isDisabled} onPress={() => commit({ fillOverrides: {} })}>
@@ -372,23 +417,19 @@ function StickerParams({ values, isDisabled, live, commit }: ParamProps) {
         {IC.color}
       </SecHead>
       <Sec>
-        {layers ? (
-          <div className={dots}>
-            {sources.map((source) => (
-              <ColorField
-                key={source}
-                label={IC.replaceColor(source)}
-                value={overrideOf(source)?.[1] ?? source}
-                fallback={source}
-                isDisabled={isDisabled}
-                onLive={(color) => live(withOverride(source, color))}
-                onCommit={(color) => commit(withOverride(source, color))}
-              />
-            ))}
-          </div>
-        ) : (
-          <Note>{IC.stickerUnknown(templateId)}</Note>
-        )}
+        <div className={dots}>
+          {sources.map((source) => (
+            <ColorField
+              key={source}
+              label={IC.replaceColor(source)}
+              value={overrideOf(source)?.[1] ?? source}
+              fallback={source}
+              isDisabled={isDisabled}
+              onLive={(color) => live(withOverride(source, color))}
+              onCommit={(color) => commit(withOverride(source, color))}
+            />
+          ))}
+        </div>
       </Sec>
     </>
   );
@@ -416,11 +457,11 @@ const LOOPS = [
 ] as const;
 
 /** Lottie：循环播放、只播一次（停在最后一帧）或定格在开头。 */
-function LottieParams({ values, isDisabled, commit }: ParamProps) {
+function LottieParams({ values, isDisabled, commit, first }: ParamProps & { first?: boolean }) {
   const loop = values.loop === 'once' || values.loop === 'hold' ? values.loop : 'loop';
   return (
     <>
-      <SecHead first>{IC.playback}</SecHead>
+      <SecHead first={first}>{IC.playback}</SecHead>
       <Sec>
         <Seg label={IC.playMode} value={loop} options={LOOPS} isDisabled={isDisabled} onChange={(key) => commit({ loop: key })} />
       </Sec>

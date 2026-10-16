@@ -158,21 +158,31 @@
     });
     return out;
   }
-  /** Markdown 正文 → {frontmatter, blocks}。frontmatter 原样（按代码块画）；块只认标题、列表、代码块与段落。 */
+  /** Markdown 正文 → {frontmatter, blocks}。frontmatter 原样（按代码块画）；块只认标题、列表、表格、代码块与段落。 */
   function fileBlocks(body) {
     let text = String(body || '').replace(/\r\n/g, '\n');
     let frontmatter = null;
     const fm = /^---\n([\s\S]*?)\n---\n?/.exec(text);
     if (fm) { frontmatter = fm[1]; text = text.slice(fm[0].length); }
     const blocks = [];
-    let para = [], code = null;
-    const flush = () => { if (para.length) { blocks.push({type: 'p', text: para.join(' ')}); para = []; } };
+    let para = [], code = null, table = null;
+    const flush = () => {
+      if (para.length) { blocks.push({type: 'p', text: para.join(' ')}); para = []; }
+      if (table) { blocks.push({type: 'table', rows: table}); table = null; }
+    };
+    const cells = (line) => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
     text.split('\n').forEach((line) => {
       if (/^```/.test(line)) {
         if (code) { blocks.push({type: 'code', text: code.join('\n')}); code = null; } else { flush(); code = []; }
         return;
       }
       if (code) { code.push(line); return; }
+      if (/^\s*\|/.test(line)) {   // 表格：第一行是表头，分隔行（| --- |）略过
+        if (para.length) { blocks.push({type: 'p', text: para.join(' ')}); para = []; }
+        if (!/^\s*\|?[\s:|-]+$/.test(line)) (table = table || []).push(cells(line));
+        return;
+      }
+      if (table) flush();
       const h = /^(#{1,3})\s+(.*)$/.exec(line);
       const li = /^\s*(?:[-*]|(\d+)[.)])\s+(.*)$/.exec(line);
       if (h) { flush(); blocks.push({type: 'h' + h[1].length, text: h[2]}); }
@@ -191,8 +201,10 @@
     const base = demo || [];
     const enabled = {};
     (list || []).forEach((s) => { const d = byId(base, s.id); if (d && !!d.enabled !== !!s.enabled) enabled[s.id] = !!s.enabled; });
+    /* 改过内容的演示 skill（在 Skills 页编辑或上传了新版本）整条存下来 */
+    const changed = (list || []).filter((s) => { const d = byId(base, s.id); return d && (s.files !== d.files || s.version !== d.version); });
     return {enabled, added: (list || []).filter((s) => !byId(base, s.id)),
-      removed: base.filter((d) => !byId(list, d.id)).map((d) => d.id)};
+      removed: base.filter((d) => !byId(list, d.id)).map((d) => d.id), changed};
   }
   /** demo + 差量 → 列表；差量坏了或缺字段时回到 demo。 */
   function apply(demo, saved) {
@@ -200,7 +212,9 @@
     const removed = Array.isArray(sv.removed) ? sv.removed : [];
     const en = sv.enabled && typeof sv.enabled === 'object' ? sv.enabled : {};
     const base = (demo || []).filter((d) => d.source === 'builtin' || !removed.includes(d.id))
-      .map((d) => (Object.prototype.hasOwnProperty.call(en, d.id) ? {...d, enabled: !!en[d.id]} : {...d}));
+      .map((d) => (Object.prototype.hasOwnProperty.call(en, d.id) ? {...d, enabled: !!en[d.id]} : {...d}))
+      .map((d) => { const c = (Array.isArray(sv.changed) ? sv.changed : []).find((x) => x && x.id === d.id && Array.isArray(x.files));
+        return c && d.source !== 'builtin' ? {...c, enabled: d.enabled} : d; });
     const added = (Array.isArray(sv.added) ? sv.added : []).filter((s) => s && s.id && s.name && !byId(base, s.id));
     return added.concat(base);
   }

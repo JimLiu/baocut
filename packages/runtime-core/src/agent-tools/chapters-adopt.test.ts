@@ -237,6 +237,53 @@ describe.skipIf(!engine || !ffmpeg || !editorWasmAvailable())('chapters_adopt（
     expect(plan.notes).toEqual(expect.arrayContaining([expect.stringContaining('没有转写')]));
   });
 
+  it('yt-dlp 的占位名（<Untitled Chapter N>）保留分界、标 untitled，不写进章节；按转写补上标题后用 outline 采用', async () => {
+    // 平台第一章在 0:09，yt-dlp 补了 0:00 的开头一章。
+    const placeholder = {
+      ...source,
+      chapters: [
+        { start: 0, end: 9, title: '<Untitled Chapter 1>' },
+        { start: 9, end: 20, title: 'Demo' },
+      ],
+    };
+    const { videoId, assetId } = await talkVideo({ provenance: { origin: 'link-import', source: placeholder } });
+    const inspected = await ok('videos_inspect', { video: videoId });
+    expect((inspected.assets as Loose[]).find((asset) => asset.id === assetId)?.source.chapters).toEqual([
+      { at: 0, title: 'Untitled Chapter 1', untitled: true },
+      { at: 9, title: 'Demo' },
+    ]);
+
+    const plan = await ok('chapters_adopt', { video: videoId, dryRun: true });
+    expect(plan.sourceChapters.rows[0]).toMatchObject({ title: 'Untitled Chapter 1', at: 0, sourceAt: 0, untitled: true });
+    expect(plan.sourceChapters.rows[1]).not.toHaveProperty('untitled');
+    expect(plan.notes).toEqual(expect.arrayContaining([expect.stringContaining('占位名')]));
+    expect(plan.next).toContain('outline');
+
+    const before = video(videoId).revision;
+    const refused = await call('chapters_adopt', { video: videoId });
+    expect(refused.ok).toBe(false);
+    if (refused.ok) return;
+    expect(refused.error).toMatchObject({
+      code: 'UNTITLED_SOURCE_CHAPTERS',
+      assetId,
+      rows: [
+        { title: 'Untitled Chapter 1', sourceAt: 0, untitled: true },
+        { title: 'Demo', sourceAt: 10 },
+      ],
+    });
+    expect(video(videoId).revision).toBe(before);
+    // 照抄占位名的大纲同样拒绝。
+    expect(await code('chapters_adopt', { video: videoId, outline: [{ at: 0, title: 'Untitled Chapter 1' }, { at: 10, title: 'Demo' }] })).toBe(
+      'UNTITLED_SOURCE_CHAPTERS',
+    );
+
+    await ok('chapters_adopt', { video: videoId, outline: [{ at: 0, title: 'Welcome' }, { at: 10, title: 'Demo' }] });
+    expect(chapters(videoId)).toEqual([
+      { frame: 0, label: 'Welcome' },
+      { frame: 300, label: 'Demo' },
+    ]);
+  });
+
   it('拒绝：没有来源章节（NO_SOURCE_CHAPTERS）、素材不在时间线上（ASSET_NOT_PLACED）', async () => {
     const plain = await talkVideo({});
     expect(await code('chapters_adopt', { video: plain.videoId })).toBe('NO_SOURCE_CHAPTERS');

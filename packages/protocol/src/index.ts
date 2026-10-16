@@ -24,6 +24,7 @@ export * from './external-tools.ts';
 export * from './fonts.ts';
 export * from './tool-catalogue.ts';
 export * from './template.ts';
+export * from './sticker-packs.ts';
 export * from './skill.ts';
 export * from './nodes.ts';
 export * from './settings.ts';

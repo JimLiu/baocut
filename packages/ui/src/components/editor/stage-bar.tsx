@@ -27,7 +27,9 @@ import AspectRatio from '@react-spectrum/s2/icons/AspectRatio';
 import CloseCaptions from '@react-spectrum/s2/icons/CloseCaptions';
 import Comment from '@react-spectrum/s2/icons/Comment';
 import FullScreen from '@react-spectrum/s2/icons/FullScreen';
+import Lock from '@react-spectrum/s2/icons/Lock';
 import SpeedFast from '@react-spectrum/s2/icons/SpeedFast';
+import TemplateIcon from '@react-spectrum/s2/icons/Template';
 import VolumeOff from '@react-spectrum/s2/icons/VolumeOff';
 import VolumeOne from '@react-spectrum/s2/icons/VolumeOne';
 import VolumeTwo from '@react-spectrum/s2/icons/VolumeTwo';
@@ -37,6 +39,7 @@ import { Slider, SliderThumb, SliderTrack } from 'react-aria-components/Slider';
 import { TooltipContext, TooltipTriggerStateContext } from 'react-aria-components/Tooltip';
 import { VIDEO_NOTES } from '../../model/video-annotations-copy.ts';
 import { monitorGain, monitorLevel, toggleMute, type MonitorLevel } from '../../model/preview-volume.ts';
+import { canvasAllowed, ratioLockOf } from '../../model/template-layers.ts';
 import {
   CANVAS_SIDE_MAX,
   ORIGINAL_RATIO,
@@ -60,6 +63,8 @@ import { useEditorActions } from './editor-context.tsx';
 import { FULLSCREEN_PLAYER_COPY as F } from './fullscreen-player-copy.ts';
 import { enterPreviewFullscreen } from './fullscreen-player.tsx';
 import { STAGE_BAR_COPY as S } from './stage-bar-copy.ts';
+import { TEMPLATE_COPY as TC } from './template-copy.ts';
+import { ratioLabel } from './use-template-actions.ts';
 import './editor.css';
 
 /**
@@ -180,9 +185,17 @@ function RatioPicker({ sequence, assets }: { sequence: Sequence; assets: Record<
   const text = ratioText(canvas);
   const portrait = isPortrait(canvas);
 
+  // 模板锁着画幅时（原型第 218 轮）：只有锁定的那一档能点，自定义灰掉；表头一项说明是哪套模板锁的、点它去模板设置解锁。
+  const lock = ratioLockOf(sequence.template);
+  const lockedOut = (key: string) => {
+    const next = stageRatioCanvas(canvas, key, original);
+    return !!lock && (!next || !canvasAllowed(sequence.template, next, original));
+  };
+
   const change = (next: { width: number; height: number }, ratio: string | Localized) =>
     apply([{ type: 'updateSequence', sequenceId: sequence.id, canvas: next }], EditLabel.aspectRatio({ ratio }));
   const run = (key: string) => {
+    if (key === 'template') return useEditor.getState().focusTemplate(true);
     if (key === 'custom') return setCustom(true);
     if (key === 'safe') return setSafeArea(!safeArea);
     const next = stageRatioCanvas(canvas, key, original);
@@ -190,31 +203,49 @@ function RatioPicker({ sequence, assets }: { sequence: Sequence; assets: Record<
     void change(next, key === ORIGINAL_RATIO ? EditLabel.originalRatio() : key);
   };
   const ratioKeys = [ORIGINAL_RATIO, ...STAGE_RATIOS.map((r) => r.key)];
-  const disabled = [...(editable ? [] : [...ratioKeys, 'custom']), ...(original ? [] : [ORIGINAL_RATIO]), ...(portrait ? [] : ['safe'])];
-  const tip = editable ? S.ratio : S.ratioReadOnly;
+  const disabled = [
+    ...(editable ? [] : [...ratioKeys, 'custom']),
+    ...(original ? [] : [ORIGINAL_RATIO]),
+    ...(portrait ? [] : ['safe']),
+    ...(lock ? [...ratioKeys.filter(lockedOut), 'custom'] : []),
+  ];
+  const tip = lock ? TC.lockTip(lock.name, ratioLabel(lock.ratio)) : editable ? S.ratio : S.ratioReadOnly;
+  const lockedHere = (key: string) => (lock && !lockedOut(key) ? <Text slot="description">{TC.lockedByTemplate}</Text> : null);
 
   return (
     <>
       <MenuTrigger align="start" direction="top">
         <Tip label={tip}>
           <ActionButton size="S" isQuiet aria-label={`${S.ratio} ${text}`}>
-            <AspectRatio />
+            {lock ? <Lock /> : <AspectRatio />}
             <Text UNSAFE_className="bc-tabular" styles={chipText}>
               {text}
             </Text>
           </ActionButton>
         </Tip>
         <Menu aria-label={S.ratio} disabledKeys={disabled} onAction={(key) => run(String(key))}>
+          {lock ? (
+            <MenuSection aria-label={TC.lockNoteTitle}>
+              <MenuItem id="template" textValue={TC.goToTemplate}>
+                <TemplateIcon />
+                <Text slot="label">{TC.goToTemplate}</Text>
+                <Text slot="description">{TC.lockNoteBody(lock.name, ratioLabel(lock.ratio))}</Text>
+              </MenuItem>
+            </MenuSection>
+          ) : null}
           <MenuSection aria-label={S.ratio} selectionMode="single" selectedKeys={current ? [current] : []}>
             <MenuItem id={ORIGINAL_RATIO} textValue={S.original}>
               <Text slot="label">{S.original}</Text>
-              <Text slot="description">{original ? S.originalHint(ratioText(original)) : S.originalNone}</Text>
+              {lockedHere(ORIGINAL_RATIO) ?? (
+                <Text slot="description">{original ? S.originalHint(ratioText(original)) : S.originalNone}</Text>
+              )}
             </MenuItem>
             {STAGE_RATIOS.map((r) => (
               <MenuItem key={r.key} id={r.key} textValue={r.key}>
                 <Text slot="label" UNSAFE_className="bc-tabular">
                   {r.key}
                 </Text>
+                {lockedHere(r.key)}
               </MenuItem>
             ))}
           </MenuSection>

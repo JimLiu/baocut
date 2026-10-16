@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { Id, Revision, VideoAnnotationKind } from '@baocut/protocol';
 import { mergeDraft, type ItemDraft } from '../model/item-draft.ts';
+import type { TemplateStudio } from '../model/template-studio.ts';
 import { ZOOM_DEFAULT, ZOOM_MIN, clampZoom } from '../model/timeline-zoom.ts';
 
 /**
@@ -54,6 +55,27 @@ export interface EditorStore {
    * 选中片段时清掉词选区——否则 transport 的删除钮与 ⌫ 删的是片段，不是眼前这段字。清空任一边不动另一边。
    */
   wordSelection: WordSelection | null;
+  /**
+   * 属性页显示模板（不持久化；视频格式规范 §3.17）：模板是序列的参数、不是片段，不进 `selection`。选中片段或换视频时清掉。
+   * `templateLayer` 是在舞台或属性页上点中的那一层（只决定描边与展开哪一节）。
+   */
+  templateFocus: boolean;
+  templateLayer: string | null;
+  /** 打开模板属性页（翻到属性页、清掉片段选区）；`false` 回到视频属性。 */
+  focusTemplate(on: boolean, layer?: string | null): void;
+  /**
+   * 版面编辑器的会话（不持久化；原型 `tplStudio`）：开着时舞台换成版面画布、右栏整个让给它。改的是草稿，「完成」才写回。
+   * 打开时清掉片段选区与模板属性页；换视频时关掉（草稿丢弃）。
+   */
+  templateStudio: TemplateStudio | null;
+  openStudio(studio: TemplateStudio): void;
+  updateStudio(update: (studio: TemplateStudio) => TemplateStudio): void;
+  closeStudio(): void;
+  /** 元素面板要翻到的子页（「换一套」打开模板目录）：元素面板读到后清掉。 */
+  elementsPage: 'template' | null;
+  /** 打开元素面板的模板目录。 */
+  openTemplates(): void;
+  clearElementsPage(): void;
   /** 播放头（秒）。 */
   playhead: number;
   playing: boolean;
@@ -146,6 +168,10 @@ export const useEditor = create<EditorStore>()(
       videoId: null,
       selection: [],
       wordSelection: null,
+      templateFocus: false,
+      templateLayer: null,
+      templateStudio: null,
+      elementsPage: null,
       playhead: 0,
       playing: false,
       pxPerSecond: ZOOM_DEFAULT,
@@ -164,6 +190,9 @@ export const useEditor = create<EditorStore>()(
                 videoId,
                 selection: [],
                 wordSelection: null,
+                templateFocus: false,
+                templateLayer: null,
+                templateStudio: null,
                 playhead: 0,
                 playing: false,
                 draft: null,
@@ -175,12 +204,52 @@ export const useEditor = create<EditorStore>()(
                 ...(landing ? { panelTab: landing } : {}),
               },
         ),
-      select: (selection) => set({ selection, draft: null, documentDraft: null, ...(selection.length ? { wordSelection: null } : {}) }),
+      select: (selection) =>
+        set({
+          selection,
+          draft: null,
+          documentDraft: null,
+          ...(selection.length ? { wordSelection: null, templateFocus: false, templateLayer: null } : {}),
+        }),
       toggleSelect: (id) =>
         set((s) => {
           const selection = s.selection.includes(id) ? s.selection.filter((x) => x !== id) : [...s.selection, id];
-          return { selection, draft: null, documentDraft: null, ...(selection.length ? { wordSelection: null } : {}) };
+          return {
+            selection,
+            draft: null,
+            documentDraft: null,
+            ...(selection.length ? { wordSelection: null, templateFocus: false, templateLayer: null } : {}),
+          };
         }),
+      focusTemplate: (on, layer = null) =>
+        set(
+          on
+            ? {
+                templateFocus: true,
+                templateLayer: layer,
+                selection: [],
+                draft: null,
+                documentDraft: null,
+                panelTab: 'props',
+                panelHidden: false,
+              }
+            : { templateFocus: false, templateLayer: null },
+        ),
+      openStudio: (studio) =>
+        set({
+          templateStudio: studio,
+          templateFocus: false,
+          templateLayer: null,
+          selection: [],
+          wordSelection: null,
+          draft: null,
+          documentDraft: null,
+          panelHidden: false,
+        }),
+      updateStudio: (update) => set((s) => (s.templateStudio ? { templateStudio: update(s.templateStudio) } : {})),
+      closeStudio: () => set({ templateStudio: null }),
+      openTemplates: () => set({ elementsPage: 'template', panelTab: 'elements', panelHidden: false }),
+      clearElementsPage: () => set({ elementsPage: null }),
       // 拖选每过一个词都会写一次：只有真有片段选中时才清，免得每次都换掉 `selection` 让时间线重画。
       setWordSelection: (next) =>
         set((s) => {

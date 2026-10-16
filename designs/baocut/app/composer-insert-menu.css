@@ -1,3 +1,9 @@
 /* 输入框「+」菜单选用的 skill token（composer-insert-menu.jsx）。画法同 Home 的模板 token（new-project.css 的 .home-template-token）。 */
 .cins-token { display: inline-flex; align-self: flex-start; align-items: center; gap: 6px; max-width: 100%; padding: 2px 2px 2px 8px; margin-bottom: 12px; border-radius: 8px; background: var(--gray-100); color: var(--gray-800); font-size: 12px; }
 .cins-token__note { color: var(--gray-600); }
+/* 项目品牌标签（page-project-brand.jsx）：名字可点开 BRAND.md；这条消息不用时变成虚线框，点一下恢复 */
+.cins-token__link { padding: 0; border: none; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.cins-token__link:hover { text-decoration: underline; }
+.cins-token__link:focus-visible, .cins-token--off:focus-visible { outline: 2px solid var(--blue-900); outline-offset: 2px; border-radius: 4px; }
+.cins-token--off { padding: 2px 8px; border: 1px dashed var(--gray-300); background: transparent; color: var(--gray-600); font: inherit; font-size: 12px; cursor: pointer; }
+.cins-token--off:hover { color: var(--gray-800); border-color: var(--gray-400); }

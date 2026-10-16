@@ -87,6 +87,7 @@ import type {
   SetCapabilityParametersRequest,
   TextCapabilityParameters,
 } from './models.ts';
+import type { StickerApplyParams, StickerApplyResult } from './sticker-packs.ts';
 import type {
   LibraryApplyParams,
   LibraryApplyResult,
@@ -1041,7 +1042,7 @@ export interface RpcMethods {
   'library.get': { params: LibraryEntryRef; result: { entry: LibraryEntry } };
   /**
    * 新建或修改一个条目：内容不变时不产生新版本（`changed: false`）。带文件的种类由 `source` 提供文件，Runtime 按内容识别类型，
-   * 不看扩展名。内容不合规时 `invalid-request`（`LIBRARY_FORMAT_INVALID`）；`overlayTemplate` 以 `LIBRARY_KIND_RESERVED` 拒绝。
+   * 不看扩展名。内容不合规时 `invalid-request`（`LIBRARY_FORMAT_INVALID`）。
    */
   'library.put': { params: LibraryPutParams; result: { entry: LibraryEntry; created: boolean; changed: boolean } };
   /** 删除一个条目。已经进入视频的拷贝不受影响；音色在各 Provider 上的克隆转为 `stale`。 */
@@ -1099,6 +1100,17 @@ export interface RpcMethods {
    * 没登记的路径 `not-found`（`TEMPLATE_FILE_NOT_FOUND`），模板目录里别的文件（含 `prompt.md`）也一样。
    */
   'templates.openHandle': { params: { id: string; path: string }; result: MediaHandle };
+
+  /**
+   * 随应用分发的贴纸（`sticker-packs.ts` 的目录）的短期读取句柄，同 `artifacts.openHandle`：元素面板画缩略图用。
+   * 目录里没有的 ID `not-found`（`STICKER_NOT_FOUND`）。
+   */
+  'stickers.openHandle': { params: { id: string }; result: MediaHandle };
+  /**
+   * 把一张随包贴纸拷进视频：一笔普通的编辑事务（`importAsset`，`managed`），来源记 `origin: 'sticker-pack'`、
+   * `source.stickerPack: { id }`（视频格式规范 §4.1）。之后与应用里的那份无关。放到时间线上由调用方另外编辑。
+   */
+  'stickers.applyToVideo': { params: StickerApplyParams; result: StickerApplyResult };
 
   /**
    * Agent 的 skill 目录（架构设计 §3.8）：内置目录与 `<Runtime Home>/skills/` 里的全部可用 skill、各自的开关，以及跳过的目录与原因。

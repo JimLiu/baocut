@@ -32,4 +32,5 @@ export const ja: LibraryBrandMessages = {
   styleEmpty: '字幕スタイルのドキュメントが空です',
   styleNoSchema: '字幕スタイルのドキュメントに schema がないため、ブランドキットに保存できません',
   styleTooLarge: '字幕スタイルが 64 KiB を超えています',
+  template: 'テンプレート',
 };

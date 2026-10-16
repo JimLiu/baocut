@@ -94,4 +94,10 @@ export const es: EditLabelMessages = {
   removeDubGroup: (p) => `Quitar doblaje (${languageName('es', p.language)})`,
   removeThisDubGroup: 'Quitar este grupo de doblaje',
   stretchDub: 'Cambiar velocidad del doblaje',
+  applyTemplate: (p) => `Aplicar plantilla «${p.name}»`,
+  removeTemplate: 'Quitar plantilla',
+  editTemplate: 'Editar plantilla',
+  editTemplateLayout: 'Editar diseño de plantilla',
+  lockTemplateRatio: 'Fijar relación de aspecto a la plantilla',
+  unlockTemplateRatio: 'Liberar relación de aspecto de la plantilla',
 };

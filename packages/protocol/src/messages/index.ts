@@ -18,6 +18,7 @@ import './client/index.ts';
 import './video-engine/index.ts';
 import './engine-host/index.ts';
 import './video-model/index.ts';
+import './frame-render/index.ts';
 import './editor-semantics/index.ts';
 import './message-ref/index.ts';
 import './ui/index.ts';

@@ -169,6 +169,39 @@ fn an_explicit_outline_wins_over_the_source() {
 }
 
 #[test]
+fn yt_dlp_placeholder_titles_keep_the_boundary_and_flag_the_row_untitled() {
+    // 平台第一章在 1:59，yt-dlp 补了 0:00 的开头一章、标题填 `<Untitled Chapter 1>`。
+    let result = run(json!({
+        "speech": speech(),
+        "source": { "chapters": [
+            { "start": 0, "end": 119, "title": "<Untitled Chapter 1>" },
+            { "start": 119, "title": "Goodbye" }
+        ] },
+        "durationSeconds": 600.0,
+    }));
+    assert_eq!(
+        result["sourceChapters"][0],
+        json!({ "start": 0.0, "end": 119.0, "title": "Untitled Chapter 1", "untitled": true })
+    );
+    assert_eq!(
+        result["rows"],
+        json!([
+            { "title": "Untitled Chapter 1", "start": 0.0, "end": 120.0, "status": "matched", "untitled": true },
+            { "title": "Goodbye", "start": 120.0, "end": 600.0, "status": "matched" },
+        ])
+    );
+
+    // 照抄回来的占位名在显式大纲里同样标出来。
+    let outline = run(json!({
+        "speech": speech(),
+        "outline": [{ "at": 0, "title": "Untitled Chapter 1" }, { "at": 119, "title": "Goodbye" }],
+        "durationSeconds": 600.0,
+    }));
+    assert_eq!(outline["rows"][0]["untitled"], true);
+    assert!(outline["rows"][1].get("untitled").is_none());
+}
+
+#[test]
 fn without_a_transcript_or_with_snap_off_every_entry_keeps_its_own_time() {
     let source = json!({ "chapters": [{ "start_time": 0, "end_time": 119, "title": "Intro" }, { "start_time": 119, "title": "Goodbye" }] });
     for input in [

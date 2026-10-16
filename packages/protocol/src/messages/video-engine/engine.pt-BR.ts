@@ -246,6 +246,8 @@ export const ptBR: EngineMessages = {
   updateSequenceEmpty: "updateSequence deve mudar ao menos um item",
   backgroundInvalid: "O fundo do canvas deve ser #RRGGBB",
   canvasSideRange: (p) => `Cada lado do canvas deve ter de 1 a ${p.max} pixels`,
+  templateRatioLocked: (p) => `O template “${p.template}” trava a proporção em ${p.ratio}; o canvas só pode mudar dentro dessa proporção`,
+  templateRatioLockedRecovery: 'Destrave primeiro a proporção do template e depois altere o canvas',
   collectAssetsEmpty: "collectAssets exige ao menos uma entrada",
   trackNotEmpty: (p) => `A faixa ${p.track} ainda tem clipes (${p.count}); só uma faixa vazia pode ser excluída`,
   trackNotEmptyRecovery: "Primeiro exclua os clipes (deleteItems) ou mova-os para outra faixa (moveItem) e depois exclua a faixa",

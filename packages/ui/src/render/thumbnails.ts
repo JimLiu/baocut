@@ -1,4 +1,15 @@
-import type { AssetRecord, Id, Rate, Sequence, SequenceItem, Track, VersionRef } from '@baocut/protocol';
+import {
+  localizeText,
+  type AssetRecord,
+  type Id,
+  type Marker,
+  type Rate,
+  type Sequence,
+  type SequenceItem,
+  type TemplateLayers,
+  type Track,
+  type VersionRef,
+} from '@baocut/protocol';
 import { loadRenderPlanner } from './preview-wasm.ts';
 import type { FrozenDocument, RenderPlanner, SpeechTranscript } from './render-planner.ts';
 
@@ -41,6 +52,13 @@ export interface ThumbScene {
   spectrum?: Uint8Array;
   /** 字幕的词从哪份转写来（字幕文档的 `sourceDocumentId` 指向它）：逐词动画按这些词推进。 */
   speech?: readonly SpeechTranscript[];
+  /**
+   * 模板层（视频格式规范 §3.17）：挂在序列上画，章节类的层读 `markers` 里的章节，`{title}` 读 `name`。带模板时序列定长 `duration`
+   * （没有片段也有章节可画）。
+   */
+  template?: TemplateLayers;
+  markers?: readonly Marker[];
+  name?: string;
 }
 
 const FPS: Rate = { num: 30, den: 1 };
@@ -77,20 +95,27 @@ export function thumbSequence(scene: ThumbScene): Sequence {
   return {
     id: 'thumb_sequence',
     revision: '1',
-    name: '',
+    name: scene.name ?? '',
     fps,
     canvas: { width: Math.round(scene.canvas.width), height: Math.round(scene.canvas.height), workingSpace: 'srgb', background: '#000000' },
-    durationPolicy: { kind: 'derived' },
+    durationPolicy: scene.template ? { kind: 'fixed', frames } : { kind: 'derived' },
     animationBindings: [],
+    ...(scene.template ? { template: scene.template } : {}),
     tracks,
     items,
     transitions: [],
-    markers: [],
+    markers: [...(scene.markers ?? [])],
     ducking: [],
   };
 }
 
 const NO_SPEECH: readonly SpeechTranscript[] = [];
+
+/**
+ * 每送一次序列换一个修订号：内核按（修订号、层 ID）缓存模板层的排版（frame-render `TemplateScenes`），缩略图的序列都叫
+ * 同一个名字，修订号不变就会拿上一张缩略图（另一套模板或拖动前的框）的排版来画。
+ */
+let sent = 0;
 
 /** 各实例上一次送进去的场景（只比引用）与转写：同一张缩略图接着画下一刻时不再重送。 */
 const loaded = new WeakMap<RenderPlanner, { scene: ThumbScene | null; speech: readonly SpeechTranscript[] }>();
@@ -103,6 +128,9 @@ function sameScene(a: ThumbScene, b: ThumbScene): boolean {
     a.assets === b.assets &&
     a.assetBytes === b.assetBytes &&
     a.spectrum === b.spectrum &&
+    a.template === b.template &&
+    a.markers === b.markers &&
+    a.name === b.name &&
     a.fps === b.fps &&
     a.duration === b.duration &&
     a.canvas.width === b.canvas.width &&
@@ -127,7 +155,7 @@ export function renderThumb(
   // 转写留在实例里：没带转写的场景要清掉上一张字幕卡送进去的那份。
   if (speech !== last.speech) planner.setSpeech(speech);
   if (!last.scene || !sameScene(last.scene, scene)) {
-    planner.setVideo({ sequence: thumbSequence(scene), assets: scene.assets ?? {} });
+    planner.setVideo({ sequence: { ...thumbSequence(scene), revision: String(++sent) }, assets: scene.assets ?? {} });
     planner.setDocuments(scene.documents ?? []);
     for (const { asset, bytes } of scene.assetBytes ?? []) planner.setAsset(asset, bytes);
     if (scene.spectrum) {
@@ -139,7 +167,7 @@ export function renderThumb(
   planner.clearPictures();
   const rendered = planner.render(scene.seconds, w, h, { transparent: true });
   const image = new ImageData(new Uint8ClampedArray(planner.frame()), w, h);
-  const problems = [...rendered.skipped.map((item) => item.message), ...rendered.warnings.map((warning) => warning.detail)];
+  const problems = [...rendered.skipped.map((item) => localizeText(item.message, item.messageRef)), ...rendered.warnings.map((warning) => warning.detail)];
   return { image, problems };
 }
 

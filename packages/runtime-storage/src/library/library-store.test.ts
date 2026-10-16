@@ -168,12 +168,18 @@ describe('用户库的存储', () => {
       ),
     ).toBe('LIBRARY_FORMAT_INVALID');
 
-    const reserved = await rejection(store.put({ library: 'brand', content: { name: '片头', kind: 'overlayTemplate', template: {} } }));
-    expect(reserved.code).toBe('invalid-request');
-    expect(codeOf(reserved)).toBe('LIBRARY_KIND_RESERVED');
-    expect(reserved.message).toContain('§14');
+    const template = { id: 'tpl-brand-1', name: '片头', layers: [{ id: 'l1', kind: 'progress', box: { x: 0, y: 98, w: 100, h: 2 }, accent: '#FF6600', track: '#FFFFFF33' }] };
+    const tpl = await store.put({ library: 'brand', content: { name: '片头', kind: 'overlayTemplate', template: template as never } });
+    expect(tpl.entry.content).toEqual({ name: '片头', kind: 'overlayTemplate', template });
+    const shapeless = await rejection(store.put({ library: 'brand', content: { name: '片头', kind: 'overlayTemplate', template: {} as never } }));
+    expect(shapeless.code).toBe('invalid-request');
+    expect(codeOf(shapeless)).toBe('LIBRARY_FORMAT_INVALID');
+    const huge = { id: 'x', name: 'x', layers: [{ id: 'l', kind: 'text', text: 'x'.repeat(70 * 1024) }] };
+    expect(
+      codeOf(await rejection(store.put({ library: 'brand', content: { name: 'x', kind: 'overlayTemplate', template: huge as never } }))),
+    ).toBe('LIBRARY_FORMAT_INVALID');
 
-    expect(store.list('brand').map((s) => s.kind)).toEqual(expect.arrayContaining(['image', 'color', 'captionStyle']));
+    expect(store.list('brand').map((s) => s.kind)).toEqual(expect.arrayContaining(['image', 'color', 'captionStyle', 'overlayTemplate']));
     expect(store.list('brand', 'color')).toHaveLength(1);
   });
 

@@ -719,21 +719,121 @@ export interface DuckingRule {
   release: MediaTime;
 }
 
-/** 模板层的一层：框是画幅百分比（左上角与宽高），其余字段按层的种类。 */
-export interface TemplateLayer {
+/** 模板层一层的框：画面的百分比，左上为原点。 */
+export interface TemplateBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** 台标的来源：文字、品牌库的图片、视频里的文件（相对视频目录）。 */
+export type TemplateLogoSource = 'text' | { brandLogo: string } | { file: string };
+
+/** 模板层的一层（视频格式规范 §3.17）：框是画幅百分比，其余字段按层的种类。颜色一律 `#RRGGBB` 或 `#RRGGBBAA`。 */
+export type TemplateLayer = {
+  /** 在这套模板里唯一。 */
   id: string;
   /** 缺省 true。 */
   on?: boolean;
-  box: { x: number; y: number; w: number; h: number };
-  [key: string]: unknown;
-}
+  box: TemplateBox;
+} & (
+  | {
+      kind: 'chapters';
+      fill?: 'bar' | 'dim';
+      bg: string;
+      color: string;
+      accent: string;
+      colorDone?: string;
+      divider?: boolean;
+      size?: number;
+    }
+  | { kind: 'progress'; accent: string; track: string }
+  | {
+      kind: 'logo';
+      src?: TemplateLogoSource;
+      text?: string;
+      bg?: string;
+      color: string;
+      shape?: 'badge' | 'plain';
+      align?: 'left' | 'center' | 'right';
+      size?: number;
+      pad?: number;
+      tile?: boolean;
+      opacity?: number;
+    }
+  | {
+      kind: 'text';
+      text: string;
+      color: string;
+      bg?: string;
+      align?: 'left' | 'center' | 'right';
+      size?: number;
+      pad?: number;
+      mono?: boolean;
+      weight?: number;
+    }
+);
 
-/** 序列的模板层（视频格式规范 §3.17，v2 的模板文档）。 */
+/** 模板层的种类。 */
+export type TemplateLayerKind = TemplateLayer['kind'];
+
+/** 序列的模板层（视频格式规范 §3.17，v2 的模板文档）：一套定义或套进序列的实例。 */
 export interface TemplateLayers {
   id: string;
   name: string;
+  /** 目录卡片的色相；缺省 `gray`。 */
+  hue?: string;
+  /** 目录分组。 */
+  group?: string;
+  /** 版面按哪种画幅画；缺省 `16:9`。 */
+  canvas?: '16:9' | '9:16';
+  /** 套用时把序列画布改成的画幅：`original` 或 `W:H`。 */
+  ratio?: string;
+  /** 与 `ratio` 同时给出时锁住序列的画幅。 */
+  lockRatio?: boolean;
+  builtin?: boolean;
+  /** `watermark`：水印类。 */
+  tag?: string;
+  /** `watermark`：由旧水印预设导入。 */
+  imported?: string;
+  desc?: string;
+  /** 整套的字体族；省略时跟随字幕样式的字体。 */
+  font?: string;
+  /** 实例来源的定义 id（内置模板的 id，或品牌库条目的 id）。 */
+  from?: string;
+  /** 字幕避让底部横条；缺省 true。 */
+  subsAvoid?: boolean;
+  /** 数组顺序就是叠放顺序，靠后的在上。 */
   layers: TemplateLayer[];
-  [key: string]: unknown;
+}
+
+/** 模板里品牌库台标（`src: { brandLogo }`）引用的条目 ID，去重。 */
+export function templateBrandLogos(template: TemplateLayers | null | undefined): string[] {
+  const ids = new Set<string>();
+  for (const layer of template?.layers ?? []) {
+    if (layer.kind === 'logo' && layer.src && typeof layer.src === 'object' && 'brandLogo' in layer.src) ids.add(layer.src.brandLogo);
+  }
+  return [...ids];
+}
+
+/**
+ * 品牌库台标在这部视频里的素材（视频格式规范 §3.17）：从品牌库拷进来的这一条（来源 `library`，`source.library` 的
+ * `library` 是 `brand`、`entryId` 是它）的图片素材；拷过几次的取库版本最新的一份，同版本按素材 ID。与渲染内核的
+ * `render_graph::brand_logo_asset` 同一条规则。没拷进来是 `null`。
+ */
+export function brandLogoAsset(assets: Record<Id, AssetRecord>, entryId: string): VersionRef | null {
+  let best: { asset: AssetRecord; version: number } | null = null;
+  for (const asset of Object.values(assets)) {
+    if (asset.kind !== 'image') continue;
+    const provenance = asset.revisions[asset.currentRevision]?.provenance;
+    const source = provenance?.source as { library?: { library?: unknown; entryId?: unknown; version?: unknown } } | undefined;
+    const library = source?.library;
+    if (provenance?.origin !== 'library' || library?.library !== 'brand' || library.entryId !== entryId) continue;
+    const version = typeof library.version === 'number' ? library.version : 0;
+    if (!best || version > best.version || (version === best.version && asset.id < best.asset.id)) best = { asset, version };
+  }
+  return best ? { id: best.asset.id, revision: best.asset.currentRevision } : null;
 }
 
 export interface Sequence {

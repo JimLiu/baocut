@@ -1,0 +1,35 @@
+import type { StickerPackMessages } from './sticker-pack-copy.ts';
+
+export const nl: StickerPackMessages = {
+  packs: {
+    featured: 'Uitgelicht',
+    emoji: 'Emoji',
+    people: 'Mensen',
+    mockup: 'Mockups',
+    podcast: 'Podcast',
+    icon: 'Pictogrammen',
+    summer: 'Zomer',
+    gesture: 'Gebaren',
+    arrow: 'Pijlen en aanwijzers',
+    hand: 'Handgetekend',
+    birthday: 'Verjaardag',
+    finance: 'Financiën',
+    fitness: 'Fitness',
+    seasonal: 'Seizoenen',
+    school: 'Terug naar school',
+    cta: 'CTA',
+    'dyn-collage': 'Collage',
+    'dyn-emoji': 'Emoji',
+    'dyn-grow': 'Groei',
+    'dyn-holiday': 'Feestdagen',
+    'dyn-work': 'Werk',
+  },
+  morePacks: 'Meer pakketten',
+  packMenuHead: (count: number) => `${count} pakketten`,
+  packCount: (count: number) => `${count} stickers`,
+  ctaTitle: 'CTA-pop-ups',
+  ctaNote: '32 stijlen · abonneren / liken / delen / kopen',
+  notoHint:
+    'De vijf ingebouwde categorieën zijn Lottie-bestanden van Google Noto Animated Emoji (CC BY 4.0): vectorlussen met transparantie die op het canvas de afspeelkop volgen en net als stickers opnieuw te kleuren zijn.',
+  addFailed: (message: string) => `Kan de sticker niet toevoegen: ${message}`,
+};

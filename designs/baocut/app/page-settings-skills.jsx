@@ -1,5 +1,5 @@
 /* 把 BaoCut 的 skill 装进终端或其他应用里的 Agent（2026-09-17 从「Agent Skill & MCP」拆出；2026-09-18 重设计）。
-   现在不是单独的页签：收在 设置 › Skills 页底的折叠区里（settings-agent-skills.jsx）。
+   现在不是单独的页签：收在 Skills 页（rail 上 Space 下面）页底的折叠区里（page-skills.jsx）。
    内置 Agent 自己使用的 skills 是另一件事，见 model-agent-skills.js。
    新手要先弄懂三件事，页面就按这个顺序排：
    ① skill 是什么——一份给编码 Agent 看的说明书，装上之后它才知道怎么调用 BaoCut；

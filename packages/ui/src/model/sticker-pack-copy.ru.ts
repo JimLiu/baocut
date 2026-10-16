@@ -1,0 +1,35 @@
+import type { StickerPackMessages } from './sticker-pack-copy.ts';
+
+export const ru: StickerPackMessages = {
+  packs: {
+    featured: 'Избранное',
+    emoji: 'Эмодзи',
+    people: 'Люди',
+    mockup: 'Мокапы',
+    podcast: 'Подкаст',
+    icon: 'Значки',
+    summer: 'Лето',
+    gesture: 'Жесты',
+    arrow: 'Стрелки и указатели',
+    hand: 'Рисованные',
+    birthday: 'День рождения',
+    finance: 'Финансы',
+    fitness: 'Фитнес',
+    seasonal: 'Времена года',
+    school: 'Снова в школу',
+    cta: 'CTA',
+    'dyn-collage': 'Коллаж',
+    'dyn-emoji': 'Эмодзи',
+    'dyn-grow': 'Рост',
+    'dyn-holiday': 'Праздники',
+    'dyn-work': 'Работа',
+  },
+  morePacks: 'Другие наборы',
+  packMenuHead: (count: number) => `Наборов: ${count}`,
+  packCount: (count: number) => `Стикеров: ${count}`,
+  ctaTitle: 'CTA-плашки',
+  ctaNote: '32 стиля · подписка / лайк / поделиться / купить',
+  notoHint:
+    'Пять встроенных категорий — это Lottie из Google Noto Animated Emoji (CC BY 4.0): векторные циклы с прозрачностью, которые на холсте следуют за курсором воспроизведения и перекрашиваются как стикеры.',
+  addFailed: (message: string) => `Не удалось добавить стикер: ${message}`,
+};

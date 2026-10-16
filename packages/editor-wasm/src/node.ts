@@ -62,4 +62,13 @@ export const {
   audioSheet,
   sfxRender,
   sfxRecipes,
+  templateCatalog,
+  templateNewLayer,
+  templateBlank,
+  templateInstance,
+  templateDefinition,
+  templateInfo,
+  templateRatioEquivalent,
+  templateBox,
+  templateHit,
 } = semanticsApi(editorSemantics);

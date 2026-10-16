@@ -208,13 +208,10 @@
   /* 关于：居中卡片 + 更新状态（§17.7，2026-10-01），本体在 settings-update.jsx。 */
   const AboutSection = () => <window.AppUpdateAbout />;
 
-  /* Skills：内置 Agent 自己使用的 skills，左栏 Agent 组的第二项（settings-agent-skills.jsx）。 */
-  const SkillsSection = () => <div className="agent-settings" data-screen-label="Skills 设置"><h1 className="t-heading-sm">Skills</h1><window.AgentSkillsManager /></div>;
-
   const SECTIONS = {
     general: GeneralSection, shortcuts: ShortcutsSection, fonts: window.FontsSection, downloader: window.DownloaderSection, voices: window.VoicesSection,
     semantic: window.SemanticSection,   // 语义索引（embedding-integration §2.11），settings-semantic.jsx
-    providers: window.ProvidersSection, usage: window.UsageSection, agent: window.AgentSection, skills: SkillsSection,
+    providers: window.ProvidersSection, usage: window.UsageSection, agent: window.AgentSection,
     glossary: window.GlossarySection, privacy: PrivacySection,
     diagnostics: DiagnosticsSection, about: AboutSection,
   };
@@ -248,7 +245,7 @@
               {g.items.map((n) => {
                 const Icon = R.Icons[icons[n.k]];
                 return <R.SideNavItem key={n.k} id={n.k} textValue={n.label} href={href(n)} data-settings-row="">
-                  <R.SideNavItemContent><R.SideNavItemLink href={href(n)}>{n.k === 'agent' ? <Ic n="agent" /> : n.k === 'skills' ? <Ic n="skill" /> : n.k === 'fonts' ? <Ic n="text" /> : <Icon />}<R.Text>{n.label}</R.Text></R.SideNavItemLink></R.SideNavItemContent>
+                  <R.SideNavItemContent><R.SideNavItemLink href={href(n)}>{n.k === 'agent' ? <Ic n="agent" /> : n.k === 'fonts' ? <Ic n="text" /> : <Icon />}<R.Text>{n.label}</R.Text></R.SideNavItemLink></R.SideNavItemContent>
                 </R.SideNavItem>;
               })}
             </R.SideNavSection>)}

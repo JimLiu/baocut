@@ -94,4 +94,10 @@ export const zhHant: EditLabelMessages = {
   removeDubGroup: (p) => `移除配音（${languageName('zh-Hant', p.language)}）`,
   removeThisDubGroup: '移除這組配音',
   stretchDub: '變更配音語速',
+  applyTemplate: (p) => `套用範本「${p.name}」`,
+  removeTemplate: '移除範本',
+  editTemplate: '修改範本',
+  editTemplateLayout: '修改範本版面',
+  lockTemplateRatio: '依範本鎖定長寬比',
+  unlockTemplateRatio: '解鎖範本長寬比',
 };

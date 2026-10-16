@@ -238,6 +238,9 @@ export const de: EngineMessages = {
   updateSequenceEmpty: "updateSequence muss mindestens eine Sache ändern",
   backgroundInvalid: "Der Arbeitsflächenhintergrund muss #RRGGBB sein",
   canvasSideRange: (p: P<'max'>) => `Jede Seite der Arbeitsfläche muss 1–${p.max} Pixel`,
+  templateRatioLocked: (p: P<'template' | 'ratio'>) =>
+    `Die Vorlage „${p.template}“ sperrt das Seitenverhältnis auf ${p.ratio}; die Arbeitsfläche lässt sich nur innerhalb dieses Verhältnisses ändern`,
+  templateRatioLockedRecovery: 'Hebe zuerst die Seitenverhältnis-Sperre der Vorlage auf und ändere dann die Arbeitsfläche',
   collectAssetsEmpty: "collectAssets benötigt mindestens einen Eintrag",
   trackNotEmpty: (p) => `Spur ${p.track} enthält noch Clips (${p.count}); nur eine leere Spur kann gelöscht werden`,
   trackNotEmptyRecovery: "Lösche zuerst ihre Clips (deleteItems) oder verschiebe sie auf eine andere Spur (moveItem) und lösche dann die Spur",

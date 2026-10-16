@@ -9,9 +9,8 @@
     {k: 'downloader', label: '视频下载', pages: ['downloader']},
     /* 语义索引（embedding-integration-design §2.11）：本机语义模型的两个包、已索引的项目与通道、缓存、后端；settings-semantic.jsx */
     {k: 'semantic', label: '语义索引', pages: ['semantic']},
-    /* Agent 自成一组：提供方与 Skills 各一项；智能体登录在这里，不是 API 提供方（§7.6）。 */
+    /* Agent 自成一组：智能体登录在这里，不是 API 提供方（§7.6）。Skills 2026-10-16 搬到 rail（Space 下面），不再在设置里。 */
     {k: 'agent', label: 'Agent 提供方', pages: ['agent']},
-    {k: 'skills', label: 'Skills', pages: ['skills']},
     {k: 'providers', label: 'API 提供方', model: true, pages: ['providers']},
     {k: 'usage', label: '用量', model: true, pages: ['usage']},
     /* 能力页：local = 本机模型目录的类（BC_LOCALMODELS.CATS），cap = API 提供方目录的能力（BC_VENDORS.CAPS）；没有 cap 的只有本机模型 */
@@ -38,7 +37,7 @@
     vision: '识别人像、说话人和画面内容，辅助智能裁剪。只用这台电脑上的模型。',
   };
   /* 只有语音合成一项有两页（Tab）；其余页名只用于搜索 */
-  const PAGE_LABEL = {tts: '模型', voices: '我的声音', providers: 'API 提供方 服务商 账号 密钥', usage: '用量 花费 余额', agent: 'Agent 提供方', skills: 'Skills',
+  const PAGE_LABEL = {tts: '模型', voices: '我的声音', providers: 'API 提供方 服务商 账号 密钥', usage: '用量 花费 余额', agent: 'Agent 提供方',
     downloader: 'yt-dlp 下载工具 网站登录 浏览器 Cookie', semantic: '语义索引 本机语义模型 语义搜索 多模态 画面索引 排除项目 翻译记忆 术语候选 Space 搜索'};
   const LOCAL_TABS = NAV.filter((n) => n.local).map((n) => n.local);
   /* 旧「云端模型」页的 tab → 能力页 */
@@ -46,10 +45,10 @@
 
   const byKey = (k) => NAV.find((n) => n.k === k) || null;
 
-  /* 路由规整：旧深链 integrations → skills；本地 / 云端带 tab 的落到那一类的能力页；本地不带 tab 落到语音识别，
+  /* 路由规整：旧深链 skills / integrations 由 BC_NAV 送去 Skills 页，万一落到这里就停在 Agent 提供方；本地 / 云端带 tab 的落到那一类的能力页；本地不带 tab 落到语音识别，
      云端不带 tab（以前是「去连接密钥」）落到 API 提供方页 */
   function normalize(sec, tab) {
-    const s = sec === 'integrations' ? 'skills' : (sec || 'general');
+    const s = sec === 'integrations' || sec === 'skills' ? 'agent' : (sec || 'general');
     if (s === 'local') return {sec: LOCAL_TABS.includes(tab) ? tab : 'asr', tab: null};
     if (s === 'cloud') return {sec: CLOUD_TAB[tab] || 'providers', tab: null};
     if (!NAV.some((n) => n.pages.includes(s))) return {sec: 'general', tab: null};
@@ -71,7 +70,7 @@
 
   const GROUPS = [
     {id: 'preferences', label: '偏好设置', keys: ['general', 'shortcuts', 'fonts', 'downloader', 'semantic']},
-    {id: 'agents', label: 'Agent', keys: ['agent', 'skills']},   // 组 id 不能与条目键重名：SideNav 把两者放在同一个集合里
+    {id: 'agents', label: 'Agent', keys: ['agent']},   // 组 id 不能与条目键重名：SideNav 把两者放在同一个集合里
     {id: 'models', label: '模型', keys: NAV.filter((n) => n.model).map((n) => n.k)},
     {id: 'app', label: '应用', keys: ['glossary', 'privacy', 'diagnostics', 'about']},
   ];

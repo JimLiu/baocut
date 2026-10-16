@@ -1,5 +1,5 @@
-import { VOICE_CONSENT_CUSTOM, type BrandMediaKind, type CaptionStyleBody, type GlossaryContent, type LibraryContentInput, type LibraryName } from '@baocut/protocol';
-import { formatInvalid, libraryError } from './library-errors.ts';
+import { VOICE_CONSENT_CUSTOM, type BrandMediaKind, type CaptionStyleBody, type GlossaryContent, type LibraryContentInput, type LibraryName, type TemplateLayers } from '@baocut/protocol';
+import { formatInvalid } from './library-errors.ts';
 import { RuntimeStorageLibrary as SL } from '@baocut/protocol/messages/runtime-storage';
 
 /**
@@ -20,6 +20,8 @@ export const MAX_SEED = 4_294_967_295;
 export const MAX_VOICE_SEEDS = 50;
 /** 字幕样式的上限，与 `setStyle` 的样式对象相同。 */
 export const MAX_CAPTION_STYLE_BYTES = 64 * 1024;
+/** 叠加模板定义的上限。 */
+export const MAX_TEMPLATE_BYTES = 64 * 1024;
 
 export const BRAND_MEDIA_KINDS: readonly BrandMediaKind[] = ['image', 'video', 'sticker', 'font'];
 
@@ -185,23 +187,16 @@ export function normalizeVoiceFields(value: unknown): VoiceFields {
   return fields;
 }
 
-/** 品牌库不带文件的部分。带文件的种类只有名字；`overlayTemplate` 拒绝。 */
+/** 品牌库不带文件的部分。带文件的种类只有名字。 */
 export type BrandFields =
   | { name: string; kind: BrandMediaKind }
   | { name: string; kind: 'color'; value: string }
-  | { name: string; kind: 'captionStyle'; style: CaptionStyleBody };
+  | { name: string; kind: 'captionStyle'; style: CaptionStyleBody }
+  | { name: string; kind: 'overlayTemplate'; template: TemplateLayers };
 
 export function normalizeBrandFields(value: unknown): BrandFields {
   const v = object(value, 'content');
   const name = text(v.name, 'name', MAX_NAME_CHARS);
-  if (v.kind === 'overlayTemplate') {
-    throw libraryError(
-      'LIBRARY_KIND_RESERVED',
-      'invalid-request',
-      SL.overlayTemplateReserved(),
-      { kind: 'overlayTemplate' },
-    );
-  }
   if (typeof v.kind === 'string' && isBrandMediaKind(v.kind)) return { name, kind: v.kind };
   if (v.kind === 'color') {
     if (typeof v.value !== 'string' || !/^#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(v.value)) {
@@ -218,6 +213,15 @@ export function normalizeBrandFields(value: unknown): BrandFields {
       throw formatInvalid(SL.captionStyleTooLarge({ kib: MAX_CAPTION_STYLE_BYTES / 1024 }), { field: 'style' });
     }
     return { name, kind: 'captionStyle', style: style as CaptionStyleBody };
+  }
+  if (v.kind === 'overlayTemplate') {
+    // 只查外形与大小；图层的字段由编辑引擎在套用（`setTemplate`）时校验。
+    const template = object(v.template, 'template');
+    if (!Array.isArray(template.layers)) throw formatInvalid(SL.overlayTemplateShape(), { field: 'template.layers' });
+    if (Buffer.byteLength(JSON.stringify(template)) > MAX_TEMPLATE_BYTES) {
+      throw formatInvalid(SL.overlayTemplateTooLarge({ kib: MAX_TEMPLATE_BYTES / 1024 }), { field: 'template' });
+    }
+    return { name, kind: 'overlayTemplate', template: template as unknown as TemplateLayers };
   }
   throw formatInvalid(SL.brandKind(), { field: 'kind' });
 }

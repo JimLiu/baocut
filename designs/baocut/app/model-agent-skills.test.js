@@ -159,6 +159,25 @@ test('文件内容：frontmatter 单独取出，正文拆成标题、列表、�
   assert.equal(K.fileBlocks('没有 frontmatter').frontmatter, null);
 });
 
+test('文件内容：表格按行拆成单元格，分隔行略过', () => {
+  const v = K.fileBlocks('前一段\n| 元素 | 中文 |\n| --- | --- |\n| 口号 | 讲清楚 |\n后一段');
+  assert.deepEqual(v.blocks, [{type: 'p', text: '前一段'}, {type: 'table', rows: [['元素', '中文'], ['口号', '讲清楚']]}, {type: 'p', text: '后一段'}]);
+});
+
+test('持久化：改过内容的个人 skill 整条存下来，开关仍按差量；内置的不接受改写', () => {
+  const personal = DEMO.find((s) => s.source === 'personal');
+  const builtin = DEMO.find((s) => s.source === 'builtin');
+  const l = DEMO.map((s) => (s.id === personal.id ? {...s, enabled: !s.enabled, version: 9, files: [{path: 'SKILL.md', body: 'v9'}]}
+    : s.id === builtin.id ? {...s, files: []} : s));
+  const saved = JSON.parse(JSON.stringify(K.snapshot(DEMO, l)));
+  assert.deepEqual(saved.changed.map((s) => s.id).sort(), [builtin.id, personal.id].sort());
+  const back = K.apply(DEMO, saved);
+  const p = K.byId(back, personal.id);
+  assert.equal(p.version, 9);
+  assert.equal(p.enabled, !personal.enabled);
+  assert.deepEqual(K.byId(back, builtin.id).files, JSON.parse(JSON.stringify(builtin.files)));
+});
+
 test('持久化只存差量：开关、添加、移除往返一致；内置永远在；坏数据回到演示数据', () => {
   let l = K.toggle(DEMO, DEMO[0].id, false);
   const personal = DEMO.find((s) => s.source === 'personal');
@@ -169,7 +188,7 @@ test('持久化只存差量：开关、添加、移除往返一致；内置永�
   assert.deepEqual(saved.removed, [personal.id]);
   assert.equal(saved.added.length, 1);
   assert.deepEqual(K.apply(DEMO, saved), JSON.parse(JSON.stringify(l)));
-  assert.deepEqual(K.snapshot(DEMO, DEMO), {enabled: {}, added: [], removed: []});
+  assert.deepEqual(K.snapshot(DEMO, DEMO), {enabled: {}, added: [], removed: [], changed: []});
   assert.deepEqual(K.apply(DEMO, null), DEMO);
   assert.deepEqual(K.apply(DEMO, {enabled: 'x', added: [null, {id: DEMO[0].id, name: '撞名'}], removed: [DEMO[0].id]}), DEMO);
 });

@@ -246,6 +246,9 @@ export const tr: EngineMessages = {
   updateSequenceEmpty: "updateSequence en az bir şey değiştirmeli",
   backgroundInvalid: "Tuval arka planı #RRGGBB olmalı",
   canvasSideRange: (p) => `Her tuval kenarı 1–${p.max} piksel olmalı`,
+  templateRatioLocked: (p) =>
+    `“${p.template}” şablonu en boy oranını ${p.ratio} olarak kilitliyor; tuval yalnızca bu oran içinde değişebilir`,
+  templateRatioLockedRecovery: 'Önce şablonun en boy oranı kilidini açın, sonra tuvali değiştirin',
   collectAssetsEmpty: "collectAssets en az bir öğe gerektirir",
   trackNotEmpty: (p) => `${p.track} izinde hâlâ klip var (${p.count}); yalnızca boş bir iz silinebilir`,
   trackNotEmptyRecovery: "Önce klipleri silin (deleteItems) ya da başka bir ize taşıyın (moveItem), sonra izi silin",

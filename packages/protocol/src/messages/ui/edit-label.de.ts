@@ -94,4 +94,10 @@ export const de: EditLabelMessages = {
   removeDubGroup: (p) => `Vertonung entfernen (${languageName('de', p.language)})`,
   removeThisDubGroup: "Diese Vertonungsgruppe entfernen",
   stretchDub: "Vertonungsgeschwindigkeit ändern",
+  applyTemplate: (p) => `Vorlage „${p.name}“ anwenden`,
+  removeTemplate: 'Vorlage entfernen',
+  editTemplate: 'Vorlage bearbeiten',
+  editTemplateLayout: 'Vorlagenlayout bearbeiten',
+  lockTemplateRatio: 'Seitenverhältnis an Vorlage sperren',
+  unlockTemplateRatio: 'Seitenverhältnis der Vorlage entsperren',
 };

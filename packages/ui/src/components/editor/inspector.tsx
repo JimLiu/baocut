@@ -31,6 +31,8 @@ import { isPlaced, type PlacedItem } from '../../model/stage-pose.ts';
 import { useEditor } from '../../state/editor-store.ts';
 import { canEdit, useVideo } from '../../state/video-store.ts';
 import { useEditorActions } from './editor-context.tsx';
+import { useTemplateStudio } from './use-template-studio.ts';
+import { TEMPLATE_COPY as TC } from './template-copy.ts';
 import { CaptionPage } from './inspector-caption.tsx';
 import { DangerButton, Note, PRow, Sec, SecHead, Seg } from './inspector-controls.tsx';
 import {
@@ -46,6 +48,7 @@ import {
 } from './inspector-elements.tsx';
 import { GeometrySection } from './inspector-geometry.tsx';
 import { AudioPage, ImagePage, VideoItemPage } from './inspector-media.tsx';
+import { TemplatePage, templatePageTitle } from './inspector-template.tsx';
 import { VideoPage } from './inspector-video.tsx';
 import { LockNotice } from './inspector-sections.tsx';
 import { PanelHead, panelBody } from './panel-head.tsx';
@@ -70,7 +73,7 @@ const muted = style({ font: 'ui-xs', color: 'gray-600' });
 const delta = style({ color: { default: 'gray-700', isShifted: 'orange-900' } });
 
 /** 页标题（原型 panel-*.jsx）。 */
-function pageTitle(item: SequenceItem): string {
+function pageTitle(item: SequenceItem, assets: Record<Id, AssetRecord>): string {
   switch (item.type) {
     case 'video':
       return IC.pageVideo;
@@ -83,7 +86,7 @@ function pageTitle(item: SequenceItem): string {
     case 'caption':
       return IC.pageCaption;
     default:
-      return elementTitle(item);
+      return elementTitle(item, assets);
   }
 }
 
@@ -101,22 +104,46 @@ export function Inspector({
   documents: Record<Id, DocumentRecord>;
 }) {
   const selection = useEditor((s) => s.selection);
+  const templateFocus = useEditor((s) => s.templateFocus);
   const receipt = useVideo((s) => s.video?.lastReceipt ?? null);
+  const editable = useVideo((s) => canEdit(s.video));
+  const studio = useTemplateStudio();
   const selected = sequence.items.filter((item) => selection.includes(item.id));
   const single = selected.length === 1 ? selected[0]! : null;
-  const title = single ? pageTitle(single) : selected.length > 1 ? IC.selectedClips(selected.length) : IC.videoProperties;
+  const template = !selected.length && templateFocus;
+  const title = single
+    ? pageTitle(single, assets)
+    : selected.length > 1
+      ? IC.selectedClips(selected.length)
+      : template
+        ? templatePageTitle(sequence)
+        : IC.videoProperties;
   return (
     <>
       <PanelHead
         title={title}
-        back={selected.length ? { label: IC.backToVideo, onPress: () => useEditor.getState().select([]) } : undefined}
-      />
+        back={
+          selected.length
+            ? { label: IC.backToVideo, onPress: () => useEditor.getState().select([]) }
+            : template
+              ? { label: IC.backToVideo, onPress: () => useEditor.getState().focusTemplate(false) }
+              : undefined
+        }>
+        {/* 模板属性页的页头右边（原型 panel-template-edit）：改版面本身进版面编辑器。 */}
+        {template && sequence.template ? (
+          <Button variant="secondary" size="S" isDisabled={!editable} onPress={() => studio.editVideo(sequence)}>
+            {TC.editLayout}
+          </Button>
+        ) : null}
+      </PanelHead>
       <div className={`${panelBody} bc-scroll`}>
         <div className={panel}>
           {single ? (
             <ItemPage key={single.id} item={single} sequence={sequence} assets={assets} documents={documents} />
           ) : selected.length > 1 ? (
             <Multiple items={selected} sequence={sequence} assets={assets} documents={documents} />
+          ) : template ? (
+            <TemplatePage sequence={sequence} />
           ) : (
             <VideoPage sequence={sequence} assets={assets} />
           )}

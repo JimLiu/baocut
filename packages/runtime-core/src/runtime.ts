@@ -127,6 +127,7 @@ import { DownloadTools } from './agent-tools/download-tools.ts';
 import { SpeechSentenceTools } from './agent-tools/speech-sentence-tools.ts';
 import { MemoryCitationRegistry } from './ai-tools/citation-registry.ts';
 import { TemplateCatalog, resolveBuiltinTemplatesDir } from './templates/template-catalog.ts';
+import { StickerPacks, resolveStickerPacksDir } from './templates/sticker-packs.ts';
 import { SkillCatalog, resolveBuiltinSkillsDir } from './skills/skill-catalog.ts';
 import { SkillInstaller } from './skills/skill-installer.ts';
 import { skillIndexBlock } from './skills/skill-brief.ts';
@@ -212,6 +213,8 @@ export interface StartRuntimeOptions {
    * 用户模板总在 `<home>/templates`。
    */
   templatesDir?: string | null;
+  /** 随包贴纸的目录（元素面板）。默认取 `BAOCUT_STICKERS_DIR`、打包的资源目录或仓库根的 `stickers/`；null 表示没带贴纸。 */
+  stickersDir?: string | null;
   /**
    * 内置 Agent skill 的目录（架构设计 §3.8）。默认取 `BAOCUT_SKILLS_DIR`、打包的资源目录或仓库根的 `skills/baocut/built-in-skills/`；
    * null 表示没有。
@@ -1083,6 +1086,10 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       templates: new TemplateCatalog({
         builtinDir: options.templatesDir === undefined ? resolveBuiltinTemplatesDir() : options.templatesDir,
         userDir: path.join(home.root, 'templates'),
+      }),
+      stickers: new StickerPacks({
+        dir: options.stickersDir === undefined ? resolveStickerPacksDir() : options.stickersDir,
+        videos,
       }),
       skills,
       skillInstaller,

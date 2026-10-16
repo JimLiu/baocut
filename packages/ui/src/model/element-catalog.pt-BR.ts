@@ -110,10 +110,10 @@ export const ptBR: ElementCatalogMessages = {
   shapeName: (name: string) => `Forma · ${name}`,
   stickerName: (label: string) => `Adesivo · ${label}`,
   sections: {
-    sticker: { title: "Adesivo", note: "10 integrados + biblioteca de marca" },
+    sticker: { title: "Adesivo", note: "16 pacotes + 10 integrados + biblioteca de marca" },
     dynamic: {
       title: "Adesivos animados",
-      note: "10 confetes + Lottie da biblioteca de marca",
+      note: "5 pacotes Lottie do Noto + 10 confetes + biblioteca de marca",
     },
     shape: { title: "Formas", note: "23 formas · ciclo de 5 cores" },
     visualizer: {

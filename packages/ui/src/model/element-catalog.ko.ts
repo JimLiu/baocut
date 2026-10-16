@@ -92,8 +92,8 @@ export const ko: ElementCatalogMessages = {
   shapeName: (name: string) => `도형 · ${name}`,
   stickerName: (label: string) => `스티커 · ${label}`,
   sections: {
-    sticker: { title: '스티커', note: '기본 제공 10개 + 브랜드 라이브러리' },
-    dynamic: { title: '애니메이션 스티커', note: '색종이 10개 + 브랜드 라이브러리의 Lottie' },
+    sticker: { title: '스티커', note: '16개 팩 + 기본 제공 10개 + 브랜드 라이브러리' },
+    dynamic: { title: '애니메이션 스티커', note: 'Noto Lottie 5개 분류 + 색종이 10개 + 브랜드 라이브러리' },
     shape: { title: '도형', note: '타일 23개 · 5색 순환' },
     visualizer: { title: '비주얼라이저', note: '진행 표시줄 14개 + 타이머 2개 + 파형 10개' },
   },

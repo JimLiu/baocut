@@ -94,4 +94,10 @@ export const ja: EditLabelMessages = {
   removeDubGroup: (p) => `吹き替えを削除（${languageName('ja', p.language)}）`,
   removeThisDubGroup: 'この吹き替えグループを削除',
   stretchDub: '吹き替えの速度を変更',
+  applyTemplate: (p) => `テンプレート「${p.name}」を適用`,
+  removeTemplate: 'テンプレートを削除',
+  editTemplate: 'テンプレートを編集',
+  editTemplateLayout: 'テンプレートのレイアウトを編集',
+  lockTemplateRatio: 'テンプレートでアスペクト比を固定',
+  unlockTemplateRatio: 'テンプレートのアスペクト比固定を解除',
 };

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { LibraryEntrySummary, Rate } from '@baocut/protocol';
+import type { LibraryEntrySummary, PackSticker, Rate } from '@baocut/protocol';
 import type { ElementTile } from '../../model/element-catalog.ts';
 import type { TextPreset } from '../../model/text-presets.ts';
+import { useRuntime } from '../../runtime/context.tsx';
+import { openStickerHandle } from '../../runtime/sticker-commands.ts';
 import { useLibraryFileUrl } from '../use-library-entry.ts';
 import { KernelThumb, type ThumbDraw } from './kernel-thumb.tsx';
 import { CONFETTI_LOOP, CONFETTI_STILL, confettiThumb, layerThumb, lottieThumb, presetThumb } from './thumb-scenes.ts';
@@ -74,6 +76,31 @@ export function BrandStickerThumb({
   return url ? (
     <img src={url} alt="" draggable={false} style={{ display: 'block', width: '100%', height: '100%', objectFit: 'contain' }} />
   ) : null;
+}
+
+/** 随包贴纸的缩略图：SVG 直接当图片摆；Lottie 停在一帧，`playing` 时播。地址是 `stickers.openHandle` 发的句柄。 */
+export function PackStickerThumb({ sticker, playing = false }: { sticker: PackSticker; playing?: boolean }) {
+  const url = usePackStickerUrl(sticker.id);
+  if (sticker.animated) return <LottieThumb url={url} playing={playing} />;
+  return url ? (
+    <img src={url} alt="" draggable={false} style={{ display: 'block', width: '100%', height: '100%', objectFit: 'contain' }} />
+  ) : null;
+}
+
+function usePackStickerUrl(id: string): string | null {
+  const runtime = useRuntime();
+  const [state, setState] = useState<{ id: string; url: string | null } | null>(null);
+  useEffect(() => {
+    let live = true;
+    openStickerHandle(runtime, id).then(
+      (handle) => live && setState({ id, url: handle.url }),
+      () => live && setState({ id, url: null }),
+    );
+    return () => {
+      live = false;
+    };
+  }, [runtime, id]);
+  return state?.id === id ? state.url : null;
 }
 
 function LottieThumb({ url, playing }: { url: string | null; playing: boolean }) {

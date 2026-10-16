@@ -92,8 +92,8 @@ export const pl: ElementCatalogMessages = {
   shapeName: (name: string) => `Kształt · ${name}`,
   stickerName: (label: string) => `Naklejka · ${label}`,
   sections: {
-    sticker: { title: "Naklejki", note: "10 wbudowanych + biblioteka marki" },
-    dynamic: { title: "Animowane naklejki", note: "10 konfetti + Lottie z biblioteki marki" },
+    sticker: { title: "Naklejki", note: "16 pakietów + 10 wbudowanych + biblioteka marki" },
+    dynamic: { title: "Animowane naklejki", note: "5 pakietów Noto Lottie + 10 konfetti + biblioteka marki" },
     shape: { title: "Kształty", note: "23 kafelki · cykl 5 kolorów" },
     visualizer: { title: "Wizualizatory", note: "14 pasków + 2 zegary + 10 przebiegów fali" },
   },

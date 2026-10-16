@@ -439,6 +439,19 @@ SOFTWARE.
 
 BaoCut 实现了 HyperFrames 公开的作者合同（合同标识 `hyperframes/1`）：根元素的 `data-*` 属性（`data-composition-id`、`data-width`、`data-height`、`data-fps`、`data-duration`）与 `window.__timelines[id].seek`，用来验证、取帧和烘焙按这个合同写的代码包（[代码包规范 §4.7](docs/spec/code-bundle-spec.md#47-hyperframes)）。BaoCut 没有移植、改写或复制 HyperFrames 的代码或资源，也不随应用分发它；本节只说明这个合同的出处。
 
+## 随包贴纸
+
+元素面板的贴纸包（`stickers/`，原型里是逐字节相同的 `designs/baocut/assets/stickers/`）随 Runtime 与安装包分发。每个文件的来源地址、哈希与改动记在 `stickers/provenance.json` 与 `stickers/anim/provenance.json`，许可原文在 `stickers/LICENSES/`，随资源一起分发。
+
+- Microsoft Fluent Emoji（Copyright (c) Microsoft Corporation，MIT，`LICENSES/fluent.txt`）
+- Tabler Icons（Copyright (c) 2020-2026 Paweł Kuna，MIT，`LICENSES/tabler.txt`）
+- Doodle Icons（Copyright (c) Khushmeen Sidhu，MIT，`LICENSES/doodle.txt`）
+- Open Peeps（Pablo Stanley，CC0 1.0，`LICENSES/open-peeps.txt`）
+- 动态贴纸 `anim/dyn-*.json`：Google Noto Animated Emoji（CC BY 4.0，`LICENSES/noto-animated-emoji.txt`）；每份文件的 `meta` 里保留署名。
+- 32 个 `cta-*.svg` 按钮是 BaoCut 原创（MIT，`LICENSES/baocut.txt`），字形从 SIL Open Font License 1.1 字体转成轮廓，字体与版权见 `LICENSES/fonts-OFL.txt` 与 `LICENSES/fonts-NOTICE.md`。
+
+每个 SVG 文件里也嵌着它适用的声明。
+
 ## smol-toml
 
 历史版本配置的 TOML 解析使用 smol-toml（Squirrel Chat，BSD-3-Clause）。随 Runtime 构建分发，原始许可如下：

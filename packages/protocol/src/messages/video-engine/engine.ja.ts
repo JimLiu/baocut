@@ -246,6 +246,9 @@ export const ja: EngineMessages = {
   updateSequenceEmpty: 'updateSequence では少なくとも 1 つの項目を変更する必要があります',
   backgroundInvalid: 'キャンバスの背景は #RRGGBB で指定してください',
   canvasSideRange: (p) => `キャンバスの各辺は 1〜${p.max} ピクセルにしてください`,
+  templateRatioLocked: (p) =>
+    `テンプレート「${p.template}」がアスペクト比を ${p.ratio} に固定しています。キャンバスはこの比率の範囲でのみ変更できます`,
+  templateRatioLockedRecovery: '先にテンプレートのアスペクト比の固定を解除してから、キャンバスを変更してください',
   collectAssetsEmpty: 'collectAssets には少なくとも 1 つの項目が必要です',
   trackNotEmpty: (p) => `トラック ${p.track} にはまだクリップがあります（${p.count} 個）。削除できるのは空のトラックだけです`,
   trackNotEmptyRecovery: '先にクリップを削除する（deleteItems）か別のトラックへ移動して（moveItem）から、トラックを削除してください',

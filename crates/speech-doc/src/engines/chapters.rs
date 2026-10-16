@@ -233,11 +233,15 @@ fn contract_with_options(base: &str, options: &ChaptersOptions) -> String {
     if !options.source_chapters.is_empty() {
         system.push_str(SOURCE_CHAPTERS_HINT);
         for chapter in options.source_chapters.iter().take(MAX_HINT_CHAPTERS) {
-            let title = chapter
-                .title
-                .split_whitespace()
-                .collect::<Vec<_>>()
-                .join(" ");
+            let title = if chapter.untitled {
+                UNTITLED_HINT_TITLE.to_owned()
+            } else {
+                chapter
+                    .title
+                    .split_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            };
             let title: String = title.chars().take(MAX_HINT_TITLE_CHARS).collect();
             system.push_str(&format!("\n{} {title}", clock(chapter.start)));
         }
@@ -247,7 +251,9 @@ fn contract_with_options(base: &str, options: &ChaptersOptions) -> String {
 
 /// 来源大纲进契约的引言：作者时间戳只到秒且常比真起点早几秒，所以是「优先采用」
 /// 而不是「照抄」，锚定仍必须落在输入里的段 id 上。
-const SOURCE_CHAPTERS_HINT: &str = "\nChapters published with the source video (the author's own outline; times are approximate and may be a few seconds off). Prefer these boundaries and titles wherever the transcript agrees — still anchor every chapter on a paragraph id from the input, and only add, merge or drop chapters where the transcript clearly diverges. Keep the author's title language and wording. Entries outside this part's data-range belong to other parts:";
+const SOURCE_CHAPTERS_HINT: &str = "\nChapters published with the source video (the author's own outline; times are approximate and may be a few seconds off). Prefer these boundaries and titles wherever the transcript agrees — still anchor every chapter on a paragraph id from the input, and only add, merge or drop chapters where the transcript clearly diverges. Keep the author's title language and wording. An (untitled) entry only marks a boundary: title that chapter from the transcript. Entries outside this part's data-range belong to other parts:";
+/// 来源只给了分界的条目（yt-dlp 的占位名）进契约时的写法：不让模型照抄占位名。
+const UNTITLED_HINT_TITLE: &str = "(untitled)";
 const MAX_HINT_CHAPTERS: usize = 200;
 const MAX_HINT_TITLE_CHARS: usize = 120;
 
@@ -712,12 +718,19 @@ pub fn chapter_id_base(now_ms: u64) -> String {
 }
 
 /// 不经模型：把来源章节的吸附计划写回 `doc.chapters` + `stages.chapters`，
-/// id 与阶段戳口径同 [`commit_chapters`]。清洗后一章都不剩时报错。
+/// id 与阶段戳口径同 [`commit_chapters`]。清洗后一章都不剩，或有来源没给标题的条目（占位名不写进章节）时报错。
 pub fn commit_source_chapters(
     doc: &mut TranscriptDoc,
     plan: &SnapPlan,
     now_ms: u64,
 ) -> Result<Vec<Chapter>, String> {
+    if let Some(entry) = plan.entries.iter().find(|entry| entry.source.untitled) {
+        return Err(format!(
+            "Source chapter at {} has no title (placeholder \"{}\"); title it before committing.",
+            clock(entry.source.start),
+            entry.source.title
+        ));
+    }
     let rows = resolve_rows(&plan.rows(), doc.media.duration);
     if rows.is_empty() {
         return Err(
@@ -1164,6 +1177,7 @@ mod tests {
             start,
             end: None,
             title: title.to_owned(),
+            untitled: false,
         }
     }
 
@@ -1204,6 +1218,21 @@ mod tests {
                 && !contract_with_options("base", &ChaptersOptions::default())
                     .contains("Chapters published")
         );
+
+        // 只给了分界的条目（yt-dlp 的占位名）不把占位名交给模型。
+        let untitled = ChaptersOptions {
+            source_chapters: vec![
+                SourceChapter {
+                    untitled: true,
+                    ..src(0.0, "Untitled Chapter 1")
+                },
+                src(363.0, "Ramp Demo."),
+            ],
+            ..ChaptersOptions::default()
+        };
+        let contract = contract_with_options("base", &untitled);
+        assert!(contract.contains("\n00:00:00 (untitled)\n00:06:03 Ramp Demo."));
+        assert!(!contract.contains("Untitled Chapter"));
     }
 
     #[test]
@@ -1246,5 +1275,13 @@ mod tests {
         assert_eq!(doc.chapters, chapters);
         assert_eq!(doc.stages.chapters, Some(fingerprint(&doc.words)));
         assert!(commit_source_chapters(&mut doc, &SnapPlan::default(), 36).is_err());
+        let untitled = crate::source_chapters::snap_to_anchors(
+            &[SourceChapter {
+                untitled: true,
+                ..src(1.0, "Untitled Chapter 1")
+            }],
+            &anchors,
+        );
+        assert!(commit_source_chapters(&mut doc, &untitled, 36).is_err());
     }
 }

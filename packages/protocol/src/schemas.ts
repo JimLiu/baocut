@@ -62,6 +62,8 @@ const fileTarget = z.union([
   z.object({ projectId: id, path: filePath }).strict(),
 ]);
 const revision = z.string().regex(/^\d+$/);
+/** 随包贴纸的 ID（`sticker-packs.ts`）：`<包>-<文件>`，目录里有没有由 Runtime 查。 */
+const stickerId = z.string().regex(/^[A-Za-z0-9-]+\.(svg|json)$/).max(200);
 const assetTarget = { videoId: id, assetId: id, revision: revision.optional() };
 const attachmentTarget = z.object({ conversationId: id, attachmentId: id }).strict();
 const localFileTarget = z.object({ localPath: filePath }).strict();
@@ -340,8 +342,13 @@ const brandContentInput = z.union([
       style: z.looseObject({ schema: z.string().trim().min(1).max(200) }),
     })
     .strict(),
-  // 保留的种类：收下外形，由 Runtime 带着说明拒绝（LIBRARY_KIND_RESERVED）。
-  z.looseObject({ name: libraryEntryName, kind: z.literal('overlayTemplate') }),
+  z
+    .object({
+      name: libraryEntryName,
+      kind: z.literal('overlayTemplate'),
+      template: z.looseObject({ layers: z.array(z.unknown()) }),
+    })
+    .strict(),
 ]);
 const librarySource = z.union([
   z.object({ path: filePath }).strict(),
@@ -1373,6 +1380,16 @@ export const methodParamSchemas = {
     })
     .strict(),
   'library.openHandle': libraryRef,
+  'stickers.openHandle': z.object({ id: stickerId }).strict(),
+  'stickers.applyToVideo': z
+    .object({
+      videoId: id,
+      id: stickerId,
+      commandId: id,
+      expectedRevision: revision.optional(),
+      name: z.string().trim().min(1).max(200).optional(),
+    })
+    .strict(),
   'library.createVoiceClone': z
     .object({
       id: libraryId,

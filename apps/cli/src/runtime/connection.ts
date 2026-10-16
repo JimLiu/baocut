@@ -163,6 +163,7 @@ export function packagedResourceEnv(resources: string, platform: NodeJS.Platform
   return {
     BAOCUT_BIN_DIR: path.join(resources, 'bin'),
     BAOCUT_TEMPLATES_DIR: path.join(resources, 'templates'),
+    BAOCUT_STICKERS_DIR: path.join(resources, 'stickers'),
     BAOCUT_SKILLS_DIR: path.join(resources, 'skills', 'baocut', 'built-in-skills'),
     BAOCUT_AGENT_SKILLS_DIR: path.join(resources, 'skills'),
     BAOCUT_MODEL_ASSETS_DIR: path.join(resources, 'model-assets'),

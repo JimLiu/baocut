@@ -3391,11 +3391,36 @@ fn update_sequence(
                 max = MAX_CANVAS_SIDE
             )));
         }
+        // 模板锁着画幅时只接受同一比例的画布（视频格式规范 §3.17）；`original` 要看源尺寸，由界面把关。
+        if let Some(lock) = next.template.as_ref().and_then(timeline::protocol::template::ratio_lock)
+            && !lock.is_original()
+            && !ratio_matches(&lock.ratio, c.width, c.height)
+        {
+            return Err(ErrorBody::invalid_operation(msg!(
+                "engine.templateRatioLocked",
+                "The template {template} locks the aspect ratio to {ratio}; the canvas can only change within that ratio",
+                template = lock.name.clone(),
+                ratio = lock.ratio.clone()
+            ))
+            .recovery(msg!("engine.templateRatioLockedRecovery", "Unlock the template's aspect ratio first, then change the canvas"))
+            .details(json!({ "rule": "template-ratio-locked", "ratio": lock.ratio, "template": lock.name })));
+        }
         next.canvas.width = c.width;
         next.canvas.height = c.height;
     }
     state.sequences.get_mut(sequence_id).expect("刚找到").header = next;
     Ok(())
+}
+
+/// 画布是不是 `W:H` 这一档。容差与界面一致（比值差 0.01 以内）：按短边换算的画布会有取整误差。
+fn ratio_matches(ratio: &str, width: u32, height: u32) -> bool {
+    let Some((w, h)) = ratio.split_once(':') else {
+        return false;
+    };
+    match (w.trim().parse::<f64>(), h.trim().parse::<f64>()) {
+        (Ok(w), Ok(h)) if w > 0.0 && h > 0.0 => (w / h - f64::from(width) / f64::from(height)).abs() < 0.01,
+        _ => false,
+    }
 }
 
 /// 把链接素材改记为受管理。bytes 已经在事务之外复制并核对过摘要。

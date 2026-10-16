@@ -32,4 +32,5 @@ export const ptBR: LibraryBrandMessages = {
   styleEmpty: "O documento de estilo de legendas está vazio",
   styleNoSchema: "O documento de estilo de legendas não tem schema e não pode ser salvo no kit de marca",
   styleTooLarge: "O estilo de legendas é maior que 64 KiB",
+  template: 'Template',
 };

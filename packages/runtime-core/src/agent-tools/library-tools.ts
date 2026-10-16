@@ -33,7 +33,7 @@ const schemas = {
       .max(40)
       .optional()
       .describe(
-        '可选。只列这一种：术语表是 transcription（识别用）或 translation（翻译用），音色是 voice，品牌库是 image、video、sticker、font、color、captionStyle',
+        '可选。只列这一种：术语表是 transcription（识别用）或 translation（翻译用），音色是 voice，品牌库是 image、video、sticker、font、color、captionStyle、overlayTemplate（叠加模板）',
       ),
   }),
   library_show: z.strictObject({

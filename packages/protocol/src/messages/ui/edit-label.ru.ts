@@ -94,4 +94,10 @@ export const ru: EditLabelMessages = {
   removeDubGroup: (p) => `Удалить дубляж (${languageName('ru', p.language)})`,
   removeThisDubGroup: "Удалить эту группу озвучки",
   stretchDub: "Изменить скорость дубляжа",
+  applyTemplate: (p) => `Применить шаблон «${p.name}»`,
+  removeTemplate: 'Удалить шаблон',
+  editTemplate: 'Изменить шаблон',
+  editTemplateLayout: 'Изменить макет шаблона',
+  lockTemplateRatio: 'Закрепить соотношение сторон шаблона',
+  unlockTemplateRatio: 'Снять закрепление соотношения сторон',
 };

@@ -199,6 +199,12 @@ describe('交换文件的导入与导出', () => {
     expect((await writeLibraryExport(store, color, colorFile)).format).toBe('library-item');
     expect((await importFile('color-copy', await fs.readFile(colorFile))).contentHash).toBe(color.contentHash);
 
+    const template = { id: 'tpl-brand-1', name: '片头', layers: [{ id: 'l1', kind: 'progress', box: { x: 0, y: 98, w: 100, h: 2 }, accent: '#FF6600', track: '#FFFFFF33' }] };
+    const tpl = (await store.put({ library: 'brand', content: { name: '片头', kind: 'overlayTemplate', template: template as never } })).entry;
+    const tplFile = path.join(dir, 'template.json');
+    expect((await writeLibraryExport(store, tpl, tplFile)).format).toBe('library-item');
+    expect((await importFile('template-copy', await fs.readFile(tplFile))).contentHash).toBe(tpl.contentHash);
+
     const image = await importFile('logo', PNG);
     const imageFile = path.join(dir, 'logo-out');
     expect(await writeLibraryExport(store, image, imageFile)).toMatchObject({ format: 'media', byteLength: PNG.length });

@@ -19,6 +19,7 @@ editor-semantics.workspace = true
 font-files.workspace = true
 media-core.workspace = true
 media-native.workspace = true
+message-ref.workspace = true
 frame-render = { workspace = true, features = ["host"] }
 render-graph.workspace = true
 serde = { version = "1.0.229", features = ["derive"] }

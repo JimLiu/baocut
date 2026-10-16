@@ -14,4 +14,5 @@ export const es: LibraryBrandMessages = {
  styleEmpty: 'El documento de estilo de subtítulos está vacío',
  styleNoSchema: 'El documento de estilo de subtítulos no tiene un esquema, por lo que no se puede guardar en el kit de marca',
  styleTooLarge: 'El estilo de subtítulos supera los 64 KiB',
+ template: 'Plantilla',
 };

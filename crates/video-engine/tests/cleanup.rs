@@ -352,6 +352,45 @@ fn unused_assets_lists_what_nothing_refers_to_and_remove_assets_deletes_it() {
 }
 
 #[test]
+fn a_brand_logo_used_by_the_template_counts_as_used() {
+    let root = tempfile::tempdir().unwrap();
+    let mut video = new_video(&root.path().join("m"));
+    let path = root.path().join("logo.svg");
+    fs::write(&path, r#"<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"/>"#).unwrap();
+    // 从品牌库拷进来的图片（`library.applyToVideo` 写的来源）。
+    let logo = apply(
+        &mut video,
+        "cmd_logo",
+        vec![json!({ "type": "importAsset", "path": path, "ref": "i", "storage": "managed",
+                     "provenance": { "origin": "library", "source": { "library": { "library": "brand", "entryId": "bm1", "version": 1 } } } })],
+    )
+    .unwrap()
+    .receipt
+    .refs["i"]
+    .clone();
+    let s = seq(&video);
+    let unused = |video: &Video| video.unused_assets().into_iter().map(|a| a.asset_id).collect::<Vec<_>>();
+    assert_eq!(unused(&video), vec![logo.clone()]);
+    let template = json!({ "id": "tpl", "name": "台标", "layers": [
+        { "id": "logo", "box": { "x": 2, "y": 4, "w": 20, "h": 12 }, "kind": "logo", "src": { "brandLogo": "bm1" }, "color": "#FFFFFF" }
+    ] });
+    apply(
+        &mut video,
+        "cmd_tpl",
+        vec![json!({ "type": "setTemplate", "sequenceId": s, "template": template })],
+    )
+    .unwrap();
+    assert!(unused(&video).is_empty());
+    apply(
+        &mut video,
+        "cmd_untpl",
+        vec![json!({ "type": "setTemplate", "sequenceId": s, "template": null })],
+    )
+    .unwrap();
+    assert_eq!(unused(&video), vec![logo]);
+}
+
+#[test]
 fn a_replaced_bundle_and_its_prerender_go_together() {
     let root = tempfile::tempdir().unwrap();
     let mut video = new_video(&root.path().join("m"));

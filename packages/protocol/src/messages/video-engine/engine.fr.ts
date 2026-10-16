@@ -247,6 +247,9 @@ export const fr: EngineMessages = {
   updateSequenceEmpty: "updateSequence doit modifier au moins un élément",
   backgroundInvalid: "Le fond du canevas doit être #RRGGBB",
   canvasSideRange: (p) => `Chaque côté du canevas doit être de 1 à ${p.max} pixels`,
+  templateRatioLocked: (p) =>
+    `Le modèle « ${p.template} » verrouille le format en ${p.ratio} ; le canevas ne peut changer que dans ce format`,
+  templateRatioLockedRecovery: 'Déverrouillez d’abord le format du modèle, puis modifiez le canevas',
   collectAssetsEmpty: "collectAssets nécessite au moins une entrée",
   trackNotEmpty: (p) => `La piste ${p.track} contient encore des clips (${p.count}) ; seule une piste vide peut être supprimée`,
   trackNotEmptyRecovery: "Supprimez d’abord ses clips (deleteItems) ou déplacez-les sur une autre piste (moveItem), puis supprimez la piste",

@@ -362,7 +362,14 @@ fn layers_the_plan_cannot_draw_are_refused_or_skipped_never_blank() {
         ),
         ("bundle", "layer", "bundle-without-prerender")
     );
-    assert!(!error.items[0].message.is_empty());
+    // 说明是英文缺省文字，带着引用：界面按自己的语言重新生成（仓库约定 §5）。
+    assert!(
+        error.items[0]
+            .message
+            .starts_with("A code composition without a pre-rendered stand-in")
+    );
+    let wire = serde_json::to_value(&error.items[0]).unwrap();
+    assert_eq!(wire["messageRef"], json!({ "key": "frameRender.bundleWithoutPrerender" }));
     let mut skipping = renderer(true, Documents::default());
     let frame = render_with(&mut skipping, &video, 0.0, &mut media());
     near(px(&frame, 80, 45), RED, 2);

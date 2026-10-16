@@ -5,7 +5,9 @@ import {
   LIBRARY_SELECTION_KIND,
   MAX_SELECTED_GLOSSARIES,
   RpcError,
+  brandLogoAsset,
   newId,
+  templateBrandLogos,
   type Actor,
   type EditOperation,
   type Id,
@@ -165,7 +167,9 @@ export class LibraryService {
    */
   async applyToVideo(p: LibraryApplyParams, principal: TrustedPrincipal): Promise<LibraryApplyResult> {
     const { videos } = this.#options;
-    return this.#pinned(p.entry, async (entry) => {
+    // 模板台标用到、视频里还没有的品牌库图片：拷进来期间固定住，事务写完再放。
+    const logoHolder = newId('libpin');
+    const applied = this.#pinned(p.entry, async (entry) => {
       const frozen = { library: entry.library, id: entry.id, version: entry.version, contentHash: entry.contentHash };
       const name = p.name ?? entry.content.name;
       const content = entry.content;
@@ -205,6 +209,48 @@ export class LibraryService {
             styleDocument: { ref: 'style' },
           })),
         ];
+      } else if (entry.library === 'brand' && 'template' in content) {
+        // 叠加模板拷一份成序列的模板层（视频格式规范 §3.17）：`id` 与 `from` 记下条目，界面据此认出「存在品牌库」。
+        // 画布不在这里改：模板声明的套用画幅由调用方另外 `updateSequence`。
+        const video = videos.mirror(p.videoId)?.video;
+        if (!video) throw new RpcError('not-found', RcCommon.videoNotOpen(), { code: 'VIDEO_NOT_OPEN' });
+        const template = { ...content.template, id: entry.id, from: entry.id, ...(p.name !== undefined ? { name: p.name } : {}) };
+        delete template.builtin;
+        // 台标用的品牌库图片按素材登记（§3.17）：视频里还没有的同一笔事务拷进来；库里已经没有的不拷，画的时候报出来。
+        const logos = templateBrandLogos(template)
+          .filter((id) => !brandLogoAsset(video.assets, id))
+          .flatMap((id) => {
+            try {
+              const [pinned] = this.store.pin(logoHolder, [{ library: 'brand', id }]);
+              const logo = this.store.get({ library: 'brand', id, version: pinned!.version });
+              return 'file' in logo.content && logo.content.kind === 'image' ? [{ entry: logo, content: logo.content }] : [];
+            } catch {
+              return [];
+            }
+          });
+        operations = [
+          ...logos.map(({ entry: logo, content: image }, index): EditOperation => ({
+            type: 'importAsset',
+            path: this.store.filePath(logo, image.file),
+            name: image.name,
+            ref: `logo${index}`,
+            storage: 'managed',
+            provenance: {
+              origin: 'library',
+              source: {
+                library: {
+                  library: logo.library,
+                  entryId: logo.id,
+                  version: logo.version,
+                  contentHash: logo.contentHash,
+                  name: image.name,
+                  kind: image.kind,
+                },
+              },
+            },
+          })),
+          { type: 'setTemplate', sequenceId: p.sequenceId ?? video.rootSequenceId, template },
+        ];
       } else {
         throw withLocalized(
           libraryError('LIBRARY_ENTRY_NOT_APPLICABLE', 'invalid-request', '', { library: entry.library, id: entry.id }),
@@ -228,6 +274,7 @@ export class LibraryService {
         ...(refs.style ? { documentId: refs.style } : {}),
       };
     });
+    return applied.finally(() => this.store.unpin(logoHolder));
   }
 
   /** 视频里启用的条目（§5.9）：`library-selection` 文档的正文；没有这份文档时是空的。 */

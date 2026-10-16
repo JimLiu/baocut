@@ -238,6 +238,9 @@ export const nl: EngineMessages = {
   updateSequenceEmpty: "updateSequence moet minstens één ding wijzigen",
   backgroundInvalid: "De canvasachtergrond moet #RRGGBB zijn",
   canvasSideRange: (p: P<'max'>) => `Elke canvaszijde moet 1–${p.max} pixels`,
+  templateRatioLocked: (p: P<'template' | 'ratio'>) =>
+    `Het sjabloon ‘${p.template}’ vergrendelt de beeldverhouding op ${p.ratio}; het canvas kan alleen binnen die verhouding veranderen`,
+  templateRatioLockedRecovery: 'Ontgrendel eerst de beeldverhouding van het sjabloon en wijzig dan het canvas',
   collectAssetsEmpty: "collectAssets vereist minstens één item",
   trackNotEmpty: (p) => `Spoor ${p.track} bevat nog clips (${p.count}); alleen een leeg spoor kan worden verwijderd`,
   trackNotEmptyRecovery: "Verwijder eerst de clips (deleteItems) of verplaats ze naar een ander spoor (moveItem) en verwijder dan het spoor",

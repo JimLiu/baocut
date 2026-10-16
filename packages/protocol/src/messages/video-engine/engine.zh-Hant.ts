@@ -246,6 +246,8 @@ export const zhHant: EngineMessages = {
   updateSequenceEmpty: 'updateSequence 至少必須變更一項',
   backgroundInvalid: '畫布背景必須是 #RRGGBB',
   canvasSideRange: (p) => `畫布每邊必須是 1–${p.max} 像素`,
+  templateRatioLocked: (p) => `範本「${p.template}」鎖定了 ${p.ratio} 畫面比例，畫布只能在這個比例內更改`,
+  templateRatioLockedRecovery: '先解除範本的畫面比例鎖定，再更改畫布',
   collectAssetsEmpty: 'collectAssets 至少需要一項',
   trackNotEmpty: (p) => `軌道 ${p.track} 上還有片段（${p.count} 個）；只能刪除空軌道`,
   trackNotEmptyRecovery: '先刪掉上面的片段（deleteItems）或把它們移到別的軌道（moveItem），再刪除軌道',

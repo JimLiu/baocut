@@ -18,6 +18,8 @@ import { editorWasmAvailable, sourceSentences } from '@baocut/jobs';
 import { checkText, displayWidth, renderText, wrapLines, type TextExportInput } from './text-export.ts';
 import { sourceChapters, sourcePlan } from './text-source.ts';
 import { JobsSpeechDocument } from '@baocut/protocol/messages/jobs/speech-document.ts';
+import { formatRef, refOf, setLocale } from '@baocut/protocol';
+import { skippedWarning, unsupportedList, type UnsupportedItem } from './video-export.ts';
 
 /** 导出的纯函数部分：不需要引擎与 ffmpeg，总是运行。 */
 
@@ -998,5 +1000,36 @@ describe('落点与发布', () => {
     expect((await fs.readdir(out)).sort()).toEqual(['a (2).srt', 'a.srt']);
     // staging 里的文件还在（之后登记为产物）。
     expect(await fs.readFile(staged, 'utf8')).toBe('new');
+  });
+});
+
+describe('画不出来的说明', () => {
+  const items: UnsupportedItem[] = [
+    {
+      itemId: 'i1',
+      scope: 'layer',
+      layerKind: 'generator',
+      reason: 'template-logo-image-not-supported',
+      message: 'Image logos referenced by file path can’t be drawn in templates (use a brand kit logo or a text logo)',
+      messageRef: { key: 'frameRender.templateLogoImage' },
+    },
+    { itemId: 'i2', scope: 'asset', layerKind: 'image', reason: 'asset-undecodable', message: 'SVG 图片 a 读不到' },
+  ];
+  afterEach(() => setLocale('zh-Hans'));
+
+  it('Worker 给的引用嵌在 Runtime 的文字里，读者按自己的语言展开；没有引用的照用原话', () => {
+    const listed = unsupportedList(items);
+    // 测试在 zh-Hans 下跑：Runtime 自己的文字按它的语言生成。
+    expect(String(listed)).toBe('模板里按路径引用的图片台标画不出来（换成品牌库的台标或文字台标）；SVG 图片 a 读不到');
+    const ref = refOf(listed as never);
+    expect(formatRef(ref, '', 'en')).toBe('Image logos referenced by file path can’t be drawn in templates (use a brand kit logo or a text logo); SVG 图片 a 读不到');
+    expect(formatRef(ref, '', 'zh-Hans')).toBe('模板里按路径引用的图片台标画不出来（换成品牌库的台标或文字台标）；SVG 图片 a 读不到');
+    expect(String(unsupportedList([items[1]!]))).toBe('SVG 图片 a 读不到');
+  });
+
+  it('跳过时的警告带着嵌套引用', () => {
+    const warning = skippedWarning(items[0]!);
+    expect(formatRef(warning.detailRef, '', 'en')).toContain('Image logos referenced by file path can’t be drawn');
+    expect(formatRef(warning.detailRef, '', 'zh-Hans')).toContain('模板里按路径引用的图片台标画不出来');
   });
 });

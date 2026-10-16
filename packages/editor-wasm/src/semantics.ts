@@ -4,7 +4,8 @@
  * - 舞台的框（`render-graph` 的 `item_box`）：`place` 与画布像素框互换、种类的缺省落位，与帧计划画层同一个实现；
  * - 引擎校验用的取值区间与缺省值（效果、闪避、音量、关键帧、动画）：界面的数字框按它们封顶；
  * - 已有转写的识别说话人（架构设计 §6.6）：声纹区分的结果做成提案、确认后应用（字幕与翻译核心的说话人应用）；
- * - 来源自带章节（架构设计 §3.5、§7.9）：平台的 `chapters[]`、简介里的时间戳大纲或显式大纲，吸附到转写的段落、句子起点。
+ * - 来源自带章节（架构设计 §3.5、§7.9）：平台的 `chapters[]`、简介里的时间戳大纲或显式大纲，吸附到转写的段落、句子起点；
+ * - 模板层（视频格式规范 §3.17）：目录、新建一层、定义与实例互换、画幅锁与字幕避让、版面框几何与命中。
  *
  * 实例化是同步的（WASM 不到 1 MB，浏览器主线程同步编译的上限是 8 MB），所以调用方可以在渲染里直接调。
  * 载入字节的方式按环境分开：`node.ts` 从文件读，`browser.ts` 由 Vite 内联；两边导出同一组函数。
@@ -235,6 +236,8 @@ export interface SourceChapter {
   start: number;
   end?: number;
   title: string;
+  /** 来源只给了分界、没给标题：`title` 是 yt-dlp 填的占位名（`<Untitled Chapter N>`，清洗后去掉尖括号），不能当标题写进章节。 */
+  untitled?: true;
 }
 
 /** 吸附的结果：同一秒窗里恰一个候选（`matched`）、多个同层候选（`ambiguous`，缺省取最近的）、放宽窗里的段落或句起点（`snapped`）、附近没有结构起点（`unanchored`，保留原时间）。 */
@@ -266,6 +269,8 @@ export interface SourceChapterRow {
   start: number;
   end: number;
   status: SourceChapterStatus;
+  /** 这一章来自占位名（同 `SourceChapter.untitled`）。 */
+  untitled?: true;
 }
 
 /** `sourceChapters` 的输入。时间都是素材（源）时间。 */
@@ -391,6 +396,52 @@ export class EditorWasmError extends Error {
   }
 }
 
+/** 模板层的一套（视频格式规范 §3.17）：只约束这里读写的字段，完整形状见 `@baocut/protocol` 的 `TemplateLayers`。 */
+export interface TemplateDocLike {
+  id: string;
+  name: string;
+  layers: readonly { id: string; box: TemplateBoxValue }[];
+}
+
+/** 模板层一层的框：画面的百分比。 */
+export interface TemplateBoxValue {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** 模板目录的一节：组键、组名（跟界面语言）与节内的定义（`brand` 是品牌库里的）。 */
+export interface TemplateCatalogGroup<T> {
+  key: string;
+  label: string;
+  items: { doc: T; brand: boolean }[];
+}
+
+/** 一套模板的派生量。 */
+export interface TemplateInfo {
+  /** 套用时改成的画幅（`original` 或 `W:H`）；没声明为 null。 */
+  ratioTarget: string | null;
+  ratioLocked: boolean;
+  /** 字幕底线抬到的画面高百分比；不用让为 0。 */
+  subsBottom: number;
+  /** 校验不过时的原因。 */
+  problem?: string;
+}
+
+/** 版面编辑器的框操作：夹进画面、拖动、按把手拉伸（像素位移按 `frame` 折成百分比）。 */
+export type TemplateBoxOp =
+  | { op: 'clamp'; box: TemplateBoxValue }
+  | { op: 'drag'; box: TemplateBoxValue; dx: number; dy: number; frame: { width: number; height: number } }
+  | {
+      op: 'resize';
+      box: TemplateBoxValue;
+      handle: 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
+      dx: number;
+      dy: number;
+      frame: { width: number; height: number };
+    };
+
 /** WASM 还没有构建（先运行 `npm run build:wasm`）。带 `code`：流程的一步因它失败时，错误码与说明原样进任务记录。 */
 export class EditorWasmUnavailable extends Error {
   readonly code = 'EDITOR_WASM_UNAVAILABLE';
@@ -448,6 +499,15 @@ interface Exports {
   bc_audio_sheet(ptr: number, len: number): number;
   bc_sfx_render(ptr: number, len: number): number;
   bc_sfx_recipes(ptr: number, len: number): number;
+  bc_template_catalog(ptr: number, len: number): number;
+  bc_template_new_layer(ptr: number, len: number): number;
+  bc_template_blank(ptr: number, len: number): number;
+  bc_template_instance(ptr: number, len: number): number;
+  bc_template_definition(ptr: number, len: number): number;
+  bc_template_info(ptr: number, len: number): number;
+  bc_template_ratio_equivalent(ptr: number, len: number): number;
+  bc_template_box(ptr: number, len: number): number;
+  bc_template_hit(ptr: number, len: number): number;
   bc_output_ptr(): number;
   bc_output_len(): number;
 }
@@ -569,6 +629,54 @@ export class EditorSemantics {
     return this.call('bc_sfx_recipes', {});
   }
 
+  /**
+   * 模板目录（视频格式规范 §3.17）：内置十七款按界面语言（简中、繁中、英文、日文，别的语言回落到英文）加品牌库的定义，
+   * 按组分节，空组不出现，品牌库那一组在最后。
+   */
+  templateCatalog<T extends TemplateDocLike>(lang: string, brand: readonly T[]): TemplateCatalogGroup<T>[] {
+    return this.call('bc_template_catalog', { lang, brand });
+  }
+
+  /** 新建一层：这一类的默认框与参数，id 取 `l-<类>-<n>` 里没被占用的最小一个。 */
+  templateNewLayer<L>(kind: string, lang: string, taken: readonly string[]): L {
+    return this.call('bc_template_new_layer', { kind, lang, taken });
+  }
+
+  /** 空白模板（`name` 是界面给的名字）。 */
+  templateBlank<T extends TemplateDocLike>(canvas: '16:9' | '9:16', name: string): T {
+    return this.call('bc_template_blank', { canvas, name });
+  }
+
+  /** 定义 → 实例：深拷贝、`from` 记定义的 id、去内置标记。 */
+  templateInstance<T extends TemplateDocLike>(doc: T): T {
+    return this.call('bc_template_instance', { doc });
+  }
+
+  /** 实例 → 品牌库的定义：换名字与 id，去掉 `from` 与内置标记；校验不过时抛 `EditorWasmError`（`INVALID_TEMPLATE`）。 */
+  templateDefinition<T extends TemplateDocLike>(doc: T, name: string, id: string): T {
+    return this.call('bc_template_definition', { doc, name, id });
+  }
+
+  /** 派生量：画幅目标与锁、字幕避让、校验结果。 */
+  templateInfo(doc: TemplateDocLike): TemplateInfo {
+    return this.call('bc_template_info', { doc });
+  }
+
+  /** 两个画幅是否同一档（null 与 `original` 同义，`W:H` 按比值比）。 */
+  templateRatioEquivalent(left: string | null, right: string | null): boolean {
+    return this.call('bc_template_ratio_equivalent', { left, right });
+  }
+
+  /** 版面编辑器的框：结果一位小数、在画面内、不小于最小尺寸。 */
+  templateBox(input: TemplateBoxOp): TemplateBoxValue {
+    return this.call('bc_template_box', input);
+  }
+
+  /** 命中（画面百分比坐标）：自顶向下，跳过关掉的层。 */
+  templateHit(doc: TemplateDocLike, x: number, y: number): string | null {
+    return this.call('bc_template_hit', { doc, x, y });
+  }
+
   private ranges: EngineRanges | undefined;
   private presets: ElementPresets | undefined;
 
@@ -621,5 +729,15 @@ export function semanticsApi(get: () => EditorSemantics) {
     audioSheet: (pcm: Float32Array, options: AudioSheetOptions): AudioSheet => get().audioSheet(pcm, options),
     sfxRender: (spec: SfxSpec): Uint8Array => get().sfxRender(spec),
     sfxRecipes: (): SfxRecipe[] => get().sfxRecipes(),
+    templateCatalog: <T extends TemplateDocLike>(lang: string, brand: readonly T[]): TemplateCatalogGroup<T>[] =>
+      get().templateCatalog(lang, brand),
+    templateNewLayer: <L>(kind: string, lang: string, taken: readonly string[]): L => get().templateNewLayer<L>(kind, lang, taken),
+    templateBlank: <T extends TemplateDocLike>(canvas: '16:9' | '9:16', name: string): T => get().templateBlank<T>(canvas, name),
+    templateInstance: <T extends TemplateDocLike>(doc: T): T => get().templateInstance(doc),
+    templateDefinition: <T extends TemplateDocLike>(doc: T, name: string, id: string): T => get().templateDefinition(doc, name, id),
+    templateInfo: (doc: TemplateDocLike): TemplateInfo => get().templateInfo(doc),
+    templateRatioEquivalent: (left: string | null, right: string | null): boolean => get().templateRatioEquivalent(left, right),
+    templateBox: (input: TemplateBoxOp): TemplateBoxValue => get().templateBox(input),
+    templateHit: (doc: TemplateDocLike, x: number, y: number): string | null => get().templateHit(doc, x, y),
   };
 }

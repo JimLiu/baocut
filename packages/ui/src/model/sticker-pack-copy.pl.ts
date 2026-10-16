@@ -1,0 +1,35 @@
+import type { StickerPackMessages } from './sticker-pack-copy.ts';
+
+export const pl: StickerPackMessages = {
+  packs: {
+    featured: 'Polecane',
+    emoji: 'Emoji',
+    people: 'Ludzie',
+    mockup: 'Makiety',
+    podcast: 'Podcast',
+    icon: 'Ikony',
+    summer: 'Lato',
+    gesture: 'Gesty',
+    arrow: 'Strzałki i wskaźniki',
+    hand: 'Rysowane ręcznie',
+    birthday: 'Urodziny',
+    finance: 'Finanse',
+    fitness: 'Fitness',
+    seasonal: 'Pory roku',
+    school: 'Powrót do szkoły',
+    cta: 'CTA',
+    'dyn-collage': 'Kolaż',
+    'dyn-emoji': 'Emoji',
+    'dyn-grow': 'Wzrost',
+    'dyn-holiday': 'Święta',
+    'dyn-work': 'Praca',
+  },
+  morePacks: 'Więcej pakietów',
+  packMenuHead: (count: number) => `Pakiety: ${count}`,
+  packCount: (count: number) => `Naklejki: ${count}`,
+  ctaTitle: 'Wyskakujące CTA',
+  ctaNote: '32 style · subskrybuj / polub / udostępnij / kup',
+  notoHint:
+    'Pięć wbudowanych kategorii to pliki Lottie z Google Noto Animated Emoji (CC BY 4.0): wektorowe pętle z przezroczystością, które na płótnie podążają za głowicą odtwarzania i można je przekolorować jak naklejki.',
+  addFailed: (message: string) => `Nie udało się dodać naklejki: ${message}`,
+};

@@ -1,8 +1,32 @@
-import { useState, type ReactNode } from 'react';
-import type { Sequence } from '@baocut/protocol';
-import { ActionButton, SearchField, ToggleButton, ToggleButtonGroup, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
+import {
+  ANIMATED_STICKER_PACKS,
+  STICKER_PACKS,
+  packStickers,
+  type AssetRecord,
+  type Id,
+  type PackSticker,
+  type Sequence,
+  type StickerPack,
+} from '@baocut/protocol';
+import {
+  ActionButton,
+  Header,
+  Heading,
+  Menu,
+  MenuItem,
+  MenuSection,
+  MenuTrigger,
+  SearchField,
+  Text,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
+  TooltipTrigger,
+} from '@react-spectrum/s2';
 import Animation from '@react-spectrum/s2/icons/Animation';
 import ChevronRight from '@react-spectrum/s2/icons/ChevronRight';
+import More from '@react-spectrum/s2/icons/More';
 import Search from '@react-spectrum/s2/icons/Search';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { Button as RACButton } from 'react-aria-components';
@@ -10,20 +34,41 @@ import { ELEMENT_TILES, VISUALIZER_PEEK, elementSections, type ElementSection, t
 import { frameAt } from '../../model/editor.ts';
 import { stickerMatches } from '../../model/library-brand.ts';
 import { spanAtPlayhead, wholeFilmSpan } from '../../model/new-items.ts';
+import { STICKER_PACK_COPY as SP } from '../../model/sticker-pack-copy.ts';
+import {
+  CHIP_PACKS,
+  CTA_PACK,
+  confettiAt,
+  findPack,
+  headStickers,
+  matchPacks,
+  packLabel,
+  packStickerName,
+  restPacks,
+} from '../../model/sticker-packs.ts';
+import type { TemplateGroup } from '../../model/template-layers.ts';
 import { useEditor } from '../../state/editor-store.ts';
 import { canEdit, useVideo } from '../../state/video-store.ts';
-import { BrandStickerThumb, ElementThumb } from './element-thumb.tsx';
+import { BrandStickerThumb, ElementThumb, PackStickerThumb } from './element-thumb.tsx';
+import { TemplateList, templateMatches } from './elements-templates.tsx';
 import { SecHead } from './inspector-controls.tsx';
 import { PanelChips, PanelHead, panelBody } from './panel-head.tsx';
 import { useBrandApply } from './use-brand-apply.ts';
 import { useBrandStickers, type BrandSticker } from './use-brand-stickers.ts';
 import { useInsertVisual } from './use-insert-visual.ts';
+import { usePackSticker } from './use-pack-sticker.ts';
+import { useTemplateActions } from './use-template-actions.ts';
+import { useTemplateCatalog } from './use-template-catalog.ts';
+import { useTemplateStudio } from './use-template-studio.ts';
 import { ELEMENTS_COPY as EL } from './elements-copy.ts';
+import { TEMPLATE_COPY as TC } from './template-copy.ts';
 
 /** 目录页每一段摆几格，多的走「查看全部」。 */
 const PEEK = 4;
 
 type Section = ElementSection['key'];
+/** 钻进去的那一页：元素目录的几段，加上模板（BaoCut 特有，不占顶层 chip，只有目录页的「查看全部」与组 chip 钻得进去）。 */
+type Page = Section | 'all' | 'template';
 const CHIPS: { key: Section | 'all'; label: string }[] = [
   {
     key: 'all',
@@ -75,53 +120,31 @@ const VIZ_CHIPS: { key: VizSub; label: string }[] = [
 ];
 
 /**
- * 贴纸的二级分类（设计稿 `stickerChips`）：「我的贴纸」恒在「全部」之后第一格。设计稿后面是第三方静态包（精选、表情、⋯），
- * 那些要随包素材，这里没有；内置的十款模板单占一格。
+ * 贴纸的二级分类（设计稿 `stickerChips`）：「全部」「我的贴纸」，再是 chip 上的随包贴纸包（精选、表情）；其余的包与内置的十款
+ * 进「⋯」。值是 `all`、`brand`、`builtin` 或包的 key。
  */
-type StickerSub = 'all' | 'brand' | 'builtin';
-const STICKER_CHIPS: { key: StickerSub; label: string }[] = [
-  {
-    key: 'all',
-    get label() {
-      return EL.all;
-    },
-  },
-  {
-    key: 'brand',
-    get label() {
-      return EL.myStickers;
-    },
-  },
-  {
-    key: 'builtin',
-    get label() {
-      return EL.builtin;
-    },
-  },
+type StickerSub = string;
+const stickerChips = (): { key: StickerSub; label: string }[] => [
+  { key: 'all', label: EL.all },
+  { key: 'brand', label: EL.myStickers },
+  ...CHIP_PACKS.map((key) => ({ key, label: packLabel(findPack(key)!) })),
+];
+/** 「⋯」里的：其余的随包贴纸包按目录原序，最后是内置的十款（BaoCut 自己画的）。 */
+const stickerRest = (builtinCount: number): { key: StickerSub; label: string; count: number }[] => [
+  ...restPacks().map((pack) => ({ key: pack.key, label: packLabel(pack), count: pack.files.length })),
+  { key: 'builtin', label: EL.builtin, count: builtinCount },
 ];
 
-/** 动态贴纸的二级分类（设计稿 `animCats`，只留做得出来的几格：我的贴纸、彩纸）。 */
-type DynSub = 'all' | 'brand' | 'confetti';
-const DYN_CHIPS: { key: DynSub; label: string }[] = [
-  {
-    key: 'all',
-    get label() {
-      return EL.all;
-    },
-  },
-  {
-    key: 'brand',
-    get label() {
-      return EL.myStickers;
-    },
-  },
-  {
-    key: 'confetti',
-    get label() {
-      return EL.confetti;
-    },
-  },
-];
+/**
+ * 动态贴纸的二级分类（设计稿 `animCats`）：「全部」「我的贴纸」，再是五个 Noto 分类，彩纸按分类键的字母序插在拼贴之后。
+ * 值是 `all`、`brand`、`confetti` 或包的 key。
+ */
+type DynSub = string;
+const dynChips = (): { key: DynSub; label: string }[] => {
+  const packs = ANIMATED_STICKER_PACKS.map((pack) => ({ key: pack.key, label: packLabel(pack) }));
+  packs.splice(confettiAt(ANIMATED_STICKER_PACKS), 0, { key: 'confetti', label: EL.confetti });
+  return [{ key: 'all', label: EL.all }, { key: 'brand', label: EL.myStickers }, ...packs];
+};
 
 const search = style({ flexShrink: 0, paddingX: 12, paddingTop: 12 });
 const subChips = style({ paddingBottom: 8 });
@@ -224,14 +247,34 @@ const headNote = style({
   whiteSpace: 'nowrap',
 });
 
+/** 模板子页的组 chip（原型 `tplChips`）：「全部」加当前有模板的组。 */
+const templateChips = (groups: readonly TemplateGroup[]) => [
+  {
+    key: 'all',
+    get label() {
+      return EL.all;
+    },
+  },
+  ...groups.map((g) => ({ key: g.key, label: g.label })),
+];
+
+/** 搜索时模板目录里留下的：每组只留命中的，空组不摆。 */
+function filterGroups(groups: readonly TemplateGroup[], query: string): TemplateGroup[] {
+  if (!query.trim()) return [...groups];
+  return groups
+    .map((g) => ({ ...g, items: g.items.filter((entry) => templateMatches(entry, g, query)) }))
+    .filter((g) => g.items.length > 0);
+}
+
 const byKey = (keys: readonly string[]) => keys.map((key) => ELEMENT_TILES.find((t) => t.key === key)).filter((t): t is ElementTile => !!t);
 
 /**
  * 元素面板（原型 §14）：目录页是贴纸、形状、可视化几段各摆几格，「查看全部」或分节头下的
- * 二级分类钻进那一段；点一格就在播放头处新建一条并选中。
+ * 二级分类钻进那一段；点一格就在播放头处新建一条并选中。最后一段是模板（视频格式规范 §3.17）：点一行就套到这部视频上。
  */
-export function ElementsPanel({ sequence }: { sequence: Sequence }) {
-  const [tab, setTab] = useState<Section | 'all'>('all');
+export function ElementsPanel({ sequence, assets }: { sequence: Sequence; assets: Record<Id, AssetRecord> }) {
+  const [tab, setTab] = useState<Page>('all');
+  const [tgrp, setTgrp] = useState('all');
   const [viz, setViz] = useState<VizSub>('all');
   const [dyn, setDyn] = useState<DynSub>('all');
   const [stk, setStk] = useState<StickerSub>('all');
@@ -241,8 +284,13 @@ export function ElementsPanel({ sequence }: { sequence: Sequence }) {
   const insert = useInsertVisual();
   const applyBrand = useBrandApply();
   const brand = useBrandStickers();
+  const templates = useTemplateActions();
+  const studio = useTemplateStudio();
+  const { groups: allGroups, builtinCount } = useTemplateCatalog();
   const root = tab === 'all';
   const q = query.trim();
+  const groups = filterGroups(allGroups, q);
+  const showTemplates = (root || tab === 'template') && groups.length > 0;
   // 品牌库贴纸：图片进贴纸那一段，Lottie 进动态贴纸那一段；搜索时命中了，那一段就留着。
   const mine = (dynamic: boolean): BrandProps => ({
     stickers: brand.stickers.filter((sticker) => sticker.dynamic === dynamic && stickerMatches(sticker.summary.name, dynamic, q)),
@@ -252,10 +300,25 @@ export function ElementsPanel({ sequence }: { sequence: Sequence }) {
   });
   const mineStatic = mine(false);
   const mineDynamic = mine(true);
-  const keep: Section[] = [...(mineStatic.stickers.length ? ['sticker' as const] : []), ...(mineDynamic.stickers.length ? ['dynamic' as const] : [])];
+  // 随包贴纸包：搜索按包名与检索词整包留下；命中了，那一段也得留着。
+  const stickerPacks = matchPacks(STICKER_PACKS, q);
+  const animPacks = matchPacks(ANIMATED_STICKER_PACKS, q);
+  const keep: Section[] = [
+    ...(mineStatic.stickers.length || stickerPacks.length ? ['sticker' as const] : []),
+    ...(mineDynamic.stickers.length || animPacks.length ? ['dynamic' as const] : []),
+  ];
   const sections = elementSections(query, keep).filter((section) => root || section.key === tab);
-  const current = root ? null : elementSections().find((section) => section.key === tab);
+  const current =
+    tab === 'template'
+      ? { title: TC.section, note: TC.sectionNote(builtinCount) }
+      : root
+        ? null
+        : elementSections().find((section) => section.key === tab);
   const peeking = root && !query.trim();
+  // CTA 弹窗（设计稿目录页的一段）：只在目录页不搜索时单独摆；搜索时它跟着贴纸那一段走，免得同一包摆两次。
+  const cta = findPack(CTA_PACK)!;
+  const showCta = peeking;
+  const addPack = usePackSticker();
 
   const add = (item: ElementTile) => {
     const frame = frameAt(useEditor.getState().playhead, sequence.fps);
@@ -269,14 +332,28 @@ export function ElementsPanel({ sequence }: { sequence: Sequence }) {
     setViz('all');
     setDyn('all');
     setStk('all');
+    setTgrp('all');
   };
-  const open = (section: Section, sub?: string) => {
+  const open = (section: Section | 'template', sub?: string) => {
+    if (section === 'template') setTgrp(sub ?? 'all');
     if (section === 'visualizer') setViz((sub as VizSub | undefined) ?? 'all');
-    if (section === 'dynamic') setDyn((sub as DynSub | undefined) ?? 'all');
-    if (section === 'sticker') setStk((sub as StickerSub | undefined) ?? 'all');
+    if (section === 'dynamic') setDyn(sub ?? 'all');
+    if (section === 'sticker') setStk(sub ?? 'all');
     setTab(section);
   };
   const tiles = { canvas: sequence.canvas, editable, onAdd: add };
+  const packTiles: PackTileProps = { editable, onAdd: (sticker) => void addPack(sticker) };
+  const builtinStickers = ELEMENT_TILES.filter((tile) => tile.group === 'sticker').length;
+  // 模板属性页的「换一套」：翻到模板目录。
+  const request = useEditor((s) => s.elementsPage);
+  useEffect(() => {
+    if (request !== 'template') return;
+    useEditor.getState().clearElementsPage();
+    setQuery('');
+    setSearching(false);
+    open('template');
+    // open 只用 setter。
+  }, [request]);
 
   const searchButton = (
     <TooltipTrigger>
@@ -311,11 +388,18 @@ export function ElementsPanel({ sequence }: { sequence: Sequence }) {
         </div>
       ) : null}
       {root ? <PanelChips<Section | 'all'> label={EL.elementCategories} items={CHIPS} value="all" onChange={(key) => (key === 'all' ? back() : open(key))} /> : null}
-      {tab === 'sticker' ? <PanelChips<StickerSub> label={EL.stickerCategories} items={STICKER_CHIPS} value={stk} onChange={setStk} /> : null}
+      {tab === 'sticker' ? (
+        <PanelChips<StickerSub> label={EL.stickerCategories} items={stickerChips()} value={stk} onChange={setStk}>
+          <MorePacks items={stickerRest(builtinStickers)} value={stk} onChange={setStk} />
+        </PanelChips>
+      ) : null}
       {tab === 'visualizer' ? <PanelChips<VizSub> label={EL.visualizerCategories} items={VIZ_CHIPS} value={viz} onChange={setViz} /> : null}
-      {tab === 'dynamic' ? <PanelChips<DynSub> label={EL.dynamicCategories} items={DYN_CHIPS} value={dyn} onChange={setDyn} /> : null}
+      {tab === 'dynamic' ? <PanelChips<DynSub> label={EL.dynamicCategories} items={dynChips()} value={dyn} onChange={setDyn} /> : null}
+      {tab === 'template' ? (
+        <PanelChips<string> label={TC.categories} items={templateChips(allGroups)} value={tgrp} onChange={setTgrp} />
+      ) : null}
       <div className={`${panelBody} bc-scroll`}>
-        {sections.length ? (
+        {sections.length || showTemplates ? (
           sections.map((section, index) => (
             <div key={section.key}>
               {root ? (
@@ -323,7 +407,11 @@ export function ElementsPanel({ sequence }: { sequence: Sequence }) {
                   <SecHead
                     first={index === 0}
                     aside={section.note}
-                    action={peeking && section.tiles.length > PEEK ? <ViewAll onPress={() => open(section.key)} /> : null}>
+                    action={
+                      peeking && (section.key === 'sticker' || section.key === 'dynamic' || section.tiles.length > PEEK) ? (
+                        <ViewAll onPress={() => open(section.key)} />
+                      ) : null
+                    }>
                     {section.key === 'dynamic' ? (
                       <span className={badgeTitle}>
                         <Animation styles={badgeIcon} data-bc-icons="own" />
@@ -336,13 +424,25 @@ export function ElementsPanel({ sequence }: { sequence: Sequence }) {
                   {peeking && section.key === 'visualizer' ? <SubChips label={EL.visualizerCategories} items={VIZ_CHIPS} onPick={(key) => open('visualizer', key)} /> : null}
                 </>
               ) : null}
-              {section.key === 'sticker' && !peeking ? (
-                <Stickers sub={root ? 'all' : stk} items={section.tiles} brand={mineStatic} {...tiles} />
+              {section.key === 'sticker' ? (
+                peeking ? (
+                  <PackTileGrid className={grid} stickers={headStickers(STICKER_PACKS, PEEK)} {...packTiles} />
+                ) : (
+                  <Stickers sub={root ? 'all' : stk} items={section.tiles} packs={stickerPacks} brand={mineStatic} pack={packTiles} {...tiles} />
+                )
               ) : section.key === 'dynamic' ? (
                 peeking ? (
-                  <TileGrid className={grid} items={section.tiles.slice(0, PEEK)} {...tiles} />
+                  // 目录页那一屏（设计稿 `AnimPackPeek`）：第一格是彩纸，其余各分类轮流取一张。
+                  <div className={grid}>
+                    {section.tiles.slice(0, 1).map((item) => (
+                      <Tile key={item.key} item={item} face="square" label={false} {...tiles} />
+                    ))}
+                    {headStickers(ANIMATED_STICKER_PACKS, PEEK - 1).map((sticker) => (
+                      <PackTile key={sticker.id} sticker={sticker} {...packTiles} />
+                    ))}
+                  </div>
                 ) : (
-                  <Dynamic sub={root ? 'all' : dyn} items={section.tiles} brand={mineDynamic} {...tiles} />
+                  <Dynamic sub={root ? 'all' : dyn} items={section.tiles} packs={animPacks} brand={mineDynamic} pack={packTiles} {...tiles} />
                 )
               ) : section.key === 'visualizer' ? (
                 peeking ? (
@@ -358,6 +458,41 @@ export function ElementsPanel({ sequence }: { sequence: Sequence }) {
         ) : (
           <div className={empty}>{EL.notFound(query.trim())}</div>
         )}
+        {showCta ? (
+          <div>
+            <SecHead first={sections.length === 0} aside={SP.ctaNote} action={<ViewAll onPress={() => open('sticker', CTA_PACK)} />}>
+              {SP.ctaTitle}
+            </SecHead>
+            <PackTileGrid className={grid} stickers={packStickers(cta).slice(0, PEEK)} {...packTiles} />
+          </div>
+        ) : null}
+        {showTemplates ? (
+          <div>
+            {root ? (
+              <>
+                <SecHead
+                  first={sections.length === 0}
+                  aside={TC.sectionNote(builtinCount)}
+                  action={peeking ? <ViewAll onPress={() => open('template')} /> : null}
+                >
+                  {TC.section}
+                </SecHead>
+                {peeking ? (
+                  <SubChips label={TC.categories} items={templateChips(allGroups)} onPick={(key) => open('template', key)} />
+                ) : null}
+              </>
+            ) : null}
+            <TemplateList
+              groups={groups}
+              group={root ? null : q ? 'all' : tgrp}
+              peek={peeking ? PEEK : null}
+              current={sequence.template}
+              editable={editable}
+              onApply={(doc) => void templates.apply(sequence, assets, doc)}
+              onMakeOwn={studio.makeOwn}
+            />
+          </div>
+        ) : null}
         <div className={hint}>{EL.clickHint}</div>
       </div>
     </>
@@ -457,19 +592,38 @@ interface BrandProps {
 }
 
 /** 「我的贴纸」这一组摆不摆：「全部」下搜索没命中就不摆（别处有命中），单看「我的贴纸」时总摆（好说没找到）。 */
-const showMine = (sub: string, brand: BrandProps) => sub !== 'builtin' && sub !== 'confetti' && (sub === 'brand' || !brand.query || brand.stickers.length > 0);
+const showMine = (sub: string, brand: BrandProps) => sub === 'brand' || (sub === 'all' && (!brand.query || brand.stickers.length > 0));
+
+/** 子页里摆哪些随包贴纸包：「全部」下是搜索命中的那些；钉在某一个包上时就是那一包（设计稿 `PackGrid`，不再按搜索筛）。 */
+function shownPacks(sub: string, packs: readonly StickerPack[]): StickerPack[] {
+  if (sub === 'all') return [...packs];
+  const pack = findPack(sub);
+  return pack ? [pack] : [];
+}
 
 /**
- * 贴纸子页（设计稿 `StickerSection`）：先「我的贴纸」（用户自己的东西先于随包目录），再内置的十款模板。
+ * 贴纸子页（设计稿 `StickerSection`）：先「我的贴纸」（用户自己的东西先于随包目录），再随包贴纸包，最后内置的十款。
  */
-function Stickers({ sub, items, brand, ...tiles }: TileProps & { sub: StickerSub; items: ElementTile[]; brand: BrandProps }) {
+function Stickers({
+  sub,
+  items,
+  packs,
+  brand,
+  pack,
+  ...tiles
+}: TileProps & { sub: StickerSub; items: ElementTile[]; packs: StickerPack[]; brand: BrandProps; pack: PackTileProps }) {
   const withMine = showMine(sub, brand);
+  const shown = shownPacks(sub, packs);
+  const withBuiltin = (sub === 'all' || sub === 'builtin') && items.length > 0;
   return (
     <>
       {withMine ? <BrandStickerGrid first anim={false} brand={brand} editable={tiles.editable} /> : null}
-      {sub !== 'brand' && items.length ? (
+      {shown.map((p, index) => (
+        <PackGrid key={p.key} first={!withMine && index === 0} pack={p} className={grid} {...pack} />
+      ))}
+      {withBuiltin ? (
         <>
-          <PackHead first={!withMine} title={EL.builtin} note={EL.builtinCount(items.length)} />
+          <PackHead first={!withMine && !shown.length} title={EL.builtin} note={EL.builtinCount(items.length)} />
           <TileGrid className={grid} items={items} {...tiles} />
         </>
       ) : null}
@@ -478,25 +632,122 @@ function Stickers({ sub, items, brand, ...tiles }: TileProps & { sub: StickerSub
 }
 
 /**
- * 动态贴纸子页（设计稿 `AnimPackSection`）：先品牌库里的 Lottie（「我的贴纸」），再彩纸十款（算法粒子，不是动图）。
+ * 动态贴纸子页（设计稿 `AnimPackSection`）：先品牌库里的 Lottie（「我的贴纸」），再五个 Noto 分类，彩纸十款（算法粒子，
+ * 不是动图）按分类键的字母序插在拼贴之后。
  */
-function Dynamic({ sub, items, brand, ...tiles }: TileProps & { sub: DynSub; items: ElementTile[]; brand: BrandProps }) {
+function Dynamic({
+  sub,
+  items,
+  packs,
+  brand,
+  pack,
+  ...tiles
+}: TileProps & { sub: DynSub; items: ElementTile[]; packs: StickerPack[]; brand: BrandProps; pack: PackTileProps }) {
   const withMine = showMine(sub, brand);
+  const shown = shownPacks(sub, packs);
+  const withConfetti = (sub === 'all' || sub === 'confetti') && items.length > 0;
+  const at = withConfetti ? confettiAt(shown) : -1;
+  const confetti = (first: boolean) => (
+    <Fragment key="confetti">
+      <PackHead first={first} title={EL.confetti} note={EL.confettiNote} />
+      <TileGrid className={animGrid} items={items} {...tiles} />
+    </Fragment>
+  );
   return (
     <>
       {withMine ? <BrandStickerGrid first anim brand={brand} editable={tiles.editable} /> : null}
-      {sub !== 'brand' && items.length ? (
-        <>
-          <PackHead first={!withMine} title={EL.confetti} note={EL.confettiNote} />
-          <TileGrid className={animGrid} items={items} {...tiles} />
-        </>
-      ) : null}
+      {shown.map((p, index) => (
+        <Fragment key={p.key}>
+          {at === index ? confetti(!withMine && index === 0) : null}
+          <PackGrid first={!withMine && index === 0 && at !== 0} pack={p} className={animGrid} {...pack} />
+        </Fragment>
+      ))}
+      {withConfetti && at >= shown.length ? confetti(!withMine && !shown.length) : null}
       {brand.query ? null : (
         <div className={hint}>
+          {sub === 'all' || findPack(sub) ? `${SP.notoHint} ` : null}
           {EL.dynamicHint}
         </div>
       )}
     </>
+  );
+}
+
+/** 随包贴纸格要的东西：能不能改、点一格怎么放（拷进视频再新建一层）。 */
+interface PackTileProps {
+  editable: boolean;
+  onAdd(sticker: PackSticker): void;
+}
+
+/** 一个随包贴纸包（设计稿 `PackGrid`）：包头写包名与张数，下面是这一包的全部贴纸。 */
+function PackGrid({ pack, first, className, ...props }: PackTileProps & { pack: StickerPack; first?: boolean; className: string }) {
+  return (
+    <>
+      <PackHead first={first} title={packLabel(pack)} note={SP.packCount(pack.files.length)} />
+      <PackTileGrid className={className} stickers={packStickers(pack)} {...props} />
+    </>
+  );
+}
+
+function PackTileGrid({ className, stickers, ...props }: PackTileProps & { className: string; stickers: readonly PackSticker[] }) {
+  return (
+    <div className={className}>
+      {stickers.map((sticker) => (
+        <PackTile key={sticker.id} sticker={sticker} {...props} />
+      ))}
+    </div>
+  );
+}
+
+/** 一格随包贴纸：SVG 直接摆，Lottie 停在一帧、鼠标移上去才播。 */
+function PackTile({ sticker, editable, onAdd }: PackTileProps & { sticker: PackSticker }) {
+  const name = packStickerName(sticker);
+  return (
+    <TooltipTrigger delay={600}>
+      <RACButton className={tile} aria-label={EL.addNamed(name)} isDisabled={!editable} onPress={() => onAdd(sticker)}>
+        {({ isHovered }) => (
+          <span className={face({ isHovered, shape: 'square', isDark: false })}>
+            <PackStickerThumb sticker={sticker} playing={isHovered} />
+          </span>
+        )}
+      </RACButton>
+      <Tooltip>{name}</Tooltip>
+    </TooltipTrigger>
+  );
+}
+
+/**
+ * 贴纸 chip 那一行最后的「⋯」（设计稿 `StickerPackChips`）：其余的包与内置的十款；选中了其中一个，这一格就写它的名字。
+ */
+function MorePacks({
+  items,
+  value,
+  onChange,
+}: {
+  items: readonly { key: string; label: string; count: number }[];
+  value: string;
+  onChange(key: string): void;
+}) {
+  const on = items.find((item) => item.key === value);
+  return (
+    <MenuTrigger>
+      <ActionButton size="S" isQuiet={!on} aria-label={SP.morePacks}>
+        {on ? <Text>{on.label}</Text> : <More />}
+      </ActionButton>
+      <Menu aria-label={SP.morePacks} onAction={(key) => onChange(String(key))}>
+        <MenuSection selectionMode="single" selectedKeys={on ? [on.key] : []}>
+          <Header>
+            <Heading>{SP.packMenuHead(STICKER_PACKS.length)}</Heading>
+          </Header>
+          {items.map((item) => (
+            <MenuItem key={item.key} id={item.key} textValue={item.label}>
+              <Text slot="label">{item.label}</Text>
+              <Text slot="description">{SP.packCount(item.count)}</Text>
+            </MenuItem>
+          ))}
+        </MenuSection>
+      </Menu>
+    </MenuTrigger>
   );
 }
 

@@ -75,16 +75,20 @@
 
   // Hash URLs work on a plain static server, including direct links and refresh.
   const names = {projects: 'space', editor: 'movie', task: 'task'};
-  const routes = new Set(['home', 'agent', 'projects', 'tasks', 'task', 'tools', 'services', 'models', 'settings', 'editor', 'archived', 'none']);
+  const routes = new Set(['home', 'agent', 'projects', 'tasks', 'task', 'tools', 'services', 'models', 'settings', 'skills', 'editor', 'archived', 'none']);
   // product-design §7.6：模型配置归入设置；旧模型链接保留能力与子页。
+  // 2026-10-16：Skills 从设置搬到 rail（Space 下面一格）；旧的 设置 › Skills 与 `skill` 链接落到 Skills 页，
+  // 「在终端里使用 BaoCut」那一段带着 tab=external 过去。
   function canonicalRoute(route) {
-    return route.r === 'models'
-      ? {...route, r: 'settings', sec: route.sec || 'local'} : route;
+    if (route.r === 'models') return {...route, r: 'settings', sec: route.sec || 'local'};
+    if (route.r === 'skill' || (route.r === 'settings' && (route.sec === 'skills' || route.sec === 'integrations'))) {
+      return route.tab === 'external' ? {r: 'skills', tab: 'external'} : {r: 'skills'};
+    }
+    return route;
   }
   function hrefFor(route) {
     let r = canonicalRoute(route || HOME);
     if (r.r === 'remote') r = {r:'services', id:'remote'};
-    if (r.r === 'skill') r = {r:'settings', sec:'skills'};
     if (r.r === 'sessions') r = {r:'projects'};
     const name = names[r.r] || (routes.has(r.r) ? r.r : 'home');
     const q = new URLSearchParams();
@@ -107,7 +111,7 @@
       if (parts.length > 2) return {...HOME};
       const head = parts[0] || 'home';
       if (head === 'remote' || head === 'tools' && parts[1] === 'remote') return {r:'services', id:'remote'};
-      if (head === 'skill') return {r:'settings', sec:'skills'};
+      if (head === 'skill') return {r:'skills'};
       if (head === 'sessions') return {r:'projects'};
       const name = head === 'space' ? 'projects' : head === 'movie' ? 'editor' : head;
       if (!routes.has(name)) return {...HOME};

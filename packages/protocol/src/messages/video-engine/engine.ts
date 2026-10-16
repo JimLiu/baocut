@@ -267,6 +267,9 @@ const en = {
   updateSequenceEmpty: 'updateSequence must change at least one thing',
   backgroundInvalid: 'The canvas background must be #RRGGBB',
   canvasSideRange: (p: P<'max'>) => `Each canvas side must be 1–${p.max} pixels`,
+  templateRatioLocked: (p: P<'template' | 'ratio'>) =>
+    `The template ${p.template} locks the aspect ratio to ${p.ratio}; the canvas can only change within that ratio`,
+  templateRatioLockedRecovery: 'Unlock the template\'s aspect ratio first, then change the canvas',
   collectAssetsEmpty: 'collectAssets needs at least one entry',
   trackNotEmpty: (p: P<'track' | 'count'>) => `Track ${p.track} still has clips on it (${p.count}); only an empty track can be deleted`,
   trackNotEmptyRecovery: 'Delete its clips (deleteItems) or move them to another track (moveItem) first, then delete the track',

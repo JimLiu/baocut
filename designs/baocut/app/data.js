@@ -3681,6 +3681,158 @@
 - 带职位：名字、职位与所在机构`},
       ]},
   ];
+  /* Skills 页（2026-10-16，rail 上 Space 下面）：一个带素材的个人品牌 skill 与几个「上传 zip」的演示包。
+     虚构的创作者「林间讲科学」：印章与台标是画进视频的素材（颜色取本文件已登记的演示色），音频只给大小与时长、不放真文件。 */
+  const sealSvg = (txt, fill, ink) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><rect x="6" y="6" width="108" height="108" rx="10" fill="${fill}"/><rect x="14" y="14" width="92" height="92" rx="6" fill="none" stroke="${ink}" stroke-width="4"/><text x="60" y="78" text-anchor="middle" font-size="44" font-weight="700" fill="${ink}" font-family="serif">${txt}</text></svg>`;
+  const LIN_SEAL = sealSvg('林间', '#E43A33', '#F5E6D3');
+  const LIN_SEAL_LIGHT = sealSvg('林间', '#F5E6D3', '#E43A33');
+  const LIN_LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 80"><rect width="240" height="80" rx="16" fill="#1B2A4A"/><circle cx="40" cy="40" r="20" fill="#FFD23F"/><text x="72" y="50" font-size="26" font-weight="700" fill="#F5E6D3" font-family="sans-serif">林间讲科学</text></svg>`;
+  const LIN_DESC = '「林间讲科学」的品牌：栏目名、口号、固定开场与结尾、印章水印、配音音色与发布文案。做这个栏目的视频、或用户说「按我的品牌」时使用。';
+  const linSkillMd = (outro) => skillDoc('lin-explains-brand', LIN_DESC, `
+# 林间讲科学 · 品牌
+
+只管品牌层：每期都一样的东西照这里做，不改、不自己发明。画面风格、比喻和脚本每期重新设计，不在这里。
+
+## 固定不变的
+
+| 元素 | 中文 | English |
+| --- | --- | --- |
+| 栏目名 | 林间讲科学 | Lin Explains |
+| 口号 | 一个问题，三分钟讲清楚 | One question, three minutes |
+| 开场（钩子之后） | 我是林间。一个问题，三分钟讲清楚。 | I'm Lin. One question, three minutes. |
+| 结尾 | ${outro} | I'm Lin. See you next time. |
+
+## 素材
+
+- assets/seal-red.svg：红底印章，深色画面用；assets/seal-light.svg：浅底印章，浅色画面用。封面右下一次，正片中间 3–5 次，每次约 5 秒，片尾卡一次。不改颜色、不重画。
+- assets/logo.svg：封面左上的栏目角标。
+- assets/intro-sting.mp3：开场盖章时的音效，1.2 秒。
+- assets/outro-bed.mp3：片尾卡的垫乐，8 秒，音量压到旁白以下。
+
+## 声音
+
+配音用 Gemini 3.8 Flash TTS，预置音色 Charon，style：clear, friendly science explainer。中英文、开场和结尾用同一个声音；没有要求不换，失效时报错，不换成别的声音。
+
+## 每期怎么套
+
+1. 钩子之后接开场口播，盖红底印章，配 intro-sting。
+2. 正文按这期的内容自由设计，印章水印按上面的节奏出现。
+3. 片尾卡：浅底印章、结尾口播、outro-bed 垫乐。
+4. 按 references/publish.md 写发布文案。`);
+  /* 排在「我的」最前：插在第一条非内置的前面 */
+  agentSkills.splice(agentSkills.findIndex((x) => x.source !== 'builtin'), 0, {id: 'lin-explains-brand', name: '林间讲科学 · 品牌', source: 'personal', author: '你', category: '品牌', enabled: true,
+    updated: '2026-10-14', version: 3, origin: '~/Downloads/lin-explains-brand.zip',
+    description: LIN_DESC,
+    examples: ['按我的品牌，把这篇稿子做成一期竖版讲解视频', '给这部视频加上我的开场、印章水印和片尾卡'],
+    files: [
+      {path: 'SKILL.md', body: linSkillMd('我是林间。有收获就点个赞，我们下期见。')},
+      {path: 'references/publish.md', body: '# 发布文案\n\n## 标题\n\n- 30 个字以内，关键词放前半句。\n- 不用「震惊」「必看」，不堆感叹号。\n\n## 简介\n\n- 300 字以内，第一句能单独成立。\n- 结构：由头 → 讲明白了什么 → 回答了哪几个问题 → 一句收获。'},
+      {path: 'assets/seal-red.svg', body: LIN_SEAL},
+      {path: 'assets/seal-light.svg', body: LIN_SEAL_LIGHT},
+      {path: 'assets/logo.svg', body: LIN_LOGO},
+      {path: 'assets/intro-sting.mp3', size: 38912, dur: 1.2},
+      {path: 'assets/outro-bed.mp3', size: 196608, dur: 8},
+    ],
+    versions: [
+      {n: 3, updated: '2026-10-14', note: '结尾口播改短'},
+      {n: 2, updated: '2026-10-06', note: '加了浅底印章', files: null},
+      {n: 1, updated: '2026-09-30', note: '上传 lin-explains-brand.zip', files: null},
+    ]});
+  /* 旧版本的文件：v2 结尾口播还是长的那句；v1 还没有浅底印章 */
+  (function () {
+    const cur = agentSkills.find((x) => x.id === 'lin-explains-brand');
+    const v2 = cur.files.map((f) => (f.path === 'SKILL.md' ? {...f, body: linSkillMd('我是林间。觉得有收获，点个赞、转给朋友，我们下期见。')} : f));
+    cur.versions[1].files = v2;
+    cur.versions[2].files = v2.filter((f) => f.path !== 'assets/seal-light.svg');
+  })();
+
+  /* 「上传 zip 或文件夹」的演示包。① 品牌 skill 的新版本（同 id → 更新为第 4 版 / 另存为副本）；
+     ② 照常见插件包的样子：.claude-plugin/、skills/<名字>/ 下两个 skill、引擎与脚本（BaoCut 不运行）；③ 没有 SKILL.md 的包。 */
+  const agentSkillPackages = [
+    {name: 'lin-explains-brand-v4.zip', entries: [
+      {path: 'SKILL.md', body: linSkillMd('我是林间。下期见。')},
+      {path: 'references/publish.md', body: '# 发布文案\n\n- 标题 30 个字以内。\n- 简介 300 字以内。'},
+      {path: 'assets/seal-red.svg', body: LIN_SEAL}, {path: 'assets/seal-light.svg', body: LIN_SEAL_LIGHT}, {path: 'assets/logo.svg', body: LIN_LOGO},
+      {path: 'assets/intro-sting.mp3', size: 38912, dur: 1.2}, {path: 'assets/outro-bed.mp3', size: 196608, dur: 8},
+      {path: '__MACOSX/._SKILL.md', size: 212}, {path: '.DS_Store', size: 6148},
+    ]},
+    {name: 'explainer-kit-v7.zip', entries: [
+      {path: '.claude-plugin/plugin.json', body: '{"name": "explainer-kit", "version": "7.0.0"}'},
+      {path: 'skills/explainer-video/SKILL.md', body: skillDoc('explainer-video', '把一个主题做成三到七分钟的讲解视频：先竖版中文，确认后再出横版英文。用户说「做个科普视频」「讲解视频」时使用。', '# 讲解视频\n\n## 流程\n\n1. 调研与核实\n2. 从观众的疑问写旁白\n3. 代码画面与配音\n4. 通看、导出与发布文案')},
+      {path: 'skills/explainer-video/references/script-guide.md', body: '# 脚本\n\n- 第一句和观众自己有关。\n- 每个陌生概念先接一个身边的例子。'},
+      {path: 'skills/explainer-video/references/visual-guide.md', body: '# 画面\n\n- 风格跟着主题走，冲击只做点缀。'},
+      {path: 'skills/explainer-video/assets/seal-red.svg', body: LIN_SEAL},
+      {path: 'skills/explainer-video/assets/brand-audio/zh/brand_intro.mp3', size: 52224, dur: 3.1},
+      {path: 'skills/explainer-video/assets/brand-audio/zh/brand_outro.mp3', size: 70656, dur: 4.4},
+      {path: 'skills/explainer-video/assets/brand-audio/en/brand_intro.mp3', size: 49152, dur: 2.9},
+      {path: 'skills/explainer-video/assets/brand-audio/en/brand_outro.mp3', size: 66560, dur: 4.1},
+      {path: 'skills/explainer-video/engine/film-core.js', body: '// 演示：画面引擎（BaoCut 不运行）\n'},
+      {path: 'skills/explainer-video/scripts/render.mjs', body: '// 演示：渲染脚本（BaoCut 不运行）\n'},
+      {path: 'skills/explainer-video/scripts/align.py', body: '# 演示：对齐脚本（BaoCut 不运行）\n'},
+      {path: 'skills/publish-copy/SKILL.md', body: skillDoc('publish-copy', '给做好的视频写标题、简介和正文。用户说「写发布文案」时使用。', '# 发布文案\n\n- 标题 30 个字以内\n- 简介 300 字以内')},
+    ]},
+    {name: '剪辑笔记.zip', entries: [{path: 'README.md', body: '# 剪辑笔记\n\n随手记的剪辑心得。'}, {path: 'notes/2026-09.md', body: '- 口播先剪口癖'}]},
+  ];
+
+  /* 项目根目录的 BRAND.md（model-project-brand.js）：这个项目里 Agent 创作时的品牌参考，每条会话自动用。
+     科浪访谈带 brand/ 里的 logo 与片头音乐；确定性渲染课程只有一份纯文字的 BRAND.md。路径相对项目根目录。 */
+  const KELANG_LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80"><rect width="200" height="80" rx="40" fill="#0B0B0B"/><circle cx="40" cy="40" r="22" fill="#FF6B5E"/><rect x="34" y="28" width="12" height="20" rx="6" fill="#FFE1BD"/><text x="76" y="50" font-size="26" font-weight="700" fill="#FFE1BD" font-family="sans-serif">科浪访谈</text></svg>`;
+  const projectBrands = [
+    {dir: 'd1', updated: '2026-10-12', files: [
+      {path: 'BRAND.md', body: `# 科浪访谈 · 品牌
+
+一档科技人物长访谈。每期剪成一部横版正片和三条竖版切片，口吻克制、不煽情。
+
+## 名字与口号
+
+| 项目 | 内容 |
+| --- | --- |
+| 栏目名 | 科浪访谈 |
+| 口号 | 和做事的人聊做事 |
+| 片头 | 黑底，brand/logo.svg 居中淡入，配 brand/intro.mp3（3 秒） |
+
+## 视觉
+
+- 主色珊瑚红，只用在 logo、章节条与重点字幕上；底色黑或深灰。
+- 嘉宾名条：左下角，第一次出现时 4 秒，姓名一行、头衔一行。
+- 字幕：白字黑描边，一行不超过 18 个字。
+
+## 声音
+
+- 不加配音；旁白只在片头片尾出现，用主持人原声。
+- 背景音乐压到人声以下 18 dB，访谈正文不加。
+
+## 每期怎么套
+
+1. 片头：logo + intro.mp3，接本期最有张力的一句原话。
+2. 正片按话题分章，章节条用主色。
+3. 竖版切片每条 60 秒以内，开头 3 秒内给出问题。`},
+      {path: 'brand/logo.svg', body: KELANG_LOGO},
+      {path: 'brand/intro.mp3', size: 61440, dur: 3},
+    ]},
+    {dir: 'd5', updated: '2026-10-08', files: [
+      {path: 'BRAND.md', body: `---
+description: 「确定性渲染」课程的统一规范：讲师口吻、代码画面、章节命名与片尾。
+---
+
+# 确定性渲染课程 · 品牌
+
+## 口吻
+
+- 讲师第一人称，先讲为什么，再讲怎么做。
+- 术语第一次出现时给英文原词，之后统一用中文。
+
+## 画面
+
+- 代码用等宽字体，深色背景，一屏不超过 20 行；正在讲的那一行高亮。
+- 每节开头一张标题卡：「第 N 课 · 标题」。
+
+## 片尾
+
+- 一句本节要点，接下一课预告，共 6 秒。`},
+    ]},
+  ];
+
   /* 「从本地文件夹添加」的演示文件夹：最后一个故意没有 SKILL.md，用来演示校验的错误态。 */
   const agentSkillFolders = [
     {path: '~/BaoCut/skills/片尾致谢/', skill: {id: 'outro-credits', name: '片尾致谢', author: '你', category: '品牌',
@@ -3896,7 +4048,7 @@
     srcLang: LANG.zh, dstLang: LANG.en, activateProject, projectSetup,
     elements, textGroup, ELEMENT_HUE_STOPS,
     projects, ptypes, templates, agentProjects, spaceOutputs,
-    agentSkills, agentSkillFolders,
+    agentSkills, agentSkillFolders, agentSkillPackages, projectBrands,
     models, transModels, sttLangs, transLangs,
     tasks, modelActivity, rail, ratios, speeds, zoomMenu, BADGE, app,
     glossary,

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   refOf,
+  withRef,
   type ExportFontFace,
   type ExportValidation,
   type GeneratedOutput,
@@ -14,6 +15,7 @@ import {
   type VideoExportFormat,
 } from '@baocut/protocol';
 import { RcCommon, RcExport } from '@baocut/protocol/messages/runtime-core';
+import { listMessages } from '@baocut/protocol/messages/message-ref/list.ts';
 import { executableName, findBundledBinary } from '@baocut/process-host';
 import { ToolFailure, runTool, type MasterRunner, type ToolCommand } from './audio-export.ts';
 import type { AudioPlan, PlanRange, PlannedAsset } from './export-plan.ts';
@@ -97,7 +99,9 @@ export interface UnsupportedItem {
   transitionId?: string;
   kind?: string;
   reason: string;
+  /** 英文说明；`messageRef` 让读者按自己的语言重新生成（`crates/frame-render` 的 `frameRender.*`）。 */
   message: string;
+  messageRef?: MessageRef;
 }
 
 export interface VideoOutput {
@@ -491,8 +495,19 @@ export function workerInput(options: {
 }
 
 /** 一项画不出来的内容写成任务警告。 */
+/** 一项画不出来的说明，作为嵌套参数：带着 Worker 给的引用，读者按自己的语言展开。 */
+export function unsupportedText(item: UnsupportedItem): string | Localized {
+  return withRef(item.message, item.messageRef);
+}
+
+/** 几项画不出来的说明连成一段（`list.join`，分隔符随读者的语言）。 */
+export function unsupportedList(items: readonly UnsupportedItem[]): string | Localized {
+  const [first = '', ...rest] = items.map(unsupportedText);
+  return rest.reduce<string | Localized>((head, tail) => listMessages.join({ head, tail }), first);
+}
+
 export function skippedWarning(item: UnsupportedItem): { code: string; detail: string; detailRef: MessageRef } {
-  const { message } = item;
+  const message = unsupportedText(item);
   const detail =
     item.scope === 'effect'
       ? RcExport.contentSkippedEffect({ itemId: item.itemId, effectId: String(item.effectId), kind: String(item.kind), message })

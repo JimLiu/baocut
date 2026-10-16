@@ -94,4 +94,10 @@ export const it: EditLabelMessages = {
   removeDubGroup: (p) => `Rimuovi doppiaggio (${languageName('it', p.language)})`,
   removeThisDubGroup: 'Rimuovi questo gruppo di doppiaggio',
   stretchDub: 'Cambia velocità del doppiaggio',
+  applyTemplate: (p) => `Applica modello «${p.name}»`,
+  removeTemplate: 'Rimuovi modello',
+  editTemplate: 'Modifica modello',
+  editTemplateLayout: 'Modifica layout del modello',
+  lockTemplateRatio: 'Blocca il rapporto d’aspetto del modello',
+  unlockTemplateRatio: 'Sblocca il rapporto d’aspetto del modello',
 };

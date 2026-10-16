@@ -94,4 +94,10 @@ export const ptBR: EditLabelMessages = {
   removeDubGroup: (p) => `Remover dublagem (${languageName('pt-BR', p.language)})`,
   removeThisDubGroup: 'Remover este grupo de dublagem',
   stretchDub: "Mudar velocidade da dublagem",
+  applyTemplate: (p) => `Aplicar template “${p.name}”`,
+  removeTemplate: 'Remover template',
+  editTemplate: 'Editar template',
+  editTemplateLayout: 'Editar layout do template',
+  lockTemplateRatio: 'Travar proporção no template',
+  unlockTemplateRatio: 'Destravar proporção do template',
 };

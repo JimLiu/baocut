@@ -1273,11 +1273,11 @@ type TemplateLayer = {
 
 - 颜色一律 `#RRGGBB` 或 `#RRGGBBAA`。`size` 与 `pad` 是画面高的百分比：章节条缺省 `size` 2.6、台标 3.0、文字 2.8；`pad` 缺省按字号推。文字的 `weight` 在 [100, 900]，缺省 700。章节条的 `fill` 缺省 `bar`，`divider` 缺省 true。台标的 `src` 缺省 `'text'`，`shape` 缺省 `badge`，`align` 缺省 `center`，`opacity` 读时夹到 [0.05, 1]、缺省 1；文字的 `align` 缺省 `left`。
 - 盒子：`x`、`y` ≥ 0，`w` ≥ 4，`h` ≥ 0.6，`x + w` ≤ 100，`y + h` ≤ 100，容差 0.051。
-- 台标的 `file` 是项目里的相对路径，`brandLogo` 是品牌库里的图片 id；用到时按素材登记（§4.1）。
+- 台标的 `file` 是项目里的相对路径，`brandLogo` 是品牌库里的图片 id；用到时按素材登记（§4.1）。品牌库的台标在套用或选台标时把那张图片拷进视频（`library.applyToVideo` 的图片，`provenance` 记着 `{ library: 'brand', entryId }`），渲染按来源找：当前修订的来源是品牌库这一条的图片素材里取库版本最新的，同版本取 ID 小的；找不到时这一层画不出来（`template-logo-asset-missing`）。这样的素材算被模板用着，不当作没用的素材清掉。`file` 来源目前画不出来（`template-logo-image-not-supported`）。
 - **时间**。章节条按序列上 `kind: 'chapter'` 的标记（§3.13）分段，当前段高亮；没有章节时整条是一段。进度线的进度是 clamp(t / 序列长度, 0, 1)。
 - **文字变量**。文字层里的 `{chapter}`、`{n}`、`{count}`、`{time}`、`{remain}`、`{total}`、`{percent}`、`{title}` 按当前时刻替换：当前章节名、序号、章节数、已播时间、剩余时间、总长、百分比、视频标题。认不出的变量原样显示。
 - **字幕避让**。`subsAvoid` 为 true 时，打开的、`y` ≥ 50 的整宽横条（章节条、进度线）把字幕抬起来：字幕的锚线（样式的 `y`，画面高的百分比）不低于 `y − 2`，几条横条取最高的一条。只挪位置，不改字号、宽度与底板；双语的两行一起挪，居中摆放的字幕不动。
-- **画幅**。`ratio` 只在套用模板时改一次序列的画布；`lockRatio` 生效时，改序列画幅的命令只接受与 `ratio` 相同的画幅，要改先解锁。
+- **画幅**。`ratio` 只在套用模板时改一次序列的画布；`lockRatio` 生效时，改序列画幅的命令只接受与 `ratio` 相同的画幅，要改先解锁。`ratio` 是 `W:H` 时由引擎拒绝不同比例的 `updateSequence`（`INVALID_OPERATION`，`details.rule: 'template-ratio-locked'`，`details.ratio` 与 `details.template` 指明锁定的画幅与模板名；比值差 0.01 以内算同一档）；`ratio` 是 `original` 时要看源尺寸，由界面把关。套用模板时先写 `setTemplate` 再改画布，同一笔事务里新模板锁的就是这一档。
 - 模板层是序列的参数，不是实例：不在轨道上，没有 `span`，不参与 `durationPolicy`。
 
 字段来源：`crates/timeline/src/protocol/template.rs` 的 `TemplateDoc`、`TemplateLayer`、`LayerBox`、`LayerKind`、`MIN_W`、`MIN_H`、`VAR_NAMES`、`HUES`、`MIN_OPACITY`、`validate`、`ratio_lock`；派生规则见 `crates/timeline/src/template.rs` 的 `progress`、`segments`、`vars`、`fill`、`subs_bottom`。
@@ -1416,8 +1416,9 @@ interface Provenance {
 ```
 
 - 来源可以记本机路径。从本机媒体新建的视频（转录流程，`origin: 'file-import'`，架构设计 §7.9），`source.path` 是原文件的绝对路径，`source.jobId` 是这次运行。它只说明素材从哪里来，不用来定位：读素材只看 `storage.locator`（§4.2），文件之后移动、改名或重新链接，来源都不跟着改。打包成便携包时这个路径换成占位（§8）。
-- 从链接下载的素材，`origin` 为 `link-import`（架构设计 §7.9），`source` 记：`url`（脱敏的链接）、`webpageUrl`、`platform`、`mediaId`、`title`、`uploader`、`uploadDate`、`durationSec`、`description`（页面简介，去掉首尾空白，最多 20000 个字符）、`chapters`（平台给的章节 `[{ start, end?, title }]`，源时间秒：丢掉起点不是有限非负数的与空标题，标题合并空白、最多 160 个字符，按起点排序、同起点只留第一条，最多 400 条；`end` 只在大于 `start` 时写）、`tool`（`{ name, version, source }`）、`downloadedAt` 与流程的 `jobId`。平台没有给简介或章节时这两个字段省略，之前的版本导入的素材也没有它们。简介与章节是作者写的参考：读取视频的摘要列出它们，`chapters_adopt` 把章节吸附到转写后写成序列的章节（§3.13）；素材本身不因它们改变。
+- 从链接下载的素材，`origin` 为 `link-import`（架构设计 §7.9），`source` 记：`url`（脱敏的链接）、`webpageUrl`、`platform`、`mediaId`、`title`、`uploader`、`uploadDate`、`durationSec`、`description`（页面简介，去掉首尾空白，最多 20000 个字符）、`chapters`（平台给的章节 `[{ start, end?, title }]`，源时间秒：丢掉起点不是有限非负数的与空标题，标题合并空白、最多 160 个字符，按起点排序、同起点只留第一条，最多 400 条；`end` 只在大于 `start` 时写；yt-dlp 给没标题的章节填的 `<Untitled Chapter N>` 照原样记下，读取时当作只有分界、没有标题，见架构设计 §7.9）、`tool`（`{ name, version, source }`）、`downloadedAt` 与流程的 `jobId`。平台没有给简介或章节时这两个字段省略，之前的版本导入的素材也没有它们。简介与章节是作者写的参考：读取视频的摘要列出它们，`chapters_adopt` 把章节吸附到转写后写成序列的章节（§3.13）；素材本身不因它们改变。
 - 从用户库拷进来的素材，`origin` 为 `library`，`source.library` 记下条目所在的库、条目 ID、版本、内容摘要、名字与种类（架构设计 §5.9）；之后库里的修改与删除不改变这个素材。
+- 从随应用分发的贴纸拷进来的素材（元素面板的贴纸与动态贴纸，命令与协议规范 §4.1 的 `stickers.applyToVideo`），`origin` 为 `sticker-pack`，`source.stickerPack.id` 记贴纸 ID（`<包>-<文件>`，如 `featured-01.svg`）；文件以 `managed` 拷进视频，之后应用升级换了这张贴纸也不改变这个素材。
 - 用户上传的媒体只记录已知的出处；上传不代表拥有第三方素材的全部权利。
 - 临时 URL、blob URL、签名地址、浏览器对象和 GPU 句柄不得进入视频格式。
 - 生成的素材应在 `source` 里记下任务、供应方、模型、输入输出的摘要与费用；费用未知时写 `unknown`，不从估算伪造实付金额。这些字段的结构，以及派生关系、授权与许可状态，待生成与授权功能加入时确定（§9）。
@@ -2529,7 +2530,7 @@ interface PackageManifest {
 | 效果、转场、easing 的白名单（§3.9） | 已定：转场 `dissolve`、`wipe`、`slide`、`zoom`、`iris`、`dip-to-color`、`push`，单侧按 v2 的画法；效果是 `fx` 的固定字段与固定顺序，加滤镜与特效预设；转场的 easing `linear`、`ease-in`、`ease-out`、`ease-in-out` | `temperature`、`shadow`、`stroke` 的配方；效果与转场参数的关键帧。已定不合并：转场的 easing 保持这四种，`motion` 的缓动表只用于关键帧与元素动画 |
 | 闪避（§3.9） | 已定：按文稿或按实例触发，v2 的曲线与合并规则 | — |
 | 剪口集合（§6.7） | 已定：加入、合并、恢复与重排已实现（`addCuts`、`restoreCut`） | 手工修改与剪口不一致时的提示方式 |
-| 模板层（§3.17） | 已定，未实现 | `ratio` 与画幅锁和画幅版本（§7.7）怎么共处 |
+| 模板层（§3.17） | 已定：套用、存进品牌库、版面编辑与画幅锁（`template-ratio-locked`）已实现 | `ratio` 与画幅版本（§7.7）怎么共处 |
 | v2 的 `bcfClip`（音频元素） | 已定：配音认领代码合成里的口播句子，落成合成与配音的音画联动组（§3.7「声音」）；认领的句子 ID 不进格式 | 合成能实时运行时，是否按句只扣掉认领的声音 |
 | 可变帧率（§2.11） | 规则已定，未实现 | 现在按标称帧率处理 |
 | HDR | 首版只支持 SDR 严格导出 | HDR 输入的 tone-map 策略 |

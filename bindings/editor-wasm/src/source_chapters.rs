@@ -4,7 +4,7 @@
 //!
 //! - 来源章节：显式大纲（`outline`，数组或原文）优先；否则读来源元数据，先取结构化 `chapters[]`（认 `start_time|start`、
 //!   `end_time|end`、`title`），没有再从 `description` 解析时间戳大纲（至少两条）。清洗：丢空标题与非法时间、排序、同起点去重、
-//!   截条数。
+//!   截条数；yt-dlp 给没标题的章节填的占位名（`<Untitled Chapter N>`）保留分界、标 `untitled`，宿主不能把它当标题写进章节。
 //! - 吸附：作者的时间戳最多精确到秒，常比真正的话题起点早几秒，把每条吸到转写最近的结构起点（段落 > 句 > cue > 词）：
 //!   同一秒窗 `[t-1, t+2]`（含两端）依次找段落、句、cue 起点，同层只有一个候选是 `matched`，多个是 `ambiguous`（缺省取
 //!   最近的，同距离取时间戳之后的）；没有时放宽到 `[t-4, t+6]`，只认段落与句起点、取最近的（`snapped`）；再没有时找同一秒窗里的
@@ -17,8 +17,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use speech_doc::source_chapters::{
-    Anchor, AnchorTier, SnapPlan, SnapStatus, SourceChapter, doc_anchors, from_metadata, normalize, parse_description, resolve_rows,
-    snap_to_anchors,
+    Anchor, AnchorTier, SnapEntry, SnapPlan, SnapStatus, SourceChapter, doc_anchors, from_metadata, normalize, parse_description,
+    resolve_rows, snap_to_anchors,
 };
 use speech_doc_bridge::{V3Documents, to_transcript_doc};
 use video_model::speech::SpeechBody;
@@ -103,6 +103,9 @@ struct RowOutput {
     start: f64,
     end: f64,
     status: SnapStatus,
+    /// 来源只给了分界，`title` 是占位名。
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    untitled: bool,
 }
 
 #[derive(Default, Serialize)]
@@ -133,6 +136,7 @@ fn chapters_of(input: &SourceChaptersInput) -> Vec<SourceChapter> {
                     start: row.at,
                     end: None,
                     title: row.title.clone(),
+                    untitled: false,
                 })
                 .collect(),
         ),
@@ -162,14 +166,13 @@ fn anchors_of(input: &SourceChaptersInput) -> Result<Vec<Anchor>, EntryError> {
 }
 
 /// 一行清洗后的章节对应哪一条：首行的起点被钳到 0，按标题取起点最早的那条；其余按（标题, 起点）对上。
-fn row_status(plan: &SnapPlan, index: usize, title: &str, start: f64) -> SnapStatus {
+fn row_entry<'a>(plan: &'a SnapPlan, index: usize, title: &str, start: f64) -> Option<&'a SnapEntry> {
     let mut same_title = plan.entries.iter().filter(|entry| entry.source.title.trim() == title);
-    let entry = if index == 0 {
+    if index == 0 {
         same_title.min_by(|a, b| a.start().total_cmp(&b.start()))
     } else {
         same_title.find(|entry| entry.start() == start)
-    };
-    entry.map_or(SnapStatus::Unanchored, |entry| entry.status)
+    }
 }
 
 /// 来源章节的解析与吸附（JSON）。输入读不懂是 `INVALID_INPUT`；转写正文不合格式是 `INVALID_SPEECH`。
@@ -186,11 +189,15 @@ pub fn source_chapters(input: &[u8]) -> Result<String, EntryError> {
     let rows = resolve_rows(&plan.rows(), duration)
         .into_iter()
         .enumerate()
-        .map(|(index, row)| RowOutput {
-            status: row_status(&plan, index, &row.title, row.start),
-            title: row.title,
-            start: row.start,
-            end: row.end,
+        .map(|(index, row)| {
+            let entry = row_entry(&plan, index, &row.title, row.start);
+            RowOutput {
+                status: entry.map_or(SnapStatus::Unanchored, |entry| entry.status),
+                untitled: entry.is_some_and(|entry| entry.source.untitled),
+                title: row.title,
+                start: row.start,
+                end: row.end,
+            }
         })
         .collect();
     let entries = plan

@@ -92,8 +92,8 @@ export const es: ElementCatalogMessages = {
   shapeName: (name: string) => `Forma · ${name}`,
   stickerName: (label: string) => `Pegatina · ${label}`,
   sections: {
-    sticker: { title: 'Pegatinas', note: '10 integradas + biblioteca de marca' },
-    dynamic: { title: 'Pegatinas animadas', note: '10 confetis + Lottie de la biblioteca de marca' },
+    sticker: { title: 'Pegatinas', note: '16 paquetes + 10 integradas + biblioteca de marca' },
+    dynamic: { title: 'Pegatinas animadas', note: '5 paquetes Lottie de Noto + 10 confetis + biblioteca de marca' },
     shape: { title: 'Formas', note: '23 casillas · ciclo de 5 colores' },
     visualizer: { title: 'Visualizadores', note: '14 barras de progreso + 2 temporizadores + 10 formas de onda' },
   },

@@ -218,7 +218,7 @@
 
         <div className="t-detail svc__related">
           想让终端里的 Claude Code、Codex 学会 BaoCut 的工作流？给它们安装 baocut skill 即可，不需要启动服务。
-          <BCAction className="viewall" onClick={() => app.go({r: 'settings', sec: 'skills', tab: 'external'})}>设置 › Skills › 在终端里使用 BaoCut</BCAction>
+          <BCAction className="viewall" onClick={() => app.go({r: 'skills', tab: 'external'})}>Skills › 在终端里使用 BaoCut</BCAction>
         </div>
         <p className="t-detail-xs svc__proto">原型演示 · 不会真正启动 MCP 服务；地址、令牌、客户端与请求记录都是示例。</p>
       </window.Page>

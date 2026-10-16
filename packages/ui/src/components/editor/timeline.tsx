@@ -77,6 +77,7 @@ import { Marquee } from './stage-boxes.tsx';
 import { TimelineChapters } from './timeline-chapters.tsx';
 import { CaptionCues } from './timeline-cues.tsx';
 import { LiveCaptionRow, TranscriptRow, useLiveRows, useTranscriptRows } from './timeline-live.tsx';
+import { TemplateRow } from './timeline-template.tsx';
 import { DubBlockView, stretchedLook, useDubBlocks } from './timeline-dub.tsx';
 import { DubHeadMenu, useDubTrack } from './timeline-dub-head.tsx';
 import { TimelineMenu, type TimelineMenuTarget } from './timeline-menu.tsx';
@@ -476,6 +477,8 @@ export function Timeline({
   const liveRows = useLiveRows(videoId, sequence, documents);
   // 转录过、却一条字幕轨都没有（转录时没建字幕层）：文稿画在一条只读行里，时间线不是空的。
   const transcripts = useTranscriptRows(sequence, documents, liveRows);
+  // 模板行：模板画在所有轨道之上，行也排在最上面。
+  const templateRows = sequence.template ? 1 : 0;
   // 看得见的横向范围（泳道坐标，像素），左右各多一屏：滚动、缩放、播放翻页时不露白。
   const view = useVisibleLane(scrollRef, HEAD, 1);
 
@@ -1191,6 +1194,16 @@ export function Timeline({
             </div>
           </div>
 
+          <TemplateRow
+            sequence={sequence}
+            height={ROW_HEIGHT}
+            rowClass={row}
+            headerClass={header({ isOff: false })}
+            laneClass={lane({ isDropTarget: false })}
+            laneWidth={laneWidth}
+            xOf={xOf}
+            duration={duration}
+          />
           {liveRows.map((jobId) => (
             <LiveCaptionRow
               key={jobId}
@@ -1290,7 +1303,10 @@ export function Timeline({
               documents={documents}
               xOfFrame={(frame) => HEAD + xOfFrame(frame)}
               top={RULER}
-              height={rows.reduce((sum, { track }) => sum + rowHeight(track), (liveRows.length + transcripts.length) * ROW_HEIGHT)}
+              height={rows.reduce(
+                (sum, { track }) => sum + rowHeight(track),
+                (templateRows + liveRows.length + transcripts.length) * ROW_HEIGHT,
+              )}
               pps={pps}
               frames={{ from: windowFrom, to: windowTo }}
               editable={editable}

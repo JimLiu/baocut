@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { RpcError } from '@baocut/protocol';
+import { describe, expect, it, vi } from 'vitest';
+import { RpcError, setLocale } from '@baocut/protocol';
 import { explainExportError, exportErrorCode } from './export-rejection.ts';
 
 describe('导出被拒', () => {
@@ -18,6 +18,45 @@ describe('导出被拒', () => {
     expect(problem.items).toEqual(['合成「片头」没有预渲染替身', '认不出的效果 lut']);
     expect(problem.hint).toContain('onUnsupported');
     expect(problem.remedy).toEqual({ kind: 'skip-unsupported' });
+  });
+
+  it('渲染内核的说明带引用时按界面语言显示', () => {
+    const error = new RpcError('invalid-request', 'x', {
+      code: 'EXPORT_UNSUPPORTED_CONTENT',
+      items: [
+        {
+          itemId: 'i1',
+          scope: 'layer',
+          layerKind: 'generator',
+          reason: 'template-logo-image-not-supported',
+          message: 'Image logos referenced by file path can’t be drawn in templates (use a brand kit logo or a text logo)',
+          messageRef: { key: 'frameRender.templateLogoImage' },
+        },
+        {
+          itemId: 'i2',
+          scope: 'layer',
+          layerKind: 'generator',
+          reason: 'generator-not-implemented',
+          message: 'Generator baocut.future can’t be drawn',
+          messageRef: { key: 'frameRender.generatorNotImplemented', params: { generator: 'baocut.future' } },
+        },
+      ],
+    });
+    expect(explainExportError(error, { kind: 'video', stage: 'rejected' }).items).toEqual([
+      '模板里按路径引用的图片台标画不出来（换成品牌库的台标或文字台标）',
+      '「baocut.future」画不出来',
+    ]);
+    vi.stubEnv('BAOCUT_LOCALE', 'en');
+    setLocale('en');
+    try {
+      expect(explainExportError(error, { kind: 'video', stage: 'rejected' }).items).toEqual([
+        'Image logos referenced by file path can’t be drawn in templates (use a brand kit logo or a text logo)',
+        'Generator baocut.future can’t be drawn',
+      ]);
+    } finally {
+      vi.unstubAllEnvs();
+      setLocale('zh-Hans');
+    }
   });
 
   it('便携包缺素材：列出名字与原因，可以跳过缺失的重提', () => {

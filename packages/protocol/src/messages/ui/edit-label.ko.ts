@@ -94,4 +94,10 @@ export const ko: EditLabelMessages = {
   removeDubGroup: (p) => `더빙 제거(${languageName('ko', p.language)})`,
   removeThisDubGroup: '이 더빙 그룹 제거',
   stretchDub: '더빙 속도 변경',
+  applyTemplate: (p) => `템플릿 ‘${p.name}’ 적용`,
+  removeTemplate: '템플릿 제거',
+  editTemplate: '템플릿 편집',
+  editTemplateLayout: '템플릿 레이아웃 편집',
+  lockTemplateRatio: '템플릿 화면 비율 고정',
+  unlockTemplateRatio: '템플릿 화면 비율 고정 해제',
 };

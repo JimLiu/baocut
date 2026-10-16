@@ -48,6 +48,7 @@ const en = {
   styleEmpty: 'The subtitle style document is empty',
   styleNoSchema: 'The subtitle style document has no schema, so it can’t be saved to the brand kit',
   styleTooLarge: 'The subtitle style is larger than 64 KiB',
+  template: 'Template',
 };
 export type LibraryBrandMessages = typeof en;
 const M = defineMessages(en, { 'zh-Hans': zhHans, 'zh-Hant': zhHant, ja, ko, es, fr, de, nl, 'pt-BR': ptBR, it, ru, pl, tr, vi });
@@ -55,7 +56,7 @@ const M = defineMessages(en, { 'zh-Hans': zhHans, 'zh-Hant': zhHant, ja, ko, es,
 /**
  * 编辑器 › 品牌的纯模型（产品设计 §13.7，设计稿 designs/baocut/app/panel-brand.jsx）：品牌库里的视频、图片、贴纸、
  * 品牌色、字体与字幕样式。品牌库在 Runtime Home 里、跨视频复用（架构设计 §5.9）；放进视频时拷一份，
- * 之后库里的修改与删除不影响视频。模板（`overlayTemplate`）只保留种类，这里不做。
+ * 之后库里的修改与删除不影响视频。模板（`overlayTemplate`）的一节在 `brand-templates.tsx`，不在这张表里。
  */
 
 export type BrandSectionKind = Exclude<BrandKind, 'overlayTemplate'>;
@@ -184,6 +185,7 @@ export function stickerMatches(name: string, dynamic: boolean, query: string): b
 export function brandMeta(content: BrandContent): string {
   if (content.kind === 'color') return content.value;
   if (content.kind === 'captionStyle') return M.captionStyle;
+  if (content.kind === 'overlayTemplate') return M.template;
   const size = formatSize(content.file.byteLength);
   if (content.kind === 'sticker') return `${isLottieSticker(content) ? M.lottie : M.image} · ${size}`;
   return size;

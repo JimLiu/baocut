@@ -246,6 +246,9 @@ export const ko: EngineMessages = {
   updateSequenceEmpty: 'updateSequence는 하나 이상 변경해야 합니다',
   backgroundInvalid: '캔버스 배경은 #RRGGBB여야 합니다',
   canvasSideRange: (p) => `캔버스의 각 변은 1–${p.max}픽셀이어야 합니다`,
+  templateRatioLocked: (p) =>
+    `템플릿 '${p.template}'이(가) 화면 비율을 ${p.ratio}(으)로 고정했습니다. 캔버스는 이 비율 안에서만 바꿀 수 있습니다`,
+  templateRatioLockedRecovery: '먼저 템플릿의 화면 비율 고정을 해제한 뒤 캔버스를 바꾸세요',
   collectAssetsEmpty: 'collectAssets에는 항목이 하나 이상 필요합니다',
   trackNotEmpty: (p) => `트랙 ${p.track}에 아직 클립이 있습니다(${p.count}개). 빈 트랙만 삭제할 수 있습니다`,
   trackNotEmptyRecovery: '먼저 클립을 삭제(deleteItems)하거나 다른 트랙으로 옮긴(moveItem) 뒤 트랙을 삭제하세요',

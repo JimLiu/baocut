@@ -1,0 +1,35 @@
+import type { StickerPackMessages } from './sticker-pack-copy.ts';
+
+export const tr: StickerPackMessages = {
+  packs: {
+    featured: 'Öne çıkanlar',
+    emoji: 'Emoji',
+    people: 'İnsanlar',
+    mockup: 'Maketler',
+    podcast: 'Podcast',
+    icon: 'Simgeler',
+    summer: 'Yaz',
+    gesture: 'Hareketler',
+    arrow: 'Oklar ve işaretçiler',
+    hand: 'El çizimi',
+    birthday: 'Doğum günü',
+    finance: 'Finans',
+    fitness: 'Fitness',
+    seasonal: 'Mevsimler',
+    school: 'Okula dönüş',
+    cta: 'CTA',
+    'dyn-collage': 'Kolaj',
+    'dyn-emoji': 'Emoji',
+    'dyn-grow': 'Büyüme',
+    'dyn-holiday': 'Tatil',
+    'dyn-work': 'İş',
+  },
+  morePacks: 'Diğer paketler',
+  packMenuHead: (count: number) => `${count} paket`,
+  packCount: (count: number) => `${count} çıkartma`,
+  ctaTitle: 'CTA açılır kutuları',
+  ctaNote: '32 stil · abone ol / beğen / paylaş / satın al',
+  notoHint:
+    'Beş yerleşik kategori, Google Noto Animated Emoji’nin Lottie dosyalarıdır (CC BY 4.0): saydamlıklı vektör döngüleri tuvalde oynatma kafasını izler ve çıkartmalar gibi yeniden renklendirilebilir.',
+  addFailed: (message: string) => `Çıkartma eklenemedi: ${message}`,
+};

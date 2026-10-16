@@ -1,6 +1,6 @@
 import type { Id } from './domain.ts';
 import type { EditResult } from './methods.ts';
-import type { Revision } from './video.ts';
+import type { Revision, TemplateLayers } from './video.ts';
 
 /**
  * 用户库（架构设计 §5.9）：Runtime Home 里跨视频复用的术语表、音色与品牌库。只经 Runtime 读写；进入视频时拷贝，
@@ -128,7 +128,6 @@ export interface VoiceCloneRemoveResult {
 }
 
 export type BrandMediaKind = 'image' | 'video' | 'sticker' | 'font';
-/** `overlayTemplate` 只保留种类，`library.put` 以 `LIBRARY_KIND_RESERVED` 拒绝（架构设计 §14）。 */
 export type BrandKind = BrandMediaKind | 'color' | 'captionStyle' | 'overlayTemplate';
 
 /**
@@ -144,7 +143,9 @@ export type BrandContent =
   | { name: string; kind: BrandMediaKind; file: LibraryFile }
   /** `#RRGGBB` 或 `#RRGGBBAA`，大写。 */
   | { name: string; kind: 'color'; value: string }
-  | { name: string; kind: 'captionStyle'; style: CaptionStyleBody };
+  | { name: string; kind: 'captionStyle'; style: CaptionStyleBody }
+  /** 叠加模板的定义（视频格式规范 §3.17）：带 `layers` 数组的对象（≤ 64 KiB），套用时成为序列的 `template`。 */
+  | { name: string; kind: 'overlayTemplate'; template: TemplateLayers };
 
 export interface LibraryContentMap {
   glossaries: GlossaryContent;
@@ -214,8 +215,7 @@ export type LibraryContentInput =
       consentClip?: { language: string; text?: string | null } | null;
     })
   | Exclude<BrandContent, { file: LibraryFile }>
-  | { name: string; kind: BrandMediaKind }
-  | { name: string; kind: 'overlayTemplate'; [key: string]: unknown };
+  | { name: string; kind: BrandMediaKind };
 
 /** 文件来源：本机的绝对路径，或产物库里的一个产物（例如生成的图片、合成的语音）。 */
 export type LibrarySource = { path: string } | { artifactId: string };

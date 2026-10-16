@@ -92,8 +92,8 @@ export const ru: ElementCatalogMessages = {
   shapeName: (name: string) => `Фигура · ${name}`,
   stickerName: (label: string) => `Стикер · ${label}`,
   sections: {
-    sticker: { title: "Наклейки", note: "10 встроенных + библиотека бренда" },
-    dynamic: { title: "Анимированные стикеры", note: "10 конфетти + Lottie из библиотеки бренда" },
+    sticker: { title: "Наклейки", note: "16 наборов + 10 встроенных + библиотека бренда" },
+    dynamic: { title: "Анимированные стикеры", note: "5 наборов Noto Lottie + 10 конфетти + библиотека бренда" },
     shape: { title: "Фигуры", note: "23 плитки · цикл из 5 цветов" },
     visualizer: { title: "Визуализаторы", note: "14 шкал + 2 таймера + 10 звуковых волн" },
   },

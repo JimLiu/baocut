@@ -191,8 +191,8 @@ function isPlatformSource(
 
 /**
  * `assets[].source`：来源平台的标题、发布者、简介（截到 1200 个字符）与作者章节（结构化 `chapters[]` 优先，没有时是简介里的
- * 时间戳大纲；源时间秒，未吸附）。润色与识别说话人时当背景参考，采用章节用 `chapters_adopt`。章节由字幕与翻译核心解析
- * （`bc_source_chapters`，不吸附）；WASM 没有构建时退回到结构化章节，简介不解析。
+ * 时间戳大纲；源时间秒，未吸附；平台只给了分界、标题是 yt-dlp 占位名的标 `untitled`）。润色与识别说话人时当背景参考，采用章节用
+ * `chapters_adopt`。章节由字幕与翻译核心解析（`bc_source_chapters`，不吸附）；WASM 没有构建时退回到结构化章节，简介不解析。
  */
 function sourceBlock(revision: AssetRevision | undefined) {
   const provenance = revision?.provenance;
@@ -266,9 +266,16 @@ function hostOf(url: string): string {
   }
 }
 
-function authorChapters(source: Record<string, unknown>, durationSeconds: number): Array<{ at: number; title: string }> {
+function authorChapters(
+  source: Record<string, unknown>,
+  durationSeconds: number,
+): Array<{ at: number; title: string; untitled?: true }> {
   try {
-    return sourceChapters({ source, durationSeconds, snap: false }).sourceChapters.map((c) => ({ at: round(c.start), title: c.title }));
+    return sourceChapters({ source, durationSeconds, snap: false }).sourceChapters.map((c) => ({
+      at: round(c.start),
+      title: c.title,
+      ...(c.untitled ? { untitled: true as const } : {}),
+    }));
   } catch {
     // 摘要不因为可选的补充失败：WASM 没有构建或来源读不懂时，只列结构化章节（导入时已经清洗过）。
     const raw = Array.isArray(source.chapters) ? (source.chapters as unknown[]) : [];

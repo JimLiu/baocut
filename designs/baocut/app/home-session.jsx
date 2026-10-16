@@ -103,8 +103,10 @@
       if (k === 'pin') app.toggleSessionPin(sess.id);
       else if (k === 'space') app.go({r: 'projects', id: d.id});
       else if (k === 'new') app.go(d ? {r: 'agent', dir: d.id} : {r: 'home'});
+      else if (k === 'brand') app.go({r: 'skills', dir: d.id});
       else if (k === 'reveal') app.toast(`已在文件夹中显示 ${d.path}（演示）`);
     };
+    const hasBrand = !!d && window.BC_PROJECT_BRAND.hasBrand(app.projectBrands, d.id);
     return <div className="hhd">
       <R.Heading level={1} UNSAFE_className="hhd__title" title={title}>{title}</R.Heading>
       {sess && ['running', 'waiting'].includes(sess.status) ? <span className="hhd__status" role="status">
@@ -113,6 +115,8 @@
         <R.MenuItem id="new" textValue="新建会话"><R.Icons.Add /><R.Text>{d ? '在此项目中新建会话' : '新建会话'}</R.Text></R.MenuItem>
         {sess ? <R.MenuItem id="pin" textValue={sess.pinned ? '取消置顶' : '置顶'}><R.Icons.PinOn /><R.Text>{sess.pinned ? '取消置顶' : '置顶'}</R.Text></R.MenuItem> : null}
         {d ? <R.MenuItem id="space" textValue={`在 Space 中查看 ${d.name}`}><R.Icons.Asset /><R.Text>{d.name}</R.Text></R.MenuItem> : null}
+        {d ? <R.MenuItem id="brand" textValue="项目品牌（BRAND.md）"><R.Icons.Bookmark /><R.Text slot="label">项目品牌（BRAND.md）</R.Text>
+          <R.Text slot="description">{hasBrand ? '这个项目的会话自动参考' : '还没有，新建一份'}</R.Text></R.MenuItem> : null}
         {d ? <R.MenuItem id="reveal" textValue="在文件夹中显示项目"><R.Icons.OpenIn /><R.Text>在文件夹中显示项目</R.Text></R.MenuItem> : null}
       </R.ActionMenu>
     </div>;

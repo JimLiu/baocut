@@ -29,6 +29,10 @@ pub struct SourceChapter {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub end: Option<f64>,
     pub title: String,
+    /// 来源只给了分界、没给标题：`title` 是 yt-dlp 填的占位名（[`is_placeholder_title`]），不是作者写的，
+    /// 写进章节之前要另起标题。
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub untitled: bool,
 }
 
 /// 大纲里最多保留多少条（7 小时录音也不会有更多真章节；防住把整段歌词当章节）。
@@ -101,6 +105,24 @@ fn is_closing_bracket(c: char) -> bool {
 
 fn is_opening_bracket(c: char) -> bool {
     matches!(c, '(' | '[' | '{' | '【' | '（' | '〔' | '<' | '《')
+}
+
+/// yt-dlp 给没有标题的章节填的占位名 `<Untitled Chapter N>`（第一个平台章节不在 0:00 时它补的开头一章也是这样），
+/// 清洗去掉尖括号后是 `Untitled Chapter N`；两种写法都认，别的标题一律当作者写的。
+pub fn is_placeholder_title(title: &str) -> bool {
+    let title = title.trim();
+    let inner = title
+        .strip_prefix('<')
+        .and_then(|rest| rest.strip_suffix('>'))
+        .unwrap_or(title);
+    let mut words = inner.split_whitespace();
+    matches!(
+        (words.next(), words.next(), words.next(), words.next()),
+        (Some(untitled), Some(chapter), Some(number), None)
+            if untitled.eq_ignore_ascii_case("untitled")
+                && chapter.eq_ignore_ascii_case("chapter")
+                && number.bytes().all(|b| b.is_ascii_digit())
+    )
 }
 
 /// 标题清洗：去两端分隔符与括号、压掉控制字符、截长。
@@ -264,6 +286,7 @@ pub fn parse_description(description: &str) -> Vec<SourceChapter> {
                 start: candidate.start,
                 end: None,
                 title: candidate.title.clone(),
+                untitled: false,
             })
             .collect(),
     )
@@ -288,7 +311,12 @@ pub fn from_info_json(info: &Value) -> Vec<SourceChapter> {
                     .or_else(|| item.get("end"))
                     .and_then(Value::as_f64);
                 let title = clean_title(item.get("title").and_then(Value::as_str).unwrap_or(""));
-                (!title.is_empty()).then_some(SourceChapter { start, end, title })
+                (!title.is_empty()).then_some(SourceChapter {
+                    start,
+                    end,
+                    title,
+                    untitled: false,
+                })
             })
             .collect(),
     )
@@ -308,12 +336,13 @@ pub fn from_metadata(source: &Value) -> Vec<SourceChapter> {
         .unwrap_or_default()
 }
 
-/// 排序、去掉非法时间与同起点重复、截条数。
+/// 排序、去掉非法时间与同起点重复、截条数；占位标题标 `untitled`（保留分界）。
 pub fn normalize(mut chapters: Vec<SourceChapter>) -> Vec<SourceChapter> {
     chapters.retain(|chapter| chapter.start.is_finite() && chapter.start >= 0.0);
     chapters.sort_by(|a, b| a.start.total_cmp(&b.start));
     chapters.dedup_by(|next, previous| next.start == previous.start);
     for chapter in &mut chapters {
+        chapter.untitled = chapter.untitled || is_placeholder_title(&chapter.title);
         chapter.title = clean_title(&chapter.title);
         if chapter
             .end
@@ -805,6 +834,54 @@ mod tests {
         assert!(from_metadata(&json!({"title": "x"})).is_empty());
     }
 
+    #[test]
+    fn keeps_yt_dlp_placeholder_chapters_as_untitled_boundaries() {
+        // yt-dlp 在第一个平台章节（6:03）之前补的开头一章：分界要留，标题不是作者的。
+        let info = json!({
+            "chapters": [
+                {"start_time": 0.0, "end_time": 363.0, "title": "<Untitled Chapter 1>"},
+                {"start_time": 363.0, "end_time": 656.0, "title": "Ramp Demo."},
+                {"start_time": 656.0, "end_time": 767.0, "title": "<Untitled Chapter 3>"}
+            ]
+        });
+        let chapters = from_metadata(&info);
+        assert_eq!(chapters.len(), 3);
+        assert!(chapters[0].untitled && chapters[2].untitled && !chapters[1].untitled);
+        assert_eq!(
+            (chapters[0].start, chapters[0].title.as_str()),
+            (0.0, "Untitled Chapter 1")
+        );
+        assert_eq!(chapters[1].start, 363.0);
+        assert_eq!(
+            serde_json::to_value(&chapters[1]).unwrap(),
+            json!({"start": 363.0, "end": 656.0, "title": "Ramp Demo."})
+        );
+        assert_eq!(
+            serde_json::to_value(&chapters[0]).unwrap()["untitled"],
+            json!(true)
+        );
+
+        // 清洗过的写法（去掉了尖括号）与大纲原文里照抄的占位名同样认；作者真写的近似标题不算。
+        let outline = parse_description("0:00 Untitled Chapter 1\n6:03 Ramp Demo");
+        assert!(outline[0].untitled && !outline[1].untitled);
+        for title in [
+            "<Untitled Chapter 12>",
+            "untitled chapter 2",
+            " Untitled  Chapter 3 ",
+        ] {
+            assert!(is_placeholder_title(title), "{title}");
+        }
+        for title in [
+            "Untitled Chapter",
+            "Untitled Chapter 1: Intro",
+            "Chapter 1",
+            "Untitled",
+            "未命名",
+        ] {
+            assert!(!is_placeholder_title(title), "{title}");
+        }
+    }
+
     fn anchor(tier: AnchorTier, time: f64, id: &str) -> Anchor {
         Anchor {
             tier,
@@ -819,6 +896,7 @@ mod tests {
             start,
             end: None,
             title: title.to_owned(),
+            untitled: false,
         }
     }
 

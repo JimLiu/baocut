@@ -32,4 +32,5 @@ export const fr: LibraryBrandMessages = {
   styleEmpty: "Document de style de sous-titres vide",
   styleNoSchema: "Document sans schema ; enregistrement dans le kit impossible",
   styleTooLarge: "Style de sous-titres dépassant 64 Kio",
+  template: 'Modèle',
 };

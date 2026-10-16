@@ -7,6 +7,7 @@ import '../packages/protocol/src/messages/index.ts';
 import { engineHostMessages } from '../packages/protocol/src/messages/engine-host/engineHost.ts';
 import { engineMessages } from '../packages/protocol/src/messages/video-engine/engine.ts';
 import { videoModelMessages } from '../packages/protocol/src/messages/video-model/videoModel.ts';
+import { frameRenderMessages } from '../packages/protocol/src/messages/frame-render/frameRender.ts';
 import { timeMessages } from '../packages/protocol/src/messages/editor-semantics/time.ts';
 import { listMessages } from '../packages/protocol/src/messages/message-ref/list.ts';
 import { engineError } from '../packages/runtime-core/src/videos/engine-host.ts';
@@ -14,7 +15,7 @@ import { messagesIn, placeholders, rustMessages } from './rust-messages.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const messages = rustMessages(root);
-const RUST_AREAS = { engine: engineMessages, engineHost: engineHostMessages, videoModel: videoModelMessages, time: timeMessages, list: listMessages };
+const RUST_AREAS = { engine: engineMessages, engineHost: engineHostMessages, videoModel: videoModelMessages, frameRender: frameRenderMessages, time: timeMessages, list: listMessages };
 const MISSING = '\u0000missing';
 
 /** 把每个占位符原样作为参数：渲染出来的英文应当与模板一字不差。 */

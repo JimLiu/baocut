@@ -16,6 +16,7 @@ wasm-safe = ["subtitle-render/wasm-safe", "render-raster/wasm-safe", "render-ras
 
 [dependencies]
 caption-scene.workspace = true
+message-ref.workspace = true
 motion.workspace = true
 render-graph.workspace = true
 render-raster.workspace = true

@@ -110,7 +110,9 @@ function decodeLibraryItem(value: unknown): LibraryContentInput {
   if (v.version !== LIBRARY_ITEM_VERSION) throw formatInvalid(SL.libraryItemVersion({ version: String(v.version), supported: LIBRARY_ITEM_VERSION }));
   if (v.library !== 'brand') throw formatInvalid(SL.libraryItemBrandOnly());
   const fields = normalizeBrandFields(v.content);
-  if (fields.kind !== 'color' && fields.kind !== 'captionStyle') throw formatInvalid(SL.brandFileImportDirectly());
+  if (fields.kind !== 'color' && fields.kind !== 'captionStyle' && fields.kind !== 'overlayTemplate') {
+    throw formatInvalid(SL.brandFileImportDirectly());
+  }
   return fields;
 }
 

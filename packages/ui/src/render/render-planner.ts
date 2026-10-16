@@ -1,4 +1,4 @@
-import type { AssetRecord, FontFaceQuery, Id, Sequence, VersionRef } from '@baocut/protocol';
+import type { AssetRecord, FontFaceQuery, Id, MessageRef, Sequence, VersionRef } from '@baocut/protocol';
 import type { FramePlan, PlanErrorBody } from './frame-plan.ts';
 import type { LocalFont } from './local-fonts.ts';
 import { R } from './render-copy.ts';
@@ -68,7 +68,9 @@ export interface SkippedItem {
   transitionId?: Id;
   kind?: string;
   reason: string;
+  /** 英文说明；显示时按 `messageRef` 换成界面语言（`localizeText`）。 */
   message: string;
+  messageRef?: MessageRef;
 }
 
 /** 声波用到、还没送进来的素材频谱（`setAudioSpectrum`）。 */

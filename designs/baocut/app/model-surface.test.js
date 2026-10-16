@@ -84,6 +84,8 @@ const WEB_DENY = [
   /^app\/apprail/, /^app\/home-/, /^app\/space/, /^app\/model-home/, /^app\/model-space(?!-search\.js)/, /^app\/model-app-ia/,
   /* model-space-search.js 例外：编辑器文稿查找条下的「意思相近」（embedding-integration-design §2.1）两端都有，用它的纯函数 */
   /^app\/model-agent-projects/, /^app\/model-llm-tools/,
+  /* Skills 页（2026-10-16，rail 上 Space 下面）：包、素材与版本只在 App */
+  /^app\/model-skill-package/, /^app\/model-project-brand/, /^app\/page-project-brand/,
   /* 视频工具的目标与运行（2026-10-03）：只在 App 的工具页；/^app\/model-tool-/ 不含 Web 也加载的 model-tools.js */
   /^app\/model-tool-/,
   /* 视频标注（product-design §3.2.3）：交给智能体的入口，只在 App */

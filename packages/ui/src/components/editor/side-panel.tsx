@@ -19,6 +19,8 @@ import { BrandPanel } from './brand-panel.tsx';
 import { ElementsPanel } from './elements-panel.tsx';
 import { clearCutOrigin } from './shorts-entry.ts';
 import { Inspector } from './inspector.tsx';
+import { TemplateStudioPanel } from './template-studio-panel.tsx';
+import { useTemplateStudio } from './use-template-studio.ts';
 import { MediaPanel } from './media-panel.tsx';
 import { SubtitlePanel } from './subtitle-panel.tsx';
 import { TextPanel } from './text-panel.tsx';
@@ -178,6 +180,8 @@ export function SidePanel({
   const hidden = useEditor((s) => s.panelHidden);
   const showPanel = useEditor((s) => s.showPanel);
   const hasSelection = useEditor((s) => s.selection.length > 0);
+  const studio = useEditor((s) => s.templateStudio !== null);
+  const studioActions = useTemplateStudio();
   const panelRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -190,14 +194,16 @@ export function SidePanel({
         <>
           <PanelSeam panel={panelRef} />
           <section ref={panelRef} className={panel} style={{ width }} aria-label={EL.currentTool}>
-            {tab === 'props' ? (
+            {studio ? (
+              <TemplateStudioPanel sequence={sequence} assets={assets} />
+            ) : tab === 'props' ? (
               <Inspector sequence={sequence} assets={assets} documents={documents} />
             ) : tab === 'transcript' ? (
               <TranscriptPanel sequence={sequence} assets={assets} documents={documents} />
             ) : tab === 'subtitle' ? (
               <SubtitlePanel sequence={sequence} assets={assets} documents={documents} />
             ) : tab === 'elements' ? (
-              <ElementsPanel sequence={sequence} />
+              <ElementsPanel sequence={sequence} assets={assets} />
             ) : tab === 'text' ? (
               <TextPanel sequence={sequence} />
             ) : tab === 'brand' ? (
@@ -218,9 +224,11 @@ export function SidePanel({
             selectionMode="single"
             isQuiet
             size="M"
-            selectedKeys={hidden ? [] : [tab]}
+            selectedKeys={hidden || studio ? [] : [tab]}
             onSelectionChange={(keys) => {
               const key = ([...keys][0] as PanelTab | undefined) ?? null;
+              // 版面编辑器占着右栏：换到别的工具就是放弃这次的草稿（与返回箭头一样）。
+              if (studio) studioActions.cancel();
               // 点工具栏换页（哪怕点回文稿）就不再是「从别的面板跳进文稿的」：横幅的来处作废（产品设计 §5.10）。
               if (key) clearCutOrigin();
               showPanel(key);

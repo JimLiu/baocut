@@ -92,8 +92,8 @@ export const zhHant: ElementCatalogMessages = {
   shapeName: (name: string) => `形狀 · ${name}`,
   stickerName: (label: string) => `貼紙 · ${label}`,
   sections: {
-    sticker: { title: '貼紙', note: '內建 10 款 + 品牌庫' },
-    dynamic: { title: '動態貼紙', note: '10 款彩紙 + 品牌庫中的 Lottie' },
+    sticker: { title: '貼紙', note: '16 個包 + 內建 10 款 + 品牌庫' },
+    dynamic: { title: '動態貼紙', note: '5 個 Noto Lottie 分類 + 10 款彩紙 + 品牌庫' },
     shape: { title: '形狀', note: '23 格 · 5 色循環' },
     visualizer: { title: '視覺化', note: '14 種進度 + 2 種計時 + 10 種波形' },
   },

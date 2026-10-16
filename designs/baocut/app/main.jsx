@@ -30,8 +30,9 @@
       /* 2026-09-17：远端算力从「工具」搬到「服务」（§17.6）；`remote` 与 `tools/remote` 两种旧链接都落到服务页 */
       : window.BC_SERVICES.resolve(r) ? <window.ServicesPage key={window.BC_SERVICES.resolve(r)} id={window.BC_SERVICES.resolve(r)} tab={r.tab} />
       : r.r === 'tools'  ? <window.ToolsPage key={r.id || 'gallery'} id={r.id} />
-      /* 第 110 轮：`skill` 路由退役——Agent 设置并入 Settings › Agent。旧链接落到对应的新地方。 */
-      : r.r === 'skill'  ? <window.SettingsPage sec="skills" />
+      /* 2026-10-16：Skills 是 rail 上的一格（Space 下面）；旧的 `skill` 与 设置 › Skills 链接都落到这里 */
+      : r.r === 'skills' || r.r === 'skill' || (r.r === 'settings' && (r.sec === 'skills' || r.sec === 'integrations'))
+        ? <window.SkillsPage key={r.id || (r.dir ? 'dir:' + r.dir : 'list')} id={r.r === 'skills' ? r.id : null} dir={r.r === 'skills' ? r.dir : null} tab={r.tab} file={r.file} />
       : r.r === 'models' ? <window.SettingsPage sec={r.sec || "local"} tab={r.tab} />
       : r.r === 'settings' ? <window.SettingsPage sec={r.sec} tab={r.tab} id={r.id} from={r.from} />
       : <window.HomePage />;

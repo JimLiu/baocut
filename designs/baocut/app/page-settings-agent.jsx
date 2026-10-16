@@ -15,7 +15,7 @@
     {k: 'plan', icon: 'ok', title: '用你自己的订阅', body: '不用为 BaoCut 另外付费，也不用填 API key。'},
     {k: 'ask', icon: 'lock', title: '改动之前先问你', body: '写入视频前会停下来等你允许，随时可以撤销。'},
   ];
-  /* 2026-10-05 Agent 在设置左栏自成一组：「Agent 提供方」（本页：连接 + 页底的高级与排障）与「Skills」（settings-agent-skills.jsx）各一项，
+  /* 2026-10-05 Agent 在设置左栏自成一组：「Agent 提供方」（本页：连接 + 页底的高级与排障）；Skills 2026-10-16 搬到 rail（page-skills.jsx），
      不再有页签；访问权限搬到「隐私与权限」（AgentPermissionsSection，page-settings.jsx 里用）。 */
   const policyCopy = {
     read: {label: '读取视频内容', desc: '允许助手查看文稿与视频设置，不必每次确认。'},
@@ -159,7 +159,7 @@
               <Btn size="s" variant="quiet" onClick={() => app.replace({r: 'settings', sec: 'providers'})}>前往 API 提供方</Btn></BCDisclosure>
             <BCDisclosure className="agset-disclosure" title={<> 想在终端里直接用这些 Agent 操作 BaoCut？ </>}>
               <p>在 BaoCut 里开会话不需要额外准备。要在终端或其他应用里用，给它们装上 BaoCut 的 skill 即可。</p>
-              <Btn size="s" variant="quiet" onClick={() => app.replace({r: 'settings', sec: 'skills', tab: 'external'})}>查看安装方法</Btn></BCDisclosure>
+              <Btn size="s" variant="quiet" onClick={() => app.go({r: 'skills', tab: 'external'})}>查看安装方法</Btn></BCDisclosure>
           </Card>
 
           <div className="agset-demo" aria-label="原型演示场景">

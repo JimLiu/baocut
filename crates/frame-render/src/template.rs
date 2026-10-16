@@ -1,25 +1,31 @@
 //! 模板层（格式规范 §3.17）：序列上的模板文档每个打开的层是帧计划里的一个生成器层（`baocut.template`），
 //! 按 `timeline` 的模板文档由渲染内核的 `template_layer::raster` 画——画法与 v2 的舞台、导出与缩略图是同一个函数。
 //!
-//! 章节类的层读序列的章节标记（标记的帧到下一个章节、或到序列的终点），`{title}` 是序列的名字。台标只画文字台标：
-//! 图片台标（品牌库的台标、项目里的文件）在 v3 没有对应的素材，报出来，不画。
+//! 章节类的层读序列的章节标记（标记的帧到下一个章节、或到序列的终点），`{title}` 是序列的名字。品牌库的图片台标画的是
+//! 从品牌库拷进这部视频的那份素材（帧计划的 `asset` 参数）；没拷进来的、按路径引用的（`{ file }`）报出来，不画。
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use anyhow::Result;
 use render_raster::TextEngine;
+use serde_json::Value;
 use subtitle_render::{TemplateFrameParams, TemplateScene};
 use timeline::template::{ChapterSpan, LayerKind as TemplateLayerKind, LogoSrc, TemplateDoc};
 use tiny_skia::Pixmap;
 use video_model::Sequence;
 
-/// 一个模板层画不出来的原因（`None` 是画得出来）。
-pub fn unsupported_reason(doc: &TemplateDoc, layer_id: &str) -> Option<&'static str> {
+/// 一个模板层画不出来的原因（`None` 是画得出来）。`parameters` 是帧计划里这一层的生成器参数：品牌库台标的素材在
+/// `asset` 里，没有就是视频里没有这张图。
+pub fn unsupported_reason(doc: &TemplateDoc, layer_id: &str, parameters: &Value) -> Option<&'static str> {
     let layer = doc.layers.iter().find(|l| l.id == layer_id)?;
     match &layer.kind {
         TemplateLayerKind::Logo {
-            src: LogoSrc::BrandLogo { .. } | LogoSrc::File { .. },
+            src: LogoSrc::BrandLogo { .. },
             ..
+        } if parameters.get("asset").is_none_or(Value::is_null) => Some("template-logo-asset-missing"),
+        TemplateLayerKind::Logo {
+            src: LogoSrc::File { .. }, ..
         } => Some("template-logo-image-not-supported"),
         _ => None,
     }
@@ -49,32 +55,41 @@ pub fn chapters(sequence: &Sequence, fps: f64, end_seconds: f64) -> Vec<ChapterS
         .collect()
 }
 
-/// 模板层的场景缓存：按序列版本与层 ID 记住（场景要算指纹，不逐帧重建）。
+/// 模板层的场景缓存：按序列版本、层 ID 与台标图片的素材版本记住（场景要算指纹，不逐帧重建）。
 #[derive(Default)]
 pub struct TemplateScenes {
-    scenes: HashMap<(String, String), TemplateScene>,
+    scenes: HashMap<(String, String, String), TemplateScene>,
 }
 
 impl TemplateScenes {
-    /// 画一个模板层：与输出等大的透明画布。
+    /// 画一个模板层：与输出等大的透明画布。`logo` 是图片台标解好的画面与它的 `素材ID@版本`。
     #[allow(clippy::too_many_arguments)]
     pub fn raster(
         &mut self,
         sequence: &Sequence,
         doc: &TemplateDoc,
         layer_id: &str,
+        logo: Option<(String, Arc<Pixmap>)>,
         seconds: f64,
         duration: f64,
         fps: f64,
         size: (u32, u32),
         text: &mut TextEngine,
     ) -> Result<Pixmap> {
-        let key = (sequence.revision.clone(), layer_id.to_string());
+        let logo_version = logo.as_ref().map(|(version, _)| version.clone()).unwrap_or_default();
+        let key = (sequence.revision.clone(), layer_id.to_string(), logo_version);
         if !self.scenes.contains_key(&key) {
-            self.scenes.retain(|(revision, _), _| *revision == sequence.revision);
+            self.scenes.retain(|(revision, _, _), _| *revision == sequence.revision);
             let mut only = doc.clone();
             only.layers.retain(|l| l.id == layer_id);
-            let scene = TemplateScene::new(only, chapters(sequence, fps, duration), sequence.header.name.clone(), Vec::new());
+            // 场景按台标的 key（品牌库条目 ID）找图：`TemplateScene::logo_key`。
+            let logos = match (only.layers.first().map(|l| &l.kind), logo) {
+                (Some(TemplateLayerKind::Logo { src, .. }), Some((_, pixmap))) => TemplateScene::logo_key(src)
+                    .map(|key| vec![(key.to_string(), Arc::unwrap_or_clone(pixmap))])
+                    .unwrap_or_default(),
+                _ => Vec::new(),
+            };
+            let scene = TemplateScene::new(only, chapters(sequence, fps, duration), sequence.header.name.clone(), logos);
             self.scenes.insert(key.clone(), scene);
         }
         let scene = &self.scenes[&key];

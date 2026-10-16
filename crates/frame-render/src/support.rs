@@ -4,6 +4,7 @@
 //! 各自报一条警告。三种粒度：整层不画（`layer`）、跳过一个效果（`effect`）、转场按硬切（`transition`）；
 //! 素材解不出画面是第四种（`asset`，由取画面的一方判断）。
 
+use message_ref::{MessageRef, Text, msg};
 use render_graph::{LayerContent, LayerKind, VisualLayer};
 use serde::Serialize;
 use serde_json::Value;
@@ -28,7 +29,10 @@ pub struct UnsupportedItem {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
     pub reason: String,
+    /// 英文说明（缺省与兜底）；界面按 `messageRef` 用自己的语言重新生成（仓库约定 §5）。
     pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message_ref: Option<MessageRef>,
 }
 
 impl UnsupportedItem {
@@ -51,7 +55,8 @@ impl UnsupportedItem {
         matches!(self.scope, "layer" | "asset")
     }
 
-    pub fn layer(layer: &VisualLayer, kind: Option<String>, reason: &str, message: impl Into<String>) -> UnsupportedItem {
+    pub fn layer(layer: &VisualLayer, kind: Option<String>, reason: &str, message: impl Into<Text>) -> UnsupportedItem {
+        let message = message.into();
         UnsupportedItem {
             item_id: layer.item_id.clone(),
             scope: "layer",
@@ -60,8 +65,106 @@ impl UnsupportedItem {
             transition_id: None,
             kind,
             reason: reason.into(),
-            message: message.into(),
+            message: message.text,
+            message_ref: message.message_ref,
         }
+    }
+
+    /// 素材解不出画面的一项（整层不画）。
+    pub fn asset(layer: &VisualLayer, kind: Option<String>, reason: &str, message: impl Into<Text>) -> UnsupportedItem {
+        UnsupportedItem {
+            scope: "asset",
+            ..UnsupportedItem::layer(layer, kind, reason, message)
+        }
+    }
+}
+
+/// 素材画不出来的说明，合成与预检共用。`kind` 是格式名（SVG、GIF），`detail` 是解码器或系统的原话，都不翻译。
+pub mod asset_text {
+    use message_ref::{Text, msg};
+
+    pub fn not_frozen(asset: &str) -> Text {
+        msg!("frameRender.assetNotFrozen", "The file for asset {asset} isn’t available", asset)
+    }
+
+    pub fn no_picture(asset: &str) -> Text {
+        msg!(
+            "frameRender.assetNoPicture",
+            "Asset {asset} has no picture (no video stream)",
+            asset
+        )
+    }
+
+    pub fn undecodable(asset: &str, detail: &str) -> Text {
+        msg!(
+            "frameRender.assetUndecodable",
+            "Asset {asset} can’t be decoded: {detail}",
+            asset,
+            detail
+        )
+    }
+
+    pub fn image_unreadable(kind: &str, asset: &str) -> Text {
+        msg!("frameRender.imageUnreadable", "{kind} image {asset} can’t be read", kind, asset)
+    }
+
+    pub fn image_undecodable(kind: &str, asset: &str) -> Text {
+        msg!("frameRender.imageUndecodable", "{kind} image {asset} can’t be decoded", kind, asset)
+    }
+
+    pub fn image_undecodable_detail(kind: &str, asset: &str, detail: &str) -> Text {
+        msg!(
+            "frameRender.imageUndecodableDetail",
+            "{kind} image {asset} can’t be decoded: {detail}",
+            kind,
+            asset,
+            detail
+        )
+    }
+
+    pub fn template_logo_unreadable(asset: &str) -> Text {
+        msg!(
+            "frameRender.templateLogoUnreadable",
+            "Template logo image {asset} can’t be read",
+            asset
+        )
+    }
+
+    pub fn template_logo_undecodable(asset: &str) -> Text {
+        msg!(
+            "frameRender.templateLogoUndecodable",
+            "Template logo image {asset} can’t be decoded",
+            asset
+        )
+    }
+
+    pub fn template_logo_undecodable_detail(asset: &str, detail: &str) -> Text {
+        msg!(
+            "frameRender.templateLogoUndecodableDetail",
+            "Template logo image {asset} can’t be decoded: {detail}",
+            asset,
+            detail
+        )
+    }
+
+    pub fn lottie_no_asset() -> Text {
+        msg!("frameRender.lottieNoAsset", "This Lottie sticker has no asset")
+    }
+
+    pub fn lottie_unreadable() -> Text {
+        msg!("frameRender.lottieUnreadable", "The Lottie asset can’t be read")
+    }
+
+    pub fn lottie_unreadable_detail(detail: &str) -> Text {
+        msg!(
+            "frameRender.lottieUnreadableDetail",
+            "The Lottie asset can’t be read: {detail}",
+            detail
+        )
+    }
+
+    pub fn lottie_unparsable(detail: &str) -> Text {
+        msg!("frameRender.lottieUnparsable", "The Lottie asset can’t be parsed: {detail}", detail)
     }
 }
 
@@ -118,6 +221,7 @@ pub fn check_layer_with(
     }
     for effect in &layer.effects {
         if let Some(reason) = effect.unsupported.as_deref() {
+            let message = msg!("frameRender.effectUnsupported", "Effect {kind} can’t be drawn", kind = effect.kind);
             items.push(UnsupportedItem {
                 item_id: layer.item_id.clone(),
                 scope: "effect",
@@ -125,7 +229,8 @@ pub fn check_layer_with(
                 effect_id: Some(effect.id.clone()),
                 transition_id: None,
                 kind: Some(effect.kind.clone()),
-                message: format!("效果「{}」画不出来", effect.kind),
+                message: message.text,
+                message_ref: message.message_ref,
                 reason: format!("effect-{reason}"),
             });
         }
@@ -142,10 +247,20 @@ pub fn transition_problem(kind: &str, unsupported: Option<&str>) -> Option<Strin
     }
 }
 
+/// 转场画不出来的说明（按硬切画），合成与预检共用。
+pub fn transition_text(kind: &str) -> Text {
+    msg!(
+        "frameRender.transitionUnsupported",
+        "Transition {kind} can’t be drawn; using a hard cut",
+        kind
+    )
+}
+
 /// 层的转场画不出来时的一项（按硬切画）。
 pub fn check_transition(layer: &VisualLayer) -> Option<UnsupportedItem> {
     let transition = layer.transition.as_ref()?;
     let reason = transition_problem(&transition.kind, transition.unsupported.as_deref())?;
+    let message = transition_text(&transition.kind);
     Some(UnsupportedItem {
         item_id: layer.item_id.clone(),
         scope: "transition",
@@ -153,14 +268,15 @@ pub fn check_transition(layer: &VisualLayer) -> Option<UnsupportedItem> {
         effect_id: None,
         transition_id: Some(transition.id.clone()),
         kind: Some(transition.kind.clone()),
-        message: format!("转场「{}」画不出来，按硬切画", transition.kind),
+        message: message.text,
+        message_ref: message.message_ref,
         reason,
     })
 }
 
 /// 形状与生成器引用的目录项（形状、贴纸模板、声波、进度条、彩纸的样式）在不在随内核发布的目录里。
 /// 不在、或者根本没写（贴纸的 `templateId` 可以缺）时内核只能跳过不画，所以在这里报出来：`(目录项, 原因, 说明)`。
-fn catalogue_problem(layer: &VisualLayer) -> Option<(Option<String>, &'static str, String)> {
+fn catalogue_problem(layer: &VisualLayer) -> Option<(Option<String>, &'static str, Text)> {
     let text = |value: &Value, key: &str| value.get(key).and_then(Value::as_str).map(str::to_string);
     let (id, found, what) = match &layer.content {
         Some(LayerContent::Shape { shape }) => {
@@ -168,24 +284,21 @@ fn catalogue_problem(layer: &VisualLayer) -> Option<(Option<String>, &'static st
             let found = id
                 .as_deref()
                 .is_some_and(|id| motion::preset_registry::timeline_shape(id).is_some());
-            (id, found, "形状")
+            (id, found, Catalogue::Shape)
         }
         Some(LayerContent::Generator { generator, parameters, .. }) => {
-            let lookup: fn(&str) -> bool = match generator.as_str() {
-                "baocut.sticker" => |id| motion::preset_registry::timeline_sticker(id).is_some(),
-                "baocut.audio-visualizer" => |id| motion::preset_registry::timeline_visualizer(id).is_some(),
-                "baocut.progress" => |id| motion::preset_registry::timeline_progress(id).is_some(),
-                "baocut.confetti" => |id| motion::preset_registry::timeline_confetti(id).is_some(),
+            let (lookup, what): (fn(&str) -> bool, Catalogue) = match generator.as_str() {
+                "baocut.sticker" => (|id| motion::preset_registry::timeline_sticker(id).is_some(), Catalogue::Sticker),
+                "baocut.audio-visualizer" => (
+                    |id| motion::preset_registry::timeline_visualizer(id).is_some(),
+                    Catalogue::Visualizer,
+                ),
+                "baocut.progress" => (|id| motion::preset_registry::timeline_progress(id).is_some(), Catalogue::Progress),
+                "baocut.confetti" => (|id| motion::preset_registry::timeline_confetti(id).is_some(), Catalogue::Confetti),
                 _ => return None,
             };
             let key = if generator == "baocut.sticker" { "templateId" } else { "style" };
             let id = text(parameters, key);
-            let what = match generator.as_str() {
-                "baocut.sticker" => "贴纸模板",
-                "baocut.audio-visualizer" => "声波样式",
-                "baocut.progress" => "进度条样式",
-                _ => "彩纸样式",
-            };
             let found = id.as_deref().is_some_and(lookup);
             (id, found, what)
         }
@@ -194,10 +307,62 @@ fn catalogue_problem(layer: &VisualLayer) -> Option<(Option<String>, &'static st
     match (found, id) {
         (true, _) => None,
         (false, Some(id)) => {
-            let message = format!("{what}「{id}」不在随渲染内核发布的目录里");
+            let message = what.unknown(&id);
             Some((Some(id), "preset-unknown", message))
         }
-        (false, None) => Some((None, "preset-missing", format!("没有指定{what}"))),
+        (false, None) => Some((None, "preset-missing", what.missing())),
+    }
+}
+
+/// 随内核发布的目录：各自一整句说明，不拼名词（各语言的语序、性数不同）。
+#[derive(Clone, Copy)]
+enum Catalogue {
+    Shape,
+    Sticker,
+    Visualizer,
+    Progress,
+    Confetti,
+}
+
+impl Catalogue {
+    fn unknown(self, id: &str) -> Text {
+        match self {
+            Catalogue::Shape => msg!(
+                "frameRender.shapeUnknown",
+                "Shape {id} isn’t in the catalog shipped with the renderer",
+                id
+            ),
+            Catalogue::Sticker => msg!(
+                "frameRender.stickerTemplateUnknown",
+                "Sticker template {id} isn’t in the catalog shipped with the renderer",
+                id
+            ),
+            Catalogue::Visualizer => msg!(
+                "frameRender.visualizerStyleUnknown",
+                "Waveform style {id} isn’t in the catalog shipped with the renderer",
+                id
+            ),
+            Catalogue::Progress => msg!(
+                "frameRender.progressStyleUnknown",
+                "Progress bar style {id} isn’t in the catalog shipped with the renderer",
+                id
+            ),
+            Catalogue::Confetti => msg!(
+                "frameRender.confettiStyleUnknown",
+                "Confetti style {id} isn’t in the catalog shipped with the renderer",
+                id
+            ),
+        }
+    }
+
+    fn missing(self) -> Text {
+        match self {
+            Catalogue::Shape => msg!("frameRender.shapeMissing", "No shape is specified"),
+            Catalogue::Sticker => msg!("frameRender.stickerTemplateMissing", "No sticker template is specified"),
+            Catalogue::Visualizer => msg!("frameRender.visualizerStyleMissing", "No waveform style is specified"),
+            Catalogue::Progress => msg!("frameRender.progressStyleMissing", "No progress bar style is specified"),
+            Catalogue::Confetti => msg!("frameRender.confettiStyleMissing", "No confetti style is specified"),
+        }
     }
 }
 
@@ -220,7 +385,11 @@ fn check_content(
                     layer,
                     Some(generator.clone()),
                     "generator-not-implemented",
-                    format!("「{generator}」画不出来"),
+                    msg!(
+                        "frameRender.generatorNotImplemented",
+                        "Generator {generator} can’t be drawn",
+                        generator
+                    ),
                 ));
             }
             if generator == "baocut.template" {
@@ -228,7 +397,7 @@ fn check_content(
                 let reason = match template {
                     None => Some("template-missing"),
                     Some(doc) if !doc.layers.iter().any(|l| l.id == layer_id) => Some("template-missing"),
-                    Some(doc) => crate::template::unsupported_reason(doc, layer_id),
+                    Some(doc) => crate::template::unsupported_reason(doc, layer_id, parameters),
                 };
                 if let Some(reason) = reason {
                     return Some(UnsupportedItem::layer(
@@ -250,50 +419,103 @@ fn check_content(
             }),
         ) => caption(document_id, style_document_id.as_deref())
             .map(|(kind, reason, message)| UnsupportedItem::layer(layer, kind, reason, message)),
-        _ => Some(UnsupportedItem::layer(layer, None, "unknown-layer", "不认识这种层")),
+        _ => Some(UnsupportedItem::layer(
+            layer,
+            None,
+            "unknown-layer",
+            msg!("frameRender.layerUnknown", "This kind of clip isn’t recognized"),
+        )),
     }
 }
 
 /// 帧计划或这里标成不支持的原因给人看的说明。
-fn unsupported_message(reason: &str) -> &'static str {
+fn unsupported_message(reason: &str) -> Text {
     match reason {
-        "bundle-without-prerender" => "没有预渲染替身的代码包合成画不出来（先生成预渲染替身）",
-        "sticker-asset-not-supported" => "这种素材的贴纸画不出来（贴纸素材要是图片、视频或 Lottie）",
-        "placeholder-asset-not-supported" => "占位框填的素材画不出来（要是图片或视频）",
-        "template-missing" => "模板层在序列的模板里找不到",
-        "template-logo-image-not-supported" => "模板的图片台标画不出来（只画文字台标）",
-        _ => "这一层画不出来",
+        "bundle-without-prerender" => msg!(
+            "frameRender.bundleWithoutPrerender",
+            "A code composition without a pre-rendered stand-in can’t be drawn (generate the stand-in first)"
+        ),
+        "sticker-asset-not-supported" => msg!(
+            "frameRender.stickerAssetUnsupported",
+            "This sticker’s asset can’t be drawn (sticker assets must be images, videos, or Lottie)"
+        ),
+        "placeholder-asset-not-supported" => msg!(
+            "frameRender.placeholderAssetUnsupported",
+            "The asset in this placeholder can’t be drawn (it must be an image or video)"
+        ),
+        "template-missing" => msg!(
+            "frameRender.templateMissing",
+            "This template layer isn’t in the sequence’s template"
+        ),
+        "template-logo-image-not-supported" => msg!(
+            "frameRender.templateLogoImage",
+            "Image logos referenced by file path can’t be drawn in templates (use a brand kit logo or a text logo)"
+        ),
+        "template-logo-asset-missing" => msg!(
+            "frameRender.templateLogoAssetMissing",
+            "The brand kit image used as the template logo isn’t in this video (pick the logo again to copy it in)"
+        ),
+        _ => msg!("frameRender.layerUnsupported", "This clip can’t be drawn"),
     }
 }
 
 /// 字幕层画不出来的原因：`(认出的种类, 原因, 说明)`。
-pub type CaptionProblem = (Option<String>, &'static str, String);
+pub type CaptionProblem = (Option<String>, &'static str, Text);
 
 /// 字幕层画不画得出来：字幕文档与样式文档都在、认得出，样式有画法。只看文档，与层无关。
 /// 认不出的样式不替人换成缺省样式：预览跳过这组字幕并报出来，导出拒绝并说明。
 pub fn caption_problem(documents: &Documents, document_id: &str, style_document_id: Option<&str>) -> Option<CaptionProblem> {
     let Some(document) = documents.get(document_id) else {
-        return Some((None, "caption-document-missing", format!("字幕文档 {document_id} 不在了")));
+        let message = msg!(
+            "frameRender.captionDocumentMissing",
+            "Subtitle document {document} no longer exists",
+            document = document_id
+        );
+        return Some((None, "caption-document-missing", message));
     };
     if read_captions(&document.body).is_none() {
         let found = schema(&document.body);
-        let message = format!("字幕文档 {} 认不出", found.clone().unwrap_or_else(|| "（没有 schema）".into()));
+        let message = match &found {
+            Some(schema) => msg!(
+                "frameRender.captionDocumentUnknown",
+                "Subtitle document {schema} isn’t recognized",
+                schema
+            ),
+            None => msg!(
+                "frameRender.captionDocumentNoSchema",
+                "The subtitle document isn’t recognized (it has no schema)"
+            ),
+        };
         return Some((found, "caption-unknown-document", message));
     }
     let style_document = match style_document_id {
         Some(id) => match documents.get(id) {
             Some(style) => Some(style),
-            None => return Some((None, "caption-style-missing", format!("字幕样式文档 {id} 不在了"))),
+            None => {
+                let message = msg!(
+                    "frameRender.captionStyleMissing",
+                    "Subtitle style document {document} no longer exists",
+                    document = id
+                );
+                return Some((None, "caption-style-missing", message));
+            }
         },
         None => None,
     };
     match CaptionStyle::read(style_document) {
         Ok(_) => None,
         Err(found) => {
-            let message = format!(
-                "字幕样式 {} 认不出（导出不替换样式）",
-                found.clone().unwrap_or_else(|| "（没有 schema）".into())
-            );
+            let message = match &found {
+                Some(schema) => msg!(
+                    "frameRender.captionStyleUnknown",
+                    "Subtitle style {schema} isn’t recognized (export doesn’t substitute styles)",
+                    schema
+                ),
+                None => msg!(
+                    "frameRender.captionStyleNoSchema",
+                    "The subtitle style isn’t recognized (it has no schema; export doesn’t substitute styles)"
+                ),
+            };
             Some((found, "caption-unknown-style", message))
         }
     }
@@ -323,11 +545,16 @@ pub fn caption_presentation_problem(layer: &VisualLayer, documents: &Documents) 
         )),
     };
     result.err().map(|e| {
+        let detail = e.to_string();
         UnsupportedItem::layer(
             layer,
             Some(caption_scene::STYLE_SCHEMA.into()),
             "caption-scene-invalid",
-            e.to_string(),
+            msg!(
+                "frameRender.captionSceneInvalid",
+                "This clip’s subtitle style settings are invalid: {detail}",
+                detail
+            ),
         )
     })
 }

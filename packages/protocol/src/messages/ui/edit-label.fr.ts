@@ -94,4 +94,10 @@ export const fr: EditLabelMessages = {
   removeDubGroup: (p) => `Retirer le doublage (${languageName('fr', p.language)})`,
   removeThisDubGroup: "Retirer ce groupe de doublage",
   stretchDub: "Changer la vitesse du doublage",
+  applyTemplate: (p) => `Appliquer le modèle « ${p.name} »`,
+  removeTemplate: 'Retirer le modèle',
+  editTemplate: 'Modifier le modèle',
+  editTemplateLayout: 'Modifier la mise en page du modèle',
+  lockTemplateRatio: 'Verrouiller le rapport hauteur/largeur du modèle',
+  unlockTemplateRatio: 'Déverrouiller le rapport hauteur/largeur du modèle',
 };

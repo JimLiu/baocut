@@ -1,11 +1,13 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { setLocale } from '@baocut/protocol';
 import { ELEMENT_TILES } from '../../model/element-catalog.ts';
+import { demoMarkers, templateGroups } from '../../model/template-layers.ts';
 import { TEXT_PRESETS } from '../../model/text-presets.ts';
 import { RenderPlanner } from '../../render/render-planner.ts';
 import { opaqueBounds, thumbSequence } from '../../render/thumbnails.ts';
-import { CAPTION_BEAT, captionFrame, captionSample, captionThumb, confettiThumb, layerThumb, lottieMeta, lottieThumb, presetThumb, type ThumbPicture } from './thumb-scenes.ts';
+import { CAPTION_BEAT, captionFrame, captionSample, captionThumb, confettiThumb, layerThumb, lottieMeta, lottieThumb, presetThumb, templateThumb, TEMPLATE_DEMO_SECONDS, type ThumbPicture } from './thumb-scenes.ts';
 
 // 缩略图由编出来的预览 WASM 画（与导出同一个内核）；Node 没有 ImageData，补一个装下像素的。
 vi.stubGlobal('ImageData', function (data: Uint8ClampedArray, width: number, height: number) {
@@ -92,6 +94,21 @@ describe.skipIf(!built)('缩略图由渲染内核画', () => {
     expect(new Set(waves.map((picture) => opaque(picture))).size).toBeGreaterThan(waves.length / 2);
   });
 
+  it('画不出来的说明跟着界面语言，不是内核的原话', () => {
+    const tile = ELEMENT_TILES.find((t) => t.group === 'shape')!;
+    const layer = tile.layer(canvas) as unknown as { shape: Record<string, unknown> };
+    const unknown = { ...layer, shape: { ...layer.shape, shape: 'no-such-shape' } } as unknown as Parameters<typeof layerThumb>[1];
+    expect(layerThumb(planner, unknown, canvas, 200, 120).problems).toEqual(['形状「no-such-shape」不在随渲染内核发布的目录里']);
+    vi.stubEnv('BAOCUT_LOCALE', 'en');
+    setLocale('en');
+    try {
+      expect(layerThumb(planner, unknown, canvas, 200, 120).problems).toEqual(['Shape no-such-shape isn’t in the catalog shipped with the renderer']);
+    } finally {
+      vi.unstubAllEnvs();
+      setLocale('zh-Hans');
+    }
+  });
+
   it('彩纸格：同一刻恒得同一幅，往后播画面会变', () => {
     const a = confettiThumb(planner, 'rainbow-paper', 4.5, 160, 160);
     const b = confettiThumb(planner, 'rainbow-paper', 4.5, 160, 160);
@@ -159,5 +176,19 @@ describe.skipIf(!built)('缩略图由渲染内核画', () => {
     const framed = presetThumb(planner, scene, { num: 30, den: 1 }, 2, 360, 200);
     expect(framed.blits).toHaveLength(1);
     expect(opaque(framed)).toBeGreaterThan(0);
+  });
+
+  it('模板缩略图：内置每一款都画出东西，按模板画幅居中放进格子', () => {
+    const markers = demoMarkers(['Intro', 'Setup', 'Demo', 'Wrap-up'], TEMPLATE_DEMO_SECONDS);
+    const docs = templateGroups('en', []).flatMap((group) => group.items.map((item) => item.doc));
+    expect(docs).toHaveLength(17);
+    for (const doc of docs) {
+      const picture = templateThumb(planner, doc, markers, 'Demo video', 160, 90);
+      expect(picture.problems, doc.id).toEqual([]);
+      expect(opaque(picture), doc.id).toBeGreaterThan(0);
+      const { target } = picture.blits[0]!;
+      if (doc.canvas === '9:16') expect(target.width).toBeLessThan(target.height);
+      else expect(target).toMatchObject({ x: 0, y: 0, width: 160, height: 90 });
+    }
   });
 });

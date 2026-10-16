@@ -246,6 +246,8 @@ export const pl: EngineMessages = {
   updateSequenceEmpty: "updateSequence musi zmieniać co najmniej jedną rzecz",
   backgroundInvalid: "Tło płótna musi być #RRGGBB",
   canvasSideRange: (p) => `Każdy bok płótna musi mieć 1–${p.max} pikseli`,
+  templateRatioLocked: (p) => `Szablon „${p.template}” blokuje proporcje na ${p.ratio}; płótno można zmieniać tylko w tych proporcjach`,
+  templateRatioLockedRecovery: 'Najpierw odblokuj proporcje szablonu, a potem zmień płótno',
   collectAssetsEmpty: "collectAssets wymaga co najmniej jednego wpisu",
   trackNotEmpty: (p) => `Ścieżka ${p.track} nadal zawiera klipy (${p.count}); usunąć można tylko pustą ścieżkę`,
   trackNotEmptyRecovery: "Najpierw usuń jej klipy (deleteItems) lub przenieś je na inną ścieżkę (moveItem), a potem usuń ścieżkę",

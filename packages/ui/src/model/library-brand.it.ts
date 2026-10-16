@@ -32,4 +32,5 @@ export const it: LibraryBrandMessages = {
   styleEmpty: "Il documento dello stile dei sottotitoli è vuoto",
   styleNoSchema: "Il documento dello stile dei sottotitoli non ha schema e non può essere salvato nel kit del brand",
   styleTooLarge: "Lo stile dei sottotitoli supera 64 KiB",
+  template: 'Modello',
 };

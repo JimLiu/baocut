@@ -4,7 +4,6 @@ import type { Localized } from '@baocut/protocol';
 /** 用户库的错误码（命令与协议规范 §11），放在 `RpcError.details.code`。 */
 export type LibraryErrorCode =
   | 'LIBRARY_FORMAT_INVALID'
-  | 'LIBRARY_KIND_RESERVED'
   | 'LIBRARY_VERSION_CONFLICT'
   | 'LIBRARY_ENTRY_NOT_APPLICABLE'
   | 'VOICE_CONSENT_REQUIRED'

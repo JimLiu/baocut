@@ -94,4 +94,10 @@ export const pl: EditLabelMessages = {
   removeDubGroup: (p) => `Usuń lektora (${languageName('pl', p.language)})`,
   removeThisDubGroup: "Usuń tę grupę dubbingu",
   stretchDub: "Zmień prędkość lektora",
+  applyTemplate: (p) => `Zastosuj szablon „${p.name}”`,
+  removeTemplate: 'Usuń szablon',
+  editTemplate: 'Edytuj szablon',
+  editTemplateLayout: 'Edytuj układ szablonu',
+  lockTemplateRatio: 'Zablokuj proporcje według szablonu',
+  unlockTemplateRatio: 'Odblokuj proporcje szablonu',
 };

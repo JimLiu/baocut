@@ -32,4 +32,5 @@ export const zhHant: LibraryBrandMessages = {
   styleEmpty: '字幕樣式文件是空的',
   styleNoSchema: '字幕樣式文件沒有 schema，無法儲存到品牌庫',
   styleTooLarge: '字幕樣式超過 64 KiB',
+  template: '範本',
 };

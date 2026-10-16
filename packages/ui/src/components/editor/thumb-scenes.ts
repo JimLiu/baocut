@@ -1,4 +1,4 @@
-import type { AssetRecord, Rate, VersionRef } from '@baocut/protocol';
+import type { AssetRecord, Marker, Rate, TemplateLayers, VersionRef } from '@baocut/protocol';
 import { thumbScene } from '../../model/caption-presets.ts';
 import { wordAnimationPayload } from '../../model/caption-word-animation.ts';
 import type { VisualLayer } from '../../model/new-items.ts';
@@ -8,6 +8,7 @@ import { CONFETTI_RANGES, confettiDefaults } from '../../render/confetti.ts';
 import type { FrozenDocument, RenderPlanner, SpeechTranscript } from '../../render/render-planner.ts';
 import { STUDIO_STYLE, type Json, type LineKind } from '../../render/text-style.ts';
 import { opaqueBounds, renderThumb, type ThumbLayer, type ThumbScene } from '../../render/thumbnails.ts';
+import type { TemplateLogos } from './use-template-logos.ts';
 
 /**
  * 各种缩略图怎么摆成渲染内核的一帧、再怎么贴进格子。尺寸都是格子的设备像素；返回要贴的几块画面，由组件画到画布上。
@@ -97,6 +98,68 @@ export function layerThumb(planner: RenderPlanner, layer: VisualLayer, canvas: S
   const { image, problems } = renderThumb(planner, scene, canvas.width * scale, canvas.height * scale);
   const target = { x: width / 2 - box.cx * fit, y: height / 2 - box.cy * fit, width: canvas.width * fit, height: canvas.height * fit };
   return { blits: [{ image, source: whole(image), target }], problems };
+}
+
+/** 模板缩略图的示范片长（秒）与停在哪一刻：章节条画出「播到第二章」的样子。 */
+export const TEMPLATE_DEMO_SECONDS = 206;
+export const TEMPLATE_DEMO_AT = 0.38;
+const NO_LAYERS: readonly ThumbLayer[] = [];
+
+/** 模板的画面：竖屏模板 1080×1920，其余 1920×1080（与版面编辑器同一块画布）。 */
+export function templateCanvas(doc: TemplateLayers): Size {
+  return doc.canvas === '9:16' ? { width: 1080, height: 1920 } : { width: 1920, height: 1080 };
+}
+
+/**
+ * 模板缩略图（原型 `TemplateThumb`）：只有模板层的一帧，按模板自己的画幅放进格子居中（contain）。章节类的层读示范章节，
+ * `{title}` 读 `title`。`markers` 由调用方记住同一份，换一刻重画时不重送序列。
+ */
+export function templateThumb(
+  planner: RenderPlanner,
+  doc: TemplateLayers,
+  markers: readonly Marker[],
+  title: string,
+  width: number,
+  height: number,
+  logos: TemplateLogos | null = null,
+): ThumbPicture {
+  const canvas = templateCanvas(doc);
+  const fit = Math.min(width / canvas.width, height / canvas.height);
+  const scale = Math.min(fit, MAX_SIDE / Math.max(canvas.width, canvas.height));
+  const scene: ThumbScene = {
+    canvas,
+    layers: NO_LAYERS,
+    seconds: TEMPLATE_DEMO_SECONDS * TEMPLATE_DEMO_AT,
+    duration: TEMPLATE_DEMO_SECONDS,
+    template: doc,
+    markers,
+    name: title,
+    ...logos,
+  };
+  const { image, problems } = renderThumb(planner, scene, canvas.width * scale, canvas.height * scale);
+  const w = canvas.width * fit;
+  const h = canvas.height * fit;
+  return { blits: [{ image, source: whole(image), target: { x: (width - w) / 2, y: (height - h) / 2, width: w, height: h } }], problems };
+}
+
+/**
+ * 版面编辑器的画面（原型 `TemplateStudioStage`）：只有模板层的一帧，铺满格子（`canvas` 与格子同比例）。章节类的层读
+ * `markers`，停在 `seconds`。`doc` 与 `markers` 由调用方记住同一份，没改时不重送序列。
+ */
+export function templateStage(
+  planner: RenderPlanner,
+  doc: TemplateLayers,
+  canvas: Size,
+  moment: { markers: readonly Marker[]; title: string; seconds: number; duration: number },
+  width: number,
+  height: number,
+  logos: TemplateLogos | null = null,
+): ThumbPicture {
+  const scale = Math.min(width / canvas.width, MAX_SIDE / Math.max(canvas.width, canvas.height));
+  const { markers, title, seconds, duration } = moment;
+  const scene: ThumbScene = { canvas, layers: NO_LAYERS, seconds, duration, template: doc, markers, name: title, ...logos };
+  const { image, problems } = renderThumb(planner, scene, canvas.width * scale, canvas.height * scale);
+  return { blits: [{ image, source: whole(image), target: { x: 0, y: 0, width, height } }], problems };
 }
 
 /** 彩纸格停在哪一刻：四种爆发间隔都已炸过且散开，连续款已进稳态。 */

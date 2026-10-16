@@ -4,7 +4,15 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { BaoCutClient } from '@baocut/client';
-import { RpcError, newId, type LibraryEvent, type LibrarySnapshot, type Project, type TranscriptionGlossary } from '@baocut/protocol';
+import {
+  RpcError,
+  brandLogoAsset,
+  newId,
+  type LibraryEvent,
+  type LibrarySnapshot,
+  type Project,
+  type TranscriptionGlossary,
+} from '@baocut/protocol';
 import { resolveRuntimeHome, type RuntimeHome } from '@baocut/runtime-storage';
 import { startRuntime, type RunningRuntime } from '../runtime.ts';
 import { resolveEngineHostCommand } from '../videos/engine-host.ts';
@@ -123,11 +131,11 @@ describe('用户库（Runtime）', () => {
     expect(
       (await rejection(client.request('library.put', { library: 'brand', content: { name: 'x', kind: 'color', value: 'red' } }))).code,
     ).toBe('invalid-request');
-    // 叠加模板只保留种类
-    const reserved = await rejection(
-      client.request('library.put', { library: 'brand', content: { name: '片头', kind: 'overlayTemplate' } }),
+    // 叠加模板要带定义
+    const shapeless = await rejection(
+      client.request('library.put', { library: 'brand', content: { name: '片头', kind: 'overlayTemplate' } as never }),
     );
-    expect(reserved.details).toMatchObject({ code: 'LIBRARY_KIND_RESERVED' });
+    expect(shapeless.code).toBe('invalid-request');
 
     client.close();
     await runtime.close();
@@ -295,6 +303,59 @@ describe('用户库（Runtime）', () => {
         client.request('library.applyToVideo', { videoId, entry: { library: 'glossaries', id: glossary.id }, commandId: newId('cmd') }),
       );
       expect(error.details).toMatchObject({ code: 'LIBRARY_ENTRY_NOT_APPLICABLE' });
+    });
+
+    it('叠加模板成为序列的模板层，id 与 from 记下条目', async () => {
+      const opened = await client.request('videos.create', { projectId: project.id, name: '模板' });
+      const videoId = opened.ref.videoId;
+      const template = {
+        id: 'tpl-brand-1',
+        name: '片头',
+        builtin: true,
+        layers: [{ id: 'l1', kind: 'progress', box: { x: 0, y: 98, w: 100, h: 2 }, accent: '#FF6600', track: '#FFFFFF33' }],
+      };
+      const { entry } = await client.request('library.put', {
+        library: 'brand',
+        content: { name: '片头', kind: 'overlayTemplate', template: template as never },
+      });
+      await client.request('library.applyToVideo', { videoId, entry: { library: 'brand', id: entry.id }, commandId: newId('cmd') });
+      const video = runtime.videos.mirror(videoId)!.video;
+      const applied = video.sequences[video.rootSequenceId]!.template!;
+      expect(applied).toMatchObject({ id: entry.id, from: entry.id, name: '片头', layers: template.layers });
+      expect(applied.builtin).toBeUndefined();
+    });
+
+    it('模板台标用的品牌库图片同一笔事务拷进视频，已经有的不再拷', async () => {
+      const opened = await client.request('videos.create', { projectId: project.id, name: '台标' });
+      const videoId = opened.ref.videoId;
+      const { entry: logo } = await client.request('library.put', {
+        library: 'brand',
+        content: { name: '标志', kind: 'image' },
+        source: { path: image },
+      });
+      const template = {
+        id: 'tpl-logo',
+        name: '台标',
+        layers: [
+          { id: 'l1', kind: 'logo', box: { x: 2, y: 4, w: 20, h: 12 }, src: { brandLogo: logo.id }, color: '#FFFFFF' },
+          { id: 'l2', kind: 'logo', box: { x: 70, y: 4, w: 20, h: 12 }, src: { brandLogo: 'gone' }, color: '#FFFFFF' },
+        ],
+      };
+      const { entry } = await client.request('library.put', {
+        library: 'brand',
+        content: { name: '台标', kind: 'overlayTemplate', template: template as never },
+      });
+      const apply = () =>
+        client.request('library.applyToVideo', { videoId, entry: { library: 'brand', id: entry.id }, commandId: newId('cmd') });
+      const first = await apply();
+      const video = runtime.videos.mirror(videoId)!.video;
+      // 库里没有的 `gone` 不拷；有的那张记下来源，渲染按来源找到它。
+      expect(Object.keys(video.assets)).toHaveLength(1);
+      expect(brandLogoAsset(video.assets, logo.id)).not.toBeNull();
+      expect(brandLogoAsset(video.assets, 'gone')).toBeNull();
+      expect(first.receipt.refs).toHaveProperty('logo0');
+      await apply();
+      expect(Object.keys(runtime.videos.mirror(videoId)!.video.assets)).toHaveLength(1);
     });
   });
 

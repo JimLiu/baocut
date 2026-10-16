@@ -157,7 +157,7 @@ export function explainExportError(error: ErrorLike | unknown, ctx: ExplainConte
     case 'EXPORT_UNSUPPORTED_CONTENT':
       return {
         ...base,
-        items: list(details.items).map((i) => text(i.message) ?? String(i.itemId ?? '')),
+        items: list(details.items).map((i) => localizeText(text(i.message), refIn(i.messageRef)) ?? String(i.itemId ?? '')),
         remedy: ctx.kind === 'video' ? { kind: 'skip-unsupported' } : null,
       };
     case 'EXPORT_TOOL_MISSING':

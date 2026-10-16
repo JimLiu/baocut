@@ -94,6 +94,8 @@ export const WEB_DEFAULT_METHODS: readonly string[] = [
   'externalTools.cookieBrowsers',
   // 创作模板目录（模板包规范 §6）只读：句柄只发给清单登记的随附文件。
   'templates.*',
+  // 随包贴纸（元素面板）：句柄只发给目录里的贴纸；拷进视频是一笔普通编辑，同 `edits.*`。
+  'stickers.*',
   // Agent 的 skill（§3.8）：看与开关逐个列出。添加、导入与移除（`skills.add`、`skills.importGithub`、`skills.remove`，§12.9）
   // 不开放：它们往 Runtime Home 写入或删除目录、从本机任意文件夹或网络取内容，与受管外部工具的安装一样只在桌面界面与 CLI 里做。
   'skills.list',
@@ -158,6 +160,7 @@ export const WEB_READ_METHODS: readonly RpcMethod[] = [
   'templates.list',
   'templates.get',
   'templates.openHandle',
+  'stickers.openHandle',
   'skills.list',
   'skills.get',
   'skills.readFile',

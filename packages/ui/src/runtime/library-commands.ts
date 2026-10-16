@@ -29,11 +29,13 @@ const HANDLE_MARGIN_MS = 30_000;
 
 /** 读一条。带版本时走缓存；失败的不记，下次重取。 */
 export function getLibraryEntry(session: RuntimeSession, ref: LibraryEntryRef): Promise<LibraryEntry> {
-  if (ref.version === undefined) return session.getLibraryEntry(ref).then(remember);
-  const key = entryKey({ library: ref.library, id: ref.id, version: ref.version });
+  // 调用方常直接递条目摘要；`library.get` 的参数是严格的，只送引用的三项。
+  if (ref.version === undefined) return session.getLibraryEntry({ library: ref.library, id: ref.id }).then(remember);
+  const exact = { library: ref.library, id: ref.id, version: ref.version };
+  const key = entryKey(exact);
   const cached = entries.get(key);
   if (cached) return cached;
-  const pending = session.getLibraryEntry(ref);
+  const pending = session.getLibraryEntry(exact);
   entries.set(key, pending);
   pending.catch(() => entries.delete(key));
   return pending;

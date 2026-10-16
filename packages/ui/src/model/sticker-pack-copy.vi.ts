@@ -1,0 +1,35 @@
+import type { StickerPackMessages } from './sticker-pack-copy.ts';
+
+export const vi: StickerPackMessages = {
+  packs: {
+    featured: 'Nổi bật',
+    emoji: 'Emoji',
+    people: 'Con người',
+    mockup: 'Mockup',
+    podcast: 'Podcast',
+    icon: 'Biểu tượng',
+    summer: 'Mùa hè',
+    gesture: 'Cử chỉ',
+    arrow: 'Mũi tên và con trỏ',
+    hand: 'Vẽ tay',
+    birthday: 'Sinh nhật',
+    finance: 'Tài chính',
+    fitness: 'Thể hình',
+    seasonal: 'Theo mùa',
+    school: 'Tựu trường',
+    cta: 'CTA',
+    'dyn-collage': 'Cắt dán',
+    'dyn-emoji': 'Emoji',
+    'dyn-grow': 'Tăng trưởng',
+    'dyn-holiday': 'Ngày lễ',
+    'dyn-work': 'Công việc',
+  },
+  morePacks: 'Thêm gói',
+  packMenuHead: (count: number) => `${count} gói`,
+  packCount: (count: number) => `${count} nhãn dán`,
+  ctaTitle: 'Cửa sổ CTA',
+  ctaNote: '32 kiểu · đăng ký / thích / chia sẻ / mua',
+  notoHint:
+    'Năm danh mục có sẵn là Lottie của Google Noto Animated Emoji (CC BY 4.0): vòng lặp vector có nền trong suốt, theo đầu phát trên khung vẽ và có thể đổi màu như nhãn dán.',
+  addFailed: (message: string) => `Không thể thêm nhãn dán: ${message}`,
+};

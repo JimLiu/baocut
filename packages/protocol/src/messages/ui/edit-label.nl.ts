@@ -94,4 +94,10 @@ export const nl: EditLabelMessages = {
   removeDubGroup: (p) => `Nasynchronisatie verwijderen (${languageName('nl', p.language)})`,
   removeThisDubGroup: "Deze nasynchronisatiegroep verwijderen",
   stretchDub: "Nasynchronisatiesnelheid wijzigen",
+  applyTemplate: (p) => `Sjabloon ‘${p.name}’ toepassen`,
+  removeTemplate: 'Sjabloon verwijderen',
+  editTemplate: 'Sjabloon bewerken',
+  editTemplateLayout: 'Sjabloonindeling bewerken',
+  lockTemplateRatio: 'Beeldverhouding vastzetten op sjabloon',
+  unlockTemplateRatio: 'Beeldverhouding van sjabloon vrijgeven',
 };

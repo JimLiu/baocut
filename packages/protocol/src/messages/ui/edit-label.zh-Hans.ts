@@ -94,4 +94,10 @@ export const zhHans: EditLabelMessages = {
   removeDubGroup: (p) => `移除配音（${languageName('zh-Hans', p.language)}）`,
   removeThisDubGroup: '移除这组配音',
   stretchDub: '改配音语速',
+  applyTemplate: (p) => `套用模板「${p.name}」`,
+  removeTemplate: '移除模板',
+  editTemplate: '修改模板',
+  editTemplateLayout: '修改模板版面',
+  lockTemplateRatio: '按模板锁定画幅',
+  unlockTemplateRatio: '解锁模板画幅',
 };

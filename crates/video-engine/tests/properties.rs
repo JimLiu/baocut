@@ -494,6 +494,70 @@ fn canvas_changes_keep_percent_geometry_and_take_a_hex_background() {
 }
 
 #[test]
+fn a_ratio_locked_template_only_admits_canvases_of_its_ratio() {
+    let Fixture { mut video, seq: s, .. } = fixture();
+    let template = json!({ "id": "tpl_talk", "name": "Talk", "ratio": "9:16", "lockRatio": true, "layers": [] });
+    // 先换模板再换画布（套用模板的那一笔）：新模板锁的就是这一档，放行。
+    apply(
+        &mut video,
+        "cmd_apply",
+        vec![
+            json!({ "type": "setTemplate", "sequenceId": s, "template": template }),
+            json!({ "type": "updateSequence", "sequenceId": s, "canvas": { "width": 1080, "height": 1920 } }),
+        ],
+    )
+    .unwrap();
+    // 同一比例的别的尺寸也行。
+    apply(
+        &mut video,
+        "cmd_same",
+        vec![json!({ "type": "updateSequence", "sequenceId": s, "canvas": { "width": 720, "height": 1280 } })],
+    )
+    .unwrap();
+
+    let revision = video.revision();
+    let error = apply(
+        &mut video,
+        "cmd_wide",
+        vec![json!({ "type": "updateSequence", "sequenceId": s, "canvas": { "width": 1920, "height": 1080 } })],
+    )
+    .unwrap_err();
+    assert_eq!(error.code, "INVALID_OPERATION");
+    assert_eq!(error.details["rule"], "template-ratio-locked");
+    assert_eq!(
+        (error.details["ratio"].as_str(), error.details["template"].as_str()),
+        (Some("9:16"), Some("Talk"))
+    );
+    assert_eq!(video.revision(), revision);
+
+    // 解锁之后随便改。
+    let mut unlocked = template.clone();
+    unlocked.as_object_mut().unwrap().remove("lockRatio");
+    apply(
+        &mut video,
+        "cmd_unlock",
+        vec![
+            json!({ "type": "setTemplate", "sequenceId": s, "template": unlocked }),
+            json!({ "type": "updateSequence", "sequenceId": s, "canvas": { "width": 1920, "height": 1080 } }),
+        ],
+    )
+    .unwrap();
+    assert_eq!(video.snapshot().sequences[&s].header.canvas.width, 1920);
+
+    // `original` 锁要看源尺寸，引擎不拦，由界面把关。
+    let original = json!({ "id": "tpl_src", "name": "Src", "ratio": "original", "lockRatio": true, "layers": [] });
+    apply(
+        &mut video,
+        "cmd_original",
+        vec![
+            json!({ "type": "setTemplate", "sequenceId": s, "template": original }),
+            json!({ "type": "updateSequence", "sequenceId": s, "canvas": { "width": 1080, "height": 1080 } }),
+        ],
+    )
+    .unwrap();
+}
+
+#[test]
 fn opacity_and_mask_feather_take_the_spec_ranges() {
     let Fixture {
         mut video,

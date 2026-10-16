@@ -246,6 +246,8 @@ export const zhHans: EngineMessages = {
   updateSequenceEmpty: 'updateSequence 至少要改一项',
   backgroundInvalid: '画布底色须为 #RRGGBB',
   canvasSideRange: (p) => `画布边长须在 1–${p.max} 像素之间`,
+  templateRatioLocked: (p) => `模板「${p.template}」锁定了 ${p.ratio} 画幅，画布只能在这个比例内改`,
+  templateRatioLockedRecovery: '先解除模板的画幅锁定，再改画布',
   collectAssetsEmpty: 'collectAssets 至少要有一项',
   trackNotEmpty: (p) => `轨道 ${p.track} 上还有片段（${p.count} 个）；只能删除空轨道`,
   trackNotEmptyRecovery: '先删掉上面的片段（deleteItems）或把它们移到别的轨道（moveItem），再删除轨道',

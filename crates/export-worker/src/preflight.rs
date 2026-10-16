@@ -5,10 +5,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use frame_render::support::{UnsupportedItem, check_layer, kind_name, transition_problem};
+use frame_render::support::{UnsupportedItem, asset_text, check_layer, transition_problem, transition_text};
 use frame_render::{Documents, FaceUse};
 use media_core::Tools;
 use media_core::probe::{encoders, probe_picture};
+use message_ref::Text;
 use render_graph::video_plan::plan_video;
 use render_graph::{LayerContent, LayerKind, VisualLayer, plan_frame};
 use serde::Serialize;
@@ -55,7 +56,7 @@ pub struct Preflight {
 }
 
 /// 一个素材版本的探测结果：解得出画面，或画不出来的原因与说明。
-type Probed = Result<AssetPicture, (&'static str, String)>;
+type Probed = Result<AssetPicture, (&'static str, Text)>;
 
 pub fn documents(input: &Input) -> Documents {
     Documents::new(input.documents.to_vec())
@@ -95,7 +96,7 @@ pub fn run(input: &Input, tools: &Tools) -> Result<Preflight, Failure> {
         let key = (asset.id.clone(), asset.revision.clone());
         let result = probed.entry(key.clone()).or_insert_with(|| {
             let Some(entry) = input.asset(&asset.id, &asset.revision) else {
-                return Err(("asset-not-frozen", format!("asset {} has no frozen location", asset.id)));
+                return Err(("asset-not-frozen", asset_text::not_frozen(&asset.id)));
             };
             let media_type = entry.media_type.as_deref().unwrap_or_default();
             if media_type == "image/svg+xml" || entry.path.extension().is_some_and(|e| e.eq_ignore_ascii_case("svg")) {
@@ -110,7 +111,7 @@ pub fn run(input: &Input, tools: &Tools) -> Result<Preflight, Failure> {
                         svg: true,
                         alpha: true,
                     }),
-                    Err(e) => Err(("asset-undecodable", format!("SVG image cannot be decoded: {e}"))),
+                    Err(e) => Err(("asset-undecodable", asset_text::image_undecodable_detail("SVG", &asset.id, &e))),
                 };
             }
             // GIF 由帧光栅从素材字节解（动图按时刻取帧），这里用同一个函数判断解不解得开。
@@ -129,7 +130,7 @@ pub fn run(input: &Input, tools: &Tools) -> Result<Preflight, Failure> {
                             alpha: true,
                         })
                     }
-                    Err(e) => Err(("asset-undecodable", format!("GIF image cannot be decoded: {e}"))),
+                    Err(e) => Err(("asset-undecodable", asset_text::image_undecodable_detail("GIF", &asset.id, &e))),
                 };
             }
             match probe_picture(tools, &entry.path) {
@@ -140,9 +141,9 @@ pub fn run(input: &Input, tools: &Tools) -> Result<Preflight, Failure> {
                     svg: false,
                     alpha: info.alpha,
                 }),
-                Ok(None) => Err(("no-video-stream", "the asset has no video stream".to_string())),
-                Err(e) if e.code == "EXPORT_TOOL_MISSING" => Err(("tool-missing", e.message)),
-                Err(e) => Err(("asset-undecodable", e.message)),
+                Ok(None) => Err(("no-video-stream", asset_text::no_picture(&asset.id))),
+                Err(e) if e.code == "EXPORT_TOOL_MISSING" => Err(("tool-missing", Text::plain(e.message))),
+                Err(e) => Err(("asset-undecodable", asset_text::undecodable(&asset.id, &e.message))),
             }
         });
         match result {
@@ -151,18 +152,9 @@ pub fn run(input: &Input, tools: &Tools) -> Result<Preflight, Failure> {
             }
             Err((reason, message)) => {
                 if *reason == "tool-missing" {
-                    return Err(Failure::new("EXPORT_TOOL_MISSING", message.clone()));
+                    return Err(Failure::new("EXPORT_TOOL_MISSING", message.text.clone()));
                 }
-                items.push(UnsupportedItem {
-                    item_id: layer.item_id.clone(),
-                    scope: "asset",
-                    layer_kind: kind_name(layer.kind),
-                    effect_id: None,
-                    transition_id: None,
-                    kind: Some(asset.id.clone()),
-                    reason: reason.to_string(),
-                    message: message.clone(),
-                });
+                items.push(UnsupportedItem::asset(layer, Some(asset.id.clone()), reason, message.clone()));
             }
         }
     }
@@ -175,6 +167,7 @@ pub fn run(input: &Input, tools: &Tools) -> Result<Preflight, Failure> {
             .and_then(|s| s.transitions.iter().find(|t| t.id == transition.id))
             .and_then(|t| t.left_item_id.clone().or_else(|| t.right_item_id.clone()))
             .unwrap_or_default();
+        let message = transition_text(&transition.kind);
         items.push(UnsupportedItem {
             item_id,
             scope: "transition",
@@ -183,7 +176,8 @@ pub fn run(input: &Input, tools: &Tools) -> Result<Preflight, Failure> {
             transition_id: Some(transition.id.clone()),
             kind: Some(transition.kind.clone()),
             reason,
-            message: format!("transition \"{}\" cannot be rendered; drawing a hard cut instead", transition.kind),
+            message: message.text,
+            message_ref: message.message_ref,
         });
     }
 
@@ -260,22 +254,11 @@ fn check_lottie(input: &Input, layer: &VisualLayer) -> Option<UnsupportedItem> {
     }
     let asset: Option<VersionRef> = parameters.get("asset").cloned().and_then(|v| serde_json::from_value(v).ok());
     let problem = match asset.and_then(|a| input.asset(&a.id, &a.revision).cloned()) {
-        None => Some(("lottie-asset-missing", "the Lottie sticker has no frozen asset".to_string())),
+        None => Some(("lottie-asset-missing", asset_text::lottie_no_asset())),
         Some(entry) => match std::fs::read(&entry.path) {
-            Err(e) => Some(("lottie-asset-missing", format!("Lottie asset cannot be read: {e}"))),
-            Ok(bytes) => {
-                frame_render::lottie_problem(&bytes).map(|(reason, why)| (reason, format!("Lottie asset cannot be parsed: {why}")))
-            }
+            Err(e) => Some(("lottie-asset-missing", asset_text::lottie_unreadable_detail(&e.to_string()))),
+            Ok(bytes) => frame_render::lottie_problem(&bytes).map(|(reason, why)| (reason, asset_text::lottie_unparsable(&why))),
         },
     }?;
-    Some(UnsupportedItem {
-        item_id: layer.item_id.clone(),
-        scope: "asset",
-        layer_kind: kind_name(layer.kind),
-        effect_id: None,
-        transition_id: None,
-        kind: None,
-        reason: problem.0.to_string(),
-        message: problem.1,
-    })
+    Some(UnsupportedItem::asset(layer, None, problem.0, problem.1))
 }

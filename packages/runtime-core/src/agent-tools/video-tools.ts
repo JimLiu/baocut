@@ -435,7 +435,7 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
     description: [
       '读取一个视频的当前状态。',
       '包括版本（revision）、序列（帧率、画布、时长）、轨道、时间线上的片段（含摆法、音量、效果与裁剪）、转场、章节、闪避规则、素材库、文档（转写、译文、字幕等，只列文档头，不含正文）、最近的修改历史。',
-      '素材从链接导入（或来源里带着平台信息）时有 source：platform、webpageUrl、uploader、uploadDate、title、description（截到 1200 个字符，descriptionTruncated 说明截没截）与作者章节 chapters [{ at, title }]（素材时间的秒，平台给的章节，没有时是简介里的时间戳大纲；未吸附）。润色转写、识别说话人时当背景参考（人名、术语）；要采用作者章节用 chapters_adopt。',
+      '素材从链接导入（或来源里带着平台信息）时有 source：platform、webpageUrl、uploader、uploadDate、title、description（截到 1200 个字符，descriptionTruncated 说明截没截）与作者章节 chapters [{ at, title, untitled? }]（素材时间的秒，平台给的章节，没有时是简介里的时间戳大纲；未吸附；untitled: true 的那章平台只给了分界，title 是 yt-dlp 填的占位名，不是作者的标题）。润色转写、识别说话人时当背景参考（人名、术语）；要采用作者章节用 chapters_adopt。',
       '网上素材（assets_download）与从链接导入的素材另有 credit：source、title、author、pageUrl、license（name、url、class；从链接导入的为 null，版权归上传者）与 attribution（一行署名）；成片片尾逐条署名照它写。',
       '片段的 place 是画幅的百分比：x、y 是框中心，w 是框宽占画幅宽的百分比，只列写了的字段；视频、图片等视觉媒体的 mode 为 fullscreen（铺满画布，位置与宽不起作用）或 pip（画中画）。音量是线性倍数，1 为原音量。',
       '修改之前先调用它，拿到 revision 和对象 ID。片段按开始时间排序；片段多时用 fromSeconds/toSeconds 读一段。',
@@ -639,8 +639,8 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
       '把素材来源自带的章节吸附到转写、投影到时间线，整个替换视频的章节列表。',
       '章节来自从链接导入时平台给的 chapters，没有时是简介里的时间戳大纲；或你给的 outline。编译成一个 setChapters（一笔修改、可以撤销），会向用户确认。',
       '吸附：作者的时间戳只精确到秒、常比话题真正开始早几秒，每一章（时间 t）吸到转写最近的结构起点。先在 [t-1, t+2] 秒里依次找段落、句子、cue 的起点，第一个有候选的层定结果：只有一个是 matched，有几个是 ambiguous（取离 t 最近的，同样近取 t 之后的）；都没有时放宽到 [t-4, t+6] 秒、只认段落与句子起点，取最近的（snapped）；再没有时找 [t-1, t+2] 秒里的词起点（matched 或 ambiguous）；都没有就保留原时间（unanchored）。没有转写时全部 unanchored。回执只给选中的锚，ambiguous 的几章对照转写确认。',
-      '清洗：丢空标题、按时间排序、同一时刻只留一章、首章钳到 0、丢掉非严格递增的。投影：素材时间换成时间线秒（按这个素材在时间线上的片段；同一段素材放了几次取最早的）；落在剪掉部分的章节标 offTimeline、记 unanchored，落到之后最近的片段起点（之后没有就落到之前最近的那个）；落到同一帧的只留第一章。',
-      '回执与 edits_apply 相同，另有 sourceChapters：entries（来源章节条数）、matched / ambiguous / snapped / unanchored（采用的各章的状态计数）与 rows（每章 title、时间线秒 at、素材秒 sourceAt、status、anchor { tier, snippet }、offTimeline）。dryRun: true 只返回同样的计划，不改视频。',
+      '清洗：丢空标题、按时间排序、同一时刻只留一章、首章钳到 0、丢掉非严格递增的。yt-dlp 给没标题的章节填的占位名（<Untitled Chapter N>；第一个平台章节不在 0:00 时它补的开头一章就是这样）保留分界、标 untitled：这几章要你按转写起标题，连同其余各章用 outline 给出；有 untitled 的章节时只能 dryRun，直接采用会拒绝（UNTITLED_SOURCE_CHAPTERS）。投影：素材时间换成时间线秒（按这个素材在时间线上的片段；同一段素材放了几次取最早的）；落在剪掉部分的章节标 offTimeline、记 unanchored，落到之后最近的片段起点（之后没有就落到之前最近的那个）；落到同一帧的只留第一章。',
+      '回执与 edits_apply 相同，另有 sourceChapters：entries（来源章节条数）、matched / ambiguous / snapped / unanchored（采用的各章的状态计数）与 rows（每章 title、时间线秒 at、素材秒 sourceAt、status、anchor { tier, snippet }、offTimeline、untitled）。dryRun: true 只返回同样的计划，不改视频。',
       '素材没有来源章节也没给 outline 时拒绝（NO_SOURCE_CHAPTERS）；素材不在时间线上时拒绝（ASSET_NOT_PLACED）。只要标题与时间，不写摘要；要改个别章节或补摘要，之后用 edits_apply 的 upsertChapter。',
       '采用之前先 dryRun 看计划：ambiguous 与 unanchored 的几章对照转写确认，必要时改 outline 再调用。',
     ].join('\n'),
@@ -1460,7 +1460,7 @@ export class VideoTools implements ToolSet {
       plan.rows.map((row, index) => ({
         title: row.title,
         start: row.start,
-        row: { status: row.status, anchor: rowAnchor(plan, index, row) },
+        row: { status: row.status, anchor: rowAnchor(plan, index, row), untitled: row.untitled === true },
       })),
       segments,
       sequence.fps,
@@ -1476,8 +1476,16 @@ export class VideoTools implements ToolSet {
     };
     const chapters = kept.map((chapter) => ({ at: chapter.at, title: chapter.title }));
     const existing = sequence.markers.filter((marker) => marker.kind === 'chapter').length;
+    const untitled = rows.filter((row) => row.untitled);
     // i18n-ignore-start: 给模型的工具说明、错误与下一步
+    const titleUntitled =
+      '按转写给 untitled 的几章起标题（看它到下一章之间讲了什么，用视频的语言），连同其余各章一起用 outline [{ at: sourceAt, title }] 给出整份大纲再调用';
     const notes = [
+      ...(untitled.length
+        ? [
+            `有 ${untitled.length} 章来源只给了分界、没给标题（untitled：${untitled.map((row) => row.title).join('、')} 是 yt-dlp 填的占位名，不是作者写的），不能照写进章节。`,
+          ]
+        : []),
       ...(speechDocument ? [] : ['素材没有转写，章节没有吸附，都按来源的原时间（unanchored）。先转录再采用能对准话题的起点。']),
       ...(dropped.length ? ['有几章投影到时间线后与前一章落在同一帧（多半都落在剪口之后的同一个起点），没有采用，见 dropped。'] : []),
       ...(existing ? [`会整个替换视频现有的 ${existing} 个章节。`] : []),
@@ -1492,8 +1500,17 @@ export class VideoTools implements ToolSet {
         chapters: chapters.map((chapter) => ({ ...chapter, at: roundSeconds(chapter.at) })),
         sourceChapters: report,
         ...(notes.length ? { notes } : {}),
-        next: '确认 ambiguous 与 unanchored 的几章之后不带 dryRun 再调用；要换时间或标题用 outline 给出。',
+        next: untitled.length
+          ? `${titleUntitled}；ambiguous 与 unanchored 的几章一并确认。`
+          : '确认 ambiguous 与 unanchored 的几章之后不带 dryRun 再调用；要换时间或标题用 outline 给出。',
       };
+    }
+    if (untitled.length) {
+      throw new ToolError('UNTITLED_SOURCE_CHAPTERS', `有 ${untitled.length} 章来源没给标题，只有 yt-dlp 填的占位名，不能写进章节`, {
+        assetId,
+        rows: rows.map((row) => ({ title: row.title, sourceAt: row.sourceAt, ...(row.untitled ? { untitled: true } : {}) })),
+        next: `${titleUntitled}。`,
+      });
     }
     // i18n-ignore-end
     const approval = await this.#scope.confirm(access, {
@@ -2011,11 +2028,14 @@ type AdoptedRow = {
   status: SourceChapterStatus;
   anchor?: { tier: SourceChapterAnchor['tier']; snippet: string };
   offTimeline?: true;
+  untitled?: true;
 };
 
-/** 回执的一行：落在剪掉部分的章节记 unanchored、不带锚（锚所在的话已经剪掉）。 */
-function adoptedRow(chapter: ProjectedChapter<{ status: SourceChapterStatus; anchor: SourceChapterAnchor | undefined }>): AdoptedRow {
-  const { anchor, status } = chapter.row;
+/** 回执的一行：落在剪掉部分的章节记 unanchored、不带锚（锚所在的话已经剪掉）；来源没给标题的标 untitled。 */
+function adoptedRow(
+  chapter: ProjectedChapter<{ status: SourceChapterStatus; anchor: SourceChapterAnchor | undefined; untitled: boolean }>,
+): AdoptedRow {
+  const { anchor, status, untitled } = chapter.row;
   return {
     title: chapter.title,
     at: roundSeconds(chapter.at),
@@ -2023,6 +2043,7 @@ function adoptedRow(chapter: ProjectedChapter<{ status: SourceChapterStatus; anc
     status: chapter.offTimeline ? 'unanchored' : status,
     ...(anchor && !chapter.offTimeline ? { anchor: { tier: anchor.tier, snippet: anchor.snippet } } : {}),
     ...(chapter.offTimeline ? { offTimeline: true as const } : {}),
+    ...(untitled ? { untitled: true as const } : {}),
   };
 }
 

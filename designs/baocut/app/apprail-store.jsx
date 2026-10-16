@@ -11,6 +11,8 @@
   const AP = window.BC_AGENT_PROJECTS;
   const IA = window.BC_APP_IA;
   const SP = window.BC_SPACE;
+  const PB = window.BC_PROJECT_BRAND;
+  const BRANDS_KEY = window.BC_SURFACE.storageKey('bc-project-brands-v1');
 
   function useAppIA(base) {
     const {route, nav, go, projects, sessions, sessionById, patchSession, dock, setDock, archiveProject, tasks, projPct} = base;
@@ -36,6 +38,17 @@
       if (r && r.added) setDirs((ds) => [r.dir].concat(ds));
       return r;
     }, [dirs]);
+    /* 项目根目录的 BRAND.md（model-project-brand.js）：只有 App 有项目，所以放这里；只把用户动过的差量存进本地 */
+    const [projectBrands, setProjectBrandsRaw] = useState(() => {
+      let saved = null;
+      try { saved = JSON.parse(localStorage.getItem(BRANDS_KEY)); } catch (e) {}
+      return PB.apply(D.projectBrands, saved);
+    });
+    const setProjectBrands = useCallback((fn) => setProjectBrandsRaw((cur) => {
+      const next = typeof fn === 'function' ? fn(cur) : fn;
+      try { localStorage.setItem(BRANDS_KEY, JSON.stringify(PB.snapshot(D.projectBrands, next))); } catch (e) {}
+      return next;
+    }), []);
 
     /* ---- 打开 / 关闭视频 ----
        `sid` 给了 = 从这条会话打开一个预览标签：会话留在左侧，Agent 的写入目标保持不变。
@@ -232,7 +245,7 @@
     return {
       handoverToAgent, spaceFocus, openSpaceEntry, takeSpaceFocus, legacyAsk, setLegacyAsk, legacyHost, setLegacyHost, legacyDrive, setLegacyDrive,
       legacySettingsAvailable, legacySettingsOpen, setLegacySettingsOpen, onboarding, launchOnboarding, closeOnboarding,
-      dirs, dirById, toggleDirPin, toggleSessionPin, dirOfSession, moviesOf, createDir, openDir,
+      dirs, dirById, toggleDirPin, toggleSessionPin, dirOfSession, moviesOf, createDir, openDir, projectBrands, setProjectBrands,
       openMovie, openTool, closeMovie, railGo, markRead, newProject, createProject,
       spaceItems, toggleFav, setTrashed, saveVersion, importAssets, createHtmlPage, registerToolOutput, createMovieFromOutput,
     };

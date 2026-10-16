@@ -109,6 +109,8 @@
       "app/model-agent-catalog.js",
       "app/model-skill-install.js",
       "app/model-agent-skills.js",
+      "app/model-skill-package.js",
+      "app/model-project-brand.js",
       "app/model-readings.js",
       "app/model-cloud-tts.js",
       "app/model-cloud-image.js",
@@ -210,8 +212,10 @@
       "app/page-settings-agent.jsx",
       "app/settings-skill-install.jsx",
       "app/page-settings-skills.jsx",
-      "app/settings-agent-skill-detail.jsx",
-      "app/settings-agent-skills.jsx",
+      "app/page-skills.jsx",
+      "app/page-skill-detail.jsx",
+      "app/page-skills-upload.jsx",
+      "app/page-project-brand.jsx",
       "app/settings-tts.jsx",
       "app/settings-music.jsx",
       "app/page-services-mcp-tools.jsx",
@@ -416,7 +420,7 @@
       "app/text-inspector.css",
       "app/subtitle-inspector.css",
       "app/settings-agent.css",
-      "app/settings-agent-skills.css",
+      "app/page-skills.css",
       "app/composer-insert-menu.css",
       "app/settings-cloud.css",
       "app/settings-providers.css",
@@ -471,9 +475,9 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/app.js?v=0a6b75509571",
-    "css": "generated/app.css?v=4e81b3334141",
-    "bytes": 4386861
+    "js": "generated/app.js?v=68005866b438",
+    "css": "generated/app.css?v=d9a59511c674",
+    "bytes": 4454997
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -716,9 +720,9 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/web.js?v=4b48eb96ae97",
+    "js": "generated/web.js?v=4700b6393b6f",
     "css": "generated/web.css?v=a859723b8989",
-    "bytes": 2569104
+    "bytes": 2582037
   },
   "components": {
     "file": "Components.html",

@@ -18,7 +18,7 @@ test('模型组：API 提供方、用量在前，然后每种能力一页；语�
   const groups = N.searchGroups('');
   assert.deepEqual(groups.map((g) => g.id), ['preferences', 'agents', 'models', 'app']);
   assert.deepEqual(groups.find((g) => g.id === 'models').items.map((n) => n.k), ['providers', 'usage', 'asr', 'tts', 'llm', 'image', 'music', 'sep', 'vision']);
-  assert.deepEqual(groups.find((g) => g.id === 'agents').items.map((n) => n.k), ['agent', 'skills']);
+  assert.deepEqual(groups.find((g) => g.id === 'agents').items.map((n) => n.k), ['agent']);
   assert.deepEqual(groups.find((g) => g.id === 'preferences').items.map((n) => n.k), ['general', 'shortcuts', 'fonts', 'downloader', 'semantic']);
   assert.deepEqual(N.byKey('tts').pages, ['tts', 'voices']);
   assert.equal(N.navOf('voices'), 'tts');
@@ -34,7 +34,8 @@ test('旧深链照旧能落：本地 / 云端带 tab 去能力页，云端不带
   assert.deepEqual(N.normalize('local'), {sec: 'asr', tab: null});
   assert.deepEqual(N.normalize('local', 'vision'), {sec: 'vision', tab: null});
   assert.deepEqual(N.normalize('local', 'bogus'), {sec: 'asr', tab: null});
-  assert.equal(N.navOf('integrations'), 'skills');
+  assert.equal(N.navOf('integrations'), 'agent');
+  assert.equal(N.navOf('skills'), 'agent');
   assert.equal(N.navOf('nope'), 'general');
 });
 
@@ -51,7 +52,7 @@ test('搜索设置分类保留分组、匹配子页，并且不改变导航表',
   assert.deepEqual(N.searchGroups('服务商').flatMap((g) => g.items.map((n) => n.k)), ['providers'], '旧称仍能搜到');
   assert.equal(N.byKey('providers').label, 'API 提供方');
   assert.deepEqual(N.searchGroups('我的声音').flatMap((g) => g.items.map((n) => n.k)), ['tts']);
-  assert.deepEqual(N.searchGroups('SKILLS').flatMap((g) => g.items.map((n) => n.k)), ['skills']);
+  assert.deepEqual(N.searchGroups('SKILLS'), [], 'Skills 已搬到 rail，设置里搜不到');
   assert.deepEqual(N.searchGroups('不存在的分类'), []);
   assert.equal(JSON.stringify(N.NAV), before);
 });

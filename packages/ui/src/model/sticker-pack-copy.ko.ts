@@ -1,0 +1,35 @@
+import type { StickerPackMessages } from './sticker-pack-copy.ts';
+
+export const ko: StickerPackMessages = {
+  packs: {
+    featured: '추천',
+    emoji: '이모지',
+    people: '인물',
+    mockup: '목업',
+    podcast: '팟캐스트',
+    icon: '아이콘',
+    summer: '여름',
+    gesture: '제스처',
+    arrow: '화살표·포인터',
+    hand: '손그림',
+    birthday: '생일',
+    finance: '금융',
+    fitness: '피트니스',
+    seasonal: '계절',
+    school: '개학',
+    cta: 'CTA',
+    'dyn-collage': '콜라주',
+    'dyn-emoji': '이모지',
+    'dyn-grow': '성장',
+    'dyn-holiday': '휴일',
+    'dyn-work': '업무',
+  },
+  morePacks: '더 많은 팩',
+  packMenuHead: (count: number) => `${count}개 팩`,
+  packCount: (count: number) => `${count}개`,
+  ctaTitle: 'CTA 팝업',
+  ctaNote: '32개 · 구독 / 좋아요 / 공유 / 구매',
+  notoHint:
+    '기본 제공 5개 분류는 Google Noto Animated Emoji의 Lottie(CC BY 4.0)입니다. 투명 배경의 벡터 루프로, 캔버스에서 재생 헤드를 따라 움직이며 정적 스티커처럼 색을 바꿀 수 있습니다.',
+  addFailed: (message: string) => `스티커를 추가하지 못했습니다: ${message}`,
+};

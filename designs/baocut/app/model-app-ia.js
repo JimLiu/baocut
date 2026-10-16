@@ -1,13 +1,15 @@
 /* BaoCut 原型 — App 的信息架构：rail、页面侧栏、链接（2026-10-01，product-design §2）
    window.BC_APP_IA。纯函数，无 React、无 DOM；只在 App 入口加载（Web 没有 rail）。
 
-   rail 按用户参考重排：Home / Space / 工具 → 分隔线 → 服务 / 后台任务；设置固定在底部。
+   rail 按用户参考重排：Home / Space / Skills / 工具 → 分隔线 → 服务 / 后台任务；设置固定在底部。
    每条路由归到一格（亮哪一格），并决定页面侧栏放哪一张（Home 的会话树 / Space 的分类，或者没有）。
    打开的视频（{r:'editor', via}）保留入口侧栏，编辑器有自己的视频栏；Space 使用浮动快捷聊天；提交后成为 Home 会话，并在右侧显示同一个编辑器。 */
 (function () {
   const TABS = [
     {k: 'home',  label: 'Home',  icon: 'Home',       root: {r: 'home'}},
     {k: 'space', label: 'Space', icon: 'Asset', root: {r: 'projects'}},
+    /* 2026-10-16：Skills 从设置搬出来，排在 Space 下面——skill 和素材一样是用户自己攒的东西，常用、常改 */
+    {k: 'skills', label: 'Skills', icon: 'Lightbulb', root: {r: 'skills'}},
     {k: 'tools', label: '工具', icon: 'Tools', root: {r: 'tools'}},
   ];
   const SECONDARY = [
@@ -30,7 +32,8 @@
     if (r === 'models') return 'settings';
     if (r === 'tools') return 'tools';
     if (r === 'tasks' || r === 'task') return 'tasks';
-    if (r === 'settings' || r === 'skill') return 'settings';
+    if (r === 'skills' || r === 'skill' || (r === 'settings' && (route.sec === 'skills' || route.sec === 'integrations'))) return 'skills';
+    if (r === 'settings') return 'settings';
     return 'home';   // home / agent / 未知
   }
 
@@ -40,7 +43,7 @@
     if (r === 'home' || r === 'agent' || r === 'archived') return 'home';   // 已归档会话页挂在 Home 下（§3.1）
     if (r === 'projects' || r === 'sessions') return 'space';
     if (r === 'editor') return tabOf(route);
-    if (r === 'settings' || r === 'models' || r === 'skill') return null;
+    if (r === 'settings' || r === 'models' || r === 'skill' || r === 'skills') return null;   // Skills 页单栏，没有页面侧栏
     const tab = tabOf(route);
     return ['tools', 'services', 'tasks'].includes(tab) ? tab : null;
   }

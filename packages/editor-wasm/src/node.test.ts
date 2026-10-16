@@ -15,6 +15,15 @@ import {
   sourceChapters,
   speakerProposal,
   speechSentences,
+  templateBlank,
+  templateBox,
+  templateCatalog,
+  templateDefinition,
+  templateHit,
+  templateInfo,
+  templateInstance,
+  templateNewLayer,
+  templateRatioEquivalent,
 } from './node.ts';
 
 const built = editorWasmAvailable();
@@ -138,6 +147,57 @@ describe.skipIf(!built)('editor-wasm：来源自带章节（Node）', () => {
 
   it('没有来源章节时返回空的结果', () => {
     expect(sourceChapters({ source: { title: 'x' }, durationSeconds: 10 }).sourceChapters).toEqual([]);
+  });
+  it('模板目录按界面语言给内置款，品牌库的一组在最后', () => {
+    const zh = templateCatalog('zh-CN', []);
+    expect(zh.length).toBeGreaterThan(1);
+    const all = zh.flatMap((group) => group.items);
+    expect(all.length).toBe(17);
+    expect(all.every((item) => !item.brand)).toBe(true);
+    const mine = { ...templateBlank<{ id: string; name: string; layers: [] }>('16:9', '我的'), id: 'brand-1' };
+    const withBrand = templateCatalog('en', [mine]);
+    const last = withBrand.at(-1);
+    expect(last?.items).toEqual([{ doc: mine, brand: true }]);
+    expect(withBrand[0]?.label).not.toBe(zh[0]?.label);
+  });
+
+  it('实例记来源，存回品牌库去掉来源；新建一层避开已占的 id', () => {
+    const first = templateCatalog('en', [])[0]!.items[0]!.doc as {
+      id: string;
+      name: string;
+      layers: { id: string; box: never }[];
+      from?: string;
+      builtin?: boolean;
+    };
+    const instance = templateInstance(first);
+    expect(instance.from).toBe(first.id);
+    expect(instance.builtin).toBeUndefined();
+    const definition = templateDefinition(instance, 'Mine', 'brand-x');
+    expect(definition).toMatchObject({ id: 'brand-x', name: 'Mine' });
+    expect(definition.from).toBeUndefined();
+    const layer = templateNewLayer<{ id: string; kind: string }>('progress', 'en', ['l-progress-1']);
+    expect(layer).toMatchObject({ id: 'l-progress-2', kind: 'progress' });
+    expect(templateInfo(instance).problem).toBeUndefined();
+  });
+
+  it('画幅同档、框夹进画面、命中跳过关掉的层', () => {
+    expect(templateRatioEquivalent(null, 'original')).toBe(true);
+    expect(templateRatioEquivalent('16:9', '32:18')).toBe(true);
+    expect(templateRatioEquivalent('16:9', '9:16')).toBe(false);
+    const clamped = templateBox({ op: 'clamp', box: { x: 95, y: -5, w: 20, h: 10 } });
+    expect(clamped.x + clamped.w).toBeLessThanOrEqual(100);
+    expect(clamped.y).toBeGreaterThanOrEqual(0);
+    const doc = {
+      id: 't',
+      name: 't',
+      layers: [
+        { id: 'a', kind: 'text', text: 'x', color: '#fff', box: { x: 0, y: 0, w: 50, h: 50 } },
+        { id: 'b', kind: 'text', text: 'y', color: '#fff', on: false, box: { x: 0, y: 0, w: 50, h: 50 } },
+      ],
+    };
+    expect(templateHit(doc, 10, 10)).toBe('a');
+    expect(templateHit(doc, 80, 80)).toBeNull();
+    expect(() => templateDefinition({ id: 'x', name: 'x', layers: 'nope' } as never, 'n', 'i')).toThrow(EditorWasmError);
   });
 });
 

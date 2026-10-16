@@ -8,6 +8,7 @@ describe('packagedResources', () => {
     expect(resources).toEqual({
       binDir: 'C:\\Users\\a\\AppData\\Local\\Programs\\BaoCut\\resources\\bin',
       templatesDir: 'C:\\Users\\a\\AppData\\Local\\Programs\\BaoCut\\resources\\templates',
+      stickersDir: 'C:\\Users\\a\\AppData\\Local\\Programs\\BaoCut\\resources\\stickers',
       skillsDir: 'C:\\Users\\a\\AppData\\Local\\Programs\\BaoCut\\resources\\skills\\baocut\\built-in-skills',
       agentSkillsDir: 'C:\\Users\\a\\AppData\\Local\\Programs\\BaoCut\\resources\\skills',
       modelAssetsDir: 'C:\\Users\\a\\AppData\\Local\\Programs\\BaoCut\\resources\\model-assets',
@@ -24,6 +25,7 @@ describe('packagedResources', () => {
     expect(env).toEqual({
       BAOCUT_BIN_DIR: '/r/bin',
       BAOCUT_TEMPLATES_DIR: '/r/templates',
+      BAOCUT_STICKERS_DIR: '/r/stickers',
       BAOCUT_SKILLS_DIR: '/r/skills/baocut/built-in-skills',
       BAOCUT_AGENT_SKILLS_DIR: '/r/skills',
       BAOCUT_MODEL_ASSETS_DIR: '/r/model-assets',

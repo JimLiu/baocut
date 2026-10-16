@@ -57,7 +57,7 @@ export function PanelHead({
   );
 }
 
-const chipRow = style({ flexShrink: 0, paddingX: 12, paddingTop: 12 });
+const chipRow = style({ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, overflowX: 'auto', paddingX: 12, paddingTop: 12 });
 
 /** 页头下面那一行分类（原型 .chiprow）：单选，选中的那一格总有一格。 */
 export function PanelChips<K extends string>({
@@ -65,11 +65,15 @@ export function PanelChips<K extends string>({
   items,
   value,
   onChange,
+  children,
 }: {
   label: string;
   items: readonly { key: K; label: string }[];
+  /** 选中的那一格；不在 `items` 里（选中的在 `children` 的菜单里）时这一行一格都不亮。 */
   value: K;
   onChange(key: K): void;
+  /** 跟在这一行后面的东西（贴纸包的「⋯」菜单）。 */
+  children?: ReactNode;
 }) {
   return (
     <div className={chipRow}>
@@ -89,6 +93,7 @@ export function PanelChips<K extends string>({
           </ToggleButton>
         ))}
       </ToggleButtonGroup>
+      {children}
     </div>
   );
 }

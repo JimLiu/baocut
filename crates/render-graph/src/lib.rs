@@ -584,10 +584,19 @@ pub fn plan_frame_with_speech(
                 flip_x: false,
                 flip_y: false,
             };
+            let mut parameters = serde_json::json!({ "layerId": layer.id });
+            if let timeline::template::LayerKind::Logo {
+                src: timeline::template::LogoSrc::BrandLogo { brand_logo },
+                ..
+            } = &layer.kind
+                && let Some(asset) = brand_logo_asset(video.assets, brand_logo)
+            {
+                parameters["asset"] = serde_json::to_value(asset).unwrap_or(Value::Null);
+            }
             let content = LayerContent::Generator {
                 generator: "baocut.template".into(),
                 version: 1,
-                parameters: serde_json::json!({ "layerId": layer.id }),
+                parameters,
                 elapsed_seconds: clean(t.to_f64()),
                 duration_seconds: clean(duration),
             };
@@ -901,6 +910,29 @@ fn visual_layer(
         layer.effects = layer_effects(item, canvas);
     }
     Ok(Some(layer))
+}
+
+/// 台标层引用的品牌库图片（`src: { brandLogo }`，格式规范 §3.17）在这部视频里的素材：来源是从品牌库拷进来的这一条
+/// （`provenance.source.library` 的 `library` 是 `brand`、`entryId` 是它）的图片素材。拷过几次的取库版本最新的一份，
+/// 同版本按素材 ID。没有拷进来的是 `None`，这一层画不出来。素材的引用（`video-engine` 的 `asset_users`）按同一条规则认。
+pub fn brand_logo_asset(assets: &BTreeMap<Id, AssetRecord>, entry_id: &str) -> Option<VersionRef> {
+    assets
+        .values()
+        .filter(|asset| asset.kind == AssetKind::Image)
+        .filter_map(|asset| {
+            let revision = asset.revisions.get(&asset.current_revision)?;
+            let provenance = &revision.provenance;
+            let library = provenance.source.as_ref()?.get("library")?;
+            let matches = provenance.origin == "library"
+                && library.get("library").and_then(Value::as_str) == Some("brand")
+                && library.get("entryId").and_then(Value::as_str) == Some(entry_id);
+            matches.then(|| (library.get("version").and_then(Value::as_u64).unwrap_or(0), asset))
+        })
+        .max_by(|(va, a), (vb, b)| va.cmp(vb).then_with(|| b.id.cmp(&a.id)))
+        .map(|(_, asset)| VersionRef {
+            id: asset.id.clone(),
+            revision: asset.current_revision.clone(),
+        })
 }
 
 /// 视频贴纸在实例里过了 `elapsed` 秒时取源的时刻与速度（`sticker.loop`，格式规范 §3.7）：`loop`（缺省）对素材时长

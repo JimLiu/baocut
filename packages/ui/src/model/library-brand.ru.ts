@@ -32,4 +32,5 @@ export const ru: LibraryBrandMessages = {
   styleEmpty: "Документ стиля субтитров пуст",
   styleNoSchema: "У документа стиля субтитров нет schema, его нельзя сохранить в бренд-кит",
   styleTooLarge: "Стиль субтитров превышает 64 КиБ",
+  template: 'Шаблон',
 };

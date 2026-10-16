@@ -94,4 +94,10 @@ export const tr: EditLabelMessages = {
   removeDubGroup: (p) => `Dublajı kaldır (${languageName('tr', p.language)})`,
   removeThisDubGroup: 'Bu dublaj grubunu kaldır',
   stretchDub: "Dublaj hızını değiştir",
+  applyTemplate: (p) => `“${p.name}” şablonunu uygula`,
+  removeTemplate: 'Şablonu kaldır',
+  editTemplate: 'Şablonu düzenle',
+  editTemplateLayout: 'Şablon yerleşimini düzenle',
+  lockTemplateRatio: 'En boy oranını şablona kilitle',
+  unlockTemplateRatio: 'Şablon en boy oranı kilidini aç',
 };

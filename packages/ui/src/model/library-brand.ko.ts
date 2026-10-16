@@ -32,4 +32,5 @@ export const ko: LibraryBrandMessages = {
   styleEmpty: '자막 스타일 문서가 비어 있습니다',
   styleNoSchema: '자막 스타일 문서에 스키마가 없어 브랜드 키트에 저장할 수 없습니다',
   styleTooLarge: '자막 스타일이 64 KiB보다 큽니다',
+  template: '템플릿',
 };

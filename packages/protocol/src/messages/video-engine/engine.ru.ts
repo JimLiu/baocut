@@ -246,6 +246,9 @@ export const ru: EngineMessages = {
   updateSequenceEmpty: "updateSequence должен менять хотя бы одно значение",
   backgroundInvalid: "Фон холста должен быть #RRGGBB",
   canvasSideRange: (p) => `Каждая сторона холста должна быть 1–${p.max} пикселей`,
+  templateRatioLocked: (p) =>
+    `Шаблон «${p.template}» фиксирует соотношение сторон ${p.ratio}; холст можно менять только в этом соотношении`,
+  templateRatioLockedRecovery: 'Сначала снимите фиксацию соотношения сторон в шаблоне, затем меняйте холст',
   collectAssetsEmpty: "collectAssets требует хотя бы одну запись",
   trackNotEmpty: (p) => `На дорожке ${p.track} ещё есть клипы (${p.count}); удалить можно только пустую дорожку`,
   trackNotEmptyRecovery: "Сначала удалите её клипы (deleteItems) или перенесите их на другую дорожку (moveItem), затем удалите дорожку",

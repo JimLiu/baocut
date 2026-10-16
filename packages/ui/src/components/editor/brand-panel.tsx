@@ -47,10 +47,12 @@ import { canEdit, useVideo } from '../../state/video-store.ts';
 import { NameDialog } from '../name-dialog.tsx';
 import { NewColorDialog } from './brand-color-dialog.tsx';
 import { BrandRow, type BrandRowAction } from './brand-rows.tsx';
+import { BrandTemplates } from './brand-templates.tsx';
 import { Note, SecHead } from './inspector-controls.tsx';
 import { PanelHead, panelBody } from './panel-head.tsx';
 import { saveAssetToBrand, saveCaptionStyleToBrand } from './brand-save.ts';
 import { useBrandApply } from './use-brand-apply.ts';
+import { useTemplateStudio } from './use-template-studio.ts';
 import { BRAND_COPY as IB } from './brand-copy.ts';
 
 const list = style({ display: 'flex', flexDirection: 'column', gap: 8, margin: 0, padding: 0, listStyleType: 'none' });
@@ -83,9 +85,9 @@ const fileName = (path: string) => path.split(/[\\/]/).pop() || path;
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /**
- * 编辑器 › 品牌（产品设计 §13.7，设计稿 panel-brand.jsx）：品牌库里的视频、图片、贴纸、品牌色、字体与字幕样式。
+ * 编辑器 › 品牌（产品设计 §13.7，设计稿 panel-brand.jsx）：品牌库里的模板、视频、图片、贴纸、品牌色、字体与字幕样式。
  * 品牌库在 Runtime Home 里、跨视频复用；放进视频是拷一份（`library.applyToVideo`），之后库里的修改与删除不影响视频。
- * 列表跟着 `library` 主题；条目的内容按版本读一次。模板（`overlayTemplate`）还没有，不画那一节。
+ * 列表跟着 `library` 主题；条目的内容按版本读一次。模板（`overlayTemplate`）一节排在最上（`brand-templates.tsx`）。
  */
 export function BrandPanel({
   sequence,
@@ -101,6 +103,7 @@ export function BrandPanel({
   const brand = useLibrary((s) => s.brand);
   const editable = useVideo((s) => canEdit(s.video));
   const applyEntry = useBrandApply();
+  const studio = useTemplateStudio();
   const [dialog, setDialog] = useState<DialogState>(null);
   /** 正在往哪一节里添加（按钮转圈）。 */
   const [adding, setAdding] = useState<string | null>(null);
@@ -265,61 +268,72 @@ export function BrandPanel({
             {IB.loadingLibraryEllipsis}
           </div>
         ) : (
-          BRAND_SECTIONS.map((section, index) => {
-            const entries = brand.filter((entry) => entry.kind === section.kind);
-            const kind = section.kind;
-            let action = null;
-            if (isBrandMediaKind(kind)) {
-              const media = { ...section, kind };
-              action = (
-                <AddMenu
-                  section={media}
-                  candidates={brandCandidates(assets, kind)}
-                  canPickFiles={!!pickFiles}
-                  isPending={adding === kind}
-                  onFiles={() => void addFiles(media)}
-                  onAsset={(candidate) => void addAsset(media, candidate)}
-                />
+          <>
+            <BrandTemplates
+              sequence={sequence}
+              assets={assets}
+              editable={editable}
+              onRename={(entry) => setDialog({ type: 'rename', entry })}
+              onDelete={(summary) => setDialog({ type: 'delete', summary })}
+              onNew={studio.newBrand}
+              onEdit={studio.editBrand}
+            />
+            {BRAND_SECTIONS.map((section) => {
+              const entries = brand.filter((entry) => entry.kind === section.kind);
+              const kind = section.kind;
+              let action = null;
+              if (isBrandMediaKind(kind)) {
+                const media = { ...section, kind };
+                action = (
+                  <AddMenu
+                    section={media}
+                    candidates={brandCandidates(assets, kind)}
+                    canPickFiles={!!pickFiles}
+                    isPending={adding === kind}
+                    onFiles={() => void addFiles(media)}
+                    onAsset={(candidate) => void addAsset(media, candidate)}
+                  />
+                );
+              } else if (kind === 'color') {
+                action = (
+                  <Button variant="secondary" size="S" onPress={() => setDialog({ type: 'color' })}>
+                    <Add />
+                    <Text>{IB.new}</Text>
+                  </Button>
+                );
+              } else {
+                action = (
+                  <SaveStyle
+                    candidates={styles}
+                    isPending={adding === 'captionStyle'}
+                    onSave={(candidate) => void saveStyle(candidate)}
+                  />
+                );
+              }
+              return (
+                <section key={kind} aria-label={section.title}>
+                  <SecHead aside={entries.length ? IB.entryCount(entries.length) : null} action={action}>
+                    {section.title}
+                  </SecHead>
+                  {entries.length ? (
+                    <ul className={list} aria-label={section.title}>
+                      {entries.map((summary) => (
+                        <BrandRow key={summary.id} summary={summary} placeBlocked={placeBlocked(kind)} onAction={onAction} />
+                      ))}
+                    </ul>
+                  ) : (
+                    <Note>{section.empty}</Note>
+                  )}
+                  {kind === 'captionStyle' && !styles.length ? (
+                    <p className={hint}>
+                      {hasCaptions ? IB.styleStillDefault : IB.noCaptionsToSave}
+                    </p>
+                  ) : null}
+                  <p className={hint}>{section.hint}</p>
+                </section>
               );
-            } else if (kind === 'color') {
-              action = (
-                <Button variant="secondary" size="S" onPress={() => setDialog({ type: 'color' })}>
-                  <Add />
-                  <Text>{IB.new}</Text>
-                </Button>
-              );
-            } else {
-              action = (
-                <SaveStyle
-                  candidates={styles}
-                  isPending={adding === 'captionStyle'}
-                  onSave={(candidate) => void saveStyle(candidate)}
-                />
-              );
-            }
-            return (
-              <section key={kind} aria-label={section.title}>
-                <SecHead first={index === 0} aside={entries.length ? IB.entryCount(entries.length) : null} action={action}>
-                  {section.title}
-                </SecHead>
-                {entries.length ? (
-                  <ul className={list} aria-label={section.title}>
-                    {entries.map((summary) => (
-                      <BrandRow key={summary.id} summary={summary} placeBlocked={placeBlocked(kind)} onAction={onAction} />
-                    ))}
-                  </ul>
-                ) : (
-                  <Note>{section.empty}</Note>
-                )}
-                {kind === 'captionStyle' && !styles.length ? (
-                  <p className={hint}>
-                    {hasCaptions ? IB.styleStillDefault : IB.noCaptionsToSave}
-                  </p>
-                ) : null}
-                <p className={hint}>{section.hint}</p>
-              </section>
-            );
-          })
+            })}
+          </>
         )}
       </div>
 

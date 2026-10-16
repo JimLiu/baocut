@@ -32,4 +32,5 @@ export const pl: LibraryBrandMessages = {
   styleEmpty: "Dokument stylu napisów jest pusty",
   styleNoSchema: "Dokument stylu napisów nie ma schema, więc nie można go zapisać w zestawie marki",
   styleTooLarge: "Styl napisów jest większy niż 64 KiB",
+  template: 'Szablon',
 };

@@ -44,7 +44,7 @@
 
 每次转写默认给视频分章，除非用户说不要，或 `baocut videos inspect` 看到视频已经有章节（不覆盖；用户要重分时按 `video-chapters` 先问清替换还是调整）。章节是旁路：不阻塞翻译、字幕层和导出；失败不致命，最多重试一次，仍不行就在交付说明里如实写原因，接着做后面的步骤。
 
-- **有作者章节**（`assets[].source.chapters` 不为空，或 `pipeline.summary.sourceChapters` 大于 0，或简介里有 `0:00 开场` 这类时间戳大纲）：用 `baocut chapters adopt` 给 video，把作者的章节吸到文稿的段落或句子起点上并写进视频，不用自己分；`chapters` 是空的、简介里却看得到时间戳大纲时，把那段大纲给 `outline`。读回执的 `sourceChapters`：matched、ambiguous、unanchored 各几条，交付时说明。
+- **有作者章节**（`assets[].source.chapters` 不为空，或 `pipeline.summary.sourceChapters` 大于 0，或简介里有 `0:00 开场` 这类时间戳大纲）：用 `baocut chapters adopt` 给 video，把作者的章节吸到文稿的段落或句子起点上并写进视频，不用自己分；`chapters` 是空的、简介里却看得到时间戳大纲时，把那段大纲给 `outline`。读回执的 `sourceChapters`：matched、ambiguous、unanchored 各几条，交付时说明。带 `untitled` 的章节只有分界、标题是占位名（`Untitled Chapter N`），按转写起标题后用 `outline` 再调用，不写占位名。
 - **没有作者章节**（`baocut chapters adopt` 返回 `NO_SOURCE_CHAPTERS` 也是这种情况，不算失败）：按 `video-chapters` 的做法自己分。
 - 用户要你自己写的章节，或要和作者大纲不同的粗细时，也按 `video-chapters` 自己分，作者大纲当参考。
 - 返回 `ASSET_NOT_PLACED` 时素材还不在时间线上：先放上时间线再做。

@@ -1,0 +1,35 @@
+import type { StickerPackMessages } from './sticker-pack-copy.ts';
+
+export const es: StickerPackMessages = {
+  packs: {
+    featured: 'Destacados',
+    emoji: 'Emoji',
+    people: 'Personas',
+    mockup: 'Maquetas',
+    podcast: 'Pódcast',
+    icon: 'Iconos',
+    summer: 'Verano',
+    gesture: 'Gestos',
+    arrow: 'Flechas y punteros',
+    hand: 'Dibujado a mano',
+    birthday: 'Cumpleaños',
+    finance: 'Finanzas',
+    fitness: 'Fitness',
+    seasonal: 'Temporadas',
+    school: 'Vuelta al cole',
+    cta: 'CTA',
+    'dyn-collage': 'Collage',
+    'dyn-emoji': 'Emoji',
+    'dyn-grow': 'Crecimiento',
+    'dyn-holiday': 'Fiestas',
+    'dyn-work': 'Trabajo',
+  },
+  morePacks: 'Más paquetes',
+  packMenuHead: (count: number) => `${count} paquetes`,
+  packCount: (count: number) => `${count} pegatinas`,
+  ctaTitle: 'Ventanas de CTA',
+  ctaNote: '32 estilos · suscribirse / me gusta / compartir / comprar',
+  notoHint:
+    'Las cinco categorías integradas son Lottie de Google Noto Animated Emoji (CC BY 4.0): bucles vectoriales con transparencia que siguen el cabezal de reproducción en el lienzo y se pueden recolorear como las pegatinas.',
+  addFailed: (message: string) => `No se pudo añadir la pegatina: ${message}`,
+};

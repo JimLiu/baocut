@@ -10,7 +10,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use frame_render::support::{UnsupportedItem, kind_name};
+use frame_render::support::{UnsupportedItem, asset_text};
 use frame_render::{LayerMedia, RenderError, premultiplied};
 use media_core::Tools;
 use media_core::decode::{NativeDecode, VideoDecoder, decode_still};
@@ -185,7 +185,7 @@ impl<'a> Sources<'a> {
         }
         // 预检没见过的素材（不该发生）：现在探测，解不出来时按选项跳过或报错。
         let problem = match self.input.asset(&asset.id, &asset.revision) {
-            None => format!("asset {} has no frozen location", asset.id),
+            None => asset_text::not_frozen(&asset.id),
             Some(entry) => match probe_picture(&self.tools, &entry.path) {
                 Ok(Some(info)) => {
                     let picture = AssetPicture {
@@ -198,20 +198,11 @@ impl<'a> Sources<'a> {
                     self.pictures.insert(key, picture.clone());
                     return Ok(Some(picture));
                 }
-                Ok(None) => "the asset has no video stream".to_string(),
-                Err(e) => e.message,
+                Ok(None) => asset_text::no_picture(&asset.id),
+                Err(e) => asset_text::undecodable(&asset.id, &e.message),
             },
         };
-        let item = UnsupportedItem {
-            item_id: layer.item_id.clone(),
-            scope: "asset",
-            layer_kind: kind_name(layer.kind),
-            effect_id: None,
-            transition_id: None,
-            kind: Some(asset.id.clone()),
-            reason: "asset-undecodable".into(),
-            message: problem,
-        };
+        let item = UnsupportedItem::asset(layer, Some(asset.id.clone()), "asset-undecodable", problem);
         if !self.skip {
             return Err(RenderError {
                 code: "EXPORT_UNSUPPORTED_CONTENT".into(),

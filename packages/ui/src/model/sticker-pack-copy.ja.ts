@@ -1,0 +1,35 @@
+import type { StickerPackMessages } from './sticker-pack-copy.ts';
+
+export const ja: StickerPackMessages = {
+  packs: {
+    featured: 'おすすめ',
+    emoji: '絵文字',
+    people: '人物',
+    mockup: 'モックアップ',
+    podcast: 'ポッドキャスト',
+    icon: 'アイコン',
+    summer: '夏',
+    gesture: 'ジェスチャー',
+    arrow: '矢印・ポインター',
+    hand: '手描き',
+    birthday: '誕生日',
+    finance: '金融',
+    fitness: 'フィットネス',
+    seasonal: '季節',
+    school: '新学期',
+    cta: 'CTA',
+    'dyn-collage': 'コラージュ',
+    'dyn-emoji': '絵文字',
+    'dyn-grow': '成長',
+    'dyn-holiday': 'ホリデー',
+    'dyn-work': '仕事',
+  },
+  morePacks: 'その他のパック',
+  packMenuHead: (count: number) => `${count} パック`,
+  packCount: (count: number) => `${count} 点`,
+  ctaTitle: 'CTA ポップアップ',
+  ctaNote: '32 種 · 登録 / いいね / シェア / 購入',
+  notoHint:
+    '内蔵の 5 分類は Google Noto Animated Emoji の Lottie（CC BY 4.0）です。透過付きのベクターループで、キャンバス上では再生ヘッドに合わせて動き、静止ステッカーと同じように色を変えられます。',
+  addFailed: (message: string) => `ステッカーを追加できませんでした：${message}`,
+};

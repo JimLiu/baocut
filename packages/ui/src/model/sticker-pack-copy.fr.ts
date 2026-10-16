@@ -1,0 +1,35 @@
+import type { StickerPackMessages } from './sticker-pack-copy.ts';
+
+export const fr: StickerPackMessages = {
+  packs: {
+    featured: 'À la une',
+    emoji: 'Emoji',
+    people: 'Personnages',
+    mockup: 'Maquettes',
+    podcast: 'Podcast',
+    icon: 'Icônes',
+    summer: 'Été',
+    gesture: 'Gestes',
+    arrow: 'Flèches et pointeurs',
+    hand: 'Dessiné à la main',
+    birthday: 'Anniversaire',
+    finance: 'Finance',
+    fitness: 'Fitness',
+    seasonal: 'Saisons',
+    school: 'Rentrée scolaire',
+    cta: 'CTA',
+    'dyn-collage': 'Collage',
+    'dyn-emoji': 'Emoji',
+    'dyn-grow': 'Croissance',
+    'dyn-holiday': 'Fêtes',
+    'dyn-work': 'Travail',
+  },
+  morePacks: 'Plus de packs',
+  packMenuHead: (count: number) => `${count} packs`,
+  packCount: (count: number) => `${count} autocollants`,
+  ctaTitle: 'Pop-ups CTA',
+  ctaNote: '32 styles · s’abonner / j’aime / partager / acheter',
+  notoHint:
+    'Les cinq catégories intégrées sont des Lottie de Google Noto Animated Emoji (CC BY 4.0) : des boucles vectorielles avec transparence qui suivent la tête de lecture sur le canevas et se recolorent comme les autocollants.',
+  addFailed: (message: string) => `Impossible d’ajouter l’autocollant : ${message}`,
+};

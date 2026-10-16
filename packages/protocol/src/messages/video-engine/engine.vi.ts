@@ -246,6 +246,8 @@ export const vi: EngineMessages = {
   updateSequenceEmpty: "updateSequence phải đổi ít nhất một thứ",
   backgroundInvalid: "Nền khung vẽ phải là #RRGGBB",
   canvasSideRange: (p) => `Mỗi cạnh khung vẽ phải có 1–${p.max} pixel`,
+  templateRatioLocked: (p) => `Mẫu “${p.template}” khóa tỉ lệ khung hình ở ${p.ratio}; khung vẽ chỉ có thể đổi trong tỉ lệ này`,
+  templateRatioLockedRecovery: 'Hãy mở khóa tỉ lệ khung hình của mẫu trước, rồi đổi khung vẽ',
   collectAssetsEmpty: "collectAssets cần ít nhất một mục",
   trackNotEmpty: (p) => `Rãnh ${p.track} vẫn còn clip (${p.count}); chỉ có thể xóa rãnh trống`,
   trackNotEmptyRecovery: "Trước tiên hãy xóa các clip (deleteItems) hoặc chuyển chúng sang rãnh khác (moveItem), rồi xóa rãnh",

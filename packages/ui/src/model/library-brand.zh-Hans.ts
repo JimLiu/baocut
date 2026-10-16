@@ -32,4 +32,5 @@ export const zhHans: LibraryBrandMessages = {
   styleEmpty: '字幕样式文档是空的',
   styleNoSchema: '字幕样式文档没有 schema，存不进品牌库',
   styleTooLarge: '字幕样式超过 64 KiB',
+  template: '模板',
 };

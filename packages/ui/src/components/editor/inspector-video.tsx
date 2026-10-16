@@ -1,11 +1,17 @@
 import type { AssetRecord, EditOperation, Id, Sequence } from '@baocut/protocol';
+import { Button, Text } from '@react-spectrum/s2';
+import TemplateIcon from '@react-spectrum/s2/icons/Template';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { durationSeconds, formatFps, formatSeconds } from '../../model/editor.ts';
 import { ASPECTS, aspectCanvas, aspectOf, colorParts, type AspectKey } from '../../model/property-values.ts';
+import { ratioLockOf } from '../../model/template-layers.ts';
+import { useEditor } from '../../state/editor-store.ts';
 import { canEdit, useVideo } from '../../state/video-store.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { ColorField, Note, PRow, Sec, SecHead, Seg } from './inspector-controls.tsx';
 import { INSPECTOR_COPY as IC } from './inspector-copy.ts';
+import { TEMPLATE_COPY as TC } from './template-copy.ts';
+import { ratioLabel } from './use-template-actions.ts';
 
 const grid = style({
   display: 'grid',
@@ -17,6 +23,7 @@ const grid = style({
 });
 const key = style({ color: 'gray-600', whiteSpace: 'nowrap' });
 const value = style({ color: 'gray-900', minWidth: 0, overflowWrap: 'anywhere' });
+const lockAction = style({ marginTop: 8, alignSelf: 'start' });
 
 const BACKDROPS = [
   {
@@ -42,6 +49,8 @@ export function VideoPage({ sequence, assets }: { sequence: Sequence; assets: Re
   const editable = useVideo((s) => canEdit(s.video));
   const { width, height, background } = sequence.canvas;
   const aspect = aspectOf(sequence.canvas);
+  // 模板锁着画幅时这里不能换（原型第 218 轮）：说明是哪套模板锁的，给一个去模板设置解锁的入口。
+  const lock = ratioLockOf(sequence.template);
   const black = colorParts(background, '#000000').hex === '#000000';
   const update = (patch: Omit<Extract<EditOperation, { type: 'updateSequence' }>, 'type' | 'sequenceId'>) =>
     void apply([{ type: 'updateSequence', sequenceId: sequence.id, ...patch }]);
@@ -58,10 +67,20 @@ export function VideoPage({ sequence, assets }: { sequence: Sequence; assets: Re
           label={IC.aspect}
           value={aspect}
           options={ASPECTS.map((a) => ({ key: a.key, label: a.key }))}
-          isDisabled={!editable}
+          isDisabled={!editable || !!lock}
           onChange={(next) => update({ canvas: aspectCanvas(sequence.canvas, next) })}
         />
-        <Note>{IC.aspectNote}</Note>
+        {lock ? (
+          <>
+            <Note>{TC.lockNoteBody(lock.name, ratioLabel(lock.ratio))}</Note>
+            <Button variant="secondary" size="S" styles={lockAction} onPress={() => useEditor.getState().focusTemplate(true)}>
+              <TemplateIcon />
+              <Text>{TC.goToTemplate}</Text>
+            </Button>
+          </>
+        ) : (
+          <Note>{IC.aspectNote}</Note>
+        )}
       </Sec>
       <SecHead>{IC.canvasBackground}</SecHead>
       <Sec>

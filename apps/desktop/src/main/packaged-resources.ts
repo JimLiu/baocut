@@ -14,6 +14,8 @@ export const RESOURCE_DIRS = {
   bin: 'bin',
   /** 内置创作模板（仓库根的 `templates/`）。 */
   templates: 'templates',
+  /** 随包贴纸（仓库根的 `stickers/`）：元素面板的贴纸包。 */
+  stickers: 'stickers',
   /**
    * 仓库根的 `skills/`：`baocut/` 是给 Agent 的说明书（`baocut skill install` 渲染后装进宿主），`baocut/built-in-skills/`
    * 是内置 Agent skill。
@@ -39,6 +41,7 @@ export const BUNDLED_EXECUTABLES = ['engine-host', 'export-worker', 'model-worke
 export interface PackagedResources {
   binDir: string;
   templatesDir: string;
+  stickersDir: string;
   skillsDir: string;
   agentSkillsDir: string;
   modelAssetsDir: string;
@@ -54,6 +57,7 @@ export function packagedResources(resourcesPath: string, pathApi: path.PlatformP
   return {
     binDir: pathApi.join(resourcesPath, RESOURCE_DIRS.bin),
     templatesDir: pathApi.join(resourcesPath, RESOURCE_DIRS.templates),
+    stickersDir: pathApi.join(resourcesPath, RESOURCE_DIRS.stickers),
     skillsDir: pathApi.join(resourcesPath, RESOURCE_DIRS.skills, 'baocut', 'built-in-skills'),
     agentSkillsDir: pathApi.join(resourcesPath, RESOURCE_DIRS.skills),
     modelAssetsDir: pathApi.join(resourcesPath, RESOURCE_DIRS.modelAssets),
@@ -70,6 +74,7 @@ export function packagedResourceEnv(resources: PackagedResources, platform: Node
   return {
     BAOCUT_BIN_DIR: resources.binDir,
     BAOCUT_TEMPLATES_DIR: resources.templatesDir,
+    BAOCUT_STICKERS_DIR: resources.stickersDir,
     BAOCUT_SKILLS_DIR: resources.skillsDir,
     BAOCUT_AGENT_SKILLS_DIR: resources.agentSkillsDir,
     BAOCUT_MODEL_ASSETS_DIR: resources.modelAssetsDir,

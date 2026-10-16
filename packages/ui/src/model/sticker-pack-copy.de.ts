@@ -1,0 +1,35 @@
+import type { StickerPackMessages } from './sticker-pack-copy.ts';
+
+export const de: StickerPackMessages = {
+  packs: {
+    featured: 'Empfohlen',
+    emoji: 'Emoji',
+    people: 'Personen',
+    mockup: 'Mockups',
+    podcast: 'Podcast',
+    icon: 'Symbole',
+    summer: 'Sommer',
+    gesture: 'Gesten',
+    arrow: 'Pfeile & Zeiger',
+    hand: 'Handgezeichnet',
+    birthday: 'Geburtstag',
+    finance: 'Finanzen',
+    fitness: 'Fitness',
+    seasonal: 'Jahreszeiten',
+    school: 'Schulanfang',
+    cta: 'CTA',
+    'dyn-collage': 'Collage',
+    'dyn-emoji': 'Emoji',
+    'dyn-grow': 'Wachstum',
+    'dyn-holiday': 'Feiertage',
+    'dyn-work': 'Arbeit',
+  },
+  morePacks: 'Weitere Pakete',
+  packMenuHead: (count: number) => `${count} Pakete`,
+  packCount: (count: number) => `${count} Sticker`,
+  ctaTitle: 'CTA-Pop-ups',
+  ctaNote: '32 Stile · Abonnieren / Gefällt mir / Teilen / Kaufen',
+  notoHint:
+    'Die fünf integrierten Kategorien sind Lottie-Dateien aus Google Noto Animated Emoji (CC BY 4.0): Vektorschleifen mit Transparenz, die auf der Arbeitsfläche dem Abspielkopf folgen und sich wie Sticker umfärben lassen.',
+  addFailed: (message: string) => `Sticker konnte nicht hinzugefügt werden: ${message}`,
+};

@@ -94,4 +94,10 @@ export const vi: EditLabelMessages = {
   removeDubGroup: (p) => `Gỡ lồng tiếng (${languageName('vi', p.language)})`,
   removeThisDubGroup: 'Gỡ nhóm lồng tiếng này',
   stretchDub: "Đổi tốc độ lồng tiếng",
+  applyTemplate: (p) => `Áp dụng mẫu “${p.name}”`,
+  removeTemplate: 'Gỡ mẫu',
+  editTemplate: 'Sửa mẫu',
+  editTemplateLayout: 'Sửa bố cục mẫu',
+  lockTemplateRatio: 'Khóa tỷ lệ khung hình theo mẫu',
+  unlockTemplateRatio: 'Mở khóa tỷ lệ khung hình của mẫu',
 };

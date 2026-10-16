@@ -81,6 +81,7 @@ import {
   probeVideo,
   runWorker,
   skippedWarning,
+  unsupportedList,
   workerInput,
   type UnsupportedItem,
   type VideoOutput,
@@ -671,8 +672,7 @@ export class ExportService {
     }
     const items = [...unsupported.values()];
     if (items.length > 0 && onUnsupported === 'fail') {
-      const listed = items.map((i) => i.message).join(RcExport.clauseSeparator().text);
-      throw new RpcError('invalid-request', RcExport.unsupportedContent({ count: items.length, items: listed }), {
+      throw new RpcError('invalid-request', RcExport.unsupportedContent({ count: items.length, items: unsupportedList(items) }), {
         code: 'EXPORT_UNSUPPORTED_CONTENT',
         items,
         remedy: RcExport.unsupportedContentRemedy().text,

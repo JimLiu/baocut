@@ -1,0 +1,35 @@
+import type { StickerPackMessages } from './sticker-pack-copy.ts';
+
+export const zhHans: StickerPackMessages = {
+  packs: {
+    featured: '精选',
+    emoji: '表情',
+    people: '人物',
+    mockup: '样机窗口',
+    podcast: '播客',
+    icon: '图标',
+    summer: '夏日',
+    gesture: '手势',
+    arrow: '箭头指针',
+    hand: '手绘',
+    birthday: '生日',
+    finance: '金融',
+    fitness: '健身',
+    seasonal: '季节',
+    school: '开学季',
+    cta: 'CTA 弹窗',
+    'dyn-collage': '拼贴',
+    'dyn-emoji': '表情',
+    'dyn-grow': '生长',
+    'dyn-holiday': '假日',
+    'dyn-work': '工作',
+  },
+  morePacks: '更多包',
+  packMenuHead: (count: number) => `共 ${count} 个包`,
+  packCount: (count: number) => `${count} 个素材`,
+  ctaTitle: 'CTA 弹窗',
+  ctaNote: '32 款 · 订阅 / 点赞 / 分享 / 购买',
+  notoHint:
+    '五个内置分类是 Google Noto Animated Emoji 的 Lottie（CC BY 4.0）：矢量循环、带透明通道，落到画布上跟着播放头走，也能像静态贴纸一样分色改。',
+  addFailed: (message: string) => `没能加入贴纸：${message}`,
+};

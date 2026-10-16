@@ -83,8 +83,10 @@
       if (k === 'new') app.go({r: 'agent', dir: d.id});
       else if (k === 'pin') app.toggleDirPin(d.id);
       else if (k === 'space') app.go({r: 'projects', id: d.id});
+      else if (k === 'brand') app.go({r: 'skills', dir: d.id});
       else if (k === 'reveal') app.toast(`已在文件夹中显示 ${d.path}（演示）`);
     };
+    const hasBrand = window.BC_PROJECT_BRAND.hasBrand(app.projectBrands, d.id);
     return (
       <R.SideNavItem key={key} id={key} textValue={d.name} hasChildItems data-project-row="">
         <R.SideNavItemContent>
@@ -99,6 +101,8 @@
             <R.MenuItem id="new" textValue="新建会话"><R.Icons.Add /><R.Text>在这个项目里新建会话</R.Text></R.MenuItem>
             <R.MenuItem id="pin" textValue={d.pinned ? '取消置顶' : '置顶'}><R.Icons.PinOn /><R.Text>{d.pinned ? '取消置顶' : '置顶'}</R.Text></R.MenuItem>
             <R.MenuItem id="space" textValue="在 Space 中显示"><R.Icons.Asset /><R.Text>在 Space 中显示</R.Text></R.MenuItem>
+            <R.MenuItem id="brand" textValue="品牌（BRAND.md）"><R.Icons.Bookmark /><R.Text slot="label">品牌（BRAND.md）</R.Text>
+              <R.Text slot="description">{hasBrand ? '这个项目的会话自动参考' : '还没有，新建一份'}</R.Text></R.MenuItem>
             <R.MenuItem id="reveal" textValue="在文件夹中显示"><R.Icons.OpenIn /><R.Text>在文件夹中显示</R.Text></R.MenuItem>
           </R.ActionMenu>
         </R.SideNavItemContent>

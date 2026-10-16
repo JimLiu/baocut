@@ -55,7 +55,8 @@ const groupBox = style({
   outlineColor: 'blue-800',
   cursor: { default: 'pointer', isMovable: 'move', isDragging: 'grabbing' },
 });
-const handle = style({
+/** 把手（白点蓝圈）；版面编辑器的层框也用它。 */
+export const handle = style({
   position: 'absolute',
   boxSizing: 'border-box',
   backgroundColor: 'gray-25',
@@ -156,7 +157,7 @@ export function displayRect(pose: Pose, view: View): CSSProperties {
 }
 
 /** 把手的落位（照抄原型：四角 12px 圆点压在框角外 7px，边条 4×20 外沿贴着描边；小盒一档 8px）。 */
-function handlePlace(h: Handle, small: boolean): CSSProperties {
+export function handlePlace(h: Handle, small: boolean): CSSProperties {
   if (isCorner(h)) {
     const size = small ? 8 : 12;
     const off = small ? -4 : -7;

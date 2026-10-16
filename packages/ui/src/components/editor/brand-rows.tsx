@@ -17,7 +17,7 @@ import { BRAND_COPY as IB } from './brand-copy.ts';
 export type BrandRowAction = 'place' | 'rename' | 'copy' | 'delete';
 
 /** 品牌条目一行（设计稿 .brow）：32 的缩略格、名字与说明、右边「更多」。 */
-const row = style({
+export const brandRow = style({
   display: 'flex',
   alignItems: 'center',
   gap: 8,
@@ -46,8 +46,8 @@ const thumb = style({
   '--iconPrimary': { type: 'fill', value: 'currentColor' },
 });
 const thumbImage = style({ width: 'full', height: 'full', objectFit: 'contain' });
-const info = style({ display: 'flex', flexDirection: 'column', flexGrow: 1, minWidth: 0 });
-const nameStyle = style({
+export const brandInfo = style({ display: 'flex', flexDirection: 'column', flexGrow: 1, minWidth: 0 });
+export const brandName = style({
   font: 'ui-sm',
   fontWeight: 'bold',
   color: 'gray-900',
@@ -55,7 +55,7 @@ const nameStyle = style({
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
 });
-const meta = style({ font: 'ui-xs', color: 'gray-600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+export const brandMetaStyle = style({ font: 'ui-xs', color: 'gray-600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
 
 /** 放进视频那一项怎么说：看放到哪里。 */
 function placeLabel(content: BrandContent): string | null {
@@ -89,13 +89,13 @@ export function BrandRow({
     ...(placeBlocked ? ['place'] : []),
   ];
   return (
-    <li className={row}>
+    <li className={brandRow}>
       <BrandThumb summary={summary} content={content} />
-      <span className={info}>
-        <span className={nameStyle} title={summary.name}>
+      <span className={brandInfo}>
+        <span className={brandName} title={summary.name}>
           {summary.name}
         </span>
-        <span className={meta}>{content ? brandMeta(content) : error ? IB.unreadable(error) : IB.loading}</span>
+        <span className={brandMetaStyle}>{content ? brandMeta(content) : error ? IB.unreadable(error) : IB.loading}</span>
       </span>
       <MenuTrigger>
         <ActionButton isQuiet size="S" aria-label={IB.actionsFor(summary.name)}>

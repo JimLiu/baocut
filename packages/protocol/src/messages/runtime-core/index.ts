@@ -20,6 +20,7 @@ export * from './rc-video.ts';
 export * from './rc-grants.ts';
 export * from './rc-skills.ts';
 export * from './rc-templates.ts';
+export * from './rc-stickers.ts';
 export * from './rc-slides.ts';
 export * from './rc-design.ts';
 export * from './rc-design-system.ts';

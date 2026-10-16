@@ -41,7 +41,8 @@ test('URL codec preserves encoded IDs, filters, settings tabs and editor seek ti
 test('malformed and unknown links fall back safely; legacy routes still resolve', () => {
   for (const hash of ['#/wat','#/movie','#/task','#/agent/%E0%A4%A','#/home/a/b']) assert.deepEqual(N.routeFromHref(hash),{r:'home'});
   assert.deepEqual(N.routeFromHref('#/tools/remote'),{r:'services',id:'remote'});
-  assert.deepEqual(N.routeFromHref('#/skill'),{r:'settings',sec:'skills'});
+  assert.deepEqual(N.routeFromHref('#/skill'),{r:'skills'});
+  assert.deepEqual(N.routeFromHref('#/settings?sec=skills'),{r:'skills'});
   assert.deepEqual(N.routeFromHref('#/movie/p1?t=NaN'),{r:'editor',id:'p1'});
   assert.deepEqual(N.routeFromHref('#/movie/p1?t=-1'),{r:'editor',id:'p1'});
 });

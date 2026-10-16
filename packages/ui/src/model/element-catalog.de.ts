@@ -110,10 +110,10 @@ export const de: ElementCatalogMessages = {
   shapeName: (name: string) => `Form · ${name}`,
   stickerName: (label: string) => `Sticker · ${label}`,
   sections: {
-    sticker: { title: "Sticker", note: "10 integrierte + Markenbibliothek" },
+    sticker: { title: "Sticker", note: "16 Pakete + 10 integrierte + Markenbibliothek" },
     dynamic: {
       title: "Animierte Sticker",
-      note: "10 Konfettistile + Lottie aus Markenbibliothek",
+      note: "5 Noto-Lottie-Pakete + 10 Konfetti + Markenbibliothek",
     },
     shape: { title: "Formen", note: "23 Kacheln · 5-Farben-Zyklus" },
     visualizer: {

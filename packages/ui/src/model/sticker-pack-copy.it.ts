@@ -1,0 +1,35 @@
+import type { StickerPackMessages } from './sticker-pack-copy.ts';
+
+export const it: StickerPackMessages = {
+  packs: {
+    featured: 'In evidenza',
+    emoji: 'Emoji',
+    people: 'Persone',
+    mockup: 'Mockup',
+    podcast: 'Podcast',
+    icon: 'Icone',
+    summer: 'Estate',
+    gesture: 'Gesti',
+    arrow: 'Frecce e puntatori',
+    hand: 'Disegnati a mano',
+    birthday: 'Compleanno',
+    finance: 'Finanza',
+    fitness: 'Fitness',
+    seasonal: 'Stagioni',
+    school: 'Ritorno a scuola',
+    cta: 'CTA',
+    'dyn-collage': 'Collage',
+    'dyn-emoji': 'Emoji',
+    'dyn-grow': 'Crescita',
+    'dyn-holiday': 'Festività',
+    'dyn-work': 'Lavoro',
+  },
+  morePacks: 'Altri pacchetti',
+  packMenuHead: (count: number) => `${count} pacchetti`,
+  packCount: (count: number) => `${count} adesivi`,
+  ctaTitle: 'Pop-up CTA',
+  ctaNote: '32 stili · iscriviti / mi piace / condividi / acquista',
+  notoHint:
+    'Le cinque categorie integrate sono Lottie di Google Noto Animated Emoji (CC BY 4.0): loop vettoriali con trasparenza che seguono la testina sulla tela e si possono ricolorare come gli adesivi.',
+  addFailed: (message: string) => `Impossibile aggiungere l’adesivo: ${message}`,
+};

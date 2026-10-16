@@ -32,4 +32,5 @@ export const de: LibraryBrandMessages = {
   styleEmpty: "Das Untertitelstildokument ist leer",
   styleNoSchema: "Das Untertitelstildokument hat kein schema und kann nicht im Marken-Kit gespeichert werden",
   styleTooLarge: "Der Untertitelstil ist größer als 64 KiB",
+  template: 'Vorlage',
 };

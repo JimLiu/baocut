@@ -92,8 +92,8 @@ export const ja: ElementCatalogMessages = {
   shapeName: (name: string) => `図形 · ${name}`,
   stickerName: (label: string) => `ステッカー · ${label}`,
   sections: {
-    sticker: { title: 'ステッカー', note: '内蔵 10 種 + ブランドキット' },
-    dynamic: { title: 'アニメーションステッカー', note: '紙吹雪 10 種 + ブランドキットの Lottie' },
+    sticker: { title: 'ステッカー', note: '16 パック + 内蔵 10 種 + ブランドキット' },
+    dynamic: { title: 'アニメーションステッカー', note: 'Noto Lottie 5 分類 + 紙吹雪 10 種 + ブランドキット' },
     shape: { title: '図形', note: '23 種 · 5 色を循環' },
     visualizer: { title: 'ビジュアライザ', note: 'プログレス 14 + タイマー 2 + 波形 10' },
   },
