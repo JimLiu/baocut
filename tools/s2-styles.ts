@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import macros from 'unplugin-parcel-macros';
 import { normalizePath, parseAst, type Plugin } from 'vite';
 import { mergeLayeredCss, parseLayeredCss } from './s2-styles-merge.ts';
+import { tokenFieldSelectionPlugin } from './s2-tokenfield.mjs';
 
 /** 生产构建合成一块（s2-styles）的 CSS：style 宏生成的，以及 S2、S2 AI 组件自带的。 */
 export function s2StylesChunk(id: string): string | undefined {
@@ -23,7 +24,7 @@ export function s2StylesChunk(id: string): string | undefined {
 export function s2Styles(): Plugin[] {
   const macroPlugin = macros.vite() as Plugin;
   const [devStyles, inlineStyles] = dedupeS2StylesInDev(macroPlugin);
-  return [devStyles, macroPlugin, inlineStyles, dedupeS2StylesInBuild()];
+  return [tokenFieldSelectionPlugin(), devStyles, macroPlugin, inlineStyles, dedupeS2StylesInBuild()];
 }
 
 /**
