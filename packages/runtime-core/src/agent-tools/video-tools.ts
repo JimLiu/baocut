@@ -97,7 +97,7 @@ export interface VideoToolsDeps {
 
 // i18n-ignore: 给模型的工具说明、错误与下一步
 export const videoArg = z.string().min(1).max(1000).describe('视频：videos_list 给出的 path 或 videoId');
-const revisionArg = z.string().regex(/^\d+$/);
+export const revisionArg = z.string().regex(/^\d+$/);
 export const commandIdArg = z.string().regex(/^[A-Za-z0-9_-]{1,100}$/);
 
 /** 字幕与翻译核心的排版 profile（`crates/speech-doc` 的 `layout_profile.rs`）。两者源侧的切条参数相同，只差渲染时的最多行数。 */
@@ -436,6 +436,7 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
       '读取一个视频的当前状态。',
       '包括版本（revision）、序列（帧率、画布、时长）、轨道、时间线上的片段（含摆法、音量、效果与裁剪）、转场、章节、闪避规则、素材库、文档（转写、译文、字幕等，只列文档头，不含正文）、最近的修改历史。',
       '素材从链接导入（或来源里带着平台信息）时有 source：platform、webpageUrl、uploader、uploadDate、title、description（截到 1200 个字符，descriptionTruncated 说明截没截）与作者章节 chapters [{ at, title }]（素材时间的秒，平台给的章节，没有时是简介里的时间戳大纲；未吸附）。润色转写、识别说话人时当背景参考（人名、术语）；要采用作者章节用 chapters_adopt。',
+      '网上素材（assets_download）与从链接导入的素材另有 credit：source、title、author、pageUrl、license（name、url、class；从链接导入的为 null，版权归上传者）与 attribution（一行署名）；成片片尾逐条署名照它写。',
       '片段的 place 是画幅的百分比：x、y 是框中心，w 是框宽占画幅宽的百分比，只列写了的字段；视频、图片等视觉媒体的 mode 为 fullscreen（铺满画布，位置与宽不起作用）或 pip（画中画）。音量是线性倍数，1 为原音量。',
       '修改之前先调用它，拿到 revision 和对象 ID。片段按开始时间排序；片段多时用 fromSeconds/toSeconds 读一段。',
       '下一步：导入素材并放到时间线上用 assets_import，写文档（转写、译文）用 documents_put，看画面用 videos_frames，采用素材来源自带的章节用 chapters_adopt，其余修改用 edits_apply；完整的修改历史与检查点用 videos_history。',

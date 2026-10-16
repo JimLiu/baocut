@@ -472,7 +472,7 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
     type: 'setDucking',
     family: 'chapters-and-ducking',
     doc: [
-      '- {"type":"setDucking","ruleId"?,"trigger":{"kind":"items","trackIds"?,"itemIds"?} 或 {"kind":"speech"},"target":{"trackIds"?,"itemIds"?},"depth"?,"attack"?:秒,"release"?:秒,"enabled"?,"name"?}：闪避，例如人声响起时把背景音乐压低。trigger 的 items 是这些轨道与片段发声时；speech 是有人说话时（按文稿，这一版还不压低）。不给 ruleId 时新建（须给 trigger 与 target），给了只改给出的字段。depth 是压低的 dB，在 0–60，默认 10；attack 默认 0.02 秒、release 默认 0.35 秒。触发组与目标组不能重叠。',
+      '- {"type":"setDucking","ruleId"?,"trigger":{"kind":"items","trackIds"?,"itemIds"?} 或 {"kind":"speech"},"target":{"trackIds"?,"itemIds"?},"depth"?,"attack"?:秒,"release"?:秒,"enabled"?,"name"?}：闪避，例如人声响起时把背景音乐压低。trigger 的 items 是这些轨道与片段发声时；speech 是有人说话时：按视频里转写文稿的词时间（剪掉的词不算），预览与导出都按它压低；视频没有带时间的文稿时不压低，导出警告 DUCK_NO_SPEECH。不给 ruleId 时新建（须给 trigger 与 target），给了只改给出的字段。depth 是压低的 dB，在 0–60，默认 10；attack 默认 0.02 秒、release 默认 0.35 秒。触发组与目标组不能重叠。',
     ],
     schema: op('setDucking', {
       ruleId: idOf('要改的规则；不给时新建').optional(),

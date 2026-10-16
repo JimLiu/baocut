@@ -10,7 +10,7 @@ const NOW = Date.parse('2026-10-06T10:00:00Z');
 const acc = (id, o) => Object.assign({accountId: id, label: null, masked: 'sk-…' + id.padStart(4, '0'), enabled: true, status: {state: 'ok'}}, o);
 
 test('文本目录使用 DeepSeek、豆包与 GLM 的官方 API 名称', () => {
-  assert.deepEqual(V.modelsOf('deepseek', 'text').map((m) => m.id), ['deepseek-flash', 'deepseek-v4-pro']);
+  assert.deepEqual(V.modelsOf('deepseek', 'text').map((m) => m.id), ['deepseek-v4-pro', 'deepseek-flash']);
   assert.deepEqual(V.modelsOf('volcengine', 'text').map((m) => m.id), ['doubao-seed-2-1-pro-260915', 'doubao-seed-2-1-lite-260915']);
   assert.deepEqual(V.modelsOf('zhipu', 'text').map((m) => m.id), ['glm-5.3', 'glm-5.3-flash']);
 });
@@ -175,8 +175,8 @@ test('能力页第 ④ 节的全目录：已连接 → 已添加没账号 → �
 
 test('能力页第 ④ 节的全目录：查询名字 / id / 模型 id；P1 与智能体不列，自建列在最后', () => {
   const {settings, accounts} = V.seed(NOW);
-  assert.deepEqual(V.capCatalog('text', settings, accounts, NOW, ' Kimi ').map((r) => r.id), ['moonshot']);
-  assert.deepEqual(V.capCatalog('text', settings, accounts, NOW, 'gpt-6').map((r) => r.id), ['openai']);
+  assert.deepEqual(V.capCatalog('text', settings, accounts, NOW, ' Kimi ').map((r) => r.id), ['moonshot', 'siliconflow']);
+  assert.deepEqual(V.capCatalog('text', settings, accounts, NOW, 'gpt-6').map((r) => r.id), ['openai', 'openrouter']);
   assert.deepEqual(V.capCatalog('text', settings, accounts, NOW, 'groq').map((r) => r.id), ['groq']);
   assert.deepEqual(V.capCatalog('text', settings, accounts, NOW, '没有这家'), []);
   assert.ok(!V.capCatalog('tts', settings, accounts, NOW).some((r) => r.id === 'minimax'), 'MiniMax 的合成是 P1');

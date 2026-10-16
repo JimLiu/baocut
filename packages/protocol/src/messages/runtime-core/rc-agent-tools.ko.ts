@@ -66,6 +66,9 @@ export const ko: RcAgentToolsMessages = {
   translationDocumentName: (p) => `${p.language} 번역`,
   importAssetSummary: (p) => `소재 ${p.name} 가져오기${p.place ? ' 및 타임라인에 추가' : ''}`,
   importAssetLabel: (p) => `${p.name} 가져오기${p.place ? ' 및 타임라인에 추가' : ''}`,
+  openMediaDownloadSummary: (p) => `${p.source}에서 "${p.title}"(${p.license}) 다운로드 후 가져오기${p.place ? ' 및 타임라인에 추가' : ''}`,
+  sfxSummary: (p) => `효과음 "${p.recipe}"을(를) 생성해 가져오기${p.place ? ' 후 타임라인에 추가' : ''}`,
+ 
   replaceCompositionSummary: (p) => `${p.name} 가져오기 및 타임라인의 클립 ${p.clip} 교체`,
   replaceCompositionLabel: (p) => `모션 그래픽을 ${p.name}(으)로 교체`,
   pruneAssetsSummary: (p) => `사용하지 않는 소재를 동영상에서 삭제(${p.count}개): ${p.names}`,

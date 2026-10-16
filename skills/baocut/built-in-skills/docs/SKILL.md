@@ -140,4 +140,4 @@ docs_update( doc = "q3-launch-plan", ref = {"object":"node","id":"be1476b2-62c1"
 
 ## 参考页
 
-在本 skill 的 `references/` 下（用 `skills_read` 取）：`editing.md`（删除、移动、表格行列、找回文字、拒绝码之前**先**读）、`tabs.md`（加标签页、排序、嵌套、改名、互相链接）、`comments.md`（列评论、处理评论、回复）、`uploads.md`（图片与文件）。
+参考文件在本 skill 的 `references/` 下，要用时用 `skills_read` 取：`references/editing.md`（删除、移动、表格行列、找回文字、拒绝码之前**先**读）、`references/tabs.md`（加标签页、排序、嵌套、改名、互相链接）、`references/comments.md`（列评论、处理评论、回复）、`references/uploads.md`（图片与文件）。

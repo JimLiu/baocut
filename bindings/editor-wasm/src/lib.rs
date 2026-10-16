@@ -19,8 +19,10 @@
 //! - `bc_engine_ranges`：见 [`ranges::engine_ranges`]；
 //! - `bc_element_presets`：见 [`presets::element_presets`]；
 //! - `bc_speaker_proposal` / `bc_apply_speakers`：已有转写的识别说话人，见 [`speakers`]；
-//! - `bc_source_chapters`：来源自带章节（平台的 `chapters[]`、简介里的时间戳大纲或显式大纲）的解析与吸附，见 [`source_chapters`]。
+//! - `bc_source_chapters`：来源自带章节（平台的 `chapters[]`、简介里的时间戳大纲或显式大纲）的解析与吸附，见 [`source_chapters`]；
+//! - `bc_audio_analysis` / `bc_audio_sheet` / `bc_sfx_render` / `bc_sfx_recipes`：音频的逐帧特征与节拍、听音表、程序化音效，见 [`audio`]（前三个的输入或输出是二进制）。
 
+pub mod audio;
 pub mod presets;
 pub mod ranges;
 pub mod source_chapters;
@@ -114,6 +116,16 @@ fn finish(result: Result<String, EntryError>) -> u32 {
     status
 }
 
+/// 同 [`finish`]，成功时输出区是原样的字节（错误照旧是 JSON）。
+fn finish_bytes(result: Result<Vec<u8>, EntryError>) -> u32 {
+    let (status, bytes) = match result {
+        Ok(bytes) => (0, bytes),
+        Err(error) => (1, serde_json::to_vec(&error).expect("错误总能序列化")),
+    };
+    OUTPUT.with_borrow_mut(|output| *output = bytes);
+    status
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn bc_alloc(len: usize) -> *mut u8 {
     let mut buffer = Vec::<u8>::with_capacity(len);
@@ -133,15 +145,17 @@ pub unsafe extern "C" fn bc_free(ptr: *mut u8, len: usize) {
 
 /// 导出一个 `bc_<名字>(ptr, len) -> u32`：读输入、调函数、把结果或错误写进输出区。
 macro_rules! export {
-    ($($name:ident => $function:path;)*) => {$(
+    ($($name:ident => $function:path;)*) => {$(export!(@one $name => $function, finish);)*};
+    (bytes: $($name:ident => $function:path;)*) => {$(export!(@one $name => $function, finish_bytes);)*};
+    (@one $name:ident => $function:path, $finish:ident) => {
         /// # Safety
         /// `ptr` 指向 `len` 个已写入的字节。
         #[unsafe(no_mangle)]
         pub unsafe extern "C" fn $name(ptr: *const u8, len: usize) -> u32 {
             let input = unsafe { std::slice::from_raw_parts(ptr, len) };
-            finish($function(input))
+            $finish($function(input))
         }
-    )*};
+    };
 }
 
 export! {
@@ -154,6 +168,14 @@ export! {
     bc_speaker_proposal => speakers::speaker_proposal;
     bc_apply_speakers => speakers::apply_speakers;
     bc_source_chapters => source_chapters::source_chapters;
+    bc_audio_analysis => audio::audio_analysis;
+    bc_sfx_recipes => audio::sfx_recipes;
+}
+
+export! {
+    bytes:
+    bc_sfx_render => audio::sfx_render;
+    bc_audio_sheet => audio::audio_sheet;
 }
 
 #[unsafe(no_mangle)]

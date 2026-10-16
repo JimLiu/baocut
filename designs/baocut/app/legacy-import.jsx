@@ -126,8 +126,9 @@
     return (
       <>
         {window.LegacyImportRunner ? <window.LegacyImportRunner /> : null}
-        {app.legacyAsk ? <LegacyImportAsk app={app} /> : null}
-        {!app.legacyAsk && app.legacySettingsOpen ? <LegacySettingsReport app={app} /> : null}
+        {/* 首次启动引导（onboarding.jsx）开着时先等它关掉，同一次启动不叠两个对话框 */}
+        {app.legacyAsk && !app.onboarding ? <LegacyImportAsk app={app} /> : null}
+        {!app.legacyAsk && !app.onboarding && app.legacySettingsOpen ? <LegacySettingsReport app={app} /> : null}
       </>
     );
   }

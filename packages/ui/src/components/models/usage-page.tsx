@@ -188,10 +188,12 @@ function unitsText(units: UsageUnits): string {
   return parts.join(' · ') || '—';
 }
 
-/** 一行的花费：按 `costKind` 写报告 / 估算 / 两者都有 / 未知。 */
+/** 一行的花费：按 `costKind` 写报告 / 估算 / 两者都有 / 未知 / 订阅内；没有要计费的调用（`none`）写「—」。 */
 function costText(r: UsageRow): string {
   const copy = USAGE_COPY.cost;
   const money = formatMoney(r.cost);
+  if (r.costKind === 'none') return '—';
+  if (r.costKind === 'subscription') return copy.subscription;
   if (r.costKind === 'unknown' || !money) return copy.unknown;
   if (r.costKind === 'reported') return copy.reported(money);
   if (r.costKind === 'mixed') return copy.mixed(money);
@@ -242,7 +244,6 @@ export function UsagePage({ providerId }: { providerId?: string }) {
   else if (!totals.calls) body = <EmptyCard title={copy.emptyTitle} body={filterName ? copy.emptyOne(filterName) : copy.emptyAll} />;
   else {
     const rows = report[split];
-    const top = Math.max(1, ...rows.map((r) => r.calls));
     body = (
       <>
         <div className={tiles}>
@@ -306,7 +307,7 @@ export function UsagePage({ providerId }: { providerId?: string }) {
                   <span role="cell">{copy.rowCalls(r.calls, r.failed)}</span>
                   <span role="cell" className={wideOnly} aria-label={`${sharePercent(r.calls, totals.calls)}%`}>
                     <span className={share}>
-                      <span className={shareFill} style={{ width: `${shareWidth(r.calls, top)}%` }} />
+                      <span className={shareFill} style={{ width: `${shareWidth(r.calls, totals.calls)}%` }} />
                     </span>
                   </span>
                   <span role="cell" className={wideOnly}>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { isBuiltinDriverId, type DriverId } from '@baocut/protocol';
 import { ActionButton, Button, Disclosure, DisclosurePanel, DisclosureTitle, ProgressBar, Text, ToastQueue } from '@react-spectrum/s2';
 import AlertTriangle from '@react-spectrum/s2/icons/AlertTriangle';
@@ -10,7 +10,7 @@ import Refresh from '@react-spectrum/s2/icons/Refresh';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { Button as RACButton } from 'react-aria-components';
 import { agoLabel } from '../../model/format.ts';
-import { configureAgent, detectAgents, watchAgentSetup } from '../../runtime/agent-commands.ts';
+import { configureAgent, detectAgents } from '../../runtime/agent-commands.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useConnection } from '../../state/connection-store.ts';
 import { HOME, useShell } from '../../state/shell-store.ts';
@@ -19,7 +19,7 @@ import { AGENT_COPY, AGENT_FAQ, MORE_PROVIDERS, providersMeta } from './agent-co
 import { Panel, SectionHeading } from './agent-panels.tsx';
 import { AgentProviderCard } from './agent-provider-card.tsx';
 import { M } from './general-settings-copy.ts';
-import { agentOverview, groupDrivers, isInstalled, moreSummary, setupDoneToast } from './agent-setup.ts';
+import { agentOverview, groupDrivers, isInstalled, moreSummary } from './agent-setup.ts';
 
 // 状态卡（settings-agent.css .agset-status）：卡片本身是中性的一层，只有左边 40px 的图标块按状态变色。
 const status = style({
@@ -112,17 +112,6 @@ export function AgentProviders() {
   const [scanning, setScanning] = useState(false);
   const [enabling, setEnabling] = useState(false);
   const [showMore, setShowMore] = useState(false);
-
-  // 设置页里运行的安装、升级命令：这一页开着时订阅它的输出与结果；成功跑完（Runtime 已重新检测）弹一句。
-  useEffect(
-    () =>
-      watchAgentSetup(runtime, (run, view) => {
-        const now = view?.drivers.find((d) => d.id === run.driverId);
-        const toast = now ? setupDoneToast(run, now) : null;
-        if (toast) ToastQueue[toast.tone](toast.text, { timeout: 4000 });
-      }),
-    [runtime],
-  );
 
   const groups = groupDrivers(drivers ?? []);
   const list = [...groups.main, ...groups.more];

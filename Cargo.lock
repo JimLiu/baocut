@@ -975,6 +975,7 @@ dependencies = [
 name = "editor-wasm"
 version = "0.4.0"
 dependencies = [
+ "audio-dsp",
  "editor-semantics",
  "motion",
  "render-graph",
@@ -984,6 +985,7 @@ dependencies = [
  "speech-doc-bridge",
  "timeline",
  "video-model",
+ "waveform",
 ]
 
 [[package]]

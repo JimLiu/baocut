@@ -9,3 +9,5 @@ export const mediaTheme = style({
   '--media-muted': { type: 'color', value: 'gray-600' },
   '--media-accent': { type: 'color', value: 'blue-900' },
 });
+// 查看器挂在 body 下，不在应用根的字体里；表头标题要自己带 S2 字体。
+export const mediaHeaderTitle = style({ font: 'ui-sm', color: 'gray-600', textAlign: 'center' });

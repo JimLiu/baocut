@@ -6,8 +6,12 @@ import {
   EditorWasmError,
   SENTENCE_DERIVATION,
   applySpeakers,
+  audioAnalysis,
+  audioSheet,
   editorWasmAvailable,
   locateEditorWasm,
+  sfxRecipes,
+  sfxRender,
   sourceChapters,
   speakerProposal,
   speechSentences,
@@ -150,4 +154,37 @@ it('finds the shipped WASM from a shared chunk outside the repository', () => {
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+describe.skipIf(!built)('editor-wasm audio（Node）', () => {
+  it('analyzes PCM passed as bytes and renders SFX as WAV', () => {
+    const rate = 16000;
+    const pcm = new Float32Array(rate * 3);
+    for (let beat = 0; beat < 6; beat++) {
+      const start = rate / 4 + (beat * rate) / 2;
+      for (let i = 0; i < 800; i++) pcm[start + i] = Math.exp((-i / rate) * 60) * Math.sin((2 * Math.PI * 1000 * i) / rate);
+    }
+    const result = audioAnalysis(pcm, { sampleRate: rate, fps: 25, beats: false });
+    expect(result.frameCount).toBe(75);
+    expect(result.frames.level).toHaveLength(75);
+    expect(result.onsets.map((o) => Math.round(o.t * 4) / 4)).toEqual([0.25, 0.75, 1.25, 1.75, 2.25, 2.75]);
+    expect(() => audioAnalysis(new Float32Array(0), { sampleRate: rate, fps: 25 })).toThrow(
+      expect.objectContaining({ code: 'AUDIO_EMPTY' }),
+    );
+    const synced = audioAnalysis(pcm, { sampleRate: rate, fps: 25, beats: false, cues: [0.76, 1.5, 9] });
+    expect(synced.sync?.cues.map((c) => c.status)).toEqual(['ok', 'none', 'outside']);
+    expect(synced.sync?.chance).toBeGreaterThan(0);
+    expect(result.sync).toBeUndefined();
+    const sheet = audioSheet(pcm, { sampleRate: rate, width: 320, beats: false, cues: [0.76] });
+    expect(sheet.width).toBe(320);
+    expect(sheet.rgba.length).toBe(320 * sheet.height * 4);
+    expect(sheet.height).toBeGreaterThan(100);
+
+    const wav = sfxRender({ recipe: 'blip', seed: 1 });
+    expect(new TextDecoder().decode(wav.slice(0, 4))).toBe('RIFF');
+    expect(wav.length).toBe(44 + Math.round(0.15 * 48000) * 4);
+    expect(sfxRender({ recipe: 'blip', seed: 1 })).toEqual(wav);
+    expect(() => sfxRender({ recipe: 'laser' })).toThrow(expect.objectContaining({ code: 'SFX_UNKNOWN_RECIPE' }));
+    expect(sfxRecipes().map((r) => r.name)).toContain('whoosh');
+  });
 });

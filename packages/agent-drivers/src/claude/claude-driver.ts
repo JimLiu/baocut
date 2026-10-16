@@ -117,7 +117,10 @@ export class ClaudeDriver implements AgentDriver {
       this.#readModels(install, realExecutable, settingsFile, options.force === true),
       readClaudeSettingsModels(settingsFile),
     ]);
-    const table = models ?? FALLBACK_CLAUDE_MODELS;
+    // Fable 5.1 的别名需要 Claude Code 2.1.257+；真实目录优先，兜底时不给旧 CLI 它不认识的选项。
+    const table = models ?? FALLBACK_CLAUDE_MODELS.filter(
+      (model) => model.id !== 'fable' || compareVersions(install.version!, '2.1.257') >= 0,
+    );
     const configModel = settings.model;
     const extra: Partial<DriverProbe> = {
       realExecutable,

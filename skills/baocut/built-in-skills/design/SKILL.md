@@ -112,4 +112,4 @@ return { accent: this.props.accent ?? '#666666' };
 
 ## 参考页
 
-在本 skill 的 `references/` 下（用 `skills_read` 取）：`format.md`（写第一块画板之前读）、`craft.md`、`diagrams.md`（做示意图时**先**读）、`print.md`（做印刷品时**先**读）、`questions.md`、`view-state.md`（处理「这块画板」、选区或设计标注之前读）、`design-system-components.md`、`brand-colors.md`、`brand-typography.md`。
+参考文件在本 skill 的 `references/` 下，要用时用 `skills_read` 取：`references/format.md`（写第一块画板之前读）、`references/craft.md`、`references/diagrams.md`（做示意图时**先**读）、`references/print.md`（做印刷品时**先**读）、`references/questions.md`、`references/view-state.md`（处理「这块画板」、选区或设计标注之前读）、`references/design-system-components.md`、`references/brand-colors.md`、`references/brand-typography.md`。

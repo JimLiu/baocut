@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { MediaTarget, MediaHandle } from '@baocut/protocol';
-import { ActionButton, LinkButton, ToastQueue, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
+import { ActionButton, Button, ToastQueue, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
 import FileText from '@react-spectrum/s2/icons/FileText';
 import OpenIn from '@react-spectrum/s2/icons/OpenIn';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -14,6 +14,7 @@ import { useDirectory } from '../state/directory-store.ts';
 import { useShell } from '../state/shell-store.ts';
 import { useSpace } from '../state/space-store.ts';
 import { FilePreview, DocumentViewControl } from './file-preview.tsx';
+import { useSaveDownload } from './media/save-download.ts';
 import { PANEL as M } from './panel-copy.ts';
 import { type FilePreviewMode } from '../model/file-preview.ts';
 import { markdownAbsolutePath } from '../model/markdown-file-link.ts';
@@ -75,6 +76,7 @@ const missing = style({ display: 'flex', alignItems: 'center', justifyContent: '
  */
 export function FilePane({ target, conversationId, fileNameHint, active = true }: { active?:boolean; fileNameHint?:string; target: MediaTarget; conversationId?: string | null }) {
   const runtime = useRuntime();
+  const save = useSaveDownload();
   const [source, setSource] = useState(false);
   const [resolved, setResolved] = useState<{ handle: MediaHandle; mode: FilePreviewMode | null } | null>(null);
   const go = useShell((s) => s.go);
@@ -146,7 +148,7 @@ export function FilePane({ target, conversationId, fileNameHint, active = true }
         {canvasDir !== null && <ActionButton isQuiet onPress={openCanvas}>{DESIGN.openInEditor}</ActionButton>}
         {systemDir !== null && <ActionButton isQuiet onPress={openSystem}>{DESIGN_SYSTEM.openInEditor}</ActionButton>}
         {docDir !== null && <ActionButton isQuiet onPress={openDoc}>{DOCS.openInEditor}</ActionButton>}
-        {resolved && <LinkButton variant="secondary" href={`${resolved.handle.url}?download=1`} target="_blank" rel="noopener noreferrer" download={fileName}>{IMAGE.download}</LinkButton>}
+        {resolved && <Button variant="secondary" onPress={() => save.media(resolved.handle.url, fileName)}>{IMAGE.download}</Button>}
         {absolute && kind && runtime.host.openFile && <ActionButton isQuiet onPress={() => {
           void runtime.host.openFile!(absolute).then(async error => {
             if (error === null) await runtime.host.revealPath(absolute);

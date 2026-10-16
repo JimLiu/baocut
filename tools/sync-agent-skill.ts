@@ -2,11 +2,12 @@
 /**
  * 说明书的同步（Agent 面设计 §8.3、§8.6、§8.7）：
  *
- * 1. craft 副本：每个内置 skill `skills/baocut/built-in-skills/<id>/`（SKILL.md + references/*.md）合成一页
- *    `skills/baocut/references/craft/<id>.md`。
- *    front matter 去掉，正文开头的一级标题作标题（没有时用 `name`）、`description` 作引言，references 作二级附录；工具桥的工具名按 CLI 面改写
- *    （`documents_read` → `baocut documents read`，`edits_apply` 的操作名不动），`skills_read` 的说法改成读本页附录或别的
- *    craft 页；正文里的标记与占位符按 CLI 面渲染（与说明书同一个渲染器）。`built-in-skills/` 里没有了的 craft 页删掉。
+ * 1. craft 副本：每个内置 skill `skills/baocut/built-in-skills/<id>/` 生成一页 `skills/baocut/references/craft/<id>.md`
+ *    （SKILL.md 正文）与一个同名目录 `references/craft/<id>/`（skill 目录里的其余文件，相对路径不变）。
+ *    主页去掉 front matter，正文开头的一级标题作标题（没有时用 `name`）、`description` 作引言，末尾列出同目录的文件；
+ *    其余的 `.md` 各成一页，别的文件（代码、样例、数据）原样复制，不内嵌进 Markdown。`.md` 里工具桥的工具名按 CLI 面改写
+ *    （`documents_read` → `baocut documents read`，`edits_apply` 的操作名不动），`skills_read` 的说法改成指向同目录文件或别的
+ *    craft 页的链接；正文里的标记与占位符按 CLI 面渲染（与说明书同一个渲染器）。`built-in-skills/` 里没有了的页与文件删掉。
  * 2. 生成块：说明书里 `<!-- generated: <名字> -->` … `<!-- /generated -->` 之间的内容按目录重写：
  *    `common-ops`（最常用的 8 个 `edits_apply` 操作，来自 `edits_ops` 的说明与示例）、`error-codes`（错误码 → 退出码 →
  *    下一步，来自 `apps/cli/src/envelope.ts` 的表）、`tool-map`（MCP 工具 ↔ CLI 命令 ↔ 效果，来自目录）。
@@ -69,7 +70,7 @@ export function defaultSyncInputs(): SyncInputs {
 export interface SyncResult {
   /** 相对 `root` 的路径 → 应有的内容（craft 页与带生成块的页）。 */
   files: Map<string, string>;
-  /** 该删的 craft 页（相对 `root`）。 */
+  /** 该删的 craft 页与同目录文件（相对 `root`）。 */
   stale: string[];
   /** 不阻止同步、但要人看的问题（例如 craft 里只在工具桥里有的工具名）。 */
   warnings: string[];
@@ -96,15 +97,14 @@ export function buildAgentSkillSync(root: string, inputs: SyncInputs = defaultSy
     : [];
   const ids = new Set(craftIds);
   for (const id of craftIds) {
-    files.set(`${agentRel}/${AGENT_SKILL_CRAFT_DIR}/${id}.md`, composeCraft(id, path.join(skillsDir, id), ids, inputs, warnings));
+    for (const [rel, text] of composeCraft(id, path.join(skillsDir, id), ids, inputs, warnings)) files.set(`${agentRel}/${rel}`, text);
   }
   const craftAbs = path.join(agentDir, AGENT_SKILL_CRAFT_DIR);
   const stale = isDirectory(craftAbs)
-    ? fs
-        .readdirSync(craftAbs)
-        // 只管 `<id>.md`；README.md 这类说明文件不归同步脚本。
-        .filter((name) => craftIdsOf([`${AGENT_SKILL_CRAFT_DIR}/${name}`]) !== null && !ids.has(name.slice(0, -'.md'.length)))
-        .map((name) => `${agentRel}/${AGENT_SKILL_CRAFT_DIR}/${name}`)
+    ? listFiles(craftAbs)
+        .map((name) => `${AGENT_SKILL_CRAFT_DIR}/${name}`)
+        .filter((rel) => isCraftOutput(rel) && !files.has(`${agentRel}/${rel}`))
+        .map((rel) => `${agentRel}/${rel}`)
     : [];
 
   // 2. 生成块。
@@ -117,7 +117,7 @@ export function buildAgentSkillSync(root: string, inputs: SyncInputs = defaultSy
 
   // 3. 两个面各渲染一遍：占位符、标记与工具名都要过。
   const merged = new Map(source);
-  for (const id of craftIdsOf(merged) ?? []) merged.delete(`${AGENT_SKILL_CRAFT_DIR}/${id}.md`);
+  for (const rel of [...merged.keys()]) if (isCraftOutput(rel)) merged.delete(rel);
   for (const [rel, text] of files) merged.set(rel.slice(agentRel.length + 1), text);
   renderAgentSkill(merged, { face: 'cli', catalog: { tools: inputs.cliTools } });
   renderAgentSkill(merged, { face: 'agent', catalog: { tools: inputs.agentToolNames.map((name) => ({ name })) } });
@@ -127,8 +127,24 @@ export function buildAgentSkillSync(root: string, inputs: SyncInputs = defaultSy
 
 // ---- craft ----
 
-/** 一份 craft 合成一页。 */
-export function composeCraft(id: string, dir: string, craftIds: ReadonlySet<string>, inputs: SyncInputs, warnings: string[]): string {
+/** craft 目录里归同步脚本管的文件：`<id>.md` 与 `<id>/` 下的全部文件；README.md 这类说明文件不算。 */
+function isCraftOutput(rel: string): boolean {
+  const prefix = `${AGENT_SKILL_CRAFT_DIR}/`;
+  if (!rel.startsWith(prefix)) return false;
+  return rel.slice(prefix.length).includes('/') || craftIdsOf([rel]) !== null;
+}
+
+/**
+ * 一份 craft 的 CLI 面：`references/craft/<id>.md`（SKILL.md 正文）与 `references/craft/<id>/<相对路径>`（其余文件），
+ * 返回相对说明书根的路径 → 内容。
+ */
+export function composeCraft(
+  id: string,
+  dir: string,
+  craftIds: ReadonlySet<string>,
+  inputs: SyncInputs,
+  warnings: string[],
+): Map<string, string> {
   const sourceRel = `skills/${AGENT_SKILL_ID}/${AGENT_SKILL_BUILTIN_DIR}/${id}`;
   const skillSource = fs.readFileSync(path.join(dir, 'SKILL.md'), 'utf8');
   const parsed = parseSkillFrontmatter(skillSource);
@@ -137,34 +153,42 @@ export function composeCraft(id: string, dir: string, craftIds: ReadonlySet<stri
   const title = firstHeading(parsed.body) ?? (parsed.fields.get('name') || id);
   const description = parsed.fields.get('description') ?? '';
 
-  const refsDir = path.join(dir, 'references');
-  const refFiles = isDirectory(refsDir) ? listMarkdown(refsDir).map((file) => `references/${file}`) : [];
-  const appendices = refFiles.map((file) => {
-    const text = fs.readFileSync(path.join(dir, file), 'utf8');
-    return { file, title: firstHeading(text) ?? path.posix.basename(file, '.md'), text };
-  });
-  const titles = new Map(appendices.map((a) => [a.file, a.title]));
-
+  const others = listFiles(dir).filter((file) => file !== 'SKILL.md');
+  const texts = new Map(others.map((file) => [file, fs.readFileSync(path.join(dir, file), 'utf8')]));
+  // 同目录的文件 → 链接文字：`.md` 用它的一级标题，别的用路径。
+  const titles = new Map(others.map((file) => [file, file.endsWith('.md') ? (firstHeading(texts.get(file)!) ?? file) : null]));
+  const sidecar = `${AGENT_SKILL_CRAFT_DIR}/${id}`;
   const page = `${AGENT_SKILL_CRAFT_DIR}/${id}.md`;
+  const banner = (from: string) =>
+    `<!-- 由 tools/sync-agent-skill.ts 从 ${from} 生成，不要手改：改源文件后运行 npm run build:agent-skill -->`;
   // 正文是源文件的尾部（去掉了 front matter 与开头的标题）：报错与提醒的行号按源文件算。
-  const rewrite = (text: string, file: string, source: string) => {
+  const rewrite = (text: string, file: string, source: string, at: string) => {
     const lineOffset = source.replace(/\r\n?/g, '\n').split('\n').length - text.split('\n').length;
-    return rewriteCraftText(text, { id, file: `${sourceRel}/${file}`, lineOffset, page, titles, craftIds, inputs, warnings });
+    return rewriteCraftText(text, { id, file: `${sourceRel}/${file}`, lineOffset, page: at, sidecar, titles, craftIds, inputs, warnings });
   };
 
-  const out: string[] = [
-    `<!-- 由 tools/sync-agent-skill.ts 从 ${sourceRel}/ 生成，不要手改：改源文件后运行 npm run build:agent-skill -->`,
-    '',
-    `# ${title}`,
-    '',
-  ];
-  if (description) out.push(`> ${description.replace(/\s*\n\s*/g, ' ')}`, '');
-  out.push(rewrite(dropLeadingHeading(parsed.body), 'SKILL.md', skillSource).trim(), '');
-  for (const appendix of appendices) {
-    out.push(`## 附录：${appendix.title}`, '');
-    out.push(demoteHeadings(rewrite(dropLeadingHeading(appendix.text), appendix.file, appendix.text)).trim(), '');
+  const main: string[] = [banner(`${sourceRel}/`), '', `# ${title}`, ''];
+  if (description) main.push(`> ${description.replace(/\s*\n\s*/g, ' ')}`, '');
+  main.push(rewrite(dropLeadingHeading(parsed.body), 'SKILL.md', skillSource, page).trim(), '');
+  if (others.length) {
+    main.push('## 同目录的文件', '', `在 \`${sidecar}/\` 下，用到时再打开；代码与样例原样复制，按正文说的用法取用。`, '');
+    for (const file of others) main.push(`- ${fileLink(file, page, sidecar, titles)}`);
+    main.push('');
   }
-  return out.join('\n');
+  const out = new Map([[page, main.join('\n')]]);
+  for (const file of others) {
+    const text = texts.get(file)!;
+    const at = `${sidecar}/${file}`;
+    out.set(at, file.endsWith('.md') ? `${banner(`${sourceRel}/${file}`)}\n\n${rewrite(text, file, text, at).trim()}\n` : text);
+  }
+  return out;
+}
+
+/** 指向同目录文件的链接（相对 `page` 所在的目录）：`.md` 的文字是它的标题，别的是行内代码的路径。 */
+function fileLink(file: string, page: string, sidecar: string, titles: ReadonlyMap<string, string | null>): string {
+  const href = path.posix.relative(path.posix.dirname(page), `${sidecar}/${file}`);
+  const title = titles.get(file);
+  return title ? `[${title}](${href})` : `[\`${file}\`](${href})`;
 }
 
 interface RewriteContext {
@@ -173,10 +197,12 @@ interface RewriteContext {
   file: string;
   /** 正文第一行在源文件里的行号减一。 */
   lineOffset: number;
-  /** 副本在说明书里的位置：`references/craft/<id>.md`。 */
+  /** 这一页在说明书里的位置：`references/craft/<id>.md` 或 `references/craft/<id>/<相对路径>`。 */
   page: string;
-  /** 本 skill 的 references 文件 → 附录标题。 */
-  titles: ReadonlyMap<string, string>;
+  /** 同目录文件的位置：`references/craft/<id>`。 */
+  sidecar: string;
+  /** skill 目录里除 SKILL.md 以外的文件 → 链接文字（`.md` 是标题，别的是 null）。 */
+  titles: ReadonlyMap<string, string | null>;
   craftIds: ReadonlySet<string>;
   inputs: SyncInputs;
   warnings: string[];
@@ -186,8 +212,9 @@ interface RewriteContext {
  * craft 正文按 CLI 面改写。`skills_read` 的说法只认下面几种写法，其余的报错（带文件与行号），由写 craft 的人改成能对上的说法，
  * 不猜：
  *
- * - 「用 `skills_read` 读本 skill 的 `references/x.md`」→「读本页的附录「…」」；
- * - 「…，要做这些时用 `skills_read` 取」→「…，要做这些时翻到那一节读」；
+ * - 「用 `skills_read` 读本 skill 的 `references/x.md`」→「读 [标题](<id>/references/x.md)」；行内代码里的 skill 内路径
+ *   （`references/x.md`、`scaffold.html`）都换成同目录文件的链接，`<skill 目录>` 换成同目录文件的位置；
+ * - 「…，要做这些时用 `skills_read` 取」→「…，要做这些时打开对应的页读」；
  * - 「用 `skills_read` 读 `<别的 craft id>`」→ 指向那一页的链接。
  * - 「用 `skills_read` 读 `baocut-catalog-<页>`」→ 指向共享目录页的链接，不复制正文；目标在整份说明书渲染时校验。
  */
@@ -204,14 +231,16 @@ export function rewriteCraftText(text: string, ctx: RewriteContext): string {
   // 以下的改写都不增删行，第 i 行仍对应正文的第 i 行。
   const lines = out.split('\n').map((line, index) =>
     line
-      .replace(/`(references\/[^`\s]+\.md)`/g, (whole, ref: string) => {
-        const title = ctx.titles.get(ref);
-        if (title) return `附录「${title}」`;
-        ctx.warnings.push(`${ctx.file}:${lineAt(index)}：提到的 ${ref} 不在这个 skill 的 references/ 里，原样留下`);
+      .replace(/`([^`\s]+)`/g, (whole, ref: string) => {
+        if (ctx.titles.has(ref)) return fileLink(ref, ctx.page, ctx.sidecar, ctx.titles);
+        if (/^references\/.+\.md$/.test(ref)) {
+          ctx.warnings.push(`${ctx.file}:${lineAt(index)}：提到的 ${ref} 不在这个 skill 的 references/ 里，原样留下`);
+        }
         return whole;
       })
-      .replace(/用\s*`skills_read`\s*读本 skill 的\s*/g, '读本页的')
-      .replace(/用\s*`skills_read`\s*取/g, '翻到那一节读')
+      .replace(/<skill 目录>/g, `<BaoCut skill 目录>/${ctx.sidecar}`)
+      .replace(/用\s*`skills_read`\s*读本 skill 的\s*/g, '读 ')
+      .replace(/用\s*`skills_read`\s*取/g, '打开对应的页读')
       .replace(/用\s*`skills_read`\s*读\s*`([a-z0-9-]+)`/g, (whole, other: string) => {
         const catalogPage = /^baocut-catalog-([a-z0-9]+(?:-[a-z0-9]+)*)$/.exec(other);
         if (catalogPage) {
@@ -219,7 +248,8 @@ export function rewriteCraftText(text: string, ctx: RewriteContext): string {
           return `读 [${other}](${path.posix.relative(path.posix.dirname(ctx.page), target)})`;
         }
         if (!ctx.craftIds.has(other)) return whole;
-        return `读 [\`${AGENT_SKILL_CRAFT_DIR}/${other}.md\`](${other}.md)`;
+        const href = path.posix.relative(path.posix.dirname(ctx.page), `${AGENT_SKILL_CRAFT_DIR}/${other}.md`);
+        return `读 [\`${AGENT_SKILL_CRAFT_DIR}/${other}.md\`](${href})`;
       }),
   );
   const left = lines.findIndex((line) => line.includes('skills_read'));
@@ -316,13 +346,14 @@ function isVerbReference(line: string, offset: number, length: number, at: 'fenc
   return /[^\x00-\x7f]/.test(before) || /[^\x00-\x7f]/.test(next);
 }
 
-function listMarkdown(dir: string, rel = ''): string[] {
+/** 目录里的全部文件（相对路径，`/` 分隔，按路径排序），点开头的文件与目录不算（`.baocut-meta.json`）。 */
+function listFiles(dir: string, rel = ''): string[] {
   const out: string[] = [];
   for (const entry of fs.readdirSync(path.join(dir, rel), { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
     if (entry.name.startsWith('.')) continue;
     const child = rel ? `${rel}/${entry.name}` : entry.name;
-    if (entry.isDirectory()) out.push(...listMarkdown(dir, child));
-    else if (entry.isFile() && entry.name.endsWith('.md')) out.push(child);
+    if (entry.isDirectory()) out.push(...listFiles(dir, child));
+    else if (entry.isFile()) out.push(child);
   }
   return out;
 }
@@ -338,19 +369,6 @@ function dropLeadingHeading(text: string): string {
   const first = lines.findIndex((line) => line.trim() !== '');
   if (first >= 0 && /^#\s/.test(lines[first]!)) lines.splice(0, first + 1);
   return lines.join('\n');
-}
-
-/** 标题降一级（代码块里的不动）：附录里的 `##` 变 `###`。 */
-function demoteHeadings(text: string): string {
-  let fence = false;
-  return text
-    .split('\n')
-    .map((line) => {
-      if (/^\s*(```|~~~)/.test(line)) fence = !fence;
-      if (fence) return line;
-      return /^#{1,5}\s/.test(line) ? `#${line}` : line;
-    })
-    .join('\n');
 }
 
 // ---- 生成块 ----
@@ -531,13 +549,22 @@ export function writeAgentSkillSync(root: string, result: SyncResult): string[] 
   for (const rel of changed) {
     const abs = path.join(root, rel);
     const text = result.files.get(rel);
-    if (text === undefined) fs.rmSync(abs, { force: true });
-    else {
+    if (text === undefined) {
+      fs.rmSync(abs, { force: true });
+      removeEmptyParents(path.dirname(abs), path.join(root, `skills/${AGENT_SKILL_ID}/${AGENT_SKILL_CRAFT_DIR}`));
+    } else {
       fs.mkdirSync(path.dirname(abs), { recursive: true });
       fs.writeFileSync(abs, text);
     }
   }
   return changed;
+}
+
+/** 删掉同目录文件后留下的空目录，一直到 `stop`（不含）。 */
+function removeEmptyParents(dir: string, stop: string): void {
+  for (let at = dir; at.startsWith(`${stop}${path.sep}`) && isDirectory(at) && fs.readdirSync(at).length === 0; at = path.dirname(at)) {
+    fs.rmdirSync(at);
+  }
 }
 
 function readOrNull(file: string): string | null {

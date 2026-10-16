@@ -82,9 +82,11 @@ function splitDescription(m: ModelInfo): { label: string; description: string | 
 /**
  * 拿不到 `supportedModels()` 时的精简表：只列别名，别名总指向当前版本，不会过时。
  * 强度按常见的四档给；不知道哪个是默认，都不标。
+ * 别名核对：https://code.claude.com/docs/en/model-config（2026-10-16）；各账号可用性仍以动态目录为准。
  */
 export const FALLBACK_CLAUDE_MODELS: ClaudeModelEntry[] = [
   { id: 'opus', label: 'Opus', description: null, tier: 'max', isDefault: false, efforts: efforts(['low', 'medium', 'high', 'max']), defaultEffort: null, resolvedModel: null },
+  { id: 'fable', label: 'Fable', description: null, tier: 'max', isDefault: false, efforts: efforts(['low', 'medium', 'high', 'max']), defaultEffort: null, resolvedModel: null },
   { id: 'sonnet', label: 'Sonnet', description: null, tier: 'balanced', isDefault: false, efforts: efforts(['low', 'medium', 'high', 'max']), defaultEffort: null, resolvedModel: null },
   { id: 'haiku', label: 'Haiku', description: null, tier: 'fast', isDefault: false, efforts: [], defaultEffort: null, resolvedModel: null },
 ];

@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { setLocale } from '@baocut/protocol';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { job, task } from '../testing/task-records.ts';
 import { agentRow, clip, jobPercent, jobRow, runsOnLabel, taskGroups, taskRows, type TaskContext } from './task-list.ts';
 
@@ -88,6 +89,23 @@ describe('jobRow', () => {
       ['已中断', 'neutral'],
     ]);
     expect(rows.every((r) => r.action === null && r.progress === null && !r.live)).toBe(true);
+  });
+
+  describe('换界面语言', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+      setLocale('zh-Hans');
+    });
+
+    it('结束了的状态 chip 按当前语言念，不停在模块加载时的语言', () => {
+      const ended = (state: 'cancelled' | 'needs-reconciliation') =>
+        jobRow(job({ jobId: state, state, phase: 'done', endedAt: '2026-10-01T09:10:00Z' }), ctx).label;
+      expect([ended('cancelled'), ended('needs-reconciliation')]).toEqual(['已取消', '结果不明']);
+      // 测试进程钉在简体中文（vitest.config 的 BAOCUT_LOCALE）：换英文要连环境变量一起换。
+      vi.stubEnv('BAOCUT_LOCALE', 'en');
+      setLocale('en');
+      expect([ended('cancelled'), ended('needs-reconciliation')]).toEqual(['Cancelled', 'Result unknown']);
+    });
   });
 
   it('崩溃后正在自动重跑的（interrupted、没有 endedAt）仍在进行：可以取消、不确定进度', () => {

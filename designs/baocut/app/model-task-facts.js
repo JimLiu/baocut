@@ -13,6 +13,7 @@
    4. **图片**（2026-09-27）：生图任务 jobs 帧的 `images[]`（同 `JobGranular.images`，最多 24 行），
       每行一次请求：摘要 `2/3 张 · 1 在画 · 约 $0.08`、元信息 `模型 · 画幅 · N 张 · 约 $0.04 · 12 s`。
       费用是按价目表估的（只写「约」），只计已完成的行。标题兜底也在这里：阶段机器值不进标题。
+   5. **模型下载没下完**（2026-10-16，`installFailure`）：失败卡写下好的留着、去补齐，不当配置问题。
 
    时长写法与 `wizard_media::clock` 一致（`3:26` / `1:02:03`），用时与 `took_ms` 一致。 */
 (function () {
@@ -263,10 +264,27 @@
     return rows;
   }
 
+  /** 模型下载没下完（`model-install` 失败，2026-10-16）的那张卡：不是配置问题，不给「换个模型重试」。
+      标题用任务的 `error`（已写哪一部分、连的哪里）。`kept`：有下好留着的部分（`false` 时什么都没留下）——
+      留着时「补齐」只下没下成的，没留下时去重新下载（与 BC_DLSRC.failLine 同一口径）；没记的旧任务按留着写。
+      语义搜索包的任务带 `semPkg` → 设置 › 语义索引；本机模型带 `model` → 设置 › 本地模型的那一类（`catOf(id)`，可缺）。
+      别的任务、取消的、没失败的 null。 */
+  function installFailure(t, catOf) {
+    if (!t || t.kind !== 'model-install' || t.status !== 'error' || t.canceled) return null;
+    const tab = !t.semPkg && t.model && catOf ? catOf(t.model) : null;
+    const kept = t.kept !== false;
+    return {
+      body: kept ? '下好的部分已经留着，补齐只下没下成的那部分；还是连不上的话，可以在下载确认框里换个下载来源。'
+        : '这次没有下好的部分。重新下载时可以在下载确认框里换个下载来源。',
+      label: kept ? '去补齐' : '去重新下载',
+      go: t.semPkg ? {r: 'settings', sec: 'semantic'} : Object.assign({r: 'settings', sec: 'local'}, tab ? {tab} : null),
+    };
+  }
+
   window.BC_TASK_FACTS = {
     LIVE_SEGMENT_LIMIT, clock, took, fmtSize, fmtCount, fileName,
     source, transcript, transcriptSummary, statusLabel, details,
     IMAGE_ROW_LIMIT, IMAGE_PROMPT_MAX, images, imagesCost, imagesSummary, imageMeta, imageStatus, imageModelName,
-    taskTitle, cardSub,
+    taskTitle, cardSub, installFailure,
   };
 })();

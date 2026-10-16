@@ -6,7 +6,7 @@
    - 打开视频（openMovie）：Home 与 Space 是同一个动作——Space 编辑器路由带 `via`，Home 会话路由带 `movie`，保留入口侧栏；Space 用右下角的悬浮会话（shell.jsx，状态在共享 store 的 movieChats），Home 保留左侧会话（§5.1）。
    - Space 的整理标记（收藏 / 回收站）与二次编辑另存出来的新版本：投影之外的那一层，投影本身在 model-space.js。 */
 (function () {
-  const {useState, useCallback, useMemo} = React;
+  const {useState, useCallback, useMemo, useLayoutEffect} = React;
   const D = window.BC_DATA;
   const AP = window.BC_AGENT_PROJECTS;
   const IA = window.BC_APP_IA;
@@ -197,6 +197,26 @@
     const legacySettingsAvailable = LI.demoSettings(window.location.search);
     const [legacySettingsOpen, setLegacySettingsOpen] = useState(() => legacySettingsAvailable && !base.prefs.legacySettingsRead);
 
+    /* ---- 首次启动引导（onboarding.jsx）：开着没有（{fresh} | null）；只在没有记录时弹，关掉就记下（偏好 `onboarding`）。
+       原型里第一次启动由 `?onboarding=1 | installed` 或原型开关模拟；「全新安装」把本机模型与语义搜索都改成没装（随应用附带的除外） ---- */
+    const OB = window.BC_ONBOARDING;
+    const [onboarding, setOnboarding] = useState(() => (OB.demoLaunch(window.location.search) && OB.shouldShow(base.prefs.onboarding)
+      ? {fresh: OB.demoFresh(window.location.search)} : null));
+    const freshModels = useCallback(() => {
+      window.BC_DATA.setModels.forEach((m) => base.setModelInstalled(m.id, OB.freshInstalled(m.id)));
+      if (window.BC_SEMSTATE) window.BC_SEMSTATE.set({install: 'none', half: null});
+    }, [base.setModelInstalled]);
+    useLayoutEffect(() => { if (onboarding && onboarding.fresh) freshModels(); }, []);
+    const launchOnboarding = useCallback((fresh) => {
+      base.setPref('onboarding', null);
+      if (fresh) freshModels();
+      setOnboarding({fresh: !!fresh});
+    }, [base.setPref, freshModels]);
+    const closeOnboarding = useCallback((record) => {
+      base.setPref('onboarding', record);
+      setOnboarding(null);
+    }, [base.setPref]);
+
     /* 任务详情的「在 Space 中查看」：跳到 Space 并打开这个条目的查看框。和 toolPreset 一样只活到 Space 页读走，不进路由。 */
     const [spaceFocus, setSpaceFocus] = useState(null);
     const openSpaceEntry = useCallback((id) => {
@@ -211,7 +231,7 @@
 
     return {
       handoverToAgent, spaceFocus, openSpaceEntry, takeSpaceFocus, legacyAsk, setLegacyAsk, legacyHost, setLegacyHost, legacyDrive, setLegacyDrive,
-      legacySettingsAvailable, legacySettingsOpen, setLegacySettingsOpen,
+      legacySettingsAvailable, legacySettingsOpen, setLegacySettingsOpen, onboarding, launchOnboarding, closeOnboarding,
       dirs, dirById, toggleDirPin, toggleSessionPin, dirOfSession, moviesOf, createDir, openDir,
       openMovie, openTool, closeMovie, railGo, markRead, newProject, createProject,
       spaceItems, toggleFav, setTrashed, saveVersion, importAssets, createHtmlPage, registerToolOutput, createMovieFromOutput,

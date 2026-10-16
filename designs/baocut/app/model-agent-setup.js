@@ -325,6 +325,29 @@
       : {lines: body.slice(0, 1).concat(['Error: Permission denied @ apply2files - /opt/homebrew/lib/node_modules']), code: 1};
   }
 
+  /* 安装、升级的每一次运行都是一条后台任务（product-design §7.6；agent-setup-runs.jsx 起跑，同实现的 `agent-setup` 运行）。
+     设置 › Agent 提供方的命令框显示哪一次（同实现 agent-setup-store 的 latestSetupRun 与 `shown`）：这一家在跑的那条；
+     没有在跑的，取这次打开应用后见过在跑的（`shown`）里最新的一条——`seq` 大的新，演示数据没有 seq 排在后面。
+     换成命令框要的样子：{tid, cmd, status: running | ok | fail | stopped, lines, code}。种类同 model-export.js 的 SETUP_KINDS。 */
+  const SETUP_TASK_KINDS = ['agent-install', 'agent-upgrade'];
+  function setupRun(tasks, hid) {
+    const mine = (tasks || []).filter((t) => t.agent === hid && SETUP_TASK_KINDS.indexOf(t.kind) >= 0);
+    const t = mine.find((x) => x.status === 'running')
+      || mine.filter((x) => x.shown).sort((a, b) => (b.seq || 0) - (a.seq || 0))[0];
+    if (!t) return null;
+    const status = t.status === 'running' ? 'running' : t.status === 'done' ? 'ok' : t.canceled ? 'stopped' : 'fail';
+    return {tid: t.id, cmd: t.cmd, status, lines: t.log || [], code: t.code == null ? null : t.code};
+  }
+
+  /* 在设置里起跑之前的确认（architecture-design §12.9「安装动作」：用户逐次确认，确认时显示将要执行的完整命令；
+     同实现 RunCommandDialog）：▶、问题条与「升级到 X」都先弹它，确认了才起跑。按钮用动词「运行」。
+     引导里勾上几家再按「后台安装 N 个」本身就是确认，不再一家一家弹（同实现 OnboardingHost）。 */
+  function runConfirm(h, plan, upgrade) {
+    return {title: `运行 ${h.name} 的${upgrade ? '升级' : '安装'}命令？`, cmd: plan.cmd, confirmLabel: '运行',
+      before: 'BaoCut 会在这台电脑上运行下面这条命令，输出显示在命令下方，运行中可以随时停止。',
+      after: '需要输入密码的命令在这里会失败，那时请改在终端里运行。'};
+  }
+
   /* ---------- 会话里的登录恢复（2026-09-20） ----------
      探测层的 loggedIn 只有刷新模型目录时才更新；凭据也可能在会话开着的这段时间里过期，
      那句话只会作为**一轮的失败详情**出现在线程里（`Failed to authenticate: OAuth session
@@ -407,7 +430,7 @@
   window.BC_AGENT_SETUP = {
     compareVer, health, blocked, needsReinstall, hasUpdate, badge, problem, diagnose, verdict,
     TIERS, recommended, defaultModel, modelChoices, modelLabel,
-    installSource, upgradeCmd, detected, installMethods, startMethod, installPlan, runnable, LOG_MAX, appendLog, pkgOf, demoRun, overview, groups, moreSummary, SCENARIOS, scenarioPatch,
+    installSource, upgradeCmd, detected, installMethods, startMethod, installPlan, runnable, LOG_MAX, appendLog, pkgOf, demoRun, setupRun, runConfirm, overview, groups, moreSummary, SCENARIOS, scenarioPatch,
     authFailure, loginCmd, defaultModelGate, modelGateFailure,
   };
 })();

@@ -77,6 +77,8 @@ contextBridge.exposeInMainWorld('baocut', {
   pickFiles: (options) => ipcRenderer.invoke('baocut:pick-files', options),
   pickSavePath: (options) => ipcRenderer.invoke('baocut:pick-save-path', options),
   saveFile: (options) => ipcRenderer.invoke('baocut:save-file', options),
+  // 下载 Runtime 媒体通道里的文件：主进程弹存储对话框并流式写盘（地址在主进程里重新校验）。
+  saveUrl: (options) => ipcRenderer.invoke('baocut:save-url', options),
   // 我的声音 › 克隆新音色：录好的 WAV 写进临时目录，路径交给 Runtime（内容在主进程里重新校验）。
   writeRecording: (data) => ipcRenderer.invoke('baocut:write-recording', data),
   // 界面语言：主进程据此换应用菜单与对话框的语言（参数在主进程里重新校验）。

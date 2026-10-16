@@ -2,6 +2,7 @@
    · 模型：一个包「语义搜索」，文字模型与多模态模型一起装（2026-10-13 待确认，原来分文字 / 多模态两个包）；
      安装先过下载确认框（download-dialog.jsx）：文字模型、多模态模型与共享 LiteRT-LM 运行时列在一个对话框，各项单独选本次下载来源；
      一部分没下成时下好的留着（st.half），卡片写哪一部分、连的哪里，「补齐」只下缺的（2026-10-13）；
+     确认后落一条后台任务（BC_SEMSTATE.install，与首次启动引导共用），离开设置页照样装完（2026-10-16）；
    · 安装不等于扫描整块磁盘：只给索引范围里的视频建；视频缺省按讲话内容与画面都建（画面是「索引」里一个开关，缺省开，
      2026-10-13 待确认）——安装前就写明画面要建多少帧、首次要多久、向量多大（indexStatus.estimates 的画面一项），
      装好后在后台建，可以随时关；关掉后再打开仍先确认开销；
@@ -13,7 +14,6 @@
    · 这台电脑不支持时整页说明原因，精确文字搜索照常可用。
    状态在 semantic-state.jsx，规则与文案在 model-semantic.js。只在 App。 */
 (function () {
-  const {useState, useRef, useEffect} = React;
   const R = window.RSP;
   const S = window.BC_SEMANTIC;
   const D = window.BC_DATA;
@@ -28,8 +28,10 @@
     return on;
   };
 
-  function PackageCard({p, st, set, busy, onInstall}) {
+  /* job：正在跑的那条安装任务（BC_SEMSTATE.install 落的，带 semPkg）；没有时 null */
+  function PackageCard({p, st, set, job, onInstall}) {
     const app = useApp();
+    const mine = job && job.semPkg === p.id ? job : null;
     const has = st.install !== 'none';
     const half = st.half && st.half.pkg === p.id && !has ? st.half : null;
     const plan = window.BC_DLSRC.plan(p.parts, haveOf(p, st));
@@ -46,18 +48,18 @@
         <div className="row gap8">
           <b className="grow">{p.name}</b>
           <span className="t-detail-xs">{p.size}</span>
-          {busy === p.id ? <Chip tone="accent">正在安装</Chip>
+          {mine ? <Chip tone="accent">正在安装</Chip>
             : has ? <Chip tone="positive">已安装</Chip>
                 : half && plan.kept ? <Chip tone="notice">缺 {lack.map((x) => x.name).join('、')}</Chip> : <Chip>未安装</Chip>}
         </div>
         <span className="t-detail-xs">{p.desc} · {p.model}</span>
-        {half && busy !== p.id ? <p className="semset__fail" role="status"><Ic n="alert" className="ic--14" /><span>{half.note}</span></p> : null}
-        {busy === p.id ? <Progress indeterminate thin label={`正在安装${p.name}`} /> : null}
+        {half && !mine ? <p className="semset__fail" role="status"><Ic n="alert" className="ic--14" /><span>{half.note}</span></p> : null}
+        {mine ? <Progress value={mine.pct || 0} thin label={`正在安装${p.name}`} /> : null}
         <div className="row gap8">
-          {!has && busy !== p.id ? (
+          {!has && !mine ? (
             half && plan.kept
-              ? <Btn size="s" variant="accent" disabled={unsupported || !!busy} onClick={() => onInstall(p)}>{`补齐 · ${mbOf(plan.need)}`}</Btn>
-              : <Btn size="s" variant="accent" icon="download" disabled={unsupported || !!busy} onClick={() => onInstall(p)}>{`安装 · ${p.size}`}</Btn>
+              ? <Btn size="s" variant="accent" disabled={unsupported || !!job} onClick={() => onInstall(p)}>{`补齐 · ${mbOf(plan.need)}`}</Btn>
+              : <Btn size="s" variant="accent" icon="download" disabled={unsupported || !!job} onClick={() => onInstall(p)}>{`安装 · ${p.size}`}</Btn>
           ) : null}
           {has ? <Btn size="s" variant="quiet" onClick={remove}>移除</Btn> : null}
         </div>
@@ -91,28 +93,12 @@
   function SemanticSection() {
     const app = useApp();
     const [st, sem, set] = window.BC_SEMSTATE.useSemantic();
-    const [busy, setBusy] = useState(null);
-    const timer = useRef(null);
-    useEffect(() => () => clearTimeout(timer.current), []);
-    // 安装 / 补齐都先过下载确认框；确认后按顺序下，outcome 说哪一部分没下成（原型开关「下次下载的结果」）
+    // 安装 / 补齐都先过下载确认框；确认后交给 BC_SEMSTATE.install：落一条后台任务，离开设置页照样装完。
+    // outcome 说哪一部分没下成（原型开关「下次下载的结果」）
+    const job = (app.tasks || []).find((t) => t.kind === 'model-install' && t.semPkg && t.status === 'running') || null;
     const install = (p) => window.BC_DLASK.open({
       name: p.name, parts: p.parts, on: haveOf(p, st), perPart: true,
-      run: (outcome) => {
-        setBusy(p.id);
-        timer.current = setTimeout(() => {
-          setBusy(null);
-          const before = Object.keys(haveOf(p, st));
-          if (outcome.failed) {
-            const have = before.concat(outcome.done);
-            const names = have.map((id) => p.parts.find((x) => x.id === id).name);
-            set({half: {pkg: p.id, have, note: window.BC_DLSRC.failLine(outcome.failed, names)}});
-            app.toast(`「${p.name}」没装完：${outcome.failed.name}没下成`, 'negative');
-            return;
-          }
-          set((cur) => ({install: 'full', index: 'stale', half: cur.half && cur.half.pkg !== p.id ? cur.half : null}));
-          app.toast(st.visual ? `已安装「${p.name}」：正在建文字索引与画面索引（演示）` : `已安装「${p.name}」：正在给已有文稿建文字索引（演示）`, 'positive');
-        }, 1400);
-      },
+      run: (outcome) => window.BC_SEMSTATE.install(app, p, {outcome, notify: true}),
     });
     const unsupported = st.platform === 'unsupported';
     const installed = st.install !== 'none' && !unsupported;
@@ -160,7 +146,7 @@
         <section className="setpage__group" aria-label="模型">
           <h2>模型</h2>
           <div className="setpage__card semset__card">
-            {SEM.packages.map((p) => <PackageCard key={p.id} p={p} st={st} set={set} busy={busy} onInstall={install} />)}
+            {SEM.packages.map((p) => <PackageCard key={p.id} p={p} st={st} set={set} job={job} onInstall={install} />)}
             <div className="semnote"><Ic n="info" className="ic--14" /><span className="semnote__x">{`文字模型与多模态模型一起装。装好后给索引范围里的视频按讲话内容建索引，再按画面建：${cost}；用电池时先停下，不想要画面可以在下面关掉。`}</span></div>
           </div>
         </section>

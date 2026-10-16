@@ -63,6 +63,9 @@ export const zhHans: RcAgentToolsMessages = {
   translationDocumentName: (p) => `${p.language} 译文`,
   importAssetSummary: (p) => `导入素材 ${p.name}${p.place ? ' 并放到时间线上' : ''}`,
   importAssetLabel: (p) => `导入 ${p.name}${p.place ? ' 并放到时间线上' : ''}`,
+  openMediaDownloadSummary: (p) => `从 ${p.source} 下载「${p.title}」（${p.license}）并导入${p.place ? '，放到时间线上' : ''}`,
+  sfxSummary: (p) => `生成音效「${p.recipe}」并导入${p.place ? '，放到时间线上' : ''}`,
+ 
   replaceCompositionSummary: (p) => `导入 ${p.name}，替换时间线上的片段 ${p.clip}`,
   replaceCompositionLabel: (p) => `把代码画面替换为 ${p.name}`,
   pruneAssetsSummary: (p) => `从视频里删掉没有用到的素材（${p.count} 个）：${p.names}`,

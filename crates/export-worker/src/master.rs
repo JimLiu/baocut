@@ -76,7 +76,7 @@ fn invalid(message: impl Into<String>) -> Failure {
 }
 
 fn io_failure(what: &str, error: std::io::Error) -> Failure {
-    Failure::new("EXPORT_RENDER_FAILED", format!("{what}：{error}"))
+    Failure::new("EXPORT_RENDER_FAILED", format!("{what}: {error}"))
 }
 
 /// 声道分开的一段样本。
@@ -142,7 +142,7 @@ enum Store {
 
 impl Store {
     fn file(path: PathBuf) -> Result<Store, Failure> {
-        let writer = BufWriter::new(File::create(&path).map_err(|e| io_failure("建母带的中间文件失败", e))?);
+        let writer = BufWriter::new(File::create(&path).map_err(|e| io_failure("failed to create the master intermediate file", e))?);
         Ok(Store::File {
             path,
             offset: 0,
@@ -155,12 +155,14 @@ impl Store {
         match self {
             Store::Mem(v) => v.extend_from_slice(x),
             Store::File { writer, .. } => {
-                let writer = writer.as_mut().expect("只往没写完的中间文件里追加");
+                let writer = writer.as_mut().expect("only appends to an unfinished intermediate file");
                 let mut bytes = Vec::with_capacity(x.len() * 4);
                 for s in x {
                     bytes.extend_from_slice(&s.to_le_bytes());
                 }
-                writer.write_all(&bytes).map_err(|e| io_failure("写母带的中间文件失败", e))?;
+                writer
+                    .write_all(&bytes)
+                    .map_err(|e| io_failure("failed to write the master intermediate file", e))?;
             }
         }
         Ok(())
@@ -171,7 +173,8 @@ impl Store {
         if let Store::File { writer, .. } = self
             && let Some(mut w) = writer.take()
         {
-            w.flush().map_err(|e| io_failure("写母带的中间文件失败", e))?;
+            w.flush()
+                .map_err(|e| io_failure("failed to write the master intermediate file", e))?;
         }
         Ok(())
     }
@@ -182,11 +185,12 @@ impl Store {
         match self {
             Store::Mem(v) => Ok(v[from..to].to_vec()),
             Store::File { path, offset, .. } => {
-                let mut file = File::open(path).map_err(|e| io_failure("读母带的输入失败", e))?;
+                let mut file = File::open(path).map_err(|e| io_failure("failed to read the master input", e))?;
                 file.seek(SeekFrom::Start(offset + from as u64 * 4))
-                    .map_err(|e| io_failure("读母带的输入失败", e))?;
+                    .map_err(|e| io_failure("failed to read the master input", e))?;
                 let mut bytes = vec![0u8; (to - from) * 4];
-                file.read_exact(&mut bytes).map_err(|e| io_failure("读母带的输入失败", e))?;
+                file.read_exact(&mut bytes)
+                    .map_err(|e| io_failure("failed to read the master input", e))?;
                 Ok(bytes
                     .chunks_exact(4)
                     .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
@@ -209,28 +213,28 @@ impl Store {
 
 /// 读 32 位浮点 WAV 的格式与数据块：返回数据块的起点与帧数。数据块的长度写成 0 或 `0xFFFFFFFF`、或比文件长时按到文件末尾算。
 fn wav_data(path: &Path, sample_rate: u32, channels: usize) -> Result<(u64, u64), Failure> {
-    let mut file = File::open(path).map_err(|e| io_failure("读混音失败", e))?;
-    let len = file.metadata().map_err(|e| io_failure("读混音失败", e))?.len();
+    let mut file = File::open(path).map_err(|e| io_failure("failed to read the mix", e))?;
+    let len = file.metadata().map_err(|e| io_failure("failed to read the mix", e))?.len();
     let mut head = [0u8; 12];
-    file.read_exact(&mut head).map_err(|e| io_failure("读混音失败", e))?;
+    file.read_exact(&mut head).map_err(|e| io_failure("failed to read the mix", e))?;
     if &head[0..4] != b"RIFF" || &head[8..12] != b"WAVE" {
-        return Err(invalid("混音不是 WAV 文件"));
+        return Err(invalid("the mix is not a WAV file"));
     }
     let mut at = 12u64;
     let mut format_ok = false;
     loop {
         let mut chunk = [0u8; 8];
         if file.read_exact(&mut chunk).is_err() {
-            return Err(invalid("混音的 WAV 没有数据块"));
+            return Err(invalid("the mix WAV has no data chunk"));
         }
         let size = u64::from(u32::from_le_bytes([chunk[4], chunk[5], chunk[6], chunk[7]]));
         let body = at + 8;
         match &chunk[0..4] {
             b"fmt " => {
                 let mut fmt = vec![0u8; size.min(64) as usize];
-                file.read_exact(&mut fmt).map_err(|e| io_failure("读混音失败", e))?;
+                file.read_exact(&mut fmt).map_err(|e| io_failure("failed to read the mix", e))?;
                 if fmt.len() < 16 {
-                    return Err(invalid("混音的 WAV 格式块不完整"));
+                    return Err(invalid("the mix WAV format chunk is incomplete"));
                 }
                 let tag = u16::from_le_bytes([fmt[0], fmt[1]]);
                 let chans = usize::from(u16::from_le_bytes([fmt[2], fmt[3]]));
@@ -240,14 +244,14 @@ fn wav_data(path: &Path, sample_rate: u32, channels: usize) -> Result<(u64, u64)
                 let float = tag == 3 || (tag == 0xFFFE && fmt.len() >= 26 && u16::from_le_bytes([fmt[24], fmt[25]]) == 3);
                 if !float || bits != 32 || chans != channels || rate != sample_rate {
                     return Err(invalid(format!(
-                        "混音不是 {sample_rate} Hz、{channels} 声道的 32 位浮点 WAV（格式 {tag}、{bits} 位、{chans} 声道、{rate} Hz）"
+                        "the mix is not a 32-bit float WAV at {sample_rate} Hz with {channels} channels (format {tag}, {bits} bits, {chans} channels, {rate} Hz)"
                     )));
                 }
                 format_ok = true;
             }
             b"data" => {
                 if !format_ok {
-                    return Err(invalid("混音的 WAV 在格式块之前就是数据块"));
+                    return Err(invalid("the mix WAV has its data chunk before the format chunk"));
                 }
                 let rest = len.saturating_sub(body);
                 let bytes = if size == 0 || size == u64::from(u32::MAX) || size > rest {
@@ -261,7 +265,8 @@ fn wav_data(path: &Path, sample_rate: u32, channels: usize) -> Result<(u64, u64)
         }
         // 块按偶数字节对齐。
         at = body + size + (size & 1);
-        file.seek(SeekFrom::Start(at)).map_err(|e| io_failure("读混音失败", e))?;
+        file.seek(SeekFrom::Start(at))
+            .map_err(|e| io_failure("failed to read the mix", e))?;
     }
 }
 
@@ -360,17 +365,17 @@ const SWEEPS: u64 = 2 * PASSES as u64 + 2;
 
 pub fn run(path: &Path) -> Result<ExitCode, Failure> {
     let cancel = watch_cancel();
-    let text = std::fs::read_to_string(path).map_err(|e| invalid(format!("读母带输入失败：{e}")))?;
-    let input: MasterInput = serde_json::from_str(&text).map_err(|e| invalid(format!("母带输入读不懂：{e}")))?;
+    let text = std::fs::read_to_string(path).map_err(|e| invalid(format!("failed to read the master input: {e}")))?;
+    let input: MasterInput = serde_json::from_str(&text).map_err(|e| invalid(format!("the master input is not valid: {e}")))?;
     if !(LUFS_RANGE.0..=LUFS_RANGE.1).contains(&input.lufs) || !(TRUE_PEAK_RANGE.0..=TRUE_PEAK_RANGE.1).contains(&input.true_peak) {
         return Err(invalid(format!(
-            "母带目标越界：响度 {} LUFS（−70 到 0）、真峰值 {} dBTP（−20 到 0）",
+            "master targets out of range: loudness {} LUFS (-70 to 0), true peak {} dBTP (-20 to 0)",
             input.lufs, input.true_peak
         )));
     }
     if !matches!(input.channels, 1 | 2) || input.sample_rate == 0 {
         return Err(invalid(format!(
-            "母带只做单声道或立体声：{} 声道、{} Hz",
+            "mastering supports mono or stereo only: {} channels, {} Hz",
             input.channels, input.sample_rate
         )));
     }
@@ -393,13 +398,15 @@ pub fn run(path: &Path) -> Result<ExitCode, Failure> {
         scratch_paths.push(path.clone());
         Store::file(path)
     };
-    let mut writer = BufWriter::new(File::create(&input.output).map_err(|e| io_failure("建母带的输出失败", e))?);
+    let mut writer = BufWriter::new(File::create(&input.output).map_err(|e| io_failure("failed to create the master output", e))?);
     let mut out = |x: &[f32]| -> Result<(), Failure> {
         let mut bytes = Vec::with_capacity(x.len() * 4);
         for s in x {
             bytes.extend_from_slice(&s.to_le_bytes());
         }
-        writer.write_all(&bytes).map_err(|e| io_failure("写母带的输出失败", e))
+        writer
+            .write_all(&bytes)
+            .map_err(|e| io_failure("failed to write the master output", e))
     };
     let total = frames * SWEEPS;
     let mut done = 0u64;
@@ -408,7 +415,7 @@ pub fn run(path: &Path) -> Result<ExitCode, Failure> {
     let mut step = |n: u64| -> Result<(), Failure> {
         done += n;
         if cancel.load(Ordering::SeqCst) {
-            return Err(Failure::new("CANCELLED", "已取消"));
+            return Err(Failure::new("CANCELLED", "cancelled"));
         }
         if last.elapsed() >= PROGRESS_INTERVAL {
             last = Instant::now();
@@ -423,7 +430,12 @@ pub fn run(path: &Path) -> Result<ExitCode, Failure> {
     let sr = f64::from(input.sample_rate);
     let window = 4 * u64::from(input.sample_rate);
     let result = master_store(source, frames, channels, sr, target, window, &mut scratch, &mut out, &mut step);
-    let result = result.and_then(|m| writer.flush().map(|()| m).map_err(|e| io_failure("写母带的输出失败", e)));
+    let result = result.and_then(|m| {
+        writer
+            .flush()
+            .map(|()| m)
+            .map_err(|e| io_failure("failed to write the master output", e))
+    });
     for path in &scratch_paths {
         let _ = std::fs::remove_file(path);
     }

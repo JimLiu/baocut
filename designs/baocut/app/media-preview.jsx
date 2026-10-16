@@ -288,7 +288,8 @@
       stage.current.scrollTop = drag.current.top + drag.current.y - e.clientY;
     };
     const pending = mode === 'markup' || mode === 'remove';
-    if (panorama) return <window.MediaPanorama key={file.id} file={file} active={active} onClose={() => setPanorama(false)} />;
+    if (panorama) return <window.MediaPanorama key={file.id} file={file} active={active} onBack={() => setPanorama(false)} onClose={onClose}
+      inset={immersive && window.BC_SURFACE.windowChrome} />;
     if (pending)
       return (
         <window.MediaMarkup

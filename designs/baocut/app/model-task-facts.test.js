@@ -222,3 +222,25 @@ test('详情：用时现算只在运行中、有数字开始时刻、且给了 n
   assert.strictEqual(Object.fromEntries(F.details(Object.assign({}, base, {elapsedMs: 3000}), '导出', 99000))['用时'], '3s', 'elapsedMs 优先');
   assert.strictEqual(Object.fromEntries(F.details(base, '导出', 95000))['用时'], '1m 30s');
 });
+
+test('模型下载没下完：语义搜索包去语义索引，本机模型去它那一类；别的任务与没失败的不出', () => {
+  const catOf = (id) => ({'qwen3-tts-1.7b-base': 'tts'}[id] || 'asr');
+  const sem = F.installFailure({kind: 'model-install', status: 'error', semPkg: 'sem', error: 'x'}, catOf);
+  assert.deepStrictEqual(sem.go, {r: 'settings', sec: 'semantic'});
+  assert.strictEqual(sem.label, '去补齐');
+  assert.ok(!/配置问题/.test(sem.body));
+  const tts = F.installFailure({kind: 'model-install', status: 'error', model: 'qwen3-tts-1.7b-base'}, catOf);
+  assert.deepStrictEqual(tts.go, {r: 'settings', sec: 'local', tab: 'tts'});
+  assert.deepStrictEqual(F.installFailure({kind: 'model-install', status: 'error', model: 'm'}).go,
+    {r: 'settings', sec: 'local'}, '没给 catOf：只到本地模型');
+  // 什么都没留下：不说补齐，去重新下载（与设置页那一句「可以换个来源再试」同一口径）
+  const none = F.installFailure({kind: 'model-install', status: 'error', semPkg: 'sem', kept: false}, catOf);
+  assert.strictEqual(none.label, '去重新下载');
+  assert.ok(!/补齐|留着/.test(none.body));
+  assert.deepStrictEqual(none.go, {r: 'settings', sec: 'semantic'});
+  assert.strictEqual(F.installFailure({kind: 'model-install', status: 'error', model: 'm', kept: true}, catOf).label, '去补齐');
+  assert.strictEqual(F.installFailure({kind: 'model-install', status: 'running', model: 'm'}, catOf), null);
+  assert.strictEqual(F.installFailure({kind: 'model-install', status: 'error', canceled: true, model: 'm'}, catOf), null);
+  assert.strictEqual(F.installFailure({kind: 'transcribe', status: 'error'}, catOf), null);
+  assert.strictEqual(F.installFailure(null), null);
+});

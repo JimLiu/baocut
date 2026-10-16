@@ -173,6 +173,7 @@ export const nl: ProvidersMessages = {
     rowCalls: (calls, failed) => (failed ? `${calls} · ${failed} mislukt` : String(calls)),
     cost: {
       unknown: 'Kosten onbekend',
+      subscription: 'Inbegrepen bij abonnement',
       estimated: (money) => `≈ ${money}`,
       reported: (money) => `${money} gemeld`,
       mixed: (money) => `≈ ${money} (incl. gemeld)`,

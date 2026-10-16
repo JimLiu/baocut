@@ -13,7 +13,7 @@ skills/
                           声音参考独立为 voice-language-rates.md、voice-<模型系列>.md，由 voice 与 craft 引用
       workflows.md        端到端的做法
       mcp.md              走 MCP 时怎么接、工具名映射、差异
-      craft/              从 built-in-skills/<id>/ 同步来的做法，CLI 面用（生成，不手写）
+      craft/              从 built-in-skills/<id>/ 同步来的做法，CLI 面用（生成，不手写）：<id>.md 正文，<id>/ 参考页与代码
     built-in-skills/      内置 skill（craft）的源：一个 skill 一个目录，README.md 是索引；Runtime 从这里加载
 ```
 
@@ -51,7 +51,7 @@ Runtime 只把 `baocut/built-in-skills/` 当内置 skill 目录加载，说明�
 - 硬规则（SKILL.md 第 5 节）两面条数必须相同：一条只属于一个面时，`cli` 块与 `agent` 块各写一条等价的。
 - 生成块 `<!-- generated: <名字> -->` … `<!-- /generated -->` 的内容由同步脚本从目录生成，不手改：`common-ops`（editing.md）、`error-codes`（conventions.md）、`tool-map`（mcp.md）。
 - 页面互相引用用相对链接（`catalog/subtitles.md`、`../conventions.md`），由渲染器按面改写。
-- 共享参考表只在目录页维护一份。craft 用 `skills_read` 读 `baocut-catalog-<页>`，同步成 CLI 面时改为该页链接，不把数据展开进 craft 附录；其他目录页直接用相对链接引用。模型专属音色表一套模型系列一个文件，并在 `voice.md` 登记入口。
+- 共享参考表只在目录页维护一份。craft 用 `skills_read` 读 `baocut-catalog-<页>`，同步成 CLI 面时改为该页链接，不把数据复制进 craft；其他目录页直接用相对链接引用。模型专属音色表一套模型系列一个文件，并在 `voice.md` 登记入口。
 - 写法按 [§8.7](../docs/design/agent-surface/agent-surface-design.md#87-说明书的写法)：方法（craft、workflows）与机制（conventions、catalog）分层；catalog 页按「何时用 → 前置检查 → 命令与例子 → 结果怎么读 → 常见错误码 → 下一步 → 验收」；workflows 每条按「适用与不适用 → 判断表 → 步骤 → 完成标准」；参数不抄旗标说明，指向帮助或工具说明。
-- SKILL.md 正文不超过 300 行，front matter 的 `description` 不超过 300 个字符。目录页、`workflows.md` 与 `conventions.md` 也带只有 `description` 的 front matter（一句话：讲什么、什么时候读），它是会话 skill 索引里这一页的说明。
+- 说明书与 craft 是给 agent 读的：拆小、按需读，一个主题一页，代码与样例写成真实文件（[文档约定「写作规则」](../docs/README.md#写作规则)）。SKILL.md 正文不超过 300 行，front matter 的 `description` 不超过 300 个字符。目录页、`workflows.md` 与 `conventions.md` 也带只有 `description` 的 front matter（一句话：讲什么、什么时候读），它是会话 skill 索引里这一页的说明。
 - 全部以中文写作；做法对任意语言的视频与目标语言都适用。

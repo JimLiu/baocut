@@ -1,4 +1,4 @@
-import { localizeText, type Conversation, type Id, type JobKind, type JobRecord, type Project, type TaskSummary } from '@baocut/protocol';
+import { live, localizeText, type Conversation, type Id, type JobKind, type JobRecord, type Project, type TaskSummary } from '@baocut/protocol';
 import { JOB_PHASE_LABEL, TASK_KIND_LABEL, TASK_STATUS_LABEL, TASK_VIEW_COPY, VIDEO_CARD_COPY } from '../copy.ts';
 import { exportPhaseLabel, exportTitle } from './export-job.ts';
 import { shortenPath } from './format.ts';
@@ -17,18 +17,19 @@ import { langName } from './tools-models.ts';
  * 任务的种类：Agent 任务，或 Job 的种类。导出也是一条 Job（`kind: 'export'`，架构设计 §9.11）：标题、位置与阶段读它的
  * `export` 信息；任务胶囊不列本视频的导出（顶栏的导出按钮已经在念它的进度）。
  * `legacyImport` 是启动时导入旧版项目的那一轮（`legacy-import` 主题，model/legacy-import-run.ts），不是 Job。
+ * `agentInstall`、`agentUpgrade` 是应用内运行的 Agent 安装、升级命令（`agent-setup` 主题，model/agent-setup-task.ts），也不是 Job。
  */
-export type TaskKind = 'agent' | JobKind | 'legacyImport';
+export type TaskKind = 'agent' | JobKind | 'legacyImport' | 'agentInstall' | 'agentUpgrade';
 
 /** 原型的色调：chip 与种类图标底色按它取（page-tasks.jsx `TaskCard`）。 */
 export type TaskTone = 'accent' | 'info' | 'notice' | 'neutral' | 'positive' | 'negative';
 
-export type TaskAction = { type: 'stop'; taskId: Id } | { type: 'cancel'; jobId: Id };
+export type TaskAction = { type: 'stop'; taskId: Id } | { type: 'cancel'; jobId: Id } | { type: 'cancelSetup'; runId: Id };
 
 export interface TaskRow {
   id: Id;
-  /** 来自哪：Agent 任务、Job，或这次启动导入旧版项目的那一轮。 */
-  origin: 'task' | 'job' | 'legacy-import';
+  /** 来自哪：Agent 任务、Job、这次启动导入旧版项目的那一轮，或一次 Agent 安装、升级。 */
+  origin: 'task' | 'job' | 'legacy-import' | 'agent-setup';
   kind: TaskKind;
   /** 念出来的种类：通常是 `kindLabel(kind)`；从链接导入的 `kind` 是通用的 `pipeline`，念「从链接导入」。 */
   kindText: string;
@@ -191,7 +192,8 @@ export function jobLive(job: Pick<JobRecord, 'state' | 'endedAt'>): boolean {
   return job.state === 'queued' || job.state === 'running' || jobRetrying(job);
 }
 
-const JOB_ENDED: Record<Exclude<JobRecord['state'], 'queued' | 'running'>, { label: string; tone: TaskTone }> = {
+// 字在读的时候按当前语言取：模块加载时读进来的字符串，换语言后还念旧的。
+const JOB_ENDED = live((): Record<Exclude<JobRecord['state'], 'queued' | 'running'>, { label: string; tone: TaskTone }> => ({
   completed: { label: TASK_VIEW_COPY.completed, tone: 'positive' },
   failed: { label: TASK_VIEW_COPY.failed, tone: 'negative' },
   // 取消不叫失败：失败是链路坏了，取消是用户自己停的（原型 page-tasks.jsx 第 120 轮）。
@@ -200,7 +202,7 @@ const JOB_ENDED: Record<Exclude<JobRecord['state'], 'queued' | 'running'>, { lab
   interrupted: { label: TASK_VIEW_COPY.interrupted, tone: 'neutral' },
   // 结果不明：Runtime 重启时外发调用还没回音，可能已经计费，不自动重发（§7.5），等用户决定。
   'needs-reconciliation': { label: TASK_VIEW_COPY.needsReconciliation, tone: 'notice' },
-};
+}));
 
 export function jobRow(job: JobRecord, ctx: TaskContext): TaskRow {
   const video = ctx.video && job.videoId === ctx.video.videoId ? ctx.video : null;

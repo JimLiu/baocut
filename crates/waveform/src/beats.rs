@@ -276,6 +276,125 @@ fn frames(pcm: &[f32], sample_rate: u32) -> Frames {
     out
 }
 
+/// 逐帧音频特征（给代码画面跟着声音动）：按调用方的帧率（视频的 fps）取样，值都在 0..1。
+#[derive(Debug, Clone, PartialEq)]
+pub struct AudioFeatures {
+    pub fps: f64,
+    pub duration: f64,
+    /// 响度：帧内 RMS 的 dBFS 按 −60..0 线性映到 0..1（绝对值，不同素材之间可比）。
+    pub level: Vec<f32>,
+    /// 三段频带（< 150 Hz、150 Hz–2 kHz、2–8 kHz）的对数能量，按本段音频的 5%–98% 分位归一（相对值）。
+    pub bass: Vec<f32>,
+    pub mid: Vec<f32>,
+    pub treble: Vec<f32>,
+    /// 起音强度：谱通量的 z 分数（负值归零）按 99% 分位归一，帧内取最大。
+    pub onset: Vec<f32>,
+    /// 挑出来的起音时刻（秒）与强度（0..1），彼此至少相隔 [`ONSET_MIN_GAP_SECONDS`]。
+    pub onsets: Vec<(f64, f32)>,
+}
+
+/// 起音峰的门限（谱通量 z 分数）与最短间隔。
+const ONSET_Z: f64 = 1.5;
+pub const ONSET_MIN_GAP_SECONDS: f64 = 0.08;
+const LEVEL_FLOOR_DB: f64 = -60.0;
+
+/// 单声道 PCM → 逐帧特征与起音。`fps` 是输出帧率（1..=240）。与 [`analyze`] 共用同一份 STFT 帧（10 ms hop）。
+pub fn features(pcm: &[f32], sample_rate: u32, fps: f64) -> Result<AudioFeatures> {
+    if sample_rate < 8000 {
+        bail!("sample rate {sample_rate} Hz is too low to analyze");
+    }
+    if !(1.0..=240.0).contains(&fps) {
+        bail!("fps must be between 1 and 240, got {fps}");
+    }
+    let rate = f64::from(sample_rate);
+    let duration = pcm.len() as f64 / rate;
+    let frames = frames(pcm, sample_rate);
+    let n = frames.flux.len();
+    let out_len = ((duration * fps).ceil() as usize).max(1);
+    // 输出帧 i 覆盖分析帧 [span(i).0, span(i).1)，至少一帧。
+    let span = |i: usize| {
+        let a = ((i as f64 / fps) * frames.fps).floor() as usize;
+        let b = ((((i + 1) as f64) / fps) * frames.fps).floor() as usize;
+        let a = a.min(n.saturating_sub(1));
+        (a, b.clamp(a + 1, n.max(a + 1)))
+    };
+    let z = normalized(&frames.flux);
+    let z_top = percentile(&z, 0.99).max(1e-9);
+    let onset = (0..out_len)
+        .map(|i| {
+            let (a, b) = span(i);
+            let peak = z
+                .get(a..b.min(n))
+                .unwrap_or(&[])
+                .iter()
+                .copied()
+                .fold(0.0, f64::max);
+            (peak / z_top).min(1.0) as f32
+        })
+        .collect();
+    let band = |k: usize| -> Vec<f32> {
+        let values: Vec<f64> = frames.bands.iter().map(|bands| bands[k]).collect();
+        let (lo, hi) = (percentile(&values, 0.05), percentile(&values, 0.98));
+        let range = (hi - lo).max(1e-9);
+        (0..out_len)
+            .map(|i| {
+                let (a, b) = span(i);
+                let slice = values.get(a..b.min(n)).unwrap_or(&[]);
+                let mean = slice.iter().sum::<f64>() / slice.len().max(1) as f64;
+                ((mean - lo) / range).clamp(0.0, 1.0) as f32
+            })
+            .collect()
+    };
+    let level = (0..out_len)
+        .map(|i| {
+            let a = ((i as f64 / fps) * rate) as usize;
+            let b = (((i + 1) as f64 / fps) * rate) as usize;
+            let slice = pcm.get(a.min(pcm.len())..b.min(pcm.len())).unwrap_or(&[]);
+            let sum: f64 = slice
+                .iter()
+                .filter(|sample| sample.is_finite())
+                .map(|sample| f64::from(*sample).powi(2))
+                .sum();
+            let rms = (sum / slice.len().max(1) as f64).sqrt();
+            let db = 20.0 * (rms + 1e-12).log10();
+            ((db - LEVEL_FLOOR_DB) / -LEVEL_FLOOR_DB).clamp(0.0, 1.0) as f32
+        })
+        .collect();
+    let gap = (ONSET_MIN_GAP_SECONDS * frames.fps).ceil() as usize;
+    let mut onsets: Vec<(f64, f32)> = Vec::new();
+    let mut last: Option<usize> = None;
+    for k in 1..n.saturating_sub(1) {
+        let value = z[k];
+        if value < ONSET_Z || value < z[k - 1] || value < z[k + 1] {
+            continue;
+        }
+        let strength = (value / z_top).min(1.0) as f32;
+        match last {
+            Some(previous) if k - previous < gap => {
+                // 太近：留更强的那个。
+                if strength > onsets.last().map_or(0.0, |onset| onset.1) {
+                    *onsets.last_mut().expect("last onset") = (k as f64 / frames.fps, strength);
+                    last = Some(k);
+                }
+            }
+            _ => {
+                onsets.push((k as f64 / frames.fps, strength));
+                last = Some(k);
+            }
+        }
+    }
+    Ok(AudioFeatures {
+        fps,
+        duration,
+        level,
+        bass: band(0),
+        mid: band(1),
+        treble: band(2),
+        onset,
+        onsets,
+    })
+}
+
 /// 减去均值后按标准差归一，负值归零。
 fn normalized(values: &[f64]) -> Vec<f64> {
     let (mean, std) = mean_std(values);
@@ -822,6 +941,42 @@ mod tests {
             }
         }
         pcm
+    }
+
+    #[test]
+    fn features_follow_the_clicks() {
+        let pcm = click_track(120.0, 0.25, 8.0, None);
+        let result = features(&pcm, RATE, 30.0).unwrap();
+        assert_eq!(result.level.len(), 240);
+        assert_eq!(result.bass.len(), 240);
+        // 每 0.5 秒一下：起音都落在咔哒上（±20 ms），一个不漏。
+        assert_eq!(result.onsets.len(), 16, "{:?}", result.onsets);
+        for (index, (time, strength)) in result.onsets.iter().enumerate() {
+            let expected = 0.25 + index as f64 * 0.5;
+            assert!((time - expected).abs() < 0.02, "{time} vs {expected}");
+            assert!(*strength > 0.2);
+        }
+        // 咔哒那一帧比两拍之间响。
+        let at = |t: f64| result.level[(t * 30.0) as usize];
+        assert!(at(0.26) > at(0.5) + 0.2);
+        assert!(result.onset[(0.75 * 30.0) as usize] > 0.9);
+        assert_eq!(result.onset[(0.5 * 30.0) as usize], 0.0);
+        assert!(
+            result
+                .level
+                .iter()
+                .chain(&result.treble)
+                .all(|v| (0.0..=1.0).contains(v))
+        );
+    }
+
+    #[test]
+    fn features_on_silence_and_bad_input() {
+        let result = features(&vec![0.0; 16_000], RATE, 25.0).unwrap();
+        assert!(result.onsets.is_empty());
+        assert!(result.level.iter().all(|v| *v == 0.0));
+        assert!(features(&[0.0; 100], RATE, 0.0).is_err());
+        assert!(features(&[0.0; 100], 4000, 30.0).is_err());
     }
 
     #[test]

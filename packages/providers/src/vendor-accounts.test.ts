@@ -92,15 +92,17 @@ function anthropicReply(request: RecordedRequest, text: string, extra: Record<st
 }
 
 describe('Anthropic 文本（Messages）', () => {
-  it('模型表：默认 claude-sonnet-5-5；Haiku 不调推理强度、接受 temperature', () => {
+  it('模型表：默认 Sonnet 5.5；Haiku 5.5 支持推理强度，Fable 5.1 可选；都不发送采样参数', () => {
     const models = new AnthropicTextAdapter().models(config('x', null));
     expect(models.find((m) => m.default)?.modelId).toBe('claude-sonnet-5-5');
     expect(models.find((m) => m.modelId === 'claude-opus-5-5')).toMatchObject({ defaultEffort: 'medium', acceptsTemperature: false });
-    expect(models.find((m) => m.modelId === 'claude-haiku-4-5')).toMatchObject({
-      efforts: [],
-      acceptsTemperature: true,
-      contextTokens: 200_000,
+    expect(models.find((m) => m.modelId === 'claude-haiku-5-5')).toMatchObject({
+      efforts: ['low', 'medium', 'high'],
+      defaultEffort: 'medium',
+      acceptsTemperature: false,
+      contextTokens: 1_000_000,
     });
+    expect(models.find((m) => m.modelId === 'claude-fable-5-1')).toMatchObject({ defaultEffort: 'high', acceptsTemperature: false });
   });
 
   it('请求形状：x-api-key 与 anthropic-version，system 在顶层，output_config 带推理强度与 JSON Schema；跳过思考块，输入含缓存', async () => {
@@ -137,12 +139,12 @@ describe('Anthropic 文本（Messages）', () => {
     let stop = 'max_tokens';
     server = await startFakeProviderServer((request) => anthropicReply(request, 'x', { stop_reason: stop }));
     const adapter = new AnthropicTextAdapter();
-    expect((await call(adapter, config(server.origin, KEY_A), 'claude-haiku-4-5', params({ temperature: 0.2 }))).finishReason).toBe(
+    expect((await call(adapter, config(server.origin, KEY_A), 'claude-haiku-5-5', params())).finishReason).toBe(
       'length',
     );
-    expect((server.requests[0]!.json as Record<string, unknown>).temperature).toBe(0.2);
+    expect((server.requests[0]!.json as Record<string, unknown>).temperature).toBeUndefined();
     stop = 'refusal';
-    expect((await call(adapter, config(server.origin, KEY_A), 'claude-haiku-4-5', params())).finishReason).toBe('content-filter');
+    expect((await call(adapter, config(server.origin, KEY_A), 'claude-haiku-5-5', params())).finishReason).toBe('content-filter');
   });
 
   it('错误分类：认证、余额不足、提示过长、模型不存在、限速；回显的密钥被去掉', async () => {

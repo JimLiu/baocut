@@ -84,8 +84,12 @@ export function LegacyImportHost() {
     });
   }, [runtime, web, onRun]);
 
+  const asking = !web && connected && !!prompt && !skipped && prompt.promptId !== answered;
+  // 首次启动引导等询问答完再弹（OnboardingHost）。
+  useEffect(() => useLegacyImport.getState().setAsking(asking), [asking]);
+
   if (web || !connected) return null;
-  if (!prompt || skipped || prompt.promptId === answered) return settingsReportOpen ? <LegacySettingsReportDialog /> : null;
+  if (!asking || !prompt) return settingsReportOpen ? <LegacySettingsReportDialog /> : null;
   return (
     <LegacyImportDialog
       key={prompt.promptId}

@@ -108,6 +108,8 @@ const WEB_DENY = [
   /^app\/model-file-preview/, /^app\/file-tab-preview/, /^app\/model-media-preview/, /^app\/model-media-gif/, /^app\/media-preview/,
   /* 旧版项目导入的启动询问（2026-10-08）：只在 App 启动时问 */
   /^app\/model-legacy-import/, /^app\/legacy-import/,
+  /* 首次启动引导（2026-10-16）：只在 App 第一次启动弹；浏览器里不能安装本地模型 */
+  /^app\/model-onboarding/, /^app\/onboarding/,
 ];
 
 test('Web 入口：共享模块与 App 同名同缓存串', () => {

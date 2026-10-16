@@ -4,6 +4,7 @@
   const {useState} = React;
   const D = window.BC_DATA;
   const F = window.BC_TASK_FACTS;
+  const X = window.BC_EXPORT;
 
   /* 每个 AI flow 一档，图标与 AI 工具面板那份 TOOLS 同源——
      任务卡上的图标要能一眼对上是哪个工具跑的。 */
@@ -21,6 +22,12 @@
     compress: {icon: 'video', label: '压缩视频'}, merge: {icon: 'layers', label: '合并视频'},
     image: {icon: 'image', label: '生成图片'}, music: {icon: 'music', label: '生成音乐'}, link: {icon: 'link', label: '从链接导入'},
     'legacy-import': {icon: 'projects', label: '导入旧版项目'},
+    'model-install': {icon: 'download', label: '下载模型'},
+    /* Agent 的安装与升级（product-design §7.6；实现 agent-setup-task.ts，那边用 S2 Tools 图标）：
+       从首次启动引导或 设置 › Agent 提供方 在应用内运行的命令，每次一行。没有百分比，只转圈；在跑时能直接「停止」；
+       详情里是命令的输出（`log`），失败那句同设置页的命令框 */
+    'agent-install': {icon: 'agent', label: '安装 Agent'},
+    'agent-upgrade': {icon: 'agent', label: '升级 Agent'},
   };
 
   /* 跑完的 AI run 在这里也能撤销 / 恢复。
@@ -89,7 +96,8 @@
         {/* 跑完的任务没有「取消」可言——cancellable 是那条记录的属性，
             但它只在还在跑的时候成立 */}
         {t.cancellable && (t.status === 'running' || t.status === 'queued')
-          ? <Btn variant="quiet" size="s" onClick={() => t.origin === 'url' ? app.cancelImport(t.id) : app.cancelTask(t)}>取消</Btn>
+          ? <Btn variant="quiet" size="s" onClick={() => t.origin === 'url' ? app.cancelImport(t.id) : app.cancelTask(t)}>
+              {X.stopsDirectly(t.kind) ? '停止' : '取消'}</Btn>
           : null}
         {/* 失败或已取消的导入卡会一直钉在这页上，这是它们唯一的清除入口（第 221 轮）。
             只删这笔记账：已下载的视频和已创建的项目都不动。任务历史仍只有整节「清空历史」。 */}
@@ -270,6 +278,23 @@
     );
   }
 
+  /* Agent 安装与升级的命令输出（实现 task-detail.tsx 的 SetupLog）：写在「停止任务」下面、失败说明上面，
+     新的一行出来时跟到底（人往上翻了就不跟） */
+  function SetupLog({lines}) {
+    const ref = React.useRef(null);
+    const stick = React.useRef(true);
+    React.useLayoutEffect(() => {
+      const el = ref.current;
+      if (el && stick.current) el.scrollTop = el.scrollHeight;
+    }, [lines.length]);
+    return (
+      <pre ref={ref} className="agset-run__log task-setup-log" role="log" aria-live="polite" aria-label="命令输出" tabIndex={0}
+        onScroll={(e) => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 8; }}>
+        {lines.join('\n')}
+      </pre>
+    );
+  }
+
   /* 详情渲染异常只替换这一页，外壳与返回入口保留；换任务后重新尝试渲染。 */
   class TaskDetailBoundary extends React.Component {
     state = {failed: false};
@@ -301,6 +326,8 @@
     if (t.origin === 'url') return <Page><window.ImportTask task={t} /></Page>;
     const k = KIND[t.kind] || KIND.transcribe;
     const proj = app.projById(t.project);
+    const setup = X.stopsDirectly(t.kind);
+    const miss = F.installFailure(t, (id) => window.BC_LOCALMODELS.catOf(D.setModels.find((m) => m.id === id) || {}));
     return (
       <Page>
         <Btn variant="quiet" size="s" icon="back" onClick={() => app.go({r: 'tasks'})}
@@ -313,7 +340,7 @@
         {t.status === 'running' ? <div style={{maxWidth: 420, marginTop: 16}}><Progress value={t.pct} indeterminate={t.pct == null} /></div> : null}
         {/* 执行方那一句 `detail`（「第 1 行 · Codex 正在画 · 15 秒」）：此前只在 jobs 帧里、界面不画。
             所有种类通用；没有 detail 时退回阶段短语。只在运行中写。 */}
-        {t.status === 'running' && (t.detail || t.phase)
+        {t.status === 'running' && !setup && (t.detail || t.phase)
           ? <div className="t-detail" style={{marginTop: 6}}>{t.detail || t.phase}</div> : null}
         {/* 视频工具的运行（tool-runs.jsx）：按步骤显示进度，失败停在那一步、可以从那一步重试（product-design §2.7） */}
         {t.tool && window.ToolTaskPanel ? <window.ToolTaskPanel t={t} /> : null}
@@ -324,11 +351,12 @@
         {t.cancellable && (t.status === 'running' || t.status === 'queued') ? (
           <div className="row gap8" style={{marginTop: 12}}>
             <Btn variant="negative" size="m" className="task-cancel-action" onClick={() => app.cancelTask(t)}>
-              {t.kind === 'export' ? '取消导出' : '取消任务'}
+              {setup ? '停止任务' : t.kind === 'export' ? '取消导出' : '取消任务'}
             </Btn>
             {t.kind === 'export' ? <span className="t-detail">已写出的那部分文件会删掉，视频本身不受影响。</span> : null}
           </div>
         ) : null}
+        {setup && t.log ? <SetupLog lines={t.log} /> : null}
         {t.session ? (
           <div className="row gap8" style={{marginTop: 12}}>
             <Btn variant="secondary" size="s" icon="agent" onClick={() => app.openSession(t.session)}>打开会话</Btn>
@@ -347,7 +375,8 @@
           </div>
         ) : null}
 
-        {t.canceled
+        {/* Agent 的安装与升级停了就是「已取消」，输出末尾那行 ^C 已经说明了，不另写一张（实现同） */}
+        {t.canceled && !setup
           ? <Card layer style={{padding: 14, marginTop: 16}}>
               <div className="row gap8">
                 <Ic n="info" className="ic--16" style={{color: 'var(--gray-700)'}} />
@@ -358,19 +387,35 @@
               </div>
             </Card>
           : null}
-        {t.status === 'error' && !t.canceled && !t.tool && !(window.BC_TASK_OUTPUTS && window.BC_TASK_OUTPUTS.retry(t))
+        {/* 模型下载没下完：下好的留着，去设置里补齐（BC_TASK_FACTS.installFailure）；不走下面那张「配置问题」卡 */}
+        {miss
           ? <Card style={{padding: 14, marginTop: 16, boxShadow: 'inset 0 0 0 1px var(--red-300)', background: 'var(--red-100)'}}>
               <div className="row gap8">
                 <Ic n="alert" className="ic--16" style={{color: 'var(--red-900)'}} />
                 <span className="t-title-sm t-negative grow">{t.error}</span>
               </div>
-              <div className="t-detail" style={{marginTop: 6}}>
-                这是配置问题，重试同一条链路不会好。先补上缺的组件，再跑一次。
-              </div>
+              <div className="t-detail" style={{marginTop: 6}}>{miss.body}</div>
               <div className="row gap8" style={{marginTop: 12}}>
-                <Btn variant="accent" size="s" onClick={() => app.go({r: 'settings', sec: 'local'})}>去补装组件</Btn>
-                <Btn variant="secondary" size="s" onClick={() => app.toast('换一个引擎重试：本轮为骨架')}>换个模型重试</Btn>
+                <Btn variant="accent" size="s" onClick={() => app.go(miss.go)}>{miss.label}</Btn>
               </div>
+            </Card>
+          : null}
+        {t.status === 'error' && !t.canceled && !t.tool && !miss && !(window.BC_TASK_OUTPUTS && window.BC_TASK_OUTPUTS.retry(t))
+          ? <Card style={{padding: 14, marginTop: 16, boxShadow: 'inset 0 0 0 1px var(--red-300)', background: 'var(--red-100)'}}>
+              <div className="row gap8">
+                <Ic n="alert" className="ic--16" style={{color: 'var(--red-900)'}} />
+                <span className="t-title-sm t-negative grow">{t.error}</span>
+              </div>
+              {/* Agent 安装与升级：只有那一句（原因在上面的输出里），没有补装组件、换模型这类补救 */}
+              {setup ? null : <>
+                <div className="t-detail" style={{marginTop: 6}}>
+                  这是配置问题，重试同一条链路不会好。先补上缺的组件，再跑一次。
+                </div>
+                <div className="row gap8" style={{marginTop: 12}}>
+                  <Btn variant="accent" size="s" onClick={() => app.go({r: 'settings', sec: 'local'})}>去补装组件</Btn>
+                  <Btn variant="secondary" size="s" onClick={() => app.toast('换一个引擎重试：本轮为骨架')}>换个模型重试</Btn>
+                </div>
+              </>}
             </Card>
           : null}
 

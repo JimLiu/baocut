@@ -165,6 +165,7 @@ export const ko: ProvidersMessages = {
     rowCalls: (calls, failed) => (failed ? `${calls} · ${failed} 실패` : String(calls)),
     cost: {
       unknown: '비용 알 수 없음',
+      subscription: '구독에 포함',
       estimated: (money) => `≈ ${money}`,
       reported: (money) => `${money} 보고됨`,
       mixed: (money) => `≈ ${money}(보고 금액 포함)`,

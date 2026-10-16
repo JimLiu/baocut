@@ -66,6 +66,9 @@ export const zhHant: RcAgentToolsMessages = {
   translationDocumentName: (p) => `${p.language} 譯文`,
   importAssetSummary: (p) => `匯入素材 ${p.name}${p.place ? ' 並加入時間軸' : ''}`,
   importAssetLabel: (p) => `匯入 ${p.name}${p.place ? ' 並加入時間軸' : ''}`,
+  openMediaDownloadSummary: (p) => `從 ${p.source} 下載「${p.title}」（${p.license}）並匯入${p.place ? '，加入時間軸' : ''}`,
+  sfxSummary: (p) => `產生音效「${p.recipe}」並匯入${p.place ? '，放到時間軸上' : ''}`,
+ 
   replaceCompositionSummary: (p) => `匯入 ${p.name}，取代時間軸上的片段 ${p.clip}`,
   replaceCompositionLabel: (p) => `將程式碼畫面取代為 ${p.name}`,
   pruneAssetsSummary: (p) => `從影片裡刪掉沒有用到的素材（${p.count} 個）：${p.names}`,

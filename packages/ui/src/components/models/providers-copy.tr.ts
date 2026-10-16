@@ -170,6 +170,7 @@ export const tr: ProvidersMessages = {
     rowCalls: (calls, failed) => (failed ? `${calls} · ${failed} başarısız` : String(calls)),
     cost: {
       unknown: 'Maliyet bilinmiyor',
+      subscription: 'Aboneliğe dahil',
       estimated: (money) => `≈ ${money}`,
       reported: (money) => `${money} bildirildi`,
       mixed: (money) => `≈ ${money} (bildirilen dahil)`,

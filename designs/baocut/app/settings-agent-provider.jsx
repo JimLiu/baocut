@@ -1,9 +1,10 @@
 /* Settings › Agent 的一家 provider（2026-09-18 重设计）。
    一行回答三件事：装没装、能不能用、开没开；有问题时问题条直接露在行下面，不用先点开。
    展开后是「日常会动的」四样：默认模型、版本与升级、账号、排查。未安装时展开的是安装面板。
-   状态判断全在 model-agent-setup.js。安装 / 升级命令左边一枚 ▶，点了就在这里运行，命令下面出一个日志框滚动显示输出
+   状态判断全在 model-agent-setup.js。安装 / 升级命令左边一枚 ▶，点了先确认（框里写出完整命令），确认后就在这里运行，命令下面出一个日志框滚动显示输出
    （2026-09-18 起取代「摆进系统终端」）；`curl … | bash` 这类官方脚本不给 ▶，只给复制（S.runnable）。登录要在 CLI 里交互，
-   仍然摆进终端。原型里的输出是 S.demoRun 编的，跑完把结果写进 store 的探测补丁。 */
+   仍然摆进终端。每次运行是一条后台任务（agent-setup-runs.jsx，同实现：设置与首次启动引导起的都在任务页），原型里的输出是
+   S.demoRun 编的，跑完把结果写进 store 的探测补丁。 */
 (function () {
   const {useState, useRef, useEffect} = React;
   const S = window.BC_AGENT_SETUP;
@@ -24,27 +25,20 @@
     </div>;
   }
 
-  /* 一条可运行的命令：[▶/■] 命令 [复制]，运行后下面是滚动日志与一行结果。运行状态由卡片持有（useCmdRun），
-     问题条的「升级到 X」、排查里的对症按钮也能直接起跑。 */
+  /* 一条可运行的命令：[▶/■] 命令 [复制]，运行后下面是滚动日志与一行结果。运行状态在任务里（同实现在 Runtime 里）：
+     命令框显示这一家最近的那次运行（S.setupRun：在跑的，或这次见过在跑的），引导里起的、任务页停掉的这里也一样看得到；
+     ■ 与任务页的「停止」是同一个动作（store.cancelTask）。问题条的「升级到 X」、排查里的对症按钮也能直接起跑。 */
   function useCmdRun(h, failNext) {
-    const [run, setRun] = useState(null);   // {cmd, status: running | ok | fail | stopped, lines, code}
-    const timers = useRef([]);
-    useEffect(() => () => timers.current.forEach(clearTimeout), []);
-    const clear = () => { timers.current.forEach(clearTimeout); timers.current = []; };
+    const app = useApp();
+    const run = S.setupRun(app.tasks, h.id);   // {tid, cmd, status: running | ok | fail | stopped, lines, code}
+    const running = !!run && run.status === 'running';
     const start = (plan, upgrade, onDone) => {
-      if (!S.runnable(plan) || (run && run.status === 'running')) return;
-      clear();
-      const out = S.demoRun(plan, h, upgrade, failNext);
-      setRun({cmd: plan.cmd, status: 'running', lines: ['$ ' + plan.cmd], code: null});
-      out.lines.forEach((line, i) => timers.current.push(setTimeout(() =>
-        setRun((r) => r && {...r, lines: S.appendLog(r.lines, [line])}), 380 * (i + 1))));
-      timers.current.push(setTimeout(() => {
-        setRun((r) => r && {...r, status: out.code === 0 ? 'ok' : 'fail', code: out.code});
-        onDone(out.code === 0);
-      }, 380 * (out.lines.length + 1)));
+      if (!S.runnable(plan) || running) return;
+      window.BC_AGENT_RUNS.start(app, h, plan, upgrade ? 'upgrade' : 'install',
+        {fail: failNext, onEnd: (result) => result !== 'stopped' && onDone(result === 'done')});
     };
-    const stop = () => { clear(); setRun((r) => r && {...r, status: 'stopped', lines: S.appendLog(r.lines, ['^C'])}); };
-    return {run, running: !!run && run.status === 'running', start, stop};
+    const stop = () => { if (running) app.cancelTask(run.tid); };
+    return {run, running, start, stop};
   }
 
   function CmdRun({plan, runner, copyTip, onCopy, onRun}) {
@@ -167,11 +161,15 @@
       try { await navigator.clipboard.writeText(value); app.toast(label + '已复制', 'positive'); }
       catch (e) { app.toast('复制失败，请选中文字后复制'); }
     };
-    /* 就地运行：跑完成功才写探测补丁（正式版是跑完自动重新检测）；失败留在日志框里，不弹 toast。
-       命令跑不了（官方脚本）时只展开详情，让用户看到复制入口。 */
+    /* 就地运行：先弹确认，写出完整命令（S.runConfirm），点「运行」才起跑，取消什么也不做。跑完成功才写探测补丁
+       （正式版是跑完自动重新检测）；失败留在日志框里，不弹 toast。命令跑不了（官方脚本）时只展开详情，让用户看到复制入口。 */
     const runPlan = (upgrading, done) => {
       if (!open) onToggle();
-      if (plan && S.runnable(plan)) runner.start(plan, upgrading, (ok) => ok && done());
+      if (!plan || !S.runnable(plan) || runner.running) return;
+      const q = S.runConfirm(h, plan, upgrading);
+      app.confirm({title: q.title, confirmLabel: q.confirmLabel,
+        body: <>{q.before}<code className="agset-confirm__cmd">{q.cmd}</code>{q.after}</>,
+        run: () => runner.start(plan, upgrading, (ok) => ok && done())});
     };
     const install = () => runPlan(false, () => {
       app.patchHarness(h.id, {found: true, loggedIn: false});

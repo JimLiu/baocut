@@ -7,6 +7,7 @@ import Copy from '@react-spectrum/s2/icons/Copy';
 import Play from '@react-spectrum/s2/icons/Play';
 import StopProcessing from '@react-spectrum/s2/icons/StopProcessing';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
+import { setupFailureReason } from '../../model/agent-setup-task.ts';
 import { configureAgent } from '../../runtime/agent-commands.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { AGENT_COPY } from './agent-copy.ts';
@@ -111,8 +112,8 @@ export function CommandBlock({ value, copyLabel, runner, note }: { value: string
   );
 }
 
-/** 日志框与一行结果。新输出到了就滚到底；用户往上翻着看时不抢滚动条。 */
-function RunOutput({ run, onTerminal }: { run: AgentSetupRun; onTerminal: () => void }) {
+/** 日志框：新输出到了就滚到底；用户往上翻着看时不抢滚动条。后台任务的详情页也用它。 */
+export function SetupLog({ run }: { run: Pick<AgentSetupRun, 'command' | 'output' | 'droppedLines'> }) {
   const ref = useRef<HTMLPreElement>(null);
   const stick = useRef(true);
   const text = setupLog(run);
@@ -121,20 +122,27 @@ function RunOutput({ run, onTerminal }: { run: AgentSetupRun; onTerminal: () => 
     if (el && stick.current) el.scrollTop = el.scrollHeight;
   }, [text]);
   return (
+    <pre
+      ref={ref}
+      className={log}
+      role="log"
+      aria-live="polite"
+      aria-label={C().output}
+      tabIndex={0}
+      onScroll={(e) => {
+        const el = e.currentTarget;
+        stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
+      }}>
+      {text}
+    </pre>
+  );
+}
+
+/** 日志框与一行结果。 */
+function RunOutput({ run, onTerminal }: { run: AgentSetupRun; onTerminal: () => void }) {
+  return (
     <>
-      <pre
-        ref={ref}
-        className={log}
-        role="log"
-        aria-live="polite"
-        aria-label={C().output}
-        tabIndex={0}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
-        }}>
-        {text}
-      </pre>
+      <SetupLog run={run} />
       <div className={runStatus} role="status">
         {run.state === 'running' ? (
           <>
@@ -154,7 +162,7 @@ function RunOutput({ run, onTerminal }: { run: AgentSetupRun; onTerminal: () => 
         ) : (
           <>
             <AlertTriangle styles={failIcon} />
-            <span className={runText}>{C().failed(failureReason(run))}</span>
+            <span className={runText}>{C().failed(setupFailureReason(run))}</span>
             <Button variant="secondary" size="S" onPress={onTerminal}>
               {C().runInTerminal}
             </Button>
@@ -163,13 +171,6 @@ function RunOutput({ run, onTerminal }: { run: AgentSetupRun; onTerminal: () => 
       </div>
     </>
   );
-}
-
-/** 失败的那一句括号里写什么：有退出码写退出码（设计稿原文）；没能启动、被信号结束的设计稿没有，按事实写。 */
-function failureReason(run: Pick<AgentSetupRun, 'exitCode' | 'error'>): string {
-  if (run.exitCode !== null) return C().exitCode(run.exitCode);
-  if (run.error) return C().startFailed(run.error);
-  return C().killed;
 }
 
 const dialogCode = style({ display: 'block', marginY: 12, padding: 12, borderRadius: 'lg', backgroundColor: 'gray-100', font: 'code-sm', color: 'gray-900', overflowWrap: 'anywhere', userSelect: 'text' });

@@ -457,6 +457,8 @@ const en = {
     voiceClone: 'Clone voice',
     agentTranslate: 'Translate',
     legacyImport: 'Import earlier projects',
+    agentInstall: 'Install Agent',
+    agentUpgrade: 'Update Agent',
   },
   /** Job 的阶段（`JobPhase`）：列表与胶囊念「识别中 · 45%」。 */
   jobPhase: {
@@ -565,6 +567,10 @@ const en = {
     remedyDefault: 'Choose default models',
     remedyNode: 'View remote nodes',
     remedyAgent: 'Open agent settings',
+    remedyComplete: 'Complete download',
+    remedyRedownload: 'Download again',
+    completeHint: 'The parts already downloaded are kept, so completing downloads only what’s missing. If it still can’t connect, switch the download source in Settings › General first.',
+    redownloadHint: 'If it can’t connect, switch the download source in Settings › General before downloading again.',
   },
   /** 任务胶囊与悬停卡（原型 task-pill.jsx、model-task-pill.js）。 */
   taskPill: {

@@ -383,6 +383,8 @@ export const ja: CopyMessages = {
     voiceClone: '声をクローン',
     agentTranslate: '翻訳',
     legacyImport: '以前のプロジェクトの読み込み',
+    agentInstall: 'Agent をインストール',
+    agentUpgrade: 'Agent をアップデート',
   },
   jobPhase: {
     queued: '待機中',
@@ -488,6 +490,10 @@ export const ja: CopyMessages = {
     remedyDefault: '既定のモデルを選択',
     remedyNode: 'リモートノードを表示',
     remedyAgent: 'Agent の設定を開く',
+    remedyComplete: 'ダウンロードを補完',
+    remedyRedownload: 'もう一度ダウンロード',
+    completeHint: 'ダウンロード済みの部分は保持されるため、補完するときは足りない部分だけをダウンロードします。それでも接続できない場合は、先に「設定 › 一般」のダウンロード元を切り替えてください。',
+    redownloadHint: '接続できない場合は、「設定 › 一般」のダウンロード元を切り替えてから、もう一度ダウンロードしてください。',
   },
   taskPill: {
     count: (n: number) => `${n} 件のバックグラウンドタスク`,

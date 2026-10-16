@@ -835,7 +835,7 @@ describe.skipIf(!engine || !worker || !ffmpeg)('成片导出（真实引擎 + Re
       const failed = await finish(jobId);
       expect(failed.state).toBe('failed');
       expect(failed.error).toMatchObject({ code: 'FONT_MISSING', details: { family: 'ColrProbe', reason: 'changed' } });
-      expect(failed.error!.message).toContain('字体无法复现');
+      expect(failed.error!.message).toContain('font cannot be reproduced');
       await fs.writeFile(file, probe);
     }
     // 预览按 face 要字体：引擎用同一份解析找到同一个文件里的同一个 face，发读取句柄与抽法；找不到的给出原因。

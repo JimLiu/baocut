@@ -175,12 +175,6 @@
 }
 .bc-image-header > button {
   flex-shrink: 0;
-  border-radius: 9999px;
-}
-.bc-image-name {
-  color: var(--media-muted);
-  font-size: 12px;
-  text-align: center;
 }
 .bc-image-stage {
   display: flex;
@@ -244,11 +238,6 @@
 .bc-image-preview .bc-image-stage {
   min-height: 0;
 }
-.bc-image-button-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
 .bc-image-tools {
   display: flex;
   flex-wrap: wrap;
@@ -301,9 +290,30 @@
   background: color-mix(in srgb, var(--media-bg) 88%, transparent);
   backdrop-filter: blur(4px);
 }
+/*
+ * 全窗口查看器只淡入，不要 S2 进场的下移 20px：它贴着窗口底边，下移会把文档撑出根滚动条，
+ * React Aria 随即给 <html> 留出 scrollbar-gutter，查看器右边就空出一条白边。
+ */
 [data-rac]:has(> .bc-image-lightbox) {
   background: transparent;
   padding-bottom: 0;
+  translate: none;
+}
+/*
+ * Electron 按几何位置叠窗口拖动区，不看层级：标题栏的 .bc-drag 会透过盖在它上面的全屏对话框，
+ * 吞掉表头按钮、滑块和输入框的点击。对话框自己声明 no-drag 才压得住；表头不能只靠左边的留白。
+ */
+.bc-image-lightbox,
+.bc-media-dialog {
+  -webkit-app-region: no-drag;
+}
+/* 查看器表头顶替了标题栏：空白处照样拖动窗口；控件（React Aria 元素都带 data-rac）与输入框保持可点。 */
+.bc-image-lightbox .bc-image-header {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+.bc-image-lightbox .bc-image-header :is(button, input, textarea, [role='button'], [data-rac]) {
+  -webkit-app-region: no-drag;
 }
 /* macOS 的红绿灯压在全屏查看器左上角：各表头（查看、标注、全景）左边让出与标题栏相同的 84px。 */
 .bc-image-lightbox--mac .bc-image-header {
@@ -455,7 +465,7 @@
   .bc-image-header {
     gap: 4px;
   }
-  .bc-image-header > button:first-child {
+  .bc-image-header > :first-child {
     margin-inline-end: auto;
   }
   .bc-image-preview > .bc-image-layout {

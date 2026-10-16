@@ -22,7 +22,7 @@
 //! [`osc`]（polyBLEP 振荡）、[`noise`]（有色噪声）、[`curve`]（关键帧与漂移曲线）、
 //! [`reverb`]（合成脉冲响应 + FFT 分块卷积）、[`dynamics`]（块 RMS 跟随、activity 闪避、glue 压缩）、
 //! [`loudness`]（BS.1770-4 积分响度 / LRA / 短期响度）、[`truepeak`]（4× 过采样真峰值与前瞻限幅）、
-//! [`stereo`]（声像、淡入淡出、归一化）、[`resample`]（整段 sinc 重采样）、[`align`]（延迟与相位对齐）、[`master`]（母带链）。
+//! [`stereo`]（声像、淡入淡出、归一化）、[`resample`]（整段 sinc 重采样）、[`align`]（延迟与相位对齐）、[`master`]（母带链）、[`sfx`]（程序化音效配方）、[`physical`]（模态、接触、小房间与话筒）、[`tone`]（三分之一倍频程音色与尾长）。
 
 pub mod align;
 pub mod biquad;
@@ -34,10 +34,13 @@ pub mod master;
 pub mod math;
 pub mod noise;
 pub mod osc;
+pub mod physical;
 pub mod resample;
 pub mod reverb;
 pub mod rng;
+pub mod sfx;
 pub mod stereo;
+pub mod tone;
 pub mod truepeak;
 pub mod tvlp;
 

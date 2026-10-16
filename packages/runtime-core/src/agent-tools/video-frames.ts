@@ -100,16 +100,16 @@ export function frameSourceAtFrame(video: VideoSnapshot, frame: number): FrameSo
 
 /**
  * 帧的输出目录 `<root>/.baocut-out/frames/<videoId>`：不存在时建出来；按真实路径不能出 `root`（`confine` 给了时也不能出它），
- * 不能在视频目录或 `.bcut` 里。返回真实路径。
+ * 不能在视频目录或 `.bcut` 里。返回真实路径。`base` 换掉 `.baocut-out/frames`（音频分析写在 `.baocut-out/analysis`）。
  */
-export async function framesDirectory(root: string, videoId: Id, confine: string | null): Promise<string> {
+export async function framesDirectory(root: string, videoId: Id, confine: string | null, base: string = FRAMES_DIR): Promise<string> {
   const refuse = () =>
-    new ToolError('PATH_OUTSIDE_WORKSPACE', `帧的输出目录 ${FRAMES_DIR} 指到了写文件的目录以外（不经过指向别处的符号链接）`);
+    new ToolError('PATH_OUTSIDE_WORKSPACE', `The output directory ${base} resolves outside the writable directory (through a symlink)`);
   await fs.mkdir(root, { recursive: true });
   const rootReal = await fs.realpath(root);
   if (confine !== null && !inside(rootReal, await fs.realpath(confine))) throw refuse();
   await refuseVideoDirectory(path.parse(rootReal).root, rootReal, []);
-  const dir = path.join(rootReal, FRAMES_DIR, videoId);
+  const dir = path.join(rootReal, base, videoId);
   await fs.mkdir(dir, { recursive: true });
   const real = await fs.realpath(dir);
   if (!inside(real, rootReal)) throw refuse();

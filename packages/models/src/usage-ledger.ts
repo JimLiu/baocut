@@ -129,6 +129,7 @@ export function parseUsageRecord(value: unknown): UsageRecord | null {
 function parseCost(value: unknown): UsageRecordCost | null {
   if (!isObject(value)) return null;
   if (value.kind === 'unknown') return { kind: 'unknown' };
+  if (value.kind === 'subscription') return { kind: 'subscription' };
   if (value.kind !== 'reported') return null;
   if (typeof value.amount !== 'string' || !/^\d{1,12}(\.\d{1,6})?$/.test(value.amount)) return null;
   if (value.currency !== 'USD' && value.currency !== 'CNY') return null;

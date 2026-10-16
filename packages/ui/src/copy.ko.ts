@@ -384,6 +384,8 @@ export const ko: CopyMessages = {
     voiceClone: '목소리 복제',
     agentTranslate: '번역',
     legacyImport: '이전 프로젝트 가져오기',
+    agentInstall: 'Agent 설치',
+    agentUpgrade: 'Agent 업데이트',
   },
   jobPhase: {
     queued: '대기 중',
@@ -489,6 +491,10 @@ export const ko: CopyMessages = {
     remedyDefault: '기본 모델 선택',
     remedyNode: '원격 노드 보기',
     remedyAgent: 'Agent 설정 열기',
+    remedyComplete: '다운로드 보완',
+    remedyRedownload: '다시 다운로드',
+    completeHint: '이미 다운로드한 부분은 유지되므로, 보완할 때는 빠진 부분만 다운로드합니다. 그래도 연결할 수 없으면 먼저 설정 › 일반의 다운로드 소스를 바꾸세요.',
+    redownloadHint: '연결할 수 없으면 설정 › 일반의 다운로드 소스를 바꾼 뒤 다시 다운로드하세요.',
   },
   taskPill: {
     count: (n: number) => `백그라운드 작업 ${n}개`,

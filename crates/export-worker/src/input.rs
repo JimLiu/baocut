@@ -132,18 +132,20 @@ fn invalid(message: impl Into<String>) -> Failure {
 
 impl Input {
     pub fn load(path: &Path) -> Result<Input, Failure> {
-        let text = std::fs::read_to_string(path).map_err(|e| invalid(format!("读导出输入失败：{e}")))?;
-        let input: Input = serde_json::from_str(&text).map_err(|e| invalid(format!("导出输入读不懂：{e}")))?;
+        let text = std::fs::read_to_string(path).map_err(|e| invalid(format!("failed to read the export input: {e}")))?;
+        let input: Input = serde_json::from_str(&text).map_err(|e| invalid(format!("the export input is not valid: {e}")))?;
         input.output.fps.validate("output.fps").map_err(|e| invalid(format!("{e:?}")))?;
         let (w, h) = (input.output.width, input.output.height);
         if w == 0 || h == 0 || w % 2 == 1 || h % 2 == 1 || w > 8192 || h > 8192 {
-            return Err(invalid(format!("输出尺寸 {w}×{h} 不可用：宽高要是 2 到 8192 之间的偶数")));
+            return Err(invalid(format!(
+                "output size {w}×{h} is not usable: width and height must be even numbers between 2 and 8192"
+            )));
         }
         let p = input.output.picture();
         let fits = p.x.checked_add(p.width).is_some_and(|r| r <= w) && p.y.checked_add(p.height).is_some_and(|b| b <= h);
         if p.width < 2 || p.height < 2 || p.width % 2 == 1 || p.height % 2 == 1 || !fits {
             return Err(invalid(format!(
-                "画面 {}×{}（{}, {}）不可用：宽高要是不小于 2 的偶数，并且在输出 {w}×{h} 里",
+                "picture {}×{} at ({}, {}) is not usable: width and height must be even numbers of at least 2, and the picture must fit inside the {w}×{h} output",
                 p.width, p.height, p.x, p.y
             )));
         }
@@ -161,7 +163,7 @@ impl Input {
         let start = self.range.start.to_ratio("range.start").map_err(|e| invalid(format!("{e:?}")))?;
         let end = self.range.end.to_ratio("range.end").map_err(|e| invalid(format!("{e:?}")))?;
         if start.is_negative() || end <= start {
-            return Err(Failure::new("EXPORT_RANGE_EMPTY", "导出范围是空的"));
+            return Err(Failure::new("EXPORT_RANGE_EMPTY", "the export range is empty"));
         }
         Ok((start, end))
     }
@@ -169,9 +171,11 @@ impl Input {
     /// 输出的帧数：范围长度乘输出帧率，向上取整（最后一帧覆盖范围的尾巴）。
     pub fn frame_count(&self) -> Result<u64, Failure> {
         let (start, end) = self.range()?;
-        let duration = end.checked_sub(start).ok_or_else(|| invalid("范围超出范围"))?;
-        let frames = frames_at(duration, self.output.fps).ok_or_else(|| invalid("范围超出范围"))?.ceil();
-        u64::try_from(frames).map_err(|_| invalid("帧数超出范围"))
+        let duration = end.checked_sub(start).ok_or_else(|| invalid("the range is out of bounds"))?;
+        let frames = frames_at(duration, self.output.fps)
+            .ok_or_else(|| invalid("the range is out of bounds"))?
+            .ceil();
+        u64::try_from(frames).map_err(|_| invalid("the frame count is out of bounds"))
     }
 
     /// 第 `k` 个输出帧的序列时刻：`start + k / fps`，精确值。
@@ -179,21 +183,21 @@ impl Input {
         let (start, _) = self.range()?;
         frame_time(k as i128, self.output.fps)
             .and_then(|t| start.checked_add(t))
-            .ok_or_else(|| invalid("帧时刻超出范围"))
+            .ok_or_else(|| invalid("the frame time is out of bounds"))
     }
 
     pub fn container(&self) -> Result<Container, Failure> {
-        Container::parse(&self.output.format).ok_or_else(|| invalid(format!("不认识的成片格式 {}", self.output.format)))
+        Container::parse(&self.output.format).ok_or_else(|| invalid(format!("unknown output format {}", self.output.format)))
     }
 
     pub fn codec(&self) -> Result<VideoCodec, Failure> {
         let container = self.container()?;
         let codec = match &self.output.codec {
-            Some(name) => VideoCodec::parse(name).ok_or_else(|| invalid(format!("不认识的视频编码 {name}")))?,
+            Some(name) => VideoCodec::parse(name).ok_or_else(|| invalid(format!("unknown video codec {name}")))?,
             None => container.default_codec(),
         };
         if !container.accepts(codec) {
-            return Err(invalid(format!("{} 不能放进 {}", codec.name(), self.output.format)));
+            return Err(invalid(format!("{} cannot be stored in {}", codec.name(), self.output.format)));
         }
         Ok(codec)
     }
@@ -205,7 +209,7 @@ impl Input {
             (None, Some(crf)) if crf <= codec.max_crf() => Quality::Crf(crf),
             (None, Some(crf)) => {
                 return Err(invalid(format!(
-                    "{} 的 CRF 在 0 到 {} 之间，给的是 {crf}",
+                    "CRF for {} must be between 0 and {}, got {crf}",
                     codec.name(),
                     codec.max_crf()
                 )));

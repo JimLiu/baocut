@@ -36,6 +36,12 @@ export interface HostBridge {
    */
   saveFile?(options: SaveFileOptions): Promise<string | null>;
   /**
+   * 下载 Runtime 媒体通道里的一个文件（`MediaHandle.url`）：系统存储对话框选位置，主进程按地址流式写盘，返回存下的路径；
+   * 取消时 null，取不到或写不进去时抛错。没给 `defaultDir` 时对话框从系统的下载文件夹开始。地址只能是这个 Runtime 签发的句柄。
+   * 桌面端才有；Web 没有它，界面改为交给浏览器下载（同源地址按 `download` 属性存）。
+   */
+  saveUrl?(options: SaveUrlOptions): Promise<string | null>;
+  /**
    * 把界面里录好（或解码好）的一段 WAV 写进本机的临时目录，返回它的绝对路径，交给 Runtime 的 `library.put` 拷进用户库。
    * 桌面端才有（我的声音 › 克隆新音色）；Web 没有它，那一页本来也不在浏览器里。
    */
@@ -89,6 +95,11 @@ export interface PickSavePathOptions {
 export interface SaveFileOptions extends PickSavePathOptions {
   /** 要写进去的内容。 */
   data: Uint8Array;
+}
+
+export interface SaveUrlOptions extends PickSavePathOptions {
+  /** 要下载的媒体地址（`MediaHandle.url`）。 */
+  url: string;
 }
 
 /**

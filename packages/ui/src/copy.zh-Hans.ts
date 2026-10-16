@@ -381,6 +381,8 @@ export const zhHans: CopyMessages = {
     voiceClone: '克隆音色',
     agentTranslate: '翻译',
     legacyImport: '导入旧版项目',
+    agentInstall: '安装 Agent',
+    agentUpgrade: '升级 Agent',
   },
   jobPhase: {
     queued: '排队中',
@@ -486,6 +488,10 @@ export const zhHans: CopyMessages = {
     remedyDefault: '去选默认模型',
     remedyNode: '去看远端节点',
     remedyAgent: '去 Agent 设置',
+    remedyComplete: '去补齐',
+    remedyRedownload: '去重新下载',
+    completeHint: '已下好的部分留着，补齐时只下缺的；还是连不上的话，先在「设置 › 通用」的下载来源里换一个。',
+    redownloadHint: '连不上的话，先在「设置 › 通用」的下载来源里换一个，再重新下载。',
   },
   taskPill: {
     count: (n: number) => `${n} 个后台任务`,

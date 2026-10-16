@@ -193,7 +193,16 @@ export {
   type LinkImportTool,
 } from './pipelines/link-import.ts';
 export { FileLinkSources, type LinkSources } from './pipelines/link-sources.ts';
-export { sanitizeFileName } from './pipelines/yt-dlp.ts';
+export {
+  classifyFailure as classifyYtDlpFailure,
+  cookieAttemptsFailure,
+  runYtDlp,
+  sanitizeFileName,
+  searchArgs as ytDlpSearchArgs,
+  worthAnotherCookieBrowser,
+  youtubeSearchUrl,
+  type YtDlpTool,
+} from './pipelines/yt-dlp.ts';
 export { COOKIE_BROWSER_LABELS, detectCookieBrowsers, type CookieHost } from './pipelines/cookie-browsers.ts';
 export {
   OUTPUT_DESTINATION_UNAVAILABLE,

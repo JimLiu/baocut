@@ -32,6 +32,9 @@ BaoCut 离线音频 DSP 原语。`bcut-score`（配乐 / 音效合成与预览�
 | `resample` | 整段 Blackman 窗 sinc 重采样（256 相位核表，降采样按比例缩截止与抽头）：`resample` / `resample_stereo` / `output_len`。`bcut-score` 读采样率不同的旁白 WAV 时用；`bcut-render` 流式解码器另有一份按块推进的实现（std 浮点、已有 golden 绑定），两者不互换 |
 | `align` | 整数 / 分数延迟、FFT 互相关找时差与极性（`find_lag` / `align_to`） |
 | `master` | `MasterSpec` → 淡入淡出 → glue → （归一化 → 限幅）× 3 → 去直流 → 静态兜底 → `MasterReport` |
+| `sfx` | 程序化音效配方（`assets_sfx` 经 editor-wasm 调用）：拟真的 `click` / `keypress` / `pop` / `impact` 用 `physical` 拼，其余风格化的用振荡、噪声与滤波按包络拼 |
+| `physical` | 物理建模积木：接触脉冲与推力激励、有阻尼的模态组（`modal` / `modal_cloud`）、小房间与话筒链（低切、高搁架、底噪）。思路参考 earshot（MIT），独立实现 |
+| `tone` | 不靠模型的音色测量：28 个三分之一倍频程的能量分布、两条分布的 dB 距离、任意频段占比、`t40` 尾巴长度。给配方写回归测试 |
 
 算法来源是参考工程《精卫》`tools/audio.py`：参数、频段与门限都按它的口径移植，差异写在各模块文档里。
 

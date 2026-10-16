@@ -29,9 +29,10 @@ export function formatCount(n: number | null | undefined): string {
 /** 文本 token：入 + 出。 */
 export const tokenTotal = (units: UsageUnits) => (units.inputTokens ?? 0) + (units.outputTokens ?? 0);
 
-/** 份额条的宽度（相对最多的那一行，0–100）。 */
-export function shareWidth(calls: number, top: number): number {
-  return top > 0 ? Math.round((calls / top) * 100) : 0;
+/** 份额条的宽度：占全部调用的百分比（0–100），有调用时至少 1.5，细到看不见的也留一点。 */
+export function shareWidth(calls: number, total: number): number {
+  if (total <= 0 || calls <= 0) return 0;
+  return Math.max(1.5, Math.round((calls / total) * 1000) / 10);
 }
 
 /** 份额（占全部调用的百分比，四舍五入）。 */

@@ -122,7 +122,8 @@ export function openAgentTerminal(
 }
 
 /**
- * 订阅 `agent-setup` 主题，写进 `useAgentSetup`；返回取消订阅（同时清空镜像）。只在 Agent 提供方页签挂着时订阅。
+ * 订阅 `agent-setup` 主题，写进 `useAgentSetup`；返回取消订阅（同时清空镜像）。外壳根上的 AgentSetupHost 订阅一次：
+ * 设置页与首次启动引导都会在应用内运行安装，引导关掉、离开设置页之后装完也要弹一句、进后台任务，而一个主题只能有一个订阅者。
  *
  * 一次运行到终态时，Runtime 已经重新探测过：先读 `agents.list` 写回连接镜像，再把终态交给界面，
  * 这样界面看到「已完成」时版本、登录状态已经是新的；`onFinished` 在这之后调用（成功的 toast 用它）。

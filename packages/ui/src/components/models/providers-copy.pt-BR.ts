@@ -173,6 +173,7 @@ export const ptBR: ProvidersMessages = {
     rowCalls: (calls, failed) => (failed ? `${calls} · ${failed} com falha` : String(calls)),
     cost: {
       unknown: 'Custo desconhecido',
+      subscription: 'Incluído na assinatura',
       estimated: (money) => `≈ ${money}`,
       reported: (money) => `${money} informado`,
       mixed: (money) => `≈ ${money} (incl. informado)`,

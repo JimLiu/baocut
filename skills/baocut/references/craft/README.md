@@ -1,1 +1,1 @@
-这里的 `<id>.md` 由同步脚本从仓库的 `skills/baocut/built-in-skills/<id>/`（SKILL.md 与它的 `references/`）生成，不手写；单一来源是那里，索引见同一目录的 `README.md`。
+这里的 `<id>.md` 与同名目录 `<id>/` 由同步脚本从仓库的 `skills/baocut/built-in-skills/<id>/` 生成，不手写；单一来源是那里，索引见同一目录的 `README.md`。`<id>.md` 是 SKILL.md 的正文，末尾列出同目录的文件；`<id>/` 里是这个 skill 的其余文件，相对路径与来源相同：参考页（`references/*.md`）各成一页，代码、样例与数据（`examples/`、`exemplars/`、`scripts/`、`*.json`）原样复制。

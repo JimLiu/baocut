@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { newId, type ModelBundleStatus, type ModelInstallBatchPlan } from '@baocut/protocol';
+import { newId, type ModelBundleStatus, type ModelCapability, type ModelInstallBatchPlan } from '@baocut/protocol';
 import { Button, ButtonGroup, Content, Dialog, DialogContainer, Heading, ProgressCircle } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { DOWNLOAD_SOURCE_COPY as SRC, envName, kindOfComponent } from '../../model/download-source.ts';
 import { installFolderView, installPlanView, problemText, rpcProblem } from '../../model/models-install.ts';
-import { partLabel } from '../../model/models-local.ts';
+import { bundleName, isBundleInstalled, partLabel } from '../../model/models-local.ts';
+import { licenseBrief, nonCommercial } from '../../model/models-tts-local.ts';
 import { M as SEM } from '../../model/semantic-copy.ts';
 import { TEXT_BUNDLE } from '../../model/semantic-package.ts';
 import { useRuntime } from '../../runtime/context.tsx';
@@ -13,6 +14,9 @@ import { SectionLink } from '../tools/tool-parts.tsx';
 import { DownloadFolder } from './download-folder.tsx';
 import { SourcePicker } from './download-sources.tsx';
 import { LOCAL_INSTALL_COPY as COPY } from './local-models-copy.ts';
+import { IMAGE_LOCAL_COPY } from './models-copy.ts';
+import { MUSIC_LOCAL_COPY } from './music-local-copy.ts';
+import { TTS_LOCAL_COPY as TTS } from './tts-local-copy.ts';
 
 const stack = style({ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 });
 const lead = style({ margin: 0, font: 'body', fontWeight: 'bold', color: 'gray-900' });
@@ -24,10 +28,20 @@ const row = style({ display: 'flex', flexDirection: 'column', gap: 8, padding: 1
 const rowHead = style({ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, alignItems: 'center' });
 const labelStyle = style({ font: 'ui-sm', fontWeight: 'bold', color: 'gray-900' });
 const sourceStyle = style({ font: 'code-xs', color: 'gray-600', overflowWrap: 'anywhere', userSelect: 'text' });
+const text = style({ margin: 0, font: 'ui-sm', color: 'gray-800', overflowWrap: 'anywhere' });
+const licenseBox = style({ display: 'flex', flexDirection: 'column', gap: 4, padding: 12, borderRadius: 'lg', backgroundColor: 'notice-subtle', color: 'gray-900' });
+const licenseHead = style({ margin: 0, font: 'ui-sm', fontWeight: 'bold' });
+
+/** 不许商用的模型生成的东西也只能用在非商业内容里：按它生成什么写那一句（同单只下载时各工具传给 InstallDialog 的）。 */
+function licenseUse(capability: ModelCapability): string {
+  return capability === 'image' ? IMAGE_LOCAL_COPY.licenseUse : capability === 'music' ? MUSIC_LOCAL_COPY.licenseUse : TTS.licenseUse;
+}
 
 /**
- * Semantic search installs both models through one confirmation. Sizes and shared components come from Runtime.
+ * Semantic search installs both models through one confirmation; first-launch onboarding confirms every model it downloads
+ * here too. Sizes and shared components come from Runtime.
  * The storage folder (`dir`, null for the models folder) applies to this download only, like the single-model dialog.
+ * Non-commercial models get the same license note and “I understand” confirm label as the single-model dialog.
  */
 export function BatchInstallDialog({ bundles, name, onStarted, onClose }: {
   bundles: readonly ModelBundleStatus[]; name: string; onStarted: () => void; onClose: () => void;
@@ -76,6 +90,11 @@ export function BatchInstallDialog({ bundles, name, onStarted, onClose }: {
     } finally { setBusy(false); }
   };
   const completing = plan?.components.some((c) => c.action === 'keep');
+  // Completing an installed bundle does not ask about its license again (same as the single-model dialog's `complete`).
+  const restricted = bundles.flatMap((b) => {
+    const license = isBundleInstalled(b) ? null : nonCommercial(b.license);
+    return license ? [{ bundle: b, license }] : [];
+  });
   return (
     <DialogContainer onDismiss={() => { if (!busy) onClose(); }}>
       <Dialog size="M" isKeyboardDismissDisabled={busy}>
@@ -114,6 +133,14 @@ export function BatchInstallDialog({ bundles, name, onStarted, onClose }: {
                     </li>;
                   })}
                 </ul>
+                {restricted.map(({ bundle, license }) => (
+                  <div key={bundle.bundleId} className={licenseBox} role="note" aria-label={TTS.licenseTitle}>
+                    <p className={licenseHead}>{TTS.licenseTitle} · {bundleName(bundle)}</p>
+                    <p className={text}>{licenseBrief(license)}</p>
+                    <p className={fine}>{license.url}</p>
+                    <p className={text}>{licenseUse(bundle.capability)}</p>
+                  </div>
+                ))}
                 <p className={fine}>{SRC.perDownloadNote}{' '}
                   <SectionLink onPress={() => { if (!busy) { close(); go({ tab: 'settings', section: 'general' }); } }}>{SRC.manage}</SectionLink>
                 </p>
@@ -123,7 +150,7 @@ export function BatchInstallDialog({ bundles, name, onStarted, onClose }: {
           </Content>
           <ButtonGroup>
             <Button variant="secondary" isDisabled={busy} onPress={close}>{view?.upToDate ? COPY.close : COPY.cancel}</Button>
-            {view && !view.upToDate ? <Button variant="accent" isDisabled={!canConfirm} isPending={busy} onPress={() => void submit(close)}>{COPY.confirmInstall(view.amount)}</Button> : null}
+            {view && !view.upToDate ? <Button variant="accent" isDisabled={!canConfirm} isPending={busy} onPress={() => void submit(close)}>{restricted.length ? TTS.licenseConfirm(view.amount) : COPY.confirmInstall(view.amount)}</Button> : null}
           </ButtonGroup>
         </>}
       </Dialog>

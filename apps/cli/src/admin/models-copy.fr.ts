@@ -185,7 +185,8 @@ export const fr: ModelsMessages = {
     estimated: "estimé selon les prix catalogue",
     mixed: "déclaré et estimé",
     unknown: "coût inconnu",
-  } satisfies Record<UsageRow['costKind'], string>,
+    subscription: "inclus dans l’abonnement",
+  } satisfies Record<Exclude<UsageRow['costKind'], 'none'>, string>,
   rowCalls: (calls: number, failed: number) => `${calls} appel${s(calls)}${failed > 0 ? ` (${failed} en échec)` : ""}`,
   costApprox: (money: string, kind: string) => `≈ ${money} (${kind})`,
   usageHeader: (scope: string | undefined, period: string, from: string, to: string) =>
@@ -196,6 +197,7 @@ export const fr: ModelsMessages = {
   spentEstimated: (money: string) => `  Dépenses ≈ ${money} (estimées selon les prix catalogue)`,
   spentReported: (money: string) => `  Dépenses ${money} (déclarées par le fournisseur)`,
   unknownCostCalls: (calls: number) => `  Coût inconnu pour ${calls} autre appel${s(calls)}`,
+  subscriptionCalls: (calls: number) => `  ${calls} autre${s(calls)} appel${s(calls)} inclus dans un abonnement`,
   noBilledCalls: "  Aucun appel facturé",
   byProvider: "Par fournisseur",
   byCapability: "Par capacité",

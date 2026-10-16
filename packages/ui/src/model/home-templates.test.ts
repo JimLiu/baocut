@@ -1,10 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
-import { TEMPLATE_CATEGORIES, type TemplateManifest, type TemplateSummary } from '@baocut/protocol';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { setLocale, TEMPLATE_CATEGORIES, type TemplateManifest, type TemplateSummary } from '@baocut/protocol';
 import {
   SHELF_DEFAULT,
   SHELF_MAX,
+  TEMPLATE_KINDS_FILTER,
   TEMPLATES_PER_PAGE,
   categoryLabel,
   findTemplates,
@@ -164,6 +165,21 @@ describe('模板库的筛选', () => {
     const mixed = templateCatalogOf([...BUILTIN, summary({})]);
     expect(templateSources(mixed).map((s) => s.label)).toEqual(['全部来源', '内置', '我的']);
     expect(findTemplates(mixed, '', { source: 'user' }).map((t) => t.id)).toEqual(['my-template']);
+  });
+
+  describe('换界面语言', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+      setLocale('zh-Hans');
+    });
+
+    it('类型分段的字跟着当前语言', () => {
+      expect(TEMPLATE_KINDS_FILTER.map((k) => k.label)).toEqual(['全部', '场景模板', '作品示例']);
+      // 测试进程钉在简体中文（vitest.config 的 BAOCUT_LOCALE）：换英文要连环境变量一起换。
+      vi.stubEnv('BAOCUT_LOCALE', 'en');
+      setLocale('en');
+      expect(TEMPLATE_KINDS_FILTER.map((k) => k.label)).toEqual(['All', 'Scene templates', 'Showcase examples']);
+    });
   });
 
   it('分页：页码越界收回有效范围，空列表也算一页', () => {

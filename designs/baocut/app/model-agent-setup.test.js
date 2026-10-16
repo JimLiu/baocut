@@ -318,3 +318,26 @@ test('OpenCode 1.x 只能改装 @opencode/cli：问题说明说改装，升级�
   assert.equal(S.installPlan(v2, null, true).cmd, 'npm install -g --prefix /opt/homebrew @opencode/cli@latest');
   assert.equal(S.problem(S.scenarioPatch('opencode1').opencode && {...oc, ...S.scenarioPatch('opencode1').opencode}).action, 'upgrade');
 });
+
+test('设置里的命令框跟着这一家的安装 / 升级任务：在跑的优先，其次是见过在跑的里最新的', () => {
+  const t = (id, more) => ({id, kind: 'agent-upgrade', agent: 'claude', cmd: 'brew upgrade --cask claude-code', log: ['$ x'], ...more});
+  assert.equal(S.setupRun([], 'claude'), null);
+  // 演示数据里跑完的、别家的、别的种类都不算
+  assert.equal(S.setupRun([t('su3', {status: 'done'}), t('o', {agent: 'codex', status: 'running'}), t('m', {kind: 'model-install', status: 'running'})], 'claude'), null);
+  const live = S.setupRun([t('a1', {status: 'done', shown: true, seq: 1}), t('su1', {status: 'running'})], 'claude');
+  assert.deepEqual(live, {tid: 'su1', cmd: 'brew upgrade --cask claude-code', status: 'running', lines: ['$ x'], code: null});
+  // 停掉以后：store.cancelTask 记 shown，新起的（seq 大）排在演示行前面
+  const stopped = t('su1', {status: 'error', canceled: true, shown: true});
+  assert.equal(S.setupRun([stopped], 'claude').status, 'stopped');
+  assert.equal(S.setupRun([stopped, t('a2', {status: 'done', shown: true, seq: 2})], 'claude').tid, 'a2');
+  const failed = S.setupRun([t('a3', {kind: 'agent-install', status: 'error', code: 243, shown: true, seq: 3})], 'claude');
+  assert.deepEqual([failed.status, failed.code], ['fail', 243]);
+});
+
+test('设置里起跑前先确认：标题分安装 / 升级，框里是原样的完整命令，按钮是「运行」', () => {
+  const up = S.runConfirm(claude, S.installPlan(claude, 'npm', true), true);
+  assert.deepEqual([up.title, up.cmd, up.confirmLabel], ['运行 Claude Code 的升级命令？', 'npm i -g cc', '运行']);
+  assert.equal(S.runConfirm(claude, {cmd: 'brew install --cask claude-code'}, false).title, '运行 Claude Code 的安装命令？');
+  assert.match(up.before, /随时停止/);
+  assert.match(up.after, /终端/);
+});

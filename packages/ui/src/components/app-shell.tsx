@@ -12,6 +12,8 @@ import { useVideo } from '../state/video-store.ts';
 import { AppUpdateHost } from './app-update/app-update-host.tsx';
 import { ArchivedPage } from './archived-page.tsx';
 import { LegacyImportHost } from './legacy-import/legacy-import-host.tsx';
+import { OnboardingHost } from './onboarding/onboarding-host.tsx';
+import { AgentSetupHost } from './settings/agent-setup-host.tsx';
 import { ConnectionBanner } from './connection-banner.tsx';
 import { HelpCenter } from './help/help-center.tsx';
 import { HomePage } from './home-page.tsx';
@@ -139,6 +141,10 @@ export function AppShell({ platform }: { platform: string }) {
         <AppUpdateHost />
         {/* 启动时的旧版项目导入询问：Runtime 发现还没导入的旧版项目、又没有记下决定时问一次（Web 不问）。 */}
         <LegacyImportHost />
+        {/* 首次启动引导：旧版导入的询问答完再弹（挂在它后面）；引导里勾上的 Agent 在这里排队安装（Web 不弹）。 */}
+        <OnboardingHost />
+        {/* Agent 安装、升级的输出与结果：设置页与引导都会运行，离开那一页照样收、跑完弹一句。 */}
+        <AgentSetupHost />
       </div>
     </ShellPeekProvider>
   );

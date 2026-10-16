@@ -1,4 +1,4 @@
-// Anthropic 的文本模型（`generateText`，架构设计 §6.4）：Messages 原生适配器。2026-09-25 读过的文档：
+// Anthropic 的文本模型（`generateText`，架构设计 §6.4）：Messages 原生适配器。2026-10-16 核对模型目录：
 //   https://platform.claude.com/docs/en/api/messages
 //   https://platform.claude.com/docs/en/about-claude/models/overview
 //   https://platform.claude.com/docs/en/about-claude/pricing
@@ -8,7 +8,8 @@
 // 为 end_turn / stop_sequence / max_tokens / refusal；`usage.input_tokens` 不含缓存命中，另有 `cache_read_input_tokens`；
 // 错误体 `{ error: { type, message } }`；`GET {base}/v1/models` 返回 `data[].id`。
 // 模型：claude-opus-5-5 与 claude-sonnet-5-5 上下文 1M、单次输出至多 128K，不接受采样参数（temperature 等），推理强度默认
-// 分别是 medium 与 high；claude-haiku-4-5 上下文 200K、输出 64K，不能调推理强度，接受 temperature。没有 `seed`。
+// 分别是 medium 与 high；claude-haiku-5-5 与 claude-fable-5-1 同为 1M / 128K，默认强度分别为 medium / high，
+// 均不接受采样参数。没有 `seed`。
 // 取舍：请求不用流式，单次输出按 64K 声明（更长的输出不流式容易超过请求的期限）；不开 extended thinking。默认模型选均衡的
 // claude-sonnet-5-5。模型 ID 不带日期后缀。
 import { ProviderFailure, type TextReply } from '@baocut/models';
@@ -41,7 +42,8 @@ function model(modelId: string, label: string, extra: Partial<TextModelInfo>): T
 const MODELS: TextModelInfo[] = [
   model('claude-sonnet-5-5', 'Claude Sonnet 5.5', { default: true }),
   model('claude-opus-5-5', 'Claude Opus 5.5', { defaultEffort: 'medium' }),
-  model('claude-haiku-4-5', 'Claude Haiku 4.5', { contextTokens: 200_000, efforts: [], defaultEffort: null, acceptsTemperature: true }),
+  model('claude-haiku-5-5', 'Claude Haiku 5.5', { defaultEffort: 'medium' }),
+  model('claude-fable-5-1', 'Claude Fable 5.1', {}),
 ];
 
 export class AnthropicTextAdapter implements TextAdapter, ModelLister {

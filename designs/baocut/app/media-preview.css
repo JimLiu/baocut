@@ -50,6 +50,7 @@
 .media-panorama canvas { width: 100%; flex: 1; min-height: 360px; touch-action: none; cursor: grab; }
 .media-panorama canvas:focus-visible { outline: 2px solid var(--blue-900); outline-offset: -2px; }
 .media-panorama > p { padding: 12px 16px; }
+.media-panorama__fov { min-width: 40px; text-align: center; font-size: 12px; color: var(--gray-800); font-variant-numeric: tabular-nums; }
 .media-video { display: flex; flex-direction: column; width: 100%; min-width: 0; min-height: 0; background: var(--gray-25); border: 1px solid var(--gray-100); border-radius: 10px; overflow: hidden; box-sizing: border-box; }
 .media-video video { display: block; width: 100%; min-height: 0; max-height: 64vh; object-fit: contain; }
 .media-video__controls { display: flex; flex-wrap: nowrap; gap: 4px; align-items: center; min-height: 40px; padding: 4px 8px; box-sizing: border-box; background: var(--gray-25); }

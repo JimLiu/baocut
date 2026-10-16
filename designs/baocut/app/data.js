@@ -1115,6 +1115,30 @@
         导出也不带——那产出的是一个文件，删它不叫撤销。 */
      undoable: true, undone: false,
      undoBody: '这一门语言的译文会被移除。原文一个字不动。'},
+    /* Agent 的安装与升级（product-design §7.6 首次启动引导末条；实现 agent-setup-task.ts）：从引导或 设置 › Agent 提供方
+       在应用内运行的安装 / 升级命令，每次一行，「升级 Agent · 名字」，在哪写实际运行的命令。没有百分比，在跑时只转圈、
+       「停止」直接停（不问）；详情里是命令的输出（`log`），失败那句同设置页的命令框。
+       `agent` / `cmd` 连到 设置 › Agent 提供方 那一家的命令框（BC_AGENT_SETUP.setupRun）：在跑的 su1 在 Claude Code 的升级命令下面
+       也看得到、也能停（同实现：Runtime 里在跑的那次两边都显示）；跑完的 su2、su3 这次没见过在跑，不进命令框。
+       排在 j1 之后、ag1 之前：侧栏迷你条（第一条 running）与胶囊头（索引最大的 running）都不变。 */
+    {id: 'su1', kind: 'agent-upgrade', project: null, title: '升级 Agent · Claude Code', agent: 'claude', cmd: 'brew upgrade --cask claude-code',
+     sub: 'brew upgrade --cask claude-code · 本机', status: 'running', pct: null, phase: '正在运行', source: 'app',
+     started: '1 分钟前', cancellable: true,
+     log: ['$ brew upgrade --cask claude-code', '==> Upgrading 1 outdated package:', 'claude-code 2.1.296 -> 2.2.0',
+       '==> Fetching downloads for: claude-code', '==> Downloading https://ghcr.io/v2/homebrew/cask/claude-code/manifests/2.2.0']},
+    {id: 'su2', kind: 'agent-install', project: null, title: '安装 Agent · Codex CLI', agent: 'codex', cmd: 'npm install -g @openai/codex',
+     sub: 'npm install -g @openai/codex · 本机', status: 'error', outcome: 'error', code: 243, pct: null, phase: null, source: 'app',
+     started: '35 分钟前',
+     error: '没有成功（退出码 243）。上面的输出里写了原因；如果需要输入密码，请在终端里运行。',
+     log: ['$ npm install -g @openai/codex', 'npm http fetch GET 200 https://registry.npmjs.org/@openai/codex 312ms',
+       'npm error code EACCES', 'npm error syscall mkdir', 'npm error path /usr/local/lib/node_modules/@openai/codex', 'npm error errno -13']},
+    {id: 'su3', kind: 'agent-install', project: null, title: '安装 Agent · Claude Code', agent: 'claude', cmd: 'brew install --cask claude-code',
+     sub: 'brew install --cask claude-code · 本机', status: 'done', outcome: 'done', pct: 100, phase: null, source: 'app',
+     started: '上周',
+     log: ['$ brew install --cask claude-code', '==> Fetching downloads for: claude-code',
+       '==> Downloading https://ghcr.io/v2/homebrew/cask/claude-code/manifests/2.1.296',
+       '######################################################################## 100.0%',
+       '==> Installing Cask claude-code', '🍺  claude-code was successfully installed!']},
     /* 会话里的视频卡（product-design §4.2，home-session.jsx + agent-cards.jsx）：s18 / s19 / s20 三条会话各一组，
        覆盖转录、翻译、导出、合成语音、生成图片五种活的运行 / 完成 / 失败。视频卡只摊开进行中的或最后结束的那件、其余收起，只读这些记录：
        阶段键（转录与导出是 Job 阶段 `jobPhase`，翻译是流程步骤 `step`）、计数、用时与剩余、结果事实。
@@ -2052,12 +2076,12 @@
     /* Copilot 的模型表是演示值：真机由 ACP 的 session/new 应答给出，跟着 Copilot 订阅里开放的模型走。 */
     harnessPreset('copilot', 'GitHub Copilot CLI', 'copilot', 'GitHub', 'GitHub Copilot 订阅', '1.0.12',
       [{k: 'npm', label: 'npm', needs: 'Node.js', cmd: 'npm install -g @github/copilot', upgrade: 'npm install -g @github/copilot@latest'}],
-      [{id: 'claude-sonnet-5', name: 'Claude Sonnet 5', dflt: true, tier: 'balanced'}, {id: 'gpt-6-sol', name: 'GPT-6 Sol', tier: 'max'}, {id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', tier: 'fast'}],
+      [{id: 'claude-sonnet-5.5', name: 'Claude Sonnet 5.5', dflt: true, tier: 'balanced'}, {id: 'gpt-6.1-sol', name: 'GPT-6.1 Sol', tier: 'balanced'}, {id: 'gpt-6-luna', name: 'GPT-6 Luna', tier: 'fast'}, {id: 'gemini-4-argon', name: 'Gemini 4 Argon', tier: 'max'}],
       {extra: false, launch: ['copilot', '--acp'], loginHint: '装好后在终端里运行 copilot，在它的交互界面里输入 /login，按提示用 GitHub 账号登录。',
        realBin: '/opt/homebrew/lib/node_modules/@github/copilot/index.js'}),
     harnessPreset('pi', 'Pi', 'pi', '开源项目', 'Pi 里的模型账号', '1.0.4',
       [{k: 'npm', label: 'npm', needs: 'Node.js', cmd: 'npm install -g @earendil-works/pi-coding-agent', upgrade: 'npm install -g @earendil-works/pi-coding-agent@latest'}],
-      [{id: 'anthropic/claude-sonnet-5', name: 'Claude Sonnet 5', dflt: true, tier: 'balanced'}],
+      [{id: 'github-copilot/claude-sonnet-5.5', name: 'Claude Sonnet 5.5', dflt: true, tier: 'balanced'}, {id: 'github-copilot/gpt-6.1-sol', name: 'GPT-6.1 Sol', tier: 'balanced'}],
       {extra: false, minVer: '0.84.4', caveat: FULL_ONLY, bin: '~/.nvm/versions/node/v22.3.0/bin/pi', realBin: '~/.nvm/versions/node/v22.3.0/lib/node_modules/@earendil-works/pi-coding-agent/dist/cli.js'}),
     harnessPreset('opencode', 'OpenCode', 'opencode', 'OpenCode', 'OpenCode 里的模型账号', '2.0.24',
        /* 只有 npm 包 @opencode/cli 是 2.x；官方脚本与 opencode-ai 包装出的都是 1.x，BaoCut 驱动不了，所以不列。
@@ -2066,12 +2090,13 @@
        [{id: 'anthropic/claude-sonnet-5', name: 'Claude Sonnet 5', dflt: true, tier: 'balanced'}, {id: 'openai/gpt-5.6-sol', name: 'GPT-5.6 Sol'}],
        {extra: false, minVer: '2.0.10', reinstall: {below: '2.0.0', from: '官方脚本或 opencode-ai 包', pkg: '@opencode/cli'},
         bin: '/opt/homebrew/bin/opencode', realBin: '/opt/homebrew/lib/node_modules/@opencode/cli/bin/opencode.js'}),
-    /* Antigravity 原生 stream-json 接入（issue #56）；版本与模型是 Paseo agy 1.2.13 夹具里的演示值。
+    /* Antigravity 原生 stream-json 接入（issue #56）；模型 ID 按本机 agy 1.4.0 目录核对（2026-10-16）。
        没有逐次审批通道，只能使用完全访问；模型列表由 agy models 发现，不与 Gemini API 提供方混用。 */
     harnessPreset('antigravity', 'Antigravity CLI', 'agy', 'Google', 'Google 账号', '1.2.13',
       [{k: 'script', label: '官方脚本（macOS / Linux）', cmd: 'curl -fsSL https://antigravity.google/cli/install.sh | bash', upgrade: 'agy update'}],
       [{id: 'gemini-3.8-flash-high', name: 'Gemini 3.8 Flash (High)', dflt: true, tier: 'balanced'},
-       {id: 'gemini-3.1-pro-high', name: 'Gemini 3.1 Pro (High)', tier: 'max'}],
+       {id: 'gemini-4-argon-medium', name: 'Gemini 4 Argon (Medium)', tier: 'max'},
+       {id: 'gemini-4-argon-high', name: 'Gemini 4 Argon (High)', tier: 'max'}],
       {extra: false, minVer: '1.1.15', caveat: FULL_ONLY, bin: '~/.local/bin/agy', realBin: '~/.local/opt/agy/1.2.13/agy',
        docs: 'https://antigravity.google/docs/cli/install/',
        loginHint: '装好后在终端里运行 agy，按提示用 Google 账号登录。Windows 请按官方说明在 PowerShell 中安装。'}),
@@ -2148,9 +2173,9 @@
          （BaoCut 能驱动的最低版本 / 上游最新版本）、loggedIn、runError、installs（原样给你看、也能替你摆进终端的
          安装与升级命令）、模型的 tier（balanced = 推荐 / max = 最强 / fast = 最快，见 model-agent-setup.js）。
          `found:false` 的那一家仍然带着「装好之后」的 ver / bin / realBin，安装演示落定时直接用。 */
-      {id: 'claude', name: 'Claude Code', cmd: 'claude', found: true, ver: '2.1.284', minVer: '2.0.0', latest: '2.2.0',
+      {id: 'claude', name: 'Claude Code', cmd: 'claude', found: true, ver: '2.1.296', minVer: '2.0.0', latest: '2.2.0',
        runtimeModel: 'sonnet', configModel: 'sonnet', configModelKnown: true,
-       bin: '/opt/homebrew/bin/claude', realBin: '/opt/homebrew/Caskroom/claude-code/2.1.284/claude', loggedIn: true, runError: null,
+       bin: '/opt/homebrew/bin/claude', realBin: '/opt/homebrew/Caskroom/claude-code/2.1.296/claude', loggedIn: true, runError: null,
        account: 'Claude Pro 订阅 · 已登录', plan: 'Claude Pro 或 Max 订阅', dflt: true, enabled: true,
        install: 'npm install -g @anthropic-ai/claude-code',
        installs: [
@@ -2158,7 +2183,7 @@
          {k: 'brew', label: 'Homebrew', needs: 'Homebrew', cmd: 'brew install --cask claude-code', upgrade: 'brew upgrade --cask claude-code'},
          {k: 'npm', label: 'npm', needs: 'Node.js', cmd: 'npm install -g @anthropic-ai/claude-code', upgrade: 'npm install -g @anthropic-ai/claude-code@latest'},
        ],
-       models: [{id: 'sonnet', name: 'Sonnet 5.5', dflt: true, tier: 'balanced'}, {id: 'opus', name: 'Opus 5.5', tier: 'max'}, {id: 'haiku', name: 'Haiku 4.5', tier: 'fast'}]},
+       models: [{id: 'sonnet', name: 'Sonnet 5.5', dflt: true, tier: 'balanced'}, {id: 'opus', name: 'Opus 5.5', tier: 'max'}, {id: 'haiku', name: 'Haiku 5.5', tier: 'fast'}, {id: 'claude-fable-5-1', name: 'Fable 5.1', tier: 'max'}]},
       /* 2026-09-29：configModel = BaoCut 不传模型时 CLI 自己的配置会选哪个（codex 读 `~/.codex/config.toml` 的 model）；
          configModelKnown = 这一版 CLI 的完整模型表（含隐藏模型）里有没有它，内核算好送来。演示场景「默认模型需升级」
          把本机版本压回 0.153.0、模型表换成还没有 gpt-6-sol 的旧表，重现那次事故。
@@ -2172,7 +2197,7 @@
          {k: 'npm', label: 'npm', needs: 'Node.js', cmd: 'npm install -g @openai/codex', upgrade: 'npm install -g @openai/codex@latest'},
        ],
        account: 'ChatGPT Plus / Pro 订阅', plan: 'ChatGPT Plus 或 Pro 订阅', enabled: false,
-       models: [{id: 'gpt-6.1-sol', name: 'GPT-6.1 Sol', dflt: true, tier: 'balanced'}, {id: 'gpt-6-sol', name: 'GPT-6 Sol'}, {id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol'}, {id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', tier: 'fast'}]},
+       models: [{id: 'gpt-6.1-sol', name: 'GPT-6.1 Sol', dflt: true, tier: 'balanced'}, {id: 'gpt-6-astra', name: 'GPT-6 Astra', tier: 'max'}, {id: 'gpt-6-luna', name: 'GPT-6 Luna', tier: 'fast'}, {id: 'gpt-6-sol', name: 'GPT-6 Sol'}]},
       ...MAIN_PRESETS,
       ...MORE_HARNESSES,
     ],

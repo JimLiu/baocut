@@ -47,6 +47,8 @@
 .agset-run.is-fail .agset-run__status > .ic { color: var(--red-1000); }
 .agset-run__dot { flex: none; width: 8px; height: 8px; margin: 0 4px; border-radius: 50%; background: var(--blue-900); animation: agset-run-pulse 1s ease-in-out infinite alternate; }
 @keyframes agset-run-pulse { from { opacity: 1; } to { opacity: .3; } }
+/* 起跑前的确认框里那条完整命令（同实现 RunCommandDialog 的 dialogCode）：单独一块、可选中复制 */
+.agset-confirm__cmd { display: block; margin: 12px 0; padding: 12px; border-radius: 8px; background: var(--gray-100); color: var(--gray-900); font: 12px/1.6 var(--mono); overflow-wrap: anywhere; user-select: text; }
 @media (prefers-reduced-motion: reduce) { .agset-run__dot { animation: none; } }
 .agent-settings .agset-verdict { margin-top: 16px; padding: 12px; background: var(--gray-100); border-radius: 8px; color: var(--gray-900); }
 .agset-meta { margin-top: 8px; color: var(--gray-600); font-size: 11px; text-align: right; }

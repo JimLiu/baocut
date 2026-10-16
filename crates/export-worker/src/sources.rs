@@ -176,7 +176,7 @@ impl<'a> Sources<'a> {
         let Some(asset) = &layer.asset else {
             return Err(RenderError::new(
                 "EXPORT_RENDER_FAILED",
-                format!("媒体层 {} 没有素材", layer.item_id),
+                format!("media layer {} has no asset", layer.item_id),
             ));
         };
         let key = (asset.id.clone(), asset.revision.clone());
@@ -185,7 +185,7 @@ impl<'a> Sources<'a> {
         }
         // 预检没见过的素材（不该发生）：现在探测，解不出来时按选项跳过或报错。
         let problem = match self.input.asset(&asset.id, &asset.revision) {
-            None => format!("素材 {} 没有冻结的位置", asset.id),
+            None => format!("asset {} has no frozen location", asset.id),
             Some(entry) => match probe_picture(&self.tools, &entry.path) {
                 Ok(Some(info)) => {
                     let picture = AssetPicture {
@@ -198,7 +198,7 @@ impl<'a> Sources<'a> {
                     self.pictures.insert(key, picture.clone());
                     return Ok(Some(picture));
                 }
-                Ok(None) => "素材里没有画面".to_string(),
+                Ok(None) => "the asset has no video stream".to_string(),
                 Err(e) => e.message,
             },
         };
@@ -250,21 +250,20 @@ impl LayerMedia for Sources<'_> {
                 return Ok(None);
             };
             let media = if layer.kind == LayerKind::Image && info.svg {
-                let bytes =
-                    std::fs::read(&info.path).map_err(|e| RenderError::new("EXPORT_DECODE_FAILED", format!("SVG 图片读不到：{e}")))?;
+                let bytes = std::fs::read(&info.path)
+                    .map_err(|e| RenderError::new("EXPORT_DECODE_FAILED", format!("SVG image cannot be read: {e}")))?;
                 let long_edge = crate::preflight::svg_long_edge(self.input);
-                Media::Still(Arc::new(
-                    frame_render::decode_svg(&bytes, long_edge)
-                        .map_err(|e| RenderError::new("EXPORT_DECODE_FAILED", format!("SVG 图片解不开：{e:#}")))?,
-                ))
+                Media::Still(Arc::new(frame_render::decode_svg(&bytes, long_edge).map_err(|e| {
+                    RenderError::new("EXPORT_DECODE_FAILED", format!("SVG image cannot be decoded: {e:#}"))
+                })?))
             } else if layer.kind == LayerKind::Image {
                 let picture = decode_still(&self.tools, &info.path, info.width, info.height).map_err(decode_error)?;
                 Media::Still(Arc::new(
                     premultiplied(picture.width, picture.height, picture.data)
-                        .ok_or_else(|| RenderError::new("EXPORT_DECODE_FAILED", "图片的尺寸不对"))?,
+                        .ok_or_else(|| RenderError::new("EXPORT_DECODE_FAILED", "the image size is invalid"))?,
                 ))
             } else {
-                let asset = layer.asset.as_ref().expect("上面查过");
+                let asset = layer.asset.as_ref().expect("checked above");
                 let origin = self.input.pts_origin(&asset.id, &asset.revision);
                 // 铺满画布、比画布大的视频让解码器直接交画布里的尺寸，帧光栅不再整幅重采样（[`crate::delivery`]）。
                 let (width, height) = self
@@ -276,7 +275,7 @@ impl LayerMedia for Sources<'_> {
                     Some(_) if info.alpha => self.decode_fallbacks.push(Fallback::decoder(
                         Some(&asset.id),
                         "alpha-unsupported",
-                        "素材可能带透明，原生解码不保留 alpha",
+                        "the asset may have transparency, which native decoding does not keep",
                     )),
                     Some(native) => decoder = decoder.with_native(native.clone()),
                     None => {}
@@ -292,7 +291,7 @@ impl LayerMedia for Sources<'_> {
             self.media.insert(id.clone(), media);
         }
         self.last_used.insert(id.clone(), self.frame);
-        match self.media.get_mut(&id).expect("上面放进去了") {
+        match self.media.get_mut(&id).expect("inserted above") {
             Media::Still(pixmap) => Ok(Some(pixmap.clone())),
             Media::Video {
                 decoder,
@@ -311,15 +310,16 @@ impl LayerMedia for Sources<'_> {
                         .and_then(|previous| Arc::try_unwrap(previous).ok())
                         .map(Pixmap::take)
                         .unwrap_or_default();
-                    let mut picture = decoder.swap_current(spare).expect("advance 成功就有当前帧");
+                    let mut picture = decoder.swap_current(spare).expect("a successful advance leaves a current frame");
                     if *alpha {
                         premultiply(&mut picture.data);
                     }
                     let size = IntSize::from_wh(picture.width, picture.height)
-                        .ok_or_else(|| RenderError::new("EXPORT_DECODE_FAILED", "画面的尺寸不对"))?;
-                    *pixmap = Some(Arc::new(
-                        Pixmap::from_vec(picture.data, size).ok_or_else(|| RenderError::new("EXPORT_DECODE_FAILED", "画面的尺寸不对"))?,
-                    ));
+                        .ok_or_else(|| RenderError::new("EXPORT_DECODE_FAILED", "the picture size is invalid"))?;
+                    *pixmap =
+                        Some(Arc::new(Pixmap::from_vec(picture.data, size).ok_or_else(|| {
+                            RenderError::new("EXPORT_DECODE_FAILED", "the picture size is invalid")
+                        })?));
                     *generation = current;
                 }
                 Ok(pixmap.clone())

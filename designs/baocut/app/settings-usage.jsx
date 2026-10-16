@@ -31,10 +31,11 @@
     </div>;
   }
 
-  /* 一行的花费：报告 / 估算 / 都有 / 未知分开写 */
+  /* 一行的花费：报告 / 估算 / 都有 / 未知 / 订阅内分开写 */
   function costText(r) {
     if (r.costKind === 'none') return '—';
     if (r.costKind === 'unknown') return '费用未知';
+    if (r.costKind === 'subscription') return '订阅内';
     const est = U().fmtMoneyMap(Object.keys(r.est).length ? r.est : null);
     const rep = U().fmtMoneyMap(Object.keys(r.rep).length ? r.rep : null);
     return [rep ? `${rep} 报告` : '', est ? `≈ ${est}` : '', r.unknownCalls ? `另 ${r.unknownCalls} 次未知` : ''].filter(Boolean).join(' · ');
@@ -58,7 +59,6 @@
     const reported = U().fmtMoneyMap(t.cost.reported);
     const balances = Object.keys(V().BALANCE_DEMO).filter((pid) => settings[pid] && V().connected(pid, settings, app.providerAccounts) && (!filter || filter === pid));
     const rows = rep[split];
-    const top = Math.max(1, ...rows.map((r) => r.calls));
     const label = (r) => (split === 'byCapability' ? V().CAP_LABEL[r.key] : split === 'byModel' ? r.label : r.label);
     return <div className="use-page" data-screen-label="用量">
       <header className="use-head">
@@ -108,7 +108,7 @@
                 {split === 'byModel' ? <span className="t-detail-xs">{nameOf(r.providerId)}</span> : null}
               </span>
               <span role="cell" className="t-detail">{r.calls}{r.failed ? ` · ${r.failed} 失败` : ''}</span>
-              <span role="cell" className="use-share" aria-label={`${Math.round((r.calls / t.calls) * 100)}%`}><span style={{width: `${(r.calls / top) * 100}%`}} /></span>
+              <span role="cell" className="use-share" aria-label={`${Math.round((r.calls / t.calls) * 100)}%`}><span style={{width: `${Math.max(1.5, (r.calls / t.calls) * 100)}%`}} /></span>
               <span role="cell" className="t-detail">{U().fmtUnits(r.units) || '—'}</span>
               <span role="cell" className={cx('t-detail', r.costKind === 'unknown' && 'use-row__unk')}>{costText(r)}</span>
             </div>)}

@@ -156,8 +156,14 @@ describe('ClaudeDriver 探测（假 claude）', () => {
     const probe = await failing.probe();
     expect(probe.state).toBe('ready');
     expect(probe.models.map((m) => m.id)).toEqual(FALLBACK_CLAUDE_MODELS.map((m) => m.id));
+    expect(probe.models.find((m) => m.id === 'fable')).toMatchObject({ tier: 'max', isDefault: false });
+    expect(probe.models.every((m) => !m.isDefault)).toBe(true);
     await failing.probe();
     expect(calls).toBe(2);
+    cli.scenario({ version: '2.1.256' });
+    expect((await failing.probe()).models.some((m) => m.id === 'fable')).toBe(false);
+    cli.scenario({ version: '2.1.257' });
+    expect((await failing.probe()).models.some((m) => m.id === 'fable')).toBe(true);
   });
 
   it('configModel 读 settings.json 的 model，并标出它在不在模型表里', async () => {

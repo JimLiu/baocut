@@ -58,6 +58,8 @@ export const nl: RcAgentToolsMessages = {
   importAssetSummary: (p: { name: string; place: boolean }) => `Media importeren: ${p.name}${p.place ? " en toevoegen aan de tijdlijn" : ""}`,
 
   importAssetLabel: (p: { name: string; place: boolean }) => `Importeren: ${p.name}${p.place ? " en toevoegen aan de tijdlijn" : ""}`,
+  openMediaDownloadSummary: (p: { title: string; source: string; license: string; place: boolean }) => `“${p.title}” downloaden van ${p.source} (${p.license}) en importeren${p.place ? " en toevoegen aan de tijdlijn" : ""}`,
+  sfxSummary: (p: { recipe: string; place: boolean }) => `Geluidseffect ‘${p.recipe}’ maken en importeren${p.place ? ' op de tijdlijn' : ''}`,
   replaceCompositionSummary: (p: { name: string; clip: string }) => `${p.name} importeren en clip ${p.clip} op de tijdlijn ermee vervangen`,
   replaceCompositionLabel: (p: { name: string }) => `Bewegende graphic vervangen door ${p.name}`,
   pruneAssetsSummary: (p) => `Ongebruikt materiaal uit de video verwijderen (${p.count}): ${p.names}`,

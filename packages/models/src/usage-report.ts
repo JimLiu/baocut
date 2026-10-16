@@ -20,7 +20,10 @@ import { modelPrice, type ModelUnitPrice } from './model-prices.ts';
  * - 时段按 Runtime 所在机器的本地日期：`today` 从今天零点起，`7d` / `30d` 是含今天在内的最近 7 / 30 天，`all` 不限
  *   （`from` 是最早一条记录的时间，没有记录时同 `to`）。
  * - 金额：一条记录有供应商报告的金额就用它；否则价目表（`model-prices.ts`）有这个模型的单价、所需的用量也齐全时估算；
- *   否则是未知，计入 `unknownCalls`。验证密钥（`source: 'verify'`）不计费用，也不算未知。不同币种分别汇总，不换算。
+ *   否则是未知，计入 `unknownCalls`。验证密钥（`source: 'verify'`）与失败且没有用量的调用不计费用，也不算未知；
+ *   智能体订阅登录时的调用（账本里记 `subscription`）算在订阅里，计入 `subscriptionCalls`，不计金额，也不算未知。
+ *   一行没有金额时，有未知的调用是 `unknown`，否则有订阅内的调用是 `subscription`，再否则是 `none`。不同币种分别汇总，
+ *   不换算。
  * - 金额用百万分之一的整数（bigint）累加，最后才转回十进制字符串。
  */
 
@@ -47,6 +50,8 @@ interface Acc {
   units: UsageUnits;
   reported: Micros;
   estimated: Micros;
+  unknownCalls: number;
+  subscriptionCalls: number;
 }
 
 const UNIT_KEYS = ['inputTokens', 'outputTokens', 'cachedTokens', 'audioSeconds', 'chars', 'images'] as const;
@@ -62,7 +67,6 @@ export function buildUsageReport(records: readonly UsageRecord[], options: Usage
   });
 
   const totals = newAcc('total', '');
-  let unknownCalls = 0;
   const byProvider = new Map<string, Acc>();
   const byCapability = new Map<string, Acc>();
   const byModel = new Map<string, Acc>();
@@ -72,7 +76,6 @@ export function buildUsageReport(records: readonly UsageRecord[], options: Usage
 
   for (const record of selected) {
     const cost = costOf(record, price);
-    if (cost === 'unknown') unknownCalls++;
     const targets = [totals, rowOf(byProvider, record.providerId, () => ({ label: providerLabel(record.providerId) }))];
     if (record.capability) targets.push(rowOf(byCapability, record.capability, () => ({ label: CAPABILITY_LABELS[record.capability!] })));
     if (record.modelId) {
@@ -110,7 +113,12 @@ export function buildUsageReport(records: readonly UsageRecord[], options: Usage
       calls: totals.calls,
       failed: totals.failed,
       units: totals.units,
-      cost: { estimated: moneyList(totals.estimated), reported: moneyList(totals.reported), unknownCalls },
+      cost: {
+        estimated: moneyList(totals.estimated),
+        reported: moneyList(totals.reported),
+        unknownCalls: totals.unknownCalls,
+        subscriptionCalls: totals.subscriptionCalls,
+      },
     },
     byDay: [...byDay.values()].sort((a, b) => a.day.localeCompare(b.day)),
     byProvider: rows(byProvider),
@@ -129,14 +137,17 @@ export function periodStart(period: UsagePeriod, now: Date): Date | null {
   return start;
 }
 
-type RecordCost = { kind: 'reported' | 'estimated'; currency: string; micros: bigint } | 'unknown' | 'none';
+type RecordCost = { kind: 'reported' | 'estimated'; currency: string; micros: bigint } | 'unknown' | 'subscription' | 'none';
 
-/** 一条记录的金额：报告的、估算的、未知，或不计（验证）。 */
+/** 一条记录的金额：报告的、估算的、未知、算在订阅里，或不计（验证、失败且没有用量）。 */
 export function costOf(record: UsageRecord, price: (providerId: string, modelId: string) => ModelUnitPrice | null): RecordCost {
   if (record.cost.kind === 'reported') {
     return { kind: 'reported', currency: record.cost.currency, micros: moneyToMicros(record.cost.amount) };
   }
   if (record.source === 'verify') return 'none';
+  // 失败且什么用量都没有（失败的转写记 `audioSeconds: 0`）：没有可计费的东西。
+  if (record.status === 'error' && !UNIT_KEYS.some((key) => record.units[key])) return 'none';
+  if (record.cost.kind === 'subscription') return 'subscription';
   if (!record.capability || !record.modelId) return 'unknown';
   const unit = price(record.providerId, record.modelId);
   if (!unit) return 'unknown';
@@ -186,7 +197,7 @@ function divRound(value: bigint, by: bigint): bigint {
 }
 
 function newAcc(key: string, label: string, providerId?: string): Acc {
-  return { key, label, ...(providerId ? { providerId } : {}), calls: 0, failed: 0, units: {}, reported: new Map(), estimated: new Map() };
+  return { key, label, ...(providerId ? { providerId } : {}), calls: 0, failed: 0, units: {}, reported: new Map(), estimated: new Map(), unknownCalls: 0, subscriptionCalls: 0 };
 }
 
 function rowOf(map: Map<string, Acc>, key: string, init: () => { label: string; providerId?: string }): Acc {
@@ -206,7 +217,8 @@ function add(acc: Acc, record: UsageRecord, cost: RecordCost): void {
   if (typeof cost === 'object') {
     const bucket = cost.kind === 'reported' ? acc.reported : acc.estimated;
     bucket.set(cost.currency, (bucket.get(cost.currency) ?? 0n) + cost.micros);
-  }
+  } else if (cost === 'unknown') acc.unknownCalls++;
+  else if (cost === 'subscription') acc.subscriptionCalls++;
 }
 
 function addUnits(into: UsageUnits, units: UsageUnits): void {
@@ -239,7 +251,11 @@ function rows(map: Map<string, Acc>): UsageRow[] {
             ? 'reported'
             : acc.estimated.size > 0
               ? 'estimated'
-              : 'unknown';
+              : acc.unknownCalls > 0
+                ? 'unknown'
+                : acc.subscriptionCalls > 0
+                  ? 'subscription'
+                  : 'none';
       return {
         key: acc.key,
         label: acc.label,

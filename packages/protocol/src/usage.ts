@@ -20,8 +20,11 @@ export interface UsageUnits {
 /** 调用从哪里来：任务、进程内（流程里的翻译等）、智能体的工具、连通性测试。 */
 export type UsageSource = 'job' | 'inline' | 'agent-tool' | 'verify';
 
-/** 金额：供应商在响应里报告的才写 `reported`，否则 `unknown`。 */
-export type UsageRecordCost = { kind: 'reported'; amount: string; currency: 'USD' | 'CNY' } | { kind: 'unknown' };
+/**
+ * 金额：供应商在响应里报告的才写 `reported`；智能体 Provider 用订阅登录（Codex 是 ChatGPT 登录）时的调用写 `subscription`
+ * （算在订阅里，额度未知，§6.9）；否则 `unknown`。
+ */
+export type UsageRecordCost = { kind: 'reported'; amount: string; currency: 'USD' | 'CNY' } | { kind: 'subscription' } | { kind: 'unknown' };
 
 export interface UsageRecord {
   /** ISO 8601。 */
@@ -51,9 +54,14 @@ export type UsagePeriod = (typeof USAGE_PERIODS)[number];
  * - `reported`：算得出的金额全部是供应商报告的；
  * - `estimated`：全部是按价目表（`model-prices`）估算的；
  * - `mixed`：两者都有；
- * - `unknown`：一个都没有。
+ * - `unknown`：一个都没有，且有费用未知的调用；
+ * - `subscription`：一个都没有，也没有费用未知的调用，有算在订阅里的调用；
+ * - `none`：没有要计费的调用（只有验证密钥，或失败且没有用量的调用）。
+ *
+ * 金额优先：一行里既有金额又有订阅内的调用（例如按能力的图像生成，同时用了 API 提供方与 Codex）时只写金额，订阅内的
+ * 调用不另算花费。
  */
-export type UsageCostKind = 'reported' | 'estimated' | 'mixed' | 'unknown';
+export type UsageCostKind = 'reported' | 'estimated' | 'mixed' | 'unknown' | 'subscription' | 'none';
 
 export interface UsageRow {
   key: string;
@@ -78,7 +86,8 @@ export interface UsageReport {
     calls: number;
     failed: number;
     units: UsageUnits;
-    cost: { estimated: Money[]; reported: Money[]; unknownCalls: number };
+    /** `subscriptionCalls`：算在智能体订阅里的调用次数，不计金额，也不算未知。 */
+    cost: { estimated: Money[]; reported: Money[]; unknownCalls: number; subscriptionCalls: number };
   };
   /** 按本机日期（`YYYY-MM-DD`）。 */
   byDay: Array<{ day: string; calls: number; units: UsageUnits; byCapability: Partial<Record<ModelServiceCapability, number>> }>;

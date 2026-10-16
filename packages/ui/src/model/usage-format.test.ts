@@ -31,7 +31,11 @@ describe('用量的格式', () => {
   it('token 合计与份额', () => {
     expect(tokenTotal({ inputTokens: 10, outputTokens: 5 })).toBe(15);
     expect(tokenTotal({})).toBe(0);
+    // 占全部调用的比例，不是相对最多的那一行：3 次里的 2 次是 66.7，不是满格。
+    expect(shareWidth(2, 3)).toBe(66.7);
     expect(shareWidth(5, 10)).toBe(50);
+    expect(shareWidth(1, 1000)).toBe(1.5);
+    expect(shareWidth(0, 10)).toBe(0);
     expect(shareWidth(5, 0)).toBe(0);
     expect(sharePercent(1, 3)).toBe(33);
   });

@@ -142,6 +142,10 @@ const schemas = {
       .max(200)
       .optional()
       .describe('可选。合成的 ID（根元素的 data-composition-id）；不给时同 compositions_import'),
+    sheet: z
+      .boolean()
+      .optional()
+      .describe('可选。true 时另把这几帧按 at 的顺序、行优先拼成一张接触表 PNG（每格最宽 480 像素，中灰底），结果的 sheet.cells 给出每格的行列与时刻；默认 false'),
     manifest: manifestOverrides,
   }),
 };
@@ -193,13 +197,18 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
       '在离屏浏览器里按合成内部的时刻取代码画面的帧，写成 PNG，用来检查排版与动画。',
       '代码包给目录（path）、内联文件（files，写法同 compositions_import），或已经导入这个视频的代码包素材（assetId）。at 是合成的局部时间（秒），超过时长的夹到末帧（clamped: true）。帧是代码包自己的画面（透明处保留透明），不是与视频合成后的画面；不改视频、不验证、不烘焙。',
       `文件写在写文件目录（会话与终端是工作目录）下的 ${FRAMES_DIR}/<videoId>/，名为 composition-<bundleId>-at-<毫秒>ms.png，同一时刻再取时覆盖。`,
-      '返回 frames（每帧 at、file、实际采样的 sampledSeconds、clamped 与 PNG 的 sha256：两次取同一时刻摘要相同才说明画面是确定的）、尺寸与时长。错误码与 compositions_import 相同。',
+      'sheet: true 时另拼一张接触表（composition-<bundleId>-sheet-<首>-<尾>ms-<帧数>.png），看一张图就能查完文字重叠、空画面、上一段残留与元素出画；格子里不写时刻，按 sheet.cells（index、row、column、at）对照。查转场与入场时，在切点前后约 1 秒里密集地取十几帧再拼。',
+      '返回 frames（每帧 at、file、实际采样的 sampledSeconds、clamped 与 PNG 的 sha256：两次取同一时刻摘要相同才说明画面是确定的）、尺寸与时长，给了 sheet 时还有 sheet（file、columns、rows、cellWidth、cellHeight、cells）。错误码与 compositions_import 相同，另有 COMPOSITION_SHEET_FAILED（拼表失败，单帧照样写好了）。',
     ].join('\n'),
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
     effect: 'mutation',
     examples: [
       { title: '导入前看几个时刻', args: { video: 'demo', path: 'graphics/lower-third', at: ['0', '1.2', '3.5'] } },
       { title: '看已经导入的代码包', args: { video: 'demo', assetId: 'asset_01J…', at: ['0.5'] } },
+      {
+        title: '在 4 秒的切点前后密集取帧拼成接触表',
+        args: { video: 'demo', path: 'scenes/act-1', at: ['3.4', '3.6', '3.8', '3.9', '4', '4.1', '4.2', '4.4', '4.6'], sheet: true },
+      },
     ],
     surfaces: ['agent', 'cli', 'mcp'],
     positional: 'video',

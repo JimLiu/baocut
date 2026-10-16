@@ -20,11 +20,16 @@ pub mod bcw1;
 /// `dsp` feature 控制：都要 real FFT。
 #[cfg(feature = "dsp")]
 pub mod beats;
+/// 时刻与起音的对位（命中率与碰巧命中的基线）、重音。
+pub mod cues;
 /// PCM → BCS1 的 STFT。默认开启；只读 BCS1 的消费方可以
 /// `default-features = false` 关掉，realfft 随之退出依赖图。
 #[cfg(feature = "dsp")]
 pub mod dsp;
 pub mod remap;
+/// 听音表：频谱、波形、起音与节拍、待核对时刻画成一张 RGBA 图。要 real FFT，同受 `dsp` 控制。
+#[cfg(feature = "dsp")]
+pub mod sheet;
 
 pub use bcs1::{Bcs1Header, Bcs1View, SpectrumBackend};
 pub use bcw1::Bcw1Info;

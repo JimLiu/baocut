@@ -49,6 +49,9 @@ export const pl: RcAgentToolsMessages = {
   translationDocumentName: (p) => `${p.language} – tłumaczenie`,
   importAssetSummary: (p) => `Importuj materiał ${p.name}${p.place ? " i dodaj na oś czasu" : ""}`,
   importAssetLabel: (p) => `Importuj ${p.name}${p.place ? " i dodaj na oś czasu" : ""}`,
+  openMediaDownloadSummary: (p) => `Pobierz „${p.title}” z ${p.source} (${p.license}) i zaimportuj${p.place ? " na oś czasu" : ""}`,
+  sfxSummary: (p) => `Wygeneruj efekt dźwiękowy „${p.recipe}” i zaimportuj go${p.place ? ' na oś czasu' : ''}`,
+ 
   replaceCompositionSummary: (p) => `Importuj ${p.name} i zastąp nim klip ${p.clip} na osi czasu`,
   replaceCompositionLabel: (p) => `Zastąp grafikę animowaną przez ${p.name}`,
   pruneAssetsSummary: (p) => `Usuń z wideo nieużywane materiały (${p.count}): ${p.names}`,

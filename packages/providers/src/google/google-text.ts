@@ -1,6 +1,7 @@
-// Google Gemini 文本模型（`generateText`，架构设计 §6.4）。2026-10-03 读过的文档：
+// Google Gemini 文本模型（`generateText`，架构设计 §6.4）。2026-10-16 核对模型目录：
 //   https://ai.google.dev/api/generate-content
 //   https://ai.google.dev/gemini-api/docs/models
+//   https://ai.google.dev/gemini-api/docs/models/gemini-4-argon
 //   https://ai.google.dev/gemini-api/docs/structured-output
 //   https://ai.google.dev/gemini-api/docs/thinking
 //   https://ai.google.dev/api/models#method:-models.list
@@ -16,6 +17,8 @@
 // 没能确认的：3.5-flash 与 3.1-flash-lite 的思考档位（按 minimal–high 声明）；各模型的
 // 输出上限（按 65,536 token 声明）与上下文（按 1,048,576 token 声明）；上下文过长时的错误形状（按 400 正文里提到 token
 // 上限的识别为 `INPUT_TOO_LONG`）。费用按 `unknown`。
+// Gemini 4 Argon 使用统一的 1,048,576 token 窗口，同步输出上限 65,536，支持 low / medium / high；
+// 不声明采样参数。保留 3.8 Flash 为均衡默认，不启用需要续传的 long decode。
 import { ProviderFailure, type TextReply } from '@baocut/models';
 import type { TextEffort, TextFinishReason, TextModelInfo } from '@baocut/protocol';
 import {
@@ -58,6 +61,7 @@ function model(
 
 const MODELS: TextModelInfo[] = [
   model('gemini-3.8-flash', 'Gemini 3.8 Flash', ['low', 'medium', 'high'], 'low', { default: true }),
+  model('gemini-4-argon', 'Gemini 4 Argon', ['low', 'medium', 'high'], 'low', { acceptsTemperature: false, acceptsSeed: false }),
   model('gemini-3.7-flash', 'Gemini 3.7 Flash', ['low', 'medium', 'high'], 'low'),
   model('gemini-3.6-flash', 'Gemini 3.6 Flash', ALL, 'minimal'),
   model('gemini-3.5-flash', 'Gemini 3.5 Flash', ALL, 'minimal'),

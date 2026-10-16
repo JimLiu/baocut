@@ -1,6 +1,6 @@
 [package]
 name = "editor-wasm"
-description = "界面与 Node 共用的纯语义 WASM 入口：字幕与翻译核心的句子派生与原文指纹、舞台的框、引擎的取值区间、元素的样式目录、已有转写的识别说话人、来源自带章节的解析与吸附（架构设计 §1.4、§6.6、§7.9、§13.6）"
+description = "界面与 Node 共用的纯语义 WASM 入口：字幕与翻译核心的句子派生与原文指纹、舞台的框、引擎的取值区间、元素的样式目录、已有转写的识别说话人、来源自带章节的解析与吸附、音频的逐帧特征与节拍、程序化音效（架构设计 §1.4、§6.6、§7.9、§13.6）"
 version.workspace = true
 edition.workspace = true
 license-file.workspace = true
@@ -10,6 +10,7 @@ publish.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+audio-dsp.workspace = true
 editor-semantics.workspace = true
 motion.workspace = true
 render-graph.workspace = true
@@ -17,5 +18,6 @@ speech-doc.workspace = true
 speech-doc-bridge.workspace = true
 timeline.workspace = true
 video-model.workspace = true
+waveform = { workspace = true, features = ["dsp"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.151", features = ["float_roundtrip"] }

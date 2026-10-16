@@ -2,7 +2,8 @@ import { ActionButton, Picker, PickerItem, ToggleButton, ToastQueue } from '@rea
 import { IMAGE as M } from '../image-preview-copy.ts';
 import { P } from '../player/player-copy.ts';
 import type { ImageView } from '../../state/image-preview-store.ts';
-import { useGif, downloadBlob, copyPreviewImage } from './gif.ts';
+import { useGif, copyPreviewImage } from './gif.ts';
+import { useSaveDownload } from './save-download.ts';
 import { retimeGif } from '../../model/media-gif.ts';
 export function GifControls({
   gif,
@@ -19,6 +20,7 @@ export function GifControls({
   canQueue: boolean;
   onQueue: () => Promise<void>;
 }) {
+  const save = useSaveDownload();
   if (gif.failed)
     return (
       <div className="bc-media-error" role="status">
@@ -56,13 +58,13 @@ export function GifControls({
       <ActionButton onPress={() => void copyPreviewImage(frame.url).catch(() => ToastQueue.negative(M.unavailable))}>
         {M.frame} · {M.copy}
       </ActionButton>
-      <ActionButton onPress={() => downloadBlob(frame.blob, `frame-${view.frame + 1}.png`)}>
+      <ActionButton onPress={() => save.blob(frame.blob, `frame-${view.frame + 1}.png`)}>
         {M.frame} · {M.download}
       </ActionButton>
       <ActionButton
         onPress={() => {
           try {
-            downloadBlob(new Blob([retimeGif(gif.data!.bytes, view.speed)], { type: 'image/gif' }), fileName);
+            save.blob(new Blob([retimeGif(gif.data!.bytes, view.speed)], { type: 'image/gif' }), fileName);
           } catch {
             ToastQueue.negative(M.unavailable);
           }

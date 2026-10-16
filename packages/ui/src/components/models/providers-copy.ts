@@ -199,6 +199,7 @@ const en = {
     rowCalls: (calls: number, failed: number) => (failed ? `${calls} · ${failed} failed` : String(calls)),
     cost: {
       unknown: 'Unknown cost',
+      subscription: 'Included in subscription',
       estimated: (money: string) => `≈ ${money}`,
       reported: (money: string) => `${money} reported`,
       mixed: (money: string) => `≈ ${money} (incl. reported)`,

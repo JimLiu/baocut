@@ -146,12 +146,6 @@ describe('motion-graphics 范例', () => {
       });
     expect(walk(skill).length).toBeGreaterThan(10);
   });
-
-  it('references/scaffold.md 的 html 围栏与 scaffold.html 逐字节一致', () => {
-    const md = read('references/scaffold.md');
-    const fence = /```html\n([\s\S]*?)```/.exec(md);
-    expect(fence?.[1]).toBe(read('scaffold.html'));
-  });
 });
 
 describe('motion-graphics build', () => {

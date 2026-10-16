@@ -27,6 +27,8 @@ export const fr: RcAgentToolsMessages = {
   importPackageSummary: (p) => `Ouvrir le paquet portable ${p.file}`, renameVideoLabel: 'Renommer la vidéo', putDocumentSummary: (p) => `Écrire une nouvelle version du document ${p.documentId}`,
   newDocumentSummary: (p) => `Créer un document (${p.kind})`, updateDocumentLabel: (p) => `Mettre à jour le document « ${p.name} »`, newDocumentLabel: (p) => `Créer le document « ${p.name} »`, translationDocumentName: (p) => `Traduction en ${p.language}`,
   importAssetSummary: (p) => `Importer le média ${p.name}${p.place ? ' et l’ajouter à la timeline' : ''}`, importAssetLabel: (p) => `Importer ${p.name}${p.place ? ' et l’ajouter à la timeline' : ''}`,
+  openMediaDownloadSummary: (p) => `Télécharger « ${p.title} » depuis ${p.source} (${p.license}) et l’importer${p.place ? ' dans la timeline' : ''}`,
+  sfxSummary: (p) => `Générer l’effet sonore « ${p.recipe} » et l’importer${p.place ? ' dans la timeline' : ''}`,
   replaceCompositionSummary: (p) => `Importer ${p.name} et remplacer le clip ${p.clip} de la timeline`,
   replaceCompositionLabel: (p) => `Remplacer le graphisme animé par ${p.name}`,
   pruneAssetsSummary: (p) => `Retirer de la vidéo les médias inutilisés (${p.count}) : ${p.names}`,

@@ -34,7 +34,7 @@ BaoCut 随应用分发的内置 Agent skill，也叫 craft（做法）：一件�
 ## 新增或修改一个 skill
 
 1. 新建 `skills/baocut/built-in-skills/<id>/`，`id` 用 kebab-case，不与已有目录重名。
-2. 写 `SKILL.md`：front matter 的 `name`（与目录名相同的 id 式名字）、`description`（做什么、什么时候用、什么时候不用；会话开始的索引只取前 300 个字符）、`version`；正文是做法，保持精炼。长的细则放进 `references/`，由智能体用 `skills_read` 按需取。这三项都是给智能体的，界面不直接显示 `description`。
+2. 写 `SKILL.md`：front matter 的 `name`（与目录名相同的 id 式名字）、`description`（做什么、什么时候用、什么时候不用；会话开始的索引只取前 300 个字符）、`version`；正文是做法，保持精炼。长的细则放进 `references/`（一个主题一页），由智能体用 `skills_read` 按需取；要原样拷走或运行的代码、模板与样例写成真实的文件（`examples/`、`scripts/`、`scaffold.html` 这类），不包在 Markdown 的代码块里，正文用 skill 内的相对路径提到它们。Markdown 里的代码块只放说明用的短片段。这三项都是给智能体的，界面不直接显示 `description`。
 3. 写 `.baocut-meta.json`：界面上的名称（`name`）与一句话介绍（`summary`），各是「语言 → 文字」的对象，键按 `@baocut/protocol` 的 `LOCALES` 顺序写全部出货语言。名称是用户看得懂的短名（不超过 `SKILL_LIMITS.labelName` 个字符），介绍是一行、说这个 skill 帮用户做成什么（不超过 `SKILL_LIMITS.labelSummary` 个字符），不写给智能体的触发条件与步骤；用词对照[术语表](../../../docs/glossary.md#界面英文用词)与界面已有的译文。它只给设置 › Skills 与输入框「+ › 使用 Skill」用，不进文件清单，不交给智能体。
 4. skill 之间不互相引用文件，每个 skill 自包含；共享的模型资料与参考表放在说明书 `references/catalog/`，用 `skills_read` 读 `baocut-catalog-<页>`，同步脚本会为外部 Agent 改成目录页链接，不复制数据。正文只引用 Agent 真实拥有的 baocut 工具与文档类型，不重复说明书（入口指导）已经说过的通用规则。
 5. 做法对任意语言的视频与目标语言都适用，不假定中文或英文。

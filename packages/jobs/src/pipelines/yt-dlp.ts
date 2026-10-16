@@ -48,6 +48,21 @@ export function resolveArgs(url: string, browser?: CookieBrowser): string[] {
   return [...COMMON_ARGS, ...cookieArgs(browser), '--dump-single-json', '--skip-download', '--', url];
 }
 
+/** YouTube 检索的结果页（`creativeCommons` 时只要标为知识共享的）。 */
+export function youtubeSearchUrl(query: string, creativeCommons: boolean): string {
+  const url = new URL('https://www.youtube.com/results');
+  url.searchParams.set('search_query', query);
+  // `sp=EgIwAQ==` 是结果页的「知识共享」筛选。
+  if (creativeCommons) url.searchParams.set('sp', 'EgIwAQ==');
+  return url.toString();
+}
+
+/** 检索：只取结果列表（单个 JSON，`--flat-playlist` 不逐条解析），前 `limit` 条。 */
+export function searchArgs(url: string, limit: number, browser?: CookieBrowser): string[] {
+  const common = COMMON_ARGS.filter((arg) => arg !== '--no-playlist');
+  return [...common, ...cookieArgs(browser), '--flat-playlist', '--dump-single-json', '--playlist-end', String(limit), '--', url];
+}
+
 export interface DownloadOptions {
   cookieBrowser?: CookieBrowser;
   /** 输出模板（staging 里的绝对路径，带 `%(ext)s`）。 */

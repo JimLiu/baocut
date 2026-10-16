@@ -179,7 +179,8 @@ export const de: ModelsMessages = {
     estimated: "anhand von Listenpreisen geschätzt",
     mixed: "gemeldet und geschätzt",
     unknown: "Kosten unbekannt",
-  } satisfies Record<UsageRow["costKind"], string>,
+    subscription: "im Abonnement enthalten",
+  } satisfies Record<Exclude<UsageRow["costKind"], "none">, string>,
   rowCalls: (calls: number, failed: number) => `${calls} ${noun(calls, "Aufruf", "Aufrufe")}${failed > 0 ? ` (${failed} fehlgeschlagen)` : ""}`,
   costApprox: (money: string, kind: string) => `≈ ${money} (${kind})`,
   usageHeader: (scope: string | undefined, period: string, from: string, to: string) =>
@@ -190,6 +191,7 @@ export const de: ModelsMessages = {
   spentEstimated: (money: string) => `  Ausgaben ≈ ${money} (anhand von Listenpreisen geschätzt)`,
   spentReported: (money: string) => `  Ausgaben ${money} (vom Anbieter gemeldet)`,
   unknownCostCalls: (calls: number) => `  Kosten unbekannt für ${calls} ${noun(calls, "weiteren Aufruf", "weitere Aufrufe")}`,
+  subscriptionCalls: (calls: number) => `  ${calls} ${noun(calls, "weiterer Aufruf", "weitere Aufrufe")} im Abonnement enthalten`,
   noBilledCalls: "  Keine abgerechneten Aufrufe",
   byProvider: "Nach Anbieter",
   byCapability: "Nach Funktion",

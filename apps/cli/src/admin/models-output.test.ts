@@ -299,7 +299,7 @@ describe('服务商的账号（§6.8）', () => {
 describe('用量（§6.10）', () => {
   const report = (patch: Partial<UsageReport> = {}): UsageReport => ({
     period: { from: '2026-09-07T00:00:00.000Z', to: '2026-10-06T12:00:00.000Z' },
-    totals: { calls: 0, failed: 0, units: {}, cost: { estimated: [], reported: [], unknownCalls: 0 } },
+    totals: { calls: 0, failed: 0, units: {}, cost: { estimated: [], reported: [], unknownCalls: 0, subscriptionCalls: 0 } },
     byDay: [],
     byProvider: [],
     byCapability: [],
@@ -332,7 +332,7 @@ describe('用量（§6.10）', () => {
           calls: 4,
           failed: 1,
           units: { inputTokens: 1200, outputTokens: 300, images: 1 },
-          cost: { estimated: [{ amount: '0.01', currency: 'USD' }], reported: [{ amount: '0.50', currency: 'USD' }], unknownCalls: 1 },
+          cost: { estimated: [{ amount: '0.01', currency: 'USD' }], reported: [{ amount: '0.50', currency: 'USD' }], unknownCalls: 1, subscriptionCalls: 0 },
         },
         byProvider: [
           {
@@ -360,6 +360,19 @@ describe('用量（§6.10）', () => {
     expect(lines).toContain('  Anthropic  3 次（失败 1）  75%  输入 1,200 / 输出 300 token  ≈ $0.51（报告与估算）');
     expect(lines).toContain('  Codex  1 次  25%  1 张图  费用未知');
     expect(lines).not.toContain('按能力');
+  });
+
+  it('智能体订阅内的调用只报次数，不算「没有计费的调用」', () => {
+    const lines = formatUsageReport(
+      report({
+        totals: { calls: 2, failed: 0, units: { images: 2 }, cost: { estimated: [], reported: [], unknownCalls: 0, subscriptionCalls: 2 } },
+        byProvider: [{ key: 'agent:codex', label: 'Codex', calls: 2, failed: 0, units: { images: 2 }, cost: [], costKind: 'subscription' }],
+      }),
+      'today',
+    );
+    expect(lines).toContain('  另有 2 次调用算在订阅里');
+    expect(lines).not.toContain('  没有计费的调用');
+    expect(lines).toContain('  Codex  2 次  100%  2 张图  订阅内');
   });
 });
 

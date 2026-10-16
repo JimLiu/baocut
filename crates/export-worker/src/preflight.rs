@@ -95,7 +95,7 @@ pub fn run(input: &Input, tools: &Tools) -> Result<Preflight, Failure> {
         let key = (asset.id.clone(), asset.revision.clone());
         let result = probed.entry(key.clone()).or_insert_with(|| {
             let Some(entry) = input.asset(&asset.id, &asset.revision) else {
-                return Err(("asset-not-frozen", format!("素材 {} 没有冻结的位置", asset.id)));
+                return Err(("asset-not-frozen", format!("asset {} has no frozen location", asset.id)));
             };
             let media_type = entry.media_type.as_deref().unwrap_or_default();
             if media_type == "image/svg+xml" || entry.path.extension().is_some_and(|e| e.eq_ignore_ascii_case("svg")) {
@@ -110,7 +110,7 @@ pub fn run(input: &Input, tools: &Tools) -> Result<Preflight, Failure> {
                         svg: true,
                         alpha: true,
                     }),
-                    Err(e) => Err(("asset-undecodable", format!("SVG 图片解不开：{e}"))),
+                    Err(e) => Err(("asset-undecodable", format!("SVG image cannot be decoded: {e}"))),
                 };
             }
             // GIF 由帧光栅从素材字节解（动图按时刻取帧），这里用同一个函数判断解不解得开。
@@ -129,7 +129,7 @@ pub fn run(input: &Input, tools: &Tools) -> Result<Preflight, Failure> {
                             alpha: true,
                         })
                     }
-                    Err(e) => Err(("asset-undecodable", format!("GIF 图片解不开：{e}"))),
+                    Err(e) => Err(("asset-undecodable", format!("GIF image cannot be decoded: {e}"))),
                 };
             }
             match probe_picture(tools, &entry.path) {
@@ -140,7 +140,7 @@ pub fn run(input: &Input, tools: &Tools) -> Result<Preflight, Failure> {
                     svg: false,
                     alpha: info.alpha,
                 }),
-                Ok(None) => Err(("no-video-stream", "素材里没有画面".to_string())),
+                Ok(None) => Err(("no-video-stream", "the asset has no video stream".to_string())),
                 Err(e) if e.code == "EXPORT_TOOL_MISSING" => Err(("tool-missing", e.message)),
                 Err(e) => Err(("asset-undecodable", e.message)),
             }
@@ -183,7 +183,7 @@ pub fn run(input: &Input, tools: &Tools) -> Result<Preflight, Failure> {
             transition_id: Some(transition.id.clone()),
             kind: Some(transition.kind.clone()),
             reason,
-            message: format!("转场「{}」画不出来，按硬切画", transition.kind),
+            message: format!("transition \"{}\" cannot be rendered; drawing a hard cut instead", transition.kind),
         });
     }
 
@@ -260,10 +260,12 @@ fn check_lottie(input: &Input, layer: &VisualLayer) -> Option<UnsupportedItem> {
     }
     let asset: Option<VersionRef> = parameters.get("asset").cloned().and_then(|v| serde_json::from_value(v).ok());
     let problem = match asset.and_then(|a| input.asset(&a.id, &a.revision).cloned()) {
-        None => Some(("lottie-asset-missing", "Lottie 贴纸没有冻结的素材".to_string())),
+        None => Some(("lottie-asset-missing", "the Lottie sticker has no frozen asset".to_string())),
         Some(entry) => match std::fs::read(&entry.path) {
-            Err(e) => Some(("lottie-asset-missing", format!("Lottie 素材读不到：{e}"))),
-            Ok(bytes) => frame_render::lottie_problem(&bytes).map(|(reason, why)| (reason, format!("Lottie 素材读不出来：{why}"))),
+            Err(e) => Some(("lottie-asset-missing", format!("Lottie asset cannot be read: {e}"))),
+            Ok(bytes) => {
+                frame_render::lottie_problem(&bytes).map(|(reason, why)| (reason, format!("Lottie asset cannot be parsed: {why}")))
+            }
         },
     }?;
     Some(UnsupportedItem {

@@ -84,7 +84,7 @@ v3 已经有三个面向程序的入口，但只有两个共用实现：
 | 字段 | 用途 |
 | --- | --- |
 | `name` | `<名词>_<动词>` 或一级动词（§4.1）。对外合同，改名升接口版本 |
-| `title`、`description` | `description` 第一句是一行摘要（`--help` 与 MCP 列表只取它），后面才是细则 |
+| `title`、`description` | `description` 第一句是一行摘要（以 `。` 或 `.` 结束，中文至多 80 字符、英文至多 160；`--help` 与 MCP 列表只取它），后面才是细则；新写的说明用英文 |
 | `inputSchema` | zod → JSON Schema。每个字段有 `description`，枚举列全，CLI 旗标由它派生 |
 | `annotations` | MCP 标准的 `readOnlyHint`、`destructiveHint`、`idempotentHint` |
 | `risk` | `TOOL_RISK` 的等级（`read` / `command` / `high` …），三个主体各自据此决定要不要确认 |
@@ -189,6 +189,10 @@ CLI 不区分「人敲的」与「Agent 敲的」。要让 Agent 宿主的权限
 | `artifacts` | `save` | mutation | 把任务产物复制成文件（`cwd` 下的路径） |
 | `skills` | `list` / `read` | query | 内置与用户层 craft skill 的索引与正文（§8.3 的「现取」路径） |
 | `library` | `list` / `show` | query | 术语表、音色、品牌素材（只读） |
+
+**网上素材**：`assets_search { query, kind?, sources?, commercial?, creativeCommons?, limit?, preview? }` 只读，在 Wikimedia Commons、Internet Archive 的策展公有领域集合（Prelinger、NASA、FedFlix）与 YouTube 里检索视频、图片与音频，每条候选带许可（`license.class`）、一行署名（TASL）与 `downloadWith`；两处媒体库去掉禁止演绎与许可认不出的，`commercial` 时再去掉非商业的。YouTube 经 yt-dlp 检索，网站登录与 `download` 同一项设置（设置 › 视频下载，对外服务匿名），要登录或读不到 Cookie 时在 `errors` 里给 `LINK_LOGIN_REQUIRED` / `LINK_COOKIES_UNAVAILABLE` 与设置链接，`next` 要求提醒用户；许可多半没写，照常列出，用之前由用户决定。`preview` 时把缩略图拼成一张接触表。`assets_download { video, source, id, kind?, file?, maxHeight?, name?, place?, revision? }` 只收两处媒体库的结果：按 id 重新取许可与文件地址，只从它们的文件主机下载，编译成 `importAsset`（可加 `addItem`），许可与署名记进素材的 `provenance`（`origin: open-media`），`videos_inspect` 的素材 `credit` 读得回来；YouTube 的结果用 `download`。
+
+**音效与音频分析**：`assets_sfx { video, recipe, seconds?, pitch?, seed?, space?, name?, place?, revision? }` 用内置配方在本机合成一段音效：拟真的 click、keypress、pop、impact（物理建模：接触激励一组模态，再过小房间与话筒，带一点底噪），风格化的 kick、boom、crash、riser、tick、blip、ping、whoosh、stamp、glitch、static；`crates/audio-dsp` 的 `sfx`，经 editor-wasm，播种随机、同样的参数逐位相同，峰值约 −1 dBFS 的 48 kHz 立体声 WAV；编译成 `importAsset`（可加 `addItem`），`provenance` 记配方与参数（`origin: procedural-sfx`），与 `assets_import` 同级。`assets_analyze { video, asset | path, range?, fps?, beats?, beatsPerBar?, cues?, tolerance?, sheet? }` 只读：把素材或工作目录里的文件（对外服务只认项目目录里的）解码成 22.05 kHz 单声道，算逐帧的响度、三段频带与起音强度（每帧 0..1，帧率默认视频的）、起音时刻与节拍（`waveform::beats`，找不到稳定的拍时 `beats` 为 null 并说原因）、重音（`waveform::cues`：比前面 0.4 秒的底子高至少 6 dB、且在全部起音里排前 20% 的起音），整份写进写文件目录的 `.baocut-out/analysis/<videoId>/`（`schema: baocut.audio-analysis/1`），结果只回摘要；一次最长 20 分钟。给了 `cues`（源文件里的秒，最多 500 个）时逐个对到最近的起音：在 `tolerance`（默认 50 ms）以内 `ok`、3 倍以内 `near`、更远 `none`、不在分析范围里 `outside`，并回命中率与碰巧命中的基线 `chance`（全部起音 ±tolerance 窗口的并集占时长的比例），两者一起看才知道是不是真的对上了；时刻在结果与文件里都按给的原样写。`sheet` 时另画一张听音表（`waveform::sheet` 出 RGBA，ffmpeg 编成同名 PNG）：频谱、波形、起音 / 重音 / 节拍三条，时刻按状态着色画成竖线，图上不写字，刻度与颜色的含义在工具说明里；最长 120 秒（`AUDIO_SHEET_TOO_LONG`，分段给 `range`）。代码画面读这份文件跟着声音动，剪辑点与音效对到拍、重音与起音；成片的声画对位用导出的时间线音频加 `videos_shots` 的切点核对。同步检查与听音表的思路参考开源项目 earshot（MIT），独立实现。
 
 **sugar 的规则**：`documents_put` 与 `assets_import` 是编译到核心操作的便捷工具，在共用层实现，三个面都有；MCP 服务的视图可以默认隐藏它们以保持工具数少，但不得只在 CLI 里实现。第一版只加这两个，不加 `clips` / `cuts` 一类剪辑动词：先看 Agent 用 `edits apply` + `edits ops` 的自描述够不够，够就不加。
 
@@ -312,7 +316,7 @@ Streamable HTTP、回环监听、按客户端发令牌、`Host` 与 `Origin` 检
 - **开放清单改为按目录项的 `surfaces` 与 `annotations` 推出**，不再手维护 `MCP_SERVICE_TOOLS`。`read` 等级只露 `readOnlyHint` 的工具。
 - **补进对外目录**：`videos_create`、`captions_create`、`download`（现 `link_import_start`）、`transcribe`（流程）、`jobs_cancel`、`jobs_wait`、`videos_frames`、`documents_put`、`assets_import`、`projects_list`、`skills_list` / `skills_read`、`jobs_list` / `jobs_retry`、`models_list`、`library_list` / `library_show`、`videos_history`、`edits_ops`。`projects_create`、`videos_import_package`、`models_install` / `models_test`、`transcode`、`artifacts_save`、`videos_delete` 不开放。没有这些，外部 Agent 做不完最常见的链路。`artifacts_save` 与导出的文件仍只写进视频所属项目的 `exports/`（`ServiceScope.exportBase`）。
 - **`jobs_wait { jobId, timeoutSec ≤ 50 }`**：阻塞到终态或超时，返回与 `jobs_inspect` 相同的记录。上限避开常见 MCP 客户端 60 秒的请求超时；没等到就再调一次。
-- **工具数**：对外目录（`ask` 与 `auto` 等级）37 个（含后来开放的代码画面 `compositions_import` / `compositions_preview`、清理换下来的旧版本用的 `assets_prune` 与采用素材来源章节的 `chapters_adopt`；`compositions_import` 带 `replace: { itemId }` 时把时间线上已有的代码画面实例原地换成新版本，见[代码包规范 §3.3](../../spec/code-bundle-spec.md#33-替换版本)），其中 `read` 等级露出的只读工具 17 个；清单是协议常量 `MCP_SERVICE_TOOL_NAMES`，测试核对它与目录推出的一致。管理面一个都不进。
+- **工具数**：对外目录（`ask` 与 `auto` 等级）44 个（含后来开放的代码画面 `compositions_import` / `compositions_preview`、清理换下来的旧版本用的 `assets_prune`、采用素材来源章节的 `chapters_adopt` 、网上素材的 `assets_search` / `assets_download` 与音效、音频分析的 `assets_sfx` / `assets_analyze`；`compositions_import` 带 `replace: { itemId }` 时把时间线上已有的代码画面实例原地换成新版本，见[代码包规范 §3.3](../../spec/code-bundle-spec.md#33-替换版本)），其中 `read` 等级露出的只读工具 20 个；清单是协议常量 `MCP_SERVICE_TOOL_NAMES`，测试核对它与目录推出的一致。管理面一个都不进。
 - **接口版本升到 `2`**：工具改名（`models_transcribe` 的流程形态改叫 `transcribe`、`link_import_start` → `download`、`exports_create` → `export`）与参数统一是破坏性变更。工具桥不对外，不受版本约束，但名字同时改。
 - **`baocut mcp install --agent <claude-code|codex|cursor|gemini> [--level ask|auto] [--name <客户端名>] [--yes]`**（另有 `baocut mcp status`）：新建一个客户端，把地址与令牌写进该 Agent 宿主的 MCP 配置，提示重启宿主。宿主有自己的环境变量段时令牌放那里、配置里只写引用（Claude Code 的 `settings.json` `env`）；没有时明文写入（Codex、Cursor、Gemini CLI），`--help` 与结果里说明风险并建议 `ask` 等级。BaoCut 里还没有任何已登记项目时（新装、没开过 App），一并登记默认项目目录下的 `CLI` 项目（与终端没有项目时用的同一个），结果的 `defaultProject` 写明：对外服务新建视频必须给已登记的项目、又不能自己建项目，没有它外部 Agent 无处新建视频。细节见架构设计 §4.8、§12.8。对应 v2 skill 的 `bin/connect`。`mcp` 是 CLI 的管理桶命令，不在目录里。
 
@@ -402,14 +406,14 @@ skills/baocut/
       system.md                 runtime、spec、status，以及管理桶命令（要用户同意）
       web.md                    网页版编辑器：web open --video、链接与会话、浏览器用来看与拖、交付时的新链接（只给 CLI 面，§8.8）
     workflows.md                端到端 recipe：链接 → 转录 → 双语字幕 → 成片；润色后翻译；翻译配音；剪口播；切短视频；总结与写稿；每条按 §8.7 的骨架写
-    craft/                      由 built-in-skills/<id>/ 同步来的 craft（prompts、步骤、best practice），CLI 面用
+    craft/                      由 built-in-skills/<id>/ 同步来的 craft（prompts、步骤、best practice），CLI 面用：<id>.md 是正文，<id>/ 是它的参考页与代码
     mcp.md                      走 MCP 时怎么接、工具名映射、jobs_wait 的用法
   built-in-skills/              内置 craft 的源，一个 skill 一个目录，README.md 是索引；不是说明书的页，不随 skill install 装进宿主
 ```
 
 **craft 不 fork。** `built-in-skills/<id>/SKILL.md` 与它们的 `references/` 就是用户要的 prompts、workflow 与最佳实践，单一来源仍是 `built-in-skills/<id>/`。两条路把它们交给外部 Agent：
 
-1. **同步副本**：构建脚本 `tools/sync-agent-skill.ts`（`npm run build:agent-skill`，`--check` 核对）把每个内置 skill 复制成 `references/craft/<id>.md`（合并它的 `references/`），并把其中的工具桥工具名按 §4.1 的规则改写成 CLI 命令（`documents_read` → `baocut documents read`，一级动词 `speak` → `baocut speak`；连着 `-`、`/`、`.` 或后跟 `:` 的字面量是文件名或字段，不改）；craft 引用共享目录页时，`用 skills_read 读 baocut-catalog-<页>` 改写为该目录页的相对链接，不把参考表展开进附录；目标页必须存在。只在会话里有、终端没有对应命令的工具（`downloads_save`）换成不提工具名的兜底写法（终端里直接把文件路径告诉用户）。测试断言副本与源一致。
+1. **同步副本**：构建脚本 `tools/sync-agent-skill.ts`（`npm run build:agent-skill`，`--check` 核对）把每个内置 skill 复制成 `references/craft/<id>.md`（SKILL.md 正文，末尾列出同目录的文件）与同名目录 `references/craft/<id>/`（skill 目录里的其余文件，相对路径不变：`references/*.md` 各成一页，代码、样例与数据原样复制，不内嵌进 Markdown；正文与参考页里提到的这些路径改成相对链接，`用 skills_read 读本 skill 的 …` 改写为读那个链接），并把 `.md` 里的工具桥工具名按 §4.1 的规则改写成 CLI 命令（`documents_read` → `baocut documents read`，一级动词 `speak` → `baocut speak`；连着 `-`、`/`、`.` 或后跟 `:` 的字面量是文件名或字段，不改）；craft 引用共享目录页时，`用 skills_read 读 baocut-catalog-<页>` 改写为该目录页的相对链接，不把参考表展开进附录；目标页必须存在。只在会话里有、终端没有对应命令的工具（`downloads_save`）换成不提工具名的兜底写法（终端里直接把文件路径告诉用户）。测试断言副本与源一致。
 2. **现取**：`baocut skills read <id>` 随时能取当前 Runtime 里的版本（含用户自己添加的 skill）。SKILL.md 说明两者的关系：副本是随 skill 发布时的版本，现取是这台机器上的版本。
 
 SKILL.md 第 3 节末尾的「内置 skill」表（只在 CLI 面）给每份内置 craft 一个名字与一句话，`{{skill:<id>}}` 链到副本，第 1 节的路由没覆盖的任务按它判断该读哪一份；会话内智能体看会话开始的 skill 索引，不重复这张表。只给会话内智能体的 craft（`slides`）不列。
@@ -443,7 +447,7 @@ SKILL.md 与 `references/` 的正文等 §10 的第 2 阶段（CLI 切到目录�
 | 形态 | 一个 skill，整体装进宿主的 skills 目录 | SKILL.md 正文渲染成 system prompt 的「工作方式」段（取代 `guidance.ts` 手写的内容）；`references/catalog/*.md`、`workflows.md` 与 `conventions.md` 成为内置的说明书页（`baocut-catalog-<页>`、`baocut-workflows`、`baocut-conventions`；工具桥面正文为空的页除外，§8.8），craft 照旧是内置 skill；索引附在指导后，按需 `skills_read` |
 | 工具的写法 | `baocut documents read` | `documents_read` |
 | 不适用的段落 | — | 找 CLI、`runtime ensure`、版本门、`--yes`、退出码、落盘到 `.baocut-out/`、MCP 接法、网页版编辑器（§8.8） |
-| craft | `references/craft/<id>.md`（从 `built-in-skills/<id>/` 同步，§8.3） | `built-in-skills/<id>/` 本身 |
+| craft | `references/craft/<id>.md` 与 `references/craft/<id>/`（从 `built-in-skills/<id>/` 同步，§8.3） | `built-in-skills/<id>/` 本身 |
 
 写法上用两个标记，不写两份文稿：
 

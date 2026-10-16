@@ -49,6 +49,7 @@
     if (rec.cost && rec.cost.kind === 'reported') return {kind: 'reported', amount: Number(rec.cost.amount), currency: rec.cost.currency};
     const u = rec.units || {};
     if (rec.status === 'error' && !Object.keys(u).some((k) => u[k])) return {kind: 'none'};
+    if (rec.cost && rec.cost.kind === 'subscription') return {kind: 'subscription'};   // 智能体订阅登录：算在订阅里
     const e = estimate(rec);
     return e ? {kind: 'estimated', amount: e.amount, currency: e.currency} : {kind: 'unknown'};
   }
@@ -72,7 +73,7 @@
   }
 
   function row(key, label, extra) {
-    return Object.assign({key, label, calls: 0, failed: 0, units: {}, est: {}, rep: {}, unknownCalls: 0}, extra || {});
+    return Object.assign({key, label, calls: 0, failed: 0, units: {}, est: {}, rep: {}, unknownCalls: 0, subscriptionCalls: 0}, extra || {});
   }
   function bump(r, rec, c) {
     r.calls += 1;
@@ -81,11 +82,12 @@
     if (c.kind === 'estimated') addMoney(r.est, c);
     else if (c.kind === 'reported') addMoney(r.rep, c);
     else if (c.kind === 'unknown') r.unknownCalls += 1;
+    else if (c.kind === 'subscription') r.subscriptionCalls += 1;
   }
-  /** 行的花费种类：只有报告 / 只有估算 / 都有 / 全不知道 */
+  /** 行的花费种类：只有报告 / 只有估算 / 都有 / 没有金额时先未知、再订阅内 */
   function finish(r) {
     const hasE = Object.keys(r.est).length > 0, hasR = Object.keys(r.rep).length > 0;
-    r.costKind = hasE && hasR ? 'mixed' : hasR ? 'reported' : hasE ? 'estimated' : (r.unknownCalls ? 'unknown' : 'none');
+    r.costKind = hasE && hasR ? 'mixed' : hasR ? 'reported' : hasE ? 'estimated' : (r.unknownCalls ? 'unknown' : r.subscriptionCalls ? 'subscription' : 'none');
     r.cost = hasE || hasR ? Object.keys(Object.assign({}, r.est, r.rep)).reduce((m, k) => { m[k] = (r.est[k] || 0) + (r.rep[k] || 0); return m; }, {}) : null;
     return r;
   }
@@ -124,7 +126,7 @@
     return {
       period: {from: new Date(from).toISOString(), to: new Date(to).toISOString()},
       totals: {calls: totals.calls, failed: totals.failed, units: totals.units,
-        cost: {estimated: Object.keys(totals.est).length ? totals.est : null, reported: Object.keys(totals.rep).length ? totals.rep : null, unknownCalls: totals.unknownCalls}},
+        cost: {estimated: Object.keys(totals.est).length ? totals.est : null, reported: Object.keys(totals.rep).length ? totals.rep : null, unknownCalls: totals.unknownCalls, subscriptionCalls: totals.subscriptionCalls}},
       byDay: Object.keys(days).sort().map((k) => days[k]),
       byProvider: list(maps.provider), byCapability: list(maps.capability), byModel: list(maps.model), byAccount: list(maps.account),
     };
@@ -177,7 +179,7 @@
     {p: 'elevenlabs', a: 'main', cap: 'tts', m: 'eleven_multilingual_v2', w: 3, units: (r) => ({chars: 300 + Math.round(r() * 4000)})},
     {p: 'elevenlabs', a: 'main', cap: 'transcribe', m: 'scribe_v2', w: 1, units: (r) => ({audioSeconds: 120 + Math.round(r() * 900)})},   // 没有标价：未知
     {p: 'minimax', a: 'main', cap: 'text', m: 'MiniMax-M2.5', w: 2, reported: true, units: (r) => ({inputTokens: 3000 + Math.round(r() * 20000), outputTokens: 500 + Math.round(r() * 4000)})},
-    {p: 'agent:codex', a: null, cap: 'image', m: 'image-gen', w: 1, units: () => ({images: 1})},   // 智能体：费用未知
+    {p: 'agent:codex', a: null, cap: 'image', m: 'image-gen', w: 1, subscription: true, units: () => ({images: 1})},   // 智能体（ChatGPT 登录）：订阅内
   ];
   function seedRecords(now, seed) {
     const r = rng(seed == null ? 7 : seed);
@@ -195,7 +197,7 @@
         const failed = r() < 0.06;
         const units = failed ? {} : x.units(r);
         const rec = {at: new Date(at).toISOString(), providerId: x.p, accountId: x.a, capability: x.cap, modelId: x.m, source: x.cap === 'image' && x.p === 'agent:codex' ? 'agent-tool' : 'job',
-          units, cost: {kind: 'unknown'}, durationMs: 800 + Math.round(r() * 30000), status: failed ? 'error' : 'ok'};
+          units, cost: {kind: x.subscription ? 'subscription' : 'unknown'}, durationMs: 800 + Math.round(r() * 30000), status: failed ? 'error' : 'ok'};
         if (failed) rec.error = x.p === 'openai' && x.a === 'k7q2' ? '429 · 每分钟请求数超限' : '服务商返回 500';
         if (x.reported && !failed) rec.cost = {kind: 'reported', amount: (((units.inputTokens || 0) * 2.1 + (units.outputTokens || 0) * 8.4) / 1e6).toFixed(4), currency: 'CNY'};
         out.push(rec);

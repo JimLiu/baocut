@@ -33,7 +33,7 @@ version: 1.2.0
 
 ## 2. 骨架与范例
 
-- 骨架：用 `skills_read` 读本 skill 的 `references/scaffold.md`，里面是完整可运行的单文件 HTML，三个槽用 `/* slot:layout */`（`<style>` 末尾的 CSS）、`<!-- slot:scene -->`（`<section id="scene">` 里的 HTML）、`/* slot:motion */`（`renderScene(time)` 里统一出场那行之后的代码）标出；其余部分（根元素属性、辅助函数、可 seek 的时间线、`window.__timelines`、`window.__GRAPHICS_QA__`）**原样保留**，不改。
+- 骨架：用 `skills_read` 读本 skill 的 `scaffold.html`，它是完整可运行的单文件 HTML，三个槽用 `/* slot:layout */`（`<style>` 末尾的 CSS）、`<!-- slot:scene -->`（`<section id="scene">` 里的 HTML）、`/* slot:motion */`（`renderScene(time)` 里统一出场那行之后的代码）标出；其余部分（根元素属性、辅助函数、可 seek 的时间线、`window.__timelines`、`window.__GRAPHICS_QA__`）**原样保留**，不改；按需改 `#root` 的尺寸、三个颜色 token 与 `data-*` 属性，槽里现有的 `demo` 内容只是占位，替换掉即可。
 - 范例在本 skill 的 `exemplars/<id>/16x9.html` 与 `9x16.html`（会话内按路径取；外部 Agent 的副本里没有这些文件，骨架加语法已经够写），每个只是填好槽的骨架，横竖两版只差布局槽：
 
 | id | 类别 | 展示的动词 |

@@ -35,9 +35,11 @@ describe('UsageLedger', () => {
     const ledger = new UsageLedger(file);
     expect(await ledger.read()).toEqual([]);
     const records = Array.from({ length: 20 }, (_, i) => record({ durationMs: i }));
+    // 智能体订阅内的调用（§6.10）读回来还是 `subscription`。
+    records.push(record({ providerId: 'agent:codex', accountId: null, capability: 'generateImage', modelId: 'image-gen', units: { images: 1 }, cost: { kind: 'subscription' } }));
     await Promise.all(records.map((r) => ledger.append(r)));
     expect((await fs.stat(file)).mode & 0o777).toBe(0o600);
-    expect((await fs.readFile(file, 'utf8')).trim().split('\n')).toHaveLength(20);
+    expect((await fs.readFile(file, 'utf8')).trim().split('\n')).toHaveLength(21);
     expect(await new UsageLedger(file).read()).toEqual(records);
   });
 

@@ -6,6 +6,10 @@ import type { LegacyImportPrompt, LegacyImportRun, LegacyImportSnapshot, LegacyS
  * LegacyImportHost 订阅并写这里（一个主题只有一个处理函数）；任务页、Home 顶上那一条与 rail 读这里。Web 一直是空的。
  */
 export interface LegacyImportStore {
+  /** 收到过主题快照：在这之前 `prompt` 为 null 不代表没有询问（首次启动引导等它，免得两个对话框叠在一起）。 */
+  ready: boolean;
+  /** 导入询问此刻正显示着（LegacyImportHost 写）：这次启动跳过了、已经回答了的不算。 */
+  asking: boolean;
   prompt: LegacyImportPrompt | null;
   run: LegacyImportRun | null;
   settingsReport: LegacySettingsReport | null;
@@ -18,6 +22,7 @@ export interface LegacyImportStore {
   /** Only results of a run observed in progress can notify in this client. */
   bannerRunId: string | null;
   set(state: LegacyImportSnapshot): void;
+  setAsking(asking: boolean): void;
   closeBanner(): void;
   openSettingsReport(): void;
   closeSettingsReport(): void;
@@ -42,6 +47,8 @@ function readSettingsReports(): string[] {
 }
 
 export const useLegacyImport = create<LegacyImportStore>()((set) => ({
+  ready: false,
+  asking: false,
   prompt: null,
   run: null,
   settingsReport: null,
@@ -55,6 +62,7 @@ export const useLegacyImport = create<LegacyImportStore>()((set) => ({
     const report = settingsReport ?? null;
     const read = report && !current.settingsReadLoaded ? readSettingsReports() : current.readSettingsReports;
     return {
+      ready: true,
       prompt, run, settingsReport: report,
       bannerRunId: run && run.state !== 'finished' ? run.runId : current.bannerRunId,
       bannerDismissed: run && !current.bannerDismissalLoaded ? readBannerDismissed() : current.bannerDismissed,
@@ -67,6 +75,7 @@ export const useLegacyImport = create<LegacyImportStore>()((set) => ({
       ),
     };
   }),
+  setAsking: (asking) => set({ asking }),
   closeBanner: () => {
     try { localStorage.setItem(BANNER_DISMISSED_KEY, 'true'); }
     catch { /* Keep dismissal for this window when local storage is unavailable. */ }

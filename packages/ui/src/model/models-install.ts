@@ -11,7 +11,9 @@ import {
   sharedComponents,
 } from './models-local.ts';
 import { shortenDir } from './models-dir.ts';
-import { fmtSize } from './task-facts.ts';
+import { fmtSize, type Remedy } from './task-facts.ts';
+import { packageView } from './semantic-package.ts';
+import { TASK_VIEW_COPY } from '../copy.ts';
 import { M, type ModelsInstallMessages } from './models-install-copy.ts';
 import { jobErrorText, remedyText } from './localized-text.ts';
 
@@ -359,6 +361,28 @@ export function installFailure(bundle: ModelBundleStatus, jobs: readonly JobReco
   const job = latestBundleJob(jobs, bundle.bundleId, 'modelInstall');
   if (!job || job.state !== 'failed') return null;
   return jobProblem(job);
+}
+
+/**
+ * 任务页上失败的安装任务去哪儿补（设计稿 model-task-facts.js `installFailure`）：语义搜索包去 设置 › 语义索引，别的去它那一类的
+ * 能力页。按到了那一页看到的按钮写：那一页给「补齐」的（下好的部分留着）是「去补齐」，否则「去重新下载」。任务是旧的，按模型包
+ * 现在的样子判断：找不到、已经装好、正在重新装、这台电脑跑不了的不给去处。
+ */
+export function installRemedy(job: Pick<JobRecord, 'kind' | 'state' | 'bundleId'>, bundles: readonly ModelBundleStatus[]): Remedy | null {
+  if (job.kind !== 'modelInstall' || job.state !== 'failed') return null;
+  const bundle = bundles.find((b) => b.bundleId === job.bundleId);
+  if (!bundle || !canDownload(bundle) || (bundle.install && bundle.install.state !== 'paused')) return null;
+  const copy = TASK_VIEW_COPY;
+  const remedy = (kept: boolean, target: Remedy['target']): Remedy =>
+    kept
+      ? { label: copy.remedyComplete, target, hint: copy.completeHint }
+      : { label: copy.remedyRedownload, target, hint: copy.redownloadHint };
+  // 语义搜索的文字与多模态两个模型包合成一个包（semantic-package.ts）：设置页上缺一个时给「补齐」。
+  if (bundle.capability === 'embed') {
+    return remedy(packageView(bundles.filter((b) => b.capability === 'embed')).state === 'partial', { tab: 'settings', section: 'semantic' });
+  }
+  const category = bundleCategory(bundle);
+  return category ? remedy(inlineInstallMode(bundle, bundles) === 'complete', { tab: 'models', category }) : null;
 }
 
 // ---- 删除 ----

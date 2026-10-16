@@ -173,6 +173,7 @@ export const it: ProvidersMessages = {
     rowCalls: (calls, failed) => (failed ? `${calls} · ${count(failed, 'non riuscita', 'non riuscite')}` : String(calls)),
     cost: {
       unknown: 'Costo sconosciuto',
+      subscription: 'Incluso nell’abbonamento',
       estimated: (money) => `≈ ${money}`,
       reported: (money) => `${money} comunicato`,
       mixed: (money) => `≈ ${money} (incl. comunicato)`,

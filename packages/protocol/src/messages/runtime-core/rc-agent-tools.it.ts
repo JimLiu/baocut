@@ -81,6 +81,8 @@ export const it: RcAgentToolsMessages = {
   importAssetSummary: (p: { name: string; place: boolean }) => `Importa il materiale ${p.name}${p.place ? ' e aggiungilo alla timeline' : ''}`,
   /** 导入素材这笔修改在视频历史与撤销里的说明。 */
   importAssetLabel: (p: { name: string; place: boolean }) => `Importa ${p.name}${p.place ? ' e aggiungilo alla timeline' : ''}`,
+  openMediaDownloadSummary: (p: { title: string; source: string; license: string; place: boolean }) => `Scarica «${p.title}» da ${p.source} (${p.license}) e importalo${p.place ? ' nella timeline' : ''}`,
+  sfxSummary: (p: { recipe: string; place: boolean }) => `Genera l’effetto sonoro «${p.recipe}» e importalo${p.place ? ' nella timeline' : ''}`,
   replaceCompositionSummary: (p: { name: string; clip: string }) => `Importa ${p.name} e sostituisci la clip ${p.clip} nella timeline`,
   replaceCompositionLabel: (p: { name: string }) => `Sostituisci la grafica animata con ${p.name}`,
   pruneAssetsSummary: (p) => `Rimuovi dal video il materiale non usato (${p.count}): ${p.names}`,

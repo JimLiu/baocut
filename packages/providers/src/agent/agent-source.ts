@@ -54,7 +54,7 @@ export interface AgentSourceOptions {
   probeMaxAgeMs?: number;
   /** 一次生成的期限（毫秒，默认 10 分钟）。 */
   turnTimeoutMs?: number;
-  /** 用量账本（§6.10）：智能体 Provider 的调用同样记录，`accountId` 为 null，费用未知。 */
+  /** 用量账本（§6.10）：智能体 Provider 的调用同样记录，`accountId` 为 null；订阅登录时费用记为订阅内，否则未知。 */
   usage?: UsageLedger;
 }
 
@@ -232,7 +232,7 @@ export class AgentProviderSource implements ProviderSource {
             source: report.source,
             ...(report.ref ? { ref: report.ref } : {}),
             units: report.units,
-            cost: { kind: 'unknown' },
+            cost: report.cost ?? { kind: 'unknown' },
             durationMs: Math.max(0, Date.now() - report.startedAt),
             status: report.error === undefined ? 'ok' : 'error',
             ...(report.error !== undefined ? { error: usageErrorOf(report.error) } : {}),
@@ -306,7 +306,13 @@ export class AgentProviderSource implements ProviderSource {
     const availability = evaluate(definition, info, enabled);
     if (!availability.available) return { ok: false, reason: availability.reason, message: availability.detail };
     if (!driver) return { ok: false, reason: 'not-installed', message: PC.driverNotRegistered().text };
-    return { ok: true, driver, version: info!.version!, executable: this.#options.drivers.executable(definition.driverId) };
+    return {
+      ok: true,
+      driver,
+      version: info!.version!,
+      executable: this.#options.drivers.executable(definition.driverId),
+      subscribed: definition.subscribed(info!),
+    };
   }
 }
 

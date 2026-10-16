@@ -290,6 +290,97 @@ export interface SourceChaptersResult {
   summary: { entries: number; matched: number; ambiguous: number; snapped: number; unanchored: number };
 }
 
+/**
+ * `audioAnalysis` 的选项：PCM 的采样率、输出帧率（视频的 fps），要不要找节拍（缺省要）与每小节几拍；
+ * `cues` 是要核对的时刻（秒，与起音同一个时钟），`tolerance` 是对上的容差（秒，缺省 0.05，「差一点」是它的 3 倍）。
+ */
+export interface AudioAnalysisOptions {
+  sampleRate: number;
+  fps: number;
+  beats?: boolean;
+  beatsPerBar?: number;
+  cues?: number[];
+  tolerance?: number;
+}
+
+/** `audioSheet` 的选项：图宽（像素，200..4000，缺省 1600），其余同 `AudioAnalysisOptions`。 */
+export interface AudioSheetOptions {
+  sampleRate: number;
+  width?: number;
+  beats?: boolean;
+  beatsPerBar?: number;
+  cues?: number[];
+  tolerance?: number;
+}
+
+/** 听音表的像素：`width × height` 的 RGBA，逐行自上而下。 */
+export interface AudioSheet {
+  width: number;
+  height: number;
+  rgba: Uint8Array;
+}
+
+/** 一个时刻对不对得上起音：`delta` 是最近的起音减去时刻（秒，正的是声音晚到）。 */
+export interface AudioCue {
+  t: number;
+  delta: number | null;
+  status: 'ok' | 'near' | 'none' | 'outside';
+}
+
+/** 时刻与起音的对位：`hitRate` 是 ok ÷ inside，`chance` 是随便放一个时刻也能对上的概率。 */
+export interface AudioSync {
+  tolerance: number;
+  nearTolerance: number;
+  inside: number;
+  ok: number;
+  near: number;
+  none: number;
+  outside: number;
+  hitRate: number;
+  chance: number;
+  cues: AudioCue[];
+}
+
+/** 逐帧特征（每帧一个 0..1 的值）、起音与节拍；时间是秒，数值保留三位小数。 */
+export interface AudioAnalysis {
+  fps: number;
+  duration: number;
+  frameCount: number;
+  frames: { level: number[]; bass: number[]; mid: number[]; treble: number[]; onset: number[] };
+  onsets: Array<{ t: number; strength: number }>;
+  beats: {
+    tempo: number;
+    confidence: number;
+    residual: number;
+    beatsPerBar: number;
+    downbeat: number;
+    times: number[];
+    bars: Array<{ start: number; end: number; energy: number }>;
+    sections: Array<{ start: number; end: number; energy: number }>;
+  } | null;
+  /** 要了节拍却没找到稳定的拍时的原因。 */
+  beatsError?: string;
+  /** 明显高出前面底子的起音：`prominenceDb` 是高出多少 dB。 */
+  accents: Array<{ t: number; prominenceDb: number }>;
+  /** 给了 `cues` 时才有。 */
+  sync?: AudioSync;
+}
+
+/** 程序化音效的参数：`pitch` 半音（−12..12），`seconds` 不给用配方的缺省长度，`space` 是 `room` / `hall`。 */
+export interface SfxSpec {
+  recipe: string;
+  seconds?: number;
+  pitch?: number;
+  seed?: number;
+  space?: 'room' | 'hall';
+  sampleRate?: number;
+}
+
+export interface SfxRecipe {
+  name: string;
+  seconds: number;
+}
+
 /** WASM 拒绝的输入：`INVALID_SPEECH`（转写正文不合格式）、`INVALID_INPUT`（输入不是约定的形状）、`INVALID_PROPOSAL`（说话人提案与正文对不上）。 */
 export class EditorWasmError extends Error {
   readonly code: string;
@@ -353,12 +444,27 @@ interface Exports {
   bc_speaker_proposal(ptr: number, len: number): number;
   bc_apply_speakers(ptr: number, len: number): number;
   bc_source_chapters(ptr: number, len: number): number;
+  bc_audio_analysis(ptr: number, len: number): number;
+  bc_audio_sheet(ptr: number, len: number): number;
+  bc_sfx_render(ptr: number, len: number): number;
+  bc_sfx_recipes(ptr: number, len: number): number;
   bc_output_ptr(): number;
   bc_output_len(): number;
 }
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
+
+/** `[u32 LE 选项长度][选项 JSON][f32 LE 单声道 PCM…]`。 */
+function pcmInput(pcm: Float32Array, options: object): Uint8Array {
+  const head = encoder.encode(JSON.stringify(options));
+  const input = new Uint8Array(4 + head.length + pcm.byteLength);
+  new DataView(input.buffer).setUint32(0, head.length, true);
+  input.set(head, 4);
+  const body = new DataView(input.buffer, 4 + head.length);
+  for (let i = 0; i < pcm.length; i++) body.setFloat32(i * 4, pcm[i]!, true);
+  return input;
+}
 
 export class EditorSemantics {
   private readonly exports: Exports;
@@ -435,32 +541,62 @@ export class EditorSemantics {
     return this.call('bc_source_chapters', input);
   }
 
+  /**
+   * 单声道 PCM 的逐帧特征（响度、三段频带、起音强度）、起音时刻与节拍。输入按字节传给 WASM，不经 JSON。
+   * 空音频 `AUDIO_EMPTY`，超过 48 kHz 下 30 分钟 `AUDIO_TOO_LONG`。
+   */
+  audioAnalysis(pcm: Float32Array, options: AudioAnalysisOptions): AudioAnalysis {
+    return JSON.parse(decoder.decode(this.raw('bc_audio_analysis', pcmInput(pcm, options)))) as AudioAnalysis;
+  }
+
+  /**
+   * 听音表的 RGBA 像素：频谱、波形、起音与节拍、要核对的时刻画成一张图，宿主再编码成 PNG。
+   * 宽度不在 200..4000 时 `INVALID_INPUT`；空音频与超长同 `audioAnalysis`。
+   */
+  audioSheet(pcm: Float32Array, options: AudioSheetOptions): AudioSheet {
+    const rgba = this.raw('bc_audio_sheet', pcmInput(pcm, options));
+    const width = options.width ?? 1600;
+    return { width, height: rgba.length / 4 / width, rgba };
+  }
+
+  /** 合成一段程序化音效，返回 16 位立体声 WAV 的字节。配方名不认识时 `SFX_UNKNOWN_RECIPE`。 */
+  sfxRender(spec: SfxSpec): Uint8Array {
+    return this.raw('bc_sfx_render', encoder.encode(JSON.stringify(spec)));
+  }
+
+  /** 音效配方与缺省长度（不变的表）。 */
+  sfxRecipes(): SfxRecipe[] {
+    return this.call('bc_sfx_recipes', {});
+  }
+
   private ranges: EngineRanges | undefined;
   private presets: ElementPresets | undefined;
 
-  private call<T>(
-    name: Exclude<keyof Exports, 'memory' | 'bc_alloc' | 'bc_free' | 'bc_output_ptr' | 'bc_output_len'>,
-    payload: unknown,
-  ): T {
-    const input = encoder.encode(JSON.stringify(payload));
+  private call<T>(name: EntryName, payload: unknown): T {
+    return JSON.parse(decoder.decode(this.raw(name, encoder.encode(JSON.stringify(payload))))) as T;
+  }
+
+  /** 字节进、字节出；失败时输出区是 `{code, message}`，抛 `EditorWasmError`。结果拷出线性内存。 */
+  private raw(name: EntryName, input: Uint8Array): Uint8Array {
     const { exports } = this;
     const ptr = exports.bc_alloc(input.length);
     try {
       new Uint8Array(exports.memory.buffer, ptr, input.length).set(input);
       const status = exports[name](ptr, input.length);
       // 调用之后内存可能长过，重新取 buffer。
-      const output = decoder.decode(new Uint8Array(exports.memory.buffer, exports.bc_output_ptr(), exports.bc_output_len()));
-      const value = JSON.parse(output) as unknown;
+      const output = new Uint8Array(exports.memory.buffer, exports.bc_output_ptr(), exports.bc_output_len()).slice();
       if (status !== 0) {
-        const error = value as { code: string; message: string };
+        const error = JSON.parse(decoder.decode(output)) as { code: string; message: string };
         throw new EditorWasmError(error.code, error.message);
       }
-      return value as T;
+      return output;
     } finally {
       exports.bc_free(ptr, input.length);
     }
   }
 }
+
+type EntryName = Exclude<keyof Exports, 'memory' | 'bc_alloc' | 'bc_free' | 'bc_output_ptr' | 'bc_output_len'>;
 
 /** 同步的函数形式（Node 与浏览器两侧导出同一组）：`get` 第一次调用时载入 WASM。 */
 export function semanticsApi(get: () => EditorSemantics) {
@@ -481,5 +617,9 @@ export function semanticsApi(get: () => EditorSemantics) {
       speakers: ReadonlyArray<{ id: string; name: string }>,
     ): AppliedSpeakers => get().applySpeakers(speech, translations, wordSpeakers, speakers),
     sourceChapters: (input: SourceChaptersInput): SourceChaptersResult => get().sourceChapters(input),
+    audioAnalysis: (pcm: Float32Array, options: AudioAnalysisOptions): AudioAnalysis => get().audioAnalysis(pcm, options),
+    audioSheet: (pcm: Float32Array, options: AudioSheetOptions): AudioSheet => get().audioSheet(pcm, options),
+    sfxRender: (spec: SfxSpec): Uint8Array => get().sfxRender(spec),
+    sfxRecipes: (): SfxRecipe[] => get().sfxRecipes(),
   };
 }

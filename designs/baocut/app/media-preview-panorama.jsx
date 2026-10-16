@@ -1,13 +1,17 @@
 /* 等距柱状投影的 360° 查看器。只做查看，不改图片。产品设计 §3.3。 */
 (function () {
   const R = window.RSP;
-  function MediaPanorama({ file, active, onClose }) {
+  /* 读数按画面中心的放大倍数算（默认 90° 视野为 100%），放大时数字变大，和按钮方向一致。 */
+  const zoomPercent = (fov) => Math.round(100 / Math.tan((fov * Math.PI) / 360));
+  /* onBack 回到普通图片；onClose 关闭整个查看器（标签页里没有）；inset 给 macOS 红绿灯让位。 */
+  function MediaPanorama({ file, active, onBack, onClose, inset }) {
     const root = React.useRef(null),
       canvas = React.useRef(null),
       camera = React.useRef({ yaw: 0, pitch: 0, fov: 90 }),
       drag = React.useRef(null),
       render = React.useRef(() => {});
     const [fov, setFov] = React.useState(90),
+      [turned, setTurned] = React.useState(false),
       [status, setStatus] = React.useState('loading');
     React.useEffect(() => {
       let closed = false,
@@ -113,26 +117,44 @@
       setFov(camera.current.fov);
       render.current();
     };
+    const Tip = window.MediaTip;
     return (
-      <section ref={root} className="media-panorama" aria-label="360° 全景预览">
-        <div className="media-preview__toolbar">
-          <R.ActionButton onPress={() => zoom(fov - 10)}>放大</R.ActionButton>
-          <R.ActionButton onPress={() => zoom(fov + 10)}>缩小</R.ActionButton>
-          <span>视角 {fov}°</span>
-          <R.ActionButton
-            onPress={() => {
-              camera.current = { yaw: 0, pitch: 0, fov: 90 };
-              setFov(90);
-              render.current();
-            }}
-          >
-            重置视角
-          </R.ActionButton>
-          <R.ActionButton onPress={() => root.current.requestFullscreen?.().catch(() => setStatus('fullscreen-error'))}>
-            全屏
-          </R.ActionButton>
-          <R.ActionButton onPress={onClose}>返回图片</R.ActionButton>
-        </div>
+      <section ref={root} className={inset ? 'media-panorama media-preview--window-inset' : 'media-panorama'} aria-label="360° 全景预览">
+        <header className="media-image-header">
+          <R.ActionButton isQuiet onPress={onBack}><R.Icons.ChevronLeft /><R.Text>返回图片</R.Text></R.ActionButton>
+          <span className="media-image-header__name">360° 全景</span>
+          <Tip label="缩小">
+            <R.ActionButton isQuiet aria-label="缩小" isDisabled={fov >= 110} onPress={() => zoom(fov + 10)}><R.Icons.ZoomOut /></R.ActionButton>
+          </Tip>
+          <span className="media-panorama__fov">{zoomPercent(fov)}%</span>
+          <Tip label="放大">
+            <R.ActionButton isQuiet aria-label="放大" isDisabled={fov <= 30} onPress={() => zoom(fov - 10)}><R.Icons.ZoomIn /></R.ActionButton>
+          </Tip>
+          {/* 已在初始视角时没有可重置的，按钮置灰，免得点了像没反应。 */}
+          <Tip label="重置视角">
+            <R.ActionButton
+              isQuiet
+              aria-label="重置视角"
+              isDisabled={fov === 90 && !turned}
+              onPress={() => {
+                camera.current = { yaw: 0, pitch: 0, fov: 90 };
+                setFov(90);
+                setTurned(false);
+                render.current();
+              }}
+            >
+              <R.Icons.Revert />
+            </R.ActionButton>
+          </Tip>
+          <Tip label="全屏">
+            <R.ActionButton isQuiet aria-label="全屏" onPress={() => root.current.requestFullscreen?.().catch(() => setStatus('fullscreen-error'))}>
+              <R.Icons.FullScreen />
+            </R.ActionButton>
+          </Tip>
+          {onClose && <Tip label="关闭图片预览">
+            <R.ActionButton isQuiet aria-label="关闭图片预览" onPress={onClose}><R.Icons.Close /></R.ActionButton>
+          </Tip>}
+        </header>
         <canvas
           ref={canvas}
           tabIndex={0}
@@ -144,8 +166,9 @@
           }}
           onPointerMove={(e) => {
             if (!drag.current) return;
-            camera.current.yaw = drag.current.yaw - (e.clientX - drag.current.x) * 0.005;
+            camera.current.yaw = drag.current.yaw + (e.clientX - drag.current.x) * 0.005;
             camera.current.pitch = Math.max(-1.5, Math.min(1.5, drag.current.pitch + (e.clientY - drag.current.y) * 0.005));
+            setTurned(true);
             render.current();
           }}
           onPointerUp={() => {
@@ -162,6 +185,7 @@
                 -1.5,
                 Math.min(1.5, camera.current.pitch + (e.key === 'ArrowUp' ? 0.1 : e.key === 'ArrowDown' ? -0.1 : 0))
               );
+              setTurned(true);
               render.current();
             }
           }}

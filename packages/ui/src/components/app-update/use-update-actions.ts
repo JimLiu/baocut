@@ -35,7 +35,8 @@ export async function stopAllAndInstall(runtime: RuntimeSession): Promise<void> 
   await Promise.allSettled(
     tasks.map((task) => {
       if (!task.action) return Promise.resolve();
-      return task.action.type === 'stop' ? runtime.stop(task.action.taskId) : runtime.cancelJob(task.action.jobId);
+      if (task.action.type === 'stop') return runtime.stop(task.action.taskId);
+      return task.action.type === 'cancel' ? runtime.cancelJob(task.action.jobId) : Promise.resolve();
     }),
   );
   installNow(runtime);

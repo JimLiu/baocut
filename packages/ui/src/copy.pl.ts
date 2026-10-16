@@ -441,6 +441,8 @@ export const pl: CopyMessages = {
     voiceClone: "Sklonuj głos",
     agentTranslate: "Przetłumacz",
     legacyImport: "Zaimportuj wcześniejsze projekty",
+    agentInstall: "Zainstaluj agenta",
+    agentUpgrade: "Zaktualizuj agenta",
   },
   /** Job 的阶段（`JobPhase`）：列表与胶囊念「识别中 · 45%」。 */
   jobPhase: {
@@ -549,6 +551,10 @@ export const pl: CopyMessages = {
     remedyDefault: "Wybierz modele domyślne",
     remedyNode: "Zobacz zdalne węzły",
     remedyAgent: "Otwórz ustawienia agenta",
+    remedyComplete: 'Uzupełnij pobieranie',
+    remedyRedownload: 'Pobierz ponownie',
+    completeHint: 'Pobrane już części zostają zachowane, więc uzupełnianie pobierze tylko brakujące. Jeśli nadal nie można się połączyć, najpierw zmień źródło w Ustawienia › Ogólne › Źródła pobierania.',
+    redownloadHint: 'Jeśli nie można się połączyć, zmień źródło w Ustawienia › Ogólne › Źródła pobierania, a potem pobierz ponownie.',
   },
   /** 任务胶囊与悬停卡（原型 task-pill.jsx、model-task-pill.js）。 */
   taskPill: {

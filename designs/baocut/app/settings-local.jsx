@@ -3,6 +3,7 @@
    已安装模型缺少公共组件时自动展开。公共组件不单独装（2026-10-08）：缺的那一行「下载」借一只装着、用到它的
    模型去补齐，先确认要下的，进度同时显示在那只模型行与这一行；没有装着的模型用它时不给按钮，写「装模型时一起下载」。只有一只模型
    用的组件跟着那只模型的展开区走。算法全在 `BC_LOCALMODELS`，这里只画。
+   下载与补齐确认后交给 store 的 `downloadModel`（2026-10-16）：落一条后台任务，离开设置页照样下完；结局记在 `app.modelEnd`。
    语音合成行只写能拿它做什么（出声方式 / 要不要录音 / 情绪 / 语言 / 体积），仓库名、语速库与组成
    收进展开区；装好后点「试听」展开试听面板，选好再点「生成试听」（`TtsQuickTest`）。
    音乐生成行（2026-10-11）与语音合成同一种「试听」展开面板（MusicQuickTest）。
@@ -98,7 +99,7 @@
     // 说话人区分包自己不跑任务，没有检查：行上与 ⋯ 里都不给（修复照常）
     const checkable = !m.pack;
 
-    // 下载进度由本地模型页统一管（公共组件那一行借这只模型补齐时显示同一个进度）
+    // 下载进度在 store（app.modelDl，后台任务跟着它走）；公共组件那一行借这只模型补齐时显示同一个进度
     // 下载与补齐都先过下载确认框（download-dialog.jsx）：大小、来源（可就地换），确认后才下
     const download = () => onDownload(m);
     /* 检查：结果由原型开关「下次检查的结果」决定（shell.jsx TweaksPanel）；修复之后那一次总是通过 */
@@ -307,24 +308,26 @@
     const Row = window.ShellRow;
     const models = D.setModels;
     const comps = D.setComponents;
-    // 安装表从演示数据起步，再与 store 对齐（别处下载 / 删除过的模型以 store 为准）
-    const [on, setOn] = useState(() => {
-      let t = LM.initial(models, comps);
+    // 安装表从演示数据起步，补上 store 记的下载结局，再与 store 对齐（别处下载 / 删除过的模型以 store 为准）
+    const [on, setOn] = useState(() => LM.withStore(LM.initial(models, comps), models, app.modelInstalled, app.modelEnd));
+    // 下载在 store 里跑（离开设置页照样下完、进后台任务）；开着时收到的结局在这里补进安装表
+    const seenEnd = useRef(app.modelEnd);
+    useEffect(() => {
+      const prev = seenEnd.current;
+      seenEnd.current = app.modelEnd;
+      if (prev === app.modelEnd) return;
       models.forEach((m) => {
-        const live = app.modelInstalled(m.id);
-        if (live && !t[m.id]) t = LM.applyInstall(t, m);
-        if (!live && t[m.id]) t = Object.assign({}, t, {[m.id]: false});
+        const end = app.modelEnd[m.id];
+        if (end && end !== prev[m.id]) setOn((t) => LM.applyEnd(t, m, end));
       });
-      return t;
-    });
+    }, [app.modelEnd]);
     const [storageOpen, setStorageOpen] = useState(false);
     const [, , activeOf] = window.useDlSources();
     const [sharedOpen, setSharedOpen] = useState(null);
     const [pop, setPop] = useState(null);
-    const [dl, setDl] = useState({});   // 模型 id → 下载 / 补齐进度 0–99
-    const [fails, setFails] = useState({});   // 模型 id → 上次下载没下完的那一句（BC_DLSRC.failLine）
-    const dlTimers = useRef({});
-    useEffect(() => () => Object.values(dlTimers.current).forEach(clearInterval), []);
+    const dl = app.modelDl;   // 模型 id → 下载 / 补齐进度 0–100
+    // 模型 id → 上次下载没下完的那一句（BC_DLSRC.failLine）
+    const failOf = (id) => (app.modelEnd[id] && !app.modelEnd[id].ok ? app.modelEnd[id].line : null);
     const [work, setWork] = useState({});   // 模型 id → 'downloading' | 'testing'
     const onWork = React.useCallback((id, kind) => setWork((w) => {
       if ((w[id] || null) === kind) return w;
@@ -357,40 +360,10 @@
     const installed = LM.defaultChoices(models, comps, on, cat);
     const view = LM.defaultView(cat, dflt, cloudName, installed);
 
-    const install = (m, completing) => {
-      setOn((t) => LM.applyInstall(t, m));
-      app.setModelInstalled(m.id, true);
-      app.toast(completing ? `已补齐「${m.name}」` : `已下载「${m.name}」`, 'positive');
-    };
-    // 下载与补齐（行上的按钮、公共组件那一行）：演示进度走完才算装上。outcome 来自下载确认框：
+    // 下载与补齐（行上的按钮、公共组件那一行）：确认后交给 store，落一条后台任务，演示进度走完才算装上。outcome 来自下载确认框：
     // 有一部分没下成时，下好的部分照样存下（安装表里记上），这只模型成了「缺 X」，行上写失败那一句，「补齐」只下缺的
-    const startDownload = (m, outcome) => {
-      const completing = !!on[m.id];
-      const failed = outcome && outcome.failed;
-      setFails((f) => { const next = {...f}; delete next[m.id]; return next; });
-      clearInterval(dlTimers.current[m.id]);
-      setDl((d) => ({...d, [m.id]: 0}));
-      let progress = 0;
-      dlTimers.current[m.id] = setInterval(() => {
-        progress += 10;
-        if (progress < 100) { setDl((d) => ({...d, [m.id]: progress})); return; }
-        clearInterval(dlTimers.current[m.id]);
-        delete dlTimers.current[m.id];
-        setDl((d) => { const next = {...d}; delete next[m.id]; return next; });
-        if (!failed) { install(m, completing); return; }
-        const names = {[m.id]: '模型权重'};
-        comps.forEach((c) => { names[c.id] = c.name; });
-        setOn((t) => {
-          const next = {...t};
-          outcome.done.forEach((id) => { next[id] = true; });
-          return next;
-        });
-        if (outcome.done.indexOf(m.id) >= 0) app.setModelInstalled(m.id, true);
-        setFails((f) => ({...f, [m.id]: window.BC_DLSRC.failLine(failed, outcome.done.map((id) => names[id] || id))}));
-        app.toast(`「${m.name}」没下完：${failed.name}没下成`, 'negative');
-      }, 120);
-    };
-    const askDownload = (m) => window.askModelDownload(app, m.id, (outcome) => startDownload(m, outcome), {on});
+    const askDownload = (m) => window.askModelDownload(app, m.id,
+      (outcome) => app.downloadModel(m.id, {outcome, completing: !!on[m.id], notify: true}), {on});
     // 下载时选了别处的条目（download-dialog.jsx）；在不在模型目录里按生效的模型目录算
     const places = window.BC_DLASK ? window.BC_DLASK.places() : {};
     const dirNow = window.modelsDirNow(app).path;
@@ -440,7 +413,7 @@
           {group.rows.length ? <div className="lmlist">
             {group.rows.map((row) => <ModelRow key={row.m.id} row={row} cat={cat} on={on} comps={comps}
               dflt={row.m.id === view.checked && LM.ready(row.m, comps, on)} pct={dl[row.m.id] ?? -1}
-              fail={fails[row.m.id] || null} away={awayOf(row.m.id)} onDownload={askDownload} onRemove={remove} onWork={onWork} />)}
+              fail={failOf(row.m.id)} away={awayOf(row.m.id)} onDownload={askDownload} onRemove={remove} onWork={onWork} />)}
           </div> : <p className="t-detail">{group.id === 'installed' ? '还没有安装模型，从下面选择一个下载。' : '这一类的模型已全部安装。'}</p>}
         </section>)}
         {lay.shared.length > 0 && <ModelDisclosure label="公共组件"

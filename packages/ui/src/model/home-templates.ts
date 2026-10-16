@@ -195,11 +195,26 @@ export function templateCategories(catalog: readonly HomeTemplate[]): { key: str
   return [{ key: 'all', label: TEMPLATE_CATEGORY_LABEL.all }, ...[...known, ...extra].map((key) => ({ key, label: categoryLabel(key) }))];
 }
 
-/** 类型分段：全部、场景模板、作品示例。 */
+/** 类型分段：全部、场景模板、作品示例。字在读的时候按当前语言取（getter），换语言后跟着换。 */
 export const TEMPLATE_KINDS_FILTER: readonly { key: TemplateKind | 'all'; label: string }[] = [
-  { key: 'all', label: TEMPLATE_KIND_LABEL.all },
-  { key: 'scene', label: TEMPLATE_KIND_LABEL.scene },
-  { key: 'example', label: TEMPLATE_KIND_LABEL.example },
+  {
+    key: 'all',
+    get label() {
+      return TEMPLATE_KIND_LABEL.all;
+    },
+  },
+  {
+    key: 'scene',
+    get label() {
+      return TEMPLATE_KIND_LABEL.scene;
+    },
+  },
+  {
+    key: 'example',
+    get label() {
+      return TEMPLATE_KIND_LABEL.example;
+    },
+  },
 ];
 
 /** 来源筛选的选项：目录里只有一种来源时不用筛，返回空。 */

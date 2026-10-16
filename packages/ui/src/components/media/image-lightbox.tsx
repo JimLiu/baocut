@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ActionButton, CustomDialog, DialogContainer, ProgressCircle } from '@react-spectrum/s2';
 import type { MediaHandle } from '@baocut/protocol';
 import { ImagePreview } from '../image-preview.tsx';
@@ -31,6 +31,14 @@ export function ImageLightbox({
   const mac = useRuntime().host.platform === 'darwin';
   const [selected, setSelected] = useState(initial);
   const current = files.find((f) => targetKey(f.target) === targetKey(selected.target)) ?? selected;
+  // 每次打开都从「适合窗口」看起；同一次查看里切回看过的图，保留刚才的缩放。
+  const fitted = useRef(new Set<string>()),
+    currentKey = targetKey(current.target);
+  useLayoutEffect(() => {
+    if (fitted.current.has(currentKey)) return;
+    fitted.current.add(currentKey);
+    useImagePreview.getState().view(currentKey, { zoom: 'fit' });
+  }, [currentKey]);
   useEffect(() => {
     pauseOtherPreviews(null);
     if (files.length > 1 && !files.some((f) => f.temporary)) {

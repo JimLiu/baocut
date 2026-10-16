@@ -1,33 +1,56 @@
-# 骨架
-
-动效图形的自包含 HTML 骨架，与 skill 目录里的 `scaffold.html` 逐字节一致。只填三个槽：布局槽 `/* slot:layout */`（`<style>` 末尾的 CSS）、结构槽 `<!-- slot:scene -->`（`<section id="scene">` 里的 HTML）、动效槽 `/* slot:motion */`（`renderScene(time)` 里统一出场那行之后的代码），并按需改 `#root` 的尺寸、三个颜色 token 与 `data-*` 属性；其余部分原样保留。槽里现有的 `demo` 内容只是占位，替换掉即可。
-
-```html
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=1920,height=1080">
-<title>Motion graphic</title>
+<meta name="viewport" content="width=1080,height=1920">
+<title>big-number 9:16</title>
 <style>
 /* 骨架样式：不要改。画面相关的 CSS 全部写进下面的布局槽。 */
 html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:transparent}
 body{font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans", "Microsoft YaHei", "Noto Sans CJK SC", Arial, sans-serif;-webkit-font-smoothing:antialiased}
 *,*::before,*::after{box-sizing:border-box}
-#root{position:relative;width:1920px;height:1080px;overflow:hidden;background:transparent;color:var(--ink);--ink:#17191e;--panel:#f7f4ed;--accent:#ff6b3d}
+#root{position:relative;width:1080px;height:1920px;overflow:hidden;background:transparent;color:var(--ink);--ink:#121418;--panel:#fbf7ee;--accent:#ffc23a}
 #scene{position:absolute;inset:0;overflow:hidden;pointer-events:none}
 .copy{max-width:100%;overflow:hidden;text-overflow:ellipsis}
 svg{overflow:visible}
 /* slot:layout */
-.demo{position:absolute;left:120px;right:120px;bottom:140px;display:flex}
-.demo-line{display:block;white-space:nowrap;padding:14px 28px;border-radius:18px;background:var(--panel);font-size:48px;font-weight:700}
+/* 横竖共用：卡片、数字行、下划线与结论 */
+.bn{position:absolute;padding:52px 60px 56px;border-radius:32px;background:var(--panel);box-shadow:0 22px 56px color-mix(in srgb, var(--ink) 26%, transparent);transform-origin:left center}
+.bn-row{display:flex;align-items:baseline;white-space:nowrap}
+.bn-value{font-weight:800;line-height:0.92;letter-spacing:-0.03em;font-variant-numeric:tabular-nums}
+.bn-unit{display:inline-block;margin-left:10px;font-weight:800;line-height:0.92;color:var(--accent);transform-origin:left bottom}
+.bn-rule{height:12px;margin:30px 0 28px;border-radius:6px;background:var(--accent);transform-origin:left center}
+.bn-takeaway,.bn-label{display:block;margin:0;white-space:nowrap}
+.bn-takeaway{font-size:40px;font-weight:750;line-height:1.2}
+.bn-label{margin-top:10px;font-size:21px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:color-mix(in srgb, var(--ink) 58%, transparent)}
+/* 9:16：卡片撑满左右安全边，放在上半屏 */
+.bn{left:60px;right:60px;top:560px}
+.bn-value{font-size:220px}
+.bn-unit{font-size:120px}
 </style>
 </head>
 <body>
-<div id="root" data-composition-id="main" data-start="0" data-width="1920" data-height="1080" data-duration="4" data-fps="30" data-aspect-ratio="16:9" data-structure="single headline placeholder" data-layout="lower-safe left aligned" data-motion="headline rises then holds">
+<div id="root" data-composition-id="main" data-start="0" data-width="1080" data-height="1920" data-duration="4" data-fps="30" data-aspect-ratio="9:16" data-structure="card + value + unit + underline + takeaway" data-layout="left aligned card in upper half" data-motion="    // 卡片 settle，数字 count-up（位数固定，用数字等宽空格补位），单位弹出，下划线 sweep，结论升入
+    const card = easeOut(range(time, 0.03, 0.6));
+    apply('bn', { scale: 0.94 + 0.06 * card, opacity: card });
+    const count = easeOut(range(time, 0.2, 1.6));
+    text('bn-value', (86.4 * count).toFixed(1).padStart(4, '\u2007'));
+    const unit = range(time, 0.55, 1.1);
+    apply('bn-unit', { scale: 0.4 + 0.6 * backOut(unit), opacity: unit * 3 });
+    apply('bn-rule', { scaleX: easeInOut(range(time, 0.9, 1.6)) });
+    const words = easeOut(range(time, 1.15, 1.75));
+    apply('bn-words', { y: (1 - words) * 40, opacity: words });
+">
 <section id="scene">
 <!-- slot:scene -->
-<div class="demo"><p class="copy demo-line" id="demo-line" data-copy-primary>Replace this line</p></div>
+<div class="bn" id="bn">
+  <div class="bn-row"><span class="bn-value" id="bn-value">86.4</span><span class="bn-unit" id="bn-unit">%</span></div>
+  <div class="bn-rule" id="bn-rule"></div>
+  <div class="bn-words" id="bn-words">
+    <p class="copy bn-takeaway" id="bn-takeaway" data-copy-primary>Of clips exported on the first try</p>
+    <p class="copy bn-label" id="bn-label" data-copy-secondary>Last 30 days</p>
+  </div>
+</div>
 </section>
 </div>
 <script>
@@ -91,8 +114,16 @@ svg{overflow:visible}
   function renderScene(time) {
     const exit = 1 - easeInOut(range(time, DURATION - 0.62, DURATION - 0.05)); scene.style.opacity = String(exit);
     /* slot:motion */
-    const line = easeOut(range(time, 0.03, 0.6));
-    apply('demo-line', { y: (1 - line) * 48, opacity: line });
+    // 卡片 settle，数字 count-up（位数固定，用数字等宽空格补位），单位弹出，下划线 sweep，结论升入
+    const card = easeOut(range(time, 0.03, 0.6));
+    apply('bn', { scale: 0.94 + 0.06 * card, opacity: card });
+    const count = easeOut(range(time, 0.2, 1.6));
+    text('bn-value', (86.4 * count).toFixed(1).padStart(4, '\u2007'));
+    const unit = range(time, 0.55, 1.1);
+    apply('bn-unit', { scale: 0.4 + 0.6 * backOut(unit), opacity: unit * 3 });
+    apply('bn-rule', { scaleX: easeInOut(range(time, 0.9, 1.6)) });
+    const words = easeOut(range(time, 1.15, 1.75));
+    apply('bn-words', { y: (1 - words) * 40, opacity: words });
   }
 
   // ---- 可 seek 的时间线：渲染与导出只用 seek()，play() 只给预览 ----
@@ -212,4 +243,3 @@ svg{overflow:visible}
 </script>
 </body>
 </html>
-```

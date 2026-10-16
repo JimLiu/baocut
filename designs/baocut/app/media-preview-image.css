@@ -50,11 +50,9 @@
 @media (max-width: 700px) {
   .media-image-header__name { display: none; }
   .media-image-header { gap: 4px; }
-  .media-image-header > button:first-child { margin-inline-end: auto; }
+  .media-image-header > :first-child { margin-inline-end: auto; }
   .media-preview--image .media-preview__layout { flex-direction: row; flex-wrap: wrap; }
   .media-preview--image .media-preview__comments { width: 100%; max-height: 200px; }
   .media-image-lightbox__prompt { width: calc(100% - 24px); margin-bottom: 12px; }
 }
 
-.media-image-header__label { display: inline-flex; align-items: center; gap: 6px; }
-.media-image-header > button { border-radius: 9999px; }

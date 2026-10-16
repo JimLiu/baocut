@@ -435,6 +435,7 @@
               </BCAction>
             </div>
             <div className="tweaks__note">这些开关只在原型里存在，产品里没有对应入口。</div>
+            {window.OnboardingTweaks ? <window.OnboardingTweaks onLaunch={() => setOpen(false)} /> : null}
             <div className="tweaks__sec">
               <div className="tweaks__lb">核心覆盖记号<em>动画目录里标出哪几条内核今天已经认得</em></div>
               <div className="tweaks__rad">

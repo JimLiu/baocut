@@ -289,14 +289,15 @@ export function formatUnits(units: UsageUnits): string {
 function formatRow(row: UsageRow, total: number): string {
   const share = total > 0 ? `${Math.round((row.calls / total) * 100)}%` : '—';
   const money = formatMoney(row.cost);
-  const cost = money ? M.costApprox(money, M.costKinds[row.costKind]) : M.costKinds[row.costKind];
+  // 没有要计费的调用（验证、失败且没有用量）：不写种类。
+  const cost = row.costKind === 'none' ? '—' : money ? M.costApprox(money, M.costKinds[row.costKind]) : M.costKinds[row.costKind];
   const units = formatUnits(row.units);
   return `  ${row.label}  ${M.rowCalls(row.calls, row.failed)}  ${share}${units ? `  ${units}` : ''}  ${cost}`;
 }
 
 /**
- * `baocut models usage` 的输出（§6.10）：三种金额分开写，不合成一个数——估算标「≈」，报告的照写，费用未知的只报次数；
- * 不同币种分开列。然后是按服务商、能力、模型、账号的拆分。没有调用时一句说明。
+ * `baocut models usage` 的输出（§6.10）：三种金额分开写，不合成一个数——估算标「≈」，报告的照写，费用未知与算在订阅里的
+ * 只报次数；不同币种分开列。然后是按服务商、能力、模型、账号的拆分。没有调用时一句说明。
  */
 export function formatUsageReport(report: UsageReport, period: UsagePeriod, providerId?: string): string[] {
   const lines = [M.usageHeader(providerId, M.usagePeriods[period], report.period.from, report.period.to)];
@@ -313,7 +314,8 @@ export function formatUsageReport(report: UsageReport, period: UsagePeriod, prov
   if (estimated) lines.push(M.spentEstimated(estimated));
   if (reported) lines.push(M.spentReported(reported));
   if (totals.cost.unknownCalls > 0) lines.push(M.unknownCostCalls(totals.cost.unknownCalls));
-  if (!estimated && !reported && totals.cost.unknownCalls === 0) lines.push(M.noBilledCalls);
+  if (totals.cost.subscriptionCalls > 0) lines.push(M.subscriptionCalls(totals.cost.subscriptionCalls));
+  if (!estimated && !reported && totals.cost.unknownCalls === 0 && totals.cost.subscriptionCalls === 0) lines.push(M.noBilledCalls);
   const sections: Array<[string, UsageRow[]]> = [
     [M.byProvider, report.byProvider],
     [M.byCapability, report.byCapability],

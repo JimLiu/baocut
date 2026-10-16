@@ -161,6 +161,7 @@ export const zhHans: ProvidersMessages = {
     rowCalls: (calls, failed) => (failed ? `${calls} · ${failed} 失败` : String(calls)),
     cost: {
       unknown: '费用未知',
+      subscription: '订阅内',
       estimated: (money) => `≈ ${money}`,
       reported: (money) => `${money} 报告`,
       mixed: (money) => `≈ ${money}（含报告）`,

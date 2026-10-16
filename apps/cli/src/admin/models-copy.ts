@@ -201,7 +201,8 @@ const en = {
     estimated: 'estimated from list prices',
     mixed: 'reported and estimated',
     unknown: 'cost unknown',
-  } satisfies Record<UsageRow['costKind'], string>,
+    subscription: 'included in subscription',
+  } satisfies Record<Exclude<UsageRow['costKind'], 'none'>, string>,
   rowCalls: (calls: number, failed: number) => `${calls} call${s(calls)}${failed > 0 ? ` (${failed} failed)` : ''}`,
   costApprox: (money: string, kind: string) => `≈ ${money} (${kind})`,
   usageHeader: (scope: string | undefined, period: string, from: string, to: string) =>
@@ -212,6 +213,7 @@ const en = {
   spentEstimated: (money: string) => `  Spent ≈ ${money} (estimated from list prices)`,
   spentReported: (money: string) => `  Spent ${money} (reported by provider)`,
   unknownCostCalls: (calls: number) => `  Cost unknown for ${calls} more call${s(calls)}`,
+  subscriptionCalls: (calls: number) => `  ${calls} more call${s(calls)} included in a subscription`,
   noBilledCalls: '  No billed calls',
   byProvider: 'By provider',
   byCapability: 'By capability',

@@ -59,10 +59,14 @@ describe('工具目录项', () => {
       });
 
       it('description 第一句是一行摘要', () => {
+        // 第一句以 `。` 或 `.` 结束（与 CLI 的 `summaryOf` 同一规则：`.` 后要跟空白或结尾，`video.db` 不算）；
+        // 中文说明至多 80 个字符，英文说明至多 160 个。
         const first = info.description.split('\n')[0]!;
-        const end = first.indexOf('。');
-        expect(end, `「${first}」没有以句号结束的第一句`).toBeGreaterThan(0);
-        expect([...first.slice(0, end + 1)].length).toBeLessThanOrEqual(80);
+        const match = /[。！？]|[.!?](?=\s|$)/.exec(first);
+        expect(match, `「${first}」没有以句号结束的第一句`).not.toBeNull();
+        const end = match!.index;
+        const sentence = [...first.slice(0, end + 1)];
+        expect(sentence.length).toBeLessThanOrEqual(/[\u3400-\u9fff]/.test(first.slice(0, end)) ? 80 : 160);
         expect(info.title.trim()).not.toBe('');
       });
 

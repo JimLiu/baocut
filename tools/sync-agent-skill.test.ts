@@ -91,7 +91,10 @@ function freshFixture(): string {
   dirs.push(root);
   fs.cpSync(FIXTURE, root, { recursive: true });
   const agentDir = path.join(root, AGENT);
-  for (const id of ['demo-polish', 'demo-chapters']) fs.rmSync(path.join(agentDir, 'references/craft', `${id}.md`), { force: true });
+  for (const id of ['demo-polish', 'demo-chapters']) {
+    fs.rmSync(path.join(agentDir, 'references/craft', `${id}.md`), { force: true });
+    fs.rmSync(path.join(agentDir, 'references/craft', id), { recursive: true, force: true });
+  }
   for (const file of ['references/catalog/editing.md', 'references/conventions.md', 'references/mcp.md']) {
     const abs = path.join(agentDir, file);
     fs.writeFileSync(abs, fs.readFileSync(abs, 'utf8').replace(/(<!-- generated: [a-z-]+ -->\n)[\s\S]*?(<!-- \/generated -->)/g, '$1$2'));
@@ -102,8 +105,17 @@ function freshFixture(): string {
 const read = (root: string, rel: string) => fs.readFileSync(path.join(root, rel), 'utf8');
 
 describe('说明书的同步', () => {
-  it('craft 副本：去 front matter，正文的一级标题作标题，references 作附录，工具名与 skills_read 按 CLI 面改写', () => {
+  it('craft 副本：去 front matter，正文的一级标题作标题，其余文件放进同名目录，工具名与 skills_read 按 CLI 面改写', () => {
     const root = freshFixture();
+    // 代码文件原样复制，不内嵌进 Markdown；点开头的文件不复制。
+    const code = '// 原样复制\nexport const x = 1;\n';
+    fs.mkdirSync(path.join(root, BUILTIN, 'demo-polish/examples'));
+    fs.writeFileSync(path.join(root, BUILTIN, 'demo-polish/examples/helper.js'), code);
+    fs.writeFileSync(path.join(root, BUILTIN, 'demo-polish/.baocut-meta.json'), '{}\n');
+    fs.appendFileSync(
+      path.join(root, BUILTIN, 'demo-polish/references/notes.md'),
+      '\n辅助代码用 `skills_read` 读本 skill 的 `examples/helper.js`。\n',
+    );
     const result = buildAgentSkillSync(root, INPUTS);
     expect(result.files.get(`${AGENT}/references/craft/demo-polish.md`)).toBe(
       [
@@ -113,25 +125,42 @@ describe('说明书的同步', () => {
         '',
         '> 测试用的 craft：润色一份转写。只用于渲染器与同步脚本的测试。',
         '',
-        '动笔前先读本页的附录「底本与默认值」：底本与默认值都在那里。',
+        '动笔前先读 [底本与默认值](demo-polish/references/notes.md)：底本与默认值都在那里。',
         '',
         '1. 用 `baocut documents read` 读出转写，确认 sourceBasis。',
         '2. 一词对一词地改，用 `baocut documents put` 写回同一份文档；改完用 `baocut videos inspect` 核对版本。',
         '3. 交付时把文件的路径告诉用户（终端里没有下载目录这一步：文件就在你写的位置）。',
         '4. 章节交给 [demo-chapters](demo-chapters.md)，那一步用 `baocut edits apply` 的 setChapters。',
         '',
-        '## 附录：底本与默认值',
+        '## 同目录的文件',
         '',
-        '### 底本',
+        '在 `references/craft/demo-polish/` 下，用到时再打开；代码与样例原样复制，按正文说的用法取用。',
         '',
-        '先通读，定下底本。要改的地方多时，做法在 附录「底本与默认值」 本页，不另取。',
-        '',
-        '### 默认值',
-        '',
-        '- 只改错字与标点。',
+        '- [`examples/helper.js`](demo-polish/examples/helper.js)',
+        '- [底本与默认值](demo-polish/references/notes.md)',
         '',
       ].join('\n'),
     );
+    expect(result.files.get(`${AGENT}/references/craft/demo-polish/references/notes.md`)).toBe(
+      [
+        '<!-- 由 tools/sync-agent-skill.ts 从 skills/baocut/built-in-skills/demo-polish/references/notes.md 生成，不要手改：改源文件后运行 npm run build:agent-skill -->',
+        '',
+        '# 底本与默认值',
+        '',
+        '## 底本',
+        '',
+        '先通读，定下底本。要改的地方多时，做法在 [底本与默认值](notes.md) 本页，不另取。',
+        '',
+        '## 默认值',
+        '',
+        '- 只改错字与标点。',
+        '',
+        '辅助代码读 [`examples/helper.js`](../examples/helper.js)。',
+        '',
+      ].join('\n'),
+    );
+    expect(result.files.get(`${AGENT}/references/craft/demo-polish/examples/helper.js`)).toBe(code);
+    expect([...result.files.keys()].filter((rel) => rel.includes('.baocut-meta'))).toEqual([]);
     expect(result.files.get(`${AGENT}/references/craft/demo-chapters.md`)).toContain(
       '转写还没润色时先读 [`references/craft/demo-polish.md`](demo-polish.md)。',
     );
@@ -145,7 +174,9 @@ describe('说明书的同步', () => {
     // 代码块里的调用示例：有兜底写法的会话专属工具名同样换掉（craft 是给终端读的副本），不提醒。
     fs.appendFileSync(path.join(root, BUILTIN, 'demo-polish/SKILL.md'), '\n```\ndownloads_save( path = "a.md" )\n```\n');
     const fenced = buildAgentSkillSync(root, INPUTS);
-    expect(fenced.files.get(`${AGENT}/references/craft/demo-polish.md`)).toContain('```\n把文件交给用户（终端里直接告诉用户文件的路径）( path = "a.md" )\n```');
+    expect(fenced.files.get(`${AGENT}/references/craft/demo-polish.md`)).toContain(
+      '```\n把文件交给用户（终端里直接告诉用户文件的路径）( path = "a.md" )\n```',
+    );
     expect(fenced.warnings.filter((warning) => warning.includes('downloads_save'))).toEqual([]);
   });
 
@@ -154,10 +185,7 @@ describe('说明书的同步', () => {
     const shared = `${AGENT}/references/catalog/voice-language-rates.md`;
     const body = '# 共享语速\n\n| Language | Rate |\n| --- | --- |\n| English | 2.1 |\n';
     fs.writeFileSync(path.join(root, shared), body);
-    fs.appendFileSync(
-      path.join(root, BUILTIN, 'demo-polish/SKILL.md'),
-      '\n用 `skills_read` 读 `baocut-catalog-voice-language-rates`。\n',
-    );
+    fs.appendFileSync(path.join(root, BUILTIN, 'demo-polish/SKILL.md'), '\n用 `skills_read` 读 `baocut-catalog-voice-language-rates`。\n');
     const result = buildAgentSkillSync(root, INPUTS);
     const craft = result.files.get(`${AGENT}/references/craft/demo-polish.md`)!;
     expect(craft).toContain('[baocut-catalog-voice-language-rates](../catalog/voice-language-rates.md)');
@@ -196,7 +224,9 @@ describe('说明书的同步', () => {
       '链接时 `baocut transcribe` 给 `url`（或带 `transcribe: true`）；章节见 [demo-chapters](demo-chapters.md)，transcribe-only 的产物在 transcribe/ 下，脚本是 transcribe.ts。',
     );
     expect(text).toContain('```bash\nbaocut transcribe --url x\n```');
-    expect(text).toContain('Every transcribe job is English prose here; the\ntranscribe (at a line start) too, and the element type `transcribe`.');
+    expect(text).toContain(
+      'Every transcribe job is English prose here; the\ntranscribe (at a line start) too, and the element type `transcribe`.',
+    );
     expect(text).toContain("```js\nparts.push('transcribe(-50%)'); transcribe(1);\n```");
     expect(result.warnings).toEqual([]);
   });
@@ -232,16 +262,27 @@ describe('说明书的同步', () => {
     expect(mcp).toContain('只在 CLI 里、MCP 上没有的：`baocut videos import-package`。\n<!-- /generated -->');
   });
 
-  it('写盘后 --check 一致；README.md 不归脚本管，多出来的 craft 页算过期并删掉', () => {
+  it('写盘后 --check 一致；README.md 不归脚本管，多出来的 craft 页与同目录文件算过期并删掉', () => {
     const root = freshFixture();
     const craftDir = path.join(root, AGENT, 'references/craft');
     fs.writeFileSync(path.join(craftDir, 'old-one.md'), '# 过期\n');
+    fs.mkdirSync(path.join(craftDir, 'old-one/examples'), { recursive: true });
+    fs.writeFileSync(path.join(craftDir, 'old-one/examples/a.js'), '1\n');
+    fs.mkdirSync(path.join(craftDir, 'demo-polish/references'), { recursive: true });
+    fs.writeFileSync(path.join(craftDir, 'demo-polish/references/gone.md'), '# 过期\n');
     const readme = read(root, `${AGENT}/references/craft/README.md`);
 
     const first = buildAgentSkillSync(root, INPUTS);
-    expect(first.stale).toEqual([`${AGENT}/references/craft/old-one.md`]);
+    expect(first.stale).toEqual([
+      `${AGENT}/references/craft/demo-polish/references/gone.md`,
+      `${AGENT}/references/craft/old-one/examples/a.js`,
+      `${AGENT}/references/craft/old-one.md`,
+    ]);
     expect(writeAgentSkillSync(root, first)).toContain(`${AGENT}/references/craft/old-one.md`);
     expect(fs.existsSync(path.join(craftDir, 'old-one.md'))).toBe(false);
+    expect(fs.existsSync(path.join(craftDir, 'old-one'))).toBe(false);
+    expect(fs.existsSync(path.join(craftDir, 'demo-polish/references/notes.md'))).toBe(true);
+    expect(fs.existsSync(path.join(craftDir, 'demo-polish/references/gone.md'))).toBe(false);
     expect(read(root, `${AGENT}/references/craft/README.md`)).toBe(readme);
     expect(diffAgentSkillSync(root, buildAgentSkillSync(root, INPUTS))).toEqual([]);
   });

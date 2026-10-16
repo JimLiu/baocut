@@ -171,6 +171,30 @@
     return next;
   }
 
+  /** 一次下载收口后的安装表（store 的 `modelEnd`）：下完了等于装上；有一部分没下成时只记上下好的那几件 */
+  function applyEnd(on, m, end) {
+    if (!end) return on;
+    if (end.ok) return applyInstall(on, m);
+    const next = Object.assign({}, on);
+    (end.done || []).forEach((id) => { next[id] = true; });
+    return next;
+  }
+
+  /**
+   * 设置页打开时的安装表：演示数据起步，补上 store 里记的下载结局，再按 store 的装没装对齐权重
+   * （别处下载 / 删除过的模型以 store 为准）。isLive(id) → 装没装；ends：模型 id → 上次下载的结局。
+   */
+  function withStore(on, models, isLive, ends) {
+    let t = on;
+    (models || []).forEach((m) => {
+      t = applyEnd(t, m, ends && ends[m.id]);
+      const live = isLive(m.id);
+      if (live && !t[m.id]) t = applyInstall(t, m);
+      if (!live && t[m.id]) t = Object.assign({}, t, {[m.id]: false});
+    });
+    return t;
+  }
+
   /** 初始安装表：模型行的 `installed` 与组件的 `installed` */
   function initial(models, comps) {
     const on = {};
@@ -225,7 +249,7 @@
 
   const BC_LOCALMODELS = {
     CATS, DEFAULT_DESC, hasAuto, defaultView, defaultChoices, visionDefaultName, catOf, mb, usersOf, layout, catalog, missing, ready, half, needSize, disk, compUsage,
-    compAction, removal, removalBody, applyRemove, applyInstall, initial, licenseLines,
+    compAction, removal, removalBody, applyRemove, applyInstall, applyEnd, withStore, initial, licenseLines,
     HF_ENDPOINT, MS_ENDPOINT, ENDPOINT_ENV, sourceOf, endpointError,
   };
   if (typeof module !== 'undefined') module.exports = BC_LOCALMODELS;

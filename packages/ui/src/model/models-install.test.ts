@@ -12,6 +12,7 @@ import {
   installFolderView,
   installPlanView,
   installProgressView,
+  installRemedy,
   modelProblem,
   removalBody,
   removalEstimate,
@@ -22,7 +23,9 @@ import {
 } from './models-install.ts';
 import { installingPlacement, isBundleInstalled, localGroups } from './models-local.ts';
 import { bundle } from './models-test-fixtures.ts';
+import { TEXT_BUNDLE } from './semantic-package.ts';
 import { fmtSize } from './task-facts.ts';
+import { TASK_VIEW_COPY } from '../copy.ts';
 
 const MB = 1024 * 1024;
 const GB = 1024 * MB;
@@ -491,5 +494,60 @@ describe('就地下载（工具页、转录设置、配音的「下载 {大小}�
     // 下到一半停下、权重已经落地：接着下也是补齐（设置页的「继续下载」同样按补齐走）。
     const paused = { ...half, install: { jobId: null, state: 'paused' as const, receivedBytes: 5, totalBytes: 10 } };
     expect(inlineInstallMode(paused, [paused, fresh])).toBe('complete');
+  });
+});
+
+describe('任务页上失败的安装任务去哪儿补', () => {
+  const vad = (state: 'installed' | 'missing') => component('silero/vad', { component: 'vad', state });
+  const half = bundle(QWEN, { state: 'not-installed', reason: 'incomplete', components: [component('w'), vad('missing')] });
+  const fresh = bundle(QWEN, { state: 'not-installed', components: [component('w', { state: 'missing' }), vad('missing')] });
+  const failed = job({ error: { code: 'MODEL_DOWNLOAD_NETWORK', message: '下载 vad 失败：timeout' } });
+
+  it('本机模型去它那一类的能力页：下好的部分留着时去补齐，否则去重新下载', () => {
+    expect(installRemedy(failed, [half])).toEqual({
+      label: TASK_VIEW_COPY.remedyComplete,
+      target: { tab: 'models', category: 'asr' },
+      hint: TASK_VIEW_COPY.completeHint,
+    });
+    expect(installRemedy(failed, [fresh])).toEqual({
+      label: TASK_VIEW_COPY.remedyRedownload,
+      target: { tab: 'models', category: 'asr' },
+      hint: TASK_VIEW_COPY.redownloadHint,
+    });
+    const tts = bundle('kokoro-82m', { capability: 'synthesize', state: 'not-installed', components: [component('k', { state: 'missing' })] });
+    expect(installRemedy(job({ bundleId: 'kokoro-82m' }), [tts])?.target).toEqual({ tab: 'models', category: 'tts' });
+  });
+
+  it('语义搜索包去 设置 › 语义索引：另一个模型包已装好时去补齐', () => {
+    const embed = (bundleId: string, installed: boolean) =>
+      bundle(bundleId, {
+        capability: 'embed',
+        backend: 'litert-lm',
+        state: installed ? 'installed' : 'not-installed',
+        components: [component(bundleId, { state: installed ? 'installed' : 'missing' })],
+      });
+    const MULTI = 'embeddinggemma2-multimodal@litert-lm';
+    const onMulti = job({ bundleId: MULTI });
+    expect(installRemedy(onMulti, [embed(TEXT_BUNDLE, true), embed(MULTI, false)])).toMatchObject({
+      label: TASK_VIEW_COPY.remedyComplete,
+      target: { tab: 'settings', section: 'semantic' },
+    });
+    expect(installRemedy(onMulti, [embed(TEXT_BUNDLE, false), embed(MULTI, false)])).toMatchObject({
+      label: TASK_VIEW_COPY.remedyRedownload,
+      target: { tab: 'settings', section: 'semantic' },
+    });
+  });
+
+  it('按模型包现在的样子：找不到、已装好、正在重新装、跑不了的不给去处；没失败的也不给', () => {
+    expect(installRemedy(failed, [])).toBeNull();
+    expect(installRemedy(failed, [bundle(QWEN, { components: [component('w'), vad('installed')] })])).toBeNull();
+    const again = { ...half, install: { jobId: 'job_2', state: 'downloading' as const, receivedBytes: 1, totalBytes: 2 } };
+    expect(installRemedy(failed, [again])).toBeNull();
+    expect(installRemedy(failed, [{ ...fresh, reason: 'unsupported' }])).toBeNull();
+    expect(installRemedy(job({ state: 'cancelled' }), [half])).toBeNull();
+    expect(installRemedy(job({ kind: 'modelTest' }), [half])).toBeNull();
+    // 停在一半的（暂停）照样给去处：那一页能接着下。
+    const paused = { ...half, install: { jobId: null, state: 'paused' as const, receivedBytes: 5, totalBytes: 10 } };
+    expect(installRemedy(failed, [paused])?.label).toBe(TASK_VIEW_COPY.remedyComplete);
   });
 });

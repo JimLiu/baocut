@@ -101,6 +101,10 @@ const en = {
   importAssetSummary: (p: { name: string; place: boolean }) => `Import asset ${p.name}${p.place ? ' and add it to the timeline' : ''}`,
   /** 导入素材这笔修改在视频历史与撤销里的说明。 */
   importAssetLabel: (p: { name: string; place: boolean }) => `Import ${p.name}${p.place ? ' and add it to the timeline' : ''}`,
+  /** 下载网上素材（`assets_download`）：确认摘要；这笔修改的说明用 importAssetLabel。 */
+  openMediaDownloadSummary: (p: { title: string; source: string; license: string; place: boolean }) => `Download "${p.title}" from ${p.source} (${p.license}) and import it${p.place ? ' onto the timeline' : ''}`,
+  /** 程序化音效（`assets_sfx`）：确认摘要。`recipe` 是配方名（不翻译）。 */
+  sfxSummary: (p: { recipe: string; place: boolean }) => `Generate the "${p.recipe}" sound effect and import it${p.place ? ' onto the timeline' : ''}`,
   /** 原地替换代码画面（`compositions_import` 带 `replace`）：确认摘要与这笔修改在视频历史里的说明。 */
   replaceCompositionSummary: (p: { name: string; clip: string }) => `Import ${p.name} and swap it into clip ${p.clip} on the timeline`,
   replaceCompositionLabel: (p: { name: string }) => `Replace the motion graphic with ${p.name}`,

@@ -33,6 +33,7 @@ import { usePlayer } from '../../state/player-store.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { KIND_LABEL } from '../../model/space.ts';
 import { mediaTheme } from './theme.tsx';
+import { useSaveDownload } from './save-download.ts';
 import './media.css';
 
 export interface PreviewPlayback {
@@ -46,16 +47,6 @@ const positions = new Map<string, PreviewPlayback>();
 const transfers = new Set<string>();
 const rates = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 const clock = (n: number) => `${Math.floor((n || 0) / 60)}:${String(Math.floor((n || 0) % 60)).padStart(2, '0')}`;
-export function downloadPreview(handle: MediaHandle, name = handle.fileName) {
-  const url = new URL(handle.url, location.href);
-  if (url.protocol === 'http:' || url.protocol === 'https:') url.searchParams.set('download', '1');
-  const link = document.createElement('a');
-  link.href = url.href;
-  link.download = name;
-  document.body.append(link);
-  link.click();
-  link.remove();
-}
 export function CompactPlayer({
   handle,
   fileName,
@@ -150,6 +141,7 @@ function PlayerSurface({
     [pip, setPip] = useState(false),
     [attempt, setAttempt] = useState(0);
   const runtime = useRuntime();
+  const save = useSaveDownload();
   const [playbackUrl, setPlaybackUrl] = useState<string | undefined>();
   useEffect(() => {
     const controller = new AbortController();
@@ -309,7 +301,7 @@ function PlayerSurface({
       <Menu
         size="S"
         onAction={(key) => {
-          if (key === 'save') downloadPreview(handle, fileName);
+          if (key === 'save') save.media(handle.url, fileName);
           if (key === 'copy') void navigator.clipboard.writeText(path || fileName).catch(report);
           if (key === 'pip') {
             const e = element.current;

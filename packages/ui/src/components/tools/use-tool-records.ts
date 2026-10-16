@@ -6,8 +6,10 @@ import { reconcileOptions } from '../../model/task-reconcile.ts';
 import { liveCount, toolJobs } from '../../model/tools-records.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useJobs } from '../../state/jobs-store.ts';
+import { useSetting } from '../../state/settings-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useTools } from '../../state/tools-store.ts';
+import { saveMedia } from '../media/save-download.ts';
 import { RECORD_COPY } from './tools-copy.ts';
 
 /** 这类工具的记录：`jobs` 主题里这台电脑的界面提交的、不属于视频的任务，去掉本机藏起来的。`all` 给排队位次用。 */
@@ -110,35 +112,18 @@ export function useArtifactUrl(artifactId: string | null): MediaUrl | null {
 }
 
 /**
- * 下载一个产物：取受限地址、读成 Blob、用 `<a download>` 交给浏览器（桌面端走系统的下载）。地址读不成 Blob 时
- * 退回在新窗口里打开。失败原样抛出。
+ * 下载一个产物：取受限地址，交给 `saveMedia`（桌面端经主进程弹存储对话框、流式写盘并提示存到哪，Web 交给浏览器下载）。
+ * 存储对话框从设置里的默认保存位置开始。失败原样抛出，由调用方提示。
  */
 export function useDownloadArtifact(): (artifactId: string, fileName: string) => Promise<void> {
   const runtime = useRuntime();
+  const dir = useSetting('downloads.directory');
   return useCallback(
     async (artifactId: string, fileName: string) => {
       const handle = await runtime.openArtifact(artifactId);
-      let href: string;
-      let revoke = false;
-      try {
-        const response = await fetch(handle.url);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        href = URL.createObjectURL(await response.blob());
-        revoke = true;
-      } catch {
-        window.open(handle.url, '_blank', 'noopener');
-        return;
-      }
-      const a = document.createElement('a');
-      a.href = href;
-      a.download = fileName;
-      a.rel = 'noopener';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      if (revoke) setTimeout(() => URL.revokeObjectURL(href), 60_000);
+      await saveMedia(runtime.host, handle.url, fileName, dir);
     },
-    [runtime],
+    [runtime, dir],
   );
 }
 

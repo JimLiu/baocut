@@ -23,7 +23,7 @@ export interface CallReport {
   /** `Date.now()`，调用开始时。 */
   startedAt: number;
   units: UsageUnits;
-  /** 供应商报告的金额；没有时不给（记为 `unknown`）。 */
+  /** 供应商报告的金额，或智能体订阅登录时的 `subscription`（§6.10）；都没有时不给（记为 `unknown`）。 */
   cost?: UsageRecordCost;
   /** 失败的原因；成功时不给。 */
   error?: unknown;

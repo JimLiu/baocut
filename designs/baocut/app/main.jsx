@@ -93,6 +93,8 @@
         </window.AppUpdateProvider>
         <window.ProjectInfoDialog />
         <window.LegacyImportDialog />
+        {/* 首次启动引导：只在第一次启动弹，关掉就记下（onboarding.jsx） */}
+        <window.OnboardingDialog />
         {/* 所有模型下载的确认框（download-dialog.jsx）：大小、按种类分组的来源（可就地换）、许可 */}
         <window.ModelDownloadDialog />
         <ConfirmDialog ask={store.ask} onCancel={store.clearAsk}

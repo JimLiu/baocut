@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import type { Id, JobReconcileDecision, JobRecord, TaskSummary } from '@baocut/protocol';
+import { live, type AgentSetupRun, type Id, type JobReconcileDecision, type JobRecord, type TaskSummary } from '@baocut/protocol';
 import { ActionButton, Button, Content, Heading, IllustratedMessage, ProgressBar, Text, ToastQueue } from '@react-spectrum/s2';
 import AlertTriangle from '@react-spectrum/s2/icons/AlertTriangle';
 import ChevronLeft from '@react-spectrum/s2/icons/ChevronLeft';
@@ -7,20 +7,25 @@ import InfoCircle from '@react-spectrum/s2/icons/InfoCircle';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { TASK_VIEW_COPY } from '../../copy.ts';
 import { exportSpeedParts } from '../../model/export-job.ts';
+import { setupTaskId } from '../../model/agent-setup-task.ts';
 import { agoLabel } from '../../model/format.ts';
 import { isLinkImport } from '../../model/link-import.ts';
+import { installRemedy } from '../../model/models-install.ts';
 import { jobRemedy, taskFacts } from '../../model/task-facts.ts';
 import type { TaskRow } from '../../model/task-list.ts';
 import { chargesOnRetry, reconcileOptions } from '../../model/task-reconcile.ts';
 import { rerunOf, toolOfTask } from '../../model/tool-rerun.ts';
 import { toolRunOf } from '../../model/tool-runs.ts';
 import { useRuntime } from '../../runtime/context.tsx';
+import { useAgentSetup } from '../../state/agent-setup-store.ts';
 import { useExportSpeed, useImageTimeLeft, useJobs } from '../../state/jobs-store.ts';
 import { useLegacyImport } from '../../state/legacy-import-store.ts';
+import { useModels } from '../../state/models-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useTasks } from '../../state/tasks-store.ts';
 import { AgentIcon } from '../agent-icon.tsx';
 import { LegacyImportDetail } from '../legacy-import/legacy-import-task.tsx';
+import { SetupLog } from '../settings/agent-command-block.tsx';
 import { useNow } from '../use-now.ts';
 import { UtilityPage } from '../utility-page.tsx';
 import { LinkImportDetail } from './link-import-detail.tsx';
@@ -54,6 +59,7 @@ const noteIcon = style({ display: 'flex', flexShrink: 0, color: { default: 'gray
 const noteTitle = style({ font: 'title-sm', color: { default: 'gray-900', isError: 'negative' }, overflowWrap: 'anywhere', minWidth: 0 });
 const noteBody = style({ font: 'ui-sm', color: 'gray-600', marginTop: '[6px]' });
 const noteActions = style({ display: 'flex', gap: 8, marginTop: 12 });
+const setupLogBox = style({ marginTop: 16, maxWidth: 720 });
 
 /** 任务详情（原型 page-tasks.jsx `TaskDetailPage`）：Agent 任务与 Job 共用一页，按 ID 先找任务再找 Job。 */
 export function TaskDetail({ taskId }: { taskId: Id }) {
@@ -91,6 +97,7 @@ function TaskDetailPage({ taskId }: { taskId: Id }) {
   const job = useJobs((s) => s.jobs.find((j) => j.jobId === taskId));
   const task = useTasks((s) => s.tasks.find((t) => t.taskId === taskId));
   const legacyRun = useLegacyImport((s) => s.run);
+  const setupRun = useAgentSetup((s) => s.runs.find((r) => setupTaskId(r.runId) === taskId));
   const backButton = <TaskBackButton />;
   if (!row) {
     return (
@@ -107,18 +114,33 @@ function TaskDetailPage({ taskId }: { taskId: Id }) {
   if (row.origin === 'legacy-import' && legacyRun) return <LegacyImportDetail row={row} run={legacyRun} backButton={backButton} />;
   // 从链接导入有自己的一页（三步、补救、下载工具）。
   if (job && isLinkImport(job) && !toolRunOf(job)) return <LinkImportDetail row={row} job={job} backButton={backButton} />;
-  return <TaskDetailBody row={row} job={job} task={task} backButton={backButton} />;
+  return <TaskDetailBody row={row} job={job} task={task} setupRun={setupRun} backButton={backButton} />;
 }
 
-function TaskDetailBody({ row, job, task, backButton }: { row: TaskRow; job?: JobRecord; task?: TaskSummary; backButton: ReactNode }) {
+function TaskDetailBody({
+  row,
+  job,
+  task,
+  setupRun,
+  backButton,
+}: {
+  row: TaskRow;
+  job?: JobRecord;
+  task?: TaskSummary;
+  /** Agent 安装、升级：输出写在停止按钮下面、失败说明上面（失败那句说「上面的输出里写了原因」）。 */
+  setupRun?: AgentSetupRun;
+  backButton: ReactNode;
+}) {
   const go = useShell((s) => s.go);
   const act = useTaskAction();
   const openConversation = useOpenConversation(row);
   const now = useNow(1000, row.live);
   const speed = exportSpeedParts(useExportSpeed(job?.jobId));
   const imageLeft = useImageTimeLeft(job?.jobId, now);
-  const remedy = job ? jobRemedy(job) : null;
-  const failed = job ? job.state === 'failed' : task?.status === 'failed';
+  const bundles = useModels((s) => s.bundles);
+  // 失败的模型安装：按模型包现在的样子给「去补齐 / 去重新下载」（设计稿 page-tasks.jsx 的安装失败卡）。
+  const remedy = job ? (jobRemedy(job) ?? installRemedy(job, bundles)) : null;
+  const failed = job ? job.state === 'failed' : task ? task.status === 'failed' : setupRun?.state === 'failed';
   // 视频工具的运行（转录、翻译字幕、翻译配音）：步骤、停住的说明与重试都在 ToolRunPanel 里，不再另写一段失败说明。
   const toolRun = job ? toolRunOf(job) : null;
   // 工具页的直接任务与文件转码：失败原因写在「重试」上面，「重试 / 再做一次」回到参数已经填好的工具页（产品设计 §2.7）。
@@ -148,6 +170,11 @@ function TaskDetailBody({ row, job, task, backButton }: { row: TaskRow; job?: Jo
             {actionTitle(row.action, row.kind)}
           </Button>
           {actionHint ? <span className={hint}>{actionHint}</span> : null}
+        </div>
+      ) : null}
+      {setupRun ? (
+        <div className={setupLogBox}>
+          <SetupLog run={setupRun} />
         </div>
       ) : null}
       {openConversation ? (
@@ -212,11 +239,11 @@ function TaskDetailBody({ row, job, task, backButton }: { row: TaskRow; job?: Jo
   );
 }
 
-const RECONCILE_LABEL: Record<JobReconcileDecision, string> = {
+const RECONCILE_LABEL = live((): Record<JobReconcileDecision, string> => ({
   retry: TASK_VIEW_COPY.reconcileRetry,
   discard: TASK_VIEW_COPY.reconcileDiscard,
   apply: TASK_VIEW_COPY.reconcileApply,
-};
+}));
 
 /** 对账的几个决定（`jobs.reconcile`，架构设计 §7.5）：每个一行，按钮旁写清后果。结果经 `jobs` 主题回来。 */
 function ReconcileActions({ job }: { job: JobRecord }) {

@@ -17,6 +17,7 @@ import { openLocalFile } from './open-local-file.ts';
 import { showInFolder } from './reveal-path.ts';
 import { installStdioErrorGuards } from './stdio-errors.ts';
 import { saveDialogPath, saveFileData } from './save-dialog-path.ts';
+import { downloadToFile, runtimeMediaUrl } from './save-url.ts';
 import { writeRecording } from './recording-file.ts';
 import { desktopRuntimeHeaders, desktopRuntimeResponseHeaders, isDesktopRuntimeRequest } from './runtime-origin.ts';
 
@@ -221,6 +222,19 @@ export function startDesktopApp(): void {
     const data = saveFileData((raw as { data?: unknown } | null)?.data);
     const file = await showSaveDialog(event, raw);
     if (file) await fs.writeFile(file, data);
+    return file;
+  });
+
+  // 下载 Runtime 媒体通道里的文件（图片、音视频、生成的结果）：主进程按地址流式写到用户在对话框里选的位置，不经渲染进程的内存，
+  // 也不交给系统浏览器（句柄就是凭证）。只收应用窗口主框架发来的、这个 Runtime 的媒体地址；路径只由对话框给，
+  // 界面没给初始目录时从系统的下载文件夹开始。
+  ipcMain.handle('baocut:save-url', async (event, raw: unknown) => {
+    if (!BrowserWindow.fromWebContents(event.sender) || event.senderFrame !== event.sender.mainFrame) return null;
+    const opts = (raw ?? {}) as { url?: unknown; defaultDir?: unknown };
+    const url = runtimeMediaUrl(opts.url, runtimeEndpoint);
+    if (!url) throw new Error('not a BaoCut media address');
+    const file = await showSaveDialog(event, { ...opts, defaultDir: opts.defaultDir ?? systemDownloadsDir() });
+    if (file) await downloadToFile(url, file);
     return file;
   });
 

@@ -170,6 +170,7 @@ export const vi: ProvidersMessages = {
     rowCalls: (calls, failed) => (failed ? `${calls} · ${failed} thất bại` : String(calls)),
     cost: {
       unknown: 'Chưa rõ chi phí',
+      subscription: 'Đã gồm trong gói đăng ký',
       estimated: (money) => `≈ ${money}`,
       reported: (money) => `${money} được báo`,
       mixed: (money) => `≈ ${money} (gồm phần được báo)`,

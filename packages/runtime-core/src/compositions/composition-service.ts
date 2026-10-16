@@ -42,6 +42,7 @@ import { inside } from '../agent-tools/artifact-save.ts';
 import { ToolError, errorBody } from '../agent-tools/tool-catalog.ts';
 import { digestReceipt, resolveUserPath } from '../agent-tools/video-digest.ts';
 import { frameTimes } from '../agent-tools/video-frames.ts';
+import { writeContactSheet, type ContactSheet } from './contact-sheet.ts';
 
 /**
  * 代码画面服务（架构设计 §8，代码包规范 §2、§6、§7）：浏览器合成（代码包）的导入与预览。界面经 RPC（`compositions.*`）、
@@ -132,6 +133,8 @@ export interface CompositionImportRequest extends BundleSourceInput {
 export interface CompositionPreviewRequest extends BundleSourceInput {
   assetId?: string | undefined;
   at: string[];
+  /** 另把这几帧拼成一张接触表（`contact-sheet.ts`）。 */
+  sheet?: boolean | undefined;
 }
 
 /** 一笔修改：由调用方提交（操作者、幂等键、保护范围与变更卡都在调用方那边）。 */
@@ -174,6 +177,8 @@ export interface CompositionPreview {
   durationSeconds: number;
   alpha: boolean;
   frames: Array<{ at: string; file: string; sampledSeconds: number; clamped: boolean; sha256: string }>;
+  /** 给了 `sheet` 时：接触表的文件与每格对应的时刻（行优先）。 */
+  sheet?: ContactSheet;
 }
 
 /** 每个错误码的下一步：智能体据此改包再试（RPC 放进 `details.next`）。 */
@@ -500,6 +505,15 @@ export class CompositionService {
           await session.dispose().catch(() => {});
         }
       });
+      const sheet =
+        args.sheet && frames.frames.length > 0
+          ? await writeContactSheet(
+              await this.#deps.ffmpeg(),
+              frames.frames,
+              frames.page,
+              path.join(dir, `composition-${name}-sheet-${sheetKey(times)}.png`),
+            )
+          : undefined;
       return {
         videoId,
         bundleId: manifest.bundleId,
@@ -509,6 +523,7 @@ export class CompositionService {
         durationSeconds: round(frames.page.durationSeconds),
         alpha: manifest.output.alpha,
         frames: frames.frames,
+        ...(sheet ? { sheet } : {}),
       };
     } catch (error) {
       throw toolError(error);
@@ -735,6 +750,12 @@ async function writeAtomically(file: string, data: Buffer): Promise<void> {
     await fs.rm(tmp, { force: true });
     throw error;
   });
+}
+
+/** 接触表的文件名：首尾时刻与帧数（毫秒），同一组时刻再取时覆盖。 */
+function sheetKey(times: readonly string[]): string {
+  const ms = (at: string) => Math.round(Number(at) * 1000);
+  return `${ms(times[0]!)}-${ms(times[times.length - 1]!)}ms-${times.length}`;
 }
 
 /** 文件名里用的 ID：只留字母、数字与 . _ -。 */

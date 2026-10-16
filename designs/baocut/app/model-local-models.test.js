@@ -78,6 +78,28 @@ test('半装：权重在、组件缺；主按钮只下缺的那部分', () => {
   assert.equal(L.ready(w, C, after), true, '补上分词器后另一只 Whisper 也跟着就绪');
 });
 
+test('下载结局（store 的 modelEnd）：下完等于装上；没下完只记下好的；设置页重开时按它与 store 的装没装重建', () => {
+  const on = L.initial(M, C);
+  const w = byId('whisper-large-v3');
+  const t = byId('whisper-turbo');
+  assert.equal(L.applyEnd(on, w, null), on, '没有结局时不动');
+  assert.equal(L.ready(w, C, L.applyEnd(on, w, {ok: true})), true, '补齐下完：缺的组件也装上');
+  // 没下完：组件下好了、权重没下成 → 权重仍缺，下载按钮只算权重
+  const part = L.applyEnd(on, t, {ok: false, done: ['whisper-tokenizer'], line: 'x'});
+  assert.equal(part['whisper-turbo'], false);
+  assert.equal(part['whisper-tokenizer'], true);
+  assert.equal(L.needSize(t, C, part), t.size);
+  // 重开设置页：补齐下完的半装模型不再缺；在别处删掉的模型以 store 为准
+  const live = {'whisper-large-v3': true, 'whisper-turbo': false, 'moss-transcribe': false};
+  const isLive = (id) => (id in live ? live[id] : !!on[id]);
+  const back = L.withStore(on, M, isLive, {'whisper-large-v3': {ok: true}});
+  assert.equal(L.ready(w, C, back), true);
+  assert.equal(back['moss-transcribe'], false);
+  const failed = L.withStore(on, M, isLive, {'whisper-turbo': {ok: false, done: ['whisper-tokenizer'], line: 'x'}});
+  assert.equal(failed['whisper-turbo'], false, '权重没下成：store 也没记上');
+  assert.equal(L.ready(w, C, failed), true, '下好的分词器留着，同一只组件的另一只 Whisper 跟着就绪');
+});
+
 test('盘上合计：共享组件只算一次，按分类可拆', () => {
   const on = L.initial(M, C);
   const asr = 1748 + 680 + 947 + 1.2 + 938 + 26.5;

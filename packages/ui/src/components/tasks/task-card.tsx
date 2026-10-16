@@ -30,7 +30,7 @@ import { actionLabel, useTaskAction } from './use-task-actions.ts';
 /**
  * 种类图标（原型 page-tasks.jsx `KIND`）：转录 mic、语音 wave、图片 image、导出 export；Agent 任务用智能体图标。
  * 原型没画的种类：生成文本 AI、固定流程与其中一步 layers、模型安装 download、模型测试 checkmark、工具安装与更新 tools、音色克隆 user、
- * 智能体自己翻译 translate。导入旧版项目用原型的 projects（FolderOpen）。
+ * 智能体自己翻译 translate。导入旧版项目用原型的 projects（FolderOpen）。Agent 安装与升级同工具安装，用 tools。
  */
 export const KIND_ICON: Record<TaskKind, ComponentType> = {
   agent: AgentIcon,
@@ -51,6 +51,8 @@ export const KIND_ICON: Record<TaskKind, ComponentType> = {
   voiceClone: UserAvatar,
   agentTranslate: Translate,
   legacyImport: FolderOpen,
+  agentInstall: Tools,
+  agentUpgrade: Tools,
 };
 
 /** 原型 `.chip--*` 的色调对到 S2 Badge：accent 蓝、info 靛、notice 橙、neutral 灰。 */

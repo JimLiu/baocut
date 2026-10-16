@@ -174,6 +174,7 @@ export const ru: ProvidersMessages = {
     rowCalls: (calls, failed) => (failed ? `${calls} · ошибок: ${failed}` : String(calls)),
     cost: {
       unknown: 'Стоимость неизвестна',
+      subscription: 'Входит в подписку',
       estimated: (money) => `≈ ${money}`,
       reported: (money) => `${money} по данным поставщика`,
       mixed: (money) => `≈ ${money} (вкл. данные поставщика)`,

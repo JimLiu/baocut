@@ -1,12 +1,13 @@
 ---
-description: 媒体的机制：从链接下载、转码与合并、取帧看画面、导入素材（链接还是复制）、新建视频、打开便携包、生成图片（含成套的角色姿势与场景底图），以及看一条视频的证据阶梯。下载、导入、取帧或生成图片之前读。
+description: 媒体的机制：从链接下载、检索与下载网上素材、转码与合并、取帧看画面、导入素材（链接还是复制）、新建视频、打开便携包、生成图片（含成套的角色姿势与场景底图），以及看一条视频的证据阶梯。下载、导入、取帧或生成图片之前读。
 ---
 
-# 媒体：下载、转码、取帧、素材与新建视频
+# 媒体：下载、网上素材、转码、取帧、素材与新建视频
 
 ## 何时用
 
 - 用户给了视频页面的链接，要下载、导入或在它上面做事。
+- 片子要真实的地点、事件、人物或产品画面，用户素材不够：主动检索网上素材。
 - 本机文件要压缩、转码、按顺序合并、提取音轨（文件到文件，不建视频）。
 - 要看画面：构图、镜头分布、字幕会不会挡住内容、剪点前后是什么。
 - 要新建一个空视频、把素材导入视频并放上时间线、打开便携包（`.baocut` 文件）。
@@ -47,6 +48,22 @@ description: 媒体的机制：从链接下载、转码与合并、取帧看画�
 网站登录：不给 {{arg:cookieBrowsers}} 时按用户在 BaoCut 设置 › 视频下载里选的浏览器（默认所有检测到的），提交时冻结；给 `[]` 是匿名。只在用户说了用哪个浏览器时给，确认时会列出这些浏览器。对外服务（MCP）不能给，要登录的视频请用户在 BaoCut 里下载。
 
 要转写时知道语言或有人名、术语，直接用 {{tool:transcribe}} 给 {{arg:url}}，带上 {{arg:language}}、{{arg:hint}}（也可给 {{arg:provider}}、{{arg:diarize}}）：它下载、新建视频、转写并建字幕层；{{tool:download}} 的 {{arg:transcribe}} 只用默认设置转写、不建字幕层。
+
+### 找网上素材
+
+| 要做的事 | 调用 |
+| --- | --- |
+| 找视频素材（三处都查） | {{tool:assets_search}}，{{arg:query}} 用英文写要拍到的东西、地点或事件 |
+| 找图片或音频 | 加 {{arg:kind}} `image` 或 `audio`（只查 Commons 与 Internet Archive） |
+| 成片要商用 | 加 {{arg:commercial}}：去掉只许非商业用途的 |
+| YouTube 只要知识共享的 | 加 {{arg:creativeCommons}} |
+| 先看画面再挑 | 加 {{arg:preview}}：缩略图拼成一张接触表 |
+| 下载 Commons / Internet Archive 的一条 | {{tool:assets_download}}，{{arg:source}} 与 {{arg:id}} 照抄，{{arg:video}} 给目标视频；要放上时间线加 {{arg:place}}；视频太大时给小一点的 {{arg:maxHeight}} |
+| 下载 YouTube 的一条 | {{tool:download}}，{{arg:url}} 给候选的 `pageUrl`，{{arg:video}} 给目标视频 |
+
+候选的 `downloadWith` 说用哪个工具下载。Commons 与 Internet Archive 的许可清楚：public-domain 与 cc0 随便用，cc-by 要署名，cc-by-sa 还要求成片用同样的许可（先告诉用户），带 nc 的只许非商业用途。YouTube 的许可多半没写（`license.class` 为 `unknown`，版权归上传者）：下载前把要用的几条（标题、频道、链接）告诉用户，由用户决定。
+
+网站登录：YouTube 的检索与 {{tool:download}} 一样按设置 › 视频下载里选的浏览器带 Cookie（对外服务匿名）。检索结果的 `errors` 里 youtube 报 `LINK_LOGIN_REQUIRED`（YouTube 要求登录或确认不是机器人）或 `LINK_COOKIES_UNAVAILABLE` 时，媒体库的结果照用，同时提醒用户在浏览器里登录 YouTube、到设置 › 视频下载勾选那个浏览器（用 `settingsHref` 写成设置链接），弄好后再检索。
 
 ### 转码、合并、提取音轨
 
@@ -177,6 +194,8 @@ css、js、json 这类支持文件不导入，直接写进设计稿目录，用�
 - {{tool:videos_frames}}：`frames` 每帧有 `at`、`file`、`width`、`height`、`faces` 与取自哪个片段（`item`）、哪个素材（`asset`）。读 `file` 这张图片。`faces` 是 `[{x, y, w, h, score}]`：框的左上角与宽高，按帧的宽高归一化到 0–1，`score` 0–1，按 score 从高到低；顶层 `detector` 是 `yunet`，检测器不可用时为 null（`faces` 都是空数组）。`file` 为 null 的帧没有 `faces`。
 - {{tool:videos_shots}}：`cuts` 每处有 `at`（新镜头第一帧的秒）、`score`（`edit` 为 null）与 `kind`；`shots` 每个有 `start`、`end` 与 `sampleAt`。
 - {{tool:assets_import}}：回执里有 `assetId`、`itemId`（没放上时间线时为 null）与新版本。
+- {{tool:assets_search}}：`candidates` 每条有 `source`、`id`、`title`、`kind`、尺寸与时长（archive 与 youtube 没有尺寸）、`author`、`license`、`attribution`（一行署名）、`pageUrl`、`thumbnailUrl` 与 `downloadWith`；`excluded` 是因许可去掉的条数；`sheet` 是接触表（`sheet.cells[i].at` 是候选的序号）；`errors` 是出错的来源。
+- {{tool:assets_download}}：回执里有 `assetId`、`itemId`、`license`、`attribution` 与实际下载的 `file`。网上素材与链接导入的素材在 {{tool:videos_inspect}} 的 `assets[].credit` 里有 `attribution`：成片片尾的署名照它写。
 - {{tool:videos_create}} / {{tool:videos_import_package}}：返回与 {{tool:videos_inspect}} 相同的摘要，含 `videoId`。
 - {{tool:image}}：`outputs` 里每张图的 `artifactId`；带了 video 时还有 `assetId`。
 - {{tool:music}}（见 [music](music.md)）：`outputs` 里是一个 WAV 的 `artifactId`；带了 video 时还有 `assetId`；到了时长预算时 `warnings` 里有 `output-truncated`。
@@ -205,6 +224,9 @@ css、js、json 这类支持文件不导入，直接写进设计稿目录，用�
 | 错误码 | 下一步 |
 | --- | --- |
 | `LINK_LOGIN_REQUIRED`、`LINK_COOKIES_UNAVAILABLE` | 视频要登录才能看：请用户先在浏览器里登录这个网站，再到设置 › 视频下载确认勾了那个浏览器（用 `error.details.settingsHref` 写成设置链接），然后重新提交；用户说了用哪个浏览器时也可以带上 {{arg:cookieBrowsers}} 重新提交（{{tool:jobs_retry}} 沿用原来的参数，改了设置也不变）。读不到 Cookie 时照 `remedy` 请用户处理。不要自己找 cookies |
+| `OPEN_MEDIA_LICENSE_EXCLUDED`、`OPEN_MEDIA_LICENSE_UNVERIFIED` | 这条许可不允许剪辑或认不出：换一条检索结果 |
+| `OPEN_MEDIA_TOO_LARGE` | 换一条更短的，或给小一点的 {{arg:maxHeight}} |
+| `OPEN_MEDIA_UNAVAILABLE` | 来源暂时连不上：稍后重试一次，仍不行换来源 |
 | `LINK_UNSUPPORTED` | 这个网站不支持：告诉用户，请他换链接或给本机文件 |
 | `LINK_NETWORK_ERROR` | 网络问题：可以重试一次，仍不行告诉用户 |
 | `LINK_DISK_FULL` | 磁盘满：告诉用户，不要自己删文件 |

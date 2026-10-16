@@ -168,6 +168,7 @@ export const ja: ProvidersMessages = {
     rowCalls: (calls, failed) => (failed ? `${calls} · ${failed} 失敗` : String(calls)),
     cost: {
       unknown: '費用不明',
+      subscription: 'サブスクリプションに含まれる',
       estimated: (money) => `≈ ${money}`,
       reported: (money) => `${money}（報告）`,
       mixed: (money) => `≈ ${money}（報告分を含む）`,

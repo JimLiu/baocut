@@ -307,10 +307,16 @@ describe('Google 文本（generateContent）', () => {
     const cfg = config(`${server.origin}/v1beta`, GOOGLE_KEY);
     await call(new GoogleTextAdapter(), cfg, 'gemini-3.8-flash', params());
     await call(new GoogleTextAdapter(), cfg, 'gemini-3.5-flash-lite', params());
+    const argon = new GoogleTextAdapter().models(cfg).find((m) => m.modelId === 'gemini-4-argon')!;
+    expect(argon).toMatchObject({ maxOutputTokens: 65_536, acceptsTemperature: false, acceptsSeed: false });
+    await call(new GoogleTextAdapter(), cfg, argon.modelId, params());
     const levels = server.requests.map(
       (r) => (r.json as { generationConfig: { thinkingConfig?: unknown } }).generationConfig.thinkingConfig,
     );
-    expect(levels).toEqual([{ thinkingLevel: 'low' }, { thinkingLevel: 'minimal' }]);
+    expect(levels).toEqual([{ thinkingLevel: 'low' }, { thinkingLevel: 'minimal' }, { thinkingLevel: 'low' }]);
+    expect(server.requests[2]!.path).toBe('/v1beta/models/gemini-4-argon:generateContent');
+    expect(server.requests[2]!.json).toMatchObject({ generationConfig: { maxOutputTokens: 256 } });
+    expect((server.requests[2]!.json as { generationConfig: Record<string, unknown> }).generationConfig).not.toHaveProperty('temperature');
     // 模型表的默认档就是下发的那档：每个模型都是最低一档，改回 API 默认档会让整页回写重新被思考截断。
     for (const info of new GoogleTextAdapter().models(cfg)) expect(info.defaultEffort).toBe(info.efforts[0]);
   });

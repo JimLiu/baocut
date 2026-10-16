@@ -153,12 +153,19 @@
        它必须在 store 里，因为同一批模型出现在三处：新建向导的模型列、AI 工具
        「重新转录」的模型下拉、设置 · 本地模型。三处各存一份的后果是「设置里刚下完，
        下拉里还写着未安装」——同一类错误在第 33 轮的 cue 表上已经踩过一次。
-       **模型下载不是任务**（§17.3），所以它不进 jobs 那张表，单独存在这里。 */
+       每次下载另落一条后台任务（`kind: 'model-install'`，2026-10-16 首次启动引导要求下载进后台任务）：与实现一致——
+       Runtime 的模型安装是 JobManager 的任务（architecture-design §7.6），桌面任务页列出 `modelInstall`。
+       装没装与百分比仍以这里为准，任务记录只跟着它走；`downloadModel` 返回那条任务的 id。
+       设置 › 本地模型的下载与补齐也走这里（离开设置页照样下完）：`opts.outcome` 是下载确认框的结果，有一部分没下成时
+       任务落成失败、下好的权重照样记上；`modelEnd` 记每只模型上次下载的结局，设置页按它补上组件、写那一句失败。 */
     const [modelOn, setModelOn] = useState(() => {
       const m = {}; D.setModels.forEach((x) => { m[x.id] = !!x.installed; }); return m;
     });
     const [modelDl, setModelDl] = useState({});      // id → 0..100，只装在下的
+    const [modelEnd, setModelEnd] = useState({});    // id → {ok: true} | {ok: false, done: [部分 id], line}；再下载时清掉
     const dlTimers = useRef({});
+    const dlTasks = useRef({});                      // 模型 id → 这次下载的任务 id
+    const dlOpts = useRef({});                       // 模型 id → 这次下载的 {outcome, completing, notify}
     /* API 提供方与账号（product-design §7.6）：已添加的 API 提供方的设置（启用、地区、端点改写、添加的模型 id、自建端点）与每家的账号表。
        账号只存掩码（BC_VENDORS.mask），密钥原文不进 store。写入口只有设置 › 模型 › API 提供方；工具页 / 面板 / 我的声音只读。
        cloudSaved（「连着密钥的提供方 id」）由它们推出：启用且有一个启用带密钥的账号，同一把密钥给文本 / 识别 / 合成 / 生图共用；
@@ -219,24 +226,58 @@
        `stale` 是同一列里「上一版画面」提示的演示开关（null = 不挂）。 */
     const [proxyDemo, setProxyDemo] = useState({status: 'ready', since: 0, done: 333, total: 900, stale: null});
     const patchProxyDemo = useCallback((patch) => setProxyDemo((s) => ({...s, ...patch})), []);
-    const setModelInstalled = useCallback((id, on) =>
-      setModelOn((s) => ({...s, [id]: !!on})), []);
-    const downloadModel = useCallback((id) => {
-      if (dlTimers.current[id]) return;
+    // 记成没装（删除、换模型目录、引导重置）时上次下载的结局作废，免得设置页重开时把删掉的组件补回来
+    const setModelInstalled = useCallback((id, on) => {
+      setModelOn((s) => ({...s, [id]: !!on}));
+      if (!on) setModelEnd((s) => { if (!(id in s)) return s; const n = {...s}; delete n[id]; return n; });
+    }, []);
+    /* opts（设置 › 本地模型传）：outcome 下载确认框的结果 {done, failed}；completing 权重已在、只补缺的；notify 下完弹 toast */
+    const downloadModel = useCallback((id, opts) => {
+      if (dlTimers.current[id]) return dlTasks.current[id] || null;
+      const m = D.setModels.find((x) => x.id === id);
+      const o = opts || {};
+      dlOpts.current[id] = o;
+      dlTasks.current[id] = addTask({kind: 'model-install', title: `${o.completing ? '补齐' : '下载'}「${m ? m.name : id}」`, sub: '本机模型',
+        phase: '下载中', cancellable: false, model: id});
+      setModelEnd((s) => { if (!(id in s)) return s; const n = {...s}; delete n[id]; return n; });
       setModelDl((s) => ({...s, [id]: 0}));
       dlTimers.current[id] = setInterval(() => {
         setModelDl((s) => (id in s ? {...s, [id]: Math.min(100, s[id] + 7)} : s));
       }, 150);
-    }, []);
+      return dlTasks.current[id];
+    }, [addTask]);
     /* 收口放在 effect 里而不是 updater 里：updater 必须是纯函数，
        把「装好了 + 弹一条 toast」塞进去在 StrictMode 的双调用下会跑两遍。 */
     useEffect(() => {
       Object.keys(modelDl).forEach((id) => {
-        if (modelDl[id] < 100) return;
+        const tid = dlTasks.current[id];
+        if (modelDl[id] < 100) { if (tid) patchTask(tid, {pct: Math.round(modelDl[id])}); return; }
         clearInterval(dlTimers.current[id]);
+        const o = dlOpts.current[id] || {};
         delete dlTimers.current[id];
+        delete dlTasks.current[id];
+        delete dlOpts.current[id];
         setModelDl((s) => { const n = {...s}; delete n[id]; return n; });
-        setModelOn((s) => ({...s, [id]: true}));
+        const m = D.setModels.find((x) => x.id === id);
+        const name = m ? m.name : id;
+        const failed = o.outcome && o.outcome.failed;
+        if (!failed) {
+          if (tid) patchTask(tid, {pct: 100, status: 'done', phase: null});
+          setModelOn((s) => ({...s, [id]: true}));
+          setModelEnd((s) => ({...s, [id]: {ok: true}}));
+          if (o.notify) toast(o.completing ? `已补齐「${name}」` : `已下载「${name}」`, 'positive');
+          return;
+        }
+        // 有一部分没下成：下好的留着（权重下好了就算装上），设置页的行上写哪一部分、连的哪里，「补齐」只下缺的
+        const done = o.outcome.done || [];
+        const partName = (pid) => (pid === id ? '模型权重' : (D.setComponents.find((c) => c.id === pid) || {}).name || pid);
+        // kept：权重本来就在，或这次下好了一部分——任务页按它写「补齐」还是「重新下载」
+        const kept = done.length > 0 || !!o.completing;
+        if (tid) patchTask(tid, {status: 'error', pct: null, phase: null, kept,
+          error: `${failed.name}没下成：连不上 ${failed.host}，可以在 设置 › 本地模型 里${kept ? '补齐' : '换个来源再下'}`});
+        if (done.indexOf(id) >= 0) setModelOn((s) => ({...s, [id]: true}));
+        setModelEnd((s) => ({...s, [id]: {ok: false, done, line: window.BC_DLSRC.failLine(failed, done.map(partName))}}));
+        if (o.notify) toast(`「${name}」没下完：${failed.name}没下成`, 'negative');
       });
     }, [modelDl]);
     useEffect(() => () => Object.values(dlTimers.current).forEach(clearInterval), []);
@@ -698,6 +739,16 @@
     const cancelTask = useCallback((t, opts) => {
       const task = typeof t === 'string' ? tasks.find((x) => x.id === t) : t;
       if (!task || (task.status !== 'running' && task.status !== 'queued')) return;
+      /* Agent 的安装与升级（product-design §7.6）：直接停、不问（BC_EXPORT.stopsDirectly），输出末尾记一行 ^C；
+         定时器交给 agent-setup-runs.jsx 收掉（起跑的那一方接着处理：引导起下一家）。停过的记 `shown`，设置里的命令框接着显示它 */
+      if (window.BC_EXPORT.stopsDirectly(task.kind)) {
+        setTasks((ts) => ts.map((x) => (x.id === task.id
+          ? {...x, status: 'error', outcome: 'canceled', phase: null, error: '已取消', canceled: true, shown: true, endedAt: Date.now(),
+             log: (x.log || []).concat(['^C'])} : x)));
+        if (window.BC_AGENT_RUNS) window.BC_AGENT_RUNS.stopped(task.id);
+        if (opts && opts.after) opts.after();
+        return;
+      }
       const copy = window.BC_EXPORT.cancelCopy(task.kind);
       const done = () => {
         setTasks((ts) => ts.map((x) => (x.id === task.id
@@ -802,7 +853,7 @@
       projects, activeProjects, projById, deleteProject, archiveProject, cloneProject,
       tasks, runningTask, patchTask, patchProject, taskFor, projPct,
       addTask, cancelTask, retryAgentTask: agentSim.retryTask,
-      modelDl, modelInstalled, setModelInstalled, downloadModel,
+      modelDl, modelEnd, modelInstalled, setModelInstalled, downloadModel,
       providerSettings, providerAccounts, patchProvider, setAccounts, cloudAsrDefault, setCloudAsrDefault,
       cloudCatalog, cloudLlmDefault, setCloudLlmDefault,
       cloudSaved, cloudCustom, setCloudCustom, cloudTtsDefault, setCloudTtsDefault,

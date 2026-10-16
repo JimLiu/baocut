@@ -105,4 +105,4 @@ index 里的 `"editing": "off"` 会关掉页面上的编辑；有它，或者有
 
 ## 参考页
 
-在本 skill 的 `references/` 下（用 `skills_read` 取）：`format.md`（每个文件、字段、上限和 alias，预览与 theme 的约定：写组件前先读；跳过它的 `recipe:` 代码，那是读单文件页面用的）、`craft.md`、`cover.md`、`from-design-tool.md`、`from-code.md`、`sample-seazar-tokens.json`；以及 `demo.json`。
+参考文件在本 skill 的 `references/` 下，要用时用 `skills_read` 取：`references/format.md`（每个文件、字段、上限和 alias，预览与 theme 的约定：写组件前先读；跳过它的 `recipe:` 代码，那是读单文件页面用的）、`references/craft.md`、`references/cover.md`、`references/from-design-tool.md`、`references/from-code.md`、`references/sample-seazar-tokens.json`；以及 `references/demo.json`。

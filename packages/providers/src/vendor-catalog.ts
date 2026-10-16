@@ -6,9 +6,9 @@ import { ProvidersConfig as PC } from '@baocut/protocol/messages/providers';
  * 按账号的 `region` 取）与内置模型表。只实现了 `generateText`；目录里标 P1 的语音、转写与生图只写进 `vendor.planned`，
  * 界面据此标「尚未接入」，不作为能力报告。
  *
- * 模型表取自各家 2026-10 的模型列表，每家 2–4 个当前主力模型，第一个是默认。未逐个核对的限制取保守值：上下文
+ * 模型表按各家的官方目录维护，2026-10-16 核对；每家保留少量主力模型，第一个是默认。未逐个核对的限制取保守值：上下文
  * 128K token、单次输出 8192 token；已核对的按模型覆盖。推理强度只声明已核对的档位，适配器按服务商换算；
- * `temperature` 照发，`seed` 不发。费用按 `unknown`。`models.refreshProvider` 取到的列表里没有的
+ * `temperature` 按模型声明，`seed` 不发。费用按 `unknown`。`models.refreshProvider` 取到的列表里没有的
  * 模型会标为不可用，不需要猜错的 ID 继续占着默认值。
  */
 
@@ -79,7 +79,8 @@ export const COMPAT_VENDORS: Record<CompatVendorId, CompatVendor> = {
     vendor: { kind: 'vendor', regions: GLOBAL_CN, website: 'https://platform.moonshot.ai', icon: 'moonshot' },
     regions: { global: 'https://api.moonshot.ai/v1', cn: 'https://api.moonshot.cn/v1' },
     jsonMode: 'json_object',
-    models: [text('kimi-k3', 'Kimi K3', true), text('kimi-k2.6', 'Kimi K2.6')],
+    // https://platform.kimi.ai/docs/models
+    models: [text('kimi-k3', 'Kimi K3', true), text('kimi-k2.7-code', 'Kimi K2.7 Code'), text('kimi-k2.6', 'Kimi K2.6')],
   },
   qwen: {
     get label() {
@@ -119,6 +120,8 @@ export const COMPAT_VENDORS: Record<CompatVendorId, CompatVendor> = {
     vendor: { kind: 'vendor', regions: GLOBAL_CN, website: 'https://platform.minimax.io', icon: 'minimax', planned: ['synthesizeSpeech'] },
     regions: { global: 'https://api.minimax.io/v1', cn: 'https://api.minimaxi.com/v1' },
     jsonMode: 'json_object',
+    // https://platform.minimax.io/docs/guides/models-intro
+    // M3.1 Flash Preview is M Plan / MiniMax Code only. M2.7 remains available until 2026-11-18.
     models: [text('MiniMax-M3', 'MiniMax M3', true), text('MiniMax-M2.7', 'MiniMax M2.7')],
   },
   volcengine: {
@@ -139,7 +142,8 @@ export const COMPAT_VENDORS: Record<CompatVendorId, CompatVendor> = {
     vendor: { kind: 'vendor', website: 'https://console.x.ai', icon: 'xai', planned: ['generateImage'] },
     regions: { global: 'https://api.x.ai/v1' },
     jsonMode: 'json_schema',
-    models: [text('grok-4.7', 'Grok 4.7', true), text('grok-4.7-mini', 'Grok 4.7 Mini')],
+    // https://docs.x.ai/developers/models — no published grok-4.7-mini.
+    models: [text('grok-4.7', 'Grok 4.7', true, { contextTokens: 500_000, efforts: ['low', 'medium', 'high'], defaultEffort: 'high' })],
   },
   mistral: {
     label: 'Mistral',
@@ -148,6 +152,8 @@ export const COMPAT_VENDORS: Record<CompatVendorId, CompatVendor> = {
     jsonMode: 'json_schema',
     models: [
       text('mistral-large-latest', 'Mistral Large', true),
+      // https://docs.mistral.ai/models/mistral-large-4-0 — public preview; keep the existing alias as default.
+      text('mistral-large-4', 'Mistral Large 4', false, { contextTokens: 1_000_000 }),
       text('mistral-medium-latest', 'Mistral Medium'),
       text('mistral-small-latest', 'Mistral Small'),
     ],
@@ -157,7 +163,8 @@ export const COMPAT_VENDORS: Record<CompatVendorId, CompatVendor> = {
     vendor: { kind: 'vendor', website: 'https://console.groq.com', icon: 'groq', planned: ['transcribe'] },
     regions: { global: 'https://api.groq.com/openai/v1' },
     jsonMode: 'json_schema',
-    models: [text('openai/gpt-oss-120b', 'GPT-OSS 120B', true), text('llama-3.3-70b-versatile', 'Llama 3.3 70B')],
+    // https://console.groq.com/docs/models — Llama 3.3 is now enterprise-only; GPT-OSS 20B is the fast public option.
+    models: [text('openai/gpt-oss-120b', 'GPT-OSS 120B', true), text('openai/gpt-oss-20b', 'GPT-OSS 20B'), text('llama-3.3-70b-versatile', 'Llama 3.3 70B')],
   },
   openrouter: {
     label: 'OpenRouter',
@@ -165,8 +172,10 @@ export const COMPAT_VENDORS: Record<CompatVendorId, CompatVendor> = {
     regions: { global: 'https://openrouter.ai/api/v1' },
     jsonMode: 'json_schema',
     models: [
-      text('anthropic/claude-sonnet-5.5', 'Claude Sonnet 5.5', true),
-      text('openai/gpt-5.5', 'GPT-5.5'),
+      // IDs and sampling support verified against https://openrouter.ai/api/v1/models on 2026-10-16.
+      text('anthropic/claude-sonnet-5.5', 'Claude Sonnet 5.5', true, { acceptsTemperature: false }),
+      text('openai/gpt-6.1-sol', 'GPT-6.1 Sol', false, { acceptsTemperature: false }),
+      text('google/gemini-4-argon', 'Gemini 4 Argon', false, { acceptsTemperature: false }),
       text('google/gemini-3.8-flash', 'Gemini 3.8 Flash'),
     ],
   },
@@ -177,6 +186,7 @@ export const COMPAT_VENDORS: Record<CompatVendorId, CompatVendor> = {
     vendor: { kind: 'relay', website: 'https://cloud.siliconflow.cn', icon: 'siliconflow', planned: ['synthesizeSpeech', 'transcribe'] },
     regions: { cn: 'https://api.siliconflow.cn/v1' },
     jsonMode: 'json_object',
+    // Full listing requires a key (GET /models returns 401); retain existing IDs until an account refresh confirms changes.
     models: [text('zai-org/GLM-5.3', 'GLM-5.3', true), text('moonshotai/Kimi-K3', 'Kimi K3'), text('Qwen/Qwen3.7-Max', 'Qwen3.7 Max')],
   },
 };

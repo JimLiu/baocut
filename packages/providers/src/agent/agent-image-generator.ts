@@ -23,6 +23,8 @@ export type AgentReadiness =
       version: string;
       /** 用户手动指定的可执行文件；null 由 Driver 自己找。 */
       executable?: string | null;
+      /** 这次探测到的账号是不是订阅（Codex 是 ChatGPT 登录）：是时用量记为订阅内（§6.9、§6.10）。 */
+      subscribed: boolean;
     }
   | { ok: false; reason: ProviderUnavailableReason; message: string };
 
@@ -39,7 +41,7 @@ export interface AgentImageGeneratorOptions {
   outputName: string;
   /** 一个回合的期限（毫秒）；到时中断并关闭会话，任务失败。 */
   turnTimeoutMs: number;
-  /** 会话开起来之后的调用结束时的报告（用量账本，§6.10；没有账号，费用未知）。 */
+  /** 会话开起来之后的调用结束时的报告（用量账本，§6.10；没有账号，订阅登录时费用记为订阅内）。 */
   report?: CallReporter;
 }
 
@@ -85,6 +87,8 @@ export class AgentImageGenerator implements GenerationProvider {
     if (signal.aborted) controller.abort();
     // 进入生成阶段（要开会话了）才算一次真实调用；之前的检查失败与取消不记用量。
     let startedAt: number | null = null;
+    // 执行前复核时探测到的账号是不是订阅：按这一次调用记，不按报告时的最新探测（回合可以跑 10 分钟）。
+    const call = { subscribed: false };
     const tracked: GenerationSink = {
       generating: () => {
         startedAt ??= Date.now();
@@ -103,10 +107,11 @@ export class AgentImageGenerator implements GenerationProvider {
         accountId: null,
         startedAt,
         units: outputs > 0 ? { images: outputs } : {},
+        ...(call.subscribed ? { cost: { kind: 'subscription' } as const } : {}),
         ...(error !== undefined ? { error } : {}),
       });
     };
-    const running = this.#run(run, tracked, controller.signal);
+    const running = this.#run(run, tracked, controller.signal, call);
     this.#inflight.set(controller, running);
     try {
       const attempt = await running;
@@ -128,7 +133,7 @@ export class AgentImageGenerator implements GenerationProvider {
     await Promise.allSettled(running.map(([, promise]) => promise));
   }
 
-  async #run(run: GenerationRun, sink: GenerationSink, signal: AbortSignal): Promise<GenerationAttempt> {
+  async #run(run: GenerationRun, sink: GenerationSink, signal: AbortSignal, call: { subscribed: boolean }): Promise<GenerationAttempt> {
     const { label, providerId } = this.#options;
     const parameters = run.parameters;
     if (parameters.capability !== 'generateImage') {
@@ -142,6 +147,7 @@ export class AgentImageGenerator implements GenerationProvider {
 
     const ready = await this.#options.ready();
     if (!ready.ok) throw new ProviderFailure('unavailable', PA.unavailable({ label, message: ready.message }).text, { providerId, reason: ready.reason });
+    call.subscribed = ready.subscribed;
     if (signal.aborted) return { outcome: 'cancelled' };
 
     sink.generating();

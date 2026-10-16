@@ -180,21 +180,80 @@ function ItemPage({
   );
 }
 
+// 按钮的字在读的时候按当前语言取（getter）：模块加载时读进来的字符串，换语言后还念旧的。
 const ALIGN_EDGES: { edge: AlignEdge; label: string; Icon: ComponentType }[] = [
-  { edge: 'left', label: MULTI.alignLeft, Icon: AlignLeft },
-  { edge: 'hcenter', label: MULTI.alignHCenter, Icon: AlignCenter },
-  { edge: 'right', label: MULTI.alignRight, Icon: AlignRight },
-  { edge: 'top', label: MULTI.alignTop, Icon: AlignTop },
-  { edge: 'vcenter', label: MULTI.alignVCenter, Icon: AlignMiddle },
-  { edge: 'bottom', label: MULTI.alignBottom, Icon: AlignBottom },
+  {
+    edge: 'left',
+    get label() {
+      return MULTI.alignLeft;
+    },
+    Icon: AlignLeft,
+  },
+  {
+    edge: 'hcenter',
+    get label() {
+      return MULTI.alignHCenter;
+    },
+    Icon: AlignCenter,
+  },
+  {
+    edge: 'right',
+    get label() {
+      return MULTI.alignRight;
+    },
+    Icon: AlignRight,
+  },
+  {
+    edge: 'top',
+    get label() {
+      return MULTI.alignTop;
+    },
+    Icon: AlignTop,
+  },
+  {
+    edge: 'vcenter',
+    get label() {
+      return MULTI.alignVCenter;
+    },
+    Icon: AlignMiddle,
+  },
+  {
+    edge: 'bottom',
+    get label() {
+      return MULTI.alignBottom;
+    },
+    Icon: AlignBottom,
+  },
 ];
 const DISTRIBUTE: { axis: Axis; label: string; Icon: ComponentType }[] = [
-  { axis: 'x', label: MULTI.distributeX, Icon: DistributeSpaceHorizontally },
-  { axis: 'y', label: MULTI.distributeY, Icon: DistributeSpaceVertically },
+  {
+    axis: 'x',
+    get label() {
+      return MULTI.distributeX;
+    },
+    Icon: DistributeSpaceHorizontally,
+  },
+  {
+    axis: 'y',
+    get label() {
+      return MULTI.distributeY;
+    },
+    Icon: DistributeSpaceVertically,
+  },
 ];
 const TARGETS: readonly { key: AlignTarget; label: string }[] = [
-  { key: 'selection', label: MULTI.toSelection },
-  { key: 'canvas', label: MULTI.toCanvas },
+  {
+    key: 'selection',
+    get label() {
+      return MULTI.toSelection;
+    },
+  },
+  {
+    key: 'canvas',
+    get label() {
+      return MULTI.toCanvas;
+    },
+  },
 ];
 const toolRow = style({ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' });
 const pair = style({ display: 'grid', gridTemplateColumns: ['1fr', '1fr'], gap: 8 });

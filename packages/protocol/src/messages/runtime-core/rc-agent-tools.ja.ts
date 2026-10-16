@@ -66,6 +66,9 @@ export const ja: RcAgentToolsMessages = {
   translationDocumentName: (p) => `${p.language} の翻訳`,
   importAssetSummary: (p) => `素材 ${p.name} を読み込み${p.place ? '、タイムラインに追加' : ''}`,
   importAssetLabel: (p) => `${p.name} を読み込み${p.place ? '、タイムラインに追加' : ''}`,
+  openMediaDownloadSummary: (p) => `${p.source} から「${p.title}」（${p.license}）をダウンロードして読み込み${p.place ? '、タイムラインに追加' : ''}`,
+  sfxSummary: (p) => `効果音「${p.recipe}」を生成して読み込み${p.place ? '、タイムラインに追加' : ''}`,
+ 
   replaceCompositionSummary: (p) => `${p.name} を読み込み、タイムライン上のクリップ ${p.clip} と置き換え`,
   replaceCompositionLabel: (p) => `モーショングラフィックを ${p.name} に置き換え`,
   pruneAssetsSummary: (p) => `使われていない素材を動画から削除（${p.count} 個）：${p.names}`,

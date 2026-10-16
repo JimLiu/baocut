@@ -1,7 +1,10 @@
 import { useMemo } from 'react';
+import { agentSetupTaskRow } from '../../model/agent-setup-task.ts';
 import { legacyTaskRow } from '../../model/legacy-import-run.ts';
 import { taskRows, type OpenVideoFacts, type TaskRow, type TaskRowsOptions } from '../../model/task-list.ts';
 import { useRuntime } from '../../runtime/context.tsx';
+import { useAgentSetup } from '../../state/agent-setup-store.ts';
+import { useConnection } from '../../state/connection-store.ts';
 import { useDirectory } from '../../state/directory-store.ts';
 import { useJobs } from '../../state/jobs-store.ts';
 import { useLegacyImport } from '../../state/legacy-import-store.ts';
@@ -22,12 +25,15 @@ export function useOpenVideoFacts(): OpenVideoFacts | null {
 
 /**
  * 后台任务的统一表：Agent 任务与 Job，后起的在前。任务页、侧栏与任务胶囊共用。
- * 这次启动导入旧版项目的那一轮（只在桌面端有）也是一行，按它开始的时间排进去。
+ * 这次启动导入旧版项目的那一轮（只在桌面端有）与应用内运行的 Agent 安装、升级（`agent-setup` 主题）也各是一行，
+ * 按开始的时间排进去。
  */
 export function useTaskRows(options: TaskRowsOptions = {}): { rows: TaskRow[]; ready: boolean } {
   const fold = options.fold ?? true;
   const platform = useRuntime().host.platform;
   const legacyRun = useLegacyImport((s) => s.run);
+  const setupRuns = useAgentSetup((s) => s.runs);
+  const drivers = useConnection((s) => s.drivers);
   const tasks = useTasks((s) => s.tasks);
   const jobs = useJobs((s) => s.jobs);
   const tasksReady = useTasks((s) => s.ready);
@@ -37,8 +43,11 @@ export function useTaskRows(options: TaskRowsOptions = {}): { rows: TaskRow[]; r
   const video = useOpenVideoFacts();
   const rows = useMemo(() => {
     const list = taskRows(tasks, jobs, { projects, conversations, video }, { fold });
-    if (!legacyRun) return list;
-    return [...list, legacyTaskRow(legacyRun, platform)].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt));
-  }, [tasks, jobs, projects, conversations, video, fold, legacyRun, platform]);
+    const setup = setupRuns.map((run) => agentSetupTaskRow(run, drivers?.find((d) => d.id === run.driverId)?.name ?? run.driverId));
+    if (!legacyRun && !setup.length) return list;
+    return [...list, ...(legacyRun ? [legacyTaskRow(legacyRun, platform)] : []), ...setup].sort(
+      (a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt),
+    );
+  }, [tasks, jobs, projects, conversations, video, fold, legacyRun, setupRuns, drivers, platform]);
   return { rows, ready: tasksReady && jobsReady };
 }

@@ -143,6 +143,7 @@ export function digestVideo(snapshot: VideoSnapshot, videoPath: string, history:
           ...(revision?.tree ? { files: revision.tree.fileCount } : {}),
           ...(asset.kind === 'bundle' ? bundleIdentity(revision?.bundle) : {}),
           ...sourceBlock(revision),
+          ...creditBlock(revision),
           usedBy: sequence.items.filter((item) => itemAssetRefs(item).some((ref) => ref.id === asset.id)).length,
         };
       }),
@@ -212,6 +213,57 @@ function sourceBlock(revision: AssetRevision | undefined) {
       chapters: authorChapters(source, revision?.duration ? mediaTimeToSeconds(revision.duration) : 0),
     },
   };
+}
+
+/**
+ * `assets[].credit`：片尾署名要的出处。网上素材（`origin: open-media`）照下载时记下的许可与署名；从链接导入的（`download`）
+ * 只有平台、标题、发布者与页面，许可没写（版权归上传者），署名照「标题、发布者、出处」写一行。别的素材没有。
+ */
+function creditBlock(revision: AssetRevision | undefined) {
+  const provenance = revision?.provenance;
+  const source = provenance?.source;
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return {};
+  const record = source as Record<string, unknown>;
+  const text = (key: string) => (typeof record[key] === 'string' && record[key] ? (record[key] as string) : null);
+  if (provenance.origin === 'open-media') {
+    const license = record.license && typeof record.license === 'object' ? (record.license as Record<string, unknown>) : null;
+    return {
+      credit: {
+        source: text('source'),
+        title: text('title'),
+        author: text('author'),
+        pageUrl: text('pageUrl'),
+        license: license ? { name: license.name ?? null, url: license.url ?? null, class: license.class ?? null } : null,
+        attribution: text('attribution'),
+      },
+    };
+  }
+  if (provenance.origin === 'link-import') {
+    const title = text('title');
+    const author = text('uploader');
+    const pageUrl = text('webpageUrl');
+    const platform = text('platform');
+    if (!pageUrl) return {};
+    return {
+      credit: {
+        source: platform,
+        title,
+        author,
+        pageUrl,
+        license: null,
+        attribution: `"${title ?? pageUrl}"${author ? ` by ${author}` : ''}, via ${platform ?? hostOf(pageUrl)} (${pageUrl})`,
+      },
+    };
+  }
+  return {};
+}
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return 'the web';
+  }
 }
 
 function authorChapters(source: Record<string, unknown>, durationSeconds: number): Array<{ at: number; title: string }> {

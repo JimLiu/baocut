@@ -370,6 +370,8 @@ export const zhHant: CopyMessages = {
     voiceClone: '克隆音色',
     agentTranslate: '翻譯',
     legacyImport: '匯入舊版專案',
+    agentInstall: '安裝 Agent',
+    agentUpgrade: '升級 Agent',
   },
   jobPhase: {
     queued: '排隊中',
@@ -474,6 +476,10 @@ export const zhHant: CopyMessages = {
     remedyDefault: '選擇預設模型',
     remedyNode: '檢視遠端節點',
     remedyAgent: '開啟 Agent 設定',
+    remedyComplete: '補齊',
+    remedyRedownload: '重新下載',
+    completeHint: '已下載的部分會保留，補齊時只下載缺少的部分；如果仍然無法連線，請先在「設定 › 一般」的下載來源中改用其他來源。',
+    redownloadHint: '如果無法連線，請先在「設定 › 一般」的下載來源中改用其他來源，再重新下載。',
   },
   taskPill: {
     count: (n: number) => `${n} 個背景任務`,

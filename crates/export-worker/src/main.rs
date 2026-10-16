@@ -60,7 +60,7 @@ fn main() -> ExitCode {
             (command.as_str(), PathBuf::from(path))
         }
         _ => {
-            eprintln!("用法：export-worker preflight|census|render|master <input.json>");
+            eprintln!("usage: export-worker preflight|census|render|master <input.json>");
             return ExitCode::from(2);
         }
     };

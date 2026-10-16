@@ -621,8 +621,14 @@
     crop: '智能裁剪', 'shorts-cut': '剪成短视频',
     transcribe: '转录', export: '导出', translate: '翻译', polish: '润色文稿', chapters: '生成章节',
     speakers: '识别说话人', retranscribe: '重新转录', cleanup: '找可剪的口', stale: '刷新过期译文',
-    image: '生成图片', download: '下载视频', 'legacy-import': '导入旧版项目',
+    image: '生成图片', download: '下载视频', 'legacy-import': '导入旧版项目', 'model-install': '下载模型', 'agent-install': '安装 Agent',
+    'agent-upgrade': '升级 Agent',
   };
+
+  /* Agent 的安装与升级（product-design §7.6；实现 agent-setup-task.ts）：在跑时按钮写「停止」，点了直接停、不问
+     （停的是一条命令，已经做了的那部分不会回退）；停了念「已取消」，不算失败。 */
+  const SETUP_KINDS = ['agent-install', 'agent-upgrade'];
+  const stopsDirectly = (kind) => SETUP_KINDS.indexOf(kind) >= 0;
 
   /** 任务停下来等人时的说法：智能裁剪等人检查构图。剪成短视频找到就创建，不停下来等人（§5.10）。 */
   const reviewLabel = () => '等你检查';
@@ -662,6 +668,8 @@
     if (kind === 'download') {
       return {title: '取消下载？', body: '临时文件会删掉，不会建视频。链接留在会话里，之后可以重试。', confirmLabel: '取消下载'};
     }
+    // 不弹确认框（stopsDirectly）；胶囊 × 的提示与按钮上的字用 confirmLabel
+    if (stopsDirectly(kind)) return {title: '停止运行？', body: '已经做了的那部分不会回退，可以再运行一次。', confirmLabel: '停止'};
     return {title: '取消这个任务？', body: '已经算出来的部分会保留，任务本身停止。', confirmLabel: '取消任务'};
   }
 
@@ -774,6 +782,6 @@
     PROJECT_TARGETS, targetMeta, bakeFormatsFor, BAKE_FORMAT_LABEL, BAKE_POLICIES, elementDelivery, deliverySummary,
     summary, videoName, exportPlace, SUB_FORMATS, subtitleNames, taskSub,
     TX_FORMATS, txLangOptions, txLangChecked, txLangLocked, txLangToggle, txLangPick, transcriptName, transcriptSummary,
-    TASK_LABEL, pillLabel, preparationView, reviewLabel, cancelCopy,
+    TASK_LABEL, pillLabel, preparationView, reviewLabel, cancelCopy, stopsDirectly,
   };
 })();

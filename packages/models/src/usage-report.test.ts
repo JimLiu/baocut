@@ -74,6 +74,7 @@ describe('buildUsageReport', () => {
         ],
         reported: [{ amount: '0.50', currency: 'USD' }],
         unknownCalls: 2,
+        subscriptionCalls: 0,
       },
     });
     expect(report.byDay).toHaveLength(30);
@@ -119,6 +120,55 @@ describe('buildUsageReport', () => {
       'anthropic/b2': 'b2',
       'agent:codex/': 'agent:codex（无账号）',
     });
+  });
+
+  it('失败且没有用量、只有验证：不计费用，不算未知，行是 none', () => {
+    const report = buildUsageReport(
+      [
+        // 失败的转写记 `audioSeconds: 0`：什么都没用到。
+        rec({ providerId: 'openai', capability: 'transcribe', modelId: 'whisper-1', units: { audioSeconds: 0 }, status: 'error', error: 'x' }),
+        rec({ providerId: 'google', capability: 'transcribe', modelId: 'no-price', units: { audioSeconds: 0 }, status: 'error', error: 'x' }),
+        rec({ providerId: 'deepseek', source: 'verify', capability: null, modelId: null, accountId: null }),
+        // 失败但用了一部分：照常估算。
+        rec({ units: { inputTokens: 1_000_000, outputTokens: 0 }, status: 'error', error: 'x' }),
+      ],
+      { period: 'today', now: NOW, price },
+    );
+    expect(report.totals).toMatchObject({ calls: 4, failed: 3, cost: { estimated: [{ amount: '2.00', currency: 'USD' }], reported: [], unknownCalls: 0 } });
+    const kinds = Object.fromEntries(report.byProvider.map((r) => [r.key, [r.costKind, r.cost]]));
+    expect(kinds).toEqual({
+      openai: ['none', []],
+      google: ['none', []],
+      deepseek: ['none', []],
+      anthropic: ['estimated', [{ amount: '2.00', currency: 'USD' }]],
+    });
+  });
+
+  it('智能体订阅内的调用：不计金额也不算未知；行上金额优先、未知其次，旧的未知记录照旧', () => {
+    const codex = { providerId: 'agent:codex', accountId: null, capability: 'generateImage', modelId: 'image-gen' } as const;
+    const prices = (providerId: string, modelId: string): ModelUnitPrice | null =>
+      providerId === 'openai' && modelId === 'gpt-image-2' ? { currency: 'USD', perImage: '0.04' } : null;
+    const subscribed = [
+      rec({ ...codex, units: { images: 1 }, cost: { kind: 'subscription' } }),
+      rec({ ...codex, units: { images: 1 }, cost: { kind: 'subscription' } }),
+      // 失败且没有用量：不计费用，订阅内也不算。
+      rec({ ...codex, units: {}, cost: { kind: 'subscription' }, status: 'error', error: 'x' }),
+      // 同一种能力里还有按标价估算的提供方。
+      rec({ providerId: 'openai', capability: 'generateImage', modelId: 'gpt-image-2', units: { images: 1 } }),
+    ];
+    const report = buildUsageReport(subscribed, { period: 'today', now: NOW, price: prices });
+    expect(report.totals.cost).toEqual({
+      estimated: [{ amount: '0.04', currency: 'USD' }],
+      reported: [],
+      unknownCalls: 0,
+      subscriptionCalls: 2,
+    });
+    expect(report.byProvider.find((r) => r.key === 'agent:codex')).toMatchObject({ calls: 3, failed: 1, costKind: 'subscription', cost: [] });
+    expect(report.byCapability.find((r) => r.key === 'generateImage')).toMatchObject({ costKind: 'estimated', cost: [{ amount: '0.04', currency: 'USD' }] });
+    // 改之前写下的 Codex 记录是未知：同一行里未知优先于订阅内。
+    const withOld = buildUsageReport([...subscribed, rec({ ...codex, units: { images: 1 } })], { period: 'today', now: NOW, price: prices });
+    expect(withOld.byProvider.find((r) => r.key === 'agent:codex')).toMatchObject({ costKind: 'unknown' });
+    expect(withOld.totals.cost).toMatchObject({ unknownCalls: 1, subscriptionCalls: 2 });
   });
 
   it('只看一家服务商；today 只有今天', () => {

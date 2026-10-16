@@ -44,6 +44,18 @@ test('汇总：币种分开、不换算；未知次数单列；按 API 提供方
   assert.deepEqual(mixed.totals.cost.reported, {USD: 1});
 });
 
+test('智能体订阅内：不计金额也不算未知；同一行里未知优先', () => {
+  const codex = {providerId: 'agent:codex', accountId: null, capability: 'image', modelId: 'image-gen', units: {images: 1}};
+  const sub = [rec(Object.assign({cost: {kind: 'subscription'}}, codex)), rec(Object.assign({cost: {kind: 'subscription'}}, codex))];
+  assert.deepEqual(U.costOf(sub[0]), {kind: 'subscription'});
+  const r = U.report(sub, 'today', {now: NOW});
+  assert.equal(r.totals.cost.unknownCalls, 0);
+  assert.equal(r.totals.cost.subscriptionCalls, 2);
+  assert.equal(r.byProvider[0].costKind, 'subscription');
+  const withOld = U.report(sub.concat([rec(codex)]), 'today', {now: NOW});
+  assert.equal(withOld.byProvider[0].costKind, 'unknown');
+});
+
 test('时段：今天从零点起，7 天含今天', () => {
   const r = U.range('today', NOW, []);
   assert.equal(new Date(r.from).getHours(), 0);

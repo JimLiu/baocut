@@ -353,6 +353,30 @@ describe.skipIf(!ffprobe)('智能体图片 Provider：执行（假 codex + ffpro
     expect(await fs.stat(staging).catch(() => null)).toBeNull();
   });
 
+  it('用量：ChatGPT 登录的调用记为订阅内，API key 登录的费用未知（§6.10）', async () => {
+    const usageOf = (s: Side) =>
+      until(async () => {
+        const report = await s.client.request('models.usage', { period: 'today', providerId: PROVIDER });
+        return report.totals.calls > 0 && report;
+      });
+    const { jobId } = await side.client.request('models.generateImage', { prompt: 'a red fox', provider: PROVIDER });
+    expect(await settled(side, jobId)).toMatchObject({ state: 'completed' });
+    const subscribed = await usageOf(side);
+    expect(subscribed.totals.cost).toEqual({ estimated: [], reported: [], unknownCalls: 0, subscriptionCalls: 1 });
+    expect(subscribed.byProvider).toMatchObject([{ key: PROVIDER, units: { images: 1 }, costKind: 'subscription', cost: [] }]);
+
+    const paid = await startSide({ auth: 'api-key', turn: { files: { 'output.png': b64(pngFixture(24, 16, 3)) }, reply: 'Saved output.png' } });
+    try {
+      const run = await paid.client.request('models.generateImage', { prompt: 'a red fox', provider: PROVIDER });
+      expect(await settled(paid, run.jobId)).toMatchObject({ state: 'completed' });
+      const unknown = await usageOf(paid);
+      expect(unknown.totals.cost).toMatchObject({ unknownCalls: 1, subscriptionCalls: 0 });
+      expect(unknown.byProvider).toMatchObject([{ key: PROVIDER, costKind: 'unknown' }]);
+    } finally {
+      await stopSide(paid);
+    }
+  });
+
   it('设为默认值后不指定 provider 也用它', async () => {
     await side.client.request('models.setDefault', { capability: 'generateImage', providerId: PROVIDER });
     const { capabilities } = await side.client.request('models.capabilities', {});

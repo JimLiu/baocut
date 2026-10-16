@@ -58,6 +58,8 @@ export const de: RcAgentToolsMessages = {
   importAssetSummary: (p: { name: string; place: boolean }) => `Material importieren: ${p.name}${p.place ? " und in die Zeitleiste einfügen" : ""}`,
 
   importAssetLabel: (p: { name: string; place: boolean }) => `Importieren: ${p.name}${p.place ? " und in die Zeitleiste einfügen" : ""}`,
+  openMediaDownloadSummary: (p: { title: string; source: string; license: string; place: boolean }) => `„${p.title}“ von ${p.source} (${p.license}) herunterladen und importieren${p.place ? " und in die Zeitleiste einfügen" : ""}`,
+  sfxSummary: (p: { recipe: string; place: boolean }) => `Soundeffekt „${p.recipe}“ erzeugen und importieren${p.place ? ' und in die Zeitleiste einfügen' : ''}`,
   replaceCompositionSummary: (p: { name: string; clip: string }) =>
     `${p.name} importieren und Clip ${p.clip} in der Zeitleiste damit ersetzen`,
   replaceCompositionLabel: (p: { name: string }) => `Motion-Grafik ersetzen durch ${p.name}`,

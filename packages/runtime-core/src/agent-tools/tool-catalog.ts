@@ -23,7 +23,7 @@ import { GRANT_NEXT, isGrantErrorDetails } from '../grants/grant-errors.ts';
 export interface ToolDefinition {
   name: string;
   title: string;
-  /** 第一句是一行摘要（以句号结束，`--help` 与 MCP 列表只取它），后面才是细则。 */
+  /** 第一句是一行摘要（以 `。` 或 `.` 结束，`--help` 与 MCP 列表只取它），后面才是细则；新写的说明用英文。 */
   description: string;
   inputSchema: Record<string, unknown>;
   annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean };

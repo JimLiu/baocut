@@ -31,7 +31,7 @@ import { ImageMarkup } from './media/image-markup.tsx';
 import { ImagePanorama } from './media/image-panorama.tsx';
 import { useImageZoom } from './media/use-image-zoom.ts';
 import { useGif, loadPreviewImage, copyPreviewImage, gifContactSheet } from './media/gif.ts';
-import { downloadPreview } from './media/compact-player.tsx';
+import { useSaveDownload } from './media/save-download.ts';
 import { mediaTheme } from './media/theme.tsx';
 import { ImageEditPrompt } from './media/image-edit-prompt.tsx';
 import { GifControls } from './media/gif-controls.tsx';
@@ -123,6 +123,7 @@ export function ImagePreview({
   onQueued?: () => void;
 }) {
   const runtime = useRuntime();
+  const save = useSaveDownload();
   const entries = useSpace((s) => s.entries),
     projects = useDirectory((s) => s.projects),
     conversations = useDirectory((s) => s.conversations);
@@ -333,7 +334,7 @@ export function ImagePreview({
     }
   };
   const currentCandidate = { target, handle, name: fileName };
-  if (panorama) return <ImagePanorama url={handle.url} onClose={() => setPanorama(false)} />;
+  if (panorama) return <ImagePanorama url={handle.url} onBack={() => setPanorama(false)} onClose={onClose} />;
   if (tool)
     return (
       <ImageMarkup
@@ -369,7 +370,7 @@ export function ImagePreview({
         onClose={onClose}
         onDefaultOpen={defaultOpen}
         onOpenTab={onOpenTab}
-        onDownload={() => downloadPreview(handle, fileName)}
+        onDownload={() => save.media(handle.url, fileName)}
         onCopy={() => void copyPreviewImage(displayUrl).catch(() => ToastQueue.negative(M.unavailable))}
         onPanorama={() => setPanorama(true)}
       />

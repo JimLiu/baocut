@@ -121,6 +121,8 @@ import { resolveDownloadsDirectory, resolveSaveDirectory } from './external-tool
 import { entryPlace } from './videos/pipeline-targets.ts';
 import { FlowTools } from './agent-tools/flow-tools.ts';
 import { LinkImportTools } from './agent-tools/link-import-tools.ts';
+import { OpenMediaTools } from './agent-tools/open-media-tools.ts';
+import { AudioTools } from './agent-tools/audio-tools.ts';
 import { DownloadTools } from './agent-tools/download-tools.ts';
 import { SpeechSentenceTools } from './agent-tools/speech-sentence-tools.ts';
 import { MemoryCitationRegistry } from './ai-tools/citation-registry.ts';
@@ -137,6 +139,7 @@ import { LibraryTools } from './agent-tools/library-tools.ts';
 import { CompositionTools } from './agent-tools/composition-tools.ts';
 import { CompositionService, SharedCompositionHost } from './compositions/composition-service.ts';
 import { findOnPath } from './external-tools/tool-probe.ts';
+import { YT_DLP } from './external-tools/tool-manifests.ts';
 import { resolveElectronBinary } from '@baocut/code-runtime';
 import type { GithubFetchOptions } from './skills/skill-github.ts';
 import { RcAiTools, RcRuntime } from '@baocut/protocol/messages/runtime-core';
@@ -835,6 +838,17 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
           scope: toolScope,
         }),
         new CompositionTools({ videos, scope: toolScope, compositions }),
+        // 公开许可的网上素材（Agent 面设计 §4.3）：检索只读；下载进视频与 assets_import 同级，严格离线时都拒绝。
+        new OpenMediaTools({
+          videos,
+          scope: toolScope,
+          offlineStrict: () => settings.store.get('offline.strict'),
+          ffmpeg: compositionFfmpeg,
+          // YouTube 检索与 `download` 同一个 yt-dlp、同一项网站登录。
+          youtube: { tool: () => externalTools.resolveForUse(YT_DLP), cookieBrowsers: linkImport.settingCookieBrowsers },
+        }),
+        // 程序化音效与音频分析（Agent 面设计 §4.3）：音效导入与 assets_import 同级；分析只读，解码用同一个 ffmpeg。
+        new AudioTools({ videos, scope: toolScope, ffmpeg: compositionFfmpeg }),
         // 会话里的幻灯片（docs/design/slides §7.2）：校验与导入素材；编译器与 deck 的存储来自幻灯片服务。
         new SlidesTools({ scope: toolScope, slides }),
         // 会话里的设计稿（docs/design/canvas §7.2）：结构校验与导入素材；设计稿的存储来自同一个编辑器服务。
