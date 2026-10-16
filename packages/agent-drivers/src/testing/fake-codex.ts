@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { CodexInstall } from '../codex/codex-binary.ts';
@@ -114,7 +115,16 @@ export async function createFakeCodex(dir: string, scenario: Partial<FakeCodexSc
   const scenarioFile = path.join(dir, 'scenario.json');
   const logFile = path.join(dir, 'log.jsonl');
   let current: FakeCodexScenario = { ...DEFAULT_SCENARIO, ...scenario };
-  const write = () => writeFileSync(scenarioFile, JSON.stringify(current));
+  const write = () => {
+    // Probes and sessions read this in another process: publish a complete snapshot.
+    const temporary = path.join(dir, `scenario-${randomUUID()}.tmp`);
+    try {
+      writeFileSync(temporary, JSON.stringify(current));
+      renameSync(temporary, scenarioFile);
+    } finally {
+      rmSync(temporary, { force: true });
+    }
+  };
   write();
   const codexHome = path.join(dir, 'codex-home');
   await fs.mkdir(codexHome, { recursive: true });
