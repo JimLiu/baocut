@@ -4,6 +4,7 @@ import AIMark from '@react-spectrum/s2/icons/AIMark';
 import AudioWave from '@react-spectrum/s2/icons/AudioWave';
 import Download from '@react-spectrum/s2/icons/Download';
 import Export from '@react-spectrum/s2/icons/Export';
+import Filmstrip from '@react-spectrum/s2/icons/Filmstrip';
 import FolderMoveTo from '@react-spectrum/s2/icons/FolderMoveTo';
 import FolderOpen from '@react-spectrum/s2/icons/FolderOpen';
 import Image from '@react-spectrum/s2/icons/Image';
@@ -48,6 +49,7 @@ export const KIND_ICON: Record<TaskKind, ComponentType> = {
   toolInstall: Tools,
   toolUpdate: Tools,
   fontDownload: Download,
+  bake: Filmstrip,
   voiceClone: UserAvatar,
   agentTranslate: Translate,
   legacyImport: FolderOpen,

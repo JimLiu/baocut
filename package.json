@@ -39,6 +39,7 @@
     "build:docs-editor": "npm run build --workspace=@baocut/docs-editor",
     "build:catalog": "node --experimental-strip-types tools/catalog-snapshot.ts",
     "build:agent-skill": "node --experimental-strip-types tools/sync-agent-skill.ts",
+    "stage:online-assets": "node tools/stage-online-assets.mjs",
     "package:win": "npm run build && npm run build:web && npm run build:slides-editor && npm run build:design-editor && npm run build:design-system-editor && npm run build:docs-editor && node apps/desktop/tools/package-desktop.mjs --variant cpu",
     "package:win:cuda": "npm run build && npm run build:web && npm run build:slides-editor && npm run build:design-editor && npm run build:design-system-editor && npm run build:docs-editor && node apps/desktop/tools/package-desktop.mjs --variant cuda",
     "package:win:vulkan": "npm run build && npm run build:web && npm run build:slides-editor && npm run build:design-editor && npm run build:design-system-editor && npm run build:docs-editor && node apps/desktop/tools/package-desktop.mjs --variant vulkan",

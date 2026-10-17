@@ -13,6 +13,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
+use message_ref::{Text, msg};
 use render_raster::{TextEngine, drawop::AssociatedBlend};
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -133,7 +134,7 @@ pub struct KernelStyle {
     /// 整组字幕的不透明度（定位框样式的 `opacity`；Studio 样式恒为 1）。
     pub opacity: f32,
     /// 换算时照不到的地方（作为渲染提示报出来）。
-    pub notes: Vec<String>,
+    pub notes: Vec<Text>,
 }
 
 impl CaptionStyle {
@@ -214,7 +215,11 @@ pub fn boxed_as_studio(body: &Value, size: (u32, u32)) -> KernelStyle {
         Some(Value::String(id)) if subtitle_render::word_animation_catalog::word_animation_entry(id).is_some() => {
             root["anim"] = subtitle_render::word_animation_catalog::word_animation_payload(id);
         }
-        Some(other) => notes.push(format!("字幕动画预设 {other} 认不出，按不动画画")),
+        Some(other) => notes.push(msg!(
+            "frameRender.captionAnimationUnknown",
+            "Subtitle animation preset {preset} isn’t recognized; the subtitles aren’t animated",
+            preset = other.to_string()
+        )),
     }
     if let Some(family) = style.get("fontFamily").filter(|v| v.is_string()) {
         root["fontFamily"] = family.clone();
@@ -349,7 +354,7 @@ struct LegacyCaptionPlan {
     pub sequence_clock: bool,
     /// 整组的不透明度（样式给的）。
     pub opacity: f32,
-    notes: Vec<String>,
+    notes: Vec<Text>,
     /// 排字时缺的字体族（常设）。
     missing: std::collections::BTreeSet<String>,
 }
@@ -542,15 +547,28 @@ impl LegacyCaptionPlan {
 
     /// 这组字幕的提示（样式换算的、内核编译与画字时报的）与排字时缺的字体族。常设：画过的帧内核会缓存、不再报，
     /// 每画一帧都整份给出，由调用方去重。
-    pub fn notes(&mut self) -> (Vec<String>, Vec<String>) {
+    pub fn notes(&mut self) -> (Vec<Text>, Vec<String>) {
         for note in std::mem::take(&mut self.plan.warnings) {
-            if !self.notes.contains(&note) {
+            if !self.notes.iter().any(|seen| seen.text == note.text) {
                 self.notes.push(note);
             }
         }
         self.missing.extend(self.plan.text.take_missing_families());
-        (self.notes.clone(), self.missing.iter().cloned().collect())
+        // 缺字体由渲染器按族自己报（带引用），内核编译时报的同一条不再转述。
+        let notes = self
+            .notes
+            .iter()
+            .filter(|note| !missing_font_of(note).is_some_and(|family| self.missing.contains(family)))
+            .cloned()
+            .collect();
+        (notes, self.missing.iter().cloned().collect())
     }
+}
+
+/// 内核报的缺字体提示是哪个族（[`subtitle_render::missing_font_warning`]）；别的提示是 `None`。
+fn missing_font_of(note: &Text) -> Option<&str> {
+    let reference = note.message_ref.as_ref().filter(|r| r.key == subtitle_render::MISSING_FONT_KEY)?;
+    reference.params.as_ref()?.get("family")?.as_str()
 }
 
 /// A shared caption execution plan. Legacy styles keep their original path.
@@ -729,14 +747,14 @@ impl CaptionPlan {
             })
             .collect())
     }
-    pub fn notes(&mut self) -> (Vec<String>, Vec<String>) {
+    pub fn notes(&mut self) -> (Vec<Text>, Vec<String>) {
         if let Some(l) = &mut self.legacy {
             return l.notes();
         }
         let scene = self.scene.as_mut().unwrap();
         self.scene_missing.extend(scene.text.take_missing_families());
         (
-            scene.diagnostics.iter().map(ToString::to_string).collect(),
+            scene.diagnostics.iter().map(|d| Text::plain(d.to_string())).collect(),
             self.scene_missing.iter().cloned().collect(),
         )
     }

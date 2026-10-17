@@ -13,6 +13,8 @@ import { EXPORT_MAX_CUE_SECONDS, type Id } from '@baocut/protocol';
  *
  * 架构偏差：这套规则本该只有一份（在 `crates/speech-doc`，与导出共用）。编辑器那份在 UI 的模型层，jobs 不能依赖 UI
  * （UI 也不能依赖只在 Node 里跑的 jobs），眼下各留一份；改切法时两处一起改（架构设计 §14「转录工具的字幕层」）。
+ * 中文词边界（`hanInteriorGaps`）交给运行环境的 `Intl.Segmenter`，crate 用 ICU4X：数据都是 ICU 的中日文词典，但
+ * Runtime 的 Node 与编辑器所在的浏览器带的 ICU 版本可能不同，词典没收或新收的词偶尔会让两边的切点差一个词。
  */
 
 type Json = Record<string, unknown>;
@@ -72,6 +74,36 @@ function joinCueWords(tokens: readonly string[], leadingSpaces: boolean, glues: 
     const space = !glues[index] && spaced(prev) && spaced(next) && !NO_SPACE_BEFORE.test(token);
     out += space ? ` ${token}` : token;
   }
+  return out;
+}
+
+// ---- 中文词边界 ----
+
+/** 汉字（与 `crates/speech-doc` 的 `word_breaks::is_han` 同一组区段）。 */
+const HAN = /[\u{3400}-\u{4dbf}\u{4e00}-\u{9fff}\u{f900}-\u{faff}\u{20000}-\u{2fa1f}\u{30000}-\u{3134f}]/u;
+let wordSegmenter: Intl.Segmenter | null | undefined;
+
+/**
+ * 一串词里每个词之后的缝是不是落在一个中文词里（「程｜序」是，「序｜崩」不是）：去掉首尾空白直接拼起来，交
+ * `Intl.Segmenter` 分词，只看两侧都是汉字的缝。分词用 ICU 的中日文词典，与 `crates/speech-doc` 的
+ * `han_word_interior_gaps`（ICU4X）同一份数据；运行环境没有 `Intl.Segmenter` 时一律当词边界（退回按宽度切）。
+ */
+export function hanInteriorGaps(texts: readonly string[]): boolean[] {
+  const out = texts.map(() => false);
+  if (wordSegmenter === undefined)
+    wordSegmenter = typeof Intl.Segmenter === 'function' ? new Intl.Segmenter('und', { granularity: 'word' }) : null;
+  if (!wordSegmenter) return out;
+  let joined = '';
+  const ends = texts.map((value) => (joined += value.trim()).length);
+  if (!HAN.test(joined)) return out;
+  const boundaries = new Set<number>();
+  for (const { index } of wordSegmenter.segment(joined)) boundaries.add(index);
+  ends.forEach((end, i) => {
+    if (i + 1 >= texts.length || end === 0 || end >= joined.length || boundaries.has(end)) return;
+    const before = String.fromCodePoint(joined.codePointAt(/[\udc00-\udfff]/.test(joined[end - 1]!) ? end - 2 : end - 1)!);
+    const after = String.fromCodePoint(joined.codePointAt(end)!);
+    out[i] = HAN.test(before) && HAN.test(after);
+  });
   return out;
 }
 
@@ -285,8 +317,8 @@ export function splitUntimed(
 
 /**
  * 宽过 `maxChars` 的一块按显示宽度切成差不多一样宽的几段。只在全角字之间、或全角字与西文之间切：一串连着的西文
- * （字母、数字与夹在里面的符号，如 `Transformer`、`GPT-4o`）整串挪进下一段；行首不放不能起行的标点。只有一串西文
- * 自己就宽过 `maxChars` 时才在它中间切。
+ * （字母、数字与夹在里面的符号，如 `Transformer`、`GPT-4o`）与一个中文词（`hanInteriorGaps`，如「程序」）整个挪进
+ * 下一段；行首不放不能起行的标点。只有一个单元自己就宽过 `maxChars` 时才在它中间切。
  */
 function chopWide(chunk: string, maxChars: number): string[] {
   const width = displayWidth(chunk);
@@ -297,6 +329,11 @@ function chopWide(chunk: string, maxChars: number): string[] {
     if (last !== undefined && (NO_SPACE_BEFORE.test(char) || (!WIDE.test(char) && !WIDE.test([...last].at(-1)!)))) {
       units[units.length - 1] = last + char;
     } else units.push(char);
+  }
+  // 一个中文词里的几个字并成一个单元，和西文串一样整个挪进下一段。
+  const inside = hanInteriorGaps(units);
+  for (let i = units.length - 2; i >= 0; i--) {
+    if (inside[i]) units.splice(i, 2, units[i]! + units[i + 1]!);
   }
   const parts = Math.ceil(width / maxChars);
   const target = width / parts;
@@ -359,8 +396,11 @@ function gluedWordInterior(word: CueWord, next: CueWord): boolean {
   return last !== undefined && first !== undefined && spacedLetter(last) && spacedLetter(first);
 }
 
-/** 断行阶梯：句末 > 从句标点（破折号门槛更低）> 长停顿 > 溢出（同一个词的几段之间不因停顿、溢出断；下一个词收在标点上且不超余量时延长收入）。 */
-function autoBreak(word: CueWord, next: CueWord, lineWidth: number, projected: number, params: CueParams): boolean {
+/**
+ * 断行阶梯：句末 > 从句标点（破折号门槛更低）> 长停顿 > 溢出（同一个词的几段之间不因停顿、溢出断；下一个词收在标点上、
+ * 或这道缝在一个中文词里（`insideWord`）且不超余量时延长收入，所以「程序」不会切成「程｜序」）。
+ */
+function autoBreak(word: CueWord, next: CueWord, lineWidth: number, projected: number, params: CueParams, insideWord: boolean): boolean {
   const token = word.text.trim();
   if (sentenceEnd(token)) return true;
   const punct = clauseEndChar(token);
@@ -371,7 +411,7 @@ function autoBreak(word: CueWord, next: CueWord, lineWidth: number, projected: n
   if (projected > params.maxChars) {
     const nextToken = next.text.trim();
     const imminent = clauseEndChar(nextToken) !== null || sentenceEnd(nextToken);
-    return !(imminent && projected <= params.maxChars + params.overflowSlack);
+    return !((imminent || insideWord) && projected <= params.maxChars + params.overflowSlack);
   }
   return false;
 }
@@ -380,6 +420,7 @@ function autoBreak(word: CueWord, next: CueWord, lineWidth: number, projected: n
 export function deriveCues(source: readonly CueWord[], params: CueParams = CUE_PARAMS): DerivedCue[] {
   const words = [...source].sort((a, b) => a.start - b.start);
   const leading = words.some((word) => /^\s/.test(word.text));
+  const inside = hanInteriorGaps(words.map((word) => word.text));
   const cues: DerivedCue[] = [];
   let current: CueWord[] = [];
   const flush = () => {
@@ -412,7 +453,7 @@ export function deriveCues(source: readonly CueWord[], params: CueParams = CUE_P
     const glues = current.map((word) => word.glue === true);
     const lineWidth = displayWidth(joinCueWords(tokens, leading, glues));
     const projected = displayWidth(joinCueWords([...tokens, next.text], leading, [...glues, next.glue === true]));
-    if (autoBreak(word, next, lineWidth, projected, params)) flush();
+    if (autoBreak(word, next, lineWidth, projected, params, inside[i]!)) flush();
   }
   flush();
   return cues;

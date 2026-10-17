@@ -6,6 +6,7 @@ import { imageJob, imageOut } from './tools-test-fixtures.ts';
 import {
   BLANK_IMAGE,
   addRefs,
+  editsByPrompt,
   emptyPrompt,
   imageRefMode,
   imageRefModes,
@@ -477,6 +478,15 @@ describe('参考图（§6.1 生图的输入图）', () => {
   it('加图：不重复、按剩下的名额截，报没加进去的张数', () => {
     expect(addRefs([a], [a, b, c], 1)).toEqual({ refs: [a, b], dropped: 1 });
     expect(addRefs([], [c, c], 5)).toEqual({ refs: [c], dropped: 0 });
+  });
+
+  it('是不是按提示词改图（这时提示词框提醒写清怎么改）：模型认编辑、有参考图、不是以图为底重画', () => {
+    expect(editsByPrompt(draft({ refs: [a] }), editing)).toBe(true);
+    expect(editsByPrompt(draft({ refs: [a] }), redraw)).toBe(true);
+    expect(editsByPrompt(draft(), editing)).toBe(false);
+    expect(editsByPrompt(draft({ refs: [a] }), plain)).toBe(false);
+    expect(editsByPrompt(draft({ refs: [a] }), none)).toBe(false);
+    expect(editsByPrompt(draft({ refs: [a], refMode: 'img2img' }), redraw)).toBe(false);
   });
 
   it('按提示词改图：几张一起送，张数照表单；不认参考图的模型一张不送也不算错', () => {

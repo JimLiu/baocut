@@ -447,9 +447,9 @@ fn unsupported_message(reason: &str) -> Text {
             "frameRender.templateMissing",
             "This template layer isn’t in the sequence’s template"
         ),
-        "template-logo-image-not-supported" => msg!(
-            "frameRender.templateLogoImage",
-            "Image logos referenced by file path can’t be drawn in templates (use a brand kit logo or a text logo)"
+        "template-logo-file-missing" => msg!(
+            "frameRender.templateLogoFileMissing",
+            "The image file used as the template logo isn’t in this video (check that the file is still in the project)"
         ),
         "template-logo-asset-missing" => msg!(
             "frameRender.templateLogoAssetMissing",

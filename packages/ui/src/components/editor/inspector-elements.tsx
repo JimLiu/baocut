@@ -12,6 +12,7 @@ import type {
   VisualItem,
   VisualizerItem,
 } from '@baocut/protocol';
+import { isAnimatedImageType } from '@baocut/protocol';
 import { ActionButton, Picker, PickerItem, TextArea } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { hasEffects } from '../../model/effects-panel.ts';
@@ -259,11 +260,11 @@ function ElementPage({ children, ...props }: ItemPageProps<VisualItem> & { child
   );
 }
 
-/** 素材贴纸动不动：Lottie 与 GIF 动；素材还没到（或不认得）时按动的算，播放方式那一节照给。 */
+/** 素材贴纸动不动：Lottie 与动图（GIF、APNG）动；素材还没到（或不认得）时按动的算，播放方式那一节照给。 */
 function isAnimatedAsset(ref: VersionRef | undefined, assets: Record<string, AssetRecord>): boolean {
   const asset = ref ? assets[ref.id] : undefined;
   if (!asset) return true;
-  return asset.kind === 'lottie' || asset.revisions[ref!.revision]?.mediaType === 'image/gif';
+  return asset.kind === 'lottie' || isAnimatedImageType(asset.revisions[ref!.revision]?.mediaType);
 }
 
 /** 贴纸：模板贴纸按模板的颜色换色；素材贴纸（SVG、Lottie）按素材里读出来的颜色换色，会动的再选播放方式。 */

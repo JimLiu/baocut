@@ -1,5 +1,5 @@
 import type { Id } from './domain.ts';
-import type { CodeEdit, MediaTime, Rate, Revision, VersionRef } from './video.ts';
+import type { AssetRecord, CodeEdit, CompositionItem, MediaTime, Rate, Revision, VersionRef } from './video.ts';
 import type { MediaHandle } from './methods.ts';
 
 /**
@@ -171,12 +171,136 @@ export interface BakeRecord {
   outputProfileHash: string;
   bakedAt: string;
   status: 'current' | 'stale';
-  /** 烘焙输出的编码（第一期：PNG 帧序列封进 QuickTime，带 alpha 时 `prores_ks` 4444）。 */
+  /** 烘焙输出的编码（ProRes 封进 QuickTime：带 alpha 时 4444，不透明时 422 HQ；编码器是 `prores_videotoolbox` 或 `prores_ks`）。 */
   encoding: { container: 'mov'; codec: string; pixelFormat: string; alpha: boolean; fps: Rate; frames: number };
+}
+
+/** 烘焙渲染器的选择（代码包规范 §7）：`auto` 先走指令、画不出来时整段回退像素；`ops` 只走指令；`pixels` 只走像素。 */
+export type CompositionBakeMode = 'auto' | 'ops' | 'pixels';
+
+/** 一次烘焙实际用的渲染器、用时与回退原因（`compositions.import` 结果的 `bake`，代码包规范 §7.3）。 */
+export interface CompositionBakeInfo {
+  /** `drawop-cpu`：录制 Canvas 调用、Render Worker 光栅；`browser-pixels`：浏览器逐帧截图。 */
+  renderer: 'drawop-cpu' | 'browser-pixels';
+  /** 整段烘焙的平均帧率（帧数 ÷ 总用时）。 */
+  fps: number;
+  seconds: number;
+  /** `auto` 回退到像素时的原因（英文诊断）。 */
+  fallback?: { reason: string };
+  /** 指令路线各阶段的用时与吞吐（诊断用，字段可能增减）。 */
+  stages?: Record<string, Record<string, number | string>>;
 }
 
 /** 预渲染素材 `provenance.origin` 的取值；`provenance.source` 是 `BakeRecord`。 */
 export const BAKE_PROVENANCE_ORIGIN = 'composition-bake';
+
+/**
+ * 替身为什么不能代表实例现在的画面（代码包规范 §7.4）：`missing` 没有替身；`bundle-changed` 替身烘焙自别的代码包版本
+ * （`BakeRecord.sourceBundleRef` 与实例 `source.assetRef` 所指清单的 `bundleId` / `revision` 不同）；`fps-mismatch` 替身的帧率与所在序列不同。
+ */
+export type PrerenderStaleReason = 'missing' | 'bundle-changed' | 'fps-mismatch';
+
+export interface PrerenderStaleness {
+  itemId: Id;
+  reason: PrerenderStaleReason;
+  /** 替身烘焙自哪个代码包版本（替身没有烘焙记录时省略）。 */
+  bakedFrom?: VersionRef;
+  /** 实例现在指向的代码包清单身份（`bundleId` / `revision`）。 */
+  current?: VersionRef;
+}
+
+/**
+ * 判断一个合成实例的替身是否过期（代码包规范 §7.4）。预览停住时、导出预检与智能体的检查共用这一处判断。
+ * 替身的来源不是烘焙记录（旧数据、手工指定的视频）时只核对帧率：没有记录就不知道烘焙自哪个版本，不按过期处理。
+ * 返回 null 表示替身可用。
+ */
+export function prerenderStaleness(
+  item: Pick<CompositionItem, 'id' | 'source' | 'prerender'>,
+  assets: Readonly<Record<Id, AssetRecord>>,
+  sequenceFps: Rate,
+): PrerenderStaleness | null {
+  if (!item.prerender) return { itemId: item.id, reason: 'missing' };
+  const standIn = assets[item.prerender.id]?.revisions[item.prerender.revision];
+  if (!standIn) return { itemId: item.id, reason: 'missing' };
+  const bundle = assets[item.source.assetRef.id]?.revisions[item.source.assetRef.revision]?.bundle as
+    | { bundleId?: unknown; revision?: unknown }
+    | undefined;
+  const current =
+    typeof bundle?.bundleId === 'string' && typeof bundle.revision === 'string' ? { id: bundle.bundleId, revision: bundle.revision } : undefined;
+  const record = standIn.provenance.origin === BAKE_PROVENANCE_ORIGIN ? (standIn.provenance.source as BakeRecord | undefined) : undefined;
+  if (record) {
+    const from = record.sourceBundleRef;
+    if (current && (from.id !== current.id || from.revision !== current.revision)) {
+      return { itemId: item.id, reason: 'bundle-changed', bakedFrom: from, current };
+    }
+    if (record.encoding.fps.num * sequenceFps.den !== sequenceFps.num * record.encoding.fps.den) {
+      return { itemId: item.id, reason: 'fps-mismatch', bakedFrom: from, ...(current ? { current } : {}) };
+    }
+    return null;
+  }
+  const rate = standIn.video?.frameRate;
+  const fps = rate?.kind === 'cfr' ? rate.rate : rate?.nominal;
+  if (fps && fps.num * sequenceFps.den !== sequenceFps.num * fps.den) {
+    return { itemId: item.id, reason: 'fps-mismatch', ...(current ? { current } : {}) };
+  }
+  return null;
+}
+
+/** 后台烘焙任务（`JobRecord.bake`，`kind: 'bake'`）：给哪个实例烘、烘哪个代码包版本、按什么帧率与渲染器。 */
+export interface CompositionBakeJob {
+  sequenceId: Id;
+  itemId: Id;
+  /** 代码包素材的版本（实例的 `source.assetRef`）。 */
+  bundle: VersionRef;
+  /** 清单里的身份，写进 `BakeRecord.sourceBundleRef`。 */
+  bundleId: string;
+  manifestRevision: Revision;
+  fps: Rate;
+  mode: CompositionBakeMode;
+}
+
+/**
+ * 编辑器实时合成层的桥（动效视频设计 §4.1；架构设计 §9.4）：舞台里的代码包跑在不开 `allow-same-origin` 的沙箱 `<iframe>` 里，
+ * 父页面调不进去，取帧脚本（`composition-adapter.ts`）的三个调用改经 `postMessage` 往返。两端都只认带 `channel` 的消息，
+ * 页面只认来自 `window.parent` 的、父页面只认来自那个 iframe 的 `contentWindow` 的；iframe 的来源是不透明的，`targetOrigin` 只能是 `*`。
+ */
+export const COMPOSITION_BRIDGE_CHANNEL = 'baocut.composition-bridge/1';
+
+/** 页面载入、桥就位时主动发一次：父页面从这时起才发请求。 */
+export interface CompositionBridgeHello {
+  channel: typeof COMPOSITION_BRIDGE_CHANNEL;
+  kind: 'hello';
+}
+
+/** 父页面 → 页面：取帧脚本的一个调用；`id` 由父页面编，回信带回。 */
+export type CompositionBridgeRequest =
+  | {
+      channel: typeof COMPOSITION_BRIDGE_CHANNEL;
+      kind: 'ready';
+      id: number;
+      contract: CodeBundleContract;
+      /** 省略时页面自己从根元素的 `data-composition-id` 取（没有就是 `main`，与导入时的 `readRootAttributes` 同一规则）。 */
+      compositionId?: string;
+      timeoutMs: number;
+      context: { width: number; height: number; fps: Rate; durationFrames: number };
+    }
+  | { channel: typeof COMPOSITION_BRIDGE_CHANNEL; kind: 'seek'; id: number; seconds: number }
+  | { channel: typeof COMPOSITION_BRIDGE_CHANNEL; kind: 'dispose'; id: number };
+
+/** 页面 → 父页面：取帧脚本的信封原样带回（`{ ok: true, value }` 或 `{ ok: false, code, message }`）。 */
+export interface CompositionBridgeResponse {
+  channel: typeof COMPOSITION_BRIDGE_CHANNEL;
+  kind: 'result';
+  id: number;
+  result: { ok: true; value: unknown } | { ok: false; code: CodeBundleErrorCode | string; message: string };
+}
+
+export type CompositionBridgeMessage = CompositionBridgeHello | CompositionBridgeRequest | CompositionBridgeResponse;
+
+/** 收到的 `message` 事件的 `data` 是不是这座桥的消息（别的来源与别的脚本的 `postMessage` 一律不认）。 */
+export function isCompositionBridgeMessage(data: unknown): data is CompositionBridgeMessage {
+  return typeof data === 'object' && data !== null && (data as { channel?: unknown }).channel === COMPOSITION_BRIDGE_CHANNEL;
+}
 
 export const CODE_BUNDLE_ERROR_CODES = [
   // 导入与验证（§6.2）
@@ -241,6 +365,12 @@ export const CODE_BUNDLE_ALLOWED_EXTENSIONS = [
   '.mov',
   '.wasm',
   '.lock',
+  // 3D 资源（Three.js 等）：glTF 的 JSON 与二进制、分离的缓冲、HDR 环境贴图、KTX2 压缩纹理
+  '.gltf',
+  '.glb',
+  '.bin',
+  '.hdr',
+  '.ktx2',
 ] as const;
 
 /**
@@ -341,6 +471,14 @@ export interface CompositionImportParams {
   place?: { track?: Id; at?: string };
   replace?: { itemId: Id };
   register?: boolean;
+  /** 烘焙渲染器，缺省 `auto`。 */
+  bake?: CompositionBakeMode;
+  /**
+   * true 时烘焙转为后台任务（`kind: 'bake'`，代码包规范 §7.5）：两笔修改只登记代码包、按清单的长度放实例（没有替身），
+   * 立刻返回 `bakeJobId`；任务完成后以一笔修改写入替身并把实例的 `prerender` 指过去。缺省 false（等烘焙完再返回）。
+   * 与 `register` 互斥。
+   */
+  background?: boolean;
   revision?: Revision;
   commandId?: Id;
   conversationId?: Id;
@@ -378,6 +516,10 @@ export interface CompositionImportResult {
     encoding: BakeRecord['encoding'];
     hasAlpha: boolean;
   } | null;
+  /** 烘焙用的渲染器与用时；回退到像素时带 `fallback.reason`。只登记与后台烘焙时为 null。 */
+  bake: CompositionBakeInfo | null;
+  /** 后台烘焙（`background: true`）的任务；同步烘焙与只登记时为 null。 */
+  bakeJobId: Id | null;
   /** 放到时间线上（或原地替换）的合成片段与它所在的轨；只登记时为 null。 */
   itemId: Id | null;
   trackId: Id | null;

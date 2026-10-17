@@ -44,6 +44,9 @@ export const ptBR: EditorMessages = {
   emptyOr: "ou adicione pelo painel de mídias à direita",
   problemsCount: (n) => `${n} ${pluralForm('pt-BR', n, { one: 'item não pode ser desenhado', other: 'itens não podem ser desenhados' })}`,
   problemsTitle: "Parte deste quadro não pode ser desenhada",
+  livePreview: 'Prévia ao vivo',
+  livePreviewTitle: 'Prévia ao vivo; gere o substituto antes de exportar',
+  livePreviewDetail: 'A composição de código no fundo deste quadro é desenhada ao vivo no editor e pode diferir da exportação. A exportação usa só o substituto gerado: gere-o antes de exportar.',
   rendererFailed: (message: string) => `O renderizador da prévia não carregou: ${message}`,
   spectrumTooLarge: (itemId: string, assetId: string, mb: number) =>
     `Forma de onda ${itemId}: mídia ${assetId} ultrapassa ${mb} MB; a prévia não analisa seu áudio, sem afetar a exportação`,

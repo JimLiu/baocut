@@ -47,7 +47,7 @@ use std::sync::Arc;
 
 use frame_render::{Documents, FrameRenderer, FrozenDocument, LayerMedia, RenderError, RenderOptions, SpeakerActivity};
 use render_graph::audio_plan::{speaker_activity, speech_activity};
-use render_graph::{PlanDocument, PlanError, VisualLayer, plan_interactive_with_speech};
+use render_graph::{LiveOptions, PlanDocument, PlanError, VisualLayer, plan_interactive_live};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tiny_skia::Pixmap;
@@ -70,6 +70,18 @@ struct MeasureText {
 struct Size {
     width: f64,
     height: f64,
+}
+
+/// 实时层开关（动效视频设计 §4.2、§4.3）：`enabled` 开了才切；`playing` 是舞台在动，这时不看替身一律切；`blocked` 是宿主退回
+/// 替身的实例。
+#[derive(Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SetLive {
+    enabled: bool,
+    #[serde(default)]
+    playing: bool,
+    #[serde(default)]
+    blocked: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -172,6 +184,8 @@ struct State {
     /// 透明底那一帧还原成非预乘的字节；不透明的帧直接用渲染器的画面，这里是空的。
     straight: Vec<u8>,
     frame_valid: bool,
+    /// 实时层开关：缩略图与金标准不开；舞台开着，并把退回替身的实例列进 `blocked`。
+    live: SetLive,
 }
 
 /// 同时留着几台渲染器：预览播放与停住各用一种尺寸（`render-planner` 的播放画质），来回切时各自的排版、字幕编译与
@@ -294,13 +308,29 @@ pub fn plan(seconds: f64) -> Result<String, PlanError> {
             video,
             speech_documents,
             speech,
+            live,
             ..
         } = state;
         let (video, sequence_id) = video.as_ref().ok_or_else(|| failure("NO_VIDEO", "还没有送进视频"))?;
         let speech = speech_of(video, sequence_id, speech_documents, speech)?;
-        let plan = plan_interactive_with_speech(video.view(), sequence_id, seconds, Some(speech))?;
+        let plan = plan_interactive_live(video.view(), sequence_id, seconds, Some(speech), live_options(live))?;
         Ok(serde_json::to_string(&plan).expect("计划总能序列化"))
     })
+}
+
+fn live_options(live: &SetLive) -> LiveOptions<'_> {
+    LiveOptions {
+        enabled: live.enabled,
+        playing: live.playing,
+        blocked: &live.blocked,
+    }
+}
+
+/// 开关实时层（动效视频设计 §4.2）：`{ enabled, blocked }`。
+pub fn set_live(input: &[u8]) -> Result<(), PlanError> {
+    let live: SetLive = serde_json::from_slice(input).map_err(|error| failure("INVALID_PARAMS", format!("实时层的参数读不懂：{error}")))?;
+    STATE.with_borrow_mut(|state| state.live = live);
+    Ok(())
 }
 
 /// 要注入的字体文件名（JSON）。
@@ -470,6 +500,7 @@ pub fn render_with_output(
             media,
             straight,
             frame_valid,
+            live,
             ..
         } = state;
         *frame_valid = false;
@@ -477,7 +508,7 @@ pub fn render_with_output(
         let (video, sequence_id) = video.as_ref().ok_or_else(|| failure("NO_VIDEO", "还没有送进视频"))?;
         let speech = speech_of(video, sequence_id, speech_documents, speech)?;
         let speakers = speakers_of(video, sequence_id, speech_documents, speakers)?;
-        let plan = plan_interactive_with_speech(video.view(), sequence_id, seconds, Some(speech))?;
+        let plan = plan_interactive_live(video.view(), sequence_id, seconds, Some(speech), live_options(live))?;
         let render_failure = |error: RenderError| failure(&error.code, error.message);
         let switched = renderer_for(renderers, width, height, || {
             FrameRenderer::with_shared_fonts(
@@ -635,6 +666,13 @@ pub unsafe extern "C" fn bc_free(ptr: *mut u8, len: usize) {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn bc_set_video(ptr: *const u8, len: usize) -> u32 {
     finish(set_video(unsafe { bytes(ptr, len) }).map(|()| Vec::new()))
+}
+
+/// # Safety
+/// `ptr` 指向 `len` 个已写入的字节。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn bc_set_live(ptr: *const u8, len: usize) -> u32 {
+    finish(set_live(unsafe { bytes(ptr, len) }).map(|()| Vec::new()))
 }
 
 #[unsafe(no_mangle)]

@@ -16,6 +16,7 @@ import {
 } from '@react-spectrum/s2';
 import Add from '@react-spectrum/s2/icons/Add';
 import Asset from '@react-spectrum/s2/icons/Asset';
+import Brand from '@react-spectrum/s2/icons/Brand';
 import Delete from '@react-spectrum/s2/icons/Delete';
 import Edit from '@react-spectrum/s2/icons/Edit';
 import More from '@react-spectrum/s2/icons/More';
@@ -35,6 +36,8 @@ import { useProject } from '../state/directory-store.ts';
 import { useShell } from '../state/shell-store.ts';
 import { useSpace } from '../state/space-store.ts';
 import { NameDialog } from './name-dialog.tsx';
+import { useProjectBrand } from '../state/brands-store.ts';
+import { PROJECT_MENU_COPY } from './skills/skills-copy.ts';
 
 /**
  * 会话头（产品设计 §3.2 用户修订）：一行标题、进行中与等待批准的状态，其余都收进会话菜单；会话摘要在标题栏的按钮里。
@@ -85,6 +88,7 @@ export function ConversationHeader({
 }) {
   const runtime = useRuntime();
   const project = useProject(conversation.projectId);
+  const brand = useProjectBrand(conversation.projectId);
   const go = useShell((s) => s.go);
   const [dialog, setDialog] = useState<'rename' | 'delete' | null>(null);
   const title = conversation.title || untitled();
@@ -100,6 +104,7 @@ export function ConversationHeader({
         .updateConversation(conversation.id, { pinned: !conversation.pinned })
         .catch((error: Error) => ToastQueue.negative(error.message, { timeout: 5000 }));
     else if (key === 'space' && project) go({ tab: 'space', category: 'all', projectId: project.id });
+    else if (key === 'brand' && project) go({ tab: 'skills', brand: project.id });
     else if (key === 'reveal') void runtime.host.revealPath(project?.path ?? conversation.cwd);
   };
 
@@ -139,6 +144,14 @@ export function ConversationHeader({
               <MenuItem id="space" textValue={S.conversationHeader.viewInSpace(project.name)}>
                 <Asset />
                 <Text slot="label">{S.conversationHeader.viewInSpace(project.name)}</Text>
+              </MenuItem>
+            ) : null}
+            {project ? (
+              // 项目的 BRAND.md：有就打开，没有就到新建（产品设计 §6.9「项目品牌」）。
+              <MenuItem id="brand" textValue={PROJECT_MENU_COPY.brand}>
+                <Brand />
+                <Text slot="label">{PROJECT_MENU_COPY.brand}</Text>
+                {brand ? null : <Text slot="description">{PROJECT_MENU_COPY.brandHintNew}</Text>}
               </MenuItem>
             ) : null}
             <MenuItem id="reveal" textValue={project ? S.conversationHeader.revealProject : S.conversationHeader.revealWorkdir}>

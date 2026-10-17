@@ -917,18 +917,43 @@ fn template_layers_draw_from_the_sequence_template() {
     assert!(logo[1] > 150, "{logo:?}");
 }
 
-#[test]
-fn image_logos_in_templates_are_refused() {
-    let video = video(
+/// 按路径引用的台标（`src: { file: "logo.png" }`）登记成的图片素材（`provenance.source.templateLogo.file`）。
+fn file_logo_asset(id: &str, file: &str) -> (String, Value) {
+    let (id, mut value) = svg_asset(id, 10, 10);
+    value["revisions"]["rev_1"]["provenance"] = json!({ "origin": "template-logo", "source": { "templateLogo": { "file": file } } });
+    (id, value)
+}
+
+fn file_logo_video(assets: Vec<(String, Value)>) -> video_model::VideoSnapshot {
+    video(
         vec![],
-        vec![],
+        assets,
         json!({
             "durationPolicy": { "kind": "fixed", "frames": 90 },
             "template": { "id": "tpl", "name": "条", "layers": [
-                { "id": "logo", "box": { "x": 2, "y": 4, "w": 20, "h": 12 }, "kind": "logo", "src": { "file": "logo.png" }, "color": "#FFFFFF" }
+                { "id": "logo", "box": { "x": 0, "y": 0, "w": 50, "h": 50 }, "kind": "logo", "src": { "file": "brand/logo.png" }, "color": "#FFFFFF" }
             ] }
         }),
-    );
+    )
+}
+
+#[test]
+fn file_logos_draw_the_registered_image() {
+    // 别的路径登记的素材不算。
+    let video = file_logo_video(vec![
+        file_logo_asset("a_other", "other.png"),
+        file_logo_asset("a_logo", "brand/logo.png"),
+    ]);
+    let mut media = Media::default();
+    media.assets.insert("a_logo".into(), FLAT_SVG.as_bytes().to_vec());
+    let frame = render(&video, 0.5, &mut media);
+    near(px(&frame, 40, 10), RED, 8);
+    near(px(&frame, 40, 35), BLUE, 8);
+}
+
+#[test]
+fn file_logos_not_registered_are_refused() {
+    let video = file_logo_video(vec![file_logo_asset("a_other", "other.png")]);
     let error = try_render(
         &mut renderer(false, frame_render::Documents::default()),
         &video,
@@ -936,7 +961,7 @@ fn image_logos_in_templates_are_refused() {
         &mut Media::default(),
     )
     .unwrap_err();
-    assert_eq!(error.items[0].reason, "template-logo-image-not-supported");
+    assert_eq!(error.items[0].reason, "template-logo-file-missing");
 }
 
 /// 从品牌库拷进视频的图片素材（`provenance.source.library` 记着条目 `bm1`）。
@@ -1054,6 +1079,11 @@ fn svg_images_use_the_kernel_raster_and_missing_bytes_are_refused() {
 }
 
 fn gif_sticker(mode: &str) -> video_model::VideoSnapshot {
+    animated_sticker(mode, gif_asset("a_gif", 8, 8))
+}
+
+/// 一层画素材 `a_gif` 的贴纸，按 `mode` 循环；素材记录由调用方给（GIF 或 APNG）。
+fn animated_sticker(mode: &str, asset: (String, serde_json::Value)) -> video_model::VideoSnapshot {
     video(
         vec![item(
             "st",
@@ -1062,7 +1092,7 @@ fn gif_sticker(mode: &str) -> video_model::VideoSnapshot {
             json!({ "type": "sticker", "sticker": { "source": "asset", "loop": mode }, "place": { "w": 30 },
                     "assetRef": { "id": "a_gif", "revision": "rev_1" } }),
         )],
-        vec![gif_asset("a_gif", 8, 8)],
+        vec![asset],
         json!({}),
     )
 }
@@ -1130,6 +1160,17 @@ fn gif_stickers_follow_their_loop_mode() {
 }
 
 #[test]
+fn apng_stickers_animate_like_gifs() {
+    let mut media = Media::default();
+    media.assets.insert("a_gif".into(), PULSE_APNG.to_vec());
+    // 帧表 [0, 40) [40, 140) [140, 200)；循环时 0.25 秒落在第二遍的 50 ms。
+    for (mode, seconds, frame) in [("loop", 0.05, 1), ("loop", 0.25, 1), ("once", 0.25, 2), ("hold", 0.15, 0)] {
+        let pixels = render(&animated_sticker(mode, apng_asset("a_gif", 8, 8)), seconds, &mut media);
+        near(px(&pixels, 80, 45), PULSE[frame], 2);
+    }
+}
+
+#[test]
 fn gifs_that_cannot_animate_draw_their_first_frame() {
     // 每帧都不停留：按第一帧画，不提示。
     let still = frame_render::load_gif("still", &tiny_gif(3, 0)).unwrap();
@@ -1140,7 +1181,7 @@ fn gifs_that_cannot_animate_draw_their_first_frame() {
     // 帧数超过上限：按第一帧画，并提示。
     let (gif, note) = frame_render::load_gif("big", &tiny_gif(frame_render::GIF_BUDGET.max_frames + 1, 1)).unwrap();
     assert!(matches!(gif, frame_render::Gif::Still(_)));
-    assert!(note.unwrap().contains("只画第一帧"));
+    assert!(note.unwrap().text.contains("only its first frame is drawn"));
     assert!(matches!(
         frame_render::load_gif("small", &tiny_gif(3, 1)).unwrap(),
         (frame_render::Gif::Animated(_), None)
@@ -1153,7 +1194,16 @@ fn gifs_that_cannot_animate_draw_their_first_frame() {
     let mut renderer = renderer(false, frame_render::Documents::default());
     let pixels = render_with(&mut renderer, &gif_sticker("loop"), 0.5, &mut media);
     near(px(&pixels, 80, 45), RED, 2);
-    assert!(renderer.warnings().iter().any(|w| w.detail.starts_with("st：GIF 太大")));
+    let note = renderer
+        .warnings()
+        .iter()
+        .find(|w| w.detail.starts_with("st: This GIF is too large"))
+        .unwrap();
+    // 提示带引用：实例在外，说明是嵌套的引用。
+    let detail_ref = serde_json::to_value(note).unwrap()["detailRef"].clone();
+    assert_eq!(detail_ref["key"], "frameRender.itemNote");
+    assert_eq!(detail_ref["params"]["item"], "st");
+    assert_eq!(detail_ref["params"]["note"]["key"], "frameRender.gifFirstFrameOnly");
 }
 
 #[test]
@@ -1181,11 +1231,17 @@ fn unreadable_gifs_are_refused() {
 #[test]
 fn text_in_a_missing_family_is_reported_on_every_frame_until_its_font_arrives() {
     let video = marker_title();
-    let note = "title：字体 \"Permanent Marker\" 在当前字体库中不可用，将使用 Noto Sans SC fallback";
+    let note = "title: Font \"Permanent Marker\" isn’t in the font library; using Noto Sans SC instead";
     let mut renderer = fallback_only_renderer();
     let fallback = render_with(&mut renderer, &video, 0.5, &mut Media::default());
     assert_eq!(renderer.missing_fonts(), vec!["Permanent Marker".to_string()]);
     assert!(renderer.warnings().iter().any(|w| w.detail == note), "{:?}", renderer.warnings());
+    // 界面按 `frameRender.missingFont` 认缺字体：内核同文的那条（`subtitleRender.missingFont`）不能顶掉它。
+    let reported = serde_json::to_value(renderer.warnings().iter().find(|w| w.detail == note).unwrap()).unwrap();
+    assert_eq!(
+        reported["detailRef"]["params"]["note"]["key"], "frameRender.missingFont",
+        "{reported}"
+    );
     // 预览每帧清掉报告：内核缓存了排好的字，下一帧照样报（与导出一致）。
     renderer.clear_reports();
     assert!(renderer.missing_fonts().is_empty());

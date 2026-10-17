@@ -16,6 +16,7 @@ import { vi } from './protocol-validation.vi.ts';
 
 /** 入站参数与清单校验的说明（zod schema 的 issue、模板与 skill 的路径检查、JSON Schema 编译）。 */
 const en = {
+  duplicatePaths: 'Each path can appear only once',
   /** 把几项连成一串时的分隔符。 */
   listSeparator: ', ',
   notEmpty: "Can't be empty",

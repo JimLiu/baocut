@@ -4,6 +4,7 @@ The sticker packs shown in the editor's Elements panel. There are 301 static SVG
 
 - The catalogue (packs, files and search words) is `packages/protocol/src/sticker-packs.ts`. Pack names are in the UI's `sticker-pack-copy.*.ts`.
 - The Runtime finds this directory through `resolveStickerPacksDir`. The lookup order is `BAOCUT_STICKERS_DIR`, then `<resources>/stickers` in the packaged app, then this directory.
+- The packaged app doesn't ship the Lottie files, only `anim/provenance.json` (each file's `bytes` and `sha256`). The Runtime downloads a Lottie from the asset CDN (`<BAOCUT_ASSETS_URL or https://cdn.baocut.com>/stickers/anim/<id>`) the first time it's needed, checks it against the manifest and keeps it in `<home>/cache/online-assets/`. In development the files here are used directly. `npm run stage:online-assets -- <dir>` lays out the files for upload.
 - Adding a sticker copies its bytes into the video (`stickers.applyToVideo`, managed storage). A video never points back here.
 - The prototype keeps a byte-identical copy in `designs/baocut/assets/stickers/`. `packages/runtime-core/src/templates/sticker-packs.test.ts` checks that the two copies match.
 

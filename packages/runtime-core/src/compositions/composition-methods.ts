@@ -89,6 +89,7 @@ export function compositionMethods(deps: CompositionMethodDeps): Pick<RpcHandler
       return rpcErrors('import', () =>
         compositions.import(args, {
           ...caller(args.video),
+          submitter: { kind: 'connection', id: principal.connectionId },
           confirm: async () => {},
           apply: async (opened, edit) => {
             const result = await videos.apply(

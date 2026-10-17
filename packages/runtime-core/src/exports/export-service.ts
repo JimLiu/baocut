@@ -10,6 +10,7 @@ import {
   SUPPORTED_EXPORT_KINDS,
   burnedCaptionLanguages,
   nowIso,
+  prerenderStaleness,
   refOf,
   transcriptStamp,
   type CaptionItem,
@@ -29,7 +30,9 @@ import {
   type Localized,
   type MessageRef,
   type PackageManifest,
+  type PrerenderStaleReason,
   type RenderedTextOutput,
+  type VersionRef,
   type VideoSnapshot,
 } from '@baocut/protocol';
 import { RcCommon, RcExport, RcPackage } from '@baocut/protocol/messages/runtime-core';
@@ -642,6 +645,18 @@ export class ExportService {
     const preflightWarnings: JobWarning[] = [];
     const unsupported = new Map<string, UnsupportedItem>();
     const faces = new Map<string, FontFaceQuery>();
+    // 替身过期（代码包规范 §7.4）：烘焙自别的代码包版本、或帧率与所在序列不同的替身画的不是实例现在的画面。只看这次导出用到的替身
+    // （冻结计划里的素材）；没有替身的实例由 Worker 的预检按 bundle-without-prerender 处理。
+    const stale = stalePrerenders(video, assets);
+    if (stale.length > 0 && !settings.allowStalePrerender) {
+      const items = stale.map((item) => item.name ?? item.itemId).join(RcExport.listSeparator().text);
+      throw new RpcError('invalid-request', RcExport.prerenderStale({ count: stale.length, items }), {
+        code: 'EXPORT_PRERENDER_STALE',
+        items: stale,
+        remedy: RcExport.prerenderStaleRemedy().text,
+      });
+    }
+    for (const item of stale) preflightWarnings.push({ code: 'EXPORT_PRERENDER_STALE', detail: `${item.itemId}: ${item.reason}` });
     try {
       for (const i of plan.parts.keys()) {
         const file = path.join(preflightDir, `${i + 1}.json`);
@@ -1780,4 +1795,36 @@ function ambiguous(video: VideoSnapshot, ids: Id[]): RpcError {
       return { documentId: id, kind: d.kind, name: d.name, language: d.language ?? null };
     }),
   });
+}
+
+/** 成片预检列出的过期替身（`EXPORT_PRERENDER_STALE` 的 `details.items`）。 */
+interface StalePrerender {
+  itemId: Id;
+  sequenceId: Id;
+  name: string | null;
+  reason: PrerenderStaleReason;
+  bakedFrom?: VersionRef;
+  current?: VersionRef;
+}
+
+/** 这次导出用到的替身里过期的（代码包规范 §7.4）：替身在冻结计划的素材里才算用到；没有替身或替身素材不在的由别处报。 */
+function stalePrerenders(video: VideoSnapshot, assets: ReadonlyMap<string, PlannedAsset>): StalePrerender[] {
+  const out: StalePrerender[] = [];
+  for (const sequence of Object.values(video.sequences)) {
+    for (const item of sequence.items) {
+      if (item.type !== 'composition' || !item.prerender) continue;
+      if (!assets.has(`${item.prerender.id}@${item.prerender.revision}`)) continue;
+      const stale = prerenderStaleness(item, video.assets, sequence.fps);
+      if (!stale || stale.reason === 'missing') continue;
+      out.push({
+        itemId: item.id,
+        sequenceId: sequence.id,
+        name: item.name?.trim() || null,
+        reason: stale.reason,
+        ...(stale.bakedFrom ? { bakedFrom: stale.bakedFrom } : {}),
+        ...(stale.current ? { current: stale.current } : {}),
+      });
+    }
+  }
+  return out;
 }

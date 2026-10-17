@@ -4,6 +4,7 @@ import Clock from '@react-spectrum/s2/icons/Clock';
 import Asset from '@react-spectrum/s2/icons/Asset';
 import GlobeGrid from '@react-spectrum/s2/icons/GlobeGrid';
 import Home from '@react-spectrum/s2/icons/Home';
+import Lightbulb from '@react-spectrum/s2/icons/Lightbulb';
 import Tools from '@react-spectrum/s2/icons/Tools';
 import Settings from '@react-spectrum/s2/icons/Settings';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -27,6 +28,8 @@ interface RailTab {
 const PRIMARY: RailTab[] = [
   { tab: 'home', label: 'Home', Icon: Home },
   { tab: 'space', label: 'Space', Icon: Asset },
+  // Skills 在 Space 下面一格（产品设计 §6.9）；名字同 Home、Space 不翻译（术语表：Skill）。
+  { tab: 'skills', label: 'Skills', Icon: Lightbulb },
   { tab: 'tools', get label() { return S.common.tools; }, Icon: Tools },
 ];
 /** 辅助入口（产品设计 §2.1）：服务在前，后台任务在后。 */

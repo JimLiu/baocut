@@ -43,4 +43,6 @@ export const ja: RcVideoMessages = {
     '先に BaoCut で、このフォルダを使っているプロジェクトまたはセッションを削除してから、親のプロジェクトからこの動画を削除してください',
   compositionImportFailed: (p) => `モーショングラフィックを読み込めませんでした（${p.code}）`,
   compositionPreviewFailed: (p) => `モーショングラフィックをプレビューできませんでした（${p.code}）`,
+  compositionBakeSuperseded: 'ベイクが終わる前にモーショングラフィックが変更または削除されたため、スタンドインは適用されませんでした',
+  compositionBakeFailed: (p) => `モーショングラフィックをベイクできませんでした（${p.code}）`,
 };

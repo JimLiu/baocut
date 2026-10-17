@@ -41,6 +41,13 @@ const en = {
     remove: 'remove it',
     read: 'open the file',
     send: 'send',
+    upload: 'upload it',
+    create: 'create it',
+    duplicate: 'duplicate it',
+    save: 'save it',
+    restore: 'restore this version',
+    export: 'download it',
+    brand: 'save BRAND.md',
   } as Record<SkillAction, string>,
   exists: (id: string | null) =>
     `A skill named “${id ?? 'this'}” already exists and won’t be overwritten. Remove the old one first, or rename the folder and add it again.`,
@@ -60,6 +67,8 @@ const en = {
   fileNotText: 'This isn’t a text file, so it isn’t shown here.',
   webNotAllowed: 'This can’t be done in the browser. Use the BaoCut desktop app instead.',
   webReadOnly: 'This browser session is read-only, so nothing can be changed.',
+  revisionConflict: 'This skill was changed somewhere else after you started editing. Copy your changes, reload, and edit again.',
+  notEditable: 'Only your own skills can be edited here. Duplicate it to make a copy you can change.',
   failed: (action: string, raw: string) => `Couldn’t ${action}: ${raw}`,
   sendFailed: (raw: string) => `Couldn’t send: ${raw}`,
 };
@@ -201,6 +210,7 @@ export function skillMetaLine(skill: Pick<SkillSummary, 'origin' | 'version'>): 
 export function skillSourceLine(source: SkillSource | null): string | null {
   if (!source) return null;
   if (source.kind === 'local') return source.path;
+  if (source.kind === 'created') return null;
   const commit = source.commit ? M.commit(source.commit.slice(0, 7)) : '';
   return `${source.url}@${source.ref}${commit}`;
 }
@@ -219,7 +229,21 @@ export function fileSizeLabel(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export type SkillAction = 'load' | 'toggle' | 'add' | 'import' | 'remove' | 'read' | 'send';
+export type SkillAction =
+  | 'load'
+  | 'toggle'
+  | 'add'
+  | 'import'
+  | 'remove'
+  | 'read'
+  | 'send'
+  | 'upload'
+  | 'create'
+  | 'duplicate'
+  | 'save'
+  | 'restore'
+  | 'export'
+  | 'brand';
 
 const ACTION_LABEL: Readonly<Record<SkillAction, string>> = live(() => M.action);
 
@@ -278,6 +302,10 @@ export function skillErrorMessage(error: unknown, action: SkillAction): string {
       return M.webNotAllowed;
     case 'WEB_READ_ONLY':
       return M.webReadOnly;
+    case 'SKILL_REVISION_CONFLICT':
+      return M.revisionConflict;
+    case 'SKILL_NOT_EDITABLE':
+      return M.notEditable;
     default:
       return M.failed(ACTION_LABEL[action], raw);
   }

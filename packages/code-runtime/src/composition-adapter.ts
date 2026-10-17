@@ -13,6 +13,7 @@
  *   它兑现成数字时当作实际采样的秒数，否则采样时间就是目标时间。
  *
  * 每次 seek 之后等两次 `requestAnimationFrame`，让 DOM 提交后再截图（§8.4：这只是候选的等待策略）。
+ * `seek(秒, false)` 只给录制用（`canvas-recorder.ts`）：`renderAt` 兑现后立即返回，不等提交——录的是调用，不截图。
  */
 
 /** `ready` 兑现的页面信息。页面没给的字段为 null，由宿主用清单补。 */
@@ -164,13 +165,13 @@ export const COMPOSITION_ADAPTER_SCRIPT = String.raw`(() => {
     return { sampledSeconds: Number(sampled), targetSeconds: target, clamped };
   };
 
-  const seekNative = async (seconds) => {
+  const seekNative = async (seconds, settle) => {
     const { comp, duration } = state;
     const clamped = seconds > duration;
     const target = Math.min(Math.max(seconds, 0), duration);
     const mediaTime = { ticks: String(Math.round(target * 1000000)), timescale: 1000000 };
     const returned = await comp.renderAt(mediaTime, {});
-    await twoFrames();
+    if (settle) await twoFrames();
     const sampled = typeof returned === 'number' && Number.isFinite(returned) ? returned : target;
     return { sampledSeconds: sampled, targetSeconds: target, clamped };
   };
@@ -182,10 +183,10 @@ export const COMPOSITION_ADAPTER_SCRIPT = String.raw`(() => {
         if (contract === 'baocut/1') return readyNative(compositionId, timeoutMs, ctx);
         throw fail('COMPOSITION_SCRIPT_ERROR', 'Unknown contract ' + contract);
       }),
-    seek: (seconds) =>
+    seek: (seconds, settle) =>
       guard(() => {
         if (!state) throw fail('COMPOSITION_TIMELINE_MISSING', 'ready() has not completed');
-        return state.contract === 'hyperframes/1' ? seekHyperframes(seconds) : seekNative(seconds);
+        return state.contract === 'hyperframes/1' ? seekHyperframes(seconds) : seekNative(seconds, settle !== false);
       }),
     dispose: () =>
       guard(() => {

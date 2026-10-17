@@ -1,6 +1,25 @@
 import type { RcSkillsMessages } from './rc-skills.ts';
 
 export const ja: RcSkillsMessages = {
+  brandProjectNotFound: (p) => `プロジェクトが見つかりません：${p.id}`,
+  brandNotFound: (p) => `「${p.project}」にはまだ BRAND.md がありません`,
+  brandFileNotFound: (p) => `BRAND.md のファイルではありません：${p.file}`,
+  brandPathInvalid: (p) => `変更できるのは BRAND.md と brand/ 内のファイルだけです：${p.path}`,
+  brandExists: (p) => `このプロジェクトにはすでに BRAND.md があります：${p.path}`,
+  brandUnreadable: (p) => `${p.file} を読み込めなかったため、このメッセージはそれなしで送信されました`,
+  versionNotFound: (p) => `Skill「${p.id}」には保存された第 ${p.revision} 版がありません`,
+  packageTooLarge: (p) => `zip ファイルが ${p.limit} バイトを超えています`,
+  packageUnreadable: (p) => `${p.path} を zip ファイルまたはフォルダとして読み込めません`,
+  packageNoSkill: (p) => `このパッケージに ${p.file} がありません。Skill のルートフォルダには、何をするものか・いつ使うかを書いた ${p.file} が必要です`,
+  candidateUnsafePath: (p) => `この Skill に、安全に展開できない項目があります：${p.path}`,
+  candidateTooManyFiles: (p) => `ファイルが多すぎます（${p.files} 個）。Skill に含められるのは最大 ${p.limit} 個です`,
+  candidateNoDescription: 'SKILL.md に description がありません。何をするものか、いつ使うかを一、二文で書いてください。エージェントはこの文を見て使うかどうかを判断します',
+  candidateDuplicate: (p) => `このパッケージ内に、同じ ID「${p.id}」の別の Skill があります`,
+  packagePickInvalid: (p) => `${p.prefix} は、このパッケージ内のインストールできる Skill ではありません`,
+  revisionConflict: (p) => `この Skill はその間に変更されました（現在は第 ${p.revision} 版）。開き直してからもう一度変更してください`,
+  cannotRemoveSkillFile: (p) => `${p.file} は削除できません`,
+  notEditable: (p) => `「${p.name}」はここでは編集できません。複製してコピーを編集してください`,
+  changeSourceMissing: (p) => `追加できるファイルではありません：${p.path}`,
 
   cliOnlyPageLink: (p) => `リンク先のページ ${p.page} はツールインターフェースでは利用できません。CLI インターフェースしかないため、このページへのリンクは CLI インターフェースに置く必要があります`,
 

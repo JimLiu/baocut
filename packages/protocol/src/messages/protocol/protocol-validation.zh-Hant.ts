@@ -1,6 +1,7 @@
 import type { ProtocolValidationMessages } from './protocol-validation.ts';
 
 export const zhHant: ProtocolValidationMessages = {
+  duplicatePaths: '同一路徑只能出現一次',
   listSeparator: '、',
   notEmpty: '不能為空',
   noSurroundingSpace: '開頭和結尾不能有空白',

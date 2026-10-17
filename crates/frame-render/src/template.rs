@@ -1,8 +1,9 @@
 //! 模板层（格式规范 §3.17）：序列上的模板文档每个打开的层是帧计划里的一个生成器层（`baocut.template`），
 //! 按 `timeline` 的模板文档由渲染内核的 `template_layer::raster` 画——画法与 v2 的舞台、导出与缩略图是同一个函数。
 //!
-//! 章节类的层读序列的章节标记（标记的帧到下一个章节、或到序列的终点），`{title}` 是序列的名字。品牌库的图片台标画的是
-//! 从品牌库拷进这部视频的那份素材（帧计划的 `asset` 参数）；没拷进来的、按路径引用的（`{ file }`）报出来，不画。
+//! 章节类的层读序列的章节标记（标记的帧到下一个章节、或到序列的终点），`{title}` 是序列的名字。图片台标画的是
+//! 视频里的那份素材（帧计划的 `asset` 参数）：品牌库的图片是拷进来的那份，按路径引用的（`{ file }`）是登记的那份；
+//! 没有的报出来，不画。
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -15,7 +16,7 @@ use timeline::template::{ChapterSpan, LayerKind as TemplateLayerKind, LogoSrc, T
 use tiny_skia::Pixmap;
 use video_model::Sequence;
 
-/// 一个模板层画不出来的原因（`None` 是画得出来）。`parameters` 是帧计划里这一层的生成器参数：品牌库台标的素材在
+/// 一个模板层画不出来的原因（`None` 是画得出来）。`parameters` 是帧计划里这一层的生成器参数：图片台标的素材在
 /// `asset` 里，没有就是视频里没有这张图。
 pub fn unsupported_reason(doc: &TemplateDoc, layer_id: &str, parameters: &Value) -> Option<&'static str> {
     let layer = doc.layers.iter().find(|l| l.id == layer_id)?;
@@ -26,7 +27,7 @@ pub fn unsupported_reason(doc: &TemplateDoc, layer_id: &str, parameters: &Value)
         } if parameters.get("asset").is_none_or(Value::is_null) => Some("template-logo-asset-missing"),
         TemplateLayerKind::Logo {
             src: LogoSrc::File { .. }, ..
-        } => Some("template-logo-image-not-supported"),
+        } if parameters.get("asset").is_none_or(Value::is_null) => Some("template-logo-file-missing"),
         _ => None,
     }
 }

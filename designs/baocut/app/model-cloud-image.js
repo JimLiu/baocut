@@ -372,6 +372,12 @@
     const first = {k: 'ref', label: cap.edit ? '按提示词改图' : '作为参考'};
     return cap.img2img ? [first, {k: 'img2img', label: '以图为底重画'}] : [first];
   }
+  /* 提示词框的占位文字（2026-10-17）：按提示词改图时（认编辑、有参考图、不是以图为底重画）提醒写清怎么改——
+     「画完整」这类没说画什么的要求，蒸馏的少步数模型多半原样出图。 */
+  const PROMPT_PLACEHOLDER = '描述你要的画面：主体、场景、风格、光线、构图。写得越具体越像。';
+  const EDIT_PLACEHOLDER = '写清要怎么改这张图，比如「把背景改成浅蓝色」「把两个人补画到腰部」。只写「画完整」这类含糊的要求，多半会原样出图。';
+  const editsByPrompt = (f, cap) => !!cap.refs && !!cap.edit && (f.refs || []).length > 0 && refMode(f, cap) === 'ref';
+  const promptPlaceholder = (f, cap) => (editsByPrompt(f, cap) ? EDIT_PLACEHOLDER : PROMPT_PLACEHOLDER);
   /** 改动幅度：草稿没给就用模型的默认值 */
   const strengthOf = (f, cap) => (cap.img2img ? (f.strength != null ? f.strength : cap.img2img.strength.default) : null);
   /** 这次出几张：以图为底重画按底图分组（一组一张），否则是表单的张数 */
@@ -560,7 +566,7 @@
     engines, engineOf, modelIn, preferred, anyReady,
     resolveSize, checkSize, blank, switchModel, validate, costOf, statusLine, headerChip,
     makeRecord, recordMeta, provenance, toSource, phase, clock, stepProgress, timeLine, demoArt, agentPrompt, toolStatus,
-    addFileRefs, refInfo, usedRefs, refsNote, refMode, refModes, strengthOf, outputCount, artColors, FILE_REFS,
+    addFileRefs, refInfo, usedRefs, refsNote, refMode, refModes, editsByPrompt, promptPlaceholder, strengthOf, outputCount, artColors, FILE_REFS,
   };
   if (typeof module !== 'undefined') module.exports = BC_CLOUD_IMAGE;
   if (typeof window !== 'undefined') Object.assign(window, {BC_CLOUD_IMAGE});

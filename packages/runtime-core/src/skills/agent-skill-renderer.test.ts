@@ -227,6 +227,20 @@ describe('工具桥面的 craft 引用读起来通顺', () => {
   });
 });
 
+describe('command craft links', () => {
+  it.each([
+    ['See {{skill:demo-polish}}.', 'See `demo-polish` (read with `baocut skills read demo-polish`).'],
+    ['读 {{skill:demo-polish}}', 'use `baocut skills read demo-polish`'],
+    ['动手前先读{{skill:shorts-segments}}。', '动手前先 use `baocut skills read shorts-segments`。'],
+    ['1. 读 {{skill:demo-polish}}', '1. use `baocut skills read demo-polish`'],
+  ])('uses English guidance while preserving the runnable command: %s', (source, expected) => {
+    const result = renderAgentSkillText(source, {
+      face: 'cli', file: 'references/workflows.md', craftLinks: 'command',
+    });
+    expect(result).toBe(expected);
+  });
+});
+
 describe('只在会话里有的工具在 CLI 面的兜底写法', () => {
   const cli = (text: string) => renderAgentSkillText(text, { face: 'cli', file: 'references/craft/x.md', catalog: CLI });
   const agent = (text: string) => renderAgentSkillText(text, { face: 'agent', file: 'references/craft/x.md', catalog: AGENT });

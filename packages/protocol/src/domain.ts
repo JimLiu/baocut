@@ -1,7 +1,7 @@
 import type { AgentMode, RiskLevel } from './access.ts';
 import type { TaskContract } from './tasks.ts';
 import type { TemplateMessageRef } from './template.ts';
-import type { SkillMessageRef } from './skill.ts';
+import type { MessageBrandRef, SkillMessageRef } from './skill.ts';
 import type { MessageRef } from './message-ref.ts';
 import type { SlideAnnotation } from './slides.ts';
 import type { DesignAnnotation } from './design.ts';
@@ -229,6 +229,8 @@ export type TimelineItem =
       skills?: SkillMessageRef[];
       /** 旧记录：只能点一个 skill 时写的标记。读的时候与 `skills` 一样对待（`messageSkills`），新消息不再写。 */
       skill?: SkillMessageRef;
+      /** 项目的 `BRAND.md`（架构设计 §3.8「项目品牌」）：这条带了还是被用户摘掉了。会话不属于项目或项目没有 `BRAND.md` 时没有。 */
+      brand?: MessageBrandRef;
       /** 随消息发出的幻灯片标注（docs/design/slides §9），按添加的顺序。批注正文交给了智能体，不在 `text` 里。旧记录没有。 */
       slideAnnotations?: SlideAnnotation[];
       /** 随消息发出的设计稿标注（docs/design/canvas §9），按添加的顺序；与 `slideAnnotations` 同一个写法。旧记录没有。 */

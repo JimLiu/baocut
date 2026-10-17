@@ -261,7 +261,7 @@ export function AgentProviders() {
                     </div>
                   ) : item.link === 'skills' ? (
                     <div className={faqLink}>
-                      <ActionButton isQuiet size="S" onPress={() => go({ tab: 'settings', section: 'skills' })}>
+                      <ActionButton isQuiet size="S" onPress={() => go({ tab: 'skills', view: 'external' })}>
                         {AGENT_COPY.goSkills}
                       </ActionButton>
                     </div>

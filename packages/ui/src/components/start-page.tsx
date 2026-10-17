@@ -325,7 +325,7 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
               onPick: pickRecent,
             },
           }}
-          onSend={async (raw, attachments, skills) => {
+          onSend={async (raw, attachments, skills, { skipProjectBrand }) => {
             // 素材在发出去时写进这条消息（原型 `AgentHero` 的 brief），没填的待填项写成「[label]」（规范 §5.5，homeBrief）；挂着的场景模板与点选的 skill 只传标识，
             // 简报引导、模板正文与 SKILL.md 由 Runtime 拼给智能体（模板包规范 §5.2、产品设计 §6.9），
             // 会话里的消息另带「模板：标题」「Skill：名称」的标记。
@@ -368,6 +368,12 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
                 attachments.map((a) => a.id),
                 sceneRef,
                 skills,
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                { skipProjectBrand },
               );
               editor.reset();
               return true;

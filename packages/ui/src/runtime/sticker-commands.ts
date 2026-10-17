@@ -27,11 +27,11 @@ export function openStickerHandle(session: RuntimeSession, id: string): Promise<
   return pending;
 }
 
-/** 拷进视频：这一笔不经编辑器的命令队列，所以先等队列里的修改都有了结果；不给 `expectedRevision`，由 Runtime 用当前版本。 */
-export async function applySticker(
-  session: RuntimeSession,
-  params: Omit<StickerApplyParams, 'commandId' | 'expectedRevision'>,
-): Promise<StickerApplyResult> {
+/**
+ * 拷进视频：这一笔不经编辑器的命令队列，所以先等队列里的修改都有了结果。带 `operations` 时调用方按自己读到的视频给
+ * `expectedRevision`（先 `settled()` 再读）；不给时由 Runtime 用当前版本。
+ */
+export async function applySticker(session: RuntimeSession, params: Omit<StickerApplyParams, 'commandId'>): Promise<StickerApplyResult> {
   await session.videos.settled();
   return session.client.request('stickers.applyToVideo', { ...params, commandId: newId('cmd') });
 }

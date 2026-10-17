@@ -19,15 +19,19 @@ export function specOf(catalog: CatalogListResult, editOps: CatalogEditOperation
   if (!name) return { interfaceVersion, tools: catalog.tools };
   const tool = findTool(catalog.tools, name);
   if (tool) return { interfaceVersion, tool };
-  const op = /^edits[._ ](.+)$/.exec(name)?.[1];
-  if (op && editOps) {
+  // 操作名可以带 `edits.` 前缀，也可以裸写（`setStyle`）：工具名查不到时按操作名找。
+  const prefixed = /^edits[._ ](.+)$/.exec(name)?.[1];
+  if (editOps) {
+    const op = prefixed ?? name;
     for (const family of editOps.families) {
       const operation = family.operations.find((candidate) => candidate.type === op);
       if (operation) return { interfaceVersion, operation, conventions: editOps.conventions };
     }
-    throw new CliError('INVALID_ARGUMENTS', M.unknownEditOp(op), {
-      operations: editOps.families.flatMap((family) => family.operations.map((operation) => operation.type)),
-    });
+    if (prefixed !== undefined) {
+      throw new CliError('INVALID_ARGUMENTS', M.unknownEditOp(prefixed), {
+        operations: editOps.families.flatMap((family) => family.operations.map((operation) => operation.type)),
+      });
+    }
   }
   throw new CliError('INVALID_ARGUMENTS', M.unknownSpec(name));
 }

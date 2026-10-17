@@ -19,4 +19,6 @@ export const ptBR: RcVideoMessages = {
   sourceRootRemedy: 'No BaoCut, remova primeiro o projeto ou sessão que usa esta pasta e depois exclua este vídeo do projeto pai',
   compositionImportFailed: (p) => `Não foi possível importar o gráfico animado (${p.code})`,
   compositionPreviewFailed: (p) => `Não foi possível visualizar o gráfico animado (${p.code})`,
+  compositionBakeSuperseded: 'O gráfico animado foi alterado ou removido antes de terminar a renderização, então o substituto não foi aplicado',
+  compositionBakeFailed: (p) => `Não foi possível renderizar o gráfico animado (${p.code})`,
 };

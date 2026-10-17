@@ -40,7 +40,7 @@ const en = {
   stickerAssetUnsupported: 'This sticker’s asset can’t be drawn (sticker assets must be images, videos, or Lottie)',
   placeholderAssetUnsupported: 'The asset in this placeholder can’t be drawn (it must be an image or video)',
   templateMissing: 'This template layer isn’t in the sequence’s template',
-  templateLogoImage: 'Image logos referenced by file path can’t be drawn in templates (use a brand kit logo or a text logo)',
+  templateLogoFileMissing: 'The image file used as the template logo isn’t in this video (check that the file is still in the project)',
   templateLogoAssetMissing: 'The brand kit image used as the template logo isn’t in this video (pick the logo again to copy it in)',
   layerUnsupported: 'This clip can’t be drawn',
   captionDocumentMissing: (p: P<'document'>) => `Subtitle document ${p.document} no longer exists`,
@@ -64,6 +64,15 @@ const en = {
   lottieUnreadableDetail: (p: P<'detail'>) => `The Lottie asset can’t be read: ${p.detail}`,
   lottieUnparsable: (p: P<'detail'>) => `The Lottie asset can’t be parsed: ${p.detail}`,
   captionResourceInvalid: (p: P<'detail'>) => `This subtitle style’s resources can’t be loaded: ${p.detail}`,
+  itemNote: (p: P<'item' | 'note'>) => `${p.item}: ${p.note}`,
+  missingFont: (p: P<'family' | 'fallback'>) => `Font "${p.family}" isn’t in the font library; using ${p.fallback} instead`,
+  svgNotUtf8: 'This SVG sticker isn’t UTF-8 text, so its colors can’t be changed; drawing its original colors',
+  speakerNoTranscript: (p: P<'speaker'>) => `This video has no transcript, so it’s unknown when speaker ${p.speaker} talks; the waveform is drawn silent`,
+  speakerNotInSequence: (p: P<'speaker'>) => `The transcript has no speech from speaker ${p.speaker} in this sequence; the waveform is drawn silent`,
+  spectrumMissing: (p: P<'asset'>) => `No spectrum for asset ${p.asset}`,
+  spectrumUnreadable: (p: P<'asset' | 'detail'>) => `The spectrum of asset ${p.asset} can’t be read: ${p.detail}`,
+  gifFirstFrameOnly: (p: P<'detail'>) => `This GIF is too large, so only its first frame is drawn: ${p.detail}`,
+  captionAnimationUnknown: (p: P<'preset'>) => `Subtitle animation preset ${p.preset} isn’t recognized; the subtitles aren’t animated`,
 };
 
 export type FrameRenderMessages = typeof en;

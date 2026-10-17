@@ -93,8 +93,16 @@ pub fn split_boundary_at_char<W: crate::atomize::JoinWord>(
 /// 句末 > 从句标点（破折号低门槛）> 长停顿 > 溢出；同一个词被切开的几段之间
 /// （[`crate::atomize::glued_word_interior`]）不因停顿或溢出断。溢出在下一词以从句/
 /// 句末标点收尾且总宽不超 `maxChars + overflowSlack` 时延长收入标点，
-/// 避免在标点前一格硬切。
-pub(crate) fn auto_break(word: &Word, next: &Word, line_chars: usize, params: &CueParams) -> bool {
+/// 避免在标点前一格硬切；`inside_word`（这道缝在一个中文词里，
+/// [`crate::word_breaks::han_word_interior_gaps`]）时同样在余量内延长到词尾，
+/// 不把「程序」切成「程｜序」。
+pub(crate) fn auto_break(
+    word: &Word,
+    next: &Word,
+    line_chars: usize,
+    params: &CueParams,
+    inside_word: bool,
+) -> bool {
     if crate::atomize::sentence_end(&word.text) {
         return true;
     }
@@ -121,7 +129,8 @@ pub(crate) fn auto_break(word: &Word, next: &Word, line_chars: usize, params: &C
     if projected > params.max_chars {
         let imminent_punct = crate::atomize::clause_end_char(&next.text).is_some()
             || crate::atomize::sentence_end(&next.text);
-        if imminent_punct && projected <= params.max_chars + params.overflow_slack {
+        if (imminent_punct || inside_word) && projected <= params.max_chars + params.overflow_slack
+        {
             return false;
         }
         return true;
@@ -148,6 +157,13 @@ pub fn derive_cues(doc: &TranscriptDoc, params: &CueParams) -> Vec<Cue> {
                 .unwrap_or(false)
         })
         .collect();
+
+    let inside = crate::word_breaks::han_word_interior_gaps(
+        &visible
+            .iter()
+            .map(|&index| doc.words[index].text.as_str())
+            .collect::<Vec<_>>(),
+    );
 
     let flush = |cues: &mut Vec<Cue>, current: &mut Vec<usize>| {
         if current.is_empty() {
@@ -192,7 +208,7 @@ pub fn derive_cues(doc: &TranscriptDoc, params: &CueParams) -> Vec<Cue> {
             match pins.get(&word.id).copied() {
                 Some(BreakOverride::Break) => true,
                 Some(BreakOverride::Nobreak) => false,
-                None => auto_break(word, next, current_chars, params),
+                None => auto_break(word, next, current_chars, params, inside[position]),
             }
         };
         if break_now {
@@ -387,7 +403,8 @@ mod tests {
             &paused[19],
             &paused[20],
             42,
-            &CueParams::default()
+            &CueParams::default(),
+            false
         ));
         // 不贴前的西文词之间照常是词界。
         paused[20].glue = false;
@@ -395,8 +412,58 @@ mod tests {
             &paused[19],
             &paused[20],
             42,
-            &CueParams::default()
+            &CueParams::default(),
+            false
         ));
+    }
+
+    /// 一个字一个词的中文转写（识别器常这样给）。
+    fn single_char_words(text: &str) -> Vec<Word> {
+        text.chars()
+            .enumerate()
+            .map(|(index, c)| Word {
+                id: format!("w{index}"),
+                t0: index as f64 * 0.2,
+                t1: index as f64 * 0.2 + 0.2,
+                text: c.to_string(),
+                sp: String::new(),
+                glue: false,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn overflow_moves_to_the_end_of_a_chinese_word() {
+        // 两轮讲解片里切坏的「修程｜序崩溃」「代｜码审查」：溢出落在词里时延长到词尾。
+        for (text, expected) in [
+            (
+                "我们今天来讲一讲这个很有名的模型就是它修程序崩溃的问题",
+                ["我们今天来讲一讲这个很有名的模型就是它修程序", "崩溃的问题"],
+            ),
+            (
+                "我们今天来讲一讲这个很有名的模型就是它的代码审查流程",
+                ["我们今天来讲一讲这个很有名的模型就是它的代码", "审查流程"],
+            ),
+        ] {
+            let mut doc = doc_from_rows(&[]);
+            doc.words = single_char_words(text);
+            let texts: Vec<String> = derive_cues(&doc, &CueParams::default())
+                .iter()
+                .map(|cue| cue.text(&doc))
+                .collect();
+            assert_eq!(texts, expected);
+        }
+        // 词比余量还长时照样按宽度断。
+        let tight = CueParams {
+            overflow_slack: 0,
+            ..CueParams::default()
+        };
+        let mut doc = doc_from_rows(&[]);
+        doc.words = single_char_words("我们今天来讲一讲这个很有名的模型就是它修程序崩溃的问题");
+        assert_eq!(
+            derive_cues(&doc, &tight)[0].text(&doc),
+            "我们今天来讲一讲这个很有名的模型就是它修程"
+        );
     }
 
     #[test]

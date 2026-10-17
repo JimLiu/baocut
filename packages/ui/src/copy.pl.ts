@@ -437,7 +437,7 @@ export const pl: CopyMessages = {
     modelsMove: "Przenieś folder modeli",
     toolInstall: "Zainstaluj narzędzie",
     toolUpdate: "Zaktualizuj narzędzie",
-    fontDownload: "Pobierz czcionkę",
+    fontDownload: "Pobierz czcionkę", bake: 'Wyrenderuj grafikę animowaną',
     voiceClone: "Sklonuj głos",
     agentTranslate: "Przetłumacz",
     legacyImport: "Zaimportuj wcześniejsze projekty",
@@ -844,7 +844,7 @@ export const pl: CopyMessages = {
     unavailableTitle: (name: string) => `${name} jest jeszcze niedostępne`,
     notRunning: "Usługa nie działa. Najpierw ją uruchom",
     mcpRelated: "Chcesz nauczyć Claude Code lub Codex w terminalu sposobów pracy BaoCut? Zainstaluj dla nich Skill BaoCut – usługa nie jest potrzebna. Zobacz",
-    mcpRelatedLink: "Ustawienia › Skills",
+    mcpRelatedLink: "Skills",
   },
   /** BaoCut Runtime 卡（原服务页的一张卡，现在给设置 › 诊断复用）。 */
   runtimeCard: {

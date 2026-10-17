@@ -96,6 +96,24 @@ description: 文稿与字幕的机制：转录、按已有正文（歌词、讲�
 
 同一份文档每调用一次就多建一层，不覆盖：调用前先 {{tool:videos_inspect}} 看是不是已经建过；用户要重做时先说明会多一层，问清是否删掉旧的。
 
+**位置与样式**：建层时给 {{arg:style}}，只写要改的键，键就是字幕样式文档里的键，编辑器的字幕属性页读写的也是它们：
+
+| 键 | 含义 | 缺省 |
+| --- | --- | --- |
+| `y` | 锚线高度，画面高度的百分比（0 顶、100 底） | 86 |
+| `verticalAlign` | 字幕块哪条边落在 `y` 上：`top`、`center`、`bottom`；折成多行时往另一边长 | `center` |
+| `x`、`width` | 块中心、最大行宽，画面宽度的百分比；烧进画面时超过 `width` 就折行 | 50、80 |
+| `fontSize` | 字号，按 540 短边下的像素（1080 宽的画面乘 2） | 30 |
+| `fontColor`、`fontWeight`、`fontFamily` | 字色、字重、字体族 | 白、700、system |
+| `textOutline`、`dropShadow` | `{"on": false}` 关掉描边、投影；描边还可给 `color`、`width` | 都开着 |
+| `background`、`backgroundColor` | 底板开关与颜色 | 关、`#000000B3` |
+
+不给 {{arg:style}} 时块的中线在画面高度 86% 处；竖版（9:16）这里落在平台的标题与按钮区，要往上挪：底边放在 78%（1080×1920 上约 y 1500，两行时顶边约 y 1360）写 `{"y": 78, "verticalAlign": "bottom"}`。建好后再改用 {{tool:edits_apply}} 的 `setCaptionStyle`：`itemId` 给字幕实例，`style` 同样的键，合进这层的样式文档；共用这份样式的字幕层（双语的原文与译文）一起变。换成视频里另一份样式给 `styleDocumentId`；品牌库的字幕样式先照 {{tool:library_show}} 的正文 `putDocument` 一份（kind `caption-style`），再用 `styleDocument: {"ref": …}` 挂上。
+
+<!-- surface: cli -->
+`--style` 写 JSON，例如 `--style '{"y":78,"verticalAlign":"bottom","background":true}'`。
+<!-- /surface -->
+
 ### 用配置好的文本模型翻译（只在用户明确要求时）
 
 {{tool:translate}}：{{arg:video}} + {{arg:to}} 写成新译文并建字幕层；或 {{arg:file}}（SRT / VTT）+ {{arg:to}} 译成新文件，不碰视频。可选 {{arg:style}}、{{arg:glossary}}、{{arg:bilingual}}。没有配置文本模型时它以 `CAPABILITY_NOT_CONFIGURED` 拒绝：照 `next` 改走上面的自译路径，不请用户去配置。
@@ -112,7 +130,7 @@ description: 文稿与字幕的机制：转录、按已有正文（歌词、讲�
 
 - {{tool:transcribe}} 完成：`pipeline.summary.documentId` 是新转写，`summary.captions` 是字幕层，新建视频时 `summary.videoId` 是视频。给 url 时找不到 documentId 就 {{tool:videos_inspect}} 找来源素材是这段素材的 speech 文档；给 url 时另有 `summary.description`（截断的简介）与 `summary.sourceChapters`（作者章节的条数），大于 0 时分章用 {{tool:chapters_adopt}}（见 [editing](editing.md)）。
 - {{tool:documents_put}}：与修改相同的回执（新版本 `revision`、`transactionId`），另有文档的 `documentId`；`filledAlignments` 是 Runtime 补了几句对齐，`syncedCaptions` 是改已有译文时跟着换了字幕条的字幕文档数。正文与原来相同时不产生新版本。
-- {{tool:captions_create}}：`documentId`（字幕文档）、`trackId`、`itemIds`、`cueCount`（字幕条数）、`enabled`；双语另有 `pairedOriginal`（`created` 为 true 是这次顺带建的原文层）。`existing` 不为空说明这份文档原本已有字幕层。
+- {{tool:captions_create}}：`documentId`（字幕文档）、`trackId`、`itemIds`、`styleDocumentId`（这层的样式文档，按默认样式画时 null）、`cueCount`（字幕条数）、`enabled`；双语另有 `pairedOriginal`（`created` 为 true 是这次顺带建的原文层）。`existing` 不为空说明这份文档原本已有字幕层；有 `styleNote` 时 {{arg:style}} 改的是与原文共用的那份样式。
 
 ## 常见错误码
 
@@ -138,4 +156,4 @@ description: 文稿与字幕的机制：转录、按已有正文（歌词、讲�
 - 润色在翻译之前，翻译用的是润色之后重新读到的句子。
 - 多位说话人时，证据够的都实名了；留着占位名的在报告里说明。
 - 译文句数等于转写句数；术语与专名全文一致。
-- 字幕层的条数（`cueCount`）报告给用户；字幕在画面上的位置要在编辑器或导出的成片里看，帧里看不到。
+- 字幕层的条数（`cueCount`）报告给用户；竖版的字幕用 {{arg:style}} 挪出了平台控件区。字幕在画面上的位置要在编辑器或导出的成片里看，{{tool:videos_frames}} 的帧里看不到。

@@ -14,6 +14,9 @@ const builtin: SkillSummary = {
   removable: false,
   path: '/app/skills/caption-layout',
   source: null,
+  title: null,
+  bytes: 0,
+  revision: null,
   fileCount: 2,
   updatedAt: '2026-10-01T00:00:00.000Z',
 };

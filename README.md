@@ -28,6 +28,8 @@ BaoCut is available for macOS and Windows. The links below always download the l
 
 On macOS, open the DMG and drag BaoCut into Applications. On Windows, install the [Microsoft Visual C++ v14 x64 Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist/) first, then run the installer or extract the ZIP. Windows packages are unsigned; GPU variants need compatible graphics drivers. Checksums and verification details are on each release's GitHub page. The app checks GitHub Releases for updates through its platform-specific update feed.
 
+External agents use the [desktop CLI entrypoint](apps/desktop/README.md#外部-agent-与-cli); see that guide for absolute paths, `BAOCUT_CLI`, and older packages that lack it.
+
 Agent features require a signed-in agent engine such as Codex CLI or Claude Code. Media analysis, transcription preparation and export also require `ffmpeg` and `ffprobe`; these external tools are not bundled.
 
 Local models download from Hugging Face by default. If it is unreachable or slow, set the download source to ModelScope (Download and storage at the bottom of a model page's local models, or Settings › General › Model download source) to download from ModelScope instead (the few model files ModelScope lacks still come from Hugging Face; every file is checked against its built-in checksum), or choose Custom and enter a mirror's base URL.

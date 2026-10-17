@@ -35,6 +35,7 @@ import {
   type StageEnv,
 } from '../../model/stage-gesture.ts';
 import { hitAt, isMainVideo, marqueeHits, marqueeSelection, visibleItems } from '../../model/stage-hit.ts';
+import { stageLayers } from '../../render/frame-plan.ts';
 import {
   DEAD_ZONE,
   aabbOf,
@@ -173,7 +174,7 @@ function useVisibleItems(engine: PreviewEngine): Id[] {
   useEffect(
     () =>
       engine.onPlan((plan) => {
-        const next = visibleItems(plan.layers);
+        const next = visibleItems(stageLayers(plan));
         setIds((prev) => (prev.length === next.length && prev.every((id, i) => id === next[i]) ? prev : next));
       }),
     [engine],
@@ -270,7 +271,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     if (!editing) return;
     hidden.current = editing;
     const stop = engine.onPlan((plan) => {
-      if (hidden.current !== editing || !plan.layers.some((layer) => layer.itemId === editing)) return;
+      if (hidden.current !== editing || !stageLayers(plan).some((layer) => layer.itemId === editing)) return;
       queueMicrotask(() => {
         const seq = latest.current;
         if (hidden.current === editing && seq.items.some((item) => item.id === editing))
@@ -300,7 +301,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     const selected = new Set(useEditor.getState().selection);
     // 按原片取景的框是整幅原片、伸到画面外面：画面里那一截按图层点中，外面那一截按下去是点空白。
     const boxes = new Map(picked.filter((item) => !isFramed(item)).map((item) => [item.id, poseFor(item)]));
-    return hitAt(engine.plan?.layers ?? [], p, {
+    return hitAt(stageLayers(engine.plan), p, {
       captionHits: engine.captionHits,
       skip: (id) => isMain(id) && !selected.has(id),
       boxes,
@@ -481,7 +482,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     const additive = event.shiftKey || event.metaKey || event.ctrlKey;
     const hit = hitTest(p);
     // 没选中的主视频不挡点选；按在它上面、不动就松手，才选中它（原型：主视频只能点选）。
-    const under = hit ?? hitAt(engine.plan?.layers ?? [], p, { captionHits: engine.captionHits });
+    const under = hit ?? hitAt(stageLayers(engine.plan), p, { captionHits: engine.captionHits });
 
     if (playing) {
       // 原型 stage.jsx：播放中按下画面只暂停，这一下的点击吞掉，不改选中、不起手势。

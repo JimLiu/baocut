@@ -88,6 +88,7 @@ import type {
   TextCapabilityParameters,
 } from './models.ts';
 import type { StickerApplyParams, StickerApplyResult } from './sticker-packs.ts';
+import type { PetApplyParams, PetApplyResult, PetHandleParams } from './pets.ts';
 import type {
   LibraryApplyParams,
   LibraryApplyResult,
@@ -112,7 +113,21 @@ import type {
   CompositionPreviewResult,
 } from './code-bundle.ts';
 import type { TemplateDetail, TemplateListResult, TemplateSendRef } from './template.ts';
-import type { SkillChangeResult, SkillDetail, SkillFileContent, SkillListResult, SkillRemoveResult, SkillSendRef } from './skill.ts';
+import type {
+  ProjectBrandDetail,
+  ProjectBrandSummary,
+  SkillChangeResult,
+  SkillDetail,
+  SkillFileChange,
+  SkillFileContent,
+  SkillInstallResult,
+  SkillListResult,
+  SkillPackageInspection,
+  SkillPackagePick,
+  SkillRemoveResult,
+  SkillSendRef,
+  SkillVersionsResult,
+} from './skill.ts';
 import type {
   SpaceContinueResult,
   SpaceListParams,
@@ -430,6 +445,8 @@ export interface RpcMethods {
       template?: TemplateSendRef;
       skill?: SkillSendRef;
       skills?: SkillSendRef[];
+      /** 只这一条不带项目的 `BRAND.md`（架构设计 §3.8「项目品牌」）。 */
+      skipProjectBrand?: boolean;
       slideAnnotations?: SlideAnnotation[];
       designAnnotations?: DesignAnnotation[];
       designSystemAnnotations?: DesignSystemAnnotation[];
@@ -634,6 +651,11 @@ export interface RpcMethods {
   'media.peaks': { params: AssetTarget; result: MediaPeaks };
   /** 视频素材在源时间 `at`（秒）的一帧，缩成小 JPEG（时间线的胶片条）。时间按 0.1 秒取整后缓存。 */
   'media.thumbnail': { params: AssetTarget & { at: number }; result: MediaThumbnail };
+  /**
+   * 已导入的代码包素材（目录素材）的受限读取地址（架构设计 §4.5；动效视频设计 §4.1）：编辑器的实时合成层把入口页面装进沙箱
+   * `<iframe>`，包内文件按相对路径从同一个前缀取。只给 `bundle` 清单在的目录素材；入口页面在给出时注入取帧脚本与桥。
+   */
+  'media.bundle': { params: AssetTarget; result: BundleHandle };
   /**
    * 本机字体（架构设计 §9.1）：按「族名、字重、斜体」在本机字体里挑一个 face（与排版引擎同一套匹配），给出它所在文件的
    * 受限读取句柄（同 `media.resolve`）与把它抽成单独字体的做法：编辑器预览按区间只取这一个 face 的表，拼好注入渲染器
@@ -1113,17 +1135,35 @@ export interface RpcMethods {
   'stickers.applyToVideo': { params: StickerApplyParams; result: StickerApplyResult };
 
   /**
+   * Codex Pets（`pets.ts` 的目录）的短期读取句柄，同 `artifacts.openHandle`：元素面板画格子用。图集与缩略图从上游取进本机
+   * 缓存，之后离线也能用。目录里没有的 pet 是 `not-found`（`PET_NOT_FOUND`）；取不下来是 `internal`（`ONLINE_ASSET_UNAVAILABLE`）。
+   */
+  'pets.openHandle': { params: PetHandleParams; result: MediaHandle };
+  /**
+   * 把一只 pet 贴进视频：图集待机那一行编成循环 APNG，再以一笔普通的编辑事务拷进视频（`importAsset`，`managed`），
+   * 来源记 `origin: 'codex-pet'`、`source.codexPet`（视频格式规范 §4.5）。图集解不开或尺寸不对时 `invalid-request`（`PET_SHEET_INVALID`）。
+   */
+  'pets.applyToVideo': { params: PetApplyParams; result: PetApplyResult };
+
+  /**
    * Agent 的 skill 目录（架构设计 §3.8）：内置目录与 `<Runtime Home>/skills/` 里的全部可用 skill、各自的开关，以及跳过的目录与原因。
    * 每次调用都重新读目录。顺序不是合同。
    */
   'skills.list': { params: Record<string, never>; result: SkillListResult };
   /** 一个 skill 的摘要、`SKILL.md` 全文与文件清单。没有这个 skill（或它没能加载）时 `not-found`（`SKILL_NOT_FOUND`）。 */
-  'skills.get': { params: { id: string }; result: SkillDetail };
+  'skills.get': { params: { id: string; revision?: number }; result: SkillDetail };
   /**
    * 读 skill 目录里的一个文本文件。`path` 必须是 `skills.get` 文件清单里的路径，否则 `not-found`（`SKILL_FILE_NOT_FOUND`）；
    * 超过 `SKILL_LIMITS.readFileBytes` 时 `invalid-request`（`SKILL_FILE_TOO_LARGE`），不是 UTF-8 文本时 `invalid-request`（`SKILL_FILE_NOT_TEXT`）。
    */
-  'skills.readFile': { params: { id: string; path: string }; result: SkillFileContent };
+  'skills.readFile': { params: { id: string; path: string; revision?: number }; result: SkillFileContent };
+  /**
+   * skill 目录里任一文件（含图片、音频等二进制）的短期读取句柄，同 `templates.openHandle`：详情页画素材、播放音频用。
+   * 不在文件清单里 `not-found`（`SKILL_FILE_NOT_FOUND`）；`revision` 不在保留的版本里 `not-found`（`SKILL_VERSION_NOT_FOUND`）。
+   */
+  'skills.openHandle': { params: { id: string; path: string; revision?: number }; result: MediaHandle };
+  /** 保留的版本，新的在前（架构设计 §3.8「版本」）。内置 skill 为空清单。 */
+  'skills.versions': { params: { id: string }; result: SkillVersionsResult };
   /**
    * 开关一个 skill（内置的也可以）。只存与来源默认值不同的差量。对已经在运行的原生会话不生效：会话开始时的 skill 索引是那时的开关，
    * 之后新开的原生会话才按新的开关（架构设计 §3.8）。
@@ -1150,6 +1190,50 @@ export interface RpcMethods {
    * （`SKILL_BUILTIN_NOT_REMOVABLE`），只能关。Web 会话不开放。
    */
   'skills.remove': { params: { id: string }; result: SkillRemoveResult };
+  /**
+   * 认一个上传包（zip 文件或文件夹，架构设计 §3.8「上传包」）：列出候选、略过的条目与同名冲突，不写任何东西。读不了时
+   * `invalid-request`（`SKILL_PACKAGE_INVALID`），一个 `SKILL.md` 都没有时 `invalid-request`（`SKILL_INVALID`）。Web 会话不开放。
+   */
+  'skills.inspectPackage': { params: { path: string }; result: SkillPackageInspection };
+  /**
+   * 按选择安装上传包里的候选：`new` 新装（同名 `SKILL_EXISTS`）、`update` 给同名的个人 skill 存一个新版本（不是个人的
+   * `SKILL_NOT_EDITABLE`）、`copy` 另存为副本（`conflict.copyId`）。有 `issue` 的候选 `SKILL_PACKAGE_INVALID`。Web 会话不开放。
+   */
+  'skills.installPackage': { params: { path: string; picks: SkillPackagePick[]; commandId?: Id }; result: SkillInstallResult };
+  /** 新建一个空白的个人 skill：`body` 是界面按语言给的正文模板，front matter 由 Runtime 写。id 由 `name` 规范化，占用时加 `-2`…。 */
+  'skills.create': {
+    params: { name: string; title?: string; description: string; body: string; commandId?: Id };
+    result: SkillChangeResult;
+  };
+  /** 把一个 skill（内置的也可以）复制成个人 skill，从第 1 版起；id 是 `<id>-2` 起第一个空的。 */
+  'skills.duplicate': { params: { id: string; title?: string; commandId?: Id }; result: SkillChangeResult };
+  /**
+   * 改个人 skill 的文件并存成一个新版本。`baseRevision` 不是当前版本时 `conflict`（`SKILL_REVISION_CONFLICT`）；不是个人的
+   * `SKILL_NOT_EDITABLE`；删 `SKILL.md`、改完不合规时 `SKILL_INVALID`；超过上限 `SKILL_TOO_LARGE`。Web 会话不开放。
+   */
+  'skills.write': {
+    params: { id: string; baseRevision: number; changes: SkillFileChange[]; note?: string; commandId?: Id };
+    result: SkillChangeResult;
+  };
+  /** 把一个旧版本存成新版本，不改写历史。Web 会话不开放。 */
+  'skills.restore': { params: { id: string; revision: number; commandId?: Id }; result: SkillChangeResult };
+  /** 把当前版本打成 zip 写到 `path`（不含点开头的条目与版本记录）。Web 会话不开放。 */
+  'skills.export': { params: { id: string; path: string }; result: { path: string } };
+
+  /**
+   * 项目根目录的 `BRAND.md`（架构设计 §3.8「项目品牌」）：有它的未归档项目。每次调用都重新读磁盘。
+   */
+  'brands.list': { params: Record<string, never>; result: { brands: ProjectBrandSummary[] } };
+  /** 一个项目的 `BRAND.md` 全文与 `brand/` 的文件清单；没有时 `brand` 与 `content` 为 null。没有这个项目时 `PROJECT_NOT_FOUND`。 */
+  'brands.get': { params: { projectId: Id }; result: ProjectBrandDetail };
+  /** 读 `BRAND.md` 或 `brand/` 里的一个文本文件；其余路径 `not-found`（`BRAND_NOT_FOUND`）。 */
+  'brands.readFile': { params: { projectId: Id; path: string }; result: SkillFileContent };
+  /** `BRAND.md` 或 `brand/` 里任一文件的短期读取句柄。 */
+  'brands.openHandle': { params: { projectId: Id; path: string }; result: MediaHandle };
+  /** 写 `BRAND.md` 与 `brand/`：没有 `BRAND.md` 时由这次建出来，写完必须有。Web 会话不开放。 */
+  'brands.write': { params: { projectId: Id; changes: SkillFileChange[]; commandId?: Id }; result: { brand: ProjectBrandSummary } };
+  /** 从一个 skill 生成 `BRAND.md`（正文去掉 front matter，素材进 `brand/`，脚本不带）。已有时 `conflict`（`BRAND_EXISTS`）。Web 会话不开放。 */
+  'brands.createFromSkill': { params: { projectId: Id; skillId: string; commandId?: Id }; result: { brand: ProjectBrandSummary } };
 
   /**
    * 共享这台电脑的模型能力（节点协议规范 §10）：开启节点服务并生成一个配对码。已经开着时按新参数重启监听。
@@ -1397,6 +1481,16 @@ export interface FontsResolveResult {
  */
 export type MediaPeaks =
   { status: 'ready'; binsPerSecond: number; peaks: string } | { status: 'pending'; retryAfterMs: number } | { status: 'no-audio' };
+
+/**
+ * 代码包目录的受限读取地址：`url` 是目录的前缀（以 `/` 结尾），包内文件接在后面；`entry` 是入口页面在包内的相对路径。
+ * 与文件句柄一样不可猜、有期限、每次使用顺延；地址本身就是凭证（Web 上沙箱 iframe 里的请求带不上会话 cookie）。
+ */
+export interface BundleHandle {
+  url: string;
+  entry: string;
+  expiresAt: string;
+}
 
 export interface MediaThumbnail {
   mimeType: 'image/jpeg';

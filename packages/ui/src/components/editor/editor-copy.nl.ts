@@ -44,6 +44,9 @@ export const nl: EditorMessages = {
   emptyOr: "of voeg die toe vanuit het mediapaneel rechts",
   problemsCount: (n: number) => `${n} ${pluralForm('nl', n, { one: "item", other: "items" })} kan niet worden getekend`,
   problemsTitle: "Sommige inhoud in dit frame kan niet worden getekend",
+  livePreview: 'Livevoorbeeld',
+  livePreviewTitle: 'Livevoorbeeld; bak vóór het exporteren',
+  livePreviewDetail: 'De codecompositie onderin dit frame wordt live in de editor getekend en kan afwijken van de export. De export gebruikt alleen de gebakken stand-in: bak die vóór het exporteren.',
   rendererFailed: (message: string) => `De voorbeeldrenderer is niet geladen: ${message}`,
   spectrumTooLarge: (itemId: string, assetId: string, mb: number) =>
     `Golfvorm ${itemId}: media ${assetId} zijn groter dan ${mb} MB, dus het voorbeeld analyseert het geluid niet; export wordt niet beïnvloed`,

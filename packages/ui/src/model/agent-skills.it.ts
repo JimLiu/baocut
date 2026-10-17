@@ -4,7 +4,7 @@ import { pluralForm } from '@baocut/protocol';
 export const it: AgentSkillsMessages = {
   origin: { builtin: 'Integrata', personal: 'Mia', 'third-party': 'Di terze parti' }, all: 'Tutte', commit: (sha: string) => ` (${sha})`, fullName: (raw: string, label: string) => `${raw} (${label})`,
   bytes: (n: number) => `${n} byte`,
-  action: { load: 'caricare le skill', toggle: 'cambiare l’interruttore', add: 'aggiungerla', import: 'importarla', remove: 'rimuoverla', read: 'aprire il file', send: 'inviare' },
+  action: { load: 'caricare le skill', toggle: 'cambiare l’interruttore', add: 'aggiungerla', import: 'importarla', remove: 'rimuoverla', read: 'aprire il file', send: 'inviare', upload: 'caricarla', create: 'crearla', duplicate: 'duplicarla', save: 'salvarla', restore: 'ripristinare questa versione', export: 'scaricarla', brand: 'salvare BRAND.md', },
   exists: (id: string | null) => `Esiste già una skill chiamata «${id ?? 'questa'}» e non verrà sovrascritta. Rimuovi prima quella vecchia o rinomina la cartella e aggiungila di nuovo.`,
   invalid: (issue: string) => `Questa skill non è utilizzabile: ${issue}. La cartella radice richiede un SKILL.md che inizi con name e description.`,
   tooLarge: (files: number, total: string, skillFile: string) => `Questa skill è troppo grande: una skill può avere al massimo ${files} file per un totale di ${total} e SKILL.md stesso può essere al massimo ${skillFile}.`,
@@ -18,5 +18,7 @@ export const it: AgentSkillsMessages = {
   notFound: 'Questa skill non esiste più; potrebbe essere stata appena rimossa.', fileNotFound: 'Questo file non esiste più.',
   fileTooLarge: 'Questo file è troppo grande per essere mostrato qui. Puoi aprirlo nella sua cartella.', fileNotText: 'Questo non è un file di testo, quindi non viene mostrato qui.',
   webNotAllowed: 'Non è possibile farlo nel browser. Usa invece l’app desktop BaoCut.', webReadOnly: 'Questa sessione del browser è di sola lettura, quindi non puoi modificare nulla.',
+  revisionConflict: 'Questa skill è stata modificata altrove dopo che hai iniziato a modificarla. Copia le tue modifiche, ricarica e modificala di nuovo.',
+  notEditable: 'Qui puoi modificare solo le tue skill. Duplicala per avere una copia che puoi cambiare.',
   failed: (action: string, raw: string) => `Impossibile ${action}: ${raw}`, sendFailed: (raw: string) => `Impossibile inviare: ${raw}`,
 };

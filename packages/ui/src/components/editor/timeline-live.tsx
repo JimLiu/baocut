@@ -15,6 +15,7 @@ import {
   placeTranscript,
   transcribedBefore,
   transcriptRows,
+  type TranscriptLane,
   type TranscriptRowSource,
 } from '../../model/live-transcript.ts';
 import { projectableItems } from '../../model/speech-cues.ts';
@@ -230,21 +231,23 @@ export function LiveCaptionRow({
   );
 }
 
+
 /**
  * 时间线上要画只读文稿行的素材（`transcriptRows`）：一条字幕轨都没有、素材转录过。正画着临时转录行（`liveRows`）的素材不算，
  * 免得转写落地、字幕层还没建好时同一段话画两行。
  */
-export function useTranscriptRows(sequence: Sequence, documents: Record<Id, DocumentRecord>, liveRows: readonly Id[]): TranscriptRowSource[] {
+export function useTranscriptRows(sequence: Sequence, documents: Record<Id, DocumentRecord>, liveRows: readonly Id[]): TranscriptLane[] {
   const live = useJobs((s) => liveRows.map((jobId) => s.jobs.find((j) => j.jobId === jobId)?.assetId ?? '').join(' '));
   return useMemo(() => transcriptRows(sequence, documents, new Set(live.split(' ').filter(Boolean))), [sequence, documents, live]);
 }
 
 /**
  * 只读的「文稿」行（原型 timeline-rows.jsx `TranscriptRow`）：视频转录过、却还没有字幕轨时，文稿一句一块落在字幕行的位置上，
- * 看得见哪里在说话。它不是轨：行头只有图标与名字，没有开关；块不可选中、不可裁，点一句只把播放头落到句首。
+ * 看得见哪里在说话。一行对应一条轨：轨上转录过的素材都画在这一行里（`transcriptRows`）。它不是轨：行头只有图标与名字，
+ * 没有开关；块不可选中、不可裁，点一句只把播放头落到句首。
  */
 export function TranscriptRow({
-  source,
+  lane,
   sequence,
   height,
   rowClass,
@@ -255,7 +258,7 @@ export function TranscriptRow({
   view,
   onSeek,
 }: {
-  source: TranscriptRowSource;
+  lane: TranscriptLane;
   sequence: Sequence;
   height: number;
   rowClass: string;
@@ -268,8 +271,6 @@ export function TranscriptRow({
   view: { left: number; right: number };
   onSeek(seconds: number): void;
 }) {
-  const body = useDocumentBody(source.speech);
-  const placed = useMemo(() => placeTranscript(sequence, source.assetId, body), [sequence, source.assetId, body]);
   // 不让空白处的框选从这一行起手：这一行没有可选的东西。
   const hold = (event: ReactPointerEvent) => event.stopPropagation();
   return (
@@ -281,23 +282,48 @@ export function TranscriptRow({
         </span>
       </div>
       <div className={laneClass} style={{ width: laneWidth }} onPointerDown={hold}>
-        {placed.map((p) => {
-          const x0 = xOf(p.start);
-          const x1 = xOf(p.end);
-          if (x1 < view.left || x0 > view.right) return null;
-          const width = Math.max(2, x1 - x0 - GAP_PX);
-          return (
-            <span
-              key={p.key}
-              className={transcriptCue}
-              style={{ left: x0, width }}
-              title={`${p.text} · ${C.transcriptRowTip}`}
-              onClick={() => onSeek(p.start)}>
-              {width >= LABEL_MIN_PX ? <span className={cueText}>{p.text}</span> : null}
-            </span>
-          );
-        })}
+        {lane.sources.map((source) => (
+          <TranscriptCues key={source.assetId} source={source} sequence={sequence} xOf={xOf} view={view} onSeek={onSeek} />
+        ))}
       </div>
     </div>
+  );
+}
+
+/** 文稿行里一个素材的句子块：转写正文按字幕的断句切句，经取用这个素材的实例投到序列上。 */
+function TranscriptCues({
+  source,
+  sequence,
+  xOf,
+  view,
+  onSeek,
+}: {
+  source: TranscriptRowSource;
+  sequence: Sequence;
+  xOf(seconds: number): number;
+  view: { left: number; right: number };
+  onSeek(seconds: number): void;
+}) {
+  const body = useDocumentBody(source.speech);
+  const placed = useMemo(() => placeTranscript(sequence, source.assetId, body), [sequence, source.assetId, body]);
+  return (
+    <>
+      {placed.map((p) => {
+        const x0 = xOf(p.start);
+        const x1 = xOf(p.end);
+        if (x1 < view.left || x0 > view.right) return null;
+        const width = Math.max(2, x1 - x0 - GAP_PX);
+        return (
+          <span
+            key={p.key}
+            className={transcriptCue}
+            style={{ left: x0, width }}
+            title={`${p.text} · ${C.transcriptRowTip}`}
+            onClick={() => onSeek(p.start)}>
+            {width >= LABEL_MIN_PX ? <span className={cueText}>{p.text}</span> : null}
+          </span>
+        );
+      })}
+    </>
   );
 }

@@ -509,9 +509,20 @@ describe.skipIf(!engine || !ffmpeg)('对外服务：范围、等级与审批（�
     expect(missing.body.error.next).toContain('project');
     expect((await call(url, token, 'videos_create', { name: '新片', project: 'prj_nope' })).body.error.code).toBe('PROJECT_NOT_FOUND');
 
+    const announced: unknown[] = [];
+    const stop = client.subscribeSpace({
+      snapshot: () => {},
+      event: (event) => {
+        if (event.type === 'video.created') announced.push(event.video);
+      },
+    });
     const created = await call(url, token, 'videos_create', { name: '新片', project: project.id });
     expect(created.isError).toBe(false);
     const videoId = created.body.videoId as Id;
+    // 桌面经 Space 主题收到通知，在功能区打开它（产品设计 §3.3）。
+    await until(() => announced.length > 0);
+    stop();
+    expect(announced).toEqual([{ videoId, videoName: '新片', target: { projectId: project.id, path: created.body.video }, by: 'mcp' }]);
     expect(runtime.videos.ref(videoId)?.source.projectId).toBe(project.id);
     expect((await call(url, token, 'videos_list', {})).body.videos.map((v: Loose) => v.videoId).sort()).toEqual(
       [a.videoId, videoId].sort(),

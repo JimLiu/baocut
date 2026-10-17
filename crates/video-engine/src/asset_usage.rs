@@ -3,7 +3,7 @@
 //! 一个素材「有引用」，是指下面任何一处还指向它（与 `check_references` 核对的同一张图，再加文档的来源）：
 //! - 任何序列上的实例：内容本身的 `assetRef` 与合成的预渲染替身 `prerender`（[`TimelineItem::asset_refs`]）；
 //! - 章节（标记）的缩略图；
-//! - 序列模板层里品牌库台标用的图片（视频格式规范 §3.17，按来源认出拷进来的那一份，`render_graph::brand_logo_asset`）；
+//! - 序列模板层里台标用的图片（视频格式规范 §3.17，按来源认出拷进来或登记的那一份，`render_graph::template_logo_asset`）；
 //! - 文档的来源素材 `sourceAssetId`：转写、剪口集合、剪辑提案描述的录音。
 //!
 //! 没有引用的素材可以删掉记录（`removeAssets`）。代码包与它烘焙出的预渲染替身成对处理：替身的来源记录
@@ -53,11 +53,8 @@ pub fn asset_users(state: &VideoState) -> BTreeMap<Id, BTreeSet<Id>> {
             continue;
         };
         for layer in &template.layers {
-            if let timeline::template::LayerKind::Logo {
-                src: timeline::template::LogoSrc::BrandLogo { brand_logo },
-                ..
-            } = &layer.kind
-                && let Some(asset) = render_graph::brand_logo_asset(&state.assets, brand_logo)
+            if let timeline::template::LayerKind::Logo { src, .. } = &layer.kind
+                && let Some(asset) = render_graph::template_logo_asset(&state.assets, src)
             {
                 users.entry(asset.id).or_default().insert(sequence_id.clone());
             }

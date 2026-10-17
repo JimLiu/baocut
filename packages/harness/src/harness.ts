@@ -74,6 +74,7 @@ import {
   type TasksSnapshot,
   type TemplateMessageRef,
   type SkillMessageRef,
+  type MessageBrandRef,
   type TimelineItem,
   type Localized,
   type Topic,
@@ -1178,6 +1179,12 @@ export class Harness {
      * `SKILL.md` 正文与同目录文件）只附在交给智能体的文字后面，排在模板段之后。
      */
     skills?: { refs: SkillMessageRef[]; instructions: string };
+    /**
+     * 项目的 `BRAND.md`（架构设计 §3.8「项目品牌」），由 Runtime 读好：`ref` 记在用户消息上；`instructions` 只附在交给智能体的
+     * 文字后面，排在模板段之后、skill 段之前。用户摘掉时只有 `ref`（`state: 'skipped'`）。读不到时没有 `ref`，
+     * 只有 `notice`：在这条消息后面记一条提示，消息照发。
+     */
+    brand?: { ref: MessageBrandRef | null; instructions: string | null; notice?: Localized };
     /** 幻灯片标注（docs/design/slides §9），由 Runtime 按添加的顺序解析好 deck 相对会话工作目录的路径。 */
     slideAnnotations?: ResolvedSlideAnnotation[];
     /** 设计稿标注（docs/design/canvas §9），由 Runtime 按添加的顺序解析好设计稿相对会话工作目录的路径。 */
@@ -1255,6 +1262,7 @@ export class Harness {
       ...(attached.length ? { attachments: attached.map((a) => a.ref) } : {}),
       ...(params.template ? { template: params.template.ref } : {}),
       ...(params.skills?.refs.length ? { skills: params.skills.refs } : {}),
+      ...(params.brand?.ref ? { brand: params.brand.ref } : {}),
       ...(params.slideAnnotations?.length ? { slideAnnotations: params.slideAnnotations.map((a) => a.annotation) } : {}),
       ...(params.designAnnotations?.length ? { designAnnotations: params.designAnnotations.map((a) => a.annotation) } : {}),
       ...(params.designSystemAnnotations?.length
@@ -1263,6 +1271,17 @@ export class Harness {
       ...(params.videoAnnotations?.length ? { videoAnnotations: params.videoAnnotations.map((a) => a.annotation) } : {}),
       ...(params.docsAnnotations?.length ? { docsAnnotations: params.docsAnnotations.map((a) => a.annotation) } : {}),
     });
+    if (params.brand?.notice) {
+      state.upsert({
+        kind: 'notice',
+        id: newId('note'),
+        createdAt: now,
+        taskId,
+        level: 'warning',
+        text: params.brand.notice.text,
+        textRef: refOf(params.brand.notice),
+      });
+    }
     state.upsert({
       kind: 'task',
       id: taskId,
@@ -1297,7 +1316,15 @@ export class Harness {
       stopTimer: null,
     };
     this.#runs.set(state.id, run);
-    const agentText = [params.text, params.template?.instructions, params.skills?.instructions, fileAttachmentsText(attached)].filter(Boolean).join('\n\n');
+    const agentText = [
+      params.text,
+      params.template?.instructions,
+      params.brand?.instructions,
+      params.skills?.instructions,
+      fileAttachmentsText(attached),
+    ]
+      .filter(Boolean)
+      .join('\n\n');
     void this.#startRun(state, run, {
       text: withDocsAnnotations(
         withVideoAnnotations(

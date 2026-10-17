@@ -156,7 +156,7 @@ export const zhHans: AgentMessages = {
     {
       key: 'terminal',
       title: '想在终端里直接用这些 Agent 操作 BaoCut？',
-      body: '在 BaoCut 里开会话不需要额外准备。要在终端或其他应用里用，需要给它们装上 BaoCut 的 skill，见「设置 › Skills」。',
+      body: '在 BaoCut 里开会话不需要额外准备。要在终端或其他应用里用，需要给它们装上 BaoCut 的 skill，见 Skills 页底部。',
       link: 'skills',
     },
   ],

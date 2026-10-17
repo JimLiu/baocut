@@ -41,4 +41,6 @@ export const zhHant: RcVideoMessages = {
   sourceRootRemedy: '請先在 BaoCut 中移除以它為資料夾的專案或對話，再從上層專案中刪除這部影片',
   compositionImportFailed: (p) => `程式碼畫面匯入失敗（${p.code}）`,
   compositionPreviewFailed: (p) => `程式碼畫面預覽失敗（${p.code}）`,
+  compositionBakeSuperseded: '程式碼畫面在烘焙完成前已被更改或刪除，替身未寫入',
+  compositionBakeFailed: (p) => `程式碼畫面烘焙失敗（${p.code}）`,
 };

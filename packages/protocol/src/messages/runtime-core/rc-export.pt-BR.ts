@@ -179,4 +179,6 @@ export const ptBR: RcExportMessages = {
   omitKeyframes: "quadros-chave não gravados no projeto",
   omitCrop: "recorte não gravado no projeto",
   omitEmbeddedAudioMix: "volume, fades e envelope do áudio incorporado não gravados no projeto",
+  prerenderStale: (p) => `${pluralForm('pt-BR', p.count, { one: `${p.count} gráfico animado tem um substituto desatualizado e precisa ser renderizado de novo`, other: `${p.count} gráficos animados têm um substituto desatualizado e precisam ser renderizados de novo` })}: ${p.items}`,
+  prerenderStaleRemedy: 'Importe o gráfico animado de novo com replace (compositions_import) para renderizá-lo na versão atual do pacote de código e na taxa de quadros atual, ou exporte mesmo assim com os substitutos antigos usando allowStalePrerender: true (cada item é registrado como aviso)',
 };

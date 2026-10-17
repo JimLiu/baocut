@@ -15,6 +15,7 @@ export const ja: ExportRejectionMessages = {
     EXPORT_SOURCE_AMBIGUOUS: '書き出せるドキュメントが複数あります',
     EXPORT_TOOL_MISSING: 'このコンピュータには書き出しに必要なツールがありません',
     EXPORT_UNSUPPORTED_CONTENT: '書き出し用にレンダリングできない内容があります',
+    EXPORT_PRERENDER_STALE: '再ベイクが必要なモーショングラフィックがあります',
     ASSET_MISSING: '読み取れない素材があります',
     ASSET_CHANGED: '内容が変わった素材があります',
     ENTITY_NOT_FOUND: 'シーケンスが存在しません',

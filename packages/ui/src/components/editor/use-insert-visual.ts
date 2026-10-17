@@ -1,4 +1,4 @@
-import type { FrameSpan, Sequence } from '@baocut/protocol';
+import type { FrameSpan, Sequence, TransactionReceipt } from '@baocut/protocol';
 import { EditLabel } from '@baocut/protocol/messages/ui';
 import { ToastQueue } from '@react-spectrum/s2';
 import { rootSequence } from '../../model/editor.ts';
@@ -25,10 +25,26 @@ export interface InsertRequest {
  * 回执先于视频事件到不了：选中用的 ID 从回执里取，再按新视频筛掉轨道与文档。
  */
 export function useInsertVisual(): (sequence: Sequence, request: InsertRequest) => Promise<void> {
-  const { apply, undo } = useEditorActions();
-  return async (sequence, { span, layers, label, trackName, selectLayer = 0 }) => {
+  const { apply } = useEditorActions();
+  const finish = useFinishInsert();
+  return async (sequence, request) => {
+    const { span, layers, label, trackName } = request;
     const receipt = await apply(insertVisual(sequence, span, layers, trackName), EditLabel.addNamed({ name: label }));
-    if (!receipt) return;
+    if (receipt) finish(sequence, request, receipt);
+  };
+}
+
+/**
+ * 新建之后：选中新的那层、翻到属性页、出带起止与「撤销」的提示。`useInsertVisual` 与拷进来就画的贴纸（随包贴纸、
+ * 品牌库的 Lottie，`insertVisual` 的操作跟着拷贝一起提交）共用。
+ */
+export function useFinishInsert(): (
+  sequence: Sequence,
+  request: Pick<InsertRequest, 'span' | 'label' | 'selectLayer'>,
+  receipt: TransactionReceipt,
+) => void {
+  const { undo } = useEditorActions();
+  return (sequence, { span, label, selectLayer = 0 }, receipt) => {
     const snapshot = useVideo.getState().video?.state?.video;
     const fresh = (snapshot && rootSequence(snapshot)) ?? sequence;
     const ids = createdItemIds(receipt.createdIds, fresh);

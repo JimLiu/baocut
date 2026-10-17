@@ -11,6 +11,6 @@ export const es: SettingsNavMessages = {
  },
  page: { models: 'Modelos', voices: 'Mis voces' },
  onlyPage: { local: 'Esta categoría solo tiene modelos locales que se ejecutan en este ordenador; aún no la ofrece ningún proveedor de API.', cloud: 'La generación de texto solo usa modelos de proveedores de API. Los agentes de código se configuran en «Agente».' },
- section: { general: 'General', shortcuts: 'Atajos', fonts: 'Fuentes', downloader: 'Descarga de vídeos', semantic: 'Índice semántico', agent: 'Proveedores de agentes', skills: 'Skills', providers: 'Proveedores de API', usage: 'Uso', glossary: 'Glosario', privacy: 'Privacidad y permisos', diagnostics: 'Diagnóstico', about: 'Acerca de' },
+ section: { general: 'General', shortcuts: 'Atajos', fonts: 'Fuentes', downloader: 'Descarga de vídeos', semantic: 'Índice semántico', agent: 'Proveedores de agentes', providers: 'Proveedores de API', usage: 'Uso', glossary: 'Glosario', privacy: 'Privacidad y permisos', diagnostics: 'Diagnóstico', about: 'Acerca de' },
  group: { preferences: 'Preferencias', agents: 'Agente', app: 'Aplicación' },
 };

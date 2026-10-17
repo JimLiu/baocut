@@ -121,6 +121,9 @@ import { useVideoMentions } from './use-editor-reference.ts';
 import { useNarrow } from './use-narrow.ts';
 import { focusPromptEnd, usePromptValue } from './use-prompt-value.ts';
 import { useSkillsLoader } from './use-skills.ts';
+import { BrandToken, brandSkipFor } from './skills/brand-token.tsx';
+import { useDraftBrand } from '../state/draft-brand-store.ts';
+import { loadBrands } from '../runtime/skill-commands.ts';
 
 const wrap = style({
   // PromptTokenField 的提示是输入区自己的 :empty::before，默认继承正文色；app.css 拿这个变量把它降到 gray-500（原型 spectrum.css）。
@@ -221,7 +224,7 @@ export interface ComposerProps {
    * 发送；图片已经上传完，`skills` 是「+ › 使用 Skill」点选的那几个（按挂上的顺序，没有时为空）。
    * 返回 false 表示没有发出去，保留草稿（含点选的 skill）。
    */
-  onSend(text: string, attachments: AttachmentRef[], skills: SkillSendRef[]): Promise<boolean>;
+  onSend(text: string, attachments: AttachmentRef[], skills: SkillSendRef[], options: ComposerSendOptions): Promise<boolean>;
   /**
    * 发送前的准备（如让打开着的幻灯片编辑器保存完），在清空输入框之前跑：等的时候正文与附件都留在框里，发送按钮显示进行中。
    * 返回 false 不发，草稿原样留着（提示由调用方给）。
@@ -322,6 +325,11 @@ export interface ComposerStart {
  * 工具栏里是「+」（文件和文件夹、使用 Skill、斜杠命令）、访问模式、Agent · 模型 · 推理强度。
  * Enter 发送，Shift+Enter 换行；输入法组合中的 Enter 只上屏不发送（TokenField 只在 insertParagraph 时提交）。
  */
+/** 发送时的附加选项。`skipProjectBrand`：用户点掉了「品牌：BRAND.md」，这一条不带项目的 `BRAND.md`（`conversations.send` 同名参数）。 */
+export interface ComposerSendOptions {
+  skipProjectBrand: boolean;
+}
+
 export function Composer(props: ComposerProps) {
   const { draftKey, driverId, model, effort, lockedTo, onAgentChange, accessMode, onAccessModeChange } = props;
   const { busy, queueWhileBusy, stopping, placeholder, autoFocus, mentionScope, onSend, beforeSend, onStop, reference, queue, start, tool } = props;
@@ -595,9 +603,13 @@ export function Composer(props: ComposerProps) {
     }
     setDraft(draftKey, '');
     const picked = skillIds;
+    const skipProjectBrand = brandSkipFor(draftKey, mentionScope.projectId);
     try {
-      const ok = await onSend(text, attachments, picked.map((id) => ({ id })));
+      const ok = await onSend(text, attachments, picked.map((id) => ({ id })), { skipProjectBrand });
       if (ok) {
+        // 「这条不用 BRAND.md」只管这一条；发出去后重取一次项目品牌（Agent 可能在会话里改了 BRAND.md）。
+        useDraftBrand.getState().set(draftKey, false);
+        if (mentionScope.projectId) void loadBrands(runtime);
         useDraftImages.getState().clear(draftKey);
         useDraftFiles.getState().sent(draftKey, sentFiles);
         // 发出去了：发出去的那几个 skill 跟着摘掉（这期间新挂的留着）。
@@ -717,7 +729,7 @@ export function Composer(props: ComposerProps) {
         onAction={(key) => {
           const id = String(key);
           if (id === 'manage') {
-            useShell.getState().go({ tab: 'settings', section: 'skills' });
+            useShell.getState().go({ tab: 'skills' });
             return;
           }
           if (!id.startsWith('skill:')) return;
@@ -904,6 +916,8 @@ export function Composer(props: ComposerProps) {
               ))}
             </div>
           )}
+          {/* 项目的 BRAND.md：有就出现，× 只管下一条（产品设计 §6.9「项目品牌」）。 */}
+          {!tool ? <BrandToken projectId={mentionScope.projectId} draftKey={draftKey} /> : null}
           {/* 会话输入框上点选的 skill（起始页的画在 start.tokens 里，和模板一排）。 */}
           {!start && !tool && skillIds.length ? (
             <div className={composerTokenList}>

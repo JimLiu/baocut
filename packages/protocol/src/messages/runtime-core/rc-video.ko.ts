@@ -42,4 +42,6 @@ export const ko: RcVideoMessages = {
   sourceRootRemedy: '먼저 BaoCut에서 이 폴더를 사용하는 프로젝트나 세션을 제거한 뒤 상위 프로젝트에서 이 영상을 삭제하세요',
   compositionImportFailed: (p) => `모션 그래픽을 가져오지 못했습니다(${p.code})`,
   compositionPreviewFailed: (p) => `모션 그래픽을 미리 보지 못했습니다(${p.code})`,
+  compositionBakeSuperseded: '베이크가 끝나기 전에 모션 그래픽이 변경되거나 삭제되어 스탠드인을 적용하지 않았습니다',
+  compositionBakeFailed: (p) => `모션 그래픽을 베이크하지 못했습니다(${p.code})`,
 };

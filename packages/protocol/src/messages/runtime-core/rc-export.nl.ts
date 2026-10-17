@@ -182,4 +182,6 @@ export const nl: RcExportMessages = {
   omitKeyframes: "sleutelbeelden niet naar het projectbestand geschreven",
   omitCrop: "bijsnijden niet naar het projectbestand geschreven",
   omitEmbeddedAudioMix: "volume, fades en envelop van ingebouwde audio niet naar het projectbestand geschreven",
+  prerenderStale: (p) => `${pluralForm('nl', p.count, { one: `${p.count} bewegende graphic heeft een verouderde stand-in en moet opnieuw worden gerenderd`, other: `${p.count} bewegende graphics hebben een verouderde stand-in en moeten opnieuw worden gerenderd` })}: ${p.items}`,
+  prerenderStaleRemedy: 'Importeer de bewegende graphic opnieuw met replace (compositions_import) zodat die met de huidige codebundelversie en framerate wordt gerenderd, of exporteer toch met de oude stand-ins via allowStalePrerender: true (elk item wordt geregistreerd als waarschuwing)',
 };

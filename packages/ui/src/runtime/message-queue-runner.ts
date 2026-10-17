@@ -21,9 +21,9 @@ function queueAccess(conversationId: Id): QueueAccess {
 function transport(runtime: RuntimeSession, conversationId: Id): QueueTransport {
   const ids = (m: QueuedMessage) => m.attachments.map((a) => a.id);
   return {
-    // 插话不带编辑器状态：协议的 steer 不收上下文。也不收 skill：带 skill 的不插话，回合还在跑就等它结束，已经结束就直接发。
+    // 插话不带编辑器状态：协议的 steer 不收上下文。也不收 skill 与「不带 BRAND.md」：带这两样的不插话，回合还在跑就等它结束，已经结束就直接发。
     steer: (m) =>
-      m.skills?.length
+      m.skills?.length || m.skipProjectBrand
         ? Promise.resolve(
             useDirectory.getState().conversations.find((c) => c.id === conversationId)?.activeTaskId ? 'unsupported' : 'no-active-turn',
           )
@@ -41,6 +41,7 @@ function transport(runtime: RuntimeSession, conversationId: Id): QueueTransport 
         m.designSystemAnnotations,
         m.videoAnnotations,
         m.docsAnnotations,
+        m.skipProjectBrand ? { skipProjectBrand: true } : {},
       );
     },
   };

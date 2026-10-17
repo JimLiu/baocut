@@ -5,7 +5,7 @@
    `<i>` 拿雪碧图当 `background-image`，按 `BC_PET.frameAt` 算出的格子改
    `background-position`，就是逐格步进。三件与 Lottie 播放盒对齐的事：
 
-   1. **磁贴不自己跑**。官方 9 只 ＋ 品牌库里的全摆出来就是十几条 rAF；磁贴停在待机
+   1. **磁贴不自己跑**。一页 pet ＋ 品牌库里的全摆出来就是十几条 rAF；磁贴停在待机
       第 0 帧（这也是 awesome-codex-pet 的缩略图定义），悬停才播。
    2. **画布跟播放头**。`time` 给了就按「播放头 − 起点」取帧，拖播放头 / 暂停 / 逐帧
       看到的都是同一帧；导出端按同一张时长表算，帧才对得上。
@@ -164,20 +164,7 @@
 
   /* ---------- Pet 分类页 ---------- */
 
-  const SUBS = [{k: 'official', label: '官方'}, {k: 'community', label: '社区'}, {k: 'mine', label: '我的'}];
-
-  /** 官方那 9 只的网格（随包，`assets/pets/official/`）。 */
-  function OfficialGrid({list, onAdd}) {
-    return (
-      <div className="stgrid stgrid--anim">
-        {list.map((o) => (
-          <PetTile key={o.id} src={o.src} version={o.version} name={o.name} sub={'v' + o.version}
-            onAdd={() => onAdd('sticker', {id: 'pet-' + o.id, src: o.src, kind: 'pet', alt: o.name,
-              pet: PET.meta({version: o.version, name: o.name, author: 'OpenAI', license: ''})})} />
-        ))}
-      </div>
-    );
-  }
+  const SUBS = [{k: 'community', label: '社区'}, {k: 'mine', label: '我的'}];
 
   /** 品牌库里 `kind:'pet'` 的那几只。 */
   function MineGrid({ctx, onAdd}) {
@@ -204,7 +191,20 @@
     );
   }
 
-  /** 社区 239 只：分类 chip ＋ 网格。点「加」写的是 raw 雪碧图 URL，署名进 `pet` 袋。 */
+  /** 社区 pet 的网格（分类页与「全部」那一段共用）。点「加」写的是 raw 雪碧图 URL，署名进 `pet` 袋。 */
+  function RemoteGrid({list, onAdd}) {
+    return (
+      <div className="stgrid stgrid--anim">
+        {list.map((p) => (
+          <PetRemoteTile key={p.slug} pet={p}
+            onAdd={() => onAdd('sticker', {id: 'pet-' + p.slug, src: PET.sheetUrl(p.slug), kind: 'pet',
+              alt: PET.displayName(p), pet: PET.meta(p, {slug: p.slug})})} />
+        ))}
+      </div>
+    );
+  }
+
+  /** 社区 239 只：分类 chip ＋ 网格。 */
   function CommunityGrid({q, onAdd}) {
     const [cat, setCat] = React.useState('all');
     const pets = React.useMemo(() => PET.search(PET.byCategory(CAT.PETS, cat), q), [cat, q]);
@@ -216,30 +216,22 @@
             <Chip key={c.slug} pill on={cat === c.slug} onClick={() => setCat(c.slug)}>{c.zh} {c.count}</Chip>
           ))}
         </div>
-        {pets.length ? (
-          <div className="stgrid stgrid--anim">
-            {pets.map((p) => (
-              <PetRemoteTile key={p.slug} pet={p}
-                onAdd={() => onAdd('sticker', {id: 'pet-' + p.slug, src: PET.sheetUrl(p.slug), kind: 'pet',
-                  alt: PET.displayName(p), pet: PET.meta(p, {slug: p.slug})})} />
-            ))}
-          </div>
-        ) : <Empty icon="search" title="没有匹配的 Pet">换个词，或者换一个分类</Empty>}
+        {pets.length ? <RemoteGrid list={pets} onAdd={onAdd} /> : <Empty icon="search" title="没有匹配的 Pet">换个词，或者换一个分类</Empty>}
         <div className="signpost">
           社区 Pet 来自 awesome-codex-pet，各按作者自报的许可使用（多为 CC BY-NC 4.0，
           标橙的是<b>仅限非商用</b>）；署名跟着元素一起存，导出时能报出来。缩略图与雪碧图
-          按需从站点取，不随包。
+          按需从站点取、取过就留在本机，不随包。
         </div>
       </>
     );
   }
 
-  /** 动态贴纸 › Pet 子页。三段：官方（随包 9 只）/ 社区（按 11 类浏览）/ 我的（品牌库）。 */
+  /** 动态贴纸 › Pet 子页。两段：社区（按 11 类浏览）/ 我的（品牌库）。Codex 自带的官方 pet 没有公开的
+      再分发许可，不放进来。 */
   function PetSection({ctx, q, onAdd}) {
-    const [sub, setSub] = React.useState('official');
-    const official = React.useMemo(() => PET.search(CAT.OFFICIAL, q), [q]);
+    const [sub, setSub] = React.useState('community');
     const mine = (ctx.brandStickers || []).filter((m) => m.kind === 'pet').length;
-    const count = {official: CAT.OFFICIAL.length, community: CAT.PETS.length, mine: mine};
+    const count = {community: CAT.PETS.length, mine: mine};
     return (
       <>
         <div className="packhead">
@@ -252,31 +244,28 @@
             <Chip key={s.k} pill on={sub === s.k} onClick={() => setSub(s.k)}>{s.label} {count[s.k]}</Chip>
           ))}
         </div>
-        {sub === 'official' ? (official.length
-          ? <OfficialGrid list={official} onAdd={onAdd} />
-          : <Empty icon="search" title="没有匹配的 Pet">换个词，或者到「社区」里找</Empty>) : null}
         {sub === 'community' ? <CommunityGrid q={q} onAdd={onAdd} /> : null}
         {sub === 'mine' ? <MineGrid ctx={ctx} onAdd={onAdd} /> : null}
         <div className="hint">
           Codex Pet 是 Codex 桌面端桌宠的格式：一份 pet.json ＋ 一张 WebP 雪碧图（8 列 ×
           192×208，v1 九行 / v2 十一行），每行一种状态、逐帧时长各不相同。落到画布上先放
-          待机那一行，帧号由播放头决定。官方 9 只随包；社区 239 只按 11 类浏览，点一格
-          才取那一只的雪碧图。
+          待机那一行，帧号由播放头决定。社区 239 只（按 11 类浏览）不随包，第一次用到
+          那一只才下载它的雪碧图，之后留在本机。
         </div>
       </>
     );
   }
 
-  /** 「全部」页里那一小段：官方前 6 只 ＋「查看全部」切到 Pet chip。 */
+  /** 「全部」页里那一小段：社区前 6 只 ＋「查看全部」切到 Pet chip。 */
   function PetPeek({ctx, onAdd, onMore}) {
     return (
       <>
         <div className="packhead">
           <b>Codex Pet</b>
-          <span className="t-detail-xs">官方 {CAT.OFFICIAL.length} · 社区 {CAT.PETS.length}</span>
+          <span className="t-detail-xs">社区 {CAT.PETS.length}</span>
           {onMore ? <BCAction className="viewall" onClick={() => onMore('pet')}>查看全部<NavChevron /></BCAction> : null}
         </div>
-        <OfficialGrid list={CAT.OFFICIAL.slice(0, 6)} onAdd={onAdd} />
+        <RemoteGrid list={CAT.PETS.slice(0, 6)} onAdd={onAdd} />
       </>
     );
   }

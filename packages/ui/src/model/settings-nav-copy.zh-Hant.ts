@@ -22,7 +22,6 @@ export const zhHant: SettingsNavMessages = {
     downloader: '影片下載',
     semantic: '語意索引',
     agent: 'Agent 供應商',
-    skills: 'Skills',
     providers: 'API 供應商',
     usage: '用量',
     glossary: '術語表',

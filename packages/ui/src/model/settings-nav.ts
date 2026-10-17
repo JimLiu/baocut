@@ -14,7 +14,6 @@ export const SETTINGS_SECTIONS = [
   'downloader',
   'semantic',
   'agent',
-  'skills',
   'providers',
   'usage',
   'glossary',
@@ -95,13 +94,12 @@ const group = (id: SettingsGroupId, keys: readonly SettingsSection[]) => ({
 });
 export const SETTINGS_GROUPS: readonly { id: SettingsGroupId; label: string; keys: readonly SettingsSection[] }[] = [
   group('preferences', ['general', 'shortcuts', 'fonts', 'downloader', 'semantic']),
-  group('agents', ['agent', 'skills']),
+  group('agents', ['agent']),
   group('app', ['glossary', 'privacy', 'diagnostics', 'about']),
 ];
 
 /** 旧链接 `/settings/agent/<页>`（Agent & Skills 还分页签时的深链）现在的去处；认不出的页落到 Agent 提供方。 */
 export function legacyAgentSection(page: string | undefined): SettingsSection {
-  if (page === 'skills') return 'skills';
   if (page === 'permissions') return 'privacy';
   return 'agent';
 }

@@ -158,4 +158,6 @@ export const zhHans: RcExportMessages = {
   omitKeyframes: '关键帧没有写进工程',
   omitCrop: '裁剪没有写进工程',
   omitEmbeddedAudioMix: '内嵌声音的音量、淡入淡出与包络没有写进工程',
+  prerenderStale: (p) => `${p.count} 个代码画面的替身已过期，要重新烘焙：${p.items}`,
+  prerenderStaleRemedy: '带 replace 重新导入代码画面（compositions_import），按现在的代码包版本与帧率重新烘焙；或者用 allowStalePrerender: true 照旧替身导出（每项记一条警告）',
 };

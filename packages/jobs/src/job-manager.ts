@@ -329,8 +329,8 @@ export interface TaskSubmission {
   modelId: string;
   /** 任务用到的本地模型包（模型包的安装与自检）；`models.remove` 据此判断模型包是否在用。 */
   bundleId?: string;
-  /** 记录里的附加信息（导出的设置与快照；用到的库条目，任务终结时解除固定）。 */
-  extra?: Pick<JobRecord, 'export' | 'library'>;
+  /** 记录里的附加信息（导出的设置与快照；后台烘焙的目标；用到的库条目，任务终结时解除固定）。 */
+  extra?: Pick<JobRecord, 'export' | 'bake' | 'library'>;
   commandId?: Id;
   queue: { key: string; concurrency: number };
   /**

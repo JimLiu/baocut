@@ -13,6 +13,31 @@ export interface FramePlan {
   /** 按合成顺序：先画的在下面。 */
   layers: VisualLayer[];
   voices: AudioVoice[];
+  /**
+   * 实时合成层（动效视频设计 §4.2）：只在计划器开了实时层（`RenderPlanner.setLive`）且这一帧切得开时有。有时它是画面的最底层，
+   * `layers` 只有它上面的层，`canvas.backgroundAlpha` 为 0：画布要按透明底画，宿主在它底下垫沙箱 iframe。
+   */
+  live?: LiveLayer;
+}
+
+/**
+ * 实时合成层：由宿主在沙箱 iframe 里实时画的代码包合成。播放中不看替身一律是它；停住时只有没有可用替身（`standIn` 为 `none` 或
+ * `stale`）的才是（动效视频设计 §4.3）。`matrix` 与视频层同一套约定，按清单的固有尺寸 `width`×`height` 在实例的框里 contain 适配；
+ * 宿主按固有尺寸布置页面再缩放。
+ */
+export interface LiveLayer {
+  itemId: Id;
+  /** 代码包素材的版本（实例的 `source.assetRef`）。 */
+  asset: VersionRef;
+  /** 合成的本地时刻（经过时间映射）与速度。 */
+  sourceSeconds: number;
+  sourceRate: number;
+  matrix: Matrix;
+  opacity: number;
+  width: number;
+  height: number;
+  /** 替身的状态：没有预渲染、来源与代码包版本不一致，或可用（只在播放中出现：停下来会画替身，不用提醒烘焙）。 */
+  standIn: 'none' | 'stale' | 'usable';
 }
 
 export interface PlanCanvas {
@@ -130,6 +155,25 @@ export interface UnsupportedLayer extends LayerBase {
 
 export function isMediaLayer(layer: VisualLayer): layer is MediaLayer {
   return layer.kind === 'video' || layer.kind === 'image';
+}
+
+/**
+ * 舞台点选与框选看的层：实时合成层不在 `layers` 里（画布不画它），但它在画面最底下、有几何，点选要能点到它、
+ * 选中时要有框。把它当作一层不支持的层垫在最前（合成顺序最底）。
+ */
+export function stageLayers(plan: FramePlan | null): VisualLayer[] {
+  if (!plan) return [];
+  const { live } = plan;
+  if (!live) return plan.layers;
+  const bottom: UnsupportedLayer = {
+    kind: 'unsupported',
+    itemId: live.itemId,
+    matrix: live.matrix,
+    opacity: live.opacity,
+    asset: live.asset,
+    content: { reason: 'live' },
+  };
+  return [bottom, ...plan.layers];
 }
 
 /** 画进自己布局框的层：文字、图形、生成器与不支持的层。 */

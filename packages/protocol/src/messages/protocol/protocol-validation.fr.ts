@@ -1,6 +1,7 @@
 import type { ProtocolValidationMessages } from './protocol-validation.ts';
 
 export const fr: ProtocolValidationMessages = {
+  duplicatePaths: 'Chaque chemin ne peut apparaître qu’une seule fois',
   listSeparator: ', ', notEmpty: 'Ne peut pas être vide', noSurroundingSpace: 'Ne peut pas commencer ou finir par des espaces', absolutePath: 'Doit être un chemin absolu', noNul: 'Ne peut pas contenir NUL', languageTagInvalid: 'Balise de langue BCP 47 invalide',
   amountInvalid: 'Le montant doit être un décimal positif ou nul avec au maximum 6 décimales', dataKindsDuplicate: 'Les types de données ne peuvent pas se répéter', timeRangeOrder: 'timeRange.fromSeconds doit être inférieur à toSeconds',
   nameChars: 'name ne peut contenir que des lettres, chiffres, traits de soulignement et traits d’union (64 maximum)', secretChars: 'La clé ne peut contenir que des caractères ASCII visibles sans espaces', accountIdChars: 'L’ID de compte ne peut contenir que des lettres minuscules, chiffres et traits d’union',

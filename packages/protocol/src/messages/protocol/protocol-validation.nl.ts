@@ -1,6 +1,7 @@
 import type { ProtocolValidationMessages } from './protocol-validation.ts';
 
 export const nl: ProtocolValidationMessages = {
+  duplicatePaths: "Elk pad mag maar één keer voorkomen",
 
   listSeparator: ", ",
   notEmpty: "Mag niet leeg zijn",

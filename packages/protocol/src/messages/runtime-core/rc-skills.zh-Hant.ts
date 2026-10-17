@@ -1,6 +1,25 @@
 import type { RcSkillsMessages } from './rc-skills.ts';
 
 export const zhHant: RcSkillsMessages = {
+  brandProjectNotFound: (p) => `找不到專案：${p.id}`,
+  brandNotFound: (p) => `「${p.project}」還沒有 BRAND.md`,
+  brandFileNotFound: (p) => `不是 BRAND.md 的檔案：${p.file}`,
+  brandPathInvalid: (p) => `只能修改 BRAND.md 與 brand/ 裡的檔案：${p.path}`,
+  brandExists: (p) => `這個專案已經有 BRAND.md：${p.path}`,
+  brandUnreadable: (p) => `讀不到 ${p.file}，這則訊息沒有附上它`,
+  versionNotFound: (p) => `Skill「${p.id}」沒有保留第 ${p.revision} 版`,
+  packageTooLarge: (p) => `zip 檔案超過 ${p.limit} 位元組`,
+  packageUnreadable: (p) => `無法讀取 ${p.path}：不是 zip 檔案或資料夾`,
+  packageNoSkill: (p) => `這個套件裡沒有 ${p.file}。Skill 的根目錄需要一份 ${p.file}，說明它做什麼、什麼時候使用`,
+  candidateUnsafePath: (p) => `這個 Skill 裡有無法安全解開的項目：${p.path}`,
+  candidateTooManyFiles: (p) => `檔案太多（${p.files} 個），一個 Skill 最多 ${p.limit} 個檔案`,
+  candidateNoDescription: 'SKILL.md 開頭缺少 description：請用一兩句話說明它做什麼、什麼時候使用，Agent 會依這句話判斷要不要使用它',
+  candidateDuplicate: (p) => `這個套件裡另有一個 ID 同為「${p.id}」的 Skill`,
+  packagePickInvalid: (p) => `${p.prefix} 不是這個套件裡可安裝的 Skill`,
+  revisionConflict: (p) => `這個 Skill 剛被修改過（現在是第 ${p.revision} 版），請重新開啟後再修改`,
+  cannotRemoveSkillFile: (p) => `${p.file} 無法刪除`,
+  notEditable: (p) => `「${p.name}」無法在這裡修改，請複製一份再修改`,
+  changeSourceMissing: (p) => `不是可以新增的檔案：${p.path}`,
 
   cliOnlyPageLink: (p) => `引用的頁面 ${p.page} 無法透過工具介面存取：該頁面只有 CLI 介面，因此指向它的連結必須放在 CLI 介面中`,
 

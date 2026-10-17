@@ -22,7 +22,6 @@ export const ptBR: SettingsNavMessages = {
     downloader: 'Download de vídeos',
     semantic: 'Índice semântico',
     agent: "Provedores de agentes",
-    skills: "Skills",
     providers: "Provedores de API",
     usage: "Uso",
     glossary: "Glossário",

@@ -12,9 +12,7 @@ import type {
 import { EditLabel } from '@baocut/protocol/messages/ui';
 import { ToastQueue } from '@react-spectrum/s2';
 import { applyPlan, infoOf, isOriginalRatio, withLayer } from '../../model/template-layers.ts';
-import { useRuntime } from '../../runtime/context.tsx';
 import { useEditor } from '../../state/editor-store.ts';
-import { copyBrandLogos } from './brand-save.ts';
 import type { EditorActions } from './editor-context.tsx';
 import { useEditorActions } from './editor-context.tsx';
 import { TEMPLATE_COPY as TC } from './template-copy.ts';
@@ -60,11 +58,11 @@ export interface TemplateActions {
 
 /**
  * 模板层的编辑命令（原型 editor-template.jsx）：元素面板的模板目录、模板属性页、时间线上的模板行与品牌库共用。
- * 每一步是一笔编辑事务；套用、移除、锁与解锁之后出带「撤销」的提示，撤的是这一笔。
+ * 每一步是一笔编辑事务；套用、移除、锁与解锁之后出带「撤销」的提示，撤的是这一笔。台标用到、视频里还没有的图片由
+ * Runtime 在同一笔里登记成素材（视频格式规范 §3.17）。
  */
 export function useTemplateActions(): TemplateActions {
   const actions = useEditorActions();
-  const runtime = useRuntime();
   return useMemo<TemplateActions>(() => {
     const set = (sequence: Sequence, template: TemplateLayers | null, label: Localized) =>
       actions.apply([{ type: 'setTemplate', sequenceId: sequence.id, template }], label);
@@ -76,7 +74,6 @@ export function useTemplateActions(): TemplateActions {
           ToastQueue.neutral(TC.alreadyApplied(doc.name), { timeout: TOAST_MS });
           return true;
         }
-        if (!(await copyBrandLogos(runtime, doc))) return false;
         const plan = applyPlan(sequence, assets, doc);
         const receipt = await actions.apply(plan.operations, EditLabel.applyTemplate({ name: doc.name }));
         if (!receipt) return false;
@@ -128,9 +125,8 @@ export function useTemplateActions(): TemplateActions {
         const current = sequence.template;
         if (!current) return false;
         const next = withLayer(current, layerId, { src: { brandLogo: image.id } });
-        if (!(await copyBrandLogos(runtime, next))) return false;
         return !!(await set(sequence, next, EditLabel.editTemplate()));
       },
     };
-  }, [actions, runtime]);
+  }, [actions]);
 }

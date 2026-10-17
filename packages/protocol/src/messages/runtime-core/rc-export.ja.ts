@@ -167,4 +167,6 @@ export const ja: RcExportMessages = {
   omitKeyframes: 'キーフレームはプロジェクトファイルに書き込まれていない',
   omitCrop: 'クロップはプロジェクトファイルに書き込まれていない',
   omitEmbeddedAudioMix: '埋め込み音声の音量、フェード、エンベロープはプロジェクトファイルに書き込まれていない',
+  prerenderStale: (p) => `${p.count} 件のモーショングラフィックのスタンドインが古く、再ベイクが必要です: ${p.items}`,
+  prerenderStaleRemedy: 'replace を付けてモーショングラフィックを再読み込み（compositions_import）し、現在のコードバンドルのバージョンとフレームレートで再ベイクしてください。または allowStalePrerender: true で古いスタンドインのまま書き出します（各項目は警告として記録されます）',
 };

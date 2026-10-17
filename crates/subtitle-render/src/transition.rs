@@ -920,7 +920,7 @@ pub struct OverlayRenderPlan {
     /// `timeline::lower_element_effects` 产出，因此这就是那一组引用在
     /// 当前后端上的可用性结论；`fallbacks[]` 经 serve 的任务信封透出。
     pub preflight: render_raster::PreflightReport,
-    pub warnings: Vec<String>,
+    pub warnings: Vec<message_ref::Text>,
     /// 项目套用的模板层（`None` = 没套，或本计划没经过 `compile_project` 且没注入）。
     pub chrome: Option<TemplateLayer>,
     /// 装饰层**装载失败**的原因。合成失败不该让整幅 overlay 黑掉——字幕与元素

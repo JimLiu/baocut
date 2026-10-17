@@ -22,7 +22,6 @@ export const ru: SettingsNavMessages = {
     downloader: 'Загрузка видео',
     semantic: 'Семантический индекс',
     agent: "Поставщики агентов",
-    skills: "Skills",
     providers: "Поставщики API",
     usage: "Использование",
     glossary: "Глоссарий",

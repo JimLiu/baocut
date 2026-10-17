@@ -1,8 +1,13 @@
-import type { DocumentRecord, FontFaceQuery, Sequence } from '@baocut/protocol';
+import type { AssetRecord, DocumentRecord, FontFaceQuery, Sequence } from '@baocut/protocol';
 import { expect, test, vi } from 'vitest';
 import type { LoadedFace, LocalFont } from '../../render/local-fonts.ts';
-import type { CaptionHit, RenderPlanner } from '../../render/render-planner.ts';
+import { PlanFailure, type CaptionHit, type RenderPlanner } from '../../render/render-planner.ts';
 import { PreviewEngine, videoKey, type PreviewStatus } from './preview-engine.ts';
+
+/** 内核转述来的提示（没有自己的引用）：`frameRender.itemNote` 前面写上实例，原话嵌在里面。 */
+function kernelNote(item: string, note: string) {
+  return { code: 'EXPORT_RENDER_NOTE', detail: `${item}: ${note}`, detailRef: { key: 'frameRender.itemNote', params: { item, note } } };
+}
 
 // 引擎跑在浏览器里；这里只走不碰媒体元素的那部分，补上 Node 没有的动画帧函数与 ImageData（装下像素就行）。
 vi.stubGlobal('requestAnimationFrame', () => 0);
@@ -69,7 +74,7 @@ test('画面由帧计划器画：还在取的文档不报，跳过的层与内�
       renders.push([width, height]);
       return {
         plan,
-        warnings: [{ code: 'EXPORT_RENDER_NOTE', detail: 'badge：字体换成了回退字体' }],
+        warnings: [kernelNote('badge', '字体换成了回退字体')],
         skipped: [
           {
             itemId: 'cap',
@@ -187,7 +192,7 @@ test('声波要的素材频谱：在算时不报占位提示，算好了送进�
       render: () => {
         renders++;
         const spectra = [music, huge].filter((asset) => !heard.has(asset.id)).map((asset) => ({ itemId: 'viz', asset }));
-        const warnings = spectra.length ? [{ code: 'EXPORT_RENDER_NOTE', detail: 'viz：元素 viz 没有注入频谱轨，已画占位块' }] : [];
+        const warnings = spectra.length ? [kernelNote('viz', 'Element viz has no spectrum track; drawing a placeholder')] : [];
         return { plan, warnings, skipped: [], spectra };
       },
       frame: () => new Uint8ClampedArray(960 * 540 * 4),
@@ -245,11 +250,12 @@ test('写了 speaker 的声波：转写还在取时不报「没有转写」，�
     setSpeech: (transcripts: unknown[]) => (speech = transcripts),
     // 内核的样子：一份转写都没有时当作视频里没有转写；有转写而里面没有这位说话人时报另一句。
     render: () => {
-      const detail =
+      const [key, detail] =
         speech.length === 0
-          ? 'viz：视频里没有转写，听不出说话人 spk_a 什么时候说话，声波按无声画'
-          : 'viz：转写里没有说话人 spk_a 在这条序列上说的话，声波按无声画';
-      return { plan, warnings: [{ code: 'EXPORT_RENDER_NOTE', detail }], skipped: [], spectra: [] };
+          ? ['frameRender.speakerNoTranscript', 'viz: This video has no transcript, so it’s unknown when speaker spk_a talks; the waveform is drawn silent']
+          : ['frameRender.speakerNotInSequence', 'viz: The transcript has no speech from speaker spk_a in this sequence; the waveform is drawn silent'];
+      const detailRef = { key: 'frameRender.itemNote', params: { item: 'viz', note: { key, params: { speaker: 'spk_a' } } } };
+      return { plan, warnings: [{ code: 'EXPORT_RENDER_NOTE', detail, detailRef }], skipped: [], spectra: [] };
     },
     frame: () => new Uint8ClampedArray(960 * 540 * 4),
   } as unknown as RenderPlanner;
@@ -339,7 +345,8 @@ test('本机字体：报缺的族里排字点了名的 face 向宿主要一次�
   const plan = { canvas: { width: 1920, height: 1080, background: '#000000', backgroundAlpha: 1 }, layers, voices: [] };
   const note = (family: string) => ({
     code: 'EXPORT_RENDER_NOTE',
-    detail: `title：字体 "${family}" 在当前字体库中不可用，将使用 Noto Sans SC fallback`,
+    detail: `title: Font "${family}" isn’t in the font library; using Noto Sans SC instead`,
+    detailRef: { key: 'frameRender.itemNote', params: { item: 'title', note: { key: 'frameRender.missingFont', params: { family, fallback: 'Noto Sans SC' } } } },
   });
   const face = (family: string, weight = 400) => ({ family, weight, italic: false });
   const injected: string[] = [];
@@ -389,7 +396,8 @@ test('本机字体：报缺的族里排字点了名的 face 向宿主要一次�
   expect(injected).toEqual(['Climate Crisis/400']);
   expect(renders).toBeGreaterThan(before);
   expect(asked).toHaveLength(1);
-  expect(seen.at(-1)).toEqual({ kind: 'ready', problems: [note('Nowhere').detail] });
+  // 按界面语言显示（测试跑在简体中文）。
+  expect(seen.at(-1)).toEqual({ kind: 'ready', problems: ['title：字体 "Nowhere" 在当前字体库中不可用，将使用 Noto Sans SC 代替'] });
   // 同一个族的粗体后来才排到：照样去要。
   bold = true;
   engine.seek(0.1);
@@ -723,7 +731,7 @@ test('转录中的临时字幕：叠进送给计划器的序列，文档不向 R
     render: () => ({
       plan,
       captionHits: [hit],
-      warnings: [{ code: 'EXPORT_RENDER_NOTE', detail: 'bc-live-caption：字体换成了回退字体' }],
+      warnings: [kernelNote('bc-live-caption', '字体换成了回退字体')],
       skipped: [],
       spectra: [],
     }),
@@ -886,5 +894,315 @@ test('字幕场景按样式文档的冻结素材版本加载字节', async () =>
   } as never);
   await new Promise((resolve) => setTimeout(resolve, 20));
   expect(sent).toContainEqual({ id: 'badge', revision: 'old-version' });
+  engine.dispose();
+});
+
+/** 实时合成层测试里替身（预渲染）的素材版本。 */
+const standInAsset = { id: 'baked', revision: '1' };
+
+/**
+ * 实时合成层用的计划器（与 render-graph 同一规则）：开了实时层、这件合成没拉黑，且舞台在动或替身不可用时，计划的底层是它；
+ * 记下每次画是不是透明底，可按要求抛发光错误。
+ */
+function livePlanner() {
+  const setLive: { enabled: boolean; playing: boolean; blocked: string[] }[] = [];
+  const renders: { frame: number; transparent: boolean }[] = [];
+  const state = { enabled: false, playing: false, blocked: new Set<string>(), emissive: false, standIn: 'none' as 'none' | 'stale' | 'usable' };
+  const planAt = (seconds: number) => {
+    const frame = Math.floor(seconds * 30 + 1e-6);
+    const live = state.enabled && !state.blocked.has('comp') && (state.playing || state.standIn !== 'usable');
+    return {
+      sequenceId: 'seq',
+      sequenceRevision: 'r1',
+      frame,
+      canvas: { width: 1920, height: 1080, background: '#000000', backgroundAlpha: live ? 0 : 1 },
+      layers: [
+        // 不切实时层、替身可用：底是替身的视频层。
+        ...(!live && state.standIn === 'usable'
+          ? [{ kind: 'video', itemId: 'comp', asset: standInAsset, sourceSeconds: seconds, sourceRate: 1, matrix: [1920, 0, 0, 1080, 0, 0], opacity: 1 }]
+          : []),
+        { kind: 'text', itemId: 'title', matrix: [1, 0, 0, 1, 0, 0], opacity: 1, content: {} },
+      ],
+      voices: [],
+      ...(live
+        ? {
+            live: {
+              itemId: 'comp',
+              asset: { id: 'bundle', revision: '1' },
+              sourceSeconds: seconds,
+              sourceRate: 1,
+              matrix: [1920, 0, 0, 1080, 0, 0],
+              opacity: 1,
+              width: 1280,
+              height: 720,
+              standIn: state.standIn,
+            },
+          }
+        : {}),
+    };
+  };
+  const planner = {
+    ...fakePlanner(),
+    planAt,
+    setDocuments: () => {},
+    clearPictures: () => {},
+    setPicture: () => {},
+    setLive: (next: { enabled: boolean; playing: boolean; blocked: string[] }) => {
+      setLive.push(next);
+      state.enabled = next.enabled;
+      state.playing = next.playing;
+      state.blocked = new Set(next.blocked);
+    },
+    render: (seconds: number, _w: number, _h: number, options?: { transparent?: boolean }) => {
+      const plan = planAt(seconds);
+      if (plan.live && state.emissive) throw new PlanFailure({ code: 'EMISSIVE_STRAIGHT_ALPHA_UNSUPPORTED', message: 'emissive' });
+      renders.push({ frame: plan.frame, transparent: options?.transparent === true });
+      return { plan, warnings: [], skipped: [], spectra: [], fonts: [] };
+    },
+    frame: () => new Uint8ClampedArray(4),
+  } as unknown as RenderPlanner;
+  return { planner, setLive, renders, state };
+}
+
+/** 假的实时层宿主：记下预载名单、每次 show 的层与帧号；失败由测试触发。 */
+function fakeLiveHost() {
+  const prepared: string[][] = [];
+  const shown: [string | null, number][] = [];
+  const listeners = new Set<(itemId: string, reason: string) => void>();
+  return {
+    prepared,
+    shown,
+    host: {
+      prepare: (candidates: readonly { itemId: string }[]) => void prepared.push(candidates.map((c) => c.itemId)),
+      show: (layer: { itemId: string } | null, frame: number) => void shown.push([layer?.itemId ?? null, frame]),
+      onFailure: (listener: (itemId: string, reason: string) => void) => (listeners.add(listener), () => listeners.delete(listener)),
+    },
+    fail: (itemId: string, reason: string) => listeners.forEach((listener) => listener(itemId, reason)),
+  };
+}
+
+const withComposition = {
+  ...sequence,
+  items: [
+    { id: 'title', type: 'text', enabled: true, trackId: 't', span: { fromFrame: 0, durationFrames: 300 } },
+    {
+      id: 'comp',
+      type: 'composition',
+      enabled: true,
+      trackId: 'b',
+      span: { fromFrame: 0, durationFrames: 300 },
+      source: { kind: 'bundle', assetRef: { id: 'bundle', revision: '1' } },
+      parameterValues: {},
+      timeMap: { kind: 'identity' },
+    },
+  ],
+} as unknown as Sequence;
+const bundleAssets = {
+  bundle: {
+    id: 'bundle',
+    kind: 'video',
+    name: 'bundle',
+    currentRevision: '1',
+    revisions: {
+      '1': {
+        revision: '1',
+        bundle: {
+          bundleId: 'b',
+          revision: '7',
+          runtime: { engine: 'browser', contract: 'hyperframes/1', entry: 'index.html' },
+          intrinsic: { width: 1280, height: 720, fps: { num: 30, den: 1 }, durationFrames: 300 },
+        },
+      },
+    },
+  },
+} as unknown as Record<string, AssetRecord>;
+
+async function liveEngine() {
+  const frames = manualFrames();
+  const { planner, setLive, renders, state } = livePlanner();
+  const live = fakeLiveHost();
+  const seen: PreviewStatus[] = [];
+  const engine = new PreviewEngine({ onTime: () => {}, onEnded: () => {} }, () => Promise.resolve(planner));
+  engine.onStatus((status) => seen.push(status));
+  const canvas = { width: 0, height: 0, getContext: () => ({ canvas, putImageData: () => {} }) };
+  engine.attachCanvas(canvas as unknown as HTMLCanvasElement, 0.5);
+  engine.setVideo(withComposition, bundleAssets);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  return { frames, planner, setLive, renders, state, live, seen, engine };
+}
+
+test('实时合成层：接上宿主才开实时层；底是实时层的那一帧画透明底，拆掉宿主后画回不透明的', async () => {
+  const { frames, setLive, renders, live, seen, engine } = await liveEngine();
+  expect(setLive).toEqual([]);
+  expect(renders.at(-1)).toEqual({ frame: 0, transparent: false });
+  expect(seen.at(-1)).toEqual({ kind: 'ready' });
+
+  engine.attachLive(live.host);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(setLive).toEqual([{ enabled: true, playing: false, blocked: [] }]);
+  expect(renders.at(-1)).toEqual({ frame: 0, transparent: true });
+  expect(live.prepared).toEqual([['comp']]);
+  expect(live.shown.at(-1)).toEqual(['comp', 0]);
+  expect(engine.live?.itemId).toBe('comp');
+  // 实时档：状态报 live，没有别的提示。
+  expect(seen.at(-1)).toEqual({ kind: 'ready', live: true });
+
+  engine.attachLive(null);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(setLive.at(-1)).toEqual({ enabled: false, playing: false, blocked: [] });
+  expect(renders.at(-1)).toEqual({ frame: 0, transparent: false });
+  expect(live.shown.at(-1)).toEqual([null, -1]);
+  expect(seen.at(-1)).toEqual({ kind: 'ready' });
+  frames.restore();
+  engine.dispose();
+});
+
+test('实时合成层：播放中每个 tick 都把这一帧的实时层与帧号交给宿主（同一帧只定位一次由宿主保证），帧号不回头', async () => {
+  const { frames, live, engine } = await liveEngine();
+  engine.attachLive(live.host);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  live.shown.length = 0;
+  engine.play();
+  // 60 Hz 的刷新放 30 fps 的视频：0.1 秒里 6 个 tick，跨 3 个视频帧。
+  for (let i = 1; i <= 6; i++) frames.tick(i * (1000 / 60));
+  const shownFrames = live.shown.map(([, frame]) => frame);
+  expect([...new Set(shownFrames)]).toEqual([0, 1, 2, 3]);
+  expect(shownFrames).toEqual([...shownFrames].sort((a, b) => a - b));
+  expect(live.shown.every(([itemId]) => itemId === 'comp')).toBe(true);
+  engine.pause();
+  frames.restore();
+  engine.dispose();
+});
+
+test('实时合成层：宿主报失败的合成拉黑，重送 setLive，下一个计划没有实时层、画回不透明底；retry 解除', async () => {
+  const { frames, setLive, renders, live, seen, engine } = await liveEngine();
+  engine.attachLive(live.host);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  live.fail('comp', 'ready-timeout');
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(setLive.at(-1)).toEqual({ enabled: true, playing: false, blocked: ['comp'] });
+  expect(engine.live).toBeNull();
+  expect(renders.at(-1)).toEqual({ frame: 0, transparent: false });
+  expect(live.shown.at(-1)).toEqual([null, 0]);
+  // 拉黑后不再预载它。
+  expect(live.prepared.at(-1)).toEqual([]);
+  expect(seen.at(-1)).toEqual({ kind: 'ready' });
+
+  engine.retry();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(setLive.at(-1)).toEqual({ enabled: true, playing: false, blocked: [] });
+  expect(engine.live?.itemId).toBe('comp');
+  expect(live.prepared.at(-1)).toEqual(['comp']);
+  frames.restore();
+  engine.dispose();
+});
+
+test('实时合成层：透明底上有发光像素时这件合成拉黑、重算计划再画，不进错误状态', async () => {
+  const { frames, setLive, renders, state, live, seen, engine } = await liveEngine();
+  state.emissive = true;
+  engine.attachLive(live.host);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(setLive).toEqual([
+    { enabled: true, playing: false, blocked: [] },
+    { enabled: true, playing: false, blocked: ['comp'] },
+  ]);
+  expect(renders.at(-1)).toEqual({ frame: 0, transparent: false });
+  expect(engine.live).toBeNull();
+  expect(seen.some((status) => status.kind === 'error')).toBe(false);
+  expect(seen.at(-1)).toEqual({ kind: 'ready' });
+  frames.restore();
+  engine.dispose();
+});
+
+test('实时合成层：播放与拖动中不看替身一律实时播、不提醒烘焙；停住才画可用的替身，iframe 等画布画上那一帧之后再收起', async () => {
+  // 替身的视频元素：定位立刻落地（不走 FakeMedia 的 seeking），就绪与否由 readyState 定。
+  const { video } = fakeMedia();
+  let currentTime = 0;
+  Object.defineProperty(video, 'currentTime', { get: () => currentTime, set: (seconds: number) => (currentTime = seconds) });
+  const { frames, planner, setLive, renders, state, live, seen, engine } = await liveEngine();
+  state.standIn = 'usable';
+  const standInKey = videoKey(standInAsset, 0);
+  engine.register(standInKey, video as unknown as HTMLVideoElement);
+  // 记下画与收起的先后：收起 iframe 必须在画布画上不透明的那一帧之后。
+  const order: string[] = [];
+  const render = planner.render.bind(planner);
+  planner.render = ((...args: Parameters<RenderPlanner['render']>) => {
+    order.push(args[3]?.transparent ? 'render:transparent' : 'render:opaque');
+    return render(...args);
+  }) as RenderPlanner['render'];
+  const show = live.host.show;
+  live.host.show = (layer, frame) => {
+    order.push(layer ? 'show' : 'hide');
+    show(layer, frame);
+  };
+  engine.attachLive(live.host);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  // 停着、替身可用：不切实时层，画不透明底，状态不报 live；有可用替身的合成照样预载。
+  expect(setLive.at(-1)).toEqual({ enabled: true, playing: false, blocked: [] });
+  expect(engine.live).toBeNull();
+  expect(renders.at(-1)).toEqual({ frame: 0, transparent: false });
+  expect(seen.at(-1)).toEqual({ kind: 'ready' });
+  expect(live.prepared.at(-1)).toEqual(['comp']);
+
+  // 播放：舞台在动，一律实时层；替身可用，所以不提醒「导出前要烘焙」。
+  engine.play();
+  expect(setLive.at(-1)).toEqual({ enabled: true, playing: true, blocked: [] });
+  frames.tick(1000 / 60);
+  expect(engine.live?.itemId).toBe('comp');
+  expect(engine.live?.standIn).toBe('usable');
+  expect(renders.at(-1)?.transparent).toBe(true);
+  expect(live.shown.at(-1)).toEqual(['comp', 0]);
+  expect(seen.at(-1)).toEqual({ kind: 'ready' });
+
+  // 暂停：重送 playing false，计划换回替身；iframe 在画布画上不透明那一帧之后才收起。
+  order.length = 0;
+  engine.pause();
+  expect(setLive.at(-1)).toEqual({ enabled: true, playing: false, blocked: [] });
+  expect(engine.live).toBeNull();
+  expect(order).toEqual([]);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(order).toEqual(['render:opaque', 'hide']);
+  expect(renders.at(-1)?.transparent).toBe(false);
+
+  // 停着定位：落地前在动、一律实时层；落地（SCRUB_SETTLE_MS）后换回替身那一帧。
+  engine.seek(1);
+  expect(setLive.at(-1)).toEqual({ enabled: true, playing: true, blocked: [] });
+  expect(engine.live?.itemId).toBe('comp');
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  expect(setLive.at(-1)).toEqual({ enabled: true, playing: false, blocked: [] });
+  expect(engine.live).toBeNull();
+  expect(renders.at(-1)).toEqual({ frame: 30, transparent: false });
+  expect(live.shown.at(-1)).toEqual([null, 30]);
+
+  // 替身还在来时停下（Runtime 还在备播放副本、舞台没挂元素；挂上了还没就绪）：不等它，画布按透明底画、iframe 不收；
+  // 替身到了才画不透明的那一帧、收起 iframe。
+  engine.register(standInKey, null);
+  engine.play();
+  frames.tick(2000 / 60);
+  expect(engine.live?.itemId).toBe('comp');
+  order.length = 0;
+  engine.pause();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(engine.live).toBeNull();
+  expect(order).toEqual(['render:transparent']);
+  expect(live.shown.at(-1)?.[0]).toBe('comp');
+  video.readyState = 1;
+  engine.register(standInKey, video as unknown as HTMLVideoElement);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(order).toEqual(['render:transparent', 'render:transparent']);
+  expect(live.shown.at(-1)?.[0]).toBe('comp');
+  video.readyState = 4;
+  video.land();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(order).toEqual(['render:transparent', 'render:transparent', 'render:opaque', 'hide']);
+  expect(live.shown.at(-1)?.[0]).toBeNull();
+
+  // 替身不可用时停住也是实时层，这时才提醒烘焙。
+  state.standIn = 'stale';
+  engine.retry();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(engine.live?.standIn).toBe('stale');
+  expect(seen.at(-1)).toEqual({ kind: 'ready', live: true });
+  frames.restore();
   engine.dispose();
 });

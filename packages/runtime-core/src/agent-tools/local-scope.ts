@@ -1,7 +1,16 @@
 // i18n-ignore-file: 工具通道（CLI 的本机范围）的错误、下一步与说明，给终端里的智能体与用户，与工具说明用同一种语言
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { RpcError, newId, type Id, type JobRecord, type JobSubmitter, type Project, type VideoOpenResult } from '@baocut/protocol';
+import {
+  RpcError,
+  newId,
+  type Id,
+  type JobRecord,
+  type JobSubmitter,
+  type Project,
+  type VideoCreated,
+  type VideoOpenResult,
+} from '@baocut/protocol';
 import type { Harness } from '@baocut/harness';
 import { locateArtifact, type JobManager } from '@baocut/jobs';
 import type { TrustedPrincipal } from '../gateway.ts';
@@ -240,6 +249,16 @@ export class LocalScope implements ToolScope<LocalAccess> {
 
   /** 变更卡只在会话里放；终端的修改在视频历史里（操作者 `user_local`）。 */
   recordChange(): void {}
+
+  /**
+   * 终端里新建的视频（`videos_create`、`videos_derive`、`videos_import_package`）：经 Space 主题通知桌面在功能区打开它
+   * （产品设计 §3.3）。桌面连接自己经 `catalog.call` 建的不通知，界面自己会去打开。
+   */
+  recordCreated(access: LocalAccess, created: VideoCreated): void {
+    if (access.principal.client !== 'cli') return;
+    const { videoRevision: _revision, ...video } = created;
+    this.#deps.space().announceVideoCreated({ ...video, by: 'cli' });
+  }
 
   /** `artifacts_save` 写到 cwd。 */
   saveRoot(access: LocalAccess): string {

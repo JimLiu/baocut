@@ -120,6 +120,8 @@ fn paint(data: &PaintData) -> String {
             f(focus[1]),
             stops(s)
         ),
+        // Canvas 2D bitmap paint (v8): Lottie never emits it.
+        PaintData::Pattern { bitmap, .. } => format!("pattern #{bitmap}"),
     }
 }
 
@@ -232,6 +234,8 @@ fn disassemble(frame: &FrameOps) -> Vec<String> {
                     mat(tf)
                 ),
             },
+            // Canvas 2D primitives (v8): Lottie never emits them.
+            other => format!("{other:?}"),
         })
         .collect()
 }

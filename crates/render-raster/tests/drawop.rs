@@ -518,7 +518,7 @@ fn v5_frame() -> FrameOps {
 #[test]
 fn bitmaps_lift_the_envelope_to_v5_and_round_trip() {
     let frame = v5_frame();
-    assert_eq!(drawop::MAX_VERSION, 7);
+    assert_eq!(drawop::MAX_VERSION, 8);
     assert_eq!(drawop::required_version(&frame), 5);
     let encoded = drawop::encode(&frame);
     assert_eq!(u32::from_le_bytes(encoded[4..8].try_into().unwrap()), 5);
@@ -541,6 +541,60 @@ fn a_frame_without_bitmaps_keeps_its_v3_or_v4_bytes() {
         u32::from_le_bytes(drawop::encode(&v4)[4..8].try_into().unwrap()),
         4
     );
+}
+
+fn v8_frame() -> FrameOps {
+    let mut frame = v5_frame();
+    frame.paints.push(PaintData::Pattern {
+        bitmap: 0,
+        repeat: true,
+        quality: 1,
+        opacity: 0.75,
+        transform: [2.0, 0.0, 0.0, 2.0, 5.0, 6.0],
+    });
+    let pattern = frame.paints.len() as u32 - 1;
+    frame.ops.extend([
+        DrawOp::PushBlend {
+            blend: BlendMode::Multiply,
+        },
+        DrawOp::PushShadow {
+            color: [0.0, 0.0, 0.0, 0.5],
+            sigma: 4.0,
+            offset: [3.0, -2.0],
+            window: [-12, 8, 64, 48],
+        },
+        DrawOp::StrokePathDash {
+            path: 0,
+            paint: pattern,
+            width: 3.0,
+            cap: 1,
+            join: 2,
+            miter: 10.0,
+            dash: vec![6.0, 2.0],
+            dash_offset: 1.5,
+            tf: IDENTITY,
+        },
+        DrawOp::PopShadow,
+        DrawOp::PopBlend,
+    ]);
+    frame
+}
+
+#[test]
+fn canvas_primitives_lift_the_envelope_to_v8_and_round_trip() {
+    let frame = v8_frame();
+    assert_eq!(drawop::required_version(&frame), 8);
+    let encoded = drawop::encode(&frame);
+    assert_eq!(u32::from_le_bytes(encoded[4..8].try_into().unwrap()), 8);
+    let (version, back) = drawop::decode(&encoded).unwrap();
+    assert_eq!(version, 8);
+    assert_eq!(back.paints, frame.paints);
+    assert_eq!(back.ops, frame.ops);
+
+    // 同样的字节标成 v7：opcode 16–20 与 paint kind 3 都不认。
+    let mut downgraded = encoded.clone();
+    downgraded[4..8].copy_from_slice(&7u32.to_le_bytes());
+    assert!(drawop::decode(&downgraded).is_err());
 }
 
 #[test]

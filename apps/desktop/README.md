@@ -9,6 +9,16 @@ BaoCut 的 Electron 桌面端：主进程（`src/main`）、preload 与渲染进
 | `tools/` | 对构建产物的检查（`check-file-fonts.mjs`、`check-model-assets.mjs`）、性能测量与打包脚本 |
 | `build/` | 打包用的资源：`icon.ico`（Windows）、`icon.icns`（macOS）、`icon.png`（1024），都由 `tools/app-icon/` 生成，`npm run icons` 重新导出，不手改 |
 
+## 外部 Agent 与 CLI
+
+桌面构建把当前 CLI、离线工具目录和 Runtime 放在同一个 App 中。macOS 的入口是 `BaoCut.app/Contents/MacOS/baocut-cli`，Windows 是安装目录里的 `baocut.cmd`；两者都使用包内的 Electron，无需另装 Node，也不自动向系统 PATH 写文件。把该入口的完整路径设为 `BAOCUT_CLI`，或通过绝对路径调用。macOS 的启动器也支持用户自己建立的符号链接；打包时用 Xcode 的 clang 编译为与宿主相同架构的 Mach-O，随 App 签名，避免脚本放在 `Contents/MacOS` 造成嵌套代码签名失败。
+
+先运行入口的 `version`：没有 Runtime 时只报告 CLI 版本，已有 Runtime 时检查工具接口是否兼容；不要用 App 的营销版本号代替这个检查。确认后可用该入口执行 `skill install --agent codex`（其他宿主见帮助）更新已安装的外部 Skill。CLI 优先启动自身所在 App 的 Runtime、读取同一包的说明书；显式的 `BAOCUT_RUNTIME_ENTRY` 仍优先。
+
+旧的 3.8.0 Build 77 发布包没有这些入口；只改环境变量不能补出缺失文件。需要含修复的新桌面包，或先从与 App 匹配的源码运行 CLI。旧 Homebrew `bcut` 配方不是当前桌面 CLI 的匹配安装方式。启动发现与版本门见 [Skill 启动说明](../../skills/baocut/references/start.md)。
+
+构建后用 `node tools/check-bundled-cli.mjs --dev`（在本目录）检查离线 `version`、`--help` 和 `spec`；打包检查也执行同样的命令检查，并核对说明书来自同一个包；使用临时 Home，不启动 Runtime。产物结构检查要求启动器、`out/main/cli.js` 和 `out/main/generated/cli-catalog.json` 都在。
+
 ## macOS 打包
 
 ### Intel Mac 本地包

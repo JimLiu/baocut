@@ -1,6 +1,7 @@
 import type { Id } from './domain.ts';
 import type { EditResult } from './methods.ts';
-import type { Revision } from './video.ts';
+import type { MessageRef } from './message-ref.ts';
+import type { EditOperation, Revision } from './video.ts';
 
 /**
  * 随应用分发的贴纸包（仓库根的 `stickers/`）：元素面板里贴纸与动态贴纸两页的目录。贴纸 ID 是 `<包>-<文件>`
@@ -187,6 +188,14 @@ export interface StickerApplyParams {
   expectedRevision?: Revision;
   /** 素材的名字；不给时用贴纸 ID。 */
   name?: string;
+  /**
+   * 同一笔事务里接着做的修改（常见是新建一层贴纸画它）：导入的素材在这些操作里是 `assetImportRef: 'asset'`。
+   * 给了就一起提交、一步撤销；不给时只导入。
+   */
+  operations?: EditOperation[];
+  /** 这笔事务给人看的修改名与它的消息引用（同 `edits.apply`）；不给时是「添加贴纸」。 */
+  label?: string;
+  labelRef?: MessageRef;
 }
 
 export interface StickerApplyResult extends EditResult {

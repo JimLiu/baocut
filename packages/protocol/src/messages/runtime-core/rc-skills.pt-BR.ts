@@ -1,6 +1,25 @@
 import type { RcSkillsMessages } from './rc-skills.ts';
 
 export const ptBR: RcSkillsMessages = {
+  brandProjectNotFound: (p: { id: string }) => `Projeto não encontrado: ${p.id}`,
+  brandNotFound: (p: { project: string }) => `“${p.project}” ainda não tem BRAND.md`,
+  brandFileNotFound: (p: { file: string }) => `Não é um arquivo BRAND.md: ${p.file}`,
+  brandPathInvalid: (p: { path: string }) => `Só é possível alterar BRAND.md e arquivos em brand/: ${p.path}`,
+  brandExists: (p: { path: string }) => `Este projeto já tem um BRAND.md: ${p.path}`,
+  brandUnreadable: (p: { file: string }) => `Não foi possível ler ${p.file}; a mensagem foi enviada sem ele`,
+  versionNotFound: (p: { id: string; revision: number }) => `A Skill “${p.id}” não tem a versão ${p.revision} salva`,
+  packageTooLarge: (p: { limit: number }) => `O arquivo zip é maior que ${p.limit} bytes`,
+  packageUnreadable: (p: { path: string }) => `Não foi possível ler ${p.path} como arquivo zip ou pasta`,
+  packageNoSkill: (p: { file: string }) => `Este pacote não tem ${p.file}. A pasta raiz de uma Skill precisa de um ${p.file} que diga o que ela faz e quando usá-la`,
+  candidateUnsafePath: (p: { path: string }) => `Esta Skill tem uma entrada que não pode ser extraída com segurança: ${p.path}`,
+  candidateTooManyFiles: (p: { files: number; limit: number }) => `Arquivos demais (${p.files}); uma Skill pode ter no máximo ${p.limit}`,
+  candidateNoDescription: "Falta a description em SKILL.md: escreva uma ou duas frases sobre o que a Skill faz e quando usá-la. O agente decide usar a Skill com base nela",
+  candidateDuplicate: (p: { id: string }) => `Outra Skill neste pacote tem o mesmo ID “${p.id}”`,
+  packagePickInvalid: (p: { prefix: string }) => `${p.prefix} não é uma Skill instalável deste pacote`,
+  revisionConflict: (p: { revision: number }) => `A Skill mudou nesse meio-tempo (agora é a versão ${p.revision}). Recarregue-a e refaça as alterações`,
+  cannotRemoveSkillFile: (p: { file: string }) => `${p.file} não pode ser excluído`,
+  notEditable: (p: { name: string }) => `“${p.name}” não pode ser editada aqui. Duplique-a e edite a cópia`,
+  changeSourceMissing: (p: { path: string }) => `Não é um arquivo que possa ser adicionado: ${p.path}`,
   cliOnlyPageLink: (p: { page: string }) => `A página vinculada ${p.page} não está disponível na interface de ferramentas; só tem interface CLI, e os links devem estar na interface CLI`,
 
   guideIdConflict: (p: { id: string }) => `O ID “${p.id}” pertence a uma página do guia BaoCut; esta cópia não foi carregada. Renomeie a pasta`,

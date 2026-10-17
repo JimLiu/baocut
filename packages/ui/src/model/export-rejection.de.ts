@@ -14,7 +14,7 @@ export const de: ExportRejectionMessages = {
     EXPORT_SOURCE_NOT_FOUND: "Kein Dokument exportierbar",
     EXPORT_SOURCE_AMBIGUOUS: "Mehrere Dokumente exportierbar",
     EXPORT_TOOL_MISSING: "Ein Exportwerkzeug fehlt auf diesem Computer",
-    EXPORT_UNSUPPORTED_CONTENT: "Einige Inhalte sind für den Export nicht renderbar",
+    EXPORT_UNSUPPORTED_CONTENT: "Einige Inhalte sind für den Export nicht renderbar", EXPORT_PRERENDER_STALE: 'Einige Motion-Grafiken müssen neu gerendert werden',
     ASSET_MISSING: "Einige Materialien sind nicht lesbar",
     ASSET_CHANGED: "Einige Materialien wurden geändert",
     ENTITY_NOT_FOUND: "Die Sequenz ist nicht vorhanden",

@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { SERVICE_APPROVAL_TIMEOUT_MS } from '@baocut/protocol';
+import { SERVICE_APPROVAL_TIMEOUT_MS, type ExternalVideoCreated } from '@baocut/protocol';
 import type { Harness, Logger } from '@baocut/harness';
 import type { NodeService } from '@baocut/nodes';
 import type { RuntimeHome } from '@baocut/runtime-storage';
@@ -45,6 +45,8 @@ export async function openServices(deps: {
   log: Logger;
   /** 整份工具目录的工具组（按服务的范围构造）：MCP 服务按 `surfaces` 露出其中的一部分。 */
   toolSets: (scope: ToolScope) => ToolSet[];
+  /** MCP 客户端新建了视频：经 Space 主题通知桌面（产品设计 §3.3）。 */
+  announceVideoCreated?: (video: ExternalVideoCreated) => void;
   options?: ServicesOptions;
 }): Promise<RuntimeServices> {
   const store = new ServiceConfigStore(deps.home.servicesFile);
@@ -69,6 +71,7 @@ export async function openServices(deps: {
     log: deps.log,
     onChange: () => manager.refresh('mcp'),
     toolSets: deps.toolSets,
+    ...(deps.announceVideoCreated ? { announceVideoCreated: deps.announceVideoCreated } : {}),
   });
   manager.register(mcp);
   const modelApi = new ModelApiService({

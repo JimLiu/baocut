@@ -84,3 +84,7 @@ if (report.problems.length > 0) {
   process.exit(1);
 }
 console.log('通过');
+
+// Offline CLI commands must work before any Runtime or agent configuration exists.
+const cliCheck = spawnSync(process.execPath, [path.join(HERE, 'check-bundled-cli.mjs'), arg], {stdio: 'inherit', timeout: TIMEOUT_MS});
+if (cliCheck.error || cliCheck.status !== 0) process.exit(cliCheck.status || 1);

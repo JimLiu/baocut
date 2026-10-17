@@ -1,6 +1,7 @@
 import type { ProtocolValidationMessages } from './protocol-validation.ts';
 
 export const de: ProtocolValidationMessages = {
+  duplicatePaths: "Jeder Pfad darf nur einmal vorkommen",
 
   listSeparator: ", ",
   notEmpty: "Darf nicht leer sein",

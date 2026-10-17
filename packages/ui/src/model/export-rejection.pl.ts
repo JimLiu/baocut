@@ -14,7 +14,7 @@ export const pl: ExportRejectionMessages = {
     EXPORT_SOURCE_NOT_FOUND: "Brak dokumentu do eksportu",
     EXPORT_SOURCE_AMBIGUOUS: "Można eksportować kilka dokumentów",
     EXPORT_TOOL_MISSING: "Na komputerze brakuje narzędzia do eksportu",
-    EXPORT_UNSUPPORTED_CONTENT: "Nie można wyrenderować części treści do eksportu",
+    EXPORT_UNSUPPORTED_CONTENT: "Nie można wyrenderować części treści do eksportu", EXPORT_PRERENDER_STALE: 'Część grafik animowanych trzeba wyrenderować ponownie',
     ASSET_MISSING: "Nie można odczytać części materiałów",
     ASSET_CHANGED: "Część materiałów zmieniła się",
     ENTITY_NOT_FOUND: "Sekwencja nie istnieje",

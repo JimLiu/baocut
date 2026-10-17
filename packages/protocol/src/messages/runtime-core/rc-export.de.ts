@@ -182,4 +182,6 @@ export const de: RcExportMessages = {
   omitKeyframes: "Keyframes nicht in die Projektdatei geschrieben",
   omitCrop: "Zuschnitt nicht in die Projektdatei geschrieben",
   omitEmbeddedAudioMix: "Lautstärke, Blenden und Hüllkurve des eingebetteten Audios nicht in die Projektdatei geschrieben",
+  prerenderStale: (p) => `${pluralForm('de', p.count, { one: `${p.count} Motion-Grafik hat einen veralteten Platzhalter und muss neu gerendert werden`, other: `${p.count} Motion-Grafiken haben einen veralteten Platzhalter und müssen neu gerendert werden` })}: ${p.items}`,
+  prerenderStaleRemedy: 'Die Motion-Grafik mit replace erneut importieren (compositions_import), damit sie mit der aktuellen Code-Bundle-Version und Bildrate neu gerendert wird, oder mit allowStalePrerender: true trotzdem mit den alten Platzhaltern exportieren (jeder Eintrag wird als Warnung aufgezeichnet)',
 };

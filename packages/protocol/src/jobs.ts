@@ -1,4 +1,5 @@
 import type { Id } from './domain.ts';
+import type { CompositionBakeInfo, CompositionBakeJob } from './code-bundle.ts';
 import type { ExportJobInfo, ExportValidation } from './exports.ts';
 import type { JobLibraryUse } from './library.ts';
 import type { ImageFormat, ImageInputMediaType, ImageInputMode, MusicMode, MusicPlanning, SpeechFormat, TextEffort, VoiceMode } from './models.ts';
@@ -47,7 +48,9 @@ export type JobKind =
    * 会话里的智能体自己翻译一份转写（`documents_read` 给了 `translateTo`）：没有 Worker、不排队，只是一条进度记录，
    * 让视频卡与字幕面板看得到「正在翻译」。智能体写入这门语言的译文时完成，回合结束还没写时中断（用户停止的取消）。
    */
-  | 'agentTranslate';
+  | 'agentTranslate'
+  /** 代码画面的后台烘焙（`compositions.import` 的 `background: true`，代码包规范 §7.5）：烘出替身、写进视频并挂到实例上。 */
+  | 'bake';
 
 export type JobState = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted' | 'needs-reconciliation';
 
@@ -433,13 +436,23 @@ export interface JobRecord {
    * 文本生成任务：`artifactId` 是全文的产物，`text` 是摘要与预览，没有 `outputs`。
    * 导出：同生成任务，`outputs` 是已经发布的文件；多个文件里有的没有发布时任务为 `failed`（`EXPORT_PARTIALLY_PUBLISHED`），
    * `result` 仍列出已经发布的。
+   * 后台烘焙（`bake`）：`artifactId` 是替身 `<assetId>@<revision>`，`bake` 是实际用的渲染器、用时与回退原因（同 `compositions_import`
+   * 回执的 `bake`）。
    */
-  result: { documentId: Id | null; artifactId: string; outputs?: GeneratedOutput[]; text?: TextJobResult } | null;
+  result: {
+    documentId: Id | null;
+    artifactId: string;
+    outputs?: GeneratedOutput[];
+    text?: TextJobResult;
+    bake?: CompositionBakeInfo;
+  } | null;
   warnings: JobWarning[];
   /** 生成任务冻结的参数；转写任务没有。 */
   generation?: GenerationParameters;
   /** 导出的设置、冻结快照与目标（`kind: 'export'` 才有）。 */
   export?: ExportJobInfo;
+  /** 后台烘焙的目标实例、代码包版本、帧率与渲染器（`kind: 'bake'` 才有）；完成后替身的版本在 `result.artifactId`（`<assetId>@<revision>`）。 */
+  bake?: CompositionBakeJob;
   /**
    * 视频的转写（`models.transcribe` 与流程提交的，`kind: 'transcribe'`）提交时定下的语言与说话人区分：`language` 是规范化后的请求，
    * `diarize` 是生效的值（请求没给时按模型定下的）。远端与只给文件的转写、之前的记录没有。

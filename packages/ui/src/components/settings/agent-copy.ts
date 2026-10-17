@@ -196,7 +196,7 @@ const en = {
     {
       key: 'terminal',
       title: 'Want to drive BaoCut with these Agents from a terminal?',
-      body: 'Sessions in BaoCut need no extra setup. To use them in a terminal or other apps, install the BaoCut skill for them; see Settings › Skills.',
+      body: 'Sessions in BaoCut need no extra setup. To use them in a terminal or other apps, install the BaoCut skill for them; see the bottom of the Skills page.',
       link: 'skills',
     },
   ] as readonly { key: string; title: string; body: string; link?: 'models' | 'skills' }[],

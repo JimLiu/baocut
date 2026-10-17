@@ -159,7 +159,7 @@ export const ko: AgentMessages = {
     {
       key: 'terminal',
       title: '터미널에서 이 Agent로 BaoCut을 다루고 싶나요?',
-      body: 'BaoCut 안의 세션은 따로 준비할 필요가 없습니다. 터미널이나 다른 앱에서 사용하려면 해당 Agent에 BaoCut Skill을 설치하세요. 설정 › Skills를 참고하세요.',
+      body: 'BaoCut 안의 세션은 따로 준비할 필요가 없습니다. 터미널이나 다른 앱에서 사용하려면 해당 Agent에 BaoCut Skill을 설치하세요. Skills 페이지 하단을 참고하세요.',
       link: 'skills',
     },
   ],

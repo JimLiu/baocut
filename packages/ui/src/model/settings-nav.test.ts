@@ -10,9 +10,9 @@ import {
 } from './settings-nav.ts';
 
 describe('设置分组', () => {
-  it('Agent 自成一组，在偏好设置之后、应用之前，含两个独立条目', () => {
+  it('Agent 自成一组，在偏好设置之后、应用之前；Skills 搬到了 rail，不在设置里', () => {
     expect(SETTINGS_GROUPS.map((g) => g.id)).toEqual(['preferences', 'agents', 'app']);
-    expect(SETTINGS_GROUPS.find((g) => g.id === 'agents')).toMatchObject({ label: 'Agent', keys: ['agent', 'skills'] });
+    expect(SETTINGS_GROUPS.find((g) => g.id === 'agents')).toMatchObject({ label: 'Agent', keys: ['agent'] });
     expect(SETTINGS_GROUPS.find((g) => g.id === 'app')?.keys).toEqual(['glossary', 'privacy', 'diagnostics', 'about']);
     // 视频下载（yt-dlp 与网站登录）在偏好设置里，跟在字体后面；语义索引跟在视频下载后面
     expect(SETTINGS_GROUPS.find((g) => g.id === 'preferences')?.keys).toEqual(['general', 'shortcuts', 'fonts', 'downloader', 'semantic']);
@@ -23,7 +23,6 @@ describe('设置分组', () => {
     expect(SETTINGS_SECTION_INFO.map((s) => s.key)).toEqual([...SETTINGS_SECTIONS]);
     const label = (key: string) => SETTINGS_SECTION_INFO.find((s) => s.key === key)?.label;
     expect(label('agent')).toBe('Agent 提供方');
-    expect(label('skills')).toBe('Skills');
     expect(label('privacy')).toBe('隐私与权限');
     expect(label('downloader')).toBe('视频下载');
     expect(label('semantic')).toBe('语义索引');
@@ -36,14 +35,13 @@ describe('设置分组', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('skills 是独立分节', () => {
-    expect(isSettingsSection('skills')).toBe(true);
+  it('skills 不再是设置分节（产品设计 §6.9：rail 上的 Skills）', () => {
+    expect(isSettingsSection('skills')).toBe(false);
   });
 });
 
 describe('旧的 Agent 页签去向', () => {
-  it('skills、permissions 各去新位置，其余留在 Agent 提供方', () => {
-    expect(legacyAgentSection('skills')).toBe('skills');
+  it('permissions 去隐私与权限，其余留在 Agent 提供方（skills 由路由转到 rail 上的 Skills）', () => {
     expect(legacyAgentSection('permissions')).toBe('privacy');
     expect(legacyAgentSection('advanced')).toBe('agent');
     expect(legacyAgentSection('connect')).toBe('agent');

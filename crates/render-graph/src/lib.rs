@@ -26,8 +26,8 @@ use editor_semantics::{MediaTime, Rate, Ratio, TimeError, TimeMap, frame_time, f
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use video_model::{
-    AssetKind, AssetRecord, AudioItem, CompositionSource, Crop, Easing, EnvelopePoint, Fit, FocalPoint, FrameSpan, Id, MediaFields, Place,
-    Revision, Sequence, SoloGroup, TimelineItem, Track, Transition, TransitionKind, VersionRef, VideoSnapshot,
+    AssetKind, AssetRecord, AudioItem, CompositionSource, Crop, Easing, EnvelopePoint, Fit, FocalPoint, FrameRateInfo, FrameSpan, Id,
+    MediaFields, Place, Revision, Sequence, SoloGroup, TimelineItem, Track, Transition, TransitionKind, VersionRef, VideoSnapshot,
 };
 
 use crate::ducking::DuckingEnvelope;
@@ -44,6 +44,53 @@ pub struct FramePlan {
     pub canvas: PlanCanvas,
     pub layers: Vec<VisualLayer>,
     pub voices: Vec<AudioVoice>,
+    /// 实时合成层（动效视频设计 §4.2）：只在预览开了实时层（[`LiveOptions`]）且这一帧切得开时给出；给出时它是画面的最底层，
+    /// `layers` 只有它上面的层，`canvas.background_alpha` 为 0（底下留透明，由宿主垫上实时层）。严格导出永远没有。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub live: Option<LiveLayer>,
+}
+
+/// 实时合成层：一个没有可用替身（没有预渲染，或预渲染过期）的代码包合成，由宿主在沙箱 iframe 里实时画（动效视频设计 §4）。
+/// `matrix` 与视频层同一套约定（把单位正方形映到画布像素），按清单的固有尺寸在实例的框里 contain 适配。
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveLayer {
+    pub item_id: Id,
+    /// 代码包素材的版本（实例的 `source.assetRef`）。
+    pub asset: VersionRef,
+    /// 合成的本地时刻（经过实例的时间映射）与速度。
+    pub source_seconds: f64,
+    pub source_rate: f64,
+    pub matrix: [f64; 6],
+    pub opacity: f64,
+    /// 清单的固有尺寸（像素）：宿主按它布置页面，再缩放到 `matrix`。
+    pub width: u32,
+    pub height: u32,
+    /// 替身的状态：停住时切成实时层的只会是 `None` / `Stale`；播放中一律实时播，`Usable` 说明停下来会画替身。
+    pub stand_in: StandInState,
+}
+
+/// 代码包合成的替身（预渲染）状态（动效视频设计 §4.3、§7.2）。
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum StandInState {
+    /// 没有预渲染，或它指向的素材版本不在。
+    None,
+    /// 预渲染过期（代码包规范 §7.4）：烘焙出处（`BakeRecord.sourceBundleRef`）与实例指向的代码包清单（`bundleId`、`revision`）
+    /// 不一致，或帧率（`BakeRecord.encoding.fps`，没有烘焙记录时是替身视频的帧率）与序列不同。
+    Stale,
+    /// 有，且与代码包、序列帧率一致：导出画它，预览停住时也画它（动效视频设计 §4.3）。
+    Usable,
+}
+
+/// 预览的实时层开关（动效视频设计 §4.2、§4.3）。默认关着：严格导出与缩略图不走实时层。`playing` 是舞台在动（播放、拖动播放头
+/// 还没落地）：这时合成一律实时播，不看替身；停住时只有没有可用替身的才切。`blocked` 是宿主载入失败、取帧抛错或超时的实例，
+/// 这一轮退回替身或占位，不再切。
+#[derive(Clone, Copy, Debug, Default)]
+pub struct LiveOptions<'a> {
+    pub enabled: bool,
+    pub playing: bool,
+    pub blocked: &'a [Id],
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -298,6 +345,18 @@ pub fn plan_interactive_with_speech(
     seconds: f64,
     speech: Option<&[(f64, f64)]>,
 ) -> Result<FramePlan, PlanError> {
+    plan_interactive_live(video, sequence_id, seconds, speech, LiveOptions::default())
+}
+
+/// 同 [`plan_interactive_with_speech`]，并按 `live` 决定要不要把最底下那个代码包合成切成实时层（动效视频设计 §4.2、§4.3）：
+/// 播放中一律切，停住时只切没有可用替身的。只有编辑器的舞台走这里。
+pub fn plan_interactive_live(
+    video: VideoView<'_>,
+    sequence_id: &str,
+    seconds: f64,
+    speech: Option<&[(f64, f64)]>,
+    live: LiveOptions<'_>,
+) -> Result<FramePlan, PlanError> {
     if !seconds.is_finite() {
         return Err(PlanError::new("INVALID_TIME", "时刻必须是有限的数"));
     }
@@ -319,7 +378,7 @@ pub fn plan_interactive_with_speech(
         }
         _ => t,
     };
-    plan_frame_with_speech(video, sequence_id, t, speech)
+    plan_frame_live(video, sequence_id, t, speech, live)
 }
 
 /// 序列时刻 `t` 的计划。不展开按文稿触发的闪避（没有词流）；要展开时用 [`plan_frame_with_speech`]。
@@ -334,6 +393,16 @@ pub fn plan_frame_with_speech(
     sequence_id: &str,
     t: Ratio,
     speech: Option<&[(f64, f64)]>,
+) -> Result<FramePlan, PlanError> {
+    plan_frame_live(video, sequence_id, t, speech, LiveOptions::default())
+}
+
+fn plan_frame_live(
+    video: VideoView<'_>,
+    sequence_id: &str,
+    t: Ratio,
+    speech: Option<&[(f64, f64)]>,
+    live: LiveOptions<'_>,
 ) -> Result<FramePlan, PlanError> {
     if t.is_negative() {
         return Err(PlanError::new("INVALID_TIME", "时刻不能为负"));
@@ -354,6 +423,8 @@ pub fn plan_frame_with_speech(
 
     let mut layers: Vec<(LayerOrder<'_>, VisualLayer)> = Vec::new();
     let mut voices: Vec<(i64, AudioVoice)> = Vec::new();
+    // 实时层的候选：在视、可见、没被宿主拦下的代码包合成（动效视频设计 §4.2）；停住时还要没有可用替身（§4.3）。
+    let mut live_candidates: Vec<(LiveLayer, bool)> = Vec::new();
     for item in &sequence.items {
         let base = item.base();
         let Some(track) = tracks.get(base.track_id.as_str()) else {
@@ -435,6 +506,14 @@ pub fn plan_frame_with_speech(
                 {
                     let order = LayerOrder::new(track, &composition.base.id, composition.base.paint_order, composition.span);
                     layers.push((order, layer));
+                    if live.enabled && !live.blocked.contains(&composition.base.id) {
+                        let stand_in = stand_in_state(video.assets, composition, fps);
+                        if (live.playing || stand_in != StandInState::Usable)
+                            && let Some(candidate) = live_layer(video, composition, (source, rate), canvas, stand_in)
+                        {
+                            live_candidates.push(candidate);
+                        }
+                    }
                 }
                 let Some(prerender) = &composition.prerender else {
                     continue;
@@ -560,6 +639,20 @@ pub fn plan_frame_with_speech(
     // 轨道 `order` 越大越靠上；同一轨道内按 `paintOrder`（格式规范 §3.3），不依赖存储的返回顺序。
     layers.sort_by(|(a, _), (b, _)| a.cmp(b));
     let mut layers: Vec<VisualLayer> = layers.into_iter().map(|(_, layer)| layer).collect();
+    // 切点（动效视频设计 §4.2）：这一帧只有一个候选、它铺满画幅、是最底下的画面层、不在转场里，才切成实时层——画布从它上面
+    // 那一层起画、底下留透明。夹在两段视频之间（下面还有层）、两个合成同一帧重叠，都退回替身或占位，一般形状的三明治留到后期。
+    let live = match live_candidates.as_slice() {
+        [(candidate, true)]
+            if layers
+                .first()
+                .is_some_and(|bottom| bottom.item_id == candidate.item_id && bottom.transition.is_none()) =>
+        {
+            layers.remove(0);
+            Some(candidate.clone())
+        }
+        _ => None,
+    };
+    let background_alpha = if live.is_some() { 0.0 } else { 1.0 };
     // 模板层（序列上的对象，§3.17）：每个打开的层是一个生成器层，在自己的框里，按文档的顺序盖在最上面。
     // 进度类的变量按序列的长度算（最后一个实例的终点）。
     if let Some(template) = &header.template {
@@ -585,11 +678,8 @@ pub fn plan_frame_with_speech(
                 flip_y: false,
             };
             let mut parameters = serde_json::json!({ "layerId": layer.id });
-            if let timeline::template::LayerKind::Logo {
-                src: timeline::template::LogoSrc::BrandLogo { brand_logo },
-                ..
-            } = &layer.kind
-                && let Some(asset) = brand_logo_asset(video.assets, brand_logo)
+            if let timeline::template::LayerKind::Logo { src, .. } = &layer.kind
+                && let Some(asset) = template_logo_asset(video.assets, src)
             {
                 parameters["asset"] = serde_json::to_value(asset).unwrap_or(Value::Null);
             }
@@ -617,11 +707,120 @@ pub fn plan_frame_with_speech(
             width: header.canvas.width,
             height: header.canvas.height,
             background: header.canvas.background.clone(),
-            background_alpha: 1.0,
+            background_alpha,
         },
         layers,
         voices: voices.into_iter().map(|(_, voice)| voice).collect(),
+        live,
     })
+}
+
+/// 烘焙素材的来源标记（`provenance.origin`，代码包规范 §7）。
+const BAKE_PROVENANCE_ORIGIN: &str = "composition-bake";
+
+/// 代码包合成的替身状态，与 `@baocut/protocol` 的 `prerenderStaleness` 同一规则（代码包规范 §7.4）：没有预渲染、或预渲染指向的
+/// 素材版本不在是 [`StandInState::None`]；烘焙出处（`provenance.source.sourceBundleRef`，`{ id: bundleId, revision }`）与实例指向的
+/// 代码包清单（`bundleId`、`revision`）不一致，或烘焙帧率（`encoding.fps`）与序列不同是 [`StandInState::Stale`]；替身不是烘焙出来的
+/// （旧数据、手工指定的视频）时只按替身视频的帧率核对。
+pub fn stand_in_state(assets: &BTreeMap<Id, AssetRecord>, composition: &video_model::CompositionItem, sequence_fps: Rate) -> StandInState {
+    let Some(prerender) = &composition.prerender else {
+        return StandInState::None;
+    };
+    let Some(record) = assets.get(&prerender.id).and_then(|asset| asset.revisions.get(&prerender.revision)) else {
+        return StandInState::None;
+    };
+    let same_rate = |fps: Option<Rate>| fps.is_none_or(|fps| fps.num * sequence_fps.den == sequence_fps.num * fps.den);
+    let bake = (record.provenance.origin == BAKE_PROVENANCE_ORIGIN)
+        .then_some(record.provenance.source.as_ref())
+        .flatten();
+    let Some(bake) = bake else {
+        let fps = record.video.as_ref().and_then(|video| match &video.frame_rate {
+            FrameRateInfo::Cfr { rate } => Some(*rate),
+            FrameRateInfo::Vfr { nominal } => *nominal,
+        });
+        return if same_rate(fps) {
+            StandInState::Usable
+        } else {
+            StandInState::Stale
+        };
+    };
+    let CompositionSource::Bundle { asset_ref } = &composition.source;
+    let baked = bake
+        .get("sourceBundleRef")
+        .map(|from| (from.get("id").and_then(Value::as_str), from.get("revision").and_then(Value::as_str)));
+    if let (Some((Some(id), Some(revision))), Some(manifest)) = (baked, bundle_manifest(assets, asset_ref)) {
+        let current = (
+            manifest.get("bundleId").and_then(Value::as_str),
+            manifest.get("revision").and_then(Value::as_str),
+        );
+        if current != (Some(id), Some(revision)) {
+            return StandInState::Stale;
+        }
+    }
+    let fps = bake
+        .get("encoding")
+        .and_then(|encoding| encoding.get("fps"))
+        .and_then(|fps| serde_json::from_value::<Rate>(fps.clone()).ok());
+    if same_rate(fps) {
+        StandInState::Usable
+    } else {
+        StandInState::Stale
+    }
+}
+
+/// 代码包素材版本上的清单（代码包规范 §2）。
+fn bundle_manifest<'a>(assets: &'a BTreeMap<Id, AssetRecord>, asset_ref: &VersionRef) -> Option<&'a Value> {
+    assets.get(&asset_ref.id)?.revisions.get(&asset_ref.revision)?.bundle.as_ref()
+}
+
+/// 代码包合成作为实时层的候选：清单要在、是浏览器合成、有固有尺寸。框与视频层同一份推法，按固有尺寸 contain 适配；
+/// 返回的布尔是实例有没有铺满画幅（`place` 没写位置与宽）。
+fn live_layer(
+    video: VideoView<'_>,
+    composition: &video_model::CompositionItem,
+    timing: (f64, f64),
+    canvas: (f64, f64),
+    stand_in: StandInState,
+) -> Option<(LiveLayer, bool)> {
+    let CompositionSource::Bundle { asset_ref } = &composition.source;
+    let manifest = bundle_manifest(video.assets, asset_ref)?;
+    if manifest.pointer("/runtime/engine").and_then(Value::as_str) != Some("browser") {
+        return None;
+    }
+    let width = manifest.pointer("/intrinsic/width").and_then(Value::as_u64)?;
+    let height = manifest.pointer("/intrinsic/height").and_then(Value::as_u64)?;
+    if width == 0 || height == 0 || width > u32::MAX as u64 || height > u32::MAX as u64 {
+        return None;
+    }
+    let item = TimelineItem::Composition(composition.clone());
+    let geometry = item_geometry(&item, video.assets)?;
+    let (pixel, fullscreen) = pixel_box(&geometry, canvas);
+    let layer = media_layer(
+        &composition.base.id,
+        LayerKind::Video,
+        asset_ref,
+        Some(timing),
+        &pixel,
+        Fit::Contain,
+        composition.place.opacity(),
+        Some((width as f64, height as f64)),
+        None,
+        None,
+    )?;
+    Some((
+        LiveLayer {
+            item_id: layer.item_id,
+            asset: asset_ref.clone(),
+            source_seconds: timing.0,
+            source_rate: timing.1,
+            matrix: layer.matrix,
+            opacity: layer.opacity,
+            width: width as u32,
+            height: height as u32,
+            stand_in,
+        },
+        fullscreen,
+    ))
 }
 
 /// 视觉实例在 `t` 的画面层（含效果栈）。不检查它是否覆盖这一刻、是否启用、轨道是否显示：转场的另一侧
@@ -934,6 +1133,45 @@ pub fn brand_logo_asset(assets: &BTreeMap<Id, AssetRecord>, entry_id: &str) -> O
             revision: asset.current_revision.clone(),
         })
 }
+
+/// 台标层画的图片在这部视频里的素材（格式规范 §3.17）：品牌库的图片按 [`brand_logo_asset`]，项目里的文件按
+/// [`file_logo_asset`]；文字台标是 `None`。素材的引用（`video-engine` 的 `asset_users`）按同一条规则认。
+pub fn template_logo_asset(assets: &BTreeMap<Id, AssetRecord>, src: &timeline::template::LogoSrc) -> Option<VersionRef> {
+    match src {
+        timeline::template::LogoSrc::Text(_) => None,
+        timeline::template::LogoSrc::BrandLogo { brand_logo } => brand_logo_asset(assets, brand_logo),
+        timeline::template::LogoSrc::File { file } => file_logo_asset(assets, file),
+    }
+}
+
+/// 台标层按项目相对路径引用的图片（`src: { file }`）在这部视频里的素材：来源是 `template-logo`、
+/// `provenance.source.templateLogo.file` 是这个路径的图片素材（Runtime 提交模板时登记，格式规范 §4.5）。
+/// 登记过几次的取素材 ID 最小的一份（`assets` 按 ID 排，取第一个）。没有登记的是 `None`，这一层画不出来。
+pub fn file_logo_asset(assets: &BTreeMap<Id, AssetRecord>, file: &str) -> Option<VersionRef> {
+    assets
+        .values()
+        .filter(|asset| asset.kind == AssetKind::Image)
+        .find(|asset| {
+            asset.revisions.get(&asset.current_revision).is_some_and(|revision| {
+                let provenance = &revision.provenance;
+                provenance.origin == TEMPLATE_LOGO_ORIGIN
+                    && provenance
+                        .source
+                        .as_ref()
+                        .and_then(|source| source.get("templateLogo"))
+                        .and_then(|logo| logo.get("file"))
+                        .and_then(Value::as_str)
+                        == Some(file)
+            })
+        })
+        .map(|asset| VersionRef {
+            id: asset.id.clone(),
+            revision: asset.current_revision.clone(),
+        })
+}
+
+/// 按路径引用的模板台标登记成素材时的来源（格式规范 §4.5）。
+pub const TEMPLATE_LOGO_ORIGIN: &str = "template-logo";
 
 /// 视频贴纸在实例里过了 `elapsed` 秒时取源的时刻与速度（`sticker.loop`，格式规范 §3.7）：`loop`（缺省）对素材时长
 /// 取模，`once` 播完停在末尾，`hold` 定格第一帧。不知道素材时长时按经过的时间取。

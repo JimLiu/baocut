@@ -2,12 +2,11 @@ import path from 'node:path';
 import { TopicLog } from '@baocut/harness';
 import { ffprobeMediaProbe, selectionBody, videoSelection, type ProbeToolResolver } from '@baocut/jobs';
 import {
+  APPLIED_ASSET_REF,
   LIBRARY_SELECTION_KIND,
   MAX_SELECTED_GLOSSARIES,
   RpcError,
-  brandLogoAsset,
   newId,
-  templateBrandLogos,
   type Actor,
   type EditOperation,
   type Id,
@@ -36,6 +35,7 @@ import {
   type LibraryPutOutcome,
 } from '@baocut/runtime-storage/library';
 import type { TrustedPrincipal } from '../gateway.ts';
+import type { BrandLogoImport } from '../templates/template-logos.ts';
 import type { MediaRegistry } from '../media.ts';
 import type { VideoService } from '../videos/video-service.ts';
 import type { VoiceCloneService } from './voice-clone-service.ts';
@@ -163,12 +163,10 @@ export class LibraryService {
 
   /**
    * 把条目拷进视频：一笔普通的编辑事务，操作者是发起请求的连接（界面与 CLI 是用户）。bytes 收进视频目录（`managed`），
-   * 来源记下库条目与版本；之后库里的修改与删除不影响视频。
+   * 来源记下库条目与版本；之后库里的修改与删除不影响视频。调用方给的 `operations` 接在后面（如放上时间线），一步撤销。
    */
   async applyToVideo(p: LibraryApplyParams, principal: TrustedPrincipal): Promise<LibraryApplyResult> {
     const { videos } = this.#options;
-    // 模板台标用到、视频里还没有的品牌库图片：拷进来期间固定住，事务写完再放。
-    const logoHolder = newId('libpin');
     const applied = this.#pinned(p.entry, async (entry) => {
       const frozen = { library: entry.library, id: entry.id, version: entry.version, contentHash: entry.contentHash };
       const name = p.name ?? entry.content.name;
@@ -187,7 +185,7 @@ export class LibraryService {
             type: 'importAsset',
             path: this.store.filePath(entry, content.file),
             name,
-            ref: 'asset',
+            ref: APPLIED_ASSET_REF,
             storage: 'managed',
             provenance: { origin: 'library', source: { library: { ...origin, kind: content.kind } } },
           },
@@ -216,41 +214,8 @@ export class LibraryService {
         if (!video) throw new RpcError('not-found', RcCommon.videoNotOpen(), { code: 'VIDEO_NOT_OPEN' });
         const template = { ...content.template, id: entry.id, from: entry.id, ...(p.name !== undefined ? { name: p.name } : {}) };
         delete template.builtin;
-        // 台标用的品牌库图片按素材登记（§3.17）：视频里还没有的同一笔事务拷进来；库里已经没有的不拷，画的时候报出来。
-        const logos = templateBrandLogos(template)
-          .filter((id) => !brandLogoAsset(video.assets, id))
-          .flatMap((id) => {
-            try {
-              const [pinned] = this.store.pin(logoHolder, [{ library: 'brand', id }]);
-              const logo = this.store.get({ library: 'brand', id, version: pinned!.version });
-              return 'file' in logo.content && logo.content.kind === 'image' ? [{ entry: logo, content: logo.content }] : [];
-            } catch {
-              return [];
-            }
-          });
-        operations = [
-          ...logos.map(({ entry: logo, content: image }, index): EditOperation => ({
-            type: 'importAsset',
-            path: this.store.filePath(logo, image.file),
-            name: image.name,
-            ref: `logo${index}`,
-            storage: 'managed',
-            provenance: {
-              origin: 'library',
-              source: {
-                library: {
-                  library: logo.library,
-                  entryId: logo.id,
-                  version: logo.version,
-                  contentHash: logo.contentHash,
-                  name: image.name,
-                  kind: image.kind,
-                },
-              },
-            },
-          })),
-          { type: 'setTemplate', sequenceId: p.sequenceId ?? video.rootSequenceId, template },
-        ];
+        // 台标用的图片在提交时按素材登记（§3.17，`templateLogoPreparer`），同一笔事务。
+        operations = [{ type: 'setTemplate', sequenceId: p.sequenceId ?? video.rootSequenceId, template }];
       } else {
         throw withLocalized(
           libraryError('LIBRARY_ENTRY_NOT_APPLICABLE', 'invalid-request', '', { library: entry.library, id: entry.id }),
@@ -262,19 +227,60 @@ export class LibraryService {
       }
       const expectedRevision = p.expectedRevision ?? videos.mirror(p.videoId)?.video.revision;
       if (expectedRevision === undefined) throw new RpcError('not-found', RcCommon.videoNotOpen(), { code: 'VIDEO_NOT_OPEN' });
+      const label =
+        p.label !== undefined
+          ? { label: p.label, ...(p.labelRef ? { labelRef: p.labelRef } : {}) }
+          : { label: RcLibrary.addFromLibraryLabel({ name }).text };
       const result = await videos.apply(
-        { videoId: p.videoId, commandId: p.commandId, expectedRevision, operations, label: RcLibrary.addFromLibraryLabel({ name }).text },
+        { videoId: p.videoId, commandId: p.commandId, expectedRevision, operations: [...operations, ...(p.operations ?? [])], ...label },
         principal,
       );
       const refs = result.receipt.refs ?? {};
       return {
         ...result,
         entry: frozen,
-        ...(refs.asset ? { assetId: refs.asset } : {}),
+        ...(refs[APPLIED_ASSET_REF] ? { assetId: refs[APPLIED_ASSET_REF] } : {}),
         ...(refs.style ? { documentId: refs.style } : {}),
       };
     });
-    return applied.finally(() => this.store.unpin(logoHolder));
+    return applied;
+  }
+
+  /**
+   * 模板台标用的品牌库图片（视频格式规范 §3.17）：固定住这些条目的当前版本，给出导入用的路径与来源（与拷进视频的图片
+   * 同一个来源，渲染按它认）。库里没有的、不是图片的不给。写完之后 `release`。
+   */
+  pinBrandLogos(ids: readonly string[]): { logos: Map<string, BrandLogoImport>; release: () => Promise<void> } {
+    const holder = newId('libpin');
+    const logos = new Map<string, BrandLogoImport>();
+    for (const id of ids) {
+      try {
+        const [pinned] = this.store.pin(holder, [{ library: 'brand', id }]);
+        const logo = this.store.get({ library: 'brand', id, version: pinned!.version });
+        const content = logo.content;
+        if (!('file' in content) || content.kind !== 'image') continue;
+        logos.set(id, {
+          path: this.store.filePath(logo, content.file),
+          name: content.name,
+          provenance: {
+            origin: 'library',
+            source: {
+              library: {
+                library: logo.library,
+                entryId: logo.id,
+                version: logo.version,
+                contentHash: logo.contentHash,
+                name: content.name,
+                kind: content.kind,
+              },
+            },
+          },
+        });
+      } catch {
+        // 库里已经没有：不拷，画的时候报出来。
+      }
+    }
+    return { logos, release: () => this.store.unpin(holder) };
   }
 
   /** 视频里启用的条目（§5.9）：`library-selection` 文档的正文；没有这份文档时是空的。 */

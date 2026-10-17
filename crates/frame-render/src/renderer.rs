@@ -15,7 +15,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
-use message_ref::{Text, msg};
+use message_ref::{MessageRef, Text, msg};
 use render_graph::audio_plan::AudioSegment;
 use render_graph::{FramePlan, LayerContent, LayerKind, TransitionRole, VideoView, VisualLayer};
 use render_raster::TextEngine;
@@ -72,7 +72,19 @@ impl std::error::Error for RenderError {}
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct RenderWarning {
     pub code: &'static str,
+    /// 英文说明（缺省与兜底）；界面按 `detailRef` 用自己的语言重新生成（仓库约定 §5）。
     pub detail: String,
+    #[serde(rename = "detailRef", skip_serializing_if = "Option::is_none")]
+    pub detail_ref: Option<MessageRef>,
+}
+
+impl RenderWarning {
+    /// 缺字体的提示（[`item_note`] 包着 [`missing_font_note`]）报的是哪个族。
+    fn missing_family(&self) -> Option<&str> {
+        let note = self.detail_ref.as_ref()?.params.as_ref()?.get("note")?;
+        (note.get("key")?.as_str()? == MISSING_FONT_KEY).then_some(())?;
+        note.get("params")?.get("family")?.as_str()
+    }
 }
 
 /// 渲染内核的提示（字体替换、缺字、没有频谱的声波等）。
@@ -281,8 +293,8 @@ impl FrameRenderer {
         self.spare_engine(engine);
         for family in arrived {
             self.missing_fonts.remove(&family);
-            let note = format!("：{}", missing_font_note(&family));
-            self.warnings.retain(|w| !(w.code == RENDER_NOTE && w.detail.ends_with(&note)));
+            self.warnings
+                .retain(|w| !(w.code == RENDER_NOTE && w.missing_family() == Some(family.as_str())));
         }
     }
 
@@ -309,7 +321,7 @@ impl FrameRenderer {
         }
         let families: Vec<String> = families.iter().cloned().collect();
         for family in families {
-            self.warn(RENDER_NOTE, format!("{item_id}：{}", missing_font_note(&family)));
+            self.warn(RENDER_NOTE, item_note(item_id, missing_font_note(&family)));
             self.missing_fonts.insert(family);
         }
     }
@@ -559,7 +571,7 @@ impl FrameRenderer {
             let Some(doc) = context.sequence.header.template.as_ref() else {
                 return Ok(None);
             };
-            // 图片台标：帧计划解析好的素材（品牌库拷进来的那一份，render-graph `brand_logo_asset`）。
+            // 图片台标：帧计划解析好的素材（品牌库拷进来或按路径登记的那一份，render-graph `template_logo_asset`）。
             let asset: Option<VersionRef> = parameters.get("asset").cloned().and_then(|v| serde_json::from_value(v).ok());
             let logo = match asset {
                 Some(asset) => match self.template_logo(context, layer, &asset, media)? {
@@ -615,8 +627,11 @@ impl FrameRenderer {
                         return Ok(None);
                     };
                     Some(svg)
-                } else if layer.kind == LayerKind::Image && context.is_gif(layer.asset.as_ref()) {
-                    let Some(gif) = self.gif(layer, media)? else {
+                } else if let Some(format) = (layer.kind == LayerKind::Image)
+                    .then(|| context.animated_format(layer.asset.as_ref()))
+                    .flatten()
+                {
+                    let Some(gif) = self.gif(layer, format, media)? else {
                         return Ok(None);
                     };
                     // 图片实例的动图一直循环；贴纸按 `sticker.loop`。
@@ -704,7 +719,7 @@ impl FrameRenderer {
         let notes = std::mem::take(&mut plan.warnings);
         let missing = plan.text.take_missing_families();
         for note in notes {
-            self.warn(RENDER_NOTE, format!("{}：{note}", layer.item_id));
+            self.warn(RENDER_NOTE, item_note(&layer.item_id, note));
         }
         self.note_missing_fonts(&layer.item_id, missing);
         let rendered = rendered?;
@@ -882,10 +897,11 @@ impl FrameRenderer {
                 }
             });
             if recolour_failed {
-                self.warn(
-                    RENDER_NOTE,
-                    format!("{}：SVG 贴纸不是 UTF-8 文本，换不了色，按原色画", layer.item_id),
+                let note = msg!(
+                    "frameRender.svgNotUtf8",
+                    "This SVG sticker isn’t UTF-8 text, so its colors can’t be changed; drawing its original colors"
                 );
+                self.warn(RENDER_NOTE, item_note(&layer.item_id, note));
             }
             let long_edge = self.options.width.max(self.options.height);
             match crate::decode_svg(recoloured.as_deref().unwrap_or(&bytes), long_edge) {
@@ -916,24 +932,24 @@ impl FrameRenderer {
         }
     }
 
-    /// GIF 图片：素材字节解成动图（[`crate::load_gif`]），按素材版本缓存。读不到或连第一帧也解不开时按选项报错或跳过
-    /// （`asset-undecodable`）；超过上限只画第一帧时给一条提示。
-    fn gif(&mut self, layer: &VisualLayer, media: &mut dyn LayerMedia) -> Result<Option<Arc<crate::Gif>>, RenderError> {
-        let asset = layer.asset.as_ref().expect("调用方查过是 GIF 素材");
+    /// 动图（GIF / APNG）：素材字节解成动图（[`crate::load_gif`]），按素材版本缓存。读不到或连第一帧也解不开时按选项报错
+    /// 或跳过（`asset-undecodable`）；超过上限只画第一帧时给一条提示。`format` 是给人看的格式名。
+    fn gif(&mut self, layer: &VisualLayer, format: &str, media: &mut dyn LayerMedia) -> Result<Option<Arc<crate::Gif>>, RenderError> {
+        let asset = layer.asset.as_ref().expect("调用方查过是动图素材");
         let key = format!("{}@{}", asset.id, asset.revision);
         if !self.gifs.contains_key(&key) {
             let Some(bytes) = media.asset_bytes(asset) else {
                 self.refuse_or_skip(vec![asset_item(
                     layer,
                     "asset-undecodable",
-                    asset_text::image_unreadable("GIF", &asset.id),
+                    asset_text::image_unreadable(format, &asset.id),
                 )])?;
                 return Ok(None);
             };
             match crate::load_gif(&asset.id, &bytes) {
                 Ok((gif, note)) => {
                     if let Some(note) = note {
-                        self.warn(RENDER_NOTE, format!("{}：{note}", layer.item_id));
+                        self.warn(RENDER_NOTE, item_note(&layer.item_id, note));
                     }
                     self.gifs.insert(key.clone(), Some(Arc::new(gif)));
                 }
@@ -942,7 +958,7 @@ impl FrameRenderer {
                     self.refuse_or_skip(vec![asset_item(
                         layer,
                         "asset-undecodable",
-                        asset_text::image_undecodable_detail("GIF", &asset.id, &format!("{error:#}")),
+                        asset_text::image_undecodable_detail(format, &asset.id, &format!("{error:#}")),
                     )])?;
                     return Ok(None);
                 }
@@ -954,7 +970,7 @@ impl FrameRenderer {
                 self.refuse_or_skip(vec![asset_item(
                     layer,
                     "asset-undecodable",
-                    asset_text::image_undecodable("GIF", &asset.id),
+                    asset_text::image_undecodable(format, &asset.id),
                 )])?;
                 Ok(None)
             }
@@ -1025,7 +1041,7 @@ impl FrameRenderer {
                 match spectrum::compose(&segments, &route, element.start, element.end, &sources) {
                     Ok(bytes) => derive(&bytes),
                     Err(message) => {
-                        self.warn(RENDER_NOTE, format!("{}：{message}", element.id));
+                        self.warn(RENDER_NOTE, item_note(&element.id, message));
                         None
                     }
                 }
@@ -1042,19 +1058,23 @@ impl FrameRenderer {
             Some(speaker) => {
                 let spans = match self.speakers.as_deref() {
                     None => {
-                        notes.push(format!(
-                            "{}：视频里没有转写，听不出说话人 {speaker} 什么时候说话，声波按无声画",
-                            element.id
-                        ));
+                        let note = msg!(
+                            "frameRender.speakerNoTranscript",
+                            "This video has no transcript, so it’s unknown when speaker {speaker} talks; the waveform is drawn silent",
+                            speaker
+                        );
+                        notes.push(item_note(&element.id, note));
                         None
                     }
                     Some(speakers) => match speakers.get(speaker) {
                         Some(intervals) => Some(spectrum::speaking_spans(intervals)),
                         None => {
-                            notes.push(format!(
-                                "{}：转写里没有说话人 {speaker} 在这条序列上说的话，声波按无声画",
-                                element.id
-                            ));
+                            let note = msg!(
+                                "frameRender.speakerNotInSequence",
+                                "The transcript has no speech from speaker {speaker} in this sequence; the waveform is drawn silent",
+                                speaker
+                            );
+                            notes.push(item_note(&element.id, note));
                             None
                         }
                     },
@@ -1309,7 +1329,7 @@ impl FrameRenderer {
         // 字幕的提示是常设的：内核只在编译时报一次，预览每帧清掉报告后也要照报（与导出一致）。
         let (notes, missing) = captions.notes();
         for note in notes {
-            self.warn(RENDER_NOTE, format!("{}：{note}", first.item_id));
+            self.warn(RENDER_NOTE, item_note(&first.item_id, note));
         }
         self.note_missing_fonts(&first.item_id, missing);
         let opacity = first.opacity.clamp(0.0, 1.0) as f32 * style_opacity;
@@ -1382,9 +1402,14 @@ impl FrameRenderer {
         Ok(())
     }
 
-    fn warn(&mut self, code: &'static str, detail: String) {
-        if !self.warnings.iter().any(|w| w.code == code && w.detail == detail) {
-            self.warnings.push(RenderWarning { code, detail });
+    fn warn(&mut self, code: &'static str, detail: impl Into<Text>) {
+        let detail = detail.into();
+        if !self.warnings.iter().any(|w| w.code == code && w.detail == detail.text) {
+            self.warnings.push(RenderWarning {
+                code,
+                detail: detail.text,
+                detail_ref: detail.message_ref,
+            });
         }
     }
 }
@@ -1409,7 +1434,7 @@ struct VizEntry {
     /// 拼它时缺的素材频谱。
     missing: Vec<VersionRef>,
     /// 每一帧都要报的提示（说话人对不上）。
-    notes: Vec<String>,
+    notes: Vec<Text>,
     /// `alwaysShow: false` 时每一帧有没有声；`None` 是一直画。
     audible: Option<Vec<bool>>,
 }
@@ -1452,9 +1477,11 @@ impl SequenceContext<'_> {
         self.media_type_is(asset, SVG_MEDIA_TYPE)
     }
 
-    /// 素材版本是不是 GIF 图片（同上）。
-    fn is_gif(&self, asset: Option<&VersionRef>) -> bool {
-        self.media_type_is(asset, GIF_MEDIA_TYPE)
+    /// 素材版本是动图（GIF / APNG）时给出格式名（同上，按 [`animated_image_format`]）。
+    fn animated_format(&self, asset: Option<&VersionRef>) -> Option<&'static str> {
+        let asset = asset?;
+        let revision = self.assets.get(&asset.id)?.revisions.get(&asset.revision)?;
+        animated_image_format(&revision.media_type)
     }
 
     fn media_type_is(&self, asset: Option<&VersionRef>, media_type: &str) -> bool {
@@ -1469,6 +1496,20 @@ pub const SVG_MEDIA_TYPE: &str = "image/svg+xml";
 
 /// GIF 图片素材的媒体类型：画面由帧光栅从素材字节解（动图按时刻取帧）。
 pub const GIF_MEDIA_TYPE: &str = "image/gif";
+
+/// APNG 图片素材的媒体类型（导入时按 `.apng` 扩展名认；扩展名是 `.png` 的 APNG 记成 `image/png`，按静态图画）。
+pub const APNG_MEDIA_TYPE: &str = "image/apng";
+
+/// 由帧光栅按时刻取帧的动图媒体类型（GIF、APNG）给出给人看的格式名；别的媒体类型是 None。
+pub fn animated_image_format(media_type: &str) -> Option<&'static str> {
+    if media_type.eq_ignore_ascii_case(GIF_MEDIA_TYPE) {
+        Some("GIF")
+    } else if media_type.eq_ignore_ascii_case(APNG_MEDIA_TYPE) {
+        Some("APNG")
+    } else {
+        None
+    }
+}
 
 /// Composite one caption plane onto the current video backdrop. `plain`：调用方确知 `target` 没有发光分量（省一遍整幅扫描）。
 fn composite_caption_layer(
@@ -1654,8 +1695,21 @@ fn fill(target: &mut Pixmap, color: Color) {
 }
 
 /// 缺字体的提示（与字幕内核编译时报的同一句）。
-pub fn missing_font_note(family: &str) -> String {
-    format!("字体 {family:?} 在当前字体库中不可用，将使用 Noto Sans SC fallback")
+pub fn missing_font_note(family: &str) -> Text {
+    msg!(
+        "frameRender.missingFont",
+        "Font \"{family}\" isn’t in the font library; using {fallback} instead",
+        family,
+        fallback = crate::FALLBACK_FAMILY
+    )
+}
+
+const MISSING_FONT_KEY: &str = "frameRender.missingFont";
+
+/// 一条提示前面写上它的实例：`{item}: {note}`。内核（元素、字幕、Lottie）报来的提示还没有引用，照原话嵌进来。
+pub fn item_note(item_id: &str, note: impl Into<Text>) -> Text {
+    let note = note.into();
+    msg!("frameRender.itemNote", "{item}: {note}", item = item_id, note)
 }
 
 #[cfg(test)]

@@ -67,7 +67,7 @@ export const zhHans: CliMessages = {
 
   metaHelp: {
     help: 'baocut help [<命令>]\n\n不带命令：一屏总览。带命令（`help videos`、`help videos inspect`、`help runtime`）：它的参数、效果与示例。有正在运行的 Runtime 时用它的目录，否则用离线快照；不会启动 Runtime。',
-    spec: 'baocut spec [<名字>]\n\n机器可读的目录，裸 JSON（不包信封），带接口版本。<名字> 可以是工具名（videos_inspect）、点号（videos.inspect）、命令（videos inspect），或 edits.<操作>（edits apply 的一个操作）。有正在运行的 Runtime 时用它的目录，否则用离线快照；不会启动 Runtime。',
+    spec: 'baocut spec [<名字>]\n\n机器可读的目录，裸 JSON（不包信封），带接口版本。<名字> 可以是工具名（videos_inspect）、点号（videos.inspect）、命令（videos inspect），或 edits.<操作>（edits apply 的一个操作）。不带 <名字> 时输出整个目录（几百 KB）；要找名字先用 `baocut help` 列命令。有正在运行的 Runtime 时用它的目录，否则用离线快照；不会启动 Runtime。',
     version: 'baocut version\n\n这个 CLI 与（正在运行时）Runtime 的版本、两边的工具接口版本以及是否一致。裸 JSON；不会启动 Runtime。',
     status:
       'baocut status [--full] [--no-start]\n\n这台机器此刻能做什么：Runtime、每种能力的默认与可用性、本地模型包与外部工具，缺的带补救命令。能力与模型包是摘要；--full 时带上每个服务的模型、参数与限制，以及模型包的详情。没有 Runtime 时会启动一个；带 --no-start 时改为回答 running: false。',

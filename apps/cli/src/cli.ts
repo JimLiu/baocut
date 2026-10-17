@@ -14,7 +14,7 @@ import { extractGlobals, processInput, parseToolArgs, type GlobalFlags, type Inp
 import { renderCommandHelp, renderGroupHelp, renderMainHelp, type AdminEntry } from './catalog/help.ts';
 import { runTool } from './catalog/run.ts';
 import { SNAPSHOT_COMMAND, loadSnapshot } from './catalog/snapshot.ts';
-import { specOf } from './catalog/spec.ts';
+import { findTool, specOf } from './catalog/spec.ts';
 import { status, version } from './meta.ts';
 import { connectRuntime, findRuntime, openClient, runtimeHome, type Session } from './runtime/connection.ts';
 import { runtimeCommand } from './runtime/runtime-command.ts';
@@ -221,6 +221,8 @@ async function help(output: Output, home: string, cwd: string, admin: AdminBucke
 }
 
 async function spec(output: Output, home: string, cwd: string, name: string | undefined): Promise<ExitCode> {
-  const { catalog, editOps } = await readCatalog(home, cwd, Boolean(name?.startsWith('edits')));
+  let { catalog, editOps } = await readCatalog(home, cwd, Boolean(name?.startsWith('edits')));
+  // 不是工具名的裸名字可能是编辑操作（`setStyle`）：这时才去取操作目录。
+  if (name && !editOps && !findTool(catalog.tools, name)) ({ catalog, editOps } = await readCatalog(home, cwd, true));
   return output.raw(specOf(catalog, editOps, name));
 }

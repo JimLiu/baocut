@@ -1,6 +1,25 @@
 import type { RcSkillsMessages } from './rc-skills.ts';
 
 export const pl: RcSkillsMessages = {
+  brandProjectNotFound: (p) => `Nie znaleziono projektu: ${p.id}`,
+  brandNotFound: (p) => `„${p.project}” nie ma jeszcze BRAND.md`,
+  brandFileNotFound: (p) => `To nie jest plik BRAND.md: ${p.file}`,
+  brandPathInvalid: (p) => `Zmieniać można tylko BRAND.md i pliki w brand/: ${p.path}`,
+  brandExists: (p) => `Ten projekt ma już BRAND.md: ${p.path}`,
+  brandUnreadable: (p) => `Nie udało się odczytać ${p.file}, więc wiadomość wysłano bez niego`,
+  versionNotFound: (p) => `Skill „${p.id}” nie ma zapisanej wersji ${p.revision}`,
+  packageTooLarge: (p) => `Plik zip jest większy niż ${p.limit} bajtów`,
+  packageUnreadable: (p) => `Nie można odczytać ${p.path} jako pliku zip ani folderu`,
+  packageNoSkill: (p) => `Ta paczka nie zawiera ${p.file}. Główny folder Skill musi mieć ${p.file} opisujący, co robi i kiedy go używać`,
+  candidateUnsafePath: (p) => `Ten Skill zawiera wpis, którego nie można bezpiecznie rozpakować: ${p.path}`,
+  candidateTooManyFiles: (p) => `Za dużo plików (${p.files}); Skill może mieć ich najwyżej ${p.limit}`,
+  candidateNoDescription: "W SKILL.md brakuje description: napisz zdanie lub dwa o tym, co robi Skill i kiedy go używać. Na tej podstawie agent decyduje, czy go użyć",
+  candidateDuplicate: (p) => `Inny Skill w tej paczce ma to samo ID „${p.id}”`,
+  packagePickInvalid: (p) => `${p.prefix} nie jest Skill możliwym do zainstalowania z tej paczki`,
+  revisionConflict: (p) => `Skill w międzyczasie się zmienił (teraz wersja ${p.revision}). Wczytaj go ponownie i powtórz zmiany`,
+  cannotRemoveSkillFile: (p) => `${p.file} nie można usunąć`,
+  notEditable: (p) => `„${p.name}” nie można tu edytować. Zduplikuj go i edytuj kopię`,
+  changeSourceMissing: (p) => `To nie jest plik, który można dodać: ${p.path}`,
   cliOnlyPageLink: (p) => `Powiązana strona ${p.page} niedostępna w interfejsie narzędzi: ma tylko powierzchnię CLI, linki muszą być w niej`,
 
   guideIdConflict: (p) => `ID „${p.id}” należy do przewodnika BaoCut, kopii nie wczytano. Zmień nazwę folderu`,

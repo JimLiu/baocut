@@ -158,7 +158,7 @@ export const zhHant: AgentMessages = {
     {
       key: 'terminal',
       title: '想在終端機中用這些 Agent 操作 BaoCut？',
-      body: '在 BaoCut 中進行對話不需要額外設定。要在終端機或其他應用程式中使用，請為它們安裝 BaoCut Skill；詳見「設定 › Skills」。',
+      body: '在 BaoCut 中進行對話不需要額外設定。要在終端機或其他應用程式中使用，請為它們安裝 BaoCut Skill；詳見 Skills 頁面底部。',
       link: 'skills',
     },
   ],

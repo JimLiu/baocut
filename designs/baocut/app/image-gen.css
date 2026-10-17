@@ -23,7 +23,8 @@
 .imgen__ref-preview { flex: none; width: 48px; height: 40px; border-radius: 4px; }
 .imgen__ref.is-extra { opacity: 0.55; }
 .imgen__ref.is-missing { box-shadow: inset 0 0 0 1px var(--red-900); }
-.imgen__refs.is-over { outline: 2px dashed var(--blue-900); outline-offset: 4px; border-radius: 6px; }
+.imgen__intake { display: flex; flex-direction: column; gap: 8px; min-width: 0; border-radius: 8px; }
+.imgen__intake.is-over { outline: 2px dashed var(--blue-900); outline-offset: 4px; }
 .imgen__refs--off { min-height: 24px; }
 /* 自测对话框：结果图 + 元信息 + 下载 / 复制 */
 .imgen__probe .cloud-sample .field--area { min-height: 64px; }

@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import {
   ANIMATED_STICKER_PACKS,
+  COMMUNITY_PETS,
   STICKER_PACKS,
   packStickers,
   type AssetRecord,
@@ -57,6 +58,8 @@ import { useBrandApply } from './use-brand-apply.ts';
 import { useBrandStickers, type BrandSticker } from './use-brand-stickers.ts';
 import { useInsertVisual } from './use-insert-visual.ts';
 import { usePackSticker } from './use-pack-sticker.ts';
+import { PetPeekGrid, PetSection, petPeek } from './elements-pets.tsx';
+import { PET_COPY as PT } from '../../model/pet-copy.ts';
 import { useTemplateActions } from './use-template-actions.ts';
 import { useTemplateCatalog } from './use-template-catalog.ts';
 import { useTemplateStudio } from './use-template-studio.ts';
@@ -136,14 +139,14 @@ const stickerRest = (builtinCount: number): { key: StickerSub; label: string; co
 ];
 
 /**
- * 动态贴纸的二级分类（设计稿 `animCats`）：「全部」「我的贴纸」，再是五个 Noto 分类，彩纸按分类键的字母序插在拼贴之后。
- * 值是 `all`、`brand`、`confetti` 或包的 key。
+ * 动态贴纸的二级分类（设计稿 `animCats`）：「全部」「我的贴纸」「Codex Pets」，再是五个 Noto 分类，彩纸按分类键的字母序插在
+ * 拼贴之后。值是 `all`、`brand`、`pet`、`confetti` 或包的 key。
  */
 type DynSub = string;
 const dynChips = (): { key: DynSub; label: string }[] => {
   const packs = ANIMATED_STICKER_PACKS.map((pack) => ({ key: pack.key, label: packLabel(pack) }));
   packs.splice(confettiAt(ANIMATED_STICKER_PACKS), 0, { key: 'confetti', label: EL.confetti });
-  return [{ key: 'all', label: EL.all }, { key: 'brand', label: EL.myStickers }, ...packs];
+  return [{ key: 'all', label: EL.all }, { key: 'brand', label: EL.myStickers }, { key: 'pet', label: PT.title }, ...packs];
 };
 
 const search = style({ flexShrink: 0, paddingX: 12, paddingTop: 12 });
@@ -303,9 +306,10 @@ export function ElementsPanel({ sequence, assets }: { sequence: Sequence; assets
   // 随包贴纸包：搜索按包名与检索词整包留下；命中了，那一段也得留着。
   const stickerPacks = matchPacks(STICKER_PACKS, q);
   const animPacks = matchPacks(ANIMATED_STICKER_PACKS, q);
+  const pets = petPeek(q);
   const keep: Section[] = [
     ...(mineStatic.stickers.length || stickerPacks.length ? ['sticker' as const] : []),
-    ...(mineDynamic.stickers.length || animPacks.length ? ['dynamic' as const] : []),
+    ...(mineDynamic.stickers.length || animPacks.length || pets.length ? ['dynamic' as const] : []),
   ];
   const sections = elementSections(query, keep).filter((section) => root || section.key === tab);
   const current =
@@ -442,7 +446,15 @@ export function ElementsPanel({ sequence, assets }: { sequence: Sequence; assets
                     ))}
                   </div>
                 ) : (
-                  <Dynamic sub={root ? 'all' : dyn} items={section.tiles} packs={animPacks} brand={mineDynamic} pack={packTiles} {...tiles} />
+                  <Dynamic
+                    sub={root ? 'all' : dyn}
+                    items={section.tiles}
+                    packs={animPacks}
+                    brand={mineDynamic}
+                    pack={packTiles}
+                    onPets={() => open('dynamic', 'pet')}
+                    {...tiles}
+                  />
                 )
               ) : section.key === 'visualizer' ? (
                 peeking ? (
@@ -641,12 +653,17 @@ function Dynamic({
   packs,
   brand,
   pack,
+  onPets,
   ...tiles
-}: TileProps & { sub: DynSub; items: ElementTile[]; packs: StickerPack[]; brand: BrandProps; pack: PackTileProps }) {
+}: TileProps & { sub: DynSub; items: ElementTile[]; packs: StickerPack[]; brand: BrandProps; pack: PackTileProps; onPets(): void }) {
+  if (sub === 'pet') return <PetSection query={brand.query} editable={tiles.editable} />;
   const withMine = showMine(sub, brand);
   const shown = shownPacks(sub, packs);
   const withConfetti = (sub === 'all' || sub === 'confetti') && items.length > 0;
   const at = withConfetti ? confettiAt(shown) : -1;
+  // Codex Pets 跟在「我的贴纸」后面（设计稿 `PetPeek`）：不搜索时摆目录的前几只，搜索时摆命中的。
+  const withPets = sub === 'all' && petPeek(brand.query).length > 0;
+  const lead = withMine || withPets;
   const confetti = (first: boolean) => (
     <Fragment key="confetti">
       <PackHead first={first} title={EL.confetti} note={EL.confettiNote} />
@@ -656,13 +673,24 @@ function Dynamic({
   return (
     <>
       {withMine ? <BrandStickerGrid first anim brand={brand} editable={tiles.editable} /> : null}
+      {withPets ? (
+        <>
+          <PackHead
+            first={!withMine}
+            title={PT.title}
+            note={PT.peekNote(COMMUNITY_PETS.length)}
+            action={<ViewAll onPress={onPets} />}
+          />
+          <PetPeekGrid query={brand.query} editable={tiles.editable} />
+        </>
+      ) : null}
       {shown.map((p, index) => (
         <Fragment key={p.key}>
-          {at === index ? confetti(!withMine && index === 0) : null}
-          <PackGrid first={!withMine && index === 0 && at !== 0} pack={p} className={animGrid} {...pack} />
+          {at === index ? confetti(!lead && index === 0) : null}
+          <PackGrid first={!lead && index === 0 && at !== 0} pack={p} className={animGrid} {...pack} />
         </Fragment>
       ))}
-      {withConfetti && at >= shown.length ? confetti(!withMine && !shown.length) : null}
+      {withConfetti && at >= shown.length ? confetti(!lead && !shown.length) : null}
       {brand.query ? null : (
         <div className={hint}>
           {sub === 'all' || findPack(sub) ? `${SP.notoHint} ` : null}

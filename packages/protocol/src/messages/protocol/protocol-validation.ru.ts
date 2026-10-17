@@ -1,6 +1,7 @@
 import type { ProtocolValidationMessages } from './protocol-validation.ts';
 
 export const ru: ProtocolValidationMessages = {
+  duplicatePaths: "Каждый путь может встречаться только один раз",
   listSeparator: ", ",
   notEmpty: "Не может быть пустым",
   noSurroundingSpace: "Не может начинаться или заканчиваться пробелами",

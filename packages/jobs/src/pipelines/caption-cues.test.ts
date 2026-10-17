@@ -51,6 +51,28 @@ describe('读转写（与编辑器的 speech-cues.ts 同一条规则）', () => 
     expect(pieces.some((piece) => piece.includes('Transformer'))).toBe(true);
   });
 
+  it('中文转写一个字一个词时，溢出落在词里就延长到词尾（「修程｜序崩溃」「代｜码审查」）；没有词时间的段按宽度切也不拆词', () => {
+    const list = (text: string): W[] => [...text].map((char, i) => [`w${i}`, i * 0.2, i * 0.2 + 0.2, char]);
+    const texts = (text: string) => deriveCues(readSpeechWords(speechBody(list(text)))!.words).map((cue) => cue.text);
+    expect(texts('我们今天来讲一讲这个很有名的模型就是它修程序崩溃的问题')).toEqual([
+      '我们今天来讲一讲这个很有名的模型就是它修程序',
+      '崩溃的问题',
+    ]);
+    expect(texts('我们今天来讲一讲这个很有名的模型就是它的代码审查流程')).toEqual(['我们今天来讲一讲这个很有名的模型就是它的代码', '审查流程']);
+    // 词比余量还长时照样按宽度断。
+    const tight = deriveCues(readSpeechWords(speechBody(list('我们今天来讲一讲这个很有名的模型就是它修程序崩溃的问题')))!.words, {
+      ...CUE_PARAMS,
+      overflowSlack: 0,
+    });
+    expect(tight[0]!.text).toBe('我们今天来讲一讲这个很有名的模型就是它修程');
+    for (const maxChars of [14, 16, 18, 20]) {
+      const pieces = splitUntimed('我们让它帮忙修程序崩溃然后再做代码审查', 0, 5, maxChars).map((p) => p.text);
+      expect(pieces.join('')).toBe('我们让它帮忙修程序崩溃然后再做代码审查');
+      for (const [a, b] of pieces.slice(1).map((piece, n) => [pieces[n]!, piece] as const))
+        for (const word of ['程序', '崩溃', '代码', '审查']) expect(a.endsWith(word[0]!) && b.startsWith(word[1]!), pieces.join('|')).toBe(false);
+    }
+  });
+
   it('零时长词并进相邻词时仍保留 glue 指定的词缝', () => {
     const read = readSpeechWords(speechBody([
       ['w1', 0, 0, 'i'], ['w2', 0, 0.5, 'nter', { glue: true }],

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { methodParamSchemas } from './schemas.ts';
-import { messageSkills, parseSkillLabels, SKILL_LIMITS, sendSkillRefs, skillLabel } from './skill.ts';
+import { messageBrand, messageSkills, parseSkillLabels, projectBrandSummary, SKILL_LIMITS, sendSkillRefs, skillLabel } from './skill.ts';
 
 describe('conversations.send 点选的 skill', () => {
   const send = methodParamSchemas['conversations.send'];
@@ -61,5 +61,59 @@ describe('内置 skill 的界面文字（SKILL_META_FILE）', () => {
     expect(skillLabel(skill, 'zh-Hans')).toEqual({ name: '分章节', summary: '在话题转换处分章' });
     expect(skillLabel(skill, 'ja')).toEqual({ name: 'Chapters', summary: 'Split at topic changes' });
     expect(skillLabel({ ...skill, labels: null }, 'zh-Hans')).toEqual({ name: 'video-chapters', summary: '给智能体看的触发说明' });
+  });
+});
+
+describe('skill 编辑、上传与项目品牌的参数', () => {
+  it('skills.write 的改动：三种形状，路径必须是相对路径且不重复', () => {
+    const write = methodParamSchemas['skills.write'];
+    const base = { id: 'notes', baseRevision: 1 };
+    expect(
+      write.safeParse({
+        ...base,
+        changes: [
+          { path: 'SKILL.md', text: 'x' },
+          { path: 'a.png', from: '/tmp/a.png' },
+          { path: 'b.md', remove: true },
+        ],
+      }).success,
+    ).toBe(true);
+    for (const bad of ['/abs.md', '../up.md', 'a\\b.md']) {
+      expect(write.safeParse({ ...base, changes: [{ path: bad, text: 'x' }] }).success).toBe(false);
+    }
+    expect(
+      write.safeParse({
+        ...base,
+        changes: [
+          { path: 'a.md', text: 'x' },
+          { path: 'a.md', remove: true },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(write.safeParse({ ...base, baseRevision: 0, changes: [] }).success).toBe(false);
+  });
+
+  it('send 收 skipProjectBrand；installPackage 的选择只认三种模式', () => {
+    expect(
+      methodParamSchemas['conversations.send'].safeParse({ conversationId: 'c', text: 'hi', commandId: 'k', skipProjectBrand: true })
+        .success,
+    ).toBe(true);
+    const install = methodParamSchemas['skills.installPackage'];
+    expect(install.safeParse({ path: '/tmp/a.zip', picks: [{ prefix: '', mode: 'copy', title: 'A' }] }).success).toBe(true);
+    expect(install.safeParse({ path: '/tmp/a.zip', picks: [{ prefix: '', mode: 'replace' }] }).success).toBe(false);
+  });
+
+  it('projectBrandSummary：front matter 的 description，没有时第一段正文', () => {
+    expect(projectBrandSummary('---\ndescription: "Teal and short"\n---\n# X\n\nBody')).toBe('Teal and short');
+    expect(projectBrandSummary('# Title\n\n- list\n\nFirst line\nsecond line\n\nNext')).toBe('First line second line');
+    expect(projectBrandSummary('')).toBe('');
+    // 模板里还没填的空列表项（一个 `-`、`1.`）不算正文
+    expect(projectBrandSummary('# Brand\n\n## When to use\n\n-\n\n## Steps\n\n1.\n\nPut the logo in brand/.')).toBe('Put the logo in brand/.');
+  });
+
+  it('messageBrand 只认合规的标记', () => {
+    expect(messageBrand({ brand: { state: 'skipped', path: '/p/BRAND.md' } })).toEqual({ state: 'skipped', path: '/p/BRAND.md' });
+    expect(messageBrand({ brand: { state: 'other', path: '/p' } })).toBeNull();
+    expect(messageBrand({})).toBeNull();
   });
 });

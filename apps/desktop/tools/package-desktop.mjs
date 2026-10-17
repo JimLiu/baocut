@@ -14,7 +14,7 @@
 //    不直接打 apps/desktop：它的 dependencies 里有工作区的 TypeScript 包与只给渲染进程用的 React，会被原样塞进 asar。
 // 3. 资源按 `src/main/packaged-resources.ts`（主进程启动 Runtime 时用的同一份）放到 `<resources>` 下：bin/（Worker、凭据助手，
 //    CUDA 版另带 NVIDIA 运行库；bin/audiocpp/ 是内置的 audio.cpp 引擎，本地语音合成与音乐共用，由 tools/fetch-audiocpp.ts 按目标平台
-//    从上游发布页取、核对 sha256：Mac 取 Metal 包，Windows 标准版取 CPU 包，CUDA 版与 Vulkan 版取 Vulkan 包）、templates/、stickers/（随包贴纸）、skills/（说明书与内置 skill）、model-assets/、web/、slides-editor/、design-editor/、
+//    从上游发布页取、核对 sha256：Mac 取 Metal 包，Windows 标准版取 CPU 包，CUDA 版与 Vulkan 版取 Vulkan 包）、templates/、stickers/（随包贴纸；动态贴纸只带清单）、skills/（说明书与内置 skill）、model-assets/、web/、slides-editor/、design-editor/、
 //    design-system-editor/、docs-editor/。都在 asar 外面，子进程要按路径读。
 // 4. electron-builder 出包。它会把 Electron 的 win32-x64 发行包与 NSIS 工具下到自己的缓存目录（~/Library/Caches/electron-builder 等）。
 // 5. 核对解开的包：resources 里的每一项都在，asar 里有主进程、Runtime 与 editor.wasm。在 Windows 上另由 check-packaged-app.mjs 真跑一遍。
@@ -61,6 +61,7 @@ import { macElectronLanguages, shareMacFonts } from './macos-package-resources.m
 import { macPackagePlan } from './macos-package-plan.mjs';
 import { LOCALES } from '../../../packages/protocol/src/i18n.ts';
 import { readReleaseNotes } from './release-notes.mjs';
+import { stageDesktopCli } from './desktop-cli.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DESKTOP = path.resolve(HERE, '..');
@@ -239,6 +240,8 @@ if (isMac) {
 for (const required of [
   'out/main/index.js',
   'out/main/runtime.js',
+  'out/main/cli.js',
+  'out/main/generated/cli-catalog.json',
   'out/main/generated/editor.wasm',
   'out/preload/index.js',
   'out/renderer/index.html',
@@ -302,6 +305,7 @@ const staging = mkdtempSync(path.join(tmpdir(), 'baocut-package-'));
 const appDir = path.join(staging, 'app');
 const resDir = path.join(staging, 'resources');
 try {
+  const cliLauncher = stageDesktopCli(path.join(staging, 'cli'), isMac ? 'darwin' : 'win32');
   // 2. 只含产物的应用。
   const desktop = JSON.parse(readFileSync(path.join(DESKTOP, 'package.json'), 'utf8'));
   mkdirSync(appDir, { recursive: true });
@@ -387,7 +391,11 @@ try {
     cpSync(metallib, path.join(bin, 'mlx.metallib'));
   }
   cpSync(path.join(ROOT, 'templates'), path.join(resDir, RESOURCE_DIRS.templates), { recursive: true });
-  cpSync(path.join(ROOT, 'stickers'), path.join(resDir, RESOURCE_DIRS.stickers), { recursive: true });
+  // 动态贴纸（`anim/` 下的 Lottie）不随包，用到时从素材 CDN 取；只带清单 `anim/provenance.json`（大小与 sha256）。
+  cpSync(path.join(ROOT, 'stickers'), path.join(resDir, RESOURCE_DIRS.stickers), {
+    recursive: true,
+    filter: (source) => path.dirname(source) !== path.join(ROOT, 'stickers', 'anim') || path.basename(source) === 'provenance.json',
+  });
   cpSync(path.join(ROOT, 'skills'), path.join(resDir, RESOURCE_DIRS.skills), { recursive: true });
   cpSync(path.join(ROOT, 'packages/models/assets'), path.join(resDir, RESOURCE_DIRS.modelAssets), { recursive: true });
   cpSync(path.join(ROOT, 'apps/web/dist'), path.join(resDir, RESOURCE_DIRS.web), { recursive: true });
@@ -440,9 +448,10 @@ try {
           NSMicrophoneUsageDescription: 'BaoCut needs microphone access to record audio for transcription.',
           NSBonjourServices: ['_baocut-node._tcp'],
         },
-        extraFiles: [{ from: path.join(DESKTOP, 'build/localizations'), to: 'Resources' }],
+        extraFiles: [cliLauncher, { from: path.join(DESKTOP, 'build/localizations'), to: 'Resources' }],
       },
       win: {
+        extraFiles: [cliLauncher],
         icon: path.join(DESKTOP, 'build', 'icon.ico'),
         artifactName: `${artifact}.\${ext}`,
         // 不签名（§14）。改 exe 的图标与版本信息要 rcedit，在 macOS / Linux 上得有 Wine：只在 Windows 上做。
@@ -629,6 +638,10 @@ function verifyUnpacked(dir, variantName) {
     else if (!readFileSync(file).equals(readFileSync(path.join(ROOT, source)))) problems.push(`resources/${fileName} 与源码声明不一致`);
   }
   if (!existsSync(path.join(dir, isMac ? `Contents/MacOS/${PRODUCT_NAME}` : `${PRODUCT_NAME}.exe`))) problems.push(`没有 ${PRODUCT_NAME}.exe`);
+  const launcher = path.join(dir, isMac ? 'Contents/MacOS/baocut-cli' : 'baocut.cmd');
+  if (!existsSync(launcher)) problems.push('Missing desktop CLI launcher');
+  else if (isMac && (statSync(launcher).mode & 0o111) === 0) problems.push('Desktop CLI launcher is not executable');
+  if (isMac && existsSync(launcher)) runMac('lipo', [launcher, '-verify_arch', macPlan.intel ? 'x86_64' : 'arm64']);
   for (const name of BUNDLED_EXECUTABLES) {
     if (!existsSync(path.join(resources, RESOURCE_DIRS.bin, exe(name)))) problems.push(`没有 resources/${RESOURCE_DIRS.bin}/${exe(name)}`);
   }
@@ -663,6 +676,8 @@ function verifyUnpacked(dir, variantName) {
       '/LICENSE',
       '/out/main/index.js',
       '/out/main/runtime.js',
+      '/out/main/cli.js',
+      '/out/main/generated/cli-catalog.json',
       '/out/main/generated/editor.wasm',
       '/out/preload/index.js',
       '/out/renderer/index.html',

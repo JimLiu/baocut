@@ -58,6 +58,9 @@ const en = {
   emptyOr: 'or add them from the media panel on the right',
   problemsCount: (n: number) => `${n} ${n === 1 ? 'item' : 'items'} can’t be drawn`,
   problemsTitle: 'Some content in this frame can’t be drawn',
+  livePreview: 'Live preview',
+  livePreviewTitle: 'Live preview; bake before export',
+  livePreviewDetail: 'The code composition at the bottom of this frame is drawn live in the editor, so it may differ from the export. Export only uses a baked stand-in: bake it before exporting.',
   rendererFailed: (message: string) => `The preview renderer didn’t load: ${message}`,
   spectrumTooLarge: (itemId: string, assetId: string, mb: number) =>
     `Waveform ${itemId}: asset ${assetId} is over ${mb} MB, so the preview doesn’t analyze its sound; export is unaffected`,

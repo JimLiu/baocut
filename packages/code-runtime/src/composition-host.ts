@@ -7,7 +7,8 @@ import { JsonLineWorker, WorkerExitedError, WorkerRequestError, WorkerTimeoutErr
 import { CODE_BUNDLE_ERROR_CODES, type CodeBundleErrorCode, type FrameReceipt, type FrameTicket, type Rate } from '@baocut/protocol';
 import { CodeBundleError, parseRate, type InspectedBundle } from './bundle-inspect.ts';
 import { COMPOSITION_ADAPTER_SCRIPT, type AdapterPageInfo } from './composition-adapter.ts';
-import { ADAPTER_PLACEHOLDER, COMPOSITION_HOST_SCRIPT } from './composition-host-script.ts';
+import { ADAPTER_PLACEHOLDER, COMPOSITION_HOST_SCRIPT, RECORDER_PLACEHOLDER } from './composition-host-script.ts';
+import { CANVAS_RECORDER_SCRIPT } from './canvas-recorder.ts';
 
 /**
  * Electron 离屏宿主的 TypeScript 端（架构设计 §8.3–§8.4）：拉起 `<Electron> --composition-host host.cjs`（`hostSpawnArgs`），
@@ -53,6 +54,35 @@ export interface RenderedFrame {
   captureMode: 'paint' | 'capturePage';
 }
 
+/** 录制资源（宿主已把 `file:` URL 改成包内相对路径；落在包外时 `path` 为 null，同时 `unsupported` 有原因）。 */
+export type RecordedResource =
+  | { id: number; type: 'image'; path: string | null; w: number; h: number }
+  | { id: number; type: 'bitmap'; w: number; h: number; rgba: string }
+  | { id: number; type: 'font'; path: string | null; family: string; weight: [number, number]; style: 'normal' | 'italic' | 'oblique' };
+
+/** 一帧的 Canvas 指令（格式见代码包规范 §7.2）；Runtime 原样写进录制文件，不解释内容。 */
+export interface RecordedFrame {
+  s: number;
+  sampled: number;
+  target: number;
+  clamped: boolean;
+  init?: unknown;
+  ops: unknown[];
+  states: unknown[];
+  grads: unknown[];
+  pats: unknown[];
+}
+
+export interface RecordedBatch {
+  frames: RecordedFrame[];
+  /** 这一批新出现的资源。 */
+  resources: RecordedResource[];
+  /** 页面底色（非预乘 RGBA，0..1）；检查没通过时为 null。 */
+  background: [number, number, number, number] | null;
+  /** 第一条不支持的原因；有它时整段回退到像素烘焙。 */
+  unsupported: string | null;
+}
+
 export interface CompositionSession {
   readonly id: string;
   readonly bundle: InspectedBundle;
@@ -62,6 +92,8 @@ export interface CompositionSession {
   /** 到目前为止被拦截的请求 URL（打开期间与每次取帧后刷新）。 */
   readonly blockedRequests: readonly string[];
   frame(ticket: FrameTicket): Promise<RenderedFrame>;
+  /** 录一批时刻的 Canvas 指令（会话要用 `record: true` 打开）。 */
+  record(seconds: readonly number[], fps: Rate): Promise<RecordedBatch>;
   dispose(): Promise<void>;
 }
 
@@ -69,6 +101,8 @@ export interface OpenSessionOptions {
   compositionId?: string;
   /** 页面报告的尺寸、帧率、时长与清单不一致时抛 `COMPOSITION_INTRINSIC_MISMATCH`（默认 true）。验证流程关掉它，自己逐项记录。 */
   strictIntrinsic?: boolean;
+  /** 在 `ready()` 之前注入 Canvas 录制脚本，会话才能 `record`（指令烘焙用）。 */
+  record?: boolean;
 }
 
 const DEFAULT_OPEN_TIMEOUT_MS = 20_000;
@@ -96,7 +130,10 @@ export function resolveElectronBinary(env: NodeJS.ProcessEnv = process.env, from
 
 /** 把宿主脚本写到缓存目录；文件名带内容摘要，并发的宿主各自写临时文件再改名，不会读到半个脚本。 */
 function writeHostScript(cacheDir: string | undefined): string {
-  const source = COMPOSITION_HOST_SCRIPT.replace(ADAPTER_PLACEHOLDER, () => JSON.stringify(COMPOSITION_ADAPTER_SCRIPT));
+  const source = COMPOSITION_HOST_SCRIPT.replace(ADAPTER_PLACEHOLDER, () => JSON.stringify(COMPOSITION_ADAPTER_SCRIPT)).replace(
+    RECORDER_PLACEHOLDER,
+    () => JSON.stringify(CANVAS_RECORDER_SCRIPT),
+  );
   const digest = crypto.createHash('sha256').update(source).digest('hex').slice(0, 16);
   const dir = path.join(cacheDir ?? os.tmpdir(), 'baocut-composition-host');
   const file = path.join(dir, `host-${digest}.cjs`);
@@ -275,6 +312,7 @@ export class CompositionHost {
         fps: intrinsic.fps,
         durationFrames: intrinsic.durationFrames,
         alpha: manifest.output.alpha,
+        record: options.record ?? false,
         readyTimeoutMs: this.#openTimeoutMs,
       },
       this.#openTimeoutMs + 10_000,
@@ -305,6 +343,15 @@ export class CompositionHost {
   /** @internal 会话用。 */
   requestFrame(params: { sessionId: string; seconds: number; requestId: string; fps: Rate }): Promise<FrameResult> {
     return this.#request<FrameResult>('frame', params, this.#frameTimeoutMs);
+  }
+
+  /** @internal 会话用。 */
+  requestRecord(params: {
+    sessionId: string;
+    seconds: readonly number[];
+    fps: Rate;
+  }): Promise<RecordedBatch & { blockedRequests: string[] }> {
+    return this.#request('record', params, this.#frameTimeoutMs + 2_000 * params.seconds.length);
   }
 
   /** @internal 会话用。 */
@@ -377,6 +424,13 @@ class HostSession implements CompositionSession {
       translucentPixels: result.translucentPixels,
       captureMode: result.captureMode,
     };
+  }
+
+  async record(seconds: readonly number[], fps: Rate): Promise<RecordedBatch> {
+    if (this.#disposed) throw new CodeBundleError('COMPOSITION_SCRIPT_ERROR', 'The composition session has been disposed');
+    const { blockedRequests, ...batch } = await this.#host.requestRecord({ sessionId: this.id, seconds, fps });
+    this.#blocked = blockedRequests;
+    return batch;
   }
 
   async dispose(): Promise<void> {

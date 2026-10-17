@@ -11,6 +11,7 @@ import {
   type DriverId,
   type EditorContext,
   type ExportCreateRequest,
+  type ExternalVideoCreated,
   type FileTarget,
   type Id,
   type JobReconcileDecision,
@@ -40,6 +41,7 @@ import { useJobs } from '../state/jobs-store.ts';
 import { libraryFeed } from '../state/library-feed.ts';
 import { useModels } from '../state/models-store.ts';
 import { useSettings } from '../state/settings-store.ts';
+import { useShell } from '../state/shell-store.ts';
 import { useSpace } from '../state/space-store.ts';
 import { useTasks } from '../state/tasks-store.ts';
 import { useTimeline } from '../state/timeline-store.ts';
@@ -60,6 +62,8 @@ export class RuntimeSession {
   /** Space 网格与列表的缩略图（`space.thumbnail`）。 */
   readonly spaceThumbnails: SpaceThumbnailCache;
   readonly #watchers = new Map<Id, { count: number; unsubscribe: () => void }>();
+  /** 已经试着打开过的外部 Agent 新建的视频：每部只试一次，断线重连补发的同一条不再打开（产品设计 §3.3）。 */
+  readonly #externalVideos = new Set<Id>();
   #disposers: (() => void)[] = [];
 
   constructor(host: HostBridge) {
@@ -101,7 +105,10 @@ export class RuntimeSession {
       }),
       this.client.subscribeSpace({
         snapshot: (snapshot) => useSpace.getState().replace(snapshot),
-        event: (event) => useSpace.getState().apply(event),
+        event: (event) => {
+          useSpace.getState().apply(event);
+          if (event.type === 'video.created') this.openExternalVideo(event.video);
+        },
       }),
       this.client.subscribeJobs({
         snapshot: (snapshot) => useJobs.getState().replace(snapshot),
@@ -123,6 +130,16 @@ export class RuntimeSession {
       }),
     );
     void this.client.connect().catch(() => {});
+  }
+
+  /**
+   * 终端或 MCP 的外部 Agent 新建了视频（Space 主题的 `video.created`）：在 Home 的功能区打开它（产品设计 §3.3，shell-store
+   * `openExternalVideo`）。每部视频只试一次：当时不在 Home 或开着别的视频而没打开的，之后也不补。
+   */
+  openExternalVideo(video: ExternalVideoCreated): void {
+    if (this.#externalVideos.has(video.videoId)) return;
+    this.#externalVideos.add(video.videoId);
+    useShell.getState().openExternalVideo(video.target);
   }
 
   #onWindowFocus(handler: () => void): () => void {
@@ -198,6 +215,7 @@ export class RuntimeSession {
     designSystemAnnotations?: readonly DesignSystemAnnotation[],
     videoAnnotations?: readonly VideoAnnotation[],
     docsAnnotations?: readonly DocsAnnotation[],
+    options: { skipProjectBrand?: boolean } = {},
   ): Promise<Id> {
     const { taskId } = await this.client.request('conversations.send', {
       conversationId,
@@ -212,6 +230,7 @@ export class RuntimeSession {
       ...(designSystemAnnotations?.length ? { designSystemAnnotations: [...designSystemAnnotations] } : {}),
       ...(videoAnnotations?.length ? { videoAnnotations: [...videoAnnotations] } : {}),
       ...(docsAnnotations?.length ? { docsAnnotations: [...docsAnnotations] } : {}),
+      ...(options.skipProjectBrand ? { skipProjectBrand: true } : {}),
     });
     return taskId;
   }

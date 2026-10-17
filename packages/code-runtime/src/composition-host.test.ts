@@ -125,6 +125,29 @@ describe.skipIf(!electron)('CompositionHost（Electron 离屏）', { timeout: 12
     }
   });
 
+  it('baocut/1：WebGL 画面可以取帧，透明背景真实（Three.js、p5 WEBGL 模式走的就是这条路）', async () => {
+    const bundle = await inspect('baocut-webgl', { manifest: { alpha: true } });
+    expect(bundle.manifest.runtime).toMatchObject({ contract: 'baocut/1' });
+    const session = await host.open(bundle);
+    try {
+      const a = await session.frame(at(bundle, 0.5));
+      const b = await session.frame(at(bundle, 0.5));
+      const c = await session.frame(at(bundle, 0));
+      expect(a.receipt.sha256).toBe(b.receipt.sha256);
+      expect(c.receipt.sha256).not.toBe(a.receipt.sha256);
+      // 三角形之外是真透明；三角形占了画面的一部分，所以透明像素既不是 0 也不是全部。
+      const total = 640 * 360;
+      expect(a.transparentPixels).toBeGreaterThan(total * 0.5);
+      expect(a.transparentPixels).toBeLessThan(total * 0.95);
+      const png = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-webgl-frame-'));
+      tmpDirs.push(png);
+      fs.writeFileSync(path.join(png, 'half.png'), a.png);
+      expect(fs.statSync(path.join(png, 'half.png')).size).toBeGreaterThan(1000);
+    } finally {
+      await session.dispose();
+    }
+  });
+
   it('运行期网络请求被拦截并记录', async () => {
     const bundle = await inspect('network-runtime');
     const session = await host.open(bundle);

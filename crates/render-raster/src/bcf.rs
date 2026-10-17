@@ -161,6 +161,7 @@ fn scale_draw_ops(ops: &mut crate::drawop::FrameOps, scale: f32) {
             | DrawOp::ClipPath { tf, .. }
             | DrawOp::FillPathPaint { tf, .. }
             | DrawOp::StrokePathPaint { tf, .. }
+            | DrawOp::StrokePathDash { tf, .. }
             | DrawOp::DrawBitmap { tf, .. }
             | DrawOp::DrawEmissiveBitmap { tf, .. } => Some(tf),
             DrawOp::Clear { .. }
@@ -168,7 +169,27 @@ fn scale_draw_ops(ops: &mut crate::drawop::FrameOps, scale: f32) {
             | DrawOp::PopLayer
             | DrawOp::PopClip
             | DrawOp::PushMatte
-            | DrawOp::PopMatte { .. } => None,
+            | DrawOp::PopMatte { .. }
+            | DrawOp::PopShadow
+            | DrawOp::PushBlend { .. }
+            | DrawOp::PopBlend => None,
+            // Shadow parameters are device pixels: scale them with the surface.
+            DrawOp::PushShadow {
+                sigma,
+                offset,
+                window,
+                ..
+            } => {
+                *sigma *= scale;
+                offset[0] *= scale;
+                offset[1] *= scale;
+                let x0 = (window[0] as f32 * scale).floor();
+                let y0 = (window[1] as f32 * scale).floor();
+                let x1 = ((window[0] + window[2]) as f32 * scale).ceil();
+                let y1 = ((window[1] + window[3]) as f32 * scale).ceil();
+                *window = [x0 as i32, y0 as i32, (x1 - x0) as i32, (y1 - y0) as i32];
+                None
+            }
         };
         if let Some(tf) = tf {
             for component in tf {

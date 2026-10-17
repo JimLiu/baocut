@@ -814,7 +814,7 @@ interface CompositionItem extends VisualItemBase {
 - **款式引用**。`shape`、`templateId`、`visualizer.style`、`progress.style`、`confetti.style` 都是预设注册表里对应目录的 id。预设是数据，内容在 `crates/motion/presets/builtin/` 下，本规范只规定引用：写入只要求非空；渲染时目录里找不到报 `preset-unknown`，这个实例画不出来，要报告，不得画成空白。款式给出的缺省（配色、纵横比、配方参数）只在实例没写这个字段时用。
 - 颜色一律 `#RRGGBB` 或 `#RRGGBBAA`。
 - **计时读数**。读数在毫秒栅格上求值，单位秒：倒计时是 ⌈实例终点 − t⌉，正计时是 ⌊t − 实例起点⌋，按 `format` 显示。实例是半开区间，终点那一刻已不可见。计时文字沿用普通文字的 `style`、`place` 与 `animate`，但不能用 `typewriter`、`riseWords`。
-- **贴纸**。`source: 'template'` 画贴纸目录里的矢量；`'asset'` 画 `assetRef` 指向的图片、视频或 Lottie 素材。`loop` 只对视频、Lottie 与 GIF 素材起作用：`loop` 循环，`once` 播一次停在末帧，`hold` 停在首帧。`fillOverrides` 在绘制前把 SVG 或 Lottie 里的原色换成目标色（Lottie 的渐变不参与；位图与视频素材不换色）。GIF 是图片素材，按帧的延时播放，没有单独的种类；图片实例里的 GIF 按自己的总时长循环。
+- **贴纸**。`source: 'template'` 画贴纸目录里的矢量；`'asset'` 画 `assetRef` 指向的图片、视频或 Lottie 素材。`loop` 只对视频、Lottie 与动图（GIF、APNG）素材起作用：`loop` 循环，`once` 播一次停在末帧，`hold` 停在首帧。`fillOverrides` 在绘制前把 SVG 或 Lottie 里的原色换成目标色（Lottie 的渐变不参与；位图与视频素材不换色）。GIF 与 APNG 是图片素材，按帧的延时播放，没有单独的种类；图片实例里的动图按自己的总时长循环。APNG 只按 `.apng` 扩展名认（`mediaType` 为 `image/apng`），扩展名是 `.png` 的动画 PNG 记成 `image/png`，按第一帧的静态图画。
 - **声波**。画面由声音的频谱驱动：`audio` 指定取哪一路声音，按序列时刻映射到那一路的源时刻取样；`speaker` 只在这位说话人的词区间里动。
   - `'project'` 是这条序列混好的声音：每一刻在响的每一段声音（与导出混音同一份声音计划，音量、淡变、交叉淡化与闪避都算进去）各取它源时刻的频谱，频域按功率相加；按文稿触发的闪避不算进去，预览与导出相同。
   - 素材 ID 只听这个素材：取这一刻正在播它的那一段的源时刻（两段相接时取后一段），不乘音量；这一刻没有在播它就是静音。
@@ -828,7 +828,7 @@ interface CompositionItem extends VisualItemBase {
 - **白板**。按素材图片推导揭示的顺序（先墨线后色块，按阅读顺序），画到 `draw` 秒画完，之后整图静止到终点；推导出的揭示顺序不保存。`beats` 把画面分成按时间揭示的几拍：落在 `box` 里的笔画归这一拍，从 `at` 画到 `end`。数字 `at` 单调不减，`end` 晚于 `at` 且不晚于下一拍的 `at`，末拍的 `end` 不晚于 `draw`。词锚点解析到序列时刻后减去实例起点；解析不到的锚点让这一拍退回几何顺序并报告。`pace: 'stretch'` 每拍撑满自己的窗口，`'natural'` 按自然速度画完后停住；`strict` 时 `box` 是硬遮罩，重叠处的像素归后一拍。
 - **生成类元素的秒**（`draw`、`interval`、拍的时刻、`wind` 里的秒）都是实例局部时间，按最短的十进制写法读成精确有理数，不量化，渲染按精确的局部时刻取样（§2.5）。
 - **代码合成**。`bundle` 指向一个确定的代码包版本，执行合同见代码包规范。原来的内置生成器（`baocut.counter`、`baocut.sticker`、`baocut.lottie`、`baocut.audio-visualizer`、`baocut.progress`）已由上面的种类取代，不再是合成的来源。运行环境不可用的代码包不得画成空白之后当作成功：有预渲染替身就用替身，没有就报告这个实例画不出来。
-- **预渲染替身**。`prerender` 是把这段合成渲染好的视频。它与合成共用 `timeMap`：合成的局部时间就是替身视频的源时间。合成的运行环境不可用，或来不及实时渲染时，预览与导出用替身代替；能运行时以代码为准。替身不是源：改了参数或换了代码包版本，替身就过期了。
+- **预渲染替身**。`prerender` 是把这段合成渲染好的视频。它与合成共用 `timeMap`：合成的局部时间就是替身视频的源时间。合成的运行环境不可用，或来不及实时渲染时，预览与导出用替身代替；能运行时以代码为准。替身不是源：改了参数或换了代码包版本，替身就过期了；过期的判定与后果见代码包规范 §7.4。
 - **声音**。合成发出的声音（用替身时是替身视频的音轨）由 `audio` 路由。时间线上另有同一段声音的音频实例时（例如渲染结果里已经混入了配音，配音又单独放在音频轨道上），必须关掉 `audio.enabled`，不得两处同时出声。合成与这些音频实例写进同一个音画联动组（`linkGroupId`，§3.4）表示组里的音频是合成声音单独放的一份：引擎写入时核对，同一条序列里组内有音频实例时，组内合成的 `audio` 必须省略或 `enabled: false`。替身是混好的成片，只扣掉其中几句做不到，整条关掉。
 
 字段来源：`schema.rs` 的 `CounterProps`、`StickerProps`、`VisualizerProps`、`ProgressProps`、`DrawProps`、`PlaceholderProps`、`ConfettiProps`、`WhiteboardProps`、`WhiteboardBeat` 及其 `validate`；缺省落位见 `geometry.rs`。
@@ -1273,7 +1273,7 @@ type TemplateLayer = {
 
 - 颜色一律 `#RRGGBB` 或 `#RRGGBBAA`。`size` 与 `pad` 是画面高的百分比：章节条缺省 `size` 2.6、台标 3.0、文字 2.8；`pad` 缺省按字号推。文字的 `weight` 在 [100, 900]，缺省 700。章节条的 `fill` 缺省 `bar`，`divider` 缺省 true。台标的 `src` 缺省 `'text'`，`shape` 缺省 `badge`，`align` 缺省 `center`，`opacity` 读时夹到 [0.05, 1]、缺省 1；文字的 `align` 缺省 `left`。
 - 盒子：`x`、`y` ≥ 0，`w` ≥ 4，`h` ≥ 0.6，`x + w` ≤ 100，`y + h` ≤ 100，容差 0.051。
-- 台标的 `file` 是项目里的相对路径，`brandLogo` 是品牌库里的图片 id；用到时按素材登记（§4.1）。品牌库的台标在套用或选台标时把那张图片拷进视频（`library.applyToVideo` 的图片，`provenance` 记着 `{ library: 'brand', entryId }`），渲染按来源找：当前修订的来源是品牌库这一条的图片素材里取库版本最新的，同版本取 ID 小的；找不到时这一层画不出来（`template-logo-asset-missing`）。这样的素材算被模板用着，不当作没用的素材清掉。`file` 来源目前画不出来（`template-logo-image-not-supported`）。
+- 台标的 `file` 是项目里的相对路径（相对视频所在的来源目录：项目，或会话的工作目录），`brandLogo` 是品牌库里的图片 id；用到时按素材登记（§4.1）。Runtime 在写模板（`setTemplate`，任何行为者的提交）的同一笔事务里补上视频里还没有的台标图片，一步撤销：品牌库的图片拷进视频（`managed`，`provenance` 与 `library.applyToVideo` 的图片相同，记着 `{ library: 'brand', entryId }`）；项目里的文件按路径链接（`linked`，`provenance` 为 `{ origin: 'template-logo', source: { templateLogo: { file } } }`，§4.5）。库里已经没有的、解开链接后在来源目录之外的、不在了的与扩展名不是 png、jpg、jpeg、webp、gif、svg 的不登记，模板照写。渲染按来源找：品牌库的台标取当前修订的来源是品牌库这一条的图片素材里库版本最新的，同版本取 ID 小的，找不到时这一层画不出来（`template-logo-asset-missing`）；路径台标取当前修订的来源是 `template-logo`、`file` 相同的图片素材里 ID 小的，找不到时画不出来（`template-logo-file-missing`）。导入的字节与视频里已有的素材相同时引擎复用那个素材（`importAsset` 不新增记录）、不改它的来源，这时按来源认不出，同样画不出来。这样登记的素材算被模板用着，不当作没用的素材清掉。存进品牌库的模板不留路径：视频里登记了的那张图存成品牌库的图片（库里已有同样字节的就用那一条），台标改成 `{ brandLogo }`；没登记的照旧留着路径。
 - **时间**。章节条按序列上 `kind: 'chapter'` 的标记（§3.13）分段，当前段高亮；没有章节时整条是一段。进度线的进度是 clamp(t / 序列长度, 0, 1)。
 - **文字变量**。文字层里的 `{chapter}`、`{n}`、`{count}`、`{time}`、`{remain}`、`{total}`、`{percent}`、`{title}` 按当前时刻替换：当前章节名、序号、章节数、已播时间、剩余时间、总长、百分比、视频标题。认不出的变量原样显示。
 - **字幕避让**。`subsAvoid` 为 true 时，打开的、`y` ≥ 50 的整宽横条（章节条、进度线）把字幕抬起来：字幕的锚线（样式的 `y`，画面高的百分比）不低于 `y − 2`，几条横条取最高的一条。只挪位置，不改字号、宽度与底板；双语的两行一起挪，居中摆放的字幕不动。
@@ -1419,6 +1419,8 @@ interface Provenance {
 - 从链接下载的素材，`origin` 为 `link-import`（架构设计 §7.9），`source` 记：`url`（脱敏的链接）、`webpageUrl`、`platform`、`mediaId`、`title`、`uploader`、`uploadDate`、`durationSec`、`description`（页面简介，去掉首尾空白，最多 20000 个字符）、`chapters`（平台给的章节 `[{ start, end?, title }]`，源时间秒：丢掉起点不是有限非负数的与空标题，标题合并空白、最多 160 个字符，按起点排序、同起点只留第一条，最多 400 条；`end` 只在大于 `start` 时写；yt-dlp 给没标题的章节填的 `<Untitled Chapter N>` 照原样记下，读取时当作只有分界、没有标题，见架构设计 §7.9）、`tool`（`{ name, version, source }`）、`downloadedAt` 与流程的 `jobId`。平台没有给简介或章节时这两个字段省略，之前的版本导入的素材也没有它们。简介与章节是作者写的参考：读取视频的摘要列出它们，`chapters_adopt` 把章节吸附到转写后写成序列的章节（§3.13）；素材本身不因它们改变。
 - 从用户库拷进来的素材，`origin` 为 `library`，`source.library` 记下条目所在的库、条目 ID、版本、内容摘要、名字与种类（架构设计 §5.9）；之后库里的修改与删除不改变这个素材。
 - 从随应用分发的贴纸拷进来的素材（元素面板的贴纸与动态贴纸，命令与协议规范 §4.1 的 `stickers.applyToVideo`），`origin` 为 `sticker-pack`，`source.stickerPack.id` 记贴纸 ID（`<包>-<文件>`，如 `featured-01.svg`）；文件以 `managed` 拷进视频，之后应用升级换了这张贴纸也不改变这个素材。
+- 元素面板里的 Codex Pets 拷进来的素材（命令与协议规范 §4.1 的 `pets.applyToVideo`），`origin` 为 `codex-pet`，`source.codexPet` 记 `{ source, slug, name, author, license, version }`：`source` 是 `community`（awesome-codex-pet 的社区 pet），`version` 是图集版本（1 或 2），`license` 是作者自报的许可原文。素材是待机那一行编成的循环 APNG（`image/apng`，§3.7），以 `managed` 拷进视频，之后上游换了图集也不改变这个素材。
+- 叠加模板按路径引用的台标（§3.17 的 `src: { file }`）登记成的素材，`origin` 为 `template-logo`，`source.templateLogo.file` 记模板里的那个相对路径；文件以 `linked` 留在项目里，渲染按这个来源找到它。
 - 用户上传的媒体只记录已知的出处；上传不代表拥有第三方素材的全部权利。
 - 临时 URL、blob URL、签名地址、浏览器对象和 GPU 句柄不得进入视频格式。
 - 生成的素材应在 `source` 里记下任务、供应方、模型、输入输出的摘要与费用；费用未知时写 `unknown`，不从估算伪造实付金额。这些字段的结构，以及派生关系、授权与许可状态，待生成与授权功能加入时确定（§9）。
@@ -2068,6 +2070,7 @@ box blur、波纹位移与反馈按各自传播范围预留透明边界；独立
 **已落盘的样式正文**。`CaptionStyleBody` 还没有落盘，落盘时由一层确定的编译折成 Studio 样式（设计稿 §8），内核不换；旧字幕样式文档继续支持下面两种正文，与上面的动态场景分支并存：
 
 - Studio 样式（`baocut.legacy-studio-style/0.1`）：`style` 是 v2 的字幕样式，逐词动画写在 `style.wordAnimation`（或 `style.anim`）里，`catalogId` 指逐词动画目录的一格。
+- Studio 样式的摆放：`style.y` 是锚线高度（画布高度的百分比，缺省 86），`style.verticalAlign`（`top` | `center` | `bottom`，缺省 `center`）说字幕块的上边、中线或下边落在锚线上，折成多行时往另一边长；`style.x` 是块中心（画布宽度的百分比，缺省 50）；`style.width` 是最大行宽（画布宽度的百分比，[5, 100]，缺省 80），烧录与预览在这个宽度里折行；`style.fontSize` 是 540 短边下的字号（缺省 30，按画布短边等比放大）。`origStyle` / `transStyle` 里的同名键只挪那一行。切字幕条按 LayoutProfile，不看这些键。智能体用 `captions_create` 的 `style` 与 `edits_apply` 的 `setCaptionStyle` 写同一组键（架构设计 §3.5）。
 - 定位框样式（`baocut.boxed-caption-style/<N>`）：`canvas` 是样式所在画布的像素尺寸，`box` 是字幕框（相对画布中心的像素），`style` 是字号、颜色、对齐、底板等外观；渲染时换算成等价的 Studio 样式。`style.animationPresetId` 选逐词动画，取值是目录的 id，按那一格画，与 Studio 样式选中同一格相同；省略表示不动画。
 - 逐词动画目录有 19 格：`none`、`boxHighlight`、`flipClock`、`highlight`、`karaoke`、`impact`、`reveal`、`floatInTop`、`floatInBottom`、`scaleIn`、`dropIn`、`impactPop`、`colourHighlight`、`rotateFlipClock`、`rotateHighlight`、`stack`、`stomp`、`bounce`、`paint`。`reveal` 是逐字显现：没念到的词不画，念到一个就整个显出来。句子没有词时先应用显示间距，再按 §3.8 的空白切分推算；补间距后仍不带空格的一句是一个词、开头就整句显出来。
 - 引擎写入定位框样式时核对：`style` 是对象，`style.animationPresetId` 出现时是目录里的 id，否则拒绝整份文档（`INVALID_OPERATION`）。Studio 样式的正文不核对；内核遇到认不出的 `catalogId` 按动画名画。

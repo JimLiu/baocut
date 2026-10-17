@@ -26,6 +26,8 @@ export interface QueuedMessage {
   videoAnnotations?: VideoAnnotation[];
   /** 发给智能体的协作文档评论与请求（docs/design/docs §8）；同幻灯片标注。 */
   docsAnnotations?: DocsAnnotation[];
+  /** 用户点掉了「品牌：BRAND.md」：走 `conversations.send` 时不带项目的 `BRAND.md`（`steer` 不收，带它的不插话）。 */
+  skipProjectBrand?: boolean;
   queuedAt: string;
 }
 

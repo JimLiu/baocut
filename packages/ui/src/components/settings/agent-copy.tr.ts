@@ -151,7 +151,7 @@ export const tr: AgentMessages = {
     {
       key: 'terminal',
       title: "Terminalde bu ajanlaryle doğrudan BaoCut kullanmak mı istiyorsunuz?",
-      body: "BaoCut içinde oturum açmak için ek hazırlık gerekmez. Terminalde veya başka uygulamalarda kullanmak için BaoCut Skill kurmanız gerekir; Ayarlar › Skills bölümüne bakın.",
+      body: "BaoCut içinde oturum açmak için ek hazırlık gerekmez. Terminalde veya başka uygulamalarda kullanmak için BaoCut Skill kurmanız gerekir; Skills sayfasının alt kısmına bakın.",
       link: 'skills',
     },
   ],

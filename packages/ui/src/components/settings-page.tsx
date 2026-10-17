@@ -23,7 +23,6 @@ import FileText from '@react-spectrum/s2/icons/FileText';
 import HelpCircle from '@react-spectrum/s2/icons/HelpCircle';
 import InfoCircle from '@react-spectrum/s2/icons/InfoCircle';
 import Keyboard from '@react-spectrum/s2/icons/Keyboard';
-import Code from '@react-spectrum/s2/icons/Code';
 import Lock from '@react-spectrum/s2/icons/Lock';
 import Properties from '@react-spectrum/s2/icons/Properties';
 import Search from '@react-spectrum/s2/icons/Search';
@@ -58,7 +57,6 @@ import { RuntimeCard } from './services/runtime-card.tsx';
 import { AGENT_COPY } from './settings/agent-copy.ts';
 import { AgentPermissions } from './settings/agent-permissions.tsx';
 import { AgentSettings } from './settings/agent-settings.tsx';
-import { AgentSkills } from './settings/agent-skills.tsx';
 import { DataGrants } from './settings/data-grants.tsx';
 import { DownloaderSettings } from './settings/downloader-settings.tsx';
 import { SemanticSettings } from './settings/semantic-settings.tsx';
@@ -179,7 +177,6 @@ const SECTION_ICON: Record<SettingsSection, ComponentType> = {
   providers: Cloud,
   usage: Data,
   agent: AgentIcon,
-  skills: Code,
   glossary: FileText,
   privacy: Lock,
   diagnostics: Properties,
@@ -309,8 +306,6 @@ export function SettingsPage({ section = 'general', providerId, from, model, pla
               <SemanticSettings />
             ) : section === 'agent' ? (
               <AgentSettings />
-            ) : section === 'skills' ? (
-              <AgentSkills />
             ) : section === 'glossary' ? (
               <GlossarySettings />
             ) : section === 'privacy' ? (

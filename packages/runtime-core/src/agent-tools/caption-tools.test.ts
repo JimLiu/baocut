@@ -329,6 +329,122 @@ describe.skipIf(!ready)('建字幕层工具（真实引擎）', () => {
     expect(video().sequences[video().rootSequenceId]!.items.filter((i) => i.type === 'caption')).toEqual([]);
   });
 
+  it('style 以默认样式为底写进这层的样式文档；setCaptionStyle 建好后再改合进同一份；双语沿用原文的样式时改的是那一份', async () => {
+    const session = await send('auto');
+    const styled = await tool(session, 'captions_create', {
+      video: videoPath,
+      documentId: speechId,
+      style: { y: 75, verticalAlign: 'bottom', width: 84, background: true, textOutline: { on: false } },
+    });
+    expect(styled.isError).toBe(false);
+    const styleId = styled.body.styleDocumentId as Id;
+    expect(styleId).toEqual(expect.any(String));
+    expect(video().documents[styleId]).toMatchObject({ kind: 'caption-style' });
+    expect(captionItems(styled.body.documentId).map((i) => i.styleDocumentId)).toEqual([styleId]);
+    const readStyle = async () => (await tool(session, 'documents_read', { video: videoPath, documentId: styleId })).body.body;
+    const first = await readStyle();
+    expect(first.schema).toBe('baocut.legacy-studio-style/0.1');
+    // 补丁之外照默认样式：描边只关开关、颜色与粗细留着，白字与标点投影不变。
+    expect(first.style).toMatchObject({
+      y: 75,
+      verticalAlign: 'bottom',
+      width: 84,
+      background: true,
+      textOutline: { on: false, color: '#000000', width: 14 },
+      fontColor: '#FFFFFF',
+      punct: true,
+    });
+
+    // 建好后再改：合进同一份样式，没给的键不动。
+    const itemId = styled.body.itemIds[0] as Id;
+    const revision = () => tool(session, 'videos_inspect', { video: videoPath }).then((r) => r.body.revision as string);
+    const patched = await tool(session, 'edits_apply', {
+      video: videoPath,
+      expectedRevision: await revision(),
+      label: '字幕挪高、放大',
+      operations: [{ type: 'setCaptionStyle', itemId, style: { y: 72, fontSize: 34 } }],
+    });
+    expect(patched.isError).toBe(false);
+    expect((await readStyle()).style).toMatchObject({ y: 72, fontSize: 34, verticalAlign: 'bottom', width: 84, background: true });
+    expect(captionItems(styled.body.documentId).map((i) => i.styleDocumentId)).toEqual([styleId]);
+
+    // 形状不对、三者给了两个：整笔拒绝，视频不变。
+    const before = video().revision;
+    const outOfRange = await tool(session, 'edits_apply', {
+      video: videoPath,
+      expectedRevision: before,
+      label: '越界',
+      operations: [{ type: 'setCaptionStyle', itemId, style: { y: 120 } }],
+    });
+    expect(outOfRange.body.error).toMatchObject({ code: 'INVALID_OPERATION', operationIndex: 0 });
+    const both = await tool(session, 'edits_apply', {
+      video: videoPath,
+      expectedRevision: before,
+      label: '两个都给',
+      operations: [{ type: 'setCaptionStyle', itemId, style: { y: 70 }, styleDocumentId: styleId }],
+    });
+    expect(both.body.error.code).toBe('INVALID_OPERATION');
+    expect(video().revision).toBe(before);
+
+    // 双语：译文沿用原文那层的样式，style 合进那一份，原文一起变。
+    const { translationId } = await writeTranslation(session);
+    const bilingual = await tool(session, 'captions_create', {
+      video: videoPath,
+      documentId: translationId,
+      bilingual: true,
+      style: { fontColor: '#FFEE00' },
+    });
+    expect(bilingual.isError).toBe(false);
+    expect(bilingual.body).toMatchObject({ styleDocumentId: styleId, styleNote: expect.any(String) });
+    expect(captionItems(bilingual.body.documentId).map((i) => i.styleDocumentId)).toEqual([styleId]);
+    expect((await readStyle()).style).toMatchObject({ fontColor: '#FFEE00', y: 72, fontSize: 34 });
+  });
+
+  it('setCaptionStyle 给没有样式的字幕：新建一份，其余没有样式的字幕一起挂上；styleDocumentId 换用已有的一份', async () => {
+    const session = await send('auto');
+    const plain = await tool(session, 'captions_create', { video: videoPath, documentId: speechId });
+    expect(plain.body.styleDocumentId).toBeNull();
+    const { translationId } = await writeTranslation(session);
+    const translated = await tool(session, 'captions_create', { video: videoPath, documentId: translationId });
+    expect(translated.body.styleDocumentId).toBeNull();
+    const revision = () => tool(session, 'videos_inspect', { video: videoPath }).then((r) => r.body.revision as string);
+
+    const patched = await tool(session, 'edits_apply', {
+      video: videoPath,
+      expectedRevision: await revision(),
+      label: '字幕挪高',
+      operations: [{ type: 'setCaptionStyle', itemId: plain.body.itemIds[0], style: { y: 74 } }],
+    });
+    expect(patched.isError).toBe(false);
+    const shared = captionItems(plain.body.documentId)[0]!.styleDocumentId!;
+    expect(video().documents[shared]).toMatchObject({ kind: 'caption-style' });
+    expect(captionItems(translated.body.documentId).map((i) => i.styleDocumentId)).toEqual([shared]);
+    const body = (await tool(session, 'documents_read', { video: videoPath, documentId: shared })).body.body;
+    expect(body.style).toMatchObject({ y: 74, fontWeight: 700, textOutline: { on: true } });
+
+    // 写一份新样式（比如照 library_show 的 captionStyle），用 ref 挂到译文上；再用 styleDocumentId 换回来。
+    const swapped = await tool(session, 'edits_apply', {
+      video: videoPath,
+      expectedRevision: await revision(),
+      label: '译文换样式',
+      operations: [
+        { type: 'putDocument', ref: 's', kind: 'caption-style', body: { schema: 'baocut.legacy-studio-style/0.1', style: { y: 20 } } },
+        { type: 'setCaptionStyle', itemId: translated.body.itemIds[0], styleDocument: { ref: 's' } },
+      ],
+    });
+    expect(swapped.isError).toBe(false);
+    const own = captionItems(translated.body.documentId)[0]!.styleDocumentId!;
+    expect(own).not.toBe(shared);
+    const back = await tool(session, 'edits_apply', {
+      video: videoPath,
+      expectedRevision: await revision(),
+      label: '译文换回',
+      operations: [{ type: 'setCaptionStyle', itemId: translated.body.itemIds[0], styleDocumentId: shared }],
+    });
+    expect(back.isError).toBe(false);
+    expect(captionItems(translated.body.documentId).map((i) => i.styleDocumentId)).toEqual([shared]);
+  });
+
   it('不能建字幕层的文档与素材不在时间线上：明确的错误码，视频不变', async () => {
     const session = await send('auto');
     const inspected = await tool(session, 'videos_inspect', { video: videoPath });

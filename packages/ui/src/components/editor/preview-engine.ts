@@ -1,12 +1,23 @@
-import type { AssetRecord, DocumentRecord, FontFaceQuery, Id, Revision, Sequence, VersionRef } from '@baocut/protocol';
+import {
+  isAnimatedImageType,
+  localizeText,
+  type AssetRecord,
+  type DocumentRecord,
+  type FontFaceQuery,
+  type Id,
+  type Revision,
+  type Sequence,
+  type VersionRef,
+} from '@baocut/protocol';
 import { durationSeconds, videoSlots } from '../../model/editor.ts';
 import { LIVE_CAPTION_ITEM_ID, liveCaptionCues, liveCaptionDocuments, withLiveCaption, type LiveCue } from '../../model/live-caption.ts';
 import { captionView, type CaptionMode } from '../../model/player.ts';
 import type { AssetDecoder, AssetSource } from '../../render/asset-source.ts';
 import { SPECTRUM_MAX_BYTES, spectrumDecoder } from '../../render/audio-spectrum.ts';
-import { isMediaLayer, type FramePlan, type MediaLayer, type VisualLayer } from '../../render/frame-plan.ts';
+import { isMediaLayer, type FramePlan, type LiveLayer, type MediaLayer, type VisualLayer } from '../../render/frame-plan.ts';
 import type { FontSource, LoadedFace } from '../../render/local-fonts.ts';
 import { paintSize } from '../../render/playback-quality.ts';
+import { isSpeakerNote, missingFontFamily, renderNote } from '../../render/render-notes.ts';
 import { loadRenderPlanner } from '../../render/preview-wasm.ts';
 import {
   PlanFailure,
@@ -18,6 +29,8 @@ import {
   type SpeechTranscript,
 } from '../../render/render-planner.ts';
 import { EDITOR_COPY as E } from './editor-copy.ts';
+import { liveCandidates, preloadSet, type LiveCandidate } from '../../model/live-composition.ts';
+import type { LiveHost } from './live-layer.ts';
 import { PreviewWatch, probeElement, type MediaProbe, type PreviewSnapshot, type StallReport } from './preview-watch.ts';
 
 /**
@@ -49,8 +62,11 @@ export function audioKey(itemId: Id): MediaKey {
   return `a:${itemId}`;
 }
 
-/** `problems`：这一帧有画不出来的东西（认不出的样式、没有预渲染的代码包等），画面照常出，另外报出来。 */
-export type PreviewStatus = { kind: 'loading' } | { kind: 'ready'; problems?: string[] } | { kind: 'error'; message: string };
+/**
+ * `problems`：这一帧有画不出来的东西（认不出的样式、没有预渲染的代码包等），画面照常出，另外报出来。
+ * `live`：这一帧的底是实时合成层（动效视频设计 §4.3）：画面是 Interactive 档，导出前要烘焙。
+ */
+export type PreviewStatus = { kind: 'loading' } | { kind: 'ready'; problems?: string[]; live?: true } | { kind: 'error'; message: string };
 
 /** 文档正文从哪里来（界面里是视频的文档缓存）。 */
 export interface DocumentSource {
@@ -163,14 +179,13 @@ const MAX_RATE = 16;
 /** 有层还在定位时先不画（留着上一帧），最多等这么久，之后照画，免得一直停在旧画面上。 */
 const HOLD_PLAYING_MS = 250;
 const HOLD_PAUSED_MS = 1000;
-/** 写了 `speaker` 的声波在没有转写、转写里没有这位说话人时的提示（内核报的，见 frame-render）。 */
-// i18n-ignore: 匹配渲染内核报来的提示原文（frame-render），内核文案改了这里跟着改
-const SPEAKER_NOTE = /：(视频里没有转写，听不出说话人|转写里没有说话人) /;
 /**
  * 停着定位之后这么久没再定位才算停下。这之间还在定位的视频先用它上一张画面（不等定位落地）；接连定位（拖动播放头、
  * 按住逐帧）按播放的分辨率画。两样都不是精确的那一帧，停下再按原尺寸画。
  */
 const SCRUB_SETTLE_MS = 200;
+/** 内核的错误码：透明底上有发光像素（RGB 大于 alpha），非预乘 RGBA 装不下，这一帧不能叠在实时层上。 */
+const EMISSIVE_STRAIGHT_ALPHA = 'EMISSIVE_STRAIGHT_ALPHA_UNSUPPORTED';
 
 interface Target {
   seconds: number;
@@ -232,12 +247,24 @@ export class PreviewEngine {
   /** 从媒体元素读像素用的画布。 */
   #scratch: CanvasRenderingContext2D | null = null;
   #stats: PlaybackStats = emptyStats();
+  /**
+   * 这一层的画面还在来：在载入或定位，或还没有元素（地址还在取、Runtime 在备兼容副本）。载入失败的元素与取不到的素材字节
+   * 不算（这一帧照画，跳过它）。
+   */
+  #coming(layer: MediaLayer, state: Readiness | undefined): boolean {
+    return state === 'pending' || (state === 'absent' && !this.#kernelDecoded(layer) && this.#sourceOf(layer) === null);
+  }
+
   /** 卡住时点名卡在哪一步的开发日志（见 preview-watch）。 */
   readonly #watch = new PreviewWatch(() => this.#snapshot());
   #unwatch: (() => void)[] | null = null;
   /** 第几次接渲染内核：重试之后，之前那次迟到的结果不收。 */
   #attach = 0;
   #problems: string[] = [];
+  /** 画布上这一帧的底是没有可用替身的实时合成层（随 `problems` 一起进状态，舞台提示「导出前要烘焙」）。 */
+  #liveShown = false;
+  /** 实时层宿主此刻露着的合成（画布透明处底下的 iframe）；收起之后是 null。 */
+  #liveOn: Id | null = null;
   /** 要的转写里还有没取到的：声波的说话人提示先不报（取到之前内核当作没有转写）。 */
   #speechLoading = false;
   /** 素材频谱的解码器（用计划器的模块分析），第一次要频谱时建。 */
@@ -263,6 +290,17 @@ export class PreviewEngine {
   readonly #liveCues = new Map<Id, readonly LiveCue[]>();
   /** 临时字幕层的两份文档：句子变了才重建，正文对象不变就不重送。 */
   #liveDocuments: FrozenDocument[] | null = null;
+  /** 实时合成层的宿主（舞台的 live-layer.ts）；没有宿主时计划器不切实时层（缩略图、测试）。 */
+  #liveHost: LiveHost | null = null;
+  #liveUnwatch: (() => void) | null = null;
+  /** 退回替身或占位的合成（载入失败、就绪超时、取帧报错、发光像素装不下）：计划器不再把它们切成实时层。 */
+  readonly #liveBlocked = new Set<Id>();
+  /** 上次送给计划器的实时层设置（开关、在不在动、拉黑名单拼的键）；没送过或送的是关是 null。换计划器时清掉重送。 */
+  #liveSent: string | null = null;
+  /** 这部视频里要实时播的合成，按开始时刻；换视频时重算。 */
+  #liveCandidates: LiveCandidate[] = [];
+  /** 上次叫宿主预载的那几件（按实例拼的键）。 */
+  #livePrepared = '';
 
   constructor(
     callbacks: PreviewCallbacks,
@@ -297,6 +335,8 @@ export class PreviewEngine {
           this.#planner = planner;
           // WASM 陷阱之后计划器会自己重新载入；好了再对一次。
           planner.onRecovered = () => this.#refresh();
+          this.#liveSent = null;
+          this.#sendLive();
           this.#loadVideo();
           this.#refresh();
         },
@@ -353,11 +393,83 @@ export class PreviewEngine {
     this.#requestPaint();
   }
 
+  /**
+   * 实时合成层的宿主（动效视频设计 §4）：接上之后计划器把没有可用替身的满幅底层合成切成实时层（画布透明底、只画它上面的层），
+   * 引擎按帧计划叫宿主摆位、送本地时刻、预载播放头附近的合成；宿主报失败的合成拉黑，退回替身或占位。`null` 拆掉。
+   */
+  attachLive(host: LiveHost | null): void {
+    if (host === this.#liveHost) return;
+    this.#liveUnwatch?.();
+    this.#liveUnwatch = null;
+    this.#liveHost?.show(null, -1);
+    this.#liveOn = null;
+    this.#liveHost = host;
+    this.#livePrepared = '';
+    if (host) {
+      this.#liveUnwatch = host.onFailure((itemId, reason) => this.#blockLive(itemId, reason));
+    }
+    this.#sendLive();
+    this.#liveCandidates = this.#video && host ? liveCandidates(this.#video.sequence, this.#video.assets, this.#liveBlocked) : [];
+    this.#refresh();
+  }
+
+  /** 这一帧的实时合成层（舞台提示与测试用）；没有是 null。 */
+  get live(): LiveLayer | null {
+    return this.#plan?.live ?? null;
+  }
+
+  /** 舞台在动：播放中，或停着定位还没落地（`SCRUB_SETTLE_MS`）。这时代码包合成不看替身一律实时播（动效视频设计 §4.3）。 */
+  #moving(): boolean {
+    return this.#playing || this.#scrubTimer !== null;
+  }
+
+  /**
+   * 计划器开不开实时层、舞台在不在动、哪些合成拉黑了：有宿主才开；设置没变不重送。播放、暂停、定位与落地都要叫一次，
+   * 送了之后重新求计划（停下来有可用替身的合成要换成替身那一帧）。返回有没有真的送。
+   */
+  #sendLive(): boolean {
+    const planner = this.#planner;
+    if (!planner) return false;
+    const enabled = this.#liveHost !== null;
+    if (!enabled && this.#liveSent === null) return false;
+    const playing = enabled && this.#moving();
+    const blocked = [...this.#liveBlocked];
+    const key = enabled ? `${playing}\n${blocked.join('\n')}` : null;
+    if (enabled && key === this.#liveSent) return false;
+    planner.setLive({ enabled, playing, blocked });
+    this.#liveSent = key;
+    return true;
+  }
+
+  /** 宿主放不出这件合成（载入失败、超时、取帧报错）或这一帧叠不上去：退回替身或占位，重新算计划。 */
+  #blockLive(itemId: Id, reason: string): void {
+    if (this.#liveBlocked.has(itemId)) return;
+    this.#liveBlocked.add(itemId);
+    if (this.#liveOn === itemId) this.#liveOn = null;
+    this.#watch.noteError(`实时合成层 ${itemId}（${reason}）`, new Error(reason)); // i18n-ignore: 开发日志
+    this.#sendLive();
+    if (this.#video) this.#liveCandidates = liveCandidates(this.#video.sequence, this.#video.assets, this.#liveBlocked);
+    this.#dirty = true;
+    this.#refresh();
+  }
+
+  /** 播放头附近该预载的合成变了才叫宿主（在视的排第一，宿主最多挂三个）。 */
+  #prepareLive(): void {
+    const host = this.#liveHost;
+    if (!host) return;
+    const picked = preloadSet(this.#liveCandidates, this.#time);
+    const key = picked.map((c) => `${c.itemId}@${c.asset.id}:${c.asset.revision}`).join('\n');
+    if (key === this.#livePrepared) return;
+    this.#livePrepared = key;
+    host.prepare(picked);
+  }
+
   setVideo(sequence: Sequence, assets: Record<Id, AssetRecord>, documents: Record<Id, DocumentRecord> = {}): void {
     if (this.#video && this.#video.sequence.id !== sequence.id) this.#setPictured(false);
     this.#video = { sequence, assets };
     this.#documentRecords = documents;
     this.#slotCounts = new Map(videoSlots(sequence).map(({ asset, count }) => [`${asset.id}:${asset.revision}`, count]));
+    this.#liveCandidates = this.#liveHost ? liveCandidates(sequence, assets, this.#liveBlocked) : [];
     this.#loadVideo();
     this.#refresh();
   }
@@ -503,6 +615,13 @@ export class PreviewEngine {
     for (const key of [...this.#fontsAsked]) if (this.#fontsLoading.has(key.split('\u0000')[0]!)) this.#fontsAsked.delete(key);
     this.#fontsLoading = new Map();
     this.#dirty = true;
+    // 拉黑的实时合成重新来过：宿主重新挂、重新就绪。
+    if (this.#liveBlocked.size > 0) {
+      this.#liveBlocked.clear();
+      this.#livePrepared = '';
+      if (this.#video) this.#liveCandidates = this.#liveHost ? liveCandidates(this.#video.sequence, this.#video.assets, this.#liveBlocked) : [];
+      this.#sendLive();
+    }
     if (!this.#planner) {
       this.#setStatus({ kind: 'loading' });
       this.#attachPlanner(true);
@@ -560,8 +679,11 @@ export class PreviewEngine {
       this.#dragging = dragging;
       this.#scrubTimer = setTimeout(() => {
         this.#endScrub();
+        // 落地了：有可用替身的合成从实时层换成替身那一帧，先重新求计划再画。
+        if (this.#sendLive()) this.#sync();
         if (!this.#exact) this.#requestPaint();
       }, SCRUB_SETTLE_MS);
+      this.#sendLive();
     }
     this.#exact = false;
     this.#refresh();
@@ -579,6 +701,8 @@ export class PreviewEngine {
     this.#endScrub();
     this.#exact = false;
     this.#stats = emptyStats();
+    // 播放中实时层不看替身：下面的 #sync 按这个设置求第一帧的计划；设置变了第一个 tick 就要重画（帧号没变也画，画布要换成透明底）。
+    if (this.#sendLive()) this.#dirty = true;
     const step = () => {
       if (!this.#playing || !this.#video) return;
       const started = performance.now();
@@ -621,7 +745,8 @@ export class PreviewEngine {
     this.#playing = false;
     cancelAnimationFrame(this.#tick);
     for (const element of this.#elements.values()) if (!(element instanceof HTMLImageElement)) element.pause();
-    // 停下之后逐帧对准，画出停住的那一帧。
+    // 停下之后逐帧对准，画出停住的那一帧：有可用替身的合成这时画替身（动效视频设计 §4.3）。
+    this.#sendLive();
     this.#refresh();
   }
 
@@ -629,6 +754,7 @@ export class PreviewEngine {
     this.#disposed = true;
     this.#watch.stop();
     this.pause();
+    this.#liveHost?.show(null, -1);
     this.#cancelPaint();
     this.#endScrub();
     for (const unwatch of this.#unwatch ?? []) unwatch();
@@ -708,6 +834,14 @@ export class PreviewEngine {
       this.#setCaptionHits([]);
     this.#plan = plan;
     for (const listener of this.#planListeners) listener(plan);
+    if (this.#liveHost) {
+      this.#prepareLive();
+      // 这一帧没有实时层时不在这里收起 iframe：等画布画上替身那一帧再收（#paint），停下来的那一刻底下不露黑。
+      if (plan.live) {
+        this.#liveHost.show(plan.live, plan.frame);
+        this.#liveOn = plan.live.itemId;
+      }
+    }
 
     // 视频层与自带的声音（轨道隐藏时只有声音）：视频实例，或带预渲染替身的合成。素材取计划里带的那个。
     // 转场另一侧的层（在自己的区间之外，取 handles 里的画面）也要一个元素，静音。
@@ -843,7 +977,17 @@ export class PreviewEngine {
       const picture = element ? this.#lastPictures.get(element) : undefined;
       if (picture) stale.set(layer.itemId, picture);
     }
-    const waiting = [...states].some(([itemId, state]) => state === 'pending' && !stale.has(itemId));
+    // 停住了、iframe 还露着的那件合成的替身还在来（Runtime 还在备播放副本、元素还没挂上，或还在定位）：不等它，画布按透明底画、
+    // iframe 不收，实时层多撑一会儿；替身到了（元素挂上、媒体事件）再画不透明的那一帧、收起 iframe，停下的那一刻不黑屏。导出不经过这里。
+    const heldByLive = new Set<Id>(
+      !plan.live && this.#liveHost && this.#liveOn !== null
+        ? layers
+            .filter(isMediaLayer)
+            .filter((layer) => layer.itemId === this.#liveOn && this.#coming(layer, states.get(layer.itemId)))
+            .map((layer) => layer.itemId)
+        : [],
+    );
+    const waiting = [...states].some(([itemId, state]) => state === 'pending' && !stale.has(itemId) && !heldByLive.has(itemId));
     if (waiting) {
       const now = performance.now();
       this.#holdSince ??= now;
@@ -857,6 +1001,7 @@ export class PreviewEngine {
     const pending = new Set<Id>();
     const notes: string[] = [];
     let rendered: RenderedFrame;
+    let transparent = plan.live !== undefined || heldByLive.size > 0;
     try {
       this.#sendDocuments(planner, layers, pending);
       // 暂停时转写取到了只叫重画、不重新对元素：在这里送上，这一帧就按转写画声波。
@@ -865,7 +1010,15 @@ export class PreviewEngine {
       const start = performance.now();
       this.#sendPictures(planner, layers, states, stale, width, height);
       const uploaded = performance.now();
-      rendered = planner.render(this.#time, width, height);
+      // 底是实时合成层、或替身还在来而 iframe 还撑着时画透明底（背景也不铺），iframe 从画布的透明处露出来。
+      try {
+        rendered = transparent ? planner.render(this.#time, width, height, { transparent: true }) : planner.render(this.#time, width, height);
+      } catch (error) {
+        // 替身还在来时的透明底叠不上去（发光像素）：这一帧按不透明的画，替身的位置先空着。
+        if (plan.live || heldByLive.size === 0 || !(error instanceof PlanFailure) || error.code !== EMISSIVE_STRAIGHT_ALPHA) throw error;
+        transparent = false;
+        rendered = planner.render(this.#time, width, height);
+      }
       if (this.#playing) {
         sample(this.#stats.uploadMs, uploaded - start);
         sample(this.#stats.renderMs, performance.now() - uploaded);
@@ -875,6 +1028,11 @@ export class PreviewEngine {
       this.#requestFonts(planner, rendered);
     } catch (error) {
       if (!(error instanceof PlanFailure)) throw error;
+      // 透明底上有发光像素：这一帧叠不到实时层上，这件合成退回替身或占位，重新算计划再画。
+      if (plan.live && error.code === EMISSIVE_STRAIGHT_ALPHA) {
+        this.#blockLive(plan.live.itemId, error.code);
+        return true;
+      }
       this.#setStatus({ kind: 'error', message: error.message });
       return true;
     }
@@ -884,40 +1042,44 @@ export class PreviewEngine {
       canvas.height = height;
     }
     context.putImageData(new ImageData(planner.frame(), width, height), 0, 0);
+    // 画布上已经是不透明的这一帧（替身或占位）：现在才收起底下的 iframe。
+    if (!plan.live && !transparent && this.#liveHost) {
+      this.#liveHost.show(null, plan.frame);
+      this.#liveOn = null;
+    }
     // 临时字幕不是视频里的实例：不给点选；内核对它的提示（跳过、警告）与还在取的层一样不报（记进 `pending`）。
     this.#setCaptionHits((rendered.captionHits ?? []).filter((hit) => hit.itemId !== LIVE_CAPTION_ITEM_ID));
     pending.add(LIVE_CAPTION_ITEM_ID);
     this.#painted = { revision: plan.sequenceRevision, frame: plan.frame };
-    this.#exact = quality === 'exact' && [...states.values()].every((state) => state === 'ready');
-    // 画面出来了：没有还在来的媒体。载入失败的元素与取不到的素材字节不再等（这一帧照画，跳过它），只有还没有元素的在来。
-    const coming = layers.filter(isMediaLayer).some((layer) => {
-      const state = states.get(layer.itemId);
-      return state === 'pending' || (state === 'absent' && !this.#kernelDecoded(layer) && this.#sourceOf(layer) === null);
-    });
+    // 实时合成层的帧是 Interactive 档（动效视频设计 §4.3）：底下是 iframe 实时画的，不是导出的那一帧。
+    this.#exact = quality === 'exact' && !plan.live && [...states.values()].every((state) => state === 'ready');
+    // 画面出来了：没有还在来的媒体。
+    const coming = layers.filter(isMediaLayer).some((layer) => this.#coming(layer, states.get(layer.itemId)));
     if (!coming) this.#setPictured(true);
     if (this.#playing) {
       this.#stats.presented++;
       sample(this.#stats.frames, plan.frame);
     }
     this.#stats.size = { width, height };
-    // 还在取本机字体的族不报缺字体（取不到时下一帧照报，与导出一致）。
-    // i18n-ignore: 匹配渲染内核报来的缺字体提示原文
-    const loadingFonts = [...this.#fontsLoading.keys()].map((family) => `字体 ${JSON.stringify(family)} `);
     const problems = [
       ...new Set([
-        ...rendered.skipped.filter((item) => !pending.has(item.itemId)).map((item) => item.message),
-        // 内核的提示以「实例 ID：」开头；还在取频谱的声波不报。
+        ...rendered.skipped.filter((item) => !pending.has(item.itemId)).map((item) => localizeText(item.message, item.messageRef) ?? item.message),
+        // 内核的提示按引用认（`frameRender.itemNote` 写着实例）：还在取频谱的声波不报。
         ...rendered.warnings
-          .filter((warning) => !pending.has(warning.detail.split('：')[0]!)) // i18n-ignore: 内核提示的「实例 ID：」分隔符
-          .filter((warning) => !loadingFonts.some((prefix) => warning.detail.includes(prefix)))
+          .filter((warning) => !pending.has(renderNote(warning.detailRef)?.item ?? ''))
+          // 还在取本机字体的族不报缺字体（取不到时下一帧照报，与导出一致）。
+          .filter((warning) => !this.#fontsLoading.has(missingFontFamily(warning.detailRef) ?? ''))
           // 转写还在取：先别说没有转写。
-          .filter((warning) => !(this.#speechLoading && SPEAKER_NOTE.test(warning.detail)))
-          .map((warning) => warning.detail),
+          .filter((warning) => !(this.#speechLoading && isSpeakerNote(warning.detailRef)))
+          .map((warning) => localizeText(warning.detail, warning.detailRef) ?? warning.detail),
         ...notes,
       ]),
     ];
-    if (problems.join('\n') !== this.#problems.join('\n')) {
+    // 「实时预览，导出前要烘焙」只在替身不可用时报：播放中有可用替身的合成也走实时层，但停下来就是替身，不用提醒。
+    const live = plan.live !== undefined && plan.live.standIn !== 'usable';
+    if (problems.join('\n') !== this.#problems.join('\n') || live !== this.#liveShown) {
       this.#problems = problems;
+      this.#liveShown = live;
       if (this.#status.kind === 'ready') this.#setStatus(this.#ready());
     }
     return true;
@@ -1153,11 +1315,11 @@ export class PreviewEngine {
     }
   }
 
-  /** 图片层的素材是 SVG 或 GIF（按素材版本的媒体类型）：画面由 WASM 从字节光栅或解码（与导出同一份），不读图片元素的像素。 */
+  /** 图片层的素材是 SVG 或动图（GIF、APNG；按素材版本的媒体类型）：画面由 WASM 从字节光栅或解码（与导出同一份），不读图片元素的像素。 */
   #kernelDecoded(layer: MediaLayer): boolean {
     if (layer.kind !== 'image') return false;
     const mediaType = this.#video?.assets[layer.asset.id]?.revisions[layer.asset.revision]?.mediaType;
-    return mediaType === 'image/svg+xml' || mediaType === 'image/gif';
+    return mediaType === 'image/svg+xml' || isAnimatedImageType(mediaType);
   }
 
   #readPixels(element: SourceElement, width: number, height: number): ImageData | null {
@@ -1180,7 +1342,11 @@ export class PreviewEngine {
   }
 
   #ready(): PreviewStatus {
-    return this.#problems.length > 0 ? { kind: 'ready', problems: this.#problems } : { kind: 'ready' };
+    return {
+      kind: 'ready',
+      ...(this.#problems.length > 0 ? { problems: this.#problems } : {}),
+      ...(this.#liveShown ? { live: true as const } : {}),
+    };
   }
 
   /** 媒体元素的状态；还没有元素、是因为 Runtime 在准备兼容副本时，说在等副本、带上进度。 */

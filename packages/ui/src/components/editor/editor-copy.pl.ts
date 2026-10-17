@@ -44,6 +44,9 @@ export const pl: EditorMessages = {
   emptyOr: "lub dodaj z panelu materiałów po prawej",
   problemsCount: (n: number) => pluralForm('pl', n, { one: `Nie można narysować ${n} elementu`, few: `Nie można narysować ${n} elementów`, many: `Nie można narysować ${n} elementów`, other: `Nie można narysować ${n} elementu` }),
   problemsTitle: "Nie można narysować części treści klatki",
+  livePreview: 'Podgląd na żywo',
+  livePreviewTitle: 'Podgląd na żywo; przed eksportem wypal zastępnik',
+  livePreviewDetail: 'Kompozycja kodu na spodzie tej klatki jest rysowana na żywo w edytorze i może różnić się od eksportu. Eksport używa tylko wypalonego zastępnika: wypal go przed eksportem.',
   rendererFailed: (message: string) => `Renderer podglądu nie został wczytany: ${message}`,
   spectrumTooLarge: (itemId: string, assetId: string, mb: number) => `Przebieg fali ${itemId}: materiał ${assetId} przekracza ${mb} MB, więc podgląd nie analizuje dźwięku; eksport bez zmian`,
   stall: {

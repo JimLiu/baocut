@@ -5,8 +5,10 @@ import path from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { BaoCutClient } from '@baocut/client';
 import {
+  APPLIED_ASSET_REF,
   RpcError,
   brandLogoAsset,
+  fileLogoAsset,
   newId,
   type LibraryEvent,
   type LibrarySnapshot,
@@ -353,9 +355,88 @@ describe('用户库（Runtime）', () => {
       expect(Object.keys(video.assets)).toHaveLength(1);
       expect(brandLogoAsset(video.assets, logo.id)).not.toBeNull();
       expect(brandLogoAsset(video.assets, 'gone')).toBeNull();
-      expect(first.receipt.refs).toHaveProperty('logo0');
+      expect(first.receipt.refs).toHaveProperty('baocut-template-logo-0');
       await apply();
       expect(Object.keys(runtime.videos.mirror(videoId)!.video.assets)).toHaveLength(1);
+    });
+
+    it('直接写模板（edits.apply）时，品牌库台标与项目里的图片台标同一笔登记，一步撤销', async () => {
+      const opened = await client.request('videos.create', { projectId: project.id, name: '写模板' });
+      const videoId = opened.ref.videoId;
+      await fs.mkdir(path.join(project.path, 'brand'), { recursive: true });
+      // 与品牌库那张不同的字节：相同字节的导入引擎复用已有的素材（来源不变）。
+      execFileSync('ffmpeg', [
+        '-v',
+        'error',
+        '-y',
+        '-f',
+        'lavfi',
+        '-i',
+        'color=c=red:size=32x32:rate=1:duration=1',
+        '-frames:v',
+        '1',
+        path.join(project.path, 'brand', 'logo.png'),
+      ]);
+      const { entry: logo } = await client.request('library.put', {
+        library: 'brand',
+        content: { name: '标志', kind: 'image' },
+        source: { path: image },
+      });
+      const before = runtime.videos.mirror(videoId)!.video;
+      const template = {
+        id: 'tpl-mixed',
+        name: '两个台标',
+        layers: [
+          { id: 'l1', kind: 'logo', box: { x: 2, y: 4, w: 20, h: 12 }, src: { brandLogo: logo.id }, color: '#FFFFFF' },
+          { id: 'l2', kind: 'logo', box: { x: 70, y: 4, w: 20, h: 12 }, src: { file: 'brand/logo.png' }, color: '#FFFFFF' },
+        ],
+      };
+      const written = await client.request('edits.apply', {
+        videoId,
+        commandId: newId('cmd'),
+        expectedRevision: before.revision,
+        operations: [{ type: 'setTemplate', sequenceId: before.rootSequenceId, template: template as never }],
+      });
+      const video = runtime.videos.mirror(videoId)!.video;
+      expect(brandLogoAsset(video.assets, logo.id)).not.toBeNull();
+      const file = fileLogoAsset(video.assets, 'brand/logo.png');
+      expect(file).not.toBeNull();
+      const revision = video.assets[file!.id]!.revisions[file!.revision]!;
+      expect(revision.storage.mode).toBe('linked');
+      expect(revision.provenance).toMatchObject({ origin: 'template-logo', source: { templateLogo: { file: 'brand/logo.png' } } });
+      await client.request('edits.undo', { videoId, commandId: newId('cmd'), target: { transaction: written.receipt.transactionId } });
+      const undone = runtime.videos.mirror(videoId)!.video;
+      expect(undone.sequences[undone.rootSequenceId]!.template).toBeFalsy();
+      expect(Object.keys(undone.assets)).toHaveLength(0);
+    });
+
+    it('applyToVideo 带后续修改：拷进来的图片同一笔放上时间线，一步撤销', async () => {
+      const opened = await client.request('videos.create', { projectId: project.id, name: '放上去' });
+      const videoId = opened.ref.videoId;
+      const { entry } = await client.request('library.put', {
+        library: 'brand',
+        content: { name: '标志', kind: 'image' },
+        source: { path: image },
+      });
+      const before = runtime.videos.mirror(videoId)!.video;
+      const applied = await client.request('library.applyToVideo', {
+        videoId,
+        entry: { library: 'brand', id: entry.id },
+        commandId: newId('cmd'),
+        expectedRevision: before.revision,
+        operations: [{ type: 'addItem', sequenceId: before.rootSequenceId, asset: { ref: APPLIED_ASSET_REF }, alignment: 'exact-frame' }],
+        label: '添加 · 标志',
+        labelRef: { key: 'editLabel.addNamed', params: { name: '标志' } },
+      });
+      expect(applied.receipt).toMatchObject({ label: '添加 · 标志', labelRef: { key: 'editLabel.addNamed', params: { name: '标志' } } });
+      const video = runtime.videos.mirror(videoId)!.video;
+      const items = video.sequences[video.rootSequenceId]!.items;
+      expect(items).toHaveLength(1);
+      expect(items[0]).toMatchObject({ assetRef: { id: applied.assetId } });
+      await client.request('edits.undo', { videoId, commandId: newId('cmd'), target: { transaction: applied.receipt.transactionId } });
+      const undone = runtime.videos.mirror(videoId)!.video;
+      expect(undone.sequences[undone.rootSequenceId]!.items).toHaveLength(0);
+      expect(Object.keys(undone.assets)).toHaveLength(0);
     });
   });
 

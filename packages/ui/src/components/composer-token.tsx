@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ActionButton } from '@react-spectrum/s2';
+import { ActionButton, Text } from '@react-spectrum/s2';
 import Close from '@react-spectrum/s2/icons/Close';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
 
@@ -48,7 +48,10 @@ export function ComposerToken({
       {onOpen ? (
         <ActionButton slot={null} size="S" isQuiet aria-label={label} onPress={onOpen}>
           {icon}
-          <span className={chipText}>{label}</span>
+          {/* 放进 Text：ActionButton 按 icon / label 两格排，裸 span 会掉到图标下面一行。 */}
+          <Text>
+            <span className={chipText}>{label}</span>
+          </Text>
         </ActionButton>
       ) : (
         <>

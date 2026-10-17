@@ -1,6 +1,7 @@
 import type { ProtocolValidationMessages } from './protocol-validation.ts';
 
 export const ptBR: ProtocolValidationMessages = {
+  duplicatePaths: "Cada caminho só pode aparecer uma vez",
 
   listSeparator: ", ",
   notEmpty: "Não pode estar vazio",

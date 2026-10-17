@@ -82,6 +82,13 @@ describe('listBundleFiles', () => {
     expect(ok).toHaveLength(3);
   });
 
+  it('3D 资源的扩展名在白名单里（glTF、二进制缓冲、HDR、KTX2）', async () => {
+    const files = await listBundleFiles(
+      tree({ 'index.html': SIMPLE_HTML, 'assets/scene.gltf': '{}', 'assets/scene.glb': 'glTF', 'assets/scene.bin': '\0', 'assets/sky.hdr': '#?RADIANCE', 'assets/tex.ktx2': 'KTX' }),
+    );
+    expect(files.map((f) => f.path)).toEqual(['assets/scene.bin', 'assets/scene.glb', 'assets/scene.gltf', 'assets/sky.hdr', 'assets/tex.ktx2', 'index.html']);
+  });
+
   it('超过上限 → BUNDLE_TOO_LARGE', async () => {
     const dir = tree({ 'a.js': 'a', 'b.js': 'b', 'c.js': 'c' });
     expect(await codeOf(listBundleFiles(dir, { limits: { maxFiles: 2 } }))).toBe('BUNDLE_TOO_LARGE');

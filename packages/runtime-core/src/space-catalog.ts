@@ -9,6 +9,7 @@ import {
   type Conversation,
   type DirectoryEvent,
   type DirectorySnapshot,
+  type ExternalVideoCreated,
   type Id,
   type JobRecord,
   type JobSubmitter,
@@ -679,6 +680,14 @@ export class SpaceCatalog {
 
   subscribe(afterSeq: string | undefined, listener: Parameters<TopicLog<SpaceSnapshot, SpaceEvent>['subscribe']>[1]) {
     return this.#topic.subscribe(afterSeq, listener);
+  }
+
+  /**
+   * 外部 Agent（终端、对外服务）新建了视频：发一条 `video.created`，桌面据此在功能区打开它（产品设计 §3.3）。
+   * 不改目录，条目照常由扫描或打开的视频带出来。
+   */
+  announceVideoCreated(video: ExternalVideoCreated): void {
+    this.#topic.publish({ type: 'video.created', video });
   }
 
   /** 立即重扫全部来源，完成后发一条 `catalog.replaced`。 */

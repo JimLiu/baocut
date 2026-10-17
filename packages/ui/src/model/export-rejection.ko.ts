@@ -15,6 +15,7 @@ export const ko: ExportRejectionMessages = {
     EXPORT_SOURCE_AMBIGUOUS: '내보낼 수 있는 문서가 여러 개입니다',
     EXPORT_TOOL_MISSING: '이 컴퓨터에 내보내기에 필요한 도구가 없습니다',
     EXPORT_UNSUPPORTED_CONTENT: '일부 콘텐츠를 내보내기용으로 렌더링할 수 없습니다',
+    EXPORT_PRERENDER_STALE: '다시 베이크해야 하는 모션 그래픽이 있습니다',
     ASSET_MISSING: '일부 소재를 읽을 수 없습니다',
     ASSET_CHANGED: '일부 소재가 변경되었습니다',
     ENTITY_NOT_FOUND: '시퀀스가 존재하지 않습니다',

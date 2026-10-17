@@ -41,4 +41,6 @@ export const zhHans: RcVideoMessages = {
   sourceRootRemedy: '先在 BaoCut 里移除以它为目录的项目或会话，再从上一级的项目里删除这个视频',
   compositionImportFailed: (p) => `代码画面导入失败（${p.code}）`,
   compositionPreviewFailed: (p) => `代码画面预览失败（${p.code}）`,
+  compositionBakeSuperseded: '代码画面在烘焙完成前被改过或删掉了，替身没有写入',
+  compositionBakeFailed: (p) => `代码画面烘焙失败（${p.code}）`,
 };

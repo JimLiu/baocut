@@ -43,6 +43,9 @@ export const zhHant: EditorMessages = {
   emptyOr: '或從右側的媒體面板新增',
   problemsCount: (n: number) => `有 ${n} 個項目無法繪製`,
   problemsTitle: '這個影格中有些內容無法繪製',
+  livePreview: '即時預覽',
+  livePreviewTitle: '即時預覽，匯出前要烘焙',
+  livePreviewDetail: '這一格底下的程式碼包合成是編輯器裡即時繪製的，可能與匯出有出入。匯出只讀烘焙好的替身：匯出前先烘焙。',
   rendererFailed: (message: string) => `預覽渲染器未載入：${message}`,
   spectrumTooLarge: (itemId: string, assetId: string, mb: number) =>
     `波形 ${itemId}：素材 ${assetId} 超過 ${mb} MB，因此預覽不會分析它的聲音；不影響匯出`,

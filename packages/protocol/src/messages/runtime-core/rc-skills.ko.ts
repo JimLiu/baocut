@@ -1,6 +1,25 @@
 import type { RcSkillsMessages } from './rc-skills.ts';
 
 export const ko: RcSkillsMessages = {
+  brandProjectNotFound: (p) => `프로젝트를 찾을 수 없습니다: ${p.id}`,
+  brandNotFound: (p) => `“${p.project}”에는 아직 BRAND.md가 없습니다`,
+  brandFileNotFound: (p) => `BRAND.md 파일이 아닙니다: ${p.file}`,
+  brandPathInvalid: (p) => `BRAND.md와 brand/ 안의 파일만 변경할 수 있습니다: ${p.path}`,
+  brandExists: (p) => `이 프로젝트에는 이미 BRAND.md가 있습니다: ${p.path}`,
+  brandUnreadable: (p) => `${p.file}을(를) 읽을 수 없어 이 메시지는 해당 파일 없이 전송되었습니다`,
+  versionNotFound: (p) => `Skill “${p.id}”에는 저장된 ${p.revision}번째 버전이 없습니다`,
+  packageTooLarge: (p) => `zip 파일이 ${p.limit}바이트를 초과합니다`,
+  packageUnreadable: (p) => `${p.path}을(를) zip 파일이나 폴더로 읽을 수 없습니다`,
+  packageNoSkill: (p) => `이 패키지에 ${p.file}이(가) 없습니다. Skill의 루트 폴더에는 용도와 사용 시점을 설명하는 ${p.file}이(가) 있어야 합니다`,
+  candidateUnsafePath: (p) => `이 Skill에 안전하게 풀 수 없는 항목이 있습니다: ${p.path}`,
+  candidateTooManyFiles: (p) => `파일이 너무 많습니다(${p.files}개). Skill은 최대 ${p.limit}개까지 가질 수 있습니다`,
+  candidateNoDescription: 'SKILL.md에 description이 없습니다. 무엇을 하고 언제 쓰는지 한두 문장으로 적어 주세요. 에이전트는 이 문장을 보고 Skill 사용 여부를 정합니다',
+  candidateDuplicate: (p) => `이 패키지에 같은 ID “${p.id}”를 가진 다른 Skill이 있습니다`,
+  packagePickInvalid: (p) => `${p.prefix}은(는) 이 패키지에서 설치할 수 있는 Skill이 아닙니다`,
+  revisionConflict: (p) => `그사이 Skill이 변경되었습니다(현재 ${p.revision}번째 버전). 다시 불러온 뒤 변경하세요`,
+  cannotRemoveSkillFile: (p) => `${p.file}은(는) 삭제할 수 없습니다`,
+  notEditable: (p) => `“${p.name}”은(는) 여기서 편집할 수 없습니다. 복제한 뒤 사본을 편집하세요`,
+  changeSourceMissing: (p) => `추가할 수 있는 파일이 아닙니다: ${p.path}`,
 
   cliOnlyPageLink: (p) => `링크된 페이지 ${p.page} 항목은 도구 인터페이스에서 사용할 수 없습니다. CLI 인터페이스만 있는 페이지이므로 이 페이지를 가리키는 링크는 CLI 인터페이스에 있어야 합니다`,
 

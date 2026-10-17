@@ -1,6 +1,25 @@
 import type { RcSkillsMessages } from './rc-skills.ts';
 
 export const zhHans: RcSkillsMessages = {
+  brandProjectNotFound: (p) => `找不到项目：${p.id}`,
+  brandNotFound: (p) => `「${p.project}」还没有 BRAND.md`,
+  brandFileNotFound: (p) => `不是 BRAND.md 的文件：${p.file}`,
+  brandPathInvalid: (p) => `只能改 BRAND.md 与 brand/ 里的文件：${p.path}`,
+  brandExists: (p) => `这个项目已经有 BRAND.md：${p.path}`,
+  brandUnreadable: (p) => `读不到 ${p.file}，这条消息没带上它`,
+  versionNotFound: (p) => `skill「${p.id}」没有保留第 ${p.revision} 版`,
+  packageTooLarge: (p) => `zip 文件超过 ${p.limit} 字节`,
+  packageUnreadable: (p) => `读不了 ${p.path}：不是 zip 文件或文件夹`,
+  packageNoSkill: (p) => `这个包里没有 ${p.file}。skill 的根目录要有一份 ${p.file}，说明它做什么、什么时候用`,
+  candidateUnsafePath: (p) => `这个 skill 里有不能安全解开的条目：${p.path}`,
+  candidateTooManyFiles: (p) => `文件太多（${p.files} 个），一个 skill 最多 ${p.limit} 个文件`,
+  candidateNoDescription: 'SKILL.md 开头缺少 description：写一两句它做什么、什么时候用，Agent 靠这句话判断要不要用它',
+  candidateDuplicate: (p) => `这个包里另有一个 id 同为「${p.id}」的 skill`,
+  packagePickInvalid: (p) => `${p.prefix} 不是这个包里能安装的 skill`,
+  revisionConflict: (p) => `这个 skill 刚被改过（现在是第 ${p.revision} 版），请重新打开后再改`,
+  cannotRemoveSkillFile: (p) => `${p.file} 不能删除`,
+  notEditable: (p) => `「${p.name}」不能在这里改，复制一份再改`,
+  changeSourceMissing: (p) => `不是能添加的文件：${p.path}`,
   cliOnlyPageLink: (p) => `引用了工具桥面没有的页 ${p.page}：那一页只有 CLI 面，指向它的链接要放进 cli 面`,
 
   guideIdConflict: (p) => `id「${p.id}」是 BaoCut 说明书的页面，这一份没有加载。换一个目录名`,

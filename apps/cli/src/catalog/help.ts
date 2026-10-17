@@ -144,7 +144,7 @@ export function renderCommandHelp(command: CatalogCommand, names: readonly strin
     out.push('', M.helpExamples);
     for (const example of tool.examples) out.push(`  # ${example.title}`, `  ${exampleCommand(command, example.args)}`);
   }
-  out.push('', M.helpCommonFlags, `  ${commonFlags(tool)}`);
+  out.push('', M.helpCommonFlags, `  ${commonFlags(tool, specs)}`);
   return out.join('\n');
 }
 
@@ -152,8 +152,10 @@ function effectText(effect: ToolEffect): string {
   return { query: M.effectQuery, mutation: M.effectMutation, job: M.effectJob, destructive: M.effectDestructive }[effect];
 }
 
-function commonFlags(tool: CatalogTool): string {
-  const flags = ['--json', '--project <dir>', '--max-bytes <n>', '--result-file <file>', '--no-start'];
+function commonFlags(tool: CatalogTool, specs: readonly FlagSpec[]): string {
+  // 工具自己有 `project` 字段时它已列在参数里（同一个旗标，同时给工具与目录），公共旗标不再重复。
+  const project = specs.some((spec) => spec.field === 'project') ? [] : ['--project <dir>'];
+  const flags = ['--json', ...project, '--max-bytes <n>', '--result-file <file>', '--no-start'];
   if (tool.effect === 'job') flags.unshift('--no-wait', '--timeout <s>', '--progress jsonl');
   // `jobs wait` 与默认等待同一条路径（run.ts），只是没有「不等」。
   else if (tool.name === 'jobs_wait') flags.unshift('--timeout <s>', '--progress jsonl');

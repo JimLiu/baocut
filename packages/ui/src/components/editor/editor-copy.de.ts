@@ -44,6 +44,9 @@ export const de: EditorMessages = {
   emptyOr: "oder rechts im Medienbereich hinzufügen",
   problemsCount: (n: number) => `${n} ${pluralForm('de', n, { one: "Eintrag", other: "Einträge" })} kann nicht gezeichnet werden`,
   problemsTitle: "Einige Inhalte dieses Frames können nicht gezeichnet werden",
+  livePreview: 'Live-Vorschau',
+  livePreviewTitle: 'Live-Vorschau; vor dem Export backen',
+  livePreviewDetail: 'Die Code-Komposition unten in diesem Frame wird im Editor live gezeichnet und kann vom Export abweichen. Der Export verwendet nur den gebackenen Platzhalter: vor dem Export backen.',
   rendererFailed: (message: string) => `Der Vorschau-Renderer wurde nicht geladen: ${message}`,
   spectrumTooLarge: (itemId: string, assetId: string, mb: number) =>
     `Wellenform ${itemId}: Material ${assetId} ist größer als ${mb} MB; die Vorschau analysiert daher keinen Ton. Export bleibt unverändert`,

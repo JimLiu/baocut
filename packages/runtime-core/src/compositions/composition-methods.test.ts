@@ -6,7 +6,15 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { BaoCutClient } from '@baocut/client';
 import { resolveElectronBinary } from '@baocut/code-runtime';
-import { RpcError, type CompositionItem, type Id, type Project } from '@baocut/protocol';
+import {
+  RpcError,
+  newId,
+  type CompositionImportResult,
+  type CompositionItem,
+  type Id,
+  type JobRecord,
+  type Project,
+} from '@baocut/protocol';
 import { resolveRuntimeHome } from '@baocut/runtime-storage';
 import { resolveExportWorkerCommand } from '../exports/video-export.ts';
 import { resolveEngineHostCommand } from '../videos/engine-host.ts';
@@ -30,8 +38,21 @@ const ffmpeg = (() => {
   }
 })();
 
-const EXEMPLAR = fileURLToPath(new URL('../../../../skills/baocut/built-in-skills/motion-graphics/exemplars/lower-third/16x9.html', import.meta.url));
+const EXEMPLAR = fileURLToPath(
+  new URL('../../../../skills/baocut/built-in-skills/motion-graphics/exemplars/lower-third/16x9.html', import.meta.url),
+);
 const LONG = { timeoutMs: 600_000 };
+const TERMINAL = new Set(['completed', 'failed', 'cancelled', 'interrupted']);
+
+async function until<T>(read: () => Promise<T | null | undefined | false>, timeoutMs: number): Promise<T> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const value = await read();
+    if (value) return value;
+    if (Date.now() > deadline) throw new Error('等待超时');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
 
 async function rejection(promise: Promise<unknown>): Promise<RpcError> {
   const error = await promise.then(
@@ -50,6 +71,17 @@ describe.skipIf(!engine || !worker || !ffmpeg || !electron)('代码画面 RPC（
   let conversationId: Id;
   let videoId: Id;
   let html: string;
+  /** 第一条测试在前台烘焙并放置的实例；后面的测试拿它验证替身过期。 */
+  let firstImport: CompositionImportResult;
+
+  const inline = () => [{ path: 'index.html', content: html }];
+  const video = () => runtime.videos.mirror(videoId)!.video;
+  const item = (itemId: Id) => video().sequences[video().rootSequenceId]!.items.find((i) => i.id === itemId) as CompositionItem | undefined;
+  const settled = (jobId: Id, timeoutMs: number) =>
+    until(async () => {
+      const job: JobRecord = await client.request('jobs.inspect', { jobId });
+      return TERMINAL.has(job.state) ? job : null;
+    }, timeoutMs);
 
   beforeAll(async () => {
     html = await fs.readFile(EXEMPLAR, 'utf8');
@@ -133,6 +165,7 @@ describe.skipIf(!engine || !worker || !ffmpeg || !electron)('代码画面 RPC（
       trackId: expect.any(String),
     });
     expect('approval' in imported).toBe(false);
+    firstImport = imported;
 
     const video = runtime.videos.mirror(videoId)!.video;
     expect(video.revision).toBe(imported.revision.after);
@@ -172,4 +205,114 @@ describe.skipIf(!engine || !worker || !ffmpeg || !electron)('代码画面 RPC（
     expect(badConversation.code).toBe('not-found');
     expect(runtime.videos.mirror(videoId)!.video.revision).toBe(revision);
   }, 120_000);
+  it('exports.create：实例换到新版代码包而替身没重烘时以 EXPORT_PRERENDER_STALE 拒绝；allowStalePrerender 放行并记警告', async () => {
+    const registered = await client.request(
+      'compositions.import',
+      { video: videoId, files: inline(), name: '下三分之一 v2', register: true, manifest: { revision: '2' } },
+      LONG,
+    );
+    expect(registered).toMatchObject({ bundle: { manifestRevision: '2' }, prerender: null, itemId: null, bakeJobId: null });
+
+    const before = video();
+    await client.request('edits.apply', {
+      videoId,
+      commandId: newId('cmd'),
+      expectedRevision: before.revision,
+      operations: [
+        {
+          type: 'replaceCodeBundle',
+          sequenceId: before.rootSequenceId,
+          itemId: firstImport.itemId!,
+          assetRef: { id: registered.bundle.assetId, revision: registered.bundle.revision },
+          prerender: { id: firstImport.prerender!.assetId, revision: firstImport.prerender!.revision },
+        },
+      ],
+    });
+
+    const out = path.join(dir, 'out');
+    await fs.mkdir(out, { recursive: true });
+    const stale = await rejection(
+      client.request('exports.create', { videoId, destination: { dir: out }, settings: { kind: 'video', format: 'mp4' } }),
+    );
+    expect(stale.code).toBe('invalid-request');
+    expect(stale.details).toMatchObject({
+      code: 'EXPORT_PRERENDER_STALE',
+      items: [{ itemId: firstImport.itemId, reason: 'bundle-changed', bakedFrom: { revision: '1' }, current: { revision: '2' } }],
+    });
+
+    const { jobId } = await client.request('exports.create', {
+      videoId,
+      destination: { dir: out },
+      settings: { kind: 'video', format: 'mp4', allowStalePrerender: true },
+    });
+    const job = await until(async () => {
+      const record: JobRecord = await client.request('jobs.inspect', { jobId });
+      return record.warnings.some((w) => w.code === 'EXPORT_PRERENDER_STALE') || TERMINAL.has(record.state) ? record : null;
+    }, 120_000);
+    expect(job.warnings).toContainEqual(
+      expect.objectContaining({ code: 'EXPORT_PRERENDER_STALE', detail: expect.stringContaining('bundle-changed') }),
+    );
+    if (!TERMINAL.has(job.state)) await client.request('jobs.cancel', { jobId });
+  }, 300_000);
+
+  it('compositions.import background：先按清单长度放实例，烘焙交给 bake 任务，完成后实例有替身', async () => {
+    const imported = await client.request(
+      'compositions.import',
+      { video: videoId, files: inline(), name: '后台烘焙', background: true, place: { at: '10' } },
+      LONG,
+    );
+    expect(imported).toMatchObject({ status: 'committed', prerender: null, bakeJobId: expect.any(String), itemId: expect.any(String) });
+    const placed = item(imported.itemId!)!;
+    expect(placed.prerender).toBeUndefined();
+    expect(placed.span).toEqual({ fromFrame: 300, durationFrames: 120 });
+
+    const job = await settled(imported.bakeJobId!, 600_000);
+    expect(job).toMatchObject({
+      kind: 'bake',
+      state: 'completed',
+      error: null,
+      warnings: [],
+      bake: {
+        sequenceId: video().rootSequenceId,
+        itemId: imported.itemId,
+        bundle: { id: imported.bundle.assetId, revision: imported.bundle.revision },
+        bundleId: imported.bundle.bundleId,
+        manifestRevision: '1',
+        fps: { num: 30, den: 1 },
+      },
+    });
+    const baked = item(imported.itemId!)!;
+    expect(baked.prerender).toBeDefined();
+    expect(baked.span).toEqual({ fromFrame: 300, durationFrames: 120 });
+    expect(job.result?.artifactId).toBe(`${baked.prerender!.id}@${baked.prerender!.revision}`);
+    const standIn = video().assets[baked.prerender!.id]!.revisions[baked.prerender!.revision]!;
+    expect(standIn.provenance).toMatchObject({
+      origin: 'composition-bake',
+      source: {
+        sourceBundleRef: { id: imported.bundle.bundleId, revision: '1' },
+        status: 'current',
+        encoding: { frames: 120, alpha: true },
+      },
+    });
+  }, 600_000);
+
+  it('后台烘焙期间实例被删：任务以 COMPOSITION_BAKE_SUPERSEDED 失败，不写替身', async () => {
+    const imported = await client.request(
+      'compositions.import',
+      { video: videoId, files: inline(), name: '删掉的后台烘焙', background: true, place: { at: '20' } },
+      LONG,
+    );
+    const before = video();
+    const assetsBefore = Object.keys(before.assets).length;
+    await client.request('edits.apply', {
+      videoId,
+      commandId: newId('cmd'),
+      expectedRevision: before.revision,
+      operations: [{ type: 'deleteItems', sequenceId: before.rootSequenceId, itemIds: [imported.itemId!] }],
+    });
+    const job = await settled(imported.bakeJobId!, 600_000);
+    expect(job.state).toBe('failed');
+    expect(job.error).toMatchObject({ code: 'COMPOSITION_BAKE_SUPERSEDED' });
+    expect(Object.keys(video().assets)).toHaveLength(assetsBefore);
+  }, 600_000);
 });

@@ -14,6 +14,13 @@ export const ja: AgentSkillsMessages = {
     remove: '削除',
     read: 'ファイルを読み込み',
     send: '送信',
+    upload: 'アップロード',
+    create: '作成',
+    duplicate: '複製',
+    save: '保存',
+    restore: 'このバージョンを復元',
+    export: 'ダウンロード',
+    brand: 'BRAND.md を保存',
   },
   exists: (id: string | null) =>
     `${id ? `「${id}」という` : '同じ'}名前の Skill がすでにあるため、上書きしません。先に古いほうを削除するか、フォルダの名前を変えてから追加し直してください。`,
@@ -33,6 +40,8 @@ export const ja: AgentSkillsMessages = {
   fileNotText: 'テキストファイルではないため、ここには表示しません。',
   webNotAllowed: 'ブラウザではこの操作はできません。BaoCut デスクトップアプリで行ってください。',
   webReadOnly: 'このブラウザセッションは読み取り専用のため、変更できません。',
+  revisionConflict: '編集を始めたあとに、この Skill がほかの場所で変更されました。変更内容をコピーしてから再読み込みし、もう一度編集してください。',
+  notEditable: 'ここで編集できるのは自分の Skill だけです。複製すると、変更できるコピーを作れます。',
   failed: (action: string, raw: string) => `${action}できませんでした：${raw}`,
   sendFailed: (raw: string) => `送信できませんでした：${raw}`,
 };

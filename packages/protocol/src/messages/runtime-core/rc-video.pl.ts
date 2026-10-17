@@ -41,4 +41,6 @@ export const pl: RcVideoMessages = {
   sourceRootRemedy: "Najpierw usuń w BaoCut projekt lub sesję używającą tego folderu, a potem usuń wideo z projektu nadrzędnego",
   compositionImportFailed: (p) => `Nie udało się zaimportować grafiki animowanej (${p.code})`,
   compositionPreviewFailed: (p) => `Nie udało się wyświetlić podglądu grafiki animowanej (${p.code})`,
+  compositionBakeSuperseded: 'Grafikę animowaną zmieniono lub usunięto przed zakończeniem renderowania, więc zastępnik nie został zastosowany',
+  compositionBakeFailed: (p) => `Nie udało się wyrenderować grafiki animowanej (${p.code})`,
 };

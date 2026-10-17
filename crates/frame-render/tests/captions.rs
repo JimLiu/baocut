@@ -814,7 +814,7 @@ fn caption_font_notes_stand_on_every_frame() {
         ),
     ];
     let video = video(vec![caption("cap", "doc", Some("style"), 60, &[])], vec![], json!({}));
-    let note = "cap：字体 \"Nowhere Sans\" 在当前字体库中不可用，将使用 Noto Sans SC fallback";
+    let note = "cap: Font \"Nowhere Sans\" isn’t in the font library; using Noto Sans SC instead";
     let mut renderer = renderer(false, Documents::new(documents));
     // 预览每帧先清掉报告；字幕的缺字体提示每一帧都在（以前只有编译的那一帧报）。
     for seconds in [0.5, 1.0, 1.5] {

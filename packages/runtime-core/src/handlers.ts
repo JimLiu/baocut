@@ -1,6 +1,7 @@
 import { RcWeb } from '@baocut/protocol/messages/runtime-core';
 import path from 'node:path';
 import {
+  type CodeBundleManifest,
   RpcError,
   SETTING_MANAGED_BY,
   parseVideoTopic,
@@ -21,6 +22,7 @@ import {
   webVideoHref,
 } from '@baocut/protocol';
 import type { Harness, TopicSubscription } from '@baocut/harness';
+import { compositionPageScript } from '@baocut/code-runtime';
 import type { AgentSetup } from './agent-setup.ts';
 import type { AttachmentStore } from './attachments.ts';
 import type { TrustedPrincipal } from './gateway.ts';
@@ -61,6 +63,8 @@ import { resolveSaveDirectory } from './external-tools/downloads-directory.ts';
 import type { TemplateCatalog } from './templates/template-catalog.ts';
 import { templateMethods } from './templates/template-methods.ts';
 import type { StickerPacks } from './templates/sticker-packs.ts';
+import { ProjectBrands } from './skills/project-brand.ts';
+import type { CodexPets } from './templates/codex-pets.ts';
 import { skillMethods } from './skills/skill-methods.ts';
 import type { SkillCatalog } from './skills/skill-catalog.ts';
 import type { SkillInstaller } from './skills/skill-installer.ts';
@@ -128,6 +132,8 @@ export interface HandlerDeps {
   templates: TemplateCatalog;
   /** 随包贴纸（元素面板，`stickers.*`）。 */
   stickers: StickerPacks;
+  /** Codex Pets（元素面板，`pets.*`）。 */
+  pets: CodexPets;
   /** Agent 的 skill 目录与安装动作（§3.8、§12.9）。 */
   skills: SkillCatalog;
   skillInstaller: SkillInstaller;
@@ -212,6 +218,7 @@ export function createHandlers({
   externalTools,
   templates,
   stickers,
+  pets,
   skills,
   skillInstaller,
   fonts,
@@ -232,6 +239,8 @@ export function createHandlers({
   /** 文件定位到来源目录与文件。目录内的检查在媒体通道（或视频服务）里做。 */
   const locateMedia = (target: FileTarget) => locateFileTarget(harness, space, target);
   /** 发送与插话带的幻灯片标注：deck 换成相对会话工作目录的路径（docs/design/slides §9）。 */
+  // 项目品牌（§3.8）：不缓存，每次按项目登记读磁盘。
+  const brands = new ProjectBrands({ projects: () => harness.listProjects(), skills });
   const slideAnnotationsOf = (conversationId: Id, annotations: readonly SlideAnnotation[] | undefined) =>
     resolveSlideAnnotations(annotations, harness.getConversation(conversationId).conversation.cwd, locateMedia);
   /** 设计稿标注同上（docs/design/canvas §9）。 */
@@ -479,6 +488,13 @@ export function createHandlers({
       },
       'media.peaks': async (p) => analysis.peaks(await videos.mediaSource(p.videoId, p.assetId, p.revision)),
       'media.thumbnail': async (p) => analysis.thumbnail(await videos.mediaSource(p.videoId, p.assetId, p.revision), p.at),
+      'media.bundle': async (p) => {
+        // 代码包目录（动效视频设计 §4.1）：只给清单在的目录素材，入口按清单的 `runtime.entry`；入口页面给出时注入取帧脚本与桥。
+        const { root, file, record } = await videos.mediaSource(p.videoId, p.assetId, p.revision);
+        const manifest = record.bundle as CodeBundleManifest | undefined;
+        if (!manifest || manifest.runtime.engine !== 'browser') throw new RpcError('not-found', RcRuntime.fileNotFound());
+        return media.issueBundle(root, file, { entry: manifest.runtime.entry, inject: compositionPageScript() });
+      },
       'videos.create': async (p, principal) => {
         const { root, scope } = await videoRoot(p);
         return videos.create(p, root, scope, principal);
@@ -604,13 +620,14 @@ export function createHandlers({
         media,
         harness,
         skills,
+        brands,
         slideAnnotationsOf,
         designAnnotationsOf,
         designSystemAnnotationsOf,
         videoAnnotationsOf,
         docsAnnotationsOf,
       }),
-      ...skillMethods({ skills, installer: skillInstaller }),
+      ...skillMethods({ skills, installer: skillInstaller, brands, media }),
       ...catalogMethods(toolCatalog, agentSkillsDir === undefined ? {} : { agentSkillsDir: () => agentSkillsDir }),
       ...toolCatalogueMethods({
         space,
@@ -628,6 +645,8 @@ export function createHandlers({
       // 随包贴纸（元素面板）：句柄只发给目录里的贴纸；拷进视频是一笔普通编辑。
       'stickers.openHandle': (p) => stickers.openHandle(p, media),
       'stickers.applyToVideo': (p, principal) => stickers.applyToVideo(p, principal),
+      'pets.openHandle': (p) => pets.openHandle(p, media),
+      'pets.applyToVideo': (p, principal) => pets.applyToVideo(p, principal),
       // 用户库（架构设计 §5.9）：只经 Runtime 读写。
       'library.list': (p) => library.list(p),
       'library.get': (p) => library.get(p),

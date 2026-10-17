@@ -8,4 +8,6 @@ export const fr: RcVideoMessages = {
   sourceRootInTrash: 'Ce dossier vidéo est un dossier de projet ou de travail d’une session (ou en contient un) ; il ne peut donc pas être déplacé dans la corbeille', sourceRootRemedy: 'Dans BaoCut, retirez d’abord le projet ou la session qui utilise ce dossier, puis supprimez cette vidéo depuis le projet parent',
   compositionImportFailed: (p) => `Impossible d’importer le graphisme animé (${p.code})`,
   compositionPreviewFailed: (p) => `Impossible d’afficher l’aperçu du graphisme animé (${p.code})`,
+  compositionBakeSuperseded: 'Le graphisme animé a été modifié ou supprimé avant la fin du précalcul ; le substitut n’a pas été appliqué',
+  compositionBakeFailed: (p) => `Impossible de précalculer le graphisme animé (${p.code})`,
 };

@@ -6,6 +6,7 @@ import {
   type Actor,
   type AssetRevision,
   type DocumentContent,
+  type EditOperation,
   type EditResult,
   type FontFaceLayout,
   type FontFaceQuery,
@@ -177,6 +178,15 @@ export async function hasVideoDb(dir: string): Promise<boolean> {
   return (await exists(path.join(dir, DB_FILE))) || (await exists(path.join(dir, LEGACY_DB_FILE)));
 }
 
+/**
+ * 提交编辑前补操作（`VideoService.prepareOperations`）：返回补好的整组操作与写完之后要放掉的东西；不用补时 null。
+ * 例如模板台标用到的图片在同一笔事务里登记成素材（视频格式规范 §3.17）。
+ */
+export type OperationPreparer = (
+  videoId: Id,
+  operations: readonly EditOperation[],
+) => Promise<{ operations: EditOperation[]; release?: () => Promise<void> | void } | null>;
+
 export class VideoService {
   readonly #log: Logger;
   readonly #options: VideoServiceOptions;
@@ -188,6 +198,7 @@ export class VideoService {
   #host: EngineHost | null = null;
   #starting: Promise<EngineHost> | null = null;
   #afterCreate: ((videoId: Id, principal: TrustedPrincipal) => Promise<void>) | null = null;
+  readonly #preparers: OperationPreparer[] = [];
   #restarts: number[] = [];
   #closed = false;
 
@@ -260,6 +271,14 @@ export class VideoService {
    */
   onCreated(fn: (videoId: Id, principal: TrustedPrincipal) => Promise<void>): void {
     this.#afterCreate = fn;
+  }
+
+  /**
+   * 每笔编辑提交给引擎之前补上的操作（所有行为者都经过 `applyAs`），由 Runtime 接上：模板台标的素材登记。
+   * 按接上的次序跑；补上的操作与原来的在同一笔事务里，一步撤销。
+   */
+  prepareOperations(fn: OperationPreparer): void {
+    this.#preparers.push(fn);
   }
 
   async open(location: VideoLocation, principal: TrustedPrincipal): Promise<VideoOpenResult> {
@@ -432,11 +451,33 @@ export class VideoService {
     provenance: { taskId?: Id; run?: EngineRun; protections?: EngineProtection[] } = {},
   ): Promise<EditResult> {
     const host = await this.#hostFor(params.videoId);
+    let operations = params.operations as EditOperation[];
+    const releases: (() => Promise<void> | void)[] = [];
+    try {
+      for (const prepare of this.#preparers) {
+        const prepared = await prepare(params.videoId, operations);
+        if (!prepared) continue;
+        operations = prepared.operations;
+        if (prepared.release) releases.push(prepared.release);
+      }
+      return await this.#submit(host, params, operations, actor, provenance);
+    } finally {
+      for (const release of releases) await release();
+    }
+  }
+
+  #submit(
+    host: EngineHost,
+    params: RpcParams<'edits.apply'>,
+    operations: EditOperation[],
+    actor: Actor,
+    provenance: { taskId?: Id; run?: EngineRun; protections?: EngineProtection[] },
+  ): Promise<EditResult> {
     return host.request<EditResult>('edits.apply', {
       videoId: params.videoId,
       commandId: params.commandId,
       expectedRevision: params.expectedRevision,
-      operations: params.operations,
+      operations,
       ...(params.label !== undefined ? { label: params.label } : {}),
       ...(params.labelRef ? { labelRef: params.labelRef } : {}),
       actor,
@@ -534,6 +575,15 @@ export class VideoService {
     const host = await this.#ensureHost();
     const cacheDir = this.#options.fontCacheDir;
     return host.request('fonts.resolve', { faces, ...(cacheDir ? { cacheDir } : {}) });
+  }
+
+  /**
+   * Codex Pet 的图集待机那一行编成循环 APNG（`pets.idleApng`）：引擎解 WebP、按尺寸认版本、裁出 6 格写到 `out`。
+   * 不涉及哪个视频；图集不对时引擎以 `PET_SHEET_INVALID` 拒绝。
+   */
+  async petIdleApng(sheet: string, out: string): Promise<{ version: 1 | 2; durationMs: number }> {
+    const host = await this.#ensureHost();
+    return host.request('pets.idleApng', { sheet, out });
   }
 
   /** 本机已装的字体的族名（引擎扫的那一份，只有名字）。 */

@@ -213,7 +213,7 @@ fn visualizers_ask_for_the_asset_spectra_they_hear() {
             .as_array()
             .unwrap()
             .iter()
-            .any(|w| w["detail"].as_str().unwrap().starts_with("item_viz："))
+            .any(|w| w["detail"].as_str().unwrap().starts_with("item_viz: "))
     };
 
     let rendered: Value = serde_json::from_str(&render(1.0, 160, 90, false, false).unwrap()).unwrap();
@@ -292,7 +292,7 @@ fn missing_font_families_are_reported_until_the_host_sends_the_font() {
     set_video(json!({ "video": video }).to_string().as_bytes()).unwrap();
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../crates/render-raster/assets/fonts");
     add_font(std::fs::read(dir.join("NotoSansSC-Variable.ttf")).unwrap()).unwrap();
-    let note = "item_title：字体 \"ColrProbe\" 在当前字体库中不可用，将使用 Noto Sans SC fallback";
+    let note = "item_title: Font \"ColrProbe\" isn’t in the font library; using Noto Sans SC instead";
     let notes = |rendered: &Value| -> Vec<String> {
         rendered["warnings"]
             .as_array()

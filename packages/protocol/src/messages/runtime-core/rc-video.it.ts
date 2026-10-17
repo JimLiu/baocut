@@ -19,4 +19,6 @@ export const it: RcVideoMessages = {
   sourceRootRemedy: 'In BaoCut, rimuovi prima il progetto o la sessione che usa questa cartella, poi elimina questo video dal progetto padre',
   compositionImportFailed: (p) => `Impossibile importare la grafica animata (${p.code})`,
   compositionPreviewFailed: (p) => `Impossibile visualizzare l’anteprima della grafica animata (${p.code})`,
+  compositionBakeSuperseded: 'La grafica animata è stata modificata o rimossa prima della fine del rendering, quindi il sostituto non è stato applicato',
+  compositionBakeFailed: (p) => `Impossibile renderizzare la grafica animata (${p.code})`,
 };

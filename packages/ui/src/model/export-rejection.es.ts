@@ -5,7 +5,7 @@ export const es: ExportRejectionMessages = {
  VIDEO_NOT_OPEN: 'El vídeo no está abierto', EXPORT_KIND_UNSUPPORTED: 'Esta versión aún no puede exportar este tipo de contenido',
  EXPORT_SOURCE_UNSUPPORTED: 'Este documento no se puede exportar de esta forma', EXPORT_NOTHING_TO_EXPORT: 'No hay nada que se pueda exportar en el intervalo',
  EXPORT_SOURCE_NOT_FOUND: 'No hay ningún documento que se pueda exportar', EXPORT_SOURCE_AMBIGUOUS: 'Hay varios documentos que se pueden exportar',
- EXPORT_TOOL_MISSING: 'Falta una herramienta necesaria para exportar en este ordenador', EXPORT_UNSUPPORTED_CONTENT: 'Parte del contenido no se puede renderizar para exportar',
+ EXPORT_TOOL_MISSING: 'Falta una herramienta necesaria para exportar en este ordenador', EXPORT_UNSUPPORTED_CONTENT: 'Parte del contenido no se puede renderizar para exportar', EXPORT_PRERENDER_STALE: 'Algunos gráficos animados deben renderizarse de nuevo',
  ASSET_MISSING: 'Algunos materiales no se pueden leer', ASSET_CHANGED: 'Algunos materiales han cambiado', ENTITY_NOT_FOUND: 'La secuencia no existe',
  DUB_GROUP_NOT_FOUND: 'No se encuentra este grupo de doblaje', EXPORT_PACKAGE_LOCAL_PATH: 'Algunos documentos contienen rutas de este ordenador',
  EXPORT_PACKAGE_UNSUPPORTED: 'Algunos archivos no se pueden incluir en un paquete portable', EXPORT_INSUFFICIENT_SPACE: 'No hay espacio suficiente en el disco de destino de la exportación',

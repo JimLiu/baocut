@@ -1,5 +1,16 @@
 import type { ApprovalOutcome, PendingApproval } from './access.ts';
-import type { AgentSetupRun, Conversation, Id, Project, Seq, SpaceEntry, SpaceScanIssue, TaskSummary, TimelineItem } from './domain.ts';
+import type {
+  AgentSetupRun,
+  Conversation,
+  Id,
+  Project,
+  Seq,
+  SpaceEntry,
+  SpaceScanIssue,
+  TaskSummary,
+  TimelineItem,
+  VideoCreated,
+} from './domain.ts';
 import type { GrantsEvent, GrantsSnapshot } from './grants.ts';
 import type { JobsEvent, JobsSnapshot } from './jobs.ts';
 import type { LegacyImportEvent, LegacyImportSnapshot } from './legacy-import.ts';
@@ -96,11 +107,21 @@ export interface SpaceSnapshot {
   scanning: boolean;
 }
 
-/** 增量；整体重扫时发一条 `catalog.replaced`，客户端不必逐条比对。 */
+/**
+ * 增量；整体重扫时发一条 `catalog.replaced`，客户端不必逐条比对。
+ * `video.created` 不改目录：终端（CLI）或对外服务（MCP）的外部 Agent 新建了一部视频，桌面据此在功能区打开它（产品设计 §3.3）。
+ * 会话里的智能体新建的不发（会话里有 `video-created`），界面自己建的也不发。
+ */
 export type SpaceEvent =
   | { type: 'entry.upsert'; entry: SpaceEntry }
   | { type: 'entry.removed'; entryId: Id }
-  | { type: 'catalog.replaced'; snapshot: SpaceSnapshot };
+  | { type: 'catalog.replaced'; snapshot: SpaceSnapshot }
+  | { type: 'video.created'; video: ExternalVideoCreated };
+
+/** 外部 Agent 新建的视频：`by` 是来自终端还是对外服务（MCP）。 */
+export interface ExternalVideoCreated extends Omit<VideoCreated, 'videoRevision'> {
+  by: 'cli' | 'mcp';
+}
 
 export interface ConversationSnapshot {
   conversation: Conversation;

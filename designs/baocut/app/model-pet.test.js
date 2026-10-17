@@ -72,12 +72,8 @@ test('pickEntries 认 awesome-codex-pet 的 pets/<slug>/ 布局与根目录布�
   assert.equal(P.pickEntries(['pet.json']).reason, P.REASONS.sheet);
 });
 
-test('目录：官方 9 只全是 v2 且有随包路径；社区 239 只、11 类计数相加相等', () => {
-  assert.equal(C.OFFICIAL.length, 9);
-  C.OFFICIAL.forEach((o) => {
-    assert.equal(o.version, 2);
-    assert.equal(o.src, 'assets/pets/official/' + o.id + '/spritesheet.webp');
-  });
+test('目录：只有社区 239 只，11 类计数相加相等', () => {
+  assert.equal(C.OFFICIAL, undefined);
   assert.equal(C.PETS.length, 239);
   assert.equal(C.CATS.length, 11);
   assert.equal(C.CATS.reduce((a, c) => a + c.count, 0), 239);

@@ -128,6 +128,9 @@ import { SpeechSentenceTools } from './agent-tools/speech-sentence-tools.ts';
 import { MemoryCitationRegistry } from './ai-tools/citation-registry.ts';
 import { TemplateCatalog, resolveBuiltinTemplatesDir } from './templates/template-catalog.ts';
 import { StickerPacks, resolveStickerPacksDir } from './templates/sticker-packs.ts';
+import { CodexPets } from './templates/codex-pets.ts';
+import { OnlineAssets, resolveOnlineAssetsUrl } from './online-assets.ts';
+import { templateLogoPreparer } from './templates/template-logos.ts';
 import { SkillCatalog, resolveBuiltinSkillsDir } from './skills/skill-catalog.ts';
 import { SkillInstaller } from './skills/skill-installer.ts';
 import { skillIndexBlock } from './skills/skill-brief.ts';
@@ -437,6 +440,8 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     });
     stops.add('videos', () => videos.shutdown(), 'Stopping the video engine failed');
     const media = new MediaRegistry({ log, originAllowed: (origin) => originAllowed(origin, options.allowedOrigins) });
+    // 动态贴纸与 Codex Pets 的精灵图不随包：用到时从素材 CDN 取进本机缓存。
+    const onlineAssets = new OnlineAssets({ baseUrl: resolveOnlineAssetsUrl(), cacheDir: path.join(home.cacheDir, 'online-assets') });
     // 幻灯片、设计稿与设计系统编辑器（docs/design/slides §6、docs/design/canvas §6、§10.4）：网关与 Web 服务共用，同一个
     // 目录只有一个存储与一个目录监听。
     const slides = new SlidesService({
@@ -483,6 +488,8 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     });
     // 新视频采用用户库里默认启用的条目（§5.9）。
     videos.onCreated((videoId, principal) => library.adoptDefaults(videoId, principal));
+    // 模板台标用到的图片在写模板的同一笔事务里登记成素材（视频格式规范 §3.17）。
+    videos.prepareOperations(templateLogoPreparer({ videos, brand: library }));
     // 偏好设置在模型任务之前读入：模型目录（`models.dir`，§6.3）决定模型目录的根。
     const settings = await openSettings(home, log);
     let settingsStore: RuntimeSettings['store'] | null = settings.store;
@@ -777,7 +784,15 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     const compositionFfmpeg = async () =>
       process.env.BAOCUT_FFMPEG || (await findOnPath('ffmpeg', (await toolEnv()).PATH ?? '')) || 'ffmpeg';
     // 导入与预览的主体：工具（会话、终端、对外服务）与界面的 `compositions.*` 共用这一个，宿主也是同一个。
-    const compositions = new CompositionService({ videos, ffmpeg: compositionFfmpeg, host: compositionHost, log });
+    // 指令烘焙（代码包规范 §7.2）用成片的同一个 Render Worker。
+    const compositions = new CompositionService({
+      videos,
+      ffmpeg: compositionFfmpeg,
+      worker: () => resolveExportWorkerCommand(options.engineHost !== undefined ? options.engineHost : resolveEngineHostCommand()),
+      host: compositionHost,
+      jobs: models.jobs,
+      log,
+    });
     // 智能体写作的句子编号（创作辅助集成设计 §3.4「智能体路径」）：`speech_sentences` 发、`downloads_save` 校验，按会话分开。
     const citationRegistry = new MemoryCitationRegistry();
     const toolSets = (toolScope: ToolScope): ToolSet[] => {
@@ -885,6 +900,8 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       nodes,
       log,
       toolSets,
+      // Space 目录在服务之后才建好：MCP 新建视频时（服务开启之后）再取。
+      announceVideoCreated: (video) => space.announceVideoCreated(video),
       ...(options.services ? { options: options.services } : {}),
     });
     stops.add('services', () => services.manager.close(), 'Stopping external services failed');
@@ -1089,8 +1106,10 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       }),
       stickers: new StickerPacks({
         dir: options.stickersDir === undefined ? resolveStickerPacksDir() : options.stickersDir,
+        online: onlineAssets,
         videos,
       }),
+      pets: new CodexPets({ online: onlineAssets, videos }),
       skills,
       skillInstaller,
       fonts,

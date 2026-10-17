@@ -1,5 +1,7 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import optimizeLocales from '@react-aria/optimize-locales-plugin';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'electron-vite';
@@ -91,14 +93,31 @@ export function checkPreviewFonts(source = resolve(import.meta.dirname, '../../p
   };
 }
 
+/** The bundled CLI needs the same offline catalog as the source CLI. */
+export function shipCliCatalog(): Plugin {
+  return {
+    name: 'baocut:ship-cli-catalog',
+    generateBundle() {
+      const root = resolve(import.meta.dirname, '../..');
+      const entry = pathToFileURL(resolve(root, 'tools/catalog-snapshot.ts')).href;
+      const code = `import { snapshotText } from ${JSON.stringify(entry)}; process.stdout.write(snapshotText());`;
+      const source = execFileSync(process.execPath, ['--experimental-strip-types', '--input-type=module', '-e', code], {
+        cwd: root, timeout: 60_000, maxBuffer: 16 * 1024 * 1024,
+      });
+      this.emitFile({ type: 'asset', fileName: 'generated/cli-catalog.json', source });
+    },
+  };
+}
+
 export default defineConfig({
   main: {
-    plugins: [shipEditorWasm()],
+    plugins: [shipEditorWasm(), shipCliCatalog()],
     build: {
       externalizeDeps: bundleWorkspace,
       rollupOptions: {
         input: {
           index: resolve(import.meta.dirname, 'src/main/index.ts'),
+          cli: resolve(import.meta.dirname, '../cli/src/main.ts'),
           // Runtime 与主进程一起构建，由主进程用 Electron 自带的 Node 启动（ELECTRON_RUN_AS_NODE）。
           runtime: resolve(import.meta.dirname, '../runtime/src/main.ts'),
           'legacy-import-worker': resolve(import.meta.dirname, '../../packages/legacy-import/src/worker.ts'),

@@ -16,6 +16,7 @@
 
 use std::collections::BTreeMap;
 
+use message_ref::{Text, msg};
 use render_graph::audio_plan::AudioSegment;
 use render_raster::source::{VizSource, VizTrack};
 use video_model::VersionRef;
@@ -133,15 +134,24 @@ pub fn compose(
     start: f64,
     end: f64,
     sources: &BTreeMap<String, Vec<u8>>,
-) -> Result<Vec<u8>, String> {
+) -> Result<Vec<u8>, Text> {
     let mut views = BTreeMap::new();
     for segment in segments {
         let key = asset_key(&segment.asset);
         if views.contains_key(&key) {
             continue;
         }
-        let bytes = sources.get(&key).ok_or_else(|| format!("没有素材 {key} 的频谱"))?;
-        let view = bcs1::parse(bytes).map_err(|e| format!("素材 {key} 的频谱读不懂：{e:#}"))?;
+        let bytes = sources
+            .get(&key)
+            .ok_or_else(|| msg!("frameRender.spectrumMissing", "No spectrum for asset {asset}", asset = key))?;
+        let view = bcs1::parse(bytes).map_err(|e| {
+            msg!(
+                "frameRender.spectrumUnreadable",
+                "The spectrum of asset {asset} can’t be read: {detail}",
+                asset = key,
+                detail = format!("{e:#}")
+            )
+        })?;
         views.insert(key, view);
     }
     let rate = f64::from(ANALYSIS_RATE);
@@ -223,7 +233,7 @@ pub fn compose(
     } else {
         SpectrumBackend::Symphonia
     };
-    bcs1::encode(&Bcs1Header::new(backend, frames as u32, hash.finish()), &payload).map_err(|e| format!("{e:#}"))
+    bcs1::encode(&Bcs1Header::new(backend, frames as u32, hash.finish()), &payload).map_err(|e| Text::plain(format!("{e:#}")))
 }
 
 /// 段在序列时刻 `t` 取素材的哪一帧（越过素材末尾时没有）。

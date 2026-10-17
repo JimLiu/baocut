@@ -30,6 +30,7 @@ describe('侧栏浮出', () => {
   it('设置与模型页没有页面侧栏，不浮出；其余入口浮出各自的侧栏', () => {
     expect(peekKindOf('settings')).toBeNull();
     expect(peekKindOf('models')).toBeNull();
+    expect(peekKindOf('skills')).toBeNull();
     expect(['home', 'space', 'tools', 'services', 'tasks'].map((t) => peekKindOf(t as never))).toEqual([
       'home',
       'space',

@@ -134,7 +134,7 @@ export function McpServicePage() {
 
       <p className={related}>
         {SERVICES_PAGE_COPY.mcpRelated}{' '}
-        <Link isStandalone isQuiet onPress={() => go({ tab: 'settings', section: 'skills' })}>
+        <Link isStandalone isQuiet onPress={() => go({ tab: 'skills', view: 'external' })}>
           {SERVICES_PAGE_COPY.mcpRelatedLink}
         </Link>
       </p>

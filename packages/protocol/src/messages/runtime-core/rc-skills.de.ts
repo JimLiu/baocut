@@ -1,6 +1,25 @@
 import type { RcSkillsMessages } from './rc-skills.ts';
 
 export const de: RcSkillsMessages = {
+  brandProjectNotFound: (p: { id: string }) => `Projekt nicht gefunden: ${p.id}`,
+  brandNotFound: (p: { project: string }) => `„${p.project}“ hat noch keine BRAND.md`,
+  brandFileNotFound: (p: { file: string }) => `Keine BRAND.md-Datei: ${p.file}`,
+  brandPathInvalid: (p: { path: string }) => `Nur BRAND.md und Dateien in brand/ können geändert werden: ${p.path}`,
+  brandExists: (p: { path: string }) => `Dieses Projekt hat bereits eine BRAND.md: ${p.path}`,
+  brandUnreadable: (p: { file: string }) => `${p.file} konnte nicht gelesen werden; die Nachricht wurde ohne sie gesendet`,
+  versionNotFound: (p: { id: string; revision: number }) => `Skill „${p.id}“ hat keine gespeicherte Version ${p.revision}`,
+  packageTooLarge: (p: { limit: number }) => `Die Zip-Datei ist größer als ${p.limit} Byte`,
+  packageUnreadable: (p: { path: string }) => `${p.path} lässt sich weder als Zip-Datei noch als Ordner lesen`,
+  packageNoSkill: (p: { file: string }) => `Dieses Paket enthält keine ${p.file}. Der Stammordner eines Skills braucht eine ${p.file}, die sagt, was er tut und wann man ihn nutzt`,
+  candidateUnsafePath: (p: { path: string }) => `Dieser Skill enthält einen Eintrag, der sich nicht sicher entpacken lässt: ${p.path}`,
+  candidateTooManyFiles: (p: { files: number; limit: number }) => `Zu viele Dateien (${p.files}); ein Skill darf höchstens ${p.limit} haben`,
+  candidateNoDescription: "In SKILL.md fehlt eine description: ein bis zwei Sätze dazu schreiben, was der Skill tut und wann man ihn nutzt. Daran entscheidet der Agent, ob er den Skill verwendet",
+  candidateDuplicate: (p: { id: string }) => `Ein anderer Skill in diesem Paket hat dieselbe ID „${p.id}“`,
+  packagePickInvalid: (p: { prefix: string }) => `${p.prefix} ist kein installierbarer Skill in diesem Paket`,
+  revisionConflict: (p: { revision: number }) => `Der Skill wurde inzwischen geändert (jetzt Version ${p.revision}). Neu laden und die Änderungen wiederholen`,
+  cannotRemoveSkillFile: (p: { file: string }) => `${p.file} kann nicht gelöscht werden`,
+  notEditable: (p: { name: string }) => `„${p.name}“ lässt sich hier nicht bearbeiten. Duplizieren und die Kopie bearbeiten`,
+  changeSourceMissing: (p: { path: string }) => `Keine Datei, die hinzugefügt werden kann: ${p.path}`,
   cliOnlyPageLink: (p: { page: string }) => `Verknüpfte Seite ${p.page} ist auf der Werkzeugoberfläche nicht verfügbar: Sie hat nur eine CLI-Oberfläche; Links auf sie müssen daher in der CLI-Oberfläche stehen`,
 
   guideIdConflict: (p: { id: string }) => `ID „${p.id}“ gehört zu einer BaoCut-Anleitungsseite; diese Kopie wurde daher nicht geladen. Ordner umbenennen`,

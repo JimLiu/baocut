@@ -564,10 +564,12 @@ fn is_pause_punct(c: char) -> bool {
 /// 4. 断在空格（隐藏标点留下的空位、中英文之间）或停顿标点之后，减 `8 × 字号²`，
 ///    约等于换来两个字以内的不均衡。
 ///
+/// 断在一个中文词里（汇/报、代码/审查的码/审不算）加 `40 × 字号²`（至多 5e5），约等于换来四五个字的不均衡：
+/// 词边界由 [`speech_doc::word_breaks::han_word_interior`]（ICU 的中日文词典）给，只看两侧都是汉字的缝；
+/// 词典不认识的词照样可能被拆开。它排在禁则与孤字之后：宁可断在词里，也不把句读推到行首。
+///
 /// 行尾的句读可以悬挂在行宽外（每处 1e5）：只在不悬挂就得把它挤到下一行行首时才用，
 /// 所以这时返回的行宽可能比 `wrap_width` 多出一个标点。
-///
-/// 中文没有分词器，词内断行（利/益）只能靠均衡与标点优先间接避开，不保证。
 fn cjk_line_breaks(tokens: &[LayoutToken], wrap_width: f64, font_size: f64) -> Vec<usize> {
     struct Item<'a> {
         token: usize,
@@ -598,6 +600,18 @@ fn cjk_line_breaks(tokens: &[LayoutToken], wrap_width: f64, font_size: f64) -> V
             return;
         }
         let bonus = 8.0 * font_size * font_size;
+        let word_penalty = (40.0 * font_size * font_size).min(5e5);
+        // 整段拼成一串（有空位的地方补一个空格）找词内的缝，记下每个 item 在串里的起点。
+        let mut joined_text = String::new();
+        let mut item_starts = Vec::with_capacity(n);
+        for (j, item) in paragraph.iter().enumerate() {
+            if j > 0 && item.gap > 0.0 {
+                joined_text.push(' ');
+            }
+            item_starts.push(joined_text.len());
+            joined_text.push_str(item.text);
+        }
+        let interior = speech_doc::word_breaks::han_word_interior(&joined_text);
         let break_cost = |a: usize| {
             let prev = &paragraph[a - 1];
             let next = &paragraph[a];
@@ -612,6 +626,9 @@ fn cjk_line_breaks(tokens: &[LayoutToken], wrap_width: f64, font_size: f64) -> V
             let mut cost = if forbidden { 1e6 } else { 0.0 };
             if !joined || is_pause_punct(prev_last) {
                 cost -= bonus;
+            }
+            if joined && interior.binary_search(&item_starts[a]).is_ok() {
+                cost += word_penalty;
             }
             cost
         };

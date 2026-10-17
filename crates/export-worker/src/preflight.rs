@@ -114,8 +114,8 @@ pub fn run(input: &Input, tools: &Tools) -> Result<Preflight, Failure> {
                     Err(e) => Err(("asset-undecodable", asset_text::image_undecodable_detail("SVG", &asset.id, &e))),
                 };
             }
-            // GIF 由帧光栅从素材字节解（动图按时刻取帧），这里用同一个函数判断解不解得开。
-            if media_type.eq_ignore_ascii_case(frame_render::GIF_MEDIA_TYPE) {
+            // 动图（GIF / APNG）由帧光栅从素材字节解（按时刻取帧），这里用同一个函数判断解不解得开。
+            if let Some(format) = frame_render::animated_image_format(media_type) {
                 let gif = std::fs::read(&entry.path)
                     .map_err(|e| e.to_string())
                     .and_then(|bytes| frame_render::load_gif(&asset.id, &bytes).map_err(|e| format!("{e:#}")));
@@ -130,7 +130,7 @@ pub fn run(input: &Input, tools: &Tools) -> Result<Preflight, Failure> {
                             alpha: true,
                         })
                     }
-                    Err(e) => Err(("asset-undecodable", asset_text::image_undecodable_detail("GIF", &asset.id, &e))),
+                    Err(e) => Err(("asset-undecodable", asset_text::image_undecodable_detail(format, &asset.id, &e))),
                 };
             }
             match probe_picture(tools, &entry.path) {

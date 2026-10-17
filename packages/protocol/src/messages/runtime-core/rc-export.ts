@@ -208,6 +208,11 @@ const en = {
   omitKeyframes: 'keyframes not written to the project file',
   omitCrop: 'crop not written to the project file',
   omitEmbeddedAudioMix: 'embedded audio volume, fades and envelope not written to the project file',
+  // 成片预检：替身过期（代码包规范 §7.4）
+  prerenderStale: (p: { count: number; items: string }) =>
+    `${p.count} ${s(p.count, 'motion graphic has', 'motion graphics have')} an out-of-date stand-in and must be baked again: ${p.items}`,
+  prerenderStaleRemedy:
+    'Import the motion graphic again with replace (compositions_import) so it is baked at the current code bundle version and frame rate, or export with the old stand-ins anyway with allowStalePrerender: true (each item is recorded as a warning)',
 };
 
 export type RcExportMessages = typeof en;

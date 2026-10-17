@@ -1009,9 +1009,9 @@ describe('画不出来的说明', () => {
       itemId: 'i1',
       scope: 'layer',
       layerKind: 'generator',
-      reason: 'template-logo-image-not-supported',
-      message: 'Image logos referenced by file path can’t be drawn in templates (use a brand kit logo or a text logo)',
-      messageRef: { key: 'frameRender.templateLogoImage' },
+      reason: 'template-logo-file-missing',
+      message: 'The image file used as the template logo isn’t in this video (check that the file is still in the project)',
+      messageRef: { key: 'frameRender.templateLogoFileMissing' },
     },
     { itemId: 'i2', scope: 'asset', layerKind: 'image', reason: 'asset-undecodable', message: 'SVG 图片 a 读不到' },
   ];
@@ -1020,16 +1020,16 @@ describe('画不出来的说明', () => {
   it('Worker 给的引用嵌在 Runtime 的文字里，读者按自己的语言展开；没有引用的照用原话', () => {
     const listed = unsupportedList(items);
     // 测试在 zh-Hans 下跑：Runtime 自己的文字按它的语言生成。
-    expect(String(listed)).toBe('模板里按路径引用的图片台标画不出来（换成品牌库的台标或文字台标）；SVG 图片 a 读不到');
+    expect(String(listed)).toBe('模板台标用的图片文件不在这部视频里（看看项目里还有没有这个文件）；SVG 图片 a 读不到');
     const ref = refOf(listed as never);
-    expect(formatRef(ref, '', 'en')).toBe('Image logos referenced by file path can’t be drawn in templates (use a brand kit logo or a text logo); SVG 图片 a 读不到');
-    expect(formatRef(ref, '', 'zh-Hans')).toBe('模板里按路径引用的图片台标画不出来（换成品牌库的台标或文字台标）；SVG 图片 a 读不到');
+    expect(formatRef(ref, '', 'en')).toBe('The image file used as the template logo isn’t in this video (check that the file is still in the project); SVG 图片 a 读不到');
+    expect(formatRef(ref, '', 'zh-Hans')).toBe('模板台标用的图片文件不在这部视频里（看看项目里还有没有这个文件）；SVG 图片 a 读不到');
     expect(String(unsupportedList([items[1]!]))).toBe('SVG 图片 a 读不到');
   });
 
   it('跳过时的警告带着嵌套引用', () => {
     const warning = skippedWarning(items[0]!);
-    expect(formatRef(warning.detailRef, '', 'en')).toContain('Image logos referenced by file path can’t be drawn');
-    expect(formatRef(warning.detailRef, '', 'zh-Hans')).toContain('模板里按路径引用的图片台标画不出来');
+    expect(formatRef(warning.detailRef, '', 'en')).toContain('The image file used as the template logo isn’t in this video');
+    expect(formatRef(warning.detailRef, '', 'zh-Hans')).toContain('模板台标用的图片文件不在这部视频里');
   });
 });

@@ -9,6 +9,7 @@ import { useRuntime } from '../../runtime/context.tsx';
 import { useEditor } from '../../state/editor-store.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { FullscreenPlayer, exitPreviewFullscreen } from './fullscreen-player.tsx';
+import { LiveLayerHost } from './live-layer.ts';
 import { audioKey, imageKey, videoKey, type MediaKey, type PreviewStatus } from './preview-engine.ts';
 import { StageLoadNotice } from './stage-load-notice.tsx';
 import { StageMediaNotice } from './stage-media-notice.tsx';
@@ -53,6 +54,8 @@ const frame = style({
   boxShadow: { default: 'emphasized', isFullscreen: 'none' },
 });
 const surface = style({ position: 'absolute', inset: 0, width: 'full', height: 'full' });
+/** 实时合成层（动效视频设计 §4.2）：画布底下的沙箱 iframe，与画布同几何；指针进不去，点选仍在画布上。 */
+const liveLayer = style({ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' });
 /** 源元素不显示，只给画布供帧。不用 display: none，免得浏览器不给它解码。 */
 const sources = style({
   position: 'absolute',
@@ -116,6 +119,8 @@ export function Preview({
   const [status, setStatus] = useState<PreviewStatus>({ kind: 'loading' });
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const liveRef = useRef<HTMLDivElement>(null);
+  const liveHost = useRef<LiveLayerHost | null>(null);
   const [box, setBox] = useState({ width: 0, height: 0 });
   // 主媒体放不出来：画面正中的常驻卡；找回之后按素材重挂源元素，重新取地址。
   const stageMedia = useStageMedia(videoId, sequence);
@@ -152,6 +157,21 @@ export function Preview({
     engine.attachCanvas(canvasRef.current);
     return () => engine.attachCanvas(null);
   }, [engine]);
+  // 实时合成层的宿主：代码包目录的地址按这部视频向 Runtime 要（`media.bundle`）；换视频时整个重建。
+  const client = useRuntime().client;
+  useEffect(() => {
+    const root = liveRef.current;
+    if (!root || !videoId) return;
+    const host = new LiveLayerHost(root, (asset) => client.request('media.bundle', { videoId, assetId: asset.id, revision: asset.revision }));
+    liveHost.current = host;
+    host.setScale(liveScaleRef.current);
+    engine.attachLive(host);
+    return () => {
+      engine.attachLive(null);
+      host.dispose();
+      if (liveHost.current === host) liveHost.current = null;
+    };
+  }, [engine, client, videoId]);
 
   useEffect(() => {
     const element = stageRef.current;
@@ -172,6 +192,11 @@ export function Preview({
   // 画布按显示尺寸（乘设备像素比）画，不超过序列画布本身。
   const pixelScale = Math.min(1, scale * (window.devicePixelRatio || 1));
   useEffect(() => engine.setScale(pixelScale), [engine, pixelScale]);
+  // 实时合成层按画布像素到 CSS 像素的比例摆。
+  const liveScale = fw > 0 ? fw / cw : 1;
+  const liveScaleRef = useRef(liveScale);
+  liveScaleRef.current = liveScale;
+  useEffect(() => liveHost.current?.setScale(liveScale), [liveScale]);
 
   // 视频按素材分槽（同一时刻用到几处就几个元素）；图片按素材一个；音频轨道上的实例各一个（多了只挂播放头附近的）。
   const visuals = useMemo(() => {
@@ -220,10 +245,11 @@ export function Preview({
         <span>
           {sequenceDisplayName(sequence)} · {cw}×{ch} · {formatFps(sequence.fps)}
         </span>
-        {status.kind === 'ready' && status.problems ? <Problems problems={status.problems} /> : null}
+        {status.kind === 'ready' && (status.problems || status.live) ? <Problems problems={status.problems ?? []} live={status.live ?? false} /> : null}
       </div>
       <div ref={stageRef} className={stage({ isFullscreen: fullscreen })} data-preview-stage>
         <div className={frame({ isFullscreen: fullscreen })} style={frameRect}>
+          <div ref={liveRef} className={liveLayer} aria-hidden data-preview-live={status.kind === 'ready' && status.live ? 'shown' : 'hidden'} />
           <canvas ref={canvasRef} className={surface} aria-label={E.previewCanvas} data-preview-status={status.kind} />
           <div className={sources} aria-hidden>
             {media.videos.map(({ key, asset }) => (
@@ -283,21 +309,28 @@ export function Preview({
   );
 }
 
-/** 这一帧有画不出来的东西：画面照常出，在这里说明哪些没画、为什么（视频格式规范 §3.7）。 */
-function Problems({ problems }: { problems: string[] }) {
+/**
+ * 这一帧有画不出来的东西：画面照常出，在这里说明哪些没画、为什么（视频格式规范 §3.7）。
+ * 底是实时合成层时（动效视频设计 §4.3）这里换成「实时预览，导出前要烘焙」；两样都有时提示列在一起。
+ */
+function Problems({ problems, live }: { problems: string[]; live: boolean }) {
+  const onlyLive = live && problems.length === 0;
   return (
     <span className={problemsAt}>
-      <StatusLight size="S" variant="notice">
-        {E.problemsCount(problems.length)}
+      <StatusLight size="S" variant={onlyLive ? 'informative' : 'notice'}>
+        {onlyLive ? E.livePreview : E.problemsCount(problems.length)}
       </StatusLight>
       <ContextualHelp variant="info" placement="bottom end">
-        <Heading>{E.problemsTitle}</Heading>
+        <Heading>{onlyLive ? E.livePreviewTitle : E.problemsTitle}</Heading>
         <Content>
-          <ul className={problemList}>
-            {problems.map((problem) => (
-              <li key={problem}>{problem}</li>
-            ))}
-          </ul>
+          {problems.length > 0 ? (
+            <ul className={problemList}>
+              {problems.map((problem) => (
+                <li key={problem}>{problem}</li>
+              ))}
+            </ul>
+          ) : null}
+          {live ? <p>{E.livePreviewDetail}</p> : null}
         </Content>
       </ContextualHelp>
     </span>

@@ -25,6 +25,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
+use message_ref::{Text, msg};
 
 use crate::draw::{
     ElementBox, ElementPose, parse_color, push_draw_ops, push_media_placeholder_ops,
@@ -32,7 +33,7 @@ use crate::draw::{
 };
 use crate::scene::SceneNode;
 use render_raster::ShaderQuad;
-use render_raster::drawop::{Color4, DrawOp, FrameBuilder, FrameOps, Mat6};
+use render_raster::drawop::{Color4, DrawOp, FrameBuilder, FrameOps, Mat6, PaintData};
 use render_raster::source::kernel::DrawBox;
 use timeline::schema::{
     ConfettiProps, DrawProps, ElementKind, Place, PlaceholderProps, ProgressProps, ShapeProps,
@@ -90,7 +91,7 @@ pub struct ElementDraw<'a> {
 }
 
 /// 诊断出口。host 负责去重与上浮（CLI 的 `warn_once`）。
-pub type WarnSink<'a> = &'a mut dyn FnMut(String);
+pub type WarnSink<'a> = &'a mut dyn FnMut(Text);
 
 /// `visualizer` 的音频源 id。`VISUALIZER_AUDIO_DEFAULT` 是「跟着主音轨走」，
 /// 落到 source 层就是 `main`。
@@ -256,9 +257,11 @@ pub fn push_shape_element(
     let Some(recipe) = motion::preset_registry::timeline_shape(&props.shape) else {
         // 注册表里没有这个 id = 文档引用了不存在的形状：`preset-unknown`
         // 的时机（§5.3），不是配方文件本身非法的 `manifest-invalid`。
-        warn(format!(
-            "元素 {} 引用了未登记的形状 {}（preset-unknown），已跳过渲染",
-            element.id, props.shape
+        warn(msg!(
+            "timelineRender.shapeUnknown",
+            "Element {element} uses shape {shape}, which isn’t registered; skipped",
+            element = element.id,
+            shape = props.shape
         ));
         return;
     };
@@ -269,9 +272,11 @@ pub fn push_shape_element(
     let (bbox, tf) = element_frame(element, pose, stage);
     let short_edge = stage.short_edge();
     if push_shape_ops(builder, recipe, props, bbox, tf, opacity, short_edge) == 0 {
-        warn(format!(
-            "元素 {} 的形状 {} 既没有 fill 也没有 stroke，画不出任何东西",
-            element.id, props.shape
+        warn(msg!(
+            "timelineRender.shapeInvisible",
+            "Shape {shape} of element {element} has neither fill nor stroke, so nothing is drawn",
+            element = element.id,
+            shape = props.shape
         ));
     }
 }
@@ -298,17 +303,20 @@ pub fn push_sticker_element(
         return false;
     }
     let Some(template_id) = props.template_id.as_deref() else {
-        warn(format!(
-            "元素 {} 的 sticker.source=template 但没有 templateId，已跳过渲染",
-            element.id
+        warn(msg!(
+            "timelineRender.stickerTemplateMissing",
+            "Element {element} is a template sticker without a templateId; skipped",
+            element = element.id
         ));
         return true;
     };
     let Some(recipe) = motion::preset_registry::timeline_sticker(template_id) else {
         // 与 shape / visualizer 同一时机同一码：文档引用了注册表里没有的模板。
-        warn(format!(
-            "元素 {} 引用了未登记的贴纸模板 {template_id}（preset-unknown），已跳过渲染",
-            element.id
+        warn(msg!(
+            "timelineRender.stickerTemplateUnknown",
+            "Element {element} uses sticker template {template}, which isn’t registered; skipped",
+            element = element.id,
+            template = template_id
         ));
         return true;
     };
@@ -375,9 +383,11 @@ fn resolve_visualizer(
         return ResolvedElement::Skip;
     };
     let Some(recipe) = motion::preset_registry::timeline_visualizer(&props.style) else {
-        warn(format!(
-            "元素 {} 引用了未登记的波形样式 {}（preset-unknown），已跳过渲染",
-            element.id, props.style
+        warn(msg!(
+            "timelineRender.visualizerStyleUnknown",
+            "Element {element} uses waveform style {style}, which isn’t registered; skipped",
+            element = element.id,
+            style = props.style
         ));
         return ResolvedElement::Skip;
     };
@@ -388,13 +398,21 @@ fn resolve_visualizer(
     let Some(track) = track else {
         // preflight 缺频谱是硬错误（host 的 `load_visualizer_tracks`），走到这里
         // 只能是「没经过 preflight 的计划」——单测里的 `compile_with` 就是这样。
-        warn(format!("元素 {} 没有注入频谱轨，已画占位块", element.id));
+        warn(msg!(
+            "timelineRender.spectrumNotInjected",
+            "Element {element} has no spectrum track; drawing a placeholder",
+            element = element.id
+        ));
         return ResolvedElement::Placeholder;
     };
     let frame = match source_time {
         Some(source_time) => {
             let Some(frame) = render_raster::source::VizSource::sample(track, source_time) else {
-                warn(format!("元素 {} 的频谱轨是空的，已画占位块", element.id));
+                warn(msg!(
+                    "timelineRender.spectrumEmpty",
+                    "The spectrum track of element {element} is empty; drawing a placeholder",
+                    element = element.id
+                ));
                 return ResolvedElement::Placeholder;
             };
             frame.clone()
@@ -439,9 +457,11 @@ fn resolve_progress(
         return ResolvedElement::Skip;
     };
     let Some(recipe) = motion::preset_registry::timeline_progress(&props.style) else {
-        warn(format!(
-            "元素 {} 引用了未登记的进度样式 {}（preset-unknown），已跳过渲染",
-            element.id, props.style
+        warn(msg!(
+            "timelineRender.progressStyleUnknown",
+            "Element {element} uses progress style {style}, which isn’t registered; skipped",
+            element = element.id,
+            style = props.style
         ));
         return ResolvedElement::Skip;
     };
@@ -488,9 +508,11 @@ fn resolve_confetti(
         return ResolvedElement::Skip;
     };
     let Some(recipe) = motion::preset_registry::timeline_confetti(&props.style) else {
-        warn(format!(
-            "元素 {} 引用了未登记的彩纸样式 {}（preset-unknown），已跳过渲染",
-            element.id, props.style
+        warn(msg!(
+            "timelineRender.confettiStyleUnknown",
+            "Element {element} uses confetti style {style}, which isn’t registered; skipped",
+            element = element.id,
+            style = props.style
         ));
         return ResolvedElement::Skip;
     };
@@ -758,10 +780,12 @@ pub fn push_element_placeholder(
             None => return,
         },
     };
-    warn(format!(
-        "元素 {} 的 {} 样式 {style} 没有可用的频谱数据，已画占位块",
-        element.id,
-        element.kind.as_str()
+    warn(msg!(
+        "timelineRender.spectrumUnavailable",
+        "The {kind} style {style} of element {element} has no spectrum data; drawing a placeholder",
+        kind = element.kind.as_str(),
+        style,
+        element = element.id
     ));
     let color = main_color
         .as_deref()
@@ -856,13 +880,6 @@ impl EvaluatedSceneElement {
             .iter()
             .map(|value| builder.string_id(value))
             .collect::<Vec<_>>();
-        let paint_ids = self
-            .reference
-            .paints
-            .iter()
-            .cloned()
-            .map(|paint| builder.paint_id(paint))
-            .collect::<Vec<_>>();
         let bitmap_ids = self
             .reference
             .bitmaps
@@ -870,6 +887,33 @@ impl EvaluatedSceneElement {
             .cloned()
             .map(|bitmap| builder.bitmap_id(bitmap))
             .collect::<Vec<_>>();
+        let paint_ids = self
+            .reference
+            .paints
+            .iter()
+            .cloned()
+            .map(|paint| {
+                let paint = match paint {
+                    PaintData::Pattern {
+                        bitmap,
+                        repeat,
+                        quality,
+                        opacity,
+                        transform,
+                    } => PaintData::Pattern {
+                        bitmap: *bitmap_ids.get(bitmap as usize).ok_or_else(|| {
+                            anyhow::anyhow!("scene reference Pattern paint references unknown bitmap {bitmap}")
+                        })?,
+                        repeat,
+                        quality,
+                        opacity,
+                        transform,
+                    },
+                    other => other,
+                };
+                Ok(builder.paint_id(paint))
+            })
+            .collect::<Result<Vec<_>>>()?;
         for op in &self.reference.ops {
             let remapped = match op {
                 DrawOp::Clear { .. }
@@ -878,7 +922,36 @@ impl EvaluatedSceneElement {
                 | DrawOp::PopLayer
                 | DrawOp::PopClip
                 | DrawOp::PushMatte
-                | DrawOp::PopMatte { .. } => op.clone(),
+                | DrawOp::PopMatte { .. }
+                | DrawOp::PushShadow { .. }
+                | DrawOp::PopShadow
+                | DrawOp::PushBlend { .. }
+                | DrawOp::PopBlend => op.clone(),
+                DrawOp::StrokePathDash {
+                    path,
+                    paint,
+                    width,
+                    cap,
+                    join,
+                    miter,
+                    dash,
+                    dash_offset,
+                    tf,
+                } => DrawOp::StrokePathDash {
+                    path: *path_ids.get(*path as usize).ok_or_else(|| {
+                        anyhow::anyhow!("scene reference StrokePathDash references unknown path {path}")
+                    })?,
+                    paint: *paint_ids.get(*paint as usize).ok_or_else(|| {
+                        anyhow::anyhow!("scene reference StrokePathDash references unknown paint {paint}")
+                    })?,
+                    width: *width,
+                    cap: *cap,
+                    join: *join,
+                    miter: *miter,
+                    dash: dash.clone(),
+                    dash_offset: *dash_offset,
+                    tf: *tf,
+                },
                 DrawOp::FillPath { path, color, tf } => DrawOp::FillPath {
                     path: *path_ids.get(*path as usize).ok_or_else(|| {
                         anyhow::anyhow!("scene reference FillPath 引用未知 path {path}")
@@ -1069,6 +1142,10 @@ mod tests {
     use super::*;
     use timeline::AnimationPose;
 
+    fn key(text: &Text) -> &str {
+        text.message_ref.as_ref().map_or("", |r| r.key.as_str())
+    }
+
     /// ADR-WB05 的缺省画时一字不改：12 s 的条、4 s 自然画时 → 画 4 s；条短时取 0.8 × 时长。
     /// 0.9 缺省（无 beats、`pace` 缺席）换算出的内核参数就是 0.8 的几何顺序 + stretch。
     #[test]
@@ -1168,7 +1245,12 @@ mod tests {
         );
         assert!(builder.frame.ops.is_empty());
         assert_eq!(warnings.len(), 1);
-        assert!(warnings[0].contains("preset-unknown"), "{}", warnings[0]);
+        assert_eq!(
+            key(&warnings[0]),
+            "timelineRender.shapeUnknown",
+            "{}",
+            warnings[0]
+        );
     }
 
     /// `aspect` 决定几何默认表那一档：方形样式的盒子必须是正方形，横条样式不是。
@@ -1236,8 +1318,8 @@ mod tests {
         );
         assert_eq!(builder.frame.ops.len(), 1, "占位块是一条 FillRect");
         assert_eq!(warnings.len(), 2);
-        assert!(warnings[0].contains("没有注入频谱轨"));
-        assert!(warnings[1].contains("没有可用的频谱数据"));
+        assert_eq!(key(&warnings[0]), "timelineRender.spectrumNotInjected");
+        assert_eq!(key(&warnings[1]), "timelineRender.spectrumUnavailable");
     }
 
     /// 静音帧画的是各款的**静止形态**（示波器中线、丝带中线、频谱面积的
@@ -1654,7 +1736,7 @@ mod tests {
         }
     }
 
-    fn draw_sticker(props: &StickerProps) -> (FrameBuilder, Vec<String>) {
+    fn draw_sticker(props: &StickerProps) -> (FrameBuilder, Vec<Text>) {
         let place = Place::default();
         let element = sticker_view(&place, props);
         let mut builder = FrameBuilder::default();

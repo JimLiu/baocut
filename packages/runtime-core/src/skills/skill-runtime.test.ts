@@ -117,9 +117,23 @@ describe('Agent skill 端到端', () => {
     expect(JSON.stringify(other.body)).toContain('SKILL_FILE_NOT_FOUND');
     const list = await client.request('skills.list', {});
     expect(list.diagnostics).toEqual([expect.objectContaining({ code: 'builtin-conflict', scope: 'user', dir: 'baocut-conventions' })]);
-    // 终端与 MCP 不读工具桥面的页：它们有装好的 BaoCut skill。
+    // 终端与 MCP 读到的是同一页的 CLI 面：工具名是 baocut 命令，没有工具桥面的写法与占位符。
     const outside = await client.request('catalog.call', { name: 'skills_read', args: { id: 'baocut-conventions' }, cwd: dir });
-    expect(outside).toMatchObject({ ok: false, error: { code: 'SKILL_NOT_FOUND' } });
+    expect(outside).toMatchObject({
+      ok: true,
+      result: { id: 'baocut-conventions', origin: 'builtin', path: 'SKILL.md', files: ['SKILL.md'] },
+    });
+    const cliPage = (outside as { result: { content: string; next?: string } }).result;
+    expect(cliPage.content).toContain('# 约定');
+    expect(cliPage.content).toContain('baocut jobs wait');
+    expect(cliPage.content).not.toContain('`jobs_wait`');
+    expect(cliPage.content).not.toContain('{{');
+    expect(cliPage.next).toBeUndefined();
+    // 页里引用别的 craft 时给命令，不给装好的说明书里才有的 ../craft/ 链接。
+    const subtitles = await client.request('catalog.call', { name: 'skills_read', args: { id: 'baocut-catalog-subtitles' }, cwd: dir });
+    const subtitlesPage = (subtitles as { result: { content: string } }).result;
+    expect(subtitlesPage.content).toContain('`baocut skills read polish-transcript`');
+    expect(subtitlesPage.content).not.toContain('../craft/');
   });
 
   it('开着的 skill 出现在会话开始的索引里，关着的不出现；开关经 RPC 持久', async () => {
@@ -220,6 +234,60 @@ describe('Agent skill 端到端', () => {
     const removed = await client.request('skills.remove', { id: 'my-notes' });
     expect(removed.removed).toEqual({ id: 'my-notes', path: path.join(home.skillsDir, 'my-notes') });
     expect(removed.skills).toEqual([]);
+  });
+
+  it('项目品牌：项目会话每条消息带 BRAND.md 段（模板之后、skill 之前），摘掉的只记标记；skills_read 给目录与素材', async () => {
+    await writeSkill(builtin, 'caption-layout', { files: { 'assets/logo.svg': '<svg/>' } });
+    await boot();
+    const projectDir = path.join(dir, 'show');
+    await fs.mkdir(path.join(projectDir, 'brand'), { recursive: true });
+    await fs.writeFile(path.join(projectDir, 'BRAND.md'), '# Show\n\nAlways teal.');
+    await fs.writeFile(path.join(projectDir, 'brand', 'intro.mp3'), 'mp3');
+    const { project } = await client.request('projects.open', { path: projectDir });
+    const brandPath = path.join(project.path, 'BRAND.md');
+    expect((await client.request('brands.list', {})).brands).toMatchObject([{ projectId: project.id, path: brandPath, fileCount: 2 }]);
+    const handle = await client.request('brands.openHandle', { projectId: project.id, path: 'brand/intro.mp3' });
+    expect(handle.url).toMatch(/^http/);
+
+    const { conversation } = await client.request('conversations.create', { projectId: project.id });
+    const before = driver.sessions.length;
+    await client.request('conversations.send', {
+      conversationId: conversation.id,
+      text: '做片头',
+      commandId: newId('cmd'),
+      skills: [{ id: 'caption-layout' }],
+    });
+    const session = await until(() => driver.sessions[before]);
+    await until(() => session.inputs.length > 0);
+    const turn = session.inputs[0]!;
+    expect(turn.startsWith('做片头\n\n<baocut-project-brand')).toBe(true);
+    expect(turn).toContain('Always teal.');
+    expect(turn).toContain(path.join(project.path, 'brand', 'intro.mp3'));
+    expect(turn.indexOf('<baocut-skill id="caption-layout">')).toBeGreaterThan(turn.indexOf('</baocut-project-brand>'));
+    const first = runtime.harness.getConversation(conversation.id).items.find((i) => i.kind === 'user-message');
+    expect(first).toMatchObject({ brand: { state: 'applied', path: brandPath } });
+
+    const read = await tool(session, 'skills_read', { id: 'caption-layout' });
+    expect(read.body).toMatchObject({ dir: path.join(builtin, 'caption-layout'), assets: ['assets/logo.svg'] });
+    const skillHandle = await client.request('skills.openHandle', { id: 'caption-layout', path: 'assets/logo.svg' });
+    expect(skillHandle.url).toMatch(/^http/);
+
+    session.finish();
+    await until(() => runtime.harness.getConversation(conversation.id).conversation.activity !== 'running');
+    await client.request('conversations.send', {
+      conversationId: conversation.id,
+      text: '这条不用',
+      commandId: newId('cmd'),
+      skipProjectBrand: true,
+    });
+    await until(() => session.inputs.length > 1);
+    expect(session.inputs[1]).not.toContain('<baocut-project-brand');
+    const messages = runtime.harness.getConversation(conversation.id).items.filter((i) => i.kind === 'user-message');
+    expect(messages[1]).toMatchObject({ brand: { state: 'skipped', path: brandPath } });
+
+    // 不属于项目的会话不带。
+    const scratch = await send('随便');
+    expect(scratch.session.inputs[0]).not.toContain('<baocut-project-brand');
   });
 });
 

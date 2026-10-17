@@ -54,7 +54,7 @@ export type { SettingsSection } from '../model/settings-nav.ts';
 export { SETTINGS_SECTIONS } from '../model/settings-nav.ts';
 
 /** 一级入口（App rail，产品设计 §2.1 用户修订）。 */
-export type Tab = 'home' | 'space' | 'tasks' | 'models' | 'services' | 'tools' | 'settings';
+export type Tab = 'home' | 'space' | 'skills' | 'tasks' | 'models' | 'services' | 'tools' | 'settings';
 
 /**
  * Home 的 `pane`：会话右侧功能区当前的标签（视频、文件、项目文件、网页）；同一条会话的其他标签记在 `workspaces` 里。
@@ -67,6 +67,11 @@ export type Route =
   /** `from`：只看从这部视频派生的视频（剪成短视频结果页的「在 Space 里看这几支」、查看框的「查看切出的短视频」）。 */
   | { tab: 'space'; category: SpaceCategory; projectId: Id | null; video?: FileTarget; from?: Id }
   /**
+   * Skills（产品设计 §6.9）：没有 `id` 与 `brand` 是列表；`id` 是一个 skill 的详情，`brand` 是那个项目的 `BRAND.md`。
+   * `view: 'files'` 落在「文件」页签，`file` 是选中的文件；列表上 `view: 'external'` 展开页底的「在终端或其他应用里用 BaoCut」。
+   */
+  | { tab: 'skills'; id?: string; brand?: Id; view?: SkillsView; file?: string }
+  /**
    * `providerId`：API 提供方页进这一家的详情，用量页只看这一家（其余分节不用）。
    * `from`：API 提供方页从哪里来——`add` 在列表页打开「添加 API 提供方」、在详情里直接展开「添加账号」，`custom` 打开它并聚焦
    * 自建端点的名称（产品设计 §7.6）。页面用过就把它从路由里去掉。
@@ -78,6 +83,8 @@ export type Route =
   | { tab: 'tools'; tool?: ToolId };
 
 export type ProvidersFrom = 'add' | 'custom';
+
+export type SkillsView = 'files' | 'external';
 
 export type ColorScheme = 'system' | 'light' | 'dark';
 
@@ -165,6 +172,11 @@ export interface ShellStore {
    * （功能区收起时也展开；不进历史，后退不撤销它）；单条标签条（窄窗口、完整视图）里只加一个标签，不切走当前那一格。
    */
   openVideoBeside(video: FileTarget, conversationId: Id): void;
+  /**
+   * 终端或对外服务（MCP）的外部 Agent 新建了视频（Space 主题的 `video.created`，产品设计 §3.3）：在 Home 当前位置的功能区打开它，
+   * 打开的方式同 `openVideoBeside`。不在 Home、或当前标签就是视频（编辑器里开着别的视频）时不打开，之后也不补。
+   */
+  openExternalVideo(video: FileTarget): void;
   selectPane(key: string): void;
   replaceFilePane(key: string, target: MediaTarget): void;
   /**
@@ -309,19 +321,16 @@ export const useShell = create<ShellStore>()(
         set((s) => ({ ...patchView(s, { hidden: false }), hiddenBeforeNarrow: false }));
       },
       openVideoBeside: (video, conversationId) => {
-        const state = get();
-        const { route } = state;
+        const { route } = get();
         if (route.tab !== 'home' || route.conversationId !== conversationId) return;
-        const pane: WorkspaceItem = { kind: 'video', target: video };
-        if (homeMode(state)?.single) {
-          const book = workspaceKey(route.conversationId, route.projectId);
-          const current = state.workspaces[book] ?? EMPTY_WORKSPACE;
-          const next = addTab(current, pane);
-          if (next !== current) set((s) => ({ workspaces: { ...s.workspaces, [book]: next } }));
-          return;
-        }
-        state.replace({ ...route, pane });
-        set((s) => ({ ...patchView(s, { hidden: false }), hiddenBeforeNarrow: false }));
+        showVideoBeside(get, set, video);
+      },
+      openExternalVideo: (video) => {
+        const { route, drafts } = get();
+        if (route.tab !== 'home' || route.pane?.kind === 'video') return;
+        // 起始页（还没有会话）的输入框是空的：单条标签条里也切到视频，没有要护着的会话。
+        const idle = !route.conversationId && !(drafts[workspaceKey(null, route.projectId)] ?? '').trim();
+        showVideoBeside(get, set, video, idle);
       },
       selectPane: (key) => {
         const { route, workspaces, replace } = get();
@@ -611,6 +620,26 @@ function exitFull(get: Get, set: Set): void {
   if (route.tab === 'home' && !route.pane) showRemembered(get, set);
 }
 
+/**
+ * 不由用户点击打开的视频（`openVideoBeside`、`openExternalVideo`，产品设计 §3.3）：分屏里在右侧打开、成为当前标签（功能区收起时
+ * 也展开；不进历史）；单条标签条里只加一个标签，不切走当前那一格，`reveal` 时（空的起始页）也切过去。调用方已确认在 Home。
+ */
+function showVideoBeside(get: Get, set: Set, video: FileTarget, reveal = false): void {
+  const state = get();
+  const { route } = state;
+  if (route.tab !== 'home') return;
+  const pane: WorkspaceItem = { kind: 'video', target: video };
+  if (homeMode(state)?.single && !reveal) {
+    const book = workspaceKey(route.conversationId, route.projectId);
+    const current = state.workspaces[book] ?? EMPTY_WORKSPACE;
+    const next = addTab(current, pane);
+    if (next !== current) set((s) => ({ workspaces: { ...s.workspaces, [book]: next } }));
+    return;
+  }
+  state.replace({ ...route, pane });
+  set((s) => ({ ...patchView(s, { hidden: false }), hiddenBeforeNarrow: false }));
+}
+
 /** 显示分屏：回到当前、收起前或最后一个标签。 */
 function showRemembered(get: Get, set: Set): void {
   const { route, workspaces, go } = get();
@@ -688,10 +717,10 @@ function sameRoute(a: Route, b: Route): boolean {
 
 /**
  * 有页面侧栏的入口：标题栏的侧栏开合钮只在这些页出现。打开视频时侧栏还在——视频属于它的入口。
- * 设置（含模型配置）自带分节导航，没有页面侧栏。
+ * 设置（含模型配置）自带分节导航，没有页面侧栏；Skills 是单栏页。
  */
 export function hasSidebar(route: Route): boolean {
-  return route.tab !== 'settings' && route.tab !== 'models';
+  return route.tab !== 'settings' && route.tab !== 'models' && route.tab !== 'skills';
 }
 
 /**
@@ -699,7 +728,8 @@ export function hasSidebar(route: Route): boolean {
  * （`?video=` / `?file=` 为 JSON 的 FileTarget，`?files=1`，`?web=<id>&url=<地址>`）；
  * `/space/<分类>[/<项目>][?video=]`、`/settings/<节>`、`/settings/providers[/<提供方>][?from=add|custom]`、
  * `/settings/usage[?id=<提供方>]`、`/settings/models/<类>[/<页>]`、`/tasks[/<任务>]`、
- * `/services[/<服务>]`、`/tools[/<工具>]`、`/archived[/<高亮的会话>]`。
+ * `/services[/<服务>]`、`/tools[/<工具>]`、`/archived[/<高亮的会话>]`、
+ * `/skills[?tab=external]`、`/skills/<id>[?tab=files&file=<路径>]`、`/skills?dir=<项目>[&tab=files&file=<路径>]`。
  */
 export function hrefFor(route: Route): string {
   switch (route.tab) {
@@ -731,6 +761,14 @@ export function hrefFor(route: Route): string {
       return route.service ? `/services/${encodeURIComponent(route.service)}` : '/services';
     case 'tools':
       return route.tool ? `/tools/${route.tool}` : '/tools';
+    case 'skills': {
+      const query = new URLSearchParams();
+      if (route.brand) query.set('dir', route.brand);
+      if (route.view) query.set('tab', route.view);
+      if (route.file) query.set('file', route.file);
+      const search = query.toString();
+      return (route.id && !route.brand ? `/skills/${encodeURIComponent(route.id)}` : '/skills') + (search ? `?${search}` : '');
+    }
     case 'archived':
       return route.focus ? `/archived/${encodeURIComponent(route.focus)}` : '/archived';
   }
@@ -791,7 +829,9 @@ export function parseHref(href: string): Route {
     if (a === 'local') return { tab: 'models', category: 'asr' };
     if (a === 'cloud') return { tab: 'settings', section: 'providers' };
     if (a === 'voices') return { tab: 'models', category: 'tts', page: 'voices' };
-    // 旧的 `/settings/agent/<页签>`：技能、权限各去新的位置，其余留在 Agent 提供方。
+    // 设置里原来的 Skills 分区（含更早的 `/settings/agent/skills` 与 `integrations`）搬到了 rail 上的 Skills。
+    if (a === 'skills' || a === 'integrations' || (a === 'agent' && b === 'skills')) return { tab: 'skills' };
+    // 旧的 `/settings/agent/<页签>`：权限去新的位置，其余留在 Agent 提供方。
     if (a === 'agent') return { tab: 'settings', section: legacyAgentSection(b) };
     return { tab: 'settings', section: isSettingsSection(a) ? a : 'general' };
   }
@@ -799,6 +839,7 @@ export function parseHref(href: string): Route {
     const category = isModelCategory(a) ? a : 'asr';
     return isModelPage(b) ? { tab: 'models', category, page: b } : { tab: 'models', category };
   }
+  if (head === 'skills') return parseSkillsRoute(a, query);
   if (head === 'tasks') return a ? { tab: 'tasks', taskId: decodeURIComponent(a) } : { tab: 'tasks' };
   if (head === 'archived') return a ? { tab: 'archived', focus: decodeURIComponent(a) } : { tab: 'archived' };
   // 远端算力的旧链接在服务页。
@@ -810,6 +851,20 @@ export function parseHref(href: string): Route {
     return tool ? { tab: 'tools', tool } : { tab: 'tools' };
   }
   return HOME;
+}
+
+function parseSkillsRoute(id: string | undefined, query: URLSearchParams): Route {
+  const brand = query.get('dir');
+  const tab = query.get('tab');
+  const file = query.get('file');
+  const view: SkillsView | undefined = tab === 'files' || tab === 'external' ? tab : undefined;
+  return {
+    tab: 'skills',
+    ...(brand ? { brand } : id ? { id: decodeURIComponent(id) } : {}),
+    // 「在终端里用」只在列表上；文件页签只在详情与 BRAND.md 上。
+    ...(view && (view === 'external') === !(brand || id) ? { view } : {}),
+    ...(file && (brand || id) ? { file } : {}),
+  };
 }
 
 function parsePane(query: URLSearchParams): WorkspaceItem | undefined {

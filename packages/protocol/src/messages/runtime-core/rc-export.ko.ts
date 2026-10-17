@@ -161,4 +161,6 @@ export const ko: RcExportMessages = {
   omitKeyframes: '키프레임은 프로젝트 파일에 기록되지 않음',
   omitCrop: '자르기는 프로젝트 파일에 기록되지 않음',
   omitEmbeddedAudioMix: '내장 오디오의 볼륨, 페이드, 엔벨로프는 프로젝트 파일에 기록되지 않음',
+  prerenderStale: (p) => `모션 그래픽 ${p.count}개의 스탠드인이 오래되어 다시 베이크해야 합니다: ${p.items}`,
+  prerenderStaleRemedy: 'replace를 붙여 모션 그래픽을 다시 가져와(compositions_import) 현재 코드 번들 버전과 프레임 속도로 다시 베이크하세요. 또는 allowStalePrerender: true로 기존 스탠드인으로 내보냅니다(항목마다 경고로 기록됨)',
 };

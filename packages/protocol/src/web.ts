@@ -96,12 +96,21 @@ export const WEB_DEFAULT_METHODS: readonly string[] = [
   'templates.*',
   // 随包贴纸（元素面板）：句柄只发给目录里的贴纸；拷进视频是一笔普通编辑，同 `edits.*`。
   'stickers.*',
-  // Agent 的 skill（§3.8）：看与开关逐个列出。添加、导入与移除（`skills.add`、`skills.importGithub`、`skills.remove`，§12.9）
-  // 不开放：它们往 Runtime Home 写入或删除目录、从本机任意文件夹或网络取内容，与受管外部工具的安装一样只在桌面界面与 CLI 里做。
+  // Codex Pets（元素面板）：句柄只发给目录里的 pet，取的地址由 Runtime 按目录拼；拷进视频是一笔普通编辑。
+  'pets.*',
+  // Agent 的 skill（§3.8）：看与开关逐个列出。添加、导入、移除与写入类（`skills.add`、`skills.importGithub`、`skills.remove`、
+  // `inspectPackage`、`installPackage`、`create`、`duplicate`、`write`、`restore`、`export`，§12.9）不开放：它们往 Runtime Home 写入或删除目录、从本机任意文件夹或网络取内容，与受管外部工具的安装一样只在桌面界面与 CLI 里做。
   'skills.list',
   'skills.get',
   'skills.readFile',
+  'skills.openHandle',
+  'skills.versions',
   'skills.setEnabled',
+  // 项目的 BRAND.md（§3.8「项目品牌」）只读：写入与从 skill 生成改的是用户磁盘上的项目文件，只在桌面界面与 CLI 里做。
+  'brands.list',
+  'brands.get',
+  'brands.readFile',
+  'brands.openHandle',
 ];
 
 /** 只读配置下还剩的方法（逐个列出：以后新增的方法在只读下默认不开放）。 */
@@ -132,6 +141,7 @@ export const WEB_READ_METHODS: readonly RpcMethod[] = [
   'media.subtitles',
   'media.peaks',
   'media.thumbnail',
+  'media.bundle',
   'slides.open',
   'design.open',
   'designSystem.open',
@@ -161,9 +171,16 @@ export const WEB_READ_METHODS: readonly RpcMethod[] = [
   'templates.get',
   'templates.openHandle',
   'stickers.openHandle',
+  'pets.openHandle',
   'skills.list',
   'skills.get',
   'skills.readFile',
+  'skills.openHandle',
+  'skills.versions',
+  'brands.list',
+  'brands.get',
+  'brands.readFile',
+  'brands.openHandle',
 ];
 
 /** 订阅这些主题要求白名单里有对应的读取方法；其余主题（目录、会话、任务、Space、视频）随会话开放。 */

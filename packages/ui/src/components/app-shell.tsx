@@ -25,6 +25,7 @@ import { SpacePage } from './space/space-page.tsx';
 import { TasksPage } from './tasks-page.tsx';
 import { TitleBar } from './title-bar.tsx';
 import { ToolsPage } from './tools-page.tsx';
+import { SkillsPage } from './skills/skills-page.tsx';
 
 const frame = style({
   display: 'flex',
@@ -119,6 +120,8 @@ export function AppShell({ platform }: { platform: string }) {
               <HomePage conversationId={route.conversationId} projectId={route.projectId} pane={route.pane ?? null} />
             ) : route.tab === 'space' ? (
               <SpacePage category={route.category} projectId={route.projectId} video={route.video ?? null} from={route.from ?? null} />
+            ) : route.tab === 'skills' ? (
+              <SkillsPage route={route} />
             ) : route.tab === 'tasks' ? (
               <TasksPage taskId={route.taskId} />
             ) : route.tab === 'services' ? (

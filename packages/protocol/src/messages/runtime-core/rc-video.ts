@@ -64,6 +64,9 @@ const en = {
   // 代码画面（compositions/）：界面直接导入与预览失败；具体原因的错误码在括号里，原话在 details 里
   compositionImportFailed: (p: { code: string }) => `Couldn't import the motion graphic (${p.code})`,
   compositionPreviewFailed: (p: { code: string }) => `Couldn't preview the motion graphic (${p.code})`,
+  // 后台烘焙任务（代码包规范 §7.5）的失败：实例在烘焙完成前被改过或删掉；烘焙本身失败（错误码在括号里，原话在 details 里）
+  compositionBakeSuperseded: "The motion graphic was changed or removed before its bake finished, so the stand-in wasn't applied",
+  compositionBakeFailed: (p: { code: string }) => `Couldn't bake the motion graphic (${p.code})`,
 };
 
 export type RcVideoMessages = typeof en;

@@ -1322,9 +1322,7 @@ impl OverlayRenderPlan {
         let warnings = families
             .into_iter()
             .filter(|family| !text.has_family(family))
-            .map(|family| {
-                format!("字体 {family:?} 在当前字体库中不可用，将使用 Noto Sans SC fallback")
-            })
+            .map(|family| missing_font_warning(family))
             .collect();
         // `--no-*` 不改文档，却决定画哪些元素，必须自成一段进缓存键。画质档不参与：
         // 它只改码率，不改任何一个像素。
@@ -1639,9 +1637,10 @@ impl OverlayRenderPlan {
                 .unwrap_or(&[])
             {
                 let Some(start) = raw.get("start").and_then(Value::as_f64) else {
-                    self.warnings.push(format!(
-                        "元素 {} 的 start 词锚无法解析，已跳过渲染",
-                        raw.get("id").and_then(Value::as_str).unwrap_or("<unknown>")
+                    self.warnings.push(message_ref::msg!(
+                        "subtitleRender.startAnchorUnresolved",
+                        "The start anchor of element {element} can’t be resolved; skipped",
+                        element = raw.get("id").and_then(Value::as_str).unwrap_or("<unknown>")
                     ));
                     continue;
                 };
@@ -1878,8 +1877,11 @@ impl OverlayRenderPlan {
                     return Err(error);
                 }
                 failed_sources.insert(source_id.clone());
-                self.warn_once(format!(
-                    "预览已跳过媒体 source {source_id} 及其元素：{error:#}"
+                self.warn_once(message_ref::msg!(
+                    "subtitleRender.sourceSkipped",
+                    "Preview skipped media source {source} and its elements: {detail}",
+                    source = source_id,
+                    detail = format!("{error:#}")
                 ));
             }
         }
@@ -1962,9 +1964,7 @@ impl OverlayRenderPlan {
                         )
                     });
                 if let Err(error) = load {
-                    self.warn_once(format!(
-                        "贴纸 source {source_id} 换色失败，按原色渲染：{error:#}"
-                    ));
+                    self.warn_once(sticker_recolor_failed(&source_id, format!("{error:#}")));
                 }
                 continue;
             }
@@ -1981,9 +1981,9 @@ impl OverlayRenderPlan {
             let svg = match fs::read_to_string(&path) {
                 Ok(svg) => svg,
                 Err(error) => {
-                    self.warn_once(format!(
-                        "贴纸 source {source_id} 换色失败，按原色渲染：读取 {}：{error}",
-                        path.display()
+                    self.warn_once(sticker_recolor_failed(
+                        &source_id,
+                        format!("reading {}: {error}", path.display()),
                     ));
                     continue;
                 }
@@ -1991,8 +1991,9 @@ impl OverlayRenderPlan {
             let recolored = timeline::svg_fill::apply_overrides(&svg, &overrides);
             match load_timeline_image_source(assets, &variant, &path, recolored.as_bytes()) {
                 Ok(()) => {}
-                Err(error) => self.warn_once(format!(
-                    "贴纸 source {source_id} 换色后无法光栅，按原色渲染：{error:#}"
+                Err(error) => self.warn_once(sticker_recolor_failed(
+                    &source_id,
+                    format!("rasterizing the recolored SVG: {error:#}"),
                 )),
             }
         }
@@ -2068,7 +2069,7 @@ impl OverlayRenderPlan {
         Ok(())
     }
 
-    pub fn warnings(&self) -> &[String] {
+    pub fn warnings(&self) -> &[message_ref::Text] {
         &self.warnings
     }
 
@@ -5075,8 +5076,9 @@ impl OverlayRenderPlan {
 
     /// 同一条诊断每帧都会命中，去重后再进 `warnings()`——一段 5 分钟的导出
     /// 否则会往信封里灌 9000 条一模一样的字符串。
-    pub fn warn_once(&mut self, message: String) {
-        if !self.warnings.contains(&message) {
+    pub fn warn_once(&mut self, message: impl Into<message_ref::Text>) {
+        let message = message.into();
+        if !self.warnings.iter().any(|seen| seen.text == message.text) {
             self.warnings.push(message);
         }
     }
@@ -5105,7 +5107,7 @@ impl OverlayRenderPlan {
     /// 先收进 `Vec` 再上浮而不是直接传 `&mut self` 的闭包：`push_*` 要同时
     /// 借 `builder` 与诊断出口，而诊断出口写的是 `self.warnings`。去重语义
     /// 不变（`warn_once` 仍然是那一处）。
-    pub fn drain_element_warnings(&mut self, warnings: Vec<String>) {
+    pub fn drain_element_warnings(&mut self, warnings: Vec<message_ref::Text>) {
         for message in warnings {
             self.warn_once(message);
         }
@@ -5508,10 +5510,10 @@ impl OverlayRenderPlan {
     ) -> Result<Option<Arc<Pixmap>>> {
         let Some(source_id) = element.src_id.as_deref() else {
             if element.kind == ElementKind::Sticker {
-                self.warn_once(format!(
-                    "元素 {} 的 sticker source=asset 缺少 srcId：资产贴纸必须注册进 \
-                     timeline sources（模板贴纸请改用 source=template + templateId）",
-                    element.id
+                self.warn_once(message_ref::msg!(
+                    "subtitleRender.stickerAssetNoSource",
+                    "Asset sticker {element} has no srcId; register it in the timeline sources (template stickers use source=template with a templateId)",
+                    element = element.id
                 ));
             }
             return Ok(None);
@@ -6375,7 +6377,11 @@ impl OverlayRenderPlan {
             element_draw::ExternalMediaMetadata::image(pixmap.width(), pixmap.height()),
             &mut |message| warnings.push(message),
         );
-        let detail = warnings.join("；");
+        let detail = warnings
+            .iter()
+            .map(|w| w.text.as_str())
+            .collect::<Vec<_>>()
+            .join("; ");
         self.drain_element_warnings(warnings);
         let scene_nodes = scene_nodes.ok_or_else(|| {
             anyhow!(
@@ -6480,7 +6486,11 @@ impl OverlayRenderPlan {
             metadata,
             &mut |message| warnings.push(message),
         );
-        let detail = warnings.join("；");
+        let detail = warnings
+            .iter()
+            .map(|w| w.text.as_str())
+            .collect::<Vec<_>>()
+            .join("; ");
         self.drain_element_warnings(warnings);
         let nodes = nodes.ok_or_else(|| {
             anyhow!(
@@ -9331,4 +9341,27 @@ impl OverlayRenderPlan {
 /// 走向量化的块折叠（[`render_raster::raster::is_opaque`]）。
 fn is_opaque(pixmap: &Pixmap) -> bool {
     render_raster::raster::is_opaque(pixmap.data())
+}
+
+/// 缺字体提示的键。宿主自己报缺字体时按它（与 `family` 参数）认出内核这一条、不重复报。
+pub const MISSING_FONT_KEY: &str = "subtitleRender.missingFont";
+
+/// 字体库里没有的族的提示（编译字幕时报进 `warnings()`）。
+pub fn missing_font_warning(family: &str) -> message_ref::Text {
+    message_ref::msg!(
+        "subtitleRender.missingFont",
+        "Font \"{family}\" isn’t in the font library; using {fallback} instead",
+        family,
+        fallback = "Noto Sans SC"
+    )
+}
+
+/// 贴纸换色失败、按原色画的提示。
+fn sticker_recolor_failed(source: &str, detail: String) -> message_ref::Text {
+    message_ref::msg!(
+        "subtitleRender.stickerRecolorFailed",
+        "Sticker source {source} couldn’t be recolored, so it’s drawn in its original colors: {detail}",
+        source,
+        detail
+    )
 }

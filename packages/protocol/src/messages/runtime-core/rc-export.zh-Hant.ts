@@ -158,4 +158,6 @@ export const zhHant: RcExportMessages = {
   omitKeyframes: '關鍵影格未寫入專案檔',
   omitCrop: '裁切未寫入專案檔',
   omitEmbeddedAudioMix: '內嵌音訊的音量、淡入淡出和包絡線未寫入專案檔',
+  prerenderStale: (p) => `${p.count} 個程式碼畫面的替身已過期，需要重新烘焙：${p.items}`,
+  prerenderStaleRemedy: '以 replace 重新匯入程式碼畫面（compositions_import），依目前的程式碼套件版本與幀率重新烘焙；或用 allowStalePrerender: true 以舊替身匯出（每一項都會記為一則警告）',
 };

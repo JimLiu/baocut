@@ -77,6 +77,8 @@ pub fn media_type_of(path: &Path) -> Option<(AssetKind, &'static str)> {
         "jpg" | "jpeg" => (AssetKind::Image, "image/jpeg"),
         "webp" => (AssetKind::Image, "image/webp"),
         "gif" => (AssetKind::Image, "image/gif"),
+        // APNG 只按扩展名认：`.png` 的动画 PNG 仍记成 `image/png`（静态图）。
+        "apng" => (AssetKind::Image, "image/apng"),
         "svg" => (AssetKind::Image, "image/svg+xml"),
         "ttf" => (AssetKind::Font, "font/ttf"),
         "otf" => (AssetKind::Font, "font/otf"),
@@ -107,6 +109,7 @@ pub fn blob_extension(media_type: &str) -> &'static str {
         "image/jpeg" => "jpg",
         "image/webp" => "webp",
         "image/gif" => "gif",
+        "image/apng" => "apng",
         "image/svg+xml" => "svg",
         "font/ttf" => "ttf",
         "font/otf" => "otf",
@@ -770,6 +773,13 @@ fn rotation_of(stream: &Value) -> u32 {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn apng_is_known_by_its_extension_only() {
+        assert_eq!(media_type_of(Path::new("pet.apng")), Some((AssetKind::Image, "image/apng")));
+        assert_eq!(media_type_of(Path::new("pet.PNG")), Some((AssetKind::Image, "image/png")));
+        assert_eq!(blob_rel_path("sha256:ab", "image/apng"), PathBuf::from("blobs/ab.apng"));
+    }
 
     #[test]
     fn probe_uses_exact_stream_timebase() {

@@ -15,6 +15,7 @@ export const zhHant: ExportRejectionMessages = {
     EXPORT_SOURCE_AMBIGUOUS: '有多份文件可以匯出',
     EXPORT_TOOL_MISSING: '這台電腦缺少匯出所需的工具',
     EXPORT_UNSUPPORTED_CONTENT: '部分內容無法渲染以供匯出',
+    EXPORT_PRERENDER_STALE: '有程式碼畫面的替身已過期，需要重新烘焙',
     ASSET_MISSING: '部分素材無法讀取',
     ASSET_CHANGED: '部分素材已變更',
     ENTITY_NOT_FOUND: '序列不存在',

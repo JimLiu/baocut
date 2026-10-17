@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; padding: 0; overflow: hidden; background: transparent; }
+  #root { position: relative; width: 640px; height: 360px; }
+  canvas { display: block; width: 640px; height: 360px; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-width="640" data-height="360" data-fps="30" data-duration="1" data-alpha="true">
+  <canvas id="stage" width="640" height="360"></canvas>
+</div>
+<script>
+  // BaoCut native contract on a raw WebGL canvas: what Three.js / p5 WEBGL mode end up doing.
+  // Stands in for those libraries without vendoring them; the picture is a pure function of time.
+  // preserveDrawingBuffer keeps the frame until the next draw so capturePage() after seek sees it.
+  var DURATION = 1;
+  var gl = null;
+  var program = null;
+  var uTime = null;
+  var VS = [
+    'attribute vec2 aPos;',
+    'uniform float uTime;',
+    'varying vec3 vColor;',
+    'void main() {',
+    '  float a = uTime * 6.2831853;',
+    '  mat2 rot = mat2(cos(a), -sin(a), sin(a), cos(a));',
+    '  vec2 p = rot * aPos;',
+    '  p.x *= 360.0 / 640.0;',
+    '  gl_Position = vec4(p, 0.0, 1.0);',
+    '  vColor = vec3(0.5 + 0.5 * aPos.x, 0.5 + 0.5 * aPos.y, uTime);',
+    '}',
+  ].join('\n');
+  var FS = [
+    'precision mediump float;',
+    'varying vec3 vColor;',
+    'void main() { gl_FragColor = vec4(vColor, 1.0); }',
+  ].join('\n');
+  function compile(type, source) {
+    var shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error('shader: ' + gl.getShaderInfoLog(shader));
+    return shader;
+  }
+  function setup(canvas) {
+    gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: true, antialias: false });
+    if (!gl) throw new Error('WebGL is not available');
+    program = gl.createProgram();
+    gl.attachShader(program, compile(gl.VERTEX_SHADER, VS));
+    gl.attachShader(program, compile(gl.FRAGMENT_SHADER, FS));
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error('program: ' + gl.getProgramInfoLog(program));
+    gl.useProgram(program);
+    var buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0.8, -0.7, -0.5, 0.7, -0.5]), gl.STATIC_DRAW);
+    var aPos = gl.getAttribLocation(program, 'aPos');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+    uTime = gl.getUniformLocation(program, 'uTime');
+    gl.viewport(0, 0, canvas.width, canvas.height);
+  }
+  function renderScene(time) {
+    var p = Math.min(Math.max(time / DURATION, 0), 1);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.uniform1f(uTime, p);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.finish();
+  }
+  window.__baocutCompositions = window.__baocutCompositions || {};
+  window.__baocutCompositions.main = {
+    initialize: function (context) {
+      setup(context.target.querySelector('#stage'));
+      renderScene(0);
+      return Promise.resolve();
+    },
+    renderAt: function (time, params) {
+      renderScene(Number(time.ticks) / time.timescale);
+      return Promise.resolve();
+    },
+    dispose: function () {
+      gl = null;
+      program = null;
+    },
+  };
+</script>
+</body>
+</html>

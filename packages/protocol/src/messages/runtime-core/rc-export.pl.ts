@@ -156,4 +156,6 @@ export const pl: RcExportMessages = {
   omitKeyframes: "klatki kluczowe niezapisane w pliku projektu",
   omitCrop: "przycięcie niezapisane w pliku projektu",
   omitEmbeddedAudioMix: "głośność osadzonego audio, przejścia i obwiednia niezapisane w pliku projektu",
+  prerenderStale: (p) => `${pluralForm('pl', p.count, { one: `${p.count} grafika animowana ma nieaktualny zastępnik i trzeba ją wyrenderować ponownie`, few: `${p.count} grafiki animowane mają nieaktualny zastępnik i trzeba je wyrenderować ponownie`, many: `${p.count} grafik animowanych ma nieaktualny zastępnik i trzeba je wyrenderować ponownie`, other: `${p.count} grafiki animowanej ma nieaktualny zastępnik i trzeba je wyrenderować ponownie` })}: ${p.items}`,
+  prerenderStaleRemedy: 'Zaimportuj grafikę animowaną ponownie z replace (compositions_import), aby wyrenderować ją w bieżącej wersji pakietu kodu i z bieżącą liczbą klatek, albo eksportuj mimo to ze starymi zastępnikami przez allowStalePrerender: true (każdy element zapisany jako ostrzeżenie)',
 };

@@ -17,6 +17,7 @@ import {
 } from '@baocut/protocol';
 import type { RpcHandlers } from '../handlers.ts';
 import type { MediaRegistry } from '../media.ts';
+import type { ProjectBrands } from '../skills/project-brand.ts';
 import { resolveSendSkills } from '../skills/skill-brief.ts';
 import type { SkillCatalog } from '../skills/skill-catalog.ts';
 import { resolveSceneTemplate } from './template-brief.ts';
@@ -30,13 +31,15 @@ type TemplateMethod = 'templates.list' | 'templates.get' | 'templates.openHandle
  * 点选的 skill（架构设计 §3.8，一个或几个）、幻灯片标注（docs/design/slides §9）、设计稿标注（docs/design/canvas §9）、
  * 设计系统标注（§10.6）、视频标注（产品设计 §3.2.3）与文档标注（docs/design/docs §8）
  * 也在这一个发送入口里解析：
- * 模板、skill 与标注各自解析好，一起交给 Harness。
+ * 会话属于项目时，项目根目录的 `BRAND.md`（§3.8「项目品牌」）每条都读，`skipProjectBrand` 只让这一条不带。
+ * 模板、品牌、skill 与标注各自解析好，一起交给 Harness。
  */
 export function templateMethods(deps: {
   templates: TemplateCatalog;
   media: MediaRegistry;
   harness: Harness;
   skills: SkillCatalog;
+  brands: ProjectBrands;
   slideAnnotationsOf: (conversationId: Id, annotations: readonly SlideAnnotation[] | undefined) => ResolvedSlideAnnotation[] | undefined;
   designAnnotationsOf: (conversationId: Id, annotations: readonly DesignAnnotation[] | undefined) => ResolvedDesignAnnotation[] | undefined;
   designSystemAnnotationsOf: (
@@ -46,7 +49,18 @@ export function templateMethods(deps: {
   videoAnnotationsOf: (conversationId: Id, annotations: readonly VideoAnnotation[] | undefined) => ResolvedVideoAnnotation[] | undefined;
   docsAnnotationsOf: (conversationId: Id, annotations: readonly DocsAnnotation[] | undefined) => ResolvedDocsAnnotation[] | undefined;
 }): Pick<RpcHandlers['methods'], TemplateMethod> {
-  const { templates, media, harness, skills, slideAnnotationsOf, designAnnotationsOf, designSystemAnnotationsOf, videoAnnotationsOf, docsAnnotationsOf } = deps;
+  const {
+    templates,
+    media,
+    harness,
+    skills,
+    brands,
+    slideAnnotationsOf,
+    designAnnotationsOf,
+    designSystemAnnotationsOf,
+    videoAnnotationsOf,
+    docsAnnotationsOf,
+  } = deps;
   return {
     'templates.list': (p) => templates.list(p.language),
     'templates.get': (p) => templates.get(p.id, p.language),
@@ -63,6 +77,7 @@ export function templateMethods(deps: {
       designSystemAnnotations,
       videoAnnotations,
       docsAnnotations,
+      skipProjectBrand,
       ...params
     }) => {
       const annotations = slideAnnotationsOf(params.conversationId, slideAnnotations);
@@ -71,9 +86,11 @@ export function templateMethods(deps: {
       const video = videoAnnotationsOf(params.conversationId, videoAnnotations);
       const docs = docsAnnotationsOf(params.conversationId, docsAnnotations);
       const resolved = await resolveSendSkills(skills, sendSkillRefs({ skill, skills: picked }));
+      const brand = await brands.sendBrand(harness.conversationOf(params.conversationId)?.projectId, skipProjectBrand === true);
       return harness.send({
         ...params,
         ...(template ? { template: await resolveSceneTemplate(templates, template) } : {}),
+        ...(brand ? { brand } : {}),
         ...(resolved ? { skills: resolved } : {}),
         ...(annotations ? { slideAnnotations: annotations } : {}),
         ...(design ? { designAnnotations: design } : {}),

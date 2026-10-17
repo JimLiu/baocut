@@ -14,6 +14,13 @@ export const zhHant: AgentSkillsMessages = {
     remove: '移除',
     read: '開啟檔案',
     send: '傳送',
+    upload: '上傳',
+    create: '建立',
+    duplicate: '複製',
+    save: '儲存',
+    restore: '回復這個版本',
+    export: '下載',
+    brand: '儲存 BRAND.md',
   },
   exists: (id: string | null) =>
     `${id ? `名為「${id}」` : '同名'}的 Skill 已經存在，不會覆寫它。請先移除舊的，或把資料夾重新命名後再新增。`,
@@ -33,6 +40,8 @@ export const zhHant: AgentSkillsMessages = {
   fileNotText: '這不是文字檔，所以不在這裡顯示。',
   webNotAllowed: '無法在瀏覽器中這樣做，請改用 BaoCut 桌面應用程式。',
   webReadOnly: '這個瀏覽器連線是唯讀的，無法做任何修改。',
+  revisionConflict: '你開始編輯之後，這個 Skill 已在別處被修改。請先複製你的修改，重新載入後再編輯。',
+  notEditable: '只有你自己的 Skill 能在這裡編輯。複製一份就能修改了。',
   failed: (action: string, raw: string) => `無法${action}：${raw}`,
   sendFailed: (raw: string) => `無法傳送：${raw}`,
 };

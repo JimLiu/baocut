@@ -176,7 +176,7 @@ export const ptBR: AgentMessages = {
     {
       key: 'terminal',
       title: "Quer usar BaoCut por agentes no terminal?",
-      body: "Sessões no BaoCut não exigem mais configuração. Para terminal ou outros aplicativos, instale a Skill do BaoCut; veja Configurações › Skills.",
+      body: "Sessões no BaoCut não exigem mais configuração. Para terminal ou outros aplicativos, instale a Skill do BaoCut; veja o final da página Skills.",
       link: "skills",
     },
   ] as readonly { key: string; title: string; body: string; link?: 'models' | 'skills' }[],

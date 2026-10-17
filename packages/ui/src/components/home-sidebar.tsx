@@ -110,6 +110,7 @@ export function HomeSidebar() {
     else if (key === 'pin') runtime.updateProject(project.id, { pinned: !project.pinned }).catch(fail);
     else if (key === 'rename') setDialog({ kind: 'rename-project', project });
     else if (key === 'space') go({ tab: 'space', category: 'all', projectId: project.id });
+    else if (key === 'brand') go({ tab: 'skills', brand: project.id });
     else if (key === 'reveal') void runtime.host.revealPath(project.path);
   };
 

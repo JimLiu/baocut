@@ -58,7 +58,7 @@ import { useShell } from '../../state/shell-store.ts';
 import { useTools } from '../../state/tools-store.ts';
 import { canEdit, useVideo } from '../../state/video-store.ts';
 import { CancelledCard, ErrorCard, RunningCard } from '../tools/image-record.tsx';
-import { ImageRefModeRow, ImageRefsRow } from '../tools/image-refs.tsx';
+import { ImageRefModeRow, ImageRefsRow, ImageRefsZone, imagePromptPlaceholder } from '../tools/image-refs.tsx';
 import { LocalModelGate } from '../tools/local-model-gate.tsx';
 import { ModelGate, ModelLine } from '../tools/tool-model.tsx';
 import { Gate, recordHead, recordRow, SectionLink, submitOnModEnter, ToolTextArea } from '../tools/tool-parts.tsx';
@@ -265,33 +265,35 @@ export function ImageGenPane({ videoId, sequence, assets }: { videoId: Id; seque
       ) : null}
 
       <SubHead title={IMAGE_COPY.promptLabel} />
-      <ToolTextArea
-        compact
-        label={IMAGE_COPY.promptLabel}
-        value={draft.prompt}
-        onChange={(prompt) => patchImage(videoId, { prompt })}
-        placeholder={IMAGE_COPY.promptPlaceholder}
-      />
-      <div className={textFoot}>
-        <span className={textStat({ isOver: maxChars > 0 && chars > maxChars })}>{maxChars ? C.charCount(chars, maxChars) : C.charCountPlain(chars)}</span>
-        {draft.prompt ? (
-          <SectionLink onPress={() => patchImage(videoId, { prompt: '' })}>{IMAGE_COPY.clear}</SectionLink>
-        ) : (
-          <SectionLink
-            onPress={() => {
-              patchImage(videoId, { prompt: IMAGE_SAMPLES[sample % IMAGE_SAMPLES.length]! });
-              setSample(sample + 1);
-            }}>
-            {IMAGE_COPY.sample}
-          </SectionLink>
-        )}
-      </div>
-      {option ? (
-        <div className={refs}>
-          <ImageRefsRow draft={draft} option={option} patch={(p) => patchImage(videoId, p)} source={{ kind: 'video', videoId, assets }} />
-          <ImageRefModeRow draft={draft} option={option} patch={(p) => patchImage(videoId, p)} />
+      <ImageRefsZone draft={draft} option={option} patch={(p) => patchImage(videoId, p)}>
+        <ToolTextArea
+          compact
+          label={IMAGE_COPY.promptLabel}
+          value={draft.prompt}
+          onChange={(prompt) => patchImage(videoId, { prompt })}
+          placeholder={imagePromptPlaceholder(draft, option)}
+        />
+        <div className={textFoot}>
+          <span className={textStat({ isOver: maxChars > 0 && chars > maxChars })}>{maxChars ? C.charCount(chars, maxChars) : C.charCountPlain(chars)}</span>
+          {draft.prompt ? (
+            <SectionLink onPress={() => patchImage(videoId, { prompt: '' })}>{IMAGE_COPY.clear}</SectionLink>
+          ) : (
+            <SectionLink
+              onPress={() => {
+                patchImage(videoId, { prompt: IMAGE_SAMPLES[sample % IMAGE_SAMPLES.length]! });
+                setSample(sample + 1);
+              }}>
+              {IMAGE_COPY.sample}
+            </SectionLink>
+          )}
         </div>
-      ) : null}
+        {option ? (
+          <div className={refs}>
+            <ImageRefsRow draft={draft} option={option} patch={(p) => patchImage(videoId, p)} source={{ kind: 'video', videoId, assets }} />
+            <ImageRefModeRow draft={draft} option={option} patch={(p) => patchImage(videoId, p)} />
+          </div>
+        ) : null}
+      </ImageRefsZone>
 
       {options.length ? (
         <>

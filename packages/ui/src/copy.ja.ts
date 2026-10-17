@@ -379,7 +379,7 @@ export const ja: CopyMessages = {
     modelsMove: 'モデルフォルダを移動',
     toolInstall: 'ツールをインストール',
     toolUpdate: 'ツールを更新',
-    fontDownload: 'フォントをダウンロード',
+    fontDownload: 'フォントをダウンロード', bake: 'モーショングラフィックをベイク',
     voiceClone: '声をクローン',
     agentTranslate: '翻訳',
     legacyImport: '以前のプロジェクトの読み込み',
@@ -755,7 +755,7 @@ export const ja: CopyMessages = {
     unavailableTitle: (name: string) => `「${name}」はまだ利用できません`,
     notRunning: 'サービスが実行されていません。先に開始してください',
     mcpRelated: 'ターミナルの Claude Code や Codex に BaoCut のワークフローを覚えさせたい場合は、BaoCut の Skill をインストールしてください。サービスは不要です。詳しくは',
-    mcpRelatedLink: '設定 › Skills',
+    mcpRelatedLink: 'Skills',
   },
   runtimeCard: {
     name: 'BaoCut Runtime',

@@ -12,17 +12,26 @@ import {
   type CodeBundleErrorCode,
   type CodeBundleVerificationReport,
   type CodeEdit,
+  type CompositionBakeJob,
+  type CompositionBakeMode,
   type CompositionImportResult,
   type CompositionPlacement,
   type CompositionInlineFile,
   type EditResult,
   type Id,
+  type JobRecord,
+  type JobSubmitter,
+  type Rate,
   type Sequence,
+  type VersionRef,
   type VideoChange,
   type VideoOpenResult,
   type VideoSnapshot,
+  type Actor,
+  RpcError,
 } from '@baocut/protocol';
-import { RcAgentTools } from '@baocut/protocol/messages/runtime-core';
+import { RcAgentTools, RcVideo } from '@baocut/protocol/messages/runtime-core';
+import { canonicalJson, sha256Hex, type JobManager, type TaskRun } from '@baocut/jobs';
 import {
   CodeBundleError,
   CompositionHost,
@@ -37,6 +46,7 @@ import {
   type SynthesizeOverrides,
 } from '@baocut/code-runtime';
 import type { Logger } from '@baocut/harness';
+import { taskFailure } from '../localized.ts';
 import type { VideoService } from '../videos/video-service.ts';
 import { inside } from '../agent-tools/artifact-save.ts';
 import { ToolError, errorBody } from '../agent-tools/tool-catalog.ts';
@@ -52,6 +62,10 @@ import { writeContactSheet, type ContactSheet } from './contact-sheet.ts';
  * 浏览器合成在 Electron 离屏宿主里执行（`@baocut/code-runtime`）。宿主按需拉起、各次调用共用、串行使用，Runtime 停止时关掉。
  * 写入视频走与界面相同的 `VideoService.apply`：第一笔导入代码包与预渲染两个素材，第二笔放一个合成实例（合成的 `source.assetRef`
  * 与 `prerender` 只收已有素材的版本，不能引用同一笔里 `importAsset` 的 ref，所以分两笔）。
+ *
+ * `background: true`（代码包规范 §7.5）时两笔只登记代码包与放实例（长度按清单换算到序列帧率，没有替身），烘焙交给 `bake` 任务：
+ * 任务不持有视频的写锁，烘完再以两笔写入替身（导入替身素材；`replaceCodeBundle` 把实例的 `prerender` 指过去），实例在此期间被改过
+ * 或删掉时任务以 `COMPOSITION_BAKE_SUPERSEDED` 结束，版本冲突重试三次。任务进行中视频由 Runtime 的租约保持打开。
  *
  * 错误照工具的写法抛 `ToolError`（错误码、给模型的原话与 `next`）；RPC 的处理函数再换成 `RpcError`。
  */
@@ -96,7 +110,11 @@ export interface CompositionServiceDeps {
   videos: VideoService;
   /** 烘焙用的 ffmpeg（绝对路径或命令名）。 */
   ffmpeg: () => string | Promise<string>;
+  /** 指令烘焙用的 Render Worker（`export-worker`）；没有时 `auto` 回退像素。 */
+  worker?: () => string | null;
   host: SharedCompositionHost;
+  /** 后台烘焙（`background: true`）提交到的任务管理器；没有时 `background` 以 INVALID_ARGUMENTS 拒绝。 */
+  jobs?: JobManager;
   log?: Logger;
 }
 
@@ -126,6 +144,10 @@ export interface CompositionImportRequest extends BundleSourceInput {
   /** 原地替换时间线上已有的合成片段（代码包规范 §3.3）；与 `place`、`register` 互斥。 */
   replace?: { itemId: string } | undefined;
   register?: boolean | undefined;
+  /** 烘焙渲染器（代码包规范 §7），缺省 `auto`。 */
+  bake?: CompositionBakeMode | undefined;
+  /** 烘焙放到后台的 `bake` 任务里（代码包规范 §7.5）：先按清单长度放实例，结果带 `bakeJobId`；与 `register` 互斥。 */
+  background?: boolean | undefined;
   revision?: string | undefined;
   commandId?: string | undefined;
 }
@@ -160,6 +182,8 @@ export interface CompositionImportCaller extends CompositionCaller {
    */
   confirm(request: { name: string; place: boolean; replace: { itemId: Id; clip: string } | null }): Promise<void>;
   apply(opened: VideoOpenResult, edit: CompositionEdit): Promise<EditResult>;
+  /** 后台烘焙任务记的提交者（`background: true` 才用）。 */
+  submitter: JobSubmitter;
 }
 
 export interface CompositionPreviewCaller extends CompositionCaller {
@@ -216,6 +240,13 @@ const BUNDLE_REF = 'bundle';
 const PRERENDER_REF = 'prerender';
 const TRACK_REF = 'track';
 
+/** 后台烘焙串行排队（指令烘焙已多线程光栅，并行只争 CPU）。 */
+const BAKE_QUEUE = { key: 'composition-bake', concurrency: 1 };
+/** 后台烘焙写入替身的行为者（与 `system:jobs` 区分，变更卡与历史里看得出是烘焙写的）。 */
+const BAKE_ACTOR: Actor = { kind: 'system', id: 'system:compositions' };
+/** 写入替身的两笔遇到版本冲突时重试的次数。 */
+const BAKE_WRITE_ATTEMPTS = 3;
+
 export class CompositionService {
   readonly #deps: CompositionServiceDeps;
 
@@ -235,11 +266,17 @@ export class CompositionService {
         'replace 与 place、register 不能同时给：replace 原地替换已有的合成片段，轨道与起点沿用它原来的',
       );
     }
+    const background = args.background ?? false;
+    if (background && args.register) throw new ToolError('INVALID_ARGUMENTS', 'background 与 register 不能同时给：register 不烘焙');
+    if (background && !this.#deps.jobs) {
+      throw new ToolError('INVALID_ARGUMENTS', '这个 Runtime 没有任务管理器，background 不可用：去掉 background 在前台烘焙');
+    }
     const opened = await caller.open();
     const videoId = opened.ref.videoId;
     // 要替换的片段先查：不存在或不是合成片段时不必验证与烘焙。
     const target = args.replace ? replaceTarget(current(videos, opened), args.replace.itemId) : null;
     const work = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-composition-'));
+    let bakeDir: string | null = null;
     try {
       const dir = await sourceDirectory(args, caller.importBase(opened), work);
       const bundle = await inspect(dir, args, work);
@@ -256,16 +293,28 @@ export class CompositionService {
       const sequence = before.sequences[target?.sequenceId ?? before.rootSequenceId]!;
       const fps = sequence.fps;
       let bake: BakeResult | null = null;
-      if (!register) {
-        const outputFile = path.join(work, `${safeName(bundle.manifest.bundleId)}-${safeName(bundle.manifest.revision)}.mov`);
+      if (!register && !background) {
+        // 预渲染与录制都大（ProRes、绘制指令）：放在视频所在卷的 blobs/.staging 下，导入时同卷复制；建不了时退回临时目录。
+        const dir = await bakeDirectory(opened.ref.path, work);
+        bakeDir = dir;
+        const outputFile = path.join(dir, `${safeName(bundle.manifest.bundleId)}-${safeName(bundle.manifest.revision)}.mov`);
         const ffmpeg = await this.#deps.ffmpeg();
+        const log = this.#deps.log;
         bake = await this.#withHost((host) =>
-          bakeComposition(host, bundle, { fps, outputFile, ffmpeg, alpha: bundle.manifest.output.alpha }),
+          bakeComposition(host, bundle, {
+            fps,
+            outputFile,
+            ffmpeg,
+            alpha: bundle.manifest.output.alpha,
+            mode: args.bake ?? 'auto',
+            worker: this.#deps.worker?.() ?? null,
+            workDir: dir,
+            ...(log ? { log: (line: string) => log.info(line, { bundleId: bundle.manifest.bundleId }) } : {}),
+          }),
         ).catch((error: unknown) => {
           if (error instanceof CodeBundleError || error instanceof ToolError) throw error;
-          throw new ToolError('COMPOSITION_BAKE_FAILED', `烘焙预渲染失败：${error instanceof Error ? error.message : String(error)}`, {
-            next: '检查 ffmpeg 是否可用（BAOCUT_FFMPEG 或 PATH 里的 ffmpeg）；也可以先用 register: true 只登记代码包',
-          });
+          const reason = error instanceof Error ? error.message : String(error);
+          throw new ToolError('COMPOSITION_BAKE_FAILED', `烘焙预渲染失败：${reason}`, { next: bakeFailureNext(reason) });
         });
       }
 
@@ -304,12 +353,19 @@ export class CompositionService {
           ref: PRERENDER_REF,
         });
       }
-      const imported = await caller.apply(opened, {
-        expectedRevision: args.revision ?? before.revision,
-        label: RcAgentTools.importAssetLabel({ name, place: false }).text,
-        operations,
-        commandId: args.commandId,
-      });
+      // 调用方没给 revision 时，别人同时写入（例如上一段的后台烘焙正在写替身）造成的版本冲突按最新版本重试。
+      const latest = () => current(videos, opened).revision;
+      const imported = await applyRetryingConflicts(
+        (expectedRevision) =>
+          caller.apply(opened, {
+            expectedRevision,
+            label: RcAgentTools.importAssetLabel({ name, place: false }).text,
+            operations,
+            commandId: args.commandId,
+          }),
+        args.revision ?? before.revision,
+        args.revision === undefined ? latest : null,
+      );
       const refs = imported.receipt.refs ?? {};
       const afterImport = current(videos, opened);
       const bundleAssetId = refs[BUNDLE_REF]!;
@@ -321,48 +377,61 @@ export class CompositionService {
         ...(prerenderAssetId ? { prerender: { assetId: prerenderAssetId, revision: prerenderRevision } } : {}),
       };
 
-      // 第二笔：放一个合成片段，源是代码包素材，替身是预渲染；给了 replace 时原地换掉那个片段的代码包与替身。
+      // 第二笔：放一个合成片段，源是代码包素材，替身是预渲染（后台烘焙时先没有替身，长度按清单换算到序列的帧率，与引擎
+      // replaceCodeBundle 没有替身时的算法一致）；给了 replace 时原地换掉那个片段的代码包与替身。
       let itemId: Id | null = null;
       let trackId: Id | null = null;
       let replaced: CodeEdit | undefined;
       let after = imported.receipt.videoRevision;
-      if (target && bake && prerenderAssetId && prerenderRevision) {
+      const prerenderRef: VersionRef | null =
+        prerenderAssetId && prerenderRevision ? { id: prerenderAssetId, revision: prerenderRevision } : null;
+      const placing = !register && (bake !== null || background);
+      if (target && placing) {
         let swapped: EditResult;
         try {
-          swapped = await caller.apply(opened, {
-            expectedRevision: after,
-            label: RcAgentTools.replaceCompositionLabel({ name }).text,
-            operations: [
-              {
-                type: 'replaceCodeBundle',
-                sequenceId: target.sequenceId,
-                itemId: target.itemId,
-                assetRef: { id: bundleAssetId, revision: bundleRevision },
-                prerender: { id: prerenderAssetId, revision: prerenderRevision },
-              },
-            ],
-            commandId: args.commandId !== undefined ? `${args.commandId}-place` : undefined,
-          });
+          swapped = await applyRetryingConflicts(
+            (expectedRevision) =>
+              caller.apply(opened, {
+                expectedRevision,
+                label: RcAgentTools.replaceCompositionLabel({ name }).text,
+                operations: [
+                  {
+                    type: 'replaceCodeBundle',
+                    sequenceId: target.sequenceId,
+                    itemId: target.itemId,
+                    assetRef: { id: bundleAssetId, revision: bundleRevision },
+                    prerender: prerenderRef,
+                  },
+                ],
+                commandId: args.commandId !== undefined ? `${args.commandId}-place` : undefined,
+              }),
+            after,
+            args.revision === undefined ? latest : null,
+          );
         } catch (error) {
           // 引擎的 message 并进上面这句话里：留在 extra 里会盖掉它，模型就看不到第一笔已经提交。
           const { message: engineMessage, ...body } = errorBody(error);
-          throw new ToolError(body.code, `代码包与预渲染已经导入（第一笔已提交），替换片段 ${target.itemId} 失败：${engineMessage}`, {
-            ...body,
-            imported: assets,
-            revision: after,
-            next:
-              body.code === 'TIMELINE_OVERLAP'
-                ? '新版本比原片段长，撞上了同一轨道上后面的片段：先用 edits_apply 的 moveItem 把后面的片段往后挪（或 deleteItems 删掉），再用 edits_apply 的 replaceCodeBundle 完成替换（assetRef 与 prerender 取 imported 里的 bundle 与 prerender，写成 { id: assetId, revision }）；不要重新导入'
-                : '素材已导入：按错误改正后用 edits_apply 的 replaceCodeBundle 完成替换（assetRef 与 prerender 取 imported 里的 bundle 与 prerender，写成 { id: assetId, revision }）；不要重新导入',
-          });
+          throw new ToolError(
+            body.code,
+            `代码包${bake ? '与预渲染' : ''}已经导入（第一笔已提交），替换片段 ${target.itemId} 失败：${engineMessage}`,
+            {
+              ...body,
+              imported: assets,
+              revision: after,
+              next:
+                body.code === 'TIMELINE_OVERLAP'
+                  ? '新版本比原片段长，撞上了同一轨道上后面的片段：先用 edits_apply 的 moveItem 把后面的片段往后挪（或 deleteItems 删掉），再用 edits_apply 的 replaceCodeBundle 完成替换（assetRef 与 prerender 取 imported 里的 bundle 与 prerender，写成 { id: assetId, revision }）；不要重新导入'
+                  : '素材已导入：按错误改正后用 edits_apply 的 replaceCodeBundle 完成替换（assetRef 与 prerender 取 imported 里的 bundle 与 prerender，写成 { id: assetId, revision }）；不要重新导入',
+            },
+          );
         }
         after = swapped.receipt.videoRevision;
         replaced = swapped.receipt.impact.codeEdits?.find((edit) => edit.itemId === target.itemId);
         itemId = target.itemId;
         trackId = target.trackId;
-      } else if (bake && prerenderAssetId && prerenderRevision) {
+      } else if (placing) {
         const fromFrame = Math.round((Number(args.place?.at ?? '0') * fps.num) / fps.den);
-        const span = { fromFrame, durationFrames: bake.frames };
+        const span = { fromFrame, durationFrames: bake ? bake.frames : intrinsicFrames(bundle.manifest.intrinsic, fps) };
         const target = placementTrack(afterImport.sequences[sequence.id]!, args.place?.track, span);
         const item = {
           type: 'composition',
@@ -373,7 +442,7 @@ export class CompositionService {
           source: { kind: 'bundle', assetRef: { id: bundleAssetId, revision: bundleRevision } },
           parameterValues: {},
           timeMap: { kind: 'linear', sourceIn: { ticks: '0', timescale: fps.num }, rate: { num: 1, den: 1 } },
-          prerender: { id: prerenderAssetId, revision: prerenderRevision },
+          ...(prerenderRef ? { prerender: prerenderRef } : {}),
         };
         const placeOps: Record<string, unknown>[] = [
           ...('trackId' in target ? [] : [{ type: 'addTrack', sequenceId: sequence.id, kind: 'visual', ref: TRACK_REF }]),
@@ -381,17 +450,22 @@ export class CompositionService {
         ];
         let placed: EditResult;
         try {
-          placed = await caller.apply(opened, {
-            expectedRevision: after,
-            // 第一期沿用导入素材的文案（「导入 … 并放到时间线上」），不另加文案键。
-            label: RcAgentTools.importAssetLabel({ name, place: true }).text,
-            operations: placeOps,
-            commandId: args.commandId !== undefined ? `${args.commandId}-place` : undefined,
-          });
+          placed = await applyRetryingConflicts(
+            (expectedRevision) =>
+              caller.apply(opened, {
+                expectedRevision,
+                // 第一期沿用导入素材的文案（「导入 … 并放到时间线上」），不另加文案键。
+                label: RcAgentTools.importAssetLabel({ name, place: true }).text,
+                operations: placeOps,
+                commandId: args.commandId !== undefined ? `${args.commandId}-place` : undefined,
+              }),
+            after,
+            args.revision === undefined ? latest : null,
+          );
         } catch (error) {
           // 引擎的 message 并进上面这句话里：留在 extra 里会盖掉它，模型就看不到第一笔已经提交。
           const { message: engineMessage, ...body } = errorBody(error);
-          throw new ToolError(body.code, `代码包与预渲染已经导入（第一笔已提交），放到时间线上失败：${engineMessage}`, {
+          throw new ToolError(body.code, `代码包${bake ? '与预渲染' : ''}已经导入（第一笔已提交），放到时间线上失败：${engineMessage}`, {
             ...body,
             imported: assets,
             revision: after,
@@ -405,6 +479,32 @@ export class CompositionService {
         const inserted = finalVideo.sequences[sequence.id]?.items.find((it) => created.has(it.id) && it.type === 'composition');
         itemId = inserted?.id ?? null;
         trackId = inserted?.trackId ?? ('trackId' in target ? target.trackId : (placedRefs[TRACK_REF] ?? null));
+      }
+
+      // 后台烘焙：实例放好之后提交任务；提交失败时素材与实例已经在视频里，告诉模型怎么补烘。
+      let bakeJobId: Id | null = null;
+      if (background && itemId) {
+        const job: CompositionBakeJob = {
+          sequenceId: target?.sequenceId ?? sequence.id,
+          itemId,
+          bundle: { id: bundleAssetId, revision: bundleRevision },
+          bundleId: bundle.manifest.bundleId,
+          manifestRevision: bundle.manifest.revision,
+          fps,
+          mode: args.bake ?? 'auto',
+        };
+        try {
+          bakeJobId = await this.#submitBake(videoId, opened.ref.path, job, caller.submitter, args.commandId);
+        } catch (error) {
+          const { message: reason, ...body } = errorBody(error);
+          throw new ToolError(body.code, `代码包已导入、片段 ${itemId} 已放好，但提交烘焙任务失败：${reason}`, {
+            ...body,
+            imported: assets,
+            itemId,
+            revision: after,
+            next: '实例没有替身，导出前要烘焙：带 replace: { itemId } 重新导入同一个代码包（不带 background 在前台烘焙）',
+          });
+        }
       }
 
       const finalVideo = current(videos, opened);
@@ -448,14 +548,189 @@ export class CompositionService {
             : null,
         itemId,
         trackId,
+        bake: bake ? bake.bake : null,
+        bakeJobId,
         item: itemId ? placementOf(finalVideo, itemId) : null,
         ...(replaced ? { replaced } : {}),
       };
     } catch (error) {
       throw toolError(error);
     } finally {
+      if (bakeDir && bakeDir !== work) await fs.rm(bakeDir, { recursive: true, force: true }).catch(() => {});
       await fs.rm(work, { recursive: true, force: true }).catch(() => {});
     }
+  }
+
+  /**
+   * 提交后台烘焙任务（代码包规范 §7.5）。暂存目录放在视频所在卷的 `blobs/.staging`（与替身素材同卷，导入时同卷复制），建不了时用
+   * Runtime Home。任务进行中视频由租约保持打开，任务终结时放开。
+   */
+  async #submitBake(
+    videoId: Id,
+    videoDir: string,
+    job: CompositionBakeJob,
+    submitter: JobSubmitter,
+    commandId: string | undefined,
+  ): Promise<Id> {
+    const { videos } = this.#deps;
+    const jobs = this.#deps.jobs!;
+    const spec = { task: 'bake' as const, videoId, itemId: job.itemId, bundle: job.bundle, fps: job.fps, mode: job.mode };
+    const hash = `sha256:${sha256Hex(canonicalJson(spec))}`;
+    const stagingParent = path.join(videoDir, 'blobs', '.staging');
+    const staged = await fs.mkdir(stagingParent, { recursive: true }).then(
+      () => true,
+      () => false,
+    );
+    videos.retain(videoId);
+    let jobId: Id;
+    try {
+      ({ jobId } = jobs.submitTask(
+        {
+          kind: 'bake',
+          spec,
+          videoId,
+          contentHash: hash,
+          inputHash: hash,
+          providerId: 'local',
+          modelId: `bake:${job.mode}`,
+          extra: { bake: job },
+          ...(commandId !== undefined ? { commandId: `${commandId}-bake` } : {}),
+          queue: BAKE_QUEUE,
+          ...(staged ? { stagingParent } : {}),
+          run: (task) => this.#runBake(task, videoId, job),
+        },
+        submitter,
+      ));
+    } catch (error) {
+      videos.release(videoId);
+      throw error;
+    }
+    const release = () => {
+      try {
+        videos.release(videoId);
+      } catch {
+        // 视频已经关掉（删除、Runtime 停止）：没有租约可放。
+      }
+    };
+    void jobs.settled(jobId).then(release, release);
+    this.#deps.log?.info('Composition bake submitted', { videoId, itemId: job.itemId, jobId });
+    return jobId;
+  }
+
+  /**
+   * 后台烘焙任务的执行：从代码包素材重新读包、烘焙到任务的暂存目录，再核对实例还是提交时的样子（同一个代码包、线性从 0 起的
+   * `timeMap`），以两笔写入替身。结果的 `artifactId` 是替身的 `<assetId>@<revision>`。
+   */
+  async #runBake(task: TaskRun, videoId: Id, job: CompositionBakeJob): Promise<NonNullable<JobRecord['result']>> {
+    const { videos } = this.#deps;
+    const located = await videos.assetFile(videoId, job.bundle.id, job.bundle.revision);
+    const dir = path.resolve(located.root, located.file);
+    let bake: BakeResult;
+    try {
+      const bundle = await inspectBundle(dir, { stagingDir: path.join(task.staging, 'bundle') });
+      const outputFile = path.join(task.staging, `${safeName(job.bundleId)}-${safeName(job.manifestRevision)}.mov`);
+      const ffmpeg = await this.#deps.ffmpeg();
+      const log = this.#deps.log;
+      task.phase('encoding', { done: 0, total: null, unit: 'frames' });
+      bake = await this.#withHost((host) =>
+        bakeComposition(host, bundle, {
+          fps: job.fps,
+          outputFile,
+          ffmpeg,
+          alpha: bundle.manifest.output.alpha,
+          mode: job.mode,
+          worker: this.#deps.worker?.() ?? null,
+          workDir: task.staging,
+          signal: task.signal,
+          onProgress: (done, total) => task.phase('encoding', { done, total, unit: 'frames' }),
+          ...(log ? { log: (line: string) => log.info(line, { bundleId: job.bundleId, jobId: task.jobId }) } : {}),
+        }),
+      );
+    } catch (error) {
+      if (task.signal.aborted) throw error;
+      throw bakeFailure(error);
+    }
+    task.phase('applying');
+    const record: BakeRecord = {
+      bakedAssetRef: { id: job.bundleId, revision: job.manifestRevision },
+      sourceBundleRef: { id: job.bundleId, revision: job.manifestRevision },
+      parameterValuesHash: bake.parameterValuesHash,
+      timeMapHash: bake.timeMapHash,
+      outputProfileHash: bake.outputProfileHash,
+      bakedAt: new Date().toISOString(),
+      status: 'current',
+      encoding: bake.encoding,
+    };
+    const snapshot = () => {
+      const video = videos.mirror(videoId)?.video;
+      if (!video) throw taskFailure('VIDEO_NOT_OPEN', RcVideo.videoNotOpenOpenFirst());
+      return video;
+    };
+    // 实例还在、还是这个代码包、还是线性从 0 起（变速或裁掉开头后替身的局部时间就对不上烘焙的帧）才写；否则烘焙的替身没有归宿。
+    const guard = (video: VideoSnapshot) => {
+      const item = video.sequences[job.sequenceId]?.items.find((it) => it.id === job.itemId);
+      if (!item || item.type !== 'composition') return null;
+      const ref = item.source.assetRef;
+      if (ref.id !== job.bundle.id || ref.revision !== job.bundle.revision) return null;
+      const map = item.timeMap;
+      if (map.kind !== 'linear' || map.sourceIn.ticks !== '0' || map.rate.num !== map.rate.den) return null;
+      return item;
+    };
+    if (!guard(snapshot())) throw taskFailure('COMPOSITION_BAKE_SUPERSEDED', RcVideo.compositionBakeSuperseded());
+    const name = path.basename(bake.file);
+    const imported = await retryingConflicts(() =>
+      videos.applyAs(
+        {
+          videoId,
+          commandId: `${task.jobId}-prerender`,
+          expectedRevision: snapshot().revision,
+          label: RcAgentTools.importAssetLabel({ name, place: false }).text,
+          operations: [
+            {
+              type: 'importAsset',
+              path: bake.file,
+              name,
+              storage: 'managed',
+              provenance: { origin: BAKE_PROVENANCE_ORIGIN, source: record },
+              ref: PRERENDER_REF,
+            },
+          ],
+        } as never,
+        BAKE_ACTOR,
+      ),
+    );
+    const prerenderAssetId = imported.receipt.refs?.[PRERENDER_REF];
+    const prerenderRevision = prerenderAssetId ? snapshot().assets[prerenderAssetId]?.currentRevision : undefined;
+    if (!prerenderAssetId || !prerenderRevision) {
+      throw taskFailure('COMPOSITION_BAKE_FAILED', RcVideo.compositionBakeFailed({ code: 'PRERENDER_IMPORT' }), {
+        detail: 'The receipt of the prerender import has no asset reference',
+      });
+    }
+    const prerender: VersionRef = { id: prerenderAssetId, revision: prerenderRevision };
+    const swapped = await retryingConflicts(() => {
+      const video = snapshot();
+      const item = guard(video);
+      if (!item) throw taskFailure('COMPOSITION_BAKE_SUPERSEDED', RcVideo.compositionBakeSuperseded(), { prerender });
+      return videos.applyAs(
+        {
+          videoId,
+          commandId: `${task.jobId}-place`,
+          expectedRevision: video.revision,
+          label: RcAgentTools.replaceCompositionLabel({ name: item.name?.trim() || job.bundleId }).text,
+          operations: [{ type: 'replaceCodeBundle', sequenceId: job.sequenceId, itemId: job.itemId, assetRef: job.bundle, prerender }],
+        } as never,
+        BAKE_ACTOR,
+      );
+    });
+    const edit = swapped.receipt.impact.codeEdits?.find((e) => e.itemId === job.itemId);
+    if (edit && edit.oldDurationFrames !== edit.newDurationFrames) {
+      task.warn({
+        code: 'COMPOSITION_BAKE_LENGTH_ADJUSTED',
+        detail: `${job.itemId}: ${edit.oldDurationFrames} -> ${edit.newDurationFrames} frames`,
+      });
+    }
+    this.#deps.log?.info('Composition bake applied', { videoId, itemId: job.itemId, jobId: task.jobId, frames: bake.frames });
+    return { documentId: null, artifactId: `${prerender.id}@${prerender.revision}`, bake: bake.bake };
   }
 
   /** 预览：按合成内部的时刻取帧，写成 PNG（同一时刻再取时覆盖）。不改视频、不验证、不烘焙。 */
@@ -717,6 +992,78 @@ function placementOf(video: VideoSnapshot, itemId: Id): CompositionPlacement | n
   return null;
 }
 
+/** 清单长度换算到序列的帧率（向下取整），与引擎 `replaceCodeBundle` 没有替身时一致；最少一帧。 */
+function intrinsicFrames(intrinsic: { durationFrames: number; fps: Rate }, fps: Rate): number {
+  return Math.max(1, Math.floor((intrinsic.durationFrames * intrinsic.fps.den * fps.num) / (intrinsic.fps.num * fps.den)));
+}
+
+/** 写入替身的一笔：版本冲突（别人同时在改）重试，其他错误原样抛。 */
+async function retryingConflicts<T>(write: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await write();
+    } catch (error) {
+      const details = error instanceof RpcError ? (error.details as { code?: unknown } | undefined) : undefined;
+      if (
+        attempt < BAKE_WRITE_ATTEMPTS &&
+        error instanceof RpcError &&
+        error.code === 'conflict' &&
+        details?.code === 'PROJECT_REVISION_CONFLICT'
+      )
+        continue;
+      throw error;
+    }
+  }
+}
+
+/** 后台烘焙失败 → 任务错误：代码包与工具的错误保留错误码，原话放进 details；其他的记 COMPOSITION_BAKE_FAILED。 */
+function bakeFailure(error: unknown): unknown {
+  if (error instanceof CodeBundleError) {
+    return taskFailure(error.code, RcVideo.compositionBakeFailed({ code: error.code }), {
+      detail: error.message,
+      ...(error.details !== undefined ? { details: error.details } : {}),
+    });
+  }
+  if (error instanceof ToolError)
+    return taskFailure(error.code, RcVideo.compositionBakeFailed({ code: error.code }), { detail: error.message, ...error.extra });
+  if (error instanceof RpcError) return error;
+  const detail = error instanceof Error ? error.message : String(error);
+  return taskFailure('COMPOSITION_BAKE_FAILED', RcVideo.compositionBakeFailed({ code: 'COMPOSITION_BAKE_FAILED' }), {
+    detail,
+    next: bakeFailureNext(detail),
+  });
+}
+
+// i18n-ignore-start: 给模型的工具说明、错误与下一步
+/** 烘焙失败的下一步：指令烘焙画不出来（`bake: 'ops'`）是代码包的画法问题；其余多半是 ffmpeg。 */
+function bakeFailureNext(reason: string): string {
+  if (/instruction bake cannot render|CANVAS_OPS_UNSUPPORTED/.test(reason)) {
+    return '指令烘焙画不出这个包：每帧开头先 setTransform(1, 0, 0, 1, 0, 0) 再整幅 clearRect 或不透明的整幅 fillRect（铺满画布的 drawImage 不算清屏），只用 Canvas 2D 的绘制调用；或改 bake: "auto" 退回浏览器逐帧截图';
+  }
+  return '检查 ffmpeg 是否可用（BAOCUT_FFMPEG 或 PATH 里的 ffmpeg）；也可以先用 register: true 只登记代码包';
+}
+// i18n-ignore-end
+
+/**
+ * 导入的一笔写入：`pinned` 是这一笔要求的版本；`latest` 给出时（调用方没有自己钉住版本），版本冲突按当时的最新版本重试
+ * 几次（并发的后台烘焙在写替身时就会这样），否则原样抛。
+ */
+async function applyRetryingConflicts(
+  write: (expectedRevision: string) => Promise<EditResult>,
+  pinned: string,
+  latest: (() => string) | null,
+): Promise<EditResult> {
+  let expected = pinned;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await write(expected);
+    } catch (error) {
+      if (!latest || attempt >= BAKE_WRITE_ATTEMPTS || errorBody(error).code !== 'PROJECT_REVISION_CONFLICT') throw error;
+      expected = latest();
+    }
+  }
+}
+
 /** 验证没通过：第一项失败的检查给出错误码与下一步，全部检查放进错误。 */
 function verificationError(report: CodeBundleVerificationReport): ToolError {
   const failed = report.checks.filter((c): c is CodeBundleCheck & { status: 'failed' } => c.status === 'failed');
@@ -765,4 +1112,18 @@ function safeName(text: string): string {
 
 function round(value: number): number {
   return Math.round(value * 1000) / 1000;
+}
+
+/**
+ * 烘焙的工作目录：视频目录的 `blobs/.staging/` 下（视频格式规范：发布前的临时区，引擎 GC 清掉超过 1 小时的残留），与预渲染素材同卷；
+ * 建不了（只读、不是本地目录）时用 `fallback`。调用方的 `fallback` 清理时一并删掉；放在视频里的由 `finally` 删。
+ */
+async function bakeDirectory(videoDir: string, fallback: string): Promise<string> {
+  try {
+    const staging = path.join(videoDir, 'blobs', '.staging');
+    await fs.mkdir(staging, { recursive: true });
+    return await fs.mkdtemp(path.join(staging, 'composition-bake-'));
+  } catch {
+    return fallback;
+  }
 }

@@ -121,6 +121,7 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
     systemNotes: DesignSystemAnnotation[],
     videoNotes: VideoAnnotation[],
     docsNotes: DocsAnnotation[],
+    skipProjectBrand: boolean,
   ) => {
     const context = await editor.capture();
     useShell.getState().setQueue(conversationId, (queue) =>
@@ -135,6 +136,7 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
         ...(systemNotes.length ? { designSystemAnnotations: systemNotes } : {}),
         ...(videoNotes.length ? { videoAnnotations: videoNotes } : {}),
         ...(docsNotes.length ? { docsAnnotations: docsNotes } : {}),
+        ...(skipProjectBrand ? { skipProjectBrand } : {}),
         queuedAt: nowIso(),
       }),
     );
@@ -276,7 +278,7 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
           if (failedDocs.length) ToastQueue.negative(DOCS.flushFailed(failedDocs), { timeout: 5000 });
           return !failedSlides.length && !failedDesigns.length && !failedSystems.length && !failedDocs.length;
         }}
-        onSend={async (input, attachments, skills) => {
+        onSend={async (input, attachments, skills, { skipProjectBrand }) => {
           // 幻灯片、设计稿、设计系统、视频与协作文档标注（§8.2、§10.6、docs §8）：只带标注、没写话时补一句；发出去（或排进队列）后从草稿里摘掉。
           const drafted = useDraftSlideAnnotations.getState().annotations[conversationId] ?? [];
           const draftedDesigns = useDraftDesignAnnotations.getState().annotations[conversationId] ?? [];
@@ -308,7 +310,7 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
           };
           // 前面还有排队的：排到最后，保持先后；会话空着就先发队首那一条。
           if (busy || useShell.getState().queues[conversationId]?.length) {
-            await enqueue(text, attachments, skills, notes, designNotes, systemNotes, videoNotes, docsNotes);
+            await enqueue(text, attachments, skills, notes, designNotes, systemNotes, videoNotes, docsNotes, skipProjectBrand);
             sentNotes();
             if (!busy)
               void drainQueue(runtime, conversationId).then((result) => {
@@ -329,6 +331,7 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
               systemNotes,
               videoNotes,
               docsNotes,
+              { skipProjectBrand },
             );
             editor.reset();
             sentNotes();
@@ -336,7 +339,7 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
           } catch (error) {
             // 刚好有任务开跑（别的窗口、别的入口）：这句话排队，不丢。
             if (error instanceof RpcError && error.code === 'busy') {
-              await enqueue(text, attachments, skills, notes, designNotes, systemNotes, videoNotes, docsNotes);
+              await enqueue(text, attachments, skills, notes, designNotes, systemNotes, videoNotes, docsNotes, skipProjectBrand);
               sentNotes();
               return true;
             }

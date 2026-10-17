@@ -1,6 +1,7 @@
 import type { ProtocolValidationMessages } from './protocol-validation.ts';
 
 export const ja: ProtocolValidationMessages = {
+  duplicatePaths: '同じパスは一度しか指定できません',
   listSeparator: '、',
   notEmpty: '空にはできません',
   noSurroundingSpace: '先頭と末尾に空白を入れることはできません',

@@ -3,7 +3,8 @@
 //! （image 直引 / video 顺序解码），DrawBitmap 直接取帧内的位图侧表。
 
 use crate::drawop::{
-    AssociatedBlend, DrawOp, FrameOps, MatteMode, PaintData, PathData, StaticPrefix,
+    AssociatedBlend, BitmapData, Color4, DrawOp, FrameOps, MatteMode, PaintData, PathData,
+    StaticPrefix,
 };
 use crate::emissive::{
     composite_associated, composite_associated_with_blend, has_emissive_components,
@@ -75,6 +76,152 @@ use tiny_skia::{
 struct ClipEntry {
     mask: Mask,
     layer_depth: usize,
+}
+
+/// 层栈的一格：`PushLayer`（整幅）、`PushMatte`（整幅遮罩源）或 `PushShadow`（设备空间窗口）。
+struct Layer {
+    pixmap: Pixmap,
+    opacity: f32,
+    blend: tiny_skia::BlendMode,
+    shadow: Option<ShadowWindow>,
+}
+
+/// `PushShadow` 打开的窗口：层内绘制平移 `-origin`、不裁剪，`PopShadow` 时才合成。
+struct ShadowWindow {
+    color: Color4,
+    sigma: f32,
+    offset: [f32; 2],
+    origin: (i32, i32),
+    /// 窗口为空（内容整个落在可见范围外）：层内照常执行，`PopShadow` 什么都不画。
+    empty: bool,
+}
+
+/// 设备空间平移 `-origin`（阴影窗口内的绘制）；不在窗口里时原样返回。
+fn place(transform: Transform, origin: Option<(i32, i32)>) -> Transform {
+    match origin {
+        Some((x, y)) => transform.post_translate(-(x as f32), -(y as f32)),
+        None => transform,
+    }
+}
+
+fn with_blend<'a>(paint: &Paint<'a>, blend: tiny_skia::BlendMode) -> Paint<'a> {
+    let mut paint = paint.clone();
+    paint.blend_mode = blend;
+    paint
+}
+
+fn to_quality(code: u8) -> FilterQuality {
+    match code {
+        0 => FilterQuality::Nearest,
+        2 => FilterQuality::Bicubic,
+        _ => FilterQuality::Bilinear,
+    }
+}
+
+/// 一次盒式模糊：输出 `i` 取 `[i - left, i + right]` 的均值，窗口外按 0（透明）计。
+fn box_pass(src: &[f32], dst: &mut [f32], len: usize, rows: usize, left: usize, right: usize) {
+    let size = (left + right + 1) as f32;
+    for row in 0..rows {
+        let line = &src[row * len..(row + 1) * len];
+        let out = &mut dst[row * len..(row + 1) * len];
+        let mut sum = 0.0f32;
+        for value in line.iter().take(right.min(len)) {
+            sum += value;
+        }
+        for i in 0..len {
+            if i + right < len {
+                sum += line[i + right];
+            }
+            out[i] = sum / size;
+            if i >= left {
+                sum -= line[i - left];
+            }
+        }
+    }
+}
+
+fn transpose(src: &[f32], dst: &mut [f32], width: usize, height: usize) {
+    for y in 0..height {
+        for x in 0..width {
+            dst[x * height + y] = src[y * width + x];
+        }
+    }
+}
+
+/// 沿行做一维高斯模糊（σ 以像素计）。σ ≥ 2 用 W3C filter-effects 的三次盒式近似
+/// （Skia 同法），更小的 σ 直接卷积高斯核。
+fn blur_rows(data: &mut [f32], scratch: &mut [f32], len: usize, rows: usize, sigma: f32) {
+    if sigma >= 2.0 {
+        let d = (sigma * 3.0 * (2.0 * std::f32::consts::PI).sqrt() / 4.0 + 0.5).floor() as usize;
+        let d = d.max(1);
+        let passes = if d % 2 == 1 {
+            let r = (d - 1) / 2;
+            [(r, r), (r, r), (r, r)]
+        } else {
+            [(d / 2, d / 2 - 1), (d / 2 - 1, d / 2), (d / 2, d / 2)]
+        };
+        for (left, right) in passes {
+            box_pass(data, scratch, len, rows, left, right);
+            data.copy_from_slice(scratch);
+        }
+        return;
+    }
+    let radius = (sigma * 3.0).ceil() as usize;
+    let kernel: Vec<f32> = (0..=radius)
+        .map(|i| (-((i * i) as f32) / (2.0 * sigma * sigma)).exp())
+        .collect();
+    let norm = kernel[0] + 2.0 * kernel[1..].iter().sum::<f32>();
+    for row in 0..rows {
+        let line = &data[row * len..(row + 1) * len];
+        let out = &mut scratch[row * len..(row + 1) * len];
+        for (i, slot) in out.iter_mut().enumerate() {
+            let mut sum = line[i] * kernel[0];
+            for (k, weight) in kernel.iter().enumerate().skip(1) {
+                if i >= k {
+                    sum += line[i - k] * weight;
+                }
+                if i + k < len {
+                    sum += line[i + k] * weight;
+                }
+            }
+            *slot = sum / norm;
+        }
+    }
+    data.copy_from_slice(scratch);
+}
+
+/// `PopShadow` 的阴影图：窗口 alpha 经高斯模糊后乘阴影色（直通 RGBA → 预乘）。
+fn shadow_pixmap(window: &Pixmap, color: &Color4, sigma: f32) -> Option<Pixmap> {
+    let (width, height) = (window.width() as usize, window.height() as usize);
+    let mut alpha: Vec<f32> = window
+        .data()
+        .chunks_exact(4)
+        .map(|pixel| f32::from(pixel[3]) / 255.0)
+        .collect();
+    if sigma > 0.0 {
+        let mut scratch = vec![0.0f32; alpha.len()];
+        blur_rows(&mut alpha, &mut scratch, width, height, sigma);
+        transpose(&alpha, &mut scratch, width, height);
+        std::mem::swap(&mut alpha, &mut scratch);
+        blur_rows(&mut alpha, &mut scratch, height, width, sigma);
+        transpose(&alpha, &mut scratch, height, width);
+        std::mem::swap(&mut alpha, &mut scratch);
+    }
+    let a = color[3].clamp(0.0, 1.0);
+    let premul = [
+        color[0].clamp(0.0, 1.0) * a,
+        color[1].clamp(0.0, 1.0) * a,
+        color[2].clamp(0.0, 1.0) * a,
+        a,
+    ];
+    let mut out = Pixmap::new(window.width(), window.height())?;
+    for (pixel, coverage) in out.data_mut().chunks_exact_mut(4).zip(alpha) {
+        let coverage = coverage.clamp(0.0, 1.0);
+        for (channel, value) in pixel.iter_mut().zip(premul) {
+            *channel = (value * coverage * 255.0 + 0.5) as u8;
+        }
+    }
+    Some(out)
 }
 
 fn to_paint(c: &[f32; 4]) -> Paint<'static> {
@@ -216,7 +363,7 @@ fn to_color(c: &[f32; 4]) -> Color {
 /// `transform` 因此恒为 identity——`fill_path` 会把 `tf` 一并施加上去。
 /// 退化几何（起止点重合 / 半径 ≤ 0 / 只有一个色标）折成末标纯色：tiny-skia
 /// 会拒绝构造这类 shader，静默不画比画错更难查。
-fn paint_from(data: &PaintData) -> Paint<'static> {
+fn paint_from<'a>(data: &PaintData, bitmaps: &'a [BitmapData]) -> Result<Paint<'a>> {
     let mut paint = Paint::default();
     paint.anti_alias = true;
     let stops = |src: &[crate::drawop::GradientStop]| -> Vec<GradientStop> {
@@ -263,8 +410,32 @@ fn paint_from(data: &PaintData) -> Paint<'static> {
                 None => paint.set_color(fallback(st)),
             }
         }
+        PaintData::Pattern {
+            bitmap,
+            repeat,
+            quality,
+            opacity,
+            transform,
+        } => {
+            let data = bitmaps
+                .get(*bitmap as usize)
+                .ok_or_else(|| anyhow!("PATTERN_BITMAP_MISSING: {bitmap}"))?;
+            let pixels = PixmapRef::from_bytes(&data.rgba, data.width, data.height)
+                .ok_or_else(|| anyhow!("PATTERN_BITMAP_SIZE_INVALID: {bitmap}"))?;
+            paint.shader = tiny_skia::Pattern::new(
+                pixels,
+                if *repeat {
+                    SpreadMode::Repeat
+                } else {
+                    SpreadMode::Pad
+                },
+                to_quality(*quality),
+                opacity.clamp(0.0, 1.0),
+                to_tf(transform),
+            );
+        }
     }
-    paint
+    Ok(paint)
 }
 
 fn to_cap(code: u8) -> LineCap {
@@ -493,7 +664,11 @@ pub fn rasterize_with_media_into(
     // path 侧表按需物化（见 [`LazyPaths`]）
     let paths = LazyPaths::new(&frame.paths);
 
-    let paints: Vec<Paint<'static>> = frame.paints.iter().map(paint_from).collect();
+    let paints = frame
+        .paints
+        .iter()
+        .map(|paint| paint_from(paint, &frame.bitmaps))
+        .collect::<Result<Vec<_>>>()?;
 
     let recycled = canvas.filter(|canvas| (canvas.width(), canvas.height()) == (width, height));
     let dirty = recycled.is_some();
@@ -525,16 +700,18 @@ pub fn rasterize_with_media_into(
     }
     // 层栈：(离屏层, 合成不透明度, 混合模式)。遮罩源层用 `None` 的混合模式区分
     // ——它不回贴画面，只在 `PopMatte` 时折进下面那一层的 alpha。
-    let mut layers: Vec<(Pixmap, f32, tiny_skia::BlendMode)> = Vec::new();
+    let mut layers: Vec<Layer> = Vec::new();
     // 遮罩源层在 `layers` 里的下标（`PushMatte` 压入，`PopMatte` 弹出）。
     let mut mattes: Vec<usize> = Vec::new();
     // 裁剪栈：栈顶是当前生效的累积 mask（逐层求交）
     let mut clips: Vec<ClipEntry> = Vec::new();
+    // `PushBlend` 栈：(混合模式, 压栈时的层深)。只作用于同一层深的绘制。
+    let mut blends: Vec<(tiny_skia::BlendMode, usize)> = Vec::new();
 
     macro_rules! target {
         () => {
             match layers.last_mut() {
-                Some((l, _, _)) => l,
+                Some(layer) => &mut layer.pixmap,
                 None => &mut base,
             }
         };
@@ -550,7 +727,21 @@ pub fn rasterize_with_media_into(
             }
             store_at = None;
         }
-        let clip = clips.last().map(|entry| &entry.mask);
+        // 阴影窗口里的绘制平移到窗口坐标、不裁剪（裁剪在 `PopShadow` 合成时生效）。
+        let origin = layers
+            .last()
+            .and_then(|layer| layer.shadow.as_ref())
+            .map(|shadow| shadow.origin);
+        let clip = if origin.is_some() {
+            None
+        } else {
+            clips.last().map(|entry| &entry.mask)
+        };
+        let blend = match blends.last() {
+            Some(&(mode, depth)) if depth == layers.len() => mode,
+            _ => tiny_skia::BlendMode::SourceOver,
+        };
+        let plain = blend == tiny_skia::BlendMode::SourceOver;
         // 透明清屏预乘后是全零，落在全零的新底图上什么都不改；别的指令（含开层）之后底图就不算新的了。
         let blank = untouched && matches!(op, DrawOp::Clear { color } if color[3] <= 0.0 && !color.iter().any(|c| c.is_nan()));
         untouched = blank;
@@ -581,16 +772,22 @@ pub fn rasterize_with_media_into(
                 {
                     target!().fill_path(
                         &path,
-                        &to_paint(color),
+                        &with_blend(&to_paint(color), blend),
                         FillRule::Winding,
-                        to_tf(tf),
+                        place(to_tf(tf), origin),
                         clip,
                     );
                 }
             }
             DrawOp::FillPath { path, color, tf } => {
                 if let Some(Some(p)) = paths.get(*path as usize) {
-                    target!().fill_path(p, &to_paint(color), FillRule::Winding, to_tf(tf), clip);
+                    target!().fill_path(
+                        p,
+                        &with_blend(&to_paint(color), blend),
+                        FillRule::Winding,
+                        place(to_tf(tf), origin),
+                        clip,
+                    );
                 }
             }
             DrawOp::StrokePath {
@@ -606,7 +803,13 @@ pub fn rasterize_with_media_into(
                         line_join: LineJoin::Round,
                         ..Default::default()
                     };
-                    target!().stroke_path(p, &to_paint(color), &stroke, to_tf(tf), clip);
+                    target!().stroke_path(
+                        p,
+                        &with_blend(&to_paint(color), blend),
+                        &stroke,
+                        place(to_tf(tf), origin),
+                        clip,
+                    );
                 }
             }
             DrawOp::DrawMedia {
@@ -637,8 +840,10 @@ pub fn rasterize_with_media_into(
                     }
                     _ => (to_tf(tf), *src),
                 };
+                let tf = place(tf, origin);
                 let paint = PixmapPaint {
                     quality: FilterQuality::Bilinear,
+                    blend_mode: blend,
                     ..Default::default()
                 };
                 // 源裁剪（fit: cover）：全零 = 整幅源
@@ -654,10 +859,13 @@ pub fn rasterize_with_media_into(
                         .as_ref()
                         .clone_rect(rect)
                         .ok_or_else(|| anyhow!("DrawMedia 裁剪越界 {src:?}"))?;
-                    if clip.is_some() || !copy_over(target!(), cropped.as_ref(), tf) {
+                    if clip.is_some() || !plain || !copy_over(target!(), cropped.as_ref(), tf) {
                         target!().draw_pixmap(0, 0, cropped.as_ref(), &paint, tf, clip);
                     }
-                } else if clip.is_some() || !copy_over(target!(), pm.as_ref().as_ref(), tf) {
+                } else if clip.is_some()
+                    || !plain
+                    || !copy_over(target!(), pm.as_ref().as_ref(), tf)
+                {
                     target!().draw_pixmap(0, 0, pm.as_ref().as_ref(), &paint, tf, clip);
                 }
             }
@@ -671,6 +879,9 @@ pub fn rasterize_with_media_into(
                 // offscreen group and subsequently applying source-over changes it.
                 if *blend == AssociatedBlend::Screen && (!layers.is_empty() || !mattes.is_empty()) {
                     return Err(anyhow!("ASSOCIATED_SCREEN_OFFSCREEN_UNSUPPORTED"));
+                }
+                if !plain || origin.is_some() {
+                    return Err(anyhow!("EMISSIVE_BLEND_UNSUPPORTED"));
                 }
                 let data = frame
                     .bitmaps
@@ -708,9 +919,9 @@ pub fn rasterize_with_media_into(
                     &PixmapPaint {
                         opacity: opacity.clamp(0.0, 1.0),
                         quality: FilterQuality::Bilinear,
-                        ..Default::default()
+                        blend_mode: blend,
                     },
-                    to_tf(tf),
+                    place(to_tf(tf), origin),
                     clip,
                 );
             }
@@ -731,7 +942,13 @@ pub fn rasterize_with_media_into(
                 } else {
                     FillRule::Winding
                 };
-                target!().fill_path(p, paint, rule, to_tf(tf), clip);
+                target!().fill_path(
+                    p,
+                    &with_blend(paint, blend),
+                    rule,
+                    place(to_tf(tf), origin),
+                    clip,
+                );
             }
             DrawOp::StrokePathPaint {
                 path,
@@ -755,18 +972,159 @@ pub fn rasterize_with_media_into(
                     miter_limit: miter.max(1.0),
                     ..Default::default()
                 };
-                target!().stroke_path(p, paint, &stroke, to_tf(tf), clip);
+                target!().stroke_path(
+                    p,
+                    &with_blend(paint, blend),
+                    &stroke,
+                    place(to_tf(tf), origin),
+                    clip,
+                );
+            }
+            DrawOp::StrokePathDash {
+                path,
+                paint,
+                width: sw,
+                cap,
+                join,
+                miter,
+                dash,
+                dash_offset,
+                tf,
+            } => {
+                let Some(Some(p)) = paths.get(*path as usize) else {
+                    return Err(anyhow!("StrokePathDash references unknown path {path}"));
+                };
+                let Some(paint) = paints.get(*paint as usize) else {
+                    return Err(anyhow!("StrokePathDash references unknown paint {paint}"));
+                };
+                // 不合法的虚线（奇数项、和不为正）构造不出来：与 Canvas 一样什么都不画。
+                if let Some(dash) = tiny_skia::StrokeDash::new(dash.clone(), *dash_offset) {
+                    let stroke = Stroke {
+                        width: *sw,
+                        line_cap: to_cap(*cap),
+                        line_join: to_join(*join),
+                        miter_limit: miter.max(1.0),
+                        dash: Some(dash),
+                    };
+                    target!().stroke_path(
+                        p,
+                        &with_blend(paint, blend),
+                        &stroke,
+                        place(to_tf(tf), origin),
+                        clip,
+                    );
+                }
+            }
+            DrawOp::PushShadow {
+                color,
+                sigma,
+                offset,
+                window,
+            } => {
+                if origin.is_some() {
+                    return Err(anyhow!("PushShadow inside a shadow window"));
+                }
+                let [x, y, w, h] = *window;
+                let empty = w <= 0 || h <= 0;
+                let (w, h) = if empty { (1, 1) } else { (w as u32, h as u32) };
+                layers.push(Layer {
+                    pixmap: Pixmap::new(w, h).ok_or_else(|| anyhow!("shadow window {w}x{h}"))?,
+                    opacity: 1.0,
+                    blend: tiny_skia::BlendMode::SourceOver,
+                    shadow: Some(ShadowWindow {
+                        color: *color,
+                        sigma: sigma.max(0.0),
+                        offset: *offset,
+                        origin: (x, y),
+                        empty,
+                    }),
+                });
+            }
+            DrawOp::PopShadow => {
+                if blends.last().is_some_and(|&(_, depth)| depth == layers.len()) {
+                    return Err(anyhow!("PopShadow with an open PushBlend inside the window"));
+                }
+                let Some(Layer {
+                    pixmap,
+                    shadow: Some(shadow),
+                    ..
+                }) = layers.pop()
+                else {
+                    return Err(anyhow!("PopShadow without a matching PushShadow"));
+                };
+                if !shadow.empty {
+                    let blend = match blends.last() {
+                        Some(&(mode, depth)) if depth == layers.len() => mode,
+                        _ => tiny_skia::BlendMode::SourceOver,
+                    };
+                    let outer = layers
+                        .last()
+                        .and_then(|layer| layer.shadow.as_ref())
+                        .map(|shadow| shadow.origin);
+                    let clip = if outer.is_some() {
+                        None
+                    } else {
+                        clips.last().map(|entry| &entry.mask)
+                    };
+                    let (ox, oy) = (shadow.origin.0 as f32, shadow.origin.1 as f32);
+                    if let Some(cast) = shadow_pixmap(&pixmap, &shadow.color, shadow.sigma) {
+                        let [dx, dy] = shadow.offset;
+                        let quality = if dx.fract() == 0.0 && dy.fract() == 0.0 {
+                            FilterQuality::Nearest
+                        } else {
+                            FilterQuality::Bilinear
+                        };
+                        target!().draw_pixmap(
+                            0,
+                            0,
+                            cast.as_ref(),
+                            &PixmapPaint {
+                                opacity: 1.0,
+                                blend_mode: blend,
+                                quality,
+                            },
+                            place(Transform::from_translate(ox + dx, oy + dy), outer),
+                            clip,
+                        );
+                    }
+                    target!().draw_pixmap(
+                        0,
+                        0,
+                        pixmap.as_ref(),
+                        &PixmapPaint {
+                            opacity: 1.0,
+                            blend_mode: blend,
+                            quality: FilterQuality::Nearest,
+                        },
+                        place(Transform::from_translate(ox, oy), outer),
+                        clip,
+                    );
+                }
+            }
+            DrawOp::PushBlend { blend: mode } => {
+                blends.push((blend_to_skia(*mode), layers.len()));
+            }
+            DrawOp::PopBlend => {
+                match blends.pop() {
+                    Some((_, depth)) if depth == layers.len() => {}
+                    Some(_) => return Err(anyhow!("PopBlend crosses a layer boundary")),
+                    None => return Err(anyhow!("PopBlend without a matching PushBlend")),
+                }
             }
             DrawOp::PushMatte => {
+                if origin.is_some() {
+                    return Err(anyhow!("PushMatte inside a shadow window"));
+                }
                 if layers.is_empty() {
                     return Err(anyhow!("PushMatte 必须处在某个 PushLayer 之内"));
                 }
                 mattes.push(layers.len());
-                layers.push((
-                    Pixmap::new(width, height).ok_or_else(|| anyhow!("matte layer"))?,
-                    1.0,
-                    tiny_skia::BlendMode::SourceOver,
-                ));
+                layers.push(Layer {
+                    pixmap: Pixmap::new(width, height).ok_or_else(|| anyhow!("matte layer"))?,
+                    opacity: 1.0,
+                    blend: tiny_skia::BlendMode::SourceOver,
+                    shadow: None,
+                });
             }
             DrawOp::PopMatte { mode } => {
                 let mode = MatteMode::from_code(*mode)
@@ -783,16 +1141,23 @@ pub fn rasterize_with_media_into(
                     ));
                 }
                 mattes.pop();
-                let (matte, _, _) = layers.pop().expect("matte layer");
-                let (content, _, _) = layers.last_mut().expect("PushMatte 已保证下面有层");
+                let matte = layers.pop().expect("matte layer").pixmap;
+                let content = &mut layers.last_mut().expect("PushMatte 已保证下面有层").pixmap;
                 apply_matte(content, &matte, mode);
             }
-            DrawOp::PushLayer { opacity, blend } => {
-                layers.push((
-                    Pixmap::new(width, height).ok_or_else(|| anyhow!("layer"))?,
-                    *opacity,
-                    blend_to_skia(*blend),
-                ));
+            DrawOp::PushLayer {
+                opacity,
+                blend: mode,
+            } => {
+                if origin.is_some() {
+                    return Err(anyhow!("PushLayer inside a shadow window"));
+                }
+                layers.push(Layer {
+                    pixmap: Pixmap::new(width, height).ok_or_else(|| anyhow!("layer"))?,
+                    opacity: *opacity,
+                    blend: blend_to_skia(*mode),
+                    shadow: None,
+                });
             }
             DrawOp::PopLayer => {
                 if mattes.last() == Some(&layers.len().saturating_sub(1)) {
@@ -806,7 +1171,18 @@ pub fn rasterize_with_media_into(
                         "PopLayer 时裁剪栈仍有本层压入的 ClipPath：PopClip 不得跨越层边界"
                     ));
                 }
-                let (layer, opacity, blend_mode) = layers
+                if blends.last().is_some_and(|&(_, depth)| depth == layers.len()) {
+                    return Err(anyhow!("PopLayer with an open PushBlend inside the layer"));
+                }
+                if layers.last().is_some_and(|layer| layer.shadow.is_some()) {
+                    return Err(anyhow!("PopLayer closes a shadow window"));
+                }
+                let Layer {
+                    pixmap: layer,
+                    opacity,
+                    blend: blend_mode,
+                    ..
+                } = layers
                     .pop()
                     .ok_or_else(|| anyhow!("PopLayer 无匹配 PushLayer"))?;
                 // 层回贴不受裁剪影响：裁剪已经在层内的每次绘制上生效过了。
@@ -839,6 +1215,9 @@ pub fn rasterize_with_media_into(
                 );
             }
             DrawOp::ClipPath { path, tf } => {
+                if origin.is_some() {
+                    return Err(anyhow!("ClipPath inside a shadow window"));
+                }
                 let Some(Some(p)) = paths.get(*path as usize) else {
                     return Err(anyhow!("ClipPath 引用未知 path {path}"));
                 };
@@ -892,6 +1271,9 @@ pub fn rasterize_with_media_into(
             "帧结束时裁剪栈非空（{} 层未 PopClip）",
             clips.len()
         ));
+    }
+    if !blends.is_empty() {
+        return Err(anyhow!("{} PushBlend left open at frame end", blends.len()));
     }
     Ok(base)
 }

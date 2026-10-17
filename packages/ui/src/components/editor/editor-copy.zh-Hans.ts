@@ -43,6 +43,9 @@ export const zhHans: EditorMessages = {
   emptyOr: '或从右侧的素材面板添加',
   problemsCount: (n: number) => `${n} 处画不出来`,
   problemsTitle: '这一帧有画不出来的内容',
+  livePreview: '实时预览',
+  livePreviewTitle: '实时预览，导出前要烘焙',
+  livePreviewDetail: '这一帧底下的代码包合成是编辑器里实时画出来的，可能与导出有出入。导出只读烘焙好的替身：导出前先烘焙。',
   rendererFailed: (message: string) => `预览渲染模块没有载入：${message}`,
   spectrumTooLarge: (itemId: string, assetId: string, mb: number) =>
     `声波 ${itemId} 听的素材 ${assetId} 超过 ${mb} MB，预览不分析它的声音；导出照常`,

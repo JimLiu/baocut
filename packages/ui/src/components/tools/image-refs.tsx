@@ -1,4 +1,4 @@
-import { useMemo, useState, type DragEvent } from 'react';
+import { useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type ReactNode } from 'react';
 import type { AssetRecord, Id, SpaceEntry } from '@baocut/protocol';
 import {
   ActionButton,
@@ -22,6 +22,7 @@ import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { M as IMG } from '../../model/tools-image-copy.ts';
 import {
   addRefs,
+  editsByPrompt,
   imageRefMode,
   imageRefModes,
   refKey,
@@ -41,15 +42,18 @@ import { IMAGE_COPY } from './tools-copy.ts';
 
 /*
  * 参考图一行与它的用法（设计稿 image-gen.jsx `RefsRow`、`RefModeRow`）：工具页从 Space 的图片里选，编辑器从这个视频的图片素材里选；
- * 桌面端都还能从文件选、把图片拖进来（浏览器里拿不到本机路径，那一项置灰写原因）。认不认、上限几张、能不能以图为底重画看能力描述。
+ * 桌面端都还能从文件选、把图片粘贴或拖进提示词框与这一行（[`ImageRefsZone`]；浏览器里拿不到本机路径，那一项置灰写原因）。
+ * 认不认、上限几张、能不能以图为底重画看能力描述。
  */
 
 const ACCEPTED = new Set(['image/png', 'image/jpeg', 'image/webp']);
 /** 菜单里最多列几张（最近的在前）。 */
 const MENU_LIMIT = 40;
 
-const row = style({
-  display: 'flex',
+const row = style({ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 });
+/** 收图的区域（提示词框连同参考图一行）：拖着图片进来时描一圈虚线。工具页的一节里按列排、间距 8，编辑器面板里照常流式排。 */
+const zone = style({
+  display: { default: 'block', isStack: 'flex' },
   flexDirection: 'column',
   gap: 8,
   minWidth: 0,
@@ -115,11 +119,132 @@ function videoImages(assets: Record<Id, AssetRecord>): AssetRecord[] {
   return Object.values(assets).filter((a) => a.kind === 'image' && ACCEPTED.has(a.revisions[a.currentRevision]?.mediaType ?? ''));
 }
 
-/** 参考图一行：已选的几张（超出上限、找不到的标出来）、加图的菜单、拖进来，和一句说明。 */
+/** 能不能把粘贴、拖进来的图收成参考图：要拿得到本机路径（桌面端），或能把没有路径的图写成临时文件。 */
+function takesLocalImages(host: { pickFiles?: unknown; writeImageRef?: unknown }): boolean {
+  return !!host.pickFiles || !!host.writeImageRef;
+}
+
+/**
+ * 把粘贴或拖进来的图片收成参考图（提示词框与参考图一行都收）。桌面端拿得到本机路径的直接用；截图、从浏览器拖来的图只有字节，
+ * 经宿主写进临时文件（`writeImageRef`）。不是 PNG、JPEG、WebP 的跳过并提示，超出上限的不加并提示。只拦带文件的粘贴，文字照常进
+ * 提示词框；浏览器里拿不到本机路径，带图的粘贴只提示一句，拖放不接。
+ */
+function useImageRefIntake({ draft, option, patch }: Omit<RefsProps, 'source'>) {
+  const runtime = useRuntime();
+  const [over, setOver] = useState(false);
+  const depth = useRef(0);
+  // 写临时文件要等；等完按那时的草稿加，不用事件发生时的旧值。
+  const latest = useRef(draft);
+  latest.current = draft;
+  const info = option.info;
+  const supported = !!info.referenceImages;
+  const local = takesLocalImages(runtime.host);
+  const acceptsDrag = supported && local && refRoom(draft, info) > 0;
+
+  const resolve = async (file: File): Promise<string> => {
+    const path = runtime.host.pathForFile(file);
+    if (path || !runtime.host.writeImageRef) return path;
+    try {
+      return await runtime.host.writeImageRef(new Uint8Array(await file.arrayBuffer()));
+    } catch (error) {
+      ToastQueue.negative(IMG.refsAddFailed(file.name, (error as Error).message), { timeout: 5000 });
+      return '';
+    }
+  };
+
+  const take = async (files: File[]) => {
+    const images = files.filter((f) => ACCEPTED.has(f.type));
+    if (files.length > images.length) ToastQueue.neutral(IMG.refsSkipped(files.length - images.length), { timeout: 4000 });
+    if (!images.length || !info.referenceImages) return;
+    const room = refRoom(latest.current, info);
+    const resolved = await Promise.all(images.slice(0, room).map(async (f) => ({ path: await resolve(f), name: f.name })));
+    const more: ImageRef[] = resolved.flatMap(({ path, name }) => (path ? [{ path, name: name || path.split(/[\\/]/).pop() || path }] : []));
+    const current = latest.current.refs;
+    const { refs, dropped } = addRefs(current, more, refRoom(latest.current, info));
+    if (refs.length !== current.length) patch({ refs });
+    const left = dropped + Math.max(0, images.length - room);
+    if (left > 0) ToastQueue.neutral(IMG.refsNotAdded(info.referenceImages.max, left), { timeout: 4000 });
+  };
+
+  const carriesFiles = (event: DragEvent) => event.dataTransfer.types.includes('Files');
+  const handlers = {
+    onDragEnterCapture: (event: DragEvent) => {
+      if (!acceptsDrag || !carriesFiles(event)) return;
+      event.preventDefault();
+      depth.current++;
+      setOver(true);
+    },
+    onDragOverCapture: (event: DragEvent) => {
+      if (!acceptsDrag || !carriesFiles(event)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+    },
+    // 移进子元素（提示词框、按钮）时也会触发 dragleave：数进出的层数，全离开了才收起描边。
+    onDragLeaveCapture: (event: DragEvent) => {
+      if (!acceptsDrag || !carriesFiles(event)) return;
+      depth.current = Math.max(0, depth.current - 1);
+      if (!depth.current) setOver(false);
+    },
+    onDropCapture: (event: DragEvent) => {
+      if (!acceptsDrag || !carriesFiles(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      depth.current = 0;
+      setOver(false);
+      void take([...event.dataTransfer.files]);
+    },
+    onPasteCapture: (event: ClipboardEvent) => {
+      const files = [...event.clipboardData.files];
+      if (!supported || !files.length) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (!local) {
+        ToastQueue.neutral(IMG.refsWebNote, { timeout: 4000 });
+        return;
+      }
+      void take(files);
+    },
+  };
+  return { over, handlers };
+}
+
+/**
+ * 收参考图的区域：包住提示词框与参考图一行，粘贴、拖进来的图片都收成参考图（[`useImageRefIntake`]）。还没有模型时只是普通容器。
+ * `stack` 在工具页的一节里用（按列排、间距 8）；编辑器面板里不给，照常流式排。
+ */
+export function ImageRefsZone({
+  draft,
+  option,
+  patch,
+  stack = false,
+  children,
+}: Omit<RefsProps, 'source' | 'option'> & { option: ImageOption | null; stack?: boolean; children: ReactNode }) {
+  if (!option) return <div className={zone({ isStack: stack, isOver: false })}>{children}</div>;
+  return (
+    <IntakeZone draft={draft} option={option} patch={patch} stack={stack}>
+      {children}
+    </IntakeZone>
+  );
+}
+
+function IntakeZone({ draft, option, patch, stack, children }: Omit<RefsProps, 'source'> & { stack: boolean; children: ReactNode }) {
+  const { over, handlers } = useImageRefIntake({ draft, option, patch });
+  return (
+    <div className={zone({ isStack: stack, isOver: over })} {...handlers}>
+      {children}
+    </div>
+  );
+}
+
+/** 提示词框的占位文字：按提示词改第一张图时说清要怎么改（含糊的「画完整」之类多半原样出图），别的时候描述画面。 */
+export function imagePromptPlaceholder(draft: ImageDraft, option: ImageOption | null): string {
+  return option && editsByPrompt(draft, option.info) ? IMG.promptEditPlaceholder : IMAGE_COPY.promptPlaceholder;
+}
+
+/** 参考图一行：已选的几张（超出上限、找不到的标出来）、加图的菜单，和一句说明。粘贴与拖放由外面的 [`ImageRefsZone`] 收。 */
 export function ImageRefsRow({ draft, option, patch, source }: RefsProps) {
   const runtime = useRuntime();
   const entries = useSpace((s) => s.entries);
-  const [over, setOver] = useState(false);
   const info = option.info;
   const supported = !!info.referenceImages;
   const room = refRoom(draft, info);
@@ -157,25 +282,7 @@ export function ImageRefsRow({ draft, option, patch, source }: RefsProps) {
     if (paths?.length) add(paths.map((path) => ({ path, name: path.split(/[\\/]/).pop() || path })));
   };
 
-  const acceptsDrop = supported && room > 0 && canPick;
-  const onDragOver = (event: DragEvent) => {
-    if (!acceptsDrop || !event.dataTransfer.types.includes('Files')) return;
-    event.preventDefault();
-    setOver(true);
-  };
-  const onDrop = (event: DragEvent) => {
-    if (!acceptsDrop) return;
-    event.preventDefault();
-    setOver(false);
-    const files = [...event.dataTransfer.files];
-    const images = files.filter((f) => ACCEPTED.has(f.type));
-    if (files.length > images.length) ToastQueue.neutral(IMG.refsSkipped(files.length - images.length), { timeout: 4000 });
-    const refs = images.flatMap((f) => {
-      const path = runtime.host.pathForFile(f);
-      return path ? [{ path, name: f.name }] : [];
-    });
-    if (refs.length) add(refs);
-  };
+  const acceptsDrop = supported && room > 0 && takesLocalImages(runtime.host);
 
   const onAction = (key: string) => {
     if (key === 'file') void pickFiles();
@@ -189,11 +296,7 @@ export function ImageRefsRow({ draft, option, patch, source }: RefsProps) {
   const text = [refsNote(draft, option), acceptsDrop ? IMG.refsDrop : null].filter(Boolean).join(' · ');
 
   return (
-    <div
-      className={row({ isOver: over })}
-      onDragOver={onDragOver}
-      onDragLeave={() => setOver(false)}
-      onDrop={onDrop}>
+    <div className={row}>
       <div className={head}>
         <span className={headLabel}>{IMAGE_COPY.refs}</span>
         {count ? <span className={counter({ isOver: count.over })}>{count.text}</span> : null}

@@ -2,12 +2,13 @@ import {ImageLightbox} from '../media/image-lightbox.tsx';
 import {useShell} from '../../state/shell-store.ts';
 import {IMAGE as IMAGE_COPY} from '../image-preview-copy.ts';
 import { memo, useEffect, useState } from 'react';
-import { localizeText, messageSkills, type AttachmentRef, type Id, type MediaHandle, type TimelineItem } from '@baocut/protocol';
+import { localizeText, messageBrand, messageSkills, type AttachmentRef, type Id, type MediaHandle, type TimelineItem } from '@baocut/protocol';
 import { UserMessage as UserBubble } from '@react-spectrum/ai';
 import { ActionButton, Card, Content, Text } from '@react-spectrum/s2';
 import AIMark from '@react-spectrum/s2/icons/AIMark';
 import AlertTriangle from '@react-spectrum/s2/icons/AlertTriangle';
 import Code from '@react-spectrum/s2/icons/Code';
+import Brand from '@react-spectrum/s2/icons/Brand';
 import Asset from '@react-spectrum/s2/icons/Asset';
 import ImageIcon from '@react-spectrum/s2/icons/Image';
 import InfoCircle from '@react-spectrum/s2/icons/InfoCircle';
@@ -25,6 +26,7 @@ import { useSkills } from '../../state/skills-store.ts';
 import { AgentMarkdown } from './agent-markdown.tsx';
 import { CopyButton } from './copy-button.tsx';
 import { AnnotationsToken, docsTokenItem } from '../annotations-token.tsx';
+import { BRAND_TOKEN_COPY } from '../skills/skills-copy.ts';
 
 type Item<K extends TimelineItem['kind']> = Extract<TimelineItem, { kind: K }>;
 
@@ -171,6 +173,16 @@ export const UserMessage = memo(function UserMessage({ item, conversationId }: {
           <span>{SKILL_COPY.token(skillNameById(skillCatalog, skill.id, skill.name))}</span>
         </div>
       ))}
+      {(() => {
+        // 项目的 BRAND.md（产品设计 §6.9「项目品牌」）：带上了，或用户点掉了（只这一条）。
+        const brand = messageBrand(item);
+        return brand ? (
+          <div className={contextLine} title={brand.path}>
+            <Brand />
+            <span>{brand.state === 'applied' ? BRAND_TOKEN_COPY.chipApplied : BRAND_TOKEN_COPY.chipSkipped}</span>
+          </div>
+        ) : null;
+      })()}
       {item.slideAnnotations?.length ? (
         // 随这条消息交出去的幻灯片标注（docs/design/slides §8.2）：点开看各条，点一条打开那份幻灯片跳到那一页。
         <div className={contextLine}>

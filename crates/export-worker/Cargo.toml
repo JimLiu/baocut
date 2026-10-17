@@ -22,6 +22,8 @@ media-native.workspace = true
 message-ref.workspace = true
 frame-render = { workspace = true, features = ["host"] }
 render-graph.workspace = true
+# 代码包烘焙的指令路线（`canvas-bake`）：Canvas 录制 → DrawOp 的转换与 CPU 光栅。
+render-raster = { workspace = true, features = ["media"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 sha2 = "0.11.0"

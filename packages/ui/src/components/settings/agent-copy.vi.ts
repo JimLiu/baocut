@@ -180,7 +180,7 @@ export const vi: AgentMessages = {
     {
       key: "terminal",
       title: "Muốn điều khiển BaoCut bằng những Agent này từ terminal?",
-      body: "Phiên trong BaoCut không cần thiết lập thêm. Để dùng trong terminal hoặc ứng dụng khác, hãy cài Skill BaoCut cho Agent; xem Cài đặt › Skills.",
+      body: "Phiên trong BaoCut không cần thiết lập thêm. Để dùng trong terminal hoặc ứng dụng khác, hãy cài Skill BaoCut cho Agent; xem cuối trang Skills.",
       link: "skills",
     },
   ] as readonly { key: string; title: string; body: string; link?: "models" | "skills" }[],

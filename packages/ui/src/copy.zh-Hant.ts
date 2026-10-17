@@ -366,7 +366,7 @@ export const zhHant: CopyMessages = {
     modelsMove: '移動模型資料夾',
     toolInstall: '安裝工具',
     toolUpdate: '更新工具',
-    fontDownload: '下載字型',
+    fontDownload: '下載字型', bake: '烘焙程式碼畫面',
     voiceClone: '克隆音色',
     agentTranslate: '翻譯',
     legacyImport: '匯入舊版專案',
@@ -741,7 +741,7 @@ export const zhHant: CopyMessages = {
     unavailableTitle: (name: string) => `${name}尚未提供`,
     notRunning: '服務沒有執行，請先啟動',
     mcpRelated: '想讓終端機裡的 Claude Code、Codex 學會 BaoCut 的工作流程？那要為它們安裝 BaoCut 的 Skill，不需要啟動服務，說明在',
-    mcpRelatedLink: '設定 › Skills',
+    mcpRelatedLink: 'Skills',
   },
   runtimeCard: {
     name: 'BaoCut Runtime',

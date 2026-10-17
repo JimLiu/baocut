@@ -7,6 +7,6 @@ export const es: EngineHostMessages = {
  planKindUnknown: (p) => `Tipo de plan desconocido ${p.kind}`, unknownMethod: (p) => `Método desconocido: ${p.method}`, paramsInvalid: (p) => `Parámetros no válidos: ${p.error}`,
  fontFacesInvalid: (p) => `Proporciona entre 1 y ${p.max} variantes: cada nombre de familia debe tener entre 1 y 200 caracteres y cada peso debe estar entre 1 y 1000`,
  cacheDirRelative: 'cacheDir debe ser absoluto', fontPathRelative: 'path debe ser absoluto', fontInvalid: (p) => `No es un archivo de fuente utilizable: ${p.error}`,
- videoPathRelative: 'La ruta del vídeo debe ser absoluta', videoNotOpen: 'El vídeo no está abierto', taskStopped: 'Esta ejecución se detuvo y el cambio no se confirmó',
+ videoPathRelative: 'La ruta del vídeo debe ser absoluta', petPathRelative: 'Las rutas de la hoja de sprites y de salida deben ser absolutas', petSheetUnreadable: (p) => `No es una hoja de sprites de Codex Pet válida: ${p.error}`, petWriteFailed: (p) => `No se puede escribir la animación de la mascota: ${p.error}`, videoNotOpen: 'El vídeo no está abierto', taskStopped: 'Esta ejecución se detuvo y el cambio no se confirmó',
  afterNotInteger: 'after debe ser un entero decimal', enginePanic: 'El motor falló al procesar la solicitud y el cambio no se confirmó', pathRelative: 'Las rutas deben ser absolutas',
 };

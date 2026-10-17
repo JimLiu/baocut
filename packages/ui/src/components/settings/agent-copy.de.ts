@@ -176,7 +176,7 @@ export const de: AgentMessages = {
     {
       key: 'terminal',
       title: "BaoCut mit diesen Agenten im Terminal steuern?",
-      body: "Sitzungen in BaoCut benötigen keine Einrichtung. Für Terminal oder andere Apps den BaoCut-Skill installieren; siehe Einstellungen › Skills.",
+      body: "Sitzungen in BaoCut benötigen keine Einrichtung. Für Terminal oder andere Apps den BaoCut-Skill installieren; siehe unten auf der Seite Skills.",
       link: "Skills",
     },
   ] as readonly { key: string; title: string; body: string; link?: 'models' | 'skills' }[],

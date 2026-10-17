@@ -478,6 +478,7 @@ const SEQUENCE_SCOPED = new Set([
   'addCuts',
   'restoreCut',
   'acceptCutSuggestions',
+  'setCaptionStyle',
 ]);
 
 export class OperationShapeError extends Error {

@@ -32,6 +32,7 @@ scene-wire = ["external-media-scene"]
 
 [dependencies]
 anyhow = "1.0"
+message-ref = { workspace = true }
 motion = { workspace = true }
 timeline = { workspace = true }
 # workspace 登记处是 `default-features = false`：本 crate 只用 `drawop` 与 `source`，两者在

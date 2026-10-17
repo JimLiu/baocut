@@ -299,6 +299,28 @@ describe('读转写', () => {
     expect(paused.some((text) => text.includes('Transformer')), paused.join('|')).toBe(true);
   });
 
+  it('中文转写一个字一个词时，溢出落在词里就延长到词尾（「修程｜序崩溃」「代｜码审查」）；没有词时间的段按宽度切也不拆词', () => {
+    const body = (text: string) => ({
+      schema: 'baocut.speech/1',
+      timescale: 1000,
+      words: [...text].map((char, i) => ({ id: `w${i}`, start: i * 200, end: i * 200 + 200, text: char })),
+      speakers: [],
+      sentences: null,
+    });
+    const texts = (text: string) => deriveCues(readSpeechWords(body(text))!.words).map((cue) => cue.text);
+    expect(texts('我们今天来讲一讲这个很有名的模型就是它修程序崩溃的问题')).toEqual([
+      '我们今天来讲一讲这个很有名的模型就是它修程序',
+      '崩溃的问题',
+    ]);
+    expect(texts('我们今天来讲一讲这个很有名的模型就是它的代码审查流程')).toEqual(['我们今天来讲一讲这个很有名的模型就是它的代码', '审查流程']);
+    for (const maxChars of [14, 16, 18, 20]) {
+      const pieces = splitUntimed('我们让它帮忙修程序崩溃然后再做代码审查', 0, 5, maxChars).map((p) => p.text);
+      expect(pieces.join('')).toBe('我们让它帮忙修程序崩溃然后再做代码审查');
+      for (const [a, b] of pieces.slice(1).map((piece, n) => [pieces[n]!, piece] as const))
+        for (const word of ['程序', '崩溃', '代码', '审查']) expect(a.endsWith(word[0]!) && b.startsWith(word[1]!), pieces.join('|')).toBe(false);
+    }
+  });
+
   it('没有词时间的长段按宽度切时，一串西文整串挪进下一段；只有一串西文自己就超宽时才切开它', () => {
     const pieces = splitUntimed('我们今天要讲的是Transformer模型为什么能够理解上下文', 0, 5, 20).map((p) => p.text);
     expect(pieces.join('')).toBe('我们今天要讲的是Transformer模型为什么能够理解上下文');
@@ -343,7 +365,8 @@ describe('读转写', () => {
     expect(pieces[0]!.end - pieces[0]!.start).toBeCloseTo((20 * 16) / 40);
 
     const wide = splitUntimed('一二三四五六七八九十一二三四五六七八九十一二三四五', 0, 5, 20);
-    expect(wide.map((p) => p.text)).toEqual(['一二三四五六七八', '九十一二三四五六', '七八九十一二三四五']);
+    // 词典把「八九」「十一」「二三四」各当一个词，切点退到词边界上，各段仍不超过 20 格。
+    expect(wide.map((p) => p.text)).toEqual(['一二三四五六七', '八九十一二三四五六', '七八九十一二三四五']);
     expect(splitUntimed('好', 0, 1, 42)).toEqual([{ text: '好', start: 0, end: 1 }]);
 
     // 读进来时拆开：ID 依次加 ~2、~3；段首只标在第一块上。

@@ -9,11 +9,18 @@ import {
   normalizeSkillId,
   nowIso,
   type SkillChangeResult,
+  type SkillFileChange,
+  type SkillInstallResult,
+  type SkillPackageInspection,
+  type SkillPackagePick,
   type SkillRemoveResult,
   type SkillSource,
+  type SkillVersionKind,
 } from '@baocut/protocol';
-import { listSkillFiles, readSkillFileMeta, type SkillCatalog } from './skill-catalog.ts';
+import { listSkillFiles, readSkillFileMeta, type LoadedSkill, type SkillCatalog } from './skill-catalog.ts';
 import { fetchGithubSkill, parseGithubSkillUrl, type GithubFetchOptions } from './skill-github.ts';
+import { copyIdFor, inspectPackage, publicInspection, writeCandidate, writeSkillZip, type PackageCandidate } from './skill-package.ts';
+import { commitRevision, dropVersions, startVersions } from './skill-versions.ts';
 import { RcSkills } from '@baocut/protocol/messages/runtime-core';
 
 /**
@@ -39,7 +46,7 @@ const STAGING = '.staging';
 
 export class SkillInstaller {
   readonly #options: SkillInstallerOptions;
-  readonly #commands = new Map<string, Promise<SkillChangeResult>>();
+  readonly #commands = new Map<string, Promise<unknown>>();
 
   constructor(options: SkillInstallerOptions) {
     this.#options = options;
@@ -71,13 +78,194 @@ export class SkillInstaller {
       });
     }
     await fsp.rm(skill.dir, { recursive: true, force: true });
+    await dropVersions(catalog.userDir, id);
     await catalog.prefs.forget(id);
     return { ...(await catalog.list()), removed: { id, path: skill.dir } };
   }
 
-  #once(key: string | undefined | '', run: () => Promise<SkillChangeResult>): Promise<SkillChangeResult> {
+  /* ---------- 上传包、新建、复制、编辑与版本（架构设计 §3.8「版本」「上传包」） ---------- */
+
+  async inspectPackage(params: { path: string }): Promise<SkillPackageInspection> {
+    const { scan, taken } = await this.#taken();
+    return publicInspection(await inspectPackage(path.resolve(params.path), scan, taken));
+  }
+
+  installPackage(params: { path: string; picks: SkillPackagePick[]; commandId?: string }): Promise<SkillInstallResult> {
+    return this.#once(params.commandId && `package:${params.commandId}`, () => this.#installPackage(params));
+  }
+
+  create(params: { name: string; title?: string; description: string; body: string; commandId?: string }): Promise<SkillChangeResult> {
+    return this.#once(params.commandId && `create:${params.commandId}`, async () => {
+      const { taken } = await this.#taken();
+      const base = normalizeSkillId(params.name) ?? 'skill';
+      const id = taken.has(base) ? copyIdFor(base, taken) : base;
+      const content = `---\nname: ${id}\ndescription: ${JSON.stringify(params.description.replace(/[\r\n]+/g, ' ').trim())}\n---\n\n${params.body.replace(/^\n+/, '')}`;
+      const source: SkillSource = { kind: 'created', createdAt: nowIso(), from: null };
+      const title = params.title ?? (params.name.trim() !== id ? params.name.trim() : undefined);
+      return this.#install(id, path.join(this.#options.catalog.userDir, id), source, async (staging) => {
+        await fsp.writeFile(path.join(staging, SKILL_FILE), content, { flag: 'wx' });
+      }, { title, kind: 'create', note: '', from: null });
+    });
+  }
+
+  duplicate(params: { id: string; title?: string; commandId?: string }): Promise<SkillChangeResult> {
+    return this.#once(params.commandId && `duplicate:${params.commandId}`, async () => {
+      const original = await this.#options.catalog.require(params.id);
+      if (original.guide) throw new RpcError('not-found', RcSkills.skillNotFound({ id: params.id }), { code: 'SKILL_NOT_FOUND', skillId: params.id });
+      const { taken } = await this.#taken();
+      const id = copyIdFor(original.id, taken);
+      const source: SkillSource = { kind: 'created', createdAt: nowIso(), from: original.id };
+      return this.#install(id, path.join(this.#options.catalog.userDir, id), source, (staging) => copyFiles(original.dir, original.files, staging), {
+        title: params.title,
+        kind: 'duplicate',
+        note: '',
+        from: original.id,
+      });
+    });
+  }
+
+  write(params: { id: string; baseRevision: number; changes: SkillFileChange[]; note?: string; commandId?: string }): Promise<SkillChangeResult> {
+    return this.#once(params.commandId && `write:${params.commandId}`, async () => {
+      const skill = await this.#editable(params.id);
+      if (skill.revision !== params.baseRevision) {
+        throw new RpcError('conflict', RcSkills.revisionConflict({ revision: skill.revision ?? 1 }), {
+          code: 'SKILL_REVISION_CONFLICT',
+          skillId: skill.id,
+          revision: skill.revision,
+        });
+      }
+      if (params.changes.some((c) => c.path === SKILL_FILE && 'remove' in c)) {
+        throw new RpcError('invalid-request', RcSkills.cannotRemoveSkillFile({ file: SKILL_FILE }), {
+          code: 'SKILL_INVALID',
+          skillId: skill.id,
+          path: SKILL_FILE,
+        });
+      }
+      return this.#revise(skill, { kind: 'edit', note: params.note?.trim() ?? '', from: null }, async (staging) => {
+        await copyFiles(skill.dir, skill.files, staging);
+        await applyFileChanges(staging, params.changes);
+      });
+    });
+  }
+
+  restore(params: { id: string; revision: number; commandId?: string }): Promise<SkillChangeResult> {
+    return this.#once(params.commandId && `restore:${params.commandId}`, async () => {
+      const skill = await this.#editable(params.id);
+      // 恢复当前版本什么也不做。
+      if (params.revision === skill.revision) return { ...(await this.#options.catalog.list()), skill: this.#options.catalog.summaryOf(skill) };
+      const old = await this.#options.catalog.at(skill.id, params.revision);
+      return this.#revise(skill, { kind: 'restore', note: '', from: params.revision }, (staging) => copyFiles(old.dir, old.files, staging));
+    });
+  }
+
+  async export(params: { id: string; path: string }): Promise<{ path: string }> {
+    const skill = await this.#options.catalog.require(params.id);
+    if (skill.guide) throw new RpcError('not-found', RcSkills.skillNotFound({ id: params.id }), { code: 'SKILL_NOT_FOUND', skillId: params.id });
+    const dest = path.resolve(params.path);
+    await writeSkillZip(skill.dir, skill.files, dest);
+    return { path: dest };
+  }
+
+  async #installPackage(params: { path: string; picks: SkillPackagePick[] }): Promise<SkillInstallResult> {
+    const file = path.resolve(params.path);
+    const { scan, taken } = await this.#taken();
+    const pkg = await inspectPackage(file, scan, taken);
+    const installed: string[] = [];
+    for (const pick of params.picks) {
+      const candidate = pkg.candidates.find((c) => c.prefix === pick.prefix);
+      if (!candidate || candidate.issue) {
+        throw new RpcError('invalid-request', RcSkills.packagePickInvalid({ prefix: pick.prefix || '/' }), {
+          code: 'SKILL_PACKAGE_INVALID',
+          path: file,
+          prefix: pick.prefix,
+          ...(candidate?.issue ? { issue: candidate.issue } : {}),
+        });
+      }
+      installed.push(await this.#installCandidate(file, pkg.name, candidate, pick, taken));
+      taken.add(installed[installed.length - 1]!);
+    }
+    const list = await this.#options.catalog.list();
+    return { ...list, installed: list.skills.filter((s) => installed.includes(s.id)) };
+  }
+
+  async #installCandidate(file: string, pkgName: string, candidate: PackageCandidate, pick: SkillPackagePick, taken: Set<string>): Promise<string> {
+    const { catalog } = this.#options;
+    const source: SkillSource = { kind: 'local', path: file, addedAt: nowIso() };
+    if (pick.mode === 'update') {
+      const skill = await this.#editable(candidate.id);
+      await this.#revise(skill, { kind: 'upload', note: pkgName, from: null }, (staging) => writeCandidate(candidate, staging), source);
+      return skill.id;
+    }
+    const id = pick.mode === 'copy' ? copyIdFor(candidate.id, taken) : candidate.id;
+    const target = pick.mode === 'copy' ? path.join(catalog.userDir, id) : await this.#checkFree(id, file);
+    await this.#install(id, target, source, (staging) => writeCandidate(candidate, staging), {
+      title: pick.title,
+      kind: 'upload',
+      note: pkgName,
+      from: null,
+    });
+    return id;
+  }
+
+  /** 现有的 skill 与已占用的 id（含用户目录里的目录名，不论能否加载）。 */
+  async #taken(): Promise<{ scan: Awaited<ReturnType<SkillCatalog['scan']>>; taken: Set<string> }> {
+    const scan = await this.#options.catalog.scan();
+    const dirs = await fsp.readdir(this.#options.catalog.userDir).catch(() => [] as string[]);
+    return { scan, taken: new Set([...scan.skills.map((s) => s.id), ...dirs.filter((d) => !d.startsWith('.'))]) };
+  }
+
+  /** 只有用户目录里个人来源的 skill 能改；其余 `SKILL_NOT_EDITABLE`。 */
+  async #editable(id: string): Promise<LoadedSkill> {
+    const skill = await this.#options.catalog.require(id);
+    if (skill.scope !== 'user' || skill.origin !== 'personal') {
+      throw new RpcError('invalid-request', RcSkills.notEditable({ name: skill.title ?? skill.name }), {
+        code: 'SKILL_NOT_EDITABLE',
+        skillId: id,
+        origin: skill.origin,
+      });
+    }
+    return skill;
+  }
+
+  /** 拼出新版本（`fill` 写全部内容）→ 带上来源记录 → 校验 → 换成当前版本。 */
+  async #revise(
+    skill: LoadedSkill,
+    entry: { kind: SkillVersionKind; note: string; from: number | string | null },
+    fill: (staging: string) => Promise<void>,
+    source?: SkillSource,
+  ): Promise<SkillChangeResult> {
+    const { catalog } = this.#options;
+    const staging = await this.#staging(skill.id);
+    try {
+      await fill(staging);
+      if (source) {
+        await writeRecord(staging, source, skill.title ?? undefined);
+      } else {
+        await fsp.copyFile(path.join(skill.dir, SKILL_SOURCE_FILE), path.join(staging, SKILL_SOURCE_FILE)).catch(() => {});
+      }
+      await validateStaged(staging, skill.id, skill.dir);
+      await commitRevision(catalog.userDir, skill, staging, entry);
+    } catch (error) {
+      await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
+      throw error;
+    }
+    const list = await catalog.list();
+    const summary = list.skills.find((s) => s.id === skill.id);
+    if (!summary) throw new RpcError('conflict', RcSkills.writtenNotLoaded({ path: skill.dir }), { code: 'SKILL_INVALID', skillId: skill.id, path: skill.dir });
+    return { ...list, skill: summary };
+  }
+
+  async #staging(id: string): Promise<string> {
+    const stagingRoot = path.join(this.#options.catalog.userDir, STAGING);
+    await fsp.mkdir(stagingRoot, { recursive: true });
+    const staging = path.join(stagingRoot, `${id}-${crypto.randomBytes(6).toString('hex')}`);
+    await fsp.mkdir(staging);
+    return staging;
+  }
+
+  #once<T>(key: string | undefined | '', run: () => Promise<T>): Promise<T> {
     if (!key) return run();
-    const done = this.#commands.get(key);
+    const done = this.#commands.get(key) as Promise<T> | undefined;
     if (done) return done;
     const pending = run();
     this.#commands.set(key, pending);
@@ -240,14 +428,13 @@ export class SkillInstaller {
     target: string,
     source: SkillSource | (() => SkillSource),
     fill: (staging: string) => Promise<void>,
+    version?: { title?: string; kind: SkillVersionKind; note: string; from: number | string | null },
   ): Promise<SkillChangeResult> {
     const { catalog } = this.#options;
-    const stagingRoot = path.join(catalog.userDir, STAGING);
-    await fsp.mkdir(stagingRoot, { recursive: true });
-    const staging = path.join(stagingRoot, `${id}-${crypto.randomBytes(6).toString('hex')}`);
-    await fsp.mkdir(staging);
+    const staging = await this.#staging(id);
     try {
       await fill(staging);
+      if (version) await validateStaged(staging, id, target);
       const meta = await readSkillFileMeta(path.join(staging, SKILL_FILE));
       if ('problem' in meta) {
         throw new RpcError('invalid-request', RcSkills.notAddable({ issue: meta.issues[0]! }), {
@@ -259,9 +446,7 @@ export class SkillInstaller {
         });
       }
       const record = typeof source === 'function' ? source() : source;
-      await fsp.writeFile(path.join(staging, SKILL_SOURCE_FILE), `${JSON.stringify({ schemaVersion: 1, ...record }, null, 2)}\n`, {
-        flag: 'wx',
-      });
+      await writeRecord(staging, record, version?.title);
       // 改名之前再查一次：这期间别处可能放进了同名目录。改名到已存在的非空目录会失败，也按冲突处理。
       if (
         await fsp.lstat(target).then(
@@ -281,6 +466,14 @@ export class SkillInstaller {
       await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
       throw error;
     }
+    const fileCount = await listSkillFiles(target).then((l) => ('files' in l ? l.files : []));
+    await startVersions(catalog.userDir, id, {
+      kind: version?.kind ?? (typeof source !== 'function' && source.kind === 'local' ? 'upload' : 'import'),
+      note: version?.note ?? '',
+      from: version?.from ?? null,
+      fileCount: fileCount.length,
+      bytes: fileCount.reduce((sum, f) => sum + f.size, 0),
+    }).catch(() => {});
     const list = await catalog.list();
     const skill = list.skills.find((s) => s.id === id);
     if (!skill) {
@@ -304,7 +497,95 @@ function existsError(id: string, target: string): RpcError {
 }
 
 function sourceLabel(source: SkillSource): string {
-  return source.kind === 'local' ? source.path : source.url;
+  return source.kind === 'local' ? source.path : source.kind === 'github' ? source.url : source.from ?? '';
+}
+
+async function writeRecord(dir: string, source: SkillSource, title: string | undefined): Promise<void> {
+  const record = { schemaVersion: 1, ...source, ...(title ? { title } : {}) };
+  await fsp.writeFile(path.join(dir, SKILL_SOURCE_FILE), `${JSON.stringify(record, null, 2)}\n`);
+}
+
+/** 把 `files`（相对 `from` 的清单）复制进 `dest`。 */
+async function copyFiles(from: string, files: readonly { path: string }[], dest: string): Promise<void> {
+  for (const file of files) {
+    const target = path.join(dest, ...file.path.split('/'));
+    await fsp.mkdir(path.dirname(target), { recursive: true });
+    await fsp.copyFile(path.join(from, ...file.path.split('/')), target, fsp.constants.COPYFILE_EXCL);
+  }
+}
+
+/**
+ * 在目录 `dir` 里应用改动：写文本、从本机复制普通文件（不跟随符号链接）、删除。路径已由入站校验确认是相对路径；
+ * 这里再确认落在 `dir` 里。删除后留下的空目录一并删掉。
+ */
+export async function applyFileChanges(dir: string, changes: readonly SkillFileChange[]): Promise<void> {
+  const root = path.resolve(dir);
+  for (const change of changes) {
+    const target = path.resolve(root, ...change.path.split('/'));
+    if (!within(root, target) || target === root) {
+      throw new RpcError('invalid-request', RcSkills.pathInvalid({ path: change.path }), { code: 'SKILL_INVALID', path: change.path });
+    }
+    if ('remove' in change) {
+      await fsp.rm(target, { force: true });
+      for (let parent = path.dirname(target); parent !== root && within(root, parent); parent = path.dirname(parent)) {
+        if ((await fsp.readdir(parent).catch(() => ['x'])).length) break;
+        await fsp.rmdir(parent).catch(() => {});
+      }
+      continue;
+    }
+    await fsp.mkdir(path.dirname(target), { recursive: true });
+    if ('text' in change) {
+      await fsp.writeFile(target, change.text);
+      continue;
+    }
+    const stat = await fsp.lstat(change.from).catch(() => null);
+    if (!stat || !stat.isFile()) {
+      throw new RpcError('not-found', RcSkills.changeSourceMissing({ path: change.from }), { code: 'SKILL_SOURCE_NOT_FOUND', path: change.from });
+    }
+    await fsp.copyFile(change.from, target);
+  }
+}
+
+/** 暂存目录拼好之后：文件清单合规、有 `SKILL.md`、front matter 合规、总大小不超过上限。 */
+async function validateStaged(staging: string, id: string, target: string): Promise<void> {
+  const listing = await listSkillFiles(staging);
+  if ('problem' in listing) {
+    const tooMany = listing.tooMany === true;
+    throw new RpcError('invalid-request', RcSkills.notAddable({ issue: listing.problem }), {
+      code: tooMany ? 'SKILL_TOO_LARGE' : 'SKILL_INVALID',
+      skillId: id,
+      path: target,
+      ...(tooMany ? { limit: { files: SKILL_LIMITS.files, bytes: SKILL_LIMITS.totalBytes } } : { issues: [listing.problem.text] }),
+    });
+  }
+  if (!listing.files.some((f) => f.path === SKILL_FILE)) {
+    throw new RpcError('invalid-request', RcSkills.folderNoSkillFile({ file: SKILL_FILE }), {
+      code: 'SKILL_INVALID',
+      skillId: id,
+      path: target,
+      issues: [RcSkills.missingRootFile({ file: SKILL_FILE }).text],
+    });
+  }
+  const bytes = listing.files.reduce((sum, f) => sum + f.size, 0);
+  if (bytes > SKILL_LIMITS.totalBytes) {
+    throw new RpcError('invalid-request', RcSkills.folderBytesTooLarge({ bytes, limit: SKILL_LIMITS.totalBytes }), {
+      code: 'SKILL_TOO_LARGE',
+      skillId: id,
+      path: target,
+      files: listing.files.length,
+      bytes,
+      limit: { files: SKILL_LIMITS.files, bytes: SKILL_LIMITS.totalBytes },
+    });
+  }
+  const meta = await readSkillFileMeta(path.join(staging, SKILL_FILE));
+  if ('problem' in meta) {
+    throw new RpcError('invalid-request', RcSkills.notAddable({ issue: meta.issues[0]! }), {
+      code: 'SKILL_INVALID',
+      skillId: id,
+      path: target,
+      issues: meta.issues.map((issue) => issue.text),
+    });
+  }
 }
 
 function within(parent: string, child: string): boolean {

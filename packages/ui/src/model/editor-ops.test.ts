@@ -9,6 +9,7 @@ import {
   dubGroupIds,
   dubPlanRecord,
   importAndPlace,
+  placeImportedImage,
   isPlaceable,
   itemsAtFrame,
   libraryAssets,
@@ -124,6 +125,27 @@ describe('编辑操作', () => {
 
     const locked = sequence([track('v1', 0, 'visual', true), track('v2', 2, 'visual')], []);
     expect(placeAsset(locked, clip, 0)).toMatchObject([{ trackId: 'v2' }]);
+  });
+
+  it('同一笔里刚导入的图片：规则与已有素材相同，用 ref 引用', () => {
+    const tracks = [track('v1', 0, 'visual'), track('v2', 2, 'visual')];
+    expect(placeImportedImage(sequence(tracks, []), 'asset', '标志', 15)).toEqual([
+      {
+        type: 'addItem',
+        sequenceId: 'seq',
+        asset: { ref: 'asset' },
+        alignment: 'exact-frame',
+        trackId: 'v1',
+        at: { unit: 'frames', value: 15 },
+      },
+    ]);
+    const full = sequence(tracks, [video('x', 'v1', 0, 90), video('y', 'v2', 0, 90)]);
+    const overlay = placeImportedImage(full, 'asset', '标志', 15);
+    expect(overlay.map((op) => op.type)).toEqual(['addTrack', 'insertItems']);
+    expect(overlay[1]).toMatchObject({
+      items: [{ type: 'image', name: '标志', assetImportRef: 'asset', span: { fromFrame: 15, durationFrames: 150 } }],
+    });
+    expect(overlay[1]).not.toHaveProperty('items.0.assetRef');
   });
 
   it('拖进来的文件：导入与放置在同一笔事务，第一个放在落点', () => {

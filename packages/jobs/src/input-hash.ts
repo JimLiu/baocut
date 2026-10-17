@@ -76,7 +76,16 @@ export type TaskInputSpec =
   /** 音色克隆（§5.9）：库里的哪个音色（冻结的版本与摘要）、传给哪个 Provider。 */
   | { task: 'voiceClone'; library: 'voices'; id: string; version: number; contentHash: string; providerId: string }
   /** 按需下载的字体（§9.1）：一个族与要下载的 face（按字体目录对好的字重与斜体）。不记下载地址。 */
-  | { task: 'fontDownload'; family: string; faces: { weight: number; italic: boolean }[] };
+  | { task: 'fontDownload'; family: string; faces: { weight: number; italic: boolean }[] }
+  /** 代码画面的后台烘焙（代码包规范 §7.5）：哪部视频的哪个实例、代码包版本、帧率与渲染器。 */
+  | {
+      task: 'bake';
+      videoId: string;
+      itemId: string;
+      bundle: { id: string; revision: string };
+      fps: { num: number; den: number };
+      mode: string;
+    };
 
 export function generationInputHash(spec: GenerationInputSpec): string {
   const { capability, providerId, modelId, parameters } = spec;

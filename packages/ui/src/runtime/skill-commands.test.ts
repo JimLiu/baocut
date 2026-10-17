@@ -1,14 +1,20 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import type { SkillListResult, SkillSummary } from '@baocut/protocol';
+import type { ProjectBrandSummary, SkillListResult, SkillSummary } from '@baocut/protocol';
+import { emptyBrands, useBrands } from '../state/brands-store.ts';
 import { emptySkills, useSkills } from '../state/skills-store.ts';
 import type { RuntimeSession } from './session.ts';
 import {
   addSkillFromFolder,
+  createBrandFromSkill,
   importSkillFromGithub,
+  installSkillPackage,
+  loadBrands,
   loadSkills,
   removeSkill,
   resetSkillCommands,
   setSkillEnabled,
+  writeBrand,
+  writeSkill,
 } from './skill-commands.ts';
 
 function summary(id: string, patch: Partial<SkillSummary> = {}): SkillSummary {
@@ -24,6 +30,9 @@ function summary(id: string, patch: Partial<SkillSummary> = {}): SkillSummary {
     removable: true,
     path: `/home/skills/${id}`,
     source: null,
+    title: null,
+    bytes: 0,
+    revision: 1,
     fileCount: 1,
     updatedAt: '2026-10-01T00:00:00Z',
     ...patch,
@@ -47,7 +56,22 @@ function fakeSession(answer: (method: string, params: Record<string, unknown>) =
 afterEach(() => {
   resetSkillCommands();
   useSkills.setState(emptySkills());
+  useBrands.setState(emptyBrands());
 });
+
+function brand(projectId: string, projectName: string, patch: Partial<ProjectBrandSummary> = {}): ProjectBrandSummary {
+  return {
+    projectId,
+    projectName,
+    projectPath: `/p/${projectId}`,
+    path: `/p/${projectId}/BRAND.md`,
+    summary: '',
+    updatedAt: '2026-10-01T00:00:00Z',
+    fileCount: 1,
+    bytes: 1,
+    ...patch,
+  };
+}
 
 describe('skill 列表', () => {
   it('同时要几次只发一次；取到后排好放进镜像，诊断原样带上', async () => {
@@ -116,5 +140,43 @@ describe('变更类命令', () => {
     });
     await expect(addSkillFromFolder(session, '/x')).rejects.toThrow('已存在');
     expect(useSkills.getState().skills.map((s) => s.id)).toEqual(['a']);
+  });
+});
+
+describe('上传与新版本', () => {
+  it('装包与存新版本都把整份列表写回镜像，且每次带新的 commandId', async () => {
+    const { session, calls } = fakeSession((method) =>
+      method === 'skills.installPackage'
+        ? { skills: [summary('a'), summary('b')], diagnostics: [], installed: [summary('b')] }
+        : { skills: [summary('a', { revision: 2 }), summary('b')], diagnostics: [], skill: summary('a', { revision: 2 }) },
+    );
+    const installed = await installSkillPackage(session, '/x/pack.zip', [{ prefix: 'b/', mode: 'new' }]);
+    expect(installed.installed.map((s) => s.id)).toEqual(['b']);
+    expect(useSkills.getState().skills.map((s) => s.id)).toEqual(['a', 'b']);
+    await writeSkill(session, { id: 'a', baseRevision: 1, changes: [{ path: 'SKILL.md', text: 'x' }] });
+    expect(useSkills.getState().skills.find((s) => s.id === 'a')?.revision).toBe(2);
+    const ids = calls.map((c) => c.params.commandId);
+    expect(ids.every((id) => typeof id === 'string')).toBe(true);
+    expect(new Set(ids).size).toBe(2);
+  });
+});
+
+describe('项目品牌', () => {
+  it('列表按项目名排；写入与从 skill 生成换掉那一项', async () => {
+    const { session, calls } = fakeSession((method, params) => {
+      if (method === 'brands.list') return { brands: [brand('p2', 'Vlog'), brand('p1', 'Morning')] };
+      return { brand: brand(String(params.projectId), params.projectId === 'p1' ? 'Morning' : 'Talk', { summary: 'new' }) };
+    });
+    await Promise.all([loadBrands(session), loadBrands(session)]);
+    expect(calls.filter((c) => c.method === 'brands.list')).toHaveLength(1);
+    expect(useBrands.getState().brands.map((b) => b.projectId)).toEqual(['p1', 'p2']);
+    await writeBrand(session, 'p1', [{ path: 'BRAND.md', text: '# M' }]);
+    await createBrandFromSkill(session, 'p3', 'craft');
+    expect(useBrands.getState().brands.map((b) => [b.projectId, b.summary])).toEqual([
+      ['p1', 'new'],
+      ['p3', 'new'],
+      ['p2', ''],
+    ]);
+    expect(calls.find((c) => c.method === 'brands.createFromSkill')?.params).toMatchObject({ projectId: 'p3', skillId: 'craft' });
   });
 });

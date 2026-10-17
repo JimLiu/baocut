@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
-import { RpcError, type MediaHandle, type MediaPlayback } from '@baocut/protocol';
+import { RpcError, type BundleHandle, type MediaHandle, type MediaPlayback } from '@baocut/protocol';
 import type { Logger } from '@baocut/harness';
 import { inspectFileContent } from './file-content.ts';
 import type { PlaybackPreparation } from './media-analysis.ts';
@@ -17,6 +17,11 @@ import { RcRuntime } from '@baocut/protocol/messages/runtime-core';
  * - 句柄有期限；每次使用顺延，长视频看到一半不会失效。
  * - 支持 HTTP Range（206/416）与 HEAD，播放器才能拖动。
  * - 日志里不写路径。
+ *
+ * 代码包目录另有一种目录句柄（`/bundle/<句柄>/<包内路径>`，动效视频设计 §4.1）：编辑器的实时合成层把入口页面装进不开
+ * `allow-same-origin` 的沙箱 `<iframe>`，包内文件按相对路径从同一个前缀取。目录里的文件按真实路径限定在包目录之内；
+ * 响应带自己的 CSP（脚本、样式与资源只能来自这个前缀，不能连网）；入口页面给出时注入取帧脚本与桥（调用方给的 `inject`）。
+ * 地址本身就是凭证：沙箱 iframe 的来源是不透明的，Web 上它发出的请求带不上会话 cookie，Web 服务对这个前缀也不查会话。
  */
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -30,6 +35,7 @@ const MIME_BY_EXT: Record<string, string> = {
   jpg: 'image/jpeg',
   jpeg: 'image/jpeg',
   gif: 'image/gif',
+  apng: 'image/apng',
   webp: 'image/webp',
   heic: 'image/heic',
   svg: 'image/svg+xml',
@@ -59,6 +65,65 @@ const MIME_BY_EXT: Record<string, string> = {
 
 export function mimeTypeOf(fileName: string): string {
   return MIME_BY_EXT[path.extname(fileName).slice(1).toLowerCase()] ?? 'application/octet-stream';
+}
+
+/** 代码包里会出现、而媒体表没有的类型（代码包规范 §2.4 的白名单）：页面、脚本、样式与 3D 资源。 */
+const BUNDLE_MIME_BY_EXT: Record<string, string> = {
+  html: 'text/html; charset=utf-8',
+  htm: 'text/html; charset=utf-8',
+  js: 'text/javascript; charset=utf-8',
+  mjs: 'text/javascript; charset=utf-8',
+  cjs: 'text/javascript; charset=utf-8',
+  css: 'text/css; charset=utf-8',
+  map: 'application/json; charset=utf-8',
+  woff: 'font/woff',
+  wasm: 'application/wasm',
+  glb: 'model/gltf-binary',
+  gltf: 'model/gltf+json',
+  bin: 'application/octet-stream',
+  hdr: 'image/vnd.radiance',
+  exr: 'image/x-exr',
+  ktx2: 'image/ktx2',
+};
+
+export function bundleMimeTypeOf(fileName: string): string {
+  const ext = path.extname(fileName).slice(1).toLowerCase();
+  return BUNDLE_MIME_BY_EXT[ext] ?? MIME_BY_EXT[ext] ?? 'application/octet-stream';
+}
+
+/**
+ * 代码包响应的 CSP：脚本、样式、图片、字体、媒体与 `fetch` 只能来自这个包自己的前缀（内联脚本与样式放行，包里的页面大多是内联的；
+ * 不放行 `eval`），Worker 只能是 `blob:`，不能嵌别的页面、不能提交表单；`sandbox allow-scripts` 让直接打开这个地址的页面也是沙箱。
+ */
+export function bundleCsp(prefix: string): string {
+  return [
+    "default-src 'none'",
+    `script-src 'unsafe-inline' 'wasm-unsafe-eval' ${prefix}`,
+    `style-src 'unsafe-inline' ${prefix}`,
+    `img-src data: blob: ${prefix}`,
+    `font-src data: ${prefix}`,
+    `media-src blob: ${prefix}`,
+    `connect-src ${prefix}`,
+    "worker-src blob:",
+    "child-src 'none'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+    'sandbox allow-scripts',
+  ].join('; ');
+}
+
+/** 包内路径：`/` 分隔的相对路径，每一段都是普通的名字（没有空段、`.`、`..` 与点文件）。 */
+export function bundlePathOf(raw: string): string | null {
+  const parts = raw.split('/').map((part) => {
+    try {
+      return decodeURIComponent(part);
+    } catch {
+      return '';
+    }
+  });
+  if (parts.length === 0 || parts.some((part) => part === '' || part.startsWith('.') || part.includes('/') || part.includes('\\'))) return null;
+  return parts.join('/');
 }
 
 /** 解析单段 `Range: bytes=…`。没有或看不懂返回 null（按整文件给）；越界返回 'unsatisfiable'。 */
@@ -152,6 +217,16 @@ interface Grant {
   expiresAt: number;
 }
 
+interface BundleGrant {
+  handle: BundleHandle;
+  /** 包目录的真实路径。 */
+  root: string;
+  entry: string;
+  /** 注进入口页面的那段 `<script>`。 */
+  inject: string;
+  expiresAt: number;
+}
+
 export interface MediaRegistryOptions {
   log: Logger;
   ttlMs?: number;
@@ -166,6 +241,7 @@ export class MediaRegistry {
   readonly #maxGrants: number;
   readonly #originAllowed: (origin: string | undefined) => boolean;
   readonly #grants = new Map<string, Grant>();
+  readonly #bundles = new Map<string, BundleGrant>();
   #baseUrl = '';
 
   constructor(options: MediaRegistryOptions) {
@@ -200,6 +276,33 @@ export class MediaRegistry {
   }
 
   /**
+   * 代码包目录的地址：`dir`（相对 `root`）要是 `root` 之内的目录，`entry` 要是它里面的普通文件。`inject` 是入口页面给出时
+   * 注进去的脚本（取帧脚本与桥）。目录句柄与文件句柄一样有期限、每次使用顺延。
+   */
+  async issueBundle(root: string, dir: string, options: { entry: string; inject: string }): Promise<BundleHandle> {
+    let rootReal: string;
+    let real: string;
+    try {
+      rootReal = await fsp.realpath(root);
+      real = await fsp.realpath(path.resolve(root, dir));
+    } catch {
+      throw new RpcError('not-found', RcRuntime.fileNotFound());
+    }
+    const prefix = rootReal.endsWith(path.sep) ? rootReal : rootReal + path.sep;
+    if (!real.startsWith(prefix)) throw new RpcError('forbidden', RcRuntime.onlyWorkingFolderFiles());
+    if (!(await fsp.stat(real).catch(() => null))?.isDirectory()) throw new RpcError('not-found', RcRuntime.fileNotFound());
+    const entry = bundlePathOf(options.entry);
+    if (!entry) throw new RpcError('not-found', RcRuntime.fileNotFound());
+    await resolveInside(real, entry);
+    this.#pruneBundles();
+    const id = crypto.randomBytes(24).toString('base64url');
+    const expiresAt = Date.now() + this.#ttlMs;
+    const handle: BundleHandle = { url: `${this.#baseUrl}/bundle/${id}/`, entry, expiresAt: new Date(expiresAt).toISOString() };
+    this.#bundles.set(id, { handle, root: real, entry, inject: options.inject, expiresAt });
+    return handle;
+  }
+
+  /**
    * 播放地址（架构设计 §4.5）：只认已签发的句柄，缓存路径不经控制通道。WebM / QuickTime 经 `prepare`，其他格式给原句柄。
    */
   async playback(url: string, prepare: (file: string, mimeType: string) => Promise<PlaybackPreparation>): Promise<MediaPlayback> {
@@ -222,9 +325,22 @@ export class MediaRegistry {
     return { status: 'ready', media: { ...media, fileName: grant.handle.fileName } };
   }
 
-  /** 处理 `/media/<句柄>/<文件名>`。不是这个前缀返回 false。 */
+  /** 处理 `/media/<句柄>/<文件名>` 与 `/bundle/<句柄>/<包内路径>`。不是这两个前缀返回 false。 */
   handle(request: IncomingMessage, response: ServerResponse): boolean {
     const url = new URL(request.url ?? '/', 'http://localhost');
+    const bundle = /^\/bundle\/([A-Za-z0-9_-]+)\/(.+)$/.exec(url.pathname);
+    if (bundle) {
+      if (request.method !== 'GET' && request.method !== 'HEAD') {
+        response.writeHead(405, { Allow: 'GET, HEAD' }).end();
+        return true;
+      }
+      void this.#serveBundle(bundle[1]!, bundle[2]!, request, response).catch((error) => {
+        this.#log.warn('Bundle request failed', { error: (error as Error).name });
+        if (!response.headersSent) response.writeHead(500).end();
+        else response.destroy();
+      });
+      return true;
+    }
     const match = /^\/media\/([A-Za-z0-9_-]+)(?:\/[^/]*)?$/.exec(url.pathname);
     if (!match) return false;
     const origin = request.headers.origin;
@@ -276,27 +392,54 @@ export class MediaRegistry {
       'Content-Security-Policy': "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:",
       ...(download ? { 'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(grant.fileName).replace(/['()*]/g, char => '%' + char.charCodeAt(0).toString(16).toUpperCase())}` } : {}),
     };
-    const range = parseRange(request.headers.range, size);
-    if (range === 'unsatisfiable') {
-      response.writeHead(416, { ...headers, 'Content-Range': `bytes */${size}` }).end();
+    sendRange(grant.realPath, size, headers, request, response);
+  }
+
+  async #serveBundle(id: string, raw: string, request: IncomingMessage, response: ServerResponse): Promise<void> {
+    const grant = this.#bundles.get(id);
+    if (!grant || grant.expiresAt <= Date.now()) {
+      if (grant) this.#bundles.delete(id);
+      response.writeHead(404).end();
       return;
     }
-    const start = range ? range.start : 0;
-    const end = range ? range.end : size - 1;
-    const length = size === 0 ? 0 : end - start + 1;
-    response.writeHead(range ? 206 : 200, {
-      ...headers,
-      'Content-Length': length,
-      ...(range ? { 'Content-Range': `bytes ${start}-${end}/${size}` } : {}),
-    });
-    if (request.method === 'HEAD' || length === 0) {
-      response.end();
+    const rel = bundlePathOf(raw);
+    const file = rel ? await resolveInside(grant.root, rel).catch(() => null) : null;
+    if (!file) {
+      response.writeHead(404).end();
       return;
     }
-    const stream = fs.createReadStream(grant.realPath, { start, end });
-    stream.on('error', () => response.destroy());
-    response.on('close', () => stream.destroy());
-    stream.pipe(response);
+    grant.expiresAt = Date.now() + this.#ttlMs;
+    const stat = await fsp.stat(file.realPath);
+    // CSP 的来源表达式要带主机：Web 通道的句柄是同源的相对地址，按这次请求的 Host 补成绝对前缀。
+    const prefix = new URL(grant.handle.url, `http://${request.headers.host ?? 'localhost'}`).href;
+    const headers: Record<string, string | number> = {
+      'Content-Type': bundleMimeTypeOf(file.realPath),
+      'Cache-Control': 'private, no-cache',
+      'Last-Modified': stat.mtime.toUTCString(),
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': bundleCsp(prefix),
+      // 沙箱 iframe 的来源是不透明的，它取包内脚本与图片时按跨来源算：放行。
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+    };
+    if (rel === grant.entry) {
+      // 入口页面：注入取帧脚本与桥，整页给出（长度按注入后的算）。
+      const html = request.method === 'HEAD' ? null : injectEntry(await fsp.readFile(file.realPath, 'utf8'), grant.inject);
+      const length = html === null ? Buffer.byteLength(injectEntry(await fsp.readFile(file.realPath, 'utf8'), grant.inject)) : Buffer.byteLength(html);
+      response.writeHead(200, { ...headers, 'Content-Length': length });
+      response.end(html ?? undefined);
+      return;
+    }
+    sendRange(file.realPath, stat.size, headers, request, response);
+  }
+
+  #pruneBundles(): void {
+    const now = Date.now();
+    for (const [id, grant] of this.#bundles) if (grant.expiresAt <= now) this.#bundles.delete(id);
+    while (this.#bundles.size >= this.#maxGrants) {
+      const oldest = this.#bundles.keys().next().value;
+      if (oldest === undefined) break;
+      this.#bundles.delete(oldest);
+    }
   }
 
   #prune(): void {
@@ -309,4 +452,39 @@ export class MediaRegistry {
       this.#grants.delete(oldest);
     }
   }
+}
+
+
+/** 按 `Range` 给出文件的一段（206 / 416）或整个文件；HEAD 只给头。 */
+function sendRange(realPath: string, size: number, headers: Record<string, string | number>, request: IncomingMessage, response: ServerResponse): void {
+  const range = parseRange(request.headers.range, size);
+  if (range === 'unsatisfiable') {
+    response.writeHead(416, { ...headers, 'Content-Range': `bytes */${size}` }).end();
+    return;
+  }
+  const start = range ? range.start : 0;
+  const end = range ? range.end : size - 1;
+  const length = size === 0 ? 0 : end - start + 1;
+  response.writeHead(range ? 206 : 200, {
+    ...headers,
+    'Content-Length': length,
+    ...(range ? { 'Content-Range': `bytes ${start}-${end}/${size}` } : {}),
+  });
+  if (request.method === 'HEAD' || length === 0) {
+    response.end();
+    return;
+  }
+  const stream = fs.createReadStream(realPath, { start, end });
+  stream.on('error', () => response.destroy());
+  response.on('close', () => stream.destroy());
+  stream.pipe(response);
+}
+
+/** 把脚本注进入口页面：`<head>` 开头，没有就 `<html>` 之后，再没有就最前面（与 `code-runtime` 的 `injectCompositionPageScript` 同一条规则）。 */
+function injectEntry(html: string, script: string): string {
+  if (!script) return html;
+  const head = /<head(?:\s[^>]*)?>/i.exec(html) ?? /<html(?:\s[^>]*)?>/i.exec(html);
+  if (!head) return script + html;
+  const at = head.index + head[0].length;
+  return html.slice(0, at) + script + html.slice(at);
 }

@@ -10,6 +10,7 @@ import type {
   JobWarning,
 } from '@baocut/protocol';
 import { defineMessages, intlLocale, live, localizeText, onLocaleChange } from '@baocut/protocol';
+import { missingFontFamily } from '../render/render-notes.ts';
 import { jobLive } from './task-list.ts';
 import { zhHans } from './font-library.zh-Hans.ts';
 import { zhHant } from './font-library.zh-Hant.ts';
@@ -615,16 +616,15 @@ export function exportFontFallbacks(warnings: readonly JobWarning[]): string | n
 
 /**
  * 导出结果里其余的提醒：去掉 `FONT_NOT_DOWNLOADED`（单独列在上面），也去掉渲染内核对同一个族报的缺字体提示
- * （`EXPORT_RENDER_NOTE`「…字体 "X" 在当前字体库中不可用…」），免得一个族说两遍。别的族的缺字体提示照留。
+ * （`EXPORT_RENDER_NOTE`，引用里的说明是 `frameRender.missingFont`），免得一个族说两遍。别的族的缺字体提示照留。
  */
 export function exportOtherWarnings(warnings: readonly JobWarning[]): JobWarning[] {
   const covered = new Set(warnings.flatMap((w) => (w.code === 'FONT_NOT_DOWNLOADED' && w.font ? [familyKey(w.font.family)] : [])));
   return warnings.filter((w) => {
     if (w.code === 'FONT_NOT_DOWNLOADED') return false;
-    if (w.code !== 'EXPORT_RENDER_NOTE' || !w.detail) return true;
-    // i18n-ignore: 匹配渲染内核报来的原话（数据，不是界面文案）
-    const family = /字体 "((?:[^"\\]|\\.)*)" 在当前字体库中不可用/.exec(w.detail)?.[1];
-    return family === undefined || !covered.has(familyKey(family.replace(/\\(.)/g, '$1')));
+    if (w.code !== 'EXPORT_RENDER_NOTE') return true;
+    const family = missingFontFamily(w.detailRef);
+    return family === null || !covered.has(familyKey(family));
   });
 }
 

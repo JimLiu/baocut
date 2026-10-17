@@ -18,6 +18,8 @@ wasm-safe = ["render-raster/wasm-safe", "timeline-render/wasm-safe"]
 
 [dependencies]
 libm = "0.2.16"
+# 给人看的提示：英文文本 + 消息引用（仓库约定 §5）。
+message-ref.workspace = true
 scene-primitives.workspace = true
 caption-scene.workspace = true
 # 无 I/O 的排版 / 光栅化 / DrawOp 内核与效果栈。

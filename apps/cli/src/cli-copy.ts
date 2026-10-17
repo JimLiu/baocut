@@ -93,7 +93,7 @@ const en = {
   // 元命令的帮助（§4.5）
   metaHelp: {
     help: "baocut help [<command>]\n\nWithout a command: the one-screen overview. With one (`help videos`, `help videos inspect`, `help runtime`): its parameters, effect and examples. Uses the running Runtime's catalog when there is one, the offline snapshot otherwise; never starts a Runtime.",
-    spec: "baocut spec [<name>]\n\nThe machine-readable catalog as bare JSON (no envelope), with its interface version. <name> is a tool name (videos_inspect), a dotted name (videos.inspect), a command (videos inspect) or edits.<operation> for one operation of edits apply. Uses the running Runtime's catalog when there is one, the offline snapshot otherwise; never starts a Runtime.",
+    spec: "baocut spec [<name>]\n\nThe machine-readable catalog as bare JSON (no envelope), with its interface version. <name> is a tool name (videos_inspect), a dotted name (videos.inspect), a command (videos inspect) or edits.<operation> for one operation of edits apply. Without <name> it prints the whole catalog (hundreds of KB); to find a name, list the commands with `baocut help`. Uses the running Runtime's catalog when there is one, the offline snapshot otherwise; never starts a Runtime.",
     version:
       'baocut version\n\nVersions of this CLI and, when one is running, of the Runtime, with both tool interface versions and whether they match. Bare JSON; never starts a Runtime.',
     status:

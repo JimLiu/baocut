@@ -70,6 +70,8 @@ contextBridge.exposeInMainWorld('baocut', {
   pathForFile: (file: File) => webUtils.getPathForFile(file),
   revealPath: (target: string) => ipcRenderer.invoke('baocut:reveal', target),
   openFile: (target: string) => ipcRenderer.invoke('baocut:open-file', target),
+  // 删除项目品牌：BRAND.md 与 brand/ 移到废纸篓（路径在主进程里重新校验）。
+  trashProjectBrand: (projectPath: string) => ipcRenderer.invoke('baocut:trash-project-brand', projectPath),
   web,
   updates,
   openExternal: (url: string) => ipcRenderer.invoke('baocut:open-external', url),
@@ -81,6 +83,8 @@ contextBridge.exposeInMainWorld('baocut', {
   saveUrl: (options) => ipcRenderer.invoke('baocut:save-url', options),
   // 我的声音 › 克隆新音色：录好的 WAV 写进临时目录，路径交给 Runtime（内容在主进程里重新校验）。
   writeRecording: (data) => ipcRenderer.invoke('baocut:write-recording', data),
+  // 生成图片：粘贴或拖进来、没有本机路径的参考图写进临时目录，路径交给 Runtime（内容在主进程里重新校验）。
+  writeImageRef: (data) => ipcRenderer.invoke('baocut:write-image-ref', data),
   // 界面语言：主进程据此换应用菜单与对话框的语言（参数在主进程里重新校验）。
   setLocale: (locale) => ipcRenderer.send('baocut:set-locale', locale),
 } satisfies HostBridge);

@@ -292,6 +292,11 @@ export function imageRefModes(info: Pick<ImageModelInfo, 'referenceImages' | 'im
   return info.img2img ? [first, { key: 'img2img', label: M.refModeImg2img }] : [first];
 }
 
+/** 这次是不是按提示词改图：模型认编辑、草稿里有参考图、用法不是以图为底重画。这时提示词要写清怎么改，含糊的要求多半原样出图。 */
+export function editsByPrompt(draft: Pick<ImageDraft, 'refs' | 'refMode'>, info: Pick<ImageModelInfo, 'referenceImages' | 'img2img'>): boolean {
+  return !!info.referenceImages?.edit && draft.refs.length > 0 && imageRefMode(draft, info) === 'ref';
+}
+
 /** 改动幅度：草稿没给就用模型的默认值；模型不能以图为底重画时 null。 */
 export function strengthFor(draft: Pick<ImageDraft, 'strength'>, info: Pick<ImageModelInfo, 'img2img'>): number | null {
   if (!info.img2img) return null;

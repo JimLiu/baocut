@@ -115,6 +115,40 @@ pub enum DrawOp {
         opacity: f32,
         tf: Mat6,
     },
+    /// Canvas 2D shadow group (v8). Draws until the matching [`DrawOp::PopShadow`] land in a
+    /// transparent device-space window `[x, y, w, h]` (integer pixels, their `tf` shifted by the
+    /// window origin, no clip). `PopShadow` blurs the window's alpha with a Gaussian of `sigma`
+    /// device pixels, tints it with `color` (straight RGBA), composites it at `offset` (device
+    /// pixels), then composites the window itself — both under the current clip and blend.
+    /// The window must hold every pixel the inner draws produce plus 3σ of blur.
+    PushShadow {
+        color: Color4,
+        sigma: f32,
+        offset: [f32; 2],
+        window: [i32; 4],
+    },
+    PopShadow,
+    /// Dashed stroke (v8): [`DrawOp::StrokePathPaint`] plus a dash pattern in path-local units.
+    /// `dash` has an even, non-zero length with a positive sum; `dash_offset` is the phase.
+    StrokePathDash {
+        path: u32,
+        paint: u32,
+        width: f32,
+        cap: u8,
+        join: u8,
+        miter: f32,
+        dash: Vec<f32>,
+        dash_offset: f32,
+        tf: Mat6,
+    },
+    /// Blend mode for the draws up to the matching [`DrawOp::PopBlend`] (v8), applied per draw
+    /// (no offscreen layer): fills, strokes, bitmaps and `PopShadow` composite with it. Draws
+    /// inside a nested layer or shadow window use source-over; the group composites with
+    /// the mode instead.
+    PushBlend {
+        blend: BlendMode,
+    },
+    PopBlend,
 }
 
 /// Independent associated RGBA component blending. Screen reads the actual backdrop;
@@ -183,6 +217,16 @@ pub enum PaintData {
         radius: f32,
         focus: [f32; 2],
         stops: Vec<GradientStop>,
+    },
+    /// Bitmap paint (v8): bitmap side-table entry `bitmap` (premultiplied), placed by
+    /// `transform` (bitmap pixels → path-local space). `repeat` tiles it, otherwise edge pixels
+    /// extend (pad). `quality`: 0 = nearest, 1 = bilinear, 2 = bicubic. `opacity` scales it.
+    Pattern {
+        bitmap: u32,
+        repeat: bool,
+        quality: u8,
+        opacity: f32,
+        transform: Mat6,
     },
 }
 
@@ -350,6 +394,8 @@ const MAGIC: u32 = 0x42_43_4F_50; // "BCOP"
 /// * v5：位图侧表与 `DrawBitmap`（BCF 文字的彩色字形）
 /// * v6：允许 RGB > alpha 的 `DrawEmissiveBitmap`，沿用位图侧表布局
 /// * v7：独立 RGBA Screen 输出（tag 15），v6 source-over 编码保持不变
+/// * v8: Canvas 2D primitives — `PushShadow`/`PopShadow` (16/17), `StrokePathDash` (18),
+///   `PushBlend`/`PopBlend` (19/20) and the `Pattern` paint (kind 3)
 ///
 /// `encode` 写的是**这一帧真正需要的**版本（[`required_version`]）：一条 v4
 /// 原语都没有的帧仍然产出 v3 字节。这不是省事，而是承诺——阶段 0 录下的
@@ -360,12 +406,31 @@ const PAINT_VERSION: u32 = 4;
 /// 引入位图侧表的版本。
 const BITMAP_VERSION: u32 = 5;
 /// `encode` 可能产出、`decode` 必须认得的最高版本。
-pub const MAX_VERSION: u32 = 7;
+pub const MAX_VERSION: u32 = 8;
+/// Version that introduced the Canvas 2D primitives.
+const CANVAS_VERSION: u32 = 8;
 /// `decode` 接受的最低版本。
 pub const MIN_DECODABLE_VERSION: u32 = 2;
 
 /// 这一帧最低需要哪个信封版本。
 pub fn required_version(frame: &FrameOps) -> u32 {
+    if frame
+        .paints
+        .iter()
+        .any(|paint| matches!(paint, PaintData::Pattern { .. }))
+        || frame.ops.iter().any(|op| {
+            matches!(
+                op,
+                DrawOp::PushShadow { .. }
+                    | DrawOp::PopShadow
+                    | DrawOp::StrokePathDash { .. }
+                    | DrawOp::PushBlend { .. }
+                    | DrawOp::PopBlend
+            )
+        })
+    {
+        return CANVAS_VERSION;
+    }
     if frame.ops.iter().any(|op| {
         matches!(
             op,
@@ -466,6 +531,20 @@ fn encode_paint(paint: &PaintData, out: &mut Vec<u8>) {
                 put_f32(out, *v);
             }
             encode_stops(stops, out);
+        }
+        PaintData::Pattern {
+            bitmap,
+            repeat,
+            quality,
+            opacity,
+            transform,
+        } => {
+            out.push(3);
+            put_u32(out, *bitmap);
+            out.push(u8::from(*repeat));
+            out.push(*quality);
+            put_f32(out, *opacity);
+            put_mat(out, transform);
         }
     }
 }
@@ -624,6 +703,52 @@ pub fn encode(frame: &FrameOps) -> Vec<u8> {
                 put_f32(&mut out, *opacity);
                 put_mat(&mut out, tf);
             }
+            DrawOp::PushShadow {
+                color,
+                sigma,
+                offset,
+                window,
+            } => {
+                out.push(16);
+                put_color(&mut out, color);
+                put_f32(&mut out, *sigma);
+                put_f32(&mut out, offset[0]);
+                put_f32(&mut out, offset[1]);
+                for v in window {
+                    out.extend_from_slice(&v.to_le_bytes());
+                }
+            }
+            DrawOp::PopShadow => out.push(17),
+            DrawOp::StrokePathDash {
+                path,
+                paint,
+                width,
+                cap,
+                join,
+                miter,
+                dash,
+                dash_offset,
+                tf,
+            } => {
+                out.push(18);
+                put_u32(&mut out, *path);
+                put_u32(&mut out, *paint);
+                put_f32(&mut out, *width);
+                out.push(*cap);
+                out.push(*join);
+                put_f32(&mut out, *miter);
+                put_u32(&mut out, dash.len() as u32);
+                for v in dash {
+                    put_f32(&mut out, *v);
+                }
+                put_f32(&mut out, *dash_offset);
+                put_mat(&mut out, tf);
+            }
+            DrawOp::PushBlend { blend } => {
+                out.push(19);
+                out.push(blend.code());
+            }
+            DrawOp::PopBlend => out.push(20),
         }
     }
     out
@@ -653,11 +778,16 @@ pub fn fingerprint(frame: &FrameOps) -> u64 {
 struct Reader<'a> {
     bytes: &'a [u8],
     at: usize,
+    version: u32,
 }
 
 impl<'a> Reader<'a> {
     fn new(bytes: &'a [u8]) -> Self {
-        Reader { bytes, at: 0 }
+        Reader {
+            bytes,
+            at: 0,
+            version: 0,
+        }
     }
 
     fn take(&mut self, n: usize) -> Result<&'a [u8]> {
@@ -682,6 +812,10 @@ impl<'a> Reader<'a> {
 
     fn u32(&mut self) -> Result<u32> {
         Ok(u32::from_le_bytes(self.take(4)?.try_into().unwrap()))
+    }
+
+    fn i32(&mut self) -> Result<i32> {
+        Ok(i32::from_le_bytes(self.take(4)?.try_into().unwrap()))
     }
 
     fn i64(&mut self) -> Result<i64> {
@@ -733,6 +867,13 @@ impl<'a> Reader<'a> {
                 focus: [self.f32()?, self.f32()?],
                 stops: self.stops()?,
             }),
+            3 if self.version >= CANVAS_VERSION => Ok(PaintData::Pattern {
+                bitmap: self.u32()?,
+                repeat: self.u8()? != 0,
+                quality: self.u8()?,
+                opacity: self.f32()?,
+                transform: self.mat()?,
+            }),
             other => bail!("bcop-paint-kind-unknown: {other}"),
         }
     }
@@ -754,6 +895,7 @@ pub fn decode(bytes: &[u8]) -> Result<(u32, FrameOps)> {
         bail!("bcop-magic-mismatch");
     }
     let version = r.u32()?;
+    r.version = version;
     if !(MIN_DECODABLE_VERSION..=MAX_VERSION).contains(&version) {
         bail!(
             "bcop-version-unsupported: {version}（可读 {MIN_DECODABLE_VERSION}..={MAX_VERSION}）"
@@ -902,6 +1044,45 @@ pub fn decode(bytes: &[u8]) -> Result<(u32, FrameOps)> {
                 opacity: r.f32()?,
                 tf: r.mat()?,
             },
+            16 if version >= CANVAS_VERSION => DrawOp::PushShadow {
+                color: r.color()?,
+                sigma: r.f32()?,
+                offset: [r.f32()?, r.f32()?],
+                window: [r.i32()?, r.i32()?, r.i32()?, r.i32()?],
+            },
+            17 if version >= CANVAS_VERSION => DrawOp::PopShadow,
+            18 if version >= CANVAS_VERSION => {
+                let path = r.u32()?;
+                let paint = r.u32()?;
+                let width = r.f32()?;
+                let cap = r.u8()?;
+                let join = r.u8()?;
+                let miter = r.f32()?;
+                let count = r.u32()? as usize;
+                let mut dash = Vec::with_capacity(count.min(1024));
+                for _ in 0..count {
+                    dash.push(r.f32()?);
+                }
+                DrawOp::StrokePathDash {
+                    path,
+                    paint,
+                    width,
+                    cap,
+                    join,
+                    miter,
+                    dash,
+                    dash_offset: r.f32()?,
+                    tf: r.mat()?,
+                }
+            }
+            19 if version >= CANVAS_VERSION => {
+                let code = r.u8()?;
+                DrawOp::PushBlend {
+                    blend: BlendMode::from_code(code)
+                        .ok_or_else(|| anyhow::anyhow!("bcop-blend-unknown: {code}"))?,
+                }
+            }
+            20 if version >= CANVAS_VERSION => DrawOp::PopBlend,
             other => bail!("bcop-op-unknown: {other}（版本 {version}）"),
         });
     }

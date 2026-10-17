@@ -22,7 +22,6 @@ export const fr: SettingsNavMessages = {
     downloader: 'Téléchargement de vidéos',
     semantic: 'Index sémantique',
     agent: "Fournisseurs d’Agents",
-    skills: "Skills",
     providers: "Fournisseurs d’API",
     usage: "Utilisation",
     glossary: "Glossaire",

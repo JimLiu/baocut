@@ -326,6 +326,17 @@ test('本机按步进度：加载时没有剩余；走完一步起按平均步�
   assert.equal(I.timeLine(I.stepProgress([], 8, null, null)), null);
 });
 
+test('按提示词改图时提示词框提醒写清怎么改（2026-10-17）', () => {
+  const lc = I.capabilities(I.LOCAL_TURBO_ID);
+  const f = Object.assign(I.blank(I.LOCAL_TURBO_ID), {refs: ['a']});
+  assert.equal(I.editsByPrompt(f, lc), true);
+  assert.match(I.promptPlaceholder(f, lc), /画完整/);
+  assert.equal(I.editsByPrompt(Object.assign({}, f, {refMode: 'img2img'}), lc), false, '以图为底重画不算');
+  assert.equal(I.editsByPrompt(Object.assign({}, f, {refs: []}), lc), false, '没有参考图是文生图');
+  assert.equal(I.editsByPrompt(f, I.capabilities('cloud:google/gemini-3-pro-image')), false, '只作参考的模型不算');
+  assert.match(I.promptPlaceholder({refs: []}, lc), /^描述你要的画面/);
+});
+
 test('参考图两种用法（2026-10-13）：本地能以图为底重画，逐张各出一张；云端只有改图 / 参考', () => {
   const lc = I.capabilities(I.LOCAL_TURBO_ID);
   assert.deepEqual(I.refModes(lc).map((m) => m.label), ['按提示词改图', '以图为底重画']);

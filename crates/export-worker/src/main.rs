@@ -6,12 +6,15 @@
 //!   stdout 是 JSON 行：`progress`（已画完、交给编码队列的帧数与总帧数）、最后一行 `done`、`error` 或 `cancelled`；
 //! - `export-worker census <input.json>`：只排一遍字，清点视频用到的字体（`fonts.usage`）：stdout 上一个 JSON 对象，
 //!   点了名的全部 face（`bundled` 标出随内核发布的）与内核的回退族（`fallback`）；
+//! - `export-worker canvas-bake <input.json>`：代码包烘焙的指令路线（[`canvas_bake`]）：Canvas 录制转成 DrawOp、多线程光栅、
+//!   编成 ProRes；stdout 同样是 JSON 行（`verify`、`progress`、`done`）；
 //! - `export-worker master <input.json>`：开了响度标准化时，把混好的声音做成目标响度（[`master`]），stdout 同样是 JSON 行，
 //!   最后一行是 `mastered`。
 //!
 //! 标准输入收到 `cancel` 一行或被关闭（Runtime 退出）时取消：停下合成，杀掉解码与编码的子进程，删掉没写完的输出。
 //! 独立进程让合成的崩溃与内存不影响 Runtime 与引擎；引擎宿主照常处理编辑请求，导出读的是启动时冻结的输入。
 
+mod canvas_bake;
 mod delivery;
 mod input;
 mod master;
@@ -56,11 +59,11 @@ fn main() -> ExitCode {
     priority::raise_for_export();
     let args: Vec<String> = std::env::args().skip(1).collect();
     let (command, path) = match args.as_slice() {
-        [command, path] if matches!(command.as_str(), "preflight" | "census" | "render" | "master") => {
+        [command, path] if matches!(command.as_str(), "preflight" | "census" | "render" | "master" | "canvas-bake") => {
             (command.as_str(), PathBuf::from(path))
         }
         _ => {
-            eprintln!("usage: export-worker preflight|census|render|master <input.json>");
+            eprintln!("usage: export-worker preflight|census|render|master|canvas-bake <input.json>");
             return ExitCode::from(2);
         }
     };
@@ -68,6 +71,7 @@ fn main() -> ExitCode {
         "preflight" => preflight_command(&path),
         "census" => census_command(&path),
         "master" => master::run(&path),
+        "canvas-bake" => canvas_bake::run(&path),
         _ => render::run(&path),
     };
     match result {

@@ -15,6 +15,7 @@ export const zhHans: ExportRejectionMessages = {
     EXPORT_SOURCE_AMBIGUOUS: '有几份文档都可以导出',
     EXPORT_TOOL_MISSING: '这台电脑缺导出要用的工具',
     EXPORT_UNSUPPORTED_CONTENT: '有内容导出时画不出来',
+    EXPORT_PRERENDER_STALE: '有代码画面的替身已过期，要重新烘焙',
     ASSET_MISSING: '有素材读不到',
     ASSET_CHANGED: '有素材的内容变了',
     ENTITY_NOT_FOUND: '序列不存在',

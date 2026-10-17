@@ -71,6 +71,8 @@ export const COMPOSITION_PARAM_SCHEMAS = {
       place: z.object({ track: id.optional(), at: seconds.optional() }).strict().optional(),
       replace: z.object({ itemId: id }).strict().optional(),
       register: z.boolean().optional(),
+      bake: z.enum(['auto', 'ops', 'pixels']).optional(),
+      background: z.boolean().optional(),
       revision: revision.optional(),
       commandId: id.optional(),
       conversationId: id.optional(),

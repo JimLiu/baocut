@@ -1,6 +1,7 @@
 import type { ProtocolValidationMessages } from './protocol-validation.ts';
 
 export const ko: ProtocolValidationMessages = {
+  duplicatePaths: '같은 경로는 한 번만 사용할 수 있습니다',
   listSeparator: ', ',
   notEmpty: '비워 둘 수 없습니다',
   noSurroundingSpace: '앞뒤에 공백이 있으면 안 됩니다',

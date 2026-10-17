@@ -209,9 +209,20 @@ fn suppression_cost(word: &Word, next: &Word, line_chars: usize, params: &CuePar
     0.0
 }
 
+fn inside_gaps(words: &[Word]) -> Vec<bool> {
+    crate::word_breaks::han_word_interior_gaps(
+        &words
+            .iter()
+            .map(|word| word.text.as_str())
+            .collect::<Vec<_>>(),
+    )
+}
+
 struct Optimizer<'a> {
     words: &'a [Word],
     seams: Vec<Seam>,
+    /// 每个词之后的缝是否在一个中文词里（贪心重放与 `derive_cues` 同一份判断）。
+    inside: Vec<bool>,
     params: &'a CueParams,
     profile: &'a LayoutProfile,
     budget: CpsBudget,
@@ -286,7 +297,7 @@ impl Optimizer<'_> {
             let Some(next) = self.words.get(k + 1) else {
                 break;
             };
-            let greedy = auto_break(word, next, line, params);
+            let greedy = auto_break(word, next, line, params, self.inside[k]);
             if k + 1 < j {
                 if greedy && self.seams[k] == Seam::Soft {
                     cost += suppression_cost(word, next, line, params);
@@ -474,6 +485,7 @@ pub fn balanced_cue_breaks(
     let optimizer = Optimizer {
         words: &visible,
         seams,
+        inside: inside_gaps(&visible),
         params,
         profile: &profile,
         budget: reading_budget(&visible, &profile),
@@ -501,7 +513,9 @@ pub fn balanced_cue_breaks(
             continue;
         }
         let want = desired.contains(&position);
-        if !doc.breaks.contains_key(&word.id) && want != auto_break(word, next, line, params) {
+        if !doc.breaks.contains_key(&word.id)
+            && want != auto_break(word, next, line, params, optimizer.inside[position])
+        {
             out.insert(
                 word.id.clone(),
                 if want {
@@ -957,6 +971,7 @@ mod tests {
         let profile = LayoutProfile::default_profile();
         let optimizer = Optimizer {
             words: &visible,
+            inside: inside_gaps(&visible),
             seams: classify_seams(
                 &visible,
                 &doc.breaks,

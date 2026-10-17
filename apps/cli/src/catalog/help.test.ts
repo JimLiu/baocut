@@ -84,6 +84,10 @@ describe('帮助', () => {
     const wait = renderCommandHelp(tree.nouns.get('jobs')!.get('wait')!);
     expect(wait).toContain('--timeout <s>');
     expect(wait).not.toContain('--no-wait');
+    // 工具自己有 project 字段时，--project 只在参数里出现一次。
+    const create = renderCommandHelp(tree.nouns.get('videos')!.get('create')!);
+    expect(create.match(/--project/g)).toHaveLength(1);
+    expect(renderCommandHelp(tree.nouns.get('videos')!.get('inspect')!)).toContain('--project <dir>');
   });
 
   it('说明里的工具名写成命令；摘要取第一句', () => {
@@ -113,6 +117,7 @@ describe('spec', () => {
 
   it('edits.<操作> 给操作的 schema；不认识的名字是 INVALID_ARGUMENTS', () => {
     expect(specOf(snapshot, snapshot.editOps, 'edits.renameVideo')).toMatchObject({ operation: { type: 'renameVideo' } });
+    expect(specOf(snapshot, snapshot.editOps, 'renameVideo')).toMatchObject({ operation: { type: 'renameVideo' } });
     expect(specOf(snapshot, snapshot.editOps, 'edits.apply')).toMatchObject({ tool: { name: 'edits_apply' } });
     expect(() => specOf(snapshot, snapshot.editOps, 'edits.nope')).toThrow(CliError);
     expect(() => specOf(snapshot, snapshot.editOps, 'nope')).toThrow(CliError);

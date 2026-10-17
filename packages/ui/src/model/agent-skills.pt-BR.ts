@@ -4,7 +4,7 @@ import { pluralForm } from '@baocut/protocol';
 export const ptBR: AgentSkillsMessages = {
   origin: { builtin: 'Integrada', personal: 'Minha', 'third-party': 'De terceiros' }, all: 'Todas', commit: (sha: string) => ` (${sha})`, fullName: (raw: string, label: string) => `${raw} (${label})`,
   bytes: (n: number) => pluralForm('pt-BR', n, { one: `${n} byte`, other: `${n} bytes` }),
-  action: { load: 'carregar skills', toggle: 'alterar a opção', add: 'adicionar', import: 'importar', remove: 'remover', read: 'abrir o arquivo', send: 'enviar' },
+  action: { load: 'carregar skills', toggle: 'alterar a opção', add: 'adicionar', import: 'importar', remove: 'remover', read: 'abrir o arquivo', send: 'enviar', upload: 'enviar', create: 'criar', duplicate: 'duplicar', save: 'salvar', restore: 'restaurar esta versão', export: 'baixar', brand: 'salvar o BRAND.md', },
   exists: (id: string | null) => `Já existe uma skill chamada “${id ?? 'esta'}” e ela não será sobrescrita. Remova a anterior primeiro ou renomeie a pasta e adicione novamente.`,
   invalid: (issue: string) => `Esta skill não é utilizável: ${issue}. A pasta raiz precisa de um SKILL.md que comece com name e description.`,
   tooLarge: (files: number, total: string, skillFile: string) => `Esta skill é grande demais: uma skill pode ter no máximo ${pluralForm('pt-BR', files, { one: `${files} arquivo`, other: `${files} arquivos` })}, totalizando ${total}, e o próprio SKILL.md pode ter no máximo ${skillFile}.`,
@@ -18,5 +18,7 @@ export const ptBR: AgentSkillsMessages = {
   notFound: 'Esta skill não existe mais; pode ter sido removida agora.', fileNotFound: 'Este arquivo não existe mais.',
   fileTooLarge: 'Este arquivo é grande demais para mostrar aqui. Você pode abrir na pasta.', fileNotText: 'Este não é um arquivo de texto, então não aparece aqui.',
   webNotAllowed: 'Não é possível fazer isso no navegador. Use o aplicativo de desktop BaoCut.', webReadOnly: 'Esta sessão do navegador é somente leitura, então nada pode ser alterado.',
+  revisionConflict: 'Esta skill foi alterada em outro lugar depois que você começou a editar. Copie suas alterações, recarregue e edite novamente.',
+  notEditable: 'Só as suas próprias skills podem ser editadas aqui. Duplique-a para ter uma cópia que você possa alterar.',
   failed: (action: string, raw: string) => `Não foi possível ${action}: ${raw}`, sendFailed: (raw: string) => `Não foi possível enviar: ${raw}`,
 };

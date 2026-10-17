@@ -13,7 +13,9 @@ path = "src/main.rs"
 [dependencies]
 editor-semantics.workspace = true
 font-files.workspace = true
+image = { version = "0.25", default-features = false, features = ["png", "webp"] }
 message-ref.workspace = true
+png = "0.18"
 render-graph.workspace = true
 video-engine.workspace = true
 serde = { version = "1.0.229", features = ["derive"] }

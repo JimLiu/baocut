@@ -1,6 +1,25 @@
 import type { RcSkillsMessages } from './rc-skills.ts';
 
 export const ru: RcSkillsMessages = {
+  brandProjectNotFound: (p) => `Проект не найден: ${p.id}`,
+  brandNotFound: (p) => `У «${p.project}» ещё нет BRAND.md`,
+  brandFileNotFound: (p) => `Это не файл BRAND.md: ${p.file}`,
+  brandPathInvalid: (p) => `Изменять можно только BRAND.md и файлы в brand/: ${p.path}`,
+  brandExists: (p) => `В этом проекте уже есть BRAND.md: ${p.path}`,
+  brandUnreadable: (p) => `Не удалось прочитать ${p.file}, поэтому сообщение отправлено без него`,
+  versionNotFound: (p) => `У Skill «${p.id}» нет сохранённой версии ${p.revision}`,
+  packageTooLarge: (p) => `Zip-файл больше ${p.limit} байт`,
+  packageUnreadable: (p) => `Не удалось прочитать ${p.path} как zip-файл или папку`,
+  packageNoSkill: (p) => `В этом пакете нет ${p.file}. В корневой папке Skill нужен ${p.file} с описанием, что он делает и когда его использовать`,
+  candidateUnsafePath: (p) => `В этом Skill есть элемент, который нельзя безопасно распаковать: ${p.path}`,
+  candidateTooManyFiles: (p) => `Слишком много файлов (${p.files}); в Skill их не больше ${p.limit}`,
+  candidateNoDescription: "В SKILL.md нет description: напишите одно-два предложения о том, что делает Skill и когда его использовать. По ним агент решает, применять ли Skill",
+  candidateDuplicate: (p) => `В этом пакете есть другой Skill с тем же ID «${p.id}»`,
+  packagePickInvalid: (p) => `${p.prefix} — не устанавливаемый Skill из этого пакета`,
+  revisionConflict: (p) => `Skill тем временем изменился (теперь версия ${p.revision}). Загрузите его заново и повторите изменения`,
+  cannotRemoveSkillFile: (p) => `${p.file} нельзя удалить`,
+  notEditable: (p) => `«${p.name}» нельзя изменить здесь. Дублируйте его и измените копию`,
+  changeSourceMissing: (p) => `Это не файл, который можно добавить: ${p.path}`,
   cliOnlyPageLink: (p) => `Связанная страница ${p.page} недоступна в интерфейсе инструментов: есть только поверхность CLI, ссылки должны быть в ней`,
 
   guideIdConflict: (p) => `ID «${p.id}» принадлежит руководству BaoCut, копия не загружена. Переименуйте папку`,

@@ -64,6 +64,8 @@ const fileTarget = z.union([
 const revision = z.string().regex(/^\d+$/);
 /** 随包贴纸的 ID（`sticker-packs.ts`）：`<包>-<文件>`，目录里有没有由 Runtime 查。 */
 const stickerId = z.string().regex(/^[A-Za-z0-9-]+\.(svg|json)$/).max(200);
+/** Codex Pet（`pets.ts`）：社区的 slug，目录里有没有由 Runtime 查。 */
+const petRef = z.object({ source: z.literal('community'), slug: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/).max(200) }).strict();
 const assetTarget = { videoId: id, assetId: id, revision: revision.optional() };
 const attachmentTarget = z.object({ conversationId: id, attachmentId: id }).strict();
 const localFileTarget = z.object({ localPath: filePath }).strict();
@@ -89,6 +91,12 @@ const cropsDisjoint = (crops: { from: number; to: number }[]) =>
  * 引擎拒绝未知字段并按操作序号报错。
  */
 const editOperation = z.looseObject({ type: z.string().min(1).max(50) });
+/** 拷进视频的命令同一笔事务里接着做的修改与修改名（`library.applyToVideo`、`stickers.applyToVideo`、`pets.applyToVideo`）。 */
+const followUpEdits = {
+  operations: z.array(editOperation).min(1).max(499).optional(),
+  label: z.string().trim().min(1).max(200).optional(),
+  labelRef: messageRef.optional(),
+};
 const undoTarget = z.union([z.enum(['undo', 'redo']), z.object({ transaction: id }).strict()]);
 const bundleId = z.string().min(1).max(200);
 /** Provider：`local`、`node:<nodeId 或别名>`、`openai`、`google`、`custom:<slug>`；认不认识由 Runtime 判断。 */
@@ -708,6 +716,7 @@ const exportSettings = z.union([
       bitrateKbps: z.number().int().min(100).max(200_000).optional(),
       burnCaptions: z.boolean().optional(),
       onUnsupported: z.enum(['fail', 'skip']).optional(),
+      allowStalePrerender: z.boolean().optional(),
       audio: z.object(audioExportOptions).strict().optional(),
       source: audioExportSource.optional(),
     })
@@ -877,6 +886,7 @@ export const methodParamSchemas = {
     template: templateSendRefSchema.optional(),
     skill: skillSendRefSchema.optional(),
     skills: skillSendListSchema.optional(),
+    skipProjectBrand: z.boolean().optional(),
     slideAnnotations: slideAnnotations.optional(),
     designAnnotations: designAnnotations.optional(),
     designSystemAnnotations: designSystemAnnotations.optional(),
@@ -976,6 +986,7 @@ export const methodParamSchemas = {
   'media.subtitles': fileTarget,
   'media.peaks': z.object(assetTarget).strict(),
   'media.thumbnail': z.object({ ...assetTarget, at: z.number().finite().nonnegative().max(1_000_000) }).strict(),
+  'media.bundle': z.object(assetTarget).strict(),
   ...FONT_PARAM_SCHEMAS,
   ...COMPOSITION_PARAM_SCHEMAS,
   'videos.create': z
@@ -1349,6 +1360,7 @@ export const methodParamSchemas = {
       name: z.string().trim().min(1).max(200).optional(),
       captionItemIds: z.array(id).min(1).max(1000).optional(),
       sequenceId: id.optional(),
+      ...followUpEdits,
     })
     .strict(),
   'library.getVideoSelection': z.object({ videoId: id }).strict(),
@@ -1388,6 +1400,18 @@ export const methodParamSchemas = {
       commandId: id,
       expectedRevision: revision.optional(),
       name: z.string().trim().min(1).max(200).optional(),
+      ...followUpEdits,
+    })
+    .strict(),
+  'pets.openHandle': z.object({ pet: petRef, file: z.enum(['sheet', 'thumbnail', 'preview']) }).strict(),
+  'pets.applyToVideo': z
+    .object({
+      videoId: id,
+      pet: petRef,
+      commandId: id,
+      expectedRevision: revision.optional(),
+      name: z.string().trim().min(1).max(200).optional(),
+      ...followUpEdits,
     })
     .strict(),
   'library.createVoiceClone': z

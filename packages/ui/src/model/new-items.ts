@@ -1,5 +1,6 @@
 import {
   sequenceDurationFrames,
+  type AssetRecord,
   type EditOperation,
   type FrameSpan,
   type Id,
@@ -7,6 +8,7 @@ import {
   type SequenceItem,
   type Place,
   type SequenceItemInput,
+  type VersionRef,
 } from '@baocut/protocol';
 import { trackFree } from './editor-ops.ts';
 import { round1 } from './geometry-panel.ts';
@@ -97,6 +99,12 @@ type Fields<Item> = Item extends Visual
 
 /** 新建的一层画面：片段本身的字段，加上它比整组晚几帧出现（文字预设成员的错峰）。 */
 export type VisualLayer = Fields<Visual> & { delayFrames?: number };
+
+/** 一层画面画哪个素材：已有素材的版本，或同一笔事务里导入的（`importAsset` 的 `ref`）。 */
+export type LayerAsset = { assetRef: VersionRef } | { assetImportRef: string };
+
+/** 已有素材的当前版本。 */
+export const currentAsset = (asset: AssetRecord): LayerAsset => ({ assetRef: { id: asset.id, revision: asset.currentRevision } });
 
 /**
  * 新建几层画面的一笔事务：缺的轨道先建，再一次插入。整组占 `span`，每层从 `span` 开头晚 `delayFrames` 出现、

@@ -1,6 +1,7 @@
 import type { ProtocolValidationMessages } from './protocol-validation.ts';
 
 export const pl: ProtocolValidationMessages = {
+  duplicatePaths: "Każda ścieżka może wystąpić tylko raz",
   listSeparator: ", ",
   notEmpty: "Nie może być puste",
   noSurroundingSpace: "Nie może zaczynać się ani kończyć białymi znakami",

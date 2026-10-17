@@ -150,13 +150,13 @@ describe.skipIf(!built)('帧计划器（WASM）', () => {
     planner.setVideo({ sequence: { ...sequence, items: [...sequence.items, viz] } as never, assets: video.assets });
     const missing = planner.render(1, 160, 90);
     expect(missing.spectra).toEqual([{ itemId: 'item_viz', asset: { id: 'asset_music', revision: 'rev_1' } }]);
-    expect(missing.warnings.some((w) => w.detail.startsWith('item_viz：'))).toBe(true);
+    expect(missing.warnings.some((w) => w.detail.startsWith('item_viz: '))).toBe(true);
     const asset = { id: 'asset_music', revision: 'rev_1' };
     expect(planner.setAudioSpectrum(asset, spectrum)).toBe(true);
     expect(planner.setAudioSpectrum(asset, spectrum)).toBe(false);
     const heard = planner.render(1, 160, 90);
     expect(heard.spectra).toEqual([]);
-    expect(heard.warnings.some((w) => w.detail.startsWith('item_viz：'))).toBe(false);
+    expect(heard.warnings.some((w) => w.detail.startsWith('item_viz: '))).toBe(false);
     planner.clearAudioSpectra();
     expect(planner.render(1, 160, 90).spectra).toHaveLength(1);
   });

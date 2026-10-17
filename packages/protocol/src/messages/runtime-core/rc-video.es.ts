@@ -7,4 +7,6 @@ export const es: RcVideoMessages = {
  sourceRootInTrash: 'Esta carpeta de vídeo es una carpeta de proyecto o de trabajo de una sesión (o contiene una), por lo que no se puede mover a la Papelera', sourceRootRemedy: 'En BaoCut, primero quita el proyecto o la sesión que la usa como carpeta y después elimina este vídeo desde el proyecto superior',
   compositionImportFailed: (p) => `No se pudo importar el gráfico animado (${p.code})`,
   compositionPreviewFailed: (p) => `No se pudo previsualizar el gráfico animado (${p.code})`,
+  compositionBakeSuperseded: 'El gráfico animado se modificó o eliminó antes de terminar el renderizado, así que no se aplicó el sustituto',
+  compositionBakeFailed: (p) => `No se pudo renderizar el gráfico animado (${p.code})`,
 };

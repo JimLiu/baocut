@@ -177,7 +177,7 @@ CLI 不区分「人敲的」与「Agent 敲的」。要让 Agent 宿主的权限
 | `edits` | `apply` | mutation | 一笔事务：`ops`（JSON 数组、`@文件` 或 stdin）+ `revision`；`dry-run` 走预检 |
 | | `undo` | mutation | 撤销最近一笔 |
 | | `ops` | query | 列出操作族与每个操作的 schema、示例（命令协议 §4.2）；`spec edits.<op>` 同源 |
-| `captions` | `create` | mutation | 把转写或译文做成字幕层（现 `captions_create`），`bilingual`、`layout-profile` |
+| `captions` | `create` | mutation | 把转写或译文做成字幕层（现 `captions_create`），`bilingual`、`layout-profile`、`style`（位置与样式：字幕样式文档的键 `y`、`verticalAlign`、`width`、`fontSize`、描边与底板开关等，以默认样式为底；建好后用 `edits_apply` 的 `setCaptionStyle` 改，架构设计 §3.5） |
 | `assets` | `import` | mutation | **新增 sugar**：导入一个文件或 `artifactId`，可选 `place`（同一事务里 `addItem` 到主轨末尾或指定时间）。编译成 `importAsset` [+ `addItem`] |
 | `jobs` | `list` / `inspect` / `wait` / `cancel` / `retry` | query / query / query / mutation / job | `wait` 阻塞到终态或超时；`retry` 是现 `pipelines retry` |
 | `models` | `capabilities` | query | 每种能力可用的 Provider、模型、默认值、限制与不可用原因；`settingsHref` 是对应能力的设置路径，提示用户配置时将它写成 Markdown 链接（产品设计 §3.2.2） |
@@ -271,6 +271,8 @@ export --video V --kind subtitles --format srt --bilingual
 - 被截断的结果不能当完整的视频用：摘要里写明覆盖范围与继续读取的参数。
 
 ### 5.6 Runtime 的归属
+
+桌面包随带同一次构建的 CLI、Runtime 与离线工具目录，启动器使用包内 Electron；入口、安装与旧包缺失入口的处理见[桌面端 README「外部 Agent 与 CLI」](../../../apps/desktop/README.md#外部-agent-与-cli)。CLI 优先使用自身 App 的 Runtime 与说明书，支持移动安装目录；显式 `BAOCUT_RUNTIME_ENTRY` 的优先级不变。Web 页面不安装本机命令入口。
 
 - 每条要连 Runtime 的命令先按 `BAOCUT_HOME` 的发现文件找正在跑的 Runtime；找不到时**默认自动拉起**一个（后台、脱离终端），结果里带 `runtime: { started: true }`。`--no-start` 关掉自动拉起（CI 或只想看状态时）。
 - `baocut runtime ensure` 显式做同一件事并打印 `started` / `reused`；`runtime status` 打印进程、端口、版本、是否有桌面端连接着；`runtime stop` 只停 CLI 自己拉起的那一个，桌面端连接着时拒绝并说明。
@@ -414,7 +416,7 @@ skills/baocut/
 **craft 不 fork。** `built-in-skills/<id>/SKILL.md` 与它们的 `references/` 就是用户要的 prompts、workflow 与最佳实践，单一来源仍是 `built-in-skills/<id>/`。两条路把它们交给外部 Agent：
 
 1. **同步副本**：构建脚本 `tools/sync-agent-skill.ts`（`npm run build:agent-skill`，`--check` 核对）把每个内置 skill 复制成 `references/craft/<id>.md`（SKILL.md 正文，末尾列出同目录的文件）与同名目录 `references/craft/<id>/`（skill 目录里的其余文件，相对路径不变：`references/*.md` 各成一页，代码、样例与数据原样复制，不内嵌进 Markdown；正文与参考页里提到的这些路径改成相对链接，`用 skills_read 读本 skill 的 …` 改写为读那个链接），并把 `.md` 里的工具桥工具名按 §4.1 的规则改写成 CLI 命令（`documents_read` → `baocut documents read`，一级动词 `speak` → `baocut speak`；连着 `-`、`/`、`.` 或后跟 `:` 的字面量是文件名或字段，不改）；craft 引用共享目录页时，`用 skills_read 读 baocut-catalog-<页>` 改写为该目录页的相对链接，不把参考表展开进附录；目标页必须存在。只在会话里有、终端没有对应命令的工具（`downloads_save`）换成不提工具名的兜底写法（终端里直接把文件路径告诉用户）。测试断言副本与源一致。
-2. **现取**：`baocut skills read <id>` 随时能取当前 Runtime 里的版本（含用户自己添加的 skill）。SKILL.md 说明两者的关系：副本是随 skill 发布时的版本，现取是这台机器上的版本。
+2. **现取**：`baocut skills read <id>` 随时能取当前 Runtime 里的版本（含用户自己添加的 skill）；说明书页（`baocut-catalog-<页>`、`baocut-workflows`、`baocut-conventions`）也能这样读，给的是 CLI 面。craft 正文里的工具名仍是工具桥面的写法，现取的结果带一句 `next` 说明对应关系（§4.1）。SKILL.md 说明两者的关系：副本是随 skill 发布时的版本，现取是这台机器上的版本。
 
 SKILL.md 第 3 节末尾的「内置 skill」表（只在 CLI 面）给每份内置 craft 一个名字与一句话，`{{skill:<id>}}` 链到副本，第 1 节的路由没覆盖的任务按它判断该读哪一份；会话内智能体看会话开始的 skill 索引，不重复这张表。只给会话内智能体的 craft（`slides`）不列。
 
@@ -455,7 +457,7 @@ SKILL.md 与 `references/` 的正文等 §10 的第 2 阶段（CLI 切到目录�
 - **工具名占位**：正文里的工具写 `{{tool:documents_read}}`，渲染时按面输出 `baocut documents read` 或 `documents_read`；参数名同理用字段名，CLI 面渲染成 `--kebab-case`。craft 同步脚本（§8.3）与这里共用同一个渲染函数。
 - **craft 占位**：引用一份 craft 写 `{{skill:polish-transcript}}`，CLI 面渲染成 `references/craft/polish-transcript.md` 的链接，工具桥面渲染成「`polish-transcript`（用 `skills_read` 读）」（紧跟在「读」后面时是「用 `skills_read` 读 `polish-transcript`」，不说两遍「读」）。入口与 workflows 用它指向方法，不写死任一面的路径。
 
-落地：`packages/runtime-core/src/skills/` 加一个渲染器，Runtime 读 `skills/baocut/`（随应用分发在 `<resources>/skills/baocut/`，开发时读仓库，与内置 skill 目录的解析顺序相同）按工具桥面渲染出指导与内置 skill；`guidance.ts` 退化成渲染器的调用方，不再手写内容；工具名按 Runtime 真实的工具桥目录核对，找不到说明书或渲染不了时 Runtime 启动失败。说明书页只给会话内智能体（终端与 MCP 的 `skills_read` 读不到，那边读装好的 CLI 面），总在会话的 skill 索引里（排在 craft 前面），不进设置里的 skill 列表、不能开关：它们是入口指导引用的机制，关掉会让指导指向读不到的页；用户或内置 skill 用了同样的 id 时不加载那一份，记 `builtin-conflict`。`skills/` 目录只剩 craft（做法），「怎么用 BaoCut」的通用指导全部进 `agent-skills/baocut/`。测试：CLI 面的渲染里不出现 `a_b` 形式的工具名与 `skills_read` 的「现取」说法以外的工具桥用语；工具桥面的渲染里不出现 `baocut ` 命令、`--yes`、退出码；两面渲染出的硬规则条数相同；工具桥面正文为空（整页在 `cli` 块里）的目录页不登记成说明书页，指导或别的页在 `cli` 块外链到它时渲染失败。
+落地：`packages/runtime-core/src/skills/` 加一个渲染器，Runtime 读 `skills/baocut/`（随应用分发在 `<resources>/skills/baocut/`，开发时读仓库，与内置 skill 目录的解析顺序相同）按工具桥面渲染出指导与内置 skill；`guidance.ts` 退化成渲染器的调用方，不再手写内容；工具名按 Runtime 真实的工具桥目录核对，找不到说明书或渲染不了时 Runtime 启动失败。说明书页按读者给面：会话内智能体读工具桥面；终端与 MCP 的 `skills_read` 读同一页的 CLI 面（与装好的 CLI 面相同，2026-10-17 起；原先读不到，外部 Agent 照 craft 里「读 `baocut-catalog-<页>`」去 `baocut skills read` 就撞 SKILL_NOT_FOUND）。说明书页总在会话的 skill 索引里（排在 craft 前面），不进 Skills 列表、不能开关：它们是入口指导引用的机制，关掉会让指导指向读不到的页；用户或内置 skill 用了同样的 id 时不加载那一份，记 `builtin-conflict`。`skills/` 目录只剩 craft（做法），「怎么用 BaoCut」的通用指导全部进 `agent-skills/baocut/`。测试：CLI 面的渲染里不出现 `a_b` 形式的工具名与 `skills_read` 的「现取」说法以外的工具桥用语；工具桥面的渲染里不出现 `baocut ` 命令、`--yes`、退出码；两面渲染出的硬规则条数相同；工具桥面正文为空（整页在 `cli` 块里）的目录页不登记成说明书页，指导或别的页在 `cli` 块外链到它时渲染失败。
 
 不做的事：不让会话内智能体开子进程跑 `baocut`（它有工具桥）；不 fork craft；不为两个面各写一份硬规则。
 
@@ -501,6 +503,8 @@ SKILL.md 与 `references/` 的正文等 §10 的第 2 阶段（CLI 切到目录�
 **链接的生命周期。** 一次性代码在 URL fragment 里，两分钟内有效、只能用一次；登录页用它换成浏览器会话（12 小时，cookie 绑端口），然后回到原来的路径与查询，界面按它打开那个视频。会话还在时不带代码的地址可以再打开。服务重启后旧会话作废。一个任务里 `web open` 一次、复用同一个标签；只在看到登录页 / 401 或连接被拒时重新发链接。
 
 **CLI 优先，浏览器用来看与拖。** 文字与时间线上确定的修改（改字、翻译、剪口、挪到某秒、章节）走命令；网页用于播放、看合成后的画面与字幕位置（帧不是合成后的画面）、所见即所得的拖拽，以及请用户审。网页上的改动与命令写同一份真相、同一份修改历史，所以网页里改过之后，下一条写命令之前重新 `videos inspect`。不在网页上操作 BaoCut 自己的智能体对话与设置。宿主有内置浏览器就在里面打开，否则把链接交给用户；说明书不对任何宿主下断言。
+
+**桌面会自己打开新建的视频。** 用户开着桌面 App、停在 Home 且没开着别的视频时，`videos create`（MCP 的 `videos_create`）建好的视频会自动在功能区打开（产品设计 §3.3「外部 Agent 新建的视频」，Space 主题的 `video.created`）。这只是方便用户旁观：Agent 不能假定用户看见了，说明书不改，要请用户审片仍按下一段给链接。
 
 **交给用户的链接。** Agent 自己打开过的链接已经作废。交付时再 `web open` 一次，把新链接给用户，说明只能用一次、两分钟有效；用户来不及马上点时，请用户自己运行 `baocut web open --video <videoId> --launch`：它在系统浏览器里打开登录页（保留路径与查询），代码从终端粘进去。
 
@@ -597,7 +601,7 @@ SKILL.md 与 `references/` 的正文等 §10 的第 2 阶段（CLI 切到目录�
 - 无项目会话的视频（2026-10-08）：会话里新建视频不再先建项目、绑定，视频建在会话自己的工作目录里（架构设计 §3.10）；新增只在工具桥的 `projects_adopt_session { name? }`，用户明确要建项目时才把会话连同视频收进一个以视频命名的新项目，按 `edit` 确认。说明书 §4 写明：会话不属于项目时新视频不给 `project`；用户消息里「[目标语言]」这类没填的待填项先问清再动手。
 - `documents read` 只有 `video`、`documentId`、可选 `revision`（2026-10-06）：转写另带 `translationBasis`，没有 `for` / `format`；纯文本用 `export --kind transcript --format txt`。§4.3 / §4.4 已按实现改正，不改实现。
 - 外部 Agent 经网页版编辑器看与改（2026-10-06，§8.8）：会话内智能体不开网页，`catalog/web.md` 整页只给 CLI 面，渲染器跳过工具桥面正文为空的目录页；`web open --video` 直达视频的编辑器，URL 由 `@baocut/protocol` 的 `webVideoHref` 构造、videoId 在 Runtime 侧解析；不加 `web status`；一个任务开一次、复用标签，登录页 / 401 / 连接被拒才重发；交付时给用户新链接，`--launch` 留给用户；CLI 优先，网页用于播放、看合成画面、拖拽与审片，网页改过后重新 `videos inspect`；`web open` 是管理命令先问的例外，端口被占不换端口。
-- 会话内智能体的指导由说明书渲染（2026-10-06，§8.6）：渲染失败时 Runtime 启动失败；目录页、`workflows.md`、`conventions.md` 是总在索引里的内置说明书页，只给会话内智能体（终端与 MCP 的 `skills_read` 读不到，那边读装好的 CLI 面），不进设置里的 skill 列表、不能开关。
+- 会话内智能体的指导由说明书渲染（2026-10-06，§8.6）：渲染失败时 Runtime 启动失败；目录页、`workflows.md`、`conventions.md` 是总在索引里的内置说明书页，按读者给面（会话内智能体读工具桥面，终端与 MCP 的 `skills_read` 读同一页的 CLI 面，2026-10-17 起），不进 Skills 列表、不能开关。
 - `videos_frames` 标人脸（2026-10-10）：每个有 `file` 的帧带 `faces: [{x, y, w, h, score}]`（左上角与宽高按那一帧的宽高归一化到 0–1，score 0–1，按 score 从高到低），顶层 `detector` 是 `"yunet"`，检测器不可用时为 `null`、`faces` 都是空数组、不报错；`file` 为 null 的帧没有 `faces`。模型是随应用分发的 YuNet（OpenCV Zoo，MIT，`packages/models/assets/face-detection/`），由纯 Rust 的 `face-detect` 进程推理（tract，Windows 与 macOS 同一份实现，不带原生运行库），每次调用起一个进程、载入一次模型；不按需下载。坐标对应素材画面，与 `composited: false` 一致。用途是「剪成短视频」的自动取景（按脸定 9:16 裁框）。
 
 未决（实现阶段裁决，默认按括号里的）：

@@ -43,6 +43,9 @@ export const ko: EditorMessages = {
   emptyOr: '또는 오른쪽 소재 패널에서 추가하세요',
   problemsCount: (n: number) => `항목 ${n}개를 그릴 수 없음`,
   problemsTitle: '이 프레임의 일부 내용을 그릴 수 없습니다',
+  livePreview: '실시간 미리보기',
+  livePreviewTitle: '실시간 미리보기: 내보내기 전에 베이크하세요',
+  livePreviewDetail: '이 프레임 아래의 코드 컴포지션은 편집기에서 실시간으로 그려지므로 내보내기 결과와 다를 수 있습니다. 내보내기는 베이크된 스탠드인만 사용합니다. 내보내기 전에 베이크하세요.',
   rendererFailed: (message: string) => `미리보기 렌더러를 불러오지 못했습니다: ${message}`,
   spectrumTooLarge: (itemId: string, assetId: string, mb: number) =>
     `파형 ${itemId}: 소재 ${assetId}이(가) ${mb} MB를 넘어 미리보기에서 소리를 분석하지 않습니다. 내보내기에는 영향이 없습니다`,

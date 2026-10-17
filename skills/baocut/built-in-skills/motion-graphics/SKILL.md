@@ -1,7 +1,7 @@
 ---
 name: motion-graphics
 description: 要在视频上加一段动效图形时用：下横栏（姓名职务）、关键词字幕、大数字与图表、标注与引导、品牌贴片与片尾、倒计时与进度。不选模板，按规则写一个自包含的 HTML 画面（时间的纯函数），打包成代码包导入后放上时间线。只加静态文字、贴纸或已有的文字动画预设时不用；整条成片的规划看「从简报到成片」。
-version: 1.2.0
+version: 1.3.0
 ---
 
 # 动效图形
@@ -89,6 +89,7 @@ version: 1.2.0
 - **打包**：有命令行环境时用 `build-bundle.mjs --html … --out … --bundle-id <图形名>-<画幅>`（不带 `--lint-only`；横竖两版要给不同的 bundle-id）产出 `<out>/1/`（目录名是 revision，不给 `--revision` 时为 `1`）：`index.html`、`bundle.manifest.json`、`files.manifest.json` 等，再把这个目录交给 compositions_import。没有命令行环境时直接把 `index.html` 以内联文件交给 compositions_import，由它计算哈希、写清单并做同样的校验。
 - **带文件的图形**（字体、标志，第 3 节「设计系统」）：打包脚本只带 `index.html`，所以只用它 `--lint-only` 检查，再把整个源目录交给 compositions_import（`path` 是这个目录），由它计算哈希、写清单并做同样的校验；`manifest.bundleId` 给 `<图形名>-<画幅>`，改版时在目录里改，导入时给新的 `manifest.revision`。
 - **导入即上时间线**：compositions_import 默认验证、烘焙，并把图形放到时间线上：从 0 s 开始、铺满画布、放在最上面的视觉轨（那条轨在这段时间被占着或锁着时新建一条）。它返回素材 id、尺寸、时长、是否透明，以及片段的 itemId 与 trackId。只想登记素材、先不放时，传 `register: true`。
+- **烘焙方式**：按本 skill 骨架写的图形是 DOM 元素，烘焙时由浏览器逐帧截图，结果的 `bake.renderer` 是 `browser-pixels`、`bake.fallback.reason` 说明录不了，这是正常的，几秒的图形几十秒内烘焙完，不用改。整镜几十秒、全部画在一张 Canvas 上的场景走更快的指令烘焙，用 `skills_read` 读 `video-production`，按它第 5 节「代码画面」的代码场景细则写。
 - **对齐写在 `place` 上**：`place.at` 是时间线上的开始时间，`place.track` 指定轨道；导入时就给好，不必导入后再用 edits_apply 挪。开始时间对齐旁白里对应的节点：下横栏在说话人开口后 0.5 s 内；关键词与旁白里那个词同时；数据图形在旁白说到数字前 0.3 s 进。长度就是图形的时长，不拉伸。图形之间至少隔 0.5 s，不叠两个带文字的图形。
 - **叠加层**与视频一起导出时不需要额外设置；全画幅图形当作一个镜头放。
 - **改文案或改色**：改 HTML 里对应的槽，用新的 `--revision`（例如 `2`）重新打包，再用 compositions_import 导入并传 `replace: { itemId }`（上一版片段的 itemId）：片段原地换成新版本，位置、轨道、不透明度、名字都保留。不传 `replace` 会在时间线上再放一段，两版叠在一起。新版本更短时片段跟着变短；更长且撞上后面的片段时导入会报错，先挪开后面的片段再换。不在时间线上改。换完版本、确认不再回退之后，用 assets_prune 列出没有引用的素材，带 `apply: true` 和旧版代码包的 assetId 删掉它（它的预渲染替身一起删）；用户导入的素材不在此列。

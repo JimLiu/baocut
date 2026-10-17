@@ -4,7 +4,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { BaoCutClient } from '@baocut/client';
-import { MCP_INTERFACE_VERSION, RpcError, type CatalogCallResult, type ClientKind, type Project } from '@baocut/protocol';
+import {
+  MCP_INTERFACE_VERSION,
+  RpcError,
+  type CatalogCallResult,
+  type ClientKind,
+  type ExternalVideoCreated,
+  type Project,
+} from '@baocut/protocol';
 import { resolveRuntimeHome } from '@baocut/runtime-storage';
 import { resolveEngineHostCommand } from '../videos/engine-host.ts';
 import { startRuntime, type RunningRuntime } from '../runtime.ts';
@@ -137,6 +144,31 @@ describe.skipIf(!engine || !ffmpeg)('工具目录经网关给 CLI（真实引擎
     await until(async () => !runtime.videos.ref(videoId));
     client = await connect('cli');
     expect((await ok('videos_inspect', { video: videoId }, project.path)).videoId).toBe(videoId);
+  });
+
+  it('CLI 新建视频经 Space 主题通知桌面打开它；桌面连接自己经 catalog.call 建的不通知', async () => {
+    const desktop = await connect('desktop');
+    const announced: ExternalVideoCreated[] = [];
+    const stop = desktop.subscribeSpace({
+      snapshot: () => {},
+      event: (event) => {
+        if (event.type === 'video.created') announced.push(event.video);
+      },
+    });
+    try {
+      const created = await ok('videos_create', { name: '终端通知' }, project.path);
+      await until(async () => announced.length > 0);
+      expect(announced).toEqual([
+        { videoId: created.videoId, videoName: '终端通知', target: { projectId: project.id, path: created.video }, by: 'cli' },
+      ]);
+      const own = await desktop.request('catalog.call', { name: 'videos_create', args: { name: '桌面自己建' }, cwd: project.path });
+      expect(own.ok).toBe(true);
+      await ok('videos_list', {}, project.path);
+      expect(announced).toHaveLength(1);
+    } finally {
+      stop();
+      desktop.close();
+    }
   });
 
   it('不在项目里时新建到默认项目目录的 CLI 项目，并在结果里说明', async () => {

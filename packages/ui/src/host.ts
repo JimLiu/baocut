@@ -20,6 +20,11 @@ export interface HostBridge {
   revealPath(target: string): Promise<void>;
   /** 系统默认应用打开本地文档或媒体；null 不支持，空串成功，其余为系统错误。Web 没有此能力。 */
   openFile?(target: string): Promise<string | null>;
+  /**
+   * 删除项目品牌：把项目根目录的 `BRAND.md` 与 `brand/` 移到系统废纸篓 / 回收站（产品设计 §6.9）。桌面端才有；
+   * Web 没有它，界面里没有删除入口。
+   */
+  trashProjectBrand?(projectPath: string): Promise<void>;
   /** 内嵌网页（桌面端才有）。浏览器预览里没有：网页标签显示「这个环境不能内嵌网页」。 */
   web?: WebHost;
   /** 用系统浏览器打开 http/https 网址（桌面端才有）。 */
@@ -46,6 +51,11 @@ export interface HostBridge {
    * 桌面端才有（我的声音 › 克隆新音色）；Web 没有它，那一页本来也不在浏览器里。
    */
   writeRecording?(data: Uint8Array): Promise<string>;
+  /**
+   * 把粘贴或拖进来、没有本机路径的一张参考图（PNG、JPEG、WebP 字节）写进本机的临时目录，返回它的绝对路径，交给 Runtime 的
+   * `generateImage` 当输入图。桌面端才有（生成图片的参考图）；Web 没有它，浏览器里的参考图只能从 Space 或素材库里选。
+   */
+  writeImageRef?(data: Uint8Array): Promise<string>;
   /** 应用自动更新（架构设计 §2.6，桌面端才有）。没有它的宿主里，更新相关的界面一概不出现。 */
   updates?: UpdatesHost;
   /** 界面语言变了（启动时也调一次）：宿主据此换原生菜单与对话框的语言。没有它的宿主不管。 */

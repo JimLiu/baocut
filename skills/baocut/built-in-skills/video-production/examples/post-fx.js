@@ -1,15 +1,21 @@
 // post-fx.js — 代码画面的后期效果（Canvas2D），给 `baocut/1` 代码包用。
 // 拷进代码包，用 <script src="./post-fx.js"></script> 引入，得到全局的 PostFX。
 // 每个效果只由时间 t 与参数决定：不用 Math.random、Date.now，也不逐帧累加，同一时刻两次取帧一致。
+// 所有效果都不读回主画布（不 getImageData、不把主画布当图片源）：导入时能走指令烘焙，比逐帧截图快一二十倍。
+// 发光与色散要用到画好的画面，就让 draw(g, w, h) 在离屏画布上再画一遍（只在效果生效的那几帧）。
 //
 // 典型的 renderAt(t)：
 //   const fx = PostFX.cuesAt(cues, t);              // cues 读自包里的 cues.json
-//   const s = PostFX.shake(t, fx.shake * 24);        // 先算震动与推近，画正片前套上
-//   ctx.save(); ctx.translate(s.x, s.y); PostFX.zoom(ctx, w, h, 1 + fx.zoom * 0.08);
-//   drawScene(ctx, t);
-//   ctx.restore();
-//   PostFX.glow(ctx, fx.glow * 0.8);                 // 再按顺序叠：发光 → 色散 → 暗角 → 颗粒 → 闪白
-//   PostFX.chroma(ctx, fx.glitch * 6);
+//   const s = PostFX.shake(t, fx.shake * 24);        // 先算震动与推近，画正片时套上
+//   const draw = (g, w, h) => {                      // 画一遍正片：g 是要画的 context，w×h 是它的尺寸
+//     g.save(); g.scale(w / W, h / H); g.translate(s.x, s.y); PostFX.zoom(g, W, H, 1 + fx.zoom * 0.08);
+//     drawScene(g, t);
+//     g.restore();
+//   };
+//   ctx.clearRect(0, 0, W, H);
+//   draw(ctx, W, H);
+//   PostFX.glow(ctx, fx.glow * 0.8, draw);           // 再按顺序叠：发光 → 色散 → 暗角 → 颗粒 → 闪白
+//   PostFX.chroma(ctx, fx.glitch * 6, draw);
 //   PostFX.vignette(ctx, 0.35);
 //   PostFX.grain(ctx, t, 30, 0.06);
 //   PostFX.flash(ctx, fx.flash);
@@ -103,40 +109,51 @@
     return c;
   }
 
-  /** 发光：缩小到 1/4 再放大回来（相当于模糊），用 screen 叠回去。 */
-  function glow(ctx, amount) {
+  /** 发光：draw 在 1/8 大小的离屏画布上把正片再画一遍（放大回来就是模糊），用 screen 叠回去。 */
+  function glow(ctx, amount, draw) {
     if (!(amount > 0)) return;
     const { width: w, height: h } = ctx.canvas;
-    const small = canvasFor('glow', Math.max(1, Math.round(w / 4)), Math.max(1, Math.round(h / 4)));
-    const sctx = small.getContext('2d');
-    sctx.clearRect(0, 0, small.width, small.height);
-    sctx.imageSmoothingQuality = 'high';
-    sctx.drawImage(ctx.canvas, 0, 0, small.width, small.height);
+    const small = canvasFor('glow', Math.max(1, Math.round(w / 8)), Math.max(1, Math.round(h / 8)));
+    const g = small.getContext('2d');
+    g.clearRect(0, 0, small.width, small.height);
+    draw(g, small.width, small.height);
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
     ctx.globalAlpha = Math.min(1, amount);
-    ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(small, 0, 0, w, h);
     ctx.restore();
   }
 
-  /** 色散：红通道往左、蓝通道往右各挪 px 像素。逐像素处理，只在要用的那几帧调用。 */
-  function chroma(ctx, px) {
+  /**
+   * 色散：红通道往左、蓝通道往右各挪 px 像素（不透明的画面）。主画布只留绿通道，红、蓝各在离屏画布上用 draw 再画一遍、
+   * 乘上纯色取出单个通道，错开后用 lighter 加回来。只在要用的那几帧调用。
+   */
+  function chroma(ctx, px, draw) {
     const shift = Math.round(px);
     if (!(shift > 0)) return;
     const { width: w, height: h } = ctx.canvas;
-    const image = ctx.getImageData(0, 0, w, h);
-    const src = new Uint8ClampedArray(image.data);
-    const dst = image.data;
-    for (let y = 0; y < h; y++) {
-      const row = y * w;
-      for (let x = 0; x < w; x++) {
-        const i = (row + x) * 4;
-        dst[i] = src[(row + Math.min(w - 1, x + shift)) * 4];
-        dst[i + 2] = src[(row + Math.max(0, x - shift)) * 4 + 2];
-      }
-    }
-    ctx.putImageData(image, 0, 0);
+    const channel = (key, color) => {
+      const c = canvasFor(key, w, h);
+      const g = c.getContext('2d');
+      g.clearRect(0, 0, w, h);
+      draw(g, w, h);
+      g.save();
+      g.globalCompositeOperation = 'multiply';
+      g.fillStyle = color;
+      g.fillRect(0, 0, w, h);
+      g.restore();
+      return c;
+    };
+    const red = channel('chroma-r', '#ff0000');
+    const blue = channel('chroma-b', '#0000ff');
+    ctx.save();
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = '#00ff00';
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.drawImage(red, -shift, 0);
+    ctx.drawImage(blue, shift, 0);
+    ctx.restore();
   }
 
   /** 胶片颗粒：4 张预先算好的噪点图按帧号轮换，overlay 叠上去。 */

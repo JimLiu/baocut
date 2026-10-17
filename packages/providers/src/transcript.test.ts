@@ -2,7 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { validateAsrResult } from '@baocut/models';
 import { parseGeneralInteraction, parseTranscribeInteraction, offsetSec } from './google/google-adapter.ts';
 import { languageTagOf, parseOpenAiTranscription } from './openai/openai-transcription.ts';
-import { buildAsrResult, groupWords, joinWords, noAudioResult, resolveOverlaps, type ResultContext } from './transcript.ts';
+import {
+  buildAsrResult,
+  groupWords,
+  joinWords,
+  noAudioResult,
+  repairWordTimes,
+  resolveOverlaps,
+  type ResultContext,
+} from './transcript.ts';
 
 const context = (overrides: Partial<ResultContext> = {}): ResultContext => ({
   providerId: 'openai',
@@ -99,6 +107,75 @@ describe('buildAsrResult', () => {
     ]);
     expect(result.warnings.map((w) => w.code).sort()).toEqual(['segment-degenerate', 'timing-adjusted', 'timing-adjusted']);
     expect(result.segments[1]!.words[0]).toMatchObject({ start: 2750, end: 4000, timingQuality: 'provider' });
+  });
+
+  it('供应商的词时间里零星丢或多一位数字：按前后插值修好、标 estimated，不把后面的词拖塌', () => {
+    // gemini-3.5-transcribe 实测：4.2 秒写成 "404.200s"（下一个词的起点照抄），13.4 秒写成 "3.400s"。
+    // 修之前：排序把 3.4 的词挪到前面、404.2 夹到块尾，整块之后的词全挤成一点，几乎每段都带 timing-adjusted。
+    // 坏点取前后可信点之间的插值；最后一个词越出块尾时以块尾为界。
+    const w = (start: number, end: number, text: string) => ({ start, end, text });
+    const result = buildAsrResult({
+      context: context({ providerId: 'google', modelId: 'gemini-3.5-transcribe', language: { mode: 'assert', tag: 'zh-CN' } }),
+      decodedSec: 30,
+      chunks: [
+        {
+          startSec: 0,
+          endSec: 30,
+          transcript: {
+            text: '',
+            words: [
+              w(3.7, 3.9, '轮'),
+              w(3.9, 404.2, '到'),
+              w(404.2, 4.5, '时，'),
+              w(4.6, 4.8, '拿'),
+              w(4.8, 5.0, '代码。'),
+              w(12.5, 12.7, '出错。'),
+              w(3.4, 13.5, '合'),
+              w(13.5, 13.7, '并'),
+              w(13.7, 14.0, '以后。'),
+              w(20, 20.3, '最'),
+              w(20.3, 205, '后。'),
+            ],
+          },
+        },
+      ],
+    });
+    expect(validateAsrResult(result, { runGeneration: 1, assertedLanguage: 'zh-CN' })).toMatchObject({ ok: true });
+    expect(result.segments.map((s) => [s.start, s.end, s.text])).toEqual([
+      [3700, 5000, '轮到时，拿代码。'],
+      [12_500, 12_700, '出错。'],
+      [13_100, 14_000, '合并以后。'],
+      [20_000, 25_150, '最后。'],
+    ]);
+    const words = result.segments.flatMap((s) => s.words);
+    expect(words.map((x) => [x.text, x.start, x.end, x.timingQuality])).toEqual([
+      ['轮', 3700, 3900, 'provider'],
+      ['到', 3900, 4100, 'estimated'],
+      ['时，', 4300, 4500, 'estimated'],
+      ['拿', 4600, 4800, 'provider'],
+      ['代码。', 4800, 5000, 'provider'],
+      ['出错。', 12_500, 12_700, 'provider'],
+      ['合', 13_100, 13_500, 'estimated'],
+      ['并', 13_500, 13_700, 'provider'],
+      ['以后。', 13_700, 14_000, 'provider'],
+      ['最', 20_000, 20_300, 'provider'],
+      ['后。', 20_300, 25_150, 'estimated'],
+    ]);
+    expect(result.warnings).toEqual([
+      { code: 'timing-adjusted', segmentId: 'seg-0001' },
+      { code: 'timing-adjusted', segmentId: 'seg-0003' },
+      { code: 'timing-adjusted', segmentId: 'seg-0004' },
+    ]);
+  });
+
+  it('相邻词一秒以内的正常重叠不算离群；没有离群值时原样返回', () => {
+    const words = [
+      { start: 0.2, end: 1, text: 'one' },
+      { start: 0.9, end: 3.4, text: 'two' },
+      { start: 2.6, end: 4, text: 'three' },
+    ];
+    expect(repairWordTimes(words, 10)).toEqual(words);
+    expect(repairWordTimes([], 10)).toEqual([]);
   });
 
   it('整个落在前一段里的插话不丢：从包住它的那段尾巴上分出来，记 timing-adjusted', () => {

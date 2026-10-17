@@ -18,11 +18,11 @@ export const TAB_PREVIEW_WIDTH = 280;
 export const TAB_PREVIEW_MARGIN = 8;
 
 /** 能浮出的侧栏：Home、Space，以及工具、服务、后台任务共用的那一种。 */
-export type PeekKind = Exclude<Tab, 'settings' | 'models'>;
+export type PeekKind = Exclude<Tab, 'settings' | 'models' | 'skills'>;
 
-/** Rail 入口对应的侧栏；设置（含模型页）没有页面侧栏，不浮出。 */
+/** Rail 入口对应的侧栏；设置（含模型页）与 Skills 没有页面侧栏，不浮出。 */
 export function peekKindOf(tab: Tab): PeekKind | null {
-  return tab === 'settings' || tab === 'models' ? null : tab;
+  return tab === 'settings' || tab === 'models' || tab === 'skills' ? null : tab;
 }
 
 /** 浮出的是不是当前所在的区域（模型页属于设置）。 */

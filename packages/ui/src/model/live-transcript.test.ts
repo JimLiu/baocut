@@ -232,10 +232,44 @@ describe('只读的文稿行', () => {
     ],
   };
 
-  it('转录过、一条字幕轨都没有：每个取用了的素材一行，取最新那份转写', () => {
+  it('转录过、一条字幕轨都没有：取用了的素材按轨合成一行，每个素材取最新那份转写', () => {
     const seq = sequence([video('v1', 0, 150, 0)]);
     const documents = { old: doc('old', 'speech', '2026-01-01'), now: doc('now', 'speech', '2026-02-01'), cap: doc('cap', 'caption', '2026-03-01') };
-    expect(transcriptRows(seq, documents, new Set())).toEqual([{ assetId: 'a1', speech: documents.now }]);
+    expect(transcriptRows(seq, documents, new Set())).toEqual([{ trackId: 'v1', sources: [{ assetId: 'a1', speech: documents.now }] }]);
+  });
+
+  it('同一条轨上的几个素材（分段配音）共用一行，按先后排；放在别的轨上的另起一行，按轨的次序', () => {
+    const a2 = { ...video('v2', 150, 150, 0), assetRef: { id: 'a2', revision: '1' } };
+    const a3 = { ...video('v3', 300, 150, 0), trackId: 'v9', assetRef: { id: 'a3', revision: '1' } };
+    const onOther = { ...video('v4', 0, 150, 0), trackId: 'v9' };
+    const seq = {
+      ...sequence([a3, a2, video('v1', 0, 150, 0), onOther]),
+      tracks: [
+        { ...subtitleTrack, id: 'v9', order: 5, kind: 'visual' as const },
+        { ...subtitleTrack, id: 'v1', order: 1, kind: 'visual' as const },
+      ],
+    };
+    const documents = {
+      d1: doc('d1', 'speech', '2026-02-01'),
+      d2: doc('d2', 'speech', '2026-02-01', 'a2'),
+      d3: doc('d3', 'speech', '2026-02-01', 'a3'),
+    };
+    expect(transcriptRows(seq, documents, new Set())).toEqual([
+      {
+        trackId: 'v1',
+        sources: [
+          { assetId: 'a1', speech: documents.d1 },
+          { assetId: 'a2', speech: documents.d2 },
+        ],
+      },
+      {
+        trackId: 'v9',
+        sources: [
+          { assetId: 'a1', speech: documents.d1 },
+          { assetId: 'a3', speech: documents.d3 },
+        ],
+      },
+    ]);
   });
 
   it('有字幕轨、没有转写、素材不在时间线上、正画着临时转录行：都不画', () => {

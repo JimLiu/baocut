@@ -176,6 +176,34 @@ mod tests {
     }
 
     #[test]
+    fn cjk_breaks_prefer_word_boundaries_at_vertical_widths() {
+        // 竖版讲解片实测里折坏的词（想想汇/报、修程/序）：一行 8–10 个汉字时不断在词里。
+        let sentences = [
+            ("下班之前想想汇报写什么内容", ["想想", "汇报", "内容"].as_slice()),
+            ("所以我让它去修程序崩溃这个问题", ["程序", "崩溃", "问题"].as_slice()),
+            ("每天下班前花五分钟想想汇报", ["分钟", "想想", "汇报"].as_slice()),
+            ("他们决定每隔几周做一次完整的代码审查", ["每隔", "完整", "代码", "审查"].as_slice()),
+        ];
+        for (text, words) in sentences {
+            for per_line in [8.0, 9.0, 9.5, 10.0] {
+                let lines = broken_lines(text, per_line);
+                assert_eq!(lines.concat(), text);
+                assert_eq!(lines.len(), greedy_line_count(text, per_line), "{lines:?}");
+                for pair in lines.windows(2) {
+                    for word in words {
+                        let mut chars = word.chars();
+                        let (first, second) = (chars.next().unwrap(), chars.next().unwrap());
+                        assert!(
+                            !(pair[0].ends_with(first) && pair[1].starts_with(second)),
+                            "{per_line}: {lines:?} splits {word}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
     fn text_without_cjk_is_not_rebalanced() {
         assert!(
             !"towards models that can really help"
@@ -4342,7 +4370,7 @@ mod tests {
             preview
                 .warnings()
                 .iter()
-                .any(|warning| warning.contains("missing") && warning.contains("已跳过"))
+                .any(|warning| warning.text.contains("missing") && warning.text.contains("skipped"))
         );
         assert!(
             preview

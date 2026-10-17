@@ -22,10 +22,12 @@ import {
   type SkillOrigin,
   type SkillSource,
   type SkillSummary,
+  type SkillVersionsResult,
 } from '@baocut/protocol';
 import type { SkillPrefsStore } from '@baocut/runtime-storage';
 import type { AgentSkillPage } from './agent-skill-renderer.ts';
 import { parseSkillFrontmatter } from './skill-frontmatter.ts';
+import { currentRevision, loadSnapshot, readVersionIndex } from './skill-versions.ts';
 import { RcSkills } from '@baocut/protocol/messages/runtime-core';
 
 /**
@@ -55,6 +57,10 @@ export interface LoadedSkill {
   origin: SkillOrigin;
   dir: string;
   source: SkillSource | null;
+  /** 界面给的显示名（来源记录的 `title`）；没有时 null。 */
+  title: string | null;
+  /** 当前版本号：用户目录的从 1 起（`skill-versions.ts`），内置与说明书页为 null。 */
+  revision: number | null;
   /** 目录里的全部文件（相对路径，`/` 分隔，按路径排序），含 `SKILL.md`，不含点开头的。 */
   files: { path: string; size: number }[];
   /** `SKILL.md` 全文。 */
@@ -64,6 +70,8 @@ export interface LoadedSkill {
   updatedAt: string;
   /** 说明书页（在内存里，只有 `SKILL.md`，就是 `content`）。 */
   guide?: true;
+  /** 说明书页按 CLI 面渲染的正文：终端与 MCP 的 `skills_read` 读到的那一份（与装好的 BaoCut skill 里的同一页相同）。 */
+  cliContent?: string;
 }
 
 export interface SkillScan {
@@ -205,8 +213,20 @@ export class SkillCatalog {
     return found;
   }
 
-  async get(id: string): Promise<SkillDetail> {
+  /** 一个用户 skill 的旧版本（只读）：文件来自版本目录。`revision` 是当前版本或没给时就是 `skill` 本身。 */
+  async at(id: string, revision?: number): Promise<LoadedSkill> {
     const skill = await this.require(id);
+    if (revision === undefined || revision === skill.revision) return skill;
+    const snapshot = skill.scope === 'user' ? await loadSnapshot(this.userDir, skill, revision) : null;
+    if (!snapshot) {
+      throw new RpcError('not-found', RcSkills.versionNotFound({ id, revision }), { code: 'SKILL_VERSION_NOT_FOUND', skillId: id, revision });
+    }
+    return snapshot;
+  }
+
+  async get(id: string, revision?: number): Promise<SkillDetail> {
+    const current = await this.require(id);
+    const skill = revision === undefined ? current : await this.at(id, revision);
     const files: SkillFileEntry[] = [];
     for (const file of skill.files) {
       files.push({
@@ -215,12 +235,28 @@ export class SkillCatalog {
         text: file.size <= SKILL_LIMITS.readFileBytes && (await readText(skill, file.path)) !== null,
       });
     }
-    return { skill: this.summaryOf(skill), content: skill.content, files };
+    return { skill: this.summaryOf(current), content: skill.content, files };
   }
 
   /** 读 skill 目录里的一个文本文件：只认文件清单里的路径。 */
-  async readFile(id: string, file: string): Promise<SkillFileContent> {
-    return readSkillFile(await this.require(id), file);
+  async readFile(id: string, file: string, revision?: number): Promise<SkillFileContent> {
+    return readSkillFile(await this.at(id, revision), file);
+  }
+
+  /** 文件清单里一个文件的绝对路径（媒体句柄用）：不在清单里 `SKILL_FILE_NOT_FOUND`。 */
+  async locate(id: string, file: string, revision?: number): Promise<{ root: string; file: string }> {
+    const skill = await this.at(id, revision);
+    if (skill.guide || !skill.files.some((f) => f.path === file)) {
+      throw new RpcError('not-found', RcSkills.fileNotInSkill({ id, file }), { code: 'SKILL_FILE_NOT_FOUND', skillId: id, path: file });
+    }
+    return { root: skill.dir, file: path.join(skill.dir, ...file.split('/')) };
+  }
+
+  /** 保留的版本，新的在前；内置的为空。 */
+  async versions(id: string): Promise<SkillVersionsResult> {
+    const skill = await this.require(id);
+    if (skill.scope !== 'user') return { versions: [] };
+    return { versions: (await readVersionIndex(this.userDir, skill)).map((v, i) => ({ ...v, current: i === 0 })) };
   }
 
   async setEnabled(id: string, enabled: boolean): Promise<SkillChangeResult> {
@@ -255,7 +291,10 @@ export class SkillCatalog {
       removable: skill.scope === 'user',
       path: skill.dir,
       source: skill.source,
+      title: skill.title,
       fileCount: skill.files.length,
+      bytes: skill.files.reduce((sum, f) => sum + f.size, 0),
+      revision: skill.revision,
       updatedAt: skill.updatedAt,
     };
   }
@@ -288,7 +327,7 @@ export async function readSkillFile(skill: LoadedSkill, file: string): Promise<S
 }
 
 /** 读清单里的一个文件为 UTF-8 文本；读之前再确认它仍是目录里的普通文件（不是后来换上的链接）。不是文本时 null。 */
-async function readText(skill: LoadedSkill, file: string): Promise<string | null> {
+export async function readText(skill: Pick<LoadedSkill, 'dir' | 'guide' | 'content'>, file: string): Promise<string | null> {
   if (skill.guide) return file === SKILL_FILE ? skill.content : null;
   const abs = path.join(skill.dir, ...file.split('/'));
   if (!inside(skill.dir, abs)) return null;
@@ -316,11 +355,14 @@ function guidePageSkill(page: AgentSkillPage, sourceDir: string, updatedAt: stri
     origin: 'builtin',
     dir: path.dirname(path.join(sourceDir, ...page.file.split('/'))),
     source: null,
+    title: null,
+    revision: null,
     files: [{ path: SKILL_FILE, size: Buffer.byteLength(page.body) }],
     content: page.body,
     body: page.body,
     updatedAt,
     guide: true,
+    cliContent: page.cliBody,
   };
 }
 
@@ -385,12 +427,13 @@ export async function loadSkill(dir: string, scope: 'builtin' | 'user'): Promise
   const parsed = await readSkillFileMeta(path.join(dir, SKILL_FILE));
   if ('problem' in parsed) return invalid(parsed.issues);
 
-  let source: SkillSource | null = null;
-  if (scope === 'user') source = await readSkillSource(dir);
+  const record = scope === 'user' ? await readSkillRecord(dir) : { source: null, title: null };
+  const { source, title } = record;
   const labels = scope === 'builtin' ? await readSkillLabels(dir) : null;
   const origin: SkillOrigin = scope === 'builtin' ? 'builtin' : source?.kind === 'github' ? 'third-party' : 'personal';
   const stat = await fsp.stat(path.join(dir, SKILL_FILE));
-  return { id, ...parsed.meta, labels, scope, origin, dir, source, files, updatedAt: stat.mtime.toISOString() };
+  const revision = scope === 'user' ? await currentRevision(path.dirname(dir), id) : null;
+  return { id, ...parsed.meta, labels, scope, origin, dir, source, title, revision, files, updatedAt: stat.mtime.toISOString() };
 }
 
 /** 内置 skill 的界面文字（`SKILL_META_FILE`）；没有、不是普通文件、超过上限或不合规时 null。 */
@@ -421,8 +464,21 @@ export async function readSkillFileMeta(
   if (bytes === null) return fail([RcSkills.fileOverBytes({ file: SKILL_FILE, limit: SKILL_LIMITS.skillFileBytes })]);
   const content = decodeUtf8(bytes);
   if (content === null) return fail([RcSkills.fileNotUtf8({ file: SKILL_FILE })]);
+  const checked = checkSkillContent(content);
+  return 'problem' in checked ? fail(checked.issues) : checked;
+}
+
+/**
+ * 校验 `SKILL.md` 的文字：front matter 能读、有 `name` 与 `description` 且不超长。不合规时也给出读到的 `name` 与 `description`
+ * （上传包的候选要显示它们）。
+ */
+export function checkSkillContent(
+  content: string,
+):
+  | { meta: Pick<LoadedSkill, 'name' | 'description' | 'version' | 'content' | 'body'> }
+  | { problem: true; issues: Localized[]; name: string; description: string } {
   const fm = parseSkillFrontmatter(content);
-  if (!fm.ok) return fail([RcSkills.fileProblem({ file: SKILL_FILE, problem: fm.problem })]);
+  if (!fm.ok) return { problem: true, issues: [RcSkills.fileProblem({ file: SKILL_FILE, problem: fm.problem })], name: '', description: '' };
   const issues: Localized[] = [];
   const name = fm.fields.get('name')?.trim() ?? '';
   const description = fm.fields.get('description')?.trim() ?? '';
@@ -432,28 +488,32 @@ export async function readSkillFileMeta(
   if (!description) issues.push(RcSkills.frontmatterMissingField({ file: SKILL_FILE, field: 'description' }));
   else if (description.length > SKILL_LIMITS.description) issues.push(RcSkills.fieldTooLong({ field: 'description', limit: SKILL_LIMITS.description }));
   if (version && version.length > SKILL_LIMITS.version) issues.push(RcSkills.fieldTooLong({ field: 'version', limit: SKILL_LIMITS.version }));
-  if (issues.length) return fail(issues);
+  if (issues.length) return { problem: true, issues, name, description };
   return { meta: { name, description, version, content, body: fm.body } };
 }
 
-/** BaoCut 记的来源；没有或读不了时 null（当作用户自己放进来的）。 */
-async function readSkillSource(dir: string): Promise<SkillSource | null> {
+/** BaoCut 记的来源与显示名；没有或读不了时都为 null（当作用户自己放进来的）。 */
+export async function readSkillRecord(dir: string): Promise<{ source: SkillSource | null; title: string | null }> {
   try {
     const stat = await fsp.lstat(path.join(dir, SKILL_SOURCE_FILE));
-    if (!stat.isFile() || stat.size > 16 * 1024) return null;
+    if (!stat.isFile() || stat.size > 16 * 1024) return { source: null, title: null };
     const raw = JSON.parse(await fsp.readFile(path.join(dir, SKILL_SOURCE_FILE), 'utf8')) as Record<string, unknown>;
     const s = (key: string) => (typeof raw[key] === 'string' ? (raw[key] as string) : null);
-    if (raw.kind === 'local' && s('path') && s('addedAt')) return { kind: 'local', path: s('path')!, addedAt: s('addedAt')! };
+    const rawTitle = s('title')?.trim();
+    const title = rawTitle && rawTitle.length <= SKILL_LIMITS.name ? rawTitle : null;
+    if (raw.kind === 'local' && s('path') && s('addedAt')) return { source: { kind: 'local', path: s('path')!, addedAt: s('addedAt')! }, title };
+    if (raw.kind === 'created' && s('createdAt')) return { source: { kind: 'created', createdAt: s('createdAt')!, from: s('from') }, title };
     if (raw.kind === 'github') {
       const [url, owner, repo, ref, commit, importedAt] = ['url', 'owner', 'repo', 'ref', 'commit', 'importedAt'].map(s);
       const sub = typeof raw.path === 'string' ? raw.path : '';
       if (url && owner && repo && ref && commit && importedAt)
-        return { kind: 'github', url, owner, repo, ref, commit, path: sub, importedAt };
+        return { source: { kind: 'github', url, owner, repo, ref, commit, path: sub, importedAt }, title };
     }
+    return { source: null, title };
   } catch {
     // 没有来源记录，或坏了：当作用户自己放的。
   }
-  return null;
+  return { source: null, title: null };
 }
 
 /**
@@ -492,13 +552,13 @@ export async function listSkillFiles(dir: string): Promise<{ files: { path: stri
   }
 }
 
-function inside(dir: string, file: string): boolean {
+export function inside(dir: string, file: string): boolean {
   const resolved = path.resolve(file);
   return resolved.startsWith(dir.endsWith(path.sep) ? dir : dir + path.sep);
 }
 
 /** 读文件，超过 `max` 字节时返回 null（只读到 `max + 1` 字节为止）。 */
-async function readCapped(file: string, max: number): Promise<Buffer | null> {
+export async function readCapped(file: string, max: number): Promise<Buffer | null> {
   const handle = await fsp.open(file, 'r');
   try {
     const buffer = Buffer.alloc(max + 1);
@@ -515,7 +575,7 @@ async function readCapped(file: string, max: number): Promise<Buffer | null> {
   }
 }
 
-function decodeUtf8(bytes: Uint8Array): string | null {
+export function decodeUtf8(bytes: Uint8Array): string | null {
   try {
     return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   } catch {

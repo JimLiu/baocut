@@ -411,6 +411,12 @@ describe('用户库的存储', () => {
 
   it('文件头识别', () => {
     expect(sniffBytes(PNG)?.mediaType).toBe('image/png');
+    // `IDAT` 之前有 `acTL` 的是 APNG，存成 `.apng`（导进视频才按动图画）。
+    const ihdr = Buffer.concat([Buffer.from([0, 0, 0, 13]), Buffer.from('IHDR'), Buffer.alloc(17)]);
+    const chunk = (name: string) => Buffer.concat([Buffer.from([0, 0, 0, 0]), Buffer.from(name), Buffer.alloc(4)]);
+    const png = (...names: string[]) => Buffer.concat([PNG.subarray(0, 8), ihdr, ...names.map(chunk)]);
+    expect(sniffBytes(png('acTL', 'IDAT'))).toEqual({ mediaType: 'image/apng', ext: 'apng', category: 'image' });
+    expect(sniffBytes(png('IDAT', 'acTL'))?.mediaType).toBe('image/png');
     expect(sniffBytes(wav(0))?.mediaType).toBe('audio/wav');
     expect(sniffBytes(Buffer.from('wOF2xxxx'))?.mediaType).toBe('font/woff2');
     expect(sniffBytes(Buffer.from('\0\0\0\x18ftypisom', 'latin1'))?.mediaType).toBe('video/mp4');

@@ -5,9 +5,12 @@
 
 use std::path::PathBuf;
 
-use editor_semantics::{MediaTime, TimeMap};
+use editor_semantics::{MediaTime, Rate, TimeMap};
 use render_graph::ducking::DuckingEnvelope;
-use render_graph::{FramePlan, LayerContent, LayerKind, TransitionRole, VideoView, VisualLayer, VoiceSource, plan_interactive};
+use render_graph::{
+    FramePlan, LayerContent, LayerKind, LiveOptions, StandInState, TransitionRole, VideoView, VisualLayer, VoiceSource, plan_interactive,
+    plan_interactive_live, stand_in_state,
+};
 use video_model::{Crop, Fit, FocalPoint, SoloGroup, TimelineItem, VideoSnapshot, VisualMode};
 
 /// 覆盖片段边界、子帧音频起止、定格与浮点帧边界的采样时刻。
@@ -152,22 +155,61 @@ fn focal_point_moves_the_cover_window_without_cropping_the_source() {
                 port.crop = crop;
             }
         }
-        plan(&video, 1.0).layers.into_iter().find(|layer| layer.item_id == "item_port").unwrap().source_rect.unwrap()
+        plan(&video, 1.0)
+            .layers
+            .into_iter()
+            .find(|layer| layer.item_id == "item_port")
+            .unwrap()
+            .source_rect
+            .unwrap()
     };
     // 1080×1920 铺满 1920×1080：多出来的高按 y 分到上下，0 贴上、1 贴下；横向没有多出来，x 不起作用。
     let kept = (1080.0f64 / 1920.0).powi(2);
-    let top = with(FocalPoint { x: 0.0, y: 0.0, zoom: None }, None);
+    let top = with(
+        FocalPoint {
+            x: 0.0,
+            y: 0.0,
+            zoom: None,
+        },
+        None,
+    );
     assert_eq!((top[0], top[2]), (0.0, 1.0));
     assert!(top[1].abs() < 1e-12 && (top[3] - kept).abs() < 1e-12);
-    let bottom = with(FocalPoint { x: 1.0, y: 1.0, zoom: None }, None);
+    let bottom = with(
+        FocalPoint {
+            x: 1.0,
+            y: 1.0,
+            zoom: None,
+        },
+        None,
+    );
     assert!((bottom[1] - (1.0 - kept)).abs() < 1e-12 && (bottom[3] - 1.0).abs() < 1e-12);
     // 取景点在裁剪留下的画面里定位：上下各裁 10% 后贴上，窗口从 0.1 开始。
-    let crop = Crop { left: 0.0, top: 0.1, right: 0.0, bottom: 0.1 };
-    let cropped = with(FocalPoint { x: 0.5, y: 0.0, zoom: None }, Some(crop));
+    let crop = Crop {
+        left: 0.0,
+        top: 0.1,
+        right: 0.0,
+        bottom: 0.1,
+    };
+    let cropped = with(
+        FocalPoint {
+            x: 0.5,
+            y: 0.0,
+            zoom: None,
+        },
+        Some(crop),
+    );
     assert!((cropped[1] - 0.1).abs() < 1e-12);
     // 放大 2 倍：窗口宽高各减半，源上取景点那一点仍落在框里的同一处（x 0.3 → 框的 30%）。
     let (fx, fy) = (0.3, 0.6);
-    let zoomed = with(FocalPoint { x: fx, y: fy, zoom: Some(2.0) }, None);
+    let zoomed = with(
+        FocalPoint {
+            x: fx,
+            y: fy,
+            zoom: Some(2.0),
+        },
+        None,
+    );
     let (u, v) = (zoomed[2] - zoomed[0], zoomed[3] - zoomed[1]);
     assert!((u - 0.5).abs() < 1e-12 && (v - kept / 2.0).abs() < 1e-12);
     assert!(((fx - zoomed[0]) / u - fx).abs() < 1e-12 && ((fy - zoomed[1]) / v - fy).abs() < 1e-12);
@@ -700,4 +742,304 @@ fn golden_plans_match() {
         golden == lines,
         "计划与金标准不一致；规则确实改了就用 UPDATE_GOLDEN=1 重新生成并审阅差异"
     );
+}
+
+// ---- 实时合成层（动效视频设计 §4.2） ----
+
+/// 让夹具里的代码包合成成为「铺满画幅、最底下」的层：去掉同一刻的其他画面实例，`place` 不写位置与宽，素材挂上浏览器合成的清单。
+fn live_fixture() -> VideoSnapshot {
+    let mut video = fixture();
+    let sequence = video.sequences.get_mut("seq_main").expect("主序列");
+    sequence.items.retain(|item| {
+        let id = item.base().id.as_str();
+        !matches!(id, "item_talk_a" | "item_title" | "item_badge" | "item_meter")
+    });
+    for item in &mut sequence.items {
+        if let TimelineItem::Composition(composition) = item
+            && composition.base.id == "item_bundle"
+        {
+            composition.place = video_model::Place::default();
+        }
+    }
+    let revision = video
+        .assets
+        .get_mut("asset_logo")
+        .expect("代码包素材")
+        .revisions
+        .get_mut("rev_1")
+        .expect("版本");
+    revision.bundle = Some(serde_json::json!({
+        "bundleId": "bundle_logo",
+        "revision": "7",
+        "runtime": { "engine": "browser", "contract": "hyperframes/1", "entry": "index.html" },
+        "intrinsic": { "width": 1280, "height": 720, "fps": { "num": 30, "den": 1 }, "durationFrames": 60 },
+        "output": { "alpha": true }
+    }));
+    video
+}
+
+/// 测试序列的帧率（fixtures/video.json 的 `seq_main`）。
+const FPS: Rate = Rate { num: 30, den: 1 };
+
+fn live_plan(video: &VideoSnapshot, seconds: f64, blocked: &[String]) -> FramePlan {
+    let live = LiveOptions {
+        enabled: true,
+        playing: false,
+        blocked,
+    };
+    plan_interactive_live(VideoView::from(video), "seq_main", seconds, None, live).expect("求计划")
+}
+
+/// 舞台在动（播放、拖动中）时的计划：合成一律实时播（动效视频设计 §4.3）。
+fn playing_plan(video: &VideoSnapshot, seconds: f64) -> FramePlan {
+    let live = LiveOptions {
+        enabled: true,
+        playing: true,
+        blocked: &[],
+    };
+    plan_interactive_live(VideoView::from(video), "seq_main", seconds, None, live).expect("求计划")
+}
+
+fn composition_mut<'a>(video: &'a mut VideoSnapshot, id: &str) -> &'a mut video_model::CompositionItem {
+    let sequence = video.sequences.get_mut("seq_main").expect("主序列");
+    sequence
+        .items
+        .iter_mut()
+        .find_map(|item| match item {
+            TimelineItem::Composition(composition) if composition.base.id == id => Some(composition),
+            _ => None,
+        })
+        .expect("代码包合成")
+}
+
+#[test]
+fn live_layer_is_opt_in_and_cuts_the_bottom_fullscreen_bundle() {
+    let video = live_fixture();
+    // 不开实时层：与今天一样，没有替身的代码包是不支持的层，背景照铺。
+    let plain = plan(&video, 8.5);
+    assert!(plain.live.is_none());
+    assert_eq!(layer(&plain, "item_bundle").kind, LayerKind::Unsupported);
+    assert_eq!(plain.canvas.background_alpha, 1.0);
+    assert!(!serde_json::to_string(&plain).unwrap().contains("\"live\""));
+
+    let cut = live_plan(&video, 8.5, &[]);
+    let live = cut.live.as_ref().expect("切成实时层");
+    assert_eq!(live.item_id, "item_bundle");
+    assert_eq!((live.asset.id.as_str(), live.asset.revision.as_str()), ("asset_logo", "rev_1"));
+    assert_eq!(live.stand_in, StandInState::None);
+    assert_eq!((live.width, live.height), (1280, 720));
+    // 本地时刻：实例从第 245 帧起，8.5 秒是第 255 帧，映射速度 1。
+    assert!((live.source_seconds - 10.0 / 30.0).abs() < 1e-12);
+    assert_eq!(live.source_rate, 1.0);
+    assert_eq!(live.opacity, 1.0);
+    // 1280×720 在 1920×1080 的画幅里 contain：铺满。
+    assert_eq!(live.matrix, [1920.0, 0.0, 0.0, 1080.0, 0.0, 0.0]);
+    // 画布只剩它上面的层（字幕），底下留透明。
+    assert!(cut.layers.iter().all(|layer| layer.item_id != "item_bundle"));
+    assert_eq!(cut.layers.len(), plain.layers.len() - 1);
+    assert_eq!(cut.canvas.background_alpha, 0.0);
+    assert!(serde_json::to_string(&cut).unwrap().contains("\"standIn\":\"none\""));
+
+    // 宿主拦下的实例不切：回到占位。
+    let blocked = live_plan(&video, 8.5, &["item_bundle".to_string()]);
+    assert!(blocked.live.is_none());
+    assert_eq!(layer(&blocked, "item_bundle").kind, LayerKind::Unsupported);
+    assert_eq!(blocked.canvas.background_alpha, 1.0);
+}
+
+#[test]
+fn live_layer_needs_the_bundle_at_the_bottom_and_alone() {
+    // 下面还有一段视频（夹心）：不切。
+    let video = fixture();
+    let sandwiched = live_plan(&video, 8.5, &[]);
+    assert!(sandwiched.live.is_none());
+    assert_eq!(layer(&sandwiched, "item_bundle").kind, LayerKind::Unsupported);
+
+    // 写了位置（画中画）：不是铺满画幅，不切。
+    let mut pip = live_fixture();
+    composition_mut(&mut pip, "item_bundle").place.w = Some(30.0);
+    assert!(live_plan(&pip, 8.5, &[]).live.is_none());
+
+    // 两个合成同一帧重叠：不切。
+    let mut overlapping = live_fixture();
+    let twin = {
+        let mut twin = composition_mut(&mut overlapping, "item_bundle").clone();
+        twin.base.id = "item_bundle_2".into();
+        twin.base.paint_order += 1;
+        twin
+    };
+    overlapping
+        .sequences
+        .get_mut("seq_main")
+        .unwrap()
+        .items
+        .push(TimelineItem::Composition(twin));
+    let both = live_plan(&overlapping, 8.5, &[]);
+    assert!(both.live.is_none());
+    assert_eq!(layer(&both, "item_bundle").kind, LayerKind::Unsupported);
+    assert_eq!(layer(&both, "item_bundle_2").kind, LayerKind::Unsupported);
+
+    // 不是浏览器合成、或清单没有固有尺寸：没法实时画，不切。
+    let mut foreign = live_fixture();
+    foreign
+        .assets
+        .get_mut("asset_logo")
+        .unwrap()
+        .revisions
+        .get_mut("rev_1")
+        .unwrap()
+        .bundle = Some(serde_json::json!({ "bundleId": "bundle_logo", "revision": "7", "runtime": { "engine": "native" } }));
+    assert!(live_plan(&foreign, 8.5, &[]).live.is_none());
+}
+
+#[test]
+fn stand_in_decides_between_live_and_prerender() {
+    let mut video = live_fixture();
+    // 预渲染素材：烘焙出处指向代码包 bundle_logo 的第 7 版。
+    let mut baked = video.assets["asset_logo"].clone();
+    baked.id = "asset_baked".into();
+    let record = baked.revisions.get_mut("rev_1").unwrap();
+    record.bundle = None;
+    record.provenance.origin = "composition-bake".into();
+    record.provenance.source = Some(serde_json::json!({
+        "sourceBundleRef": { "id": "bundle_logo", "revision": "7" },
+        "encoding": { "fps": { "num": 30, "den": 1 } }
+    }));
+    video.assets.insert("asset_baked".into(), baked);
+    composition_mut(&mut video, "item_bundle").prerender = Some(video_model::VersionRef {
+        id: "asset_baked".into(),
+        revision: "rev_1".into(),
+    });
+
+    // 一致：停住时替身可用，不切，画替身那一帧（视频层）。
+    let usable = live_plan(&video, 8.5, &[]);
+    assert!(usable.live.is_none());
+    let stand_in = layer(&usable, "item_bundle");
+    assert_eq!(stand_in.kind, LayerKind::Video);
+    assert_eq!(stand_in.asset.as_ref().map(|a| a.id.as_str()), Some("asset_baked"));
+    assert_eq!(usable.canvas.background_alpha, 1.0);
+    let composition = composition_mut(&mut video, "item_bundle").clone();
+    assert_eq!(stand_in_state(&video.assets, &composition, FPS), StandInState::Usable);
+    // 播放中不看替身：照样切成实时层，标 usable（停下来会画替身）；替身的视频层不画，底透明。
+    let playing = playing_plan(&video, 8.5);
+    let live = playing.live.as_ref().expect("播放中切成实时层");
+    assert_eq!(live.item_id, "item_bundle");
+    assert_eq!(live.stand_in, StandInState::Usable);
+    assert!(playing.layers.iter().all(|layer| layer.item_id != "item_bundle"));
+    assert_eq!(playing.canvas.background_alpha, 0.0);
+    // 播放中拉黑的仍退回替身。
+    let blocked = plan_interactive_live(
+        VideoView::from(&video),
+        "seq_main",
+        8.5,
+        None,
+        LiveOptions {
+            enabled: true,
+            playing: true,
+            blocked: &["item_bundle".to_string()],
+        },
+    )
+    .expect("求计划");
+    assert!(blocked.live.is_none());
+    assert_eq!(layer(&blocked, "item_bundle").kind, LayerKind::Video);
+
+    // 代码包换了版本（清单 revision 8），替身过期：切成实时层，标 stale；替身的视频层不再画。
+    video
+        .assets
+        .get_mut("asset_logo")
+        .unwrap()
+        .revisions
+        .get_mut("rev_1")
+        .unwrap()
+        .bundle
+        .as_mut()
+        .unwrap()["revision"] = serde_json::json!("8");
+    assert_eq!(stand_in_state(&video.assets, &composition, FPS), StandInState::Stale);
+    let stale = live_plan(&video, 8.5, &[]);
+    let live = stale.live.as_ref().expect("替身过期时切成实时层");
+    assert_eq!(live.stand_in, StandInState::Stale);
+    assert!(stale.layers.iter().all(|layer| layer.item_id != "item_bundle"));
+    // 导出的计划不受影响：仍画替身。
+    let export = plan(&video, 8.5);
+    assert!(export.live.is_none());
+    assert_eq!(layer(&export, "item_bundle").kind, LayerKind::Video);
+
+    // 预渲染指向不存在的素材版本：没有替身。
+    composition_mut(&mut video, "item_bundle").prerender = Some(video_model::VersionRef {
+        id: "asset_missing".into(),
+        revision: "rev_1".into(),
+    });
+    let composition = composition_mut(&mut video, "item_bundle").clone();
+    assert_eq!(stand_in_state(&video.assets, &composition, FPS), StandInState::None);
+
+    // 代码包版本改回一致，但烘焙帧率与序列不同：过期；序列帧率跟着替身走就不过期。
+    composition_mut(&mut video, "item_bundle").prerender = Some(video_model::VersionRef {
+        id: "asset_baked".into(),
+        revision: "rev_1".into(),
+    });
+    video
+        .assets
+        .get_mut("asset_logo")
+        .unwrap()
+        .revisions
+        .get_mut("rev_1")
+        .unwrap()
+        .bundle
+        .as_mut()
+        .unwrap()["revision"] = serde_json::json!("7");
+    video
+        .assets
+        .get_mut("asset_baked")
+        .unwrap()
+        .revisions
+        .get_mut("rev_1")
+        .unwrap()
+        .provenance
+        .source = Some(serde_json::json!({
+        "sourceBundleRef": { "id": "bundle_logo", "revision": "7" },
+        "encoding": { "fps": { "num": 25, "den": 1 } }
+    }));
+    let composition = composition_mut(&mut video, "item_bundle").clone();
+    assert_eq!(stand_in_state(&video.assets, &composition, FPS), StandInState::Stale);
+    assert_eq!(
+        stand_in_state(&video.assets, &composition, Rate { num: 25, den: 1 }),
+        StandInState::Usable
+    );
+    assert_eq!(
+        stand_in_state(&video.assets, &composition, Rate { num: 50, den: 2 }),
+        StandInState::Usable
+    );
+
+    // 烘焙记录没写帧率：只按出处核对。
+    video
+        .assets
+        .get_mut("asset_baked")
+        .unwrap()
+        .revisions
+        .get_mut("rev_1")
+        .unwrap()
+        .provenance
+        .source = Some(serde_json::json!({ "sourceBundleRef": { "id": "bundle_logo", "revision": "7" } }));
+    assert_eq!(stand_in_state(&video.assets, &composition, FPS), StandInState::Usable);
+
+    // 不是烘焙出来的替身（手工指定的视频）：出处不参与，按替身视频的帧率核对。
+    fn manual_stand_in(video: &mut VideoSnapshot, frame_rate: Option<video_model::FrameRateInfo>) {
+        let revision = video.assets.get_mut("asset_baked").unwrap().revisions.get_mut("rev_1").unwrap();
+        revision.provenance.origin = "import".into();
+        revision.provenance.source = Some(serde_json::json!({ "sourceBundleRef": { "id": "bundle_other", "revision": "1" } }));
+        if let Some(frame_rate) = frame_rate {
+            revision.video.as_mut().unwrap().frame_rate = frame_rate;
+        }
+    }
+    manual_stand_in(&mut video, None);
+    assert_eq!(stand_in_state(&video.assets, &composition, FPS), StandInState::Usable);
+    manual_stand_in(
+        &mut video,
+        Some(video_model::FrameRateInfo::Cfr {
+            rate: Rate { num: 24, den: 1 },
+        }),
+    );
+    assert_eq!(stand_in_state(&video.assets, &composition, FPS), StandInState::Stale);
+    manual_stand_in(&mut video, Some(video_model::FrameRateInfo::Vfr { nominal: None }));
+    assert_eq!(stand_in_state(&video.assets, &composition, FPS), StandInState::Usable);
 }

@@ -1,6 +1,25 @@
 import type { RcSkillsMessages } from './rc-skills.ts';
 
 export const nl: RcSkillsMessages = {
+  brandProjectNotFound: (p: { id: string }) => `Project niet gevonden: ${p.id}`,
+  brandNotFound: (p: { project: string }) => `‘${p.project}’ heeft nog geen BRAND.md`,
+  brandFileNotFound: (p: { file: string }) => `Geen BRAND.md-bestand: ${p.file}`,
+  brandPathInvalid: (p: { path: string }) => `Alleen BRAND.md en bestanden in brand/ kunnen worden gewijzigd: ${p.path}`,
+  brandExists: (p: { path: string }) => `Dit project heeft al een BRAND.md: ${p.path}`,
+  brandUnreadable: (p: { file: string }) => `${p.file} kon niet worden gelezen, dus dit bericht is zonder verstuurd`,
+  versionNotFound: (p: { id: string; revision: number }) => `Skill ‘${p.id}’ heeft geen opgeslagen versie ${p.revision}`,
+  packageTooLarge: (p: { limit: number }) => `Het zipbestand is groter dan ${p.limit} bytes`,
+  packageUnreadable: (p: { path: string }) => `${p.path} kan niet als zipbestand of map worden gelezen`,
+  packageNoSkill: (p: { file: string }) => `Dit pakket bevat geen ${p.file}. De hoofdmap van een skill heeft een ${p.file} nodig die zegt wat de skill doet en wanneer je hem gebruikt`,
+  candidateUnsafePath: (p: { path: string }) => `Deze skill bevat een item dat niet veilig kan worden uitgepakt: ${p.path}`,
+  candidateTooManyFiles: (p: { files: number; limit: number }) => `Te veel bestanden (${p.files}); een skill mag er maximaal ${p.limit} hebben`,
+  candidateNoDescription: "In SKILL.md ontbreekt een description: schrijf een of twee zinnen over wat de skill doet en wanneer je hem gebruikt. De agent beslist daarop of hij de skill inzet",
+  candidateDuplicate: (p: { id: string }) => `Een andere skill in dit pakket heeft dezelfde ID ‘${p.id}’`,
+  packagePickInvalid: (p: { prefix: string }) => `${p.prefix} is geen installeerbare skill in dit pakket`,
+  revisionConflict: (p: { revision: number }) => `De skill is intussen gewijzigd (nu versie ${p.revision}). Laad hem opnieuw en voer je wijzigingen opnieuw door`,
+  cannotRemoveSkillFile: (p: { file: string }) => `${p.file} kan niet worden verwijderd`,
+  notEditable: (p: { name: string }) => `‘${p.name}’ kan hier niet worden bewerkt. Dupliceer hem en bewerk de kopie`,
+  changeSourceMissing: (p: { path: string }) => `Geen bestand dat kan worden toegevoegd: ${p.path}`,
   cliOnlyPageLink: (p: { page: string }) => `Gekoppelde pagina ${p.page} is niet beschikbaar op de toolinterface: die heeft alleen een CLI-oppervlak, dus links ernaartoe moeten op het CLI-oppervlak staan`,
 
   guideIdConflict: (p: { id: string }) => `ID ‘${p.id}’ hoort bij een BaoCut-handleidingspagina, dus deze kopie is niet geladen. Hernoem de map`,

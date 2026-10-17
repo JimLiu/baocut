@@ -330,7 +330,8 @@ describe('字体库', () => {
     // 其余提醒：内核对已列出的族报的缺字体提示不再重复，别的族照留。
     const note = (family: string) => ({
       code: 'EXPORT_RENDER_NOTE',
-      detail: `item_a：字体 "${family}" 在当前字体库中不可用，将使用 Noto Sans SC fallback`,
+      detail: `item_a: Font "${family}" isn’t in the font library; using Noto Sans SC instead`,
+      detailRef: { key: 'frameRender.itemNote', params: { item: 'item_a', note: { key: 'frameRender.missingFont', params: { family, fallback: 'Noto Sans SC' } } } },
     });
     expect(
       exportOtherWarnings([

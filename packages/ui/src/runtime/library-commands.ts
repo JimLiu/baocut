@@ -90,12 +90,12 @@ export function openLibraryHandle(session: RuntimeSession, ref: LibraryEntryRef 
 }
 
 /**
- * 把条目放进视频（拷一份，之后库里的改动不影响视频）。这一笔不经编辑器的命令队列，所以先等队列里的修改都有了结果；
- * 不给 `expectedRevision`，由 Runtime 用视频的当前版本。
+ * 把条目放进视频（拷一份，之后库里的改动不影响视频）。这一笔不经编辑器的命令队列，所以先等队列里的修改都有了结果。
+ * 带 `operations` 时调用方按自己读到的视频给 `expectedRevision`（先 `settled()` 再读）；不给时由 Runtime 用当前版本。
  */
 export async function applyLibraryEntry(
   session: RuntimeSession,
-  params: Omit<LibraryApplyParams, 'commandId' | 'expectedRevision'>,
+  params: Omit<LibraryApplyParams, 'commandId'>,
 ): Promise<LibraryApplyResult> {
   await session.videos.settled();
   return session.client.request('library.applyToVideo', { ...params, commandId: newId('cmd') });

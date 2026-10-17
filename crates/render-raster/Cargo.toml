@@ -37,6 +37,7 @@ media = [
     "dep:symphonia",
     "dep:audio-dsp",
     "dep:rustybuzz",
+    "dep:unicode-properties",
     "svg",
     "resvg/text",
 ]
@@ -98,6 +99,8 @@ audio-dsp = { workspace = true, optional = true }
 resvg = { package = "bcut-resvg", path = "vendor/bcut-resvg", default-features = false, optional = true }
 # 与 usvg 排版用的是同一份（锁在 0.20），量出的文字宽度才对得上。
 rustybuzz = { version = "0.20", optional = true }
+# Canvas 文字的中日韩标点挤压（`canvas2d/text.rs`）要按 Unicode 一般类别认开闭标点；rustybuzz 已带进来的同一份。
+unicode-properties = { version = "0.1.4", default-features = false, features = ["general-category"], optional = true }
 # 只有 `video.rs` 的混音临时文件用它；`getrandom` 在 wasm32-unknown-unknown 上
 # 需要显式 backend，不进 `wasm-safe` 的依赖图正好省掉这条 cfg。
 tempfile = { version = "3", optional = true }
@@ -125,4 +128,8 @@ media-native = { workspace = true }
 
 [[example]]
 name = "bcf_stage_bench"
+required-features = ["media"]
+
+[[example]]
+name = "canvas2d_compare"
 required-features = ["media"]

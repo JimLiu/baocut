@@ -45,4 +45,6 @@ export const nl: RcVideoMessages = {
     "Verwijder eerst het project of de sessie die deze map gebruikt in BaoCut en verwijder daarna deze video uit het bovenliggende project",
   compositionImportFailed: (p) => `Kan de bewegende graphic niet importeren (${p.code})`,
   compositionPreviewFailed: (p) => `Kan geen voorbeeld van de bewegende graphic tonen (${p.code})`,
+  compositionBakeSuperseded: 'De bewegende graphic is gewijzigd of verwijderd voordat het renderen klaar was; de stand-in is niet toegepast',
+  compositionBakeFailed: (p) => `Kan de bewegende graphic niet renderen (${p.code})`,
 };

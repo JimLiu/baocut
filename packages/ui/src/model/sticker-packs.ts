@@ -1,12 +1,5 @@
-import {
-  ANIMATED_STICKER_PACKS,
-  STICKER_PACKS,
-  packStickers,
-  type AssetRecord,
-  type PackSticker,
-  type StickerPack,
-} from '@baocut/protocol';
-import type { VisualLayer } from './new-items.ts';
+import { ANIMATED_STICKER_PACKS, STICKER_PACKS, packStickers, type PackSticker, type StickerPack } from '@baocut/protocol';
+import type { LayerAsset, VisualLayer } from './new-items.ts';
 import { placeBox } from './new-items.ts';
 import { STICKER_PACK_COPY as SP } from './sticker-pack-copy.ts';
 
@@ -52,12 +45,12 @@ export function confettiAt(packs: readonly StickerPack[]): number {
 }
 
 /** 贴纸拷进视频后新建的那一层：居中、宽 18%（与品牌库的 Lottie 一样）；Lottie 循环播放，SVG 静止。 */
-export function packStickerLayer(sticker: PackSticker, asset: AssetRecord): VisualLayer {
+export function packStickerLayer(sticker: PackSticker, asset: LayerAsset): VisualLayer {
   return {
     type: 'sticker',
     name: packStickerName(sticker),
     place: placeBox({ x: 50, y: 50, w: 18 }),
-    assetRef: { id: asset.id, revision: asset.currentRevision },
+    ...asset,
     sticker: sticker.animated ? { source: 'asset', loop: 'loop' } : { source: 'asset' },
   };
 }

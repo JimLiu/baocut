@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; padding: 0; overflow: hidden; background: #000; }
+  #root { position: relative; width: 640px; height: 360px; }
+  canvas { display: block; width: 640px; height: 360px; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-width="640" data-height="360" data-fps="30" data-duration="1" data-alpha="false">
+  <canvas id="stage" width="640" height="360"></canvas>
+</div>
+<script>
+  // BaoCut native contract drawing only on one Canvas 2D: the instruction bake records these calls.
+  var DURATION = 1;
+  var ctx = null;
+  function renderScene(time) {
+    var p = Math.min(Math.max(time / DURATION, 0), 1);
+    var bg = ctx.createLinearGradient(0, 0, 640, 360);
+    bg.addColorStop(0, '#16213e');
+    bg.addColorStop(1, '#0f3460');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, 640, 360);
+    ctx.save();
+    ctx.translate(80 + p * 480, 180);
+    ctx.rotate(p * Math.PI);
+    ctx.fillStyle = '#e94560';
+    ctx.beginPath();
+    ctx.arc(0, 0, 40 + p * 20, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.strokeRect(-30, -30, 60, 60);
+    ctx.restore();
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = '#f5f5f5';
+    ctx.fillRect(40, 300, 560 * p, 16);
+  }
+  window.__baocutCompositions = window.__baocutCompositions || {};
+  window.__baocutCompositions.main = {
+    initialize: function (context) {
+      ctx = context.target.querySelector('#stage').getContext('2d');
+      renderScene(0);
+      return Promise.resolve();
+    },
+    renderAt: function (time, params) {
+      renderScene(Number(time.ticks) / time.timescale);
+      return Promise.resolve();
+    },
+    dispose: function () {
+      ctx = null;
+    },
+  };
+</script>
+</body>
+</html>

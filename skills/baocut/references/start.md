@@ -6,9 +6,13 @@
 <!-- surface: cli -->
 ## 1. 找到 CLI
 
-1. `command -v baocut`（Windows 上 `where baocut`）。找到就用它。
-2. 找不到时看环境变量 `BAOCUT_CLI`：它给出可执行文件的完整路径。
-3. 还没有：请用户安装 BaoCut（桌面端自带 CLI），或告诉你 `baocut` 在哪。不要自己下载安装包、不要去别的目录里翻找。
+1. `command -v baocut`（Windows 上 `where baocut`）。找到就用它；不要把旧版 `bcut` 当成当前 CLI。
+2. 找不到时看环境变量 `BAOCUT_CLI`：它给出命令入口的完整路径，带空格时作为一个路径参数传入。
+3. 仍没有时，只检查桌面包的固定入口，不递归搜索：
+   - macOS：`/Applications/BaoCut.app/Contents/MacOS/baocut-cli`，再看 `~/Applications/BaoCut.app/Contents/MacOS/baocut-cli`。
+   - Windows：`%LOCALAPPDATA%\Programs\BaoCut\baocut.cmd`，再看 `%ProgramFiles%\BaoCut\baocut.cmd`。
+4. 非标准安装位置让用户给出入口路径或设置 `BAOCUT_CLI`。桌面包的启动器使用包内的 Electron，不需要系统 Node，也不自动修改 PATH。
+5. 入口仍不存在：说明所装桌面包没有 CLI，请用户更新到含该入口的桌面包，或使用与 App 匹配的源码 CLI。不要把旧版 Homebrew `bcut` 当成匹配安装方式，不要自己下载安装包或去其他目录翻找。
 
 下文统一写 `baocut`，按找到的实际路径替换。
 

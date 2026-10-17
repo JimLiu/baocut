@@ -160,7 +160,7 @@ export const ja: AgentMessages = {
     {
       key: 'terminal',
       title: 'これらの Agent でターミナルから BaoCut を操作したいですか？',
-      body: 'BaoCut 内のセッションには追加の準備は不要です。ターミナルやほかのアプリで使うには、それらに BaoCut の Skill をインストールしてください。「設定 › Skills」を参照してください。',
+      body: 'BaoCut 内のセッションには追加の準備は不要です。ターミナルやほかのアプリで使うには、それらに BaoCut の Skill をインストールしてください。Skills ページの下部を参照してください。',
       link: 'skills',
     },
   ],

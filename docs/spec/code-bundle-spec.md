@@ -164,7 +164,7 @@ interface CompositionItem extends VisualItemBase {
 
 `span`、`transform`、`opacity` 等来自 `VisualItemBase`；`TimeMap`、`Transform` 见视频格式规范 §2.5 与 §3.5。
 
-预渲染替身与 Bake（§7）的关系：替身是「这段合成已经有一份渲染好的视频」这个事实，运行环境不可用时预览与导出用它代替；Bake 是产生这样一份视频的受控流程，带着输入指纹与验证记录。`audioRoute` 的声部模式、`qualityPolicy` 与 `BakeRecord` 尚未进入实例的字段（§9）；首版的 `BakeRecord` 记在烘焙素材的来源里（§7）。
+预渲染替身与 Bake（§7）的关系：替身是「这段合成已经有一份渲染好的视频」这个事实，运行环境不可用时预览与导出用它代替；Bake 是产生这样一份视频的受控流程，带着输入指纹与验证记录。替身何时不再代表实例现在的画面，见 §7.4。`audioRoute` 的声部模式、`qualityPolicy` 与 `BakeRecord` 尚未进入实例的字段（§9）；首版的 `BakeRecord` 记在烘焙素材的来源里（§7）。
 
 ### 3.2 参数
 
@@ -270,11 +270,15 @@ interface CompositionContext {
 - 新的作者模板使用 `noLoop()`，由 Adapter 调用受控的绘制，使用明确的局部时间，而不是真实的运行时长。
 - 使用 `randomSeed` / `noiseSeed`，并固定自己的随机源与调用顺序。
 - 已有的、带状态的草图可以声明 `sequential`：从初始状态按固定步长重放到目标帧（§5.3）。
+- `p5.min.js` 随包带着（§2.4）。实测（p5 1.11.3，macOS 离屏宿主）：2D 模式（缺省的 `createCanvas`）底下是一张 Canvas 2D，草图每帧以 `clear()` 或不透明的 `background()` 开头、只画图形时走指令烘焙（§7.2）并通过对拍；库内部用到录制器不支持的调用时回退像素。文字按 §7.2 要用包内 `@font-face` 的字体族（`textFont`）。`WEBGL` 模式按 §4.4 处理：录制器报 `canvas-not-2d`，整段像素烘焙。
+- 写法：实例模式 `new p5(sketch, 根元素)` 让画布挂进根元素，`setup` 里 `pixelDensity(1)`、`createCanvas(宽, 高)`、`noLoop()`；`initialize` 等 `setup` 跑完再 resolve，`renderAt` 记下时间后 `redraw()`。
+- 原样的 `p5.min.js` 过不了 §6.1 的静态扫描：库的字串里有 9 处绝对 URL（whatwg-url 的探测字串 `new URL("http://a")` 等 6 处、i18next 翻译的 CDN 路径、两处文档链接），导入报 `BUNDLE_NETWORK_REFERENCE`。这些字串不影响绘制，带 p5 之前把它们改掉（CDN 路径改成相对路径，其余换掉协议前缀）或从源码构建一份不带 FES 与 i18n 的库；扫描是否放过字串里的 URL 见 §9。
 
 ### 4.4 Three.js
 
 - 用局部时间直接求出对象的状态，再渲染场景。
 - 动画片段可以通过 `AnimationMixer.setTime` 驱动。但这不等于所有的物理、粒子和异步资源都天然可以随机访问；带状态的部分要么改写成时间的纯函数，要么声明 `sequential`。
+- **WebGL**（Three.js、原生 WebGL、p5 的 `WEBGL` 模式）在离屏宿主里可用：宿主开着 GPU 合成（macOS 上是 ANGLE Metal），只把 Canvas 2D 与页面光栅留在 CPU；关掉硬件加速后 Chromium 连软件 WebGL 也不给。宿主截的是合成后的页面（`capturePage`），不回读画布：实测（three r170，macOS）不开 `preserveDrawingBuffer`、不调 `gl.finish()` 的变体与开了的逐帧摘要相同；仍建议开 `preserveDrawingBuffer: true` 并在 `renderAt` 画完调 `gl.finish()`，别的平台与 Chromium 版本没有测过。WebGL 画面只能走像素烘焙（§7.1；录制器报 `canvas-not-2d`，`auto` 回退、`ops` 失败），640×360 约 23 帧/秒；不同机器的 GPU 光栅可能有细微差别，帧摘要只在同一台机器上可比。库文件与模型随包带着：`three.module.js` 等放 `vendor/`（原样通过静态扫描：库里的 URL 都在注释里，仅剩的 XHTML 命名空间不算（§6.1）），`gltf` `glb` `bin` `hdr` `ktx2` 在扩展名白名单里（§6.1）。`WebGLRenderer({ canvas, alpha: true })` 画到根元素里的画布，`setPixelRatio(1)`、`setSize(宽, 高, false)` 让画布像素尺寸等于固有尺寸；透明输出 `setClearColor(0x000000, 0)`，验证的 alpha 检查通过。
 
 ### 4.5 Canvas 与透明
 
@@ -383,7 +387,7 @@ interface CompositionContext {
 **导入**。从一个目录导入代码包，同样经过静态检查与采样验证（§6.2）：
 
 - 用 `lstat` 列出文件，拒绝符号链接。
-- 只收白名单内的扩展名：`html` `htm` `js` `mjs` `cjs` `css` `json` `map` `txt` `md` `svg` `png` `jpg` `jpeg` `webp` `gif` `avif` `woff` `woff2` `ttf` `otf` `mp3` `wav` `ogg` `m4a` `mp4` `webm` `mov` `wasm` `lock`，以及有固定名字的清单文件（§2.5）。
+- 只收白名单内的扩展名：`html` `htm` `js` `mjs` `cjs` `css` `json` `map` `txt` `md` `svg` `png` `jpg` `jpeg` `webp` `gif` `avif` `woff` `woff2` `ttf` `otf` `mp3` `wav` `ogg` `m4a` `mp4` `webm` `mov` `wasm` `lock`，3D 资源 `gltf` `glb` `bin` `hdr` `ktx2`，以及有固定名字的清单文件（§2.5）。
 - 上限：4096 个文件，单个文件 64 MiB，合计 256 MiB，相对路径不超过 512 个字符。
 - 静态扫描网络引用：`src`、`href`、`url()`、`@import`、`fetch`、`new URL` 中的 `http(s)://`、`ws(s)://` 与协议相对 URL（`//` 开头）；XML 命名空间 URI 不算。发现即拒绝。
 - 没有 `bundle.manifest.json` 的包，导入方可以按入口页面根元素的 `data-*` 属性（§4.1）或调用方给出的覆盖值合成一份清单。合成的清单写进暂存副本，不写回源目录；`revision` 默认为 `1`（`Revision` 是非负十进制整数字符串，视频格式规范 §1.2）。
@@ -492,15 +496,62 @@ interface BakeRecord {
 ```
 
 - 烘焙按实例所在序列或导出的帧率取帧：第 k 帧的局部时间是 `t = k / fps`，不按包的 `intrinsic.fps`（§5.4）。`compositions_import` 新放置的实例在根序列上，用根序列的帧率；`replace` 用被替换实例所在序列的帧率。
-- **编码**。首版输出 QuickTime `.mov`：`output.alpha` 为 true 时用 ProRes 4444（`yuva444p10le`），否则用 ProRes 422 HQ。烘焙结果作为普通的视频素材导入，`hasAlpha` 如实记录。
+- **编码**。输出 QuickTime `.mov`：`output.alpha` 为 true 时用 ProRes 4444（`yuva444p10le`），否则用 ProRes 422 HQ（`yuv422p10le`）。编码器是 ffmpeg 的 `prores_ks`；指令烘焙在 macOS 上能用 `prores_videotoolbox` 时用它（硬件编码，产物的配置与像素格式相同），`BakeRecord.encoding.codec` 记实际的编码器。烘焙结果作为普通的视频素材导入，`hasAlpha` 如实记录。
+- **渲染器**（§7.1–§7.3）。`compositions_import` 的 `bake` 选渲染器：`auto`（缺省）先走指令烘焙，走不通时整段回退到像素烘焙；`ops` 只走指令，走不通就失败；`pixels` 只走像素。
 - **记录位置**。`BakeRecord` 记在烘焙素材的来源里：`provenance` 为 `{ origin: 'composition-bake', source: BakeRecord }`（视频格式规范 §4.5）。合成实例上还没有对应的字段（§3.1、§9）。首版的 `bakedAssetRef` 与 `sourceBundleRef` 先写代码包清单的 `bundleId/revision`：素材 ID 要等导入事务的回执才知道（§9）。
-- 新建的合成实例用 `prerender` 指向烘焙素材，导出走已有的预渲染替身路径（视频格式规范 §3.7）。
+- 新建的合成实例用 `prerender` 指向烘焙素材，导出走已有的预渲染替身路径（视频格式规范 §3.7）。替身何时过期见 §7.4。
+- **后台烘焙**。`compositions_import` 带 `background: true` 时烘焙交给 `bake` 任务（§7.5），导入不等烘焙。
 - 首版分两次事务：先导入代码包与烘焙素材，再用 `insertItems` 放置合成实例。两步合起来不是原子的：第二步失败时，已导入的两个素材留在视频里，没有实例引用它们。并成一笔的做法见 §9。
 
 - Bake **保留**源代码包、参数、映射和来源，并提供「回到可编辑的源码」。Bake 不是删除源文件。
 - Bake 之后修改参数或替换版本，烘焙结果标记为 `stale`；界面提示重新烘焙，或继续使用实时求值。
 - 只有源成片、没有作者代码时，不得把一个普通 MP4 包装成「可编辑的 Remotion 合成」。
 - Bake 与「只有成片的输入」是两回事：前者保留回到源码的引用，后者不能伪装成源视频。
+
+### 7.1 像素烘焙
+
+在离屏宿主里按 §7 的帧时刻逐帧取帧（与预览相同的截图），PNG 经 ffmpeg 的 `image2pipe` 编码。任何合同、任何画面都能走——DOM、SVG、WebGL（§4.4）与多张画布都在这里——代价是每帧一次浏览器截图（M2 上 1080×1920 约 2.7 帧/秒）。`frameHashes` 是各帧 PNG 的 sha256。
+
+### 7.2 指令烘焙
+
+只用于 `baocut/1` 合同、全部画面画在一张 Canvas 2D 上的包。宿主在页面里包装 `CanvasRenderingContext2D`（`packages/code-runtime/src/canvas-recorder.ts`），seek 到每一帧时把主画布上的调用记成指令，交给 Render Worker（`export-worker canvas-bake`）转成 DrawOp（[DrawOp 协议 v8](drawop-binary-spec.md#canvas-2d-原语v8)）、多线程光栅、直接把 RGBA 送进编码器。
+
+- **主画布**。根元素里唯一一张挂进文档的 canvas，尺寸等于固有尺寸、铺满视口。根元素里有别的可见 DOM、非 2D 上下文、`alpha: false` 的上下文、CSS 变换或不透明度时不录。
+- **每帧自成一体**。帧首写下延续下来的路径与裁剪栈（`init`），各帧可以并行转换。每帧必须先清屏（整幅的 `clearRect`，或不透明的整幅 `fillRect`），否则判为不支持。
+- **录制文件**是 NDJSON，放在视频所在卷的 `blobs/.staging/` 下，烘焙结束删掉：
+  - `{"type":"header", width, height, fps:{num,den}, frames, alpha}`、`{"type":"page", background}`（页面底色，直通 RGBA 0–1）；
+  - 资源 `{"type":"font"|"image"|"bitmap", id, …}`：字体与图片是包内相对路径；`bitmap` 是作图片源的离屏 canvas 按版本号拍下的非预乘 RGBA（base64）；
+  - 帧 `{"type":"frame", index, init?, ops, states, grads, pats}`：`ops` 是路径、裁剪、状态栈与绘制指令，`states` 是绘制时读到的真实状态（变换、填充、透明度、合成、投影、线型、字体），`grads` / `pats` 是这帧用到的渐变与图案。
+- **文字**在页面里归一成左对齐、alphabetic 基线（对齐与基线偏移用 Chromium 的 `measureText`），Worker 用包里的字体文件整形（rustybuzz）成轮廓。字体按 CSS 匹配从 `document.fonts` 选 face，必须是包内的字体文件。中日韩相邻标点按 `text-spacing-trim: normal` 挤压（与 Chromium 的 HanKerning 相同：整段开 `chws`，字体有 `halt` 时给「》（」这类相邻对里该挤的字单独开 `halt`，行首不挤）；整形宽度与 `measureText` 差超过 max(0.5px, 0.2%) 判为不支持。合成斜体按 0.25 的水平切变还原；合成粗体（请求 ≥ 600、字体文件与 `@font-face` 都不到 600）各平台的加粗量不同，判为不支持。
+- **不支持的情况**有第一条原因就停止录制，例如：`unsupported-call: <方法>`（`putImageData`、`reset` 等）、`filter: <值>`、`conic-gradient`、`Path2D`、`font-not-bundled: <族名>`、`text-synthetic-bold: <字重>`、`text-rtl`、`composite-operation: <模式>`、`clip-evenodd`、`clear-rect-partial`、`frame-not-cleared`、`image-smoothing-disabled`、`main-canvas-readback`。
+
+### 7.3 对拍与回退
+
+指令烘焙的画面要与 Chromium 一致才可信。录制之后，在同一个会话里照常截几帧样本（缺省 5 帧，均匀取、含首尾），Worker 先把这几帧光栅出来比较，全部通过才开始整段光栅：
+
+| 指标 | 阈值 | 说明 |
+| --- | --- | --- |
+| 4× 降采样 SSIM | ≥ 0.98 | 只看结构，不追字形边缘的亚像素差别 |
+| 平坦区最大偏差 | ≤ 4/255 | 渐变抖动的差别在内 |
+| 过渡带占比 | ≤ 5% | 偏差超过阈值的边缘像素占全图的比例 |
+
+逐像素最大偏差不作判据：macOS 的 CoreText 字形平滑让 Chromium 的文字略粗，文字边缘的单像素偏差可以到 200 以上，降采样后看不出。
+
+`auto` 遇到下列情况整段回退到像素烘焙（不按帧混用两种渲染器），回退原因写进结果：录制判为不支持、页面底色读不到、合同不是 `baocut/1`、没有 Render Worker、Worker 报 `CANVAS_OPS_UNSUPPORTED`（转换不了）/ `CANVAS_OPS_MISMATCH`（样本对不上）/ `CANVAS_OPS_INVALID`（录制有误），以及 Worker 的其他失败（旧版不认识 `canvas-bake`、编码失败）。取消不回退。
+
+`compositions_import` 的结果带 `bake`（只登记时为 null）：
+
+```ts
+interface CompositionBakeInfo {
+  renderer: 'drawop-cpu' | 'browser-pixels';
+  fps: number;                     // 帧数 ÷ 整段烘焙用时
+  seconds: number;
+  fallback?: { reason: string };   // auto 回退到像素时的原因（英文诊断）
+  stages?: Record<string, Record<string, number | string>>;   // 指令路线各阶段的用时与吞吐，诊断用
+}
+```
+
+回退必须可见：结果与日志都写明原因，不静默换渲染器。指令烘焙的 `frameHashes` 是各帧直通 RGBA 的 sha256，与像素烘焙的 PNG 摘要不可比。
 
 **降级**。运行环境不满足包的要求时（例如缺少 GPU 能力、Adapter 版本不兼容、沙箱不可用）：
 
@@ -512,6 +563,34 @@ interface BakeRecord {
 
 降级必须是可见的。不得用一张静态图或空白画面静默替代。
 
+### 7.4 替身何时过期
+
+替身是实例在某个代码包版本、某个帧率下渲染好的画面；下面任一条成立时替身**过期**。`@baocut/protocol` 的 `prerenderStaleness(item, assets, sequenceFps)` 是唯一的判断处，预览停住时、导出预检与智能体的检查都调它：
+
+- `bundle-changed`：替身素材来源里的 `BakeRecord.sourceBundleRef`（清单的 `bundleId` / `revision`）与实例 `source.assetRef` 所指代码包清单的身份不同。换了代码包版本却没有重烘就是这种。
+- `fps-mismatch`：`BakeRecord.encoding.fps` 与实例所在序列的帧率不同（序列改了帧率，或实例被挪进另一条帧率不同的序列）。替身的来源不是烘焙记录（旧数据、手工指定的视频）时按替身视频的帧率核对。
+- `missing`：实例没有替身，或替身素材的版本不在视频里。
+
+参数（`parameterValues`）与 `timeMap` 暂不参与：首版实例没有参数；`timeMap` 由替身与合成共用（视频格式规范 §3.7），变速与裁切作用在替身上同样成立。`BakeRecord.status` 不是判据：它记的是烘焙时的状态，不随后来的编辑更新。
+
+过期的后果：
+
+- 导出预检（命令与协议规范 §4.4）逐个核对这次导出用到的替身，有过期的以 `EXPORT_PRERENDER_STALE` 拒绝：`details.items` 每项是 `{ itemId, sequenceId, name, reason, bakedFrom?, current? }`，`remedy` 是重新导入烘焙。`allowStalePrerender: true` 时照旧替身导出，每项一条同名警告（`detail` 是「实例 ID: 原因」）。`missing` 不由这里报：没有替身的实例由渲染内核按 `bundle-without-prerender` 处理。
+- 预览停住时过期的替身不用，继续显示实时层（章节化代码动画片设计 §4.3；实时合成层落地后生效）。
+
+重烘就是带 `replace: { itemId }` 再导入一次同一个代码包：`replaceCodeBundle` 写入新替身（§3.3）。
+
+### 7.5 后台烘焙
+
+`compositions_import` 带 `background: true` 时烘焙成为一项任务（`JobRecord.kind` 为 `bake`；`JobRecord.bake` 记目标：`sequenceId`、`itemId`、代码包素材版本 `bundle`、清单身份 `bundleId` / `manifestRevision`、`fps`、`mode`），导入立刻返回 `bakeJobId`：
+
+- 两笔事务只登记代码包与放实例：实例没有 `prerender`，长度按清单 `intrinsic` 换算到序列帧率（向下取整，与 `replaceCodeBundle` 没有替身时同一算法）；带 `replace` 时 `replaceCodeBundle` 的 `prerender` 为 null，旧替身随之摘掉。
+- 任务排 `composition-bake` 队列，并发 1（指令烘焙已多线程光栅，并行只争 CPU）；暂存目录在视频所在卷的 `blobs/.staging/`；阶段 `encoding`（进度 `{ unit: 'frames', done, total }`）→ `applying`。任务进行中视频由 Runtime 的租约保持打开，不持有写锁，用户与智能体可以继续改别的实例。
+- 烘完以两笔写入（行为者 `system:compositions`）：导入替身素材（`provenance` 同上），再 `replaceCodeBundle` 把实例的 `prerender` 指过去（`assetRef` 不变）。写之前与每次重试前核对实例还在、仍指同一个代码包素材版本、`timeMap` 仍是从 0 起的等速线性，否则任务以 `COMPOSITION_BAKE_SUPERSEDED` 失败（替身没有归宿，不写）。版本冲突（`PROJECT_REVISION_CONFLICT`）重试三次。替身长度与放置时的清单长度不同时记一条 `COMPOSITION_BAKE_LENGTH_ADJUSTED` 警告（回执 `impact.codeEdits` 有前后帧数）。
+- 结果 `result.artifactId` 是替身的 `<assetId>@<revision>`，`result.bake` 是实际用的渲染器、用时与回退原因（同导入回执的 `bake`）。烘焙失败的错误码沿用代码包的（`COMPOSITION_*`、`BUNDLE_*`），别的记 `COMPOSITION_BAKE_FAILED`。取消用 `jobs.cancel`。Runtime 重启时未完成的任务按不可重试处理（`interrupted`），实例留着没有替身，重新带 `replace` 导入即可。
+- 没烘完就导出：实例没有替身，渲染内核按 `bundle-without-prerender` 报 `EXPORT_UNSUPPORTED_CONTENT`。
+- `background` 与 `register` 互斥；后台烘焙与前台一样只在有 Electron 离屏宿主的 Runtime 可用。
+
 ---
 
 ## 8. 开放范围
@@ -520,7 +599,7 @@ interface BakeRecord {
 
 | 阶段 | 范围 |
 | --- | --- |
-| **P0** | 受控 Web 合同（`baocut/1`）与 HyperFrames 合同（`hyperframes/1`）的导入、验证、取帧与烘焙；执行环境是 Electron 离屏窗口。p5.js、Three.js、Canvas 按各自被支持的子集接入 |
+| **P0** | 受控 Web 合同（`baocut/1`）与 HyperFrames 合同（`hyperframes/1`）的导入、验证、取帧与烘焙；执行环境是 Electron 离屏窗口。p5.js、Three.js、Canvas 按各自被支持的子集接入。`baocut/1` 的单张 Canvas 2D 画面走指令烘焙（§7.2），其余走像素烘焙 |
 | **P1** | 导入外部的 Remotion 代码；更丰富的独立层输出；检查点；Playwright 或无头 Chromium 的执行环境 |
 | **G** | 三层编辑的区分、不可变版本、时间依赖的保守失效、Bake 保留源码引用，对任何已开放的合同都生效 |
 
@@ -535,14 +614,16 @@ HyperFrames 合同进入第一期，是 2026-10-07 用户开始实现任务时�
 | 事项 | 状态 | 需要决定什么 |
 | --- | --- | --- |
 | `CompositionContext`（§4.1） | 本规范补全 | 绘制目标的形式；素材解析的接口；是否提供音频上下文 |
-| 合成实例的字段（§3.1） | `audioRoute`、`qualityPolicy`、`bake` 未纳入 | 声部模式与质量政策的取值；Bake 记录是否从烘焙素材的来源（§7）移到实例上，与预渲染替身如何衔接、替身何时过期 |
+| 合成实例的字段（§3.1） | `audioRoute`、`qualityPolicy`、`bake` 未纳入 | 声部模式与质量政策的取值；Bake 记录是否从烘焙素材的来源（§7）移到实例上，与预渲染替身如何衔接（替身何时过期已定，§7.4） |
 | 包的目录布局（§2.5） | 部分已定 | 已定：首版固定 `bundle.manifest.json`、`files.manifest.json`、`verification.json` 三个文件名。待定：其余文件名是否强制；文件名固定之后 `source.filesManifest` 是否还需要 |
 | `BakeRecord`（§7） | 已定 | 首版编码为 QuickTime `.mov`，带 alpha 用 ProRes 4444，否则 ProRes 422 HQ；记录放在烘焙素材的 `provenance` 里（§7）。是否进入实例字段见上面「合成实例的字段」 |
 | 参数 Schema 的约定（§3.2） | 只有原则 | 支持的 JSON Schema 子集；界面控件的映射；影响时长的标记方式 |
 | `runtime.contract` 的命名与版本 | 已定 | 格式 `<合同名>/<主版本>`，不兼容的变化提升主版本，`adapterContractVersion` 取同一个值（§2.2）；第一期同时提供 `baocut/1` 与 `hyperframes/1` |
 | `contentHash` 的覆盖范围（§2.2） | 部分已定 | 已定：`files.manifest.json` 不计入 `entries`（计入则不能列出自己的摘要）。待定：清单的 `contentHash` 与目录素材的树摘要（视频格式规范 §4.3）算法不同，是否统一或写明两者的关系 |
 | 导入的原子性（§7） | 首版两笔事务 | 原子导入的路径：让合成实例的 `ItemInput` 接受 `assetImportRef`（命令与协议规范 §4.2 已允许视频、图片、白板与音频实例这样引用同一事务里 `importAsset` 的 `ref`），届时导入与放置并成一笔事务。在此之前 `BakeRecord` 的 `bakedAssetRef` 与 `sourceBundleRef` 用代码包清单的 `bundleId/revision` 占位，不是素材引用 |
+| 后台烘焙写入替身（§7.5） | 首版两笔事务 | 替身写入是「导入素材 + `replaceCodeBundle`」两笔，中间别人可以插一笔；要并成一笔需要一个只改 `prerender` 的操作，或让 `replaceCodeBundle` 接受同一事务里 `importAsset` 的 ref（与上一行同一条路） |
 | `cue-track` 的数据形式 | 未定 | 传给代码的 cue 数据的结构 |
+| 静态网络扫描与三方库（§6.1） | 待定 | 原样的 `p5.min.js` 因字串里的 9 处 URL 被拒（§4.3），运行期已有网络拦截兜底（§2.6）；是否让扫描只在会触发加载的位置拒绝、字串里的绝对 URL 降为警告 |
 | 检查点的格式 | 未定 | 作者如何声明与实现可保存的状态 |
 | Remotion 的许可与透明导出 | 待验证 | 已定：不随应用分发，用代码包自己的依赖（§4.6）。透明导出按实际版本确认可用的模式 |
 | 首批 P0 模板 | 未定 | 数量、类型与许可 |

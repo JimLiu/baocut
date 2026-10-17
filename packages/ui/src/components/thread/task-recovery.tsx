@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { messageSkills, type DriverId, type Id, type TimelineItem } from '@baocut/protocol';
+import { messageBrand, messageSkills, type DriverId, type Id, type TimelineItem } from '@baocut/protocol';
 import { ActionButton, Button, Menu, MenuItem, MenuTrigger, Text, ToastQueue } from '@react-spectrum/s2';
 import Refresh from '@react-spectrum/s2/icons/Refresh';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -74,6 +74,8 @@ export function TaskRecovery({ item, conversationId }: { item: Task; conversatio
         message.designSystemAnnotations,
         message.videoAnnotations,
         message.docsAnnotations,
+        // 那一条点掉了 BRAND.md 的，重发时同样不带。
+        messageBrand(message)?.state === 'skipped' ? { skipProjectBrand: true } : {},
       );
     } catch (error) {
       ToastQueue.negative(RECOVERY_COPY.resendFailed((error as Error).message), { timeout: 5000 });

@@ -22,7 +22,6 @@ export const ja: SettingsNavMessages = {
     downloader: '動画のダウンロード',
     semantic: 'セマンティックインデックス',
     agent: 'Agent プロバイダ',
-    skills: 'Skills',
     providers: 'API プロバイダ',
     usage: '使用量',
     glossary: '用語集',

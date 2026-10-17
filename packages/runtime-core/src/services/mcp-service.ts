@@ -5,6 +5,7 @@ import {
   RpcError,
   newId,
   nowIso,
+  type ExternalVideoCreated,
   type Id,
   type McpConnectionInfo,
   type ServiceClient,
@@ -50,6 +51,8 @@ export interface McpServiceDeps {
    * （`serviceToolExposed`），这里不挑。
    */
   toolSets: (scope: ToolScope) => ToolSet[];
+  /** MCP 客户端新建了视频：经 Space 主题通知桌面（产品设计 §3.3）。 */
+  announceVideoCreated?: (video: ExternalVideoCreated) => void;
 }
 
 export class McpService implements ManagedService {
@@ -78,6 +81,7 @@ export class McpService implements ManagedService {
       approvals: deps.approvals,
       policy: () => deps.store.get('mcp').policy,
       allowVideo: (_serviceId, videoId) => this.#allowVideo(videoId),
+      ...(deps.announceVideoCreated ? { announceVideoCreated: deps.announceVideoCreated } : {}),
     });
     const tools = new ToolCatalog(deps.toolSets(scope), deps.log, {
       surface: 'mcp',

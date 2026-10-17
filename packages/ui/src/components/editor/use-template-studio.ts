@@ -7,7 +7,7 @@ import { openStudio, studioDirty, type TemplateStudio } from '../../model/templa
 import { useRuntime } from '../../runtime/context.tsx';
 import { useEditor } from '../../state/editor-store.ts';
 import { useLibrary } from '../../state/library-store.ts';
-import { copyBrandLogos, saveTemplateToBrand, updateBrandTemplate } from './brand-save.ts';
+import { saveTemplateToBrand, updateBrandTemplate } from './brand-save.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { TEMPLATE_COPY as TC } from './template-copy.ts';
 import { undoToast } from './use-template-actions.ts';
@@ -68,7 +68,6 @@ export function useTemplateStudio(): TemplateStudioActions {
             useEditor.getState().focusTemplate(true);
             return true;
           }
-          if (!(await copyBrandLogos(runtime, draft))) return false;
           const operations: EditOperation[] = [{ type: 'setTemplate', sequenceId: sequence.id, template: { ...draft, name } }];
           const receipt = await actions.apply(operations, EditLabel.editTemplateLayout());
           if (!receipt) return false;
@@ -79,7 +78,6 @@ export function useTemplateStudio(): TemplateStudioActions {
         }
         if (studio.source === 'new-video') {
           // 套进视频的是自己的一套：不记来源（编辑中存进过品牌库的记那一条）；声明了套用时画幅就一并改画布，同一笔撤销。
-          if (!(await copyBrandLogos(runtime, draft))) return false;
           const own = definitionOf(draft, name, OWN_ID);
           const plan = applyPlan(sequence, assets, own);
           const operations = plan.operations.map((op) => {

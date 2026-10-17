@@ -10,12 +10,17 @@
  * - `frame`：同一会话串行；seek → 回读校验 → `invalidate()` 等一次 `paint`（最多 500 ms）→ `capturePage()` 截图。
  *   回读容差是采样帧率下的半帧：帧率取请求里的 `fps`（取帧票据的），没有时取 `open` 的 `fps`（包的 intrinsic）。
  *   不直接用 `paint` 事件带来的图像：实测它可能是上一次提交的旧帧，`capturePage()` 才稳定反映 seek 后的画面。
+ * - `open` 带 `record: true` 时，在 `ready()` 之前再注入 `CANVAS_RECORDER_SCRIPT`（要赶在 `initialize` 构造 `FontFace` 与离屏画布之前）。
+ * - `record`：同一会话串行；一批时刻交给 `__baocutRecorder.record`，逐帧做同样的回读校验，再把资源的 `file:` URL 改写成包内相对路径
+ *   （`/` 分隔；落在包外的判为不支持）。
  * - 页面里未捕获的异常（`Uncaught …` 级别为 error 的控制台消息）、渲染进程退出、主框架加载失败都让在途请求以
  *   `COMPOSITION_SCRIPT_ERROR` 失败。
  */
 
 /** 宿主脚本里换成 `JSON.stringify(COMPOSITION_ADAPTER_SCRIPT)` 的占位。 */
 export const ADAPTER_PLACEHOLDER = '/*__BAOCUT_ADAPTER_SOURCE__*/null';
+/** 宿主脚本里换成 `JSON.stringify(CANVAS_RECORDER_SCRIPT)` 的占位。 */
+export const RECORDER_PLACEHOLDER = '/*__BAOCUT_RECORDER_SOURCE__*/null';
 
 // i18n-ignore-start: 子进程脚本源码，不是给人看的文字
 export const COMPOSITION_HOST_SCRIPT = String.raw`'use strict';
@@ -26,9 +31,14 @@ const readline = require('readline');
 const { fileURLToPath } = require('url');
 
 const ADAPTER_SOURCE = /*__BAOCUT_ADAPTER_SOURCE__*/null;
+const RECORDER_SOURCE = /*__BAOCUT_RECORDER_SOURCE__*/null;
 const PAINT_WAIT_MS = 500;
 
-app.disableHardwareAcceleration();
+// GPU 合成留着，WebGL（Three.js、p5 的 WEBGL 模式）才有：关掉硬件加速后 Chromium 在 macOS 上连 SwiftShader 也不给
+// （enable-unsafe-swiftshader、use-angle=swiftshader 实测都拿不到 WebGL）。Canvas 2D 与页面光栅仍留在 CPU，
+// 指令烘焙的对拍样本与之前逐位相同；没有 GPU 的机器由 Chromium 自己回落软件合成。
+app.commandLine.appendSwitch('disable-accelerated-2d-canvas');
+app.commandLine.appendSwitch('disable-gpu-rasterization');
 app.commandLine.appendSwitch('force-device-scale-factor', '1');
 if (app.dock && typeof app.dock.hide === 'function') app.dock.hide();
 // 所有窗口关掉也不退出：会话结束不等于宿主结束。
@@ -117,7 +127,7 @@ async function open(p) {
   const entryPath = path.join(rootReal, ...String(p.entry).split('/'));
   const partition = 'composition-' + id;
   const ses = session.fromPartition(partition, { cache: false });
-  const state = { id, win: null, blocked: [], pendingErrors: [], inflight: null, chain: Promise.resolve(), dead: false, alpha: !!p.alpha, width: p.width, height: p.height, fps: p.fps };
+  const state = { id, win: null, blocked: [], pendingErrors: [], inflight: null, chain: Promise.resolve(), dead: false, alpha: !!p.alpha, width: p.width, height: p.height, fps: p.fps, rootReal, compositionId: p.compositionId, recording: !!p.record };
   ses.webRequest.onBeforeRequest((details, callback) => {
     if (allowedUrl(details.url, rootReal)) return callback({});
     state.blocked.push(details.url);
@@ -172,6 +182,7 @@ async function open(p) {
   try {
     await guarded(state, win.loadFile(entryPath));
     await guarded(state, wc.executeJavaScript(ADAPTER_SOURCE, true));
+    if (state.recording) await guarded(state, wc.executeJavaScript(RECORDER_SOURCE, true));
     const ctx = { width: p.width, height: p.height, fps: p.fps, durationFrames: p.durationFrames };
     const expression =
       'window.__baocutAdapter.ready(' +
@@ -250,6 +261,41 @@ async function renderFrame(state, p) {
   };
 }
 
+function relativeResource(state, url) {
+  let file;
+  try {
+    file = realOrResolved(fileURLToPath(url));
+  } catch {
+    return null;
+  }
+  if (!(file === state.rootReal || file.startsWith(state.rootReal + path.sep))) return null;
+  return path.relative(state.rootReal, file).split(path.sep).join('/');
+}
+
+async function recordFrames(state, p) {
+  if (!state.recording) throw fail('COMPOSITION_SCRIPT_ERROR', 'The session was not opened for recording');
+  const seconds = Array.isArray(p.seconds) ? p.seconds.map(Number) : [];
+  if (!seconds.every(Number.isFinite)) throw fail('COMPOSITION_SEEK_MISMATCH', 'Requested times are not finite numbers');
+  const tolerance = seekTolerance(p.fps || state.fps);
+  const info = { width: state.width, height: state.height, alpha: state.alpha, compositionId: state.compositionId };
+  const expression = 'window.__baocutRecorder.record(' + JSON.stringify(seconds) + ',' + JSON.stringify(info) + ')';
+  const value = await guarded(state, adapterCall(state, expression));
+  for (const frame of value.frames) {
+    if (!(Math.abs(frame.sampled - frame.target) <= tolerance)) {
+      throw fail('COMPOSITION_SEEK_MISMATCH', 'Seek to ' + frame.s + ' s sampled ' + frame.sampled + ' s (target ' + frame.target + ' s)', frame);
+    }
+  }
+  let unsupported = value.unsupported;
+  for (const resource of value.resources) {
+    if (typeof resource.url !== 'string') continue;
+    const rel = relativeResource(state, resource.url);
+    if (rel === null) unsupported = unsupported || 'resource-outside-bundle';
+    resource.path = rel;
+    delete resource.url;
+  }
+  return { frames: value.frames, resources: value.resources, background: value.background, unsupported: unsupported || null, blockedRequests: state.blocked.slice() };
+}
+
 function sessionOf(p) {
   const state = sessions.get(p && p.sessionId);
   if (!state) throw fail('COMPOSITION_SCRIPT_ERROR', 'Unknown composition session ' + (p && p.sessionId));
@@ -263,6 +309,12 @@ async function handle(method, p) {
     case 'frame': {
       const state = sessionOf(p);
       const run = state.chain.then(() => renderFrame(state, p));
+      state.chain = run.catch(() => {});
+      return run;
+    }
+    case 'record': {
+      const state = sessionOf(p);
+      const run = state.chain.then(() => recordFrames(state, p));
       state.chain = run.catch(() => {});
       return run;
     }

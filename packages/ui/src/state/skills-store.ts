@@ -3,7 +3,7 @@ import type { SkillDiagnostic, SkillListResult, SkillSummary } from '@baocut/pro
 import { sortSkills } from '../model/agent-skills.ts';
 
 /**
- * Runtime 的 skill 目录（`skills.list`，产品设计 §6.9）在界面里的一份：设置 › Skills 与输入框「+ › 使用 Skill」共用。
+ * Runtime 的 skill 目录（`skills.list`，产品设计 §6.9）在界面里的一份：Skills 页与输入框「+ › 使用 Skill」共用。
  * Runtime 不推送变化，由界面在设置页与输入框挂上、重新连上时各取一次（runtime/skill-commands.ts）；
  * 开关、添加、导入与移除都返回整份列表，拿到就整份写回。取过一次之后再取时旧的列表照常显示，取失败也不清掉。
  */

@@ -110,7 +110,7 @@ fn a_missing_asset_spectrum_is_reported_until_it_arrives() {
         renderer
             .warnings()
             .iter()
-            .any(|w| w.code == RENDER_NOTE && w.detail.starts_with("g："))
+            .any(|w| w.code == RENDER_NOTE && w.detail.starts_with("g: "))
     );
     // 缓存命中时照样报缺。
     renderer.clear_reports();
@@ -183,10 +183,13 @@ fn a_speaker_visualizer_only_moves_while_that_speaker_talks() {
     // 没有转写、转写里没有这位说话人：整条静音，报提示。
     let (frame, notes) = speaker_shot(&spk_a, 4.1, None);
     assert_eq!(frame, quiet);
-    assert!(notes.iter().any(|n| n.starts_with("g：") && n.contains("没有转写")), "{notes:?}");
+    assert!(
+        notes.iter().any(|n| n.starts_with("g: ") && n.contains("has no transcript")),
+        "{notes:?}"
+    );
     let (frame, notes) = speaker_shot(&speaker_scene(Some("spk_x"), true), 4.1, Some(speakers()));
     assert_eq!(frame, quiet);
-    assert!(notes.iter().any(|n| n.contains("没有说话人 spk_x")), "{notes:?}");
+    assert!(notes.iter().any(|n| n.contains("no speech from speaker spk_x")), "{notes:?}");
 }
 
 #[test]

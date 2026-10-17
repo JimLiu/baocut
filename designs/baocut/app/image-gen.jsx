@@ -332,33 +332,59 @@
   }
 
   /* ---------- 参考图：从素材库挑 ---------- */
-  /* 参考图一行（§2.4 第 5 条）：素材库里选（面板给了 sources 才有）、从文件选（真开文件选择器）、拖图片进来。
+  /* 参考图一行（§2.4 第 5 条）：素材库里选（面板给了 sources 才有）、从文件选（真开文件选择器）、粘贴或拖图片进来（`RefsIntake`）。
      选进来的文件登记在 IM.FILE_REFS（只留名字与预览 url，正式版是拷进素材库再引用）。认不认、上限几张看能力表。 */
   const ACCEPT = 'image/png,image/jpeg,image/webp';
+  /** 把一批文件加成参考图：只收图片，超出上限的不加并提示 */
+  function addImageRefs(app, f, set, cap, files) {
+    const refs = f.refs || [];
+    const room = cap.refs ? Math.max(0, cap.refs - refs.length) : 0;
+    const imgs = Array.from(files || []).filter((x) => !x.type || /^image\//.test(x.type));
+    if (!imgs.length) return;
+    const take = imgs.slice(0, room);
+    if (take.length) set({refs: refs.concat(IM.addFileRefs(take.map((x) => ({name: x.name, size: Math.round(x.size / 1024), url: URL.createObjectURL(x)}))))});
+    if (imgs.length > take.length) app.toast(`最多 ${cap.refs} 张参考图 · 多出的 ${imgs.length - take.length} 张没加`, 'notice');
+  }
+  /* ---------- 收参考图的区域（2026-10-17）----------
+     包住提示词框与参考图一行：粘贴截图、拖进图片都收成参考图。只拦带文件的粘贴，文字照常进提示词框；满了不接拖放。
+     正式版里截图、从浏览器拖来的图没有本机路径，由桌面端写成临时文件再引用；Web 拿不到本机路径，带图的粘贴只提示一句。 */
+  function RefsIntake({f, set, cap, children}) {
+    const app = useApp();
+    const [over, setOver] = useState(false);
+    const depth = React.useRef(0);
+    const on = !!(f.model && cap.refs);
+    const room = on ? Math.max(0, cap.refs - (f.refs || []).length) : 0;
+    const files = (ev) => Array.from(ev.dataTransfer.types || []).indexOf('Files') >= 0;
+    const drag = (ev) => room > 0 && files(ev);
+    return (
+      <div className={cx('imgen__intake', over && 'is-over')}
+        onDragEnterCapture={(ev) => { if (!drag(ev)) return; ev.preventDefault(); depth.current++; setOver(true); }}
+        onDragOverCapture={(ev) => { if (drag(ev)) ev.preventDefault(); }}
+        onDragLeaveCapture={(ev) => { if (!drag(ev)) return; depth.current = Math.max(0, depth.current - 1); if (!depth.current) setOver(false); }}
+        onDropCapture={(ev) => { if (!drag(ev)) return; ev.preventDefault(); ev.stopPropagation(); depth.current = 0; setOver(false); addImageRefs(app, f, set, cap, ev.dataTransfer.files); }}
+        onPasteCapture={(ev) => {
+          const list = ev.clipboardData && ev.clipboardData.files;
+          if (!on || !list || !list.length) return;
+          ev.preventDefault(); ev.stopPropagation();
+          addImageRefs(app, f, set, cap, list);
+        }}>
+        {children}
+      </div>
+    );
+  }
   function RefsRow({f, set, cap, sources, engineName}) {
     const app = useApp();
     const [open, setOpen] = useState(false);
-    const [over, setOver] = useState(false);
     const fileRef = React.useRef(null);
     const lib = sources || [];
     const refs = f.refs || [];
     const pool = lib.filter((s) => refs.indexOf(s.id) < 0);
     const chosen = refs.map((id) => IM.refInfo(id, lib));
     const room = cap.refs ? Math.max(0, cap.refs - refs.length) : 0;
-    const addFiles = (files) => {
-      const imgs = Array.from(files || []).filter((x) => !x.type || /^image\//.test(x.type));
-      if (!imgs.length) return;
-      const take = imgs.slice(0, room);
-      const ids = IM.addFileRefs(take.map((x) => ({name: x.name, size: Math.round(x.size / 1024), url: URL.createObjectURL(x)})));
-      set({refs: refs.concat(ids)});
-      if (imgs.length > take.length) app.toast(`最多 ${cap.refs} 张参考图 · 多出的 ${imgs.length - take.length} 张没加`, 'notice');
-    };
+    const addFiles = (files) => addImageRefs(app, f, set, cap, files);
     const pickFile = () => { if (fileRef.current) { fileRef.current.value = ''; fileRef.current.click(); } };
     return (
-      <div className={cx('imgen__refs', over && 'is-over')}
-        onDragOver={(ev) => { if (room) { ev.preventDefault(); setOver(true); } }}
-        onDragLeave={() => setOver(false)}
-        onDrop={(ev) => { ev.preventDefault(); setOver(false); if (room) addFiles(ev.dataTransfer.files); }}>
+      <div className="imgen__refs">
         <input ref={fileRef} type="file" accept={ACCEPT} multiple hidden aria-hidden="true" tabIndex={-1} onChange={(ev) => addFiles(ev.target.files)} />
         <ComposerAttachments items={chosen.map((s, i) => ({...s, kind: 'image',
           isInvalid: !!s.missing || !!(cap.refs && i >= cap.refs),
@@ -375,7 +401,7 @@
               </Menu>
             </Picker>
           ) : <Btn size="s" icon="plus" disabled={!room} onClick={pickFile}>选参考图</Btn>}
-        <span className="t-detail-xs">{IM.refsNote(f, cap, engineName)}{room ? ' · 也可以把图片拖进来' : ''}</span>
+        <span className="t-detail-xs">{IM.refsNote(f, cap, engineName)}{room ? ' · 也可以把图片粘贴或拖进来' : ''}</span>
       </div>
     );
   }
@@ -398,8 +424,9 @@
     return (
       <>
         <ImageGenSection compact={compact}>
+          <RefsIntake f={f} set={set} cap={cap}>
           <PromptField inputProps={{rows: compact ? 4 : 5, value: f.prompt, 'aria-label': '要画的画面',
-            placeholder: '描述你要的画面：主体、场景、风格、光线、构图。写得越具体越像。',
+            placeholder: IM.promptPlaceholder(f, cap),
             onChange: (ev) => set({prompt: ev.target.value}),
           }} toolbar={<div className="imgen__promptrefs">
             <div className="row gap6">
@@ -418,6 +445,7 @@
             {p ? <BCAction className="viewall" onClick={() => set({prompt: ''})}>清空</BCAction>
               : <BCAction className="viewall" onClick={() => set({prompt: SAMPLES[jobs.seq % SAMPLES.length]})}>填一句示例</BCAction>}
           </div>
+          </RefsIntake>
         </ImageGenSection>
 
         <ImageGenSection compact={compact} title="模型" aside={<BCAction className="viewall" onClick={() => app.go({r: 'settings', sec: 'cloud', tab: 'image'})}>管理生图模型…</BCAction>}>
@@ -685,13 +713,15 @@
           <div className="t-mono t-detail">{engine.modelId}</div>
           <Card layer className="cloud-sample">
             <b className="t-title-sm">测试提示词 · 一张 512 × 512</b>
-            <Field area className="imgen__text--compact" value={f.prompt} aria-label="测试提示词" placeholder="写要画的画面" onChange={(ev) => set({prompt: ev.target.value})} />
-            <div className="ttsw__textft">
-              <span className="t-detail-xs grow">{prompt.length} / {cap.promptMax} 字</span>
-              <BCAction className="viewall" onClick={() => set({prompt: f.prompt === PROBE_SAMPLE ? SAMPLES[1] : PROBE_SAMPLE})}>换一句示例</BCAction>
-            </div>
-            {cap.refs ? <RefsRow f={f} set={set} cap={cap} engineName={engine.title} />
-              : <span className="t-detail-xs">{IM.refsNote(f, cap, engine.title)}</span>}
+            <RefsIntake f={f} set={set} cap={cap}>
+              <Field area className="imgen__text--compact" value={f.prompt} aria-label="测试提示词" placeholder="写要画的画面" onChange={(ev) => set({prompt: ev.target.value})} />
+              <div className="ttsw__textft">
+                <span className="t-detail-xs grow">{prompt.length} / {cap.promptMax} 字</span>
+                <BCAction className="viewall" onClick={() => set({prompt: f.prompt === PROBE_SAMPLE ? SAMPLES[1] : PROBE_SAMPLE})}>换一句示例</BCAction>
+              </div>
+              {cap.refs ? <RefsRow f={f} set={set} cap={cap} engineName={engine.title} />
+                : <span className="t-detail-xs">{IM.refsNote(f, cap, engine.title)}</span>}
+            </RefsIntake>
             <p className="t-detail">画幅 1:1 · 尺寸 512 × 512{cloud ? '（不认的取这家最小一档）' : ` · ${engine.steps || 8} 步`} · 1 张{used.length ? ` · 带 ${used.length} 张参考图` : ''} · {priceLine}</p>
           </Card>
           <p className="t-detail">{cloud ? `把这句提示词${used.length ? '和参考图' : ''}发给所选模型生图，检查能否返回一张 PNG。按张计费，这次 ${priceLine}。提供方可能按用量计费。停止等待不会撤回已经发送的请求。`

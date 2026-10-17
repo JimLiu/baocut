@@ -202,23 +202,26 @@ export function placePending(
 
 // ---- 只读的文稿行 ----
 
-/** 只读文稿行的一行：素材与它最新的那份转写。 */
+/** 文稿行里的一个素材：素材与它最新的那份转写。 */
 export interface TranscriptRowSource {
   assetId: Id;
   speech: DocumentRecord;
 }
 
+/** 只读文稿行的一行：一条轨上转录过的素材，按在这条轨上第一次出现的先后排。 */
+export interface TranscriptLane {
+  trackId: Id;
+  sources: TranscriptRowSource[];
+}
+
 /**
  * 时间线上只读的「文稿」行（原型 model-timeline.js `rows` 的 `transcript`；产品设计 §5.7）：视频转录过、却一条字幕轨都没有
  * （转录时没建字幕层，例如从链接导入默认不建；或字幕轨都删了）——文稿照样落在字幕行的位置上，看得见哪里在说话。
- * 每个转录过、时间线上取用了的素材一行（最新那份转写），按在时间线上第一次出现的先后排；正画着临时转录行的素材不重复画。
+ * 按轨合行：一条轨上转录过、取用了的素材共用一行（分段配音的旁白是十来个素材，不占十来行），几条轨就几行，按轨的次序排；
+ * 同一素材放在几条轨上时每条轨各画它一次。每个素材取最新那份转写；正画着临时转录行的素材不重复画。
  * 它不是轨：没有开关、不进导出、不可选中。
  */
-export function transcriptRows(
-  sequence: Sequence,
-  documents: Record<Id, DocumentRecord>,
-  liveAssets: ReadonlySet<Id>,
-): TranscriptRowSource[] {
+export function transcriptRows(sequence: Sequence, documents: Record<Id, DocumentRecord>, liveAssets: ReadonlySet<Id>): TranscriptLane[] {
   if (sequence.tracks.some((track) => track.kind === 'subtitle')) return [];
   const created = (record: DocumentRecord) => record.revisions[record.currentRevision]?.createdAt ?? '';
   const latest = new Map<Id, DocumentRecord>();
@@ -227,11 +230,26 @@ export function transcriptRows(
     const seen = latest.get(record.sourceAssetId);
     if (!seen || created(record) >= created(seen)) latest.set(record.sourceAssetId, record);
   }
-  return [...latest]
-    .map(([assetId, speech]) => ({ assetId, speech, first: Math.min(...projectableItems(sequence, assetId).map(startFrame)) }))
-    .filter(({ first }) => Number.isFinite(first))
-    .sort((a, b) => a.first - b.first || (a.assetId < b.assetId ? -1 : a.assetId > b.assetId ? 1 : 0))
-    .map(({ assetId, speech }) => ({ assetId, speech }));
+  const lanes = new Map<Id, { assetId: Id; speech: DocumentRecord; first: number }[]>();
+  for (const [assetId, speech] of latest) {
+    const firstOnTrack = new Map<Id, number>();
+    for (const item of projectableItems(sequence, assetId)) {
+      firstOnTrack.set(item.trackId, Math.min(firstOnTrack.get(item.trackId) ?? Infinity, startFrame(item)));
+    }
+    for (const [trackId, first] of firstOnTrack) {
+      const lane = lanes.get(trackId) ?? [];
+      lane.push({ assetId, speech, first });
+      lanes.set(trackId, lane);
+    }
+  }
+  const order = new Map(sequence.tracks.map((track) => [track.id, track.order]));
+  const byId = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+  return [...lanes]
+    .sort(([a], [b]) => (order.get(a) ?? 0) - (order.get(b) ?? 0) || byId(a, b))
+    .map(([trackId, sources]) => ({
+      trackId,
+      sources: sources.sort((a, b) => a.first - b.first || byId(a.assetId, b.assetId)).map(({ assetId, speech }) => ({ assetId, speech })),
+    }));
 }
 
 const startFrame = (item: Sequence['items'][number]) => ('span' in item ? item.span.fromFrame : item.fromFrame);

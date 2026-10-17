@@ -129,6 +129,12 @@ const schemas = {
       .describe(
         '可选。成片里有画不出来的内容时：fail（默认）拒绝并在 items 里逐项列出；skip 跳过它们（整层不画、效果不施加、转场按硬切），每项一条任务警告。只在用户同意后用 skip',
       ),
+    allowStalePrerender: z
+      .boolean()
+      .optional()
+      .describe(
+        '可选。代码画面的预渲染过期（烘焙自别的代码包版本，或帧率与序列不同）时：默认以 EXPORT_PRERENDER_STALE 拒绝并在 items 里列出；true 时照旧预渲染导出，每项一条任务警告。只在用户同意后用',
+      ),
     missingAssets: z
       .enum(['fail', 'skip'])
       .optional()
@@ -303,6 +309,7 @@ function settingsOf(args: Args): ExportSettings {
       ...(args.videoBitrateKbps !== undefined ? { bitrateKbps: args.videoBitrateKbps } : {}),
       ...(args.burnCaptions !== undefined ? { burnCaptions: args.burnCaptions } : {}),
       ...(args.onUnsupported ? { onUnsupported: args.onUnsupported } : {}),
+      ...(args.allowStalePrerender !== undefined ? { allowStalePrerender: args.allowStalePrerender } : {}),
       ...(Object.keys(audio).length > 0 ? { audio } : {}),
       ...source,
     };
@@ -446,6 +453,8 @@ const EXPORT_NEXT: Record<string, string> = {
   EXPORT_TOOL_MISSING: '缺 ffmpeg / ffprobe、编码器或 Render Worker：把 remedy 转告用户，由用户安装；不要自己安装或绕过。',
   EXPORT_UNSUPPORTED_CONTENT:
     "items 列出了成片画不出来的内容：告诉用户是哪些；用户同意跳过时带 onUnsupported: 'skip' 重新提交，或先改掉这些内容。",
+  EXPORT_PRERENDER_STALE:
+    'items 列出了预渲染过期的代码画面（烘焙自别的代码包版本，或帧率与序列不同；后台烘焙还没完成时也是它）：带 replace: { itemId } 重新 compositions_import 烘焙，或等 bakeJobId 的任务结束；用户同意按旧预渲染导出时带 allowStalePrerender: true 重新提交。',
   EXPORT_DESTINATION_EXISTS: '目标文件已经存在：换一个 fileName；确实要替换时先问用户，再带 overwrite: true。',
   EXPORT_DESTINATION_UNWRITABLE: '目标目录不可写：换一个工作目录里已有的目录，或告诉用户。',
   ASSET_MISSING:

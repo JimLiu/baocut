@@ -6,6 +6,7 @@
 
 use std::sync::Arc;
 
+use message_ref::msg;
 use timeline::effects::{REFERENCE_SHORT_EDGE, lower_element_effects};
 use timeline::schema::{
     Background, Element, ElementKind, Fit, Fx, Mask, Place, StickerProps, Tile, VisualMode,
@@ -148,13 +149,20 @@ pub fn external_media_scene_nodes_at(
         return None;
     }
     let Some(texture) = element.texture else {
-        warn(format!("元素 {} 的外部纹理缺少 srcId", element.id));
+        warn(msg!(
+            "timelineRender.textureNoSource",
+            "The external texture of element {element} has no srcId",
+            element = element.id
+        ));
         return None;
     };
     if metadata.width == 0 || metadata.height == 0 {
-        warn(format!(
-            "元素 {} 的外部纹理尺寸非法（{}×{}）",
-            element.id, metadata.width, metadata.height
+        warn(msg!(
+            "timelineRender.textureSizeInvalid",
+            "The external texture of element {element} has an invalid size ({width}×{height})",
+            element = element.id,
+            width = metadata.width,
+            height = metadata.height
         ));
         return None;
     }
@@ -194,7 +202,11 @@ pub fn external_media_scene_nodes_at(
         }
     };
     if !(box_width.is_finite() && box_width > 0.0 && box_height.is_finite() && box_height > 0.0) {
-        warn(format!("元素 {} 的媒体盒尺寸非法", element.id));
+        warn(msg!(
+            "timelineRender.mediaBoxInvalid",
+            "The media box of element {element} has an invalid size",
+            element = element.id
+        ));
         return None;
     }
     // CPU reference 与 Konva 都先建立整数像素局部画布，再绕这个盒中心做仿射。
@@ -209,9 +221,11 @@ pub fn external_media_scene_nodes_at(
     let source_effects = match lower_texture_effects(element.fx, short) {
         Ok(effects) => effects,
         Err(error) => {
-            warn(format!(
-                "元素 {} 的媒体效果链无法进入 GPU texture scene（{error}），继续由共享 CPU 效果栈渲染",
-                element.id
+            warn(msg!(
+                "timelineRender.effectsOffGpu",
+                "The media effects of element {element} can’t run in the GPU texture scene ({detail}); rendering them with the shared CPU effect stack",
+                element = element.id,
+                detail = error.to_string()
             ));
             return None;
         }
@@ -247,9 +261,10 @@ pub fn external_media_scene_nodes_at(
             .windows(2)
             .any(|pair| (pair[0] - pair[1]).abs() > f64::EPSILON)
     {
-        warn(format!(
-            "元素 {} 的四角独立圆角尚未进入 GPU texture scene，继续由共享 CPU 效果栈渲染",
-            element.id
+        warn(msg!(
+            "timelineRender.cornerRadiiOffGpu",
+            "Per-corner radii of element {element} aren’t supported in the GPU texture scene yet; rendering with the shared CPU effect stack",
+            element = element.id
         ));
         return None;
     }
@@ -343,11 +358,12 @@ pub fn external_media_scene_nodes_at(
         tile,
     );
     if points.len() > EXTERNAL_MEDIA_TILE_NODE_LIMIT {
-        warn(format!(
-            "元素 {} 的平铺媒体需要 {} 个纹理节点，超过实时上限 {}，继续由 host 渲染",
-            element.id,
-            points.len(),
-            EXTERNAL_MEDIA_TILE_NODE_LIMIT
+        warn(msg!(
+            "timelineRender.tileNodesOverLimit",
+            "Tiled media of element {element} needs {count} texture nodes, over the real-time limit of {limit}; rendering on the host",
+            element = element.id,
+            count = points.len(),
+            limit = EXTERNAL_MEDIA_TILE_NODE_LIMIT
         ));
         return None;
     }
@@ -918,6 +934,10 @@ mod tests {
         );
         assert!(nodes.is_none());
         assert_eq!(warnings.len(), 1);
-        assert!(warnings[0].contains("超过实时上限 256"), "{:?}", warnings);
+        assert!(
+            warnings[0].text.contains("over the real-time limit of 256"),
+            "{:?}",
+            warnings
+        );
     }
 }

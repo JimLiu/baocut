@@ -43,6 +43,9 @@ export const ja: EditorMessages = {
   emptyOr: 'または右側の素材パネルから追加',
   problemsCount: (n: number) => `${n} 件を描画できません`,
   problemsTitle: 'このフレームには描画できない内容があります',
+  livePreview: 'ライブプレビュー',
+  livePreviewTitle: 'ライブプレビュー：書き出す前にベイクしてください',
+  livePreviewDetail: 'このフレームの下にあるコードコンポジションはエディターでリアルタイムに描画されているため、書き出し結果と異なる場合があります。書き出しはベイク済みのスタンドインだけを使います。書き出す前にベイクしてください。',
   rendererFailed: (message: string) => `プレビューのレンダラを読み込めませんでした：${message}`,
   spectrumTooLarge: (itemId: string, assetId: string, mb: number) =>
     `波形 ${itemId}：素材 ${assetId} が ${mb} MB を超えているため、プレビューでは音声を解析しません。書き出しには影響しません`,

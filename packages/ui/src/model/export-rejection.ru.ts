@@ -14,7 +14,7 @@ export const ru: ExportRejectionMessages = {
     EXPORT_SOURCE_NOT_FOUND: "Нет документа для экспорта",
     EXPORT_SOURCE_AMBIGUOUS: "Несколько документов доступны для экспорта",
     EXPORT_TOOL_MISSING: "На компьютере нет инструмента для экспорта",
-    EXPORT_UNSUPPORTED_CONTENT: "Часть содержимого нельзя отрендерить для экспорта",
+    EXPORT_UNSUPPORTED_CONTENT: "Часть содержимого нельзя отрендерить для экспорта", EXPORT_PRERENDER_STALE: 'Часть анимированной графики нужно отрендерить заново',
     ASSET_MISSING: "Часть материалов не читается",
     ASSET_CHANGED: "Часть материалов изменилась",
     ENTITY_NOT_FOUND: "Последовательность не существует",

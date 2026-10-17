@@ -32,7 +32,7 @@ const en = {
     EXPORT_SOURCE_NOT_FOUND: 'No document can be exported',
     EXPORT_SOURCE_AMBIGUOUS: 'Several documents can be exported',
     EXPORT_TOOL_MISSING: 'This computer is missing a tool needed for export',
-    EXPORT_UNSUPPORTED_CONTENT: 'Some content can’t be rendered for export',
+    EXPORT_UNSUPPORTED_CONTENT: 'Some content can’t be rendered for export', EXPORT_PRERENDER_STALE: 'Some motion graphics need to be baked again',
     ASSET_MISSING: 'Some assets can’t be read',
     ASSET_CHANGED: 'Some assets have changed',
     ENTITY_NOT_FOUND: 'The sequence doesn’t exist',
@@ -160,6 +160,9 @@ export function explainExportError(error: ErrorLike | unknown, ctx: ExplainConte
         items: list(details.items).map((i) => localizeText(text(i.message), refIn(i.messageRef)) ?? String(i.itemId ?? '')),
         remedy: ctx.kind === 'video' ? { kind: 'skip-unsupported' } : null,
       };
+    case 'EXPORT_PRERENDER_STALE':
+      // 过期的替身（代码包规范 §7.4）：列实例的名字（没有名字时是 ID）；补救是重新导入烘焙，没有一键按钮
+      return { ...base, items: list(details.items).map((i) => text(i.name) ?? String(i.itemId ?? '')) };
     case 'EXPORT_TOOL_MISSING':
       return { ...base, items: text(details.missing) ? [M.missingTool(details.missing as string)] : [] };
     case 'ASSET_MISSING': {

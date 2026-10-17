@@ -44,6 +44,9 @@ export const fr: EditorMessages = {
   emptyOr: "ou ajoutez-les depuis le panneau Médias à droite",
   problemsCount: (n: number) => `${n} ${pluralForm('fr', n, { one: "élément ne peut pas être dessiné", other: "éléments ne peuvent pas être dessinés" })}`,
   problemsTitle: "Certains contenus de cette image ne peuvent pas être dessinés",
+  livePreview: 'Aperçu en direct',
+  livePreviewTitle: 'Aperçu en direct ; générez le substitut avant d’exporter',
+  livePreviewDetail: 'La composition de code au bas de cette image est dessinée en direct dans l’éditeur et peut différer de l’export. L’export n’utilise que le substitut généré : générez-le avant d’exporter.',
   rendererFailed: (message: string) => `Le moteur d’aperçu n’a pas été chargé : ${message}`,
   spectrumTooLarge: (itemId: string, assetId: string, mb: number) =>
     `Forme d’onde ${itemId} : le média ${assetId} dépasse ${mb} Mo ; l’aperçu n’analyse pas son audio, sans effet sur l’export`,

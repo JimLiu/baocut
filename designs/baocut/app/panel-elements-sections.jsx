@@ -196,7 +196,7 @@
   /** 动态贴纸子页：12 个动图分类 ＋ 彩纸（第 231 轮，算法元素，
       插在 collage 与 emoji 之间），动图磁贴就是那张动图本身（带透明通道，
       落画布也是它）。第 242 轮加 Codex Pet：chip 紧跟「我的贴纸」，子页在
-      [pet-sticker.jsx](pet-sticker.jsx)；「全部」里只露官方前六只。`onMore` 切 chip。 */
+      [pet-sticker.jsx](pet-sticker.jsx)；「全部」里只露社区前六只。`onMore` 切 chip。 */
   function AnimPackSection({ctx, cat, q, onAdd, onMore}) {
     const list = useMemo(() => P.animOrder(SK.searchAnim(q)), [q]);
     if (cat === 'brand') return <BrandStickerGrid ctx={ctx} anim onAdd={onAdd} />;
@@ -239,7 +239,7 @@
           五个内置分类是 Google Noto Animated Emoji 的 Lottie（CC BY 4.0），矢量循环、
           带透明通道，落到画布上跟着播放头走，也能像静态贴纸一样分色改。磁贴停在静止帧，
           鼠标移上去才播。彩纸不是动图：十款配方逐帧算出来，时长随时间轴那条走。
-          Codex Pet 是 8 列雪碧图（官方 9 只随包，社区 239 只按类浏览），逐格步进也跟播放头。
+          Codex Pet 是 8 列雪碧图（社区 239 只按类浏览），逐格步进也跟播放头。
         </div>
       </>
     );

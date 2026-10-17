@@ -172,6 +172,9 @@ export function applySpaceEvent(state: SpaceSnapshot, event: SpaceEvent): SpaceS
       return { ...state, entries: state.entries.filter((e) => e.id !== event.entryId) };
     case 'catalog.replaced':
       return event.snapshot;
+    // 只是通知（外部 Agent 新建了视频），目录不变；条目随后的 `entry.upsert` 到。
+    case 'video.created':
+      return state;
   }
 }
 

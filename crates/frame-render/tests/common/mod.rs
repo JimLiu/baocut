@@ -42,6 +42,15 @@ pub fn gif_asset(id: &str, width: u32, height: u32) -> (String, Value) {
     asset(id, "image", "image/gif", width, height)
 }
 
+/// 一个 APNG 图片素材（`image/apng`，与 GIF 同样由内核从素材字节解，按时刻取帧）。
+pub fn apng_asset(id: &str, width: u32, height: u32) -> (String, Value) {
+    asset(id, "image", "image/apng", width, height)
+}
+
+/// 8×8 的三帧 APNG：依次是 [`PULSE`] 的三色，各停 40、100、60 ms（总长 200 ms）。
+pub const PULSE_APNG: &[u8] = include_bytes!("../../../render-raster/tests/fixtures/animated/pulse.png");
+pub const PULSE: [[u8; 4]; 3] = [[0, 200, 208, 255], [208, 0, 160, 255], [244, 244, 240, 255]];
+
 /// 8×8 的四帧 GIF：整幅纯色，依次是 [`STRIPES`] 的四色，各停 100、200、300、400 ms（总长 1 秒，无限循环）。
 pub const STRIPES_GIF: &[u8] = include_bytes!("../../../render-raster/tests/fixtures/animated/stripes.gif");
 pub const STRIPES: [[u8; 4]; 4] = [

@@ -1,5 +1,5 @@
 import type { SkillOrigin } from "@baocut/protocol";
-type SkillAction = 'load' | 'toggle' | 'add' | 'import' | 'remove' | 'read' | 'send';
+import type { SkillAction } from './agent-skills.ts';
 import { pluralForm } from '@baocut/protocol';
 import type { AgentSkillsMessages } from './agent-skills.ts';
 
@@ -17,6 +17,13 @@ export const de: AgentSkillsMessages = {
     remove: "entfernen",
     read: "Datei öffnen",
     send: "senden",
+    upload: 'hochladen',
+    create: 'erstellen',
+    duplicate: 'duplizieren',
+    save: 'speichern',
+    restore: 'diese Version wiederherstellen',
+    export: 'herunterladen',
+    brand: 'BRAND.md speichern',
   } as Record<SkillAction, string>,
   exists: (id: string | null) =>
     `Ein Skill namens „${id ?? "dies"}“ ist bereits vorhanden und wird nicht überschrieben. Alten entfernen oder Ordner umbenennen und erneut hinzufügen.`,
@@ -36,6 +43,8 @@ export const de: AgentSkillsMessages = {
   fileNotText: "Keine Textdatei; hier nicht angezeigt.",
   webNotAllowed: "Im Browser nicht möglich; BaoCut-Desktop-App verwenden.",
   webReadOnly: "Diese Browsersitzung ist schreibgeschützt; keine Änderungen möglich.",
+  revisionConflict: 'Dieser Skill wurde an anderer Stelle geändert, nachdem Sie mit dem Bearbeiten begonnen haben. Änderungen kopieren, neu laden und erneut bearbeiten.',
+  notEditable: 'Hier sind nur eigene Skills bearbeitbar. Duplizieren Sie ihn, um eine Kopie zu erhalten, die Sie ändern können.',
   failed: (action: string, raw: string) => `Fehlgeschlagen: ${action}: ${raw}`,
   sendFailed: (raw: string) => `Senden fehlgeschlagen: ${raw}`,
 };

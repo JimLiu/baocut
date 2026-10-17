@@ -22,9 +22,11 @@ import { ProvidersHttp as PH } from '@baocut/protocol/messages/providers';
  * - 有段：词按中点归到所在的段（落在段外的归到最近的段）；
  * - 只有词：按停顿（> 0.8 秒）、句末标点、段长（> 30 秒）分段；
  * - 只有文本：整块一段；
+ * - 词时间先按供应商给的顺序查一遍：个别离群的时间（在线模型偶尔丢或多一位数字，例如 13.4 秒写成 `3.400s`）
+ *   按前后可信的时间插值修好、标 `estimated`（见 {@link repairWordTimes}），免得一个坏点经排序与单调修正把整块拖塌；
  * - 段按起点排好后去掉重叠（与 Model Worker 相同，见 {@link resolveOverlaps}）：整个落在前一段里的插话挪到那段的尾巴上；
  *   换算之后没有长度的段丢弃，记 `segment-degenerate`；
- * - 挪过或词时间修正过的段记 `timing-adjusted`。
+ * - 挪过、词时间修正或修补过的段记 `timing-adjusted`。
  */
 
 export interface ChunkResult {
@@ -51,6 +53,8 @@ interface RawWord {
   end: number;
   text: string;
   confidence: number | null;
+  /** 时间是离群值、按前后插值修补过的。 */
+  repaired?: boolean;
 }
 
 interface RawSegment {
@@ -63,6 +67,8 @@ interface RawSegment {
 const SEGMENT_GAP_SEC = 0.8;
 const SEGMENT_MAX_SEC = 30;
 const SENTENCE_END = /[。！？!?…]$|[^.]\.$/u;
+/** 词时间的回退在这个范围内算正常的重叠（交给单调修正），超出才算离群。 */
+const OUTLIER_TOLERANCE_SEC = 1;
 
 export function buildAsrResult(input: {
   chunks: readonly ChunkResult[];
@@ -96,7 +102,7 @@ export function buildAsrResult(input: {
             end: ticks(w.end),
             text: w.text,
             confidence: w.confidence,
-            timingQuality: 'provider' as const,
+            timingQuality: w.repaired ? ('estimated' as const) : ('provider' as const),
           }))
         : estimateWords(s.text, languageHint, start, end).map((w) => ({
             start: Math.round(w.start),
@@ -106,7 +112,7 @@ export function buildAsrResult(input: {
             timingQuality: 'estimated' as const,
           }));
     const segment: Segment = { id, start, end, text: s.text, speakerId: null, words };
-    if (fixWordTimes(segment) || moved.has(s)) warnings.push({ code: 'timing-adjusted', segmentId: id });
+    if (fixWordTimes(segment) || moved.has(s) || s.words.some((w) => w.repaired)) warnings.push({ code: 'timing-adjusted', segmentId: id });
     segments.push(segment);
     previousEnd = end;
   }
@@ -201,13 +207,16 @@ export function chunkSegments(chunk: ChunkResult): RawSegment[] {
   const t = chunk.transcript;
   const length = Math.max(0, chunk.endSec - chunk.startSec);
   const at = (seconds: number) => chunk.startSec + Math.min(Math.max(seconds, 0), length);
-  const words: RawWord[] = (t.words ?? [])
-    .filter((w) => Number.isFinite(w.start) && Number.isFinite(w.end) && typeof w.text === 'string' && w.text.trim() !== '')
+  const valid = (t.words ?? []).filter(
+    (w) => Number.isFinite(w.start) && Number.isFinite(w.end) && typeof w.text === 'string' && w.text.trim() !== '',
+  );
+  const words: RawWord[] = repairWordTimes(valid, length)
     .map((w) => ({
       start: at(Math.min(w.start, w.end)),
       end: at(Math.max(w.start, w.end)),
       text: w.text.trim(),
       confidence: typeof w.confidence === 'number' && w.confidence >= 0 && w.confidence <= 1 ? w.confidence : null,
+      ...(w.repaired ? { repaired: true } : {}),
     }))
     .sort((a, b) => a.start - b.start);
 
@@ -222,6 +231,80 @@ export function chunkSegments(chunk: ChunkResult): RawSegment[] {
   if (words.length > 0) return groupWords(words);
   const text = t.text.trim();
   return text ? [{ start: chunk.startSec, end: chunk.startSec + length, text, words: [] }] : [];
+}
+
+/**
+ * 修补供应商给的词时间里的离群值（秒，相对这一块；`words` 按供应商给的顺序，即说话的顺序）。
+ *
+ * 把起止依次排成一列时间点，取最长的不减子序列作为可信的骨架（越出 `[0, length]` 一秒以上的点先排除）；
+ * 不在骨架上、但离前后骨架点不超过一秒的点（相邻词的正常重叠）照样可信；其余的点按前后可信的点线性插值
+ * （没有可信的点时以块的起止为界），所在的词记 `repaired`。只有零星的坏点会被修掉：正常的时间整体是不减的。
+ */
+export function repairWordTimes<W extends { start: number; end: number }>(
+  words: readonly W[],
+  length: number,
+): Array<W & { repaired?: boolean }> {
+  const points = words.flatMap((w) => [w.start, w.end]);
+  const inRange = points.map((p) => p >= -OUTLIER_TOLERANCE_SEC && p <= length + OUTLIER_TOLERANCE_SEC);
+  const backbone = longestNonDecreasing(points, inRange);
+  const trusted = [...backbone];
+  let previous = -1;
+  for (let i = 0; i < points.length; i++) {
+    if (backbone[i]) {
+      previous = i;
+      continue;
+    }
+    if (!inRange[i]) continue;
+    let next = i + 1;
+    while (next < points.length && !backbone[next]) next++;
+    const low = previous >= 0 ? points[previous]! : 0;
+    const high = next < points.length ? points[next]! : length;
+    trusted[i] = points[i]! >= low - OUTLIER_TOLERANCE_SEC && points[i]! <= high + OUTLIER_TOLERANCE_SEC;
+  }
+  if (trusted.every(Boolean)) return [...words];
+
+  const fixed = [...points];
+  for (let i = 0; i < points.length; ) {
+    if (trusted[i]) {
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j < points.length && !trusted[j]) j++;
+    const lowIndex = i - 1;
+    const low = lowIndex >= 0 ? points[lowIndex]! : 0;
+    const high = j < points.length ? points[j]! : length;
+    const span = j - lowIndex;
+    for (let k = i; k < j; k++) fixed[k] = Math.min(Math.max(low + ((high - low) * (k - lowIndex)) / span, 0), length);
+    i = j;
+  }
+  return words.map((w, index) => {
+    const start = fixed[index * 2]!;
+    const end = fixed[index * 2 + 1]!;
+    return trusted[index * 2] && trusted[index * 2 + 1] ? w : { ...w, start, end, repaired: true };
+  });
+}
+
+/** 最长不减子序列（只在 `eligible` 的点里取），返回每个点是否在其中。O(n log n)。 */
+function longestNonDecreasing(values: readonly number[], eligible: readonly boolean[]): boolean[] {
+  const tails: number[] = [];
+  const parent = new Array<number>(values.length).fill(-1);
+  for (let i = 0; i < values.length; i++) {
+    if (!eligible[i]) continue;
+    const value = values[i]!;
+    let lo = 0;
+    let hi = tails.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (values[tails[mid]!]! <= value) lo = mid + 1;
+      else hi = mid;
+    }
+    parent[i] = lo > 0 ? tails[lo - 1]! : -1;
+    tails[lo] = i;
+  }
+  const member = new Array<boolean>(values.length).fill(false);
+  for (let i = tails.length > 0 ? tails.at(-1)! : -1; i >= 0; i = parent[i]!) member[i] = true;
+  return member;
 }
 
 function nearestSegment(segments: RawSegment[], point: number): RawSegment {

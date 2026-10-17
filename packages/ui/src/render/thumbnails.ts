@@ -167,7 +167,7 @@ export function renderThumb(
   planner.clearPictures();
   const rendered = planner.render(scene.seconds, w, h, { transparent: true });
   const image = new ImageData(new Uint8ClampedArray(planner.frame()), w, h);
-  const problems = [...rendered.skipped.map((item) => localizeText(item.message, item.messageRef)), ...rendered.warnings.map((warning) => warning.detail)];
+  const problems = [...rendered.skipped.map((item) => localizeText(item.message, item.messageRef)), ...rendered.warnings.map((warning) => localizeText(warning.detail, warning.detailRef))];
   return { image, problems };
 }
 

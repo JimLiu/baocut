@@ -48,6 +48,7 @@ import { deriveVideo, prepareDerive, type DeriveDeps } from '../videos/video-der
 import { clockLabel } from './derive-plan.ts';
 import { EDIT_OPERATIONS, OPERATION_FAMILIES, OPERATION_TYPES, describeOperation } from './edit-ops.ts';
 import { ToolError, type ToolInfo, type ToolSet } from './tool-catalog.ts';
+import { captionStylePatch, expandCaptionStyles, freshCaptionStyle, patchStudioStyle, unsupportedStyleMessage } from './caption-style.ts';
 import { importElevenLabsTranscript } from './elevenlabs-transcript.ts';
 import { approvalField, confirmSummary, type ToolAccess, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
 import { assetSegments, projectChapters, type ProjectedChapter } from './source-chapters.ts';
@@ -402,6 +403,11 @@ const schemas = {
       .enum(LAYOUT_PROFILES)
       .optional()
       .describe('可选。切字幕条用的排版 profile，默认 default；现有的 default 与 two-line 切条参数相同，切出的字幕条一样'),
+    style: captionStylePatch
+      .optional()
+      .describe(
+        '可选。字幕的位置与样式，键是字幕样式文档（Studio 样式）里的键，只给要改的：y、verticalAlign 定高度（y 是画面高度的百分比，verticalAlign 说字幕块哪条边落在 y 上），width 是折行宽度，fontSize 按 540 短边下的像素，textOutline、background 开关描边与底板。以默认样式为底写进这层的样式文档；与配对的原文共用已有样式时改的是那一份，原文一起变',
+      ),
   }),
 };
 
@@ -739,12 +745,17 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
       '译文（kind translation）建这门语言的字幕：每句译文按句级对齐（alignment.sourceWordIds）取原句的时间，按显示宽度切条，新建一条字幕轨；只看译文时把配对的原文字幕拿下（停用，不删），bilingual 为 true 时译文为主、原文为辅，两层共用一份字幕样式、原文放回画面。译文有 alignment 为 null 的句子时拒绝（TRANSLATION_UNALIGNED）：用 documents_put 重新写一次译文，Runtime 会按句子补上对齐。',
       '同一份文档已经有字幕层时不覆盖，照样新建一层（结果的 existing 指出已有的那层；已有的显示着时新的一层停用着放上去）。素材不在时间线上（CAPTIONS_NOT_ON_TIMELINE）或没有可显示的字幕条（CAPTIONS_EMPTY）时不建。',
       '双语（bilingual: true）时时间线上还没有这份转写的原文字幕层的，同一次调用里先给转写建原文字幕层再建译文的一层（一笔修改，撤销时一起撤），不用先对转写调用一次。',
-      '返回：transactionId、新字幕文档的 documentId、trackId、字幕实例的 itemIds、字幕条数 cueCount、是否显示（enabled）与新的版本 revision；译文另有 bilingual 与配对的原文字幕层 pairedOriginal { documentId, itemIds, created }（created 为 true 是这次顺带建的；没有配对的原文时 null，bilingualNote 说明）。',
+      '位置与样式用 style：没给时按默认样式画（白字、黑描边，块的中线在画面高度 86% 处，竖版落在平台控件区里）。建好后再改用 edits_apply 的 setCaptionStyle（同样的键）。字幕在画面上的位置 videos_frames 看不到，要看导出的成片。',
+      '返回：transactionId、新字幕文档的 documentId、trackId、字幕实例的 itemIds、样式文档 styleDocumentId（按默认样式画、没有样式文档时 null）、字幕条数 cueCount、是否显示（enabled）与新的版本 revision；译文另有 bilingual 与配对的原文字幕层 pairedOriginal { documentId, itemIds, created }（created 为 true 是这次顺带建的；没有配对的原文时 null，bilingualNote 说明）。',
     ].join('\n'),
     effect: 'mutation',
     examples: [
       { title: '给转写建原文字幕', args: { video: 'demo', documentId: 'doc_speech_1' } },
       { title: '给译文建双语字幕', args: { video: 'demo', documentId: 'doc_translation_1', bilingual: true } },
+      {
+        title: '竖版：字幕底边放在 y 1440（1920 高的 75%），带底板',
+        args: { video: 'demo', documentId: 'doc_speech_1', style: { y: 78, verticalAlign: 'bottom', width: 84, background: true } },
+      },
     ],
     surfaces: ['agent', 'mcp', 'cli'],
     positional: 'video',
@@ -985,6 +996,7 @@ export class VideoTools implements ToolSet {
     const base = this.#scope.importBase(access, opened);
     const operations = normalizeOperations(resolved, video.rootSequenceId, base.cwd, video.id);
     if (base.confine) await confineImports(operations, base.confine);
+    await expandCaptionStyles(operations, video, async (documentId, revision) => (await this.#videos.document(video.id, documentId, revision)).body);
     const known = knownIds(video);
     const touched = new Set<string>();
     const imports: string[] = [];
@@ -1043,9 +1055,12 @@ export class VideoTools implements ToolSet {
     const base = this.#scope.importBase(access, opened);
     const operations = normalizeOperations(resolved, opened.snapshot.video.rootSequenceId, base.cwd, opened.snapshot.video.id);
     if (base.confine) await confineImports(operations, base.confine);
-    // 智能体写的译文：alignment 为 null 或缺字段的单元按句子补上句级对齐（视频格式规范 §5.3）。
-    const documents = (this.#videos.mirror(opened.ref.videoId)?.video ?? opened.snapshot.video).documents;
+    const current = this.#videos.mirror(opened.ref.videoId)?.video ?? opened.snapshot.video;
+    const documents = current.documents;
     const readBody = async (documentId: Id, revision?: string) => (await this.#videos.document(opened.ref.videoId, documentId, revision)).body;
+    // 字幕的样式补丁（setCaptionStyle 的 style）展开成写样式文档与挂样式的操作。
+    await expandCaptionStyles(operations, current, readBody);
+    // 智能体写的译文：alignment 为 null 或缺字段的单元按句子补上句级对齐（视频格式规范 §5.3）。
     const filledAlignments = await fillTranslationAlignments(operations, documents, readBody);
     // 改了已有的译文：从它生成的字幕层在同一笔里换掉改过的几句的字幕条。
     const syncedCaptions = await syncTranslationCaptions(operations, documents, readBody);
@@ -1587,11 +1602,17 @@ export class VideoTools implements ToolSet {
         record.kind === 'speech'
           ? { kind: 'speech', documentId: record.id }
           : { kind: 'translation', documentId: record.id, bilingual: args.bilingual ?? false, cues: 'sentence-alignment' };
-      const plan = await planCaptionLayer(reader, { videoId, sequence, documents: video.documents, source, pairOriginal: true }).catch(
-        (error: unknown) => {
-          throw captionError(error);
-        },
-      );
+      const plan = await planCaptionLayer(reader, {
+        videoId,
+        sequence,
+        documents: video.documents,
+        source,
+        pairOriginal: true,
+        // 给了 style：新建的样式文档以默认样式为底合进它；沿用已有样式的在下面改那一份。
+        ...(args.style ? { captionStyle: freshCaptionStyle(args.style) } : {}),
+      }).catch((error: unknown) => {
+        throw captionError(error);
+      });
       if ('reason' in plan) {
         // i18n-ignore-start: 给模型的工具说明、错误与下一步
         throw plan.reason === 'empty'
@@ -1601,6 +1622,17 @@ export class VideoTools implements ToolSet {
             });
         // i18n-ignore-end
       }
+      // 新的一层沿用配对的原文已有的样式文档：style 合进那一份（两层共用，一起变）。
+      const sharedStyle = args.style ? insertedStyleDocument(plan.operations) : null;
+      const operations: EditOperation[] = [...plan.operations];
+      if (args.style && sharedStyle) {
+        const styleRecord = video.documents[sharedStyle];
+        const base = styleRecord ? (await this.#videos.document(videoId, sharedStyle, styleRecord.currentRevision)).body : null;
+        const body = styleRecord ? patchStudioStyle(base, args.style) : null;
+        // i18n-ignore: 给模型的工具说明、错误与下一步
+        if (!styleRecord || !body) throw new ToolError('INVALID_ARGUMENTS', unsupportedStyleMessage(sharedStyle, base));
+        operations.push({ type: 'putDocument', documentId: sharedStyle, kind: styleRecord.kind, body } as EditOperation);
+      }
       let result: EditResult;
       try {
         result = await this.#videos.apply(
@@ -1608,7 +1640,7 @@ export class VideoTools implements ToolSet {
             videoId,
             commandId: this.#scope.commandId(access, undefined),
             expectedRevision: video.revision,
-            operations: plan.operations as never,
+            operations: operations as never,
             // 写进视频的历史与撤销：按当前语言。
             label: RcAgentTools.captionsLabel().text,
           },
@@ -1644,6 +1676,13 @@ export class VideoTools implements ToolSet {
         documentId,
         trackId: insertedTrack(plan.operations, refs),
         itemIds: created.items,
+        styleDocumentId: insertedStyleDocument(plan.operations, refs),
+        ...(sharedStyle
+          ? {
+              // i18n-ignore: 给模型的工具说明、错误与下一步
+              styleNote: '这一层与配对的原文字幕层共用样式文档 styleDocumentId，style 改的是这一份：原文字幕层的样式一起变了',
+            }
+          : {}),
         cueCount: plan.cueCount,
         enabled: plan.enabled,
         ...(translation ? { bilingual: source.bilingual } : {}),
@@ -1816,6 +1855,19 @@ function insertedTrack(operations: EditOperation[], refs: Record<string, Id>): I
   const item = inserted.find((it) => it.documentRef === CAPTION_DOCUMENT_REF);
   if (item?.trackId) return item.trackId;
   return item?.trackRef ? (refs[item.trackRef] ?? null) : null;
+}
+
+/**
+ * 新建的那层字幕挂的样式文档：已有的 `styleDocumentId`，或同一笔里新建的（给了 `refs` 时按回执换成 ID）。没有样式时 null。
+ * 不给 `refs` 时只认已有的那份（提交前判断要不要改它）。
+ */
+function insertedStyleDocument(operations: readonly EditOperation[], refs?: Record<string, Id>): Id | null {
+  const inserted = operations.flatMap((op) =>
+    op.type === 'insertItems' ? (op.items as Array<{ documentRef?: string; styleDocumentId?: Id; styleDocumentRef?: string }>) : [],
+  );
+  const item = inserted.find((it) => it.documentRef === CAPTION_DOCUMENT_REF);
+  if (item?.styleDocumentId) return item.styleDocumentId;
+  return refs && item?.styleDocumentRef ? (refs[item.styleDocumentRef] ?? null) : null;
 }
 
 /**

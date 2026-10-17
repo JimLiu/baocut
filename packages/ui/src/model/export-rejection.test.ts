@@ -28,9 +28,9 @@ describe('导出被拒', () => {
           itemId: 'i1',
           scope: 'layer',
           layerKind: 'generator',
-          reason: 'template-logo-image-not-supported',
-          message: 'Image logos referenced by file path can’t be drawn in templates (use a brand kit logo or a text logo)',
-          messageRef: { key: 'frameRender.templateLogoImage' },
+          reason: 'template-logo-file-missing',
+          message: 'The image file used as the template logo isn’t in this video (check that the file is still in the project)',
+          messageRef: { key: 'frameRender.templateLogoFileMissing' },
         },
         {
           itemId: 'i2',
@@ -43,14 +43,14 @@ describe('导出被拒', () => {
       ],
     });
     expect(explainExportError(error, { kind: 'video', stage: 'rejected' }).items).toEqual([
-      '模板里按路径引用的图片台标画不出来（换成品牌库的台标或文字台标）',
+      '模板台标用的图片文件不在这部视频里（看看项目里还有没有这个文件）',
       '「baocut.future」画不出来',
     ]);
     vi.stubEnv('BAOCUT_LOCALE', 'en');
     setLocale('en');
     try {
       expect(explainExportError(error, { kind: 'video', stage: 'rejected' }).items).toEqual([
-        'Image logos referenced by file path can’t be drawn in templates (use a brand kit logo or a text logo)',
+        'The image file used as the template logo isn’t in this video (check that the file is still in the project)',
         'Generator baocut.future can’t be drawn',
       ]);
     } finally {

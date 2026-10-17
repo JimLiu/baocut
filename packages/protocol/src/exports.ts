@@ -192,6 +192,11 @@ export interface VideoExportOptions {
   burnCaptions?: boolean;
   /** 画不出来的内容：`fail`（默认）拒绝，`skip` 跳过并逐项警告。 */
   onUnsupported?: 'fail' | 'skip';
+  /**
+   * 合成实例的替身过期（代码包规范 §7.4：烘焙自别的代码包版本，或帧率与序列不同）时：默认以 `EXPORT_PRERENDER_STALE` 拒绝并列出实例；
+   * true 时照旧替身导出，每个实例一条 `EXPORT_PRERENDER_STALE` 警告。
+   */
+  allowStalePrerender?: boolean;
   /** 声音：与音频导出相同的参数（码率默认 MP4 192、WebM 128 kbps）。 */
   audio?: AudioExportOptions;
 }

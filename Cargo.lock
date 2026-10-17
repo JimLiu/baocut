@@ -1000,7 +1000,9 @@ version = "0.4.0"
 dependencies = [
  "editor-semantics",
  "font-files",
+ "image",
  "message-ref",
+ "png 0.18.1",
  "render-graph",
  "serde",
  "serde_json",
@@ -1080,6 +1082,7 @@ dependencies = [
  "media-native",
  "message-ref",
  "render-graph",
+ "render-raster",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -3613,6 +3616,7 @@ dependencies = [
  "symphonia",
  "tempfile",
  "tiny-skia",
+ "unicode-properties",
  "waveform",
  "wgpu",
 ]
@@ -4187,6 +4191,7 @@ dependencies = [
  "anyhow",
  "caption-scene",
  "libm",
+ "message-ref",
  "motion",
  "png 0.18.1",
  "render-raster",
@@ -4602,6 +4607,7 @@ name = "timeline-render"
 version = "0.4.0"
 dependencies = [
  "anyhow",
+ "message-ref",
  "motion",
  "render-raster",
  "serde_json",

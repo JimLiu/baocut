@@ -9,10 +9,12 @@ import {
   type DocumentRecord,
   type EditOperation,
   type Id,
+  type MediaTime,
   type Sequence,
   type SequenceItem,
   type SequenceItemInput,
   type Track,
+  type VersionRef,
 } from '@baocut/protocol';
 import { languageName } from './caption-tracks.ts';
 import { DUB_EXTENSION } from './dub-undo.ts';
@@ -114,11 +116,50 @@ function unlockedTracks(sequence: Sequence, kind: PlaceableKind): Track[] {
  * - 指定了轨道（拖到某一行上）时只看那一条：空着就放在落点，否则接在它末尾。
  */
 export function placeAsset(sequence: Sequence, asset: AssetRecord & { kind: PlaceableKind }, atFrame: number, trackId?: Id): EditOperation[] {
-  const length = assetFrames(asset, sequence);
-  const base = { type: 'addItem' as const, sequenceId: sequence.id, asset: { assetId: asset.id }, alignment: 'exact-frame' as const };
-  const candidates = unlockedTracks(sequence, asset.kind).filter((track) => !trackId || track.id === trackId);
+  return place(sequence, assetSource(asset), atFrame, trackId);
+}
+
+/**
+ * 同一笔事务里刚导入的图片（`importAsset` 的 `ref`）放在播放头处：规则与 {@link placeAsset} 相同（图片 5 秒）。
+ * 品牌库的图片与图片贴纸拷进来就放，一步撤销。
+ */
+export function placeImportedImage(sequence: Sequence, ref: string, name: string, atFrame: number): EditOperation[] {
+  return place(sequence, { kind: 'image', name, addItem: { ref }, target: { assetImportRef: ref } }, atFrame);
+}
+
+/** 放上时间线的东西：已有的素材，或同一笔事务里导入的（`ref`）。 */
+interface PlaceSource {
+  kind: PlaceableKind;
+  name: string;
+  addItem: { assetId: Id } | { ref: string };
+  target: { assetRef: VersionRef } | { assetImportRef: string };
+  /** 视频素材的时长；没有时按图片放。 */
+  duration?: MediaTime | undefined;
+}
+
+function assetSource(asset: AssetRecord & { kind: PlaceableKind }): PlaceSource {
+  return {
+    kind: asset.kind,
+    name: asset.name,
+    addItem: { assetId: asset.id },
+    target: { assetRef: { id: asset.id, revision: asset.currentRevision } },
+    duration: asset.revisions[asset.currentRevision]?.duration,
+  };
+}
+
+function imageFrames(sequence: Sequence): number {
+  return Math.max(1, Math.floor((IMAGE_SECONDS * sequence.fps.num) / sequence.fps.den));
+}
+
+function place(sequence: Sequence, source: PlaceSource, atFrame: number, trackId?: Id): EditOperation[] {
+  const length =
+    source.kind === 'image' || !source.duration
+      ? imageFrames(sequence)
+      : Math.max(1, Math.floor((mediaTimeToSeconds(source.duration) * sequence.fps.num) / sequence.fps.den));
+  const base = { type: 'addItem' as const, sequenceId: sequence.id, asset: source.addItem, alignment: 'exact-frame' as const };
+  const candidates = unlockedTracks(sequence, source.kind).filter((track) => !trackId || track.id === trackId);
   const free = (tracks: Track[]) => tracks.find((track) => trackFree(sequence, track.id, atFrame, atFrame + length));
-  if (trackId || asset.kind === 'audio') {
+  if (trackId || source.kind === 'audio') {
     const open = free(candidates);
     if (open) return [{ ...base, trackId: open.id, at: frames(atFrame) }];
     const fallback = candidates[0];
@@ -131,25 +172,29 @@ export function placeAsset(sequence: Sequence, asset: AssetRecord & { kind: Plac
   const ref = 'place-track';
   return [
     { type: 'addTrack', sequenceId: sequence.id, kind: 'visual', ref },
-    { type: 'insertItems', sequenceId: sequence.id, items: [overlayItem(sequence, asset, atFrame, ref)] },
+    { type: 'insertItems', sequenceId: sequence.id, items: [overlayItem(sequence, source, atFrame, ref)] },
   ];
 }
 
 /** 与引擎 `addItem` 缺省相同的一层图片或视频：铺满画布（`fullscreen` + `contain`）、不透明、从素材开头起；图片 5 秒，视频取整帧的全长。 */
-function overlayItem(sequence: Sequence, asset: AssetRecord & { kind: PlaceableKind }, atFrame: number, trackRef: string): SequenceItemInput {
+function overlayItem(sequence: Sequence, source: PlaceSource, atFrame: number, trackRef: string): SequenceItemInput {
   const perSecond = sequence.fps.num / sequence.fps.den;
-  const duration = asset.revisions[asset.currentRevision]?.duration;
+  const duration = source.duration;
   const common = {
     trackRef,
-    name: asset.name,
+    name: source.name,
     place: {},
-    assetRef: { id: asset.id, revision: asset.currentRevision },
+    ...source.target,
     mode: 'fullscreen' as const,
     fit: 'contain' as const,
   };
   const from = Math.max(0, Math.round(atFrame));
-  if (asset.kind === 'image' || !duration) {
-    return { ...common, type: 'image', span: { fromFrame: from, durationFrames: Math.max(1, Math.round(IMAGE_SECONDS * perSecond)) } };
+  if (source.kind === 'image' || !duration) {
+    return {
+      ...common,
+      type: 'image',
+      span: { fromFrame: from, durationFrames: Math.max(1, Math.round(IMAGE_SECONDS * perSecond)) },
+    } as SequenceItemInput;
   }
   return {
     ...common,
@@ -157,7 +202,7 @@ function overlayItem(sequence: Sequence, asset: AssetRecord & { kind: PlaceableK
     span: { fromFrame: from, durationFrames: Math.max(1, Math.floor(mediaTimeToSeconds(duration) * perSecond)) },
     timeMap: { kind: 'linear', sourceIn: { ticks: '0', timescale: duration.timescale }, rate: { num: 1, den: 1 } },
     embeddedAudio: { enabled: true, volume: 1 },
-  };
+  } as SequenceItemInput;
 }
 
 /**

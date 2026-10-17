@@ -5,6 +5,7 @@ import {
   newId,
   type Id,
   type JobRecord,
+  type ExternalVideoCreated,
   type JobSubmitter,
   type Project,
   type ServiceId,
@@ -60,6 +61,8 @@ export interface ServiceScopeDeps {
   policy: (serviceId: ServiceId) => ServicePolicy;
   /** 把服务自己新建的视频加进它的范围（策略是名单时写进名单并持久化）。 */
   allowVideo?: (serviceId: ServiceId, videoId: Id) => Promise<void>;
+  /** 服务新建了视频：经 Space 主题通知桌面在功能区打开它（产品设计 §3.3）。 */
+  announceVideoCreated?: (video: ExternalVideoCreated) => void;
 }
 
 /** 一个范围之内的视频在哪里。 */
@@ -187,6 +190,10 @@ export class ServiceScope implements ToolScope<ServiceAccess> {
   async recordCreated(access: ServiceAccess, created: VideoCreated): Promise<void> {
     access.principal.audit.videoId = created.videoId;
     if (access.policy.videos !== 'all') await this.#deps.allowVideo?.(access.principal.serviceId, created.videoId);
+    if (access.principal.serviceId === 'mcp') {
+      const { videoRevision: _revision, ...video } = created;
+      this.#deps.announceVideoCreated?.({ ...video, by: 'mcp' });
+    }
   }
 
   /** 服务启动的流程新建的视频（从链接下载）：同样加进范围；调用早已返回，不改审计。 */

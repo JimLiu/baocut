@@ -40,6 +40,8 @@ pub mod assets;
 #[cfg(feature = "media")]
 pub mod audio;
 pub mod bcf;
+#[cfg(feature = "media")]
+pub mod canvas2d;
 pub mod drawop;
 pub mod effects;
 pub mod emissive;

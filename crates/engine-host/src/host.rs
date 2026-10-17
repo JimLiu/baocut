@@ -539,6 +539,10 @@ impl Host {
                 let video = crate::package::import(p, &self.ffprobe)?;
                 self.register(video)
             }
+            "pets.idleApng" => {
+                let p: crate::pets::IdleApngParams = params(value)?;
+                crate::pets::idle_apng(&p)
+            }
             // `fonts.*` 不经这里：main 把它们交给字体线程（`fonts::FontWorker`）。
             "exports.plan" => {
                 let p: crate::exports::PlanParams = params(value)?;

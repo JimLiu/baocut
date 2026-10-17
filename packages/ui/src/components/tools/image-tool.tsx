@@ -38,7 +38,7 @@ import { ImageLightbox } from '../media/image-lightbox.tsx';
 import { EmptyCard, PageStatus } from '../models/model-parts.tsx';
 import { useNow } from '../use-now.ts';
 import { ImageRecord } from './image-record.tsx';
-import { ImageRefModeRow, ImageRefsRow } from './image-refs.tsx';
+import { ImageRefModeRow, ImageRefsRow, ImageRefsZone, imagePromptPlaceholder } from './image-refs.tsx';
 import { M as IMG } from '../../model/tools-image-copy.ts';
 import { LocalModelGate } from './local-model-gate.tsx';
 import { ModelRow, SaveDirRow } from './tool-frame.tsx';
@@ -196,33 +196,35 @@ export function ImageTool() {
   const main = (
     <>
       <Section label={IMAGE_COPY.promptLabel}>
-        <ToolTextArea
-          label={IMAGE_COPY.promptLabel}
-          inputRef={promptRef}
-          value={draft.prompt}
-          onChange={(prompt) => patch({ prompt })}
-          placeholder={IMAGE_COPY.promptPlaceholder}
-        />
-        <div className={textFoot}>
-          <span className={maxChars && chars > maxChars ? detailOver : detailGrow}>{IMAGE_COPY.chars(chars, maxChars || null)}</span>
-          {draft.prompt ? (
-            <SectionLink onPress={() => patch({ prompt: '' })}>{IMAGE_COPY.clear}</SectionLink>
-          ) : (
-            <SectionLink
-              onPress={() => {
-                patch({ prompt: IMAGE_SAMPLES[sample % IMAGE_SAMPLES.length]! });
-                setSample(sample + 1);
-              }}>
-              {IMAGE_COPY.sample}
-            </SectionLink>
-          )}
-        </div>
-        {option ? (
-          <>
-            <ImageRefsRow draft={draft} option={option} patch={patch} source={SPACE_SOURCE} />
-            <ImageRefModeRow draft={draft} option={option} patch={patch} />
-          </>
-        ) : null}
+        <ImageRefsZone draft={draft} option={option} patch={patch} stack>
+          <ToolTextArea
+            label={IMAGE_COPY.promptLabel}
+            inputRef={promptRef}
+            value={draft.prompt}
+            onChange={(prompt) => patch({ prompt })}
+            placeholder={imagePromptPlaceholder(draft, option)}
+          />
+          <div className={textFoot}>
+            <span className={maxChars && chars > maxChars ? detailOver : detailGrow}>{IMAGE_COPY.chars(chars, maxChars || null)}</span>
+            {draft.prompt ? (
+              <SectionLink onPress={() => patch({ prompt: '' })}>{IMAGE_COPY.clear}</SectionLink>
+            ) : (
+              <SectionLink
+                onPress={() => {
+                  patch({ prompt: IMAGE_SAMPLES[sample % IMAGE_SAMPLES.length]! });
+                  setSample(sample + 1);
+                }}>
+                {IMAGE_COPY.sample}
+              </SectionLink>
+            )}
+          </div>
+          {option ? (
+            <>
+              <ImageRefsRow draft={draft} option={option} patch={patch} source={SPACE_SOURCE} />
+              <ImageRefModeRow draft={draft} option={option} patch={patch} />
+            </>
+          ) : null}
+        </ImageRefsZone>
       </Section>
 
       <ModelRow

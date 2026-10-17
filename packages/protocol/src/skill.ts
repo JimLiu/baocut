@@ -102,6 +102,12 @@ export type SkillSource =
       /** 仓库里的子目录；仓库根为空串。 */
       path: string;
       importedAt: string;
+    }
+  | {
+      /** 在 BaoCut 里新建的（空白模板），或复制自另一个 skill（`from` 是那个 skill 的 id）。 */
+      kind: 'created';
+      createdAt: string;
+      from: string | null;
     };
 
 /**
@@ -140,11 +146,11 @@ export function parseSkillLabels(raw: unknown): SkillLabels | null {
  * （由调用方截成一行）。
  */
 export function skillLabel(
-  skill: Pick<SkillSummary, 'name' | 'description' | 'labels'>,
+  skill: Pick<SkillSummary, 'name' | 'description' | 'labels'> & { title?: string | null },
   locale: Locale,
 ): { name: string; summary: string } {
   const labels = skill.labels;
-  if (!labels) return { name: skill.name, summary: skill.description };
+  if (!labels) return { name: skill.title || skill.name, summary: skill.description };
   return {
     name: labels.name[locale] ?? labels.name.en,
     summary: labels.summary[locale] ?? labels.summary.en,
@@ -156,6 +162,8 @@ export interface SkillSummary {
   id: string;
   /** front matter 的 `name`，原样。 */
   name: string;
+  /** 界面给的显示名（新建、复制、另存为副本时起的），记在来源记录里；没有时 null，界面用 `labels` 或 `name`。 */
+  title: string | null;
   /** front matter 的 `description`，原样。 */
   description: string;
   /** 内置 skill 的 `SKILL_META_FILE`；用户目录里的 skill、没有或读不了时为 null。界面用 `skillLabel` 取当前语言的文字。 */
@@ -174,6 +182,10 @@ export interface SkillSummary {
   source: SkillSource | null;
   /** 目录里的文件数（含 `SKILL.md`）。 */
   fileCount: number;
+  /** 目录里文件的总字节数。 */
+  bytes: number;
+  /** 当前版本号（从 1 起）；内置的为 null。只有个人来源的能在应用里编辑、产生新版本。 */
+  revision: number | null;
   /** `SKILL.md` 的修改时间。 */
   updatedAt: string;
 }
@@ -270,4 +282,215 @@ export function sendSkillRefs(params: { skill?: SkillSendRef; skills?: readonly 
 export function messageSkills(message: { skill?: SkillMessageRef; skills?: readonly SkillMessageRef[] }): SkillMessageRef[] {
   if (message.skills?.length) return [...message.skills];
   return message.skill ? [message.skill] : [];
+}
+
+/** skill 里一个文件的类别（界面的文件树、预览与素材栏，Runtime 的素材与脚本判断共用）。 */
+export type SkillFileKind = 'skill' | 'doc' | 'svg' | 'image' | 'audio' | 'video' | 'font' | 'data' | 'script' | 'code' | 'other';
+
+const SKILL_FILE_KINDS: Readonly<Record<string, SkillFileKind>> = {
+  md: 'doc',
+  markdown: 'doc',
+  txt: 'doc',
+  svg: 'svg',
+  png: 'image',
+  jpg: 'image',
+  jpeg: 'image',
+  gif: 'image',
+  webp: 'image',
+  mp3: 'audio',
+  wav: 'audio',
+  m4a: 'audio',
+  flac: 'audio',
+  ogg: 'audio',
+  mp4: 'video',
+  mov: 'video',
+  webm: 'video',
+  ttf: 'font',
+  otf: 'font',
+  woff2: 'font',
+  json: 'data',
+  yaml: 'data',
+  yml: 'data',
+  csv: 'data',
+  toml: 'data',
+  js: 'script',
+  mjs: 'script',
+  cjs: 'script',
+  ts: 'script',
+  py: 'script',
+  sh: 'script',
+  rb: 'script',
+  ps1: 'script',
+  bat: 'script',
+  html: 'code',
+  css: 'code',
+};
+
+/** 按扩展名分类；根目录的 `SKILL.md` 是 `skill`。 */
+export function skillFileKind(path: string): SkillFileKind {
+  if (path === SKILL_FILE) return 'skill';
+  const ext = /\.([a-z0-9]+)$/i.exec(path)?.[1]?.toLowerCase() ?? '';
+  return SKILL_FILE_KINDS[ext] ?? 'other';
+}
+
+/** 素材：图片（含 svg）、音频、视频与字体。智能体可以直接导入它们。 */
+export function isSkillAssetPath(path: string): boolean {
+  const kind = skillFileKind(path);
+  return kind === 'svg' || kind === 'image' || kind === 'audio' || kind === 'video' || kind === 'font';
+}
+
+/** 脚本：BaoCut 从不运行它们；从 skill 生成 `BRAND.md` 时不带。 */
+export function isSkillScriptPath(path: string): boolean {
+  return skillFileKind(path) === 'script';
+}
+
+/* ---------- 版本、上传包与项目品牌（架构设计 §3.8「版本」「上传包」「项目品牌」，产品设计 §6.9） ---------- */
+
+/** 一个 skill 最多保留几个版本（含当前版本）；超出时最早的先删。 */
+export const SKILL_MAX_VERSIONS = 20;
+
+/** 每个版本是怎么来的：新建、上传（含更新同名）、在应用里编辑、恢复旧版本、复制、从 GitHub 导入。界面按它出文案。 */
+export const SKILL_VERSION_KINDS = ['create', 'upload', 'edit', 'restore', 'duplicate', 'import'] as const;
+export type SkillVersionKind = (typeof SKILL_VERSION_KINDS)[number];
+
+/** `skills.versions` 的一项。新的在前。 */
+export interface SkillVersion {
+  revision: number;
+  savedAt: string;
+  kind: SkillVersionKind;
+  /** 用户写的「这次改了什么」，或上传的文件名；没有时空串。 */
+  note: string;
+  /** `restore` 恢复的版本号、`duplicate` 复制自的 skill id；其余为 null。 */
+  from: number | string | null;
+  fileCount: number;
+  bytes: number;
+  current: boolean;
+}
+
+export interface SkillVersionsResult {
+  versions: SkillVersion[];
+}
+
+/**
+ * 写一个 skill（或项目品牌）里的文件：`text` 写文本（UTF-8），`from` 从本机的绝对路径复制（素材、二进制），`remove` 删掉。
+ * 路径同 `skills.readFile`；同一路径只能出现一次。
+ */
+export type SkillFileChange = { path: string; text: string } | { path: string; from: string } | { path: string; remove: true };
+
+/** 上传包里一个候选不能装的原因。 */
+export const SKILL_CANDIDATE_ISSUES = ['no-description', 'too-many-files', 'too-large', 'unsafe-path', 'invalid'] as const;
+export type SkillCandidateIssueCode = (typeof SKILL_CANDIDATE_ISSUES)[number];
+
+/** 上传包里的一个 skill（`skills.inspectPackage`）。 */
+export interface SkillPackageCandidate {
+  /** 包里的目录（`/` 结尾；包根是空串）。`installPackage` 的 `picks` 按它选。 */
+  prefix: string;
+  /** 装进来时的 id（front matter 的 `name` 或目录名规范化）；得不出时空串（`issue` 为 `invalid`）。 */
+  id: string;
+  name: string;
+  description: string;
+  fileCount: number;
+  bytes: number;
+  /** 素材（图片、音频、视频、字体）与脚本的个数。 */
+  assets: number;
+  scripts: number;
+  issue: { code: SkillCandidateIssueCode; message: string } | null;
+  /** 同 id 的已有 skill；只有个人来源的能 `update`。`copyId` 是另存为副本时用的 id。 */
+  conflict: { id: string; origin: SkillOrigin; canUpdate: boolean; nextRevision: number; copyId: string } | null;
+}
+
+export interface SkillPackageInspection {
+  kind: 'zip' | 'folder';
+  /** zip 的文件名或文件夹名。 */
+  name: string;
+  /** 略过的系统与隐藏条目（`__MACOSX/`、`.DS_Store`、点开头的目录），按包里的路径。 */
+  ignored: string[];
+  candidates: SkillPackageCandidate[];
+}
+
+/** `installPackage` 的一项选择：新装、更新同名的个人 skill（存一个新版本）、另存为副本。 */
+export interface SkillPackagePick {
+  prefix: string;
+  mode: 'new' | 'update' | 'copy';
+  /** 显示名（副本的「… 副本」由界面按语言给）。 */
+  title?: string;
+}
+
+export interface SkillInstallResult extends SkillListResult {
+  installed: SkillSummary[];
+}
+
+/** 项目根目录的品牌文件名，与素材的惯例目录。 */
+export const PROJECT_BRAND_FILE = 'BRAND.md';
+export const PROJECT_BRAND_DIR = 'brand';
+/** `BRAND.md` 交给智能体时最多取多少字节。 */
+export const PROJECT_BRAND_MAX_BYTES = 64 * 1024;
+
+/** 有 `BRAND.md` 的一个项目（`brands.list`）。 */
+export interface ProjectBrandSummary {
+  projectId: string;
+  projectName: string;
+  projectPath: string;
+  /** `BRAND.md` 的绝对路径。 */
+  path: string;
+  /** front matter 的 `description`，没有时第一段正文（跳过标题、列表、表格与代码）。 */
+  summary: string;
+  updatedAt: string;
+  /** `BRAND.md` 加 `brand/` 里的文件。 */
+  fileCount: number;
+  bytes: number;
+}
+
+export interface ProjectBrandDetail {
+  projectId: string;
+  /** 没有 `BRAND.md` 时 null。 */
+  brand: ProjectBrandSummary | null;
+  content: string | null;
+  /** `BRAND.md` 与 `brand/` 里的文件，相对项目根目录；点开头的不在其中。 */
+  files: SkillFileEntry[];
+}
+
+/** 用户消息上的项目品牌标记：这条消息带了（`applied`）或用户摘掉了（`skipped`）项目的 `BRAND.md`。 */
+export interface MessageBrandRef {
+  state: 'applied' | 'skipped';
+  /** `BRAND.md` 的绝对路径。 */
+  path: string;
+}
+
+/**
+ * 一句话介绍：front matter 的 `description`，没有时第一段正文（跳过标题、列表、表格、代码与引用）。
+ * 与原型 `model-project-brand.js` 的 `summaryOf` 相同。
+ */
+export function projectBrandSummary(content: string): string {
+  const text = content.replace(/\r\n/g, '\n');
+  const fm = /^---\n([\s\S]*?)\n---\n?/.exec(text);
+  if (fm) {
+    for (const line of fm[1]!.split('\n')) {
+      const kv = /^description:\s*(.*)$/.exec(line);
+      const value = kv?.[1]?.replace(/^["']|["']$/g, '').trim();
+      if (value) return value;
+    }
+  }
+  const body = fm ? text.slice(fm[0].length) : text;
+  const para: string[] = [];
+  for (const line of body.split('\n')) {
+    const t = line.trim();
+    if (!t) {
+      if (para.length) break;
+      continue;
+    }
+    if (/^(#|[-*](\s|$)|\d+[.)](\s|$)|\||```|>)/.test(t)) {
+      if (para.length) break;
+      continue;
+    }
+    para.push(t);
+  }
+  return para.join(' ');
+}
+
+/** 用户消息上的项目品牌标记；没有或形状不对（旧记录、别的版本写的）时 null。 */
+export function messageBrand(message: { brand?: unknown }): MessageBrandRef | null {
+  const brand = message.brand as Partial<MessageBrandRef> | undefined;
+  if (!brand || (brand.state !== 'applied' && brand.state !== 'skipped') || typeof brand.path !== 'string') return null;
+  return { state: brand.state, path: brand.path };
 }

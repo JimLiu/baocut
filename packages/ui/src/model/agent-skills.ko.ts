@@ -14,6 +14,13 @@ export const ko: AgentSkillsMessages = {
     remove: '제거',
     read: '파일 열기',
     send: '보내기',
+    upload: '업로드',
+    create: '생성',
+    duplicate: '복제',
+    save: '저장',
+    restore: '이 버전 복원',
+    export: '다운로드',
+    brand: 'BRAND.md 저장',
   },
   exists: (id: string | null) =>
     `${id ? `이름이 “${id}”인` : '같은 이름의'} Skill이 이미 있으며 덮어쓰지 않습니다. 먼저 기존 Skill을 제거하거나 폴더 이름을 바꾼 뒤 다시 추가하세요.`,
@@ -33,6 +40,8 @@ export const ko: AgentSkillsMessages = {
   fileNotText: '텍스트 파일이 아니어서 여기에 표시하지 않습니다.',
   webNotAllowed: '브라우저에서는 할 수 없습니다. BaoCut 데스크톱 앱을 사용하세요.',
   webReadOnly: '이 브라우저 세션은 읽기 전용이라 변경할 수 없습니다.',
+  revisionConflict: '편집을 시작한 뒤 이 Skill이 다른 곳에서 변경되었습니다. 변경 내용을 복사해 두고 다시 불러온 뒤 다시 편집하세요.',
+  notEditable: '여기서는 내 Skill만 편집할 수 있습니다. 복제하면 수정할 수 있는 사본이 생깁니다.',
   failed: (action: string, raw: string) => `${action}에 실패했습니다: ${raw}`,
   sendFailed: (raw: string) => `보내기 못했습니다: ${raw}`,
 };

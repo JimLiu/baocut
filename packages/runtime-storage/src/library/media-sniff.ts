@@ -19,7 +19,9 @@ export function sniffBytes(head: Uint8Array): SniffedType | null {
     head.length >= start + text.length && text.split('').every((c, i) => head[start + i] === c.charCodeAt(0));
   const type = (mediaType: string, ext: string, category: SniffCategory): SniffedType => ({ mediaType, ext, category });
 
-  if (head.length >= 8 && head[0] === 0x89 && ascii(1, 'PNG\r\n\x1a\n')) return type('image/png', 'png', 'image');
+  if (head.length >= 8 && head[0] === 0x89 && ascii(1, 'PNG\r\n\x1a\n')) {
+    return isApng(head) ? type('image/apng', 'apng', 'image') : type('image/png', 'png', 'image');
+  }
   if (head.length >= 3 && head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) return type('image/jpeg', 'jpg', 'image');
   if (ascii(0, 'GIF87a') || ascii(0, 'GIF89a')) return type('image/gif', 'gif', 'image');
   if (ascii(0, 'RIFF') && ascii(8, 'WEBP')) return type('image/webp', 'webp', 'image');
@@ -47,11 +49,24 @@ export function sniffBytes(head: Uint8Array): SniffedType | null {
   return null;
 }
 
+/** PNG 在第一块图像数据（`IDAT`）之前有 `acTL` 块就是 APNG；块表超出读到的开头时按静态 PNG 算。 */
+function isApng(head: Uint8Array): boolean {
+  const view = new DataView(head.buffer, head.byteOffset, head.byteLength);
+  for (let at = 8; at + 8 <= head.length; ) {
+    const name = String.fromCharCode(...head.slice(at + 4, at + 8));
+    if (name === 'acTL') return true;
+    if (name === 'IDAT' || name === 'IEND') return false;
+    at += 12 + view.getUint32(at);
+  }
+  return false;
+}
+
 /** 库里文件的扩展名，按媒体类型。 */
 const EXTENSIONS: Record<string, string> = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
   'image/gif': 'gif',
+  'image/apng': 'apng',
   'image/webp': 'webp',
   'audio/wav': 'wav',
   'audio/flac': 'flac',

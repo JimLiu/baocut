@@ -45,4 +45,6 @@ export const de: RcVideoMessages = {
     "In BaoCut zuerst das Projekt oder die Sitzung entfernen, die diesen Ordner verwendet, dann dieses Video aus dem übergeordneten Projekt löschen",
   compositionImportFailed: (p) => `Die Motion-Grafik konnte nicht importiert werden (${p.code})`,
   compositionPreviewFailed: (p) => `Die Vorschau der Motion-Grafik ist fehlgeschlagen (${p.code})`,
+  compositionBakeSuperseded: 'Die Motion-Grafik wurde vor Ende des Renderns geändert oder entfernt; der Platzhalter wurde nicht übernommen',
+  compositionBakeFailed: (p) => `Die Motion-Grafik konnte nicht gerendert werden (${p.code})`,
 };

@@ -9,6 +9,8 @@ function sourceText(skill: SkillSummary): string | null {
   const source = skill.source;
   if (!source) return null;
   if (source.kind === 'local') return M.localSource(source.path, source.addedAt);
+  // 在应用里新建或复制的：位置已在回执里，没有另外的来源可写。
+  if (source.kind === 'created') return null;
   return M.remoteSource(source.url, source.ref, source.commit.slice(0, 12), source.importedAt);
 }
 

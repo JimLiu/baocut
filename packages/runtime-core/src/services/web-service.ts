@@ -39,6 +39,7 @@ import { resolveWebDist, sendLoginPage, sendLoginScript, sendStatic, setSecurity
  * - 网关入口 `/ws`：与桌面界面同一套协议与处理函数，但连接在升级时按会话 cookie 认证，方法与主题按白名单过滤；
  *   主体是 `{ kind: 'web', sessionId }`，写入的操作者是用户本人（`user_local`）；
  * - 媒体通道 `/media/…`：这个服务自己的句柄表（同源的相对地址），取内容还要会话 cookie；不暴露桌面网关的端口与令牌。
+ * - 代码包目录 `/bundle/<句柄>/…`（动效视频设计 §4.1）：同一份句柄表；沙箱 iframe 里的请求带不上 cookie，所以只认句柄、不查会话。
  * - 幻灯片编辑器 `/slides/<grant>/…` 与素材 `/_blob/<id>`（docs/design/slides §6.2）：与网关共用一个 SlidesServer，要会话 cookie；
  *   只读配置下发布与上传被拒（`not_writer`）；只能嵌在这个服务自己的页面里（`frame-ancestors 'self'`）。
  * - 设计稿编辑器 `/design/<grant>/…`（docs/design/canvas §6.2）与设计系统编辑器 `/design-system/<grant>/…`（§10.4）：Web 客户端
@@ -361,6 +362,16 @@ export class WebService implements ManagedService {
       return void response.writeHead(405, { Allow: 'GET, HEAD' }).end();
     }
     if (pathname === '/_auth/login.js') return sendLoginScript(request, response);
+    // 代码包目录（动效视频设计 §4.1）：编辑器的实时合成层在不开 `allow-same-origin` 的沙箱 iframe 里装入口页面，它的来源是
+    // 不透明的，发出的请求带不上会话 cookie、`Sec-Fetch-Site` 也是跨站，所以这个前缀只认目录句柄（与设计稿编辑器一样）；
+    // 响应带包自己的 CSP，嵌入由句柄把关。
+    if (pathname.startsWith('/bundle/')) {
+      response.removeHeader('X-Frame-Options');
+      response.removeHeader('Content-Security-Policy');
+      response.removeHeader('Cross-Origin-Resource-Policy');
+      if (!this.media.handle(request, response)) deny(404, RcWeb.fileNotFound().text);
+      return;
+    }
 
     // 需要会话的内容：别的站点（含本机其他端口）发起的请求不给。
     const site = request.headers['sec-fetch-site'];
@@ -503,7 +514,7 @@ export class WebService implements ManagedService {
  */
 function isAppRoute(pathname: string): boolean {
   const parts = pathname.split('/').filter(Boolean);
-  if (parts.length === 0 || ['media', '_auth', 'assets', 'ws'].includes(parts[0]!)) return false;
+  if (parts.length === 0 || ['media', 'bundle', '_auth', 'assets', 'ws'].includes(parts[0]!)) return false;
   return parts.every((part) => !part.startsWith('.')) && !parts[parts.length - 1]!.includes('.');
 }
 

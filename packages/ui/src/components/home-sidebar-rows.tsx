@@ -18,6 +18,7 @@ import AlertTriangle from '@react-spectrum/s2/icons/AlertTriangle';
 import Archive from '@react-spectrum/s2/icons/Archive';
 import ClockPending from '@react-spectrum/s2/icons/ClockPending';
 import Asset from '@react-spectrum/s2/icons/Asset';
+import Brand from '@react-spectrum/s2/icons/Brand';
 import Comment from '@react-spectrum/s2/icons/Comment';
 import Edit from '@react-spectrum/s2/icons/Edit';
 import Folder from '@react-spectrum/s2/icons/Folder';
@@ -31,6 +32,7 @@ import { S } from './shell-copy.ts';
 import { agoLabel, shortenPath } from '../model/format.ts';
 import { conversationStatus, sessionStatus, type ProjectRow } from '../model/sidebar.ts';
 import { hrefFor } from '../state/shell-store.ts';
+import { PROJECT_MENU_COPY } from './skills/skills-copy.ts';
 
 /** SideNav 把文字放在 auto 宽的网格列里：允许它收窄，标题才会省略而不是溢出到行尾按钮下面。 */
 const fit = style({ minWidth: 0 });
@@ -169,6 +171,10 @@ export function ProjectItem({
           <MenuItem id="space" textValue={S.sidebarRows.showInSpace}>
             <Asset />
             <Text>{S.sidebarRows.showInSpace}</Text>
+          </MenuItem>
+          <MenuItem id="brand" textValue={PROJECT_MENU_COPY.brand}>
+            <Brand />
+            <Text>{PROJECT_MENU_COPY.brand}</Text>
           </MenuItem>
           <MenuItem id="reveal" textValue={revealLabel()}>
             <OpenIn />

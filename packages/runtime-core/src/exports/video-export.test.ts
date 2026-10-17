@@ -19,6 +19,7 @@ import {
 } from '@baocut/protocol';
 import { resolveRuntimeHome } from '@baocut/runtime-storage';
 import { startRuntime, type RunningRuntime } from '../runtime.ts';
+import { freshCaptionStyle } from '../agent-tools/caption-style.ts';
 import { FontCatalogue } from '../fonts/font-catalogue.ts';
 import { resolveEngineHostCommand } from '../videos/engine-host.ts';
 import {
@@ -780,12 +781,17 @@ describe.skipIf(!engine || !worker || !ffmpeg)('成片导出（真实引擎 + Re
           if (r > 200 && g > 200 && b > 200) white++;
         }
       }
-      const notes = (job.warnings ?? []).map((w) => w.detail ?? '').filter((d) => d.includes('字体 "ColrProbe"'));
+      const notes = (job.warnings ?? []).map((w) => w.detail ?? '').filter((d) => d.includes('Font "ColrProbe"'));
       return { red, white, notes, job };
     };
     const missing = await exported();
     expect(missing.notes).toHaveLength(1);
-    expect(missing.notes[0]).toContain('在当前字体库中不可用');
+    expect(missing.notes[0]).toContain('isn’t in the font library');
+    // 带引用：界面按自己的语言显示，按引用认出缺的族。
+    expect(missing.job.warnings?.find((w) => w.detail === missing.notes[0])?.detailRef).toMatchObject({
+      key: 'frameRender.itemNote',
+      params: { note: { key: 'frameRender.missingFont', params: { family: 'ColrProbe' } } },
+    });
     expect(missing.red).toBe(0);
     expect(missing.white).toBeGreaterThan(100);
     await fs.copyFile(
@@ -1229,6 +1235,60 @@ describe.skipIf(!engine || !worker || !ffmpeg)('成片导出（真实引擎 + Re
     expect(burned.length).toBeGreaterThan(0);
     expect(await families(true)).toEqual(burned);
     expect(await families(false)).toEqual([]);
+  });
+
+  it('字幕：智能体的 style（y、verticalAlign、width）决定烧进画面的位置与折行宽度', async () => {
+    // 9:16，1080×1920 的四分之一：y 与 width 是百分比，像素按比例缩小四倍。
+    const [width, height] = [270, 480];
+    const burn = async (text: string, patch: Parameters<typeof freshCaptionStyle>[0]) => {
+      const { ref } = await client.request('videos.create', { projectId: project.id, name: `竖版字幕 ${patch.width ?? ''}` });
+      const videoId = ref.videoId;
+      const { sequenceId } = video(videoId);
+      await edit(videoId, [
+        { type: 'updateSequence', sequenceId, canvas: { width, height } },
+        {
+          type: 'putDocument',
+          ref: 'cap',
+          kind: 'caption',
+          name: '字幕',
+          language: 'en',
+          body: { schema: 'baocut.caption/1', clock: 'sequence', timescale: 1000, cues: [{ id: 'c1', start: 0, end: 2000, text }] },
+        },
+        { type: 'putDocument', ref: 'style', kind: 'caption-style', name: '字幕样式', body: freshCaptionStyle(patch) },
+        { type: 'addTrack', kind: 'subtitle', ref: 'subs' },
+        {
+          type: 'insertItems',
+          sequenceId,
+          items: [{ type: 'caption', trackRef: 'subs', documentRef: 'cap', styleDocumentRef: 'style', span: { fromFrame: 0, durationFrames: 60 } }],
+        },
+      ]);
+      const job = await exportOnce({ videoId, settings: { kind: 'video', format: 'mp4', range: { start: 0, end: 0.5 } } });
+      const rate = video(videoId).fps.num / video(videoId).fps.den;
+      const frame = frameAt(job.result!.outputs![0]!.path!, 0, rate, width, height);
+      // 白字的行（描边是黑的，背景也是黑的）：亮像素所在的最上与最下一行。
+      const rows: number[] = [];
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          if (pixel(frame, width, x, y)[1] > 160) {
+            rows.push(y);
+            break;
+          }
+        }
+      }
+      return { top: Math.min(...rows), bottom: Math.max(...rows) };
+    };
+    // 底边落在 75%（1080×1920 上是 y 1440）：整块在 1350–1500 之间，不进 86% 以下的平台控件区。
+    const one = await burn('Hello there', { y: 75, verticalAlign: 'bottom' });
+    expect(one.bottom).toBeLessThanOrEqual(0.75 * height + 2);
+    expect(one.top).toBeGreaterThanOrEqual((1350 / 1920) * height);
+    expect(one.bottom).toBeLessThanOrEqual((1500 / 1920) * height);
+    // 同一句话、更窄的行宽：折成几行，底边不动，往上长。
+    const long = 'Good morning and welcome back';
+    const wide = await burn(long, { y: 75, verticalAlign: 'bottom', width: 100 });
+    const narrow = await burn(long, { y: 75, verticalAlign: 'bottom', width: 30 });
+    expect(Math.abs(narrow.bottom - wide.bottom)).toBeLessThanOrEqual(3);
+    expect(wide.bottom - wide.top).toBeLessThan(25);
+    expect(narrow.top).toBeLessThan(wide.top - 15);
   });
 
   it('SVG 图片按矢量光栅画进成片', async () => {

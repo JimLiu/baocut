@@ -207,6 +207,28 @@ describe('Web 服务', () => {
     await expect(page.request('attachments.prepare',{fileName:'blocked.csv',mimeType:'text/csv',size:1})).rejects.toBeTruthy();
   });
 
+  it('代码包目录地址不查会话：沙箱 iframe 带不上 cookie，只认句柄；响应带包自己的 CSP，不带 DENY 与同源资源策略', async () => {
+    await boot();
+    const origin = await openWeb();
+    const bundle = path.join(dir, 'video', 'assets', 'bundle');
+    await fs.mkdir(bundle, { recursive: true });
+    await fs.writeFile(path.join(bundle, 'index.html'), '<!doctype html><head></head><body>bundle</body>');
+    const handle = await runtime!.services.web.media.issueBundle(path.join(dir, 'video'), 'assets/bundle', { entry: 'index.html', inject: '<script>1</script>' });
+    expect(handle.url).toMatch(/^\/bundle\/[A-Za-z0-9_-]+\/$/);
+    const page = await send(origin + handle.url + handle.entry, { headers: { 'Sec-Fetch-Site': 'cross-site' } });
+    expect(page.status).toBe(200);
+    expect(page.body).toBe('<!doctype html><head><script>1</script></head><body>bundle</body>');
+    expect(page.headers['x-frame-options']).toBeUndefined();
+    expect(page.headers['cross-origin-resource-policy']).toBe('cross-origin');
+    expect(page.headers['content-security-policy']).toContain('sandbox allow-scripts');
+    // 同源的相对句柄在 CSP 里要补成带主机的绝对前缀，否则来源表达式无效。
+    expect(page.headers['content-security-policy']).toContain(`script-src 'unsafe-inline' 'wasm-unsafe-eval' ${origin}${handle.url}`);
+    expect(page.headers['x-content-type-options']).toBe('nosniff');
+    expect(page.headers['referrer-policy']).toBe('no-referrer');
+    expect((await send(`${origin}/bundle/${'A'.repeat(32)}/index.html`)).status).toBe(404);
+    expect((await send(`${origin}/bundle/`)).status).toBe(404);
+  });
+
   it('默认关闭、端口 47622；没有构建产物时开启进入 error 并说明，Runtime 照常', async () => {
     await boot({ dist: null });
     const before = (await desktop.request('services.list', {})).services.find((s) => s.serviceId === 'web')!;

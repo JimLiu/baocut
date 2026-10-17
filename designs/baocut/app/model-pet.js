@@ -26,7 +26,7 @@
    （`validatePetJson`）、从 zip 的文件名表里挑出那两份文件（`pickEntries`）。
    不碰 DOM、不解 zip（那是 JSZip 与视图层的事）、不发网络请求。
 
-   目录那半（官方 9 只 + awesome-codex-pet 社区索引 239 只）的数据在生成物
+   目录那半（awesome-codex-pet 社区索引 239 只）的数据在生成物
    [model-pet-catalog.js](model-pet-catalog.js)（`BC_PETCAT`），这里只放按分类
    取 / 搜索 / 拼远端 URL 的函数，数据作参数传进来，`node --test` 不用先加载
    目录也能测算术。

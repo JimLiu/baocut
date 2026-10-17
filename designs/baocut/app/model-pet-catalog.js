@@ -1,26 +1,13 @@
 /* model-pet-catalog.js —— Codex Pet 目录数据（第 242 轮，@generated）。
 
-   由 scratchpad 的 gen-pets.py 从两处生成，**不要手改**：
-   - `OFFICIAL`：随原型打包的 9 只官方 pet（`assets/pets/official/<id>/`），字段来自各自的
-     `pet.json`；来源与 sha256 在 `assets/pets/provenance.json`。
+   由 scratchpad 的 gen-pets.py 生成，**不要手改**。Codex 自带的官方 pet 没有公开的再分发许可，
+   不在目录里。
    - `PETS` / `CATS`：awesome-codex-pet（https://github.com/legeling/awesome-codex-pet）的
      `pets.json` 与 `categories.json` 索引，239 只、11 个分类，按分类计数降序。社区 pet **不随包**，
      缩略图与雪碧图上时间轴时才从 codexpet.top / raw.githubusercontent.com 取（URL 拼法在
      `BC_PET`）。`license` 是各 pet 自报的许可原文（多为 CC BY-NC 4.0，也有 MIT 与「仅非商用」），
      署名必须随格子一起显示。 */
 (function () {
-  const DIR = 'assets/pets/official/';
-  const OFFICIAL = [
-    {"id":"bsod","name":"BSOD","desc":"A tiny blue-screen gremlin.","version":2,"bytes":1361670},
-    {"id":"codex","name":"Codex","desc":"The original Codex companion.","version":2,"bytes":1309110},
-    {"id":"dewey","name":"Dewey","desc":"A calm companion for focused workspace days","version":2,"bytes":1159676},
-    {"id":"fireball","name":"Fireball","desc":"Hot path energy for fast iteration.","version":2,"bytes":1445424},
-    {"id":"hoots","name":"Hoots","desc":"A sharp-eyed owl for polished work in a blink.","version":2,"bytes":2447958},
-    {"id":"null-signal","name":"Null Signal","desc":"Quiet signal from the void.","version":2,"bytes":797008},
-    {"id":"rocky","name":"Rocky","desc":"A steady rock when the diff gets large.","version":2,"bytes":978516},
-    {"id":"seedy","name":"Seedy","desc":"Small green shoots for new ideas.","version":2,"bytes":1277240},
-    {"id":"stacky","name":"Stacky","desc":"A balanced stack for deep work.","version":2,"bytes":1050996},
-  ].map((o) => Object.assign(o, {src: DIR + o.id + '/spritesheet.webp', json: DIR + o.id + '/pet.json'}));
   const CATS = [
     {"slug":"game-characters","name":"Game Characters","zh":"游戏角色","count":62},
     {"slug":"anime-characters","name":"Anime Characters","zh":"动漫角色","count":59},
@@ -275,5 +262,5 @@
     {"slug":"youmu--ai-generated","name":"魂魄妖梦","zh":"","author":"AI 生成（Gemini）","handle":"","url":"","cat":"game-characters","license":"Non-commercial use only. AI-generated with Gemini; the submitter confirms the right to include this asset in the repository.","version":2},
     {"slug":"bocchi--lingxiaotian","name":"Bocchi","zh":"后藤独","author":"Lingxiaotian","handle":"legeling","url":"https://github.com/legeling","cat":"anime-characters","license":"CC BY-NC 4.0","version":1},
   ];
-  Object.assign(window, {BC_PETCAT: {DIR, OFFICIAL, CATS, PETS}});
+  Object.assign(window, {BC_PETCAT: {CATS, PETS}});
 })();

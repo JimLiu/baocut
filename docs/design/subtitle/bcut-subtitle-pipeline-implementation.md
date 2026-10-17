@@ -149,8 +149,11 @@ word ⊂ cue ⊂ sentence ⊂ paragraph
 3. 句末标点（无显式 `nobreak` 时无条件封口）；
 4. 从句标点且当前行达到最小长度（破折号用更低门槛）；
 5. 词间停顿至少 0.6 秒且当前行达到最小长度；
-6. 加入下一词后行宽超过 `maxChars`（仅当下一词以从句/句末标点收尾且总宽仍在
-   `maxChars + overflowSlack` 内时延长一词收入标点）。
+6. 加入下一词后行宽超过 `maxChars`（下一词以从句/句末标点收尾，或这道词缝落在
+   一个中文词里时，总宽仍在 `maxChars + overflowSlack` 内就延长一词：收入标点，
+   或把「程序」整个留在这一条，不切成「程｜序」）。中文词边界只看两侧都是汉字的词缝，
+   取 ICU 的中日文词典（Rust `word_breaks::han_word_interior_gaps`，JS
+   `Intl.Segmenter`）；同一个西文词被切开的几段之间照旧不因停顿、溢出断。
 
 默认参数为：
 

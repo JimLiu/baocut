@@ -267,11 +267,11 @@ test('没有样式的类型不硬造一份空样式', () => {
 });
 
 test('Codex Pet 格子的样式袋带 assetKind:pet 与 pet 元数据（第 242 轮）', () => {
-  const st = P.tileStyle('sticker', {src: 'assets/pets/official/codex/spritesheet.webp', kind: 'pet',
-    version: 2, name: 'Codex', author: 'OpenAI', license: 'x'});
+  const src = 'https://raw.githubusercontent.com/legeling/awesome-codex-pet/main/pets/a--b/spritesheet.webp';
+  const st = P.tileStyle('sticker', {src, kind: 'pet', version: 2, name: 'A', author: 'b', license: 'x'});
   assert.strictEqual(st.assetKind, 'pet');
-  assert.strictEqual(st.asset, 'assets/pets/official/codex/spritesheet.webp');
-  assert.deepStrictEqual(st.pet, {version: 2, state: 'idle', name: 'Codex', author: 'OpenAI', license: 'x'});
+  assert.strictEqual(st.asset, src);
+  assert.deepStrictEqual(st.pet, {version: 2, state: 'idle', name: 'A', author: 'b', license: 'x'});
   // 普通贴纸不长出 pet 袋
   assert.strictEqual(P.tileStyle('sticker', {src: 'a.json', kind: 'lottie'}).pet, undefined);
   // 元素样式袋的共用键里有 pet，toStage 才不会把它丢掉

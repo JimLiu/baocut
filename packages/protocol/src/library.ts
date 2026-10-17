@@ -1,6 +1,7 @@
 import type { Id } from './domain.ts';
 import type { EditResult } from './methods.ts';
-import type { Revision, TemplateLayers } from './video.ts';
+import type { MessageRef } from './message-ref.ts';
+import type { EditOperation, Revision, TemplateLayers } from './video.ts';
 
 /**
  * 用户库（架构设计 §5.9）：Runtime Home 里跨视频复用的术语表、音色与品牌库。只经 Runtime 读写；进入视频时拷贝，
@@ -242,6 +243,12 @@ export interface LibraryExportResult {
   entry: FrozenLibraryEntry;
 }
 
+/**
+ * `library.applyToVideo` 与 `stickers.applyToVideo` 导入的素材在同一事务里的 `ref`：调用方的 `operations` 用它引用
+ * （`assetImportRef`、`addItem` 的 `asset: { ref }`）。
+ */
+export const APPLIED_ASSET_REF = 'asset';
+
 export interface LibraryApplyParams {
   videoId: Id;
   entry: LibraryEntryRef;
@@ -253,6 +260,14 @@ export interface LibraryApplyParams {
   /** 字幕样式：同一事务里把这些字幕实例的样式指向新文档。 */
   captionItemIds?: Id[];
   sequenceId?: Id;
+  /**
+   * 同一笔事务里接着做的修改（常见是把拷进来的素材放上时间线）：导入的素材在这些操作里是 `assetImportRef: 'asset'`
+   * 或 `addItem` 的 `asset: { ref: 'asset' }`。给了就一起提交、一步撤销。只有导入成素材的条目（图片、视频、贴纸、字体）可给。
+   */
+  operations?: EditOperation[];
+  /** 这笔事务给人看的修改名与它的消息引用（同 `edits.apply`）；不给时是「从品牌库添加」。 */
+  label?: string;
+  labelRef?: MessageRef;
 }
 
 export interface LibraryApplyResult extends EditResult {

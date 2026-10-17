@@ -37,7 +37,7 @@ const CODE_MAP: [RegExp, RpcErrorCode][] = [
     'conflict',
   ],
   [/^(ENTITY_NOT_FOUND|VIDEO_NOT_OPEN)$/, 'not-found'],
-  [/^(INVALID_|TIME_|SOURCE_|MEDIA_|ASSET_|PACKAGE_|UNKNOWN_METHOD)/, 'invalid-request'],
+  [/^(INVALID_|TIME_|SOURCE_|MEDIA_|ASSET_|PACKAGE_|PET_|UNKNOWN_METHOD)/, 'invalid-request'],
   [/^VIDEO_READ_ONLY$/, 'forbidden'],
   // 停止屏障（§7.4）：不是冲突，不能按冲突重试。
   [/^TASK_STOPPED$/, 'forbidden'],

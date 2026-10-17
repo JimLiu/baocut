@@ -16,6 +16,26 @@ import { vi } from './rc-skills.vi.ts';
 
 /** 技能（skills/）的错误。英文是键与类型的来源，译文在 `rc-skills.<语言>.ts`。 */
 const en = {
+  brandProjectNotFound: (p: { id: string }) => `Project not found: ${p.id}`,
+  brandNotFound: (p: { project: string }) => `"${p.project}" has no BRAND.md yet`,
+  brandFileNotFound: (p: { file: string }) => `Not a BRAND.md file: ${p.file}`,
+  brandPathInvalid: (p: { path: string }) => `Only BRAND.md and files in brand/ can be changed: ${p.path}`,
+  brandExists: (p: { path: string }) => `This project already has a BRAND.md: ${p.path}`,
+  brandUnreadable: (p: { file: string }) => `Couldn't read ${p.file}, so this message was sent without it`,
+  // 版本、上传包与编辑（skill-versions / skill-package / skill-installer）
+  versionNotFound: (p: { id: string; revision: number }) => `Skill "${p.id}" has no saved version ${p.revision}`,
+  packageTooLarge: (p: { limit: number }) => `The zip file is larger than ${p.limit} bytes`,
+  packageUnreadable: (p: { path: string }) => `Can't read ${p.path} as a zip file or folder`,
+  packageNoSkill: (p: { file: string }) => `This package has no ${p.file}. A skill's root folder needs a ${p.file} that says what it does and when to use it`,
+  candidateUnsafePath: (p: { path: string }) => `This skill has an entry that can't be unpacked safely: ${p.path}`,
+  candidateTooManyFiles: (p: { files: number; limit: number }) => `Too many files (${p.files}); a skill has at most ${p.limit}`,
+  candidateNoDescription: "SKILL.md is missing a description: write a sentence or two on what it does and when to use it. The agent decides whether to use the skill from it",
+  candidateDuplicate: (p: { id: string }) => `Another skill in this package has the same id "${p.id}"`,
+  packagePickInvalid: (p: { prefix: string }) => `${p.prefix} isn't a skill in this package that can be installed`,
+  revisionConflict: (p: { revision: number }) => `The skill changed meanwhile (now version ${p.revision}). Reload it and make your changes again`,
+  cannotRemoveSkillFile: (p: { file: string }) => `${p.file} can't be deleted`,
+  notEditable: (p: { name: string }) => `"${p.name}" can't be edited here. Duplicate it and edit the copy`,
+  changeSourceMissing: (p: { path: string }) => `Not a file that can be added: ${p.path}`,
   cliOnlyPageLink: (p: { page: string }) => `Linked page ${p.page} is unavailable on the tool interface: it only has a CLI surface, so links to it must be in the CLI surface`,
 
   guideIdConflict: (p: { id: string }) => `ID "${p.id}" belongs to a BaoCut guide page, so this copy was not loaded. Rename the folder`,

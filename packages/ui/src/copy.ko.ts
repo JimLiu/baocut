@@ -380,7 +380,7 @@ export const ko: CopyMessages = {
     modelsMove: '모델 폴더 이동',
     toolInstall: '도구 설치',
     toolUpdate: '도구 업데이트',
-    fontDownload: '글꼴 다운로드',
+    fontDownload: '글꼴 다운로드', bake: '모션 그래픽 베이크',
     voiceClone: '목소리 복제',
     agentTranslate: '번역',
     legacyImport: '이전 프로젝트 가져오기',
@@ -756,7 +756,7 @@ export const ko: CopyMessages = {
     unavailableTitle: (name: string) => `${name}은(는) 아직 사용할 수 없습니다`,
     notRunning: '서비스가 실행 중이 아닙니다. 먼저 시작하세요',
     mcpRelated: '터미널의 Claude Code나 Codex가 BaoCut의 워크플로를 익히게 하고 싶나요? 서비스를 시작할 필요 없이 BaoCut Skill을 설치하면 됩니다. 참고:',
-    mcpRelatedLink: '설정 › Skills',
+    mcpRelatedLink: 'Skills',
   },
   runtimeCard: {
     name: 'BaoCut Runtime',

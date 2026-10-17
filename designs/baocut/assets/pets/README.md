@@ -21,21 +21,10 @@ The pure model that knows the geometry, state table, frame stepping and zip
 validation is [`../../app/model-pet.js`](../../app/model-pet.js); the catalogue
 is generated into [`../../app/model-pet-catalog.js`](../../app/model-pet-catalog.js).
 
-## `official/` — 9 bundled pets
+The pets that ship inside the Codex desktop app are not included: OpenAI has
+published no redistribution licence for them.
 
-`bsod`, `codex`, `dewey`, `fireball`, `hoots`, `null-signal`, `rocky`, `seedy`,
-`stacky` — the pets that ship inside the Codex desktop client, all v2. The
-`spritesheet.webp` bytes are byte-for-byte copies of the assets found in the
-app bundle; `pet.json` was reconstructed to the custom-pet schema. Source paths,
-sizes and SHA-256 digests are recorded in [`provenance.json`](provenance.json).
-
-**Licence caveat.** These pets are OpenAI's; no redistribution licence has been
-published for them. They are bundled here only as demo material for the internal
-prototype and the desktop App's development build. Shipping them in a product
-release needs an explicit decision (permission, replacement with own artwork, or
-removal) — do not treat their presence in this tree as clearance.
-
-## Community pets — not bundled
+## Community pets — not stored here
 
 The "社区" tab browses the index of
 [awesome-codex-pet](https://github.com/legeling/awesome-codex-pet) (239 pets in
@@ -49,7 +38,5 @@ element's `pet` bag.
 ## Regenerating
 
 The scratch script `gen-pets.py` (kept with the task notes, not in the repo)
-copies the official pets from a local extraction, checks each sheet's dimensions
-against its version, writes `provenance.json`, and rebuilds the catalogue module
-from the upstream `pets.json` / `categories.json`. With `--app` it also mirrors
-`official/` and `provenance.json` into `apps/baocut/assets/pets/`.
+rebuilds the catalogue module from the upstream `pets.json` /
+`categories.json`.

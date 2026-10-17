@@ -1,5 +1,6 @@
 // i18n-ignore-file: 给模型的工具说明、错误与下一步
 import { z } from 'zod';
+import { captionStylePatch } from './caption-style.ts';
 
 /**
  * `edits_apply` 的操作族（命令与协议规范 §4.2）：每个操作的说明、参数的 JSON Schema 与一个最小示例，`edits_ops` 原样列出，
@@ -295,7 +296,7 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
     type: 'setStyle',
     family: 'styles',
     doc: [
-      '- {"type":"setStyle","itemId","mode"?:"fullscreen"|"pip","fit"?:"cover"|"contain","bg"?:"blur"|"black"|"#RRGGBB","opacity"?,"radius"?,"mask"?:{"shape":"ellipse","feather"?},"crop"?:{"left","top","right","bottom"},"focalPoint"?:{"x","y","zoom"?},"style"?:{…},"verticalAlign"?:"top"|"center"|"bottom"}：改片段的外观，只改给出的字段，给 null 回到缺省。mode 只用于视频、图片、素材贴纸、占位框与白板：fullscreen 铺满画布（画中画的位置与宽保留，切回 pip 时还原），pip 按 setTransform 的位置与宽摆放，缺省为 pip；fit 是铺满时裁切（cover）还是留边（contain），bg 是留边的底。opacity 在 0 到 1；radius 是圆角，按 540 短边下的像素；mask 的 feather 不小于 0；crop 每边是 0 到 1 的比例，左右、上下之和小于 1，只用于视频与图片；focalPoint 是 cover 裁掉多余部分时留哪一段（x、y 在 0 到 1，0 贴左 / 上，0.5 居中，1 贴右 / 下），源画面不裁，换画幅时还在；zoom 是在刚好铺满之上再放大多少（1 到 4，缺省 1），源上 x、y 那一点在画面上不动、围着它放大；只用于视频与图片。style 与 verticalAlign 只用于文字片段。',
+      '- {"type":"setStyle","itemId","mode"?:"fullscreen"|"pip","fit"?:"cover"|"contain","bg"?:"blur"|"black"|"#RRGGBB","opacity"?,"radius"?,"mask"?:{"shape":"ellipse","feather"?},"crop"?:{"left","top","right","bottom"},"focalPoint"?:{"x","y","zoom"?},"style"?:{…},"verticalAlign"?:"top"|"center"|"bottom"}：改片段的外观，只改给出的字段，给 null 回到缺省。mode 只用于视频、图片、素材贴纸、占位框与白板：fullscreen 铺满画布（画中画的位置与宽保留，切回 pip 时还原），pip 按 setTransform 的位置与宽摆放，缺省为 pip；fit 是铺满时裁切（cover）还是留边（contain），bg 是留边的底。opacity 在 0 到 1；radius 是圆角，按 540 短边下的像素；mask 的 feather 不小于 0；crop 每边是 0 到 1 的比例，左右、上下之和小于 1，只用于视频与图片；focalPoint 是 cover 裁掉多余部分时留哪一段（x、y 在 0 到 1，0 贴左 / 上，0.5 居中，1 贴右 / 下），源画面不裁，换画幅时还在；zoom 是在刚好铺满之上再放大多少（1 到 4，缺省 1），源上 x、y 那一点在画面上不动、围着它放大；只用于视频与图片。style 与 verticalAlign 只用于文字片段；字幕的位置与样式用 setCaptionStyle。',
     ],
     schema: op('setStyle', {
       itemId: idOf('画面片段 ID'),
@@ -353,6 +354,24 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
       sequenceId,
     }),
     example: { type: 'setText', itemId: 'item_1', text: '第一章' },
+  },
+  {
+    type: 'setCaptionStyle',
+    family: 'styles',
+    doc: [
+      '- {"type":"setCaptionStyle","itemId","style"?:{"y"?,"verticalAlign"?,"x"?,"width"?,"fontSize"?,"fontWeight"?,"fontFamily"?,"fontColor"?,"textOutline"?:{"on","color"?,"width"?},"dropShadow"?:{"on"},"background"?,"backgroundColor"?},"styleDocumentId"?,"styleDocument"?:{"ref"}}：改字幕实例的位置与样式，三者只给一个。style 只给要改的键（与 captions_create 的 style 相同，都是字幕样式文档里的键）：y 是画面高度的百分比（0 顶、100 底，缺省 86），verticalAlign 说字幕块哪条边落在 y 上（top / center / bottom，缺省 center），x 是块中心、width 是折行宽度，都按画面宽度的百分比（缺省 50、80），fontSize 按 540 短边下的像素（缺省 30），textOutline / dropShadow / background 开关描边、投影与底板。实例有样式文档时合进那一份、写一个新版本，共用它的字幕层（双语的两层）一起变；没有时以默认样式为底新建一份，序列上其余还没有样式的字幕一起挂上。styleDocumentId 换用视频里一份已有的字幕样式（kind caption-style）；styleDocument 的 ref 指同一笔里 putDocument 新建的样式（比如照 library_show 的 captionStyle 写的）。只用于字幕；文字片段用 setStyle。',
+    ],
+    schema: op('setCaptionStyle', {
+      itemId: idOf('字幕实例 ID'),
+      style: captionStylePatch.optional().describe('只给要改的样式键；与 styleDocumentId、styleDocument 只给一个'),
+      styleDocumentId: idOf('换用的字幕样式文档 ID（kind caption-style）').optional(),
+      styleDocument: z
+        .object({ ref: z.string().describe('同一笔里 putDocument 的 ref') })
+        .optional()
+        .describe('换用同一笔里新建的字幕样式'),
+      sequenceId,
+    }),
+    example: { type: 'setCaptionStyle', itemId: 'item_caption_1', style: { y: 78, verticalAlign: 'bottom', background: true } },
   },
   {
     type: 'setAudioMix',

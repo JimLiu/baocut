@@ -15,6 +15,7 @@ mod exports;
 mod fonts;
 mod host;
 mod package;
+mod pets;
 
 use std::io::{self, BufRead, BufWriter, Write};
 use std::panic::{AssertUnwindSafe, catch_unwind};

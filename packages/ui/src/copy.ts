@@ -453,7 +453,7 @@ const en = {
     modelsMove: 'Move models folder',
     toolInstall: 'Install tool',
     toolUpdate: 'Update tool',
-    fontDownload: 'Download font',
+    fontDownload: 'Download font', bake: 'Bake motion graphic',
     voiceClone: 'Clone voice',
     agentTranslate: 'Translate',
     legacyImport: 'Import earlier projects',
@@ -862,7 +862,7 @@ const en = {
     unavailableTitle: (name: string) => `${name} isn’t available yet`,
     notRunning: 'The service isn’t running. Start it first',
     mcpRelated: 'Want Claude Code or Codex in your terminal to learn BaoCut’s workflows? Install BaoCut’s skill for them — no service needed. See',
-    mcpRelatedLink: 'Settings › Skills',
+    mcpRelatedLink: 'Skills',
   },
   /** BaoCut Runtime 卡（原服务页的一张卡，现在给设置 › 诊断复用）。 */
   runtimeCard: {
