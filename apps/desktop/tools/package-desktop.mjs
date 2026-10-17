@@ -304,8 +304,8 @@ if (options['bin-dir']) {
 const staging = mkdtempSync(path.join(tmpdir(), 'baocut-package-'));
 const appDir = path.join(staging, 'app');
 const resDir = path.join(staging, 'resources');
-const cliLauncher = stageDesktopCli(path.join(staging, 'cli'), isMac ? 'darwin' : 'win32');
 try {
+  const cliLauncher = stageDesktopCli(path.join(staging, 'cli'), isMac ? 'darwin' : 'win32');
   // 2. 只含产物的应用。
   const desktop = JSON.parse(readFileSync(path.join(DESKTOP, 'package.json'), 'utf8'));
   mkdirSync(appDir, { recursive: true });
@@ -637,6 +637,7 @@ function verifyUnpacked(dir, variantName) {
   const launcher = path.join(dir, isMac ? 'Contents/MacOS/baocut-cli' : 'baocut.cmd');
   if (!existsSync(launcher)) problems.push('Missing desktop CLI launcher');
   else if (isMac && (statSync(launcher).mode & 0o111) === 0) problems.push('Desktop CLI launcher is not executable');
+  if (isMac && existsSync(launcher)) runMac('lipo', [launcher, '-verify_arch', macPlan.intel ? 'x86_64' : 'arm64']);
   for (const name of BUNDLED_EXECUTABLES) {
     if (!existsSync(path.join(resources, RESOURCE_DIRS.bin, exe(name)))) problems.push(`没有 resources/${RESOURCE_DIRS.bin}/${exe(name)}`);
   }

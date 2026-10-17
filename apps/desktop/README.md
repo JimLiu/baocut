@@ -11,7 +11,7 @@ BaoCut 的 Electron 桌面端：主进程（`src/main`）、preload 与渲染进
 
 ## 外部 Agent 与 CLI
 
-桌面构建把当前 CLI、离线工具目录和 Runtime 放在同一个 App 中。macOS 的入口是 `BaoCut.app/Contents/MacOS/baocut-cli`，Windows 是安装目录里的 `baocut.cmd`；两者都使用包内的 Electron，无需另装 Node，也不自动向系统 PATH 写文件。把该入口的完整路径设为 `BAOCUT_CLI`，或通过绝对路径调用。macOS 的启动器也支持用户自己建立的符号链接。
+桌面构建把当前 CLI、离线工具目录和 Runtime 放在同一个 App 中。macOS 的入口是 `BaoCut.app/Contents/MacOS/baocut-cli`，Windows 是安装目录里的 `baocut.cmd`；两者都使用包内的 Electron，无需另装 Node，也不自动向系统 PATH 写文件。把该入口的完整路径设为 `BAOCUT_CLI`，或通过绝对路径调用。macOS 的启动器也支持用户自己建立的符号链接；打包时用 Xcode 的 clang 编译为与宿主相同架构的 Mach-O，随 App 签名，避免脚本放在 `Contents/MacOS` 造成嵌套代码签名失败。
 
 先运行入口的 `version`：没有 Runtime 时只报告 CLI 版本，已有 Runtime 时检查工具接口是否兼容；不要用 App 的营销版本号代替这个检查。确认后可用该入口执行 `skill install --agent codex`（其他宿主见帮助）更新已安装的外部 Skill。CLI 优先启动自身所在 App 的 Runtime、读取同一包的说明书；显式的 `BAOCUT_RUNTIME_ENTRY` 仍优先。
 
