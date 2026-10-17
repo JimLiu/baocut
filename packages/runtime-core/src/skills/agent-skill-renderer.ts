@@ -65,7 +65,7 @@ export interface RenderAgentSkillOptions {
   catalog?: AgentSkillCatalog | null;
   /**
    * CLI 面 `{{skill:id}}` 的写法：`relative`（缺省）是指向 `references/craft/<id>.md` 的链接，给装好的说明书；`command` 是
-   * 「用 `baocut skills read <id>` 读」，给 Runtime 直接送到终端或 MCP 的页（那里没有 craft 目录可点）。
+   * 「use `baocut skills read <id>`」，给 Runtime 直接送到终端或 MCP 的页（那里没有 craft 目录可点）。
    */
   craftLinks?: 'relative' | 'command';
 }
@@ -387,7 +387,7 @@ function renderPlaceholders(
         if (face === 'agent') return lead ? `用 \`skills_read\` 读 \`${value}\`` : `\`${value}\`（用 \`skills_read\` 读）`;
         if (options.craftLinks === 'command') {
           const command = `\`baocut skills read ${value}\``;
-          return lead ? `用 ${command} 读` : `\`${value}\`（用 ${command} 读）`;
+          return lead ? `use ${command}` : `\`${value}\` (read with ${command})`;
         }
         const target = `${AGENT_SKILL_CRAFT_DIR}/${value}.md`;
         return `${lead ?? ''}[${value}](${path.posix.relative(path.posix.dirname(file), target)})`;
