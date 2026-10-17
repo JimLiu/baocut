@@ -113,3 +113,25 @@ function catchError(fn: () => void): CliError {
   }
   throw new Error('没有抛出');
 }
+
+describe('CLI shipped inside a relocated desktop app', () => {
+  it('prefers its own Runtime and skills over another installed app', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-cli-own-app-'));
+    try {
+      const contents = path.join(dir,'Moved app','BaoCut.app','Contents');
+      const resources = path.join(contents,'Resources');
+      const from = path.join(resources,'app.asar','out','main');
+      const executable = path.join(contents,'MacOS','BaoCut');
+      fs.mkdirSync(from,{recursive:true}); fs.mkdirSync(path.dirname(executable),{recursive:true}); fs.writeFileSync(executable,'fixture');
+      fs.mkdirSync(path.join(resources,'skills'),{recursive:true});
+      expect(packagedApps({},'darwin',from)[0]).toEqual({executable,resources});
+      expect(resolveRuntimeLaunch({},'darwin',from)).toEqual({command:executable,args:[path.join(resources,'app.asar','out','main','runtime.js'),'--credential-store','keychain'],env:{ELECTRON_RUN_AS_NODE:'1',...packagedResourceEnv(resources,'darwin')},source:'packaged'});
+      expect(resolveAgentSkillsDir({},'darwin',from)).toBe(path.join(resources,'skills'));
+      expect(resolveRuntimeLaunch({BAOCUT_RUNTIME_ENTRY:'/explicit/runtime.js'},'darwin',from)?.source).toBe('env');
+    } finally { fs.rmSync(dir,{recursive:true,force:true}); }
+  });
+  it('derives a portable Windows app before standard install directories', () => {
+    const from = String.raw`D:\Portable Apps\BaoCut\resources\app.asar\out\main`;
+    expect(packagedApps({LOCALAPPDATA:String.raw`C:\Users\test\Local`},'win32',from)[0]).toEqual({executable:String.raw`D:\Portable Apps\BaoCut\BaoCut.exe`,resources:String.raw`D:\Portable Apps\BaoCut\resources`});
+  });
+});

@@ -28,6 +28,8 @@ BaoCut 提供 macOS 与 Windows 安装包，下面的链接始终下载最新版
 
 macOS 打开 DMG 后，将 BaoCut 拖入“应用程序”。Windows 先安装 [Microsoft Visual C++ v14 x64 Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist/)，再运行安装器或解压 ZIP。Windows 包未签名，GPU 版需要兼容的显卡驱动。校验文件与验证说明见各版本的 GitHub 发布页；应用通过各平台的更新源检查 GitHub Releases 中的新版本。
 
+外部 Agent 使用[桌面 CLI 入口](apps/desktop/README.md#外部-agent-与-cli)；绝对路径、`BAOCUT_CLI` 与旧包缺失入口的处理见该说明。
+
 智能体功能需要已登录的智能体引擎，例如 Codex CLI 或 Claude Code。媒体分析、转写音频准备与导出还需要 `ffmpeg` 和 `ffprobe`；安装包不包含这些外部工具。
 
 Fish Audio S2 Pro 可在本机使用 MLX 社区 8-bit 权重，支持内置音色和参考录音加原文克隆（Built with Fish Audio；研究及非商业用途许可）。

@@ -272,6 +272,8 @@ export --video V --kind subtitles --format srt --bilingual
 
 ### 5.6 Runtime 的归属
 
+桌面包随带同一次构建的 CLI、Runtime 与离线工具目录，启动器使用包内 Electron；入口、安装与旧包缺失入口的处理见[桌面端 README「外部 Agent 与 CLI」](../../../apps/desktop/README.md#外部-agent-与-cli)。CLI 优先使用自身 App 的 Runtime 与说明书，支持移动安装目录；显式 `BAOCUT_RUNTIME_ENTRY` 的优先级不变。Web 页面不安装本机命令入口。
+
 - 每条要连 Runtime 的命令先按 `BAOCUT_HOME` 的发现文件找正在跑的 Runtime；找不到时**默认自动拉起**一个（后台、脱离终端），结果里带 `runtime: { started: true }`。`--no-start` 关掉自动拉起（CI 或只想看状态时）。
 - `baocut runtime ensure` 显式做同一件事并打印 `started` / `reused`；`runtime status` 打印进程、端口、版本、是否有桌面端连接着；`runtime stop` 只停 CLI 自己拉起的那一个，桌面端连接着时拒绝并说明。
 - CLI 拉起的 Runtime 空闲（没有在用的连接、没有任务）满设置 `runtime.idleExitMinutes`（默认 10）自动退出，Agent 忘了停也不留后台进程。`baocut runtime status` 只查状态，不算在用：查询不推迟退出，报出的 `idleSince` 是查询之前的值。

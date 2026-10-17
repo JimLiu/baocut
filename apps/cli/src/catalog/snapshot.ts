@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { CatalogSnapshot } from '@baocut/protocol';
 
@@ -8,7 +9,11 @@ import type { CatalogSnapshot } from '@baocut/protocol';
  *
  * 按路径读而不是静态 import：快照不在时 CLI 照样能加载，只是离线的帮助给出生成命令。
  */
-export const SNAPSHOT_FILE = fileURLToPath(new URL('../generated/catalog.json', import.meta.url));
+export function snapshotFile(from = path.dirname(fileURLToPath(import.meta.url))): string {
+  const bundled = path.join(from, 'generated', 'cli-catalog.json');
+  return fs.existsSync(bundled) ? bundled : path.join(from, '..', 'generated', 'catalog.json');
+}
+export const SNAPSHOT_FILE = snapshotFile();
 
 /** 生成快照的命令（快照缺失时提示）。 */
 export const SNAPSHOT_COMMAND = 'npm run build:catalog';

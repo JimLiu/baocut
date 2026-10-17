@@ -104,7 +104,7 @@ export interface LaunchSpec {
 }
 
 /**
- * Runtime 的入口，依次找：`BAOCUT_RUNTIME_ENTRY`（`.ts` / `.js` 用当前的 Node 跑，否则当可执行文件）→ 装好的 BaoCut 应用
+ * Runtime 的入口，依次找：`BAOCUT_RUNTIME_ENTRY`（`.ts` / `.js` 用当前的 Node 跑，否则当可执行文件）→ 当前 CLI 所在的桌面包，再查标准安装位置
  * （以 Node 方式运行它带的 Runtime，资源位置照桌面端的 `packagedResourceEnv`）→ 仓库里的 `apps/runtime/src/main.ts`。
  */
 export function resolveRuntimeLaunch(
@@ -119,7 +119,7 @@ export function resolveRuntimeLaunch(
       ? { command: process.execPath, args: [entry], env: {}, source: 'env' }
       : { command: entry, args: [], env: {}, source: 'env' };
   }
-  for (const app of packagedApps(env, platform)) {
+  for (const app of packagedApps(env, platform, from)) {
     if (fs.existsSync(app.executable) && fs.existsSync(path.join(app.resources, 'app.asar'))) {
       return {
         command: app.executable,
@@ -136,21 +136,36 @@ export function resolveRuntimeLaunch(
 }
 
 /** 装好的 BaoCut 应用可能在的位置（Windows 的 NSIS 按用户安装、macOS 的 Applications）。 */
-export function packagedApps(env: NodeJS.ProcessEnv, platform: NodeJS.Platform): { executable: string; resources: string }[] {
+export function packagedApps(
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform,
+  from = path.dirname(fileURLToPath(import.meta.url)),
+): { executable: string; resources: string }[] {
+  const paths = platform === 'win32' ? path.win32 : path.posix;
+  // In app.asar/out/main, prefer the app containing this CLI over another installed version.
+  const archive = paths.resolve(from, '..', '..');
+  const own = paths.basename(archive) === 'app.asar' && (platform === 'darwin' || platform === 'win32')
+    ? [{
+        executable: platform === 'darwin'
+          ? paths.resolve(archive, '..', '..', 'MacOS', 'BaoCut')
+          : paths.resolve(archive, '..', '..', 'BaoCut.exe'),
+        resources: paths.dirname(archive),
+      }]
+    : [];
   if (platform === 'win32') {
     const roots = [
       env.LOCALAPPDATA && path.win32.join(env.LOCALAPPDATA, 'Programs', 'BaoCut'),
       env.ProgramFiles && path.win32.join(env.ProgramFiles, 'BaoCut'),
     ];
-    return roots
+    return [...own, ...roots
       .filter((root): root is string => Boolean(root))
-      .map((root) => ({ executable: path.win32.join(root, 'BaoCut.exe'), resources: path.win32.join(root, 'resources') }));
+      .map((root) => ({ executable: path.win32.join(root, 'BaoCut.exe'), resources: path.win32.join(root, 'resources') }))];
   }
   if (platform === 'darwin') {
-    return ['/Applications', path.posix.join(os.homedir().replaceAll('\\', '/'), 'Applications')].map((dir) => ({
+    return [...own, ...['/Applications', path.posix.join(os.homedir().replaceAll('\\', '/'), 'Applications')].map((dir) => ({
       executable: path.posix.join(dir, 'BaoCut.app', 'Contents', 'MacOS', 'BaoCut'),
       resources: path.posix.join(dir, 'BaoCut.app', 'Contents', 'Resources'),
-    }));
+    }))];
   }
   return [];
 }
@@ -178,7 +193,7 @@ export function packagedResourceEnv(resources: string, platform: NodeJS.Platform
 
 /**
  * 说明书的根目录（里面是 `baocut/`），给不连 Runtime 的 `baocut skill path` 用：与 Runtime 的 `resolveBuiltinAgentSkillsDir`
- * 同一个顺序——`BAOCUT_AGENT_SKILLS_DIR` → 装好的 BaoCut 应用的 `<resources>/skills` → 仓库根的 `skills/`。
+ * 同一个顺序——`BAOCUT_AGENT_SKILLS_DIR` → 当前 CLI 所在桌面包及标准安装位置的 `<resources>/skills` → 仓库根的 `skills/`。
  * 都没有时 null。
  */
 export function resolveAgentSkillsDir(
@@ -187,7 +202,7 @@ export function resolveAgentSkillsDir(
   from: string = path.dirname(fileURLToPath(import.meta.url)),
 ): string | null {
   if (env.BAOCUT_AGENT_SKILLS_DIR) return env.BAOCUT_AGENT_SKILLS_DIR;
-  for (const app of packagedApps(env, platform)) {
+  for (const app of packagedApps(env, platform, from)) {
     const dir = packagedResourceEnv(app.resources).BAOCUT_AGENT_SKILLS_DIR!;
     if (fs.existsSync(dir)) return dir;
   }

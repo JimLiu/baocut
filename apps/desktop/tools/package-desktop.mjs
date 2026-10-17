@@ -61,6 +61,7 @@ import { macElectronLanguages, shareMacFonts } from './macos-package-resources.m
 import { macPackagePlan } from './macos-package-plan.mjs';
 import { LOCALES } from '../../../packages/protocol/src/i18n.ts';
 import { readReleaseNotes } from './release-notes.mjs';
+import { stageDesktopCli } from './desktop-cli.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DESKTOP = path.resolve(HERE, '..');
@@ -239,6 +240,8 @@ if (isMac) {
 for (const required of [
   'out/main/index.js',
   'out/main/runtime.js',
+  'out/main/cli.js',
+  'out/main/generated/cli-catalog.json',
   'out/main/generated/editor.wasm',
   'out/preload/index.js',
   'out/renderer/index.html',
@@ -301,6 +304,7 @@ if (options['bin-dir']) {
 const staging = mkdtempSync(path.join(tmpdir(), 'baocut-package-'));
 const appDir = path.join(staging, 'app');
 const resDir = path.join(staging, 'resources');
+const cliLauncher = stageDesktopCli(path.join(staging, 'cli'), isMac ? 'darwin' : 'win32');
 try {
   // 2. 只含产物的应用。
   const desktop = JSON.parse(readFileSync(path.join(DESKTOP, 'package.json'), 'utf8'));
@@ -440,9 +444,10 @@ try {
           NSMicrophoneUsageDescription: 'BaoCut needs microphone access to record audio for transcription.',
           NSBonjourServices: ['_baocut-node._tcp'],
         },
-        extraFiles: [{ from: path.join(DESKTOP, 'build/localizations'), to: 'Resources' }],
+        extraFiles: [cliLauncher, { from: path.join(DESKTOP, 'build/localizations'), to: 'Resources' }],
       },
       win: {
+        extraFiles: [cliLauncher],
         icon: path.join(DESKTOP, 'build', 'icon.ico'),
         artifactName: `${artifact}.\${ext}`,
         // 不签名（§14）。改 exe 的图标与版本信息要 rcedit，在 macOS / Linux 上得有 Wine：只在 Windows 上做。
@@ -629,6 +634,9 @@ function verifyUnpacked(dir, variantName) {
     else if (!readFileSync(file).equals(readFileSync(path.join(ROOT, source)))) problems.push(`resources/${fileName} 与源码声明不一致`);
   }
   if (!existsSync(path.join(dir, isMac ? `Contents/MacOS/${PRODUCT_NAME}` : `${PRODUCT_NAME}.exe`))) problems.push(`没有 ${PRODUCT_NAME}.exe`);
+  const launcher = path.join(dir, isMac ? 'Contents/MacOS/baocut-cli' : 'baocut.cmd');
+  if (!existsSync(launcher)) problems.push('Missing desktop CLI launcher');
+  else if (isMac && (statSync(launcher).mode & 0o111) === 0) problems.push('Desktop CLI launcher is not executable');
   for (const name of BUNDLED_EXECUTABLES) {
     if (!existsSync(path.join(resources, RESOURCE_DIRS.bin, exe(name)))) problems.push(`没有 resources/${RESOURCE_DIRS.bin}/${exe(name)}`);
   }
@@ -663,6 +671,8 @@ function verifyUnpacked(dir, variantName) {
       '/LICENSE',
       '/out/main/index.js',
       '/out/main/runtime.js',
+      '/out/main/cli.js',
+      '/out/main/generated/cli-catalog.json',
       '/out/main/generated/editor.wasm',
       '/out/preload/index.js',
       '/out/renderer/index.html',

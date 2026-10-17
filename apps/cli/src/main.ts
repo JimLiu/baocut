@@ -12,4 +12,5 @@ process.stdout.on('error', (error: NodeJS.ErrnoException) => {
   if (error.code === 'EPIPE') process.exit(process.exitCode ?? 0);
   throw error;
 });
-process.exitCode = await runCli(process.argv.slice(2), adminBucket);
+// The desktop CommonJS bundle cannot contain top-level await.
+void runCli(process.argv.slice(2), adminBucket).then((code) => { process.exitCode = code; });
