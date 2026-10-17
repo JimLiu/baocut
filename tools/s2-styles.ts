@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import macros from 'unplugin-parcel-macros';
 import { normalizePath, parseAst, type Plugin } from 'vite';
 import { mergeLayeredCss, parseLayeredCss } from './s2-styles-merge.ts';
+import { tokenFieldSelectionPlugin } from './s2-tokenfield.mjs';
 
 /** 生产构建合成一块（s2-styles）的 CSS：style 宏生成的，以及 S2、S2 AI 组件自带的。 */
 export function s2StylesChunk(id: string): string | undefined {
@@ -23,7 +24,7 @@ export function s2StylesChunk(id: string): string | undefined {
 export function s2Styles(): Plugin[] {
   const macroPlugin = macros.vite() as Plugin;
   const [devStyles, inlineStyles] = dedupeS2StylesInDev(macroPlugin);
-  return [devStyles, macroPlugin, inlineStyles, dedupeS2StylesInBuild()];
+  return [tokenFieldSelectionPlugin(), devStyles, macroPlugin, inlineStyles, dedupeS2StylesInBuild()];
 }
 
 /**
@@ -42,7 +43,7 @@ function dedupeS2StylesInBuild(): Plugin {
           const css = typeof output.source === 'string' ? output.source : new TextDecoder().decode(output.source);
           const parsed = parseLayeredCss(css);
           if (parsed) output.source = mergeLayeredCss([parsed], '');
-          else this.warn(`${output.fileName} 里有拆不准的写法（匿名层、@import 或条件规则里的 @layer），没有去重`);
+          else this.warn(`Skipped deduplication for ${output.fileName}: unsupported anonymous layers, @import, or @layer inside conditional rules`);
         }
       },
     },
@@ -204,7 +205,7 @@ function dedupeS2StylesInDev(macroPlugin: Plugin): [Plugin, Plugin] {
       let css: string;
       if (MACRO_CSS.test(source)) {
         const content = macroCss(this, source);
-        if (content === undefined) return this.error(`style 宏没有生成 ${source}`);
+        if (content === undefined) return this.error(`The style macro did not generate ${source}`);
         css = content;
       } else {
         css = readFileSync(source, 'utf8');
