@@ -387,7 +387,11 @@ function renderPlaceholders(
         if (face === 'agent') return lead ? `用 \`skills_read\` 读 \`${value}\`` : `\`${value}\`（用 \`skills_read\` 读）`;
         if (options.craftLinks === 'command') {
           const command = `\`baocut skills read ${value}\``;
-          return lead ? `use ${command}` : `\`${value}\` (read with ${command})`;
+          if (lead) {
+            const boundary = offset > 0 && !/\s/.test(line[offset - 1]!) ? ' ' : '';
+            return `${boundary}use ${command}`;
+          }
+          return `\`${value}\` (read with ${command})`;
         }
         const target = `${AGENT_SKILL_CRAFT_DIR}/${value}.md`;
         return `${lead ?? ''}[${value}](${path.posix.relative(path.posix.dirname(file), target)})`;

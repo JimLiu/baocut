@@ -231,6 +231,8 @@ describe('command craft links', () => {
   it.each([
     ['See {{skill:demo-polish}}.', 'See `demo-polish` (read with `baocut skills read demo-polish`).'],
     ['读 {{skill:demo-polish}}', 'use `baocut skills read demo-polish`'],
+    ['动手前先读{{skill:shorts-segments}}。', '动手前先 use `baocut skills read shorts-segments`。'],
+    ['1. 读 {{skill:demo-polish}}', '1. use `baocut skills read demo-polish`'],
   ])('uses English guidance while preserving the runnable command: %s', (source, expected) => {
     const result = renderAgentSkillText(source, {
       face: 'cli', file: 'references/workflows.md', craftLinks: 'command',
