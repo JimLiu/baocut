@@ -22,7 +22,7 @@
   bundle 是代码包目录（入口 index.html）；audio、lines、ref、note、clips 都可省。lines 是 [{ text, start, end }]，
   或 { lines: [...] }，秒数相对这一段的开头。没有 audio 时按页面时钟播放，时长取根元素的 data-duration。
   clips 是叠在代码画面上的实拍片段：at 是相对这一段开头的秒数，在 [at, at + dur) 里铺满盖在上面、跟着旁白走，
-  label 显示在右上角；默认静音，audio 为 true 时出声，volume 是音量（0–1）。subs 是片段里的双语字幕
+  label 显示在右上角；pip 为 { x, y, w } 时不铺满，放成画中画（x、y 框中心，w 框宽，画布百分比；高按片段的宽高比），label 在框的右上角；默认静音，audio 为 true 时出声，volume 是音量（0–1）。subs 是片段里的双语字幕
   [{ start, end, text, tr, who }]（秒数相对片段开头；text 成片语言，tr 原话，who 说话人），播到时画在字幕带上。
   in / out 是片段一侧的转场 { kind, dur, easing }（kind 取 dissolve / wipe / slide / zoom / iris，dur 秒数），
   画法与视频格式一致，渐入渐出时露出下面的代码画面，原声音量跟着一起淡。勾上 chain 时一段的旁白播完自动接下一段。
@@ -194,19 +194,26 @@
   }
   // 实拍片段：落在 [at, at + dur) 里就铺满盖在代码画面上，跟着旁白走
   function syncClips(t) {
-    let tag = '', tagE = 1;
+    let tag = '', tagE = 1, tagAt = { right: '', top: '' };
     for (const c of clips) {
       const on = $('clipOn').checked && t >= c.at && t < c.at + c.dur;
       c.el.style.display = on ? 'block' : 'none';
       if (!on) { if (!c.el.paused) c.el.pause(); continue; }
       const [st, e] = look(c, t - c.at);
-      Object.assign(c.el.style, st);
+      Object.assign(c.el.style, st, pipBox(c));
       if (c.audio) c.el.volume = Math.max(0, Math.min(1, (c.volume ?? 1) * e));
-      tag = c.label || ''; tagE = e;
+      tag = c.label || ''; tagE = e; tagAt = c.pip ? { right: 100 - c.pip.x - c.pip.w / 2 + 1 + '%', top: parseFloat(c.el.style.top) + 1.5 + '%' } : { right: '', top: '' };
       if (Math.abs(c.el.currentTime - (t - c.at)) > 0.25) c.el.currentTime = t - c.at;
       if (playing() && c.el.paused) c.el.play().catch(() => {}); else if (!playing() && !c.el.paused) c.el.pause();
     }
     $('clipTag').textContent = tag; $('clipTag').style.display = tag ? 'block' : 'none'; $('clipTag').style.opacity = tagE;
+    Object.assign($('clipTag').style, tagAt);
+  }
+  // 画中画的框：x、y 是框中心、w 是框宽（画布的百分比），高按片段自己的宽高比，和视频格式的 pip 一样
+  function pipBox(c) {
+    if (!c.pip || !view) return { left: '', top: '', width: '', height: '' };
+    const ar = c.el.videoWidth ? c.el.videoHeight / c.el.videoWidth : 9 / 16, h = c.pip.w * (view.w / view.h) * ar;
+    return { left: c.pip.x - c.pip.w / 2 + '%', top: c.pip.y - h / 2 + '%', width: c.pip.w + '%', height: h + '%' };
   }
   // 连播：一段播完接下一段
   async function next() {

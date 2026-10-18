@@ -3,8 +3,8 @@
 // 叠在代码画面之上的两层：实拍片段（footage 轨）与水印（watermark 轨）。都是可选的：没有 clips.json、配置里没有 watermark 就跳过。
 //   node tools/overlay.mjs [--dry]          打印每个片段与水印在时间线上的起止（默认）
 //   node tools/overlay.mjs --preview [id …] [--force]   从原片剪出静音小片段到 <work>/clips/，给 preview.mjs 与预览页用
-//   node tools/overlay.mjs --render         按画幅剪出成片用的片段（铺满裁切、对到整帧），把来源标签烧进去，写到 <work>/footage/
-//   node tools/overlay.mjs --place          新建两条视觉轨，导入片段铺满放好，再放水印；记在 overlay.json，已放过的（同一 id、同一帧）不重放
+//   node tools/overlay.mjs --render         按画幅剪出成片用的片段（铺满裁切，画中画剪成框的大小，对到整帧），把来源标签烧进去，写到 <work>/footage/
+//   node tools/overlay.mjs --place          新建两条视觉轨，导入片段铺满或放成画中画，再放水印；记在 overlay.json，已放过的（同一 id、同一帧）不重放
 //   node tools/overlay.mjs --check          对照视频里的片段与现在算出的起点（assemble 波纹挪过、段落改过之后跑）
 // clips.json：{ source, label, clips: [{ id, seg, line, cue?, gap?, from, to, source?, label?, audio?, subs?, note? }] }
 //   from / to 是原片的秒数；片段从 seg 段第 line 句（从 0 数）开始放；cue 可省，给了就从这句里 cue 这几个字被说到的时刻开始。
@@ -16,6 +16,8 @@
 //   in / out：{ kind, dur?, easing? } 单侧转场（kind 取 dissolve / wipe / slide / zoom / iris，dur 秒数缺省 0.5，easing 缺省 ease-in-out），
 //   片段从下面的代码画面里渐入、渐出；和前后片段首尾相接的那一侧不做（同一条轨上背靠背只能硬切）。原声的淡入淡出跟着转场的长度走。
 //   crop：[x, y, w, h] 先按原片像素裁掉黑边、色条；fit 为 contain 时整幅放进画面、两侧补黑（4:3 的老转播），缺省 cover 铺满裁切。
+//   pip：{ x, y, w } 画中画，不铺满：x、y 是框中心、w 是框宽（画布宽高的百分比），高按原片（裁过之后）的宽高比；代码画面在下面照常讲。
+//   画中画按框的像素大小剪，来源标签烧在框的右上角；不能带 subs（字幕要在画面底部，压在框里太小）。转场作用在框上。
 //   原声在成片片段里做淡入淡出、响度对到 footage.loudness（LUFS）。
 // 配置 footage：{ clips, font, label: { size, margin }, loudness, subs: { fontsDir, font, size, trFont, trSize, whoSize, marginV } }；watermark：{ file, dur, w, y, x: { left, right }, at: [...] }，
 //   at 的每一项是 { seg, line, cue?, side } 或 { t, side }（时间线秒数），side 取 left / right；x、y、w 是画面宽高的百分比。
@@ -41,12 +43,16 @@ const src = c => c.source || cl.source;
 // 裁边与放进画面：cover 铺满裁切，contain 整幅放进、补黑边
 const fitVf = (c, w, h) => [
   ...(c.crop ? [`crop=${c.crop[2]}:${c.crop[3]}:${c.crop[0]}:${c.crop[1]}`] : []),
-  ...(c.fit === 'contain'
+  ...(c.pip ? [`scale=${Math.round(w * c.pip.w / 100 / 2) * 2}:-2:flags=lanczos`] : c.fit === 'contain'
     ? [`scale=${w}:${h}:force_original_aspect_ratio=decrease:flags=lanczos`, `pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:black`]
     : [`scale=${w}:${h}:force_original_aspect_ratio=increase:flags=lanczos`, `crop=${w}:${h}`]),
 ];
 const KINDS = ['dissolve', 'wipe', 'slide', 'zoom', 'iris'];
 for (const c of cl.clips) for (const side of ['in', 'out']) if (c[side] && !KINDS.includes(c[side].kind)) throw new Error(`${c.id}: ${side}.kind "${c[side].kind}" not one of ${KINDS.join(', ')}`);
+for (const c of cl.clips) if (c.pip) {
+  if (!['x', 'y', 'w'].every(k => Number.isFinite(c.pip[k])) || c.pip.w <= 0) throw new Error(`${c.id}: pip needs numeric x, y and a positive w (percent of the canvas)`);
+  if (c.subs?.length) throw new Error(`${c.id}: subs need a full-screen clip; drop pip or the subs`);
+}
 
 // 1. 预览用的小片段：不需要代码包，只按 clips.json 剪
 if (flags.preview) {
@@ -96,7 +102,7 @@ const marks = (wm?.at || []).map(m => {
   const f = Math.round((m.t ?? at(m.seg, m.line, m.cue)) * FPS);
   return { side: m.side, f, t: +(f / FPS).toFixed(4) };
 });
-for (const c of plan) console.log(`${c.id.padEnd(16)} ${(c.f0 / FPS).toFixed(2).padStart(8)}s  +${(c.frames / FPS).toFixed(2)}s  src ${c.from}${c.gap ? '  gap' : ''}${c.audio ? `  audio${typeof c.audio === 'number' ? ' ' + c.audio : ''}` : ''}${c.subs ? `  subs:${c.subs.length}` : ''}${c.tin ? `  in ${c.tin.kind} ${(c.tin.frames / FPS).toFixed(2)}` : ''}${c.tout ? `  out ${c.tout.kind} ${(c.tout.frames / FPS).toFixed(2)}` : ''}`);
+for (const c of plan) console.log(`${c.id.padEnd(16)} ${(c.f0 / FPS).toFixed(2).padStart(8)}s  +${(c.frames / FPS).toFixed(2)}s  src ${c.from}${c.gap ? '  gap' : ''}${c.audio ? `  audio${typeof c.audio === 'number' ? ' ' + c.audio : ''}` : ''}${c.subs ? `  subs:${c.subs.length}` : ''}${c.pip ? `  pip ${c.pip.x},${c.pip.y} w${c.pip.w}` : ''}${c.tin ? `  in ${c.tin.kind} ${(c.tin.frames / FPS).toFixed(2)}` : ''}${c.tout ? `  out ${c.tout.kind} ${(c.tout.frames / FPS).toFixed(2)}` : ''}`);
 for (const m of marks) console.log(`watermark ${m.side.padEnd(5)} ${m.t}s  +${wm.dur}s`);
 if (!flags.render && !flags.place && !flags.check) process.exit(0);
 
@@ -113,7 +119,7 @@ function assFile(c) {
     `[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n${ev.join('\n')}\n`;
 }
 
-// 3. 成片用的片段：铺满裁切到画幅、整帧时长，标签用 textfile 读进 drawtext（任何语言、标点都不用转义）
+// 3. 成片用的片段：铺满裁切到画幅（画中画按框的像素大小）、整帧时长，标签用 textfile 读进 drawtext（任何语言、标点都不用转义）
 const esc = p => p.replace(/\\/g, '/').replace(/:/g, '\\:').replace(/'/g, "\\'");
 if (flags.render) {
   fs.mkdirSync(work('footage'), { recursive: true });
@@ -126,7 +132,7 @@ if (flags.render) {
       fs.writeFileSync(tf, label);
       if (fo.font && !fs.existsSync(cfg.abs(fo.font))) throw new Error(`footage.font ${fo.font} not found`);
       const font = fo.font ? `fontfile='${esc(cfg.abs(fo.font))}':` : '';
-      const { size, margin } = fo.label;
+      const { size } = fo.label, margin = c.pip ? Math.min(fo.label.margin, Math.round(size * 0.8)) : fo.label.margin;   // 画中画的框小，标签贴近一角
       vf.push(`drawtext=${font}textfile='${esc(tf)}':expansion=none:fontsize=${size}:fontcolor=0xdddddd:box=1:boxcolor=0x000000@0.55:boxborderw=${Math.round(size / 2)}:x=w-tw-${margin + Math.round(size / 2)}:y=${margin}`);
     }
     if (c.subs?.length) {
@@ -188,7 +194,9 @@ if (plan.length) {
       type: 'setTransition', sequenceId: seq, [side]: a.itemId, kind: c[k].kind, params: {}, easing: c[k].easing,
       duration: { unit: 'frames', value: c[k].frames }, alignment: 'exact-frame',
     }));
-    apply(`Style ${c.id}`, [{ type: 'setStyle', itemId: a.itemId, mode: 'fullscreen', fit: 'cover' }, ...(typeof c.audio === 'number' ? [{ type: 'setAudioMix', itemId: a.itemId, volume: c.audio }] : []), ...trans]);
+    const look = c.pip ? [{ type: 'setStyle', itemId: a.itemId, mode: 'pip', fit: 'cover' }, { type: 'setTransform', itemId: a.itemId, x: c.pip.x, y: c.pip.y, w: c.pip.w }]
+      : [{ type: 'setStyle', itemId: a.itemId, mode: 'fullscreen', fit: 'cover' }];
+    apply(`Style ${c.id}`, [...look, ...(typeof c.audio === 'number' ? [{ type: 'setAudioMix', itemId: a.itemId, volume: c.audio }] : []), ...trans]);
     log.footage[c.id] = { itemId: a.itemId, assetId: a.assetId, f0: c.f0, frames: c.frames };
     save();
     console.log('placed', c.id, a.itemId);

@@ -5,7 +5,7 @@
 // 每段：代码包、旁白音频（audio/<id>.<格式>；gaps.mjs 留过白的用 timing 里的 gapAudio）、对齐好的句子（timing/<id>.json），稿子里这一段的备注行当 note。
 // 有 clips.json 时，落在这一段的实拍片段换算成 clips: [{ src, at, dur, label, audio }]（at 是相对段首的秒数，
 // 取所在句的开头，给了 cue 取 cue 被说到的时刻，gap 片段取旁白里留出的空白；同一段里后一个开始时截断）。src 是 overlay.mjs --preview 剪出的小片段。
-// 片段带 subs 时换算成相对片段开头的 [{ start, end, text, tr, who }]，页面画在字幕带上；audio 为数字时是原声音量。
+// 片段的 pip（画中画框：x、y 中心，w 宽，画布百分比）照抄。片段带 subs 时换算成相对片段开头的 [{ start, end, text, tr, who }]，页面画在字幕带上；audio 为数字时是原声音量。
 // 片段的 in / out 转场照抄成 { kind, dur, easing }（长度不超过片段一半），和后一个片段首尾相接的那一侧去掉，与 overlay.mjs 放上时间线的一致。
 // 字幕带的样式取配置的 preview.caption（与字幕样式同一套键），不给就不画。
 import fs from 'node:fs';
@@ -30,6 +30,7 @@ const segments = cfg.order.map(id => {
     label: c.label ?? cl.label ?? '',
     ...(c.audio ? { audio: true } : {}),
     ...(typeof c.audio === 'number' ? { volume: c.audio } : {}),
+    ...(c.pip ? { pip: { x: c.pip.x, y: c.pip.y, w: c.pip.w } } : {}),
     ...(c.in ? { in: { kind: c.in.kind, dur: c.in.dur ?? 0.5, easing: c.in.easing || 'ease-in-out' } } : {}),
     ...(c.out ? { out: { kind: c.out.kind, dur: c.out.dur ?? 0.5, easing: c.out.easing || 'ease-in-out' } } : {}),
     ...(c.subs ? { subs: c.subs.map(x => ({ start: +(x.from - c.from).toFixed(3), end: +(x.to - c.from).toFixed(3), text: x.text, tr: x.tr, ...(x.who ? { who: x.who } : {}) })) } : {}),
