@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { RpcError } from '@baocut/protocol';
 import { ProjectTools } from './project-tools.ts';
 import type { ToolConfirmation, ToolPrincipal, ToolScope } from './tool-scope.ts';
 
@@ -8,7 +9,7 @@ describe('projects_list 的空列表', () => {
     authorize: (principal: ToolPrincipal) => ({ principal, submitter: { kind: 'connection', id: 'c' } }),
     listProjects: async () => [],
   } as unknown as ToolScope;
-  const tools = new ProjectTools({ harness: {} as never, videos: {} as never, scope });
+  const tools = new ProjectTools({ harness: {} as never, videos: {} as never, git: {} as never, scope });
   const list = (principal: Partial<ToolPrincipal>) =>
     tools.dispatch('projects_list', {}, principal as ToolPrincipal) as Promise<{ projects: unknown[]; next: string }>;
 
@@ -58,7 +59,7 @@ describe('projects_adopt_session', () => {
       getConversation: () => ({ conversation: { id: 'conv_1', projectId, cwd: '/sessions/conv_1' } }),
       listProjects: () => (projectId ? [{ id: projectId, name: '已有', path: '/p' }] : []),
     };
-    const tools = new ProjectTools({ harness: harness as never, videos: {} as never, scope });
+    const tools = new ProjectTools({ harness: harness as never, videos: {} as never, git: {} as never, scope });
     const adopt = (args: Record<string, unknown>) => tools.dispatch('projects_adopt_session', args, agent) as Promise<Record<string, unknown>>;
     return { adopt, confirmed, bound };
   }
@@ -82,5 +83,51 @@ describe('projects_adopt_session', () => {
     expect(await owned.adopt({ project: '/Volumes/T7/访谈' })).toMatchObject({ projectId: 'prj_old', created: false, existing: true });
     expect(owned.confirmed).toEqual([]);
     expect(owned.bound).toEqual([]);
+  });
+});
+
+/** `projects_git_commit`：暂停与没有仓库时不报错，交回原因与下一步；智能体不能替用户允许过滤器或初始化。 */
+describe('projects_git_commit', () => {
+  const project = { id: 'prj_1', name: 'Show', path: '/work/show' };
+  const scope = {
+    authorize: (principal: ToolPrincipal) => ({ principal, submitter: { kind: 'connection', id: 'c' } }),
+    createRoot: async () => ({ root: project.path, scope: { projectId: project.id } }),
+    confirm: async () => null,
+  } as unknown as ToolScope;
+  const harness = { listProjects: () => [project] } as never;
+  const run = (commit: () => Promise<unknown>) =>
+    new ProjectTools({ harness, videos: {} as never, git: { commit } as never, scope }).dispatch('projects_git_commit', {}, {
+      kind: 'agent',
+    } as ToolPrincipal) as Promise<Record<string, unknown>>;
+
+  it('提交之后交回提交与分支', async () => {
+    const result = await run(async () => ({ committed: true, commit: 'abc', files: 3, videos: [], status: { branch: 'main' } }));
+    expect(result).toMatchObject({ committed: true, commit: 'abc', files: 3, branch: 'main' });
+    expect(result.next).toContain('没有推送');
+  });
+
+  it('本地过滤器暂停时：paused 带原因，next 请用户自己允许', async () => {
+    const result = await run(async () => {
+      throw new RpcError('conflict', 'paused by filters', { code: 'GIT_PAUSED', reason: 'local-config', remedy: 'allow them' });
+    });
+    expect(result).toMatchObject({ committed: false, paused: { reason: 'local-config', message: 'paused by filters', remedy: 'allow them' } });
+    expect(result.next).toContain('baocut projects git-allow');
+    expect(result.next).toContain('不能替用户允许');
+  });
+
+  it('不在仓库里时：unavailable 带原因，不替用户初始化', async () => {
+    const result = await run(async () => {
+      throw new RpcError('conflict', 'not a repo', { code: 'GIT_UNAVAILABLE', reason: 'not-repo' });
+    });
+    expect(result).toMatchObject({ committed: false, unavailable: { reason: 'not-repo' } });
+    expect(result.next).toContain('不要替用户初始化');
+  });
+
+  it('别的错误照常抛出', async () => {
+    await expect(
+      run(async () => {
+        throw new RpcError('internal', 'boom', { code: 'GIT_FAILED' });
+      }),
+    ).rejects.toThrow('boom');
   });
 });

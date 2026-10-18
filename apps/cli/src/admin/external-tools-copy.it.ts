@@ -3,7 +3,7 @@ import { pluralForm } from '@baocut/protocol';
 
 export const it: ToolsMessages = {
   help: `Uso:
-  baocut external-tools [list]     Strumenti esterni (yt-dlp, ffmpeg): stato, versione, percorso,
+  baocut external-tools [list]     Strumenti esterni (yt-dlp, ffmpeg, git): stato, versione, percorso,
                                    origine e consenso all’uso
   baocut external-tools detect [name]
                                    Rileva di nuovo

@@ -125,6 +125,25 @@ interface Session {
   snapshotWatcher: FSWatcher | null;
   /** 快照有变化之后的去抖计时器。 */
   snapshotCheck: ReturnType<typeof setTimeout> | null;
+  /** 正在进行的那次写快照（git 桥提交之前等它写完）。 */
+  snapshotWrite?: Promise<void> | null;
+}
+
+/** 已打开视频的版本变化（`onChange`）。`projectId` 是视频所属的项目，不属于项目时 null。 */
+export interface VideoChanged {
+  videoId: Id;
+  path: string;
+  revision: string;
+  projectId: Id | null;
+}
+
+/** 关掉了的视频（`onClosed`）。 */
+export interface VideoClosed {
+  videoId: Id;
+  path: string;
+  projectId: Id | null;
+  /** `closed`、`idle`、`deleted`、`engine-failed` 等。 */
+  reason: string;
 }
 
 /** 引擎 `videos.writeSnapshot` 的结果。 */
@@ -253,7 +272,9 @@ export class VideoService {
   readonly #channels = new Map<Id, Channel>();
   readonly #creates = new Map<Id, Promise<VideoOpenResult>>();
   readonly #claims = new Map<Id, Promise<{ reassigned: number; skipped: number }>>();
-  readonly #changeListeners = new Set<(change: { videoId: Id; path: string; revision: string }) => void>();
+  readonly #changeListeners = new Set<(change: VideoChanged) => void>();
+  readonly #closeListeners = new Set<(closed: VideoClosed) => void>();
+  readonly #projectListeners = new Set<(project: { id: Id; path: string }) => void>();
   readonly #snapshotDelayMs: number;
   /** 任务 → 会话（`noteTask`）。 */
   readonly #tasks = new Map<Id, { id: Id; title: string }>();
@@ -368,6 +389,13 @@ export class VideoService {
    * 被别处锁着的留到下次（打开时还会再认领）。每个视频只短暂地取一次写锁。没有视频时不启动引擎。
    */
   claimProjectVideos(project: { id: Id; path: string }): Promise<{ reassigned: number; skipped: number }> {
+    for (const listener of this.#projectListeners) {
+      try {
+        listener(project);
+      } catch (error) {
+        this.#log.error('Project open listener failed', { projectId: project.id, error: String(error) });
+      }
+    }
     // 同一个项目的预处理同时只跑一趟：重复打开项目时接上进行中的那一趟。
     const running = this.#claims.get(project.id);
     if (running) return running;
@@ -991,8 +1019,12 @@ export class VideoService {
     channel.session = null;
     channel.log.publish({ type: 'video.closed', reason });
     this.#log.info('Video closed', { videoId, reason });
+    const closed: VideoClosed = { videoId, path, projectId: session.ref.source.projectId, reason };
     const host = this.#host;
-    if (!host?.alive) return;
+    if (!host?.alive) {
+      this.#notifyClosed(closed);
+      return;
+    }
     const done = (async () => {
       // 放下写锁之前写快照（§5.12），再做 blob GC：GC 要看到这次写下的版本引用的 blob。被删除的视频正在搬走，不写。
       if ((reason === 'closed' || reason === 'idle') && session.snapshotDirty) await this.#writeSnapshot(videoId, session);
@@ -1007,7 +1039,59 @@ export class VideoService {
       await done;
     } finally {
       if (this.#closing.get(path) === done) this.#closing.delete(path);
+      this.#notifyClosed(closed);
     }
+  }
+
+  /**
+   * 视频关掉了（快照与 blob GC 都做完、放下写锁之后）。git 桥用它判断项目的视频是不是都关掉了（版本记录设计 §5.3）。
+   * 返回取消订阅的函数。
+   */
+  onClosed(listener: (closed: VideoClosed) => void): () => void {
+    this.#closeListeners.add(listener);
+    return () => this.#closeListeners.delete(listener);
+  }
+
+  /**
+   * 打开项目（`claimProjectVideos` 的每一次调用：界面、CLI 与智能体打开或新建项目时）。git 桥用它写 `info/*` 的块
+   * （版本记录设计 §5.2）。返回取消订阅的函数。
+   */
+  onProjectOpened(listener: (project: { id: Id; path: string }) => void): () => void {
+    this.#projectListeners.add(listener);
+    return () => this.#projectListeners.delete(listener);
+  }
+
+  #notifyClosed(closed: VideoClosed): void {
+    for (const listener of this.#closeListeners) {
+      try {
+        listener(closed);
+      } catch (error) {
+        this.#log.error('Video close listener failed', { videoId: closed.videoId, error: String(error) });
+      }
+    }
+  }
+
+  /**
+   * 「提交到 git」之前（版本记录设计 §5.3）：项目里打开着的视频把还没写的改动立即写进快照，并等正在进行的写完成。
+   * 失败只记日志（与平常写快照相同），不拦提交：磁盘上是上一次写好的快照。
+   */
+  async flushProjectSnapshots(projectId: Id): Promise<void> {
+    const sessions = [...this.#channels]
+      .map(([videoId, channel]) => [videoId, channel.session] as const)
+      .filter((entry): entry is readonly [Id, Session] => entry[1]?.ref.source.projectId === projectId);
+    await Promise.all(
+      sessions.map(async ([videoId, session]) => {
+        await session.snapshotWrite?.catch(() => {});
+        if (session.snapshotDirty) await this.#writeSnapshot(videoId, session);
+      }),
+    );
+  }
+
+  /** 项目里此刻打开着的视频数（git 桥判断项目是不是关掉了，版本记录设计 §5.3）。 */
+  openProjectVideoCount(projectId: Id): number {
+    let count = 0;
+    for (const channel of this.#channels.values()) if (channel.session?.ref.source.projectId === projectId) count += 1;
+    return count;
   }
 
   /** 版本记录只给项目里的视频（§5.12）：不属于项目的会话文件夹里的视频不写快照，也不能保存、回到或删除版本。 */
@@ -1050,6 +1134,16 @@ export class VideoService {
    * `rethrow`：失败交给调用方。
    */
   async #writeSnapshot(videoId: Id, session: Session, options: { overwrite?: boolean; rethrow?: boolean } = {}): Promise<void> {
+    const run = this.#doWriteSnapshot(videoId, session, options);
+    session.snapshotWrite = run;
+    try {
+      await run;
+    } finally {
+      if (session.snapshotWrite === run) session.snapshotWrite = null;
+    }
+  }
+
+  async #doWriteSnapshot(videoId: Id, session: Session, options: { overwrite?: boolean; rethrow?: boolean }): Promise<void> {
     if (session.snapshotTimer) clearTimeout(session.snapshotTimer);
     session.snapshotTimer = null;
     const host = this.#host;
@@ -1197,7 +1291,7 @@ export class VideoService {
    * 已打开视频的版本变化（提交、补齐之后）。Space 的派生索引（架构设计 §5.7、§5.11）靠它增量更新；
    * 没有打开的视频由 Space 按目录变化发现。返回取消订阅的函数。
    */
-  onChange(listener: (change: { videoId: Id; path: string; revision: string }) => void): () => void {
+  onChange(listener: (change: VideoChanged) => void): () => void {
     this.#changeListeners.add(listener);
     return () => this.#changeListeners.delete(listener);
   }
@@ -1206,7 +1300,12 @@ export class VideoService {
     const channel = this.#channels.get(videoId);
     if (!channel?.session) return;
     this.#scheduleSnapshot(videoId, channel.session);
-    const change = { videoId, path: channel.session.ref.path, revision: channel.mirror.video.revision };
+    const change: VideoChanged = {
+      videoId,
+      path: channel.session.ref.path,
+      revision: channel.mirror.video.revision,
+      projectId: channel.session.ref.source.projectId,
+    };
     for (const listener of this.#changeListeners) {
       try {
         listener(change);

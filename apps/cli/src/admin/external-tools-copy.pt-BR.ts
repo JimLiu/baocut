@@ -3,7 +3,7 @@ import { pluralForm } from '@baocut/protocol';
 
 export const ptBR: ToolsMessages = {
   help: `Uso:
-  baocut external-tools [list]     Ferramentas externas (yt-dlp, ffmpeg): estado, versão, caminho,
+  baocut external-tools [list]     Ferramentas externas (yt-dlp, ffmpeg, git): estado, versão, caminho,
                                    origem e se você concordou com o uso
   baocut external-tools detect [name]
                                    Detectar novamente

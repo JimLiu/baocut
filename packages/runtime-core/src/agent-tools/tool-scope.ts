@@ -204,6 +204,8 @@ export const TOOL_RISK: Readonly<Record<string, RiskLevel>> = {
   projects_create: 'high',
   // 把无项目会话放进新项目（§3.10）：只在 BaoCut 的项目目录下建一个新目录、搬会话自己的工作目录，不覆盖文件。
   projects_adopt_session: 'edit',
+  // 「提交到 git」（版本记录设计 §5.3）：只提交项目里 BaoCut 的路径，不推送、不改写历史，用户暂存的改动原样留着；与保存版本同级。
+  projects_git_commit: 'edit',
   // 给会话起标题（产品设计 §3.1）：只改这个会话在 BaoCut 里的标题（还是自动起的才换、只换一次），不碰视频与文件、不外发；
   // 不确认，规划模式下也能用，与任务合同的工具同理。
   conversations_set_title: 'read',

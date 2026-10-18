@@ -1272,6 +1272,8 @@ library/
 | `cache.maxSizeMiB` | 256–1048576 的整数（MiB） | `2048` | `<runtime-home>/cache/` 的总大小上限：启动后与每小时核一次，超限按修改时间删最旧的降到 90%（§5.1） |
 | `versions.keep` | 1–100 的整数 | `10` | 每部视频保留的未命名版本数，最新一版计在里面；保存的版本另算、总是保留；另有 64 MiB 的大小上限（§5.12） |
 | `versions.cadence` | `segment` `turn` | `segment` | 何时开新版本：`segment` 按安静 5 分钟与每版最长 30 分钟；`turn` 另在智能体每个回合开始时（§5.12） |
+| `versions.git.autoCommit` | 布尔 | `false` | git 桥的自动提交（§5.12）：项目在仓库里时，安静满 5 分钟、项目最后一部打开的视频关闭、退出 BaoCut 时把 BaoCut 的路径提交一次。Web 改不了（`settings.set` 不开放） |
+| `versions.git.maxFileMiB` | 1–4096 的整数（MiB） | `50` | BaoCut 代为提交时 `blobs/` 里单个文件的大小上限：超过的不提交，已用 Git LFS 跟踪的不受限（§5.12） |
 | `space.trashRetentionDays` | 1–3650 的整数（天） | `30` | Space 回收站的保留期：移入回收站超过这么多天的条目在没有引用时物理删除（§5.7） |
 | `resources.capacity` | `{ memoryMiB, gpuMemoryMiB, cpuThreads }`（每项可为 `null`）或 `null` | `null`（按本机探测） | 高级：覆盖资源调度看到的容量；某项为 `null` 时照旧自动（§7.6） |
 | `runtime.idleExitMinutes` | 1–1440 的整数（分钟） | `10` | CLI 拉起的 Runtime 空闲（没有在用的本机网关连接、没有排队或运行中的任务、没有开着的对外服务；只查状态的 CLI 连接不算在用）满这么久自己退出（§2.2）；桌面端退出时选了在后台继续的 Runtime 也按它在活做完之后退出（§2.2 退出）；其余桌面端与手动启动的不受影响 |
@@ -1313,7 +1315,7 @@ CLI 的 `baocut settings`（列出键、当前值、是否默认）、`settings 
 | --- | --- | --- | --- |
 | 撤销历史 | 一笔事务 | `video.db` | 一笔一笔地撤销与重做 |
 | 版本记录 | 一段工作（安静 5 分钟、最长 30 分钟，或一次保存、回到版本、重建、导入外部改动） | `.bcut-snapshot/` | 读最近改了什么、谁改的；回到之前的某一版；不依赖 git |
-| git | 用户的提交 | 用户的仓库 | 可选：快照是行稳定的文本，可以随项目提交。BaoCut 代为提交与初始化 git 以后再做 |
+| git | 用户的提交 | 用户的仓库 | 可选：快照是行稳定的文本，可以随项目提交；也可以由 BaoCut 代为提交（下面的「git 桥」） |
 
 **分工**
 
@@ -1337,7 +1339,19 @@ CLI 的 `baocut settings`（列出键、当前值、是否默认）、`settings 
 
 **偏好设置**（§5.10）：`versions.keep`（保留的未命名版本数，默认 10）与 `versions.cadence`（`segment` 或 `turn`，默认 `segment`），写快照时读当时的取值。另有每部视频 64 MiB 的大小上限，不是设置。
 
-**以后再做**：版本记录的界面与冲突提示（先做原型）；视频主题推送版本的变化；git 桥（查找 git、写忽略规则、「提交到 git」、初始化与自动提交）。见版本记录设计的分期。git 桥的多端口径已定（[版本记录设计 §5.4、§6](../design/version-history/version-history-design.md#54-安全)）：Web 可以看 git 状态、触发「提交到 git」；开关自动提交、初始化 git 与启用仓库本地的 git 过滤器只在桌面界面与 CLI，智能体不能启用过滤器。
+**git 桥**（版本记录设计 §5、§6）：Runtime 的 `ProjectGitService` 替用户把项目里 BaoCut 的路径提交到用户自己的仓库。只运行这台电脑上的 git 命令行，不内嵌 git 库，不碰网络：不 push、fetch、pull、merge、rebase、reset、checkout，也不改写已有的提交。
+
+- **找 git**：受管外部工具登记表里的 `git`（§12.9），只检测、不下载，最低 2.30。顺序照登记表：`BAOCUT_GIT`、用户指定的路径、Runtime 工具环境的 PATH（macOS 上是登录 shell 的 PATH）。macOS 的 `/usr/bin/git` 只在 `xcode-select -p` 成功时算数，否则它是弹出安装窗口的占位程序，跳过、接着往后找；Windows 按 `PATHEXT` 找 `git.exe`，`.cmd`、`.bat` 不收。
+- **怎么运行**：参数是数组、不经 shell，自成进程组（Windows 上用 `taskkill /T /F` 结束进程树），超时 60 秒；项目目录是 Windows 的 `\\?\` 扩展路径时先换成普通的盘符或 UNC 路径。每次都带 `--no-pager` 与固定的 `-c`：`core.hooksPath` 指向 Runtime Home 里的空目录 `git/hooks`（仓库的钩子不运行），`core.fsmonitor=false`、`commit.gpgSign=false`、`tag.gpgSign=false`、`maintenance.auto=false`、`gc.auto=0`、`submodule.recurse=false`、`core.editor=:`、`core.pager=cat`，`core.askPass` 与 `credential.helper` 置空，`protocol.allow=never`；提交另带 `--no-verify`。环境去掉会把命令指到别处的 `GIT_*`（`GIT_DIR`、`GIT_WORK_TREE`、`GIT_INDEX_FILE`、`GIT_CONFIG_COUNT` 等，保留 `GIT_CONFIG_GLOBAL`、`GIT_CONFIG_SYSTEM`、`GIT_CONFIG_NOSYSTEM`）与 `EMAIL`，设 `GIT_TERMINAL_PROMPT=0`、`GCM_INTERACTIVE=never` 与 `LC_ALL=C`；只读的查询另设 `GIT_OPTIONAL_LOCKS=0`。提交说明经 `-F` 的文件（Runtime Home 的 `git/messages/`），路径经 `--pathspec-from-file` 的 NUL 列表并带 `--literal-pathspecs`。
+- **忽略与属性的块**：项目在仓库里时，打开项目、这次运行里项目第一次有改动与每次提交之前，把 `# >>> BaoCut` 与 `# <<< BaoCut` 之间的规则写进 `info/exclude` 与 `info/attributes`（版本记录设计 §5.2：不提交 `video.db`、锁、`history/` 与临时文件，快照 `eol=lf`），块外一字不动，没变时不重写。位置按 `git rev-parse --git-path`（worktree 与子模块的 `.git` 是文件）；找不到 git 时只认 `.git` 目录，遇到 `.git` 文件跳过。
+- **本地过滤器的闸门**（版本记录设计 §5.4）：仓库本地与 worktree 的配置（含被包含的文件，按 `config --list --show-scope --show-origin` 看）里有 `filter.<名字>.clean|smudge|process`、`include.path` 或 `includeIf.<条件>.path` 时暂停代为提交（`git lfs install --local` 写下的逐字标准值不算）。暂停时只运行不读工作区文件内容的 `rev-parse`、`config` 与 `symbolic-ref`，状态与提交都不会触发过滤器。用户看过条目之后允许：记在 Runtime Home 的 `store/git-local-config.json`（按仓库公共 git 目录的真实路径），内容是那组条目与被包含文件内容的摘要；摘要变了（改了过滤器的命令、被包含的文件）重新暂停，`user.name` 之类的无关配置变了不影响。只能在桌面界面与 CLI 允许。
+- **暂停的其他原因**：`index.lock` 在（每 2 秒重试，最多 5 次，之后推迟；锁文件从不删），合并、变基、拣选、还原、二分中，HEAD 分离。
+- **提交**（「提交到 git」与自动提交同一条路）：先把项目里打开着的视频的快照写掉（`VideoService.flushProjectSnapshots`），再只提交 BaoCut 的路径：项目里每部视频（按 `git ls-files` 找 `.bcut-snapshot/video.json`，用户忽略的不算）的 `video.json`、`documents/` 与 `blobs/` 里有改动的文件；`blobs/` 里超过 `versions.git.maxFileMiB` 的不提交，已用 Git LFS 跟踪的（`check-attr filter` 为 `lfs`）不受限；`history/`、`blobs/.staging/` 与被忽略的不提交。`git add` 之后 `git commit --only`，只带这些路径，用户已经暂存的其他改动原样留在暂存区。没配齐作者（`user.name` 与 `user.email`）时用 `BaoCut <baocut@localhost>`。提交说明：标题是这段时间里各版本的名字或摘要（至多 72 个字），没有时是「BaoCut：更新 <视频名>」（按 Runtime 的语言）；正文按视频列出版本；尾注 `BaoCut-Video: <videoId> v<起>..v<止>` 固定英文，下一次从这里接着算版本范围。
+- **自动提交**：`versions.git.autoCommit` 打开时，项目在仓库里且有改动，安静满 5 分钟（每次改动重新计时）、项目最后一部打开的视频关闭时、Runtime 退出时（停止顺序在视频之前，至多 30 秒）各提交一次；暂停或仓库被占用时推迟到下一次。失败只记日志与状态的 `lastError`，从不让编辑失败。
+- **初始化 git**：只在用户要求时，在项目目录运行 `git init`，再写块。用户主目录、系统的标准用户文件夹（桌面、文稿、下载、影片或视频、音乐、图片）、卷或盘符的根与已经在仓库里时拒绝（`GIT_INIT_REFUSED`）。
+- **对外的方法**（命令与协议规范 §4.1）：`projects.git.status`、`commit`、`init`、`allowLocalConfig`。Web 能看状态（不给仓库路径与配置条目）、触发提交；初始化与允许过滤器只给桌面界面与 CLI（Web 白名单里没有，处理函数对浏览器、对外服务与智能体再拒绝一次），自动提交的开关是设置，Web 写不了。CLI：派生命令 `baocut projects git-commit`，管理桶 `baocut projects git-status|git-init|git-allow`。智能体工具 `projects_git_commit`（工具桥与 CLI，MCP 上没有；`edit` 级确认）只在用户要求时用；暂停或没有仓库时不报错，交回原因与下一步，不能替用户允许过滤器或初始化。
+
+**以后再做**：版本记录的界面与冲突提示（先做原型）；视频主题推送版本的变化；git 桥的界面（项目设置里的 git 一节、「提交到 git」按钮，先做原型）与项目级的设置。见版本记录设计的分期。
 
 ---
 
@@ -3006,7 +3020,7 @@ BaoCut 依赖一些不随应用发布的外部程序，也会替用户在系统�
 **受管外部工具**（例如 ffmpeg、视频下载工具）：
 
 - 不随应用分发的工具，BaoCut 不在后台自行下载。首次需要时显示工具的名字、用途、来源（下载地址）、版本、大小与许可，用户同意后才下载；同意只对这个工具有效。
-- **登记表**。能下载的只有 yt-dlp（从链接导入，§7.9）；本地合成与音乐生成共用的 audio.cpp 引擎随应用分发（§6.3），不在登记表里，不是受管外部工具，由 `runtime --self-check` 报告；ffmpeg 不由 BaoCut 下载，仍按 `BAOCUT_FFMPEG` 与 PATH 解析，只在状态里列出。每个工具有清单：用途、探测命令、最低版本、是否要用户同意；能下载的还有发布：版本、各平台的文件名、大小与 sha256、官方地址、许可与主页。
+- **登记表**。能下载的只有 yt-dlp（从链接导入，§7.9）；git 只检测、不下载（git 桥，§5.12；环境变量 `BAOCUT_GIT`，macOS 上不用没装开发者工具时的 `/usr/bin/git` 占位程序）；本地合成与音乐生成共用的 audio.cpp 引擎随应用分发（§6.3），不在登记表里，不是受管外部工具，由 `runtime --self-check` 报告；ffmpeg 不由 BaoCut 下载，仍按 `BAOCUT_FFMPEG` 与 PATH 解析，只在状态里列出。每个工具有清单：用途、探测命令、最低版本、是否要用户同意；能下载的还有发布：版本、各平台的文件名、大小与 sha256、官方地址、许可与主页。
 - **状态**。`externalTools.list` 报告每个工具的状态：`installed`（路径、版本与来源：`env` 环境变量、`bundled` 随应用分发的那一份（保留的取值，目前没有工具用它）、`user` 用户指定、`managed` BaoCut 下载的副本、`system` PATH）、`missing`、`outdated`（低于最低版本）、`unavailable`（不能运行），以及原因、补救、同意与下载说明（`offer`）。`externalTools.detect` 重新探测。探测只在本机执行 `--version`，不联网。解析顺序：环境变量（ffmpeg 的 `BAOCUT_FFMPEG`）→ 用户指定的路径（`externalTools.setPath`）→ 受管副本 → Runtime 工具环境的 PATH（Windows 上和命令行一样按 `PATHEXT` 补扩展名；找到的是 `.cmd`、`.bat` 之类的脚本时报告为不可用，指定路径也不收——BaoCut 不经命令行解释器执行工具）；用户指定的路径不能运行时报告为不可用，不悄悄换成别的。指定路径不代表同意。
 - **同意**。要同意的工具（下载工具）记下同意的时间与途径（`app`、`cli`、`agent-approval`），可以撤回（`externalTools.consent`）；撤回之后用它的流程在提交、每一步之前与重试时都拒绝（`TOOL_CONSENT_REQUIRED`）。同意、用户指定的路径与受管副本的登记在 Runtime Home 的 `store/external-tools.json`。
 - **下载**（`externalTools.install`）。没有显式的 `consent: true` 时以 `TOOL_CONSENT_REQUIRED` 拒绝并给出 `offer`，不下载；给了就记下同意，提交 `kind: 'toolInstall'` 的任务。清单里 sha256 未知时以 `TOOL_MANIFEST_INCOMPLETE` 拒绝：摘要不编造，宁可不能下载（§14）。任务把文件下载到 `tools/.staging/`，按真实的字节报告进度，核对大小与 sha256（不符时删掉坏文件，`TOOL_DOWNLOAD_INTEGRITY`），设可执行位（0755），原子地改名到 `tools/<工具>/<版本>/`，再执行一次 `--version` 确认能运行。取消时下了一半的文件保留，下次续传。严格离线时拒绝（`OFFLINE_STRICT`）。首版不校验上游的签名（§14）。
@@ -3023,7 +3037,7 @@ BaoCut 依赖一些不随应用发布的外部程序，也会替用户在系统�
 
 - 都由用户逐次确认后执行。确认时显示将要执行的完整命令或将要写入的路径；执行过程的输出原样显示并记入日志。
 - 需要管理员权限的动作不在 BaoCut 里提权：交给系统终端由用户自己执行，BaoCut 只在之后重新探测。
-- 启用仓库本地配置里的 git 过滤器（版本记录设计 §5.4，二期）同属这一类：它让 BaoCut 运行仓库指定的程序，只在桌面界面与 CLI 由用户看过命令后允许，Web 与智能体都不能。
+- 允许仓库本地配置里的 git 过滤器与包含（`projects.git.allowLocalConfig`，§5.12，版本记录设计 §5.4）同属这一类：它让 BaoCut 运行仓库指定的程序，只在桌面界面与 CLI（`baocut projects git-allow`）由用户看过条目与命令后允许，Web 与智能体都不能。
 - **Skill 的安装**把随应用发布的 Skill 以链接或副本的方式放进其他智能体的 Skills 目录（全局或某个项目）。Skill 带版本，并声明它需要的 CLI 与协议版本；副本落后于应用时报告为过期。安装只写 Skill 自己的那个目录，目标位置已有别的内容时拒绝覆盖。应用内的会话不依赖安装：Harness 在每次会话开始时直接提供同一份指导（§3.8）。
 - 这些动作由持有用户目录写权限的进程执行，经 Runtime 的命令发起并留下记录；Renderer 不直接写用户目录（§12.1）。
 

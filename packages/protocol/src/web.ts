@@ -51,6 +51,10 @@ export const WEB_DEFAULT_METHODS: readonly string[] = [
   // 文件内容走 `media.*` 的受控句柄；新建是独占创建、不覆盖（§12.8）。
   'projects.files.list',
   'projects.files.create',
+  // 项目的 git 桥（版本记录设计 §6）：能看状态、能「提交到 git」——提交只运行 git 本身、参数固定，不跑钩子与本地过滤器，不碰网络。
+  // 初始化（在本机文件夹里建仓库）与允许本地过滤器（等于允许执行仓库配置里的程序）不开放，处理函数里再拒一次。
+  'projects.git.status',
+  'projects.git.commit',
   'conversations.*',
   'attachments.prepare',
   'tasks.*',
@@ -120,6 +124,7 @@ export const WEB_READ_METHODS: readonly RpcMethod[] = [
   'agents.list',
   'projects.list',
   'projects.files.list',
+  'projects.git.status',
   'conversations.list',
   'conversations.get',
   'tasks.getContract',

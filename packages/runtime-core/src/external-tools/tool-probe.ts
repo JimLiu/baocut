@@ -27,13 +27,15 @@ export async function findOnPath(
   searchPath: string,
   platform: NodeJS.Platform = process.platform,
   pathExt: string | null = null,
+  accept?: (file: string) => Promise<boolean>,
 ): Promise<string | null> {
   const names = platform === 'win32' && !/\.[^.\\/]+$/.test(command) ? [...pathExtensions(pathExt).map((ext) => `${command}${ext}`), command] : [command];
   for (const dir of searchPath.split(path.delimiter)) {
     if (!dir || !path.isAbsolute(dir)) continue;
     for (const name of names) {
       const file = path.join(dir, name);
-      if (await isExecutableFile(file)) return file;
+      // `accept` 不认的（macOS 上的 git 占位程序）跳过，接着往后找。
+      if ((await isExecutableFile(file)) && (!accept || (await accept(file)))) return file;
     }
   }
   return null;

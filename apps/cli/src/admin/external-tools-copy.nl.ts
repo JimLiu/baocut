@@ -2,7 +2,7 @@ import type { ToolsMessages } from './external-tools-copy.ts';
 import { pluralForm } from '@baocut/protocol';
 export const nl: ToolsMessages = {
  help: `Gebruik:
-  baocut external-tools [list]     Externe tools (yt-dlp, ffmpeg): status, versie, pad,
+  baocut external-tools [list]     Externe tools (yt-dlp, ffmpeg, git): status, versie, pad,
                                    bron en of je toestemming voor gebruik hebt gegeven
   baocut external-tools detect [name]
                                    Opnieuw detecteren

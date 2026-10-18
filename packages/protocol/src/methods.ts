@@ -51,6 +51,7 @@ import type {
 } from './tasks.ts';
 import type { ResourcesSnapshot } from './resources.ts';
 import type { CookieBrowserInfo, ExternalToolInstallResult, ExternalToolStatus, ExternalToolUpdateResult } from './external-tools.ts';
+import type { ProjectGitCommitResult, ProjectGitStatus } from './project-git.ts';
 import type {
   DownloadedFontFace,
   FontDownloadErrorCode,
@@ -332,6 +333,31 @@ export interface RpcMethods {
     params: { projectId: Id; name?: string; pinned?: boolean; archived?: boolean };
     result: { project: Project };
   };
+  // git 桥（版本记录设计 §5、架构设计 §5.12）
+  /**
+   * 项目的 git 状态：在不在仓库里、能不能提交、暂停的原因（`locked`、`repo-state`、`local-config`）与这次运行期间最后一次提交或失败。
+   * 只运行不读工作区文件内容的 git 命令。Web 连接不给本机路径与本地配置的条目。
+   */
+  'projects.git.status': { params: { projectId: Id }; result: { status: ProjectGitStatus } };
+  /**
+   * 「提交到 git」：先把项目里打开着的视频的快照写掉，再只提交 BaoCut 的路径（各视频的 `.bcut-snapshot/` 不含 `history/`，与
+   * `blobs/` 里不超过 `versions.git.maxFileMiB` 或已用 Git LFS 跟踪、且没被用户忽略的条目）：`git add` 之后 `git commit --only`，
+   * 用户已暂存的其他改动原样留着。`message` 是提交说明的标题与正文，不给时按版本的摘要生成；尾注 `BaoCut-Video` 总是加上。
+   * 没有改动时 `committed: false`。找不到 git 或项目不在仓库里时 `conflict`（`GIT_UNAVAILABLE`，`details.reason`：`missing`、
+   * `not-repo`）；暂停时 `conflict`（`GIT_PAUSED`，`details.reason` 与 `details.status`）；`index.lock` 每 2 秒重试、最多 5 次。
+   */
+  'projects.git.commit': { params: { projectId: Id; message?: string }; result: ProjectGitCommitResult };
+  /**
+   * 在项目目录「初始化 git」（`git init`），并写入 `info/*` 的块。用户主目录、系统的标准用户文件夹、卷或盘符的根、已经在仓库里时
+   * `invalid-request`（`GIT_INIT_REFUSED`，`details.reason`）。只给桌面界面与 CLI 连接，其余 `forbidden`。
+   */
+  'projects.git.init': { params: { projectId: Id }; result: { status: ProjectGitStatus } };
+  /**
+   * 允许这个仓库本地配置里的过滤器与包含（§5.4）：`digest` 是用户看过的那组条目的摘要（`status.pause.localConfig.digest`），
+   * 与此刻的不同时 `conflict`（`GIT_PAUSED`，`details.reason: 'local-config'`，带此刻的状态）。启用记在这台电脑的 Runtime Home 里。
+   * 只给桌面界面与 CLI 连接，其余 `forbidden`。
+   */
+  'projects.git.allowLocalConfig': { params: { projectId: Id; digest: string }; result: { status: ProjectGitStatus } };
   /**
    * 列出会话所在目录（属于项目时是项目目录，否则是会话的工作目录）里的文件（架构设计 §11.2）。
    * 不给 `query` 时列 `dir`（相对根目录，默认根目录）这一层；给了就在 `dir` 下按名字递归查找。

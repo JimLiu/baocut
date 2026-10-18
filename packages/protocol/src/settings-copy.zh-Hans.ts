@@ -28,6 +28,8 @@ export const zhHans: SettingDescriptionMessages = {
   'space.trashRetentionDays': 'Space 回收站的保留天数（1–3650）：超过的、没有引用的条目与删除的视频定期物理删除',
   'versions.keep': "每部视频的版本记录保留的未命名版本数（1–100）；保存的版本总是保留。一部视频的版本文件另有 64 MiB 的上限，超过时从最旧的未命名版本删起",
   'versions.cadence': "版本记录何时开新版本：segment 在安静 5 分钟、连续编辑满 30 分钟以及保存、回到版本前后；turn 另在智能体每个回合开始时",
+  'versions.git.autoCommit': "自动把项目里 BaoCut 的文件提交到 git：项目安静满 5 分钟、项目的视频都关掉以及退出 BaoCut 时。只对在 git 仓库里的项目生效，规则与「提交到 git」相同",
+  'versions.git.maxFileMiB': "BaoCut 代为提交 git 时视频 blobs/ 里单个文件的上限（MiB，1–4096）；更大的文件留给你自己提交。仓库已用 Git LFS 跟踪的路径不受限",
   'cache.maxSizeMiB': '数据目录里缓存的大小上限，MiB（256–1048576）：超过时从最旧的缓存文件（素材分析、播放用的转码）删起，降到上限的 90%。跨视频检索的索引不删',
   'resources.capacity':
     '高级：资源调度用的机器容量 { memoryMiB, gpuMemoryMiB, cpuThreads }，某项为 null 时自动探测；null 为全部自动（内存与 CPU 取自系统，Apple 芯片的 GPU 内存按统一内存估计）',

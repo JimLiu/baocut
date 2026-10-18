@@ -2,9 +2,10 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import type { Harness } from '@baocut/harness';
-import type { RiskLevel } from '@baocut/protocol';
-import { RcAgentTools } from '@baocut/protocol/messages/runtime-core';
+import { RpcError, type RiskLevel } from '@baocut/protocol';
+import { RcAgentTools, RcGit } from '@baocut/protocol/messages/runtime-core';
 import type { VideoService } from '../videos/video-service.ts';
+import type { ProjectGitService } from '../git/project-git-service.ts';
 import { inside, nearestReal } from './artifact-save.ts';
 import { ToolError, type ToolInfo, type ToolSet } from './tool-catalog.ts';
 import type { AgentPrincipal } from './grants.ts';
@@ -23,11 +24,16 @@ import { approvalField, confirmSummary, scopedProject, type ToolPrincipal, type 
  *   新建（名字默认取会话里最早建的视频）：只写 BaoCut 的项目目录下一个新建的目录、搬的是会话自己的工作目录，不覆盖任何文件，按 `edit`
  *   确认。给了 `project`（已登记项目的 id，或用户指定的目录）时放进那里，写到工作目录之外，按 `high` 确认。已经属于项目的会话原样返回
  *   那个项目。工作目录里还有视频被界面、任务或别的连接开着时拒绝（`VIDEO_IN_USE`），什么都不动。
+ * - `projects_git_commit` 在工具桥与 CLI（版本记录设计 §5.3）：把项目里 BaoCut 的文件提交到 git，与「提交到 git」同一个动作
+ *   （`ProjectGitService.commit`）。只在用户要求时用；会话里按 `edit` 确认。暂停（本地过滤器、仓库的特殊状态、`index.lock`）时
+ *   不报错，返回原因与下一步：本地过滤器要用户在 CLI 里允许（项目设置里的入口随界面再加），智能体不能替用户允许（§5.4）；
+ *   找不到 git 或项目不在仓库里时同样返回原因，不替用户初始化。
  */
 
 export interface ProjectToolsDeps {
   harness: Pick<Harness, 'listProjects' | 'openProject' | 'updateProject' | 'getConversation'>;
   videos: Pick<VideoService, 'claimProjectVideos'>;
+  git: Pick<ProjectGitService, 'commit'>;
   scope: ToolScope;
 }
 
@@ -56,6 +62,21 @@ const schemas = {
       .describe(
         '可选。项目名；不给时取会话里最早建的视频的名字（还没有视频时取会话标题），给了 project 时取文件夹名。用户说了名字才给；已登记的项目不改名',
       ),
+  }),
+  projects_git_commit: z.strictObject({
+    project: z
+      .string()
+      .min(1)
+      .max(1000)
+      .optional()
+      .describe('可选。项目：projectId 或已登记项目的目录；会话里不给时是会话所属的项目，终端里不给时是当前目录所属的项目'),
+    message: z
+      .string()
+      .trim()
+      .min(1)
+      .max(10_000)
+      .optional()
+      .describe('可选。提交说明的标题（可以带正文）；不给时按这段时间里各视频版本的摘要生成。用户给了说法才填'),
   }),
 };
 
@@ -108,6 +129,21 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
     ],
     surfaces: ['agent'],
   },
+  projects_git_commit: {
+    title: '提交到 git',
+    description: [
+      '把项目里 BaoCut 的文件提交到 git（用户说「提交到 git」「commit 一下」时用；用户没要求时不要调用）。',
+      '先把打开着的视频的快照写好，再只提交 BaoCut 的路径：各视频的 .bcut-snapshot/（不含版本文件）与 blobs/ 里不超过大小上限的素材。项目里别的文件（脚本、代码）与用户已经暂存的改动原样留着，由用户自己提交；不推送、不拉取、不改写历史。',
+      '没有改动时 committed 为 false。项目不在 git 仓库里或这台电脑没有 git 时不提交，结果里 unavailable 说明原因；仓库暂停提交时（本地过滤器、合并或变基中、index.lock）结果里 paused 说明原因。两种情况都照 next 告诉用户，不要自己初始化仓库、改 git 配置或删锁文件。',
+    ].join('\n'),
+    annotations: { destructiveHint: false, idempotentHint: false },
+    effect: 'mutation',
+    examples: [
+      { title: '提交当前项目', args: {} },
+      { title: '用户给了说明', args: { message: '粗剪完成' } },
+    ],
+    surfaces: ['agent', 'cli'],
+  },
 };
 // i18n-ignore-end
 
@@ -147,6 +183,8 @@ export class ProjectTools implements ToolSet {
         return this.#create(args as Args<'projects_create'>, principal);
       case 'projects_adopt_session':
         return this.#adoptSession(args as Args<'projects_adopt_session'>, principal);
+      case 'projects_git_commit':
+        return this.#gitCommit(args as Args<'projects_git_commit'>, principal);
       default:
         // i18n-ignore: 给模型的工具说明、错误与下一步
         return Promise.reject(new ToolError('UNKNOWN_TOOL', `没有这个工具：${name}`));
@@ -218,9 +256,64 @@ export class ProjectTools implements ToolSet {
     const project = await scope.bindSession(access, { ...(binding ? { binding } : {}), ...(args.name ? { name: args.name } : {}) });
     return { ...scopedProject(project), created: !binding?.project, existing: false, ...approvalField(approval), next: ADOPT_NEXT };
   }
+
+  async #gitCommit(args: Args<'projects_git_commit'>, principal: ToolPrincipal) {
+    const { scope, harness, git } = this.#deps;
+    const access = scope.authorize(principal, true);
+    const root = await scope.createRoot(access, args.project, { locate: true });
+    if (!('projectId' in root.scope)) {
+      // i18n-ignore: 给模型的工具说明、错误与下一步
+      throw new ToolError('NOT_IN_PROJECT', '这个会话不属于项目，没有可以提交的仓库', { next: GIT_NO_PROJECT_NEXT });
+    }
+    const projectId = root.scope.projectId;
+    const project = harness.listProjects().find((item) => item.id === projectId);
+    const approval = await scope.confirm(access, {
+      tool: 'projects_git_commit',
+      targets: [root.root],
+      ...confirmSummary(RcGit.commitSummary({ name: project?.name ?? root.root })),
+    });
+    try {
+      const result = await git.commit(projectId, { message: args.message });
+      return {
+        committed: result.committed,
+        commit: result.commit,
+        files: result.files,
+        videos: result.videos,
+        branch: result.status.branch,
+        ...approvalField(approval),
+        next: result.committed ? GIT_COMMITTED_NEXT : GIT_NOTHING_NEXT,
+      };
+    } catch (error) {
+      const details = error instanceof RpcError ? (error.details as { code?: unknown; reason?: unknown; remedy?: unknown } | undefined) : undefined;
+      if (details?.code !== 'GIT_PAUSED' && details?.code !== 'GIT_UNAVAILABLE') throw error;
+      const paused = details.code === 'GIT_PAUSED';
+      const reason = typeof details.reason === 'string' ? details.reason : paused ? 'locked' : 'missing';
+      const why = { reason, message: (error as RpcError).message, ...(typeof details.remedy === 'string' ? { remedy: details.remedy } : {}) };
+      return {
+        committed: false,
+        ...(paused ? { paused: why } : { unavailable: why }),
+        ...approvalField(approval),
+        next: paused ? (GIT_PAUSED_NEXT[reason] ?? GIT_PAUSED_NEXT.locked) : (GIT_UNAVAILABLE_NEXT[reason] ?? GIT_UNAVAILABLE_NEXT.missing),
+      };
+    }
+  }
 }
 
 // i18n-ignore-start: 给模型的工具说明、错误与下一步
+const GIT_COMMITTED_NEXT = '已提交到当前分支（没有推送）。告诉用户提交了哪几部视频；要推送由用户自己做。';
+const GIT_NOTHING_NEXT = '上次提交之后 BaoCut 的文件没有改动，没有新提交。如实告诉用户即可。';
+const GIT_NO_PROJECT_NEXT =
+  '告诉用户：只有项目里的视频能提交到 git。用户要建项目时用 projects_adopt_session；仓库由用户自己准备（在终端运行 baocut projects git-init，或把项目放进已有的仓库）。';
+const GIT_PAUSED_NEXT: Record<string, string> = {
+  'local-config':
+    '仓库的本地配置里有会执行程序的过滤器或包含，BaoCut 在用户允许之前不提交。把 paused.message 告诉用户，请用户在终端运行 baocut projects git-allow 查看这些条目并决定是否允许；你不能替用户允许，也不要自己去改仓库的配置。用户允许之后再调用一次。',
+  'repo-state': '仓库正在合并、变基、拣选、还原、二分中，或 HEAD 没在分支上。把 paused.message 告诉用户，请用户在 git 里完成或放弃之后再提交；不要自己运行 git 去处理。',
+  locked: '仓库正被别的 git 命令占用（index.lock）。稍后再调用一次；不要删除锁文件。',
+};
+const GIT_UNAVAILABLE_NEXT: Record<string, string> = {
+  'not-repo': '项目不在 git 仓库里，没有提交。告诉用户；要不要建仓库由用户决定（在终端运行 baocut projects git-init，或自己 git init），你不要替用户初始化。',
+  missing: '这台电脑上没有能用的 git，没有提交。把 unavailable.message 与 unavailable.remedy 告诉用户，请用户装好 git 后再说。',
+};
 const ADOPT_NEXT =
   '会话已经属于这个项目：新视频不给 project 就建在项目里，视频与文件在项目目录里（相对路径不变）。告诉用户项目的名字与位置。';
 // i18n-ignore-end

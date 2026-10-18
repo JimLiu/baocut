@@ -5,7 +5,7 @@ import type { ToolsMessages } from './external-tools-copy.ts';
 export const fr: ToolsMessages = {
 
   help: `Utilisation :
-  baocut external-tools [list]     Outils externes (yt-dlp, ffmpeg) : état, version, chemin,
+  baocut external-tools [list]     Outils externes (yt-dlp, ffmpeg, git) : état, version, chemin,
                                    source et consentement à leur utilisation
   baocut external-tools detect [name]
                                    Détecter à nouveau

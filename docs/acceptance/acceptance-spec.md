@@ -58,9 +58,9 @@
 | `C` | 一致性：提交安全、写入权、停止屏障、身份、预算 | 12 | §6.5 |
 | `M` | 运行机制：能力快照、批量预检、证据、准入、取帧、资源、任务合同 | 24 | §6.6 |
 | `TM` | 时间模型：单位、量化、采样、帧率 | 20 | §6.7 |
-| `V` | 版本记录：工作区快照、版本、回到与保存版本、重建 | 12 | §6.8 |
+| `V` | 版本记录：工作区快照、版本、回到与保存版本、重建、外部改动的导入、git 桥 | 24 | §6.8 |
 
-共 164 条。
+共 176 条。
 
 ### 1.4 一条验收怎样才算通过
 
@@ -563,7 +563,7 @@ M19 使用原创的、授权的或程序化合成的夹具。M12 的规模档位
 
 独立的脚本可以验证其中一部分有理数的预期值。但这张表里涉及应用、音频、Adapter、缓存、并发与界面的行为，必须由真实的实现测试。
 
-### 6.8 版本记录验收 V01–V16
+### 6.8 版本记录验收 V01–V24
 
 视频的工作区快照与版本记录（视频格式规范 §9，架构设计 §5.12）。
 
@@ -586,7 +586,18 @@ M19 使用原创的、授权的或程序化合成的夹具。M12 的规模档位
 | V15 | 快照被改坏（读不出、有冲突标记） | 状态是 `conflict`（`invalid`），不导入、不覆盖；只能保留 BaoCut 里的，用磁盘上的以 `SNAPSHOT_INVALID` 拒绝 |
 | V16 | Windows 上 `core.autocrlf=true` 检出快照 | 不算外部改动，文件不被改写回 LF |
 
-二期 git 桥的验收要点在[版本记录设计 §9](../design/version-history/version-history-design.md#9-分期与验收要点)，实施时移到这里。
+git 桥（架构设计 §5.12，版本记录设计 §5）：
+
+| ID | 场景 | 必须满足 |
+| --- | --- | --- |
+| V17 | 项目在 git 仓库里（含 worktree）：打开项目、第一次改动、提交之前 | `info/exclude` 与 `info/attributes` 里有 BaoCut 的块，写在 `git rev-parse --git-path` 指的位置；块外一字不动，没变时不重写；`core.autocrlf=true` 时快照仍按 LF 进仓库 |
+| V18 | 用户暂存了无关文件、工作区里有没跟踪的文件与超过上限的 blob，再「提交到 git」 | 提交里只有 BaoCut 的路径：`video.json`、`documents/` 与 `blobs/`，没有 `history/`、`blobs/.staging/`、被忽略的与超过 `versions.git.maxFileMiB` 的文件（Git LFS 跟踪的不受限）；用户暂存的文件仍在暂存区，没跟踪的不动；仓库的钩子不运行；没配齐作者时用 `BaoCut <baocut@localhost>`；尾注 `BaoCut-Video` 的版本范围接着上一次 |
+| V19 | `index.lock` 存在；合并、变基、拣选、还原、二分中；HEAD 分离 | 不提交，以 `GIT_PAUSED` 报告原因与补救；锁文件不删 |
+| V20 | 仓库本地配置里有过滤器或 include | 暂停，查状态与提交都没有执行过滤器；`git lfs install --local` 写入的标准条目不暂停；在桌面界面或 CLI 允许之后恢复，只改 `user.name` 不重新暂停，改了过滤器的命令或被包含的文件重新暂停 |
+| V21 | 浏览器、对外服务或智能体要初始化 git、允许本地过滤器 | 以 `forbidden` 拒绝；浏览器能看状态与「提交到 git」，状态里没有仓库路径与配置条目 |
+| V22 | 在用户主目录、标准用户文件夹、卷的根或已经在仓库里的项目初始化 git | 以 `GIT_INIT_REFUSED` 拒绝，不运行 `git init`；别的位置初始化之后块已写好 |
+| V23 | 打开自动提交：安静满 5 分钟、关掉项目最后一部打开的视频、退出 BaoCut | 各提交一次；关着自动提交时只记下有改动、不提交；失败只记在状态里，编辑照常 |
+| V24 | 没有 git，或 macOS 上只有没装开发者工具时的 `/usr/bin/git` | 状态是 `unavailable` 并给补救，提交以 `GIT_UNAVAILABLE` 拒绝，不弹出安装开发者工具的窗口；版本记录照常（V12） |
 
 自动化检查：
 
@@ -594,6 +605,8 @@ M19 使用原创的、授权的或程序化合成的夹具。M12 的规模档位
 - Engine Host（`crates/engine-host/src/host.rs` 的 `versions_round_trip_through_snapshot_restore_save_delete_and_rebuild` 与 `an_external_snapshot_change_is_imported_and_a_conflict_waits_for_a_choice`）：内部命令的往返。
 - Runtime（`packages/runtime-core/src/videos/videos.test.ts`，真实的 Engine Host）：去抖写快照、保存与回到版本、关闭前写；V08 的打开时重建；V09 与 V15 的状态；V13（关着时 `git pull` 后打开即导入、按事务撤销；打开中的视频由监视发现并导入）；V14（两种选择与重试）；按回合切分与会话记录；V10；V11。智能体工具（`agent-tools/object-tools.test.ts`）：保存、列出、读 diff、回到版本与没有的版本给出下一步。
 - 还没有自动化：V02 的随机编辑序列、V05 的大小上限、V04 里两部视频之间来回切换、V12 在没有 git 的机器上的端到端检查、V16 在 Windows 上真实 `git checkout` 的检查。
+- git 桥：Runtime（`packages/runtime-core/src/git/git-bridge.test.ts`，真实的 git，隔离全局与系统配置）：V17–V20、V22–V24 的 Runtime 部分（含钩子不运行、子目录里的项目、LFS 跟踪的大文件）；`git/project-git-methods.test.ts`：V21 的调用方；`external-tools/git-probe.test.ts`：V24 的 macOS 占位程序判断。智能体工具（`agent-tools/project-tools.test.ts`）：提交的结果，暂停与没有仓库时交回原因与下一步。CLI（`apps/cli/src/admin/projects-output.test.ts`）：按 ID、目录、名字找项目与状态的输出。
+- git 桥还没有自动化：Windows 上真实的 git（`PATHEXT`、结束进程树、被重定向的标准用户文件夹）、没装开发者工具的 macOS 上的 V24、Web 与桌面界面（界面没做）。
 
 ---
 

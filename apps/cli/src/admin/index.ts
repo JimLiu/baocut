@@ -14,6 +14,7 @@ import { library } from './library.ts';
 import { mcp } from './mcp.ts';
 import { models } from './models.ts';
 import { nodes } from './nodes.ts';
+import { projects } from './projects.ts';
 import { services } from './services.ts';
 import { settings } from './settings.ts';
 import { share } from './share.ts';
@@ -27,7 +28,7 @@ import { web } from './web.ts';
 
 /**
  * 管理桶（Agent 面设计 §7）：只给人用的手写命令，按名词与子命令精确匹配，先于派生命令。与目录同名的名词（`models`、
- * `jobs`、`space`、`library`、`skills`）只认列出的子命令，其余交给派生命令。顺序就是 `--help` 后半屏的顺序。
+ * `jobs`、`space`、`library`、`skills`、`projects`）只认列出的子命令，其余交给派生命令。顺序就是 `--help` 后半屏的顺序。
  */
 const NOUNS: readonly AdminNoun<ParseArgsOptionsConfig>[] = [
   models,
@@ -35,6 +36,7 @@ const NOUNS: readonly AdminNoun<ParseArgsOptionsConfig>[] = [
   space,
   library,
   skills,
+  projects,
   externalTools,
   services,
   mcp,

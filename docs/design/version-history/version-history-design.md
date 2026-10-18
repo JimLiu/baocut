@@ -1,6 +1,6 @@
 # 视频的版本记录：最新快照与最近版本
 
-**状态：** 方案稿（2026-10-17）。一期（§9）与二期的外部改动导入（§4.3）已实现，规则已整合进视频格式规范 §9、架构设计 §5.12 与命令与协议规范 §4.1，以它们为准；与本文不同的地方见 [§12](#12-实施记录)。二期的界面与 git 桥、三期未实现，其中的类型、方法名、设置键与默认值仍是**目标合同**（[文档约定](../../README.md#文档约定)）。用户可见的界面在实施前须先做原型并经用户确认（[开发流程 §3](../../development-workflow.md#3-多端同步)），本文不含原型。
+**状态：** 方案稿（2026-10-17）。一期（§9）、二期的外部改动导入（§4.3）与 git 桥的后端、协议、CLI 与智能体工具（§5）已实现，规则已整合进视频格式规范 §9、架构设计 §5.12 与命令与协议规范 §4.1，以它们为准；与本文不同的地方见 [§12](#12-实施记录)。二期的界面与三期未实现，其中的类型、方法名、设置键与默认值仍是**目标合同**（[文档约定](../../README.md#文档约定)）。用户可见的界面在实施前须先做原型并经用户确认（[开发流程 §3](../../development-workflow.md#3-多端同步)），本文不含原型。
 
 ## 目录
 
@@ -659,12 +659,12 @@ BaoCut 在这里的行为：
 
 ## 12. 实施记录
 
-一期（§9）与二期的外部改动导入（§4.3）已实现。规则已整合进所属文档，以它们为准：
+一期（§9）、二期的外部改动导入（§4.3）与 git 桥（§5）已实现。规则已整合进所属文档，以它们为准：
 
 - 格式：[视频格式规范 §9](../../spec/video-format-spec.md#9-工作区快照与版本文件)，检查点与保存的版本的关系在 §3.11；
 - 存储、调度与设置：[架构设计 §5.12](../../architecture/architecture-design.md#512-视频的版本记录)，以及 §5.1、§5.2、§5.5、§5.7、§5.10；
 - 方法与错误码：[命令与协议规范 §4.1](../../spec/command-protocol-spec.md#41-方法)；
-- 术语、验收（[验收与测试 §6.8](../../acceptance/acceptance-spec.md#68-版本记录验收-v01v16)）与内置 skill 的编辑目录。
+- 术语、验收（[验收与测试 §6.8](../../acceptance/acceptance-spec.md#68-版本记录验收-v01v24)）与内置 skill 的编辑目录。
 
 ### 12.1 一期
 
@@ -718,3 +718,22 @@ BaoCut 在这里的行为：
 - **引擎命令**：`videos.applySnapshot { videoId, commandId, actor, force?, keep? }` 只读视频目录里的快照，没有 `snapshotDir`（§7.1）；`force` 对应「用磁盘上的」。`videos.writeSnapshot` 多了 `overwrite`。`boundary` 不加 `external`：导入由引擎自己单独成版。
 - **监视**（§4.1、§7.2）：每部打开的视频用一个递归的 `fs.watch` 监视自己的 `.bcut-snapshot/`，跳过 `history/` 与点开头的临时文件，去抖 300 毫秒后调 `videos.applySnapshot`。打开时立即的那次写报 `SNAPSHOT_CONFLICT` 时同样调它，所以关着时的 `git pull` 在打开时导入。
 - **智能体没有选择去留的工具**（§6 没有列，这里明确）：选哪边都会丢掉一边的工作，由用户决定。`videos_versions` 报告 `external`、`conflict` 与原因，`SNAPSHOT_CONFLICT` 的下一步提示让智能体转告用户；内置 skill 同样这样说明。
+
+### 12.3 二期：git 桥
+
+后端、协议、CLI 与智能体工具已实现，规则在[架构设计 §5.12](../../architecture/architecture-design.md#512-视频的版本记录)的「git 桥」。界面（项目设置里的 git 一节、「提交到 git」按钮）没有做，先做原型。实现与本文不同的地方：
+
+- **方法**：多了 `projects.git.allowLocalConfig { projectId, digest }`，就是 §5.4 的「允许」；`digest` 是用户看过的那组条目的摘要，与此刻的不同时以 `GIT_PAUSED`（`local-config`）拒绝，免得允许了没看过的条目。`projects.git` 的状态不随项目主题推送，界面按需查。新增错误码 `GIT_FAILED`（git 自己运行失败，`internal`）；`GIT_UNAVAILABLE` 的 `details.reason` 分 `missing`（没有能用的 git）与 `not-repo`（项目不在仓库里）。
+- **CLI 与智能体**：工具叫 `projects_git_commit`（不是 `project_git_commit`），沿用 `<名词>_<动词>` 的命名，CLI 是 `baocut projects git-commit`。它在 BaoCut 自己的会话与 CLI 里，MCP 上没有：对外服务的访问范围可以只是几部视频，提交却作用于整个项目与用户的仓库，与 `projects_create` 同样处理。查看状态、初始化与允许过滤器是 CLI 的管理命令 `baocut projects git-status|git-init|git-allow`，不进工具目录。
+- **补救的指向**：界面没做之前，「初始化 git」与「允许」的补救文字与智能体的下一步都指向 CLI（`baocut projects git-init`、`baocut projects git-allow`），不指向项目设置。智能体遇到没有仓库时同样不替用户初始化，结果里是 `unavailable`（与 `paused` 并列）。
+- **「关闭项目」**按项目最后一部打开的视频关闭算：Runtime 没有单独的关闭项目。自动提交由打开中的视频的修改触发；关着的视频不会有新改动，提交时仍按 `git ls-files` 把项目里所有视频的快照算进来。
+- **提交说明的标题**：版本的名字优先于摘要，多个用分号连接，至多 72 个字；都没有时是「BaoCut：更新 <视频名>」，按 Runtime 的语言。正文按视频列出版本序号与名字或摘要，不列动作。版本范围从上一次提交的尾注 `BaoCut-Video` 接着算；找不到尾注时按上一次提交的时间。
+- **提交范围**：删掉或移走的视频，它在仓库里的旧快照不由 BaoCut 删除，留给用户自己提交。`blobs/` 里有改动、且超过大小上限又没被 LFS 跟踪的条目跳过，不报错。
+- **安全参数**比 §5.4 多：`tag.gpgSign=false`、`submodule.recurse=false`、`diff.ignoreSubmodules=all`、`log.showSignature=false`、`core.editor=:`、`core.pager=cat`，`core.askPass` 与 `credential.helper` 置空，`protocol.allow=never`；环境去掉会把命令指到别处的 `GIT_*` 与 `EMAIL`，另设 `GCM_INTERACTIVE=never` 与 `LC_ALL=C`；路径一律带 `--literal-pathspecs`。
+- **暂停期间运行的命令**比 §5.4 列的更少：只有 `rev-parse`、`config` 与 `symbolic-ref`（读分支名），不运行 `check-ignore`、`check-attr` 与 `ls-files`。
+- **摘要每次重算**，不看修改时间（§5.4）：本地配置与被包含的文件都小，按修改时间判断反而会漏掉同一秒里的改动。
+- **`info/*` 的块**除了打开项目时，也在这次运行里项目第一次有改动时与每次提交之前写，没变时不重写；找不到 git 时只认 `.git` 目录，遇到 worktree 与子模块的 `.git` 文件跳过。
+- **初始化的拒绝名单**：Windows 上按用户主目录下的标准文件夹名判断，被重定向到别处的已知文件夹（例如 OneDrive 里的「文稿」）没有解析。
+- **找 git**：环境变量是 `BAOCUT_GIT`；macOS 上判断 `/usr/bin/git` 能不能用时运行 `xcode-select -p`，失败就跳过它、接着在 PATH 里往后找（例如 Homebrew 的 git）。
+- **换行**：快照 `eol=lf` 的效果由真实的 git 测试核对（`core.autocrlf=true` 时进仓库的仍是 LF）；读快照时把 CRLF 当作 LF 是外部改动的导入那部分做的（§12.2）。
+- **项目级的设置**（§7.3 的覆盖值）没有做：两个设置都是 Runtime 级的。

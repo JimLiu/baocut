@@ -18,7 +18,7 @@ import { vi } from './external-tools-copy.vi.ts';
 const en = {
   /** `baocut external-tools --help` 与 `baocut help external-tools` 的正文。 */
   help: `Usage:
-  baocut external-tools [list]     External tools (yt-dlp, ffmpeg): status, version, path,
+  baocut external-tools [list]     External tools (yt-dlp, ffmpeg, git): status, version, path,
                                    source, and whether you've agreed to use them
   baocut external-tools detect [name]
                                    Detect again

@@ -12,6 +12,7 @@ export * from './rc-model-api.ts';
 export * from './rc-web.ts';
 export * from './rc-gateway.ts';
 export * from './rc-external-tools.ts';
+export * from './rc-git.ts';
 export * from './rc-models.ts';
 export * from './rc-fonts.ts';
 export * from './rc-library.ts';
