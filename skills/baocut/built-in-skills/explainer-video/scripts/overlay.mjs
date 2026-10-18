@@ -10,6 +10,7 @@
 //   from / to 是原片的秒数；片段从 seg 段第 line 句（从 0 数）开始放；cue 可省，给了就从这句里 cue 这几个字被说到的时刻开始。
 //   同一段里下一个片段开始时截断，不越过段尾。label 是烧进画面一角的来源标签（成片语言写，例如「画面：<来源>」），
 //   单个片段可以另给 source 与 label；audio 为 true 时保留原声（当事人原话、现场声），否则静音；给数字是放到时间线上的音量（0–1）。
+//   follow 为 true 的片段不看 line / cue，紧接着 clips.json 里上一个片段的原长之后放（几段素材连成一整块，中间硬切）。
 //   gap 为 true 的片段让旁白停下来单独放：先跑 gaps.mjs 在旁白里留白，片段放在留白的起点（line 是插在哪一句之前）。
 //   subs：[{ from, to, text, tr, who? }]，from / to 是原片秒数，text 成片语言、tr 原话、who 说话人；--render 时烧成双语字幕。
 //   in / out：{ kind, dur?, easing? } 单侧转场（kind 取 dissolve / wipe / slide / zoom / iris，dur 秒数缺省 0.5，easing 缺省 ease-in-out），
@@ -21,7 +22,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { loadConfig, parseArgs, makeBc, readJson, writeJson, layout, atOf, cueTime, clipAt, allItems } from './lib.mjs';
+import { loadConfig, parseArgs, makeBc, readJson, writeJson, layout, atOf, cueTime, clipTimes, allItems } from './lib.mjs';
 
 const cfg = loadConfig();
 const { ids, flags } = parseArgs(process.argv);
@@ -72,7 +73,8 @@ const at = (segId, line, cue) => {
 };
 const plan = [];
 for (const s of lay) {
-  const cs = cl.clips.filter(c => c.seg === s.id).map(c => ({ ...c, at: s.from / FPS + clipAt(timing(s.id), c) })).sort((a, b) => a.at - b.at);
+  const mine = cl.clips.filter(c => c.seg === s.id), t0 = mine.length ? clipTimes(timing(s.id), mine) : {};
+  const cs = mine.map(c => ({ ...c, at: s.from / FPS + t0[c.id] })).sort((a, b) => a.at - b.at);
   cs.forEach((c, i) => {
     const stop = Math.min(cs[i + 1]?.at ?? Infinity, (s.from + s.frames) / FPS);
     const f0 = Math.round(c.at * FPS), f1 = Math.min(Math.round((c.at + c.to - c.from) * FPS), Math.round(stop * FPS));

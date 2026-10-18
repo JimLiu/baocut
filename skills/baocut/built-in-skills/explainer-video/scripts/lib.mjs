@@ -146,6 +146,17 @@ export function scriptNotes(cfg) {
   return Object.fromEntries(Object.entries(out).map(([id, l]) => [id, l.join(' ')]));
 }
 
+// 一段里所有片段的起点（按 clips.json 的先后）：follow 为 true 的片段接在上一个片段的原长之后，其余同 clipAt
+export function clipTimes(tm, clips) {
+  const at = {};
+  clips.forEach((c, i) => {
+    const p = clips[i - 1];
+    if (c.follow && !p) throw new Error(`clip ${c.id} follows nothing; it is the first clip of ${c.seg}`);
+    at[c.id] = c.follow ? at[p.id] + p.to - p.from : clipAt(tm, c);
+  });
+  return at;
+}
+
 // 片段在这一段里的起点（秒，相对段首）：留白片段（gap）取 gaps.mjs 在旁白里留出的那段空白的起点，其余按 line / cue
 export function clipAt(tm, clip) {
   if (!clip.gap) return cueTime(tm, clip.line, clip.cue);

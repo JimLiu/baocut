@@ -10,7 +10,7 @@
 // 字幕带的样式取配置的 preview.caption（与字幕样式同一套键），不给就不画。
 import fs from 'node:fs';
 import path from 'node:path';
-import { loadConfig, readJson, writeJson, scriptNotes, clipAt } from './lib.mjs';
+import { loadConfig, readJson, writeJson, scriptNotes, clipTimes } from './lib.mjs';
 
 const cfg = loadConfig();
 const cl = readJson(cfg.abs(cfg.footage?.clips || 'clips.json'), { clips: [] });
@@ -22,9 +22,10 @@ const segments = cfg.order.map(id => {
   const tf = cfg.abs(cfg.dirs.timing, `${id}.json`);
   const tm = readJson(tf);
   if (!tm) missing.push(id);
-  const clips = !tm ? [] : cl.clips.filter(c => c.seg === id).map(c => ({
+  const mine = cl.clips.filter(c => c.seg === id), t0 = tm && mine.length ? clipTimes(tm, mine) : {};
+  const clips = !tm ? [] : mine.map(c => ({
     src: rel(path.join(cfg.dirs.work, 'clips', `${c.id}.mp4`)),
-    at: +clipAt(tm, c).toFixed(3),
+    at: +t0[c.id].toFixed(3),
     dur: +(c.to - c.from).toFixed(3),
     label: c.label ?? cl.label ?? '',
     ...(c.audio ? { audio: true } : {}),

@@ -38,7 +38,7 @@
 
 旁白稿的写法：`## <段落 id> 标题` 开一段（id 要在 `order` 里），段内每个非空行是一句旁白，一句一个画面节拍；别的一、二级标题或单独一行的 `---` 结束这一段，所以来源、简化说明、分镜草案可以写在同一个文件里。
 
-工程目录：`scenes/<id>.js`（每段的场景代码）、`shared/`（各段共用的引擎、字体、图片），脚本生成 `audio/`、`timing/`、`bundles/`、`.baocut-out/`，记录 `audio/voice.json`、`timeline.json`、`captions.json`、`overlay.json`，预览页读 `preview.json`。有实拍时写一份 `clips.json`（样例 [`scripts/clips.example.json`](../scripts/clips.example.json)）：每个片段的原片起止秒数，放在哪一段的哪一句（`line` 从 0 数），可选从这句里哪几个字开始（`cue`）、保留原声（`audio`：`true`，或 0–1 的音量）、旁白在这里停下单独放（`gap`，这时 `line` 是插在哪一句之前，等于句数时放在段尾）、双语字幕（`subs`：`[{ from, to, text, tr, who? }]`，原片秒数）、单侧转场（`in`、`out`：`{ kind, dur?, easing? }`，`kind` 取 `dissolve`、`wipe`、`slide`、`zoom`、`iris`，`dur` 默认 0.5 秒，`easing` 默认 `ease-in-out`）、裁边与放法（`crop`：`[x, y, w, h]` 原片像素；`fit`：默认 `cover` 铺满裁切，`contain` 整幅放进、补黑边）、另一个来源文件与标签。场景代码从 `window.TIMING` 读这一段的时长与逐句、逐字时间（`{dur, lines:[{text, start, end, chars}]}`，`chars[k]` 是第 k 个字符开始被说到的秒数），在 `window.__baocutCompositions[<compositionId>]` 上注册（默认 `main`）。
+工程目录：`scenes/<id>.js`（每段的场景代码）、`shared/`（各段共用的引擎、字体、图片），脚本生成 `audio/`、`timing/`、`bundles/`、`.baocut-out/`，记录 `audio/voice.json`、`timeline.json`、`captions.json`、`overlay.json`，预览页读 `preview.json`。有实拍时写一份 `clips.json`（样例 [`scripts/clips.example.json`](../scripts/clips.example.json)）：每个片段的原片起止秒数，放在哪一段的哪一句（`line` 从 0 数），可选从这句里哪几个字开始（`cue`）、保留原声（`audio`：`true`，或 0–1 的音量）、旁白在这里停下单独放（`gap`，这时 `line` 是插在哪一句之前，等于句数时放在段尾；几个 `gap` 片段给同一个 `line` 时按清单先后背靠背连放）、紧接上一个片段放（`follow`：不看 `line` / `cue`，接在清单里上一个片段的原长之后，几段素材连成一块、中间硬切）、双语字幕（`subs`：`[{ from, to, text, tr, who? }]`，原片秒数）、单侧转场（`in`、`out`：`{ kind, dur?, easing? }`，`kind` 取 `dissolve`、`wipe`、`slide`、`zoom`、`iris`，`dur` 默认 0.5 秒，`easing` 默认 `ease-in-out`）、裁边与放法（`crop`：`[x, y, w, h]` 原片像素；`fit`：默认 `cover` 铺满裁切，`contain` 整幅放进、补黑边）、另一个来源文件与标签。场景代码从 `window.TIMING` 读这一段的时长与逐句、逐字时间（`{dur, lines:[{text, start, end, chars}]}`，`chars[k]` 是第 k 个字符开始被说到的秒数），在 `window.__baocutCompositions[<compositionId>]` 上注册（默认 `main`）。
 
 ## 3. 按顺序跑
 
@@ -46,7 +46,7 @@
 | --- | --- | --- |
 | 配音 | `node tools/voice.mjs <id …>` 或 `--missing` | 一段一次合成，存 `audio/<id>.<格式>`，记 `voice.json`（连同当时的稿子原文）。`--missing` 只配没配过或稿子改过的段 |
 | 对齐 | `node tools/align.mjs <id …>` | 转写后用编辑距离把字时间对到稿子原文，写 `timing/<id>.json`；打印每句的语速（偏离中位数 15% 标 RATE）、句间停顿（超过 0.8 秒标 GAP）、多念、漏念与念错的字。读错的处理照 `SKILL.md` 第 5 节「读音核对」。提示时间塌了时 `--fresh --chunk 14` 重转 |
-| 留白 | `node tools/gaps.mjs [id …]`（有 `gap` 片段时） | 在 `gap` 片段所在那句之前插一段静音（片段长 + 0.35 秒），后面的句子整体后挪：写 `audio/<id>.gaps.<格式>`，`timing/<id>.json` 改成挪过的时间并带上 `gaps` 与 `gapAudio`，原始对齐存成 `timing/<id>.voice.json`，可以反复跑。之后打包、预览、排时间线、字幕都按留过白的时间走，`assemble.mjs` 导入留好白的那份旁白 |
+| 留白 | `node tools/gaps.mjs [id …]`（有 `gap` 片段时） | 在 `gap` 片段所在那句之前插一段静音（片段长 + 0.35 秒；同一句前的几个 `gap` 片段共用一段，长度是它们的总长 + 0.35 秒），后面的句子整体后挪：写 `audio/<id>.gaps.<格式>`，`timing/<id>.json` 改成挪过的时间并带上 `gaps` 与 `gapAudio`，原始对齐存成 `timing/<id>.voice.json`，可以反复跑。之后打包、预览、排时间线、字幕都按留过白的时间走，`assemble.mjs` 导入留好白的那份旁白 |
 | 打包 | `node tools/build.mjs [id …]` | 打成 `bundles/<id>/`，时长 = 对齐出的时长 + `hold`，对齐到整帧。还没对齐的段按估算时长打包，只用于配音前的样帧 |
 | 预览 | `node tools/overlay.mjs --preview`（有实拍时），再 `node tools/preview.mjs` | 写 `preview.json`：各段的代码包、旁白、句子时间、稿子里的备注与叠在上面的实拍。把 `video-production` 的 `examples/bundle-preview.html` 拷到工程根目录，在根目录起静态服务打开（代码场景细则第 7 节）。页面跟着旁白画、叠实拍，能连播。烘焙前给用户看 |
 | 排时间线 | `node tools/assemble.mjs --dry`，再 `node tools/assemble.mjs` | `--dry` 不连 Runtime，打印每段的起始帧、帧数和要做的事；确认后去掉 `--dry` 执行。每段导入后打印并记下 `bake` 的 `renderer`、`fps`、`seconds` |
