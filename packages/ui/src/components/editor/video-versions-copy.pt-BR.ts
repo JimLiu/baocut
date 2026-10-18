@@ -12,8 +12,15 @@ export const ptBR: VideoVersionsMessages = {
   stateSyncedDesc: 'O snapshot de espaço de trabalho na pasta do vídeo corresponde ao conteúdo atual.',
   statePending: 'Gravando snapshot',
   statePendingDesc: 'As alterações recentes entram no snapshot e no histórico de versões em poucos segundos.',
-  stateConflict: 'Snapshot alterado fora do BaoCut',
-  stateConflictDesc: 'Os arquivos do snapshot diferem do que o BaoCut gravou por último. O BaoCut não vai sobrescrevê-los.',
+  stateConflict: 'Snapshot e BaoCut alterados',
+  stateConflictDesc:
+    'Os arquivos do snapshot foram alterados fora do BaoCut, e o BaoCut também tem alterações que ainda não estão no snapshot. O BaoCut não vai sobrescrever o snapshot até você escolher o que manter.',
+  stateInvalid: 'Não é possível ler o snapshot',
+  stateInvalidDesc:
+    'Os arquivos do snapshot não podem ser interpretados, então o BaoCut não os importou. O BaoCut verifica de novo depois que você os corrigir, ou você pode sobrescrevê-los com o conteúdo do BaoCut.',
+  stateExternal: 'Importando alterações externas',
+  stateExternalDesc:
+    'Os arquivos do snapshot foram alterados fora do BaoCut (git pull, uma pasta sincronizada ou uma edição manual) e o BaoCut não tem outras alterações, então está importando-os como uma versão “Alteração externa”.',
   stateMissing: 'Ainda não há snapshot',
   stateMissingDesc: 'O snapshot de espaço de trabalho ainda não foi gravado, ou o video.json não existe mais.',
   stateRebuild: 'Precisa ser reconstruído',
@@ -28,9 +35,40 @@ export const ptBR: VideoVersionsMessages = {
   noteLabel: 'Nota (opcional)',
   cancel: 'Cancelar',
   saveSubmit: 'Salvar',
-  conflictTitle: 'Snapshot alterado fora do BaoCut',
-  conflictIntro: 'Estes arquivos do snapshot diferem do que o BaoCut gravou por último. A alteração pode vir de git pull, de uma pasta sincronizada ou de uma edição manual:',
-  conflictOutro: 'O BaoCut não vai sobrescrevê-los nem gravar novas versões. Até isso ser resolvido, não é possível salvar versões nem voltar a uma versão.',
+  conflictIntro:
+    'Estes arquivos do snapshot foram alterados fora do BaoCut, talvez por git pull, uma pasta sincronizada ou uma edição manual, e o BaoCut também tem alterações que ainda não estão no snapshot:',
+  conflictOutro:
+    'Até você escolher o que manter, o BaoCut não vai sobrescrever o snapshot. Você pode continuar editando o vídeo, mas não é possível salvar versões nem voltar a uma versão.',
+  invalidIntro: 'Estes arquivos do snapshot não podem ser interpretados. Eles podem conter marcadores de conflito de merge, estar truncados ou ter sido danificados manualmente:',
+  invalidOutro:
+    'O BaoCut não os importou. Você pode continuar editando o vídeo, mas não é possível salvar versões nem voltar a uma versão. O BaoCut verifica de novo depois que você corrigir estes arquivos, ou você pode manter o conteúdo do BaoCut e sobrescrevê-los.',
+  externalIntro: 'Estes arquivos do snapshot foram alterados fora do BaoCut, talvez por git pull, uma pasta sincronizada ou uma edição manual:',
+  externalOutro:
+    'O BaoCut não tem alterações que ainda não estejam no snapshot, então os importa diretamente como uma versão “Alteração externa”. Você pode desfazer a importação depois.',
+  stripConflict: 'O snapshot foi alterado fora do BaoCut, e o BaoCut também tem alterações novas. Escolha o que manter.',
+  stripInvalid: 'Não é possível ler os arquivos do snapshot. O BaoCut não os importou.',
+  view: 'Ver',
+  keepVideo: 'Manter o conteúdo do BaoCut',
+  useSnapshot: 'Usar o snapshot do disco',
+  keepTitle: 'Manter o conteúdo do BaoCut?',
+  keepConfirm: 'Sobrescrever o snapshot do disco',
+  keepBody: (count: number, files: string, invalid: boolean) =>
+    `O conteúdo do BaoCut é gravado no snapshot na hora, sobrescrevendo ${count === 1 ? `o arquivo ${invalid ? 'ilegível' : 'alterado'}` : `os ${count} arquivos ${invalid ? 'ilegíveis' : 'alterados'}`} no disco${files ? ` (${files})` : ''}. Essas alterações no disco não entram no histórico de versões e não podem ser recuperadas no BaoCut; se vieram do git ou de uma pasta sincronizada, você pode recuperá-las lá.`,
+  diskTitle: 'Usar o snapshot do disco?',
+  diskConfirm: 'Usar o snapshot do disco',
+  diskBody: (files: string) =>
+    `O conteúdo do vídeo é substituído pelo snapshot do disco${files ? ` (${files})` : ''} e registrado como uma versão “Alteração externa”. As alterações no BaoCut que ainda não estão no snapshot entram antes no histórico de versões: volte para antes da versão “Alteração externa” para recuperá-las. Você também pode desfazer isso.`,
+  keptTitle: 'Conteúdo do BaoCut mantido',
+  keptText: (version: number | null) =>
+    `O snapshot no disco agora corresponde ao BaoCut${version ? `, e suas alterações recentes estão na versão ${version}` : ''}. As alterações que estavam no disco não entraram no histórico de versões.`,
+  usedDiskTitle: (version: number) => `Snapshot do disco usado, registrado como versão ${version} “Alteração externa”`,
+  usedDiskText: (version: number) => `Volte para antes da versão ${version} para recuperar o que havia no BaoCut. Você também pode desfazer isso.`,
+  importedTitle: (version: number | null) => (version ? `Alterações externas importadas como versão ${version} “Alteração externa”` : 'Alterações externas importadas'),
+  importedText:
+    'Os arquivos do snapshot foram alterados fora do BaoCut e o BaoCut não tinha outras alterações, então eles foram importados diretamente. Volte para antes desta versão para ver o conteúdo de antes da importação, ou desfaça-a.',
+  importUndoneTitle: 'Importação desfeita',
+  importUndoneText:
+    'O vídeo voltou ao conteúdo de antes da importação e é gravado de novo no snapshot em poucos segundos, o que descarta esta alteração externa. Desfazer também é uma alteração e entra em uma versão nova.',
   refusedBroken: 'Não é possível voltar a esta versão',
   refusedOther: 'Não concluído',
   refusedText: (message: string) => `${message}. O vídeo não mudou.`,
@@ -73,6 +111,10 @@ export const ptBR: VideoVersionsMessages = {
   openHint: 'A versão mais recente ainda está aberta: até passarem 5 minutos sem alterações ou ela completar 30 minutos, suas próximas alterações entram nela.',
   openHintPending: 'A versão mais recente ainda está aberta. As alterações recentes estão sendo gravadas e entram nela em poucos segundos.',
   openHintConflict: 'A versão mais recente ainda está aberta, mas as novas alterações não entram no histórico de versões até o conflito do snapshot ser resolvido.',
+  openHintExternal:
+    'A versão mais recente ainda está aberta. O snapshot do disco está sendo importado: esta versão é fechada primeiro, e as alterações externas viram uma versão própria.',
+  externalHint:
+    'Esta versão veio de fora do BaoCut: os arquivos do snapshot foram alterados por git pull, uma pasta sincronizada ou uma edição manual, e o BaoCut os importou como esta versão. Volte para antes desta versão para recuperar o que havia no BaoCut antes da importação.',
   restoreEnd: 'Voltar a esta versão',
   restoreBefore: 'Voltar para antes desta versão',
   deleteSaved: 'Excluir esta versão salva',

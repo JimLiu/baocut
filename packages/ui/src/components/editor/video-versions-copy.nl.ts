@@ -12,8 +12,15 @@ export const nl: VideoVersionsMessages = {
   stateSyncedDesc: 'De werkruimtemomentopname in de videomap komt overeen met de huidige inhoud.',
   statePending: 'Momentopname wordt geschreven',
   statePendingDesc: 'Recente wijzigingen komen binnen enkele seconden in de momentopname en de versiegeschiedenis.',
-  stateConflict: 'Momentopname buiten BaoCut gewijzigd',
-  stateConflictDesc: 'De bestanden van de momentopname wijken af van wat BaoCut het laatst heeft geschreven. BaoCut overschrijft ze niet.',
+  stateConflict: 'Momentopname en BaoCut allebei gewijzigd',
+  stateConflictDesc:
+    'De bestanden van de momentopname zijn buiten BaoCut gewijzigd, en BaoCut heeft ook wijzigingen die nog niet in de momentopname staan. BaoCut overschrijft de momentopname pas als je hebt gekozen wat je wilt houden.',
+  stateInvalid: 'Momentopname onleesbaar',
+  stateInvalidDesc:
+    'De bestanden van de momentopname kunnen niet worden verwerkt, dus BaoCut heeft ze niet geïmporteerd. BaoCut controleert opnieuw zodra je ze hebt hersteld, of je overschrijft ze met de inhoud uit BaoCut.',
+  stateExternal: 'Externe wijzigingen worden geïmporteerd',
+  stateExternalDesc:
+    'De bestanden van de momentopname zijn buiten BaoCut gewijzigd (git pull, een synchronisatieschijf of handmatige bewerking) en BaoCut heeft geen andere wijzigingen, dus worden ze geïmporteerd als een versie ‘Externe wijziging’.',
   stateMissing: 'Nog geen momentopname',
   stateMissingDesc: 'De werkruimtemomentopname is nog niet geschreven, of video.json ontbreekt.',
   stateRebuild: 'Moet opnieuw worden opgebouwd',
@@ -28,9 +35,41 @@ export const nl: VideoVersionsMessages = {
   noteLabel: 'Notitie (optioneel)',
   cancel: 'Annuleren',
   saveSubmit: 'Opslaan',
-  conflictTitle: 'Momentopname buiten BaoCut gewijzigd',
-  conflictIntro: 'Deze bestanden van de momentopname wijken af van wat BaoCut het laatst heeft geschreven. De wijziging kan komen van git pull, een synchronisatieschijf of handmatige bewerking:',
-  conflictOutro: 'BaoCut overschrijft ze niet en schrijft geen nieuwe versies. Tot dit is opgelost, kun je geen versies opslaan en niet teruggaan naar een versie.',
+  conflictIntro:
+    'Deze bestanden van de momentopname zijn buiten BaoCut gewijzigd, mogelijk door git pull, een synchronisatieschijf of handmatige bewerking, en BaoCut heeft ook wijzigingen die nog niet in de momentopname staan:',
+  conflictOutro:
+    'Tot je hebt gekozen wat je wilt houden, overschrijft BaoCut de momentopname niet. Je kunt de video gewoon verder bewerken, maar geen versies opslaan en niet teruggaan naar een versie.',
+  invalidIntro:
+    'Deze bestanden van de momentopname kunnen niet worden verwerkt. Ze bevatten mogelijk markeringen van een mergeconflict, zijn afgekapt of zijn met de hand beschadigd:',
+  invalidOutro:
+    'BaoCut heeft ze niet geïmporteerd. Je kunt de video gewoon verder bewerken, maar geen versies opslaan en niet teruggaan naar een versie. BaoCut controleert opnieuw zodra je deze bestanden hebt hersteld, of je houdt de inhoud uit BaoCut en overschrijft ze.',
+  externalIntro: 'Deze bestanden van de momentopname zijn buiten BaoCut gewijzigd, mogelijk door git pull, een synchronisatieschijf of handmatige bewerking:',
+  externalOutro:
+    'BaoCut heeft geen wijzigingen die nog niet in de momentopname staan, dus worden ze direct geïmporteerd als een versie ‘Externe wijziging’. Je kunt de import daarna ongedaan maken.',
+  stripConflict: 'De momentopname is buiten BaoCut gewijzigd, en BaoCut heeft ook nieuwe wijzigingen. Kies wat je wilt houden.',
+  stripInvalid: 'De bestanden van de momentopname zijn onleesbaar. BaoCut heeft ze niet geïmporteerd.',
+  view: 'Bekijken',
+  keepVideo: 'Inhoud uit BaoCut houden',
+  useSnapshot: 'Momentopname op schijf gebruiken',
+  keepTitle: 'Inhoud uit BaoCut houden?',
+  keepConfirm: 'Momentopname op schijf overschrijven',
+  keepBody: (count: number, files: string, invalid: boolean) =>
+    `De inhoud uit BaoCut wordt meteen naar de momentopname geschreven en overschrijft ${count === 1 ? `het ${invalid ? 'onleesbare' : 'gewijzigde'} bestand` : `de ${count} ${invalid ? 'onleesbare' : 'gewijzigde'} bestanden`} op schijf${files ? ` (${files})` : ''}. Die wijzigingen op schijf komen niet in de versiegeschiedenis en zijn in BaoCut niet terug te halen; kwamen ze uit git of een synchronisatieschijf, dan kun je ze daar terughalen.`,
+  diskTitle: 'Momentopname op schijf gebruiken?',
+  diskConfirm: 'Momentopname op schijf gebruiken',
+  diskBody: (files: string) =>
+    `De inhoud van de video wordt vervangen door de momentopname op schijf${files ? ` (${files})` : ''} en vastgelegd als een versie ‘Externe wijziging’. Wijzigingen in BaoCut die nog niet in de momentopname staan, komen eerst in de versiegeschiedenis: ga terug naar vóór de versie ‘Externe wijziging’ om ze terug te halen. Je kunt dit ook ongedaan maken.`,
+  keptTitle: 'Inhoud uit BaoCut behouden',
+  keptText: (version: number | null) =>
+    `De momentopname op schijf komt nu overeen met BaoCut${version ? `, en je recente wijzigingen staan in versie ${version}` : ''}. De wijzigingen die op schijf stonden, zijn niet in de versiegeschiedenis gekomen.`,
+  usedDiskTitle: (version: number) => `Momentopname op schijf gebruikt, vastgelegd als versie ${version} ‘Externe wijziging’`,
+  usedDiskText: (version: number) => `Ga terug naar vóór versie ${version} om terug te halen wat er in BaoCut stond. Je kunt dit ook ongedaan maken.`,
+  importedTitle: (version: number | null) => (version ? `Externe wijzigingen geïmporteerd als versie ${version} ‘Externe wijziging’` : 'Externe wijzigingen geïmporteerd'),
+  importedText:
+    'De bestanden van de momentopname zijn buiten BaoCut gewijzigd en BaoCut had geen andere wijzigingen, dus zijn ze direct geïmporteerd. Ga terug naar vóór deze versie om de inhoud van vóór de import te zien, of maak de import ongedaan.',
+  importUndoneTitle: 'Import ongedaan gemaakt',
+  importUndoneText:
+    'De video heeft weer de inhoud van vóór de import en wordt binnen enkele seconden teruggeschreven naar de momentopname, waarmee deze externe wijziging wordt verworpen. Het ongedaan maken is zelf ook een wijziging en komt in een nieuwe versie.',
   refusedBroken: 'Kan niet terug naar deze versie',
   refusedOther: 'Niet uitgevoerd',
   refusedText: (message: string) => `${message}. De video is niet gewijzigd.`,
@@ -73,6 +112,10 @@ export const nl: VideoVersionsMessages = {
   openHint: 'De nieuwste versie is nog open: tot er 5 rustige minuten zijn geweest of de versie 30 minuten beslaat, komen je volgende wijzigingen erin.',
   openHintPending: 'De nieuwste versie is nog open. Recente wijzigingen worden geschreven en komen er binnen enkele seconden in.',
   openHintConflict: 'De nieuwste versie is nog open, maar nieuwe wijzigingen komen pas in de versiegeschiedenis als het conflict met de momentopname is opgelost.',
+  openHintExternal:
+    'De nieuwste versie is nog open. De momentopname op schijf wordt geïmporteerd: deze versie wordt eerst afgesloten, en de externe wijzigingen worden een eigen versie.',
+  externalHint:
+    'Deze versie komt van buiten BaoCut: de bestanden van de momentopname zijn gewijzigd door git pull, een synchronisatieschijf of handmatige bewerking, en BaoCut heeft ze als deze versie geïmporteerd. Ga terug naar vóór deze versie om terug te halen wat er vóór de import in BaoCut stond.',
   restoreEnd: 'Terug naar deze versie',
   restoreBefore: 'Terug naar vóór deze versie',
   deleteSaved: 'Deze opgeslagen versie verwijderen',

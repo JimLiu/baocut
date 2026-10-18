@@ -27,8 +27,14 @@ const en = {
   stateSyncedDesc: 'The workspace snapshot in the video folder matches the current content.',
   statePending: 'Writing snapshot',
   statePendingDesc: 'Recent changes go into the snapshot and the version history within seconds.',
-  stateConflict: 'Snapshot changed outside BaoCut',
-  stateConflictDesc: 'The snapshot files differ from what BaoCut last wrote. BaoCut won’t overwrite them.',
+  stateConflict: 'Snapshot and BaoCut both changed',
+  stateConflictDesc:
+    'The snapshot files were changed outside BaoCut, and BaoCut also has changes that aren’t in the snapshot yet. BaoCut won’t overwrite the snapshot until you choose which to keep.',
+  stateInvalid: 'Snapshot can’t be read',
+  stateInvalidDesc: 'The snapshot files can’t be parsed, so BaoCut didn’t import them. BaoCut checks again after you fix them, or you can overwrite them with BaoCut’s content.',
+  stateExternal: 'Importing external changes',
+  stateExternalDesc:
+    'The snapshot files were changed outside BaoCut (git pull, a sync drive, or a manual edit) and BaoCut has no other changes, so it’s importing them as an “External change” version.',
   stateMissing: 'No snapshot yet',
   stateMissingDesc: 'The workspace snapshot hasn’t been written yet, or video.json is gone.',
   stateRebuild: 'Needs rebuild',
@@ -43,9 +49,38 @@ const en = {
   noteLabel: 'Note (optional)',
   cancel: 'Cancel',
   saveSubmit: 'Save',
-  conflictTitle: 'Snapshot changed outside BaoCut',
-  conflictIntro: 'These snapshot files differ from what BaoCut last wrote. The change may come from git pull, a sync drive, or a manual edit:',
-  conflictOutro: 'BaoCut won’t overwrite them and won’t write new versions. Until this is sorted out, you can’t save or restore versions.',
+  conflictIntro:
+    'These snapshot files were changed outside BaoCut, perhaps by git pull, a sync drive, or a manual edit, and BaoCut also has changes that aren’t in the snapshot yet:',
+  conflictOutro: 'Until you choose which to keep, BaoCut won’t overwrite the snapshot. You can keep editing the video, but you can’t save or restore versions.',
+  invalidIntro: 'These snapshot files can’t be parsed. They may contain merge conflict markers, be truncated, or have been damaged by hand:',
+  invalidOutro:
+    'BaoCut didn’t import them. You can keep editing the video, but you can’t save or restore versions. BaoCut checks again after you fix these files, or you can keep BaoCut’s content and overwrite them.',
+  externalIntro: 'These snapshot files were changed outside BaoCut, perhaps by git pull, a sync drive, or a manual edit:',
+  externalOutro: 'BaoCut has no changes that aren’t in the snapshot yet, so it imports them directly as an “External change” version. You can undo the import afterwards.',
+  stripConflict: 'The snapshot was changed outside BaoCut, and BaoCut has new changes too. Choose which to keep.',
+  stripInvalid: 'The snapshot files can’t be read. BaoCut didn’t import them.',
+  view: 'View',
+  keepVideo: 'Keep BaoCut’s content',
+  useSnapshot: 'Use the snapshot on disk',
+  keepTitle: 'Keep BaoCut’s content?',
+  keepConfirm: 'Overwrite the snapshot on disk',
+  keepBody: (count: number, files: string, invalid: boolean) =>
+    `BaoCut’s content is written to the snapshot right away, overwriting ${count === 1 ? 'the file' : `the ${count} files`} on disk that ${invalid ? 'can’t be read' : 'were changed'}${files ? ` (${files})` : ''}. Those changes on disk don’t go into the version history and can’t be recovered in BaoCut; if they came from git or a sync drive, you can get them back there.`,
+  diskTitle: 'Use the snapshot on disk?',
+  diskConfirm: 'Use the snapshot on disk',
+  diskBody: (files: string) =>
+    `The video’s content is replaced with the snapshot on disk${files ? ` (${files})` : ''} and recorded as an “External change” version. Changes in BaoCut that aren’t in the snapshot yet go into the version history first: restore to before the “External change” version to get them back. You can also undo this.`,
+  keptTitle: 'Kept BaoCut’s content',
+  keptText: (version: number | null) =>
+    `The snapshot on disk now matches BaoCut${version ? `, and your recent changes are in version ${version}` : ''}. The changes that were on disk didn’t go into the version history.`,
+  usedDiskTitle: (version: number) => `Used the snapshot on disk, recorded as version ${version} “External change”`,
+  usedDiskText: (version: number) => `Restore to before version ${version} to get back what was in BaoCut. You can also undo this.`,
+  importedTitle: (version: number | null) => (version ? `Imported external changes as version ${version} “External change”` : 'Imported external changes'),
+  importedText:
+    'The snapshot files were changed outside BaoCut and BaoCut had no other changes, so they were imported directly. Restore to before this version to see the content from before the import, or undo it.',
+  importUndoneTitle: 'Import undone',
+  importUndoneText:
+    'The video is back to its content from before the import and is written back to the snapshot within seconds, which discards this external change. The undo is itself a change and goes into a new version.',
   refusedBroken: 'Can’t restore this version',
   refusedOther: 'Not done',
   refusedText: (message: string) => `${message}. The video hasn’t changed.`,
@@ -85,6 +120,9 @@ const en = {
   openHint: 'The latest version is still open: until there are 5 quiet minutes or it reaches 30 minutes, your next changes go into it.',
   openHintPending: 'The latest version is still open. Recent changes are being written and go into it within seconds.',
   openHintConflict: 'The latest version is still open, but new changes won’t go into the version history until the snapshot conflict is sorted out.',
+  openHintExternal: 'The latest version is still open. The snapshot on disk is being imported: this version closes first, and the external changes become a version of their own.',
+  externalHint:
+    'This version came from outside BaoCut: the snapshot files were changed by git pull, a sync drive, or a manual edit, and BaoCut imported them as this version. Restore to before this version to get back what was in BaoCut before the import.',
   restoreEnd: 'Restore this version',
   restoreBefore: 'Restore to before this version',
   deleteSaved: 'Delete this saved version',

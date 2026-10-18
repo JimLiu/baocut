@@ -7,9 +7,12 @@ import {
   buttonTip,
   fileChange,
   fileLabel,
+  isImportChange,
   parseUnifiedDiff,
   predictNoop,
   reach,
+  resolveAsk,
+  snapshotState,
   versionError,
   versionFileName,
   versionRows,
@@ -104,9 +107,40 @@ describe('video versions', () => {
 
   it('describes the entry button', () => {
     expect(buttonTip(true, { state: 'synced', latestVersion: 14 })).toBe('版本记录 · 最新是版本 14');
-    expect(buttonTip(true, { state: 'conflict', latestVersion: 14 })).toBe('版本记录 · 最新是版本 14 · 快照被外部改过');
+    expect(buttonTip(true, { state: 'conflict', conflict: 'both-changed', latestVersion: 14 })).toBe('版本记录 · 最新是版本 14 · 快照和 BaoCut 都改过');
+    expect(buttonTip(true, { state: 'conflict', conflict: 'invalid', latestVersion: 14 })).toBe('版本记录 · 最新是版本 14 · 快照读不出');
+    expect(buttonTip(true, { state: 'external', latestVersion: 14 })).toBe('版本记录 · 最新是版本 14 · 正在导入外部改动');
     expect(buttonTip(true, { state: 'missing' })).toBe('版本记录 · 还没有版本 · 还没有快照');
     expect(buttonTip(false, null)).toBe('版本记录 · 这部视频不在项目里');
+  });
+
+  it('names the snapshot states, telling the two conflict reasons apart', () => {
+    expect(snapshotState({ state: 'conflict', conflict: 'both-changed' })).toMatchObject({ label: '快照和 BaoCut 都改过', tone: 'negative' });
+    expect(snapshotState({ state: 'conflict', conflict: 'invalid' })).toMatchObject({ label: '快照读不出', tone: 'negative' });
+    // 旧的 Runtime 不带原因时按两边都改了说。
+    expect(snapshotState({ state: 'conflict' }).label).toBe('快照和 BaoCut 都改过');
+    expect(snapshotState({ state: 'external' })).toMatchObject({ label: '正在导入外部改动', tone: 'informative' });
+  });
+
+  it('recognizes a Runtime import of an external change, but not its undo or other system changes', () => {
+    expect(isImportChange({ actorId: 'system:history' })).toBe(true);
+    expect(isImportChange({ actorId: 'system:history', undoOf: 'tx_1' })).toBe(false);
+    expect(isImportChange({ actorId: 'system:asr' })).toBe(false);
+    expect(isImportChange({ actorId: 'user_local' })).toBe(false);
+    expect(isImportChange(null)).toBe(false);
+  });
+
+  it('says what each conflict choice loses', () => {
+    const docs = { doc_1: { name: '字幕' } } as unknown as Parameters<typeof resolveAsk>[2];
+    const status = { conflict: 'both-changed' as const, changedPaths: ['video.json', 'documents/doc_1.json'] };
+    const keep = resolveAsk('video', status, docs);
+    expect(keep).toMatchObject({ title: '保留 BaoCut 里的？', confirm: '覆盖磁盘上的', destructive: true });
+    expect(keep.body).toContain('覆盖磁盘上被改过的 2 个文件（时间线、字幕）');
+    expect(keep.body).toContain('不进版本记录');
+    const disk = resolveAsk('snapshot', status, docs);
+    expect(disk).toMatchObject({ title: '用磁盘上的？', confirm: '用磁盘上的', destructive: false });
+    expect(disk.body).toContain('回到「外部变更」之前就能找回');
+    expect(resolveAsk('video', { conflict: 'invalid', changedPaths: ['video.json'] }, docs).body).toContain('覆盖磁盘上读不出的 1 个文件（时间线）');
   });
 
   it('splits a unified diff into files and hunks by the hunk line counts', () => {

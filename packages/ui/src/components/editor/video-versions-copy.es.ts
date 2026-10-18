@@ -12,8 +12,15 @@ export const es: VideoVersionsMessages = {
   stateSyncedDesc: 'La instantánea de espacio de trabajo de la carpeta del vídeo coincide con el contenido actual.',
   statePending: 'Escribiendo instantánea',
   statePendingDesc: 'Los cambios recientes pasan a la instantánea y al historial de versiones en unos segundos.',
-  stateConflict: 'La instantánea cambió fuera de BaoCut',
-  stateConflictDesc: 'Los archivos de la instantánea no coinciden con lo que BaoCut escribió por última vez. BaoCut no los sobrescribirá.',
+  stateConflict: 'La instantánea y BaoCut tienen cambios',
+  stateConflictDesc:
+    'Los archivos de la instantánea cambiaron fuera de BaoCut, y BaoCut también tiene cambios que aún no están en la instantánea. BaoCut no sobrescribirá la instantánea hasta que elijas qué conservar.',
+  stateInvalid: 'No se puede leer la instantánea',
+  stateInvalidDesc:
+    'Los archivos de la instantánea no se pueden analizar, así que BaoCut no los importó. BaoCut vuelve a comprobarlos cuando los corrijas, o puedes sobrescribirlos con el contenido de BaoCut.',
+  stateExternal: 'Importando cambios externos',
+  stateExternalDesc:
+    'Los archivos de la instantánea cambiaron fuera de BaoCut (git pull, una unidad sincronizada o una edición manual) y BaoCut no tiene otros cambios, así que los está importando como una versión «Cambio externo».',
   stateMissing: 'Aún no hay instantánea',
   stateMissingDesc: 'La instantánea de espacio de trabajo aún no se ha escrito, o falta video.json.',
   stateRebuild: 'Pendiente de reconstruir',
@@ -28,9 +35,40 @@ export const es: VideoVersionsMessages = {
   noteLabel: 'Nota (opcional)',
   cancel: 'Cancelar',
   saveSubmit: 'Guardar',
-  conflictTitle: 'La instantánea cambió fuera de BaoCut',
-  conflictIntro: 'Estos archivos de la instantánea no coinciden con lo que BaoCut escribió por última vez. El cambio puede venir de git pull, de una unidad sincronizada o de una edición manual:',
-  conflictOutro: 'BaoCut no los sobrescribirá ni escribirá versiones nuevas. Hasta que se resuelva, no puedes guardar versiones ni volver a ellas.',
+  conflictIntro:
+    'Estos archivos de la instantánea cambiaron fuera de BaoCut, quizá por git pull, una unidad sincronizada o una edición manual, y BaoCut también tiene cambios que aún no están en la instantánea:',
+  conflictOutro: 'Hasta que elijas qué conservar, BaoCut no sobrescribirá la instantánea. Puedes seguir editando el vídeo, pero no puedes guardar versiones ni volver a ellas.',
+  invalidIntro:
+    'Estos archivos de la instantánea no se pueden analizar. Puede que tengan marcadores de conflicto de fusión, estén truncados o se hayan dañado al editarlos a mano:',
+  invalidOutro:
+    'BaoCut no los importó. Puedes seguir editando el vídeo, pero no puedes guardar versiones ni volver a ellas. BaoCut vuelve a comprobarlos cuando corrijas estos archivos, o puedes conservar el contenido de BaoCut y sobrescribirlos.',
+  externalIntro: 'Estos archivos de la instantánea cambiaron fuera de BaoCut, quizá por git pull, una unidad sincronizada o una edición manual:',
+  externalOutro:
+    'BaoCut no tiene cambios que falten en la instantánea, así que los importa directamente como una versión «Cambio externo». Después puedes deshacer la importación.',
+  stripConflict: 'La instantánea cambió fuera de BaoCut y BaoCut también tiene cambios nuevos. Elige qué conservar.',
+  stripInvalid: 'No se pueden leer los archivos de la instantánea. BaoCut no los importó.',
+  view: 'Ver',
+  keepVideo: 'Conservar el contenido de BaoCut',
+  useSnapshot: 'Usar la instantánea del disco',
+  keepTitle: '¿Conservar el contenido de BaoCut?',
+  keepConfirm: 'Sobrescribir la instantánea del disco',
+  keepBody: (count: number, files: string, invalid: boolean) =>
+    `El contenido de BaoCut se escribe de inmediato en la instantánea y sobrescribe ${count === 1 ? `el archivo ${invalid ? 'ilegible' : 'modificado'}` : `los ${count} archivos ${invalid ? 'ilegibles' : 'modificados'}`} del disco${files ? ` (${files})` : ''}. Esos cambios del disco no pasan al historial de versiones y no se pueden recuperar en BaoCut; si venían de git o de una unidad sincronizada, puedes recuperarlos allí.`,
+  diskTitle: '¿Usar la instantánea del disco?',
+  diskConfirm: 'Usar la instantánea del disco',
+  diskBody: (files: string) =>
+    `El contenido del vídeo se sustituye por la instantánea del disco${files ? ` (${files})` : ''} y se registra como una versión «Cambio externo». Los cambios de BaoCut que aún no están en la instantánea pasan antes al historial de versiones: vuelve a antes de la versión «Cambio externo» para recuperarlos. También puedes deshacerlo.`,
+  keptTitle: 'Se conservó el contenido de BaoCut',
+  keptText: (version: number | null) =>
+    `La instantánea del disco ya coincide con BaoCut${version ? `, y tus cambios recientes están en la versión ${version}` : ''}. Los cambios que había en el disco no pasaron al historial de versiones.`,
+  usedDiskTitle: (version: number) => `Se usó la instantánea del disco, registrada como versión ${version} «Cambio externo»`,
+  usedDiskText: (version: number) => `Vuelve a antes de la versión ${version} para recuperar lo que había en BaoCut. También puedes deshacerlo.`,
+  importedTitle: (version: number | null) => (version ? `Cambios externos importados como versión ${version} «Cambio externo»` : 'Cambios externos importados'),
+  importedText:
+    'Los archivos de la instantánea cambiaron fuera de BaoCut y BaoCut no tenía otros cambios, así que se importaron directamente. Vuelve a antes de esta versión para ver el contenido previo a la importación, o deshazla.',
+  importUndoneTitle: 'Importación deshecha',
+  importUndoneText:
+    'El vídeo recupera su contenido de antes de la importación y se vuelve a escribir en la instantánea en unos segundos, lo que descarta este cambio externo. Deshacer también es un cambio y pasa a una versión nueva.',
   refusedBroken: 'No se puede volver a esta versión',
   refusedOther: 'No se hizo',
   refusedText: (message: string) => `${message}. El vídeo no ha cambiado.`,
@@ -73,6 +111,10 @@ export const es: VideoVersionsMessages = {
   openHint: 'La versión más reciente sigue abierta: hasta que pasen 5 minutos sin cambios o cumpla 30 minutos, tus próximos cambios se suman a ella.',
   openHintPending: 'La versión más reciente sigue abierta. Los cambios recientes se están escribiendo y se sumarán a ella en unos segundos.',
   openHintConflict: 'La versión más reciente sigue abierta, pero los cambios nuevos no entrarán en el historial de versiones hasta que se resuelva el conflicto de la instantánea.',
+  openHintExternal:
+    'La versión más reciente sigue abierta. Se está importando la instantánea del disco: primero se cierra esta versión, y los cambios externos forman una versión propia.',
+  externalHint:
+    'Esta versión vino de fuera de BaoCut: los archivos de la instantánea cambiaron por git pull, una unidad sincronizada o una edición manual, y BaoCut los importó como esta versión. Vuelve a antes de esta versión para recuperar lo que había en BaoCut antes de la importación.',
   restoreEnd: 'Volver a esta versión',
   restoreBefore: 'Volver a antes de esta versión',
   deleteSaved: 'Eliminar esta versión guardada',

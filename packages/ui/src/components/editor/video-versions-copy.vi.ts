@@ -12,8 +12,15 @@ export const vi: VideoVersionsMessages = {
   stateSyncedDesc: 'Ảnh chụp không gian làm việc trong thư mục video khớp với nội dung hiện tại.',
   statePending: 'Đang ghi ảnh chụp',
   statePendingDesc: 'Các thay đổi gần đây được ghi vào ảnh chụp và lịch sử phiên bản trong vài giây.',
-  stateConflict: 'Ảnh chụp đã bị sửa bên ngoài BaoCut',
-  stateConflictDesc: 'Các tệp ảnh chụp khác với lần ghi gần nhất của BaoCut. BaoCut sẽ không ghi đè chúng.',
+  stateConflict: 'Cả ảnh chụp và BaoCut đều đã thay đổi',
+  stateConflictDesc:
+    'Các tệp ảnh chụp đã bị sửa bên ngoài BaoCut, và BaoCut cũng có thay đổi chưa được ghi vào ảnh chụp. BaoCut sẽ không ghi đè ảnh chụp cho đến khi bạn chọn giữ bên nào.',
+  stateInvalid: 'Không đọc được ảnh chụp',
+  stateInvalidDesc:
+    'Không phân tích được các tệp ảnh chụp nên BaoCut chưa nhập chúng. BaoCut sẽ kiểm tra lại sau khi bạn sửa xong, hoặc bạn có thể ghi đè chúng bằng nội dung trong BaoCut.',
+  stateExternal: 'Đang nhập thay đổi bên ngoài',
+  stateExternalDesc:
+    'Các tệp ảnh chụp đã bị sửa bên ngoài BaoCut (git pull, ổ đồng bộ hoặc sửa tay) và BaoCut không có thay đổi nào khác, nên đang nhập chúng thành một phiên bản “Thay đổi bên ngoài”.',
   stateMissing: 'Chưa có ảnh chụp',
   stateMissingDesc: 'Ảnh chụp không gian làm việc chưa được ghi, hoặc video.json không còn nữa.',
   stateRebuild: 'Cần dựng lại',
@@ -28,9 +35,37 @@ export const vi: VideoVersionsMessages = {
   noteLabel: 'Ghi chú (tùy chọn)',
   cancel: 'Hủy',
   saveSubmit: 'Lưu',
-  conflictTitle: 'Ảnh chụp đã bị sửa bên ngoài BaoCut',
-  conflictIntro: 'Các tệp ảnh chụp này khác với lần ghi gần nhất của BaoCut. Thay đổi có thể đến từ git pull, ổ đồng bộ hoặc sửa tay:',
-  conflictOutro: 'BaoCut sẽ không ghi đè chúng và không ghi phiên bản mới. Cho đến khi xử lý xong, bạn không thể lưu phiên bản hay quay về phiên bản.',
+  conflictIntro: 'Các tệp ảnh chụp này đã bị sửa bên ngoài BaoCut, có thể do git pull, ổ đồng bộ hoặc sửa tay; BaoCut cũng có thay đổi chưa được ghi vào ảnh chụp:',
+  conflictOutro: 'Cho đến khi bạn chọn giữ bên nào, BaoCut sẽ không ghi đè ảnh chụp. Bạn vẫn có thể chỉnh sửa video, nhưng không thể lưu phiên bản hay quay về phiên bản.',
+  invalidIntro: 'Không phân tích được các tệp ảnh chụp này. Chúng có thể chứa dấu xung đột merge, bị cắt cụt hoặc bị sửa tay làm hỏng:',
+  invalidOutro:
+    'BaoCut chưa nhập chúng. Bạn vẫn có thể chỉnh sửa video, nhưng không thể lưu phiên bản hay quay về phiên bản. BaoCut sẽ kiểm tra lại sau khi bạn sửa các tệp này, hoặc bạn có thể giữ nội dung trong BaoCut và ghi đè chúng.',
+  externalIntro: 'Các tệp ảnh chụp này đã bị sửa bên ngoài BaoCut, có thể do git pull, ổ đồng bộ hoặc sửa tay:',
+  externalOutro: 'BaoCut không có thay đổi nào chưa được ghi vào ảnh chụp, nên nhập thẳng chúng thành một phiên bản “Thay đổi bên ngoài”. Bạn có thể hoàn tác việc nhập sau đó.',
+  stripConflict: 'Ảnh chụp đã bị sửa bên ngoài BaoCut, và BaoCut cũng có thay đổi mới. Hãy chọn giữ bên nào.',
+  stripInvalid: 'Không đọc được các tệp ảnh chụp. BaoCut chưa nhập chúng.',
+  view: 'Xem',
+  keepVideo: 'Giữ nội dung trong BaoCut',
+  useSnapshot: 'Dùng ảnh chụp trên đĩa',
+  keepTitle: 'Giữ nội dung trong BaoCut?',
+  keepConfirm: 'Ghi đè ảnh chụp trên đĩa',
+  keepBody: (count: number, files: string, invalid: boolean) =>
+    `Nội dung trong BaoCut được ghi ngay vào ảnh chụp, ghi đè ${count} tệp ${invalid ? 'không đọc được' : 'đã bị sửa'} trên đĩa${files ? ` (${files})` : ''}. Những thay đổi đó trên đĩa không vào lịch sử phiên bản và không thể lấy lại trong BaoCut; nếu chúng đến từ git hoặc ổ đồng bộ, bạn có thể lấy lại ở đó.`,
+  diskTitle: 'Dùng ảnh chụp trên đĩa?',
+  diskConfirm: 'Dùng ảnh chụp trên đĩa',
+  diskBody: (files: string) =>
+    `Nội dung video được thay bằng ảnh chụp trên đĩa${files ? ` (${files})` : ''} và ghi thành một phiên bản “Thay đổi bên ngoài”. Các thay đổi trong BaoCut chưa được ghi vào ảnh chụp sẽ vào lịch sử phiên bản trước: quay về trước phiên bản “Thay đổi bên ngoài” để lấy lại chúng. Bạn cũng có thể hoàn tác thao tác này.`,
+  keptTitle: 'Đã giữ nội dung trong BaoCut',
+  keptText: (version: number | null) =>
+    `Ảnh chụp trên đĩa giờ đã khớp với BaoCut${version ? `, và các thay đổi gần đây của bạn nằm trong phiên bản ${version}` : ''}. Những thay đổi từng có trên đĩa không vào lịch sử phiên bản.`,
+  usedDiskTitle: (version: number) => `Đã dùng ảnh chụp trên đĩa, ghi thành phiên bản ${version} “Thay đổi bên ngoài”`,
+  usedDiskText: (version: number) => `Quay về trước phiên bản ${version} để lấy lại nội dung từng có trong BaoCut. Bạn cũng có thể hoàn tác thao tác này.`,
+  importedTitle: (version: number | null) => (version ? `Đã nhập thay đổi bên ngoài thành phiên bản ${version} “Thay đổi bên ngoài”` : 'Đã nhập thay đổi bên ngoài'),
+  importedText:
+    'Các tệp ảnh chụp đã bị sửa bên ngoài BaoCut và BaoCut không có thay đổi nào khác, nên chúng được nhập thẳng. Quay về trước phiên bản này để xem nội dung trước khi nhập, hoặc hoàn tác việc nhập.',
+  importUndoneTitle: 'Đã hoàn tác việc nhập',
+  importUndoneText:
+    'Video đã trở lại nội dung trước khi nhập và sẽ được ghi lại vào ảnh chụp trong vài giây, tức là bỏ thay đổi bên ngoài này. Bản thân việc hoàn tác cũng là một thay đổi và được đưa vào một phiên bản mới.',
   refusedBroken: 'Không thể quay về phiên bản này',
   refusedOther: 'Chưa thực hiện',
   refusedText: (message: string) => `${message}. Video không thay đổi.`,
@@ -73,6 +108,9 @@ export const vi: VideoVersionsMessages = {
   openHint: 'Phiên bản mới nhất vẫn đang mở: cho đến khi có 5 phút không thay đổi hoặc đủ 30 phút, các thay đổi tiếp theo sẽ vào phiên bản này.',
   openHintPending: 'Phiên bản mới nhất vẫn đang mở. Các thay đổi gần đây đang được ghi và sẽ vào phiên bản này trong vài giây.',
   openHintConflict: 'Phiên bản mới nhất vẫn đang mở, nhưng thay đổi mới sẽ không vào lịch sử phiên bản cho đến khi xử lý xong xung đột ảnh chụp.',
+  openHintExternal: 'Phiên bản mới nhất vẫn đang mở. Ảnh chụp trên đĩa đang được nhập: phiên bản này sẽ đóng trước, rồi các thay đổi bên ngoài thành một phiên bản riêng.',
+  externalHint:
+    'Phiên bản này đến từ bên ngoài BaoCut: các tệp ảnh chụp đã bị sửa bởi git pull, ổ đồng bộ hoặc sửa tay, và BaoCut đã nhập chúng thành phiên bản này. Quay về trước phiên bản này để lấy lại nội dung có trong BaoCut trước khi nhập.',
   restoreEnd: 'Quay về phiên bản này',
   restoreBefore: 'Quay về trước phiên bản này',
   deleteSaved: 'Xóa phiên bản đã lưu này',

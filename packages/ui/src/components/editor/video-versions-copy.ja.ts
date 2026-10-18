@@ -12,8 +12,15 @@ export const ja: VideoVersionsMessages = {
   stateSyncedDesc: '動画フォルダ内のワークスペーススナップショットは現在の内容と一致しています。',
   statePending: 'スナップショットを書き込み中',
   statePendingDesc: '直近の変更は数秒以内にスナップショットとバージョン履歴に書き込まれます。',
-  stateConflict: 'スナップショットが BaoCut の外で変更されました',
-  stateConflictDesc: 'スナップショットのファイルが、BaoCut が最後に書き込んだ内容と異なります。BaoCut はこれらを上書きしません。',
+  stateConflict: 'スナップショットと BaoCut の両方に変更があります',
+  stateConflictDesc:
+    'スナップショットのファイルが BaoCut の外で変更され、BaoCut にもまだスナップショットに書き込まれていない変更があります。どちらを残すか選ぶまで、BaoCut はスナップショットを上書きしません。',
+  stateInvalid: 'スナップショットを読み取れません',
+  stateInvalidDesc:
+    'スナップショットのファイルを解析できないため、BaoCut は取り込んでいません。ファイルを修正すると BaoCut がもう一度確認します。BaoCut の内容で上書きすることもできます。',
+  stateExternal: '外部の変更を取り込み中',
+  stateExternalDesc:
+    'スナップショットのファイルが BaoCut の外で変更され（git pull、同期ドライブ、または手動の編集）、BaoCut にはほかの変更がないため、「外部の変更」バージョンとして取り込んでいます。',
   stateMissing: 'スナップショットはまだありません',
   stateMissingDesc: 'ワークスペーススナップショットがまだ書き込まれていないか、video.json がなくなっています。',
   stateRebuild: '再構築が必要',
@@ -28,10 +35,38 @@ export const ja: VideoVersionsMessages = {
   noteLabel: 'メモ（任意）',
   cancel: 'キャンセル',
   saveSubmit: '保存',
-  conflictTitle: 'スナップショットが BaoCut の外で変更されました',
   conflictIntro:
-    '次のスナップショットのファイルが、BaoCut が最後に書き込んだ内容と異なります。git pull、同期ドライブ、または手動の編集による変更かもしれません：',
-  conflictOutro: 'BaoCut はこれらを上書きせず、新しいバージョンも書き込みません。解決するまで、バージョンを保存することもバージョンに戻すこともできません。',
+    '次のスナップショットのファイルが BaoCut の外で変更されました。git pull、同期ドライブ、または手動の編集によるものかもしれません。BaoCut にも、まだスナップショットに書き込まれていない変更があります：',
+  conflictOutro: 'どちらを残すか選ぶまで、BaoCut はスナップショットを上書きしません。動画の編集は続けられますが、バージョンを保存することもバージョンに戻すこともできません。',
+  invalidIntro: '次のスナップショットのファイルを解析できません。マージの競合マーカーが含まれているか、途中で切れているか、手動の編集で壊れた可能性があります：',
+  invalidOutro:
+    'BaoCut はこれらを取り込んでいません。動画の編集は続けられますが、バージョンを保存することもバージョンに戻すこともできません。これらのファイルを修正すると BaoCut がもう一度確認します。BaoCut の内容を残して、これらのファイルを上書きすることもできます。',
+  externalIntro: '次のスナップショットのファイルが BaoCut の外で変更されました。git pull、同期ドライブ、または手動の編集によるものかもしれません：',
+  externalOutro: 'BaoCut にはまだスナップショットに書き込まれていない変更がないため、そのまま「外部の変更」バージョンとして取り込みます。取り込んだあとで取り消すこともできます。',
+  stripConflict: 'スナップショットが BaoCut の外で変更され、BaoCut にも新しい変更があります。どちらを残すか選んでください。',
+  stripInvalid: 'スナップショットのファイルを読み取れません。BaoCut は取り込んでいません。',
+  view: '表示',
+  keepVideo: 'BaoCut の内容を残す',
+  useSnapshot: 'ディスク上のスナップショットを使う',
+  keepTitle: 'BaoCut の内容を残しますか？',
+  keepConfirm: 'ディスク上のスナップショットを上書き',
+  keepBody: (count: number, files: string, invalid: boolean) =>
+    `BaoCut の内容をすぐにスナップショットに書き込み、ディスク上の${invalid ? '読み取れない' : '変更された'} ${count} 件のファイル${files ? `（${files}）` : ''}を上書きします。ディスク上のそれらの変更はバージョン履歴に入らず、BaoCut では取り戻せません。git や同期ドライブから来た変更なら、そちらで取り戻せます。`,
+  diskTitle: 'ディスク上のスナップショットを使いますか？',
+  diskConfirm: 'ディスク上のスナップショットを使う',
+  diskBody: (files: string) =>
+    `動画の内容をディスク上のスナップショット${files ? `（${files}）` : ''}に置き換え、「外部の変更」バージョンとして記録します。まだスナップショットに書き込まれていない BaoCut の変更は先にバージョン履歴に記録されるので、「外部の変更」バージョンより前に戻せば取り戻せます。この操作は取り消すこともできます。`,
+  keptTitle: 'BaoCut の内容を残しました',
+  keptText: (version: number | null) =>
+    `ディスク上のスナップショットが BaoCut の内容と一致しました${version ? `。直近の変更はバージョン ${version} に入っています` : ''}。ディスク上にあった変更はバージョン履歴に入っていません。`,
+  usedDiskTitle: (version: number) => `ディスク上のスナップショットを使い、バージョン ${version}「外部の変更」として記録しました`,
+  usedDiskText: (version: number) => `バージョン ${version} より前に戻すと、BaoCut にあった内容を取り戻せます。この操作は取り消すこともできます。`,
+  importedTitle: (version: number | null) => (version ? `外部の変更をバージョン ${version}「外部の変更」として取り込みました` : '外部の変更を取り込みました'),
+  importedText:
+    'スナップショットのファイルが BaoCut の外で変更され、BaoCut にはほかの変更がなかったため、そのまま取り込みました。このバージョンより前に戻すと取り込む前の内容を確認できます。取り消すこともできます。',
+  importUndoneTitle: '取り込みを取り消しました',
+  importUndoneText:
+    '動画は取り込む前の内容に戻り、数秒以内にスナップショットに書き戻されます。これにより今回の外部の変更は破棄されます。取り消し自体も変更として、新しいバージョンに入ります。',
   refusedBroken: 'このバージョンに戻せません',
   refusedOther: '完了しませんでした',
   refusedText: (message: string) => `${message}。動画は変更されていません。`,
@@ -74,6 +109,9 @@ export const ja: VideoVersionsMessages = {
   openHint: '最新のバージョンはまだ継続中です。5 分間操作がないか 30 分に達するまで、この後の変更はこのバージョンに入ります。',
   openHintPending: '最新のバージョンはまだ継続中です。直近の変更を書き込み中で、数秒以内にこのバージョンに入ります。',
   openHintConflict: '最新のバージョンはまだ継続中ですが、スナップショットの競合が解決するまで、新しい変更はバージョン履歴に入りません。',
+  openHintExternal: '最新のバージョンはまだ継続中です。ディスク上のスナップショットを取り込み中です。このバージョンを先に閉じ、外部の変更は別のバージョンになります。',
+  externalHint:
+    'このバージョンは BaoCut の外から来たものです。スナップショットのファイルが git pull、同期ドライブ、または手動の編集で変更され、BaoCut がそれをこのバージョンとして取り込みました。このバージョンより前に戻すと、取り込む前に BaoCut にあった内容を取り戻せます。',
   restoreEnd: 'このバージョンに戻す',
   restoreBefore: 'このバージョンより前に戻す',
   deleteSaved: 'この保存したバージョンを削除',

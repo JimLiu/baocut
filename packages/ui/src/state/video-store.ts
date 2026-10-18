@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Actor, FileTarget, Id, MessageRef, VideoRef, VideoTopicSnapshot, TransactionReceipt, UndoState } from '@baocut/protocol';
+import type { Actor, FileTarget, Id, MessageRef, VideoRef, VideoSnapshotStatus, VideoTopicSnapshot, TransactionReceipt, UndoState } from '@baocut/protocol';
 
 /**
  * 编辑器打开的视频：Runtime 镜像经主题同步过来的投影，以及这个窗口发出的命令的状态。
@@ -30,12 +30,24 @@ export interface OpenVideo {
   /** 已发出、还没有回执的命令数。 */
   inFlight: number;
   lastReceipt: TransactionReceipt | null;
-  /** 最近一笔落到视频上的修改是谁做的（来自主题事件，包括别的窗口和智能体）。修改名用 `localizeText(label, labelRef)` 显示。 */
-  lastChange: { by: Actor['kind']; label: string; labelRef?: MessageRef | undefined } | null;
+  /**
+   * 最近一笔落到视频上的修改是谁做的（来自主题事件，包括别的窗口和智能体）。修改名用 `localizeText(label, labelRef)` 显示。
+   * `actorId`、`transactionId` 与 `undoOf` 让版本记录认出 Runtime 导入的外部改动（`system:history`），并能撤销它。
+   */
+  lastChange: {
+    by: Actor['kind'];
+    label: string;
+    labelRef?: MessageRef | undefined;
+    actorId?: Id | undefined;
+    transactionId?: Id | undefined;
+    undoOf?: Id | undefined;
+  } | null;
   commandError: CommandError | null;
   undo: UndoState;
   /** 收到过几次 `video.replaced`（引擎重启后整体替换）：素材状态要重查。 */
   replaced?: number;
+  /** 工作区快照与视频库的关系（`videos.versions.status`，视频格式规范 §9.7），最近读到的那次：视频栏的版本记录入口与编辑器顶部的冲突提示共用。 */
+  versionStatus?: VideoSnapshotStatus | null;
 }
 
 export interface VideoStore {
