@@ -146,6 +146,14 @@ export function scriptNotes(cfg) {
   return Object.fromEntries(Object.entries(out).map(([id, l]) => [id, l.join(' ')]));
 }
 
+// 片段在这一段里的起点（秒，相对段首）：留白片段（gap）取 gaps.mjs 在旁白里留出的那段空白的起点，其余按 line / cue
+export function clipAt(tm, clip) {
+  if (!clip.gap) return cueTime(tm, clip.line, clip.cue);
+  const g = (tm.gaps || []).find(x => x.clip === clip.id);
+  if (!g) throw new Error(`clip ${clip.id} pauses the narration but timing has no gap for it; run gaps.mjs ${clip.seg}`);
+  return g.at;
+}
+
 // 一句旁白里某个时刻（秒，相对这一段开头）：第 line 句（从 0 数）的开头；给了 cue 就取 cue 这几个字开始被说到的时刻
 export function cueTime(tm, line, cue) {
   const l = tm.lines[line];

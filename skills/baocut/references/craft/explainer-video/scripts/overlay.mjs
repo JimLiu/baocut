@@ -6,21 +6,28 @@
 //   node tools/overlay.mjs --render         按画幅剪出成片用的片段（铺满裁切、对到整帧），把来源标签烧进去，写到 <work>/footage/
 //   node tools/overlay.mjs --place          新建两条视觉轨，导入片段铺满放好，再放水印；记在 overlay.json，已放过的（同一 id、同一帧）不重放
 //   node tools/overlay.mjs --check          对照视频里的片段与现在算出的起点（assemble 波纹挪过、段落改过之后跑）
-// clips.json：{ source, label, clips: [{ id, seg, line, cue?, from, to, source?, label?, audio?, note? }] }
+// clips.json：{ source, label, clips: [{ id, seg, line, cue?, gap?, from, to, source?, label?, audio?, subs?, note? }] }
 //   from / to 是原片的秒数；片段从 seg 段第 line 句（从 0 数）开始放；cue 可省，给了就从这句里 cue 这几个字被说到的时刻开始。
 //   同一段里下一个片段开始时截断，不越过段尾。label 是烧进画面一角的来源标签（成片语言写，例如「画面：<来源>」），
-//   单个片段可以另给 source 与 label；audio 为 true 时保留原声（当事人原话），否则静音。
-// 配置 footage：{ clips, font, label: { size, margin } }；watermark：{ file, dur, w, y, x: { left, right }, at: [...] }，
+//   单个片段可以另给 source 与 label；audio 为 true 时保留原声（当事人原话、现场声），否则静音；给数字是放到时间线上的音量（0–1）。
+//   gap 为 true 的片段让旁白停下来单独放：先跑 gaps.mjs 在旁白里留白，片段放在留白的起点（line 是插在哪一句之前）。
+//   subs：[{ from, to, text, tr, who? }]，from / to 是原片秒数，text 成片语言、tr 原话、who 说话人；--render 时烧成双语字幕。
+//   in / out：{ kind, dur?, easing? } 单侧转场（kind 取 dissolve / wipe / slide / zoom / iris，dur 秒数缺省 0.5，easing 缺省 ease-in-out），
+//   片段从下面的代码画面里渐入、渐出；和前后片段首尾相接的那一侧不做（同一条轨上背靠背只能硬切）。原声的淡入淡出跟着转场的长度走。
+//   crop：[x, y, w, h] 先按原片像素裁掉黑边、色条；fit 为 contain 时整幅放进画面、两侧补黑（4:3 的老转播），缺省 cover 铺满裁切。
+//   原声在成片片段里做淡入淡出、响度对到 footage.loudness（LUFS）。
+// 配置 footage：{ clips, font, label: { size, margin }, loudness, subs: { fontsDir, font, size, trFont, trSize, whoSize, marginV } }；watermark：{ file, dur, w, y, x: { left, right }, at: [...] }，
 //   at 的每一项是 { seg, line, cue?, side } 或 { t, side }（时间线秒数），side 取 left / right；x、y、w 是画面宽高的百分比。
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { loadConfig, parseArgs, makeBc, readJson, writeJson, layout, atOf, cueTime, allItems } from './lib.mjs';
+import { loadConfig, parseArgs, makeBc, readJson, writeJson, layout, atOf, cueTime, clipAt, allItems } from './lib.mjs';
 
 const cfg = loadConfig();
 const { ids, flags } = parseArgs(process.argv);
 const FPS = cfg.fps, V = cfg.video, { width: W, height: H } = cfg.canvas;
-const fo = { clips: 'clips.json', font: null, ...cfg.footage, label: { size: 28, margin: 46, ...cfg.footage?.label } };
+const fo = { clips: 'clips.json', font: null, loudness: -17, ...cfg.footage, label: { size: 28, margin: 46, ...cfg.footage?.label },
+  subs: { fontsDir: null, font: 'sans-serif', size: 54, trFont: null, trSize: 32, whoSize: 36, marginV: 64, ...cfg.footage?.subs } };
 const wm = cfg.watermark ? { dur: 5, w: 6, y: 70, x: { left: 5, right: 95 }, at: [], ...cfg.watermark } : null;
 const cl = readJson(cfg.abs(fo.clips), { clips: [] });
 const work = sub => cfg.abs(cfg.dirs.work, sub);
@@ -30,6 +37,15 @@ if (log.video !== V) throw new Error(`overlay.json belongs to ${log.video}, conf
 const save = () => writeJson(logFile, log);
 const ffmpeg = args => execFileSync('ffmpeg', ['-y', '-loglevel', 'error', ...args], { stdio: ['ignore', 'inherit', 'inherit'] });
 const src = c => c.source || cl.source;
+// 裁边与放进画面：cover 铺满裁切，contain 整幅放进、补黑边
+const fitVf = (c, w, h) => [
+  ...(c.crop ? [`crop=${c.crop[2]}:${c.crop[3]}:${c.crop[0]}:${c.crop[1]}`] : []),
+  ...(c.fit === 'contain'
+    ? [`scale=${w}:${h}:force_original_aspect_ratio=decrease:flags=lanczos`, `pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:black`]
+    : [`scale=${w}:${h}:force_original_aspect_ratio=increase:flags=lanczos`, `crop=${w}:${h}`]),
+];
+const KINDS = ['dissolve', 'wipe', 'slide', 'zoom', 'iris'];
+for (const c of cl.clips) for (const side of ['in', 'out']) if (c[side] && !KINDS.includes(c[side].kind)) throw new Error(`${c.id}: ${side}.kind "${c[side].kind}" not one of ${KINDS.join(', ')}`);
 
 // 1. 预览用的小片段：不需要代码包，只按 clips.json 剪
 if (flags.preview) {
@@ -39,7 +55,7 @@ if (flags.preview) {
     const out = path.join(work('clips'), c.id + '.mp4');
     if (fs.existsSync(out) && !flags.force) continue;
     const audio = c.audio ? ['-c:a', 'aac', '-b:a', '128k'] : ['-an'];
-    ffmpeg(['-ss', String(c.from), '-i', src(c), '-t', String(c.to - c.from), ...audio, '-vf', 'scale=1280:-2', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '24', '-movflags', '+faststart', out]);
+    ffmpeg(['-ss', String(c.from), '-i', src(c), '-t', String(c.to - c.from), ...audio, '-vf', fitVf(c, 1280, 720).join(','), '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '24', '-movflags', '+faststart', out]);
     console.log('preview clip', c.id, (c.to - c.from).toFixed(1) + 's');
   }
   process.exit(0);
@@ -56,13 +72,21 @@ const at = (segId, line, cue) => {
 };
 const plan = [];
 for (const s of lay) {
-  const cs = cl.clips.filter(c => c.seg === s.id).map(c => ({ ...c, at: at(s.id, c.line, c.cue) })).sort((a, b) => a.at - b.at);
+  const cs = cl.clips.filter(c => c.seg === s.id).map(c => ({ ...c, at: s.from / FPS + clipAt(timing(s.id), c) })).sort((a, b) => a.at - b.at);
   cs.forEach((c, i) => {
     const stop = Math.min(cs[i + 1]?.at ?? Infinity, (s.from + s.frames) / FPS);
     const f0 = Math.round(c.at * FPS), f1 = Math.min(Math.round((c.at + c.to - c.from) * FPS), Math.round(stop * FPS));
     if (f1 > f0) plan.push({ ...c, f0, frames: f1 - f0 });
   });
 }
+// 转场：首尾和别的片段相接的一侧不做；长度不超过片段的一半
+plan.sort((a, b) => a.f0 - b.f0);
+plan.forEach((c, i) => {
+  const prev = plan[i - 1], next = plan[i + 1];
+  const tr = (t, touching) => t && !touching ? { kind: t.kind, easing: t.easing || 'ease-in-out', frames: Math.min(Math.round((t.dur ?? 0.5) * FPS), Math.floor(c.frames / 2)) } : null;
+  c.tin = tr(c.in, prev && prev.f0 + prev.frames >= c.f0);
+  c.tout = tr(c.out, next && c.f0 + c.frames >= next.f0);
+});
 const stray = cl.clips.filter(c => !seg[c.seg]).map(c => c.id);
 if (stray.length) throw new Error(`clips in segments not in order: ${stray.join(', ')}`);
 const marks = (wm?.at || []).map(m => {
@@ -70,9 +94,22 @@ const marks = (wm?.at || []).map(m => {
   const f = Math.round((m.t ?? at(m.seg, m.line, m.cue)) * FPS);
   return { side: m.side, f, t: +(f / FPS).toFixed(4) };
 });
-for (const c of plan) console.log(`${c.id.padEnd(14)} ${(c.f0 / FPS).toFixed(2).padStart(8)}s  +${(c.frames / FPS).toFixed(2)}s  src ${c.from}${c.audio ? '  audio' : ''}`);
+for (const c of plan) console.log(`${c.id.padEnd(16)} ${(c.f0 / FPS).toFixed(2).padStart(8)}s  +${(c.frames / FPS).toFixed(2)}s  src ${c.from}${c.gap ? '  gap' : ''}${c.audio ? `  audio${typeof c.audio === 'number' ? ' ' + c.audio : ''}` : ''}${c.subs ? `  subs:${c.subs.length}` : ''}${c.tin ? `  in ${c.tin.kind} ${(c.tin.frames / FPS).toFixed(2)}` : ''}${c.tout ? `  out ${c.tout.kind} ${(c.tout.frames / FPS).toFixed(2)}` : ''}`);
 for (const m of marks) console.log(`watermark ${m.side.padEnd(5)} ${m.t}s  +${wm.dur}s`);
 if (!flags.render && !flags.place && !flags.check) process.exit(0);
+
+// 双语字幕：一条事件两行，上面成片语言（前面小一号灰字写说话人），下面原话；底部居中，和旁白字幕同一块地方
+function assFile(c) {
+  const t = x => { const s = Math.max(0, x); const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60; return `${h}:${String(m).padStart(2, '0')}:${(s % 60).toFixed(2).padStart(5, '0')}`; };
+  const q = x => String(x).replace(/[{}\\]/g, '').replace(/\n/g, ' ');
+  const S = fo.subs, tr = S.trFont || S.font;
+  const ev = c.subs.map(x => `Dialogue: 0,${t(x.from - c.from)},${t(x.to - c.from)},Sub,,0,0,0,,` +
+    `${x.who ? `{\\fs${S.whoSize}\\c&HBBBBBB&}${q(x.who)}  {\\r}` : ''}${q(x.text)}${x.tr ? `\\N{\\fn${tr}\\fs${S.trSize}}${q(x.tr)}` : ''}`);
+  return `[Script Info]\nScriptType: v4.00+\nPlayResX: ${W}\nPlayResY: ${H}\nWrapStyle: 0\nScaledBorderAndShadow: yes\n\n` +
+    `[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n` +
+    `Style: Sub,${S.font},${S.size},&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,2.5,1.5,2,${Math.round(W * 0.08)},${Math.round(W * 0.08)},${S.marginV},1\n\n` +
+    `[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n${ev.join('\n')}\n`;
+}
 
 // 3. 成片用的片段：铺满裁切到画幅、整帧时长，标签用 textfile 读进 drawtext（任何语言、标点都不用转义）
 const esc = p => p.replace(/\\/g, '/').replace(/:/g, '\\:').replace(/'/g, "\\'");
@@ -80,7 +117,7 @@ if (flags.render) {
   fs.mkdirSync(work('footage'), { recursive: true });
   for (const c of plan) {
     const out = path.join(work('footage'), `${c.id}.mp4`);
-    const vf = [`scale=${W}:${H}:force_original_aspect_ratio=increase:flags=lanczos`, `crop=${W}:${H}`, `fps=${FPS}`];
+    const vf = [...fitVf(c, W, H), `fps=${FPS}`];
     const label = c.label ?? cl.label;
     if (label) {
       const tf = path.join(work('footage'), `${c.id}.label.txt`);
@@ -90,8 +127,15 @@ if (flags.render) {
       const { size, margin } = fo.label;
       vf.push(`drawtext=${font}textfile='${esc(tf)}':expansion=none:fontsize=${size}:fontcolor=0xdddddd:box=1:boxcolor=0x000000@0.55:boxborderw=${Math.round(size / 2)}:x=w-tw-${margin + Math.round(size / 2)}:y=${margin}`);
     }
-    const audio = c.audio ? ['-c:a', 'aac', '-b:a', '192k'] : ['-an'];
-    ffmpeg(['-ss', String(c.from), '-i', src(c), '-t', (c.frames / FPS).toFixed(4), ...audio, '-vf', vf.join(','), '-c:v', 'libx264', '-preset', 'slow', '-crf', '16', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out]);
+    if (c.subs?.length) {
+      const af = path.join(work('footage'), `${c.id}.ass`);
+      fs.writeFileSync(af, assFile(c));
+      vf.push(`subtitles=filename='${esc(af)}'${fo.subs.fontsDir ? `:fontsdir='${esc(cfg.abs(fo.subs.fontsDir))}'` : ''}`);
+    }
+    const len = c.frames / FPS;
+    const fin = c.tin ? c.tin.frames / FPS : 0.15, fout = c.tout ? c.tout.frames / FPS : 0.3;
+    const audio = c.audio ? ['-af', `afade=t=in:d=${fin.toFixed(3)},afade=t=out:st=${Math.max(0, len - fout).toFixed(3)}:d=${fout.toFixed(3)},loudnorm=I=${fo.loudness}:TP=-1.5:LRA=11,aresample=48000`, '-c:a', 'aac', '-b:a', '192k'] : ['-an'];
+    ffmpeg(['-ss', String(c.from), '-i', src(c), '-t', len.toFixed(4), ...audio, '-vf', vf.join(','), '-c:v', 'libx264', '-preset', 'slow', '-crf', '16', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out]);
     console.log('rendered', c.id);
   }
 }
@@ -137,7 +181,12 @@ if (plan.length) {
     const file = path.join(work('footage'), `${c.id}.mp4`);
     if (!fs.existsSync(file)) throw new Error(`${file} missing; run --render first`);
     const a = bc(['assets', 'import', V, '--path', file, '--storage', 'managed', '--name', `${cfg.names.footage} ${c.id}`, '--place', JSON.stringify({ track: T, at: atOf(c.f0, FPS) })]);
-    apply(`Style ${c.id}`, [{ type: 'setStyle', itemId: a.itemId, mode: 'fullscreen', fit: 'cover' }]);
+    const seq = inspect().sequence.id;
+    const trans = [['tin', 'rightItemId'], ['tout', 'leftItemId']].filter(([k]) => c[k]).map(([k, side]) => ({
+      type: 'setTransition', sequenceId: seq, [side]: a.itemId, kind: c[k].kind, params: {}, easing: c[k].easing,
+      duration: { unit: 'frames', value: c[k].frames }, alignment: 'exact-frame',
+    }));
+    apply(`Style ${c.id}`, [{ type: 'setStyle', itemId: a.itemId, mode: 'fullscreen', fit: 'cover' }, ...(typeof c.audio === 'number' ? [{ type: 'setAudioMix', itemId: a.itemId, volume: c.audio }] : []), ...trans]);
     log.footage[c.id] = { itemId: a.itemId, assetId: a.assetId, f0: c.f0, frames: c.frames };
     save();
     console.log('placed', c.id, a.itemId);

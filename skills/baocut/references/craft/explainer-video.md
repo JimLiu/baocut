@@ -54,7 +54,7 @@
 照 `video-production` 第 4–6 节做。讲解片常用到的：
 
 - 整镜整段由代码画时，按 `video-production` 第 5 节「代码画面」一条读它的代码场景细则（按段打包导入、确定性、字体与图层）；生成的角色、物件与底图放进代码包里动起来。短的标注、关键词、大数字按 `motion-graphics`。
-- 讲真实的产品、人物、事件、地点时用真实画面、截图或用户的素材；生成的图只画比喻、示意与想象的场景，不冒充真实。手里有原始画面时，实拍证明「真的发生了」，动画讲「为什么」：怎么分工、衔接（先看再问、讲完再看一遍、读数当证据、当事人原声）、标来源，读 [实拍与动画一起讲](explainer-video/references/footage.md)。
+- 讲真实的产品、人物、事件、地点时用真实画面、截图或用户的素材；生成的图只画比喻、示意与想象的场景，不冒充真实。手里有原始画面时，实拍证明「真的发生了」，动画讲「为什么」：怎么分工、衔接（先看再问、讲完再看一遍、读数当证据、当事人原声与旁白留白）、转场怎么挑、老画面怎么放、标来源，读 [实拍与动画一起讲](explainer-video/references/footage.md)。
 - **比喻的画法写成可复用的部分**：以原点为中心、带缩放、文字由调用方传入，同一个比喻能在不同镜头、画幅与语言的版本里复用。
 - **节拍跟着真实语音走**：旁白量好、对齐拿到字时间后，画面元素的出场时刻取对应的词被说到的时刻，不按估算的比例；重新配音后按新的字时间重排。改稿后核对每个节拍用的关键词仍在对应那句旁白里（「it is」改成「it's」、换了个说法都会让它对不上），对不上的报出来改掉，不悄悄退回估算的位置。
 - **分段做、分段改**：旁白按段配、按段对齐，代码画面按场景切包，每段的成果都留着。改一段或插入一段时只重做这一段（重配、重新对齐、重新导入那个包），没改的段落沿用原来的录音、字时间与画面，不整片重来。有命令行环境时用本 skill 的 `scripts/`：配音、对齐、打包、摆上时间线（某段变长变短时连字幕一起挪后面的片段）、建字幕五步都写好了，另有预览页配置、实拍片段与水印两个可选步骤，内容相关的设定放在一份配置里，拷进工程就能用；用法、配置字段与改一段的做法读 [制作脚本：配音、对齐、打包、预览、摆上时间线、建字幕、叠实拍](explainer-video/references/production-scripts.md)。
@@ -120,6 +120,7 @@
 - [`scripts/captions.mjs`](explainer-video/scripts/captions.mjs)
 - [`scripts/clips.example.json`](explainer-video/scripts/clips.example.json)
 - [`scripts/explainer.example.json`](explainer-video/scripts/explainer.example.json)
+- [`scripts/gaps.mjs`](explainer-video/scripts/gaps.mjs)
 - [`scripts/lib.mjs`](explainer-video/scripts/lib.mjs)
 - [`scripts/overlay.mjs`](explainer-video/scripts/overlay.mjs)
 - [`scripts/preview.mjs`](explainer-video/scripts/preview.mjs)

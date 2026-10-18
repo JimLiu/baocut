@@ -22,7 +22,10 @@
   bundle 是代码包目录（入口 index.html）；audio、lines、ref、note、clips 都可省。lines 是 [{ text, start, end }]，
   或 { lines: [...] }，秒数相对这一段的开头。没有 audio 时按页面时钟播放，时长取根元素的 data-duration。
   clips 是叠在代码画面上的实拍片段：at 是相对这一段开头的秒数，在 [at, at + dur) 里铺满盖在上面、跟着旁白走，
-  label 显示在右上角；默认静音，audio 为 true 时出声。勾上 chain 时一段的旁白播完自动接下一段。
+  label 显示在右上角；默认静音，audio 为 true 时出声，volume 是音量（0–1）。subs 是片段里的双语字幕
+  [{ start, end, text, tr, who }]（秒数相对片段开头；text 成片语言，tr 原话，who 说话人），播到时画在字幕带上。
+  in / out 是片段一侧的转场 { kind, dur, easing }（kind 取 dissolve / wipe / slide / zoom / iris，dur 秒数），
+  画法与视频格式一致，渐入渐出时露出下面的代码画面，原声音量跟着一起淡。勾上 chain 时一段的旁白播完自动接下一段。
   音频与片段先整个读成 blob 再播，python3 -m http.server 这类不支持 Range 的静态服务也能拖动。
   baocut/1（window.__baocutCompositions）与 hyperframes/1（window.__timelines）都认。
 -->
@@ -40,6 +43,8 @@
   .clipTag { position: absolute; right: 2%; top: 3%; padding: .2em .6em; border-radius: .3em; background: rgba(0,0,0,.55); color: #ddd; font-size: 1.6vh; display: none; pointer-events: none; }
   .band { position: absolute; left: 0; right: 0; outline: 1px dashed rgba(242, 193, 78, .7); pointer-events: none; }
   .cap { position: absolute; text-align: center; color: #fff; font-weight: 700; text-shadow: 0 0 4px #000, 0 1px 3px #000; pointer-events: none; }
+  .cap .who { color: #bbb; font-size: .7em; margin-right: .5em; }
+  .cap .tr { font-size: .55em; font-weight: 400; }
   .ctrl { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
   .ctrl input[type=range] { flex: 1; }
   .tm { font-variant-numeric: tabular-nums; color: var(--dim); min-width: 90px; text-align: right; }
@@ -119,7 +124,7 @@
     $('clips').innerHTML = ''; clips = [];
     for (const c of s.clips || []) {
       const el = document.createElement('video');
-      Object.assign(el, { className: 'clip', muted: !c.audio, playsInline: true, preload: 'auto' });
+      Object.assign(el, { className: 'clip', muted: !c.audio, volume: c.volume ?? 1, playsInline: true, preload: 'auto' });
       el.src = URL.createObjectURL(await (await fetch(fresh(c.src))).blob());
       $('clips').appendChild(el); clips.push({ ...c, el });
     }
@@ -161,21 +166,47 @@
     $('seek').value = dur ? Math.round(t / dur * 1000) : 0;
     const k = lines.findIndex(l => t >= l.start - 0.05 && t < l.end + 0.3);
     document.querySelectorAll('#lines li').forEach((li, i) => li.classList.toggle('now', i === k));
-    $('cap').textContent = k >= 0 ? lines[k].text : '';
+    const sub = clipSub(t);
+    if (sub) $('cap').innerHTML = `${sub.who ? `<span class="who">${esc(sub.who)}</span>` : ''}${esc(sub.text)}<div class="tr">${esc(sub.tr || '')}</div>`;
+    else $('cap').textContent = k >= 0 ? lines[k].text : '';
+  }
+  const esc = s => String(s).replace(/[&<>]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[ch]);
+  // 正在放的片段里，这一刻的双语字幕
+  function clipSub(t) {
+    if (!$('clipOn').checked) return null;
+    for (const c of clips) if (c.subs && t >= c.at && t < c.at + c.dur) return c.subs.find(x => t - c.at >= x.start && t - c.at < x.end) || null;
+    return null;
   }
 
+  // 单侧转场，与视频格式的画法一致：e 是缓动后的进度，渐出时从片段末尾倒着算；缺的那一侧露出下面的代码画面
+  const EASE = { linear: p => p, 'ease-in': p => p * p, 'ease-out': p => 1 - (1 - p) * (1 - p), 'ease-in-out': p => p * p * (3 - 2 * p) };
+  function look(c, u) {
+    const tr = c.in && u < c.in.dur ? c.in : c.out && u > c.dur - c.out.dur ? c.out : null;
+    const st = { opacity: '', transform: '', clipPath: '' };
+    if (!tr) return [st, 1];
+    const p = tr === c.in ? u / tr.dur : (c.dur - u) / tr.dur, e = (EASE[tr.easing] || EASE['ease-in-out'])(Math.max(0, Math.min(1, p)));
+    if (tr.kind === 'dissolve') st.opacity = e;
+    else if (tr.kind === 'wipe') st.clipPath = `inset(0 ${(1 - e) * 100}% 0 0)`;
+    else if (tr.kind === 'slide') { st.transform = `translateX(${(e - 1) * 100}%)`; st.opacity = e; }
+    else if (tr.kind === 'zoom') { st.transform = `scale(${0.75 + 0.25 * e})`; st.opacity = e; }
+    else if (tr.kind === 'iris') st.clipPath = `circle(${e * 50 * Math.SQRT2}% at 50% 50%)`;
+    return [st, e];
+  }
   // 实拍片段：落在 [at, at + dur) 里就铺满盖在代码画面上，跟着旁白走
   function syncClips(t) {
-    let tag = '';
+    let tag = '', tagE = 1;
     for (const c of clips) {
       const on = $('clipOn').checked && t >= c.at && t < c.at + c.dur;
       c.el.style.display = on ? 'block' : 'none';
       if (!on) { if (!c.el.paused) c.el.pause(); continue; }
-      tag = c.label || '';
+      const [st, e] = look(c, t - c.at);
+      Object.assign(c.el.style, st);
+      if (c.audio) c.el.volume = Math.max(0, Math.min(1, (c.volume ?? 1) * e));
+      tag = c.label || ''; tagE = e;
       if (Math.abs(c.el.currentTime - (t - c.at)) > 0.25) c.el.currentTime = t - c.at;
       if (playing() && c.el.paused) c.el.play().catch(() => {}); else if (!playing() && !c.el.paused) c.el.pause();
     }
-    $('clipTag').textContent = tag; $('clipTag').style.display = tag ? 'block' : 'none';
+    $('clipTag').textContent = tag; $('clipTag').style.display = tag ? 'block' : 'none'; $('clipTag').style.opacity = tagE;
   }
   // 连播：一段播完接下一段
   async function next() {

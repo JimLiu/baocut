@@ -14,8 +14,9 @@
 // 前台烘焙走成 browser-pixels 时停下并打印原因（不带 --allow-pixels），按代码场景细则第 2.1 节改好后重跑会原地换包。
 // 用 WebGL（Three.js 等）画的段走不了指令，一开始就带 --allow-pixels，并按代码场景细则先算好要烘多久。
 // 旁白按 voice.json 的 artifactId 导入；Runtime 清掉了旧产物（ARTIFACT_NOT_FOUND）时改导入 voice.mjs 存下的 audio/<id>.<格式>。
+// gaps.mjs 留过白的段（timing 里有 gapAudio）改导入留好白的那份；留白变了（重跑过 gaps.mjs）也当旁白换了。
 import fs from 'node:fs';
-import { loadConfig, parseArgs, makeBc, readJson, writeJson, layout, atOf, frameOf, bundleHash, allItems } from './lib.mjs';
+import { loadConfig, parseArgs, makeBc, readJson, writeJson, layout, atOf, frameOf, bundleHash, textHash, allItems } from './lib.mjs';
 
 const cfg = loadConfig();
 const { flags } = parseArgs(process.argv, ['bake']);
@@ -26,6 +27,12 @@ const voice = readJson(cfg.abs(cfg.dirs.audio, 'voice.json'), {});
 const lay = layout(cfg);
 const total = lay.reduce((n, s) => n + s.frames, 0);
 const save = () => writeJson(logFile, rec);
+const timingOf = id => readJson(cfg.abs(cfg.dirs.timing, `${id}.json`), {});
+const gapKey = id => { const g = timingOf(id).gaps; return g?.length ? textHash(JSON.stringify(g)) : null; };
+// clips.json 里要旁白留白的片段，timing 里得有它的留白，否则旁白、代码包都还是没留白的长度
+const ungapped = [...new Set(readJson(cfg.abs(cfg.footage?.clips || 'clips.json'), { clips: [] }).clips
+  .filter(c => c.gap && cfg.order.includes(c.seg) && !timingOf(c.seg).gaps?.some(g => g.clip === c.id)).map(c => c.seg))];
+if (ungapped.length) throw new Error(`gap clips not in timing for ${ungapped.join(', ')}; run gaps.mjs ${ungapped.join(' ')}, then build.mjs`);
 
 if (rec.video && cfg.video && rec.video !== cfg.video) throw new Error(`timeline.json belongs to ${rec.video}, config says ${cfg.video}; refusing to mix them`);
 const stray = Object.keys(rec.segments).filter(id => !cfg.order.includes(id));
@@ -47,7 +54,7 @@ for (const s of lay) {
     frames: r.frames,
     resized: r.sceneItem && r.frames !== s.frames,
     rebundled: r.sceneItem && r.bundleHash !== hash,
-    revoiced: !!(r.audioItem && voice[s.id] && voice[s.id].artifactId !== r.audioArtifact),
+    revoiced: !!(r.audioItem && ((voice[s.id] && voice[s.id].artifactId !== r.audioArtifact) || (r.audioGaps ?? null) !== gapKey(s.id))),
     hash,
   };
 }
@@ -197,17 +204,18 @@ function placeNarration(s) {
   if (!v) throw new Error(`no narration for ${s.id} in voice.json; run voice.mjs ${s.id}`);
   if (r.audioItem) apply(`Remove old narration ${s.id}`, [{ type: 'deleteItems', itemIds: [r.audioItem] }]);
   const tail = ['--name', `${cfg.names.narration} ${s.id}`, '--place', JSON.stringify({ track: A1, at: atOf(r.from, FPS) })];
+  const gapAudio = timingOf(s.id).gapAudio;
   let a;
   try {
-    a = bc(['assets', 'import', V, '--artifact-id', v.artifactId, ...tail]);
+    a = gapAudio ? bc(['assets', 'import', V, '--path', cfg.abs(gapAudio), '--storage', 'managed', ...tail]) : bc(['assets', 'import', V, '--artifact-id', v.artifactId, ...tail]);
   } catch (e) {
     // the Runtime may have pruned an old artifact; voice.mjs kept the same bytes as audio/<id>.<format>
     const file = cfg.abs(cfg.dirs.audio, `${s.id}.${cfg.voice.format || 'wav'}`);
-    if (e.cli?.code !== 'ARTIFACT_NOT_FOUND' || !fs.existsSync(file)) throw e;
+    if (gapAudio || e.cli?.code !== 'ARTIFACT_NOT_FOUND' || !fs.existsSync(file)) throw e;
     console.log(`${s.id}: artifact gone, importing ${file}`);
     a = bc(['assets', 'import', V, '--path', file, '--storage', 'managed', ...tail]);
   }
-  Object.assign(r, { audioArtifact: v.artifactId, audioAsset: a.assetId, audioItem: a.itemId });
+  Object.assign(r, { audioArtifact: v.artifactId, audioGaps: gapKey(s.id), audioAsset: a.assetId, audioItem: a.itemId });
   save();
 }
 
