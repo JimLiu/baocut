@@ -193,7 +193,8 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
   assets_download: {
     title: '下载网上素材',
     description: [
-      '把 assets_search 找到的一条网上素材下载进视频，导入为素材；或者给 outDir 只把文件存进一个目录（用户要把图片、视频存到某个文件夹，不进视频时）。',
+      '把 assets_search 找到的一条网上素材下载进视频，导入为素材；或者给 outDir 只存成文件。',
+      '用户要把图片、视频存到某个文件夹、不进视频时给 outDir。',
       `按 source 与 id 重新向来源取一次许可与文件地址（不信任调用方给的许可），只从 Wikimedia 与 Internet Archive 的文件主机下载（https），上限 ${OPEN_MEDIA_MAX_BYTES / 1024 / 1024 / 1024} GiB；视频比 maxHeight（默认 1080）高时取转码，图片太宽或不是 JPEG、PNG、WebP 时取 Commons 渲染的图。`,
       'bytes 收进视频（managed），编译成 importAsset（给了 place 时再加 addItem），一笔修改、可以撤销，会向用户确认。素材的 provenance 记下来源、页面、许可与署名，videos_inspect 的素材里读得回来（credit）。',
       LICENSE_RULES,
