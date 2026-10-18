@@ -414,17 +414,56 @@ describe('第一次出现的视频卡（产品设计 §3.3：功能区自动打�
     threadCards({ blocks: buildThread(items), items, jobs, conversationId: CONV, entries: [] });
 
   it('seen 里没有的、知道在哪打开的才算，按挂的先后', () => {
-    const first = placed([user('u1', 't1'), created('mov_2', 't1'), reply('a1', 't1')]);
+    const first = placed([user('u1', 't1'), change('x1', 'mov_2', 't1'), reply('a1', 't1')]);
     expect(videoCardKeys(first)).toEqual(['video:mov_2']);
     expect(freshVideoCards(first, new Set(), null).map((c) => [c.key, c.video.video])).toEqual([
-      ['video:mov_2', { conversationId: CONV, path: '新视频 mov_2' }],
+      ['video:mov_2', { projectId: 'p1', path: '样片' }],
     ]);
-    const later = placed([user('u1', 't1'), created('mov_2', 't1'), reply('a1', 't1'), user('u2', 't2', 20), created('mov_3', 't2'), reply('a2', 't2')]);
+    const later = placed([user('u1', 't1'), change('x1', 'mov_2', 't1'), reply('a1', 't1'), user('u2', 't2', 20), change('x2', 'mov_3', 't2'), reply('a2', 't2')]);
     expect(freshVideoCards(later, new Set(videoCardKeys(first)), null).map((c) => c.key)).toEqual(['video:mov_3']);
     // 流程刚建出来、Space 还没扫到：还不知道位置，先不算，下次再看。
     const pending = placed([user('u1', 't1'), tool('c1', 't1'), reply('a1', 't1')], [job({ videoId: 'mov_9' })]);
     expect(videoCardKeys(pending)).toEqual(['video:mov_9']);
     expect(freshVideoCards(pending, new Set(), null)).toEqual([]);
+  });
+
+  it('能看了才算：刚建出来的空视频先不算，放进画面（时长大于 0）后再算；进会话时已有的卡有了画面也不算', () => {
+    const fill = (id: string, videoId: string, before: number, after: number): TimelineItem => ({
+      ...(change(id, videoId, 't1') as Extract<TimelineItem, { kind: 'video-change' }>),
+      target: { conversationId: CONV, path: `新视频 ${videoId}` },
+      durationSeconds: { before, after },
+    });
+    const empty = placed([user('u1', 't1'), created('mov_2', 't1'), reply('a1', 't1')]);
+    expect(videoCardKeys(empty)).toEqual(['video:mov_2']);
+    expect(freshVideoCards(empty, new Set(), null)).toEqual([]);
+    // 只改了设置、时间线还是空的：仍不算。
+    expect(freshVideoCards(placed([user('u1', 't1'), created('mov_2', 't1'), fill('x0', 'mov_2', 0, 0), reply('a1', 't1')]), new Set(), null)).toEqual([]);
+    const filled = placed([user('u1', 't1'), created('mov_2', 't1'), fill('x1', 'mov_2', 0, 12), reply('a1', 't1')]);
+    expect(freshVideoCards(filled, new Set(), null).map((c) => [c.key, c.video.durationSeconds])).toEqual([['video:mov_2', 12]]);
+    // 调用方进会话时把已有的卡都记进 seen（不管有没有画面），之后它有了画面也不再打开。
+    expect(freshVideoCards(filled, new Set(videoCardKeys(empty)), null)).toEqual([]);
+    // 流程新建的视频（会话里没有修改回执）：时长看 Space 条目，扫到画面之前不算。
+    const items = [user('u1', 't1'), tool('c1', 't1'), reply('a1', 't1')];
+    const scanned = (durationSec: number) =>
+      threadCards({
+        blocks: buildThread(items),
+        items,
+        jobs: [job({ videoId: 'mov_9' })],
+        conversationId: CONV,
+        entries: [
+          {
+            id: 'e1',
+            kind: 'video',
+            name: '访谈第一集',
+            source: { projectId: 'p1', conversationId: null },
+            relPath: 'videos/访谈第一集',
+            ref: { videoId: 'mov_9' },
+            media: { durationSec },
+          } as unknown as SpaceEntry,
+        ],
+      });
+    expect(freshVideoCards(scanned(0), new Set(), null)).toEqual([]);
+    expect(freshVideoCards(scanned(95), new Set(), null).map((c) => c.key)).toEqual(['video:mov_9']);
   });
 
   it('随第一句话带进来的视频不算，智能体后来改了它也不算', () => {

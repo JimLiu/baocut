@@ -15,6 +15,7 @@ export const zhHans: RcVideoMessages = {
   reservedDirOutsideSource: '占下的目录不在来源目录里',
   videoInUse: '这个视频正被打开着',
   videoNotOpenOpenFirst: '视频没有打开；先打开它',
+  versionsNeedProject: '只有项目里的视频才有版本记录；先把视频移进项目',
   assetVersionNotFound: '素材或它的这个版本不存在',
   videoNotFound: '视频不存在',
   onlyWorkspaceVideos: '只能打开工作目录里的视频',

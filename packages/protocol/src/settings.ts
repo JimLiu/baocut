@@ -33,6 +33,9 @@ export const DOWNLOAD_MIRRORS_MAX = 20;
 /** 镜像名字的最大长度。 */
 export const DOWNLOAD_MIRROR_NAME_MAX = 40;
 
+/** 版本记录的切分频率（`versions.cadence`）。 */
+export type VersionCadence = 'segment' | 'turn';
+
 /** 转写完成后的后续动作。 */
 export type TranscribeAfterComplete = 'open-video' | 'notify' | 'nothing';
 
@@ -105,6 +108,12 @@ export interface SettingValues {
    * 删除的视频也一样；有引用的留着。整数 1–3650。
    */
   'space.trashRetentionDays': number;
+  /**
+   * 每部视频的版本记录保留的未命名版本数（架构设计 §5.12）：保存的版本不计入、总是保留；另有 64 MiB 的大小上限。整数 1–100。
+   */
+  'versions.keep': number;
+  /** 版本记录何时开新版本（§5.12）：`segment` 按安静期与时长；`turn` 另在智能体每个回合开始时。 */
+  'versions.cadence': VersionCadence;
   /**
    * Runtime Home 里 `cache/` 的总大小上限（MiB，架构设计 §5.1）：超过时按修改时间从旧到新删缓存文件，降到上限的 90%。
    * 跨视频检索的内容索引（`cache/content-index/`）不删，但计入总大小。整数 256–1048576。
@@ -179,6 +188,8 @@ export const SETTING_KEYS = [
   'fonts.cssEndpoint',
   'fonts.fileEndpoint',
   'space.trashRetentionDays',
+  'versions.keep',
+  'versions.cadence',
   'cache.maxSizeMiB',
   'resources.capacity',
   'runtime.idleExitMinutes',
@@ -215,6 +226,8 @@ export const SETTING_DEFAULTS: Readonly<SettingValues> = Object.freeze({
   'fonts.cssEndpoint': null,
   'fonts.fileEndpoint': null,
   'space.trashRetentionDays': 30,
+  'versions.keep': 10,
+  'versions.cadence': 'segment',
   'cache.maxSizeMiB': 2048,
   'resources.capacity': null,
   'runtime.idleExitMinutes': 10,

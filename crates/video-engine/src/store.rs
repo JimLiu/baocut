@@ -456,6 +456,18 @@ impl Store {
             .optional()?)
     }
 
+    /// 一个文档版本登记的内容摘要；库里没有这个版本时为 `None`。
+    pub fn document_version_hash(&self, video_id: &str, document_id: &str, revision: &str) -> EngineResult<Option<String>> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT content_hash FROM document_versions WHERE video_id = ?1 AND document_id = ?2 AND revision = ?3",
+                params![video_id, document_id, revision],
+                |r| r.get(0),
+            )
+            .optional()?)
+    }
+
     /// 取得写入权时递增所有者代（ownerGeneration，架构设计 §2.3）。
     pub fn bump_generation(&mut self, video_id: &str) -> EngineResult<i64> {
         let tx = self.conn.transaction()?;
@@ -813,6 +825,58 @@ impl Store {
         )?;
         tx.commit()?;
         Ok(outcome)
+    }
+
+    /// meta 表里的一个值。版本记录的簿记（`snapshot*`、`versionsNext`，视频格式规范 §9）也存在这里：它们不属于修订内容。
+    pub fn meta(&self, key: &str) -> EngineResult<Option<String>> {
+        Ok(self
+            .conn
+            .query_row("SELECT value FROM meta WHERE key = ?1", [key], |r| r.get(0))
+            .optional()?)
+    }
+
+    /// 在一个 SQLite 事务里写入或删除（`None`）几个 meta 值。
+    pub fn set_meta(&mut self, entries: &[(&str, Option<&str>)]) -> EngineResult<()> {
+        let tx = self.conn.transaction()?;
+        for (key, value) in entries {
+            match value {
+                Some(value) => tx.execute(
+                    "INSERT INTO meta (key, value) VALUES (?1, ?2) ON CONFLICT (key) DO UPDATE SET value = ?2",
+                    params![key, value],
+                )?,
+                None => tx.execute("DELETE FROM meta WHERE key = ?1", [key])?,
+            };
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// 修订号在 `(after, through]` 里的事务，按修订号排列：`(操作者, 标签, 标签引用)`。版本的动作清单取自这里。
+    pub fn transactions_between(
+        &self,
+        video_id: &str,
+        after: i64,
+        through: i64,
+    ) -> EngineResult<Vec<(crate::model::Actor, String, Option<MessageRef>)>> {
+        let mut stmt = self.conn.prepare(&format!(
+            "SELECT actor, label, {} FROM transactions WHERE video_id = ?1 AND revision > ?2 AND revision <= ?3 ORDER BY revision",
+            self.ref_column("label_ref")
+        ))?;
+        let rows = stmt.query_map(params![video_id, after, through], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, Option<String>>(2)?))
+        })?;
+        rows.map(|row| {
+            let (actor, label, label_ref) = row?;
+            let actor = serde_json::from_str(&actor).map_err(|e| {
+                ErrorBody::storage(msg!(
+                    "engine.transactionCorrupt",
+                    "The transaction record is corrupt: {error}",
+                    error = e.to_string()
+                ))
+            })?;
+            Ok((actor, label, parse_ref(label_ref)))
+        })
+        .collect()
     }
 
     /// outbox 里 `after` 之后的事件，按序号排列（断线补发与崩溃恢复）。

@@ -2,12 +2,15 @@ function exportKindLabel(kind: string): string {
   const labels: Record<string, string> = { subtitles: 'ondertitels', transcript: 'transcript', audio: 'audio', video: 'videobestand', portable: 'draagbaar pakket', project: 'projectbestand' };
   return labels[kind] ?? kind;
 }
-function linkImportAfter(p: { target: string; name: string | null; transcribe: boolean; language: string | null; provider: string | null; model: string | null; captions: boolean }): string {
+function linkImportAfter(p: { target: string; name: string | null; transcribe: boolean; language: string | null; provider: string | null; model: string | null; captions: boolean; dir?: string | null }): string {
+  // 文件放进指定目录：导入视频的照常说完，再说文件放在哪。
+  if (p.dir && (p.target === 'create' || p.target === 'video')) return `${linkImportAfter({ ...p, dir: null })}, het gedownloade bestand opslaan in ${p.dir}`;
   const recognition = `${p.language ? `, taal ${p.language}` : ''}${p.provider ? ` (${p.provider}${p.model ? ` ${p.model}` : ''})` : ''}`;
   if (p.target === 'create') return `, video maken${p.name ? ` ‘${p.name}’` : ' (vernoemd naar de paginatitel)'} en toevoegen aan de tijdlijn${p.transcribe ? `, daarna transcriberen${recognition}${p.captions ? ' en een ondertitellaag maken' : ''}` : ''}`;
   if (p.target === 'video') return `, importeren in de video${p.transcribe ? ' en transcriberen' : ''}`;
   if (p.target === 'project') return `, opslaan in downloads/ van het project${p.transcribe ? ' en transcriberen naar TXT en SRT' : ''}`;
   if (p.target === 'download') return `, opslaan in de downloadmap${p.transcribe ? ' en transcriberen naar TXT en SRT' : ''}`;
+  if (p.target === 'folder') return `, opslaan in ${p.dir}${p.transcribe ? ' en transcriberen naar TXT en SRT' : ''}`;
   return '';
 }
 
@@ -43,6 +46,9 @@ export const nl: RcAgentToolsMessages = {
   captionsLabel: "Ondertitellaag toevoegen",
   undoSummary: (p: { transactionId: string }) => `Bewerking ongedaan maken: ${p.transactionId}`,
   undoLatestSummary: "Laatste bewerking ongedaan maken",
+  saveVersionSummary: (p: { name: string }) => `Huidige stand opslaan als versie ‘${p.name}’`,
+  restoreVersionSummary: (p: { version: number }) => `Terug naar versie ${p.version}`,
+  restoreBeforeVersionSummary: (p: { version: number }) => `Terug naar vóór versie ${p.version}`,
   deleteVideoSummary: (p: { name: string; path: string; days: number }) =>
     `Video verwijderen: ‘${p.name}’ (${p.path}): verplaatsen naar de prullenmand; herstellen in Space kan gedurende ${`${p.days} ${pluralForm('nl', p.days, { one: "dag", other: "dagen" })}`}. De oorspronkelijke bestanden van gekoppelde media blijven staan`,
   importPackageSummary: (p: { file: string }) => `Draagbaar pakket openen: ${p.file}`,
@@ -58,6 +64,7 @@ export const nl: RcAgentToolsMessages = {
   importAssetSummary: (p: { name: string; place: boolean }) => `Media importeren: ${p.name}${p.place ? " en toevoegen aan de tijdlijn" : ""}`,
 
   importAssetLabel: (p: { name: string; place: boolean }) => `Importeren: ${p.name}${p.place ? " en toevoegen aan de tijdlijn" : ""}`,
+  openMediaSaveSummary: (p) => `“${p.title}” downloaden van ${p.source} (${p.license}) naar ${p.target} (genummerd als de naam al bestaat, nooit overschreven)`,
   openMediaDownloadSummary: (p: { title: string; source: string; license: string; place: boolean }) => `“${p.title}” downloaden van ${p.source} (${p.license}) en importeren${p.place ? " en toevoegen aan de tijdlijn" : ""}`,
   sfxSummary: (p: { recipe: string; place: boolean }) => `Geluidseffect ‘${p.recipe}’ maken en importeren${p.place ? ' op de tijdlijn' : ''}`,
   replaceCompositionSummary: (p: { name: string; clip: string }) => `${p.name} importeren en clip ${p.clip} op de tijdlijn ermee vervangen`,

@@ -15,6 +15,9 @@ use message_ref::{MessageRef, msg};
 use video_engine::error::kinds;
 use video_engine::gc::STAGING_GRACE;
 use video_engine::model::{Actor, ActorKind, Id};
+use video_engine::versions::{
+    Boundary, ConversationRef, DeleteRequest, RestoreRequest, SaveRequest, SnapshotRequest, list_versions, read_version, snapshot_status,
+};
 
 use video_engine::{
     CreateOptions, ErrorBody, OpenMode, ProjectClaim, Retryability, TaskProtection, UndoRequest, UndoTarget, Video, VideoEvent,
@@ -173,6 +176,72 @@ struct DocumentParams {
     document_id: Id,
     #[serde(default)]
     revision: Option<String>,
+}
+
+/// `videos.writeSnapshot`：写快照并按版本的边界并入或开新版本（视频格式规范 §9）。
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct WriteSnapshotParams {
+    video_id: Id,
+    #[serde(default)]
+    boundary: Option<Boundary>,
+    #[serde(default)]
+    conversations: Vec<ConversationRef>,
+    #[serde(default)]
+    keep: Option<usize>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct RestoreVersionParams {
+    video_id: Id,
+    command_id: Id,
+    version: u64,
+    #[serde(default)]
+    before: bool,
+    actor: Actor,
+    #[serde(default)]
+    keep: Option<usize>,
+    /// 同 `UndoParams.protections`：智能体回到版本同样不能触碰任务的保护范围。
+    #[serde(default)]
+    protections: Vec<TaskProtection>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct SaveVersionParams {
+    video_id: Id,
+    command_id: Id,
+    name: String,
+    #[serde(default)]
+    note: Option<String>,
+    actor: Actor,
+    #[serde(default)]
+    keep: Option<usize>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct DeleteVersionParams {
+    video_id: Id,
+    command_id: Id,
+    version: u64,
+    actor: Actor,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct VersionParams {
+    video_id: Id,
+    version: u64,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct RebuildParams {
+    path: String,
+    #[serde(default)]
+    keep: Option<usize>,
 }
 
 fn params<T: DeserializeOwned>(value: Value) -> Result<T, ErrorBody> {
@@ -408,6 +477,99 @@ impl Host {
                 let p: VideoParams = params(value)?;
                 let unused = self.video(&p.video_id)?.unused_assets();
                 Ok(json!({ "unused": unused }))
+            }
+            "videos.writeSnapshot" => {
+                let p: WriteSnapshotParams = params(value)?;
+                let written = self.video(&p.video_id)?.write_snapshot(&SnapshotRequest {
+                    boundary: p.boundary,
+                    conversations: p.conversations,
+                    keep: p.keep,
+                })?;
+                Ok(serde_json::to_value(written).expect("能序列化"))
+            }
+            "videos.listVersions" => {
+                let p: VideoParams = params(value)?;
+                let list = list_versions(self.video(&p.video_id)?.dir())?;
+                Ok(serde_json::to_value(list).expect("能序列化"))
+            }
+            "videos.readVersion" => {
+                let p: VersionParams = params(value)?;
+                let version = read_version(self.video(&p.video_id)?.dir(), p.version)?;
+                Ok(serde_json::to_value(version).expect("能序列化"))
+            }
+            "videos.snapshotStatus" => {
+                // 按目录查、不要求打开，不取写锁：没有 `video.db`、只有快照的目录也要答得出「待重建」。
+                let p: PathParams = params(value)?;
+                let dir = canonical(&absolute(&p.path)?)?;
+                Ok(serde_json::to_value(snapshot_status(&dir)?).expect("能序列化"))
+            }
+            "videos.restoreVersion" => {
+                let p: RestoreVersionParams = params(value)?;
+                let protections = if p.actor.kind == ActorKind::Agent {
+                    p.protections
+                } else {
+                    Vec::new()
+                };
+                let restored = self.video(&p.video_id)?.restore_version(&RestoreRequest {
+                    command_id: p.command_id,
+                    version: p.version,
+                    before: p.before,
+                    actor: p.actor,
+                    keep: p.keep,
+                    protections,
+                })?;
+                let event = restored.committed.as_ref().and_then(|c| c.event.as_ref());
+                if let Some(event) = event {
+                    emit(event);
+                }
+                Ok(json!({
+                    "receipt": restored.committed.as_ref().map(|c| &c.receipt),
+                    "replayed": restored.committed.is_some() && event.is_none(),
+                    "version": restored.version,
+                }))
+            }
+            "videos.saveVersion" => {
+                let p: SaveVersionParams = params(value)?;
+                let saved = self.video(&p.video_id)?.save_version(&SaveRequest {
+                    command_id: p.command_id,
+                    name: p.name,
+                    note: p.note,
+                    actor: p.actor,
+                    keep: p.keep,
+                })?;
+                if let Some(event) = &saved.committed.event {
+                    emit(event);
+                }
+                Ok(json!({
+                    "receipt": saved.committed.receipt,
+                    "replayed": saved.committed.event.is_none(),
+                    "version": saved.version,
+                    "checkpointId": saved.checkpoint_id,
+                }))
+            }
+            "videos.deleteVersion" => {
+                let p: DeleteVersionParams = params(value)?;
+                let deleted = self.video(&p.video_id)?.delete_version(&DeleteRequest {
+                    command_id: p.command_id,
+                    version: p.version,
+                    actor: p.actor,
+                })?;
+                let event = deleted.committed.as_ref().and_then(|c| c.event.as_ref());
+                if let Some(event) = event {
+                    emit(event);
+                }
+                Ok(json!({
+                    "receipt": deleted.committed.as_ref().map(|c| &c.receipt),
+                    "replayed": deleted.committed.is_some() && event.is_none(),
+                }))
+            }
+            "videos.rebuildFromSnapshot" => {
+                // 只有快照的目录就地建 `video.db`（视频格式规范 §9.7）。建好就放下锁：Runtime 随后照常 `videos.open`，
+                // 认领与同一 videoId 的查重都走打开的那条路。
+                let p: RebuildParams = params(value)?;
+                let dir = canonical(&absolute(&p.path)?)?;
+                let video = Video::rebuild_from_snapshot(&dir, &self.ffprobe, p.keep)?;
+                Ok(json!({ "videoId": video.id() }))
             }
             "runs.invalidate" => {
                 // 只给打开着的视频记：没打开的视频不会有提交到来，关闭时记录也一起清掉。
@@ -1642,5 +1804,106 @@ mod tests {
         assert_eq!(listed["unused"].as_array().unwrap().len(), 1);
         assert_eq!(listed["unused"][0]["assetId"], asset_id);
         assert_eq!(listed["unused"][0]["name"], json!("logo.svg"));
+    }
+
+    #[test]
+    fn versions_round_trip_through_snapshot_restore_save_delete_and_rebuild() {
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join("m");
+        let mut host = host();
+        let created = create(&mut host, &dir);
+        let video_id = created["videoId"].as_str().unwrap().to_string();
+        let user = Actor {
+            kind: ActorKind::User,
+            id: "user_local".into(),
+        };
+        let write = |host: &mut Host| {
+            host.handle("videos.writeSnapshot", json!({ "videoId": video_id }), &mut |_| {})
+                .unwrap()
+        };
+        // 第一次写只落基线，还没有版本。
+        let baseline = write(&mut host);
+        assert_eq!(baseline.get("version"), None);
+        let renamed = host
+            .handle("edits.apply", rename(&video_id, "cmd_1", "0", "第一版", None), &mut |_| {})
+            .unwrap();
+        assert_eq!(renamed["receipt"]["videoRevision"], json!("1"));
+        let first = write(&mut host);
+        assert_eq!(first["version"], json!(1));
+        assert_eq!(first["opened"], json!(true));
+        let status = host.handle("videos.snapshotStatus", json!({ "path": dir }), &mut |_| {}).unwrap();
+        assert_eq!(status["state"], json!("synced"));
+        assert_eq!(status["latestVersion"], json!(1));
+
+        let list = host
+            .handle("videos.listVersions", json!({ "videoId": video_id }), &mut |_| {})
+            .unwrap();
+        assert_eq!(list["versions"].as_array().unwrap().len(), 1);
+        assert_eq!(list["versions"][0]["kind"], json!("segment"));
+        let text = host
+            .handle("videos.readVersion", json!({ "videoId": video_id, "version": 1 }), &mut |_| {})
+            .unwrap();
+        assert!(text["diff"].as_str().unwrap().contains("第一版"));
+
+        // 回到第 1 版之前：发事件、回执带修改名，并单独成一个 restore 版本。
+        let restore = json!({
+            "videoId": video_id, "commandId": "cmd_restore", "version": 1, "before": true, "actor": user,
+        });
+        let mut events = Vec::new();
+        let restored = host
+            .handle("videos.restoreVersion", restore.clone(), &mut |e| events.push(e.clone()))
+            .unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(restored["replayed"], json!(false));
+        assert_eq!(restored["receipt"]["label"], json!("Restore to before version 1"));
+        assert_eq!(restored["version"], json!(2));
+        let again = host
+            .handle("videos.restoreVersion", restore, &mut |e| events.push(e.clone()))
+            .unwrap();
+        assert_eq!(again["replayed"], json!(true));
+        assert_eq!(events.len(), 1, "重放不发事件");
+        let list = host
+            .handle("videos.listVersions", json!({ "videoId": video_id }), &mut |_| {})
+            .unwrap();
+        assert_eq!(list["versions"][0]["kind"], json!("restore"));
+
+        let save = json!({ "videoId": video_id, "commandId": "cmd_save", "name": "初稿", "actor": user });
+        let saved = host.handle("videos.saveVersion", save, &mut |_| {}).unwrap();
+        assert_eq!(saved["version"], json!(3));
+        assert!(saved["checkpointId"].is_string());
+        let deleted = host
+            .handle(
+                "videos.deleteVersion",
+                json!({ "videoId": video_id, "commandId": "cmd_delete", "version": 3, "actor": user }),
+                &mut |_| {},
+            )
+            .unwrap();
+        assert_eq!(deleted["replayed"], json!(false));
+        assert_eq!(deleted["receipt"]["label"], json!("Delete saved version"));
+        let error = host
+            .handle(
+                "videos.deleteVersion",
+                json!({ "videoId": video_id, "commandId": "cmd_delete_1", "version": 1, "actor": user }),
+                &mut |_| {},
+            )
+            .unwrap_err();
+        assert_eq!(error.code, "INVALID_OPERATION");
+
+        // 删掉库，只留快照：重建出同一部视频，之后照常打开。
+        write(&mut host);
+        host.handle("videos.close", json!({ "videoId": video_id }), &mut |_| {}).unwrap();
+        std::fs::remove_file(dir.join("video.db")).unwrap();
+        let status = host.handle("videos.snapshotStatus", json!({ "path": dir }), &mut |_| {}).unwrap();
+        assert_eq!(status["state"], json!("rebuild"));
+        let rebuilt = host
+            .handle("videos.rebuildFromSnapshot", json!({ "path": dir }), &mut |_| {})
+            .unwrap();
+        assert_eq!(rebuilt["videoId"], json!(video_id));
+        let opened = host.handle("videos.open", json!({ "path": dir }), &mut |_| {}).unwrap();
+        assert_eq!(opened["videoId"], json!(video_id));
+        let list = host
+            .handle("videos.listVersions", json!({ "videoId": video_id }), &mut |_| {})
+            .unwrap();
+        assert_eq!(list["versions"][0]["kind"], json!("rebuild"));
     }
 }

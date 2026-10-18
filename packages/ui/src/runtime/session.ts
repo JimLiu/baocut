@@ -134,12 +134,16 @@ export class RuntimeSession {
 
   /**
    * 终端或 MCP 的外部 Agent 新建了视频（Space 主题的 `video.created`）：在 Home 的功能区打开它（产品设计 §3.3，shell-store
-   * `openExternalVideo`）。每部视频只试一次：当时不在 Home 或开着别的视频而没打开的，之后也不补。
+   * `openExternalVideo`）。正看着的会话有任务在跑时算忙，窄窗口里不切走它。每部视频只试一次：当时不在 Home 或开着别的视频而没打开的，
+   * 之后也不补。
    */
   openExternalVideo(video: ExternalVideoCreated): void {
     if (this.#externalVideos.has(video.videoId)) return;
     this.#externalVideos.add(video.videoId);
-    useShell.getState().openExternalVideo(video.target);
+    const { route, openExternalVideo } = useShell.getState();
+    const conversationId = route.tab === 'home' ? route.conversationId : null;
+    const busy = !!conversationId && !!useDirectory.getState().conversations.find((c) => c.id === conversationId)?.activeTaskId;
+    openExternalVideo(video.target, busy);
   }
 
   #onWindowFocus(handler: () => void): () => void {
@@ -286,7 +290,11 @@ export class RuntimeSession {
   /** 让用户选一个目录并登记为项目；取消时返回 null。 */
   async openProjectFromDialog(): Promise<Project | null> {
     const dir = await this.host.pickDirectory();
-    if (!dir) return null;
+    return dir ? this.openProject(dir) : null;
+  }
+
+  /** 把一个已有目录登记为项目（已经是项目时返回那一个，归档的拿回列表；架构设计 §5.1）。 */
+  async openProject(dir: string): Promise<Project> {
     const { project } = await this.client.request('projects.open', { path: dir });
     return project;
   }

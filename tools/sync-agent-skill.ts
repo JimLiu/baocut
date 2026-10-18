@@ -451,7 +451,7 @@ function commonOps(editOps: CatalogEditOperations): string {
     out.push(`**${label}**（\`${op}\`）：${firstSentence(entry.description)}`, '', '```json', JSON.stringify(entry.example), '```', '');
   }
   out.push(
-    '字幕层用 {{tool:captions_create}} 建，不是这里的操作；剪掉一段并让后面前移用 `removeRange`，口播的剪口用 `addCuts`。' +
+    '字幕层用 {{tool:captions_create}} 建，不是这里的操作；剪掉一段并让后面前移用 `removeRange`，空出一段让后面后移用 `insertRange`，口播的剪口用 `addCuts`。' +
       '其余操作与每个字段的写法用 {{tool:edits_ops}} 取。',
   );
   return out.join('\n');

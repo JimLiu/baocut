@@ -15,6 +15,7 @@ export const ko: RcVideoMessages = {
   reservedDirOutsideSource: '예약된 폴더가 소스 폴더 안에 없습니다',
   videoInUse: '이 영상이 열려 있습니다',
   videoNotOpenOpenFirst: '영상이 열려 있지 않습니다. 먼저 여세요',
+  versionsNeedProject: '버전 기록은 프로젝트 안의 영상에만 남습니다. 먼저 영상을 프로젝트로 옮기세요',
   assetVersionNotFound: '소재 또는 소재의 이 버전이 없습니다',
   videoNotFound: '영상이 없습니다',
   onlyWorkspaceVideos: '작업 폴더 안의 영상만 열 수 있습니다',

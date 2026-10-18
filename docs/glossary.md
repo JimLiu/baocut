@@ -57,6 +57,7 @@
 | 协作文档 / 协作文档标注 | Docs (a doc) / Doc annotation | 一份协作文档写 a doc，功能叫 Docs；不写 Collaborative document、Living doc |
 | 时间线 / 检查器 / 编辑器 | Timeline / Inspector / Editor | |
 | 候选 / 检查点 | Candidate / Checkpoint | |
+| 版本 / 版本记录 / 保存版本 / 回到版本 | Version / Version history / Save version / Restore version | 回到版本与回收站的「恢复」同一个动词，总带上 version；不写 Revert、Roll back、Snapshot |
 | 任务 / 后台任务 | Task / Background tasks | |
 | 工具 / 服务 / 模型 | Tools / Services / Models | |
 | API 提供方 / 账号 / 用量 / 本机模型 | API provider / Account / Usage / Local models | 不写 Cloud models、Service provider |
@@ -90,7 +91,11 @@
 | 素材（Asset / AssetRevision） | 资源身份及其某一版确定的 bytes 与元数据 |
 | 工作稿 | 视频当前已提交的状态 |
 | 候选（Candidate） | 待选方案。未应用的候选不是工作稿 |
-| 检查点（Checkpoint） | 命名的历史状态 |
+| 检查点（Checkpoint） | 命名的历史状态。保存版本在库里就是一个检查点 |
+| 工作区快照（Workspace snapshot） | 项目里的视频在自己目录的 `.bcut-snapshot/` 下保存的当前状态：行稳定的文本，可以随 git 提交，可以从它重建视频。由 `video.db` 生成的派生物，不是第二个写入端。见视频格式规范 §9 |
+| 版本（Version） | 版本记录里的一项：一段工作（安静 5 分钟或满 30 分钟切开），或一次保存版本、回到版本、重建，存成从上一版到这一版的 diff，开头列出这一版的操作、执行者与会话。保留最近 10 个，加上全部保存的版本。不同于每笔提交的修订号（Revision）与逐笔的撤销历史；语言与画幅的叫语言版本、画幅版本（变体）。见视频格式规范 §9.3、§9.4 |
+| 保存版本 | 把当前状态存成一个具名版本：库里建一个检查点，版本记录里钉住，不被保留规则清理。见视频格式规范 §9.6 |
+| 回到版本 | 把视频的内容换成某个版本结束时或开始之前的状态，作为一笔可以撤销的修改，单独成一版。检查点与保护不变。见视频格式规范 §9.5 |
 | 转场（Transition） | 同一轨道上首尾相接的两个画面实例之间，或一个实例开头、结尾的过渡。见视频格式规范 §3.9 |
 | handles | 实例用到的源区间之外还可以取的素材。两侧转场在剪切点两侧要用它 |
 | 效果（Effect，`fx`） | 画面实例上的一组固定效果字段：滤镜与特效预设、调色、模糊、描边、投影。作用顺序固定，不是可以任意排序的栈。见视频格式规范 §3.9 |

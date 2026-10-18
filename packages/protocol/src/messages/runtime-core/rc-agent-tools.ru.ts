@@ -5,12 +5,15 @@ function exportKindLabel(kind: string): string {
   const labels: Record<string, string> = { subtitles: 'субтитры', transcript: 'расшифровка', audio: 'аудио', video: 'видеофайл', portable: 'переносимый пакет', project: 'файл проекта' };
   return labels[kind] ?? kind;
 }
-function linkImportAfter(p: { target: string; name: string | null; transcribe: boolean; language: string | null; provider: string | null; model: string | null; captions: boolean }): string {
+function linkImportAfter(p: { target: string; name: string | null; transcribe: boolean; language: string | null; provider: string | null; model: string | null; captions: boolean; dir?: string | null }): string {
+  // 文件放进指定目录：导入视频的照常说完，再说文件放在哪。
+  if (p.dir && (p.target === 'create' || p.target === 'video')) return `${linkImportAfter({ ...p, dir: null })}, скачанный файл сохранить в ${p.dir}`;
   const recognition = `${p.language ? `, язык ${p.language}` : ''}${p.provider ? ` (${p.provider}${p.model ? ` ${p.model}` : ''})` : ''}`;
   if (p.target === 'create') return `, создать видео${p.name ? ` «${p.name}»` : ' (имя по заголовку страницы)'} и добавить на таймлайн${p.transcribe ? `, затем расшифровать${recognition}${p.captions ? ' и создать слой субтитров' : ''}` : ''}`;
   if (p.target === 'video') return `, импортировать в видео${p.transcribe ? ' и расшифровать' : ''}`;
   if (p.target === 'project') return `, сохранить в downloads/ проекта${p.transcribe ? ' и расшифровать в TXT и SRT' : ''}`;
   if (p.target === 'download') return `, сохранить в папку «Загрузки»${p.transcribe ? ' и расшифровать в TXT и SRT' : ''}`;
+  if (p.target === 'folder') return `, сохранить в ${p.dir}${p.transcribe ? ' и расшифровать в TXT и SRT' : ''}`;
   return '';
 }
 
@@ -39,6 +42,9 @@ export const ru: RcAgentToolsMessages = {
   captionsLabel: "Добавить слой субтитров",
   undoSummary: (p) => `Отменить правку ${p.transactionId}`,
   undoLatestSummary: "Отменить последнюю правку",
+  saveVersionSummary: (p) => `Сохранить текущее состояние как версию «${p.name}»`,
+  restoreVersionSummary: (p) => `Вернуться к версии ${p.version}`,
+  restoreBeforeVersionSummary: (p) => `Вернуться к состоянию до версии ${p.version}`,
   deleteVideoSummary: (p) => `Удалить видео «${p.name}" (${p.path}): переместить в корзину, откуда можно восстановить в Space в течение ${pluralForm('ru', p.days, { one: `${p.days} день`, few: `${p.days} дня`, many: `${p.days} дней`, other: `${p.days} дня` })}. Исходные файлы связанных материалов остаются на месте`,
   importPackageSummary: (p) => `Открыть переносимый пакет ${p.file}`,
   renameVideoLabel: "Переименовать видео",
@@ -49,6 +55,7 @@ export const ru: RcAgentToolsMessages = {
   translationDocumentName: (p) => `${p.language} — перевод`,
   importAssetSummary: (p) => `Импортировать материал ${p.name}${p.place ? " и добавить на таймлайн" : ""}`,
   importAssetLabel: (p) => `Импортировать ${p.name}${p.place ? " и добавить на таймлайн" : ""}`,
+  openMediaSaveSummary: (p) => `Скачать «${p.title}» с ${p.source} (${p.license}) в ${p.target} (с номером при совпадении имени, без перезаписи)`,
   openMediaDownloadSummary: (p) => `Скачать «${p.title}» с ${p.source} (${p.license}) и импортировать${p.place ? " на таймлайн" : ""}`,
   sfxSummary: (p) => `Создать звуковой эффект «${p.recipe}» и импортировать его${p.place ? ' на таймлайн' : ''}`,
  

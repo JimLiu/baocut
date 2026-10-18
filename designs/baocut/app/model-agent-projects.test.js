@@ -270,15 +270,26 @@ test('视频卡的锚点：工具消息指向的任务是这部视频就出现�
   assert.deepEqual(P.sessionArtifacts(sess,items,done).map(it => [it.id,it.messageId]), [['p2','w1'],['p1','r']]);
 });
 
-test('创建项目校验名称与父目录，在选择的位置生成不冲突的项目路径', () => {
-  assert.equal(P.dirCreationError('新片', '~/Movies/'), '');
-  for (const name of ['', '..', 'a/b', 'a\\b']) assert.ok(P.dirCreationError(name, '~/Movies/'));
-  for (const parent of ['', 'Movies/', '~/../', '/tmp/./', '/tmp/\n']) assert.ok(P.dirCreationError('新片', parent));
+test('创建项目：没选文件夹时名称必填，选了已有文件夹名称可留空；新目录生成不冲突的路径', () => {
+  assert.equal(P.dirCreationError('新片', null), '');
+  for (const name of ['', '..', 'a/b', 'a\\b']) assert.ok(P.dirCreationError(name, null));
+  assert.equal(P.dirCreationError('', P.DEMO_OPEN_DIR), '');
+  assert.equal(P.dirCreationError('旅行', P.DEMO_OPEN_DIR), '');
+  assert.ok(P.dirCreationError('a/b', P.DEMO_OPEN_DIR));
   const d = P.newDir([], 'new', ' 新片 ', '~/Movies');
   assert.equal(d.path, '~/Movies/新片/');
   assert.equal(P.newDir([d], 'next', '新片', '~/Movies').path, '~/Movies/新片-2/');
   assert.equal(P.newDir([{name: '另一个名字', path: '~/Movies/新片/'}], 'next', '新片', '~/Movies').path, '~/Movies/新片-2/');
   assert.equal(P.newDir([], 'default', '新片').path, '~/BaoCut/新片/');
+});
+
+test('项目选择器的搜索：按名字或路径，不分大小写；空查询原样返回', () => {
+  const dirs = [{id: 'a', name: 'BaoCut 演示', path: '~/BaoCut/demo/'}, {id: 'b', name: '旅行素材', path: '~/Movies/旅行素材/'}];
+  assert.equal(P.matchDirs(dirs, ' '), dirs);
+  assert.deepEqual(P.matchDirs(dirs, 'baocut').map((d) => d.id), ['a']);
+  assert.deepEqual(P.matchDirs(dirs, 'MOVIES').map((d) => d.id), ['b']);
+  assert.deepEqual(P.matchDirs(dirs, '旅行').map((d) => d.id), ['b']);
+  assert.deepEqual(P.matchDirs(dirs, '没有'), []);
 });
 
 test('视频卡一条会话一张：后面的回合再引用，卡挪到最新一条引用，前面的回合不再有它；卡上是全部的活', () => {

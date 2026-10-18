@@ -208,6 +208,8 @@ export async function scanDirectory(root: string, limits: ScanLimits = DEFAULT_S
 /**
  * 视频目录的大小与最近活动：`video.db` 加上受管理的素材；WAL 里还没合并的写入也算活动。
  * 不是视频目录返回 null。不打开数据库，不碰写入锁。`currentOnly`：只认 `video.db`（索引文件夹）。
+ * 没有库、只有工作区快照（`.bcut-snapshot/video.json`）的目录也是视频（待重建，架构设计 §5.12）：打开项目或打开它时就地重建。
+ * 索引文件夹只读，不重建，所以不认。
  */
 async function inspectVideoDir(dir: string, currentOnly = false): Promise<{ size: number; mtimeMs: number; birthtimeMs: number } | null> {
   // 改名之前的目录只有 `movie.db`：照样列出，引擎打开它时就地升级成 `video.db`。
@@ -215,7 +217,10 @@ async function inspectVideoDir(dir: string, currentOnly = false): Promise<{ size
   if (!current?.isFile() && currentOnly) return null;
   const dbFile = current ? 'video.db' : 'movie.db';
   const db = current ?? (await fsp.stat(path.join(dir, dbFile)).catch(() => null));
-  if (!db?.isFile()) return null;
+  if (!db?.isFile()) {
+    const snapshot = await fsp.stat(path.join(dir, '.bcut-snapshot', 'video.json')).catch(() => null);
+    return snapshot?.isFile() ? { size: snapshot.size, mtimeMs: snapshot.mtimeMs, birthtimeMs: snapshot.birthtimeMs } : null;
+  }
   let size = db.size;
   let mtimeMs = db.mtimeMs;
   const wal = await fsp.stat(path.join(dir, `${dbFile}-wal`)).catch(() => null);
@@ -288,8 +293,8 @@ function folderReadOnly(entryId: Id): RpcError {
 /** 回收站目录：在来源目录里（与视频目录同一个卷，移动是改名），隐藏目录不进 Space 的扫描。 */
 export const TRASH_DIR = '.bcut-trash';
 
-/** 视频目录里归视频管理的文件：物理删除只删这些（视频格式规范 §1）。 */
-const VIDEO_OWNED = /^(video|movie)\.(db|db-wal|db-shm|db-journal|lock)$|^blobs$|^\.DS_Store$/;
+/** 视频目录里归视频管理的文件：物理删除只删这些（视频格式规范 §1）；工作区快照与版本文件（§9）也归视频。 */
+const VIDEO_OWNED = /^(video|movie)\.(db|db-wal|db-shm|db-journal|lock)$|^blobs$|^\.bcut-snapshot$|^\.DS_Store$/;
 
 /** 一个删除了的视频：回收站里的条目 id、记录与来源。 */
 export interface TrashedVideoInfo {

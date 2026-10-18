@@ -139,11 +139,16 @@ describe.skipIf(!engine || !ffmpeg)('对象的读写工具（终端目录，真�
     expect(TOOL_RISK.documents_put).toBe(TOOL_RISK.edits_apply);
     expect(TOOL_RISK.assets_import).toBe(TOOL_RISK.edits_apply);
     expect(TOOL_RISK.videos_import_package).toBe(TOOL_RISK.videos_create);
-    for (const name of ['videos_frames', 'videos_history', 'edits_ops']) expect(TOOL_RISK[name]).toBe('read');
+    for (const name of ['videos_frames', 'videos_history', 'videos_versions', 'videos_version_diff', 'edits_ops']) expect(TOOL_RISK[name]).toBe('read');
+    expect(TOOL_RISK.videos_save_version).toBe(TOOL_RISK.edits_undo);
+    expect(TOOL_RISK.videos_restore_version).toBe(TOOL_RISK.edits_undo);
     const { tools } = await client.request('catalog.list', {});
     const names = tools.map((t) => t.name);
     expect(names).toEqual(
-      expect.arrayContaining(['videos_frames', 'videos_history', 'videos_import_package', 'documents_put', 'assets_import', 'edits_ops']),
+      expect.arrayContaining([
+        ...['videos_frames', 'videos_history', 'videos_import_package', 'documents_put', 'assets_import', 'edits_ops'],
+        ...['videos_versions', 'videos_version_diff', 'videos_save_version', 'videos_restore_version'],
+      ]),
     );
   });
 
@@ -439,6 +444,50 @@ describe.skipIf(!engine || !ffmpeg)('对象的读写工具（终端目录，真�
     expect(history.entries[0]).toMatchObject({ by: 'user', undone: false, undoAvailable: true, committedAt: expect.any(String) });
     expect(history.checkpoints).toEqual([expect.objectContaining({ name: '初剪', note: '放好素材', revision: expect.any(String) })]);
     expect((await ok('videos_history', { video: videoId, limit: 1 })).entries).toHaveLength(1);
+  });
+
+  it('版本记录：保存前先把修改记成一版；读 diff；回到保存的版本，已经是那个样子时不提交；没有的版本给出下一步', async () => {
+    const { videoId } = await placedVideo('版本');
+    // 新建时写下的快照是基线、不成版；导入素材这笔在保存版本之前先记成版本 1。
+    const saved = await ok('videos_save_version', { video: videoId, name: '初剪', note: '放好素材' });
+    expect(saved).toMatchObject({ status: 'committed', label: '保存版本', version: 2, checkpointId: expect.any(String) });
+    const listed = await ok('videos_versions', { video: videoId });
+    expect(listed).toMatchObject({ videoId, snapshot: { state: 'synced' } });
+    expect(listed.unreadable).toBeUndefined();
+    expect(listed.versions.map((v: Loose) => [v.version, v.kind])).toEqual([
+      [2, 'save'],
+      [1, 'segment'],
+    ]);
+    expect(listed.versions[0]).toMatchObject({ name: '初剪', note: '放好素材' });
+    expect(listed.versions[1].actions).toEqual([{ by: 'user_local', label: '导入 clip.mp4 并放到时间线上', count: 1 }]);
+    expect(listed.versions[1].files).toEqual(expect.arrayContaining([{ path: 'video.json', change: 'modified' }]));
+    expect((await ok('videos_versions', { video: videoId, limit: 1 })).versions).toHaveLength(1);
+
+    const diff = await ok('videos_version_diff', { video: videoId, version: 1 });
+    expect(diff).toMatchObject({ videoId, version: 1, kind: 'segment', diffLength: diff.diff.length });
+    expect(diff.diff).toContain('+++ b/video.json');
+    expect(diff.diff).toContain('clip.mp4');
+    expect(diff.truncated).toBeUndefined();
+    expect((await ok('videos_version_diff', { video: videoId, version: 1, offset: diff.diffLength })).diff).toBe('');
+
+    const inspected = await ok('videos_inspect', { video: videoId });
+    await ok('edits_apply', {
+      video: videoId,
+      expectedRevision: inspected.revision,
+      label: '改名',
+      operations: [{ type: 'renameVideo', name: '改过名' }],
+    });
+    const restored = await ok('videos_restore_version', { video: videoId, version: 2 });
+    expect(restored).toMatchObject({ status: 'committed', label: '回到版本 2', version: 4, transactionId: expect.any(String) });
+    expect(video(videoId).name).toBe('版本');
+    expect(await ok('videos_restore_version', { video: videoId, version: 2 })).toMatchObject({ status: 'unchanged' });
+    // 回到版本是一笔修改：撤销它，名字回到改过的。
+    await ok('edits_undo', { video: videoId, transactionId: restored.transactionId });
+    expect(video(videoId).name).toBe('改过名');
+
+    const missing = await call('videos_version_diff', { video: videoId, version: 99 });
+    expect(missing.ok).toBe(false);
+    if (!missing.ok) expect(missing.error).toMatchObject({ code: 'VERSION_NOT_FOUND', next: expect.stringContaining('versions') });
   });
 
   it('edits_ops：按操作族列出全部操作的说明、JSON Schema 与示例；op 只看一个', async () => {

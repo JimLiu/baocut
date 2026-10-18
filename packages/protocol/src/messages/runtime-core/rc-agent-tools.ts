@@ -40,7 +40,9 @@ function exportKindLabel(kind: string): string {
 }
 
 /** 从链接导入的摘要结尾：下载之后做什么。 */
-function linkImportAfter(p: { target: string; name: string | null; transcribe: boolean; language: string | null; provider: string | null; model: string | null; captions: boolean }): string {
+function linkImportAfter(p: { target: string; name: string | null; transcribe: boolean; language: string | null; provider: string | null; model: string | null; captions: boolean; dir?: string | null }): string {
+  // 文件放进指定目录：导入视频的照常说完，再说文件放在哪。
+  if (p.dir && (p.target === 'create' || p.target === 'video')) return `${linkImportAfter({ ...p, dir: null })}, keeping the downloaded file in ${p.dir}`;
   const recognition = `${p.language ? `, language ${p.language}` : ''}${p.provider ? ` (${p.provider}${p.model ? ` ${p.model}` : ''})` : ''}`;
   if (p.target === 'create') {
     return `, create video${p.name ? ` "${p.name}"` : ' (named after the page title)'} and add it to the timeline${p.transcribe ? `, then transcribe it${recognition}${p.captions ? ' and create a subtitle layer' : ''}` : ''}`;
@@ -48,6 +50,7 @@ function linkImportAfter(p: { target: string; name: string | null; transcribe: b
   if (p.target === 'video') return `, import it into the video${p.transcribe ? ' and transcribe it' : ''}`;
   if (p.target === 'project') return `, save to the project's downloads/${p.transcribe ? ' and transcribe to TXT and SRT' : ''}`;
   if (p.target === 'download') return `, save to the Downloads folder${p.transcribe ? ' and transcribe to TXT and SRT' : ''}`;
+  if (p.target === 'folder') return `, save to ${p.dir}${p.transcribe ? ' and transcribe to TXT and SRT' : ''}`;
   return '';
 }
 
@@ -86,6 +89,9 @@ const en = {
   captionsLabel: 'Add subtitle layer',
   undoSummary: (p: { transactionId: string }) => `Undo edit ${p.transactionId}`,
   undoLatestSummary: 'Undo the latest edit',
+  saveVersionSummary: (p: { name: string }) => `Save the current state as version "${p.name}"`,
+  restoreVersionSummary: (p: { version: number }) => `Restore version ${p.version}`,
+  restoreBeforeVersionSummary: (p: { version: number }) => `Restore to before version ${p.version}`,
   deleteVideoSummary: (p: { name: string; path: string; days: number }) =>
     `Delete video "${p.name}" (${p.path}): move it to the Trash, where it can be restored in Space for ${plural(p.days, 'day', 'days')}. Original files of linked assets stay where they are`,
   importPackageSummary: (p: { file: string }) => `Open portable package ${p.file}`,
@@ -101,6 +107,8 @@ const en = {
   importAssetSummary: (p: { name: string; place: boolean }) => `Import asset ${p.name}${p.place ? ' and add it to the timeline' : ''}`,
   /** 导入素材这笔修改在视频历史与撤销里的说明。 */
   importAssetLabel: (p: { name: string; place: boolean }) => `Import ${p.name}${p.place ? ' and add it to the timeline' : ''}`,
+  /** 下载网上素材只存文件（`assets_download` 给 `outDir`）：确认摘要，`target` 是计划写入的路径。 */
+  openMediaSaveSummary: (p: { title: string; source: string; license: string; target: string }) => `Download "${p.title}" from ${p.source} (${p.license}) to ${p.target} (numbered if the name is taken, never overwritten)`,
   /** 下载网上素材（`assets_download`）：确认摘要；这笔修改的说明用 importAssetLabel。 */
   openMediaDownloadSummary: (p: { title: string; source: string; license: string; place: boolean }) => `Download "${p.title}" from ${p.source} (${p.license}) and import it${p.place ? ' onto the timeline' : ''}`,
   /** 程序化音效（`assets_sfx`）：确认摘要。`recipe` 是配方名（不翻译）。 */
@@ -165,7 +173,7 @@ const en = {
 
   installToolSummary: (p: { tool: string; version: string; size: string; estimated: boolean; license: string; url: string; host: string }) =>
     `Install ${p.tool} ${p.version} (${p.estimated ? `about ${p.size}` : p.size}, ${p.license}) from ${p.url} to download videos from links; downloading from ${p.host} needs it`,
-  linkImportSummary: (p: { tool: string; version: string; host: string; url: string; target: string; name: string | null; transcribe: boolean; language: string | null; provider: string | null; model: string | null; captions: boolean; cookies: string | null }) =>
+  linkImportSummary: (p: { tool: string; version: string; host: string; url: string; target: string; name: string | null; transcribe: boolean; language: string | null; provider: string | null; model: string | null; captions: boolean; cookies: string | null; dir: string | null }) =>
     `Download from ${p.host} with ${p.tool}${p.version ? ` ${p.version}` : ''}: ${p.url}${linkImportAfter(p)}${linkImportCookies(p)}`,
   linkImportConsentSummary: (p: {
     tool: string;
@@ -181,6 +189,7 @@ const en = {
     model: string | null;
     captions: boolean;
     cookies: string | null;
+    dir: string | null;
   }) =>
     `Allow BaoCut to use ${p.tool}${p.version ? ` ${p.version}` : ''} on this computer${p.path ? ` (${p.path})` : ''} to download videos from websites, and download from ${p.host}: ${p.url}${linkImportAfter(p)}${linkImportCookies(p)}`,
 

@@ -32,7 +32,7 @@
 - **素材是画面（空镜、产品、场景、录屏）且不少时**：分镜要用到它们时按 baocut 主 skill 的做法给这些素材建画面索引（`baocut space index-build`，`channel` `visual`，装了能读图的模型包时），之后每一镜按卡上的画面描述用 `baocut videos match-frames` 或 `baocut space search-v2`（`channels` 给 `["visual"]`）挑候选，取帧看过再用；没有画面索引时用 `baocut videos shots` 按镜头取帧挑。
 - **主动找网上素材**：片子讲的是真实的地点、事件、人物、产品或年代，而用户素材不够时，不等用户提供，规划分镜时就用 `baocut assets search` 找真实画面（检索词用英文，按卡上的画面描述写），`preview: true` 看缩略图接触表挑。Commons 与 Internet Archive 的结果许可清楚，用 `baocut assets download` 下载进视频；YouTube 的结果（`downloadWith` 是 `download`）用 `baocut download` 给 `url`（候选的 `pageUrl`）与 `video` 下载，它和 YouTube 检索都按设置 › 视频下载的网站登录带浏览器 Cookie。检索或下载报 `LINK_LOGIN_REQUIRED` / `LINK_COOKIES_UNAVAILABLE` 时停下来提醒用户：在浏览器里登录 YouTube，再到设置 › 视频下载勾选那个浏览器（用返回的设置链接），弄好后重试；不要自己找 Cookie 或换别的下载办法。YouTube 的视频许可多半没写（`license.class` 为 `unknown`，版权归上传者）：下载前把要用的几条（标题、频道、链接）告诉用户，由用户决定能不能用。每条用上的素材记下 `attribution`，交付时列进署名（第 7 节）。
 
-- **能力盘点**：规划之前用 `baocut models capabilities` 看语音合成、图片生成、音乐生成（generateMusic）与转写能不能用。BaoCut 目前**没有**视频生成；音效由 `baocut assets sfx` 的内置配方在本机合成，总是可用；配乐生成只在这台机器装了音乐模型包（且引擎可用）时才有，看 generateMusic 下有没有可用的模型、时长上限（maxDurationSec）与编排选项。所以每个镜头的画面有四种来源：用户素材、网上素材、生成图片、代码画面（第 5 节）；盘点结果决定第 3 节每张卡的画面来源与第 5 节配乐的做法。哪些要求因此降级（例如没有语音合成时旁白改由字幕承担），在复述简报时就告诉用户。
+- **能力盘点**：规划之前用 `baocut models capabilities` 看语音合成、图片生成、音乐生成（generateMusic）与转写能不能用。BaoCut 目前**没有**视频生成；音效由 `baocut assets sfx` 的内置配方在本机合成，总是可用；配乐生成是 BaoCut 的本机能力（音乐模型包 YuE2），看 generateMusic 下有没有可用的模型、时长上限（maxDurationSec）与编排选项；本机服务报 not-installed 只是模型包还没下载，不是这台机器做不到：复述简报时把大小与许可（不能商用）告诉用户、问要不要装，同意后用 `baocut models install` 装，装的同时做别的，不要说本机没有音乐模型。所以每个镜头的画面有四种来源：用户素材、网上素材、生成图片、代码画面（第 5 节）；盘点结果决定第 3 节每张卡的画面来源与第 5 节配乐的做法。哪些要求因此降级（例如没有语音合成时旁白改由字幕承担），在复述简报时就告诉用户。
 
 ## 2. 全局定义（只写文字，不出图）
 
@@ -122,7 +122,7 @@
 - **对白与演唱**：画面里的人开口说话、唱歌做不到（需要口型同步的视频生成）：改成画外的旁白或对白，或把台词做成字幕与画面文字，并告诉用户。画外的多角色对白可以用 `baocut speak` 按角色轮次分别合成，每个角色固定一个音色。
 - **旁白**：开始配旁白前读 [`references/craft/narration.md`](narration.md)，照它做：每段旁白（覆盖一镜或几镜，段落大小）提交一次 `baocut speak`，不逐句提交；全片同一音色、同一套语气说明、固定 seed。量每段时长对照预算，超了按那份做法改稿重配，不变速；再用 `baocut transcribe` 拿字时间，供字幕与切点用。用户自己录旁白时按那份做法里「用户自己录」一条做，时长以录音为准。
 - **音效**：用 `baocut assets sfx` 按卡上的音效合成（配方怎么选、时刻怎么对、音量多少：读 [baocut-catalog-music](../catalog/music.md) 的「音效」一节），单独一条音效轨；代码画面里的事件时刻从代码包的 `cues.json` 读，与画面同一份时间。卡上没写音效的镜头不加。发布片、产品演示与屏幕录制类的片子，配声音前读 [声音设计：发布片、产品演示与屏幕录制](video-production/references/sound-design.md)（音乐打底、重音放哪、UI 拟音、响度，以及配完怎么核对声画对位）。
-- **配乐**：单独配乐时，读 [baocut-catalog-music](../catalog/music.md)（生成、风格描述、铺满与分段、放上配乐轨与闪避都在那一页），按顺序取第一个做得到的。**用户提供了有授权的配乐**时用用户的。**有音乐生成时**（盘点里 generateMusic 有可用模型）用 `baocut music` 生成纯音乐（mode 用 instrumental）：style 把第 2 节的全局属性（风格、速度、调性、核心乐器、氛围、音质）译成一行英文短语，再加一个短语写配乐情绪弧表的整体走向（例如 `starts sparse, builds in the middle, gentle resolution`），不写时间戳；targetDurationSec 等于成片时长，等旁白量好、各镜时长定了再提交。成片比模型上限长时默认循环铺满；弧表里情绪明显分段时，也可以按弧表的行分段生成，接缝放在镜间切换上，各段锁住曲风、速度与音质，做法都按那一页。它很慢（几分钟到十几分钟），提交一次用 `baocut jobs wait` 等，不重复提交；模型只许非商业用途时在交付里写明。**没有音乐生成时**，用代码合成一段简单配乐：按全局属性定速度、调性与乐器，按配乐情绪弧表一行一段地编排，总长等于成片时长，导出成音频文件导入。都做不到就跳过，在交付里说明。
+- **配乐**：单独配乐时，读 [baocut-catalog-music](../catalog/music.md)（生成、风格描述、铺满与分段、放上配乐轨与闪避都在那一页），按顺序取第一个做得到的。**用户提供了有授权的配乐**时用用户的。**有音乐生成时**（盘点里 generateMusic 有可用模型）用 `baocut music` 生成纯音乐（mode 用 instrumental）：style 把第 2 节的全局属性（风格、速度、调性、核心乐器、氛围、音质）译成一行英文短语，再加一个短语写配乐情绪弧表的整体走向（例如 `starts sparse, builds in the middle, gentle resolution`），不写时间戳；targetDurationSec 等于成片时长，等旁白量好、各镜时长定了再提交。成片比模型上限长时默认循环铺满；弧表里情绪明显分段时，也可以按弧表的行分段生成，接缝放在镜间切换上，各段锁住曲风、速度与音质，做法都按那一页。它很慢（几分钟到十几分钟），提交一次用 `baocut jobs wait` 等，不重复提交；模型只许非商业用途时在交付里写明。**没有音乐生成时**（用户不装模型包，或这台机器跑不了引擎），用代码合成一段简单配乐：按全局属性定速度、调性与乐器，按配乐情绪弧表一行一段地编排，总长等于成片时长，导出成音频文件导入。都做不到就跳过，在交付里说明。
 - **将来有视频生成时**，视频提示词要包括：风格（简写）、节奏、卡上的过渡描述（原样）、主体的外观、场景，以及声音（画面内的对白或演唱带说话人、语言与语气，音效带声源，内嵌配乐带风格、速度与乐器）；配乐是单独或无时，结尾写明不要背景音乐。
 
 **上时间线**：`baocut videos create` 按简报的画幅建视频（16:9 用 1920×1080，9:16 用 1080×1920，1:1 用 1080×1080，帧率与代码渲染一致）；各镜按卡的顺序与目标时长放上画面轨，旁白、对白、音效、配乐各占一条音频轨。相关的几步放进同一笔 `baocut edits apply`。
@@ -158,6 +158,7 @@
 
 在 `references/craft/video-production/` 下，用到时再打开；代码与样例原样复制，按正文说的用法取用。
 
+- [`examples/bundle-preview.html`](video-production/examples/bundle-preview.html)
 - [`examples/post-fx.js`](video-production/examples/post-fx.js)
 - [代码场景：整镜整段用 Canvas 或 SVG 画](video-production/references/code-scenes.md)
 - [分镜卡、过渡描述与运镜检查](video-production/references/shot-plan.md)

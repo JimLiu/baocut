@@ -165,3 +165,80 @@ describe('assets_search', () => {
     expect(await fs.readFile(argsLog, 'utf8')).toContain('sp=EgIwAQ%3D%3D');
   });
 });
+
+describe('assets_download to a folder (outDir)', () => {
+  const PALACE = {
+    query: {
+      pages: [
+        {
+          title: 'File:Gyeongbokgung.jpg',
+          imageinfo: [
+            {
+              url: 'https://upload.wikimedia.org/gyeongbokgung.jpg',
+              descriptionurl: 'https://commons.wikimedia.org/wiki/File:Gyeongbokgung.jpg',
+              mime: 'image/jpeg',
+              mediatype: 'BITMAP',
+              width: 800,
+              height: 600,
+              size: 4,
+              extmetadata: { LicenseShortName: { value: 'CC0' }, Artist: { value: 'Jane Doe' } },
+            },
+          ],
+        },
+      ],
+    },
+  };
+  const BYTES = new Uint8Array([0xff, 0xd8, 0xff, 0xd9]);
+  const fileHttp = new OpenMediaHttp({
+    fetch: (async (input: string | URL | Request) =>
+      String(input).startsWith('https://upload.wikimedia.org/')
+        ? new Response(BYTES, { headers: { 'content-length': String(BYTES.byteLength) } })
+        : Response.json(PALACE)) as typeof fetch,
+    backoffMs: () => 0,
+  });
+  const confirmed: Array<{ targets?: string[]; summary: string }> = [];
+  const folderScope = {
+    authorize: (principal: ToolPrincipal) => ({ principal }),
+    // 与真实的范围相同：对外服务没有本机路径的基准。
+    fileBase: (access: { principal: ToolPrincipal }) => {
+      if (access.principal.kind === 'service') throw Object.assign(new Error('no local paths'), { code: 'INVALID_ARGUMENTS' });
+      return dir;
+    },
+    confirm: async (_access: unknown, request: { targets?: string[]; summary: string }) => {
+      confirmed.push(request);
+      return { mode: 'auto', risk: 'command', decidedBy: 'auto' };
+    },
+  } as unknown as ToolScope;
+  const folderTools = () =>
+    new OpenMediaTools({ videos: {} as never, scope: folderScope, offlineStrict: () => false, ffmpeg: () => 'ffmpeg', http: fileHttp });
+  const id = { source: 'commons', id: 'File:Gyeongbokgung.jpg', kind: 'image' };
+
+  it('saves the file into the folder without importing; a second copy is numbered, never overwritten', async () => {
+    type Saved = { path: string; license: { name: string }; attribution: string; file: { byteLength: number }; assetId?: unknown };
+    const first = (await folderTools().dispatch('assets_download', { ...id, outDir: 'refs' }, agent)) as Saved;
+    const second = (await folderTools().dispatch('assets_download', { ...id, outDir: path.join(dir, 'refs') }, agent)) as Saved;
+    const real = await fs.realpath(path.join(dir, 'refs'));
+    expect(first.path).toBe(path.join(real, 'Gyeongbokgung.jpg'));
+    expect(second.path).toBe(path.join(real, 'Gyeongbokgung-2.jpg'));
+    expect(new Uint8Array(await fs.readFile(first.path))).toEqual(BYTES);
+    expect(first).toMatchObject({ license: { name: 'CC0' }, file: { byteLength: 4 } });
+    expect(first.attribution).toContain('Jane Doe');
+    expect(first).not.toHaveProperty('assetId');
+    expect(confirmed[0]!.targets).toEqual([path.join(dir, 'refs', 'Gyeongbokgung.jpg')]);
+    expect(confirmed[0]!.summary).toContain(path.join(dir, 'refs', 'Gyeongbokgung.jpg'));
+  });
+
+  it('needs exactly one of video and outDir; place goes with video only; outside services cannot pass outDir', async () => {
+    const service = { kind: 'service' } as unknown as ToolPrincipal;
+    const before = confirmed.length;
+    for (const [args, principal] of [
+      [id, agent],
+      [{ ...id, video: 'demo', outDir: 'refs' }, agent],
+      [{ ...id, outDir: 'refs', place: {} }, agent],
+      [{ ...id, outDir: 'refs' }, service],
+    ] as const) {
+      await expect(folderTools().dispatch('assets_download', args, principal), JSON.stringify(args)).rejects.toMatchObject({ code: 'INVALID_ARGUMENTS' });
+    }
+    expect(confirmed.length).toBe(before);
+  });
+});

@@ -174,9 +174,10 @@ export interface ShellStore {
   openVideoBeside(video: FileTarget, conversationId: Id): void;
   /**
    * 终端或对外服务（MCP）的外部 Agent 新建了视频（Space 主题的 `video.created`，产品设计 §3.3）：在 Home 当前位置的功能区打开它，
-   * 打开的方式同 `openVideoBeside`。不在 Home、或当前标签就是视频（编辑器里开着别的视频）时不打开，之后也不补。
+   * 打开的方式同 `openVideoBeside`，但会话空闲（`busy` 为假：没有任务在跑）且输入框为空时，单条标签条也切到视频。
+   * 不在 Home、或功能区正显示着视频（编辑器里开着别的视频）时不打开，之后也不补。
    */
-  openExternalVideo(video: FileTarget): void;
+  openExternalVideo(video: FileTarget, busy?: boolean): void;
   selectPane(key: string): void;
   replaceFilePane(key: string, target: MediaTarget): void;
   /**
@@ -325,11 +326,13 @@ export const useShell = create<ShellStore>()(
         if (route.tab !== 'home' || route.conversationId !== conversationId) return;
         showVideoBeside(get, set, video);
       },
-      openExternalVideo: (video) => {
-        const { route, drafts } = get();
-        if (route.tab !== 'home' || route.pane?.kind === 'video') return;
-        // 起始页（还没有会话）的输入框是空的：单条标签条里也切到视频，没有要护着的会话。
-        const idle = !route.conversationId && !(drafts[workspaceKey(null, route.projectId)] ?? '').trim();
+      openExternalVideo: (video, busy = false) => {
+        const state = get();
+        const { route, drafts } = state;
+        // 只护着屏幕上显示着的视频：功能区收起、或单条标签条选着会话页签时，路由上的视频只是藏在后面。
+        if (route.tab !== 'home' || (route.pane?.kind === 'video' && homeMode(state)?.visible)) return;
+        // 会话空闲、输入框是空的（起始页同样）：单条标签条里也切到视频，没有正在进行的对话要护着。
+        const idle = !busy && !(drafts[workspaceKey(route.conversationId, route.projectId)] ?? '').trim();
         showVideoBeside(get, set, video, idle);
       },
       selectPane: (key) => {
@@ -622,7 +625,7 @@ function exitFull(get: Get, set: Set): void {
 
 /**
  * 不由用户点击打开的视频（`openVideoBeside`、`openExternalVideo`，产品设计 §3.3）：分屏里在右侧打开、成为当前标签（功能区收起时
- * 也展开；不进历史）；单条标签条里只加一个标签，不切走当前那一格，`reveal` 时（空的起始页）也切过去。调用方已确认在 Home。
+ * 也展开；不进历史）；单条标签条里只加一个标签，不切走当前那一格，`reveal` 时（会话空闲、输入框为空）也切过去。调用方已确认在 Home。
  */
 function showVideoBeside(get: Get, set: Set, video: FileTarget, reveal = false): void {
   const state = get();

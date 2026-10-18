@@ -12,6 +12,7 @@ import {
   type VideoCreated,
   type VideoOpenResult,
   type VideoSnapshot,
+  type VideoVersionHeader,
   type Rate,
   type AssetRevision,
   type DocumentRecord,
@@ -47,7 +48,7 @@ import type { VideoService } from '../videos/video-service.ts';
 import { deriveVideo, prepareDerive, type DeriveDeps } from '../videos/video-derive.ts';
 import { clockLabel } from './derive-plan.ts';
 import { EDIT_OPERATIONS, OPERATION_FAMILIES, OPERATION_TYPES, describeOperation } from './edit-ops.ts';
-import { ToolError, type ToolInfo, type ToolSet } from './tool-catalog.ts';
+import { ToolError, errorBody, type ToolInfo, type ToolSet } from './tool-catalog.ts';
 import { captionStylePatch, expandCaptionStyles, freshCaptionStyle, patchStudioStyle, unsupportedStyleMessage } from './caption-style.ts';
 import { importElevenLabsTranscript } from './elevenlabs-transcript.ts';
 import { approvalField, confirmSummary, type ToolAccess, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
@@ -106,6 +107,11 @@ const LAYOUT_PROFILES = ['default', 'two-line'] as const;
 
 /** 十进制秒字符串（时间线上的时刻）。 */
 const secondsText = z.string().regex(/^\d+(\.\d+)?$/);
+
+/** `videos_versions` 不给 `limit` 时列几个版本：与 `versions.keep` 的默认值相同。 */
+const DEFAULT_VERSION_LIMIT = 10;
+/** `videos_version_diff` 一次返回的 diff 至多这么多字符，更长的分段读。 */
+const MAX_VERSION_DIFF = 50_000;
 
 // i18n-ignore-start: 给模型的工具说明、错误与下一步
 /** 操作里时间与序列的写法，`edits_apply` 的说明与 `edits_ops` 的结果共用。 */
@@ -182,6 +188,28 @@ const schemas = {
   videos_history: z.strictObject({
     video: videoArg,
     limit: z.number().int().min(1).max(200).optional().describe('最多列多少笔修改（从最近的往前），默认 20'),
+  }),
+  videos_versions: z.strictObject({
+    video: videoArg,
+    limit: z.number().int().min(1).max(200).optional().describe(`可选。最多列多少个版本（从最新的往前），默认 ${DEFAULT_VERSION_LIMIT}`),
+  }),
+  videos_version_diff: z.strictObject({
+    video: videoArg,
+    version: z.number().int().positive().describe('版本号：videos_versions 列出的 version'),
+    offset: z.number().int().min(0).optional().describe('可选。从 diff 的第几个字符读起（上一次结果的 nextOffset），默认 0'),
+  }),
+  videos_save_version: z.strictObject({
+    video: videoArg,
+    name: z.string().trim().min(1).max(200).describe('版本名，给人看的，如「初剪」「给客户的第一版」'),
+    note: z.string().max(2000).optional().describe('可选。版本的说明'),
+  }),
+  videos_restore_version: z.strictObject({
+    video: videoArg,
+    version: z.number().int().positive().describe('版本号：videos_versions 列出的 version'),
+    before: z
+      .boolean()
+      .optional()
+      .describe('可选。true 时回到这个版本开始之前（相当于撤掉这一版及之后的修改）；默认回到这个版本结束时的样子'),
   }),
   videos_import_package: z.strictObject({
     file: z.string().min(1).max(4096).describe('便携包（.baocut 文件）：相对工作目录的路径或绝对路径'),
@@ -515,13 +543,76 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
     description: [
       '列出一个视频的修改历史与检查点。',
       '历史从最近的往前列：每笔的 transactionId、label、谁改的（by：user、agent 或 system）、改完的版本 revision、时间、是否已撤销（undone）、是不是撤销（undoOf）与现在能不能撤销（undoAvailable）。检查点是 createCheckpoint 留下的（名字、版本、时间与说明）。',
-      '要撤销某一笔，把它的 transactionId 交给 edits_undo。',
+      '要撤销某一笔，把它的 transactionId 交给 edits_undo。按版本归纳的修改记录与回到之前的版本用 videos_versions。',
     ].join('\n'),
     annotations: { readOnlyHint: true },
     effect: 'query',
     examples: [
       { title: '看最近的修改', args: { video: 'demo' } },
       { title: '看最近 50 笔', args: { video: 'demo', limit: 50 } },
+    ],
+    surfaces: ['agent', 'mcp', 'cli'],
+    positional: 'video',
+  },
+  videos_versions: {
+    title: '查看版本记录',
+    description: [
+      '列出一个视频的版本记录：每个版本改了什么、谁改的、在哪个会话里改的。',
+      '版本由 BaoCut 自动记下，不依赖 git：一段连续的修改合成一个版本（设置 versions.cadence 为 turn 时按会话的回合分），保存的版本（kind save）、回到版本（restore）与从快照重建（rebuild）各自单独成版。自动记下的版本只留最近的若干个（设置 versions.keep），更早的会被清理；保存的版本一直留着。',
+      '从最新的往前列：version（版本号）、kind、summary、startedAt / updatedAt、revision（这一版之前与之后的视频版本）、actions（这一版里的修改：by 是谁改的，如 user_local、agent:<名字>、system:jobs；label 是修改说明；count 是几笔）、conversations（在哪些会话里改的）、保存的版本的 name 与 note、files（改了快照里的哪些文件：video.json 是视频与时间线，documents/<documentId>.json 是一份文档的正文；change 是 added、removed 或 modified）。open 为 true 的是还在累积的最新一版，之后的修改还会并进它。',
+      'snapshot.state 是快照与视频的关系：synced 已写好，pending 有修改还没写（几秒内会写），conflict 是快照在 BaoCut 之外被改过（changedPaths 是哪些文件）、不会被覆盖，missing 还没有快照。unreadable 是读不了的版本文件。',
+      '要了解一个视频最近改了什么先看这里，不用翻 videos_history；要看某一版具体怎么改的用 videos_version_diff，要回到某一版用 videos_restore_version。不在项目里的视频没有版本记录。',
+    ].join('\n'),
+    annotations: { readOnlyHint: true },
+    effect: 'query',
+    examples: [
+      { title: '看最近的版本', args: { video: 'demo' } },
+      { title: '看最近 3 个版本', args: { video: 'demo', limit: 3 } },
+    ],
+    surfaces: ['agent', 'mcp', 'cli'],
+    positional: 'video',
+  },
+  videos_version_diff: {
+    title: '查看版本改动',
+    description: [
+      '读一个版本的具体改动：快照文件的标准 unified diff。',
+      '`-` 开头的行是这一版之前的，`+` 开头的是之后的。快照是视频的 JSON 文本：video.json 是名字、序列、轨道、片段、素材与文档目录，documents/<documentId>.json 是一份文档（转写、译文、字幕……）的正文。',
+      `结果带这个版本的头部（与 videos_versions 的一项相同）与 diff。diff 超过 ${MAX_VERSION_DIFF} 个字符时分段返回：truncated 为 true 时把 nextOffset 作为 offset 再读下一段。`,
+    ].join('\n'),
+    annotations: { readOnlyHint: true },
+    effect: 'query',
+    examples: [
+      { title: '看版本 3 改了什么', args: { video: 'demo', version: 3 } },
+      { title: '读下一段', args: { video: 'demo', version: 3, offset: 50000 } },
+    ],
+    surfaces: ['agent', 'mcp', 'cli'],
+    positional: 'video',
+  },
+  videos_save_version: {
+    title: '保存版本',
+    description: [
+      '把视频当前的样子保存成一个有名字的版本。',
+      '先把还没记下的修改记成一版，再把这一刻单独存成一版（kind save），同时在视频里留一个同名的检查点。保存的版本不受 versions.keep 的清理，一直留着，之后可以用 videos_restore_version 回到它。',
+      '只在用户要求保存、或要做大改动前留一个回得去的点时用；平时的修改会自动记成版本，不用每次都存。不在项目里的视频不能保存版本（VERSIONS_NEED_PROJECT）。',
+      '返回这笔修改的回执、version（保存的版本号）与 checkpointId。',
+    ].join('\n'),
+    effect: 'mutation',
+    examples: [{ title: '大改之前存一版', args: { video: 'demo', name: '初剪', note: '换片头之前' } }],
+    surfaces: ['agent', 'mcp', 'cli'],
+    positional: 'video',
+  },
+  videos_restore_version: {
+    title: '回到版本',
+    description: [
+      '把视频回到某个版本时的样子，作为一笔可以撤销的修改。',
+      '先把还没记下的修改记成一版，再从最新的快照逐版倒推到目标版本，整体换成那时的时间线、素材与文档；检查点与任务的保护范围保持现状。默认回到这个版本结束时；before 为 true 时回到它开始之前。回到之后自己也是一个版本（kind restore），说明是「回到版本 N」或「回到版本 N 之前」。',
+      '用户说「回到之前那版」「撤回到刚才的样子」时用它：先用 videos_versions 找到版本号，拿不准是哪一版时用 videos_version_diff 看改动或问用户。会向用户确认。',
+      '已经是那个样子时不提交（status 为 unchanged）。中间有读不了的版本文件时回不去（VERSION_CHAIN_BROKEN）；版本被清理了是 VERSION_NOT_FOUND。要撤销这次回到，用 edits_undo 交回执的 transactionId。',
+    ].join('\n'),
+    effect: 'mutation',
+    examples: [
+      { title: '回到版本 4', args: { video: 'demo', version: 4 } },
+      { title: '撤掉版本 6 及之后的修改', args: { video: 'demo', version: 6, before: true } },
     ],
     surfaces: ['agent', 'mcp', 'cli'],
     positional: 'video',
@@ -814,6 +905,14 @@ export class VideoTools implements ToolSet {
         return this.#shots(args as z.infer<(typeof schemas)['videos_shots']>, principal);
       case 'videos_history':
         return this.#history(args as z.infer<(typeof schemas)['videos_history']>, principal);
+      case 'videos_versions':
+        return this.#versions(args as z.infer<(typeof schemas)['videos_versions']>, principal).catch(rethrowVersionError);
+      case 'videos_version_diff':
+        return this.#versionDiff(args as z.infer<(typeof schemas)['videos_version_diff']>, principal).catch(rethrowVersionError);
+      case 'videos_save_version':
+        return this.#saveVersion(args as z.infer<(typeof schemas)['videos_save_version']>, principal).catch(rethrowVersionError);
+      case 'videos_restore_version':
+        return this.#restoreVersion(args as z.infer<(typeof schemas)['videos_restore_version']>, principal).catch(rethrowVersionError);
       case 'videos_import_package':
         return this.#importPackage(args as z.infer<(typeof schemas)['videos_import_package']>, principal);
       case 'documents_put':
@@ -1162,6 +1261,99 @@ export class VideoTools implements ToolSet {
       checkpoints: Object.values(video.checkpoints)
         .sort((a, b) => Number(b.videoRevision) - Number(a.videoRevision))
         .map((c) => ({ id: c.id, name: c.name, revision: c.videoRevision, createdAt: c.createdAt, ...(c.note ? { note: c.note } : {}) })),
+    };
+  }
+
+  /** 版本记录（架构设计 §5.12、视频格式规范 §9）：版本头部与快照的状态。不在项目里的视频没有版本，列表为空并说明。 */
+  async #versions(args: z.infer<(typeof schemas)['videos_versions']>, principal: ToolPrincipal) {
+    const access = this.#scope.authorize(principal, false);
+    const opened = await this.#scope.open(args.video, access);
+    const videoId = opened.ref.videoId;
+    const [list, status] = await Promise.all([
+      this.#videos.listVersions(videoId, args.limit ?? DEFAULT_VERSION_LIMIT),
+      this.#videos.versionStatus(videoId),
+    ]);
+    return {
+      videoId,
+      revision: this.#current(opened).revision,
+      snapshot: { state: status.state, ...(status.changedPaths?.length ? { changedPaths: status.changedPaths } : {}) },
+      versions: list.versions.map(versionDigest),
+      ...(list.unreadable.length ? { unreadable: list.unreadable } : {}),
+      // i18n-ignore: 给模型的工具说明、错误与下一步
+      ...(opened.ref.source.projectId ? {} : { note: '这个视频不在项目里，没有版本记录：要回退用 edits_undo 与 videos_history' }),
+    };
+  }
+
+  async #versionDiff(args: z.infer<(typeof schemas)['videos_version_diff']>, principal: ToolPrincipal) {
+    const access = this.#scope.authorize(principal, false);
+    const opened = await this.#scope.open(args.video, access);
+    const { header, diff } = await this.#videos.readVersion(opened.ref.videoId, args.version);
+    const offset = args.offset ?? 0;
+    const page = diffPage(diff, offset);
+    return {
+      videoId: opened.ref.videoId,
+      ...versionDigest(header),
+      diffLength: diff.length,
+      ...(offset ? { offset } : {}),
+      diff: page.text,
+      ...(page.nextOffset !== null ? { truncated: true, nextOffset: page.nextOffset } : {}),
+    };
+  }
+
+  /** 保存版本（§9.6）：一笔建检查点的修改，回执同样放一张变更卡。 */
+  async #saveVersion(args: z.infer<(typeof schemas)['videos_save_version']>, principal: ToolPrincipal) {
+    const access = this.#scope.authorize(principal, true);
+    const approval = await this.#scope.confirm(access, {
+      tool: 'videos_save_version',
+      video: args.video,
+      ...confirmSummary(RcAgentTools.saveVersionSummary({ name: args.name })),
+    });
+    const opened = await this.#scope.open(args.video, access);
+    const result = await this.#videos.saveVersion(
+      { videoId: opened.ref.videoId, commandId: newId('cmd'), name: args.name, ...(args.note ? { note: args.note } : {}) },
+      principal,
+    );
+    return {
+      ...this.#receipt(opened, result, access),
+      version: result.version,
+      checkpointId: result.checkpointId,
+      ...approvalField(approval),
+    };
+  }
+
+  /** 回到版本（§9.5）：与 `edits_undo` 一样不能碰任务的保护范围；已经是那个样子时没有回执。 */
+  async #restoreVersion(args: z.infer<(typeof schemas)['videos_restore_version']>, principal: ToolPrincipal) {
+    const access = this.#scope.authorize(principal, true);
+    const approval = await this.#scope.confirm(access, {
+      tool: 'videos_restore_version',
+      video: args.video,
+      ...confirmSummary(
+        args.before
+          ? RcAgentTools.restoreBeforeVersionSummary({ version: args.version })
+          : RcAgentTools.restoreVersionSummary({ version: args.version }),
+      ),
+    });
+    const opened = await this.#scope.open(args.video, access);
+    const videoId = opened.ref.videoId;
+    const result = await this.#videos.restoreVersion(
+      { videoId, commandId: newId('cmd'), version: args.version, ...(args.before ? { before: true } : {}) },
+      principal,
+      { protections: this.#scope.protections?.(access, videoId) ?? [] },
+    );
+    if (!result.receipt) {
+      return {
+        status: 'unchanged',
+        videoId,
+        revision: this.#current(opened).revision,
+        // i18n-ignore: 给模型的工具说明、错误与下一步
+        note: '视频已经是这个版本的样子，没有提交修改',
+        ...approvalField(approval),
+      };
+    }
+    return {
+      ...this.#receipt(opened, { receipt: result.receipt, replayed: result.replayed }, access),
+      version: result.version,
+      ...approvalField(approval),
     };
   }
 
@@ -1910,6 +2102,55 @@ function deriveToolError(error: unknown): unknown {
   if (!message) return error;
   const { code: _code, ...extra } = details;
   return new ToolError(code, message, extra);
+}
+
+/** 版本头部给智能体的形态：摘要与修改说明换成当前语言，快照文件只说增删改。 */
+function versionDigest(header: VideoVersionHeader & { open?: boolean }) {
+  return {
+    version: header.version,
+    kind: header.kind,
+    summary: localizeText(header.summary, header.summaryRef),
+    startedAt: header.startedAt,
+    updatedAt: header.updatedAt,
+    revision: { from: header.fromRevision, to: header.toRevision },
+    actions: header.actions.map((a) => ({ by: a.actor, label: localizeText(a.label, a.labelRef), count: a.count })),
+    ...(header.actionsOmitted ? { actionsOmitted: header.actionsOmitted } : {}),
+    ...(header.conversations.length ? { conversations: header.conversations } : {}),
+    ...(header.name ? { name: header.name } : {}),
+    ...(header.note ? { note: header.note } : {}),
+    files: header.files.map((f) => ({ path: f.path, change: f.before === null ? 'added' : f.after === null ? 'removed' : 'modified' })),
+    ...(header.open ? { open: true } : {}),
+  };
+}
+
+/** diff 从 `offset` 起的一段：至多 `MAX_VERSION_DIFF` 个字符，尽量断在行尾；读完时 `nextOffset` 为 null。 */
+function diffPage(diff: string, offset: number): { text: string; nextOffset: number | null } {
+  if (offset >= diff.length) return { text: '', nextOffset: null };
+  let end = Math.min(diff.length, offset + MAX_VERSION_DIFF);
+  if (end < diff.length) {
+    const lineEnd = diff.lastIndexOf('\n', end - 1);
+    if (lineEnd >= offset) end = lineEnd + 1;
+    else if (/[\uD800-\uDBFF]/.test(diff[end - 1]!)) end--;
+  }
+  return { text: diff.slice(offset, end), nextOffset: end < diff.length ? end : null };
+}
+
+// i18n-ignore-start: 给模型的工具说明、错误与下一步
+const VERSION_NEXT: Record<string, string> = {
+  VERSION_NOT_FOUND: '没有这个版本（可能已按保留数清理）：用 videos_versions 看现有的版本号',
+  VERSION_CHAIN_BROKEN:
+    '从最新的版本倒推到这一版的途中有版本文件读不了（videos_versions 的 unreadable），回不到这么早：选更新的版本，或告诉用户版本文件损坏了',
+  VERSIONS_NEED_PROJECT: '这个视频不在项目里，没有版本记录：要回退用 edits_undo 与 videos_history',
+};
+// i18n-ignore-end
+
+/** 版本工具的拒绝：认得的错误码补上下一步，其余原样交给目录的错误处理。 */
+function rethrowVersionError(error: unknown): never {
+  const code = error instanceof RpcError ? (error.details as { code?: unknown } | null | undefined)?.code : undefined;
+  const next = typeof code === 'string' ? VERSION_NEXT[code] : undefined;
+  if (!next) throw error;
+  const { code: _code, message, ...extra } = errorBody(error);
+  throw new ToolError(code as string, message, { ...extra, next });
 }
 
 function taskOf(access: ToolAccess): { taskId?: string } {

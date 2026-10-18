@@ -3,12 +3,15 @@ import type { RcAgentToolsMessages } from './rc-agent-tools.ts';
 import { pluralForm } from '../../i18n.ts';
 const plural = (n: number, one: string, many: string) => `${n} ${pluralForm('pt-BR', n, { one, other: many })}`;
 function exportKindLabel(kind: string): string { return ({ subtitles: 'legendas', transcript: 'transcrição', audio: 'áudio', video: 'arquivo de vídeo', portable: 'pacote portátil', project: 'arquivo de projeto' } as Record<string, string>)[kind] ?? kind; }
-function linkImportAfter(p: { target: string; name: string | null; transcribe: boolean; language: string | null; provider: string | null; model: string | null; captions: boolean }): string {
+function linkImportAfter(p: { target: string; name: string | null; transcribe: boolean; language: string | null; provider: string | null; model: string | null; captions: boolean; dir?: string | null }): string {
+ // 文件放进指定目录：导入视频的照常说完，再说文件放在哪。
+ if (p.dir && (p.target === 'create' || p.target === 'video')) return `${linkImportAfter({ ...p, dir: null })}, salvando o arquivo baixado em ${p.dir}`;
  const recognition = `${p.language ? `, idioma ${p.language}` : ''}${p.provider ? ` (${p.provider}${p.model ? ` ${p.model}` : ''})` : ''}`;
  if (p.target === 'create') return `, criar vídeo${p.name ? ` “${p.name}”` : ' (nomeado pelo título da página)'} e adicionar à linha do tempo${p.transcribe ? `, depois transcrever${recognition}${p.captions ? ' e criar camada de legendas' : ''}` : ''}`;
  if (p.target === 'video') return `, importar no vídeo${p.transcribe ? ' e transcrever' : ''}`;
  if (p.target === 'project') return `, salvar em downloads/ do projeto${p.transcribe ? ' e transcrever em TXT e SRT' : ''}`;
  if (p.target === 'download') return `, salvar na pasta Downloads${p.transcribe ? ' e transcrever em TXT e SRT' : ''}`;
+ if (p.target === 'folder') return `, salvar em ${p.dir}${p.transcribe ? ' e transcrever em TXT e SRT' : ''}`;
  return '';
 }
 
@@ -41,6 +44,9 @@ export const ptBR: RcAgentToolsMessages = {
   captionsLabel: "Adicionar camada de legendas",
   undoSummary: (p: { transactionId: string }) => `Desfazer edição ${p.transactionId}`,
   undoLatestSummary: "Desfazer a última edição",
+  saveVersionSummary: (p: { name: string }) => `Salvar o estado atual como a versão “${p.name}”`,
+  restoreVersionSummary: (p: { version: number }) => `Voltar à versão ${p.version}`,
+  restoreBeforeVersionSummary: (p: { version: number }) => `Voltar para antes da versão ${p.version}`,
   deleteVideoSummary: (p: { name: string; path: string; days: number }) =>
     `Excluir vídeo “${p.name}" (${p.path}): mover para a Lixeira, restaurável no Space por ${plural(p.days, "dia", "dias")}. Arquivos originais das mídias vinculadas permanecem no local`,
   importPackageSummary: (p: { file: string }) => `Abrir pacote portátil ${p.file}`,
@@ -56,6 +62,7 @@ export const ptBR: RcAgentToolsMessages = {
   importAssetSummary: (p: { name: string; place: boolean }) => `Importar mídia ${p.name}${p.place ? " e adicionar à linha do tempo" : ""}`,
 
   importAssetLabel: (p: { name: string; place: boolean }) => `Importar ${p.name}${p.place ? " e adicionar à linha do tempo" : ""}`,
+  openMediaSaveSummary: (p) => `Baixar “${p.title}” de ${p.source} (${p.license}) em ${p.target} (nomes repetidos são numerados, nunca sobrescritos)`,
   openMediaDownloadSummary: (p: { title: string; source: string; license: string; place: boolean }) => `Baixar “${p.title}” de ${p.source} (${p.license}) e importar${p.place ? " na linha do tempo" : ""}`,
   sfxSummary: (p: { recipe: string; place: boolean }) => `Gerar o efeito sonoro “${p.recipe}” e importá-lo${p.place ? ' na linha do tempo' : ''}`,
   replaceCompositionSummary: (p: { name: string; clip: string }) => `Importar ${p.name} e substituir o clipe ${p.clip} na linha do tempo`,

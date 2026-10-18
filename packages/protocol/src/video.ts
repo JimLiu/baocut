@@ -1267,6 +1267,20 @@ export type EditOperation =
    */
   | { type: 'removeRange'; sequenceId?: Id; from: TimelineTimeInput; to: TimelineTimeInput; trackIds: Id[]; alignment: FrameAlignment }
   /**
+   * 波纹插入（`removeRange` 的反向，命令与协议规范 §4.2）：在 `trackIds` 上从 `at` 起空出 `duration`，起点不早于 `at` 的
+   * 实例后移。跨在 `at` 上的实例按 `straddle` 拆开、右段后移（缺省 `split`）或原地不动（`stay`）；到序列末尾的实例总是不动。
+   * 没列出的轨道与章节不动；轨道或要动的实例锁着时整笔拒绝；不再相接的转场删掉，列在 `impact.removedTransitions`。
+   */
+  | {
+      type: 'insertRange';
+      sequenceId?: Id;
+      at: TimelineTimeInput;
+      duration: TimelineTimeInput;
+      trackIds: Id[];
+      alignment: FrameAlignment;
+      straddle?: 'split' | 'stay';
+    }
+  /**
    * 在源素材的剪口集合里加入剪口（视频格式规范 §6.7）：`from`、`to` 是源素材时钟上的十进制秒，`ref` 是出处（剪辑建议的 ID）。
    * 与已有剪口间隔不超过 0.02 秒的并成一个，保留靠前那个的 ID 与出处。同一笔事务里按新的保留区间重排剪口集合的实例
    * （它们所在的轨道上波纹删除），其余实例按 `followPolicy` 移动；整个落在剪掉区间里的列在 `impact.removedByCuts`。
@@ -1368,7 +1382,9 @@ export type EditOperation =
    * 原地换合成实例的代码包版本与预渲染替身（代码包规范 §3.3）：实例 ID、轨道、起点、几何、效果、关键帧等都不变。
    * 时间映射回到从 0 开始的线性映射；长度取新替身的长度，没有替身时取清单的 `intrinsic`。变短就裁掉，
    * 变长撞上同轨后面的实例以 `TIMELINE_OVERLAP` 拒绝。实例有参数而新包去掉或换了 `parametersSchemaRef` 时要给 `parameterValues`。
-   * 回执的 `impact.codeEdits` 说明改的是源这一层与前后的长度。
+   * `ripple: true` 时旧终点之后的内容跟着长度差移动：变长在旧终点波纹插入（跨过这一刻的不动），变短波纹删除多出的那段
+   * （盖住整段的不动）；动的是这一刻之后还有实例的全部轨道，其中有锁着的就整笔拒绝，章节不动。
+   * 回执的 `impact.codeEdits` 说明改的是源这一层、前后的长度与 ripple 挪动的帧数。
    */
   | {
       type: 'replaceCodeBundle';
@@ -1377,6 +1393,7 @@ export type EditOperation =
       assetRef: VersionRef;
       prerender?: VersionRef | null;
       parameterValues?: Record<string, unknown>;
+      ripple?: boolean;
     }
   /**
    * 改声音：音频实例改自己的混音；视频与有声音的合成改自带的那路声音（静音即不用它）。
@@ -1497,6 +1514,8 @@ export interface CodeEdit {
   prerender: VersionRef | null;
   oldDurationFrames: number;
   newDurationFrames: number;
+  /** 带 `ripple` 且长度变了时，旧终点之后的内容挪动的帧数：正数后移，负数前移。 */
+  rippleFrames?: number;
 }
 
 export interface TransactionReceipt {
@@ -1595,6 +1614,85 @@ export interface HistoryEntry {
   /** 0 是正向修改，奇数是撤销，正偶数是重做。 */
   undoDepth: number;
   undoAvailable: boolean;
+}
+
+/** 版本的种类（视频格式规范 §9.4）：一段普通的工作，或单独成版的保存、回到版本、外部导入、重建。 */
+export type VideoVersionKind = 'segment' | 'save' | 'restore' | 'external' | 'rebuild';
+
+/** 版本动作清单的一行：同一操作者、同一修改名的事务合在一起计数。 */
+export interface VideoVersionAction {
+  /** 操作者的 ID（`user_local`、`agent:<name>`、`system:jobs` 等）。 */
+  actor: string;
+  label: string;
+  labelRef?: MessageRef;
+  count: number;
+}
+
+/** 这一版改了的快照文件：之前与之后的摘要，不存在的一侧为 null。 */
+export interface VideoVersionFile {
+  path: string;
+  before: string | null;
+  after: string | null;
+}
+
+/** 版本文件的头部（视频格式规范 §9.4）。 */
+export interface VideoVersionHeader {
+  version: number;
+  kind: VideoVersionKind;
+  startedAt: string;
+  updatedAt: string;
+  /** 这一版覆盖的修订号：开始时快照的与结束时的。 */
+  fromRevision: Revision;
+  toRevision: Revision;
+  /** 英文缺省文字；界面用 `localizeText(summary, summaryRef)` 按当前语言显示。 */
+  summary: string;
+  summaryRef?: MessageRef;
+  actions: VideoVersionAction[];
+  /** 超出清单、只计了数的事务。 */
+  actionsOmitted?: number;
+  /** 这一版里改过视频的会话。 */
+  conversations: { id: Id; title: string }[];
+  /** 保存的版本才有。 */
+  name?: string;
+  note?: string;
+  checkpointId?: Id;
+  files: VideoVersionFile[];
+}
+
+/** 版本列表里的一项。 */
+export interface VideoVersion extends VideoVersionHeader {
+  /** 版本文件的大小（字节）。 */
+  bytes: number;
+  /** 最新的一版：之后的改动还可能并进来。 */
+  open: boolean;
+}
+
+/** 一部视频的版本，新的在前；读不出头部的版本文件的序号列在 `unreadable`。 */
+export interface VideoVersionList {
+  versions: VideoVersion[];
+  unreadable: number[];
+}
+
+/** 一个版本的头部与 diff 文本。 */
+export interface VideoVersionText {
+  header: VideoVersionHeader;
+  diff: string;
+}
+
+/**
+ * 工作区快照与视频库的关系（视频格式规范 §9.7）：`pending` 是库领先、几秒内会写；`conflict` 是快照被外部改过，不会被覆盖；
+ * `missing` 是还没有快照；`rebuild` 是只有快照、没有 `video.db`。
+ */
+export type VideoSnapshotState = 'synced' | 'pending' | 'conflict' | 'missing' | 'rebuild';
+
+export interface VideoSnapshotStatus {
+  state: VideoSnapshotState;
+  revision?: Revision;
+  snapshotRevision?: Revision;
+  /** 被外部改过的快照文件（相对快照目录）。 */
+  changedPaths?: string[];
+  versions: number;
+  latestVersion?: number;
 }
 
 export interface UndoStep {

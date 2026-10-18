@@ -303,8 +303,9 @@ export function videoCardKeys(cards: ReadonlyMap<Id, readonly ThreadCard[]>): st
 }
 
 /**
- * 第一次出现的视频卡（产品设计 §3.3：功能区自动打开这部视频）：`seen` 里没有、已经知道在哪打开的，按挂的先后。
- * 随第一句话带进会话的视频（`openingVideo`）不算，发它的人正开着它。调用方打开后把键记进 `seen`；还不知道位置的下次再看。
+ * 第一次出现的视频卡（产品设计 §3.3：功能区自动打开这部视频）：`seen` 里没有、已经知道在哪打开、也能看了（时长大于 0）的，按挂的先后。
+ * 随第一句话带进会话的视频（`openingVideo`）不算，发它的人正开着它。调用方打开后把键记进 `seen`；还不知道位置的、
+ * 还是空的（智能体刚建出来、还没放画面）或不知道时长的下次再看。
  */
 export function freshVideoCards(
   cards: ReadonlyMap<Id, readonly ThreadCard[]>,
@@ -312,7 +313,10 @@ export function freshVideoCards(
   openingVideoId: Id | null,
 ): VideoThreadCard[] {
   return [...cards.values()].flatMap((list) =>
-    list.filter((c): c is VideoThreadCard => c.kind === 'video' && !seen.has(c.key) && c.video.id !== openingVideoId && !!c.video.video),
+    list.filter(
+      (c): c is VideoThreadCard =>
+        c.kind === 'video' && !seen.has(c.key) && c.video.id !== openingVideoId && !!c.video.video && (c.video.durationSeconds ?? 0) > 0,
+    ),
   );
 }
 

@@ -15,6 +15,7 @@ export const ru: RcVideoMessages = {
   reservedDirOutsideSource: "Зарезервированная папка вне папки источника",
   videoInUse: "Это видео открыто",
   videoNotOpenOpenFirst: "Видео не открыто. Сначала откройте",
+  versionsNeedProject: "История версий ведётся только для видео в проекте. Сначала переместите видео в проект",
   assetVersionNotFound: "Материал или его версия не существует",
   videoNotFound: "Видео не существует",
   onlyWorkspaceVideos: "Можно открывать только видео в рабочей папке",

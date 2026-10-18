@@ -20,6 +20,7 @@ pub mod ids;
 pub mod import;
 mod item_keyframes;
 mod item_local;
+pub mod line_diff;
 pub mod ops;
 pub mod package;
 pub mod proposals;
@@ -29,7 +30,9 @@ pub mod state;
 pub mod store;
 pub mod task_guard;
 pub mod transitions;
+pub mod versions;
 pub mod video;
+pub mod workspace;
 
 /// 交换 DTO 在 `video-model` 里，渲染计划与 WASM 预览也用它；这里保留原来的路径。
 pub use video_model as model;

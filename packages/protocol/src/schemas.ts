@@ -567,6 +567,8 @@ export const settingValueSchemas = {
     .refine(isHttpsEndpoint, { error: () => V.fontEndpoint().text })
     .nullable(),
   'space.trashRetentionDays': z.number().int().min(1).max(3650),
+  'versions.keep': z.number().int().min(1).max(100),
+  'versions.cadence': z.enum(['segment', 'turn']),
   'cache.maxSizeMiB': z.number().int().min(256).max(1024 * 1024),
   'runtime.idleExitMinutes': z.number().int().min(1).max(1440),
   'semantic.channels': z.array(z.enum(['text', 'visual', 'audio'])).max(3),
@@ -1076,6 +1078,14 @@ export const methodParamSchemas = {
   'videos.delete': z.union([fileTarget, z.object({ videoId: id }).strict()]),
   'videos.restore': z.object({ entryId: id }).strict(),
   'videos.history': z.object({ videoId: id, limit: positiveInt.max(1000).optional() }).strict(),
+  'videos.versions.list': z.object({ videoId: id, limit: positiveInt.max(1000).optional() }).strict(),
+  'videos.versions.get': z.object({ videoId: id, version: positiveInt }).strict(),
+  'videos.versions.status': z.object({ videoId: id }).strict(),
+  'videos.versions.save': z
+    .object({ videoId: id, commandId: id, name: z.string().trim().min(1).max(200), note: z.string().trim().max(2000).optional() })
+    .strict(),
+  'videos.versions.restore': z.object({ videoId: id, commandId: id, version: positiveInt, before: z.boolean().optional() }).strict(),
+  'videos.versions.delete': z.object({ videoId: id, commandId: id, version: positiveInt }).strict(),
   'videos.assetStatus': z.object({ videoId: id }).strict(),
   'documents.read': z.object({ videoId: id, documentId: id, revision: revision.optional() }).strict(),
   'edits.apply': z

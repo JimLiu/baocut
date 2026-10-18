@@ -15,6 +15,7 @@ export const zhHant: RcVideoMessages = {
   reservedDirOutsideSource: '保留的資料夾不在來源資料夾中',
   videoInUse: '這部影片已開啟',
   videoNotOpenOpenFirst: '影片未開啟。請先開啟它',
+  versionsNeedProject: '只有專案裡的影片才有版本記錄。請先把影片移到專案中',
   assetVersionNotFound: '素材或它的這個版本不存在',
   videoNotFound: '影片不存在',
   onlyWorkspaceVideos: '只能開啟工作資料夾中的影片',

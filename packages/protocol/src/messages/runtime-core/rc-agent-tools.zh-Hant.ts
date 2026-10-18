@@ -19,7 +19,9 @@ function exportKindLabel(kind: string): string {
   }
 }
 
-function linkImportAfter(p: { target: string; name: string | null; transcribe: boolean; language: string | null; provider: string | null; model: string | null; captions: boolean }): string {
+function linkImportAfter(p: { target: string; name: string | null; transcribe: boolean; language: string | null; provider: string | null; model: string | null; captions: boolean; dir?: string | null }): string {
+  // 文件放进指定目录：导入视频的照常说完，再说文件放在哪。
+  if (p.dir && (p.target === 'create' || p.target === 'video')) return `${linkImportAfter({ ...p, dir: null })}，下載的檔案儲存在 ${p.dir}`;
   const recognition = `${p.language ? `，語言 ${p.language}` : ''}${p.provider ? `（${p.provider}${p.model ? ` ${p.model}` : ''}）` : ''}`;
   if (p.target === 'create') {
     return `，建立影片${p.name ? `「${p.name}」` : '（以頁面標題命名）'}並加入時間軸${p.transcribe ? `，然後轉錄${recognition}${p.captions ? '並建立字幕圖層' : ''}` : ''}`;
@@ -27,6 +29,7 @@ function linkImportAfter(p: { target: string; name: string | null; transcribe: b
   if (p.target === 'video') return `，匯入影片${p.transcribe ? '並轉錄' : ''}`;
   if (p.target === 'project') return `，儲存到專案的 downloads/${p.transcribe ? ' 並轉錄成 TXT 和 SRT' : ''}`;
   if (p.target === 'download') return `，儲存到下載資料夾${p.transcribe ? '並轉錄成 TXT 和 SRT' : ''}`;
+  if (p.target === 'folder') return `，儲存到 ${p.dir}${p.transcribe ? '並轉錄成 TXT 和 SRT' : ''}`;
   return '';
 }
 
@@ -55,6 +58,9 @@ export const zhHant: RcAgentToolsMessages = {
   captionsLabel: '新增字幕層',
   undoSummary: (p) => `還原修改 ${p.transactionId}`,
   undoLatestSummary: '還原最近一次修改',
+  saveVersionSummary: (p) => `把目前狀態儲存為版本「${p.name}」`,
+  restoreVersionSummary: (p) => `回到版本 ${p.version}`,
+  restoreBeforeVersionSummary: (p) => `回到版本 ${p.version} 之前`,
   deleteVideoSummary: (p) =>
     `刪除影片「${p.name}」（${p.path}）：移到垃圾桶，${p.days} 天內可在 Space 中回復。連結素材的原始檔案保留在原處`,
   importPackageSummary: (p) => `開啟可攜式套件 ${p.file}`,
@@ -66,6 +72,7 @@ export const zhHant: RcAgentToolsMessages = {
   translationDocumentName: (p) => `${p.language} 譯文`,
   importAssetSummary: (p) => `匯入素材 ${p.name}${p.place ? ' 並加入時間軸' : ''}`,
   importAssetLabel: (p) => `匯入 ${p.name}${p.place ? ' 並加入時間軸' : ''}`,
+  openMediaSaveSummary: (p) => `從 ${p.source} 下載「${p.title}」（${p.license}）到 ${p.target}（名稱重複時加上編號，不會覆寫）`,
   openMediaDownloadSummary: (p) => `從 ${p.source} 下載「${p.title}」（${p.license}）並匯入${p.place ? '，加入時間軸' : ''}`,
   sfxSummary: (p) => `產生音效「${p.recipe}」並匯入${p.place ? '，放到時間軸上' : ''}`,
  

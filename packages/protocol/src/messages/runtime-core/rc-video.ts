@@ -33,6 +33,7 @@ const en = {
   reservedDirOutsideSource: "The reserved folder isn't in the source folder",
   videoInUse: 'This video is open',
   videoNotOpenOpenFirst: "The video isn't open. Open it first",
+  versionsNeedProject: "Version history is kept only for videos in a project. Move the video into a project first",
   assetVersionNotFound: "The asset or this version of it doesn't exist",
   videoNotFound: "The video doesn't exist",
   onlyWorkspaceVideos: 'Only videos in the working folder can be opened',

@@ -41,6 +41,20 @@ describe('Markdown 产物路径', () => {
     expect(paths).toEqual(['/Users/me/Downloads/春日 慢慢玩.mp4', '/tmp/clip.mp4']);
     expect(html).not.toContain('file:');
   });
+
+  it('正文媒体用尖括号包住带空格的路径时，按编码前的本机路径取媒体', () => {
+    const sources: string[] = [];
+    renderToStaticMarkup(createElement(Markdown, {
+      // 与 agent-markdown 相同：链接与图片的本机路径都放行。
+      urlTransform: (url, key) => (key === 'href' || key === 'src') && markdownFilePath(url) ? url : defaultUrlTransform(url),
+      components: { img: ({ src }) => {
+        sources.push(markdownFilePath(src!)!);
+        return null;
+      } },
+      children: '样音 A：\n![IndexTTS zh-male](</Volumes/My Drive/voice tests/样音 A.wav>)\n样音 B：\n![VoiceDesign](voice-tests/b.wav)',
+    }));
+    expect(sources).toEqual(['/Volumes/My Drive/voice tests/样音 A.wav', 'voice-tests/b.wav']);
+  });
 });
 
 describe('产物链接目标', () => {

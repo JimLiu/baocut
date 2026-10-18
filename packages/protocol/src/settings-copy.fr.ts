@@ -30,6 +30,8 @@ export const fr: SettingDescriptionMessages = {
   'fonts.fileEndpoint': "URL de base des fichiers de police (miroir, https:// ; fichiers récupérés seulement sous cette URL) ; null utilise https://fonts.gstatic.com",
   'space.trashRetentionDays':
     "Jours de conservation dans la corbeille Space (1–3650) : éléments sans référence et vidéos supprimées plus anciens effacés définitivement périodiquement",
+  'versions.keep': "Versions sans nom conservées dans l'historique des versions de chaque vidéo (1–100) ; les versions enregistrées sont toujours conservées. Les fichiers de versions d'une vidéo sont aussi limités à 64 Mio : au-delà, les versions sans nom les plus anciennes sont supprimées",
+  'versions.cadence': "Quand l'historique des versions d'une vidéo commence une nouvelle version : segment après 5 minutes sans modification, toutes les 30 minutes de montage continu et autour des enregistrements et restaurations ; turn aussi au début de chaque tour de l'Agent",
   'cache.maxSizeMiB': 'Taille maximale du cache du dossier de données, en Mio (256–1048576) : au-delà, les fichiers de cache les plus anciens (analyse des médias, copies de lecture) sont supprimés jusqu’à revenir à 90 %. L’index de recherche entre vidéos n’est jamais supprimé',
   'resources.capacity':
     "Avancé : capacité pour la planification { memoryMiB, gpuMemoryMiB, cpuThreads } ; null détecte une valeur automatiquement ; null global détecte tout (mémoire et CPU du système, mémoire GPU Apple silicon estimée depuis la mémoire unifiée)",

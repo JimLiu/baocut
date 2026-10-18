@@ -17,6 +17,7 @@ export const de: RcVideoMessages = {
   reservedDirOutsideSource: "Der reservierte Ordner liegt nicht im Quellordner",
   videoInUse: "Dieses Video ist geöffnet",
   videoNotOpenOpenFirst: "Das Video ist nicht geöffnet. Zuerst öffnen",
+  versionsNeedProject: "Ein Versionsverlauf wird nur für Videos in einem Projekt geführt. Verschiebe das Video zuerst in ein Projekt",
   assetVersionNotFound: "Das Material oder diese Version ist nicht vorhanden",
   videoNotFound: "Das Video ist nicht vorhanden",
   onlyWorkspaceVideos: "Nur Videos im Arbeitsordner können geöffnet werden",

@@ -225,16 +225,24 @@ test('rowCards：工具消息折在回复或工作组里也找得到行；下载
   assert.equal(C.rowCards(rows, messages, [{id: 'p', kind: 'movie', messageId: null}], []).size, 0, '没有消息锚点的产物只在汇总里');
 });
 
-test('freshMovies：第一次出现的视频卡，seen 里没有的视频，按挂的先后；别的卡不算', () => {
+test('freshMovies：第一次出现的视频卡，seen 里没有、能看了的视频，按挂的先后；别的卡不算', () => {
   const A = global.window.BC_AGENT;
   const messages = [{id: 'u', role: 'user'}, {id: 'a1', role: 'assistant'}, {id: 'w1', role: 'tool', taskId: 'dl'}, {id: 'a2', role: 'assistant'}];
   const rows = A.conversationRows(messages);
-  const v1 = {id: 'v1', kind: 'movie', messageId: 'a1'}, v2 = {id: 'v2', kind: 'movie', messageId: 'a2'}, doc = {id: 'd1', kind: 'doc', messageId: 'a2'};
+  const v1 = {id: 'v1', kind: 'movie', messageId: 'a1', dur: 30}, v2 = {id: 'v2', kind: 'movie', messageId: 'a2', dur: 12}, doc = {id: 'd1', kind: 'doc', messageId: 'a2'};
   const cardAt = C.rowCards(rows, messages, [v1, v2, doc], [{id: 'dl', kind: 'download', status: 'running'}]);
+  assert.deepEqual(C.cardMovies(cardAt), ['v1', 'v2']);
   assert.deepEqual(C.freshMovies(cardAt, new Set()), ['v1', 'v2']);
   assert.deepEqual(C.freshMovies(cardAt, new Set(['v1'])), ['v2']);
   assert.deepEqual(C.freshMovies(cardAt, new Set(['v1', 'v2'])), []);
   assert.deepEqual(C.freshMovies(null, new Set()), []);
+  assert.deepEqual(C.cardMovies(null), []);
+  // 智能体刚建出来的空视频：卡在，先不打开；放进画面后再算。进会话时记下的（cardMovies）有了画面也不算。
+  const empty = C.rowCards(rows, messages, [v1, {...v2, dur: 0}], []);
+  assert.deepEqual(C.cardMovies(empty), ['v1', 'v2'], '空视频照样有卡');
+  assert.deepEqual(C.freshMovies(empty, new Set(['v1'])), [], '还是空的不打开');
+  assert.deepEqual(C.freshMovies(cardAt, new Set(['v1'])), ['v2'], '有了画面再打开');
+  assert.deepEqual(C.freshMovies(cardAt, new Set(C.cardMovies(empty))), [], '进会话时已有的卡不算');
 });
 
 test('movieCard：状态 + 一件活一行', () => {

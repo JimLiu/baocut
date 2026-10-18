@@ -586,6 +586,10 @@ function digestCapability(capability: ModelServiceCapability, view: CapabilityVi
     models: p.models.map((m) => structuredClone(m)),
   }));
   const usable = providers.filter((p) => p.available).map((p) => p.providerId);
+  // 本机能做、只是模型包还没下载（音乐生成只有这一种来源）：要让模型提议下载，不是说这台机器没有这种能力。
+  const installable = view.providers
+    .filter((p) => p.kind === 'local')
+    .flatMap((p) => p.models.filter((m) => (m.unavailableReason ?? p.unavailableReason) === 'not-installed').map((m) => m.modelId));
   return {
     capability,
     settingsHref: capabilitySettingsHref(capability),
@@ -606,7 +610,11 @@ function digestCapability(capability: ModelServiceCapability, view: CapabilityVi
             ? `不指定 provider 时用 ${view.effective.providerId} 的 ${view.effective.modelId}。`
             : usable.length > 0
               ? `没有可用的默认值：调用时显式给出 provider（${usable.join('、')}），或请用户在设置里设默认值，用 settingsHref 写成 Markdown 设置链接。`
-              : '没有可用的服务：这种能力现在不能用。告诉用户需要在设置里的模型配置中启用并配置一个服务，用 settingsHref 写成 Markdown 设置链接，链接文字用用户的语言说明对应能力；不要用别的办法绕过。',
+              : installable.length > 0
+                ? `BaoCut 能在本机做这件事，只是本机模型包还没下载：${installable.join('、')}。不要说本机没有这种能力或直接放弃：告诉用户可以下载（大小与许可看 models_list 的 estimatedBytes 与 license，不能商用的要说明），用户同意后用 models_install 给 bundleId 下载，jobs_wait 等装好，再带 provider: local 与这个模型提交。${
+                    view.providers.some((p) => p.kind !== 'local') ? '也可以请用户在设置里启用并配置一个在线服务，用 settingsHref 写成 Markdown 设置链接。' : ''
+                  }`
+                : '没有可用的服务：这种能力现在不能用。告诉用户需要在设置里的模型配置中启用并配置一个服务，用 settingsHref 写成 Markdown 设置链接，链接文字用用户的语言说明对应能力；不要用别的办法绕过。',
     // i18n-ignore-end
   };
 }

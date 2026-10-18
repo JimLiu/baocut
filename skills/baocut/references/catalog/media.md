@@ -39,6 +39,7 @@ description: 媒体的机制：从链接下载、检索与下载网上素材、�
 | 导入到已有视频 | {{tool:download}}，{{arg:url}} + {{arg:video}} |
 | 只下载到项目 | {{tool:download}}，{{arg:url}} + {{arg:project}} |
 | 只要文件（用户明说） | {{tool:download}} 只给 {{arg:url}}：落到下载目录 |
+| 放到别处（外置盘、某个文件夹） | 加 {{arg:outDir}}（任意目录，不存在时建好），代替下载目录；导入视频时素材链到那里。不请用户去改设置。只给 {{arg:project}} 时不能给，对外服务不能给 |
 | 同时取平台字幕 | 加 {{arg:subs}}（语言列表），字幕文件放在媒体旁边、不导入视频 |
 | 只要音频 | 加 {{arg:audioOnly}} |
 | 视频要登录才能看 | 默认按用户在设置 › 视频下载选的浏览器；用户指明浏览器时加 {{arg:cookieBrowsers}}（例如 `["chrome"]`，按顺序尝试）；{{tool:transcribe}} 给 {{arg:url}} 时同样 |
@@ -59,6 +60,7 @@ description: 媒体的机制：从链接下载、检索与下载网上素材、�
 | YouTube 只要知识共享的 | 加 {{arg:creativeCommons}} |
 | 先看画面再挑 | 加 {{arg:preview}}：缩略图拼成一张接触表 |
 | 下载 Commons / Internet Archive 的一条 | {{tool:assets_download}}，{{arg:source}} 与 {{arg:id}} 照抄，{{arg:video}} 给目标视频；要放上时间线加 {{arg:place}}；视频太大时给小一点的 {{arg:maxHeight}} |
+| 只要文件、存到某个文件夹 | {{tool:assets_download}}，{{arg:source}} 与 {{arg:id}} 照抄，{{arg:outDir}} 给目录、不给 {{arg:video}}：重名时编号，不覆盖，不导入视频；对外服务不能给 |
 | 下载 YouTube 的一条 | {{tool:download}}，{{arg:url}} 给候选的 `pageUrl`，{{arg:video}} 给目标视频 |
 
 候选的 `downloadWith` 说用哪个工具下载。Commons 与 Internet Archive 的许可清楚：public-domain 与 cc0 随便用，cc-by 要署名，cc-by-sa 还要求成片用同样的许可（先告诉用户），带 nc 的只许非商业用途。YouTube 的许可多半没写（`license.class` 为 `unknown`，版权归上传者）：下载前把要用的几条（标题、频道、链接）告诉用户，由用户决定。
@@ -196,7 +198,7 @@ css、js、json 这类支持文件不导入，直接写进设计稿目录，用�
 - {{tool:videos_shots}}：`cuts` 每处有 `at`（新镜头第一帧的秒）、`score`（`edit` 为 null）与 `kind`；`shots` 每个有 `start`、`end` 与 `sampleAt`。
 - {{tool:assets_import}}：回执里有 `assetId`、`itemId`（没放上时间线时为 null）与新版本。
 - {{tool:assets_search}}：`candidates` 每条有 `source`、`id`、`title`、`kind`、尺寸与时长（archive 与 youtube 没有尺寸）、`author`、`license`、`attribution`（一行署名）、`pageUrl`、`thumbnailUrl` 与 `downloadWith`；`excluded` 是因许可去掉的条数；`sheet` 是接触表（`sheet.cells[i].at` 是候选的序号）；`errors` 是出错的来源。
-- {{tool:assets_download}}：回执里有 `assetId`、`itemId`、`license`、`attribution` 与实际下载的 `file`。网上素材与链接导入的素材在 {{tool:videos_inspect}} 的 `assets[].credit` 里有 `attribution`：成片片尾的署名照它写。
+- {{tool:assets_download}}：回执里有 `assetId`、`itemId`、`license`、`attribution` 与实际下载的 `file`；给 {{arg:outDir}} 时没有素材，`path` 是存下的文件。网上素材与链接导入的素材在 {{tool:videos_inspect}} 的 `assets[].credit` 里有 `attribution`：成片片尾的署名照它写。
 - {{tool:videos_create}} / {{tool:videos_import_package}}：返回与 {{tool:videos_inspect}} 相同的摘要，含 `videoId`。
 - {{tool:image}}：`outputs` 里每张图的 `artifactId`；带了 video 时还有 `assetId`。
 - {{tool:music}}（见 [music](music.md)）：`outputs` 里是一个 WAV 的 `artifactId`；带了 video 时还有 `assetId`；到了时长预算时 `warnings` 里有 `output-truncated`。

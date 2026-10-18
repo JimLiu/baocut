@@ -23,6 +23,7 @@ import { checkLink, checkResolvedHost, redactUrl, systemLookup, type HostLookup 
 import type { LinkSources } from './link-sources.ts';
 import { ParamReader, invalid } from './params.ts';
 import { PipelineStepError, type PipelineDefinition, type PipelineStepContext } from './pipeline.ts';
+import { ensureSaveDirectory } from './save-location.ts';
 import { publishFile } from './transcode.ts';
 import { createHeldVideo, importMedia, transcribeInVideo, type MediaVideos, type PipelineTranscriber } from './video-create.ts';
 import { createScopeOf, readCreateTarget, targetSchema, targetStep, type PipelineTargets } from './video-target.ts';
@@ -196,6 +197,10 @@ const PARAMS_SCHEMA = {
       description:
         '文件放在哪里：downloads 是下载目录；project 是归属项目（项目、导入的视频或新建视频所在的）里的 downloads/，没有项目时仍是下载目录',
     },
+    outDir: {
+      type: 'string',
+      description: '文件放进这个目录（绝对路径，不存在时创建），代替 saveTo；与 saveTo 不能同时给。导入视频时素材链到这里',
+    },
     // i18n-ignore-end
   },
   required: ['url'],
@@ -293,12 +298,16 @@ export function linkImportPipeline(deps: LinkImportDeps): PipelineDefinition<Fro
         const checked = params as CheckedLinkImportParams;
         const projectId = checked.create ? checked.create.projectId : checked.projectId;
         const conversationId = checked.create ? checked.create.conversationId : checked.conversationId;
-        const outDir = await deps.destination({
-          ...(projectId !== undefined ? { projectId } : {}),
-          ...(conversationId !== undefined ? { conversationId } : {}),
-          ...(checked.videoId !== undefined ? { videoId: checked.videoId } : {}),
-          ...(checked.saveTo === 'project' ? { saveTo: 'project' as const } : {}),
-        });
+        // 给了 `outDir` 时用它（提交时建好、确认能写，不能写的不建任务）；否则按归属与 `saveTo` 由 Runtime 决定。
+        const outDir =
+          checked.outDir ??
+          (await deps.destination({
+            ...(projectId !== undefined ? { projectId } : {}),
+            ...(conversationId !== undefined ? { conversationId } : {}),
+            ...(checked.videoId !== undefined ? { videoId: checked.videoId } : {}),
+            ...(checked.saveTo === 'project' ? { saveTo: 'project' as const } : {}),
+          }));
+        if (checked.outDir !== undefined) await ensureSaveDirectory(checked.outDir);
         const sourceRef = checked.raw === checked.canonical ? null : `sha256:${sha256Hex(checked.raw)}`;
         frozen = {
           url: checked.canonical,
@@ -502,6 +511,7 @@ export function parseLinkImportParams(raw: Record<string, unknown>): CheckedLink
     'cookieBrowsers',
     'cookieBrowser',
     'saveTo',
+    'outDir',
     'language',
     'provider',
     'model',
@@ -527,6 +537,9 @@ export function parseLinkImportParams(raw: Record<string, unknown>): CheckedLink
   if (cookieBrowsers && new Set(cookieBrowsers).size !== cookieBrowsers.length) throw invalid('cookieBrowsers', JobsLinkImport.noDuplicates());
   const saveTo = reader.string('saveTo', { optional: true });
   if (saveTo !== undefined && saveTo !== 'downloads' && saveTo !== 'project') throw invalid('saveTo', JobsLinkImport.saveToInvalid());
+  const outDir = reader.string('outDir', { optional: true, max: 4096 });
+  if (outDir !== undefined && !path.isAbsolute(outDir)) throw invalid('outDir', JobsParams.mustBeAbsolutePath());
+  if (outDir !== undefined && saveTo !== undefined) throw invalid('outDir', JobsParams.onlyOneOf({ other: 'saveTo' }));
   const languages = reader.array('subtitleLanguages', { max: 10, optional: true });
   const subtitleLanguages = languages?.map((lang) => {
     if (typeof lang !== 'string' || !LANGUAGE.test(lang)) throw invalid('subtitleLanguages', JobsLinkImport.languageItems());
@@ -578,6 +591,7 @@ export function parseLinkImportParams(raw: Record<string, unknown>): CheckedLink
     ...(captions !== undefined ? { captions } : {}),
     ...(cookieBrowsers?.length ? { cookieBrowsers } : {}),
     ...(saveTo !== undefined ? { saveTo: saveTo as 'downloads' | 'project' } : {}),
+    ...(outDir !== undefined ? { outDir } : {}),
   };
 }
 

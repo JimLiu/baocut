@@ -108,8 +108,16 @@
 .home-project-dialog__label { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .home-project-dialog__device { display: inline-flex; align-items: center; gap: 6px; color: var(--gray-700); font-size: 12px; white-space: nowrap; }
 .home-project-dialog__device svg { width: 16px; height: 16px; }
-.home-project-dialog__folder { width: 100%; justify-content: flex-start; min-height: 40px; }
-.home-project-dialog__folder [slot="text"] { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 选好的文件夹：文件夹名与路径，尾巴上一个 × 移除；还没选时是一句说明加「添加文件夹」，不选就在 ~/BaoCut/ 下新建。 */
+.home-project-dialog__folder { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 12px; border-radius: 8px; background: var(--gray-100); color: var(--gray-800); box-sizing: border-box; min-width: 0; }
+.home-project-dialog__folder-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.home-project-dialog__folder-text > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-project-dialog__folder-path { color: var(--gray-600); font-size: 12px; }
+.home-project-dialog__empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px; border: 1px solid var(--gray-200); border-radius: 8px; color: var(--gray-700); text-align: center; }
 .home-project-dialog__path { margin: 0; font-size: 12px; color: var(--gray-600); overflow-wrap: anywhere; }
 .home-project-dialog__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .home-project-dialog__actions > button { width: 100%; }
+/* 项目托盘的弹层（product-design §3.2.1）：搜索框、项目（多了只滚这一段），最底下一直是「新建项目…」与「不用项目」。 */
+.home-project-menu { display: flex; flex-direction: column; gap: 4px; width: 288px; padding: 8px; box-sizing: border-box; }
+.home-project-menu__list { max-height: 240px; overflow-y: auto; }
+.home-project-menu__empty { margin: 0; padding: 8px 12px; color: var(--gray-600); font-size: 12px; }

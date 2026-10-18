@@ -21,7 +21,9 @@ function exportKindLabel(kind: string): string {
 }
 
 /** 从链接导入的摘要结尾：下载之后做什么。 */
-function linkImportAfter(p: { target: string; name: string | null; transcribe: boolean; language: string | null; provider: string | null; model: string | null; captions: boolean }): string {
+function linkImportAfter(p: { target: string; name: string | null; transcribe: boolean; language: string | null; provider: string | null; model: string | null; captions: boolean; dir?: string | null }): string {
+  // 文件放进指定目录：导入视频的照常说完，再说文件放在哪。
+  if (p.dir && (p.target === 'create' || p.target === 'video')) return `${linkImportAfter({ ...p, dir: null })}, salvando il file scaricato in ${p.dir}`;
   const recognition = `${p.language ? `, lingua ${p.language}` : ''}${p.provider ? ` (${p.provider}${p.model ? ` ${p.model}` : ''})` : ''}`;
   if (p.target === 'create') {
     return `, crea il video${p.name ? ` «${p.name}»` : ' (con il titolo della pagina come nome)'} e aggiungilo alla timeline${p.transcribe ? `, poi trascrivilo${recognition}${p.captions ? ' e crea un livello di sottotitoli' : ''}` : ''}`;
@@ -29,6 +31,7 @@ function linkImportAfter(p: { target: string; name: string | null; transcribe: b
   if (p.target === 'video') return `, importalo nel video${p.transcribe ? ' e trascrivilo' : ''}`;
   if (p.target === 'project') return `, salva in downloads/ del progetto${p.transcribe ? ' e trascrivi in TXT e SRT' : ''}`;
   if (p.target === 'download') return `, salva nella cartella Download${p.transcribe ? ' e trascrivi in TXT e SRT' : ''}`;
+  if (p.target === 'folder') return `, salva in ${p.dir}${p.transcribe ? ' e trascrivi in TXT e SRT' : ''}`;
   return '';
 }
 
@@ -66,6 +69,9 @@ export const it: RcAgentToolsMessages = {
   captionsLabel: 'Aggiungi livello di sottotitoli',
   undoSummary: (p: { transactionId: string }) => `Annulla la modifica ${p.transactionId}`,
   undoLatestSummary: 'Annulla l’ultima modifica',
+  saveVersionSummary: (p: { name: string }) => `Salva lo stato attuale come versione «${p.name}»`,
+  restoreVersionSummary: (p: { version: number }) => `Torna alla versione ${p.version}`,
+  restoreBeforeVersionSummary: (p: { version: number }) => `Torna a prima della versione ${p.version}`,
   deleteVideoSummary: (p: { name: string; path: string; days: number }) =>
     `Elimina il video «${p.name}» (${p.path}): spostalo nel Cestino, da cui puoi ripristinarlo nello Space per ${plural(p.days, 'giorno', 'giorni')}. I file originali dei materiali collegati restano dove sono`,
   importPackageSummary: (p: { file: string }) => `Apri il pacchetto portatile ${p.file}`,
@@ -81,6 +87,7 @@ export const it: RcAgentToolsMessages = {
   importAssetSummary: (p: { name: string; place: boolean }) => `Importa il materiale ${p.name}${p.place ? ' e aggiungilo alla timeline' : ''}`,
   /** 导入素材这笔修改在视频历史与撤销里的说明。 */
   importAssetLabel: (p: { name: string; place: boolean }) => `Importa ${p.name}${p.place ? ' e aggiungilo alla timeline' : ''}`,
+  openMediaSaveSummary: (p) => `Scarica «${p.title}» da ${p.source} (${p.license}) in ${p.target} (con un numero se il nome è già usato, senza sovrascrivere)`,
   openMediaDownloadSummary: (p: { title: string; source: string; license: string; place: boolean }) => `Scarica «${p.title}» da ${p.source} (${p.license}) e importalo${p.place ? ' nella timeline' : ''}`,
   sfxSummary: (p: { recipe: string; place: boolean }) => `Genera l’effetto sonoro «${p.recipe}» e importalo${p.place ? ' nella timeline' : ''}`,
   replaceCompositionSummary: (p: { name: string; clip: string }) => `Importa ${p.name} e sostituisci la clip ${p.clip} nella timeline`,

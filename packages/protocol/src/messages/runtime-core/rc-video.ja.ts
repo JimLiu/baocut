@@ -15,6 +15,7 @@ export const ja: RcVideoMessages = {
   reservedDirOutsideSource: '予約したフォルダがソースフォルダ内にありません',
   videoInUse: 'この動画は開いています',
   videoNotOpenOpenFirst: '動画が開いていません。先に開いてください',
+  versionsNeedProject: 'バージョン履歴はプロジェクト内の動画にのみ記録されます。先に動画をプロジェクトに移動してください',
   assetVersionNotFound: '素材、またはそのこのバージョンが存在しません',
   videoNotFound: '動画が存在しません',
   onlyWorkspaceVideos: '開けるのは作業フォルダ内の動画のみです',

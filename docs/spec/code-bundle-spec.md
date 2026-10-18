@@ -188,7 +188,8 @@ Schema 中建议为每个参数提供：类型、默认值、取值范围或枚�
 - **只换源**：写入新的 `source.assetRef` 与 `prerender`（`null` 或省略是不要替身），可选整个替换 `parameterValues`。实例 ID、轨道、起点、几何与不透明度、效果、遮罩、名字、开关与锁、跟随策略、关键帧、声音路由与 lineage 都不变。`timeMap` 回到从 0 开始、速率 1 的线性映射：新版本从头播放。
 - **长度跟新版本走**：有替身时取替身的长度（向下取整到实例所在序列的帧），没有替身时取清单的 `intrinsic.durationFrames` 按 `intrinsic.fps` 换算到实例所在序列的帧率。两者都拿不到时拒绝。`compositions_import` 替换时也按这个序列的帧率烘焙替身。
 - **变短就裁短实例**：这是上面三种方案中默认采用的一种，不保持最后一帧、不重新编排；裁短不静默，回执 `impact.codeEdits` 给出前后的帧数。关键帧跟着窗口变短，与裁切同一条规则。
-- **变长不推开别人**：变长后与同一轨道上的实例重叠时以 `TIMELINE_OVERLAP` 拒绝，`recovery` 提示先用 `moveItem` 挪开或 `deleteItems` 删掉后面的实例再替换。
+- **重新编排是显式的**：`ripple: true`（`compositions_import` 里写成 `replace: { itemId, ripple: true }`）时，序列上旧终点之后的内容跟着长度变化一起后移或前移，所有还有实例的轨道都算，章节不动（命令与协议规范 §4.2）。按段落首尾相接的代码画面改一段时用它，旁白、字幕与音效跟着画面走。后台烘焙（§7.5）写回替身的那一笔不带 `ripple`。
+- **变长不推开别人**：变长后与同一轨道上的实例重叠时以 `TIMELINE_OVERLAP` 拒绝，`recovery` 提示先用 `moveItem` 挪开或 `deleteItems` 删掉后面的实例再替换，或改带 `ripple: true`。
 - **参数闸门**：实例的 `parameterValues` 不为空，而新版本的清单没有 `parametersSchemaRef` 或与旧版本的不同，又没有同时给出新的 `parameterValues` 时，以 `INVALID_OPERATION` 拒绝（`details.rule` 为 `parameters-incompatible`），不把旧值套到新 Schema 上。Schema 引用相同时保留旧值；按 Schema 内容校验参数仍未实现（§3.2）。
 - 实例不是合成、素材不是代码包、替身不是视频、实例或轨道被锁定时拒绝，错误与 `setCodeParameters`、`insertItems` 的相同。
 - **回执标明层**：`impact.codeEdits` 每项写 `layer: 'source'`（§3.4 的源码编辑），以及替换前后的代码包版本、替身与帧数。
@@ -390,7 +391,7 @@ interface CompositionContext {
 - 只收白名单内的扩展名：`html` `htm` `js` `mjs` `cjs` `css` `json` `map` `txt` `md` `svg` `png` `jpg` `jpeg` `webp` `gif` `avif` `woff` `woff2` `ttf` `otf` `mp3` `wav` `ogg` `m4a` `mp4` `webm` `mov` `wasm` `lock`，3D 资源 `gltf` `glb` `bin` `hdr` `ktx2`，以及有固定名字的清单文件（§2.5）。
 - 上限：4096 个文件，单个文件 64 MiB，合计 256 MiB，相对路径不超过 512 个字符。
 - 静态扫描网络引用：`src`、`href`、`url()`、`@import`、`fetch`、`new URL` 中的 `http(s)://`、`ws(s)://` 与协议相对 URL（`//` 开头）；XML 命名空间 URI 不算。发现即拒绝。
-- 没有 `bundle.manifest.json` 的包，导入方可以按入口页面根元素的 `data-*` 属性（§4.1）或调用方给出的覆盖值合成一份清单。合成的清单写进暂存副本，不写回源目录；`revision` 默认为 `1`（`Revision` 是非负十进制整数字符串，视频格式规范 §1.2）。
+- 没有 `bundle.manifest.json` 的包，导入方可以按入口页面根元素的 `data-*` 属性（§4.1）或调用方给出的覆盖值合成一份清单。调用方没有给 `contract` 时：入口页面，或它用 `<script src>` 引用的包内脚本（模块脚本再顺着静态 `import` 往下），去掉注释后出现 `__baocutCompositions` 的判为 `baocut/1`（§4.1），否则判为 `hyperframes/1`（§4.7）；没被引用的文件不看，运行期才拼出来的注册看不到，要由调用方给出。合成的清单写进暂存副本，不写回源目录；`revision` 默认为 `1`（`Revision` 是非负十进制整数字符串，视频格式规范 §1.2）。
 - 通过的包按 `bundleId/revision` 不可变地存成托管的目录素材（视频格式规范 §4.3），清单放在素材版本的 `bundle` 字段里。
 
 ### 6.2 验证项

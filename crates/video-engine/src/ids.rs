@@ -32,6 +32,37 @@ pub fn rfc3339_from_unix(secs: u64, millis: u32) -> String {
     )
 }
 
+/// [`rfc3339_from_unix`] 写出的时间（`YYYY-MM-DDTHH:MM:SS[.mmm]Z`）换算回 Unix 毫秒；别的写法为 `None`。
+pub fn unix_millis_from_rfc3339(text: &str) -> Option<i64> {
+    let text = text.strip_suffix('Z')?;
+    let (date, time) = text.split_once('T')?;
+    let mut date = date.splitn(3, '-').map(|p| p.parse::<i64>().ok());
+    let (year, month, day) = (date.next()??, date.next()??, date.next()??);
+    let (clock, millis) = match time.split_once('.') {
+        Some((clock, fraction)) if fraction.len() == 3 => (clock, fraction.parse::<i64>().ok()?),
+        Some(_) => return None,
+        None => (time, 0),
+    };
+    let mut clock = clock.splitn(3, ':').map(|p| p.parse::<i64>().ok());
+    let (hour, minute, second) = (clock.next()??, clock.next()??, clock.next()??);
+    if !(1..=12).contains(&month) || !(1..=31).contains(&day) || hour > 23 || minute > 59 || second > 60 {
+        return None;
+    }
+    let days = days_from_civil(year, month as u32, day as u32);
+    Some(((days * 86_400 + hour * 3600 + minute * 60 + second) * 1000) + millis)
+}
+
+/// 公历日期换算成 1970-01-01 起的天数（[`civil_from_days`] 的逆）。
+fn days_from_civil(year: i64, month: u32, day: u32) -> i64 {
+    let year = if month <= 2 { year - 1 } else { year };
+    let era = year.div_euclid(400);
+    let yoe = year.rem_euclid(400);
+    let mp = if month > 2 { month - 3 } else { month + 9 } as i64;
+    let doy = (153 * mp + 2) / 5 + day as i64 - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146_097 + doe - 719_468
+}
+
 /// 1970-01-01 起的天数换算成公历日期（Howard Hinnant 的算法）。
 fn civil_from_days(days: i64) -> (i64, u32, u32) {
     let z = days + 719_468;
@@ -53,5 +84,20 @@ mod tests {
         assert_eq!(super::civil_from_days(0), (1970, 1, 1));
         assert_eq!(super::civil_from_days(20_728), (2026, 10, 2));
         assert_eq!(super::civil_from_days(11_016), (2000, 2, 29));
+        for days in [0, 11_016, 20_728, -1, 50_000] {
+            let (y, m, d) = super::civil_from_days(days);
+            assert_eq!(super::days_from_civil(y, m, d), days);
+        }
+    }
+
+    #[test]
+    fn rfc3339_round_trips() {
+        let text = super::rfc3339_from_unix(1_792_222_867, 123);
+        assert_eq!(super::unix_millis_from_rfc3339(&text), Some(1_792_222_867_123));
+        assert_eq!(
+            super::unix_millis_from_rfc3339("2026-10-17T09:41:07Z"),
+            super::unix_millis_from_rfc3339("2026-10-17T09:41:07.000Z")
+        );
+        assert_eq!(super::unix_millis_from_rfc3339("2026-10-17 09:41:07Z"), None);
     }
 }

@@ -76,7 +76,11 @@ MCP 工具 `<名词>_<动词>` 就是 CLI 的 `baocut <名词> <动词>`，参�
 | `videos_history` | `baocut videos history` | query |
 | `videos_inspect` | `baocut videos inspect` | query |
 | `videos_list` | `baocut videos list` | query |
+| `videos_restore_version` | `baocut videos restore-version` | mutation |
+| `videos_save_version` | `baocut videos save-version` | mutation |
 | `videos_shots` | `baocut videos shots` | query |
+| `videos_version_diff` | `baocut videos version-diff` | query |
+| `videos_versions` | `baocut videos versions` | query |
 
 只在 CLI 里、MCP 上没有的：`baocut artifacts save`、`baocut models install`、`baocut models test`、`baocut projects create`、`baocut space index-build`、`baocut space index-status`、`baocut space related-videos`、`baocut space resolve-search-hit`、`baocut space search-v2`、`baocut speech glossary-candidates`、`baocut speech relevant`、`baocut speech retakes`、`baocut speech sentences`、`baocut speech topic-boundaries`、`baocut transcode`、`baocut videos delete`、`baocut videos import-package`、`baocut videos match-frames`。
 <!-- /generated -->

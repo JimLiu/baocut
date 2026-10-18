@@ -1,0 +1,176 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bundle preview</title>
+<!--
+  bundle-preview.html — 烘焙前给用户看代码画面：每段的代码包放进 iframe，跟着那段旁白的音频逐帧画，
+  叠上字幕带与当前那句旁白，旁边放参考图。不导入、不烘焙，改了代码包刷新页面就能再看。
+
+  用法：拷到工作目录（代码包、音频与时间文件都在它下面），写一份 preview.json，在这个目录起一个静态服务
+  （例如 python3 -m http.server 8000），打开 /bundle-preview.html?config=preview.json。
+
+  preview.json：
+  {
+    "caption": { "y": 75, "verticalAlign": "center", "fontSize": 30, "width": 80 },  // 与字幕样式同一套键；不给就不画字幕带
+    "segments": [
+      { "id": "s01", "bundle": "bundles/s01", "audio": "audio/s01.wav", "lines": "timing/s01.json", "ref": "ref/fig1.png", "note": "原文配图 1" }
+    ]
+  }
+  bundle 是代码包目录（入口 index.html）；audio、lines、ref、note 都可省。lines 是 [{ text, start, end }]，
+  或 { lines: [...] }，秒数相对这一段的开头。没有 audio 时按页面时钟播放，时长取根元素的 data-duration。
+  baocut/1（window.__baocutCompositions）与 hyperframes/1（window.__timelines）都认。
+-->
+<style>
+  :root { color-scheme: dark; --bg: #111; --panel: #1d1d1d; --line: #333; --text: #eee; --dim: #999; --hi: #f2c14e; --err: #ff6b5b; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, sans-serif; }
+  header { display: flex; gap: 6px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; font: inherit; }
+  button.on { background: var(--hi); color: #111; border-color: var(--hi); }
+  main { display: grid; grid-template-columns: auto minmax(260px, 1fr); gap: 16px; padding: 16px; align-items: start; }
+  .stage { position: relative; background: #000; overflow: hidden; }
+  .stage iframe { position: absolute; left: 0; top: 0; border: 0; transform-origin: 0 0; pointer-events: none; }
+  .band { position: absolute; left: 0; right: 0; outline: 1px dashed rgba(242, 193, 78, .7); pointer-events: none; }
+  .cap { position: absolute; text-align: center; color: #fff; font-weight: 700; text-shadow: 0 0 4px #000, 0 1px 3px #000; pointer-events: none; }
+  .ctrl { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  .ctrl input[type=range] { flex: 1; }
+  .tm { font-variant-numeric: tabular-nums; color: var(--dim); min-width: 90px; text-align: right; }
+  .side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .side img { width: 100%; display: block; background: #fff; }
+  ol { margin: 0; padding-left: 24px; }
+  li { padding: 2px 6px; border-radius: 4px; cursor: pointer; color: var(--dim); }
+  li.now { color: var(--text); background: var(--panel); }
+  .dim { color: var(--dim); }
+  .err { color: var(--err); white-space: pre-wrap; }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header id="tabs"></header>
+<main>
+  <div>
+    <div class="stage" id="stage"><iframe id="fr"></iframe><div class="band" id="band"></div><div class="cap" id="cap"></div></div>
+    <div class="ctrl"><button id="play">▶</button><input type="range" id="seek" min="0" max="1000" value="0"><span class="tm" id="tm"></span></div>
+    <div class="ctrl dim"><label><input type="checkbox" id="capOn" checked> caption band</label><span>Space play/pause · ← → 2 s · click a line to jump</span></div>
+  </div>
+  <div class="side"><div id="ref"></div><ol id="lines"></ol><div class="err" id="err"></div></div>
+</main>
+<audio id="au" preload="auto"></audio>
+<script>
+  const $ = id => document.getElementById(id);
+  const q = new URLSearchParams(location.search);
+  const au = $('au'), fr = $('fr');
+  let CFG = null, seg = null, view = null, lines = [], dur = 0, clock = null, last = -1, token = 0;
+
+  const fresh = url => url + (url.includes('?') ? '&' : '?') + 'v=' + Date.now();
+  const getJson = async url => (await fetch(fresh(url))).json();
+  // 当前时刻：有音频跟音频走，没有就跟页面时钟走
+  const now = () => (seg && seg.audio ? au.currentTime : clock ? Math.min(dur, clock.at + (performance.now() - clock.t0) / 1000) : view ? view.paused : 0);
+  const playing = () => (seg && seg.audio ? !au.paused : !!clock);
+  function seekTo(t) {
+    t = Math.max(0, Math.min(dur, t));
+    if (seg.audio) au.currentTime = t; else if (clock) clock = { at: t, t0: performance.now() }; else view.paused = t;
+  }
+  function toggle() {
+    if (seg.audio) return au.paused ? au.play() : au.pause();
+    if (clock) { view.paused = now(); clock = null; } else clock = { at: view.paused >= dur ? 0 : view.paused, t0: performance.now() };
+  }
+
+  function layout() {
+    if (!view) return;
+    const { w, h } = view, maxH = Math.max(320, innerHeight - 140), maxW = Math.max(320, innerWidth * 0.62);
+    const s = Math.min(maxH / h, maxW / w);
+    Object.assign($('stage').style, { width: w * s + 'px', height: h * s + 'px' });
+    Object.assign(fr.style, { width: w + 'px', height: h + 'px', transform: `scale(${s})` });
+    const c = CFG.caption;
+    $('band').style.display = $('cap').style.display = c && $('capOn').checked ? '' : 'none';
+    if (!c) return;
+    // 和字幕样式同一套键：y 是锚线（画面高度的百分比），fontSize 按 540 短边计，width 是最大行宽
+    const px = (c.fontSize ?? 30) * (Math.min(w, h) / 540) * s, bandH = px * 1.3 * 2;
+    const anchor = (c.y ?? 86) / 100 * h * s, va = c.verticalAlign || 'center';
+    const top = va === 'top' ? anchor : va === 'bottom' ? anchor - bandH : anchor - bandH / 2;
+    const width = (c.width ?? 80) / 100 * w * s, left = (c.x ?? 50) / 100 * w * s - width / 2;
+    Object.assign($('band').style, { top: top + 'px', height: bandH + 'px' });
+    Object.assign($('cap').style, { top: top + 'px', left: left + 'px', width: width + 'px', fontSize: px + 'px', lineHeight: 1.3 });
+  }
+
+  async function load(s) {
+    const my = ++token;
+    seg = s; view = null; last = -1; clock = null; au.pause(); $('err').textContent = '';
+    document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.id === s.id));
+    q.set('id', s.id); history.replaceState(null, '', '?' + q);
+    $('ref').innerHTML = s.ref ? `<img src="${fresh(s.ref)}" alt=""><div class="dim">${s.note || ''}</div>` : `<div class="dim">${s.note || ''}</div>`;
+    lines = [];
+    if (s.lines) { const j = await getJson(s.lines); lines = Array.isArray(j) ? j : j.lines || []; }
+    $('lines').innerHTML = lines.map((l, i) => `<li data-i="${i}">${l.text}</li>`).join('');
+    if (au.src.startsWith('blob:')) URL.revokeObjectURL(au.src);
+    au.removeAttribute('src');
+    // 整段读成 blob 再播：简单的静态服务不支持 Range 请求，直接给地址拖不动进度
+    if (s.audio) au.src = URL.createObjectURL(await (await fetch(fresh(s.audio))).blob());
+    await new Promise(ok => { fr.onload = ok; fr.src = fresh(s.bundle.replace(/\/?$/, '/') + 'index.html'); });
+    try {
+      const w = fr.contentWindow, root = w.document.querySelector('[data-composition-id]');
+      if (!root) throw new Error('no element with data-composition-id');
+      const id = root.getAttribute('data-composition-id'), W = +root.dataset.width, H = +root.dataset.height, fps = +root.dataset.fps || 30;
+      dur = +root.dataset.duration || 0;
+      let render;
+      for (let k = 0; k < 100 && !render; k++) {
+        const c = w.__baocutCompositions && w.__baocutCompositions[id], tl = w.__timelines && w.__timelines[id];
+        if (c) {
+          await w.document.fonts.ready;
+          if (c.initialize) await c.initialize({ compositionId: id, target: root, width: W, height: H, pixelRatio: 1, fps: { num: fps, den: 1 }, intrinsicFps: { num: fps, den: 1 }, durationFrames: Math.round(dur * fps), seed: id, parameters: {}, fonts: { ready: () => w.document.fonts.ready }, assets: { resolve: async a => { throw new Error('asset ' + a + ' is not available in preview'); } } });
+          render = t => c.renderAt({ ticks: Math.round(t * 1e6), timescale: 1e6 }, {});
+        } else if (tl) { if (tl.pause) tl.pause(); render = t => tl.seek(t); }
+        else await new Promise(ok => setTimeout(ok, 100));
+      }
+      if (!render) throw new Error(`neither __baocutCompositions["${id}"] nor __timelines["${id}"] was registered`);
+      if (my !== token) return;
+      view = { w: W, h: H, render, paused: 0 };
+      layout();
+    } catch (e) { $('err').textContent = s.id + ': ' + e.message; }
+  }
+
+  function tick() {
+    requestAnimationFrame(tick);
+    if (!view) return;
+    const t = now();
+    if (clock && t >= dur) { view.paused = dur; clock = null; }
+    $('play').textContent = playing() ? '❚❚' : '▶';
+    if (t === last) return;
+    last = t;
+    try { view.render(t); } catch (e) { $('err').textContent = `${seg.id} @${t.toFixed(2)}s: ${e.message}`; }
+    $('tm').textContent = `${t.toFixed(1)} / ${dur.toFixed(1)}`;
+    $('seek').value = dur ? Math.round(t / dur * 1000) : 0;
+    const k = lines.findIndex(l => t >= l.start - 0.05 && t < l.end + 0.3);
+    document.querySelectorAll('#lines li').forEach((li, i) => li.classList.toggle('now', i === k));
+    $('cap').textContent = k >= 0 ? lines[k].text : '';
+  }
+
+  $('play').onclick = () => seg && toggle();
+  $('seek').oninput = () => seg && seekTo($('seek').value / 1000 * dur);
+  $('capOn').onchange = layout;
+  $('lines').onclick = e => { const li = e.target.closest('li'); if (li) seekTo(lines[+li.dataset.i].start); };
+  $('tabs').onclick = e => { const b = e.target.closest('button'); if (b) load(CFG.segments.find(s => s.id === b.dataset.id)); };
+  addEventListener('resize', layout);
+  addEventListener('keydown', e => {
+    if (!seg) return;
+    if (e.code === 'Space') { e.preventDefault(); toggle(); }
+    if (e.code === 'ArrowLeft') seekTo(now() - 2);
+    if (e.code === 'ArrowRight') seekTo(now() + 2);
+  });
+  // 自动核对用：跳到某一秒，等这一帧画好
+  window.previewSeek = t => new Promise(ok => { seekTo(t); setTimeout(ok, 250); });
+
+  (async () => {
+    try {
+      CFG = await getJson(q.get('config') || 'preview.json');
+      $('tabs').innerHTML = CFG.segments.map(s => `<button data-id="${s.id}">${s.id}</button>`).join('');
+      tick();
+      await load(CFG.segments.find(s => s.id === q.get('id')) || CFG.segments[0]);
+    } catch (e) { $('err').textContent = 'config: ' + e.message; }
+  })();
+</script>
+</body>
+</html>

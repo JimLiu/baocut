@@ -454,14 +454,15 @@
     const cardAt = window.BC_AGENT_CARDS
       ? window.BC_AGENT_CARDS.rowCards(rows, cur.messages, window.BC_AGENT_PROJECTS.sessionArtifacts(cur, app.spaceItems, app.tasks), app.tasks) : null;
     /* 视频卡第一次出现时在功能区打开那部视频（product-design §3.3，home-workspace-store.jsx `openMovieBeside`）：
-       进这条会话时已有的卡不算；之后新出现的各打开一次，用户关掉后不再打开。不是 Home 正开着的这条会话时那边什么都不做 */
+       进这条会话时已有的卡不算（之后才有画面的也不算）；之后新出现的等能看了（时长大于 0）各打开一次，用户关掉后不再打开。
+       不是 Home 正开着的这条会话时那边什么都不做 */
     const movieSeen = useRef(null);
     useEffect(() => {
       if (!cardAt || !sess) return;
-      const fresh = window.BC_AGENT_CARDS.freshMovies;
-      if (!movieSeen.current || movieSeen.current.sid !== sess.id) { movieSeen.current = {sid: sess.id, seen: new Set(fresh(cardAt, new Set()))}; return; }
+      const C = window.BC_AGENT_CARDS;
+      if (!movieSeen.current || movieSeen.current.sid !== sess.id) { movieSeen.current = {sid: sess.id, seen: new Set(C.cardMovies(cardAt))}; return; }
       const {seen} = movieSeen.current;
-      fresh(cardAt, seen).forEach((id) => { seen.add(id); if (app.openMovieBeside) app.openMovieBeside(id, sess.id); });
+      C.freshMovies(cardAt, seen).forEach((id) => { seen.add(id); if (app.openMovieBeside) app.openMovieBeside(id, sess.id); });
     });
     /* 回合：一句用户消息到下一句之前。页脚挂在每轮最后一行下面；最后一轮在跑时页脚计时 */
     const turns = TURN.turns(rows);

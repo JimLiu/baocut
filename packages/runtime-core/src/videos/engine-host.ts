@@ -36,8 +36,10 @@ const CODE_MAP: [RegExp, RpcErrorCode][] = [
     /^(PROJECT_REVISION_CONFLICT|IDEMPOTENCY_CONFLICT|UNDO_CONFLICT|UNDO_UNAVAILABLE|TIMELINE_OVERLAP|TARGET_LOCKED|VIDEO_LOCKED)$/,
     'conflict',
   ],
-  [/^(ENTITY_NOT_FOUND|VIDEO_NOT_OPEN)$/, 'not-found'],
-  [/^(INVALID_|TIME_|SOURCE_|MEDIA_|ASSET_|PACKAGE_|PET_|UNKNOWN_METHOD)/, 'invalid-request'],
+  // 版本记录（视频格式规范 §9）：快照被外部改过、版本链对不上，都要先由用户处理。
+  [/^(SNAPSHOT_CONFLICT|VERSION_CHAIN_BROKEN)$/, 'conflict'],
+  [/^(ENTITY_NOT_FOUND|VIDEO_NOT_OPEN|VERSION_NOT_FOUND)$/, 'not-found'],
+  [/^(INVALID_|TIME_|SOURCE_|MEDIA_|ASSET_|PACKAGE_|PET_|SNAPSHOT_INVALID|UNKNOWN_METHOD)/, 'invalid-request'],
   [/^VIDEO_READ_ONLY$/, 'forbidden'],
   // 停止屏障（§7.4）：不是冲突，不能按冲突重试。
   [/^TASK_STOPPED$/, 'forbidden'],

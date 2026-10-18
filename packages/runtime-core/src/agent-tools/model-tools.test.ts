@@ -197,6 +197,13 @@ describe('模型工具：能力视图与提交时的拒绝（不需要 ffprobe�
     expect(speech.providers[0]).toMatchObject({ kind: 'local', available: false, unavailableReason: 'not-installed' });
     expect(speech.providers[1]).toMatchObject({ kind: 'online', available: false, unavailableReason: 'not-configured', enabled: false });
     expect(speech.next).toContain('设置');
+    // 本机模型包没装：提议下载，不说本机没有这种能力；音乐只有本机，不请用户去设置里配服务。
+    expect(speech.next).toContain('models_install');
+    const music = before.body.capabilities[5];
+    expect(music.providers.map((p: Loose) => [p.providerId, p.unavailableReason])).toEqual([['local', 'not-installed']]);
+    expect(music.next).toContain('models_install');
+    expect(music.next).toContain('yue2-3b@audio-cpp-q8');
+    expect(music.next).not.toContain('设置');
 
     // 用户在设置里启用 OpenAI（这是用户的操作，工具做不到）。
     await side.client.request('models.configure', { providerId: 'openai', enabled: true, credential: OPENAI_KEY });

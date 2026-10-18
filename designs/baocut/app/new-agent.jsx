@@ -57,19 +57,41 @@
       <div className="ngate__acts"><Btn variant="accent" size="s" onClick={fix}>{h ? `启用 ${h.name}` : guide.fix}</Btn></div>
     </div>;
   }
-  // 项目是工作目录（product-design §2.3、§3.1）；两个创建入口共用此表单。
+  /* 创建项目（product-design §3.2.1）：Home 托盘与侧栏的「新建项目…」共用。「项目文件夹」可以选这台电脑上一个已有的文件夹（只选一个）：
+     选了就把它原样作为项目，文件不移动、不复制；名称是显示名，缺省是文件夹名；它本来就是项目时只选中它。
+     不选就在 ~/BaoCut/ 下新建一个同名文件夹。原型没有系统的目录选择器，「添加文件夹」固定选演示目录（BC_AGENT_PROJECTS.DEMO_OPEN_DIR）。 */
   function CreateProjectDialog({onClose, onCreated}) {
     const app = useApp();
     const P = window.BC_AGENT_PROJECTS;
     const [name, setName] = useState('');
-    const [parent, setParent] = useState('');
-    const [custom, setCustom] = useState(false);
+    const [folder, setFolder] = useState(null);
     const [touched, setTouched] = useState(false);
-    const error = P.dirCreationError(name, parent);
-    const preview = !error ? P.newDir(app.dirs, 'preview', name, parent) : null;
+    const nameField = useRef(null);
+    const error = P.dirCreationError(name, folder);
+    const preview = !folder && !error ? P.newDir(app.dirs, 'preview', name) : null;
+    const note = folder ? '这个文件夹原样作为项目，里面的文件留在原处，不移动、不复制' : preview ? `项目将保存在 ${preview.path}` : '';
+    const pick = () => {
+      // 按钮换成文件夹行时焦点会掉到右上角的关闭按钮上，回车就关了对话框；先挪回名称框，回车即创建。
+      if (nameField.current) nameField.current.focus();
+      setFolder(P.DEMO_OPEN_DIR);
+      // 名称还空着就先填上文件夹名，可以改成别的显示名。
+      if (!name.trim()) setName(P.DEMO_OPEN_DIR.name);
+    };
+    const unpick = () => {
+      if (folder && name === folder.name) setName('');
+      if (nameField.current) nameField.current.focus();
+      setFolder(null);
+    };
     const create = () => {
       if (error) { setTouched(true); return; }
-      const project = app.createDir(name.trim(), parent.trim());
+      if (folder) {
+        const r = app.openDir({path: folder.path, name: name.trim() || folder.name});
+        onCreated(r.dir);
+        onClose();
+        app.toast(r.added ? `已添加项目「${r.dir.name}」` : `这个文件夹已经是项目「${r.dir.name}」`, 'positive');
+        return;
+      }
+      const project = app.createDir(name.trim());
       onCreated(project);
       onClose();
       app.toast(`已创建项目「${project.name}」`, 'positive');
@@ -78,52 +100,76 @@
       <div className="home-project-dialog__close"><IconBtn icon="close" tip="关闭创建项目" onClick={onClose} /></div>
       <div className="home-project-dialog__heading"><span className="home-project-dialog__mark"><R.Icons.Folder /></span><h2>创建项目</h2></div>
       <form className="home-project-dialog__form" onSubmit={e => { e.preventDefault(); create(); }}>
-        <R.TextField label="项目名称" placeholder="给项目起个名字" value={name} onChange={setName} autoFocus
-          onBlur={() => setTouched(true)} isInvalid={touched && !!P.dirCreationError(name, '~/')}
-          errorMessage={P.dirCreationError(name, '~/')} UNSAFE_className="home-project-dialog__field" />
-        <section className="home-project-dialog__location" aria-label="保存文件夹">
-          <div className="home-project-dialog__label"><span>保存文件夹</span><span className="home-project-dialog__device"><R.Icons.DeviceLaptop />这台电脑</span></div>
-          <R.MenuTrigger>
-            <R.ActionButton aria-label="选择保存文件夹" UNSAFE_className="home-project-dialog__folder"><R.Icons.FolderOpen /><R.Text>{parent || '选择文件夹'}</R.Text></R.ActionButton>
-            <R.Menu aria-label="保存位置" onAction={key => { setCustom(key === 'custom'); if (key !== 'custom') setParent(String(key)); }}>
-              <R.MenuItem id="~/BaoCut/" textValue="BaoCut"><R.Icons.Folder /><R.Text>BaoCut</R.Text><R.Text slot="description">~/BaoCut/</R.Text></R.MenuItem>
-              <R.MenuItem id="~/Movies/" textValue="视频"><R.Icons.Folder /><R.Text>视频</R.Text><R.Text slot="description">~/Movies/</R.Text></R.MenuItem>
-              <R.MenuItem id="~/Desktop/" textValue="桌面"><R.Icons.Folder /><R.Text>桌面</R.Text><R.Text slot="description">~/Desktop/</R.Text></R.MenuItem>
-              <R.MenuItem id="custom" textValue="输入其他路径…"><R.Icons.Edit /><R.Text>输入其他路径…</R.Text></R.MenuItem>
-            </R.Menu>
-          </R.MenuTrigger>
-          {custom && <R.TextField label="文件夹路径" placeholder="~/Movies/" value={parent} onChange={setParent}
-            isInvalid={!!parent && !!P.dirCreationError('项目', parent)} errorMessage={P.dirCreationError('项目', parent)} UNSAFE_className="home-project-dialog__field" />}
-          {preview && <p className="home-project-dialog__path">项目将保存在 {preview.path}</p>}
+        {/* 输入过才显示错误，不在失焦时显示：按「添加文件夹」「取消」会先让名称框失焦，错误一出来按钮就往下挪，这一下点空。 */}
+        <R.TextField ref={nameField} label="项目名称" placeholder={folder ? folder.name : '给项目起个名字'} value={name} autoFocus
+          onChange={v => { setName(v); setTouched(true); }} isInvalid={touched && !!error}
+          errorMessage={error} UNSAFE_className="home-project-dialog__field" />
+        <section className="home-project-dialog__location" aria-label="项目文件夹">
+          <div className="home-project-dialog__label"><span>项目文件夹</span><span className="home-project-dialog__device"><R.Icons.DeviceLaptop />这台电脑</span></div>
+          {folder
+            ? <div className="home-project-dialog__folder" title={folder.path}>
+                <R.Icons.Folder />
+                <span className="home-project-dialog__folder-text"><span>{folder.name}</span><span className="home-project-dialog__folder-path">{folder.path}</span></span>
+                <R.ActionButton isQuiet size="S" aria-label="移除文件夹" onPress={unpick}><R.Icons.Close /></R.ActionButton>
+              </div>
+            : <div className="home-project-dialog__empty">
+                <span>用这台电脑上已有的文件夹</span>
+                <R.ActionButton size="S" onPress={pick}><R.Icons.FolderAdd /><R.Text>添加文件夹</R.Text></R.ActionButton>
+              </div>}
+          {note && <p className="home-project-dialog__path">{note}</p>}
         </section>
         <div className="home-project-dialog__actions"><R.Button variant="secondary" onPress={onClose}>取消</R.Button><R.Button variant="accent" type="submit" isDisabled={!!error}>创建</R.Button></div>
       </form>
     </BCModal>;
   }
-  /* 输入框下沿的项目托盘（product-design §2.3）：会话可以不属于任何项目，所以第一项是「不用项目」；
-     其余是项目（按最近活动排，同侧栏）与「新建项目」。选中哪个由页面记住，下次进来还是它（page-new.jsx）。
+  /* 输入框下沿的项目托盘（product-design §2.3、§3.2.1）。弹层顶上是搜索框，下面是项目（按最近活动排，同侧栏，当前那一项打勾；
+     多了只滚这一段），最底下是「新建项目…」与「不用项目」——会话可以不属于任何项目。选中哪个由页面记住，下次进来还是它（page-new.jsx）。
      不用项目时说明视频会落到哪儿：会话自己的文件夹，不另建项目；用户明确要项目时 Agent 才把会话收进一个以视频命名的新项目。 */
   const NO_PROJECT_HINT = '不用项目时，视频和文件放在这个会话自己的文件夹里';
   function HomeProjectPicker({dir, onDir}) {
     const app = useApp();
     const AP = window.BC_AGENT_PROJECTS;
+    const [open, setOpen] = useState(false);
+    const [query, setQuery] = useState('');
     const [creating, setCreating] = useState(false);
     const selected = app.dirs.find(d => d.id === dir) || null;
     const dirs = AP.tree({dirs: app.dirs, movies: app.activeProjects, sessions: app.sessions}).projects
       .map(p => p.dir).filter(d => !d.archived);
-    const current = <R.Text slot="description">当前</R.Text>;
+    const shown = AP.matchDirs(dirs, query);
+    const picked = [selected ? selected.id : 'none'];
+    const openChange = (v) => { setOpen(v); if (!v) setQuery(''); };
+    const choose = (key) => {
+      openChange(false);
+      if (key === 'new') setCreating(true);
+      else onDir(key === 'none' ? null : key);
+    };
     return <div className="home-create__project">
       <span className="home-project-dialog__device"><R.Icons.DeviceLaptop />这台电脑</span>
-      <R.MenuTrigger>
+      <R.DialogTrigger isOpen={open} onOpenChange={openChange}>
         <R.ActionButton size="S" isQuiet aria-label={'选择项目：' + (selected ? selected.name : '不用项目')}><R.Icons.Folder /><R.Text>{selected ? selected.name : '不用项目'}</R.Text></R.ActionButton>
-        <R.Menu aria-label="选择项目" onAction={key => key === 'new' ? setCreating(true) : onDir(key === 'none' ? null : key)}>
-          <R.MenuSection><R.MenuItem id="none" textValue="不用项目"><R.Icons.Folder /><R.Text>不用项目</R.Text>{!selected && current}</R.MenuItem></R.MenuSection>
-          {dirs.length > 0 && <R.MenuSection aria-label="项目"><R.Header>项目</R.Header>{dirs.map(d => <R.MenuItem key={d.id} id={d.id} textValue={d.name}><R.Icons.Folder /><R.Text>{d.name}</R.Text>{d.id === dir && current}</R.MenuItem>)}</R.MenuSection>}
-          <R.MenuSection><R.MenuItem id="new" textValue="新建项目…"><R.Icons.Add /><R.Text>新建项目…</R.Text></R.MenuItem></R.MenuSection>
-        </R.Menu>
-      </R.MenuTrigger>
+        <R.Popover placement="bottom start" hideArrow padding="none" aria-label="选择项目">
+          <div className="home-project-menu">
+            {dirs.length > 0 && <R.Autocomplete inputValue={query} onInputChange={setQuery}>
+              <R.SearchField aria-label="搜索项目" placeholder="搜索项目" autoFocus />
+              {shown.length > 0
+                ? <div className="home-project-menu__list">
+                    <R.Menu aria-label="项目" selectionMode="single" selectedKeys={picked} onAction={key => choose(String(key))}>
+                      {shown.map(d => <R.MenuItem key={d.id} id={d.id} textValue={d.name}><R.Icons.Folder /><R.Text>{d.name}</R.Text></R.MenuItem>)}
+                    </R.Menu>
+                  </div>
+                : <p className="home-project-menu__empty">没有匹配的项目</p>}
+            </R.Autocomplete>}
+            <R.Menu aria-label="选择项目" selectionMode="single" selectedKeys={picked} onAction={key => choose(String(key))}>
+              <R.MenuSection>
+                <R.MenuItem id="new" textValue="新建项目…"><R.Icons.Add /><R.Text>新建项目…</R.Text></R.MenuItem>
+                <R.MenuItem id="none" textValue="不用项目"><R.Icons.Close /><R.Text>不用项目</R.Text></R.MenuItem>
+              </R.MenuSection>
+            </R.Menu>
+          </div>
+        </R.Popover>
+      </R.DialogTrigger>
       <span className="home-create__project-path" title={selected ? selected.path : NO_PROJECT_HINT}>{selected ? selected.path : NO_PROJECT_HINT}</span>
-      {creating && <CreateProjectDialog onClose={() => setCreating(false)} onCreated={d => onDir(d.id)} />}
+      {creating && <CreateProjectDialog onClose={() => setCreating(false)} onCreated={d => onDir(d.id, d)} />}
     </div>;
   }
   function AgentHero({text, onText, files, onFiles, media, mediaAttachment, onMedia, recent, onRecent, skill, onSkill, scene, onScene, downloading, focusTick, dir, onDir, sel, onSel, ready, can, busy, onSubmit}) {

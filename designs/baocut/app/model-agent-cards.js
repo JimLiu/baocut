@@ -389,19 +389,26 @@
     return out;
   }
 
-  /** 第一次出现的视频卡（product-design §3.3：功能区自动打开这部视频）：`rowCards` 里 `seen` 没有的视频 id，按挂的先后。
-      调用方打开后把 id 记进 `seen`；`seen` 给空集合时就是全部视频卡。 */
-  function freshMovies(cardAt, seen) {
+  /** `rowCards` 里全部视频卡的视频 id，按挂的先后（进会话时记下已有的卡，有没有画面都算）。 */
+  function cardMovies(cardAt) {
     const out = [];
     (cardAt || new Map()).forEach((cards) => cards.forEach((c) => {
-      if (c.k === 'artifact' && c.item.kind === 'movie' && !seen.has(c.item.id) && out.indexOf(c.item.id) < 0) out.push(c.item.id);
+      if (c.k === 'artifact' && c.item.kind === 'movie' && out.indexOf(c.item.id) < 0) out.push(c.item.id);
     }));
     return out;
+  }
+
+  /** 第一次出现的视频卡（product-design §3.3：功能区自动打开这部视频）：`seen` 没有、也能看了（时长大于 0）的视频 id，按挂的先后。
+      还是空的（智能体刚建出来、还没放画面）下次再看；调用方打开后把 id 记进 `seen`。 */
+  function freshMovies(cardAt, seen) {
+    const dur = new Map();
+    (cardAt || new Map()).forEach((cards) => cards.forEach((c) => { if (c.k === 'artifact') dur.set(c.item.id, c.item.dur); }));
+    return cardMovies(cardAt).filter((id) => !seen.has(id) && dur.get(id) > 0);
   }
 
   root.BC_AGENT_CARDS = {
     ROW_KINDS, CANDIDATE_KINDS, PHASE_LABEL, WARNINGS,
     state, remedy, phaseLabel, countLabel, timeLabel, facts, warnings, files, clock, asrLine,
-    badge, sessionJobs, jobRow, foldRows, needsAction, movieCard, download, candidates, candidate, rowIndex, rowCards, freshMovies,
+    badge, sessionJobs, jobRow, foldRows, needsAction, movieCard, download, candidates, candidate, rowIndex, rowCards, cardMovies, freshMovies,
   };
 })();

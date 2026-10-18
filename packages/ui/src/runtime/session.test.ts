@@ -1,6 +1,7 @@
 import { expect, it, vi } from 'vitest';
 import type { LegacyImportEvent, LegacyImportSnapshot } from '@baocut/protocol';
 import type { HostBridge } from '../host.ts';
+import { useDirectory } from '../state/directory-store.ts';
 import { useShell } from '../state/shell-store.ts';
 import { RuntimeSession } from './session.ts';
 
@@ -43,5 +44,19 @@ it('opens each video an external agent created once, even when a reconnect repla
   session.openExternalVideo(created);
   session.openExternalVideo(created);
   session.openExternalVideo({ ...created, videoId: 'v2', target: { projectId: 'p1', path: 'Other' } });
-  expect(openExternalVideo.mock.calls).toEqual([[{ projectId: 'p1', path: 'Demo' }], [{ projectId: 'p1', path: 'Other' }]]);
+  expect(openExternalVideo.mock.calls).toEqual([
+    [{ projectId: 'p1', path: 'Demo' }, false],
+    [{ projectId: 'p1', path: 'Other' }, false],
+  ]);
+});
+
+it('tells the shell the conversation on screen is busy while its task runs', () => {
+  const openExternalVideo = vi.fn();
+  useShell.setState({ route: { tab: 'home', conversationId: 'c1', projectId: null }, openExternalVideo });
+  useDirectory.setState({ conversations: [{ id: 'c1', activeTaskId: 't1' } as never] });
+  const session = new RuntimeSession({ platform: 'test', getConnection: async () => null } as unknown as HostBridge);
+  session.openExternalVideo({ videoId: 'v3', videoName: 'Busy', target: { projectId: 'p1', path: 'Busy' }, by: 'mcp' });
+  useDirectory.setState({ conversations: [{ id: 'c1', activeTaskId: null } as never] });
+  session.openExternalVideo({ videoId: 'v4', videoName: 'Idle', target: { projectId: 'p1', path: 'Idle' }, by: 'mcp' });
+  expect(openExternalVideo.mock.calls.map(([, busy]) => busy)).toEqual([true, false]);
 });

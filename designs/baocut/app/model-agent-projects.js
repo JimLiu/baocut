@@ -208,15 +208,22 @@
     return {id, name: n, path: dirPath(n, parent), mtime: 0};
   }
 
-  /** 创建表单先校验名称与父目录；浏览器原型只保存路径，不写入磁盘。 */
-  function dirCreationError(name, parent) {
+  /**
+   * 创建项目表单的名称校验（product-design §3.2.1）。没选文件夹时名称就是 ~/BaoCut/ 下新目录的名字，必填；
+   * 选了已有文件夹（folder）时名称只是显示名，留空就用文件夹名，填了的照样不收斜杠与控制字符。浏览器原型只保存路径，不写入磁盘。
+   */
+  function dirCreationError(name, folder) {
     const n = String(name || '').trim();
-    const p = String(parent || '').trim();
-    if (!n) return '请输入项目名称';
+    if (!n) return folder ? '' : '请输入项目名称';
     if (n === '.' || n === '..' || /[/\\\x00-\x1f]/.test(String(name))) return '项目名称不能包含斜杠或控制字符';
-    if (!p) return '请选择保存文件夹';
-    if (!/^(~\/|\/)/.test(p) || /[\\\x00-\x1f]/.test(String(parent)) || p.split('/').some(x => x === '.' || x === '..')) return '请输入以 ~/ 或 / 开头的完整文件夹路径';
     return '';
+  }
+
+  /** 项目选择器的搜索：名字或路径里含有查询词（不分大小写）；空查询原样返回。 */
+  function matchDirs(dirs, query) {
+    const q = String(query || '').trim().toLowerCase();
+    if (!q) return dirs;
+    return (dirs || []).filter((d) => String(d.name).toLowerCase().includes(q) || String(d.path).toLowerCase().includes(q));
   }
 
   /**
@@ -351,6 +358,6 @@
   root.BC_AGENT_PROJECTS = {
     sessionArtifacts, artifactList, STATUS, ORDER, sessionStatus, statusInfo, dirOf, moviePath, summarize, summaryText, byRecent, activity,
     tree, sidebarView, archivedView, attention, search, sessionForMovie, fitsMovie, sessionsOfMovieProject,
-    DIR_ROOT, NEW_DIR_NAME, DEMO_OPEN_DIR, dirCreationError, dirPath, uniqueDirName, newDir, openDir,
+    DIR_ROOT, NEW_DIR_NAME, DEMO_OPEN_DIR, dirCreationError, matchDirs, dirPath, uniqueDirName, newDir, openDir,
   };
 })();

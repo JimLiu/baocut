@@ -55,6 +55,11 @@ function harness(setting: string[] = []) {
       }),
       open: async (video: string) => ({ ref: { videoId: video } }),
       commandId: (_access: unknown, id: string) => id,
+      // 与真实的范围相同：对外服务没有本机路径的基准。
+      fileBase: (access: { principal: ToolPrincipal }) => {
+        if (access.principal.kind === 'service') throw new ToolError('INVALID_ARGUMENTS', '对外服务不能给本机路径');
+        return '/work/conv_1';
+      },
       adoptCreatedVideo: (_access: unknown, videoId: Id) => {
         adopted.push(videoId);
       },
@@ -149,6 +154,34 @@ describe('download：文件存到哪里', () => {
     expect(imported.next).toContain('在下载目录');
     const toProject = (await tools.dispatch('download', { url: LINK, project: 'prj_1' }, agent)) as { next: string };
     expect(toProject.next).toContain('downloads/');
+  });
+
+  it('outDir：相对路径按工作目录解析、交给流程（不带 saveTo），确认说明与 next 写明目录；可以与 video、newVideo 一起给', async () => {
+    const { deps, started, confirmed } = harness();
+    const tools = new LinkImportTools(deps);
+    const saved = (await tools.dispatch('download', { url: LINK, outDir: 'clips' }, agent)) as { next: string };
+    await tools.dispatch('download', { url: LINK, newVideo: true, project: 'prj_1', outDir: '/Volumes/Media/clips' }, agent);
+    await tools.dispatch('download', { url: LINK, video: 'vid_1', outDir: '/Volumes/Media/clips' }, agent);
+    expect(started.map((p) => [p.outDir, p.saveTo ?? null])).toEqual([
+      ['/work/conv_1/clips', null],
+      ['/Volumes/Media/clips', null],
+      ['/Volumes/Media/clips', null],
+    ]);
+    expect(saved.next).toContain('/work/conv_1/clips');
+    expect(confirmed.map((c) => c.summary)).toEqual([
+      expect.stringMatching(/，保存到 \/work\/conv_1\/clips$/),
+      expect.stringMatching(/并放上时间线，下载的文件保存在 \/Volumes\/Media\/clips$/),
+      expect.stringMatching(/导入视频，下载的文件保存在 \/Volumes\/Media\/clips$/),
+    ]);
+  });
+
+  it('outDir：只给 project 时与它冲突；对外服务不能给；都不弹确认、不启动流程', async () => {
+    const { deps, started, confirmed } = harness();
+    const tools = new LinkImportTools(deps);
+    expect((await refused(tools.dispatch('download', { url: LINK, project: 'prj_1', outDir: '/tmp/x' }, agent))).code).toBe('INVALID_ARGUMENTS');
+    expect((await refused(tools.dispatch('download', { url: LINK, video: 'vid_1', outDir: '/tmp/x' }, service))).code).toBe('INVALID_ARGUMENTS');
+    expect(started).toEqual([]);
+    expect(confirmed).toEqual([]);
   });
 });
 

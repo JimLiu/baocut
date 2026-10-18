@@ -27,6 +27,10 @@ import {
   type TransactionReceipt,
   type UndoState,
   type UnusedAsset,
+  type VideoSnapshotStatus,
+  type VideoVersionList,
+  type VideoVersionText,
+  type TaskSummary,
 } from '@baocut/protocol';
 import { TopicLog, type Logger, type TopicSubscription } from '@baocut/harness';
 import { isDotLottie } from '@baocut/runtime-storage/library';
@@ -88,6 +92,15 @@ export interface VideoServiceOptions {
   graceMs?: number;
   /** 下载的字体所在的目录（`<home>/fonts/files`）：本机没有的族由引擎再到这里挑（架构设计 §9.1）。 */
   fontCacheDir?: string;
+  /** 版本记录的设置（`versions.keep`、`versions.cadence`，架构设计 §5.10）。没有时按缺省值。 */
+  versionSettings?: () => VersionSettings;
+  /** 最后一笔编辑之后多久写工作区快照（视频格式规范 §9.2）。 */
+  snapshotDelayMs?: number;
+}
+
+export interface VersionSettings {
+  keep: number;
+  cadence: 'segment' | 'turn';
 }
 
 interface Session {
@@ -96,6 +109,25 @@ interface Session {
   /** Runtime 内部的租约（如进行中的转写任务）：有租约时不因打开者走光而关闭。 */
   leases: number;
   closeTimer: ReturnType<typeof setTimeout> | null;
+  /** 工作区快照（架构设计 §5.12）的去抖计时器：有还没写的改动时在跑。只有项目里的视频写快照。 */
+  snapshotTimer: ReturnType<typeof setTimeout> | null;
+  /** 有还没写进快照的改动。 */
+  snapshotDirty: boolean;
+  /** 按回合切分时：下一次有改动的写是新回合的第一次写（`boundary: 'turn'`）。 */
+  turnBoundary: boolean;
+  /** 上次写快照之后改过视频的会话（版本头部的 `Conversation`）。 */
+  conversations: Map<Id, string>;
+  /** 快照被外部改过、不再覆盖：只记一次日志。 */
+  snapshotConflict: boolean;
+}
+
+/** 引擎 `videos.writeSnapshot` 的结果。 */
+interface SnapshotWrite {
+  revision: string;
+  version?: number;
+  opened: boolean;
+  written: string[];
+  pruned: number[];
 }
 
 interface Channel {
@@ -123,11 +155,17 @@ interface HostOpened {
 }
 
 const DEFAULT_GRACE_MS = 15_000;
+const DEFAULT_SNAPSHOT_DELAY_MS = 10_000;
+const DEFAULT_VERSION_SETTINGS: VersionSettings = { keep: 10, cadence: 'segment' };
+/** 记得住的任务（任务 → 会话）：版本头部按提交带的任务号认出会话。 */
+const MAX_TRACKED_TASKS = 500;
 const MAX_RESTARTS = 3;
 const RESTART_WINDOW_MS = 60_000;
 const DB_FILE = 'video.db';
 /** 改名之前的数据库文件名：引擎打开时就地升级成 `video.db`。 */
 const LEGACY_DB_FILE = 'movie.db';
+/** 工作区快照（视频格式规范 §9.1）：只有它、没有库的目录打开前先重建。 */
+const SNAPSHOT_VIDEO_FILE = path.join('.bcut-snapshot', 'video.json');
 
 /**
  * 公共请求不带操作者；操作者由连接身份构造（架构设计 §4.2）。对外服务的请求记为 `external:<serviceId>`（§4.8）：
@@ -178,6 +216,11 @@ export async function hasVideoDb(dir: string): Promise<boolean> {
   return (await exists(path.join(dir, DB_FILE))) || (await exists(path.join(dir, LEGACY_DB_FILE)));
 }
 
+/** 没有库、只有工作区快照的视频目录（视频格式规范 §9.7「待重建」）。 */
+export async function needsRebuild(dir: string): Promise<boolean> {
+  return !(await hasVideoDb(dir)) && (await exists(path.join(dir, SNAPSHOT_VIDEO_FILE)));
+}
+
 /**
  * 提交编辑前补操作（`VideoService.prepareOperations`）：返回补好的整组操作与写完之后要放掉的东西；不用补时 null。
  * 例如模板台标用到的图片在同一笔事务里登记成素材（视频格式规范 §3.17）。
@@ -195,6 +238,11 @@ export class VideoService {
   readonly #creates = new Map<Id, Promise<VideoOpenResult>>();
   readonly #claims = new Map<Id, Promise<{ reassigned: number; skipped: number }>>();
   readonly #changeListeners = new Set<(change: { videoId: Id; path: string; revision: string }) => void>();
+  readonly #snapshotDelayMs: number;
+  /** 任务 → 会话（`noteTask`）。 */
+  readonly #tasks = new Map<Id, { id: Id; title: string }>();
+  /** 正在关闭的视频目录 → 关闭做完（写快照、清理 blob、放下写锁）。同一目录的打开、取锁与认领先等它。 */
+  readonly #closing = new Map<string, Promise<void>>();
   #host: EngineHost | null = null;
   #starting: Promise<EngineHost> | null = null;
   #afterCreate: ((videoId: Id, principal: TrustedPrincipal) => Promise<void>) | null = null;
@@ -206,6 +254,7 @@ export class VideoService {
     this.#options = options;
     this.#log = options.log.child('videos');
     this.#graceMs = options.graceMs ?? DEFAULT_GRACE_MS;
+    this.#snapshotDelayMs = options.snapshotDelayMs ?? DEFAULT_SNAPSHOT_DELAY_MS;
   }
 
   // ---- 打开与关闭 ----
@@ -284,6 +333,10 @@ export class VideoService {
   async open(location: VideoLocation, principal: TrustedPrincipal): Promise<VideoOpenResult> {
     const { rootReal, dir } = await locateVideoDir(location);
     const host = await this.#ensureHost();
+    // 刚关闭的会话还在写快照、放写锁：等它做完再打开，否则引擎随后的关闭会关掉这次打开的视频。
+    await this.#closing.get(dir);
+    // 只有快照（另一台机器克隆来的、`video.db` 被删了）：先就地重建，保留快照里的 videoId（§5.12）。
+    if (await needsRebuild(dir)) await this.#rebuild(host, dir);
     // 带上所属项目：视频里记的项目不同（副本）时引擎先换标识，同一个 videoId 不会指向两个目录（架构设计 §5.1）。
     const opened = await host.request<HostOpened>('videos.open', { path: dir, ...projectOf(location.scope) });
     if (hostPath(opened.path) !== dir) {
@@ -320,6 +373,9 @@ export class VideoService {
     for (const dir of dirs) {
       if (open.has(dir)) continue;
       try {
+        await this.#closing.get(dir);
+        // 只有快照的视频（§5.12）：与认领同一趟，先重建再认领；重建保留 videoId，副本由认领换标识。
+        if (await needsRebuild(dir)) await this.#rebuild(host, dir);
         const claim = await host.request<{ outcome: string; videoId: Id }>('videos.claimProject', { path: dir, projectId: project.id });
         if (claim.outcome === 'reassigned') result.reassigned++;
       } catch (error) {
@@ -359,6 +415,7 @@ export class VideoService {
    */
   async withWriteLock<T>(dir: string, fn: () => Promise<T>): Promise<T> {
     const host = await this.#ensureHost();
+    await this.#closing.get(dir);
     const opened = await host.request<HostOpened>('videos.open', { path: dir });
     // 引擎里已经开着的（会话里的，或同一个视频在另一个目录里开着）不是这次取到的锁，不能替它放下。
     const owned = !this.#channels.get(opened.videoId)?.session && hostPath(opened.path) === dir;
@@ -535,6 +592,96 @@ export class VideoService {
   async history(videoId: Id, limit?: number): Promise<{ entries: HistoryEntry[] }> {
     const host = await this.#hostFor(videoId);
     return host.request<{ entries: HistoryEntry[] }>('history.list', { videoId, ...(limit ? { limit } : {}) });
+  }
+
+  // ---- 版本记录（架构设计 §5.12、视频格式规范 §9） ----
+
+  async listVersions(videoId: Id, limit?: number): Promise<VideoVersionList> {
+    const host = await this.#hostFor(videoId);
+    const list = await host.request<VideoVersionList>('videos.listVersions', { videoId });
+    return limit ? { ...list, versions: list.versions.slice(0, limit) } : list;
+  }
+
+  async readVersion(videoId: Id, version: number): Promise<VideoVersionText> {
+    const host = await this.#hostFor(videoId);
+    return host.request<VideoVersionText>('videos.readVersion', { videoId, version });
+  }
+
+  async versionStatus(videoId: Id): Promise<VideoSnapshotStatus> {
+    const host = await this.#hostFor(videoId);
+    const session = this.#channels.get(videoId)?.session;
+    if (!session) throw new RpcError('not-found', RcVideo.videoNotOpenOpenFirst(), { code: 'VIDEO_NOT_OPEN' });
+    return host.request<VideoSnapshotStatus>('videos.snapshotStatus', { path: session.ref.path });
+  }
+
+  /** 保存版本（§9.6）：先把还没写的改动写进快照（带上会话与回合），再由引擎建检查点、单独成版。 */
+  async saveVersion(params: RpcParams<'videos.versions.save'>, principal: TrustedPrincipal): Promise<EditResult & { version: number; checkpointId: Id }> {
+    const host = await this.#hostFor(params.videoId);
+    this.#requireProjectVideo(params.videoId);
+    await this.#flushSnapshot(params.videoId);
+    return host.request('videos.saveVersion', {
+      videoId: params.videoId,
+      commandId: params.commandId,
+      name: params.name,
+      ...(params.note ? { note: params.note } : {}),
+      actor: actorOf(principal),
+      keep: this.#versionSettings().keep,
+    });
+  }
+
+  /**
+   * 回到版本（§9.5）：同保存版本先写快照。`guard.protections`：智能体回到版本同样不能触碰它任务的保护范围（§3.2，同 `undo`）。
+   */
+  async restoreVersion(
+    params: RpcParams<'videos.versions.restore'>,
+    principal: TrustedPrincipal,
+    guard: { protections?: EngineProtection[] } = {},
+  ): Promise<{ receipt: TransactionReceipt | null; replayed: boolean; version: number | null }> {
+    const host = await this.#hostFor(params.videoId);
+    this.#requireProjectVideo(params.videoId);
+    await this.#flushSnapshot(params.videoId);
+    const result = await host.request<{ receipt: TransactionReceipt | null; replayed: boolean; version?: number | null }>('videos.restoreVersion', {
+      videoId: params.videoId,
+      commandId: params.commandId,
+      version: params.version,
+      ...(params.before ? { before: true } : {}),
+      actor: actorOf(principal),
+      keep: this.#versionSettings().keep,
+      ...(guard.protections?.length ? { protections: guard.protections } : {}),
+    });
+    return { receipt: result.receipt, replayed: result.replayed, version: result.version ?? null };
+  }
+
+  async deleteVersion(
+    params: RpcParams<'videos.versions.delete'>,
+    principal: TrustedPrincipal,
+  ): Promise<{ receipt: TransactionReceipt | null; replayed: boolean }> {
+    const host = await this.#hostFor(params.videoId);
+    this.#requireProjectVideo(params.videoId);
+    return host.request('videos.deleteVersion', {
+      videoId: params.videoId,
+      commandId: params.commandId,
+      version: params.version,
+      actor: actorOf(principal),
+    });
+  }
+
+  /**
+   * 智能体的任务（Harness 的 `tasks` 主题）：记下任务属于哪个会话，提交带着任务号时版本头部记下这个会话。
+   * 按回合切分（`versions.cadence: 'turn'`）时，新任务就是新回合：先把各视频还没写的改动写掉，之后每部视频下一次有改动的写开新版本。
+   */
+  noteTask(task: Pick<TaskSummary, 'taskId' | 'conversationId' | 'conversationTitle' | 'status'>): void {
+    const known = this.#tasks.get(task.taskId);
+    this.#tasks.delete(task.taskId);
+    this.#tasks.set(task.taskId, { id: task.conversationId, title: task.conversationTitle });
+    while (this.#tasks.size > MAX_TRACKED_TASKS) this.#tasks.delete(this.#tasks.keys().next().value!);
+    if (known || task.status !== 'running' || this.#versionSettings().cadence !== 'turn') return;
+    for (const [videoId, channel] of this.#channels) {
+      const session = channel.session;
+      if (!session?.ref.source.projectId) continue;
+      if (session.snapshotDirty) void this.#writeSnapshot(videoId, session);
+      session.turnBoundary = true;
+    }
   }
 
   /** 此刻读不到的素材版本：由引擎逐个核对文件在不在、长度对不对（`videos.assetStatus`）。 */
@@ -716,6 +863,7 @@ export class VideoService {
     this.#closed = true;
     for (const channel of this.#channels.values()) {
       if (channel.session?.closeTimer) clearTimeout(channel.session.closeTimer);
+      if (channel.session?.snapshotTimer) clearTimeout(channel.session.snapshotTimer);
       channel.session = null;
       channel.log.clear();
     }
@@ -759,7 +907,18 @@ export class VideoService {
         openers: new Set(),
         leases: 0,
         closeTimer: null,
+        snapshotTimer: null,
+        snapshotDirty: false,
+        turnBoundary: false,
+        conversations: new Map(),
+        snapshotConflict: false,
       };
+      // 打开时立即写一次（请求同步发出，排在之后的编辑前面）：没有快照的（新建的、升级前的视频）写下基线，之后的第一笔编辑
+      // 才成为第一个版本；上次没来得及写的补上；没有变化时引擎什么也不改。
+      if (channel.session.ref.source.projectId) {
+        channel.session.snapshotDirty = true;
+        void this.#writeSnapshot(opened.videoId, channel.session);
+      }
     }
     const session = channel.session;
     session.openers.add(principal.connectionId);
@@ -773,18 +932,105 @@ export class VideoService {
   async #closeSession(videoId: Id, reason: string): Promise<void> {
     const channel = this.#channels.get(videoId);
     if (!channel?.session) return;
-    if (channel.session.closeTimer) clearTimeout(channel.session.closeTimer);
-    const { ref: { path }, leases } = channel.session;
+    const session = channel.session;
+    if (session.closeTimer) clearTimeout(session.closeTimer);
+    if (session.snapshotTimer) clearTimeout(session.snapshotTimer);
+    session.snapshotTimer = null;
+    const { ref: { path }, leases } = session;
     channel.session = null;
     channel.log.publish({ type: 'video.closed', reason });
     this.#log.info('Video closed', { videoId, reason });
     const host = this.#host;
     if (!host?.alive) return;
-    // 放下写锁之前清理 `blobs/`（架构设计 §5.2、§5.5）：只在正常关闭（打开者走光或空闲）且没有任务租约时做；
-    // 被删除的视频正在搬走、引擎出错的不做。便携包导入在登记会话之前完成，走不到这里。失败只记日志，照常关闭。
-    if ((reason === 'closed' || reason === 'idle') && leases === 0)
-      await host.request('videos.gcBlobs', { path }).catch((error) => this.#log.warn('Cleaning up video blobs failed', { error: String(error) }));
-    await host.request('videos.close', { videoId }).catch((error) => this.#log.warn('Closing the video failed', { error: String(error) }));
+    const done = (async () => {
+      // 放下写锁之前写快照（§5.12），再做 blob GC：GC 要看到这次写下的版本引用的 blob。被删除的视频正在搬走，不写。
+      if ((reason === 'closed' || reason === 'idle') && session.snapshotDirty) await this.#writeSnapshot(videoId, session);
+      // 放下写锁之前清理 `blobs/`（架构设计 §5.2、§5.5）：只在正常关闭（打开者走光或空闲）且没有任务租约时做；
+      // 被删除的视频正在搬走、引擎出错的不做。便携包导入在登记会话之前完成，走不到这里。失败只记日志，照常关闭。
+      if ((reason === 'closed' || reason === 'idle') && leases === 0)
+        await host.request('videos.gcBlobs', { path }).catch((error) => this.#log.warn('Cleaning up video blobs failed', { error: String(error) }));
+      await host.request('videos.close', { videoId }).catch((error) => this.#log.warn('Closing the video failed', { error: String(error) }));
+    })();
+    this.#closing.set(path, done);
+    try {
+      await done;
+    } finally {
+      if (this.#closing.get(path) === done) this.#closing.delete(path);
+    }
+  }
+
+  /** 版本记录只给项目里的视频（§5.12）：不属于项目的会话文件夹里的视频不写快照，也不能保存、回到或删除版本。 */
+  #requireProjectVideo(videoId: Id): void {
+    if (this.#channels.get(videoId)?.session?.ref.source.projectId) return;
+    throw new RpcError('invalid-request', RcVideo.versionsNeedProject(), { code: 'VERSIONS_NEED_PROJECT' });
+  }
+
+  #versionSettings(): VersionSettings {
+    return this.#options.versionSettings?.() ?? DEFAULT_VERSION_SETTINGS;
+  }
+
+  /** 只有快照的目录就地建库（引擎 `videos.rebuildFromSnapshot`）；建好就放下锁，随后照常打开或认领。 */
+  async #rebuild(host: EngineHost, dir: string): Promise<void> {
+    const { videoId } = await host.request<{ videoId: Id }>('videos.rebuildFromSnapshot', { path: dir, keep: this.#versionSettings().keep });
+    this.#log.info('Rebuilt video from its workspace snapshot', { videoId });
+  }
+
+  /** 最后一笔改动之后 `snapshotDelayMs` 写快照（去抖：每笔改动重新计时）。不属于项目的视频不写。 */
+  #scheduleSnapshot(videoId: Id, session: Session): void {
+    if (!session.ref.source.projectId) return;
+    session.snapshotDirty = true;
+    if (session.snapshotTimer) clearTimeout(session.snapshotTimer);
+    session.snapshotTimer = setTimeout(() => {
+      session.snapshotTimer = null;
+      void this.#writeSnapshot(videoId, session);
+    }, this.#snapshotDelayMs);
+    session.snapshotTimer.unref?.();
+  }
+
+  /** 保存版本、回到版本之前：把还没写的改动立即写掉，它们先作为一版封存。 */
+  async #flushSnapshot(videoId: Id): Promise<void> {
+    const session = this.#channels.get(videoId)?.session;
+    if (session?.snapshotDirty) await this.#writeSnapshot(videoId, session);
+  }
+
+  /**
+   * 写一次工作区快照（引擎 `videos.writeSnapshot`）。失败只记日志、不影响编辑：快照是派生物，下一笔改动或关闭时再写。
+   * 快照被外部改过（`SNAPSHOT_CONFLICT`）时引擎不覆盖它，这里只记一次，等外部改动的导入（二期）处理。
+   */
+  async #writeSnapshot(videoId: Id, session: Session): Promise<void> {
+    if (session.snapshotTimer) clearTimeout(session.snapshotTimer);
+    session.snapshotTimer = null;
+    const host = this.#host;
+    if (!session.ref.source.projectId || !host?.alive) return;
+    const { keep, cadence } = this.#versionSettings();
+    const turn = cadence === 'turn' && session.turnBoundary;
+    const conversations = [...session.conversations].map(([id, title]) => ({ id, title }));
+    session.snapshotDirty = false;
+    session.turnBoundary = false;
+    session.conversations.clear();
+    try {
+      const written = await host.request<SnapshotWrite>('videos.writeSnapshot', {
+        videoId,
+        keep,
+        ...(turn ? { boundary: 'turn' } : {}),
+        ...(conversations.length ? { conversations } : {}),
+      });
+      session.snapshotConflict = false;
+      // 没有改动的写不算新回合的第一次写。
+      if (turn && !written.opened && written.written.length === 0) session.turnBoundary = true;
+      if (written.opened) this.#log.debug('Opened a new video version', { videoId, version: written.version, pruned: written.pruned });
+    } catch (error) {
+      session.snapshotDirty = true;
+      if (turn) session.turnBoundary = true;
+      for (const { id, title } of conversations) if (!session.conversations.has(id)) session.conversations.set(id, title);
+      const code = error instanceof RpcError ? (error.details as { code?: string } | undefined)?.code : undefined;
+      if (code === 'SNAPSHOT_CONFLICT') {
+        if (!session.snapshotConflict) this.#log.info('The workspace snapshot was changed outside BaoCut; not overwriting it', { videoId });
+        session.snapshotConflict = true;
+      } else {
+        this.#log.warn('Writing the workspace snapshot failed', { videoId, error: String(error) });
+      }
+    }
   }
 
   async #hostFor(videoId: Id): Promise<EngineHost> {
@@ -818,6 +1064,8 @@ export class VideoService {
   #onEvent(event: VideoEvent): void {
     const channel = this.#channels.get(event.videoId);
     if (!channel?.session || channel.resyncing) return;
+    const conversation = event.taskId ? this.#tasks.get(event.taskId) : undefined;
+    if (conversation) channel.session.conversations.set(conversation.id, conversation.title);
     const current = BigInt(channel.mirror.eventSeq);
     const seq = BigInt(event.eventSeq);
     if (seq <= current) return;
@@ -842,6 +1090,7 @@ export class VideoService {
   #notifyChange(videoId: Id): void {
     const channel = this.#channels.get(videoId);
     if (!channel?.session) return;
+    this.#scheduleSnapshot(videoId, channel.session);
     const change = { videoId, path: channel.session.ref.path, revision: channel.mirror.video.revision };
     for (const listener of this.#changeListeners) {
       try {
@@ -928,7 +1177,7 @@ async function exists(file: string): Promise<boolean> {
   );
 }
 
-/** 取视频目录的真实路径，并确认它在来源目录之内、里面有 `video.db`。 */
+/** 取视频目录的真实路径，并确认它在来源目录之内、里面有 `video.db`（或只有工作区快照、待重建）。 */
 async function locateVideoDir(location: VideoLocation): Promise<{ rootReal: string; dir: string }> {
   let rootReal: string;
   let real: string;
@@ -945,7 +1194,7 @@ async function locateVideoDir(location: VideoLocation): Promise<{ rootReal: stri
   if (path.relative(rootReal, real).split(path.sep).includes(TRASH_DIR)) {
     throw new RpcError('conflict', RcVideo.videoDeletedRestoreFromTrash(), { code: 'VIDEO_TRASHED' });
   }
-  if (!(await exists(path.join(real, DB_FILE))) && !(await exists(path.join(real, LEGACY_DB_FILE)))) {
+  if (!(await hasVideoDb(real)) && !(await exists(path.join(real, SNAPSHOT_VIDEO_FILE)))) {
     throw new RpcError('not-found', RcVideo.dirNotVideo());
   }
   return { rootReal, dir: real };

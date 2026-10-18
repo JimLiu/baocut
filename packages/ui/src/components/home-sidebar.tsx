@@ -24,7 +24,6 @@ import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { ARCHIVED } from './archived-copy.ts';
 import { S } from './shell-copy.ts';
 import { untitled } from '../copy.ts';
-import { shortenPath } from '../model/format.ts';
 import { buildSidebar, type ProjectRow } from '../model/sidebar.ts';
 import { useRuntime } from '../runtime/context.tsx';
 import { useConnection } from '../state/connection-store.ts';
@@ -32,6 +31,7 @@ import { useDirectory } from '../state/directory-store.ts';
 import { HOME, hrefFor, useShell } from '../state/shell-store.ts';
 import { conversationItem, ProjectItem, type ConversationRowActions } from './home-sidebar-rows.tsx';
 import { NameDialog } from './name-dialog.tsx';
+import { CreateProjectDialog } from './start/project-picker.tsx';
 import { PageSidebar, SidebarTitle, sidebarBody, useSidebarGo, useSidebarRoute } from './page-sidebar.tsx';
 import { useNow } from './use-now.ts';
 
@@ -230,21 +230,7 @@ export function HomeSidebar() {
       </div>
 
       {dialog?.kind === 'new-project' ? (
-        <NameDialog
-          title={S.sidebar.newProjectTitle}
-          label={S.sidebar.projectName}
-          placeholder={S.sidebar.untitledProject}
-          allowEmpty
-          description={projectsDir ? S.sidebar.newProjectHint(shortenPath(projectsDir)) : undefined}
-          submitLabel={S.sidebar.create}
-          onClose={() => setDialog(null)}
-          onSubmit={async (name) => {
-            const project = await runtime.createProject(name);
-            setDialog(null);
-            ToastQueue.positive(S.sidebar.projectCreated(project.name), { timeout: 4000 });
-            added(project);
-          }}
-        />
+        <CreateProjectDialog onClose={() => setDialog(null)} onCreated={added} />
       ) : dialog?.kind === 'rename-project' ? (
         <NameDialog
           title={S.sidebar.renameProjectTitle}

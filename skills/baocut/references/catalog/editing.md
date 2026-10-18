@@ -48,7 +48,7 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 | --- | --- | --- |
 | 素材 | `importAsset`、`collectAssets` | 登记素材（链接或复制进视频）；把链接的素材收进视频 |
 | 片段 | `addItem`、`moveItem`、`moveItems`、`trimItem`、`splitItem`、`joinItems`、`deleteItems`、`updateItem` | 放上时间线、挪、裁、拆、合、删（留空隙）、改名与启用、跟随策略 |
-| 波纹 | `removeRange` | 删掉一段时间并让后面的前移；要一起动的配音、字幕轨都要列上 |
+| 波纹 | `removeRange`、`insertRange` | 删掉一段时间并让后面的前移，或空出一段时间让后面的后移；要一起动的配音、字幕轨都要列上 |
 | 画面 | `setTransform`、`setStyle`、`setEffects`、`setSpeed` | 位置与大小、铺满或画中画、裁切与外观、调色与效果、恒定变速 |
 | 文字 | `setText` | 改文字片段的文字或改成计时读数 |
 | 声音 | `setAudioMix`、`setDucking`、`removeDucking` | 音量、静音、淡入淡出；人声响起时压低配乐 |
@@ -109,7 +109,7 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 {"type":"setText","itemId":"item_1","text":"第一章"}
 ```
 
-字幕层用 {{tool:captions_create}} 建，不是这里的操作；剪掉一段并让后面前移用 `removeRange`，口播的剪口用 `addCuts`。其余操作与每个字段的写法用 {{tool:edits_ops}} 取。
+字幕层用 {{tool:captions_create}} 建，不是这里的操作；剪掉一段并让后面前移用 `removeRange`，空出一段让后面后移用 `insertRange`，口播的剪口用 `addCuts`。其余操作与每个字段的写法用 {{tool:edits_ops}} 取。
 <!-- /generated -->
 
 ### 剪口播的机制
@@ -140,6 +140,15 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 - {{tool:edits_undo}}：撤销你自己最近的一笔；也可以给 {{arg:transactionId}} 指定一笔。撤销本身也是一笔新修改，返回同样的回执。
 - {{tool:videos_history}}：列出历史（谁改的、改完的版本、能不能撤销）与检查点。
 - 改错了就撤销自己那一步，不手工反向修改；用户改的那几笔不要替他撤。
+
+### 版本记录
+
+项目里的视频由 BaoCut 自动记版本（不依赖 git）：一段连续的修改合成一个版本，带着谁改的、在哪个会话里改的。
+
+- 要了解一部视频最近改了什么，先用 {{tool:videos_versions}} 读版本记录，不必翻 {{tool:videos_history}}；某一版具体怎么改的用 {{tool:videos_version_diff}}（{{arg:version}}）。
+- 用户要「回到之前那版」时用 {{tool:videos_restore_version}}：先在版本记录里找到版本号，拿不准时看 diff 或问用户；{{arg:before}} 为 true 是回到那一版开始之前。回到版本也是一笔修改，可以用 {{tool:edits_undo}} 撤销。
+- 用户要存一版、或大改之前要留一个回得去的点时用 {{tool:videos_save_version}}（{{arg:name}}）；平时的修改会自动记下，不用每次都存。
+- 不要手改视频目录里的 `.bcut-snapshot/`，也不要在视频打开时对它 `git checkout` 或 `git reset`。
 
 ## 结果怎么读
 

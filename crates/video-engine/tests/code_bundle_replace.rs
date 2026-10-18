@@ -1,5 +1,5 @@
 //! 原地替换代码画面（`replaceCodeBundle`，代码包规范 §3.3）：只换代码包版本与替身，实例的其余部分不变；
-//! 长度跟新版本走，变短裁掉、变长撞上后面的实例就拒绝；参数 Schema 变了要给新参数。
+//! 长度跟新版本走，变短裁掉、变长撞上后面的实例就拒绝（带 `ripple` 时后面的跟着挪）；参数 Schema 变了要给新参数。
 //! 替身的测试用 ffmpeg 现场生成视频，没有 ffmpeg 时跳过并打印原因。
 
 #![allow(clippy::result_large_err)]
@@ -223,7 +223,10 @@ fn a_longer_version_that_runs_into_the_next_clip_is_refused() {
     assert_eq!(err.code, "TIMELINE_OVERLAP");
     assert!(err.entity_ids.contains(&id) && err.entity_ids.contains(&next_id));
     let recovery = err.recovery.clone().unwrap();
-    assert!(recovery.contains("moveItem") && recovery.contains("deleteItems"), "{recovery}");
+    assert!(
+        recovery.contains("moveItem") && recovery.contains("deleteItems") && recovery.contains("ripple"),
+        "{recovery}"
+    );
     assert_eq!(video.revision(), before);
 
     // 后面的实例挪开之后就能换，长度变成 120 帧。
@@ -240,6 +243,137 @@ fn a_longer_version_that_runs_into_the_next_clip_is_refused() {
     )
     .unwrap();
     assert_eq!(composition(&video, &id).span.duration_frames, 120);
+}
+
+#[test]
+fn ripple_moves_everything_after_the_old_end_and_leaves_spanning_items() {
+    let root = tempfile::tempdir().unwrap();
+    let mut video = new_video(&root.path().join("m"));
+    let short = import_bundle(&mut video, root.path(), "short", 60, None);
+    let long = import_bundle(&mut video, root.path(), "long", 120, None);
+    let id = place_composition(&mut video, &short, 60, json!({}));
+    let s = seq(&video);
+    let text = |track: &str, from: i64, frames: i64, label: &str| json!({ "type": "text", "trackRef": track, "span": { "fromFrame": from, "durationFrames": frames }, "text": label, "style": {} });
+    // V1：合成 [60, 120)、后面 [120, 150)；V2：前面 [0, 60)、旁白字幕 [130, 160)；V3：铺底 [0, 300) 跨过旧终点。
+    let mut next = text("v1", 120, 30, "后面");
+    next.as_object_mut().unwrap().remove("trackRef");
+    next["trackId"] = json!(track(&video, "V1"));
+    apply(
+        &mut video,
+        "cmd_setup",
+        vec![
+            json!({ "type": "addTrack", "sequenceId": s, "kind": "visual", "ref": "v2" }),
+            json!({ "type": "addTrack", "sequenceId": s, "kind": "visual", "ref": "v3" }),
+            json!({ "type": "insertItems", "sequenceId": s, "items": [
+                next, text("v2", 0, 60, "前面"), text("v2", 130, 30, "字幕"), text("v3", 0, 300, "铺底"),
+            ] }),
+        ],
+    )
+    .unwrap();
+    let by_label = |video: &Video, label: &str| -> String {
+        video
+            .state()
+            .items
+            .values()
+            .find(|p| serde_json::to_value(&p.value).unwrap()["text"] == label)
+            .map(|p| p.value.base().id.clone())
+            .unwrap()
+    };
+    let span = |video: &Video, id: &str| {
+        let span = video.state().items[id].value.span().unwrap();
+        (span.from_frame, span.duration_frames)
+    };
+    let (next, before, caption, bed) = (
+        by_label(&video, "后面"),
+        by_label(&video, "前面"),
+        by_label(&video, "字幕"),
+        by_label(&video, "铺底"),
+    );
+
+    // 变长 60 帧：旧终点（120）之后的都后移 60 帧，铺底与前面的不动；回执记下 rippleFrames。
+    let committed = apply(
+        &mut video,
+        "cmd_grow",
+        vec![json!({ "type": "replaceCodeBundle", "itemId": id, "assetRef": long, "ripple": true })],
+    )
+    .unwrap();
+    assert_eq!(composition(&video, &id).span.duration_frames, 120);
+    assert_eq!(span(&video, &next), (180, 30));
+    assert_eq!(span(&video, &caption), (190, 30));
+    assert_eq!(span(&video, &before), (0, 60));
+    assert_eq!(span(&video, &bed), (0, 300));
+    let impact = serde_json::to_value(&committed.receipt.impact).unwrap();
+    assert_eq!(impact["codeEdits"][0]["rippleFrames"], json!(60));
+
+    // 再换回短的：删掉 [120, 180)，伸进这段的字幕尾巴被裁掉，后面的前移；跨过整段的铺底不动。
+    let v2 = video.state().items[&caption].value.base().track_id.clone();
+    apply(
+        &mut video,
+        "cmd_tail",
+        vec![json!({ "type": "insertItems", "sequenceId": s, "items": [{
+            "type": "text", "trackId": v2, "span": { "fromFrame": 150, "durationFrames": 35 },
+            "text": "尾巴", "style": {} }] })],
+    )
+    .unwrap();
+    let tail = by_label(&video, "尾巴");
+    // 按段配的旁白：这一段的旁白与合成同起同止 [60, 180)，下一段的旁白紧接着 [180, 240)。
+    apply(
+        &mut video,
+        "cmd_narration",
+        vec![
+            json!({ "type": "addTrack", "sequenceId": s, "kind": "visual", "ref": "v4" }),
+            json!({ "type": "insertItems", "sequenceId": s, "items": [
+                text("v4", 60, 120, "这段旁白"), text("v4", 180, 60, "下段旁白"),
+            ] }),
+        ],
+    )
+    .unwrap();
+    let (narration, next_narration) = (by_label(&video, "这段旁白"), by_label(&video, "下段旁白"));
+    let committed = apply(
+        &mut video,
+        "cmd_shrink",
+        vec![json!({ "type": "replaceCodeBundle", "itemId": id, "assetRef": short, "ripple": true })],
+    )
+    .unwrap();
+    assert_eq!(composition(&video, &id).span.duration_frames, 60);
+    assert_eq!(span(&video, &next), (120, 30));
+    assert_eq!(span(&video, &caption), (130, 30));
+    assert_eq!(span(&video, &tail), (120, 5));
+    // 伸进删掉那段的旁白裁短到新终点，下一段的旁白前移接上。
+    assert_eq!(span(&video, &narration), (60, 60));
+    assert_eq!(span(&video, &next_narration), (120, 60));
+    assert_eq!(span(&video, &bed), (0, 300));
+    let impact = serde_json::to_value(&committed.receipt.impact).unwrap();
+    assert_eq!(impact["codeEdits"][0]["rippleFrames"], json!(-60));
+
+    // 要动的轨道锁着：整笔拒绝，不跳过。
+    let v3 = track(&video, "V3");
+    apply(
+        &mut video,
+        "cmd_lock",
+        vec![json!({ "type": "updateTrack", "sequenceId": s, "trackId": v3, "locked": true })],
+    )
+    .unwrap();
+    let before_revision = video.revision();
+    let err = apply(
+        &mut video,
+        "cmd_grow_locked",
+        vec![json!({ "type": "replaceCodeBundle", "itemId": id, "assetRef": long, "ripple": true })],
+    )
+    .unwrap_err();
+    assert_eq!(err.code, "TARGET_LOCKED");
+    assert_eq!(video.revision(), before_revision);
+
+    // 长度没变时 ripple 什么都不挪，回执里也没有 rippleFrames。
+    let short2 = import_bundle(&mut video, root.path(), "short2", 60, None);
+    let committed = apply(
+        &mut video,
+        "cmd_same",
+        vec![json!({ "type": "replaceCodeBundle", "itemId": id, "assetRef": short2, "ripple": true })],
+    )
+    .unwrap();
+    let impact = serde_json::to_value(&committed.receipt.impact).unwrap();
+    assert!(impact["codeEdits"][0].get("rippleFrames").is_none());
 }
 
 #[test]

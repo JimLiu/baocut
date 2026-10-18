@@ -29,6 +29,8 @@ export const zhHant: SettingDescriptionMessages = {
   'fonts.fileEndpoint': '字型檔案的基礎 URL（鏡像站，https://；只會從這個位置之下取得檔案）；null 使用 https://fonts.gstatic.com',
   'space.trashRetentionDays':
     'Space 垃圾桶中項目的保留天數（1–3650）：超過這個天數、未被參照的項目與已刪除的影片會定期永久刪除',
+  'versions.keep': "每部影片的版本記錄保留的未命名版本數（1–100）；儲存的版本一律保留。一部影片的版本檔案另有 64 MiB 的上限，超過時從最舊的未命名版本刪起",
+  'versions.cadence': "版本記錄何時開新版本：segment 在安靜 5 分鐘、連續編輯滿 30 分鐘以及儲存、回到版本前後；turn 另在智慧體每個回合開始時",
   'cache.maxSizeMiB': '資料目錄裡快取的大小上限，MiB（256–1048576）：超過時從最舊的快取檔案（素材分析、播放用的轉碼）刪起，降到上限的 90%。跨影片檢索的索引不刪',
   'resources.capacity':
     '進階：資源排程使用的機器容量 { memoryMiB, gpuMemoryMiB, cpuThreads }；設為 null 的項目會自動偵測；null 表示全部自動偵測（記憶體與 CPU 取自系統，Apple 晶片的 GPU 記憶體依統一記憶體估算）',

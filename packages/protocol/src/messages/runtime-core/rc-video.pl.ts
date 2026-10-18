@@ -15,6 +15,7 @@ export const pl: RcVideoMessages = {
   reservedDirOutsideSource: "Zarezerwowany folder jest poza folderem źródłowym",
   videoInUse: "To wideo jest otwarte",
   videoNotOpenOpenFirst: "Wideo nie jest otwarte. Najpierw otwórz",
+  versionsNeedProject: "Historia wersji jest prowadzona tylko dla wideo w projekcie. Najpierw przenieś wideo do projektu",
   assetVersionNotFound: "Materiał lub ta wersja nie istnieje",
   videoNotFound: "Wideo nie istnieje",
   onlyWorkspaceVideos: "Można otwierać tylko wideo w folderze roboczym",

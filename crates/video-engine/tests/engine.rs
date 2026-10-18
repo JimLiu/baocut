@@ -1045,6 +1045,194 @@ fn remove_range_ripples_the_declared_tracks_and_captions_follow() {
 }
 
 #[test]
+fn insert_range_splits_straddlers_and_shifts_the_declared_tracks() {
+    let Some(fixtures) = fixtures() else { return };
+    let dir = tempfile::tempdir().unwrap();
+    let mut video = new_video(dir.path());
+    // V1：A [0, 60)、B [60, 120)；A1：音频 0.25–1.75 秒；V2：文字 [0, 120)。
+    let ids = import_video(&mut video, fixtures, 2);
+    let (a, b) = (ids[0].clone(), ids[1].clone());
+    let s = seq(&video);
+    let setup = vec![
+        json!({ "type": "importAsset", "path": fixtures.audio, "ref": "tone" }),
+        json!({ "type": "addItem", "sequenceId": s, "asset": { "ref": "tone" }, "at": { "unit": "seconds", "value": "0.25" }, "alignment": "exact-frame" }),
+        json!({ "type": "addTrack", "sequenceId": s, "kind": "visual", "ref": "v2" }),
+        json!({ "type": "insertItems", "sequenceId": s, "items": [
+            { "type": "text", "trackRef": "v2", "span": { "fromFrame": 0, "durationFrames": 120 },
+              "place": { "x": 50, "y": 50, "w": 40 }, "text": "标题", "style": {} },
+        ] }),
+    ];
+    video.apply(&tx(&video, "cmd_setup", setup)).unwrap();
+    let find = |video: &Video, kind: &str| -> String {
+        video
+            .state()
+            .items
+            .values()
+            .find(|p| serde_json::to_value(&p.value).unwrap()["type"] == kind)
+            .map(|p| p.value.base().id.clone())
+            .unwrap()
+    };
+    let (tone, text) = (find(&video, "audio"), find(&video, "text"));
+    let declared = json!([track(&video, "V1"), track(&video, "A1")]);
+
+    // 在第 20 帧插入 15 帧（缺省 split）：A 拆开、右段后移；B 后移；音频同样拆开后移；没声明的 V2 不动。
+    let insert = vec![
+        json!({ "type": "insertRange", "sequenceId": s, "at": { "unit": "frames", "value": 20 },
+        "duration": { "unit": "frames", "value": 15 }, "trackIds": declared, "alignment": "exact-frame" }),
+    ];
+    let committed = video.apply(&tx(&video, "cmd_insert", insert)).unwrap();
+    assert_eq!(committed.receipt.label, "Insert time");
+    let created = committed.receipt.created_ids.clone();
+    assert_eq!(created.len(), 2);
+    let right = created
+        .iter()
+        .find(|id| video.state().items[*id].value.span().is_some())
+        .unwrap()
+        .clone();
+    let tone_right = created.iter().find(|id| **id != right).unwrap().clone();
+    assert_eq!(span_of(&video, &a), (0, 20));
+    assert_eq!(span_of(&video, &right), (35, 40));
+    assert!((source_in_seconds(&video, &right) - 20.0 / 30.0).abs() < 1e-9);
+    assert_eq!(span_of(&video, &b), (75, 60));
+    let (start, length) = audio_range(&video, &tone);
+    assert!((start - 0.25).abs() < 1e-9 && (start + length - 20.0 / 30.0).abs() < 1e-9);
+    let (start, length) = audio_range(&video, &tone_right);
+    assert!((start - 35.0 / 30.0).abs() < 1e-9 && (length - (1.75 - 20.0 / 30.0)).abs() < 1e-9);
+    assert!((source_in_seconds(&video, &tone_right) - (20.0 / 30.0 - 0.25)).abs() < 1e-9);
+    assert_eq!(span_of(&video, &text), (0, 120));
+
+    // 音频按精确时间后移：子帧起点保留。
+    let audio_only = vec![
+        json!({ "type": "insertRange", "sequenceId": s, "at": { "unit": "frames", "value": 0 },
+        "duration": { "unit": "frames", "value": 3 }, "trackIds": [track(&video, "A1")], "alignment": "exact-frame" }),
+    ];
+    video.apply(&tx(&video, "cmd_insert_audio", audio_only)).unwrap();
+    let (start, _) = audio_range(&video, &tone);
+    assert!((start - (0.25 + 3.0 / 30.0)).abs() < 1e-9);
+
+    // 声明的轨道锁着：整笔拒绝。不足一帧、没声明轨道：拒绝。
+    video
+        .apply(&tx(
+            &video,
+            "cmd_lock",
+            vec![json!({ "type": "updateTrack", "sequenceId": s, "trackId": track(&video, "V2"), "locked": true })],
+        ))
+        .unwrap();
+    let locked = vec![
+        json!({ "type": "insertRange", "sequenceId": s, "at": { "unit": "frames", "value": 0 },
+        "duration": { "unit": "frames", "value": 10 }, "trackIds": [track(&video, "V1"), track(&video, "V2")], "alignment": "exact-frame" }),
+    ];
+    assert_eq!(err_code(video.apply(&tx(&video, "cmd_locked", locked))), "TARGET_LOCKED");
+    let empty = vec![
+        json!({ "type": "insertRange", "sequenceId": s, "at": { "unit": "frames", "value": 10 },
+        "duration": { "unit": "seconds", "value": "0.01" }, "trackIds": [track(&video, "V1")], "alignment": "nearest-frame" }),
+    ];
+    assert_eq!(err_code(video.apply(&tx(&video, "cmd_empty", empty))), "TIME_RANGE_COLLAPSED");
+    let none = vec![
+        json!({ "type": "insertRange", "sequenceId": s, "at": { "unit": "frames", "value": 0 },
+        "duration": { "unit": "frames", "value": 10 }, "trackIds": [], "alignment": "exact-frame" }),
+    ];
+    assert_eq!(err_code(video.apply(&tx(&video, "cmd_none", none))), "INVALID_OPERATION");
+
+    // 撤销回到插入前。
+    for command in ["cmd_undo_lock", "cmd_undo_audio", "cmd_undo_insert"] {
+        video
+            .undo(&UndoRequest {
+                command_id: command.into(),
+                target: UndoTarget::Undo,
+                expected_revision: None,
+                actor: user(),
+            })
+            .unwrap();
+    }
+    assert_eq!(span_of(&video, &a), (0, 60));
+    assert_eq!(span_of(&video, &b), (60, 60));
+    assert!(!video.state().items.contains_key(&right) && !video.state().items.contains_key(&tone_right));
+}
+
+#[test]
+fn insert_range_stay_keeps_straddlers_and_drops_transitions_that_no_longer_touch() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut video = new_video(dir.path());
+    let s = seq(&video);
+    let text = |track: &str, from: i64, frames: i64, label: &str| {
+        json!({ "type": "text", "trackRef": track, "span": { "fromFrame": from, "durationFrames": frames },
+                "place": { "x": 50, "y": 50, "w": 40 }, "text": label, "style": {} })
+    };
+    let mut tail = text("v3", 20, 10, "片尾条");
+    tail["untilSequenceEnd"] = json!(true);
+    let setup = vec![
+        json!({ "type": "addTrack", "sequenceId": s, "kind": "visual", "ref": "v1" }),
+        json!({ "type": "addTrack", "sequenceId": s, "kind": "visual", "ref": "v2" }),
+        json!({ "type": "addTrack", "sequenceId": s, "kind": "visual", "ref": "v3" }),
+        json!({ "type": "insertItems", "sequenceId": s, "items": [
+            text("v1", 0, 60, "一"), text("v1", 60, 60, "二"), text("v2", 0, 300, "铺底"), tail,
+        ] }),
+    ];
+    video.apply(&tx(&video, "cmd_setup", setup)).unwrap();
+    let by_label = |video: &Video, label: &str| -> String {
+        video
+            .state()
+            .items
+            .values()
+            .find(|p| serde_json::to_value(&p.value).unwrap()["text"] == label)
+            .map(|p| p.value.base().id.clone())
+            .unwrap()
+    };
+    let (one, two, bed, tail) = (
+        by_label(&video, "一"),
+        by_label(&video, "二"),
+        by_label(&video, "铺底"),
+        by_label(&video, "片尾条"),
+    );
+    let tracks: Vec<String> = [&one, &bed, &tail]
+        .iter()
+        .map(|id| video.state().items[*id].value.base().track_id.clone())
+        .collect();
+    let set = video
+        .apply(&tx(
+            &video,
+            "cmd_tr",
+            vec![
+                json!({ "type": "setTransition", "sequenceId": s, "leftItemId": one, "rightItemId": two, "kind": "dissolve",
+                         "duration": { "unit": "frames", "value": 10 }, "alignment": "exact-frame" }),
+            ],
+        ))
+        .unwrap();
+    let transition = set.receipt.created_ids[0].clone();
+
+    // 在第 60 帧插入 30 帧、跨着的不动：一号停在原处，二号后移，二者不再相接，转场随之删掉；铺底与到序列末尾的都不动。
+    let insert = vec![
+        json!({ "type": "insertRange", "sequenceId": s, "at": { "unit": "frames", "value": 60 },
+        "duration": { "unit": "frames", "value": 30 }, "trackIds": tracks, "alignment": "exact-frame", "straddle": "stay" }),
+    ];
+    let committed = video.apply(&tx(&video, "cmd_insert", insert)).unwrap();
+    assert!(committed.receipt.created_ids.is_empty());
+    assert_eq!(span_of(&video, &one), (0, 60));
+    assert_eq!(span_of(&video, &two), (90, 60));
+    assert_eq!(span_of(&video, &bed), (0, 300));
+    assert_eq!(span_of(&video, &tail).0, 20);
+    let impact = serde_json::to_value(&committed.receipt.impact).unwrap();
+    assert_eq!(
+        impact["removedTransitions"],
+        json!([{ "id": transition, "reason": "not-adjacent" }])
+    );
+
+    // 缺省 split：铺底在第 30 帧拆开、右段后移；到序列末尾的实例跨着也不拆。
+    let split = vec![
+        json!({ "type": "insertRange", "sequenceId": s, "at": { "unit": "frames", "value": 30 },
+        "duration": { "unit": "frames", "value": 10 }, "trackIds": [tracks[1], tracks[2]], "alignment": "exact-frame" }),
+    ];
+    let committed = video.apply(&tx(&video, "cmd_split", split)).unwrap();
+    assert_eq!(committed.receipt.created_ids.len(), 1);
+    let bed_right = committed.receipt.created_ids[0].clone();
+    assert_eq!(span_of(&video, &bed), (0, 30));
+    assert_eq!(span_of(&video, &bed_right), (40, 270));
+    assert_eq!(span_of(&video, &tail).0, 20);
+    assert_eq!(span_of(&video, &one), (0, 60));
+}
+
+#[test]
 fn trimming_past_the_source_is_rejected() {
     let Some(fixtures) = fixtures() else { return };
     let dir = tempfile::tempdir().unwrap();

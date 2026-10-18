@@ -44,7 +44,9 @@ import {
   type OpenMediaSource,
 } from '../open-media/open-media-sources.ts';
 import { ToolError, type ToolInfo, type ToolSet } from './tool-catalog.ts';
+import { prepareDownloadSave } from './download-tools.ts';
 import { approvalField, confirmSummary, type ToolAccess, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
+import { resolveUserPath } from './video-digest.ts';
 import { FRAMES_DIR, framesDirectory } from './video-frames.ts';
 import { commandIdArg, revisionArg, videoArg } from './video-tools.ts';
 
@@ -52,6 +54,8 @@ import { commandIdArg, revisionArg, videoArg } from './video-tools.ts';
  * 网上素材（Agent 面设计 §4.3）：`assets_search` 在 Wikimedia Commons、Internet Archive 的公有领域集合与 YouTube 里检索视频、
  * 图片与音频；`assets_download` 把 Commons 与 Internet Archive 的一条下载进视频，作为 managed 素材导入（可以同时放上时间线），
  * 许可、作者与署名记进素材的 `provenance`（`origin: open-media`），`videos_inspect` 的素材里读得回来，片尾署名照它写。
+ * 不给 `video` 而给 `outDir` 时只把文件存进那个目录（按 `ToolScope.fileBase` 解析，对外服务不能给），不建素材：只新建、
+ * 不覆盖，重名时加序号（与 `downloads_save` 同一套写法），返回路径、许可与署名，署名由调用方自己记下。
  *
  * 两处媒体库只取许可清楚的条目（`open-media-sources.ts`）。YouTube 经 yt-dlp 检索，网站登录按设置 › 视频下载
  * （`downloads.cookieBrowsers`，与 `download` 同一项；对外服务一律匿名），读不到 Cookie 或要登录时换下一个浏览器；许可多半没写，
@@ -115,7 +119,15 @@ const schemas = {
       .describe('可选。true 时把每条的缩略图下载下来、拼成一张接触表（sheet.cells 对应 candidates 的顺序），下载前先看画面；默认 false'),
   }),
   assets_download: z.strictObject({
-    video: videoArg,
+    video: videoArg.optional().describe('导入到这个视频（videos_list 给出的 path 或 videoId）；与 outDir 给一个'),
+    outDir: z
+      .string()
+      .min(1)
+      .max(4000)
+      .optional()
+      .describe(
+        '不导入视频、只把文件存进这个目录（任意位置，不存在时创建）；相对路径按工作目录（终端里是当前目录），~/ 是主目录。与 video 给一个；对外服务不能给',
+      ),
     source: downloadSourceArg.describe('assets_search 结果里这一条的 source：commons 或 archive（youtube 的结果用 download）'),
     id: z.string().min(1).max(500).describe('assets_search 结果里这一条的 id（Commons 是 File:…，Internet Archive 是条目 identifier）'),
     kind: z
@@ -141,9 +153,9 @@ const schemas = {
           .describe('开始时间：时间线上的秒数（十进制字符串），或 end（默认，接在轨道末尾）'),
       })
       .optional()
-      .describe('可选。导入后放到时间线上，写法同 assets_import；不给时只登记为素材'),
-    revision: revisionArg.optional().describe('可选。视频当前的版本，不一致时不导入；不给时用最新的版本'),
-    commandId: commandIdArg.optional().describe('可选。同一次导入重试时带上同一个值，引擎不会重复提交'),
+      .describe('可选。导入后放到时间线上，写法同 assets_import；不给时只登记为素材。只与 video 一起给'),
+    revision: revisionArg.optional().describe('可选。视频当前的版本，不一致时不导入；不给时用最新的版本。只与 video 一起给'),
+    commandId: commandIdArg.optional().describe('可选。同一次导入重试时带上同一个值，引擎不会重复提交。只与 video 一起给'),
   }),
 };
 
@@ -181,11 +193,12 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
   assets_download: {
     title: '下载网上素材',
     description: [
-      '把 assets_search 找到的一条网上素材下载进视频，导入为素材。',
+      '把 assets_search 找到的一条网上素材下载进视频，导入为素材；或者给 outDir 只把文件存进一个目录（用户要把图片、视频存到某个文件夹，不进视频时）。',
       `按 source 与 id 重新向来源取一次许可与文件地址（不信任调用方给的许可），只从 Wikimedia 与 Internet Archive 的文件主机下载（https），上限 ${OPEN_MEDIA_MAX_BYTES / 1024 / 1024 / 1024} GiB；视频比 maxHeight（默认 1080）高时取转码，图片太宽或不是 JPEG、PNG、WebP 时取 Commons 渲染的图。`,
       'bytes 收进视频（managed），编译成 importAsset（给了 place 时再加 addItem），一笔修改、可以撤销，会向用户确认。素材的 provenance 记下来源、页面、许可与署名，videos_inspect 的素材里读得回来（credit）。',
       LICENSE_RULES,
       '返回与 edits_apply 相同的回执，另有 assetId、itemId（没有放到时间线上时为 null）、license、attribution 与实际下载的 file（url、variant、byteLength）。把 attribution 记下来，成片片尾逐条署名。',
+      'outDir：只新建文件、不覆盖，重名时加序号；文件名取 name（不给时用标题）。返回 path（绝对路径）、license、attribution、pageUrl 与 file，没有回执与 assetId。之后要放进视频用 assets_import 的 path，许可与署名不会随文件记进素材，自己记下。',
       '错误码：OFFLINE_STRICT、OPEN_MEDIA_NOT_FOUND、OPEN_MEDIA_UNSUPPORTED（不是能导入的媒体）、OPEN_MEDIA_LICENSE_UNVERIFIED、OPEN_MEDIA_LICENSE_EXCLUDED（禁止演绎或认不出）、OPEN_MEDIA_TOO_LARGE、OPEN_MEDIA_UNAVAILABLE（连不上，稍后再试）、OPEN_MEDIA_REJECTED。',
     ].join('\n'),
     effect: 'mutation',
@@ -197,6 +210,10 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
       {
         title: '下载 Prelinger 的一部短片（只登记）',
         args: { video: 'demo', source: 'archive', id: 'Duck_and_Cover_1951', kind: 'video' },
+      },
+      {
+        title: '只把一张 Commons 图片存进文件夹',
+        args: { source: 'commons', id: 'File:Gyeongbokgung Palace in Seoul.jpg', kind: 'image', outDir: '/Volumes/Media/references' },
       },
     ],
     surfaces: ['agent', 'mcp', 'cli'],
@@ -358,6 +375,14 @@ export class OpenMediaTools implements ToolSet {
   async #download(args: DownloadArgs, principal: ToolPrincipal) {
     const { scope, videos } = this.#deps;
     const access = scope.authorize(principal, true);
+    if ((args.video === undefined) === (args.outDir === undefined)) {
+      throw new ToolError('INVALID_ARGUMENTS', 'Pass exactly one of video (import into a video) or outDir (only save the file to a folder)');
+    }
+    if (args.outDir !== undefined && (args.place !== undefined || args.revision !== undefined || args.commandId !== undefined)) {
+      throw new ToolError('INVALID_ARGUMENTS', 'place, revision and commandId only apply with video');
+    }
+    // 本机目录：对外服务在这里以 INVALID_ARGUMENTS 拒绝（`fileBase`）。
+    const outDir = args.outDir !== undefined ? resolveUserPath(args.outDir, scope.fileBase(access)) : undefined;
     this.#offline();
     const kind: OpenMediaKind = args.kind ?? 'video';
     const limits = { maxHeight: args.maxHeight ?? 1080, maxImageWidth: MAX_IMAGE_WIDTH };
@@ -391,9 +416,11 @@ export class OpenMediaTools implements ToolSet {
       );
     }
     const name = args.name ?? candidate.title;
+    if (outDir !== undefined) return this.#saveTo(outDir, access, { name, resolved, source: args.source });
+    const video = args.video!;
     const approval = await scope.confirm(access, {
       tool: 'assets_download',
-      video: args.video,
+      video,
       ...confirmSummary(
         RcAgentTools.openMediaDownloadSummary({
           title: candidate.title,
@@ -403,7 +430,7 @@ export class OpenMediaTools implements ToolSet {
         }),
       ),
     });
-    const opened = await scope.open(args.video, access);
+    const opened = await scope.open(video, access);
     const work = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-open-media-'));
     try {
       const file = path.join(work, `${fileStem(name)}.${resolved.extension}`);
@@ -441,9 +468,9 @@ export class OpenMediaTools implements ToolSet {
           name,
         });
       }
-      const video = videos.mirror(opened.ref.videoId)?.video ?? opened.snapshot.video;
+      const current = videos.mirror(opened.ref.videoId)?.video ?? opened.snapshot.video;
       const result = await this.#apply(access, opened, principal, {
-        expectedRevision: args.revision ?? video.revision,
+        expectedRevision: args.revision ?? current.revision,
         label: RcAgentTools.importAssetLabel({ name, place: Boolean(args.place) }).text,
         operations,
         commandId: args.commandId,
@@ -461,6 +488,55 @@ export class OpenMediaTools implements ToolSet {
         pageUrl: candidate.pageUrl,
         file: { url: resolved.url, variant: resolved.variant, byteLength },
         ...approvalField(approval),
+      };
+    } finally {
+      await fs.rm(work, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+
+  /**
+   * 只存文件（`outDir`）：确认写明目标，下载到临时目录，再像 `downloads_save` 那样复制进目录（只新建、不覆盖、重名加序号、
+   * 0644），不建素材。
+   */
+  async #saveTo(
+    outDir: string,
+    access: ToolAccess,
+    item: { name: string; resolved: OpenMediaFile; source: OpenMediaDownloadSource },
+  ) {
+    const { scope } = this.#deps;
+    const { candidate } = item.resolved;
+    const fileName = `${fileStem(item.name)}.${item.resolved.extension}`;
+    const planned = path.join(outDir, fileName);
+    const approval = await scope.confirm(access, {
+      tool: 'assets_download',
+      targets: [planned],
+      ...confirmSummary(
+        RcAgentTools.openMediaSaveSummary({
+          title: candidate.title,
+          source: item.source === 'commons' ? 'Wikimedia Commons' : 'Internet Archive',
+          license: candidate.license.name,
+          target: planned,
+        }),
+      ),
+    });
+    const work = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-open-media-'));
+    try {
+      try {
+        await this.#http.download(item.resolved.url, path.join(work, fileName), OPEN_MEDIA_MAX_BYTES);
+      } catch (error) {
+        throw asToolError(error);
+      }
+      const plan = await prepareDownloadSave({ root: work, path: fileName, downloadsDir: outDir, maxBytes: OPEN_MEDIA_MAX_BYTES });
+      const saved = await plan.commit();
+      return {
+        path: saved.path,
+        title: candidate.title,
+        license: candidate.license,
+        attribution: candidate.attribution,
+        pageUrl: candidate.pageUrl,
+        file: { url: item.resolved.url, variant: item.resolved.variant, byteLength: saved.bytes },
+        ...approvalField(approval),
+        next: 'Saved to path (absolute). Tell the user where it is, and keep the attribution for the credits: it is not recorded with the file. To use it in a video later, import path with assets_import.',
       };
     } finally {
       await fs.rm(work, { recursive: true, force: true }).catch(() => {});

@@ -19,12 +19,15 @@ function exportKindLabel(kind: string): string {
   }
 }
 
-function linkImportAfter(p: { target: string; name: string | null; transcribe: boolean; language: string | null; provider: string | null; model: string | null; captions: boolean }): string {
+function linkImportAfter(p: { target: string; name: string | null; transcribe: boolean; language: string | null; provider: string | null; model: string | null; captions: boolean; dir?: string | null }): string {
+  // 文件放进指定目录：导入视频的照常说完，再说文件放在哪。
+  if (p.dir && (p.target === 'create' || p.target === 'video')) return `${linkImportAfter({ ...p, dir: null })}，下载的文件保存在 ${p.dir}`;
   const recognition = `${p.language ? `，语言 ${p.language}` : ''}${p.provider ? `（${p.provider}${p.model ? ` ${p.model}` : ''}）` : ''}`;
   if (p.target === 'create') return `，新建视频${p.name ? `「${p.name}」` : '（名字取页面标题）'}并放上时间线${p.transcribe ? `，再转写${recognition}${p.captions ? '、建立字幕层' : ''}` : ''}`;
   if (p.target === 'video') return `，导入视频${p.transcribe ? '并转写' : ''}`;
   if (p.target === 'project') return `，保存到项目的 downloads/${p.transcribe ? '并转写为 TXT 与 SRT 文稿' : ''}`;
   if (p.target === 'download') return `，保存到下载目录${p.transcribe ? '并转写为 TXT 与 SRT 文稿' : ''}`;
+  if (p.target === 'folder') return `，保存到 ${p.dir}${p.transcribe ? '并转写为 TXT 与 SRT 文稿' : ''}`;
   return '';
 }
 
@@ -53,6 +56,9 @@ export const zhHans: RcAgentToolsMessages = {
   captionsLabel: '建立字幕层',
   undoSummary: (p) => `撤销修改 ${p.transactionId}`,
   undoLatestSummary: '撤销最近的一笔修改',
+  saveVersionSummary: (p) => `把当前状态保存为版本「${p.name}」`,
+  restoreVersionSummary: (p) => `回到版本 ${p.version}`,
+  restoreBeforeVersionSummary: (p) => `回到版本 ${p.version} 之前`,
   deleteVideoSummary: (p) => `删除视频「${p.name}」（${p.path}）：移进回收站，${p.days} 天内可以在 Space 里恢复；链接素材的原文件不动`,
   importPackageSummary: (p) => `打开便携包 ${p.file}`,
   renameVideoLabel: '改视频名',
@@ -63,6 +69,7 @@ export const zhHans: RcAgentToolsMessages = {
   translationDocumentName: (p) => `${p.language} 译文`,
   importAssetSummary: (p) => `导入素材 ${p.name}${p.place ? ' 并放到时间线上' : ''}`,
   importAssetLabel: (p) => `导入 ${p.name}${p.place ? ' 并放到时间线上' : ''}`,
+  openMediaSaveSummary: (p) => `从 ${p.source} 下载「${p.title}」（${p.license}）到 ${p.target}（重名时加序号，不覆盖）`,
   openMediaDownloadSummary: (p) => `从 ${p.source} 下载「${p.title}」（${p.license}）并导入${p.place ? '，放到时间线上' : ''}`,
   sfxSummary: (p) => `生成音效「${p.recipe}」并导入${p.place ? '，放到时间线上' : ''}`,
  

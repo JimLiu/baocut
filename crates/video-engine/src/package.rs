@@ -171,24 +171,8 @@ fn read_package(package_dir: &Path) -> EngineResult<(VideoState, Vec<DocumentBod
                     json!({ "documentId": id, "revision": revision, "expected": version.content_hash, "actual": hash }),
                 ));
             }
-            if !serde_json::from_str::<Value>(&body).is_ok_and(|v| v.is_object()) {
-                return Err(invalid(msg!(
-                    "engine.documentNotObject",
-                    "Revision {revision} of document {id} is not a JSON object",
-                    revision,
-                    id
-                )));
-            }
-            let parsed: Value = serde_json::from_str(&body).expect("validated object");
-            let expected = video_model::caption_style::scene_asset_refs(&parsed)
-                .map_err(|error| invalid(msg!("videoModel.bodyShape", "The body has fields of the wrong shape: {error}", error)))?;
-            let problems = video_model::caption_style::scene_resource_problems(&parsed, &state.assets);
-            if expected != version.asset_refs || !problems.is_empty() {
-                return Err(invalid(msg!(
-                    "videoModel.bodyShape", "The body has fields of the wrong shape: {error}",
-                    error = "CAPTION_RESOURCE_REFERENCE_MISMATCH"
-                )));
-            }
+            let parsed: Value = serde_json::from_str(&body).unwrap_or(Value::Null);
+            check_document_body(&state, id, version, &parsed)?;
             documents.push(DocumentBody {
                 document_id: id.clone(),
                 revision: revision.clone(),
@@ -198,6 +182,28 @@ fn read_package(package_dir: &Path) -> EngineResult<(VideoState, Vec<DocumentBod
         }
     }
     Ok((state, documents))
+}
+
+/// 一个文档版本的正文要是 JSON 对象，它引用的素材要与版本登记的一致（字幕样式的场景素材）。工作区快照重建时同样检查。
+pub(crate) fn check_document_body(state: &VideoState, id: &str, version: &DocumentRevision, parsed: &Value) -> EngineResult<()> {
+    if !parsed.is_object() {
+        return Err(invalid(msg!(
+            "engine.documentNotObject",
+            "Revision {revision} of document {id} is not a JSON object",
+            revision = version.revision,
+            id
+        )));
+    }
+    let expected = video_model::caption_style::scene_asset_refs(parsed)
+        .map_err(|error| invalid(msg!("videoModel.bodyShape", "The body has fields of the wrong shape: {error}", error)))?;
+    let problems = video_model::caption_style::scene_resource_problems(parsed, &state.assets);
+    if expected != version.asset_refs || !problems.is_empty() {
+        return Err(invalid(msg!(
+            "videoModel.bodyShape", "The body has fields of the wrong shape: {error}",
+            error = "CAPTION_RESOURCE_REFERENCE_MISMATCH"
+        )));
+    }
+    Ok(())
 }
 
 /// 快照 → 工作态（`VideoState::snapshot` 的逆）。视频换成新的 ID，修订号沿用。
@@ -298,7 +304,7 @@ fn state_from_snapshot(snapshot: VideoSnapshot) -> EngineResult<VideoState> {
 }
 
 /// 提交时成立的规则在导入时同样成立：ID 唯一、引用都在、同一轨道上不重叠、转场两侧成立。
-fn validate(state: &VideoState) -> EngineResult<()> {
+pub(crate) fn validate(state: &VideoState) -> EngineResult<()> {
     if !state.sequences.contains_key(&state.root_sequence_id) {
         return Err(invalid(msg!("engine.rootSequenceMissing", "The root sequence of the snapshot does not exist")));
     }

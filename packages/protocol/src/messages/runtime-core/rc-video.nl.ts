@@ -17,6 +17,7 @@ export const nl: RcVideoMessages = {
   reservedDirOutsideSource: "De gereserveerde map staat niet in de bronmap",
   videoInUse: "Deze video is geopend",
   videoNotOpenOpenFirst: "De video is niet geopend. Open die eerst",
+  versionsNeedProject: "Versiegeschiedenis wordt alleen bijgehouden voor video’s in een project. Verplaats de video eerst naar een project",
   assetVersionNotFound: "De media of deze versie ervan bestaan niet",
   videoNotFound: "De video bestaat niet",
   onlyWorkspaceVideos: "Alleen video’s in de werkmap kunnen worden geopend",

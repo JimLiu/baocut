@@ -5,12 +5,15 @@ function exportKindLabel(kind: string): string {
   const labels: Record<string, string> = { subtitles: 'napisy', transcript: 'transkrypcja', audio: 'audio', video: 'plik wideo', portable: 'pakiet przenośny', project: 'plik projektu' };
   return labels[kind] ?? kind;
 }
-function linkImportAfter(p: { target: string; name: string | null; transcribe: boolean; language: string | null; provider: string | null; model: string | null; captions: boolean }): string {
+function linkImportAfter(p: { target: string; name: string | null; transcribe: boolean; language: string | null; provider: string | null; model: string | null; captions: boolean; dir?: string | null }): string {
+  // 文件放进指定目录：导入视频的照常说完，再说文件放在哪。
+  if (p.dir && (p.target === 'create' || p.target === 'video')) return `${linkImportAfter({ ...p, dir: null })}, pobrany plik zapisz w ${p.dir}`;
   const recognition = `${p.language ? `, język ${p.language}` : ''}${p.provider ? ` (${p.provider}${p.model ? ` ${p.model}` : ''})` : ''}`;
   if (p.target === 'create') return `, utwórz wideo${p.name ? ` „${p.name}”` : ' (nazwa z tytułu strony)'} i dodaj na oś czasu${p.transcribe ? `, potem transkrybuj${recognition}${p.captions ? ' i utwórz warstwę napisów' : ''}` : ''}`;
   if (p.target === 'video') return `, importuj do wideo${p.transcribe ? ' i transkrybuj' : ''}`;
   if (p.target === 'project') return `, zapisz w downloads/ projektu${p.transcribe ? ' i transkrybuj do TXT i SRT' : ''}`;
   if (p.target === 'download') return `, zapisz w folderze „Pobrane”${p.transcribe ? ' i transkrybuj do TXT i SRT' : ''}`;
+  if (p.target === 'folder') return `, zapisz w ${p.dir}${p.transcribe ? ' i transkrybuj do TXT i SRT' : ''}`;
   return '';
 }
 
@@ -39,6 +42,9 @@ export const pl: RcAgentToolsMessages = {
   captionsLabel: "Dodaj warstwę napisów",
   undoSummary: (p) => `Cofnij zmianę ${p.transactionId}`,
   undoLatestSummary: "Cofnij ostatnią zmianę",
+  saveVersionSummary: (p) => `Zapisz bieżący stan jako wersję „${p.name}”`,
+  restoreVersionSummary: (p) => `Wróć do wersji ${p.version}`,
+  restoreBeforeVersionSummary: (p) => `Wróć do stanu sprzed wersji ${p.version}`,
   deleteVideoSummary: (p) => `Usuń wideo „${p.name}" (${p.path}): przenieś do kosza, skąd można przywrócić w Space przez ${pluralForm('pl', p.days, { one: `${p.days} dzień`, few: `${p.days} dni`, many: `${p.days} dni`, other: `${p.days} dnia` })}. Oryginalne pliki powiązanych materiałów zostają na miejscu`,
   importPackageSummary: (p) => `Otwórz pakiet przenośny ${p.file}`,
   renameVideoLabel: "Zmień nazwę wideo",
@@ -49,6 +55,7 @@ export const pl: RcAgentToolsMessages = {
   translationDocumentName: (p) => `${p.language} – tłumaczenie`,
   importAssetSummary: (p) => `Importuj materiał ${p.name}${p.place ? " i dodaj na oś czasu" : ""}`,
   importAssetLabel: (p) => `Importuj ${p.name}${p.place ? " i dodaj na oś czasu" : ""}`,
+  openMediaSaveSummary: (p) => `Pobierz „${p.title}” z ${p.source} (${p.license}) do ${p.target} (z numerem przy zajętej nazwie, bez nadpisywania)`,
   openMediaDownloadSummary: (p) => `Pobierz „${p.title}” z ${p.source} (${p.license}) i zaimportuj${p.place ? " na oś czasu" : ""}`,
   sfxSummary: (p) => `Wygeneruj efekt dźwiękowy „${p.recipe}” i zaimportuj go${p.place ? ' na oś czasu' : ''}`,
  

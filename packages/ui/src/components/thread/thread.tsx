@@ -175,7 +175,8 @@ export function Thread({
 
 /**
  * 视频卡第一次出现时在功能区打开那部视频（产品设计 §3.3，shell-store `openVideoBeside`）。线程在会话记录读完后才挂，
- * Job 镜像也到了时记下这一刻已有的卡，它们不算；之后新出现的、知道在哪打开的各打开一次，用户关掉后不再打开。
+ * Job 镜像也到了时记下这一刻已有的卡，它们不算；之后新出现的、知道在哪打开的，等能看了（时间线上有了内容）各打开一次，
+ * 用户关掉后不再打开。
  */
 function useOpenFreshVideos(cards: Map<string, ThreadCard[]>, items: readonly TimelineItem[], conversationId: string) {
   const jobsReady = useJobs((s) => s.ready);

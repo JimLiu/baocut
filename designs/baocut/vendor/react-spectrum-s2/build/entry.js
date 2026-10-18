@@ -23,6 +23,8 @@ export {Card} from '@react-spectrum/s2/Card';
 export {CardPreview} from '@react-spectrum/s2/Card';
 export {CardView} from '@react-spectrum/s2/CardView';
 export {GridList, GridListItem} from 'react-aria-components/GridList';
+// Search field + menu in one popover (Home project picker): typing filters, arrow keys move into the list.
+export {Autocomplete} from 'react-aria-components/Autocomplete';
 export {Cell} from '@react-spectrum/s2/TableView';
 export {Checkbox} from '@react-spectrum/s2/Checkbox';
 export {Column} from '@react-spectrum/s2/TableView';
@@ -93,6 +95,7 @@ export {TooltipTrigger} from '@react-spectrum/s2/Tooltip';
 import I_Home from '@react-spectrum/s2/icons/Home';
 import I_Folder from '@react-spectrum/s2/icons/Folder';
 import I_FolderOpen from '@react-spectrum/s2/icons/FolderOpen';
+import I_FolderAdd from '@react-spectrum/s2/icons/FolderAdd';
 import I_Search from '@react-spectrum/s2/icons/Search';
 import I_AddCircle from '@react-spectrum/s2/icons/AddCircle';
 import I_Add from '@react-spectrum/s2/icons/Add';
@@ -228,6 +231,7 @@ export const Icons = {
   Home: I_Home,
   Folder: I_Folder,
   FolderOpen: I_FolderOpen,
+  FolderAdd: I_FolderAdd,
   Search: I_Search,
   Add: I_Add,
   AddCircle: I_AddCircle,

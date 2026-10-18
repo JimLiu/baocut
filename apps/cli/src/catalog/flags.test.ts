@@ -176,11 +176,13 @@ describe('旗标派生', () => {
 
     const exported = await parse(['export'], ['demo', '--kind', 'video', '--format', 'mp4', '--range', '1.5:10', '--fps', '30000/1001']);
     expect(exported).toMatchObject({ range: { start: 1.5, end: 10 }, fps: { num: 30000, den: 1001 } });
-    // 只有一个文本字段的对象直接写值；写 JSON 也行。
+    // 只有一个必填文本字段的对象直接写值；要给其余可选字段就写 JSON。
     const replaced = await parse(['compositions', 'import'], ['demo', '--path', 'g/2', '--replace', 'item_1']);
     expect(replaced).toEqual({ video: 'demo', path: 'g/2', replace: { itemId: 'item_1' } });
     const json = await parse(['compositions', 'import'], ['demo', '--path', 'g/2', '--replace', '{"itemId":"item_2"}']);
     expect(json).toMatchObject({ replace: { itemId: 'item_2' } });
+    const ripple = await parse(['compositions', 'import'], ['demo', '--path', 'g/2', '--replace', '{"itemId":"item_3","ripple":true}']);
+    expect(ripple).toMatchObject({ replace: { itemId: 'item_3', ripple: true } });
     expect(
       await parse(
         ['export'],

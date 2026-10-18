@@ -113,11 +113,11 @@ pub struct MissingAsset {
 }
 
 pub struct Video {
-    dir: PathBuf,
-    store: Store,
-    state: VideoState,
+    pub(crate) dir: PathBuf,
+    pub(crate) store: Store,
+    pub(crate) state: VideoState,
     generation: i64,
-    mode: OpenMode,
+    pub(crate) mode: OpenMode,
     ffprobe: PathBuf,
     // 持有期间不释放的写锁。进程退出时由内核释放。
     _lock: Option<WriteLock>,
@@ -281,6 +281,7 @@ fn operation_label(op: &EditOperation) -> Text {
         EditOperation::AcceptCutSuggestions { .. } => msg!("engine.labelAcceptSuggestedCuts", "Accept suggested cuts"),
         EditOperation::DeleteItems { .. } => msg!("engine.labelDeleteClips", "Delete clips"),
         EditOperation::RemoveRange { .. } => msg!("engine.labelDeleteTimeRange", "Delete time range"),
+        EditOperation::InsertRange { .. } => msg!("engine.labelInsertTimeRange", "Insert time"),
         EditOperation::AddTrack { .. } => msg!("engine.labelAddTrack", "Add track"),
         EditOperation::DeleteTrack { .. } => msg!("engine.labelDeleteTrack", "Delete track"),
         EditOperation::UpdateTrack { .. } => msg!("engine.labelEditTrack", "Edit track"),
@@ -656,7 +657,9 @@ impl Video {
         if self.mode != OpenMode::Write {
             return Err(ErrorBody::read_only());
         }
-        let referenced = self.store.referenced_content_hashes()?;
+        let mut referenced = self.store.referenced_content_hashes()?;
+        // 保留的版本能回到的状态引用的素材也留着（视频格式规范 §9.4）。
+        crate::versions::collect_snapshot_hashes(&self.dir, &mut referenced)?;
         Ok(crate::gc::gc_blob_dir(
             &self.dir,
             &referenced,
@@ -724,7 +727,7 @@ impl Video {
         crate::anchors::orphaned(&self.state, &mut load)
     }
 
-    fn ensure_writable(&self) -> EngineResult<()> {
+    pub(crate) fn ensure_writable(&self) -> EngineResult<()> {
         match self.mode {
             OpenMode::Write => Ok(()),
             OpenMode::ReadOnly => Err(ErrorBody::read_only()),
@@ -732,7 +735,7 @@ impl Video {
     }
 
     /// 幂等检查：同 key 同载荷返回原回执；同 key 不同载荷拒绝。
-    fn replay(&self, command_id: &str, hash: &str) -> EngineResult<Option<Committed>> {
+    pub(crate) fn replay(&self, command_id: &str, hash: &str) -> EngineResult<Option<Committed>> {
         match self.store.find_by_key(&self.state.id, command_id)? {
             Some((stored, receipt)) if stored == hash => Ok(Some(Committed { receipt, event: None })),
             Some(_) => Err(ErrorBody::idempotency_conflict(command_id)),
@@ -1175,7 +1178,7 @@ impl Video {
         )
     }
 
-    fn commit(&mut self, mut next: VideoState, input: CommitInput) -> EngineResult<Committed> {
+    pub(crate) fn commit(&mut self, mut next: VideoState, input: CommitInput) -> EngineResult<Committed> {
         let changes = VideoState::diff(&self.state, &next);
         crate::task_guard::check(&self.state, &next, &changes, &input.protections)?;
         let touched: Vec<Id> = VideoState::touched_sequences(&self.state, &next, &changes).into_iter().collect();
@@ -1306,7 +1309,7 @@ impl Video {
     }
 }
 
-struct CommitInput {
+pub(crate) struct CommitInput {
     transaction_id: Id,
     command_id: Id,
     payload_hash: String,
@@ -1338,6 +1341,43 @@ struct CommitInput {
     removed_tracks: Vec<Id>,
     /// `removeAssets` 删掉的素材。
     removed_assets: Vec<Id>,
+}
+
+impl CommitInput {
+    /// 直接给出下一个状态的提交（回到版本、删除保存的版本）：不经编辑操作，没有引用、谱系与影响，照常可撤销。
+    pub(crate) fn direct(command_id: Id, payload_hash: String, label: Text, actor: Actor, documents: Vec<DocumentBody>) -> CommitInput {
+        CommitInput {
+            transaction_id: new_transaction_id(),
+            command_id,
+            payload_hash,
+            base_label: label.clone(),
+            label,
+            undo_depth: 0,
+            actor,
+            task_id: None,
+            protections: Vec::new(),
+            undo_of: None,
+            now: now_rfc3339(),
+            time_resolution: Vec::new(),
+            lineage: BTreeMap::new(),
+            extra_preserved: Vec::new(),
+            documents,
+            refs: BTreeMap::new(),
+            removed_transitions: Vec::new(),
+            shortened_transitions: Vec::new(),
+            cut_impact: Default::default(),
+            orphaned_anchors: Vec::new(),
+            removed_with_target: Vec::new(),
+            code_edits: Vec::new(),
+            removed_tracks: Vec::new(),
+            removed_assets: Vec::new(),
+        }
+    }
+
+    pub(crate) fn with_protections(mut self, protections: &[TaskProtection]) -> CommitInput {
+        self.protections = protections.to_vec();
+        self
+    }
 }
 
 /// 每个实例引用的素材与文档必须存在。返回失去引用的实例。

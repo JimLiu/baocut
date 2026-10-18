@@ -151,6 +151,11 @@ export const TOOL_RISK: Readonly<Record<string, RiskLevel>> = {
   // 预览代码画面：不改视频，只在离屏宿主里取帧，写进 .baocut-out/frames/，与 videos_frames 同级。
   compositions_preview: 'read',
   videos_history: 'read',
+  // 版本记录（§5.12）：列版本与读 diff 只读；保存版本建一个检查点、回到版本是一笔可撤销的修改，与 edits_undo 同级。
+  videos_versions: 'read',
+  videos_version_diff: 'read',
+  videos_save_version: 'edit',
+  videos_restore_version: 'edit',
   edits_ops: 'read',
   export: 'edit',
   artifacts_save: 'edit',

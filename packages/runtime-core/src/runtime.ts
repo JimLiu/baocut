@@ -27,6 +27,7 @@ import {
   type RuntimeDiscovery,
   type RuntimeInfo,
   type RuntimeLauncher,
+  type TasksEvent,
 } from '@baocut/protocol';
 import type { CapacitySource, JobManager } from '@baocut/jobs';
 import {
@@ -165,6 +166,8 @@ export interface StartRuntimeOptions {
   engineHost?: string | null;
   /** 连接断开后多久关闭它打开的视频（默认 15 秒）。 */
   videoGraceMs?: number;
+  /** 最后一笔编辑之后多久写工作区快照（§5.12，测试用）。 */
+  videoSnapshotDelayMs?: number;
   /** Model Worker 的命令。默认取 `BAOCUT_MODEL_WORKER` 或仓库里构建出的 `model-worker`；null 表示本地推理不可用。 */
   modelWorker?: ModelWorkerCommand | null;
   /** 模型空闲多久后卸载（默认 10 分钟）。 */
@@ -436,7 +439,10 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       resolveCommand: () => (options.engineHost !== undefined ? options.engineHost : resolveEngineHostCommand()),
       env: toolEnv,
       graceMs: options.videoGraceMs,
+      snapshotDelayMs: options.videoSnapshotDelayMs,
       fontCacheDir: path.join(home.root, 'fonts', 'files'),
+      // 版本记录（§5.12）：偏好设置在后面读入，用到时才取。
+      versionSettings: () => ({ keep: settings.store.get('versions.keep'), cadence: settings.store.get('versions.cadence') }),
     });
     stops.add('videos', () => videos.shutdown(), 'Stopping the video engine failed');
     const media = new MediaRegistry({ log, originAllowed: (origin) => originAllowed(origin, options.allowedOrigins) });
@@ -755,6 +761,12 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       log,
     });
     stops.add('harness', () => harness.shutdown(), 'Stopping the Harness failed');
+    // 版本记录（§5.12）：任务属于哪个会话写进版本头部；按回合切分时，新任务开始就是新回合。
+    // 订阅随 Harness 停止一起结束。
+    harness.subscribe('tasks', undefined, (event) => {
+      const tasksEvent = event.event as TasksEvent;
+      if (tasksEvent.type === 'task.upsert') videos.noteTask(tasksEvent.task);
+    });
     // 升级前留在会话工作目录里的视频搬进项目，没有会话的工作目录收拾掉（§3.10）。在 Space 首次扫描与客户端连上之前。
     await harness.migrateScratch().catch((error: unknown) => log.warn('Failed to tidy session folders', { error: String(error) }));
     // 默认 Agent 存在偏好设置里（`agent.defaultDriver`，§3.11）：设置页、CLI、`agents.setDefault` 改了它都推送新的 Agent 视图。

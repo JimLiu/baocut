@@ -56,6 +56,10 @@ describe('从链接导入的参数', () => {
     expect(parseLinkImportParams({ url: 'https://video.example.com/a', cookieBrowsers: [] })).not.toHaveProperty('cookieBrowsers');
     expect(parseLinkImportParams({ url: 'https://video.example.com/a', projectId: 'prj_1', saveTo: 'project' })).toMatchObject({ saveTo: 'project' });
     expect(() => parseLinkImportParams({ url: 'https://video.example.com/a', saveTo: 'home' })).toThrow(/saveTo/);
+    const outDir = path.resolve('/Volumes/Media/clips');
+    expect(parseLinkImportParams({ url: 'https://video.example.com/a', outDir })).toMatchObject({ outDir });
+    expect(() => parseLinkImportParams({ url: 'https://video.example.com/a', outDir: 'clips' })).toThrow(/outDir/);
+    expect(() => parseLinkImportParams({ url: 'https://video.example.com/a', outDir, saveTo: 'project' })).toThrow(/outDir/);
     for (const bad of [
       { url: '-https://video.example.com/a' },
       { url: '--exec=id' },
@@ -516,6 +520,29 @@ describe.skipIf(!hasFfprobe)('从链接导入（假 yt-dlp）', () => {
       expect.objectContaining({ type: 'importAsset', storage: 'linked', provenance: expect.objectContaining({ origin: 'link-import' }) }),
       expect.objectContaining({ type: 'addItem', sequenceId: 'seq_new' }),
     ]);
+  });
+
+  it('给了 outDir：文件放进那个目录（不存在时建好），不问下载目录；导入的素材链到那里', async () => {
+    const outDir = path.join(dir, 'external drive', 'clips');
+    const { jobId } = await start({ url: 'https://video.example.com/watch?v=abc', videoId: 'vid_1', outDir });
+    const parent = await finished(jobId);
+    expect(parent.state).toBe('completed');
+    expect(destinations).toEqual([]);
+    expect(parent.pipeline!.params.outDir).toBe(outDir);
+    const summary = parent.pipeline!.summary as unknown as LinkImportSummary;
+    expect(path.dirname(summary.files.media)).toBe(await fs.realpath(outDir));
+    expect(await fs.readdir(downloads()).catch(() => [])).toEqual([]);
+    expect((applied[0]!.request.operations as Array<Record<string, unknown>>)[0]).toMatchObject({ type: 'importAsset', path: summary.files.media, storage: 'linked' });
+  });
+
+  it('outDir 不能写时提交即拒绝，不建任务', async () => {
+    const blocker = path.join(dir, 'not-a-dir');
+    await fs.writeFile(blocker, 'x');
+    await expect(start({ url: 'https://video.example.com/a', outDir: path.join(blocker, 'clips') })).rejects.toMatchObject({
+      code: 'conflict',
+      details: expect.objectContaining({ code: 'OUTPUT_DESTINATION_UNAVAILABLE' }),
+    });
+    expect(jobs.list().filter((job) => job.kind === 'pipeline')).toEqual([]);
   });
 
   it('只下载之后按产物导入：产物找得到下载目录里的文件（内容核对过），来源与流程自己导入的相同；改过的文件不认', async () => {

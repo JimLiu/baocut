@@ -459,6 +459,11 @@ export interface LinkImportParams {
    * （`projectId`、导入的视频或新建视频所在的项目）里的 `downloads/`，归属是不属于项目的会话或没有归属时仍用下载目录。
    */
   saveTo?: 'downloads' | 'project';
+  /**
+   * 文件放进这个目录（本机绝对路径，不存在时创建），代替 `saveTo` 选的目录，与 `saveTo` 不能同时给；导入视频时素材链到这里。
+   * 提交时建好、确认能写（不能写时 `conflict`，`OUTPUT_DESTINATION_UNAVAILABLE`，不建任务），冻结在任务里。
+   */
+  outDir?: string;
 }
 
 /** 从链接导入完成时父任务的 `pipeline.summary`。 */

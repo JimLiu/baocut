@@ -16,6 +16,7 @@ import { isGrantErrorDetails } from '../grants/grant-errors.ts';
 import { formatBytes } from './model-install-tools.ts';
 import { ToolError, type ToolInfo, type ToolSet } from './tool-catalog.ts';
 import { approvalField, confirmSummary, type ToolAccess, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
+import { resolveUserPath } from './video-digest.ts';
 import { commandIdArg, videoArg } from './video-tools.ts';
 
 /**
@@ -39,7 +40,9 @@ import { commandIdArg, videoArg } from './video-tools.ts';
  *
  * 文件去哪：与界面、CLI 一样默认进下载目录（设置 `downloads.directory`，默认主机的下载文件夹），`video`、`newVideo` 导入的是
  * 链到那里的素材；只给 `project` 时放进那个项目的 `downloads/`（流程的 `saveTo: 'project'`）。对外服务只能写进项目，它的落点
- * 一律放进归属项目的 `downloads/`。归属是不属于项目的会话时仍进下载目录（会话的工作目录用户看不到）。不给落点时
+ * 一律放进归属项目的 `downloads/`。归属是不属于项目的会话时仍进下载目录（会话的工作目录用户看不到）。给了 `outDir` 时文件
+ * 放进那个目录（按 `ToolScope.fileBase` 解析：会话是工作目录，终端是 cwd；流程在提交时建好、确认能写），`video`、`newVideo`
+ * 导入的素材链到那里；只给 `project` 时文件本来就进项目，不能再给 `outDir`；对外服务不能给（本机路径）。不给落点时
  * `transcribe` 为 true 在媒体旁边生成 TXT 与 SRT 文稿；之后可以用结果里媒体的 `artifactId` 经 `edits_apply` 的 `importAsset`
  * 导入视频。
  *
@@ -88,6 +91,8 @@ export interface LinkImportRequest {
   captions?: boolean | undefined;
   /** 读取哪些浏览器的登录 Cookie（按尝试的顺序）；空的是匿名，不给时按设置 › 视频下载。 */
   cookieBrowsers?: LinkCookieBrowser[] | undefined;
+  /** 文件放进这个目录（相对路径按 `ToolScope.fileBase` 解析）；不给时按落点进下载目录或项目的 `downloads/`。 */
+  outDir?: string | undefined;
   commandId?: string | undefined;
 }
 
@@ -136,6 +141,14 @@ const schemas = {
       .optional()
       .describe('可选。同时下载这些语言的字幕文件（例如 ["en","zh-Hans"]），放在媒体旁边、不导入视频；平台没有时跳过'),
     audioOnly: z.boolean().optional().describe('可选。只下载音频'),
+    outDir: z
+      .string()
+      .min(1)
+      .max(4000)
+      .optional()
+      .describe(
+        '可选。文件保存到这个目录（任意位置，例如外置盘上的文件夹；不存在时创建），代替下载目录；相对路径按工作目录（终端里是当前目录），~/ 是主目录。可以与 video、newVideo 一起给（导入的素材链到这里）；只给 project 时文件进项目，不能再给。对外服务不能给',
+      ),
     cookieBrowsers: cookieBrowsersArg.optional(),
     commandId: commandIdArg.optional().describe('可选。重试同一次提交时带上同一个值，不会重复创建任务'),
   }),
@@ -148,7 +161,7 @@ const DEFINITIONS: Record<'download', ToolInfo> = {
     title: '从链接下载',
     description: [
       '用 yt-dlp 从视频页面的链接下载媒体，可以导入视频或新建视频并转写。',
-      '落点三选一：video 导入已有视频；newVideo 新建视频并放上时间线（可给 project、name）；project 只下载到项目的 downloads/。文件默认存进下载目录（设置 downloads.directory，默认系统的下载文件夹），video、newVideo 导入的素材链到那里；都不给时只下载、不建视频，只在用户明确说只要文件、不要视频时这样用。',
+      '落点三选一：video 导入已有视频；newVideo 新建视频并放上时间线（可给 project、name）；project 只下载到项目的 downloads/。文件默认存进下载目录（设置 downloads.directory，默认系统的下载文件夹），video、newVideo 导入的素材链到那里；用户要放到别处（外置盘、某个文件夹）时给 outDir，不用请用户去改设置；都不给时只下载、不建视频，只在用户明确说只要文件、不要视频时这样用。',
       '要转写、加字幕、翻译的默认给 newVideo（或直接用 transcribe 给 url）：它新建视频、导入、放上时间线，transcribe 为 true 时再转写；之后 videos_list、videos_inspect 看得到它。新建的视频在之后的步骤失败时保留，不要再新建一次。',
       '只在用户明确要从网页链接取视频时用。会按访问模式向用户确认；yt-dlp 没有安装时会请用户同意下载它（显示来源、版本、大小与许可），这次只提交安装并返回 installJobId：用 jobs_wait 等它 completed，再调用一次本工具。',
       '立即返回 jobId。用 jobs_wait 等它结束（看进度用 jobs_inspect，progress.unit 为 bytes），state 为 completed 时 outputs 里有下载的文件与文稿（path）和导入的素材（assetId）；只下载时媒体的 artifactId 可以给 edits_apply 的 importAsset（文件要还在原处、没有改过）。失败时 error.code 是 LINK_LOGIN_REQUIRED、LINK_UNSUPPORTED、LINK_NETWORK_ERROR、LINK_DISK_FULL 等，error.details.remedy 说明怎么补救；不要用别的方式绕过（不要自己运行下载程序）。',
@@ -161,6 +174,7 @@ const DEFINITIONS: Record<'download', ToolInfo> = {
       { title: '从链接新建视频并转写', args: { url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', newVideo: true, transcribe: true } },
       { title: '下载到已有视频', args: { url: 'https://example.com/talk', video: 'demo' } },
       { title: '只下载到项目，带英文字幕', args: { url: 'https://example.com/talk', project: 'prj_1', subs: ['en'] } },
+      { title: '下载到外置盘的文件夹', args: { url: 'https://example.com/talk', outDir: '/Volumes/Media/clips' } },
     ],
     surfaces: ['agent', 'mcp', 'cli'],
     positional: 'url',
@@ -200,6 +214,11 @@ async function start(deps: LinkImportToolsDeps, args: LinkImportRequest, princip
     throw new ToolError('INVALID_ARGUMENTS', 'video 与 project、newVideo 只能给一个落点');
   }
   if (args.name !== undefined && !args.newVideo) throw new ToolError('INVALID_ARGUMENTS', 'name 只与 newVideo 一起给');
+  if (args.outDir !== undefined && args.project !== undefined && !args.newVideo) {
+    throw new ToolError('INVALID_ARGUMENTS', '只给 project 时文件进项目的 downloads/：与 outDir 只能给一个', {
+      next: '要放进别的目录就去掉 project，只给 outDir。',
+    });
+  }
   const service = access.principal.kind === 'service';
   if (service && args.cookieBrowsers?.length) {
     throw new ToolError('INVALID_ARGUMENTS', '对外服务不能读取本机浏览器的登录信息（cookieBrowsers）', {
@@ -218,6 +237,8 @@ async function start(deps: LinkImportToolsDeps, args: LinkImportRequest, princip
   // i18n-ignore-end
   // 链接先在本地检查（协议、私有地址、以 - 开头），不合格的不弹确认。
   const link = checkLink(args.url);
+  // 本机目录：对外服务在这里以 INVALID_ARGUMENTS 拒绝（`fileBase`）；能不能写由流程在提交时检查。
+  const outDir = args.outDir !== undefined ? resolveUserPath(args.outDir, scope.fileBase(access)) : undefined;
   if (deps.offlineStrict()) {
     // i18n-ignore: 给模型的工具说明、错误与下一步
     throw new ToolError('OFFLINE_STRICT', '严格离线模式下不从链接下载：请用户在设置里关掉严格离线，或把文件放进来源目录后导入');
@@ -285,7 +306,7 @@ async function start(deps: LinkImportToolsDeps, args: LinkImportRequest, princip
   const placed = args.video !== undefined || args.newVideo === true || args.project !== undefined;
   // 文件进项目的 downloads/：对外服务只能写进项目（§12.8），有落点就进；智能体只在只给 project（只下载到项目）时进，
   // 导入视频的与界面、CLI 一样留在下载目录。
-  const intoProject = service ? placed : args.project !== undefined && !args.newVideo;
+  const intoProject = outDir === undefined && (service ? placed : args.project !== undefined && !args.newVideo);
   // 网站登录：给了用给的；不给时按设置展开（此刻检测到的浏览器）；对外服务一律匿名。空列表不进流程参数（匿名）。
   const browsers = service ? [] : (args.cookieBrowsers ?? (await deps.settingCookieBrowsers()));
   const cookieBrowsers = browsers.length ? browsers : undefined;
@@ -295,7 +316,7 @@ async function start(deps: LinkImportToolsDeps, args: LinkImportRequest, princip
     version: status.version ?? '',
     host: link.host,
     url: link.canonical,
-    target: args.newVideo ? 'create' : args.video !== undefined ? 'video' : args.project !== undefined ? 'project' : 'download',
+    target: args.newVideo ? 'create' : args.video !== undefined ? 'video' : args.project !== undefined ? 'project' : outDir !== undefined ? 'folder' : 'download',
     name: args.name ?? null,
     transcribe: args.transcribe ?? false,
     language: args.language ?? null,
@@ -303,6 +324,7 @@ async function start(deps: LinkImportToolsDeps, args: LinkImportRequest, princip
     model: args.model ?? null,
     captions: args.captions ?? false,
     cookies: cookieBrowsers ? cookieBrowsers.map((id) => COOKIE_BROWSER_LABELS[id]).join(RcAgentTools.listSeparator().text) : null,
+    dir: outDir ?? null,
   };
   const approval =
     status.consent?.state === 'granted'
@@ -326,6 +348,7 @@ async function start(deps: LinkImportToolsDeps, args: LinkImportRequest, princip
         url: args.url,
         ...target,
         ...(intoProject ? { saveTo: 'project' } : {}),
+        ...(outDir !== undefined ? { outDir } : {}),
         ...(args.audioOnly !== undefined ? { audioOnly: args.audioOnly } : {}),
         ...(args.subtitleLanguages ? { subtitleLanguages: args.subtitleLanguages } : {}),
         ...(args.transcribe !== undefined ? { transcribe: args.transcribe } : {}),
@@ -347,14 +370,14 @@ async function start(deps: LinkImportToolsDeps, args: LinkImportRequest, princip
     adoptWhenCreated(deps.jobs, jobId, (videoId) => adopt(access, videoId));
   }
   // i18n-ignore-start: 给模型的工具说明、错误与下一步
-  const where = intoProject ? '所属项目的 downloads/（不属于项目的会话是下载目录）' : '下载目录';
+  const where = outDir !== undefined ? outDir : intoProject ? '所属项目的 downloads/（不属于项目的会话是下载目录）' : '下载目录';
   return {
     jobId,
     installJobId: null,
     url: link.canonical,
     ...approvalField(approval),
     next: args.newVideo
-      ? `下载已提交，完成后新建视频并放上时间线${args.transcribe ? `、转写${args.captions ? '、建立字幕层' : ''}` : ''}。用 jobs_wait 等它结束（看进度用 jobs_inspect）；state 为 completed 时 videoId 是新建的视频（可以直接给 videos_inspect），outputs[0].assetId 是导入的素材${
+      ? `下载已提交${outDir !== undefined ? `，文件保存到 ${outDir}` : ''}，完成后新建视频并放上时间线${args.transcribe ? `、转写${args.captions ? '、建立字幕层' : ''}` : ''}。用 jobs_wait 等它结束（看进度用 jobs_inspect）；state 为 completed 时 videoId 是新建的视频（可以直接给 videos_inspect），outputs[0].assetId 是导入的素材${
           args.transcribe
             ? args.captions
               ? '，pipeline.summary.documentId 是新转写（可以给 documents_read），summary.captions 是字幕层'

@@ -191,6 +191,9 @@ import type {
   DocumentContent,
   EditOperation,
   HistoryEntry,
+  VideoSnapshotStatus,
+  VideoVersionList,
+  VideoVersionText,
   MissingAsset,
   VideoRef,
   VideoTopicSnapshot,
@@ -777,6 +780,36 @@ export interface RpcMethods {
   /** 把删除了的视频从回收站移回原来的位置。 */
   'videos.restore': { params: { entryId: Id }; result: VideoRestoreResult };
   'videos.history': { params: { videoId: Id; limit?: number }; result: { entries: HistoryEntry[] } };
+  /**
+   * 版本记录（视频格式规范 §9，架构设计 §5.12）：视频目录里 `.bcut-snapshot/` 的版本，新的在前。不依赖 git；
+   * 视频要已经打开。`limit` 只截列表，`unreadable` 照常全列。
+   */
+  'videos.versions.list': { params: { videoId: Id; limit?: number }; result: VideoVersionList };
+  /** 一个版本的头部与 diff 文本。 */
+  'videos.versions.get': { params: { videoId: Id; version: number }; result: VideoVersionText };
+  /** 快照与库的关系（§9.7）：是否同步、是否被外部改过、有几个版本。只读。 */
+  'videos.versions.status': { params: { videoId: Id }; result: VideoSnapshotStatus };
+  /**
+   * 把当前状态存成一个具名版本（§9.6）：先写快照，再建一个检查点、单独成一个 `save` 版本。保存的版本不计入 `versions.keep`、
+   * 不被大小上限清理。同一个 `commandId` 重试时返回第一次的结果。
+   */
+  'videos.versions.save': {
+    params: { videoId: Id; commandId: Id; name: string; note?: string };
+    result: EditResult & { version: number; checkpointId: Id };
+  };
+  /**
+   * 回到一个版本结束时的状态，`before` 为真时回到它开始之前（§9.5）：从最新快照逐版反向应用 diff，作为一笔可以撤销的修改提交，
+   * 并单独成一个 `restore` 版本。目标与当前状态相同时没有事务（`receipt` 为 null）。链对不上时 `VERSION_CHAIN_BROKEN`。
+   */
+  'videos.versions.restore': {
+    params: { videoId: Id; commandId: Id; version: number; before?: boolean };
+    result: { receipt: TransactionReceipt | null; replayed: boolean; version: number | null };
+  };
+  /** 删掉一个保存的版本与它的检查点（只能删保存的版本），两侧的 diff 合并（§9.6）。 */
+  'videos.versions.delete': {
+    params: { videoId: Id; commandId: Id; version: number };
+    result: { receipt: TransactionReceipt | null; replayed: boolean };
+  };
   /**
    * 已打开视频里此刻读不到的素材版本（视频格式规范 §4.2）：每个素材的当前版本与实例引用的版本里，文件不在、
    * 已经不是登记时的文件，或相对路径越出了项目目录的。视频照常打开；界面据此标出缺失的素材，不必等到 `media.resolve` 失败。

@@ -30,6 +30,8 @@ export const de: SettingDescriptionMessages = {
   'fonts.fileEndpoint': "Basis-URL für Schriftdateien (Spiegelserver, https://; Dateien werden nur darunter abgerufen); null verwendet https://fonts.gstatic.com",
   'space.trashRetentionDays':
     "Aufbewahrungstage für Einträge im Space-Papierkorb (1–3650): ältere nicht referenzierte Einträge und gelöschte Videos werden regelmäßig dauerhaft gelöscht",
+  'versions.keep': "Unbenannte Versionen, die im Versionsverlauf jedes Videos bleiben (1–100); gespeicherte Versionen bleiben immer erhalten. Die Versionsdateien eines Videos sind außerdem auf 64 MiB begrenzt: darüber werden die ältesten unbenannten Versionen entfernt",
+  'versions.cadence': "Wann der Versionsverlauf eines Videos eine neue Version beginnt: segment nach 5 ruhigen Minuten, alle 30 Minuten durchgehender Bearbeitung und um Speichern und Wiederherstellen herum; turn zusätzlich zu Beginn jedes Agent-Durchgangs",
   'cache.maxSizeMiB': 'Größenlimit für den Cache im Datenordner, in MiB (256–1048576): Wird es überschritten, werden die ältesten Cache-Dateien (Medienanalyse, Wiedergabekopien) gelöscht, bis 90 % erreicht sind. Der videoübergreifende Suchindex wird nie gelöscht',
   'resources.capacity':
     "Erweitert: Computerkapazität für Ressourcenplanung { memoryMiB, gpuMemoryMiB, cpuThreads }; null für einen Eintrag erkennt ihn automatisch; null erkennt alles (Speicher und CPU stammen vom System; GPU-Speicher bei Apple silicon wird aus gemeinsamem Speicher geschätzt)",

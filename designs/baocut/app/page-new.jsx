@@ -21,8 +21,9 @@
        在托盘里换一次就记一次；别处带着项目来的预置（newPreset.dir）只管这一次，不记。 */
     const usable = (id) => !!id && app.dirs.some((d) => d.id === id && !d.archived);
     const [dir, setDirState] = useState(() => (usable(seed.dir) ? seed.dir : null));
-    const setDir = (id) => {
-      const next = usable(id) ? id : null;
+    /* made：刚建好或刚加进来的项目。它要到下一次渲染才在 app.dirs 里，所以由创建对话框直接带过来。 */
+    const setDir = (id, made) => {
+      const next = (made && made.id === id && !made.archived) || usable(id) ? id : null;
       setDirState(next);
       app.rememberNew({dir: next});
     };
