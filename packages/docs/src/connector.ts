@@ -4,7 +4,7 @@
  *
  * - 与编辑器经同一份 LiveDoc / door 读写：写入即时推给开着的编辑器，评论记在智能体名下。
  * - 正文的写法比编辑器的多一层：`find` / `cell` 目标、整块写的 guard（`ifHash` / `ifRev`）、`as:'text'` 原地改字、
- *   `dropped`、`anchors_affected`、表格加列（`each`）、`restore`；读有大纲、一节、搜索、`sinceRev`、`atRev`。
+ *   `dropped`、`anchors_affected`、表格加列（`each`）、`restore`；读有大纲、一节、搜索、版本、`sinceRev`、`atRev`。
  * - 被拒时抛 `DocsRefusal`（`code` 是拒绝码），什么也没改。写入在返回前落盘（调用方随后读 doc.json 更新卡片）。
  */
 import { createHash } from 'node:crypto';
@@ -30,11 +30,14 @@ import {
   type TextBlock,
 } from './prose-document.ts';
 import { newDocState, readDocInfo, visibleTabs, type DocMeta, type DocState, type DocTab, type LiveNode } from './store.ts';
+import { listVersions } from './versions.ts';
 
-/** 智能体在文档里的身份（评论与修改记在它名下）。 */
+/** 智能体在文档里的身份（评论与修改记在它名下）。`conversation` / `turn` 是它所在的会话与回合，版本按回合分开。 */
 export interface DocsActor {
   id: string;
   name: string;
+  conversation?: string;
+  turn?: string;
 }
 
 /** 连接器的拒绝：`code` 是拒绝码（`find_none`、`guard_mismatch`……），`details` 是修好它要的细节。什么也没改。 */
@@ -132,7 +135,13 @@ function withIndex(error: DocsRefusal, index: number): DocsRefusal {
 
 function agentContext(actor: DocsActor, answering?: string): DoorContext {
   return {
-    actor: { principal: actor.id || 'claude', name: actor.name || 'Claude', channel: 'agent' },
+    actor: {
+      principal: actor.id || 'claude',
+      name: actor.name || 'Claude',
+      channel: 'agent',
+      ...(actor.conversation ? { conversation: actor.conversation } : {}),
+      ...(actor.turn ? { turn: actor.turn } : {}),
+    },
     canEdit: true,
     ...(answering ? { answering } : {}),
   };
@@ -782,17 +791,14 @@ class NodeEdit {
     const snapshot = this.#door.doc.snapshot(node, rev);
     if (!snapshot) refuse('absent', `rev ${rev} 已不在历史里：还留着 ${this.#door.doc.oldestRev(node)}–${node.rev}`, { oldest: this.#door.doc.oldestRev(node), latest: node.rev });
     this.#detaching(node.blocks, snapshot, op['allowDetach'] === true);
-    const nextRev = node.rev + 1;
-    for (const { block } of walkBlocks(snapshot)) block.rev = nextRev;
     const session = this.#door.nodeOptions(node, this.#ctx).mintSession;
-    const result: OpResult = { changed: true, touched: snapshot.map((block) => block.id), removed: [] };
-    this.#door.commitNodeBlocks(node, snapshot, [], [result], session, this.#ctx);
+    this.#door.restoreNode(node, snapshot, rev, this.#ctx);
     const xml = docXml(node.blocks, xmlContext(this.#door, node), { outline: true });
     return { rev: node.rev, session, xml, changed: true, notices: [{ code: 'restored', from: rev }] };
   }
 }
 
-/** 正文的读：大纲、一节（`parentId`）、搜索、某个 rev 以来的变化、某个 rev 时的样子，或整篇。 */
+/** 正文的读：大纲、一节（`parentId`）、搜索、版本、某个 rev 以来的变化、某个 rev 时的样子，或整篇。 */
 function readNode(door: DocDoor, node: LiveNode, payload: Record<string, unknown> | undefined): Result {
   const context = xmlContext(door, node);
   const p = payload ?? {};
@@ -804,7 +810,9 @@ function readNode(door: DocDoor, node: LiveNode, payload: Record<string, unknown
     const hits = searchText(node.blocks, text, true);
     return { rev: node.rev, hits: hits.length, xml: searchXml(hits.slice(0, SEARCH_LIMIT), context, text), ...(hits.length > SEARCH_LIMIT ? { truncated: true } : {}) };
   }
-  if (p['kind'] !== undefined && p['kind'] !== 'view') refuse('invalid_argument', 'payload 是 {"projection":"outline"}、{"kind":"view",…} 或 {"kind":"search","text"}');
+  if (p['kind'] === 'versions') return { rev: node.rev, versions: listVersions(node) };
+  if (p['kind'] !== undefined && p['kind'] !== 'view')
+    refuse('invalid_argument', 'payload 是 {"projection":"outline"}、{"kind":"view",…}、{"kind":"search","text"} 或 {"kind":"versions"}');
   if (p['atRev'] !== undefined) {
     const rev = intOf(p['atRev'], 'atRev', 1);
     if (rev > node.rev) refuse('invalid_argument', `rev ${rev} 还没有：现在是 ${node.rev}`, { latest: node.rev });

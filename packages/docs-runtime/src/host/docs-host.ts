@@ -12,9 +12,9 @@
  * 不经 chat：装了 comments 时打开批注框（docs-app.tsx 的 ask-claude）。
  * 空行上 @Agent 的行内提问不经这里：它要先让模型判断请求（sample）再决定由 Claude 直接写还是转成批注，独立页面不提供
  * （packages/docs-runtime/README.md「不提供」）。
- * 版本历史也不经 docsHost：它要的是文档服务的接口，BaoCut 不提供，独立页面不显示（versionHistoryOffered()）。项目菜单的
- * 「Data sources」「Duplicate」与「Send feedback」同理（dataSourcesOffered()、projectDuplicateOffered()、feedbackOffered()），
- * 顶栏回首页的 Home 按钮也是（homeOffered()）。
+ * 版本历史也不经 docsHost：它要的是文档服务的接口，BaoCut 的文档服务提供（versionHistoryOffered()）。项目菜单的
+ * 「Data sources」「Duplicate」与「Send feedback」要的东西 BaoCut 没有，独立页面不显示（dataSourcesOffered()、
+ * projectDuplicateOffered()、feedbackOffered()），顶栏回首页的 Home 按钮也是（homeOffered()）。
  */
 import { isFrameArtifact } from "../boot/environment";
 
@@ -59,6 +59,8 @@ export interface DocsHostChat {
 export interface DocsHost {
   comments?: DocsHostComments;
   chat?: DocsHostChat;
+  /** 文档服务给的是只读的入口（页面注入的 `__BAOCUT_DOCS__.canEdit` 为 false）：不开版本历史（versionHistoryOffered()）。 */
+  readOnly?: boolean;
 }
 
 declare global {
@@ -87,15 +89,16 @@ export function commentSummonHost(): boolean {
 }
 
 /**
- * 版本历史（顶栏的 History 按钮、项目菜单的「Version history」、版本面板与版本预览）只在 Frame 里照原样开，独立页面不开。
- * 原版的独立页面总是开着，面板向文档服务取 `api/v3/project/<id>/file/<文件>/history`（版本列表）、`at/<rev>`（这一版与上一版
- * 渲染好的 HTML）、`restore/<rev>`；BaoCut 的文档服务（packages/docs）不提供这些接口，正文最近若干个 rev 的快照只给智能体的
- * `atRev` / `sinceRev` 读与 `restore` 用。开着时点 History 只显示接口的 404，面板还把编辑器挤成几个字宽。
- * 读取点（都带 BaoCut: 注释）：docs-app.tsx 的 FilmedProsePage 的 historyRoad（面板与版本预览）、RoomViewEmbedPage 顶栏的
- * HistoryRailToggle 与 ?chrome=embed 布局给 HeaderPath 的 historyOffered（项目菜单的「Version history」）。
+ * 版本历史（顶栏的 History 按钮、项目菜单的「Version history」、版本面板与版本预览）：Frame 里照原样开，BaoCut 的独立页面
+ * 也开（版本记录设计 §13.2）。面板向文档服务取 `api/v3/project/<文档>/file/<标签页>/history`（每个版本一行，`upto` 是版本号）、
+ * `at/<upto>`（那一版的正文，编辑器读的 XML）、`restore/<upto>`，由 packages/docs 的 server.ts 与 versions.ts 提供。
+ * 只读的入口不开：宿主标了 `docsHost.readOnly`（文档服务按 canEdit 注入，见 packages/docs 的 editor/install.ts）；只读的看法
+ * 由 door 告诉编辑器，原版读取点判断的 viewerReadOnly（`access` 接口回 404）在这里不成立。读取点（都带 BaoCut: 注释）：docs-app.tsx 的 FilmedProsePage 的 historyRoad
+ * （面板与版本预览）、RoomViewEmbedPage 顶栏的 HistoryRailToggle 与 ?chrome=embed 布局给 HeaderPath 的 historyOffered
+ * （项目菜单的「Version history」）。
  */
 export function versionHistoryOffered(): boolean {
-  return isFrameArtifact();
+  return isFrameArtifact() || globalThis.docsHost?.readOnly !== true;
 }
 
 /**

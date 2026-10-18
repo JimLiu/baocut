@@ -93,6 +93,8 @@ export const EXCLUDE_BLOCK = [
   '**/movie.lock',
   '**/blobs/.staging/',
   '**/.bcut-snapshot/history/',
+  '**/tabs/*.history.json',
+  '**/tabs/*.versions.json',
   '.baocut-out/',
   '**/.baocut-out/',
   '**/.baocut-export-*/',

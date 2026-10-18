@@ -228,7 +228,7 @@ export function renderRoomViewEmbedPageView(embedPageLiveContext: RenderRoomView
                   navigate={embedPageLiveContext.navigate}
                   onOpenSources={embedPageLiveContext.onOpenSources}
                   embed={true}
-                  // BaoCut: 独立页面没有版本历史（docs-host.ts 的 versionHistoryOffered），项目菜单不列「Version history」。
+                  // BaoCut: 项目菜单的「Version history」经 docs-host.ts 的 versionHistoryOffered 开关。
                   historyOffered={!embedPageLiveContext.viewerReadOnly && (0, embedPageLiveContext.versionHistoryOffered)()}
                 />
                 {embedPageLiveContext.readOnly2 && (
@@ -579,7 +579,7 @@ export function renderRoomViewEmbedPageView(embedPageLiveContext: RenderRoomView
                     {embedPageLiveContext.nodeId && embedPageLiveContext.proseSurface && (
                       <embedPageLiveContext.LdocCommentsBtn fileId={embedPageLiveContext.nodeId} />
                     )}
-                    {/* BaoCut: 独立页面没有版本历史（docs-host.ts 的 versionHistoryOffered），不显示 History 按钮。 */}
+                    {/* BaoCut: History 按钮经 docs-host.ts 的 versionHistoryOffered 开关。 */}
                     {embedPageLiveContext.nodeId && !embedPageLiveContext.viewerReadOnly && (0, embedPageLiveContext.versionHistoryOffered)() && (
                       <embedPageLiveContext.HistoryRailToggle />
                     )}
