@@ -55,8 +55,8 @@ export function renderMainHelp(tools: readonly CatalogTool[], admin: readonly Ad
   const nouns = ordered([...tree.nouns.keys()], NOUN_ORDER);
   const nounWidth = Math.max(...nouns.map((name) => name.length)) + 3;
   for (const noun of nouns) {
-    const verbs = [...tree.nouns.get(noun)!.keys()].join(' · ');
-    out.push(`  ${noun.padEnd(nounWidth)}${truncate(verbs, WIDTH - nounWidth - 2)}`);
+    const verbs = [...tree.nouns.get(noun)!.keys()];
+    out.push(`  ${noun.padEnd(nounWidth)}${commandPreview(verbs, WIDTH - nounWidth - 2)}`);
   }
 
   out.push(M.helpAdmin);
@@ -259,6 +259,19 @@ function isWide(code: number): boolean {
     (code >= 0xff00 && code <= 0xff60) ||
     (code >= 0xffe0 && code <= 0xffe6)
   );
+}
+
+/** Keep previewed commands executable; hidden entries remain in group help. */
+function commandPreview(verbs: readonly string[], width: number): string {
+  const full = verbs.join(' · ');
+  if (displayWidth(full) <= width) return full;
+  const visible: string[] = [];
+  for (const verb of verbs) {
+    const next = [...visible, verb].join(' · ');
+    if (displayWidth(`${next} · …`) > width) break;
+    visible.push(verb);
+  }
+  return visible.length ? `${visible.join(' · ')} · …` : '…';
 }
 
 function truncate(text: string, width: number): string {
