@@ -109,7 +109,7 @@
     };
     const init = () => app.confirm({
       title: '在项目文件夹里初始化 git？',
-      body: <>在 <span className="pgit-mono">{dir.path}</span> 里建一个 git 仓库，分支是 main。BaoCut 的忽略规则写在仓库自己的 .git/info/ 里，不改项目里的文件。不做第一次提交，也不推送。</>,
+      body: <>在 <span className="pgit-mono">{dir.path}</span> 里建一个 git 仓库。BaoCut 的忽略规则写在仓库自己的 .git/info/ 里，不改项目里的文件。不做第一次提交，也不推送。</>,
       confirmLabel: '初始化 git',
       run: () => {
         const r = G.init(latest(), dir);
@@ -159,7 +159,7 @@
           note={[G.lastCommitText(st.lastCommit, agoText), st.lastError && st.state !== 'error' ? `上次失败：${st.lastError.message}` : null].filter(Boolean).join(' · ') || null}>
           <R.Button variant="secondary" isDisabled={!G.canCommit(st)} isPending={busy} onPress={commit}>提交到 git</R.Button>
         </Row>
-        <Row title="自动提交" desc="项目安静满 5 分钟、关闭项目或退出 BaoCut 时提交一次。这台电脑上的所有项目共用这一项。"
+        <Row title="自动提交" desc="项目安静满 5 分钟、关掉项目里最后一部打开的视频或退出 BaoCut 时提交一次。这台电脑上的所有项目共用这一项。"
           note={SURF.localAdmin ? null : WEB_NOTE}>
           <R.Switch aria-label="自动提交" isSelected={!!app.prefs.gitAutoCommit} isDisabled={!SURF.localAdmin}
             onChange={(v) => app.setPref('gitAutoCommit', v)} />

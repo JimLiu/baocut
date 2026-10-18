@@ -47,9 +47,11 @@ import {
   type VersionRow,
 } from '../../model/video-versions.ts';
 import { useRuntime } from '../../runtime/context.tsx';
+import { useProjectSettings } from '../../state/project-settings-store.ts';
 import { useSetting } from '../../state/settings-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { canEdit, useVideo, type OpenVideo } from '../../state/video-store.ts';
+import { ProjectGitStrip } from '../project-settings/project-git-strip.tsx';
 import { useNow } from '../use-now.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { ConflictAlert, ExternalAlert, useImportNotice, useResolve, useVersionsDialog, type VersionNote } from './video-versions-conflict.tsx';
@@ -199,7 +201,8 @@ function VideoVersionsDialog({ video, onClose }: { video: OpenVideo; onClose(): 
   const now = useNow(30_000);
   const keep = useSetting('versions.keep') ?? 10;
   const documents = useVideo((s) => s.video?.state?.video.documents);
-  const inProject = Boolean(video.ref?.source.projectId);
+  const projectId = video.ref?.source.projectId ?? null;
+  const inProject = Boolean(projectId);
   const editable = canEdit(video);
   const revision = video.state?.video.revision ?? null;
   const name = video.state?.video.name ?? video.ref?.name ?? '';
@@ -358,6 +361,11 @@ function VideoVersionsDialog({ video, onClose }: { video: OpenVideo; onClose(): 
     const newer = rows.filter((r) => r.version > version).at(-1)?.version ?? null;
     setAsk({ kind: 'delete', version, name: item.name ?? versionTitle(item), next: newer });
   };
+  // 底部 git 状态条的「项目设置」：项目设置是另一个模态对话框，先关掉版本记录。
+  const openSettings = (id: string) => {
+    onClose();
+    useProjectSettings.getState().open(id);
+  };
   const openConversation = (conversationId: string) => {
     onClose();
     useShell.getState().go({ tab: 'home', conversationId, projectId: null });
@@ -483,7 +491,8 @@ function VideoVersionsDialog({ video, onClose }: { video: OpenVideo; onClose(): 
         {body}
         {inProject ? (
           <footer className={foot}>
-            {state ? <span>{state.desc}</span> : null}
+            {projectId ? <ProjectGitStrip projectId={projectId} onOpenSettings={() => openSettings(projectId)} /> : null}
+            {state ? <span className={footDesc}>{state.desc}</span> : null}
             <span>{C.footer(keep)}</span>
           </footer>
         ) : null}
@@ -665,6 +674,9 @@ const foot = style({
   font: 'ui-xs',
   color: 'gray-600',
 });
+
+/** 快照状态的说明：窄屏与顶部的状态、冲突提示重复，收起。 */
+const footDesc = style({ display: { default: 'block', [NARROW]: 'none' } });
 
 const saveForm = style({ display: 'flex', flexDirection: 'column', gap: 12, width: 340, maxWidth: 'full', boxSizing: 'border-box', padding: 16 });
 const saveTitle = style({ margin: 0, font: 'title-sm', color: 'gray-900' });

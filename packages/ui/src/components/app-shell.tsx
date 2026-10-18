@@ -13,6 +13,7 @@ import { AppUpdateHost } from './app-update/app-update-host.tsx';
 import { ArchivedPage } from './archived-page.tsx';
 import { LegacyImportHost } from './legacy-import/legacy-import-host.tsx';
 import { OnboardingHost } from './onboarding/onboarding-host.tsx';
+import { ProjectSettingsHost } from './project-settings/project-settings-dialog.tsx';
 import { AgentSetupHost } from './settings/agent-setup-host.tsx';
 import { ConnectionBanner } from './connection-banner.tsx';
 import { HelpCenter } from './help/help-center.tsx';
@@ -148,6 +149,8 @@ export function AppShell({ platform }: { platform: string }) {
         <OnboardingHost />
         {/* Agent 安装、升级的输出与结果：设置页与引导都会运行，离开那一页照样收、跑完弹一句。 */}
         <AgentSetupHost />
+        {/* 项目设置：Home 侧栏的项目菜单与版本记录对话框都能打开，挂在外壳上，离开那一页也不卸下。 */}
+        <ProjectSettingsHost />
       </div>
     </ShellPeekProvider>
   );

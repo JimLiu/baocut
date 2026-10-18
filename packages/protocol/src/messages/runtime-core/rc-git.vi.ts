@@ -8,7 +8,7 @@ export const vi: RcGitMessages = {
   xcodeStub: 'Khi chưa cài Command Line Tools, /usr/bin/git chỉ đề nghị cài chúng',
 
   notRepo: 'Dự án này không nằm trong kho git',
-  initRemedy: 'Chạy baocut projects git-init trong thư mục dự án, hoặc tự chạy git init ở nơi bạn muốn đặt kho',
+  initRemedy: 'Dùng “Khởi tạo git” trong cài đặt dự án của ứng dụng BaoCut trên máy tính hoặc chạy baocut projects git-init, hoặc tự chạy git init ở nơi bạn muốn đặt kho',
   initHome: 'BaoCut không tạo kho git trong thư mục chính của bạn: với các công cụ khác, mọi thư mục bên trong sẽ trông như thuộc cùng một kho',
   initUserFolder: (p) =>
     `BaoCut không tạo kho git trong thư mục người dùng tiêu chuẩn (${p.path}): với các công cụ khác, mọi thư mục bên trong sẽ trông như thuộc cùng một kho`,
@@ -29,7 +29,7 @@ export const vi: RcGitMessages = {
   pausedLocalConfig:
     'Cấu hình cục bộ của kho chạy chương trình hoặc nạp tệp khác (bộ lọc hoặc include), nên BaoCut không chạy các lệnh git đọc tệp của bạn',
   pausedLocalConfigChanged: 'Bộ lọc hoặc include cục bộ của kho đã thay đổi sau khi bạn cho phép, nên BaoCut lại tạm dừng commit',
-  localConfigRemedy: 'Xem các mục và lệnh mà chúng chạy, rồi cho phép bằng baocut projects git-allow',
+  localConfigRemedy: 'Xem các mục và lệnh mà chúng chạy, rồi cho phép trong cài đặt dự án của ứng dụng BaoCut trên máy tính hoặc bằng baocut projects git-allow',
   gitFailed: (p) => `git gặp lỗi trong kho này: ${p.detail}`,
 
   manageOnlyInAppOrCli: 'Chỉ ứng dụng máy tính hoặc CLI mới có thể khởi tạo git hay cho phép bộ lọc cục bộ',

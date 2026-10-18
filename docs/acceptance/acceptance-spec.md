@@ -606,8 +606,8 @@ git 桥（架构设计 §5.12，版本记录设计 §5）：
 - Runtime（`packages/runtime-core/src/videos/videos.test.ts`，真实的 Engine Host）：去抖写快照、保存与回到版本、关闭前写；V08 的打开时重建；V09 与 V15 的状态；V13（关着时 `git pull` 后打开即导入、按事务撤销；打开中的视频由监视发现并导入）；V14（两种选择与重试）；按回合切分与会话记录；V10；V11。智能体工具（`agent-tools/object-tools.test.ts`）：保存、列出、读 diff、回到版本与没有的版本给出下一步。
 - 界面（`packages/ui/src/model/video-versions.test.ts`）：快照状态与冲突原因的文字、V14 两种选择的确认里写明丢掉什么、认出 Runtime 自己导入的那笔「外部变更」。
 - 还没有自动化：V02 的随机编辑序列、V05 的大小上限、V04 里两部视频之间来回切换、V12 在没有 git 的机器上的端到端检查、V16 在 Windows 上真实 `git checkout` 的检查、V13–V15 在版本记录对话框与编辑器顶部那一条上的交互（靠真实页面检查）。
-- git 桥：Runtime（`packages/runtime-core/src/git/git-bridge.test.ts`，真实的 git，隔离全局与系统配置）：V17–V20、V22–V24 的 Runtime 部分（含钩子不运行、子目录里的项目、LFS 跟踪的大文件）；`git/project-git-methods.test.ts`：V21 的调用方；`external-tools/git-probe.test.ts`：V24 的 macOS 占位程序判断。智能体工具（`agent-tools/project-tools.test.ts`）：提交的结果，暂停与没有仓库时交回原因与下一步。CLI（`apps/cli/src/admin/projects-output.test.ts`）：按 ID、目录、名字找项目与状态的输出。
-- git 桥还没有自动化：Windows 上真实的 git（`PATHEXT`、结束进程树、被重定向的标准用户文件夹）、没装开发者工具的 macOS 上的 V24、Web 与桌面界面（界面没做）。
+- git 桥：Runtime（`packages/runtime-core/src/git/git-bridge.test.ts`，真实的 git，隔离全局与系统配置）：V17–V20、V22–V24 的 Runtime 部分（含钩子不运行、子目录里的项目、LFS 跟踪的大文件）；`git/project-git-methods.test.ts`：V21 的调用方；`external-tools/git-probe.test.ts`：V24 的 macOS 占位程序判断。智能体工具（`agent-tools/project-tools.test.ts`）：提交的结果，暂停与没有仓库时交回原因与下一步。CLI（`apps/cli/src/admin/projects-output.test.ts`）：按 ID、目录、名字找项目与状态的输出。界面（`packages/ui/src/model/project-git.test.ts`）：状态灯与暂停原因、各状态能做什么、按界面语言连起的原因与补救、提交结果与拒绝的文字。
+- git 桥还没有自动化：Windows 上真实的 git（`PATHEXT`、结束进程树、被重定向的标准用户文件夹）、没装开发者工具的 macOS 上的 V24；Web 与桌面界面（项目设置的 git 一节、版本记录对话框底部的 git 状态条）只有模型的单元测试，真实页面手动核对。
 
 ---
 

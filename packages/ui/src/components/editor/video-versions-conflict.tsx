@@ -274,7 +274,15 @@ export function useImportNotice(inProject: boolean) {
 /* ---------- 样式（原型 video-versions.css 的 .vh-strip、.vh-choice） ---------- */
 
 const alert = style({ flexShrink: 0, marginTop: 12, marginX: { default: 24, '@media (max-width: 720px)': 16 } });
-const pathList = style({ display: 'flex', flexDirection: 'column', gap: 2, marginY: 8 });
+/** 窄屏底部还有 git 状态条：文件多时列表限高、自己滚动，选择按钮与版本列表留在屏幕上。 */
+const pathList = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 2,
+  marginY: 8,
+  maxHeight: { default: '[none]', '@media (max-width: 720px)': '[24dvh]' },
+  overflowY: { default: 'visible', '@media (max-width: 720px)': 'auto' },
+});
 const pathRow = style({ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 8 });
 const mono = style({ font: 'code-xs', overflowWrap: 'anywhere' });
 const choice = style({ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 });
