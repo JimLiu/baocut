@@ -2,10 +2,12 @@
    正式版的编辑器是 Claude Docs 风格的活文档（iframe），排版、评论、请求都在它里面；原型只用静态画面占位，画的是协作文档的演示内容
    （data.js `spaceOutputs` 里 kind 为 docs 的条目）：左边是标签页，中间是正文（标题、段落、列表、表格、空行上的请求），右边是评论线程。
    发给智能体：线程上的「发给智能体」把这条评论（`comment`）、请求上的「发给智能体」把这条请求（`ask`）放进当前会话的草稿
-   （`draftDocsAnnotations`），composer 上方的「协作文档标注 · N 条」见 home-docs-notes.jsx。没有「标注」开关：评论本身已经在文档里。 */
+   （`draftDocsAnnotations`），composer 上方的「协作文档标注 · N 条」见 home-docs-notes.jsx。没有「标注」开关：评论本身已经在文档里。
+   顶上的「版本记录」打开这个标签页的版本（home-docs-versions.jsx，版本记录设计 §13.2）；回到版本之后，正文是回到的那一版。 */
 (function () {
-  const {useRef, useEffect} = React;
+  const {useRef, useEffect, useState} = React;
   const D = window.BC_HOME_DOCS;
+  const V = window.BC_HOME_DOCS_VERSIONS;
   const W = window.BC_HOME_WORKSPACE;
 
   /* docs/design/docs §7.3 的卡片：一行，图标、标题、「协作文档 · N 个标签页」，与设计系统卡同一家 */
@@ -46,7 +48,7 @@
     return parts;
   }
 
-  /* 空行上写给智能体的请求：标成「请求」，带「发给智能体」 */
+  /* 空行上写给智能体的请求：标成「请求」，带「发给智能体」；看旧版本时只读（没有 `onSend`） */
   function AskBlock({block, sent, onSend}) {
     const R = window.RSP;
     return <div className="home-docs__ask" data-block-id={block.id}>
@@ -56,7 +58,7 @@
         <p>{block.text}</p>
         {sent ? <span className="home-docs__sent"><Ic n="check" className="ic--16" />已在对话草稿里</span> : null}
       </div>
-      <R.ActionButton size="S" aria-label={`把这条请求发给智能体：${block.text}`} onPress={onSend}><R.Icons.Send /><R.Text>发给智能体</R.Text></R.ActionButton>
+      {onSend ? <R.ActionButton size="S" aria-label={`把这条请求发给智能体：${block.text}`} onPress={onSend}><R.Icons.Send /><R.Text>发给智能体</R.Text></R.ActionButton> : null}
     </div>;
   }
 
@@ -129,9 +131,14 @@
     const sess = sid ? app.sessionById(sid) : null;
     const notes = sess?.draftDocsAnnotations || [];
     const page = useRef(null);
+    const [extra] = window.useDocVersions(doc);
+    const [history, setHistory] = useState(false);
+    /* 从一条标注跳回来时回到编辑：标注指的是现在的正文 */
+    useEffect(() => { if (item.at) setHistory(false); }, [item.at]);
     useJump({doc, item, page});
     if (!doc) return <Empty icon="alert" title="协作文档已移走或删除" />;
     const tab = D.tabOf(doc, item.dtab) || doc.tabs[0];
+    const blocks = V.current(doc, tab.id, extra);
     const threads = D.threadsIn(doc, tab.id);
     const go = id => app.replace(W.route(app.workspaceKey, {...item, dtab: id, at: undefined}));
     const send = note => {
@@ -152,6 +159,7 @@
       <header className="home-resource__bar">
         <R.Icons.TextParagraph />
         <div className="grow"><strong>{doc.name}</strong><div className="home-resource__meta">{D.meta(doc)}</div></div>
+        <R.ToggleButton isQuiet isSelected={history} onChange={setHistory}><R.Icons.History /><R.Text>版本记录</R.Text></R.ToggleButton>
         <R.ActionButton isQuiet onPress={() => app.go({r: 'projects', id: doc.dir})}>在 Space 中显示</R.ActionButton>
       </header>
       <div className="home-docs__body">
@@ -165,9 +173,10 @@
           })}
         </nav>
         <div ref={page} className="home-docs__scroll bc-scroll">
-          <div className="home-docs__sheet">
+          {history ? <window.DocsVersions key={tab.id} doc={doc} tab={tab} onExit={() => setHistory(false)}
+            renderBlock={b => <DocBlock block={b} threads={[]} ask={a => <AskBlock block={a} />} />} /> : <div className="home-docs__sheet">
             <article className="home-docs__page" aria-label={tab.name}>
-              {tab.blocks.map(b => <DocBlock key={b.id} block={b} threads={threads.filter(th => th.block === b.id)} ask={askNode} />)}
+              {blocks.map(b => <DocBlock key={b.id} block={b} threads={threads.filter(th => th.block === b.id)} ask={askNode} />)}
             </article>
             <aside className="home-docs__aside" aria-label="评论">
               <h2 className="home-docs__aside-title">评论<span>{threads.length}</span></h2>
@@ -176,7 +185,7 @@
                 return <ThreadCard key={th.id} thread={th} sent={!!note && inDraft('comment', note.path)} onSend={() => send(note)} />;
               }) : <p className="home-docs__none">这个标签页还没有评论。</p>}
             </aside>
-          </div>
+          </div>}
         </div>
       </div>
       <footer className="home-resource__path">{dir ? dir.path : ''}{doc.file}</footer>
