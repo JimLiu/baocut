@@ -450,7 +450,7 @@
             {SURF.pages && window.ModelEnvTweaks ? <window.ModelEnvTweaks /> : null}
             {window.BC_VIDEO_VERSIONS ? (
               <div className="tweaks__sec">
-                <div className="tweaks__lb">版本记录<em>视频栏「版本记录」里的快照状态与版本文件（每个场景各自一份，互不影响）</em></div>
+                <div className="tweaks__lb">版本记录<em>视频栏「版本记录」与编辑器顶部的快照状态、版本文件（换到一个场景时它从头开始）</em></div>
                 <div className="tweaks__rad">
                   {window.BC_VIDEO_VERSIONS.SCENARIOS.map(({k, label}) => (
                     <BCAction key={k} className={cx('tweaks__opt', (app.prefs.versionsDemo || 'normal') === k && 'is-on')}

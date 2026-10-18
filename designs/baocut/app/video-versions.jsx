@@ -2,10 +2,12 @@
    视频栏右侧的「版本记录」按钮 ＋ 对话框：左边是这部视频的版本（新的在前），右边是选中版本的详情、动作与 diff。
    两份原型共用：Web 同样经 Runtime 列出版本、看 diff、保存与回到版本（版本记录设计 §6 的多端表）；
    会话只在有 Agent 的表面可以点开（BC_SURFACE.agent）。
-   数据与规则在 model-video-versions.js。每部视频一份状态，关掉对话框再打开还是刚才那样；原型开关「版本记录」换场景时是另一份。
-   原型里回到版本只改版本记录，不改时间线上的内容。 */
+   快照被外部改过（§9.8）：只有快照被改时导入成一个「外部变更」版本；两边都改了或快照读不出时，
+   对话框与编辑器顶部那一条（VideoVersionsStrip）给出保留哪边的选择。
+   数据与规则在 model-video-versions.js。每部视频一份状态，关掉对话框再打开还是刚才那样；原型开关「版本记录」换到一个场景时，那个场景从头开始。
+   原型里回到版本、导入与选择只改版本记录，不改时间线上的内容。 */
 (function () {
-  const {useState, useEffect, useReducer, useMemo} = React;
+  const {useState, useEffect, useReducer, useMemo, useRef} = React;
   const R = window.RSP;
   const D = window.BC_DATA;
   const VV = window.BC_VIDEO_VERSIONS;
@@ -15,7 +17,13 @@
   const cache = {};
   const subs = new Set();
   const keyOf = (movie, scen) => `${movie.id}:${scen}`;
+  /* 上一次用的场景。换到一个场景时它从头开始：「正在导入」这类会自己变的场景，换走再换回来还能再看一次 */
+  let shown = null;
   function load(movie, scen) {
+    if (scen !== shown) {
+      Object.keys(cache).filter((k) => k.endsWith(`:${scen}`)).forEach((k) => { delete cache[k]; });
+      shown = scen;
+    }
     const k = keyOf(movie, scen);
     if (!cache[k]) cache[k] = VV.scenario(VV.normalize((D.videoVersions || {})[movie.id] || VV.seed(movie)), scen);
     return cache[k];
@@ -31,16 +39,59 @@
   const agentNames = () => Object.fromEntries(((D.agent && D.agent.harnesses) || []).map((h) => [h.id, h.name]));
   const fileName = (n) => `history/${String(n).padStart(6, '0')}.patch`;
 
-  const KIND_ICON = {segment: R.Icons.Edit, save: R.Icons.Bookmark, restore: R.Icons.Revert, rebuild: R.Icons.Refresh};
+  const KIND_ICON = {segment: R.Icons.Edit, save: R.Icons.Bookmark, restore: R.Icons.Revert, external: R.Icons.Cloud, rebuild: R.Icons.Refresh};
   const ACTOR_ICON = {user: R.Icons.User, agent: R.Icons.AIMark, external: R.Icons.Cloud, system: R.Icons.Settings};
+
+  /* 原型把导入放慢到几秒，好看清「正在导入外部改动」；真实的发现就导入，通常不到一秒（§9.8） */
+  const IMPORT_MS = 5000;
+
+  /* ---------- 冲突时的两个选择（对话框与编辑器顶部那一条共用） ---------- */
+
+  /** 先确认（写明各自丢掉什么），再按 videos.versions.resolve 改状态。report.done 收结果说明（用磁盘上的带「撤销」），report.refuse 收拒绝。 */
+  function askResolve(app, latest, put, keep, report) {
+    app.confirm(Object.assign({}, VV.resolveAsk(latest(), keep), {run: () => {
+      const r = VV.resolve(latest(), keep);
+      put(r.state);
+      if (r.error) { report.refuse(r.error); return; }
+      if (r.noop) return;
+      const note = Object.assign({version: r.version}, VV.resolvedNote(r));
+      if (r.keep === 'snapshot') {
+        note.undo = () => {
+          const u = VV.undoImport(latest(), r.version);
+          put(u);
+          report.done(Object.assign({version: u.versions[0].n}, VV.undoImportNote));
+        };
+      }
+      report.done(note);
+    }}));
+  }
 
   /* ---------- 视频栏的入口 ---------- */
 
   function VersionsButton({editor}) {
     const app = useApp();
     const movie = app.projects.find((p) => p.id === editor.projectId) || {id: editor.projectId, title: editor.title};
-    const [st] = useVersions(movie);
+    const [st, put, latest] = useVersions(movie);
     const [open, setOpen] = useState(false);
+    /* 对话框开着时导入的结果写进对话框（toast 落在遮罩下面），关着时弹 toast */
+    const [imported, setImported] = useState(null);
+    const openRef = useRef(open);
+    openRef.current = open;
+    const importing = st.inProject && st.state === 'external';
+    useEffect(() => {
+      if (!importing) return undefined;
+      const t = setTimeout(() => {
+        const r = VV.applyExternal(latest());
+        if (r.noop) return;
+        put(r.state);
+        if (openRef.current) { setImported({n: r.version}); return; }
+        app.toast(VV.importedNote(r.version).title, undefined, {label: '撤销', run: () => {
+          put(VV.undoImport(latest(), r.version));
+          app.toast(VV.undoImportNote.title);
+        }});
+      }, IMPORT_MS);
+      return () => clearTimeout(t);
+    }, [importing, movie.id]);
     const tip = VV.buttonTip(st);
     return <>
       <Tip label={tip}>
@@ -49,8 +100,58 @@
           {st.inProject && st.state === 'conflict' ? <R.NotificationBadge size="S" UNSAFE_className="vh-entry__alert" /> : null}
         </R.ActionButton>
       </Tip>
+      {open ? <VideoVersionsDialog movie={movie} imported={imported} onClose={() => { setOpen(false); setImported(null); }} /> : null}
+    </>;
+  }
+
+  /* ---------- 编辑器顶部：快照冲突的那一条（版本记录设计 §6） ---------- */
+
+  /** 与字体、子视频那两条同一个位置。「查看」打开版本记录看被改过的文件；对话框挂在这里，选完这一条消失时对话框还在。 */
+  function VersionsStrip({movie}) {
+    const app = useApp();
+    const [st, put, latest] = useVersions(movie);
+    const [open, setOpen] = useState(false);
+    const report = {
+      done: (note) => app.toast(note.title, note.tone, note.undo ? {label: '撤销', run: note.undo} : undefined),
+      refuse: (err) => app.toast(err.message, 'negative'),
+    };
+    const choose = (keep) => askResolve(app, latest, put, keep, report);
+    const invalid = st.conflict === 'invalid';
+    return <>
+      {st.inProject && st.state === 'conflict' ? <div className="vh-strip" role="status" aria-live="polite">
+        <R.Icons.AlertTriangle />
+        <span className="vh-strip__text">{invalid ? '快照文件读不出，BaoCut 没有导入它们' : '快照被外部改过，BaoCut 里也有新的修改：选一边保留'}</span>
+        <R.ActionButton size="S" isQuiet onPress={() => setOpen(true)}><R.Text>查看</R.Text></R.ActionButton>
+        <R.Button variant="secondary" size="S" onPress={() => choose('video')}>保留 BaoCut 里的</R.Button>
+        {invalid ? null : <R.Button variant="secondary" size="S" onPress={() => choose('snapshot')}>用磁盘上的</R.Button>}
+      </div> : null}
       {open ? <VideoVersionsDialog movie={movie} onClose={() => setOpen(false)} /> : null}
     </>;
+  }
+
+  /* ---------- 对话框里的快照提示 ---------- */
+
+  const Paths = ({st}) => <span className="vh-paths">
+    {st.changedPaths.map((p) => <span key={p}><span className="vh-mono">{p}</span>（{VV.fileLabel(p, st.docs)}）</span>)}
+  </span>;
+
+  /** 冲突：原因、被改过的文件、两个选择（快照读不出时只能保留 BaoCut 里的）。顺序同版本记录设计 §4.3。 */
+  function ConflictAlert({st, onResolve}) {
+    const invalid = st.conflict === 'invalid';
+    return <R.InlineAlert variant="negative" UNSAFE_className="vh-alert">
+      <R.Heading>{VV.stateOf(st).label}</R.Heading>
+      <R.Content>
+        {invalid ? '这些快照文件解析不了，可能有合并冲突标记、被截断或手改坏了：'
+          : '这些快照文件被外部改过，可能来自 git pull、同步盘或手改；BaoCut 里也有还没写进快照的修改：'}
+        <Paths st={st} />
+        {invalid ? 'BaoCut 没有导入它们，视频照常编辑，但不能保存版本或回到版本。修好这些文件后 BaoCut 会重新检查；也可以保留 BaoCut 里的，用它覆盖这些文件。'
+          : '选好保留哪边之前，BaoCut 不覆盖快照，视频照常编辑，但不能保存版本或回到版本。'}
+        <span className="vh-choice">
+          <R.Button variant="secondary" size="S" onPress={() => onResolve('video')}>保留 BaoCut 里的</R.Button>
+          {invalid ? null : <R.Button variant="secondary" size="S" onPress={() => onResolve('snapshot')}>用磁盘上的</R.Button>}
+        </span>
+      </R.Content>
+    </R.InlineAlert>;
   }
 
   /* ---------- 保存版本（按钮下的小表单） ---------- */
@@ -154,9 +255,12 @@
       <p className="vh-meta">{d.range} · {d.revsText}</p>
       {d.open ? <p className="vh-hint">{st.state === 'pending'
         ? '最新的一版还开着。刚才的修改正在写入，几秒内并进这一版。'
-        : st.state === 'conflict'
-          ? '最新的一版还开着，但快照冲突处理好之前，新的修改不会写进版本记录。'
-          : '最新的一版还开着：安静 5 分钟或满 30 分钟之前，接下来的修改都并进这一版。'}</p> : null}
+        : st.state === 'external'
+          ? '最新的一版还开着。磁盘上的快照正在导入：这一版先收口，外部改动单独记成一版。'
+          : st.state === 'conflict'
+            ? '最新的一版还开着，但快照冲突处理好之前，新的修改不会写进版本记录。'
+            : '最新的一版还开着：安静 5 分钟或满 30 分钟之前，接下来的修改都并进这一版。'}</p> : null}
+      {d.kind === 'external' ? <p className="vh-hint">这一版来自 BaoCut 之外：快照文件被 git pull、同步盘或手改过，BaoCut 把它们导入成这一版。回到这个版本之前，就是导入前 BaoCut 里的内容。</p> : null}
       <div className="vh-acts">
         {act(d.restoreEnd, false)}
         {act(d.restoreBefore, true)}
@@ -196,7 +300,7 @@
 
   /* ---------- 对话框 ---------- */
 
-  function VideoVersionsDialog({movie, onClose}) {
+  function VideoVersionsDialog({movie, imported, onClose}) {
     const app = useApp();
     const [st, put, latest] = useVersions(movie);
     const names = useMemo(agentNames, []);
@@ -210,7 +314,20 @@
     const ok = (next) => { setRefused(null); setDone(next); };
     const no = (error) => { setDone(null); setRefused(error); };
     const state = VV.stateOf(st);
-    const writable = st.inProject && st.state !== 'conflict';
+    /* 冲突时、正在导入时不能保存或回到版本 */
+    const writable = st.inProject && st.state !== 'conflict' && st.state !== 'external';
+    const report = {
+      done: (note) => { ok(note); setSel(note.version != null ? note.version : latest().versions[0] ? latest().versions[0].n : null); },
+      refuse: (error) => no(error),
+    };
+    useEffect(() => {
+      if (!imported) return;
+      report.done(Object.assign({version: imported.n, undo: () => {
+        const u = VV.undoImport(latest(), imported.n);
+        put(u);
+        report.done(Object.assign({version: u.versions[0].n}, VV.undoImportNote));
+      }}, VV.importedNote(imported.n)));
+    }, [imported]);
 
     const save = ({name, note}) => {
       const r = VV.save(latest(), {name, note});
@@ -274,12 +391,13 @@
         </R.IllustratedMessage>
       </div>
     ) : <>
-      {st.state === 'conflict' ? <R.InlineAlert variant="negative" UNSAFE_className="vh-alert">
-        <R.Heading>快照被外部改过</R.Heading>
+      {st.state === 'conflict' ? <ConflictAlert st={st} onResolve={(keep) => askResolve(app, latest, put, keep, report)} /> : null}
+      {st.state === 'external' ? <R.InlineAlert variant="informative" UNSAFE_className="vh-alert">
+        <R.Heading>正在导入外部改动</R.Heading>
         <R.Content>
-          这些快照文件和 BaoCut 上次写下的不同，可能来自 git pull、同步盘或手改：
-          <span className="vh-paths">{st.changedPaths.map((p) => <span key={p}><span className="vh-mono">{p}</span>（{VV.fileLabel(p, st.docs)}）</span>)}</span>
-          BaoCut 不会覆盖它们，也不再写新的版本。处理好之前，不能保存版本或回到版本。
+          这些快照文件被外部改过，可能来自 git pull、同步盘或手改：
+          <Paths st={st} />
+          BaoCut 里没有还没写进快照的修改，所以直接导入，记成一个「外部变更」版本；导入后可以撤销。
         </R.Content>
       </R.InlineAlert> : null}
       {refused ? <R.InlineAlert variant={refused.code === 'VERSION_CHAIN_BROKEN' ? 'negative' : 'notice'} UNSAFE_className="vh-alert">
@@ -345,5 +463,5 @@
     </BCModal>;
   }
 
-  Object.assign(window, {VideoVersionsButton: VersionsButton, VideoVersionsDialog});
+  Object.assign(window, {VideoVersionsButton: VersionsButton, VideoVersionsDialog, VideoVersionsStrip: VersionsStrip});
 })();

@@ -3,28 +3,41 @@
 
    版本记录是视频目录里 `.bcut-snapshot/history/` 的版本文件：每版一份从上一版到这一版的 diff，头部列出动作、执行者与会话。
    这里算：摘要（与引擎同一套模板）、执行者与文件的显示名、时间段、能不能回到（读不出的版本、链断开的位置）、
-   回到之后是否与当前相同（相同就不提交、不产生版本），以及保存 / 回到 / 删除保存的版本之后的新状态。
+   回到之后是否与当前相同（相同就不提交、不产生版本），保存 / 回到 / 删除保存的版本之后的新状态，
+   以及快照被外部改过时的导入与两个选择（§9.8）。
 
    原型不存真快照：每个版本结束时的状态记一个状态号 `to`，开始之前是 `from`（上一版的 `to`）。保存的版本 diff 为空，`from === to`；
    回到版本的 `to` 是目标的状态号。比较状态号就知道一次回到会不会改变视频。 */
 (function () {
   const root = typeof window !== 'undefined' ? window : globalThis;
 
-  /* 种类（§9.4）。`external`（外部导入）留给二期，这里不列。图标是 S2 图标名（RSP.Icons）。 */
+  /* 种类（§9.4）。图标是 S2 图标名（RSP.Icons）。`external` 是快照被外部改过、BaoCut 导入的那一版（§9.8）。 */
   const KINDS = {
-    segment: {k: 'segment', label: '一段修改', icon: 'Edit'},
-    save:    {k: 'save',    label: '保存的版本', icon: 'Bookmark'},
-    restore: {k: 'restore', label: '回到版本', icon: 'Revert'},
-    rebuild: {k: 'rebuild', label: '重建', icon: 'Refresh'},
+    segment:  {k: 'segment',  label: '一段修改', icon: 'Edit'},
+    save:     {k: 'save',     label: '保存的版本', icon: 'Bookmark'},
+    restore:  {k: 'restore',  label: '回到版本', icon: 'Revert'},
+    external: {k: 'external', label: '外部变更', icon: 'Cloud'},
+    rebuild:  {k: 'rebuild',  label: '重建', icon: 'Refresh'},
   };
 
-  /* 快照与视频库的关系（§9.7，`videos.versions.status`）。tone 是 S2 StatusLight 的 variant。 */
+  /* 冲突的两种原因（§9.7 `conflict`）：两边都改了可以选任一边；快照读不出只能保留 BaoCut 里的。 */
+  const CONFLICTS = {
+    'both-changed': {k: 'conflict', reason: 'both-changed', label: '快照和 BaoCut 都改过', tone: 'negative',
+      desc: '快照文件被外部改过，BaoCut 里也有还没写进快照的修改。选好保留哪边之前，BaoCut 不覆盖快照。'},
+    invalid: {k: 'conflict', reason: 'invalid', label: '快照读不出', tone: 'negative',
+      desc: '快照文件解析不了，BaoCut 没有导入。修好文件后会重新检查，也可以用 BaoCut 里的覆盖它们。'},
+  };
+
+  /* 快照与视频库的关系（§9.7，`videos.versions.status`）。tone 是 S2 StatusLight 的 variant。
+     `external` 只有快照被改、BaoCut 里没有别的改动：发现就导入，通常不到一秒，单独给一个状态好让内容变化有个说法。 */
   const STATES = {
-    synced:   {k: 'synced',   label: '快照已同步',     tone: 'positive',    desc: '视频目录里的工作区快照与当前内容一致。'},
-    pending:  {k: 'pending',  label: '正在写入快照',   tone: 'informative', desc: '刚才的修改几秒内写进快照与版本记录。'},
-    conflict: {k: 'conflict', label: '快照被外部改过', tone: 'negative',    desc: '快照文件和 BaoCut 上次写下的不同，BaoCut 不会覆盖它们。'},
-    missing:  {k: 'missing',  label: '还没有快照',     tone: 'neutral',     desc: '工作区快照还没写下，或者 video.json 不在了。'},
-    rebuild:  {k: 'rebuild',  label: '待重建',         tone: 'informative', desc: '只有工作区快照，没有视频库。打开时从快照重建。'},
+    synced:   {k: 'synced',   label: '快照已同步',       tone: 'positive',    desc: '视频目录里的工作区快照与当前内容一致。'},
+    pending:  {k: 'pending',  label: '正在写入快照',     tone: 'informative', desc: '刚才的修改几秒内写进快照与版本记录。'},
+    external: {k: 'external', label: '正在导入外部改动', tone: 'informative',
+      desc: '快照文件被外部改过（git pull、同步盘或手改），BaoCut 里没有别的改动，正在把它们导入成一个「外部变更」版本。'},
+    conflict: CONFLICTS['both-changed'],
+    missing:  {k: 'missing',  label: '还没有快照',       tone: 'neutral',     desc: '工作区快照还没写下，或者 video.json 不在了。'},
+    rebuild:  {k: 'rebuild',  label: '待重建',           tone: 'informative', desc: '只有工作区快照，没有视频库。打开时从快照重建。'},
   };
 
   /* 原型里的「现在」：演示数据只记多少分钟前，换成钟点时以它为准（UTC 读数，免得测试随时区变）。 */
@@ -163,7 +176,8 @@
       snapshotRevision: raw.revision || (top ? top.revs[1] : 1),
       keep: raw.keep || 10,
       docs: raw.docs || {},
-      state: 'synced', changedPaths: [],
+      /* conflict：冲突的原因；unsealed：库里还没写进快照的动作；disk：磁盘上那份被外部改过的快照的状态号 */
+      state: 'synced', conflict: null, changedPaths: [], unsealed: [], disk: null,
       current: top ? top.to : 'S0',
       versions: versions.reverse(),   // 新的在前
       tampered: [], brokenAt: null,
@@ -187,22 +201,29 @@
     {k: 'normal', label: '正常'},
     {k: 'pending', label: '正在写入'},
     {k: 'missing', label: '还没有快照'},
-    {k: 'conflict', label: '快照被外部改过'},
+    {k: 'external', label: '外部改动：正在导入'},
+    {k: 'conflict', label: '冲突：两边都改了'},
+    {k: 'invalid', label: '冲突：快照读不出'},
     {k: 'unreadable', label: '版本文件读不出'},
     {k: 'tampered', label: '版本文件被改过'},
     {k: 'outside', label: '不在项目里'},
   ];
-  /** 把正常状态改成某个场景。读不出 / 被改过都取列表中间偏旧的一版，让它之前与之后的版本都在。 */
+  /** 把正常状态改成某个场景。读不出 / 被改过都取列表中间偏旧的一版，让它之前与之后的版本都在。
+      外部改动与两边都改了：时间线和最后一份文档被改过（像一次 git pull）；两边都改了时库里另有 3 处改字还没写进快照。
+      快照读不出：只有 video.json，像 git 合并留下了冲突标记。 */
   function scenario(st, k) {
     const s = Object.assign({}, st, {versions: st.versions.map((v) => Object.assign({}, v))});
     const mid = s.versions[Math.min(s.versions.length - 1, Math.max(1, Math.floor(s.versions.length / 2)))];
+    const docs = Object.keys(s.docs);
+    const touched = ['video.json'].concat(docs.length ? [`documents/${docs[docs.length - 1]}.json`] : []);
     if (k === 'pending') { s.state = 'pending'; s.revision = s.snapshotRevision + 3; }
     else if (k === 'missing') { s.state = 'missing'; s.versions = []; s.current = 'S0'; }
+    else if (k === 'external') Object.assign(s, {state: 'external', changedPaths: touched, disk: 'X1'});
     else if (k === 'conflict') {
-      s.state = 'conflict';
-      const docs = Object.keys(s.docs);
-      s.changedPaths = ['video.json'].concat(docs.length ? [`documents/${docs[docs.length - 1]}.json`] : []);
-    } else if (k === 'unreadable' && mid) mid.unreadable = true;
+      Object.assign(s, {state: 'conflict', conflict: 'both-changed', changedPaths: touched, disk: 'X1',
+        unsealed: [{actor: 'user_local', label: '修改文字', count: 3}], revision: s.snapshotRevision + 3, current: 'L1'});
+    } else if (k === 'invalid') Object.assign(s, {state: 'conflict', conflict: 'invalid', changedPaths: ['video.json']});
+    else if (k === 'unreadable' && mid) mid.unreadable = true;
     else if (k === 'tampered' && mid) s.tampered = [mid.n];
     else if (k === 'outside') { s.inProject = false; s.versions = []; s.state = 'missing'; }
     return s;
@@ -246,10 +267,14 @@
 
   function gate(st) {
     if (!st.inProject) return {code: 'VERSIONS_NEED_PROJECT', message: '只有项目里的视频才有版本记录；先把视频移进项目'};
-    if (st.state === 'conflict') return {code: 'SNAPSHOT_CONFLICT', message: '快照被外部改过，BaoCut 不会覆盖它；处理好之前不能保存或回到版本'};
+    if (st.state === 'conflict') {
+      return {code: 'SNAPSHOT_CONFLICT', message: st.conflict === 'invalid'
+        ? '快照读不出，BaoCut 不会覆盖它；处理好之前不能保存或回到版本'
+        : '快照和 BaoCut 都改过；选好保留哪边之前不能保存或回到版本'};
+    }
     return null;
   }
-  const clone = (st) => Object.assign({}, st, {versions: st.versions.map((v) => Object.assign({}, v))});
+  const clone = (st) => Object.assign({}, st, {versions: st.versions.map((v) => Object.assign({}, v)), unsealed: (st.unsealed || []).slice()});
   function closeTop(st) {
     if (st.versions[0]) st.versions[0].open = false;
     st.snapshotRevision = st.revision;
@@ -388,6 +413,107 @@
     return edit(st, {label: `撤销：${summaryOf(v)}`}, v.from, v.files);
   }
 
+  /* ---------- 快照被外部改过：导入与冲突时的选择（§9.8） ---------- */
+
+  /** 库里还没写进快照的改动记进版本：最新一版开着就并进去，否则开新的一段（§9.3）。返回记进的版本号，没有改动时是 null。
+      keepOpen 为假是「封存」：后面紧跟着外部变更，这一版收口；还没有任何版本时不另封存，外部变更直接从库里的状态算起。 */
+  function commitLocal(s, keepOpen) {
+    const top = s.versions[0];
+    const acts = s.unsealed;
+    s.unsealed = [];
+    if (!acts.length || (!top && !keepOpen)) return null;
+    const files = [{path: 'video.json', change: 'modify'}];
+    let n;
+    if (top && top.open) {
+      Object.assign(top, {end: 0, revs: [top.revs[0], s.revision], to: s.current, actions: mergeActions(top.actions, acts), files: mergeFiles(top.files, files)});
+      n = top.n;
+    } else {
+      n = s.next;
+      s.versions.unshift({n, kind: 'segment', start: 0, end: 0, revs: [s.snapshotRevision, s.revision], actions: acts.map((a) => Object.assign({}, a)), omitted: 0, convs: [],
+        name: null, note: null, checkpoint: null, files, summary: null, unreadable: false, open: true, from: top ? top.to : 'S0', to: s.current});
+      s.next = n + 1;
+    }
+    s.versions[0].open = keepOpen;
+    s.snapshotRevision = s.revision;
+    return n;
+  }
+  /** 导入磁盘上的快照（`videos.applySnapshot`）：一笔「外部变更」事务（操作者 system:history），单独成一个 external 版本，
+      diff 从库里导入前的状态算到磁盘上的快照，版本链不断；之后的改动另开一版。 */
+  function importDisk(s) {
+    if (s.versions[0]) s.versions[0].open = false;
+    const n = s.next;
+    s.revision += 1;
+    s.snapshotRevision = s.revision;
+    s.versions.unshift({n, kind: 'external', start: 0, end: 0, revs: [s.revision - 1, s.revision],
+      actions: [{actor: 'system:history', label: '外部变更', count: 1}], omitted: 0, convs: [], name: null, note: null, checkpoint: null,
+      files: s.changedPaths.map((path) => ({path, change: 'modify'})), summary: null, unreadable: false, open: false,
+      from: s.current, to: s.disk || `X${n}`});
+    s.current = s.versions[0].to;
+    s.next = n + 1;
+    Object.assign(s, {state: 'synced', conflict: null, changedPaths: [], disk: null});
+    prune(s);
+    return n;
+  }
+  /** 只有快照被改（状态 external）：发现就导入。 */
+  function applyExternal(st) {
+    if (!st.inProject || st.state !== 'external') return {state: st, noop: true};
+    const s = clone(st);
+    return {state: s, version: importDisk(s)};
+  }
+  /** 冲突时的选择（`videos.versions.resolve`）。用户选之前快照不被重写，视频照常编辑。
+      keep 'video'：立即写快照、覆盖磁盘上的，外部改动不进版本记录；库里的改动照常并进最新一版或开新的一段。
+      keep 'snapshot'：先封存库里还没写进快照的改动，再导入；快照读不出时以 SNAPSHOT_INVALID 拒绝。 */
+  function resolve(st, keep) {
+    if (!st.inProject) return {state: st, error: gate(st)};
+    if (st.state !== 'conflict') return {state: st, noop: true};
+    if (keep === 'snapshot' && st.conflict === 'invalid') {
+      return {state: st, error: {code: 'SNAPSHOT_INVALID', message: '磁盘上的快照读不出，只能保留 BaoCut 里的'}};
+    }
+    const s = clone(st);
+    if (keep === 'video') {
+      const n = commitLocal(s, true);
+      Object.assign(s, {state: 'synced', conflict: null, changedPaths: [], disk: null});
+      return {state: s, keep, version: n};
+    }
+    const sealed = commitLocal(s, false);
+    return {state: s, keep, version: importDisk(s), sealed};
+  }
+  /** 撤销导入：库领先，下一次写把快照写回撤销后的状态，成为普通的一段，相当于拒绝了这次外部改动。 */
+  function undoImport(st, version) {
+    const v = find(st, version);
+    if (!v || v.kind !== 'external') return st;
+    return edit(st, {label: '撤销：外部变更'}, v.from, v.files);
+  }
+
+  /** 两个选择的确认框：写明各自丢掉什么。保留 BaoCut 里的会覆盖磁盘上的文件，用危险色。 */
+  function resolveAsk(st, keep) {
+    const files = st.changedPaths.map((p) => fileLabel(p, st.docs)).join('、');
+    if (keep === 'video') {
+      return {title: '保留 BaoCut 里的？', confirmLabel: '覆盖磁盘上的', tone: 'negative',
+        body: `BaoCut 里的内容立即写进快照，覆盖磁盘上${st.conflict === 'invalid' ? '读不出' : '被改过'}的 ${st.changedPaths.length} 个文件（${files}）。`
+          + '磁盘上的那些改动不进版本记录，在 BaoCut 里找不回来；它们来自 git 或同步盘的话，可以在那里找回。'};
+    }
+    const top = st.versions[0];
+    const into = !st.unsealed.length || !top ? null : top.open ? `先并进版本 ${top.n}` : `先存成版本 ${st.next}`;
+    return {title: '用磁盘上的？', confirmLabel: '用磁盘上的',
+      body: `视频内容换成磁盘上的快照（${files}），记成一个「外部变更」版本。`
+        + (into ? `BaoCut 里还没写进快照的 ${st.unsealed.reduce((t, a) => t + a.count, 0)} 项修改（${[...new Set(st.unsealed.map((a) => a.label))].join('、')}）${into}，回到「外部变更」之前就能找回。` : '')
+        + '这一笔也可以撤销。'};
+  }
+  /** 选择之后、自动导入之后的结果说明（对话框里的提示与编辑器里的 toast 共用）。 */
+  function resolvedNote(r) {
+    if (r.keep === 'video') {
+      return {tone: 'positive', title: '已保留 BaoCut 里的',
+        text: `磁盘上的快照换成了 BaoCut 里的内容${r.version ? `，刚才的修改记进版本 ${r.version}` : ''}。磁盘上的那些改动没有进版本记录。`};
+    }
+    return {tone: 'positive', title: `已用磁盘上的，记成版本 ${r.version}「外部变更」`,
+      text: `${r.sealed ? `BaoCut 里原来的修改在版本 ${r.sealed}，回到版本 ${r.version} 之前就能找回。` : `回到版本 ${r.version} 之前就是导入前的内容。`}这一笔也可以撤销。`};
+  }
+  const importedNote = (n) => ({tone: 'informative', title: `已导入外部改动，记成版本 ${n}「外部变更」`,
+    text: `快照文件被外部改过，BaoCut 里没有别的改动，所以直接导入。回到版本 ${n} 之前就是导入前的内容；这一笔也可以撤销。`});
+  const undoImportNote = {tone: 'informative', title: '已撤销导入',
+    text: '视频回到导入前的内容，几秒后写回快照，相当于拒绝了这次外部改动；撤销本身记进新开的一段。'};
+
   /* ---------- diff（原型按动作生成一份像样的 unified diff；真实的由引擎写在版本文件里） ---------- */
 
   const CLIPS = [['4f1c', '00:03:12.400', '00:03:18.900', '00:03:17.600'], ['51aa', '00:03:21.000', '00:03:26.250', '00:03:25.700'],
@@ -517,6 +643,7 @@
   /** 入口按钮与对话框标题旁的状态灯。 */
   function stateOf(st) {
     if (!st.inProject) return null;
+    if (st.state === 'conflict') return CONFLICTS[st.conflict] || CONFLICTS['both-changed'];
     return STATES[st.state] || STATES.synced;
   }
   /** 入口按钮的提示：最新是第几版 + 快照状态。 */
@@ -528,9 +655,10 @@
   }
 
   root.BC_VIDEO_VERSIONS = {
-    KINDS, STATES, SCENARIOS, CHANGE,
+    KINDS, STATES, CONFLICTS, SCENARIOS, CHANGE,
     clock, dayLabel, rangeText, agoText, actorKind, actorLabel, fileLabel, summarize, summaryOf, restoreLabel,
     mergeActions, normalize, seed, scenario, find, reach, targetOf, isNoop, blockedText,
-    save, restore, remove, prune, edit, undoRestore, diffOf, diffText, rows, detail, byActor, stateOf, buttonTip,
+    save, restore, remove, prune, edit, undoRestore, applyExternal, resolve, undoImport, resolveAsk, resolvedNote, importedNote, undoImportNote,
+    diffOf, diffText, rows, detail, byActor, stateOf, buttonTip,
   };
 })();

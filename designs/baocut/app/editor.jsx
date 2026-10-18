@@ -1319,6 +1319,8 @@
               ) : null}
               {/* 视频用到的字体还没下载时的那一条（product-design §5.9，font-downloads.jsx） */}
               {fs ? null : <window.FontOpenStrip projectId={proj.id} />}
+              {/* 快照被外部改过、两边都改了或读不出时，保留哪边的选择（版本记录设计 §6，video-versions.jsx） */}
+              {fs ? null : <window.VideoVersionsStrip movie={proj} />}
               {/* 子视频：从哪部视频切出来、片段外的话怎么处理、回到原片（shorts-source.jsx） */}
               {fs || !shortsChild ? null : <window.ShortsChildBanner ctx={ctx} />}
               {fs ? null : (tpl.tplStudio ? <window.TemplateStudioStage ctx={ctx} /> : <window.StageView ctx={ctx} />)}

@@ -151,12 +151,16 @@ test('被改过的版本：界面事先不知道，回到时才报 VERSION_CHAIN
   assert.equal(V.detail(r.state, k, names).restoreBefore.ok, false);
 });
 
-test('快照被外部改过、不在项目里：写操作都拒绝', () => {
+test('快照冲突、不在项目里：写操作都拒绝', () => {
   const c = V.scenario(p1(), 'conflict');
   assert.equal(V.stateOf(c).k, 'conflict');
+  assert.equal(V.stateOf(c).label, '快照和 BaoCut 都改过');
   assert.deepEqual(c.changedPaths, ['video.json', 'documents/doc_p1_ja.json']);
   assert.equal(V.save(c, {name: 'x'}).error.code, 'SNAPSHOT_CONFLICT');
   assert.equal(V.restore(c, 12, false).error.code, 'SNAPSHOT_CONFLICT');
+  const i = V.scenario(p1(), 'invalid');
+  assert.equal(V.stateOf(i).label, '快照读不出');
+  assert.match(V.save(i, {name: 'x'}).error.message, /快照读不出/);
   const o = V.scenario(p1(), 'outside');
   assert.equal(V.stateOf(o), null);
   assert.equal(V.save(o, {name: 'x'}).error.code, 'VERSIONS_NEED_PROJECT');
@@ -201,4 +205,97 @@ test('撤销回到版本：一笔新修改，内容回到之前，开一个新�
   assert.equal(u.versions[0].open, true);
   assert.equal(V.summaryOf(u.versions[0]), '撤销：回到版本 12');
   assert.equal(u.versions[1].kind, 'restore');
+});
+
+test('只有快照被改：发现就导入，单独成一个外部变更版本，可以撤销', () => {
+  const e = V.scenario(p1(), 'external');
+  assert.equal(V.stateOf(e).label, '正在导入外部改动');
+  assert.match(V.buttonTip(e), /正在导入外部改动/);
+  const r = V.applyExternal(e);
+  const v = r.state.versions[0];
+  assert.equal(r.version, 15);
+  assert.equal(v.kind, 'external');
+  assert.equal(V.summaryOf(v), '外部变更');
+  assert.deepEqual(v.actions, [{actor: 'system:history', label: '外部变更', count: 1}]);
+  assert.deepEqual(v.files.map((f) => f.path), ['video.json', 'documents/doc_p1_ja.json']);
+  // diff 从库里导入前的状态算起；之前开着的那一版收口，之后的改动另开一版
+  assert.equal(v.from, e.current);
+  assert.equal(r.state.current, 'X1');
+  assert.equal(r.state.versions[1].open, false);
+  assert.equal(r.state.state, 'synced');
+  assert.deepEqual(r.state.changedPaths, []);
+  assert.equal(V.rows(r.state, names)[0].kindLabel, '外部变更');
+  // 回到外部变更之前就是导入前的内容
+  assert.equal(V.targetOf(r.state, 15, true), e.current);
+  // 已经导入过（或不是 external）时什么也不做
+  assert.equal(V.applyExternal(r.state).noop, true);
+  // 撤销导入：一笔普通的修改，内容回到导入前，开一个新的一段
+  const u = V.undoImport(r.state, 15);
+  assert.equal(u.current, e.current);
+  assert.equal(u.versions[0].kind, 'segment');
+  assert.equal(u.versions[0].open, true);
+  assert.equal(V.summaryOf(u.versions[0]), '撤销：外部变更');
+});
+
+test('两边都改了，用磁盘上的：库里的改动先封存，外部变更从它结束时算起', () => {
+  const c = V.scenario(p1(), 'conflict');
+  const ask = V.resolveAsk(c, 'snapshot');
+  assert.equal(ask.confirmLabel, '用磁盘上的');
+  assert.match(ask.body, /3 项修改（修改文字）先并进版本 14/);
+  const r = V.resolve(c, 'snapshot');
+  assert.equal(r.sealed, 14);
+  assert.equal(r.version, 15);
+  const [ext, sealed] = r.state.versions;
+  assert.equal(sealed.open, false);
+  assert.equal(sealed.to, 'L1');
+  // 同一执行者、同一标签合在一起计数：原来的 2 次改字加上还没写进快照的 3 次
+  assert.equal(sealed.actions.find((a) => a.label === '修改文字').count, 5);
+  assert.equal(ext.kind, 'external');
+  assert.equal(ext.from, 'L1');
+  assert.equal(r.state.current, 'X1');
+  assert.equal(r.state.state, 'synced');
+  assert.equal(r.state.conflict, null);
+  // 回到外部变更之前，找回库里原来的改动
+  assert.equal(V.targetOf(r.state, 15, true), 'L1');
+  assert.match(V.resolvedNote(r).text, /原来的修改在版本 14，回到版本 15 之前就能找回/);
+  // 最新一版已经收口时，封存开一个新版本
+  const closed = Object.assign({}, c, {versions: c.versions.map((v, i) => Object.assign({}, v, {open: i ? v.open : false}))});
+  assert.match(V.resolveAsk(closed, 'snapshot').body, /先存成版本 15/);
+  const r2 = V.resolve(closed, 'snapshot');
+  assert.equal(r2.sealed, 15);
+  assert.equal(r2.version, 16);
+  assert.equal(r2.state.versions[1].from, 'S14');
+});
+
+test('两边都改了，保留 BaoCut 里的：立即覆盖快照，外部改动不进版本记录', () => {
+  const c = V.scenario(p1(), 'conflict');
+  const ask = V.resolveAsk(c, 'video');
+  assert.equal(ask.tone, 'negative');
+  assert.match(ask.body, /覆盖磁盘上被改过的 2 个文件（时间线、日语译文）/);
+  assert.match(ask.body, /找不回来/);
+  const r = V.resolve(c, 'video');
+  // 库里的改动照常并进还开着的最新一版
+  assert.equal(r.version, 14);
+  assert.equal(r.state.versions[0].open, true);
+  assert.equal(r.state.versions[0].to, 'L1');
+  assert.ok(r.state.versions.every((v) => v.kind !== 'external'));
+  assert.equal(r.state.current, 'L1');
+  assert.equal(r.state.state, 'synced');
+  assert.equal(r.state.snapshotRevision, r.state.revision);
+  // 之后照常可以保存版本
+  assert.equal(V.save(r.state, {name: '合并后'}).version, 15);
+});
+
+test('快照读不出：只能保留 BaoCut 里的', () => {
+  const i = V.scenario(p1(), 'invalid');
+  const no = V.resolve(i, 'snapshot');
+  assert.equal(no.error.code, 'SNAPSHOT_INVALID');
+  assert.equal(no.state, i);
+  assert.match(V.resolveAsk(i, 'video').body, /覆盖磁盘上读不出的 1 个文件（时间线）/);
+  const r = V.resolve(i, 'video');
+  // 库里没有别的改动：只写快照，版本记录不变
+  assert.equal(r.version, null);
+  assert.equal(r.state.versions.length, i.versions.length);
+  assert.equal(r.state.state, 'synced');
+  assert.equal(V.resolve(r.state, 'video').noop, true);
 });

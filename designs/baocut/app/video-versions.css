@@ -12,6 +12,7 @@
 .vh-paths { display: flex; flex-direction: column; gap: 2px; margin: 6px 0; }
 .vh-mono { font-family: var(--mono); font-size: 12px; }
 .vh-done { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.vh-choice { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 
 .vh-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); }
 .vh-list { min-height: 0; padding: 8px; border-right: 1px solid var(--gray-200); background: var(--gray-75); }
@@ -82,6 +83,11 @@
 
 .vh-entry { position: relative; }
 .vh-entry__alert { position: absolute; top: 4px; right: 4px; background-color: var(--red-900); }
+
+/* 编辑器顶部的快照冲突（版本记录设计 §6）：与字体、子视频那两条同一个位置与尺寸，危险色；窄时按钮折到第二行 */
+.vh-strip { flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 36px; margin: 10px 12px 0; padding: 6px 6px 6px 12px; border-radius: 8px; background: var(--red-100); color: var(--red-1100); font-size: 12px; }
+.vh-strip > svg { flex: none; color: var(--red-900); }
+.vh-strip__text { flex: 1 1 200px; min-width: 0; }
 
 @media (max-width: 720px) {
   /* 窄屏：快照状态换到第二行，标题、保存、关闭留在第一行 */
