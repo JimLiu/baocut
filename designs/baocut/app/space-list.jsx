@@ -145,10 +145,12 @@
   function menuItems(R, it, idx) {
     const tx = transcribeItem(R, it);
     const infoLabel = (it.files || []).length ? '查看信息与文件' : '查看信息';
+    /* 只有快照的视频目录打开时就地重建（视频格式规范 §9.7），菜单与查看器的主按钮同一个说法 */
+    const openLabel = it.status === 'rebuild' ? '重建并打开' : '打开视频';
     const items = [
       it.transcribe === 'retry' ? tx : null,
       it.kind === 'movie' && !it.lib
-        ? <R.MenuItem key="open" id="open" textValue="打开视频"><R.Icons.OpenIn /><R.Text>打开视频</R.Text></R.MenuItem>
+        ? <R.MenuItem key="open" id="open" textValue={openLabel}><R.Icons.OpenIn /><R.Text>{openLabel}</R.Text></R.MenuItem>
         : <R.MenuItem key="view" id="view" textValue="查看"><R.Icons.Preview /><R.Text>查看</R.Text></R.MenuItem>,
       it.kind === 'movie' && !it.lib
         ? <R.MenuItem key="view" id="view" textValue={infoLabel}><R.Icons.InfoCircle /><R.Text>{infoLabel}</R.Text></R.MenuItem>

@@ -55,6 +55,12 @@
        没给 = 从 Space 或别处打开：这部视频自己的最近一条会话 → 同项目里还没选视频的会话 → 空的新会话。 */
     const openMovie = useCallback((id, opts) => {
       const o = opts || {};
+      /* 只有快照的视频目录（视频格式规范 §9.7）：打开时就地从快照重建，之后就是普通的视频 */
+      const rebuilt = projects.find((p) => p.id === id && p.snapshotOnly);
+      if (rebuilt) {
+        base.patchProject(id, {snapshotOnly: false});
+        base.toast(`已从工作区快照重建「${rebuilt.title}」；版本记录都在，记成了一个「重建」版本`, 'positive');
+      }
       const via = o.via || (IA.tabOf(route) === 'space' ? 'space' : 'home');
       let sid = o.sid || null;
       if (!sid) {
@@ -67,7 +73,7 @@
         go({r: 'agent', id: sid, movie: id, ...(o.t != null ? {t: o.t} : {})});
       } else go({r: 'editor', id, via, ...(o.t != null ? {t: o.t} : {})});
       setDock({open: false, sid});
-    }, [route, projects, sessions, sessionById, patchSession, go, setDock, base.toast, base.newSession]);
+    }, [route, projects, sessions, sessionById, patchSession, go, setDock, base.toast, base.newSession, base.patchProject]);
 
     /* 收尾话下面的「打开某某面板」：视频没开着就先按这条会话打开它，再给编辑器下单。 */
     const openTool = useCallback((movie, tool, sid) => {
