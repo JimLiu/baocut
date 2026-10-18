@@ -17,20 +17,20 @@
     "vi": "Video giải thích kiến thức"
   },
   "summary": {
-    "zh-Hans": "把一个概念、一条新闻或一份资料，讲成外行也看得懂的动画讲解视频",
-    "zh-Hant": "把一個概念、一則新聞或一份資料，講成外行也看得懂的動畫講解影片",
-    "en": "Turn a concept, a news story or a document into an animated explainer anyone can follow",
-    "ja": "概念やニュース、資料を、予備知識がなくてもわかるアニメーション解説動画にする",
-    "ko": "개념, 뉴스, 자료를 배경지식 없이도 이해할 수 있는 애니메이션 설명 영상으로 만듭니다",
-    "es": "Convierte un concepto, una noticia o un documento en un vídeo animado que cualquiera entiende",
-    "fr": "Transforme un concept, une actualité ou un document en vidéo animée que tout le monde comprend",
-    "de": "Ein Konzept, eine Nachricht oder ein Dokument als animiertes Erklärvideo, das jeder versteht",
-    "nl": "Maak van een begrip, nieuwsbericht of document een geanimeerde uitlegvideo die iedereen snapt",
-    "pt-BR": "Transforma um conceito, uma notícia ou um documento em um vídeo animado que qualquer um entende",
-    "it": "Trasforma un concetto, una notizia o un documento in un video animato che chiunque capisce",
-    "ru": "Превратить понятие, новость или документ в анимированное видео, понятное без подготовки",
-    "pl": "Zamienia pojęcie, wiadomość lub dokument w animowany film, który każdy zrozumie",
-    "tr": "Bir kavramı, haberi veya belgeyi herkesin anlayacağı animasyonlu bir anlatım videosuna dönüştürür",
-    "vi": "Biến một khái niệm, tin tức hay tài liệu thành video hoạt hình giải thích ai cũng hiểu"
+    "zh-Hans": "把一个概念、一条新闻或一份资料，讲成没有背景的人也看得懂、看完能复述的讲解视频",
+    "zh-Hant": "把一個概念、一則新聞或一份資料，講成沒有背景的人也看得懂、看完能複述的講解影片",
+    "en": "Turn a concept, a news story or a document into an explainer anyone can follow and retell",
+    "ja": "概念やニュース、資料を、予備知識がなくてもわかり、見終えたら人に話せる解説動画にする",
+    "ko": "개념, 뉴스, 자료를 배경지식 없이도 이해하고 다시 설명할 수 있는 설명 영상으로 만듭니다",
+    "es": "Convierte un concepto, una noticia o un documento en un vídeo explicativo que cualquiera entiende y puede contar",
+    "fr": "Transforme un concept, une actualité ou un document en vidéo explicative que tout le monde comprend et peut raconter",
+    "de": "Ein Konzept, eine Nachricht oder ein Dokument als Erklärvideo, das jeder versteht und weitererzählen kann",
+    "nl": "Maak van een begrip, nieuwsbericht of document een uitlegvideo die iedereen snapt en kan navertellen",
+    "pt-BR": "Transforma um conceito, uma notícia ou um documento em um vídeo explicativo que qualquer um entende e consegue recontar",
+    "it": "Trasforma un concetto, una notizia o un documento in un video esplicativo che chiunque capisce e sa raccontare",
+    "ru": "Превратить понятие, новость или документ в объясняющее видео, понятное без подготовки и легко пересказываемое",
+    "pl": "Zamienia pojęcie, wiadomość lub dokument w film objaśniający, który każdy zrozumie i potrafi opowiedzieć dalej",
+    "tr": "Bir kavramı, haberi veya belgeyi herkesin anlayıp başkasına anlatabileceği bir anlatım videosuna dönüştürür",
+    "vi": "Biến một khái niệm, tin tức hay tài liệu thành video giải thích ai cũng hiểu và kể lại được"
   }
 }
