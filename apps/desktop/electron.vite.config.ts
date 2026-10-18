@@ -10,6 +10,7 @@ import { LOCALE_TAGS } from '../../packages/protocol/src/i18n.ts';
 import { pdfLicenses } from '../../tools/pdf-licenses.ts';
 import { thirdPartyNotices } from '../../tools/third-party-notices.ts';
 import { lazyLocales } from '../../tools/lazy-locales.ts';
+import { guardRunningApp } from '../../tools/running-app-guard.ts';
 import { s2Styles, s2StylesChunk } from '../../tools/s2-styles.ts';
 
 // 工作区包是 TypeScript 源码（没有构建产物），必须打进 bundle；第三方依赖照常外置。
@@ -111,7 +112,8 @@ export function shipCliCatalog(): Plugin {
 
 export default defineConfig({
   main: {
-    plugins: [shipEditorWasm(), shipCliCatalog()],
+    // main 最先构建：在这里拦下时 out/ 的三个目录都还没动（见 tools/running-app-guard.ts）。
+    plugins: [guardRunningApp(), shipEditorWasm(), shipCliCatalog()],
     build: {
       externalizeDeps: bundleWorkspace,
       rollupOptions: {
