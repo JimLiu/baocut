@@ -69,7 +69,7 @@ export const COMPOSITION_PARAM_SCHEMAS = {
       compositionId: compositionId.optional(),
       manifest: manifest.optional(),
       place: z.object({ track: id.optional(), at: seconds.optional() }).strict().optional(),
-      replace: z.object({ itemId: id }).strict().optional(),
+      replace: z.object({ itemId: id, ripple: z.boolean().optional() }).strict().optional(),
       register: z.boolean().optional(),
       bake: z.enum(['auto', 'ops', 'pixels']).optional(),
       background: z.boolean().optional(),

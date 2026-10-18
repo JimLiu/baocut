@@ -173,6 +173,18 @@ pub enum EditOperation {
         track_ids: Vec<Id>,
         alignment: FrameAlignment,
     },
+    /// 在声明的轨道上从 `at` 起插入 `duration` 长的空白，之后的内容整体后移（波纹插入，`removeRange` 的反向）。
+    /// 跨在 `at` 上的实例按 `straddle` 拆开（缺省）或不动；到序列末尾的实例总是不动。没声明的轨道与章节不动。
+    InsertRange {
+        #[serde(default)]
+        sequence_id: Option<Id>,
+        at: TimelineTimeInput,
+        duration: TimelineTimeInput,
+        track_ids: Vec<Id>,
+        alignment: FrameAlignment,
+        #[serde(default)]
+        straddle: Option<Straddle>,
+    },
     /// 在源素材的剪口集合里加入剪口（视频格式规范 §6.7），并在同一笔事务里按新的保留区间重排序列上的实例：
     /// 剪口集合的实例所在的轨道上波纹删除，其余实例按 `followPolicy` 移动（§3.16）。区间是源素材时钟上的十进制秒。
     AddCuts {
@@ -388,6 +400,10 @@ pub enum EditOperation {
         /// 整个替换 `parameterValues`；省略是不改。
         #[serde(default)]
         parameter_values: Option<Value>,
+        /// 长度变了时让旧终点之后的内容跟着移动（命令与协议规范 §4.2）：变长在旧终点波纹插入，变短波纹删除多出的那段；
+        /// 动的是这一刻之后还有实例的全部轨道，跨过这一刻的实例不动。缺省 false：变长撞上后一段就拒绝。
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        ripple: bool,
     },
     /// 改声音（§3.9）：音频实例的混音、视频实例的内嵌音频、合成自己的声音。只改给出的字段；
     /// 淡入淡出是实例局部的十进制秒字符串，`"0"` 去掉。
@@ -646,6 +662,14 @@ pub enum Edge {
     End,
 }
 
+/// 波纹插入与删除时跨在切点上的实例：在切点拆开，或原地不动。
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Straddle {
+    Split,
+    Stay,
+}
+
 /// `arrangeItem` 的方向：往上一层、往下一层、最上、最下。
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -670,7 +694,7 @@ pub fn parse_operation(index: usize, value: &Value) -> EngineResult<EditOperatio
         Ok(op) => Ok(op),
         Err(err) => {
             let mut inputs: Vec<&Value> = Vec::new();
-            for key in ["at", "offset"] {
+            for key in ["at", "offset", "duration"] {
                 if let Some(v) = value.get(key) {
                     inputs.push(v);
                 }
@@ -880,6 +904,23 @@ pub fn apply_operation(state: &mut VideoState, index: usize, op: &EditOperation,
             track_ids,
             alignment,
         } => remove_range(state, sequence_id.as_deref(), from, to, track_ids, *alignment, ctx),
+        EditOperation::InsertRange {
+            sequence_id,
+            at,
+            duration,
+            track_ids,
+            alignment,
+            straddle,
+        } => insert_range(
+            state,
+            sequence_id.as_deref(),
+            at,
+            duration,
+            track_ids,
+            *alignment,
+            straddle.unwrap_or(Straddle::Split),
+            ctx,
+        ),
         EditOperation::AddCuts {
             sequence_id,
             asset_id,
@@ -1203,6 +1244,7 @@ pub fn apply_operation(state: &mut VideoState, index: usize, op: &EditOperation,
             asset_ref,
             prerender,
             parameter_values,
+            ripple,
         } => replace_code_bundle(
             state,
             sequence_id.as_deref(),
@@ -1210,6 +1252,7 @@ pub fn apply_operation(state: &mut VideoState, index: usize, op: &EditOperation,
             asset_ref,
             prerender.as_ref(),
             parameter_values.as_ref(),
+            *ripple,
             ctx,
         ),
         EditOperation::SetAudioMix {
@@ -1929,6 +1972,7 @@ fn replace_code_bundle(
     asset_ref: &VersionRef,
     prerender: Option<&VersionRef>,
     parameter_values: Option<&Value>,
+    ripple: bool,
     ctx: &mut EditContext<'_>,
 ) -> EngineResult<()> {
     if let Some(values) = parameter_values {
@@ -2025,7 +2069,23 @@ fn replace_code_bundle(
         check_time_map(state, item_id, &c.time_map, length, c.prerender.as_ref())?;
     }
 
-    // 变长撞上同轨的实例：拒绝，提示先挪开或删掉后面的实例（不推开别人）。
+    // 带 ripple 时长度差 Δ 让旧终点之后的内容一起移动：变长先在旧终点插入 Δ 帧，变短在换好之后删掉多出的那段。
+    let old_end_frame = old.span.from_frame + old.span.duration_frames;
+    let delta = frames - old.span.duration_frames;
+    let ripple_tracks = |state: &VideoState, at_frame: i64| -> EngineResult<Vec<Id>> {
+        let t = frame_time(at_frame as i128, fps).ok_or_else(overflow)?;
+        let tracks = tracks_with_items_after(state, &seq_id, t, fps, item_id)?;
+        for id in &tracks {
+            ensure_track_editable(state, id)?;
+        }
+        Ok(tracks)
+    };
+    if ripple && delta > 0 {
+        let tracks = ripple_tracks(state, old_end_frame)?;
+        insert_range_frames(state, &seq_id, fps, old_end_frame, delta, &tracks, Straddle::Stay, ctx)?;
+    }
+
+    // 变长撞上同轨的实例：拒绝，提示先挪开或删掉后面的实例（不带 ripple 时不推开别人）。
     let track_id = item.base().track_id.clone();
     let blocking: Vec<Id> = state
         .items
@@ -2041,18 +2101,25 @@ fn replace_code_bundle(
         ids.extend(blocking);
         return Err(ErrorBody::overlap(ids).recovery(msg!(
             "engine.replaceOverlapRecovery",
-            "The new version is longer and runs into the next clip on the track; move that clip later (moveItem) or delete it (deleteItems), then replace again"
+            "The new version is longer and runs into the next clip on the track; move that clip later (moveItem) or delete it (deleteItems), then replace again; or replace with ripple: true so everything after it moves along"
         )));
     }
 
     state.items.insert(
         item_id.to_string(),
         Placed {
-            sequence_id: seq_id,
+            sequence_id: seq_id.clone(),
             value: item,
         },
     );
     check_item(state, item_id)?;
+    if ripple && delta < 0 {
+        let new_end_frame = old.span.from_frame + frames;
+        let tracks = ripple_tracks(state, new_end_frame)?;
+        if !tracks.is_empty() {
+            remove_range_frames(state, &seq_id, fps, new_end_frame, old_end_frame, &tracks, Straddle::Stay, ctx)?;
+        }
+    }
     // 内容的局部时间仍从 0 开始：关键帧只随窗口变长变短（§3.15）。
     let window = Rewindow::trim(seconds_between(old_start, old_end), 0.0, seconds_between(new_start, new_end));
     crate::item_keyframes::rewindow_item(state, item_id, window, fps)?;
@@ -2065,6 +2132,7 @@ fn replace_code_bundle(
         prerender: prerender.cloned(),
         old_duration_frames: old.span.duration_frames,
         new_duration_frames: frames,
+        ripple_frames: (ripple && delta != 0).then_some(delta),
     });
     Ok(())
 }
@@ -2511,22 +2579,26 @@ pub(crate) fn remove_range(
     }
     ctx.time_resolution.push(start.receipt);
     ctx.time_resolution.push(end.receipt);
+    remove_range_frames(state, &sequence_id, fps, f0, f1, track_ids, Straddle::Split, ctx)
+}
+
+/// 已经量化好的波纹删除 `[f0, f1)`（帧）。`straddle` 只管盖住整个区间、两头都伸出去的实例：`Split` 拆开删掉中间，
+/// `Stay` 原地不动（`replaceCodeBundle` 的 `ripple` 用它，铺底音乐不被剪一截）。
+fn remove_range_frames(
+    state: &mut VideoState,
+    sequence_id: &str,
+    fps: Rate,
+    f0: i64,
+    f1: i64,
+    track_ids: &[Id],
+    straddle: Straddle,
+    ctx: &mut EditContext<'_>,
+) -> EngineResult<()> {
+    let sequence_id = sequence_id.to_string();
     let t0 = frame_time(f0 as i128, fps).ok_or_else(overflow)?;
     let t1 = frame_time(f1 as i128, fps).ok_or_else(overflow)?;
     let length = t1.checked_sub(t0).ok_or_else(overflow)?;
-
-    let mut affected: Vec<(Ratio, Ratio, Id)> = Vec::new();
-    for (id, placed) in &state.items {
-        if placed.sequence_id != sequence_id || !track_ids.contains(&placed.value.base().track_id) {
-            continue;
-        }
-        let (a, b) = item_range(&placed.value, fps)?;
-        if b > t0 {
-            ensure_editable(state, &placed.value)?;
-            affected.push((a, b, id.clone()));
-        }
-    }
-    affected.sort_by(|x, y| x.0.cmp(&y.0).then_with(|| x.2.cmp(&y.2)));
+    let affected = items_ending_after(state, &sequence_id, track_ids, t0, fps)?;
 
     let frame = |value: i64| TimelineTimeInput::Frames { value };
     let exact = FrameAlignment::ExactFrame;
@@ -2542,6 +2614,8 @@ pub(crate) fn remove_range(
         } else if a >= t0 {
             trim_item(state, seq, &id, Edge::Start, &frame(f1), exact, ctx)?;
             shift_earlier(state, &id, length, f1 - f0, fps)?;
+        } else if straddle == Straddle::Stay {
+            continue;
         } else if matches!(
             state.items[&id].value,
             TimelineItem::Video(_) | TimelineItem::Audio(_) | TimelineItem::Composition(_)
@@ -2560,6 +2634,140 @@ pub(crate) fn remove_range(
     }
     if !deleted.is_empty() {
         delete_items(state, seq, &deleted)?;
+    }
+    Ok(())
+}
+
+/// 序列上列出的轨道里终点晚于 `t0` 的实例（起点、终点、ID），按起点再按 ID 排；要动的都得没锁。
+fn items_ending_after(
+    state: &VideoState,
+    sequence_id: &str,
+    track_ids: &[Id],
+    t0: Ratio,
+    fps: Rate,
+) -> EngineResult<Vec<(Ratio, Ratio, Id)>> {
+    let mut affected: Vec<(Ratio, Ratio, Id)> = Vec::new();
+    for (id, placed) in &state.items {
+        if placed.sequence_id != sequence_id || !track_ids.contains(&placed.value.base().track_id) {
+            continue;
+        }
+        let (a, b) = item_range(&placed.value, fps)?;
+        if b > t0 {
+            ensure_editable(state, &placed.value)?;
+            affected.push((a, b, id.clone()));
+        }
+    }
+    affected.sort_by(|x, y| x.0.cmp(&y.0).then_with(|| x.2.cmp(&y.2)));
+    Ok(affected)
+}
+
+/// 序列里在 `t0` 之后还有实例的轨道（`except` 这个实例不算），按 ID 排。`ripple` 用它决定动哪些轨道。
+fn tracks_with_items_after(state: &VideoState, sequence_id: &str, t0: Ratio, fps: Rate, except: &str) -> EngineResult<Vec<Id>> {
+    let mut tracks = std::collections::BTreeSet::new();
+    for (id, placed) in &state.items {
+        if placed.sequence_id != sequence_id || id == except {
+            continue;
+        }
+        let (_, b) = item_range(&placed.value, fps)?;
+        if b > t0 {
+            tracks.insert(placed.value.base().track_id.clone());
+        }
+    }
+    Ok(tracks.into_iter().collect())
+}
+
+/// 波纹插入（`insertRange`）：量化 `at` 与 `duration`，核对轨道，再交给 [`insert_range_frames`]。
+#[allow(clippy::too_many_arguments)]
+fn insert_range(
+    state: &mut VideoState,
+    sequence_id: Option<&str>,
+    at: &TimelineTimeInput,
+    duration: &TimelineTimeInput,
+    track_ids: &[Id],
+    alignment: FrameAlignment,
+    straddle: Straddle,
+    ctx: &mut EditContext<'_>,
+) -> EngineResult<()> {
+    let (sequence_id, fps, seq_revision) = require_sequence(state, sequence_id)?;
+    let sequence_id = sequence_id.to_string();
+    if track_ids.is_empty() {
+        return Err(ErrorBody::invalid_operation(msg!(
+            "engine.insertRangeTracks",
+            "insertRange must declare the affected tracks"
+        )));
+    }
+    for id in track_ids {
+        state
+            .tracks
+            .get(id)
+            .filter(|t| t.sequence_id == sequence_id)
+            .ok_or_else(|| ErrorBody::not_found(kinds::track(), id))?;
+        ensure_track_editable(state, id)?;
+    }
+    let grid = GridContext {
+        sequence_id: &sequence_id,
+        sequence_revision: &seq_revision,
+        fps,
+    };
+    let start = editor_semantics::quantize_input(at, &grid, alignment, "at")?;
+    let length = editor_semantics::quantize_input(duration, &grid, alignment, "duration")?;
+    if length.frame < 1 {
+        return Err(ErrorBody::range_collapsed(
+            &sequence_id,
+            msg!("engine.insertRangeUnderFrame", "The time to insert is shorter than one frame"),
+        ));
+    }
+    ctx.time_resolution.push(start.receipt);
+    ctx.time_resolution.push(length.receipt);
+    insert_range_frames(state, &sequence_id, fps, start.frame, length.frame, track_ids, straddle, ctx)
+}
+
+/// 已经量化好的波纹插入：列出的轨道上起点不早于第 `f0` 帧的实例后移 `frames` 帧；跨在 `f0` 上的按 `straddle`
+/// 拆开（右段后移）或不动，到序列末尾的实例总是不动（终点在事务最后求）。
+#[allow(clippy::too_many_arguments)]
+fn insert_range_frames(
+    state: &mut VideoState,
+    sequence_id: &str,
+    fps: Rate,
+    f0: i64,
+    frames: i64,
+    track_ids: &[Id],
+    straddle: Straddle,
+    ctx: &mut EditContext<'_>,
+) -> EngineResult<()> {
+    let t0 = frame_time(f0 as i128, fps).ok_or_else(overflow)?;
+    let length = frame_time(frames as i128, fps).ok_or_else(overflow)?;
+    let affected = items_ending_after(state, sequence_id, track_ids, t0, fps)?;
+    let seq = Some(sequence_id);
+    for (a, _, id) in affected {
+        if a >= t0 {
+            shift_later(state, &id, length, frames, fps)?;
+        } else if straddle == Straddle::Split && !state.items[&id].value.base().until_sequence_end {
+            let right = split_item(
+                state,
+                seq,
+                &id,
+                &TimelineTimeInput::Frames { value: f0 },
+                FrameAlignment::ExactFrame,
+                ctx,
+            )?;
+            shift_later(state, &right, length, frames, fps)?;
+        }
+    }
+    Ok(())
+}
+
+/// 把实例后移 `length`（= `frames` 帧）。音频按精确时间移，保留子帧位置。
+fn shift_later(state: &mut VideoState, item_id: &str, length: Ratio, frames: i64, fps: Rate) -> EngineResult<()> {
+    let placed = state.items.get_mut(item_id).ok_or_else(|| ErrorBody::not_found(kinds::item(), item_id))?;
+    match &mut placed.value {
+        TimelineItem::Audio(audio) => {
+            let start = audio_start(audio, fps)?.checked_add(length).ok_or_else(overflow)?;
+            let (from_frame, offset) = split_audio_start(start, fps)?;
+            audio.from_frame = from_frame;
+            audio.subframe_offset = offset;
+        }
+        other => other.span_mut().expect("音频之外的实例都在帧网格上").from_frame += frames,
     }
     Ok(())
 }

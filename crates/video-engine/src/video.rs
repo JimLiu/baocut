@@ -281,6 +281,7 @@ fn operation_label(op: &EditOperation) -> Text {
         EditOperation::AcceptCutSuggestions { .. } => msg!("engine.labelAcceptSuggestedCuts", "Accept suggested cuts"),
         EditOperation::DeleteItems { .. } => msg!("engine.labelDeleteClips", "Delete clips"),
         EditOperation::RemoveRange { .. } => msg!("engine.labelDeleteTimeRange", "Delete time range"),
+        EditOperation::InsertRange { .. } => msg!("engine.labelInsertTimeRange", "Insert time"),
         EditOperation::AddTrack { .. } => msg!("engine.labelAddTrack", "Add track"),
         EditOperation::DeleteTrack { .. } => msg!("engine.labelDeleteTrack", "Delete track"),
         EditOperation::UpdateTrack { .. } => msg!("engine.labelEditTrack", "Edit track"),

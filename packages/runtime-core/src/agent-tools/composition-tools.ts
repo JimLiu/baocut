@@ -108,10 +108,16 @@ const schemas = {
           .min(1)
           .max(200)
           .describe('要替换的合成片段（上一次 compositions_import 返回的 itemId，或 videos_inspect 里 type 为 composition 的片段）'),
+        ripple: z
+          .boolean()
+          .optional()
+          .describe(
+            '可选。true 时长度变了，旧终点之后所有轨道上的内容（后面的画面、旁白、字幕）跟着整体后移或前移；跨过这一刻的片段（铺底音乐等）不动，章节不动；变短时落在多出那段里的内容会被删掉。默认 false',
+          ),
       })
       .optional()
       .describe(
-        '可选。改了文案或颜色、重新打包（新的 revision）之后，原地替换时间线上已有的那个代码画面：片段 ID、轨道、起点、位置与大小、不透明度、名字、效果、关键帧都不变，只换代码包版本与预渲染；长度跟新的预渲染走（变短就裁掉，变长撞上同轨后面的片段会以 TIMELINE_OVERLAP 拒绝）。不给时会再放一个新片段，叠在旧的上面。与 place、register 互斥',
+        '可选。改了文案或颜色、重新打包（新的 revision）之后，原地替换时间线上已有的那个代码画面：片段 ID、轨道、起点、位置与大小、不透明度、名字、效果、关键帧都不变，只换代码包版本与预渲染；长度跟新的预渲染走（变短就裁掉，变长撞上同轨后面的片段会以 TIMELINE_OVERLAP 拒绝；带 ripple: true 时后面的内容跟着挪）。不给时会再放一个新片段，叠在旧的上面。与 place、register 互斥',
       ),
     register: z.boolean().optional().describe('可选。true 时只验证并登记代码包素材：不烘焙、不放到时间线上；默认 false'),
     bake: z
@@ -183,9 +189,9 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
       '代码包是一个目录（path），或内联的几个文件（files）：入口 HTML（默认 index.html）加它用到的脚本、样式、图片与字体，全部用包内相对路径引用，不能访问网络（CDN、在线字体、fetch 都不行）。',
       '作者合同二选一：hyperframes/1——根元素带 data-composition-id、data-width、data-height、data-fps、data-duration（秒），页面背景透明（没有清单时默认按透明叠加层处理；全幅不透明的画面传 manifest.alpha=false 或写 data-alpha="false"）；页面在 window.__timelines[<compositionId>] 上注册一条暂停的时间线（seek(秒)、time()、duration()、pause()），画面只由 seek 到的时间决定。baocut/1——页面在 window.__baocutCompositions[<compositionId>] 上暴露 initialize(context)（context.target 是根元素；在这里等图片与字体加载完）、renderAt(time, params)（time 是 { ticks, timescale }，秒 = Number(ticks) / timescale，不是秒数；params 目前是空对象）与 dispose，画面只由 time 决定。整镜整段的画面用 baocut/1（单张 Canvas 能走指令烘焙），叠加的贴片与动态图形用 hyperframes/1。包里有 bundle.manifest.json 时按清单，没有时按根元素的 data-* 与 manifest 覆盖生成清单。',
       '导入时在离屏浏览器里验证：根元素与时间线、seek 回读、末帧夹到时长、同一时刻两次取帧一致（确定性）、声明透明时确有透明像素、运行时没有网络请求。通过后按视频根序列的帧率逐帧烘焙成 ProRes 预渲染（带透明时 4444、不透明时 422 HQ；预览与导出用它。baocut/1 的 Canvas 画面先录绘制指令、在本机光栅，比浏览器逐帧截图快得多，见 bake），代码包与预渲染作为素材收进视频（第一笔修改），再放一个合成片段（第二笔修改，可以分别撤销）：默认从 0 秒、铺满画布、放在最上面的视觉轨（那条轨在这段时间里被占着或锁着时新建一条），place 可以改轨道与开始时间：place.track 是视觉轨的 ID，place.at 是时间线上的秒数（十进制字符串）；几段代码画面按整帧首尾相接时，at 写上一段结束的帧数除以帧率的小数（1826 帧、30 fps 写 "60.8666666667"）。register: true 时只验证并登记代码包素材。background: true 时烘焙放到后台的 bake 任务里（jobs_* 看进度），导入立刻返回，片段先没有预渲染；多段连续导入时用它，不用等每段烘完。',
-      '改已经放上去的代码画面（改文案、改色）：改源文件、用新的 revision 重新打包，再带 replace: { itemId } 导入——第二笔用 replaceCodeBundle 原地换掉那个片段的代码包与预渲染，其余设置都保留；不带 replace 会多出一个叠在上面的片段。',
+      '改已经放上去的代码画面（改文案、改色）：改源文件、用新的 revision 重新打包，再带 replace: { itemId } 导入——第二笔用 replaceCodeBundle 原地换掉那个片段的代码包与预渲染，其余设置都保留；不带 replace 会多出一个叠在上面的片段。时长变了、后面的画面与旁白要整体跟着挪时写 replace: { itemId, ripple: true }。',
       '这是给视频加动画标题、字幕条、图表、转场卡等代码画面的正路：不要自己用浏览器录屏或 ffmpeg 渲染 mp4 再当素材导入。导入之前可以先用 compositions_preview 按时刻取帧看画面。',
-      '返回 bundle（素材 assetId 与版本、bundleId、contentHash、尺寸、帧率、时长、文件数）、capabilities（实测的透明、随机访问等）、verification（每项检查）、prerender（预渲染素材与帧数）、bake（renderer 是 drawop-cpu 或 browser-pixels、fps、seconds，回退到截图时有 fallback.reason）、itemId 与 trackId，以及 item（itemId、trackId、fromFrame、durationFrames、startSeconds、endSeconds；只登记时这三项为 null）、bakeJobId（background 时的烘焙任务，否则 null）；带 replace 时另有 replaced（换掉的旧代码包与预渲染、oldDurationFrames 与 newDurationFrames）。',
+      '返回 bundle（素材 assetId 与版本、bundleId、contentHash、尺寸、帧率、时长、文件数）、capabilities（实测的透明、随机访问等）、verification（每项检查）、prerender（预渲染素材与帧数）、bake（renderer 是 drawop-cpu 或 browser-pixels、fps、seconds，回退到截图时有 fallback.reason）、itemId 与 trackId，以及 item（itemId、trackId、fromFrame、durationFrames、startSeconds、endSeconds；只登记时这三项为 null）、bakeJobId（background 时的烘焙任务，否则 null）；带 replace 时另有 replaced（换掉的旧代码包与预渲染、oldDurationFrames 与 newDurationFrames；ripple 挪动过内容时有 rippleFrames）。',
       '错误码：BUNDLE_MANIFEST_INVALID（清单不对，或读不出尺寸、帧率、时长）、BUNDLE_FILE_NOT_ALLOWED、BUNDLE_SYMLINK、BUNDLE_TOO_LARGE、BUNDLE_NETWORK_REFERENCE（引用了网络：把库与字体放进包内）、BUNDLE_HASH_MISMATCH、BUNDLE_ENTRY_MISSING、BUNDLE_CONTRACT_UNSUPPORTED、COMPOSITION_ROOT_MISSING（没有 data-composition-id 的根元素）、COMPOSITION_TIMELINE_MISSING（没有注册时间线）、COMPOSITION_SEEK_MISMATCH、COMPOSITION_INTRINSIC_MISMATCH（页面与清单的尺寸、帧率、时长不一致）、COMPOSITION_NONDETERMINISTIC（画面用了 Date.now、Math.random 或自走的动画）、COMPOSITION_ALPHA_MISMATCH（声明透明而画面全不透明）、COMPOSITION_VERIFICATION_FAILED、COMPOSITION_NETWORK_BLOCKED、COMPOSITION_SCRIPT_ERROR、COMPOSITION_RENDER_TIMEOUT、COMPOSITION_HOST_UNAVAILABLE（没有 Electron）。每个错误带 next，按它改包再导入。',
     ].join('\n'),
     effect: 'mutation',

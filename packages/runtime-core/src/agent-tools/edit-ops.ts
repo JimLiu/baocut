@@ -236,6 +236,21 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
     example: { type: 'removeRange', from: 12, to: 15.5, trackIds: ['track_v1', 'track_a1'] },
   },
   {
+    type: 'insertRange',
+    family: 'items',
+    doc: [
+      '- {"type":"insertRange","at":秒,"duration":秒,"trackIds":["..."],"straddle"?}：波纹插入——removeRange 的反向：在列出的轨道上从 at 起空出 duration，起点不早于 at 的片段整体后移（给一段画面、一句旁白腾地方）。跨在 at 上的片段缺省在 at 拆开、右段后移（straddle:"split"）；"stay" 让它原地不动（铺底音乐、贯穿的标题）。到序列末尾的片段总是不动。没列出的轨道与章节不动，章节要跟着挪就在同一笔里另写 upsertChapter；列出的轨道或要动的片段锁着时整笔失败（TARGET_LOCKED）；不再相接的转场删掉，列在回执的 removedTransitions。',
+    ],
+    schema: op('insertRange', {
+      at: time.describe('从哪一刻起空出'),
+      duration: time.describe('空出多长'),
+      trackIds: z.array(idOf('轨道 ID')).min(1).describe('在哪些轨道上后移；要一起动的配音、字幕轨都要列上'),
+      straddle: z.enum(['split', 'stay']).optional().describe('跨在 at 上的片段：split（缺省）拆开、右段后移；stay 原地不动'),
+      ...timed,
+    }),
+    example: { type: 'insertRange', at: 30, duration: 4, trackIds: ['track_v1', 'track_a1'] },
+  },
+  {
     type: 'updateItem',
     family: 'items',
     doc: [

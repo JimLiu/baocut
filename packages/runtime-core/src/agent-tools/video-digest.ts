@@ -464,7 +464,7 @@ export function digestReceipt(receipt: TransactionReceipt, fps: Rate, replayed: 
 // ---- 操作的规范化 ----
 
 /** 这些操作带时间：缺 `sequenceId` 时用根序列，缺 `alignment` 时取最近的帧。 */
-const TIMED = new Set(['addItem', 'moveItem', 'moveItems', 'trimItem', 'splitItem', 'removeRange', 'setTransition', 'setChapters', 'upsertChapter']);
+const TIMED = new Set(['addItem', 'moveItem', 'moveItems', 'trimItem', 'splitItem', 'removeRange', 'insertRange', 'setTransition', 'setChapters', 'upsertChapter']);
 const SEQUENCE_SCOPED = new Set([
   ...TIMED,
   'deleteItems',
@@ -496,7 +496,8 @@ export class OperationShapeError extends Error {
  *
  * - 时间可以写成数字或数字字符串（秒），换成 `{ unit: 'seconds', value }`；`{ unit, value }` 原样保留。
  * - `setAudioMix` 的淡入淡出、`setDucking` 的 attack / release 可以写数字（秒），换成十进制字符串。
- * - `setTransition.duration`、`setChapters` 每一章的 `at`、`upsertChapter.at` 与 `removeRange` 的 `from` / `to` 同上换成时间输入。
+ * - `setTransition.duration`、`insertRange.duration`、`setChapters` 每一章的 `at`、`upsertChapter.at` 与 `removeRange` 的 `from` / `to`
+ *   同上换成时间输入。
  * - `addItem.asset` 与章节的 `thumbnail` 可以直接写素材 ID。
  * - `importAsset.path` 相对会话的工作目录；`~/` 展开为主目录。
  * - `setVideoBrief` 正文里指向这部视频某一刻的链接收成 `?t=<秒>`（视频格式规范 §3.1）。
@@ -532,7 +533,7 @@ export function normalizeOperations(operations: unknown[], rootSequenceId: Id, c
         if (typeof op[key] === 'number' && Number.isFinite(op[key])) op[key] = decimal(op[key]);
       }
     }
-    if (type === 'setTransition' && op.duration !== undefined) op.duration = timeInput(op.duration, index);
+    if ((type === 'setTransition' || type === 'insertRange') && op.duration !== undefined) op.duration = timeInput(op.duration, index);
     // 剪口是源素材时钟上的十进制秒，不是序列时间。
     if (type === 'addCuts' && Array.isArray(op.cuts)) {
       op.cuts = op.cuts.map((cut) => {

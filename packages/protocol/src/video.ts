@@ -1267,6 +1267,20 @@ export type EditOperation =
    */
   | { type: 'removeRange'; sequenceId?: Id; from: TimelineTimeInput; to: TimelineTimeInput; trackIds: Id[]; alignment: FrameAlignment }
   /**
+   * 波纹插入（`removeRange` 的反向，命令与协议规范 §4.2）：在 `trackIds` 上从 `at` 起空出 `duration`，起点不早于 `at` 的
+   * 实例后移。跨在 `at` 上的实例按 `straddle` 拆开、右段后移（缺省 `split`）或原地不动（`stay`）；到序列末尾的实例总是不动。
+   * 没列出的轨道与章节不动；轨道或要动的实例锁着时整笔拒绝；不再相接的转场删掉，列在 `impact.removedTransitions`。
+   */
+  | {
+      type: 'insertRange';
+      sequenceId?: Id;
+      at: TimelineTimeInput;
+      duration: TimelineTimeInput;
+      trackIds: Id[];
+      alignment: FrameAlignment;
+      straddle?: 'split' | 'stay';
+    }
+  /**
    * 在源素材的剪口集合里加入剪口（视频格式规范 §6.7）：`from`、`to` 是源素材时钟上的十进制秒，`ref` 是出处（剪辑建议的 ID）。
    * 与已有剪口间隔不超过 0.02 秒的并成一个，保留靠前那个的 ID 与出处。同一笔事务里按新的保留区间重排剪口集合的实例
    * （它们所在的轨道上波纹删除），其余实例按 `followPolicy` 移动；整个落在剪掉区间里的列在 `impact.removedByCuts`。
@@ -1368,7 +1382,9 @@ export type EditOperation =
    * 原地换合成实例的代码包版本与预渲染替身（代码包规范 §3.3）：实例 ID、轨道、起点、几何、效果、关键帧等都不变。
    * 时间映射回到从 0 开始的线性映射；长度取新替身的长度，没有替身时取清单的 `intrinsic`。变短就裁掉，
    * 变长撞上同轨后面的实例以 `TIMELINE_OVERLAP` 拒绝。实例有参数而新包去掉或换了 `parametersSchemaRef` 时要给 `parameterValues`。
-   * 回执的 `impact.codeEdits` 说明改的是源这一层与前后的长度。
+   * `ripple: true` 时旧终点之后的内容跟着长度差移动：变长在旧终点波纹插入（跨过这一刻的不动），变短波纹删除多出的那段
+   * （盖住整段的不动）；动的是这一刻之后还有实例的全部轨道，其中有锁着的就整笔拒绝，章节不动。
+   * 回执的 `impact.codeEdits` 说明改的是源这一层、前后的长度与 ripple 挪动的帧数。
    */
   | {
       type: 'replaceCodeBundle';
@@ -1377,6 +1393,7 @@ export type EditOperation =
       assetRef: VersionRef;
       prerender?: VersionRef | null;
       parameterValues?: Record<string, unknown>;
+      ripple?: boolean;
     }
   /**
    * 改声音：音频实例改自己的混音；视频与有声音的合成改自带的那路声音（静音即不用它）。
@@ -1497,6 +1514,8 @@ export interface CodeEdit {
   prerender: VersionRef | null;
   oldDurationFrames: number;
   newDurationFrames: number;
+  /** 带 `ripple` 且长度变了时，旧终点之后的内容挪动的帧数：正数后移，负数前移。 */
+  rippleFrames?: number;
 }
 
 export interface TransactionReceipt {

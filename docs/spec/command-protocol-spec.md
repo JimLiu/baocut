@@ -282,7 +282,7 @@ type EditOperation = { type: string; [field: string]: JsonValue };
 | 领域 | 代表性操作 | 回执必须说明 |
 | --- | --- | --- |
 | 素材 | `importAsset` `collectAssets` `removeAssets` `relinkAsset` `replaceAssetVersion` | 版本、受影响的实例、缺失的资源、删掉的素材记录 |
-| 片段 | `addItem` `moveItems` `arrangeItem` `trimItem` `splitItem` `joinItems` `deleteItems` `removeRange` `updateItem` `setSpeed` | 新旧时间、lineage、联动的对象 |
+| 片段 | `addItem` `moveItems` `arrangeItem` `trimItem` `splitItem` `joinItems` `deleteItems` `removeRange` `insertRange` `updateItem` `setSpeed` | 新旧时间、lineage、联动的对象 |
 | 样式 | `setText` `setTransform` `setStyle` `setProps` `setAnimation` `setKeyframes` `setAudioMix` | 属性校验的结果与改变的范围 |
 | 转场与效果 | `setTransition` `removeTransition` `setEffects` | 被连带删掉的转场与原因、随实例变短的单侧转场 |
 | 章节与闪避 | `setChapters` `upsertChapter` `removeChapter` `setDucking` `removeDucking` | 新建或改动的章节与规则 |
@@ -319,6 +319,8 @@ type EditOperation = { type: string; [field: string]: JsonValue };
 - `setChapters` 整个替换序列的章节，其他标记不动；`chapterId` 沿用已有的章节。`upsertChapter` 不给 `chapterId` 时新建，须给 `at` 与 `title`；`summary`、`thumbnail` 给 `null` 去掉；给 `at` 时须写明 `alignment`。缩略图用 `{ assetId }` 或同一事务里 `importAsset` 的 `{ ref }`。
 - `setDucking` 不给 `ruleId` 时新建，须给 `trigger` 与 `target`；给了只改给出的字段。`trigger` 是 `{ kind: 'speech' }`（有人说话时）或 `{ kind: 'items', … }`（这些轨道与实例发声时）；`depth` 是压低的分贝数（0–60）；`attack`、`release` 是十进制秒字符串。按实例触发的 `trigger` 与 `target` 除了 `trackIds`、`itemIds`，还可以用 `trackRefs` 引用同一事务里 `addTrack` 的 `ref`。
 - `removeRange` 给出 `sequenceId`、`from`、`to`（§6 的时间输入）、`trackIds` 与 `alignment`，在列出的轨道上删掉 `[from, to)` 并让之后的内容前移（波纹删除，视频格式规范 §6.4）：盖住区间的视频、音频、合成实例拆开删掉中间，经它投影的字幕跟着右段走；图片、文字、形状、字幕实例缩短；整个落在区间里的删掉。没列出的轨道不动；列出的轨道或要动的实例锁着时整笔拒绝（`TARGET_LOCKED`），不跳过。口播剪辑接受建议时编译成它。
+- `insertRange` 给出 `sequenceId`、`at`、`duration`（§6 的时间输入；`duration` 是一段时长，量化后至少一帧，否则 `TIME_RANGE_COLLAPSED`）、`trackIds`、`alignment` 与可选的 `straddle`（`split` 缺省、`stay`），在列出的轨道上从 `at` 起插入 `duration` 长的空白、让之后的内容整体后移（波纹插入，与 `removeRange` 相对）：起点不早于 `at` 的实例后移 `duration`（音频按精确时间移，保留子帧位置）；终点不晚于 `at` 的不动；跨在 `at` 上的实例在 `split` 时于 `at` 处拆开、右段后移（同 `splitItem`：经它投影的字幕跟着右段走，关键帧按 §3.15 拆），`stay` 时原地不动；到序列末尾（`untilSequenceEnd`）的实例跨在 `at` 上时总是不动，终点照常在事务最后求出。没列出的轨道不动，章节不动（视频格式规范 §3.13）；列出的轨道或要动的实例锁着时整笔拒绝（`TARGET_LOCKED`），不跳过。两侧不再相接的转场按转场的规则删掉，列在 `impact.removedTransitions`。
+- `replaceCodeBundle` 换代码包的规则见 §12.6。可选的 `ripple: true` 让后面的内容跟着长度变化移动，不撞上后一段、也不留空隙：Δ = 新帧数 − 旧帧数；变长时等于在旧终点 `insertRange` Δ 帧、`straddle: 'stay'`；变短时等于 `removeRange` 新终点到旧终点这一段，只是跨过整段的实例（铺底音乐这类）原地不动、不拆开。动的轨道是序列里在这个时刻之后还有实例的全部轨道（别的画面、声音与字幕轨都算），其中有锁着的或要动的实例锁着时整笔拒绝（`TARGET_LOCKED`）；章节不动。回执 `impact.codeEdits` 的这一项带 `rippleFrames`（Δ，没有移动时不写）。不给或 `false` 时与原来相同。
 - `addCuts` 给 `sequenceId`、`assetId` 与 `cuts`（`{ from, to, ref? }`：被剪素材时钟上的十进制秒，`0 ≤ from < to ≤ 素材时长`；`ref` 是剪辑建议的 ID。已定：素材时长由引擎读当前素材版本探测到的时长，调用方不传；素材没有已知时长时拒绝），在这个素材的剪口集合里加入剪口（视频格式规范 §6.7，还没有时新建 `kind: 'cut-set'` 的文档），并在同一笔事务里重排：剪口集合的实例所在的轨道上波纹删除，其余实例按 `followPolicy` 移动（§3.16），章节跟着内容前移（视频格式规范 §6.7）。`restoreCut` 给 `sequenceId`、`assetId` 与 `cutId`，去掉这个剪口并在接缝处放回，接缝之后的章节后移。整个落在剪掉区间里的实例列在 `impact.removedByCuts`，放不回去的剪口列在 `impact.cutsNotRelaid`。音画在不同轨道上错开放置、同一个剪口映射成部分重叠的区间时整笔拒绝（`INVALID_OPERATION`，`details.rule: 'scope-misaligned'`）；轨道或要动的实例锁着时整笔拒绝（`TARGET_LOCKED`）。`putDocument` 写剪口集合时同样按 §6.7 核对。`proposeCuts` 给 `assetId`，可选 `speechDocumentId`（素材有几份转写时必须给）与 `detect`（`pauses`、`fillers`、`minPause`、`compressTo`、`maxGap`、`fillerLanguage`、`customFillers`、`trimChapterStarts`，秒数是十进制字符串），按转写检测口癖与长停顿，写出这个素材的剪辑提案（视频格式规范 §6.2，`kind: 'editorial-proposal'`，没有时新建、有时整份替换），不改时间线。`acceptCutSuggestions` 给 `sequenceId`、`proposalId`（提案文档的 ID）与 `suggestionIds`，把这些建议编译成剪口（同 `addCuts`，`ref` 是建议的 ID）并标成 `accepted`，一笔事务；不认识的建议 ID 整笔拒绝（`ENTITY_NOT_FOUND`），转写在提出之后改过时整笔拒绝（`INVALID_OPERATION`，`details.rule: 'proposal-stale'`）。要改区间时直接用 `addCuts`，把建议的 ID 写进 `ref`。
 - 每笔编辑事务的最后，`untilSequenceEnd` 的实例按视频格式规范 §3.16 求出终点；随之改变的实例列在 `updatedIds`，锁定不挡这一步，任务保护照常核对。
 - `insertItems` 的视频、图片、白板与音频实例给 `assetRef`（已有素材的版本），或给 `assetImportRef`（同一事务里 `importAsset` 的 `ref`，取那个素材的当前版本），二者只给一个；贴纸与占位框引用素材时同样。
@@ -1325,7 +1327,7 @@ CLI 把成功与失败都写成信封：成功 `{ ok: true, result, next?, runti
 ```
 
 - 实例 ID、轨道、起点、几何与不透明度、名字、效果与关键帧不变；`timeMap` 回到从 0 开始的线性映射。
-- 新版本短 30 帧，实例从尾部裁短；`oldDurationFrames` 与 `newDurationFrames` 让裁短可见。新版本更长、撞上同一轨道后面的实例时以 `TIMELINE_OVERLAP` 拒绝，`recovery` 提示先 `moveItem` 或 `deleteItems`。
+- 新版本短 30 帧，实例从尾部裁短；`oldDurationFrames` 与 `newDurationFrames` 让裁短可见。新版本更长、撞上同一轨道后面的实例时以 `TIMELINE_OVERLAP` 拒绝，`recovery` 提示先 `moveItem` 挪开或 `deleteItems` 删掉后面的实例，或带 `ripple: true` 让后面的内容跟着后移。带 `ripple: true` 时不拒绝：旧终点之后、所有还有实例的轨道上的内容一起后移 Δ 帧（§4.2）。
 - 实例有参数而新清单去掉或换了 `parametersSchemaRef` 时，要同时给 `parameterValues`，否则以 `INVALID_OPERATION` 拒绝（`details.rule: "parameters-incompatible"`）。
 
 ### 12.7 清理换下来的旧版本

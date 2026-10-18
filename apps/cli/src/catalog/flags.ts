@@ -456,7 +456,7 @@ async function objectValue(schema: Schema, raw: string, flag: string, reader: Re
     const ratio = RATIO.exec(raw);
     if (ratio) return { num: Number(ratio[1]), den: Number(ratio[2] ?? 1) };
   }
-  // 只有一个文本字段的对象（例如 `--replace <itemId>`）：不像 JSON、@文件或 - 的值就是那个字段。
+  // 只有一个必填文本字段的对象（例如 `--replace <itemId>`）：不像 JSON、@文件或 - 的值就是那个字段。
   const single = soleTextField(schema);
   if (single && !(raw.startsWith('{') || raw === '-' || raw.startsWith('@'))) return { [single]: raw };
   const value = await reader.json(raw, flag);
@@ -464,13 +464,18 @@ async function objectValue(schema: Schema, raw: string, flag: string, reader: Re
   return value;
 }
 
-/** 对象只有一个字段、而且是文本时，那个字段的名字（命令行可以直接写它的值）。 */
+/**
+ * 对象只有一个字段，或只有一个必填字段，而且是文本时，那个字段的名字（命令行可以直接写它的值，其余可选字段取缺省；
+ * 要给它们就写 JSON）。
+ */
 export function soleTextField(schema: Schema): string | null {
   const properties = isRecord(schema.properties) ? schema.properties : {};
   const keys = Object.keys(properties);
-  if (keys.length !== 1) return null;
-  const field = properties[keys[0]!];
-  return isRecord(field) && field.type === 'string' ? keys[0]! : null;
+  const required = Array.isArray(schema.required) ? schema.required.filter((key): key is string => typeof key === 'string') : [];
+  const sole = keys.length === 1 ? keys[0]! : required.length === 1 ? required[0]! : null;
+  if (sole === null) return null;
+  const field = properties[sole];
+  return isRecord(field) && field.type === 'string' ? sole : null;
 }
 
 function invalid(message: string, extra: Record<string, unknown> = {}): CliError {
