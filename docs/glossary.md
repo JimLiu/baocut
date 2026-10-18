@@ -60,6 +60,7 @@
 | 提交到 git / 自动提交 / 初始化 git / 允许本地过滤器 | Commit to git / Auto-commit / Initialize git / Allow local filters | 版本记录的 git 桥；git 小写；不写 Sync、Push、Save to git |
 | 版本 / 版本记录 / 保存版本 / 回到版本 | Version / Version history / Save version / Restore version | 回到版本与回收站的「恢复」同一个动词，总带上 version；不写 Revert、Roll back、Snapshot |
 | 外部变更 | External change | 从快照导入的 BaoCut 之外的改动；不写 Sync、Merge、Pull |
+| 修订 | Revision | 每笔提交的编号，视频栏写「修订 N」，点开是撤销历史；与版本记录的「版本 N」分开，不写 Version |
 | 任务 / 后台任务 | Task / Background tasks | |
 | 工具 / 服务 / 模型 | Tools / Services / Models | |
 | API 提供方 / 账号 / 用量 / 本机模型 | API provider / Account / Usage / Local models | 不写 Cloud models、Service provider |

@@ -13,6 +13,9 @@ import {
   type VideoRef,
   type TransactionReceipt,
   type UndoTarget,
+  type VideoSnapshotStatus,
+  type VideoVersionList,
+  type VideoVersionText,
 } from '@baocut/protocol';
 import { useVideo } from '../state/video-store.ts';
 import { AssetCache } from './asset-cache.ts';
@@ -172,6 +175,45 @@ export class VideoController {
     return entries;
   }
 
+  // ---- 版本记录（视频格式规范 §9、架构设计 §5.12）：只读的直接发；写的排在已经发出的命令后面 ----
+
+  /** 当前视频的版本（新的在前）与读不出的版本序号。 */
+  versionList(): Promise<VideoVersionList> {
+    return this.#client.request('videos.versions.list', { videoId: this.#videoId() });
+  }
+
+  /** 一个版本的头部与 diff 文本。 */
+  versionText(version: number): Promise<VideoVersionText> {
+    return this.#client.request('videos.versions.get', { videoId: this.#videoId(), version });
+  }
+
+  /** 工作区快照与视频库的关系（同步、正在写、被外部改过……）与最新的版本号。 */
+  versionStatus(): Promise<VideoSnapshotStatus> {
+    return this.#client.request('videos.versions.status', { videoId: this.#videoId() });
+  }
+
+  /** 保存版本（§9.6）。失败时抛出原来的错误：对话框要看错误码与断点，不记进 `commandError`。 */
+  saveVersion(name: string, note?: string): Promise<{ version: number }> {
+    const commandId = newId('cmd');
+    return this.#versionWrite((videoId) =>
+      this.#client.request('videos.versions.save', { videoId, commandId, name, ...(note ? { note } : {}) }),
+    );
+  }
+
+  /** 回到版本（§9.5）：一笔可以撤销的修改，单独成一版；与现在相同时没有回执，也没有新版本。失败同 `saveVersion`。 */
+  restoreVersion(version: number, before: boolean): Promise<{ receipt: TransactionReceipt | null; version: number | null }> {
+    const commandId = newId('cmd');
+    return this.#versionWrite((videoId) =>
+      this.#client.request('videos.versions.restore', { videoId, commandId, version, ...(before ? { before: true } : {}) }),
+    );
+  }
+
+  /** 删除保存的版本与它的检查点（§9.6）。失败同 `saveVersion`。 */
+  deleteVersion(version: number): Promise<{ receipt: TransactionReceipt | null }> {
+    const commandId = newId('cmd');
+    return this.#versionWrite((videoId) => this.#client.request('videos.versions.delete', { videoId, commandId, version }));
+  }
+
   clearError(): void {
     useVideo.getState().update({ commandError: null });
   }
@@ -235,6 +277,35 @@ export class VideoController {
     } catch {
       // 断线时在重新打开后再取。
     }
+  }
+
+  #videoId(): Id {
+    const videoId = useVideo.getState().video?.videoId;
+    if (!videoId) throw new Error(RT.noOpenVideo);
+    return videoId;
+  }
+
+  /** 版本记录的写操作：同 `#enqueue` 排队并计入正在提交，但错误原样抛给调用方；有回执时记成上一次修改的回执。 */
+  #versionWrite<T extends { receipt: TransactionReceipt | null }>(send: (videoId: Id) => Promise<T>): Promise<T> {
+    const videoId = this.#videoId();
+    const bump = (delta: number) => {
+      const latest = useVideo.getState().video;
+      if (latest) useVideo.getState().update({ inFlight: Math.max(0, latest.inFlight + delta) });
+    };
+    bump(1);
+    const run = async (): Promise<T> => {
+      try {
+        const result = await send(videoId);
+        if (result.receipt && useVideo.getState().video?.videoId === videoId)
+          useVideo.getState().update({ lastReceipt: result.receipt, commandError: null });
+        return result;
+      } finally {
+        bump(-1);
+      }
+    };
+    const result = this.#queue.then(run, run);
+    this.#queue = result.catch(() => null);
+    return result;
   }
 
   #enqueue(
