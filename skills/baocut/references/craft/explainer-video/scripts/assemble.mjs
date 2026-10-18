@@ -113,16 +113,23 @@ function apply(label, ops) {
   }
 }
 
-// 起点不早于 boundary 帧的全部片段（各轨），分页读到底
-function itemsFrom(boundary) {
+// 起点不早于 boundary 帧的全部片段（各轨），分页读到底；spanning 时连跨过 boundary 的也算
+function itemsFrom(boundary, spanning = false) {
   const items = [];
   let from = boundary / FPS, limit = 500;
   for (;;) {
     const r = inspect(['--from-seconds', String(from), '--limit', String(limit)]);
     if (r.itemsCoverage && r.itemsCoverage.truncated) { limit *= 4; if (limit <= 32000) continue; throw new Error('too many clips to list'); }
-    for (const it of r.items) if (it.startFrame >= boundary) items.push(it);
+    for (const it of r.items) if (spanning ? it.startFrame + it.durationFrames > boundary : it.startFrame >= boundary) items.push(it);
     return items;
   }
+}
+
+// 要挪的轨道或片段锁着时先停下：引擎也会以 TARGET_LOCKED 拒绝，但换包时那已经在烘焙之后
+function assertUnlocked(items, boundary) {
+  const lockedTracks = new Set(tracks.filter(t => t.locked).map(t => t.id));
+  const hit = items.filter(it => lockedTracks.has(it.trackId) || (it.locked && it.startFrame >= boundary)).map(it => `${it.id} (${it.name})`);
+  if (hit.length) throw new Error(`locked tracks or clips after frame ${boundary}: ${hit.join(', ')}; unlock them first, nothing was changed`);
 }
 
 // 引擎挪完片段后，记录里起点不早于 boundary 的段跟着挪，然后存盘
@@ -134,7 +141,9 @@ function shiftRecords(boundary, delta) {
 // 插入的段：在 boundary（上一段终点）用 insertRange 腾出 frames 帧。只列这之后还有片段的轨道，
 // 跨着 boundary 的片段（全片音乐）留在原处、不剪开；有轨道或片段锁着时引擎以 TARGET_LOCKED 整笔拒绝。
 function makeRoom(id, boundary, frames) {
-  const trackIds = [...new Set(itemsFrom(boundary).map(it => it.trackId))];
+  const items = itemsFrom(boundary);
+  assertUnlocked(items, boundary);
+  const trackIds = [...new Set(items.map(it => it.trackId))];
   if (!trackIds.length) return;
   const frame = value => ({ unit: 'frames', value });
   apply(`Make room for ${id}`, [{ type: 'insertRange', at: frame(boundary), duration: frame(frames), trackIds, alignment: 'exact-frame', straddle: 'stay' }]);
@@ -176,6 +185,7 @@ function importScene(id, place) {
 function replaceScene(s) {
   const r = rec.segments[s.id];
   const oldEnd = r.from + r.frames, want = s.frames - r.frames;
+  if (want) { const b = r.from + Math.min(r.frames, s.frames); assertUnlocked(itemsFrom(b, true), b); }
   const { c, sec } = importScene(s.id, ['--replace', JSON.stringify({ itemId: r.sceneItem, ripple: true })]);
   const moved = c.replaced?.rippleFrames ?? 0;
   recordBake(r, c);
