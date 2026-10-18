@@ -456,6 +456,7 @@ export const vi: EngineMessages = {
   labelRestoreVersion: (p) => `Quay về phiên bản ${p.version}`,
   labelRestoreBeforeVersion: (p) => `Quay về trước phiên bản ${p.version}`,
   labelDeleteSavedVersion: "Xóa phiên bản đã lưu",
+  labelExternalChange: "Thay đổi bên ngoài",
   versionSummaryRepeated: (p) => `${p.label} (${p.count} thay đổi)`,
   versionSummaryRebuild: "Dựng lại từ ảnh chụp",
   versionNotFound: (p) => `Phiên bản ${p.version} không tồn tại`,

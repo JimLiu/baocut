@@ -1,8 +1,10 @@
+import { watch, type FSWatcher } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {
   RpcError,
   applyVideoEvent,
+  newId,
   type Actor,
   type AssetRevision,
   type DocumentContent,
@@ -117,8 +119,12 @@ interface Session {
   turnBoundary: boolean;
   /** 上次写快照之后改过视频的会话（版本头部的 `Conversation`）。 */
   conversations: Map<Id, string>;
-  /** 快照被外部改过、不再覆盖：只记一次日志。 */
+  /** 快照被外部改过、两边都改了（或快照读不了）：不导入也不覆盖，等用户选，只记一次日志。 */
   snapshotConflict: boolean;
+  /** 监视自己的 `.bcut-snapshot/`（不含版本文件）：外部改了就导入（视频格式规范 §9.8）。 */
+  snapshotWatcher: FSWatcher | null;
+  /** 快照有变化之后的去抖计时器。 */
+  snapshotCheck: ReturnType<typeof setTimeout> | null;
 }
 
 /** 引擎 `videos.writeSnapshot` 的结果。 */
@@ -165,7 +171,17 @@ const DB_FILE = 'video.db';
 /** 改名之前的数据库文件名：引擎打开时就地升级成 `video.db`。 */
 const LEGACY_DB_FILE = 'movie.db';
 /** 工作区快照（视频格式规范 §9.1）：只有它、没有库的目录打开前先重建。 */
-const SNAPSHOT_VIDEO_FILE = path.join('.bcut-snapshot', 'video.json');
+const SNAPSHOT_DIR = '.bcut-snapshot';
+const SNAPSHOT_VIDEO_FILE = path.join(SNAPSHOT_DIR, 'video.json');
+/** 快照目录有变化之后等多久再查（一次 `git pull` 会连着改好几个文件）。 */
+const SNAPSHOT_WATCH_DELAY_MS = 300;
+/** 导入外部改动的操作者（视频格式规范 §9.8）。 */
+const HISTORY_ACTOR: Actor = { kind: 'system', id: 'system:history' };
+
+/** 引擎错误的代码（`details.code`）。 */
+function errorCode(error: unknown): string | undefined {
+  return error instanceof RpcError ? (error.details as { code?: string } | undefined)?.code : undefined;
+}
 
 /**
  * 公共请求不带操作者；操作者由连接身份构造（架构设计 §4.2）。对外服务的请求记为 `external:<serviceId>`（§4.8）：
@@ -667,6 +683,35 @@ export class VideoService {
   }
 
   /**
+   * 快照被外部改过时选保留哪边（§9.8）：保留视频里的立即写快照、覆盖磁盘上的；用磁盘上的导入为一笔「外部变更」，
+   * 操作者同自动导入。选过之后冲突的记录清掉，之后的改动照常去抖写快照。
+   */
+  async resolveVersions(
+    params: RpcParams<'videos.versions.resolve'>,
+  ): Promise<{ receipt: TransactionReceipt | null; replayed: boolean; version: number | null; status: VideoSnapshotStatus }> {
+    const host = await this.#hostFor(params.videoId);
+    this.#requireProjectVideo(params.videoId);
+    const session = this.#channels.get(params.videoId)!.session!;
+    let result: { receipt: TransactionReceipt | null; replayed: boolean; version: number | null } = { receipt: null, replayed: false, version: null };
+    if (params.keep === 'snapshot') {
+      const applied = await host.request<{ receipt: TransactionReceipt | null; replayed: boolean; version?: number | null }>('videos.applySnapshot', {
+        videoId: params.videoId,
+        commandId: params.commandId,
+        actor: HISTORY_ACTOR,
+        force: true,
+        keep: this.#versionSettings().keep,
+      });
+      result = { receipt: applied.receipt, replayed: applied.replayed, version: applied.version ?? null };
+    } else {
+      await this.#writeSnapshot(params.videoId, session, { overwrite: true, rethrow: true });
+    }
+    session.snapshotConflict = false;
+    this.#watchSnapshot(params.videoId, session);
+    const status = await host.request<VideoSnapshotStatus>('videos.snapshotStatus', { path: session.ref.path });
+    return { ...result, status };
+  }
+
+  /**
    * 智能体的任务（Harness 的 `tasks` 主题）：记下任务属于哪个会话，提交带着任务号时版本头部记下这个会话。
    * 按回合切分（`versions.cadence: 'turn'`）时，新任务就是新回合：先把各视频还没写的改动写掉，之后每部视频下一次有改动的写开新版本。
    */
@@ -863,6 +908,7 @@ export class VideoService {
     this.#closed = true;
     for (const channel of this.#channels.values()) {
       if (channel.session?.closeTimer) clearTimeout(channel.session.closeTimer);
+      if (channel.session) this.#unwatchSnapshot(channel.session);
       if (channel.session?.snapshotTimer) clearTimeout(channel.session.snapshotTimer);
       channel.session = null;
       channel.log.clear();
@@ -912,12 +958,16 @@ export class VideoService {
         turnBoundary: false,
         conversations: new Map(),
         snapshotConflict: false,
+        snapshotWatcher: null,
+        snapshotCheck: null,
       };
       // 打开时立即写一次（请求同步发出，排在之后的编辑前面）：没有快照的（新建的、升级前的视频）写下基线，之后的第一笔编辑
-      // 才成为第一个版本；上次没来得及写的补上；没有变化时引擎什么也不改。
+      // 才成为第一个版本；上次没来得及写的补上；没有变化时引擎什么也不改。关着时快照被外部改了（`git pull`），这次写报
+      // `SNAPSHOT_CONFLICT`，随即导入（§9.8）。写过之后开始监视快照目录。
       if (channel.session.ref.source.projectId) {
-        channel.session.snapshotDirty = true;
-        void this.#writeSnapshot(opened.videoId, channel.session);
+        const session = channel.session;
+        session.snapshotDirty = true;
+        void this.#writeSnapshot(opened.videoId, session).then(() => this.#watchSnapshot(opened.videoId, session));
       }
     }
     const session = channel.session;
@@ -936,6 +986,7 @@ export class VideoService {
     if (session.closeTimer) clearTimeout(session.closeTimer);
     if (session.snapshotTimer) clearTimeout(session.snapshotTimer);
     session.snapshotTimer = null;
+    this.#unwatchSnapshot(session);
     const { ref: { path }, leases } = session;
     channel.session = null;
     channel.log.publish({ type: 'video.closed', reason });
@@ -995,13 +1046,17 @@ export class VideoService {
 
   /**
    * 写一次工作区快照（引擎 `videos.writeSnapshot`）。失败只记日志、不影响编辑：快照是派生物，下一笔改动或关闭时再写。
-   * 快照被外部改过（`SNAPSHOT_CONFLICT`）时引擎不覆盖它，这里只记一次，等外部改动的导入（二期）处理。
+   * 快照被外部改过（`SNAPSHOT_CONFLICT`）时引擎不覆盖它，这里试着导入（§9.8）。`overwrite`：用户选了保留视频里的；
+   * `rethrow`：失败交给调用方。
    */
-  async #writeSnapshot(videoId: Id, session: Session): Promise<void> {
+  async #writeSnapshot(videoId: Id, session: Session, options: { overwrite?: boolean; rethrow?: boolean } = {}): Promise<void> {
     if (session.snapshotTimer) clearTimeout(session.snapshotTimer);
     session.snapshotTimer = null;
     const host = this.#host;
-    if (!session.ref.source.projectId || !host?.alive) return;
+    if (!session.ref.source.projectId || !host?.alive) {
+      if (options.rethrow) throw new RpcError('engine-unavailable', RcVideo.engineRestarting());
+      return;
+    }
     const { keep, cadence } = this.#versionSettings();
     const turn = cadence === 'turn' && session.turnBoundary;
     const conversations = [...session.conversations].map(([id, title]) => ({ id, title }));
@@ -1014,8 +1069,10 @@ export class VideoService {
         keep,
         ...(turn ? { boundary: 'turn' } : {}),
         ...(conversations.length ? { conversations } : {}),
+        ...(options.overwrite ? { overwrite: true } : {}),
       });
       session.snapshotConflict = false;
+      this.#watchSnapshot(videoId, session);
       // 没有改动的写不算新回合的第一次写。
       if (turn && !written.opened && written.written.length === 0) session.turnBoundary = true;
       if (written.opened) this.#log.debug('Opened a new video version', { videoId, version: written.version, pruned: written.pruned });
@@ -1023,14 +1080,72 @@ export class VideoService {
       session.snapshotDirty = true;
       if (turn) session.turnBoundary = true;
       for (const { id, title } of conversations) if (!session.conversations.has(id)) session.conversations.set(id, title);
-      const code = error instanceof RpcError ? (error.details as { code?: string } | undefined)?.code : undefined;
-      if (code === 'SNAPSHOT_CONFLICT') {
-        if (!session.snapshotConflict) this.#log.info('The workspace snapshot was changed outside BaoCut; not overwriting it', { videoId });
-        session.snapshotConflict = true;
+      if (options.rethrow) throw error;
+      if (errorCode(error) === 'SNAPSHOT_CONFLICT') {
+        await this.#importSnapshot(videoId, session);
       } else {
         this.#log.warn('Writing the workspace snapshot failed', { videoId, error: String(error) });
       }
     }
+  }
+
+  /**
+   * 快照被外部改过（§9.8）：只有快照变了就导入为一笔「外部变更」与一个 `external` 版本；两边都改了或快照读不了时
+   * 不导入、不覆盖，只记一次日志，等用户选（`videos.versions.resolve`）。快照没有被外部改过时引擎什么也不做。
+   */
+  async #importSnapshot(videoId: Id, session: Session): Promise<void> {
+    const host = this.#host;
+    if (!host?.alive) return;
+    try {
+      const applied = await host.request<{ receipt: TransactionReceipt | null; version?: number | null }>('videos.applySnapshot', {
+        videoId,
+        commandId: newId('cmd'),
+        actor: HISTORY_ACTOR,
+        keep: this.#versionSettings().keep,
+      });
+      session.snapshotConflict = false;
+      if (applied.receipt) this.#log.info('Imported an external change to the workspace snapshot', { videoId, version: applied.version });
+    } catch (error) {
+      const code = errorCode(error);
+      if (code === 'SNAPSHOT_CONFLICT' || code === 'SNAPSHOT_INVALID') {
+        if (!session.snapshotConflict) this.#log.info('The workspace snapshot was changed outside BaoCut and cannot be imported; not overwriting it', { videoId, code });
+        session.snapshotConflict = true;
+      } else {
+        this.#log.warn('Importing the workspace snapshot failed', { videoId, error: String(error) });
+      }
+    }
+  }
+
+  /**
+   * 监视打开中的视频自己的快照目录（§9.8）：Space 的递归监视跳过点目录，看不到它。版本文件与写入时的临时文件不算；
+   * 自己写快照也会触发，引擎认得出自己写的，什么也不做。
+   */
+  #watchSnapshot(videoId: Id, session: Session): void {
+    if (session.snapshotWatcher || !session.ref.source.projectId || this.#channels.get(videoId)?.session !== session) return;
+    try {
+      const watcher = watch(path.join(session.ref.path, SNAPSHOT_DIR), { recursive: true, persistent: false }, (_event, name) => {
+        const rel = String(name ?? '').split(path.sep).join('/');
+        if (rel === 'history' || rel.startsWith('history/') || path.posix.basename(rel).startsWith('.')) return;
+        if (session.snapshotCheck) clearTimeout(session.snapshotCheck);
+        session.snapshotCheck = setTimeout(() => {
+          session.snapshotCheck = null;
+          if (this.#channels.get(videoId)?.session === session) void this.#importSnapshot(videoId, session);
+        }, SNAPSHOT_WATCH_DELAY_MS);
+        session.snapshotCheck.unref?.();
+      });
+      watcher.on('error', () => this.#unwatchSnapshot(session));
+      session.snapshotWatcher = watcher;
+    } catch (error) {
+      // 目录还不在（写快照失败）：下一次成功的写或选择之后再试。
+      this.#log.debug('Watching the workspace snapshot failed', { videoId, error: String(error) });
+    }
+  }
+
+  #unwatchSnapshot(session: Session): void {
+    session.snapshotWatcher?.close();
+    session.snapshotWatcher = null;
+    if (session.snapshotCheck) clearTimeout(session.snapshotCheck);
+    session.snapshotCheck = null;
   }
 
   async #hostFor(videoId: Id): Promise<EngineHost> {

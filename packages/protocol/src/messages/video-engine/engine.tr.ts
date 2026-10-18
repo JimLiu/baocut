@@ -457,6 +457,7 @@ export const tr: EngineMessages = {
   labelRestoreVersion: (p) => `${p.version} sürümüne dön`,
   labelRestoreBeforeVersion: (p) => `${p.version} sürümünden öncesine dön`,
   labelDeleteSavedVersion: "Kaydedilen sürümü sil",
+  labelExternalChange: "Harici değişiklik",
   versionSummaryRepeated: (p) => `${p.label} (${p.count} değişiklik)`,
   versionSummaryRebuild: "Anlık görüntüden yeniden oluşturuldu",
   versionNotFound: (p) => `${p.version} sürümü yok`,

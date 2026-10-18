@@ -563,7 +563,7 @@ M19 使用原创的、授权的或程序化合成的夹具。M12 的规模档位
 
 独立的脚本可以验证其中一部分有理数的预期值。但这张表里涉及应用、音频、Adapter、缓存、并发与界面的行为，必须由真实的实现测试。
 
-### 6.8 版本记录验收 V01–V12
+### 6.8 版本记录验收 V01–V16
 
 视频的工作区快照与版本记录（视频格式规范 §9，架构设计 §5.12）。
 
@@ -577,19 +577,23 @@ M19 使用原创的、授权的或程序化合成的夹具。M12 的规模档位
 | V06 | 保存版本，再删掉它 | 保存的版本带名字与检查点，不被清理；删掉时两侧的 diff 合并、检查点一起删；不是保存的版本不能删 |
 | V07 | 被保留的版本引用的收进来的素材，在关闭视频的 blob GC 之后 | 仍在；回到那个版本时素材完整 |
 | V08 | 删掉 `video.db` 后打开项目或打开视频 | 按快照重建，`videoId` 不变，重建后立即写出的快照与读入的逐字节相同；有版本文件时版本记录照常可用并多一个 `rebuild` 版本，没有时从重建开始 |
-| V09 | 快照被 BaoCut 之外改了 | 不覆盖，状态是 `conflict` 并列出文件；编辑与关闭照常；保存与回到版本以 `SNAPSHOT_CONFLICT` 拒绝 |
+| V09 | 快照被 BaoCut 之外改了，库里也有还没写进快照的改动（两边都改了） | 不导入、不覆盖，状态是 `conflict`（`both-changed`）并列出文件；编辑与关闭照常；保存与回到版本以 `SNAPSHOT_CONFLICT` 拒绝 |
 | V10 | 关闭视频后立刻重新打开 | 等关闭写完快照、放下写锁再打开，重新打开的视频照常可改，修改照常进版本 |
 | V11 | 不属于项目的视频 | 不写快照、没有版本；保存与回到版本以 `VERSIONS_NEED_PROJECT` 拒绝 |
 | V12 | 没有 git | 版本记录的全部功能可用 |
+| V13 | 关着的视频的快照被 `git pull` 改了，再打开；打开中的视频的快照被外部改了 | 导入为一笔「外部变更」（操作者 `system:history`）和一个 `external` 版本，库里写出的快照与读入的逐字节相同；按事务撤销后回到导入前，快照写回撤销后的状态；只差排版时不提交；快照引用的素材不在时是缺失，视频照常可用 |
+| V14 | 两边都改了，用户选保留 BaoCut 里的，或用磁盘上的 | 保留：立即覆盖磁盘上的快照，之后照常写；用磁盘上的：本地改动先封存成一版，再导入为「外部变更」与 `external` 版本，回到它之前能找回本地改动；同一个 `commandId` 重试返回第一次的结果 |
+| V15 | 快照被改坏（读不出、有冲突标记） | 状态是 `conflict`（`invalid`），不导入、不覆盖；只能保留 BaoCut 里的，用磁盘上的以 `SNAPSHOT_INVALID` 拒绝 |
+| V16 | Windows 上 `core.autocrlf=true` 检出快照 | 不算外部改动，文件不被改写回 LF |
 
-二期（外部改动的导入、git 桥）的验收要点在[版本记录设计 §9](../design/version-history/version-history-design.md#9-分期与验收要点)，实施时移到这里。
+二期 git 桥的验收要点在[版本记录设计 §9](../design/version-history/version-history-design.md#9-分期与验收要点)，实施时移到这里。
 
 自动化检查：
 
-- 引擎（`crates/video-engine/tests/version_history.rs`）：V01（基线与一行的 diff）、V02（回到版本、回到最旧版本之前、撤销、重试与相同状态）、V03（篡改中间版本）、V04（安静期、时长与回合的边界）、V05（按数量清理后链连续）、V06、V07、V08（重建逐字节相同、`rebuild` 版本）、V09 的引擎部分；另有版本文件能被 `patch -R` 逐版退回。
-- Engine Host（`crates/engine-host/src/host.rs` 的 `versions_round_trip_through_snapshot_restore_save_delete_and_rebuild`）：内部命令的往返。
-- Runtime（`packages/runtime-core/src/videos/videos.test.ts`，真实的 Engine Host）：去抖写快照、保存与回到版本、关闭前写；V08 的打开时重建；V09；按回合切分与会话记录；V10；V11。智能体工具（`agent-tools/object-tools.test.ts`）：保存、列出、读 diff、回到版本与没有的版本给出下一步。
-- 还没有自动化：V02 的随机编辑序列、V05 的大小上限、V04 里两部视频之间来回切换、V12 在没有 git 的机器上的端到端检查。
+- 引擎（`crates/video-engine/tests/version_history.rs`）：V01（基线与一行的 diff）、V02（回到版本、回到最旧版本之前、撤销、重试与相同状态）、V03（篡改中间版本）、V04（安静期、时长与回合的边界）、V05（按数量清理后链连续）、V06、V07、V08（重建逐字节相同、`rebuild` 版本）、V09 的引擎部分、V13（关着时被改后导入、撤销、缺失的素材）、V14、V15、V16（模拟 CRLF 检出）；另有版本文件能被 `patch -R` 逐版退回。
+- Engine Host（`crates/engine-host/src/host.rs` 的 `versions_round_trip_through_snapshot_restore_save_delete_and_rebuild` 与 `an_external_snapshot_change_is_imported_and_a_conflict_waits_for_a_choice`）：内部命令的往返。
+- Runtime（`packages/runtime-core/src/videos/videos.test.ts`，真实的 Engine Host）：去抖写快照、保存与回到版本、关闭前写；V08 的打开时重建；V09 与 V15 的状态；V13（关着时 `git pull` 后打开即导入、按事务撤销；打开中的视频由监视发现并导入）；V14（两种选择与重试）；按回合切分与会话记录；V10；V11。智能体工具（`agent-tools/object-tools.test.ts`）：保存、列出、读 diff、回到版本与没有的版本给出下一步。
+- 还没有自动化：V02 的随机编辑序列、V05 的大小上限、V04 里两部视频之间来回切换、V12 在没有 git 的机器上的端到端检查、V16 在 Windows 上真实 `git checkout` 的检查。
 
 ---
 

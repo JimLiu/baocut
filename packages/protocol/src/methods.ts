@@ -811,6 +811,15 @@ export interface RpcMethods {
     result: { receipt: TransactionReceipt | null; replayed: boolean };
   };
   /**
+   * 快照被外部改过时选保留哪边（§9.8）。`keep: 'video'` 保留视频里的：立即写快照，覆盖磁盘上的；`'snapshot'` 用磁盘上的：
+   * 作为一笔「外部变更」导入并单独成一个 `external` 版本，视频里还没写进快照的改动先封存成一版，仍在撤销历史与版本记录里。
+   * 磁盘上的快照读不了时 `'snapshot'` 报 `SNAPSHOT_INVALID`。用磁盘上的按 `commandId` 重放；保留视频里的没有事务，重试按效果幂等。
+   */
+  'videos.versions.resolve': {
+    params: { videoId: Id; commandId: Id; keep: 'video' | 'snapshot' };
+    result: { receipt: TransactionReceipt | null; replayed: boolean; version: number | null; status: VideoSnapshotStatus };
+  };
+  /**
    * 已打开视频里此刻读不到的素材版本（视频格式规范 §4.2）：每个素材的当前版本与实例引用的版本里，文件不在、
    * 已经不是登记时的文件，或相对路径越出了项目目录的。视频照常打开；界面据此标出缺失的素材，不必等到 `media.resolve` 失败。
    * 只看文件在不在、长度对不对，不重算摘要。打开视频、收到 `video.replaced`、提交了素材类操作之后各查一次。

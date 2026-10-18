@@ -457,6 +457,7 @@ export const ko: EngineMessages = {
   labelRestoreVersion: (p) => `버전 ${p.version}(으)로 되돌리기`,
   labelRestoreBeforeVersion: (p) => `버전 ${p.version} 이전으로 되돌리기`,
   labelDeleteSavedVersion: '저장한 버전 삭제',
+  labelExternalChange: '외부 변경',
   versionSummaryRepeated: (p) => `${p.label} (변경 ${p.count}개)`,
   versionSummaryRebuild: '스냅숏에서 다시 만듦',
   versionNotFound: (p) => `버전 ${p.version}이(가) 없습니다`,

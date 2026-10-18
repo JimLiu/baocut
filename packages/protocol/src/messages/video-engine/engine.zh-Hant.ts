@@ -456,6 +456,7 @@ export const zhHant: EngineMessages = {
   labelRestoreVersion: (p) => `回到版本 ${p.version}`,
   labelRestoreBeforeVersion: (p) => `回到版本 ${p.version} 之前`,
   labelDeleteSavedVersion: '刪除儲存的版本',
+  labelExternalChange: '外部變更',
   versionSummaryRepeated: (p) => `${p.label}（${p.count} 項修改）`,
   versionSummaryRebuild: '從快照重建',
   versionNotFound: (p) => `版本 ${p.version} 不存在`,

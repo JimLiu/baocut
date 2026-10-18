@@ -456,6 +456,7 @@ export const ptBR: EngineMessages = {
   labelRestoreVersion: (p) => `Voltar à versão ${p.version}`,
   labelRestoreBeforeVersion: (p) => `Voltar para antes da versão ${p.version}`,
   labelDeleteSavedVersion: "Excluir versão salva",
+  labelExternalChange: "Alteração externa",
   versionSummaryRepeated: (p) => `${p.label} (${p.count} edições)`,
   versionSummaryRebuild: "Reconstruído a partir do snapshot",
   versionNotFound: (p) => `A versão ${p.version} não existe`,

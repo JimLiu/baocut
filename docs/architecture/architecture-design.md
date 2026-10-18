@@ -1312,15 +1312,16 @@ CLI 的 `baocut settings`（列出键、当前值、是否默认）、`settings 
 | 层 | 粒度 | 在哪 | 用来做什么 |
 | --- | --- | --- | --- |
 | 撤销历史 | 一笔事务 | `video.db` | 一笔一笔地撤销与重做 |
-| 版本记录 | 一段工作（安静 5 分钟、最长 30 分钟，或一次保存、回到版本、重建） | `.bcut-snapshot/` | 读最近改了什么、谁改的；回到之前的某一版；不依赖 git |
+| 版本记录 | 一段工作（安静 5 分钟、最长 30 分钟，或一次保存、回到版本、重建、导入外部改动） | `.bcut-snapshot/` | 读最近改了什么、谁改的；回到之前的某一版；不依赖 git |
 | git | 用户的提交 | 用户的仓库 | 可选：快照是行稳定的文本，可以随项目提交。BaoCut 代为提交与初始化 git 以后再做 |
 
 **分工**
 
-- **VideoEngine** 做全部的生成与判断，都在持有写锁时进行：投影与序列化、版本的边界、版本文件、保留与清理、回到版本、保存与删除版本、从快照重建。簿记记在 `video.db` 的 meta 里（视频格式规范 §9.7）。Engine Host 的内部命令（不在网关的方法表里）：
-  - `videos.writeSnapshot { videoId, boundary?, conversations?, keep? }`：写快照，按边界并入或开新版本，开新版本后清理；
+- **VideoEngine** 做全部的生成与判断，都在持有写锁时进行：投影与序列化、版本的边界、版本文件、保留与清理、回到版本、保存与删除版本、从快照重建、导入外部改动与冲突的判断。簿记记在 `video.db` 的 meta 里（视频格式规范 §9.7）。Engine Host 的内部命令（不在网关的方法表里）：
+  - `videos.writeSnapshot { videoId, boundary?, conversations?, keep?, overwrite? }`：写快照，按边界并入或开新版本，开新版本后清理；快照被外部改过时以 `SNAPSHOT_CONFLICT` 拒绝，`overwrite` 时照样覆盖（用户选了保留视频里的）；
   - `videos.listVersions { videoId }`、`videos.readVersion { videoId, version }`：只读；
-  - `videos.snapshotStatus { path }`：按目录查，不要求打开、不取锁，所以答得出「待重建」；
+  - `videos.snapshotStatus { path }`：按目录查，不要求打开、不取锁，所以答得出「待重建」；快照被外部改过时分出 `external`（可以导入）与 `conflict`（两边都改了，或快照读不出）；
+  - `videos.applySnapshot { videoId, commandId, actor, force?, keep? }`：把被外部改过的快照导入为一笔「外部变更」与一个 `external` 版本，返回 `{ receipt, replayed, version }`；库里也有还没写进快照的改动时以 `SNAPSHOT_CONFLICT` 拒绝，`force` 时先把它们封存成一版再导入（视频格式规范 §9.8）；
   - `videos.restoreVersion`、`videos.saveVersion`、`videos.deleteVersion`：带 `commandId` 与操作者，与 `edits.apply` 一样有回执与事件；回到版本另带智能体任务的保护范围；
   - `videos.rebuildFromSnapshot { path, keep? }`：就地建库，建好就放下锁，随后照常打开或认领。
 - **Runtime** 决定何时写，并把引擎不知道的上下文交给它：
@@ -1328,14 +1329,15 @@ CLI 的 `baocut settings`（列出键、当前值、是否默认）、`settings 
   - 修改来自某个会话的任务时，把会话的 ID 与标题记下，下一次写时交给引擎，写进版本头部。
   - `versions.cadence` 是 `turn` 时，Harness 的任务主题里出现新的运行中任务就是新回合：先把各视频还没写的改动写掉，之后每部视频下一次有改动的写带 `boundary: 'turn'`。
   - 只给项目里的视频写；不属于项目的视频（会话文件夹里的）不写，保存、回到与删除版本以 `invalid-request`（`VERSIONS_NEED_PROJECT`）拒绝，列表为空。
-  - 写失败只记日志、不影响编辑：快照是派生物，下一笔修改或关闭时再写。快照被外部改过（`SNAPSHOT_CONFLICT`）时引擎不覆盖，Runtime 只记一次日志。
+  - 写失败只记日志、不影响编辑：快照是派生物，下一笔修改或关闭时再写。
+  - 外部改动（视频格式规范 §9.8）在两处发现：写快照报 `SNAPSHOT_CONFLICT` 时（打开视频时立即的那次写会发现关着时的 `git pull`），与每部打开的视频单独监视自己的 `.bcut-snapshot/`（不含 `history/` 与临时文件，Space 的监视跳过点目录看不到它；有变化后去抖 300 毫秒）。发现后调 `videos.applySnapshot`，操作者是 `system:history`：只有快照被改就导入；两边都改了或快照读不出时引擎拒绝，Runtime 只记一次日志，不导入也不覆盖，编辑照常，等用户经 `videos.versions.resolve` 选。选完清掉这条记录，之后照常去抖写快照。引擎自己写快照也触发监视，它认得出自己写的，什么也不做。
 - **Space** 把只有快照、没有 `video.db` 的目录列为视频（§5.7）；打开项目的预处理（§5.1）与打开视频时先重建、再认领或打开。
 
-**对外的方法**（命令与协议规范 §4.1）：`videos.versions.list`、`get`、`status` 只读，Web 也能用；`save`、`restore`、`delete` 是写入，视频要已经打开。智能体工具是 `videos_versions`、`videos_version_diff`、`videos_save_version`、`videos_restore_version`（§3.5），后两个与 `edits_undo` 同级（`edit`，§3.12）。
+**对外的方法**（命令与协议规范 §4.1）：`videos.versions.list`、`get`、`status` 只读，Web 也能用；`save`、`restore`、`delete`、`resolve` 是写入，视频要已经打开。智能体工具是 `videos_versions`、`videos_version_diff`、`videos_save_version`、`videos_restore_version`（§3.5），后两个与 `edits_undo` 同级（`edit`，§3.12）。没有选外部改动去留的工具：两边都改了时选哪边都会丢掉一边的工作，由用户决定；`videos_versions` 报告冲突，智能体转告用户。
 
 **偏好设置**（§5.10）：`versions.keep`（保留的未命名版本数，默认 10）与 `versions.cadence`（`segment` 或 `turn`，默认 `segment`），写快照时读当时的取值。另有每部视频 64 MiB 的大小上限，不是设置。
 
-**以后再做**：快照被外部改了时导入为一笔「外部变更」与一个 `external` 版本，两边都改了时让用户选保留哪边；版本记录的界面（先做原型）；视频主题推送版本的变化；git 桥（查找 git、写忽略规则、「提交到 git」、初始化与自动提交）。见版本记录设计的分期。git 桥的多端口径已定（[版本记录设计 §5.4、§6](../design/version-history/version-history-design.md#54-安全)）：Web 可以看 git 状态、触发「提交到 git」；开关自动提交、初始化 git 与启用仓库本地的 git 过滤器只在桌面界面与 CLI，智能体不能启用过滤器。
+**以后再做**：版本记录的界面与冲突提示（先做原型）；视频主题推送版本的变化；git 桥（查找 git、写忽略规则、「提交到 git」、初始化与自动提交）。见版本记录设计的分期。git 桥的多端口径已定（[版本记录设计 §5.4、§6](../design/version-history/version-history-design.md#54-安全)）：Web 可以看 git 状态、触发「提交到 git」；开关自动提交、初始化 git 与启用仓库本地的 git 过滤器只在桌面界面与 CLI，智能体不能启用过滤器。
 
 ---
 

@@ -148,7 +148,7 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 - 要了解一部视频最近改了什么，先用 {{tool:videos_versions}} 读版本记录，不必翻 {{tool:videos_history}}；某一版具体怎么改的用 {{tool:videos_version_diff}}（{{arg:version}}）。
 - 用户要「回到之前那版」时用 {{tool:videos_restore_version}}：先在版本记录里找到版本号，拿不准时看 diff 或问用户；{{arg:before}} 为 true 是回到那一版开始之前。回到版本也是一笔修改，可以用 {{tool:edits_undo}} 撤销。
 - 用户要存一版、或大改之前要留一个回得去的点时用 {{tool:videos_save_version}}（{{arg:name}}）；平时的修改会自动记下，不用每次都存。
-- 不要手改视频目录里的 `.bcut-snapshot/`，也不要在视频打开时对它 `git checkout` 或 `git reset`。
+- 不要手改视频目录里的 `.bcut-snapshot/`，也不要替用户对它 `git checkout` 或 `git reset`。BaoCut 之外的改动（`git pull`、同步盘）会自动导入为一笔「外部变更」；{{tool:videos_versions}} 的 `snapshot.state` 是 `conflict` 时，视频里也有还没写进快照的修改，或快照读不出：告诉用户，由用户选保留哪边，你照常编辑。
 
 ## 结果怎么读
 

@@ -560,7 +560,7 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
       '列出一个视频的版本记录：每个版本改了什么、谁改的、在哪个会话里改的。',
       '版本由 BaoCut 自动记下，不依赖 git：一段连续的修改合成一个版本（设置 versions.cadence 为 turn 时按会话的回合分），保存的版本（kind save）、回到版本（restore）与从快照重建（rebuild）各自单独成版。自动记下的版本只留最近的若干个（设置 versions.keep），更早的会被清理；保存的版本一直留着。',
       '从最新的往前列：version（版本号）、kind、summary、startedAt / updatedAt、revision（这一版之前与之后的视频版本）、actions（这一版里的修改：by 是谁改的，如 user_local、agent:<名字>、system:jobs；label 是修改说明；count 是几笔）、conversations（在哪些会话里改的）、保存的版本的 name 与 note、files（改了快照里的哪些文件：video.json 是视频与时间线，documents/<documentId>.json 是一份文档的正文；change 是 added、removed 或 modified）。open 为 true 的是还在累积的最新一版，之后的修改还会并进它。',
-      'snapshot.state 是快照与视频的关系：synced 已写好，pending 有修改还没写（几秒内会写），conflict 是快照在 BaoCut 之外被改过（changedPaths 是哪些文件）、不会被覆盖，missing 还没有快照。unreadable 是读不了的版本文件。',
+      'snapshot.state 是快照与视频的关系：synced 已写好，pending 有修改还没写（几秒内会写），external 是快照在 BaoCut 之外被改过（如 git pull）、视频里没有别的修改，BaoCut 会自动导入成一笔「External change」修改与一个 kind external 的版本；conflict 是快照在 BaoCut 之外被改过而视频里也有还没写进快照的修改（snapshot.conflict 为 both-changed），或快照被改坏了读不了（invalid），BaoCut 不导入也不覆盖，要用户决定保留哪一边，你没有替用户选的工具，把情况告诉用户即可，修改照常；changedPaths 是被外部改过的文件。missing 还没有快照。unreadable 是读不了的版本文件。',
       '要了解一个视频最近改了什么先看这里，不用翻 videos_history；要看某一版具体怎么改的用 videos_version_diff，要回到某一版用 videos_restore_version。不在项目里的视频没有版本记录。',
     ].join('\n'),
     annotations: { readOnlyHint: true },
@@ -1276,7 +1276,11 @@ export class VideoTools implements ToolSet {
     return {
       videoId,
       revision: this.#current(opened).revision,
-      snapshot: { state: status.state, ...(status.changedPaths?.length ? { changedPaths: status.changedPaths } : {}) },
+      snapshot: {
+        state: status.state,
+        ...(status.conflict ? { conflict: status.conflict } : {}),
+        ...(status.changedPaths?.length ? { changedPaths: status.changedPaths } : {}),
+      },
       versions: list.versions.map(versionDigest),
       ...(list.unreadable.length ? { unreadable: list.unreadable } : {}),
       // i18n-ignore: 给模型的工具说明、错误与下一步
@@ -2141,6 +2145,8 @@ const VERSION_NEXT: Record<string, string> = {
   VERSION_CHAIN_BROKEN:
     '从最新的版本倒推到这一版的途中有版本文件读不了（videos_versions 的 unreadable），回不到这么早：选更新的版本，或告诉用户版本文件损坏了',
   VERSIONS_NEED_PROJECT: '这个视频不在项目里，没有版本记录：要回退用 edits_undo 与 videos_history',
+  SNAPSHOT_CONFLICT:
+    '快照在 BaoCut 之外被改过（看 videos_versions 的 snapshot.state）：external 时 BaoCut 几秒内自动导入，之后重试；conflict 时视频里也有还没写进快照的修改或快照读不了，要等用户决定保留哪一边才能保存或回到版本，把情况告诉用户；修改照常可做',
 };
 // i18n-ignore-end
 

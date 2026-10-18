@@ -13,10 +13,10 @@ use serde_json::{Value, json};
 use video_engine::ids::rfc3339_from_unix;
 use video_engine::model::{Actor, ActorKind, TimelineItem};
 use video_engine::versions::{
-    Boundary, DeleteRequest, RestoreRequest, SaveRequest, SnapshotRequest, SnapshotState, VersionKind, list_versions, read_version,
-    snapshot_status,
+    ApplyRequest, Boundary, ConflictReason, DeleteRequest, RestoreRequest, SaveRequest, SnapshotRequest, SnapshotState, VersionKind,
+    list_versions, read_version, snapshot_status,
 };
-use video_engine::workspace::{SNAPSHOT_DIR, read_files};
+use video_engine::workspace::{SNAPSHOT_DIR, SnapshotFiles, read_files};
 use video_engine::{CreateOptions, OpenMode, UndoRequest, UndoTarget, Video, VideoTransaction};
 
 fn ffprobe() -> PathBuf {
@@ -114,6 +114,80 @@ fn set_text(video: &mut Video, item: &str, command_id: &str, text: &str) {
 
 fn video_json(video: &Video) -> String {
     fs::read_to_string(snapshot_dir(video).join("video.json")).unwrap()
+}
+
+fn copy_dir(from: &Path, to: &Path) {
+    fs::create_dir_all(to).unwrap();
+    for entry in fs::read_dir(from).unwrap() {
+        let entry = entry.unwrap();
+        let target = to.join(entry.file_name());
+        if entry.file_type().unwrap().is_dir() {
+            copy_dir(&entry.path(), &target);
+        } else {
+            fs::copy(entry.path(), target).unwrap();
+        }
+    }
+}
+
+/// 别处改过、经 git 拉下来的快照：把关着的视频拷一份，在副本里改文字与转写、写快照，返回副本的快照文件。
+fn edited_elsewhere(dir: &Path, item: &str, text: &str) -> SnapshotFiles {
+    let copy = dir.with_file_name("别处的副本");
+    copy_dir(dir, &copy);
+    let mut other = Video::open(&copy, OpenMode::Write, &ffprobe()).unwrap();
+    set_text(&mut other, item, "cmd_elsewhere_text", text);
+    let speech = other.state().documents.keys().next().unwrap().clone();
+    apply(
+        &mut other,
+        "cmd_elsewhere_doc",
+        vec![
+            json!({ "type": "putDocument", "documentId": speech, "kind": "speech", "body": { "words": [{ "id": "w1", "text": "别处" }] } }),
+        ],
+    );
+    write(&mut other, 2);
+    let files = read_files(&copy.join(SNAPSHOT_DIR)).unwrap();
+    drop(other);
+    fs::remove_dir_all(&copy).unwrap();
+    files
+}
+
+/// 把快照目录换成给定的文件（`git pull` 改写了它们）。
+fn replace_snapshot(dir: &Path, files: &SnapshotFiles) {
+    let root = dir.join(SNAPSHOT_DIR);
+    for path in read_files(&root).unwrap().keys().filter(|p| !files.contains_key(*p)) {
+        fs::remove_file(root.join(path)).unwrap();
+    }
+    for (path, text) in files {
+        fs::write(root.join(path), text).unwrap();
+    }
+}
+
+fn history_actor() -> Actor {
+    Actor {
+        kind: ActorKind::System,
+        id: "system:history".into(),
+    }
+}
+
+fn import(
+    video: &mut Video,
+    command_id: &str,
+    force: bool,
+    minutes: u64,
+) -> video_engine::EngineResult<video_engine::versions::ApplyResult> {
+    let request = ApplyRequest {
+        command_id: command_id.into(),
+        actor: history_actor(),
+        force,
+        keep: None,
+    };
+    video.apply_snapshot_at(&request, &at(minutes))
+}
+
+fn text_of(video: &Video, item: &str) -> String {
+    match &video.state().items[item].value {
+        TimelineItem::Text(text) => text.text.clone().unwrap_or_default(),
+        _ => unreachable!(),
+    }
 }
 
 #[test]
@@ -541,13 +615,304 @@ fn an_external_change_is_a_conflict_and_is_not_overwritten() {
     assert_eq!(fs::read_to_string(&path).unwrap(), edited);
     let status = snapshot_status(video.dir()).unwrap();
     assert_eq!(
-        (status.state, status.changed_paths),
-        (SnapshotState::Conflict, vec!["video.json".to_string()])
+        (status.state, status.conflict, status.changed_paths),
+        (
+            SnapshotState::Conflict,
+            Some(ConflictReason::BothChanged),
+            vec!["video.json".to_string()]
+        )
     );
 
     // 被删掉的快照文件不算冲突，下一次写补回来。
     fs::remove_file(&path).unwrap();
     assert!(write(&mut video, 1).written.contains(&"video.json".to_string()));
+}
+
+#[test]
+fn a_changed_snapshot_of_a_closed_video_is_imported_as_one_external_change() {
+    let root = tempfile::tempdir().unwrap();
+    let (mut video, item) = source_video(root.path());
+    write(&mut video, 0);
+    set_text(&mut video, &item, "cmd_1", "一");
+    write(&mut video, 1);
+    let before = read_files(&snapshot_dir(&video)).unwrap();
+    let dir = video.dir().to_path_buf();
+    drop(video);
+    let theirs = edited_elsewhere(&dir, &item, "别处的标题");
+    replace_snapshot(&dir, &theirs);
+
+    let status = snapshot_status(&dir).unwrap();
+    assert_eq!((status.state, status.conflict), (SnapshotState::External, None));
+    assert_eq!(status.changed_paths.len(), 2, "video.json 与转写");
+
+    let mut video = Video::open(&dir, OpenMode::Write, &ffprobe()).unwrap();
+    let revision: i64 = video.revision().parse().unwrap();
+    let imported = import(&mut video, "cmd_import", false, 3).unwrap();
+    let committed = imported.committed.expect("外部变更");
+    assert_eq!(committed.receipt.label, "External change");
+    assert_eq!(
+        committed.receipt.label_ref.as_ref().map(|r| r.key.as_str()),
+        Some("engine.labelExternalChange")
+    );
+    assert_eq!(committed.receipt.actor, history_actor());
+    assert_eq!(video.revision(), (revision + 1).to_string(), "一笔事务");
+    assert_eq!(text_of(&video, &item), "别处的标题");
+    let speech = video.state().documents.keys().next().unwrap().clone();
+    assert!(video.document(&speech, None).unwrap().body.to_string().contains("别处"));
+
+    // 导入不改磁盘上的快照，随后的写与它逐字节相同。
+    assert_eq!(read_files(&snapshot_dir(&video)).unwrap(), theirs);
+    let version = imported.version.expect("external 版本");
+    let header = read_version(&dir, version).unwrap().header;
+    assert_eq!((header.kind, header.summary.as_str()), (VersionKind::External, "External change"));
+    assert_eq!(snapshot_status(&dir).unwrap().state, SnapshotState::Synced);
+    let again = write(&mut video, 4);
+    assert!(again.written.is_empty() && again.version.is_none(), "{again:?}");
+    assert!(
+        import(&mut video, "cmd_import_again", false, 4).unwrap().committed.is_none(),
+        "没有新的外部改动"
+    );
+
+    // 版本链不断：回到 external 版本开始之前就是导入前的快照。
+    video
+        .restore_version(&RestoreRequest {
+            command_id: "cmd_restore_before".into(),
+            version,
+            before: true,
+            actor: user(),
+            keep: None,
+            protections: Vec::new(),
+        })
+        .unwrap();
+    assert_eq!(read_files(&snapshot_dir(&video)).unwrap(), before);
+    assert_eq!(text_of(&video, &item), "一");
+    video
+        .undo(&UndoRequest {
+            command_id: "cmd_undo_restore".into(),
+            target: UndoTarget::Undo,
+            expected_revision: None,
+            actor: user(),
+        })
+        .unwrap();
+    write(&mut video, 20);
+    assert_eq!(read_files(&snapshot_dir(&video)).unwrap(), theirs);
+
+    // 撤销导入：库领先，下一次写把快照写回导入前的状态，是普通的一段。
+    video
+        .undo(&UndoRequest {
+            command_id: "cmd_undo_import".into(),
+            target: UndoTarget::Transaction(committed.receipt.transaction_id.clone()),
+            expected_revision: None,
+            actor: user(),
+        })
+        .unwrap();
+    assert_eq!(text_of(&video, &item), "一");
+    assert_eq!(snapshot_status(&dir).unwrap().state, SnapshotState::Pending);
+    let reverted = write(&mut video, 40);
+    assert_eq!(read_files(&snapshot_dir(&video)).unwrap(), before);
+    let header = read_version(&dir, reverted.version.expect("新版本")).unwrap().header;
+    assert_eq!(header.kind, VersionKind::Segment);
+}
+
+/// 关着的视频的快照在别处被改了，打开后本地又改了一笔：两边都改了。
+fn diverged(root: &Path) -> (Video, String, SnapshotFiles) {
+    let (mut video, item) = source_video(root);
+    write(&mut video, 0);
+    set_text(&mut video, &item, "cmd_1", "一");
+    write(&mut video, 1);
+    let dir = video.dir().to_path_buf();
+    drop(video);
+    let theirs = edited_elsewhere(&dir, &item, "别处的标题");
+    replace_snapshot(&dir, &theirs);
+    let mut video = Video::open(&dir, OpenMode::Write, &ffprobe()).unwrap();
+    set_text(&mut video, &item, "cmd_local", "本地");
+    (video, item, theirs)
+}
+
+#[test]
+fn when_both_sides_changed_nothing_is_imported_or_overwritten() {
+    let root = tempfile::tempdir().unwrap();
+    let (mut video, _, theirs) = diverged(root.path());
+    let status = snapshot_status(video.dir()).unwrap();
+    assert_eq!(
+        (status.state, status.conflict),
+        (SnapshotState::Conflict, Some(ConflictReason::BothChanged))
+    );
+    let revision = video.revision();
+    assert_eq!(import(&mut video, "cmd_import", false, 3).unwrap_err().code, "SNAPSHOT_CONFLICT");
+    assert_eq!(
+        video.write_snapshot(&SnapshotRequest::default()).unwrap_err().code,
+        "SNAPSHOT_CONFLICT"
+    );
+    assert_eq!(video.revision(), revision);
+    assert_eq!(read_files(&snapshot_dir(&video)).unwrap(), theirs);
+}
+
+#[test]
+fn using_the_snapshot_on_disk_keeps_the_local_changes_as_a_version() {
+    let root = tempfile::tempdir().unwrap();
+    let (mut video, item, theirs) = diverged(root.path());
+    let imported = import(&mut video, "cmd_use_disk", true, 3).unwrap();
+    let committed = imported.committed.expect("外部变更");
+    assert_eq!(text_of(&video, &item), "别处的标题");
+    assert_eq!(read_files(&snapshot_dir(&video)).unwrap(), theirs);
+    let external = imported.version.expect("external 版本");
+    let list = list_versions(video.dir()).unwrap();
+    let kinds: Vec<VersionKind> = list.versions.iter().map(|v| v.header.kind).collect();
+    assert_eq!(kinds[0], VersionKind::External);
+    assert_eq!(kinds[1], VersionKind::Segment, "本地的改动先封存成一版");
+    assert_eq!(snapshot_status(video.dir()).unwrap().state, SnapshotState::Synced);
+
+    // 重试同一个 commandId 不重复导入。
+    let replay = import(&mut video, "cmd_use_disk", true, 4).unwrap();
+    assert_eq!(replay.committed.unwrap().receipt.transaction_id, committed.receipt.transaction_id);
+
+    // 本地的改动仍可回到：external 版本开始之前。
+    video
+        .restore_version(&RestoreRequest {
+            command_id: "cmd_restore_local".into(),
+            version: external,
+            before: true,
+            actor: user(),
+            keep: None,
+            protections: Vec::new(),
+        })
+        .unwrap();
+    assert_eq!(text_of(&video, &item), "本地");
+}
+
+/// 还没有版本（只写过基线）时不另封存：`external` 版本从库里的状态算起，回到它之前同样找回本地的改动。
+#[test]
+fn using_the_snapshot_on_disk_before_any_version_still_keeps_the_local_changes() {
+    let root = tempfile::tempdir().unwrap();
+    let (mut video, item) = source_video(root.path());
+    write(&mut video, 0);
+    let dir = video.dir().to_path_buf();
+    drop(video);
+    let theirs = edited_elsewhere(&dir, &item, "别处的标题");
+    replace_snapshot(&dir, &theirs);
+    let mut video = Video::open(&dir, OpenMode::Write, &ffprobe()).unwrap();
+    set_text(&mut video, &item, "cmd_local", "本地");
+
+    let external = import(&mut video, "cmd_use_disk", true, 3).unwrap().version.expect("external 版本");
+    let list = list_versions(video.dir()).unwrap();
+    let kinds: Vec<VersionKind> = list.versions.iter().map(|v| v.header.kind).collect();
+    assert_eq!(kinds, vec![VersionKind::External]);
+    assert_eq!(read_files(&snapshot_dir(&video)).unwrap(), theirs);
+    video
+        .restore_version(&RestoreRequest {
+            command_id: "cmd_restore_local".into(),
+            version: external,
+            before: true,
+            actor: user(),
+            keep: None,
+            protections: Vec::new(),
+        })
+        .unwrap();
+    assert_eq!(text_of(&video, &item), "本地");
+}
+
+#[test]
+fn keeping_the_video_overwrites_the_snapshot_on_disk() {
+    let root = tempfile::tempdir().unwrap();
+    let (mut video, item, theirs) = diverged(root.path());
+    let request = SnapshotRequest {
+        overwrite: true,
+        ..SnapshotRequest::default()
+    };
+    let written = video.write_snapshot_at(&request, &at(10)).unwrap();
+    assert!(written.opened && written.written.contains(&"video.json".to_string()));
+    assert_ne!(read_files(&snapshot_dir(&video)).unwrap(), theirs);
+    assert!(video_json(&video).contains("本地"));
+    assert_eq!(snapshot_status(video.dir()).unwrap().state, SnapshotState::Synced);
+    assert_eq!(text_of(&video, &item), "本地");
+    // 版本链照常：回到这一版开始之前是上一次写下的。
+    video
+        .restore_version(&RestoreRequest {
+            command_id: "cmd_restore".into(),
+            version: written.version.expect("版本"),
+            before: true,
+            actor: user(),
+            keep: None,
+            protections: Vec::new(),
+        })
+        .unwrap();
+    assert_eq!(text_of(&video, &item), "一");
+}
+
+#[test]
+fn an_unreadable_snapshot_is_a_conflict_that_only_keeping_the_video_resolves() {
+    let root = tempfile::tempdir().unwrap();
+    let (mut video, _) = source_video(root.path());
+    write(&mut video, 0);
+    let path = snapshot_dir(&video).join("video.json");
+    fs::write(&path, "<<<<<<< HEAD\n{}\n").unwrap();
+    let status = snapshot_status(video.dir()).unwrap();
+    assert_eq!(
+        (status.state, status.conflict),
+        (SnapshotState::Conflict, Some(ConflictReason::Invalid))
+    );
+    assert_eq!(import(&mut video, "cmd_import", false, 1).unwrap_err().code, "SNAPSHOT_INVALID");
+    assert_eq!(import(&mut video, "cmd_use_disk", true, 1).unwrap_err().code, "SNAPSHOT_INVALID");
+    assert_eq!(
+        video.write_snapshot(&SnapshotRequest::default()).unwrap_err().code,
+        "SNAPSHOT_CONFLICT"
+    );
+    let request = SnapshotRequest {
+        overwrite: true,
+        ..SnapshotRequest::default()
+    };
+    video.write_snapshot_at(&request, &at(2)).unwrap();
+    assert_eq!(snapshot_status(video.dir()).unwrap().state, SnapshotState::Synced);
+}
+
+#[test]
+fn a_crlf_checkout_is_not_an_external_change() {
+    let root = tempfile::tempdir().unwrap();
+    let (mut video, _) = source_video(root.path());
+    write(&mut video, 0);
+    let snapshot = snapshot_dir(&video);
+    for path in read_files(&snapshot).unwrap().keys() {
+        let text = fs::read_to_string(snapshot.join(path)).unwrap();
+        fs::write(snapshot.join(path), text.replace('\n', "\r\n")).unwrap();
+    }
+    assert_eq!(snapshot_status(video.dir()).unwrap().state, SnapshotState::Synced);
+    let written = write(&mut video, 1);
+    assert!(written.written.is_empty(), "检出的文件不被改写：{written:?}");
+    assert!(import(&mut video, "cmd_import", false, 1).unwrap().committed.is_none());
+}
+
+/// 别处收进来的素材，blob 不随快照过来（`blobs/` 不进 git）：导入后它是缺失的素材，视频照常可用（§4.2）。
+#[test]
+fn an_imported_asset_without_its_blob_is_missing() {
+    let root = tempfile::tempdir().unwrap();
+    let (mut video, _) = source_video(root.path());
+    write(&mut video, 0);
+    let dir = video.dir().to_path_buf();
+    drop(video);
+
+    let copy = root.path().join("别处的副本");
+    copy_dir(&dir, &copy);
+    let svg = root.path().join("别处.svg");
+    fs::write(&svg, "<svg xmlns='http://www.w3.org/2000/svg' width='2'/>").unwrap();
+    let mut other = Video::open(&copy, OpenMode::Write, &ffprobe()).unwrap();
+    apply(
+        &mut other,
+        "cmd_elsewhere_asset",
+        vec![json!({ "type": "importAsset", "path": svg, "storage": "managed" })],
+    );
+    write(&mut other, 2);
+    let files = read_files(&copy.join(SNAPSHOT_DIR)).unwrap();
+    drop(other);
+
+    replace_snapshot(&dir, &files);
+    let mut video = Video::open(&dir, OpenMode::Write, &ffprobe()).unwrap();
+    assert!(video.missing_assets().is_empty());
+    import(&mut video, "cmd_import", false, 3).unwrap().committed.expect("导入");
+    let missing = video.missing_assets();
+    assert_eq!(missing.len(), 1, "{missing:?}");
+    assert_eq!(missing[0].reason, "missing");
+    assert_eq!(read_files(&snapshot_dir(&video)).unwrap(), files);
 }
 
 #[test]

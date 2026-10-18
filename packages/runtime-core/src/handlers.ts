@@ -540,6 +540,7 @@ export function createHandlers({
       'videos.versions.save': (p, principal) => videos.saveVersion(p, principal),
       'videos.versions.restore': (p, principal) => videos.restoreVersion(p, principal),
       'videos.versions.delete': (p, principal) => videos.deleteVersion(p, principal),
+      'videos.versions.resolve': (p) => videos.resolveVersions(p),
       'videos.assetStatus': (p) => videos.assetStatus(p.videoId),
       'documents.read': (p) => videos.document(p.videoId, p.documentId, p.revision),
       'edits.apply': (p, principal) => videos.apply(p, principal),

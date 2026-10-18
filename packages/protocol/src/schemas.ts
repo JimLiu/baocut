@@ -1086,6 +1086,7 @@ export const methodParamSchemas = {
     .strict(),
   'videos.versions.restore': z.object({ videoId: id, commandId: id, version: positiveInt, before: z.boolean().optional() }).strict(),
   'videos.versions.delete': z.object({ videoId: id, commandId: id, version: positiveInt }).strict(),
+  'videos.versions.resolve': z.object({ videoId: id, commandId: id, keep: z.enum(['video', 'snapshot']) }).strict(),
   'videos.assetStatus': z.object({ videoId: id }).strict(),
   'documents.read': z.object({ videoId: id, documentId: id, revision: revision.optional() }).strict(),
   'edits.apply': z
