@@ -7,7 +7,7 @@
 //   node tools/overlay.mjs --place          新建两条视觉轨，导入片段铺满放好，再放水印；记在 overlay.json，已放过的（同一 id、同一帧）不重放
 //   node tools/overlay.mjs --check          对照视频里的片段与现在算出的起点（assemble 波纹挪过、段落改过之后跑）
 // clips.json：{ source, label, clips: [{ id, seg, line, cue?, from, to, source?, label?, audio?, note? }] }
-//   from / to 是原片的秒数；片段从 seg 段第 line 句（从 0 数）开始放，给了 cue 就从这句里 cue 这几个字被说到的时刻开始。
+//   from / to 是原片的秒数；片段从 seg 段第 line 句（从 0 数）开始放；cue 可省，给了就从这句里 cue 这几个字被说到的时刻开始。
 //   同一段里下一个片段开始时截断，不越过段尾。label 是烧进画面一角的来源标签（成片语言写，例如「画面：<来源>」），
 //   单个片段可以另给 source 与 label；audio 为 true 时保留原声（当事人原话），否则静音。
 // 配置 footage：{ clips, font, label: { size, margin } }；watermark：{ file, dur, w, y, x: { left, right }, at: [...] }，
@@ -85,6 +85,7 @@ if (flags.render) {
     if (label) {
       const tf = path.join(work('footage'), `${c.id}.label.txt`);
       fs.writeFileSync(tf, label);
+      if (fo.font && !fs.existsSync(cfg.abs(fo.font))) throw new Error(`footage.font ${fo.font} not found`);
       const font = fo.font ? `fontfile='${esc(cfg.abs(fo.font))}':` : '';
       const { size, margin } = fo.label;
       vf.push(`drawtext=${font}textfile='${esc(tf)}':expansion=none:fontsize=${size}:fontcolor=0xdddddd:box=1:boxcolor=0x000000@0.55:boxborderw=${Math.round(size / 2)}:x=w-tw-${margin + Math.round(size / 2)}:y=${margin}`);
