@@ -210,6 +210,15 @@ const en = {
   adoptSessionSummary: (p: { name: string | null }) =>
     `Create a project ${p.name ? `“${p.name}”` : 'named after the first video'} and move this session’s videos and files into it`,
   /** 派生子视频（videos_derive）的审批摘要；from、to 是时间线上的 mm:ss。 */
+  /**
+   * 不属于项目的会话新建视频时给了别处的项目（§3.10）：在那个工具的摘要（action）后面写明落点。project 是已登记项目的名字，
+   * 还没有登记（确认之后在 path 上登记）时为 null。
+   */
+  bindSessionSummary: (p: { action: string; path: string; project: string | null }) =>
+    `${p.action}, in ${p.project ? `project “${p.project}” (${p.path})` : `${p.path} (registered as a new project)`}; this session moves into that project, and the videos and files already in its working folder move with it`,
+  /** projects_adopt_session 给了 project：把会话放进那里（project 同上）。 */
+  adoptSessionIntoSummary: (p: { path: string; project: string | null }) =>
+    `Move this session into ${p.project ? `project “${p.project}” (${p.path})` : `${p.path} (registered as a new project)`}, together with the videos and files in its working folder`,
   deriveVideoSummary: (p: { name: string; from: string; to: string }) => `Create a child video "${p.name}" from ${p.from}–${p.to} of this video`,
   /** 子视频里派生那笔修改在历史与撤销里的说明；name 是父视频名。 */
   deriveVideoLabel: (p: { name: string }) => `Derive from "${p.name}"`,

@@ -40,6 +40,9 @@ description: 媒体的机制：从链接下载、检索与下载网上素材、�
 | 只下载到项目 | {{tool:download}}，{{arg:url}} + {{arg:project}} |
 | 只要文件（用户明说） | {{tool:download}} 只给 {{arg:url}}：落到下载目录 |
 | 放到别处（外置盘、某个文件夹） | 加 {{arg:outDir}}（任意目录，不存在时建好），代替下载目录；导入视频时素材链到那里。不请用户去改设置。只给 {{arg:project}} 时不能给，对外服务不能给 |
+<!-- surface: agent -->
+| 新视频也建在那个文件夹（会话不属于项目） | {{arg:newVideo}} 再给 {{arg:project}}：文件夹的绝对路径（或别的项目的 projectId），用户只说了盘时在盘上取一个文件夹；文件也放那里时同时给 {{arg:outDir}}（如 `<文件夹>/downloads`）。高风险确认，确认之后会话连同工作目录里的视频与文件放进那个项目，之后照常 {{tool:jobs_wait}}、{{tool:videos_inspect}}，不用换会话。只下载时不能这样给 {{arg:project}} |
+<!-- /surface -->
 | 同时取平台字幕 | 加 {{arg:subs}}（语言列表），字幕文件放在媒体旁边、不导入视频 |
 | 只要音频 | 加 {{arg:audioOnly}} |
 | 视频要登录才能看 | 默认按用户在设置 › 视频下载选的浏览器；用户指明浏览器时加 {{arg:cookieBrowsers}}（例如 `["chrome"]`，按顺序尝试）；{{tool:transcribe}} 给 {{arg:url}} 时同样 |
@@ -94,6 +97,9 @@ description: 媒体的机制：从链接下载、检索与下载网上素材、�
 | 要做的事 | 调用 |
 | --- | --- |
 | 新建空视频 | {{tool:videos_create}}，{{arg:name}}；竖屏素材给竖屏的宽高（如 1080×1920），帧率按素材 |
+<!-- surface: agent -->
+| 建在用户指定的文件夹或别的项目（会话不属于项目） | {{tool:videos_create}} 加 {{arg:project}}（文件夹的绝对路径或 projectId）：确认之后会话连同工作目录里的视频与文件放进那个项目；{{tool:transcribe}} 给 {{arg:file}}、{{tool:videos_import_package}} 同样 |
+<!-- /surface -->
 | 导入并放上时间线 | {{tool:assets_import}}，{{arg:path}} + {{arg:place}}（不给 place 只登记为素材） |
 | 导入生成的产物（语音、图片、音乐的 WAV 等） | {{tool:assets_import}}，{{arg:artifactId}}（不重新生成） |
 | 复制进视频 | {{tool:assets_import}} 加 {{arg:storage}} `managed` |

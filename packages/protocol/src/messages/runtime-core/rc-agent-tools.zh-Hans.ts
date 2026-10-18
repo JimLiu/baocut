@@ -127,6 +127,10 @@ export const zhHans: RcAgentToolsMessages = {
   registerProjectSummary: (p) => `把已有的目录登记为项目 ${p.path}${p.name ? `（${p.name}）` : ''}`,
   createProjectSummary: (p) => `新建项目目录 ${p.path}${p.name ? `（${p.name}）` : ''}`,
   adoptSessionSummary: (p) => `新建项目${p.name ? `「${p.name}」` : '（以第一个视频命名）'}，把这个会话的视频与文件搬进去`,
+  bindSessionSummary: (p) =>
+    `${p.action}，建在${p.project ? `项目「${p.project}」（${p.path}）` : ` ${p.path}（登记为新项目）`}；这个会话从此属于这个项目，工作目录里已有的视频与文件一起搬过去`,
+  adoptSessionIntoSummary: (p) =>
+    `把这个会话放进${p.project ? `项目「${p.project}」（${p.path}）` : ` ${p.path}（登记为新项目）`}，工作目录里的视频与文件一起搬过去`,
   deriveVideoSummary: (p) => `从这个视频的 ${p.from}–${p.to} 派生子视频「${p.name}」`,
   deriveVideoLabel: (p) => `从「${p.name}」派生`,
   derivationDocumentName: '派生来源',

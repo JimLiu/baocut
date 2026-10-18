@@ -159,6 +159,10 @@ export const nl: RcAgentToolsMessages = {
   createProjectSummary: (p: { path: string; name: string | null }) => `Projectmap maken: ${p.path}${p.name ? ` (${p.name})` : ""}`,
   adoptSessionSummary: (p: { name: string | null }) =>
     `Project ${p.name ? `‘${p.name}’` : 'met de naam van de eerste video'} maken en de video’s en bestanden van deze sessie erheen verplaatsen`,
+  bindSessionSummary: (p: { action: string; path: string; project: string | null }) =>
+    `${p.action}, in ${p.project ? `project ‘${p.project}’ (${p.path})` : `${p.path} (wordt als nieuw project geregistreerd)`}; deze sessie hoort daarna bij dat project en de video’s en bestanden uit de werkmap gaan mee`,
+  adoptSessionIntoSummary: (p: { path: string; project: string | null }) =>
+    `Deze sessie verplaatsen naar ${p.project ? `project ‘${p.project}’ (${p.path})` : `${p.path} (wordt als nieuw project geregistreerd)`}, samen met de video’s en bestanden uit de werkmap`,
   deriveVideoSummary: (p) => `Afgeleide video ‘${p.name}’ maken van ${p.from}–${p.to} van deze video`,
   deriveVideoLabel: (p) => `Afgeleid van ‘${p.name}’`,
   derivationDocumentName: 'Bron van afleiding',

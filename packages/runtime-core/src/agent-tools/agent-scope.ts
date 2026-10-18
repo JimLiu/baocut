@@ -1,10 +1,12 @@
 // i18n-ignore-file: 只有给模型的工具错误（ToolError）
+import { constants as fsConstants } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {
   RpcError,
   newId,
   type Conversation,
+  type Project,
   type GeneratedOutput,
   type Id,
   type JobRecord,
@@ -22,6 +24,7 @@ import { engineProtections, type Harness } from '@baocut/harness';
 import { canonicalJson, isTerminal, locateArtifact, sha256Hex, type HostedJob, type JobManager } from '@baocut/jobs';
 import type { EngineProtection, VideoService } from '../videos/video-service.ts';
 import { scanDirectory } from '../space-catalog.ts';
+import { inside, nearestReal } from './artifact-save.ts';
 import type { AgentPrincipal } from './grants.ts';
 import { ToolError } from './tool-catalog.ts';
 import {
@@ -31,11 +34,13 @@ import {
   type ToolConfirmation,
   scopedProject,
   type ScopedProject,
+  type ProjectBinding,
   type ToolPrincipal,
   type ToolScope,
   type TranslationScope,
   type VideoRoot,
 } from './tool-scope.ts';
+import { resolveUserPath } from './video-digest.ts';
 
 /** 会话里一次调用的授权：会话与进行中的任务。 */
 export interface AgentAccess extends ToolAccess {
@@ -50,13 +55,16 @@ export interface AgentAccess extends ToolAccess {
  * - 工具只在会话有进行中的任务时可用；停止之后一律拒绝；规划模式只读；
  * - 有副作用的调用按会话此刻的访问模式与动作的风险查表（§3.12）：自动的直接执行，要问的在会话里放一张审批卡并等待
  *   （没有时限），用户拒绝、停止或打断时返回明确的错误；
- * - 智能体只能使用会话来源目录（所属项目的目录，或会话自己的工作目录）里的视频；
+ * - 智能体只能使用会话来源目录（所属项目的目录，或会话自己的工作目录）里的视频；不属于项目的会话新建视频时给了别处的 `project`，
+ *   用户确认之后会话放进那个项目（§3.10），来源目录随之换成它；
  * - 智能体只能看到本会话提交的任务与来源目录里已打开视频上的任务，产物也只能用这些任务的。
  */
 export class AgentScope implements ToolScope<AgentAccess> {
   readonly #harness: Harness;
   readonly #videos: VideoService;
   readonly #jobs: JobManager;
+  /** 无项目会话的工作目录都在这些目录下（`RuntimeHome.scratchDir`，§3.10）：会话不能放进它们里面，也不能放进包含它们的目录。 */
+  readonly #sessionsDirs: readonly string[];
   /** 按 videoId 找过的、没有打开的视频的目录：下次先核对它，不对再扫。 */
   readonly #located = new Map<Id, string>();
   /** 智能体自己翻译的进度记录（`translationStarted`），按会话、视频、转写与语言；终结了就拿掉。 */
@@ -64,10 +72,11 @@ export class AgentScope implements ToolScope<AgentAccess> {
   /** 订阅了任务中心（回合结束时收尾进度记录）。第一次登记进度记录时才订阅。 */
   #watchingTasks = false;
 
-  constructor(deps: { harness: Harness; videos: VideoService; jobs: JobManager }) {
+  constructor(deps: { harness: Harness; videos: VideoService; jobs: JobManager; sessionsDirs?: readonly string[] }) {
     this.#harness = deps.harness;
     this.#videos = deps.videos;
     this.#jobs = deps.jobs;
+    this.#sessionsDirs = deps.sessionsDirs ?? [];
   }
 
   /** 工具只在任务里可用；停止屏障之后一律拒绝（D04）；规划模式只读。 */
@@ -156,20 +165,109 @@ export class AgentScope implements ToolScope<AgentAccess> {
 
   /**
    * 新建视频的位置：会话的来源，也就是所属项目的目录，不属于项目时是会话的工作目录（§3.10，视频留在那里，不为它建项目）。
-   * 给了 `project` 时只能是会话所属的项目（按 id 或目录），别的与不存在的一样回答。
+   *
+   * - 属于项目的会话给了 `project` 时只能是它所属的项目（按 id 或目录），别的与不存在的一样回答。
+   * - 不属于项目的会话给了 `project`（已登记项目的 id，或任意目录）：`locate` 时只解析、检查落点，结果带上 `binding`（`root`、`scope`
+   *   仍是此刻的来源），确认卡据此写明落点（`bindingConfirmation`）；确认之后的调用把会话放进那个项目（`bindSession`），视频建在那里。
    */
-  async createRoot(access: AgentAccess, project?: string): Promise<VideoRoot> {
+  async createRoot(access: AgentAccess, project?: string, options: { locate?: boolean } = {}): Promise<VideoRoot> {
     const source = this.source(access.conversation);
-    if (
-      project !== undefined &&
-      !('projectId' in source.scope && (project === source.scope.projectId || path.resolve(project) === path.resolve(source.root)))
-    ) {
+    if (project === undefined) return source;
+    if ('projectId' in source.scope) {
+      if (project === source.scope.projectId || resolveUserPath(project, access.conversation.cwd) === path.resolve(source.root)) return source;
       throw new ToolError(
         'PROJECT_NOT_FOUND',
-        `找不到项目「${project}」：只能在会话所属的项目里新建；不给 project 时建在会话的项目里，不属于项目的会话建在它的工作目录里`,
+        `找不到项目「${project}」：这个会话属于项目（${source.root}），只能在它里面新建，不给 project 就建在那里；会话不能换到别的项目`,
+        { next: '不给 project 建在会话的项目里；用户要把视频放到别的项目或文件夹时，请用户在那个项目里新开一个会话。' },
       );
     }
-    return source;
+    const binding = await this.locateBinding(access, project);
+    if (options.locate) return { ...source, binding };
+    const bound = await this.bindSession(access, { binding });
+    return {
+      root: bound.path,
+      scope: { projectId: bound.id },
+      note: `会话已经放进项目「${bound.name}」（${bound.path}），工作目录里原有的视频与文件一起搬了过去；之后新视频不给 project 就建在这里`,
+    };
+  }
+
+  /**
+   * 不属于项目的会话要放进的项目（§3.10）：`project` 是已登记项目的 id，或一个目录（绝对路径、`~/`，相对路径按工作目录）。
+   * 只解析与检查，不动任何东西：目录可以还不存在（确认之后建出来、登记），但要建得出来（最近的一层已有目录可写；外置盘没接上时
+   * 在这里就拒绝）。已经存在但不是目录、在会话的工作目录或会话目录里面或包含它们（搬工作目录会搬到自己身上）、在视频目录里面的
+   * 都拒绝；已登记的项目同样检查，它的目录不在时拒绝。已经登记的目录带上项目。
+   */
+  async locateBinding(access: AgentAccess, project: string): Promise<ProjectBinding> {
+    const projects = this.#harness.listProjects();
+    const byId = projects.find((p) => p.id === project);
+    const target = byId ? byId.path : resolveUserPath(project, access.conversation.cwd);
+    const stat = await fs.stat(target).catch(() => null);
+    if (byId && !stat?.isDirectory()) {
+      throw new ToolError('PROJECT_NOT_FOUND', `项目「${byId.name}」的目录不在：${byId.path}`, {
+        next: '项目在外置盘上时请用户先接上那块盘；或者换一个位置。',
+      });
+    }
+    if (stat && !stat.isDirectory()) {
+      throw new ToolError('INVALID_ARGUMENTS', `不是目录：${project}`, { issues: [{ path: 'project', message: '已经存在，但不是目录' }] });
+    }
+    if (!stat) {
+      const parent = await nearestExisting(target);
+      if (!(await fs.access(parent, fsConstants.W_OK).then(() => true, () => false))) {
+        throw new ToolError('PROJECT_DIR_NOT_ALLOWED', `建不了 ${target}：${parent} 不能写`, {
+          next: '目标在外置盘上时，请用户确认那块盘已经接上（/Volumes 下有它）、不是只读的；或者换一个能写的文件夹。',
+        });
+      }
+    }
+    const real = stat ? await fs.realpath(target) : await nearestReal(target);
+    const work = await fs.realpath(access.conversation.cwd).catch(() => path.resolve(access.conversation.cwd));
+    const guarded = [work, ...(await Promise.all(this.#sessionsDirs.map((dir) => fs.realpath(dir).catch(() => path.resolve(dir)))))];
+    if (guarded.some((dir) => inside(real, dir) || inside(dir, real))) {
+      throw new ToolError('PROJECT_DIR_NOT_ALLOWED', `不能把会话放进 ${real}：它在会话的工作目录（或 BaoCut 的会话目录）里面，或者包含它`, {
+        next: '给工作目录之外的一个具体文件夹的绝对路径（例如外置盘上的 /Volumes/<盘>/<文件夹>，或 ~/ 下的文件夹）；相对路径按会话的工作目录解析，会落在它里面。',
+      });
+    }
+    if (await withinVideo(real)) {
+      throw new ToolError('PROJECT_DIR_NOT_ALLOWED', `${real} 在一个视频的目录里面，不能当项目`, { next: '给视频目录之外的文件夹。' });
+    }
+    const known = byId ?? projects.find((p) => p.path === real);
+    return { path: known?.path ?? real, project: known ? { projectId: known.id, name: known.name } : null };
+  }
+
+  /**
+   * 把不属于项目的会话放进项目（§3.10，`Harness.ensureConversationProject`）：给了 `binding` 放进那里，不给时在默认项目目录下新建
+   * （`name` 起名）。这个智能体自己开着的、在工作目录里的视频先放下，才能一起搬走；界面、任务或别的连接还开着的，Harness 拒绝绑定
+   * （`VIDEO_IN_USE`），什么都不动。已经属于项目的会话原样返回那个项目。
+   */
+  async bindSession(access: AgentAccess, options: { binding?: ProjectBinding; name?: string } = {}): Promise<Project> {
+    const { conversation, principal } = access;
+    const cwd = await fs.realpath(conversation.cwd).catch(() => conversation.cwd);
+    for (const ref of this.#videos.openRefs()) {
+      if (inside(ref.path, cwd)) await this.#videos.close(ref.videoId, principal).catch(() => {});
+    }
+    const { binding, name } = options;
+    const into = binding ? (binding.project ? { projectId: binding.project.projectId } : { dir: binding.path }) : undefined;
+    let project: Project;
+    try {
+      project = await this.#harness.ensureConversationProject(conversation.id, { ...(name ? { name } : {}), ...(into ? { into } : {}) });
+    } catch (error) {
+      if (error instanceof RpcError && (error.details as { code?: unknown } | undefined)?.code === 'VIDEO_IN_USE') {
+        const { videos: names } = error.details as { videos?: unknown };
+        throw new ToolError('VIDEO_IN_USE', error.message, {
+          ...(Array.isArray(names) ? { videos: names } : {}),
+          next: '会话没有放进项目（要新建的视频也没有建），会话和工作目录里的视频都原样留着、照常能用。告诉用户是哪几部视频还开着，请用户在编辑器里关掉它们（或等任务结束）后再说一次；不要自己反复重试。',
+        });
+      }
+      throw error;
+    }
+    // 同一会话同时到来的另一次调用先放进了别处：不在这里建。
+    if (binding && project.path !== binding.path && project.id !== binding.project?.projectId) {
+      throw new ToolError('PROJECT_NOT_FOUND', `这个会话已经放进了项目「${project.name}」（${project.path}），不能再换到 ${binding.path}`, {
+        next: '不给 project 就建在会话现在的项目里；要放到别处，请用户在那个项目里新开一个会话。',
+      });
+    }
+    // 新登记的目录里原有的视频副本在后台换标识（与 `projects.open` 相同）。
+    if (binding && !binding.project) void this.#videos.claimProjectVideos(project).catch(() => {});
+    return project;
   }
 
   /** `importAsset.path` 相对会话的工作目录；绝对路径与 `~/` 照常接受（用户给的素材常在别处）。 */
@@ -467,6 +565,24 @@ export class AgentScope implements ToolScope<AgentAccess> {
   async #sees(record: JobRecord, conversation: Conversation): Promise<boolean> {
     if (ownedBy(record, conversation)) return true;
     return record.videoId !== null && (await this.contains(record.videoId, conversation));
+  }
+}
+
+/** 还不存在的路径最近的一层已有的上级。 */
+async function nearestExisting(target: string): Promise<string> {
+  for (let dir = path.dirname(target); ; dir = path.dirname(dir)) {
+    if (await fs.stat(dir).then(() => true, () => false)) return dir;
+    if (path.dirname(dir) === dir) return dir;
+  }
+}
+
+/** 目录本身或它的某一层上级是视频目录（有 `video.db`，改名之前是 `movie.db`）。 */
+async function withinVideo(dir: string): Promise<boolean> {
+  for (let current = dir; ; current = path.dirname(current)) {
+    for (const name of ['video.db', 'movie.db']) {
+      if (await fs.stat(path.join(current, name)).then((s) => s.isFile(), () => false)) return true;
+    }
+    if (path.dirname(current) === current) return false;
   }
 }
 

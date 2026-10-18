@@ -263,6 +263,61 @@ describe('无项目会话绑定项目', () => {
     expect((await harness.ensureConversationProject(named.id, { name: '第 12 期' })).name).toBe('第 12 期');
   });
 
+  it('放进指定的目录：不存在时建出来并登记（名字用给的），东西搬过去，不写意图文件；之后不再换', async () => {
+    const conversation = await harness.createConversation({ title: '外置盘' });
+    await fs.writeFile(path.join(conversation.cwd, 'notes.txt'), '笔记');
+    await fakeVideo(path.join(conversation.cwd, '访谈'));
+    const target = path.join(dir, 'T7', '访谈合集');
+
+    const project = await harness.ensureConversationProject(conversation.id, { name: '第 12 期', into: { dir: target } });
+    expect(project).toMatchObject({ name: '第 12 期', path: target });
+    expect(await markerId(target)).toBe(project.id);
+    expect(harness.getConversation(conversation.id).conversation).toMatchObject({ projectId: project.id, cwd: target });
+    expect(await fs.readFile(path.join(target, 'notes.txt'), 'utf8')).toBe('笔记');
+    expect(await exists(path.join(target, '访谈', 'video.db'))).toBe(true);
+    expect(await exists(path.join(target, '.baocut-binding.json'))).toBe(false);
+    expect(await exists(conversation.cwd)).toBe(false);
+    expect(harness.listProjects().map((p) => p.id)).toEqual([project.id]);
+
+    // 绑定只有一次：再给别的落点也拿回同一个项目。
+    const again = await harness.ensureConversationProject(conversation.id, { into: { dir: path.join(dir, 'elsewhere') } });
+    expect(again.id).toBe(project.id);
+    expect(await exists(path.join(dir, 'elsewhere'))).toBe(false);
+  });
+
+  it('放进已有的项目（按 id 或它的目录）：沿用，不改名；与已有条目重名的加序号', async () => {
+    const existing = await harness.openProject(await mkdir('已有项目'));
+    await fs.writeFile(path.join(existing.path, 'notes.txt'), '原来的');
+
+    const byId = await harness.createConversation({ title: '甲' });
+    await fs.writeFile(path.join(byId.cwd, 'notes.txt'), '甲的');
+    const bound = await harness.ensureConversationProject(byId.id, { name: '别的名字', into: { projectId: existing.id } });
+    expect(bound).toMatchObject({ id: existing.id, name: existing.name, path: existing.path });
+    expect(await fs.readFile(path.join(existing.path, 'notes.txt'), 'utf8')).toBe('原来的');
+    expect(await fs.readFile(path.join(existing.path, 'notes 2.txt'), 'utf8')).toBe('甲的');
+
+    const byDir = await harness.createConversation({ title: '乙' });
+    const viaDir = await harness.ensureConversationProject(byDir.id, { name: '又一个名字', into: { dir: existing.path } });
+    expect(viaDir).toMatchObject({ id: existing.id, name: existing.name });
+    expect(harness.listProjects()).toHaveLength(1);
+
+    const missing = await harness.createConversation({ title: '丙' });
+    expect((await rejection(harness.ensureConversationProject(missing.id, { into: { projectId: 'prj_missing' } }))).code).toBe('not-found');
+    expect(harness.getConversation(missing.id).conversation.projectId).toBeNull();
+  });
+
+  it('放进的目录在工作目录里面或包含它：拒绝，什么都不动', async () => {
+    const conversation = await harness.createConversation({ title: '丁' });
+    await fs.writeFile(path.join(conversation.cwd, 'notes.txt'), '笔记');
+    for (const into of [conversation.cwd, path.join(conversation.cwd, 'sub'), path.dirname(conversation.cwd)]) {
+      await expect(harness.ensureConversationProject(conversation.id, { into: { dir: into } })).rejects.toThrow(/inside or around/);
+    }
+    expect(harness.getConversation(conversation.id).conversation).toMatchObject({ projectId: null, cwd: conversation.cwd });
+    expect(await exists(path.join(conversation.cwd, 'notes.txt'))).toBe(true);
+    expect(await exists(path.join(conversation.cwd, 'sub'))).toBe(false);
+    expect(harness.listProjects()).toEqual([]);
+  });
+
   it('崩溃恢复：项目目录选定之后、会话绑定之前退出，下次接着用同一个目录，不产生第二个项目', async () => {
     const conversation = await harness.createConversation({ title: '半途' });
     // 模拟上次绑定到一半：选定的目录记下了、建好并登记了，会话还没有绑定。

@@ -51,7 +51,7 @@ import { EDIT_OPERATIONS, OPERATION_FAMILIES, OPERATION_TYPES, describeOperation
 import { ToolError, errorBody, type ToolInfo, type ToolSet } from './tool-catalog.ts';
 import { captionStylePatch, expandCaptionStyles, freshCaptionStyle, patchStudioStyle, unsupportedStyleMessage } from './caption-style.ts';
 import { importElevenLabsTranscript } from './elevenlabs-transcript.ts';
-import { approvalField, confirmSummary, type ToolAccess, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
+import { approvalField, bindingConfirmation, confirmSummary, type ToolAccess, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
 import { assetSegments, projectChapters, type ProjectedChapter } from './source-chapters.ts';
 import { fillTranslationAlignments } from './translation-alignment.ts';
 import { syncTranslationCaptions } from './translation-captions.ts';
@@ -119,7 +119,7 @@ const TIME_CONVENTIONS =
   '时间写秒数（数字，例如 1.5），也可以写 {"unit":"frames","value":30}。sequenceId 省略时用根序列；alignment 省略时为 nearest-frame。';
 
 const PROJECT_DESCRIPTION =
-  '可选。新建到哪个项目：项目 id（videos_list 的 projectId），也可以是已登记项目目录的绝对路径。会话里不给时建在会话所属的项目（或会话的工作目录），给了只能是会话所属的项目；对外服务必须给';
+  '可选。新建到哪个项目：项目 id（projects_list 的 projectId），也可以是已登记项目目录的绝对路径。会话里不给时建在会话所属的项目（或会话的工作目录）；属于项目的会话给了只能是它所属的项目；不属于项目的会话还可以给用户指定的任意文件夹（绝对路径或 ~/，例如外置盘上的 /Volumes/T7/访谈，不存在时新建并登记），按高风险确认，确认之后会话连同工作目录里的视频与文件放进那个项目。对外服务必须给';
 
 const schemas = {
   videos_list: z.strictObject({}),
@@ -454,7 +454,9 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
     title: '新建视频',
     description: [
       '新建一个空视频（一条视觉轨、一条音频轨）。',
-      '不给 project 时建在工作目录（会话所属的项目，或会话的工作目录）里；给了 project 只能是会话所属的项目。返回与 videos_inspect 相同的摘要。',
+      '不给 project 时建在工作目录（会话所属的项目，或会话的工作目录）里。属于项目的会话给了 project 只能是它所属的项目。',
+      '不属于项目的会话要把视频建在用户指定的文件夹（例如外置盘上）或别的已登记项目里时，直接给 project（文件夹的绝对路径，或 projectId）：同一张确认卡写明位置，按高风险确认；确认之后会话连同工作目录里已有的视频与文件放进那个项目（重名的加序号），不用请用户换项目、新开会话。用户只说了盘没说文件夹时在盘上取一个文件夹。会话只能放进项目一次。',
+      '返回与 videos_inspect 相同的摘要。',
     ].join('\n'),
     effect: 'mutation',
     examples: [
@@ -622,7 +624,7 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
     description: [
       '把一个便携包（.baocut 文件）打开成一个新视频。',
       '边核对边解开（格式与版本、每个文件的长度与 sha256），建成一个新的视频目录（新的 videoId，素材全部收进视频）；任何一步失败都不留下视频目录。',
-      '不给 project 时建在工作目录（会话所属的项目，或会话的工作目录）里；给了 project 只能是会话所属的项目。目录名用 name，不给时用包里的视频名，重名时加序号。返回与 videos_inspect 相同的摘要。',
+      '不给 project 时建在工作目录（会话所属的项目，或会话的工作目录）里；project 的规则与 videos_create 相同（不属于项目的会话可以给任意文件夹，确认之后会话放进那里）。目录名用 name，不给时用包里的视频名，重名时加序号。返回与 videos_inspect 相同的摘要。',
     ].join('\n'),
     effect: 'mutation',
     examples: [
@@ -936,12 +938,12 @@ export class VideoTools implements ToolSet {
 
   async #create(args: z.infer<(typeof schemas)['videos_create']>, principal: ToolPrincipal) {
     const access = this.#scope.authorize(principal, true);
-    // 位置先解析（对外服务缺 project、看不到的项目不弹确认）；确认之后才为新建做准备（终端登记项目）。
-    await this.#scope.createRoot(access, args.project, { locate: true });
-    const approval = await this.#scope.confirm(access, {
-      tool: 'videos_create',
-      ...confirmSummary(RcAgentTools.createVideoSummary({ name: args.name })),
-    });
+    // 位置先解析（对外服务缺 project、看不到的项目不弹确认）；确认之后才为新建做准备（终端登记项目，无项目会话放进给的项目）。
+    const located = await this.#scope.createRoot(access, args.project, { locate: true });
+    const approval = await this.#scope.confirm(
+      access,
+      bindingConfirmation({ tool: 'videos_create', ...confirmSummary(RcAgentTools.createVideoSummary({ name: args.name })) }, located),
+    );
     const { root, scope, note } = await this.#scope.createRoot(access, args.project);
     const opened = await this.#videos.create(
       {
@@ -1364,11 +1366,15 @@ export class VideoTools implements ToolSet {
   /** 打开便携包（`videos.importPackage` 同一个入口，视频格式规范 §8）：位置同 `videos_create`；给了 name 时目录用它，并改视频名。 */
   async #importPackage(args: z.infer<(typeof schemas)['videos_import_package']>, principal: ToolPrincipal) {
     const access = this.#scope.authorize(principal, true);
-    await this.#scope.createRoot(access, args.project, { locate: true });
-    const approval = await this.#scope.confirm(access, {
-      tool: 'videos_import_package',
-      ...confirmSummary(RcAgentTools.importPackageSummary({ file: path.basename(args.file) })),
-    });
+    const located = await this.#scope.createRoot(access, args.project, { locate: true });
+    const approval = await this.#scope.confirm(
+      access,
+      bindingConfirmation(
+        { tool: 'videos_import_package', ...confirmSummary(RcAgentTools.importPackageSummary({ file: path.basename(args.file) })) },
+        located,
+      ),
+    );
+    // 会话在这里放进了项目时，工作目录里的文件跟着搬过去：相对路径按绑定之后的目录解析。
     const { root, scope, note } = await this.#scope.createRoot(access, args.project);
     const file = path.resolve(this.#scope.saveRoot(access), args.file);
     let opened = await this.#deps.packages.import({ ...scope, path: file }, root, scope, principal, {

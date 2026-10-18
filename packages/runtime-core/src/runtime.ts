@@ -892,7 +892,12 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     // 会话的工具桥与网关 `catalog.call`（终端）共用同一组工具实例：`ScopeRouter` 按主体的种类转给会话的范围或终端的范围
     // （用户本人，相对路径按 cwd 解析）；两个面各自是这组工具的一个视图（`surface`）。
     const scope = new ScopeRouter({
-      agent: new AgentScope({ harness, videos, jobs: models.jobs }),
+      agent: new AgentScope({
+        harness,
+        videos,
+        jobs: models.jobs,
+        sessionsDirs: [home.scratchDir, ...(home.legacyScratchDir ? [home.legacyScratchDir] : [])],
+      }),
       local: new LocalScope({ harness, videos, jobs: models.jobs, space: () => space, projectsDir: home.projectsDir }),
     });
     const tools = new ToolCatalog(toolSets(scope), log, { surface: 'agent' });

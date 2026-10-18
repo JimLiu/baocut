@@ -157,6 +157,8 @@ const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? 
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const join = (...parts: (string | null | undefined)[]) => parts.filter((p) => p != null && p !== '').join(' · ');
 const base = (p: unknown) => (str(p) ?? '').split(/[\\/]/).filter(Boolean).pop() ?? '';
+/** 目录参数的名字；不像路径的（项目 id）不念。 */
+const folder = (p: unknown) => (/[\\/~]/.test(str(p) ?? '') ? base(p) : '');
 
 /** 链接的站点：`https://www.youtube.com/watch?…` → `youtube.com`。 */
 function host(url: unknown): string | null {
@@ -243,10 +245,10 @@ const CATALOG: Record<string, (a: Args) => BaoCutStep> = {
   tasks_update_contract: () => ({ kind: 'contract', label: M.label.refineContract, summary: '' }),
   tasks_record_check: (a) => ({ kind: 'contract', label: M.label.recordCheck, summary: str(a.checkId) ?? '' }),
   conversations_set_title: (a) => ({ kind: 'conversation', label: M.label.renameSession, summary: str(a.title) ?? '' }),
-  // 项目：新建念项目名（没给时念目录名）；把会话放进新项目念用户给的名字，没给时只给类别名。
+  // 项目：新建念项目名（没给时念目录名）；把会话放进项目念用户给的名字，没给时念指定的目录名（项目 id 不念），都没有时只给类别名。
   projects_list: () => ({ kind: 'project', label: M.label.listProjects, summary: '' }),
   projects_create: (a) => ({ kind: 'project', label: M.label.newProject, summary: str(a.name) ?? base(a.path) }),
-  projects_adopt_session: (a) => ({ kind: 'project', label: M.label.moveToNewProject, summary: str(a.name) ?? '' }),
+  projects_adopt_session: (a) => ({ kind: 'project', label: M.label.moveToNewProject, summary: str(a.name) ?? folder(a.project) }),
   // 幻灯片（docs/design/slides §7.2）：摘要是 deck 目录名与图片文件名。
   slides_check: (a) => ({ kind: 'slides', label: M.label.checkSlides, summary: base(a.path) }),
   slides_import_asset: (a) => ({ kind: 'slides', label: M.label.importSlideAsset, summary: base(a.path) }),

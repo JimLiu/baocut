@@ -1,4 +1,4 @@
-import { refOf } from '@baocut/protocol';
+import { refOf, withRef } from '@baocut/protocol';
 import type {
   AgentMode,
   ApprovalGrantChoice,
@@ -20,6 +20,7 @@ import type {
   DocsCreated,
   VideoOpenResult,
 } from '@baocut/protocol';
+import { RcAgentTools } from '@baocut/protocol/messages/runtime-core';
 import type { TrustedPrincipal } from '../gateway.ts';
 import type { EngineProtection } from '../videos/video-service.ts';
 import type { AgentPrincipal } from './grants.ts';
@@ -258,6 +259,38 @@ export interface VideoRoot {
   root: string;
   scope: { projectId: Id } | { conversationId: Id };
   note?: string;
+  /**
+   * 不属于项目的会话给了别处的 `project` 时（只在 `locate` 的结果里）：确认之后会话放进的项目（§3.10）。`root`、`scope` 仍是此刻的
+   * 来源；确认卡要写明这个落点（`bindingConfirmation`）。
+   */
+  binding?: ProjectBinding;
+}
+
+/** 不属于项目的会话要放进的项目（§3.10）：目录的真实路径，已登记时带上项目；还没登记（或还不存在）的目录确认之后建出来、登记。 */
+export interface ProjectBinding {
+  path: string;
+  project: { projectId: Id; name: string } | null;
+}
+
+/**
+ * 新建视频的确认带上会话的落点（§3.10、§3.12）：`located` 有 `binding` 时，摘要写明建在哪里、会话从此属于那个项目、工作目录里已有的
+ * 视频与文件一起搬过去，目标加上那个目录；会话放到工作目录之外按 `high`。没有 `binding` 时原样返回。
+ */
+export function bindingConfirmation(request: ToolConfirmation, located: { binding?: ProjectBinding | undefined }): ToolConfirmation {
+  const { binding } = located;
+  if (!binding) return request;
+  return {
+    ...request,
+    targets: [...(request.targets ?? []), binding.path],
+    ...confirmSummary(
+      RcAgentTools.bindSessionSummary({
+        action: withRef(request.summary, request.summaryRef),
+        path: binding.path,
+        project: binding.project?.name ?? null,
+      }),
+    ),
+    risk: 'high',
+  };
 }
 
 /** 导出目标目录的约束（见 `ToolScope.exportBase`）。 */
@@ -302,10 +335,20 @@ export interface ToolScope<A extends ToolAccess = ToolAccess> {
    * 新建视频的位置。`project` 是调用方给的项目（项目 id 或已登记项目目录的路径）：会话里不给时用会话的来源目录，
    * 给了只能是会话所属的项目；对外服务必须给（缺了 `INVALID_ARGUMENTS`），看不到的项目与不存在的一样回答 `PROJECT_NOT_FOUND`；
    * 终端里按 cwd 解析成项目目录。`note` 是给调用方的说明（例如落到了默认项目），`videos_create` 带进结果。
-   * 会话里不属于项目的会话建在它的工作目录里（§3.10），不建项目；`locate` 只找位置、不为新建做准备（确认之前、删除视频时；
-   * 终端的范围不登记项目）。
+   * 会话里不属于项目的会话不给 `project` 时建在它的工作目录里（§3.10），不建项目；给了已登记项目的 id 或任意目录时，确认之后会话
+   * 放进那个项目（`bindSession`），视频建在那里。`locate` 只找位置、不为新建做准备、不绑定（确认之前、删除视频时；终端的范围不登记
+   * 项目），会话要换位置时结果带 `binding`，确认卡用 `bindingConfirmation` 写明。
    */
   createRoot(access: A, project?: string, options?: { locate?: boolean }): VideoRoot | Promise<VideoRoot>;
+  /**
+   * 不属于项目的会话要放进的项目（`projects_adopt_session` 的 `project`，§3.10）：只解析与检查，不动任何东西。只有会话里的智能体实现。
+   */
+  locateBinding?(access: A, project: string): Promise<ProjectBinding>;
+  /**
+   * 把不属于项目的会话放进项目（§3.10）：给了 `binding` 放进那里，否则在默认项目目录下新建（`name` 起名）。已经属于项目的会话原样
+   * 返回那个项目。只有会话里的智能体实现。
+   */
+  bindSession?(access: A, options?: { binding?: ProjectBinding; name?: string }): Promise<Project>;
   /** 打开（或接上已经打开的）范围里的视频。范围之外的与不存在的一样回答 `VIDEO_NOT_FOUND`。 */
   open(video: string, access: A): Promise<VideoOpenResult>;
   /** `importAsset.path` 相对的目录；`confine` 不为空时路径（按真实路径）必须在它里面。 */
@@ -405,6 +448,18 @@ export class ScopeRouter implements ToolScope<ToolAccess> {
   }
   createRoot(access: ToolAccess, project?: string, options?: { locate?: boolean }): VideoRoot | Promise<VideoRoot> {
     return this.#of(access.principal).createRoot(access, project, options);
+  }
+  locateBinding(access: ToolAccess, project: string): Promise<ProjectBinding> {
+    const scope = this.#of(access.principal);
+    // i18n-ignore: 给模型的工具说明、错误与下一步
+    if (!scope.locateBinding) throw new ToolError('FORBIDDEN', '只有会话里的智能体能把会话放进项目');
+    return scope.locateBinding(access, project);
+  }
+  bindSession(access: ToolAccess, options?: { binding?: ProjectBinding; name?: string }): Promise<Project> {
+    const scope = this.#of(access.principal);
+    // i18n-ignore: 给模型的工具说明、错误与下一步
+    if (!scope.bindSession) throw new ToolError('FORBIDDEN', '只有会话里的智能体能把会话放进项目');
+    return scope.bindSession(access, options);
   }
   open(video: string, access: ToolAccess): Promise<VideoOpenResult> {
     return this.#of(access.principal).open(video, access);

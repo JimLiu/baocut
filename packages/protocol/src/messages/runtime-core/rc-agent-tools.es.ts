@@ -49,6 +49,10 @@ export const es: RcAgentToolsMessages = {
  grantSummary: (p) => `Compartir datos con ${p.recipients}: ${p.items}`, grantSummaryItem: (p) => `${p.purpose} (${p.maxCalls === null ? 'sin límite de llamadas' : `hasta ${countEs(p.maxCalls, 'llamada', 'llamadas')}`})`,
  testModelSummary: (p) => `Comprobar el paquete de modelos local ${p.bundleId}: ejecutarlo de principio a fin con una muestra fija`, installModelSummary: (p) => `Descargar el modelo local ${p.bundleId}: ${p.estimated ? `unos ${p.size} (tamaño desconocido, estimado)` : p.size}${p.resumed ? `, reanudando ${p.resumed} ya descargados` : ''}, desde ${p.source} (${p.parts})`,
  registerProjectSummary: (p) => `Registrar la carpeta existente ${p.path} como proyecto${p.name ? ` (${p.name})` : ''}`, createProjectSummary: (p) => `Crear la carpeta de proyecto ${p.path}${p.name ? ` (${p.name})` : ''}`, adoptSessionSummary: (p) => `Crear un proyecto ${p.name ? `«${p.name}»` : 'con el nombre del primer vídeo'} y mover a él los vídeos y archivos de esta sesión`,
+  bindSessionSummary: (p) =>
+    `${p.action}, en ${p.project ? `el proyecto «${p.project}» (${p.path})` : `${p.path} (se registra como proyecto nuevo)`}; esta sesión pasa a ese proyecto y los vídeos y archivos de su carpeta de trabajo se mueven con ella`,
+  adoptSessionIntoSummary: (p) =>
+    `Mover esta sesión a ${p.project ? `el proyecto «${p.project}» (${p.path})` : `${p.path} (se registra como proyecto nuevo)`}, junto con los vídeos y archivos de su carpeta de trabajo`,
   deriveVideoSummary: (p) => `Crear el vídeo derivado «${p.name}» a partir de ${p.from}–${p.to} de este vídeo`,
   deriveVideoLabel: (p) => `Derivado de «${p.name}»`,
   derivationDocumentName: 'Origen de la derivación',

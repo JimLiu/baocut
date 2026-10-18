@@ -65,6 +65,8 @@ describe('baocutStep', () => {
       summary: '第 12 期',
     });
     expect(baocutStep(call('projects_adopt_session', {}))?.summary).toBe('');
+    expect(baocutStep(call('projects_adopt_session', { project: '/Volumes/T7/访谈' }))?.summary).toBe('访谈');
+    expect(baocutStep(call('projects_adopt_session', { project: 'prj_1' }))?.summary).toBe('');
     use('en');
     expect(['projects_list', 'projects_create', 'projects_adopt_session'].map((t) => baocutStep(call(t, {}))?.label)).toEqual([
       'List projects',

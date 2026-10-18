@@ -204,6 +204,12 @@ interface ActiveRun extends RunContext {
   stopTimer: ReturnType<typeof setTimeout> | null;
 }
 
+/**
+ * 不属于项目的会话放进哪里（§3.10，`ensureConversationProject` 的 `into`）：任意目录（不存在时建出来、登记为项目），或一个已登记的
+ * 项目。不给时在默认项目目录下新建一个项目。
+ */
+export type ConversationProjectTarget = { dir: string } | { projectId: Id };
+
 /** 会话里一次 BaoCut 工具调用要确认的内容（§3.12）。 */
 export interface ToolCallApprovalRequest {
   tool: string;
@@ -533,8 +539,14 @@ export class Harness {
    * 落到项目里；回合结束时删掉链接并关掉原生会话（下一轮在项目目录里起，按恢复句柄续上）。
    *
    * 共用工作目录的会话（`folderOf`）放进的是那条会话：两边连同共用这个目录的其他会话一起绑定到同一个项目。
+   *
+   * 给了 `into` 时放进的是用户指定的地方（智能体在不属于项目的会话里新建视频、给了别处的 `project` 时，或 `projects_adopt_session`
+   * 给了 `project`）：`dir` 是任意目录，不存在时建出来，与 `projects.open` 一样登记为项目（已经是项目的沿用它，`name` 只给新登记的
+   * 起名）；`projectId` 是一个已登记的项目。其余照旧：工作目录里的东西搬过去（重名加序号，跨卷时复制再删），会话从此属于它。这时
+   * 不写意图文件：项目目录里的标记就是幂等的锚点，重试时打开同一个目录拿回同一个项目。调用方负责 `dir` 不在会话的工作目录里、
+   * 也不包含它（`AgentScope` 在确认之前检查）。
    */
-  ensureConversationProject(conversationId: Id, options: { name?: string } = {}): Promise<Project> {
+  ensureConversationProject(conversationId: Id, options: { name?: string; into?: ConversationProjectTarget } = {}): Promise<Project> {
     const state = this.#require(conversationId);
     if (state.conversation.folderOf) return this.ensureConversationProject(state.conversation.folderOf, options);
     if (state.conversation.projectId) {
@@ -544,15 +556,21 @@ export class Harness {
     }
     const running = this.#binding.get(conversationId);
     if (running) return running;
-    const run = this.#bind(state, options.name).finally(() => this.#binding.delete(conversationId));
+    const run = this.#bind(state, options.name, options.into).finally(() => this.#binding.delete(conversationId));
     this.#binding.set(conversationId, run);
     return run;
   }
 
-  async #bind(state: ConversationState, name: string | undefined): Promise<Project> {
+  async #bind(state: ConversationState, name: string | undefined, into: ConversationProjectTarget | undefined): Promise<Project> {
     const id = state.id;
     const scratch = this.#ownScratch(state.conversation);
-    const intentFile = scratch ? path.join(scratch, BIND_INTENT_FILE) : null;
+    if (scratch && into && 'dir' in into) {
+      const target = path.resolve(into.dir);
+      if (target === scratch || isInside(scratch, target) || isInside(target, scratch)) {
+        throw new Error('A session cannot move into a folder inside or around its own working folder');
+      }
+    }
+    const intentFile = scratch && !into ? path.join(scratch, BIND_INTENT_FILE) : null;
     if (scratch) await fs.mkdir(scratch, { recursive: true });
     // 视频还开着就不绑：工作目录一换，开着的视频就落在会话的工作目录与项目之外，Space 里找不到、也打不开，直到它被关掉。
     // 这条与共用这个目录的会话里闲着的原生会话先关掉（绑定之后本来也要关）：它们的智能体开着的视频随之放下。
@@ -560,7 +578,7 @@ export class Harness {
       await this.#releaseIdle([state, ...this.#guestsOf(id)]);
       await this.#assertNoneOpen(scratch);
     }
-    let project: Project | null = null;
+    let project: Project | null = into ? await this.#targetProject(into, name) : null;
     if (intentFile) {
       const intent = await fs.readFile(intentFile, 'utf8').then(
         (text) => JSON.parse(text) as { path?: unknown },
@@ -580,7 +598,11 @@ export class Harness {
     state.updateConversation({ projectId: project.id, cwd: project.path }, { touch: false });
     for (const guest of guests) guest.updateConversation({ projectId: project.id, cwd: project.path, folderOf: undefined }, { touch: false });
     await this.#store.flush();
-    this.#log.info('Conversation bound to a new project', { conversationId: id, projectId: project.id, sharedWith: guests.length });
+    this.#log.info(into ? 'Conversation bound to a chosen project' : 'Conversation bound to a new project', {
+      conversationId: id,
+      projectId: project.id,
+      sharedWith: guests.length,
+    });
     if (scratch) await this.#clearScratch(state, scratch, project, guests);
     let linked = false;
     for (const member of [state, ...guests]) {
@@ -598,6 +620,27 @@ export class Harness {
       linked = true;
     }
     return project;
+  }
+
+  /** 用户指定的落点（`ensureConversationProject` 的 `into`）：已登记的项目，或在那个目录上登记（不存在时先建出来）。 */
+  async #targetProject(into: ConversationProjectTarget, name: string | undefined): Promise<Project> {
+    if ('projectId' in into) {
+      const project = this.#projects.get(into.projectId);
+      if (!project) throw new RpcError('not-found', HP.projectNotFound({ id: into.projectId }));
+      return project;
+    }
+    const known = await fs.realpath(into.dir).then(
+      (real) => this.#projects.findByPath(real),
+      () => undefined,
+    );
+    try {
+      await fs.mkdir(into.dir, { recursive: true });
+    } catch (error) {
+      throw new RpcError('internal', HP.createFolderFailed({ error: (error as Error).message }));
+    }
+    const project = await this.openProject(into.dir);
+    const wanted = name?.trim();
+    return wanted && !known && wanted !== project.name ? this.updateProject({ projectId: project.id, name: wanted }) : project;
   }
 
   /** 没有回合在跑的会话：关掉它们的原生会话（下一轮按恢复句柄续上），智能体开着的视频随之放下。 */
@@ -1713,7 +1756,10 @@ export class Harness {
     if (run.stopRequested) return { status: 'cancelled', mode, risk };
     const verdict = decideApproval(mode, risk);
     const outbound = (request.grants?.length ?? 0) > 0;
-    if (verdict === 'ask' && !outbound && run.sessionAllowed.has(request.tool)) return { status: 'allowed', mode, risk, decidedBy: 'user' };
+    // 「这个任务里不再问」与规则一样不放开 `high`：同名工具的高风险调用（覆盖、越出工作目录、把会话放进别的项目）每次都问。
+    if (verdict === 'ask' && !outbound && risk !== 'high' && run.sessionAllowed.has(request.tool)) {
+      return { status: 'allowed', mode, risk, decidedBy: 'user' };
+    }
     if (verdict === 'ask' && !outbound && this.#ruleAllows(request.rule)) {
       // 「总是允许」的规则：自动答应，时间线上留一张已决定的卡片。
       const approvalId = newId('apv');
