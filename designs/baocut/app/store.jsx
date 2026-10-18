@@ -716,6 +716,10 @@
     const [pinfo, setPinfo] = useState(null);   // null | {id, extras, editor}；editor：从编辑器顶栏打开（给了 extras）
     const openProjectInfo = useCallback((id, extras) => setPinfo({id, extras: extras || [], editor: !!extras}), []);
     const closeProjectInfo = useCallback(() => setPinfo(null), []);
+    /* ---- 项目设置（版本记录设计 §6，project-git.jsx）：Home 侧栏项目菜单与版本记录对话框底部两个入口 ---- */
+    const [psettings, setPsettings] = useState(null);   // null | {dirId}
+    const openProjectSettings = useCallback((dirId) => setPsettings(dirId ? {dirId} : null), []);
+    const closeProjectSettings = useCallback(() => setPsettings(null), []);
 
     /* ---- toast ---- */
     const [toasts, setToasts] = useState([]);
@@ -868,6 +872,7 @@
       dock, movieChats, setMovieChat, videoNotes, setVideoNotes, toolReq, requestTool, clearToolReq, openAgent, openSession, createProject, closeDock, toggleDock, setDock, dockW, setDockW,
       ask, confirm, clearAsk: () => setAsk(null),
       pinfo, openProjectInfo, closeProjectInfo,
+      psettings, openProjectSettings, closeProjectSettings,
       toasts, toast, dismissToast,
     };
   }

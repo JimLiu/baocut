@@ -320,6 +320,8 @@
       done: (note) => { ok(note); setSel(note.version != null ? note.version : latest().versions[0] ? latest().versions[0].n : null); },
       refuse: (error) => no(error),
     };
+    /* 底部 git 状态条的「项目设置」：先关掉版本记录，项目设置是另一个模态对话框（project-git.jsx） */
+    const openSettings = () => { onClose(); app.openProjectSettings(movie.dir); };
     useEffect(() => {
       if (!imported) return;
       report.done(Object.assign({version: imported.n, undo: () => {
@@ -456,12 +458,13 @@
         </header>
         {body}
         {st.inProject ? <footer className="vh-foot">
-          {state ? <span>{state.desc}</span> : null}
+          <window.ProjectGitStrip movie={movie} onOpenSettings={openSettings} />
+          {state ? <span className="vh-foot__desc">{state.desc}</span> : null}
           <span>版本在视频目录的 .bcut-snapshot/history/ 里，不依赖 git；保留最近 {st.keep} 个未命名的版本，加上全部保存的版本。</span>
         </footer> : null}
       </div>
     </BCModal>;
   }
 
-  Object.assign(window, {VideoVersionsButton: VersionsButton, VideoVersionsDialog, VideoVersionsStrip: VersionsStrip});
+  Object.assign(window, {VideoVersionsButton: VersionsButton, VideoVersionsDialog, VideoVersionsStrip: VersionsStrip, loadVideoVersions: load});
 })();

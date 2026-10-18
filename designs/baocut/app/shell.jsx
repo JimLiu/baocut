@@ -459,6 +459,17 @@
                 </div>
               </div>
             ) : null}
+            {window.BC_PROJECT_GIT ? (
+              <div className="tweaks__sec">
+                <div className="tweaks__lb">项目 git<em>项目设置与版本记录底部的 git 状态（每个场景各自一份；App 在 Home 侧栏项目菜单「项目设置…」）</em></div>
+                <div className="tweaks__rad">
+                  {window.BC_PROJECT_GIT.SCENARIOS.map(({k, label}) => (
+                    <BCAction key={k} className={cx('tweaks__opt', (app.prefs.gitDemo || 'ready') === k && 'is-on')}
+                      onClick={() => app.setPref('gitDemo', k)}>{label}</BCAction>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {window.LegacyImportTweaks ? <window.LegacyImportTweaks onLaunch={() => setOpen(false)} /> : null}
             {SURF.pages && window.BC_LOCALCHECK ? (
               <div className="tweaks__sec">

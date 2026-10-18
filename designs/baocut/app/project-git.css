@@ -1,0 +1,54 @@
+/* 项目设置里的 git 一节（project-git.jsx）：S2 CustomDialog 里一列分节，标题与按钮固定，中间滚动；版本记录对话框底部的 git 状态条。 */
+.bc-psettings-dialog .pset { width: 100%; max-height: min(760px, 90dvh); display: flex; flex-direction: column; min-height: 0; color: var(--gray-800); }
+.pset-head { display: flex; align-items: center; gap: 12px; padding: 16px 16px 16px 24px; border-bottom: 1px solid var(--gray-200); flex: none; }
+.pset-head__mark { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: var(--gray-100); color: var(--gray-800); flex: none; }
+.pset-head__text { display: flex; flex-direction: column; min-width: 0; }
+.pset-head__text h2 { margin: 0; font-size: 16px; font-weight: 800; color: var(--gray-900); }
+.pset-head__sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--gray-600); }
+.pset-body { flex: 1; min-height: 0; padding: 8px 24px 24px; }
+.pset-foot { display: flex; justify-content: flex-end; padding: 12px 24px; border-top: 1px solid var(--gray-200); flex: none; }
+
+.pset-sec { padding: 16px 0; }
+.pset-sec + .pset-sec { border-top: 1px solid var(--gray-200); }
+.pset-sec__h { margin: 0; font-size: 16px; font-weight: 700; color: var(--gray-900); }
+.pset-sec__lead { margin: 4px 0 0; font-size: 14px; line-height: 1.5; color: var(--gray-700); }
+
+.pgit-status { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 16px; margin-top: 12px; }
+.pgit-status__facts { display: flex; flex-wrap: wrap; gap: 4px 12px; min-width: 0; font-size: 12px; color: var(--gray-600); }
+.pgit-status__facts .pgit-mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.pgit-mono { font-family: var(--mono); font-size: 12px; }
+
+.pgit-alert { margin-top: 12px; }
+.pgit-alert__p { display: block; }
+.pgit-alert__p + .pgit-alert__p, .pgit-entries + .pgit-alert__p { margin-top: 8px; }
+.pgit-alert__acts { display: flex; justify-content: flex-end; margin-top: 12px; }
+.pgit-entries { width: 100%; margin-top: 8px; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+.pgit-entries th { padding: 4px 8px; text-align: left; font-weight: 700; color: var(--gray-700); border-bottom: 1px solid var(--gray-300); }
+.pgit-entries th:first-child { width: 36%; }
+.pgit-entries td { padding: 6px 8px; vertical-align: top; border-bottom: 1px solid var(--gray-200); overflow-wrap: anywhere; color: var(--gray-900); }
+.pgit-entries__file { display: block; margin-top: 2px; color: var(--gray-600); }
+
+.pgit-row { display: flex; align-items: flex-start; gap: 16px; padding: 14px 0 0; }
+.pgit-row + .pgit-row { margin-top: 14px; border-top: 1px solid var(--gray-100); }
+.pgit-row__text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; font-size: 12px; line-height: 1.5; color: var(--gray-700); }
+.pgit-row__text strong { font-size: 14px; color: var(--gray-900); }
+.pgit-row__note { display: flex; align-items: flex-start; gap: 6px; margin-top: 4px; color: var(--gray-600); }
+.pgit-row__note svg { flex: none; margin-top: 2px; }
+.pgit-row__ctl { flex: none; padding-top: 2px; }
+
+.pgit-outside { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 0; padding: 8px 12px; list-style: none; border-radius: 8px; background: var(--gray-75); color: var(--gray-800); overflow-wrap: anywhere; }
+
+/* 版本记录对话框底部：git 状态、上次提交或这次的结果、「提交到 git」与「项目设置」 */
+.pgit-strip { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 6px; color: var(--gray-700); }
+.pgit-strip__k { font-weight: 700; color: var(--gray-900); }
+.pgit-strip__line { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pgit-strip__line.is-negative { color: var(--red-900); }
+
+@media (max-width: 720px) {
+  .pset-head { padding-left: 16px; }
+  .pset-head__mark { display: none; }
+  .pset-body { padding: 4px 16px 16px; }
+  .pset-foot { padding: 12px 16px; }
+  .pgit-row { flex-direction: column; gap: 8px; }
+  .pgit-strip__line { flex-basis: 100%; order: 1; white-space: normal; }
+}

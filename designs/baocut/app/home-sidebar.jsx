@@ -85,6 +85,7 @@
       else if (k === 'space') app.go({r: 'projects', id: d.id});
       else if (k === 'brand') app.go({r: 'skills', dir: d.id});
       else if (k === 'reveal') app.toast(`已在文件夹中显示 ${d.path}（演示）`);
+      else if (k === 'settings') app.openProjectSettings(d.id);
     };
     const hasBrand = window.BC_PROJECT_BRAND.hasBrand(app.projectBrands, d.id);
     return (
@@ -104,6 +105,7 @@
             <R.MenuItem id="brand" textValue="品牌（BRAND.md）"><R.Icons.Bookmark /><R.Text slot="label">品牌（BRAND.md）</R.Text>
               <R.Text slot="description">{hasBrand ? '这个项目的会话自动参考' : '还没有，新建一份'}</R.Text></R.MenuItem>
             <R.MenuItem id="reveal" textValue="在文件夹中显示"><R.Icons.OpenIn /><R.Text>在文件夹中显示</R.Text></R.MenuItem>
+            <R.MenuItem id="settings" textValue="项目设置"><R.Icons.Settings /><R.Text>项目设置…</R.Text></R.MenuItem>
           </R.ActionMenu>
         </R.SideNavItemContent>
         {p.sessions.map((s) => sessionItem(R, app, s, `${key}/${s.id}`))}

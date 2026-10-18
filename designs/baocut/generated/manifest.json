@@ -85,6 +85,7 @@
       "app/model-select.js",
       "app/model-history.js",
       "app/model-video-versions.js",
+      "app/model-project-git.js",
       "app/model-shape-paths.js",
       "app/model-elements.js",
       "app/model-confetti.js",
@@ -191,6 +192,7 @@
       "app/export.jsx",
       "app/help-center.jsx",
       "app/video-versions.jsx",
+      "app/project-git.jsx",
       "app/task-pill.jsx",
       "app/shell.jsx",
       "app/agent-picker.jsx",
@@ -470,6 +472,7 @@
       "app/home-docs.css",
       "app/spectrum.css",
       "app/video-versions.css",
+      "app/project-git.css",
       "app/font-library.css",
       "app/agent-messages.css",
       "app/agent-cards.css",
@@ -478,9 +481,9 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/app.js?v=1713058108d5",
-    "css": "generated/app.css?v=6946e1472d88",
-    "bytes": 4516663
+    "js": "generated/app.js?v=9ff71abb5fef",
+    "css": "generated/app.css?v=27fd262436dc",
+    "bytes": 4543382
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -550,6 +553,7 @@
       "app/model-select.js",
       "app/model-history.js",
       "app/model-video-versions.js",
+      "app/model-project-git.js",
       "app/model-shape-paths.js",
       "app/model-elements.js",
       "app/model-confetti.js",
@@ -614,6 +618,7 @@
       "app/export-project.jsx",
       "app/export.jsx",
       "app/video-versions.jsx",
+      "app/project-git.jsx",
       "app/task-pill.jsx",
       "app/shell.jsx",
       "app/project-info.jsx",
@@ -722,13 +727,14 @@
       "vendor/react-spectrum-s2/react-spectrum-s2-font.css",
       "app/spectrum.css",
       "app/video-versions.css",
+      "app/project-git.css",
       "app/font-library.css",
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/web.js?v=a8bc4428727b",
-    "css": "generated/web.css?v=8f9213a61c98",
-    "bytes": 2636658
+    "js": "generated/web.js?v=72e01ab1b763",
+    "css": "generated/web.css?v=7155f4a55041",
+    "bytes": 2663175
   },
   "components": {
     "file": "Components.html",
