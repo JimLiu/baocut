@@ -15,11 +15,15 @@
   {
     "caption": { "y": 75, "verticalAlign": "center", "fontSize": 30, "width": 80 },  // 与字幕样式同一套键；不给就不画字幕带
     "segments": [
-      { "id": "s01", "bundle": "bundles/s01", "audio": "audio/s01.wav", "lines": "timing/s01.json", "ref": "ref/fig1.png", "note": "原文配图 1" }
+      { "id": "s01", "bundle": "bundles/s01", "audio": "audio/s01.wav", "lines": "timing/s01.json", "ref": "ref/fig1.png", "note": "原文配图 1",
+        "clips": [{ "src": "clips/s01-launch.mp4", "at": 6.6, "dur": 4.2, "label": "Footage: <source>" }] }
     ]
   }
-  bundle 是代码包目录（入口 index.html）；audio、lines、ref、note 都可省。lines 是 [{ text, start, end }]，
+  bundle 是代码包目录（入口 index.html）；audio、lines、ref、note、clips 都可省。lines 是 [{ text, start, end }]，
   或 { lines: [...] }，秒数相对这一段的开头。没有 audio 时按页面时钟播放，时长取根元素的 data-duration。
+  clips 是叠在代码画面上的实拍片段：at 是相对这一段开头的秒数，在 [at, at + dur) 里铺满盖在上面、跟着旁白走，
+  label 显示在右上角；默认静音，audio 为 true 时出声。勾上 chain 时一段的旁白播完自动接下一段。
+  音频与片段先整个读成 blob 再播，python3 -m http.server 这类不支持 Range 的静态服务也能拖动。
   baocut/1（window.__baocutCompositions）与 hyperframes/1（window.__timelines）都认。
 -->
 <style>
@@ -32,6 +36,8 @@
   main { display: grid; grid-template-columns: auto minmax(260px, 1fr); gap: 16px; padding: 16px; align-items: start; }
   .stage { position: relative; background: #000; overflow: hidden; }
   .stage iframe { position: absolute; left: 0; top: 0; border: 0; transform-origin: 0 0; pointer-events: none; }
+  .clip { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; display: none; pointer-events: none; }
+  .clipTag { position: absolute; right: 2%; top: 3%; padding: .2em .6em; border-radius: .3em; background: rgba(0,0,0,.55); color: #ddd; font-size: 1.6vh; display: none; pointer-events: none; }
   .band { position: absolute; left: 0; right: 0; outline: 1px dashed rgba(242, 193, 78, .7); pointer-events: none; }
   .cap { position: absolute; text-align: center; color: #fff; font-weight: 700; text-shadow: 0 0 4px #000, 0 1px 3px #000; pointer-events: none; }
   .ctrl { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
@@ -51,9 +57,9 @@
 <header id="tabs"></header>
 <main>
   <div>
-    <div class="stage" id="stage"><iframe id="fr"></iframe><div class="band" id="band"></div><div class="cap" id="cap"></div></div>
+    <div class="stage" id="stage"><iframe id="fr"></iframe><div id="clips"></div><div class="clipTag" id="clipTag"></div><div class="band" id="band"></div><div class="cap" id="cap"></div></div>
     <div class="ctrl"><button id="play">▶</button><input type="range" id="seek" min="0" max="1000" value="0"><span class="tm" id="tm"></span></div>
-    <div class="ctrl dim"><label><input type="checkbox" id="capOn" checked> caption band</label><span>Space play/pause · ← → 2 s · click a line to jump</span></div>
+    <div class="ctrl dim"><label><input type="checkbox" id="capOn" checked> caption band</label><label><input type="checkbox" id="chain" checked> chain</label><label><input type="checkbox" id="clipOn" checked> footage clips</label><span>Space play/pause · ← → 2 s · click a line to jump</span></div>
   </div>
   <div class="side"><div id="ref"></div><ol id="lines"></ol><div class="err" id="err"></div></div>
 </main>
@@ -62,7 +68,7 @@
   const $ = id => document.getElementById(id);
   const q = new URLSearchParams(location.search);
   const au = $('au'), fr = $('fr');
-  let CFG = null, seg = null, view = null, lines = [], dur = 0, clock = null, last = -1, token = 0;
+  let CFG = null, seg = null, view = null, lines = [], dur = 0, clock = null, last = -1, token = 0, clips = [];
 
   const fresh = url => url + (url.includes('?') ? '&' : '?') + 'v=' + Date.now();
   const getJson = async url => (await fetch(fresh(url))).json();
@@ -109,6 +115,15 @@
     au.removeAttribute('src');
     // 整段读成 blob 再播：简单的静态服务不支持 Range 请求，直接给地址拖不动进度
     if (s.audio) au.src = URL.createObjectURL(await (await fetch(fresh(s.audio))).blob());
+    for (const c of clips) URL.revokeObjectURL(c.el.src);
+    $('clips').innerHTML = ''; clips = [];
+    for (const c of s.clips || []) {
+      const el = document.createElement('video');
+      Object.assign(el, { className: 'clip', muted: !c.audio, playsInline: true, preload: 'auto' });
+      el.src = URL.createObjectURL(await (await fetch(fresh(c.src))).blob());
+      $('clips').appendChild(el); clips.push({ ...c, el });
+    }
+    if (my !== token) return;
     await new Promise(ok => { fr.onload = ok; fr.src = fresh(s.bundle.replace(/\/?$/, '/') + 'index.html'); });
     try {
       const w = fr.contentWindow, root = w.document.querySelector('[data-composition-id]');
@@ -136,8 +151,9 @@
     requestAnimationFrame(tick);
     if (!view) return;
     const t = now();
-    if (clock && t >= dur) { view.paused = dur; clock = null; }
+    if (clock && t >= dur) { view.paused = dur; clock = null; next(); }
     $('play').textContent = playing() ? '❚❚' : '▶';
+    syncClips(t);
     if (t === last) return;
     last = t;
     try { view.render(t); } catch (e) { $('err').textContent = `${seg.id} @${t.toFixed(2)}s: ${e.message}`; }
@@ -147,6 +163,28 @@
     document.querySelectorAll('#lines li').forEach((li, i) => li.classList.toggle('now', i === k));
     $('cap').textContent = k >= 0 ? lines[k].text : '';
   }
+
+  // 实拍片段：落在 [at, at + dur) 里就铺满盖在代码画面上，跟着旁白走
+  function syncClips(t) {
+    let tag = '';
+    for (const c of clips) {
+      const on = $('clipOn').checked && t >= c.at && t < c.at + c.dur;
+      c.el.style.display = on ? 'block' : 'none';
+      if (!on) { if (!c.el.paused) c.el.pause(); continue; }
+      tag = c.label || '';
+      if (Math.abs(c.el.currentTime - (t - c.at)) > 0.25) c.el.currentTime = t - c.at;
+      if (playing() && c.el.paused) c.el.play().catch(() => {}); else if (!playing() && !c.el.paused) c.el.pause();
+    }
+    $('clipTag').textContent = tag; $('clipTag').style.display = tag ? 'block' : 'none';
+  }
+  // 连播：一段播完接下一段
+  async function next() {
+    const i = CFG.segments.indexOf(seg);
+    if (!$('chain').checked || i < 0 || i + 1 >= CFG.segments.length) return;
+    await load(CFG.segments[i + 1]);
+    if (seg.audio) au.play(); else clock = { at: 0, t0: performance.now() };
+  }
+  au.addEventListener('ended', next);
 
   $('play').onclick = () => seg && toggle();
   $('seek').oninput = () => seg && seekTo($('seek').value / 1000 * dur);

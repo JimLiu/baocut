@@ -6,9 +6,11 @@
 //   --dry 只打印每段切出的词与前几个词的时间，不连 Runtime。
 // 结果记在 captions.json（timeline.json 归 assemble.mjs 写）。某段的旁白片段换了（assemble 重放了旁白）或字时间变了，
 // 先删掉这段旧的字幕片段再重建。
+// 字幕默认比每条的第一个字提前一点出现（字幕样式的 displayTiming.leadIn，默认 0.5 秒）：从第 0 帧起的那段，
+// 第一条会压在封面上，所以建好后把那个字幕片段的起点裁到第一个字被说到的时刻（整帧，向后取）。
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { loadConfig, parseArgs, listFlag, makeBc, readJson, writeJson, isCjk, textHash } from './lib.mjs';
+import { loadConfig, parseArgs, listFlag, makeBc, readJson, writeJson, isCjk, textHash, allItems } from './lib.mjs';
 
 const OPEN = /[“‘（《「『〈【([{¿¡]/u;
 const WORD = c => /[\p{L}\p{N}]/u.test(c) && !isCjk(c);
@@ -89,7 +91,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     let cap = caps[id];
     if (cap && !cap.audioItem) { cap.audioItem = seg.audioItem; cap.wordsHash ??= hash; } // 旧记录：当作和现在一致
     if (cap && (cap.audioItem !== seg.audioItem || cap.wordsHash !== hash)) {
-      const v = bc(['videos', 'inspect', cfg.video, '--limit', '5000']);
+      const v = allItems(bc, cfg.video);
       const still = (cap.items || []).filter(itemId => v.items.some(it => it.id === itemId));
       if (still.length) bc(['edits', 'apply', cfg.video, '--expected-revision', String(v.revision), '--label', `Remove stale captions ${id}`, '--operations', JSON.stringify([{ type: 'deleteItems', itemIds: still }])]);
       console.log(id, 'stale captions removed', still.length);
@@ -102,6 +104,17 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const d = bc(['documents', 'put', cfg.video, '--format', 'elevenlabs', '--kind', 'speech', '--language', cfg.language, '--source-asset', seg.audioAsset, '--name', `${cfg.names.narration} ${id}`, '--body', '@' + tmp]);
     const c = bc(['captions', 'create', cfg.video, '--document-id', d.documentId]);
     caps[id] = { speech: d.documentId, caption: c.documentId, track: c.trackId, items: c.itemIds, cues: c.cueCount, enabled: c.enabled, audioItem: seg.audioItem, wordsHash: hash };
+    const from = seg.from ?? Math.round(parseFloat(seg.at) * cfg.fps);
+    if (from === 0 && wc.length && wc[0].start > 0) {
+      const v = allItems(bc, cfg.video);
+      const cover = v.items.find(it => (c.itemIds || []).includes(it.id) && it.startFrame === 0);
+      if (cover) {
+        const at = Math.ceil(wc[0].start * cfg.fps) / cfg.fps;
+        bc(['edits', 'apply', cfg.video, '--expected-revision', String(v.revision), '--label', `Keep captions off the cover ${id}`, '--operations', JSON.stringify([{ type: 'trimItem', itemId: cover.id, edge: 'start', at }])]);
+        caps[id].coverTrim = at;
+        console.log(id, 'caption starts at', at, 's, off the cover frame');
+      }
+    }
     writeJson(log, caps);
     console.log(JSON.stringify({ id, ...caps[id] }));
   }

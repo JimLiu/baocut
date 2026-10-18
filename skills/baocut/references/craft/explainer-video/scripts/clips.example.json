@@ -1,0 +1,9 @@
+{
+  "source": "/path/to/original-event.mp4",
+  "label": "<source label in the video language, e.g. Footage: Example Corp>",
+  "clips": [
+    { "id": "s01-launch", "seg": "s01", "line": 1, "cue": "<word in that line>", "from": 453, "to": 461.5, "note": "the launch seen from the side" },
+    { "id": "s03-quote", "seg": "s03", "line": 10, "from": 502.4, "to": 506.8, "audio": true, "note": "the engineer says it in their own voice" },
+    { "id": "s05-other", "seg": "s05", "line": 4, "from": 12, "to": 18, "source": "/path/to/second-source.mp4", "label": "<another source label>" }
+  ]
+}

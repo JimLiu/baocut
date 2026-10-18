@@ -19,9 +19,9 @@ const DEFAULTS = {
   tail: 0.35,
   voice: { format: 'wav', attach: false },
   asr: { provider: 'google', model: 'gemini-3.5-transcribe', chunkSeconds: 0, args: [] },
-  names: { narration: 'Narration' },
+  names: { narration: 'Narration', footage: 'Footage', watermark: 'Watermark' },
   dirs: { scenes: 'scenes', shared: 'shared', bundles: 'bundles', timing: 'timing', audio: 'audio', work: '.baocut-out' },
-  bundle: { scripts: null, pick: ['img'], keep: [], exclude: [] },
+  bundle: { scripts: null, pick: ['img'], keep: [], exclude: [], module: false, fonts: {} },
 };
 
 // 配置：--config <文件>，或环境变量 EXPLAINER_CONFIG，或从当前目录往上找 explainer.json。工程根目录 = 配置所在目录。
@@ -91,6 +91,19 @@ export function makeBc(cfg) {
   };
 }
 
+// 视频里从 fromSeconds 起（含跨过它的）的全部片段：videos inspect 一次最多列 1000 个，截断时从最后一个的起点往后翻页
+export function allItems(bc, video, fromSeconds = 0) {
+  const seen = new Map();
+  for (let from = fromSeconds; ;) {
+    const r = bc(['videos', 'inspect', video, '--from-seconds', String(from), '--limit', '1000']);
+    for (const it of r.items) seen.set(it.id, it);
+    if (!r.itemsCoverage?.truncated) return { revision: r.revision, items: [...seen.values()].sort((a, b) => a.startFrame - b.startFrame) };
+    const next = r.items.at(-1).startSeconds;
+    if (!(next > from)) throw new Error(`more than 1000 clips start at ${from}s; cannot page through them`);
+    from = next;
+  }
+}
+
 export const readJson = (file, fallback) => (fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : fallback);
 export const writeJson = (file, value) => {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -116,6 +129,32 @@ export function scriptLines(cfg) {
 }
 
 export const narrationText = lines => lines.join('\n');
+
+// 每段的备注行（notePrefixes 开头的行，去掉括号）拼成一句，给预览页当 note
+export function scriptNotes(cfg) {
+  const md = fs.readFileSync(cfg.abs(cfg.script.path), 'utf8');
+  const ids = new Set(cfg.order), out = {};
+  let cur = null;
+  for (const raw of md.split('\n')) {
+    const line = raw.trim();
+    const h = line.match(/^#{1,2}\s+(\S+)/);
+    if (h) { cur = ids.has(h[1]) ? h[1] : null; continue; }
+    if (/^-{3,}$/.test(line)) { cur = null; continue; }
+    if (!cur || !cfg.script.notePrefixes.some(p => line.startsWith(p))) continue;
+    (out[cur] ||= []).push(line.replace(/^(<!--|>|[（(])\s*/, '').replace(/\s*(-->|[）)])$/, ''));
+  }
+  return Object.fromEntries(Object.entries(out).map(([id, l]) => [id, l.join(' ')]));
+}
+
+// 一句旁白里某个时刻（秒，相对这一段开头）：第 line 句（从 0 数）的开头；给了 cue 就取 cue 这几个字开始被说到的时刻
+export function cueTime(tm, line, cue) {
+  const l = tm.lines[line];
+  if (!l) throw new Error(`line ${line} missing (segment has ${tm.lines.length} lines)`);
+  if (!cue) return l.start;
+  const i = l.text.indexOf(cue);
+  if (i < 0) throw new Error(`cue "${cue}" not in line ${line}: ${l.text}`);
+  return l.chars?.[i] ?? l.start;
+}
 
 // 语速单位：汉字与假名一个字算一个，其余文字按词（连在一起的字母数字，带撇号与小数点）算一个。
 const CJK = '\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}';

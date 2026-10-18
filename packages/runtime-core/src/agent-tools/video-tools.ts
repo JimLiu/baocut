@@ -134,7 +134,7 @@ const schemas = {
     video: videoArg,
     fromSeconds: z.number().nonnegative().optional().describe('只列与这段时间相交的片段：起点（秒）'),
     toSeconds: z.number().positive().optional().describe('只列与这段时间相交的片段：终点（秒）'),
-    limit: z.number().int().min(1).max(1000).optional().describe('最多列多少个片段，默认 200'),
+    limit: z.number().int().min(1).max(1000).optional().describe('最多列多少个片段，默认 200，最多 1000；片段更多时用 fromSeconds 往后翻页'),
   }),
   videos_frames: z.strictObject({
     video: videoArg,

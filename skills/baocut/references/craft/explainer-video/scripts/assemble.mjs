@@ -12,7 +12,10 @@
 //   章节不跟着挪，改完自己核对。
 // 每段记下 bake 的 renderer / fps / seconds；--background 时烘焙在后台排队，之后用 --verify 把结果补进记录。
 // 前台烘焙走成 browser-pixels 时停下并打印原因（不带 --allow-pixels），按代码场景细则第 2.1 节改好后重跑会原地换包。
-import { loadConfig, parseArgs, makeBc, readJson, writeJson, layout, atOf, frameOf, bundleHash } from './lib.mjs';
+// 用 WebGL（Three.js 等）画的段走不了指令，一开始就带 --allow-pixels，并按代码场景细则先算好要烘多久。
+// 旁白按 voice.json 的 artifactId 导入；Runtime 清掉了旧产物（ARTIFACT_NOT_FOUND）时改导入 voice.mjs 存下的 audio/<id>.<格式>。
+import fs from 'node:fs';
+import { loadConfig, parseArgs, makeBc, readJson, writeJson, layout, atOf, frameOf, bundleHash, allItems } from './lib.mjs';
 
 const cfg = loadConfig();
 const { flags } = parseArgs(process.argv, ['bake']);
@@ -115,14 +118,7 @@ function apply(label, ops) {
 
 // 起点不早于 boundary 帧的全部片段（各轨），分页读到底；spanning 时连跨过 boundary 的也算
 function itemsFrom(boundary, spanning = false) {
-  const items = [];
-  let from = boundary / FPS, limit = 500;
-  for (;;) {
-    const r = inspect(['--from-seconds', String(from), '--limit', String(limit)]);
-    if (r.itemsCoverage && r.itemsCoverage.truncated) { limit *= 4; if (limit <= 32000) continue; throw new Error('too many clips to list'); }
-    for (const it of r.items) if (spanning ? it.startFrame + it.durationFrames > boundary : it.startFrame >= boundary) items.push(it);
-    return items;
-  }
+  return allItems(bc, V, boundary / FPS).items.filter(it => (spanning ? it.startFrame + it.durationFrames > boundary : it.startFrame >= boundary));
 }
 
 // 要挪的轨道或片段锁着时先停下：引擎也会以 TARGET_LOCKED 拒绝，但换包时那已经在烘焙之后
@@ -168,7 +164,7 @@ function checkBake(id, r) {
   console.log(`${id}: bake ${r.bake.renderer} ${r.bake.fps ?? '?'} fps ${r.bake.seconds ?? '?'} s${r.bake.fallback ? ' fallback: ' + r.bake.fallback : ''}`);
   if (r.bake.renderer === 'browser-pixels' && !flags['allow-pixels']) {
     save();
-    throw new Error(`${id} fell back to browser-pixels (${r.bake.fallback}); fix the bundle (code-scenes 2.1) and rerun, or pass --allow-pixels`);
+    throw new Error(`${id} fell back to browser-pixels (${r.bake.fallback}); fix the bundle (code-scenes 2.1) and rerun, or pass --allow-pixels (WebGL scenes always bake as pixels)`);
   }
 }
 
@@ -200,7 +196,17 @@ function placeNarration(s) {
   const r = rec.segments[s.id], v = voice[s.id];
   if (!v) throw new Error(`no narration for ${s.id} in voice.json; run voice.mjs ${s.id}`);
   if (r.audioItem) apply(`Remove old narration ${s.id}`, [{ type: 'deleteItems', itemIds: [r.audioItem] }]);
-  const a = bc(['assets', 'import', V, '--artifact-id', v.artifactId, '--name', `${cfg.names.narration} ${s.id}`, '--place', JSON.stringify({ track: A1, at: atOf(r.from, FPS) })]);
+  const tail = ['--name', `${cfg.names.narration} ${s.id}`, '--place', JSON.stringify({ track: A1, at: atOf(r.from, FPS) })];
+  let a;
+  try {
+    a = bc(['assets', 'import', V, '--artifact-id', v.artifactId, ...tail]);
+  } catch (e) {
+    // the Runtime may have pruned an old artifact; voice.mjs kept the same bytes as audio/<id>.<format>
+    const file = cfg.abs(cfg.dirs.audio, `${s.id}.${cfg.voice.format || 'wav'}`);
+    if (e.cli?.code !== 'ARTIFACT_NOT_FOUND' || !fs.existsSync(file)) throw e;
+    console.log(`${s.id}: artifact gone, importing ${file}`);
+    a = bc(['assets', 'import', V, '--path', file, '--storage', 'managed', ...tail]);
+  }
   Object.assign(r, { audioArtifact: v.artifactId, audioAsset: a.assetId, audioItem: a.itemId });
   save();
 }
