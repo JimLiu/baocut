@@ -62,8 +62,11 @@ export class RuntimeSession {
   /** Space 网格与列表的缩略图（`space.thumbnail`）。 */
   readonly spaceThumbnails: SpaceThumbnailCache;
   readonly #watchers = new Map<Id, { count: number; unsubscribe: () => void }>();
-  /** 已经试着打开过的外部 Agent 新建的视频：每部只试一次，断线重连补发的同一条不再打开（产品设计 §3.3）。 */
+  /** 收到过的外部 Agent 新建的视频：每部只处理一次，断线重连补发的同一条不再处理（产品设计 §3.3）。 */
   readonly #externalVideos = new Set<Id>();
+  /** 其中还在等着能看了（Space 条目的时长大于 0）再打开的：视频 → 打开的位置。有在等的时才看着 Space 镜像。 */
+  readonly #waitingVideos = new Map<Id, FileTarget>();
+  #stopWaiting: (() => void) | null = null;
   #disposers: (() => void)[] = [];
 
   constructor(host: HostBridge) {
@@ -133,17 +136,34 @@ export class RuntimeSession {
   }
 
   /**
-   * 终端或 MCP 的外部 Agent 新建了视频（Space 主题的 `video.created`）：在 Home 的功能区打开它（产品设计 §3.3，shell-store
-   * `openExternalVideo`）。正看着的会话有任务在跑时算忙，窄窗口里不切走它。每部视频只试一次：当时不在 Home 或开着别的视频而没打开的，
-   * 之后也不补。
+   * 终端或 MCP 的外部 Agent 新建了视频（Space 主题的 `video.created`）：等它能看了——Space 条目的时长大于 0（时间线上有了内容）——
+   * 在 Home 的功能区打开它（产品设计 §3.3，shell-store `openExternalVideo`）。空的先记下，建出来就有内容的条目一到就打开。
+   * 实际打开时正看着的会话有任务在跑则算忙，窄窗口里不切走它。
+   * 每部视频只试一次：有内容那一刻不在 Home 或开着别的视频而没打开的，之后也不补；一直没内容的不打开，只在这次运行期间等。
    */
   openExternalVideo(video: ExternalVideoCreated): void {
     if (this.#externalVideos.has(video.videoId)) return;
     this.#externalVideos.add(video.videoId);
-    const { route, openExternalVideo } = useShell.getState();
-    const conversationId = route.tab === 'home' ? route.conversationId : null;
-    const busy = !!conversationId && !!useDirectory.getState().conversations.find((c) => c.id === conversationId)?.activeTaskId;
-    openExternalVideo(video.target, busy);
+    this.#waitingVideos.set(video.videoId, video.target);
+    this.#stopWaiting ??= useSpace.subscribe((s) => this.#openWatchable(s.entries));
+    this.#openWatchable(useSpace.getState().entries);
+  }
+
+  /** 在等的视频里条目已经有内容的：不再等，各试着打开一次。都等到了就不再看着 Space 镜像。 */
+  #openWatchable(entries: readonly SpaceEntry[]): void {
+    for (const entry of entries) {
+      const videoId = entry.kind === 'video' && entry.ref && 'videoId' in entry.ref ? entry.ref.videoId : null;
+      const target = videoId ? this.#waitingVideos.get(videoId) : undefined;
+      if (!videoId || !target || !((entry.media?.durationSec ?? 0) > 0)) continue;
+      this.#waitingVideos.delete(videoId);
+      const { route, openExternalVideo } = useShell.getState();
+      const conversationId = route.tab === 'home' ? route.conversationId : null;
+      const busy = !!conversationId && !!useDirectory.getState().conversations.find((c) => c.id === conversationId)?.activeTaskId;
+      openExternalVideo(target, busy);
+    }
+    if (this.#waitingVideos.size) return;
+    this.#stopWaiting?.();
+    this.#stopWaiting = null;
   }
 
   #onWindowFocus(handler: () => void): () => void {
@@ -153,6 +173,7 @@ export class RuntimeSession {
   }
 
   dispose(): void {
+    this.#stopWaiting?.();
     this.videos.close();
     this.spaceThumbnails.clear();
     for (const dispose of this.#disposers) dispose();
