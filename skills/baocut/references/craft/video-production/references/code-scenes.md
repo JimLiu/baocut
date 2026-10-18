@@ -144,7 +144,7 @@
 
   换完、插完都用 `baocut videos inspect` 核对：各段首尾相接，没有空隙也不重叠，总长等于各段帧数之和。
 
-  有几段要一起改时，从最后一段往前做：前面的段还没变，后面算出的起点不会被打乱。讲解片按段配旁白、按段打包时，`explainer-video` 的制作脚本也能挪段（读 [`references/craft/explainer-video.md`](../../explainer-video.md)）；它用 `baocut videos inspect` 加 `moveItems`，结果与上面的写法一致。
+  有几段要一起改时，从最后一段往前做：前面的段还没变，后面算出的起点不会被打乱。讲解片按段配旁白、按段打包时，`explainer-video` 的制作脚本也能挪段（读 [`references/craft/explainer-video.md`](../../explainer-video.md)）；它用的就是上面的 `replace.ripple` 与 `insertRange`。
 - 在 BaoCut 之外渲染时：按场景分段渲染、能续跑，没改的段沿用；渲染中途不改代码，否则前后段不一致；从成片里抽几帧与单帧渲染比对，核对每段的帧数。
 - 做完是每一段、连同结尾都已就位、看过，不只是开头样段。
 

@@ -5,10 +5,11 @@
 //   node tools/assemble.mjs [--background] [--bake auto|ops] [--allow-pixels]
 //   node tools/assemble.mjs --verify              不改时间线：补后台烘焙的结果，核对各段首尾相接
 // 进度记在 timeline.json，可以重跑：已放好且没变的段跳过。改过的段这样处理（video-production 代码场景细则第 7 节的 ripple 步骤）：
-//   - 代码包帧数变了：变长先把这一段结尾之后各轨的片段（画面、旁白、字幕、音效、音乐）整体后挪 Δ 帧再换包，变短先换包再前挪；
-//     几段一起变时从最后一段往前做。代码包内容变了、帧数没变：原地换包（compositions import --replace）。
+//   - 代码包帧数变了：带 replace.ripple 换包，引擎把这一段旧终点之后各轨的片段（画面、旁白、字幕、音效、音乐）一起挪 Δ 帧，
+//     跨过旧终点的片段（全片音乐）不动；几段一起变时从最后一段往前做。代码包内容变了、帧数没变：原地换包，Δ 为 0 什么都不挪。
 //   - 旁白换了（voice.json 里的 artifactId 变了）：删掉旧的旁白片段，在同一起点导入新的；字幕由 captions.mjs 发现后重建。
-//   - order 里新插进的段：先把它后面的片段后挪出位置，再放进去。从 order 里删掉的段不自动处理，报错让你先手动删。
+//   - order 里新插进的段：先用 insertRange 在上一段终点腾出它的帧数，再放进去。从 order 里删掉的段不自动处理，报错让你先手动删。
+//   章节不跟着挪，改完自己核对。
 // 每段记下 bake 的 renderer / fps / seconds；--background 时烘焙在后台排队，之后用 --verify 把结果补进记录。
 // 前台烘焙走成 browser-pixels 时停下并打印原因（不带 --allow-pixels），按代码场景细则第 2.1 节改好后重跑会原地换包。
 import { loadConfig, parseArgs, makeBc, readJson, writeJson, layout, atOf, frameOf, bundleHash } from './lib.mjs';
@@ -82,7 +83,7 @@ function printPlan() {
     const bake = r && r.bake ? `  bake ${r.bake.renderer} ${r.bake.fps ?? '?'}fps ${r.bake.seconds ?? '?'}s` : r && r.bakeJobId ? `  bake pending ${r.bakeJobId}` : '';
     console.log(`${s.id.padEnd(8)} from ${String(s.from).padStart(6)}  at ${(s.from / FPS).toFixed(3).padStart(9)}  frames ${String(s.frames).padStart(5)}${was}  ${act}${bake}`);
   }
-  for (const st of steps) console.log(`ripple: ${st.kind} ${st.id}: move clips starting at frame >= ${st.boundary} by ${st.delta > 0 ? '+' : ''}${st.delta}`);
+  for (const st of steps) console.log(`ripple: ${st.kind} ${st.id}: ${st.kind === 'insert' ? 'insertRange' : 'replace.ripple'} shifts clips at frame >= ${st.boundary} by ${st.delta > 0 ? '+' : ''}${st.delta}`);
   if (notes.length) console.log(`note: ${notes.join(', ')} have no recorded bundle hash or narration take; assuming the placed clips match the current files`);
   for (const o of off) console.log('MISMATCH: ' + o);
 }
@@ -120,20 +121,25 @@ function itemsFrom(boundary) {
     const r = inspect(['--from-seconds', String(from), '--limit', String(limit)]);
     if (r.itemsCoverage && r.itemsCoverage.truncated) { limit *= 4; if (limit <= 32000) continue; throw new Error('too many clips to list'); }
     for (const it of r.items) if (it.startFrame >= boundary) items.push(it);
-    const locked = items.filter(it => it.locked).map(it => `${it.id} (${it.name})`);
-    if (locked.length) throw new Error(`locked clips after frame ${boundary}: ${locked.join(', ')}; unlock them first, nothing was moved`);
     return items;
   }
 }
 
-function ripple(boundary, delta, why) {
-  if (!delta) return;
-  const items = itemsFrom(boundary);
-  if (!items.length) return;
-  apply(why, [{ type: 'moveItems', moves: items.map(it => ({ itemId: it.id, offset: { unit: 'frames', value: delta } })) }]);
-  for (const r of Object.values(rec.segments)) if (r.from >= boundary) { r.from += delta; r.at = atOf(r.from, FPS); }
+// 引擎挪完片段后，记录里起点不早于 boundary 的段跟着挪，然后存盘
+function shiftRecords(boundary, delta) {
+  if (delta) for (const r of Object.values(rec.segments)) if (r.from >= boundary) { r.from += delta; r.at = atOf(r.from, FPS); }
   save();
-  console.log(`moved ${items.length} clips at frame >= ${boundary} by ${delta}`);
+}
+
+// 插入的段：在 boundary（上一段终点）用 insertRange 腾出 frames 帧。只列这之后还有片段的轨道，
+// 跨着 boundary 的片段（全片音乐）留在原处、不剪开；有轨道或片段锁着时引擎以 TARGET_LOCKED 整笔拒绝。
+function makeRoom(id, boundary, frames) {
+  const trackIds = [...new Set(itemsFrom(boundary).map(it => it.trackId))];
+  if (!trackIds.length) return;
+  const frame = value => ({ unit: 'frames', value });
+  apply(`Make room for ${id}`, [{ type: 'insertRange', at: frame(boundary), duration: frame(frames), trackIds, alignment: 'exact-frame', straddle: 'stay' }]);
+  shiftRecords(boundary, frames);
+  console.log(`inserted ${frames} frames at ${boundary} on ${trackIds.length} tracks for ${id}`);
 }
 
 const tracks = inspect(['--limit', '1']).tracks;
@@ -166,12 +172,17 @@ function importScene(id, place) {
   return { c, sec: Math.round((Date.now() - t0) / 1000) };
 }
 
+// 原地换包并波纹：引擎把旧终点之后的片段挪 Δ 帧（帧数没变时 Δ 为 0），回执的 replaced.rippleFrames 就是 Δ
 function replaceScene(s) {
   const r = rec.segments[s.id];
-  const { c, sec } = importScene(s.id, ['--replace', JSON.stringify({ itemId: r.sceneItem })]);
+  const oldEnd = r.from + r.frames, want = s.frames - r.frames;
+  const { c, sec } = importScene(s.id, ['--replace', JSON.stringify({ itemId: r.sceneItem, ripple: true })]);
+  const moved = c.replaced?.rippleFrames ?? 0;
   recordBake(r, c);
   Object.assign(r, { frames: s.frames, bundleHash: cur[s.id].hash, bakeSec: sec });
-  save();
+  shiftRecords(oldEnd, moved);
+  if (moved) console.log(`${s.id}: rippled clips at frame >= ${oldEnd} by ${moved > 0 ? '+' : ''}${moved}`);
+  if (moved !== want) throw new Error(`${s.id}: engine rippled ${moved} frames, bundle says ${want}; check data-duration against the clip and timeline.json`);
   checkBake(s.id, r);
 }
 
@@ -194,14 +205,12 @@ function placeScene(s) {
   checkBake(s.id, r);
 }
 
-// 1. 已放好的段：倒序处理变长变短（挪片段 + 换包），插入的段先挪出位置
+// 1. 已放好的段：倒序处理变长变短（换包带 ripple），插入的段先腾出位置
 if (!flags.verify) {
   for (const st of steps) {
     const s = lay.find(x => x.id === st.id);
-    if (st.kind === 'insert') { ripple(st.boundary, st.delta, `Make room for ${st.id}`); continue; }
-    if (st.delta > 0) ripple(st.boundary, st.delta, `Ripple after ${st.id} (+${st.delta} frames)`);
-    replaceScene(s);
-    if (st.delta < 0) ripple(st.boundary, st.delta, `Ripple after ${st.id} (${st.delta} frames)`);
+    if (st.kind === 'insert') makeRoom(st.id, st.boundary, st.delta);
+    else replaceScene(s);
   }
   // 2. 帧数没变但包或旁白换了的段
   for (const s of lay) {
