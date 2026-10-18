@@ -54,7 +54,10 @@ export function renderMainHelp(tools: readonly CatalogTool[], admin: readonly Ad
   out.push(M.helpObjects);
   const nouns = ordered([...tree.nouns.keys()], NOUN_ORDER);
   const nounWidth = Math.max(...nouns.map((name) => name.length)) + 3;
-  for (const noun of nouns) out.push(`  ${noun.padEnd(nounWidth)}${[...tree.nouns.get(noun)!.keys()].join(' · ')}`);
+  for (const noun of nouns) {
+    const verbs = [...tree.nouns.get(noun)!.keys()].join(' · ');
+    out.push(`  ${noun.padEnd(nounWidth)}${truncate(verbs, WIDTH - nounWidth - 2)}`);
+  }
 
   out.push(M.helpAdmin);
   const adminWords = admin.map((entry) => (entry.verbs?.length ? `${entry.name} ${shortVerbs(entry.verbs)}` : entry.name));

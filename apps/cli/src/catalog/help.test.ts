@@ -32,6 +32,20 @@ describe('帮助', () => {
     expect(text).toContain('spec [<name>]');
   });
 
+  it('bounds growing command groups while preserving full group discovery', () => {
+    const tools = Array.from({ length: 12 }, (_, index) => ({
+      ...snapshot.tools[0]!,
+      name: `samples_long_command_${index}`,
+    }));
+    const main = renderMainHelp(tools, []);
+    const line = main.split('\n').find((entry) => entry.startsWith('  samples '))!;
+    expect(displayWidth(line)).toBeLessThanOrEqual(100);
+    expect(line).toMatch(/…$/);
+    expect(main).toContain('help <command>');
+    const group = renderGroupHelp(tools, 'samples', undefined)!;
+    for (const tool of tools) expect(group).toContain(commandOf(tool).verb);
+  });
+
   it('每条命令的帮助都能派生，带参数、效果与示例', () => {
     const names = snapshot.tools.map((tool) => tool.name);
     for (const tool of snapshot.tools) {

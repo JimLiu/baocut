@@ -172,7 +172,6 @@ const DEFINITIONS: Record<'download', ToolInfo> = {
     effect: 'job',
     examples: [
       { title: '从链接新建视频并转写', args: { url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', newVideo: true, transcribe: true } },
-      { title: '下载到已有视频', args: { url: 'https://example.com/talk', video: 'demo' } },
       { title: '只下载到项目，带英文字幕', args: { url: 'https://example.com/talk', project: 'prj_1', subs: ['en'] } },
       { title: '下载到外置盘的文件夹', args: { url: 'https://example.com/talk', outDir: '/Volumes/Media/clips' } },
     ],
