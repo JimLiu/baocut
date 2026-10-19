@@ -104,6 +104,28 @@ describe('字幕与文稿', () => {
     expect(wrapLines('一二三四五六七八九十', 8).every((l) => displayWidth(l) <= 8)).toBe(true);
   });
 
+  it('折行优先断在标点、空格与中文词边界上，不切开中文词', () => {
+    // 贪心按宽度会切成「修程｜序崩溃」「代码审｜查」「……想想汇｜报」。
+    expect(wrapLines('修程序崩溃', 4)).toEqual(['修', '程序', '崩溃']);
+    expect(wrapLines('代码审查', 6)).toEqual(['代码', '审查']);
+    expect(wrapLines('每天下班前花五分钟想想汇报', 24)).toEqual(['每天下班前花五分钟想想', '汇报']);
+    expect(wrapLines('每天下班前花五分钟想想汇报', 20)).toEqual(['每天下班前花五分钟', '想想汇报']);
+    // 标点先于词边界；不到半行宽的不退。
+    expect(wrapLines('每天下班前，花五分钟想想汇报', 22)).toEqual(['每天下班前，', '花五分钟想想汇报']);
+    expect(wrapLines('好，每天下班前花五分钟想想汇报', 20)).toEqual(['好，每天下班前花', '五分钟想想汇报']);
+    // 空格与西文：西文词不拆，中英混排断在空格上。
+    expect(wrapLines('今天 review 代码审查', 14)).toEqual(['今天 review', '代码审查']);
+    expect(wrapLines('one two three', 9)).toEqual(['one two', 'three']);
+  });
+
+  it('长句拆条时，没有标点的断点不落在中文词里', () => {
+    const words = [...'我们今天要修程序崩溃的问题'].map((text, i) => ({ id: `w${i}`, start: i * 0.3, end: (i + 1) * 0.3, text, sentenceId: 's1' }));
+    const primary = { document: doc('d', 'speech'), plan: plan('speech', words) };
+    const out = renderText(input({ format: 'srt', primary, maxCharsPerLine: 7 }));
+    const cues = out.content.trim().split('\n\n').map((block) => block.split('\n').slice(2).join(''));
+    expect(cues).toEqual(['我们今天要修', '程序崩溃的问题']);
+  });
+
   it('SRT：按句成条，序号从 1 开始，毫秒时间；箭头被转义', () => {
     const out = renderText(input({ format: 'srt', primary: { document: doc('d', 'speech'), plan: SPEECH } }));
     expect(out.entries).toBe(2);

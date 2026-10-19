@@ -260,6 +260,38 @@ describe('inspectBundle', () => {
     );
   });
 
+  it('合成时顺着入口引用的本地脚本识别原生合同；没被引用的文件与注释不算', async () => {
+    const contractOf = async (files: Record<string, string>) => {
+      const bundle = await inspectBundle(tree(files), { stagingDir: tmp() });
+      return bundle.manifest.runtime.engine === 'browser' ? bundle.manifest.runtime.contract : null;
+    };
+    const page = (scripts: string) => SIMPLE_HTML.replace('</div>', `</div>${scripts}`);
+    const register = 'window.__baocutCompositions = { main: {} };';
+    // 几段共用一个 engine.js：注册写在被 <script src> 引用的脚本里。
+    expect(
+      await contractOf({
+        'index.html': page('<script src="./timing.js"></script><script src="shared/engine.js?v=2"></script>'),
+        'timing.js': 'var T = 1;',
+        'shared/engine.js': register,
+      }),
+    ).toBe('baocut/1');
+    // 模块脚本顺着静态 import 往下找；`/` 开头相对包根。
+    expect(
+      await contractOf({
+        'index.html': page('<script type="module">import { boot } from "/src/main.mjs"; boot();</script>'),
+        'src/main.mjs': "import './register.js';\nexport function boot() {}",
+        'src/register.js': register,
+      }),
+    ).toBe('baocut/1');
+    expect(
+      await contractOf({
+        'index.html': page('<script src="./engine.js"></script>'),
+        'engine.js': 'window.__timelines = {}; // not window.__baocutCompositions',
+        'unused.js': register,
+      }),
+    ).toBe('hyperframes/1');
+  });
+
   it('静态网络引用 → BUNDLE_NETWORK_REFERENCE；strictNetwork: false 时只记录', async () => {
     const error = (await inspectBundle(path.join(fixtures, 'network-static')).catch((e: unknown) => e)) as CodeBundleError;
     expect(error.code).toBe('BUNDLE_NETWORK_REFERENCE');

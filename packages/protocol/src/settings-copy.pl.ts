@@ -28,6 +28,8 @@ export const pl: SettingDescriptionMessages = {
   'space.trashRetentionDays': "Dni przechowywania w koszu Space (1–3650): wpisy bez odwołań i usunięte wideo starsze niż okres są okresowo usuwane trwale",
   'versions.keep': "Liczba nienazwanych wersji zachowywanych w historii wersji każdego wideo (1–100); zapisane wersje są zawsze zachowywane. Pliki wersji jednego wideo mają też limit 64 MiB: powyżej usuwane są najstarsze nienazwane wersje",
   'versions.cadence': "Kiedy historia wersji wideo zaczyna nową wersję: segment po 5 minutach bez zmian, co 30 minut ciągłej edycji oraz przy zapisywaniu i przywracaniu; turn dodatkowo na początku każdej tury Agenta",
+  'versions.git.autoCommit': "Automatycznie commituj pliki BaoCut z projektu do git: po 5 minutach bez zmian, gdy wszystkie wideo projektu zostaną zamknięte, i przy zamykaniu BaoCut. Tylko dla projektów w repozytorium git, według tych samych zasad co Commit do git",
+  'versions.git.maxFileMiB': "Maksymalny rozmiar pliku w blobs/ wideo, który BaoCut commituje do git, w MiB (1–4096); większe pliki commitujesz sam. Ścieżki śledzone w repozytorium przez Git LFS nie mają limitu",
   'cache.maxSizeMiB': 'Limit rozmiaru pamięci podręcznej w folderze danych, w MiB (256–1048576): po jego przekroczeniu usuwane są najstarsze pliki podręczne (analiza multimediów, kopie do odtwarzania), aż rozmiar spadnie do 90%. Indeks wyszukiwania między filmami nigdy nie jest usuwany',
   'resources.capacity':
     "Zaawansowane: zasoby maszyny do planowania { memoryMiB, gpuMemoryMiB, cpuThreads }; pole null wykrywane automatycznie; całość null wykrywa wszystko (pamięć i CPU z systemu, GPU Apple silicon szacowane z pamięci zunifikowanej)",

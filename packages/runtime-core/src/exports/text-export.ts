@@ -12,7 +12,7 @@ import {
   type SubtitleExportFormat,
   type TranscriptExportFormat,
 } from '@baocut/protocol';
-import { sourceSentences } from '@baocut/jobs';
+import { hanInteriorGaps, sourceSentences } from '@baocut/jobs';
 import { JobsSpeechDocument } from '@baocut/protocol/messages/jobs/speech-document.ts';
 import { RcExport } from '@baocut/protocol/messages/runtime-core';
 import type { PlannedDocument, TextEntry, TextPlan } from './export-plan.ts';
@@ -156,7 +156,45 @@ export function joinWords(tokens: string[], leadingSpaces: boolean, glues: reado
   return out;
 }
 
-/** 折行：保留原有的换行；超宽的行在空格处（西文）或按宽度（全角，标点不放行首）断开。 */
+/** 行尾可断的标点：全角的在它后面断；半角的要后面跟着空格（`3.14`、`e.g.` 不断）。 */
+const BREAK_AFTER_WIDE = /[，、；：。！？…]/u;
+const BREAK_AFTER_ASCII = /[,;:.!?]/;
+/** 西文词内（两侧都是非全角、非空格）：不在这里断。 */
+const latinInside = (before: string, after: string) => before !== ' ' && after !== ' ' && !WIDE.test(before) && !WIDE.test(after);
+
+/**
+ * 一行在哪个字之前断：`cut` 是按宽度能放下的字数。在不少于半行宽的范围里由后往前找，先找标点之后，再找空格，再找
+ * 词边界（不在西文词里，也不在一个中文词里：两侧都是汉字、`hanInteriorGaps` 认为是一个词，如「程｜序」）；都没有时
+ * 在西文里退到最后一个空格，否则按宽度断。断点之后是不放行首的标点时不算。
+ */
+function lineBreak(chars: readonly string[], cut: number, maxWidth: number): number {
+  const interior = hanInteriorGaps(chars);
+  let floor = 1;
+  for (let width = 0; floor < cut; floor++) {
+    width += WIDE.test(chars[floor - 1]!) ? 2 : 1;
+    if (width * 2 >= maxWidth) break;
+  }
+  let space = -1;
+  let word = -1;
+  for (let i = cut; i >= floor; i--) {
+    const before = chars[i - 1]!;
+    const after = chars[i]!;
+    if (NO_SPACE_BEFORE.test(after)) continue;
+    if (BREAK_AFTER_WIDE.test(before) || (after === ' ' && BREAK_AFTER_ASCII.test(before))) return i;
+    if (before === ' ' || after === ' ') {
+      if (space < 0) space = i;
+    } else if (word < 0 && !latinInside(before, after) && !interior[i - 1]) word = i;
+  }
+  if (space >= 0) return space;
+  if (word >= 0) return word;
+  const lastSpace = chars.lastIndexOf(' ', cut - 1);
+  return lastSpace > 0 && !WIDE.test(chars[cut] ?? '') ? lastSpace : cut;
+}
+
+/**
+ * 折行：保留原有的换行；超宽的行优先断在标点、空格与中文词边界上，没有时在西文的空格处或按宽度断（`lineBreak`），
+ * 标点不放行首。
+ */
 export function wrapLines(text: string, maxWidth: number): string[] {
   const lines: string[] = [];
   for (const paragraph of text.split(/\r?\n/)) {
@@ -167,15 +205,13 @@ export function wrapLines(text: string, maxWidth: number): string[] {
       const chars = [...rest];
       let width = 0;
       let cut = 0;
-      let lastSpace = -1;
       for (let i = 0; i < chars.length; i++) {
         const w = WIDE.test(chars[i]!) ? 2 : 1;
         if (width + w > maxWidth) break;
         width += w;
         cut = i + 1;
-        if (chars[i] === ' ') lastSpace = i;
       }
-      if (lastSpace > 0 && !WIDE.test(chars[cut] ?? '')) cut = lastSpace;
+      if (cut > 0) cut = lineBreak(chars, cut, maxWidth);
       // 行首不放标点：把它留在上一行。
       while (cut < chars.length && NO_SPACE_BEFORE.test(chars[cut]!)) cut++;
       if (cut <= 0) cut = 1;
@@ -484,13 +520,25 @@ function cuesOf(segments: TextSegment[], maxWidth: number, warnings: JobWarning[
       const tooLong = group.length > 0 && word.end - group[0]!.start > EXPORT_MAX_CUE_SECONDS;
       if (tooWide || tooLong) {
         // 尽量在标点处断：退回到组里最后一个以标点结尾的词之后。
-        const punct = group.findLastIndex((w, i) => i > 0 && /[,，、;；:：.。!！?？]$/u.test(w.text));
-        if (punct > 0 && punct < group.length - 1) {
-          const carry = group.slice(punct + 1);
-          group = group.slice(0, punct + 1);
-          flush();
-          group = carry;
-        } else flush();
+        // 没有标点时，断点落在一个中文词里（转写常一个字一个词，如「程｜序」）就把这个词整个挪进下一条，前一条不少于半条宽。
+        let keep = group.findLastIndex((w, i) => i > 0 && /[,，、;；:：.。!！?？]$/u.test(w.text)) + 1;
+        if (keep <= 0 || keep >= group.length) {
+          const inside = hanInteriorGaps([...group, word].map((w) => w.text));
+          keep = group.length;
+          if (inside[group.length - 1]) {
+            keep = inside.findLastIndex((interior, i) => i < group.length - 1 && !interior) + 1;
+            const head = joinWords(
+              group.slice(0, keep).map((w) => w.text),
+              leading,
+              group.slice(0, keep).map((w) => w.glue === true),
+            );
+            if (keep <= 0 || displayWidth(head) * 2 < capacity) keep = group.length;
+          }
+        }
+        const carry = group.slice(keep);
+        group = group.slice(0, keep);
+        flush();
+        group = carry;
       }
       group.push(word);
     }

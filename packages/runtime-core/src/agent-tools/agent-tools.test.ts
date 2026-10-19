@@ -349,6 +349,38 @@ describe.skipIf(!engine || !ffmpeg)('智能体工具（真实引擎）', () => {
     await until(() => fs.access(path.join(project!.path, created.body.video, 'video.db')).then(() => true, () => false));
   });
 
+  it('无项目会话把新视频建到指定文件夹：高风险确认卡写明落点；确认后会话进这个文件夹登记的项目，工作目录里的东西一起搬过去', async () => {
+    const outside = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-extern-')));
+    try {
+      const target = path.join(outside, '访谈');
+      const { conversation } = await client.request('conversations.create', { projectId: null, title: '外置盘' });
+      await fs.writeFile(path.join(conversation.cwd, 'notes.txt'), '笔记');
+      await client.request('conversations.send', { conversationId: conversation.id, text: '建到外置盘', commandId: newId('cmd') });
+      const session = await until(() => (driver.sessions.at(-1)?.turnId ? driver.sessions.at(-1) : undefined));
+      const call = tool(session!, 'videos_create', { name: '第一集', project: target });
+      const pending = await until(() => runtime.harness.approvals.pending()[0]);
+      expect(pending).toMatchObject({ action: { kind: 'tool', name: 'videos_create' }, risk: 'high' });
+      expect(pending.action.targets).toContain(target);
+      // 确认之前什么都没动。
+      expect(await fs.access(target).then(() => true, () => false)).toBe(false);
+      await client.request('approvals.respond', { approvalId: pending.approvalId, decision: 'allow' });
+      const created = await call;
+      expect(created.isError, JSON.stringify(created.body)).toBe(false);
+      const bound = (await client.request('conversations.get', { conversationId: conversation.id })).conversation;
+      const project = runtime.harness.listProjects().find((p) => p.id === bound.projectId)!;
+      expect(project.path).toBe(target);
+      expect(bound.cwd).toBe(target);
+      await fs.access(path.join(target, created.body.video, 'video.db'));
+      expect(await fs.readFile(path.join(target, 'notes.txt'), 'utf8')).toBe('笔记');
+      // 之后照常打开、列出，不用换会话。
+      expect((await tool(session!, 'videos_inspect', { video: created.body.videoId })).isError).toBe(false);
+      expect((await tool(session!, 'videos_list', {})).body.workspace).toBe(target);
+      session!.finish();
+    } finally {
+      await fs.rm(outside, { recursive: true, force: true });
+    }
+  });
+
   it('智能体设置转场、效果、章节与闪避；删掉片段时回执说明转场为什么没了', async () => {
     const { session } = await send('加个转场和章节');
     const inspected = await tool(session, 'videos_inspect', { video: videoId });

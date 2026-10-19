@@ -1,41 +1,43 @@
 {
   "title": "Uitlegvideo",
-  "summary": "Maak van een document, presentatie of onderwerp een goed te volgen video.",
-  "description": "Help kijkers een begrip te doorgronden met heldere uitleg en concrete voorbeelden. Orden je materiaal tot een visueel verhaal en stem de diepgang af op wat het publiek al weet.",
-  "brief": "Leg {{onderwerp}} uit aan {{publiek}} op basis van {{bronmateriaal}}, zodat ze na afloop {{leerdoel}}.",
+  "summary": "Leg een begrip, nieuwsbericht of artikel zo uit dat iedereen het volgt.",
+  "description": "Begin bij de vragen die kijkers echt hebben, kies de aanpak die bij de inhoud past en laat één concreet onderwerp de uitleg van begin tot eind dragen. Elk getal in beeld, in de voice-over en in de publicatie komt uit dezelfde gecontroleerde feiten. Elke versie bevat de video, een omslagafbeelding en een publicatieklare tekst.",
+  "brief": "Leg op basis van {{bronmateriaal}} aan {{publiek}} uit {{onderwerp}}, zodat ze na afloop {{leerdoel}}.",
   "fields": [
     {
       "label": "bronmateriaal",
-      "hint": "Bijgevoegd document, presentatie of link; zo niet, schrijf ‘openbare bronnen’",
+      "hint": "Documenten, artikelen, links of tekst; zonder, schrijf ‘openbare bronnen’",
       "example": "deze hand-out"
     },
     {
       "label": "publiek",
-      "hint": "Wie kijkt en wat ze al weten",
+      "hint": "Wie kijkt en wat ze al weten; leeg betekent geen voorkennis",
       "example": "middelbare scholieren"
     },
     {
       "label": "onderwerp",
-      "hint": "Het begrip of onderwerp dat je uitlegt",
-      "example": "fotosynthese"
+      "hint": "Een begrip, nieuwsbericht, artikel of verschijnsel",
+      "example": "waarom de maan fasen heeft"
     },
     {
       "label": "leerdoel",
-      "hint": "Wat kijkers daarna onthouden of kunnen",
-      "example": "kunnen uitleggen wat de lichtreactie en de donkerreactie elk doen"
+      "hint": "Een idee navertellen, nieuws begrijpen, een oordeel vellen of het zelf proberen",
+      "example": "de maanfasen in eigen woorden kunnen uitleggen"
     }
   ],
   "tags": [
     "wetenschap",
     "uitleg",
-    "onderwijs"
+    "onderwijs",
+    "nieuws uitgelegd",
+    "artikel uitgelegd"
   ],
   "preview": {
     "beats": [
-      "Een vraag opwerpen",
-      "Kernbegrippen ontleden",
-      "Uitleg met een concreet voorbeeld",
-      "De kern samengevat"
+      "Begin bij de vraag van de kijker",
+      "Eén onderwerp draagt alles",
+      "Toon de misvatting en weerleg haar",
+      "Kijkers kunnen het daarna navertellen"
     ]
   }
 }

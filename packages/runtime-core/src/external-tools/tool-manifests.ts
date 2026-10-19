@@ -1,7 +1,8 @@
 import { ffmpegMissingRemedyMessage } from '@baocut/process-host';
 import { refOf, type ExternalToolOffer, type Localized } from '@baocut/protocol';
 import type { ToolUpdateRecipe } from './tool-update-plan.ts';
-import { RcExternalTools } from '@baocut/protocol/messages/runtime-core';
+import { RcExternalTools, RcGit } from '@baocut/protocol/messages/runtime-core';
+import { macosGitUsable } from './git-probe.ts';
 
 /**
  * 受管外部工具的登记表（架构设计 §12.9）。每个工具一份清单：用途、最低版本、探测方式，能由 BaoCut 下载的再带固定的发布版本、
@@ -64,10 +65,16 @@ export interface ToolManifest {
   update?: ToolUpdateRecipe;
   /** 缺失时的补救（按 Runtime 所在的平台给）。 */
   missingRemedy: Localized;
+  /**
+   * 找到的可执行文件能不能用（在执行 `--version` 之前判断）：不能用时给原因。PATH 里不能用的跳过、接着往后找；环境变量与用户指定的
+   * 路径不能用时报告为不可用。macOS 上没装开发者工具时的 `/usr/bin/git` 是会弹出安装窗口的占位程序（`git-probe.ts`）。
+   */
+  usable?(file: string, platform: NodeJS.Platform): Promise<Localized | null>;
 }
 
 export const YT_DLP = 'yt-dlp';
 export const FFMPEG = 'ffmpeg';
+export const GIT = 'git';
 
 /**
  * yt-dlp 的发布：版本取自这台开发机上 Homebrew 安装的稳定版（Changelog 与 `yt_dlp/version.py` 都是 2026.07.04），没有对照
@@ -139,7 +146,35 @@ export const BUILTIN_TOOL_MANIFESTS: readonly ToolManifest[] = [
       return ffmpegMissingRemedyMessage();
     },
   },
+  // git 桥（版本记录设计 §5、§7.2）：只检测、不下载，用户自己装的系统 git。2.30 起 `config --show-scope`、`--pathspec-from-file`
+  // 与 `commit --only` 搭配 pathspec 文件都在。
+  {
+    name: GIT,
+    label: 'git',
+    get purpose() {
+      return RcGit.gitPurpose();
+    },
+    command: 'git',
+    versionArgs: ['--version'],
+    // `git version 2.54.0 (Apple Git-157)`、`git version 2.45.1.windows.1`
+    parseVersion: (output) => /git version (\d+\.\d+(?:\.\d+)?)/.exec(output)?.[1] ?? null,
+    minVersion: '2.30',
+    consentRequired: false,
+    release: null,
+    envVar: 'BAOCUT_GIT',
+    usable: macosGitUsable,
+    get missingRemedy() {
+      return gitMissingRemedy();
+    },
+  },
 ];
+
+/** 缺 git 时的补救，按 Runtime 所在的平台。 */
+export function gitMissingRemedy(platform: NodeJS.Platform = process.platform): Localized {
+  if (platform === 'darwin') return RcGit.gitMissingRemedyMac();
+  if (platform === 'win32') return RcGit.gitMissingRemedyWin();
+  return RcGit.gitMissingRemedyLinux();
+}
 
 /** 这台机器的平台键。 */
 export function platformKey(platform: string = process.platform, arch: string = process.arch): string {

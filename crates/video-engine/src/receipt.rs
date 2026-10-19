@@ -94,6 +94,9 @@ pub struct CodeEdit {
     pub prerender: Option<VersionRef>,
     pub old_duration_frames: i64,
     pub new_duration_frames: i64,
+    /// 带 `ripple` 时旧终点之后的内容移动了多少帧（正数后移、负数前移）；没有移动时不写。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ripple_frames: Option<i64>,
 }
 
 /// 代码画面的编辑层（代码包规范 §3.4）。目前只有换源。

@@ -454,10 +454,13 @@ pub fn read_files(root: &Path) -> EngineResult<SnapshotFiles> {
     Ok(files)
 }
 
+/// 读一个快照文件，换行统一成 LF：Windows 上 `core.autocrlf=true` 检出的 CRLF 不算外部改动。JSON 的字符串里不会有
+/// 未转义的 CR，所以文件里的 CRLF 都是行尾。
 fn read_text(path: &Path) -> EngineResult<String> {
     let bytes = fs::read(path)?;
-    String::from_utf8(bytes)
-        .map_err(|_| invalid(msg!("engine.snapshotNotUtf8", "A snapshot file is not UTF-8 text")).details(json!({ "path": path })))
+    let text = String::from_utf8(bytes)
+        .map_err(|_| invalid(msg!("engine.snapshotNotUtf8", "A snapshot file is not UTF-8 text")).details(json!({ "path": path })))?;
+    Ok(if text.contains('\r') { text.replace("\r\n", "\n") } else { text })
 }
 
 /// 先写临时文件再改名替换（同一目录，`.<名字>.partial`）。

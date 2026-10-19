@@ -1,0 +1,42 @@
+{
+  "video": "video_0123456789abcdef",
+  "bc": ["baocut"],
+  "language": "en-US",
+  "fps": 30,
+  "canvas": { "width": 1920, "height": 1080, "background": "#17110d" },
+  "order": ["s01", "intro", "s02", "s03", "outro"],
+  "script": { "path": "../script.md", "notePrefixes": ["(", "（", ">", "<!--"] },
+  "fixedLines": {
+    "intro": ["<fixed opening line, word for word as the user gave it>"],
+    "outro": ["<fixed closing line, word for word as the user gave it>"]
+  },
+  "hold": { "outro": 4.5 },
+  "estimateRate": 2.7,
+  "voice": {
+    "provider": "google",
+    "model": "gemini-3.8-flash-tts",
+    "voice": "Charon",
+    "instructions": "energetic, clear science explainer, conversational",
+    "format": "wav",
+    "attach": false
+  },
+  "asr": { "provider": "google", "model": "gemini-3.5-transcribe", "chunkSeconds": 0 },
+  "names": { "narration": "Narration", "footage": "Footage", "watermark": "Watermark" },
+  "bundle": { "pick": ["img"], "keep": ["img/seal.svg"], "exclude": ["fonts/glyphs.txt"], "module": false, "fonts": {} },
+  "preview": { "caption": { "y": 86, "verticalAlign": "center", "fontSize": 28, "width": 80 } },
+  "footage": {
+    "clips": "clips.json",
+    "font": "shared/fonts/body.ttf",
+    "label": { "size": 28, "margin": 46 },
+    "loudness": -17,
+    "subs": { "fontsDir": "shared/fonts", "font": "<font family for the video language>", "size": 54, "trFont": "<font family for the original words>", "trSize": 32, "whoSize": 36, "marginV": 64 }
+  },
+  "watermark": {
+    "file": "assets/watermark.png",
+    "dur": 5,
+    "w": 6,
+    "y": 70,
+    "x": { "left": 5, "right": 95 },
+    "at": [{ "seg": "s02", "line": 3, "side": "right" }, { "t": 95.5, "side": "left" }]
+  }
+}

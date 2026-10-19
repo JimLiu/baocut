@@ -11,7 +11,7 @@ import {
 import { LINK_COOKIE_BROWSERS, RpcError, type CapabilityNotConfiguredDetails } from '@baocut/protocol';
 import { RcFlowTools } from '@baocut/protocol/messages/runtime-core';
 import { errorBody, ToolError, type ToolInfo, type ToolSet } from './tool-catalog.ts';
-import { approvalField, confirmSummary, type ToolAccess, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
+import { approvalField, bindingConfirmation, confirmSummary, type ToolAccess, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
 import { cookieBrowsersArg, startLinkImport, toolErrorOf, type LinkImportToolsDeps } from './link-import-tools.ts';
 import { resolveUserPath } from './video-digest.ts';
 import { commandIdArg, videoArg } from './video-tools.ts';
@@ -79,7 +79,7 @@ const schemas = {
       .max(1000)
       .optional()
       .describe(
-        '可选。给 file 或 url 时新视频（或只下载的文件）所在的项目（项目 id 或已登记项目目录的路径）；不给时与 videos_create 同一处',
+        '可选。给 file 或 url 时新视频（或只下载的文件）所在的项目（项目 id 或已登记项目目录的路径）；不给时与 videos_create 同一处。不属于项目的会话新建视频时还可以给用户指定的任意文件夹（绝对路径或 ~/），规则同 videos_create：按高风险确认，确认之后会话连同工作目录里的视频与文件放进那里；不建视频（noVideo）时不行',
       ),
     name: z
       .string()
@@ -405,14 +405,20 @@ export class FlowTools implements ToolSet {
         next: '转录已提交，不建视频。用 jobs_wait 等到 completed：outputs 的 path（pipeline.summary.files）是 TXT 与 SRT 文稿，把位置告诉用户。',
       };
     }
-    await scope.createRoot(access, args.project, { locate: true });
-    const approval = await scope.confirm(access, {
-      tool: 'transcribe',
-      ...confirmSummary(
-        RcFlowTools.transcribeCreateSummary({ name: args.name ?? null, file, ...providerOf(args), captions: !args.noCaptions }),
+    const located = await scope.createRoot(access, args.project, { locate: true });
+    const approval = await scope.confirm(
+      access,
+      bindingConfirmation(
+        {
+          tool: 'transcribe',
+          ...confirmSummary(
+            RcFlowTools.transcribeCreateSummary({ name: args.name ?? null, file, ...providerOf(args), captions: !args.noCaptions }),
+          ),
+        },
+        located,
       ),
-    });
-    // 确认之后才为新建做准备（终端登记项目）；无项目会话的视频建在它的工作目录里（§3.10）。
+    );
+    // 确认之后才为新建做准备（终端登记项目）；无项目会话不给 project 时视频建在它的工作目录里，给了时会话放进那个项目（§3.10）。
     const root = await scope.createRoot(access, args.project);
     // 用真实路径：会话在回合里绑定了项目时，旧路径经链接指向项目，流程之后读的是项目里的文件。
     const media = await fs.realpath(file).catch(() => file);

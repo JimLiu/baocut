@@ -460,6 +460,7 @@ export interface CompositionPreviewResult {
  *
  * `replace.itemId` 指向时间线上已有的合成片段时，第二笔不新放片段，而是用 `replaceCodeBundle` 原地换它的代码包版本与预渲染
  * （代码包规范 §3.3）：片段 ID、轨道、起点、几何、效果、关键帧等不变，长度跟新的预渲染走。与 `place`、`register` 互斥。
+ * `replace.ripple` 让旧终点之后的内容跟着长度差移动（命令与协议规范 §4.2 `replaceCodeBundle`）；后台烘焙写回替身那一笔不挪。
  */
 export interface CompositionImportParams {
   video: Id;
@@ -469,7 +470,7 @@ export interface CompositionImportParams {
   compositionId?: string;
   manifest?: CompositionManifestOverrides;
   place?: { track?: Id; at?: string };
-  replace?: { itemId: Id };
+  replace?: { itemId: Id; ripple?: boolean };
   register?: boolean;
   /** 烘焙渲染器，缺省 `auto`。 */
   bake?: CompositionBakeMode;

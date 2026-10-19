@@ -115,6 +115,8 @@
     const [projects, setProjects] = useState(D.projects);
     const activeProjects = useMemo(() => window.BC_LIBRARY.visible(projects, false), [projects]);
     const [tasks, setTasks] = useState(D.tasks);
+    /* 后台任务「历史」展开多列的条数（每次 50），只在这次打开期间有效；清空过的 id 记在 prefs（`tasksCleared`，product-design §6.1） */
+    const [tasksMore, setTasksMore] = useState(0);
     const projById = useCallback((id) => projects.find((p) => p.id === id) || null, [projects]);
     const deleteProject = useCallback((id) => setProjects((ps) => ps.filter((p) => p.id !== id)), []);
     const archiveProject = useCallback((id, archived) =>
@@ -714,6 +716,10 @@
     const [pinfo, setPinfo] = useState(null);   // null | {id, extras, editor}；editor：从编辑器顶栏打开（给了 extras）
     const openProjectInfo = useCallback((id, extras) => setPinfo({id, extras: extras || [], editor: !!extras}), []);
     const closeProjectInfo = useCallback(() => setPinfo(null), []);
+    /* ---- 项目设置（版本记录设计 §6，project-git.jsx）：Home 侧栏项目菜单与版本记录对话框底部两个入口 ---- */
+    const [psettings, setPsettings] = useState(null);   // null | {dirId}
+    const openProjectSettings = useCallback((dirId) => setPsettings(dirId ? {dirId} : null), []);
+    const closeProjectSettings = useCallback(() => setPsettings(null), []);
 
     /* ---- toast ---- */
     const [toasts, setToasts] = useState([]);
@@ -851,7 +857,7 @@
       voices, setVoices, addVoices, voiceHandoff, setVoiceHandoff,
       sidebar, setSidebarW, toggleSidebar,
       projects, activeProjects, projById, deleteProject, archiveProject, cloneProject,
-      tasks, runningTask, patchTask, patchProject, taskFor, projPct,
+      tasks, tasksMore, setTasksMore, runningTask, patchTask, patchProject, taskFor, projPct,
       addTask, cancelTask, retryAgentTask: agentSim.retryTask,
       modelDl, modelEnd, modelInstalled, setModelInstalled, downloadModel,
       providerSettings, providerAccounts, patchProvider, setAccounts, cloudAsrDefault, setCloudAsrDefault,
@@ -866,6 +872,7 @@
       dock, movieChats, setMovieChat, videoNotes, setVideoNotes, toolReq, requestTool, clearToolReq, openAgent, openSession, createProject, closeDock, toggleDock, setDock, dockW, setDockW,
       ask, confirm, clearAsk: () => setAsk(null),
       pinfo, openProjectInfo, closeProjectInfo,
+      psettings, openProjectSettings, closeProjectSettings,
       toasts, toast, dismissToast,
     };
   }

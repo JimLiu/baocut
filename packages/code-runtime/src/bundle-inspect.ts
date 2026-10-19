@@ -403,6 +403,54 @@ export function parseRate(text: string): Rate | null {
   return toRate(Number(text));
 }
 
+const NATIVE_REGISTRY = /__baocutCompositions/;
+const SCRIPT_SRC = /<script\b[^>]*?\ssrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi;
+const INLINE_SCRIPT = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
+const STATIC_IMPORT = /(?:\bimport\s*(?:[\w*{}\s,$]+?\s*from\s*)?|\bexport\s*[\w*{}\s,$]+?\s*from\s*|\bimport\s*\(\s*)["']([^"']+)["']/g;
+
+/** 相对引用解析成包内路径：`./`、`../` 相对 `from` 所在目录，`/` 相对包根；带协议或协议相对的不认。 */
+function resolveLocal(from: string, ref: string): string | null {
+  const clean = ref.trim().replace(/[?#].*$/, '');
+  if (!clean || /^[a-z][\w+.-]*:/i.test(clean) || clean.startsWith('//')) return null;
+  const joined = clean.startsWith('/') ? clean.slice(1) : path.posix.join(path.posix.dirname(from), clean);
+  const normalized = path.posix.normalize(joined);
+  return normalized.startsWith('../') || normalized === '..' ? null : normalized;
+}
+
+/**
+ * 没有清单时判断作者合同（规范 §6.1）：入口 HTML，或它用 `<script src>` 引用的包内脚本（再顺着静态 `import` 往下），
+ * 去掉注释后出现 `__baocutCompositions` 就是 `baocut/1`，否则 `hyperframes/1`。没被引用的文件不看。
+ */
+async function detectContract(
+  root: string,
+  entries: readonly CodeBundleFileEntry[],
+  entry: string,
+  html: string,
+): Promise<CodeBundleContract> {
+  const htmlText = stripComments(html, path.extname(entry).toLowerCase());
+  if (NATIVE_REGISTRY.test(htmlText)) return 'baocut/1';
+  const known = new Set(entries.map((e) => e.path));
+  const queue: string[] = [];
+  const enqueue = (from: string, ref: string) => {
+    const target = resolveLocal(from, ref);
+    if (target && known.has(target) && /\.(?:m|c)?js$/i.test(target)) queue.push(target);
+  };
+  for (const match of htmlText.matchAll(SCRIPT_SRC)) enqueue(entry, match[1] ?? match[2] ?? match[3] ?? '');
+  for (const match of htmlText.matchAll(INLINE_SCRIPT)) {
+    for (const imported of match[1]!.matchAll(STATIC_IMPORT)) enqueue(entry, imported[1]!);
+  }
+  const seen = new Set<string>();
+  while (queue.length > 0) {
+    const file = queue.shift()!;
+    if (seen.has(file)) continue;
+    seen.add(file);
+    const text = stripComments(await fs.readFile(path.join(root, ...file.split('/')), 'utf8'), path.extname(file).toLowerCase());
+    if (NATIVE_REGISTRY.test(text)) return 'baocut/1';
+    for (const imported of text.matchAll(STATIC_IMPORT)) enqueue(file, imported[1]!);
+  }
+  return 'hyperframes/1';
+}
+
 function pickEntry(entries: readonly CodeBundleFileEntry[], requested?: string): string {
   if (requested) {
     if (!entries.some((e) => e.path === requested)) {
@@ -524,7 +572,7 @@ export async function inspectBundle(dir: string, options: InspectBundleOptions =
   const networkReferences = await scanNetworkReferences(root, entries);
   await checkNetwork(networkReferences);
 
-  const contract: CodeBundleContract = overrides.contract ?? (/__baocutCompositions/.test(html) ? 'baocut/1' : 'hyperframes/1');
+  const contract: CodeBundleContract = overrides.contract ?? (await detectContract(root, entries, entry, html));
   const sourceEntries = entries.filter((e) => e.path !== FILES_MANIFEST_FILE);
   const staging = await stageCopy(root, sourceEntries, options.stagingDir);
   try {

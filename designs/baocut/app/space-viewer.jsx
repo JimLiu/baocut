@@ -278,6 +278,12 @@
                 <R.Content>{it.note || '文件被移走或删掉了。'}条目还在，接回文件后状态会自己恢复。</R.Content>
               </R.InlineAlert>
             ) : null}
+            {it.status === 'rebuild' ? (
+              <R.InlineAlert variant="informative">
+                <R.Heading>这部视频待重建</R.Heading>
+                <R.Content>文件夹里只有工作区快照，没有视频库（例如从别的电脑拷来，或从 git 克隆）。打开时 BaoCut 从快照重建它；文件夹里还有版本文件时，版本记录照常可用。</R.Content>
+              </R.InlineAlert>
+            ) : null}
           </div>
         </R.Content>
         {/* S2 的可关闭对话框（isDismissible）会藏掉 ButtonGroup，所以这里不用右上角的 ×：
@@ -319,7 +325,7 @@
               {!it.trashed && it.tool && window.BC_HOME_TOOLS.moviePatch(it) && <R.Button variant="secondary" onPress={() => { close(); app.createMovieFromOutput(it); }}>创建视频</R.Button>}
               {it.trashed || !route || route === 'editor' ? null : <R.Button variant="secondary" onPress={edit} isDisabled={it.status === 'missing' || it.status === 'generating'}>{editLabel}</R.Button>}
               {(it.kind === 'movie' && !it.lib) || SURF.agent
-                ? <R.Button variant="accent" onPress={cont} isDisabled={it.kind !== 'movie' && !!it.trashed}>{it.kind === 'movie' && !it.lib ? '打开视频' : '在会话中继续'}</R.Button>
+                ? <R.Button variant="accent" onPress={cont} isDisabled={it.kind !== 'movie' && !!it.trashed}>{it.kind === 'movie' && !it.lib ? (it.status === 'rebuild' ? '重建并打开' : '打开视频') : '在会话中继续'}</R.Button>
                 : null}
             </>
           )}

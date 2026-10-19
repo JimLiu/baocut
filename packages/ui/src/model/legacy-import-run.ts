@@ -283,6 +283,7 @@ export function legacyTaskRow(run: LegacyImportRun, platform: string): TaskRow {
     live,
     queued: false,
     waiting: false,
+    attention: !live && c.pending > 0,
     label,
     tone: live ? 'accent' : c.pending ? 'notice' : 'positive',
     phase,

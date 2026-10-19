@@ -141,8 +141,11 @@ interface BundleSourceInput {
 export interface CompositionImportRequest extends BundleSourceInput {
   name?: string | undefined;
   place?: { track?: string | undefined; at?: string | undefined } | undefined;
-  /** 原地替换时间线上已有的合成片段（代码包规范 §3.3）；与 `place`、`register` 互斥。 */
-  replace?: { itemId: string } | undefined;
+  /**
+   * 原地替换时间线上已有的合成片段（代码包规范 §3.3）；与 `place`、`register` 互斥。`ripple` 让旧终点之后的内容跟着
+   * 长度差移动（命令与协议规范 §4.2 `replaceCodeBundle`）；后台烘焙写回替身那一笔不挪。
+   */
+  replace?: { itemId: string; ripple?: boolean | undefined } | undefined;
   register?: boolean | undefined;
   /** 烘焙渲染器（代码包规范 §7），缺省 `auto`。 */
   bake?: CompositionBakeMode | undefined;
@@ -401,6 +404,7 @@ export class CompositionService {
                     itemId: target.itemId,
                     assetRef: { id: bundleAssetId, revision: bundleRevision },
                     prerender: prerenderRef,
+                    ...(args.replace?.ripple ? { ripple: true } : {}),
                   },
                 ],
                 commandId: args.commandId !== undefined ? `${args.commandId}-place` : undefined,
@@ -420,7 +424,7 @@ export class CompositionService {
               revision: after,
               next:
                 body.code === 'TIMELINE_OVERLAP'
-                  ? '新版本比原片段长，撞上了同一轨道上后面的片段：先用 edits_apply 的 moveItem 把后面的片段往后挪（或 deleteItems 删掉），再用 edits_apply 的 replaceCodeBundle 完成替换（assetRef 与 prerender 取 imported 里的 bundle 与 prerender，写成 { id: assetId, revision }）；不要重新导入'
+                  ? '新版本比原片段长，撞上了同一轨道上后面的片段：要后面的内容整体跟着后移，用 edits_apply 的 replaceCodeBundle 加 ripple: true 完成替换；只挪开那一个片段就先用 moveItem 往后挪（或 deleteItems 删掉）再 replaceCodeBundle。assetRef 与 prerender 取 imported 里的 bundle 与 prerender，写成 { id: assetId, revision }；不要重新导入'
                   : '素材已导入：按错误改正后用 edits_apply 的 replaceCodeBundle 完成替换（assetRef 与 prerender 取 imported 里的 bundle 与 prerender，写成 { id: assetId, revision }）；不要重新导入',
             },
           );

@@ -243,7 +243,14 @@ export {
   type CaptionSource,
   type CaptionVideos,
 } from './pipelines/caption-layer.ts';
-export { CUE_PARAMS, readSpeechWords, retextCaption, translationCues, type CueTranslationUnit } from './pipelines/caption-cues.ts';
+export {
+  CUE_PARAMS,
+  hanInteriorGaps,
+  readSpeechWords,
+  retextCaption,
+  translationCues,
+  type CueTranslationUnit,
+} from './pipelines/caption-cues.ts';
 export {
   TARGET_STEP,
   createScopeOf,

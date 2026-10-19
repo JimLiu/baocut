@@ -82,7 +82,7 @@ MCP 工具 `<名词>_<动词>` 就是 CLI 的 `baocut <名词> <动词>`，参�
 | `videos_version_diff` | `baocut videos version-diff` | query |
 | `videos_versions` | `baocut videos versions` | query |
 
-只在 CLI 里、MCP 上没有的：`baocut artifacts save`、`baocut models install`、`baocut models test`、`baocut projects create`、`baocut space index-build`、`baocut space index-status`、`baocut space related-videos`、`baocut space resolve-search-hit`、`baocut space search-v2`、`baocut speech glossary-candidates`、`baocut speech relevant`、`baocut speech retakes`、`baocut speech sentences`、`baocut speech topic-boundaries`、`baocut transcode`、`baocut videos delete`、`baocut videos import-package`、`baocut videos match-frames`。
+只在 CLI 里、MCP 上没有的：`baocut artifacts save`、`baocut models install`、`baocut models test`、`baocut projects create`、`baocut projects git-commit`、`baocut space index-build`、`baocut space index-status`、`baocut space related-videos`、`baocut space resolve-search-hit`、`baocut space search-v2`、`baocut speech glossary-candidates`、`baocut speech relevant`、`baocut speech retakes`、`baocut speech sentences`、`baocut speech topic-boundaries`、`baocut transcode`、`baocut videos delete`、`baocut videos import-package`、`baocut videos match-frames`。
 <!-- /generated -->
 
 ## 3. 等任务：`jobs_wait` 要循环
@@ -103,6 +103,7 @@ MCP 工具 `<名词>_<动词>` 就是 CLI 的 `baocut <名词> <动词>`，参�
 | `videos_import_package` | CLI，或请用户在 BaoCut 里打开便携包 |
 | `videos_delete` | 请用户在 BaoCut 里删除 |
 | `projects_create` | CLI，或请用户在 BaoCut 里新建项目 |
+| `projects_git_commit` | CLI 的 `baocut projects git-commit`，或请用户在 BaoCut 里提交 |
 | `artifacts_save` | 产物要放进视频直接用 `assets_import` 给 `artifactId`；要文件用 `export` |
 | `models_install`、`models_test` | CLI，或请用户在 BaoCut 的设置里装 |
 

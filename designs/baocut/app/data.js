@@ -435,6 +435,19 @@
        paras: [{t: 2, text: '视频不出这台电脑，是做这个工具的出发点。'}],
      },
      meta: {speakers: 1, chapters: 1, cues: 11}},
+    /* 待重建（视频格式规范 §9.7，2026-10-17）：周远在另一台电脑上剪的，整个文件夹拷了过来，没带 video.db——只有
+       `.bcut-snapshot/` 与版本文件。Space 标「待重建」，打开时就地从快照重建，版本记录末尾多一个「重建」版本。 */
+    {id: 'p14', title: '科浪访谈 · 嘉宾问答精剪', dir: 'd1', folder: '嘉宾问答精剪', status: 'complete', entry: 'trans', bare: true,
+     snapshotOnly: true,
+     src: {name: 'kelang-ep42-master.mp4', path: '~/Movies/播客/kelang-ep42-master.mp4', format: 'MP4 · H.264', res: '1920×1080', state: 'ok'},
+     duration: DUR, lang: '中文', model: 'moss-transcribe', modified: '昨天', mtime: 1520, otime: 6000, ctime: 9000, hue: 300,
+     desc: '周远在另一台电脑上剪的问答精剪：整个文件夹拷了过来，只带了工作区快照和版本文件。',
+     content: {
+       chapters: [{t: 0, title: '问答'}],
+       speakers: ['周远', '苏黎'],
+       paras: [{t: 141, text: '周远追问过一次成本：语音识别在本机是电费，在云上是账单，量一大就不是一个量级。'}],
+     },
+     meta: {speakers: 2, chapters: 1, cues: 9}},
     {id: 'p6', title: '年度回顾 · 素材汇编', dir: 'd7', folder: '素材汇编', status: 'error', error: '模型权重缺少 forced aligner',
      src: {name: 'year-review.mov', path: '~/Movies/回顾/year-review.mov', format: 'MOV · H.264', res: '1920×1080', bytes: 6335076761, state: 'ok'},
      duration: 4820, lang: '中文', model: 'qwen3-asr-0.6b', modified: '上周', mtime: 11520, otime: 20160, ctime: 40320, hue: 350,
@@ -645,7 +658,55 @@
          {id: 'c6', author: '林舟', time: '1 小时前', text: '可以。预告文案谁来写？'}]},
        {id: 'c4', tab: 'overview', block: 'b2', quote: '其余每周一讲', comments: [
          {id: 'c4', author: '林舟', time: '1 小时前', text: '第 5 讲之后的录制排得开吗？要不要改成两周一讲？'}]},
-     ]},
+     ],
+     /* 版本记录（版本记录设计 §13.2，三期方案待确认）：每个标签页的正文各自记版本，旧的在前，字段见 model-home-docs-versions.js。
+        最新一版不写 `blocks`，它就是上面 `tabs` 里的正文。计划：昨晚你写了两版，今早 s34 补了「渠道」，刚才你又改了两处、还开着；
+        概览：你昨晚写好、在「八讲」下面留了一条请求，s34 第二轮按请求写了列表；风险只有昨晚那一版。 */
+     versions: {
+       overview: [
+         {n: 1, day: '昨天', start: '21:30', end: '21:38', by: [{kind: 'you'}], cut: 'turn', blocks: [
+           {id: 'b1', type: 'h1', text: '确定性渲染课程 · 发布计划'},
+           {id: 'b2', type: 'p', text: '这门课讲清视频渲染为什么必须可复现，以及怎么证明它。共 8 讲，每讲 40 分钟；11 月先上线前两讲试听，其余每周一讲。'},
+           {id: 'b3', type: 'h2', text: '这份文档放什么'},
+           {id: 'b4', type: 'list', items: ['计划：目标、上线节奏和每周的负责人', '风险：已知风险和应对办法', '相关文件：落地页在 设计稿/课程落地页/，第 1 讲的课件在 幻灯片/第1讲/']},
+           {id: 'b5', type: 'h3', text: '八讲'},
+           {id: 'b7', type: 'ask', text: '按课程大纲把八讲的题目列出来。'}]},
+         {n: 2, day: '今天', start: '09:40', end: '09:41', by: [{kind: 'agent', session: 's34'}], open: true},
+       ],
+       plan: [
+         {n: 1, day: '昨天', start: '21:40', end: '21:52', by: [{kind: 'you'}], cut: 'quiet', blocks: [
+           {id: 'b1', type: 'h2', text: '目标'},
+           {id: 'b2', type: 'p', text: '首月 800 名付费学员，退款率低于 5%。'},
+           {id: 'b3', type: 'h2', text: '上线节奏'},
+           {id: 'b4', type: 'table', head: ['周', '内容', '负责人', '状态'], rows: [
+             ['第 1 周', '落地页上线，开放第 1、2 讲试听', '林舟', '未开始'],
+             ['第 2 周', '第 3 讲上线', '我', '未开始']]}]},
+         {n: 2, day: '昨天', start: '22:30', end: '22:41', by: [{kind: 'you'}], cut: 'turn', blocks: [
+           {id: 'b1', type: 'h2', text: '目标'},
+           {id: 'b2', type: 'p', text: '首月 500 名付费学员，试听到付费的转化不低于 4%，退款率低于 5%。'},
+           {id: 'b3', type: 'h2', text: '上线节奏'},
+           {id: 'b4', type: 'table', head: ['周', '内容', '负责人', '状态'], rows: [
+             ['第 1 周', '落地页上线，开放第 1、2 讲试听', '林舟', '未开始'],
+             ['第 2 周', '第 3 讲上线，邮件通知试听用户', '我', '未开始'],
+             ['第 3 周', '第 4 讲上线，社群直播答疑', '林舟', '未开始'],
+             ['第 4 周', '第 5 讲上线，首月复盘', '我', '未开始']]}]},
+         {n: 3, day: '今天', start: '10:05', end: '10:09', by: [{kind: 'agent', session: 's34'}], cut: 'quiet', blocks: [
+           {id: 'b1', type: 'h2', text: '目标'},
+           {id: 'b2', type: 'p', text: '首月 500 名付费学员，试听到付费的转化不低于 4%，退款率低于 5%。'},
+           {id: 'b3', type: 'h2', text: '上线节奏'},
+           {id: 'b4', type: 'table', head: ['周', '内容', '负责人', '状态'], rows: [
+             ['第 1 周', '落地页上线，开放第 1、2 讲试听', '林舟', '未开始'],
+             ['第 2 周', '第 3 讲上线，邮件通知试听用户', '我', '未开始'],
+             ['第 3 周', '第 4 讲上线，社群直播答疑', '林舟', '未开始'],
+             ['第 4 周', '第 5 讲上线，首月复盘', '我', '未开始']]},
+           {id: 'b5', type: 'h3', text: '渠道'},
+           {id: 'b6', type: 'list', items: ['课程落地页与试听视频', '已购学员的邮件列表']}]},
+         {n: 4, day: '今天', start: '11:20', end: '11:26', by: [{kind: 'you'}], open: true},
+       ],
+       risks: [
+         {n: 1, day: '昨天', start: '22:45', end: '22:50', by: [{kind: 'you'}], open: true},
+       ],
+     }},
     /* 设计系统（docs/design/canvas §10）：含 design-system.json 的目录是一个条目。下面是原型画设计系统标签页用的演示内容，
        正式版由设计系统编辑器读 design-system.json、tokens.json、README.md、components/ 与 assets/ 来画。字段：
        `fileCount` 是目录里的文件数（导航尾巴上的 Files 行）；`cover` 有值时 Overview 顶上画封面（components/Cover）；`readme` 是 README.md 的原文；
@@ -4043,6 +4104,46 @@ description: 「确定性渲染」课程的统一规范：讲师口吻、代码�
     ],
   };
 
+  /* ---------- 视频的版本记录（2026-10-17，视频格式规范 §9、版本记录设计 §6） ----------
+     每部视频 `.bcut-snapshot/history/` 里的版本，紧凑写法见 model-video-versions.js::normalize：`at` 是开始与结束在多少分钟前
+     （原型的「现在」是 10 月 17 日 10:30），`actions` 是 [执行者, 标签, 次数]，`convs` 是 [会话 ID, 标题]。
+     p1：保留 10 个未命名的版本（最新一版开着）加 3 个保存的；版本 1 已被保留规则清掉，版本 10 是一次回到版本 8。
+     p14：别处拷来、打开时从快照重建的视频；版本 1–5 是那台电脑上的，会话也在那台电脑上。
+     没写在这里的视频用 model-video-versions.js::seed 的一段短历史。 */
+  const videoVersions = {
+    p1: {next: 15, revision: 327,
+      docs: {doc_p1_zh: '中文文稿', doc_p1_en: '英语译文', doc_p1_ja: '日语译文'},
+      list: [
+        {n: 2, kind: 'save', at: [4330, 4330], revs: [18, 19], actions: [['user_local', '保存版本', 1]], name: '转录校对完', note: '中文文稿逐句听过一遍。'},
+        {n: 3, at: [4300, 4230], revs: [19, 46], actions: [['system:jobs', '写入文档', 2]],
+         files: [['documents/doc_p1_en.json', 'add'], ['documents/doc_p1_ja.json', 'add']]},
+        {n: 4, at: [1290, 1250], revs: [46, 70], actions: [['agent:claude', '剪掉片段', 12]], convs: [['s1', '把第 3 章的停顿压到 0.3 秒']], files: ['video.json']},
+        {n: 5, at: [1230, 1200], revs: [70, 74], actions: [['user_local', '删除一段时间', 2]], files: ['video.json']},
+        {n: 6, at: [1170, 1135], revs: [74, 90], actions: [['agent:claude', '设置章节', 1], ['user_local', '修改章节', 3]],
+         convs: [['s6', '这一期的章节表和上一期对齐']], files: ['video.json']},
+        {n: 7, kind: 'save', at: [1130, 1130], revs: [90, 91], actions: [['user_local', '保存版本', 1]], name: '初剪'},
+        {n: 8, at: [1110, 1075], revs: [91, 120], actions: [['user_local', '移动片段', 4], ['user_local', '拆分片段', 2]], files: ['video.json']},
+        {n: 9, at: [150, 128], revs: [120, 168], actions: [['user_local', '调整位置与大小', 5], ['user_local', '修改样式', 3], ['user_local', '更换字幕样式', 1]], files: ['video.json']},
+        {n: 10, kind: 'restore', at: [125, 125], revs: [168, 169], actions: [['user_local', '回到版本 8', 1]], target: [8, false], files: ['video.json']},
+        {n: 11, at: [118, 100], revs: [169, 251], actions: [['agent:claude', '剪掉片段', 6], ['user_local', '修改文字', 1]],
+         convs: [['s5', '第 2 章开头 40 秒的口癖清一遍']], files: ['video.json', 'documents/doc_p1_zh.json']},
+        {n: 12, at: [92, 62], revs: [251, 311], actions: [['agent:claude', '统一术语', 24]], convs: [['s2', '统一「渲染 / 光栅化」的译法']], files: ['documents/doc_p1_en.json']},
+        {n: 13, kind: 'save', at: [58, 58], revs: [311, 312], actions: [['user_local', '保存版本', 1]], name: '发给周远审的版本', note: '第 1–2 章定稿；第 3 章还要压停顿。'},
+        {n: 14, at: [18, 1], revs: [312, 327], actions: [['agent:claude', '剪掉片段', 3], ['user_local', '裁切片段', 11], ['user_local', '修改文字', 2]],
+         convs: [['s1', '把第 3 章的停顿压到 0.3 秒']], files: ['video.json', 'documents/doc_p1_en.json']},
+      ]},
+    p14: {next: 7, revision: 1,
+      docs: {doc_p14_zh: '中文文稿'},
+      list: [
+        {n: 1, at: [4400, 4385], revs: [1, 6], actions: [['system:jobs', '写入文档', 1]], files: [['documents/doc_p14_zh.json', 'add'], 'video.json']},
+        {n: 2, at: [4380, 4330], revs: [6, 31], actions: [['agent:claude', '剪掉片段', 9]], convs: [['s_qa_remote', '问答部分只留三个问题']], files: ['video.json']},
+        {n: 3, at: [4320, 4290], revs: [31, 44], actions: [['user_local', '裁切片段', 6]], files: ['video.json']},
+        {n: 4, kind: 'save', at: [4285, 4285], revs: [44, 45], actions: [['user_local', '保存版本', 1]], name: '问答精剪 v1', note: '给苏黎确认的版本。'},
+        {n: 5, at: [1560, 1520], revs: [45, 52], actions: [['user_local', '修改文字', 3]], files: ['documents/doc_p14_zh.json']},
+        {n: 6, kind: 'rebuild', at: [0, 0], revs: [1, 1]},
+      ]},
+  };
+
   window.BC_DATA = {
     DUR, speakers, chapters, projectTitle, clips, cues, paras, initialSegments,
     srcLang: LANG.zh, dstLang: LANG.en, activateProject, projectSetup,
@@ -4056,6 +4157,6 @@ description: 「确定性渲染」课程的统一规范：讲师口吻、代码�
     setModels, setComponents, setShortcuts, setCrashes,
     canvasStyle, templateItems, elementSpecs,
     textCats, textPresets, textAnims, textStylePresets,
-    entries, cutSuggestions, semantic,
+    entries, cutSuggestions, semantic, videoVersions,
   };
 })();

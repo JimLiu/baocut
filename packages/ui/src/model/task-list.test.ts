@@ -1,7 +1,20 @@
 import { setLocale } from '@baocut/protocol';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { job, task } from '../testing/task-records.ts';
-import { agentRow, clip, jobPercent, jobRow, runsOnLabel, taskGroups, taskRows, type TaskContext } from './task-list.ts';
+import {
+  HISTORY_LIMIT,
+  HISTORY_PAGE,
+  agentRow,
+  clearedUpTo,
+  clip,
+  historyView,
+  jobPercent,
+  jobRow,
+  runsOnLabel,
+  taskGroups,
+  taskRows,
+  type TaskContext,
+} from './task-list.ts';
 
 const ctx: TaskContext = {
   projects: [{ id: 'p1', name: '产品发布会' }],
@@ -420,5 +433,71 @@ describe('taskRows / taskGroups', () => {
     ];
     const pipeline = { name: 'link-import', params: { host: 'youtube.com' }, steps, current: 1, stoppedAt: null, summary: null };
     expect(jobRow(job({ jobId: 'cap', kind: 'pipeline', phase: 'applying', pipeline }), ctx).phase).toBe('生成字幕');
+  });
+});
+
+describe('historyView（产品设计 §6.1）', () => {
+  const now = Date.parse('2026-10-18T12:00:00Z');
+  const DAY = 24 * 60 * 60 * 1000;
+  const ended = (jobId: string, daysAgo: number, state: 'completed' | 'failed' | 'needs-reconciliation' = 'completed') =>
+    jobRow(job({ jobId, state, phase: 'done', endedAt: new Date(now - daysAgo * DAY).toISOString() }), ctx);
+
+  it('按结束时间排、新的在前，只列最近 20 条；展开时每次多列 50 条，接着最近的往下排', () => {
+    const rows = Array.from({ length: 25 }, (_, i) => ended(`j${i}`, (25 - i) / 10));
+    const view = historyView(rows, { now, clearedAt: null, more: 0 });
+    expect(view.items).toHaveLength(HISTORY_LIMIT);
+    expect(view.items[0]!.id).toBe('j24');
+    expect([view.older, view.expanded]).toEqual([5, 0]);
+    const all = historyView(rows, { now, clearedAt: null, more: HISTORY_PAGE });
+    expect(all.items).toHaveLength(25);
+    expect([all.older, all.expanded]).toEqual([0, 5]);
+    expect(all.clearable).toHaveLength(HISTORY_LIMIT);
+  });
+
+  it('上千条时只画出点开的那几批：每次 50 条，按结束时间往更早的接着列', () => {
+    const rows = Array.from({ length: 1200 }, (_, i) => ended(`j${i}`, i / 100));
+    const once = historyView(rows, { now, clearedAt: null, more: HISTORY_PAGE });
+    expect(once.items).toHaveLength(HISTORY_LIMIT + HISTORY_PAGE);
+    expect(once.items.map((r) => r.id).slice(18, 22)).toEqual(['j18', 'j19', 'j20', 'j21']);
+    expect([once.older, once.expanded]).toEqual([1200 - 70, 50]);
+    const twice = historyView(rows, { now, clearedAt: null, more: 2 * HISTORY_PAGE });
+    expect(twice.items).toHaveLength(120);
+    expect(twice.items.at(-1)!.id).toBe('j119');
+  });
+
+  it('展开也列出清空过的与 30 天前的，顺序不变', () => {
+    const rows = [ended('old', 40), ended('cleared', 2), ended('new', 0.5)];
+    const view = historyView(rows, { now, clearedAt: now - DAY, more: HISTORY_PAGE });
+    expect(view.items.map((r) => r.id)).toEqual(['new', 'cleared', 'old']);
+    expect(view.clearable.map((r) => r.id)).toEqual(['new']);
+  });
+
+  it('结束超过 30 天的不列；清空过的（不晚于 clearedAt 结束）不列，之后结束的照常列出', () => {
+    const rows = [ended('old', 31, 'failed'), ended('edge', 29), ended('before', 2), ended('after', 0.5)];
+    const view = historyView(rows, { now, clearedAt: now - DAY, more: 0 });
+    expect(view.items.map((r) => r.id)).toEqual(['after']);
+    expect(view.older).toBe(3);
+    expect(historyView(rows, { now, clearedAt: null, more: 0 }).items.map((r) => r.id)).toEqual(['after', 'before', 'edge']);
+  });
+
+  it('要用户决定的（结果不明）不受上限、30 天与清空的限制，也不在能清空的里', () => {
+    const ask = ended('ask', 60, 'needs-reconciliation');
+    expect(ask.attention).toBe(true);
+    expect(ended('done', 1).attention).toBe(false);
+    const rows = [...Array.from({ length: 22 }, (_, i) => ended(`j${i}`, 1 + i / 100)), ask];
+    const view = historyView(rows, { now, clearedAt: now, more: 0 });
+    expect(view.items.map((r) => r.id)).toEqual(['ask']);
+    expect(view.clearable).toEqual([]);
+    const open = historyView(rows, { now, clearedAt: null, more: 0 });
+    expect(open.items).toHaveLength(HISTORY_LIMIT + 1);
+    expect(open.clearable.map((r) => r.id)).not.toContain('ask');
+  });
+
+  it('清空到能清空的里最晚的结束时间；没有可清的是 null', () => {
+    const rows = [ended('a', 3), ended('b', 1)];
+    expect(clearedUpTo(rows)).toBe(now - DAY);
+    expect(clearedUpTo([])).toBeNull();
+    const cleared = historyView([...rows, ended('c', 0.1)], { now, clearedAt: clearedUpTo(rows), more: 0 });
+    expect(cleared.items.map((r) => r.id)).toEqual(['c']);
   });
 });

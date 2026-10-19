@@ -129,7 +129,7 @@ describe('docs_batch', () => {
     expect(confirmed[0]).toMatchObject({ tool: 'docs_batch', targets: [path.join(root, 'reports', 'q3')] });
     expect(toolRisk(confirmed[0]!)).toBe('edit');
     expect(calls).toEqual([
-      { verb: 'batch', dir: path.join(root, 'reports', 'q3'), args: { container: birth('Q3 Plan'), batch: [] }, actor: { id: 'claude', name: 'Claude' } },
+      { verb: 'batch', dir: path.join(root, 'reports', 'q3'), args: { container: birth('Q3 Plan'), batch: [] }, actor: { id: 'claude', name: 'Claude', conversation: 'conv_1' } },
     ]);
     expect(recorded).toEqual([{ created: { target: { conversationId: 'conv_1', path: 'reports/q3' }, title: 'Q3 Plan', tabCount: 1 }, onlyExisting: false }]);
   });
@@ -218,8 +218,8 @@ describe('docs_read、docs_query', () => {
     await expect(set.dispatch('docs_read', { doc: 'plan', ref: { object: 'project', id: 'p' } }, principal)).resolves.toEqual({ xml: '<doc rev="2"/>' });
     await expect(set.dispatch('docs_query', { doc: 'plan', object: 'utterance', payload: { status: 'open' } }, principal)).resolves.toEqual({ utterances: [] });
     expect(calls).toEqual([
-      { verb: 'read', dir, args: { ref: { object: 'project', id: 'p' } }, actor: { id: 'claude', name: 'Claude' } },
-      { verb: 'query', dir, args: { object: 'utterance', payload: { status: 'open' } }, actor: { id: 'claude', name: 'Claude' } },
+      { verb: 'read', dir, args: { ref: { object: 'project', id: 'p' } }, actor: { id: 'claude', name: 'Claude', conversation: 'conv_1' } },
+      { verb: 'query', dir, args: { object: 'utterance', payload: { status: 'open' } }, actor: { id: 'claude', name: 'Claude', conversation: 'conv_1' } },
     ]);
     expect(confirmed).toEqual([]);
     expect(toolRisk({ tool: 'docs_read' } as ToolConfirmation)).toBe('read');
@@ -244,6 +244,14 @@ describe('docs_create、docs_update、docs_delete', () => {
     expect(confirmed.map((c) => c.tool)).toEqual(['docs_create', 'docs_update', 'docs_delete']);
     expect(confirmed.every((c) => toolRisk(c) === 'edit')).toBe(true);
     expect(recorded.map((r) => r.onlyExisting)).toEqual([true, true, true]);
+  });
+
+  it('写的人带上会话与这个会话现在的回合（文档版本按回合分开）', async () => {
+    const dir = await writeDoc('plan');
+    const { connector, calls } = fakeConnector();
+    const set = new DocsTools({ scope: fakeScope().scope, docs: { connector, turnOf: (conversationId) => (conversationId === 'conv_1' ? 'task_7' : undefined) } });
+    await set.dispatch('docs_update', { doc: 'plan', ref: { object: 'node', id: '.1' }, payload: { ops: [] } }, principal);
+    expect(calls[0]).toMatchObject({ verb: 'update', dir, actor: { id: 'claude', name: 'Claude', conversation: 'conv_1', turn: 'task_7' } });
   });
 });
 

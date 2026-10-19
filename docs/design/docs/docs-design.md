@@ -24,7 +24,7 @@
 | 范围 | 内容 |
 | --- | --- |
 | 做 | 上面四步，桌面端与 Web 端；单用户；导出 Markdown（智能体 `docs_export`，编辑器里的导出） |
-| 不做 | 多人协作与在线状态；分享与权限；图表、示意图、widget（D4）；Claude 会话侧栏；编辑器里的版本历史（第 5 节） |
+| 不做 | 多人协作与在线状态；分享与权限；图表、示意图、widget（D4）；Claude 会话侧栏 |
 
 ## 2. 文档的文件
 
@@ -34,6 +34,8 @@
 <doc>/
   doc.json              { format: "baocut-doc", version: 1, id, name, created, updated, rev, tabs: [...], enums?, sessions, ... }
   tabs/<正文 id>.json    一个标签页的正文：{ id, rev, blocks: [...] }
+  tabs/<正文 id>.history.json   最近 50 个 rev 的正文快照（智能体的 atRev / sinceRev / restore）
+  tabs/<正文 id>.versions.json  最近 10 个版本（第 5 节「版本记录」）
   comments.json         评论线程与回复、resolve
   assets/<sha256>.<ext> 上传的图片与文件，按内容寻址
 ```
@@ -65,9 +67,14 @@
 - Runtime 给的地址是 `/docs/<grant>/`；服务端在 `index.html` 里注入 `<base href="/docs/<grant>/">` 与启动信息 `window.__BAOCUT_DOCS__ = {projectId, canEdit}`。shim（`packages/docs/src/editor/`）设好接口与 WebSocket 的基址（原应用的 `__BONGO_BASE__` / `__BONGO_WS_BASE__` = `/docs/<grant>`），再用 `history.replaceState` 把地址换成应用认的 `/docs/<grant>/project/<文档 id>`（查询串照留）；编辑器的相对地址（字体、样式、拼写词表、运行时）都落在 grant 下。
 - 编辑器的改动经 mux 的 door 调用即时发出；`editor:flush` 时 shim 稍等停笔，再等在途的 door 调用都有了 `doorack`，回 `editor:flushed`。
 - `globalThis.docsHost.comments`：评论的「发送给智能体」与空行上的请求经它发给父窗口（`editor:annotate`，第 8 节）；父窗口回 `editor:annotate-result`。标签（标签页名 › 原文）与原文由 shim 向 `api/baocut/annotation?path=` 查；页面不在 BaoCut 的 iframe 里时 `canSendToClaude()` 为 `no_session`。
+- `globalThis.docsHost.readOnly`：启动信息的 `canEdit` 为 false 时 shim 标上，编辑器据此不开版本历史（History 按钮、项目菜单的「Version history」与版本面板）。只读本身由 door 告诉编辑器；原版按 `access` 接口回 404 认只读，这里回 200（`viewer`），认不出来。
 - `globalThis.docsHost.chat`（只在 BaoCut 的 iframe 里装）：编辑器左下角的「Ask Agent」点了发 `editor:focus-chat`，功能区让这个会话露出来（单条标签条里选中会话标签），光标放到它的输入框末尾；标签不属于会话时提示。页面单独打开时没有这个按钮。原版这里打开 claude.ai 的对话栏，BaoCut 不提供。
 - 选中文字后工具栏的「Ask Agent」打开这处选区的批注框（开头带着提及智能体的 `@Agent`），之后同第 8 节的评论；批注发不出去（页面单独打开、只读）时提示。
-- 版本历史：编辑器的版本面板要文档服务提供版本列表与每一版渲染好的 HTML（`api/v3/project/<id>/file/<文件>/history`、`at/<rev>`、`restore/<rev>`），`packages/docs` 不提供，所以编辑器不显示顶栏的 History 按钮与版本面板（`packages/docs-runtime` README「版本历史」；原版在独立页面总是开着，点了只显示接口的 404）。正文最近若干个 rev 的快照仍存在 `tabs/<正文 id>.history.json`，给智能体的 `atRev` / `sinceRev` 读与 `restore` 用。
+- 版本记录（[版本记录设计 §12.5](../version-history/version-history-design.md#125-三期文档的版本记录)）：每个正文另记最多 10 个版本，一版是「一段工作」。
+  - 分版：安静满 5 分钟、一版满 30 分钟、智能体开始新的一个回合时另开一版；回到版本单独成一版。
+  - 编辑器顶栏的 History 按钮打开移植来的版本面板，每版一行，最新一行标「Current」，其他各行可以预览、与前一版比较、回到这一版（接口见第 6.2 节）。只读会话不显示这个按钮（`docsHost.readOnly`）。面板是英文，智能体的版本写作 Agent（`packages/docs-runtime` README「版本历史」）。
+  - 回到版本只换这个标签页的正文，记成新的一版，现有的版本都还在；文档名与标签页的增删、排序不进版本，删掉的标签页连同版本一起删。
+  - 正文最近 50 个 rev 的快照仍存在 `tabs/<正文 id>.history.json`，给智能体的 `atRev` / `sinceRev` 读与 `restore` 用；收口的版本超出 50 个 rev 之后也能这样读与回去。
 - 数据源、复制项目与反馈：项目菜单的「Data sources」（定时任务与数据库）、「Duplicate」与「Send feedback」要原平台的项目服务与反馈频道。文档没有定时任务与数据库，文档是一个目录、grant 按目录发，复制出的副本没有地方放也打不开，`packages/docs` 也没有收反馈的 `api/feedback`，所以编辑器不列这三项（`packages/docs-runtime` README「项目菜单的「Data sources」「Duplicate」与「Send feedback」」；原版在独立页面列着，点了显示 `databases read failed (404)`、提示 `not_found`，或在反馈对话框里报 404）。「Copy support code」不调接口，照原样保留。
 - 首页：原版顶栏左上角的 Home 按钮回到 `/` 的项目列表。一个 grant 只对应一份文档，没有项目列表，点了落到 `/docs/<grant>/` 上应用认不出的首页，只显示「This page doesn't open here」，回不到文档，所以编辑器不显示这个按钮（`packages/docs-runtime` README「顶栏的 Home 按钮」）。不改成回到当前文档：已经在这份文档里，按了没有变化的按钮比不显示更让人困惑。
 - 与功能区的其他编辑器共用 `editor:ready`、`editor:flush` / `editor:flushed`、`editor:reveal`；文档自己有持久的评论，没有幻灯片那样的标注模式开关。
@@ -87,6 +94,7 @@
 | `/docs/<grant>/`、`/docs/<grant>/project/<id>` | 编辑器页面（注入 `<base>`、启动信息与 CSP）；shim 把地址换成 `project/<文档 id>`；没构建时 503 |
 | `/docs/<grant>/assets/…`、`artifact-type/…` | 编辑器的构建产物，防路径穿越 |
 | `/docs/<grant>/api/…` | 编辑器读写文档、上传与取素材的 HTTP 接口（door 的 HTTP 后备 `POST api/v3/door/<地址>[/batch]`、`POST api/blob`、`GET api/blob/<sha 或素材 id>`、运行时 `api/lfile-runtime/<哈希>`）；上传与写入要同源。编辑器启动与菜单要的原平台列表里，本机没有的定时任务、待审批的运行与数据库（`GET api/v3/project/<id>/routines`、`staged-runs`、`databases`）回空列表 `{rows: []}`；没提供的接口回 404 |
+| `/docs/<grant>/api/v3/project/<id>/file/<标签页>/history`、`at/<版本号>`、`restore/<版本号>` | 版本面板（第 5 节）：`history` 每个版本一行、新的在前（`?before=<版本号>` 只要更早的）；`at` 回那一版结束时的正文（编辑器的 XML，`{xml}`）；`POST restore` 换回那一版、记成新的一版（`{restored, rev}`，和现在一样时不改），要能编辑、同源 |
 | `/docs/<grant>/api/baocut/annotation?path=` | 一条批注的说明 `{kind, label, quote?}`（shim 发 `editor:annotate` 前查） |
 | `/docs/<grant>/api/mux` | WebSocket：door 调用（二进制帧，标签 `~d:<rid>:<o\|b>:<地址>`，回 `doorack`）与推送（`chat` 的空闲帧、`feed:project/<id>` 的新修订与评论、`room:project/<id>` 的标签栏与下拉选项）；跨源的升级回 404 |
 
@@ -106,7 +114,7 @@
 | --- | --- | --- |
 | `docs_batch` | 新建文档（`container.create`），或一组原子的改动 | 编辑 |
 | `docs_create` | 评论与回复、下拉选项、标签页、正文 | 编辑 |
-| `docs_read` | 读文档（`files[]`）或正文（大纲、view、search、`sinceRev`、`atRev`） | 读 |
+| `docs_read` | 读文档（`files[]`）或正文（大纲、view、search、`sinceRev`、`atRev`、版本列表 `{"kind":"versions"}`） | 读 |
 | `docs_update` | 改正文（prose ops）或文档（标签页 patch）；`answering` 指评论线程 | 编辑 |
 | `docs_query` | 列评论线程 | 读 |
 | `docs_delete` | 删标签页、自己的评论、下拉选项 | 编辑 |
@@ -115,7 +123,7 @@
 
 - 每个工具都带 `doc`：文档目录，相对会话工作目录，在会话的来源目录里（不是来源目录本身，不进隐藏与依赖目录，不经过指向外面的符号链接，否则 `PATH_OUTSIDE_WORKSPACE`）。新建时目录不存在或是空的；缺的父目录与文档目录在用户确认之后才建，拒绝时什么也不留下。其余参数照搬连接器，`container` / `ref` 里的文档 id 必须是这份文档自己的（否则 `absent`）。
 - 拒绝码原样作为工具错误的 code（`guard_mismatch`、`find_none`……），`message` 与 `details` 说明怎么修；`doc` 本身的问题是 `DOC_NOT_FOUND`、`NOT_A_DOC`、`DOC_EXISTS`、`DOC_PATH_TAKEN`。
-- 智能体写入的作者是 `{id: 'claude', name: <智能体名>}`，评论的 `query` 结果里带这个名字。编辑器不按 principal 认智能体：发给编辑器的评论与回复，智能体写的带 `via: "mcp"`（原版智能体经 MCP 写入的标记），编辑器据此把作者显示为「Agent」并配智能体头像；本机用户写的 `via` 为 null，按邮箱形式的 principal 显示。
+- 智能体写入的作者是 `{id: 'claude', name: <智能体名>}`，评论的 `query` 结果里带这个名字；另带会话与它正在跑的任务（回合），版本按回合分开（第 5 节）。编辑器不按 principal 认智能体：发给编辑器的评论与回复，智能体写的带 `via: "mcp"`（原版智能体经 MCP 写入的标记），编辑器据此把作者显示为「Agent」并配智能体头像；本机用户写的 `via` 为 null，按邮箱形式的 principal 显示。
 - 只在工具桥面（`surfaces: ['agent']`），同幻灯片与设计稿；写入按访问模式向用户确认。
 
 ### 7.3 线程卡片与 Space

@@ -21,6 +21,7 @@ export * from './design.ts';
 export * from './design-system.ts';
 export * from './docs.ts';
 export * from './external-tools.ts';
+export * from './project-git.ts';
 export * from './fonts.ts';
 export * from './tool-catalogue.ts';
 export * from './template.ts';

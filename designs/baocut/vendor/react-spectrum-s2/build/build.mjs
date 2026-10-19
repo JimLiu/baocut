@@ -6,6 +6,7 @@ import path from 'path';
 import fs from 'fs';
 import {fileURLToPath} from 'url';
 import {fontOverride} from './font-override.mjs';
+import {patchTokenFieldSelection} from '../../../../../tools/s2-tokenfield.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const NODE_MODULES = process.env.NODE_MODULES || path.resolve(HERE, '../../../node_modules');
 const outArg = process.argv.indexOf('--out');
@@ -48,6 +49,10 @@ const shim = {
     // no remote font loading: the canvas has no network; artboards set the type stack themselves
     b.onResolve({filter: /font-faces\.css$/}, () => ({path: 'empty.css', namespace: 'emptycss'}));
     b.onLoad({filter: /.*/, namespace: 'emptycss'}, () => ({contents: '', loader: 'css'}));
+    // Same multiline IME selection fix as the Electron/Web Vite builds.
+    b.onLoad({filter: /[/\\]react-aria[/\\]dist[/\\]private[/\\]tokenfield[/\\]useTokenField\.(mjs|js)$/}, a => ({
+      contents: patchTokenFieldSelection(fs.readFileSync(a.path, 'utf8')), loader: 'js',
+    }));
     // Tabs-guard: the overflow check can run before any tab has rendered
     b.onLoad({filter: /[/\\]s2[/\\]dist[/\\]private[/\\]Tabs\.mjs$/}, async a => {
       const fs = require('fs');

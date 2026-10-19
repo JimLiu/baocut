@@ -36,7 +36,8 @@ type DocTarget = DocsCreated['target'];
 
 export interface DocsToolsDeps {
   scope: ToolScope;
-  docs: { connector: DocsConnector };
+  /** `turnOf`：会话现在的回合（任务 id），文档的版本按回合分开（版本记录设计 §13.2）。 */
+  docs: { connector: DocsConnector; turnOf?: (conversationId: string) => string | undefined };
 }
 
 // i18n-ignore-start: 给模型的工具说明、错误与下一步
@@ -75,7 +76,9 @@ const schemas = {
     ref: objectRef.optional().describe('不给时读文档本身（标签页与各自正文的 id）'),
     engine: engine.optional(),
     container: container.optional(),
-    payload: payload.optional().describe('正文：{"projection":"outline"}、{"kind":"view","parentId"}、{"kind":"search","text"}、{"kind":"view","sinceRev"}'),
+    payload: payload
+      .optional()
+      .describe('正文：{"projection":"outline"}、{"kind":"view","parentId"}、{"kind":"search","text"}、{"kind":"view","sinceRev"}、{"kind":"versions"}'),
   }),
   docs_update: z.strictObject({
     doc: docPath,
@@ -170,6 +173,7 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
     description: [
       '读文档：不给 ref 时是文档本身（files[]：每个标签页的 id 与正文 id），给正文 node 时按 payload 读。',
       '长文档不要整篇读：先 {"projection":"outline"}（每块的 id 与 h），再 {"kind":"view","parentId":"<块 id>"} 读一张表或一个列表，或 {"kind":"search","text":"…"}；回合之间文档可能被人改过，从上次的 rev 起读 {"kind":"view","sinceRev":<rev>}。',
+      '标签页的版本（最近 10 段工作，新的在前，每版的 rev、时间段、谁改的与改了哪几个小节）：{"kind":"versions"}；读某一版用 {"kind":"view","atRev":<那一版的 rev>}。',
       READ_MORE,
     ].join('\n'),
     annotations: { readOnlyHint: true },
@@ -306,7 +310,7 @@ export class DocsTools implements ToolSet {
       ...confirmSummary(birth ? RcAgentTools.docsCreateSummary({ doc: label }) : RcAgentTools.docsEditSummary({ doc: label })),
     });
     if (birth) await fs.mkdir(doc.dir, { recursive: true });
-    const result = await refused(() => docs.connector.batch(doc.dir, { container: args.container, batch: args.batch }, actorOf(access)));
+    const result = await refused(() => docs.connector.batch(doc.dir, { container: args.container, batch: args.batch }, this.#actor(access)));
     await this.#record(access, doc, !birth);
     return { ...asObject(result), ...approvalField(approval) };
   }
@@ -322,7 +326,7 @@ export class DocsTools implements ToolSet {
       ...confirmSummary(args.object === 'utterance' ? RcAgentTools.docsCommentSummary({ doc: label }) : RcAgentTools.docsEditSummary({ doc: label })),
     });
     const { doc: _doc, ...rest } = args;
-    const result = await refused(() => docs.connector.create(doc.dir, rest, actorOf(access)));
+    const result = await refused(() => docs.connector.create(doc.dir, rest, this.#actor(access)));
     await this.#record(access, doc, true);
     return { ...asObject(result), ...approvalField(approval) };
   }
@@ -332,7 +336,7 @@ export class DocsTools implements ToolSet {
     const access = scope.authorize(principal, false);
     const doc = await this.#doc(access, args.doc);
     const { doc: _doc, ...rest } = args;
-    return refused(() => docs.connector.read(doc.dir, rest, actorOf(access)));
+    return refused(() => docs.connector.read(doc.dir, rest, this.#actor(access)));
   }
 
   async #update(args: Args<'docs_update'>, principal: ToolPrincipal) {
@@ -345,7 +349,7 @@ export class DocsTools implements ToolSet {
       ...confirmSummary(RcAgentTools.docsEditSummary({ doc: doc.target.path })),
     });
     const { doc: _doc, ...rest } = args;
-    const result = await refused(() => docs.connector.update(doc.dir, rest, actorOf(access)));
+    const result = await refused(() => docs.connector.update(doc.dir, rest, this.#actor(access)));
     await this.#record(access, doc, true);
     return { ...asObject(result), ...approvalField(approval) };
   }
@@ -355,7 +359,7 @@ export class DocsTools implements ToolSet {
     const access = scope.authorize(principal, false);
     const doc = await this.#doc(access, args.doc);
     const { doc: _doc, ...rest } = args;
-    return refused(() => docs.connector.query(doc.dir, rest, actorOf(access)));
+    return refused(() => docs.connector.query(doc.dir, rest, this.#actor(access)));
   }
 
   async #delete(args: Args<'docs_delete'>, principal: ToolPrincipal) {
@@ -368,7 +372,7 @@ export class DocsTools implements ToolSet {
       ...confirmSummary(RcAgentTools.docsDeleteSummary({ doc: doc.target.path })),
     });
     const { doc: _doc, ...rest } = args;
-    const result = await refused(() => docs.connector.delete(doc.dir, rest, actorOf(access)));
+    const result = await refused(() => docs.connector.delete(doc.dir, rest, this.#actor(access)));
     await this.#record(access, doc, true);
     return { ...asObject(result), ...approvalField(approval) };
   }
@@ -388,7 +392,7 @@ export class DocsTools implements ToolSet {
     if (bytes.byteLength !== file.size) throw new ToolError('FILE_CHANGED', '文件在确认期间被改了：重新调用一次');
     const contentType = contentTypeOf(file.path);
     const uploaded = await refused(() =>
-      docs.connector.upload(doc.dir, { bytes, contentType, name: path.basename(file.path) }, actorOf(access)),
+      docs.connector.upload(doc.dir, { bytes, contentType, name: path.basename(file.path) }, this.#actor(access)),
     );
     return {
       ...uploaded,
@@ -433,6 +437,19 @@ export class DocsTools implements ToolSet {
   }
 
   /** 写入之后：更新会话里这份文档的卡片（新建时添一张）。读不出概要（被删了）时不记。 */
+  /** 智能体在文档里的身份：评论与修改记在它名下（编辑器里显示为助手），带上会话与回合（版本按回合分开）。 */
+  #actor(access: ToolAccess): DocsActor {
+    const driverId = 'conversation' in access ? (access as { conversation: { driverId: string } }).conversation.driverId : '';
+    const conversation = access.principal.kind === 'agent' ? access.principal.conversationId : undefined;
+    const turn = conversation ? this.#deps.docs.turnOf?.(conversation) : undefined;
+    return {
+      id: 'claude',
+      name: driverId && !driverId.startsWith('claude') ? driverId : 'Claude',
+      ...(conversation ? { conversation } : {}),
+      ...(turn ? { turn } : {}),
+    };
+  }
+
   async #record(access: ToolAccess, doc: { dir: string; target: DocTarget }, onlyExisting: boolean): Promise<void> {
     const info = await readDocInfo(doc.dir);
     if (!info) return;
@@ -540,11 +557,6 @@ export class DocsTools implements ToolSet {
   }
 }
 
-/** 智能体在文档里的身份：评论与修改记在它名下（编辑器里显示为助手）。 */
-function actorOf(access: ToolAccess): DocsActor {
-  const driverId = 'conversation' in access ? (access as { conversation: { driverId: string } }).conversation.driverId : '';
-  return { id: 'claude', name: driverId && !driverId.startsWith('claude') ? driverId : 'Claude' };
-}
 
 /** 连接器的拒绝原样作为错误返回：`code` 是连接器的拒绝码（`find_none` 这类），附带的细节一起给。 */
 async function refused<T>(call: () => Promise<T>): Promise<T> {

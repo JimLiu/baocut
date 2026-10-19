@@ -183,6 +183,9 @@ pub struct SnapshotRequest {
     /// 保留的未命名版本数；不给时用 [`DEFAULT_KEEP`]。
     #[serde(default)]
     pub keep: Option<usize>,
+    /// 磁盘上的快照被外部改过也覆盖它：用户选了保留 BaoCut 里的（视频格式规范 §9.8）。
+    #[serde(default)]
+    pub overwrite: bool,
 }
 
 /// 一次写快照的结果。
@@ -209,7 +212,9 @@ pub enum SnapshotState {
     Synced,
     /// 库领先，快照几秒内会写。
     Pending,
-    /// 快照被外部改过（与上次写下的不同），不会被覆盖。
+    /// 只有快照被外部改过（库里没有还没写进快照的改动），读得了：打开时或发现时导入（§9.8）。
+    External,
+    /// 快照被外部改过，而库里也有还没写进快照的改动，或磁盘上的快照读不了：不导入、不覆盖，等用户选（§9.8）。
     Conflict,
     /// 还没有快照。
     Missing,
@@ -217,10 +222,22 @@ pub enum SnapshotState {
     Rebuild,
 }
 
+/// 冲突的原因（`state` 是 `conflict` 时）。
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ConflictReason {
+    /// 两边都改了。
+    BothChanged,
+    /// 磁盘上的快照读不了（手改坏了、有冲突标记、格式版本不对），只能保留 BaoCut 里的。
+    Invalid,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotStatus {
     pub state: SnapshotState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conflict: Option<ConflictReason>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revision: Option<Revision>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -272,6 +289,27 @@ pub struct SaveResult {
     pub committed: Committed,
     pub version: u64,
     pub checkpoint_id: Id,
+}
+
+/// 导入被外部改过的快照（视频格式规范 §9.8）。
+#[derive(Clone, Debug, PartialEq)]
+pub struct ApplyRequest {
+    pub command_id: Id,
+    pub actor: Actor,
+    /// 库里也有还没写进快照的改动时照样导入（用户选了用磁盘上的）；那些改动先封存成一版。
+    pub force: bool,
+    pub keep: Option<usize>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApplyResult {
+    /// 「外部变更」的事务；没有要导入的（或只差格式）时为空。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub committed: Option<Committed>,
+    /// 这次导入产生的 `external` 版本。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<u64>,
 }
 
 /// 删掉一个保存的版本（只能删保存的版本）。
@@ -845,6 +883,33 @@ impl Meta {
             .map(|(path, _)| path.clone())
             .collect()
     }
+
+    /// 库里有还没写进快照的改动：当前状态的投影与上次写下的不同。只建检查点之类不进快照的修改不算。
+    /// 没有逐个文件的摘要（或投影不出来）时退回比较修订号。
+    fn local_changes(&self, revision: i64, projected: Option<&BTreeMap<String, String>>) -> bool {
+        match (projected, &self.files) {
+            (Some(projected), Some(files)) => projected != files,
+            _ => self.revision.is_none_or(|r| r < revision),
+        }
+    }
+}
+
+/// 库里当前状态的快照投影（§9.1）。
+fn project_files(store: &Store, state: &VideoState) -> EngineResult<SnapshotFiles> {
+    let mut bodies = BTreeMap::new();
+    for (id, record) in &state.documents {
+        let revision = &record.current_revision;
+        let body = store.document_body(&state.id, id, revision)?.ok_or_else(|| {
+            ErrorBody::storage(msg!(
+                "engine.documentRevisionNoBody",
+                "Revision {revision} of document {id} has no body",
+                revision,
+                id
+            ))
+        })?;
+        bodies.insert(id.clone(), body);
+    }
+    workspace::project(state, &bodies, workspace::home_dir().as_deref())
 }
 
 /// 一次写快照要做什么。
@@ -857,6 +922,10 @@ struct WriteSpec {
     note: Option<String>,
     checkpoint_id: Option<Id>,
     summary: Option<Text>,
+    /// 磁盘上的快照被外部改过也照写（保留 BaoCut 里的，或导入之后）。
+    overwrite: bool,
+    /// 新版本的起点：没有上一版（或它对不上）时用它，不用磁盘上的。导入时是导入前的状态。
+    start: Option<SnapshotFiles>,
 }
 
 impl WriteSpec {
@@ -870,6 +939,8 @@ impl WriteSpec {
             note: None,
             checkpoint_id: None,
             summary: None,
+            overwrite: request.overwrite,
+            start: None,
         }
     }
 
@@ -964,6 +1035,7 @@ pub fn snapshot_status(video_dir: &Path) -> EngineResult<SnapshotStatus> {
     let latest_version = history.top().map(|v| v.seq);
     let mut status = SnapshotStatus {
         state: SnapshotState::Missing,
+        conflict: None,
         revision: None,
         snapshot_revision: None,
         changed_paths: Vec::new(),
@@ -985,8 +1057,28 @@ pub fn snapshot_status(video_dir: &Path) -> EngineResult<SnapshotStatus> {
     status.snapshot_revision = meta.revision.map(|r| r.to_string());
     let changed = meta.changed_paths(&disk);
     status.state = if !changed.is_empty() {
-        status.changed_paths = changed;
-        SnapshotState::Conflict
+        let projected = project_files(&store, &state).ok().map(|files| workspace::hashes(&files));
+        if projected.as_ref() == Some(&workspace::hashes(&disk)) {
+            // 磁盘上的正是库里的状态（中断的写或导入之后）：不算外部改动，下一次写补上簿记。
+            SnapshotState::Pending
+        } else {
+            status.changed_paths = changed;
+            let readable = workspace::parse(&disk, workspace::home_dir().as_deref())
+                .and_then(|parsed| workspace::validate(&parsed.state))
+                .is_ok();
+            status.conflict = if !readable {
+                Some(ConflictReason::Invalid)
+            } else if meta.local_changes(state.revision, projected.as_ref()) {
+                Some(ConflictReason::BothChanged)
+            } else {
+                None
+            };
+            if status.conflict.is_some() {
+                SnapshotState::Conflict
+            } else {
+                SnapshotState::External
+            }
+        }
     } else if meta.files.is_none() || !disk.contains_key(VIDEO_FILE) {
         SnapshotState::Missing
     } else if meta.pending.is_some() || meta.revision.is_none_or(|r| r < state.revision) {
@@ -1006,11 +1098,7 @@ impl Video {
     }
 
     fn current_files(&self) -> EngineResult<SnapshotFiles> {
-        let mut bodies = BTreeMap::new();
-        for (id, record) in &self.state.documents {
-            bodies.insert(id.clone(), self.document_text(id, &record.current_revision)?);
-        }
-        workspace::project(&self.state, &bodies, workspace::home_dir().as_deref())
+        project_files(&self.store, &self.state)
     }
 
     /// 修订号在 `(from, to]` 里的事务组成的动作清单。
@@ -1060,14 +1148,15 @@ impl Video {
         let next = self.current_files()?;
         let meta = Meta::load(&self.store)?;
         let disk = workspace::read_files(&root)?;
+        let next_hashes = workspace::hashes(&next);
+        let disk_hashes = workspace::hashes(&disk);
         let changed = meta.changed_paths(&disk);
-        if !changed.is_empty() {
+        // 被外部改过的快照不覆盖。磁盘上的正是库里的状态时不算（中断的写或导入之后），照常补上版本与簿记。
+        if !changed.is_empty() && !spec.overwrite && disk_hashes != next_hashes {
             return Err(snapshot_conflict(changed));
         }
         let history = History::load(root.join(HISTORY_DIR), true)?;
         let revision = self.state.revision;
-        let next_hashes = workspace::hashes(&next);
-        let disk_hashes = workspace::hashes(&disk);
         let consistent = meta.pending.is_none() && meta.files.as_ref() == Some(&disk_hashes);
         let unchanged = consistent && disk_hashes == next_hashes;
         let top = history.top();
@@ -1101,7 +1190,7 @@ impl Video {
 
         let pending = serde_json::to_string(&next_hashes).expect("摘要表总能序列化");
         // 还没有版本：第一次写只写基线；重建后没有版本记录时同样只写基线。
-        if top.is_none() && (!consistent || spec.kind == VersionKind::Rebuild) {
+        if top.is_none() && spec.start.is_none() && (!consistent || spec.kind == VersionKind::Rebuild) {
             self.store.set_meta(&[(META_PENDING, Some(&pending))])?;
             result.written = workspace::write_files(&root, &next, &disk)?;
             self.save_meta(&next_hashes)?;
@@ -1125,8 +1214,11 @@ impl Video {
             return Ok(result);
         }
 
-        // 开新版本：起点是上一版结束时的快照（起点加 diff），没有时取磁盘上的。
-        let start = top.and_then(Loaded::end).unwrap_or_else(|| disk.clone());
+        // 开新版本：起点是上一版结束时的快照（起点加 diff），没有时取给定的起点或磁盘上的。
+        let start = top
+            .and_then(Loaded::end)
+            .or_else(|| spec.start.clone())
+            .unwrap_or_else(|| disk.clone());
         if spec.kind == VersionKind::Segment && workspace::hashes(&start) == next_hashes {
             // 上一次写在记完簿记之前中断：版本已经写下，补完簿记即可。
             self.store.set_meta(&[(META_PENDING, Some(&pending))])?;
@@ -1135,6 +1227,31 @@ impl Video {
             return Ok(result);
         }
         let seq = (history.highest_seq() + 1).max(meta.next.unwrap_or(1));
+        let mut header = self.new_header(seq, &spec, &meta, now)?;
+        // 起点文件先落盘：它在，这一版就开了。
+        history.write_base(seq, &start)?;
+        let next_seq = (seq + 1).to_string();
+        self.store
+            .set_meta(&[(META_PENDING, Some(&pending)), (META_NEXT, Some(&next_seq))])?;
+        result.written = workspace::write_files(&root, &next, &disk)?;
+        let patches = diff_files(&start, &next);
+        header.files = file_changes(&patches, &start, &next);
+        history.write_patch(&header, &patches)?;
+        if let Some(top) = top
+            && top.base.is_some()
+        {
+            history.remove(&history.base_path(top.seq))?;
+        }
+        self.save_meta(&next_hashes)?;
+        result.version = Some(seq);
+        result.opened = true;
+        result.pruned = prune(&root, &next, spec.keep)?;
+        Ok(result)
+    }
+
+    /// 新版本的头部：修订号从上次写快照时算到现在，`files` 由调用方填。
+    fn new_header(&self, seq: u64, spec: &WriteSpec, meta: &Meta, now: &str) -> EngineResult<VersionHeader> {
+        let revision = self.state.revision;
         let from = meta.revision.unwrap_or(revision).min(revision);
         let (actions, omitted) = self.actions_between(from, revision)?;
         let mut header = VersionHeader {
@@ -1162,25 +1279,7 @@ impl Video {
             (None, _) => summarize(&header.actions, header.actions_omitted),
         };
         set_summary(&mut header, summary);
-        // 起点文件先落盘：它在，这一版就开了。
-        history.write_base(seq, &start)?;
-        let next_seq = (seq + 1).to_string();
-        self.store
-            .set_meta(&[(META_PENDING, Some(&pending)), (META_NEXT, Some(&next_seq))])?;
-        result.written = workspace::write_files(&root, &next, &disk)?;
-        let patches = diff_files(&start, &next);
-        header.files = file_changes(&patches, &start, &next);
-        history.write_patch(&header, &patches)?;
-        if let Some(top) = top
-            && top.base.is_some()
-        {
-            history.remove(&history.base_path(top.seq))?;
-        }
-        self.save_meta(&next_hashes)?;
-        result.version = Some(seq);
-        result.opened = true;
-        result.pruned = prune(&root, &next, spec.keep)?;
-        Ok(result)
+        Ok(header)
     }
 
     /// 当前版本延续到现在：更新时间、修订号范围、动作清单与会话。
@@ -1313,6 +1412,118 @@ impl Video {
             next.documents.insert(id, record);
         }
         Ok((next, documents))
+    }
+
+    /// 导入被外部改过的快照（视频格式规范 §9.8）：按实体与文档求差，作为一笔可撤销的「外部变更」提交，并单独成一个
+    /// `external` 版本，diff 从导入前的状态算到磁盘上的快照。磁盘上的快照没有被外部改过时什么也不做。
+    /// 库里也有还没写进快照的改动时报 `SNAPSHOT_CONFLICT`，除非 `force`（用户选了用磁盘上的）：那些改动先封存成一版。
+    pub fn apply_snapshot(&mut self, request: &ApplyRequest) -> EngineResult<ApplyResult> {
+        self.apply_snapshot_at(request, &now_rfc3339())
+    }
+
+    /// 同 [`Video::apply_snapshot`]，时间由调用方给（测试版本的边界）。
+    pub fn apply_snapshot_at(&mut self, request: &ApplyRequest, now: &str) -> EngineResult<ApplyResult> {
+        self.ensure_writable()?;
+        let hash = payload_hash(&json!({ "kind": "applySnapshot", "force": request.force }));
+        if let Some(replayed) = self.replay(&request.command_id, &hash)? {
+            return Ok(ApplyResult {
+                committed: Some(replayed),
+                version: None,
+            });
+        }
+        let disk = workspace::read_files(&self.snapshot_root())?;
+        let meta = Meta::load(&self.store)?;
+        let changed = meta.changed_paths(&disk);
+        if changed.is_empty() {
+            return Ok(ApplyResult::default());
+        }
+        let current = self.current_files()?;
+        let current_hashes = workspace::hashes(&current);
+        if current_hashes == workspace::hashes(&disk) {
+            // 磁盘上的正是库里的状态：没有要导入的，补上版本与簿记。
+            self.write_with(WriteSpec::flush(request.keep), now)?;
+            return Ok(ApplyResult::default());
+        }
+        let local = meta.local_changes(self.state.revision, Some(&current_hashes));
+        if local && !request.force {
+            return Err(snapshot_conflict(changed));
+        }
+        let parsed = workspace::parse(&disk, workspace::home_dir().as_deref())?;
+        let (next, documents) = self.restored_state(parsed)?;
+        workspace::validate(&next)?;
+        if local {
+            self.seal_local(&current, now)?;
+        }
+        let label = msg!("engine.labelExternalChange", "External change");
+        // 只差格式（例如手改了缩进）时没有事务：照常写回规范的文本，不产生版本。
+        let committed = if VideoState::diff(&self.state, &next).is_empty() {
+            None
+        } else {
+            Some(self.commit(
+                next,
+                CommitInput::direct(request.command_id.clone(), hash, label.clone(), request.actor.clone(), documents),
+            )?)
+        };
+        let spec = if committed.is_some() {
+            WriteSpec {
+                kind: VersionKind::External,
+                summary: Some(label),
+                ..WriteSpec::flush(request.keep)
+            }
+        } else {
+            WriteSpec::flush(request.keep)
+        };
+        let written = self.write_with(
+            WriteSpec {
+                overwrite: true,
+                start: Some(current),
+                ..spec
+            },
+            now,
+        )?;
+        Ok(ApplyResult {
+            version: committed.as_ref().and(written.version),
+            committed,
+        })
+    }
+
+    /// 用磁盘上的快照之前，把库里还没写进快照的改动封存成一版（视频格式规范 §9.8；版本记录设计 §3.1「前面的改动先作为
+    /// 一版封存」）：只写版本文件、不动磁盘上的快照，随后的 `external` 版本从这一版结束时的状态算起，版本链不断。还没有
+    /// 版本时不用封存：`external` 版本直接从给定的起点（库里的状态）算起。
+    fn seal_local(&mut self, local: &SnapshotFiles, now: &str) -> EngineResult<()> {
+        let history = History::load(self.snapshot_root().join(HISTORY_DIR), true)?;
+        let Some(top) = history.top() else { return Ok(()) };
+        let (Some(start), Some(base)) = (top.end(), top.base.as_ref()) else {
+            return Ok(());
+        };
+        if workspace::hashes(&start) == workspace::hashes(local) {
+            return Ok(());
+        }
+        let spec = WriteSpec::flush(None);
+        if top.header.kind == VersionKind::Segment && within_window(&top.header, now) {
+            // 并入当前版本：diff 从它的起点重算。
+            let header = self.extended_header(&top.header, &spec, now)?;
+            let patches = diff_files(base, local);
+            let header = VersionHeader {
+                files: file_changes(&patches, base, local),
+                ..header
+            };
+            history.write_patch(&header, &patches)?;
+        } else {
+            let meta = Meta::load(&self.store)?;
+            let seq = (history.highest_seq() + 1).max(meta.next.unwrap_or(1));
+            let mut header = self.new_header(seq, &spec, &meta, now)?;
+            history.write_base(seq, &start)?;
+            let next_seq = (seq + 1).to_string();
+            self.store.set_meta(&[(META_NEXT, Some(&next_seq))])?;
+            let patches = diff_files(&start, local);
+            header.files = file_changes(&patches, &start, local);
+            history.write_patch(&header, &patches)?;
+            history.remove(&history.base_path(top.seq))?;
+        }
+        // 下一版的动作清单从这里算起。
+        let revision = self.state.revision.to_string();
+        self.store.set_meta(&[(META_REVISION, Some(&revision))])
     }
 
     /// 把当前状态存成一个具名版本（视频格式规范 §9.6）：先写快照，再建一个检查点，最后写一个钉住的 `save` 版本。

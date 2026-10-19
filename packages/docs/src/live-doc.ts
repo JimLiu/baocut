@@ -3,7 +3,8 @@
  *
  * - 改动先落在内存，300 ms 去抖后写回目录；`flush()` 立即写。
  * - `transaction()`：一组改动要么全部生效、要么一条也不生效（door 的 batch、连接器的一次调用）；通知在提交后才发出。
- * - 每个正文留最近 50 个 rev 的快照，供 `atRev` / `sinceRev` 读与 `restore`。
+ * - 每个正文留最近 50 个 rev 的快照，供 `atRev` / `sinceRev` 读与 `restore`；另记最多 10 个版本（`versions.ts`），
+ *   版本结束时的正文也能按 rev 读与回去。
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -21,7 +22,9 @@ import {
   type DocState,
   type LiveNode,
   type StoredThread,
+  type VersionAuthor,
 } from './store.ts';
+import { cloneVersions, recordVersion, versionAt, versionBlocks } from './versions.ts';
 
 /** 文档变了：订阅者（mux）据此推给开着的编辑器。`origin` 是发起改动的连接（它自己已经有了这次改动）。 */
 export type DocEvent =
@@ -40,6 +43,8 @@ export interface LiveDocOptions {
   onError?: (message: string, error: unknown) => void;
   /** 目录在磁盘上不见了（被删、被挪走）：服务端据此把它从内存里拿掉。 */
   onGone?: (doc: LiveDoc) => void;
+  /** 现在的时间（毫秒）：版本按它分段，测试换成假的钟。 */
+  now?: () => number;
 }
 
 export class LiveDoc {
@@ -162,12 +167,18 @@ export class LiveDoc {
     this.#schedule();
   }
 
-  /** 正文换成新的块与 rev：记快照，标记要写。 */
-  commitNode(node: LiveNode, blocks: ProseBlock[], rev: number): void {
+  /**
+   * 正文换成新的块与 rev：记快照与版本，标记要写。`author` 是改的人（分版本、记谁改的）；`restoredFrom` 表示这是回到某个 rev，
+   * 单独成一版。
+   */
+  commitNode(node: LiveNode, blocks: ProseBlock[], rev: number, change: { author?: VersionAuthor; restoredFrom?: number } = {}): void {
+    const before = node.blocks;
+    const beforeRev = node.rev;
     node.blocks = blocks;
     node.rev = rev;
     node.history.push({ rev, blocks: blocks.map(compressBlock) });
     if (node.history.length > HISTORY_LIMIT) node.history.splice(0, node.history.length - HISTORY_LIMIT);
+    recordVersion(node, { before, beforeRev, ...change, now: this.#options.now?.() ?? Date.now() });
     this.#dirty.nodes.add(node.id);
     this.markMeta();
   }
@@ -186,11 +197,12 @@ export class LiveDoc {
     this.markMeta();
   }
 
-  /** 某个 rev 时的正文（展开后）；快照里没有时 undefined。 */
+  /** 某个 rev 时的正文（展开后）：先找快照，再找结束在这个 rev 的版本；都没有时 undefined。 */
   snapshot(node: LiveNode, rev: number): ProseBlock[] | undefined {
     const found = node.history.find((snapshot) => snapshot.rev === rev);
-    if (!found) return undefined;
-    return found.blocks.map((block, index) => expandBlock(block, `history.${rev}[${index}]`));
+    if (found) return found.blocks.map((block, index) => expandBlock(block, `history.${rev}[${index}]`));
+    const version = versionAt(node, rev);
+    return version?.blocks ? versionBlocks(node, version) : undefined;
   }
 
   /** 最早还留着快照的 rev。 */
@@ -335,7 +347,7 @@ export class LiveDoc {
 }
 
 function cloneState(state: DocState): DocState {
-  return { meta: structuredClone(state.meta), nodes: new Map([...state.nodes].map(([id, node]) => [id, { ...node, blocks: structuredClone(node.blocks), history: [...node.history] }])), comments: structuredClone(state.comments) };
+  return { meta: structuredClone(state.meta), nodes: new Map([...state.nodes].map(([id, node]) => [id, { ...node, blocks: structuredClone(node.blocks), history: [...node.history], versions: cloneVersions(node.versions) }])), comments: structuredClone(state.comments) };
 }
 
 function cloneDirty(dirty: DirtySet): DirtySet {

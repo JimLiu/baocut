@@ -112,6 +112,10 @@ export const pl: RcAgentToolsMessages = {
   registerProjectSummary: (p) => `Zarejestruj istniejący folder ${p.path} jako projekt${p.name ? ` (${p.name})` : ""}`,
   createProjectSummary: (p) => `Utwórz folder projektu ${p.path}${p.name ? ` (${p.name})` : ""}`,
   adoptSessionSummary: (p) => `Utwórz projekt ${p.name ? `„${p.name}”` : 'o nazwie pierwszego wideo'} i przenieś do niego wideo i pliki tej sesji`,
+  bindSessionSummary: (p) =>
+    `${p.action}, ${p.project ? `w projekcie „${p.project}” (${p.path})` : `w ${p.path} (folder zostanie zarejestrowany jako nowy projekt)`}; ta sesja przejdzie do tego projektu, a wideo i pliki z jej folderu roboczego zostaną tam przeniesione`,
+  adoptSessionIntoSummary: (p) =>
+    `Przenieś tę sesję ${p.project ? `do projektu „${p.project}” (${p.path})` : `do ${p.path} (folder zostanie zarejestrowany jako nowy projekt)`} razem z wideo i plikami z jej folderu roboczego`,
   deriveVideoSummary: (p) => `Utwórz wideo pochodne „${p.name}” z fragmentu ${p.from}–${p.to} tego wideo`,
   deriveVideoLabel: (p) => `Pochodne od „${p.name}”`,
   derivationDocumentName: 'Źródło wideo pochodnego',

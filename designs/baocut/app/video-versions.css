@@ -1,0 +1,106 @@
+/* 视频的版本记录（video-versions.jsx）：S2 CustomDialog 里左列表、右详情；diff 用等宽字体，长行横向滚动。高度跟 CustomDialog 的 max-height 90% 对齐，矮窗口里不出外层滚动条。 */
+.bc-versions-dialog .vh { width: 100%; height: min(720px, 90dvh); display: flex; flex-direction: column; min-height: 0; color: var(--gray-800); }
+
+.vh-head { display: flex; align-items: center; gap: 12px; padding: 16px 16px 16px 24px; border-bottom: 1px solid var(--gray-200); flex: none; }
+.vh-head__mark { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: var(--gray-100); color: var(--gray-800); flex: none; }
+.vh-head__text { display: flex; flex-direction: column; min-width: 0; }
+.vh-head__text h2 { margin: 0; font-size: 16px; font-weight: 800; color: var(--gray-900); }
+.vh-head__video { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--gray-600); }
+.vh-head__state, .vh-head__save { flex: none; white-space: nowrap; }
+
+.vh-alert { margin: 12px 24px 0; flex: none; }
+.vh-paths { display: flex; flex-direction: column; gap: 2px; margin: 6px 0; }
+.vh-mono { font-family: var(--mono); font-size: 12px; }
+.vh-done { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.vh-choice { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+
+.vh-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); }
+.vh-list { min-height: 0; padding: 8px; border-right: 1px solid var(--gray-200); background: var(--gray-75); }
+.vh-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; outline: none; cursor: default; }
+.vh-row + .vh-row { margin-top: 2px; }
+.vh-row[data-hovered] { background: var(--gray-100); }
+.vh-row[data-selected] { background: var(--blue-100); }
+.vh-row[data-focus-visible] { outline: 2px solid var(--blue-900); outline-offset: -2px; }
+.vh-row__icon { display: grid; place-items: center; width: 24px; height: 24px; flex: none; color: var(--gray-700); }
+.vh-row.is-save .vh-row__icon { color: var(--blue-900); }
+.vh-row.is-unreadable .vh-row__icon { color: var(--orange-900); }
+.vh-row__body { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.vh-row__t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: var(--gray-900); }
+.vh-row.is-save .vh-row__t { font-weight: 700; }
+.vh-row__d { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--gray-600); }
+.vh-row.is-blocked .vh-row__t, .vh-row.is-blocked .vh-row__icon { color: var(--gray-600); }
+.vh-row__flag { flex: none; font-size: 11px; color: var(--gray-600); }
+
+.vh-detail { min-width: 0; min-height: 0; padding: 20px 24px 24px; }
+.vh-eyebrow { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--gray-700); }
+.vh-title { margin: 8px 0 0; font-size: 20px; font-weight: 800; line-height: 1.3; color: var(--gray-900); }
+.vh-note { margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: var(--gray-800); }
+.vh-meta { margin: 6px 0 0; font-size: 12px; color: var(--gray-600); }
+.vh-hint { margin: 12px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--blue-100); color: var(--blue-1000); font-size: 12px; line-height: 1.5; }
+.vh-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.vh-why { display: flex; align-items: flex-start; gap: 6px; margin: 8px 0 0; font-size: 12px; line-height: 1.5; color: var(--gray-700); }
+.vh-why svg { flex: none; margin-top: 1px; }
+.vh-why + .vh-why { margin-top: 4px; }
+
+.vh-facts { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 10px 16px; margin: 20px 0 0; font-size: 14px; }
+.vh-facts dt { color: var(--gray-600); font-size: 12px; line-height: 20px; }
+.vh-facts dd { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.vh-actor { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.vh-actor__who { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--gray-900); }
+.vh-actor__who svg { align-self: center; }
+.vh-actor__what { color: var(--gray-800); }
+.vh-conv { align-self: flex-start; margin-left: -8px; }
+.vh-conv-text { display: inline-flex; align-items: center; gap: 6px; }
+.vh-file { display: flex; gap: 8px; }
+.vh-muted { color: var(--gray-600); font-size: 12px; }
+
+.vh-diff { margin-top: 24px; }
+.vh-sec { margin: 0; font-size: 14px; font-weight: 700; color: var(--gray-900); }
+.vh-diff__bar { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.vh-diff__file-n { font-family: var(--mono); font-size: 12px; color: var(--gray-600); }
+.vh-diff__file { border: 1px solid var(--gray-200); border-radius: 8px; overflow: hidden; }
+.vh-diff__file + .vh-diff__file { margin-top: 12px; }
+.vh-diff__fhead { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--gray-75); border-bottom: 1px solid var(--gray-200); font-size: 12px; }
+.vh-diff__fhead strong { color: var(--gray-900); font-size: 14px; }
+.vh-diff__path { font-family: var(--mono); color: var(--gray-600); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.vh-diff__chg { color: var(--gray-700); }
+.vh-diff__stat { display: inline-flex; gap: 6px; font-family: var(--mono); }
+.vh-diff__stat .is-add { color: var(--green-900); }
+.vh-diff__stat .is-del { color: var(--red-900); }
+.vh-diff__code { margin: 0; padding: 4px 0; overflow-x: auto; font-family: var(--mono); font-size: 12px; line-height: 20px; color: var(--gray-800); background: var(--gray-25); }
+.vh-diff__ln { display: block; width: max-content; min-width: 100%; padding: 0 12px; white-space: pre; }
+.vh-diff__ln.is-add { background: var(--green-100); color: var(--green-1100); }
+.vh-diff__ln.is-del { background: var(--red-100); color: var(--red-1100); }
+.vh-diff__ln.is-hunk { color: var(--blue-1000); background: var(--blue-100); }
+
+.vh-empty { display: grid; place-items: center; flex: 1; min-height: 240px; padding: 24px; text-align: center; }
+.vh-foot { display: flex; flex-direction: column; gap: 2px; padding: 10px 24px; border-top: 1px solid var(--gray-200); font-size: 12px; color: var(--gray-600); flex: none; }
+
+.vh-save { display: flex; flex-direction: column; gap: 12px; width: 340px; padding: 16px; }
+.vh-save__h { margin: 0; font-size: 16px; font-weight: 800; color: var(--gray-900); }
+.vh-save__p { margin: 0; font-size: 12px; line-height: 1.5; color: var(--gray-700); }
+.vh-save__acts { display: flex; justify-content: flex-end; gap: 8px; }
+
+.vh-entry { position: relative; }
+.vh-entry__alert { position: absolute; top: 4px; right: 4px; background-color: var(--red-900); }
+
+/* 编辑器顶部的快照冲突（版本记录设计 §6）：与字体、子视频那两条同一个位置与尺寸，危险色；窄时按钮折到第二行 */
+.vh-strip { flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 36px; margin: 10px 12px 0; padding: 6px 6px 6px 12px; border-radius: 8px; background: var(--red-100); color: var(--red-1100); font-size: 12px; }
+.vh-strip > svg { flex: none; color: var(--red-900); }
+.vh-strip__text { flex: 1 1 200px; min-width: 0; }
+
+@media (max-width: 720px) {
+  /* 窄屏：快照状态换到第二行，标题、保存、关闭留在第一行 */
+  .vh-head { flex-wrap: wrap; row-gap: 4px; padding-left: 16px; }
+  .vh-head__mark { display: none; }
+  .vh-head__text { flex: 1; }
+  .vh-head__state { order: 1; flex-basis: 100%; }
+  .vh-head .grow { display: none; }
+  .vh-alert { margin: 12px 16px 0; }
+  /* 底部多了 git 状态条，手机上冲突提示的文件列表会把版本列表挤没：列表限高、自己滚动，选择按钮留在屏幕上；底部的状态说明与提示重复，收起 */
+  .vh-paths { max-height: 24dvh; overflow-y: auto; }
+  .vh-foot__desc { display: none; }
+  .vh-detail { padding: 16px; }
+  .vh-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(160px, 38%) minmax(0, 1fr); }
+  .vh-list { border-right: none; border-bottom: 1px solid var(--gray-200); }
+}

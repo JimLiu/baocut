@@ -14,6 +14,7 @@ import {
   type Id,
   type JobRecord,
   type Project,
+  type TextItem,
 } from '@baocut/protocol';
 import { resolveRuntimeHome } from '@baocut/runtime-storage';
 import { resolveExportWorkerCommand } from '../exports/video-export.ts';
@@ -295,6 +296,60 @@ describe.skipIf(!engine || !worker || !ffmpeg || !electron)('代码画面 RPC（
       },
     });
   }, 600_000);
+
+  it('compositions.import replace 带 ripple：变长时旧终点之后各轨的片段跟着后移，前面的不动', async () => {
+    const first = await client.request(
+      'compositions.import',
+      { video: videoId, files: inline(), name: '要变长的', background: true, place: { at: '40' } },
+      LONG,
+    );
+    const placed = item(first.itemId!)!;
+    expect(placed.span).toEqual({ fromFrame: 1200, durationFrames: 120 });
+    const text = (label: string, fromFrame: number) => ({
+      type: 'text' as const,
+      span: { fromFrame, durationFrames: 30 },
+      place: { x: 50, y: 50, w: 40 },
+      text: label,
+      style: {},
+    });
+    const before = video();
+    await client.request('edits.apply', {
+      videoId,
+      commandId: newId('cmd'),
+      expectedRevision: before.revision,
+      operations: [
+        { type: 'addTrack', sequenceId: before.rootSequenceId, kind: 'visual', ref: 'notes' },
+        {
+          type: 'insertItems',
+          sequenceId: before.rootSequenceId,
+          items: [
+            { ...text('后面', 1320), trackId: placed.trackId },
+            { ...text('旁注', 1330), trackRef: 'notes' },
+            { ...text('前面', 1100), trackRef: 'notes' },
+          ],
+        },
+      ],
+    });
+    const byText = (label: string) =>
+      video().sequences[video().rootSequenceId]!.items.find((i): i is TextItem => i.type === 'text' && i.text === label)!;
+
+    const longer = [{ path: 'index.html', content: html.replace('data-duration="4"', 'data-duration="6"') }];
+    const replaced = await client.request(
+      'compositions.import',
+      { video: videoId, files: longer, name: '变长了', background: true, replace: { itemId: first.itemId!, ripple: true } },
+      LONG,
+    );
+    expect(replaced.replaced).toMatchObject({ oldDurationFrames: 120, newDurationFrames: 180, rippleFrames: 60 });
+    expect(item(first.itemId!)!.span).toEqual({ fromFrame: 1200, durationFrames: 180 });
+    expect(byText('后面').span).toEqual({ fromFrame: 1380, durationFrames: 30 });
+    expect(byText('旁注').span).toEqual({ fromFrame: 1390, durationFrames: 30 });
+    expect(byText('前面').span).toEqual({ fromFrame: 1100, durationFrames: 30 });
+
+    // 后台烘焙写回替身那一笔不再挪：长度一致，后面的片段停在挪过的位置。
+    for (const jobId of [first.bakeJobId!, replaced.bakeJobId!]) await settled(jobId, 600_000);
+    expect(item(first.itemId!)!.span).toEqual({ fromFrame: 1200, durationFrames: 180 });
+    expect(byText('后面').span).toEqual({ fromFrame: 1380, durationFrames: 30 });
+  }, 900_000);
 
   it('后台烘焙期间实例被删：任务以 COMPOSITION_BAKE_SUPERSEDED 失败，不写替身', async () => {
     const imported = await client.request(

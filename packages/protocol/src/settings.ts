@@ -115,6 +115,13 @@ export interface SettingValues {
   /** 版本记录何时开新版本（§5.12）：`segment` 按安静期与时长；`turn` 另在智能体每个回合开始时。 */
   'versions.cadence': VersionCadence;
   /**
+   * git 桥的自动提交（版本记录设计 §5.3）：打开后，项目安静满 5 分钟、项目的视频都关掉或退出 BaoCut 时，把项目里 BaoCut 的路径
+   * 提交一次（与「提交到 git」同一套规则）。默认关。
+   */
+  'versions.git.autoCommit': boolean;
+  /** BaoCut 代为提交时 `blobs/` 里单个文件的大小上限（MiB，§5.3）：超过的不提交，已用 Git LFS 跟踪的不受限。整数 1–4096。 */
+  'versions.git.maxFileMiB': number;
+  /**
    * Runtime Home 里 `cache/` 的总大小上限（MiB，架构设计 §5.1）：超过时按修改时间从旧到新删缓存文件，降到上限的 90%。
    * 跨视频检索的内容索引（`cache/content-index/`）不删，但计入总大小。整数 256–1048576。
    */
@@ -190,6 +197,8 @@ export const SETTING_KEYS = [
   'space.trashRetentionDays',
   'versions.keep',
   'versions.cadence',
+  'versions.git.autoCommit',
+  'versions.git.maxFileMiB',
   'cache.maxSizeMiB',
   'resources.capacity',
   'runtime.idleExitMinutes',
@@ -228,6 +237,8 @@ export const SETTING_DEFAULTS: Readonly<SettingValues> = Object.freeze({
   'space.trashRetentionDays': 30,
   'versions.keep': 10,
   'versions.cadence': 'segment',
+  'versions.git.autoCommit': false,
+  'versions.git.maxFileMiB': 50,
   'cache.maxSizeMiB': 2048,
   'resources.capacity': null,
   'runtime.idleExitMinutes': 10,

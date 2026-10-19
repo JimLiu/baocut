@@ -20,13 +20,21 @@ afterEach(() => {
 });
 
 describe('version history gate', () => {
-  it('stays off on standalone pages, even with the BaoCut host installed', () => {
-    expect(versionHistoryOffered()).toBe(false);
+  it('opens on standalone pages: the BaoCut docs service serves the history endpoints', () => {
+    expect(versionHistoryOffered()).toBe(true);
     vi.stubGlobal('docsHost', {
       comments: { canSendToClaude: async () => 'available', sendToClaude: async () => ({ threadId: 't' }) },
       chat: { focus() {} },
     });
     expect(commentSummonHost()).toBe(true);
+    expect(versionHistoryOffered()).toBe(true);
+  });
+
+  it('stays off when the host marks the page read-only', () => {
+    vi.stubGlobal('docsHost', {
+      comments: { canSendToClaude: async () => 'available', sendToClaude: async () => ({ threadId: 't' }) },
+      readOnly: true,
+    });
     expect(versionHistoryOffered()).toBe(false);
   });
 

@@ -15,6 +15,7 @@ import { EXPORT_MAX_CUE_SECONDS, type Id } from '@baocut/protocol';
  * （UI 也不能依赖只在 Node 里跑的 jobs），眼下各留一份；改切法时两处一起改（架构设计 §14「转录工具的字幕层」）。
  * 中文词边界（`hanInteriorGaps`）交给运行环境的 `Intl.Segmenter`，crate 用 ICU4X：数据都是 ICU 的中日文词典，但
  * Runtime 的 Node 与编辑器所在的浏览器带的 ICU 版本可能不同，词典没收或新收的词偶尔会让两边的切点差一个词。
+ * 字幕文件导出（runtime-core 的 `text-export.ts`）折行与拆条也用这里的 `hanInteriorGaps`。
  */
 
 type Json = Record<string, unknown>;

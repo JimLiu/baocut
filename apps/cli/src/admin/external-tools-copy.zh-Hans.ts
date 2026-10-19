@@ -2,7 +2,7 @@ import type { ToolsMessages } from './external-tools-copy.ts';
 
 export const zhHans: ToolsMessages = {
   help: `用法：
-  baocut external-tools [list]     外部工具（yt-dlp、ffmpeg）：状态、版本、路径与来源，以及是否已同意使用
+  baocut external-tools [list]     外部工具（yt-dlp、ffmpeg、git）：状态、版本、路径与来源，以及是否已同意使用
   baocut external-tools detect [名字]
                                    重新探测
   baocut external-tools install <名字> [--yes]

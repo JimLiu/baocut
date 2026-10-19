@@ -2,7 +2,7 @@ import type { ToolsMessages } from './external-tools-copy.ts';
 
 export const tr: ToolsMessages = {
 help: `Kullanım:
-  baocut external-tools [list]     Dış araçlar (yt-dlp, ffmpeg): durum, sürüm, yol,
+  baocut external-tools [list]     Dış araçlar (yt-dlp, ffmpeg, git): durum, sürüm, yol,
                                    kaynak ve kullanımlarına onay verip vermediğiniz
   baocut external-tools detect [name]
                                    Yeniden algıla

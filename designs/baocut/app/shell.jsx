@@ -92,6 +92,8 @@
     const tasks = window.BC_TASKPILL.pillList(app.tasks, {projectId, mineOnly: true});
     return <>
       <window.TaskPill list={tasks} projectId={projectId} />
+      {/* 版本记录（视频格式规范 §9、版本记录设计 §6）：按钮在导出左边，对话框在 video-versions.jsx */}
+      <window.VideoVersionsButton editor={editor} />
       <div className="moviebar__export">
         {exporting
           ? <Btn variant="accent" className="btn--busy" onClick={editor.onExport} title="正在导出 · 点开看进度或取消">
@@ -446,6 +448,28 @@
               </div>
             </div>
             {SURF.pages && window.ModelEnvTweaks ? <window.ModelEnvTweaks /> : null}
+            {window.BC_VIDEO_VERSIONS ? (
+              <div className="tweaks__sec">
+                <div className="tweaks__lb">版本记录<em>视频栏「版本记录」与编辑器顶部的快照状态、版本文件（换到一个场景时它从头开始）</em></div>
+                <div className="tweaks__rad">
+                  {window.BC_VIDEO_VERSIONS.SCENARIOS.map(({k, label}) => (
+                    <BCAction key={k} className={cx('tweaks__opt', (app.prefs.versionsDemo || 'normal') === k && 'is-on')}
+                      onClick={() => app.setPref('versionsDemo', k)}>{label}</BCAction>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {window.BC_PROJECT_GIT ? (
+              <div className="tweaks__sec">
+                <div className="tweaks__lb">项目 git<em>项目设置与版本记录底部的 git 状态（每个场景各自一份；App 在 Home 侧栏项目菜单「项目设置…」）</em></div>
+                <div className="tweaks__rad">
+                  {window.BC_PROJECT_GIT.SCENARIOS.map(({k, label}) => (
+                    <BCAction key={k} className={cx('tweaks__opt', (app.prefs.gitDemo || 'ready') === k && 'is-on')}
+                      onClick={() => app.setPref('gitDemo', k)}>{label}</BCAction>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {window.LegacyImportTweaks ? <window.LegacyImportTweaks onLaunch={() => setOpen(false)} /> : null}
             {SURF.pages && window.BC_LOCALCHECK ? (
               <div className="tweaks__sec">

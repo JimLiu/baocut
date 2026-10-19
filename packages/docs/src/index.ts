@@ -8,6 +8,7 @@ export * from './markdown.ts';
 export * from './agent-xml.ts';
 export * from './store.ts';
 export * from './live-doc.ts';
+export * from './versions.ts';
 export * from './door-types.ts';
 export * from './door.ts';
 export * from './mux.ts';

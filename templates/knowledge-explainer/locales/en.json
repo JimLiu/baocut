@@ -1,41 +1,43 @@
 {
-  "title": "Concept explainer",
-  "summary": "Turn a document, a slide deck or a topic into an easy-to-follow video.",
-  "description": "Help viewers understand a concept with clear explanations and concrete examples. Your material is shaped into a visual story, pitched to what the audience already knows.",
+  "title": "Explainer video",
+  "summary": "Explain a concept, news story, paper or your material so anyone can follow it.",
+  "description": "Start from the questions viewers actually have, pick the approach that fits the content, and let one concrete subject carry the explanation from start to finish. Every number on screen, in the narration and in the post comes from the same checked set of facts. Each version comes with the video, a cover image and a publish-ready post.",
   "brief": "Using {{source material}}, explain {{topic}} to {{audience}} so that afterwards they can {{learning goal}}.",
   "fields": [
     {
       "label": "source material",
-      "hint": "Attached documents, slides or links; if you have none, write \"public sources\"",
+      "hint": "Documents, papers, links or text; with none, write \"public sources\"",
       "example": "these lecture notes"
     },
     {
       "label": "audience",
-      "hint": "Who is watching and how much they already know",
-      "example": "high school students"
+      "hint": "Who is watching and what they know; blank means viewers with no background",
+      "example": "middle school students"
     },
     {
       "label": "topic",
-      "hint": "The concept or topic to explain",
-      "example": "photosynthesis"
+      "hint": "A concept, a news story, a paper or a phenomenon",
+      "example": "why the Moon has phases"
     },
     {
       "label": "learning goal",
-      "hint": "What viewers should remember or be able to do afterwards",
-      "example": "describe what the light and dark reactions each do"
+      "hint": "Retell an idea, follow a news story, make a judgment or try it themselves",
+      "example": "explain the Moon's phases in their own words"
     }
   ],
   "tags": [
     "popular science",
     "explainer",
-    "education"
+    "education",
+    "news explained",
+    "paper explained"
   ],
   "preview": {
     "beats": [
-      "Pose a question",
-      "Break down the key ideas",
-      "Make it click with an example",
-      "Sum up the key points"
+      "Open with the viewer's question",
+      "One subject carries it all",
+      "Show the misconception, then overturn it",
+      "Viewers can retell it"
     ]
   }
 }

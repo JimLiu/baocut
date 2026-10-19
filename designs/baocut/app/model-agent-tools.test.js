@@ -43,6 +43,8 @@ test('describe：项目工具，新建念项目名或目录名，放进新项目
   assert.equal(T.describe('projects_create', {path: '/Users/me/Videos/episode-12/'}).summary, 'episode-12');
   assert.deepEqual(T.describe('projects_adopt_session', {name: '第 12 期'}), {kind: 'project', label: '放进新项目', summary: '第 12 期', icon: 'folder'});
   assert.equal(T.describe('projects.adoptSession', {}).summary, '');
+  assert.equal(T.describe('projects_adopt_session', {project: '/Volumes/T7/访谈'}).summary, '访谈');
+  assert.equal(T.describe('projects_adopt_session', {project: 'prj_1'}).summary, '');
 });
 
 test('describe：edits_apply 按操作分类别', () => {

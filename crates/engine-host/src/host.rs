@@ -16,7 +16,8 @@ use video_engine::error::kinds;
 use video_engine::gc::STAGING_GRACE;
 use video_engine::model::{Actor, ActorKind, Id};
 use video_engine::versions::{
-    Boundary, ConversationRef, DeleteRequest, RestoreRequest, SaveRequest, SnapshotRequest, list_versions, read_version, snapshot_status,
+    ApplyRequest, Boundary, ConversationRef, DeleteRequest, RestoreRequest, SaveRequest, SnapshotRequest, list_versions, read_version,
+    snapshot_status,
 };
 
 use video_engine::{
@@ -187,6 +188,23 @@ struct WriteSnapshotParams {
     boundary: Option<Boundary>,
     #[serde(default)]
     conversations: Vec<ConversationRef>,
+    #[serde(default)]
+    keep: Option<usize>,
+    /// 磁盘上的快照被外部改过也覆盖（保留 BaoCut 里的，§9.8）。
+    #[serde(default)]
+    overwrite: bool,
+}
+
+/// `videos.applySnapshot`：导入被外部改过的快照（视频格式规范 §9.8）。
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ApplySnapshotParams {
+    video_id: Id,
+    command_id: Id,
+    actor: Actor,
+    /// 两边都改了也导入（用户选了用磁盘上的）。
+    #[serde(default)]
+    force: bool,
     #[serde(default)]
     keep: Option<usize>,
 }
@@ -484,8 +502,27 @@ impl Host {
                     boundary: p.boundary,
                     conversations: p.conversations,
                     keep: p.keep,
+                    overwrite: p.overwrite,
                 })?;
                 Ok(serde_json::to_value(written).expect("能序列化"))
+            }
+            "videos.applySnapshot" => {
+                let p: ApplySnapshotParams = params(value)?;
+                let applied = self.video(&p.video_id)?.apply_snapshot(&ApplyRequest {
+                    command_id: p.command_id,
+                    actor: p.actor,
+                    force: p.force,
+                    keep: p.keep,
+                })?;
+                let event = applied.committed.as_ref().and_then(|c| c.event.as_ref());
+                if let Some(event) = event {
+                    emit(event);
+                }
+                Ok(json!({
+                    "receipt": applied.committed.as_ref().map(|c| &c.receipt),
+                    "replayed": applied.committed.is_some() && event.is_none(),
+                    "version": applied.version,
+                }))
             }
             "videos.listVersions" => {
                 let p: VideoParams = params(value)?;
@@ -1905,5 +1942,79 @@ mod tests {
             .handle("videos.listVersions", json!({ "videoId": video_id }), &mut |_| {})
             .unwrap();
         assert_eq!(list["versions"][0]["kind"], json!("rebuild"));
+    }
+
+    #[test]
+    fn an_external_snapshot_change_is_imported_and_a_conflict_waits_for_a_choice() {
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join("m");
+        let mut host = host();
+        let created = create(&mut host, &dir);
+        let video_id = created["videoId"].as_str().unwrap().to_string();
+        let system = Actor {
+            kind: ActorKind::System,
+            id: "system:history".into(),
+        };
+        let write = |host: &mut Host, extra: Value| {
+            let mut params = json!({ "videoId": video_id });
+            params.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+            host.handle("videos.writeSnapshot", params, &mut |_| {})
+        };
+        let status = |host: &mut Host| host.handle("videos.snapshotStatus", json!({ "path": dir }), &mut |_| {}).unwrap();
+        let edit_snapshot = |from: &str, to: &str| {
+            let path = dir.join(".bcut-snapshot").join("video.json");
+            let text = std::fs::read_to_string(&path).unwrap();
+            assert!(text.contains(from));
+            std::fs::write(&path, text.replace(from, to)).unwrap();
+        };
+        write(&mut host, json!({})).unwrap();
+        host.handle("edits.apply", rename(&video_id, "cmd_1", "0", "第一版", None), &mut |_| {})
+            .unwrap();
+        write(&mut host, json!({})).unwrap();
+
+        // 只有快照被改：状态是 external，导入发事件、回执是「外部变更」，并单独成一个 external 版本。
+        edit_snapshot("第一版", "外部改名");
+        assert_eq!(status(&mut host)["state"], json!("external"));
+        let apply = json!({ "videoId": video_id, "commandId": "cmd_external", "actor": system });
+        let mut events = Vec::new();
+        let applied = host
+            .handle("videos.applySnapshot", apply.clone(), &mut |e| events.push(e.clone()))
+            .unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(applied["replayed"], json!(false));
+        assert_eq!(applied["receipt"]["label"], json!("External change"));
+        assert_eq!(applied["receipt"]["actor"], json!(system));
+        assert_eq!(applied["version"], json!(2));
+        let again = host.handle("videos.applySnapshot", apply, &mut |e| events.push(e.clone())).unwrap();
+        assert_eq!(again["replayed"], json!(true));
+        assert_eq!(events.len(), 1, "重放不发事件");
+        let list = host
+            .handle("videos.listVersions", json!({ "videoId": video_id }), &mut |_| {})
+            .unwrap();
+        assert_eq!(list["versions"][0]["kind"], json!("external"));
+        assert_eq!(status(&mut host)["state"], json!("synced"));
+
+        // 两边都改了：不导入、不覆盖，等用户选；选保留 BaoCut 里的就覆盖磁盘上的。
+        host.handle("edits.apply", rename(&video_id, "cmd_2", "2", "本地", None), &mut |_| {})
+            .unwrap();
+        edit_snapshot("外部改名", "又改了");
+        let conflict = status(&mut host);
+        assert_eq!(
+            (&conflict["state"], &conflict["conflict"]),
+            (&json!("conflict"), &json!("both-changed"))
+        );
+        let error = host
+            .handle(
+                "videos.applySnapshot",
+                json!({ "videoId": video_id, "commandId": "cmd_auto", "actor": system }),
+                &mut |_| {},
+            )
+            .unwrap_err();
+        assert_eq!(error.code, "SNAPSHOT_CONFLICT");
+        assert_eq!(write(&mut host, json!({})).unwrap_err().code, "SNAPSHOT_CONFLICT");
+        write(&mut host, json!({ "overwrite": true })).unwrap();
+        assert_eq!(status(&mut host)["state"], json!("synced"));
+        let text = std::fs::read_to_string(dir.join(".bcut-snapshot").join("video.json")).unwrap();
+        assert!(text.contains("本地") && !text.contains("又改了"));
     }
 }

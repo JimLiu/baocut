@@ -64,6 +64,10 @@ export const fr: RcAgentToolsMessages = {
   testModelSummary: (p) => `Vérifier le paquet de modèle local ${p.bundleId} : l’exécuter de bout en bout sur un exemple fixe`,
   installModelSummary: (p) => `Télécharger le modèle local ${p.bundleId} : ${p.estimated ? `environ ${p.size} (taille inconnue, estimée)` : p.size}${p.resumed ? `, reprise des ${p.resumed} déjà téléchargés` : ''}, depuis ${p.source} (${p.parts})`,
   registerProjectSummary: (p) => `Enregistrer le dossier existant ${p.path} comme projet${p.name ? ` (${p.name})` : ''}`, createProjectSummary: (p) => `Créer le dossier du projet ${p.path}${p.name ? ` (${p.name})` : ''}`, adoptSessionSummary: (p) => `Créer un projet ${p.name ? `« ${p.name} »` : 'nommé d’après la première vidéo'} et y déplacer les vidéos et fichiers de cette session`,
+  bindSessionSummary: (p) =>
+    `${p.action}, dans ${p.project ? `le projet « ${p.project} » (${p.path})` : `${p.path} (enregistré comme nouveau projet)`} ; cette session rejoint ce projet, et les vidéos et fichiers de son dossier de travail y sont déplacés`,
+  adoptSessionIntoSummary: (p) =>
+    `Déplacer cette session dans ${p.project ? `le projet « ${p.project} » (${p.path})` : `${p.path} (enregistré comme nouveau projet)`}, avec les vidéos et fichiers de son dossier de travail`,
   deriveVideoSummary: (p) => `Créer la vidéo dérivée « ${p.name} » à partir de ${p.from}–${p.to} de cette vidéo`,
   deriveVideoLabel: (p) => `Dérivée de « ${p.name} »`,
   derivationDocumentName: 'Origine de la dérivation',

@@ -2,7 +2,7 @@ import type { ToolsMessages } from './external-tools-copy.ts';
 
 export const vi: ToolsMessages = {
 help: `Cách dùng:
-  baocut external-tools [list]     Công cụ ngoài (yt-dlp, ffmpeg): trạng thái, phiên bản, đường dẫn,
+  baocut external-tools [list]     Công cụ ngoài (yt-dlp, ffmpeg, git): trạng thái, phiên bản, đường dẫn,
                                    nguồn và bạn đã đồng ý sử dụng hay chưa
   baocut external-tools detect [name]
                                    Phát hiện lại

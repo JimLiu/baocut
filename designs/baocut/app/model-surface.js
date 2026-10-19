@@ -34,12 +34,16 @@
       reveal: true,
       /* 成片没选位置时导到原视频所在的文件夹（product-design §8.3），别的种类放项目的 exports/。浏览器拿不到本机路径，Web 都导到 exports/。 */
       exportNextToSource: true,
+      /* 本机的管理动作（版本记录设计 §6）：项目设置里开关自动提交、「初始化 git」、允许仓库的本地过滤器。
+         Web 能看 git 状态、能「提交到 git」，这三项停用并写明去桌面应用：改 Runtime 设置、在本机文件夹里建仓库、
+         允许执行仓库配置里的程序，都只在桌面界面与 CLI。 */
+      localAdmin: true,
     },
     web: {
       id: 'web', name: 'BaoCut Web',
       ai: false, agent: false, pages: false, help: false, windowChrome: false,
       importMedia: true, flashFix: false, remote: false,
-      sidebarDefaultOpen: false, appRail: false, fontDownloads: false, reveal: false, exportNextToSource: false,
+      sidebarDefaultOpen: false, appRail: false, fontDownloads: false, reveal: false, exportNextToSource: false, localAdmin: false,
     },
   };
 

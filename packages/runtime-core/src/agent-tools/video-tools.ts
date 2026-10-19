@@ -51,7 +51,7 @@ import { EDIT_OPERATIONS, OPERATION_FAMILIES, OPERATION_TYPES, describeOperation
 import { ToolError, errorBody, type ToolInfo, type ToolSet } from './tool-catalog.ts';
 import { captionStylePatch, expandCaptionStyles, freshCaptionStyle, patchStudioStyle, unsupportedStyleMessage } from './caption-style.ts';
 import { importElevenLabsTranscript } from './elevenlabs-transcript.ts';
-import { approvalField, confirmSummary, type ToolAccess, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
+import { approvalField, bindingConfirmation, confirmSummary, type ToolAccess, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
 import { assetSegments, projectChapters, type ProjectedChapter } from './source-chapters.ts';
 import { fillTranslationAlignments } from './translation-alignment.ts';
 import { syncTranslationCaptions } from './translation-captions.ts';
@@ -119,7 +119,7 @@ const TIME_CONVENTIONS =
   '时间写秒数（数字，例如 1.5），也可以写 {"unit":"frames","value":30}。sequenceId 省略时用根序列；alignment 省略时为 nearest-frame。';
 
 const PROJECT_DESCRIPTION =
-  '可选。新建到哪个项目：项目 id（videos_list 的 projectId），也可以是已登记项目目录的绝对路径。会话里不给时建在会话所属的项目（或会话的工作目录），给了只能是会话所属的项目；对外服务必须给';
+  '可选。新建到哪个项目：项目 id（projects_list 的 projectId），也可以是已登记项目目录的绝对路径。会话里不给时建在会话所属的项目（或会话的工作目录）；属于项目的会话给了只能是它所属的项目；不属于项目的会话还可以给用户指定的任意文件夹（绝对路径或 ~/，例如外置盘上的 /Volumes/T7/访谈，不存在时新建并登记），按高风险确认，确认之后会话连同工作目录里的视频与文件放进那个项目。对外服务必须给';
 
 const schemas = {
   videos_list: z.strictObject({}),
@@ -134,7 +134,7 @@ const schemas = {
     video: videoArg,
     fromSeconds: z.number().nonnegative().optional().describe('只列与这段时间相交的片段：起点（秒）'),
     toSeconds: z.number().positive().optional().describe('只列与这段时间相交的片段：终点（秒）'),
-    limit: z.number().int().min(1).max(1000).optional().describe('最多列多少个片段，默认 200'),
+    limit: z.number().int().min(1).max(1000).optional().describe('最多列多少个片段，默认 200，最多 1000；片段更多时用 fromSeconds 往后翻页'),
   }),
   videos_frames: z.strictObject({
     video: videoArg,
@@ -454,7 +454,9 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
     title: '新建视频',
     description: [
       '新建一个空视频（一条视觉轨、一条音频轨）。',
-      '不给 project 时建在工作目录（会话所属的项目，或会话的工作目录）里；给了 project 只能是会话所属的项目。返回与 videos_inspect 相同的摘要。',
+      '不给 project 时建在工作目录（会话所属的项目，或会话的工作目录）里。属于项目的会话给了 project 只能是它所属的项目。',
+      '不属于项目的会话要把视频建在用户指定的文件夹（例如外置盘上）或别的已登记项目里时，直接给 project（文件夹的绝对路径，或 projectId）：同一张确认卡写明位置，按高风险确认；确认之后会话连同工作目录里已有的视频与文件放进那个项目（重名的加序号），不用请用户换项目、新开会话。用户只说了盘没说文件夹时在盘上取一个文件夹。会话只能放进项目一次。',
+      '返回与 videos_inspect 相同的摘要。',
     ].join('\n'),
     effect: 'mutation',
     examples: [
@@ -560,7 +562,7 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
       '列出一个视频的版本记录：每个版本改了什么、谁改的、在哪个会话里改的。',
       '版本由 BaoCut 自动记下，不依赖 git：一段连续的修改合成一个版本（设置 versions.cadence 为 turn 时按会话的回合分），保存的版本（kind save）、回到版本（restore）与从快照重建（rebuild）各自单独成版。自动记下的版本只留最近的若干个（设置 versions.keep），更早的会被清理；保存的版本一直留着。',
       '从最新的往前列：version（版本号）、kind、summary、startedAt / updatedAt、revision（这一版之前与之后的视频版本）、actions（这一版里的修改：by 是谁改的，如 user_local、agent:<名字>、system:jobs；label 是修改说明；count 是几笔）、conversations（在哪些会话里改的）、保存的版本的 name 与 note、files（改了快照里的哪些文件：video.json 是视频与时间线，documents/<documentId>.json 是一份文档的正文；change 是 added、removed 或 modified）。open 为 true 的是还在累积的最新一版，之后的修改还会并进它。',
-      'snapshot.state 是快照与视频的关系：synced 已写好，pending 有修改还没写（几秒内会写），conflict 是快照在 BaoCut 之外被改过（changedPaths 是哪些文件）、不会被覆盖，missing 还没有快照。unreadable 是读不了的版本文件。',
+      'snapshot.state 是快照与视频的关系：synced 已写好，pending 有修改还没写（几秒内会写），external 是快照在 BaoCut 之外被改过（如 git pull）、视频里没有别的修改，BaoCut 会自动导入成一笔「External change」修改与一个 kind external 的版本；conflict 是快照在 BaoCut 之外被改过而视频里也有还没写进快照的修改（snapshot.conflict 为 both-changed），或快照被改坏了读不了（invalid），BaoCut 不导入也不覆盖，要用户决定保留哪一边，你没有替用户选的工具，把情况告诉用户即可，修改照常；changedPaths 是被外部改过的文件。missing 还没有快照。unreadable 是读不了的版本文件。',
       '要了解一个视频最近改了什么先看这里，不用翻 videos_history；要看某一版具体怎么改的用 videos_version_diff，要回到某一版用 videos_restore_version。不在项目里的视频没有版本记录。',
     ].join('\n'),
     annotations: { readOnlyHint: true },
@@ -622,7 +624,7 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
     description: [
       '把一个便携包（.baocut 文件）打开成一个新视频。',
       '边核对边解开（格式与版本、每个文件的长度与 sha256），建成一个新的视频目录（新的 videoId，素材全部收进视频）；任何一步失败都不留下视频目录。',
-      '不给 project 时建在工作目录（会话所属的项目，或会话的工作目录）里；给了 project 只能是会话所属的项目。目录名用 name，不给时用包里的视频名，重名时加序号。返回与 videos_inspect 相同的摘要。',
+      '不给 project 时建在工作目录（会话所属的项目，或会话的工作目录）里；project 的规则与 videos_create 相同（不属于项目的会话可以给任意文件夹，确认之后会话放进那里）。目录名用 name，不给时用包里的视频名，重名时加序号。返回与 videos_inspect 相同的摘要。',
     ].join('\n'),
     effect: 'mutation',
     examples: [
@@ -936,12 +938,12 @@ export class VideoTools implements ToolSet {
 
   async #create(args: z.infer<(typeof schemas)['videos_create']>, principal: ToolPrincipal) {
     const access = this.#scope.authorize(principal, true);
-    // 位置先解析（对外服务缺 project、看不到的项目不弹确认）；确认之后才为新建做准备（终端登记项目）。
-    await this.#scope.createRoot(access, args.project, { locate: true });
-    const approval = await this.#scope.confirm(access, {
-      tool: 'videos_create',
-      ...confirmSummary(RcAgentTools.createVideoSummary({ name: args.name })),
-    });
+    // 位置先解析（对外服务缺 project、看不到的项目不弹确认）；确认之后才为新建做准备（终端登记项目，无项目会话放进给的项目）。
+    const located = await this.#scope.createRoot(access, args.project, { locate: true });
+    const approval = await this.#scope.confirm(
+      access,
+      bindingConfirmation({ tool: 'videos_create', ...confirmSummary(RcAgentTools.createVideoSummary({ name: args.name })) }, located),
+    );
     const { root, scope, note } = await this.#scope.createRoot(access, args.project);
     const opened = await this.#videos.create(
       {
@@ -1276,7 +1278,11 @@ export class VideoTools implements ToolSet {
     return {
       videoId,
       revision: this.#current(opened).revision,
-      snapshot: { state: status.state, ...(status.changedPaths?.length ? { changedPaths: status.changedPaths } : {}) },
+      snapshot: {
+        state: status.state,
+        ...(status.conflict ? { conflict: status.conflict } : {}),
+        ...(status.changedPaths?.length ? { changedPaths: status.changedPaths } : {}),
+      },
       versions: list.versions.map(versionDigest),
       ...(list.unreadable.length ? { unreadable: list.unreadable } : {}),
       // i18n-ignore: 给模型的工具说明、错误与下一步
@@ -1360,11 +1366,15 @@ export class VideoTools implements ToolSet {
   /** 打开便携包（`videos.importPackage` 同一个入口，视频格式规范 §8）：位置同 `videos_create`；给了 name 时目录用它，并改视频名。 */
   async #importPackage(args: z.infer<(typeof schemas)['videos_import_package']>, principal: ToolPrincipal) {
     const access = this.#scope.authorize(principal, true);
-    await this.#scope.createRoot(access, args.project, { locate: true });
-    const approval = await this.#scope.confirm(access, {
-      tool: 'videos_import_package',
-      ...confirmSummary(RcAgentTools.importPackageSummary({ file: path.basename(args.file) })),
-    });
+    const located = await this.#scope.createRoot(access, args.project, { locate: true });
+    const approval = await this.#scope.confirm(
+      access,
+      bindingConfirmation(
+        { tool: 'videos_import_package', ...confirmSummary(RcAgentTools.importPackageSummary({ file: path.basename(args.file) })) },
+        located,
+      ),
+    );
+    // 会话在这里放进了项目时，工作目录里的文件跟着搬过去：相对路径按绑定之后的目录解析。
     const { root, scope, note } = await this.#scope.createRoot(access, args.project);
     const file = path.resolve(this.#scope.saveRoot(access), args.file);
     let opened = await this.#deps.packages.import({ ...scope, path: file }, root, scope, principal, {
@@ -2141,6 +2151,8 @@ const VERSION_NEXT: Record<string, string> = {
   VERSION_CHAIN_BROKEN:
     '从最新的版本倒推到这一版的途中有版本文件读不了（videos_versions 的 unreadable），回不到这么早：选更新的版本，或告诉用户版本文件损坏了',
   VERSIONS_NEED_PROJECT: '这个视频不在项目里，没有版本记录：要回退用 edits_undo 与 videos_history',
+  SNAPSHOT_CONFLICT:
+    '快照在 BaoCut 之外被改过（看 videos_versions 的 snapshot.state）：external 时 BaoCut 几秒内自动导入，之后重试；conflict 时视频里也有还没写进快照的修改或快照读不了，要等用户决定保留哪一边才能保存或回到版本，把情况告诉用户；修改照常可做',
 };
 // i18n-ignore-end
 

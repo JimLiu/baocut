@@ -399,12 +399,13 @@ describe('Home 功能区标签', () => {
     useShell.setState({ workspaceNarrow: false });
   });
 
-  it('外部 Agent 新建的视频：Home 上没开着视频时在功能区打开（起始页也算，收起的也展开），不进历史；开着视频或不在 Home 时不动；单条标签条只加标签，空的起始页除外', () => {
+  it('外部 Agent 新建的视频：Home 上没开着视频时在功能区打开（起始页也算，收起的也展开），不进历史；功能区显示着视频或不在 Home 时不动；单条标签条只加标签，会话空闲且输入框为空时切过去', () => {
     useShell.setState({ views: {}, workspaceNarrow: false, hiddenBeforeNarrow: false });
     const { go, openPane, toggleWorkspace, openExternalVideo } = useShell.getState();
     const cli = { kind: 'video', target: { projectId: 'p2', path: 'cli' } } as const;
     const other = { kind: 'video', target: { projectId: 'p2', path: 'other' } } as const;
     const third = { kind: 'video', target: { projectId: 'p2', path: 'third' } } as const;
+    const fourth = { kind: 'video', target: { projectId: 'p2', path: 'fourth' } } as const;
     go({ tab: 'home', conversationId: null, projectId: null });
     const back = useShell.getState().back.length;
     openExternalVideo(cli.target);
@@ -428,13 +429,32 @@ describe('Home 功能区标签', () => {
     openExternalVideo(third.target);
     expect(useShell.getState().route).toEqual({ tab: 'space', category: 'all', projectId: null });
     expect(useShell.getState().workspaces.c3?.tabs).toEqual([files, other]);
-    // 窄窗口：会话里只加标签，仍停在原来那一格。
+    // 窄窗口：会话有任务在跑时只加标签，仍停在原来那一格；空闲且输入框为空时切到视频。
     go({ tab: 'home', conversationId: 'c4', projectId: null });
     openPane(files);
     useShell.setState({ workspaceNarrow: true });
-    openExternalVideo(third.target);
+    useShell.getState().showConversation();
+    openExternalVideo(third.target, true);
     expect(useShell.getState().route).toEqual({ tab: 'home', conversationId: 'c4', projectId: null, pane: files });
+    expect(view('c4')).toEqual({ hidden: true, full: false });
     expect(useShell.getState().workspaces.c4?.tabs).toEqual([files, third]);
+    useShell.getState().selectPane(itemKey(files));
+    useShell.getState().showConversation();
+    openExternalVideo(cli.target);
+    expect(useShell.getState().route).toEqual({ tab: 'home', conversationId: 'c4', projectId: null, pane: cli });
+    expect(view('c4')).toBeUndefined();
+    expect(useShell.getState().workspaces.c4?.tabs).toEqual([files, third, cli]);
+    // 那一格正显示着视频：不动；选回会话页签后视频只是藏在后面，照常打开（忙时只加标签，空闲时切过去）。
+    openExternalVideo(other.target);
+    expect(useShell.getState().route).toEqual({ tab: 'home', conversationId: 'c4', projectId: null, pane: cli });
+    useShell.getState().showConversation();
+    openExternalVideo(other.target, true);
+    expect(useShell.getState().route).toEqual({ tab: 'home', conversationId: 'c4', projectId: null, pane: cli });
+    expect(view('c4')).toEqual({ hidden: true, full: false });
+    expect(useShell.getState().workspaces.c4?.tabs).toEqual([files, third, cli, other]);
+    openExternalVideo(fourth.target);
+    expect(useShell.getState().route).toEqual({ tab: 'home', conversationId: 'c4', projectId: null, pane: fourth });
+    expect(view('c4')).toBeUndefined();
     // 窄窗口的起始页：输入框里有字时只加标签；空的时切到视频。
     go({ tab: 'home', conversationId: null, projectId: 'p5' });
     useShell.getState().setDraft('new:p5', '做一部片子');

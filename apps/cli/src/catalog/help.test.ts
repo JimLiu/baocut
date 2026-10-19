@@ -32,6 +32,33 @@ describe('帮助', () => {
     expect(text).toContain('spec [<name>]');
   });
 
+  it('名词组的动词一行排不下时整个略去、以 … 收尾，不折行；help <名词> 仍列全部', () => {
+    const base = snapshot.tools.find((tool) => tool.name === 'videos_list')!;
+    const verbs = Array.from({ length: 20 }, (_, i) => `step-${String(i).padStart(2, '0')}`);
+    const tools = [...snapshot.tools, ...verbs.map((verb) => ({ ...base, name: `widgets_${verb.replace('-', '_')}` }))];
+    const lines = renderMainHelp(tools, admin).split('\n');
+    const row = lines.filter((line) => line.startsWith('  widgets '));
+    expect(row).toHaveLength(1);
+    expect(displayWidth(row[0]!)).toBeLessThanOrEqual(100);
+    expect(row[0]).toMatch(/ · …$/);
+    const shown = row[0]!.slice('  widgets '.length).trim().split(' · ').slice(0, -1);
+    expect(shown.length).toBeGreaterThan(0);
+    expect(shown).toEqual(verbs.slice(0, shown.length));
+    const group = renderGroupHelp(tools, 'widgets', undefined)!;
+    for (const verb of verbs) expect(group).toContain(`  ${verb} `);
+    // 目录里真实的名词组同样：排得下的全列，排不下的是按目录顺序的前几个。
+    const tree = buildTree(snapshot.tools);
+    for (const [noun, commands] of tree.nouns) {
+      const line = lines.find((l) => l.startsWith(`  ${noun} `))!;
+      expect(displayWidth(line), noun).toBeLessThanOrEqual(100);
+      const listed = line.slice(2 + noun.length).trim().split(' · ');
+      const cut = listed.at(-1) === '…';
+      const named = cut ? listed.slice(0, -1) : listed;
+      const all = [...commands.keys()];
+      expect(named, noun).toEqual(cut ? all.slice(0, named.length) : all);
+    }
+  });
+
   it('bounds growing command groups while preserving full group discovery', () => {
     const tools = Array.from({ length: 12 }, (_, index) => ({
       ...snapshot.tools[0]!,

@@ -27,6 +27,7 @@ import { SidePanel } from './side-panel.tsx';
 import { SoundtrackBed } from './soundtrack-bed.tsx';
 import { takePanelLanding } from './ai-tools-nav.ts';
 import { ShortsChildBanner } from './shorts-banner.tsx';
+import { VersionsStrip } from './video-versions-conflict.tsx';
 import { useShortsLanding } from './shorts-landing.ts';
 import { StageLiveCaptions } from './stage-live.tsx';
 import { Timeline, type TimelineHandle } from './timeline.tsx';
@@ -217,6 +218,8 @@ export function VideoEditor() {
           <div className={body}>
             <div className={column}>
               <FontBar videoId={video.videoId} />
+              {/* 快照两边都改了或读不出时，保留哪边的选择（版本记录设计 §6，video-versions-conflict.tsx）。Web 也有。 */}
+              <VersionsStrip video={video} />
               <Preview videoId={video.videoId} sequence={shown} assets={snapshot.assets} documents={snapshot.documents} />
               <StageLiveCaptions videoId={video.videoId} sequence={shown} documents={snapshot.documents} />
               <Transport sequence={sequence} onZoom={(action) => timeline.current?.zoom(action)} />
