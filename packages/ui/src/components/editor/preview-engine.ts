@@ -453,6 +453,33 @@ export class PreviewEngine {
     this.#refresh();
   }
 
+  /**
+   * 停住时底层合成的替身还在来（Runtime 在备播放副本、元素还没挂上，或还在定位）而 iframe 没露着（刚打开、换了一章）：
+   * 先露实时层，不等转换（动效视频设计 §4.3）。这一帧的实时层按「在动」问一次计划器（切点规则与播放中同一份），问完换回停住；
+   * 替身仍在计划里，照常去要、在后台转换，到了由 #paint 画上导出的那一帧再收起 iframe（同 `heldByLive`）。
+   */
+  #holdLive(plan: FramePlan): void {
+    const host = this.#liveHost;
+    const planner = this.#planner;
+    const bottom = plan.layers[0];
+    if (!host || !planner || !bottom || !isMediaLayer(bottom) || bottom.kind !== 'video' || bottom.itemId === this.#liveOn) return;
+    if (!this.#liveCandidates.some((candidate) => candidate.itemId === bottom.itemId)) return;
+    if (!this.#coming(bottom, this.#readiness(bottom))) return;
+    const blocked = [...this.#liveBlocked];
+    let live: LiveLayer | undefined;
+    try {
+      planner.setLive({ enabled: true, playing: true, blocked });
+      live = planner.planAt(this.#time).live;
+    } catch (error) {
+      if (!(error instanceof PlanFailure)) throw error;
+    } finally {
+      planner.setLive({ enabled: true, playing: false, blocked });
+    }
+    if (!live || live.itemId !== bottom.itemId) return;
+    host.show(live, plan.frame);
+    this.#liveOn = live.itemId;
+  }
+
   /** 播放头附近该预载的合成变了才叫宿主（在视的排第一，宿主最多挂三个）。 */
   #prepareLive(): void {
     const host = this.#liveHost;
@@ -840,7 +867,7 @@ export class PreviewEngine {
       if (plan.live) {
         this.#liveHost.show(plan.live, plan.frame);
         this.#liveOn = plan.live.itemId;
-      }
+      } else if (!this.#moving()) this.#holdLive(plan);
     }
 
     // 视频层与自带的声音（轨道隐藏时只有声音）：视频实例，或带预渲染替身的合成。素材取计划里带的那个。
@@ -977,7 +1004,7 @@ export class PreviewEngine {
       const picture = element ? this.#lastPictures.get(element) : undefined;
       if (picture) stale.set(layer.itemId, picture);
     }
-    // 停住了、iframe 还露着的那件合成的替身还在来（Runtime 还在备播放副本、元素还没挂上，或还在定位）：不等它，画布按透明底画、
+    // 停住了、iframe 还露着（刚停下，或 #holdLive 先露出来的）的那件合成的替身还在来（Runtime 还在备播放副本、元素还没挂上，或还在定位）：不等它，画布按透明底画、
     // iframe 不收，实时层多撑一会儿；替身到了（元素挂上、媒体事件）再画不透明的那一帧、收起 iframe，停下的那一刻不黑屏。导出不经过这里。
     const heldByLive = new Set<Id>(
       !plan.live && this.#liveHost && this.#liveOn !== null
@@ -1053,8 +1080,8 @@ export class PreviewEngine {
     this.#painted = { revision: plan.sequenceRevision, frame: plan.frame };
     // 实时合成层的帧是 Interactive 档（动效视频设计 §4.3）：底下是 iframe 实时画的，不是导出的那一帧。
     this.#exact = quality === 'exact' && !plan.live && [...states.values()].every((state) => state === 'ready');
-    // 画面出来了：没有还在来的媒体。
-    const coming = layers.filter(isMediaLayer).some((layer) => this.#coming(layer, states.get(layer.itemId)));
+    // 画面出来了：没有还在来的媒体（实时层撑着的替身不算，舞台不再盖着载入面板）。
+    const coming = layers.filter(isMediaLayer).some((layer) => !heldByLive.has(layer.itemId) && this.#coming(layer, states.get(layer.itemId)));
     if (!coming) this.#setPictured(true);
     if (this.#playing) {
       this.#stats.presented++;
@@ -1371,6 +1398,8 @@ export class PreviewEngine {
           }
         }
         if (!isMediaLayer(layer) || this.#readiness(layer) === 'ready') continue;
+        // 实时层撑着的替身（#holdLive）：画面有，转换慢不算卡住。
+        if (!plan.live && layer.itemId === this.#liveOn) continue;
         const wantedSeconds = layer.kind === 'video' ? (layer.sourceSeconds ?? 0) : null;
         if (this.#kernelDecoded(layer)) {
           const state = this.#assets?.get(layer.asset, BYTES).state;

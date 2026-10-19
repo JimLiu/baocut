@@ -36,7 +36,7 @@ export interface LiveLayer {
   opacity: number;
   width: number;
   height: number;
-  /** 替身的状态：没有预渲染、来源与代码包版本不一致，或可用（只在播放中出现：停下来会画替身，不用提醒烘焙）。 */
+  /** 替身的状态：没有预渲染、来源与代码包版本不一致，或可用（播放中，或停住时替身还没到：停下来会画替身，不用提醒烘焙）。 */
   standIn: 'none' | 'stale' | 'usable';
 }
 

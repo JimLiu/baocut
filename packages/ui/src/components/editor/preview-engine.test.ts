@@ -1206,3 +1206,40 @@ test('实时合成层：播放与拖动中不看替身一律实时播、不提�
   frames.restore();
   engine.dispose();
 });
+
+test('实时合成层：刚打开就停着、可用的替身还在来（Runtime 在备播放副本）时先露实时层，不等转换；替身到了再画那一帧、收起 iframe', async () => {
+  const { video } = fakeMedia();
+  let currentTime = 0;
+  Object.defineProperty(video, 'currentTime', { get: () => currentTime, set: (seconds: number) => (currentTime = seconds) });
+  const { frames, setLive, renders, state, live, seen, engine } = await liveEngine();
+  state.standIn = 'usable';
+  const pictured: boolean[] = [];
+  engine.onPicture((value) => pictured.push(value));
+  engine.attachLive(live.host);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  // 舞台还没挂替身的元素：按「在动」问一次实时层，问完换回停住；iframe 露着、画布透明底，画面算出来了，不提醒烘焙。
+  expect(setLive).toEqual([
+    { enabled: true, playing: false, blocked: [] },
+    { enabled: true, playing: true, blocked: [] },
+    { enabled: true, playing: false, blocked: [] },
+  ]);
+  expect(engine.live).toBeNull();
+  expect(live.shown.at(-1)).toEqual(['comp', 0]);
+  expect(renders.at(-1)).toEqual({ frame: 0, transparent: true });
+  expect(pictured.at(-1)).toBe(true);
+  expect(seen.at(-1)).toEqual({ kind: 'ready' });
+  // 已经露着就不再问。
+  const asked = setLive.length;
+  engine.seek(0);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  expect(setLive.slice(asked).filter((options) => options.playing).length).toBe(1);
+
+  // 替身到了：画不透明的那一帧，收起 iframe。
+  video.readyState = 4;
+  engine.register(videoKey(standInAsset, 0), video as unknown as HTMLVideoElement);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(renders.at(-1)).toEqual({ frame: 0, transparent: false });
+  expect(live.shown.at(-1)?.[0]).toBeNull();
+  frames.restore();
+  engine.dispose();
+});
