@@ -540,3 +540,5 @@ flowchart TD
 2. 更细粒度的节点级材质与改变分页成员的动态布局需独立评审；现有逐采样布局保持基础分页，cue 级反馈采用有界无状态采样。
 3. 以实际预设和目标效果确定首版属性/函数/材质清单，冻结求值版本、数值合同与资源预算；不能先开放任意属性路径再补语义。
 4. 明确高级场景的参数编辑范围及七维面板之外的呈现方式，按原型先行验证，不把高级结构强制摊平成简单样式。
+5. **页级读取当前词时钟**（拟定能力 `caption-active-word-context/1`）。活动词状态现在只能经 word 选择器和 `stateStyles` 改变活动词自身；cue/page/line 的属性读不到“当前词进行到哪了”，“每换一个词，整句做一次短促的横向拉伸”这类效果无法表达。拟给同一文字节点的所有单元及其装饰提供 `unit.activeWordAvailable`（bool）、`unit.activeWordPageIndex`（scalar，当前页内零基序号）、`time.activeWordElapsedSeconds` 与 `time.activeWordDurationSeconds`（time）。活动词沿用 §6.2 的选择，只在当前页冻结成员内取；窗口从该词开始，到它不再是活动词为止，`hold-previous`/`hold-last` 保持的时段计入时长。没有活动词时为 false/0，零时长窗口按一步跳变处理。只在绘制阶段可读，布局与字号表达式禁止读取。待定：空隙保持是否需要上限（例如保持不超过固定时长，超出后只保持一半空隙）；它属于 `speechState` 的扩展，不在本能力里另造窗口。
+6. **按宽度换行页的逐单元字号重排**（拟定能力 `caption-unit-font-reflow/1`）。`fontSizeBindings` 现在要求 `wordLinePattern`/`textLinePattern` 固定行成员，按宽度换行的页不能让当前词放大后挤动邻词或折到下一行。拟允许按宽度换行的页在 `per-sample` 下使用 `fontSizeBindings`：页成员仍在准备阶段按基础字号冻结，每次采样只按实际字号对当前页重新折行，行数可以变化，但不把词移到别的页；超过 `maxLines` 或单词超宽按已声明的 `overflow` 处理。它不改变分页成员，与第 2 项不同。重新折行后的行在采样之间没有稳定身份，因此与 line 选择器、行时钟和 `caption-page-window/1` 同用时拒绝，等行身份合同另行评审；重新折行计入现有排版与整形预算。
