@@ -17,6 +17,7 @@ import {
   MenuTrigger,
   NumberField,
   Popover,
+  Switch,
   Text,
   ToastQueue,
   ToggleButton,
@@ -27,9 +28,11 @@ import AspectRatio from '@react-spectrum/s2/icons/AspectRatio';
 import CloseCaptions from '@react-spectrum/s2/icons/CloseCaptions';
 import Comment from '@react-spectrum/s2/icons/Comment';
 import FullScreen from '@react-spectrum/s2/icons/FullScreen';
+import Layers from '@react-spectrum/s2/icons/Layers';
 import Lock from '@react-spectrum/s2/icons/Lock';
 import SpeedFast from '@react-spectrum/s2/icons/SpeedFast';
 import TemplateIcon from '@react-spectrum/s2/icons/Template';
+import TranscriptIcon from '@react-spectrum/s2/icons/Transcript';
 import VolumeOff from '@react-spectrum/s2/icons/VolumeOff';
 import VolumeOne from '@react-spectrum/s2/icons/VolumeOne';
 import VolumeTwo from '@react-spectrum/s2/icons/VolumeTwo';
@@ -38,6 +41,8 @@ import { useLocale } from 'react-aria/I18nProvider';
 import { Slider, SliderThumb, SliderTrack } from 'react-aria-components/Slider';
 import { TooltipContext, TooltipTriggerStateContext } from 'react-aria-components/Tooltip';
 import { VIDEO_NOTES } from '../../model/video-annotations-copy.ts';
+import { captionKindLabel } from '../../model/caption-tracks.ts';
+import { captionLayerShown, hasLayerToggles, layersPartlyHidden, type CaptionLayer, type LayerToggles } from '../../model/stage-layers.ts';
 import { monitorGain, monitorLevel, toggleMute, type MonitorLevel } from '../../model/preview-volume.ts';
 import { canvasAllowed, ratioLockOf } from '../../model/template-layers.ts';
 import {
@@ -62,6 +67,7 @@ import { S as SHELL } from '../shell-copy.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { FULLSCREEN_PLAYER_COPY as F } from './fullscreen-player-copy.ts';
 import { enterPreviewFullscreen } from './fullscreen-player.tsx';
+import { LITE_COPY as L } from './lite-copy.ts';
 import { STAGE_BAR_COPY as S } from './stage-bar-copy.ts';
 import { TEMPLATE_COPY as TC } from './template-copy.ts';
 import { ratioLabel } from './use-template-actions.ts';
@@ -83,27 +89,55 @@ export function StageBar({
   stageRef,
   sequence,
   assets,
+  lite = false,
+  toggles,
 }: {
   stageRef: RefObject<HTMLElement | null>;
   sequence: Sequence;
   assets: Record<Id, AssetRecord>;
+  /**
+   * 轻量视图（轻量编辑器设计 §3「舞台条」）：右端只留标记、音量、全屏，末尾多一枚侧栏开关；左端是图层开关（§3.4），
+   * 画幅、倍速、字幕显隐是时间线视图的。
+   */
+  lite?: boolean;
+  /** 这部视频的图层开关（model/stage-layers 的 `layerToggles`），只在轻量视图用。 */
+  toggles?: LayerToggles;
 }) {
   return (
     <div className={bar} aria-label={S.bar} role="group">
-      <RatioPicker sequence={sequence} assets={assets} />
-      <RatePicker />
+      {lite && toggles ? <LayersControl toggles={toggles} /> : null}
+      {lite ? null : (
+        <>
+          <RatioPicker sequence={sequence} assets={assets} />
+          <RatePicker />
+        </>
+      )}
       <div className={spacer} />
       <div className={icons}>
         <AnnotateToggle />
-        <CaptionsToggle />
+        {lite ? null : <CaptionsToggle />}
         <VolumeControl />
         <Tip label={F.enterTip}>
           <ActionButton size="S" isQuiet aria-label={F.enter} onPress={() => enterPreviewFullscreen(stageRef.current)}>
             <FullScreen />
           </ActionButton>
         </Tip>
+        {lite ? <LiteSideToggle /> : null}
       </div>
     </div>
+  );
+}
+
+/** 轻量视图侧栏（台词）的显隐：这个窗口的观看态，持久化（editor-store 的 `liteSideHidden`）。 */
+function LiteSideToggle() {
+  const hidden = useEditor((s) => s.liteSideHidden);
+  const setHidden = useEditor((s) => s.setLiteSideHidden);
+  return (
+    <Tip label={hidden ? L.showSide : L.hideSide}>
+      <ToggleButton size="S" isQuiet aria-label={L.side} isSelected={!hidden} onChange={(shown) => setHidden(!shown)}>
+        <TranscriptIcon />
+      </ToggleButton>
+    </Tip>
   );
 }
 
@@ -166,6 +200,7 @@ const volumeThumb = style({
   outlineWidth: 2,
   outlineOffset: 2,
 });
+const layerList = style({ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 160 });
 const customRow = style({ display: 'flex', alignItems: 'end', gap: 8 });
 const customField = style({ width: 112 });
 const colon = style({ font: 'ui', color: 'gray-700', paddingBottom: 8 });
@@ -370,6 +405,47 @@ function AnnotateToggle() {
         <Comment />
       </ToggleButton>
     </Tip>
+  );
+}
+
+// ---- 图层开关（轻量视图） ----
+
+/**
+ * 轻量视图的图层开关（轻量编辑器设计 §3.4、§11 第 11 条）：舞台条左端一枚钮，弹出一组开关——画面上有的字幕按原文 / 译文各一个、
+ * 有配乐时一个配乐。只列预览今天能开关的；一个都没有时不摆这枚钮。有关着的开关时钮是选中的样子。
+ * 都是这个窗口的观看态（editor-store），不进视频、不进撤销、不影响导出；字幕的与时间线视图的字幕显隐是同一份。
+ */
+function LayersControl({ toggles }: { toggles: LayerToggles }) {
+  const captionsHidden = useEditor((s) => s.captionsHidden);
+  const captionLayersHidden = useEditor((s) => s.captionLayersHidden);
+  const musicHidden = useEditor((s) => s.musicHidden);
+  const setCaptionLayerHidden = useEditor((s) => s.setCaptionLayerHidden);
+  const setMusicHidden = useEditor((s) => s.setMusicHidden);
+  if (!hasLayerToggles(toggles)) return null;
+  const partly = layersPartlyHidden(toggles, { captionsHidden, captionLayersHidden, musicHidden });
+  const shown = (kind: CaptionLayer) => captionLayerShown(captionsHidden, captionLayersHidden, kind);
+  return (
+    <DialogTrigger>
+      <Tip label={partly ? L.layersPartlyHidden : L.layers}>
+        <ToggleButton size="S" isQuiet aria-label={L.layers} isSelected={partly}>
+          <Layers />
+        </ToggleButton>
+      </Tip>
+      <Popover placement="top start" aria-label={L.layers}>
+        <div className={layerList}>
+          {toggles.captions.map((kind) => (
+            <Switch key={kind} isSelected={shown(kind)} onChange={(on) => setCaptionLayerHidden(kind, !on, toggles.captions)}>
+              {captionKindLabel(kind)}
+            </Switch>
+          ))}
+          {toggles.music ? (
+            <Switch isSelected={!musicHidden} onChange={(on) => setMusicHidden(!on)}>
+              {L.layerMusic}
+            </Switch>
+          ) : null}
+        </div>
+      </Popover>
+    </DialogTrigger>
   );
 }
 

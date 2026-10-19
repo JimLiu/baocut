@@ -14,7 +14,8 @@ import type { EditorActions } from './editor-context.tsx';
 
 /**
  * 章节的编辑命令：章节条、右键菜单与文稿章节头行共用。每一步是一笔编辑事务（`apply`），撤销栈上有名字；
- * 加、改名、删除之后出带「撤销」的提示，撤的是这一笔（不是栈顶）。拖起点与拖片段边缘一样，不出提示。
+ * 加、改名、删除之后出带「撤销」的提示，撤的是这一笔（不是栈顶）。
+ * 章节条上拖起点与拖片段边缘一样，不出提示；片条上拖边界出（`moveChapter` 的 `message`）。
  */
 
 const TOAST_MS = 2500;
@@ -60,9 +61,20 @@ export async function removeChapter(actions: EditorActions, sequence: Sequence, 
   return !!receipt;
 }
 
-/** 挪起点（调用方已按 `startBounds` 夹好）。 */
-export async function moveChapter(actions: EditorActions, sequence: Sequence, chapter: ChapterSpan, frame: number): Promise<boolean> {
+/**
+ * 挪起点（调用方已按 `startBounds` / `chipEdge` 夹好）。章节条上拖起点不出提示；片条上拖边界给 `message`，
+ * 出一条带「撤销」的提示（轻量编辑器设计 §3.2）。
+ */
+export async function moveChapter(
+  actions: EditorActions,
+  sequence: Sequence,
+  chapter: ChapterSpan,
+  frame: number,
+  message?: string,
+): Promise<boolean> {
   const operation = moveChapterOperation(sequence.id, chapter, frame);
   if (!operation) return false;
-  return !!(await actions.apply([operation], EditLabel.moveChapter()));
+  const receipt = await actions.apply([operation], EditLabel.moveChapter());
+  if (receipt && message) undoToast(actions, message, receipt);
+  return !!receipt;
 }

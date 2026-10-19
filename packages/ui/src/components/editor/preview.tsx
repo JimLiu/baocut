@@ -4,6 +4,7 @@ import { Content, ContextualHelp, Heading, StatusLight } from '@react-spectrum/s
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { formatFps, videoSlots } from '../../model/editor.ts';
 import { isPortrait } from '../../model/stage-bar.ts';
+import { layerCaptionMode, layerToggles } from '../../model/stage-layers.ts';
 import type { MediaOutcome } from '../../model/stage-media.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useEditor } from '../../state/editor-store.ts';
@@ -103,16 +104,22 @@ export function Preview({
   sequence,
   assets,
   documents,
+  lite = false,
 }: {
   videoId: Id | null;
   sequence: Sequence;
   assets: Record<Id, AssetRecord>;
   documents: Record<Id, DocumentRecord>;
+  /** 轻量视图（lite-view.tsx）：舞台条换成轻量那一档，画面上的元素不可选、不可拖（没有属性页可编辑）。 */
+  lite?: boolean;
 }) {
   const { engine } = useEditorActions();
   const fullscreen = useEditor((s) => s.fullscreen);
   const rate = useEditor((s) => s.rate);
   const captionsHidden = useEditor((s) => s.captionsHidden);
+  const captionLayersHidden = useEditor((s) => s.captionLayersHidden);
+  const musicHidden = useEditor((s) => s.musicHidden);
+  const toggles = useMemo(() => layerToggles(sequence, documents), [sequence, documents]);
   const annotating = useEditor((s) => s.annotating);
   const safeArea = useEditor((s) => s.safeArea);
   const studio = useEditor((s) => s.templateStudio !== null);
@@ -135,11 +142,14 @@ export function Preview({
 
   useEffect(() => engine.onStatus(setStatus), [engine]);
   // 倍速与字幕显隐是这个窗口的观看态（editor-store），只在这里交给引擎：舞台工具条与全屏播放器都只改 store。
-  // 全屏里的字幕档位归全屏播放器管，退出全屏再按舞台的显隐还原。
+  // 全屏里的字幕档位归全屏播放器管，退出全屏再按舞台的显隐还原。轻量视图按图层开关（原文 / 译文、配乐）给档位，
+  // 时间线视图只认整体显隐；配乐开关只在轻量视图有（时间线视图没有对应的钮，带过去会听不到又找不到哪里关的）。
   useEffect(() => engine.setRate(rate), [engine, rate]);
+  const captionMode = lite ? layerCaptionMode(captionsHidden, captionLayersHidden, toggles.captions) : captionsHidden ? 'off' : null;
   useEffect(() => {
-    if (!fullscreen) engine.setCaptionView(captionsHidden ? 'off' : null);
-  }, [engine, fullscreen, captionsHidden]);
+    if (!fullscreen) engine.setCaptionView(captionMode);
+  }, [engine, fullscreen, captionMode]);
+  useEffect(() => engine.setMusicView(lite && musicHidden), [engine, lite, musicHidden]);
   // 全屏以浏览器的 `fullscreenchange` 为准：浏览器自己的 Esc 退出不经过我们的键盘层。
   // 预览卸下（换视频、离开编辑器）时舞台还在全屏就退出来，不留一个没有播放器的全屏。
   useEffect(() => {
@@ -292,7 +302,7 @@ export function Preview({
         {/* 版面编辑器开着时舞台换成版面画布（原型 TemplateStudioStage），视频与其它元素都不可选。 */}
         {studio && !fullscreen ? <TemplateStudioStage sequence={sequence} stage={box} /> : null}
         {/* 标注模式下画面里的元素不能选、不能拖：舞台点选层让位给标注层。 */}
-        {fw > 0 && fh > 0 && !fullscreen && !annotating && !studio ? <StageObjects sequence={sequence} frame={frameRect} /> : null}
+        {fw > 0 && fh > 0 && !fullscreen && !annotating && !studio && !lite ? <StageObjects sequence={sequence} frame={frameRect} /> : null}
         {/* 视频标注层（产品设计 §3.2.3「视频标注」）：盖在画面与舞台点选层之上；全屏播放器不画。 */}
         {fw > 0 && fh > 0 && !fullscreen && videoId ? <StageNotesLayer videoId={videoId} frame={frameRect} /> : null}
         {!fullscreen && videoId ? <StageNotesToolbar videoId={videoId} /> : null}
@@ -304,7 +314,7 @@ export function Preview({
           notices
         )}
       </div>
-      <StageBar stageRef={stageRef} sequence={sequence} assets={assets} />
+      <StageBar stageRef={stageRef} sequence={sequence} assets={assets} lite={lite} toggles={toggles} />
     </div>
   );
 }

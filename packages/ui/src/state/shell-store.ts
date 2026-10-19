@@ -12,6 +12,7 @@ import {
   type LanguagePreference,
 } from '@baocut/protocol';
 import { parseAgentChoice, type AgentChoice } from '../model/agent-choice.ts';
+import { isEditorView, type EditorView } from '../model/lite-segments.ts';
 import { readQueuedMessage, type QueuedMessage } from '../model/message-queue.ts';
 import {
   isModelCategory,
@@ -61,11 +62,12 @@ export type Tab = 'home' | 'space' | 'skills' | 'tasks' | 'models' | 'services' 
  * Space 的 `video`：在 Space 打开的视频（产品设计 §5.1），编辑器加悬浮会话；关闭回到列表。
  */
 export type Route =
-  | { tab: 'home'; conversationId: Id | null; projectId: Id | null; pane?: WorkspaceItem }
+  /** `view`：打开视频时指定编辑器视图（轻量编辑器设计 §6 的 `?view=lite|timeline`）；编辑器用过就把它从路由里去掉，不进 `WorkspaceItem`。 */
+  | { tab: 'home'; conversationId: Id | null; projectId: Id | null; pane?: WorkspaceItem; view?: EditorView }
   /** Home 的「已归档会话」（产品设计 §3.1）：属于 Home 入口，不是 rail 上的一格。`focus`：归档提示条的「查看」带来的那条，高亮它。 */
   | { tab: 'archived'; focus?: Id }
   /** `from`：只看从这部视频派生的视频（剪成短视频结果页的「在 Space 里看这几支」、查看框的「查看切出的短视频」）。 */
-  | { tab: 'space'; category: SpaceCategory; projectId: Id | null; video?: FileTarget; from?: Id }
+  | { tab: 'space'; category: SpaceCategory; projectId: Id | null; video?: FileTarget; from?: Id; view?: EditorView }
   /**
    * Skills（产品设计 §6.9）：没有 `id` 与 `brand` 是列表；`id` 是一个 skill 的详情，`brand` 是那个项目的 `BRAND.md`。
    * `view: 'files'` 落在「文件」页签，`file` 是选中的文件；列表上 `view: 'external'` 展开最上面的「在终端或其他应用里用 BaoCut」。
@@ -737,7 +739,8 @@ export function hasSidebar(route: Route): boolean {
 export function hrefFor(route: Route): string {
   switch (route.tab) {
     case 'home': {
-      const query = route.pane ? `?${paneQuery(route.pane)}` : '';
+      const view = route.pane?.kind === 'video' && route.view ? `&view=${route.view}` : '';
+      const query = route.pane ? `?${paneQuery(route.pane)}${view}` : '';
       if (route.conversationId) return `/c/${route.conversationId}${query}`;
       if (route.projectId) return `/p/${route.projectId}${query}`;
       return `/home${query}`;
@@ -746,6 +749,7 @@ export function hrefFor(route: Route): string {
       const params = [
         ...(route.from ? [`from=${encodeURIComponent(route.from)}`] : []),
         ...(route.video ? [`video=${encodeURIComponent(JSON.stringify(route.video))}`] : []),
+        ...(route.video && route.view ? [`view=${route.view}`] : []),
       ];
       return (route.projectId ? `/space/${route.category}/${route.projectId}` : `/space/${route.category}`) + (params.length ? `?${params.join('&')}` : '');
     }
@@ -799,7 +803,10 @@ export function parseHref(href: string): Route {
   const query = new URLSearchParams(queryPart);
   const video = parseTarget(query.get('video'));
   const pane = parsePane(query);
-  const withPane = (route: Extract<Route, { tab: 'home' }>): Route => (pane ? { ...route, pane } : route);
+  const viewParam = query.get('view');
+  const view = isEditorView(viewParam) ? viewParam : undefined;
+  const withPane = (route: Extract<Route, { tab: 'home' }>): Route =>
+    pane ? { ...route, pane, ...(view && pane.kind === 'video' ? { view } : {}) } : route;
   if (head === 'c' && a) return withPane({ tab: 'home', conversationId: a, projectId: null });
   if (head === 'p' && a) return withPane({ tab: 'home', conversationId: null, projectId: a });
   if (head === 'home' && pane) return withPane({ tab: 'home', conversationId: null, projectId: null });
@@ -807,7 +814,7 @@ export function parseHref(href: string): Route {
     const category = SPACE_CATEGORIES.some((c) => c.key === a) ? (a as SpaceCategory) : 'all';
     const from = query.get('from');
     const route: Route = { tab: 'space', category, projectId: b || null, ...(from ? { from } : {}) };
-    return video ? { ...route, video } : route;
+    return video ? { ...route, video, ...(view ? { view } : {}) } : route;
   }
   if (head === 'settings' && a === 'models') {
     const category = isModelCategory(b) ? b : 'asr';
