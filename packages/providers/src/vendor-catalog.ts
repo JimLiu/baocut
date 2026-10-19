@@ -3,7 +3,7 @@ import { ProvidersConfig as PC } from '@baocut/protocol/messages/providers';
 
 /**
  * 服务商目录里的 OpenAI 兼容文本服务商（架构设计 §6.4 的目录表）：显示名、`kind`、官网、图标、基址（有国际与中国两个基址的
- * 按账号的 `region` 取）与内置模型表。只实现了 `generateText`；目录里标 P1 的语音、转写与生图只写进 `vendor.planned`，
+ * 按账号的 `region` 取）与内置模型表。`generateText` 共用兼容适配器；Qwen 另接同步 ASR（`qwen/qwen-adapter.ts`）。目录里标 P1 的语音、转写与生图只写进 `vendor.planned`，
  * 界面据此标「尚未接入」，不作为能力报告。
  *
  * 模型表按各家的官方目录维护，2026-10-16 核对；每家保留少量主力模型，第一个是默认。未逐个核对的限制取保守值：上下文
@@ -86,7 +86,7 @@ export const COMPAT_VENDORS: Record<CompatVendorId, CompatVendor> = {
     get label() {
       return PC.vendorQwen().text;
     },
-    vendor: { kind: 'vendor', regions: GLOBAL_CN, website: 'https://bailian.console.aliyun.com', icon: 'qwen', planned: ['synthesizeSpeech', 'transcribe'] },
+    vendor: { kind: 'vendor', regions: GLOBAL_CN, website: 'https://bailian.console.aliyun.com', icon: 'qwen', planned: ['synthesizeSpeech'] },
     regions: {
       global: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
       cn: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
