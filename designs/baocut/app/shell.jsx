@@ -168,7 +168,7 @@
     if (min) return <aside className="movie-quickchat" aria-label="视频会话">
       <BCAction ref={trigger} className="movie-quickchat__trigger" aria-label={expand} onClick={() => setMin(false)}>
         <window.RSP.Icons.Comment />
-        {pending ? <i className="movie-quickchat__count">{pending}</i>
+        {pending ? <span className="movie-quickchat__count"><window.RSP.NotificationBadge value={pending} size="S" /></span>
           : live ? <i className={cx('movie-quickchat__dot', sess.status === 'waiting' && 'is-waiting')} /> : null}
       </BCAction>
     </aside>;

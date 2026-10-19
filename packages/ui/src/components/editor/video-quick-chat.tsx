@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { DEFAULT_AGENT_MODE, type AttachmentRef, type Id, type SkillSendRef } from '@baocut/protocol';
-import { ActionButton, ToastQueue, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
+import { ActionButton, NotificationBadge, ToastQueue, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
 import Comment from '@react-spectrum/s2/icons/Comment';
 import Minimize from '@react-spectrum/s2/icons/Minimize';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -52,7 +52,7 @@ const trigger = style({
   outlineOffset: 2,
   '--iconPrimary': { type: 'fill', value: 'currentColor' },
 });
-/** 最小化时图标右上角的点：颜色沿用 Home 侧栏会话行的状态灯（model/sidebar.ts `sessionStatus`）：进行中蓝、等批准橙、失败红、完成未读绿。有待发的视频标注时这个角归条数（`count`），点不画。 */
+/** 最小化时图标右上角的点：颜色沿用 Home 侧栏会话行的状态灯（model/sidebar.ts `sessionStatus`）：进行中蓝、等批准橙、失败红、完成未读绿。有待发的视频标注时这个角归条数（`countWrap`），点不画。 */
 const dot = style({
   position: 'absolute',
   top: 2,
@@ -65,27 +65,8 @@ const dot = style({
   borderColor: '[var(--s2-container-bg)]',
   backgroundColor: { status: { running: 'accent', waiting: 'notice', failed: 'negative', unread: 'positive' } },
 });
-/** 最小化时图标右上角的条数：草稿里攒着、还没发出去的视频标注有几条（产品设计 §5.1「标注时主动展开」）。 */
-const count = style({
-  position: 'absolute',
-  top: '[-2px]',
-  insetEnd: '[-2px]',
-  boxSizing: 'border-box',
-  minWidth: 18,
-  height: 18,
-  paddingX: 4,
-  borderRadius: 'full',
-  borderWidth: 2,
-  borderStyle: 'solid',
-  borderColor: '[var(--s2-container-bg)]',
-  backgroundColor: 'accent',
-  color: 'white',
-  font: 'ui-xs',
-  fontWeight: 'bold',
-  lineHeight: '[14px]',
-  textAlign: 'center',
-  pointerEvents: 'none',
-});
+/** 最小化时图标右上角的条数：草稿里攒着、还没发出去的视频标注有几条（产品设计 §5.1「标注时主动展开」）。S2 的 NotificationBadge，同侧栏「任务」的那枚；只给视觉，读屏走按钮名。 */
+const countWrap = style({ position: 'absolute', top: 0, insetEnd: 0, display: 'flex', pointerEvents: 'none' });
 const panel = style({
   display: 'flex',
   flexDirection: 'column',
@@ -266,7 +247,13 @@ export function VideoQuickChat() {
               else useShell.getState().setVideoChatMin(false);
             }}>
             <Comment />
-            {pending ? <span className={count}>{pending}</span> : status ? <span className={dot({ status })} /> : null}
+            {pending ? (
+              <span className={countWrap} aria-hidden="true">
+                <NotificationBadge value={pending} size="S" />
+              </span>
+            ) : status ? (
+              <span className={dot({ status })} />
+            ) : null}
           </RACButton>
           <Tooltip>{expand}</Tooltip>
         </TooltipTrigger>
