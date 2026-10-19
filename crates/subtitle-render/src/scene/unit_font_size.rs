@@ -515,13 +515,36 @@ pub(super) fn reflow(
     if !(1.0..=65536.0).contains(&width) {
         bail!("CAPTION_LAYOUT_INVALID: width");
     }
+    let line_bytes = if unit_font_reflow::enabled(scene) {
+        unit_font_reflow::line_bytes(
+            page,
+            &base.content,
+            cfg,
+            width,
+            base_size * node.style.line_height,
+            |bytes| {
+                rich_row(
+                    text,
+                    &base.content,
+                    bytes,
+                    &node.style,
+                    base_size,
+                    &sizes,
+                    budget,
+                )
+                .map(|(shape, _)| shape)
+            },
+        )?
+    } else {
+        page.lines.iter().map(|line| line.bytes.clone()).collect()
+    };
     let mut rows = Vec::new();
     let mut height = 0.0;
-    for line in &page.lines {
+    for bytes in line_bytes {
         let (shape, max_size) = rich_row(
             text,
             &base.content,
-            line.bytes.clone(),
+            bytes.clone(),
             &node.style,
             base_size,
             &sizes,
@@ -537,16 +560,16 @@ pub(super) fn reflow(
         if page_envelope::enabled(scene) {
             // Retain assigned sizes of source whitespace even when normalized
             // shaping removes its glyph. This metadata must not alter row height.
-            let first = sizes.partition_point(|run| run.bytes.end <= line.bytes.start);
+            let first = sizes.partition_point(|run| run.bytes.end <= bytes.start);
             for run in sizes[first..]
                 .iter()
-                .take_while(|run| run.bytes.start < line.bytes.end)
+                .take_while(|run| run.bytes.start < bytes.end)
             {
                 budget.spend()?;
                 page_metric_size = page_metric_size.max(run.size);
             }
         }
-        rows.push((line.bytes.clone(), shape, row_height, page_metric_size));
+        rows.push((bytes, shape, row_height, page_metric_size));
     }
     let x = cfg.x.resolve(size.0, size.1, params)?;
     let y = cfg.y.resolve(size.0, size.1, params)?;

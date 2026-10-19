@@ -519,3 +519,65 @@ fn active_word_context_requires_opt_in_and_cannot_be_read_before_layout() {
         assert_eq!(parse_style(&early).unwrap_err().code, "CAPTION_DEPENDENCY_CYCLE");
     }
 }
+
+#[test]
+fn unit_font_reflow_admits_width_wrapped_font_sizes_without_line_identity() {
+    let body: Value = serde_json::from_str(include_str!("fixtures/unit-font-reflow.json")).unwrap();
+    parse_style(&body).unwrap();
+    let rejected = |edit: &dyn Fn(&mut Value)| {
+        let mut bad = body.clone();
+        edit(&mut bad["scene"]["value"]);
+        let error = parse_style(&bad).unwrap_err();
+        format!("{} {}", error.code, error.detail)
+    };
+    // Without the capability, width-wrapped pages keep refusing unit font sizes.
+    assert_eq!(
+        rejected(&|scene| scene["requiredCapabilities"] = json!(["caption-unit-font-size/1"])),
+        "CAPTION_SCENE_INVALID at most 64 bindings require per-sample and fixed word/text line membership or caption-unit-font-reflow/1"
+    );
+    // Fixed-line pages already reflow; the capability only names width-wrapped pages.
+    assert_eq!(
+        rejected(&|scene| {
+            scene["requiredCapabilities"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!("caption-word-line-layout/1"));
+            scene["layout"]["pagination"] = json!({"unit":"word","wordLinePattern":[[2]]});
+        }),
+        "CAPTION_SCENE_INVALID caption-unit-font-reflow/1 needs width-wrapped pages with fontSizeBindings"
+    );
+    assert_eq!(
+        rejected(&|scene| scene["layout"]["fontSizeBindings"] = json!([])),
+        "CAPTION_SCENE_INVALID caption-unit-font-reflow/1 needs width-wrapped pages with fontSizeBindings"
+    );
+    assert_eq!(
+        rejected(&|scene| scene["selectors"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"id":"lines","nodeId":"caption","unit":"line"}))),
+        "CAPTION_SCENE_INVALID rewrapped lines have no stable line or in-line word position"
+    );
+    assert_eq!(
+        rejected(&|scene| scene["selectors"][1]["filter"] =
+            json!({"kind":"and","filters":[{"kind":"state","value":"active"},{"kind":"parity","odd":true}]})),
+        "CAPTION_SCENE_INVALID rewrapped lines have no stable line or in-line word position"
+    );
+    let line_clock = json!({"id":"fade","target":{"nodeId":"caption","selectorId":"active-word"},"property":"opacity","composite":"replace","value":{"kind":"keyframes","clock":{"unit":"line","origin":"start","duration":{"kind":"unit-span"}},"keys":[{"at":0,"value":0},{"at":1,"value":1}]}});
+    assert_eq!(
+        rejected(&|scene| scene["animations"] = json!([line_clock])),
+        "CAPTION_SCENE_INVALID rewrapped lines have no stable clock"
+    );
+    let line_read = json!({"id":"fade","target":{"nodeId":"caption","selectorId":"page"},"property":"opacity","composite":"replace","value":{"kind":"expression","expression":{"op":"call","function":"div","args":[{"op":"read","path":"time.lineElapsedSeconds"},{"op":"literal","type":"time","value":1}]}}});
+    assert_eq!(
+        rejected(&|scene| scene["animations"] = json!([line_read])),
+        "CAPTION_SCENE_INVALID rewrapped lines have no stable clock"
+    );
+    // Page sizes and word clocks stay available.
+    let mut page = body.clone();
+    page["scene"]["value"]["layout"]["fontSizeBindings"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"id":"page-base","nodeId":"caption","selectorId":"page","value":{"kind":"constant","value":14}}));
+    page["scene"]["value"]["animations"] = json!([{"id":"pop","target":{"nodeId":"caption","selectorId":"active-word"},"property":"transform.scale","composite":"multiply","value":{"kind":"keyframes","clock":{"unit":"word","origin":"start","duration":{"kind":"unit-span"}},"keys":[{"at":0,"value":0.9},{"at":1,"value":1}]}}]);
+    parse_style(&page).unwrap();
+}

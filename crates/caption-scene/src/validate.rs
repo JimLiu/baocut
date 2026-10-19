@@ -38,6 +38,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-layout-per-sample/1",
     "caption-page-window/1",
     "caption-unit-font-size/1",
+    "caption-unit-font-reflow/1",
     "caption-unit-font-style/1",
     "caption-word-line-layout/1",
     "caption-text-line-layout/1",
@@ -324,6 +325,7 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
     validate_text_line_pattern(s)?;
     validate_word_line_pattern(&s.layout)?;
     validate_page_window(s)?;
+    validate_unit_font_reflow(s)?;
     if s.parameters.len() > 128 || s.functions.len() > 128 || s.selectors.len() > MAX_NODES || s.animations.len() > 1024 {
         return Err(invalid("scene", "declaration budget exceeded"));
     }
@@ -866,11 +868,11 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
         }
         if s.layout.font_size_bindings.len() > 64
             || s.layout.layout_evaluation != LayoutEvaluation::PerSample
-            || !s.layout.pagination.has_fixed_lines()
+            || !(s.layout.pagination.has_fixed_lines() || unit_font_reflow(s))
         {
             return Err(invalid(
                 "layout.fontSizeBindings",
-                "at most 64 bindings require per-sample and fixed word/text line membership",
+                "at most 64 bindings require per-sample and fixed word/text line membership or caption-unit-font-reflow/1",
             ));
         }
         let mut ids = BTreeSet::new();
@@ -1247,6 +1249,9 @@ fn validate_value_context(property: &str, v: &DynamicValue, s: &Scene, unit: Uni
             if clock.unit > unit && clock.unit != UnitKind::Page {
                 return Err(invalid(property, "clock is finer than selected unit"));
             }
+            if clock.unit == UnitKind::Line && unit_font_reflow(s) {
+                return Err(invalid(property, "rewrapped lines have no stable clock"));
+            }
             if matches!(t, ValueType::Integer | ValueType::Bool) && *interpolation != Interpolation::Step {
                 return Err(invalid(property, "discrete type requires step"));
             }
@@ -1383,6 +1388,41 @@ fn validate_font_size_dependencies(value: &DynamicValue, scene: &Scene) -> Resul
     }
     if let DynamicValue::Expression { expression } = value {
         visit(expression, scene, &mut BTreeSet::new(), &mut 16_384)?;
+    }
+    Ok(())
+}
+
+/// Width-wrapped pages rewrap every sample, so nothing may depend on a line's identity or a word's line position.
+pub(crate) fn unit_font_reflow(scene: &Scene) -> bool {
+    !scene.layout.pagination.has_fixed_lines() && scene.required_capabilities.iter().any(|cap| cap == "caption-unit-font-reflow/1")
+}
+
+fn validate_unit_font_reflow(scene: &Scene) -> Result<()> {
+    if !scene.required_capabilities.iter().any(|cap| cap == "caption-unit-font-reflow/1") {
+        return Ok(());
+    }
+    if scene.layout.pagination.has_fixed_lines() || scene.layout.font_size_bindings.is_empty() {
+        return Err(invalid(
+            "requiredCapabilities",
+            "caption-unit-font-reflow/1 needs width-wrapped pages with fontSizeBindings",
+        ));
+    }
+    // Page windows already require fixed lines.
+    fn positional(filter: &Filter) -> bool {
+        match filter {
+            Filter::Range { .. } | Filter::Parity { .. } => true,
+            Filter::And { filters } | Filter::Or { filters } => filters.iter().any(positional),
+            Filter::Not { filter } => positional(filter),
+            _ => false,
+        }
+    }
+    for selector in &scene.selectors {
+        if selector.unit == UnitKind::Line || (selector.unit == UnitKind::Word && positional(&selector.filter)) {
+            return Err(invalid(
+                &selector.id,
+                "rewrapped lines have no stable line or in-line word position",
+            ));
+        }
     }
     Ok(())
 }

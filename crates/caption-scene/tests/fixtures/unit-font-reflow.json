@@ -1,0 +1,80 @@
+{
+  "schema": "baocut.caption-scene-style/1",
+  "scene": {
+    "kind": "inline",
+    "value": {
+      "schema": "baocut.caption-scene/1",
+      "evaluationVersion": 1,
+      "requiredCapabilities": [
+        "caption-unit-font-size/1",
+        "caption-unit-font-reflow/1"
+      ],
+      "parameters": [],
+      "layout": {
+        "width": {
+          "value": 140,
+          "basis": "absolute"
+        },
+        "x": {
+          "value": 80,
+          "basis": "absolute"
+        },
+        "y": {
+          "value": 45,
+          "basis": "absolute"
+        },
+        "maxLines": 3,
+        "pagination": {
+          "maxUnitsPerPage": 5
+        },
+        "layoutEvaluation": "per-sample",
+        "overflow": "visible",
+        "fontSizeBindings": [
+          {
+            "id": "active-grow",
+            "nodeId": "caption",
+            "selectorId": "active-word",
+            "value": {
+              "kind": "constant",
+              "value": 24
+            }
+          }
+        ]
+      },
+      "speechState": {
+        "gapPolicy": "none",
+        "tailPolicy": "none"
+      },
+      "nodes": [
+        {
+          "id": "caption",
+          "type": "text",
+          "style": {
+            "fontSize": {
+              "value": 16,
+              "basis": "absolute"
+            },
+            "lineHeight": 1.2
+          }
+        }
+      ],
+      "selectors": [
+        {
+          "id": "page",
+          "nodeId": "caption",
+          "unit": "page"
+        },
+        {
+          "id": "active-word",
+          "nodeId": "caption",
+          "unit": "word",
+          "filter": {
+            "kind": "state",
+            "value": "active"
+          }
+        }
+      ],
+      "animations": []
+    }
+  }
+}

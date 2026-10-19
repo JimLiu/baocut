@@ -14,6 +14,7 @@ mod page_window;
 mod sampled_layout;
 mod scalar_cluster;
 mod text_line_layout;
+mod unit_font_reflow;
 mod unit_font_size;
 mod word_line_layout;
 use anyhow::{Result, bail};

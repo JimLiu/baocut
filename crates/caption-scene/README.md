@@ -56,6 +56,8 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 `caption-unit-font-size/1` 通过 `layout.fontSizeBindings` 在冻结 page/line/word 成员上求字号，完整映射文字与空白后调用共享 rich shaping；重叠规则按声明顺序 replace。要求 per-sample 和显式固定行布局，禁止字号读取其产出的布局几何，真实更新行宽、基线、ink/envelope，反馈历史也重新求值。示例见 [unit-font-size.json](tests/fixtures/unit-font-size.json)。
 
+`caption-unit-font-reflow/1` 把 `fontSizeBindings` 开放给按宽度换行的页：页成员按基础字号冻结，每次采样按实际字号只对当前页重新折行，当前词放大可以把邻词挤到下一行再回来。重新折行的行没有稳定身份，line 选择器、按序号筛选的 word 选择器、line 时钟和行时间字段都被拒绝。见 [unit-font-reflow.json](tests/fixtures/unit-font-reflow.json)。
+
 `caption-glow-tint/1` 允许 glow-cascade 可选 `glowTint` 颜色动态值：在级联聚合后、合成原图前仅乘发光 RGB，忽略 tint alpha，不影响原图或发光 alpha。省略为白，保持旧序列化及像素；复用同一文字节点的排版后页上下文与表达式预算。
 
 `caption-noise-palette-mix/1` 在唯一文字节点的页上下文求值固定空间噪声与冻结 PNG 色条，保持输入 alpha；局部纹理 domain 必须显式给出画布坐标，不推断 ink/advance 范围。数值核、边界和预算见视频格式规范，示例见 [noise-palette-mix.json](tests/fixtures/noise-palette-mix.json)。

@@ -270,6 +270,13 @@ fn require_context_capability(path: &str, scene: &Scene) -> Result<()> {
             "caption-active-word-context/1 must be declared",
         ));
     }
+    if matches!(path, "time.lineElapsedSeconds" | "time.lineDurationSeconds") && crate::validate::unit_font_reflow(scene) {
+        return Err(Diagnostic::new(
+            "CAPTION_SCENE_INVALID",
+            path,
+            "rewrapped lines have no stable clock",
+        ));
+    }
     Ok(())
 }
 pub fn builtin_type(name: &str, args: &[ValueType]) -> Option<ValueType> {
