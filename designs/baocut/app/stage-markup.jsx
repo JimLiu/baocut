@@ -344,7 +344,8 @@
     const reset = () => set(s => MK.init({tool: s.tool, shape: s.shape, color: s.color, width: s.width}));
     const send = () => { if (sendMarks(app, ctx, st.marks)) { reset(); ctx.setAnnotating(false); } };
     const toggle = k => setMenu(menu === k ? null : k);
-    const Chev = () => <span className="mk-bar__chev" aria-hidden="true"><R.Icons.ChevronDown /></span>;
+    /* 带下拉的钮的面：当前值的样本 + 小箭头，并排一行（S2 的钮内部是网格，两个子节点会上下叠，所以先包成一个） */
+    const Face = ({children}) => <span className="mk-bar__face">{children}<span className="mk-bar__chev" aria-hidden="true"><R.Icons.ChevronDown /></span></span>;
     /* 下拉里的一行：样本、名字（粗细只有样本，名字给读屏）、当前项打勾 */
     const Row = ({on: isOn, onClick, children, label, ariaLabel}) => <BCAction type="button" className={cx('mk-menu__row', isOn && 'is-on')} role="menuitemradio" aria-checked={isOn} aria-label={ariaLabel} onClick={onClick}>
       {children}<span className="mk-menu__label">{label}</span>{isOn ? <R.Icons.Checkmark /> : null}</BCAction>;
@@ -354,7 +355,7 @@
           {MK.TOOLS.filter(t => t.k !== 'text').map(t => {
             if (t.k === 'shape') return <div key={t.k} className="mk-bar__dd">
               <IconBtn size="s" on={st.tool === 'shape'} tip={`形状 · ${MK.SHAPES.find(s => s.k === st.shape)?.label || ''}`} aria-haspopup="menu" aria-expanded={menu === 'shape'}
-                onClick={() => { set(s => MK.setTool(s, 'shape')); toggle('shape'); }}>{SHAPE_GLYPH[st.shape]}<Chev /></IconBtn>
+                onClick={() => { set(s => MK.setTool(s, 'shape')); toggle('shape'); }}><Face>{SHAPE_GLYPH[st.shape]}</Face></IconBtn>
               <Popover open={menu === 'shape'} onClose={() => setMenu(null)} dir="up" width={160} label="形状">
                 <div className="mk-menu" role="menu">{MK.SHAPES.map(sh => <Row key={sh.k} on={st.shape === sh.k} label={sh.label} onClick={() => { set(s => MK.setShape(s, sh.k)); setMenu(null); }}>{SHAPE_GLYPH[sh.k]}</Row>)}</div>
               </Popover>
@@ -369,7 +370,7 @@
         <div className="mk-bar__group">
           <div className="mk-bar__dd">
             <IconBtn size="s" tip={`颜色 · ${MK.COLORS.find(c => c.k === st.color)?.label || ''}`} aria-haspopup="menu" aria-expanded={menu === 'color'} onClick={() => toggle('color')}>
-              <span className="mk-dot mk-c" data-color={st.color} /><Chev /></IconBtn>
+              <Face><span className="mk-dot mk-c" data-color={st.color} /></Face></IconBtn>
             <Popover open={menu === 'color'} onClose={() => setMenu(null)} dir="up" width={140} label="颜色">
               <div className="mk-menu" role="menu">{MK.COLORS.map(c => <Row key={c.k} on={st.color === c.k} label={c.label} onClick={() => { set(s => MK.setColor(s, c.k)); setMenu(null); }}><span className="mk-dot mk-c" data-color={c.k} /></Row>)}</div>
             </Popover>
@@ -378,7 +379,7 @@
         <span className="vrule" />
         <div className="mk-bar__group">
           <div className="mk-bar__dd">
-            <IconBtn size="s" tip={`粗细 · ${st.width} px`} aria-haspopup="menu" aria-expanded={menu === 'width'} onClick={() => toggle('width')}><WidthGlyph w={st.width} /><Chev /></IconBtn>
+            <IconBtn size="s" tip={`粗细 · ${st.width} px`} aria-haspopup="menu" aria-expanded={menu === 'width'} onClick={() => toggle('width')}><Face><WidthGlyph w={st.width} /></Face></IconBtn>
             <Popover open={menu === 'width'} onClose={() => setMenu(null)} dir="up" width={120} label="粗细">
               <div className="mk-menu" role="menu">{MK.WIDTHS.map(w => <Row key={w} on={st.width === w} ariaLabel={`${w} px`} onClick={() => { set(s => MK.setWidth(s, w)); setMenu(null); }}><WidthGlyph w={w} long /></Row>)}</div>
             </Popover>

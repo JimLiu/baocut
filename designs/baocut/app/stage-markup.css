@@ -70,7 +70,10 @@
 .mk-bar__send, .mk-bar__send * { flex: none; white-space: nowrap; }
 .mk-bar .vrule { height: 20px; align-self: center; margin: 0 2px; }
 .mk-bar__dd { position: relative; }
-.mk-bar__chev { display: inline-flex; margin-left: -2px; }
+/* 带下拉的钮：样本与小箭头并排一行，钮随内容加宽 */
+.mk-bar__dd .bc-icon-button { width: auto; padding-inline: 4px; }
+.mk-bar__face { display: inline-flex; align-items: center; gap: 2px; }
+.mk-bar__chev { display: inline-flex; width: 10px; height: 10px; }
 .mk-bar__chev svg { width: 10px; height: 10px; }
 .mk-glyph { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .mk-glyph__n { fill: currentColor; stroke: none; font-size: 10px; font-weight: 700; text-anchor: middle; }
