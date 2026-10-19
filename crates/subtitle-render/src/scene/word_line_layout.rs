@@ -35,6 +35,9 @@ fn groups(total: usize, pagination: &Pagination) -> Vec<Vec<Range<usize>>> {
         .iter()
         .map(|rows| rows.iter().map(|row| row.len()).collect())
         .collect();
+    if pagination.tail_word_rule == Some(TailWordRule::JoinPreviousLine) {
+        return join_tail_word(initial, pattern);
+    }
     if let Some(rule) = &pagination.last_page_rule {
         if plans.len() > 1 && plans.last().unwrap().contains(&rule.if_row_count_is) {
             let previous = plans.len() - 2;
@@ -44,6 +47,33 @@ fn groups(total: usize, pagination: &Pagination) -> Vec<Vec<Range<usize>>> {
         }
     }
     initial
+}
+
+/// `caption-word-line-tail-join/1`: full pattern pages stay as planned; when the final page
+/// is incomplete and its last row holds one word, that word joins the row before it, which
+/// is the previous page's last row when the final page holds nothing else. A cue of one
+/// word keeps it.
+fn join_tail_word(
+    mut pages: Vec<Vec<Range<usize>>>,
+    pattern: &[Vec<usize>],
+) -> Vec<Vec<Range<usize>>> {
+    let Some(last) = pages.last() else {
+        return pages;
+    };
+    let planned: usize = pattern[(pages.len() - 1) % pattern.len()].iter().sum();
+    let held: usize = last.iter().map(|row| row.len()).sum();
+    if held >= planned || last.last().is_none_or(|row| row.len() != 1) {
+        return pages;
+    }
+    let lone = pages.last_mut().unwrap().pop().unwrap();
+    if pages.last().unwrap().is_empty() {
+        pages.pop();
+    }
+    match pages.last_mut().and_then(|rows| rows.last_mut()) {
+        Some(previous) => previous.end = lone.end,
+        None => pages.push(vec![lone]),
+    }
+    pages
 }
 
 pub(super) fn normalized_row(source: &str) -> (String, Vec<Range<usize>>) {
@@ -292,6 +322,36 @@ mod tests {
             counts(groups(9, &cycle)),
             vec![vec![1], vec![2, 1], vec![1], vec![2, 1], vec![1]]
         );
+    }
+    #[test]
+    fn word_line_tail_join_moves_a_lone_final_word_to_the_row_before() {
+        let tail = Pagination {
+            word_line_pattern: Some(vec![vec![4, 3, 2]]),
+            tail_word_rule: Some(TailWordRule::JoinPreviousLine),
+            ..Pagination::default()
+        };
+        let plan = |n| counts(groups(n, &tail));
+        assert_eq!(plan(1), vec![vec![1]]);
+        assert_eq!(plan(2), vec![vec![2]]);
+        assert_eq!(plan(5), vec![vec![5]]);
+        assert_eq!(plan(8), vec![vec![4, 4]]);
+        // A full page keeps its last row of two; one extra word joins it.
+        assert_eq!(plan(9), vec![vec![4, 3, 2]]);
+        assert_eq!(plan(10), vec![vec![4, 3, 3]]);
+        assert_eq!(plan(14), vec![vec![4, 3, 2], vec![5]]);
+        assert_eq!(plan(17), vec![vec![4, 3, 2], vec![4, 4]]);
+        // A one-word row that completes its page is not a lone tail word.
+        let complete = Pagination {
+            word_line_pattern: Some(vec![vec![2, 1]]),
+            tail_word_rule: Some(TailWordRule::JoinPreviousLine),
+            ..Pagination::default()
+        };
+        assert_eq!(counts(groups(3, &complete)), vec![vec![2, 1]]);
+        assert_eq!(counts(groups(4, &complete)), vec![vec![2, 2]]);
+        for n in (0..=64).chain(std::iter::once(MAX_UNITS)) {
+            let words: Vec<usize> = groups(n, &tail).into_iter().flatten().flatten().collect();
+            assert_eq!(words, (0..n).collect::<Vec<_>>());
+        }
     }
     #[test]
     fn word_line_normalization_maps_original_bytes_without_inserting_spaces() {

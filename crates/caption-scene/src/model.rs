@@ -218,6 +218,8 @@ pub struct Pagination {
     pub text_line_pattern: Option<TextLinePattern>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_page_rule: Option<LastPageRule>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tail_word_rule: Option<TailWordRule>,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -258,6 +260,12 @@ impl Pagination {
         self.word_line_pattern.is_some() || self.text_line_pattern.is_some()
     }
 }
+/// What happens to a lone word on the last row of an incomplete final page.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum TailWordRule {
+    JoinPreviousLine,
+}
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct LastPageRule {
@@ -276,6 +284,7 @@ impl Default for Pagination {
             word_line_pattern: None,
             text_line_pattern: None,
             last_page_rule: None,
+            tail_word_rule: None,
         }
     }
 }

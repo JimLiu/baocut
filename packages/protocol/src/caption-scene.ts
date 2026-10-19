@@ -114,7 +114,9 @@ export interface CaptionScene {
       textLinePattern?: { unit: 'unicode-scalar' | 'grapheme' | 'scalar-cluster'; lines: number[][];
         clusterRules?: { attachments?: { next: [number, number][]; previous?: [number, number][] | null; headExcluded?: [number, number][] | null }[];
           consumeFollowingAfter?: [number, number][]; joiners?: number[] } | null } | null;
-      lastPageRule?: { ifRowCountIs: number; previousPageLines: number[] } | null };
+      lastPageRule?: { ifRowCountIs: number; previousPageLines: number[] } | null;
+      /** A lone word on the last row of an incomplete final page joins the row before; requires caption-word-line-tail-join/1. */
+      tailWordRule?: 'join-previous-line' | null };
     align?: 'left' | 'center' | 'right'; leadingGap?: 'show' | 'hide';
   };
   speechState?: { gapPolicy?: 'none' | 'hold-previous'; tailPolicy?: 'none' | 'hold-last'; timingPolicy?: 'require-word-timing' | 'estimated' };

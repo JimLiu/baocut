@@ -19,6 +19,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-active-word-context/1",
     "caption-line-neighbor-context/1",
     "caption-line-unit-quota/1",
+    "caption-word-line-tail-join/1",
     "caption-expressions/1",
     "caption-permutation/1",
     "caption-function-dag/1",
@@ -206,6 +207,26 @@ fn validate_scalar_cluster_rules(rules: &ScalarClusterRules) -> Result<()> {
     }
     Ok(())
 }
+fn validate_tail_word_rule(scene: &Scene) -> Result<()> {
+    let pagination = &scene.layout.pagination;
+    if pagination.tail_word_rule.is_none() {
+        return Ok(());
+    }
+    if !scene.required_capabilities.iter().any(|cap| cap == "caption-word-line-tail-join/1") {
+        return Err(Diagnostic::new(
+            "CAPTION_CAPABILITY_UNAVAILABLE",
+            "pagination.tailWordRule",
+            "caption-word-line-tail-join/1 must be declared",
+        ));
+    }
+    if pagination.word_line_pattern.is_none() || pagination.last_page_rule.is_some() {
+        return Err(invalid(
+            "pagination.tailWordRule",
+            "wordLinePattern required; lastPageRule is exclusive",
+        ));
+    }
+    Ok(())
+}
 fn validate_line_unit_quota(scene: &Scene) -> Result<()> {
     let pagination = &scene.layout.pagination;
     let Some(quota) = pagination.max_units_per_line else {
@@ -347,6 +368,7 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
     validate_text_line_pattern(s)?;
     validate_word_line_pattern(&s.layout)?;
     validate_line_unit_quota(s)?;
+    validate_tail_word_rule(s)?;
     validate_page_window(s)?;
     validate_unit_font_reflow(s)?;
     if s.parameters.len() > 128 || s.functions.len() > 128 || s.selectors.len() > MAX_NODES || s.animations.len() > 1024 {

@@ -174,6 +174,8 @@ interface CaptionScene {
 
 `caption-line-unit-quota/1` 落地了按宽度换行页的 `maxUnitsPerLine`：一行最多取该数量的词，下一个词会超出行宽时仍提前换行，页继续按 `maxLines` 收行。它和 `wordLinePattern` 的区别是行成员仍随字号与宽度变化，所以页成员也随之变化；逐采样排版与字号重排按同一配额折行。同时声明 `maxUnitsPerPage` 时先按页配额切块，再在块内按行配额折行。
 
+末尾只剩一个词时，有的动画让它并进前一行，而不是单独占一行或一页。`lastPageRule` 是“末页出现某行词数就替换倒数第二页配额再重排”，会改动前一页的分组，表达不了这种只挪一个词的规则。`caption-word-line-tail-join/1` 的 `tailWordRule: 'join-previous-line'` 只处理未填满的末页：最后一行只有一个词时并入前一行，已填满的页不变。两条规则互斥。
+
 ### 5.3 布局属性和绘制属性
 
 | 属性 | 阶段 | 是否影响换行 |

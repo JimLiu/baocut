@@ -583,6 +583,29 @@ fn unit_font_reflow_admits_width_wrapped_font_sizes_without_line_identity() {
 }
 
 #[test]
+fn word_line_tail_join_requires_opt_in_and_a_word_line_pattern() {
+    let body: Value = serde_json::from_str(include_str!("fixtures/word-line-tail-join.json")).unwrap();
+    let style = parse_style(&body).unwrap();
+    assert_eq!(style.scene().layout.pagination.tail_word_rule, Some(TailWordRule::JoinPreviousLine));
+    let mut legacy = body.clone();
+    legacy["scene"]["value"]["requiredCapabilities"] = json!(["caption-word-line-layout/1"]);
+    let error = parse_style(&legacy).unwrap_err();
+    assert_eq!(
+        (error.code.as_str(), error.path.as_str()),
+        ("CAPTION_CAPABILITY_UNAVAILABLE", "pagination.tailWordRule")
+    );
+    let mut both = body.clone();
+    both["scene"]["value"]["layout"]["pagination"]["lastPageRule"] = json!({"ifRowCountIs": 1, "previousPageLines": [4, 3, 3]});
+    assert_eq!(parse_style(&both).unwrap_err().code, "CAPTION_SCENE_INVALID");
+    let mut wrapped = body.clone();
+    wrapped["scene"]["value"]["layout"]["pagination"] = json!({"unit": "word", "maxUnitsPerPage": 9, "tailWordRule": "join-previous-line"});
+    assert_eq!(parse_style(&wrapped).unwrap_err().code, "CAPTION_SCENE_INVALID");
+    let mut unknown = body.clone();
+    unknown["scene"]["value"]["layout"]["pagination"]["tailWordRule"] = json!("drop");
+    assert!(parse_style(&unknown).is_err());
+}
+
+#[test]
 fn line_unit_quota_requires_opt_in_and_width_wrapped_pages() {
     let body: Value = serde_json::from_str(include_str!("fixtures/line-unit-quota.json")).unwrap();
     let style = parse_style(&body).unwrap();
