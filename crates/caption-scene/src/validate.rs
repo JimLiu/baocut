@@ -16,6 +16,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-cue-word-context/1",
     "caption-first-page-context/1",
     "caption-cue-unit-context/1",
+    "caption-active-word-context/1",
     "caption-expressions/1",
     "caption-permutation/1",
     "caption-function-dag/1",

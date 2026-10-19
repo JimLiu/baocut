@@ -1,0 +1,169 @@
+{
+  "schema": "baocut.caption-scene-style/1",
+  "scene": {
+    "kind": "inline",
+    "value": {
+      "schema": "baocut.caption-scene/1",
+      "evaluationVersion": 1,
+      "requiredCapabilities": [
+        "caption-scene/1",
+        "caption-expressions/1",
+        "caption-active-word-context/1"
+      ],
+      "parameters": [
+        {
+          "id": "accent",
+          "type": "color",
+          "default": "#00FF00"
+        }
+      ],
+      "layout": {
+        "width": {
+          "value": 140,
+          "basis": "absolute"
+        },
+        "x": {
+          "value": 80,
+          "basis": "absolute"
+        },
+        "y": {
+          "value": 45,
+          "basis": "absolute"
+        },
+        "maxLines": 2,
+        "pagination": {
+          "maxUnitsPerPage": 5
+        }
+      },
+      "speechState": {
+        "gapPolicy": "hold-previous",
+        "tailPolicy": "none"
+      },
+      "nodes": [
+        {
+          "id": "caption",
+          "type": "text",
+          "style": {
+            "fontSize": {
+              "value": 16,
+              "basis": "absolute"
+            }
+          }
+        }
+      ],
+      "selectors": [
+        {
+          "id": "page",
+          "nodeId": "caption",
+          "unit": "page"
+        },
+        {
+          "id": "words",
+          "nodeId": "caption",
+          "unit": "word"
+        }
+      ],
+      "animations": [
+        {
+          "id": "page-swell",
+          "target": {
+            "nodeId": "caption",
+            "selectorId": "page"
+          },
+          "property": "transform.scale",
+          "composite": "multiply",
+          "value": {
+            "kind": "expression",
+            "expression": {
+              "op": "if",
+              "condition": {
+                "op": "read",
+                "path": "unit.activeWordAvailable"
+              },
+              "then": {
+                "op": "call",
+                "function": "mix",
+                "args": [
+                  {
+                    "op": "literal",
+                    "type": "scalar",
+                    "value": 1.08
+                  },
+                  {
+                    "op": "literal",
+                    "type": "scalar",
+                    "value": 1
+                  },
+                  {
+                    "op": "call",
+                    "function": "clamp",
+                    "args": [
+                      {
+                        "op": "call",
+                        "function": "div",
+                        "args": [
+                          {
+                            "op": "read",
+                            "path": "time.activeWordElapsedSeconds"
+                          },
+                          {
+                            "op": "literal",
+                            "type": "time",
+                            "value": 0.18
+                          }
+                        ]
+                      },
+                      {
+                        "op": "literal",
+                        "type": "scalar",
+                        "value": 0
+                      },
+                      {
+                        "op": "literal",
+                        "type": "scalar",
+                        "value": 1
+                      }
+                    ]
+                  }
+                ]
+              },
+              "else": {
+                "op": "literal",
+                "type": "scalar",
+                "value": 1
+              }
+            }
+          }
+        },
+        {
+          "id": "active-color",
+          "target": {
+            "nodeId": "caption",
+            "selectorId": "words"
+          },
+          "property": "fill",
+          "composite": "replace",
+          "value": {
+            "kind": "expression",
+            "expression": {
+              "op": "if",
+              "condition": {
+                "op": "read",
+                "path": "unit.active"
+              },
+              "then": {
+                "op": "read",
+                "path": "params.accent"
+              },
+              "else": {
+                "op": "literal",
+                "type": "color",
+                "value": "#FFFFFF"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

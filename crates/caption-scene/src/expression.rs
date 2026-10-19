@@ -121,7 +121,9 @@ pub fn context_type(path: &str) -> Option<ValueType> {
         | "time.firstPageLastWordEndSeconds"
         | "time.firstPageNextWordStartSeconds"
         | "time.pageFirstWordStartSeconds"
-        | "time.pageNextWordStartSeconds" => ValueType::Time,
+        | "time.pageNextWordStartSeconds"
+        | "time.activeWordElapsedSeconds"
+        | "time.activeWordDurationSeconds" => ValueType::Time,
         "unit.textIndex"
         | "unit.textCount"
         | "unit.pageTextIndex"
@@ -140,7 +142,8 @@ pub fn context_type(path: &str) -> Option<ValueType> {
         | "unit.cueLineIndex"
         | "unit.cueLineCount"
         | "unit.cueSelectedIndex"
-        | "unit.cueSelectedCount" => ValueType::Scalar,
+        | "unit.cueSelectedCount"
+        | "unit.activeWordIndexInPage" => ValueType::Scalar,
         "unit.labelInkAvailable"
         | "unit.active"
         | "unit.read"
@@ -160,7 +163,8 @@ pub fn context_type(path: &str) -> Option<ValueType> {
         | "unit.cueLineBound"
         | "unit.cueSelectionAvailable"
         | "unit.lineEnvelopeAvailable"
-        | "unit.rangeInkAvailable" => ValueType::Bool,
+        | "unit.rangeInkAvailable"
+        | "unit.activeWordAvailable" => ValueType::Bool,
         "layout.labelWidth"
         | "layout.labelHeight"
         | "layout.labelMaxGlyphInkWidth"
@@ -253,6 +257,17 @@ fn require_context_capability(path: &str, scene: &Scene) -> Result<()> {
             "CAPTION_CAPABILITY_UNAVAILABLE",
             path,
             "caption-cue-unit-context/1 must be declared",
+        ));
+    }
+    if matches!(
+        path,
+        "unit.activeWordAvailable" | "unit.activeWordIndexInPage" | "time.activeWordElapsedSeconds" | "time.activeWordDurationSeconds"
+    ) && !scene.required_capabilities.iter().any(|c| c == "caption-active-word-context/1")
+    {
+        return Err(Diagnostic::new(
+            "CAPTION_CAPABILITY_UNAVAILABLE",
+            path,
+            "caption-active-word-context/1 must be declared",
         ));
     }
     Ok(())

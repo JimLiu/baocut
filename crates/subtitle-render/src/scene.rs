@@ -1,4 +1,5 @@
 //! Declarative caption scenes. Layout, animation and recording are shared by native and WASM.
+mod active_word_clock;
 mod angular_samples;
 mod bound_label;
 mod cue_unit_context;
@@ -206,6 +207,7 @@ struct Unit {
     page_index: usize,
     page_count: usize,
     page_last_word_span: Option<(f64, f64)>,
+    active_word: Option<active_word_clock::Clock>,
     first_page_input: PageWordInput,
     page_input: PageWordInput,
     cue_first_word_span: Option<(f64, f64)>,
@@ -1062,6 +1064,7 @@ fn units_for(
             let word = &layout.words[*i];
             word.input_timed.then_some(word.span).flatten()
         }),
+        active_word: active_word_clock::clock(&layout.words, page, t, cfg),
         kind: UnitKind::Cue,
         id: cue.id.clone(),
         index: 0,
@@ -1540,6 +1543,9 @@ fn context(u: &Unit, r: &RenderContext) -> Context {
         glyph_envelope::add_fields(&mut out, u);
     }
     cue_unit_context::add_fields(&mut out, u);
+    if active_word_clock::enabled(r.scene) {
+        active_word_clock::add_fields(&mut out.fields, u.active_word, r.seconds);
+    }
     cue_unit_context::select(&mut out, u, u.cue_selector.as_deref());
     out
 }

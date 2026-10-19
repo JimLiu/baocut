@@ -42,6 +42,8 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 `caption-cue-unit-context/1` 显式启用整段词/行索引，以及由真实 word tags 驱动的静态词选集索引；碎片跨页保持源词身份，per-sample 全局行数按同一时刻重排所有页并计入预算。未绑定有明确 bool 标记，旧局部索引不变，见 [cue-unit-context.json](tests/fixtures/cue-unit-context.json)。
 
+`caption-active-word-context/1` 让同一文字节点的所有单元读取当前页活动词的页内序号、已进行时长和窗口时长；窗口沿用 `speechState` 的保持策略并止于页显示结束，没有活动词时为 false/0。布局绑定不能读取，字号绑定可以。见 [active-word-context.json](tests/fixtures/active-word-context.json)。
+
 `caption-gaussian-axis/1` 与 `caption-glow-cascade/1` 提供单 Text 上下文的独立 RGBA 分量滤波：高斯采样按输入纹理 UV、多尺度 pass 按原画布有理比例定尺寸，明确边界及逐 pass gamma/量化。级联保留各尺度图，按声明的 screen 或 source-over-glow 合成；允许 RGB > alpha，须按视频格式 §5.6 使用关联输出。有效区域包含零 alpha 发光，采样与内存预算超限会拒绝。示例见 [gaussian-axis.json](tests/fixtures/gaussian-axis.json)、[glow-cascade.json](tests/fixtures/glow-cascade.json)。
 
 `caption-text-line-layout/1` 用显式 Unicode scalar 或 extended grapheme 数限制每行，按完整词贪心分组并循环页计划；分隔空白不计，超长词独占行，显式换行强制成员边界。与其他分页策略互斥，复用固定词行的时间、几何与逐采样路径，见 [text-line-layout.json](tests/fixtures/text-line-layout.json)。
