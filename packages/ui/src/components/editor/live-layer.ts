@@ -22,6 +22,7 @@ import type { LiveLayer } from '../../render/frame-plan.ts';
  * - `seek` 一次只发一个在路上的：播放中一个视频帧只送一次，没回来之前又来了新的就只记最新的，回来再发。
  *   页面里的取帧脚本等两次 `requestAnimationFrame` 才回信，回信到了就是「到了」。
  * - 载入失败、`ready` 或 `seek` 报错、`readyTimeoutMs` 内没就绪：报给引擎，由引擎把这件拉黑、退回替身或占位。
+ * - 在视的那个还没画出第一帧（页面在载入、还没就位，或第一次定位还没回信）时报「在载入」，舞台照常盖着载入面板。
  * - 在视的那个按帧计划的 `matrix` 摆（按清单固有尺寸布置页面再 CSS 变换），其余预载的留在版面里但不显示
  *   （`opacity: 0`，不用 `display: none`，否则页面的动画帧不跑）。最多挂 `maxMounted` 个。
  */
@@ -32,6 +33,8 @@ export interface LiveHost {
   /** 这一帧的实时层（没有时 null）：摆位、送这一帧的本地时刻。`frame` 是视频帧号，同一帧不重送。 */
   show(layer: LiveLayer | null, frame: number): void;
   onFailure(listener: (itemId: Id, reason: string) => void): () => void;
+  /** 在视的那个还没画出第一帧（`true`）或已画出、没有在视的、失败了（`false`）；变了时通知，订阅时先给一次当前的。 */
+  onLoading(listener: (loading: boolean) => void): () => void;
 }
 
 export type ResolveBundle = (asset: VersionRef) => Promise<BundleHandle>;
@@ -87,6 +90,7 @@ class LiveFrame {
   /** 最近一次定位落地的时刻（秒）；还没有是 null。 */
   arrived: number | null = null;
   readonly #fail: (reason: string) => void;
+  readonly #arrive: () => void;
   readonly #pending = new Map<number, (result: BridgeResult) => void>();
   #nextId = 1;
   #inFlight = false;
@@ -102,9 +106,11 @@ class LiveFrame {
     port: (element: HTMLIFrameElement) => BridgePort,
     readyTimeoutMs: number,
     fail: (reason: string) => void,
+    arrive: () => void,
   ) {
     this.candidate = candidate;
     this.#fail = fail;
+    this.#arrive = arrive;
     const element = root.ownerDocument.createElement('iframe');
     element.setAttribute('sandbox', 'allow-scripts');
     element.setAttribute('inert', '');
@@ -169,8 +175,10 @@ class LiveFrame {
         this.#failed(`seek:${result.code}`);
         return;
       }
+      const first = this.arrived === null;
       this.arrived = seconds;
       if (this.#wanted !== null) this.#send(this.#wanted);
+      if (first) this.#arrive();
     });
   }
 
@@ -235,6 +243,8 @@ export class LiveLayerHost implements LiveHost {
   readonly #port: (element: HTMLIFrameElement) => BridgePort;
   readonly #frames = new Map<Id, LiveFrame>();
   readonly #listeners = new Set<(itemId: Id, reason: string) => void>();
+  readonly #loadingListeners = new Set<(loading: boolean) => void>();
+  #loading = false;
   /** 舞台上一个画布像素占几个 CSS 像素。 */
   #scale = 1;
   #shown: Shown | null = null;
@@ -272,11 +282,18 @@ export class LiveLayerHost implements LiveHost {
     }
     for (const candidate of wanted) {
       if (this.#frames.has(candidate.itemId)) continue;
-      const frame = new LiveFrame(candidate, this.#root, this.#resolve, this.#port, this.#readyTimeoutMs, (reason) =>
-        this.#failed(candidate.itemId, reason),
+      const frame = new LiveFrame(
+        candidate,
+        this.#root,
+        this.#resolve,
+        this.#port,
+        this.#readyTimeoutMs,
+        (reason) => this.#failed(candidate.itemId, reason),
+        () => this.#updateLoading(),
       );
       this.#frames.set(candidate.itemId, frame);
     }
+    this.#updateLoading();
   }
 
   show(layer: LiveLayer | null, frame: number): void {
@@ -291,11 +308,18 @@ export class LiveLayerHost implements LiveHost {
       if (!same) live.seek(layer.sourceSeconds);
     }
     if (!layer || !this.#frames.has(layer.itemId)) this.#shown = null;
+    this.#updateLoading();
   }
 
   onFailure(listener: (itemId: Id, reason: string) => void): () => void {
     this.#listeners.add(listener);
     return () => this.#listeners.delete(listener);
+  }
+
+  onLoading(listener: (loading: boolean) => void): () => void {
+    this.#loadingListeners.add(listener);
+    listener(this.#loading);
+    return () => this.#loadingListeners.delete(listener);
   }
 
   /** 诊断与测试：挂着的 iframe 按实例。 */
@@ -309,6 +333,18 @@ export class LiveLayerHost implements LiveHost {
     this.#frames.clear();
     this.#listeners.clear();
     this.#shown = null;
+    this.#updateLoading();
+    this.#loadingListeners.clear();
+  }
+
+  /** 在视的那个画出第一帧没有：挂上、摆上、第一次定位回信、失败、拆掉都重新算，变了才通知。 */
+  #updateLoading(): void {
+    const shown = this.#shown;
+    const frame = shown && !this.#disposed ? this.#frames.get(shown.itemId) : undefined;
+    const loading = frame !== undefined && (frame.state === 'loading' || frame.state === 'ready') && frame.arrived === null;
+    if (loading === this.#loading) return;
+    this.#loading = loading;
+    for (const listener of this.#loadingListeners) listener(loading);
   }
 
   /** 按矩阵与显示比例算 iframe 的摆法：矩阵把固有尺寸映到画布像素，再乘显示比例。 */
@@ -330,5 +366,6 @@ export class LiveLayerHost implements LiveHost {
 
   #failed(itemId: Id, reason: string): void {
     for (const listener of this.#listeners) listener(itemId, reason);
+    this.#updateLoading();
   }
 }

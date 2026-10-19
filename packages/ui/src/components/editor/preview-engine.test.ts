@@ -968,6 +968,7 @@ function fakeLiveHost() {
   const prepared: string[][] = [];
   const shown: [string | null, number][] = [];
   const listeners = new Set<(itemId: string, reason: string) => void>();
+  const loadingListeners = new Set<(loading: boolean) => void>();
   return {
     prepared,
     shown,
@@ -975,8 +976,10 @@ function fakeLiveHost() {
       prepare: (candidates: readonly { itemId: string }[]) => void prepared.push(candidates.map((c) => c.itemId)),
       show: (layer: { itemId: string } | null, frame: number) => void shown.push([layer?.itemId ?? null, frame]),
       onFailure: (listener: (itemId: string, reason: string) => void) => (listeners.add(listener), () => listeners.delete(listener)),
+      onLoading: (listener: (loading: boolean) => void) => (loadingListeners.add(listener), listener(false), () => loadingListeners.delete(listener)),
     },
     fail: (itemId: string, reason: string) => listeners.forEach((listener) => listener(itemId, reason)),
+    loading: (loading: boolean) => loadingListeners.forEach((listener) => listener(loading)),
   };
 }
 
@@ -1109,6 +1112,43 @@ test('实时合成层：透明底上有发光像素时这件合成拉黑、重�
   expect(engine.live).toBeNull();
   expect(seen.some((status) => status.kind === 'error')).toBe(false);
   expect(seen.at(-1)).toEqual({ kind: 'ready' });
+  frames.restore();
+  engine.dispose();
+});
+
+test('实时合成层：宿主报在视的页面在载入时引擎跟着报（舞台盖载入面板），画好第一帧撤；在视的失败了退回替身、替身到之前画面算没出来', async () => {
+  const { video } = fakeMedia();
+  const { frames, state, live, engine } = await liveEngine();
+  state.standIn = 'usable';
+  const loading: boolean[] = [];
+  engine.onLiveLoading((value) => loading.push(value));
+  const pictured: boolean[] = [];
+  engine.onPicture((value) => pictured.push(value));
+  engine.attachLive(live.host);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(engine.live?.itemId).toBe('comp');
+  // 实时层上面没有还在来的媒体：画面算出来了，iframe 里有没有东西看 liveLoading。
+  expect(pictured.at(-1)).toBe(true);
+  live.loading(true);
+  expect(engine.liveLoading).toBe(true);
+  live.loading(false);
+  expect(loading).toEqual([false, true, false]);
+
+  // 在视的那件放不出来：退回替身，替身还没挂上，舞台重新给载入面板；替身到了画上就撤。
+  live.loading(true);
+  live.fail('comp', 'ready-timeout');
+  live.loading(false);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(engine.live).toBeNull();
+  expect(pictured.at(-1)).toBe(false);
+  engine.register(videoKey(standInAsset, 0), video as unknown as HTMLVideoElement);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(pictured.at(-1)).toBe(true);
+
+  // 拆掉宿主：不再报在载入。
+  live.loading(true);
+  engine.attachLive(null);
+  expect(engine.liveLoading).toBe(false);
   frames.restore();
   engine.dispose();
 });

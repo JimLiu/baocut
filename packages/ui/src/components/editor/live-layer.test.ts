@@ -199,3 +199,35 @@ test('就绪超时、ready 报错、定位报错都报给引擎，那个 iframe 
   expect(host.mounted.get('a')?.state).toBe('failed');
   host.dispose();
 });
+
+test('在视的还没画出第一帧时报在载入：就位、第一次定位回信才撤；换到没载好的那一章再报，失败与不在视都不算', async () => {
+  const { host, page } = setup({ readyTimeoutMs: 3000 });
+  const loading: boolean[] = [];
+  host.onLoading((value) => loading.push(value));
+  expect(loading).toEqual([false]);
+  host.prepare([candidate('a'), candidate('b', 2)]);
+  await Promise.resolve();
+  // 只是预载、没在视：不算。
+  expect(loading.at(-1)).toBe(false);
+  host.show(layer('a', 0), 0);
+  expect(loading.at(-1)).toBe(true);
+  page('a').hello();
+  page('a').answer('ready', {});
+  await Promise.resolve();
+  // 就位了，第一帧还没画好。
+  expect(loading.at(-1)).toBe(true);
+  page('a').answer('seek');
+  await Promise.resolve();
+  expect(loading).toEqual([false, true, false]);
+  // 同一章里往后播：不再报。
+  host.show(layer('a', 0.5), 15);
+  expect(loading.at(-1)).toBe(false);
+  // 换到还没载好的那一章：再报；它就绪超时失败了就撤（引擎退回替身）。
+  host.show(layer('b', 0), 60);
+  expect(loading.at(-1)).toBe(true);
+  vi.advanceTimersByTime(3000);
+  expect(loading.at(-1)).toBe(false);
+  host.show(null, 61);
+  expect(loading).toEqual([false, true, false, true, false]);
+  host.dispose();
+});

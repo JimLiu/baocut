@@ -301,6 +301,9 @@ export class PreviewEngine {
   #liveCandidates: LiveCandidate[] = [];
   /** 上次叫宿主预载的那几件（按实例拼的键）。 */
   #livePrepared = '';
+  /** 在视的实时层页面还没画出第一帧（宿主的 `onLoading`）。 */
+  #liveLoading = false;
+  readonly #liveLoadingListeners = new Set<(loading: boolean) => void>();
 
   constructor(
     callbacks: PreviewCallbacks,
@@ -406,8 +409,13 @@ export class PreviewEngine {
     this.#liveHost = host;
     this.#livePrepared = '';
     if (host) {
-      this.#liveUnwatch = host.onFailure((itemId, reason) => this.#blockLive(itemId, reason));
-    }
+      const unwatchFailure = host.onFailure((itemId, reason) => this.#blockLive(itemId, reason));
+      const unwatchLoading = host.onLoading((loading) => this.#setLiveLoading(loading));
+      this.#liveUnwatch = () => {
+        unwatchFailure();
+        unwatchLoading();
+      };
+    } else this.#setLiveLoading(false);
     this.#sendLive();
     this.#liveCandidates = this.#video && host ? liveCandidates(this.#video.sequence, this.#video.assets, this.#liveBlocked) : [];
     this.#refresh();
@@ -416,6 +424,27 @@ export class PreviewEngine {
   /** 这一帧的实时合成层（舞台提示与测试用）；没有是 null。 */
   get live(): LiveLayer | null {
     return this.#plan?.live ?? null;
+  }
+
+  /**
+   * 在视的实时合成层页面还在载入（还没就位，或第一次定位还没回信）：iframe 里还什么都没有，舞台盖着载入面板
+   * （产品设计 §5.1），画好第一帧再撤。与 `pictured` 分开：换到一章还没载好的合成时也要盖。
+   */
+  get liveLoading(): boolean {
+    return this.#liveLoading;
+  }
+
+  /** `liveLoading` 变了时通知；订阅时先给一次当前的。 */
+  onLiveLoading(listener: (loading: boolean) => void): () => void {
+    this.#liveLoadingListeners.add(listener);
+    listener(this.#liveLoading);
+    return () => this.#liveLoadingListeners.delete(listener);
+  }
+
+  #setLiveLoading(loading: boolean): void {
+    if (loading === this.#liveLoading) return;
+    this.#liveLoading = loading;
+    for (const listener of this.#liveLoadingListeners) listener(loading);
   }
 
   /** 计划器开不开实时层、哪些合成拉黑了：有宿主才开；设置没变不重送。返回有没有真的送。 */
@@ -438,8 +467,9 @@ export class PreviewEngine {
     this.#liveBlocked.add(itemId);
     if (this.#liveOn === itemId) {
       this.#liveOn = null;
-      // 撑着替身的实时层（见 #paint 的 `heldByLive`）撤了：替身还没到，画面又没了，舞台重新给载入面板。
-      if (!this.#plan?.live) this.#setPictured(false);
+      // 在视的实时层（或撑着替身的，见 #paint 的 `heldByLive`）撤了：退回替身，替身到之前画面又没了，舞台重新给载入面板
+      // （替身在转换时是「正在准备预览」）；替身已经在了，下一帧画上就撤。
+      this.#setPictured(false);
     }
     this.#watch.noteError(`实时合成层 ${itemId}（${reason}）`, new Error(reason)); // i18n-ignore: 开发日志
     this.#sendLive();
@@ -744,6 +774,9 @@ export class PreviewEngine {
     this.#watch.stop();
     this.pause();
     this.#liveHost?.show(null, -1);
+    this.#liveUnwatch?.();
+    this.#liveUnwatch = null;
+    this.#liveLoadingListeners.clear();
     this.#cancelPaint();
     this.#endScrub();
     for (const unwatch of this.#unwatch ?? []) unwatch();

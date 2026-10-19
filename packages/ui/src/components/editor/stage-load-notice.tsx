@@ -69,9 +69,9 @@ const swallow = (event: SyntheticEvent) => event.stopPropagation();
 const block = { onPointerDown: swallow, onMouseDown: swallow, onClick: swallow, onDoubleClick: swallow, onContextMenu: swallow };
 
 /**
- * 预览载入与卡住（产品设计 §5.1，设计稿 stage-load.jsx）：画面出来之前（渲染内核还在载入，或这一刻的媒体还没齐）是一块
- * 不透明的深色面板，不露出等着媒体时的黑帧；满 `SPINNER_DELAY_MS` 才露出转圈。媒体要先转换才能播放（Runtime 在准备兼容
- * 副本）时换成「正在准备预览 · N%」与进度条，点名在转哪个媒体。卡住（预览引擎的卡住诊断报出、页面可见）时画面正中一张卡，
+ * 预览载入与卡住（产品设计 §5.1，设计稿 stage-load.jsx）：画面出来之前（渲染内核还在载入，或这一刻的媒体还没齐）与在视的
+ * 实时合成层页面还在载入时，是一块不透明的深色面板，不露出等着媒体时的黑帧；满 `SPINNER_DELAY_MS` 才露出转圈。媒体要先转换
+ * 才能播放（Runtime 在准备兼容副本）时换成「正在准备预览 · N%」与进度条，点名在转哪个媒体。卡住（预览引擎的卡住诊断报出、页面可见）时画面正中一张卡，
  * 说卡在哪一步、已经等了几秒，带「重试」。`suppressed`：主媒体放不出来已有专门的卡，不再叠一张，也不再盖着等画面。
  */
 export function StageLoadNotice({
@@ -91,8 +91,9 @@ export function StageLoadNotice({
 }) {
   const stall = usePreviewStall(engine);
   const pictured = usePictured(engine);
+  const liveLoading = useLiveLoading(engine);
   const preparing = usePreparing(videoId);
-  const waiting = status.kind === 'loading' || (status.kind === 'ready' && !pictured && !suppressed);
+  const waiting = status.kind === 'loading' || (status.kind === 'ready' && (!pictured || liveLoading) && !suppressed);
   // 头一小会儿只是安静的深色面板：很快就好的打开（包括很快就转好的短片）不闪出转圈或进度条。
   const shown = useDelayed(waiting, SPINNER_DELAY_MS);
   if (stall && !suppressed) return <StallCard stall={stall} frame={frame} onRetry={onRetry} />;
@@ -186,6 +187,13 @@ function usePictured(engine: PreviewEngine): boolean {
   const [pictured, setPictured] = useState(() => engine.pictured);
   useEffect(() => engine.onPicture(setPictured), [engine]);
   return pictured;
+}
+
+/** 在视的实时合成层页面还在载入（预览引擎的 `liveLoading`）。 */
+function useLiveLoading(engine: PreviewEngine): boolean {
+  const [loading, setLoading] = useState(() => engine.liveLoading);
+  useEffect(() => engine.onLiveLoading(setLoading), [engine]);
+  return loading;
 }
 
 /** 这部视频在等兼容副本的媒体（Runtime 在转换），按开始的先后；进度变了跟着变。 */
