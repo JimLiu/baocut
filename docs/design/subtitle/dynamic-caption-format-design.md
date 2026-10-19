@@ -172,6 +172,8 @@ interface CaptionScene {
 
 当前 `caption-word-line-layout/1` 提供显式固定分组模式：`pagination.wordLinePattern` 循环声明每页各行的词数，`lastPageRule` 可以一次性调整末页之前的行配额。该模式由词分组决定页和行，宽度只负责溢出检查；不会自动增加页或改变行成员。只有显示shape字符串会折叠空白，原始正文、词身份与全段字素索引保持不变。它与默认保留硬换行的模式明确区分，适用于需要稳定词行节奏的动画。尾页规则、守恒限制、字节映射与溢出合同见视频格式 §5.6。
 
+`caption-line-unit-quota/1` 落地了按宽度换行页的 `maxUnitsPerLine`：一行最多取该数量的词，下一个词会超出行宽时仍提前换行，页继续按 `maxLines` 收行。它和 `wordLinePattern` 的区别是行成员仍随字号与宽度变化，所以页成员也随之变化；逐采样排版与字号重排按同一配额折行。同时声明 `maxUnitsPerPage` 时先按页配额切块，再在块内按行配额折行。
+
 ### 5.3 布局属性和绘制属性
 
 | 属性 | 阶段 | 是否影响换行 |

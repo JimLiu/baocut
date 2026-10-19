@@ -519,6 +519,7 @@ pub(super) fn reflow(
         unit_font_reflow::line_bytes(
             page,
             &base.content,
+            &base.words,
             cfg,
             width,
             base_size * node.style.line_height,

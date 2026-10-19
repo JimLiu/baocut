@@ -7,6 +7,7 @@ mod glyph_envelope;
 mod gradient_smear;
 mod image_sequences;
 mod line_neighbor;
+mod line_quota;
 mod materials;
 mod noise_palette;
 mod noisy_sweep;
@@ -839,21 +840,25 @@ fn prepare(
             Wrap::Word,
             Some(width),
             fs * style.line_height,
-            |r| {
-                let sh = text.shape_spaced(
-                    &source[r],
-                    &style.font_family,
-                    fs,
-                    style.font_weight,
-                    style.italic,
-                    style.letter_spacing * fs,
-                );
-                TextMetricsLine {
-                    width: sh.width,
-                    ascent: sh.ascent,
-                    descent: sh.descent,
-                }
-            },
+            line_quota::capped(
+                cfg.pagination.max_units_per_line,
+                line_quota::word_starts(&words, paint_origin, range.end),
+                |r| {
+                    let sh = text.shape_spaced(
+                        &source[r],
+                        &style.font_family,
+                        fs,
+                        style.font_weight,
+                        style.italic,
+                        style.letter_spacing * fs,
+                    );
+                    TextMetricsLine {
+                        width: sh.width,
+                        ascent: sh.ascent,
+                        descent: sh.descent,
+                    }
+                },
+            ),
         );
         for (rowgroup_index, rowgroup) in block.lines.chunks(cfg.max_lines).enumerate() {
             let x = cfg.x.resolve(size.0, size.1, parameters)?;

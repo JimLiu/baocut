@@ -1,0 +1,48 @@
+{
+  "schema": "baocut.caption-scene-style/1",
+  "scene": {
+    "kind": "inline",
+    "value": {
+      "schema": "baocut.caption-scene/1",
+      "evaluationVersion": 1,
+      "requiredCapabilities": [
+        "caption-scene/1",
+        "caption-line-unit-quota/1"
+      ],
+      "parameters": [],
+      "layout": {
+        "width": {
+          "value": 300,
+          "basis": "absolute"
+        },
+        "x": {
+          "value": 160,
+          "basis": "absolute"
+        },
+        "y": {
+          "value": 90,
+          "basis": "absolute"
+        },
+        "maxLines": 2,
+        "pagination": {
+          "maxUnitsPerLine": 2
+        }
+      },
+      "nodes": [
+        {
+          "id": "caption",
+          "type": "text",
+          "style": {
+            "fontSize": {
+              "value": 16,
+              "basis": "absolute"
+            }
+          },
+          "zIndex": 0
+        }
+      ],
+      "selectors": [],
+      "animations": []
+    }
+  }
+}

@@ -583,6 +583,32 @@ fn unit_font_reflow_admits_width_wrapped_font_sizes_without_line_identity() {
 }
 
 #[test]
+fn line_unit_quota_requires_opt_in_and_width_wrapped_pages() {
+    let body: Value = serde_json::from_str(include_str!("fixtures/line-unit-quota.json")).unwrap();
+    let style = parse_style(&body).unwrap();
+    assert_eq!(style.scene().layout.pagination.max_units_per_line, Some(2));
+    let mut legacy = body.clone();
+    legacy["scene"]["value"]["requiredCapabilities"] = json!(["caption-scene/1"]);
+    let error = parse_style(&legacy).unwrap_err();
+    assert_eq!((error.code.as_str(), error.path.as_str()), ("CAPTION_CAPABILITY_UNAVAILABLE", "pagination.maxUnitsPerLine"));
+    for quota in [0, 4097] {
+        let mut bad = body.clone();
+        bad["scene"]["value"]["layout"]["pagination"]["maxUnitsPerLine"] = json!(quota);
+        assert_eq!(parse_style(&bad).unwrap_err().code, "CAPTION_SCENE_INVALID");
+    }
+    // Fixed line patterns already decide every line.
+    let mut fixed = body.clone();
+    let scene = &mut fixed["scene"]["value"];
+    scene["requiredCapabilities"].as_array_mut().unwrap().push(json!("caption-word-line-layout/1"));
+    scene["layout"]["pagination"]["wordLinePattern"] = json!([[2, 2]]);
+    assert_eq!(parse_style(&fixed).unwrap_err().code, "CAPTION_SCENE_INVALID");
+    // A page quota may still cut pages before the line quota folds them.
+    let mut paged = body.clone();
+    paged["scene"]["value"]["layout"]["pagination"]["maxUnitsPerPage"] = json!(3);
+    assert!(parse_style(&paged).is_ok());
+}
+
+#[test]
 fn line_neighbor_context_requires_opt_in_and_cannot_size_or_place_layout() {
     let body: Value = serde_json::from_str(include_str!("fixtures/line-neighbor-context.json")).unwrap();
     let style = parse_style(&body).unwrap();

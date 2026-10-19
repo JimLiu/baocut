@@ -211,6 +211,8 @@ pub struct Pagination {
     pub unit: UnitKind,
     pub max_units_per_page: Option<usize>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_units_per_line: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub word_line_pattern: Option<Vec<Vec<usize>>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text_line_pattern: Option<TextLinePattern>,
@@ -270,6 +272,7 @@ impl Default for Pagination {
         Self {
             unit: UnitKind::Word,
             max_units_per_page: None,
+            max_units_per_line: None,
             word_line_pattern: None,
             text_line_pattern: None,
             last_page_rule: None,

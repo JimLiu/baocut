@@ -109,7 +109,8 @@ export interface CaptionScene {
     /** Ordered replacement sizes on frozen page/line/word membership; requires caption-unit-font-size/1. */
     fontSizeBindings?: { id: string; nodeId: string; selectorId: string; value: CaptionDynamicValue }[];
     fontStyleBindings?: { id: string; nodeId: string; selectorId: string; style: { fontFamily?: string; fontWeight?: number; italic?: boolean } }[];
-    pagination?: { unit?: 'word'; maxUnitsPerPage?: number | null; wordLinePattern?: number[][] | null;
+    /** maxUnitsPerLine also ends width-wrapped lines at a word quota; requires caption-line-unit-quota/1. */
+    pagination?: { unit?: 'word'; maxUnitsPerPage?: number | null; maxUnitsPerLine?: number | null; wordLinePattern?: number[][] | null;
       textLinePattern?: { unit: 'unicode-scalar' | 'grapheme' | 'scalar-cluster'; lines: number[][];
         clusterRules?: { attachments?: { next: [number, number][]; previous?: [number, number][] | null; headExcluded?: [number, number][] | null }[];
           consumeFollowingAfter?: [number, number][]; joiners?: number[] } | null } | null;

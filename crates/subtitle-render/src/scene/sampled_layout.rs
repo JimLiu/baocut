@@ -154,21 +154,25 @@ pub(super) fn reflow(
         Wrap::Word,
         Some(width),
         fs * style.line_height,
-        |r| {
-            let sh = text.shape_spaced(
-                &source[r],
-                &style.font_family,
-                fs,
-                style.font_weight,
-                style.italic,
-                style.letter_spacing * fs,
-            );
-            TextMetricsLine {
-                width: sh.width,
-                ascent: sh.ascent,
-                descent: sh.descent,
-            }
-        },
+        line_quota::capped(
+            cfg.pagination.max_units_per_line,
+            line_quota::word_starts(&base.words, paint_range.start, paint_range.end),
+            |r| {
+                let sh = text.shape_spaced(
+                    &source[r],
+                    &style.font_family,
+                    fs,
+                    style.font_weight,
+                    style.italic,
+                    style.letter_spacing * fs,
+                );
+                TextMetricsLine {
+                    width: sh.width,
+                    ascent: sh.ascent,
+                    descent: sh.descent,
+                }
+            },
+        ),
     );
     if cfg.overflow == LayoutOverflow::Error
         && (block.lines.len() > cfg.max_lines

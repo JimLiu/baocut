@@ -18,6 +18,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-cue-unit-context/1",
     "caption-active-word-context/1",
     "caption-line-neighbor-context/1",
+    "caption-line-unit-quota/1",
     "caption-expressions/1",
     "caption-permutation/1",
     "caption-function-dag/1",
@@ -205,6 +206,26 @@ fn validate_scalar_cluster_rules(rules: &ScalarClusterRules) -> Result<()> {
     }
     Ok(())
 }
+fn validate_line_unit_quota(scene: &Scene) -> Result<()> {
+    let pagination = &scene.layout.pagination;
+    let Some(quota) = pagination.max_units_per_line else {
+        return Ok(());
+    };
+    if !scene.required_capabilities.iter().any(|cap| cap == "caption-line-unit-quota/1") {
+        return Err(Diagnostic::new(
+            "CAPTION_CAPABILITY_UNAVAILABLE",
+            "pagination.maxUnitsPerLine",
+            "caption-line-unit-quota/1 must be declared",
+        ));
+    }
+    if !(1..=MAX_UNITS).contains(&quota) || pagination.has_fixed_lines() {
+        return Err(invalid(
+            "pagination.maxUnitsPerLine",
+            "1..4096 words on width-wrapped pages; fixed line patterns are exclusive",
+        ));
+    }
+    Ok(())
+}
 fn validate_text_line_pattern(scene: &Scene) -> Result<()> {
     let pagination = &scene.layout.pagination;
     let Some(pattern) = &pagination.text_line_pattern else {
@@ -325,6 +346,7 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
     }
     validate_text_line_pattern(s)?;
     validate_word_line_pattern(&s.layout)?;
+    validate_line_unit_quota(s)?;
     validate_page_window(s)?;
     validate_unit_font_reflow(s)?;
     if s.parameters.len() > 128 || s.functions.len() > 128 || s.selectors.len() > MAX_NODES || s.animations.len() > 1024 {
