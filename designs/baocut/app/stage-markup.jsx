@@ -20,9 +20,9 @@
     ellipse: <Glyph><ellipse cx="8" cy="8" rx="6" ry="4.5" /></Glyph>,
     step: <Glyph><circle cx="8" cy="8" r="6" /><text x="8" y="10.5" className="mk-glyph__n">1</text></Glyph>,
   };
-  /* 粗细的样本：一段这么粗的横线；下拉里的 `long` 更长一些 */
-  const WidthGlyph = ({w, long}) => <svg className={cx('mk-glyph', long && 'mk-glyph--long')} viewBox={long ? '0 0 32 16' : '0 0 16 16'} aria-hidden="true"><path d={long ? 'M2 8 H30' : 'M2 8 H14'} style={{strokeWidth: w / 2}} /></svg>;
-  const TEXT_SIZE = {2: 16, 4: 20, 6: 25, 8: 28};   // 文字标记的字号跟粗细档走（S2 字号阶梯）
+  /* 粗细的样本：一段这么粗的横线，圆头缩在框里（最粗的是一枚短胶囊）；下拉里的 `long` 更长一些 */
+  const WidthGlyph = ({w, long}) => { const W = long ? 32 : 20; return <svg className={cx('mk-glyph', long ? 'mk-glyph--long' : 'mk-glyph--wide')} viewBox={`0 0 ${W} 16`} aria-hidden="true"><path d={`M${2 + w / 2} 8 H${W - 2 - w / 2}`} style={{strokeWidth: w}} /></svg>; };
+  const TEXT_SIZE = {2: 16, 4: 20, 8: 28, 12: 36};   // 文字标记的字号跟粗细档走（S2 字号阶梯）
   const TOOL_ICON = {element: 'Select', comment: 'Comment', pen: 'Edit', text: 'Text'};
   const IMPLICIT_ROLE = {BUTTON: 'button', A: 'link', IMG: 'img', H1: 'heading', H2: 'heading', H3: 'heading', H4: 'heading', INPUT: 'textbox', VIDEO: 'video', svg: 'img'};
 

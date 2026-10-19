@@ -13,9 +13,9 @@ describe('状态与历史', () => {
   it('初始：画笔、矩形、红、4px；加标记带当前颜色粗细并选中它', () => {
     const s = M.init();
     expect([s.tool, s.shape, s.color, s.width, s.marks, s.sel]).toEqual(['pen', 'box', 'red', 4, [], null]);
-    const t = M.add(M.setColor(M.setWidth(s, 6), 'blue'), { kind: 'box', x: 0.1, y: 0.1, w: 0.2, h: 0.2 });
+    const t = M.add(M.setColor(M.setWidth(s, 12), 'blue'), { kind: 'box', x: 0.1, y: 0.1, w: 0.2, h: 0.2 });
     expect(t.marks.length).toBe(1);
-    expect([t.marks[0]!.color, t.marks[0]!.width, t.sel]).toEqual(['blue', 6, t.marks[0]!.id]);
+    expect([t.marks[0]!.color, t.marks[0]!.width, t.sel]).toEqual(['blue', 12, t.marks[0]!.id]);
     expect(M.setShape(s, 'arrow').tool).toBe('shape');
     expect(M.setTool(t, 'text').sel).toBeNull();
   });

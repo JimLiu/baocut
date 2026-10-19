@@ -2043,7 +2043,7 @@ export const VIDEO_ANNOTATION_TEXT_KINDS = ['text', 'comment'] as const satisfie
 /** 标记的颜色与粗细（像素）：标记工具条的「颜色」「粗细」（lite-editor §4.1），随标注存成 `style`。 */
 export const VIDEO_ANNOTATION_COLORS = ['red', 'blue', 'green', 'black', 'white'] as const;
 export type VideoAnnotationColor = (typeof VIDEO_ANNOTATION_COLORS)[number];
-export const VIDEO_ANNOTATION_WIDTHS = [2, 4, 6, 8] as const;
+export const VIDEO_ANNOTATION_WIDTHS = [2, 4, 8, 12] as const;
 export type VideoAnnotationWidth = (typeof VIDEO_ANNOTATION_WIDTHS)[number];
 /** 画笔一道至多这么多个点。 */
 export const VIDEO_ANNOTATION_MAX_POINTS = 2000;

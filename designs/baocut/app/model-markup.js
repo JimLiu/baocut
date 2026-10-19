@@ -14,7 +14,7 @@
   const COLORS = [
     {k: 'red', label: '红'}, {k: 'blue', label: '蓝'}, {k: 'green', label: '绿'}, {k: 'black', label: '黑'}, {k: 'white', label: '白'},
   ];
-  const WIDTHS = [2, 4, 6, 8];
+  const WIDTHS = [2, 4, 8, 12];
   /* 工具条：选择元素 / 评论 / 画笔 / 形状（下拉：直线、箭头、矩形、圆、编号）/ 文字 */
   const TOOLS = [
     {k: 'element', label: '选择元素', sk: '⇧⌘S'}, {k: 'comment', label: '评论', sk: '⇧⌘C'}, {k: 'pen', label: '画笔'}, {k: 'shape', label: '形状'}, {k: 'text', label: '文字'},

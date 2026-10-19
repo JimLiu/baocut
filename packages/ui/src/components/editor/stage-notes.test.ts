@@ -56,10 +56,10 @@ describe('StageNotesLayer', () => {
   });
 
   it('直线不带头、画笔是穿过各点的折线、圆与元素是框；粗细照 style', () => {
-    const style = { color: 'red', width: 6 } as const;
+    const style = { color: 'red', width: 8 } as const;
     const line = render([note({ kind: 'line', region: { x: 0.1, y: 0.1, w: 0, h: 0 }, to: { x: 0.5, y: 0.5 }, style })]);
     expect(line).toContain('<line');
-    expect(line).toContain('stroke-width="6"');
+    expect(line).toContain('stroke-width="8"');
     expect(line.match(/aria-hidden="true"/g)?.length).toBe(1);
     const points = [
       { x: 0.1, y: 0.1 },
@@ -68,11 +68,11 @@ describe('StageNotesLayer', () => {
     const pen = render([note({ kind: 'pen', region: { x: 0.1, y: 0.1, w: 0.2, h: 0.1 }, points, style })]);
     expect(pen).toContain('<polyline points="10,10 30,20"');
     const ellipse = render([note({ kind: 'ellipse', style })]);
-    expect(ellipse).toContain('border-width: 6px');
+    expect(ellipse).toContain('border-width: 8px');
     const element = render([note({ kind: 'element', element: { kind: 'caption', id: 's01:l3' }, style })]);
-    expect(element).toContain('border-width: 6px');
+    expect(element).toContain('border-width: 8px');
     // 颜色按 tone 换类名：红色的圆与蓝色（默认）的框不同
-    expect(ellipse).not.toBe(render([note({ kind: 'ellipse', style: { color: 'blue', width: 6 } })]));
+    expect(ellipse).not.toBe(render([note({ kind: 'ellipse', style: { color: 'blue', width: 8 } })]));
   });
 
   it('评论是一枚印章，读屏名在没有批注时退回标签', () => {

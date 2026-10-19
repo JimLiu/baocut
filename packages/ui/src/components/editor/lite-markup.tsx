@@ -254,7 +254,7 @@ const bar = style({
   transform: 'translate(-50%, -100%)',
   display: 'flex',
   alignItems: 'center',
-  gap: 2,
+  gap: 4,
   boxSizing: 'border-box',
   padding: 4,
   borderRadius: 'lg',
@@ -266,18 +266,19 @@ const bar = style({
 });
 const divider = style({ width: 1, height: 20, marginX: 4, backgroundColor: 'gray-300', flexShrink: 0 });
 /**
- * 工具钮：安静的图标钮，当前工具浅蓝底、蓝图标（照原型的 `.ibtn.is-on`；S2 的切换钮选中是灰底，所以用 RAC 的钮自己画）。
- * 带下拉的（形状 / 颜色 / 粗细）图标右边多一枚小箭头。
+ * 工具钮：安静的图标钮，24 方、图标 16，底色过渡 60ms 一档；当前工具浅蓝底、蓝图标（照原型的 `.ibtn.is-on`；
+ * S2 的切换钮选中是灰底，所以用 RAC 的钮自己画）。带下拉的（形状 / 颜色 / 粗细）随内容加宽，图标右边多一枚小箭头；
+ * 下拉打开时 RAC 把触发钮当按着，显示按下底色。
  */
 const toolBtn = style({
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
   gap: 2,
-  height: 32,
-  minWidth: 32,
+  height: 24,
+  minWidth: 24,
   boxSizing: 'border-box',
-  paddingX: { default: 0, hasMenu: 6 },
+  paddingX: { default: 0, hasMenu: 4 },
   borderRadius: 'default',
   borderWidth: 0,
   backgroundColor: {
@@ -288,16 +289,19 @@ const toolBtn = style({
   },
   color: { default: 'gray-800', isSelected: 'blue-1000' },
   '--iconPrimary': { type: 'fill', value: 'currentColor' },
+  transition: 'default',
   outlineStyle: { default: 'none', isFocusVisible: 'solid' },
   outlineColor: 'focus-ring',
   outlineWidth: 2,
   cursor: 'default',
   flexShrink: 0,
 });
+/** 工具钮上的图标：S 号（16）。 */
+const toolIcon = iconStyle({ size: 'S' });
 /** 颜色钮上的圆点，下拉里每行也是一枚。 */
 const swatchDot = style({
   display: 'inline-block',
-  size: 16,
+  size: 14,
   boxSizing: 'border-box',
   borderRadius: 'full',
   borderStyle: 'solid',
@@ -308,8 +312,9 @@ const swatchDot = style({
 });
 /** 下拉里一行的内容：样本（圆点 / 横线）与名字。 */
 const menuRow = style({ display: 'inline-flex', alignItems: 'center', gap: 8 });
-/** 带下拉的钮右边的小箭头（XS 号图标）。 */
+/** 带下拉的钮右边的小箭头：XS 号（12），一直是灰的，选中也不变蓝（外面套一层定色）。 */
 const chevron = iconStyle({ size: 'XS' });
+const chevronWrap = style({ display: 'inline-flex', color: 'gray-600', '--iconPrimary': { type: 'fill', value: 'currentColor' } });
 
 // ---- 形状的图标（S2 没有对应的几个按原型的描边几何画在 20×20 网格上） ----
 
@@ -1113,7 +1118,9 @@ export function LiteMarkupBar({ frame, onAddToChat }: { frame: FrameRect; onAddT
         aria-label={label}
       >
         {content}
-        <ChevronDown styles={chevron} />
+        <span className={chevronWrap} aria-hidden>
+          <ChevronDown styles={chevron} />
+        </span>
       </RACButton>
     </Tip>
   );
@@ -1128,15 +1135,15 @@ export function LiteMarkupBar({ frame, onAddToChat }: { frame: FrameRect; onAddT
       data-lite-markup-bar
       onPointerDown={(event) => event.stopPropagation()}
     >
-      {toolButton('element', <Select />)}
-      {toolButton('comment', <Comment />)}
-      {toolButton('pen', <Brush />)}
+      {toolButton('element', <Select styles={toolIcon} />)}
+      {toolButton('comment', <Comment styles={toolIcon} />)}
+      {toolButton('pen', <Brush styles={toolIcon} />)}
       <MenuTrigger
         onOpenChange={(open) => {
           if (open) apply((s) => setTool(s, 'shape'));
         }}
       >
-        {menuButton(C.current(C.tools.shape, C.shapes[markup.shape]), markup.tool === 'shape', <Shape />)}
+        {menuButton(C.current(C.tools.shape, C.shapes[markup.shape]), markup.tool === 'shape', <Shape styles={toolIcon} />)}
         <Menu
           aria-label={C.shapeMenu}
           selectionMode="single"
@@ -1155,7 +1162,7 @@ export function LiteMarkupBar({ frame, onAddToChat }: { frame: FrameRect; onAddT
         </Menu>
       </MenuTrigger>
       <span className={divider} />
-      {toolButton('text', <TextIcon />)}
+      {toolButton('text', <TextIcon styles={toolIcon} />)}
       <span className={divider} />
       <MenuTrigger>
         {menuButton(C.current(C.color, C.colors[markup.color]), false, <span className={swatchDot({ tone: markup.color })} />)}
@@ -1210,12 +1217,12 @@ export function LiteMarkupBar({ frame, onAddToChat }: { frame: FrameRect; onAddT
   );
 }
 
-/** 粗细的示意：一段这么粗的横线；下拉里的 `long` 更长一些。 */
+/** 粗细的示意：一段这么粗的横线，圆头缩在框里（最粗的是一枚短胶囊）；下拉里的 `long` 更长一些。 */
 function WidthLine({ width, long = false }: { width: VideoAnnotationWidth; long?: boolean }) {
   const w = long ? 32 : 20;
   return (
-    <svg width={w} height={20} viewBox={`0 0 ${w} 20`} aria-hidden>
-      <line x1={3} y1={10} x2={w - 3} y2={10} stroke="currentColor" strokeWidth={width} strokeLinecap="round" />
+    <svg width={w} height={16} viewBox={`0 0 ${w} 16`} aria-hidden>
+      <line x1={2 + width / 2} y1={8} x2={w - 2 - width / 2} y2={8} stroke="currentColor" strokeWidth={width} strokeLinecap="round" />
     </svg>
   );
 }

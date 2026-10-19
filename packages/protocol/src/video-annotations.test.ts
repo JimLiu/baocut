@@ -113,7 +113,7 @@ describe('轻量视图标记工具送来的视频标注（docs/design/lite-edito
     expect(send.safeParse({ ...base, videoAnnotations: [{ ...element, region: { x: 0.1, y: 0.1, w: 0, h: 0 } }] }).success).toBe(true);
     expect(send.safeParse({ ...base, videoAnnotations: [{ ...box, style: undefined, text: '  ' }] }).success).toBe(true);
     for (const color of ['red', 'blue', 'green', 'black', 'white'])
-      for (const width of [2, 4, 6, 8])
+      for (const width of [2, 4, 8, 12])
         expect(send.safeParse({ ...base, videoAnnotations: [{ ...box, style: { color, width } }] }).success).toBe(true);
   });
 

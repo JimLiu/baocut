@@ -40,11 +40,11 @@ export const MARKUP_TOOLS = ['element', 'comment', 'pen', 'shape', 'text'] as co
 export type MarkupTool = (typeof MARKUP_TOOLS)[number];
 export const MARKUP_SHAPES = ['line', 'arrow', 'box', 'ellipse', 'pin'] as const satisfies readonly VideoAnnotationKind[];
 export type MarkupShape = (typeof MARKUP_SHAPES)[number];
-/** 颜色与粗细与协议的 `style` 同一组：红 / 蓝 / 绿 / 黑 / 白，2 / 4 / 6 / 8 px；默认红、4px。 */
+/** 颜色与粗细与协议的 `style` 同一组：红 / 蓝 / 绿 / 黑 / 白，2 / 4 / 8 / 12 px；默认红、4px。 */
 export const MARKUP_COLORS = VIDEO_ANNOTATION_COLORS;
 export const MARKUP_WIDTHS = VIDEO_ANNOTATION_WIDTHS;
 /** 文字标记的字号跟粗细档走（S2 字号阶梯，原型 stage-markup.jsx 的 `TEXT_SIZE`）。 */
-export const MARKUP_TEXT_SIZE: Record<VideoAnnotationWidth, number> = { 2: 16, 4: 20, 6: 25, 8: 28 };
+export const MARKUP_TEXT_SIZE: Record<VideoAnnotationWidth, number> = { 2: 16, 4: 20, 8: 28, 12: 36 };
 /** 矩形、圆与元素框的八枚把手；直线 / 箭头两端是 `from` / `to`。 */
 export const BOX_HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as const;
 export type MarkupHandle = (typeof BOX_HANDLES)[number] | 'from' | 'to';
