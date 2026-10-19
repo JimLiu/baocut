@@ -1,6 +1,7 @@
-/* 外部 Agent 的 baocut skill「装在哪、什么版本」（2026-10-18 按 `baocut skill install` 重排）。
-   - 全局：四个宿主各一行（Claude Code、Codex、Cursor、Gemini CLI），装在这台电脑的主目录下。
-   - 项目：每个装过的项目一组，只列装了的宿主；「安装到项目…」优先列 BaoCut 里的项目，也可以填别的文件夹。
+/* 外部 Agent 的 baocut skill「装在哪、什么版本」（2026-10-18 重排）。
+   - 全局：两个目录各一行——`~/.agents/skills`（Codex 与其他 Agent）、`~/.claude/skills`（Claude Code）。
+   - 项目：每个装过的项目一组，同样是这两个目录；「安装到项目…」优先列 BaoCut 里的项目，也可以填别的文件夹。
+   默认装成指向 App 自带那份的链接，永远与 App 同版本；副本才有「可更新」。
    每行：谁会读它 / 路径 / 版本与状态（未安装、最新、可更新到 vX、链接失效、位置被占用）/ 一颗对症的按钮，
    其余动作（换方式、复制路径、在文件夹中显示、移除）收进行尾菜单；会删掉真实文件的（移除副本、副本换成链接）先在行内确认。
    被占用的位置没有「替换」：不是 BaoCut 放的东西永不覆盖。状态判定与写操作都是 model-skill-install.js 的纯函数；不碰磁盘。 */
@@ -26,7 +27,7 @@
     const act = () => {
       if (c.action === 'install') { write((m) => M.put(m, path, mode, ver)); app.toast(`已给 ${M.reader(folder)} 装上 v${ver}（${M.modeLabel(mode)}，演示）· 新开一个 ${M.reader(folder)} 会话后生效`, 'positive'); }
       if (c.action === 'update') { write((m) => M.repair(m, path, ver)); app.toast(`已更新到 v${ver}（演示）· 新开一个 ${M.reader(folder)} 会话后生效`, 'positive'); }
-      if (c.action === 'repair') { write((m) => M.repair(m, path, ver)); app.toast('链接已重新指向 BaoCut 的那份（演示）', 'positive'); }
+      if (c.action === 'repair') { write((m) => M.repair(m, path, ver)); app.toast('链接已重新指向 App 自带的那份（演示）', 'positive'); }
     };
     const [ask, setAsk] = useState(null);   // null | 'remove' | 'link'
     const doConvert = (to) => { write((m) => M.put(m, path, to, ver)); app.toast(to === 'copy' ? '已改为复制一份（演示）' : '已改为链接：副本已移除（演示）', 'positive'); };
@@ -43,8 +44,8 @@
         <IconBtn size="s" icon="more" tip="更多操作" aria-expanded={menu} onClick={() => setMenu((v) => !v)} />
         <Popover open={menu} onClose={() => setMenu(false)} align="right" width={224}>
           <Menu>
-            {installed && entry.mode === 'link' ? <MenuItem label="改为复制一份" sub="不再依赖 BaoCut 的数据目录" onClick={() => convert('copy')} /> : null}
-            {installed && entry.mode !== 'link' ? <MenuItem label="改为链接" sub="和其他链接共用一份，一起更新" onClick={() => convert('link')} /> : null}
+            {installed && entry.mode === 'link' ? <MenuItem label="改为复制一份" sub="不再依赖 App 的位置，之后要手动更新" onClick={() => convert('copy')} /> : null}
+            {installed && entry.mode !== 'link' ? <MenuItem label="改为链接到 App" sub="指向 App 自带的那份，随 App 更新" onClick={() => convert('link')} /> : null}
             <MenuItem icon="copy" label="复制路径" onClick={() => { setMenu(false); copy(); }} />
             <MenuItem label="在文件夹中显示" disabled={kind === 'none'} onClick={() => { setMenu(false); app.toast('原型演示：在文件夹中显示 ' + path); }} />
             {installed ? <><MenuRule /><MenuItem tone="negative" icon="trash" label="移除" sub={entry.mode === 'link' ? '只删除链接' : '删除这份副本'}
@@ -68,7 +69,7 @@
     const dirs = app.dirs || [];
     const [picked, setPicked] = useState([]);
     const [paths, setPaths] = useState('');
-    const [hosts, setHosts] = useState([M.folders[0]]);
+    const [hosts, setHosts] = useState(M.folders);
     const [error, setError] = useState('');
     const add = () => {
       const typed = paths.trim() ? M.parseRoots(paths) : {roots: [], error: ''};
@@ -91,7 +92,7 @@
         onChange={(e) => { setPaths(e.target.value); setError(''); }} aria-invalid={!!error} aria-describedby={error ? 'skill-install-error' : undefined} />
       <div className="ags-input-label">装给哪些 Agent</div>
       <div className="row gap8 wrap">{M.HOSTS.map((h) => <Checkbox key={h.k} on={hosts.includes(h.folder)} label={h.name} onChange={(on) => toggle(hosts, setHosts, h.folder, on)} />)}</div>
-      <p className="hint">{`装成 v${ver}，${M.modeLabel(mode)}。位置：〈项目根目录〉/〈Agent 的 skills 目录〉/baocut`}</p>
+      <p className="hint">{`${M.modeLabel(mode)}，v${ver}。位置：〈项目根目录〉/.agents/skills/baocut、〈项目根目录〉/.claude/skills/baocut`}</p>
       {error ? <p id="skill-install-error" className="ags-error" role="alert">{error}</p> : null}
       <p className="hint">原型以勾选与输入路径演示；正式版「其他文件夹」用系统的文件夹选择。</p>
     </Dialog>;
@@ -131,9 +132,9 @@
     const [adding, setAdding] = useState(false);
     const roots = M.projectRoots(app.skillInstalls);
     return <>
-      <div className="ags-location ags-location--first">
+      <div className="ags-location">
         <h3 className="t-title-sm">全局</h3>
-        <p>这台电脑上的所有项目都能用。大多数人只需要装这里，给你用的那几个 Agent 装上就行。</p>
+        <p>这台电脑上的所有项目都能用，大多数人只需要装这里。<code>.agents/skills</code> 是 Codex 等 Agent 共用的约定目录，Claude Code 读 <code>.claude/skills</code>。</p>
         {M.folders.map((f) => <LocationRow key={f} root={M.GLOBAL} folder={f} mode={mode} />)}
       </div>
       <div className="ags-location">
