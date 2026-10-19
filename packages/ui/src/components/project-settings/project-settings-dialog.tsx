@@ -42,9 +42,10 @@ import { useProjectSettings } from '../../state/project-settings-store.ts';
 import { useSetting } from '../../state/settings-store.ts';
 import { M as SETTINGS } from '../settings/general-settings-copy.ts';
 import { useSaveSettings, useSettingsReady } from '../settings/save-settings.ts';
+import { useAlive } from '../use-alive.ts';
 import { useNow } from '../use-now.ts';
 import { PROJECT_SETTINGS_COPY as C } from './project-settings-copy.ts';
-import { useAlive, useGitCommit, useProjectGit, type GitNote } from './use-project-git.ts';
+import { useGitCommit, useProjectGit, type GitNote } from './use-project-git.ts';
 
 /**
  * 项目设置（版本记录设计 §5.3–§5.4、§6；原型 project-git.jsx / project-git.css）：git 一节与项目外素材的说明。

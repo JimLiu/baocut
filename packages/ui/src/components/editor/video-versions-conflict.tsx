@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { DocumentRecord, Id, VideoSnapshotStatus } from '@baocut/protocol';
 import { AlertDialog, Button, Content, DialogContainer, Heading, InlineAlert, ToastQueue } from '@react-spectrum/s2';
 import AlertTriangle from '@react-spectrum/s2/icons/AlertTriangle';
@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { fileLabel, isImportChange, resolveAsk, versionError, type ResolveKeep, type VersionError } from '../../model/video-versions.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { canEdit, useVideo, type OpenVideo } from '../../state/video-store.ts';
+import { useAlive } from '../use-alive.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { VIDEO_VERSIONS_COPY as C } from './video-versions-copy.ts';
 
@@ -64,13 +65,7 @@ export function useResolve(
   const { undo } = useEditorActions();
   const [asking, setAsking] = useState<ResolveKeep | null>(null);
   const [busy, setBusy] = useState(false);
-  const alive = useRef(true);
-  useEffect(
-    () => () => {
-      alive.current = false;
-    },
-    [],
-  );
+  const alive = useAlive();
 
   const undoImport = (transaction: Id) =>
     void undo({ transaction }).then((receipt) => {

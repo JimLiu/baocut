@@ -52,6 +52,7 @@ import { useSetting } from '../../state/settings-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { canEdit, useVideo, type OpenVideo } from '../../state/video-store.ts';
 import { ProjectGitStrip } from '../project-settings/project-git-strip.tsx';
+import { useAlive } from '../use-alive.ts';
 import { useNow } from '../use-now.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { ConflictAlert, ExternalAlert, useImportNotice, useResolve, useVersionsDialog, type VersionNote } from './video-versions-conflict.tsx';
@@ -219,15 +220,8 @@ function VideoVersionsDialog({ video, onClose }: { video: OpenVideo; onClose(): 
   const [ask, setAsk] = useState<Ask | null>(null);
   const [busy, setBusy] = useState(false);
   const texts = useRef(new Map<string, VideoVersionText>());
-  const alive = useRef(true);
+  const alive = useAlive();
   const reads = useRef(0);
-
-  useEffect(
-    () => () => {
-      alive.current = false;
-    },
-    [],
-  );
 
   const refresh = useCallback(async () => {
     const read = ++reads.current;

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Id, ProjectGitStatus } from '@baocut/protocol';
 import { commitText, gitError } from '../../model/project-git.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useProjectSettings } from '../../state/project-settings-store.ts';
 import { useSpace } from '../../state/space-store.ts';
+import { useAlive } from '../use-alive.ts';
 import { PROJECT_SETTINGS_COPY as C } from './project-settings-copy.ts';
 
 /** 一次操作的结果。项目设置与版本记录都是模态对话框，toast 落在遮罩下面点不到，所以结果写在原地。 */
@@ -66,15 +67,4 @@ export function useGitCommit(projectId: Id, onDone: (note: GitNote) => void): { 
 function videoName(videoId: Id): string | null {
   const entry = useSpace.getState().entries.find((e) => e.kind === 'video' && e.ref && 'videoId' in e.ref && e.ref.videoId === videoId);
   return entry?.name ?? null;
-}
-
-export function useAlive() {
-  const alive = useRef(true);
-  useEffect(() => {
-    alive.current = true;
-    return () => {
-      alive.current = false;
-    };
-  }, []);
-  return alive;
 }
