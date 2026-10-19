@@ -1492,7 +1492,7 @@ Node 管理模型目录、版本、下载计划、校验与资源准入；Rust W
 | `elevenlabs` | ElevenLabs | `vendor` | `synthesizeSpeech`（含音色克隆） | 全部 | `https://api.elevenlabs.io/v1` | `xi-api-key` | `elevenlabs`（没有时用首字母头像） |
 | `deepseek` | DeepSeek | `vendor` | `generateText` | 全部（兼容） | `https://api.deepseek.com/v1` | Bearer | `deepseek-color` |
 | `moonshot` | Kimi（Moonshot） | `vendor` | `generateText` | 全部（兼容） | `https://api.moonshot.ai/v1` / `https://api.moonshot.cn/v1` | Bearer | `kimi`（单色） |
-| `qwen` | 阿里云百炼（Qwen） | `vendor` | `generateText`；`synthesizeSpeech`、`transcribe` 为 P1 | `generateText`（兼容） | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` / `https://dashscope.aliyuncs.com/compatible-mode/v1` | Bearer | `qwen-color` |
+| `qwen` | 阿里云百炼（Qwen） | `vendor` | `generateText`、`transcribe`；`synthesizeSpeech` 为 P1 | `generateText`（兼容）、`transcribe`（Chat Completions 音频适配） | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` / `https://dashscope.aliyuncs.com/compatible-mode/v1` | Bearer | `qwen-color` |
 | `zhipu` | 智谱 GLM（Z.ai） | `vendor` | `generateText` | 全部（兼容） | `https://api.z.ai/api/paas/v4` / `https://open.bigmodel.cn/api/paas/v4` | Bearer | `zhipu-color` |
 | `minimax` | MiniMax | `vendor` | `generateText`；`synthesizeSpeech` 为 P1 | `generateText`（兼容） | `https://api.minimax.io/v1` / `https://api.minimaxi.com/v1` | Bearer | `minimax-color` |
 | `volcengine` | 火山引擎（豆包） | `vendor` | `generateText`；`generateImage` 为 P1 | `generateText`（兼容，方舟） | `https://ark.cn-beijing.volces.com/api/v3` | Bearer | `volcengine-color` |
@@ -1520,7 +1520,7 @@ Node 管理模型目录、版本、下载计划、校验与资源准入；Rust W
 
 响应带 `Retry-After` 时按它等待（至多 30 秒）：5xx 用它代替退避；429 只在它不超过 30 秒时等过后重试（计入同样的 3 次），没带或更久的立即失败，额度用尽（OpenAI 的 `insufficient_quota`）从不重试；429 失败时 `details.retryAfterSec` 记下供应商给的秒数。`PROVIDER_UNAVAILABLE` 带 `details.reason`：`unreachable`、`timeout` 或 `server-error`。文本适配器再细分 4xx：上下文过长是 `INPUT_TOO_LONG`（`details.reason: 'context-length'`），不重试；`PROVIDER_QUOTA_EXCEEDED` 的 `details.reason` 为 `rate-limited` 或 `insufficient-quota`，`PROVIDER_REJECTED` 为 `content-filter` 或 `model-not-found`。
 
-**转写的音频准备**。在线转写在 Runtime 里用 ffmpeg 把选定音轨解成 16 kHz 单声道的母带（只允许与 Worker 相同的 demuxer 白名单，请求了范围时只解那一段），没有音轨时直接是 `no-audio-track`，不请求供应商。母带超过模型的单次上限（字节或时长，取较紧的一个并留 10% 余量）时，用 silencedetect 找静音，在每块后半段里最靠后的静音中点处切开，找不到静音才硬切；每块编码成适配器要的格式（OpenAI 用 AAC/M4A，兼容端点用 WAV，Google 用 FLAC），按顺序提交，进度按已处理的秒数报告。切片从母带按需编码、提交后即删，母带与切片都在该任务的 staging 里，尝试结束时删除。上传用文件流（multipart），不把整段素材读进内存；Google 的请求体要求内联 base64，只缓冲当前这一块（不超过 12 MB）。
+**转写的音频准备**。在线转写在 Runtime 里用 ffmpeg 把选定音轨解成 16 kHz 单声道的母带（只允许与 Worker 相同的 demuxer 白名单，请求了范围时只解那一段），没有音轨时直接是 `no-audio-track`，不请求供应商。母带超过模型的单次上限（字节或时长，取较紧的一个并留 10% 余量）时，用 silencedetect 找静音，在每块后半段里最靠后的静音中点处切开，找不到静音才硬切；每块编码成适配器要的格式（OpenAI 用 AAC/M4A，兼容端点用 WAV，Google 用 FLAC），按顺序提交，进度按已处理的秒数报告。切片从母带按需编码、提交后即删，母带与切片都在该任务的 staging 里，尝试结束时删除。multipart 上传用文件流，不把整段素材读进内存；Google 与千问 ASR 的请求体要求内联 base64，只缓冲当前这一块（分别不超过 12 MB 与 7 MB）。
 
 **首批的转写适配器**。
 
@@ -1528,7 +1528,13 @@ Node 管理模型目录、版本、下载计划、校验与资源准入；Rust W
 | --- | --- | --- | --- |
 | `openai` | `POST {base}/audio/transcriptions`（multipart，Bearer） | `whisper-1`（默认）、`gpt-4o-transcribe`、`gpt-4o-mini-transcribe` | `whisper-1` 取 `verbose_json` 的段与词时间（`provider`）；另两个只返回文本，按 120 秒切块，词时间插值（`estimated`） |
 | `google` | Gemini Interactions API：`POST {base}/interactions`（`x-goog-api-key` 请求头，从不放在 URL 里） | `gemini-3.5-transcribe`（默认，词级时间标注）、`gemini-3.8-flash`（通用模型，按 JSON Schema 返回段） | 前者 `provider`，后者 `estimated` |
-| `custom:<名字>` | 用户给出的 OpenAI 兼容基址；密钥可选 | 用户声明（`declared`），限制取保守的默认值 | 声明为 `native` 的请求 `verbose_json`，否则 `estimated` |
+| `qwen`（Qwen3） | `POST {base}/chat/completions`（JSON，Bearer）：`messages` 中 `input_audio.data` 是音频 Data URL；术语提示放在 system 消息，断言语言放在 `asr_options.language`，`enable_itn: false` | `qwen3-asr-flash` | 取 `choices[0].message.content`，只接受完整的 `stop` 响应；无词时间，插值并标 `estimated` |
+| `qwen`（Qwen-Audio 3.x） | `POST {dashscopeBase}/services/aigc/multimodal-generation/generation`（JSON，Bearer，`X-DashScope-SSE: disable`）：音频放 `input.messages` 的最后一条 user 消息；参数是 `format`、`sample_rate: "16000"` 与可选的 `language_hints`，不发送 Chat Completions 参数 | `qwen-audio-3.0-asr-flash`（默认）、`qwen-audio-3.1-asr-flash` | 取累计全文 `output.text`；响应若带 `output.sentence`，必须标为已完成。稳定且覆盖全文的 `words` 由毫秒换成秒，拼上 `punctuation`，时间标 `provider`；否则保留全文并估算词时间，不拿最后一句的词列表替换全文 |
+| `custom:<名字>` | 用户给出的 OpenAI 兼容基址；密钥可选；阿里云官方域名上的千问同步 ASR 模型按模型族选择上述协议 | 用户声明（`declared`），限制取保守的默认值；千问 ASR 的字节、时长与词时间能力按对应协议覆盖声明 | 普通模型声明为 `native` 的请求 `verbose_json`，否则 `estimated`；千问模型采用对应适配器的解析规则 |
+
+千问两类同步转写都保留原始 `usage`，单次不超过 300 秒、原始音频不超过 7 MB（为 base64 后的 10 MB 上限留余量），内置适配器按 120 秒切块。Qwen-Audio 3.x 的术语上下文放在音频前的 user `input_text` 消息，最多 400 个 Unicode 码点；不使用 system 消息或 `asr_options`。`dashscopeBase` 将配置基址结尾的 `/compatible-mode/v1` 换成 `/api/v1`，已是 `/api/v1` 的不重复追加，保留原始源与代理路径前缀。协议分别按 [Qwen3-ASR API](https://www.alibabacloud.com/help/en/model-studio/qwen-asr-api-reference) 与 [Qwen-Audio 3.x HTTP API](https://www.alibabacloud.com/help/en/model-studio/fun-asr-flash-recorded-speech-recognition-http-api) 实现。
+
+千问同步 ASR 也识别 `latest` 与日期快照名。自建端点仅在 `dashscope.aliyuncs.com`、`dashscope-intl.aliyuncs.com` 或 `*.maas.aliyuncs.com` 上自动采用千问协议，其他域名保持原 OpenAI 转写协议。`*-filetrans` 需要 DashScope 异步提交、轮询与结果下载，本适配器不支持，在官方端点上报告为不可用，不发送到同步接口。
 
 **转写的结果**。供应商的词时间先按它给的顺序（说话的顺序）查一遍：起止依次排成一列，取最长的不减子序列作为可信的骨架，越出这一块一秒以上的点、离前后骨架点超过一秒的点算离群（实测 `gemini-3.5-transcribe` 偶尔丢或多一位数字，例如 13.4 秒写成 `3.400s`），按前后可信的点线性插值修好，这个词标 `estimated`，所在的段带 `timing-adjusted`；一秒以内的回退是相邻词的正常重叠，交给单调修正。各块的段拼到一起按起点排序、去掉重叠，规则与 Model Worker 相同（Model Worker 协议规范 §2.5.1）：与前一段部分重叠的在重叠区中点分开；整个落在前一段里的（多人同时说话时的插话）按原时长从包住它的那段的尾巴上分出来（几段合起来至多分走那段的一半，超出时按比例缩短），排在那段之后，带 `timing-adjusted`；换算成 tick 之后没有长度的段丢弃，带 `segment-degenerate`。
 

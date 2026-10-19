@@ -3,17 +3,19 @@
 // 兼容端点各家实现不一（vLLM、LocalAI、faster-whisper-server 等），这里只假定 `POST {base}/audio/transcriptions`
 // 接受 multipart 的 `file`/`model`/`response_format`/`language`/`prompt`，`verbose_json` 时可能带 `segments`、`words`；
 // 都是假定，没有逐家确认。声明了 `wordTimestamps: 'native'` 的模型请求 `verbose_json` 与词、段时间，其余请求 `json`。
+// 阿里云官方域名上的 Qwen 同步 ASR 按模型选择 Chat Completions 或 DashScope，限制与词时间按实际协议覆盖声明。
 // 密钥可选；切片用 WAV（兼容端点最普遍接受的格式）。
 import type { DeclaredModel, ModelServiceCapability, TranscribeModelInfo } from '@baocut/protocol';
 import type { ChunkFormat } from '../audio/audio-prep.ts';
 import type { AdapterConfig, AdapterHttp, ChunkRequest, ChunkTranscript, TranscribeAdapter } from '../adapter.ts';
+import { qwenAsrModelInfo, qwenTranscribeChunk, usesQwenAsr } from '../qwen/qwen-adapter.ts';
 import { openAiTranscribeChunk, openAiValidate } from '../openai/openai-transcription.ts';
 
 const DEFAULT_MAX_BYTES = 25_000_000;
 const TIMELESS_CHUNK_SEC = 120;
 
 export class CompatibleAdapter implements TranscribeAdapter {
-  readonly version = 'baocut-providers/openai-compatible@1';
+  readonly version = 'baocut-providers/openai-compatible@3';
   /** 显示名可能随配置改变：每次用时再取。 */
   readonly #label: () => string;
 
@@ -22,7 +24,10 @@ export class CompatibleAdapter implements TranscribeAdapter {
   }
 
   models(config: AdapterConfig): TranscribeModelInfo[] {
-    return declaredOf(config, 'transcribe').map((m, i) => declaredModelInfo(m, i === 0));
+    return declaredOf(config, 'transcribe').map((m, i) => {
+      const model = declaredModelInfo(m, i === 0);
+      return usesQwenAsr(config, m.modelId) ? qwenAsrModelInfo(model) : model;
+    });
   }
 
   chunkFormat(_model: TranscribeModelInfo): ChunkFormat {
@@ -34,6 +39,7 @@ export class CompatibleAdapter implements TranscribeAdapter {
   }
 
   transcribeChunk(request: ChunkRequest): Promise<ChunkTranscript> {
+    if (usesQwenAsr(request.config, request.model.modelId)) return qwenTranscribeChunk(request, this.#label());
     return openAiTranscribeChunk(request, { label: this.#label(), verbose: request.model.wordTimestamps === 'native' });
   }
 

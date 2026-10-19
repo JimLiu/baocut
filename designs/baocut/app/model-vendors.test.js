@@ -33,6 +33,13 @@ test('目录 id 固定：共享简报 §3 的 15 家 + 豆包语音 + Codex，�
   });
 });
 
+test('Qwen synchronous ASR is available in the shared provider catalog', () => {
+  assert.ok(!V.byId('qwen').p1.includes('transcribe'));
+  assert.deepEqual(V.modelsOf('qwen', 'transcribe').map((m) => m.id), [
+    'qwen-audio-3.0-asr-flash', 'qwen-audio-3.1-asr-flash', 'qwen3-asr-flash',
+  ]);
+});
+
 test('能力标签与旧 kind / 左栏项互译', () => {
   assert.deepEqual(V.CAPS.map((c) => V.CAP_SHORT[c]), ['文本', '识别', '合成', '生图']);
   assert.equal(V.CAP_LABEL.transcribe, '语音识别');
