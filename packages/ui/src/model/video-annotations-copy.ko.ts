@@ -1,10 +1,6 @@
 import type { VideoAnnotationMessages } from './video-annotations-copy.ts';
 
 export const ko: VideoAnnotationMessages = {
-  annotate: '주석',
-  exitAnnotate: '주석 종료',
-  toolbar: '동영상 주석',
-  kindGroup: '주석 종류',
   kinds: {
     box: '상자',
     arrow: '화살표',
@@ -16,19 +12,6 @@ export const ko: VideoAnnotationMessages = {
     element: '요소',
     comment: '댓글',
   },
-  hints: {
-    box: '드래그해서 상자 그리기',
-    arrow: '시작점에서 가리킬 곳까지 드래그',
-    text: '화면에서 위치를 클릭',
-    pin: '화면에서 위치를 클릭',
-    pen: '화면에 선을 그리기',
-    line: '한쪽 끝에서 다른 끝까지 드래그',
-    ellipse: '드래그해서 원 그리기',
-    element: '화면에서 요소를 클릭',
-    comment: '화면에서 위치나 요소를 클릭',
-  },
-  status: (hint, timecode, away) => `${hint} · ${timecode} 프레임${away ? ` · 다른 시점에 ${away}개 더` : ''} · Esc로 종료`,
-  done: '완료',
   places: {
     topLeft: '왼쪽 위',
     top: '위',
@@ -41,11 +24,6 @@ export const ko: VideoAnnotationMessages = {
     bottomRight: '오른쪽 아래',
   },
   label: (timecode, kind, place) => `${timecode} · ${kind} · 화면 ${place}`,
-  addTitle: '주석 추가',
-  noteLabel: '주석',
-  notePlaceholder: '어떻게 바꿀까요?',
-  addToChat: '대화에 추가',
-  cancel: '취소',
   mark: (n, text) => `주석 ${n}: ${text}`,
   removeFromChat: '대화에서 제거',
   token: (n) => `동영상 주석 · ${n}개`,

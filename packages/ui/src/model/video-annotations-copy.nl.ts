@@ -1,10 +1,6 @@
 import type { VideoAnnotationMessages } from './video-annotations-copy.ts';
 
 export const nl: VideoAnnotationMessages = {
-  annotate: 'Aantekenen',
-  exitAnnotate: 'Aantekenen stoppen',
-  toolbar: 'Videoaantekening',
-  kindGroup: 'Soort aantekening',
   kinds: {
     box: 'Kader',
     arrow: 'Pijl',
@@ -16,19 +12,6 @@ export const nl: VideoAnnotationMessages = {
     element: 'Element',
     comment: 'Opmerking',
   },
-  hints: {
-    box: 'Sleep een kader',
-    arrow: 'Sleep van het begin naar waar hij wijst',
-    text: 'Klik op een plek in het beeld',
-    pin: 'Klik op een plek in het beeld',
-    pen: 'Teken een lijn in het beeld',
-    line: 'Sleep van het ene eind naar het andere',
-    ellipse: 'Sleep een cirkel',
-    element: 'Klik op een element in het beeld',
-    comment: 'Klik op een plek of element in het beeld',
-  },
-  status: (hint, timecode, away) => `${hint} · beeld op ${timecode}${away ? ` · nog ${away} op andere momenten` : ''} · Esc om te stoppen`,
-  done: 'Klaar',
   places: {
     topLeft: 'linksboven',
     top: 'boven',
@@ -41,11 +24,6 @@ export const nl: VideoAnnotationMessages = {
     bottomRight: 'rechtsonder',
   },
   label: (timecode, kind, place) => `${timecode} · ${kind} · beeld ${place}`,
-  addTitle: 'Aantekening toevoegen',
-  noteLabel: 'Aantekening',
-  notePlaceholder: 'Wat moet er anders?',
-  addToChat: 'Aan chat toevoegen',
-  cancel: 'Annuleren',
   mark: (n, text) => `Aantekening ${n}: ${text}`,
   removeFromChat: 'Uit chat verwijderen',
   token: (n) => `Videoaantekeningen · ${n}`,

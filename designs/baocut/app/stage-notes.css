@@ -2,8 +2,6 @@
    标注层铺满画面（`.frame`），标记按归一化坐标落位，所以画幅与尺寸变了标记仍在原处。
    composer 上的「视频标注 · N 条」沿用 home-slides.css 的 .home-slides-notes 画法。 */
 .stnotes { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
-.stnotes.is-annotating { pointer-events: auto; cursor: crosshair; }
-.stnotes.is-annotating[data-kind="text"], .stnotes.is-annotating[data-kind="pin"] { cursor: cell; }
 /* 一条标记的壳：标记工具送来的按 data-color 换色、--stnw 换粗细；默认蓝、2px */
 .stnotes__mark { --stn: var(--blue-900); --stnw: 2; }
 .stnotes__mark[data-color="red"] { --stn: var(--red-900); }
@@ -19,26 +17,15 @@
 .stnotes__element { border-style: dashed; }
 .stnotes__element .stnotes__label { left: -2px; top: auto; bottom: 100%; margin-bottom: 4px; background: var(--stn, var(--blue-900)); }
 .stnotes__mark[data-color="white"] .stnotes__label { color: var(--gray-900); }
-.stnotes__box.is-ghost { border-style: dashed; box-shadow: none; pointer-events: none; }
 .stnotes__point { position: absolute; width: 0; height: 0; }
 .stnotes__text .stnotes__label { position: absolute; left: 14px; top: -10px; max-width: 240px; padding: 2px 8px; border-radius: 8px;
   background: var(--blue-900); color: var(--gray-25); font-size: 12px; line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 .stnotes__arrow { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .stnotes__arrow line { stroke: var(--stn, var(--blue-900)); stroke-width: calc(var(--stnw, 2) * 1px); stroke-linecap: round; }
-.stnotes__arrow.is-ghost line { stroke-dasharray: 6 4; }
 .stnotes__head { position: absolute; width: 12px; height: 12px; border-radius: 999px; background: var(--stn, var(--blue-900)); box-shadow: 0 0 0 2px var(--gray-25); transform: translate(-50%, -50%); }
-.stnotes__anchor { position: absolute; width: 1px; height: 1px; }
 /* 轻量编辑器补的三种（docs/design/lite-editor §4）：圆、画笔；直线复用箭头的线 */
 .stnotes__ellipse { border-radius: 50%; }
 .stnotes__pen polyline { fill: none; stroke: var(--stn, var(--blue-900)); stroke-width: calc(var(--stnw, 2) * 1px); stroke-linecap: round; stroke-linejoin: round; }
-.stnotes__pen.is-ghost polyline { stroke-dasharray: 6 4; }
-.stnotes.is-annotating[data-kind="pen"] { cursor: crosshair; }
-
-/* 舞台顶上的小工具条：种类、提示、完成 */
-.stnotes-bar { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 7; display: flex; align-items: center; gap: 12px; max-width: calc(100% - 24px);
-  padding: 4px 4px 4px 8px; border-radius: 10px; background: var(--gray-25); box-shadow: var(--sh-pop); }
-.stnotes-bar__kinds { display: flex; align-items: center; gap: 4px; }
-.stnotes-bar__hint { font-size: 12px; color: var(--gray-700); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* composer 列表里评论的附件：带位置印章的截图（原型示意：一块 16:9 的灰帧、一枚蓝印章） */
 .stnotes__shot { position: relative; display: block; width: 96px; aspect-ratio: 16 / 9; margin-top: 4px; border-radius: 4px; background: var(--gray-300); overflow: hidden; }

@@ -1,10 +1,6 @@
 import type { VideoAnnotationMessages } from './video-annotations-copy.ts';
 
 export const de: VideoAnnotationMessages = {
-  annotate: 'Anmerken',
-  exitAnnotate: 'Anmerkungen beenden',
-  toolbar: 'Videoanmerkung',
-  kindGroup: 'Art der Anmerkung',
   kinds: {
     box: 'Rahmen',
     arrow: 'Pfeil',
@@ -16,19 +12,6 @@ export const de: VideoAnnotationMessages = {
     element: 'Element',
     comment: 'Kommentar',
   },
-  hints: {
-    box: 'Rahmen aufziehen',
-    arrow: 'Vom Start bis zum Ziel ziehen',
-    text: 'Auf eine Stelle im Bild klicken',
-    pin: 'Auf eine Stelle im Bild klicken',
-    pen: 'Einen Strich ins Bild zeichnen',
-    line: 'Von einem Ende zum anderen ziehen',
-    ellipse: 'Einen Kreis aufziehen',
-    element: 'Auf ein Element im Bild klicken',
-    comment: 'Auf eine Stelle oder ein Element im Bild klicken',
-  },
-  status: (hint, timecode, away) => `${hint} · Bild bei ${timecode}${away ? ` · ${away} weitere zu anderen Zeitpunkten` : ''} · Esc zum Beenden`,
-  done: 'Fertig',
   places: {
     topLeft: 'oben links',
     top: 'oben',
@@ -41,11 +24,6 @@ export const de: VideoAnnotationMessages = {
     bottomRight: 'unten rechts',
   },
   label: (timecode, kind, place) => `${timecode} · ${kind} · Bild ${place}`,
-  addTitle: 'Anmerkung hinzufügen',
-  noteLabel: 'Anmerkung',
-  notePlaceholder: 'Was soll sich ändern?',
-  addToChat: 'Zum Chat hinzufügen',
-  cancel: 'Abbrechen',
   mark: (n, text) => `Anmerkung ${n}: ${text}`,
   removeFromChat: 'Aus dem Chat entfernen',
   token: (n) => `Videoanmerkungen · ${n}`,

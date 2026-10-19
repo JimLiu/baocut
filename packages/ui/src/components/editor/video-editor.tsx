@@ -13,6 +13,7 @@ import { zoomKey, type ZoomAction } from '../../model/timeline-zoom.ts';
 import { sequenceChapters, visibleChapters } from '../../model/chapters.ts';
 import { defaultEditorView, nextSegmentStart, prevSegmentStart, type LiteZoomAction } from '../../model/lite-segments.ts';
 import { TIMELINE_HEIGHT_MIN, useEditor, type PanelTab } from '../../state/editor-store.ts';
+import { useLiteMarkup } from '../../state/lite-markup-store.ts';
 import { useShell, type Route } from '../../state/shell-store.ts';
 import { LiteView, type LiteHandle } from './lite-view.tsx';
 import { landingPanel } from '../../model/shorts-entry.ts';
@@ -436,9 +437,10 @@ function useEditorKeys(
           return;
         }
         if (event.key === 'Escape') {
+          // 标记层挂着时 Esc 归它（lite-markup.tsx 的捕获监听）；这里兜画面还没量出来的时候，照样走会问一句的 close
           if (!editor.annotating) return;
           handled();
-          editor.setAnnotating(false);
+          useLiteMarkup.getState().close();
           return;
         }
         const liteKeys = new Set([' ', 'k', 'j', 'l', 'm', 'f', '?', 'ArrowUp', 'ArrowDown', 'Home', 'End']);
@@ -585,11 +587,11 @@ function useEditorKeys(
           void (event.shiftKey ? removeSelectionSpan(actions) : deleteSelection(actions));
           return;
         case 'Escape':
-          // 菜单、对话框、拖动各自先接 Esc（belongsToEditor、时间线的捕获监听）；批注框开着时它先关（它是对话框）。
-          // 到这里先退出视频标注模式，再取消选中。
+          // 菜单、对话框、拖动各自先接 Esc（belongsToEditor、时间线的捕获监听）；标记层挂着时它先接（lite-markup.tsx 的捕获监听）。
+          // 到这里先退出视频标注模式（还有没发的标记会先问），再取消选中。
           if (editor.annotating) {
             handled();
-            editor.setAnnotating(false);
+            useLiteMarkup.getState().close();
             return;
           }
           if (!editor.selection.length) return;

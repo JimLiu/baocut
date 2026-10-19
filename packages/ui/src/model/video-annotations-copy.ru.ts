@@ -1,10 +1,6 @@
 import type { VideoAnnotationMessages } from './video-annotations-copy.ts';
 
 export const ru: VideoAnnotationMessages = {
-  annotate: 'Пометки',
-  exitAnnotate: 'Выйти из пометок',
-  toolbar: 'Пометки к видео',
-  kindGroup: 'Тип пометки',
   kinds: {
     box: 'Рамка',
     arrow: 'Стрелка',
@@ -16,19 +12,6 @@ export const ru: VideoAnnotationMessages = {
     element: 'Элемент',
     comment: 'Комментарий',
   },
-  hints: {
-    box: 'Протяните рамку',
-    arrow: 'Протяните от начала туда, куда указать',
-    text: 'Щёлкните по месту в кадре',
-    pin: 'Щёлкните по месту в кадре',
-    pen: 'Нарисуйте линию в кадре',
-    line: 'Протяните от одного конца до другого',
-    ellipse: 'Протяните, чтобы нарисовать круг',
-    element: 'Щёлкните по элементу в кадре',
-    comment: 'Щёлкните по месту или элементу в кадре',
-  },
-  status: (hint, timecode, away) => `${hint} · кадр на ${timecode}${away ? ` · ещё ${away} в другие моменты` : ''} · Esc — выйти`,
-  done: 'Готово',
   places: {
     topLeft: 'слева вверху',
     top: 'вверху',
@@ -41,11 +24,6 @@ export const ru: VideoAnnotationMessages = {
     bottomRight: 'справа внизу',
   },
   label: (timecode, kind, place) => `${timecode} · ${kind} · ${place} кадра`,
-  addTitle: 'Добавить пометку',
-  noteLabel: 'Пометка',
-  notePlaceholder: 'Что нужно изменить?',
-  addToChat: 'Добавить в чат',
-  cancel: 'Отмена',
   mark: (n, text) => `Пометка ${n}: ${text}`,
   removeFromChat: 'Убрать из чата',
   token: (n) => `Пометки к видео · ${n}`,

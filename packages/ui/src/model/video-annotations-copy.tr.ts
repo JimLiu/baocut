@@ -1,10 +1,6 @@
 import type { VideoAnnotationMessages } from './video-annotations-copy.ts';
 
 export const tr: VideoAnnotationMessages = {
-  annotate: 'Not ekle',
-  exitAnnotate: 'Not eklemeden çık',
-  toolbar: 'Video notu',
-  kindGroup: 'Not türü',
   kinds: {
     box: 'Kutu',
     arrow: 'Ok',
@@ -16,19 +12,6 @@ export const tr: VideoAnnotationMessages = {
     element: 'Öğe',
     comment: 'Yorum',
   },
-  hints: {
-    box: 'Sürükleyerek bir kutu çiz',
-    arrow: 'Başlangıçtan göstereceği yere sürükle',
-    text: 'Görüntüde bir yere tıkla',
-    pin: 'Görüntüde bir yere tıkla',
-    pen: 'Görüntüye bir çizgi çiz',
-    line: 'Bir uçtan diğerine sürükle',
-    ellipse: 'Sürükleyerek daire çiz',
-    element: 'Görüntüde bir öğeye tıkla',
-    comment: 'Görüntüde bir yere ya da öğeye tıkla',
-  },
-  status: (hint, timecode, away) => `${hint} · ${timecode} karesi${away ? ` · başka anlarda ${away} not daha` : ''} · Çıkmak için Esc`,
-  done: 'Bitti',
   places: {
     topLeft: 'sol üst',
     top: 'üst',
@@ -41,11 +24,6 @@ export const tr: VideoAnnotationMessages = {
     bottomRight: 'sağ alt',
   },
   label: (timecode, kind, place) => `${timecode} · ${kind} · görüntünün ${place} kısmı`,
-  addTitle: 'Not ekle',
-  noteLabel: 'Not',
-  notePlaceholder: 'Ne değişmeli?',
-  addToChat: 'Sohbete ekle',
-  cancel: 'İptal',
   mark: (n, text) => `Not ${n}: ${text}`,
   removeFromChat: 'Sohbetten kaldır',
   token: (n) => `Video notları · ${n}`,

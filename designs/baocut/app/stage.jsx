@@ -42,7 +42,8 @@
        线是手势中**现算**的（§5：语义是「此刻确实对齐了」而非「刚刚被吸住了」），
        松手清空。 */
     const frameRef = React.useRef(null);
-    const liteMarkup = !player && ctx.view === 'lite' && ctx.annotating && ctx.markup && !!window.LiteMarkupLayer;
+    /* 标注模式（docs/design/lite-editor §4.1）：两种视图都铺标记层、浮标记工具条（stage-markup.jsx，只在 App 入口） */
+    const markupOn = !player && ctx.annotating && ctx.markup && !!window.LiteMarkupLayer;
     const [guides, setGuides] = React.useState([]);
     /* 框选（第 115 轮）：起手挂在 `.frame` 上，因为主视频铺满整幅画面——「舞台空白」
        在视觉上就是画面本身。真的拖过阈值时 `swallow()` 会吞掉尾随的那次 click，
@@ -359,13 +360,14 @@
           {player ? null : <StageChips />}
           <StageMediaNotice proj={ctx.proj} />
           <window.StageLoadNotice proj={ctx.proj} />
-          {/* 视频标注层（product-design §3.2.3「视频标注」；stage-notes.jsx，只在 App 入口）：挂在 `.frame` 最后，盖在元素与字幕之上。
-              标注模式下接手势，否则只画播放头附近那一帧的标记；全屏播放器不画。 */}
-          {!player && window.StageNotesLayer ? <window.StageNotesLayer ctx={liteMarkup ? {...ctx, annotating: false} : ctx} frameRef={frameRef} /> : null}
-          {/* 轻量视图的标记层（docs/design/lite-editor §4；stage-markup.jsx）：标注模式下替掉上面那层的手势，草稿里的标记仍由上面那层画 */}
-          {liteMarkup ? <window.LiteMarkupLayer ctx={ctx} frameRef={frameRef} /> : null}
+          {/* 视频标注层（product-design §3.2.3「视频标注」；stage-notes.jsx，只在 App 入口）：挂在 `.frame` 最后，盖在元素与字幕之上，
+              画播放头附近那一帧的草稿标记；全屏播放器不画。 */}
+          {!player && window.StageNotesLayer ? <window.StageNotesLayer ctx={ctx} frameRef={frameRef} /> : null}
+          {/* 标记层（docs/design/lite-editor §4；stage-markup.jsx）：标注模式下接手势，草稿里的标记仍由上面那层画 */}
+          {markupOn ? <window.LiteMarkupLayer ctx={ctx} frameRef={frameRef} /> : null}
         </div>
-        {!player && window.StageNotesToolbar ? <window.StageNotesToolbar ctx={ctx} /> : null}
+        {/* 标记工具条浮在舞台底上；轻量视图在 editor-lite.jsx 的画布里挂同一条 */}
+        {!player && ctx.view !== 'lite' && window.LiteMarkupBar ? <window.LiteMarkupBar ctx={ctx} /> : null}
       </div>
     );
   }
@@ -508,10 +510,11 @@
 
         {/* 纯图标的小号钮框只比图标宽 4px，挨着排会挤成一团：组内拉开 12px。 */}
         <div className="stagebar__icons">
-          {/* 标注（product-design §3.2.3「视频标注」、§5.3）：在画面上框、画箭头、写字或打编号，加进输入框的「视频标注」。
-              是交给智能体的入口，Web 没有会话，不出这枚钮。进标注模式先停播——标注绑的是此刻的播放头。 */}
-          {SURF.agent && ctx.setAnnotating ? <IconBtn size="s" onLayer on={!!ctx.annotating} tip={ctx.annotating ? '退出标注' : '标注'}
-            onClick={() => { if (!ctx.annotating) ctx.setPlaying(false); ctx.setAnnotating(!ctx.annotating); }}><R.Icons.Comment /></IconBtn> : null}
+          {/* 标记（product-design §3.2.3「视频标注」、§5.3；docs/design/lite-editor §4.1）：打开标记层与标记工具条（stage-markup.jsx），
+              在画面上画、选元素或写评论，加进输入框的「视频标注」；与轻量视图同一枚钮。是交给智能体的入口，Web 没有会话，不出这枚钮。
+              进标注模式先停播——标注绑的是此刻的播放头；关走 ctx.closeMarkup，画面上还有没发的标记会先问一句。 */}
+          {SURF.agent && ctx.setAnnotating && window.LiteMarkupBar ? <IconBtn size="s" onLayer on={!!ctx.annotating} tip={ctx.annotating ? '关闭标记 · Esc' : '标记画面 · 发给会话'}
+            onClick={() => { if (ctx.annotating) ctx.closeMarkup(); else { ctx.setPlaying(false); ctx.setAnnotating(true); } }}><R.Icons.Comment /></IconBtn> : null}
           <IconBtn icon="captions" size="s" onLayer on={subsOn}
             tip={subsOn ? '隐藏字幕' : '显示字幕'} onClick={() => setSubsOn(!subsOn)} />
 

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import type { Id, Revision, VideoAnnotationKind } from '@baocut/protocol';
+import type { Id, Revision } from '@baocut/protocol';
 import { mergeDraft, type ItemDraft } from '../model/item-draft.ts';
 import type { TemplateStudio } from '../model/template-studio.ts';
 import { ZOOM_DEFAULT, ZOOM_MIN, clampZoom } from '../model/timeline-zoom.ts';
@@ -149,13 +149,11 @@ export interface EditorStore {
   safeArea: boolean;
   setSafeArea(on: boolean): void;
   /**
-   * 视频标注模式（产品设计 §3.2.3「视频标注」；原型 stage.jsx 的「标注」钮；不持久化，换视频时退出）：开着时预览画面上盖一层
-   * 标注层，拖框、拖箭头或点一下记一条批注；画面里的元素这时不能选、不能拖。`noteKind` 是小工具条上选中的种类。
+   * 视频标注模式（产品设计 §3.2.3「视频标注」、§5.3；舞台条的「标记」钮；不持久化，换视频时退出）：开着时预览画面上盖标记层与
+   * 标记工具条（lite-markup.tsx，两种视图同一套），画面里的元素这时不能选、不能拖。关掉走 lite-markup-store 的 `close`，还有没发的标记先问。
    */
   annotating: boolean;
   setAnnotating(on: boolean): void;
-  noteKind: VideoAnnotationKind;
-  setNoteKind(kind: VideoAnnotationKind): void;
   /**
    * 编辑器之外要把播放头挪到某一秒（例如点 composer 里的一条视频标注）：写播放头并加一次计数，编辑器看到计数变了就让引擎跳过去。
    * 同一部视频开着时 `setPlayhead` 只改显示，不会让引擎跳；换视频时打开的那一刻会按播放头跳，不需要它。
@@ -333,8 +331,6 @@ export const useEditor = create<EditorStore>()(
       setSafeArea: (safeArea) => set({ safeArea }),
       annotating: false,
       setAnnotating: (annotating) => set({ annotating }),
-      noteKind: 'box',
-      setNoteKind: (noteKind) => set({ noteKind }),
       seekRequests: 0,
       requestSeek: (seconds) => set((s) => ({ playhead: Math.max(0, seconds), seekRequests: s.seekRequests + 1 })),
       view: 'timeline',

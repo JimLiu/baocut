@@ -1,10 +1,6 @@
 import type { VideoAnnotationMessages } from './video-annotations-copy.ts';
 
 export const it: VideoAnnotationMessages = {
-  annotate: 'Annota',
-  exitAnnotate: 'Esci dalle annotazioni',
-  toolbar: 'Annotazione video',
-  kindGroup: 'Tipo di annotazione',
   kinds: {
     box: 'Riquadro',
     arrow: 'Freccia',
@@ -16,19 +12,6 @@ export const it: VideoAnnotationMessages = {
     element: 'Elemento',
     comment: 'Commento',
   },
-  hints: {
-    box: 'Trascina per disegnare un riquadro',
-    arrow: 'Trascina dall’inizio fino a dove punta',
-    text: 'Fai clic su un punto dell’immagine',
-    pin: 'Fai clic su un punto dell’immagine',
-    pen: 'Disegna un tratto sull’immagine',
-    line: 'Trascina da un’estremità all’altra',
-    ellipse: 'Trascina per disegnare un cerchio',
-    element: 'Fai clic su un elemento dell’immagine',
-    comment: 'Fai clic su un punto o un elemento dell’immagine',
-  },
-  status: (hint, timecode, away) => `${hint} · fotogramma a ${timecode}${away ? ` · altre ${away} in altri momenti` : ''} · Esc per uscire`,
-  done: 'Fine',
   places: {
     topLeft: 'in alto a sinistra',
     top: 'in alto',
@@ -41,11 +24,6 @@ export const it: VideoAnnotationMessages = {
     bottomRight: 'in basso a destra',
   },
   label: (timecode, kind, place) => `${timecode} · ${kind} · ${place} nell’inquadratura`,
-  addTitle: 'Aggiungi annotazione',
-  noteLabel: 'Annotazione',
-  notePlaceholder: 'Cosa va cambiato?',
-  addToChat: 'Aggiungi alla chat',
-  cancel: 'Annulla',
   mark: (n, text) => `Annotazione ${n}: ${text}`,
   removeFromChat: 'Rimuovi dalla chat',
   token: (n) => `Annotazioni video · ${n}`,

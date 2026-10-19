@@ -60,7 +60,7 @@
 .mk__card-row > span:first-child { flex: none; min-width: 64px; color: var(--gray-600); }
 .mk__card-row > span:last-child { min-width: 0; }
 
-/* 工具条：浮在画面底上，一张卡（radius 10、sh-pop），与时间线视图的标注条同款 */
+/* 工具条：浮在画面底上，一张卡（radius 10、sh-pop），两种视图同一条 */
 .mk-bar { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 8; display: flex; align-items: center; gap: 4px; max-width: calc(100% - 24px);
   padding: 4px; border-radius: 10px; background: var(--gray-25); box-shadow: var(--sh-pop); }
 .mk-bar__group { display: flex; align-items: center; gap: 2px; }

@@ -18,7 +18,7 @@ import { StageLoadNotice } from './stage-load-notice.tsx';
 import { StageMediaNotice } from './stage-media-notice.tsx';
 import { StageBar, SafeAreaOverlay } from './stage-bar.tsx';
 import { LiteMarkupLayer } from './lite-markup.tsx';
-import { StageNotesLayer, StageNotesToolbar } from './stage-notes.tsx';
+import { StageNotesLayer } from './stage-notes.tsx';
 import { StageObjects } from './stage-objects.tsx';
 import { TemplateStudioStage } from './template-studio-stage.tsx';
 import { useAssetUrl } from './use-asset-url.ts';
@@ -311,11 +311,10 @@ export function Preview({
         {studio && !fullscreen ? <TemplateStudioStage sequence={sequence} stage={box} /> : null}
         {/* 标注模式下画面里的元素不能选、不能拖：舞台点选层让位给标注层。 */}
         {fw > 0 && fh > 0 && !fullscreen && !annotating && !studio && !lite ? <StageObjects sequence={sequence} frame={frameRect} /> : null}
-        {/* 视频标注层（产品设计 §3.2.3「视频标注」）：盖在画面与舞台点选层之上；全屏播放器不画。 */}
-        {/* 轻量视图的标注模式换成标记层与标记工具条（lite-editor §4.1）：已进草稿的标注照旧由标注层画，但它不接手势。 */}
-        {fw > 0 && fh > 0 && !fullscreen && videoId ? <StageNotesLayer videoId={videoId} frame={frameRect} gestures={!lite} /> : null}
-        {!fullscreen && videoId && !lite ? <StageNotesToolbar videoId={videoId} /> : null}
-        {fw > 0 && fh > 0 && !fullscreen && videoId && lite && annotating ? (
+        {/* 视频标注层（产品设计 §3.2.3「视频标注」）：画已进草稿的标注，盖在画面与舞台点选层之上；全屏播放器不画。 */}
+        {fw > 0 && fh > 0 && !fullscreen && videoId ? <StageNotesLayer videoId={videoId} frame={frameRect} /> : null}
+        {/* 标注模式（舞台条的「标记」）：两种视图都铺标记层、浮标记工具条（lite-editor §4.1）；轻量视图另把播放头所在的段与句记进标注。 */}
+        {fw > 0 && fh > 0 && !fullscreen && videoId && annotating ? (
           <LiteMarkupLayer
             videoId={videoId}
             sequence={sequence}

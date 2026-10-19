@@ -216,7 +216,6 @@
     const [safeArea, setSafeArea] = useState(window.BC_SHORTS.isShorts(proj));
     /* 视频标注模式（product-design §3.2.3「视频标注」、§5.3；stage-notes.jsx）：这个窗口的观看态，不进视频、不进撤销 */
     const [annotating, setAnnotating] = useState(false);
-    const [noteKind, setNoteKind] = useState('box');
     /* 轻量视图的标记工具（docs/design/lite-editor §4；stage-markup.jsx，模型 model-markup.js）：一次标注会话里画的那组标记，
        退出标注就清掉（工具、颜色、粗细留着）；关闭时画面上还有没发的标记先问一句（`ask`，工具条上的 ConfirmDialog） */
     const MKP = window.BC_MARKUP;
@@ -1337,7 +1336,7 @@
       score: scoreStore.score, scoreOff: scoreStore.scoreOff, scoreJob: scoreStore.scoreJob, regenScore: scoreStore.regenScore,
       dub, dubs, dubOff, bedOff, dubReadings, setDubReadings, applyDub, clearDub, restoreDubs, dubMuted, bedMuted, stretchDub, setDubSource,
       dubSel, pickDub, clearDubSel, updateDub, muteDubBlocks, deleteDubBlocks, regenDubBlocks, restoreDubTake, pruneDubArchive, clearDubArchive, openDubSentence,
-      subsOn, setSubsOn, fs, setFs, safeArea, setSafeArea, annotating, setAnnotating, noteKind, setNoteKind, markup, setMarkup, closeMarkup, clips, setClips, split, canSplit, ripple, pop, setPop,
+      subsOn, setSubsOn, fs, setFs, safeArea, setSafeArea, annotating, setAnnotating, markup, setMarkup, closeMarkup, clips, setClips, split, canSplit, ripple, pop, setPop,
       sel, sels, pick, pickSub, clearSel, isSel, selKeys: selection.selKeys,
       pickMany: selection.pickMany, selectAll: selection.selectAll, history,
       editing: selection.editing, startEdit: selection.startEdit, stopEdit: selection.stopEdit,

@@ -2033,14 +2033,14 @@ export function posterFrame(video: VideoSnapshot): { asset: VersionRef; at: numb
 export const VIDEO_ANNOTATION_LIMITS = { perMessage: 20, text: 2000 } as const;
 
 /**
- * 视频标注的种类：框、箭头、文字、编号；轻量视图的标记工具（docs/design/lite-editor §4.1）另加画笔、直线、圆、元素与评论。
+ * 视频标注的种类：框、箭头、文字、编号；标记工具（docs/design/lite-editor §4.1）另加画笔、直线、圆、元素与评论。
  * 时间线视图的标注条只列前四种。
  */
 export const VIDEO_ANNOTATION_KINDS = ['box', 'arrow', 'text', 'pin', 'pen', 'line', 'ellipse', 'element', 'comment'] as const;
 export type VideoAnnotationKind = (typeof VIDEO_ANNOTATION_KINDS)[number];
 /** 一定要写批注的种类：文字与评论的内容就是批注；别的种类可以不写（标记工具画的标记不逐条要批注，要说的话在对话里）。 */
 export const VIDEO_ANNOTATION_TEXT_KINDS = ['text', 'comment'] as const satisfies readonly VideoAnnotationKind[];
-/** 标记的颜色与粗细（像素）：轻量视图标记工具条的「颜色」「粗细」（lite-editor §4.1），随标注存成 `style`。 */
+/** 标记的颜色与粗细（像素）：标记工具条的「颜色」「粗细」（lite-editor §4.1），随标注存成 `style`。 */
 export const VIDEO_ANNOTATION_COLORS = ['red', 'blue', 'green', 'black', 'white'] as const;
 export type VideoAnnotationColor = (typeof VIDEO_ANNOTATION_COLORS)[number];
 export const VIDEO_ANNOTATION_WIDTHS = [2, 4, 6, 8] as const;
@@ -2061,7 +2061,7 @@ export type VideoAnnotationElement =
 
 /**
  * 一条视频标注（产品设计 §3.2.3「视频标注」、§5.3「标注」）：用户在编辑器预览画面上框、画箭头、写文字或打编号，写的批注；
- * 轻量视图的标记工具（lite-editor §4）另能画笔、直线、圆，点中画面上的元素，或落一枚评论印章，并带颜色与粗细、落点。
+ * 标记工具（lite-editor §4）另能画笔、直线、圆，点中画面上的元素，或落一枚评论印章，并带颜色与粗细、落点。
  * 随 `conversations.send` / `steer` 挂在消息上，Runtime 发送时按视频拼成 `<baocut-video-annotations>` 段交给智能体；
  * 会话里的用户消息上另带一份。默认语义是「改源视频 `timeMs` 附近」，`region` 只用来定位，不裁剪、不作为生成的输入。
  */

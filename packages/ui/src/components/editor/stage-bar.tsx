@@ -40,7 +40,6 @@ import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { useLocale } from 'react-aria/I18nProvider';
 import { Slider, SliderThumb, SliderTrack } from 'react-aria-components/Slider';
 import { TooltipContext, TooltipTriggerStateContext } from 'react-aria-components/Tooltip';
-import { VIDEO_NOTES } from '../../model/video-annotations-copy.ts';
 import { captionKindLabel } from '../../model/caption-tracks.ts';
 import { captionLayerShown, hasLayerToggles, layersPartlyHidden, type CaptionLayer, type LayerToggles } from '../../model/stage-layers.ts';
 import { monitorGain, monitorLevel, toggleMute, type MonitorLevel } from '../../model/preview-volume.ts';
@@ -116,7 +115,7 @@ export function StageBar({
       )}
       <div className={spacer} />
       <div className={icons}>
-        <AnnotateToggle lite={lite} />
+        <AnnotateToggle />
         {lite ? null : <CaptionsToggle />}
         <VolumeControl />
         <Tip label={F.enterTip}>
@@ -384,27 +383,30 @@ function CustomRatioDialog({
 // ---- 标注 ----
 
 /**
- * 标注（产品设计 §3.2.3「视频标注」、§5.3；原型 stage.jsx）：在画面上框、画箭头、写字或打编号，加进输入框的「视频标注」。
- * 是交给智能体的入口，Web 没有会话，不出这枚钮。进标注模式先停播——标注绑的是此刻的播放头。
- * 轻量视图里叫「标记」（lite-editor §4.1）：打开的是标记层与标记工具条；关掉时还有没发出去的标记先问（lite-markup-store `close`）。
+ * 标记（产品设计 §3.2.3「视频标注」、§5.3；lite-editor §4.1）：打开标记层与标记工具条，在画面上画、选元素或写评论，加进输入框的
+ * 「视频标注」。两种视图同一枚钮、同一套工具。是交给智能体的入口，Web 没有会话，不出这枚钮。进标注模式先停播——标注绑的是此刻的播放头。
+ * 关掉时还有没发出去的标记先问（lite-markup-store `close`）。
  */
-function AnnotateToggle({ lite }: { lite: boolean }) {
+function AnnotateToggle() {
   const web = useRuntime().host.platform === 'web';
   const { pause } = useEditorActions();
   const on = useEditor((s) => s.annotating);
   const setAnnotating = useEditor((s) => s.setAnnotating);
   if (web) return null;
   return (
-    <Tip label={lite ? (on ? LM.exitMarkup : LM.markup) : on ? VIDEO_NOTES.exitAnnotate : VIDEO_NOTES.annotate}>
+    <Tip label={on ? LM.exitMarkup : LM.markup}>
       <ToggleButton
         size="S"
         isQuiet
-        aria-label={lite ? LM.markup : VIDEO_NOTES.annotate}
+        aria-label={LM.markup}
         isSelected={on}
         onChange={(next) => {
-          if (next) pause();
-          if (!next && lite) useLiteMarkup.getState().close();
-          else setAnnotating(next);
+          if (!next) {
+            useLiteMarkup.getState().close();
+            return;
+          }
+          pause();
+          setAnnotating(true);
         }}>
         <Comment />
       </ToggleButton>

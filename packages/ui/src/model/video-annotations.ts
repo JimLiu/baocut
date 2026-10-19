@@ -10,7 +10,7 @@ import { VIDEO_NOTES } from './video-annotations-copy.ts';
 
 /**
  * 视频标注（产品设计 §3.2.3「视频标注」、§5.3）：编辑器预览画面上框、箭头、文字与编号标记的草稿、画面上的标记与发送时交出去的那一份；
- * 轻量视图的标记工具（docs/design/lite-editor §4）另送来画笔、直线、圆、元素与评论，带颜色粗细、点中的元素、印章截图与落点。
+ * 标记工具（docs/design/lite-editor §4）另送来画笔、直线、圆、元素与评论，带颜色粗细、点中的元素、印章截图与落点。
  * 移植自原型 designs/baocut/app/model-stage-notes.js（`normalize`、`place`、`label`、`add`、`remove`、`pins`、`elsewhere`、
  * `candidateBounds`），与幻灯片、设计稿、设计系统标注同一套规则。纯函数，无 React、无 DOM。
  * 与另外三种的差别只有草稿的归属：这里按**视频**分（编辑器的快聊会话常常还没建），编号与另外三种各自从 1 起。
@@ -21,14 +21,11 @@ import { VIDEO_NOTES } from './video-annotations-copy.ts';
 export type DraftVideoAnnotation = VideoAnnotation & { id: string; videoId: Id };
 
 /**
- * 加不进去的原因：空的、超长的、超过条数的、箭头没拖到终点、框或圆没有面积；轻量视图的标记另有直线没拖到另一头、画笔不成一道、
+ * 加不进去的原因：空的、超长的、超过条数的、箭头没拖到终点、框或圆没有面积；标记工具另有直线没拖到另一头、画笔不成一道、
  * 元素标注没点中元素。
  */
 export type VideoAnnotationError =
   'empty' | 'too-long' | 'too-many' | 'no-arrow-end' | 'no-area' | 'no-line-end' | 'no-path' | 'no-element';
-
-/** 时间线视图标注条上的四种（lite-editor §4.1：时间线视图仍只列框 / 箭头 / 文字 / 编号，另五种只从轻量视图的标记工具来）。 */
-export const TIMELINE_VIDEO_ANNOTATION_KINDS = ['box', 'arrow', 'text', 'pin'] as const satisfies readonly VideoAnnotationKind[];
 
 /** 画面上显示哪些标记的时间窗（毫秒）：播放头前后这么远以内的算「这一帧」。 */
 export const VIDEO_ANNOTATION_NEAR_MS = 500;

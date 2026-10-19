@@ -1,10 +1,6 @@
 import type { VideoAnnotationMessages } from './video-annotations-copy.ts';
 
 export const zhHans: VideoAnnotationMessages = {
-  annotate: '标注',
-  exitAnnotate: '退出标注',
-  toolbar: '视频标注',
-  kindGroup: '标注种类',
   kinds: {
     box: '框',
     arrow: '箭头',
@@ -16,19 +12,6 @@ export const zhHans: VideoAnnotationMessages = {
     element: '元素',
     comment: '评论',
   },
-  hints: {
-    box: '拖出一个框',
-    arrow: '从起点拖到要指的地方',
-    text: '点画面上的位置',
-    pin: '点画面上的位置',
-    pen: '在画面上画一道',
-    line: '从一头拖到另一头',
-    ellipse: '拖出一个圆',
-    element: '点画面上的元素',
-    comment: '点画面上的位置或元素',
-  },
-  status: (hint, timecode, away) => `${hint} · 在 ${timecode} 这一帧${away ? ` · 另有 ${away} 条在别的时刻` : ''} · Esc 退出`,
-  done: '完成',
   places: {
     topLeft: '左上',
     top: '上方',
@@ -41,11 +24,6 @@ export const zhHans: VideoAnnotationMessages = {
     bottomRight: '右下',
   },
   label: (timecode, kind, place) => `${timecode} · ${kind} · 画面${place}`,
-  addTitle: '添加批注',
-  noteLabel: '批注',
-  notePlaceholder: '这里要怎么改？',
-  addToChat: '添加到对话',
-  cancel: '取消',
   mark: (n, text) => `第 ${n} 条批注：${text}`,
   removeFromChat: '从对话中移除',
   token: (n) => `视频标注 · ${n} 条`,

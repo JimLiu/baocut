@@ -1,10 +1,6 @@
 import type { VideoAnnotationMessages } from './video-annotations-copy.ts';
 
 export const vi: VideoAnnotationMessages = {
-  annotate: 'Chú thích',
-  exitAnnotate: 'Thoát chú thích',
-  toolbar: 'Chú thích video',
-  kindGroup: 'Loại chú thích',
   kinds: {
     box: 'Khung',
     arrow: 'Mũi tên',
@@ -16,19 +12,6 @@ export const vi: VideoAnnotationMessages = {
     element: 'Phần tử',
     comment: 'Bình luận',
   },
-  hints: {
-    box: 'Kéo để vẽ một khung',
-    arrow: 'Kéo từ điểm đầu tới chỗ cần chỉ',
-    text: 'Nhấp vào một vị trí trên hình',
-    pin: 'Nhấp vào một vị trí trên hình',
-    pen: 'Vẽ một nét trên hình',
-    line: 'Kéo từ đầu này sang đầu kia',
-    ellipse: 'Kéo để vẽ hình tròn',
-    element: 'Nhấp vào một phần tử trên hình',
-    comment: 'Nhấp vào một vị trí hoặc phần tử trên hình',
-  },
-  status: (hint, timecode, away) => `${hint} · khung hình tại ${timecode}${away ? ` · còn ${away} ở thời điểm khác` : ''} · Esc để thoát`,
-  done: 'Xong',
   places: {
     topLeft: 'góc trên bên trái',
     top: 'phía trên',
@@ -41,11 +24,6 @@ export const vi: VideoAnnotationMessages = {
     bottomRight: 'góc dưới bên phải',
   },
   label: (timecode, kind, place) => `${timecode} · ${kind} · ${place} khung hình`,
-  addTitle: 'Thêm chú thích',
-  noteLabel: 'Chú thích',
-  notePlaceholder: 'Cần sửa gì ở đây?',
-  addToChat: 'Thêm vào cuộc trò chuyện',
-  cancel: 'Hủy',
   mark: (n, text) => `Chú thích ${n}: ${text}`,
   removeFromChat: 'Gỡ khỏi cuộc trò chuyện',
   token: (n) => `Chú thích video · ${n}`,

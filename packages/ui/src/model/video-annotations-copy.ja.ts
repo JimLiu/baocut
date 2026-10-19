@@ -1,10 +1,6 @@
 import type { VideoAnnotationMessages } from './video-annotations-copy.ts';
 
 export const ja: VideoAnnotationMessages = {
-  annotate: '注釈',
-  exitAnnotate: '注釈を終了',
-  toolbar: '動画の注釈',
-  kindGroup: '注釈の種類',
   kinds: {
     box: '枠',
     arrow: '矢印',
@@ -16,19 +12,6 @@ export const ja: VideoAnnotationMessages = {
     element: '要素',
     comment: 'コメント',
   },
-  hints: {
-    box: 'ドラッグして枠を描く',
-    arrow: '始点から指したい場所までドラッグ',
-    text: '画面上の位置をクリック',
-    pin: '画面上の位置をクリック',
-    pen: '画面上に線を描く',
-    line: '端から端までドラッグ',
-    ellipse: 'ドラッグして円を描く',
-    element: '画面上の要素をクリック',
-    comment: '画面上の位置か要素をクリック',
-  },
-  status: (hint, timecode, away) => `${hint} · ${timecode} のフレーム${away ? ` · ほかの時点に ${away} 件` : ''} · Esc で終了`,
-  done: '完了',
   places: {
     topLeft: '左上',
     top: '上',
@@ -41,11 +24,6 @@ export const ja: VideoAnnotationMessages = {
     bottomRight: '右下',
   },
   label: (timecode, kind, place) => `${timecode} · ${kind} · 画面の${place}`,
-  addTitle: '注釈を追加',
-  noteLabel: '注釈',
-  notePlaceholder: 'どう直しますか？',
-  addToChat: 'チャットに追加',
-  cancel: 'キャンセル',
   mark: (n, text) => `注釈 ${n}：${text}`,
   removeFromChat: 'チャットから削除',
   token: (n) => `動画の注釈 · ${n} 件`,

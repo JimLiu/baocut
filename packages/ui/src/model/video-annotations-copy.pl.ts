@@ -1,10 +1,6 @@
 import type { VideoAnnotationMessages } from './video-annotations-copy.ts';
 
 export const pl: VideoAnnotationMessages = {
-  annotate: 'Adnotacje',
-  exitAnnotate: 'Zakończ adnotacje',
-  toolbar: 'Adnotacja wideo',
-  kindGroup: 'Rodzaj adnotacji',
   kinds: {
     box: 'Ramka',
     arrow: 'Strzałka',
@@ -16,19 +12,6 @@ export const pl: VideoAnnotationMessages = {
     element: 'Element',
     comment: 'Komentarz',
   },
-  hints: {
-    box: 'Przeciągnij, aby narysować ramkę',
-    arrow: 'Przeciągnij od początku do miejsca, które wskazuje',
-    text: 'Kliknij miejsce w kadrze',
-    pin: 'Kliknij miejsce w kadrze',
-    pen: 'Narysuj linię w kadrze',
-    line: 'Przeciągnij od jednego końca do drugiego',
-    ellipse: 'Przeciągnij, aby narysować okrąg',
-    element: 'Kliknij element w kadrze',
-    comment: 'Kliknij miejsce lub element w kadrze',
-  },
-  status: (hint, timecode, away) => `${hint} · klatka ${timecode}${away ? ` · jeszcze ${away} w innych momentach` : ''} · Esc, aby wyjść`,
-  done: 'Gotowe',
   places: {
     topLeft: 'u góry po lewej',
     top: 'u góry',
@@ -41,11 +24,6 @@ export const pl: VideoAnnotationMessages = {
     bottomRight: 'na dole po prawej',
   },
   label: (timecode, kind, place) => `${timecode} · ${kind} · ${place} kadru`,
-  addTitle: 'Dodaj adnotację',
-  noteLabel: 'Adnotacja',
-  notePlaceholder: 'Co trzeba zmienić?',
-  addToChat: 'Dodaj do czatu',
-  cancel: 'Anuluj',
   mark: (n, text) => `Adnotacja ${n}: ${text}`,
   removeFromChat: 'Usuń z czatu',
   token: (n) => `Adnotacje wideo · ${n}`,

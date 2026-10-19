@@ -14,18 +14,18 @@
   const LIMITS = {notes: 20, text: 2000, near: 500};
   /* 四种标注：框、箭头、文字、编号标记（给人看的名字与给模型看的 kind 一致，kind 用英文）。
      轻量编辑器（docs/design/lite-editor §4）补三种：画笔（一串点）、直线（起点与终点，不带头）、圆（与框同一块矩形，画成椭圆）；
-     时间线视图的标注条只列前四种，轻量视图的工具条列全部。 */
+     标记工具条（stage-markup.jsx，两种视图同一条）列全部九种。 */
   const KINDS = [
     {kind: 'box', label: '框', hint: '拖出一个框'},
     {kind: 'arrow', label: '箭头', hint: '从起点拖到要指的地方'},
     {kind: 'text', label: '文字', hint: '点画面上的位置'},
     {kind: 'pin', label: '编号', hint: '点画面上的位置'},
-    {kind: 'pen', label: '画笔', hint: '在画面上画一道', lite: true},
-    {kind: 'line', label: '直线', hint: '从一头拖到另一头', lite: true},
-    {kind: 'ellipse', label: '圆', hint: '拖出一个圆', lite: true},
-    /* 轻量编辑器标记工具（stage-markup.jsx）送来的两种：元素（点中的舞台节点，`element` 带它是谁）、评论（印章 + 一句话，另带印章截图 `shot`） */
-    {kind: 'element', label: '元素', hint: '点画面上的元素', lite: true},
-    {kind: 'comment', label: '评论', hint: '点画面上的位置或元素', lite: true},
+    {kind: 'pen', label: '画笔', hint: '在画面上画一道'},
+    {kind: 'line', label: '直线', hint: '从一头拖到另一头'},
+    {kind: 'ellipse', label: '圆', hint: '拖出一个圆'},
+    /* 标记工具（stage-markup.jsx）送来的两种：元素（点中的舞台节点，`element` 带它是谁）、评论（印章 + 一句话，另带印章截图 `shot`） */
+    {kind: 'element', label: '元素', hint: '点画面上的元素'},
+    {kind: 'comment', label: '评论', hint: '点画面上的位置或元素'},
   ];
   /* 没写字就不收的种类；别的标注从轻量编辑器的标记工具来时（带 `style`）可以不写批注，要说的话在对话里 */
   const NEEDS_TEXT = {text: true, comment: true};
