@@ -2,13 +2,13 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { PROJECT_BRAND_MAX_BYTES, RpcError, type Project } from '@baocut/protocol';
+import { GLOBAL_BRAND_ID, PROJECT_BRAND_MAX_BYTES, RpcError, type Project } from '@baocut/protocol';
 import { SkillPrefsStore } from '@baocut/runtime-storage';
 import { brandBodyFromSkill, ProjectBrands } from './project-brand.ts';
 import { SkillCatalog } from './skill-catalog.ts';
 import { writeSkill } from './testing/skill-fixtures.ts';
 
-/** 架构设计 §3.8「项目品牌」：项目根目录的 BRAND.md 与 brand/。 */
+/** 架构设计 §3.8「项目品牌与全局品牌」：项目根目录与 Home 根目录的 BRAND.md 与 brand/。 */
 
 async function rejection(promise: Promise<unknown>): Promise<RpcError> {
   try {
@@ -72,7 +72,7 @@ describe('project brand', () => {
       ['BRAND.md', true],
       ['brand/logo.svg', true],
     ]);
-    expect(await brands.get('b')).toEqual({ projectId: 'b', brand: null, content: null, files: [] });
+    expect(await brands.get('b')).toEqual({ projectId: 'b', scope: 'project', root: path.join(dir, 'b'), brand: null, content: null, files: [] });
     expect((await brands.readFile('a', 'brand/logo.svg')).content).toBe('<svg/>');
     expect((await brands.locate('a', 'brand/logo.svg')).file).toBe(path.join(dir, 'a', 'brand', 'logo.svg'));
     expect((await rejection(brands.readFile('a', '../b/x'))).details).toMatchObject({ code: 'BRAND_NOT_FOUND' });
@@ -144,12 +144,12 @@ describe('project brand', () => {
     await fs.writeFile(path.join(dir, 'a', 'brand', 'logo.svg'), '<svg/>');
     const brandPath = path.join(dir, 'a', 'BRAND.md');
     const applied = await brands.sendBrand('a', false);
-    expect(applied?.ref).toEqual({ state: 'applied', path: brandPath });
+    expect(applied?.ref).toEqual({ state: 'applied', path: brandPath, paths: [brandPath] });
     expect(applied?.instructions).toMatch(/^<baocut-project-brand path=".*BRAND\.md">/);
-    expect(applied?.instructions).toContain('what the user says in this message > BRAND.md > any brand skill');
+    expect(applied?.instructions).toContain("what the user says in this message > this project's BRAND.md > the user's global BRAND.md");
     expect(applied?.instructions).toContain('Use teal.');
     expect(applied?.instructions).toContain(`- ${path.join(dir, 'a', 'brand', 'logo.svg')}`);
-    expect(await brands.sendBrand('a', true)).toEqual({ ref: { state: 'skipped', path: brandPath }, instructions: null });
+    expect(await brands.sendBrand('a', true)).toEqual({ ref: { state: 'skipped', path: brandPath, paths: [brandPath] }, instructions: null });
     expect(await brands.sendBrand('b', false)).toBeNull();
     expect(await brands.sendBrand(null, false)).toBeNull();
   });
@@ -162,5 +162,71 @@ describe('project brand', () => {
     await fs.writeFile(path.join(dir, 'b', 'BRAND.md'), Buffer.from([0xff, 0xfe, 0x00, 0x41]));
     const unreadable = await brands.sendBrand('b', false);
     expect(unreadable).toMatchObject({ ref: null, instructions: null, notice: { key: expect.any(String) } });
+  });
+
+  describe('global brand', () => {
+    let home: string;
+    let withGlobal: ProjectBrands;
+
+    beforeEach(async () => {
+      home = path.join(dir, 'home');
+      await fs.mkdir(home);
+      const prefs = new SkillPrefsStore(path.join(dir, 'prefs-global.json'));
+      await prefs.load();
+      const skills = new SkillCatalog({ builtinDir: builtin, userDir: path.join(dir, 'skills'), prefs });
+      withGlobal = new ProjectBrands({ projects: () => projects, skills, globalDir: home });
+    });
+
+    it('is written, read and listed first under the global id, from the home folder', async () => {
+      expect((await withGlobal.get(GLOBAL_BRAND_ID)).brand).toBeNull();
+      expect(await rejection(withGlobal.readFile(GLOBAL_BRAND_ID, 'BRAND.md'))).toMatchObject({ details: { code: 'BRAND_NOT_FOUND' } });
+      await fs.writeFile(path.join(dir, 'a', 'BRAND.md'), '# A\n\nProject rules.');
+      const { brand } = await withGlobal.write({
+        projectId: GLOBAL_BRAND_ID,
+        changes: [
+          { path: 'BRAND.md', text: '# Me\n\nEverywhere.' },
+          { path: 'brand/logo.svg', text: '<svg/>' },
+        ],
+      });
+      expect(brand).toMatchObject({ scope: 'global', projectId: GLOBAL_BRAND_ID, projectName: '', projectPath: home, path: path.join(home, 'BRAND.md') });
+      const listed = (await withGlobal.list()).brands;
+      expect(listed.map((b) => [b.scope, b.projectId])).toEqual([
+        ['global', GLOBAL_BRAND_ID],
+        ['project', 'a'],
+      ]);
+      expect((await withGlobal.locate(GLOBAL_BRAND_ID, 'brand/logo.svg')).file).toBe(path.join(home, 'brand', 'logo.svg'));
+      // 没有配置全局目录时，这个 id 只是一个找不到的项目。
+      expect(await rejection(brands.get(GLOBAL_BRAND_ID))).toMatchObject({ code: 'not-found' });
+    });
+
+    it('sendBrand: project first, then global; sessions outside a project get the global one; skip drops both', async () => {
+      await fs.writeFile(path.join(home, 'BRAND.md'), '# Me\n\nAlways teal.');
+      await fs.writeFile(path.join(dir, 'a', 'BRAND.md'), '# A\n\nThis show is orange.');
+      const projectPath = path.join(dir, 'a', 'BRAND.md');
+      const globalPath = path.join(home, 'BRAND.md');
+      const both = await withGlobal.sendBrand('a', false);
+      expect(both?.ref).toEqual({ state: 'applied', path: projectPath, paths: [projectPath, globalPath] });
+      const text = both?.instructions ?? '';
+      expect(text).toMatch(/^<baocut-project-brand /);
+      expect(text.indexOf('<baocut-global-brand')).toBeGreaterThan(text.indexOf('</baocut-project-brand>'));
+      expect(text).toContain('This show is orange.');
+      expect(text).toContain('Always teal.');
+      expect(await withGlobal.sendBrand('b', false)).toMatchObject({ ref: { state: 'applied', path: globalPath, paths: [globalPath] } });
+      const scratch = await withGlobal.sendBrand(null, false);
+      expect(scratch?.instructions).toMatch(/^<baocut-global-brand path=/);
+      expect(await withGlobal.sendBrand('a', true)).toEqual({
+        ref: { state: 'skipped', path: projectPath, paths: [projectPath, globalPath] },
+        instructions: null,
+      });
+    });
+
+    it('an unreadable global BRAND.md leaves the project one in and adds a notice', async () => {
+      await fs.writeFile(path.join(home, 'BRAND.md'), Buffer.from([0xff, 0xfe, 0x00, 0x41]));
+      await fs.writeFile(path.join(dir, 'a', 'BRAND.md'), '# A\n\nOrange.');
+      const sent = await withGlobal.sendBrand('a', false);
+      expect(sent?.ref?.paths).toEqual([path.join(dir, 'a', 'BRAND.md')]);
+      expect(sent?.instructions).not.toContain('<baocut-global-brand');
+      expect(sent?.notice).toMatchObject({ key: expect.any(String) });
+    });
   });
 });

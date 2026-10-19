@@ -474,7 +474,7 @@ export interface RpcMethods {
       template?: TemplateSendRef;
       skill?: SkillSendRef;
       skills?: SkillSendRef[];
-      /** 只这一条不带项目的 `BRAND.md`（架构设计 §3.8「项目品牌」）。 */
+      /** 只这一条不带品牌设定：项目的与全局的 `BRAND.md` 都不带（架构设计 §3.8「项目品牌与全局品牌」）。 */
       skipProjectBrand?: boolean;
       slideAnnotations?: SlideAnnotation[];
       designAnnotations?: DesignAnnotation[];
@@ -1289,7 +1289,8 @@ export interface RpcMethods {
   'skills.export': { params: { id: string; path: string }; result: { path: string } };
 
   /**
-   * 项目根目录的 `BRAND.md`（架构设计 §3.8「项目品牌」）：有它的未归档项目。每次调用都重新读磁盘。
+   * 品牌设定 `BRAND.md`（架构设计 §3.8「项目品牌与全局品牌」）：全局的一份（有时排第一）与有它的未归档项目。每次调用都重新读磁盘。
+   * 下面各方法的 `projectId` 都可以是 `GLOBAL_BRAND_ID`，指 Runtime Home 根目录的那份。
    */
   'brands.list': { params: Record<string, never>; result: { brands: ProjectBrandSummary[] } };
   /** 一个项目的 `BRAND.md` 全文与 `brand/` 的文件清单；没有时 `brand` 与 `content` 为 null。没有这个项目时 `PROJECT_NOT_FOUND`。 */

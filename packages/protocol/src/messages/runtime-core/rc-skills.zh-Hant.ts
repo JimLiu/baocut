@@ -3,6 +3,7 @@ import type { RcSkillsMessages } from './rc-skills.ts';
 export const zhHant: RcSkillsMessages = {
   brandProjectNotFound: (p) => `找不到專案：${p.id}`,
   brandNotFound: (p) => `「${p.project}」還沒有 BRAND.md`,
+  globalBrandNotFound: '還沒有全域 BRAND.md',
   brandFileNotFound: (p) => `不是 BRAND.md 的檔案：${p.file}`,
   brandPathInvalid: (p) => `只能修改 BRAND.md 與 brand/ 裡的檔案：${p.path}`,
   brandExists: (p) => `這個專案已經有 BRAND.md：${p.path}`,

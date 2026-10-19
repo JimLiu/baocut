@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react';
-import type { ProjectBrandSummary, SkillSummary } from '@baocut/protocol';
-import { intlLocale } from '@baocut/protocol';
+import type { Id, ProjectBrandSummary, SkillSummary } from '@baocut/protocol';
+import { GLOBAL_BRAND_ID, intlLocale } from '@baocut/protocol';
 import {
+  ActionButton,
   Badge,
   Button,
   Disclosure,
@@ -20,6 +21,7 @@ import AIMark from '@react-spectrum/s2/icons/AIMark';
 import Add from '@react-spectrum/s2/icons/Add';
 import Edit from '@react-spectrum/s2/icons/Edit';
 import Folder from '@react-spectrum/s2/icons/Folder';
+import GlobeGrid from '@react-spectrum/s2/icons/GlobeGrid';
 import Lightbulb from '@react-spectrum/s2/icons/Lightbulb';
 import Link from '@react-spectrum/s2/icons/Link';
 import Upload from '@react-spectrum/s2/icons/Upload';
@@ -33,7 +35,8 @@ import { useShell } from '../../state/shell-store.ts';
 import { SKILLS_COPY } from '../settings/agent-copy.ts';
 import { openHome } from '../start/open-home.ts';
 import { useBrandsLoader, useSkillsLoader } from '../use-skills.ts';
-import { BrandAddMenu, BrandMoreMenu } from './project-brand-page.tsx';
+import { BrandCreateDialog, brandName } from './brand-create.tsx';
+import { BrandMoreMenu } from './project-brand-page.tsx';
 import { SkillMoreMenu, useSkillActions } from './skill-actions.tsx';
 import { GithubImportDialog, SkillBlankDialog } from './skill-dialogs.tsx';
 import { SkillUploadDialog } from './skill-upload-dialog.tsx';
@@ -110,6 +113,7 @@ const rowText = style({ display: 'flex', flexGrow: 1, flexDirection: 'column', g
 const rowTitle = style({ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 });
 const rowName = style({ minWidth: 0, truncate: true, font: 'ui', fontWeight: 'bold', color: { default: 'gray-900', isOff: 'gray-700' } });
 const rowSub = style({ truncate: true, font: 'ui-xs', color: 'gray-700' });
+const rowScope = style({ truncate: true, font: 'ui-xs', color: 'gray-600' });
 const badges = style({ display: { default: 'inline-flex', '@container (max-width: 720px)': 'none' }, flexShrink: 0, alignItems: 'center', gap: 4 });
 const rowDate = style({ display: { default: 'block', '@container (max-width: 720px)': 'none' }, flexShrink: 0, font: 'ui-xs', color: 'gray-600' });
 const auto = style({ paddingEnd: 4, font: 'ui-xs', color: 'gray-600', whiteSpace: 'nowrap' });
@@ -177,7 +181,7 @@ const FRESH_MS = 24 * 60 * 60 * 1000;
 type Adding = 'upload' | 'github' | 'blank' | null;
 
 /**
- * Skills 列表（原型 page-skills.jsx `SkillsList`）：标题行（搜索、添加）→ 一句导语 →「我的」→「项目品牌」→「BaoCut 内置」
+ * Skills 列表（原型 page-skills.jsx `SkillsList`）：标题行（搜索、添加）→ 一句导语 →「我的」→「品牌」（全局的一行 + 各项目的）→「BaoCut 内置」
  * → 跳过的文件夹（有才出现）→ 页底折叠的「在终端或其他应用里用 BaoCut」（`?tab=external` 时展开并滚到）。
  * 把 zip 或文件夹拖到页面上任何地方都打开上传。浏览器里只能看与开关：没有添加、拖放与 BRAND.md 的新建。
  */
@@ -194,6 +198,8 @@ export function SkillsList({ external }: { external: boolean }) {
   const [dropped, setDropped] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [externalOpen, setExternalOpen] = useState(external);
+  // 「新建品牌」对话框：null 关着；preset 是预先选中的范围（全局或某个项目）。
+  const [creating, setCreating] = useState<{ preset: Id | null } | null>(null);
   const depth = useRef(0);
   const externalRef = useRef<HTMLDivElement>(null);
 
@@ -204,7 +210,9 @@ export function SkillsList({ external }: { external: boolean }) {
     return () => window.clearTimeout(id);
   }, [external]);
 
-  const groups = skillSections(skills.skills, brands.brands, query);
+  const groups = skillSections(skills.skills, brands.brands, query, BRAND_COPY.globalName);
+  const hasGlobal = brands.brands.some((b) => b.projectId === GLOBAL_BRAND_ID);
+  const projectBrands = brands.brands.filter((b) => b.scope === 'project').length;
   const q = query.trim();
   const canAdd = !web && connected;
 
@@ -288,35 +296,74 @@ export function SkillsList({ external }: { external: boolean }) {
     );
   };
 
-  const brandRow = (brand: ProjectBrandSummary) => (
-    <li key={brand.projectId} className={row}>
+  // 一行：名字 + 范围徽章；第一行小字说清它管哪里、文件在哪，第二行是一句话介绍（原型 `BrandRow`）。
+  const brandRow = (brand: ProjectBrandSummary) => {
+    const global = brand.scope === 'global';
+    const name = brandName(brand);
+    const title = global ? name : BRAND_COPY.detailTitle(name);
+    return (
+      <li key={brand.projectId} className={row}>
+        <button type="button" className={rowMain} aria-label={LIST_COPY.view(title)} onClick={() => go({ tab: 'skills', brand: brand.projectId })}>
+          <span className={icon({ isOff: false })} aria-hidden="true">
+            {global ? <GlobeGrid /> : <Folder />}
+          </span>
+          <span className={rowText}>
+            <span className={rowTitle}>
+              <span className={rowName({ isOff: false })} title={name}>
+                {global ? name : BRAND_COPY.row(name)}
+              </span>
+              <span className={badges}>
+                <Badge variant="neutral" fillStyle="subtle" size="S">
+                  {global ? BRAND_COPY.scopeGlobal : BRAND_COPY.scopeProject}
+                </Badge>
+              </span>
+            </span>
+            <span className={rowScope} title={brand.path}>
+              {[global ? BRAND_COPY.scopeLineGlobal : BRAND_COPY.scopeLineProject(name), brand.path].join(' · ')}
+            </span>
+            {brand.summary ? <span className={rowSub}>{brand.summary}</span> : null}
+          </span>
+          <span className={rowDate}>{date(brand.updatedAt)}</span>
+        </button>
+        <span className={rowEnd}>
+          <span className={auto}>{BRAND_COPY.auto}</span>
+          <BrandMoreMenu brand={brand} label={LIST_COPY.more(title)} />
+        </span>
+      </li>
+    );
+  };
+
+  // 还没有全局品牌：画成一行空态，按钮直接去建（浏览器里只看，不给按钮）。
+  const globalEmptyRow = (
+    <li key={GLOBAL_BRAND_ID} className={row}>
       <button
         type="button"
         className={rowMain}
-        aria-label={LIST_COPY.view(BRAND_COPY.detailTitle(brand.projectName))}
-        onClick={() => go({ tab: 'skills', brand: brand.projectId })}>
-        <span className={icon({ isOff: false })} aria-hidden="true">
-          <Folder />
+        aria-label={LIST_COPY.view(BRAND_COPY.globalName)}
+        onClick={() => go({ tab: 'skills', brand: GLOBAL_BRAND_ID })}>
+        <span className={icon({ isOff: true })} aria-hidden="true">
+          <GlobeGrid />
         </span>
         <span className={rowText}>
           <span className={rowTitle}>
-            <span className={rowName({ isOff: false })} title={brand.projectName}>
-              {BRAND_COPY.row(brand.projectName)}
-            </span>
+            <span className={rowName({ isOff: true })}>{BRAND_COPY.globalName}</span>
             <span className={badges}>
               <Badge variant="neutral" fillStyle="subtle" size="S">
-                {BADGE_COPY.brand}
+                {BRAND_COPY.scopeGlobal}
               </Badge>
             </span>
           </span>
-          <span className={rowSub}>{brand.summary}</span>
+          <span className={rowSub}>{BRAND_COPY.globalEmpty}</span>
         </span>
-        <span className={rowDate}>{date(brand.updatedAt)}</span>
       </button>
-      <span className={rowEnd}>
-        <span className={auto}>{BRAND_COPY.auto}</span>
-        <BrandMoreMenu brand={brand} label={LIST_COPY.more(BRAND_COPY.detailTitle(brand.projectName))} />
-      </span>
+      {canAdd ? (
+        <span className={rowEnd}>
+          <Button variant="secondary" size="S" onPress={() => setCreating({ preset: GLOBAL_BRAND_ID })}>
+            <AIMark />
+            <Text>{BRAND_COPY.createWithAgent}</Text>
+          </Button>
+        </span>
+      ) : null}
     </li>
   );
 
@@ -376,14 +423,26 @@ export function SkillsList({ external }: { external: boolean }) {
         <section className={section} aria-label={LIST_COPY.brands}>
           <div className={sectionBar}>
             {sectionHeading(LIST_COPY.brands, groups.brands.length)}
-            {canAdd ? <BrandAddMenu brands={brands.brands} /> : null}
+            {canAdd ? (
+              <ActionButton isQuiet size="S" onPress={() => setCreating({ preset: null })}>
+                <Add />
+                <Text>{BRAND_COPY.add}</Text>
+              </ActionButton>
+            ) : null}
           </div>
           <p className={sectionHint}>{BRAND_COPY.sectionHint}</p>
-          {groups.brands.length ? (
-            <ul className={list}>{groups.brands.map(brandRow)}</ul>
+          {brands.status === 'failed' && !brands.loaded ? (
+            <p className={none}>{brands.error ?? BRAND_COPY.empty}</p>
+          ) : groups.brands.length || !q ? (
+            <ul className={list}>
+              {!q && brands.loaded && !hasGlobal ? globalEmptyRow : null}
+              {groups.brands.map(brandRow)}
+            </ul>
           ) : (
-            <p className={none}>{q ? LIST_COPY.noMatch(q) : brands.status === 'failed' ? (brands.error ?? BRAND_COPY.empty) : BRAND_COPY.empty}</p>
+            <p className={none}>{LIST_COPY.noMatch(q)}</p>
           )}
+          {!q && brands.loaded && !projectBrands ? <p className={none}>{BRAND_COPY.empty}</p> : null}
+          <BrandCreateDialog open={!!creating} preset={creating?.preset ?? null} onClose={() => setCreating(null)} />
         </section>
 
         <section className={section} aria-label={LIST_COPY.builtin}>

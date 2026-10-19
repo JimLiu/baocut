@@ -149,6 +149,8 @@ export interface HandlerDeps {
   catalog: ToolCatalog;
   /** 说明书的根目录（`catalog.agentSkill` 渲染 CLI 面用；与会话指导同一份）。不给时每次调用重新找。 */
   agentSkillsDir?: string | null;
+  /** 全局品牌 `BRAND.md` 与 `brand/` 所在的目录（Runtime Home 根目录，§3.8）；不给时没有全局品牌（嵌入式测试）。 */
+  globalBrandDir?: string | null;
   /** 连接、任务与空闲退出（`runtime.status`，§2.2）。 */
   activity: RuntimeActivity;
   /** `runtime.stop` 的去处（入口停下 Runtime）；嵌入式的 Runtime（测试）没有。 */
@@ -230,6 +232,7 @@ export function createHandlers({
   compositions,
   catalog: toolCatalog,
   agentSkillsDir,
+  globalBrandDir,
   activity,
   requestStop,
   legacyUpgrade,
@@ -244,8 +247,8 @@ export function createHandlers({
   /** 文件定位到来源目录与文件。目录内的检查在媒体通道（或视频服务）里做。 */
   const locateMedia = (target: FileTarget) => locateFileTarget(harness, space, target);
   /** 发送与插话带的幻灯片标注：deck 换成相对会话工作目录的路径（docs/design/slides §9）。 */
-  // 项目品牌（§3.8）：不缓存，每次按项目登记读磁盘。
-  const brands = new ProjectBrands({ projects: () => harness.listProjects(), skills });
+  // 项目品牌与全局品牌（§3.8）：不缓存，每次按项目登记与 Home 根目录读磁盘。
+  const brands = new ProjectBrands({ projects: () => harness.listProjects(), skills, globalDir: globalBrandDir ?? null });
   const slideAnnotationsOf = (conversationId: Id, annotations: readonly SlideAnnotation[] | undefined) =>
     resolveSlideAnnotations(annotations, harness.getConversation(conversationId).conversation.cwd, locateMedia);
   /** 设计稿标注同上（docs/design/canvas §9）。 */

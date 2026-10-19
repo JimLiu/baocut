@@ -38,6 +38,7 @@ function skill(id: string, origin: SkillSummary['origin'], description = 'd'): S
 }
 
 const brand = (projectId: string, projectName: string, summary: string): ProjectBrandSummary => ({
+  scope: 'project',
   projectId,
   projectName,
   projectPath: `/p/${projectId}`,
@@ -61,6 +62,12 @@ describe('Skills 页的分段', () => {
     expect(hit.mine).toEqual([]);
     expect(hit.brands.map((b) => b.projectId)).toEqual(['p1']);
     expect(hit.builtin.map((s) => s.id)).toEqual(['craft']);
+  });
+
+  it('全局品牌按界面给的名字搜', () => {
+    const global = { ...brand('global', '', 'Calm'), scope: 'global' as const, projectPath: '/home', path: '/home/BRAND.md' };
+    expect(skillSections([], [global, brand('p1', '早报', 'Warm')], '全局', '全局品牌').brands.map((b) => b.projectId)).toEqual(['global']);
+    expect(skillSections([], [global], '/home/BRAND', '全局品牌').brands).toHaveLength(1);
   });
 });
 

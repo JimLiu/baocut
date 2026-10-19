@@ -21,18 +21,24 @@ import { filterSkills } from './agent-skills.ts';
 export interface SkillSections {
   /** 个人与从 GitHub 导入的。 */
   mine: SkillSummary[];
-  /** 有 `BRAND.md` 的项目。 */
+  /** 全局的与各项目的 `BRAND.md`（全局的在前）。 */
   brands: ProjectBrandSummary[];
   builtin: SkillSummary[];
 }
 
-/** 三段：我的 → 项目品牌 → BaoCut 内置；搜索词同时筛三段（品牌按项目名与一句话）。 */
-export function skillSections(skills: readonly SkillSummary[], brands: readonly ProjectBrandSummary[], query: string): SkillSections {
+/** 三段：我的 → 品牌 → BaoCut 内置；搜索词同时筛三段（品牌按名字、一句话与路径；全局的名字由界面给）。 */
+export function skillSections(
+  skills: readonly SkillSummary[],
+  brands: readonly ProjectBrandSummary[],
+  query: string,
+  globalName = '',
+): SkillSections {
   const rows = filterSkills(skills, query, 'all');
   const q = query.trim().toLocaleLowerCase();
+  const name = (b: ProjectBrandSummary) => (b.scope === 'global' ? globalName : b.projectName);
   return {
     mine: rows.filter((s) => s.origin !== 'builtin'),
-    brands: brands.filter((b) => !q || [b.projectName, b.summary].some((v) => v.toLocaleLowerCase().includes(q))),
+    brands: brands.filter((b) => !q || [name(b), b.summary, b.path].some((v) => v.toLocaleLowerCase().includes(q))),
     builtin: rows.filter((s) => s.origin === 'builtin'),
   };
 }

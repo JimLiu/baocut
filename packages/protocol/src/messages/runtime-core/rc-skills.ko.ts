@@ -3,6 +3,7 @@ import type { RcSkillsMessages } from './rc-skills.ts';
 export const ko: RcSkillsMessages = {
   brandProjectNotFound: (p) => `프로젝트를 찾을 수 없습니다: ${p.id}`,
   brandNotFound: (p) => `“${p.project}”에는 아직 BRAND.md가 없습니다`,
+  globalBrandNotFound: '아직 전역 BRAND.md가 없습니다',
   brandFileNotFound: (p) => `BRAND.md 파일이 아닙니다: ${p.file}`,
   brandPathInvalid: (p) => `BRAND.md와 brand/ 안의 파일만 변경할 수 있습니다: ${p.path}`,
   brandExists: (p) => `이 프로젝트에는 이미 BRAND.md가 있습니다: ${p.path}`,

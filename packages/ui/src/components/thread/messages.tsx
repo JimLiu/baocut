@@ -174,10 +174,10 @@ export const UserMessage = memo(function UserMessage({ item, conversationId }: {
         </div>
       ))}
       {(() => {
-        // 项目的 BRAND.md（产品设计 §6.9「项目品牌」）：带上了，或用户点掉了（只这一条）。
+        // 项目的与全局的 BRAND.md（产品设计 §6.9「项目品牌与全局品牌」）：带上了，或用户点掉了（只这一条）。
         const brand = messageBrand(item);
         return brand ? (
-          <div className={contextLine} title={brand.path}>
+          <div className={contextLine} title={brand.paths.join('\n')}>
             <Brand />
             <span>{brand.state === 'applied' ? BRAND_TOKEN_COPY.chipApplied : BRAND_TOKEN_COPY.chipSkipped}</span>
           </div>

@@ -16,7 +16,7 @@ export const nl: SkillsPageMessages = {
     lede: 'Een Skill leert Agent dingen op jouw manier te doen: een SKILL.md plus referentiebestanden en media (logo’s, stempels, intromuziek, lettertypen). Ingeschakelde Skills gebruikt Agent zelf wanneer relevant; uitgeschakelde Skills worden alleen gebruikt als je ze kiest via + in het invoerveld.',
     search: 'Skills zoeken',
     mine: 'Van mij',
-    brands: 'Projectmerken',
+    brands: 'Merken',
     builtin: 'Ingebouwd in BaoCut',
     count: (n: number) => String(n),
     emptyMineTitle: 'Nog geen eigen Skills',
@@ -214,8 +214,9 @@ export const nl: SkillsPageMessages = {
       `# ${name}\n\n## Wanneer gebruiken\n\n- \n\n## Stappen\n\n1. \n\n## Media\n\nZet het logo, de stempel en de intromuziek die je nodig hebt in assets/ en schrijf hier wanneer elk bestand wordt gebruikt.\n`,
   },
   brand: {
-    sectionHint: 'BRAND.md in de hoofdmap van een project. Elke sessie in dat project gebruikt het automatisch.',
-    add: 'BRAND.md aan een project toevoegen',
+    sectionHint:
+      'Merkinstellingen (BRAND.md) staan altijd aan: niets te kiezen, geen schakelaar. Het globale merk geldt in elke sessie; dat van een project alleen in dat project, en het gaat voor waar de twee verschillen.',
+    add: 'Nieuw merk',
     row: (project: string) => project,
     empty: 'Nog geen project heeft een BRAND.md.',
     detailTitle: (project: string) => `${project} · BRAND.md`,
@@ -223,7 +224,7 @@ export const nl: SkillsPageMessages = {
     notFoundBody: 'Voeg er een toe om de video’s van dit project trouw aan het merk te houden.',
     projectGone: 'Dit project is weg; het is mogelijk gearchiveerd of verwijderd.',
     alwaysOn:
-      'Elk bericht in de sessies van dit project gebruikt het automatisch. Wat je in het bericht zegt gaat voor, daarna BRAND.md, daarna ingeschakelde merk-Skills. Klik op × bij ‘Merk: BRAND.md’ boven het invoerveld om het voor één bericht over te slaan.',
+      'Elk bericht in de sessies van dit project gebruikt het automatisch. Wat je in het bericht zegt gaat voor, daarna de BRAND.md van het project, daarna de globale BRAND.md, daarna ingeschakelde merk-Skills. Klik op × bij het label ‘Merk’ boven het invoerveld om het voor één bericht over te slaan.',
     noVersions: 'Het bestand staat in de projectmap: wijzigingen worden er direct in opgeslagen, zonder versies.',
     newSession: 'Nieuwe sessie in dit project',
     remove: 'Verwijderen',
@@ -240,8 +241,9 @@ export const nl: SkillsPageMessages = {
     precedenceTitle: 'Bij conflict met andere instructies',
     precedence: [
       { title: 'Wat je in het bericht zegt', body: 'Bijvoorbeeld ‘deze keer geen intro’' },
-      { title: 'BRAND.md van dit project', body: 'Elke sessie in dit project gebruikt het automatisch, zonder schakelaar.' },
-      { title: 'Ingeschakelde merk-Skills', body: 'Gedeeld tussen projecten; waar ze afwijken van BRAND.md, gaat BRAND.md voor.' },
+      { title: 'De BRAND.md van het project', body: 'Geldt alleen in dat project; waar die van de globale afwijkt, gaat die voor.' },
+      { title: 'De globale BRAND.md', body: 'Elke sessie gebruikt die automatisch, ook sessies buiten een project, zonder schakelaar.' },
+      { title: 'Ingeschakelde merk-Skills', body: 'Gedeeld tussen projecten; waar ze van BRAND.md afwijken, gaat BRAND.md voor.' },
     ],
     createIntro: (path: string) =>
       `Dit project heeft nog geen BRAND.md. Zet er een in de hoofdmap van het project (${path}) en Agent volgt het in dit project: programmanaam, slogan, kleuren, lettertypen, logo, openingszin en stem.`,
@@ -269,15 +271,53 @@ export const nl: SkillsPageMessages = {
     template: (project: string) =>
       `---\ndescription: Merkregels voor video’s van ${project}\n---\n\n# ${project}: merk\n\n## Naam en toon\n\n- Programmanaam: \n- Toon: \n\n## Uiterlijk\n\n- Hoofdkleur: \n- Lettertypen: \n- Logo: brand/logo.svg (rechtsonder, 6% van de breedte)\n\n## Geluid\n\n- Stem: \n- Intro- en outromuziek: \n\n## Opening en afsluiting\n\n- \n`,
     readOnlyWeb: 'In de browser kun je BRAND.md alleen bekijken.',
+    globalName: 'Globaal merk',
+    globalEmpty:
+      'Nog niet. Elke sessie gebruikt het: programmanaam, slogan, kleuren, logo, stem, intro en outro. Eén keer schrijven en elk project volgt het.',
+    createWithAgent: 'Maken met de Agent',
+    scopeGlobal: 'Globaal',
+    scopeProject: 'Project',
+    scopeLineGlobal: 'Gebruikt in elke sessie, ook sessies buiten een project',
+    scopeLineProject: (project: string) => `Alleen gebruikt in het project ‘${project}’`,
+    alwaysOnGlobal:
+      'Elk bericht in elke sessie gebruikt het automatisch, ook in sessies buiten een project. Heeft een project een eigen BRAND.md, dan gaan ze allebei mee en gaat die van het project voor waar ze verschillen. Klik op × bij het label ‘Merk’ boven het invoerveld om het voor één bericht over te slaan.',
+    newSessionGlobal: 'Nieuwe sessie',
+    removeBodyGlobal: (path: string) =>
+      `BRAND.md en de map brand/ in ${path} gaan naar de prullenmand. Nieuwe berichten gebruiken het globale merk niet meer.`,
+    createIntroGlobal: (path: string) =>
+      `Er is nog geen globale BRAND.md. Zet er een in de gegevensmap van BaoCut (${path}) en de Agent volgt die in elke sessie: programmanaam, slogan, kleuren, lettertypen, logo, openingszin en stem. Heeft een project iets anders nodig, geef dat project dan een eigen; die gaat voor.`,
+    fileBarGlobal: (path: string) => `${path} · gebruikt in elke sessie, werkt zodra je opslaat`,
+    fileNoteGlobal:
+      'Hij staat in de gegevensmap van BaoCut, niet in een project. Wil je hem op een andere computer of in een project gebruiken, kopieer dan BRAND.md samen met brand/.',
+    savedGlobal: 'Opgeslagen: de volgende berichten volgen de nieuwe merkregels',
+    where: 'Gebruiken voor',
+    whereGlobalDesc: 'Elke sessie',
+    whereProjectDesc: 'Alleen dit project',
+    exists: 'Heeft er al een',
+    whereGlobalHint:
+      'Het globale merk geldt in elke sessie. Heeft een project iets anders nodig, geef het later een eigen merk; dat gaat voor.',
+    whereProjectHint: (project: string) => `Alleen gebruikt in ‘${project}’; waar het van het globale merk afwijkt, gaat het voor.`,
+    fromAgent: 'Maken met de Agent (aanbevolen)',
+    fromAgentHint:
+      'De Agent stelt je één vraag tegelijk: programmanaam en slogan, toon, kleuren en lettertypen, logo, intro en outro, stem. Daarna laat hij een concept zien en schrijft BRAND.md zodra je bevestigt; materiaal dat je stuurt gaat naar brand/.',
+    startChat: 'Gesprek starten',
+    globalTemplateName: 'Mijn kanaal',
+    interviewGlobal: (path: string) =>
+      `Help me de globale merkinstellingen van BaoCut op te zetten. Schrijf ze naar ${path} en zet materiaal in de map brand/ ernaast. Elke sessie gaat ze gebruiken.`,
+    interviewProject: (project: string, path: string) =>
+      `Help me merkinstellingen op te zetten voor het project ‘${project}’. Schrijf ze naar ${path} en zet materiaal in de map brand/ in de hoofdmap van het project. Elke sessie in dit project gaat ze gebruiken.`,
+    interviewSteps:
+      'Stel me één vraag tegelijk, in deze volgorde: programmanaam en slogan, publiek en toon, hoofdkleur en lettertypen, logo en watermerk, intro en outro, stem, andere vaste regels.\nAls ik ‘overslaan’ zeg, sla dat punt over. Als ik twijfel, geef me twee of drie opties. Zet materiaal dat ik stuur in brand/ en verwijs er in de tekst naar met een relatief pad.\nLaat me aan het eind eerst een concept zien en schrijf BRAND.md pas als ik bevestig.',
   },
   composer: {
-    token: 'Merk: BRAND.md',
+    token: (names: string) => `Merk: ${names}`,
     tokenSkipped: 'Merk: BRAND.md niet gebruiken voor dit bericht',
     open: 'Deze BRAND.md openen',
     skip: 'BRAND.md niet gebruiken voor dit bericht',
     restore: 'BRAND.md weer gebruiken',
     chipApplied: 'BRAND.md gebruikt',
     chipSkipped: 'BRAND.md niet gebruikt',
+    tokenGlobal: 'Globaal',
   },
   projectMenu: {
     brand: 'Merk (BRAND.md)',

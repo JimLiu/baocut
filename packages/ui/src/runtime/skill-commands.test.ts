@@ -61,6 +61,7 @@ afterEach(() => {
 
 function brand(projectId: string, projectName: string, patch: Partial<ProjectBrandSummary> = {}): ProjectBrandSummary {
   return {
+    scope: 'project',
     projectId,
     projectName,
     projectPath: `/p/${projectId}`,

@@ -3,6 +3,7 @@ import type { RcSkillsMessages } from './rc-skills.ts';
 export const ptBR: RcSkillsMessages = {
   brandProjectNotFound: (p: { id: string }) => `Projeto não encontrado: ${p.id}`,
   brandNotFound: (p: { project: string }) => `“${p.project}” ainda não tem BRAND.md`,
+  globalBrandNotFound: 'Ainda não há um BRAND.md global',
   brandFileNotFound: (p: { file: string }) => `Não é um arquivo BRAND.md: ${p.file}`,
   brandPathInvalid: (p: { path: string }) => `Só é possível alterar BRAND.md e arquivos em brand/: ${p.path}`,
   brandExists: (p: { path: string }) => `Este projeto já tem um BRAND.md: ${p.path}`,

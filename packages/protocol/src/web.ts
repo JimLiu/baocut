@@ -110,7 +110,7 @@ export const WEB_DEFAULT_METHODS: readonly string[] = [
   'skills.openHandle',
   'skills.versions',
   'skills.setEnabled',
-  // 项目的 BRAND.md（§3.8「项目品牌」）只读：写入与从 skill 生成改的是用户磁盘上的项目文件，只在桌面界面与 CLI 里做。
+  // 项目的与全局的 BRAND.md（§3.8「项目品牌与全局品牌」）只读：写入与从 skill 生成改的是用户磁盘上的项目文件，只在桌面界面与 CLI 里做。
   'brands.list',
   'brands.get',
   'brands.readFile',

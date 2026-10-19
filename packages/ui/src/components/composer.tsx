@@ -607,9 +607,9 @@ export function Composer(props: ComposerProps) {
     try {
       const ok = await onSend(text, attachments, picked.map((id) => ({ id })), { skipProjectBrand });
       if (ok) {
-        // 「这条不用 BRAND.md」只管这一条；发出去后重取一次项目品牌（Agent 可能在会话里改了 BRAND.md）。
+        // 「这条不用 BRAND.md」只管这一条；发出去后重取一次品牌（Agent 可能在会话里改了项目或全局的 BRAND.md）。
         useDraftBrand.getState().set(draftKey, false);
-        if (mentionScope.projectId) void loadBrands(runtime);
+        void loadBrands(runtime);
         useDraftImages.getState().clear(draftKey);
         useDraftFiles.getState().sent(draftKey, sentFiles);
         // 发出去了：发出去的那几个 skill 跟着摘掉（这期间新挂的留着）。
@@ -916,7 +916,7 @@ export function Composer(props: ComposerProps) {
               ))}
             </div>
           )}
-          {/* 项目的 BRAND.md：有就出现，× 只管下一条（产品设计 §6.9「项目品牌」）。 */}
+          {/* 项目的与全局的 BRAND.md：有就出现，× 只管下一条（产品设计 §6.9「项目品牌与全局品牌」）。 */}
           {!tool ? <BrandToken projectId={mentionScope.projectId} draftKey={draftKey} /> : null}
           {/* 会话输入框上点选的 skill（起始页的画在 start.tokens 里，和模板一排）。 */}
           {!start && !tool && skillIds.length ? (

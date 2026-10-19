@@ -344,7 +344,7 @@ export function isSkillScriptPath(path: string): boolean {
   return skillFileKind(path) === 'script';
 }
 
-/* ---------- 版本、上传包与项目品牌（架构设计 §3.8「版本」「上传包」「项目品牌」，产品设计 §6.9） ---------- */
+/* ---------- 版本、上传包与项目品牌（架构设计 §3.8「版本」「上传包」「项目品牌与全局品牌」，产品设计 §6.9） ---------- */
 
 /** 一个 skill 最多保留几个版本（含当前版本）；超出时最早的先删。 */
 export const SKILL_MAX_VERSIONS = 20;
@@ -420,16 +420,29 @@ export interface SkillInstallResult extends SkillListResult {
   installed: SkillSummary[];
 }
 
-/** 项目根目录的品牌文件名，与素材的惯例目录。 */
+/** 项目根目录（全局的是 Runtime Home 根目录）的品牌文件名，与素材的惯例目录。 */
 export const PROJECT_BRAND_FILE = 'BRAND.md';
 export const PROJECT_BRAND_DIR = 'brand';
 /** `BRAND.md` 交给智能体时最多取多少字节。 */
 export const PROJECT_BRAND_MAX_BYTES = 64 * 1024;
 
-/** 有 `BRAND.md` 的一个项目（`brands.list`）。 */
+/**
+ * 全局品牌（`<BAOCUT_HOME>/BRAND.md` 与 `<BAOCUT_HOME>/brand/`，所有会话都用）在 `brands.*` 里的 `projectId`。
+ * 项目 id 都是 `proj_…`，不会撞上。与用户库的 `library/brand/`（logo、样式、模板）不是一回事。
+ */
+export const GLOBAL_BRAND_ID = 'global';
+
+/** 品牌的范围：全局的用在所有会话；项目的只用在那个项目里，和全局的说法不一样时以项目的为准。 */
+export type BrandScope = 'global' | 'project';
+
+/** 一份 `BRAND.md`（`brands.list`）：全局的一份，或一个项目的。 */
 export interface ProjectBrandSummary {
+  scope: BrandScope;
+  /** 项目 id；全局的是 `GLOBAL_BRAND_ID`。 */
   projectId: string;
+  /** 项目名；全局的是空串，显示名由界面按语言给。 */
   projectName: string;
+  /** 放 `BRAND.md` 的目录：项目根目录，全局的是 Runtime Home 根目录。 */
   projectPath: string;
   /** `BRAND.md` 的绝对路径。 */
   path: string;
@@ -443,6 +456,9 @@ export interface ProjectBrandSummary {
 
 export interface ProjectBrandDetail {
   projectId: string;
+  scope: BrandScope;
+  /** 放 `BRAND.md` 的目录（还没有 `BRAND.md` 时也给）：项目根目录，全局的是 Runtime Home 根目录。 */
+  root: string;
   /** 没有 `BRAND.md` 时 null。 */
   brand: ProjectBrandSummary | null;
   content: string | null;
@@ -450,11 +466,13 @@ export interface ProjectBrandDetail {
   files: SkillFileEntry[];
 }
 
-/** 用户消息上的项目品牌标记：这条消息带了（`applied`）或用户摘掉了（`skipped`）项目的 `BRAND.md`。 */
+/** 用户消息上的品牌标记：这条消息带了（`applied`）或用户摘掉了（`skipped`）品牌设定。 */
 export interface MessageBrandRef {
   state: 'applied' | 'skipped';
-  /** `BRAND.md` 的绝对路径。 */
+  /** 优先的那份 `BRAND.md` 的绝对路径（有项目的就是项目的）。 */
   path: string;
+  /** 这条消息涉及的每一份 `BRAND.md`，按优先级：项目的在前、全局的在后。旧记录没有，当作只有 `path`。 */
+  paths?: string[];
 }
 
 /**
@@ -488,9 +506,10 @@ export function projectBrandSummary(content: string): string {
   return para.join(' ');
 }
 
-/** 用户消息上的项目品牌标记；没有或形状不对（旧记录、别的版本写的）时 null。 */
-export function messageBrand(message: { brand?: unknown }): MessageBrandRef | null {
+/** 用户消息上的品牌标记；没有或形状不对（旧记录、别的版本写的）时 null。`paths` 总是给出，旧记录是 `[path]`。 */
+export function messageBrand(message: { brand?: unknown }): (MessageBrandRef & { paths: string[] }) | null {
   const brand = message.brand as Partial<MessageBrandRef> | undefined;
   if (!brand || (brand.state !== 'applied' && brand.state !== 'skipped') || typeof brand.path !== 'string') return null;
-  return { state: brand.state, path: brand.path };
+  const paths = Array.isArray(brand.paths) ? brand.paths.filter((p): p is string => typeof p === 'string') : [];
+  return { state: brand.state, path: brand.path, paths: paths.length ? paths : [brand.path] };
 }

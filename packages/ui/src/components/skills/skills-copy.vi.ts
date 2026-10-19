@@ -9,7 +9,7 @@ export const vi: SkillsPageMessages = {
     lede: 'Skill dạy Agent làm việc theo cách của bạn: một tệp SKILL.md, kèm tệp tham khảo và tư liệu (logo, con dấu, nhạc mở đầu, phông chữ). Skill đang bật được Agent tự dùng khi thấy phù hợp; Skill đang tắt chỉ được dùng khi bạn chọn từ “+” trong ô nhập.',
     search: 'Tìm Skill',
     mine: 'Của tôi',
-    brands: 'Thương hiệu dự án',
+    brands: 'Thương hiệu',
     builtin: 'Có sẵn trong BaoCut',
     count: (n: number) => String(n),
     emptyMineTitle: 'Bạn chưa có Skill riêng nào',
@@ -202,8 +202,9 @@ export const vi: SkillsPageMessages = {
       `# ${name}\n\n## Khi nào dùng\n\n- \n\n## Các bước\n\n1. \n\n## Tư liệu\n\nĐặt logo, con dấu và nhạc mở đầu cần dùng vào assets/, và ghi ở đây khi nào dùng từng tệp.\n`,
   },
   brand: {
-    sectionHint: 'BRAND.md trong thư mục gốc của dự án. Mọi phiên trong dự án đó đều tự động dùng nó.',
-    add: 'Thêm BRAND.md vào dự án',
+    sectionHint:
+      'Thiết lập thương hiệu (BRAND.md) luôn có hiệu lực: không cần chọn, không có công tắc. Thương hiệu chung áp dụng cho mọi phiên; thương hiệu của dự án chỉ áp dụng trong dự án đó và được ưu tiên khi hai bên khác nhau.',
+    add: 'Thương hiệu mới',
     row: (project: string) => project,
     empty: 'Chưa có dự án nào có BRAND.md.',
     detailTitle: (project: string) => `${project} · BRAND.md`,
@@ -211,7 +212,7 @@ export const vi: SkillsPageMessages = {
     notFoundBody: 'Thêm một tệp để video của dự án này theo đúng thương hiệu.',
     projectGone: 'Dự án này không còn; có thể đã được lưu trữ hoặc gỡ.',
     alwaysOn:
-      'Mọi tin nhắn trong các phiên của dự án này đều tự động dùng nó. Điều bạn nói trong tin nhắn được ưu tiên trước, sau đó là BRAND.md, rồi đến Skill thương hiệu đang bật. Để bỏ qua cho một tin nhắn, nhấp × trên “Thương hiệu: BRAND.md” phía trên ô nhập.',
+      'Mọi tin nhắn trong các phiên của dự án này đều tự động dùng nó. Điều bạn nói trong tin nhắn được ưu tiên trước, sau đó là BRAND.md của dự án, rồi BRAND.md chung, rồi đến Skill thương hiệu đang bật. Để bỏ qua cho một tin nhắn, nhấp × trên nhãn “Thương hiệu” phía trên ô nhập.',
     noVersions: 'Tệp nằm trong thư mục dự án: thay đổi được lưu thẳng vào đó, không có phiên bản.',
     newSession: 'Phiên mới trong dự án này',
     remove: 'Xóa',
@@ -226,9 +227,10 @@ export const vi: SkillsPageMessages = {
     auto: 'Tự động dùng',
     precedenceTitle: 'Khi xung đột với chỉ dẫn khác',
     precedence: [
-      { title: 'Điều bạn nói trong tin nhắn', body: 'Ví dụ “lần này không cần đoạn mở đầu”' },
-      { title: 'BRAND.md của dự án này', body: 'Mọi phiên trong dự án này đều tự động dùng nó, không có công tắc.' },
-      { title: 'Skill thương hiệu đang bật', body: 'Dùng chung giữa các dự án; khi khác với BRAND.md thì BRAND.md được ưu tiên.' },
+      { title: 'Điều bạn nói trong tin nhắn', body: 'Ví dụ “lần này không cần intro”' },
+      { title: 'BRAND.md của dự án', body: 'Chỉ áp dụng trong dự án đó; khi khác với bản chung, bản này được ưu tiên.' },
+      { title: 'BRAND.md chung', body: 'Mọi phiên đều tự động dùng, kể cả phiên không thuộc dự án nào, không có công tắc.' },
+      { title: 'Skill thương hiệu đang bật', body: 'Dùng chung giữa các dự án; khi khác với BRAND.md, BRAND.md được ưu tiên.' },
     ],
     createIntro: (path: string) =>
       `Dự án này chưa có BRAND.md. Đặt một tệp vào thư mục gốc của dự án (${path}) và Agent sẽ làm theo nó trong dự án này: tên chương trình, khẩu hiệu, màu sắc, phông chữ, logo, câu mở đầu và giọng đọc.`,
@@ -253,15 +255,53 @@ export const vi: SkillsPageMessages = {
     template: (project: string) =>
       `---\ndescription: Quy tắc thương hiệu cho video ${project}\n---\n\n# Thương hiệu ${project}\n\n## Tên và giọng điệu\n\n- Tên chương trình: \n- Giọng điệu: \n\n## Hình ảnh\n\n- Màu chính: \n- Phông chữ: \n- Logo: brand/logo.svg (góc dưới bên phải, 6% chiều rộng)\n\n## Âm thanh\n\n- Giọng đọc: \n- Nhạc mở đầu và kết thúc: \n\n## Mở đầu và kết thúc\n\n- \n`,
     readOnlyWeb: 'Trong trình duyệt, BRAND.md chỉ xem được.',
+    globalName: 'Thương hiệu chung',
+    globalEmpty:
+      'Chưa có. Mọi phiên đều dùng nó: tên chương trình, khẩu hiệu, màu sắc, logo, giọng đọc, mở đầu và kết thúc. Viết một lần, mọi dự án đều làm theo.',
+    createWithAgent: 'Tạo cùng Agent',
+    scopeGlobal: 'Chung',
+    scopeProject: 'Dự án',
+    scopeLineGlobal: 'Dùng trong mọi phiên, kể cả phiên không thuộc dự án nào',
+    scopeLineProject: (project: string) => `Chỉ dùng trong dự án “${project}”`,
+    alwaysOnGlobal:
+      'Mọi tin nhắn trong mọi phiên đều tự động dùng nó, kể cả phiên không thuộc dự án nào. Khi dự án có BRAND.md riêng, cả hai cùng được dùng và bản của dự án được ưu tiên ở chỗ khác nhau. Để bỏ qua cho một tin nhắn, nhấp × trên nhãn “Thương hiệu” phía trên ô nhập.',
+    newSessionGlobal: 'Phiên mới',
+    removeBodyGlobal: (path: string) =>
+      `BRAND.md và thư mục brand/ trong ${path} sẽ được chuyển vào Thùng rác. Các tin nhắn mới sẽ không dùng thương hiệu chung nữa.`,
+    createIntroGlobal: (path: string) =>
+      `Chưa có BRAND.md chung. Đặt một bản vào thư mục dữ liệu của BaoCut (${path}) và Agent sẽ làm theo trong mọi phiên: tên chương trình, khẩu hiệu, màu sắc, phông chữ, logo, câu mở đầu và giọng đọc. Nếu một dự án cần khác đi, hãy tạo bản riêng cho dự án đó; bản đó được ưu tiên.`,
+    fileBarGlobal: (path: string) => `${path} · dùng trong mọi phiên, có hiệu lực ngay khi lưu`,
+    fileNoteGlobal:
+      'Nó nằm trong thư mục dữ liệu của BaoCut, không nằm trong dự án. Để dùng trên máy khác hoặc trong một dự án, hãy sao chép BRAND.md cùng với brand/.',
+    savedGlobal: 'Đã lưu: các tin nhắn tiếp theo theo quy tắc thương hiệu mới',
+    where: 'Dùng ở đâu',
+    whereGlobalDesc: 'Mọi phiên',
+    whereProjectDesc: 'Chỉ dự án này',
+    exists: 'Đã có',
+    whereGlobalHint:
+      'Thương hiệu chung áp dụng cho mọi phiên. Nếu một dự án cần khác đi, sau này hãy tạo thương hiệu riêng cho dự án đó; bản đó được ưu tiên.',
+    whereProjectHint: (project: string) => `Chỉ dùng trong “${project}”; khi khác với thương hiệu chung, bản này được ưu tiên.`,
+    fromAgent: 'Tạo cùng Agent (khuyên dùng)',
+    fromAgentHint:
+      'Agent hỏi bạn từng câu một: tên chương trình và khẩu hiệu, giọng điệu, màu sắc và phông chữ, logo, mở đầu và kết thúc, giọng đọc. Sau đó Agent cho bạn xem bản nháp và ghi BRAND.md khi bạn xác nhận; tư liệu bạn gửi được đưa vào brand/.',
+    startChat: 'Bắt đầu trò chuyện',
+    globalTemplateName: 'Kênh của tôi',
+    interviewGlobal: (path: string) =>
+      `Giúp tôi tạo thiết lập thương hiệu chung của BaoCut. Ghi vào ${path} và để tư liệu trong thư mục brand/ bên cạnh. Mọi phiên sẽ dùng nó.`,
+    interviewProject: (project: string, path: string) =>
+      `Giúp tôi tạo thiết lập thương hiệu cho dự án “${project}”. Ghi vào ${path} và để tư liệu trong thư mục brand/ ở thư mục gốc của dự án. Mọi phiên trong dự án này sẽ dùng nó.`,
+    interviewSteps:
+      'Mỗi lần chỉ hỏi tôi một câu, theo thứ tự: tên chương trình và khẩu hiệu, khán giả và giọng điệu, màu chính và phông chữ, logo và hình mờ, mở đầu và kết thúc, giọng đọc, các quy định cố định khác.\nNếu tôi nói “bỏ qua” thì bỏ qua mục đó. Nếu tôi chưa chắc, hãy đưa hai ba lựa chọn để tôi chọn. Tư liệu tôi gửi hãy để vào brand/ và dẫn trong nội dung bằng đường dẫn tương đối.\nHỏi xong, cho tôi xem bản nháp trước và chỉ ghi BRAND.md sau khi tôi xác nhận.',
   },
   composer: {
-    token: 'Thương hiệu: BRAND.md',
+    token: (names: string) => `Thương hiệu: ${names}`,
     tokenSkipped: 'Thương hiệu: không dùng BRAND.md cho tin nhắn này',
     open: 'Mở BRAND.md này',
     skip: 'Không dùng BRAND.md cho tin nhắn này',
     restore: 'Dùng lại BRAND.md',
     chipApplied: 'Đã dùng BRAND.md',
     chipSkipped: 'Không dùng BRAND.md',
+    tokenGlobal: 'Chung',
   },
   projectMenu: {
     brand: 'Thương hiệu (BRAND.md)',

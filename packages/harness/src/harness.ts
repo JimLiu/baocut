@@ -1223,7 +1223,7 @@ export class Harness {
      */
     skills?: { refs: SkillMessageRef[]; instructions: string };
     /**
-     * 项目的 `BRAND.md`（架构设计 §3.8「项目品牌」），由 Runtime 读好：`ref` 记在用户消息上；`instructions` 只附在交给智能体的
+     * 项目的与全局的 `BRAND.md`（架构设计 §3.8「项目品牌与全局品牌」），由 Runtime 读好：`ref` 记在用户消息上；`instructions` 只附在交给智能体的
      * 文字后面，排在模板段之后、skill 段之前。用户摘掉时只有 `ref`（`state: 'skipped'`）。读不到时没有 `ref`，
      * 只有 `notice`：在这条消息后面记一条提示，消息照发。
      */

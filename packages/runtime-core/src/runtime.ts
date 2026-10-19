@@ -1159,6 +1159,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       // 终端的目录视图（§3.5）：同一组工具里 `surfaces` 含 `cli` 的。
       catalog: tools.withView({ surface: 'cli' }),
       agentSkillsDir,
+      globalBrandDir: home.root,
       activity,
       requestStop: options.requestStop ?? null,
       legacyUpgrade,

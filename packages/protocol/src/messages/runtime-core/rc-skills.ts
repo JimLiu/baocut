@@ -18,6 +18,7 @@ import { vi } from './rc-skills.vi.ts';
 const en = {
   brandProjectNotFound: (p: { id: string }) => `Project not found: ${p.id}`,
   brandNotFound: (p: { project: string }) => `"${p.project}" has no BRAND.md yet`,
+  globalBrandNotFound: 'There is no global BRAND.md yet',
   brandFileNotFound: (p: { file: string }) => `Not a BRAND.md file: ${p.file}`,
   brandPathInvalid: (p: { path: string }) => `Only BRAND.md and files in brand/ can be changed: ${p.path}`,
   brandExists: (p: { path: string }) => `This project already has a BRAND.md: ${p.path}`,

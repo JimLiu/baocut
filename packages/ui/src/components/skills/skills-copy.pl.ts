@@ -21,7 +21,7 @@ export const pl: SkillsPageMessages = {
     lede: 'Skill uczy Agenta robić rzeczy po Twojemu: to SKILL.md wraz z plikami referencyjnymi i materiałami (logo, pieczątki, muzyka czołówki, czcionki). Włączonych Skills Agent używa sam, gdy są przydatne; wyłączonych tylko wtedy, gdy wybierzesz je z „+” w polu wpisywania.',
     search: 'Szukaj Skills',
     mine: 'Moje',
-    brands: 'Marki projektów',
+    brands: 'Marki',
     builtin: 'Wbudowane w BaoCut',
     count: (n: number) => String(n),
     emptyMineTitle: 'Nie masz jeszcze własnych Skills',
@@ -221,8 +221,9 @@ export const pl: SkillsPageMessages = {
       `# ${name}\n\n## Kiedy używać\n\n- \n\n## Kroki\n\n1. \n\n## Materiały\n\nUmieść potrzebne logo, pieczątkę i muzykę czołówki w assets/ i opisz tutaj, kiedy używać każdego pliku.\n`,
   },
   brand: {
-    sectionHint: 'BRAND.md w folderze głównym projektu. Każda sesja w tym projekcie używa go automatycznie.',
-    add: 'Dodaj BRAND.md do projektu',
+    sectionHint:
+      'Ustawienia marki (BRAND.md) działają zawsze: nie trzeba niczego wybierać, nie ma przełącznika. Globalna obowiązuje we wszystkich sesjach; marka projektu tylko w tym projekcie i ma pierwszeństwo tam, gdzie się różnią.',
+    add: 'Nowa marka',
     row: (project: string) => project,
     empty: 'Żaden projekt nie ma jeszcze BRAND.md.',
     detailTitle: (project: string) => `${project} · BRAND.md`,
@@ -230,7 +231,7 @@ export const pl: SkillsPageMessages = {
     notFoundBody: 'Dodaj go, aby filmy w tym projekcie były zgodne z marką.',
     projectGone: 'Tego projektu już nie ma; mógł zostać zarchiwizowany lub usunięty.',
     alwaysOn:
-      'Każda wiadomość w sesjach tego projektu używa go automatycznie. Najpierw liczy się to, co piszesz w wiadomości, potem BRAND.md, a potem włączone Skills marki. Aby pominąć go w jednej wiadomości, kliknij × przy „Marka: BRAND.md” nad polem wpisywania.',
+      'Każda wiadomość w sesjach tego projektu używa go automatycznie. Najpierw liczy się to, co piszesz w wiadomości, potem BRAND.md projektu, potem globalny BRAND.md, a potem włączone Skills marki. Aby pominąć go w jednej wiadomości, kliknij × na etykiecie „Marka” nad polem wpisywania.',
     noVersions: 'Plik znajduje się w folderze projektu: zmiany są zapisywane bezpośrednio w nim, bez wersji.',
     newSession: 'Nowa sesja w tym projekcie',
     remove: 'Usuń',
@@ -246,9 +247,10 @@ export const pl: SkillsPageMessages = {
     auto: 'Używany automatycznie',
     precedenceTitle: 'Gdy koliduje z innymi instrukcjami',
     precedence: [
-      { title: 'To, co piszesz w wiadomości', body: 'Na przykład „tym razem bez czołówki”' },
-      { title: 'BRAND.md tego projektu', body: 'Każda sesja w tym projekcie używa go automatycznie, bez przełącznika.' },
-      { title: 'Włączone Skills marki', body: 'Wspólne dla wszystkich projektów; gdy różnią się od BRAND.md, wygrywa BRAND.md.' },
+      { title: 'To, co piszesz w wiadomości', body: 'Na przykład „tym razem bez intro”' },
+      { title: 'BRAND.md projektu', body: 'Obowiązuje tylko w tym projekcie; tam, gdzie różni się od globalnego, ma pierwszeństwo.' },
+      { title: 'Globalny BRAND.md', body: 'Każda sesja używa go automatycznie, także sesje poza projektem, bez przełącznika.' },
+      { title: 'Włączone Skills marki', body: 'Wspólne dla projektów; tam, gdzie różnią się od BRAND.md, pierwszeństwo ma BRAND.md.' },
     ],
     createIntro: (path: string) =>
       `Ten projekt nie ma jeszcze BRAND.md. Umieść go w folderze głównym projektu (${path}), a Agent będzie się go trzymał w tym projekcie: nazwa programu, slogan, kolory, czcionki, logo, kwestia otwierająca i głos.`,
@@ -275,15 +277,53 @@ export const pl: SkillsPageMessages = {
     template: (project: string) =>
       `---\ndescription: Zasady marki dla filmów ${project}\n---\n\n# ${project}: marka\n\n## Nazwa i ton\n\n- Nazwa programu: \n- Ton: \n\n## Wygląd\n\n- Kolor główny: \n- Czcionki: \n- Logo: brand/logo.svg (prawy dolny róg, 6% szerokości)\n\n## Dźwięk\n\n- Głos: \n- Muzyka czołówki i tyłówki: \n\n## Początek i zakończenie\n\n- \n`,
     readOnlyWeb: 'W przeglądarce BRAND.md jest tylko do odczytu.',
+    globalName: 'Marka globalna',
+    globalEmpty:
+      'Jeszcze jej nie ma. Używa jej każda sesja: nazwa programu, slogan, kolory, logo, głos, intro i zakończenie. Napisz ją raz, a każdy projekt będzie się jej trzymał.',
+    createWithAgent: 'Utwórz z Agentem',
+    scopeGlobal: 'Globalna',
+    scopeProject: 'Projekt',
+    scopeLineGlobal: 'Używana we wszystkich sesjach, także poza projektem',
+    scopeLineProject: (project: string) => `Używana tylko w projekcie „${project}”`,
+    alwaysOnGlobal:
+      'Każda wiadomość w każdej sesji używa go automatycznie, także w sesjach poza projektem. Jeśli projekt ma własny BRAND.md, idą oba, a tam, gdzie się różnią, pierwszeństwo ma ten z projektu. Aby pominąć go w jednej wiadomości, kliknij × na etykiecie „Marka” nad polem wpisywania.',
+    newSessionGlobal: 'Nowa sesja',
+    removeBodyGlobal: (path: string) =>
+      `BRAND.md i folder brand/ w ${path} zostaną przeniesione do kosza. Nowe wiadomości przestaną używać marki globalnej.`,
+    createIntroGlobal: (path: string) =>
+      `Nie ma jeszcze globalnego BRAND.md. Umieść go w folderze danych BaoCut (${path}), a Agent będzie się go trzymał w każdej sesji: nazwa programu, slogan, kolory, czcionki, logo, zdanie otwierające i głos. Jeśli projekt potrzebuje czegoś innego, utwórz dla niego osobny; ten ma pierwszeństwo.`,
+    fileBarGlobal: (path: string) => `${path} · używany we wszystkich sesjach, działa od razu po zapisaniu`,
+    fileNoteGlobal:
+      'Leży w folderze danych BaoCut, a nie w projekcie. Aby użyć go na innym komputerze lub w projekcie, skopiuj BRAND.md razem z brand/.',
+    savedGlobal: 'Zapisano: kolejne wiadomości stosują nowe zasady marki',
+    where: 'Gdzie używać',
+    whereGlobalDesc: 'Wszystkie sesje',
+    whereProjectDesc: 'Tylko ten projekt',
+    exists: 'Już istnieje',
+    whereGlobalHint:
+      'Marka globalna obowiązuje we wszystkich sesjach. Jeśli projekt potrzebuje czegoś innego, utwórz później dla niego osobną markę; ta ma pierwszeństwo.',
+    whereProjectHint: (project: string) => `Używana tylko w „${project}”; tam, gdzie różni się od marki globalnej, ma pierwszeństwo.`,
+    fromAgent: 'Utwórz z Agentem (zalecane)',
+    fromAgentHint:
+      'Agent zadaje po jednym pytaniu: nazwa programu i slogan, ton, kolory i czcionki, logo, intro i zakończenie, głos. Potem pokazuje szkic i zapisuje BRAND.md po Twoim potwierdzeniu; przesłane materiały trafiają do brand/.',
+    startChat: 'Rozpocznij rozmowę',
+    globalTemplateName: 'Mój kanał',
+    interviewGlobal: (path: string) =>
+      `Pomóż mi utworzyć globalne ustawienia marki BaoCut. Zapisz je w ${path}, a materiały trzymaj w folderze brand/ obok. Będą ich używać wszystkie sesje.`,
+    interviewProject: (project: string, path: string) =>
+      `Pomóż mi utworzyć ustawienia marki dla projektu „${project}”. Zapisz je w ${path}, a materiały trzymaj w folderze brand/ w katalogu głównym projektu. Będą ich używać wszystkie sesje tego projektu.`,
+    interviewSteps:
+      'Zadawaj mi po jednym pytaniu, w tej kolejności: nazwa programu i slogan, odbiorcy i ton, główny kolor i czcionki, logo i znak wodny, intro i zakończenie, głos, inne stałe zasady.\nJeśli powiem „pomiń”, pomiń ten punkt. Jeśli się waham, daj mi dwie lub trzy opcje do wyboru. Przesłane materiały wkładaj do brand/ i odwołuj się do nich ścieżką względną.\nNa koniec najpierw pokaż mi szkic i zapisz BRAND.md dopiero po moim potwierdzeniu.',
   },
   composer: {
-    token: 'Marka: BRAND.md',
+    token: (names: string) => `Marka: ${names}`,
     tokenSkipped: 'Marka: bez BRAND.md w tej wiadomości',
     open: 'Otwórz ten BRAND.md',
     skip: 'Nie używaj BRAND.md w tej wiadomości',
     restore: 'Używaj ponownie BRAND.md',
     chipApplied: 'Użyto BRAND.md',
     chipSkipped: 'Nie użyto BRAND.md',
+    tokenGlobal: 'Globalna',
   },
   projectMenu: {
     brand: 'Marka (BRAND.md)',

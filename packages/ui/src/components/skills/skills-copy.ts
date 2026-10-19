@@ -23,7 +23,7 @@ const en = {
     lede: 'A skill teaches the Agent to do things your way: a SKILL.md plus reference files and assets (logos, stamps, intro music, fonts). Skills that are on are used by the Agent on its own when relevant; skills that are off are used only when you pick them from “+” in the input box.',
     search: 'Search skills',
     mine: 'Mine',
-    brands: 'Project brands',
+    brands: 'Brands',
     builtin: 'Built into BaoCut',
     count: (n: number) => String(n),
     emptyMineTitle: 'No skills of your own yet',
@@ -216,8 +216,9 @@ const en = {
       `# ${name}\n\n## When to use\n\n- \n\n## Steps\n\n1. \n\n## Assets\n\nPut the logo, stamp and intro music you need in assets/, and write here when each file is used.\n`,
   },
   brand: {
-    sectionHint: 'BRAND.md in a project’s root folder. Every session in that project uses it automatically.',
-    add: 'Add BRAND.md to a project',
+    sectionHint:
+      'Brand settings (BRAND.md) are always on: nothing to pick, no switch. The global one applies to every session; a project’s applies only in that project and wins where the two differ.',
+    add: 'New brand',
     row: (project: string) => project,
     empty: 'No project has a BRAND.md yet.',
     detailTitle: (project: string) => `${project} · BRAND.md`,
@@ -225,7 +226,7 @@ const en = {
     notFoundBody: 'Add one to keep this project’s videos on brand.',
     projectGone: 'This project is gone; it may have been archived or removed.',
     alwaysOn:
-      'Every message in this project’s sessions uses it automatically. What you say in the message comes first, then BRAND.md, then any brand skill that’s on. To skip it for one message, click × on “Brand: BRAND.md” above the input box.',
+      'Every message in this project’s sessions uses it automatically. What you say in the message comes first, then the project’s BRAND.md, then the global BRAND.md, then any brand skill that’s on. To skip it for one message, click × on the “Brand” tag above the input box.',
     noVersions: 'The file lives in the project folder: changes are saved straight to it, without versions.',
     newSession: 'New session in this project',
     remove: 'Delete',
@@ -241,7 +242,8 @@ const en = {
     precedenceTitle: 'When it conflicts with other instructions',
     precedence: [
       { title: 'What you say in the message', body: 'For example “no intro this time”' },
-      { title: 'This project’s BRAND.md', body: 'Every session in this project uses it automatically, with no switch.' },
+      { title: 'The project’s BRAND.md', body: 'Applies only in that project; where it differs from the global one, it wins.' },
+      { title: 'The global BRAND.md', body: 'Every session uses it automatically, including sessions outside a project, with no switch.' },
       { title: 'Brand skills that are on', body: 'Shared across projects; where they differ from BRAND.md, BRAND.md wins.' },
     ],
     createIntro: (path: string) =>
@@ -267,15 +269,53 @@ const en = {
     template: (project: string) =>
       `---\ndescription: Brand rules for ${project} videos\n---\n\n# ${project} brand\n\n## Name and tone\n\n- Show name: \n- Tone: \n\n## Look\n\n- Main color: \n- Fonts: \n- Logo: brand/logo.svg (bottom-right corner, 6% of the width)\n\n## Sound\n\n- Voice: \n- Intro and outro music: \n\n## Opening and ending\n\n- \n`,
     readOnlyWeb: 'In the browser BRAND.md is view-only.',
+    globalName: 'Global brand',
+    globalEmpty:
+      'None yet. Every session uses it: show name, slogan, colors, logo, voice, intro and outro. Write it once and every project follows it.',
+    createWithAgent: 'Create with the Agent',
+    scopeGlobal: 'Global',
+    scopeProject: 'Project',
+    scopeLineGlobal: 'Used in every session, including sessions outside a project',
+    scopeLineProject: (project: string) => `Used only in the “${project}” project`,
+    alwaysOnGlobal:
+      'Every message in every session uses it automatically, including sessions outside a project. When a project has its own BRAND.md, both go along and the project’s wins where they differ. To skip it for one message, click × on the “Brand” tag above the input box.',
+    newSessionGlobal: 'New session',
+    removeBodyGlobal: (path: string) =>
+      `BRAND.md and the brand/ folder in ${path} move to the Trash. New messages stop using the global brand.`,
+    createIntroGlobal: (path: string) =>
+      `There’s no global BRAND.md yet. Put one in BaoCut’s data folder (${path}) and the Agent follows it in every session: show name, slogan, colors, fonts, logo, opening line and voice. If a project needs something different, give that project its own; it wins.`,
+    fileBarGlobal: (path: string) => `${path} · used in every session, takes effect as soon as you save`,
+    fileNoteGlobal:
+      'It lives in BaoCut’s data folder, not in a project. To use it on another computer or in a project, copy BRAND.md together with brand/.',
+    savedGlobal: 'Saved: the next messages follow the new brand rules',
+    where: 'Use it for',
+    whereGlobalDesc: 'Every session',
+    whereProjectDesc: 'Only this project',
+    exists: 'Already has one',
+    whereGlobalHint:
+      'The global brand applies to every session. If a project needs something different, give it its own brand later; that one wins.',
+    whereProjectHint: (project: string) => `Used only in “${project}”; where it differs from the global brand, it wins.`,
+    fromAgent: 'Create with the Agent (recommended)',
+    fromAgentHint:
+      'The Agent asks you one question at a time: show name and slogan, tone, colors and fonts, logo, intro and outro, voice. Then it shows you a draft and writes BRAND.md once you confirm; assets you send go into brand/.',
+    startChat: 'Start chat',
+    globalTemplateName: 'My channel',
+    interviewGlobal: (path: string) =>
+      `Help me set up BaoCut’s global brand settings. Write them to ${path} and keep assets in the brand/ folder next to it. Every session will use them.`,
+    interviewProject: (project: string, path: string) =>
+      `Help me set up brand settings for the “${project}” project. Write them to ${path} and keep assets in the brand/ folder in the project root. Every session in this project will use them.`,
+    interviewSteps:
+      'Ask me one question at a time, in this order: show name and slogan, audience and tone, main color and fonts, logo and watermark, intro and outro, voice, any other fixed rules.\nIf I say “skip”, skip that item. If I’m unsure, give me two or three options to pick from. Put any assets I send into brand/ and refer to them by relative path.\nWhen we’re done, show me a draft first and write BRAND.md only after I confirm.',
   },
   composer: {
-    token: 'Brand: BRAND.md',
+    token: (names: string) => `Brand: ${names}`,
     tokenSkipped: 'Brand: not using BRAND.md for this message',
     open: 'Open this BRAND.md',
     skip: 'Don’t use BRAND.md for this message',
     restore: 'Use BRAND.md again',
     chipApplied: 'Used BRAND.md',
     chipSkipped: 'Didn’t use BRAND.md',
+    tokenGlobal: 'Global',
   },
   projectMenu: {
     brand: 'Brand (BRAND.md)',

@@ -111,8 +111,16 @@ describe('skill 编辑、上传与项目品牌的参数', () => {
     expect(projectBrandSummary('# Brand\n\n## When to use\n\n-\n\n## Steps\n\n1.\n\nPut the logo in brand/.')).toBe('Put the logo in brand/.');
   });
 
-  it('messageBrand 只认合规的标记', () => {
-    expect(messageBrand({ brand: { state: 'skipped', path: '/p/BRAND.md' } })).toEqual({ state: 'skipped', path: '/p/BRAND.md' });
+  it('messageBrand 只认合规的标记；旧记录没有 paths 时当作只有 path', () => {
+    expect(messageBrand({ brand: { state: 'skipped', path: '/p/BRAND.md' } })).toEqual({
+      state: 'skipped',
+      path: '/p/BRAND.md',
+      paths: ['/p/BRAND.md'],
+    });
+    expect(messageBrand({ brand: { state: 'applied', path: '/p/BRAND.md', paths: ['/p/BRAND.md', '/h/BRAND.md', 3] } })?.paths).toEqual([
+      '/p/BRAND.md',
+      '/h/BRAND.md',
+    ]);
     expect(messageBrand({ brand: { state: 'other', path: '/p' } })).toBeNull();
     expect(messageBrand({})).toBeNull();
   });

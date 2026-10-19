@@ -31,7 +31,7 @@ type TemplateMethod = 'templates.list' | 'templates.get' | 'templates.openHandle
  * 点选的 skill（架构设计 §3.8，一个或几个）、幻灯片标注（docs/design/slides §9）、设计稿标注（docs/design/canvas §9）、
  * 设计系统标注（§10.6）、视频标注（产品设计 §3.2.3）与文档标注（docs/design/docs §8）
  * 也在这一个发送入口里解析：
- * 会话属于项目时，项目根目录的 `BRAND.md`（§3.8「项目品牌」）每条都读，`skipProjectBrand` 只让这一条不带。
+ * 项目根目录的与全局的 `BRAND.md`（§3.8「项目品牌与全局品牌」）每条都读，`skipProjectBrand` 只让这一条两层都不带。
  * 模板、品牌、skill 与标注各自解析好，一起交给 Harness。
  */
 export function templateMethods(deps: {

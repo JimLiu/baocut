@@ -9,7 +9,7 @@ export const tr: SkillsPageMessages = {
     lede: 'Skill, işleri sizin yönteminizle yapmayı Ajana öğretir: bir SKILL.md ile referans dosyaları ve malzemeler (logolar, mühürler, giriş müziği, yazı tipleri). Açık Skill’leri Ajan ilgili gördüğünde kendiliğinden kullanır; kapalı olanlar yalnızca giriş kutusundaki “+” üzerinden seçtiğinizde kullanılır.',
     search: 'Skill ara',
     mine: 'Benim',
-    brands: 'Proje markaları',
+    brands: 'Markalar',
     builtin: 'BaoCut’a yerleşik',
     count: (n: number) => String(n),
     emptyMineTitle: 'Henüz kendi Skill’iniz yok',
@@ -202,8 +202,9 @@ export const tr: SkillsPageMessages = {
       `# ${name}\n\n## Ne zaman kullanılır\n\n- \n\n## Adımlar\n\n1. \n\n## Malzemeler\n\nGereken logo, mühür ve giriş müziğini assets/ içine koyun ve her dosyanın ne zaman kullanıldığını buraya yazın.\n`,
   },
   brand: {
-    sectionHint: 'Bir projenin kök klasöründeki BRAND.md. O projedeki her oturum bunu otomatik olarak kullanır.',
-    add: 'Bir projeye BRAND.md ekle',
+    sectionHint:
+      'Marka ayarları (BRAND.md) her zaman geçerlidir: seçilecek bir şey ya da anahtar yoktur. Genel marka tüm oturumlarda, proje markası yalnızca o projede geçerlidir ve ikisi farklı olduğunda proje markası öncelikli olur.',
+    add: 'Yeni marka',
     row: (project: string) => project,
     empty: 'Henüz hiçbir projede BRAND.md yok.',
     detailTitle: (project: string) => `${project} · BRAND.md`,
@@ -211,7 +212,7 @@ export const tr: SkillsPageMessages = {
     notFoundBody: 'Bu projenin videolarını markaya uygun tutmak için bir tane ekleyin.',
     projectGone: 'Bu proje artık yok; arşivlenmiş veya kaldırılmış olabilir.',
     alwaysOn:
-      'Bu projenin oturumlarındaki her mesaj bunu otomatik olarak kullanır. Önce mesajda söyledikleriniz gelir, sonra BRAND.md, sonra açık olan marka Skill’leri. Tek bir mesajda atlamak için giriş kutusunun üstündeki “Marka: BRAND.md” üzerinde × simgesine tıklayın.',
+      'Bu projenin oturumlarındaki her mesaj bunu otomatik olarak kullanır. Önce mesajda söyledikleriniz gelir, sonra projenin BRAND.md dosyası, sonra genel BRAND.md, sonra açık olan marka Skill’leri. Tek bir mesajda atlamak için giriş kutusunun üstündeki “Marka” etiketinde × simgesine tıklayın.',
     noVersions: 'Dosya proje klasöründe durur: değişiklikler sürüm tutulmadan doğrudan ona kaydedilir.',
     newSession: 'Bu projede yeni oturum',
     remove: 'Sil',
@@ -227,8 +228,9 @@ export const tr: SkillsPageMessages = {
     precedenceTitle: 'Diğer talimatlarla çeliştiğinde',
     precedence: [
       { title: 'Mesajda söyledikleriniz', body: 'Örneğin “bu sefer giriş olmasın”' },
-      { title: 'Bu projenin BRAND.md dosyası', body: 'Bu projedeki her oturum bunu anahtar olmadan otomatik olarak kullanır.' },
-      { title: 'Açık olan marka Skill’leri', body: 'Projeler arasında paylaşılır; BRAND.md ile farklı olduklarında BRAND.md geçerlidir.' },
+      { title: 'Projenin BRAND.md dosyası', body: 'Yalnızca o projede geçerlidir; genel olandan farklı olduğunda bu öncelikli olur.' },
+      { title: 'Genel BRAND.md', body: 'Proje dışındakiler dahil her oturum bunu otomatik olarak kullanır; anahtarı yoktur.' },
+      { title: 'Açık olan marka Skill’leri', body: 'Projeler arasında ortaktır; BRAND.md ile farklı olduğunda BRAND.md öncelikli olur.' },
     ],
     createIntro: (path: string) =>
       `Bu projede henüz BRAND.md yok. Projenin kök klasörüne (${path}) bir tane koyun, Ajan bu projede ona uysun: program adı, slogan, renkler, yazı tipleri, logo, açılış cümlesi ve ses.`,
@@ -253,15 +255,53 @@ export const tr: SkillsPageMessages = {
     template: (project: string) =>
       `---\ndescription: ${project} videoları için marka kuralları\n---\n\n# ${project} markası\n\n## Ad ve üslup\n\n- Program adı: \n- Üslup: \n\n## Görünüm\n\n- Ana renk: \n- Yazı tipleri: \n- Logo: brand/logo.svg (sağ alt köşe, genişliğin %6’sı)\n\n## Ses\n\n- Seslendirme sesi: \n- Giriş ve kapanış müziği: \n\n## Açılış ve kapanış\n\n- \n`,
     readOnlyWeb: 'Tarayıcıda BRAND.md yalnızca görüntülenebilir.',
+    globalName: 'Genel marka',
+    globalEmpty:
+      'Henüz yok. Her oturum bunu kullanır: program adı, slogan, renkler, logo, seslendirme, giriş ve kapanış. Bir kez yazın, her proje buna uysun.',
+    createWithAgent: 'Agent ile oluştur',
+    scopeGlobal: 'Genel',
+    scopeProject: 'Proje',
+    scopeLineGlobal: 'Proje dışındakiler dahil tüm oturumlarda kullanılır',
+    scopeLineProject: (project: string) => `Yalnızca “${project}” projesinde kullanılır`,
+    alwaysOnGlobal:
+      'Proje dışındaki oturumlar dahil her oturumdaki her mesaj bunu otomatik olarak kullanır. Bir projenin kendi BRAND.md dosyası varsa ikisi birlikte gider ve farklı oldukları yerde projeninki öncelikli olur. Tek bir mesajda atlamak için giriş kutusunun üstündeki “Marka” etiketinde × simgesine tıklayın.',
+    newSessionGlobal: 'Yeni oturum',
+    removeBodyGlobal: (path: string) =>
+      `${path} içindeki BRAND.md ve brand/ klasörü Çöp Kutusu’na taşınır. Yeni mesajlar artık genel markayı kullanmaz.`,
+    createIntroGlobal: (path: string) =>
+      `Henüz genel bir BRAND.md yok. BaoCut veri klasörüne (${path}) bir tane koyun; Agent her oturumda ona uyar: program adı, slogan, renkler, yazı tipleri, logo, açılış cümlesi ve ses. Bir projenin farklı bir şeye ihtiyacı varsa o projeye ayrı bir tane oluşturun; o öncelikli olur.`,
+    fileBarGlobal: (path: string) => `${path} · tüm oturumlarda kullanılır, kaydettiğiniz anda geçerli olur`,
+    fileNoteGlobal:
+      'BaoCut veri klasöründedir, bir projede değil. Başka bir bilgisayarda ya da bir projede kullanmak için BRAND.md dosyasını brand/ ile birlikte kopyalayın.',
+    savedGlobal: 'Kaydedildi: sonraki mesajlar yeni marka kurallarına uyar',
+    where: 'Nerede kullanılsın',
+    whereGlobalDesc: 'Tüm oturumlar',
+    whereProjectDesc: 'Yalnızca bu proje',
+    exists: 'Zaten var',
+    whereGlobalHint:
+      'Genel marka tüm oturumlarda geçerlidir. Bir projenin farklı bir şeye ihtiyacı varsa sonra o projeye ayrı bir marka oluşturun; o öncelikli olur.',
+    whereProjectHint: (project: string) => `Yalnızca “${project}” içinde kullanılır; genel markadan farklı olduğunda bu öncelikli olur.`,
+    fromAgent: 'Agent ile oluştur (önerilen)',
+    fromAgentHint:
+      'Agent size her seferinde bir soru sorar: program adı ve slogan, ton, renkler ve yazı tipleri, logo, giriş ve kapanış, seslendirme. Ardından bir taslak gösterir ve siz onaylayınca BRAND.md dosyasını yazar; gönderdiğiniz dosyalar brand/ klasörüne gider.',
+    startChat: 'Sohbeti başlat',
+    globalTemplateName: 'Kanalım',
+    interviewGlobal: (path: string) =>
+      `BaoCut’ın genel marka ayarlarını oluşturmama yardım et. Bunları ${path} konumuna yaz, dosyaları da yanındaki brand/ klasöründe tut. Tüm oturumlar bunları kullanacak.`,
+    interviewProject: (project: string, path: string) =>
+      `“${project}” projesinin marka ayarlarını oluşturmama yardım et. Bunları ${path} konumuna yaz, dosyaları da proje kökündeki brand/ klasöründe tut. Bu projedeki tüm oturumlar bunları kullanacak.`,
+    interviewSteps:
+      'Bana her seferinde tek bir soru sor, şu sırayla: program adı ve slogan, izleyici ve ton, ana renk ve yazı tipleri, logo ve filigran, giriş ve kapanış, seslendirme, diğer sabit kurallar.\n“Atla” dersem o maddeyi atla. Emin olamazsam seçmem için iki üç seçenek ver. Gönderdiğim dosyaları brand/ klasörüne koy ve metinde göreli yolla belirt.\nSonunda önce bir taslak göster, BRAND.md dosyasını ancak ben onaylayınca yaz.',
   },
   composer: {
-    token: 'Marka: BRAND.md',
+    token: (names: string) => `Marka: ${names}`,
     tokenSkipped: 'Marka: bu mesajda BRAND.md kullanılmıyor',
     open: 'Bu BRAND.md dosyasını aç',
     skip: 'Bu mesajda BRAND.md kullanma',
     restore: 'BRAND.md dosyasını yeniden kullan',
     chipApplied: 'BRAND.md kullanıldı',
     chipSkipped: 'BRAND.md kullanılmadı',
+    tokenGlobal: 'Genel',
   },
   projectMenu: {
     brand: 'Marka (BRAND.md)',

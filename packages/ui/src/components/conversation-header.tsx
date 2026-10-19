@@ -147,7 +147,7 @@ export function ConversationHeader({
               </MenuItem>
             ) : null}
             {project ? (
-              // 项目的 BRAND.md：有就打开，没有就到新建（产品设计 §6.9「项目品牌」）。
+              // 项目的 BRAND.md：有就打开，没有就到新建（产品设计 §6.9「项目品牌与全局品牌」）。
               <MenuItem id="brand" textValue={PROJECT_MENU_COPY.brand}>
                 <Brand />
                 <Text slot="label">{PROJECT_MENU_COPY.brand}</Text>

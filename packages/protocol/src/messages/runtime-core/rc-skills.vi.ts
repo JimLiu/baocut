@@ -3,6 +3,7 @@ import type { RcSkillsMessages } from './rc-skills.ts';
 export const vi: RcSkillsMessages = {
   brandProjectNotFound: (p) => `Không tìm thấy dự án: ${p.id}`,
   brandNotFound: (p) => `“${p.project}” chưa có BRAND.md`,
+  globalBrandNotFound: 'Chưa có BRAND.md chung',
   brandFileNotFound: (p) => `Không phải tệp BRAND.md: ${p.file}`,
   brandPathInvalid: (p) => `Chỉ sửa được BRAND.md và các tệp trong brand/: ${p.path}`,
   brandExists: (p) => `Dự án này đã có BRAND.md: ${p.path}`,
