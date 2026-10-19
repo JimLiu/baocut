@@ -1365,55 +1365,90 @@ describe('Space 目录', () => {
     expect(catalog.get(clip.id).user.trashedAt).not.toBeNull();
   });
 
-  it('配音流程的内部产物：只留引用、不进目录；Ledger 修剪之后仍被引用，产物库清扫不删', async () => {
-    const audio = artifactIdOf(Buffer.from('dub audio'));
-    const plan = `sha256:${'e'.repeat(64)}`;
-    const dub = job({
-      kind: 'pipeline',
-      state: 'completed',
-      videoId: 'v1',
-      inputHash: `sha256:${'f'.repeat(64)}`,
-      pipeline: {
-        name: 'dub',
-        label: '配音',
-        stoppedAt: null,
-        summary: null,
-        steps: [
-          { name: 'synthesize', label: '合成', status: 'completed', jobId: 'job_synth', attempts: 1, output: { artifactId: plan, units: { u1: { artifactId: audio } } } },
-        ],
-      } as unknown as JobRecord['pipeline'],
-    });
-    jobs.put(dub);
+  it('Ledger 修剪之后：生成的图片还在 Space 里，产物留着；配音的内部产物与导出的成片副本释放', async () => {
+    const store = new ArtifactStore(path.join(tmp, 'artifacts'));
+    const image = await store.put(Buffer.from('png!'), 'png');
+    const audio = await store.put(Buffer.from('dub audio'), 'wav');
+    const film = await store.put(Buffer.from('mp4!'), 'mp4');
+    jobs.files.set(image.artifactId, image.path);
+    const published = path.join(projectDir, 'exports', '成片.mp4');
+    await fs.mkdir(path.dirname(published), { recursive: true });
+    await fs.writeFile(published, 'mp4!');
+    jobs.put(
+      job({
+        kind: 'generateImage',
+        state: 'completed',
+        videoId: null,
+        result: {
+          documentId: null,
+          artifactId: image.artifactId,
+          outputs: [{ artifactId: image.artifactId, mediaType: 'image/png', byteLength: 4, assetId: null, media: { kind: 'image', width: 2, height: 2 } }],
+        },
+      }),
+    );
+    jobs.put(
+      job({
+        kind: 'pipeline',
+        state: 'completed',
+        videoId: 'v1',
+        pipeline: {
+          name: 'dub',
+          label: '配音',
+          stoppedAt: null,
+          summary: null,
+          steps: [{ name: 'synthesize', label: '合成', status: 'completed', jobId: 'job_synth', attempts: 1, output: { units: { u1: { artifactId: audio.artifactId } } } }],
+        } as unknown as JobRecord['pipeline'],
+      }),
+    );
+    jobs.put(
+      job({
+        kind: 'export',
+        state: 'completed',
+        videoId: 'v1',
+        export: {
+          settings: { kind: 'video', format: 'mp4' } as never,
+          snapshotArtifactId: `sha256:${'5'.repeat(64)}`,
+          videoRevision: 'rev-1',
+          sequenceId: 'seq',
+          destination: { dir: path.dirname(published), files: ['成片.mp4'], overwrite: false },
+        },
+        result: {
+          documentId: null,
+          artifactId: film.artifactId,
+          outputs: [{ artifactId: film.artifactId, mediaType: 'video/mp4', byteLength: 4, assetId: null, media: { kind: 'video' }, path: published } as never],
+        },
+      }),
+    );
     const file = path.join(tmp, 'store', 'space-artifacts.json');
     const artifacts = new SpaceArtifactStore(file);
     await artifacts.load();
-    const baseline = (await open()).catalog.entries().length;
     const first = await open(undefined, artifacts);
-    // 不派生新的目录条目，也不留派生用的事实。
-    expect(first.catalog.entries()).toHaveLength(baseline);
-    expect(first.catalog.entries().some((e) => e.id === audio || e.id === plan)).toBe(false);
-    expect(artifacts.list()).toEqual([]);
-    expect(artifacts.references()).toEqual([{ jobId: dub.jobId, kind: 'pipeline', videoId: 'v1', endedAt: dub.endedAt, artifactIds: [audio, plan].sort() }]);
+    // 配音不进目录，也不留派生用的事实；图片与导出留事实。
+    expect(first.catalog.entries().some((e) => e.id === audio.artifactId)).toBe(false);
+    expect(artifacts.list().map((f) => f.kind).sort()).toEqual(['export', 'generateImage']);
     await first.catalog.close();
     await artifacts.flush();
 
-    // Ledger 修剪掉了这次配音：重启之后引用照样在，产物库清扫不删它的音频。
+    // Ledger 修剪掉了这三个任务：重启之后图片条目与导出条目都还在，导出按发布的文件定位。
     jobs.records = [];
     const reloaded = new SpaceArtifactStore(file);
     await reloaded.load();
+    const second = await open(undefined, reloaded);
+    expect(second.catalog.get(image.artifactId).ref).toEqual({ artifactId: image.artifactId });
+    // 发布到项目里：与扫描到的文件合成一个条目。
+    const filmEntry = second.catalog.entries().find((e) => e.ref && 'artifactId' in e.ref && e.ref.artifactId === film.artifactId);
+    expect(filmEntry?.status).toBe('published');
+    await second.catalog.close();
     const refs = await reloaded.referencedArtifactIds();
-    expect(refs.has(audio) && refs.has(plan)).toBe(true);
-    expect(refs.has(dub.inputHash)).toBe(false);
-    const store = new ArtifactStore(path.join(tmp, 'artifacts'));
-    const kept = await store.put(Buffer.from('dub audio'), 'wav');
-    const orphan = await store.put(Buffer.from('orphan'), 'wav');
+    expect([...refs]).toEqual([image.artifactId]);
     const old = new Date(Date.now() - 2 * 60 * 60 * 1000);
-    for (const f of [kept.path, orphan.path]) await fs.utimes(f, old, old);
-    expect(kept.artifactId).toBe(audio);
-    const result = await store.sweep(refs);
-    expect(result).toMatchObject({ removed: 1 });
-    await expect(fs.stat(kept.path)).resolves.toBeTruthy();
-    await expect(fs.stat(orphan.path)).rejects.toThrow();
+    for (const f of [image.path, audio.path, film.path]) await fs.utimes(f, old, old);
+    expect(await store.sweep(refs)).toMatchObject({ removed: 2 });
+    await expect(fs.stat(image.path)).resolves.toBeTruthy();
+    await expect(fs.stat(audio.path)).rejects.toThrow();
+    await expect(fs.stat(film.path)).rejects.toThrow();
+    // 成片副本释放之后，用户的成片照样在 Space 里。
+    await expect(fs.readFile(published, 'utf8')).resolves.toBe('mp4!');
   });
 
   it('流程新建的视频：Job Ledger 修剪掉这次运行之后，视频条目的来源照样在', async () => {

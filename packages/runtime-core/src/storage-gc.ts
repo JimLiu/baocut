@@ -14,7 +14,7 @@ export interface StorageGcOptions {
     onPruned(listener: (evicted: ReadonlySet<Id>) => void): () => void;
     list(): JobRecord[];
   };
-  /** Space 的产物记录与只为清扫保留的引用（Job Ledger 修剪之后仍然引用着的产物，含读坏留存的文件里的）。 */
+  /** Space 产物记录里 bytes 在产物库里的条目用到的产物（Job Ledger 修剪之后仍然要留的，含读不懂、读坏留存的部分里的）。 */
   spaceArtifacts: { referencedArtifactIds(): Promise<Set<string>>; sweepSince(): number };
   /** 产物记录与 Job Ledger 都读进来、Space 已经从账本补齐记录之后兑现。 */
   ready: Promise<unknown>;
@@ -31,8 +31,8 @@ export interface StorageGcOptions {
 /**
  * Runtime Home 的两项后台清理（架构设计 §5.1、§7.3）：
  *
- * - **产物库**：账本里全部任务（任何状态，含冻结的规格与发布意图）与 Space 产物记录（含只为清扫保留的引用、读坏留存的
- *   文件）都没有引用、修改时间超过 1 小时、又不早于清扫起点（开始保留引用的时候）的
+ * - **产物库**：账本里全部任务（任何状态，含冻结的规格与发布意图）与 Space 产物记录（bytes 在产物库里的条目、读不懂与
+ *   读坏留存的部分；导出与文件流程的副本只在账本期内留）都没有引用、修改时间超过 1 小时、又不早于清扫起点的
  *   `artifacts/<sha256>.<ext>` 删掉，残留的 `.tmp` 同样。启动后（`ready` 兑现时）跑一轮，之后每次账本淘汰任务后再跑。
  *   有排队或运行中的任务时跳过：流程在步骤完成之前只在暂存目录与内存里记着它刚写的产物，这些不在引用集合里；
  *   跳过之后由下一次淘汰或每小时的定时补跑。

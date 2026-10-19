@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { JobRecord } from '@baocut/protocol';
-import { SpaceArtifactStore, artifactIdsOf, artifactRefsOf, isFilePipelineJob, spaceJobFacts } from './space-artifacts.ts';
+import { SpaceArtifactStore, artifactIdsOf, heldArtifactIdsOf, isFilePipelineJob, spaceJobFacts } from './space-artifacts.ts';
 
 function job(partial: Partial<JobRecord>): JobRecord {
   return {
@@ -196,29 +196,71 @@ describe('Space 的产物记录', () => {
     expect(broken.list()).toEqual([]);
     await expect(fs.readFile(loaded.quarantined!, 'utf8')).resolves.toBe('{ 坏了');
   });
-  it('只为清扫保留的引用：结果、步骤与应用里的产物 id，不含输入摘要；重读后还在，清扫起点落盘且不后移', async () => {
-    const a = `sha256:${'1'.repeat(64)}`;
-    const b = `sha256:${'2'.repeat(64)}`;
-    const dub = job({
-      jobId: 'job_dub',
+  it('清扫只为 bytes 在产物库里的条目留产物：生成的输出、文本、写作正文与出处；导出与文件流程的副本不留', () => {
+    const hex = (c: string) => `sha256:${c.repeat(64)}`;
+    expect(heldArtifactIdsOf(spaceJobFacts(job({}))!)).toEqual(['sha256:a', 'sha256:b']);
+    const text = job({ jobId: 'job_t', kind: 'generateText', result: { documentId: null, artifactId: hex('1'), text: { mediaType: 'text/plain', byteLength: 2 } } as never });
+    expect(heldArtifactIdsOf(spaceJobFacts(text)!)).toEqual([hex('1')]);
+    const writing = job({
+      jobId: 'job_w',
       kind: 'pipeline',
-      inputHash: `sha256:${'9'.repeat(64)}`,
-      result: { documentId: null, artifactId: a },
-      pipeline: { name: 'dub', steps: [{ name: 'synthesize', status: 'completed', output: { units: { u1: { artifactId: b } } } }] } as unknown as JobRecord['pipeline'],
+      result: { documentId: null, artifactId: hex('2') },
+      pipeline: { name: 'ai-tool', steps: [], summary: { tool: 'summary', text: '正文', citationsArtifactId: hex('3') } } as never,
     });
-    expect(artifactRefsOf(dub)).toEqual({ jobId: 'job_dub', kind: 'pipeline', videoId: 'v1', endedAt: dub.endedAt, artifactIds: [a, b] });
-    expect(artifactRefsOf(job({ state: 'running' }))).toBeNull();
-    expect(artifactRefsOf(job({ result: null }))).toBeNull();
+    expect(heldArtifactIdsOf(spaceJobFacts(writing)!).sort()).toEqual([hex('2'), hex('3')]);
+    const exported = job({
+      jobId: 'job_e',
+      kind: 'export',
+      result: { documentId: null, artifactId: hex('4'), outputs: [{ artifactId: hex('4'), path: '/Users/test/Movies/a.mp4', mediaType: 'video/mp4', byteLength: 9, assetId: null, media: { kind: 'video' } }] } as never,
+    });
+    expect(heldArtifactIdsOf(spaceJobFacts(exported)!)).toEqual([]);
+    const transcode = job({
+      jobId: 'job_x',
+      kind: 'pipeline',
+      videoId: null,
+      pipeline: { name: 'transcode', steps: [] } as never,
+      result: { documentId: null, artifactId: hex('5'), outputs: [{ artifactId: hex('5'), path: '/Users/test/a.mov', mediaType: 'video/quicktime', byteLength: 9, assetId: null, media: { kind: 'video' } }] } as never,
+    });
+    expect(heldArtifactIdsOf(spaceJobFacts(transcode)!)).toEqual([]);
+    // `downloads_save` 交出的带出处的 Markdown：文件按路径找，出处旁文件在产物库里。
+    const saved = { ...spaceJobFacts({ ...transcode, jobId: 'job_s', pipeline: { name: 'downloads-save', steps: [] } as never })!, pipeline: { name: 'downloads-save', citationsArtifactId: hex('6') } };
+    expect(heldArtifactIdsOf(saved)).toEqual([hex('6')]);
+  });
 
+  it('旧版本另存的 references 读入时丢掉并立即改写文件，不再算引用；清扫起点不变', async () => {
+    const kept = `sha256:${'a'.repeat(64)}`;
+    const dropped = `sha256:${'d'.repeat(64)}`;
+    const since = '2026-10-08T19:17:01.305Z';
+    const facts = spaceJobFacts(job({ result: { documentId: null, artifactId: kept, outputs: [{ artifactId: kept, mediaType: 'image/png', byteLength: 4, assetId: null, media: { kind: 'image', width: 2, height: 2 } }] } }))!;
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(
+      file,
+      JSON.stringify({ schemaVersion: 1, jobs: [facts], references: [{ jobId: 'job_dub', kind: 'pipeline', videoId: 'v1', endedAt: null, artifactIds: [dropped] }], sweepSince: since }),
+    );
     const store = new SpaceArtifactStore(file);
-    await store.load();
-    const since = store.sweepSince();
-    await store.putReferences([artifactRefsOf(dub)!]);
-    const again = new SpaceArtifactStore(file);
-    await again.load();
-    expect(again.references()).toEqual([artifactRefsOf(dub)]);
-    expect(again.sweepSince()).toBe(since);
-    expect([...(await again.referencedArtifactIds())].sort()).toEqual([a, b]);
+    expect(await store.load()).toEqual({ skipped: 0, quarantined: null });
+    await store.flush();
+    const onDisk = JSON.parse(await fs.readFile(file, 'utf8')) as Record<string, unknown>;
+    expect(onDisk).not.toHaveProperty('references');
+    expect(onDisk.sweepSince).toBe(since);
+    expect(store.sweepSince()).toBe(Date.parse(since));
+    expect([...(await store.referencedArtifactIds())]).toEqual([kept]);
+  });
+
+  it('读不懂的部分照样算引用：跳过的行在这次运行里、更新版本写下的文件里的产物 id', async () => {
+    const odd = `sha256:${'7'.repeat(64)}`;
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, JSON.stringify({ schemaVersion: 1, jobs: [{ jobId: 'odd', result: { artifactId: odd } }], sweepSince: new Date().toISOString() }));
+    const store = new SpaceArtifactStore(file);
+    expect((await store.load()).skipped).toBe(1);
+    expect((await store.referencedArtifactIds()).has(odd)).toBe(true);
+
+    const newer = `sha256:${'8'.repeat(64)}`;
+    await fs.writeFile(file, JSON.stringify({ schemaVersion: 99, jobs: [{ future: { artifactId: newer } }] }));
+    const later = new SpaceArtifactStore(file);
+    await later.load();
+    expect(later.list()).toEqual([]);
+    expect((await later.referencedArtifactIds()).has(newer)).toBe(true);
   });
 
   it('读坏了改名留存的文件里的产物 id 照样算引用：下次启动不误删', async () => {
