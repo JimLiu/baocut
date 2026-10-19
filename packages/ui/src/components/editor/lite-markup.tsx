@@ -287,6 +287,7 @@ const toolBtn = style({
     isSelected: { default: 'blue-200', isHovered: 'blue-300' },
   },
   color: { default: 'gray-800', isSelected: 'blue-1000' },
+  '--iconPrimary': { type: 'fill', value: 'currentColor' },
   outlineStyle: { default: 'none', isFocusVisible: 'solid' },
   outlineColor: 'focus-ring',
   outlineWidth: 2,
