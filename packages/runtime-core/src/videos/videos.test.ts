@@ -864,8 +864,86 @@ describe.skipIf(!engine || !ffmpeg)('视频（真实引擎）', () => {
       return current.state === 'conflict' && current;
     });
     expect(status.changedPaths).toEqual(['video.json']);
+    expect(status.conflict).toBe('invalid');
     await client.request('videos.close', { videoId: ref.videoId });
     expect(await fs.readFile(snapshotFile, 'utf8')).toBe('{ "edited": "outside" }\n');
+  });
+
+  /** 像 `git pull` 那样改写快照里的视频名字。 */
+  async function editSnapshot(dir: string, from: string, to: string) {
+    const file = path.join(dir, '.bcut-snapshot', 'video.json');
+    const text = await fs.readFile(file, 'utf8');
+    expect(text).toContain(from);
+    await fs.writeFile(file, text.replaceAll(from, to));
+  }
+
+  it('关着的视频的快照被 git pull 改了：打开时导入为一笔「外部变更」与一个 external 版本；撤销它，快照写回原样', async () => {
+    const { ref, snapshot } = await create(client, '拉取');
+    const snapshotFile = path.join(ref.path, '.bcut-snapshot', 'video.json');
+    await renameVideo(ref.videoId, snapshot.video.revision, '本机改的');
+    await versionsOf(ref.videoId, 1);
+    await client.request('videos.close', { videoId: ref.videoId });
+    await editSnapshot(ref.path, '本机改的', '别处改的');
+
+    const reopened = await client.request('videos.open', { projectId: project.id, path: ref.relPath });
+    await until(() => runtime.videos.mirror(ref.videoId)?.video.name === '别处改的');
+    const list = await versionsOf(ref.videoId, 2);
+    expect(list.versions[0]).toMatchObject({ kind: 'external', summary: 'External change' });
+    expect(list.versions[0]!.actions).toEqual([expect.objectContaining({ actor: 'system:history', label: 'External change' })]);
+    const history = await client.request('videos.history', { videoId: ref.videoId });
+    expect(history.entries[0]).toMatchObject({ actor: { kind: 'system', id: 'system:history' }, label: 'External change' });
+    expect(Number(history.entries[0]!.videoRevision)).toBe(Number(reopened.snapshot.video.revision) + 1);
+    expect(await client.request('videos.versions.status', { videoId: ref.videoId })).toMatchObject({ state: 'synced' });
+
+    // 撤销这笔外部变更：名字回来，几秒内快照写回撤销后的状态。
+    await client.request('edits.undo', { videoId: ref.videoId, commandId: newId('cmd'), target: { transaction: history.entries[0]!.transactionId } });
+    expect(runtime.videos.mirror(ref.videoId)!.video.name).toBe('本机改的');
+    await eventually(async () => (await fs.readFile(snapshotFile, 'utf8')).includes('本机改的'));
+  });
+
+  it('打开中的视频的快照被外部改了：发现后导入；两边都改了时等用户选，选过之后照常写快照', async () => {
+    const { ref, snapshot } = await create(client, '监视');
+    const snapshotFile = path.join(ref.path, '.bcut-snapshot', 'video.json');
+    let revision = await renameVideo(ref.videoId, snapshot.video.revision, '监视之前');
+    await versionsOf(ref.videoId, 1);
+
+    await editSnapshot(ref.path, '监视之前', '外面改的');
+    await until(() => runtime.videos.mirror(ref.videoId)?.video.name === '外面改的');
+    expect((await versionsOf(ref.videoId, 2)).versions[0]!.kind).toBe('external');
+    revision = runtime.videos.mirror(ref.videoId)!.video.revision;
+
+    // 两边都改了：不导入、不覆盖。选保留视频里的：立即覆盖磁盘上的。
+    await editSnapshot(ref.path, '外面改的', '外面又改');
+    revision = await renameVideo(ref.videoId, revision, '本机又改');
+    const conflict = await eventually(async () => {
+      const status = await client.request('videos.versions.status', { videoId: ref.videoId });
+      return status.state === 'conflict' && status;
+    });
+    expect(conflict).toMatchObject({ conflict: 'both-changed', changedPaths: ['video.json'] });
+    expect(await fs.readFile(snapshotFile, 'utf8')).toContain('外面又改');
+    const kept = await client.request('videos.versions.resolve', { videoId: ref.videoId, commandId: newId('cmd'), keep: 'video' });
+    expect(kept).toMatchObject({ receipt: null, version: null, status: { state: 'synced' } });
+    expect(await fs.readFile(snapshotFile, 'utf8')).toContain('本机又改');
+
+    // 再来一次，选用磁盘上的：导入为「外部变更」，视频里的改动先封存成一版。
+    await editSnapshot(ref.path, '本机又改', '还是外面的');
+    revision = await renameVideo(ref.videoId, revision, '本机第三次');
+    await eventually(async () => (await client.request('videos.versions.status', { videoId: ref.videoId })).state === 'conflict');
+    const commandId = newId('cmd');
+    const used = await client.request('videos.versions.resolve', { videoId: ref.videoId, commandId, keep: 'snapshot' });
+    expect(used).toMatchObject({ replayed: false, status: { state: 'synced' } });
+    expect(used.receipt?.label).toBe('External change');
+    expect(runtime.videos.mirror(ref.videoId)!.video.name).toBe('还是外面的');
+    const list = await client.request('videos.versions.list', { videoId: ref.videoId });
+    expect(list.versions[0]).toMatchObject({ version: used.version, kind: 'external' });
+    expect(list.versions[1]!.kind).toBe('segment');
+    const again = await client.request('videos.versions.resolve', { videoId: ref.videoId, commandId, keep: 'snapshot' });
+    expect(again).toMatchObject({ replayed: true });
+    expect(again.receipt?.transactionId).toBe(used.receipt?.transactionId);
+
+    // 之后的修改照常去抖写快照。
+    await renameVideo(ref.videoId, used.receipt!.videoRevision, '之后改的');
+    await eventually(async () => (await fs.readFile(snapshotFile, 'utf8')).includes('之后改的'));
   });
 
   it('只有快照的视频（video.db 被删了）：打开时按快照重建，videoId 不变，版本记录照常可用', async () => {

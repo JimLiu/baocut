@@ -442,6 +442,7 @@ export const de: EngineMessages = {
   labelRestoreVersion: (p: P<'version'>) => `Zu Version ${p.version} zurückkehren`,
   labelRestoreBeforeVersion: (p: P<'version'>) => `Zum Stand vor Version ${p.version} zurückkehren`,
   labelDeleteSavedVersion: "Gespeicherte Version löschen",
+  labelExternalChange: "Externe Änderung",
   versionSummaryRepeated: (p: P<'label' | 'count'>) => `${p.label} (${p.count} Änderungen)`,
   versionSummaryRebuild: "Aus dem Snapshot neu aufgebaut",
   versionNotFound: (p: P<'version'>) => `Version ${p.version} existiert nicht`,

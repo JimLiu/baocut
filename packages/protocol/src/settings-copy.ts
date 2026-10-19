@@ -47,6 +47,8 @@ const en = {
     'Days to keep items in the Space trash (1–3650): unreferenced items and deleted videos older than this are permanently deleted periodically',
   'versions.keep': "Unnamed versions to keep in each video's version history (1–100); saved versions are always kept. A video's version files are also capped at 64 MiB: above it the oldest unnamed versions are removed",
   'versions.cadence': "When a video's version history starts a new version: segment after 5 quiet minutes, every 30 minutes of continuous editing, and around saves and restores; turn also at the start of each Agent turn",
+  'versions.git.autoCommit': "Commit BaoCut's files in a project to git automatically: after 5 quiet minutes, when all of the project's videos are closed, and when BaoCut quits. Only for projects in a git repository, with the same rules as Commit to git",
+  'versions.git.maxFileMiB': "Largest file in a video's blobs/ that BaoCut commits to git, in MiB (1–4096); larger files are left for you to commit. Paths the repository tracks with Git LFS have no limit",
   'cache.maxSizeMiB': "Size limit for the data folder's cache, in MiB (256–1048576): above it, the oldest cached files (media analysis, playback copies) are deleted until it drops to 90%. The cross-video search index is never deleted",
   'resources.capacity':
     'Advanced: machine capacity for resource scheduling { memoryMiB, gpuMemoryMiB, cpuThreads }; an item set to null is detected automatically; null detects everything (memory and CPU come from the system, GPU memory on Apple silicon is estimated from unified memory)',

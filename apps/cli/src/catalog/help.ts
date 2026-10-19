@@ -54,7 +54,7 @@ export function renderMainHelp(tools: readonly CatalogTool[], admin: readonly Ad
   out.push(M.helpObjects);
   const nouns = ordered([...tree.nouns.keys()], NOUN_ORDER);
   const nounWidth = Math.max(...nouns.map((name) => name.length)) + 3;
-  for (const noun of nouns) out.push(`  ${noun.padEnd(nounWidth)}${[...tree.nouns.get(noun)!.keys()].join(' · ')}`);
+  for (const noun of nouns) out.push(`  ${noun.padEnd(nounWidth)}${fitVerbs([...tree.nouns.get(noun)!.keys()], WIDTH - nounWidth - 2)}`);
 
   out.push(M.helpAdmin);
   const adminWords = admin.map((entry) => (entry.verbs?.length ? `${entry.name} ${shortVerbs(entry.verbs)}` : entry.name));
@@ -67,6 +67,22 @@ export function renderMainHelp(tools: readonly CatalogTool[], admin: readonly Ad
   out.push(`  ${'runtime ensure|status|stop · version'}`);
   out.push(`  ${M.helpGlobalFlags}`, `  ${M.helpJobFlags}`);
   return out.join('\n');
+}
+
+/**
+ * 名词组一行的动词：按目录顺序排到 `width` 为止，放不下的整个略去，以 ` · …` 收尾（一屏帮助不为一个名词折行；全部动词见
+ * `help <名词>`）。
+ */
+function fitVerbs(verbs: readonly string[], width: number): string {
+  const all = verbs.join(' · ');
+  if (displayWidth(all) <= width) return all;
+  let line = '';
+  for (const verb of verbs) {
+    const next = line ? `${line} · ${verb}` : verb;
+    if (displayWidth(`${next} · …`) > width) break;
+    line = next;
+  }
+  return line ? `${line} · …` : '…';
 }
 
 /** `models configure|accounts|…`：最多列四个，其余用省略号。 */

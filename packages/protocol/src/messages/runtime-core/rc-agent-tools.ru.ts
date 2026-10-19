@@ -112,6 +112,10 @@ export const ru: RcAgentToolsMessages = {
   registerProjectSummary: (p) => `Зарегистрировать существующую папку ${p.path} как проект${p.name ? ` (${p.name})` : ""}`,
   createProjectSummary: (p) => `Создать папку проекта ${p.path}${p.name ? ` (${p.name})` : ""}`,
   adoptSessionSummary: (p) => `Создать проект ${p.name ? `«${p.name}»` : 'с названием первого видео'} и перенести в него видео и файлы этой сессии`,
+  bindSessionSummary: (p) =>
+    `${p.action}, ${p.project ? `в проекте «${p.project}» (${p.path})` : `в ${p.path} (папка регистрируется как новый проект)`}; эта сессия переходит в этот проект, а видео и файлы из её рабочей папки переносятся туда же`,
+  adoptSessionIntoSummary: (p) =>
+    `Перенести эту сессию ${p.project ? `в проект «${p.project}» (${p.path})` : `в ${p.path} (папка регистрируется как новый проект)`} вместе с видео и файлами из её рабочей папки`,
   deriveVideoSummary: (p) => `Создать производное видео «${p.name}» из фрагмента ${p.from}–${p.to} этого видео`,
   deriveVideoLabel: (p) => `Создано из «${p.name}»`,
   derivationDocumentName: 'Источник производного видео',

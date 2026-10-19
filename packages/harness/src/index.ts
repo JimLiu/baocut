@@ -21,6 +21,7 @@ export {
   type ResolvedDocsAnnotation,
   type HarnessAttachments,
   type ContractActor,
+  type ConversationProjectTarget,
   type HarnessOptions,
   type ToolCallApproval,
   type ToolCallApprovalRequest,

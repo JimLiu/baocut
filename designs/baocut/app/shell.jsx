@@ -92,6 +92,8 @@
     const tasks = window.BC_TASKPILL.pillList(app.tasks, {projectId, mineOnly: true});
     return <>
       <window.TaskPill list={tasks} projectId={projectId} />
+      {/* 版本记录（视频格式规范 §9、版本记录设计 §6）：按钮在导出左边，对话框在 video-versions.jsx */}
+      <window.VideoVersionsButton editor={editor} />
       <div className="moviebar__export">
         {exporting
           ? <Btn variant="accent" className="btn--busy" onClick={editor.onExport} title="正在导出 · 点开看进度或取消">
@@ -446,6 +448,17 @@
               </div>
             </div>
             {SURF.pages && window.ModelEnvTweaks ? <window.ModelEnvTweaks /> : null}
+            {window.BC_VIDEO_VERSIONS ? (
+              <div className="tweaks__sec">
+                <div className="tweaks__lb">版本记录<em>视频栏「版本记录」里的快照状态与版本文件（每个场景各自一份，互不影响）</em></div>
+                <div className="tweaks__rad">
+                  {window.BC_VIDEO_VERSIONS.SCENARIOS.map(({k, label}) => (
+                    <BCAction key={k} className={cx('tweaks__opt', (app.prefs.versionsDemo || 'normal') === k && 'is-on')}
+                      onClick={() => app.setPref('versionsDemo', k)}>{label}</BCAction>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {window.LegacyImportTweaks ? <window.LegacyImportTweaks onLaunch={() => setOpen(false)} /> : null}
             {SURF.pages && window.BC_LOCALCHECK ? (
               <div className="tweaks__sec">

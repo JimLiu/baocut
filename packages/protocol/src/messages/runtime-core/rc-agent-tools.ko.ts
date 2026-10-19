@@ -131,6 +131,10 @@ export const ko: RcAgentToolsMessages = {
   registerProjectSummary: (p) => `기존 폴더를 프로젝트로 등록: ${p.path}${p.name ? `(${p.name})` : ''}`,
   createProjectSummary: (p) => `프로젝트 폴더 ${p.path}${p.name ? `(${p.name})` : ''} 만들기`,
   adoptSessionSummary: (p) => `프로젝트${p.name ? ` '${p.name}'` : '(첫 번째 동영상 이름)'}를 만들고 이 세션의 동영상과 파일을 옮기기`,
+  bindSessionSummary: (p) =>
+    `${p.action}, 위치: ${p.project ? `프로젝트 '${p.project}'(${p.path})` : `${p.path}(새 프로젝트로 등록)`}. 이 세션은 이 프로젝트에 속하게 되고, 작업 폴더에 있던 동영상과 파일도 함께 옮기기`,
+  adoptSessionIntoSummary: (p) =>
+    `이 세션을 ${p.project ? `프로젝트 '${p.project}'(${p.path})` : `${p.path}(새 프로젝트로 등록)`}(으)로 옮기고 작업 폴더의 동영상과 파일도 함께 옮기기`,
   deriveVideoSummary: (p) => `이 영상의 ${p.from}–${p.to} 구간으로 하위 영상 “${p.name}” 만들기`,
   deriveVideoLabel: (p) => `“${p.name}”에서 파생`,
   derivationDocumentName: '파생 출처',

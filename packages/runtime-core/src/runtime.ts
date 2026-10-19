@@ -102,6 +102,7 @@ import { locateFileTarget } from './handlers.ts';
 import { resolveModelWorkerCommand, type ModelWorkerCommand } from './models/model-worker.ts';
 import { resolveEngineHostCommand } from './videos/engine-host.ts';
 import { VideoService } from './videos/video-service.ts';
+import { ProjectGitService, type ProjectGitServiceOptions } from './git/project-git-service.ts';
 import { PackageImporter } from './videos/package-import.ts';
 import { spaceDerivedFinder } from './videos/video-derive.ts';
 import { openNodeInitiator, type NodeInitiatorRuntimeOptions } from './nodes/node-initiator.ts';
@@ -210,6 +211,8 @@ export interface StartRuntimeOptions {
    * 不含真实环境变量的覆盖、带已知摘要的假清单与本机的下载来源，以及不访问真实 DNS 的主机名解析。
    */
   externalTools?: Pick<ExternalToolServiceOptions, 'env' | 'overrides' | 'manifests' | 'platform' | 'download'> & { lookup?: HostLookup };
+  /** 项目的 git 桥（版本记录设计 §5）的调节项：测试缩短自动提交的安静时间与锁的重试，换掉主目录（初始化的拒绝名单）。 */
+  projectGit?: Pick<ProjectGitServiceOptions, 'quietMs' | 'lockRetries' | 'lockDelayMs' | 'home'>;
   /** 任务的故障注入（测试用，架构设计 §7.3）：在应用闭环的几个时刻模拟崩溃。 */
   jobFaults?: ModelJobsOptions['faults'];
   /** Agent 的安装动作（§12.9）。测试换掉打开系统终端的方式与运行命令的环境。 */
@@ -341,6 +344,7 @@ const STOP_ORDER = [
   'docs',
   'compositions',
   'analysis',
+  'git',
   'videos',
   'setup',
   'harness',
@@ -675,6 +679,23 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       ...options.externalTools,
     });
     externalToolsRef = externalTools;
+    // 项目的 git 桥（版本记录设计 §5）：git 来自受管外部工具的登记表；退出时的自动提交在视频引擎停下之前（要先写快照）。
+    const projectGit = new ProjectGitService({
+      log: log.child('git'),
+      tools: externalTools,
+      env: toolEnv,
+      dir: path.join(home.root, 'git'),
+      storeFile: path.join(home.root, 'store', 'git-local-config.json'),
+      projects: () => requireHarness().listProjects(),
+      videos,
+      settings: () => ({
+        autoCommit: settingsStore?.get('versions.git.autoCommit') ?? false,
+        maxFileMiB: settingsStore?.get('versions.git.maxFileMiB') ?? 50,
+      }),
+      ...options.projectGit,
+    });
+    await projectGit.start();
+    stops.add('git', () => projectGit.shutdown(), 'Committing to git on exit failed');
     // 原始链接只留给还能重试的从链接导入流程。
     await pruneLinkSources(models.jobs, linkSources).catch((error) => log.warn('Pruning link sources failed', { error: String(error) }));
     // 停任务会取消在途任务、关掉 Worker 进程。
@@ -832,7 +853,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         new JobTools({ jobs: models.jobs, pipelines: models.pipelines, scope: toolScope }),
         new ExportTools({ exports, scope: toolScope }),
         new ModelInstallTools({ installs: models.installs, catalog: models.catalog, scope: toolScope }),
-        new ProjectTools({ harness, videos, scope: toolScope }),
+        new ProjectTools({ harness, videos, git: projectGit, scope: toolScope }),
         new LibraryTools({ library, scope: toolScope }),
         // Space 目录在后面才建好：工具调用时再取。
         new SpaceTools({ space: () => space, scope: toolScope, jobs: models.jobs }),
@@ -892,7 +913,12 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     // 会话的工具桥与网关 `catalog.call`（终端）共用同一组工具实例：`ScopeRouter` 按主体的种类转给会话的范围或终端的范围
     // （用户本人，相对路径按 cwd 解析）；两个面各自是这组工具的一个视图（`surface`）。
     const scope = new ScopeRouter({
-      agent: new AgentScope({ harness, videos, jobs: models.jobs }),
+      agent: new AgentScope({
+        harness,
+        videos,
+        jobs: models.jobs,
+        sessionsDirs: [home.scratchDir, ...(home.legacyScratchDir ? [home.legacyScratchDir] : [])],
+      }),
       local: new LocalScope({ harness, videos, jobs: models.jobs, space: () => space, projectsDir: home.projectsDir }),
     });
     const tools = new ToolCatalog(toolSets(scope), log, { surface: 'agent' });
@@ -1112,6 +1138,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       services,
       runtime: info,
       externalTools,
+      git: projectGit,
       templates: new TemplateCatalog({
         builtinDir: options.templatesDir === undefined ? resolveBuiltinTemplatesDir() : options.templatesDir,
         userDir: path.join(home.root, 'templates'),

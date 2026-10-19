@@ -84,6 +84,7 @@
       "app/model-keyframes.js",
       "app/model-select.js",
       "app/model-history.js",
+      "app/model-video-versions.js",
       "app/model-shape-paths.js",
       "app/model-elements.js",
       "app/model-confetti.js",
@@ -189,6 +190,7 @@
       "app/export-project.jsx",
       "app/export.jsx",
       "app/help-center.jsx",
+      "app/video-versions.jsx",
       "app/task-pill.jsx",
       "app/shell.jsx",
       "app/agent-picker.jsx",
@@ -467,6 +469,7 @@
       "app/home-design-system.css",
       "app/home-docs.css",
       "app/spectrum.css",
+      "app/video-versions.css",
       "app/font-library.css",
       "app/agent-messages.css",
       "app/agent-cards.css",
@@ -475,9 +478,9 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/app.js?v=df4768ca4059",
-    "css": "generated/app.css?v=35ac827fbcc9",
-    "bytes": 4455369
+    "js": "generated/app.js?v=d2aa38bb4811",
+    "css": "generated/app.css?v=3c89044b2433",
+    "bytes": 4499151
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -546,6 +549,7 @@
       "app/model-keyframes.js",
       "app/model-select.js",
       "app/model-history.js",
+      "app/model-video-versions.js",
       "app/model-shape-paths.js",
       "app/model-elements.js",
       "app/model-confetti.js",
@@ -609,6 +613,7 @@
       "app/export-shorts.jsx",
       "app/export-project.jsx",
       "app/export.jsx",
+      "app/video-versions.jsx",
       "app/task-pill.jsx",
       "app/shell.jsx",
       "app/project-info.jsx",
@@ -716,13 +721,14 @@
       "vendor/react-spectrum-s2/react-spectrum-s2.css",
       "vendor/react-spectrum-s2/react-spectrum-s2-font.css",
       "app/spectrum.css",
+      "app/video-versions.css",
       "app/font-library.css",
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/web.js?v=ec5fe9fe2e58",
-    "css": "generated/web.css?v=a859723b8989",
-    "bytes": 2581145
+    "js": "generated/web.js?v=a20e175a08a7",
+    "css": "generated/web.css?v=95f73c6c6588",
+    "bytes": 2623703
   },
   "components": {
     "file": "Components.html",

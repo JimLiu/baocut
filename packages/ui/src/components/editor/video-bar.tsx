@@ -18,9 +18,9 @@ import {
 import AIMark from '@react-spectrum/s2/icons/AIMark';
 import Close from '@react-spectrum/s2/icons/Close';
 import Asset from '@react-spectrum/s2/icons/Asset';
-import History from '@react-spectrum/s2/icons/History';
 import InfoCircle from '@react-spectrum/s2/icons/InfoCircle';
 import OpenIn from '@react-spectrum/s2/icons/OpenIn';
+import Undo from '@react-spectrum/s2/icons/Undo';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { durationSeconds, formatFps } from '../../model/editor.ts';
 import { agoLabel, formatClock } from '../../model/format.ts';
@@ -33,9 +33,10 @@ import { TaskPill } from '../task-pill.tsx';
 import { useNow } from '../use-now.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { EditorVideoInfo } from './video-info.tsx';
+import { VersionsButton } from './video-versions.tsx';
 import { VIDEO_BAR_COPY as VB } from './video-bar-copy.ts';
 
-/** 视频栏（产品设计 §5.1）：视频名、当前版本、保存状态；查看历史、撤销某一次修改。 */
+/** 视频栏（产品设计 §5.1）：视频名、当前修订号、保存状态；查看历史、撤销某一次修改；版本记录（video-versions.tsx）。 */
 const bar = style({
   display: 'flex',
   alignItems: 'center',
@@ -137,6 +138,7 @@ export function VideoBar({ video, sequence }: { video: OpenVideo; sequence: Sequ
         <TaskPill videoId={video.videoId} />
         <SaveState video={video} />
         {revision !== null ? <HistoryButton revision={revision} /> : null}
+        {revision !== null ? <VersionsButton video={video} /> : null}
         <ExportButton video={video} sequence={sequence} />
         <ActionMenu aria-label={VB.actions} isQuiet align="end" onAction={(key) => onMenu(String(key), video.ref)}>
           <MenuItem id="space" textValue={VB.showInSpace}>
@@ -217,7 +219,7 @@ function HistoryButton({ revision }: { revision: string }) {
   return (
     <DialogTrigger>
       <ActionButton isQuiet aria-label={VB.versionHistory(revision)}>
-        <History />
+        <Undo />
         <Text>{VB.version(revision)}</Text>
       </ActionButton>
       <Popover placement="bottom end" padding="default">

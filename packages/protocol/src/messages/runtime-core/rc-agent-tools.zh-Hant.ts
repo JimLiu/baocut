@@ -131,6 +131,10 @@ export const zhHant: RcAgentToolsMessages = {
   registerProjectSummary: (p) => `將現有資料夾 ${p.path} 登記為專案${p.name ? `（${p.name}）` : ''}`,
   createProjectSummary: (p) => `建立專案資料夾 ${p.path}${p.name ? `（${p.name}）` : ''}`,
   adoptSessionSummary: (p) => `建立專案${p.name ? `「${p.name}」` : '（以第一部影片命名）'}，把這個對話的影片與檔案移進去`,
+  bindSessionSummary: (p) =>
+    `${p.action}，建在${p.project ? `專案「${p.project}」（${p.path}）` : ` ${p.path}（登記為新專案）`}；這個對話從此屬於這個專案，工作資料夾裡已有的影片與檔案一起移過去`,
+  adoptSessionIntoSummary: (p) =>
+    `把這個對話放進${p.project ? `專案「${p.project}」（${p.path}）` : ` ${p.path}（登記為新專案）`}，工作資料夾裡的影片與檔案一起移過去`,
   deriveVideoSummary: (p) => `從這部影片的 ${p.from}–${p.to} 衍生子影片「${p.name}」`,
   deriveVideoLabel: (p) => `從「${p.name}」衍生`,
   derivationDocumentName: '衍生來源',

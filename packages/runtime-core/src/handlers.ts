@@ -58,6 +58,8 @@ import type { LibraryService } from './library/library-service.ts';
 import type { NodeInitiator, NodeService } from '@baocut/nodes';
 import type { ExternalToolService } from './external-tools/external-tool-service.ts';
 import { externalToolMethods } from './external-tools/external-tool-methods.ts';
+import { projectGitMethods } from './git/project-git-methods.ts';
+import type { ProjectGitService } from './git/project-git-service.ts';
 import { toolCatalogueMethods } from './tool-catalogue/tool-methods.ts';
 import { resolveSaveDirectory } from './external-tools/downloads-directory.ts';
 import type { TemplateCatalog } from './templates/template-catalog.ts';
@@ -128,6 +130,8 @@ export interface HandlerDeps {
   runtime: RuntimeInfo;
   /** 受管外部工具（§12.9）。 */
   externalTools: ExternalToolService;
+  /** 项目的 git 桥（版本记录设计 §5，`projects.git.*`）。 */
+  git: ProjectGitService;
   /** 创作模板目录（模板包规范 §6）。 */
   templates: TemplateCatalog;
   /** 随包贴纸（元素面板，`stickers.*`）。 */
@@ -216,6 +220,7 @@ export function createHandlers({
   services: external,
   runtime,
   externalTools,
+  git,
   templates,
   stickers,
   pets,
@@ -540,6 +545,7 @@ export function createHandlers({
       'videos.versions.save': (p, principal) => videos.saveVersion(p, principal),
       'videos.versions.restore': (p, principal) => videos.restoreVersion(p, principal),
       'videos.versions.delete': (p, principal) => videos.deleteVersion(p, principal),
+      'videos.versions.resolve': (p) => videos.resolveVersions(p),
       'videos.assetStatus': (p) => videos.assetStatus(p.videoId),
       'documents.read': (p) => videos.document(p.videoId, p.documentId, p.revision),
       'edits.apply': (p, principal) => videos.apply(p, principal),
@@ -621,6 +627,7 @@ export function createHandlers({
         ),
       'pipelines.retry': (p) => pipelines.retry(p.jobId),
       ...externalToolMethods(() => externalTools),
+      ...projectGitMethods(() => git),
       ...templateMethods({
         templates,
         media,

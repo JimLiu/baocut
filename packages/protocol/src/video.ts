@@ -1680,13 +1680,19 @@ export interface VideoVersionText {
 }
 
 /**
- * 工作区快照与视频库的关系（视频格式规范 §9.7）：`pending` 是库领先、几秒内会写；`conflict` 是快照被外部改过，不会被覆盖；
- * `missing` 是还没有快照；`rebuild` 是只有快照、没有 `video.db`。
+ * 工作区快照与视频库的关系（视频格式规范 §9.7、§9.8）：`pending` 是库领先、几秒内会写；`external` 是只有快照被外部改过，
+ * 打开时或发现时导入；`conflict` 是快照被外部改过而库里也有没写进快照的改动，或快照读不了，不导入也不覆盖，等用户选
+ * （`videos.versions.resolve`）；`missing` 是还没有快照；`rebuild` 是只有快照、没有 `video.db`。
  */
-export type VideoSnapshotState = 'synced' | 'pending' | 'conflict' | 'missing' | 'rebuild';
+export type VideoSnapshotState = 'synced' | 'pending' | 'external' | 'conflict' | 'missing' | 'rebuild';
+
+/** 冲突的原因：两边都改了，或磁盘上的快照读不了（只能保留视频里的）。 */
+export type VideoSnapshotConflict = 'both-changed' | 'invalid';
 
 export interface VideoSnapshotStatus {
   state: VideoSnapshotState;
+  /** `state` 是 `conflict` 时的原因。 */
+  conflict?: VideoSnapshotConflict;
   revision?: Revision;
   snapshotRevision?: Revision;
   /** 被外部改过的快照文件（相对快照目录）。 */

@@ -2,7 +2,7 @@ import type { ToolsMessages } from './external-tools-copy.ts';
 
 export const ja: ToolsMessages = {
   help: `使い方：
-  baocut external-tools [list]     外部ツール（yt-dlp、ffmpeg）：状態、バージョン、パス、
+  baocut external-tools [list]     外部ツール（yt-dlp、ffmpeg、git）：状態、バージョン、パス、
                                    入手元、使用に同意済みかどうか
   baocut external-tools detect [name]
                                    再検出

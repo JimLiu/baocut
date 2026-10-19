@@ -3,8 +3,10 @@ import path from 'node:path';
 import { z } from 'zod';
 import type { Harness } from '@baocut/harness';
 import { RpcError, type RiskLevel } from '@baocut/protocol';
-import { RcAgentTools } from '@baocut/protocol/messages/runtime-core';
+import { RcAgentTools, RcGit } from '@baocut/protocol/messages/runtime-core';
 import type { VideoService } from '../videos/video-service.ts';
+import type { ProjectGitService } from '../git/project-git-service.ts';
+import { inside, nearestReal } from './artifact-save.ts';
 import { ToolError, type ToolInfo, type ToolSet } from './tool-catalog.ts';
 import type { AgentPrincipal } from './grants.ts';
 import { approvalField, confirmSummary, scopedProject, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
@@ -17,15 +19,21 @@ import { approvalField, confirmSummary, scopedProject, type ToolPrincipal, type 
  * - `projects_create` 只在工具桥与 CLI（对外服务不新建项目）。`path` 相对会话的工作目录或终端的 cwd（`ToolScope.saveRoot`），绝对路径照收；
  *   目录不存在时建出来，已有的目录直接登记（与 `projects.open` 相同，写 `.bcut/project.json`）。会话里在工作目录之内是 `edit`，
  *   之外是写项目目录之外（`high`），按访问模式确认；终端不走审批。已经登记过的项目原样返回，不确认、不改名。
- * - `projects_adopt_session` 只在工具桥：用户明确要建项目时，把不属于项目的会话放进默认项目目录下的一个新项目（名字默认取会话里最早建的
- *   视频，`Harness.ensureConversationProject`，架构设计 §3.10），会话的视频与文件搬过去，之后在项目里工作。只写 BaoCut 的项目目录下
- *   一个新建的目录、搬的是会话自己的工作目录，不覆盖任何文件，所以按 `edit` 确认。已经属于项目的会话原样返回那个项目。工作目录里还有
- *   视频被界面、任务或别的连接开着时拒绝（`VIDEO_IN_USE`），什么都不动。
+ * - `projects_adopt_session` 只在工具桥：用户明确要建项目时，把不属于项目的会话放进一个项目（`ToolScope.bindSession`，
+ *   `Harness.ensureConversationProject`，架构设计 §3.10），会话的视频与文件搬过去，之后在项目里工作。不给 `project` 时在默认项目目录下
+ *   新建（名字默认取会话里最早建的视频）：只写 BaoCut 的项目目录下一个新建的目录、搬的是会话自己的工作目录，不覆盖任何文件，按 `edit`
+ *   确认。给了 `project`（已登记项目的 id，或用户指定的目录）时放进那里，写到工作目录之外，按 `high` 确认。已经属于项目的会话原样返回
+ *   那个项目。工作目录里还有视频被界面、任务或别的连接开着时拒绝（`VIDEO_IN_USE`），什么都不动。
+ * - `projects_git_commit` 在工具桥与 CLI（版本记录设计 §5.3）：把项目里 BaoCut 的文件提交到 git，与「提交到 git」同一个动作
+ *   （`ProjectGitService.commit`）。只在用户要求时用；会话里按 `edit` 确认。暂停（本地过滤器、仓库的特殊状态、`index.lock`）时
+ *   不报错，返回原因与下一步：本地过滤器要用户在 CLI 里允许（项目设置里的入口随界面再加），智能体不能替用户允许（§5.4）；
+ *   找不到 git 或项目不在仓库里时同样返回原因，不替用户初始化。
  */
 
 export interface ProjectToolsDeps {
-  harness: Pick<Harness, 'listProjects' | 'openProject' | 'updateProject' | 'getConversation' | 'ensureConversationProject'>;
-  videos: Pick<VideoService, 'claimProjectVideos' | 'openRefs' | 'close'>;
+  harness: Pick<Harness, 'listProjects' | 'openProject' | 'updateProject' | 'getConversation'>;
+  videos: Pick<VideoService, 'claimProjectVideos'>;
+  git: Pick<ProjectGitService, 'commit'>;
   scope: ToolScope;
 }
 
@@ -37,13 +45,38 @@ const schemas = {
     name: z.string().trim().min(1).max(200).optional().describe('可选。项目的显示名；不给时用目录名'),
   }),
   projects_adopt_session: z.strictObject({
+    project: z
+      .string()
+      .min(1)
+      .max(1000)
+      .optional()
+      .describe(
+        '可选。放进哪里：已登记项目的 projectId，或用户指定的文件夹（绝对路径或 ~/ 开头，例如外置盘上的 /Volumes/T7/访谈；不存在时新建并登记为项目）。不给时在 BaoCut 的项目目录下新建项目',
+      ),
     name: z
       .string()
       .trim()
       .min(1)
       .max(200)
       .optional()
-      .describe('可选。项目名；不给时取会话里最早建的视频的名字，还没有视频时取会话标题。用户说了名字才给'),
+      .describe(
+        '可选。项目名；不给时取会话里最早建的视频的名字（还没有视频时取会话标题），给了 project 时取文件夹名。用户说了名字才给；已登记的项目不改名',
+      ),
+  }),
+  projects_git_commit: z.strictObject({
+    project: z
+      .string()
+      .min(1)
+      .max(1000)
+      .optional()
+      .describe('可选。项目：projectId 或已登记项目的目录；会话里不给时是会话所属的项目，终端里不给时是当前目录所属的项目'),
+    message: z
+      .string()
+      .trim()
+      .min(1)
+      .max(10_000)
+      .optional()
+      .describe('可选。提交说明的标题（可以带正文）；不给时按这段时间里各视频版本的摘要生成。用户给了说法才填'),
   }),
 };
 
@@ -80,19 +113,36 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
     positional: 'path',
   },
   projects_adopt_session: {
-    title: '把会话放进新项目',
+    title: '把会话放进项目',
     description: [
-      '用户明确要求建项目（「建个项目」「放进项目里」）时用：在 BaoCut 的项目目录下新建项目，把这个会话的视频与文件搬进去，会话从此属于它。',
-      '项目名不给时取会话里最早建的视频的名字（还没有视频时取会话标题）。用户没要求时不要调用：不属于项目的会话照样能新建、下载、编辑视频，视频就留在会话的工作目录里。',
-      '会话已经属于项目时原样返回那个项目。搬完之后会话的工作目录换成项目目录。工作目录里还有视频在编辑器、任务或别的连接里开着时拒绝（VIDEO_IN_USE），什么都不动：请用户关掉那几部视频后再试。',
+      '用户明确要求建项目（「建个项目」「放进项目里」「把这个会话放到外置盘上」）时用：把这个会话的视频与文件搬进项目，会话从此属于它。',
+      '不给 project 时在 BaoCut 的项目目录下新建项目，项目名不给时取会话里最早建的视频的名字（还没有视频时取会话标题）。用户指定了位置时给 project：已登记项目的 projectId，或一个文件夹的绝对路径（不存在时新建并登记），按高风险确认；只说了盘没说文件夹时，在盘上取一个文件夹（例如 /Volumes/T7/BaoCut），确认卡会写明。',
+      '用户只是要把新视频建到别处时不必先调用它：videos_create、download / transcribe 的新视频直接给 project，同一张确认卡里会话一起放过去。用户没要求时不要调用：不属于项目的会话照样能新建、下载、编辑视频，视频就留在会话的工作目录里。',
+      '会话已经属于项目时原样返回那个项目（会话只能放进项目一次，不能再换）。搬完之后会话的工作目录换成项目目录。工作目录里还有视频在编辑器、任务或别的连接里开着时拒绝（VIDEO_IN_USE），什么都不动：请用户关掉那几部视频后再试。',
     ].join('\n'),
     annotations: { destructiveHint: false, idempotentHint: true },
     effect: 'mutation',
     examples: [
       { title: '以视频命名', args: {} },
       { title: '用户给了名字', args: { name: '第 12 期' } },
+      { title: '放到外置盘上的文件夹', args: { project: '/Volumes/T7/访谈' } },
     ],
     surfaces: ['agent'],
+  },
+  projects_git_commit: {
+    title: '提交到 git',
+    description: [
+      '把项目里 BaoCut 的文件提交到 git（用户说「提交到 git」「commit 一下」时用；用户没要求时不要调用）。',
+      '先把打开着的视频的快照写好，再只提交 BaoCut 的路径：各视频的 .bcut-snapshot/（不含版本文件）与 blobs/ 里不超过大小上限的素材。项目里别的文件（脚本、代码）与用户已经暂存的改动原样留着，由用户自己提交；不推送、不拉取、不改写历史。',
+      '没有改动时 committed 为 false。项目不在 git 仓库里或这台电脑没有 git 时不提交，结果里 unavailable 说明原因；仓库暂停提交时（本地过滤器、合并或变基中、index.lock）结果里 paused 说明原因。两种情况都照 next 告诉用户，不要自己初始化仓库、改 git 配置或删锁文件。',
+    ].join('\n'),
+    annotations: { destructiveHint: false, idempotentHint: false },
+    effect: 'mutation',
+    examples: [
+      { title: '提交当前项目', args: {} },
+      { title: '用户给了说明', args: { message: '粗剪完成' } },
+    ],
+    surfaces: ['agent', 'cli'],
   },
 };
 // i18n-ignore-end
@@ -108,7 +158,7 @@ const LIST_NEXT: Record<ToolPrincipal['kind'], string> = {
 /** 一个项目都没有时的出路：各个面能做的不一样（对外服务不能新建项目）。 */
 const EMPTY_NEXT: Record<ToolPrincipal['kind'], string> = {
   agent:
-    '这个会话不属于任何项目：videos_create、download 的新视频不给 project，建在会话的工作目录里，不必先建项目。用户明确要建项目时用 projects_adopt_session（默认以视频命名）。',
+    '这个会话不属于任何项目：videos_create、download 的新视频不给 project，建在会话的工作目录里，不必先建项目。用户要把新视频放到指定的文件夹（例如外置盘上）时，新建视频的工具直接给 project（文件夹的绝对路径），确认之后会话放进那里；用户明确要建项目时用 projects_adopt_session（默认以视频命名）。',
   local:
     '还没有登记的项目：videos_create 不给 project 时视频建在当前目录所属的项目里，没有时登记默认项目目录下的 CLI 项目；要放在指定的目录里，先用 projects_create 在那里新建并登记项目。',
   service:
@@ -133,6 +183,8 @@ export class ProjectTools implements ToolSet {
         return this.#create(args as Args<'projects_create'>, principal);
       case 'projects_adopt_session':
         return this.#adoptSession(args as Args<'projects_adopt_session'>, principal);
+      case 'projects_git_commit':
+        return this.#gitCommit(args as Args<'projects_git_commit'>, principal);
       default:
         // i18n-ignore: 给模型的工具说明、错误与下一步
         return Promise.reject(new ToolError('UNKNOWN_TOOL', `没有这个工具：${name}`));
@@ -180,9 +232,9 @@ export class ProjectTools implements ToolSet {
   }
 
   async #adoptSession(args: Args<'projects_adopt_session'>, principal: ToolPrincipal) {
-    const { scope, harness, videos } = this.#deps;
+    const { scope, harness } = this.#deps;
     const access = scope.authorize(principal, true);
-    if (principal.kind !== 'agent') {
+    if (principal.kind !== 'agent' || !scope.bindSession || !scope.locateBinding) {
       // i18n-ignore: 给模型的工具说明、错误与下一步
       throw new ToolError('UNKNOWN_TOOL', '没有这个工具：projects_adopt_session');
     }
@@ -190,57 +242,86 @@ export class ProjectTools implements ToolSet {
     const { conversation } = harness.getConversation(conversationId);
     const owned = conversation.projectId ? harness.listProjects().find((p) => p.id === conversation.projectId) : undefined;
     if (owned) return { ...scopedProject(owned), created: false, existing: true, next: ADOPT_NEXT };
+    const binding = args.project === undefined ? undefined : await scope.locateBinding(access, args.project);
     const approval = await scope.confirm(access, {
       tool: 'projects_adopt_session',
-      targets: [conversation.cwd],
-      ...confirmSummary(RcAgentTools.adoptSessionSummary({ name: args.name ?? null })),
-      risk: 'edit',
+      targets: binding ? [conversation.cwd, binding.path] : [conversation.cwd],
+      ...confirmSummary(
+        binding
+          ? RcAgentTools.adoptSessionIntoSummary({ path: binding.path, project: binding.project?.name ?? null })
+          : RcAgentTools.adoptSessionSummary({ name: args.name ?? null }),
+      ),
+      risk: binding ? 'high' : 'edit',
     });
-    // 这个智能体自己开着的、在工作目录里的视频先放下，才能一起搬走；界面或任务还开着的，Harness 拒绝绑定（`VIDEO_IN_USE`）。
-    const cwd = await fs.realpath(conversation.cwd).catch(() => conversation.cwd);
-    for (const ref of videos.openRefs()) {
-      if (inside(ref.path, cwd)) await videos.close(ref.videoId, principal).catch(() => {});
+    const project = await scope.bindSession(access, { ...(binding ? { binding } : {}), ...(args.name ? { name: args.name } : {}) });
+    return { ...scopedProject(project), created: !binding?.project, existing: false, ...approvalField(approval), next: ADOPT_NEXT };
+  }
+
+  async #gitCommit(args: Args<'projects_git_commit'>, principal: ToolPrincipal) {
+    const { scope, harness, git } = this.#deps;
+    const access = scope.authorize(principal, true);
+    const root = await scope.createRoot(access, args.project, { locate: true });
+    if (!('projectId' in root.scope)) {
+      // i18n-ignore: 给模型的工具说明、错误与下一步
+      throw new ToolError('NOT_IN_PROJECT', '这个会话不属于项目，没有可以提交的仓库', { next: GIT_NO_PROJECT_NEXT });
     }
-    let project;
+    const projectId = root.scope.projectId;
+    const project = harness.listProjects().find((item) => item.id === projectId);
+    const approval = await scope.confirm(access, {
+      tool: 'projects_git_commit',
+      targets: [root.root],
+      ...confirmSummary(RcGit.commitSummary({ name: project?.name ?? root.root })),
+    });
     try {
-      project = await harness.ensureConversationProject(conversationId, args.name ? { name: args.name } : {});
+      const result = await git.commit(projectId, { message: args.message });
+      return {
+        committed: result.committed,
+        commit: result.commit,
+        files: result.files,
+        videos: result.videos,
+        branch: result.status.branch,
+        ...approvalField(approval),
+        next: result.committed ? GIT_COMMITTED_NEXT : GIT_NOTHING_NEXT,
+      };
     } catch (error) {
-      if (error instanceof RpcError && (error.details as { code?: unknown } | undefined)?.code === 'VIDEO_IN_USE') {
-        const { videos: names } = error.details as { videos?: unknown };
-        throw new ToolError('VIDEO_IN_USE', error.message, { ...(Array.isArray(names) ? { videos: names } : {}), next: ADOPT_BUSY_NEXT });
-      }
-      throw error;
+      const details = error instanceof RpcError ? (error.details as { code?: unknown; reason?: unknown; remedy?: unknown } | undefined) : undefined;
+      if (details?.code !== 'GIT_PAUSED' && details?.code !== 'GIT_UNAVAILABLE') throw error;
+      const paused = details.code === 'GIT_PAUSED';
+      const reason = typeof details.reason === 'string' ? details.reason : paused ? 'locked' : 'missing';
+      const why = { reason, message: (error as RpcError).message, ...(typeof details.remedy === 'string' ? { remedy: details.remedy } : {}) };
+      return {
+        committed: false,
+        ...(paused ? { paused: why } : { unavailable: why }),
+        ...approvalField(approval),
+        next: paused ? (GIT_PAUSED_NEXT[reason] ?? GIT_PAUSED_NEXT.locked) : (GIT_UNAVAILABLE_NEXT[reason] ?? GIT_UNAVAILABLE_NEXT.missing),
+      };
     }
-    return { ...scopedProject(project), created: true, existing: false, ...approvalField(approval), next: ADOPT_NEXT };
   }
 }
 
 // i18n-ignore-start: 给模型的工具说明、错误与下一步
+const GIT_COMMITTED_NEXT = '已提交到当前分支（没有推送）。告诉用户提交了哪几部视频；要推送由用户自己做。';
+const GIT_NOTHING_NEXT = '上次提交之后 BaoCut 的文件没有改动，没有新提交。如实告诉用户即可。';
+const GIT_NO_PROJECT_NEXT =
+  '告诉用户：只有项目里的视频能提交到 git。用户要建项目时用 projects_adopt_session；仓库由用户自己准备（在终端运行 baocut projects git-init，或把项目放进已有的仓库）。';
+const GIT_PAUSED_NEXT: Record<string, string> = {
+  'local-config':
+    '仓库的本地配置里有会执行程序的过滤器或包含，BaoCut 在用户允许之前不提交。把 paused.message 告诉用户，请用户在终端运行 baocut projects git-allow 查看这些条目并决定是否允许；你不能替用户允许，也不要自己去改仓库的配置。用户允许之后再调用一次。',
+  'repo-state': '仓库正在合并、变基、拣选、还原、二分中，或 HEAD 没在分支上。把 paused.message 告诉用户，请用户在 git 里完成或放弃之后再提交；不要自己运行 git 去处理。',
+  locked: '仓库正被别的 git 命令占用（index.lock）。稍后再调用一次；不要删除锁文件。',
+};
+const GIT_UNAVAILABLE_NEXT: Record<string, string> = {
+  'not-repo': '项目不在 git 仓库里，没有提交。告诉用户；要不要建仓库由用户决定（在终端运行 baocut projects git-init，或自己 git init），你不要替用户初始化。',
+  missing: '这台电脑上没有能用的 git，没有提交。把 unavailable.message 与 unavailable.remedy 告诉用户，请用户装好 git 后再说。',
+};
 const ADOPT_NEXT =
   '会话已经属于这个项目：新视频不给 project 就建在项目里，视频与文件在项目目录里（相对路径不变）。告诉用户项目的名字与位置。';
-const ADOPT_BUSY_NEXT =
-  '没有建项目，会话和视频都原样留着、照常能用。告诉用户是哪几部视频还开着，请用户在编辑器里关掉它们（或等任务结束）后再说一次；不要自己反复重试。';
 // i18n-ignore-end
 
 function nextAfterCreate(principal: ToolPrincipal): string {
   // i18n-ignore-start: 给模型的工具说明、错误与下一步
   return principal.kind === 'agent'
-    ? '项目已登记，用户能在 BaoCut 的项目列表里看到；这个会话仍在原来的工作目录里工作，videos_create 建不到新项目里。告诉用户项目的位置；要让这个会话和它的视频进项目，用 projects_adopt_session。'
+    ? '项目已登记，用户能在 BaoCut 的项目列表里看到；这个会话仍在原来的工作目录里工作。告诉用户项目的位置。不属于项目的会话要在这个项目里建视频时，videos_create（或 download、transcribe 的新视频）给 project: 这个 projectId，确认之后会话连同工作目录里的视频与文件一起放进项目；只是要会话进项目时用 projects_adopt_session { project }。属于别的项目的会话不能换项目：请用户在这个项目里新开会话。'
     : '项目已登记：videos_create 的 project 给这个项目目录（path）就建在这个项目里。';
   // i18n-ignore-end
-}
-
-/** 还不存在的路径：向上找到第一个存在的祖先，取它的真实路径再接上剩下的部分（判断在不在工作目录里用）。 */
-async function nearestReal(target: string): Promise<string> {
-  const rest: string[] = [];
-  for (let dir = target; ; dir = path.dirname(dir)) {
-    const real = await fs.realpath(dir).catch(() => null);
-    if (real) return path.join(real, ...rest.reverse());
-    if (path.dirname(dir) === dir) return target;
-    rest.push(path.basename(dir));
-  }
-}
-
-function inside(candidate: string, root: string): boolean {
-  return candidate === root || candidate.startsWith(root.endsWith(path.sep) ? root : root + path.sep);
 }

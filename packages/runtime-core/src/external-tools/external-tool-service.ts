@@ -422,7 +422,9 @@ export class ExternalToolService {
     const env = await this.#options.env();
     const base = this.#baseStatus(manifest, record);
     const platform = this.#platform.split('-')[0] as NodeJS.Platform;
-    const lookup = (command: string) => findOnPath(command, env.PATH ?? '', platform, envValue(env, 'PATHEXT') ?? null);
+    const lookup = (command: string, accept?: (file: string) => Promise<boolean>) =>
+      findOnPath(command, env.PATH ?? '', platform, envValue(env, 'PATHEXT') ?? null, accept);
+    const problem = async (file: string) => (manifest.usable ? await manifest.usable(file, platform) : null);
     const candidates: Array<{ file: string | null; source: ExternalToolSource; strict: boolean; label: string | Localized }> = [];
     const fromEnv = manifest.envVar ? this.#overrides[manifest.envVar] : undefined;
     if (fromEnv) {
@@ -434,7 +436,7 @@ export class ExternalToolService {
       const file = this.#managedFile(manifest, record.managed.version);
       if (await isExecutableFile(file)) candidates.push({ file, source: 'managed', strict: true, label: RcExternalTools.sourceManaged() });
     }
-    candidates.push({ file: await lookup(manifest.command), source: 'system', strict: false, label: 'PATH' });
+    candidates.push({ file: await lookup(manifest.command, async (file) => (await problem(file)) === null), source: 'system', strict: false, label: 'PATH' });
     let status: ExternalToolStatus = { ...base, state: 'missing', ...said(RcExternalTools.commandNotFound({ command: manifest.command }), manifest.missingRemedy) };
     for (const candidate of candidates) {
       if (!candidate.file) {
@@ -471,6 +473,11 @@ export class ExternalToolService {
             RcExternalTools.setExePathRemedy({ command: manifest.command, canInstall: manifest.release !== null }),
           ),
         };
+        break;
+      }
+      const unusable = await problem(candidate.file);
+      if (unusable) {
+        status = { ...base, state: 'unavailable', path: candidate.file, source: candidate.source, ...said(unusable, manifest.missingRemedy) };
         break;
       }
       const probe = await runVersionProbe(candidate.file, manifest.versionArgs, env);

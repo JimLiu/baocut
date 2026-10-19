@@ -47,12 +47,15 @@
     stale:      {k: 'stale',      label: '来源已变', tone: 'notice'},
     missing:    {k: 'missing',    label: '缺失',    tone: 'negative'},
     failed:     {k: 'failed',     label: '失败',    tone: 'negative'},
+    /* 只有 `.bcut-snapshot/` 没有视频库的视频目录（视频格式规范 §9.7）：别处拷来、git 克隆来的。打开时从快照重建 */
+    rebuild:    {k: 'rebuild',    label: '待重建',  tone: 'informative'},
   };
 
   const SORTS = [{k: 'recent', label: '最近活动'}, {k: 'created', label: '创建时间'}, {k: 'updated', label: '更新时间'}, {k: 'name', label: '名称'}, {k: 'kind', label: '类型'}];
 
-  /** 视频的状态：转录在跑 / 排队 → 生成中；源文件找不到 → 缺失；转录失败 → 失败；其余是普通的工作稿（无状态）。 */
+  /** 视频的状态：只有快照 → 待重建；转录在跑 / 排队 → 生成中；源文件找不到 → 缺失；转录失败 → 失败；其余是普通的工作稿（无状态）。 */
   function movieStatus(m) {
+    if (m.snapshotOnly) return 'rebuild';
     if (m.status === 'transcribing' || m.status === 'queued') return 'generating';
     if (m.src && m.src.state === 'missing') return 'missing';
     if (m.status === 'error') return 'failed';

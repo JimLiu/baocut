@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { z } from 'zod';
 import { COOKIE_BROWSER_LABELS, LINK_IMPORT_PIPELINE, checkLink, isTerminal, type JobManager, type PipelineRunner } from '@baocut/jobs';
 import {
@@ -13,9 +14,18 @@ import { RcAgentTools } from '@baocut/protocol/messages/runtime-core';
 import type { ExternalToolService } from '../external-tools/external-tool-service.ts';
 import { YT_DLP } from '../external-tools/tool-manifests.ts';
 import { isGrantErrorDetails } from '../grants/grant-errors.ts';
+import { inside, nearestReal } from './artifact-save.ts';
 import { formatBytes } from './model-install-tools.ts';
 import { ToolError, type ToolInfo, type ToolSet } from './tool-catalog.ts';
-import { approvalField, confirmSummary, type ToolAccess, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
+import {
+  approvalField,
+  bindingConfirmation,
+  confirmSummary,
+  type ProjectBinding,
+  type ToolAccess,
+  type ToolPrincipal,
+  type ToolScope,
+} from './tool-scope.ts';
 import { resolveUserPath } from './video-digest.ts';
 import { commandIdArg, videoArg } from './video-tools.ts';
 
@@ -35,8 +45,10 @@ import { commandIdArg, videoArg } from './video-tools.ts';
  *
  * - `video`：导入范围之内的一个已有视频（链接素材）；它的时间线还空着时同时放上主轨（对外服务先 `videos_create` 再下载进去）；
  * - `newVideo`：新建一个视频并放上时间线，与 `videos_create` 建在同一处（`project`，不给时会话所属的项目或会话的工作目录，
- *   终端里按 cwd 找到的项目），之后 `videos_list`、`videos_inspect` 看得到；新建视频不提高风险（`edit` 低于下载的 `command`）；
- * - `project`：只下载，文件放进这个项目。
+ *   终端里按 cwd 找到的项目），之后 `videos_list`、`videos_inspect` 看得到；新建视频不提高风险（`edit` 低于下载的 `command`）。
+ *   不属于项目的会话给了别处的 `project`（已登记项目的 id 或任意目录）时，同一张确认卡写明会话放进那个项目（`bindingConfirmation`，
+ *   `high`），确认之后会话连同工作目录里的视频与文件放过去（§3.10），视频建在那里；
+ * - `project`：只下载，文件放进这个项目。不属于项目的会话不为只下载换项目：给了别处的 `project` 时拒绝，`next` 指向 `outDir`。
  *
  * 文件去哪：与界面、CLI 一样默认进下载目录（设置 `downloads.directory`，默认主机的下载文件夹），`video`、`newVideo` 导入的是
  * 链到那里的素材；只给 `project` 时放进那个项目的 `downloads/`（流程的 `saveTo: 'project'`）。对外服务只能写进项目，它的落点
@@ -117,7 +129,7 @@ const schemas = {
       .max(1000)
       .optional()
       .describe(
-        '可选。项目（项目 id 或已登记项目目录的路径）：只给它时只下载，文件放进这个项目的 downloads/；与 newVideo 一起给时是新视频所在的项目。会话里只能是会话所属的项目',
+        '可选。项目（项目 id 或已登记项目目录的路径）：只给它时只下载，文件放进这个项目的 downloads/；与 newVideo 一起给时是新视频所在的项目。属于项目的会话只能是它所属的项目；不属于项目的会话与 newVideo 一起给时可以是已登记项目的 projectId 或任意文件夹（绝对路径或 ~/，例如外置盘上的 /Volumes/T7/访谈，不存在时新建并登记），确认之后会话连同工作目录里的视频与文件放进那里',
       ),
     video: videoArg
       .optional()
@@ -162,6 +174,7 @@ const DEFINITIONS: Record<'download', ToolInfo> = {
     description: [
       '用 yt-dlp 从视频页面的链接下载媒体，可以导入视频或新建视频并转写。',
       '落点三选一：video 导入已有视频；newVideo 新建视频并放上时间线（可给 project、name）；project 只下载到项目的 downloads/。文件默认存进下载目录（设置 downloads.directory，默认系统的下载文件夹），video、newVideo 导入的素材链到那里；用户要放到别处（外置盘、某个文件夹）时给 outDir，不用请用户去改设置；都不给时只下载、不建视频，只在用户明确说只要文件、不要视频时这样用。',
+      '不属于项目的会话要把新视频建在指定的文件夹或别的项目里（例如「下载到外置盘 T7 的访谈文件夹」）：newVideo 同时给 project（文件夹的绝对路径，或 projects_list 的 projectId），按高风险确认，确认之后会话连同工作目录里的视频与文件放进那里，不用请用户换项目、新开会话；用户只说了盘没说文件夹时在盘上取一个文件夹。文件也要放在那里时同时给 outDir（例如 <文件夹>/downloads）。会话只能放进项目一次，属于项目的会话不能换。',
       '要转写、加字幕、翻译的默认给 newVideo（或直接用 transcribe 给 url）：它新建视频、导入、放上时间线，transcribe 为 true 时再转写；之后 videos_list、videos_inspect 看得到它。新建的视频在之后的步骤失败时保留，不要再新建一次。',
       '只在用户明确要从网页链接取视频时用。会按访问模式向用户确认；yt-dlp 没有安装时会请用户同意下载它（显示来源、版本、大小与许可），这次只提交安装并返回 installJobId：用 jobs_wait 等它 completed，再调用一次本工具。',
       '立即返回 jobId。用 jobs_wait 等它结束（看进度用 jobs_inspect，progress.unit 为 bytes），state 为 completed 时 outputs 里有下载的文件与文稿（path）和导入的素材（assetId）；只下载时媒体的 artifactId 可以给 edits_apply 的 importAsset（文件要还在原处、没有改过）。失败时 error.code 是 LINK_LOGIN_REQUIRED、LINK_UNSUPPORTED、LINK_NETWORK_ERROR、LINK_DISK_FULL 等，error.details.remedy 说明怎么补救；不要用别的方式绕过（不要自己运行下载程序）。',
@@ -172,9 +185,8 @@ const DEFINITIONS: Record<'download', ToolInfo> = {
     effect: 'job',
     examples: [
       { title: '从链接新建视频并转写', args: { url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', newVideo: true, transcribe: true } },
-      { title: '下载到已有视频', args: { url: 'https://example.com/talk', video: 'demo' } },
+      { title: '下载到已有视频，文件存到外置盘的文件夹', args: { url: 'https://example.com/talk', video: 'demo', outDir: '/Volumes/Media/clips' } },
       { title: '只下载到项目，带英文字幕', args: { url: 'https://example.com/talk', project: 'prj_1', subs: ['en'] } },
-      { title: '下载到外置盘的文件夹', args: { url: 'https://example.com/talk', outDir: '/Volumes/Media/clips' } },
     ],
     surfaces: ['agent', 'mcp', 'cli'],
     positional: 'url',
@@ -238,7 +250,7 @@ async function start(deps: LinkImportToolsDeps, args: LinkImportRequest, princip
   // 链接先在本地检查（协议、私有地址、以 - 开头），不合格的不弹确认。
   const link = checkLink(args.url);
   // 本机目录：对外服务在这里以 INVALID_ARGUMENTS 拒绝（`fileBase`）；能不能写由流程在提交时检查。
-  const outDir = args.outDir !== undefined ? resolveUserPath(args.outDir, scope.fileBase(access)) : undefined;
+  let outDir = args.outDir !== undefined ? resolveUserPath(args.outDir, scope.fileBase(access)) : undefined;
   if (deps.offlineStrict()) {
     // i18n-ignore: 给模型的工具说明、错误与下一步
     throw new ToolError('OFFLINE_STRICT', '严格离线模式下不从链接下载：请用户在设置里关掉严格离线，或把文件放进来源目录后导入');
@@ -301,8 +313,22 @@ async function start(deps: LinkImportToolsDeps, args: LinkImportRequest, princip
     );
     return { jobId: null, installJobId: installed.jobId, tool: toolView(installed.tool), ...approvalField(approval), next: installNext };
   }
-  // 落点先只找位置（范围之外、看不到的项目不弹确认）；新建视频的确认之后再取一次（终端那时才登记项目）。
-  let target = await targetOf(deps, args, access, { locate: true });
+  // 落点先只找位置（范围之外、看不到的项目不弹确认）；新建视频的确认之后再取一次（终端那时才登记项目，无项目会话那时放进项目）。
+  const located = await targetOf(deps, args, access, { locate: true });
+  let target = located.params;
+  const { binding } = located;
+  if (binding && !args.newVideo) {
+    // i18n-ignore-start: 给模型的工具说明、错误与下一步
+    throw new ToolError('PROJECT_NOT_FOUND', `这个会话不属于项目：只下载时 project 只能是会话所属的项目，不能是 ${binding.path}`, {
+      next: '只要文件时去掉 project，用 download 的 outDir 放到任意文件夹（例如外置盘上的）；要在那里新建视频时带上 newVideo（transcribe 去掉 noVideo），确认之后会话放进那个项目。',
+    });
+    // i18n-ignore-end
+  }
+  // 会话要放进别的项目：工作目录里的 `outDir` 跟着搬过去，确认卡上写搬过去之后的位置。
+  if (binding && outDir !== undefined) {
+    const cwd = scope.fileBase(access);
+    if (inside(outDir, cwd)) outDir = path.join(binding.path, path.relative(cwd, outDir));
+  }
   const placed = args.video !== undefined || args.newVideo === true || args.project !== undefined;
   // 文件进项目的 downloads/：对外服务只能写进项目（§12.8），有落点就进；智能体只在只给 project（只下载到项目）时进，
   // 导入视频的与界面、CLI 一样留在下载目录。
@@ -326,21 +352,29 @@ async function start(deps: LinkImportToolsDeps, args: LinkImportRequest, princip
     cookies: cookieBrowsers ? cookieBrowsers.map((id) => COOKIE_BROWSER_LABELS[id]).join(RcAgentTools.listSeparator().text) : null,
     dir: outDir ?? null,
   };
-  const approval =
-    status.consent?.state === 'granted'
-      ? await scope.confirm(access, {
-          tool: 'download',
-          ...confirmSummary(RcAgentTools.linkImportSummary(about)),
-          // 新建视频（`edit`）不提高风险：仍按下载的 `command`。
-          risk: 'command',
-        })
-      : await scope.confirm(access, {
-          tool: 'external_tools_consent',
-          ...confirmSummary(RcAgentTools.linkImportConsentSummary({ ...about, path: status.path ?? '' })),
-          risk: 'high',
-        });
+  // 会话要放进别的项目时同一张卡写明落点，按 `high`（`bindingConfirmation`）。
+  const approval = await scope.confirm(
+    access,
+    bindingConfirmation(
+      status.consent?.state === 'granted'
+        ? {
+            tool: 'download',
+            ...confirmSummary(RcAgentTools.linkImportSummary(about)),
+            // 新建视频（`edit`）不提高风险：仍按下载的 `command`。
+            risk: 'command',
+          }
+        : {
+            tool: 'external_tools_consent',
+            ...confirmSummary(RcAgentTools.linkImportConsentSummary({ ...about, path: status.path ?? '' })),
+            risk: 'high',
+          },
+      located,
+    ),
+  );
   if (status.consent?.state !== 'granted') await tools.consent({ name: status.name, grant: true, via: 'agent-approval' });
-  if (args.newVideo) target = await targetOf(deps, args, access);
+  if (args.newVideo) target = (await targetOf(deps, args, access)).params;
+  // 会话刚放进项目：工作目录搬走了，旧路径只在这个回合里经链接指向项目。下载在回合之后还在写，`outDir` 用真实路径。
+  if (binding && outDir !== undefined) outDir = await nearestReal(outDir);
   const { jobId } = await pipelines.start(
     {
       pipeline: LINK_IMPORT_PIPELINE,
@@ -371,13 +405,16 @@ async function start(deps: LinkImportToolsDeps, args: LinkImportRequest, princip
   }
   // i18n-ignore-start: 给模型的工具说明、错误与下一步
   const where = outDir !== undefined ? outDir : intoProject ? '所属项目的 downloads/（不属于项目的会话是下载目录）' : '下载目录';
+  const moved = binding
+    ? `会话已经放进项目（${binding.path}），工作目录里原有的视频与文件一起搬了过去，之后新视频不给 project 就建在那里。`
+    : '';
   return {
     jobId,
     installJobId: null,
     url: link.canonical,
     ...approvalField(approval),
     next: args.newVideo
-      ? `下载已提交${outDir !== undefined ? `，文件保存到 ${outDir}` : ''}，完成后新建视频并放上时间线${args.transcribe ? `、转写${args.captions ? '、建立字幕层' : ''}` : ''}。用 jobs_wait 等它结束（看进度用 jobs_inspect）；state 为 completed 时 videoId 是新建的视频（可以直接给 videos_inspect），outputs[0].assetId 是导入的素材${
+      ? `${moved}下载已提交${outDir !== undefined ? `，文件保存到 ${outDir}` : ''}，完成后新建视频并放上时间线${args.transcribe ? `、转写${args.captions ? '、建立字幕层' : ''}` : ''}。用 jobs_wait 等它结束（看进度用 jobs_inspect）；state 为 completed 时 videoId 是新建的视频（可以直接给 videos_inspect），outputs[0].assetId 是导入的素材${
           args.transcribe
             ? args.captions
               ? '，pipeline.summary.documentId 是新转写（可以给 documents_read），summary.captions 是字幕层'
@@ -400,14 +437,18 @@ async function targetOf(
   args: LinkImportRequest,
   access: ToolAccess,
   options: { locate?: boolean } = {},
-): Promise<{ videoId: Id } | { target: PipelineVideoTarget } | { projectId: Id } | { conversationId: Id }> {
+): Promise<{
+  params: { videoId: Id } | { target: PipelineVideoTarget } | { projectId: Id } | { conversationId: Id };
+  binding?: ProjectBinding;
+}> {
   const { scope } = deps;
-  if (args.video !== undefined) return { videoId: (await scope.open(args.video, access)).ref.videoId };
-  // 新建的位置只在要用时才取：终端的范围取它时会登记项目（或建默认项目）；看不到的项目与不存在的一样回答。
-  // 只下载（不新建视频）时只找位置。
-  const source = (await scope.createRoot(access, args.project, { locate: options.locate || !args.newVideo })).scope;
-  if (args.newVideo) return { target: { create: { ...source, ...(args.name ? { name: args.name } : {}) } } };
-  return source;
+  if (args.video !== undefined) return { params: { videoId: (await scope.open(args.video, access)).ref.videoId } };
+  // 新建的位置只在要用时才取：终端的范围取它时会登记项目（或建默认项目），无项目会话取它时放进给的项目；看不到的项目与不存在的
+  // 一样回答。只下载（不新建视频）时只找位置。
+  const root = await scope.createRoot(access, args.project, { locate: options.locate || !args.newVideo });
+  const binding = root.binding ? { binding: root.binding } : {};
+  if (args.newVideo) return { params: { target: { create: { ...root.scope, ...(args.name ? { name: args.name } : {}) } } }, ...binding };
+  return { params: root.scope, ...binding };
 }
 
 /** 等父任务记下 `videoId`（新建视频的那一步拿到租约时）再调用 `adopt`；任务先结束了就不再等。只调一次，失败不影响任务。 */

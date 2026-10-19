@@ -477,6 +477,7 @@ const en = {
   labelRestoreVersion: (p: P<'version'>) => `Restore version ${p.version}`,
   labelRestoreBeforeVersion: (p: P<'version'>) => `Restore to before version ${p.version}`,
   labelDeleteSavedVersion: 'Delete saved version',
+  labelExternalChange: 'External change',
   versionSummaryRepeated: (p: P<'label' | 'count'>) => `${p.label} (${p.count} changes)`,
   versionSummaryRebuild: 'Rebuilt from the snapshot',
   versionNotFound: (p: P<'version'>) => `Version ${p.version} does not exist`,

@@ -32,6 +32,8 @@ export const nl: SettingDescriptionMessages = {
     "Dagen om items in de Space-prullenmand te bewaren (1–3650): oudere niet-gebruikte items en verwijderde video’s worden periodiek definitief verwijderd",
   'versions.keep': "Naamloze versies die in de versiegeschiedenis van elke video blijven (1–100); opgeslagen versies blijven altijd bewaard. De versiebestanden van een video zijn ook beperkt tot 64 MiB: daarboven worden de oudste naamloze versies verwijderd",
   'versions.cadence': "Wanneer de versiegeschiedenis van een video een nieuwe versie begint: segment na 5 rustige minuten, elke 30 minuten doorlopend bewerken en rond opslaan en herstellen; turn ook aan het begin van elke beurt van de Agent",
+  'versions.git.autoCommit': "BaoCut-bestanden van een project automatisch in git committen: na 5 rustige minuten, wanneer alle video's van het project gesloten zijn en wanneer BaoCut afsluit. Alleen voor projecten in een git-repository, met dezelfde regels als Committen naar git",
+  'versions.git.maxFileMiB': "Grootste bestand in blobs/ van een video dat BaoCut in git commit, in MiB (1–4096); grotere bestanden commit je zelf. Paden die de repository met Git LFS volgt, hebben geen limiet",
   'cache.maxSizeMiB': 'Maximale grootte van de cache in de gegevensmap, in MiB (256–1048576): daarboven worden de oudste cachebestanden (media-analyse, afspeelkopieën) verwijderd tot 90 % is bereikt. De zoekindex over video’s heen wordt nooit verwijderd',
   'resources.capacity':
     "Geavanceerd: machinecapaciteit voor middelenplanning { memoryMiB, gpuMemoryMiB, cpuThreads }; een item ingesteld op null wordt automatisch gedetecteerd; null detecteert alles (geheugen en CPU komen van het systeem, GPU-geheugen op Apple silicon wordt geschat vanuit gedeeld geheugen)",

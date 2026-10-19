@@ -58,9 +58,9 @@
 | `C` | 一致性：提交安全、写入权、停止屏障、身份、预算 | 12 | §6.5 |
 | `M` | 运行机制：能力快照、批量预检、证据、准入、取帧、资源、任务合同 | 24 | §6.6 |
 | `TM` | 时间模型：单位、量化、采样、帧率 | 20 | §6.7 |
-| `V` | 版本记录：工作区快照、版本、回到与保存版本、重建 | 12 | §6.8 |
+| `V` | 版本记录：工作区快照、版本、回到与保存版本、重建、外部改动的导入、git 桥 | 24 | §6.8 |
 
-共 164 条。
+共 176 条。
 
 ### 1.4 一条验收怎样才算通过
 
@@ -563,7 +563,7 @@ M19 使用原创的、授权的或程序化合成的夹具。M12 的规模档位
 
 独立的脚本可以验证其中一部分有理数的预期值。但这张表里涉及应用、音频、Adapter、缓存、并发与界面的行为，必须由真实的实现测试。
 
-### 6.8 版本记录验收 V01–V12
+### 6.8 版本记录验收 V01–V24
 
 视频的工作区快照与版本记录（视频格式规范 §9，架构设计 §5.12）。
 
@@ -577,19 +577,36 @@ M19 使用原创的、授权的或程序化合成的夹具。M12 的规模档位
 | V06 | 保存版本，再删掉它 | 保存的版本带名字与检查点，不被清理；删掉时两侧的 diff 合并、检查点一起删；不是保存的版本不能删 |
 | V07 | 被保留的版本引用的收进来的素材，在关闭视频的 blob GC 之后 | 仍在；回到那个版本时素材完整 |
 | V08 | 删掉 `video.db` 后打开项目或打开视频 | 按快照重建，`videoId` 不变，重建后立即写出的快照与读入的逐字节相同；有版本文件时版本记录照常可用并多一个 `rebuild` 版本，没有时从重建开始 |
-| V09 | 快照被 BaoCut 之外改了 | 不覆盖，状态是 `conflict` 并列出文件；编辑与关闭照常；保存与回到版本以 `SNAPSHOT_CONFLICT` 拒绝 |
+| V09 | 快照被 BaoCut 之外改了，库里也有还没写进快照的改动（两边都改了） | 不导入、不覆盖，状态是 `conflict`（`both-changed`）并列出文件；编辑与关闭照常；保存与回到版本以 `SNAPSHOT_CONFLICT` 拒绝 |
 | V10 | 关闭视频后立刻重新打开 | 等关闭写完快照、放下写锁再打开，重新打开的视频照常可改，修改照常进版本 |
 | V11 | 不属于项目的视频 | 不写快照、没有版本；保存与回到版本以 `VERSIONS_NEED_PROJECT` 拒绝 |
 | V12 | 没有 git | 版本记录的全部功能可用 |
+| V13 | 关着的视频的快照被 `git pull` 改了，再打开；打开中的视频的快照被外部改了 | 导入为一笔「外部变更」（操作者 `system:history`）和一个 `external` 版本，库里写出的快照与读入的逐字节相同；按事务撤销后回到导入前，快照写回撤销后的状态；只差排版时不提交；快照引用的素材不在时是缺失，视频照常可用 |
+| V14 | 两边都改了，用户选保留 BaoCut 里的，或用磁盘上的 | 保留：立即覆盖磁盘上的快照，之后照常写；用磁盘上的：本地改动先封存成一版，再导入为「外部变更」与 `external` 版本，回到它之前能找回本地改动；同一个 `commandId` 重试返回第一次的结果 |
+| V15 | 快照被改坏（读不出、有冲突标记） | 状态是 `conflict`（`invalid`），不导入、不覆盖；只能保留 BaoCut 里的，用磁盘上的以 `SNAPSHOT_INVALID` 拒绝 |
+| V16 | Windows 上 `core.autocrlf=true` 检出快照 | 不算外部改动，文件不被改写回 LF |
 
-二期（外部改动的导入、git 桥）的验收要点在[版本记录设计 §9](../design/version-history/version-history-design.md#9-分期与验收要点)，实施时移到这里。
+git 桥（架构设计 §5.12，版本记录设计 §5）：
+
+| ID | 场景 | 必须满足 |
+| --- | --- | --- |
+| V17 | 项目在 git 仓库里（含 worktree）：打开项目、第一次改动、提交之前 | `info/exclude` 与 `info/attributes` 里有 BaoCut 的块，写在 `git rev-parse --git-path` 指的位置；块外一字不动，没变时不重写；`core.autocrlf=true` 时快照仍按 LF 进仓库 |
+| V18 | 用户暂存了无关文件、工作区里有没跟踪的文件与超过上限的 blob，再「提交到 git」 | 提交里只有 BaoCut 的路径：`video.json`、`documents/` 与 `blobs/`，没有 `history/`、`blobs/.staging/`、被忽略的与超过 `versions.git.maxFileMiB` 的文件（Git LFS 跟踪的不受限）；用户暂存的文件仍在暂存区，没跟踪的不动；仓库的钩子不运行；没配齐作者时用 `BaoCut <baocut@localhost>`；尾注 `BaoCut-Video` 的版本范围接着上一次 |
+| V19 | `index.lock` 存在；合并、变基、拣选、还原、二分中；HEAD 分离 | 不提交，以 `GIT_PAUSED` 报告原因与补救；锁文件不删 |
+| V20 | 仓库本地配置里有过滤器或 include | 暂停，查状态与提交都没有执行过滤器；`git lfs install --local` 写入的标准条目不暂停；在桌面界面或 CLI 允许之后恢复，只改 `user.name` 不重新暂停，改了过滤器的命令或被包含的文件重新暂停 |
+| V21 | 浏览器、对外服务或智能体要初始化 git、允许本地过滤器 | 以 `forbidden` 拒绝；浏览器能看状态与「提交到 git」，状态里没有仓库路径与配置条目 |
+| V22 | 在用户主目录、标准用户文件夹、卷的根或已经在仓库里的项目初始化 git | 以 `GIT_INIT_REFUSED` 拒绝，不运行 `git init`；别的位置初始化之后块已写好 |
+| V23 | 打开自动提交：安静满 5 分钟、关掉项目最后一部打开的视频、退出 BaoCut | 各提交一次；关着自动提交时只记下有改动、不提交；失败只记在状态里，编辑照常 |
+| V24 | 没有 git，或 macOS 上只有没装开发者工具时的 `/usr/bin/git` | 状态是 `unavailable` 并给补救，提交以 `GIT_UNAVAILABLE` 拒绝，不弹出安装开发者工具的窗口；版本记录照常（V12） |
 
 自动化检查：
 
-- 引擎（`crates/video-engine/tests/version_history.rs`）：V01（基线与一行的 diff）、V02（回到版本、回到最旧版本之前、撤销、重试与相同状态）、V03（篡改中间版本）、V04（安静期、时长与回合的边界）、V05（按数量清理后链连续）、V06、V07、V08（重建逐字节相同、`rebuild` 版本）、V09 的引擎部分；另有版本文件能被 `patch -R` 逐版退回。
-- Engine Host（`crates/engine-host/src/host.rs` 的 `versions_round_trip_through_snapshot_restore_save_delete_and_rebuild`）：内部命令的往返。
-- Runtime（`packages/runtime-core/src/videos/videos.test.ts`，真实的 Engine Host）：去抖写快照、保存与回到版本、关闭前写；V08 的打开时重建；V09；按回合切分与会话记录；V10；V11。智能体工具（`agent-tools/object-tools.test.ts`）：保存、列出、读 diff、回到版本与没有的版本给出下一步。
-- 还没有自动化：V02 的随机编辑序列、V05 的大小上限、V04 里两部视频之间来回切换、V12 在没有 git 的机器上的端到端检查。
+- 引擎（`crates/video-engine/tests/version_history.rs`）：V01（基线与一行的 diff）、V02（回到版本、回到最旧版本之前、撤销、重试与相同状态）、V03（篡改中间版本）、V04（安静期、时长与回合的边界）、V05（按数量清理后链连续）、V06、V07、V08（重建逐字节相同、`rebuild` 版本）、V09 的引擎部分、V13（关着时被改后导入、撤销、缺失的素材）、V14、V15、V16（模拟 CRLF 检出）；另有版本文件能被 `patch -R` 逐版退回。
+- Engine Host（`crates/engine-host/src/host.rs` 的 `versions_round_trip_through_snapshot_restore_save_delete_and_rebuild` 与 `an_external_snapshot_change_is_imported_and_a_conflict_waits_for_a_choice`）：内部命令的往返。
+- Runtime（`packages/runtime-core/src/videos/videos.test.ts`，真实的 Engine Host）：去抖写快照、保存与回到版本、关闭前写；V08 的打开时重建；V09 与 V15 的状态；V13（关着时 `git pull` 后打开即导入、按事务撤销；打开中的视频由监视发现并导入）；V14（两种选择与重试）；按回合切分与会话记录；V10；V11。智能体工具（`agent-tools/object-tools.test.ts`）：保存、列出、读 diff、回到版本与没有的版本给出下一步。
+- 还没有自动化：V02 的随机编辑序列、V05 的大小上限、V04 里两部视频之间来回切换、V12 在没有 git 的机器上的端到端检查、V16 在 Windows 上真实 `git checkout` 的检查。
+- git 桥：Runtime（`packages/runtime-core/src/git/git-bridge.test.ts`，真实的 git，隔离全局与系统配置）：V17–V20、V22–V24 的 Runtime 部分（含钩子不运行、子目录里的项目、LFS 跟踪的大文件）；`git/project-git-methods.test.ts`：V21 的调用方；`external-tools/git-probe.test.ts`：V24 的 macOS 占位程序判断。智能体工具（`agent-tools/project-tools.test.ts`）：提交的结果，暂停与没有仓库时交回原因与下一步。CLI（`apps/cli/src/admin/projects-output.test.ts`）：按 ID、目录、名字找项目与状态的输出。
+- git 桥还没有自动化：Windows 上真实的 git（`PATHEXT`、结束进程树、被重定向的标准用户文件夹）、没装开发者工具的 macOS 上的 V24、Web 与桌面界面（界面没做）。
 
 ---
 

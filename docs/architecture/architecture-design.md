@@ -429,7 +429,7 @@ space.list / space.search
 ```
 
 - 编辑工具生成或提交合法的 `EditOperation`。
-- `videos_create` 新建一个空视频，位置与固定流程新建的视频相同（§7.9「新建视频是流程的一步」）；调用成功后会话里多一条 `video-created`（§11.3）。终端（CLI 连接的 `catalog.call`）与 MCP 服务没有会话：它们经 `videos_create`、`videos_derive`、`videos_import_package` 新建视频后，Space 主题发一条 `video.created`（命令与协议规范 §10.4），桌面据此在功能区打开它（产品设计 §3.3「外部 Agent 新建的视频」）；桌面连接自己的 `catalog.call` 不发。新建不是一笔修改，没有变更卡与撤销。可选的 `project` 指定建在哪个已登记的项目（项目 id，或项目目录的路径）：会话里给了就要是会话所属的项目；对外服务没有会话，必须给，不给时 `INVALID_ARGUMENTS`（带 `next`，§4.8）。
+- `videos_create` 新建一个空视频，位置与固定流程新建的视频相同（§7.9「新建视频是流程的一步」）；调用成功后会话里多一条 `video-created`（§11.3）。终端（CLI 连接的 `catalog.call`）与 MCP 服务没有会话：它们经 `videos_create`、`videos_derive`、`videos_import_package` 新建视频后，Space 主题发一条 `video.created`（命令与协议规范 §10.4），桌面据此等它有了内容再在功能区打开（产品设计 §3.3「外部 Agent 新建的视频」）；桌面连接自己的 `catalog.call` 不发。新建不是一笔修改，没有变更卡与撤销。可选的 `project` 指定建在哪个已登记的项目（项目 id，或项目目录的路径）：属于项目的会话给了就要是它所属的项目；不属于项目的会话还可以给别的已登记项目或任意目录（例如外置盘上用户指定的文件夹），同一张确认卡写明落点，按 `high` 确认，确认之后会话放进那个项目再新建（§3.10）；对外服务没有会话，必须给，不给时 `INVALID_ARGUMENTS`（带 `next`，§4.8）。
 - 模型工具立即返回 `jobId`；查询状态不触发新的计算。`provider` 与 `model` 参数可选，不给时用这种能力的默认值（§6.2）；`models.capabilities` 列出每种能力可用的 Provider、模型与默认值，供智能体先查再选。`generateText` 列在其中却没有提交它的工具：智能体本身就是文本模型，`generateText` 只供 BaoCut 自己的流程在进程内调用（§7.9）。
 - 能力没有配置时，模型工具返回 `CAPABILITY_NOT_CONFIGURED` 与补救方式（§6.2），智能体向用户说明而不是换一种办法绕过。给智能体的结果带上 `remedy` 的 `hint`、与 CLI 打印的同一组补救命令，以及一句 `next`：转告用户到设置里的模型配置或用 `baocut models configure` 启用，不用 shell 命令、脚本或别的 API 提供方绕过。Provider 被停用同样是 `CAPABILITY_NOT_CONFIGURED`（补救是重新启用）；缺音色（模型没有默认音色、或没有所给的音色）在提交时以 `invalid-request` 拒绝，带模型的音色清单，由智能体从中选或请用户给出账号里的音色 ID。智能体的工具不能启用或配置 Provider、不能设默认值，也没有读写凭据的工具：启用是用户对数据外发的持续授权（§6.8），只由用户做。
 - 生成工具（`speak`、`image`）与 CLI、界面用同一组参数：文本或提示词，可选的音色、尺寸、张数与 `videoId`。文本超过模型的单次上限时在提交时拒绝（智能体的工具以 `INPUT_TOO_LONG` 返回，带长度与上限），由智能体自己分段提交，不由 Runtime 截断或切块。给了 `videoId` 时结果导入为候选素材，放上时间线是另一次编辑。`jobs.inspect` 返回冻结的 Provider、模型、参数与每个输出（`artifactId`、媒体事实、`assetId`；转写是 `documentId`）。不给视频时结果只是产物（`artifactId`）：
@@ -470,7 +470,7 @@ space.list / space.search
 | --- | --- | --- | --- |
 | 主体与范围 | `AgentPrincipal`、`AgentScope`：会话的来源目录与 TaskContract | `ServicePrincipal`、`ServiceScope`：访问策略的视频名单与等级 | `LocalPrincipal`、`LocalScope`：用户能访问的一切；相对路径（素材、导出目标、视频目录）按 `cwd` 解析，绝对路径照收，没有目录约束 |
 | 视频的指代 | 相对来源目录的路径或 `videoId` | `videoId` 或 `<projectId>/<相对路径>` | 视频目录（绝对或相对 `cwd`）→ `videoId` → Space 条目 id；没打开的挂在发起调用的连接上打开，连接断开时随之放下 |
-| 新建视频 | 会话所属的项目或会话的工作目录 | 必须给 `project`（已登记的项目）；访问策略是视频名单时，新视频写进名单（§4.8） | `projectDir`（显式给，或从 `cwd` 向上找 `.bcut/project.json`，用到时登记）；没有时在默认项目目录下的 `CLI` 项目里，结果的 `note` 说明 |
+| 新建视频 | 会话所属的项目或会话的工作目录；不属于项目的会话给了别处的 `project`（已登记项目或任意目录）时，确认之后会话放进那个项目（§3.10） | 必须给 `project`（已登记的项目）；访问策略是视频名单时，新视频写进名单（§4.8） | `projectDir`（显式给，或从 `cwd` 向上找 `.bcut/project.json`，用到时登记）；没有时在默认项目目录下的 `CLI` 项目里，结果的 `note` 说明 |
 | 写入的 actor | `agent:<会话>` | `external:<serviceId>` | `user_local`，与桌面界面共用撤销栈 |
 | 确认 | 按访问模式与风险在会话里等用户 | `ask` 下生成服务审批 | 不走 BaoCut 的审批，确认由 Agent 宿主负责；没有授权覆盖的外发以 `GRANT_REQUIRED` 拒绝，不替用户发放授权 |
 | 任务的提交者 | `{ kind: 'agent', id, taskId }` | `{ kind: 'service', id, clientId }` | `{ kind: 'connection', id: <连接> }`，与桌面端连接提交的相同 |
@@ -577,9 +577,9 @@ interface CapabilitySnapshot {
   - 会话里的智能体从链接下载（§7.9 的 `link-import` 流程，提交者是这个会话）、解析出平台给的标题时，Runtime 换成媒体标题。
   - 本机文件的文件名是用户自己给的，不拿来换；智能体读懂内容（文稿、速览）之后用 `conversations_set_title { title }` 起一个标题（只在工具桥；一行、最多 40 个字符，超出拒绝，不截断）。起标题的是智能体，不是 Runtime 另调文本模型：智能体本身就是文本模型、已经读过内容（§3.5「`generateText` 没有提交它的工具」），另调模型要用户配过文本模型、还要把文稿外发（§12.5）。工具只改这个会话自己的标题，不确认、规划模式下也能用；没换（用户改过、已经换过）时返回 `changed: false`，智能体不再调用。
 - `Conversation.projectId` 可空。可以从空绑定一次（下一条），之后不改绑到另一个项目。项目目录被移动或改名后，会话随项目的标识留在它下面，工作目录换到新路径；复制出来的目录是另一个项目，不带走会话（§5.1）。
-- 无项目的会话在它自己的工作目录 `<会话目录>/<会话 id>/` 里工作。会话目录（`RuntimeHome.scratchDir`）放在系统给应用的数据目录里：macOS `~/Library/Application Support/BaoCut/Sessions`，Windows `%LOCALAPPDATA%\BaoCut\Sessions`（不随漫游配置同步：里面是媒体），其余 `${XDG_DATA_HOME:-~/.local/share}/BaoCut/Sessions`；Runtime Home 不是默认的 `~/.baocut` 时（开发、测试）是 `<runtime-home>/scratch/`，环境变量 `BAOCUT_SESSIONS_DIR` 可以覆盖。新建视频不建项目、不绑定：智能体的 `videos_create`、从链接导入与转录的 `create` 目标、流程、给了会话的 `videos.create` / `videos.importPackage` 都把视频建在会话的工作目录里，视频一直留在那里（Space 按会话列出），范围是这个会话。
+- 无项目的会话在它自己的工作目录 `<会话目录>/<会话 id>/` 里工作。会话目录（`RuntimeHome.scratchDir`）放在系统给应用的数据目录里：macOS `~/Library/Application Support/BaoCut/Sessions`，Windows `%LOCALAPPDATA%\BaoCut\Sessions`（不随漫游配置同步：里面是媒体），其余 `${XDG_DATA_HOME:-~/.local/share}/BaoCut/Sessions`；Runtime Home 不是默认的 `~/.baocut` 时（开发、测试）是 `<runtime-home>/scratch/`，环境变量 `BAOCUT_SESSIONS_DIR` 可以覆盖。新建视频默认不建项目、不绑定：智能体的 `videos_create`、从链接导入与转录的 `create` 目标、流程、给了会话的 `videos.create` / `videos.importPackage` 都把视频建在会话的工作目录里，视频一直留在那里（Space 按会话列出），范围是这个会话。智能体给了别处的 `project` 时例外（下面的第二种情况）。
 - 共用工作目录的会话：从一部不属于项目的视频新开会话时（AI 工具交给 Agent、视频旁的悬浮会话，产品设计 §5.10），新会话用视频所在那条会话的工作目录（`conversations.create { folderOf }`），记录上的 `folderOf` 是那条会话的 id；从共用的会话再开时仍共用最初那条，那条会话属于项目时新会话直接建在项目里。它的范围记那条会话：视频与文件的位置写 `{ conversationId: <那条会话> }`，Space 不为它另列来源，智能体能打开、派生那里的视频。放进项目时放进的是那条会话，共用它的一起绑定（`projectId`、`cwd` 跟着换，`folderOf` 去掉，卡片改指向项目），哪条会话的智能体开着视频都按下一条拒绝；删除共用的会话不碰工作目录；删除被共用的那条时先放进项目（与工作目录里有视频时相同），不丢目录。启动时共用的会话跟上那条会话：它已经属于项目的一起进项目；它没了（删掉之后来不及改共用它的）时，最早建的一条（同时建的按 id）接过这个目录（改名成自己的工作目录），其余改共用它。
-- 只有两种情况把无项目的会话绑定到项目：用户明确要建项目时，智能体调用 `projects_adopt_session { name? }`（只在工具桥，按 `edit` 确认）；删除工作目录里还有视频的会话之前（见最后一条）。`Harness.ensureConversationProject` 在默认项目目录下建立项目并登记，名字是给的 `name`，不给时取工作目录里最早建的视频的名字，没有视频时取会话标题，再没有用默认名；然后把会话绑定到它（`projectId` 从空变为该项目，`cwd` 换成项目目录，落盘），把工作目录里已有的东西按相对路径原样搬进项目（会话里指向旧目录的视频卡改指向项目）。项目的登记与会话绑定是 Runtime Store 的记录。幂等键是工作目录里的意图文件 `.baocut-binding.json`：选定项目目录之后、建目录之前写下它，崩溃后再试读到它就沿用同一个目录，不产生第二个项目；同一会话并发的调用合并成一趟。回合进行中绑定时，旧路径先换成指向项目目录的链接（Windows 是 junction），回合结束后删掉链接、把回合里新写的搬过去，并关掉原生会话，下一轮在项目目录里起（原生 CLI 按目录存会话，上下文会丢，与移动项目相同）。绑定之前先关掉工作目录里没人再用、只在宽限期里等着关的视频（智能体调用时，它自己开着的也先放下；这条与共用它工作目录的会话里闲着的原生会话先关掉，它们的智能体开着的视频随之放下）；仍被编辑器、任务或别的连接开着的视频不得搬（引擎按原路径读写，Windows 上改名也会失败），这时拒绝绑定（`conflict`，`VIDEO_IN_USE`，带开着的视频目录名），不建项目、不改会话、不搬任何东西：先绑定再留下它，会让它落在会话的工作目录与项目之外，Space 里找不到、编辑器打不开。检查之后、搬的过程中才打开的视频目录（竞态）先留下，每 30 秒再试一次，关掉之后搬走（回合还在用旧目录时等回合结束）。
+- 只有三种情况把无项目的会话绑定到项目：用户明确要建项目时，智能体调用 `projects_adopt_session { project?, name? }`（只在工具桥；不给 `project` 时在默认项目目录下新建，按 `edit` 确认；给了时放进那里，按 `high`）；智能体新建视频（`videos_create`、`videos_import_package`、`transcribe` 给 `file`，`download` / `transcribe` 给链接时的新视频）时给了别处的 `project`（已登记项目的 id，或任意目录，例如外置盘上用户指定的文件夹），同一张确认卡写明落点、会话从此属于它、工作目录里已有的视频与文件一起搬过去，按 `high`（越出工作目录）确认，确认之后先绑定再新建；删除工作目录里还有视频的会话之前（见最后一条）。只下载（`download` 只给 `project`）不为此绑定：给了别处的 `project` 时拒绝，`next` 指向 `outDir`。`Harness.ensureConversationProject` 在默认项目目录下建立项目并登记，名字是给的 `name`，不给时取工作目录里最早建的视频的名字，没有视频时取会话标题，再没有用默认名；然后把会话绑定到它（`projectId` 从空变为该项目，`cwd` 换成项目目录，落盘），把工作目录里已有的东西按相对路径原样搬进项目（会话里指向旧目录的视频卡改指向项目）。给了落点（`into`）时不在默认目录下新建：`{ dir }` 是任意目录，不存在时建出来，与 `projects.open` 一样登记（已经是项目的沿用它，`name` 只给新登记的起名），`{ projectId }` 是一个已登记的项目；工作目录里的东西照样搬进去，与已有条目重名的加序号，跨卷时复制再删。落点由 `AgentScope` 在确认之前检查，不合格的直接拒绝、不生成审批：已经存在但不是目录、在会话的工作目录或会话目录里面或包含它们、在视频目录里面、已登记项目的目录不在、要新建却写不了（例如外置盘没接上）。对外服务与终端不绑定。项目的登记与会话绑定是 Runtime Store 的记录。幂等键是工作目录里的意图文件 `.baocut-binding.json`：选定项目目录之后、建目录之前写下它，崩溃后再试读到它就沿用同一个目录，不产生第二个项目；给了落点时不写它，项目目录里的标记就是幂等的锚点，重试时打开同一个目录拿回同一个项目；同一会话并发的调用合并成一趟。回合进行中绑定时，旧路径先换成指向项目目录的链接（Windows 是 junction），回合结束后删掉链接、把回合里新写的搬过去，并关掉原生会话，下一轮在项目目录里起（原生 CLI 按目录存会话，上下文会丢，与移动项目相同）。绑定之前先关掉工作目录里没人再用、只在宽限期里等着关的视频（智能体调用时，它自己开着的也先放下；这条与共用它工作目录的会话里闲着的原生会话先关掉，它们的智能体开着的视频随之放下）；仍被编辑器、任务或别的连接开着的视频不得搬（引擎按原路径读写，Windows 上改名也会失败），这时拒绝绑定（`conflict`，`VIDEO_IN_USE`，带开着的视频目录名），不建项目、不改会话、不搬任何东西：先绑定再留下它，会让它落在会话的工作目录与项目之外，Space 里找不到、编辑器打不开。检查之后、搬的过程中才打开的视频目录（竞态）先留下，每 30 秒再试一次，关掉之后搬走（回合还在用旧目录时等回合结束）。
 - 启动时（客户端连上之前）收拾会话目录：旧版本放在 Runtime Home 里的 `scratch/`（与会话目录不是同一处时）先搬过来，无项目会话的整个工作目录移到会话目录、`cwd` 跟着换；已经属于项目的会话留下的链接或目录清掉、剩下的东西搬进项目；没有对应会话的目录，有视频的把不隐藏的条目搬进「恢复的视频」项目（按界面语言命名，已有同名的沿用）再删掉，没有视频的直接删掉。无项目会话自己的工作目录不动。一个目录出错不影响别的，记日志后下次再试。
 - 新会话继续旧项目时，上下文来自其中视频的当前状态与 `VideoMemory`，不来自其他会话的聊天历史。
 - 删除会话只删除 Runtime Store 中的会话记录与它在会话目录下的工作目录；工作目录里还有视频时先按上面的规则建一个以视频命名的项目搬进去再删，视频不随会话消失；其中还有视频开着时（会话的回合先停下、它的智能体开着的先放下）拒绝删除（`VIDEO_IN_USE`），会话记录与工作目录原样留着。它不删除项目、视频、Artifact 或已提交的事务；仍被任务或授权审计引用的记录按保留政策处理。
@@ -660,7 +660,7 @@ Claude 的兜底模型表只保留 `opus`、`fable`、`sonnet`、`haiku` 别名�
 
 | 工具 | 风险 |
 | --- | --- |
-| `edits_apply`、`edits_undo`、`videos_save_version`、`videos_restore_version`、`captions_create`、`videos_create`、`export` | `edit`；`export` 覆盖已有文件时 `high`。保存版本建一个检查点，回到版本是一笔可撤销的修改（§5.12） |
+| `edits_apply`、`edits_undo`、`videos_save_version`、`videos_restore_version`、`captions_create`、`videos_create`、`export` | `edit`；`export` 覆盖已有文件时 `high`；不属于项目的会话新建视频时给了别处的 `project`（会话随之放进那个项目，§3.10）时 `high`，`videos_import_package`、`transcribe` 与 `download` 的新视频同样。保存版本建一个检查点，回到版本是一笔可撤销的修改（§5.12） |
 | `artifacts_save` | 存为新文件 `edit`，覆盖已有文件 `high`。路径先检查，不合法的直接拒绝，不生成审批 |
 | `speak`、`image` | 本机模型是 `edit`（结果是候选素材或产物，不改时间线，可以删掉）；交给已配对的节点、或有 Grant 覆盖这次外发的在线与智能体 Provider 是 `command`；启用了但没有 Grant 覆盖（没有、已撤销或到期、金额上限估不出）的外发是 `high`，审批带上要授权的数据（§12.5）。覆盖它的 Grant 额度用完时在审批之前就以 `BUDGET_EXCEEDED` 拒绝，任何模式都一样。Provider 没有启用或解析不到时按 `command`，提交时以 `CAPABILITY_NOT_CONFIGURED` 拒绝，数据不外发 |
 | `grants_request` | `high`：一次申请这个任务要用的几项外发（每项是能力、Provider、视频、次数与用途），合并成一条审批（§12.5）。`surfaces` 只有 `agent`，MCP 服务与 CLI 都没有它 |
@@ -670,7 +670,7 @@ Claude 的兜底模型表只保留 `opus`、`fable`、`sonnet`、`haiku` 别名�
 | `conversations_set_title` | 不确认，`plan` 下也可用（目录里登记为 `read`）：只改这个会话在 BaoCut 里的标题，标题还是自动起的才换、只换一次（§3.10），不碰视频与文件、不外发。只给会话里的智能体，不在 MCP |
 | （`jobs.reconcile`） | 不是工具，按 `high` 只由用户决定（§7.5）：`retry` 是一次新的外发调用（新的预留，可能再次计费），`discard` 放弃一个可能已经计费的结果，`apply` 写用户的视频。智能体在 `jobs_inspect` 里看得到 `needs-reconciliation`、`applications` 与 `cancellation`，`next` 让它告诉用户 |
 | `transcribe`、`translate`、`dub`、`transcode` | `command`：启动固定流程（§7.9）；外发授权由流程检查，没有覆盖时以 `GRANT_REQUIRED` 拒绝，确认里不代发授权。`transcribe` 给 `url` 时按 `download` 确认 |
-| `download` | 用已同意的 yt-dlp 下载是 `command`（执行用户已同意的工具，不外发视频或文稿，结果是下载目录里的新文件；只给 `project` 的下载与对外服务的下载在归属项目的 `downloads/` 里）；`newVideo` 新建视频不提高风险（新建视频是 `edit`）。还没有 yt-dlp 时改为审批 `external_tools_install`（`high`：下载并执行第三方程序，审批摘要带来源、版本、大小与许可）；同意没有或撤回过时审批 `external_tools_consent`（`high`）。链接不合规、严格离线、工具不能下载时直接拒绝，不生成审批（§7.9、§12.9） |
+| `download` | 用已同意的 yt-dlp 下载是 `command`（执行用户已同意的工具，不外发视频或文稿，结果是下载目录里的新文件；只给 `project` 的下载与对外服务的下载在归属项目的 `downloads/` 里）；`newVideo` 新建视频不提高风险（新建视频是 `edit`），新视频要建在别处、会话随之放进那个项目时是 `high`（§3.10）。还没有 yt-dlp 时改为审批 `external_tools_install`（`high`：下载并执行第三方程序，审批摘要带来源、版本、大小与许可）；同意没有或撤回过时审批 `external_tools_consent`（`high`）。链接不合规、严格离线、工具不能下载时直接拒绝，不生成审批（§7.9、§12.9） |
 | 其余查询工具 | `read` |
 
 「是否已授权」由 `GrantService.plan` 得出（§12.5）：按这次调用外发的数据种类、接收方、视频与任务匹配 Grant，并检查额度，不预留；本机模型与已配对的节点不需要 Grant。启用在线 Provider 时发放一条默认的持续 Grant（§6.8 的迁移规则），所以之前「启用即可用」的调用风险不变；用户撤销它之后，这类调用回到 `high`。
@@ -683,7 +683,7 @@ Claude 的兜底模型表只保留 `opus`、`fable`、`sonnet`、`haiku` 别名�
 - **会话审批没有时限**，用户处理、停止任务、停止回复（`agents.interrupt`）或任务结束时才结束；停止与打断把待处理的一律取消，Driver 收到取消，等待中的工具调用返回 `APPROVAL_CANCELLED`。拒绝返回 `APPROVAL_DENIED`（带 `mode` 与 `risk`，说明是用户拒绝的还是模式不允许）。服务审批有时限（§4.8）。
 - **一处列出全部待处理的审批**：`tasks` 主题的快照带 `approvals`（`PendingApproval`：主体是会话或服务与客户端，动作、目标、摘要、风险、依据的模式或服务等级、到期时间），出现与结束发 `approval.upsert` 与 `approval.removed`；`approvals.list` 与 `approvals.respond { approvalId, decision: 'allow' | 'deny' }` 读取与处理。原有的入口照常可用，处理的是同一条：会话审批用 `agents.respondToApproval`，服务审批用 `services.respondToApproval` 与 `services` 主题。
 - CLI：`baocut approvals` 列出待处理的会话与服务审批，`baocut approvals allow|deny <id>` 处理一条；`baocut chat --mode ask|auto-accept-edits|auto|full-access|plan` 切换会话的模式，回合里遇到审批时在终端里问。
-- `agents.respondToApproval` 的 `accept-for-session` 对 Driver 原样转交；对 BaoCut 工具是「这个任务里同一个工具不再问」，只在内存里，任务结束即失效。
+- `agents.respondToApproval` 的 `accept-for-session` 对 Driver 原样转交；对 BaoCut 工具是「这个任务里同一个工具不再问」，只在内存里，任务结束即失效。它与「总是允许」的规则一样不放开 `high`：同名工具之后的高风险调用（覆盖、越出工作目录、把会话放进别的项目）照样询问。
 
 **Driver 的审批按同一张表**。Driver 报告的动作这样定风险：工作目录内的文件修改是 `edit`，有任何文件在工作目录之外是 `high`，命令是 `command`；Driver 说明这个请求是越出沙箱的升级时（Codex 在 `on-request` 策略下来问的都是）是 `high`。Driver 自带的权限设置按模式给出，两边不一致时取更严的一方：Driver 不来问的动作 BaoCut 无从拦截，所以 Driver 侧不能比 BaoCut 的模式更宽。Codex 的映射：
 
@@ -1272,6 +1272,8 @@ library/
 | `cache.maxSizeMiB` | 256–1048576 的整数（MiB） | `2048` | `<runtime-home>/cache/` 的总大小上限：启动后与每小时核一次，超限按修改时间删最旧的降到 90%（§5.1） |
 | `versions.keep` | 1–100 的整数 | `10` | 每部视频保留的未命名版本数，最新一版计在里面；保存的版本另算、总是保留；另有 64 MiB 的大小上限（§5.12） |
 | `versions.cadence` | `segment` `turn` | `segment` | 何时开新版本：`segment` 按安静 5 分钟与每版最长 30 分钟；`turn` 另在智能体每个回合开始时（§5.12） |
+| `versions.git.autoCommit` | 布尔 | `false` | git 桥的自动提交（§5.12）：项目在仓库里时，安静满 5 分钟、项目最后一部打开的视频关闭、退出 BaoCut 时把 BaoCut 的路径提交一次。Web 改不了（`settings.set` 不开放） |
+| `versions.git.maxFileMiB` | 1–4096 的整数（MiB） | `50` | BaoCut 代为提交时 `blobs/` 里单个文件的大小上限：超过的不提交，已用 Git LFS 跟踪的不受限（§5.12） |
 | `space.trashRetentionDays` | 1–3650 的整数（天） | `30` | Space 回收站的保留期：移入回收站超过这么多天的条目在没有引用时物理删除（§5.7） |
 | `resources.capacity` | `{ memoryMiB, gpuMemoryMiB, cpuThreads }`（每项可为 `null`）或 `null` | `null`（按本机探测） | 高级：覆盖资源调度看到的容量；某项为 `null` 时照旧自动（§7.6） |
 | `runtime.idleExitMinutes` | 1–1440 的整数（分钟） | `10` | CLI 拉起的 Runtime 空闲（没有在用的本机网关连接、没有排队或运行中的任务、没有开着的对外服务；只查状态的 CLI 连接不算在用）满这么久自己退出（§2.2）；桌面端退出时选了在后台继续的 Runtime 也按它在活做完之后退出（§2.2 退出）；其余桌面端与手动启动的不受影响 |
@@ -1312,15 +1314,16 @@ CLI 的 `baocut settings`（列出键、当前值、是否默认）、`settings 
 | 层 | 粒度 | 在哪 | 用来做什么 |
 | --- | --- | --- | --- |
 | 撤销历史 | 一笔事务 | `video.db` | 一笔一笔地撤销与重做 |
-| 版本记录 | 一段工作（安静 5 分钟、最长 30 分钟，或一次保存、回到版本、重建） | `.bcut-snapshot/` | 读最近改了什么、谁改的；回到之前的某一版；不依赖 git |
-| git | 用户的提交 | 用户的仓库 | 可选：快照是行稳定的文本，可以随项目提交。BaoCut 代为提交与初始化 git 以后再做 |
+| 版本记录 | 一段工作（安静 5 分钟、最长 30 分钟，或一次保存、回到版本、重建、导入外部改动） | `.bcut-snapshot/` | 读最近改了什么、谁改的；回到之前的某一版；不依赖 git |
+| git | 用户的提交 | 用户的仓库 | 可选：快照是行稳定的文本，可以随项目提交；也可以由 BaoCut 代为提交（下面的「git 桥」） |
 
 **分工**
 
-- **VideoEngine** 做全部的生成与判断，都在持有写锁时进行：投影与序列化、版本的边界、版本文件、保留与清理、回到版本、保存与删除版本、从快照重建。簿记记在 `video.db` 的 meta 里（视频格式规范 §9.7）。Engine Host 的内部命令（不在网关的方法表里）：
-  - `videos.writeSnapshot { videoId, boundary?, conversations?, keep? }`：写快照，按边界并入或开新版本，开新版本后清理；
+- **VideoEngine** 做全部的生成与判断，都在持有写锁时进行：投影与序列化、版本的边界、版本文件、保留与清理、回到版本、保存与删除版本、从快照重建、导入外部改动与冲突的判断。簿记记在 `video.db` 的 meta 里（视频格式规范 §9.7）。Engine Host 的内部命令（不在网关的方法表里）：
+  - `videos.writeSnapshot { videoId, boundary?, conversations?, keep?, overwrite? }`：写快照，按边界并入或开新版本，开新版本后清理；快照被外部改过时以 `SNAPSHOT_CONFLICT` 拒绝，`overwrite` 时照样覆盖（用户选了保留视频里的）；
   - `videos.listVersions { videoId }`、`videos.readVersion { videoId, version }`：只读；
-  - `videos.snapshotStatus { path }`：按目录查，不要求打开、不取锁，所以答得出「待重建」；
+  - `videos.snapshotStatus { path }`：按目录查，不要求打开、不取锁，所以答得出「待重建」；快照被外部改过时分出 `external`（可以导入）与 `conflict`（两边都改了，或快照读不出）；
+  - `videos.applySnapshot { videoId, commandId, actor, force?, keep? }`：把被外部改过的快照导入为一笔「外部变更」与一个 `external` 版本，返回 `{ receipt, replayed, version }`；库里也有还没写进快照的改动时以 `SNAPSHOT_CONFLICT` 拒绝，`force` 时先把它们封存成一版再导入（视频格式规范 §9.8）；
   - `videos.restoreVersion`、`videos.saveVersion`、`videos.deleteVersion`：带 `commandId` 与操作者，与 `edits.apply` 一样有回执与事件；回到版本另带智能体任务的保护范围；
   - `videos.rebuildFromSnapshot { path, keep? }`：就地建库，建好就放下锁，随后照常打开或认领。
 - **Runtime** 决定何时写，并把引擎不知道的上下文交给它：
@@ -1328,14 +1331,27 @@ CLI 的 `baocut settings`（列出键、当前值、是否默认）、`settings 
   - 修改来自某个会话的任务时，把会话的 ID 与标题记下，下一次写时交给引擎，写进版本头部。
   - `versions.cadence` 是 `turn` 时，Harness 的任务主题里出现新的运行中任务就是新回合：先把各视频还没写的改动写掉，之后每部视频下一次有改动的写带 `boundary: 'turn'`。
   - 只给项目里的视频写；不属于项目的视频（会话文件夹里的）不写，保存、回到与删除版本以 `invalid-request`（`VERSIONS_NEED_PROJECT`）拒绝，列表为空。
-  - 写失败只记日志、不影响编辑：快照是派生物，下一笔修改或关闭时再写。快照被外部改过（`SNAPSHOT_CONFLICT`）时引擎不覆盖，Runtime 只记一次日志。
+  - 写失败只记日志、不影响编辑：快照是派生物，下一笔修改或关闭时再写。
+  - 外部改动（视频格式规范 §9.8）在两处发现：写快照报 `SNAPSHOT_CONFLICT` 时（打开视频时立即的那次写会发现关着时的 `git pull`），与每部打开的视频单独监视自己的 `.bcut-snapshot/`（不含 `history/` 与临时文件，Space 的监视跳过点目录看不到它；有变化后去抖 300 毫秒）。发现后调 `videos.applySnapshot`，操作者是 `system:history`：只有快照被改就导入；两边都改了或快照读不出时引擎拒绝，Runtime 只记一次日志，不导入也不覆盖，编辑照常，等用户经 `videos.versions.resolve` 选。选完清掉这条记录，之后照常去抖写快照。引擎自己写快照也触发监视，它认得出自己写的，什么也不做。
 - **Space** 把只有快照、没有 `video.db` 的目录列为视频（§5.7）；打开项目的预处理（§5.1）与打开视频时先重建、再认领或打开。
 
-**对外的方法**（命令与协议规范 §4.1）：`videos.versions.list`、`get`、`status` 只读，Web 也能用；`save`、`restore`、`delete` 是写入，视频要已经打开。智能体工具是 `videos_versions`、`videos_version_diff`、`videos_save_version`、`videos_restore_version`（§3.5），后两个与 `edits_undo` 同级（`edit`，§3.12）。
+**对外的方法**（命令与协议规范 §4.1）：`videos.versions.list`、`get`、`status` 只读，Web 也能用；`save`、`restore`、`delete`、`resolve` 是写入，视频要已经打开。智能体工具是 `videos_versions`、`videos_version_diff`、`videos_save_version`、`videos_restore_version`（§3.5），后两个与 `edits_undo` 同级（`edit`，§3.12）。没有选外部改动去留的工具：两边都改了时选哪边都会丢掉一边的工作，由用户决定；`videos_versions` 报告冲突，智能体转告用户。
 
 **偏好设置**（§5.10）：`versions.keep`（保留的未命名版本数，默认 10）与 `versions.cadence`（`segment` 或 `turn`，默认 `segment`），写快照时读当时的取值。另有每部视频 64 MiB 的大小上限，不是设置。
 
-**以后再做**：快照被外部改了时导入为一笔「外部变更」与一个 `external` 版本，两边都改了时让用户选保留哪边；版本记录的界面（先做原型）；视频主题推送版本的变化；git 桥（查找 git、写忽略规则、「提交到 git」、初始化与自动提交）。见版本记录设计的分期。
+**git 桥**（版本记录设计 §5、§6）：Runtime 的 `ProjectGitService` 替用户把项目里 BaoCut 的路径提交到用户自己的仓库。只运行这台电脑上的 git 命令行，不内嵌 git 库，不碰网络：不 push、fetch、pull、merge、rebase、reset、checkout，也不改写已有的提交。
+
+- **找 git**：受管外部工具登记表里的 `git`（§12.9），只检测、不下载，最低 2.30。顺序照登记表：`BAOCUT_GIT`、用户指定的路径、Runtime 工具环境的 PATH（macOS 上是登录 shell 的 PATH）。macOS 的 `/usr/bin/git` 只在 `xcode-select -p` 成功时算数，否则它是弹出安装窗口的占位程序，跳过、接着往后找；Windows 按 `PATHEXT` 找 `git.exe`，`.cmd`、`.bat` 不收。
+- **怎么运行**：参数是数组、不经 shell，自成进程组（Windows 上用 `taskkill /T /F` 结束进程树），超时 60 秒；项目目录是 Windows 的 `\\?\` 扩展路径时先换成普通的盘符或 UNC 路径。每次都带 `--no-pager` 与固定的 `-c`：`core.hooksPath` 指向 Runtime Home 里的空目录 `git/hooks`（仓库的钩子不运行），`core.fsmonitor=false`、`commit.gpgSign=false`、`tag.gpgSign=false`、`maintenance.auto=false`、`gc.auto=0`、`submodule.recurse=false`、`core.editor=:`、`core.pager=cat`，`core.askPass` 与 `credential.helper` 置空，`protocol.allow=never`；提交另带 `--no-verify`。环境去掉会把命令指到别处的 `GIT_*`（`GIT_DIR`、`GIT_WORK_TREE`、`GIT_INDEX_FILE`、`GIT_CONFIG_COUNT` 等，保留 `GIT_CONFIG_GLOBAL`、`GIT_CONFIG_SYSTEM`、`GIT_CONFIG_NOSYSTEM`）与 `EMAIL`，设 `GIT_TERMINAL_PROMPT=0`、`GCM_INTERACTIVE=never` 与 `LC_ALL=C`；只读的查询另设 `GIT_OPTIONAL_LOCKS=0`。提交说明经 `-F` 的文件（Runtime Home 的 `git/messages/`），路径经 `--pathspec-from-file` 的 NUL 列表并带 `--literal-pathspecs`。
+- **忽略与属性的块**：项目在仓库里时，打开项目、这次运行里项目第一次有改动与每次提交之前，把 `# >>> BaoCut` 与 `# <<< BaoCut` 之间的规则写进 `info/exclude` 与 `info/attributes`（版本记录设计 §5.2：不提交 `video.db`、锁、`history/` 与临时文件，快照 `eol=lf`），块外一字不动，没变时不重写。位置按 `git rev-parse --git-path`（worktree 与子模块的 `.git` 是文件）；找不到 git 时只认 `.git` 目录，遇到 `.git` 文件跳过。
+- **本地过滤器的闸门**（版本记录设计 §5.4）：仓库本地与 worktree 的配置（含被包含的文件，按 `config --list --show-scope --show-origin` 看）里有 `filter.<名字>.clean|smudge|process`、`include.path` 或 `includeIf.<条件>.path` 时暂停代为提交（`git lfs install --local` 写下的逐字标准值不算）。暂停时只运行不读工作区文件内容的 `rev-parse`、`config` 与 `symbolic-ref`，状态与提交都不会触发过滤器。用户看过条目之后允许：记在 Runtime Home 的 `store/git-local-config.json`（按仓库公共 git 目录的真实路径），内容是那组条目与被包含文件内容的摘要；摘要变了（改了过滤器的命令、被包含的文件）重新暂停，`user.name` 之类的无关配置变了不影响。只能在桌面界面与 CLI 允许。
+- **暂停的其他原因**：`index.lock` 在（每 2 秒重试，最多 5 次，之后推迟；锁文件从不删），合并、变基、拣选、还原、二分中，HEAD 分离。
+- **提交**（「提交到 git」与自动提交同一条路）：先把项目里打开着的视频的快照写掉（`VideoService.flushProjectSnapshots`），再只提交 BaoCut 的路径：项目里每部视频（按 `git ls-files` 找 `.bcut-snapshot/video.json`，用户忽略的不算）的 `video.json`、`documents/` 与 `blobs/` 里有改动的文件；`blobs/` 里超过 `versions.git.maxFileMiB` 的不提交，已用 Git LFS 跟踪的（`check-attr filter` 为 `lfs`）不受限；`history/`、`blobs/.staging/` 与被忽略的不提交。`git add` 之后 `git commit --only`，只带这些路径，用户已经暂存的其他改动原样留在暂存区。没配齐作者（`user.name` 与 `user.email`）时用 `BaoCut <baocut@localhost>`。提交说明：标题是这段时间里各版本的名字或摘要（至多 72 个字），没有时是「BaoCut：更新 <视频名>」（按 Runtime 的语言）；正文按视频列出版本；尾注 `BaoCut-Video: <videoId> v<起>..v<止>` 固定英文，下一次从这里接着算版本范围。
+- **自动提交**：`versions.git.autoCommit` 打开时，项目在仓库里且有改动，安静满 5 分钟（每次改动重新计时）、项目最后一部打开的视频关闭时、Runtime 退出时（停止顺序在视频之前，至多 30 秒）各提交一次；暂停或仓库被占用时推迟到下一次。失败只记日志与状态的 `lastError`，从不让编辑失败。
+- **初始化 git**：只在用户要求时，在项目目录运行 `git init`，再写块。用户主目录、系统的标准用户文件夹（桌面、文稿、下载、影片或视频、音乐、图片）、卷或盘符的根与已经在仓库里时拒绝（`GIT_INIT_REFUSED`）。
+- **对外的方法**（命令与协议规范 §4.1）：`projects.git.status`、`commit`、`init`、`allowLocalConfig`。Web 能看状态（不给仓库路径与配置条目）、触发提交；初始化与允许过滤器只给桌面界面与 CLI（Web 白名单里没有，处理函数对浏览器、对外服务与智能体再拒绝一次），自动提交的开关是设置，Web 写不了。CLI：派生命令 `baocut projects git-commit`，管理桶 `baocut projects git-status|git-init|git-allow`。智能体工具 `projects_git_commit`（工具桥与 CLI，MCP 上没有；`edit` 级确认）只在用户要求时用；暂停或没有仓库时不报错，交回原因与下一步，不能替用户允许过滤器或初始化。
+
+**以后再做**：版本记录的界面与冲突提示（先做原型）；视频主题推送版本的变化；git 桥的界面（项目设置里的 git 一节、「提交到 git」按钮，先做原型）与项目级的设置。见版本记录设计的分期。
 
 ---
 
@@ -2227,7 +2243,7 @@ Runtime 启动时把上次没有结算的预留按 `conservative` 结算（上�
 
 **从链接导入**（`link-import`）的下载由受管外部工具 yt-dlp 执行（§12.9），在视频事务之外完成（§5.2）：
 
-- **参数**。`url`；下载目标是项目、会话或视频之一（`projectId`、`conversationId`、`videoId` 或 `target`，都可以不给；`target.create` 在它的项目或会话的来源目录里新建可编辑视频，下载仍使用指定目录；同时给的顶层 `projectId`、`conversationId` 要与它一致）；可选的 `audioOnly`、`subtitleLanguages`、`transcribe`（无视频目标时生成独立文稿与字幕）；转写的 `language`、`provider`、`model`、`hint` 只与 `transcribe` 一起给，`diarize` 与 `captions`（默认 false，转写之后建字幕层）还要有视频目标，含义与 `transcribe` 流程的同名参数相同：Provider 与模型在提交时选定并冻结，转进视频时套用视频里启用的转写术语表（对外服务启动的不套）。下载目录在提交时确定并冻结：设置 `downloads.directory` 给了时一律用它；否则是运行主机的下载文件夹：桌面应用启动的 Runtime 用系统给出的下载文件夹（认得 Windows 移动过的已知文件夹与 Linux 的 XDG 目录），别的方式启动的 Runtime 用主目录下的 `~/Downloads`。项目默认只决定归属，不影响保存目录；`saveTo: 'project'`（默认 `downloads`）时保存到归属项目（`projectId`、`videoId` 所在的或 `target.create` 的项目）里的 `downloads/`，归属是不属于项目的会话时仍是下载目录。界面与 CLI 不给 `saveTo`；智能体的 `download` 只在只给 `project`（只下载到项目）时给它，对外服务的 `download` 有落点就给（对外服务只能写进项目，§12.8）。`outDir`（本机绝对路径）把文件放进这个目录，代替上面定出的保存目录，与 `saveTo` 只能给一个；提交时建好目录、确认能写（不能写时以 `conflict`、`OUTPUT_DESTINATION_UNAVAILABLE` 拒绝，不建任务），冻结在任务里。界面不给它；智能体与 CLI 的 `download` 在用户要放到别处（例如外置盘）时给，相对路径按会话的工作目录或 CLI 的当前目录解析，对外服务不收。不存在的项目或会话以 `not-found` 拒绝。
+- **参数**。`url`；下载目标是项目、会话或视频之一（`projectId`、`conversationId`、`videoId` 或 `target`，都可以不给；`target.create` 在它的项目或会话的来源目录里新建可编辑视频，下载仍使用指定目录；同时给的顶层 `projectId`、`conversationId` 要与它一致）；可选的 `audioOnly`、`subtitleLanguages`、`transcribe`（无视频目标时生成独立文稿与字幕）；转写的 `language`、`provider`、`model`、`hint` 只与 `transcribe` 一起给，`diarize` 与 `captions`（默认 false，转写之后建字幕层）还要有视频目标，含义与 `transcribe` 流程的同名参数相同：Provider 与模型在提交时选定并冻结，转进视频时套用视频里启用的转写术语表（对外服务启动的不套）。下载目录在提交时确定并冻结：设置 `downloads.directory` 给了时一律用它；否则是运行主机的下载文件夹：桌面应用启动的 Runtime 用系统给出的下载文件夹（认得 Windows 移动过的已知文件夹与 Linux 的 XDG 目录），别的方式启动的 Runtime 用主目录下的 `~/Downloads`。项目默认只决定归属，不影响保存目录；`saveTo: 'project'`（默认 `downloads`）时保存到归属项目（`projectId`、`videoId` 所在的或 `target.create` 的项目）里的 `downloads/`，归属是不属于项目的会话时仍是下载目录。界面与 CLI 不给 `saveTo`；智能体的 `download` 只在只给 `project`（只下载到项目）时给它，对外服务的 `download` 有落点就给（对外服务只能写进项目，§12.8）。`outDir`（本机绝对路径）把文件放进这个目录，代替上面定出的保存目录，与 `saveTo` 只能给一个；提交时建好目录、确认能写（不能写时以 `conflict`、`OUTPUT_DESTINATION_UNAVAILABLE` 拒绝，不建任务），冻结在任务里。界面不给它；智能体与 CLI 的 `download` 在用户要放到别处（例如外置盘）时给，相对路径按会话的工作目录或 CLI 的当前目录解析，对外服务不收。不属于项目的会话要把新视频也放在那里时，智能体同时给 `newVideo` 与 `project`（那个目录或已登记项目）：确认之后会话先放进那个项目（§3.10），`target.create` 建在项目里；这时 `outDir` 按绑定之后的位置解析（工作目录里的路径换成项目里的），回合结束后下载照常写得进去。不存在的项目或会话以 `not-found` 拒绝。
 - **前提**。启动时与每一步之前都确认 yt-dlp 已安装、版本够新、用户的同意有效，撤回之后重试也被拒绝（`TOOL_*`）；严格离线时拒绝（`OFFLINE_STRICT`）；`transcribe` 而转写没有配置时拒绝（`CAPABILITY_NOT_CONFIGURED`）。提交时的拒绝不创建任务。
 - **链接检查**。只接受 `http(s)://`；以 `-` 开头、带用户名或密码、没有主机名的以 `LINK_UNSUPPORTED` 拒绝。主机是本机、链路本地或内网地址的以 `LINK_PRIVATE_ADDRESS` 拒绝：字面的 IPv4 与 IPv6（含 IPv4 映射与 NAT64 的写法、整数写法）、`localhost`、`.local` 等本地后缀、没有点的单段主机名。提交时再把主机名解析一遍，任何一个地址落在这些范围里同样拒绝，解析不了是 `LINK_NETWORK_ERROR`。**这些检查管不到的**：提交时的解析与 yt-dlp 自己的解析之间的 DNS 变化；yt-dlp 跟随的重定向；提取器另外请求的接口与 CDN 地址。这些请求由 yt-dlp 直接发出，Runtime 不经手，所以链接检查防的是输错与明显的滥用，不是网络隔离（§14）。
 - **脱敏**。存储、日志、任务记录、事件、错误详情与 Provenance 里只出现规范化之后的链接：主机名小写，去掉用户信息与片段，查询参数只留下标识内容的 `v`、`list`、`index`、`t`、`start`、`p`、`page`、`id`、`bvid`、`aid`（按名字排序），其余（跟踪参数、签名、令牌）一律去掉，路径原样保留；yt-dlp 报告的页面地址与错误输出里的链接同样处理。规范化改变了链接时，原始链接只存在 Runtime Home 的 `store/link-sources.json`（0600），冻结的参数按 `sha256:<摘要>` 引用它，交给 yt-dlp 的是原始链接。流程完成时删掉这一条；Runtime 启动时清掉不再被未完成、还能重试的流程引用的条目，之后重试以 `LINK_SOURCE_EXPIRED` 失败。
@@ -3004,7 +3020,7 @@ BaoCut 依赖一些不随应用发布的外部程序，也会替用户在系统�
 **受管外部工具**（例如 ffmpeg、视频下载工具）：
 
 - 不随应用分发的工具，BaoCut 不在后台自行下载。首次需要时显示工具的名字、用途、来源（下载地址）、版本、大小与许可，用户同意后才下载；同意只对这个工具有效。
-- **登记表**。能下载的只有 yt-dlp（从链接导入，§7.9）；本地合成与音乐生成共用的 audio.cpp 引擎随应用分发（§6.3），不在登记表里，不是受管外部工具，由 `runtime --self-check` 报告；ffmpeg 不由 BaoCut 下载，仍按 `BAOCUT_FFMPEG` 与 PATH 解析，只在状态里列出。每个工具有清单：用途、探测命令、最低版本、是否要用户同意；能下载的还有发布：版本、各平台的文件名、大小与 sha256、官方地址、许可与主页。
+- **登记表**。能下载的只有 yt-dlp（从链接导入，§7.9）；git 只检测、不下载（git 桥，§5.12；环境变量 `BAOCUT_GIT`，macOS 上不用没装开发者工具时的 `/usr/bin/git` 占位程序）；本地合成与音乐生成共用的 audio.cpp 引擎随应用分发（§6.3），不在登记表里，不是受管外部工具，由 `runtime --self-check` 报告；ffmpeg 不由 BaoCut 下载，仍按 `BAOCUT_FFMPEG` 与 PATH 解析，只在状态里列出。每个工具有清单：用途、探测命令、最低版本、是否要用户同意；能下载的还有发布：版本、各平台的文件名、大小与 sha256、官方地址、许可与主页。
 - **状态**。`externalTools.list` 报告每个工具的状态：`installed`（路径、版本与来源：`env` 环境变量、`bundled` 随应用分发的那一份（保留的取值，目前没有工具用它）、`user` 用户指定、`managed` BaoCut 下载的副本、`system` PATH）、`missing`、`outdated`（低于最低版本）、`unavailable`（不能运行），以及原因、补救、同意与下载说明（`offer`）。`externalTools.detect` 重新探测。探测只在本机执行 `--version`，不联网。解析顺序：环境变量（ffmpeg 的 `BAOCUT_FFMPEG`）→ 用户指定的路径（`externalTools.setPath`）→ 受管副本 → Runtime 工具环境的 PATH（Windows 上和命令行一样按 `PATHEXT` 补扩展名；找到的是 `.cmd`、`.bat` 之类的脚本时报告为不可用，指定路径也不收——BaoCut 不经命令行解释器执行工具）；用户指定的路径不能运行时报告为不可用，不悄悄换成别的。指定路径不代表同意。
 - **同意**。要同意的工具（下载工具）记下同意的时间与途径（`app`、`cli`、`agent-approval`），可以撤回（`externalTools.consent`）；撤回之后用它的流程在提交、每一步之前与重试时都拒绝（`TOOL_CONSENT_REQUIRED`）。同意、用户指定的路径与受管副本的登记在 Runtime Home 的 `store/external-tools.json`。
 - **下载**（`externalTools.install`）。没有显式的 `consent: true` 时以 `TOOL_CONSENT_REQUIRED` 拒绝并给出 `offer`，不下载；给了就记下同意，提交 `kind: 'toolInstall'` 的任务。清单里 sha256 未知时以 `TOOL_MANIFEST_INCOMPLETE` 拒绝：摘要不编造，宁可不能下载（§14）。任务把文件下载到 `tools/.staging/`，按真实的字节报告进度，核对大小与 sha256（不符时删掉坏文件，`TOOL_DOWNLOAD_INTEGRITY`），设可执行位（0755），原子地改名到 `tools/<工具>/<版本>/`，再执行一次 `--version` 确认能运行。取消时下了一半的文件保留，下次续传。严格离线时拒绝（`OFFLINE_STRICT`）。首版不校验上游的签名（§14）。
@@ -3021,6 +3037,7 @@ BaoCut 依赖一些不随应用发布的外部程序，也会替用户在系统�
 
 - 都由用户逐次确认后执行。确认时显示将要执行的完整命令或将要写入的路径；执行过程的输出原样显示并记入日志。
 - 需要管理员权限的动作不在 BaoCut 里提权：交给系统终端由用户自己执行，BaoCut 只在之后重新探测。
+- 允许仓库本地配置里的 git 过滤器与包含（`projects.git.allowLocalConfig`，§5.12，版本记录设计 §5.4）同属这一类：它让 BaoCut 运行仓库指定的程序，只在桌面界面与 CLI（`baocut projects git-allow`）由用户看过条目与命令后允许，Web 与智能体都不能。
 - **Skill 的安装**把随应用发布的 Skill 以链接或副本的方式放进其他智能体的 Skills 目录（全局或某个项目）。Skill 带版本，并声明它需要的 CLI 与协议版本；副本落后于应用时报告为过期。安装只写 Skill 自己的那个目录，目标位置已有别的内容时拒绝覆盖。应用内的会话不依赖安装：Harness 在每次会话开始时直接提供同一份指导（§3.8）。
 - 这些动作由持有用户目录写权限的进程执行，经 Runtime 的命令发起并留下记录；Renderer 不直接写用户目录（§12.1）。
 

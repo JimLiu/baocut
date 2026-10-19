@@ -224,6 +224,28 @@ describe('审批、附件与模型校验（假 Agent）', () => {
     expect((await card(third.conversationId, removed)).status).toBe('pending');
   });
 
+  it('BaoCut 工具：「这个任务里不再问」只放开同名工具的同级调用，高风险的（例如把会话放进别的项目）照样问', async () => {
+    await start();
+    const { conversationId, session } = await begin('ask');
+    const harness = runtime!.harness;
+    const call = (risk: 'command' | 'high') =>
+      harness.approveToolCall(conversationId, { tool: 'download', targets: [], summary: risk, risk, rule: risk === 'high' ? null : 'download' });
+    const pending = (summary: string) =>
+      until(async () => (await approvals(conversationId)).find((a) => a.status === 'pending' && JSON.stringify(a.request).includes(summary)));
+
+    const first = call('command');
+    await respond(conversationId, (await pending('command')).approvalId, 'accept-for-session');
+    expect(await first).toMatchObject({ status: 'allowed', decidedBy: 'user' });
+    expect(await call('command')).toMatchObject({ status: 'allowed', decidedBy: 'user' });
+
+    const high = call('high');
+    const asked = await pending('high');
+    expect(asked.risk).toBe('high');
+    await respond(conversationId, asked.approvalId, 'decline');
+    expect(await high).toMatchObject({ status: 'denied', decidedBy: 'user' });
+    await finish(conversationId, session);
+  });
+
   // ---- 附件 ----
 
   async function upload(bytes: Buffer = PNG, fileName = 'shot.png') {

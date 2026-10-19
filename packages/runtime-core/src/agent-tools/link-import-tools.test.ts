@@ -1,9 +1,12 @@
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Id, JobRecord } from '@baocut/protocol';
 import { FlowTools, type FlowToolsDeps } from './flow-tools.ts';
 import { LinkImportTools, startLinkImport, type LinkImportToolsDeps } from './link-import-tools.ts';
 import { ToolError } from './tool-catalog.ts';
-import { toolRisk, type ToolConfirmation, type ToolPrincipal } from './tool-scope.ts';
+import { bindingConfirmation, toolRisk, type ToolConfirmation, type ToolPrincipal } from './tool-scope.ts';
 
 /**
  * 从链接下载的落点检查与参数（`download`、`transcribe` 给 `url`）：对外服务的 `newVideo` 要给 `project`，流程新建的视频
@@ -182,6 +185,79 @@ describe('download：文件存到哪里', () => {
     expect((await refused(tools.dispatch('download', { url: LINK, video: 'vid_1', outDir: '/tmp/x' }, service))).code).toBe('INVALID_ARGUMENTS');
     expect(started).toEqual([]);
     expect(confirmed).toEqual([]);
+  });
+});
+
+describe('download：不属于项目的会话把新视频建到别处', () => {
+  /**
+   * 假的无项目会话：`project` 是目录时 `locate` 只带上落点（来源仍是会话）；确认之后的调用把会话放进项目，工作目录随之换成项目目录。
+   */
+  function bindable(projectDir: string) {
+    const h = harness();
+    const calls: { project: string | undefined; locate: boolean }[] = [];
+    let cwd = '/work/conv_1';
+    Object.assign(h.deps.scope, {
+      createRoot: async (_access: unknown, project: string | undefined, options: { locate?: boolean } = {}) => {
+        calls.push({ project, locate: options.locate === true });
+        if (project === undefined) return { root: cwd, scope: { conversationId: 'conv_1' } };
+        if (options.locate) {
+          return { root: cwd, scope: { conversationId: 'conv_1' }, binding: { path: projectDir, project: null } };
+        }
+        cwd = projectDir;
+        return { root: projectDir, scope: { projectId: 'prj_bound' } };
+      },
+      fileBase: () => cwd,
+    });
+    return { ...h, calls };
+  }
+
+  it('newVideo 带文件夹：同一张卡写明落点、按 high；确认之后放进项目，新视频建在那里，工作目录里的 outDir 换成项目里的', async () => {
+    const dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-bind-')));
+    try {
+      const { deps, started, confirmed, calls } = bindable(dir);
+      const result = (await new LinkImportTools(deps).dispatch(
+        'download',
+        { url: LINK, newVideo: true, project: dir, outDir: 'downloads' },
+        agent,
+      )) as { next: string };
+      expect(calls).toEqual([
+        { project: dir, locate: true },
+        { project: dir, locate: false },
+      ]);
+      expect(confirmed).toHaveLength(1);
+      expect(confirmed[0]).toMatchObject({ tool: 'download', risk: 'high', targets: [dir] });
+      expect(confirmed[0]!.summary).toContain(dir);
+      expect(confirmed[0]!.summary).toContain(path.join(dir, 'downloads'));
+      expect(confirmed[0]!.summary).not.toContain('/work/conv_1');
+      expect(confirmed[0]!.summaryRef?.key).toMatch(/bindSessionSummary$/);
+      // 下载在回合之后还在写：不留旧工作目录里的路径。
+      expect(started[0]).toMatchObject({ target: { create: { projectId: 'prj_bound' } }, outDir: path.join(dir, 'downloads') });
+      expect(started[0]!.saveTo).toBeUndefined();
+      expect(result.next).toContain(`会话已经放进项目（${dir}）`);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('只下载给别处的 project：拒绝，next 指向 outDir 与 newVideo；不确认、不绑定、不启动流程', async () => {
+    const { deps, started, confirmed, calls } = bindable('/Volumes/T7/访谈');
+    const error = await refused(new LinkImportTools(deps).dispatch('download', { url: LINK, project: '/Volumes/T7/访谈' }, agent));
+    expect(error.code).toBe('PROJECT_NOT_FOUND');
+    expect(String(error.extra.next)).toContain('outDir');
+    expect(String(error.extra.next)).toContain('newVideo');
+    expect(calls.every((c) => c.locate)).toBe(true);
+    expect(confirmed).toEqual([]);
+    expect(started).toEqual([]);
+  });
+
+  it('没有落点时确认原样不变；有落点时摘要嵌着原来的那句、目标加上目录、风险升为 high', () => {
+    const request: ToolConfirmation = { tool: 'videos_create', summary: '新建视频', risk: 'edit' };
+    expect(bindingConfirmation(request, {})).toBe(request);
+    const bound = bindingConfirmation({ ...request, targets: ['a'] }, { binding: { path: '/Volumes/T7/访谈', project: { projectId: 'prj_1', name: '访谈' } } });
+    expect(bound).toMatchObject({ tool: 'videos_create', risk: 'high', targets: ['a', '/Volumes/T7/访谈'] });
+    expect(bound.summary).toContain('新建视频');
+    expect(bound.summary).toContain('访谈');
+    expect(bound.summaryRef?.params).toMatchObject({ action: '新建视频', path: '/Volumes/T7/访谈', project: '访谈' });
   });
 });
 

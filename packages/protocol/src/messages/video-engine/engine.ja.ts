@@ -457,6 +457,7 @@ export const ja: EngineMessages = {
   labelRestoreVersion: (p) => `バージョン ${p.version} に戻す`,
   labelRestoreBeforeVersion: (p) => `バージョン ${p.version} より前に戻す`,
   labelDeleteSavedVersion: '保存したバージョンを削除',
+  labelExternalChange: '外部の変更',
   versionSummaryRepeated: (p) => `${p.label}（${p.count} 件の変更）`,
   versionSummaryRebuild: 'スナップショットから再構築',
   versionNotFound: (p) => `バージョン ${p.version} は存在しません`,

@@ -182,6 +182,10 @@ export const it: RcAgentToolsMessages = {
   createProjectSummary: (p: { path: string; name: string | null }) => `Crea la cartella del progetto ${p.path}${p.name ? ` (${p.name})` : ''}`,
   adoptSessionSummary: (p: { name: string | null }) =>
     `Crea un progetto ${p.name ? `«${p.name}»` : 'con il nome del primo video'} e spostaci i video e i file di questa sessione`,
+  bindSessionSummary: (p: { action: string; path: string; project: string | null }) =>
+    `${p.action}, ${p.project ? `nel progetto «${p.project}» (${p.path})` : `in ${p.path} (registrata come nuovo progetto)`}; questa sessione passa a quel progetto e i video e i file della sua cartella di lavoro vengono spostati con essa`,
+  adoptSessionIntoSummary: (p: { path: string; project: string | null }) =>
+    `Sposta questa sessione ${p.project ? `nel progetto «${p.project}» (${p.path})` : `in ${p.path} (registrata come nuovo progetto)`}, insieme ai video e ai file della sua cartella di lavoro`,
   deriveVideoSummary: (p) => `Crea il video derivato «${p.name}» da ${p.from}–${p.to} di questo video`,
   deriveVideoLabel: (p) => `Derivato da «${p.name}»`,
   derivationDocumentName: 'Origine della derivazione',

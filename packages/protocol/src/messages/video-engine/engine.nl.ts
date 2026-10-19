@@ -442,6 +442,7 @@ export const nl: EngineMessages = {
   labelRestoreVersion: (p: P<'version'>) => `Terug naar versie ${p.version}`,
   labelRestoreBeforeVersion: (p: P<'version'>) => `Terug naar vóór versie ${p.version}`,
   labelDeleteSavedVersion: "Opgeslagen versie verwijderen",
+  labelExternalChange: "Externe wijziging",
   versionSummaryRepeated: (p: P<'label' | 'count'>) => `${p.label} (${p.count} wijzigingen)`,
   versionSummaryRebuild: "Opnieuw opgebouwd uit de momentopname",
   versionNotFound: (p: P<'version'>) => `Versie ${p.version} bestaat niet`,

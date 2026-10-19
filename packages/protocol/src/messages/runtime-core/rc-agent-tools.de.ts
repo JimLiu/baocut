@@ -160,6 +160,10 @@ export const de: RcAgentToolsMessages = {
   createProjectSummary: (p: { path: string; name: string | null }) => `Projektordner erstellen: ${p.path}${p.name ? ` (${p.name})` : ""}`,
   adoptSessionSummary: (p: { name: string | null }) =>
     `Projekt ${p.name ? `„${p.name}“` : 'mit dem Namen des ersten Videos'} erstellen und die Videos und Dateien dieser Sitzung dorthin verschieben`,
+  bindSessionSummary: (p: { action: string; path: string; project: string | null }) =>
+    `${p.action}, in ${p.project ? `Projekt „${p.project}“ (${p.path})` : `${p.path} (wird als neues Projekt registriert)`}; diese Sitzung gehört danach zu diesem Projekt, und die Videos und Dateien aus ihrem Arbeitsordner werden mit verschoben`,
+  adoptSessionIntoSummary: (p: { path: string; project: string | null }) =>
+    `Diese Sitzung in ${p.project ? `Projekt „${p.project}“ (${p.path})` : `${p.path} (wird als neues Projekt registriert)`} verschieben, zusammen mit den Videos und Dateien aus ihrem Arbeitsordner`,
   deriveVideoSummary: (p) => `Abgeleitetes Video „${p.name}“ aus ${p.from}–${p.to} dieses Videos erstellen`,
   deriveVideoLabel: (p) => `Abgeleitet von „${p.name}“`,
   derivationDocumentName: 'Ableitungsquelle',

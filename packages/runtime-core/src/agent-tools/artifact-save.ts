@@ -152,6 +152,17 @@ export function inside(candidate: string, root: string): boolean {
   return candidate === root || candidate.startsWith(root.endsWith(path.sep) ? root : root + path.sep);
 }
 
+/** 还不存在的路径：向上找到第一个存在的祖先，取它的真实路径再接上剩下的部分（判断在不在某个目录里用）。 */
+export async function nearestReal(target: string): Promise<string> {
+  const rest: string[] = [];
+  for (let dir = target; ; dir = path.dirname(dir)) {
+    const real = await fs.realpath(dir).catch(() => null);
+    if (real) return path.join(real, ...rest.reverse());
+    if (path.dirname(dir) === dir) return target;
+    rest.push(path.basename(dir));
+  }
+}
+
 export function outside(): ToolError {
   return new ToolError('PATH_OUTSIDE_WORKSPACE', '只能写到这个会话的工作目录里（相对路径，不含 ..，不经过指向别处的符号链接）');
 }

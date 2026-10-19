@@ -457,6 +457,7 @@ export const ru: EngineMessages = {
   labelRestoreVersion: (p) => `Вернуться к версии ${p.version}`,
   labelRestoreBeforeVersion: (p) => `Вернуться к состоянию до версии ${p.version}`,
   labelDeleteSavedVersion: "Удалить сохранённую версию",
+  labelExternalChange: "Внешнее изменение",
   versionSummaryRepeated: (p) => `${p.label} (изменений: ${p.count})`,
   versionSummaryRebuild: "Восстановлено из снимка",
   versionNotFound: (p) => `Версии ${p.version} не существует`,

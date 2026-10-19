@@ -136,6 +136,10 @@ export const ja: RcAgentToolsMessages = {
   registerProjectSummary: (p) => `既存のフォルダ ${p.path} をプロジェクトとして登録${p.name ? `（${p.name}）` : ''}`,
   createProjectSummary: (p) => `プロジェクトフォルダ ${p.path} を作成${p.name ? `（${p.name}）` : ''}`,
   adoptSessionSummary: (p) => `プロジェクト${p.name ? `「${p.name}」` : '（最初の動画の名前）'}を作成し、このセッションの動画とファイルを移動`,
+  bindSessionSummary: (p) =>
+    `${p.action}（作成先：${p.project ? `プロジェクト「${p.project}」（${p.path}）` : `${p.path}、新しいプロジェクトとして登録`}）。このセッションはそのプロジェクトに属し、作業フォルダにある動画とファイルも移動`,
+  adoptSessionIntoSummary: (p) =>
+    `このセッションを${p.project ? `プロジェクト「${p.project}」（${p.path}）` : `${p.path}（新しいプロジェクトとして登録）`}に移し、作業フォルダの動画とファイルも移動`,
   deriveVideoSummary: (p) => `この動画の ${p.from}–${p.to} から子動画「${p.name}」を作成`,
   deriveVideoLabel: (p) => `「${p.name}」から派生`,
   derivationDocumentName: '派生元',

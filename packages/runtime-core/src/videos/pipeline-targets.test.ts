@@ -368,19 +368,24 @@ describe.skipIf(!engine)('视频工具的目标（真实引擎）', () => {
       const entry = (await client.request('space.list', { videoId: summary.videoId!, kind: 'video' })).entries[0]!;
       expect(entry.origin).toMatchObject({ jobId: job.jobId, conversationId });
 
-      // 不属于项目的会话：给了别的项目照样 PROJECT_NOT_FOUND（看不到任何项目），不弹确认。
+      // 不属于项目的会话给了别的项目（§3.10）：同一张确认卡写明会话要放进那个项目，按 high；拒绝时什么都不动，会话仍不属于项目。
       const {
         conversation: { id: loose, cwd: looseCwd },
       } = await client.request('conversations.create', { projectId: null });
       await client.request('conversations.send', { conversationId: loose, text: '新建', commandId: newId('cmd'), accessMode: 'ask' });
       const looseSession = await until(() => driver.sessions[1]);
       await until(() => looseSession.turnId);
-      const hidden = await tool(looseSession, 'download', {
+      const binding = tool(looseSession, 'download', {
         url: 'https://video.example.com/watch?v=abc',
         newVideo: true,
         project: project.id,
       });
-      expect(hidden).toMatchObject({ isError: true, body: { error: { code: 'PROJECT_NOT_FOUND' } } });
+      const asked = await until(() => runtime.harness.approvals.pending()[0]);
+      expect(asked).toMatchObject({ action: { kind: 'tool', name: 'download' }, risk: 'high' });
+      expect(asked.action.targets).toContain(project.path);
+      await client.request('approvals.respond', { approvalId: asked.approvalId, decision: 'deny' });
+      expect(await binding).toMatchObject({ isError: true, body: { error: { code: 'APPROVAL_DENIED' } } });
+      expect((await client.request('conversations.get', { conversationId: loose })).conversation).toMatchObject({ projectId: null, cwd: looseCwd });
       expect(runtime.harness.approvals.pending()).toEqual([]);
 
       // 不给项目：与 videos_create 一样建在会话的工作目录里（§3.10），不建项目；流程的新建目标是会话，文件仍进下载目录。

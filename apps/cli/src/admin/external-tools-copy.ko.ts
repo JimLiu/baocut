@@ -2,7 +2,7 @@ import type { ToolsMessages } from './external-tools-copy.ts';
 
 export const ko: ToolsMessages = {
   help: `사용법:
-  baocut external-tools [list]     외부 도구(yt-dlp, ffmpeg): 상태, 버전, 경로, 출처,
+  baocut external-tools [list]     외부 도구(yt-dlp, ffmpeg, git): 상태, 버전, 경로, 출처,
                                    사용 동의 여부
   baocut external-tools detect [이름]
                                    다시 감지합니다

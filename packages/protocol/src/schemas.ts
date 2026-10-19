@@ -18,6 +18,7 @@ import { VIDEO_ANNOTATION_LIMITS } from './video.ts';
 import { DOCS_ANNOTATION_LIMITS } from './docs.ts';
 import { SPACE_PARAM_SCHEMAS } from './space-schemas.ts';
 import { EXTERNAL_TOOL_PARAM_SCHEMAS } from './external-tools-schemas.ts';
+import { PROJECT_GIT_PARAM_SCHEMAS } from './project-git-schemas.ts';
 import { TEMPLATE_PARAM_SCHEMAS, templateSendRefSchema } from './template-schemas.ts';
 import { SKILL_PARAM_SCHEMAS, skillSendListSchema, skillSendRefSchema } from './skill-schemas.ts';
 import { FONT_PARAM_SCHEMAS } from './fonts-schemas.ts';
@@ -569,6 +570,8 @@ export const settingValueSchemas = {
   'space.trashRetentionDays': z.number().int().min(1).max(3650),
   'versions.keep': z.number().int().min(1).max(100),
   'versions.cadence': z.enum(['segment', 'turn']),
+  'versions.git.autoCommit': z.boolean(),
+  'versions.git.maxFileMiB': z.number().int().min(1).max(4096),
   'cache.maxSizeMiB': z.number().int().min(256).max(1024 * 1024),
   'runtime.idleExitMinutes': z.number().int().min(1).max(1440),
   'semantic.channels': z.array(z.enum(['text', 'visual', 'audio'])).max(3),
@@ -978,6 +981,7 @@ export const methodParamSchemas = {
   'space.rescan': empty,
   ...SPACE_PARAM_SCHEMAS,
   ...EXTERNAL_TOOL_PARAM_SCHEMAS,
+  ...PROJECT_GIT_PARAM_SCHEMAS,
   ...TOOL_CATALOGUE_PARAM_SCHEMAS,
   ...TEMPLATE_PARAM_SCHEMAS,
   ...SKILL_PARAM_SCHEMAS,
@@ -1086,6 +1090,7 @@ export const methodParamSchemas = {
     .strict(),
   'videos.versions.restore': z.object({ videoId: id, commandId: id, version: positiveInt, before: z.boolean().optional() }).strict(),
   'videos.versions.delete': z.object({ videoId: id, commandId: id, version: positiveInt }).strict(),
+  'videos.versions.resolve': z.object({ videoId: id, commandId: id, keep: z.enum(['video', 'snapshot']) }).strict(),
   'videos.assetStatus': z.object({ videoId: id }).strict(),
   'documents.read': z.object({ videoId: id, documentId: id, revision: revision.optional() }).strict(),
   'edits.apply': z

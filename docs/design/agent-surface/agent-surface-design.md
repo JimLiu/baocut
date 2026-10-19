@@ -151,7 +151,7 @@ CLI 不区分「人敲的」与「Agent 敲的」。要让 Agent 宿主的权限
 | `transcribe` | 转录流程（架构设计 §7.9）：按需新建视频 → 转写成新文稿 → 建字幕层 | 输入三选一：`file`（本机媒体）、`url`（链接，含下载）、`video`（已有视频，可给 `asset`）；`project`；`no-video`（只出 `.txt` 与 `.srt` 文件，不建视频）；`language`、`provider`、`model`、`diarize`、`glossary`；`no-captions`；`cookie-browsers`（只与 `url`，同 `download`） |
 | `translate` | 由**配置好的文本模型**翻译一份转写或字幕文件，写成新译文并建字幕层 | `video` + `to`，可选 `document`、`style`、`glossary`、`bilingual`、`no-captions`；或 `file`（SRT / VTT）+ `to`。没有文本模型时以 `CAPABILITY_NOT_CONFIGURED` 拒绝，`next` 指向 Agent 自译路径（§4.4） |
 | `dub` | 翻译配音：缺译文先翻译，逐句合成，对齐，加配音轨 | `video`、`to`、`voice`、`translation`、`original`、`separate-background`、`provider`、`model` |
-| `download` | 从链接下载媒体（yt-dlp），可导入视频或新建视频并转写（现 `import-link`） | `url`；落点三选一：`project`（只下载）、`video`（导入已有视频，时间线还空着时同时放上主轨）、`new-video`（新建并放上时间线）；`transcribe`、`subs`、`audio-only`、`name`；`out-dir`（文件放进这个目录，任意位置，代替下载目录；只给 `project` 时与对外服务不收）；`cookie-browsers`（网站登录，见下） |
+| `download` | 从链接下载媒体（yt-dlp），可导入视频或新建视频并转写（现 `import-link`） | `url`；落点三选一：`project`（只下载）、`video`（导入已有视频，时间线还空着时同时放上主轨）、`new-video`（新建并放上时间线）；`transcribe`、`subs`、`audio-only`、`name`；`out-dir`（文件放进这个目录，任意位置，代替下载目录；只给 `project` 时与对外服务不收）；`cookie-browsers`（网站登录，见下）。不属于项目的会话给 `new-video` 与 `project`（任意目录或已登记项目）时，同一张确认卡（`high`）写明落点，确认之后会话连同工作目录里的视频与文件放进那个项目（架构设计 §3.10）；只给 `project` 时不行 |
 | `export` | 导出字幕、文稿、音频、成片、便携包或工程 | `video`、`kind`、`format`、`out`、`range`、`document`、`bilingual`、成片的 `codec` / `width` / `height` / `fps` / `crf` / `burn-captions` 等（现 `export` 全部选项） |
 | `transcode` | 文件到文件：压缩、按顺序合并、提取音轨（不建视频）；只有本机文件这一种输入，不在 MCP 面 | `files`、`merge`、`extract-audio`、`codec`、`max-height`、`crf`、`out-dir` |
 | `speak` | 合成语音 | `text` / `text-file`、`voice`、`provider`、`model`、`video`（导入为候选素材）、`out` |
@@ -184,7 +184,7 @@ CLI 不区分「人敲的」与「Agent 敲的」。要让 Agent 宿主的权限
 | | `list` | query | 本地模型包与状态（现 `models bundles`） |
 | | `install` / `test` | job | 安装本地模型包（先报大小，`--yes` 跳过确认）；跑样本检查。两者只在工具桥与 CLI，不开放给 MCP |
 | `space` | `list` / `search` | query | 条目与跨视频检索（只读） |
-| `projects` | `list` / `create` | query / mutation | 项目的登记与新建 |
+| `projects` | `list` / `create` | query / mutation | 项目的登记与新建；工具桥另有 `projects_adopt_session { project?, name? }`，把不属于项目的会话放进新项目、指定的目录或已登记项目（架构设计 §3.10） |
 | `conversations` | `set_title` | mutation | 只在工具桥：智能体读懂内容后给会话起标题，只换按第一句话自动起的、只换一次（架构设计 §3.10）；CLI 与 MCP 没有会话 |
 | `artifacts` | `save` | mutation | 把任务产物复制成文件（`cwd` 下的路径） |
 | `skills` | `list` / `read` | query | 内置与用户层 craft skill 的索引与正文（§8.3 的「现取」路径） |
@@ -304,6 +304,8 @@ baocut — 用 BaoCut 转录、翻译、剪辑、配音与导出视频。先 `ba
 更多
   help <命令>    参数、效果与示例        spec [<名字>]    机器可读的目录        status / runtime / version
 ```
+
+对象的每个名词占一行，按目录顺序列它的动词；一行排不下时只列排得下的前几个，以 `…` 收尾，不折行（折行会挤破一屏的行数）。全部动词与摘要用 `baocut help <名词>` 看。
 
 ---
 
@@ -504,7 +506,7 @@ SKILL.md 与 `references/` 的正文等 §10 的第 2 阶段（CLI 切到目录�
 
 **CLI 优先，浏览器用来看与拖。** 文字与时间线上确定的修改（改字、翻译、剪口、挪到某秒、章节）走命令；网页用于播放、看合成后的画面与字幕位置（帧不是合成后的画面）、所见即所得的拖拽，以及请用户审。网页上的改动与命令写同一份真相、同一份修改历史，所以网页里改过之后，下一条写命令之前重新 `videos inspect`。不在网页上操作 BaoCut 自己的智能体对话与设置。宿主有内置浏览器就在里面打开，否则把链接交给用户；说明书不对任何宿主下断言。
 
-**桌面会自己打开新建的视频。** 用户开着桌面 App、停在 Home 且没开着别的视频时，`videos create`（MCP 的 `videos_create`）建好的视频会自动在功能区打开（产品设计 §3.3「外部 Agent 新建的视频」，Space 主题的 `video.created`）。这只是方便用户旁观：Agent 不能假定用户看见了，说明书不改，要请用户审片仍按下一段给链接。
+**桌面会自己打开新建的视频。** 用户开着桌面 App、停在 Home 且没开着别的视频时，`videos create`（MCP 的 `videos_create`）建好的视频在时间线有了第一段画面时会自动在功能区打开（产品设计 §3.3「外部 Agent 新建的视频」，Space 主题的 `video.created`）。这只是方便用户旁观：Agent 不能假定用户看见了，说明书不改，要请用户审片仍按下一段给链接。
 
 **交给用户的链接。** Agent 自己打开过的链接已经作废。交付时再 `web open` 一次，把新链接给用户，说明只能用一次、两分钟有效；用户来不及马上点时，请用户自己运行 `baocut web open --video <videoId> --launch`：它在系统浏览器里打开登录页（保留路径与查询），代码从终端粘进去。
 
@@ -599,6 +601,7 @@ SKILL.md 与 `references/` 的正文等 §10 的第 2 阶段（CLI 切到目录�
 - `mcp install` 在宿主没有环境变量段时明文写入令牌，`--help` 与结果里说明风险并建议 `ask` 等级：实际只有 Claude Code 能放进 `settings.json` 的 `env` 再引用；Codex 的 `bearer_token_env_var` 要在启动它的 shell 里导出，Gemini CLI 会滤掉名字像令牌的环境变量，Cursor 的配置没有可供请求头引用的环境变量段，这三家明文（Codex、Cursor、Gemini CLI 的接入未实际连通验证）。
 - 一级动词在工具桥里也露出（2026-10-06）：工具桥面的目录里有 `transcribe`、`download`、`dub`、`transcode`、`export` 这些一级动词，原来设想的 `models_transcribe`、`link_import_start` 不在任何一面的目录里；说明书在两面共有的编排一节写明有固定流程的事用一级动词一步提交整条流程，不自己拆成几步。
 - 无项目会话的视频（2026-10-08）：会话里新建视频不再先建项目、绑定，视频建在会话自己的工作目录里（架构设计 §3.10）；新增只在工具桥的 `projects_adopt_session { name? }`，用户明确要建项目时才把会话连同视频收进一个以视频命名的新项目，按 `edit` 确认。说明书 §4 写明：会话不属于项目时新视频不给 `project`；用户消息里「[目标语言]」这类没填的待填项先问清再动手。
+- 无项目会话把新视频建到指定位置（2026-10-17）：用户要把新视频放到外置盘上的文件夹或别的项目时，不再要求用户去那个项目新开会话。新建视频的工具（`videos_create`、`videos_import_package`、`transcribe` 给 `file`，`download` / `transcribe` 给链接时的新视频）在不属于项目的会话里接受别处的 `project`（已登记项目的 id 或任意目录），同一张确认卡写明落点与「会话从此属于它、工作目录里的视频与文件一起搬过去」，一律按 `high`（越出工作目录）；确认之后会话绑定到那个项目再新建（架构设计 §3.10）。`projects_adopt_session` 加可选 `project`。只下载不绑定（给别处的 `project` 时拒绝，`next` 指向 `out-dir`）；属于项目的会话、MCP 与终端不变。「这个任务里不再问」与规则一样不放开 `high`。
 - `documents read` 只有 `video`、`documentId`、可选 `revision`（2026-10-06）：转写另带 `translationBasis`，没有 `for` / `format`；纯文本用 `export --kind transcript --format txt`。§4.3 / §4.4 已按实现改正，不改实现。
 - 外部 Agent 经网页版编辑器看与改（2026-10-06，§8.8）：会话内智能体不开网页，`catalog/web.md` 整页只给 CLI 面，渲染器跳过工具桥面正文为空的目录页；`web open --video` 直达视频的编辑器，URL 由 `@baocut/protocol` 的 `webVideoHref` 构造、videoId 在 Runtime 侧解析；不加 `web status`；一个任务开一次、复用标签，登录页 / 401 / 连接被拒才重发；交付时给用户新链接，`--launch` 留给用户；CLI 优先，网页用于播放、看合成画面、拖拽与审片，网页改过后重新 `videos inspect`；`web open` 是管理命令先问的例外，端口被占不换端口。
 - 会话内智能体的指导由说明书渲染（2026-10-06，§8.6）：渲染失败时 Runtime 启动失败；目录页、`workflows.md`、`conventions.md` 是总在索引里的内置说明书页，按读者给面（会话内智能体读工具桥面，终端与 MCP 的 `skills_read` 读同一页的 CLI 面，2026-10-17 起），不进 Skills 列表、不能开关。
