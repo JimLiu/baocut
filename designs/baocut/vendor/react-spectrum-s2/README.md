@@ -43,6 +43,7 @@ NODE_MODULES=/tmp/rsp/node_modules node designs/baocut/vendor/react-spectrum-s2/
 - `react` / `react-dom` / `react/jsx-runtime` 换成读 `window.React` / `window.ReactDOM` 的垫片。
 - 语言包只留 `zh-CN` 与 `en-US`。
 - 不加载远端字体（`font-faces.css` 与 `Fonts` 组件置空）。
+- 用 `tools/s2-tokenfield.mjs` 与 Electron / Web 共用的选区补丁，把输入法拆开的相邻文本节点映射回同一文本片段；末尾占位 `<br>` 不算片段。
 - 给 `Tabs` 的溢出检查补一个空值保护（补丁点找不到时构建直接失败）。
 - 打完重新生成 `react-spectrum-s2-font.css`。S2 的 class 哈希每次打包都可能变，所以这份不能留旧的。
 
