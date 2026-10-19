@@ -1,7 +1,19 @@
 import { setLocale } from '@baocut/protocol';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { job, task } from '../testing/task-records.ts';
-import { agentRow, clip, jobPercent, jobRow, runsOnLabel, taskGroups, taskRows, type TaskContext } from './task-list.ts';
+import {
+  HISTORY_LIMIT,
+  agentRow,
+  clearedUpTo,
+  clip,
+  historyView,
+  jobPercent,
+  jobRow,
+  runsOnLabel,
+  taskGroups,
+  taskRows,
+  type TaskContext,
+} from './task-list.ts';
 
 const ctx: TaskContext = {
   projects: [{ id: 'p1', name: '产品发布会' }],
@@ -420,5 +432,52 @@ describe('taskRows / taskGroups', () => {
     ];
     const pipeline = { name: 'link-import', params: { host: 'youtube.com' }, steps, current: 1, stoppedAt: null, summary: null };
     expect(jobRow(job({ jobId: 'cap', kind: 'pipeline', phase: 'applying', pipeline }), ctx).phase).toBe('生成字幕');
+  });
+});
+
+describe('historyView（产品设计 §6.1）', () => {
+  const now = Date.parse('2026-10-18T12:00:00Z');
+  const DAY = 24 * 60 * 60 * 1000;
+  const ended = (jobId: string, daysAgo: number, state: 'completed' | 'failed' | 'needs-reconciliation' = 'completed') =>
+    jobRow(job({ jobId, state, phase: 'done', endedAt: new Date(now - daysAgo * DAY).toISOString() }), ctx);
+
+  it('按结束时间排、新的在前，只列最近 20 条；展开时全部列出，仍报收起时没列的条数', () => {
+    const rows = Array.from({ length: 25 }, (_, i) => ended(`j${i}`, (25 - i) / 10));
+    const view = historyView(rows, { now, clearedAt: null, showAll: false });
+    expect(view.items).toHaveLength(HISTORY_LIMIT);
+    expect(view.items[0]!.id).toBe('j24');
+    expect(view.older).toBe(5);
+    const all = historyView(rows, { now, clearedAt: null, showAll: true });
+    expect(all.items).toHaveLength(25);
+    expect(all.older).toBe(5);
+  });
+
+  it('结束超过 30 天的不列；清空过的（不晚于 clearedAt 结束）不列，之后结束的照常列出', () => {
+    const rows = [ended('old', 31, 'failed'), ended('edge', 29), ended('before', 2), ended('after', 0.5)];
+    const view = historyView(rows, { now, clearedAt: now - DAY, showAll: false });
+    expect(view.items.map((r) => r.id)).toEqual(['after']);
+    expect(view.older).toBe(3);
+    expect(historyView(rows, { now, clearedAt: null, showAll: false }).items.map((r) => r.id)).toEqual(['after', 'before', 'edge']);
+  });
+
+  it('要用户决定的（结果不明）不受上限、30 天与清空的限制，也不在能清空的里', () => {
+    const ask = ended('ask', 60, 'needs-reconciliation');
+    expect(ask.attention).toBe(true);
+    expect(ended('done', 1).attention).toBe(false);
+    const rows = [...Array.from({ length: 22 }, (_, i) => ended(`j${i}`, 1 + i / 100)), ask];
+    const view = historyView(rows, { now, clearedAt: now, showAll: false });
+    expect(view.items.map((r) => r.id)).toEqual(['ask']);
+    expect(view.clearable).toEqual([]);
+    const open = historyView(rows, { now, clearedAt: null, showAll: false });
+    expect(open.items).toHaveLength(HISTORY_LIMIT + 1);
+    expect(open.clearable.map((r) => r.id)).not.toContain('ask');
+  });
+
+  it('清空到能清空的里最晚的结束时间；没有可清的是 null', () => {
+    const rows = [ended('a', 3), ended('b', 1)];
+    expect(clearedUpTo(rows)).toBe(now - DAY);
+    expect(clearedUpTo([])).toBeNull();
+    const cleared = historyView([...rows, ended('c', 0.1)], { now, clearedAt: clearedUpTo(rows), showAll: false });
+    expect(cleared.items.map((r) => r.id)).toEqual(['c']);
   });
 });

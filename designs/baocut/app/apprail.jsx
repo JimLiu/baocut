@@ -87,7 +87,9 @@
         </R.SideNavItemLink></R.SideNavItemContent>
       </R.SideNavItem>;
     };
-    const groups = IA.taskGroups(app.tasks);
+    /* 「历史」与任务页的「已完成」列同一批：最近 20 条、30 天内、没清空的（product-design §6.1） */
+    const [active, history] = IA.taskGroups(app.tasks);
+    const groups = [active, {...history, items: IA.historyView(history.items, {cleared: app.prefs.tasksCleared, showAll: app.tasksShowAll}).items}];
     return <div className="hside hside--utility" style={{width: app.sidebar.width || app.sidebar.last}}>
       <h2 className="app-section-title">{title}</h2>
       <div className="hside__nav bc-scroll">

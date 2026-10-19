@@ -1,4 +1,4 @@
-import { useMemo, type ComponentType, type ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { live } from '@baocut/protocol';
 import { ProgressCircle, SideNav, SideNavHeader, SideNavItem, SideNavItemContent, SideNavItemLink, SideNavSection, Text } from '@react-spectrum/s2';
 import AlertTriangle from '@react-spectrum/s2/icons/AlertTriangle';
@@ -9,15 +9,15 @@ import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { S } from './shell-copy.ts';
 import { SERVICE_COPY } from '../copy.ts';
 import { SERVICE_IDS, serviceStateLabel, serviceTone, type ServiceTone } from '../model/services.ts';
-import { taskGroups } from '../model/task-list.ts';
 import { TOOL_GROUPS } from '../model/tool-catalog.ts';
 import { plannedReason } from '../model/tools-gallery.ts';
 import { hrefFor, type Route } from '../state/shell-store.ts';
 import { PageSidebar, SidebarNote, SidebarTitle, sidebarBody, useSidebarRoute } from './page-sidebar.tsx';
 import { SERVICE_ICON } from './services/service-icon.tsx';
 import { useServiceStates } from './services/use-share-status.ts';
-import { useTaskRows } from './tasks/use-task-rows.ts';
+import { useTaskSections } from './tasks/use-task-sections.ts';
 import { TOOL_ICON } from './tools/tool-icon.tsx';
+import { useNow } from './use-now.ts';
 import { GALLERY_COPY } from './tools/tools-copy.ts';
 
 export type UtilityKind = 'tasks' | 'tools' | 'services';
@@ -58,9 +58,10 @@ const dot = style({
  */
 export function UtilitySidebar({ kind }: { kind: UtilityKind }) {
   const route = useSidebarRoute();
-  const { rows } = useTaskRows();
+  // 历史与任务页的「已完成」列同一批（产品设计 §6.1）；30 天的界线走得慢，一分钟重算一次足够。
+  const { active, history } = useTaskSections(useNow(60_000, kind === 'tasks'));
   const serviceStates = useServiceStates();
-  const groups = useMemo(() => taskGroups(rows), [rows]);
+  const groups = [active, history];
 
   const item = (id: string, text: string, target: Route, Icon: ComponentType, tail?: ReactNode, detail?: string) => {
     const href = hrefFor(target);

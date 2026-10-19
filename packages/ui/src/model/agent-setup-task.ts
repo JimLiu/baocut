@@ -46,6 +46,7 @@ export function agentSetupTaskRow(run: AgentSetupRun, driverName: string): TaskR
     live,
     queued: false,
     waiting: false,
+    attention: false,
     label: status.label,
     tone: status.tone,
     phase: null,

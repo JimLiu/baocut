@@ -96,6 +96,31 @@ test('任务目录与总览同步排序、状态迁移，不改变源记录顺�
 });
 
 
+test('历史只列最近 20 条、30 天内、没清空的；要用户决定的总是列出', () => {
+  const now = Date.UTC(2026, 9, 18);
+  const day = 24 * 3600 * 1000;
+  const done = Array.from({length: 25}, (_, i) => ({id: `d${i}`, status: 'done'}));
+  const view = IA.historyView(done, {now});
+  assert.equal(view.items.length, 20);
+  assert.equal(view.older, 5);
+  assert.deepEqual(IA.historyView(done, {now, showAll: true}).items.map(t => t.id), done.map(t => t.id));
+
+  const items = [
+    {id: 'new', status: 'done', endedAt: now - day},
+    {id: 'old', status: 'error', endedAt: now - 31 * day},
+    {id: 'ask', status: 'done', attention: '2 个项目没导入', endedAt: now - 60 * day},
+    {id: 'gone', status: 'done'},
+  ];
+  const v = IA.historyView(items, {now, cleared: ['gone', 'ask']});
+  assert.deepEqual(v.items.map(t => t.id), ['new', 'ask']);
+  assert.equal(v.older, 2);
+  assert.deepEqual(v.clearable, ['new']);
+  assert.deepEqual(v.clearIds, ['new', 'old']);
+  // 清空记下全部已结束的：更早的不会因为上限空出来而顶上来
+  const cleared = IA.historyView(done, {now, cleared: IA.historyView(done, {now}).clearIds});
+  assert.deepEqual([cleared.items.length, cleared.older], [0, 25]);
+});
+
 test('视频保留 Space 来源筛选，直接打开不把视频 id 当作目录', () => {
   const route = {r:'editor', id:'p11', via:'space'};
   const source = {r:'projects', id:'d1', sec:'movie'};
