@@ -301,6 +301,8 @@ export class PreviewEngine {
   #liveCandidates: LiveCandidate[] = [];
   /** 上次叫宿主预载的那几件（按实例拼的键）。 */
   #livePrepared = '';
+  /** `#holdLive` 上次问过计划器的那一帧（实例、序列版本与帧号）。 */
+  #holdProbed: string | null = null;
 
   constructor(
     callbacks: PreviewCallbacks,
@@ -405,6 +407,7 @@ export class PreviewEngine {
     this.#liveOn = null;
     this.#liveHost = host;
     this.#livePrepared = '';
+    this.#holdProbed = null;
     if (host) {
       this.#liveUnwatch = host.onFailure((itemId, reason) => this.#blockLive(itemId, reason));
     }
@@ -445,7 +448,11 @@ export class PreviewEngine {
   #blockLive(itemId: Id, reason: string): void {
     if (this.#liveBlocked.has(itemId)) return;
     this.#liveBlocked.add(itemId);
-    if (this.#liveOn === itemId) this.#liveOn = null;
+    if (this.#liveOn === itemId) {
+      this.#liveOn = null;
+      // 撑着替身的实时层（#holdLive）撤了：替身还没到，画面又没了，舞台重新给载入面板。
+      if (!this.#plan?.live) this.#setPictured(false);
+    }
     this.#watch.noteError(`实时合成层 ${itemId}（${reason}）`, new Error(reason)); // i18n-ignore: 开发日志
     this.#sendLive();
     if (this.#video) this.#liveCandidates = liveCandidates(this.#video.sequence, this.#video.assets, this.#liveBlocked);
@@ -465,6 +472,10 @@ export class PreviewEngine {
     if (!host || !planner || !bottom || !isMediaLayer(bottom) || bottom.kind !== 'video' || bottom.itemId === this.#liveOn) return;
     if (!this.#liveCandidates.some((candidate) => candidate.itemId === bottom.itemId)) return;
     if (!this.#coming(bottom, this.#readiness(bottom))) return;
+    // 切不开（不铺满、在转场里）的这一帧问过就不再问，换了帧再问。
+    const probe = `${bottom.itemId}@${plan.sequenceRevision}:${plan.frame}`;
+    if (probe === this.#holdProbed) return;
+    this.#holdProbed = probe;
     const blocked = [...this.#liveBlocked];
     let live: LiveLayer | undefined;
     try {
@@ -646,6 +657,7 @@ export class PreviewEngine {
     if (this.#liveBlocked.size > 0) {
       this.#liveBlocked.clear();
       this.#livePrepared = '';
+      this.#holdProbed = null;
       if (this.#video) this.#liveCandidates = this.#liveHost ? liveCandidates(this.#video.sequence, this.#video.assets, this.#liveBlocked) : [];
       this.#sendLive();
     }

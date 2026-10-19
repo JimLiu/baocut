@@ -1213,8 +1213,11 @@ test('实时合成层：刚打开就停着、可用的替身还在来（Runtime 
   Object.defineProperty(video, 'currentTime', { get: () => currentTime, set: (seconds: number) => (currentTime = seconds) });
   const { frames, setLive, renders, state, live, seen, engine } = await liveEngine();
   state.standIn = 'usable';
+  // 换一部视频：画面从头算，必须由撑着的实时层重新算出来。
+  engine.setVideo({ ...withComposition, id: 'seq2' } as Sequence, bundleAssets);
   const pictured: boolean[] = [];
   engine.onPicture((value) => pictured.push(value));
+  expect(pictured).toEqual([false]);
   engine.attachLive(live.host);
   await new Promise((resolve) => setTimeout(resolve, 10));
   // 舞台还没挂替身的元素：按「在动」问一次实时层，问完换回停住；iframe 露着、画布透明底，画面算出来了，不提醒烘焙。
@@ -1233,6 +1236,17 @@ test('实时合成层：刚打开就停着、可用的替身还在来（Runtime 
   engine.seek(0);
   await new Promise((resolve) => setTimeout(resolve, 300));
   expect(setLive.slice(asked).filter((options) => options.playing).length).toBe(1);
+
+  // iframe 放不出来：撤掉、拉黑，替身还没到，画面又没了（舞台重新给载入面板）；同一帧不再问。
+  live.fail('comp', 'ready-timeout');
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(pictured.at(-1)).toBe(false);
+  expect(live.shown.at(-1)?.[0]).toBeNull();
+  // 重试解除拉黑，又先露实时层。
+  engine.retry();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(live.shown.at(-1)?.[0]).toBe('comp');
+  expect(pictured.at(-1)).toBe(true);
 
   // 替身到了：画不透明的那一帧，收起 iframe。
   video.readyState = 4;
