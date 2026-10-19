@@ -181,6 +181,9 @@ export function packagedResourceEnv(resources: string, platform: NodeJS.Platform
     BAOCUT_STICKERS_DIR: path.join(resources, 'stickers'),
     BAOCUT_SKILLS_DIR: path.join(resources, 'skills', 'baocut', 'built-in-skills'),
     BAOCUT_AGENT_SKILLS_DIR: path.join(resources, 'skills'),
+    BAOCUT_AGENT_SKILL_DIR: path.join(resources, 'agent-skill', 'baocut'),
+    ...(platform === 'darwin' ? { BAOCUT_CLI_ENTRY: path.join(path.dirname(resources), 'MacOS', 'baocut-cli') } : {}),
+    ...(platform === 'win32' ? { BAOCUT_CLI_ENTRY: path.join(path.dirname(resources), 'baocut.cmd') } : {}),
     BAOCUT_MODEL_ASSETS_DIR: path.join(resources, 'model-assets'),
     BAOCUT_WEB_DIST: path.join(resources, 'web'),
     BAOCUT_SLIDES_EDITOR_DIST: path.join(resources, 'slides-editor'),
@@ -189,26 +192,6 @@ export function packagedResourceEnv(resources: string, platform: NodeJS.Platform
     BAOCUT_DOCS_EDITOR_DIST: path.join(resources, 'docs-editor'),
     ...(platform === 'darwin' ? { PMETAL_METALLIB_PATH: path.join(resources, 'bin', 'mlx.metallib') } : {}),
   };
-}
-
-/**
- * 说明书的根目录（里面是 `baocut/`），给不连 Runtime 的 `baocut skill path` 用：与 Runtime 的 `resolveBuiltinAgentSkillsDir`
- * 同一个顺序——`BAOCUT_AGENT_SKILLS_DIR` → 当前 CLI 所在桌面包及标准安装位置的 `<resources>/skills` → 仓库根的 `skills/`。
- * 都没有时 null。
- */
-export function resolveAgentSkillsDir(
-  env: NodeJS.ProcessEnv = process.env,
-  platform: NodeJS.Platform = process.platform,
-  from: string = path.dirname(fileURLToPath(import.meta.url)),
-): string | null {
-  if (env.BAOCUT_AGENT_SKILLS_DIR) return env.BAOCUT_AGENT_SKILLS_DIR;
-  for (const app of packagedApps(env, platform, from)) {
-    const dir = packagedResourceEnv(app.resources).BAOCUT_AGENT_SKILLS_DIR!;
-    if (fs.existsSync(dir)) return dir;
-  }
-  const root = repoRoot(from);
-  const dir = root && path.join(root, 'skills');
-  return dir && fs.existsSync(dir) ? dir : null;
 }
 
 /** 往上找仓库根（`package.json` 的 name 是 `baocut`）。 */

@@ -25,7 +25,7 @@ skills/
 | 单一来源 | 是 | 是；craft 只引用，不复制正文 |
 | 给谁 | 会话内智能体直接加载；外部 Agent 经同步副本读 | 两种读者，同一份文稿按面渲染 |
 
-Runtime 只把 `baocut/built-in-skills/` 当内置 skill 目录加载，说明书本身不会被当成 craft 读到；渲染器读说明书时跳过 `built-in-skills/`，它不进任一面的渲染结果，也不随 `baocut skill install` 装进宿主（外部 Agent 读 `baocut/references/craft/` 的副本）。SKILL.md 第 1 节的路由与第 3 节末尾的「内置 skill」表用 `{{skill:<id>}}` 指到这些 craft。打包后整个 `skills/` 原样放在 `<resources>/skills/`。
+Runtime 只把 `baocut/built-in-skills/` 当内置 skill 目录加载，说明书本身不会被当成 craft 读到；渲染器读说明书时跳过 `built-in-skills/`，它不进任一面的渲染结果，也不随 `baocut skill install` 装进宿主（外部 Agent 读 `baocut/references/craft/` 的副本）。SKILL.md 第 1 节的路由与第 3 节末尾的「内置 skill」表用 `{{skill:<id>}}` 指到这些 craft。打包后整个 `skills/` 原样放在 `<resources>/skills/`，另按 CLI 面渲染一份到 `<resources>/agent-skill/baocut/`：`baocut skill install` 与 App 给外部 Agent 放的软链接指向它（[§8.2](../docs/design/agent-surface/agent-surface-design.md#82-放哪里)）。
 
 ## 一份文稿，两个面
 

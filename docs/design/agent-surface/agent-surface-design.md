@@ -384,13 +384,18 @@ skill 是给外部 Agent 的说明书：何时用 BaoCut、怎么启动、每类
 | --- | --- | --- |
 | 读者 | BaoCut 自己的会话内智能体 | 其他 Agent（Claude Code、Codex、Cursor…） |
 | 内容 | 一种做法（润色、翻译、分章、剪口播…），引用工具桥的工具名 | 怎么用 CLI / MCP 操作 BaoCut，加上 craft |
-| 加载 | Runtime 读目录，索引附在会话指导后 | 宿主的 skills 目录，由 `baocut skill install` 写入 |
+| 加载 | Runtime 读目录，索引附在会话指导后 | 宿主的 skills 目录（全局或按目录的 `.agents/skills`、`.claude/skills`），由 `baocut skill install` 或 App 放软链接 |
 
 ### 8.2 放哪里
 
 **说明书是入口，内置 craft 放在它下面**（2026-10-10 起；原先说明书在顶层 `agent-skills/baocut/`、craft 在顶层 `skills/<id>/`）：仓库根 `skills/baocut/` 是说明书，内置 craft 在 `skills/baocut/built-in-skills/<id>/`，那里的 `README.md` 是索引。Runtime 只把 `built-in-skills/` 当内置 skill 目录加载（`builtin-skills.test.ts` 核对清单），说明书本身不会被会话内智能体当成 craft 读到——一份教人用 CLI 的 skill 对它是错的（它该用工具桥，不该开子进程跑 `baocut`）；渲染器读说明书时也跳过 `built-in-skills/`，它不进任一面的渲染结果。
 
-随 BaoCut 发布（桌面端把整个 `skills/` 打进 `<resources>/skills/`；CLI 不另带一份，经 Runtime 的 `catalog.agentSkill` 取渲染结果），由 `baocut skill install --agent <宿主> [--dir <目录>]` 复制到宿主的 skills 目录（Claude Code `~/.claude/skills/baocut/`、Codex `~/.codex/skills/baocut/`、Cursor `~/.cursor/skills/baocut/`、Gemini CLI `~/.gemini/skills/baocut/`）。复制的是 CLI 面的渲染结果，不是源目录；`--link` 时渲染结果写进 `<Runtime Home>/agent-skills/baocut/`，宿主里放指向它的链接，之后对任一宿主再装一次就一起更新。`skill install` 是管理桶命令。
+随 BaoCut 发布：桌面端把整个 `skills/` 打进 `<resources>/skills/`（Runtime 读它渲染两个面），打包时另按 CLI 面渲染一份到 `<resources>/agent-skill/baocut/`（`tools/render-agent-skill.ts`，主进程经 `BAOCUT_AGENT_SKILL_DIR` 告诉 Runtime）。给外部 Agent 装的就是这一份（2026-10-18 起；原先 `baocut skill install --agent <宿主>` 把渲染结果复制到 Claude Code、Codex、Cursor、Gemini CLI 各自的 skills 目录，`--link` 时链接到 Runtime Home 里的渲染结果）：
+
+- **位置**：两个宿主目录下的 `baocut/`。`.agents/skills` 给 Codex 等遵循 Agent Skills 约定的 Agent，`.claude/skills` 给 Claude Code。**全局**在用户主目录下（`~/.agents/skills/baocut`、`~/.claude/skills/baocut`），默认两处都装；**按目录**装在任意一个文件夹下（`<文件夹>/.agents/skills/baocut` 等），不限于 BaoCut 的项目——外部 Agent 在哪个目录里工作就装到哪。装过的文件夹记在 `<Runtime Home>/agent-skill-dirs.json`，两处都没有 BaoCut 的说明书了就不再列。文件夹不能是文件系统根、用户主目录本身（那是全局），也不能在某个 `.agents` / `.claude` 目录里（`AGENT_SKILL_BAD_ROOT`）。
+- **装法**：默认放软链接，指向 App 里渲染好的那份（Windows 用目录联接，不要管理员权限），App 更新它就跟着更新，装过的不用重装；可选复制一份（不跟着 App 更新，过期了要再装）。开发时没有随包的那份，Runtime 按 CLI 面渲染进 `<Runtime Home>/agent-skills/baocut/`、内容变了才重写，软链接指向它。macOS 上 App 不在「应用程序」文件夹里运行时界面提醒：之后移动或删除 App，软链接会失效。
+- **状态**：每处是 `none`（没有）、`current`（软链接指向 App 的那份，或副本与它逐字相同）、`stale`（副本与它不同，或软链接指向另一份 BaoCut 说明书，例如旧版装进 Runtime Home 的那份）、`broken`（软链接指向的位置不在了）、`foreign`（那里有不是 BaoCut 说明书的东西：文件，或 `SKILL.md` 的 `name` 不是 `baocut`）。按内容判断过期，不按 `version`：版本号不一定随每次改动更新。`stale` 与 `broken` 装一次就修好；`foreign` 永不覆盖或删除，安装与移除都整批拒绝（`AGENT_SKILL_LOCATION_TAKEN`），请用户自己移走。
+- **入口**：`agentSkill.status|install|remove`（命令与协议规范 §4.1），位置、状态与装法都在 Runtime 里，CLI 与 App 同一份规则。CLI 是管理桶的 `baocut skill install [--dir <文件夹>]… [--agent agents|claude] [--copy]`、`skill status`、`skill remove`（删副本要 `--yes`）；App 在 Skills 页的「在终端或其他应用的 Agent 里使用 BaoCut」卡片里，Web 只看状态（装与移除往用户主目录或任意文件夹写，只在桌面界面与 CLI 里做）。状态里还有 App 自带的命令行入口（macOS `BaoCut.app/Contents/MacOS/baocut-cli`，Windows 安装目录里的 `baocut.cmd`）与终端里实际的 `baocut`：BaoCut 不替用户往系统 PATH 写文件，不在 PATH 上时给出可复制的命令（macOS 在 `/usr/local/bin` 放软链接，Windows 把安装目录加进用户 PATH）。
 
 ### 8.3 内容结构
 

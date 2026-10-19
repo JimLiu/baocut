@@ -25,27 +25,31 @@ export const ja: SkillsMessages = {
   idFormat: (flag, value) => `${flag} には Skill の id（小文字、ハイフン区切り。baocut skills を参照）を指定してください：${value}`,
 
   skillHelp: `使い方：
-  baocut skill install --agent <claude-code|codex|cursor|gemini> [--dir <folder>] [--link] [--yes]
-                                   外部 Agent 向けの BaoCut Skill（BaoCut の使い方）を、ホストの skills フォルダ内の
-                                   baocut/ にインストール：Claude Code ~/.claude/skills、Codex ~/.codex/skills、
-                                   Cursor ~/.cursor/skills、Gemini CLI ~/.gemini/skills
-    --dir <folder>                 別の skills フォルダを使う（その下の baocut/ にインストール）。--agent がない場合は必須
-    --link                         生成した Skill を <BAOCUT_HOME>/agent-skills/baocut に置き、ホストにはそこへのリンクを
-                                   置く：あとで（どのホストでも）もう一度インストールすると、すべて更新されます
-    --yes                          インストール先がすでにある場合は置き換え（リンクの場合はリンクだけを置き換え、
-                                   リンク先のフォルダはそのまま）。指定しないと何も上書きしません
-  baocut skill path                BaoCut Skill の入手元、各ホストでのインストール先、現在インストールされているもの
-                                   （Runtime は不要）`,
-  targetExists: (target, linkTarget) =>
-    `${target} はすでに存在します（${linkTarget !== null ? `${linkTarget} へのリンク` : 'フォルダまたはファイル'}）。何も変更していません。置き換えるには --yes を付けてください`,
-  installed: (target, files, linkTo) =>
-    `BaoCut Skill を ${target} にインストールしました（${files} 個のファイル${linkTo ? `、${linkTo} にリンク` : ''}）`,
-  takesEffect: (host) => (host ? `新しい ${host} セッションで反映されます` : '新しいセッションで反映されます'),
-  pathEscapes: (path) => `BaoCut Skill 内のパスがフォルダの外を指しています：${path}`,
-  sourceLine: (dir) =>
-    `入手元    ${dir ?? '見つかりません（BaoCut がインストールされておらず、リポジトリ内でもありません。BAOCUT_AGENT_SKILLS_DIR を設定できます）'}`,
-  notInstalled: '未インストール',
-  linkState: (target) => `リンク → ${target}`,
-  installedFolder: 'インストール済み（フォルダ）',
-  isFile: 'ファイル（Skill フォルダではありません）',
+  baocut skill install [--dir <フォルダ>]… [--agent agents|claude] [--copy]
+                                   外部エージェント向けの BaoCut スキル（BaoCut の使い方）をインストールします。既定では
+                                   ~/.agents/skills/baocut（Codex などのエージェント）と ~/.claude/skills/baocut（Claude Code）に、
+                                   BaoCut アプリ内のスキルへのシンボリックリンクとして置くので、アプリと一緒に更新されます
+    --dir <フォルダ>               代わりに <フォルダ>/.agents/skills と <フォルダ>/.claude/skills に入れます。BaoCut の
+                                   プロジェクトに限らず任意のフォルダで、複数指定できます
+    --agent agents|claude          2 か所のうち 1 か所だけ：.agents/skills または .claude/skills
+    --copy                         リンクではなくコピーします（コピーはアプリの更新に追従しないので、更新するには再インストール）
+  baocut skill status              アプリのスキルのバージョン、インストール先と各場所が最新かどうか、ターミナルの baocut コマンド
+  baocut skill remove [--dir <フォルダ>]… [--agent agents|claude] [--yes]
+                                   削除します。リンクはリンクだけを消し、コピーの削除には --yes が必要です。
+                                   baocut/ にある BaoCut スキル以外のものは置き換えも削除もしません`,
+  installedAt: (path, linkTarget) => `インストールしました：${path}${linkTarget ? ` → ${linkTarget}` : '（コピー）'}`,
+  takesEffect: '新しいエージェントセッションから有効になります',
+  removedAt: (path) => `削除しました：${path}`,
+  removeCopies: (paths) => `${paths.join('、')} はコピーです。削除するとファイルごと消え、そこで加えた編集も失われます。削除するには --yes を付けてください`,
+  unknownAgent: (value) => `--agent には agents（.agents/skills）か claude（.claude/skills）を指定してください：${value}`,
+  fixHint: '古いか壊れたインストールがあります。baocut skill install（同じ --dir を付けて）で直せます',
+  statusSkill: (version, source, bundled) => `スキル    ${version ?? '?'}  ${source}${bundled ? '' : '（開発版：Runtime が生成）'}`,
+  statusCli: (entry) => `CLI       ${entry ?? '同梱なし（開発版）'}`,
+  statusOnPath: (path, target, fromApp) => `ターミナル ${path}${target ? ` → ${target}` : ''}${fromApp ? '（このアプリのもの）' : '（このアプリのものではありません）'}`,
+  statusNotOnPath: (command) => `ターミナル PATH に baocut がありません${command ? `。どのターミナルでも使うには：${command}` : ''}`,
+  statusAddToPath: (dir) => `ターミナル PATH に baocut がありません。どのターミナルでも使うには ${dir} をユーザーの PATH に追加してください`,
+  appOutsideApplications: 'BaoCut が「アプリケーション」フォルダ以外から実行されています。アプリを移動または削除するとリンクが切れます',
+  globalHeading: 'グローバル',
+  state: { none: '未インストール', current: '最新', stale: '古い', broken: 'リンク切れ', foreign: '別のものがあります（触りません）' },
+  mode: { link: 'リンク', copy: 'コピー' },
 };

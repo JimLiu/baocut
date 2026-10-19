@@ -5,7 +5,7 @@ import path from 'node:path';
 import { M } from './agent-hosts-copy.ts';
 
 /**
- * 外部 Agent 宿主（Agent 面设计 §6.2、§8.6）：`baocut skill install` 与 `baocut mcp install` 往哪里写、怎么写。每个宿主的位置与格式
+ * 外部 Agent 宿主（Agent 面设计 §6.2）：`baocut mcp install` 往哪里写、怎么写（说明书的位置见 §8.2，由 Runtime 的 `agentSkill.*` 管）。每个宿主的位置与格式
  * 都按宿主自己的 CLI 实际核对过（写在各项旁边）；位置全部从这次调用的环境变量算（`HOME`、`CLAUDE_CONFIG_DIR`、`CODEX_HOME`），
  * 测试换成临时目录，不碰真实的配置。
  *
@@ -46,24 +46,6 @@ function claudeConfigDir(env: NodeJS.ProcessEnv): string {
 /** Codex 的目录：`CODEX_HOME`，默认 `~/.codex`。 */
 function codexHome(env: NodeJS.ProcessEnv): string {
   return env.CODEX_HOME || path.join(userHome(env), '.codex');
-}
-
-/**
- * 宿主的用户级 skills 目录（skill 装在其下的 `<id>/`）：
- * Claude Code `~/.claude/skills`（`CLAUDE_CONFIG_DIR` 下的 `skills`）；Codex `~/.codex/skills`（`CODEX_HOME`）；Cursor
- * `~/.cursor/skills`；Gemini CLI `~/.gemini/skills`。
- */
-export function hostSkillsDir(host: AgentHost, env: NodeJS.ProcessEnv): string {
-  switch (host) {
-    case 'claude-code':
-      return path.join(claudeConfigDir(env), 'skills');
-    case 'codex':
-      return path.join(codexHome(env), 'skills');
-    case 'cursor':
-      return path.join(userHome(env), '.cursor', 'skills');
-    case 'gemini':
-      return path.join(userHome(env), '.gemini', 'skills');
-  }
 }
 
 // ---- MCP 配置 ----

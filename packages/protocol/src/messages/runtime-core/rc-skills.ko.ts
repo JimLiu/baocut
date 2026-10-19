@@ -119,4 +119,8 @@ export const ko: RcSkillsMessages = {
   linkTargetMissing: (p) => `링크 ${p.link}의 대상 ${p.target} 경로가 BaoCut Skill에 없습니다`,
   agentSkillRenderFailed: (p) => `BaoCut Skill을 렌더링하지 못했습니다: ${p.problem}`,
   agentSkillDirNotFound: (p) => `BaoCut Skill 폴더를 찾을 수 없습니다(${p.dir})`,
+  agentSkillLocationTaken: (p) => `${p.path}에 BaoCut Skill이 아닌 것이 있습니다. BaoCut은 이를 바꾸거나 삭제하지 않습니다. 옮기거나 이름을 바꾼 뒤 다시 시도하세요`,
+  agentSkillBadRoot: (p) => `특정 폴더를 선택하세요. 파일 시스템 루트, 홈 폴더, Agent 설정 폴더나 skills 폴더는 안 됩니다: ${p.path}`,
+  agentSkillRootMissing: (p) => `폴더를 찾을 수 없습니다: ${p.path}`,
+  agentSkillLocalOnly: '다른 에이전트용 BaoCut 스킬 설치는 데스크톱 앱과 CLI에서만 할 수 있습니다',
 };

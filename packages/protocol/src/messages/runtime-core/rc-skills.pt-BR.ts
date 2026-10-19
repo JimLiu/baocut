@@ -121,4 +121,8 @@ export const ptBR: RcSkillsMessages = {
   linkTargetMissing: (p: { link: string; target: string }) => `O link ${p.link} aponta para ${p.target}, que não está na Skill do BaoCut`,
   agentSkillRenderFailed: (p: { problem: string }) => `Não foi possível renderizar a Skill do BaoCut: ${p.problem}`,
   agentSkillDirNotFound: (p: { dir: string }) => `Pasta da Skill do BaoCut não encontrada (${p.dir})`,
+  agentSkillLocationTaken: (p: { path: string }) => `${p.path} já está ocupado por algo que não é a Skill do BaoCut. O BaoCut não substitui nem apaga isso: mova ou renomeie e tente de novo`,
+  agentSkillBadRoot: (p: { path: string }) => `Instale em uma pasta específica, não na raiz do sistema de arquivos, na sua pasta pessoal nem na pasta de configuração ou de skills de um agente: ${p.path}`,
+  agentSkillRootMissing: (p: { path: string }) => `Pasta não encontrada: ${p.path}`,
+  agentSkillLocalOnly: 'Instalar a skill do BaoCut para outros agentes só está disponível no app para desktop e na CLI',
 };

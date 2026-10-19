@@ -397,6 +397,8 @@ try {
     filter: (source) => path.dirname(source) !== path.join(ROOT, 'stickers', 'anim') || path.basename(source) === 'provenance.json',
   });
   cpSync(path.join(ROOT, 'skills'), path.join(resDir, RESOURCE_DIRS.skills), { recursive: true });
+  // 给外部 Agent 装的说明书（Agent 面设计 §8.2）：打包时按 CLI 面渲染好，软链接指向它，随 App 一起更新。
+  run(process.execPath, ['--experimental-strip-types', path.join(ROOT, 'tools/render-agent-skill.ts'), '--out', path.join(resDir, RESOURCE_DIRS.agentSkill, 'baocut')]);
   cpSync(path.join(ROOT, 'packages/models/assets'), path.join(resDir, RESOURCE_DIRS.modelAssets), { recursive: true });
   cpSync(path.join(ROOT, 'apps/web/dist'), path.join(resDir, RESOURCE_DIRS.web), { recursive: true });
   cpSync(SLIDES_EDITOR_DIST, path.join(resDir, RESOURCE_DIRS.slidesEditor), { recursive: true });
@@ -653,6 +655,7 @@ function verifyUnpacked(dir, variantName) {
   }
   for (const sub of Object.values(RESOURCE_DIRS)) if (!existsSync(path.join(resources, sub))) problems.push(`没有 resources/${sub}`);
   if (!existsSync(path.join(resources, RESOURCE_DIRS.web, 'index.html'))) problems.push('没有 resources/web/index.html');
+  if (!existsSync(path.join(resources, RESOURCE_DIRS.agentSkill, 'baocut', 'SKILL.md'))) problems.push(`没有 resources/${RESOURCE_DIRS.agentSkill}/baocut/SKILL.md`);
   for (const file of SLIDES_EDITOR_FILES) {
     if (!existsSync(path.join(resources, RESOURCE_DIRS.slidesEditor, file))) problems.push(`没有 resources/${RESOURCE_DIRS.slidesEditor}/${file}`);
   }

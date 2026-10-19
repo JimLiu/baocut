@@ -16,14 +16,34 @@ export const ru: SkillsMessages = {
 Источник: ${source}` : ""}`,
   idFormat: (flag, value) => `${flag} принимает id Skill (строчные буквы, слова через дефис, см. baocut skills): ${value}`,
 
-  skillHelp: "Использование:\n  baocut skill install --agent <claude-code|codex|cursor|gemini> [--dir <folder>] [--link] [--yes]\n                                   Установить Skill BaoCut для внешних агентов (использование BaoCut) в baocut/\n                                   в папке Skills хоста: Claude Code ~/.claude/skills, Codex ~/.codex/skills,\n                                   Cursor ~/.cursor/skills, Gemini CLI ~/.gemini/skills\n    --dir <folder>                 Другая папка Skills (установка в baocut/ внутри); обязательна без --agent\n    --link                         Разместить Skill в <BAOCUT_HOME>/agent-skills/baocut и ссылку у хоста:\n                                   повторная установка (для любого хоста) обновляет всех\n    --yes                          Заменить существующую цель (для ссылки — только ссылку, не папку назначения);\n                                   без параметра ничего не перезаписывается\n  baocut skill path                Источник Skill BaoCut, места установки каждого хоста и текущее состояние\n                                   установки (Runtime не нужен)",
-  targetExists: (target, linkTarget) => `${target} уже существует (${linkTarget !== null ? `ссылка на ${linkTarget}` : "папка или файл"}); ничего не изменено. Добавьте --yes для замены`,
-  installed: (target, files, linkTo) => pluralForm('ru', files, { one: `Skill BaoCut установлен в ${target} (${files} файл${linkTo ? `, ссылка на ${linkTo}` : ''})`, few: `Skill BaoCut установлен в ${target} (${files} файла${linkTo ? `, ссылка на ${linkTo}` : ''})`, many: `Skill BaoCut установлен в ${target} (${files} файлов${linkTo ? `, ссылка на ${linkTo}` : ''})`, other: `Skill BaoCut установлен в ${target} (${files} файла${linkTo ? `, ссылка на ${linkTo}` : ''})` }),
-  takesEffect: (host) => (host ? `Применяется в новой сессии ${host}` : "Применяется в новой сессии"),
-  pathEscapes: (path) => `Путь в Skill BaoCut указывает за пределы папки: ${path}`,
-  sourceLine: (dir) => `Источник  ${dir ?? "not found (BaoCut isn't installed and this isn't the repository; you can set BAOCUT_AGENT_SKILLS_DIR)"}`,
-  notInstalled: "Не установлен",
-  linkState: (target) => `Ссылка → ${target}`,
-  installedFolder: "Установлено (папка)",
-  isFile: "Файл (не папка Skill)",
+  skillHelp: `Использование:
+  baocut skill install [--dir <папка>]… [--agent agents|claude] [--copy]
+                                   Устанавливает навык BaoCut для внешних агентов (как пользоваться BaoCut). По умолчанию в
+                                   ~/.agents/skills/baocut (Codex и другие агенты) и ~/.claude/skills/baocut (Claude Code)
+                                   как ссылки на навык внутри приложения BaoCut, поэтому он обновляется вместе с приложением
+    --dir <папка>                  Установить вместо этого в <папка>/.agents/skills и <папка>/.claude/skills: любая папка,
+                                   не только проект BaoCut; повторите для нескольких папок
+    --agent agents|claude          Только одно из двух: .agents/skills или .claude/skills
+    --copy                         Копировать вместо ссылки (копия не обновляется с приложением: установите заново)
+  baocut skill status              Версия навыка в приложении, где он установлен и актуально ли каждое место,
+                                   и команда baocut в вашем терминале
+  baocut skill remove [--dir <папка>]… [--agent agents|claude] [--yes]
+                                   Удалить: у ссылки удаляется только ссылка; для удаления копии нужен --yes.
+                                   То, что лежит в baocut/ и не является навыком BaoCut, никогда не заменяется и не удаляется`,
+  installedAt: (path, linkTarget) => `Установлено: ${path}${linkTarget ? ` → ${linkTarget}` : ' (копия)'}`,
+  takesEffect: 'Действует в новой сессии агента',
+  removedAt: (path) => `Удалено: ${path}`,
+  removeCopies: (paths) =>
+    `${paths.join(', ')} — ${paths.length === 1 ? 'копия' : 'копии'}: удаление сотрёт файлы вместе со сделанными там правками. Добавьте --yes, чтобы удалить`,
+  unknownAgent: (value) => `--agent принимает agents (.agents/skills) или claude (.claude/skills): ${value}`,
+  fixHint: 'Некоторые установки устарели или сломаны: baocut skill install (с тем же --dir) исправит их',
+  statusSkill: (version, source, bundled) => `Навык     ${version ?? '?'}  ${source}${bundled ? '' : ' (сборка для разработки: создан Runtime)'}`,
+  statusCli: (entry) => `CLI       ${entry ?? 'не входит в сборку (сборка для разработки)'}`,
+  statusOnPath: (path, target, fromApp) => `Терминал  ${path}${target ? ` → ${target}` : ''}${fromApp ? ' (из этого приложения)' : ' (не из этого приложения)'}`,
+  statusNotOnPath: (command) => `Терминал  baocut нет в PATH${command ? `; чтобы пользоваться им в любом терминале: ${command}` : ''}`,
+  statusAddToPath: (dir) => `Терминал  baocut нет в PATH; чтобы пользоваться им в любом терминале, добавьте ${dir} в PATH пользователя`,
+  appOutsideApplications: 'BaoCut запущен не из папки «Программы»: ссылки сломаются, если переместить или удалить приложение',
+  globalHeading: 'Глобально',
+  state: { none: 'Не установлен', current: 'Актуален', stale: 'Устарел', broken: 'Сломанная ссылка', foreign: 'Там что-то другое (не трогаем)' },
+  mode: { link: 'Ссылка', copy: 'Копия' },
 };

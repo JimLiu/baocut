@@ -89,6 +89,63 @@ export interface CatalogAgentSkill {
 }
 
 /**
+ * 外部 Agent 的说明书装在哪（Agent 面设计 §8.2）：两个宿主目录下的 `baocut/`。`.agents/skills` 给 Codex 等遵循 Agent Skills 约定的
+ * Agent，`.claude/skills` 给 Claude Code。全局在用户主目录下，按目录装在任意一个文件夹下。
+ */
+export const AGENT_SKILL_HOST_FOLDERS = ['.agents/skills', '.claude/skills'] as const;
+export type AgentSkillHostFolder = (typeof AGENT_SKILL_HOST_FOLDERS)[number];
+/** `link`：放一个指向 App 自带那份的软链接（默认）；`copy`：复制一份。 */
+export type AgentSkillInstallMode = 'link' | 'copy';
+/**
+ * 一处位置的状态：`none` 没有；`current` 软链接指向 App 自带的那份，或副本与它逐字相同；`stale` 副本与它不同，或软链接指向另一份
+ * BaoCut 说明书；`broken` 软链接指向的位置不在了；`foreign` 那里有一个不是 BaoCut 说明书的东西，BaoCut 永不覆盖或删除它。
+ */
+export type AgentSkillLocationState = 'none' | 'current' | 'stale' | 'broken' | 'foreign';
+
+/** 一处位置：`root` 为 null 是全局（用户主目录），否则是按目录装的那个文件夹（绝对路径）。 */
+export interface AgentSkillTarget {
+  root: string | null;
+  folder: AgentSkillHostFolder;
+}
+
+export interface AgentSkillLocation extends AgentSkillTarget {
+  /** `<root>/<folder>/baocut` 的绝对路径。 */
+  path: string;
+  state: AgentSkillLocationState;
+  /** BaoCut 的说明书是怎么放的；`none` 与 `foreign` 为 null。 */
+  mode: AgentSkillInstallMode | null;
+  /** 装着的那份 `SKILL.md` 的 `version`；没有或读不到时 null。 */
+  version: string | null;
+  /** 软链接指向的绝对路径；不是软链接时 null。 */
+  linkTarget: string | null;
+}
+
+/** App 自带的命令行入口，与终端里的 `baocut` 实际是哪一个。 */
+export interface AgentSkillCliStatus {
+  /** 打包后的 App 里的入口（macOS `BaoCut.app/Contents/MacOS/baocut-cli`，Windows 安装目录里的 `baocut.cmd`）；开发时 null。 */
+  entry: string | null;
+  /** PATH（与常见的安装位置）里找到的 `baocut`；`target` 是它解析软链接后的位置（与 `path` 相同时 null），`fromApp` 指它就是 `entry`。 */
+  onPath: { path: string; target: string | null; fromApp: boolean } | null;
+}
+
+/** `agentSkill.status` 与写操作的结果。 */
+export interface AgentSkillStatus {
+  /** App 自带那份 `SKILL.md` 的 `version`。 */
+  version: string | null;
+  /** App 自带的那份（软链接指向它，副本从它复制）。 */
+  source: string;
+  /** `source` 在打包后的 App 里；开发时为 false（Runtime 渲染进 Runtime Home）。 */
+  bundled: boolean;
+  /** macOS 上 App 不在「应用程序」文件夹里运行：之后移动或删除它，软链接就会失效。 */
+  appOutsideApplications: boolean;
+  cli: AgentSkillCliStatus;
+  /** 全局的两处在前，再按 `dirs` 的顺序每个文件夹两处。 */
+  locations: AgentSkillLocation[];
+  /** 按目录装过、现在至少还有一处 BaoCut 说明书的文件夹。 */
+  dirs: string[];
+}
+
+/**
  * 工具名与参数名在 CLI 上的写法（Agent 面设计 §4.1）。CLI 的命令树与旗标、Runtime 给 CLI 渲染的 `next`、说明书的渲染器
  * （`agent-skill-renderer.ts`）与 craft 同步脚本共用这一份规则：
  *

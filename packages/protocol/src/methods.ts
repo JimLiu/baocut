@@ -64,7 +64,15 @@ import type {
   FontsUsageResult,
 } from './fonts.ts';
 import type { ToolCandidatesParams, ToolCandidatesResult, ToolsListResult } from './tool-catalogue.ts';
-import type { CatalogAgentSkill, CatalogCallParams, CatalogCallResult, CatalogListResult } from './catalog.ts';
+import type {
+  AgentSkillInstallMode,
+  AgentSkillStatus,
+  AgentSkillTarget,
+  CatalogAgentSkill,
+  CatalogCallParams,
+  CatalogCallResult,
+  CatalogListResult,
+} from './catalog.ts';
 import type { UsageReport, UsageRequest } from './usage.ts';
 import type {
   AddProviderAccountRequest,
@@ -1067,6 +1075,19 @@ export interface RpcMethods {
    * `conflict`（`AGENT_SKILL_INVALID`，带文件与行号）。只给 `cli` 与 `desktop` 连接，其余 `forbidden`。
    */
   'catalog.agentSkill': { params: Record<string, never>; result: CatalogAgentSkill };
+  /**
+   * 给外部 Agent 装说明书（Agent 面设计 §8.2）：两个宿主目录在全局与按目录装过的文件夹里的状态、App 自带的那份在哪、终端里的 `baocut`。
+   * 浏览器也能看；装与移除只给 `cli` 与 `desktop` 连接。
+   */
+  'agentSkill.status': { params: Record<string, never>; result: AgentSkillStatus };
+  /**
+   * 装、更新、修复或换方式：没有的装上，BaoCut 的按给的 `mode` 重装（软链接指向 App 自带的那份）。任一处是 `foreign` 时整批不动，
+   * `conflict`（`AGENT_SKILL_LOCATION_TAKEN`）；`root` 不是一个可用的文件夹时 `invalid-request`（`AGENT_SKILL_BAD_ROOT`）或
+   * `not-found`（`AGENT_SKILL_ROOT_NOT_FOUND`）。
+   */
+  'agentSkill.install': { params: { targets: (AgentSkillTarget & { mode: AgentSkillInstallMode })[] }; result: AgentSkillStatus };
+  /** 移除：软链接只删链接，副本连文件一起删（界面先确认）；`foreign` 同上拒绝。 */
+  'agentSkill.remove': { params: { targets: AgentSkillTarget[] }; result: AgentSkillStatus };
   /** 受管外部工具（架构设计 §12.9）的状态：上次探测的结果（第一次调用时探测）。只在本机执行 `--version`，不联网。 */
   'externalTools.list': { params: Record<string, never>; result: { tools: ExternalToolStatus[] } };
   /** 重新探测（全部，或 `name` 这一个），返回全部工具的状态。 */

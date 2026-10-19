@@ -11,6 +11,7 @@ import { languageTag } from './language-schemas.ts';
 import { USAGE_PERIODS } from './usage.ts';
 import { MAX_SELECTED_GLOSSARIES, MAX_SPEAKER_VOICES } from './library.ts';
 import { WEB_METHOD_PATTERN } from './web.ts';
+import { AGENT_SKILL_HOST_FOLDERS } from './catalog.ts';
 import { SLIDE_ANNOTATION_LIMITS } from './slides.ts';
 import { DESIGN_ANNOTATION_LIMITS } from './design.ts';
 import { DESIGN_SYSTEM_ANNOTATION_LIMITS } from './design-system.ts';
@@ -493,6 +494,14 @@ const absolutePath = z
   .string()
   .max(4096)
   .regex(/^(?:\/|[A-Za-z]:[\\/]|\\\\[^\\/\0]+[\\/][^\\/\0]+(?:[\\/]|$))[^\0]*$/, { error: () => V.absolutePath().text });
+
+/** 给外部 Agent 装说明书的一处位置：`root` 为 null 是全局；否则是一个文件夹，绝对路径或 `~/` 开头（Runtime 展开、再校验）。 */
+const agentSkillTarget = z
+  .object({
+    root: z.union([absolutePath, z.string().max(4096).regex(/^~(?:[\\/][^\0]*)?$/)]).nullable(),
+    folder: z.enum(AGENT_SKILL_HOST_FOLDERS),
+  })
+  .strict();
 
 /**
  * 下载镜像列表（`models.downloadMirrors` / `tools.downloadMirrors`）：基址规则同下载来源，存的时候去掉结尾的 `/`、名字去掉首尾空白；
@@ -1351,6 +1360,11 @@ export const methodParamSchemas = {
   'pipelines.retry': z.object({ jobId: id }).strict(),
   'catalog.list': z.object({}).strict(),
   'catalog.agentSkill': z.object({}).strict(),
+  'agentSkill.status': z.object({}).strict(),
+  'agentSkill.install': z
+    .object({ targets: z.array(agentSkillTarget.extend({ mode: z.enum(['link', 'copy']) }).strict()).min(1).max(64) })
+    .strict(),
+  'agentSkill.remove': z.object({ targets: z.array(agentSkillTarget).min(1).max(64) }).strict(),
   // `project` 只收绝对路径：`--project` 的相对路径由 CLI 按 cwd 解析好再发。
   'catalog.call': z
     .object({ name: z.string().min(1).max(100), args: z.unknown(), cwd: absolutePath, project: absolutePath.nullable().optional() })

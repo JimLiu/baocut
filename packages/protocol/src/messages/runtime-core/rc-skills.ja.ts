@@ -127,4 +127,8 @@ export const ja: RcSkillsMessages = {
   linkTargetMissing: (p) => `リンク ${p.link} の指す ${p.target} は BaoCut Skill 内にありません`,
   agentSkillRenderFailed: (p) => `BaoCut Skill をレンダリングできませんでした：${p.problem}`,
   agentSkillDirNotFound: (p) => `BaoCut Skill のフォルダが見つかりません（${p.dir}）`,
+  agentSkillLocationTaken: (p) => `${p.path} には BaoCut の Skill ではないものがあります。BaoCut は置き換えも削除もしません。移動するか名前を変えてから、もう一度試してください`,
+  agentSkillBadRoot: (p) => `特定のフォルダを選んでください。ファイルシステムのルート、ホームフォルダ、Agent の設定フォルダや skills フォルダは選べません：${p.path}`,
+  agentSkillRootMissing: (p) => `フォルダが見つかりません：${p.path}`,
+  agentSkillLocalOnly: 'ほかのエージェント向けの BaoCut スキルのインストールは、デスクトップアプリと CLI でのみ行えます',
 };

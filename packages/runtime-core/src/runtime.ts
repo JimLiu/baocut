@@ -1160,6 +1160,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       catalog: tools.withView({ surface: 'cli' }),
       agentSkillsDir,
       globalBrandDir: home.root,
+      agentSkillHome: home.root,
       activity,
       requestStop: options.requestStop ?? null,
       legacyUpgrade,

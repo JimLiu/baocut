@@ -119,4 +119,8 @@ export const zhHant: RcSkillsMessages = {
   linkTargetMissing: (p) => `連結 ${p.link} 指向的 ${p.target} 不在 BaoCut Skill 中`,
   agentSkillRenderFailed: (p) => `無法渲染 BaoCut Skill：${p.problem}`,
   agentSkillDirNotFound: (p) => `找不到 BaoCut Skill 資料夾（${p.dir}）`,
+  agentSkillLocationTaken: (p) => `${p.path} 已經有一個不是 BaoCut 說明書的東西，BaoCut 不會取代或刪除它：移走或改名後再試`,
+  agentSkillBadRoot: (p) => `請選一個具體的資料夾，不能是檔案系統根目錄、使用者主目錄，或 Agent 的設定目錄、skills 目錄：${p.path}`,
+  agentSkillRootMissing: (p) => `找不到這個資料夾：${p.path}`,
+  agentSkillLocalOnly: '只能在桌面應用程式或命令列中為其他 Agent 安裝 BaoCut 說明書',
 };

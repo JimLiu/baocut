@@ -117,4 +117,8 @@ export const pl: RcSkillsMessages = {
   linkTargetMissing: (p) => `Link ${p.link} wskazuje na ${p.target}, którego nie ma w Skill BaoCut`,
   agentSkillRenderFailed: (p) => `Nie można wyrenderować Skill BaoCut: ${p.problem}`,
   agentSkillDirNotFound: (p) => `Nie można znaleźć folderu Skill BaoCut (${p.dir})`,
+  agentSkillLocationTaken: (p) => `W ${p.path} jest już coś, co nie jest Skill BaoCut. BaoCut tego nie zastąpi ani nie usunie: przenieś lub zmień nazwę i spróbuj ponownie`,
+  agentSkillBadRoot: (p) => `Zainstaluj w konkretnym folderze, nie w katalogu głównym systemu plików, folderze domowym ani folderze konfiguracji lub skills agenta: ${p.path}`,
+  agentSkillRootMissing: (p) => `Nie znaleziono folderu: ${p.path}`,
+  agentSkillLocalOnly: 'Instalowanie skilla BaoCut dla innych agentów jest dostępne tylko w aplikacji desktopowej i w CLI',
 };

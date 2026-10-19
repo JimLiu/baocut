@@ -22,23 +22,30 @@ export const zhHans: SkillsMessages = {
   idFormat: (flag, value) => `${flag} 要给 skill id（小写，连字符分隔，见 baocut skills）：${value}`,
 
   skillHelp: `用法：
-  baocut skill install --agent <claude-code|codex|cursor|gemini> [--dir <目录>] [--link] [--yes]
-                                   把给外部 Agent 的说明书（BaoCut 怎么用）装进宿主的 skills 目录的 baocut/：
-                                   Claude Code ~/.claude/skills，Codex ~/.codex/skills，Cursor ~/.cursor/skills，
-                                   Gemini CLI ~/.gemini/skills
-    --dir <目录>                   换一个 skills 目录（装进它下面的 baocut/）；不给 --agent 时必须给
-    --link                         渲染结果放在 <BAOCUT_HOME>/agent-skills/baocut，宿主里放指向它的链接：
-                                   之后再装一次（任何宿主）就一起更新
-    --yes                          目标已存在时替换它（是链接时只换链接，不动它指向的目录）；不给时不覆盖
-  baocut skill path                说明书的来源目录与各宿主的安装位置、现在装了什么（不需要 Runtime）`,
-  targetExists: (target, linkTarget) =>
-    `${target} 已经存在（${linkTarget !== null ? `链接到 ${linkTarget}` : '目录或文件'}），没有改动；要替换就加 --yes`,
-  installed: (target, files, linkTo) => `已把说明书装进 ${target}（${files} 个文件${linkTo ? `，链接到 ${linkTo}` : ''}）`,
-  takesEffect: (host) => (host ? `新开一个 ${host} 会话后生效` : '新开一个会话后生效'),
-  pathEscapes: (path) => `说明书里的路径越界：${path}`,
-  sourceLine: (dir) => `来源      ${dir ?? '找不到（没有装 BaoCut，也不在仓库里；可设 BAOCUT_AGENT_SKILLS_DIR）'}`,
-  notInstalled: '未安装',
-  linkState: (target) => `链接 → ${target}`,
-  installedFolder: '已安装（目录）',
-  isFile: '是一个文件（不是 skill 目录）',
+  baocut skill install [--dir <文件夹>]… [--agent agents|claude] [--copy]
+                                   给外部 Agent 装 BaoCut 说明书（BaoCut 怎么用）。默认装到 ~/.agents/skills/baocut
+                                   （Codex 等 Agent）与 ~/.claude/skills/baocut（Claude Code），是指向 BaoCut 应用里那份的软链接，
+                                   随应用更新
+    --dir <文件夹>                 改装到 <文件夹>/.agents/skills 与 <文件夹>/.claude/skills：任意文件夹，不只是 BaoCut 项目；
+                                   可以给多个
+    --agent agents|claude          两处只装一处：.agents/skills 或 .claude/skills
+    --copy                         复制一份而不是软链接（副本不随应用更新，要再装一次）
+  baocut skill status              应用自带的说明书版本、装在哪些位置、每处是不是最新，以及终端里的 baocut 命令
+  baocut skill remove [--dir <文件夹>]… [--agent agents|claude] [--yes]
+                                   移除：软链接只删链接；删副本要加 --yes。baocut/ 那里不是 BaoCut 说明书的东西永不替换或删除`,
+  installedAt: (path, linkTarget) => `已装好 ${path}${linkTarget ? ` → ${linkTarget}` : '（副本）'}`,
+  takesEffect: '新开一个 Agent 会话后生效',
+  removedAt: (path) => `已移除 ${path}`,
+  removeCopies: (paths) => `${paths.join('、')} 是副本：移除会删掉这些文件，包括在里面改过的内容。要删就加 --yes`,
+  unknownAgent: (value) => `--agent 只认 agents（.agents/skills）或 claude（.claude/skills）：${value}`,
+  fixHint: '有的位置过期或失效了：baocut skill install（带上同样的 --dir）就能修好',
+  statusSkill: (version, source, bundled) => `说明书    ${version ?? '?'}  ${source}${bundled ? '' : '（开发版：由 Runtime 渲染）'}`,
+  statusCli: (entry) => `命令行    ${entry ?? '未随包（开发版）'}`,
+  statusOnPath: (path, target, fromApp) => `终端      ${path}${target ? ` → ${target}` : ''}${fromApp ? '（就是这个应用的）' : '（不是这个应用的）'}`,
+  statusNotOnPath: (command) => `终端      PATH 里没有 baocut${command ? `；想在任何终端里用：${command}` : ''}`,
+  statusAddToPath: (dir) => `终端      PATH 里没有 baocut；想在任何终端里用，把 ${dir} 加进用户的 PATH`,
+  appOutsideApplications: 'BaoCut 不是从「应用程序」文件夹运行的：移动或删除应用后软链接会失效',
+  globalHeading: '全局',
+  state: { none: '未安装', current: '最新', stale: '过期', broken: '链接失效', foreign: '已有别的东西（不动它）' },
+  mode: { link: '软链接', copy: '副本' },
 };

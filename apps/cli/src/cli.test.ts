@@ -74,19 +74,14 @@ describe('runCli：不为拼错的命令或帮助拉起 Runtime（Agent 面设�
     expect(result.stdout).toMatch(/baocut videos delete .*--yes/);
   });
 
-  it('skill path 不连 Runtime；help skill、help mcp 有用法', async () => {
-    const result = await cli(['skill', 'path', '--json']);
-    expect(result.code).toBe(0);
-    expect(JSON.parse(result.stdout).result.hosts.map((host: { agent: string }) => host.agent)).toEqual([
-      'claude-code',
-      'codex',
-      'cursor',
-      'gemini',
-    ]);
-    for (const noun of ['skill', 'mcp']) {
-      const help = await cli(['help', noun]);
+  it('help skill、help mcp 有用法，不连 Runtime', async () => {
+    for (const [noun, usage] of [
+      ['skill', 'baocut skill install [--dir'],
+      ['mcp', 'baocut mcp install --agent'],
+    ]) {
+      const help = await cli(['help', noun!]);
       expect(help.code, noun).toBe(0);
-      expect(help.stdout, noun).toContain(`baocut ${noun} install --agent`);
+      expect(help.stdout, noun).toContain(usage);
     }
     expect(fs.readdirSync(home)).toEqual([]);
   });

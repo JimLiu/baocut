@@ -16,14 +16,34 @@ export const pl: SkillsMessages = {
 Źródło: ${source}` : ""}`,
   idFormat: (flag, value) => `${flag} przyjmuje id Skill (małe litery, słowa z łącznikami, zobacz baocut skills): ${value}`,
 
-  skillHelp: "Użycie:\n  baocut skill install --agent <claude-code|codex|cursor|gemini> [--dir <folder>] [--link] [--yes]\n                                   Zainstaluj Skill BaoCut dla agentów zewnętrznych (używanie BaoCut) w baocut/\n                                   w folderze Skills hosta: Claude Code ~/.claude/skills, Codex ~/.codex/skills,\n                                   Cursor ~/.cursor/skills, Gemini CLI ~/.gemini/skills\n    --dir <folder>                 Inny folder Skills (instalacja w baocut/ wewnątrz); wymagany bez --agent\n    --link                         Umieść Skill w <BAOCUT_HOME>/agent-skills/baocut i dowiązanie u hosta:\n                                   kolejna instalacja (dla dowolnego hosta) aktualizuje wszystkich\n    --yes                          Zastąp istniejący cel (dla dowiązania – tylko dowiązanie, nie folder docelowy);\n                                   bez parametru nic nie jest nadpisywane\n  baocut skill path                Źródło Skill BaoCut, lokalizacje instalacji każdego hosta i obecny stan\n                                   instalacji (bez Runtime)",
-  targetExists: (target, linkTarget) => `${target} już istnieje (${linkTarget !== null ? `dowiązanie do ${linkTarget}` : "folder lub plik"}); nic nie zmieniono. Dodaj --yes, aby zastąpić`,
-  installed: (target, files, linkTo) => pluralForm('pl', files, { one: `Skill BaoCut zainstalowano w ${target} (${files} plik${linkTo ? `, dowiązanie do ${linkTo}` : ''})`, few: `Skill BaoCut zainstalowano w ${target} (${files} pliki${linkTo ? `, dowiązanie do ${linkTo}` : ''})`, many: `Skill BaoCut zainstalowano w ${target} (${files} plików${linkTo ? `, dowiązanie do ${linkTo}` : ''})`, other: `Skill BaoCut zainstalowano w ${target} (${files} pliku${linkTo ? `, dowiązanie do ${linkTo}` : ''})` }),
-  takesEffect: (host) => (host ? `Działa w nowej sesji ${host}` : "Działa w nowej sesji"),
-  pathEscapes: (path) => `Ścieżka w Skill BaoCut wykracza poza folder: ${path}`,
-  sourceLine: (dir) => `Źródło    ${dir ?? "not found (BaoCut isn't installed and this isn't the repository; you can set BAOCUT_AGENT_SKILLS_DIR)"}`,
-  notInstalled: "Nie zainstalowano",
-  linkState: (target) => `Dowiązanie → ${target}`,
-  installedFolder: "Zainstalowane (folder)",
-  isFile: "Plik (nie folder Skill)",
+  skillHelp: `Użycie:
+  baocut skill install [--dir <folder>]… [--agent agents|claude] [--copy]
+                                   Instaluje skill BaoCut dla zewnętrznych agentów (jak używać BaoCut). Domyślnie w
+                                   ~/.agents/skills/baocut (Codex i inni agenci) oraz ~/.claude/skills/baocut (Claude Code),
+                                   jako dowiązania do skilla w aplikacji BaoCut, więc aktualizuje się razem z aplikacją
+    --dir <folder>                 Zamiast tego instaluje w <folder>/.agents/skills i <folder>/.claude/skills: dowolny
+                                   folder, nie tylko projekt BaoCut; powtórz dla kilku folderów
+    --agent agents|claude          Tylko jedno z dwóch: .agents/skills albo .claude/skills
+    --copy                         Kopiuje zamiast dowiązywać (kopia nie śledzi aktualizacji: zainstaluj ponownie)
+  baocut skill status              Wersja skilla w aplikacji, gdzie jest zainstalowany i czy każde miejsce jest aktualne,
+                                   oraz polecenie baocut w terminalu
+  baocut skill remove [--dir <folder>]… [--agent agents|claude] [--yes]
+                                   Usuwa: dla dowiązania znika tylko dowiązanie; usunięcie kopii wymaga --yes.
+                                   To, co jest w baocut/ i nie jest skillem BaoCut, nigdy nie jest zastępowane ani usuwane`,
+  installedAt: (path, linkTarget) => `Zainstalowano: ${path}${linkTarget ? ` → ${linkTarget}` : ' (kopia)'}`,
+  takesEffect: 'Działa w nowej sesji agenta',
+  removedAt: (path) => `Usunięto: ${path}`,
+  removeCopies: (paths) =>
+    `${paths.join(', ')} — ${paths.length === 1 ? 'to kopia' : 'to kopie'}: usunięcie skasuje pliki razem ze zmianami wprowadzonymi w nich. Dodaj --yes, aby usunąć`,
+  unknownAgent: (value) => `--agent przyjmuje agents (.agents/skills) albo claude (.claude/skills): ${value}`,
+  fixHint: 'Niektóre instalacje są nieaktualne lub uszkodzone: baocut skill install (z tym samym --dir) je naprawi',
+  statusSkill: (version, source, bundled) => `Skill     ${version ?? '?'}  ${source}${bundled ? '' : ' (wersja deweloperska: generowany przez Runtime)'}`,
+  statusCli: (entry) => `CLI       ${entry ?? 'nie dołączone (wersja deweloperska)'}`,
+  statusOnPath: (path, target, fromApp) => `Terminal  ${path}${target ? ` → ${target}` : ''}${fromApp ? ' (z tej aplikacji)' : ' (nie z tej aplikacji)'}`,
+  statusNotOnPath: (command) => `Terminal  baocut nie ma w PATH${command ? `; aby używać go w każdym terminalu: ${command}` : ''}`,
+  statusAddToPath: (dir) => `Terminal  baocut nie ma w PATH; aby używać go w każdym terminalu, dodaj ${dir} do PATH użytkownika`,
+  appOutsideApplications: 'BaoCut nie działa z folderu Aplikacje: dowiązania przestaną działać, jeśli przeniesiesz lub usuniesz aplikację',
+  globalHeading: 'Globalnie',
+  state: { none: 'Nie zainstalowano', current: 'Aktualny', stale: 'Nieaktualny', broken: 'Uszkodzone dowiązanie', foreign: 'Jest tam coś innego (bez zmian)' },
+  mode: { link: 'Dowiązanie', copy: 'Kopia' },
 };

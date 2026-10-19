@@ -18,7 +18,7 @@
 
 - 仓库：分支 `agent/e2e-acceptance`（worktree），CLI 用 worktree 的 `apps/cli/src/main.ts`，经 PATH 里的 `baocut` 包装脚本调用。没有装打包的 App，`resolveRuntimeLaunch` 落到仓库的 `apps/runtime/src/main.ts`。
 - Runtime：隔离的 `BAOCUT_HOME`，CLI 一腿 `<E>/home`，MCP 一腿 `<E>/home-mcp`（各自复制了 yt-dlp 的同意记录）；`BAOCUT_MODELS_DIR` 指向本机已有的权重，engine-host 与 model-worker 只读复用已构建的二进制，没有构建。下载目录 `<E>/downloads`、`<E>/downloads-mcp`。
-- 外部 Agent：Claude Code 2.1.292，`claude -p … --output-format stream-json --verbose --setting-sources project --no-session-persistence`，cwd 是只装了 BaoCut skill 的项目目录（`baocut skill install --dir <项目>/.claude/skills`）。stream-json 的 init 记下的模型：CLI 一腿 claude-fable-5-1，MCP 一腿 claude-opus-5-5（两腿模型不同，没有查明原因）。
+- 外部 Agent：Claude Code 2.1.292，`claude -p … --output-format stream-json --verbose --setting-sources project --no-session-persistence`，cwd 是只装了 BaoCut skill 的项目目录（当时的 `baocut skill install --dir <项目>/.claude/skills`；2026-10-18 起写作 `baocut skill install --dir <项目> --agent claude`）。stream-json 的 init 记下的模型：CLI 一腿 claude-fable-5-1，MCP 一腿 claude-opus-5-5（两腿模型不同，没有查明原因）。
 - 视频：NASA Langley 的「How Do We Do Research in Zero Gravity? We Asked a NASA Expert」，Wikimedia Commons 上的公有领域 webm，132 秒，1920×1080（`https://upload.wikimedia.org/wikipedia/commons/c/ce/How_Do_We_Do_Research_in_Zero_Gravity_-_We_Asked_a_NASA_Expert.webm`）。
 - 任务原文（两腿相同，MCP 一腿前面多一句「BaoCut 已经作为 MCP 服务（baocut）接到你这里了」）：转录英文原声；字幕由你自己翻译成简体中文；在视频里建一个中英双语字幕层；导出带双语字幕的 mp4 成片，以及双语 srt 字幕文件；做完给交付报告。
 

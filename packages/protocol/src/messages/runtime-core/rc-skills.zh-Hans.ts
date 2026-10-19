@@ -117,4 +117,8 @@ export const zhHans: RcSkillsMessages = {
   linkTargetMissing: (p) => `链接 ${p.link} 指向的 ${p.target} 不在说明书里`,
   agentSkillRenderFailed: (p) => `说明书渲染不了：${p.problem}`,
   agentSkillDirNotFound: (p) => `找不到说明书目录（${p.dir}）`,
+  agentSkillLocationTaken: (p) => `${p.path} 已经有一个不是 BaoCut 说明书的东西，BaoCut 不会替换或删除它：移走或改名后再试`,
+  agentSkillBadRoot: (p) => `请选一个具体的文件夹，不能是文件系统根目录、用户主目录，或 Agent 的配置目录、skills 目录：${p.path}`,
+  agentSkillRootMissing: (p) => `找不到这个文件夹：${p.path}`,
+  agentSkillLocalOnly: '只能在桌面应用或命令行里为其他 Agent 安装 BaoCut 说明书',
 };

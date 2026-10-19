@@ -6,7 +6,6 @@ import {
   clientIdOfToken,
   codexSectionRange,
   hasMcpEntry,
-  hostSkillsDir,
   jsonIndent,
   mcpHostConfig,
   parseAgentHost,
@@ -29,14 +28,8 @@ const entry = { name: 'baocut', url: 'http://127.0.0.1:47620/mcp', token: 'bct_s
 const readJson = (file: string) => JSON.parse(fs.readFileSync(file, 'utf8')) as Record<string, any>;
 
 describe('宿主的位置', () => {
-  it('skills 目录：默认在 HOME 下，CLAUDE_CONFIG_DIR、CODEX_HOME 生效', () => {
-    expect(hostSkillsDir('claude-code', env)).toBe(path.join(home, '.claude', 'skills'));
-    expect(hostSkillsDir('codex', env)).toBe(path.join(home, '.codex', 'skills'));
-    expect(hostSkillsDir('cursor', env)).toBe(path.join(home, '.cursor', 'skills'));
-    expect(hostSkillsDir('gemini', env)).toBe(path.join(home, '.gemini', 'skills'));
+  it('MCP 配置：CLAUDE_CONFIG_DIR、CODEX_HOME 生效', () => {
     const custom = { ...env, CLAUDE_CONFIG_DIR: path.join(home, 'cc'), CODEX_HOME: path.join(home, 'cx') };
-    expect(hostSkillsDir('claude-code', custom)).toBe(path.join(home, 'cc', 'skills'));
-    expect(hostSkillsDir('codex', custom)).toBe(path.join(home, 'cx', 'skills'));
     expect(mcpHostConfig('claude-code', custom).file).toBe(path.join(home, 'cc', '.claude.json'));
     expect(mcpHostConfig('codex', custom).file).toBe(path.join(home, 'cx', 'config.toml'));
   });

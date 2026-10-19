@@ -31,7 +31,7 @@ export interface AdminNoun<O extends ParseArgsOptionsConfig = ParseArgsOptionsCo
   /** 与目录同名的名词（`models`、`jobs`、`space`、`library`、`skills`）只认这些子命令，其余交给派生命令。 */
   verbs?: readonly string[];
   partial?: true;
-  /** 不连 Runtime 的子命令（`skill path`）：`ctx.client` 不可用。 */
+  /** 不连 Runtime 的子命令：`ctx.client` 不可用。 */
   offline?: readonly string[];
   /** `baocut <名词> --help` 与 `baocut help <名词>` 的正文。 */
   usage: string;

@@ -141,6 +141,10 @@ const en = {
   linkTargetMissing: (p: { link: string; target: string }) => `Link ${p.link} points to ${p.target}, which isn't in the BaoCut skill`,
   agentSkillRenderFailed: (p: { problem: string }) => `Couldn't render the BaoCut skill: ${p.problem}`,
   agentSkillDirNotFound: (p: { dir: string }) => `Can't find the BaoCut skill folder (${p.dir})`,
+  agentSkillLocationTaken: (p: { path: string }) => `${p.path} is already taken by something that isn't the BaoCut skill. BaoCut won't replace or delete it: move or rename it, then try again`,
+  agentSkillBadRoot: (p: { path: string }) => `Install into a specific folder, not the file system root, your home folder, or an agent's config or skills folder: ${p.path}`,
+  agentSkillRootMissing: (p: { path: string }) => `Folder not found: ${p.path}`,
+  agentSkillLocalOnly: 'Installing the BaoCut skill for other agents is only available in the desktop app and the CLI',
 };
 
 export type RcSkillsMessages = typeof en;

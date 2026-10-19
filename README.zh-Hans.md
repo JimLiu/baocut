@@ -75,7 +75,7 @@ Fish Audio S2 Pro 可在本机使用 MLX 社区 8-bit 权重，支持内置音�
 | --- | --- |
 | **桌面应用**（Electron） | 在 Home 与智能体协作，在 Space 浏览项目产物；在时间线编辑器中预览、修改、撤销和查看字幕。 |
 | **CLI** `baocut` | 面向脚本与终端的轻量客户端。输出被管道接收时使用 JSON，退出码说明是否需要用户处理。 |
-| **MCP 服务 + BaoCut skill** | 让你自己的智能体（Claude Code、Codex、Cursor、Gemini CLI 等）通过同一份工具目录操作 BaoCut。`baocut skill install` 安装使用说明，`baocut mcp install` 配置 MCP 接入。 |
+| **MCP 服务 + BaoCut skill** | 让你自己的智能体（Claude Code、Codex、Cursor、Gemini CLI 等）通过同一份工具目录操作 BaoCut。`baocut skill install` 把使用说明以软链接装进 `~/.agents/skills` 与 `~/.claude/skills`（或任意文件夹），随应用更新；`baocut mcp install` 配置 MCP 接入。 |
 | **Web 客户端** | 用 `baocut web open --video <id>` 获取一次性链接，在浏览器打开视频的编辑器，查看远端智能体的工作结果。 |
 
 **选择自己的智能体引擎。** Claude Code 与 Codex CLI 已有端到端验证；GitHub Copilot CLI、Pi 和 OpenCode 已内置接入。支持 Agent Client Protocol 的智能体（如 Qwen Code（千问）、Gemini CLI、Cursor Agent、Grok、Kimi Code，或自行添加的引擎）通过统一驱动接入。各引擎的验证状态见下文。
@@ -245,7 +245,9 @@ BaoCut 正在积极开发，macOS Apple Silicon 与 Windows x64 安装包见上�
 | `BAOCUT_MODELS_ENDPOINT` | 本地模型的下载来源（基址），优先于“模型下载来源”设置。默认 `https://huggingface.co`；`https://www.modelscope.cn` 改从 ModelScope 下载。 |
 | `BAOCUT_TEMPLATES_DIR` | 内置创作模板目录，见[模板包规范 §6](docs/spec/template-spec.md#6-目录来源与加载)。否则查找打包资源中的 `templates/`，再查仓库模板。用户模板放在 `<BAOCUT_HOME>/templates`；ID 冲突时内置模板优先。 |
 | `BAOCUT_SKILLS_DIR` | 内置智能体 skill 目录，见[架构设计 §3.8](docs/architecture/architecture-design.md#38-分层渐进加载的创作指导)。否则查找打包资源中的 `skills/baocut/built-in-skills/`，再查仓库中的同一目录。用户 skill 放在 `<BAOCUT_HOME>/skills`；ID 冲突时内置优先。 |
-| `BAOCUT_AGENT_SKILLS_DIR` | 外部智能体使用的 BaoCut skill 源目录，由 `baocut skill install` 渲染，见 [Agent 面设计 §8](docs/design/agent-surface/agent-surface-design.md)。否则依次查找打包的 `skills/` 与仓库目录。 |
+| `BAOCUT_AGENT_SKILLS_DIR` | 外部智能体使用的 BaoCut skill 源目录，由 Runtime 渲染，见 [Agent 面设计 §8](docs/design/agent-surface/agent-surface-design.md)。否则依次查找打包的 `skills/` 与仓库目录。 |
+| `BAOCUT_AGENT_SKILL_DIR` | `baocut skill install` 软链接指向的那份渲染好的 BaoCut skill；桌面应用设为包内的 `agent-skill/baocut`。没有时（开发）Runtime 渲染进 `<BAOCUT_HOME>/agent-skills/baocut`。 |
+| `BAOCUT_CLI_ENTRY` | 应用自带的命令行入口，`baocut skill status` 与 Skills 页显示它；桌面应用会设置，开发时没有。 |
 | `BAOCUT_MODEL_ASSETS_DIR` | 随应用分发的模型数据（自检样本、内置音色参考录音，即 `packages/models/assets`）。否则查找打包的 `model-assets/`，再查仓库数据；打包后的桌面端使用 `<resources>/model-assets`。 |
 | `BAOCUT_WORKER_FEATURES` | `npm run build:engine` 为 `model-worker` 追加的 cargo feature，逗号分隔。Windows / Linux 的 NVIDIA CUDA 配置使用 `cuda,whisper-ggml-cuda`，需要 CUDA 工具链；Whisper 的 Vulkan 配置使用 `whisper-ggml-vulkan`，需要 Vulkan SDK。硬件验证状态见上文。 |
 | `BAOCUT_GPU` | `off`、`0`、`false`、`cpu` 或 `no` 让 `model-worker` 的 candle 与 whisper.cpp 都在 CPU 上运行，见 [Model Worker 协议 §2.1](docs/spec/model-worker-protocol-spec.md)。 |

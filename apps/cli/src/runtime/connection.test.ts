@@ -11,7 +11,6 @@ import {
   lockHolderAlive,
   packagedApps,
   packagedResourceEnv,
-  resolveAgentSkillsDir,
   resolveRuntimeLaunch,
 } from './connection.ts';
 
@@ -21,14 +20,6 @@ describe('Runtime 的入口与版本门', () => {
     const env = packagedResourceEnv(resources, platform);
     expect(env).toEqual(desktopResourceEnv(packagedResources(resources), platform));
     expect(env.PMETAL_METALLIB_PATH).toBe(platform === 'darwin' ? path.join(resources, 'bin', 'mlx.metallib') : undefined);
-  });
-
-  it('说明书的来源：BAOCUT_AGENT_SKILLS_DIR 优先；没有时回落到仓库里的 skills/，都没有时 null', () => {
-    expect(resolveAgentSkillsDir({ BAOCUT_AGENT_SKILLS_DIR: '/x/skills' }, 'linux')).toBe('/x/skills');
-    const repo = resolveAgentSkillsDir({}, 'linux');
-    expect(repo).toMatch(/[/\\]skills$/);
-    expect(fs.existsSync(path.join(repo!, 'baocut', 'SKILL.md'))).toBe(true);
-    expect(resolveAgentSkillsDir({}, 'linux', os.tmpdir())).toBeNull();
   });
 
   it('BAOCUT_RUNTIME_ENTRY 优先；没有时回落到仓库里的入口', () => {
@@ -115,7 +106,7 @@ function catchError(fn: () => void): CliError {
 }
 
 describe('CLI shipped inside a relocated desktop app', () => {
-  it('prefers its own Runtime and skills over another installed app', () => {
+  it('prefers its own Runtime over another installed app', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-cli-own-app-'));
     try {
       const contents = path.join(dir,'Moved app','BaoCut.app','Contents');
@@ -126,7 +117,6 @@ describe('CLI shipped inside a relocated desktop app', () => {
       fs.mkdirSync(path.join(resources,'skills'),{recursive:true});
       expect(packagedApps({},'darwin',from)[0]).toEqual({executable,resources});
       expect(resolveRuntimeLaunch({},'darwin',from)).toEqual({command:executable,args:[path.join(resources,'app.asar','out','main','runtime.js'),'--credential-store','keychain'],env:{ELECTRON_RUN_AS_NODE:'1',...packagedResourceEnv(resources,'darwin')},source:'packaged'});
-      expect(resolveAgentSkillsDir({},'darwin',from)).toBe(path.join(resources,'skills'));
       expect(resolveRuntimeLaunch({BAOCUT_RUNTIME_ENTRY:'/explicit/runtime.js'},'darwin',from)?.source).toBe('env');
     } finally { fs.rmSync(dir,{recursive:true,force:true}); }
   });

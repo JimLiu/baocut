@@ -79,7 +79,7 @@ Every surface talks to the same local Runtime over the same protocol and edits t
 | --- | --- |
 | **Desktop app** (Electron) | Home for working with the agent, Space for browsing and re-editing everything a project produced, a full timeline editor with preview, undo and live captions. |
 | **CLI** `baocut` | Thin client for scripts and terminals. Emits JSON when piped; exit codes tell you whether the user needs to act. |
-| **MCP service + BaoCut skill** | Your own agent (Claude Code, Codex, Cursor, Gemini CLI…) drives BaoCut through the same tool catalog. `baocut skill install` drops the skill into your agent; `baocut mcp install` wires up MCP. Same tool names on both paths. |
+| **MCP service + BaoCut skill** | Your own agent (Claude Code, Codex, Cursor, Gemini CLI…) drives BaoCut through the same tool catalog. `baocut skill install` links the skill into `~/.agents/skills` and `~/.claude/skills` (or any folder) so it updates with the app; `baocut mcp install` wires up MCP. Same tool names on both paths. |
 | **Web client** | Open any video's editor in the browser with a one-time link from `baocut web open --video <id>` so a remote agent can show you its work. |
 
 **Bring your own agent engine.** Claude Code and Codex CLI are validated end to end. GitHub Copilot CLI, Pi and OpenCode are built in, and any Agent Client Protocol agent (Qwen Code, Gemini CLI, Cursor Agent, Grok, Kimi Code, or one you add) plugs in through the same driver.
@@ -253,7 +253,9 @@ BaoCut is under active development, with macOS Apple Silicon and Windows x64 pac
 | `BAOCUT_MODELS_ENDPOINT` | Download source (base URL) for local models; overrides the Model download source setting. Default `https://huggingface.co`; `https://www.modelscope.cn` downloads from ModelScope |
 | `BAOCUT_TEMPLATES_DIR` | Built-in creation templates ([template spec §6](docs/spec/template-spec.md#6-目录来源与加载)). Otherwise the packaged `templates/`, then the repo's. User templates live in `<BAOCUT_HOME>/templates`; built-in wins on id clash |
 | `BAOCUT_SKILLS_DIR` | Built-in agent skills ([architecture §3.8](docs/architecture/architecture-design.md)). Otherwise the packaged `skills/baocut/built-in-skills/`, then the repo's. User skills live in `<BAOCUT_HOME>/skills`; built-in wins on id clash |
-| `BAOCUT_AGENT_SKILLS_DIR` | Source of the BaoCut skill for external agents ([Agent surface §8](docs/design/agent-surface/agent-surface-design.md)), rendered by `baocut skill install`. Otherwise the packaged `skills/`, then the repo's |
+| `BAOCUT_AGENT_SKILLS_DIR` | Source of the BaoCut skill for external agents ([Agent surface §8](docs/design/agent-surface/agent-surface-design.md)), rendered by the Runtime. Otherwise the packaged `skills/`, then the repo's |
+| `BAOCUT_AGENT_SKILL_DIR` | The rendered BaoCut skill that `baocut skill install` links to; the desktop app sets it to its `agent-skill/baocut`. Without it (development) the Runtime renders into `<BAOCUT_HOME>/agent-skills/baocut` |
+| `BAOCUT_CLI_ENTRY` | The app's own CLI launcher, shown by `baocut skill status` and the Skills page; the desktop app sets it. Unset in development |
 | `BAOCUT_SLIDES_EDITOR_DIST` | Built slides editor ([slides design §3](docs/design/slides/slides-design.md#3-运行时的放置与构建)). Otherwise the packaged `slides-editor/`, then the repo's `apps/slides-editor/dist` |
 | `BAOCUT_DESIGN_EDITOR_DIST` | Built design editor ([`packages/design-runtime`](packages/design-runtime/README.md)). Otherwise the packaged `design-editor/`, then the repo's `apps/design-editor/dist` |
 | `BAOCUT_DESIGN_SYSTEM_EDITOR_DIST` | Built design system editor ([`packages/design-system-runtime`](packages/design-system-runtime/README.md)). Otherwise the packaged `design-system-editor/`, then the repo's `apps/design-system-editor/dist` |

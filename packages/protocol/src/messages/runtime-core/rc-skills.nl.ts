@@ -121,4 +121,8 @@ export const nl: RcSkillsMessages = {
   linkTargetMissing: (p: { link: string; target: string }) => `Link ${p.link} verwijst naar ${p.target}, dat niet in de BaoCut-skill staat`,
   agentSkillRenderFailed: (p: { problem: string }) => `Kan de BaoCut-skill niet renderen: ${p.problem}`,
   agentSkillDirNotFound: (p: { dir: string }) => `Kan de BaoCut-skillmap niet vinden (${p.dir})`,
+  agentSkillLocationTaken: (p: { path: string }) => `Op ${p.path} staat al iets dat niet de BaoCut-skill is. BaoCut vervangt of verwijdert het niet: verplaats het of geef het een andere naam en probeer het opnieuw`,
+  agentSkillBadRoot: (p: { path: string }) => `Installeer in een specifieke map, niet in de hoofdmap van het bestandssysteem, je thuismap of de configuratie- of skillsmap van een agent: ${p.path}`,
+  agentSkillRootMissing: (p: { path: string }) => `Map niet gevonden: ${p.path}`,
+  agentSkillLocalOnly: 'De BaoCut-skill voor andere agents installeren kan alleen in de desktop-app en de CLI',
 };

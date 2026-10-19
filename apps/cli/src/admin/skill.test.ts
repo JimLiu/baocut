@@ -1,41 +1,57 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { AgentSkillLocation, AgentSkillStatus } from '@baocut/protocol';
 import { CliError } from '../envelope.ts';
 import { FakeClient, captureOutput } from '../testing/fake-client.ts';
 import { AdminRun } from './context.ts';
-import { installAgentSkill, skill, skillPaths } from './skill.ts';
+import { formatSkillStatus, skill, skillTargets } from './skill.ts';
 
 let root: string;
 let env: NodeJS.ProcessEnv;
-let home: string;
 beforeEach(() => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-skill-install-'));
-  home = path.join(root, 'baocut-home');
-  env = { HOME: path.join(root, 'user'), PATH: '', BAOCUT_AGENT_SKILLS_DIR: path.join(root, 'source') };
+  root = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-skill-'));
+  env = { HOME: path.join(root, 'user'), PATH: '' };
 });
 afterEach(() => {
   fs.rmSync(root, { recursive: true, force: true });
 });
 
-const rendered = {
-  interfaceVersion: 1,
-  id: 'baocut',
-  sourceDir: '/src/skills/baocut',
-  files: [
-    { path: 'SKILL.md', content: '# BaoCut\n' },
-    { path: 'references/start.md', content: '先 baocut status\n' },
-  ],
-};
+const source = '/Applications/BaoCut.app/Contents/Resources/agent-skill/baocut';
 
-function run(args: string[], values: Record<string, unknown>, fake: FakeClient | null) {
-  const capture = captureOutput();
+function location(root: string | null, folder: AgentSkillLocation['folder'], extra: Partial<AgentSkillLocation> = {}): AgentSkillLocation {
+  return {
+    root,
+    folder,
+    path: path.join(root ?? env.HOME!, ...folder.split('/'), 'baocut'),
+    state: 'none',
+    mode: null,
+    version: null,
+    linkTarget: null,
+    ...extra,
+  };
+}
+
+function status(locations: AgentSkillLocation[], dirs: string[] = []): AgentSkillStatus {
+  return {
+    version: '1.0.0',
+    source,
+    bundled: true,
+    appOutsideApplications: false,
+    cli: { entry: '/Applications/BaoCut.app/Contents/MacOS/baocut-cli', onPath: null },
+    locations,
+    dirs,
+  };
+}
+
+function run(args: string[], values: Record<string, unknown>, fake: FakeClient, json = true) {
+  const capture = captureOutput(json);
   const ctx = new AdminRun({
-    client: fake?.client ?? null,
+    client: fake.client,
     output: capture.output,
     cwd: root,
-    home,
+    home: path.join(root, 'home'),
     env,
     args,
     values,
@@ -44,114 +60,113 @@ function run(args: string[], values: Record<string, unknown>, fake: FakeClient |
   return { capture, done: skill.run(ctx as never) };
 }
 
-describe('installAgentSkill', () => {
-  it('复制：写出全部文件；再装一次整个换掉', () => {
-    const target = path.join(root, 'skills', 'baocut');
-    expect(installAgentSkill(rendered, target, null)).toEqual({ mode: 'copy' });
-    expect(fs.readFileSync(path.join(target, 'references', 'start.md'), 'utf8')).toBe('先 baocut status\n');
-    fs.writeFileSync(path.join(target, 'stale.md'), 'x');
-    installAgentSkill(rendered, target, null);
-    expect(fs.readdirSync(target).sort()).toEqual(['SKILL.md', 'references']);
-    expect(fs.readdirSync(path.dirname(target))).toEqual(['baocut']);
-  });
+const rejected = (code: string) => (error: unknown) => error instanceof CliError && error.code === code;
 
-  it('--link：渲染结果放进链接目录，目标是指向它的链接', () => {
-    const target = path.join(root, 'skills', 'baocut');
-    const linkDir = path.join(home, 'agent-skills', 'baocut');
-    expect(installAgentSkill(rendered, target, linkDir)).toEqual({ mode: 'link', linkTo: linkDir });
-    expect(fs.lstatSync(target).isSymbolicLink()).toBe(true);
-    expect(fs.readFileSync(path.join(target, 'SKILL.md'), 'utf8')).toBe('# BaoCut\n');
-  });
-
-  it('--link 在 Windows 上放 junction（不要管理员权限），其它平台放目录链接', () => {
-    const target = path.join(root, 'skills', 'baocut');
-    const linkDir = path.join(home, 'agent-skills', 'baocut');
-    const symlink = vi.spyOn(fs, 'symlinkSync');
-    try {
-      // 非 Windows 上 Node 忽略链接类型，这里照样建得出来，只核对传给它的类型。
-      installAgentSkill(rendered, target, linkDir, 'win32');
-      expect(symlink).toHaveBeenLastCalledWith(linkDir, expect.any(String), 'junction');
-      installAgentSkill(rendered, target, linkDir, 'darwin');
-      expect(symlink).toHaveBeenLastCalledWith(linkDir, expect.any(String), 'dir');
-    } finally {
-      symlink.mockRestore();
-    }
-    expect(fs.readFileSync(path.join(target, 'SKILL.md'), 'utf8')).toBe('# BaoCut\n');
-  });
-
-  it('替换已有的链接时只换链接，不动它指向的目录', () => {
-    const other = path.join(root, 'v2-skill');
-    fs.mkdirSync(other);
-    fs.writeFileSync(path.join(other, 'SKILL.md'), '旧的');
-    const target = path.join(root, 'skills', 'baocut');
-    fs.mkdirSync(path.dirname(target));
-    fs.symlinkSync(other, target, 'dir');
-    installAgentSkill(rendered, target, null);
-    expect(fs.lstatSync(target).isDirectory()).toBe(true);
-    expect(fs.readFileSync(path.join(other, 'SKILL.md'), 'utf8')).toBe('旧的');
-  });
-
-  it('越界的路径报错，旧的目标不动', () => {
-    const target = path.join(root, 'skills', 'baocut');
-    installAgentSkill(rendered, target, null);
-    expect(() => installAgentSkill({ files: [{ path: '../escape.md', content: 'x' }] }, target, null)).toThrow(/越界/);
-    expect(fs.readFileSync(path.join(target, 'SKILL.md'), 'utf8')).toBe('# BaoCut\n');
-    expect(fs.readdirSync(path.dirname(target))).toEqual(['baocut']);
+describe('skillTargets', () => {
+  it('默认全局两处；--dir 换成每个文件夹两处；--agent 只要一处', () => {
+    expect(skillTargets([], undefined)).toEqual([
+      { root: null, folder: '.agents/skills' },
+      { root: null, folder: '.claude/skills' },
+    ]);
+    expect(skillTargets(['/a', '/b', '/a'], 'claude')).toEqual([
+      { root: '/a', folder: '.claude/skills' },
+      { root: '/b', folder: '.claude/skills' },
+    ]);
+    expect(() => skillTargets([], 'codex')).toThrow(/agents.*claude/);
   });
 });
 
 describe('baocut skill install', () => {
-  it('装进宿主的 skills 目录（渲染结果来自 catalog.agentSkill）', async () => {
+  it('默认全局两处、软链接；结果带装好的位置', async () => {
     const fake = new FakeClient();
-    fake.methods['catalog.agentSkill'] = () => rendered;
-    const { capture, done } = run(['install'], { agent: 'codex' }, fake);
+    const installed = status([
+      location(null, '.agents/skills', { state: 'current', mode: 'link', version: '1.0.0', linkTarget: source }),
+      location(null, '.claude/skills', { state: 'current', mode: 'link', version: '1.0.0', linkTarget: source }),
+    ]);
+    fake.methods['agentSkill.install'] = () => installed;
+    const { capture, done } = run(['install'], {}, fake);
     expect(await done).toBe(0);
-    const target = path.join(env.HOME!, '.codex', 'skills', 'baocut');
-    expect(capture.envelope().result).toEqual({
-      agent: 'codex',
-      target,
-      mode: 'copy',
-      replaced: false,
-      sourceDir: rendered.sourceDir,
-      files: 2,
-    });
-    expect(fs.existsSync(path.join(target, 'SKILL.md'))).toBe(true);
+    expect(fake.calls).toEqual([
+      {
+        method: 'agentSkill.install',
+        params: {
+          targets: [
+            { root: null, folder: '.agents/skills', mode: 'link' },
+            { root: null, folder: '.claude/skills', mode: 'link' },
+          ],
+        },
+      },
+    ]);
+    expect(capture.envelope().result).toMatchObject({ installed: installed.locations.map((l) => l.path) });
   });
 
-  it('目标已存在、没给 --yes：CONFIRMATION_REQUIRED，不连 Runtime 取说明书', async () => {
-    const target = path.join(env.HOME!, '.claude', 'skills', 'baocut');
-    fs.mkdirSync(target, { recursive: true });
+  it('--dir 按工作目录解析，--copy 复制', async () => {
     const fake = new FakeClient();
-    const { done } = run(['install'], { agent: 'claude-code' }, fake);
-    await expect(done).rejects.toSatisfy((error: unknown) => error instanceof CliError && error.code === 'CONFIRMATION_REQUIRED');
+    fake.methods['agentSkill.install'] = () => status([]);
+    const { done } = run(['install'], { dir: ['work'], agent: 'agents', copy: true }, fake);
+    expect(await done).toBe(0);
+    expect(fake.calls[0]?.params).toEqual({ targets: [{ root: path.join(root, 'work'), folder: '.agents/skills', mode: 'copy' }] });
+  });
+
+  it('不认识的 --agent 与多余的参数是用法错误，不连 Runtime', async () => {
+    const fake = new FakeClient();
+    await expect(run(['install'], { agent: 'cursor' }, fake).done).rejects.toSatisfy(rejected('INVALID_ARGUMENTS'));
+    await expect(run(['install', 'extra'], {}, fake).done).rejects.toSatisfy(rejected('INVALID_ARGUMENTS'));
+    await expect(run(['path'], {}, fake).done).rejects.toSatisfy(rejected('INVALID_ARGUMENTS'));
     expect(fake.calls).toEqual([]);
-  });
-
-  it('--dir 不给 --agent 也行；两样都不给是用法错误', async () => {
-    const fake = new FakeClient();
-    fake.methods['catalog.agentSkill'] = () => rendered;
-    const { capture, done } = run(['install'], { dir: 'custom', link: true }, fake);
-    expect(await done).toBe(0);
-    expect(capture.envelope().result).toMatchObject({ agent: null, target: path.join(root, 'custom', 'baocut'), mode: 'link' });
-    await expect(run(['install'], {}, fake).done).rejects.toSatisfy(
-      (error: unknown) => error instanceof CliError && error.code === 'INVALID_ARGUMENTS',
-    );
   });
 });
 
-describe('baocut skill path', () => {
-  it('来源与各宿主的位置，以及现在装了什么', () => {
-    const target = path.join(env.HOME!, '.gemini', 'skills', 'baocut');
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.symlinkSync(path.join(root, 'elsewhere'), target);
-    const paths = skillPaths(env, home);
-    expect(paths.sourceDir).toBe(path.join(root, 'source', 'baocut'));
-    expect(paths.linkDir).toBe(path.join(home, 'agent-skills', 'baocut'));
-    expect(paths.hosts.map((host) => [host.agent, host.installed?.kind ?? null])).toEqual([
-      ['claude-code', null],
-      ['codex', null],
-      ['cursor', null],
-      ['gemini', 'link'],
+describe('baocut skill remove', () => {
+  it('软链接直接移除；有副本时要 --yes', async () => {
+    const fake = new FakeClient();
+    const before = status([
+      location(null, '.agents/skills', { state: 'current', mode: 'link', linkTarget: source }),
+      location(null, '.claude/skills', { state: 'stale', mode: 'copy' }),
     ]);
+    fake.methods['agentSkill.status'] = () => before;
+    fake.methods['agentSkill.remove'] = () => status([location(null, '.agents/skills'), location(null, '.claude/skills')]);
+    expect(await run(['remove'], { agent: 'agents' }, fake).done).toBe(0);
+    expect(fake.calls.map((c) => c.method)).toEqual(['agentSkill.status', 'agentSkill.remove']);
+    await expect(run(['remove'], {}, fake).done).rejects.toSatisfy(rejected('CONFIRMATION_REQUIRED'));
+    expect(fake.calls.filter((c) => c.method === 'agentSkill.remove')).toHaveLength(1);
+    expect(await run(['remove'], { yes: true }, fake).done).toBe(0);
+    expect(fake.calls.filter((c) => c.method === 'agentSkill.remove')).toHaveLength(2);
+  });
+});
+
+describe('baocut skill status', () => {
+  it('应用自带的版本、命令行、全局与各文件夹的每一处；有过期的给下一步', async () => {
+    const fake = new FakeClient();
+    const dir = path.join(root, 'proj');
+    fake.methods['agentSkill.status'] = () =>
+      status(
+        [
+          location(null, '.agents/skills', { state: 'current', mode: 'link', version: '1.0.0', linkTarget: source }),
+          location(null, '.claude/skills'),
+          location(dir, '.agents/skills', { state: 'stale', mode: 'copy', version: '0.9.0' }),
+          location(dir, '.claude/skills', { state: 'broken', mode: 'link' }),
+        ],
+        [dir],
+      );
+    const { capture, done } = run(['status'], {}, fake, false);
+    expect(await done).toBe(0);
+    const text = capture.out();
+    expect(text).toContain('1.0.0');
+    expect(text).toContain('/Applications/BaoCut.app/Contents/MacOS/baocut-cli');
+    expect(text).toContain('~/.agents/skills/baocut');
+    expect(text).toContain(dir);
+    expect(text).toMatch(/baocut skill install/);
+  });
+
+  it('不在 PATH 上：macOS 给软链接命令，Windows 让把安装目录加进 PATH', () => {
+    const base = status([location(null, '.agents/skills'), location(null, '.claude/skills')]);
+    expect(formatSkillStatus(base, env, 'darwin').join('\n')).toContain(
+      "ln -sf '/Applications/BaoCut.app/Contents/MacOS/baocut-cli' /usr/local/bin/baocut",
+    );
+    const win = { ...base, cli: { entry: 'C:\\Users\\a\\AppData\\Local\\Programs\\BaoCut\\baocut.cmd', onPath: null } };
+    expect(formatSkillStatus(win, env, 'win32').join('\n')).toContain('C:\\Users\\a\\AppData\\Local\\Programs\\BaoCut');
+    const onPath = { ...base, cli: { ...base.cli, onPath: { path: '/usr/local/bin/baocut', target: base.cli.entry, fromApp: true } } };
+    expect(formatSkillStatus(onPath, env, 'darwin').join('\n')).toContain('/usr/local/bin/baocut → /Applications/BaoCut.app');
   });
 });

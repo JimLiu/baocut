@@ -21,6 +21,10 @@ export const RESOURCE_DIRS = {
    * 是内置 Agent skill。
    */
   skills: 'skills',
+  /**
+   * 打包时按 CLI 面渲染好的说明书（`agent-skill/baocut/`，Agent 面设计 §8.2）：给外部 Agent 装的软链接指向它，App 更新它就跟着更新。
+   */
+  agentSkill: 'agent-skill',
   /** 自测样本与内置音色的录音（`packages/models/assets`）。 */
   modelAssets: 'model-assets',
   /** Web 客户端的构建产物（`apps/web/dist`）。 */
@@ -39,11 +43,15 @@ export const RESOURCE_DIRS = {
 export const BUNDLED_EXECUTABLES = ['engine-host', 'export-worker', 'model-worker', 'speech-worker', 'credential-helper', 'face-detect'] as const;
 
 export interface PackagedResources {
+  /** `<resources>` 本身。 */
+  resourcesDir: string;
   binDir: string;
   templatesDir: string;
   stickersDir: string;
   skillsDir: string;
   agentSkillsDir: string;
+  /** 渲染好的说明书本身（`<resources>/agent-skill/baocut`）。 */
+  agentSkillDir: string;
   modelAssetsDir: string;
   webDist: string;
   slidesEditorDist: string;
@@ -55,11 +63,13 @@ export interface PackagedResources {
 /** 由资源目录算出各个位置。`pathApi` 让检查脚本在别的平台上按 Windows 的写法算。 */
 export function packagedResources(resourcesPath: string, pathApi: path.PlatformPath = path): PackagedResources {
   return {
+    resourcesDir: resourcesPath,
     binDir: pathApi.join(resourcesPath, RESOURCE_DIRS.bin),
     templatesDir: pathApi.join(resourcesPath, RESOURCE_DIRS.templates),
     stickersDir: pathApi.join(resourcesPath, RESOURCE_DIRS.stickers),
     skillsDir: pathApi.join(resourcesPath, RESOURCE_DIRS.skills, 'baocut', 'built-in-skills'),
     agentSkillsDir: pathApi.join(resourcesPath, RESOURCE_DIRS.skills),
+    agentSkillDir: pathApi.join(resourcesPath, RESOURCE_DIRS.agentSkill, 'baocut'),
     modelAssetsDir: pathApi.join(resourcesPath, RESOURCE_DIRS.modelAssets),
     webDist: pathApi.join(resourcesPath, RESOURCE_DIRS.web),
     slidesEditorDist: pathApi.join(resourcesPath, RESOURCE_DIRS.slidesEditor),
@@ -69,14 +79,27 @@ export function packagedResources(resourcesPath: string, pathApi: path.PlatformP
   };
 }
 
+/**
+ * App 自带的命令行入口（`tools/desktop-cli.mjs` 放的位置）：macOS 在 `Contents/MacOS/baocut-cli`（`<resources>` 是 `Contents/Resources`），
+ * Windows 在安装目录里的 `baocut.cmd`（`<resources>` 是 `<安装目录>/resources`）。别的平台不打包，没有。
+ */
+export function packagedCliEntry(resourcesPath: string, platform: NodeJS.Platform = process.platform): string | null {
+  if (platform === 'darwin') return path.join(path.dirname(resourcesPath), 'MacOS', 'baocut-cli');
+  if (platform === 'win32') return path.join(path.dirname(resourcesPath), 'baocut.cmd');
+  return null;
+}
+
 /** 交给 Runtime 的环境变量（Runtime 各自的解析函数第一个看的就是它们）。 */
 export function packagedResourceEnv(resources: PackagedResources, platform: NodeJS.Platform = process.platform): Record<string, string> {
+  const cliEntry = packagedCliEntry(resources.resourcesDir, platform);
   return {
     BAOCUT_BIN_DIR: resources.binDir,
     BAOCUT_TEMPLATES_DIR: resources.templatesDir,
     BAOCUT_STICKERS_DIR: resources.stickersDir,
     BAOCUT_SKILLS_DIR: resources.skillsDir,
     BAOCUT_AGENT_SKILLS_DIR: resources.agentSkillsDir,
+    BAOCUT_AGENT_SKILL_DIR: resources.agentSkillDir,
+    ...(cliEntry ? { BAOCUT_CLI_ENTRY: cliEntry } : {}),
     BAOCUT_MODEL_ASSETS_DIR: resources.modelAssetsDir,
     BAOCUT_WEB_DIST: resources.webDist,
     BAOCUT_SLIDES_EDITOR_DIST: resources.slidesEditorDist,

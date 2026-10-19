@@ -151,6 +151,8 @@ export interface HandlerDeps {
   agentSkillsDir?: string | null;
   /** 全局品牌 `BRAND.md` 与 `brand/` 所在的目录（Runtime Home 根目录，§3.8）；不给时没有全局品牌（嵌入式测试）。 */
   globalBrandDir?: string | null;
+  /** Runtime Home 根目录：给外部 Agent 装说明书（`agentSkill.*`）记录按目录装过的文件夹；不给时没有这组方法（嵌入式测试）。 */
+  agentSkillHome?: string | null;
   /** 连接、任务与空闲退出（`runtime.status`，§2.2）。 */
   activity: RuntimeActivity;
   /** `runtime.stop` 的去处（入口停下 Runtime）；嵌入式的 Runtime（测试）没有。 */
@@ -233,6 +235,7 @@ export function createHandlers({
   catalog: toolCatalog,
   agentSkillsDir,
   globalBrandDir,
+  agentSkillHome,
   activity,
   requestStop,
   legacyUpgrade,
@@ -644,7 +647,10 @@ export function createHandlers({
         docsAnnotationsOf,
       }),
       ...skillMethods({ skills, installer: skillInstaller, brands, media }),
-      ...catalogMethods(toolCatalog, agentSkillsDir === undefined ? {} : { agentSkillsDir: () => agentSkillsDir }),
+      ...catalogMethods(toolCatalog, {
+        ...(agentSkillsDir === undefined ? {} : { agentSkillsDir: () => agentSkillsDir }),
+        home: agentSkillHome ?? null,
+      }),
       ...toolCatalogueMethods({
         space,
         services,
