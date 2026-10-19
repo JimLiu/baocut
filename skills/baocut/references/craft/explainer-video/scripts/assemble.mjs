@@ -7,7 +7,9 @@
 // 进度记在 timeline.json，可以重跑：已放好且没变的段跳过。改过的段这样处理（video-production 代码场景细则第 7 节的 ripple 步骤）：
 //   - 代码包帧数变了：带 replace.ripple 换包，引擎把这一段旧终点之后各轨的片段（画面、旁白、字幕、音效、音乐）一起挪 Δ 帧，
 //     跨过旧终点的片段（全片音乐）不动；几段一起变时从最后一段往前做。代码包内容变了、帧数没变：原地换包，Δ 为 0 什么都不挪。
-//   - 旁白换了（voice.json 里的 artifactId 变了）：删掉旧的旁白片段，在同一起点导入新的；字幕由 captions.mjs 发现后重建。
+//   - 旁白换了（voice.json 里的 artifactId 变了）：波纹做完后先一起删掉所有要换的旧旁白片段，再逐段在段首导入新的；字幕由 captions.mjs 发现后重建。
+//     不逐段「删一段放一段」：旧旁白可能比段首早一帧，波纹只挪旧终点及之后的片段，它会被留在原地，和前一段变长的新旁白重叠（TIMELINE_OVERLAP）。
+//   - 导入时 place.at 只能写秒数，Runtime 换成帧时可能落到前一帧；放好后核对起点，不在段首就用 moveItem 按整帧挪回去。
 //   - order 里新插进的段：先用 insertRange 在上一段终点腾出它的帧数，再放进去。从 order 里删掉的段不自动处理，报错让你先手动删。
 //   章节不跟着挪，改完自己核对。
 // 每段记下 bake 的 renderer / fps / seconds；--background 时烘焙在后台排队，之后用 --verify 把结果补进记录。
@@ -202,7 +204,6 @@ function replaceScene(s) {
 function placeNarration(s) {
   const r = rec.segments[s.id], v = voice[s.id];
   if (!v) throw new Error(`no narration for ${s.id} in voice.json; run voice.mjs ${s.id}`);
-  if (r.audioItem) apply(`Remove old narration ${s.id}`, [{ type: 'deleteItems', itemIds: [r.audioItem] }]);
   const tail = ['--name', `${cfg.names.narration} ${s.id}`, '--place', JSON.stringify({ track: A1, at: atOf(r.from, FPS) })];
   const gapAudio = timingOf(s.id).gapAudio;
   let a;
@@ -217,6 +218,16 @@ function placeNarration(s) {
   }
   Object.assign(r, { audioArtifact: v.artifactId, audioGaps: gapKey(s.id), audioAsset: a.assetId, audioItem: a.itemId });
   save();
+  snapToFrame(a.itemId, r.from);
+}
+
+// 秒数换成帧时可能落到前一帧（508.1333333333 s 落在 15243 而不是 15244）：按整帧挪回段首
+function snapToFrame(itemId, frame) {
+  const it = allItems(bc, V, Math.max(0, frame - 2) / FPS).items.find(x => x.id === itemId);
+  if (!it) throw new Error(`${itemId} not on the timeline after import`);
+  if (it.startFrame === frame) return;
+  apply(`Snap ${itemId} to frame ${frame}`, [{ type: 'moveItem', itemId, at: { unit: 'frames', value: frame } }]);
+  console.log(`${itemId}: moved from frame ${it.startFrame} to ${frame}`);
 }
 
 function placeScene(s) {
@@ -236,12 +247,18 @@ if (!flags.verify) {
     if (st.kind === 'insert') makeRoom(st.id, st.boundary, st.delta);
     else replaceScene(s);
   }
-  // 2. 帧数没变但包或旁白换了的段
+  // 2. 帧数没变但包换了的段原地换包；旁白换了的段先一起删掉旧旁白（还在时间线上的），第 3 步在段首重放
   for (const s of lay) {
     const c = cur[s.id];
-    if (!c) continue;
-    if (c.rebundled && !c.resized) replaceScene(s);
-    if (c.revoiced) placeNarration(s);
+    if (c?.rebundled && !c.resized) replaceScene(s);
+  }
+  const revoiced = lay.filter(s => cur[s.id]?.revoiced);
+  if (revoiced.length) {
+    const live = new Set(allItems(bc, V).items.map(it => it.id));
+    const ids = revoiced.map(s => rec.segments[s.id].audioItem).filter(id => live.has(id));
+    if (ids.length) apply(`Remove old narration ${revoiced.map(s => s.id).join(' ')}`, [{ type: 'deleteItems', itemIds: ids }]);
+    for (const s of revoiced) rec.segments[s.id].audioItem = null;
+    save();
   }
   // 3. 新段与缺一半的段：按 layout 的起点放
   for (const s of lay) {
