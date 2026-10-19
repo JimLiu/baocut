@@ -108,20 +108,27 @@
     );
   }
 
+  /* 「已完成」只列最近 20 条、30 天内结束的；清空不确认，提示里给撤销；要用户决定的照常列出（product-design §6.1）。
+     这些只决定列表里显示什么：记录与产物不动，详情链接照样打开。 */
   function TasksPage() {
     const app = useApp();
     const open = (id) => app.go({r: 'task', id});
-    const [active, history] = window.BC_APP_IA.taskGroups(app.tasks);
-    const live = active.items, past = history.items;
+    const IA = window.BC_APP_IA;
+    const [active, history] = IA.taskGroups(app.tasks);
+    const live = active.items;
+    const older = (n, total) => n < total ? `显示更早的 ${n} 项（还有 ${total} 项）` : `显示更早的 ${n} 项`;
+    const view = IA.historyView(history.items, {cleared: app.prefs.tasksCleared, more: app.tasksMore});
+    const past = view.items;
+    const clear = () => {
+      const before = app.prefs.tasksCleared || [];
+      app.setPref('tasksCleared', [...before, ...view.clearIds]);
+      app.setTasksMore(0);
+      app.toast(`已从列表清空 ${view.clearable.length} 项，任务记录与产物不受影响`, 'positive',
+        {label: '撤销', undo: true, run: () => { app.setPref('tasksCleared', before); app.toast('已撤销'); }});
+    };
     return (
       <Page title="全部任务" actions={
-        past.length
-          ? <Btn variant="quiet" size="s" onClick={() => app.confirm({
-              title: '清空任务历史？', body: '只清列表，产物文件不受影响。',
-              tone: 'negative', confirmLabel: '清空',
-              run: () => app.toast('已清空历史', 'positive'),
-            })}>清空历史</Btn>
-          : null
+        view.clearable.length ? <Btn variant="quiet" size="s" onClick={clear}>清空历史</Btn> : null
       }>
         <div className="t-section">进行中</div>
         {live.length
@@ -131,7 +138,14 @@
         <div className="t-section" style={{marginTop: 28}}>已完成</div>
         {past.length
           ? <div className="tasks">{past.map((t) => <TaskCard key={t.id} t={t} onOpen={open} />)}</div>
-          : <Empty title="还没有完成的任务" />}
+          : <Empty title={view.older || view.expanded ? '最近没有完成的任务' : '还没有完成的任务'} />}
+        {view.older || view.expanded
+          ? <div className="tasks-older">
+              {view.older ? <Btn variant="quiet" size="s" onClick={() => app.setTasksMore(app.tasksMore + IA.HISTORY_PAGE)}>
+                {older(Math.min(IA.HISTORY_PAGE, view.older), view.older)}</Btn> : null}
+              {view.expanded ? <Btn variant="quiet" size="s" onClick={() => app.setTasksMore(0)}>收起更早的</Btn> : null}
+            </div>
+          : null}
       </Page>
     );
   }

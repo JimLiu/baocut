@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Duplex } from 'node:stream';
-import { RpcError, type DocsAnnotation, type DocsOpenResult, type FileTarget } from '@baocut/protocol';
+import { RpcError, type DocsAnnotation, type DocsOpenResult, type FileTarget, type Id, type TaskSummary } from '@baocut/protocol';
 import { RcDocs } from '@baocut/protocol/messages/runtime-core';
 import type { Logger, ResolvedDocsAnnotation } from '@baocut/harness';
 import { DocsServer, createDocsConnector, readDocInfo, resolveDocsEditorDist, type DocsConnector, type LiveDoc } from '@baocut/docs';
@@ -39,12 +39,17 @@ export async function resolveDocDir(root: string, rel: string): Promise<string> 
   return dir;
 }
 
+/** 记住多少个会话的当前回合。 */
+const MAX_TRACKED_TURNS = 500;
+
 export class DocsService {
   readonly server: DocsServer;
   /** 智能体的 `docs_*` 工具（docs/design/docs §7）：与编辑器经同一份文档读写。 */
   readonly connector: DocsConnector;
   readonly #editorDist: () => string | null;
   #baseUrl = '';
+  /** 会话 → 正在跑的任务（回合）：文档的版本按回合分开（版本记录设计 §13.2）。 */
+  readonly #turns = new Map<Id, Id>();
 
   constructor(options: {
     log: Logger;
@@ -61,6 +66,19 @@ export class DocsService {
       onWarn: (message) => log.warn(message),
     });
     this.connector = createDocsConnector(this.server);
+  }
+
+  /** 智能体的任务（Harness 的 `tasks` 主题）：开始跑的任务就是这个会话的新回合。 */
+  noteTask(task: Pick<TaskSummary, 'taskId' | 'conversationId' | 'status'>): void {
+    if (task.status !== 'running' || this.#turns.get(task.conversationId) === task.taskId) return;
+    this.#turns.delete(task.conversationId);
+    this.#turns.set(task.conversationId, task.taskId);
+    while (this.#turns.size > MAX_TRACKED_TURNS) this.#turns.delete(this.#turns.keys().next().value!);
+  }
+
+  /** 会话现在的回合（任务 id）；不知道时 undefined。 */
+  turnOf(conversationId: Id): Id | undefined {
+    return this.#turns.get(conversationId);
   }
 
   /** 网关的 HTTP 基址（监听之后才知道端口）。 */

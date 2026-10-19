@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
-import type { VideoSnapshotStatus, VideoVersionList, VideoVersionText } from '@baocut/protocol';
+import type { VideoVersionList, VideoVersionText } from '@baocut/protocol';
 import {
   ActionButton,
   AlertDialog,
@@ -38,7 +38,6 @@ import { agoLabel } from '../../model/format.ts';
 import {
   actorsText,
   buttonTip,
-  fileLabel,
   momentText,
   snapshotState,
   versionError,
@@ -48,19 +47,24 @@ import {
   type VersionRow,
 } from '../../model/video-versions.ts';
 import { useRuntime } from '../../runtime/context.tsx';
+import { useProjectSettings } from '../../state/project-settings-store.ts';
 import { useSetting } from '../../state/settings-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { canEdit, useVideo, type OpenVideo } from '../../state/video-store.ts';
+import { ProjectGitStrip } from '../project-settings/project-git-strip.tsx';
 import { useNow } from '../use-now.ts';
 import { useEditorActions } from './editor-context.tsx';
+import { ConflictAlert, ExternalAlert, useImportNotice, useResolve, useVersionsDialog, type VersionNote } from './video-versions-conflict.tsx';
 import { VersionDetail } from './video-versions-detail.tsx';
 import { VIDEO_VERSIONS_COPY as C } from './video-versions-copy.ts';
 
 /**
  * 视频的版本记录（视频格式规范 §9、版本记录设计 §6；原型 video-versions.jsx / video-versions.css）：视频栏右侧的入口按钮，
  * 和它打开的对话框——左边是这部视频的版本（新的在前），右边是选中版本的详情、动作与 diff（video-versions-detail.tsx）。
- * 规则与显示名在 model/video-versions.ts。版本变化没有推送：入口在修订号变了之后、快照该写下的时候再问一次状态，
- * 对话框打开时读一次，每次操作后再读，快照正在写入时每隔几秒读一次。
+ * 规则与显示名在 model/video-versions.ts，快照冲突的选择与外部改动的导入在 video-versions-conflict.tsx。
+ * 版本变化没有推送：入口在修订号变了之后、快照该写下的时候再问一次状态，回到窗口时（外面可能 git pull 过）也问一次；
+ * 对话框打开时读一次，每次操作后再读，快照正在写入或正在导入时每隔几秒读一次。状态记在视频的 `versionStatus`，
+ * 编辑器顶部的冲突提示条读同一份。
  */
 
 /** 快照在最后一笔修改 10 秒后写下（§9.3）；多等一会儿再问，读到的是写完之后的状态。 */
@@ -71,9 +75,8 @@ export function VersionsButton({ video }: { video: OpenVideo }) {
   const runtime = useRuntime();
   const inProject = Boolean(video.ref?.source.projectId);
   const revision = video.state?.video.revision ?? null;
-  const [status, setStatus] = useState<VideoSnapshotStatus | null>(null);
-  const [open, setOpen] = useState(false);
-  const [session, setSession] = useState(0);
+  const status = video.versionStatus ?? null;
+  const { open, session, show, hide } = useVersionsDialog();
   const seen = useRef<string | null>(null);
 
   useEffect(() => {
@@ -81,26 +84,30 @@ export function VersionsButton({ video }: { video: OpenVideo }) {
     // 打开视频时马上问一次；之后修订号每变一次，等快照写下再问（连续修改只问最后一次）。
     const immediate = seen.current !== video.videoId;
     seen.current = video.videoId;
-    let cancelled = false;
-    const timer = window.setTimeout(
-      () =>
-        runtime.videos.versionStatus().then(
-          (next) => !cancelled && setStatus(next),
-          () => {},
-        ),
-      immediate ? 0 : STATUS_DELAY,
-    );
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
+    const timer = window.setTimeout(() => void runtime.videos.versionStatus().catch(() => {}), immediate ? 0 : STATUS_DELAY);
+    return () => window.clearTimeout(timer);
   }, [runtime, inProject, revision, video.videoId]);
 
+  // 快照在 BaoCut 之外被改过（git pull、同步盘）时没有推送，也不一定有新的修订：回到这个窗口时再问一次。
+  useEffect(() => {
+    if (!inProject || !video.videoId) return;
+    const check = () => {
+      if (document.visibilityState === 'visible') void runtime.videos.versionStatus().catch(() => {});
+    };
+    window.addEventListener('focus', check);
+    document.addEventListener('visibilitychange', check);
+    return () => {
+      window.removeEventListener('focus', check);
+      document.removeEventListener('visibilitychange', check);
+    };
+  }, [runtime, inProject, video.videoId]);
+
+  // 换了视频或编辑器关掉时，对话框跟着关。
+  useEffect(() => () => hide(), [hide, video.videoId]);
+
+  useImportNotice(inProject);
+
   const tip = buttonTip(inProject, inProject ? status : null);
-  const show = () => {
-    setSession((n) => n + 1);
-    setOpen(true);
-  };
   return (
     <>
       <TooltipTrigger>
@@ -111,9 +118,7 @@ export function VersionsButton({ video }: { video: OpenVideo }) {
         <Tooltip>{tip}</Tooltip>
       </TooltipTrigger>
       {/* DialogContainer 关闭后仍留着上一个子元素（为了退场动画）；按打开次数换 key，每次打开重新读。 */}
-      <DialogContainer onDismiss={() => setOpen(false)}>
-        {open ? <VideoVersionsDialog key={session} video={video} initialStatus={status} onStatus={setStatus} onClose={() => setOpen(false)} /> : null}
-      </DialogContainer>
+      <DialogContainer onDismiss={hide}>{open ? <VideoVersionsDialog key={session} video={video} onClose={hide} /> : null}</DialogContainer>
     </>
   );
 }
@@ -185,39 +190,25 @@ function SaveVersion({ disabled, onSave }: { disabled: boolean; onSave(name: str
 /* ---------- 对话框 ---------- */
 
 /** 最近一次成功操作的结果。对话框是模态的，toast 落在遮罩下面点不到，所以结果（和「撤销」）写在对话框里。 */
-interface Done {
-  tone: 'positive' | 'informative';
-  title: string;
-  text: string;
-  undo?: () => void;
-}
+type Done = VersionNote;
 
 type Ask = { kind: 'restore'; version: number; before: boolean; when: string } | { kind: 'delete'; version: number; name: string; next: number | null };
 
-function VideoVersionsDialog({
-  video,
-  initialStatus,
-  onStatus,
-  onClose,
-}: {
-  video: OpenVideo;
-  initialStatus: VideoSnapshotStatus | null;
-  onStatus(status: VideoSnapshotStatus): void;
-  onClose(): void;
-}) {
+function VideoVersionsDialog({ video, onClose }: { video: OpenVideo; onClose(): void }) {
   const runtime = useRuntime();
   const { undo } = useEditorActions();
   const titleId = useId();
   const now = useNow(30_000);
   const keep = useSetting('versions.keep') ?? 10;
   const documents = useVideo((s) => s.video?.state?.video.documents);
-  const inProject = Boolean(video.ref?.source.projectId);
+  const projectId = video.ref?.source.projectId ?? null;
+  const inProject = Boolean(projectId);
   const editable = canEdit(video);
   const revision = video.state?.video.revision ?? null;
   const name = video.state?.video.name ?? video.ref?.name ?? '';
 
+  const status = video.versionStatus ?? null;
   const [list, setList] = useState<VideoVersionList | null>(null);
-  const [status, setStatus] = useState<VideoSnapshotStatus | null>(initialStatus);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   /** 上次回到版本时引擎报出的断点（`VERSION_CHAIN_BROKEN`）：比它旧的状态都回不去。 */
@@ -241,17 +232,15 @@ function VideoVersionsDialog({
   const refresh = useCallback(async () => {
     const read = ++reads.current;
     try {
-      const [nextList, nextStatus] = await Promise.all([runtime.videos.versionList(), runtime.videos.versionStatus()]);
-      // 只认最后一次读：先发的读晚回来时不盖掉新的。
+      // 状态由 versionStatus 记进视频；列表只认最后一次读：先发的读晚回来时不盖掉新的。
+      const [nextList] = await Promise.all([runtime.videos.versionList(), runtime.videos.versionStatus()]);
       if (!alive.current || read !== reads.current) return;
       setList(nextList);
-      setStatus(nextStatus);
       setLoadError(null);
-      onStatus(nextStatus);
     } catch (error) {
       if (alive.current && read === reads.current) setLoadError(versionError(error).message);
     }
-  }, [runtime, onStatus]);
+  }, [runtime]);
 
   // 打开时读；修订号变了（比如智能体在改）稍后再读，读到「正在写入」。
   useEffect(() => {
@@ -261,17 +250,18 @@ function VideoVersionsDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 只按修订号重读，list 只用来区分第一次
   }, [inProject, revision, refresh]);
 
-  // 快照正在写入：几秒后再读，直到写完。
+  // 快照正在写入或正在导入外部改动：几秒后再读，直到写完、导入完。
   useEffect(() => {
-    if (status?.state !== 'pending') return;
+    if (status?.state !== 'pending' && status?.state !== 'external') return;
     const timer = window.setTimeout(() => void refresh(), PENDING_POLL);
     return () => window.clearTimeout(timer);
   }, [status, refresh]);
 
   const rows = useMemo(() => (list ? versionRows(list, brokenAt) : []), [list, brokenAt]);
   const current = rows.find((r) => r.version === selected) ?? rows[0] ?? null;
-  const state = status ? snapshotState(status.state) : null;
-  const writable = inProject && editable && status?.state !== 'conflict' && !busy;
+  const state = status ? snapshotState(status) : null;
+  // 冲突时、正在导入时不能保存或回到版本。
+  const writable = inProject && editable && status?.state !== 'conflict' && status?.state !== 'external' && !busy;
 
   const succeed = (next: Done) => {
     setRefused(null);
@@ -281,6 +271,30 @@ function VideoVersionsDialog({
     setDone(null);
     setRefused(error);
   };
+  const resolve = useResolve(
+    status,
+    documents ?? {},
+    {
+      done: (note) => {
+        setSelected(null);
+        succeed(note);
+      },
+      refuse: fail,
+    },
+    () => void refresh(),
+  );
+
+  // Runtime 自己导入了外部改动（useImportNotice）：结果写在对话框里，带「撤销」。
+  const imported = useVersionsDialog((s) => s.imported);
+  useEffect(() => {
+    if (!imported) return;
+    useVersionsDialog.getState().announce(null);
+    setSelected(null);
+    setRefused(null);
+    setDone(imported);
+    void refresh();
+  }, [imported, refresh]);
+
   const run = async (task: () => Promise<void>) => {
     setBusy(true);
     try {
@@ -347,6 +361,11 @@ function VideoVersionsDialog({
     const newer = rows.filter((r) => r.version > version).at(-1)?.version ?? null;
     setAsk({ kind: 'delete', version, name: item.name ?? versionTitle(item), next: newer });
   };
+  // 底部 git 状态条的「项目设置」：项目设置是另一个模态对话框，先关掉版本记录。
+  const openSettings = (id: string) => {
+    onClose();
+    useProjectSettings.getState().open(id);
+  };
   const openConversation = (conversationId: string) => {
     onClose();
     useShell.getState().go({ tab: 'home', conversationId, projectId: null });
@@ -362,22 +381,9 @@ function VideoVersionsDialog({
   ) : (
     <>
       {status?.state === 'conflict' ? (
-        <InlineAlert variant="negative" styles={alert}>
-          <Heading>{C.conflictTitle}</Heading>
-          <Content>
-            {C.conflictIntro}
-            <span className={paths}>
-              {(status.changedPaths ?? []).map((path) => (
-                <span key={path} className={pathRow}>
-                  <span className={mono}>{path}</span>
-                  <span>{fileLabel(path, documents ?? {})}</span>
-                </span>
-              ))}
-            </span>
-            {C.conflictOutro}
-          </Content>
-        </InlineAlert>
+        <ConflictAlert status={status} documents={documents ?? {}} disabled={busy || resolve.busy || !editable} onResolve={resolve.ask} />
       ) : null}
+      {status?.state === 'external' ? <ExternalAlert status={status} documents={documents ?? {}} /> : null}
       {refused ? (
         <InlineAlert variant={refused.code === 'VERSION_CHAIN_BROKEN' ? 'negative' : 'notice'} styles={alert}>
           <Heading>{refused.code === 'VERSION_CHAIN_BROKEN' ? C.refusedBroken : C.refusedOther}</Heading>
@@ -485,7 +491,8 @@ function VideoVersionsDialog({
         {body}
         {inProject ? (
           <footer className={foot}>
-            {state ? <span>{state.desc}</span> : null}
+            {projectId ? <ProjectGitStrip projectId={projectId} onOpenSettings={() => openSettings(projectId)} /> : null}
+            {state ? <span className={footDesc}>{state.desc}</span> : null}
             <span>{C.footer(keep)}</span>
           </footer>
         ) : null}
@@ -511,6 +518,7 @@ function VideoVersionsDialog({
           </AlertDialog>
         ) : null}
       </DialogContainer>
+      {resolve.dialog}
     </CustomDialog>
   );
 }
@@ -600,9 +608,6 @@ const grow = style({ flexGrow: 1, display: { default: 'block', [NARROW]: 'none' 
 const noShrink = style({ flexShrink: 0 });
 
 const alert = style({ flexShrink: 0, marginTop: 12, marginX: { default: 24, [NARROW]: 16 } });
-const paths = style({ display: 'flex', flexDirection: 'column', gap: 2, marginY: 8 });
-const pathRow = style({ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 8 });
-const mono = style({ font: 'code-xs', overflowWrap: 'anywhere' });
 const doneRow = style({ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' });
 
 const layout = style({
@@ -669,6 +674,9 @@ const foot = style({
   font: 'ui-xs',
   color: 'gray-600',
 });
+
+/** 快照状态的说明：窄屏与顶部的状态、冲突提示重复，收起。 */
+const footDesc = style({ display: { default: 'block', [NARROW]: 'none' } });
 
 const saveForm = style({ display: 'flex', flexDirection: 'column', gap: 12, width: 340, maxWidth: 'full', boxSizing: 'border-box', padding: 16 });
 const saveTitle = style({ margin: 0, font: 'title-sm', color: 'gray-900' });

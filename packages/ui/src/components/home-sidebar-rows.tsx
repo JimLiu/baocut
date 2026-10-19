@@ -26,12 +26,14 @@ import FolderOpen from '@react-spectrum/s2/icons/FolderOpen';
 import OpenIn from '@react-spectrum/s2/icons/OpenIn';
 import PinOff from '@react-spectrum/s2/icons/PinOff';
 import PinOn from '@react-spectrum/s2/icons/PinOn';
+import Settings from '@react-spectrum/s2/icons/Settings';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { revealLabel, untitled } from '../copy.ts';
 import { S } from './shell-copy.ts';
 import { agoLabel, shortenPath } from '../model/format.ts';
 import { conversationStatus, sessionStatus, type ProjectRow } from '../model/sidebar.ts';
 import { hrefFor } from '../state/shell-store.ts';
+import { PROJECT_SETTINGS_COPY } from './project-settings/project-settings-copy.ts';
 import { PROJECT_MENU_COPY } from './skills/skills-copy.ts';
 
 /** SideNav 把文字放在 auto 宽的网格列里：允许它收窄，标题才会省略而不是溢出到行尾按钮下面。 */
@@ -179,6 +181,10 @@ export function ProjectItem({
           <MenuItem id="reveal" textValue={revealLabel()}>
             <OpenIn />
             <Text>{revealLabel()}</Text>
+          </MenuItem>
+          <MenuItem id="settings" textValue={PROJECT_SETTINGS_COPY.menuItem}>
+            <Settings />
+            <Text>{PROJECT_SETTINGS_COPY.menuItem}</Text>
           </MenuItem>
         </ActionMenu>
       </SideNavItemContent>

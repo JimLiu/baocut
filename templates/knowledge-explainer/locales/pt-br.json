@@ -1,41 +1,43 @@
 {
   "title": "Vídeo explicativo",
-  "summary": "Transforme um documento, slides ou um tema em um vídeo fácil de entender.",
-  "description": "Ajude o espectador a entender um conceito com explicações claras e exemplos concretos. Seus materiais viram uma narrativa visual, com a profundidade ajustada ao que o público já sabe.",
-  "brief": "Use {{materiais}} para explicar {{tema}} a {{público}}. Ao final, o espectador deve conseguir {{resultado esperado}}.",
+  "summary": "Explique um conceito, uma notícia ou um artigo para que todos acompanhem.",
+  "description": "Parta das perguntas que o público realmente tem, escolha a abordagem que combina com o conteúdo e deixe um sujeito concreto conduzir a explicação do começo ao fim. Todo número na tela, na narração e na publicação vem do mesmo conjunto de fatos verificados. Cada versão inclui o vídeo, uma imagem de capa e uma publicação pronta para divulgar.",
+  "brief": "Usando {{materiais}}, explique {{tema}} a {{público}} para que, ao final, consigam {{resultado esperado}}.",
   "fields": [
     {
       "label": "materiais",
-      "hint": "Documento, slides ou link anexado; se não tiver, escreva “fontes públicas”",
+      "hint": "Documentos, artigos, links ou texto; se não houver, escreva “fontes públicas”",
       "example": "esta apostila"
     },
     {
       "label": "público",
-      "hint": "Quem vai assistir e o que já sabe",
-      "example": "alunos do ensino médio"
+      "hint": "Quem vai assistir e o que já sabe; em branco, pessoas sem conhecimento prévio",
+      "example": "alunos do ensino fundamental"
     },
     {
       "label": "tema",
-      "hint": "O conceito ou o tema a explicar",
-      "example": "a fotossíntese"
+      "hint": "Um conceito, uma notícia, um artigo científico ou um fenômeno",
+      "example": "por que a Lua tem fases"
     },
     {
       "label": "resultado esperado",
-      "hint": "O que o espectador deve lembrar ou saber fazer ao final",
-      "example": "dizer o que acontece na fase clara e na fase escura"
+      "hint": "Recontar uma ideia, entender uma notícia, julgar ou testar por conta própria",
+      "example": "explicar as fases da Lua com as próprias palavras"
     }
   ],
   "tags": [
     "divulgação científica",
     "explicação",
-    "educação"
+    "educação",
+    "notícia explicada",
+    "artigo explicado"
   ],
   "preview": {
     "beats": [
-      "Lançar uma pergunta",
-      "Desmontar os conceitos-chave",
-      "Um exemplo concreto",
-      "Resumir os pontos principais"
+      "Começar pela pergunta do público",
+      "Um único sujeito conduz tudo",
+      "Mostrar o equívoco comum e desmontá-lo",
+      "O público consegue recontar depois"
     ]
   }
 }

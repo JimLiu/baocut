@@ -7,12 +7,18 @@
 // 进度记在 timeline.json，可以重跑：已放好且没变的段跳过。改过的段这样处理（video-production 代码场景细则第 7 节的 ripple 步骤）：
 //   - 代码包帧数变了：带 replace.ripple 换包，引擎把这一段旧终点之后各轨的片段（画面、旁白、字幕、音效、音乐）一起挪 Δ 帧，
 //     跨过旧终点的片段（全片音乐）不动；几段一起变时从最后一段往前做。代码包内容变了、帧数没变：原地换包，Δ 为 0 什么都不挪。
-//   - 旁白换了（voice.json 里的 artifactId 变了）：删掉旧的旁白片段，在同一起点导入新的；字幕由 captions.mjs 发现后重建。
+//   - 旁白换了（voice.json 里的 artifactId 变了）：波纹做完后先一起删掉所有要换的旧旁白片段，再逐段在段首导入新的；字幕由 captions.mjs 发现后重建。
+//     不逐段「删一段放一段」：旧旁白可能比段首早一帧，波纹只挪旧终点及之后的片段，它会被留在原地，和前一段变长的新旁白重叠（TIMELINE_OVERLAP）。
+//   - 导入时 place.at 只能写秒数，Runtime 换成帧时可能落到前一帧；放好后核对起点，不在段首就用 moveItem 按整帧挪回去。
 //   - order 里新插进的段：先用 insertRange 在上一段终点腾出它的帧数，再放进去。从 order 里删掉的段不自动处理，报错让你先手动删。
 //   章节不跟着挪，改完自己核对。
 // 每段记下 bake 的 renderer / fps / seconds；--background 时烘焙在后台排队，之后用 --verify 把结果补进记录。
 // 前台烘焙走成 browser-pixels 时停下并打印原因（不带 --allow-pixels），按代码场景细则第 2.1 节改好后重跑会原地换包。
-import { loadConfig, parseArgs, makeBc, readJson, writeJson, layout, atOf, frameOf, bundleHash } from './lib.mjs';
+// 用 WebGL（Three.js 等）画的段走不了指令，一开始就带 --allow-pixels，并按代码场景细则先算好要烘多久。
+// 旁白按 voice.json 的 artifactId 导入；Runtime 清掉了旧产物（ARTIFACT_NOT_FOUND）时改导入 voice.mjs 存下的 audio/<id>.<格式>。
+// gaps.mjs 留过白的段（timing 里有 gapAudio）改导入留好白的那份；留白变了（重跑过 gaps.mjs）也当旁白换了。
+import fs from 'node:fs';
+import { loadConfig, parseArgs, makeBc, readJson, writeJson, layout, atOf, frameOf, bundleHash, textHash, allItems } from './lib.mjs';
 
 const cfg = loadConfig();
 const { flags } = parseArgs(process.argv, ['bake']);
@@ -23,6 +29,12 @@ const voice = readJson(cfg.abs(cfg.dirs.audio, 'voice.json'), {});
 const lay = layout(cfg);
 const total = lay.reduce((n, s) => n + s.frames, 0);
 const save = () => writeJson(logFile, rec);
+const timingOf = id => readJson(cfg.abs(cfg.dirs.timing, `${id}.json`), {});
+const gapKey = id => { const g = timingOf(id).gaps; return g?.length ? textHash(JSON.stringify(g)) : null; };
+// clips.json 里要旁白留白的片段，timing 里得有它的留白，否则旁白、代码包都还是没留白的长度
+const ungapped = [...new Set(readJson(cfg.abs(cfg.footage?.clips || 'clips.json'), { clips: [] }).clips
+  .filter(c => c.gap && cfg.order.includes(c.seg) && !timingOf(c.seg).gaps?.some(g => g.clip === c.id)).map(c => c.seg))];
+if (ungapped.length) throw new Error(`gap clips not in timing for ${ungapped.join(', ')}; run gaps.mjs ${ungapped.join(' ')}, then build.mjs`);
 
 if (rec.video && cfg.video && rec.video !== cfg.video) throw new Error(`timeline.json belongs to ${rec.video}, config says ${cfg.video}; refusing to mix them`);
 const stray = Object.keys(rec.segments).filter(id => !cfg.order.includes(id));
@@ -44,7 +56,7 @@ for (const s of lay) {
     frames: r.frames,
     resized: r.sceneItem && r.frames !== s.frames,
     rebundled: r.sceneItem && r.bundleHash !== hash,
-    revoiced: !!(r.audioItem && voice[s.id] && voice[s.id].artifactId !== r.audioArtifact),
+    revoiced: !!(r.audioItem && ((voice[s.id] && voice[s.id].artifactId !== r.audioArtifact) || (r.audioGaps ?? null) !== gapKey(s.id))),
     hash,
   };
 }
@@ -115,14 +127,7 @@ function apply(label, ops) {
 
 // 起点不早于 boundary 帧的全部片段（各轨），分页读到底；spanning 时连跨过 boundary 的也算
 function itemsFrom(boundary, spanning = false) {
-  const items = [];
-  let from = boundary / FPS, limit = 500;
-  for (;;) {
-    const r = inspect(['--from-seconds', String(from), '--limit', String(limit)]);
-    if (r.itemsCoverage && r.itemsCoverage.truncated) { limit *= 4; if (limit <= 32000) continue; throw new Error('too many clips to list'); }
-    for (const it of r.items) if (spanning ? it.startFrame + it.durationFrames > boundary : it.startFrame >= boundary) items.push(it);
-    return items;
-  }
+  return allItems(bc, V, boundary / FPS).items.filter(it => (spanning ? it.startFrame + it.durationFrames > boundary : it.startFrame >= boundary));
 }
 
 // 要挪的轨道或片段锁着时先停下：引擎也会以 TARGET_LOCKED 拒绝，但换包时那已经在烘焙之后
@@ -168,7 +173,7 @@ function checkBake(id, r) {
   console.log(`${id}: bake ${r.bake.renderer} ${r.bake.fps ?? '?'} fps ${r.bake.seconds ?? '?'} s${r.bake.fallback ? ' fallback: ' + r.bake.fallback : ''}`);
   if (r.bake.renderer === 'browser-pixels' && !flags['allow-pixels']) {
     save();
-    throw new Error(`${id} fell back to browser-pixels (${r.bake.fallback}); fix the bundle (code-scenes 2.1) and rerun, or pass --allow-pixels`);
+    throw new Error(`${id} fell back to browser-pixels (${r.bake.fallback}); fix the bundle (code-scenes 2.1) and rerun, or pass --allow-pixels (WebGL scenes always bake as pixels)`);
   }
 }
 
@@ -199,10 +204,30 @@ function replaceScene(s) {
 function placeNarration(s) {
   const r = rec.segments[s.id], v = voice[s.id];
   if (!v) throw new Error(`no narration for ${s.id} in voice.json; run voice.mjs ${s.id}`);
-  if (r.audioItem) apply(`Remove old narration ${s.id}`, [{ type: 'deleteItems', itemIds: [r.audioItem] }]);
-  const a = bc(['assets', 'import', V, '--artifact-id', v.artifactId, '--name', `${cfg.names.narration} ${s.id}`, '--place', JSON.stringify({ track: A1, at: atOf(r.from, FPS) })]);
-  Object.assign(r, { audioArtifact: v.artifactId, audioAsset: a.assetId, audioItem: a.itemId });
+  const tail = ['--name', `${cfg.names.narration} ${s.id}`, '--place', JSON.stringify({ track: A1, at: atOf(r.from, FPS) })];
+  const gapAudio = timingOf(s.id).gapAudio;
+  let a;
+  try {
+    a = gapAudio ? bc(['assets', 'import', V, '--path', cfg.abs(gapAudio), '--storage', 'managed', ...tail]) : bc(['assets', 'import', V, '--artifact-id', v.artifactId, ...tail]);
+  } catch (e) {
+    // the Runtime may have pruned an old artifact; voice.mjs kept the same bytes as audio/<id>.<format>
+    const file = cfg.abs(cfg.dirs.audio, `${s.id}.${cfg.voice.format || 'wav'}`);
+    if (gapAudio || e.cli?.code !== 'ARTIFACT_NOT_FOUND' || !fs.existsSync(file)) throw e;
+    console.log(`${s.id}: artifact gone, importing ${file}`);
+    a = bc(['assets', 'import', V, '--path', file, '--storage', 'managed', ...tail]);
+  }
+  Object.assign(r, { audioArtifact: v.artifactId, audioGaps: gapKey(s.id), audioAsset: a.assetId, audioItem: a.itemId });
   save();
+  snapToFrame(a.itemId, r.from);
+}
+
+// 秒数换成帧时可能落到前一帧（508.1333333333 s 落在 15243 而不是 15244）：按整帧挪回段首
+function snapToFrame(itemId, frame) {
+  const it = allItems(bc, V, Math.max(0, frame - 2) / FPS).items.find(x => x.id === itemId);
+  if (!it) throw new Error(`${itemId} not on the timeline after import`);
+  if (it.startFrame === frame) return;
+  apply(`Snap ${itemId} to frame ${frame}`, [{ type: 'moveItem', itemId, at: { unit: 'frames', value: frame } }]);
+  console.log(`${itemId}: moved from frame ${it.startFrame} to ${frame}`);
 }
 
 function placeScene(s) {
@@ -222,12 +247,18 @@ if (!flags.verify) {
     if (st.kind === 'insert') makeRoom(st.id, st.boundary, st.delta);
     else replaceScene(s);
   }
-  // 2. 帧数没变但包或旁白换了的段
+  // 2. 帧数没变但包换了的段原地换包；旁白换了的段先一起删掉旧旁白（还在时间线上的），第 3 步在段首重放
   for (const s of lay) {
     const c = cur[s.id];
-    if (!c) continue;
-    if (c.rebundled && !c.resized) replaceScene(s);
-    if (c.revoiced) placeNarration(s);
+    if (c?.rebundled && !c.resized) replaceScene(s);
+  }
+  const revoiced = lay.filter(s => cur[s.id]?.revoiced);
+  if (revoiced.length) {
+    const live = new Set(allItems(bc, V).items.map(it => it.id));
+    const ids = revoiced.map(s => rec.segments[s.id].audioItem).filter(id => live.has(id));
+    if (ids.length) apply(`Remove old narration ${revoiced.map(s => s.id).join(' ')}`, [{ type: 'deleteItems', itemIds: ids }]);
+    for (const s of revoiced) rec.segments[s.id].audioItem = null;
+    save();
   }
   // 3. 新段与缺一半的段：按 layout 的起点放
   for (const s of lay) {

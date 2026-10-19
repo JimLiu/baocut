@@ -1,41 +1,43 @@
 {
   "title": "Vídeo explicativo",
-  "summary": "Convierte un documento, unas diapositivas o un tema en un vídeo fácil de seguir.",
-  "description": "Ayuda al público a entender un concepto con explicaciones claras y ejemplos concretos. Organiza tus materiales en un relato visual y ajusta la profundidad a lo que el público ya sabe.",
-  "brief": "A partir de {{fuentes}}, explica {{tema}} a {{público}}. Al terminar, deberían poder {{objetivo}}.",
+  "summary": "Explica un concepto, una noticia o un artículo para que cualquiera lo siga.",
+  "description": "Parte de las preguntas que el público se hace de verdad, elige el enfoque que mejor encaja con el contenido y deja que un sujeto concreto sostenga la explicación de principio a fin. Cada cifra en pantalla, en la narración y en la publicación sale del mismo conjunto de hechos verificados. Cada versión incluye el vídeo, una portada y una publicación lista para difundir.",
+  "brief": "A partir de {{fuentes}}, explica {{tema}} a {{público}} para que, al terminar, puedan {{objetivo}}.",
   "fields": [
     {
       "label": "fuentes",
-      "hint": "Documento, diapositivas o enlace adjuntos; si no hay, escribe «fuentes públicas»",
+      "hint": "Documentos, artículos, enlaces o texto; si no hay, escribe «fuentes públicas»",
       "example": "estos apuntes"
     },
     {
       "label": "público",
-      "hint": "Quién lo verá y cuánto sabe ya",
-      "example": "alumnos de bachillerato"
+      "hint": "Quién lo verá y qué sabe ya; en blanco, personas sin conocimientos previos",
+      "example": "alumnos de secundaria"
     },
     {
       "label": "tema",
-      "hint": "El concepto o tema que hay que explicar",
-      "example": "la fotosíntesis"
+      "hint": "Un concepto, una noticia, un artículo científico o un fenómeno",
+      "example": "por qué la Luna tiene fases"
     },
     {
       "label": "objetivo",
-      "hint": "Lo que el público debe recordar o saber hacer al terminar",
-      "example": "explicar qué ocurre en la fase luminosa y en la oscura"
+      "hint": "Contar una idea, entender una noticia, decidir o probarlo ellos mismos",
+      "example": "explicar las fases de la Luna con sus propias palabras"
     }
   ],
   "tags": [
     "divulgación",
     "explicación",
-    "educación"
+    "educación",
+    "noticias explicadas",
+    "artículos explicados"
   ],
   "preview": {
     "beats": [
-      "Plantear una pregunta",
-      "Desglosar los conceptos clave",
-      "Aclararlo con un ejemplo concreto",
-      "Resumir lo esencial"
+      "Empezar por la pregunta del público",
+      "Un solo sujeto lo sostiene todo",
+      "Mostrar el error común y desmontarlo",
+      "El público puede contarlo después"
     ]
   }
 }

@@ -21,7 +21,9 @@ import { DocDoor, LOCAL_PRINCIPAL, SERVER_CAPS, fileValue, humanActor, projectVa
 import { AGENT_VIA, type DoorRequest } from './door-types.ts';
 import { LiveDoc, type DocEvent, type DocEventActor } from './live-doc.ts';
 import { MuxServer, type MuxConnection, type TopicHandler } from './mux.ts';
+import { serializeDocument } from './prose-xml.ts';
 import { loadDocState, visibleTabs, type DocState } from './store.ts';
+import { historyRows, sameBlocks, versionBlocks, versionNumbered } from './versions.ts';
 
 export interface DocsRouteOptions {
   /** 能不能写（Web 服务的只读会话为 false）：door 的写入回 `forbidden`，素材上传回 403。 */
@@ -39,6 +41,8 @@ export interface DocsServerOptions {
   onWarn?: (message: string) => void;
   /** 同时打开的文档上限，超过时丢掉最早打开、没有编辑器连着的。 */
   maxDocs?: number;
+  /** 现在的时间（毫秒）：版本按它分段，测试换成假的钟。 */
+  now?: () => number;
 }
 
 interface OpenDoc {
@@ -207,7 +211,7 @@ export class DocsServer implements DocsConnectorHost {
     const loading = (async () => {
       const state = await loadDocState(dir);
       if (!state) throw new Error('not a doc');
-      const doc = new LiveDoc(dir, state, { onError: this.#options.onError, onGone: (gone) => this.#forget(gone) });
+      const doc = new LiveDoc(dir, state, { onError: this.#options.onError, onGone: (gone) => this.#forget(gone), now: this.#options.now });
       await doc.scanAssets();
       this.#watch(doc);
       return doc;
@@ -221,7 +225,7 @@ export class DocsServer implements DocsConnectorHost {
 
   /** 还没写过盘的新文档（连接器新建时用）：成功后 `adopt` 进缓存。 */
   fresh(dir: string, state: DocState): LiveDoc {
-    return new LiveDoc(dir, state, { fresh: true, onError: this.#options.onError, onGone: (gone) => this.#forget(gone) });
+    return new LiveDoc(dir, state, { fresh: true, onError: this.#options.onError, onGone: (gone) => this.#forget(gone), now: this.#options.now });
   }
 
   adopt(doc: LiveDoc): void {
@@ -484,6 +488,12 @@ export class DocsServer implements DocsConnectorHost {
       sendJson(response, reply.status, reply.body);
       return;
     }
+    // 编辑器的版本面板（版本记录设计 §13.2）：版本列表、某一版的正文、回到这一版
+    const version = /^v3\/project\/([^/]+)\/file\/([^/]+)\/(history|at\/(\d{1,9})|restore\/(\d{1,9}))$/.exec(route);
+    if (version) {
+      await this.#versionRoute(entry, version, url, request, response, options);
+      return;
+    }
     if (method === 'POST' || method === 'PUT') {
       // 埋点类接口：收下即可
       request.resume();
@@ -573,6 +583,45 @@ export class DocsServer implements DocsConnectorHost {
       return sendJson(response, 200, { rows: [] });
     }
     sendJson(response, 404, { error: 'not_found', path: route });
+  }
+
+  /**
+   * 版本面板的三个接口（docs-runtime 的 api.v3FileHistory / v3FileAt / v3FileRestore，地址里是文档 id 与标签页 id）：
+   * - `GET history`：每个版本一行（`historyRows`），新的在前；`?before=<版本号>` 只要更早的。
+   * - `GET at/<版本号>`：那一版结束时的正文，写成编辑器读的 XML（`{xml}`，面板用编辑器自己的解析器读）。
+   * - `POST restore/<版本号>`：正文换成那一版，单独记成一版（`{restored, rev}`）；和现在一样时不改（`restored: false`）。
+   *   要能编辑、同源。挂在被换掉的字上的评论照常脱钩，不拦。
+   */
+  async #versionRoute(entry: OpenDoc, match: RegExpExecArray, url: URL, request: IncomingMessage, response: ServerResponse, options: DocsRouteOptions): Promise<void> {
+    const method = request.method ?? 'GET';
+    const restore = match[5] !== undefined;
+    if (restore ? method !== 'POST' : method !== 'GET' && method !== 'HEAD') {
+      request.resume();
+      response.writeHead(405, { Allow: restore ? 'POST' : 'GET, HEAD' }).end();
+      return;
+    }
+    if (restore) {
+      request.resume();
+      if (!sameOrigin(request) || !options.canEdit) return sendJson(response, 403, { error: 'forbidden' });
+    }
+    const doc = await this.#load(entry.dir).catch(() => null);
+    const tab = doc?.meta.tabs.find((candidate) => candidate.id === match[2]);
+    const node = tab?.nodeId ? doc!.node(tab.nodeId) : undefined;
+    if (!doc || match[1] !== doc.meta.id || !tab || !node) return sendJson(response, 404, { error: 'not_found' });
+    if (match[3] === 'history') {
+      const before = Number(url.searchParams.get('before'));
+      const rows = historyRows(node, doc.meta.id, tab.id);
+      return sendJson(response, 200, Number.isInteger(before) && before > 0 ? rows.filter((row) => (row['params'] as { upto: number }).upto < before) : rows);
+    }
+    const version = versionNumbered(node, Number(match[4] ?? match[5]));
+    if (!version) return sendJson(response, 404, { error: 'not_found' });
+    if (!restore) return sendJson(response, 200, { xml: serializeDocument(versionBlocks(node, version), { rev: version.rev }) });
+    const blocks = structuredClone(versionBlocks(node, version));
+    if (sameBlocks(blocks, node.blocks)) return sendJson(response, 200, { restored: false, rev: node.rev });
+    const door = this.door(doc);
+    doc.transaction(() => door.restoreNode(node, blocks, version.rev, { actor: humanActor(this.#user), canEdit: true }));
+    await doc.flush();
+    sendJson(response, 200, { restored: true, rev: node.rev });
   }
 
   /**

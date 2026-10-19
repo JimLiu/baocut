@@ -658,7 +658,55 @@
          {id: 'c6', author: '林舟', time: '1 小时前', text: '可以。预告文案谁来写？'}]},
        {id: 'c4', tab: 'overview', block: 'b2', quote: '其余每周一讲', comments: [
          {id: 'c4', author: '林舟', time: '1 小时前', text: '第 5 讲之后的录制排得开吗？要不要改成两周一讲？'}]},
-     ]},
+     ],
+     /* 版本记录（版本记录设计 §13.2，三期方案待确认）：每个标签页的正文各自记版本，旧的在前，字段见 model-home-docs-versions.js。
+        最新一版不写 `blocks`，它就是上面 `tabs` 里的正文。计划：昨晚你写了两版，今早 s34 补了「渠道」，刚才你又改了两处、还开着；
+        概览：你昨晚写好、在「八讲」下面留了一条请求，s34 第二轮按请求写了列表；风险只有昨晚那一版。 */
+     versions: {
+       overview: [
+         {n: 1, day: '昨天', start: '21:30', end: '21:38', by: [{kind: 'you'}], cut: 'turn', blocks: [
+           {id: 'b1', type: 'h1', text: '确定性渲染课程 · 发布计划'},
+           {id: 'b2', type: 'p', text: '这门课讲清视频渲染为什么必须可复现，以及怎么证明它。共 8 讲，每讲 40 分钟；11 月先上线前两讲试听，其余每周一讲。'},
+           {id: 'b3', type: 'h2', text: '这份文档放什么'},
+           {id: 'b4', type: 'list', items: ['计划：目标、上线节奏和每周的负责人', '风险：已知风险和应对办法', '相关文件：落地页在 设计稿/课程落地页/，第 1 讲的课件在 幻灯片/第1讲/']},
+           {id: 'b5', type: 'h3', text: '八讲'},
+           {id: 'b7', type: 'ask', text: '按课程大纲把八讲的题目列出来。'}]},
+         {n: 2, day: '今天', start: '09:40', end: '09:41', by: [{kind: 'agent', session: 's34'}], open: true},
+       ],
+       plan: [
+         {n: 1, day: '昨天', start: '21:40', end: '21:52', by: [{kind: 'you'}], cut: 'quiet', blocks: [
+           {id: 'b1', type: 'h2', text: '目标'},
+           {id: 'b2', type: 'p', text: '首月 800 名付费学员，退款率低于 5%。'},
+           {id: 'b3', type: 'h2', text: '上线节奏'},
+           {id: 'b4', type: 'table', head: ['周', '内容', '负责人', '状态'], rows: [
+             ['第 1 周', '落地页上线，开放第 1、2 讲试听', '林舟', '未开始'],
+             ['第 2 周', '第 3 讲上线', '我', '未开始']]}]},
+         {n: 2, day: '昨天', start: '22:30', end: '22:41', by: [{kind: 'you'}], cut: 'turn', blocks: [
+           {id: 'b1', type: 'h2', text: '目标'},
+           {id: 'b2', type: 'p', text: '首月 500 名付费学员，试听到付费的转化不低于 4%，退款率低于 5%。'},
+           {id: 'b3', type: 'h2', text: '上线节奏'},
+           {id: 'b4', type: 'table', head: ['周', '内容', '负责人', '状态'], rows: [
+             ['第 1 周', '落地页上线，开放第 1、2 讲试听', '林舟', '未开始'],
+             ['第 2 周', '第 3 讲上线，邮件通知试听用户', '我', '未开始'],
+             ['第 3 周', '第 4 讲上线，社群直播答疑', '林舟', '未开始'],
+             ['第 4 周', '第 5 讲上线，首月复盘', '我', '未开始']]}]},
+         {n: 3, day: '今天', start: '10:05', end: '10:09', by: [{kind: 'agent', session: 's34'}], cut: 'quiet', blocks: [
+           {id: 'b1', type: 'h2', text: '目标'},
+           {id: 'b2', type: 'p', text: '首月 500 名付费学员，试听到付费的转化不低于 4%，退款率低于 5%。'},
+           {id: 'b3', type: 'h2', text: '上线节奏'},
+           {id: 'b4', type: 'table', head: ['周', '内容', '负责人', '状态'], rows: [
+             ['第 1 周', '落地页上线，开放第 1、2 讲试听', '林舟', '未开始'],
+             ['第 2 周', '第 3 讲上线，邮件通知试听用户', '我', '未开始'],
+             ['第 3 周', '第 4 讲上线，社群直播答疑', '林舟', '未开始'],
+             ['第 4 周', '第 5 讲上线，首月复盘', '我', '未开始']]},
+           {id: 'b5', type: 'h3', text: '渠道'},
+           {id: 'b6', type: 'list', items: ['课程落地页与试听视频', '已购学员的邮件列表']}]},
+         {n: 4, day: '今天', start: '11:20', end: '11:26', by: [{kind: 'you'}], open: true},
+       ],
+       risks: [
+         {n: 1, day: '昨天', start: '22:45', end: '22:50', by: [{kind: 'you'}], open: true},
+       ],
+     }},
     /* 设计系统（docs/design/canvas §10）：含 design-system.json 的目录是一个条目。下面是原型画设计系统标签页用的演示内容，
        正式版由设计系统编辑器读 design-system.json、tokens.json、README.md、components/ 与 assets/ 来画。字段：
        `fileCount` 是目录里的文件数（导航尾巴上的 Files 行）；`cover` 有值时 Overview 顶上画封面（components/Cover）；`readme` 是 README.md 的原文；

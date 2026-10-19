@@ -6,6 +6,7 @@ import {
   type DocumentRecord,
   type Id,
   type VideoSnapshotState,
+  type VideoSnapshotStatus,
   type VideoVersion,
   type VideoVersionAction,
   type VideoVersionFile,
@@ -177,9 +178,17 @@ export function rangeText(startedAt: string, updatedAt: string): string {
 
 export type SnapshotTone = 'positive' | 'informative' | 'negative' | 'neutral';
 
-/** 快照与视频库的关系（§9.7，`videos.versions.status`）：状态灯的文字、颜色与页脚的说明。 */
-export function snapshotState(state: VideoSnapshotState): { label: string; tone: SnapshotTone; desc: string } {
+type StatusLike = Pick<VideoSnapshotStatus, 'state' | 'conflict'>;
+
+/**
+ * 快照与视频库的关系（§9.7，`videos.versions.status`）：状态灯的文字、颜色与页脚的说明。冲突按原因分开说
+ * （两边都改了 / 快照读不出）；`external` 是只有快照被改、Runtime 正在导入，通常不到一秒。
+ */
+export function snapshotState(status: StatusLike): { label: string; tone: SnapshotTone; desc: string } {
+  const { state } = status;
   if (state === 'pending') return { label: C.statePending, tone: 'informative', desc: C.statePendingDesc };
+  if (state === 'external') return { label: C.stateExternal, tone: 'informative', desc: C.stateExternalDesc };
+  if (state === 'conflict' && status.conflict === 'invalid') return { label: C.stateInvalid, tone: 'negative', desc: C.stateInvalidDesc };
   if (state === 'conflict') return { label: C.stateConflict, tone: 'negative', desc: C.stateConflictDesc };
   if (state === 'missing') return { label: C.stateMissing, tone: 'neutral', desc: C.stateMissingDesc };
   if (state === 'rebuild') return { label: C.stateRebuild, tone: 'informative', desc: C.stateRebuildDesc };
@@ -187,14 +196,41 @@ export function snapshotState(state: VideoSnapshotState): { label: string; tone:
 }
 
 /** 入口按钮的提示：最新是第几版，快照不是已同步时带上状态。 */
-export function buttonTip(inProject: boolean, status: { state: VideoSnapshotState; latestVersion?: number } | null): string {
+export function buttonTip(inProject: boolean, status: (StatusLike & { latestVersion?: number }) | null): string {
   if (!inProject) return [C.title, C.tipOutside].join(' · ');
   const parts = [C.title];
   if (status) {
     parts.push(status.latestVersion ? C.tipLatest(status.latestVersion) : C.tipNone);
-    if (status.state !== 'synced') parts.push(snapshotState(status.state).label);
+    if (status.state !== 'synced') parts.push(snapshotState(status).label);
   }
   return parts.join(' · ');
+}
+
+/** 自动导入外部改动的操作者（§9.8）：Runtime 发现快照被外部改过、导入成一笔「外部变更」时用它，用户选「用磁盘上的」也是它。 */
+export const IMPORT_ACTOR = 'system:history';
+
+/** 视频事件是不是一次外部改动的导入：操作者是 `system:history`、不是撤销。 */
+export function isImportChange(change: { actorId?: string | undefined; undoOf?: string | undefined } | null): boolean {
+  return change?.actorId === IMPORT_ACTOR && !change.undoOf;
+}
+
+export type ResolveKeep = 'video' | 'snapshot';
+
+/**
+ * 冲突时两个选择的确认（§9.8 `videos.versions.resolve`）：写明各自丢掉什么。保留 BaoCut 里的立即覆盖磁盘上被改过或读不出的
+ * 那些文件，它们不进版本记录；用磁盘上的把视频换成快照、记成一个「外部变更」版本，BaoCut 里还没写进快照的修改先记进版本记录。
+ */
+export function resolveAsk(
+  keep: ResolveKeep,
+  status: Pick<VideoSnapshotStatus, 'conflict' | 'changedPaths'>,
+  documents: Readonly<Record<Id, DocumentRecord>>,
+): { title: string; body: string; confirm: string; destructive: boolean } {
+  const paths = status.changedPaths ?? [];
+  const files = paths.map((p) => fileLabel(p, documents)).join(C.listSeparator);
+  if (keep === 'video') {
+    return { title: C.keepTitle, body: C.keepBody(paths.length, files, status.conflict === 'invalid'), confirm: C.keepConfirm, destructive: true };
+  }
+  return { title: C.diskTitle, body: C.diskBody(files), confirm: C.diskConfirm, destructive: false };
 }
 
 export interface DiffLine {

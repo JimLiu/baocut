@@ -1,41 +1,43 @@
 {
-  "title": "Konu anlatımı",
-  "summary": "Bir belgeyi, sunumu ya da konuyu kolay anlaşılır bir videoya dönüştürün.",
-  "description": "Açık anlatım ve somut örneklerle izleyicinin bir kavramı anlamasına yardım edin. Kaynaklarınızı görsel bir anlatıya dönüştürün; derinliği izleyicinin bildiklerine göre ayarlayın.",
-  "brief": "Kaynak: {{kaynak}}. Şu konuyu açıkça anlatan bir video yapın: {{konu}}. İzleyici kitlesi: {{izleyici kitlesi}}. İzledikten sonra şunu yapabilsinler: {{öğrenme hedefi}}.",
+  "title": "Anlatım videosu",
+  "summary": "Bir kavramı, haberi ya da materyalinizi herkesin anlayacağı şekilde anlatın.",
+  "description": "İzleyicilerin gerçekten sorduğu sorulardan yola çıkılır, anlatış biçimi içeriğe göre seçilir ve tek bir somut konu anlatımı baştan sona taşır. Ekrandaki, anlatımdaki ve yayın metnindeki her sayı aynı doğrulanmış bilgilerden gelir. Her sürümle birlikte video, kapak görseli ve yayına hazır metin teslim edilir.",
+  "brief": "Kaynak: {{kaynak}}. Konu: {{konu}}. İzleyici kitlesi: {{izleyici kitlesi}}. Hedef: izledikten sonra {{öğrenme hedefi}}.",
   "fields": [
     {
       "label": "kaynak",
-      "hint": "Eklediğiniz belge, sunum veya bağlantı; yoksa “herkese açık kaynaklar” yazın",
+      "hint": "Belgeler, bağlantılar veya metin; yoksa “herkese açık kaynaklar” yazın",
       "example": "bu ders notları"
     },
     {
       "label": "izleyici kitlesi",
-      "hint": "Kim izleyecek, ne kadar biliyor",
-      "example": "lise öğrencileri"
+      "hint": "Kim izliyor, ne biliyor; boşsa ön bilgisi olmayan izleyici",
+      "example": "ortaokul öğrencileri"
     },
     {
       "label": "konu",
-      "hint": "Açıkça anlatılacak kavram ya da konu",
-      "example": "fotosentez"
+      "hint": "Bir kavram, haber, makale ya da olgu",
+      "example": "Ay'ın evreleri neden oluşur"
     },
     {
       "label": "öğrenme hedefi",
-      "hint": "İzleyicinin sonunda hatırlamasını veya yapabilmesini istediğiniz şey",
-      "example": "ışığa bağımlı ve bağımsız reaksiyonların ne yaptığını açıklamak"
+      "hint": "Bir fikri anlatmak, haberi anlamak, karar vermek ya da kendi denemek",
+      "example": "Ay'ın evrelerini kendi sözleriyle anlatabilmek"
     }
   ],
   "tags": [
     "bilim",
     "anlatım",
-    "eğitim"
+    "eğitim",
+    "haber analizi",
+    "makale analizi"
   ],
   "preview": {
     "beats": [
-      "Bir soru sormak",
-      "Temel kavramları ayırmak",
-      "Somut bir örnekle açmak",
-      "Ana noktaları özetlemek"
+      "İzleyicinin sorusuyla aç",
+      "Tek bir konu her şeyi taşır",
+      "Yanlışı göster, sonra çürüt",
+      "İzleyici başkasına anlatabilir"
     ]
   }
 }

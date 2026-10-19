@@ -28,6 +28,7 @@ import { buildSidebar, type ProjectRow } from '../model/sidebar.ts';
 import { useRuntime } from '../runtime/context.tsx';
 import { useConnection } from '../state/connection-store.ts';
 import { useDirectory } from '../state/directory-store.ts';
+import { useProjectSettings } from '../state/project-settings-store.ts';
 import { HOME, hrefFor, useShell } from '../state/shell-store.ts';
 import { conversationItem, ProjectItem, type ConversationRowActions } from './home-sidebar-rows.tsx';
 import { NameDialog } from './name-dialog.tsx';
@@ -112,6 +113,7 @@ export function HomeSidebar() {
     else if (key === 'space') go({ tab: 'space', category: 'all', projectId: project.id });
     else if (key === 'brand') go({ tab: 'skills', brand: project.id });
     else if (key === 'reveal') void runtime.host.revealPath(project.path);
+    else if (key === 'settings') useProjectSettings.getState().open(project.id);
   };
 
   const actions: ConversationRowActions = {

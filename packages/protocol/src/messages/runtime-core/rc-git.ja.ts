@@ -8,7 +8,7 @@ export const ja: RcGitMessages = {
   xcodeStub: 'コマンドラインツールをインストールするまで、/usr/bin/git はそのインストールを促すだけです',
 
   notRepo: 'このプロジェクトは git リポジトリ内にありません',
-  initRemedy: 'プロジェクトフォルダで baocut projects git-init を実行するか、リポジトリを置きたい場所で自分で git init を実行してください',
+  initRemedy: 'BaoCut デスクトップアプリのプロジェクト設定で「git を初期化」を使うか、baocut projects git-init を実行するか、リポジトリを置きたい場所で自分で git init を実行してください',
   initHome: 'BaoCut はホームフォルダに git リポジトリを作りません：その中のすべてのフォルダが、ほかのツールからは 1 つのリポジトリの一部に見えてしまいます',
   initUserFolder: (p) => `BaoCut は標準のユーザフォルダ（${p.path}）に git リポジトリを作りません：その中のすべてのフォルダが、ほかのツールからは 1 つのリポジトリの一部に見えてしまいます`,
   initVolumeRoot: 'BaoCut はボリュームやドライブのルートに git リポジトリを作りません',
@@ -26,7 +26,7 @@ export const ja: RcGitMessages = {
   detachedRemedy: 'git でブランチに切り替えてください。その後 BaoCut はコミットを再開します',
   pausedLocalConfig: 'リポジトリのローカル設定がプログラムを実行するか別のファイルを読み込む（フィルタまたは include）ため、BaoCut はファイルを読む git コマンドを実行しません',
   pausedLocalConfigChanged: '許可した後でリポジトリのローカルフィルタまたは include が変更されたため、BaoCut は代理コミットを再び一時停止しました',
-  localConfigRemedy: '項目と実行されるコマンドを確認してから、baocut projects git-allow で許可してください',
+  localConfigRemedy: '項目と実行されるコマンドを確認してから、BaoCut デスクトップアプリのプロジェクト設定か baocut projects git-allow で許可してください',
   gitFailed: (p) => `このリポジトリで git が失敗しました：${p.detail}`,
 
   manageOnlyInAppOrCli: 'git の初期化とローカルフィルタの許可は、デスクトップアプリまたは CLI でのみ行えます',

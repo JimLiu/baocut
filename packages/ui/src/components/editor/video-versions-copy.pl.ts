@@ -13,8 +13,15 @@ export const pl: VideoVersionsMessages = {
   stateSyncedDesc: 'Migawka obszaru roboczego w folderze wideo zgadza się z bieżącą treścią.',
   statePending: 'Zapisywanie migawki',
   statePendingDesc: 'Ostatnie zmiany trafią do migawki i historii wersji w ciągu kilku sekund.',
-  stateConflict: 'Migawkę zmieniono poza BaoCut',
-  stateConflictDesc: 'Pliki migawki różnią się od tego, co BaoCut zapisał ostatnio. BaoCut ich nie nadpisze.',
+  stateConflict: 'Zmieniono i migawkę, i BaoCut',
+  stateConflictDesc:
+    'Pliki migawki zmieniono poza BaoCut, a BaoCut też ma zmiany, których jeszcze nie ma w migawce. BaoCut nie nadpisze migawki, dopóki nie wybierzesz, co zachować.',
+  stateInvalid: 'Nie można odczytać migawki',
+  stateInvalidDesc:
+    'Nie można przetworzyć plików migawki, więc BaoCut ich nie zaimportował. BaoCut sprawdzi je ponownie, gdy je naprawisz; możesz też nadpisać je treścią z BaoCut.',
+  stateExternal: 'Importowanie zmian zewnętrznych',
+  stateExternalDesc:
+    'Pliki migawki zmieniono poza BaoCut (git pull, dysk synchronizowany lub ręczna edycja), a BaoCut nie ma innych zmian, więc importuje je jako wersję „Zmiana zewnętrzna”.',
   stateMissing: 'Nie ma jeszcze migawki',
   stateMissingDesc: 'Migawka obszaru roboczego nie została jeszcze zapisana albo brakuje pliku video.json.',
   stateRebuild: 'Wymaga odbudowy',
@@ -34,9 +41,43 @@ export const pl: VideoVersionsMessages = {
   noteLabel: 'Notatka (opcjonalnie)',
   cancel: 'Anuluj',
   saveSubmit: 'Zapisz',
-  conflictTitle: 'Migawkę zmieniono poza BaoCut',
-  conflictIntro: 'Te pliki migawki różnią się od tego, co BaoCut zapisał ostatnio. Zmiana mogła pochodzić z git pull, dysku synchronizowanego lub ręcznej edycji:',
-  conflictOutro: 'BaoCut ich nie nadpisze i nie będzie zapisywać nowych wersji. Dopóki tego nie rozwiążesz, nie możesz zapisywać wersji ani do nich wracać.',
+  conflictIntro:
+    'Te pliki migawki zmieniono poza BaoCut, być może przez git pull, dysk synchronizowany lub ręczną edycję, a BaoCut też ma zmiany, których jeszcze nie ma w migawce:',
+  conflictOutro: 'Dopóki nie wybierzesz, co zachować, BaoCut nie nadpisze migawki. Możesz dalej edytować wideo, ale nie możesz zapisywać wersji ani do nich wracać.',
+  invalidIntro: 'Nie można przetworzyć tych plików migawki. Mogą zawierać znaczniki konfliktu scalania, być obcięte albo uszkodzone ręczną edycją:',
+  invalidOutro:
+    'BaoCut ich nie zaimportował. Możesz dalej edytować wideo, ale nie możesz zapisywać wersji ani do nich wracać. BaoCut sprawdzi je ponownie, gdy naprawisz te pliki; możesz też zachować treść z BaoCut i je nadpisać.',
+  externalIntro: 'Te pliki migawki zmieniono poza BaoCut, być może przez git pull, dysk synchronizowany lub ręczną edycję:',
+  externalOutro: 'BaoCut nie ma zmian, których nie ma jeszcze w migawce, więc importuje je od razu jako wersję „Zmiana zewnętrzna”. Import możesz potem cofnąć.',
+  stripConflict: 'Migawkę zmieniono poza BaoCut, a BaoCut też ma nowe zmiany. Wybierz, co zachować.',
+  stripInvalid: 'Nie można odczytać plików migawki. BaoCut ich nie zaimportował.',
+  view: 'Pokaż',
+  keepVideo: 'Zachowaj treść z BaoCut',
+  useSnapshot: 'Użyj migawki z dysku',
+  keepTitle: 'Zachować treść z BaoCut?',
+  keepConfirm: 'Nadpisz migawkę na dysku',
+  keepBody: (count: number, files: string, invalid: boolean) =>
+    `Treść z BaoCut zostanie od razu zapisana w migawce i nadpisze ${pluralForm('pl', count, {
+      one: `${count} ${invalid ? 'nieczytelny' : 'zmieniony'} plik`,
+      few: `${count} ${invalid ? 'nieczytelne' : 'zmienione'} pliki`,
+      many: `${count} ${invalid ? 'nieczytelnych' : 'zmienionych'} plików`,
+      other: `${count} ${invalid ? 'nieczytelnego' : 'zmienionego'} pliku`,
+    })} na dysku${files ? ` (${files})` : ''}. Tych zmian na dysku nie będzie w historii wersji i nie da się ich odzyskać w BaoCut; jeśli pochodziły z git lub dysku synchronizowanego, możesz je tam odzyskać.`,
+  diskTitle: 'Użyć migawki z dysku?',
+  diskConfirm: 'Użyj migawki z dysku',
+  diskBody: (files: string) =>
+    `Treść wideo zostanie zastąpiona migawką z dysku${files ? ` (${files})` : ''} i zapisana jako wersja „Zmiana zewnętrzna”. Zmiany w BaoCut, których nie ma jeszcze w migawce, najpierw trafią do historii wersji: wróć do stanu sprzed wersji „Zmiana zewnętrzna”, aby je odzyskać. Możesz też to cofnąć.`,
+  keptTitle: 'Zachowano treść z BaoCut',
+  keptText: (version: number | null) =>
+    `Migawka na dysku jest teraz zgodna z BaoCut${version ? `, a twoje ostatnie zmiany są w wersji ${version}` : ''}. Zmian, które były na dysku, nie ma w historii wersji.`,
+  usedDiskTitle: (version: number) => `Użyto migawki z dysku, zapisano jako wersję ${version} „Zmiana zewnętrzna”`,
+  usedDiskText: (version: number) => `Wróć do stanu sprzed wersji ${version}, aby odzyskać to, co było w BaoCut. Możesz też to cofnąć.`,
+  importedTitle: (version: number | null) => (version ? `Zaimportowano zmiany zewnętrzne jako wersję ${version} „Zmiana zewnętrzna”` : 'Zaimportowano zmiany zewnętrzne'),
+  importedText:
+    'Pliki migawki zmieniono poza BaoCut, a BaoCut nie miał innych zmian, więc zaimportowano je od razu. Wróć do stanu sprzed tej wersji, aby zobaczyć treść sprzed importu, albo cofnij import.',
+  importUndoneTitle: 'Cofnięto import',
+  importUndoneText:
+    'Wideo ma z powrotem treść sprzed importu i w ciągu kilku sekund zostanie ponownie zapisane w migawce, co odrzuca tę zmianę zewnętrzną. Samo cofnięcie też jest zmianą i trafia do nowej wersji.',
   refusedBroken: 'Nie można wrócić do tej wersji',
   refusedOther: 'Nie wykonano',
   refusedText: (message: string) => `${message}. Wideo się nie zmieniło.`,
@@ -79,6 +120,9 @@ export const pl: VideoVersionsMessages = {
   openHint: 'Najnowsza wersja jest wciąż otwarta: dopóki nie minie 5 minut bez zmian lub nie osiągnie ona 30 minut, kolejne zmiany trafiają do niej.',
   openHintPending: 'Najnowsza wersja jest wciąż otwarta. Ostatnie zmiany są zapisywane i trafią do niej w ciągu kilku sekund.',
   openHintConflict: 'Najnowsza wersja jest wciąż otwarta, ale nowe zmiany nie trafią do historii wersji, dopóki konflikt migawki nie zostanie rozwiązany.',
+  openHintExternal: 'Najnowsza wersja jest wciąż otwarta. Trwa import migawki z dysku: najpierw ta wersja zostanie zamknięta, a zmiany zewnętrzne staną się osobną wersją.',
+  externalHint:
+    'Ta wersja pochodzi spoza BaoCut: pliki migawki zmieniono przez git pull, dysk synchronizowany lub ręczną edycję, a BaoCut zaimportował je jako tę wersję. Wróć do stanu sprzed tej wersji, aby odzyskać to, co było w BaoCut przed importem.',
   restoreEnd: 'Wróć do tej wersji',
   restoreBefore: 'Wróć do stanu sprzed tej wersji',
   deleteSaved: 'Usuń tę zapisaną wersję',

@@ -95,6 +95,9 @@ export interface DoorActor {
   name: string;
   /** `human`：编辑器页面里的人；`agent`：智能体。 */
   channel: 'human' | 'agent';
+  /** 智能体所在的会话与回合（任务）：版本按回合分开（版本记录设计 §13.2）。 */
+  conversation?: string;
+  turn?: string;
 }
 
 /** 智能体的身份。编辑器不按 principal 认智能体：评论看 `via`（AGENT_VIA），正文改动的信封看 `channel`。 */

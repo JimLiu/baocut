@@ -222,9 +222,13 @@ export const VersionHistoryPanel: ReactComponentTypes.FC<Dynamic> = ({
             versionHistoryPanelResult7
             ? filteredToSortedItem.id
             : null))
-        : tool === `lfile.checkpoint` || tool === `v3.checkpoint`
-          ? null
-          : (filteredToSortedItem?.id ?? null);
+        : // BaoCut: 文档服务把最新一版标成 cause: 'current'（packages/docs 的 versions.ts）；没开 versionHistoryV2 也认它是现在这一版，
+          // 不给「回到这个版本」。
+          tool === `v3.checkpoint`
+          ? currentVersionId(filteredToSorted)
+          : tool === `lfile.checkpoint`
+            ? null
+            : (filteredToSortedItem?.id ?? null);
       for (let index: number = 0; index < filteredToSorted.length; index++) {
         let filteredToSortedItem2: Dynamic = filteredToSorted[index + 1];
         lookup.set(
@@ -309,10 +313,14 @@ export const VersionHistoryPanel: ReactComponentTypes.FC<Dynamic> = ({
           (item?: Dynamic, ..._extraArguments: unknown[]): Dynamic => ({
             day: item.day,
             groups: groupHistoryByActor(item.items, {
+              // BaoCut: 文档服务的每一行已经是分好的版本（checkpoint.stored，packages/docs 的 versions.ts），各自一行，
+              // 不再按 5 分钟与改动者合并。
               isSingleton: (
                 versionHistoryPanel?: Dynamic,
                 ..._extraArguments: unknown[]
-              ) => historyActionLabel(versionHistoryPanel) !== null,
+              ) =>
+                historyActionLabel(versionHistoryPanel) !== null ||
+                isCheckpointBoundary(versionHistoryPanel),
             }),
           }),
         ),
@@ -3413,6 +3421,7 @@ import {
   groupHistoryByActor,
   hasVersionEvents,
   historyRows,
+  isCheckpointBoundary,
   makeHistoryDayLabeler,
   restoreLabel,
 } from "../document-history/groups";

@@ -8,6 +8,8 @@
 //   shared/ 下的文件原样拷进包；bundle.pick 列出的子目录（默认 img）只拷场景源码里用引号提到的文件
 //   （'name.png' 或 'name'；带 * 的字面量如 'bug-*' 当通配），bundle.keep 里的相对路径总拷，bundle.exclude 里的不拷。
 //   入口按顺序加载 timing.js → bundle.scripts（默认 shared/ 顶层的 .js，按名字排序）→ scene.js。
+//   bundle.module 为 true 时 scene.js 以 <script type="module"> 加载，能 import 包里的模块（例如 ./vendor/three.module.js）；
+//   bundle.fonts 是 { 字体族名: 包内相对路径 }，写成入口里的 @font-face，给 DOM 或 WebGL 之上的 2D 画布用。
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadConfig, parseArgs, readJson, scriptLines, units } from './lib.mjs';
@@ -62,9 +64,11 @@ function build(id, all) {
   const scripts = cfg.bundle.scripts || files.filter(f => !f.includes('/') && f.endsWith('.js')).sort();
   fs.writeFileSync(path.join(out, 'scene.js'), src);
   fs.writeFileSync(path.join(out, 'timing.js'), 'window.TIMING = ' + JSON.stringify({ ...timing, dur }) + ';\n');
-  const tags = ['timing.js', ...scripts, 'scene.js'].map(s => `<script src="./${s}"></script>`).join('');
+  const tags = ['timing.js', ...scripts].map(s => `<script src="./${s}"></script>`).join('') +
+    `<script${cfg.bundle.module ? ' type="module"' : ''} src="./scene.js"></script>`;
+  const faces = Object.entries(cfg.bundle.fonts || {}).map(([fam, rel]) => `@font-face{font-family:'${fam}';src:url('./${rel}')}`).join('');
   fs.writeFileSync(path.join(out, 'index.html'), `<!doctype html>
-<html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;overflow:hidden;background:${background}}#root{position:relative;width:${W}px;height:${H}px}</style></head>
+<html><head><meta charset="utf-8"><style>${faces}html,body{margin:0;padding:0;overflow:hidden;background:${background}}#root{position:relative;width:${W}px;height:${H}px}</style></head>
 <body><div id="root" data-composition-id="${cfg.compositionId}" data-width="${W}" data-height="${H}" data-fps="${cfg.fps}" data-duration="${dur}" data-alpha="false"></div>
 ${tags}</body></html>
 `);

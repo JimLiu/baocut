@@ -40,6 +40,7 @@
       "app/model-home-design-system.js",
       "app/model-home-design-system-notes.js",
       "app/model-home-docs.js",
+      "app/model-home-docs-versions.js",
       "app/model-file-preview.js",
       "app/model-media-preview.js",
       "app/model-media-gif.js",
@@ -85,6 +86,7 @@
       "app/model-select.js",
       "app/model-history.js",
       "app/model-video-versions.js",
+      "app/model-project-git.js",
       "app/model-shape-paths.js",
       "app/model-elements.js",
       "app/model-confetti.js",
@@ -191,6 +193,7 @@
       "app/export.jsx",
       "app/help-center.jsx",
       "app/video-versions.jsx",
+      "app/project-git.jsx",
       "app/task-pill.jsx",
       "app/shell.jsx",
       "app/agent-picker.jsx",
@@ -399,6 +402,7 @@
       "app/home-design-system.jsx",
       "app/home-design-system-overview.jsx",
       "app/home-design-system-tables.jsx",
+      "app/home-docs-versions.jsx",
       "app/home-docs.jsx",
       "app/home-docs-notes.jsx",
       "app/media-preview-runtime.jsx",
@@ -468,8 +472,10 @@
       "app/stage-notes.css",
       "app/home-design-system.css",
       "app/home-docs.css",
+      "app/home-docs-versions.css",
       "app/spectrum.css",
       "app/video-versions.css",
+      "app/project-git.css",
       "app/font-library.css",
       "app/agent-messages.css",
       "app/agent-cards.css",
@@ -478,9 +484,9 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/app.js?v=d2aa38bb4811",
-    "css": "generated/app.css?v=3c89044b2433",
-    "bytes": 4499151
+    "js": "generated/app.js?v=9f7209b0a867",
+    "css": "generated/app.css?v=c8e78b0aa8bf",
+    "bytes": 4558446
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -550,6 +556,7 @@
       "app/model-select.js",
       "app/model-history.js",
       "app/model-video-versions.js",
+      "app/model-project-git.js",
       "app/model-shape-paths.js",
       "app/model-elements.js",
       "app/model-confetti.js",
@@ -614,6 +621,7 @@
       "app/export-project.jsx",
       "app/export.jsx",
       "app/video-versions.jsx",
+      "app/project-git.jsx",
       "app/task-pill.jsx",
       "app/shell.jsx",
       "app/project-info.jsx",
@@ -722,13 +730,14 @@
       "vendor/react-spectrum-s2/react-spectrum-s2-font.css",
       "app/spectrum.css",
       "app/video-versions.css",
+      "app/project-git.css",
       "app/font-library.css",
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/web.js?v=a20e175a08a7",
-    "css": "generated/web.css?v=95f73c6c6588",
-    "bytes": 2623703
+    "js": "generated/web.js?v=c21395c32e71",
+    "css": "generated/web.css?v=888308a30bb5",
+    "bytes": 2667444
   },
   "components": {
     "file": "Components.html",
@@ -754,7 +763,7 @@
       "app/spectrum.css"
     ],
     "js": "generated/components.js?v=5761213db807",
-    "css": "generated/components.css?v=aa9dd5e08866",
+    "css": "generated/components.css?v=ab402cea153e",
     "bytes": 114487
   }
 }

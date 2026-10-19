@@ -25,7 +25,7 @@ const en = {
 
   // 状态
   notRepo: "This project isn't in a git repository",
-  initRemedy: 'Run baocut projects git-init in the project folder, or run git init yourself where you want the repository',
+  initRemedy: 'Use Initialize git in the project settings of the BaoCut desktop app or run baocut projects git-init, or run git init yourself where you want the repository',
   initHome: "BaoCut doesn't create a git repository in your home folder: every folder in it would look like part of one repository to other tools",
   initUserFolder: (p: { path: string }) =>
     `BaoCut doesn't create a git repository in a standard user folder (${p.path}): every folder in it would look like part of one repository to other tools`,
@@ -45,7 +45,7 @@ const en = {
   pausedLocalConfig:
     "The repository's local config runs programs or includes other files (filters or include), so BaoCut doesn't run git commands that read your files",
   pausedLocalConfigChanged: "The repository's local filters or includes changed after you allowed them, so BaoCut paused its git commits again",
-  localConfigRemedy: 'Review the entries and the commands they run, then allow them with baocut projects git-allow',
+  localConfigRemedy: 'Review the entries and the commands they run, then allow them in the project settings of the BaoCut desktop app or with baocut projects git-allow',
   gitFailed: (p: { detail: string }) => `Git failed in this repository: ${p.detail}`,
 
   // 错误

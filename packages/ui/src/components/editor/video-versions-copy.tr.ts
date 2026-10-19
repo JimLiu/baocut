@@ -12,8 +12,15 @@ export const tr: VideoVersionsMessages = {
   stateSyncedDesc: 'Video klasöründeki çalışma alanı anlık görüntüsü mevcut içerikle eşleşiyor.',
   statePending: 'Anlık görüntü yazılıyor',
   statePendingDesc: 'Son değişiklikler birkaç saniye içinde anlık görüntüye ve sürüm geçmişine yazılır.',
-  stateConflict: 'Anlık görüntü BaoCut dışında değiştirildi',
-  stateConflictDesc: 'Anlık görüntü dosyaları BaoCut’ın en son yazdıklarından farklı. BaoCut bunların üzerine yazmaz.',
+  stateConflict: 'Hem anlık görüntü hem BaoCut değişti',
+  stateConflictDesc:
+    'Anlık görüntü dosyaları BaoCut dışında değiştirildi ve BaoCut’ta da henüz anlık görüntüye yazılmamış değişiklikler var. Hangisini tutacağınızı seçene kadar BaoCut anlık görüntünün üzerine yazmaz.',
+  stateInvalid: 'Anlık görüntü okunamıyor',
+  stateInvalidDesc:
+    'Anlık görüntü dosyaları ayrıştırılamadığı için BaoCut bunları içe aktarmadı. Dosyaları düzelttiğinizde BaoCut yeniden kontrol eder; isterseniz BaoCut’taki içerikle üzerlerine de yazabilirsiniz.',
+  stateExternal: 'Harici değişiklikler içe aktarılıyor',
+  stateExternalDesc:
+    'Anlık görüntü dosyaları BaoCut dışında değiştirildi (git pull, bir eşitleme sürücüsü veya elle düzenleme) ve BaoCut’ta başka değişiklik yok; bu yüzden bunlar “Harici değişiklik” sürümü olarak içe aktarılıyor.',
   stateMissing: 'Henüz anlık görüntü yok',
   stateMissingDesc: 'Çalışma alanı anlık görüntüsü henüz yazılmadı ya da video.json yok.',
   stateRebuild: 'Yeniden oluşturulmalı',
@@ -28,9 +35,40 @@ export const tr: VideoVersionsMessages = {
   noteLabel: 'Not (isteğe bağlı)',
   cancel: 'İptal',
   saveSubmit: 'Kaydet',
-  conflictTitle: 'Anlık görüntü BaoCut dışında değiştirildi',
-  conflictIntro: 'Bu anlık görüntü dosyaları BaoCut’ın en son yazdıklarından farklı. Değişiklik git pull, bir eşitleme sürücüsü veya elle düzenlemeden gelmiş olabilir:',
-  conflictOutro: 'BaoCut bunların üzerine yazmaz ve yeni sürüm yazmaz. Bu sorun çözülene kadar sürüm kaydedemez ve sürümlere dönemezsiniz.',
+  conflictIntro:
+    'Bu anlık görüntü dosyaları BaoCut dışında değiştirildi; değişiklik git pull, bir eşitleme sürücüsü veya elle düzenlemeden gelmiş olabilir. BaoCut’ta da henüz anlık görüntüye yazılmamış değişiklikler var:',
+  conflictOutro:
+    'Hangisini tutacağınızı seçene kadar BaoCut anlık görüntünün üzerine yazmaz. Videoyu düzenlemeye devam edebilirsiniz, ancak sürüm kaydedemez ve sürümlere dönemezsiniz.',
+  invalidIntro: 'Bu anlık görüntü dosyaları ayrıştırılamıyor. Birleştirme çakışması işaretleri içeriyor, kesilmiş ya da elle düzenlenirken bozulmuş olabilirler:',
+  invalidOutro:
+    'BaoCut bunları içe aktarmadı. Videoyu düzenlemeye devam edebilirsiniz, ancak sürüm kaydedemez ve sürümlere dönemezsiniz. Bu dosyaları düzelttiğinizde BaoCut yeniden kontrol eder; isterseniz BaoCut’taki içeriği tutup bu dosyaların üzerine de yazabilirsiniz.',
+  externalIntro: 'Bu anlık görüntü dosyaları BaoCut dışında değiştirildi; değişiklik git pull, bir eşitleme sürücüsü veya elle düzenlemeden gelmiş olabilir:',
+  externalOutro:
+    'BaoCut’ta henüz anlık görüntüye yazılmamış değişiklik yok, bu yüzden bunlar doğrudan “Harici değişiklik” sürümü olarak içe aktarılır. İçe aktarmayı sonradan geri alabilirsiniz.',
+  stripConflict: 'Anlık görüntü BaoCut dışında değiştirildi ve BaoCut’ta da yeni değişiklikler var. Hangisini tutacağınızı seçin.',
+  stripInvalid: 'Anlık görüntü dosyaları okunamıyor. BaoCut bunları içe aktarmadı.',
+  view: 'Görüntüle',
+  keepVideo: 'BaoCut’taki içeriği tut',
+  useSnapshot: 'Diskteki anlık görüntüyü kullan',
+  keepTitle: 'BaoCut’taki içerik tutulsun mu?',
+  keepConfirm: 'Diskteki anlık görüntünün üzerine yaz',
+  keepBody: (count: number, files: string, invalid: boolean) =>
+    `BaoCut’taki içerik hemen anlık görüntüye yazılır ve diskteki ${invalid ? 'okunamayan' : 'değiştirilmiş'} ${count === 1 ? 'dosyanın' : `${count} dosyanın`}${files ? ` (${files})` : ''} üzerine yazılır. Diskteki bu değişiklikler sürüm geçmişine girmez ve BaoCut’ta kurtarılamaz; git’ten veya bir eşitleme sürücüsünden geldilerse oradan kurtarabilirsiniz.`,
+  diskTitle: 'Diskteki anlık görüntü kullanılsın mı?',
+  diskConfirm: 'Diskteki anlık görüntüyü kullan',
+  diskBody: (files: string) =>
+    `Videonun içeriği diskteki anlık görüntüyle${files ? ` (${files})` : ''} değiştirilir ve “Harici değişiklik” sürümü olarak kaydedilir. BaoCut’ta henüz anlık görüntüye yazılmamış değişiklikler önce sürüm geçmişine girer: bunları geri getirmek için “Harici değişiklik” sürümünden öncesine dönün. Bu işlemi geri de alabilirsiniz.`,
+  keptTitle: 'BaoCut’taki içerik tutuldu',
+  keptText: (version: number | null) =>
+    `Diskteki anlık görüntü artık BaoCut ile eşleşiyor${version ? `; son değişiklikleriniz ${version} sürümünde` : ''}. Diskteki o değişiklikler sürüm geçmişine girmedi.`,
+  usedDiskTitle: (version: number) => `Diskteki anlık görüntü kullanıldı, ${version} sürümü “Harici değişiklik” olarak kaydedildi`,
+  usedDiskText: (version: number) => `BaoCut’ta olanı geri getirmek için ${version} sürümünden öncesine dönün. Bu işlemi geri de alabilirsiniz.`,
+  importedTitle: (version: number | null) => (version ? `Harici değişiklikler ${version} sürümü “Harici değişiklik” olarak içe aktarıldı` : 'Harici değişiklikler içe aktarıldı'),
+  importedText:
+    'Anlık görüntü dosyaları BaoCut dışında değiştirildi ve BaoCut’ta başka değişiklik yoktu, bu yüzden doğrudan içe aktarıldı. İçe aktarmadan önceki içeriği görmek için bu sürümden öncesine dönün ya da işlemi geri alın.',
+  importUndoneTitle: 'İçe aktarma geri alındı',
+  importUndoneText:
+    'Video içe aktarmadan önceki içeriğine döndü ve birkaç saniye içinde anlık görüntüye geri yazılır; bu da bu harici değişikliği atar. Geri alma işleminin kendisi de bir değişikliktir ve yeni bir sürüme girer.',
   refusedBroken: 'Bu sürüme dönülemiyor',
   refusedOther: 'Yapılmadı',
   refusedText: (message: string) => `${message}. Video değişmedi.`,
@@ -73,6 +111,9 @@ export const tr: VideoVersionsMessages = {
   openHint: 'En son sürüm hâlâ açık: 5 dakika değişiklik olmayana veya sürüm 30 dakikayı doldurana kadar sonraki değişiklikleriniz bu sürüme girer.',
   openHintPending: 'En son sürüm hâlâ açık. Son değişiklikler yazılıyor ve birkaç saniye içinde bu sürüme girecek.',
   openHintConflict: 'En son sürüm hâlâ açık, ancak anlık görüntü çakışması çözülene kadar yeni değişiklikler sürüm geçmişine girmez.',
+  openHintExternal: 'En son sürüm hâlâ açık. Diskteki anlık görüntü içe aktarılıyor: önce bu sürüm kapanır, harici değişiklikler ayrı bir sürüm olur.',
+  externalHint:
+    'Bu sürüm BaoCut dışından geldi: anlık görüntü dosyaları git pull, bir eşitleme sürücüsü veya elle düzenlemeyle değiştirildi ve BaoCut bunları bu sürüm olarak içe aktardı. İçe aktarmadan önce BaoCut’ta olanı geri getirmek için bu sürümden öncesine dönün.',
   restoreEnd: 'Bu sürüme dön',
   restoreBefore: 'Bu sürümden öncesine dön',
   deleteSaved: 'Kaydedilen bu sürümü sil',

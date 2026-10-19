@@ -782,11 +782,13 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       log,
     });
     stops.add('harness', () => harness.shutdown(), 'Stopping the Harness failed');
-    // 版本记录（§5.12）：任务属于哪个会话写进版本头部；按回合切分时，新任务开始就是新回合。
-    // 订阅随 Harness 停止一起结束。
+    // 版本记录（§5.12）：任务属于哪个会话写进版本头部；按回合切分时，新任务开始就是新回合。文档的版本总按回合分开
+    // （版本记录设计 §13.2）。订阅随 Harness 停止一起结束。
     harness.subscribe('tasks', undefined, (event) => {
       const tasksEvent = event.event as TasksEvent;
-      if (tasksEvent.type === 'task.upsert') videos.noteTask(tasksEvent.task);
+      if (tasksEvent.type !== 'task.upsert') return;
+      videos.noteTask(tasksEvent.task);
+      docs.noteTask(tasksEvent.task);
     });
     // 升级前留在会话工作目录里的视频搬进项目，没有会话的工作目录收拾掉（§3.10）。在 Space 首次扫描与客户端连上之前。
     await harness.migrateScratch().catch((error: unknown) => log.warn('Failed to tidy session folders', { error: String(error) }));

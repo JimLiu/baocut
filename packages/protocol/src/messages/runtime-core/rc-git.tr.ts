@@ -8,7 +8,7 @@ export const tr: RcGitMessages = {
   xcodeStub: '/usr/bin/git, Command Line Tools kurulana kadar yalnızca onları kurmayı önerir',
 
   notRepo: 'Bu proje bir git deposunda değil',
-  initRemedy: 'Proje klasöründe baocut projects git-init komutunu çalıştırın ya da depoyu istediğiniz yerde git init komutunu kendiniz çalıştırın',
+  initRemedy: "BaoCut masaüstü uygulamasının proje ayarlarındaki “git'i başlat” seçeneğini kullanın veya baocut projects git-init komutunu çalıştırın ya da depoyu istediğiniz yerde git init komutunu kendiniz çalıştırın",
   initHome: 'BaoCut ana klasörünüzde git deposu oluşturmaz: diğer araçlara içindeki her klasör tek bir deponun parçası gibi görünürdü',
   initUserFolder: (p) =>
     `BaoCut standart bir kullanıcı klasöründe (${p.path}) git deposu oluşturmaz: diğer araçlara içindeki her klasör tek bir deponun parçası gibi görünürdü`,
@@ -29,7 +29,7 @@ export const tr: RcGitMessages = {
   pausedLocalConfig:
     'Deponun yerel yapılandırması programlar çalıştırıyor ya da başka dosyaları dahil ediyor (filtreler ya da include); bu yüzden BaoCut dosyalarınızı okuyan git komutlarını çalıştırmaz',
   pausedLocalConfigChanged: 'Deponun yerel filtreleri ya da include ayarları siz izin verdikten sonra değişti; bu yüzden BaoCut commit işlemlerini yeniden duraklattı',
-  localConfigRemedy: 'Girdileri ve çalıştırdıkları komutları gözden geçirin, ardından baocut projects git-allow ile izin verin',
+  localConfigRemedy: 'Girdileri ve çalıştırdıkları komutları gözden geçirin, ardından BaoCut masaüstü uygulamasının proje ayarlarında ya da baocut projects git-allow ile izin verin',
   gitFailed: (p) => `git bu depoda başarısız oldu: ${p.detail}`,
 
   manageOnlyInAppOrCli: "git'i başlatmak ya da yerel filtrelere izin vermek yalnızca masaüstü uygulamasında veya CLI'da yapılabilir",

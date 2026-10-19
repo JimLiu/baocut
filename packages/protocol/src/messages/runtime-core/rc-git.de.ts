@@ -8,7 +8,7 @@ export const de: RcGitMessages = {
   xcodeStub: '/usr/bin/git bietet nur an, die Command Line Tools zu installieren, solange sie nicht installiert sind',
 
   notRepo: 'Dieses Projekt liegt in keinem git-Repository',
-  initRemedy: 'Führen Sie baocut projects git-init im Projektordner aus, oder führen Sie git init selbst dort aus, wo Sie das Repository haben möchten',
+  initRemedy: 'Verwenden Sie „git initialisieren“ in den Projekteinstellungen der BaoCut-Desktop-App oder führen Sie baocut projects git-init aus, oder führen Sie git init selbst dort aus, wo Sie das Repository haben möchten',
   initHome: 'BaoCut legt kein git-Repository in Ihrem Benutzerordner an: Für andere Werkzeuge sähe jeder Ordner darin wie Teil eines einzigen Repositorys aus',
   initUserFolder: (p) =>
     `BaoCut legt kein git-Repository in einem Standard-Benutzerordner (${p.path}) an: Für andere Werkzeuge sähe jeder Ordner darin wie Teil eines einzigen Repositorys aus`,
@@ -29,7 +29,7 @@ export const de: RcGitMessages = {
   pausedLocalConfig:
     'Die lokale Konfiguration des Repositorys führt Programme aus oder bindet andere Dateien ein (Filter oder include), daher führt BaoCut keine git-Befehle aus, die Ihre Dateien lesen',
   pausedLocalConfigChanged: 'Die lokalen Filter oder includes des Repositorys haben sich nach Ihrer Freigabe geändert, daher hat BaoCut seine Commits wieder pausiert',
-  localConfigRemedy: 'Prüfen Sie die Einträge und die Befehle, die sie ausführen, und erlauben Sie sie dann mit baocut projects git-allow',
+  localConfigRemedy: 'Prüfen Sie die Einträge und die Befehle, die sie ausführen, und erlauben Sie sie dann in den Projekteinstellungen der BaoCut-Desktop-App oder mit baocut projects git-allow',
   gitFailed: (p) => `git ist in diesem Repository fehlgeschlagen: ${p.detail}`,
 
   manageOnlyInAppOrCli: 'Nur die Desktop-App oder die CLI kann git initialisieren oder lokale Filter erlauben',

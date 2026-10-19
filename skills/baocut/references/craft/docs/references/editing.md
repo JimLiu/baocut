@@ -27,6 +27,7 @@
 - 表格的行（ex.2）：`insert` `"as":"blocks"`，每个单元格都写出，一列一个；表格 id 上 `side` `"end"` → 追加在最后，`"after"` + 行 id → 插在那行下面。单元格里的字：`find` → `replace` `"as":"text"`；整张表 `"as":"markdown"` 也行，但每行都重打。整个单元格：`replace` + 单元格目标（`{"kind":"cell","table":"<表 id>","row":3,"col":5}`）+ `"with"` + `"ifRev":<那一行或列来自的那次读的 rev，不是之后回执的>`（不带 → `missing_guard`）。行或列之后变过 → 被拒 `guard_mismatch`，附表格现在的形状：重新瞄准，重发。
 - 表格的列（ex.3）：**一个** `insert`，`"each":true` = 在列出的**每个**行 id 上放一份 source（一次最多 4,096 份）；`side` `"end"` | `"start"` → 最后一列或第一列，或者每行的邻居单元格 + `"after"` | `"before"`；表头行得到表头单元格；`""` = 空单元格；每份的字都一样。同一个 id 出现两次 → `same_anchor`；多个 id 不带 `"each"` → `place_arity`。删一列：**一个** `delete`，列出那一列的每个单元格 + `"ifRev"`（你那次读的 `rev`）。
 - 删掉的字在文档历史里，绝不凭记忆重打，也不问用户要（ex.4）：用 `atRev` 读（往回退，直到字还在；`latest` = 现在的 rev），再用普通的 `insert` 把字插回去；或者 `restore`，一次调用里只有它，`payload.ifRev` = 那个 `latest` → 整个标签页倒回去，只在之后什么都没变时用。
+- 版本：每个标签页的正文另记最近 10 个版本（一段工作一版：安静 5 分钟、满 30 分钟或智能体开始新的一轮时分开；回到某一版单独成一版）。`payload = {"kind":"versions"}` → 新的在前，每版有 `n`、`rev`（这一版结束时的 rev）、`start` / `end`、`by`（谁改的，智能体带会话）、`open`（还开着）、`cut`（为什么分开）、`restoredFrom`，以及和前一版比的 `changed`（改了几块）与 `sections`（在哪几个小节，开头是 ""）。用户说「回到昨天那版」「刚才改坏了」时先列版本；`atRev` = 那一版的 `rev` 读它（比最近 50 个 rev 更早也能读），`restore` 回到它（同上，要 `ifRev`）。
 
 ## 示例
 

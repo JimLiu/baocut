@@ -5,10 +5,13 @@
 //   node tools/captions.mjs [--only=id,id] [--dry] [--config explainer.json]
 //   --dry 只打印每段切出的词与前几个词的时间，不连 Runtime。
 // 结果记在 captions.json（timeline.json 归 assemble.mjs 写）。某段的旁白片段换了（assemble 重放了旁白）或字时间变了，
-// 先删掉这段旧的字幕片段再重建。
+// 先把所有这样的段的旧字幕片段一起删掉，再逐段重建：逐段「删一段建一段」时，前一段变长后的新字幕会撞上后一段还没删的旧字幕，
+// Runtime 就把它放进新建的另一条字幕轨。建好后字幕不在已有的字幕轨上时报出来。
+// 字幕默认比每条的第一个字提前一点出现（字幕样式的 displayTiming.leadIn，默认 0.5 秒）：从第 0 帧起的那段，
+// 第一条会压在封面上，所以建好后把那个字幕片段的起点裁到第一个字被说到的时刻（整帧，向后取）。
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { loadConfig, parseArgs, listFlag, makeBc, readJson, writeJson, isCjk, textHash } from './lib.mjs';
+import { loadConfig, parseArgs, listFlag, makeBc, readJson, writeJson, isCjk, textHash, allItems } from './lib.mjs';
 
 const OPEN = /[“‘（《「『〈【([{¿¡]/u;
 const WORD = c => /[\p{L}\p{N}]/u.test(c) && !isCjk(c);
@@ -71,7 +74,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const log = cfg.abs('captions.json');
   const caps = readJson(log, {});
   const bc = flags.dry ? null : makeBc(cfg);
+  const segs = readJson(cfg.abs('timeline.json'), {}).segments || {};
 
+  // 1. 每段的字与旁白片段，和记录对一下，找出要重建的段
+  const todo = [];
   for (const id of cfg.order) {
     if (only.length && !only.includes(id)) continue;
     const tf = cfg.abs(cfg.dirs.timing, id + '.json');
@@ -83,25 +89,48 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       console.log(id, wc.length, 'words', wc.slice(0, 10).map(w => `${w.text}@${w.start}-${w.end}`).join(' '));
       continue;
     }
-    const seg = (readJson(cfg.abs('timeline.json'), {}).segments || {})[id];
+    const seg = segs[id];
     if (!seg || !seg.audioAsset) throw new Error(`${id} narration not on the timeline yet; run assemble.mjs first`);
     const hash = textHash(JSON.stringify(body));
-    let cap = caps[id];
+    const cap = caps[id];
     if (cap && !cap.audioItem) { cap.audioItem = seg.audioItem; cap.wordsHash ??= hash; } // 旧记录：当作和现在一致
-    if (cap && (cap.audioItem !== seg.audioItem || cap.wordsHash !== hash)) {
-      const v = bc(['videos', 'inspect', cfg.video, '--limit', '5000']);
-      const still = (cap.items || []).filter(itemId => v.items.some(it => it.id === itemId));
-      if (still.length) bc(['edits', 'apply', cfg.video, '--expected-revision', String(v.revision), '--label', `Remove stale captions ${id}`, '--operations', JSON.stringify([{ type: 'deleteItems', itemIds: still }])]);
-      console.log(id, 'stale captions removed', still.length);
-      delete caps[id];
-      cap = null;
-    }
+    todo.push({ id, body, wc, seg, hash, stale: !!cap && (cap.audioItem !== seg.audioItem || cap.wordsHash !== hash) });
+  }
+
+  // 2. 要重建的段，旧字幕片段一起删掉（先记下字幕原来在哪条轨上）
+  const home = Object.values(caps).find(c => c.track)?.track;
+  const stale = todo.filter(t => t.stale);
+  if (stale.length) {
+    const v = allItems(bc, cfg.video);
+    const live = new Set(v.items.map(it => it.id));
+    const still = stale.flatMap(t => (caps[t.id].items || []).filter(itemId => live.has(itemId)));
+    if (still.length) bc(['edits', 'apply', cfg.video, '--expected-revision', String(v.revision), '--label', `Remove stale captions ${stale.map(t => t.id).join(' ')}`, '--operations', JSON.stringify([{ type: 'deleteItems', itemIds: still }])]);
+    console.log(stale.map(t => t.id).join(' '), 'stale captions removed', still.length);
+    for (const t of stale) delete caps[t.id];
+    writeJson(log, caps);
+  }
+
+  // 3. 逐段建字幕
+  for (const { id, body, wc, seg, hash } of todo) {
+    const cap = caps[id];
     if (cap) { console.log(id, 'already', cap.caption); continue; }
     const tmp = cfg.abs(cfg.dirs.work, `scribe-${id}.json`);
     writeJson(tmp, body);
     const d = bc(['documents', 'put', cfg.video, '--format', 'elevenlabs', '--kind', 'speech', '--language', cfg.language, '--source-asset', seg.audioAsset, '--name', `${cfg.names.narration} ${id}`, '--body', '@' + tmp]);
     const c = bc(['captions', 'create', cfg.video, '--document-id', d.documentId]);
     caps[id] = { speech: d.documentId, caption: c.documentId, track: c.trackId, items: c.itemIds, cues: c.cueCount, enabled: c.enabled, audioItem: seg.audioItem, wordsHash: hash };
+    if (home && c.trackId !== home) console.log(`${id}: captions landed on ${c.trackId}, not ${home}; something on that track overlaps them, move them back with moveItems`);
+    const from = seg.from ?? Math.round(parseFloat(seg.at) * cfg.fps);
+    if (from === 0 && wc.length && wc[0].start > 0) {
+      const v = allItems(bc, cfg.video);
+      const cover = v.items.find(it => (c.itemIds || []).includes(it.id) && it.startFrame === 0);
+      if (cover) {
+        const at = Math.ceil(wc[0].start * cfg.fps) / cfg.fps;
+        bc(['edits', 'apply', cfg.video, '--expected-revision', String(v.revision), '--label', `Keep captions off the cover ${id}`, '--operations', JSON.stringify([{ type: 'trimItem', itemId: cover.id, edge: 'start', at }])]);
+        caps[id].coverTrim = at;
+        console.log(id, 'caption starts at', at, 's, off the cover frame');
+      }
+    }
     writeJson(log, caps);
     console.log(JSON.stringify({ id, ...caps[id] }));
   }

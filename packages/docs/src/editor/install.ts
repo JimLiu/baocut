@@ -7,7 +7,7 @@
  * - 地址：Runtime 发的地址是 `/docs/<grant>/`，服务端在页面里注入 `__BAOCUT_DOCS__.projectId`；这里换成应用认的
  *   `/docs/<grant>/project/<文档 id>`（查询串照留，`?lang=` 等）。
  * - 宿主：`docsHost.comments`（批注发给智能体）、在 BaoCut 的 iframe 里时 `docsHost.chat`（左下角「Ask Agent」）、
- *   回应父窗口的 `editor:flush`、启动后发 `editor:ready`（host.ts）。
+ *   只读的入口标 `docsHost.readOnly`（不开版本历史）、回应父窗口的 `editor:flush`、启动后发 `editor:ready`（host.ts）。
  */
 import { readHostMessage } from '@baocut/slides/editor-messages';
 import { ackRid, answerFlush, createChatHost, createCommentsHost, doorRid, DoorTracker, type AnnotationInfo, type ParentLink } from './host.ts';
@@ -21,7 +21,7 @@ const page = window as unknown as {
   __BONGO_BASE__?: string;
   __BONGO_WS_BASE__?: string;
   __BAOCUT_DOCS__?: BootInfo;
-  docsHost?: { comments?: unknown; chat?: unknown };
+  docsHost?: { comments?: unknown; chat?: unknown; readOnly?: boolean };
 };
 
 const match = /^\/docs\/[^/]+/.exec(window.location.pathname);
@@ -79,7 +79,11 @@ function trackDoorCalls(tracker: DoorTracker): void {
 }
 
 const link = parentLink();
-page.docsHost = { comments: createCommentsHost(link, describe), ...(link ? { chat: createChatHost(link) } : {}) };
+page.docsHost = {
+  comments: createCommentsHost(link, describe),
+  ...(link ? { chat: createChatHost(link) } : {}),
+  ...(boot.canEdit === false ? { readOnly: true } : {}),
+};
 if (link) {
   const tracker = new DoorTracker();
   trackDoorCalls(tracker);

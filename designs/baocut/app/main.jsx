@@ -93,6 +93,7 @@
           <Screens />
         </window.AppUpdateProvider>
         <window.ProjectInfoDialog />
+        <window.ProjectSettingsDialog />
         <window.LegacyImportDialog />
         {/* 首次启动引导：只在第一次启动弹，关掉就记下（onboarding.jsx） */}
         <window.OnboardingDialog />

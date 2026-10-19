@@ -8,7 +8,7 @@ export const ko: RcGitMessages = {
   xcodeStub: '명령줄 도구를 설치하기 전까지 /usr/bin/git은 설치 안내만 띄웁니다',
 
   notRepo: '이 프로젝트는 git 저장소 안에 있지 않습니다',
-  initRemedy: '프로젝트 폴더에서 baocut projects git-init을 실행하거나, 저장소를 둘 위치에서 직접 git init을 실행하세요',
+  initRemedy: 'BaoCut 데스크톱 앱의 프로젝트 설정에서 “git 초기화”를 사용하거나 baocut projects git-init을 실행하거나, 저장소를 둘 위치에서 직접 git init을 실행하세요',
   initHome: 'BaoCut은 홈 폴더에 git 저장소를 만들지 않습니다: 그 안의 모든 폴더가 다른 도구에서 하나의 저장소에 속한 것처럼 보이게 됩니다',
   initUserFolder: (p) => `BaoCut은 표준 사용자 폴더(${p.path})에 git 저장소를 만들지 않습니다: 그 안의 모든 폴더가 다른 도구에서 하나의 저장소에 속한 것처럼 보이게 됩니다`,
   initVolumeRoot: 'BaoCut은 볼륨이나 드라이브의 루트에 git 저장소를 만들지 않습니다',
@@ -26,7 +26,7 @@ export const ko: RcGitMessages = {
   detachedRemedy: 'git에서 브랜치로 전환하세요. 그 후 BaoCut이 다시 커밋합니다',
   pausedLocalConfig: '저장소의 로컬 설정이 프로그램을 실행하거나 다른 파일을 포함하므로(필터 또는 include) BaoCut은 파일을 읽는 git 명령을 실행하지 않습니다',
   pausedLocalConfigChanged: '허용한 뒤 저장소의 로컬 필터 또는 include가 바뀌어 BaoCut이 대신 커밋하기를 다시 일시 중지했습니다',
-  localConfigRemedy: '항목과 실행되는 명령을 확인한 뒤 baocut projects git-allow로 허용하세요',
+  localConfigRemedy: '항목과 실행되는 명령을 확인한 뒤 BaoCut 데스크톱 앱의 프로젝트 설정에서 또는 baocut projects git-allow로 허용하세요',
   gitFailed: (p) => `이 저장소에서 git이 실패했습니다: ${p.detail}`,
 
   manageOnlyInAppOrCli: 'git 초기화와 로컬 필터 허용은 데스크톱 앱이나 CLI에서만 할 수 있습니다',

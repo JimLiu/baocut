@@ -119,8 +119,18 @@ export function VersionDetail({
         {rangeText(item.startedAt, item.updatedAt)} · {C.revisions(item.fromRevision, item.toRevision)}
       </p>
       {item.open ? (
-        <p className={hint}>{state === 'pending' ? C.openHintPending : state === 'conflict' ? C.openHintConflict : C.openHint}</p>
+        <p className={hint}>
+          {state === 'pending'
+            ? C.openHintPending
+            : state === 'conflict'
+              ? C.openHintConflict
+              : state === 'external'
+                ? C.openHintExternal
+                : C.openHint}
+        </p>
       ) : null}
+      {/* 「外部变更」版本：从哪来、回到它之前就是导入前的内容（§9.8）。 */}
+      {item.kind === 'external' ? <p className={hint}>{C.externalHint}</p> : null}
       <div className={acts}>
         {choices.map((c) => (
           <Button key={String(c.before)} variant="secondary" isDisabled={!writable || !c.reach.ok} onPress={() => onRestore(n, c.before)}>

@@ -7,6 +7,7 @@
  *   doc.json              文档本身：id、名称、标签页表、版式、下拉选项（enum）、素材记录（blob）、编辑会话、提到过的人
  *   tabs/<正文 id>.json    一个标签页的正文 { id, rev, blocks }，块按「文本段」压缩存放
  *   tabs/<正文 id>.history.json  最近若干个 rev 的正文快照（找回删掉的字、`atRev` / `sinceRev` 读、`restore`）
+ *   tabs/<正文 id>.versions.json 版本记录：最近若干段工作各自结束时的正文（版本记录设计 §13.2）
  *   comments.json         评论线程、回复、resolve
  *   assets/<sha256>.<ext> 上传的图片与文件，按内容寻址
  * ```
@@ -137,6 +138,40 @@ export interface NodeSnapshot {
   blocks: StoredBlock[];
 }
 
+/** 改过一个版本的人或智能体。智能体带上会话与回合（任务），按回合分版本用。 */
+export interface VersionAuthor {
+  principal: string;
+  name: string;
+  channel: 'human' | 'agent';
+  conversation?: string;
+  turn?: string;
+}
+
+/** 一个版本为什么在这里收口（之后的改动进下一版）。 */
+export type VersionCut = 'quiet' | 'max' | 'turn' | 'restore';
+
+/**
+ * 正文的一个版本（版本记录设计 §13.2）：一段工作，从 `baseRev` 之后到 `rev`。还开着的那一版（只可能是最后一个）没有 `blocks`，
+ * 它的正文就是标签页现在的正文；收口的版本带着结束时的正文。回到版本单独成一版，生来就是收口的。
+ */
+export interface NodeVersion {
+  /** 版本号：每个正文从 1 起递增，删掉旧的不重排。 */
+  n: number;
+  /** 这一版开始之前的 rev。 */
+  baseRev: number;
+  /** 这一版结束时的 rev。 */
+  rev: number;
+  start: string;
+  end: string;
+  by: VersionAuthor[];
+  /** 收口的原因；还开着的、回到版本之后又改了的版本没有。 */
+  cut?: VersionCut;
+  /** 回到版本：回到的是哪个 rev。 */
+  restoredFrom?: number;
+  /** 收口时的正文。 */
+  blocks?: StoredBlock[];
+}
+
 /** 内存里的正文：块已展开成逐字条目。 */
 export interface LiveNode {
   id: string;
@@ -144,6 +179,8 @@ export interface LiveNode {
   blocks: ProseBlock[];
   /** 最近的快照，按 rev 升序；最后一个是当前 rev。 */
   history: NodeSnapshot[];
+  /** 版本，按版本号升序。还没改过的新正文没有版本。 */
+  versions: NodeVersion[];
 }
 
 /** 一份文档读进内存的全部内容。 */
@@ -155,6 +192,9 @@ export interface DocState {
 
 /** 每个正文留多少个 rev 的快照。 */
 export const HISTORY_LIMIT = 50;
+
+/** 每个正文留多少个版本（版本记录设计 §13.2）。 */
+export const VERSIONS_LIMIT = 10;
 
 export interface DocInfo {
   id: string;
@@ -299,12 +339,54 @@ function historyFile(dir: string, nodeId: string): string {
   return path.join(dir, TABS_DIR, `${nodeId}.history.json`);
 }
 
+function versionsFile(dir: string, nodeId: string): string {
+  return path.join(dir, TABS_DIR, `${nodeId}.versions.json`);
+}
+
+/**
+ * 读版本文件，丢掉不成形的版本：版本号与 rev 都要递增，只有最后一个可以没有正文（还开着），rev 不超过正文现在的 rev。
+ * 还开着的那一版对上正文现在的 rev（文件被别处改过时）。没有版本文件、正文又改过的（有版本记录之前的文档），
+ * 现在的正文记成收口的第一版，之后的改动从第二版起。
+ */
+function readVersions(raw: unknown, rev: number, blocks: ProseBlock[], updated: string): NodeVersion[] {
+  const list = isRecord(raw) && Array.isArray(raw['versions']) ? (raw['versions'] as unknown[]) : null;
+  if (!list) return rev > 1 ? [{ n: 1, baseRev: rev, rev, start: updated, end: updated, by: [], blocks: blocks.map(compressBlock) }] : [];
+  const versions: NodeVersion[] = [];
+  for (const entry of list) {
+    if (!isVersion(entry)) continue;
+    const last = versions[versions.length - 1];
+    if (last && (entry.n <= last.n || entry.rev <= last.rev || !last.blocks)) continue;
+    if (entry.rev > rev) continue;
+    versions.push(entry);
+  }
+  const open = versions[versions.length - 1];
+  if (open && !open.blocks) open.rev = rev;
+  return versions.slice(-VERSIONS_LIMIT);
+}
+
+function isVersion(value: unknown): value is NodeVersion {
+  if (!isRecord(value)) return false;
+  const { n, baseRev, rev, start, end, by, blocks } = value;
+  return (
+    Number.isInteger(n) &&
+    (n as number) >= 1 &&
+    Number.isInteger(baseRev) &&
+    Number.isInteger(rev) &&
+    (rev as number) >= (baseRev as number) &&
+    typeof start === 'string' &&
+    typeof end === 'string' &&
+    Array.isArray(by) &&
+    by.every((author) => isRecord(author) && typeof author['principal'] === 'string' && (author['channel'] === 'human' || author['channel'] === 'agent')) &&
+    (blocks === undefined || Array.isArray(blocks))
+  );
+}
+
 /** 正文 id 只用字母数字与 `-` `_`：它也是文件名。 */
 export function isNodeId(id: unknown): id is string {
   return typeof id === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(id);
 }
 
-async function readNode(dir: string, nodeId: string): Promise<LiveNode> {
+async function readNode(dir: string, nodeId: string, updated: string): Promise<LiveNode> {
   const raw = JSON.parse(await fs.readFile(tabFile(dir, nodeId), 'utf8')) as Partial<StoredNode>;
   const rev = Number.isInteger(raw.rev) && raw.rev! >= 0 ? raw.rev! : 1;
   const blocks = readBlocks(raw.blocks, `${TABS_DIR}/${nodeId}.json`);
@@ -316,7 +398,13 @@ async function readNode(dir: string, nodeId: string): Promise<LiveNode> {
     // 没有快照文件：只有当前 rev
   }
   history.push({ rev, blocks: blocks.map(compressBlock) });
-  return { id: nodeId, rev, blocks, history: history.slice(-HISTORY_LIMIT) };
+  let versions: unknown;
+  try {
+    versions = JSON.parse(await fs.readFile(versionsFile(dir, nodeId), 'utf8'));
+  } catch {
+    // 没有版本文件（或读不了）：从现在的正文开始记
+  }
+  return { id: nodeId, rev, blocks, history: history.slice(-HISTORY_LIMIT), versions: readVersions(versions, rev, blocks, updated) };
 }
 
 /** 把整份文档读进内存；不是文档时 null，正文文件坏了时抛 DocFileError。 */
@@ -328,7 +416,7 @@ export async function loadDocState(dir: string): Promise<DocState | null> {
     if (!tab.nodeId || nodes.has(tab.nodeId)) continue;
     if (!isNodeId(tab.nodeId)) throw new DocFileError(`标签页 ${tab.id} 的正文 id 不合法`);
     try {
-      nodes.set(tab.nodeId, await readNode(dir, tab.nodeId));
+      nodes.set(tab.nodeId, await readNode(dir, tab.nodeId, meta.updated));
     } catch (error) {
       throw new DocFileError(`读不了标签页 ${tab.id} 的正文：${(error as Error).message}`);
     }
@@ -348,7 +436,7 @@ export interface DirtySet {
   meta: boolean;
   comments: boolean;
   nodes: Set<string>;
-  /** 删掉的正文：连同快照文件一起删。 */
+  /** 删掉的正文：连同快照与版本文件一起删。 */
   removedNodes: Set<string>;
 }
 
@@ -365,11 +453,13 @@ export async function writeDocState(dir: string, state: DocState, dirty: DirtySe
     await writeAtomic(tabFile(dir, nodeId), `${JSON.stringify(stored)}\n`);
     const snapshots = node.history.filter((snapshot) => snapshot.rev < node.rev);
     if (snapshots.length) await writeAtomic(historyFile(dir, nodeId), `${JSON.stringify({ snapshots })}\n`);
+    if (node.versions.length) await writeAtomic(versionsFile(dir, nodeId), `${JSON.stringify({ versions: node.versions })}\n`);
   }
   for (const nodeId of dirty.removedNodes) {
     if (state.nodes.has(nodeId)) continue;
     await fs.rm(tabFile(dir, nodeId), { force: true });
     await fs.rm(historyFile(dir, nodeId), { force: true });
+    await fs.rm(versionsFile(dir, nodeId), { force: true });
   }
   if (dirty.comments) await writeAtomic(path.join(dir, COMMENTS_FILE), `${JSON.stringify(state.comments, null, 1)}\n`);
   if (dirty.meta) await writeAtomic(path.join(dir, DOC_FILE), `${JSON.stringify(state.meta, null, 2)}\n`);
@@ -396,7 +486,7 @@ export function newDocState(name: string, ids: { docId?: string; tabId?: string;
     people: {},
   };
   const blocks: ProseBlock[] = [{ type: 'paragraph', id: `${session.prefix}.0`, rev: 1, items: [] }];
-  const node: LiveNode = { id: tab.nodeId!, rev: 1, blocks, history: [{ rev: 1, blocks: blocks.map(compressBlock) }] };
+  const node: LiveNode = { id: tab.nodeId!, rev: 1, blocks, history: [{ rev: 1, blocks: blocks.map(compressBlock) }], versions: [] };
   return { meta, nodes: new Map([[node.id, node]]), comments: { seq: 0, threads: [] } };
 }
 

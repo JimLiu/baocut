@@ -12,8 +12,15 @@ export const fr: VideoVersionsMessages = {
   stateSyncedDesc: 'L’instantané d’espace de travail du dossier de la vidéo correspond au contenu actuel.',
   statePending: 'Écriture de l’instantané',
   statePendingDesc: 'Les modifications récentes rejoignent l’instantané et l’historique des versions en quelques secondes.',
-  stateConflict: 'Instantané modifié en dehors de BaoCut',
-  stateConflictDesc: 'Les fichiers de l’instantané diffèrent de ce que BaoCut a écrit en dernier. BaoCut ne les écrasera pas.',
+  stateConflict: 'Instantané et BaoCut tous deux modifiés',
+  stateConflictDesc:
+    'Les fichiers de l’instantané ont été modifiés en dehors de BaoCut, et BaoCut a aussi des modifications qui ne sont pas encore dans l’instantané. BaoCut n’écrasera pas l’instantané tant que vous n’aurez pas choisi quoi garder.',
+  stateInvalid: 'Instantané illisible',
+  stateInvalidDesc:
+    'Les fichiers de l’instantané ne peuvent pas être analysés, donc BaoCut ne les a pas importés. BaoCut vérifie à nouveau une fois que vous les avez corrigés, ou vous pouvez les écraser avec le contenu de BaoCut.',
+  stateExternal: 'Importation des modifications externes',
+  stateExternalDesc:
+    'Les fichiers de l’instantané ont été modifiés en dehors de BaoCut (git pull, dossier synchronisé ou édition manuelle) et BaoCut n’a pas d’autres modifications ; il les importe donc comme une version « Modification externe ».',
   stateMissing: 'Pas encore d’instantané',
   stateMissingDesc: 'L’instantané d’espace de travail n’a pas encore été écrit, ou video.json a disparu.',
   stateRebuild: 'Reconstruction nécessaire',
@@ -28,9 +35,41 @@ export const fr: VideoVersionsMessages = {
   noteLabel: 'Note (facultatif)',
   cancel: 'Annuler',
   saveSubmit: 'Enregistrer',
-  conflictTitle: 'Instantané modifié en dehors de BaoCut',
-  conflictIntro: 'Ces fichiers de l’instantané diffèrent de ce que BaoCut a écrit en dernier. La modification peut venir d’un git pull, d’un dossier synchronisé ou d’une édition manuelle :',
-  conflictOutro: 'BaoCut ne les écrasera pas et n’écrira pas de nouvelle version. Tant que ce n’est pas résolu, vous ne pouvez ni enregistrer une version ni revenir à une version.',
+  conflictIntro:
+    'Ces fichiers de l’instantané ont été modifiés en dehors de BaoCut, peut-être par un git pull, un dossier synchronisé ou une édition manuelle, et BaoCut a aussi des modifications qui ne sont pas encore dans l’instantané :',
+  conflictOutro:
+    'Tant que vous n’avez pas choisi quoi garder, BaoCut n’écrase pas l’instantané. Vous pouvez continuer à modifier la vidéo, mais vous ne pouvez ni enregistrer une version ni revenir à une version.',
+  invalidIntro:
+    'Ces fichiers de l’instantané ne peuvent pas être analysés. Ils contiennent peut-être des marqueurs de conflit de fusion, sont tronqués ou ont été abîmés à la main :',
+  invalidOutro:
+    'BaoCut ne les a pas importés. Vous pouvez continuer à modifier la vidéo, mais vous ne pouvez ni enregistrer une version ni revenir à une version. BaoCut vérifie à nouveau une fois ces fichiers corrigés, ou vous pouvez garder le contenu de BaoCut et les écraser.',
+  externalIntro: 'Ces fichiers de l’instantané ont été modifiés en dehors de BaoCut, peut-être par un git pull, un dossier synchronisé ou une édition manuelle :',
+  externalOutro:
+    'BaoCut n’a aucune modification absente de l’instantané ; il les importe donc directement comme une version « Modification externe ». Vous pourrez annuler l’importation ensuite.',
+  stripConflict: 'L’instantané a été modifié en dehors de BaoCut, et BaoCut a aussi de nouvelles modifications. Choisissez quoi garder.',
+  stripInvalid: 'Les fichiers de l’instantané sont illisibles. BaoCut ne les a pas importés.',
+  view: 'Voir',
+  keepVideo: 'Garder le contenu de BaoCut',
+  useSnapshot: 'Utiliser l’instantané sur le disque',
+  keepTitle: 'Garder le contenu de BaoCut ?',
+  keepConfirm: 'Écraser l’instantané sur le disque',
+  keepBody: (count: number, files: string, invalid: boolean) =>
+    `Le contenu de BaoCut est écrit tout de suite dans l’instantané et écrase ${count === 1 ? `le fichier ${invalid ? 'illisible' : 'modifié'}` : `les ${count} fichiers ${invalid ? 'illisibles' : 'modifiés'}`} sur le disque${files ? ` (${files})` : ''}. Ces modifications sur le disque n’entrent pas dans l’historique des versions et ne peuvent pas être récupérées dans BaoCut ; si elles venaient de git ou d’un dossier synchronisé, vous pouvez les y récupérer.`,
+  diskTitle: 'Utiliser l’instantané sur le disque ?',
+  diskConfirm: 'Utiliser l’instantané sur le disque',
+  diskBody: (files: string) =>
+    `Le contenu de la vidéo est remplacé par l’instantané sur le disque${files ? ` (${files})` : ''} et ajouté comme version « Modification externe ». Les modifications de BaoCut qui ne sont pas encore dans l’instantané entrent d’abord dans l’historique des versions : revenez avant la version « Modification externe » pour les récupérer. Vous pouvez aussi annuler cette opération.`,
+  keptTitle: 'Contenu de BaoCut conservé',
+  keptText: (version: number | null) =>
+    `L’instantané sur le disque correspond maintenant à BaoCut${version ? `, et vos modifications récentes sont dans la version ${version}` : ''}. Les modifications qui étaient sur le disque ne sont pas entrées dans l’historique des versions.`,
+  usedDiskTitle: (version: number) => `Instantané sur le disque utilisé, ajouté comme version ${version} « Modification externe »`,
+  usedDiskText: (version: number) => `Revenez avant la version ${version} pour récupérer ce qu’il y avait dans BaoCut. Vous pouvez aussi annuler cette opération.`,
+  importedTitle: (version: number | null) => (version ? `Modifications externes importées comme version ${version} « Modification externe »` : 'Modifications externes importées'),
+  importedText:
+    'Les fichiers de l’instantané ont été modifiés en dehors de BaoCut et BaoCut n’avait pas d’autres modifications ; ils ont donc été importés directement. Revenez avant cette version pour voir le contenu d’avant l’importation, ou annulez-la.',
+  importUndoneTitle: 'Importation annulée',
+  importUndoneText:
+    'La vidéo retrouve son contenu d’avant l’importation et est réécrite dans l’instantané en quelques secondes, ce qui écarte cette modification externe. L’annulation est elle-même une modification et entre dans une nouvelle version.',
   refusedBroken: 'Impossible de revenir à cette version',
   refusedOther: 'Non effectué',
   refusedText: (message: string) => `${message}. La vidéo n’a pas changé.`,
@@ -73,6 +112,10 @@ export const fr: VideoVersionsMessages = {
   openHint: 'La dernière version est encore ouverte : jusqu’à 5 minutes sans modification ou 30 minutes au total, vos prochaines modifications y sont ajoutées.',
   openHintPending: 'La dernière version est encore ouverte. Les modifications récentes sont en cours d’écriture et y seront ajoutées en quelques secondes.',
   openHintConflict: 'La dernière version est encore ouverte, mais les nouvelles modifications n’entreront pas dans l’historique des versions tant que le conflit d’instantané n’est pas résolu.',
+  openHintExternal:
+    'La dernière version est encore ouverte. L’instantané sur le disque est en cours d’importation : cette version se ferme d’abord, et les modifications externes forment une version à part.',
+  externalHint:
+    'Cette version vient de l’extérieur de BaoCut : les fichiers de l’instantané ont été modifiés par un git pull, un dossier synchronisé ou une édition manuelle, et BaoCut les a importés comme cette version. Revenez avant cette version pour récupérer ce qu’il y avait dans BaoCut avant l’importation.',
   restoreEnd: 'Revenir à cette version',
   restoreBefore: 'Revenir avant cette version',
   deleteSaved: 'Supprimer cette version enregistrée',

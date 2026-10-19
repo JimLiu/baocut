@@ -16,7 +16,7 @@ import type { DocEventActor, LiveDoc } from './live-doc.ts';
 import { applyProseOps, type ApplyOptions, type OpResult, type ProseOp, type WireNode } from './prose-ops.ts';
 import { compressBlock, documentOrder, findItem, isTextBlock, walkBlocks, type CharItem, type ProseBlock } from './prose-document.ts';
 import { serializeDocument } from './prose-xml.ts';
-import { isNodeId, shortId, visibleTabs, type CommentAuthor, type DocMeta, type DocTab, type LiveNode, type StoredReply, type StoredThread } from './store.ts';
+import { isNodeId, shortId, visibleTabs, type CommentAuthor, type DocMeta, type DocTab, type LiveNode, type StoredReply, type StoredThread, type VersionAuthor } from './store.ts';
 
 /**
  * 服务端能力：编辑器据此决定发什么样的 op。
@@ -54,6 +54,17 @@ export interface DoorUser {
 
 export function humanActor(user: DoorUser): DoorActor {
   return { principal: user.principal, name: user.name, channel: 'human' };
+}
+
+/** 版本里记的改动者：智能体带上会话与回合。 */
+function versionAuthor(actor: DoorActor): VersionAuthor {
+  return {
+    principal: actor.principal,
+    name: actor.name,
+    channel: actor.channel,
+    ...(actor.conversation ? { conversation: actor.conversation } : {}),
+    ...(actor.turn ? { turn: actor.turn } : {}),
+  };
 }
 
 /** 项目读的 value：标签页表（只有显示在标签栏里的）+ 名称 + 版式。 */
@@ -471,16 +482,40 @@ export class DocDoor {
     return this.commitNodeBlocks(node, outcome.blocks, outcome.usedIds, outcome.results, options.mintSession, ctx, opId);
   }
 
-  /** 把算好的正文落下（新的 rev）：记下用掉的 id 与提到的人、留快照、收拢评论锚点、通知开着的编辑器。 */
-  commitNodeBlocks(node: LiveNode, blocks: ProseBlock[], usedIds: readonly string[], results: OpResult[], session: string, ctx: DoorContext, opId?: string): DoorAllow {
+  /**
+   * 把算好的正文落下（新的 rev）：记下用掉的 id 与提到的人、留快照、记版本、收拢评论锚点、通知开着的编辑器。
+   * `restoredFrom` 表示这是回到某个 rev（`restoreNode`）。
+   */
+  commitNodeBlocks(
+    node: LiveNode,
+    blocks: ProseBlock[],
+    usedIds: readonly string[],
+    results: OpResult[],
+    session: string,
+    ctx: DoorContext,
+    opId?: string,
+    restoredFrom?: number,
+  ): DoorAllow {
     const before = node.blocks;
     this.doc.advanceSessions(usedIds);
     this.#rememberPeople(blocks);
-    this.doc.commitNode(node, blocks, node.rev + 1);
+    this.doc.commitNode(node, blocks, node.rev + 1, { author: versionAuthor(ctx.actor), ...(restoredFrom !== undefined ? { restoredFrom } : {}) });
     this.#reanchor(node, before);
     this.lastNodeUpdate = { node, before, results, session };
     this.doc.emit({ type: 'node', nodeId: node.id, rev: node.rev, ...(opId ? { opId } : {}), origin: ctx.origin, actor: this.#eventActor(ctx) });
     return allow({ rev: node.rev, changed: true, data: { results } });
+  }
+
+  /**
+   * 回到某个 rev（版本记录设计 §13.2）：正文换成 `blocks`（`doc.snapshot(node, rev)` 读出的那时的正文），是新的一个 rev，
+   * 单独记成一版。调用方先做各自的检查（智能体的 `ifRev` 与评论锚点，版本面板的权限）。
+   */
+  restoreNode(node: LiveNode, blocks: ProseBlock[], rev: number, ctx: DoorContext): DoorAllow {
+    const nextRev = node.rev + 1;
+    for (const { block } of walkBlocks(blocks)) block.rev = nextRev;
+    const session = this.nodeOptions(node, ctx).mintSession;
+    const result: OpResult = { changed: true, touched: blocks.map((block) => block.id), removed: [] };
+    return this.commitNodeBlocks(node, blocks, [], [result], session, ctx, undefined, rev);
   }
 
   #updateNode(request: DoorRequest, ctx: DoorContext): DoorVerdict {
@@ -502,7 +537,7 @@ export class DocDoor {
     this.doc.advanceSessions([paragraphId]);
     let id = shortId();
     while (!isNodeId(id) || this.doc.node(id)) id = shortId();
-    const node: LiveNode = { id, rev: 1, blocks: [{ type: 'paragraph', id: paragraphId, rev: 1, items: [] }], history: [] };
+    const node: LiveNode = { id, rev: 1, blocks: [{ type: 'paragraph', id: paragraphId, rev: 1, items: [] }], history: [], versions: [] };
     node.history.push({ rev: 1, blocks: node.blocks.map(compressBlock) });
     this.doc.addNode(node);
     const source = payload['source'] ?? (isRecord(payload['value']) ? (payload['value'] as Record<string, unknown>)['source'] : undefined);

@@ -1,41 +1,43 @@
 {
   "title": "Film objaśniający",
-  "summary": "Zamień dokument, prezentację lub temat w zrozumiałe wideo.",
-  "description": "Pomóż widzom zrozumieć pojęcie dzięki jasnym wyjaśnieniom i konkretnym przykładom. Ułóż swoje materiały w wizualną opowieść, a głębię dopasuj do tego, co odbiorcy już wiedzą.",
-  "brief": "Zrób wideo objaśniające. Materiały: {{materiały}}. Odbiorcy: {{odbiorcy}}. Temat: {{temat}}. Po obejrzeniu widzowie mają umieć: {{cel nauki}}.",
+  "summary": "Wyjaśnij pojęcie, wiadomość lub własne materiały tak, by każdy zrozumiał.",
+  "description": "Punktem wyjścia są pytania, które widzowie naprawdę zadają. Sposób opowiadania dobierasz do treści, a jeden konkretny bohater prowadzi wyjaśnienie od początku do końca. Każda liczba na ekranie, w narracji i w opisie pochodzi z tych samych sprawdzonych faktów. Każda wersja to film, okładka i gotowy opis do publikacji.",
+  "brief": "Na podstawie {{materiały}} wyjaśnij {{temat}} {{odbiorcy}}, tak aby po obejrzeniu umieli {{cel nauki}}.",
   "fields": [
     {
       "label": "materiały",
-      "hint": "Dołączone dokumenty, slajdy lub linki; jeśli ich brak, wpisz „publiczne źródła”",
-      "example": "te notatki z wykładu"
+      "hint": "Dokumenty, prace, linki lub tekst; jeśli brak, wpisz „publiczne źródła”",
+      "example": "tych notatek z lekcji"
     },
     {
       "label": "odbiorcy",
-      "hint": "Kto ogląda i ile już wie",
-      "example": "licealiści"
+      "hint": "Kto ogląda i ile wie; puste: widzowie bez wiedzy wstępnej",
+      "example": "uczniom klas 7–8"
     },
     {
       "label": "temat",
-      "hint": "Pojęcie lub zagadnienie do wyjaśnienia",
-      "example": "fotosynteza"
+      "hint": "Pojęcie, wiadomość, praca naukowa lub zjawisko",
+      "example": "dlaczego Księżyc ma fazy"
     },
     {
       "label": "cel nauki",
-      "hint": "Co widz ma zapamiętać lub umieć po obejrzeniu",
-      "example": "wyjaśnić, co zachodzi w fazie jasnej, a co w ciemnej"
+      "hint": "Opowiedzieć myśl, zrozumieć wiadomość, ocenić coś lub spróbować samemu",
+      "example": "własnymi słowami wyjaśnić fazy Księżyca"
     }
   ],
   "tags": [
-    "nauka",
+    "popularyzacja",
     "objaśnienie",
-    "edukacja"
+    "edukacja",
+    "wiadomości",
+    "prace naukowe"
   ],
   "preview": {
     "beats": [
-      "Pytanie na start",
-      "Rozbiór kluczowych pojęć",
-      "Konkretny przykład",
-      "Podsumowanie najważniejszego"
+      "Start od pytania widza",
+      "Jeden bohater prowadzi całość",
+      "Pokaż mit, potem go obal",
+      "Widz potrafi to opowiedzieć"
     ]
   }
 }

@@ -303,15 +303,15 @@ export class ProjectTools implements ToolSet {
 const GIT_COMMITTED_NEXT = '已提交到当前分支（没有推送）。告诉用户提交了哪几部视频；要推送由用户自己做。';
 const GIT_NOTHING_NEXT = '上次提交之后 BaoCut 的文件没有改动，没有新提交。如实告诉用户即可。';
 const GIT_NO_PROJECT_NEXT =
-  '告诉用户：只有项目里的视频能提交到 git。用户要建项目时用 projects_adopt_session；仓库由用户自己准备（在终端运行 baocut projects git-init，或把项目放进已有的仓库）。';
+  '告诉用户：只有项目里的视频能提交到 git。用户要建项目时用 projects_adopt_session；仓库由用户自己准备（在 BaoCut 桌面应用的项目设置里初始化 git、在终端运行 baocut projects git-init，或把项目放进已有的仓库）。';
 const GIT_PAUSED_NEXT: Record<string, string> = {
   'local-config':
-    '仓库的本地配置里有会执行程序的过滤器或包含，BaoCut 在用户允许之前不提交。把 paused.message 告诉用户，请用户在终端运行 baocut projects git-allow 查看这些条目并决定是否允许；你不能替用户允许，也不要自己去改仓库的配置。用户允许之后再调用一次。',
+    '仓库的本地配置里有会执行程序的过滤器或包含，BaoCut 在用户允许之前不提交。把 paused.message 告诉用户，请用户在 BaoCut 桌面应用的项目设置里（或在终端运行 baocut projects git-allow）查看这些条目并决定是否允许；你不能替用户允许，也不要自己去改仓库的配置。用户允许之后再调用一次。',
   'repo-state': '仓库正在合并、变基、拣选、还原、二分中，或 HEAD 没在分支上。把 paused.message 告诉用户，请用户在 git 里完成或放弃之后再提交；不要自己运行 git 去处理。',
   locked: '仓库正被别的 git 命令占用（index.lock）。稍后再调用一次；不要删除锁文件。',
 };
 const GIT_UNAVAILABLE_NEXT: Record<string, string> = {
-  'not-repo': '项目不在 git 仓库里，没有提交。告诉用户；要不要建仓库由用户决定（在终端运行 baocut projects git-init，或自己 git init），你不要替用户初始化。',
+  'not-repo': '项目不在 git 仓库里，没有提交。告诉用户；要不要建仓库由用户决定（在 BaoCut 桌面应用的项目设置里初始化 git、在终端运行 baocut projects git-init，或自己 git init），你不要替用户初始化。',
   missing: '这台电脑上没有能用的 git，没有提交。把 unavailable.message 与 unavailable.remedy 告诉用户，请用户装好 git 后再说。',
 };
 const ADOPT_NEXT =

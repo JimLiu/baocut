@@ -8,7 +8,7 @@ export const zhHant: RcGitMessages = {
   xcodeStub: '命令列工具安裝好之前，/usr/bin/git 只會跳出安裝它們的提示',
 
   notRepo: '這個專案不在 git 儲存庫裡',
-  initRemedy: '在專案資料夾裡執行 baocut projects git-init，或者在你想要儲存庫的位置自己執行 git init',
+  initRemedy: '在 BaoCut 桌面應用程式的專案設定裡點「初始化 git」或執行 baocut projects git-init，或者在你想要儲存庫的位置自己執行 git init',
   initHome: 'BaoCut 不在使用者主目錄裡建立 git 儲存庫：那樣它底下的所有資料夾在其他工具看來都位在同一個儲存庫裡',
   initUserFolder: (p) => `BaoCut 不在系統的標準使用者資料夾（${p.path}）裡建立 git 儲存庫：那樣它底下的所有資料夾在其他工具看來都位在同一個儲存庫裡`,
   initVolumeRoot: 'BaoCut 不在磁碟區或磁碟機的根目錄建立 git 儲存庫',
@@ -26,7 +26,7 @@ export const zhHant: RcGitMessages = {
   detachedRemedy: '在 git 裡切換到一個分支，之後 BaoCut 恢復提交',
   pausedLocalConfig: '儲存庫的本機設定會執行程式或引入別的檔案（過濾器或 include），所以 BaoCut 不執行會讀取你檔案的 git 命令',
   pausedLocalConfigChanged: '儲存庫的本機過濾器或 include 在你允許之後改過了，所以 BaoCut 重新暫停了代為提交',
-  localConfigRemedy: '查看這些項目和它們要執行的命令，然後用 baocut projects git-allow 允許',
+  localConfigRemedy: '查看這些項目和它們要執行的命令，然後在 BaoCut 桌面應用程式的專案設定裡允許，或用 baocut projects git-allow 允許',
   gitFailed: (p) => `git 在這個儲存庫裡執行失敗：${p.detail}`,
 
   manageOnlyInAppOrCli: '只有桌面應用程式或 CLI 能初始化 git、允許本機過濾器',

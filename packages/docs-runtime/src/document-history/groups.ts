@@ -22,10 +22,11 @@ function contributorOf(
   user?: Dynamic,
   ..._extraArguments: unknown[]
 ): Dynamic {
+  // BaoCut: 版本面板里智能体署名「Agent」（同批注与光标旗子，见 README「文案」），kind 仍是 claude。
   if (actor.startsWith(`agent:`))
     return {
       kind: `claude`,
-      label: `Claude`,
+      label: `Agent`,
     };
   let principal: Dynamic =
     actor.startsWith(`restore:`) || actor.startsWith(`revert:`)
@@ -161,8 +162,8 @@ function contributorsSummary(
   let people: Dynamic = labels.join(`, `);
   return hasClaude
     ? people
-      ? `${people} + Claude`
-      : `Claude`
+      ? `${people} + Agent`
+      : `Agent`
     : people || (contributors[0]?.label ?? ``);
 }
 function changeCountLabel(
@@ -219,7 +220,7 @@ function contributorsAccessibleLabel(
         entry.kind === `claude`,
     )
   ) {
-    labels.push(`Claude`);
+    labels.push(`Agent`);
   }
   return labels.length === 0
     ? (contributors[0]?.label ?? ``)
@@ -308,6 +309,7 @@ function checkpointMetadata(
       : {}),
   };
 }
+// BaoCut: 右栏的版本列表据此不合并服务端分好的版本（comments/right-rail.tsx）。
 function isCheckpointBoundary(
   activity?: Dynamic,
   ..._extraArguments: unknown[]
@@ -696,6 +698,7 @@ export {
   currentVersionId,
   contributorsSummary,
   groupHistoryByActor,
+  isCheckpointBoundary,
   contributorsOf,
   historyRows,
   changeStatsLabel,

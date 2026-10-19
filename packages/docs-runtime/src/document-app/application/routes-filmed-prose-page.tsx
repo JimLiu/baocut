@@ -168,8 +168,8 @@ export const FilmedProsePage: ReactComponentTypes.FC<Dynamic> = ({
     pid,
     fileId,
   );
-  // BaoCut: 独立页面没有版本历史（docs-host.ts 的 versionHistoryOffered）：版本面板与版本预览都不开，记在本地的
-  // 「面板开着」（bongo.settings.historyRailOpen）也不起作用。原版独立页面这里总是开着（resolvePlatformLiveDocumentAndHistoryValue36）。
+  // BaoCut: 版本面板与版本预览经 docs-host.ts 的 versionHistoryOffered 开关（BaoCut 的文档服务提供接口，宿主标了只读时关）；
+  // 关着时记在本地的「面板开着」（bongo.settings.historyRailOpen）也不起作用。
   let historyRoad: Dynamic =
     !filmed && filmedProsePageResult4 && !readOnly && versionHistoryOffered();
   let [filmedProsePageState]: Dynamic = (0, React.useState)(

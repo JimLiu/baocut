@@ -187,9 +187,12 @@ export class VideoController {
     return this.#client.request('videos.versions.get', { videoId: this.#videoId(), version });
   }
 
-  /** 工作区快照与视频库的关系（同步、正在写、被外部改过……）与最新的版本号。 */
-  versionStatus(): Promise<VideoSnapshotStatus> {
-    return this.#client.request('videos.versions.status', { videoId: this.#videoId() });
+  /** 工作区快照与视频库的关系（同步、正在写、被外部改过……）与最新的版本号。读到的同时记进视频的 `versionStatus`。 */
+  async versionStatus(): Promise<VideoSnapshotStatus> {
+    const videoId = this.#videoId();
+    const status = await this.#client.request('videos.versions.status', { videoId });
+    this.#noteStatus(videoId, status);
+    return status;
   }
 
   /** 保存版本（§9.6）。失败时抛出原来的错误：对话框要看错误码与断点，不记进 `commandError`。 */
@@ -212,6 +215,18 @@ export class VideoController {
   deleteVersion(version: number): Promise<{ receipt: TransactionReceipt | null }> {
     const commandId = newId('cmd');
     return this.#versionWrite((videoId) => this.#client.request('videos.versions.delete', { videoId, commandId, version }));
+  }
+
+  /**
+   * 快照被外部改过时选保留哪边（§9.8）：`'video'` 立即写快照、覆盖磁盘上的；`'snapshot'` 导入成一笔「外部变更」与一个
+   * `external` 版本（`version`），回执可以撤销。结果里的状态直接记进 `versionStatus`。失败同 `saveVersion`。
+   */
+  async resolveVersions(keep: 'video' | 'snapshot'): Promise<{ receipt: TransactionReceipt | null; version: number | null; status: VideoSnapshotStatus }> {
+    const commandId = newId('cmd');
+    const videoId = this.#videoId();
+    const result = await this.#versionWrite((id) => this.#client.request('videos.versions.resolve', { videoId: id, commandId, keep }));
+    this.#noteStatus(videoId, result.status);
+    return result;
   }
 
   clearError(): void {
@@ -259,7 +274,16 @@ export class VideoController {
           status: 'ready',
           ref: video.ref ? { ...video.ref, name: next.video.name } : video.ref,
           ...(event.type === 'video.event'
-            ? { lastChange: { by: event.event.actor.kind, label: event.event.label, labelRef: event.event.labelRef } }
+            ? {
+                lastChange: {
+                  by: event.event.actor.kind,
+                  label: event.event.label,
+                  labelRef: event.event.labelRef,
+                  actorId: event.event.actor.id,
+                  transactionId: event.event.transactionId,
+                  undoOf: event.event.undoOf,
+                },
+              }
             : {}),
           ...(event.type === 'video.replaced' ? { replaced: (video.replaced ?? 0) + 1 } : {}),
         });
@@ -277,6 +301,10 @@ export class VideoController {
     } catch {
       // 断线时在重新打开后再取。
     }
+  }
+
+  #noteStatus(videoId: Id, status: VideoSnapshotStatus): void {
+    if (useVideo.getState().video?.videoId === videoId) useVideo.getState().update({ versionStatus: status });
   }
 
   #videoId(): Id {

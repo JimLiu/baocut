@@ -3477,6 +3477,12 @@ var standaloneVersionReader: Dynamic = {
     ..._extraArguments: unknown[]
   ): Promise<Dynamic> {
     let v3FileAt: Dynamic = await api.v3FileAt(page.pid, page.fileId, options);
+    // BaoCut: 文档服务回的是编辑器读的 XML（packages/docs 的 serializeDocument），与 Frame 里按 rev 取到的一样，
+    // 交给 parseVersionPreviewFace 用编辑器自己的解析器读。
+    if (typeof v3FileAt.xml == `string`)
+      return {
+        face: v3FileAt.xml,
+      };
     if (
       !v3FileAt.doc ||
       typeof v3FileAt.doc != `object` ||
