@@ -107,8 +107,8 @@ test('整组换成视频标注：矩形是 box、编号是 pin，带颜色粗细
   assert.equal(M.describe(s.marks[5]), '评论 · “这里慢一点”');
   const notes = M.toNotes(s.marks, {video: 'p15', revision: 2, timeMs: 1000}, n => `${n.kind}@${n.region.x}`);
   assert.deepEqual(notes.map(n => n.kind), ['box', 'pin', 'text', 'element', 'comment']);
-  assert.deepEqual(notes[4].shot, {timeMs: 1000, stamp: {x: 0.4, y: 0.3}});
-  assert.deepEqual(notes[0].shot, {timeMs: 1000});
+  assert.deepEqual(notes[4].shot, {timeMs: 1000, stamp: {x: 0.4, y: 0.3}, file: 'frame-1000.png'});
+  assert.deepEqual(notes[0].shot, {timeMs: 1000, file: 'frame-1000.png'});
   assert.deepEqual(notes[0].style, {color: 'red', width: 4});
   assert.deepEqual([notes[0].text, notes[2].text, notes[0].label, notes[0].video], ['', '字太小', 'box@0.1', 'p15']);
   assert.deepEqual(notes[3].element.detail, 'caption c3 "你好"');
@@ -125,5 +125,6 @@ test('每条标记记自己的帧：只在那一帧上显示，发出时按各�
   assert.deepEqual(M.frames(s.marks), [3000, 70000]);
   const notes = M.toNotes(s.marks, {video: 'p15', revision: 2}, null, t => (t < 60000 ? {segment: {id: 's1', kind: 'scene', index: 0}} : {}));
   assert.deepEqual(notes.map(n => [n.timeMs, n.segment ? n.segment.id : null, n.shot]),
-    [[3000, 's1', {timeMs: 3000}], [3000, 's1', {timeMs: 3000}], [70000, null, {timeMs: 70000, stamp: {x: 0.4, y: 0.3}}]]);
+    [[3000, 's1', {timeMs: 3000, file: 'frame-3000.png'}], [3000, 's1', {timeMs: 3000, file: 'frame-3000.png'}],
+      [70000, null, {timeMs: 70000, stamp: {x: 0.4, y: 0.3}, file: 'frame-70000.png'}]]);
 });

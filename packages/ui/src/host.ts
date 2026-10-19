@@ -56,10 +56,24 @@ export interface HostBridge {
    * `generateImage` 当输入图。桌面端才有（生成图片的参考图）；Web 没有它，浏览器里的参考图只能从 Space 或素材库里选。
    */
   writeImageRef?(data: Uint8Array): Promise<string>;
+  /**
+   * 截下窗口里的一块画面（轻量编辑器的标记截图，lite-editor §4.1）：`rect` 是那块在窗口视口里的位置与大小（CSS 像素），返回这块此刻
+   * 在屏幕上的像素（PNG 字节，按屏幕缩放比放大）；截不到时 null。预览里 HTML 动画的实时合成层画在沙箱 iframe 里、不在画布上，
+   * 只有这样才截得到。桌面端才有；Web 没有它，界面退回拷预览画布。
+   */
+  captureFrame?(rect: CaptureRect): Promise<Uint8Array | null>;
   /** 应用自动更新（架构设计 §2.6，桌面端才有）。没有它的宿主里，更新相关的界面一概不出现。 */
   updates?: UpdatesHost;
   /** 界面语言变了（启动时也调一次）：宿主据此换原生菜单与对话框的语言。没有它的宿主不管。 */
   setLocale?(locale: Locale): void;
+}
+
+/** `captureFrame` 要截的那块：相对窗口视口左上角的 CSS 像素。 */
+export interface CaptureRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 /** 打开 / 存储对话框里的一组文件类型：扩展名不带点，`*` 表示所有文件。 */

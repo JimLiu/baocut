@@ -323,6 +323,7 @@ export function Preview({
             segments={segments}
             frame={frameRect}
             canvasRef={canvasRef}
+            live={status.kind === 'ready' && !!status.live}
             pickLive={(point) =>
               liveHost.current?.pick(point).then((hit) => (hit ? htmlPick(hit, sequence.canvas) : null)) ?? Promise.resolve(null)
             }

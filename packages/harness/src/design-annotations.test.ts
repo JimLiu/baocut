@@ -179,7 +179,7 @@ describe('withVideoAnnotations（产品设计 §3.2.3「视频标注」）', () 
           style,
           segment: s03,
           line: { id: 's03:l2', index: 2, text: '那一个有点危险的做法……' },
-          shot: { timeMs: 70000 },
+          shot: { timeMs: 70000, attachment: 'att_frame' },
           text: '',
         }),
         videoPath: '倒着开的跑车.baocut/',
@@ -214,7 +214,7 @@ describe('withVideoAnnotations（产品设计 §3.2.3「视频标注」）', () 
         }),
         videoPath: '倒着开的跑车.baocut/',
       },
-    ]);
+    ], [{ id: 'att_frame', kind: 'image', fileName: 'frame-70000.png', mimeType: 'image/png', size: 1234 }]);
     expect(text).toBe(
       [
         '请按这些视频标注修改。',
@@ -223,7 +223,7 @@ describe('withVideoAnnotations（产品设计 §3.2.3「视频标注」）', () 
         '1. 01:10.0 (70000 ms) · box · x=0.42 y=0.36 w=0.18 h=0.22 (42%, 36%, 18% × 22%)',
         '   style: red 4px',
         '   segment: s03 (scene #3 倒着为什么不掉) · line 2: 那一个有点危险的做法……',
-        "   screenshot: attached, frame at 70000 ms with this frame's marks drawn on it",
+        "   screenshot: attached (frame-70000.png), frame at 70000 ms with this frame's marks drawn on it",
         '2. 01:10.0 (70000 ms) · text · at (0.6, 0.3)',
         '   style: red 4px',
         '   segment: s03 (scene #3 倒着为什么不掉)',
@@ -236,7 +236,7 @@ describe('withVideoAnnotations（产品设计 §3.2.3「视频标注」）', () 
         '   style: blue 4px',
         '   element: html button#play.bc-icon-button 32×32 name="播放" role=button',
         '   segment: s01 (scene #1 钩子)',
-        '   screenshot: attached, frame at 12400 ms with the stamp at (0.4, 0.3)',
+        '   screenshot: not attached, frame at 12400 ms with the stamp at (0.4, 0.3)',
         '   批注：这里慢一点',
         'candidateBoundsMs: 12400–70000（候选范围，不是要改的区间）',
         '</baocut-video-annotations>',

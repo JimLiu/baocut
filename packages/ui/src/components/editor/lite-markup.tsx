@@ -85,16 +85,14 @@ import {
 import { readCaptions } from '../../render/captions.ts';
 import { stageLayers } from '../../render/frame-plan.ts';
 import type { CaptionHit } from '../../render/render-planner.ts';
+import type { HostBridge } from '../../host.ts';
 import { useRuntime } from '../../runtime/context.tsx';
-import { useDraftImages, imageEntry } from '../../state/draft-images-store.ts';
 import { useDraftVideoAnnotations } from '../../state/draft-video-annotations-store.ts';
 import { useEditor } from '../../state/editor-store.ts';
 import { useLiteMarkup } from '../../state/lite-markup-store.ts';
-import { useShell } from '../../state/shell-store.ts';
 import { useVideo } from '../../state/video-store.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { LITE_MARKUP_COPY } from './lite-markup-copy.ts';
-import { openVideoDraftKey } from './video-chat-draft.ts';
 
 /*
  * 标记层与标记工具条（docs/design/lite-editor §4.1–§4.3；轻量与时间线两种视图同一套）：标注模式（舞台条的「标记」）下盖在画面上，
@@ -110,14 +108,6 @@ const MOVE_MIN = 4;
 /** 线条的点选范围：至少这么宽，描边再粗就随描边。 */
 const HIT_MIN = 12;
 const MAC = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
-/** 截图上印章的颜色（画布 2D 用不了 S2 的色票，取与 red-900 等相近的值）。 */
-const SHOT_COLORS: Record<VideoAnnotationColor, string> = {
-  red: '#d31510',
-  blue: '#3b63fb',
-  green: '#05834e',
-  black: '#000000',
-  white: '#ffffff',
-};
 
 type FrameRect = { left: number; top: number; width: number; height: number };
 
@@ -396,7 +386,7 @@ interface Draft {
 /**
  * 标记层（lite-editor §4.1）：标注模式里挂（preview.tsx，两种视图都是）。`frame` 是画面在舞台里的位置（像素），
  * `segments` 是轻量视图的分段（时间线视图给空表，标注就只有时刻）；
- * `canvasRef` 是预览画布（评论截图从这里拷一份）。连同工具条与「放弃这些标记？」一起渲染。
+ * `canvasRef` 是预览画布（截图从这里拷一份；`live` 时画布透明，改截窗口）。连同工具条与「放弃这些标记？」一起渲染。
  * `pickLive` 问实时合成层（HTML 动画视频的 iframe）里某一点（画布像素）下最内层的节点：同步命中的是实时合成层那件时才问，
  * 问到了用它，问不到退回那个元素命中（lite-editor §11 第 12 条）。
  */
@@ -408,6 +398,7 @@ export function LiteMarkupLayer({
   segments,
   frame,
   canvasRef,
+  live,
   pickLive,
 }: {
   videoId: Id;
@@ -417,10 +408,14 @@ export function LiteMarkupLayer({
   segments: readonly LiteSegment[];
   frame: FrameRect;
   canvasRef: { current: HTMLCanvasElement | null };
+  /** 画面底下此刻是实时合成层（HTML 动画的 iframe）：画布上透明，截图要截窗口。 */
+  live: boolean;
   pickLive: (point: Point) => Promise<MarkupPick | null>;
 }) {
   const { engine } = useEditorActions();
-  const cache = useRuntime().videos.documents;
+  const runtime = useRuntime();
+  const cache = runtime.videos.documents;
+  const capture = runtime.host.captureFrame?.bind(runtime.host);
   const bind = useLiteMarkup((s) => s.bind);
   const bound = useLiteMarkup((s) => s.videoId === videoId);
   const markup = useLiteMarkup((s) => s.markup);
@@ -688,7 +683,7 @@ export function LiteMarkupLayer({
   const place = (input: Omit<MarkInput, 'timeMs'>) => {
     const timeMs = frameMs();
     apply((s) => add(s, { ...input, timeMs }));
-    void keepFrame(timeMs, canvasRef.current);
+    void keepFrame(timeMs, canvasRef.current, live, capture);
   };
   /** 一组标记换成视频标注：每条按自己的时刻带落点（播放头所在的段与句）、这个版本。视频不是这一部（还没打开好）时 null。 */
   const buildNotes = (marks: readonly Mark[]): DraftVideoAnnotation[] | null => {
@@ -719,12 +714,15 @@ export function LiteMarkupLayer({
     const n = addNotes(notes);
     if (n === null) return;
     const sent = new Set(notes.map((note) => note.id));
-    // 截图先拷走再清空：`discard` 把留着的帧一起清了。
+    // 截图先交给草稿再清空：`discard` 把留着的帧一起清了。
     void attachFrames(
+      videoId,
       marks.filter((m) => sent.has(m.id)),
       canvasRef.current,
       size,
       C.me,
+      live,
+      capture,
     );
     ToastQueue.neutral(C.added(n), { timeout: 3000 });
     useLiteMarkup.getState().discard();
@@ -751,7 +749,7 @@ export function LiteMarkupLayer({
     const notes = buildNotes([mark]);
     if (!notes?.length) return;
     if (addNotes(notes) === null) return;
-    void attachFrames([mark], canvasRef.current, size, C.me);
+    void attachFrames(videoId, [mark], canvasRef.current, size, C.me, live, capture);
     setComment(null);
     ToastQueue.neutral(C.added(1), { timeout: 3000 });
   };
@@ -1258,14 +1256,40 @@ function onFrame(mark: Mark, nowMs: number): boolean {
 }
 
 /**
- * 画下第一条标记的那一刻把预览画布拷成 PNG 留在 store 里（同一帧只留第一次；出不了图就不留，「添加到对话」时再提示）。
- * 画布拷贝是同步的，PNG 编码在后面慢慢做；此刻的定位若还在路上，截到的是画布上实际那一帧。
+ * 画下第一条标记的那一刻把那一帧拷成 PNG 留在 store 里（同一帧只留第一次；出不了图就不留，「添加到对话」时再提示）。
+ * 底下是实时合成层（HTML 动画的 iframe，画布上透明）而宿主能截窗口时截窗口里画面那一块——先把标记层、工具条与草稿标注层藏起来、
+ * 等两帧，截完再放回来；否则同步拷预览画布，PNG 编码在后面慢慢做。此刻的定位若还在路上，截到的是画面上实际那一帧。
  */
-async function keepFrame(timeMs: number, source: HTMLCanvasElement | null): Promise<void> {
+async function keepFrame(timeMs: number, source: HTMLCanvasElement | null, live: boolean, capture: CaptureFrame): Promise<void> {
   const store = useLiteMarkup.getState();
   if (!source || store.frames[timeMs]) return;
-  const png = await snapshot(source).catch(() => null);
+  const png = await grabFrame(source, live, capture).catch(() => null);
   if (png) useLiteMarkup.getState().keepFrame(timeMs, png);
+}
+type CaptureFrame = HostBridge['captureFrame'];
+const OVERLAYS = '[data-lite-markup], [data-lite-markup-bar], [data-video-annotations]';
+const nextPaint = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+/** 此刻的那一帧：实时合成层露着时截窗口（Electron），否则拷画布。 */
+async function grabFrame(source: HTMLCanvasElement, live: boolean, capture: CaptureFrame): Promise<Blob | null> {
+  if (!live || !capture) return snapshot(source);
+  const stage = source.closest<HTMLElement>('[data-preview-stage]') ?? source.parentElement;
+  const overlays = stage ? [...stage.querySelectorAll<HTMLElement>(OVERLAYS)] : [];
+  const shown = overlays.map((el) => el.style.visibility);
+  for (const el of overlays) el.style.visibility = 'hidden';
+  try {
+    await nextPaint();
+    await nextPaint();
+    const r = source.getBoundingClientRect();
+    const x = Math.max(0, r.left);
+    const y = Math.max(0, r.top);
+    const rect = { x, y, width: Math.min(r.right, window.innerWidth) - x, height: Math.min(r.bottom, window.innerHeight) - y };
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    const bytes = await capture(rect);
+    // 主进程送来的字节可能落在共享内存上，拷一份再装进 Blob
+    return bytes?.byteLength ? new Blob([bytes.slice()], { type: 'image/png' }) : null;
+  } finally {
+    overlays.forEach((el, i) => (el.style.visibility = shown[i] ?? ''));
+  }
 }
 /** 画布此刻的像素拷成 PNG（先同步拷到另一张画布，再异步编码）。 */
 function snapshot(source: HTMLCanvasElement): Promise<Blob | null> {
@@ -1286,186 +1310,33 @@ function snapshot(source: HTMLCanvasElement): Promise<Blob | null> {
 }
 
 /**
- * 截图（lite-editor §4.1）：这组标记涉及的每一帧出一张图，底是画那条标记时留下的那一帧（没留下、而播放头还在那一帧上就用此刻的画布，
- * 否则这一帧算截不出），上面画这一帧的标记（线条按画布与画面的比例放大，评论画印章，尖角落在点上），存成 PNG 放进开着的视频旁边那个
- * 输入框的草稿图片。哪一帧出不了图就提示一次，标注照样已经加了。预览里 HTML 动画的实时合成层（iframe）不在画布上，截不进来。
+ * 截图（lite-editor §4.1）：这组标记涉及的每一帧交给标注草稿一张底图——画那条标记时留下的那一帧（没留下、而播放头还在那一帧上就此刻
+ * 截一张，否则这一帧算截不出）——草稿画上这一帧的标记（线条按底图与画面的比例放大，评论画印章，尖角落在点上）存成 PNG，与标注连在一起：
+ * 移除标注时重画，发送时作为消息的附件。哪一帧出不了图就提示一次，标注照样已经加了。
  */
-async function attachFrames(marks: readonly Mark[], source: HTMLCanvasElement | null, layer: Size, initials: string): Promise<void> {
+async function attachFrames(
+  videoId: Id,
+  marks: readonly Mark[],
+  source: HTMLCanvasElement | null,
+  layer: Size,
+  initials: string,
+  live: boolean,
+  capture: CaptureFrame,
+): Promise<void> {
   const frames = useLiteMarkup.getState().frames;
   const nowMs = frameMs();
-  const files: File[] = [];
   let failed = false;
   for (const timeMs of markFrames(marks)) {
     const onThis = marks.filter((m) => m.timeMs === timeMs);
-    // 没留下那一帧的图时只有画布还停在那一帧上才拿画布顶：别把另一帧的画面当成这一帧发出去。
-    const base = frames[timeMs] ?? (Math.abs(timeMs - nowMs) <= VIDEO_ANNOTATION_NEAR_MS ? source : null);
-    const file = await paintFrame(base, onThis, marks, timeMs, layer, initials).catch(() => null);
-    if (file) files.push(file);
-    else failed = true;
+    // 没留下那一帧的图时只有画面还停在那一帧上才截此刻的：别把另一帧的画面当成这一帧发出去。
+    const base =
+      frames[timeMs] ??
+      (source && Math.abs(timeMs - nowMs) <= VIDEO_ANNOTATION_NEAR_MS ? await grabFrame(source, live, capture).catch(() => null) : null);
+    if (!base) {
+      failed = true;
+      continue;
+    }
+    useDraftVideoAnnotations.getState().addShot(videoId, timeMs, { base, layer, initials }, onThis);
   }
   if (failed) ToastQueue.neutral(LITE_MARKUP_COPY.shotFailed, { timeout: 4000 });
-  if (files.length)
-    useDraftImages.getState().add(
-      openVideoDraftKey(useShell.getState().route),
-      files.map((file) => imageEntry(file)),
-    );
-}
-
-/** 一帧的图：底图（留下的 PNG 或画布）画到新画布上，再把这一帧的标记画上去（序号按整组 `group` 数），存成 `frame-<毫秒>.png`。 */
-export async function paintFrame(
-  base: Blob | HTMLCanvasElement | null | undefined,
-  marks: readonly Mark[],
-  group: readonly Mark[],
-  timeMs: number,
-  layer: Size,
-  initials: string,
-): Promise<File | null> {
-  if (!base) return null;
-  const image = base instanceof Blob ? await loadImage(base) : base;
-  const w = image.width;
-  const h = image.height;
-  if (!w || !h) return null;
-  const copy = document.createElement('canvas');
-  copy.width = w;
-  copy.height = h;
-  const ctx = copy.getContext('2d');
-  let out: HTMLCanvasElement = base instanceof Blob ? copy : base;
-  if (ctx) {
-    ctx.drawImage(image, 0, 0);
-    paintMarks(ctx, marks, { w, h }, layer, initials, group);
-    out = copy;
-  }
-  if (typeof out.toBlob !== 'function') return null;
-  const blob = await new Promise<Blob | null>((resolve) => out.toBlob(resolve, 'image/png'));
-  if (!blob) return null;
-  return new File([blob], `frame-${timeMs}.png`, { type: 'image/png' });
-}
-function loadImage(blob: Blob): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(blob);
-    const image = new Image();
-    image.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(image);
-    };
-    image.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error('frame image failed to decode'));
-    };
-    image.src = url;
-  });
-}
-
-/**
- * 把一帧的标记画到画布上（同 SvgMark 与 HTML 标记的样子）：坐标按归一化值落到画布像素，线宽、字号与印章按画布比画面的比例放大，
- * 文字描一圈反色边代替网页里的阴影；序号按 `group`（整组标记，默认就是这些）数。
- */
-export function paintMarks(
-  ctx: CanvasRenderingContext2D,
-  marks: readonly Mark[],
-  size: Size,
-  layer: Size,
-  initials: string,
-  group: readonly Mark[] = marks,
-): void {
-  const X = (v: number) => v * size.w;
-  const Y = (v: number) => v * size.h;
-  const scale = layer.w > 0 ? size.w / layer.w : 1;
-  for (const m of marks) {
-    const fill = SHOT_COLORS[m.color];
-    const sw = m.width * scale;
-    ctx.save();
-    ctx.strokeStyle = fill;
-    ctx.fillStyle = fill;
-    ctx.lineWidth = sw;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    if (m.kind === 'pen' && m.points?.length) {
-      ctx.beginPath();
-      m.points.forEach((p, i) => (i ? ctx.lineTo(X(p.x), Y(p.y)) : ctx.moveTo(X(p.x), Y(p.y))));
-      ctx.stroke();
-    } else if ((m.kind === 'line' || m.kind === 'arrow') && m.to) {
-      const x1 = X(m.x);
-      const y1 = Y(m.y);
-      const x2 = X(m.to.x);
-      const y2 = Y(m.to.y);
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.stroke();
-      if (m.kind === 'arrow') {
-        const headSize = sw * 3 + 6 * scale;
-        const angle = Math.atan2(y2 - y1, x2 - x1);
-        ctx.beginPath();
-        ctx.moveTo(x2, y2);
-        ctx.lineTo(x2 - headSize * Math.cos(angle - 0.45), y2 - headSize * Math.sin(angle - 0.45));
-        ctx.lineTo(x2 - headSize * Math.cos(angle + 0.45), y2 - headSize * Math.sin(angle + 0.45));
-        ctx.closePath();
-        ctx.lineWidth = scale;
-        ctx.fill();
-        ctx.stroke();
-      }
-    } else if (m.kind === 'ellipse') {
-      ctx.beginPath();
-      ctx.ellipse(X(m.x + m.w / 2), Y(m.y + m.h / 2), X(m.w) / 2, Y(m.h) / 2, 0, 0, Math.PI * 2);
-      ctx.stroke();
-    } else if (m.kind === 'box' || m.kind === 'element') {
-      ctx.beginPath();
-      ctx.roundRect(X(m.x), Y(m.y), X(m.w), Y(m.h), (m.kind === 'element' ? 4 : 2) * scale);
-      ctx.stroke();
-    } else if (m.kind === 'pin') {
-      const r = 12 * scale;
-      const cx = X(m.x);
-      const cy = Y(m.y);
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = fill === SHOT_COLORS.white ? '#000000' : '#ffffff';
-      ctx.lineWidth = 2 * scale;
-      ctx.stroke();
-      ctx.fillStyle = fill === SHOT_COLORS.white ? '#000000' : '#ffffff';
-      ctx.font = `bold ${Math.round(12 * scale)}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(String(stepNumber(group, m.id) ?? ''), cx, cy);
-    } else if (m.kind === 'comment') {
-      drawStamp(ctx, X(m.x), Y(m.y), Math.max(14, Math.round(Math.min(size.w, size.h) / 40)), fill, initials);
-    } else if (m.kind === 'text' && m.text) {
-      const px = MARKUP_TEXT_SIZE[m.width] * scale;
-      ctx.font = `bold ${Math.round(px)}px sans-serif`;
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.strokeStyle = fill === SHOT_COLORS.white ? 'rgb(0 0 0 / 0.9)' : 'rgb(255 255 255 / 0.9)';
-      ctx.lineWidth = Math.max(2, px / 6);
-      m.text.split('\n').forEach((line, i) => {
-        const y = Y(m.y) + i * px * 1.2;
-        ctx.strokeText(line, X(m.x), y);
-        ctx.fillText(line, X(m.x), y);
-      });
-    }
-    ctx.restore();
-  }
-}
-
-/** 印章：半径 r 的圆，左下角收成尖角落在 (x, y)；白边，写缩写。 */
-function drawStamp(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, fill: string, initials: string): void {
-  const cx = x + r;
-  const cy = y - r;
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(x, cy);
-  ctx.arc(cx, cy, r, Math.PI, Math.PI / 2, false);
-  ctx.closePath();
-  ctx.fillStyle = fill;
-  ctx.strokeStyle = fill === SHOT_COLORS.white ? '#000000' : '#ffffff';
-  ctx.lineWidth = Math.max(2, r / 7);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = fill === SHOT_COLORS.white ? '#000000' : '#ffffff';
-  ctx.font = `bold ${Math.round(r * 0.9)}px sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(initials, cx, cy);
-  ctx.restore();
 }

@@ -8,7 +8,6 @@ import type { LiteSegment } from '../../model/lite-segments.ts';
 import type { CaptionHit } from '../../render/render-planner.ts';
 import { RuntimeContext } from '../../runtime/context.tsx';
 import type { RuntimeSession } from '../../runtime/session.ts';
-import { useDraftImages } from '../../state/draft-images-store.ts';
 import { useDraftVideoAnnotations } from '../../state/draft-video-annotations-store.ts';
 import { useEditor } from '../../state/editor-store.ts';
 import { useLiteMarkup } from '../../state/lite-markup-store.ts';
@@ -67,6 +66,19 @@ const button = (name: string) =>
   [...document.querySelectorAll<HTMLElement>('button')].find((b) => b.textContent === name || b.getAttribute('aria-label') === name)!;
 
 let pickLive = vi.fn(async (_point: { x: number; y: number }): Promise<MarkupPick | null> => null);
+/** jsdom 的 Image 不解码 blob: 地址：留下的帧 PNG 由它「解码」成一张与画布同大的图（截图归标注所有，草稿里按底图重画）。 */
+const stubImage = () =>
+  vi.stubGlobal(
+    'Image',
+    class {
+      width = 1920;
+      height = 1080;
+      onload: (() => void) | null = null;
+      set src(_v: string) {
+        queueMicrotask(() => this.onload?.());
+      }
+    },
+  );
 
 async function mount(over: { sequence?: Sequence } = {}) {
   await act(() =>
@@ -85,6 +97,7 @@ async function mount(over: { sequence?: Sequence } = {}) {
             segments,
             frame,
             canvasRef: { current: canvas },
+            live: false,
             pickLive,
           }),
         ),
@@ -115,8 +128,7 @@ afterEach(async () => {
   useEditor.setState(initialEditor, true);
   useVideo.setState(initialVideo, true);
   useShell.setState(initialShell, true);
-  useDraftVideoAnnotations.setState({ annotations: {} });
-  useDraftImages.setState({ images: {} });
+  useDraftVideoAnnotations.setState({ annotations: {}, shots: {} });
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -301,18 +313,7 @@ describe('LiteMarkupLayer', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((cb) => cb(new Blob(['png'], { type: 'image/png' })));
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:frame');
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
-    // jsdom 的 Image 不解码 blob: 地址：留下的帧 PNG 由它「解码」成一张与画布同大的图
-    vi.stubGlobal(
-      'Image',
-      class {
-        width = 1920;
-        height = 1080;
-        onload: (() => void) | null = null;
-        set src(_v: string) {
-          queueMicrotask(() => this.onload?.());
-        }
-      },
-    );
+    stubImage();
     await mount();
     await drag([64, 36], [128, 72]);
     expect(marks()[0]).toMatchObject({ kind: 'pen', timeMs: 3000 });
@@ -339,8 +340,14 @@ describe('LiteMarkupLayer', () => {
     ]);
     expect(marks()).toHaveLength(0);
     expect(useLiteMarkup.getState().frames).toEqual({});
-    const images = useDraftImages.getState().images.c1 ?? [];
-    expect(images.map((i) => i.file.name)).toEqual(['frame-3000.png', 'frame-20000.png']);
+    // 每一帧的截图跟着这一帧的标注走（lite-editor §4.1），不是输入框里另一张图片
+    const shots = () => useDraftVideoAnnotations.getState().shots.v1 ?? {};
+    expect(Object.keys(shots()).map(Number)).toEqual([3000, 20000]);
+    expect(shots()[3000]?.file?.name).toBe('frame-3000.png');
+    expect(Object.keys(shots()[20000]?.marks ?? {})).toEqual([notes[1]!.id]);
+    await act(() => useDraftVideoAnnotations.getState().remove('v1', notes[0]!.id));
+    expect(Object.keys(shots()).map(Number)).toEqual([20000]);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:frame');
   });
 
   it('Esc：有没发的标记先问「放弃这些标记？」，没有就直接退出', async () => {
@@ -377,6 +384,8 @@ describe('LiteMarkupLayer', () => {
     HTMLCanvasElement.prototype.toBlob ??= function () {};
     const toBlob = vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((cb) => cb(new Blob(['png'], { type: 'image/png' })));
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:shot');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    stubImage();
     await mount();
     await setTool('comment');
     await pointer('pointerdown', 320, 180);
@@ -389,10 +398,7 @@ describe('LiteMarkupLayer', () => {
       area.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await press(button('发送'));
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
+    await act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
     const notes = useDraftVideoAnnotations.getState().annotations.v1 ?? [];
     expect(notes).toHaveLength(1);
     expect(notes[0]).toMatchObject({
@@ -404,9 +410,10 @@ describe('LiteMarkupLayer', () => {
     expect(ctx.drawImage).toHaveBeenCalledWith(canvas, 0, 0);
     expect(ctx.fillText).toHaveBeenCalledWith('我', expect.any(Number), expect.any(Number));
     expect(toBlob).toHaveBeenCalled();
-    const images = useDraftImages.getState().images.c1 ?? [];
-    expect(images).toHaveLength(1);
-    expect(images[0]?.file.type).toBe('image/png');
+    const shots = useDraftVideoAnnotations.getState().shots.v1 ?? {};
+    expect(Object.keys(shots)).toEqual(['3000']);
+    expect(shots[3000]?.file?.type).toBe('image/png');
+    expect(Object.keys(shots[3000]?.marks ?? {})).toEqual([notes[0]!.id]);
     // 发出去的不留在标记里
     expect(marks()).toHaveLength(0);
   });

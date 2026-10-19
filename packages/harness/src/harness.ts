@@ -1380,6 +1380,7 @@ export class Harness {
             params.designSystemAnnotations ?? [],
           ),
           params.videoAnnotations ?? [],
+          attached.map((a) => a.ref),
         ),
         params.docsAnnotations ?? [],
       ),
@@ -1509,6 +1510,7 @@ export class Harness {
           designSystemAnnotations,
         ),
         videoAnnotations,
+        attached.map((a) => a.ref),
       ),
       docsAnnotations,
     );
@@ -3005,12 +3007,18 @@ function annotationRegion(a: VideoAnnotation): string {
 /**
  * 把视频标注附在发给智能体的文字后面（产品设计 §3.2.3「视频标注」；协议规范 `conversations`），排在设计系统标注段之后：
  * 每部视频一段，按第一次出现的顺序；编号在每部视频里各自从 1 起；段上的 `revision` 取这组标注里最大的。每条一行时码（含毫秒）、
- * 种类与区域，下面依次是标记的样式、点中的元素（给模型看的英文 `detail`）、落点（段与句，lite-editor §4.2）、评论的印章截图，
- * 最后是批注——没有的行省略，空批注（标记工具画的标记）不写 `批注：`。同一部视频两条以上时段末另给 `candidateBoundsMs`——
- * 只是候选范围，不是要改的区间。写法与原型 designs/baocut/app/model-stage-notes.js 的 `promptText` 逐字一致。
+ * 种类与区域，下面依次是标记的样式、点中的元素（给模型看的英文 `detail`）、落点（段与句，lite-editor §4.2）、那一帧的截图
+ * （`shot.attachment` 对上这条消息的附件时写它的文件名，对不上或截不出图时写 `not attached`），最后是批注——没有的行省略，
+ * 空批注（标记工具画的标记）不写 `批注：`。同一部视频两条以上时段末另给 `candidateBoundsMs`——只是候选范围，不是要改的区间。
+ * 写法与原型 designs/baocut/app/model-stage-notes.js 的 `promptText` 逐字一致。
  */
-export function withVideoAnnotations(text: string, annotations: readonly ResolvedVideoAnnotation[]): string {
+export function withVideoAnnotations(text: string, annotations: readonly ResolvedVideoAnnotation[], attachments: readonly AttachmentRef[] = []): string {
   if (annotations.length === 0) return text;
+  const fileNames = new Map(attachments.map((a) => [a.id, a.fileName]));
+  const shotOf = (shot: NonNullable<VideoAnnotation['shot']>) => {
+    const fileName = shot.attachment ? fileNames.get(shot.attachment) : undefined;
+    return fileName ? `attached (${fileName})` : 'not attached';
+  };
   const groups = new Map<string, VideoAnnotation[]>();
   for (const { annotation, videoPath } of annotations) groups.set(videoPath, [...(groups.get(videoPath) ?? []), annotation]);
   const blocks = [...groups].map(([videoPath, notes]) => {
@@ -3029,8 +3037,8 @@ export function withVideoAnnotations(text: string, annotations: readonly Resolve
         segment,
         a.shot
           ? a.shot.stamp
-            ? `   screenshot: attached, frame at ${a.shot.timeMs} ms with the stamp at (${a.shot.stamp.x}, ${a.shot.stamp.y})`
-            : `   screenshot: attached, frame at ${a.shot.timeMs} ms with this frame's marks drawn on it`
+            ? `   screenshot: ${shotOf(a.shot)}, frame at ${a.shot.timeMs} ms with the stamp at (${a.shot.stamp.x}, ${a.shot.stamp.y})`
+            : `   screenshot: ${shotOf(a.shot)}, frame at ${a.shot.timeMs} ms with this frame's marks drawn on it`
           : null,
         a.text ? `   批注：${a.text.split('\n').join('\n        ')}` : null,
       ]

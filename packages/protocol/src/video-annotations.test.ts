@@ -119,6 +119,8 @@ describe('轻量视图标记工具送来的视频标注（docs/design/lite-edito
         videoAnnotations: [
           { ...box, shot: { timeMs: 70000 } },
           { ...pen, shot: { timeMs: 0 } },
+          { ...box, shot: { timeMs: 70000, attachment: 'att_1' } },
+          { ...comment, shot: { ...shot, attachment: 'att_1' } },
         ],
       }).success,
     ).toBe(true);
@@ -148,6 +150,8 @@ describe('轻量视图标记工具送来的视频标注（docs/design/lite-edito
       { ...comment, shot: { timeMs: 12400, stamp: { x: 1.4, y: 0.3 } } },
       { ...box, points },
       { ...box, shot: { timeMs: -1 } },
+      { ...box, shot: { timeMs: 1, attachment: '' } },
+      { ...box, shot: { timeMs: 1, attachment: 7 } },
       { ...comment, shot: { timeMs: 12400 } },
       { ...box, element: caption },
       { ...pin, to: { x: 0.5, y: 0.5 } },

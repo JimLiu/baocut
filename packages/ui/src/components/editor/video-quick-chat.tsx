@@ -18,7 +18,13 @@ import { defaultDriver, useConnection } from '../../state/connection-store.ts';
 import { useConversationMeta } from '../../state/directory-store.ts';
 import { useDraftImages } from '../../state/draft-images-store.ts';
 import { useDraftSkills } from '../../state/draft-skills-store.ts';
-import { useDraftVideoAnnotationList, useDraftVideoAnnotations } from '../../state/draft-video-annotations-store.ts';
+import {
+  draftShotUrl,
+  uploadDraftVideoShots,
+  useDraftVideoAnnotationList,
+  useDraftVideoAnnotations,
+  useDraftVideoShots,
+} from '../../state/draft-video-annotations-store.ts';
 import { hostPanelTab, useEditor } from '../../state/editor-store.ts';
 import { useSetting } from '../../state/settings-store.ts';
 import { routeVideo, useShell } from '../../state/shell-store.ts';
@@ -102,6 +108,7 @@ export function VideoQuickChat() {
   // 视频标注的草稿挂在视频上（产品设计 §3.2.3「视频标注」）：快聊的会话还没建，输入框上方显示这部视频的标注。
   const videoId = useVideo((s) => s.video?.videoId ?? null);
   const videoAnnotations = useDraftVideoAnnotationList(videoId);
+  const videoShots = useDraftVideoShots(videoId);
   const projectId = source?.projectId ?? null;
   const owner = projectId ? null : (source?.conversationId ?? null);
   // 视频所在的那条会话还在目录里才共用它的工作目录；不在了（被删）就建一条普通的无项目会话。
@@ -170,7 +177,19 @@ export function VideoQuickChat() {
     // 视频标注随第一句话发出去；只带标注、没写话时补一句（同会话里的输入框）。发出去之后从草稿里摘掉。
     const noteVideoId = videoId;
     const drafted = noteVideoId ? (useDraftVideoAnnotations.getState().annotations[noteVideoId] ?? []) : [];
-    const videoNotes = sentVideoAnnotations(drafted);
+    // 标注的截图作为这条消息的附件（lite-editor §4.1）：先传上去再建会话；传不上去就不建，话与标注都留着。
+    let videoNotes: ReturnType<typeof sentVideoAnnotations>;
+    let sent = attachments;
+    try {
+      const shots = noteVideoId
+        ? await uploadDraftVideoShots(noteVideoId, drafted, (file) => runtime.uploadAttachment(file))
+        : { attachments: [], attachmentOf: () => undefined };
+      videoNotes = sentVideoAnnotations(drafted, shots.attachmentOf);
+      sent = [...attachments, ...shots.attachments];
+    } catch (error) {
+      ToastQueue.negative(sendFailureMessage(error), { timeout: 5000 });
+      return false;
+    }
     const message = text || (videoNotes.length ? VIDEO_NOTES.message : '');
     let conversationId: Id | null = null;
     try {
@@ -194,7 +213,7 @@ export function VideoQuickChat() {
         conversation.id,
         message,
         context,
-        attachments.map((a) => a.id),
+        sent.map((a) => a.id),
         undefined,
         skills,
         undefined,
@@ -295,6 +314,7 @@ export function VideoQuickChat() {
                     anchor: '',
                     timeMs: n.timeMs,
                     videoId: n.videoId,
+                    image: draftShotUrl(n, videoShots),
                     label: n.label,
                     text: n.text,
                   })),

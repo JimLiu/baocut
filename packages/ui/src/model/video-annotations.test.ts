@@ -127,6 +127,22 @@ describe('video-annotations', () => {
     ]);
     expect(Object.keys(sentVideoAnnotations([note()])[0]!)).not.toContain('to');
   });
+
+  it('截图随消息交出去：画的标记只在那一帧截到图时写 shot 与附件 id，评论的落点总带着', () => {
+    const box = note({ shot: { timeMs: 42_300 } });
+    const comment = note({
+      id: 'n2',
+      kind: 'comment',
+      region: { x: 0.4, y: 0.3, w: 0, h: 0 },
+      shot: { timeMs: 42_300, stamp: { x: 0.4, y: 0.3 } },
+    });
+    const attachmentOf = (n: DraftVideoAnnotation) => (n.id === 'n1' ? 'att_1' : undefined);
+    const [sentBox, sentComment] = sentVideoAnnotations([box, comment], attachmentOf);
+    expect(sentBox!.shot).toEqual({ timeMs: 42_300, attachment: 'att_1' });
+    expect(sentComment!.shot).toEqual({ timeMs: 42_300, stamp: { x: 0.4, y: 0.3 } });
+    // 没截到图：画的标记不写 shot（协议里 shot 表示「这一帧有截图」）
+    expect(Object.keys(sentVideoAnnotations([box])[0]!)).not.toContain('shot');
+  });
 });
 
 describe('轻量视图标记工具送来的视频标注（docs/design/lite-editor §4）', () => {

@@ -2087,10 +2087,11 @@ export interface VideoAnnotation {
   /** 点中的画面元素：`element` 必须有，`comment` 点在元素上时有，别的种类没有。 */
   element?: VideoAnnotationElement;
   /**
-   * 随消息附上的那一帧截图：哪一帧（毫秒），评论另带印章落在哪（归一化）。标记工具画的标注都带：那一帧的画面加上这一帧的标记，
-   * 同一帧的几条共一张图；`comment` 必须带、也必须有 `stamp`。
+   * 随消息附上的那一帧截图：哪一帧（毫秒），评论另带印章落在哪（归一化），`attachment` 是这张图在同一条消息 `attachments` 里的
+   * 附件 id（截不出图时没有）。标记工具画的标注都带：那一帧的画面加上这一帧的标记，同一帧的几条共一张图；`comment` 必须带、
+   * 也必须有 `stamp`。
    */
-  shot?: { timeMs: number; stamp?: { x: number; y: number } };
+  shot?: { timeMs: number; stamp?: { x: number; y: number }; attachment?: Id };
   /**
    * 标注时的落点（lite-editor §4.2）：播放头所在的那一段，`index` 是段序（从 0 起），`kind` 是段的种类（如 `scene`）。
    * 是标注时算出的快照，不随段的重算改变；只用来定位，不是「重做整段」。

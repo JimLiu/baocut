@@ -144,11 +144,12 @@
         /* 轻量编辑器（docs/design/lite-editor §4.3）：标注落在哪一段、哪一句随标注给出，智能体改「第 3 场第 2 句这里」而不只是一个时刻 */
         const where = n.segment ? `   segment: ${n.segment.id} (${n.segment.kind} #${n.segment.index + 1}${n.segment.title ? ' ' + n.segment.title : ''})`
           + (n.line ? ` · line ${n.line.index}: ${n.line.text}` : '') : null;
-        /* 标记工具送来的：颜色与粗细、点中的元素（给模型看的 detail）、那一帧的截图（正式版作为图片附件随消息一起给：评论画印章，别的画上这一帧的标记） */
+        /* 标记工具送来的：颜色与粗细、点中的元素（给模型看的 detail）、那一帧的截图（正式版作为图片附件随消息一起给、写它的文件名：评论画印章，别的画上这一帧的标记；截不出图时写 not attached） */
         const style = n.style ? `   style: ${n.style.color} ${n.style.width}px` : null;
         const element = n.element ? `   element: ${n.element.detail || n.element.label || ''}`.trimEnd() : null;
-        const shot = n.shot ? (n.shot.stamp ? `   screenshot: attached, frame at ${n.shot.timeMs} ms with the stamp at (${n.shot.stamp.x}, ${n.shot.stamp.y})`
-          : `   screenshot: attached, frame at ${n.shot.timeMs} ms with this frame's marks drawn on it`) : null;
+        const attached = n.shot && n.shot.file ? `attached (${n.shot.file})` : 'not attached';
+        const shot = n.shot ? (n.shot.stamp ? `   screenshot: ${attached}, frame at ${n.shot.timeMs} ms with the stamp at (${n.shot.stamp.x}, ${n.shot.stamp.y})`
+          : `   screenshot: ${attached}, frame at ${n.shot.timeMs} ms with this frame's marks drawn on it`) : null;
         return [`${i + 1}. ${timecode(n.timeMs)} (${n.timeMs} ms) · ${n.kind} · ${regionText(n)}`, style, element, where, shot, body ? `   批注：${body}` : null].filter(Boolean).join('\n');
       });
       const bounds = candidateBounds(g.notes);

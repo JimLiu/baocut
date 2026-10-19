@@ -103,13 +103,13 @@ test('轻量编辑器的标记工具送来的：带 style 的可以不写批注�
   assert.equal(N.add([], note({kind: 'element', text: '', style})).error, '先点中画面上的元素');
   const el = {kind: 'caption', id: 'c3', label: '字幕 · “你好”', detail: 'caption c3 "你好"'};
   const notes = [
-    note({id: 'a', kind: 'box', region: {x: 0.1, y: 0.1, w: 0.2, h: 0.2}, text: '', style, shot: {timeMs: 42300}}),
+    note({id: 'a', kind: 'box', region: {x: 0.1, y: 0.1, w: 0.2, h: 0.2}, text: '', style, shot: {timeMs: 42300, file: 'frame-42300.png'}}),
     note({id: 'b', kind: 'element', region: {x: 0.2, y: 0.8, w: 0.6, h: 0.1}, text: '', style, element: el}),
     note({id: 'c', kind: 'comment', region: {x: 0.4, y: 0.3, w: 0, h: 0}, text: '这里慢一点', style, element: el, shot: {timeMs: 42300, stamp: {x: 0.4, y: 0.3}}}),
   ];
   const text = N.promptText(notes, () => 'car/');
-  assert.match(text, /1\. 00:42\.3 \(42300 ms\) · box · x=0\.1 y=0\.1 w=0\.2 h=0\.2[^\n]*\n   style: red 4px\n   screenshot: attached, frame at 42300 ms with this frame's marks drawn on it\n2\./);
+  assert.match(text, /1\. 00:42\.3 \(42300 ms\) · box · x=0\.1 y=0\.1 w=0\.2 h=0\.2[^\n]*\n   style: red 4px\n   screenshot: attached \(frame-42300\.png\), frame at 42300 ms with this frame's marks drawn on it\n2\./);
   assert.match(text, /2\. [^\n]* · element · x=0\.2 y=0\.8 w=0\.6 h=0\.1[^\n]*\n   style: red 4px\n   element: caption c3 "你好"\n3\./);
-  assert.match(text, /3\. [^\n]* · comment · at \(0\.4, 0\.3\)\n   style: red 4px\n   element: caption c3 "你好"\n   screenshot: attached, frame at 42300 ms with the stamp at \(0\.4, 0\.3\)\n   批注：这里慢一点/);
+  assert.match(text, /3\. [^\n]* · comment · at \(0\.4, 0\.3\)\n   style: red 4px\n   element: caption c3 "你好"\n   screenshot: not attached, frame at 42300 ms with the stamp at \(0\.4, 0\.3\)\n   批注：这里慢一点/);
   assert.equal(N.label(notes[1]), '00:42.3 · 元素 · 画面下方');
 });

@@ -218,7 +218,8 @@
       if (m.to) note.to = m.to;
       if (m.points) note.points = m.points;
       if (m.element) note.element = m.element;
-      note.shot = m.kind === 'comment' ? {timeMs, stamp: {x: m.x, y: m.y}} : {timeMs};
+      /* 那一帧的截图随这条标注走（正式版是真图：画着这一帧的标记，评论画印章，发送时作为附件、`shot.attachment` 记它的附件 id） */
+      note.shot = m.kind === 'comment' ? {timeMs, stamp: {x: m.x, y: m.y}, file: `frame-${timeMs}.png`} : {timeMs, file: `frame-${timeMs}.png`};
       if (labelOf) note.label = labelOf(note);
       return note;
     });

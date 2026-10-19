@@ -198,24 +198,41 @@ export function candidateBounds(list: readonly DraftVideoAnnotation[], videoId: 
   return { fromMs: Math.min(...times), toMs: Math.max(...times) };
 }
 
-/** 随消息交出去的那一份：去掉界面里的 id 与视频 id，只带协议里的字段、按协议排（协议不收别的字段）。 */
-export function sentVideoAnnotations(list: readonly DraftVideoAnnotation[]): VideoAnnotation[] {
-  return list.map(({ video, revision, timeMs, kind, region, to, points, style, element, shot, segment, line, label, text }) => ({
-    video,
-    revision,
-    timeMs,
-    kind,
-    region: { ...region },
-    ...(to ? { to: { ...to } } : {}),
-    ...(points ? { points: points.map((p) => ({ x: p.x, y: p.y })) } : {}),
-    ...(style ? { style: { ...style } } : {}),
-    ...(element ? { element: { ...element } } : {}),
-    ...(shot ? { shot: { timeMs: shot.timeMs, ...(shot.stamp ? { stamp: { ...shot.stamp } } : {}) } } : {}),
-    ...(segment ? { segment: { ...segment } } : {}),
-    ...(line ? { line: { ...line } } : {}),
-    label,
-    text,
-  }));
+/**
+ * 随消息交出去的那一份：去掉界面里的 id 与视频 id，只带协议里的字段、按协议排（协议不收别的字段）。`attachmentOf` 给每条标注那一帧
+ * 截图在这条消息里的附件 id（lite-editor §4.1）：有就写进 `shot.attachment`；没有（没截到、传不上）时画的标记不带 `shot`，评论照带
+ * （协议要求评论有印章位置），harness 写 `not attached`。
+ */
+export function sentVideoAnnotations(
+  list: readonly DraftVideoAnnotation[],
+  attachmentOf: (note: DraftVideoAnnotation) => Id | undefined = () => undefined,
+): VideoAnnotation[] {
+  const shotOf = (note: DraftVideoAnnotation): Pick<VideoAnnotation, 'shot'> => {
+    const { shot } = note;
+    if (!shot) return {};
+    const attachment = attachmentOf(note);
+    if (!attachment && note.kind !== 'comment') return {};
+    return { shot: { timeMs: shot.timeMs, ...(shot.stamp ? { stamp: { ...shot.stamp } } : {}), ...(attachment ? { attachment } : {}) } };
+  };
+  return list.map((note) => {
+    const { video, revision, timeMs, kind, region, to, points, style, element, segment, line, label, text } = note;
+    return {
+      video,
+      revision,
+      timeMs,
+      kind,
+      region: { ...region },
+      ...(to ? { to: { ...to } } : {}),
+      ...(points ? { points: points.map((p) => ({ x: p.x, y: p.y })) } : {}),
+      ...(style ? { style: { ...style } } : {}),
+      ...(element ? { element: { ...element } } : {}),
+      ...shotOf(note),
+      ...(segment ? { segment: { ...segment } } : {}),
+      ...(line ? { line: { ...line } } : {}),
+      label,
+      text,
+    };
+  });
 }
 
 /** 加不进去的原因说成话（界面语言）。 */
