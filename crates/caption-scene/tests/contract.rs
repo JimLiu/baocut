@@ -581,3 +581,43 @@ fn unit_font_reflow_admits_width_wrapped_font_sizes_without_line_identity() {
     page["scene"]["value"]["animations"] = json!([{"id":"pop","target":{"nodeId":"caption","selectorId":"active-word"},"property":"transform.scale","composite":"multiply","value":{"kind":"keyframes","clock":{"unit":"word","origin":"start","duration":{"kind":"unit-span"}},"keys":[{"at":0,"value":0.9},{"at":1,"value":1}]}}]);
     parse_style(&page).unwrap();
 }
+
+#[test]
+fn line_neighbor_context_requires_opt_in_and_cannot_size_or_place_layout() {
+    let body: Value = serde_json::from_str(include_str!("fixtures/line-neighbor-context.json")).unwrap();
+    let style = parse_style(&body).unwrap();
+    let paths = [
+        ("unit.previousWordInLine", ValueType::Bool),
+        ("layout.previousWordX", ValueType::Length),
+        ("layout.previousWordY", ValueType::Length),
+        ("layout.previousWordWidth", ValueType::Length),
+        ("layout.previousWordHeight", ValueType::Length),
+    ];
+    for (path, ty) in paths {
+        let read = json!({"op":"read","path":path});
+        assert_eq!(infer(&expr(read.clone()), style.scene(), &BTreeMap::new()).unwrap(), ty);
+        let mut legacy = style.scene().clone();
+        legacy.required_capabilities.retain(|cap| cap != "caption-line-neighbor-context/1");
+        assert_eq!(
+            infer(&expr(read.clone()), &legacy, &BTreeMap::new()).unwrap_err().code,
+            "CAPTION_CAPABILITY_UNAVAILABLE"
+        );
+        let scalar = match ty {
+            ValueType::Bool => {
+                json!({"op":"if","condition":read,"then":{"op":"literal","type":"scalar","value":1},"else":{"op":"literal","type":"scalar","value":2}})
+            }
+            _ => json!({"op":"call","function":"div","args":[read,{"op":"literal","type":"length","value":1}]}),
+        };
+        let mut early = body.clone();
+        early["scene"]["value"]["layout"]["layoutEvaluation"] = json!("per-sample");
+        early["scene"]["value"]["layout"]["bindings"] =
+            json!([{"nodeId":"caption","property":"lineHeight","value":{"kind":"expression","expression":scalar}}]);
+        assert_eq!(parse_style(&early).unwrap_err().code, "CAPTION_DEPENDENCY_CYCLE");
+    }
+    // A neighbour exists only after wrapping, so unit font sizes cannot read it either.
+    let mut sized: Value = serde_json::from_str(include_str!("fixtures/unit-font-reflow.json")).unwrap();
+    let scene = &mut sized["scene"]["value"];
+    scene["requiredCapabilities"].as_array_mut().unwrap().push(json!("caption-line-neighbor-context/1"));
+    scene["layout"]["fontSizeBindings"][0]["value"] = json!({"kind":"expression","expression":{"op":"if","condition":{"op":"read","path":"unit.previousWordInLine"},"then":{"op":"literal","type":"length","value":12},"else":{"op":"literal","type":"length","value":14}}});
+    assert_eq!(parse_style(&sized).unwrap_err().code, "CAPTION_DEPENDENCY_CYCLE");
+}

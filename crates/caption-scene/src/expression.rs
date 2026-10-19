@@ -164,7 +164,8 @@ pub fn context_type(path: &str) -> Option<ValueType> {
         | "unit.cueSelectionAvailable"
         | "unit.lineEnvelopeAvailable"
         | "unit.rangeInkAvailable"
-        | "unit.activeWordAvailable" => ValueType::Bool,
+        | "unit.activeWordAvailable"
+        | "unit.previousWordInLine" => ValueType::Bool,
         "layout.labelWidth"
         | "layout.labelHeight"
         | "layout.labelMaxGlyphInkWidth"
@@ -187,6 +188,10 @@ pub fn context_type(path: &str) -> Option<ValueType> {
         | "layout.lineEnvelopeHeight"
         | "layout.firstInkLeft"
         | "layout.lastInkRight"
+        | "layout.previousWordX"
+        | "layout.previousWordY"
+        | "layout.previousWordWidth"
+        | "layout.previousWordHeight"
         | "canvas.width"
         | "canvas.height" => ValueType::Length,
         _ => return None,
@@ -268,6 +273,21 @@ fn require_context_capability(path: &str, scene: &Scene) -> Result<()> {
             "CAPTION_CAPABILITY_UNAVAILABLE",
             path,
             "caption-active-word-context/1 must be declared",
+        ));
+    }
+    if matches!(
+        path,
+        "unit.previousWordInLine"
+            | "layout.previousWordX"
+            | "layout.previousWordY"
+            | "layout.previousWordWidth"
+            | "layout.previousWordHeight"
+    ) && !scene.required_capabilities.iter().any(|c| c == "caption-line-neighbor-context/1")
+    {
+        return Err(Diagnostic::new(
+            "CAPTION_CAPABILITY_UNAVAILABLE",
+            path,
+            "caption-line-neighbor-context/1 must be declared",
         ));
     }
     if matches!(path, "time.lineElapsedSeconds" | "time.lineDurationSeconds") && crate::validate::unit_font_reflow(scene) {

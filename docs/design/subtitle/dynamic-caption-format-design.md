@@ -211,6 +211,8 @@ cue 时间来自投影结果。word 保留真实词时间；page/line 的 speech
 
 活动词状态原本只能经 word 选择器和 `stateStyles` 改变活动词自身；“每换一个词，整句做一次短促的横向拉伸”这类效果要由 cue/page/line 读取“当前词进行到哪了”。`caption-active-word-context/1` 给同一文字节点的所有单元及其装饰提供 `unit.activeWordAvailable`（bool）、`unit.activeWordIndexInPage`（scalar，当前页内零基序号）、`time.activeWordElapsedSeconds` 与 `time.activeWordDurationSeconds`（time）。活动词沿用上面的选择，只在当前页冻结成员内取；窗口是包含采样时刻、该词连续保持活动的区间，`hold-previous`/`hold-last` 保持的时段计入，终点不超过页的显示结束；被后开始的词重叠打断后又恢复的词开始新窗口。没有活动词时为 false/0。窗口只依赖冻结成员和词时间：布局绑定禁止读取，字号绑定可以读取。
 
+活动词底框在换词时从上一个词滑到当前词，要求装饰知道上一个词在哪里。`caption-line-neighbor-context/1` 只给出同一视觉行内上一个词的布局矩形（`unit.previousWordInLine`、`layout.previousWordX/Y/Width/Height`），换行处没有邻居，底框直接出现在新词上；滑动时长与插值仍由场景表达式决定。跨行邻居和下一个词暂不开放，需要时以新版本扩展。
+
 没有真实词时间时，`timingPolicy` 默认 `require-word-timing`：关闭朗读驱动并提示缺失依据，cue/line 的入退场仍可用。用户可显式选 `estimated`，按已声明的均分或字符权重生成显示时序；结果标记估算，只存在于派生层，不回写为转录词时间。译文不继承原文逐词时间来冒充目标语对齐。
 
 ## 7. 属性动画与合成

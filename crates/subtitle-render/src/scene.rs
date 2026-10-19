@@ -6,6 +6,7 @@ mod cue_unit_context;
 mod glyph_envelope;
 mod gradient_smear;
 mod image_sequences;
+mod line_neighbor;
 mod materials;
 mod noise_palette;
 mod noisy_sweep;
@@ -209,6 +210,7 @@ struct Unit {
     page_count: usize,
     page_last_word_span: Option<(f64, f64)>,
     active_word: Option<active_word_clock::Clock>,
+    previous_word_in_line: Option<Bounds>,
     first_page_input: PageWordInput,
     page_input: PageWordInput,
     cue_first_word_span: Option<(f64, f64)>,
@@ -1066,6 +1068,7 @@ fn units_for(
             word.input_timed.then_some(word.span).flatten()
         }),
         active_word: active_word_clock::clock(&layout.words, page, t, cfg),
+        previous_word_in_line: None,
         kind: UnitKind::Cue,
         id: cue.id.clone(),
         index: 0,
@@ -1127,6 +1130,7 @@ fn units_for(
             WordState::Unread
         };
         all.push((u.clone(), Some(line.clone())));
+        let mut previous_word = None;
         for (wi, i) in members.iter().enumerate() {
             let w = &layout.words[*i];
             let mut u = u.clone();
@@ -1163,6 +1167,7 @@ fn units_for(
                 .unwrap_or_default();
             u.bounds = glyph_bounds(line, &w.bytes);
             u.ink_bounds = line.ink_for(&w.bytes, u.bounds);
+            u.previous_word_in_line = previous_word.replace(u.bounds);
             all.push((u.clone(), None));
             let content = &layout.content;
             if w.bytes.end <= content.len()
@@ -1546,6 +1551,9 @@ fn context(u: &Unit, r: &RenderContext) -> Context {
     cue_unit_context::add_fields(&mut out, u);
     if active_word_clock::enabled(r.scene) {
         active_word_clock::add_fields(&mut out.fields, u.active_word, r.seconds);
+    }
+    if line_neighbor::enabled(r.scene) {
+        line_neighbor::add_fields(&mut out.fields, u.previous_word_in_line);
     }
     cue_unit_context::select(&mut out, u, u.cue_selector.as_deref());
     out

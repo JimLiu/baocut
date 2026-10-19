@@ -17,6 +17,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-first-page-context/1",
     "caption-cue-unit-context/1",
     "caption-active-word-context/1",
+    "caption-line-neighbor-context/1",
     "caption-expressions/1",
     "caption-permutation/1",
     "caption-function-dag/1",
@@ -1353,7 +1354,11 @@ fn validate_font_size_dependencies(value: &DynamicValue, scene: &Scene) -> Resul
                     || path.starts_with("unit."))
                     || matches!(
                         path.as_str(),
-                        "unit.lineEnvelopeAvailable" | "unit.rangeInkAvailable" | "unit.pageEnvelopeAvailable" | "unit.pageLineCount"
+                        "unit.lineEnvelopeAvailable"
+                            | "unit.rangeInkAvailable"
+                            | "unit.pageEnvelopeAvailable"
+                            | "unit.pageLineCount"
+                            | "unit.previousWordInLine"
                     )
                 {
                     return Err(Diagnostic::new(
