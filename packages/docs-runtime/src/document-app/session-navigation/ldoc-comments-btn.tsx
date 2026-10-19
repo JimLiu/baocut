@@ -426,8 +426,7 @@ export function initializeSessionNavigationLdocCommentsBtnStep1(): void {
         import.meta.url,
       ),
   );
-  // BaoCut: 随包的图标字体（slides-runtime 的 anthropicons-fizzy-lake）没有 History（U+E089），按钮是空的；换成字体里有的 Clock。
-  (SessionNavigationState4 = resolvePlatformRuntimeAndChatCustomSize(`Clock`));
+  (SessionNavigationState4 = resolvePlatformRuntimeAndChatCustomSize(`History`));
   (SessionNavigationPanel = create(
     (
       sessionNavigationPanel?: Dynamic,

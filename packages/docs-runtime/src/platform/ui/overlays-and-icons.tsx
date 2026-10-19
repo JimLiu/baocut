@@ -13,6 +13,11 @@ import {
   useUiLinksAndFoundationUseSyncExternalStore2,
 } from "./links-and-foundation";
 import {
+  MISSING_GLYPH_ALIASES,
+  MISSING_GLYPH_DRAWINGS,
+  MissingGlyphSvg,
+} from "./missing-glyphs";
+import {
   UiProviderAndLayersCreateContext12,
   UiProviderAndLayersCreateContext8,
   UiProviderAndLayersState,
@@ -208,6 +213,8 @@ export const UiOverlaysAndIconsCustomIcon: ReactComponentTypes.FC<IconProps> = (
   } = uiOverlaysAndIconsCustomIcon;
   let name =
     uiOverlaysAndIconsCustomIcon.name ?? uiOverlaysAndIconsCustomIcon.icon.name;
+  // BaoCut: 随包的图标字体缺这个字形时换成近似字形（missing-glyphs.tsx）。
+  name = MISSING_GLYPH_ALIASES[name] ?? name;
   let cdsOpsz: Dynamic;
   let uiOverlaysAndIconsCustomIconResult: Dynamic;
   if (uiOverlaysAndIconsCustomIcon7 === undefined) {
@@ -243,6 +250,44 @@ export const UiOverlaysAndIconsCustomIcon: ReactComponentTypes.FC<IconProps> = (
             ? stroke.strong
             : stroke.regular,
         );
+  // BaoCut: 缺字形但有原版画法的名字照画 SVG，尺寸与线宽同字体图标（missing-glyphs.tsx）。
+  let missingGlyphDrawing = MISSING_GLYPH_DRAWINGS[name];
+  if (missingGlyphDrawing !== undefined) {
+    // 调用方给的是 span 的 ref，挂不到 svg 上；目前没有调用方给图标传 ref。
+    let { ref: _spanRef, ...missingGlyphSvgProps } = uiOverlaysAndIconsCustomIcon9;
+    return (
+      <MissingGlyphSvg
+        drawing={missingGlyphDrawing}
+        px={cdsOpsz}
+        strokePx={
+          uiOverlaysAndIconsCustomIcon10 && `strong` in stroke
+            ? stroke.strong
+            : stroke.regular
+        }
+        data-cds={`Icon`}
+        data-icon={name}
+        style={{
+          ...UiOverlaysAndIconsFlexShrink,
+          fontSize: strong.fontSize,
+          ...uiOverlaysAndIconsCustomIcon3,
+        }}
+        className={className}
+        {...missingGlyphSvgProps}
+        role={
+          missingGlyphSvgProps.role ??
+          (uiOverlaysAndIconsCustomIcon2 ? `img` : undefined)
+        }
+        aria-hidden={
+          missingGlyphSvgProps[`aria-hidden`] ??
+          (uiOverlaysAndIconsCustomIcon2 ? undefined : true)
+        }
+        aria-label={
+          missingGlyphSvgProps[`aria-label`] ??
+          (uiOverlaysAndIconsCustomIcon2 || undefined)
+        }
+      />
+    );
+  }
   let uiOverlaysAndIconsCustomIcon12: Dynamic =
     uiOverlaysAndIconsCustomIcon11 && uiOverlaysAndIconsSet.has(name);
   let UiOverlaysAndIconsAnimDurItem: Dynamic = uiOverlaysAndIconsCustomIcon12
