@@ -66,6 +66,7 @@
 .mk-bar { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 8; display: flex; align-items: center; gap: 4px;
   padding: 4px; border: 1px solid var(--gray-200); border-radius: 10px; background: var(--gray-25); box-shadow: var(--sh-pop); white-space: nowrap; }
 .mk-bar__group { display: flex; align-items: center; gap: 4px; }
+.mk-bar .bc-icon-button { transition: background-color 60ms ease-out; }
 .mk-bar .bc-icon-button[data-selected] { background: var(--blue-200); color: var(--blue-1000); }
 .mk-bar .bc-icon-button[data-selected]:hover { background: var(--blue-300); }
 .mk-bar .bc-icon-button[aria-expanded="true"] { background: var(--gray-100); }

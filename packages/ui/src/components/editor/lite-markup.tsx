@@ -290,6 +290,7 @@ const toolBtn = style({
   color: { default: 'gray-800', isSelected: 'blue-1000' },
   '--iconPrimary': { type: 'fill', value: 'currentColor' },
   transition: 'default',
+  transitionDuration: 60,
   outlineStyle: { default: 'none', isFocusVisible: 'solid' },
   outlineColor: 'focus-ring',
   outlineWidth: 2,
