@@ -289,9 +289,6 @@ export const ptBR: AgentMessages = {
     diagnosticCode: { invalid: "Formato inválido", 'duplicate-id': "Nome duplicado", 'builtin-conflict': "Mesmo nome de Skill integrada" } as Record<string, string>,
 
     diagnosticLine: (dir: string, reason: string, issue: string) => `${dir} · ${reason}: ${issue}`,
-    externalTitle: "Usar BaoCut com agentes no terminal ou outros aplicativos",
-    externalBody:
-      "Skills acima são para agentes internos. Para ensinar Claude Code ou Codex externos a transcrever, traduzir, editar e exportar, instale a Skill do BaoCut. Instalar globalmente em um clique e consultar locais e atualização virá depois.",
   },
 
   skillDetail: {

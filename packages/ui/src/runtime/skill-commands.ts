@@ -1,5 +1,8 @@
 import {
   newId,
+  type AgentSkillStatus,
+  type AgentSkillTarget,
+  type AgentSkillInstallMode,
   type Id,
   type MediaHandle,
   type ProjectBrandDetail,
@@ -177,6 +180,26 @@ export function importSkillFromGithub(session: Session, url: string): Promise<Sk
 /** 移除「我的」或「第三方」skill：删掉它在 Runtime skill 目录里的文件夹，不能撤销。 */
 export function removeSkill(session: Session, id: string): Promise<SkillRemoveResult> {
   return apply(session.client.request('skills.remove', { id }));
+}
+
+/* ---------- 给外部 Agent 装的 baocut skill（Agent 面设计 §8.2） ---------- */
+
+/** App 自带的那份、命令行与全局 / 各文件夹每一处的状态。浏览器里也能看。 */
+export function agentSkillStatus(session: Session): Promise<AgentSkillStatus> {
+  return session.client.request('agentSkill.status', {});
+}
+
+/** 装到这些位置（已有的 BaoCut 那份换成这种装法；别人的东西整批拒绝）。只有桌面应用与 CLI 能写。 */
+export function installAgentSkill(
+  session: Session,
+  targets: (AgentSkillTarget & { mode: AgentSkillInstallMode })[],
+): Promise<AgentSkillStatus> {
+  return session.client.request('agentSkill.install', { targets });
+}
+
+/** 移除这些位置的 BaoCut 那份：软链接只删链接，副本连文件一起删。 */
+export function removeAgentSkill(session: Session, targets: AgentSkillTarget[]): Promise<AgentSkillStatus> {
+  return session.client.request('agentSkill.remove', { targets });
 }
 
 /** 测试用：清掉进行中的请求。 */

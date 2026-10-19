@@ -3,7 +3,7 @@
    - 目录：每个装过的文件夹一组，同样是这两个宿主目录。外部 Agent 不一定在 BaoCut 项目里工作，所以叫「安装到目录…」：
      最近在用的 BaoCut 项目默认勾上，其他项目可勾，也能添加任意文件夹（正式版走系统的文件夹选择）。
    默认装成指向 App 自带那份的软链接（symlink），不复制文件，永远与 App 同版本；副本才有「可更新」。
-   每行：谁会读它 / 路径 / 版本与状态（未安装、最新、可更新到 vX、链接失效、位置被占用）/ 一颗对症的按钮，
+   每行：谁会读它 / 路径 / 状态灯（未安装、已安装 · vX、可更新、未生效、被占用）+ 一句灰字原因 / 一颗对症的次要按钮，
    其余动作（换方式、复制路径、在文件夹中显示、移除）收进行尾菜单；会删掉真实文件的（移除副本、副本换成软链接）先在行内确认。
    被占用的位置没有「替换」：不是 BaoCut 放的东西永不覆盖。状态判定与写操作都是 model-skill-install.js 的纯函数；不碰磁盘。 */
 (function () {
@@ -28,7 +28,7 @@
     const act = () => {
       if (c.action === 'install') { write((m) => M.put(m, path, mode, ver)); app.toast(`已给 ${M.reader(folder)} 装上 v${ver}（${M.modeLabel(mode)}，演示）· 新开一个 ${M.reader(folder)} 会话后生效`, 'positive'); }
       if (c.action === 'update') { write((m) => M.repair(m, path, ver)); app.toast(`已更新到 v${ver}（演示）· 新开一个 ${M.reader(folder)} 会话后生效`, 'positive'); }
-      if (c.action === 'repair') { write((m) => M.repair(m, path, ver)); app.toast('软链接已重新指向 App 自带的那份（演示）', 'positive'); }
+      if (c.action === 'repair') { write((m) => M.repair(m, path, ver)); app.toast(`已重新安装：软链接指向这个 App 自带的那份（演示）· 新开一个 ${M.reader(folder)} 会话后生效`, 'positive'); }
     };
     const [ask, setAsk] = useState(null);   // null | 'remove' | 'link'
     const doConvert = (to) => { write((m) => M.put(m, path, to, ver)); app.toast(to === 'copy' ? '已改为复制一份（演示）' : '已改为软链接：副本已移除（演示）', 'positive'); };
@@ -39,8 +39,9 @@
     const installed = kind !== 'none' && kind !== 'foreign';
     return <div className={cx('ags-link-row', 'is-' + kind)}>
       <div className="grow"><span className="ags-reader">{M.reader(folder)}</span><code>{path}</code>
-        <span className={cx('ags-link-state', c.tone && 'is-' + c.tone)}>{c.text}</span></div>
-      {c.cta ? <Btn size="s" variant={kind === 'none' ? 'secondary' : 'accent'} aria-label={c.cta + ' ' + path} onClick={act}>{c.cta}</Btn> : null}
+        <span className="ags-link-status"><R.StatusLight variant={c.light} size="S">{c.label}</R.StatusLight>
+          {c.detail ? <span className="ags-link-detail">{c.detail}</span> : null}</span></div>
+      {c.cta ? <Btn size="s" variant="secondary" aria-label={c.cta + ' ' + path} onClick={act}>{c.cta}</Btn> : null}
       <div className="ags-more">
         <IconBtn size="s" icon="more" tip="更多操作" aria-expanded={menu} onClick={() => setMenu((v) => !v)} />
         <Popover open={menu} onClose={() => setMenu(false)} align="right" width={224}>

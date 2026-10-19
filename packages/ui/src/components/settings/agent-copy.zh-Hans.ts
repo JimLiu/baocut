@@ -264,9 +264,6 @@ export const zhHans: AgentMessages = {
     diagnosticsHint: '这些文件夹不是能用的 skill，已经跳过。改好之后回到这一页会重新读取。',
     diagnosticCode: { invalid: '格式不对', 'duplicate-id': '名字重复', 'builtin-conflict': '和内置 skill 同名' },
     diagnosticLine: (dir: string, reason: string, issue: string) => `${dir} · ${reason}：${issue}`,
-    externalTitle: '在终端或其他应用的 Agent 里用 BaoCut',
-    externalBody:
-      '上面这些是 BaoCut 里的 Agent 自己用的。想让终端里的 Claude Code、Codex 也学会用 BaoCut 转录、翻译、剪辑和导出，要给它们装 BaoCut 的 skill；一键装到这些 Agent 的全局位置、查看装在哪里与是否需要更新，将在后续版本提供。',
   },
 
   skillDetail: {

@@ -42,8 +42,14 @@ test('默认软链接到 App 里随 App 发布的那份；软链接永远是 App
   assert.equal(M.locationState({mode: 'copy', ver: '1.3.0'}, V), 'stale');
   assert.equal(M.locationState({mode: 'link', issue: 'broken'}, V), 'broken');
   assert.equal(M.locationState({mode: 'copy', issue: 'foreign'}, V), 'foreign');
-  assert.equal(M.stateCopy('stale', {mode: 'copy', ver: '1.3.0'}, V).text, 'v1.3.0 · 副本 · 可更新到 v1.4.2');
-  assert.equal(M.stateCopy('current', {mode: 'link'}, V).text, 'v1.4.2 · 软链接到 App，随 App 更新');
+  assert.equal(M.stateCopy('stale', {mode: 'copy', ver: '1.3.0'}, V).label, '已安装 · v1.3.0 · 可更新');
+  assert.equal(M.stateCopy('stale', {mode: 'copy', ver: '1.3.0'}, V).detail, '副本；App 里是 v1.4.2');
+  assert.equal(M.stateCopy('current', {mode: 'link'}, V).label, '已安装 · v1.4.2');
+  // 失效的软链接不用红色，说清原来指向哪里，按钮是「重新安装」。
+  const broken = M.stateCopy('broken', {mode: 'link', issue: 'broken', target: '/old/BaoCut'}, V);
+  assert.equal(broken.light, 'notice');
+  assert.match(broken.detail, /\/old\/BaoCut/);
+  assert.equal(broken.cta, '重新安装');
   assert.equal(M.stateCopy('current', {mode: 'link'}, V).cta, null);
 });
 test('App 不在「应用程序」里运行时先提醒软链接会失效', () => {

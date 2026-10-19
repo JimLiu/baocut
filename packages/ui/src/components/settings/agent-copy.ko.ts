@@ -267,9 +267,6 @@ export const ko: AgentMessages = {
     diagnosticsHint: '이 폴더들은 사용할 수 있는 Skill이 아니어서 건너뛰었습니다. 고친 뒤 이 페이지로 돌아오면 다시 불러옵니다.',
     diagnosticCode: { invalid: '잘못된 형식', 'duplicate-id': '중복된 이름', 'builtin-conflict': '내장 Skill과 이름이 같음' },
     diagnosticLine: (dir: string, reason: string, issue: string) => `${dir} · ${reason}: ${issue}`,
-    externalTitle: '터미널이나 다른 앱의 Agent에서 BaoCut 사용',
-    externalBody:
-      '위의 Skill은 BaoCut 안의 Agent용입니다. 터미널의 Claude Code나 Codex가 BaoCut으로 전사, 번역, 편집, 내보내기를 하도록 하려면 해당 Agent에 BaoCut Skill을 설치하세요. 이 Agent들의 전역 위치에 한 번에 설치하고, 설치 위치와 업데이트 필요 여부를 확인하는 기능은 이후 버전에서 제공됩니다.',
   },
 
   skillDetail: {

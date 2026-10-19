@@ -258,9 +258,6 @@ export const tr: AgentMessages = {
     diagnosticsHint: "Bu klasörler kullanılabilir Skill değil; atlandı. Düzeltip yeniden yüklemek için bu sayfaya dönün.",
     diagnosticCode: { invalid: "Geçersiz biçim", 'duplicate-id': "Yinelenen ad", 'builtin-conflict': "Yerleşik Skill ile aynı ad" },
     diagnosticLine: (dir: string, reason: string, issue: string) => `${dir} · ${reason}: ${issue}`,
-    externalTitle: "BaoCut aracını terminaldeki veya diğer uygulamalardaki ajanlarnden kullanın",
-    externalBody:
-      "Yukarıdaki Skill’ler BaoCut içindeki ajanlar içindir. Terminaldeki Claude Code veya Codex aracına BaoCut ile yazıya dökme, çeviri, düzenleme ve dışa aktarma öğretmek için BaoCut Skill yükleyin. Bu ajanların genel konumlarına tek tıkla yükleme, yüklü yeri görme ve güncelleme gereğini denetleme sonraki sürümde gelecek.",
   },
 
   skillDetail: {

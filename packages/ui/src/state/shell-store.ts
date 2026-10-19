@@ -68,7 +68,7 @@ export type Route =
   | { tab: 'space'; category: SpaceCategory; projectId: Id | null; video?: FileTarget; from?: Id }
   /**
    * Skills（产品设计 §6.9）：没有 `id` 与 `brand` 是列表；`id` 是一个 skill 的详情，`brand` 是那个项目的 `BRAND.md`。
-   * `view: 'files'` 落在「文件」页签，`file` 是选中的文件；列表上 `view: 'external'` 展开页底的「在终端或其他应用里用 BaoCut」。
+   * `view: 'files'` 落在「文件」页签，`file` 是选中的文件；列表上 `view: 'external'` 展开最上面的「在终端或其他应用里用 BaoCut」。
    */
   | { tab: 'skills'; id?: string; brand?: Id; view?: SkillsView; file?: string }
   /**

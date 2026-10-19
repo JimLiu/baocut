@@ -36,6 +36,7 @@ import { SKILLS_COPY } from '../settings/agent-copy.ts';
 import { openHome } from '../start/open-home.ts';
 import { useBrandsLoader, useSkillsLoader } from '../use-skills.ts';
 import { BrandCreateDialog, brandName } from './brand-create.tsx';
+import { ExternalAgentsCard } from './external-agents-card.tsx';
 import { BrandMoreMenu } from './project-brand-page.tsx';
 import { SkillMoreMenu, useSkillActions } from './skill-actions.tsx';
 import { GithubImportDialog, SkillBlankDialog } from './skill-dialogs.tsx';
@@ -151,9 +152,7 @@ const diagList = style({ margin: 0, paddingStart: 16, font: 'ui-sm', color: 'gra
 const diagItem = style({ marginBottom: 8, overflowWrap: 'anywhere' });
 const diagPath = style({ font: 'code-xs', color: 'gray-600', userSelect: 'text' });
 const diagHint = style({ marginTop: 0, marginBottom: 8, font: 'ui-sm', color: 'gray-600' });
-const externalBox = style({ marginTop: 8, scrollMarginTop: 16 });
-const externalHint = style({ marginStart: 8, font: 'ui-xs', fontWeight: 'normal', color: 'gray-600' });
-const externalBody = style({ marginTop: 0, marginBottom: 0, font: 'ui-sm', color: 'gray-700', overflowWrap: 'anywhere', whiteSpace: 'pre-line' });
+const externalBox = style({ marginBottom: 32, scrollMarginTop: 16 });
 // 拖进来时盖在整页上（原型 `.skp-dropzone`）。
 const dropzone = style({
   position: 'absolute',
@@ -182,7 +181,8 @@ type Adding = 'upload' | 'github' | 'blank' | null;
 
 /**
  * Skills 列表（原型 page-skills.jsx `SkillsList`）：标题行（搜索、添加）→ 一句导语 →「我的」→「品牌」（全局的一行 + 各项目的）→「BaoCut 内置」
- * → 跳过的文件夹（有才出现）→ 页底折叠的「在终端或其他应用里用 BaoCut」（`?tab=external` 时展开并滚到）。
+ * → 跳过的文件夹（有才出现）。导语下面是默认折叠的「在终端或其他应用里用 BaoCut」（external-agents-card.tsx；
+ * `?tab=external` 时展开并滚到，搜索时收起）。
  * 把 zip 或文件夹拖到页面上任何地方都打开上传。浏览器里只能看与开关：没有添加、拖放与 BRAND.md 的新建。
  */
 export function SkillsList({ external }: { external: boolean }) {
@@ -513,19 +513,12 @@ export function SkillsList({ external }: { external: boolean }) {
       </header>
       <p className={lede}>{LIST_COPY.lede}</p>
       {web ? <p className={webNote}>{LIST_COPY.webNote}</p> : null}
+      {q ? null : (
+        <div ref={externalRef} className={externalBox}>
+          <ExternalAgentsCard open={externalOpen} onOpenChange={setExternalOpen} />
+        </div>
+      )}
       {body}
-
-      <div ref={externalRef} className={externalBox}>
-        <Disclosure isQuiet isExpanded={externalOpen} onExpandedChange={setExternalOpen}>
-          <DisclosureTitle>
-            {LIST_COPY.external}
-            <span className={externalHint}>{LIST_COPY.externalHint}</span>
-          </DisclosureTitle>
-          <DisclosurePanel>
-            <p className={externalBody}>{SKILLS_COPY.externalBody}</p>
-          </DisclosurePanel>
-        </Disclosure>
-      </div>
 
       {dragging ? (
         <div className={dropzone} aria-hidden="true">

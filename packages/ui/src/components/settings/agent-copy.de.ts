@@ -289,9 +289,6 @@ export const de: AgentMessages = {
     diagnosticCode: { invalid: "Ungültiges Format", 'duplicate-id': "Doppelter Name", 'builtin-conflict': "Name eines integrierten Skills" } as Record<string, string>,
 
     diagnosticLine: (dir: string, reason: string, issue: string) => `${dir} · ${reason}: ${issue}`,
-    externalTitle: "BaoCut über Agenten im Terminal oder anderen Apps verwenden",
-    externalBody:
-      "Obige Skills sind für Agenten innerhalb von BaoCut. Für Transkription, Übersetzung, Bearbeitung und Export im Terminal den BaoCut-Skill für Claude Code oder Codex installieren. Installation in deren globale Ordner mit einem Klick sowie Installations- und Aktualisierungsanzeige folgen in einer späteren Version.",
   },
 
   skillDetail: {

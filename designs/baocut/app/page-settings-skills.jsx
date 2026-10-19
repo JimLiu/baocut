@@ -16,9 +16,9 @@
     if (ov.kind === 'none') return {tone: undefined, chip: '尚未安装', line: '装上之后，Claude Code、Codex 等 Agent 就知道怎么用 BaoCut 转录、翻译、剪辑和导出。'};
     if (ov.kind === 'update') {
       const n = ov.fixable.length;
-      return {tone: 'notice', chip: ov.stale.length ? `${n} 处可更新` : `${n} 处要修复`,
-        line: [where, ov.stale.length ? `有 v${ov.oldest} 的旧副本 · App 自带 v${ver}` : '有软链接失效'].filter(Boolean).join(' · '),
-        cta: ov.stale.length ? `全部更新到 v${ver}` : '全部修复'};
+      return {tone: 'notice', chip: ov.stale.length ? `${n} 处可更新` : `${n} 处未生效`,
+        line: [where, ov.stale.length ? `有 v${ov.oldest} 的旧副本 · App 自带 v${ver}` : '有安装已失效'].filter(Boolean).join(' · '),
+        cta: ov.stale.length ? `全部更新到 v${ver}` : '全部重新安装'};
     }
     if (ov.kind === 'attention') return {tone: 'notice', chip: `${ov.foreign.length} 处被占用`, line: [where, `v${ver}`].filter(Boolean).join(' · ')};
     return {tone: 'positive', chip: `v${ver} · 最新`, line: where};

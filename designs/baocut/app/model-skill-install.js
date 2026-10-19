@@ -87,16 +87,20 @@
     return cmpVer(entry.ver, appVer) < 0 ? 'stale' : 'current';
   }
   const WORKING = {current: true, stale: true};
-  /** 行上的一句状态 + 色调 + 主动作 */
+  /** 行上的状态：状态灯先回答「装没装」（label + light），灰字 detail 说怎么装的、为什么要处理；cta 是行内唯一的按钮。
+      失效与被占用都用 notice，不用红色：它们是「还没生效」，不是出错。 */
   function stateCopy(kind, entry, appVer) {
     const link = !!entry && entry.mode === 'link';
     return {
-      none: {tone: undefined, text: '未安装', action: 'install', cta: '安装'},
-      current: {tone: 'positive', text: link ? `v${appVer} · 软链接到 App，随 App 更新` : `v${entry && entry.ver} · 副本 · 最新`, action: null, cta: null},
-      stale: {tone: 'notice', text: `v${entry && entry.ver} · 副本 · 可更新到 v${appVer}`, action: 'update', cta: '更新'},
-      broken: {tone: 'negative', text: '软链接已失效 · 它指向的 BaoCut 位置不在了（App 被移动或重装过）', action: 'repair', cta: '修复软链接'},
+      none: {light: 'neutral', label: '未安装', detail: null, action: 'install', cta: '安装'},
+      current: {light: 'positive', label: `已安装 · v${link ? appVer : entry && entry.ver}`,
+        detail: link ? '软链接到 App 内的 skill，随 App 更新' : '副本；App 更新后要在这里手动更新', action: null, cta: null},
+      stale: {light: 'notice', label: `已安装 · v${entry && entry.ver} · 可更新`, detail: `副本；App 里是 v${appVer}`, action: 'update', cta: '更新'},
+      broken: {light: 'notice', label: '未生效',
+        detail: `软链接指向 ${(entry && entry.target) || 'App 原来的位置'}，那里已经没有了（App 被移动或重装过）。重新安装会改为指向这个 App。`,
+        action: 'repair', cta: '重新安装'},
       /* 不是 BaoCut 放的东西永不覆盖（App 内核的红线）：没有「替换」，只说明，让用户自己移走。 */
-      foreign: {tone: 'notice', text: '这里已有一个不是 BaoCut 装的 baocut，BaoCut 不会替换它。移走或改名后再装。', action: null, cta: null},
+      foreign: {light: 'notice', label: '被占用', detail: '这里已有一个不是 BaoCut 装的 baocut，BaoCut 不会替换它。移走或改名后再装。', action: null, cta: null},
     }[kind];
   }
   /** 移除它会不会删掉真实文件：副本里可能有用户改过的内容，视图要先在行内确认一次。 */
@@ -192,7 +196,7 @@
     const link = {mode: 'link'};
     if (k === 'fresh' || k === 'moved') return {};
     if (k === 'stale') return {[claude]: link, [agents]: {mode: 'copy', ver: '1.3.0'}, [repo]: {mode: 'copy', ver: '1.3.0'}};
-    if (k === 'broken') return {[claude]: {mode: 'link', issue: 'broken'}, [agents]: link};
+    if (k === 'broken') return {[claude]: {mode: 'link', issue: 'broken', target: '~/Library/Application Support/BaoCut/skills/baocut'}, [agents]: link};
     if (k === 'foreign') return {[claude]: link, [agents]: {mode: 'copy', ver: null, issue: 'foreign'}};
     /* 默认：都是软链接，全局两处 + 一个 BaoCut 项目 */
     return {[agents]: link, [claude]: link, [proj]: link};

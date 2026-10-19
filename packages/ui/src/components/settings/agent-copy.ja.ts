@@ -268,9 +268,6 @@ export const ja: AgentMessages = {
     diagnosticsHint: 'これらのフォルダは使える Skill ではないため、スキップしました。修正してからこのページに戻ると再読み込みされます。',
     diagnosticCode: { invalid: '形式が無効', 'duplicate-id': '名前が重複', 'builtin-conflict': '内蔵 Skill と同じ名前' },
     diagnosticLine: (dir: string, reason: string, issue: string) => `${dir} · ${reason}：${issue}`,
-    externalTitle: 'ターミナルやほかのアプリの Agent から BaoCut を使う',
-    externalBody:
-      '上の Skill は BaoCut 内の Agent 用です。ターミナルの Claude Code や Codex に BaoCut での文字起こし、翻訳、編集、書き出しを覚えさせるには、それらに BaoCut の Skill をインストールしてください。これらの Agent のグローバルな場所へのワンクリックインストールや、インストール先と更新の要否の確認は、今後のバージョンで提供予定です。',
   },
 
   skillDetail: {

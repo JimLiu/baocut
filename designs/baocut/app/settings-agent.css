@@ -202,7 +202,8 @@
 .ags-more { position: relative; flex: none; }
 .ags-link-state.is-positive { color: var(--green-1000); }
 .ags-link-state.is-notice { color: var(--orange-1000); }
-.ags-link-state.is-negative { color: var(--red-1000); }
+.ags-link-status { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; margin-top: 2px; }
+.ags-link-detail { font-size: 11px; color: var(--gray-700); overflow-wrap: anywhere; }
 @media (max-width: 1000px) {
   .agset-facts, .ags-when, .ags-modes, .ags-catalog__grid { grid-template-columns: 1fr; }
 }

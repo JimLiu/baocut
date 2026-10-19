@@ -315,9 +315,6 @@ const en = {
     diagnosticCode: { invalid: 'Invalid format', 'duplicate-id': 'Duplicate name', 'builtin-conflict': 'Same name as a built-in skill' } as Record<string, string>,
     /** 没能加载的那一行：文件夹 · 原因：第一条问题。 */
     diagnosticLine: (dir: string, reason: string, issue: string) => `${dir} · ${reason}: ${issue}`,
-    externalTitle: 'Use BaoCut from Agents in a terminal or other apps',
-    externalBody:
-      "The skills above are for the Agents inside BaoCut. To teach Claude Code or Codex in a terminal to transcribe, translate, edit and export with BaoCut, install the BaoCut skill for them. One-click install to these Agents' global locations, plus seeing where it's installed and whether it needs updating, is coming in a later version.",
   },
 
   skillDetail: {

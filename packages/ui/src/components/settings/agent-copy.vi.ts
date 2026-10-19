@@ -299,9 +299,6 @@ export const vi: AgentMessages = {
     diagnosticCode: { invalid: "Định dạng không hợp lệ", 'duplicate-id': "Trùng tên", 'builtin-conflict': "Trùng tên với Skill tích hợp" } as Record<string, string>,
     /** 没能加载的那一行：文件夹 · 原因：第一条问题。 */
     diagnosticLine: (dir: string, reason: string, issue: string) => `${dir} · ${reason}: ${issue}`,
-    externalTitle: "Dùng BaoCut từ Agent trong terminal hoặc ứng dụng khác",
-    externalBody:
-      "Skill bên trên dành cho Agent trong BaoCut. Để hướng dẫn Claude Code hoặc Codex trong terminal chép lời, dịch, chỉnh sửa và xuất bằng BaoCut, hãy cài Skill BaoCut cho chúng. Cài một lần nhấp vào vị trí toàn cục của những Agent này, xem nơi đã cài và có cần cập nhật không sẽ có trong phiên bản sau.",
   },
 
   skillDetail: {
