@@ -120,7 +120,7 @@
   - 拖的时候把手上方浮出新时长与增减量（`54s +14.3s`），预览按同一套最短 / 最长规则夹住，松手才生效。松手后 toast 报结果并带「撤销」；也进编辑器的撤销栈。把手可聚焦，← / → 各 1 秒，⇧ 各 0.1 秒。
 - 键盘：Space 播放，← / → 跳 5 秒，⇧← / ⇧→ 上一段 / 下一段，与全屏播放器一致；删除等编辑快捷键在轻量视图里不生效。⌘Z / ⇧⌘Z 在轻量视图里只归开着的标记层（§4.1）；拖边界的撤销走提示上的「撤销」钮，那一步也进编辑器的撤销栈，切到时间线视图能 ⌘Z 回去。
 
-原型：`app/editor-lite.jsx` 的 `LiteTransport`、`LiteSegBar`、`LiteStageBar`；片的几何与拖边预览在 `model-lite.js` 的 `chipSpans()`，时长规则在 `retimeScene()` / `moveChapterBoundary()` / `resizeBounds()`，缩放的档位、标签与菜单在 `zoomIn()` / `zoomOut()` / `zoomLabel()` / `fitZoom()` / `ZOOM_MENU`。
+原型：`app/editor-lite.jsx` 的 `LiteTransport`、`LiteSegBar`（舞台条是 `stage.jsx` 的 `StageBar`，`lite` 档）；片的几何与拖边预览在 `model-lite.js` 的 `chipSpans()`，时长规则在 `retimeScene()` / `moveChapterBoundary()` / `resizeBounds()`，缩放的档位、标签与菜单在 `zoomIn()` / `zoomOut()` / `zoomLabel()` / `fitZoom()` / `ZOOM_MENU`。
 
 ### 3.3 侧栏
 
@@ -225,7 +225,7 @@ candidateBoundsMs: 12400–70000（候选范围，不是要改的区间）
 
 语义不变（产品设计 §3.2.3）：默认含义是「改源视频这个时刻附近」；段落落点只是定位，智能体不把它当成「重做整段」的指令。skill「收到视频标注时的解读」补一句：带 `segment` 的标注优先用章节表的工具改那一章（动画片设计 §6）；带 `element` 的标注改那个元素（字幕行、合成层或 HTML 节点），不是改它附近的画面。
 
-原型：`app/model-markup.js`（标记层的状态：工具、样式、历史、几何、把手、转成标注），`app/stage-markup.jsx`（`LiteMarkupLayer` 画面上的层与元素拾取、`LiteMarkupBar` 工具条），`app/model-stage-notes.js` 的 `normalize()`、`promptText()`，`app/stage-notes.jsx`（发出去之后的显示与输入框里的缩略图）。
+原型：`app/model-markup.js`（标记层的状态：工具、样式、历史、几何、把手、转成标注），`app/stage-markup.jsx`（`MarkupLayer` 画面上的层与元素拾取、`MarkupBar` 工具条、`SvgMark` 等画法也给 `stage-notes.jsx` 用），`app/model-stage-notes.js` 的 `normalize()`、`promptText()`，`app/stage-notes.jsx`（发出去之后的显示与输入框里的缩略图）。
 
 ## 5. 两种视图，一份视频
 
@@ -285,7 +285,7 @@ candidateBoundsMs: 12400–70000（候选范围，不是要改的区间）
 | 素材「跳到」 | 有 | 有；「在文件夹中显示」一类系统集成不在侧栏里 |
 | 偏好 | 用户库 | 同一份（Web 服务连的就是这台机器的 Runtime） |
 
-原型里 Web 入口不装 `stage-notes`、`stage-markup` / `model-markup` 与 `agent-*` 模块，视图按 `window.LiteMarkupBar` 是否存在决定显不显示标记钮；章节进度条两端都有。
+原型里 Web 入口不装 `stage-notes`、`stage-markup` / `model-markup` 与 `agent-*` 模块，视图按 `window.MarkupBar` 是否存在决定显不显示标记钮；章节进度条两端都有。
 
 ## 9. 与现有规格的差异
 

@@ -7,67 +7,57 @@
   const N = window.BC_STAGE_NOTES;
   const T = window.BC_TIME;
 
-  const px = v => `${v * 100}%`;
+  const px = v => `${v * 100}%`;   // composer 列表里截图上的印章位置
 
-  /* 画面上的一个标记：框是描边的矩形，箭头是一条带头的线，文字是一枚写着批注的签，编号是一枚圆点；都带整份草稿里的序号。
-     点序号看批注，可以从对话里移除（草稿）；已发送的消息不画标记。 */
-  function StageNoteMark({pin, onRemove}) {
-    /* 轻量编辑器的标记工具送来的带 `style`（颜色、粗细）：按它的颜色画（stage-notes.css 的 .stnotes__mark[data-color]），别的仍是蓝 */
-    return <div className="stnotes__mark" data-color={pin.style?.color} style={pin.style ? {'--stnw': pin.style.width} : undefined}><NoteMark pin={pin} onRemove={onRemove} /></div>;
-  }
-  function NoteMark({pin, onRemove}) {
+  /** 画在 SVG 里的种类（stage-markup.jsx 的 SvgMark）；文字、元素框是 HTML，编号与评论就是序号钮。 */
+  const SVG_KINDS = new Set(['rect', 'ellipse', 'line', 'arrow', 'pen']);
+
+  /* 画面上的一条标注：画法与标记层同一套（stage-markup.jsx 的 SvgMark、.mk__text、.mk__el），画出来什么样进了草稿还是什么样；
+     只多一枚写着草稿里序号的钮（.stnotes__badge，跟标记的颜色）：编号就是那枚圆点，评论是那枚印章，别的落在标记的锚点上
+     （画笔是第一个点）。点钮看批注，可以从对话里移除（草稿）；已发送的消息不画标记。 */
+  function StageNoteMark({pin, mark, px, onRemove}) {
     const R = window.RSP;
+    const UI = window.BC_MARKUP_UI;
     const [open, setOpen] = useState(false);
     const anchor = useRef(null);
-    const r = pin.region;
-    const badge = <span ref={anchor} className="stnotes__badge">
-      <R.ActionButton size="XS" aria-label={`标注 ${pin.n}：${pin.text}`} onPress={() => setOpen(v => !v)}>{pin.n}</R.ActionButton>
-      <Popover open={open} onClose={() => setOpen(false)} anchorRef={anchor} width={280} label={`标注 ${pin.n}`}>
-        <div className="home-design__pin-note">
-          <p className="home-design__form-label">{pin.label}</p>
-          <p>{pin.text}</p>
-          <R.ActionButton isQuiet size="S" onPress={() => { setOpen(false); onRemove(pin.id); }}><R.Icons.Delete /><R.Text>从对话中移除</R.Text></R.ActionButton>
-        </div>
-      </Popover>
-    </span>;
-    if (pin.kind === 'box') return <div className="stnotes__box" style={{left: px(r.x), top: px(r.y), width: px(r.w), height: px(r.h)}}>{badge}</div>;
-    if (pin.kind === 'arrow') return <>
-      <svg className="stnotes__arrow" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-        <line x1={r.x * 100} y1={r.y * 100} x2={pin.to.x * 100} y2={pin.to.y * 100} vectorEffect="non-scaling-stroke" />
-      </svg>
-      <span className="stnotes__head" style={{left: px(pin.to.x), top: px(pin.to.y)}} aria-hidden="true" />
-      <div className="stnotes__point" style={{left: px(r.x), top: px(r.y)}}>{badge}</div>
+    const p = px(mark);
+    const at = px(mark.kind === 'pen' && mark.points?.[0] ? mark.points[0] : mark);
+    const said = pin.text || pin.label;
+    return <>
+      {mark.kind === 'text' ? <div className="mk__text mk-c" data-color={mark.color} style={{left: p.x, top: p.y, fontSize: UI.TEXT_SIZE[mark.width] || 20}} aria-hidden="true">{mark.text}</div> : null}
+      {mark.kind === 'element' ? <div className="mk__el mk-c" data-color={mark.color} style={{left: p.x, top: p.y, width: p.w, height: p.h}} aria-hidden="true"><span className="mk__el-label">{mark.element?.label}</span></div> : null}
+      <span ref={anchor} className={cx('stnotes__badge mk-c', pin.kind === 'comment' && 'is-stamp')} data-color={mark.color} style={{left: at.x, top: at.y}}>
+        <R.ActionButton size="XS" aria-label={`标注 ${pin.n}：${said}`} aria-expanded={open} aria-haspopup="dialog" onPress={() => setOpen(v => !v)}>{pin.n}</R.ActionButton>
+        <Popover open={open} onClose={() => setOpen(false)} anchorRef={anchor} width={280} label={`标注 ${pin.n}`}>
+          <div className="home-design__pin-note">
+            <p className="home-design__form-label">{pin.label}</p>
+            {pin.text ? <p>{pin.text}</p> : null}
+            <R.ActionButton isQuiet size="S" onPress={() => { setOpen(false); onRemove(pin.id); }}><R.Icons.Delete /><R.Text>从对话中移除</R.Text></R.ActionButton>
+          </div>
+        </Popover>
+      </span>
     </>;
-    if (pin.kind === 'text') return <div className="stnotes__point stnotes__text" style={{left: px(r.x), top: px(r.y)}}>{badge}<span className="stnotes__label">{pin.text}</span></div>;
-    /* 标记工具送来的：元素是一个虚线框（标签写它是谁），评论是一枚点（印章截图在 composer 列表里） */
-    if (pin.kind === 'element') return <div className="stnotes__box stnotes__element" style={{left: px(r.x), top: px(r.y), width: px(r.w), height: px(r.h)}}>{badge}<span className="stnotes__label">{pin.element?.label}</span></div>;
-    /* 轻量编辑器补的三种（docs/design/lite-editor §4）：直线是没有头的箭头，圆是画成椭圆的框，画笔是一条折线 */
-    if (pin.kind === 'line') return <>
-      <svg className="stnotes__arrow" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-        <line x1={r.x * 100} y1={r.y * 100} x2={pin.to.x * 100} y2={pin.to.y * 100} vectorEffect="non-scaling-stroke" />
-      </svg>
-      <div className="stnotes__point" style={{left: px(r.x), top: px(r.y)}}>{badge}</div>
-    </>;
-    if (pin.kind === 'ellipse') return <div className="stnotes__box stnotes__ellipse" style={{left: px(r.x), top: px(r.y), width: px(r.w), height: px(r.h)}}>{badge}</div>;
-    if (pin.kind === 'pen') return <>
-      <svg className="stnotes__arrow stnotes__pen" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-        <polyline points={(pin.points || []).map(p => `${p.x * 100},${p.y * 100}`).join(' ')} vectorEffect="non-scaling-stroke" />
-      </svg>
-      <div className="stnotes__point" style={{left: px(pin.points?.[0]?.x ?? r.x), top: px(pin.points?.[0]?.y ?? r.y)}}>{badge}</div>
-    </>;
-    return <div className="stnotes__point" style={{left: px(r.x), top: px(r.y)}}>{badge}</div>;
   }
 
-  /** 画面（`.frame`）里的标注层：有草稿时画这一帧的标记。层本身不接指针（手势归 stage-markup.jsx 的标记层），只有序号钮接。 */
-  function StageNotesLayer({ctx}) {
+  /** 画面（`.frame`）里的标注层：有草稿时画这一帧的标记。层本身不接指针（手势归 stage-markup.jsx 的标记层），只有序号钮接。
+      线、框、圆、画笔在一张画面大小的 SVG 里（像素坐标，尺寸量 `frameRef`），别的是 HTML。 */
+  function StageNotesLayer({ctx, frameRef}) {
     const app = useApp();
+    const UI = window.BC_MARKUP_UI;
+    const MK = window.BC_MARKUP;
+    const size = UI.useFrameSize(frameRef);
     const videoId = ctx.proj.id;
     const notes = app.videoNotes[videoId] || [];
     if (!notes.length) return null;
     const remove = id => app.setVideoNotes(videoId, N.remove(notes, id));
-    const pins = N.pins(notes, videoId, ctx.playT);
+    const frame = {w: size.w || 1, h: size.h || 1};
+    const px = m => ({x: m.x * frame.w, y: m.y * frame.h, w: (m.w || 0) * frame.w, h: (m.h || 0) * frame.h});
+    const pins = N.pins(notes, videoId, ctx.playT).map(pin => ({pin, mark: MK.fromNote(pin)}));
     return <div className="stnotes" onClick={e => e.stopPropagation()}>
-      {pins.map(pin => <StageNoteMark key={pin.id} pin={pin} onRemove={remove} />)}
+      <svg className="mk__svg" aria-hidden="true">
+        {pins.filter(({mark}) => SVG_KINDS.has(mark.kind)).map(({mark}) => <UI.SvgMark key={mark.id} m={mark} px={px} hit={false} />)}
+      </svg>
+      {pins.map(({pin, mark}) => <StageNoteMark key={pin.id} pin={pin} mark={mark} px={px} onRemove={remove} />)}
     </div>;
   }
 

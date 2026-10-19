@@ -128,3 +128,13 @@ test('每条标记记自己的帧：只在那一帧上显示，发出时按各�
     [[3000, 's1', {timeMs: 3000, file: 'frame-3000.png'}], [3000, 's1', {timeMs: 3000, file: 'frame-3000.png'}],
       [70000, null, {timeMs: 70000, stamp: {x: 0.4, y: 0.3}, file: 'frame-70000.png'}]]);
 });
+
+test('进了草稿的标注画回画面：toNotes 的反向，box 回 rect、pin 回 step；没有 style 的按蓝色 2px', () => {
+  let s = M.add(M.init(), {id: 'a', timeMs: 3000, kind: 'rect', x: 0.1, y: 0.1, w: 0.2, h: 0.2});
+  s = M.add(s, {id: 'b', timeMs: 3000, kind: 'step', x: 0.5, y: 0.5, w: 0, h: 0});
+  const [rect, step] = M.toNotes(s.marks, {video: 'p15', revision: 2});
+  assert.deepEqual(M.fromNote(rect), {id: 'a', timeMs: 3000, kind: 'rect', color: 'red', width: 4, x: 0.1, y: 0.1, w: 0.2, h: 0.2});
+  assert.equal(M.fromNote(step).kind, 'step');
+  const {style, ...bare} = rect;
+  assert.deepEqual([M.fromNote(bare).color, M.fromNote(bare).width], ['blue', 2]);
+});

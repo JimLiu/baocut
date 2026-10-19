@@ -225,6 +225,18 @@
     });
   }
 
+  /** 已进草稿的标注画回画面上用的标记（stage-notes.jsx）：`toNotes` 的反向，只取画它要用的字段；没有 `style` 的按蓝色 2px。 */
+  const MARK_KIND = Object.fromEntries(Object.entries(NOTE_KIND).map(([k, v]) => [v, k]));
+  function fromNote(n) {
+    const m = {id: n.id, timeMs: n.timeMs, kind: MARK_KIND[n.kind] || n.kind, color: n.style?.color || 'blue', width: n.style?.width || 2,
+      x: n.region.x, y: n.region.y, w: n.region.w || 0, h: n.region.h || 0};
+    if (n.to) m.to = n.to;
+    if (n.points) m.points = n.points;
+    if (n.text) m.text = n.text;
+    if (n.element) m.element = n.element;
+    return m;
+  }
+
   root.BC_MARKUP = {COLORS, WIDTHS, TOOLS, SHAPES, KIND_LABELS, BOX_HANDLES, init, setTool, setShape, setColor, setWidth, add, update, finishDrag, remove, clear, select,
-    canUndo, canRedo, undo, redo, sendable, stepNumber, fromGesture, bounds, move, handles, resize, elementLabel, elementDetail, describe, toNotes, onFrame, frames};
+    canUndo, canRedo, undo, redo, sendable, stepNumber, fromGesture, bounds, move, handles, resize, elementLabel, elementDetail, describe, toNotes, fromNote, onFrame, frames};
 })();

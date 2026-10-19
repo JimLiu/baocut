@@ -43,7 +43,7 @@
        松手清空。 */
     const frameRef = React.useRef(null);
     /* 标注模式（docs/design/lite-editor §4.1）：两种视图都铺标记层、浮标记工具条（stage-markup.jsx，只在 App 入口） */
-    const markupOn = !player && ctx.annotating && ctx.markup && !!window.LiteMarkupLayer;
+    const markupOn = !player && ctx.annotating && ctx.markup && !!window.MarkupLayer;
     const [guides, setGuides] = React.useState([]);
     /* 框选（第 115 轮）：起手挂在 `.frame` 上，因为主视频铺满整幅画面——「舞台空白」
        在视觉上就是画面本身。真的拖过阈值时 `swallow()` 会吞掉尾随的那次 click，
@@ -364,10 +364,10 @@
               画播放头附近那一帧的草稿标记；全屏播放器不画。 */}
           {!player && window.StageNotesLayer ? <window.StageNotesLayer ctx={ctx} frameRef={frameRef} /> : null}
           {/* 标记层（docs/design/lite-editor §4；stage-markup.jsx）：标注模式下接手势，草稿里的标记仍由上面那层画 */}
-          {markupOn ? <window.LiteMarkupLayer ctx={ctx} frameRef={frameRef} /> : null}
+          {markupOn ? <window.MarkupLayer ctx={ctx} frameRef={frameRef} /> : null}
         </div>
-        {/* 标记工具条浮在舞台底上；轻量视图在 editor-lite.jsx 的画布里挂同一条 */}
-        {!player && ctx.view !== 'lite' && window.LiteMarkupBar ? <window.LiteMarkupBar ctx={ctx} /> : null}
+        {/* 标记工具条浮在舞台底上：两种视图同一条，只在这里挂一处（轻量视图的 StageView 也是这个） */}
+        {!player && window.MarkupBar ? <window.MarkupBar ctx={ctx} /> : null}
       </div>
     );
   }
@@ -434,9 +434,11 @@
     );
   }
 
-  /* 舞台下沿的工具条（product-design §5.3）：左边画幅、倍速，图标加当前值；右边字幕显隐、音量、全屏，只有图标。
-     音量钮只管监听音量：切听配音还是原声在配音轨行头的菜单里（timeline-dub.jsx）。 */
-  function StageBar({ctx}) {
+  /* 舞台下沿的工具条（product-design §5.3）：左边画幅、倍速，图标加当前值；右边标记、字幕显隐、音量、全屏，只有图标。
+     音量钮只管监听音量：切听配音还是原声在配音轨行头的菜单里（timeline-dub.jsx）。
+     轻量视图（editor-lite.jsx）挂同一条，`lite` 档：左边的画幅、倍速与右边的字幕钮不出（它们归时间线视图；字幕在图层开关里），
+     右端多一枚脚本与台词侧栏的开关（`side` / `setSide`）。与 packages/ui 的 stage-bar.tsx 同一种做法。 */
+  function StageBar({ctx, lite, side, setSide}) {
     const app = useApp();
     const R = window.RSP;
     const {ratio, setRatio, ratioLock, vol, setVol, muted, setMuted, speed, setSpeed,
@@ -452,6 +454,7 @@
 
     return (
       <div className="stagebar">
+        {lite ? null : <>
         <div style={{position: 'relative'}}>
           <Tip label={lock ? lock.note : '画幅'}>
             <R.ActionButton size="S" isQuiet aria-label={'画幅 ' + ratio} onPress={() => toggle('ratio')}
@@ -505,6 +508,7 @@
             </Menu>
           </Popover>
         </div>
+        </>}
 
         <div className="spacer" />
 
@@ -513,10 +517,10 @@
           {/* 标记（product-design §3.2.3「视频标注」、§5.3；docs/design/lite-editor §4.1）：打开标记层与标记工具条（stage-markup.jsx），
               在画面上画、选元素或写评论，加进输入框的「视频标注」；与轻量视图同一枚钮。是交给智能体的入口，Web 没有会话，不出这枚钮。
               进标注模式先停播——标注绑的是此刻的播放头；关走 ctx.closeMarkup，画面上还有没发的标记会先问一句。 */}
-          {SURF.agent && ctx.setAnnotating && window.LiteMarkupBar ? <IconBtn size="s" onLayer on={!!ctx.annotating} tip={ctx.annotating ? '关闭标记 · Esc' : '标记画面 · 发给会话'}
+          {SURF.agent && ctx.setAnnotating && window.MarkupBar ? <IconBtn size="s" onLayer on={!!ctx.annotating} tip={ctx.annotating ? '关闭标记 · Esc' : '标记画面 · 发给会话'}
             onClick={() => { if (ctx.annotating) ctx.closeMarkup(); else { ctx.setPlaying(false); ctx.setAnnotating(true); } }}><R.Icons.Comment /></IconBtn> : null}
-          <IconBtn icon="captions" size="s" onLayer on={subsOn}
-            tip={subsOn ? '隐藏字幕' : '显示字幕'} onClick={() => setSubsOn(!subsOn)} />
+          {lite ? null : <IconBtn icon="captions" size="s" onLayer on={subsOn}
+            tip={subsOn ? '隐藏字幕' : '显示字幕'} onClick={() => setSubsOn(!subsOn)} />}
 
           <div style={{position: 'relative'}}>
             <IconBtn icon={volIcon(vol, muted)} size="s" onLayer tip="音量" onClick={() => toggle('vol')} />
@@ -534,6 +538,8 @@
           <IconBtn icon={fs ? 'exitfs' : 'fullscreen'} size="s" onLayer
             tip={fs ? '退出全屏' : '全屏'}
             onClick={() => { if (!fs) window.enterFullscreen(); setFs(!fs); }} />
+          {/* 轻量视图：脚本与台词侧栏的开关 */}
+          {lite ? <IconBtn size="s" onLayer on={side} tip={side ? '收起脚本与台词' : '展开脚本与台词'} onClick={() => setSide(!side)}><R.Icons.Transcript /></IconBtn> : null}
         </div>
 
         <Dialog open={custom} title="自定义画幅比" onClose={() => setCustom(false)} width={300}
@@ -594,5 +600,5 @@
     );
   }
 
-  Object.assign(window, {StageView, StageBar, VolumeSlider, volIcon});   // 音量杆与图标判据也给轻量视图的舞台工具条（editor-lite.jsx）用
+  Object.assign(window, {StageView, StageBar, VolumeSlider, volIcon});   // 舞台条两种视图同一条（editor-lite.jsx 以 lite 档挂）
 })();

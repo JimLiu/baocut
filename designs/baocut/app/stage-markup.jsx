@@ -1,4 +1,4 @@
-/* 轻量编辑器的标记层与工具条（docs/design/lite-editor §4；模型在 model-markup.js）。只在 App 入口加载。
+/* 标记层与工具条（docs/design/lite-editor §4；模型在 model-markup.js）：轻量与时间线两种视图同一套，stage.jsx 挂。只在 App 入口加载。
    标注模式下铺在画面（`.frame`）上：画笔、直线、箭头、矩形、圆、编号、文字画在一张按像素定位的 SVG 里，文字、元素框与评论印章是 HTML；
    任何工具下按在已有标记上都是选中并拖动（矩形 / 圆有八枚把手，直线 / 箭头两端各一枚），按在空处才按当前工具画。
    「选择元素」与「评论」把指针下的舞台节点（字幕 `[data-subs]`、元素 `[data-el]`，HTML 动画里就是那个节点）照 DevTools 的样子高亮并出一张小卡；
@@ -82,22 +82,23 @@
     const p = (d, t) => `${b.x - d * Math.cos(ang + t)},${b.y - d * Math.sin(ang + t)}`;
     return {points: `${b.x},${b.y} ${p(len, 0.45)} ${p(len, -0.45)}`, end: {x: b.x - len * 0.6 * Math.cos(ang), y: b.y - len * 0.6 * Math.sin(ang)}};
   }
-  function SvgMark({m, px, n, ghost, selected}) {
+  /** 一条线、框、圆、画笔或编号：像素坐标画在画面大小的 SVG 里。标注层（stage-notes.jsx）用它画草稿里的标记，`hit={false}` 不出点选用的透明宽描边。 */
+  function SvgMark({m, px, n, ghost, selected, hit = true}) {
     const p = px(m);
     const g = {'data-mark': ghost ? undefined : m.id, 'data-color': m.color, className: cx('mk__m mk-c', ghost && 'is-ghost', selected && 'is-sel'), style: {'--mkw': m.width}};
-    if (m.kind === 'rect') return <g {...g}><rect className="mk__stroke" x={p.x} y={p.y} width={p.w} height={p.h} rx="2" /><rect className="mk__hit" x={p.x} y={p.y} width={p.w} height={p.h} /></g>;
-    if (m.kind === 'ellipse') return <g {...g}><ellipse className="mk__stroke" cx={p.x + p.w / 2} cy={p.y + p.h / 2} rx={p.w / 2} ry={p.h / 2} /><ellipse className="mk__hit" cx={p.x + p.w / 2} cy={p.y + p.h / 2} rx={p.w / 2} ry={p.h / 2} /></g>;
+    if (m.kind === 'rect') return <g {...g}><rect className="mk__stroke" x={p.x} y={p.y} width={p.w} height={p.h} rx="2" />{hit ? <rect className="mk__hit" x={p.x} y={p.y} width={p.w} height={p.h} /> : null}</g>;
+    if (m.kind === 'ellipse') return <g {...g}><ellipse className="mk__stroke" cx={p.x + p.w / 2} cy={p.y + p.h / 2} rx={p.w / 2} ry={p.h / 2} />{hit ? <ellipse className="mk__hit" cx={p.x + p.w / 2} cy={p.y + p.h / 2} rx={p.w / 2} ry={p.h / 2} /> : null}</g>;
     if (m.kind === 'line' || m.kind === 'arrow') {
       const b = px({x: m.to.x, y: m.to.y});
       const head = m.kind === 'arrow' ? arrowHead(p, b, m.width) : null;
       const e = head ? head.end : b;
-      return <g {...g}><line className="mk__stroke" x1={p.x} y1={p.y} x2={e.x} y2={e.y} />{head ? <polygon className="mk__fill" points={head.points} /> : null}<line className="mk__hit" x1={p.x} y1={p.y} x2={b.x} y2={b.y} /></g>;
+      return <g {...g}><line className="mk__stroke" x1={p.x} y1={p.y} x2={e.x} y2={e.y} />{head ? <polygon className="mk__fill" points={head.points} /> : null}{hit ? <line className="mk__hit" x1={p.x} y1={p.y} x2={b.x} y2={b.y} /> : null}</g>;
     }
     if (m.kind === 'pen') {
       const pts = (m.points || []).map(q => { const r = px(q); return `${r.x},${r.y}`; }).join(' ');
-      return <g {...g}><polyline className="mk__stroke" points={pts} /><polyline className="mk__hit" points={pts} /></g>;
+      return <g {...g}><polyline className="mk__stroke" points={pts} />{hit ? <polyline className="mk__hit" points={pts} /> : null}</g>;
     }
-    if (m.kind === 'step') return <g {...g}><circle className="mk__fill mk__step" cx={p.x} cy={p.y} r="12" /><text className="mk__n" x={p.x} y={p.y}>{n}</text><circle className="mk__hit mk__step-hit" cx={p.x} cy={p.y} r="16" /></g>;
+    if (m.kind === 'step') return <g {...g}><circle className="mk__fill mk__step" cx={p.x} cy={p.y} r="12" /><text className="mk__n" x={p.x} y={p.y}>{n}</text>{hit ? <circle className="mk__hit mk__step-hit" cx={p.x} cy={p.y} r="16" /> : null}</g>;
     return null;
   }
 
@@ -167,15 +168,9 @@
   /* ---------- 标记层 ---------- */
 
   /** 画面上的标记层：按像素画这一组标记，接手势。状态在 editor.jsx（`ctx.markup` / `ctx.setMarkup`），切视图不丢。 */
-  function LiteMarkupLayer({ctx, frameRef}) {
-    const app = useApp();
-    const st = ctx.markup;
-    const set = ctx.setMarkup;
+  /** 画面（`.frame`）的像素尺寸：标记层与标注层（stage-notes.jsx）都按它把归一化坐标换成像素。 */
+  function useFrameSize(frameRef) {
     const [size, setSize] = useState({w: 0, h: 0});
-    const [drag, setDrag] = useState(null);       // 正在画的那一笔（像素）
-    const [hover, setHover] = useState(null);     // 选择元素 / 评论工具下指针悬停的节点
-    const [editing, setEditing] = useState(null); // 正在编辑的文字标记
-    const [open, setOpen] = useState(null);       // 批注框开着的评论
     useLayoutEffect(() => {
       const el = frameRef.current;
       if (!el) return undefined;
@@ -185,6 +180,18 @@
       ro.observe(el);
       return () => ro.disconnect();
     }, [frameRef.current]);
+    return size;
+  }
+
+  function MarkupLayer({ctx, frameRef}) {
+    const app = useApp();
+    const st = ctx.markup;
+    const set = ctx.setMarkup;
+    const size = useFrameSize(frameRef);
+    const [drag, setDrag] = useState(null);       // 正在画的那一笔（像素）
+    const [hover, setHover] = useState(null);     // 选择元素 / 评论工具下指针悬停的节点
+    const [editing, setEditing] = useState(null); // 正在编辑的文字标记
+    const [open, setOpen] = useState(null);       // 批注框开着的评论
     useEffect(() => { setHover(null); setOpen(null); }, [st.tool]);
     const tool = st.tool;
     const picking = tool === 'element' || tool === 'comment';
@@ -321,7 +328,7 @@
 
   /* ---------- 工具条 ---------- */
 
-  function LiteMarkupBar({ctx}) {
+  function MarkupBar({ctx}) {
     const app = useApp();
     const R = window.RSP;
     const st = ctx.markup;
@@ -404,5 +411,6 @@
     </>;
   }
 
-  Object.assign(window, {LiteMarkupLayer, LiteMarkupBar});
+  // 画法也给标注层（stage-notes.jsx）用：一条标记的 SVG、文字标记的字号表、画面尺寸
+  Object.assign(window, {MarkupLayer, MarkupBar, BC_MARKUP_UI: {SvgMark, TEXT_SIZE, useFrameSize}});
 })();

@@ -203,35 +203,6 @@
     </div>;
   }
 
-  /** 舞台下沿的工具条：与时间线视图的 StageBar（stage.jsx，产品设计 §5.3）同一条、同一组右端图标——标记、音量、全屏，再加脚本侧栏开关；
-      左边不放画幅与倍速（它们归时间线视图）。音量钮点开弹层，里面是静音与音量杆，和时间线一样。 */
-  function LiteStageBar({ctx, side, setSide}) {
-    const R = window.RSP;
-    const {vol, setVol, muted, setMuted, fs, setFs, pop, setPop} = ctx;
-    const canMark = SURF.agent && ctx.setAnnotating && window.LiteMarkupBar;
-    const volIcon = window.volIcon(vol, muted);
-    return <div className="stagebar">
-      <div className="spacer" />
-      <div className="stagebar__icons">
-        {/* 标记：开 = 暂停并铺标记层（stage-markup.jsx）；关走 ctx.closeMarkup，画面上还有没发的标记会先问一句 */}
-        {canMark ? <IconBtn size="s" onLayer on={!!ctx.annotating} tip={ctx.annotating ? '关闭标记 · Esc' : '标记画面 · 发给会话'}
-          onClick={() => { if (ctx.annotating) ctx.closeMarkup(); else { ctx.setPlaying(false); ctx.setAnnotating(true); } }}><R.Icons.AddCircle /></IconBtn> : null}
-        <div style={{position: 'relative'}}>
-          <IconBtn icon={volIcon} size="s" onLayer tip="音量" onClick={() => setPop(pop === 'vol' ? null : 'vol')} />
-          <Popover open={pop === 'vol'} onClose={() => setPop(null)} dir="up" align="right" width={240} className="pop--pad" label="音量">
-            <div className="stvol-row">
-              <IconBtn icon={volIcon} size="s" onClick={() => setMuted(!muted)} tip={muted ? '取消静音' : '静音'} />
-              <window.VolumeSlider value={muted ? 0 : vol} onChange={v => { setVol(v); setMuted(false); }} />
-            </div>
-          </Popover>
-        </div>
-        <IconBtn icon={fs ? 'exitfs' : 'fullscreen'} size="s" onLayer tip={fs ? '退出全屏' : '全屏'}
-          onClick={() => { if (!fs) window.enterFullscreen(); setFs(!fs); }} />
-        <IconBtn size="s" onLayer on={side} tip={side ? '收起脚本与台词' : '展开脚本与台词'} onClick={() => setSide(!side)}><R.Icons.Transcript /></IconBtn>
-      </div>
-    </div>;
-  }
-
   /* 脚本正文：App 入口按回复正文渲染（AgentMarkdown），Web 入口没有 Markdown 渲染，退成去掉记号的段落 */
   function ScriptBody({text}) {
     if (window.AgentMarkdown) return <window.AgentMarkdown text={text} streaming={false} />;
@@ -327,9 +298,9 @@
           <div className="lt__canvas">
             <window.StageView ctx={ctx} />
             <LiteOverlays ctx={ctx} seg={seg} />
-            {window.LiteMarkupBar ? <window.LiteMarkupBar ctx={ctx} /> : null}
           </div>
-          <LiteStageBar ctx={ctx} side={side} setSide={setSide} />
+          {/* 舞台条：与时间线视图同一条（stage.jsx 的 StageBar，lite 档去掉画幅、倍速与字幕钮，加侧栏开关）；标记工具条由 StageView 挂 */}
+          <window.StageBar ctx={ctx} lite side={side} setSide={setSide} />
         </div>
         <div className="lt__player">
           {/* 章节进度条：照搬时间线视图的那一条（timeline.jsx 的 ChapterBand，悬停出那一刻的画面与段名，点一下跳过去），放在播放条上面；段就是这里的段 */}
@@ -342,5 +313,5 @@
     </div>;
   }
 
-  Object.assign(window, {EditorLite, LiteSegBar, LiteStageBar});
+  Object.assign(window, {EditorLite, LiteSegBar});
 })();
