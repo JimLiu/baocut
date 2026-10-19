@@ -4,7 +4,38 @@ import { copyFileSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSyn
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { stageDesktopCli } from './desktop-cli.mjs';
+
+test('packaged offline probe accepts the current CLI skill interface without a Runtime', () => {
+  const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'baocut-cli-probe-')));
+  try {
+    const mac = process.platform === 'darwin';
+    const app = path.join(dir, 'Moved BaoCut app');
+    const resources = path.join(app, mac ? 'Contents/Resources' : 'resources');
+    const launcher = path.join(app, mac ? 'Contents/MacOS/baocut-cli' : 'baocut.cmd');
+    const source = fileURLToPath(new URL('../../cli/src/main.ts', import.meta.url));
+    const checker = fileURLToPath(new URL('./check-bundled-cli.mjs', import.meta.url));
+    mkdirSync(path.dirname(launcher), {recursive: true});
+    const rendered = path.join(resources, 'agent-skill', 'baocut');
+    mkdirSync(rendered, {recursive: true});
+    writeFileSync(path.join(rendered, 'SKILL.md'), '---\nname: baocut\n---\nBundled agent guide.\n');
+    // Exercise the checker against the real CLI dispatcher; the launcher itself
+    // has separate native/signing tests below and runs in the package workflow.
+    const quote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
+    writeFileSync(launcher, process.platform === 'win32'
+      ? `@echo off\r\n"${process.execPath}" --experimental-strip-types "${source}" %*\r\nexit /b %errorlevel%\r\n`
+      : `#!/bin/sh\nexec ${quote(process.execPath)} --experimental-strip-types ${quote(source)} "$@"\n`, {mode: 0o755});
+    const run = () => spawnSync(process.execPath, [checker, app], {encoding: 'utf8', timeout: 25_000});
+    const result = run();
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.equal(JSON.parse(result.stdout).runtimeStarted, false);
+    rmSync(rendered, {recursive: true});
+    const missing = run();
+    assert.equal(missing.status, 1);
+    assert.match(missing.stderr, /Missing bundled rendered agent skill/);
+  } finally { rmSync(dir, {recursive: true, force: true, maxRetries: 10, retryDelay: 100}); }
+});
 
 test('macOS launcher handles relocated apps, arguments, symlinks and child exit codes', {skip: process.platform !== 'darwin'}, () => {
   const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'baocut-cli-launch-')));

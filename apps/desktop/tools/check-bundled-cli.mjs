@@ -29,7 +29,8 @@ try {
     // The installed Windows launcher is a cmd shim, including paths containing spaces.
     const windowsShim = !dev && process.platform === 'win32';
     const program = windowsShim ? (env.ComSpec || 'cmd.exe') : command;
-    const argv = dev ? [entry, ...args] : process.platform === 'win32' ? ['/d', '/s', '/c', `""${command}" ${args.join(' ')}"`] : args;
+    const offlineArgs = [...args, '--no-start'];
+    const argv = dev ? [entry, ...offlineArgs] : process.platform === 'win32' ? ['/d', '/s', '/c', `""${command}" ${offlineArgs.join(' ')}"`] : offlineArgs;
     const run = spawnSync(program, argv, {env, cwd: temp, encoding: 'utf8', timeout: 30_000, windowsHide: true, windowsVerbatimArguments: windowsShim, maxBuffer: 4 * 1024 * 1024});
     if (run.error || run.status !== 0) throw new Error(`CLI ${args.join(' ')} failed: ${run.error?.message || run.stderr || run.status}`);
     return run.stdout;
@@ -41,10 +42,10 @@ try {
   const spec = JSON.parse(invoke(['spec']));
   if (spec.interfaceVersion !== version.cli.interfaceVersion || !spec.tools?.length) throw new Error('Missing offline CLI spec tools');
   if (resources) {
-    const skills = JSON.parse(invoke(['skill', 'path']));
-    const expected = path.join(resources, 'skills', 'baocut');
-    if (path.normalize(skills.result?.sourceDir || '') !== path.normalize(expected)) throw new Error('CLI skill source does not belong to this app');
+    const skills = invoke(['skill', '--help']);
+    if (!['skill status', 'skill install', 'skill remove'].every((verb) => skills.includes(verb))) throw new Error('Missing CLI skill management help');
+    if (!existsSync(path.join(resources, 'agent-skill', 'baocut', 'SKILL.md'))) throw new Error('Missing bundled rendered agent skill');
   }
   if (existsSync(path.join(env.BAOCUT_HOME, 'runtime.json'))) throw new Error('Offline CLI check unexpectedly started a Runtime');
   console.log(JSON.stringify({ok: true, cli: version.cli, offlineTools: spec.tools.length, runtimeStarted: false}));
-} finally { rmSync(temp, {recursive: true, force: true}); }
+} finally { rmSync(temp, {recursive: true, force: true, maxRetries: 10, retryDelay: 100}); }
