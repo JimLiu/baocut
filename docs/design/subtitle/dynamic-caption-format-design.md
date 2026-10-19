@@ -217,6 +217,8 @@ cue 时间来自投影结果。word 保留真实词时间；page/line 的 speech
 
 活动词底框在换词时从上一个词滑到当前词，要求装饰知道上一个词在哪里。`caption-line-neighbor-context/1` 只给出同一视觉行内上一个词的布局矩形（`unit.previousWordInLine`、`layout.previousWordX/Y/Width/Height`），换行处没有邻居，底框直接出现在新词上；滑动时长与插值仍由场景表达式决定。跨行邻居和下一个词暂不开放，需要时以新版本扩展。
 
+整行扫带从左到右扫过、字随扫带逐个显现时，判断一个字素是否已被扫到要知道它在本行内的相对位置。`layout.x` 是画布坐标，行起点随居中与换行变化，只靠字素序号比例又会让宽窄字形与扫带错位。`caption-line-box-context/1` 让行内各单元读取所属行的行框（`layout.lineBoxX/Y/Width/Height`），扫带宽度与显现阈值都由场景表达式按同一页进度计算，核心不内置“扫”这一动画。
+
 没有真实词时间时，`timingPolicy` 默认 `require-word-timing`：关闭朗读驱动并提示缺失依据，cue/line 的入退场仍可用。用户可显式选 `estimated`，按已声明的均分或字符权重生成显示时序；结果标记估算，只存在于派生层，不回写为转录词时间。译文不继承原文逐词时间来冒充目标语对齐。
 
 ## 7. 属性动画与合成

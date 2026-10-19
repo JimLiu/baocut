@@ -46,6 +46,8 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 `caption-line-neighbor-context/1` 让 word、grapheme 单元及其装饰读取同一视觉行内上一个词的布局矩形；行首词和其他单元为 false/0，布局与字号绑定都不能读取。见 [line-neighbor-context.json](tests/fixtures/line-neighbor-context.json)。
 
+`caption-line-box-context/1` 让 line 单元及该行的 word、grapheme、空白单元和它们的装饰读取所属视觉行的行框 `layout.lineBoxX/Y/Width/Height`；page、cue 为 0，布局与字号绑定都不能读取。见 [line-box-context.json](tests/fixtures/line-box-context.json)。
+
 `caption-line-unit-quota/1` 开放 `pagination.maxUnitsPerLine`：按宽度换行的页里一行最多取这么多词，下一个词会超宽时仍提前换行，页仍按 `maxLines` 收行；与固定行模式互斥。见 [line-unit-quota.json](tests/fixtures/line-unit-quota.json)。
 
 `caption-word-line-tail-join/1` 开放 `pagination.tailWordRule: 'join-previous-line'`：固定词行模式下，未填满的末页若最后一行只有一个词，该词并入前一行（可以是上一页的最后一行）；与 `lastPageRule` 互斥。见 [word-line-tail-join.json](tests/fixtures/word-line-tail-join.json)。

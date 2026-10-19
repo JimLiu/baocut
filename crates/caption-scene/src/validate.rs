@@ -20,6 +20,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-line-neighbor-context/1",
     "caption-line-unit-quota/1",
     "caption-word-line-tail-join/1",
+    "caption-line-box-context/1",
     "caption-expressions/1",
     "caption-permutation/1",
     "caption-function-dag/1",

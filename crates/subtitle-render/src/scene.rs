@@ -6,6 +6,7 @@ mod cue_unit_context;
 mod glyph_envelope;
 mod gradient_smear;
 mod image_sequences;
+mod line_box;
 mod line_neighbor;
 mod line_quota;
 mod materials;
@@ -212,6 +213,7 @@ struct Unit {
     page_last_word_span: Option<(f64, f64)>,
     active_word: Option<active_word_clock::Clock>,
     previous_word_in_line: Option<Bounds>,
+    line_box: Option<Bounds>,
     first_page_input: PageWordInput,
     page_input: PageWordInput,
     cue_first_word_span: Option<(f64, f64)>,
@@ -1074,6 +1076,7 @@ fn units_for(
         }),
         active_word: active_word_clock::clock(&layout.words, page, t, cfg),
         previous_word_in_line: None,
+        line_box: None,
         kind: UnitKind::Cue,
         id: cue.id.clone(),
         index: 0,
@@ -1119,6 +1122,8 @@ fn units_for(
         u.id = format!("line-{}", line.bytes.start);
         u.bytes = line.bytes.clone();
         u.bounds = line.bounds;
+        // Words, graphemes and whitespace clone this unit and keep their line's box.
+        u.line_box = Some(line.bounds);
         u.ink_bounds = line.ink_bounds;
         u.line_ink_bounds = line.ink_bounds;
         u.baseline = line.baseline;
@@ -1559,6 +1564,9 @@ fn context(u: &Unit, r: &RenderContext) -> Context {
     }
     if line_neighbor::enabled(r.scene) {
         line_neighbor::add_fields(&mut out.fields, u.previous_word_in_line);
+    }
+    if line_box::enabled(r.scene) {
+        line_box::add_fields(&mut out.fields, u.line_box);
     }
     cue_unit_context::select(&mut out, u, u.cue_selector.as_deref());
     out

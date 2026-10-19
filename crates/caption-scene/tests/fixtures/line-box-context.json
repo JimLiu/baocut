@@ -1,0 +1,130 @@
+{
+  "schema": "baocut.caption-scene-style/1",
+  "scene": {
+    "kind": "inline",
+    "value": {
+      "schema": "baocut.caption-scene/1",
+      "evaluationVersion": 1,
+      "requiredCapabilities": [
+        "caption-scene/1",
+        "caption-expressions/1",
+        "caption-line-box-context/1"
+      ],
+      "parameters": [],
+      "layout": {
+        "width": {
+          "value": 100,
+          "basis": "absolute"
+        },
+        "x": {
+          "value": 80,
+          "basis": "absolute"
+        },
+        "y": {
+          "value": 45,
+          "basis": "absolute"
+        },
+        "maxLines": 2,
+        "pagination": {
+          "maxUnitsPerPage": 4
+        }
+      },
+      "speechState": {
+        "gapPolicy": "hold-previous",
+        "tailPolicy": "none"
+      },
+      "nodes": [
+        {
+          "id": "caption",
+          "type": "text",
+          "style": {
+            "fontSize": {
+              "value": 16,
+              "basis": "absolute"
+            }
+          },
+          "zIndex": 1
+        }
+      ],
+      "selectors": [
+        {
+          "id": "characters",
+          "nodeId": "caption",
+          "unit": "grapheme",
+          "includeWhitespace": true
+        }
+      ],
+      "animations": [
+        {
+          "id": "line-wipe",
+          "target": {
+            "nodeId": "caption",
+            "selectorId": "characters"
+          },
+          "property": "opacity",
+          "composite": "multiply",
+          "value": {
+            "kind": "expression",
+            "expression": {
+              "op": "if",
+              "condition": {
+                "op": "call",
+                "function": "lt",
+                "args": [
+                  {
+                    "op": "call",
+                    "function": "sub",
+                    "args": [
+                      {
+                        "op": "read",
+                        "path": "layout.x"
+                      },
+                      {
+                        "op": "read",
+                        "path": "layout.lineBoxX"
+                      }
+                    ]
+                  },
+                  {
+                    "op": "call",
+                    "function": "mul",
+                    "args": [
+                      {
+                        "op": "call",
+                        "function": "div",
+                        "args": [
+                          {
+                            "op": "read",
+                            "path": "time.seconds"
+                          },
+                          {
+                            "op": "read",
+                            "path": "time.cueDurationSeconds"
+                          }
+                        ]
+                      },
+                      {
+                        "op": "read",
+                        "path": "layout.lineBoxWidth"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "then": {
+                "op": "literal",
+                "type": "scalar",
+                "value": 1
+              },
+              "else": {
+                "op": "literal",
+                "type": "scalar",
+                "value": 0
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

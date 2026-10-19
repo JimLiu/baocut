@@ -632,6 +632,34 @@ fn line_unit_quota_requires_opt_in_and_width_wrapped_pages() {
 }
 
 #[test]
+fn line_box_context_requires_opt_in_and_cannot_size_or_place_layout() {
+    let body: Value = serde_json::from_str(include_str!("fixtures/line-box-context.json")).unwrap();
+    let style = parse_style(&body).unwrap();
+    for path in ["layout.lineBoxX", "layout.lineBoxY", "layout.lineBoxWidth", "layout.lineBoxHeight"] {
+        let read = json!({"op":"read","path":path});
+        assert_eq!(infer(&expr(read.clone()), style.scene(), &BTreeMap::new()).unwrap(), ValueType::Length);
+        let mut legacy = style.scene().clone();
+        legacy.required_capabilities.retain(|cap| cap != "caption-line-box-context/1");
+        assert_eq!(
+            infer(&expr(read.clone()), &legacy, &BTreeMap::new()).unwrap_err().code,
+            "CAPTION_CAPABILITY_UNAVAILABLE"
+        );
+        let scalar = json!({"op":"call","function":"div","args":[read,{"op":"literal","type":"length","value":1}]});
+        let mut early = body.clone();
+        early["scene"]["value"]["layout"]["layoutEvaluation"] = json!("per-sample");
+        early["scene"]["value"]["layout"]["bindings"] =
+            json!([{"nodeId":"caption","property":"lineHeight","value":{"kind":"expression","expression":scalar}}]);
+        assert_eq!(parse_style(&early).unwrap_err().code, "CAPTION_DEPENDENCY_CYCLE");
+    }
+    // The line box exists only after wrapping, so unit font sizes cannot read it either.
+    let mut sized: Value = serde_json::from_str(include_str!("fixtures/unit-font-reflow.json")).unwrap();
+    let scene = &mut sized["scene"]["value"];
+    scene["requiredCapabilities"].as_array_mut().unwrap().push(json!("caption-line-box-context/1"));
+    scene["layout"]["fontSizeBindings"][0]["value"] = json!({"kind":"expression","expression":{"op":"call","function":"div","args":[{"op":"read","path":"layout.lineBoxWidth"},{"op":"literal","type":"scalar","value":10}]}});
+    assert_eq!(parse_style(&sized).unwrap_err().code, "CAPTION_DEPENDENCY_CYCLE");
+}
+
+#[test]
 fn line_neighbor_context_requires_opt_in_and_cannot_size_or_place_layout() {
     let body: Value = serde_json::from_str(include_str!("fixtures/line-neighbor-context.json")).unwrap();
     let style = parse_style(&body).unwrap();

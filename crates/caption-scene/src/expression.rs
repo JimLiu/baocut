@@ -192,6 +192,10 @@ pub fn context_type(path: &str) -> Option<ValueType> {
         | "layout.previousWordY"
         | "layout.previousWordWidth"
         | "layout.previousWordHeight"
+        | "layout.lineBoxX"
+        | "layout.lineBoxY"
+        | "layout.lineBoxWidth"
+        | "layout.lineBoxHeight"
         | "canvas.width"
         | "canvas.height" => ValueType::Length,
         _ => return None,
@@ -288,6 +292,17 @@ fn require_context_capability(path: &str, scene: &Scene) -> Result<()> {
             "CAPTION_CAPABILITY_UNAVAILABLE",
             path,
             "caption-line-neighbor-context/1 must be declared",
+        ));
+    }
+    if matches!(
+        path,
+        "layout.lineBoxX" | "layout.lineBoxY" | "layout.lineBoxWidth" | "layout.lineBoxHeight"
+    ) && !scene.required_capabilities.iter().any(|c| c == "caption-line-box-context/1")
+    {
+        return Err(Diagnostic::new(
+            "CAPTION_CAPABILITY_UNAVAILABLE",
+            path,
+            "caption-line-box-context/1 must be declared",
         ));
     }
     if matches!(path, "time.lineElapsedSeconds" | "time.lineDurationSeconds") && crate::validate::unit_font_reflow(scene) {
