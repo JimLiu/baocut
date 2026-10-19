@@ -1,9 +1,9 @@
 /* 把 BaoCut 的 skill 装进终端或其他应用里的 Agent（2026-09-17 从「Agent Skill & MCP」拆出；2026-10-18 重排）。
    在 Skills 页最上面，默认折叠（page-skills.jsx）；#/skills?tab=external 打开时展开。
-   折叠着也要看得出两件事：装在哪（全局给了哪几个 Agent、几个项目），版本是不是最新——有可更新的直接给「全部更新」。
+   折叠着也要看得出两件事：装在哪（全局给了哪几个 Agent、几个目录），版本是不是最新——有可更新的直接给「全部更新」。
    展开后：一句说明 → App 自带的三样（skill 本体、命令行 baocut、MCP 服务，各带版本 / 路径 / 状态）→
-   全局 / 项目两块安装位置（settings-skill-install.jsx）→ 安装方式、能做什么、怎么确认、命令参考。
-   skill 与命令行都随 App 打包发布，默认安装都是指向 App 内那份的链接（model-skill-install.js）。
+   全局 / 指定目录两块安装位置（settings-skill-install.jsx）→ 安装方式、能做什么、怎么确认、命令参考。
+   skill 与命令行都随 App 打包发布，默认安装都是指向 App 内那份的软链接（symlink），不复制（model-skill-install.js）。
    内置 Agent 自己使用的 skills 是另一件事，见 model-agent-skills.js。UI 提案，不碰磁盘。 */
 (function () {
   const {useState} = React;
@@ -17,7 +17,7 @@
     if (ov.kind === 'update') {
       const n = ov.fixable.length;
       return {tone: 'notice', chip: ov.stale.length ? `${n} 处可更新` : `${n} 处要修复`,
-        line: [where, ov.stale.length ? `有 v${ov.oldest} 的旧副本 · App 自带 v${ver}` : '有链接失效'].filter(Boolean).join(' · '),
+        line: [where, ov.stale.length ? `有 v${ov.oldest} 的旧副本 · App 自带 v${ver}` : '有软链接失效'].filter(Boolean).join(' · '),
         cta: ov.stale.length ? `全部更新到 v${ver}` : '全部修复'};
     }
     if (ov.kind === 'attention') return {tone: 'notice', chip: `${ov.foreign.length} 处被占用`, line: [where, `v${ver}`].filter(Boolean).join(' · ')};
@@ -31,10 +31,10 @@
     const cs = M.cliState(cli, D.app.version);
     const mcpOn = !!(app.svcStates && app.svcStates.mcp && app.svcStates.mcp.on);
     const reveal = (p) => app.toast('原型演示：在文件夹中显示 ' + p);
-    const installCli = () => { setCli({path: M.cliPath, target: M.cliSource}); app.toast(`已把 baocut 链接到 ${M.cliPath}（演示）· 新开终端后可用`, 'positive'); };
+    const installCli = () => { setCli({path: M.cliPath, target: M.cliSource}); app.toast(`已把 baocut 软链接到 ${M.cliPath}（演示）· 新开终端后可用`, 'positive'); };
     return <div className="ags-location ags-location--first">
       <h3 className="t-title-sm">BaoCut 自带</h3>
-      <p>skill 和命令行都在 App 里，跟 App 一起发布、一起更新。下面的安装默认只是把它们链接到 Agent 找得到的位置。</p>
+      <p>skill 和命令行都在 App 里，跟 App 一起发布、一起更新。下面的安装默认只是在 Agent 找得到的位置放一个指向它们的软链接，不复制文件。</p>
       <div className="ags-link-row">
         <div className="grow"><span className="ags-reader">baocut skill</span><code>{appPath}</code>
           <span className="ags-link-state">{`v${ver} · 随 BaoCut ${D.app.version} 发布`}</span></div>
@@ -117,7 +117,7 @@
             <p>在终端里新开一个 Agent 会话，问它「你会用 BaoCut 吗」，或输入 <code>/skills</code> 查看已加载的 skill，列表里有 baocut 就是装好了。已经开着的会话要重开才会读到新版本。</p>
           </BCDisclosure>
           <BCDisclosure className="agset-disclosure" title={<> 用命令行安装 </>}>
-            <p>和这里的按钮做同样的事。不带 --dir 装全局；默认是链接，加 --copy 复制一份。</p>
+            <p>和这里的按钮做同样的事。不带 --dir 装全局，--dir 可以是任意文件夹；默认是软链接，加 --copy 复制一份。</p>
             {['baocut skill install', 'baocut skill install --dir ~/Projects/video', 'baocut skill status'].map((cmd) =>
               <div className="agset-command" key={cmd}><code className="agset-path">{cmd}</code><IconBtn icon="copy" size="s" tip={'复制 ' + cmd} onClick={() => copy(cmd, '命令')} /></div>)}
           </BCDisclosure>

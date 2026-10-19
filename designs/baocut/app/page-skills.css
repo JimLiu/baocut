@@ -190,9 +190,12 @@
 /* 选项卡片放在 S2 ToggleButtonGroup 里：选中态别沿用它的白字 */
 .skp-how .agm-access__option, .skp-ext .agm-access__option { color: var(--gray-900); }
 
-/* 安装到项目（settings-skill-install.jsx） */
+/* 安装到目录（settings-skill-install.jsx） */
 .ags-pick { display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow: auto; }
 .ags-pick__i { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
 .ags-pick__i b { font-size: 12px; }
+.ags-pick__row { display: flex; align-items: center; gap: 8px; }
+.ags-pick__row > :first-child { flex: 1; min-width: 0; }
+.ags-add-dir { align-items: center; }
 .ags-pick__i code, .ags-project__name code { font-size: 11px; color: var(--gray-600); }
 .ags-project__name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
