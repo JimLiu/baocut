@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import type { LinkCookieBrowser } from '@baocut/protocol';
 import { OpenMediaHttp } from '../open-media/open-media-http.ts';
 import { OpenMediaTools } from './open-media-tools.ts';
@@ -109,6 +110,16 @@ type SearchResult = {
   errors?: Array<{ source: string; code: string; settingsHref?: string }>;
   next: string;
 };
+
+describe('open-media catalog language', () => {
+  it.each(['assets_search', 'assets_download'] as const)('keeps all %s catalog text in English', (name) => {
+    const catalog = tools([]);
+    const info = catalog.definitions[name]!;
+    const schema = z.toJSONSchema(catalog.schemas[name]!, { io: 'input' });
+    const text = JSON.stringify({ title: info.title, description: info.description, examples: info.examples, schema });
+    expect(text).not.toMatch(/[\u3400-\u9fff]/);
+  });
+});
 
 describe('assets_search', () => {
   it('merges the three sources and drops no-derivatives library items', async () => {

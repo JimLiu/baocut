@@ -59,6 +59,33 @@ describe('帮助', () => {
     }
   });
 
+  it('bounds growing command groups while preserving full group discovery', () => {
+    const tools = Array.from({ length: 12 }, (_, index) => ({
+      ...snapshot.tools[0]!,
+      name: `samples_long_command_${index}`,
+    }));
+    const main = renderMainHelp(tools, []);
+    const line = main.split('\n').find((entry) => entry.startsWith('  samples '))!;
+    expect(displayWidth(line)).toBeLessThanOrEqual(100);
+    expect(line).toMatch(/…$/);
+    const preview = line.trim().slice('samples'.length).trim().split(' · ');
+    expect(preview.pop()).toBe('…');
+    const verbs = tools.map((tool) => commandOf(tool).verb);
+    expect(preview.length).toBeGreaterThan(0);
+    expect(preview).toEqual(verbs.slice(0, preview.length));
+    expect(preview.length).toBeLessThan(verbs.length);
+    expect(main).toContain('help <command>');
+    const group = renderGroupHelp(tools, 'samples', undefined)!;
+    for (const tool of tools) expect(group).toContain(commandOf(tool).verb);
+  });
+
+  it('omits an oversized first command without inventing a partial name', () => {
+    const tools = [{ ...snapshot.tools[0]!, name: `samples_${'a'.repeat(120)}` }];
+    const line = renderMainHelp(tools, []).split('\n').find((entry) => entry.startsWith('  samples '))!;
+    expect(line.trim()).toBe('samples   …');
+    expect(renderGroupHelp(tools, 'samples', undefined)).toContain('a'.repeat(120));
+  });
+
   it('每条命令的帮助都能派生，带参数、效果与示例', () => {
     const names = snapshot.tools.map((tool) => tool.name);
     for (const tool of snapshot.tools) {

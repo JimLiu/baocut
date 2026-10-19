@@ -93,69 +93,69 @@ const schemas = {
       .min(1)
       .max(300)
       .describe(
-        '检索词：要拍到的东西、地点、事件或年代，用英文效果最好（媒体库的描述大多是英文），例如 "Seoul night street"、"Apollo 11 launch"',
+        'Search terms for a subject, place, event or era. English works best because most library descriptions are English, for example "Seoul night street" or "Apollo 11 launch".',
       ),
-    kind: z.enum(OPEN_MEDIA_KINDS).optional().describe('可选。video（默认）、image 或 audio'),
+    kind: z.enum(OPEN_MEDIA_KINDS).optional().describe('Optional: video (default), image or audio.'),
     sources: z
       .array(sourceArg)
       .min(1)
       .max(3)
       .optional()
       .describe(
-        '可选。commons（Wikimedia Commons）、archive（Internet Archive 的 Prelinger、NASA、FedFlix 公有领域集合）、youtube（经 yt-dlp，只有视频）；默认 kind 为 video 时三处都查，否则查前两处',
+        'Optional: commons (Wikimedia Commons), archive (the Prelinger, NASA and FedFlix public-domain collections), or youtube (video only, via yt-dlp). Defaults to all three for video, otherwise commons and archive.',
       ),
     commercial: z
       .boolean()
       .optional()
-      .describe('可选。true 时去掉只许非商业用途（NC）的；成片要商用（广告、带货、客户项目）时给。默认 false'),
+      .describe('Optional: true excludes non-commercial-only (NC) media. Set for commercial work such as advertising, sales or client projects. Default false.'),
     creativeCommons: z
       .boolean()
       .optional()
-      .describe('可选。只用于 youtube：true 时只要标为知识共享（CC BY）的视频；默认 false，许可没写的也列出（版权归上传者）'),
-    limit: z.number().int().min(1).max(20).optional().describe('可选。每处来源最多几条，默认 8'),
+      .describe('Optional, youtube only: true selects videos marked CC BY. Default false also lists videos without a stated license; copyright belongs to the uploader.'),
+    limit: z.number().int().min(1).max(20).optional().describe('Optional: maximum results per source. Default 8.'),
     preview: z
       .boolean()
       .optional()
-      .describe('可选。true 时把每条的缩略图下载下来、拼成一张接触表（sheet.cells 对应 candidates 的顺序），下载前先看画面；默认 false'),
+      .describe('Optional: true downloads thumbnails into a contact sheet before choosing a download. sheet.cells follows candidates order. Default false.'),
   }),
   assets_download: z.strictObject({
-    video: videoArg.optional().describe('导入到这个视频（videos_list 给出的 path 或 videoId）；与 outDir 给一个'),
+    video: videoArg.optional().describe('Import into this video, using a path or videoId from videos_list. Choose exactly one of video and outDir.'),
     outDir: z
       .string()
       .min(1)
       .max(4000)
       .optional()
       .describe(
-        '不导入视频、只把文件存进这个目录（任意位置，不存在时创建）；相对路径按工作目录（终端里是当前目录），~/ 是主目录。与 video 给一个；对外服务不能给',
+        'Save only the file into this directory, creating it if needed. Relative paths use the working directory (current directory in CLI); ~/ is the home directory. Choose exactly one of outDir and video. Outside services cannot use outDir.',
       ),
-    source: downloadSourceArg.describe('assets_search 结果里这一条的 source：commons 或 archive（youtube 的结果用 download）'),
-    id: z.string().min(1).max(500).describe('assets_search 结果里这一条的 id（Commons 是 File:…，Internet Archive 是条目 identifier）'),
+    source: downloadSourceArg.describe('The source from assets_search: commons or archive. Use download for youtube results.'),
+    id: z.string().min(1).max(500).describe('The id from assets_search: File:... for Commons, or the item identifier for Internet Archive.'),
     kind: z
       .enum(OPEN_MEDIA_KINDS)
       .optional()
-      .describe('可选。这一条的 kind：video（默认）、image 或 audio（assets_search 的结果里有）；archive 的条目据此挑文件'),
-    file: z.string().min(1).max(500).optional().describe('可选。只用于 archive：条目里要下载的文件名；不给时挑最通用的 H.264 / MP3 / JPEG'),
+      .describe('Optional: video (default), image or audio, as returned by assets_search. Used to select a file from an archive item.'),
+    file: z.string().min(1).max(500).optional().describe('Optional, archive only: filename within the item. Defaults to a broadly compatible H.264 / MP3 / JPEG file.'),
     maxHeight: z
       .number()
       .int()
       .min(240)
       .max(4320)
       .optional()
-      .describe('可选。视频的高度上限（像素），默认 1080：原文件更高时取不超过它的转码'),
-    name: z.string().min(1).max(200).optional().describe('可选。素材名；不给时用条目的标题'),
+      .describe('Optional: maximum video height in pixels, default 1080. If the original is taller, select a transcode within this limit.'),
+    name: z.string().min(1).max(200).optional().describe('Optional: asset name, defaulting to the item title.'),
     place: z
       .strictObject({
-        track: z.string().min(1).max(200).optional().describe('main（默认，第一条未锁定的同类轨道）或轨道 ID'),
+        track: z.string().min(1).max(200).optional().describe('main (default, the first unlocked track of the same kind) or a track ID.'),
         at: z
           .string()
           .regex(/^(\d+(\.\d+)?|end)$/)
           .optional()
-          .describe('开始时间：时间线上的秒数（十进制字符串），或 end（默认，接在轨道末尾）'),
+          .describe('Start time in timeline seconds as a decimal string, or end (default, append at the track end).'),
       })
       .optional()
-      .describe('可选。导入后放到时间线上，写法同 assets_import；不给时只登记为素材。只与 video 一起给'),
-    revision: revisionArg.optional().describe('可选。视频当前的版本，不一致时不导入；不给时用最新的版本。只与 video 一起给'),
-    commandId: commandIdArg.optional().describe('可选。同一次导入重试时带上同一个值，引擎不会重复提交。只与 video 一起给'),
+      .describe('Optional: place on the timeline after import, as in assets_import. Omit to register only an asset. Requires video.'),
+    revision: revisionArg.optional().describe('Optional: current video revision; reject import on mismatch. Defaults to the latest revision. Requires video.'),
+    commandId: commandIdArg.optional().describe('Optional: reuse this value when retrying the same import to avoid duplicate commits. Requires video.'),
   }),
 };
 
@@ -164,26 +164,26 @@ type SearchArgs = z.infer<(typeof schemas)['assets_search']>;
 type DownloadArgs = z.infer<(typeof schemas)['assets_download']>;
 
 const LICENSE_RULES =
-  '许可：public-domain 与 cc0 随便用；cc-by 要署名；cc-by-sa 要署名，用了它的成片也得用 CC BY-SA 发布（先告诉用户）；带 nc 的只许非商业用途。媒体库里禁止演绎（ND）的与许可认不出的不在结果里。';
+  'Licenses: public-domain and cc0 permit reuse; cc-by requires attribution; cc-by-sa requires attribution and releasing the resulting video under CC BY-SA (tell the user first); nc permits non-commercial use only. Library results exclude no-derivatives (ND) and unrecognized licenses.';
 
 const DEFINITIONS: Record<ToolName, ToolInfo> = {
   assets_search: {
-    title: '检索网上素材',
+    title: 'Search open media',
     description: [
-      '在网上检索视频、图片与音频素材。',
-      '来源：Wikimedia Commons（许可由文件页给出、社区审核过）；Internet Archive 里 Prelinger、NASA、FedFlix 这几处策展过的公有领域集合（别处条目的许可是上传者自己填的，不收）；YouTube（经 yt-dlp，只有视频）。只读，不改视频；严格离线时拒绝（OFFLINE_STRICT）。',
-      '每条候选给 source、id、title、kind、mediaType、width、height、durationSeconds、byteLength（archive 与 youtube 的检索结果没有尺寸与大小，下载时才知道）、author、license（name、url、class、attribution、shareAlike、nonCommercial、noDerivatives）、attribution（一行署名）、pageUrl、thumbnailUrl、year 与 downloadWith（用哪个工具下载）。',
+      'Search online for video, image and audio assets.',
+      'Sources: Wikimedia Commons (file-page licenses reviewed by the community); curated public-domain Prelinger, NASA and FedFlix collections on Internet Archive (other items have uploader-supplied licenses and are excluded); and YouTube (video only, via yt-dlp). Read-only; does not edit videos. Rejects in strict offline mode with OFFLINE_STRICT.',
+      'Each candidate includes source, id, title, kind, mediaType, width, height, durationSeconds, byteLength (archive and youtube search lack dimensions and size until download), author, license (name, url, class, attribution, shareAlike, nonCommercial, noDerivatives), attribution (one line), pageUrl, thumbnailUrl, year and downloadWith (the download tool).',
       LICENSE_RULES,
-      'YouTube：网站登录同 download，按设置 › 视频下载里选的浏览器（对外服务匿名）。许可多半没写（license.class 为 unknown，版权归上传者），照常列出：用之前告诉用户这几条的出处与版权，由用户决定；creativeCommons: true 时只要 CC BY 的。errors 里 youtube 的 LINK_LOGIN_REQUIRED（YouTube 要求登录或确认不是机器人）或 LINK_COOKIES_UNAVAILABLE 时，提醒用户：先在浏览器里登录 YouTube，再到设置 › 视频下载确认勾选了那个浏览器（用 settingsHref 写成 Markdown 设置链接）。',
-      'preview: true 时把缩略图拼成一张接触表（sheet.file，行优先，sheet.cells[i].at 是候选的序号），看过画面再挑；看不了图时按标题、尺寸与时长挑。一处来源出错不影响别处，错误在 errors 里。',
-      '挑中后按 downloadWith 下载进视频：assets_download（source 与 id 照抄）或 download（url 用 pageUrl，video 给目标视频）。真实的人物、地点、事件与产品要真实画面时先在这里找。',
+      'YouTube uses the same browser-login setting as download (outside services are anonymous). Results often have no stated license (license.class is unknown; copyright belongs to the uploader); explain their source and copyright before use and let the user decide. creativeCommons: true selects CC BY only. For youtube LINK_LOGIN_REQUIRED (sign-in or bot verification) or LINK_COOKIES_UNAVAILABLE in errors, ask the user to sign in to YouTube in their browser and enable that browser in Settings > Video downloads; link to settingsHref in Markdown.',
+      'preview: true builds a thumbnail contact sheet (sheet.file, row-major; sheet.cells[i].at is the candidate index). Inspect it before choosing; if images cannot be viewed, use title, dimensions and duration. A failed source does not block others; failures appear in errors.',
+      'Download the chosen result into a video using downloadWith: assets_download (copy source and id) or download (use pageUrl as url and the target video). Search here first when real people, places, events or products need authentic footage.',
     ].join('\n'),
     annotations: { readOnlyHint: true },
     effect: 'query',
     examples: [
-      { title: '找首尔街景的视频', args: { query: 'Seoul night street', kind: 'video' } },
+      { title: 'Find Seoul street footage', args: { query: 'Seoul night street', kind: 'video' } },
       {
-        title: '找能商用的登月照片，看缩略图',
+        title: 'Preview commercially usable Moon-landing images',
         args: { query: 'Apollo 11 Saturn V launch', kind: 'image', commercial: true, preview: true },
       },
     ],
@@ -191,29 +191,28 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
     positional: 'query',
   },
   assets_download: {
-    title: '下载网上素材',
+    title: 'Download open media',
     description: [
-      '把 assets_search 找到的一条网上素材下载进视频，导入为素材；或者给 outDir 只存成文件。',
-      '用户要把图片、视频存到某个文件夹、不进视频时给 outDir。',
-      `按 source 与 id 重新向来源取一次许可与文件地址（不信任调用方给的许可），只从 Wikimedia 与 Internet Archive 的文件主机下载（https），上限 ${OPEN_MEDIA_MAX_BYTES / 1024 / 1024 / 1024} GiB；视频比 maxHeight（默认 1080）高时取转码，图片太宽或不是 JPEG、PNG、WebP 时取 Commons 渲染的图。`,
-      'bytes 收进视频（managed），编译成 importAsset（给了 place 时再加 addItem），一笔修改、可以撤销，会向用户确认。素材的 provenance 记下来源、页面、许可与署名，videos_inspect 的素材里读得回来（credit）。',
+      'Download open media found by assets_search into a video or a folder. Give video to import it as an asset, or outDir to save only the file without adding it to a video.',
+      `Refetch the license and file URL from source and id (caller-provided licenses are not trusted). Download only over HTTPS from Wikimedia and Internet Archive file hosts, up to ${OPEN_MEDIA_MAX_BYTES / 1024 / 1024 / 1024} GiB. For video taller than maxHeight (default 1080), use a transcode; for overly wide images or formats other than JPEG, PNG or WebP, use the Commons-rendered image.`,
+      'With video, store managed bytes and compile importAsset (plus addItem when place is given) into one undoable edit, subject to user confirmation. Asset provenance records the source, page, license and attribution; videos_inspect returns them as credit.',
       LICENSE_RULES,
-      '返回与 edits_apply 相同的回执，另有 assetId、itemId（没有放到时间线上时为 null）、license、attribution 与实际下载的 file（url、variant、byteLength）。把 attribution 记下来，成片片尾逐条署名。',
-      'outDir：只新建文件、不覆盖，重名时加序号；文件名取 name（不给时用标题）。返回 path（绝对路径）、license、attribution、pageUrl 与 file，没有回执与 assetId。之后要放进视频用 assets_import 的 path，许可与署名不会随文件记进素材，自己记下。',
-      '错误码：OFFLINE_STRICT、OPEN_MEDIA_NOT_FOUND、OPEN_MEDIA_UNSUPPORTED（不是能导入的媒体）、OPEN_MEDIA_LICENSE_UNVERIFIED、OPEN_MEDIA_LICENSE_EXCLUDED（禁止演绎或认不出）、OPEN_MEDIA_TOO_LARGE、OPEN_MEDIA_UNAVAILABLE（连不上，稍后再试）、OPEN_MEDIA_REJECTED。',
+      'Returns an edits_apply receipt plus assetId, itemId (null when not placed on the timeline), license, attribution and the downloaded file (url, variant, byteLength). Retain attribution and credit each source in the video ending.',
+      'With outDir, create a new file without overwriting; add a numeric suffix on name collisions. Use name or the title as the filename. Returns absolute path, license, attribution, pageUrl and file, without a receipt or assetId. Import later with assets_import path; license and attribution do not automatically transfer to the asset, so retain them yourself.',
+      'Error codes: OFFLINE_STRICT, OPEN_MEDIA_NOT_FOUND, OPEN_MEDIA_UNSUPPORTED (not importable media), OPEN_MEDIA_LICENSE_UNVERIFIED, OPEN_MEDIA_LICENSE_EXCLUDED (no-derivatives or unrecognized), OPEN_MEDIA_TOO_LARGE, OPEN_MEDIA_UNAVAILABLE (unreachable; retry later), OPEN_MEDIA_REJECTED.',
     ].join('\n'),
     effect: 'mutation',
     examples: [
       {
-        title: '下载一段 Commons 视频并接在主轨末尾',
+        title: 'Download a Commons video and append to the main track',
         args: { video: 'demo', source: 'commons', id: 'File:Seoul, central street.webm', place: {} },
       },
       {
-        title: '下载 Prelinger 的一部短片（只登记）',
+        title: 'Download a Prelinger film as an asset only',
         args: { video: 'demo', source: 'archive', id: 'Duck_and_Cover_1951', kind: 'video' },
       },
       {
-        title: '只把一张 Commons 图片存进文件夹',
+        title: 'Save only a Commons image into a folder',
         args: { source: 'commons', id: 'File:Gyeongbokgung Palace in Seoul.jpg', kind: 'image', outDir: '/Volumes/Media/references' },
       },
     ],
