@@ -16,6 +16,7 @@ mod page_envelope;
 mod page_window;
 mod sampled_layout;
 mod scalar_cluster;
+mod shape_paint;
 mod text_line_layout;
 mod unit_font_reflow;
 mod unit_font_size;
@@ -1821,22 +1822,36 @@ fn draw_nodes(
         match n.kind {
             NodeKind::Group => draw_nodes(&n.children, t, bound, r, text, b, hits, budget)?,
             NodeKind::Shape => {
-                let Evaluated::Color(c) = p["fill"] else {
-                    unreachable!()
-                };
-                b.push(DrawOp::FillRect {
-                    x: u.bounds.x as f32,
-                    y: u.bounds.y as f32,
-                    w: p.get("width")
-                        .map_or(u.bounds.width, |v| v.number().unwrap())
-                        .max(0.0) as f32,
-                    h: p.get("height")
-                        .map_or(u.bounds.height, |v| v.number().unwrap())
-                        .max(0.0) as f32,
-                    radius: number(&p, "radius").max(0.0) as f32,
-                    color: c.map(|x| x.clamp(0.0, 1.0) as f32),
-                    tf: tf(t),
-                });
+                let width = p
+                    .get("width")
+                    .map_or(u.bounds.width, |v| v.number().unwrap())
+                    .max(0.0);
+                let height = p
+                    .get("height")
+                    .map_or(u.bounds.height, |v| v.number().unwrap())
+                    .max(0.0);
+                let radius = number(&p, "radius").max(0.0);
+                if let Some(fill) = &n.fill_paint {
+                    let rect = Bounds {
+                        width,
+                        height,
+                        ..u.bounds
+                    };
+                    shape_paint::draw(fill, rect, radius, t, b)?;
+                } else {
+                    let Evaluated::Color(c) = p["fill"] else {
+                        unreachable!()
+                    };
+                    b.push(DrawOp::FillRect {
+                        x: u.bounds.x as f32,
+                        y: u.bounds.y as f32,
+                        w: width as f32,
+                        h: height as f32,
+                        radius: radius as f32,
+                        color: c.map(|x| x.clamp(0.0, 1.0) as f32),
+                        tf: tf(t),
+                    });
+                }
             }
             NodeKind::Image => {
                 let resource = n.resource_id.as_ref().unwrap();

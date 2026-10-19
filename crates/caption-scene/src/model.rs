@@ -355,6 +355,9 @@ pub struct Node {
     #[serde(default)]
     pub properties: BTreeMap<String, DynamicValue>,
     pub text: Option<TextBinding>,
+    /// `caption-shape-paint/1`: a shape filled with a solid or linear paint over its drawn rect.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fill_paint: Option<ScenePaint>,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "source", rename_all = "kebab-case", deny_unknown_fields)]

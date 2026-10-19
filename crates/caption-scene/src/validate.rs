@@ -21,6 +21,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-line-unit-quota/1",
     "caption-word-line-tail-join/1",
     "caption-line-box-context/1",
+    "caption-shape-paint/1",
     "caption-expressions/1",
     "caption-permutation/1",
     "caption-function-dag/1",
@@ -123,6 +124,29 @@ pub fn validate_presentation(p: &Presentation, scene: Option<&Scene>) -> Result<
 fn name(id: &str) -> bool {
     !id.is_empty() && id.len() <= 128 && id.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
 }
+fn paint(paint: &ScenePaint, path: &str) -> Result<()> {
+    match paint {
+        ScenePaint::Solid { color: c } => {
+            color(c)?;
+        }
+        ScenePaint::Linear { from, to, stops } => {
+            if from == to
+                || from.iter().chain(to).any(|n| !n.is_finite() || n.abs() > 16.0)
+                || stops.len() < 2
+                || stops.len() > 32
+                || stops.iter().any(|s| !s.at.is_finite() || !(0.0..=1.0).contains(&s.at))
+                || stops.windows(2).any(|s| s[0].at >= s[1].at)
+            {
+                return Err(invalid(path, "invalid gradient"));
+            }
+            for stop in stops {
+                color(&stop.color)?;
+            }
+        }
+    }
+    Ok(())
+}
+
 fn length(v: &Length, path: &str, scene: &Scene) -> Result<()> {
     if let Some(id) = &v.parameter {
         if !scene
@@ -1053,25 +1077,21 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
             {
                 return Err(invalid(&n.id, "invalid paint layer"));
             }
-            match &layer.paint {
-                ScenePaint::Solid { color: c } => {
-                    color(c)?;
-                }
-                ScenePaint::Linear { from, to, stops } => {
-                    if from == to
-                        || from.iter().chain(to).any(|n| !n.is_finite() || n.abs() > 16.0)
-                        || stops.len() < 2
-                        || stops.len() > 32
-                        || stops.iter().any(|s| !s.at.is_finite() || !(0.0..=1.0).contains(&s.at))
-                        || stops.windows(2).any(|s| s[0].at >= s[1].at)
-                    {
-                        return Err(invalid(&n.id, "invalid gradient"));
-                    }
-                    for stop in stops {
-                        color(&stop.color)?;
-                    }
-                }
+            paint(&layer.paint, &n.id)?;
+        }
+        if let Some(fill_paint) = &n.fill_paint {
+            if n.kind != NodeKind::Shape {
+                return Err(invalid(&n.id, "fillPaint belongs to shapes"));
             }
+            if !s.required_capabilities.iter().any(|c| c == "caption-shape-paint/1") {
+                return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", &n.id, "caption-shape-paint/1"));
+            }
+            if n.properties.contains_key("fill")
+                || s.animations.iter().any(|a| a.target.node_id == n.id && a.property == "fill")
+            {
+                return Err(invalid(&n.id, "fillPaint cannot be combined with fill overrides"));
+            }
+            paint(fill_paint, &n.id)?;
         }
 
         if !matches!(n.kind, NodeKind::Text | NodeKind::Label)

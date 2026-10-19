@@ -1,0 +1,136 @@
+{
+  "schema": "baocut.caption-scene-style/1",
+  "scene": {
+    "kind": "inline",
+    "value": {
+      "schema": "baocut.caption-scene/1",
+      "evaluationVersion": 1,
+      "requiredCapabilities": [
+        "caption-scene/1",
+        "caption-expressions/1",
+        "caption-shape-paint/1"
+      ],
+      "layout": {
+        "width": {
+          "value": 280,
+          "basis": "absolute"
+        },
+        "x": {
+          "value": 160,
+          "basis": "absolute"
+        },
+        "y": {
+          "value": 90,
+          "basis": "absolute"
+        },
+        "maxLines": 1,
+        "pagination": {
+          "maxUnitsPerPage": 4
+        }
+      },
+      "speechState": {
+        "gapPolicy": "hold-previous",
+        "tailPolicy": "hold-last"
+      },
+      "nodes": [
+        {
+          "id": "caption",
+          "type": "text",
+          "style": {
+            "fontSize": {
+              "value": 24,
+              "basis": "absolute"
+            }
+          }
+        },
+        {
+          "id": "active-box",
+          "type": "repeat",
+          "selectorId": "active",
+          "zIndex": -1,
+          "children": [
+            {
+              "id": "box",
+              "type": "shape",
+              "fillPaint": {
+                "kind": "linear",
+                "from": [
+                  0,
+                  0.5
+                ],
+                "to": [
+                  1,
+                  0.5
+                ],
+                "stops": [
+                  {
+                    "at": 0,
+                    "color": "#1876F6"
+                  },
+                  {
+                    "at": 1,
+                    "color": "#5EE4B7"
+                  }
+                ]
+              },
+              "properties": {
+                "height": {
+                  "kind": "expression",
+                  "expression": {
+                    "op": "call",
+                    "function": "mul",
+                    "args": [
+                      {
+                        "op": "read",
+                        "path": "layout.height"
+                      },
+                      {
+                        "op": "literal",
+                        "type": "scalar",
+                        "value": 1.15
+                      }
+                    ]
+                  }
+                },
+                "transform.y": {
+                  "kind": "expression",
+                  "expression": {
+                    "op": "call",
+                    "function": "mul",
+                    "args": [
+                      {
+                        "op": "read",
+                        "path": "layout.height"
+                      },
+                      {
+                        "op": "literal",
+                        "type": "scalar",
+                        "value": -0.075
+                      }
+                    ]
+                  }
+                },
+                "radius": {
+                  "kind": "constant",
+                  "value": 6
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "selectors": [
+        {
+          "id": "active",
+          "nodeId": "caption",
+          "unit": "word",
+          "filter": {
+            "kind": "state",
+            "value": "active"
+          }
+        }
+      ],
+      "animations": []
+    }
+  }
+}

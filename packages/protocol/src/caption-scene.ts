@@ -39,6 +39,9 @@ export type CaptionFilter =
   | { kind: 'parity'; odd: boolean }
   | { kind: 'and' | 'or'; filters: CaptionFilter[] }
   | { kind: 'not'; filter: CaptionFilter };
+export type CaptionScenePaint =
+  | { kind: 'solid'; color: string }
+  | { kind: 'linear'; from: [number, number]; to: [number, number]; stops: { at: number; color: string }[] };
 export interface CaptionSceneNode {
   id: string;
   type: 'group' | 'text' | 'label' | 'shape' | 'image' | 'repeat';
@@ -53,11 +56,10 @@ export interface CaptionSceneNode {
     fontFamily?: string; fontSize?: CaptionLength; fontWeight?: number; italic?: boolean;
     letterSpacing?: number; lineHeight?: number; fill?: string;
     stroke?: { width: number; color: string } | null;
-    paints?: { id: string; strokeWidth?: number; offset?: [number, number]; paint:
-      | { kind: 'solid'; color: string }
-      | { kind: 'linear'; from: [number, number]; to: [number, number]; stops: { at: number; color: string }[] }
-    }[];
+    paints?: { id: string; strokeWidth?: number; offset?: [number, number]; paint: CaptionScenePaint }[];
   };
+  /** Shape-only; requires caption-shape-paint/1. Linear from/to are normalized to the drawn shape rect. */
+  fillPaint?: CaptionScenePaint | null;
   stateStyles?: { unit?: 'word'; active?: { fill: string } | null; read?: { fill: string } | null; unread?: { fill: string } | null };
   /** Label-only fontSize is a length; its pose sees bound-unit geometry and post-size label metrics. */
   properties?: Record<string, CaptionDynamicValue>;

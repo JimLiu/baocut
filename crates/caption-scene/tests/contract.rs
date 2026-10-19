@@ -632,6 +632,60 @@ fn line_unit_quota_requires_opt_in_and_width_wrapped_pages() {
 }
 
 #[test]
+fn shape_paint_requires_opt_in_a_shape_and_no_fill_override() {
+    let body: Value = serde_json::from_str(include_str!("fixtures/shape-paint.json")).unwrap();
+    let style = parse_style(&body).unwrap();
+    let box_node = &style.scene().nodes[1].children[0];
+    assert!(matches!(box_node.fill_paint, Some(ScenePaint::Linear { .. })));
+    // Shapes without a paint keep serializing exactly as before.
+    let plain = serde_json::to_value(&style.scene().nodes[0]).unwrap();
+    assert!(plain.get("fillPaint").is_none());
+    let reject = |edit: &dyn Fn(&mut Value), code: &str| {
+        let mut changed = body.clone();
+        edit(&mut changed["scene"]["value"]);
+        assert_eq!(parse_style(&changed).unwrap_err().code, code);
+    };
+    reject(&|s| s["requiredCapabilities"] = json!([]), "CAPTION_CAPABILITY_REQUIRED");
+    // Text, group and image nodes do not take a fill paint.
+    reject(
+        &|s| s["nodes"][0]["fillPaint"] = json!({"kind":"solid","color":"#FFFFFF"}),
+        "CAPTION_SCENE_INVALID",
+    );
+    reject(
+        &|s| s["nodes"][1]["children"][0]["properties"]["fill"] = json!({"kind":"constant","value":"#FFFFFF"}),
+        "CAPTION_SCENE_INVALID",
+    );
+    reject(
+        &|s| {
+            s["animations"] = json!([{"id":"tint","target":{"nodeId":"box"},"property":"fill","composite":"replace",
+                "value":{"kind":"constant","value":"#FFFFFF"}}])
+        },
+        "CAPTION_SCENE_INVALID",
+    );
+    // The same fill overrides are valid on a shape without a paint.
+    let mut solid = body.clone();
+    let scene = &mut solid["scene"]["value"];
+    scene["nodes"][1]["children"][0].as_object_mut().unwrap().remove("fillPaint");
+    scene["nodes"][1]["children"][0]["properties"]["fill"] = json!({"kind":"constant","value":"#FFFFFF"});
+    scene["animations"] = json!([{"id":"tint","target":{"nodeId":"box"},"property":"fill","composite":"replace",
+        "value":{"kind":"constant","value":"#FFFFFF"}}]);
+    assert!(parse_style(&solid).is_ok());
+    reject(
+        &|s| s["nodes"][1]["children"][0]["fillPaint"]["stops"][1]["at"] = json!(0),
+        "CAPTION_SCENE_INVALID",
+    );
+    reject(
+        &|s| s["nodes"][1]["children"][0]["fillPaint"]["to"] = json!([0, 0.5]),
+        "CAPTION_SCENE_INVALID",
+    );
+    // Shape style stays text-only.
+    reject(
+        &|s| s["nodes"][1]["children"][0]["style"] = json!({"paints":[{"id":"p","paint":{"kind":"solid","color":"#FFFFFF"}}]}),
+        "CAPTION_SCENE_INVALID",
+    );
+}
+
+#[test]
 fn line_box_context_requires_opt_in_and_cannot_size_or_place_layout() {
     let body: Value = serde_json::from_str(include_str!("fixtures/line-box-context.json")).unwrap();
     let style = parse_style(&body).unwrap();
