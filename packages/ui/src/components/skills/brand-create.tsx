@@ -201,7 +201,7 @@ function BrandCreateBody({ preset, onClose }: { preset: Id | null; onClose(): vo
                 selectedKey={targetId}
                 disabledKeys={taken}
                 onSelectionChange={(key) => setTargetId(key === null ? null : String(key))}>
-                <PickerSection id="global">
+                <PickerSection id="scope:global">
                   <Header>
                     <Heading>{BRAND_COPY.scopeGlobal}</Heading>
                   </Header>
@@ -212,7 +212,7 @@ function BrandCreateBody({ preset, onClose }: { preset: Id | null; onClose(): vo
                   </PickerItem>
                 </PickerSection>
                 {projects.length ? (
-                  <PickerSection id="projects">
+                  <PickerSection id="scope:project">
                     <Header>
                       <Heading>{BRAND_COPY.scopeProject}</Heading>
                     </Header>
