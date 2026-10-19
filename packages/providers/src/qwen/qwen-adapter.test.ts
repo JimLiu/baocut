@@ -247,14 +247,16 @@ describe('Qwen ASR protocol selection', () => {
     expect(view.capabilities.transcribe!.models).toContainEqual(expect.objectContaining({ modelId: id, wordTimestamps: id.startsWith('qwen-audio-') ? 'native' : 'none' }));
     expect(view.capabilities.generateText).toBeDefined();
     expect(view.vendor?.planned).not.toContain('transcribe');
+    const durationSec = 125;
+    const timescale = 48_000;
     const file = path.join(dir, 'long.wav');
-    await fs.writeFile(file, wavFixture(125, 16_000));
+    await fs.writeFile(file, wavFixture(durationSec, 16_000));
     const staging = path.join(dir, 'staging');
     await fs.mkdir(staging);
     const attempt = await source.transcriber('qwen')!.transcribe({
       jobId: 'qwen-test', runGeneration: 1, providerId: 'qwen', modelId: id, bundleId: null,
       input: { file, contentHash: 'sha256:test', track: 0 },
-      options: { language: { mode: 'prefer', tag: null }, diarize: false, timescale: 48_000 }, staging,
+      options: { language: { mode: 'prefer', tag: null }, diarize: false, timescale }, staging,
     }, { loading() {}, phase() {}, progress() {}, segment() {}, warning() {}, language() {} }, new AbortController().signal);
     expect(attempt.outcome).toBe('completed');
     const result = JSON.parse(await fs.readFile(path.join(staging, 'result.json'), 'utf8')) as AsrResult;
@@ -263,7 +265,20 @@ describe('Qwen ASR protocol selection', () => {
     expect(result.segments.length).toBeGreaterThan(1);
     const timing = id.startsWith('qwen-audio-') ? 'provider' : 'estimated';
     expect(result.segments.flatMap((s) => s.words).every((w) => w.timingQuality === timing)).toBe(true);
-    expect(result.segments.at(-1)!.end).toBeGreaterThan(120 * 48_000);
+    expect(result.duration).toBe(durationSec * timescale);
+    expect(result.coverage).toEqual([{ start: 0, end: durationSec * timescale }]);
+    if (timing === 'provider') {
+      // The silent fixture splits at its midpoint. Preserve each response's short
+      // native word times and add the chunk offset, even though coverage is longer.
+      expect(result.segments.map((s) => s.words.map((w) => ({ start: w.start, end: w.end })))).toEqual(
+        [0, durationSec / 2].map((offset) => audioReply.output.sentence.words.map((w) => ({
+          start: Math.round((offset + w.begin_time / 1000) * timescale),
+          end: Math.round((offset + w.end_time / 1000) * timescale),
+        }))),
+      );
+    } else {
+      expect(result.segments.at(-1)!.end).toBe(durationSec * timescale);
+    }
     expect(await fs.readdir(staging)).toEqual(['result.json']);
   });
 });
