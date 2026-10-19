@@ -1,41 +1,43 @@
 {
   "title": "Video esplicativo",
-  "summary": "Trasforma un documento, delle slide o un argomento in un video facile da capire.",
-  "description": "Aiuta il pubblico a capire un concetto con spiegazioni chiare ed esempi concreti. Organizza i tuoi materiali in un racconto visivo e regola la profondità su ciò che il pubblico sa già.",
-  "brief": "Usa {{materiali}} per spiegare {{argomento}} in un video pensato per {{pubblico}}. Alla fine, chi guarda dovrà saper {{obiettivo}}.",
+  "summary": "Spiega un concetto, una notizia o un articolo in modo che tutti seguano.",
+  "description": "Parti dalle domande che il pubblico si pone davvero, scegli l’approccio più adatto al contenuto e lascia che un soggetto concreto regga la spiegazione dall’inizio alla fine. Ogni numero a schermo, nella narrazione e nel post viene dallo stesso insieme di fatti verificati. Ogni versione include il video, una copertina e un post pronto da pubblicare.",
+  "brief": "Partendo da {{materiali}}, spiega {{argomento}} a {{pubblico}} in modo che, alla fine, possano {{obiettivo}}.",
   "fields": [
     {
       "label": "materiali",
-      "hint": "Documenti, slide o link allegati; se non ne hai scrivi «fonti pubbliche»",
+      "hint": "Documenti, articoli, link o testo; se non ne hai, scrivi «fonti pubbliche»",
       "example": "queste dispense"
     },
     {
       "label": "pubblico",
-      "hint": "Chi guarda e quanto ne sa già",
-      "example": "studenti delle superiori"
+      "hint": "Chi guarda e cosa sa già; se vuoto, persone senza basi",
+      "example": "studenti delle medie"
     },
     {
       "label": "argomento",
-      "hint": "Il concetto o l’argomento da spiegare",
-      "example": "la fotosintesi"
+      "hint": "Un concetto, una notizia, un articolo scientifico o un fenomeno",
+      "example": "perché la Luna ha le fasi"
     },
     {
       "label": "obiettivo",
-      "hint": "Cosa il pubblico deve ricordare o saper fare alla fine",
-      "example": "dire cosa fanno la fase luminosa e la fase oscura"
+      "hint": "Ripetere un’idea, capire una notizia, giudicare o provare da soli",
+      "example": "spiegare le fasi lunari con parole proprie"
     }
   ],
   "tags": [
     "divulgazione",
     "spiegazione",
-    "didattica"
+    "didattica",
+    "notizie spiegate",
+    "articoli spiegati"
   ],
   "preview": {
     "beats": [
-      "Una domanda iniziale",
-      "Scomporre i concetti chiave",
-      "Un esempio concreto",
-      "Riepilogo dei punti chiave"
+      "Si parte dalla domanda del pubblico",
+      "Un solo soggetto regge tutto",
+      "Mostrare l’idea sbagliata e poi smontarla",
+      "Il pubblico sa poi raccontarlo"
     ]
   }
 }

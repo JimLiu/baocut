@@ -1,41 +1,43 @@
 {
-  "title": "Giải thích kiến thức",
-  "summary": "Biến một tài liệu, bộ slide hay một chủ đề thành video dễ hiểu.",
-  "description": "Giúp khán giả hiểu một khái niệm bằng lời giải thích rõ ràng và ví dụ cụ thể. Sắp xếp tài liệu của bạn thành một mạch kể bằng hình ảnh; nói sâu hay nông tùy vào kiến thức sẵn có của khán giả.",
+  "title": "Video giải thích",
+  "summary": "Biến khái niệm, tin tức, bài báo hay tài liệu thành video ai xem cũng hiểu.",
+  "description": "Bắt đầu từ những câu hỏi khán giả thực sự muốn hỏi, chọn cách kể hợp với nội dung và để một đối tượng cụ thể xuyên suốt cả video làm rõ vấn đề. Mọi con số trên hình, trong lời dẫn và bài đăng đều lấy từ cùng một bộ dữ kiện đã kiểm chứng. Mỗi phiên bản gồm video, ảnh bìa và bài đăng sẵn sàng xuất bản.",
   "brief": "Dựa trên {{tài liệu}}, giải thích rõ {{chủ đề}} cho {{khán giả}}, để sau khi xem họ có thể {{mục tiêu sau khi xem}}.",
   "fields": [
     {
       "label": "tài liệu",
-      "hint": "Tài liệu, slide hoặc link đính kèm; nếu không có thì ghi “tài liệu công khai”",
+      "hint": "Tài liệu, bài báo, link hoặc văn bản; nếu không có, ghi “tài liệu công khai”",
       "example": "tập bài giảng này"
     },
     {
       "label": "khán giả",
-      "hint": "Ai sẽ xem, đã biết đến đâu",
-      "example": "học sinh trung học"
+      "hint": "Ai sẽ xem, đã biết đến đâu; để trống thì coi như người chưa có kiến thức nền",
+      "example": "học sinh trung học cơ sở"
     },
     {
       "label": "chủ đề",
-      "hint": "Khái niệm hoặc chủ đề cần giải thích rõ",
-      "example": "quang hợp"
+      "hint": "Một khái niệm, tin tức, bài báo khoa học hoặc hiện tượng",
+      "example": "vì sao Mặt Trăng có các pha"
     },
     {
       "label": "mục tiêu sau khi xem",
-      "hint": "Điều bạn muốn khán giả nhớ hoặc làm được sau khi xem",
-      "example": "nói được pha sáng và pha tối mỗi pha làm gì"
+      "hint": "Kể lại một ý, hiểu một tin, đưa ra nhận định hoặc tự làm thử",
+      "example": "tự giải thích các pha của Mặt Trăng bằng lời của mình"
     }
   ],
   "tags": [
     "phổ biến kiến thức",
     "giải thích",
-    "giáo dục"
+    "giáo dục",
+    "giải mã tin tức",
+    "giải mã bài báo"
   ],
   "preview": {
     "beats": [
-      "Đặt ra một câu hỏi",
-      "Tách các khái niệm then chốt",
-      "Giảng kỹ bằng ví dụ cụ thể",
-      "Tóm tắt ý chính"
+      "Mở đầu bằng thắc mắc của khán giả",
+      "Một đối tượng dẫn đến cuối",
+      "Nêu hiểu lầm rồi bác bỏ",
+      "Xem xong có thể kể lại"
     ]
   }
 }

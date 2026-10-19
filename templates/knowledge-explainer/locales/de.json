@@ -1,41 +1,43 @@
 {
-  "title": "Wissen verständlich erklärt",
-  "summary": "Machen Sie aus Dokument, Folien oder Thema ein leicht verständliches Video.",
-  "description": "Helfen Sie dem Publikum mit klaren Erklärungen und konkreten Beispielen, ein Konzept zu verstehen. Ihre Unterlagen werden zu einer visuellen Erzählung, deren Tiefe sich nach dem Vorwissen des Publikums richtet.",
-  "brief": "Erstellen Sie ein Erklärvideo zum Thema {{Thema}}. Unterlagen: {{Unterlagen}}. Publikum: {{Publikum}}. Lernziel: {{Lernziel}}.",
+  "title": "Erklärvideo",
+  "summary": "Konzept, Nachricht oder Ihr Material so erklären, dass jeder folgen kann.",
+  "description": "Ausgangspunkt sind die Fragen, die das Publikum wirklich hat. Die Erklärweise richtet sich nach dem Inhalt, und ein konkretes Motiv trägt die Erklärung durchs ganze Video. Jede Zahl in Bild, Sprechertext und Beitrag stammt aus denselben geprüften Fakten. Jede Version umfasst Video, Titelbild und Beitragstext.",
+  "brief": "Erklärvideo für {{Publikum}}. Thema: {{Thema}}. Grundlage: {{Unterlagen}}. Danach kann das Publikum {{Lernziel}}.",
   "fields": [
     {
       "label": "Unterlagen",
-      "hint": "Angehängte Dokumente, Folien oder Links; sonst „öffentliche Quellen“",
+      "hint": "Dokumente, Studien, Links oder Text; ohne: „öffentliche Quellen“",
       "example": "dieses Handout"
     },
     {
       "label": "Publikum",
-      "hint": "Wer zuschaut und was es schon weiß",
-      "example": "Oberstufenschüler"
+      "hint": "Wer zuschaut und was er weiß; leer: Zuschauer ohne Vorwissen",
+      "example": "Schüler der Mittelstufe"
     },
     {
       "label": "Thema",
-      "hint": "Das Konzept oder Thema, das erklärt werden soll",
-      "example": "Fotosynthese"
+      "hint": "Ein Konzept, eine Nachricht, eine Studie oder ein Phänomen",
+      "example": "warum der Mond Phasen hat"
     },
     {
       "label": "Lernziel",
-      "hint": "Was das Publikum danach wissen oder können soll",
-      "example": "erklären können, was Licht- und Dunkelreaktion jeweils bewirken"
+      "hint": "Eine Idee nacherzählen, eine Nachricht verstehen, urteilen oder es ausprobieren",
+      "example": "die Mondphasen in eigenen Worten erklären"
     }
   ],
   "tags": [
-    "Wissen",
-    "Erklärung",
-    "Bildung"
+    "Wissenschaft",
+    "Erklärvideo",
+    "Bildung",
+    "Nachrichten erklärt",
+    "Studien erklärt"
   ],
   "preview": {
     "beats": [
-      "Eine Frage aufwerfen",
-      "Schlüsselbegriffe zerlegen",
-      "Mit Beispielen veranschaulichen",
-      "Die Kernpunkte zusammenfassen"
+      "Mit der Frage des Zuschauers beginnen",
+      "Ein Motiv trägt alles",
+      "Irrtum zeigen, dann widerlegen",
+      "Zuschauer können es weitererzählen"
     ]
   }
 }

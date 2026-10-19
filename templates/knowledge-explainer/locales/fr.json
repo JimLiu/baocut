@@ -1,41 +1,43 @@
 {
   "title": "Vidéo explicative",
-  "summary": "Transformez un document, des diapositives ou un sujet en vidéo facile à suivre.",
-  "description": "Aidez le public à comprendre un concept grâce à des explications claires et des exemples concrets. Vos documents deviennent un récit visuel, au niveau adapté à ce que le public sait déjà.",
-  "brief": "En vous appuyant sur {{sources}}, expliquez clairement {{sujet}} pour {{public}}. À la fin, ils doivent savoir {{objectif}}.",
+  "summary": "Expliquez un concept, une actualité ou un article pour que chacun suive.",
+  "description": "Partez des questions que le public se pose vraiment, choisissez l’approche qui convient au contenu et laissez un sujet concret porter l’explication du début à la fin. Chaque chiffre à l’écran, dans la narration et dans la publication vient du même ensemble de faits vérifiés. Chaque version comprend la vidéo, une image de couverture et une publication prête à diffuser.",
+  "brief": "À partir de {{sources}}, expliquez {{sujet}} à {{public}} pour qu’ils puissent, à la fin, {{objectif}}.",
   "fields": [
     {
       "label": "sources",
-      "hint": "Documents, diapositives ou liens ; sinon, écrivez « des sources publiques »",
+      "hint": "Documents, articles, liens ou texte ; sinon, écrivez « sources publiques »",
       "example": "ce support de cours"
     },
     {
       "label": "public",
-      "hint": "Qui regarde, et ce qu’il sait déjà",
-      "example": "des lycéens"
+      "hint": "Qui regarde et ce qu’il sait ; vide, des gens sans connaissances préalables",
+      "example": "des collégiens"
     },
     {
       "label": "sujet",
-      "hint": "Le concept ou le sujet à expliquer",
-      "example": "la photosynthèse"
+      "hint": "Un concept, une actualité, un article scientifique ou un phénomène",
+      "example": "pourquoi la Lune a des phases"
     },
     {
       "label": "objectif",
-      "hint": "Ce que le public doit retenir ou savoir faire à la fin",
-      "example": "dire à quoi servent la phase lumineuse et la phase sombre"
+      "hint": "Redire une idée, comprendre une actualité, juger ou essayer soi-même",
+      "example": "expliquer les phases de la Lune avec leurs propres mots"
     }
   ],
   "tags": [
     "vulgarisation",
     "explication",
-    "éducation"
+    "éducation",
+    "actualité décryptée",
+    "article décrypté"
   ],
   "preview": {
     "beats": [
-      "Poser une question",
-      "Décomposer les notions clés",
-      "Un exemple concret pour tout éclairer",
-      "Résumer l’essentiel"
+      "Partir de la question du public",
+      "Un seul sujet porte tout",
+      "Montrer l’idée reçue, puis la renverser",
+      "Le public peut le raconter ensuite"
     ]
   }
 }
