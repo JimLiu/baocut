@@ -138,8 +138,9 @@ function align(id, lines) {
   console.log(`## ${id}  audio ${audioDur.toFixed(2)}s  dur ${dur.toFixed(2)}s  median ${med.toFixed(2)} units/s`);
   let flagged = 0;
   out.forEach((l, i) => {
-    const gap = i ? l.start - out[i - 1].end : l.start, dev = rates[i] / med - 1;
-    const flag = (Math.abs(dev) > 0.15 ? ' RATE' : '') + (gap > 0.8 ? ' GAP' : '');
+    // 句首句尾的时间各有约 0.1 秒的误差，短句的语速被它放大：容差取 15% 与 0.3 秒 / 句长中较大的那个，两秒以内的短句不至于句句都标
+    const gap = i ? l.start - out[i - 1].end : l.start, dev = rates[i] / med - 1, tol = Math.max(0.15, 0.3 / Math.max(0.1, l.end - l.start));
+    const flag = (Math.abs(dev) > tol ? ' RATE' : '') + (gap > 0.8 ? ' GAP' : '');
     if (flag.includes('RATE')) flagged++;
     console.log(`${String(i).padStart(2)} ${l.start.toFixed(2)}–${l.end.toFixed(2)} gap ${gap.toFixed(2)} ${rates[i].toFixed(2)}${flag}  ${l.text.slice(0, 40)}`);
   });

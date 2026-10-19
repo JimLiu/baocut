@@ -2,7 +2,7 @@
 // i18n-ignore-file: 给智能体拷走用的独立脚本，日志与报错写英文，给人看的名字与标签从配置来
 // 叠在代码画面之上的两层：实拍片段（footage 轨）与水印（watermark 轨）。都是可选的：没有 clips.json、配置里没有 watermark 就跳过。
 //   node tools/overlay.mjs [--dry]          打印每个片段与水印在时间线上的起止（默认）
-//   node tools/overlay.mjs --preview [id …] [--force]   从原片剪出静音小片段到 <work>/clips/，给 preview.mjs 与预览页用
+//   node tools/overlay.mjs --preview [id …] [--force]   从原片剪出静音小片段到 <work>/clips/，给 preview.mjs 与预览页用；clips.json 里这一段的来源、起止或裁法改了就重剪
 //   node tools/overlay.mjs --render         按画幅剪出成片用的片段（铺满裁切，画中画剪成框的大小，对到整帧），把来源标签烧进去，写到 <work>/footage/
 //   node tools/overlay.mjs --place          新建两条视觉轨，导入片段铺满或放成画中画，再放水印；记在 overlay.json，已放过的（同一 id、同一帧）不重放
 //   node tools/overlay.mjs --check          对照视频里的片段与现在算出的起点（assemble 波纹挪过、段落改过之后跑）
@@ -59,10 +59,12 @@ if (flags.preview) {
   fs.mkdirSync(work('clips'), { recursive: true });
   for (const c of cl.clips) {
     if (ids.length && !ids.includes(c.id)) continue;
-    const out = path.join(work('clips'), c.id + '.mp4');
-    if (fs.existsSync(out) && !flags.force) continue;
+    const out = path.join(work('clips'), c.id + '.mp4'), keyFile = out.replace(/\.mp4$/, '.json');
+    const key = JSON.stringify({ src: src(c), from: c.from, to: c.to, crop: c.crop ?? null, fit: c.fit ?? null, pip: c.pip ?? null, audio: !!c.audio });
+    if (fs.existsSync(out) && !flags.force && fs.existsSync(keyFile) && fs.readFileSync(keyFile, 'utf8') === key) continue;
     const audio = c.audio ? ['-c:a', 'aac', '-b:a', '128k'] : ['-an'];
     ffmpeg(['-ss', String(c.from), '-i', src(c), '-t', String(c.to - c.from), ...audio, '-vf', fitVf(c, 1280, 720).join(','), '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '24', '-movflags', '+faststart', out]);
+    fs.writeFileSync(keyFile, key);
     console.log('preview clip', c.id, (c.to - c.from).toFixed(1) + 's');
   }
   process.exit(0);
@@ -82,7 +84,8 @@ for (const s of lay) {
   const mine = cl.clips.filter(c => c.seg === s.id), t0 = mine.length ? clipTimes(timing(s.id), mine) : {};
   const cs = mine.map(c => ({ ...c, at: s.from / FPS + t0[c.id] })).sort((a, b) => a.at - b.at);
   cs.forEach((c, i) => {
-    const stop = Math.min(cs[i + 1]?.at ?? Infinity, (s.from + s.frames) / FPS);
+    const end = (s.from + s.frames) / FPS, stop = Math.min(cs[i + 1]?.at ?? Infinity, end);
+    if (c.at + c.to - c.from > end + 0.5 / FPS && stop === end) console.log(`warning: ${c.id} runs ${(c.at + c.to - c.from - end).toFixed(2)}s past the end of ${s.id}; cut at the segment end (shorten to, or move the clip earlier)`);
     const f0 = Math.round(c.at * FPS), f1 = Math.min(Math.round((c.at + c.to - c.from) * FPS), Math.round(stop * FPS));
     if (f1 > f0) plan.push({ ...c, f0, frames: f1 - f0 });
   });

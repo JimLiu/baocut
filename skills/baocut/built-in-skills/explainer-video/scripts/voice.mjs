@@ -3,6 +3,8 @@
 // 按段配音：每段旁白一次 speak（同一个音色、同一套语气说明），存一份音频到 audio/<id>.<格式>，记在 audio/voice.json。
 //   node tools/voice.mjs <id ...> [--missing] [--seed N] [--config explainer.json]
 //   --missing   给 order 里还没配过、或稿子改过的段配音
+//   --seed      只有收 seed 的模型能用；不收的模型每次合成本来就不一样，重配直接再跑一次
+// 任务被打断（Runtime 重启，JOB_INTERRUPTED）时自动重试，最多三次。
 // API Key 由 BaoCut 自己的配置管，这里只调 baocut speak，不碰。
 import fs from 'node:fs';
 import { loadConfig, parseArgs, makeBc, readJson, writeJson, scriptLines, narrationText } from './lib.mjs';
@@ -28,7 +30,14 @@ for (const id of todo) {
   for (const k of ['provider', 'model', 'voice', 'instructions', 'speed']) if (V[k] != null) args.push('--' + k, String(V[k]));
   if (flags.seed != null) args.push('--seed', String(flags.seed));
   if (V.attach && cfg.video) args.push('--video', cfg.video, '--name', `${cfg.names.narration} ${id}`);
-  const r = bc(args);
+  let r;
+  for (let k = 1; ; k++) {
+    try { r = bc(args); break; } catch (e) {
+      if (e.cli?.code === 'JOB_INTERRUPTED' && k < 3) { console.error(`${id}: speak interrupted, retrying (${k}/2)`); continue; }
+      if (flags.seed != null && /seed/i.test(e.cli?.message || '')) throw new Error(`${id}: ${e.cli.message}. Re-voice without --seed; if a word is still misread, rewrite the line`);
+      throw e;
+    }
+  }
   writeJson(cfg.abs(cfg.dirs.audio, `${id}.result.json`), r);
   const o = r.outputs[0];
   const file = `${cfg.dirs.audio}/${id}.${V.format}`;

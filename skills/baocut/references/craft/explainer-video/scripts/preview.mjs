@@ -6,7 +6,7 @@
 // 有 clips.json 时，落在这一段的实拍片段换算成 clips: [{ src, at, dur, label, audio }]（at 是相对段首的秒数，
 // 取所在句的开头，给了 cue 取 cue 被说到的时刻，gap 片段取旁白里留出的空白；同一段里后一个开始时截断）。src 是 overlay.mjs --preview 剪出的小片段。
 // 片段的 pip（画中画框：x、y 中心，w 宽，画布百分比）照抄。片段带 subs 时换算成相对片段开头的 [{ start, end, text, tr, who }]，页面画在字幕带上；audio 为数字时是原声音量。
-// 片段的 in / out 转场照抄成 { kind, dur, easing }（长度不超过片段一半），和后一个片段首尾相接的那一侧去掉，与 overlay.mjs 放上时间线的一致。
+// 最后一个片段超出段尾（旁白时长 + hold）时截到段尾并提示。片段的 in / out 转场照抄成 { kind, dur, easing }（长度不超过片段一半），和后一个片段首尾相接的那一侧去掉，与 overlay.mjs 放上时间线的一致。
 // 字幕带的样式取配置的 preview.caption（与字幕样式同一套键），不给就不画。
 import fs from 'node:fs';
 import path from 'node:path';
@@ -36,7 +36,11 @@ const segments = cfg.order.map(id => {
     ...(c.subs ? { subs: c.subs.map(x => ({ start: +(x.from - c.from).toFixed(3), end: +(x.to - c.from).toFixed(3), text: x.text, tr: x.tr, ...(x.who ? { who: x.who } : {}) })) } : {}),
   }));
   clips.sort((x, y) => x.at - y.at);
-  clips.forEach((c, i) => { if (clips[i + 1]) c.dur = +Math.min(c.dur, clips[i + 1].at - c.at).toFixed(3); });
+  const end = tm ? tm.dur + (cfg.hold[id] || 0) : Infinity;
+  clips.forEach((c, i) => {
+    if (clips[i + 1]) c.dur = +Math.min(c.dur, clips[i + 1].at - c.at).toFixed(3);
+    else if (c.at + c.dur > end + 0.02) { console.log(`${id}: clip ${path.basename(c.src, '.mp4')} runs ${(c.at + c.dur - end).toFixed(2)}s past the segment end; cut there`); c.dur = +(end - c.at).toFixed(3); }
+  });
   clips.forEach((c, i) => {
     const n = clips[i + 1];
     if (n && c.at + c.dur >= n.at - 1e-3) { delete c.out; delete n.in; }

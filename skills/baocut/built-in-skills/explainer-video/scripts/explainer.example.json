@@ -18,6 +18,7 @@
     "voice": "Charon",
     "instructions": "energetic, clear science explainer, conversational",
     "format": "wav",
+    "maxPause": 0.3,
     "attach": false
   },
   "asr": { "provider": "google", "model": "gemini-3.5-transcribe", "chunkSeconds": 0 },

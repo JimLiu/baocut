@@ -129,7 +129,12 @@
       $('clips').appendChild(el); clips.push({ ...c, el });
     }
     if (my !== token) return;
-    await new Promise(ok => { fr.onload = ok; fr.src = fresh(s.bundle.replace(/\/?$/, '/') + 'index.html'); });
+    // 入口加了时间戳，入口引用的脚本仍可能取到浏览器缓存的旧版：先按入口里的地址强制重取一遍，iframe 再加载时拿到的就是新的
+    const entry = s.bundle.replace(/\/?$/, '/') + 'index.html', doc = new DOMParser().parseFromString(await (await fetch(fresh(entry))).text(), 'text/html');
+    const refs = [...doc.querySelectorAll('script[src], link[rel=stylesheet][href]')].map(el => new URL(el.getAttribute('src') || el.getAttribute('href'), new URL(entry, location.href)).href);
+    await Promise.all(refs.map(u => fetch(u, { cache: 'reload' }).catch(() => {})));
+    if (my !== token) return;
+    await new Promise(ok => { fr.onload = ok; fr.src = fresh(entry); });
     try {
       const w = fr.contentWindow, root = w.document.querySelector('[data-composition-id]');
       if (!root) throw new Error('no element with data-composition-id');

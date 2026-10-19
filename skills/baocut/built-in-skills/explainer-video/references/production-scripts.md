@@ -6,7 +6,7 @@
 
 - 适用：整段画面由代码画（`baocut/1` 代码包，见 `video-production` 代码场景细则），旁白按段配，一段旁白对一个代码包，首尾相接排在一条视觉轨与一条音频轨上。
 - 不适用：画面以实拍、录屏、生成的视频为主；整片一条旁白不分段；没有命令行环境（这时照 `SKILL.md` 第 6 节「分段做、分段改」手动做）。
-- 依赖：Node 18 以上，能运行 baocut CLI。`align.mjs --chunk` 切段、`gaps.mjs` 留白与 `overlay.mjs` 剪片段时要本机有 ffmpeg（烧双语字幕要带 libass 的 `subtitles` 滤镜）。
+- 依赖：Node 18 以上，能运行 baocut CLI。`align.mjs --chunk` 切段、`gaps.mjs` 留白与压停顿、 `overlay.mjs` 剪片段时要本机有 ffmpeg（烧双语字幕要带 libass 的 `subtitles` 滤镜）。
 
 ## 2. 拷过去、写配置
 
@@ -24,7 +24,7 @@
 | `fixedLines` | 不从稿子读的段（固定开场、结尾口播），逐字照用户给的写 |
 | `hold` | 某段在最后一句之后多停的秒数，例如片尾卡 |
 | `estimateRate` | 还没配音时估时长用的语速（单位/秒：汉字、假名一个字一个单位，其余文字一个词一个单位）；首稿取实测值 |
-| `voice` | `provider`、`model`、`voice`、`instructions`、`format`；`attach` 为 true 时配音结果同时作为候选素材进视频 |
+| `voice` | `provider`、`model`、`voice`、`instructions`、`format`；`attach` 为 true 时配音结果同时作为候选素材进视频；`maxPause`（秒）给了时 `gaps.mjs` 把句间长于它的静音压到这么长，短档给 0.3（`length-and-pace.md` 第 2 节），中档、长档可以不给，留自然的停顿 |
 | `asr` | 对齐用的转写：`provider`、`model`、`chunkSeconds`（大于 0 时长段切块转写） |
 | `names.narration` | 旁白素材与转写文稿的名字前缀，用成片语言写 |
 | `bundle` | 打包规则：`pick`（只拷场景里提到的文件的子目录，默认 `img`）、`keep`（总拷）、`exclude`（不拷）、`scripts`（入口加载的共享脚本，默认 `shared/` 顶层的 `.js`）、`module`（为 true 时 `scene.js` 按 ES 模块加载，能 `import` 包里的库，例如 Three.js）、`fonts`（`{ 字体族名: 包内相对路径 }`，写成入口里的 `@font-face`） |
@@ -42,11 +42,11 @@
 
 | 步骤 | 命令 | 做什么，看什么 |
 | --- | --- | --- |
-| 配音 | `node tools/voice.mjs <id …>` 或 `--missing` | 一段一次合成，存 `audio/<id>.<格式>`，记 `voice.json`（连同当时的稿子原文）。`--missing` 只配没配过或稿子改过的段 |
-| 对齐 | `node tools/align.mjs <id …>` | 转写后用编辑距离把字时间对到稿子原文，写 `timing/<id>.json`；打印每句的语速（偏离中位数 15% 标 RATE）、句间停顿（超过 0.8 秒标 GAP）、多念、漏念与念错的字。读错的处理照 `SKILL.md` 第 6 节「读音核对」。提示时间塌了时 `--fresh --chunk 14` 重转 |
-| 留白 | `node tools/gaps.mjs [id …]`（有 `gap` 片段时） | 在 `gap` 片段所在那句之前插一段静音（片段长 + 0.35 秒；同一句前的几个 `gap` 片段共用一段，长度是它们的总长 + 0.35 秒），后面的句子整体后挪：写 `audio/<id>.gaps.<格式>`，`timing/<id>.json` 改成挪过的时间并带上 `gaps` 与 `gapAudio`，原始对齐存成 `timing/<id>.voice.json`，可以反复跑。之后打包、预览、排时间线、字幕都按留过白的时间走，`assemble.mjs` 导入留好白的那份旁白 |
+| 配音 | `node tools/voice.mjs <id …>` 或 `--missing` | 一段一次合成，存 `audio/<id>.<格式>`，记 `voice.json`（连同当时的稿子原文）。`--missing` 只配没配过或稿子改过的段。任务被 Runtime 重启打断时自动重试；`--seed` 只对收 seed 的模型有用，不收的模型直接重跑就是另一次合成 |
+| 对齐 | `node tools/align.mjs <id …>` | 转写后用编辑距离把字时间对到稿子原文，写 `timing/<id>.json`；打印每句的语速（偏离中位数超过 15% 标 RATE；两秒以内的短句容差放宽到 0.3 秒 / 句长，免得句首句尾的误差句句都标）、句间停顿（超过 0.8 秒标 GAP）、多念、漏念与念错的字。读错的处理照 `SKILL.md` 第 6 节「读音核对」。提示时间塌了时 `--fresh --chunk 14` 重转 |
+| 留白与压停顿 | `node tools/gaps.mjs [id …]`（有 `gap` 片段或给了 `voice.maxPause` 时） | 在 `gap` 片段所在那句之前插一段静音（片段长 + 0.35 秒；同一句前的几个 `gap` 片段共用一段，长度是它们的总长 + 0.35 秒），后面的句子整体后挪；给了 `maxPause`（或 `--max-pause 秒数`）时，把句与句之间长于它的静音压到这么长，句内的停顿、留白的接缝与固定口播的段不动。写 `audio/<id>.gaps.<格式>`，`timing/<id>.json` 改成挪过的时间并带上 `gaps`、`tightened` 与 `gapAudio`，原始对齐存成 `timing/<id>.voice.json`，可以反复跑。之后打包、预览、排时间线、字幕都按留过白的时间走，`assemble.mjs` 导入留好白的那份旁白 |
 | 打包 | `node tools/build.mjs [id …]` | 打成 `bundles/<id>/`，时长 = 对齐出的时长 + `hold`，对齐到整帧。还没对齐的段按估算时长打包，只用于配音前的样帧 |
-| 预览 | `node tools/overlay.mjs --preview`（有实拍时），再 `node tools/preview.mjs` | 写 `preview.json`：各段的代码包、旁白、句子时间、稿子里的备注与叠在上面的实拍。把 `video-production` 的 `examples/bundle-preview.html` 拷到工程根目录，在根目录起静态服务打开（代码场景细则第 7 节）。页面跟着旁白画、叠实拍，能连播。烘焙前给用户看 |
+| 预览 | `node tools/overlay.mjs --preview`（有实拍时），再 `node tools/preview.mjs` | `--preview` 只剪新的或来源、起止、裁法改过的片段（`--force` 全部重剪）；段里最后一个片段超出段尾时两个脚本都会提示，截到段尾，要么改短 `to`，要么把它往前挪。写 `preview.json`：各段的代码包、旁白、句子时间、稿子里的备注与叠在上面的实拍。把 `video-production` 的 `examples/bundle-preview.html` 拷到工程根目录，在根目录起静态服务打开（代码场景细则第 7 节）。页面跟着旁白画、叠实拍，能连播。烘焙前给用户看 |
 | 排时间线 | `node tools/assemble.mjs --dry`，再 `node tools/assemble.mjs` | `--dry` 不连 Runtime，打印每段的起始帧、帧数和要做的事；确认后去掉 `--dry` 执行。每段导入后打印并记下 `bake` 的 `renderer`、`fps`、`seconds` |
 | 字幕 | `node tools/captions.mjs --dry`，再 `node tools/captions.mjs` | 用稿子原文加对齐时间写转写文稿、建字幕层，专名照稿子的写法上屏。字幕默认比第一个字早约半秒出现，从 0 秒起的那段建好后把字幕片段起点裁到第一个字，封面上不带字幕 |
 | 实拍与水印 | `node tools/overlay.mjs --dry`，再 `--render`，再 `--place` | `--dry` 打印每段实拍与每次水印在时间线上的起止、留白、原声、字幕条数与转场；`--render` 按 `crop`、`fit` 放进画幅（`pip` 的片段剪成框的像素大小）、对到整帧，把来源标签烧进右上角、双语字幕烧在底部，原声按转场长度淡入淡出、响度对到 `footage.loudness`；`--place` 新建两条视觉轨（名字取 `names`），导入片段铺满放好（`pip` 的用 `setStyle` 的 `mode: 'pip'` 加 `setTransform` 的 `x`、`y`、`w` 放成画中画，转场作用在框上），数字的 `audio` 用 `setAudioMix` 设音量，`in`、`out` 用 `setTransition` 设成单侧转场，水印放成画中画。放之前看一眼水印会不会压到画面上的字，压到了改 `at` |
@@ -63,7 +63,7 @@
 
 改完稿子或画面，只重做受影响的那几段，然后照常跑 `assemble.mjs`：
 
-- 改了旁白：`voice.mjs <id>` → `align.mjs <id> --fresh` →（这段有 `gap` 片段时）`gaps.mjs <id>` → `build.mjs <id>`。漏了留白时 `overlay.mjs`、`assemble.mjs` 报错停下。
+- 改了旁白：`voice.mjs <id>` → `align.mjs <id> --fresh` →（这段有 `gap` 片段或给了 `voice.maxPause` 时）`gaps.mjs <id>` → `build.mjs <id>`。漏了留白时 `overlay.mjs`、`assemble.mjs` 报错停下。
 - 加、删或改了 `gap` 片段：`gaps.mjs <id>` → `build.mjs <id>`，段落变长变短照下面的波纹处理，旁白换成新留白的那份。
 - 只改了画面：`build.mjs <id>`。
 - 插一段：加进 `order` 与稿子，照第 3 节做这一段。
@@ -72,7 +72,7 @@
 
 - 帧数变了：照代码场景细则第 7 节，带 `replace: { itemId, ripple: true }` 换包。引擎把这一段旧终点之后各轨的片段（画面、旁白、字幕、音效、音乐）一起挪 Δ 帧；变短时落在多出那段里的内容被删掉、伸进来的被裁短。几段一起变时从最后一段往前做，结果的 `replaced.rippleFrames` 与包算出的 Δ 不符时停下报错。
 - 帧数没变、包的内容变了：原地换包，Δ 为 0，什么都不挪。
-- 旁白换了（重配过，或重跑过 `gaps.mjs` 留白变了）：波纹做完后，先把所有要换的旧旁白片段一起删掉，再逐段在段首放新的。不逐段边删边放：旧旁白可能比段首早一帧，波纹带不走它，前一段变长的新旁白会撞上它（`TIMELINE_OVERLAP`）。导入只能按秒数放，偶尔落到前一帧，脚本放好后核对起点，不在段首就按整帧挪回去。之后跑 `captions.mjs`，它同样先删掉所有旁白片段或字时间变了的段的旧字幕，再逐段重建；新字幕被挤到另一条字幕轨时打印出来，用 `moveItems` 并回原轨、删掉空轨。
+- 旁白换了（重配过，或重跑过 `gaps.mjs` 留白、停顿变了）：波纹做完后，先把所有要换的旧旁白片段一起删掉，再逐段在段首放新的。不逐段边删边放：旧旁白可能比段首早一帧，波纹带不走它，前一段变长的新旁白会撞上它（`TIMELINE_OVERLAP`）。导入只能按秒数放，偶尔落到前一帧，脚本放好后核对起点，不在段首就按整帧挪回去。之后跑 `captions.mjs`，它同样先删掉所有旁白片段或字时间变了的段的旧字幕，再逐段重建；新字幕被挤到另一条字幕轨时打印出来，用 `moveItems` 并回原轨、删掉空轨。
 - 插入的段：先用一笔 edits apply 的 `insertRange` 在上一段终点腾出它的帧数（只列之后还有片段的轨道），再放进去。
 - 从 `order` 里删掉的段不自动处理：脚本报错，先在 BaoCut 里用 `removeRange` 波纹删掉它的时间段（代码场景细则第 7 节），再删掉 `timeline.json` 里的那一项。
 - 跨过改动点的片段（全片音乐、在某段中间开始的音效）留在原处、不剪开；章节也不跟着挪，之后的章节另用 `upsertChapter` 改 `at`。做完脚本会核对各段首尾相接，其余自己看一遍。
