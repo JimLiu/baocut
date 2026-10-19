@@ -20,7 +20,8 @@
     ellipse: <Glyph><ellipse cx="8" cy="8" rx="6" ry="4.5" /></Glyph>,
     step: <Glyph><circle cx="8" cy="8" r="6" /><text x="8" y="10.5" className="mk-glyph__n">1</text></Glyph>,
   };
-  const WidthGlyph = ({w}) => <svg className="mk-glyph" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8 H14" style={{strokeWidth: w / 2}} /></svg>;
+  /* 粗细的样本：一段这么粗的横线；下拉里的 `long` 更长一些 */
+  const WidthGlyph = ({w, long}) => <svg className={cx('mk-glyph', long && 'mk-glyph--long')} viewBox={long ? '0 0 32 16' : '0 0 16 16'} aria-hidden="true"><path d={long ? 'M2 8 H30' : 'M2 8 H14'} style={{strokeWidth: w / 2}} /></svg>;
   const TEXT_SIZE = {2: 16, 4: 20, 6: 25, 8: 28};   // 文字标记的字号跟粗细档走（S2 字号阶梯）
   const TOOL_ICON = {element: 'Select', comment: 'Comment', pen: 'Edit', text: 'Text'};
   const IMPLICIT_ROLE = {BUTTON: 'button', A: 'link', IMG: 'img', H1: 'heading', H2: 'heading', H3: 'heading', H4: 'heading', INPUT: 'textbox', VIDEO: 'video', svg: 'img'};
@@ -344,12 +345,13 @@
     const send = () => { if (sendMarks(app, ctx, st.marks)) { reset(); ctx.setAnnotating(false); } };
     const toggle = k => setMenu(menu === k ? null : k);
     const Chev = () => <span className="mk-bar__chev" aria-hidden="true"><R.Icons.ChevronDown /></span>;
-    const Row = ({on: isOn, onClick, children, label}) => <BCAction type="button" className={cx('mk-menu__row', isOn && 'is-on')} role="menuitemradio" aria-checked={isOn} onClick={onClick}>
+    /* 下拉里的一行：样本、名字（粗细只有样本，名字给读屏）、当前项打勾 */
+    const Row = ({on: isOn, onClick, children, label, ariaLabel}) => <BCAction type="button" className={cx('mk-menu__row', isOn && 'is-on')} role="menuitemradio" aria-checked={isOn} aria-label={ariaLabel} onClick={onClick}>
       {children}<span className="mk-menu__label">{label}</span>{isOn ? <R.Icons.Checkmark /> : null}</BCAction>;
     return <>
       <div className="mk-bar" role="toolbar" aria-label="标记工具">
         <div className="mk-bar__group">
-          {MK.TOOLS.map(t => {
+          {MK.TOOLS.filter(t => t.k !== 'text').map(t => {
             if (t.k === 'shape') return <div key={t.k} className="mk-bar__dd">
               <IconBtn size="s" on={st.tool === 'shape'} tip={`形状 · ${MK.SHAPES.find(s => s.k === st.shape)?.label || ''}`} aria-haspopup="menu" aria-expanded={menu === 'shape'}
                 onClick={() => { set(s => MK.setTool(s, 'shape')); toggle('shape'); }}>{SHAPE_GLYPH[st.shape]}<Chev /></IconBtn>
@@ -362,6 +364,8 @@
           })}
         </div>
         <span className="vrule" />
+        <IconBtn size="s" on={st.tool === 'text'} tip="文字" onClick={() => set(s => MK.setTool(s, 'text'))}><R.Icons.Text /></IconBtn>
+        <span className="vrule" />
         <div className="mk-bar__group">
           <div className="mk-bar__dd">
             <IconBtn size="s" tip={`颜色 · ${MK.COLORS.find(c => c.k === st.color)?.label || ''}`} aria-haspopup="menu" aria-expanded={menu === 'color'} onClick={() => toggle('color')}>
@@ -370,20 +374,18 @@
               <div className="mk-menu" role="menu">{MK.COLORS.map(c => <Row key={c.k} on={st.color === c.k} label={c.label} onClick={() => { set(s => MK.setColor(s, c.k)); setMenu(null); }}><span className="mk-dot mk-c" data-color={c.k} /></Row>)}</div>
             </Popover>
           </div>
+        </div>
+        <span className="vrule" />
+        <div className="mk-bar__group">
           <div className="mk-bar__dd">
             <IconBtn size="s" tip={`粗细 · ${st.width} px`} aria-haspopup="menu" aria-expanded={menu === 'width'} onClick={() => toggle('width')}><WidthGlyph w={st.width} /><Chev /></IconBtn>
-            <Popover open={menu === 'width'} onClose={() => setMenu(null)} dir="up" width={140} label="粗细">
-              <div className="mk-menu" role="menu">{MK.WIDTHS.map(w => <Row key={w} on={st.width === w} label={`${w} px`} onClick={() => { set(s => MK.setWidth(s, w)); setMenu(null); }}><WidthGlyph w={w} /></Row>)}</div>
+            <Popover open={menu === 'width'} onClose={() => setMenu(null)} dir="up" width={120} label="粗细">
+              <div className="mk-menu" role="menu">{MK.WIDTHS.map(w => <Row key={w} on={st.width === w} ariaLabel={`${w} px`} onClick={() => { set(s => MK.setWidth(s, w)); setMenu(null); }}><WidthGlyph w={w} long /></Row>)}</div>
             </Popover>
           </div>
         </div>
         <span className="vrule" />
-        <div className="mk-bar__group">
-          <IconBtn size="s" tip="撤销 · ⌘Z" disabled={!MK.canUndo(st)} onClick={() => set(MK.undo)}><R.Icons.Undo /></IconBtn>
-          <IconBtn size="s" tip="重做 · ⇧⌘Z" disabled={!MK.canRedo(st)} onClick={() => set(MK.redo)}><R.Icons.Redo /></IconBtn>
-          <IconBtn size="s" tip="清空标记" disabled={!st.marks.length} onClick={() => set(MK.clear)}><R.Icons.Delete /></IconBtn>
-        </div>
-        <R.Button variant="accent" size="S" isDisabled={!sendable.length} onPress={send} UNSAFE_className="mk-bar__send"><R.Text>添加到对话</R.Text></R.Button>
+        <R.Button variant="primary" size="S" isDisabled={!sendable.length} onPress={send} UNSAFE_className="mk-bar__send"><R.Text>添加到对话</R.Text></R.Button>
         <IconBtn size="s" tip="关闭标记 · Esc" onClick={() => ctx.closeMarkup()}><R.Icons.Close /></IconBtn>
       </div>
       <ConfirmDialog ask={st.ask ? {title: '放弃这些标记？', body: '画面上有还没添加到对话的标记，放弃会把它们去掉。', cancelLabel: '继续标记', confirmLabel: '放弃', tone: 'negative'} : null}

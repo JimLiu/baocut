@@ -165,7 +165,7 @@
 | | 文字 | — | 点一个位置原地输入（占位「输入文字」），Enter 结束 | `text` |
 | 样式 | 颜色 ▾ | — | 红 / 蓝 / 绿 / 黑 / 白；选中了标记就改那一条，否则改之后画的 | `style.color` |
 | | 粗细 ▾ | — | 2 / 4 / 6 / 8 px，同上；文字按粗细定字号 | `style.width` |
-| 历史 | 撤销 / 重做 / 清空 | ⌘Z / ⇧⌘Z | 每次加、删、挪、改样式进一步 | — |
+| 历史 | 撤销 / 重做 / 删选中的 | ⌘Z / ⇧⌘Z / Delete | 只有键、不占钮；每次加、删、挪、改样式进一步 | — |
 | 发送 | 添加到对话 | — | 没有能发的标记时禁用；发完退出标记模式 | 整组转成视频标注（§4.3） |
 | | 关闭 | Esc | 画面上还有没发的标记时先问「放弃这些标记？」（继续标记 / 放弃） | — |
 
@@ -177,7 +177,7 @@
 
 种类表（`BC_STAGE_NOTES.KINDS`）加 `pen` / `line` / `ellipse` / `element` / `comment`，与今天的 `box` / `arrow` / `text` / `pin` 并列；两种视图同一条工具条、同一份草稿（`videoNotes[videoId]`），切视图互相能看见。标记的颜色与粗细随标注存成 `style`，舞台照它画。
 
-工具条的样子照截图标注器（选择 / 画笔 / 形状 / 文字 ｜ 颜色 / 粗细 ｜ 撤销 / 重做 / 清空 ｜ 添加到对话 / 关闭）；「选择元素」与「评论」照幻灯片编辑器（`apps/slides-editor`）把选中元素附到评论、发到会话的做法。不共用实现——设计稿与幻灯片的标注绑的是画板里的元素，视频标注绑的是时刻、归一化区域与画面上的节点，中间没有能复用的层。
+工具条的样子照截图标注器：一行，浅底圆角、细边、轻阴影；钮都是安静的图标钮，当前工具浅蓝底；分组用细竖线隔开——选择元素 / 评论 / 画笔 / 形状▾ ｜ 文字 ｜ 颜色▾ ｜ 粗细▾ ｜ 添加到对话（黑色胶囊）/ 关闭。形状钮一枚：图标显示当前形状，点开下拉选（直线 / 箭头 / 矩形 / 圆 / 编号，当前项打勾），选了就切到形状工具；颜色的下拉是圆点加名字，粗细的下拉只有四档横线样本；撤销 / 重做 / 删选中的只走键。「选择元素」与「评论」照幻灯片编辑器（`apps/slides-editor`）把选中元素附到评论、发到会话的做法。不共用实现——设计稿与幻灯片的标注绑的是画板里的元素，视频标注绑的是时刻、归一化区域与画面上的节点，中间没有能复用的层。
 
 ### 4.2 落点：时刻之外加一段一句
 
@@ -302,7 +302,7 @@ candidateBoundsMs: 12400–70000（候选范围，不是要改的区间）
 2. **侧栏的脚本与素材、图层开关**：Markdown 渲染、素材列表、按轨道生成的开关（入口按 §11 第 11 条定）；与字幕显隐、配乐静音接通。
    **已实现（2026-10-19，只有图层开关）**：`model/stage-layers.ts`（按画面上实有的字幕种类与 `role: music` 的音频实例生成开关、开关到字幕档位的换算、监听时去掉配乐）、`state/editor-store.ts`（`captionLayersHidden`、`musicHidden`：观看态，不持久化，换视频复位；画面上有的字幕全关 ⇔ `captionsHidden`）、`preview-engine.ts` 的 `setMusicView`（送去画的序列上停用配乐实例，与字幕档位同一种做法）、`stage-bar.tsx` lite 档左端的「图层」钮与弹层。与本文的出入：`role: music` 在音频实例上，不在轨道上；字幕按原文 / 译文两种分，不按每条字幕轨；配乐开关只在轻量视图生效（时间线视图没有对应的钮，切过去照常出声，切回来接着静音）；轻量视图里只关一种字幕时，时间线视图照整体显隐看（全关才藏）；全屏播放器从图层开关对应的那一档起步。实拍画面、来源标注、贴片 / 字卡、水印预览还没有开关，暂不列。侧栏的脚本与素材列表没做：章节表还没落到数据里（§11 第 16 条）。
 3. **标记**：标注种类加五种与 `style` / `element` / `shot` 字段，落点字段，消息块的新行；画面上的标记层与工具条（元素拾取、评论印章、撤销）；截帧合成印章的图片附件；章节进度条；skill 与协议的说明。
-   **已实现（2026-10-19）**：数据面在协议 `video.ts`（`VideoAnnotation` 九种、`style` / `points` / `element` / `shot` / `segment` / `line`，zod 按种类分支）、harness 的 `withVideoAnnotations`（块里的 `style:` / `element:` / `segment:` / `screenshot:` 行）、`ui/model/video-annotations.ts`（元素标签、落点）、`stage-notes.tsx`（舞台按 `style` 画新五种）。界面在 `model/lite-markup.ts`（标记状态、几何、把手、编号、拾取、换成协议标注）、`state/lite-markup-store.ts`（按视频留着，切视图不丢）、`components/editor/lite-markup.tsx`（标记层、工具条、评论框、拾取卡、截图），入口是 `stage-bar.tsx` 的「标记」钮（两种视图同一枚，只在 Electron）；HTML 动画的节点经实时合成层的桥拾（协议 `code-bundle.ts` 的 `pick` 请求与 `CompositionBridgePick`、`code-runtime/composition-bridge.ts` 的 `COMPOSITION_PICK_SCRIPT`、`live-layer.ts` 的 `LiveLayerHost.pick`）。与本文的出入：章节进度条在第一阶段已做（§3.2）；元素拾取到字幕行、画面上的合成层实例与 HTML 动画 iframe 里最内层的节点（§11 第 12 条）；截图直接拷预览画布（§11 第 14 条）。规范同步：协议规范、产品设计 §3.2.3 / §5.3、架构 §4、skill「收到视频标注时的解读」、验收 T46。同日第二批：时间线视图也换成这条图标工具条，旧的文字标注条（`StageNotesToolbar`、`noteKind`、`TIMELINE_VIDEO_ANNOTATION_KINDS`）与它的手势删掉，`stage-notes.tsx` 只画草稿；原型 `stage.jsx` / `stage-notes.jsx` 同步（§11 第 5 条）。
+   **已实现（2026-10-19）**：数据面在协议 `video.ts`（`VideoAnnotation` 九种、`style` / `points` / `element` / `shot` / `segment` / `line`，zod 按种类分支）、harness 的 `withVideoAnnotations`（块里的 `style:` / `element:` / `segment:` / `screenshot:` 行）、`ui/model/video-annotations.ts`（元素标签、落点）、`stage-notes.tsx`（舞台按 `style` 画新五种）。界面在 `model/lite-markup.ts`（标记状态、几何、把手、编号、拾取、换成协议标注）、`state/lite-markup-store.ts`（按视频留着，切视图不丢）、`components/editor/lite-markup.tsx`（标记层、工具条、评论框、拾取卡、截图），入口是 `stage-bar.tsx` 的「标记」钮（两种视图同一枚，只在 Electron）；HTML 动画的节点经实时合成层的桥拾（协议 `code-bundle.ts` 的 `pick` 请求与 `CompositionBridgePick`、`code-runtime/composition-bridge.ts` 的 `COMPOSITION_PICK_SCRIPT`、`live-layer.ts` 的 `LiveLayerHost.pick`）。与本文的出入：章节进度条在第一阶段已做（§3.2）；元素拾取到字幕行、画面上的合成层实例与 HTML 动画 iframe 里最内层的节点（§11 第 12 条）；截图直接拷预览画布（§11 第 14 条）。规范同步：协议规范、产品设计 §3.2.3 / §5.3、架构 §4、skill「收到视频标注时的解读」、验收 T46。同日第二批：时间线视图也换成这条图标工具条，旧的文字标注条（`StageNotesToolbar`、`noteKind`、`TIMELINE_VIDEO_ANNOTATION_KINDS`）与它的手势删掉，`stage-notes.tsx` 只画草稿；原型 `stage.jsx` / `stage-notes.jsx` 同步（§11 第 5 条）。第三批：工具条按截图标注器重排成一行（撤销 / 重做 / 清空钮去掉，只走键），形状钮合成一枚带下拉的钮，颜色 / 粗细改成下拉菜单（粗细是横线样本），当前工具浅蓝底，「添加到对话」黑色胶囊；原型同步。
 4. 验收：轻量视图在场景型与章节型视频上各走一遍（打开、点段、点句、开关、切换、标注发出）；Web 端没有标记钮；偏好跨重启；按验收规范加 UX 条目。
 
 ## 11. 待评审事项

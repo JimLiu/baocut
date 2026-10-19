@@ -17,7 +17,6 @@ import {
   Checkbox,
   createIcon,
   DialogContainer,
-  DialogTrigger,
   Menu,
   MenuItem,
   MenuTrigger,
@@ -25,7 +24,6 @@ import {
   Text,
   TextArea,
   ToastQueue,
-  ToggleButton,
   Tooltip,
   TooltipTrigger,
 } from '@react-spectrum/s2';
@@ -33,13 +31,10 @@ import Brush from '@react-spectrum/s2/icons/Brush';
 import ChevronDown from '@react-spectrum/s2/icons/ChevronDown';
 import Close from '@react-spectrum/s2/icons/Close';
 import Comment from '@react-spectrum/s2/icons/Comment';
-import Delete from '@react-spectrum/s2/icons/Delete';
-import Redo from '@react-spectrum/s2/icons/Redo';
 import Select from '@react-spectrum/s2/icons/Select';
 import TextIcon from '@react-spectrum/s2/icons/Text';
-import Undo from '@react-spectrum/s2/icons/Undo';
-import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import { ToggleButton as RACToggleButton } from 'react-aria-components';
+import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
+import { Button as RACButton, ToggleButton as RACToggleButton } from 'react-aria-components';
 import { keyLabel } from '../../model/key-labels.ts';
 import type { LiteSegment } from '../../model/lite-segments.ts';
 import {
@@ -48,9 +43,6 @@ import {
   MARKUP_TEXT_SIZE,
   MARKUP_WIDTHS,
   add,
-  canRedo,
-  canUndo,
-  clear,
   finishDrag,
   forget,
   fromGesture,
@@ -255,39 +247,53 @@ const pickRow = style({ display: 'flex', justifyContent: 'space-between', gap: 1
 const anchorDot = style({ position: 'absolute', width: 1, height: 1, pointerEvents: 'none' });
 const commentForm = style({ display: 'flex', flexDirection: 'column', gap: 12, width: 280, maxWidth: 'full' });
 const commentActions = style({ display: 'flex', justifyContent: 'end', gap: 8 });
-/** 工具条：浮在画面底边上方，居中。 */
+/** 工具条：浮在画面底边上方，居中；一行，浅底、圆角、细边、轻阴影（照截图标注器）。 */
 const bar = style({
   position: 'absolute',
   zIndex: 12,
   transform: 'translate(-50%, -100%)',
   display: 'flex',
   alignItems: 'center',
-  flexWrap: 'wrap',
-  justifyContent: 'center',
   gap: 2,
-  maxWidth: '[calc(100% - 24px)]',
   boxSizing: 'border-box',
   padding: 4,
   borderRadius: 'lg',
+  borderStyle: 'solid',
+  borderWidth: 1,
+  borderColor: 'gray-200',
   backgroundColor: 'layer-2',
   boxShadow: 'elevated',
 });
 const divider = style({ width: 1, height: 20, marginX: 4, backgroundColor: 'gray-300', flexShrink: 0 });
-const swatches = style({ display: 'flex', gap: 8, padding: 4 });
-const swatch = style({
-  size: 24,
+/**
+ * 工具钮：安静的图标钮，当前工具浅蓝底、蓝图标（照原型的 `.ibtn.is-on`；S2 的切换钮选中是灰底，所以用 RAC 的钮自己画）。
+ * 带下拉的（形状 / 颜色 / 粗细）图标右边多一枚小箭头。
+ */
+const toolBtn = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 2,
+  height: 32,
+  minWidth: 32,
   boxSizing: 'border-box',
-  borderRadius: 'full',
-  borderStyle: 'solid',
-  borderWidth: 1,
-  borderColor: 'gray-400',
-  backgroundColor: { default: 'red-900', tone: { red: 'red-900', blue: 'blue-900', green: 'green-900', black: 'black', white: 'white' } },
-  outlineStyle: { default: 'none', isSelected: 'solid', isFocusVisible: 'solid' },
-  outlineColor: { default: 'gray-800', isFocusVisible: 'focus-ring' },
+  paddingX: { default: 0, hasMenu: 6 },
+  borderRadius: 'default',
+  borderWidth: 0,
+  backgroundColor: {
+    default: 'transparent',
+    isHovered: 'gray-100',
+    isPressed: 'gray-200',
+    isSelected: { default: 'blue-200', isHovered: 'blue-300' },
+  },
+  color: { default: 'gray-800', isSelected: 'blue-1000' },
+  outlineStyle: { default: 'none', isFocusVisible: 'solid' },
+  outlineColor: 'focus-ring',
   outlineWidth: 2,
-  outlineOffset: 2,
   cursor: 'default',
+  flexShrink: 0,
 });
+/** 颜色钮上的圆点，下拉里每行也是一枚。 */
 const swatchDot = style({
   display: 'inline-block',
   size: 16,
@@ -297,23 +303,12 @@ const swatchDot = style({
   borderWidth: 1,
   borderColor: 'gray-400',
   backgroundColor: { default: 'red-900', tone: { red: 'red-900', blue: 'blue-900', green: 'green-900', black: 'black', white: 'white' } },
+  flexShrink: 0,
 });
-const widthOption = style({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: 40,
-  height: 32,
-  borderRadius: 'default',
-  borderWidth: 0,
-  backgroundColor: { default: 'transparent', isHovered: 'gray-100', isSelected: 'gray-200' },
-  color: 'neutral',
-  outlineStyle: { default: 'none', isFocusVisible: 'solid' },
-  outlineColor: 'focus-ring',
-  outlineWidth: 2,
-  cursor: 'default',
-});
-const widthValue = style({ font: 'ui-xs', color: 'neutral', fontVariantNumeric: 'tabular-nums' });
+/** 下拉里一行的内容：样本（圆点 / 横线）与名字。 */
+const menuRow = style({ display: 'inline-flex', alignItems: 'center', gap: 8 });
+/** 带下拉的钮右边的小箭头（XS 号图标）。 */
+const chevron = iconStyle({ size: 'XS' });
 
 // ---- 形状的图标（S2 没有对应的几个按原型的描边几何画在 20×20 网格上） ----
 
@@ -352,8 +347,8 @@ const SHAPE_GLYPHS: Record<MarkupShape, typeof LineGlyph> = {
   pin: PinGlyph,
 };
 
-/** 快捷键（按 macOS 写，别的平台换成 Ctrl+ 等）。 */
-const KEYS: Partial<Record<MarkupTool | 'undo' | 'redo', string>> = { element: '⇧⌘S', comment: '⇧⌘C', undo: '⌘Z', redo: '⇧⌘Z' };
+/** 工具钮提示里的快捷键（按 macOS 写，别的平台换成 Ctrl+ 等）；撤销 / 重做 / 删选中的只有键（标记层接），不占钮。 */
+const KEYS: Partial<Record<MarkupTool, string>> = { element: '⇧⌘S', comment: '⇧⌘C' };
 
 function Tip({ label, children }: { label: string; children: ReactElement }) {
   return (
@@ -1087,8 +1082,8 @@ function CommentBox({
 }
 
 /**
- * 标记工具条（lite-editor §4.1）：选择元素 / 评论 / 画笔 / 形状▾ / 文字 ｜ 颜色▾ / 粗细▾ ｜ 撤销 / 重做 / 清空 ｜ 添加到对话 / 关闭。
- * 浮在画面底边上方；`frame` 是画面在舞台里的位置。
+ * 标记工具条（lite-editor §4.1；照截图标注器，一行）：选择元素 / 评论 / 画笔 / 形状▾ ｜ 文字 ｜ 颜色▾ ｜ 粗细▾ ｜ 添加到对话 / 关闭。
+ * 撤销 / 重做 / 删选中的不占钮，走 ⌘Z / ⇧⌘Z / Delete（标记层的键）。浮在画面底边上方；`frame` 是画面在舞台里的位置。
  */
 export function LiteMarkupBar({ frame, onAddToChat }: { frame: FrameRect; onAddToChat: () => void }) {
   const markup = useLiteMarkup((s) => s.markup);
@@ -1097,15 +1092,28 @@ export function LiteMarkupBar({ frame, onAddToChat }: { frame: FrameRect; onAddT
   const keys = (label: string, k?: string) => (k ? C.withKeys(label, keyLabel(k, MAC)) : label);
   const toolButton = (tool: MarkupTool, icon: ReactElement) => (
     <Tip key={tool} label={keys(C.tools[tool], KEYS[tool])}>
-      <ToggleButton
-        size="S"
-        isQuiet
+      <RACToggleButton
+        className={({ isSelected, isHovered, isPressed, isFocusVisible }) => toolBtn({ isSelected, isHovered, isPressed, isFocusVisible })}
         aria-label={C.tools[tool]}
         isSelected={markup.tool === tool}
         onChange={() => apply((s) => setTool(s, tool))}
       >
         {icon}
-      </ToggleButton>
+      </RACToggleButton>
+    </Tip>
+  );
+  /** 带下拉的钮：图标显示当前值，右边一枚小箭头；是 MenuTrigger 的触发钮。 */
+  const menuButton = (label: string, isSelected: boolean, content: ReactElement) => (
+    <Tip label={label}>
+      <RACButton
+        className={({ isHovered, isPressed, isFocusVisible }) =>
+          toolBtn({ isSelected, isHovered, isPressed, isFocusVisible, hasMenu: true })
+        }
+        aria-label={label}
+      >
+        {content}
+        <ChevronDown styles={chevron} />
+      </RACButton>
     </Tip>
   );
   const Shape = SHAPE_GLYPHS[markup.shape];
@@ -1122,23 +1130,12 @@ export function LiteMarkupBar({ frame, onAddToChat }: { frame: FrameRect; onAddT
       {toolButton('element', <Select />)}
       {toolButton('comment', <Comment />)}
       {toolButton('pen', <Brush />)}
-      <Tip label={C.current(C.tools.shape, C.shapes[markup.shape])}>
-        <ToggleButton
-          size="S"
-          isQuiet
-          aria-label={C.current(C.tools.shape, C.shapes[markup.shape])}
-          isSelected={markup.tool === 'shape'}
-          onChange={() => apply((s) => setTool(s, 'shape'))}
-        >
-          <Shape />
-        </ToggleButton>
-      </Tip>
-      <MenuTrigger>
-        <Tip label={C.shapeMenu}>
-          <ActionButton size="S" isQuiet aria-label={C.shapeMenu}>
-            <ChevronDown />
-          </ActionButton>
-        </Tip>
+      <MenuTrigger
+        onOpenChange={(open) => {
+          if (open) apply((s) => setTool(s, 'shape'));
+        }}
+      >
+        {menuButton(C.current(C.tools.shape, C.shapes[markup.shape]), markup.tool === 'shape', <Shape />)}
         <Menu
           aria-label={C.shapeMenu}
           selectionMode="single"
@@ -1156,71 +1153,51 @@ export function LiteMarkupBar({ frame, onAddToChat }: { frame: FrameRect; onAddT
           })}
         </Menu>
       </MenuTrigger>
+      <span className={divider} />
       {toolButton('text', <TextIcon />)}
       <span className={divider} />
-      <DialogTrigger>
-        <Tip label={C.current(C.color, C.colors[markup.color])}>
-          <ActionButton size="S" isQuiet aria-label={C.current(C.color, C.colors[markup.color])}>
-            <span className={swatchDot({ tone: markup.color })} />
-            <ChevronDown />
-          </ActionButton>
-        </Tip>
-        <Popover placement="top" padding="none" aria-label={C.color}>
-          <div className={swatches} role="group" aria-label={C.color}>
-            {MARKUP_COLORS.map((color) => (
-              <RACToggleButton
-                key={color}
-                className={({ isSelected, isFocusVisible }) => swatch({ tone: color, isSelected, isFocusVisible })}
-                aria-label={C.colors[color]}
-                isSelected={markup.color === color}
-                onChange={() => apply((s) => setColor(s, color))}
-              />
-            ))}
-          </div>
-        </Popover>
-      </DialogTrigger>
-      <DialogTrigger>
-        <Tip label={C.current(C.width, C.widthValue(markup.width))}>
-          <ActionButton size="S" isQuiet aria-label={C.current(C.width, C.widthValue(markup.width))}>
-            <WidthLine width={markup.width} />
-            <ChevronDown />
-          </ActionButton>
-        </Tip>
-        <Popover placement="top" padding="none" aria-label={C.width}>
-          <div className={swatches} role="group" aria-label={C.width}>
-            {MARKUP_WIDTHS.map((width) => (
-              <RACToggleButton
-                key={width}
-                className={({ isSelected, isHovered, isFocusVisible }) => widthOption({ isSelected, isHovered, isFocusVisible })}
-                aria-label={C.widthValue(width)}
-                isSelected={markup.width === width}
-                onChange={() => apply((s) => setWidth(s, width))}
-              >
-                <WidthLine width={width} />
-                <span className={widthValue}>{width}</span>
-              </RACToggleButton>
-            ))}
-          </div>
-        </Popover>
-      </DialogTrigger>
+      <MenuTrigger>
+        {menuButton(C.current(C.color, C.colors[markup.color]), false, <span className={swatchDot({ tone: markup.color })} />)}
+        <Menu
+          aria-label={C.color}
+          selectionMode="single"
+          selectedKeys={[markup.color]}
+          onAction={(key) => apply((s) => setColor(s, key as VideoAnnotationColor))}
+        >
+          {MARKUP_COLORS.map((color) => (
+            <MenuItem key={color} id={color} textValue={C.colors[color]}>
+              <Text slot="label">
+                <span className={menuRow}>
+                  <span className={swatchDot({ tone: color })} />
+                  {C.colors[color]}
+                </span>
+              </Text>
+            </MenuItem>
+          ))}
+        </Menu>
+      </MenuTrigger>
       <span className={divider} />
-      <Tip label={keys(C.undo, KEYS.undo)}>
-        <ActionButton size="S" isQuiet aria-label={C.undo} isDisabled={!canUndo(markup)} onPress={() => apply(undo)}>
-          <Undo />
-        </ActionButton>
-      </Tip>
-      <Tip label={keys(C.redo, KEYS.redo)}>
-        <ActionButton size="S" isQuiet aria-label={C.redo} isDisabled={!canRedo(markup)} onPress={() => apply(redo)}>
-          <Redo />
-        </ActionButton>
-      </Tip>
-      <Tip label={C.clear}>
-        <ActionButton size="S" isQuiet aria-label={C.clear} isDisabled={!markup.marks.length} onPress={() => apply(clear)}>
-          <Delete />
-        </ActionButton>
-      </Tip>
+      <MenuTrigger>
+        {menuButton(C.current(C.width, C.widthValue(markup.width)), false, <WidthLine width={markup.width} />)}
+        <Menu
+          aria-label={C.width}
+          selectionMode="single"
+          selectedKeys={[markup.width]}
+          onAction={(key) => apply((s) => setWidth(s, Number(key) as VideoAnnotationWidth))}
+        >
+          {MARKUP_WIDTHS.map((width) => (
+            <MenuItem key={width} id={width} textValue={C.widthValue(width)}>
+              <Text slot="label">
+                <span className={menuRow}>
+                  <WidthLine width={width} long />
+                </span>
+              </Text>
+            </MenuItem>
+          ))}
+        </Menu>
+      </MenuTrigger>
       <span className={divider} />
-      <Button size="S" variant="accent" isDisabled={!count} onPress={onAddToChat}>
+      <Button size="S" variant="primary" isDisabled={!count} onPress={onAddToChat}>
         {C.addToChat}
       </Button>
       <Tip label={C.close}>
@@ -1232,11 +1209,12 @@ export function LiteMarkupBar({ frame, onAddToChat }: { frame: FrameRect; onAddT
   );
 }
 
-/** 粗细的示意：一段这么粗的横线。 */
-function WidthLine({ width }: { width: VideoAnnotationWidth }) {
+/** 粗细的示意：一段这么粗的横线；下拉里的 `long` 更长一些。 */
+function WidthLine({ width, long = false }: { width: VideoAnnotationWidth; long?: boolean }) {
+  const w = long ? 32 : 20;
   return (
-    <svg width={20} height={20} viewBox="0 0 20 20" aria-hidden>
-      <line x1={3} y1={10} x2={17} y2={10} stroke="currentColor" strokeWidth={width} strokeLinecap="round" />
+    <svg width={w} height={20} viewBox={`0 0 ${w} 20`} aria-hidden>
+      <line x1={3} y1={10} x2={w - 3} y2={10} stroke="currentColor" strokeWidth={width} strokeLinecap="round" />
     </svg>
   );
 }

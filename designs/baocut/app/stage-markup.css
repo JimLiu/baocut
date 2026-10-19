@@ -60,10 +60,13 @@
 .mk__card-row > span:first-child { flex: none; min-width: 64px; color: var(--gray-600); }
 .mk__card-row > span:last-child { min-width: 0; }
 
-/* 工具条：浮在画面底上，一张卡（radius 10、sh-pop），两种视图同一条 */
-.mk-bar { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 8; display: flex; align-items: center; gap: 4px; max-width: calc(100% - 24px);
-  padding: 4px; border-radius: 10px; background: var(--gray-25); box-shadow: var(--sh-pop); }
+/* 工具条：浮在画面底上，一行，一张浅底的卡（radius 10、细边、sh-pop），两种视图同一条。
+   钮是安静的图标钮，当前工具浅蓝底（S2 的切换钮选中是灰底，这里按 .ibtn.is-on 的样子盖掉） */
+.mk-bar { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 8; display: flex; align-items: center; gap: 4px;
+  padding: 4px; border: 1px solid var(--gray-200); border-radius: 10px; background: var(--gray-25); box-shadow: var(--sh-pop); white-space: nowrap; }
 .mk-bar__group { display: flex; align-items: center; gap: 2px; }
+.mk-bar .bc-icon-button[data-selected] { background: var(--blue-200); color: var(--blue-1000); }
+.mk-bar .bc-icon-button[data-selected]:hover { background: var(--blue-300); }
 .mk-bar__send, .mk-bar__send * { flex: none; white-space: nowrap; }
 .mk-bar .vrule { height: 20px; align-self: center; margin: 0 2px; }
 .mk-bar__dd { position: relative; }
@@ -71,8 +74,9 @@
 .mk-bar__chev svg { width: 10px; height: 10px; }
 .mk-glyph { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .mk-glyph__n { fill: currentColor; stroke: none; font-size: 10px; font-weight: 700; text-anchor: middle; }
+.mk-glyph--long { width: 32px; }
 .mk-dot { display: inline-block; width: 14px; height: 14px; border-radius: 999px; background: var(--mk); box-shadow: inset 0 0 0 1px var(--gray-400); flex: none; }
-/* 下拉里的行：图标、名字、勾 */
+/* 下拉里的行：样本（图标 / 圆点 / 横线）、名字（粗细没有）、勾 */
 .mk-menu { display: flex; flex-direction: column; padding: 4px; }
 .mk-menu__row { display: flex; align-items: center; gap: 8px; width: 100%; height: 32px; padding: 0 8px; border-radius: 8px; font-size: 14px; color: var(--gray-800); cursor: pointer; text-align: left;
   transition: background 150ms cubic-bezier(0.45,0,0.4,1); }
