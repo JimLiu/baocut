@@ -128,3 +128,110 @@ describe('video-annotations', () => {
     expect(Object.keys(sentVideoAnnotations([note()])[0]!)).not.toContain('to');
   });
 });
+
+describe('轻量视图标记工具送来的视频标注（docs/design/lite-editor §4）', () => {
+  const style = { color: 'red', width: 4 } as const;
+  const segment = { id: 's03', kind: 'scene', index: 2, title: '倒着为什么不掉' };
+  const line = { id: 's03:l2', index: 2, text: '那一个有点危险的做法' };
+  const caption = { kind: 'caption', id: 's01:l3', text: '它没有掉下来也没有慢下来，一直贴着天花板往前走到了尽头' } as const;
+
+  it('手势：圆与框同一块矩形，直线与箭头记两端，画笔记点列与外接框，元素与评论只记一个点', () => {
+    const frame = { w: 200, h: 100 };
+    expect(normalizeShape('ellipse', { x: 150, y: 80 }, { x: 50, y: -10 }, frame)).toEqual({ region: { x: 0.25, y: 0, w: 0.5, h: 0.8 } });
+    expect(normalizeShape('line', { x: 20, y: 10 }, { x: 300, y: 50 }, frame)).toEqual({
+      region: { x: 0.1, y: 0.1, w: 0, h: 0 },
+      to: { x: 1, y: 0.5 },
+    });
+    const pts = [
+      { x: 20, y: 10 },
+      { x: 100, y: 60 },
+      { x: 60, y: 200 },
+    ];
+    expect(normalizeShape('pen', pts[0]!, null, frame, pts)).toEqual({
+      region: { x: 0.1, y: 0.1, w: 0.4, h: 0.9 },
+      points: [
+        { x: 0.1, y: 0.1 },
+        { x: 0.5, y: 0.6 },
+        { x: 0.3, y: 1 },
+      ],
+    });
+    expect(normalizeShape('pen', { x: 20, y: 10 }, null, frame)).toEqual({
+      region: { x: 0.1, y: 0.1, w: 0, h: 0 },
+      points: [{ x: 0.1, y: 0.1 }],
+    });
+    expect(normalizeShape('comment', { x: 100, y: 50 }, { x: 150, y: 80 }, frame)).toEqual({ region: { x: 0.5, y: 0.5, w: 0, h: 0 } });
+    expect(normalizeShape('element', { x: 100, y: 50 }, null, frame)).toEqual({ region: { x: 0.5, y: 0.5, w: 0, h: 0 } });
+  });
+
+  it('标签：点中元素时用元素的说法代替种类与位置；带落点时接段与第几句；跟界面语言', () => {
+    const at = { timeMs: 12_400, region: { x: 0.16, y: 0.84, w: 0.68, h: 0.05 } };
+    expect(videoAnnotationLabel({ ...at, kind: 'box', segment, line })).toBe('00:12.4 · 框 · 画面下方 · s03 · 第 2 句');
+    expect(videoAnnotationLabel({ ...at, kind: 'ellipse', segment })).toBe('00:12.4 · 圆 · 画面下方 · s03');
+    expect(videoAnnotationLabel({ ...at, kind: 'element', element: caption, segment, line })).toBe(
+      '00:12.4 · 字幕 · “它没有掉下来也没有慢下来，一直贴着天花板往前走…” · s03 · 第 2 句',
+    );
+    expect(videoAnnotationLabel({ ...at, kind: 'comment', element: { kind: 'element', id: 'logo' } })).toBe('00:12.4 · 元素 · logo');
+    expect(videoAnnotationLabel({ ...at, kind: 'comment', region: { x: 0.5, y: 0.5, w: 0, h: 0 } })).toBe('00:12.4 · 评论 · 画面中央');
+    const html = { kind: 'html', selector: 'button#play.bc-icon-button', w: 32, h: 32, name: '播放', role: 'button' } as const;
+    expect(videoAnnotationLabel({ ...at, kind: 'element', element: html })).toBe('00:12.4 · button#play.bc-icon-button · 32 × 32');
+    vi.stubEnv('BAOCUT_LOCALE', 'en');
+    setLocale('en');
+    expect(videoAnnotationLabel({ ...at, kind: 'pen', segment, line })).toBe('00:12.4 · Pen · bottom of the frame · s03 · line 2');
+    expect(videoAnnotationLabel({ ...at, kind: 'element', element: { kind: 'caption', id: 'c1' } })).toBe('00:12.4 · Caption');
+  });
+
+  it('加一条：带样式的标记可以不写批注，文字与评论总得写；直线要终点、圆要面积、画笔要两个点、元素要元素', () => {
+    const mark = (over: Partial<DraftVideoAnnotation>) => note({ text: '', style, ...over });
+    expect(addVideoAnnotation([], mark({})).error).toBeNull();
+    expect(addVideoAnnotation([], mark({ style: undefined })).error).toBe('empty');
+    expect(addVideoAnnotation([], mark({ kind: 'text', region: { x: 0.1, y: 0.1, w: 0, h: 0 } })).error).toBe('empty');
+    const shot = { timeMs: 42_300, stamp: { x: 0.4, y: 0.3 } };
+    expect(addVideoAnnotation([], mark({ kind: 'comment', region: { x: 0.4, y: 0.3, w: 0, h: 0 }, shot })).error).toBe('empty');
+    expect(
+      addVideoAnnotation([], mark({ kind: 'comment', region: { x: 0.4, y: 0.3, w: 0, h: 0 }, shot, text: '慢一点' })).error,
+    ).toBeNull();
+    expect(addVideoAnnotation([], mark({ kind: 'line', region: { x: 0.1, y: 0.1, w: 0, h: 0 } })).error).toBe('no-line-end');
+    expect(addVideoAnnotation([], mark({ kind: 'ellipse', region: { x: 0.1, y: 0.1, w: 0, h: 0.2 } })).error).toBe('no-area');
+    expect(addVideoAnnotation([], mark({ kind: 'pen', points: [{ x: 0.1, y: 0.1 }] })).error).toBe('no-path');
+    expect(addVideoAnnotation([], mark({ kind: 'element' })).error).toBe('no-element');
+    const added = addVideoAnnotation([], mark({ kind: 'element', element: caption, segment, line })).list[0]!;
+    expect(added.label).toBe('00:42.3 · 字幕 · “它没有掉下来也没有慢下来，一直贴着天花板往前走…” · s03 · 第 2 句');
+    expect(videoAnnotationErrorText('no-path')).toBe('画笔要画出一道线');
+  });
+
+  it('随消息交出去的那一份带上标记的字段，只去掉 id 与视频 id', () => {
+    const shot = { timeMs: 42_300, stamp: { x: 0.4, y: 0.3 } };
+    const comment = note({
+      kind: 'comment',
+      region: { x: 0.4, y: 0.3, w: 0, h: 0 },
+      style,
+      element: caption,
+      shot,
+      segment,
+      line,
+      label: 'L',
+    });
+    const points = [
+      { x: 0.1, y: 0.1 },
+      { x: 0.3, y: 0.2 },
+    ];
+    const pen = note({ kind: 'pen', region: { x: 0.1, y: 0.1, w: 0.2, h: 0.1 }, points, style, label: 'P', text: '' });
+    const [sentComment, sentPen] = sentVideoAnnotations([comment, pen]);
+    expect(sentComment).toEqual({
+      video,
+      revision: '3',
+      timeMs: 42_300,
+      kind: 'comment',
+      region: { x: 0.4, y: 0.3, w: 0, h: 0 },
+      style,
+      element: caption,
+      shot,
+      segment,
+      line,
+      label: 'L',
+      text: '这里的字幕太小',
+    });
+    expect(sentPen).toEqual({ video, revision: '3', timeMs: 42_300, kind: 'pen', region: pen.region, points, style, label: 'P', text: '' });
+    expect(sentPen!.points).not.toBe(points);
+  });
+});

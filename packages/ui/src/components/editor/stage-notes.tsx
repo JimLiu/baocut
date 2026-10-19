@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import {
-  VIDEO_ANNOTATION_KINDS,
   VIDEO_ANNOTATION_LIMITS,
   type FileTarget,
   type Id,
   type SpaceEntry,
+  type VideoAnnotationColor,
   type VideoAnnotationKind,
 } from '@baocut/protocol';
 import { ActionButton, Button, Popover, Text, ToastQueue, ToggleButton, ToggleButtonGroup } from '@react-spectrum/s2';
@@ -12,6 +12,7 @@ import Delete from '@react-spectrum/s2/icons/Delete';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { Button as RACButton } from 'react-aria-components';
 import {
+  TIMELINE_VIDEO_ANNOTATION_KINDS,
   annotationTimecode,
   normalizeShape,
   videoAnnotationErrorText,
@@ -52,13 +53,19 @@ const layer = style({
   pointerEvents: { default: 'none', isAnnotating: 'auto' },
   cursor: { default: 'default', isAnnotating: 'crosshair', isPoint: 'cell' },
 });
+/*
+ * 标记的颜色：轻量视图的标记工具送来的标注带 `style.color`（红 / 蓝 / 绿 / 黑 / 白，lite-editor §4.1），按 `tone` 取对应的颜色；
+ * 没有 `style` 的（时间线视图的标注条画的）按蓝色画，与之前一样。粗细（`style.width`，像素）作为描边宽度内联给出，没有时 2px。
+ */
+const toneOf = (pin: { style?: { color: VideoAnnotationColor } }): VideoAnnotationColor => pin.style?.color ?? 'blue';
+const strokeOf = (pin: { style?: { width: number } }): number => pin.style?.width ?? 2;
 const boxMark = style({
   position: 'absolute',
   boxSizing: 'border-box',
   borderWidth: 2,
   borderStyle: { default: 'solid', isGhost: 'dashed' },
-  borderColor: 'blue-900',
-  borderRadius: 'sm',
+  borderColor: { default: 'blue-900', tone: { red: 'red-900', blue: 'blue-900', green: 'green-900', black: 'black', white: 'white' } },
+  borderRadius: { default: 'sm', isRound: '[50%]' },
   boxShadow: { default: '[0 0 0 1px white]', isGhost: 'none' },
   pointerEvents: 'none',
 });
@@ -70,16 +77,47 @@ const arrow = style({
   height: 'full',
   overflow: 'visible',
   pointerEvents: 'none',
-  color: 'blue-900',
+  color: { default: 'blue-900', tone: { red: 'red-900', blue: 'blue-900', green: 'green-900', black: 'black', white: 'white' } },
 });
 const head = style({
   position: 'absolute',
   size: 12,
   borderRadius: 'full',
-  backgroundColor: 'blue-900',
+  backgroundColor: { default: 'blue-900', tone: { red: 'red-900', blue: 'blue-900', green: 'green-900', black: 'black', white: 'white' } },
   boxShadow: '[0 0 0 2px white]',
   transform: 'translate(-50%, -50%)',
   pointerEvents: 'none',
+});
+/** 评论的印章：一枚带尖角的圆（像一个对话气泡），颜色跟标记的颜色走，写着在草稿里的序号。 */
+const stamp = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minWidth: 28,
+  height: 28,
+  paddingX: 4,
+  boxSizing: 'border-box',
+  borderRadius: 'full',
+  borderBottomStartRadius: 'none',
+  borderWidth: 0,
+  backgroundColor: { default: 'blue-900', tone: { red: 'red-900', blue: 'blue-900', green: 'green-900', black: 'black', white: 'white' } },
+  color: { default: 'white', tone: { red: 'white', blue: 'white', green: 'white', black: 'white', white: 'black' } },
+  boxShadow: '[0 0 0 2px white, 0 1px 4px rgb(0 0 0 / 0.4)]',
+  font: 'ui-xs',
+  fontWeight: 'bold',
+  cursor: 'default',
+  outlineStyle: { default: 'none', isFocusVisible: 'solid' },
+  outlineColor: 'focus-ring',
+  outlineWidth: 2,
+  outlineOffset: 2,
+});
+/** 印章的尖角落在标注的点上：整枚往右上挪开，不像编号那样以点为中心。 */
+const stampWrap = style({
+  position: 'absolute',
+  bottom: 0,
+  insetStart: 0,
+  pointerEvents: 'auto',
+  zIndex: 1,
 });
 const badgeWrap = style({
   position: 'absolute',
@@ -117,8 +155,8 @@ const textLabel = style({
   paddingX: 8,
   paddingY: 2,
   borderRadius: 'lg',
-  backgroundColor: 'blue-900',
-  color: 'white',
+  backgroundColor: { default: 'blue-900', tone: { red: 'red-900', blue: 'blue-900', green: 'green-900', black: 'black', white: 'white' } },
+  color: { default: 'white', tone: { red: 'white', blue: 'white', green: 'white', black: 'white', white: 'black' } },
   font: 'ui-xs',
   lineHeight: '[20px]',
   whiteSpace: 'nowrap',
@@ -165,10 +203,21 @@ interface Pending extends NormalizedShape {
   label: string;
 }
 
-/** 画面上的标注层：有草稿时一直画这一帧的标记，标注模式下再接手势。`frame` 是画面在舞台里的位置（像素）。 */
-export function StageNotesLayer({ videoId, frame }: { videoId: Id; frame: { left: number; top: number; width: number; height: number } }) {
+/**
+ * 画面上的标注层：有草稿时一直画这一帧的标记，标注模式下再接手势。`frame` 是画面在舞台里的位置（像素）。
+ * `gestures` 为 false 时（轻量视图：标注模式的手势归标记层 lite-markup.tsx）只画草稿里的标记，不接手势。
+ */
+export function StageNotesLayer({
+  videoId,
+  frame,
+  gestures = true,
+}: {
+  videoId: Id;
+  frame: { left: number; top: number; width: number; height: number };
+  gestures?: boolean;
+}) {
   const notes = useDraftVideoAnnotationList(videoId);
-  const annotating = useEditor((s) => s.annotating);
+  const annotating = useEditor((s) => s.annotating) && gestures;
   const kind = useEditor((s) => s.noteKind);
   const playhead = useEditor((s) => s.playhead);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -264,7 +313,7 @@ export function StageNotesLayer({ videoId, frame }: { videoId: Id; frame: { left
         }}
       />
     ) : drag.kind === 'arrow' ? (
-      <svg className={arrow} aria-hidden>
+      <svg className={arrow({})} aria-hidden>
         <line
           x1={drag.from.x}
           y1={drag.from.y}
@@ -300,7 +349,7 @@ export function StageNotesLayer({ videoId, frame }: { videoId: Id; frame: { left
         />
       ) : null}
       {pending?.kind === 'arrow' && pending.to ? (
-        <svg className={arrow} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+        <svg className={arrow({})} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
           <line
             x1={pending.region.x * 100}
             y1={pending.region.y * 100}
@@ -350,17 +399,22 @@ export function StageNotesLayer({ videoId, frame }: { videoId: Id; frame: { left
 
 /**
  * 画面上的一个标记：框是描边的矩形，箭头是一条带头的线，文字是一枚写着批注的签，编号是一枚圆点；都带整份草稿里的序号。
- * 点序号看批注，可以从对话里移除。
+ * 轻量视图的标记工具送来的另五种（lite-editor §4.1）：直线是不带头的线，圆是框里内切的椭圆，画笔是穿过各点的折线，元素是元素的框，
+ * 评论是一枚对话气泡样的印章（尖角落在那个点上）。带 `style` 的照它的颜色与粗细画。点序号看批注，可以从对话里移除。
  */
 function StageNoteMark({ pin, onRemove }: { pin: VideoAnnotationPin; onRemove: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLSpanElement>(null);
   const r = pin.region;
+  const tone = toneOf(pin);
+  const stroke = strokeOf(pin);
+  // 标记工具画的标记可以没有批注：读屏名与弹层里退回给人看的位置
+  const said = pin.text || pin.label;
   const badgeEl = (
-    <span ref={anchorRef} className={badgeWrap} onPointerDown={(event) => event.stopPropagation()}>
+    <span ref={anchorRef} className={pin.kind === 'comment' ? stampWrap : badgeWrap} onPointerDown={(event) => event.stopPropagation()}>
       <RACButton
-        className={badge}
-        aria-label={V.mark(pin.n, pin.text)}
+        className={pin.kind === 'comment' ? stamp({ tone }) : badge}
+        aria-label={V.mark(pin.n, said)}
         aria-expanded={open}
         aria-haspopup="dialog"
         onPress={() => setOpen((v) => !v)}
@@ -373,11 +427,11 @@ function StageNoteMark({ pin, onRemove }: { pin: VideoAnnotationPin; onRemove: (
         onOpenChange={setOpen}
         placement="bottom"
         padding="default"
-        aria-label={V.mark(pin.n, pin.text)}
+        aria-label={V.mark(pin.n, said)}
       >
         <div className={pinNote}>
           <p className={pinWhere}>{pin.label}</p>
-          <p className={pinText}>{pin.text}</p>
+          {pin.text ? <p className={pinText}>{pin.text}</p> : null}
           <ActionButton
             isQuiet
             size="S"
@@ -393,30 +447,55 @@ function StageNoteMark({ pin, onRemove }: { pin: VideoAnnotationPin; onRemove: (
       </Popover>
     </span>
   );
-  if (pin.kind === 'box') {
+  // 框、圆与元素是描边的矩形（圆画成内切的椭圆）；元素的框可能没有面积（点中的是一条线），这时照样落一个点
+  if (pin.kind === 'box' || pin.kind === 'ellipse' || pin.kind === 'element') {
     return (
-      <div className={boxMark({ isGhost: false })} style={{ left: pct(r.x), top: pct(r.y), width: pct(r.w), height: pct(r.h) }}>
+      <div
+        className={boxMark({ isGhost: false, isRound: pin.kind === 'ellipse', tone })}
+        style={{ left: pct(r.x), top: pct(r.y), width: pct(r.w), height: pct(r.h), ...(pin.style ? { borderWidth: stroke } : {}) }}
+      >
         {badgeEl}
       </div>
     );
   }
-  if (pin.kind === 'arrow' && pin.to) {
+  if ((pin.kind === 'arrow' || pin.kind === 'line') && pin.to) {
     return (
       <>
-        <svg className={arrow} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+        <svg className={arrow({ tone })} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
           <line
             x1={r.x * 100}
             y1={r.y * 100}
             x2={pin.to.x * 100}
             y2={pin.to.y * 100}
             stroke="currentColor"
-            strokeWidth={2}
+            strokeWidth={stroke}
             strokeLinecap="round"
             vectorEffect="non-scaling-stroke"
           />
         </svg>
-        <span className={head} style={{ left: pct(pin.to.x), top: pct(pin.to.y) }} aria-hidden />
+        {pin.kind === 'arrow' ? <span className={head({ tone })} style={{ left: pct(pin.to.x), top: pct(pin.to.y) }} aria-hidden /> : null}
         <div className={point} style={{ left: pct(r.x), top: pct(r.y) }}>
+          {badgeEl}
+        </div>
+      </>
+    );
+  }
+  if (pin.kind === 'pen' && pin.points?.length) {
+    const first = pin.points[0]!;
+    return (
+      <>
+        <svg className={arrow({ tone })} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+          <polyline
+            points={pin.points.map((p) => `${p.x * 100},${p.y * 100}`).join(' ')}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+        <div className={point} style={{ left: pct(first.x), top: pct(first.y) }}>
           {badgeEl}
         </div>
       </>
@@ -425,7 +504,7 @@ function StageNoteMark({ pin, onRemove }: { pin: VideoAnnotationPin; onRemove: (
   return (
     <div className={point} style={{ left: pct(r.x), top: pct(r.y) }}>
       {badgeEl}
-      {pin.kind === 'text' ? <span className={textLabel}>{pin.text}</span> : null}
+      {pin.kind === 'text' ? <span className={textLabel({ tone })}>{pin.text}</span> : null}
     </div>
   );
 }
@@ -452,11 +531,11 @@ export function StageNotesToolbar({ videoId }: { videoId: Id }) {
         selectedKeys={[kind]}
         onSelectionChange={(keys) => {
           const next = [...keys][0];
-          if (typeof next === 'string' && (VIDEO_ANNOTATION_KINDS as readonly string[]).includes(next))
+          if (typeof next === 'string' && (TIMELINE_VIDEO_ANNOTATION_KINDS as readonly string[]).includes(next))
             setKind(next as VideoAnnotationKind);
         }}
       >
-        {VIDEO_ANNOTATION_KINDS.map((k) => (
+        {TIMELINE_VIDEO_ANNOTATION_KINDS.map((k) => (
           <ToggleButton key={k} id={k}>
             <Text>{V.kinds[k]}</Text>
           </ToggleButton>

@@ -3,6 +3,8 @@ import { itemRangeSeconds, sequenceDisplayName, type AssetRecord, type AudioItem
 import { Content, ContextualHelp, Heading, StatusLight } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { formatFps, videoSlots } from '../../model/editor.ts';
+import { htmlPick } from '../../model/lite-markup.ts';
+import type { LiteSegment } from '../../model/lite-segments.ts';
 import { isPortrait } from '../../model/stage-bar.ts';
 import { layerCaptionMode, layerToggles } from '../../model/stage-layers.ts';
 import type { MediaOutcome } from '../../model/stage-media.ts';
@@ -15,12 +17,15 @@ import { audioKey, imageKey, videoKey, type MediaKey, type PreviewStatus } from 
 import { StageLoadNotice } from './stage-load-notice.tsx';
 import { StageMediaNotice } from './stage-media-notice.tsx';
 import { StageBar, SafeAreaOverlay } from './stage-bar.tsx';
+import { LiteMarkupLayer } from './lite-markup.tsx';
 import { StageNotesLayer, StageNotesToolbar } from './stage-notes.tsx';
 import { StageObjects } from './stage-objects.tsx';
 import { TemplateStudioStage } from './template-studio-stage.tsx';
 import { useAssetUrl } from './use-asset-url.ts';
 import { useStageMedia } from './use-stage-media.ts';
 import { EDITOR_COPY as E } from './editor-copy.ts';
+
+const NO_SEGMENTS: readonly LiteSegment[] = [];
 
 const wrap = style({ display: 'flex', flexDirection: 'column', flexGrow: 1, minHeight: 0, minWidth: 0, backgroundColor: 'gray-100' });
 /** 预览顶部一行：序列名、画布与帧率，右边是画不出来的东西（产品设计 §5.4：看的是当前工作稿时不另加标志）。 */
@@ -105,6 +110,7 @@ export function Preview({
   assets,
   documents,
   lite = false,
+  segments = NO_SEGMENTS,
 }: {
   videoId: Id | null;
   sequence: Sequence;
@@ -112,6 +118,8 @@ export function Preview({
   documents: Record<Id, DocumentRecord>;
   /** 轻量视图（lite-view.tsx）：舞台条换成轻量那一档，画面上的元素不可选、不可拖（没有属性页可编辑）。 */
   lite?: boolean;
+  /** 轻量视图的分段（lite-segments.ts）：标记换成视频标注时记播放头所在的段与句。 */
+  segments?: readonly LiteSegment[];
 }) {
   const { engine } = useEditorActions();
   const fullscreen = useEditor((s) => s.fullscreen);
@@ -304,8 +312,23 @@ export function Preview({
         {/* 标注模式下画面里的元素不能选、不能拖：舞台点选层让位给标注层。 */}
         {fw > 0 && fh > 0 && !fullscreen && !annotating && !studio && !lite ? <StageObjects sequence={sequence} frame={frameRect} /> : null}
         {/* 视频标注层（产品设计 §3.2.3「视频标注」）：盖在画面与舞台点选层之上；全屏播放器不画。 */}
-        {fw > 0 && fh > 0 && !fullscreen && videoId ? <StageNotesLayer videoId={videoId} frame={frameRect} /> : null}
-        {!fullscreen && videoId ? <StageNotesToolbar videoId={videoId} /> : null}
+        {/* 轻量视图的标注模式换成标记层与标记工具条（lite-editor §4.1）：已进草稿的标注照旧由标注层画，但它不接手势。 */}
+        {fw > 0 && fh > 0 && !fullscreen && videoId ? <StageNotesLayer videoId={videoId} frame={frameRect} gestures={!lite} /> : null}
+        {!fullscreen && videoId && !lite ? <StageNotesToolbar videoId={videoId} /> : null}
+        {fw > 0 && fh > 0 && !fullscreen && videoId && lite && annotating ? (
+          <LiteMarkupLayer
+            videoId={videoId}
+            sequence={sequence}
+            assets={assets}
+            documents={documents}
+            segments={segments}
+            frame={frameRect}
+            canvasRef={canvasRef}
+            pickLive={(point) =>
+              liveHost.current?.pick(point).then((hit) => (hit ? htmlPick(hit, sequence.canvas) : null)) ?? Promise.resolve(null)
+            }
+          />
+        ) : null}
         {fullscreen ? (
           <FullscreenPlayer stage={stageRef} sequence={sequence} assets={assets} documents={documents}>
             {notices}

@@ -23,7 +23,9 @@ describe('conversations.send / steer 带的视频标注（产品设计 §3.2.3�
       const schema = methodParamSchemas[method];
       expect(schema.safeParse({ ...base, videoAnnotations: [box, arrow, pin, text] }).success).toBe(true);
       expect(schema.safeParse({ ...base, videoAnnotations: [{ ...box, video: { entryId: 'e1' } }] }).success).toBe(true);
-      expect(schema.safeParse({ ...base, videoAnnotations: [{ ...box, video: { conversationId: 'c', path: 'talk' } }] }).success).toBe(true);
+      expect(schema.safeParse({ ...base, videoAnnotations: [{ ...box, video: { conversationId: 'c', path: 'talk' } }] }).success).toBe(
+        true,
+      );
       expect(schema.safeParse({ ...base, designSystemAnnotations: [system], videoAnnotations: [pin] }).success).toBe(true);
     }
   });
@@ -57,7 +59,7 @@ describe('conversations.send / steer 带的视频标注（产品设计 §3.2.3�
       { ...pin, revision: 3 },
       { ...pin, revision: 'r3' },
       { ...pin, kind: 'circle' },
-      { ...pin, text: '   ' },
+      { ...text, text: '   ' },
       { ...pin, id: 'n1' },
       { ...pin, anchor: 'x' },
       { ...pin, region: { x: 0.8, y: 0.2, w: 0, h: 0, z: 0 } },
@@ -65,6 +67,90 @@ describe('conversations.send / steer 带的视频标注（产品设计 §3.2.3�
       { ...pin, label: 'l'.repeat(1001) },
     ]) {
       expect(send.safeParse({ ...base, videoAnnotations: [bad] }).success, JSON.stringify(bad)).toBe(false);
+    }
+  });
+});
+
+describe('轻量视图标记工具送来的视频标注（docs/design/lite-editor §4）', () => {
+  const base = { conversationId: 'c', text: 'hi', commandId: 'k' };
+  const send = methodParamSchemas['conversations.send'];
+  const common = { video: { projectId: 'p', path: 'talk' }, revision: '12', timeMs: 12400, label: '00:12.4 · 框 · 画面正中', text: '' };
+  const style = { color: 'red', width: 4 } as const;
+  const segment = { id: 's01', kind: 'scene', index: 0, title: '钩子' };
+  const line = { id: 's01:l3', index: 3, text: '它没有掉下来也没有慢下来' };
+  const box = { ...common, kind: 'box', region: { x: 0.42, y: 0.36, w: 0.18, h: 0.22 }, style, segment, line };
+  const ellipse = { ...box, kind: 'ellipse' };
+  const lineMark = { ...common, kind: 'line', region: { x: 0.1, y: 0.1, w: 0, h: 0 }, to: { x: 0.6, y: 0.5 }, style };
+  const points = [
+    { x: 0.1, y: 0.2 },
+    { x: 0.4, y: 0.2 },
+  ];
+  const pen = { ...common, kind: 'pen', region: { x: 0.1, y: 0.2, w: 0.3, h: 0 }, points, style };
+  const caption = { kind: 'caption', id: 's01:l3', text: '它没有掉下来也没有慢下来', detail: 'caption s01:l3 "它没有掉下来也没有慢下来"' };
+  const html = { kind: 'html', selector: 'button#play.bc-icon-button', w: 32, h: 32, name: '播放', role: 'button', focusable: true };
+  const blue = { color: 'blue', width: 4 } as const;
+  const element = { ...common, kind: 'element', region: { x: 0.16, y: 0.84, w: 0.68, h: 0.05 }, element: caption, style: blue };
+  const shot = { timeMs: 12400, stamp: { x: 0.4, y: 0.3 } };
+  const comment = {
+    ...common,
+    kind: 'comment',
+    region: { x: 0.4, y: 0.3, w: 0, h: 0 },
+    element: html,
+    shot,
+    text: '这里慢一点',
+    style: blue,
+    segment,
+  };
+  const text = { ...common, kind: 'text', region: { x: 0.6, y: 0.3, w: 0, h: 0 }, text: '字太小', style };
+  const pin = { ...common, kind: 'pin', region: { x: 0.8, y: 0.2, w: 0, h: 0 }, style };
+
+  it('九种都收；画的标记可以不写批注，带颜色粗细、元素、截图与落点', () => {
+    const layer = { ...element, element: { kind: 'element', id: 'logo' } };
+    expect(send.safeParse({ ...base, videoAnnotations: [box, ellipse, lineMark, pen, element, comment, text, pin, layer] }).success).toBe(
+      true,
+    );
+    expect(send.safeParse({ ...base, videoAnnotations: [{ ...comment, element: undefined }] }).success).toBe(true);
+    expect(send.safeParse({ ...base, videoAnnotations: [{ ...element, region: { x: 0.1, y: 0.1, w: 0, h: 0 } }] }).success).toBe(true);
+    expect(send.safeParse({ ...base, videoAnnotations: [{ ...box, style: undefined, text: '  ' }] }).success).toBe(true);
+    for (const color of ['red', 'blue', 'green', 'black', 'white'])
+      for (const width of [2, 4, 6, 8])
+        expect(send.safeParse({ ...base, videoAnnotations: [{ ...box, style: { color, width } }] }).success).toBe(true);
+  });
+
+  it('按种类核对新字段：画笔要点列、直线要终点、元素要元素、评论要截图与批注；文字与评论不能空，样式只认五色四档，不收别的字段', () => {
+    for (const bad of [
+      { ...text, text: '' },
+      { ...comment, text: '' },
+      { ...comment, text: '  ' },
+      { ...pen, points: undefined },
+      { ...pen, points: [{ x: 0.1, y: 0.2 }] },
+      { ...pen, points: [...points, { x: 1.1, y: 0.2 }] },
+      { ...pen, points: Array.from({ length: 2001 }, () => ({ x: 0.1, y: 0.1 })) },
+      { ...lineMark, to: undefined },
+      { ...lineMark, region: { x: 0.1, y: 0.1, w: 0.1, h: 0.1 } },
+      { ...ellipse, region: { x: 0.1, y: 0.1, w: 0, h: 0.2 } },
+      { ...element, element: undefined },
+      { ...element, element: { kind: 'layer', id: 'x' } },
+      { ...element, element: { ...caption, label: '字幕' } },
+      { ...element, element: { kind: 'html', selector: '' } },
+      { ...comment, shot: undefined },
+      { ...comment, region: { x: 0.4, y: 0.3, w: 0.1, h: 0.1 } },
+      { ...comment, shot: { timeMs: 12400, stamp: { x: 1.4, y: 0.3 } } },
+      { ...box, points },
+      { ...box, shot },
+      { ...box, element: caption },
+      { ...pin, to: { x: 0.5, y: 0.5 } },
+      { ...box, style: { color: 'purple', width: 4 } },
+      { ...box, style: { color: 'red', width: 3 } },
+      { ...box, style: { color: 'red' } },
+      { ...box, style: { ...style, opacity: 1 } },
+      { ...box, segment: { ...segment, index: -1 } },
+      { ...box, segment: { id: 's01', index: 0 } },
+      { ...box, line: { ...line, index: 0 } },
+      { ...box, line: { ...line, extra: 1 } },
+      { ...box, detail: 'caption x' },
+    ]) {
+      expect(send.safeParse({ ...base, videoAnnotations: [bad] }).success, JSON.stringify(bad).slice(0, 200)).toBe(false);
     }
   });
 });

@@ -27,6 +27,7 @@ import { Composer } from '../composer.tsx';
 import { useEditorReference } from '../use-editor-reference.ts';
 import { AgentGateLine } from './agent-gate-line.tsx';
 import { QUICK_CHAT_COPY as COPY } from './quick-chat-copy.ts';
+import { videoChatDraftKey } from './video-chat-draft.ts';
 
 // 展开的卡片让开右侧竖排的工具栏（48px 宽的一列加 24px 间距）；最小化的圆形图标照旧贴在右下角、工具栏下方。
 const dock = style({ position: 'absolute', insetEnd: { default: 24, isOpen: '[72px]' }, bottom: 24, zIndex: 20 });
@@ -81,11 +82,6 @@ const title = style({ flexGrow: 1, minWidth: 0, font: 'title-sm', overflow: 'hid
 const body = style({ paddingTop: 4, marginBottom: -8 });
 const gate = style({ paddingX: 16, paddingBottom: 12 });
 
-/** 悬浮会话的草稿按视频分：换一个视频就是另一个输入框，没发出的话不跟过去。 */
-function draftKeyOf(videoKey: string | null): string {
-  return `video-chat:${videoKey ?? ''}`;
-}
-
 /**
  * Space 里打开的视频右下角的悬浮会话（产品设计 §2.2、§5.1）：默认展开成一个新会话的输入框，不抢编辑器的焦点；最小化后缩成图标
  * （记在本机），图标上的点提示这里最近发起的会话正在干活、等批准或做完未读。输入框与 Home 起始页同一个（`Composer`）：左边访问模式，
@@ -110,7 +106,7 @@ export function VideoQuickChat() {
     const target = routeVideo(s.route);
     return target ? targetKey(target) : null;
   });
-  const draftKey = draftKeyOf(key);
+  const draftKey = videoChatDraftKey(key);
   // 图标上的点看这里最近发起的那条会话；被删了（目录里找不到）就不亮。
   const started = useShell((s) => (key ? (s.videoChats[key] ?? null) : null));
   const watched = useConversationMeta(started);

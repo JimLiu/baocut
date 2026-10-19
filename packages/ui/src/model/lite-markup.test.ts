@@ -1,0 +1,316 @@
+import { describe, expect, it } from 'vitest';
+import type { Sequence, SequenceItem } from '@baocut/protocol';
+import type { VisualLayer } from '../render/frame-plan.ts';
+import type { CaptionHit } from '../render/render-planner.ts';
+import type { LiteSegment } from './lite-segments.ts';
+import * as M from './lite-markup.ts';
+
+/** 轻量编辑器的标记（docs/design/lite-editor §4；原型 designs/baocut/app/model-markup.test.js）。 */
+
+const frame = { w: 800, h: 400 };
+
+describe('状态与历史', () => {
+  it('初始：画笔、矩形、红、4px；加标记带当前颜色粗细并选中它', () => {
+    const s = M.init();
+    expect([s.tool, s.shape, s.color, s.width, s.marks, s.sel]).toEqual(['pen', 'box', 'red', 4, [], null]);
+    const t = M.add(M.setColor(M.setWidth(s, 6), 'blue'), { kind: 'box', x: 0.1, y: 0.1, w: 0.2, h: 0.2 });
+    expect(t.marks.length).toBe(1);
+    expect([t.marks[0]!.color, t.marks[0]!.width, t.sel]).toEqual(['blue', 6, t.marks[0]!.id]);
+    expect(M.setShape(s, 'arrow').tool).toBe('shape');
+    expect(M.setTool(t, 'text').sel).toBeNull();
+  });
+
+  it('撤销 / 重做：每次改动进历史，撤销回上一组，重做再回来；新改动清掉未来', () => {
+    let s = M.add(M.init(), { id: 'a', kind: 'box', x: 0, y: 0, w: 0.5, h: 0.5 });
+    s = M.add(s, { id: 'b', kind: 'pin', x: 0.2, y: 0.2, w: 0, h: 0 });
+    expect(M.canUndo(s) && !M.canRedo(s)).toBe(true);
+    s = M.undo(s);
+    expect(s.marks.map((m) => m.id)).toEqual(['a']);
+    expect(M.canRedo(s)).toBe(true);
+    s = M.redo(s);
+    expect(s.marks.map((m) => m.id)).toEqual(['a', 'b']);
+    s = M.undo(M.undo(s));
+    expect([s.marks, M.canUndo(s)]).toEqual([[], false]);
+    s = M.add(s, { id: 'c', kind: 'text', x: 0.5, y: 0.5, w: 0, h: 0, text: '字' });
+    expect(M.canRedo(s)).toBe(false);
+    expect(M.clear(s).marks).toEqual([]);
+    expect(M.undo(M.clear(s)).marks.map((m) => m.id)).toEqual(['c']);
+  });
+
+  it('选中后改颜色 / 粗细连那条一起改；删除、拖动中的改动不进历史', () => {
+    let s = M.add(M.init(), { id: 'a', kind: 'line', x: 0.1, y: 0.1, w: 0, h: 0, to: { x: 0.5, y: 0.5 } });
+    s = M.setColor(s, 'green');
+    expect(s.marks[0]!.color).toBe('green');
+    s = M.select(s, null);
+    s = M.setWidth(s, 8);
+    expect([s.width, s.marks[0]!.width]).toEqual([8, 4]);
+    const n = s.past.length;
+    s = M.update(s, 'a', { x: 0.2 }, { history: false });
+    expect([s.marks[0]!.x, s.past.length]).toEqual([0.2, n]);
+    const orig = s.marks[0]!;
+    s = M.update(s, 'a', { x: 0.3 }, { history: false });
+    s = M.finishDrag(s, 'a', orig);
+    expect([s.marks[0]!.x, s.past.length, s.past[n]!.find((m) => m.id === 'a')!.x]).toEqual([0.3, n + 1, 0.2]);
+    expect(M.finishDrag(s, 'a', s.marks[0])).toBe(s);
+    s = M.remove(s, 'a');
+    expect([s.marks, s.sel, s.past.length]).toEqual([[], null, n + 2]);
+  });
+
+  it('发出去的几条从画面与整段历史里一起拿掉，撤销不再带回来', () => {
+    let s = M.add(M.init(), { id: 'a', kind: 'box', x: 0, y: 0, w: 0.5, h: 0.5 });
+    s = M.add(s, { id: 'c', kind: 'comment', x: 0.4, y: 0.3, w: 0, h: 0, text: '慢一点' });
+    s = M.forget(s, ['c']);
+    expect([s.marks.map((m) => m.id), s.sel]).toEqual([['a'], null]);
+    expect(M.undo(s).marks.map((m) => m.id)).toEqual(['a']);
+    expect(M.forget(s, [])).toBe(s);
+  });
+});
+
+describe('几何', () => {
+  it('手势换成归一化几何：矩形取两点的框，箭头带终点，画笔带点列与外接框，点只记一个点', () => {
+    expect(M.fromGesture('box', { x: 600, y: 100 }, { x: 200, y: 300 }, frame)).toEqual({ x: 0.25, y: 0.25, w: 0.5, h: 0.5 });
+    expect(M.fromGesture('arrow', { x: -20, y: 0 }, { x: 900, y: 400 }, frame)).toEqual({ x: 0, y: 0, w: 0, h: 0, to: { x: 1, y: 1 } });
+    const pen = M.fromGesture('pen', { x: 80, y: 40 }, null, frame, [
+      { x: 80, y: 40 },
+      { x: 160, y: 80 },
+      { x: 120, y: 200 },
+    ]);
+    expect(pen.points).toEqual([
+      { x: 0.1, y: 0.1 },
+      { x: 0.2, y: 0.2 },
+      { x: 0.15, y: 0.5 },
+    ]);
+    expect([pen.x, pen.y, pen.w, pen.h]).toEqual([0.1, 0.1, 0.1, 0.4]);
+    expect(M.fromGesture('pin', { x: 400, y: 200 }, null, frame)).toEqual({ x: 0.5, y: 0.5, w: 0, h: 0 });
+  });
+
+  it('平移不出画面，点列与终点一起挪；把手：框八枚、线两端、点没有；拖把手改框不小于 1%', () => {
+    const line = { kind: 'arrow' as const, x: 0.8, y: 0.8, w: 0, h: 0, to: { x: 0.9, y: 0.9 } };
+    const moved = M.move(line, 0.5, -0.2);
+    expect([moved.x, moved.y, moved.to]).toEqual([0.9, 0.6, { x: 1, y: 0.7 }]);
+    const pen = {
+      kind: 'pen' as const,
+      x: 0,
+      y: 0,
+      w: 0.2,
+      h: 0.2,
+      points: [
+        { x: 0, y: 0 },
+        { x: 0.2, y: 0.2 },
+      ],
+    };
+    expect(M.move(pen, -0.5, 0.1).points).toEqual([
+      { x: 0, y: 0.1 },
+      { x: 0.2, y: 0.3 },
+    ]);
+    const box = { kind: 'box' as const, x: 0.2, y: 0.2, w: 0.4, h: 0.2 };
+    expect(M.handles(box).map((h) => h.k)).toEqual(M.BOX_HANDLES);
+    expect(M.handles({ ...box, kind: 'element' }).length).toBe(8);
+    expect(M.handles(box)[4]).toEqual({ k: 'se', x: 0.6, y: 0.4 });
+    expect(M.handles(line).map((h) => h.k)).toEqual(['from', 'to']);
+    expect(M.handles({ kind: 'pin', x: 0.5, y: 0.5, w: 0, h: 0 })).toEqual([]);
+    expect(M.resize(box, 'se', 0.1, 0.1)).toEqual({ kind: 'box', x: 0.2, y: 0.2, w: 0.5, h: 0.3 });
+    expect(M.resize(box, 'nw', 0.1, -0.5)).toEqual({ kind: 'box', x: 0.3, y: 0, w: 0.3, h: 0.4 });
+    expect(M.resize(box, 'e', -0.9, 0).w).toBe(0.01);
+    expect(M.resize(line, 'to', 0.5, 0.5).to).toEqual({ x: 1, y: 1 });
+  });
+
+  it('编号按加入顺序从 1 起；没写字的文字标记不发', () => {
+    let s = M.add(M.init(), { id: 's1', kind: 'pin', x: 0.1, y: 0.1, w: 0, h: 0 });
+    s = M.add(s, { id: 't', kind: 'text', x: 0.3, y: 0.3, w: 0, h: 0, text: '' });
+    s = M.add(s, { id: 's2', kind: 'pin', x: 0.2, y: 0.2, w: 0, h: 0 });
+    expect([M.stepNumber(s.marks, 's1'), M.stepNumber(s.marks, 's2'), M.stepNumber(s.marks, 't')]).toEqual([1, 2, null]);
+    expect(M.sendable(s.marks).map((m) => m.id)).toEqual(['s1', 's2']);
+    expect(M.stepNumber(M.remove(s, 's1').marks, 's2')).toBe(1);
+  });
+});
+
+describe('选择元素', () => {
+  const canvas = { width: 1920, height: 1080 };
+  const sequence = {
+    tracks: [
+      { id: 'v1', order: 0, kind: 'visual' },
+      { id: 'v2', order: 1, kind: 'visual' },
+    ],
+    items: [
+      { id: 'main', type: 'video', trackId: 'v1' },
+      { id: 'logo', type: 'text', trackId: 'v2', text: '宝玉讲明白' },
+      { id: 'pic', type: 'image', trackId: 'v2', name: 'cover' },
+    ],
+  } as unknown as Sequence;
+  const layer = (itemId: string, kind: VisualLayer['kind'], matrix: VisualLayer['matrix']) =>
+    ({ itemId, kind, matrix, opacity: 1 }) as VisualLayer;
+  const layers = [
+    layer('main', 'video', [1920, 0, 0, 1080, 0, 0]),
+    layer('pic', 'image', [200, 0, 0, 100, 1000, 100]),
+    layer('logo', 'text', [200, 0, 0, 100, 100, 100]),
+  ];
+  const poses: Record<string, { cx: number; cy: number; w: number; h: number; rotation: number }> = {
+    logo: { cx: 200, cy: 150, w: 200, h: 100, rotation: 0 },
+    pic: { cx: 1100, cy: 150, w: 200, h: 100, rotation: 0 },
+  };
+  const poseOf = (item: SequenceItem) => poses[item.id] ?? null;
+  const hit = (over: Partial<CaptionHit>): CaptionHit => ({
+    layerId: 'cap',
+    itemId: 'cap',
+    documentId: 'doc',
+    cueId: 'c3',
+    cx: 960,
+    cy: 950,
+    w: 800,
+    h: 60,
+    rotation: 0,
+    ...over,
+  });
+
+  it('先认字幕行（同一句的几行并成一个框），带那一句的文字', () => {
+    const captionHits = [hit({}), hit({ cy: 1010 })];
+    const pick = M.pickElement({
+      point: { x: 960, y: 950 },
+      canvas,
+      captionHits,
+      layers,
+      sequence,
+      poseOf,
+      cueText: () => ' 它没有掉下来 ',
+    });
+    expect(pick).toEqual({ rect: { x: 560, y: 920, w: 800, h: 120 }, element: { kind: 'caption', id: 'cap:c3', text: '它没有掉下来' } });
+    const bare = M.pickElement({ point: { x: 960, y: 950 }, canvas, captionHits, layers, sequence, poseOf });
+    expect(bare?.element).toEqual({ kind: 'caption', id: 'cap:c3' });
+  });
+
+  it('再认画面元素：文字用它的字，别的用名字；主视频不算', () => {
+    const pick = (x: number, y: number) => M.pickElement({ point: { x, y }, canvas, captionHits: [], layers, sequence, poseOf });
+    expect(pick(200, 150)).toEqual({
+      rect: { x: 100, y: 100, w: 200, h: 100 },
+      element: { kind: 'element', id: 'logo', text: '宝玉讲明白' },
+    });
+    expect(pick(1100, 150)?.element).toEqual({ kind: 'element', id: 'pic', text: 'cover' });
+    expect(pick(900, 600)).toBeNull();
+    expect(M.normalizedRect({ x: 100, y: 100, w: 200, h: 100 }, canvas)).toEqual({ x: 0.052, y: 0.093, w: 0.104, h: 0.093 });
+  });
+
+  it('命中实时合成层那件才再问 iframe；问到的节点记成 html（尺寸是节点的 CSS 像素，框裁在画布内）', () => {
+    const live = M.pickElement({ point: { x: 200, y: 150 }, canvas, captionHits: [], layers, sequence, poseOf });
+    expect(M.wantsLivePick(live, 'logo')).toBe(true);
+    expect(M.wantsLivePick(live, 'pic')).toBe(false);
+    expect(M.wantsLivePick(live, null)).toBe(false);
+    expect(M.wantsLivePick(null, 'logo')).toBe(false);
+    expect(M.wantsLivePick({ rect: { x: 0, y: 0, w: 1, h: 1 }, element: { kind: 'caption', id: 'logo' } }, 'logo')).toBe(false);
+
+    const node = {
+      selector: 'button#play.icon',
+      w: 32,
+      h: 32,
+      name: 'Play',
+      role: 'button',
+      focusable: true,
+      rect: { x: 0, y: 0, w: 32, h: 32 },
+    };
+    expect(M.htmlPick({ rect: { x: -20, y: 1000, w: 120, h: 120 }, node }, canvas)).toEqual({
+      rect: { x: 0, y: 1000, w: 100, h: 80 },
+      element: { kind: 'html', selector: 'button#play.icon', w: 32, h: 32, name: 'Play', role: 'button', focusable: true },
+    });
+    const bare = M.htmlPick(
+      { rect: { x: 10, y: 10, w: 5, h: 5 }, node: { selector: 'div', w: 5, h: 5, focusable: false, rect: node.rect } },
+      canvas,
+    );
+    expect(bare?.element).toEqual({ kind: 'html', selector: 'div', w: 5, h: 5, focusable: false });
+    expect(M.htmlPick({ rect: { x: 3000, y: 10, w: 5, h: 5 }, node }, canvas)).toBeNull();
+  });
+});
+
+describe('换成视频标注', () => {
+  const lines = [
+    { id: 's1:l1', start: 0, end: 2, text: '第一句' },
+    { id: 's1:l2', start: 2, end: 5, text: '那一个有点危险的做法' },
+  ];
+  const segments: LiteSegment[] = [
+    { id: 's1', index: 0, source: 'chapter', title: '钩子', start: 0, end: 10, lines },
+    { id: 's2', index: 1, source: 'chapter', title: '倒着为什么不掉', start: 10, end: 20, lines: [] },
+  ];
+
+  it('落点：段与句（句序从 1 起）；没有当前句时省略', () => {
+    expect(M.markupPlacement(segments, 3)).toEqual({
+      segment: { id: 's1', kind: 'chapter', index: 0, title: '钩子' },
+      line: { id: 's1:l2', index: 2, text: '那一个有点危险的做法' },
+    });
+    expect(M.markupPlacement(segments, 12)).toEqual({ segment: { id: 's2', kind: 'chapter', index: 1, title: '倒着为什么不掉' } });
+    expect(M.markupPlacement([], 3)).toEqual({});
+  });
+
+  it('HTML 节点的元素标记只带协议字段，detail 照 DevTools 的说法', () => {
+    const element = { kind: 'html' as const, selector: 'button#play', w: 32, h: 32, name: 'Play', role: 'button', focusable: true };
+    const s = M.add(M.init(), {
+      id: 'e',
+      kind: 'element',
+      x: 0.1,
+      y: 0.1,
+      w: 0.1,
+      h: 0.1,
+      element,
+      elementBox: { x: 0.1, y: 0.1, w: 0.1, h: 0.1 },
+    });
+    const [note] = M.toNotes(s.marks, { videoId: 'v', video: { conversationId: 'c', path: 'p' }, revision: '1', timeMs: 0 });
+    expect(note!.element).toEqual({ ...element, detail: 'html button#play 32×32 name="Play" role=button' });
+    expect(note!.label).toContain('button#play · 32 × 32');
+  });
+
+  it('矩形是 box、编号是 pin，带颜色粗细与落点；文字与评论的内容进批注；元素只带协议字段与 detail；评论带印章截图', () => {
+    let s = M.add(M.init(), { id: 'a', kind: 'box', x: 0.1, y: 0.1, w: 0.2, h: 0.2 });
+    s = M.add(s, { id: 'b', kind: 'pin', x: 0.5, y: 0.5, w: 0, h: 0 });
+    s = M.add(s, { id: 'c', kind: 'text', x: 0.6, y: 0.6, w: 0, h: 0, text: ' 字太小 ' });
+    s = M.add(s, { id: 'd', kind: 'text', x: 0.7, y: 0.7, w: 0, h: 0, text: '' });
+    s = M.add(s, { id: 'e', kind: 'element', x: 0.2, y: 0.8, w: 0.6, h: 0.1, element: { kind: 'caption', id: 'cap:c3', text: '你好' } });
+    s = M.add(s, {
+      id: 'f',
+      kind: 'comment',
+      x: 0.4,
+      y: 0.3,
+      w: 0,
+      h: 0,
+      text: '这里慢一点',
+      element: { kind: 'element', id: 'logo' },
+      elementBox: { x: 0.3, y: 0.2, w: 0.2, h: 0.2 },
+    });
+    s = M.add(s, { id: 'g', kind: 'comment', x: 0.5, y: 0.3, w: 0, h: 0, text: '' });
+    s = M.add(s, { id: 'h', kind: 'line', x: 0.1, y: 0.1, w: 0, h: 0, to: { x: 0.3, y: 0.4 }, color: 'white', width: 8 });
+    const base = {
+      videoId: 'v1',
+      video: { conversationId: 'c1', path: 'talk' },
+      revision: '12',
+      timeMs: 3000,
+      ...M.markupPlacement(segments, 3),
+    };
+    const notes = M.toNotes(s.marks, base);
+    expect(notes.map((n) => n.kind)).toEqual(['box', 'pin', 'text', 'element', 'comment', 'line']);
+    expect(notes.map((n) => n.id)).toEqual(['a', 'b', 'c', 'e', 'f', 'h']);
+    expect(notes[0]).toEqual({
+      id: 'a',
+      videoId: 'v1',
+      video: { conversationId: 'c1', path: 'talk' },
+      revision: '12',
+      timeMs: 3000,
+      kind: 'box',
+      region: { x: 0.1, y: 0.1, w: 0.2, h: 0.2 },
+      style: { color: 'red', width: 4 },
+      segment: { id: 's1', kind: 'chapter', index: 0, title: '钩子' },
+      line: { id: 's1:l2', index: 2, text: '那一个有点危险的做法' },
+      label: '00:03.0 · 框 · 画面左上 · s1 · 第 2 句',
+      text: '',
+    });
+    expect(notes[2]!.text).toBe('字太小');
+    expect(notes[3]!.element).toEqual({ kind: 'caption', id: 'cap:c3', text: '你好', detail: 'caption cap:c3 "你好"' });
+    expect(notes[3]!.label).toBe('00:03.0 · 字幕 · “你好” · s1 · 第 2 句');
+    expect(notes[4]!.shot).toEqual({ timeMs: 3000, stamp: { x: 0.4, y: 0.3 } });
+    expect(notes[4]!.element).toEqual({ kind: 'element', id: 'logo', detail: 'element logo' });
+    expect(notes[4]).not.toHaveProperty('elementBox');
+    expect(notes[0]!.shot).toBeUndefined();
+    expect([notes[5]!.to, notes[5]!.style]).toEqual([
+      { x: 0.3, y: 0.4 },
+      { color: 'white', width: 8 },
+    ]);
+    const bare = M.toNotes([s.marks[0]!], { ...base, segment: undefined, line: undefined });
+    expect(bare[0]).not.toHaveProperty('segment');
+  });
+});

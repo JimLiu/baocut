@@ -4,12 +4,14 @@ import {
   type BundleHandle,
   type CodeBundleContract,
   type CompositionBridgeMessage,
+  type CompositionBridgePick,
   type CompositionBridgeRequest,
   type CompositionBridgeResponse,
   type Id,
   type VersionRef,
 } from '@baocut/protocol';
 import type { LiveCandidate } from '../../model/live-composition.ts';
+import type { Rect } from '../../model/stage-pose.ts';
 import type { LiveLayer } from '../../render/frame-plan.ts';
 
 /**
@@ -25,6 +27,9 @@ import type { LiveLayer } from '../../render/frame-plan.ts';
  * - 在视的那个还没画出第一帧（页面在载入、还没就位，或第一次定位还没回信）时报「在载入」，舞台照常盖着载入面板。
  * - 在视的那个按帧计划的 `matrix` 摆（按清单固有尺寸布置页面再 CSS 变换），其余预载的留在版面里但不显示
  *   （`opacity: 0`，不用 `display: none`，否则页面的动画帧不跑）。最多挂 `maxMounted` 个。
+ * - 「选择元素」的拾取（`pick`，lite-editor §4.1、§11 第 12 条）：画布上的点按 `matrix` 反推成固有像素问在视的那个，回来的节点框
+ *   再正变换回画布像素；高亮由标记层按这个框画，不进页面。与 `seek` 各占一个在路上的名额，同样只记最新；超时或报错兑现 `null`，
+ *   不算失败（不拉黑）。`inert` 与 `pointer-events: none` 不挡页面里的 `elementFromPoint`。
  */
 
 export interface LiveHost {
@@ -48,6 +53,8 @@ export interface BridgePort {
 
 export interface LiveLayerHostOptions {
   readyTimeoutMs?: number;
+  /** 拾取等多久（默认 400 ms）；过了兑现 null。 */
+  pickTimeoutMs?: number;
   maxMounted?: number;
   port?: (element: HTMLIFrameElement) => BridgePort;
 }
@@ -70,6 +77,72 @@ function windowPort(element: HTMLIFrameElement): BridgePort {
 
 const READY_TIMEOUT_MS = 3000;
 const MAX_MOUNTED = 3;
+const PICK_TIMEOUT_MS = 400;
+
+type Matrix = LiveLayer['matrix'];
+
+/** 拾到的节点：框在画布像素（外包盒），`node` 是页面回的说明（验过形）。 */
+export interface LivePick {
+  itemId: Id;
+  rect: Rect;
+  node: CompositionBridgePick;
+}
+
+const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const optionalString = (v: unknown) => v === undefined || typeof v === 'string';
+
+/** 页面回的 `pick` 结果（不受信）逐字段验形：不合就当 `null`；只留协议认的字段。 */
+export function readBridgePick(value: unknown): CompositionBridgePick | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const v = value as Record<string, unknown>;
+  const rect = v.rect as Record<string, unknown> | null | undefined;
+  if (typeof v.selector !== 'string' || !v.selector || !finite(v.w) || !finite(v.h) || typeof v.focusable !== 'boolean') return null;
+  if (!optionalString(v.name) || !optionalString(v.role)) return null;
+  if (typeof rect !== 'object' || rect === null || !finite(rect.x) || !finite(rect.y) || !finite(rect.w) || !finite(rect.h)) return null;
+  return {
+    selector: v.selector,
+    w: v.w,
+    h: v.h,
+    ...(v.name ? { name: v.name as string } : {}),
+    ...(v.role ? { role: v.role as string } : {}),
+    focusable: v.focusable,
+    rect: { x: rect.x, y: rect.y, w: rect.w, h: rect.h },
+  };
+}
+
+/**
+ * 画布像素 → 合成的固有像素：`matrix` 把单位方块映到画布，固有像素 (px, py) 在画布上是 `M·(px/width, py/height)`，这里求逆。
+ * 矩阵退化（行列式近 0）时是 null。
+ */
+export function canvasToIntrinsic(matrix: Matrix, size: { width: number; height: number }, point: { x: number; y: number }) {
+  const [a, b, c, d, e, f] = matrix;
+  const det = a * d - b * c;
+  if (!(Math.abs(det) > 1e-9) || !(size.width > 0) || !(size.height > 0)) return null;
+  const dx = point.x - e;
+  const dy = point.y - f;
+  return { x: ((d * dx - c * dy) / det) * size.width, y: ((a * dy - b * dx) / det) * size.height };
+}
+
+/** 固有像素的框 → 画布像素：四个角正变换后取外包盒。 */
+export function intrinsicRectToCanvas(matrix: Matrix, size: { width: number; height: number }, rect: Rect): Rect {
+  const [a, b, c, d, e, f] = matrix;
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (const [px, py] of [
+    [rect.x, rect.y],
+    [rect.x + rect.w, rect.y],
+    [rect.x, rect.y + rect.h],
+    [rect.x + rect.w, rect.y + rect.h],
+  ] as const) {
+    const u = px / size.width;
+    const v = py / size.height;
+    xs.push(a * u + c * v + e);
+    ys.push(b * u + d * v + f);
+  }
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+}
 
 type BridgeResult = CompositionBridgeResponse['result'];
 type FrameState = 'loading' | 'ready' | 'failed' | 'disposed';
@@ -95,6 +168,9 @@ class LiveFrame {
   #nextId = 1;
   #inFlight = false;
   #wanted: number | null = null;
+  /** 在路上的那个拾取，与路上来了、还没发的最新一个（更早没发的兑现 null）。 */
+  #pickInFlight: ((value: CompositionBridgePick | null) => void) | null = null;
+  #wantedPick: { x: number; y: number; settle: (value: CompositionBridgePick | null) => void } | null = null;
   #timer: ReturnType<typeof setTimeout> | null;
   readonly #port: BridgePort;
   readonly #unsubscribe: () => void;
@@ -154,15 +230,59 @@ class LiveFrame {
     this.#send(seconds);
   }
 
+  /** 问页面这一点（固有像素）下最内层的节点；没就绪、超时、报错或被更新的一次顶掉都兑现 null。 */
+  pick(x: number, y: number, timeoutMs: number): Promise<CompositionBridgePick | null> {
+    if (this.state !== 'ready') return Promise.resolve(null);
+    return new Promise((settle) => {
+      if (this.#pickInFlight) {
+        this.#wantedPick?.settle(null);
+        this.#wantedPick = { x, y, settle };
+        return;
+      }
+      this.#sendPick(x, y, settle, timeoutMs);
+    });
+  }
+
   dispose(): void {
     if (this.state === 'disposed') return;
     const live = this.state === 'ready';
+    this.#settlePicks();
     this.state = 'disposed';
     this.#clearTimer();
     this.#unsubscribe();
     if (live) this.#port.post({ channel: COMPOSITION_BRIDGE_CHANNEL, kind: 'dispose', id: this.#nextId++ });
     this.#pending.clear();
     this.element.remove();
+  }
+
+  #sendPick(x: number, y: number, settle: (value: CompositionBridgePick | null) => void, timeoutMs: number): void {
+    const id = this.#nextId++;
+    const finish = (value: CompositionBridgePick | null) => {
+      if (this.#pickInFlight !== finish) return;
+      this.#pickInFlight = null;
+      clearTimeout(timer);
+      this.#pending.delete(id);
+      settle(value);
+      const next = this.#wantedPick;
+      this.#wantedPick = null;
+      if (next) {
+        if (this.state === 'ready') this.#sendPick(next.x, next.y, next.settle, timeoutMs);
+        else next.settle(null);
+      }
+    };
+    this.#pickInFlight = finish;
+    const timer = setTimeout(() => finish(null), timeoutMs);
+    this.#request({ channel: COMPOSITION_BRIDGE_CHANNEL, kind: 'pick', id, x, y }).then((result) =>
+      finish(this.state === 'ready' && result.ok ? readBridgePick(result.value) : null),
+    );
+  }
+
+  /** 挂着的拾取一律兑现 null（拆掉、失败时）。 */
+  #settlePicks(): void {
+    const wanted = this.#wantedPick;
+    this.#wantedPick = null;
+    wanted?.settle(null);
+    this.#pickInFlight?.(null);
   }
 
   #send(seconds: number): void {
@@ -223,6 +343,7 @@ class LiveFrame {
 
   #failed(reason: string): void {
     if (this.state === 'failed' || this.state === 'disposed') return;
+    this.#settlePicks();
     this.state = 'failed';
     this.#clearTimer();
     this.element.style.opacity = '0';
@@ -239,6 +360,7 @@ export class LiveLayerHost implements LiveHost {
   readonly #root: HTMLElement;
   readonly #resolve: ResolveBundle;
   readonly #readyTimeoutMs: number;
+  readonly #pickTimeoutMs: number;
   readonly #maxMounted: number;
   readonly #port: (element: HTMLIFrameElement) => BridgePort;
   readonly #frames = new Map<Id, LiveFrame>();
@@ -254,6 +376,7 @@ export class LiveLayerHost implements LiveHost {
     this.#root = root;
     this.#resolve = resolve;
     this.#readyTimeoutMs = options.readyTimeoutMs ?? READY_TIMEOUT_MS;
+    this.#pickTimeoutMs = options.pickTimeoutMs ?? PICK_TIMEOUT_MS;
     this.#maxMounted = options.maxMounted ?? MAX_MOUNTED;
     this.#port = options.port ?? windowPort;
   }
@@ -309,6 +432,22 @@ export class LiveLayerHost implements LiveHost {
     }
     if (!layer || !this.#frames.has(layer.itemId)) this.#shown = null;
     this.#updateLoading();
+  }
+
+  /**
+   * 画布上这一点（画布像素）下，在视的那个合成里最内层的节点（lite-editor §11 第 12 条）。没有在视的、它还没就绪、点不在合成里、
+   * 页面没回或回得不对，都是 null。
+   */
+  async pick(point: { x: number; y: number }): Promise<LivePick | null> {
+    const shown = this.#shown;
+    const frame = shown && !this.#disposed ? this.#frames.get(shown.itemId) : undefined;
+    if (!shown || !frame || frame.state !== 'ready') return null;
+    const size = { width: frame.candidate.width, height: frame.candidate.height };
+    const at = canvasToIntrinsic(shown.layer.matrix, size, point);
+    if (!at || at.x < 0 || at.y < 0 || at.x > size.width || at.y > size.height) return null;
+    const node = await frame.pick(at.x, at.y, this.#pickTimeoutMs);
+    if (!node) return null;
+    return { itemId: shown.itemId, rect: intrinsicRectToCanvas(shown.layer.matrix, size, node.rect), node };
   }
 
   onFailure(listener: (itemId: Id, reason: string) => void): () => void {

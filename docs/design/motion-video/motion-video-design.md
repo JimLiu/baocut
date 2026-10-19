@@ -134,7 +134,7 @@ bundle 换了版本 → 若 intrinsic 时长 ≠ 章长且 owner 不是 bundle�
 
 今天舞台只有一张 WASM 画的 `<canvas>`。要在编辑器里播代码包，舞台增加一种「实时合成层」：每个在视的代码合成一个沙箱 `<iframe>`（`sandbox` 不放网络、不放顶层导航；包内文件经媒体通道按来源放行），由预览引擎按共用的播放时钟驱动：
 
-- `baocut/1`：每个视频帧调一次 `renderAt(time, params)`，`time` 是实例的 `timeMap` 映射后的本地时间；`hyperframes/1`：调 `seek`。两种合同沿用 `packages/code-runtime/src/composition-adapter.ts` 注入页面的同一份脚本；离屏宿主用 `executeJavaScript` 直接调它，编辑器里要改成 `postMessage` 桥接（沙箱 iframe 不开 `allow-same-origin` 时父页面调不进去），桥的两端与 sandbox 的取值随 §4.2 一起验证。
+- `baocut/1`：每个视频帧调一次 `renderAt(time, params)`，`time` 是实例的 `timeMap` 映射后的本地时间；`hyperframes/1`：调 `seek`。两种合同沿用 `packages/code-runtime/src/composition-adapter.ts` 注入页面的同一份脚本；离屏宿主用 `executeJavaScript` 直接调它，编辑器里要改成 `postMessage` 桥接（沙箱 iframe 不开 `allow-same-origin` 时父页面调不进去），桥的两端与 sandbox 的取值随 §4.2 一起验证。标记工具经桥的 `pick` 拾节点：轻量视图的「选择元素」问页面某一点下最内层的节点（轻量编辑器设计 §4.1、§11 第 12 条）。
 - 播放中按显示器刷新驱动但一个视频帧只送一次（与架构设计 §9.4 的现规则一致）；定位时送目标帧并等两次 `requestAnimationFrame` 再认为「到了」。
 - 当前章与前后各一章的 iframe 预先载入（`initialize` 跑完、第 0 帧画好），其余按需；一次最多挂 3 个，超出的 `dispose`。
 - 层的几何按实例的 `place`、`fit` 与画布比例摆，与替身是同一套（`item_box.rs` 把合成当媒体算，继续用）。
@@ -150,7 +150,7 @@ bundle 换了版本 → 若 intrinsic 时长 ≠ 章长且 owner 不是 bundle�
 - 代码包载入失败、`renderAt` 抛错或 3 秒内没就绪：退回替身；替身也没有就是现有的占位（代码包规范 §7.3）。
 - 在视的实时层页面还没画出第一帧（还在载入、还没就位，或第一次定位还没回信）时，舞台盖着与媒体载入同一块载入面板（产品设计 §5.1「预览载入与卡住」），画好就撤；退回替身后替身还在来时同样盖着，替身在转换时是「正在准备预览」。
 - 声音始终来自轨道上的实例，由现有的 `<audio>` 元素播；实时层不出声。
-- 舞台点选、拖动仍按实例的几何盒算（`stage-pose.ts`），iframe 上盖一层透明的拾取面，指针事件不进包。
+- 舞台点选、拖动仍按实例的几何盒算（`stage-pose.ts`），iframe 上盖一层透明的拾取面，指针事件不进包。标记工具的「选择元素」经桥的 `pick` 拾 iframe 里的节点，不靠指针事件：`inert` 与 `pointer-events: none` 不挡页面里的 `elementFromPoint`。
 
 ### 4.4 导入即可播
 

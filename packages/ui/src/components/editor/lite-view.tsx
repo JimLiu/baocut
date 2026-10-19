@@ -92,7 +92,14 @@ export function LiteView({
       <div className={column}>
         <FontBar videoId={video.videoId} />
         <VersionsStrip video={video} />
-        <Preview videoId={video.videoId} sequence={shown} assets={snapshot.assets} documents={snapshot.documents} lite />
+        <Preview
+          videoId={video.videoId}
+          sequence={shown}
+          assets={snapshot.assets}
+          documents={snapshot.documents}
+          lite
+          segments={segments}
+        />
         <StageLiveCaptions videoId={video.videoId} sequence={shown} documents={snapshot.documents} />
         <TimelineChapters sequence={sequence} />
         <LiteTransport

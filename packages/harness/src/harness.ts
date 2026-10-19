@@ -62,6 +62,7 @@ import {
   type SettingsReader,
   type SlideAnnotation,
   type VideoAnnotation,
+  videoAnnotationElementDetail,
   type SpaceEntryReference,
   type SpaceReadScope,
   type TaskContract,
@@ -2989,20 +2990,24 @@ function annotationTimecode(ms: number): string {
   return h > 0 ? `${h}:${pad(m)}:${sec}` : `${pad(m)}:${sec}`;
 }
 
-/** 给模型看的区域：归一化坐标原样给，框另说一句百分比方便读。 */
+/** 给模型看的区域：归一化坐标原样给，框、圆与元素另说一句百分比方便读；箭头与直线给两端，画笔给点列与外接框。 */
 function annotationRegion(a: VideoAnnotation): string {
   const r = a.region;
   const pct = (v: number) => `${Math.round(v * 100)}%`;
-  if (a.kind === 'arrow' && a.to) return `from (${r.x}, ${r.y}) to (${a.to.x}, ${a.to.y})`;
-  if (a.kind === 'box') return `x=${r.x} y=${r.y} w=${r.w} h=${r.h} (${pct(r.x)}, ${pct(r.y)}, ${pct(r.w)} × ${pct(r.h)})`;
+  if ((a.kind === 'arrow' || a.kind === 'line') && a.to) return `from (${r.x}, ${r.y}) to (${a.to.x}, ${a.to.y})`;
+  if (a.kind === 'pen')
+    return `path ${(a.points ?? []).map((p) => `(${p.x}, ${p.y})`).join(' → ')} within x=${r.x} y=${r.y} w=${r.w} h=${r.h}`;
+  if (a.kind === 'box' || a.kind === 'ellipse' || a.kind === 'element')
+    return `x=${r.x} y=${r.y} w=${r.w} h=${r.h} (${pct(r.x)}, ${pct(r.y)}, ${pct(r.w)} × ${pct(r.h)})`;
   return `at (${r.x}, ${r.y})`;
 }
 
 /**
  * 把视频标注附在发给智能体的文字后面（产品设计 §3.2.3「视频标注」；协议规范 `conversations`），排在设计系统标注段之后：
  * 每部视频一段，按第一次出现的顺序；编号在每部视频里各自从 1 起；段上的 `revision` 取这组标注里最大的。每条一行时码（含毫秒）、
- * 种类与区域，下一行批注；同一部视频两条以上时段末另给 `candidateBoundsMs`——只是候选范围，不是要改的区间。
- * 写法与原型 designs/baocut/app/model-stage-notes.js 的 `promptText` 逐字一致。
+ * 种类与区域，下面依次是标记的样式、点中的元素（给模型看的英文 `detail`）、落点（段与句，lite-editor §4.2）、评论的印章截图，
+ * 最后是批注——没有的行省略，空批注（标记工具画的标记）不写 `批注：`。同一部视频两条以上时段末另给 `candidateBoundsMs`——
+ * 只是候选范围，不是要改的区间。写法与原型 designs/baocut/app/model-stage-notes.js 的 `promptText` 逐字一致。
  */
 export function withVideoAnnotations(text: string, annotations: readonly ResolvedVideoAnnotation[]): string {
   if (annotations.length === 0) return text;
@@ -3012,11 +3017,22 @@ export function withVideoAnnotations(text: string, annotations: readonly Resolve
     // 版本是十进制数字串：先比位数再比字面，取最大的（都是同一版本时就是那一个）。
     const revision = notes.reduce((max, n) => (n.revision.length > max.length || (n.revision.length === max.length && n.revision > max) ? n.revision : max), notes[0]!.revision);
     // i18n-ignore-start: 发给智能体的标注（给模型的提示词），不随界面语言变化
-    const lines = notes.map((a, i) =>
-      [`${i + 1}. ${annotationTimecode(a.timeMs)} (${a.timeMs} ms) · ${a.kind} · ${annotationRegion(a)}`, `   批注：${a.text.split('\n').join('\n        ')}`].join(
-        '\n',
-      ),
-    );
+    const lines = notes.map((a, i) => {
+      const segment = a.segment
+        ? `   segment: ${a.segment.id} (${a.segment.kind} #${a.segment.index + 1}${a.segment.title ? ` ${a.segment.title}` : ''})` +
+          (a.line ? ` · line ${a.line.index}: ${a.line.text}` : '')
+        : null;
+      return [
+        `${i + 1}. ${annotationTimecode(a.timeMs)} (${a.timeMs} ms) · ${a.kind} · ${annotationRegion(a)}`,
+        a.style ? `   style: ${a.style.color} ${a.style.width}px` : null,
+        a.element ? `   element: ${videoAnnotationElementDetail(a.element)}`.trimEnd() : null,
+        segment,
+        a.shot ? `   screenshot: attached, frame at ${a.shot.timeMs} ms with the stamp at (${a.shot.stamp.x}, ${a.shot.stamp.y})` : null,
+        a.text ? `   批注：${a.text.split('\n').join('\n        ')}` : null,
+      ]
+        .filter((line): line is string => !!line)
+        .join('\n');
+    });
     const times = notes.map((a) => a.timeMs);
     const tail = notes.length >= 2 ? [`candidateBoundsMs: ${Math.min(...times)}–${Math.max(...times)}（候选范围，不是要改的区间）`] : [];
     // i18n-ignore-end
