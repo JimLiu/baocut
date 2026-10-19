@@ -66,7 +66,7 @@ pub struct LiveLayer {
     /// 清单的固有尺寸（像素）：宿主按它布置页面，再缩放到 `matrix`。
     pub width: u32,
     pub height: u32,
-    /// 替身的状态：停住时切成实时层的只会是 `None` / `Stale`；播放中一律实时播，`Usable` 说明停下来会画替身。
+    /// 替身的状态：预览不论播放还是停住都画实时层，替身只给导出与实时层放不出来时退回；`Usable` 说明导出前不用再烘焙。
     pub stand_in: StandInState,
 }
 
@@ -79,17 +79,16 @@ pub enum StandInState {
     /// 预渲染过期（代码包规范 §7.4）：烘焙出处（`BakeRecord.sourceBundleRef`）与实例指向的代码包清单（`bundleId`、`revision`）
     /// 不一致，或帧率（`BakeRecord.encoding.fps`，没有烘焙记录时是替身视频的帧率）与序列不同。
     Stale,
-    /// 有，且与代码包、序列帧率一致：导出画它，预览停住时也画它（动效视频设计 §4.3）。
+    /// 有，且与代码包、序列帧率一致：导出画它；预览只在实时层放不出来时画它（动效视频设计 §4.3）。
     Usable,
 }
 
-/// 预览的实时层开关（动效视频设计 §4.2、§4.3）。默认关着：严格导出与缩略图不走实时层。`playing` 是舞台在动（播放、拖动播放头
-/// 还没落地）：这时合成一律实时播，不看替身；停住时只有没有可用替身的才切。`blocked` 是宿主载入失败、取帧抛错或超时的实例，
+/// 预览的实时层开关（动效视频设计 §4.2、§4.3）。默认关着：严格导出与缩略图不走实时层。开着时播放与停住一样，代码包合成一律
+/// 实时播，不看替身（替身是 ProRes `.mov` 这类要先转播放副本的文件，等不起）。`blocked` 是宿主载入失败、取帧抛错或超时的实例，
 /// 这一轮退回替身或占位，不再切。
 #[derive(Clone, Copy, Debug, Default)]
 pub struct LiveOptions<'a> {
     pub enabled: bool,
-    pub playing: bool,
     pub blocked: &'a [Id],
 }
 
@@ -508,9 +507,7 @@ fn plan_frame_live(
                     layers.push((order, layer));
                     if live.enabled && !live.blocked.contains(&composition.base.id) {
                         let stand_in = stand_in_state(video.assets, composition, fps);
-                        if (live.playing || stand_in != StandInState::Usable)
-                            && let Some(candidate) = live_layer(video, composition, (source, rate), canvas, stand_in)
-                        {
+                        if let Some(candidate) = live_layer(video, composition, (source, rate), canvas, stand_in) {
                             live_candidates.push(candidate);
                         }
                     }

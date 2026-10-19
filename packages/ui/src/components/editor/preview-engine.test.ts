@@ -901,16 +901,16 @@ test('字幕场景按样式文档的冻结素材版本加载字节', async () =>
 const standInAsset = { id: 'baked', revision: '1' };
 
 /**
- * 实时合成层用的计划器（与 render-graph 同一规则）：开了实时层、这件合成没拉黑，且舞台在动或替身不可用时，计划的底层是它；
+ * 实时合成层用的计划器（与 render-graph 同一规则）：开了实时层、这件合成没拉黑、这一帧切得开（`cut`）时，计划的底层是它，不看替身；
  * 记下每次画是不是透明底，可按要求抛发光错误。
  */
 function livePlanner() {
-  const setLive: { enabled: boolean; playing: boolean; blocked: string[] }[] = [];
+  const setLive: { enabled: boolean; blocked: string[] }[] = [];
   const renders: { frame: number; transparent: boolean }[] = [];
-  const state = { enabled: false, playing: false, blocked: new Set<string>(), emissive: false, standIn: 'none' as 'none' | 'stale' | 'usable' };
+  const state = { enabled: false, cut: true, blocked: new Set<string>(), emissive: false, standIn: 'none' as 'none' | 'stale' | 'usable' };
   const planAt = (seconds: number) => {
     const frame = Math.floor(seconds * 30 + 1e-6);
-    const live = state.enabled && !state.blocked.has('comp') && (state.playing || state.standIn !== 'usable');
+    const live = state.enabled && state.cut && !state.blocked.has('comp');
     return {
       sequenceId: 'seq',
       sequenceRevision: 'r1',
@@ -947,10 +947,9 @@ function livePlanner() {
     setDocuments: () => {},
     clearPictures: () => {},
     setPicture: () => {},
-    setLive: (next: { enabled: boolean; playing: boolean; blocked: string[] }) => {
+    setLive: (next: { enabled: boolean; blocked: string[] }) => {
       setLive.push(next);
       state.enabled = next.enabled;
-      state.playing = next.playing;
       state.blocked = new Set(next.blocked);
     },
     render: (seconds: number, _w: number, _h: number, options?: { transparent?: boolean }) => {
@@ -1039,7 +1038,7 @@ test('实时合成层：接上宿主才开实时层；底是实时层的那一�
 
   engine.attachLive(live.host);
   await new Promise((resolve) => setTimeout(resolve, 10));
-  expect(setLive).toEqual([{ enabled: true, playing: false, blocked: [] }]);
+  expect(setLive).toEqual([{ enabled: true, blocked: [] }]);
   expect(renders.at(-1)).toEqual({ frame: 0, transparent: true });
   expect(live.prepared).toEqual([['comp']]);
   expect(live.shown.at(-1)).toEqual(['comp', 0]);
@@ -1049,7 +1048,7 @@ test('实时合成层：接上宿主才开实时层；底是实时层的那一�
 
   engine.attachLive(null);
   await new Promise((resolve) => setTimeout(resolve, 10));
-  expect(setLive.at(-1)).toEqual({ enabled: false, playing: false, blocked: [] });
+  expect(setLive.at(-1)).toEqual({ enabled: false, blocked: [] });
   expect(renders.at(-1)).toEqual({ frame: 0, transparent: false });
   expect(live.shown.at(-1)).toEqual([null, -1]);
   expect(seen.at(-1)).toEqual({ kind: 'ready' });
@@ -1080,7 +1079,7 @@ test('实时合成层：宿主报失败的合成拉黑，重送 setLive，下一
   await new Promise((resolve) => setTimeout(resolve, 10));
   live.fail('comp', 'ready-timeout');
   await new Promise((resolve) => setTimeout(resolve, 10));
-  expect(setLive.at(-1)).toEqual({ enabled: true, playing: false, blocked: ['comp'] });
+  expect(setLive.at(-1)).toEqual({ enabled: true, blocked: ['comp'] });
   expect(engine.live).toBeNull();
   expect(renders.at(-1)).toEqual({ frame: 0, transparent: false });
   expect(live.shown.at(-1)).toEqual([null, 0]);
@@ -1090,7 +1089,7 @@ test('实时合成层：宿主报失败的合成拉黑，重送 setLive，下一
 
   engine.retry();
   await new Promise((resolve) => setTimeout(resolve, 10));
-  expect(setLive.at(-1)).toEqual({ enabled: true, playing: false, blocked: [] });
+  expect(setLive.at(-1)).toEqual({ enabled: true, blocked: [] });
   expect(engine.live?.itemId).toBe('comp');
   expect(live.prepared.at(-1)).toEqual(['comp']);
   frames.restore();
@@ -1103,8 +1102,8 @@ test('实时合成层：透明底上有发光像素时这件合成拉黑、重�
   engine.attachLive(live.host);
   await new Promise((resolve) => setTimeout(resolve, 10));
   expect(setLive).toEqual([
-    { enabled: true, playing: false, blocked: [] },
-    { enabled: true, playing: false, blocked: ['comp'] },
+    { enabled: true, blocked: [] },
+    { enabled: true, blocked: ['comp'] },
   ]);
   expect(renders.at(-1)).toEqual({ frame: 0, transparent: false });
   expect(engine.live).toBeNull();
@@ -1114,90 +1113,49 @@ test('实时合成层：透明底上有发光像素时这件合成拉黑、重�
   engine.dispose();
 });
 
-test('实时合成层：播放与拖动中不看替身一律实时播、不提醒烘焙；停住才画可用的替身，iframe 等画布画上那一帧之后再收起', async () => {
-  // 替身的视频元素：定位立刻落地（不走 FakeMedia 的 seeking），就绪与否由 readyState 定。
+test('实时合成层：替身可用也不看它，播放、暂停与定位落地都是实时层、不提醒烘焙，也不去要替身；宿主放不出来才退回替身', async () => {
   const { video } = fakeMedia();
   let currentTime = 0;
   Object.defineProperty(video, 'currentTime', { get: () => currentTime, set: (seconds: number) => (currentTime = seconds) });
-  const { frames, planner, setLive, renders, state, live, seen, engine } = await liveEngine();
+  const { frames, setLive, renders, state, live, seen, engine } = await liveEngine();
   state.standIn = 'usable';
   const standInKey = videoKey(standInAsset, 0);
-  engine.register(standInKey, video as unknown as HTMLVideoElement);
-  // 记下画与收起的先后：收起 iframe 必须在画布画上不透明的那一帧之后。
-  const order: string[] = [];
-  const render = planner.render.bind(planner);
-  planner.render = ((...args: Parameters<RenderPlanner['render']>) => {
-    order.push(args[3]?.transparent ? 'render:transparent' : 'render:opaque');
-    return render(...args);
-  }) as RenderPlanner['render'];
-  const show = live.host.show;
-  live.host.show = (layer, frame) => {
-    order.push(layer ? 'show' : 'hide');
-    show(layer, frame);
-  };
+  // 计划里有没有替身层（有才会去要替身、让 Runtime 转播放副本）。
+  let standInPlanned = false;
+  engine.onPlan((plan) => (standInPlanned = plan.layers.some((layer) => layer.itemId === 'comp')));
   engine.attachLive(live.host);
   await new Promise((resolve) => setTimeout(resolve, 10));
-  // 停着、替身可用：不切实时层，画不透明底，状态不报 live；有可用替身的合成照样预载。
-  expect(setLive.at(-1)).toEqual({ enabled: true, playing: false, blocked: [] });
-  expect(engine.live).toBeNull();
-  expect(renders.at(-1)).toEqual({ frame: 0, transparent: false });
-  expect(seen.at(-1)).toEqual({ kind: 'ready' });
-  expect(live.prepared.at(-1)).toEqual(['comp']);
-
-  // 播放：舞台在动，一律实时层；替身可用，所以不提醒「导出前要烘焙」。
-  engine.play();
-  expect(setLive.at(-1)).toEqual({ enabled: true, playing: true, blocked: [] });
-  frames.tick(1000 / 60);
-  expect(engine.live?.itemId).toBe('comp');
+  // 停着：实时层，透明底，替身可用所以不提醒「导出前要烘焙」；计划里没有替身层，也就没有要替身的元素。
+  expect(setLive).toEqual([{ enabled: true, blocked: [] }]);
   expect(engine.live?.standIn).toBe('usable');
-  expect(renders.at(-1)?.transparent).toBe(true);
+  expect(renders.at(-1)).toEqual({ frame: 0, transparent: true });
   expect(live.shown.at(-1)).toEqual(['comp', 0]);
   expect(seen.at(-1)).toEqual({ kind: 'ready' });
+  expect(standInPlanned).toBe(false);
 
-  // 暂停：重送 playing false，计划换回替身；iframe 在画布画上不透明那一帧之后才收起。
-  order.length = 0;
-  engine.pause();
-  expect(setLive.at(-1)).toEqual({ enabled: true, playing: false, blocked: [] });
-  expect(engine.live).toBeNull();
-  expect(order).toEqual([]);
-  await new Promise((resolve) => setTimeout(resolve, 10));
-  expect(order).toEqual(['render:opaque', 'hide']);
-  expect(renders.at(-1)?.transparent).toBe(false);
-
-  // 停着定位：落地前在动、一律实时层；落地（SCRUB_SETTLE_MS）后换回替身那一帧。
-  engine.seek(1);
-  expect(setLive.at(-1)).toEqual({ enabled: true, playing: true, blocked: [] });
-  expect(engine.live?.itemId).toBe('comp');
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  expect(setLive.at(-1)).toEqual({ enabled: true, playing: false, blocked: [] });
-  expect(engine.live).toBeNull();
-  expect(renders.at(-1)).toEqual({ frame: 30, transparent: false });
-  expect(live.shown.at(-1)).toEqual([null, 30]);
-
-  // 替身还在来时停下（Runtime 还在备播放副本、舞台没挂元素；挂上了还没就绪）：不等它，画布按透明底画、iframe 不收；
-  // 替身到了才画不透明的那一帧、收起 iframe。
-  engine.register(standInKey, null);
+  // 播放、暂停、停着定位落地：设置不变不重送，一直是实时层，iframe 不收。
   engine.play();
-  frames.tick(2000 / 60);
-  expect(engine.live?.itemId).toBe('comp');
-  order.length = 0;
+  frames.tick(1000 / 60);
   engine.pause();
+  engine.seek(1);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  expect(setLive).toEqual([{ enabled: true, blocked: [] }]);
+  expect(engine.live?.itemId).toBe('comp');
+  expect(renders.at(-1)).toEqual({ frame: 30, transparent: true });
+  expect(live.shown.at(-1)).toEqual(['comp', 30]);
+  expect(live.shown.some(([itemId]) => itemId === null)).toBe(false);
+
+  // 宿主放不出来：拉黑，退回替身那一帧（这时才要替身）。
+  live.fail('comp', 'ready-timeout');
   await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(setLive.at(-1)).toEqual({ enabled: true, blocked: ['comp'] });
   expect(engine.live).toBeNull();
-  expect(order).toEqual(['render:transparent']);
-  expect(live.shown.at(-1)?.[0]).toBe('comp');
-  video.readyState = 1;
+  expect(standInPlanned).toBe(true);
   engine.register(standInKey, video as unknown as HTMLVideoElement);
   await new Promise((resolve) => setTimeout(resolve, 10));
-  expect(order).toEqual(['render:transparent', 'render:transparent']);
-  expect(live.shown.at(-1)?.[0]).toBe('comp');
-  video.readyState = 4;
-  video.land();
-  await new Promise((resolve) => setTimeout(resolve, 10));
-  expect(order).toEqual(['render:transparent', 'render:transparent', 'render:opaque', 'hide']);
-  expect(live.shown.at(-1)?.[0]).toBeNull();
+  expect(renders.at(-1)).toEqual({ frame: 30, transparent: false });
 
-  // 替身不可用时停住也是实时层，这时才提醒烘焙。
+  // 替身不可用时这才提醒烘焙。
   state.standIn = 'stale';
   engine.retry();
   await new Promise((resolve) => setTimeout(resolve, 10));
@@ -1207,48 +1165,47 @@ test('实时合成层：播放与拖动中不看替身一律实时播、不提�
   engine.dispose();
 });
 
-test('实时合成层：刚打开就停着、可用的替身还在来（Runtime 在备播放副本）时先露实时层，不等转换；替身到了再画那一帧、收起 iframe', async () => {
+test('实时合成层：iframe 露着、这一帧却切不开而要画替身时，替身还在来就让实时层撑着（画面算出来了）；撑着时宿主失败重新给载入面板，替身到了才画那一帧、收起 iframe', async () => {
   const { video } = fakeMedia();
   let currentTime = 0;
   Object.defineProperty(video, 'currentTime', { get: () => currentTime, set: (seconds: number) => (currentTime = seconds) });
-  const { frames, setLive, renders, state, live, seen, engine } = await liveEngine();
+  const { frames, renders, state, live, engine } = await liveEngine();
   state.standIn = 'usable';
-  // 换一部视频：画面从头算，必须由撑着的实时层重新算出来。
-  engine.setVideo({ ...withComposition, id: 'seq2' } as Sequence, bundleAssets);
   const pictured: boolean[] = [];
   engine.onPicture((value) => pictured.push(value));
-  expect(pictured).toEqual([false]);
   engine.attachLive(live.host);
   await new Promise((resolve) => setTimeout(resolve, 10));
-  // 舞台还没挂替身的元素：按「在动」问一次实时层，问完换回停住；iframe 露着、画布透明底，画面算出来了，不提醒烘焙。
-  expect(setLive).toEqual([
-    { enabled: true, playing: false, blocked: [] },
-    { enabled: true, playing: true, blocked: [] },
-    { enabled: true, playing: false, blocked: [] },
-  ]);
-  expect(engine.live).toBeNull();
   expect(live.shown.at(-1)).toEqual(['comp', 0]);
-  expect(renders.at(-1)).toEqual({ frame: 0, transparent: true });
-  expect(pictured.at(-1)).toBe(true);
-  expect(seen.at(-1)).toEqual({ kind: 'ready' });
-  // 已经露着就不再问。
-  const asked = setLive.length;
+
+  // 这一帧切不开（如进了转场）：计划换回替身层，替身的元素还没挂上。
+  const order: string[] = [];
+  const show = live.host.show;
+  live.host.show = (layer, frame) => {
+    order.push(layer ? 'show' : 'hide');
+    show(layer, frame);
+  };
+  state.cut = false;
   engine.seek(0);
   await new Promise((resolve) => setTimeout(resolve, 300));
-  expect(setLive.slice(asked).filter((options) => options.playing).length).toBe(1);
+  expect(engine.live).toBeNull();
+  expect(renders.at(-1)).toEqual({ frame: 0, transparent: true });
+  expect(order).not.toContain('hide');
+  expect(pictured.at(-1)).toBe(true);
 
-  // iframe 放不出来：撤掉、拉黑，替身还没到，画面又没了（舞台重新给载入面板）；同一帧不再问。
+  // 撑着时宿主失败：撤掉，替身还没到，画面又没了。
   live.fail('comp', 'ready-timeout');
   await new Promise((resolve) => setTimeout(resolve, 10));
   expect(pictured.at(-1)).toBe(false);
-  expect(live.shown.at(-1)?.[0]).toBeNull();
-  // 重试解除拉黑，又先露实时层。
+
+  // 重试：又切得开，再露实时层；再切不开、替身到了：画不透明的那一帧，然后收起 iframe。
+  state.cut = true;
   engine.retry();
   await new Promise((resolve) => setTimeout(resolve, 10));
   expect(live.shown.at(-1)?.[0]).toBe('comp');
-  expect(pictured.at(-1)).toBe(true);
-
-  // 替身到了：画不透明的那一帧，收起 iframe。
+  state.cut = false;
+  engine.seek(0);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  expect(live.shown.at(-1)?.[0]).toBe('comp');
   video.readyState = 4;
   engine.register(videoKey(standInAsset, 0), video as unknown as HTMLVideoElement);
   await new Promise((resolve) => setTimeout(resolve, 10));

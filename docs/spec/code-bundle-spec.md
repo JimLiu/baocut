@@ -566,7 +566,7 @@ interface CompositionBakeInfo {
 
 ### 7.4 替身何时过期
 
-替身是实例在某个代码包版本、某个帧率下渲染好的画面；下面任一条成立时替身**过期**。`@baocut/protocol` 的 `prerenderStaleness(item, assets, sequenceFps)` 是唯一的判断处，预览停住时、导出预检与智能体的检查都调它：
+替身是实例在某个代码包版本、某个帧率下渲染好的画面；下面任一条成立时替身**过期**。`@baocut/protocol` 的 `prerenderStaleness(item, assets, sequenceFps)` 是唯一的判断处，预览的烘焙提醒、导出预检与智能体的检查都调它：
 
 - `bundle-changed`：替身素材来源里的 `BakeRecord.sourceBundleRef`（清单的 `bundleId` / `revision`）与实例 `source.assetRef` 所指代码包清单的身份不同。换了代码包版本却没有重烘就是这种。
 - `fps-mismatch`：`BakeRecord.encoding.fps` 与实例所在序列的帧率不同（序列改了帧率，或实例被挪进另一条帧率不同的序列）。替身的来源不是烘焙记录（旧数据、手工指定的视频）时按替身视频的帧率核对。
@@ -577,7 +577,7 @@ interface CompositionBakeInfo {
 过期的后果：
 
 - 导出预检（命令与协议规范 §4.4）逐个核对这次导出用到的替身，有过期的以 `EXPORT_PRERENDER_STALE` 拒绝：`details.items` 每项是 `{ itemId, sequenceId, name, reason, bakedFrom?, current? }`，`remedy` 是重新导入烘焙。`allowStalePrerender: true` 时照旧替身导出，每项一条同名警告（`detail` 是「实例 ID: 原因」）。`missing` 不由这里报：没有替身的实例由渲染内核按 `bundle-without-prerender` 处理。
-- 预览停住时过期的替身不用，继续显示实时层（章节化代码动画片设计 §4.3；实时合成层落地后生效）。
+- 预览不论替身过不过期都显示实时层（动效视频设计 §4.3），替身过期或没有时提醒「实时预览，导出前要烘焙」。
 
 重烘就是带 `replace: { itemId }` 再导入一次同一个代码包：`replaceCodeBundle` 写入新替身（§3.3）。
 

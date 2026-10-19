@@ -782,21 +782,7 @@ fn live_fixture() -> VideoSnapshot {
 const FPS: Rate = Rate { num: 30, den: 1 };
 
 fn live_plan(video: &VideoSnapshot, seconds: f64, blocked: &[String]) -> FramePlan {
-    let live = LiveOptions {
-        enabled: true,
-        playing: false,
-        blocked,
-    };
-    plan_interactive_live(VideoView::from(video), "seq_main", seconds, None, live).expect("求计划")
-}
-
-/// 舞台在动（播放、拖动中）时的计划：合成一律实时播（动效视频设计 §4.3）。
-fn playing_plan(video: &VideoSnapshot, seconds: f64) -> FramePlan {
-    let live = LiveOptions {
-        enabled: true,
-        playing: true,
-        blocked: &[],
-    };
+    let live = LiveOptions { enabled: true, blocked };
     plan_interactive_live(VideoView::from(video), "seq_main", seconds, None, live).expect("求计划")
 }
 
@@ -911,37 +897,22 @@ fn stand_in_decides_between_live_and_prerender() {
         revision: "rev_1".into(),
     });
 
-    // 一致：停住时替身可用，不切，画替身那一帧（视频层）。
-    let usable = live_plan(&video, 8.5, &[]);
-    assert!(usable.live.is_none());
-    let stand_in = layer(&usable, "item_bundle");
-    assert_eq!(stand_in.kind, LayerKind::Video);
-    assert_eq!(stand_in.asset.as_ref().map(|a| a.id.as_str()), Some("asset_baked"));
-    assert_eq!(usable.canvas.background_alpha, 1.0);
+    // 一致：替身可用也不看它，照样切成实时层，标 usable（导出前不用再烘焙）；替身的视频层不画，底透明。
     let composition = composition_mut(&mut video, "item_bundle").clone();
     assert_eq!(stand_in_state(&video.assets, &composition, FPS), StandInState::Usable);
-    // 播放中不看替身：照样切成实时层，标 usable（停下来会画替身）；替身的视频层不画，底透明。
-    let playing = playing_plan(&video, 8.5);
-    let live = playing.live.as_ref().expect("播放中切成实时层");
+    let usable = live_plan(&video, 8.5, &[]);
+    let live = usable.live.as_ref().expect("替身可用时也切成实时层");
     assert_eq!(live.item_id, "item_bundle");
     assert_eq!(live.stand_in, StandInState::Usable);
-    assert!(playing.layers.iter().all(|layer| layer.item_id != "item_bundle"));
-    assert_eq!(playing.canvas.background_alpha, 0.0);
-    // 播放中拉黑的仍退回替身。
-    let blocked = plan_interactive_live(
-        VideoView::from(&video),
-        "seq_main",
-        8.5,
-        None,
-        LiveOptions {
-            enabled: true,
-            playing: true,
-            blocked: &["item_bundle".to_string()],
-        },
-    )
-    .expect("求计划");
+    assert!(usable.layers.iter().all(|layer| layer.item_id != "item_bundle"));
+    assert_eq!(usable.canvas.background_alpha, 0.0);
+    // 拉黑的退回替身那一帧（视频层）。
+    let blocked = live_plan(&video, 8.5, &["item_bundle".to_string()]);
     assert!(blocked.live.is_none());
-    assert_eq!(layer(&blocked, "item_bundle").kind, LayerKind::Video);
+    let stand_in = layer(&blocked, "item_bundle");
+    assert_eq!(stand_in.kind, LayerKind::Video);
+    assert_eq!(stand_in.asset.as_ref().map(|a| a.id.as_str()), Some("asset_baked"));
+    assert_eq!(blocked.canvas.background_alpha, 1.0);
 
     // 代码包换了版本（清单 revision 8），替身过期：切成实时层，标 stale；替身的视频层不再画。
     video

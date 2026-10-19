@@ -11,8 +11,8 @@ import {
 
 /**
  * 实时合成层（动效视频设计 §4）里界面这一侧的判定，与 `render-graph` 的 `stand_in_state` 同一规则：
- * 代码包合成的替身可不可用（停住时画替身还是实时层）、哪些合成要实时播、它们的清单、播放头附近该预载哪几个。
- * 播放中一律实时播（§4.3），所以预载名单不看替身。替身过不过期只问 `prerenderStaleness`（代码包规范 §7.4），这里不另写一套。
+ * 代码包合成的替身可不可用（要不要提醒导出前烘焙）、哪些合成要实时播、它们的清单、播放头附近该预载哪几个。
+ * 预览播放与停住都一律实时播（§4.3），所以预载名单不看替身。替身过不过期只问 `prerenderStaleness`（代码包规范 §7.4），这里不另写一套。
  */
 
 export type StandInState = 'none' | 'stale' | 'usable';
@@ -74,8 +74,8 @@ export function standInState(assets: Record<Id, AssetRecord>, item: CompositionI
 }
 
 /**
- * 序列里要实时播的合成（清单齐全、没被拉黑的），按开始时刻排。有可用替身的也在内：播放中照样实时播，只在停住时才画替身
- * （动效视频设计 §4.3），所以 iframe 要先挂好，不然一按播放就要等它就绪。
+ * 序列里要实时播的合成（清单齐全、没被拉黑的），按开始时刻排。有可用替身的也在内：预览不论播放还是停住都实时播
+ * （动效视频设计 §4.3），所以 iframe 要先挂好。
  */
 export function liveCandidates(sequence: Sequence, assets: Record<Id, AssetRecord>, blocked: ReadonlySet<Id> = new Set()): LiveCandidate[] {
   const out: LiveCandidate[] = [];

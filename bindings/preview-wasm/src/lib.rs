@@ -72,14 +72,11 @@ struct Size {
     height: f64,
 }
 
-/// 实时层开关（动效视频设计 §4.2、§4.3）：`enabled` 开了才切；`playing` 是舞台在动，这时不看替身一律切；`blocked` 是宿主退回
-/// 替身的实例。
+/// 实时层开关（动效视频设计 §4.2、§4.3）：`enabled` 开了才切，播放与停住一样不看替身；`blocked` 是宿主退回替身的实例。
 #[derive(Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SetLive {
     enabled: bool,
-    #[serde(default)]
-    playing: bool,
     #[serde(default)]
     blocked: Vec<String>,
 }
@@ -321,7 +318,6 @@ pub fn plan(seconds: f64) -> Result<String, PlanError> {
 fn live_options(live: &SetLive) -> LiveOptions<'_> {
     LiveOptions {
         enabled: live.enabled,
-        playing: live.playing,
         blocked: &live.blocked,
     }
 }

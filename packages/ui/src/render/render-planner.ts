@@ -233,11 +233,11 @@ export class RenderPlanner {
 
   /**
    * 实时层开关（动效视频设计 §4.2、§4.3）：开了之后计划把最底下那个代码包合成切成 `plan.live`，画布从它上面那层起画、底下留透明。
-   * `playing` 是舞台在动（播放、拖动播放头还没落地）：这时不看替身一律切；停住时只切没有可用替身的，有可用替身的画替身那一帧。
+   * 播放与停住一样不看替身（替身是要先转播放副本的 ProRes `.mov`，等不起）。
    * `blocked` 是宿主退回替身或占位的实例（载入失败、取帧抛错、超时），这些不再切。缩略图与金标准不开。
    */
-  setLive(options: { enabled: boolean; playing?: boolean; blocked?: readonly Id[] }): void {
-    const input = encoder.encode(JSON.stringify({ enabled: options.enabled, playing: options.playing ?? false, blocked: options.blocked ?? [] }));
+  setLive(options: { enabled: boolean; blocked?: readonly Id[] }): void {
+    const input = encoder.encode(JSON.stringify({ enabled: options.enabled, blocked: options.blocked ?? [] }));
     this.#liveInput = input;
     this.#call((exports) => withBytes(exports, input, (ptr, len) => exports.bc_set_live(ptr, len)));
   }
