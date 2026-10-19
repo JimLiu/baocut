@@ -195,10 +195,11 @@ export function snapshotState(status: StatusLike): { label: string; tone: Snapsh
   return { label: C.stateSynced, tone: 'positive', desc: C.stateSyncedDesc };
 }
 
-/** 入口按钮的提示：最新是第几版，快照不是已同步时带上状态。 */
-export function buttonTip(inProject: boolean, status: (StatusLike & { latestVersion?: number }) | null): string {
-  if (!inProject) return [C.title, C.tipOutside].join(' · ');
-  const parts = [C.title];
+/** 视频栏「历史」按钮的提示：当前修订，最新是第几版，快照不是已同步时带上状态（版本与撤销历史合在一个按钮里，产品设计 §5.1）。 */
+export function buttonTip(inProject: boolean, status: (StatusLike & { latestVersion?: number }) | null, revision: string | null = null): string {
+  const head = revision === null ? [C.title] : [C.title, C.tipRevision(revision)];
+  if (!inProject) return [...head, C.tipOutside].join(' · ');
+  const parts = head;
   if (status) {
     parts.push(status.latestVersion ? C.tipLatest(status.latestVersion) : C.tipNone);
     if (status.state !== 'synced') parts.push(snapshotState(status).label);

@@ -646,12 +646,13 @@
     if (st.state === 'conflict') return CONFLICTS[st.conflict] || CONFLICTS['both-changed'];
     return STATES[st.state] || STATES.synced;
   }
-  /** 入口按钮的提示：最新是第几版 + 快照状态。 */
+  /** 视频栏「历史」按钮的提示：当前修订 + 最新是第几版 + 快照状态（版本与撤销历史合在一个按钮里，产品设计 §5.1）。 */
   function buttonTip(st) {
-    if (!st.inProject) return '版本记录 · 这部视频不在项目里';
+    const rev = `修订 ${st.revision}`;
+    if (!st.inProject) return ['历史', rev, '这部视频不在项目里'].join(' · ');
     const top = st.versions[0];
     const s = stateOf(st);
-    return ['版本记录', top ? `最新是版本 ${top.n}` : '还没有版本', s.k === 'synced' ? null : s.label].filter(Boolean).join(' · ');
+    return ['历史', rev, top ? `最新是版本 ${top.n}` : '还没有版本', s.k === 'synced' ? null : s.label].filter(Boolean).join(' · ');
   }
 
   root.BC_VIDEO_VERSIONS = {

@@ -1,17 +1,13 @@
-import { useEffect, useState, type ReactElement } from 'react';
-import { localizeText, type HistoryEntry, type VideoRef, type Sequence } from '@baocut/protocol';
+import { useState, type ReactElement } from 'react';
+import { localizeText, type VideoRef, type Sequence } from '@baocut/protocol';
 import { EditLabel } from '@baocut/protocol/messages/ui';
 import {
   ActionButton,
   ActionMenu,
-  Button,
-  DialogTrigger,
   MenuItem,
-  Popover,
   ProgressCircle,
   StatusLight,
   Text,
-  ToastQueue,
   Tooltip,
   TooltipTrigger,
 } from '@react-spectrum/s2';
@@ -20,23 +16,21 @@ import Close from '@react-spectrum/s2/icons/Close';
 import Asset from '@react-spectrum/s2/icons/Asset';
 import InfoCircle from '@react-spectrum/s2/icons/InfoCircle';
 import OpenIn from '@react-spectrum/s2/icons/OpenIn';
-import Undo from '@react-spectrum/s2/icons/Undo';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { durationSeconds, formatFps } from '../../model/editor.ts';
-import { agoLabel, formatClock } from '../../model/format.ts';
+import { formatClock } from '../../model/format.ts';
 import { useRuntime } from '../../runtime/context.tsx';
-import { canEdit, useVideo, type OpenVideo } from '../../state/video-store.ts';
+import { canEdit, type OpenVideo } from '../../state/video-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { ExportButton } from '../export/export-button.tsx';
 import { NameDialog } from '../name-dialog.tsx';
 import { TaskPill } from '../task-pill.tsx';
-import { useNow } from '../use-now.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { EditorVideoInfo } from './video-info.tsx';
 import { VersionsButton } from './video-versions.tsx';
 import { VIDEO_BAR_COPY as VB } from './video-bar-copy.ts';
 
-/** 视频栏（产品设计 §5.1）：视频名、当前修订号、保存状态；查看历史、撤销某一次修改；版本记录（video-versions.tsx）。 */
+/** 视频栏（产品设计 §5.1）：视频名、保存状态；「历史」按钮（video-versions.tsx）打开版本记录与撤销历史，当前修订号写在它的提示里。 */
 const bar = style({
   display: 'flex',
   alignItems: 'center',
@@ -78,24 +72,6 @@ const acts = style({ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 
 const saveText = style({ font: 'ui-sm', color: 'gray-700', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 8 });
 const agentText = style({ font: 'ui-sm', color: 'gray-700', display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, maxWidth: 240 });
 const agentLabel = style({ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 });
-const historyPanel = style({ display: 'flex', flexDirection: 'column', gap: 4, width: 360, maxHeight: 420 });
-const historyTitle = style({ font: 'title-sm', margin: 0, paddingBottom: 4 });
-const historyList = style({ display: 'flex', flexDirection: 'column', overflowY: 'auto', margin: 0, padding: 0, listStyleType: 'none' });
-const entry = style({
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  paddingY: 8,
-  borderBottomWidth: { default: 1, ':last-child': 0 },
-  borderTopWidth: 0,
-  borderStartWidth: 0,
-  borderEndWidth: 0,
-  borderStyle: 'solid',
-  borderColor: 'gray-100',
-});
-const entryText = style({ display: 'flex', flexDirection: 'column', gap: 2, flexGrow: 1, minWidth: 0 });
-const entryLabel = style({ font: 'ui-sm', color: { default: 'gray-900', isUndone: 'gray-500' } });
-const entryMeta = style({ font: 'ui-xs', color: 'gray-600' });
 
 export function VideoBar({ video, sequence }: { video: OpenVideo; sequence: Sequence | null }) {
   const runtime = useRuntime();
@@ -105,7 +81,6 @@ export function VideoBar({ video, sequence }: { video: OpenVideo; sequence: Sequ
   const [renaming, setRenaming] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const name = video.state?.video.name ?? video.ref?.name ?? VB.untitled;
-  const revision = video.state?.video.revision ?? null;
   const editable = canEdit(video);
 
   const parts: string[] = [];
@@ -137,8 +112,7 @@ export function VideoBar({ video, sequence }: { video: OpenVideo; sequence: Sequ
       <div className={acts}>
         <TaskPill videoId={video.videoId} />
         <SaveState video={video} />
-        {revision !== null ? <HistoryButton revision={revision} /> : null}
-        {revision !== null ? <VersionsButton video={video} /> : null}
+        {video.state ? <VersionsButton video={video} /> : null}
         <ExportButton video={video} sequence={sequence} />
         <ActionMenu aria-label={VB.actions} isQuiet align="end" onAction={(key) => onMenu(String(key), video.ref)}>
           <MenuItem id="space" textValue={VB.showInSpace}>
@@ -213,86 +187,6 @@ function SaveState({ video }: { video: OpenVideo }) {
     );
   }
   return <span className={saveText}>{VB.saved}</span>;
-}
-
-function HistoryButton({ revision }: { revision: string }) {
-  return (
-    <DialogTrigger>
-      <ActionButton isQuiet aria-label={VB.versionHistory(revision)}>
-        <Undo />
-        <Text>{VB.version(revision)}</Text>
-      </ActionButton>
-      <Popover placement="bottom end" padding="default">
-        <HistoryPanel revision={revision} />
-      </Popover>
-    </DialogTrigger>
-  );
-}
-
-/** 历史：每一次修改都在这里，可以单独撤销其中一次；与之后的修改冲突时引擎会拒绝并说明（产品设计 §5.5）。 */
-function HistoryPanel({ revision }: { revision: string }) {
-  const runtime = useRuntime();
-  const { undo } = useEditorActions();
-  const editable = useVideo((s) => canEdit(s.video));
-  const [entries, setEntries] = useState<HistoryEntry[] | null>(null);
-  const now = useNow(30_000);
-
-  useEffect(() => {
-    let cancelled = false;
-    // 引擎按版本从新到旧返回：最近的修改在最上面。
-    runtime.videos.history(100).then(
-      (list) => !cancelled && setEntries(list),
-      (error: Error) => !cancelled && ToastQueue.negative(VB.historyFailed(error.message), { timeout: 5000 }),
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [runtime, revision]);
-
-  return (
-    <div className={historyPanel}>
-      <h2 className={historyTitle}>{VB.history}</h2>
-      {entries === null ? (
-        <ProgressCircle size="S" isIndeterminate aria-label={VB.historyLoading} />
-      ) : entries.length === 0 ? (
-        <span className={entryMeta}>{VB.noChanges}</span>
-      ) : (
-        <ul className={`${historyList} bc-scroll`}>
-          {entries.map((item) => {
-            const undone = Boolean(item.undoneBy);
-            return (
-              <li key={item.transactionId} className={entry}>
-                <span className={entryText}>
-                  <span className={entryLabel({ isUndone: undone })}>
-                    {localizeText(item.label, item.labelRef)}
-                    {undone ? VB.undoneMark : ''}
-                  </span>
-                  <span className={entryMeta}>
-                    {VB.historyMeta(item.videoRevision, actorLabel(item), agoLabel(item.committedAt, now))}
-                  </span>
-                </span>
-                {item.undoAvailable && !undone ? (
-                  <Button
-                    variant="secondary"
-                    size="S"
-                    isDisabled={!editable}
-                    onPress={() => void undo({ transaction: item.transactionId })}>
-                    {VB.undo}
-                  </Button>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function actorLabel(entry: HistoryEntry): string {
-  if (entry.actor.kind === 'agent') return VB.actorAgent;
-  if (entry.actor.kind === 'system') return VB.actorSystem;
-  return VB.actorYou;
 }
 
 function Tip({ label, children }: { label: string; children: ReactElement }) {

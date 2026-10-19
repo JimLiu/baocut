@@ -86,6 +86,7 @@
       "app/model-select.js",
       "app/model-history.js",
       "app/model-video-versions.js",
+      "app/model-video-changes.js",
       "app/model-project-git.js",
       "app/model-shape-paths.js",
       "app/model-elements.js",
@@ -484,9 +485,9 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/app.js?v=9f7209b0a867",
-    "css": "generated/app.css?v=c8e78b0aa8bf",
-    "bytes": 4558446
+    "js": "generated/app.js?v=d73cfdc0f3bd",
+    "css": "generated/app.css?v=e6ab657e5569",
+    "bytes": 4561070
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -556,6 +557,7 @@
       "app/model-select.js",
       "app/model-history.js",
       "app/model-video-versions.js",
+      "app/model-video-changes.js",
       "app/model-project-git.js",
       "app/model-shape-paths.js",
       "app/model-elements.js",
@@ -735,9 +737,9 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/web.js?v=c21395c32e71",
-    "css": "generated/web.css?v=888308a30bb5",
-    "bytes": 2667444
+    "js": "generated/web.js?v=f608222b6c0d",
+    "css": "generated/web.css?v=777e685b94e4",
+    "bytes": 2670079
   },
   "components": {
     "file": "Components.html",

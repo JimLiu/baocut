@@ -1,5 +1,7 @@
-/* BaoCut 原型 — 视频的版本记录（2026-10-17，视频格式规范 §9、版本记录设计 §6）
-   视频栏右侧的「版本记录」按钮 ＋ 对话框：左边是这部视频的版本（新的在前），右边是选中版本的详情、动作与 diff。
+/* BaoCut 原型 — 视频的历史：版本记录与撤销历史（2026-10-17，视频格式规范 §9、版本记录设计 §6；2026-10-19 合并入口，产品设计 §5.1）
+   视频栏右侧只有一个「历史」按钮（原来的「修订 N」并进来，当前修订写在提示里）＋ 对话框，头上切换两个视图：
+   「版本」左边是这部视频的版本（新的在前），右边是选中版本的详情、动作与 diff；
+   「修改」是撤销历史，每笔提交一个修订，可以单独撤销其中一笔（model-video-changes.js）。不在项目里的视频没有版本，默认打开「修改」。
    两份原型共用：Web 同样经 Runtime 列出版本、看 diff、保存与回到版本（版本记录设计 §6 的多端表）；
    会话只在有 Agent 的表面可以点开（BC_SURFACE.agent）。
    快照被外部改过（§9.8）：只有快照被改时导入成一个「外部变更」版本；两边都改了或快照读不出时，
@@ -38,6 +40,18 @@
   }
   const agentNames = () => Object.fromEntries(((D.agent && D.agent.harnesses) || []).map((h) => [h.id, h.name]));
   const fileName = (n) => `history/${String(n).padStart(6, '0')}.patch`;
+
+  /* 撤销历史也是每部视频一份，关掉对话框再打开还在；从版本记录的演示数据展开，不跟着「版本记录」开关的场景变 */
+  const changesCache = {};
+  function useChanges(movie) {
+    const [, bump] = useReducer((x) => x + 1, 0);
+    useEffect(() => { subs.add(bump); return () => { subs.delete(bump); }; }, []);
+    if (!changesCache[movie.id]) {
+      changesCache[movie.id] = window.BC_VIDEO_CHANGES.fromVersions(VV.normalize((D.videoVersions || {})[movie.id] || VV.seed(movie)), agentNames());
+    }
+    const put = (next) => { changesCache[movie.id] = next; subs.forEach((f) => f()); };
+    return [changesCache[movie.id], put];
+  }
 
   const KIND_ICON = {segment: R.Icons.Edit, save: R.Icons.Bookmark, restore: R.Icons.Revert, external: R.Icons.Cloud, rebuild: R.Icons.Refresh};
   const ACTOR_ICON = {user: R.Icons.User, agent: R.Icons.AIMark, external: R.Icons.Cloud, system: R.Icons.Settings};
@@ -298,11 +312,31 @@
     </div>;
   }
 
+  /* ---------- 「修改」视图：撤销历史 ---------- */
+
+  /** 每笔一行：名字、修订号 · 谁 · 多久之前，右边「撤销」。撤销本身也是一笔，记在最上面；与之后的修改冲突时引擎拒绝并说明（§5.5）。 */
+  function Changes({movie}) {
+    const VC = window.BC_VIDEO_CHANGES;
+    const [list, put] = useChanges(movie);
+    if (!list.length) return <div className="vh-empty"><p className="vh-muted">还没有修改。</p></div>;
+    return <ul className="vh-changes bc-scroll" aria-label="修改">
+      {list.map((e) => <li key={e.id} className={cx('vh-change', e.undone && 'is-undone')}>
+        <span className="vh-change__body">
+          <span className="vh-change__t">{e.label}{e.undone ? '（已撤销）' : ''}</span>
+          <span className="vh-change__d">{VC.meta(e)}</span>
+        </span>
+        {e.undoAvailable && !e.undone ? <R.Button variant="secondary" size="S" onPress={() => put(VC.undo(list, e.id))}>撤销</R.Button> : null}
+      </li>)}
+    </ul>;
+  }
+
   /* ---------- 对话框 ---------- */
 
   function VideoVersionsDialog({movie, imported, onClose}) {
     const app = useApp();
     const [st, put, latest] = useVersions(movie);
+    /* 两个视图：版本记录与撤销历史。不在项目里的视频没有版本，先给撤销历史 */
+    const [view, setView] = useState(st.inProject ? 'versions' : 'changes');
     const names = useMemo(agentNames, []);
     const rows = VV.rows(st, names).map((r) => Object.assign({id: r.n}, r));
     const [sel, setSel] = useState(rows[0] ? rows[0].n : null);
@@ -443,21 +477,29 @@
       </div>}
     </>;
 
+    const versions = view === 'versions';
     return <BCModal onClose={onClose} labelledBy="vh-title" size="XL" className="bc-versions-dialog">
       <div className="vh">
         <header className="vh-head">
           <span className="vh-head__mark"><R.Icons.History /></span>
           <div className="vh-head__text">
-            <h2 id="vh-title">版本记录</h2>
+            <h2 id="vh-title">历史</h2>
             <span className="vh-head__video">{movie.title}</span>
           </div>
-          {state ? <span className="vh-head__state"><R.StatusLight variant={state.tone} size="S">{state.label}</R.StatusLight></span> : null}
+          {/* 视图切换紧跟标题，两个视图里位置不动；快照状态与保存版本只属于「版本」。窄屏时这一组整体换到第二行 */}
+          <span className="vh-head__sub">
+            <R.SegmentedControl aria-label="历史" selectedKey={view} onSelectionChange={setView} UNSAFE_className="vh-head__view">
+              <R.SegmentedControlItem id="versions">版本</R.SegmentedControlItem>
+              <R.SegmentedControlItem id="changes">修改</R.SegmentedControlItem>
+            </R.SegmentedControl>
+            {versions && state ? <span className="vh-head__state"><R.StatusLight variant={state.tone} size="S">{state.label}</R.StatusLight></span> : null}
+          </span>
           <span className="grow" />
-          {st.inProject ? <SaveVersion disabled={!writable} onSave={save} /> : null}
-          <IconBtn icon="close" tip="关闭版本记录" onClick={onClose} />
+          {versions && st.inProject ? <SaveVersion disabled={!writable} onSave={save} /> : null}
+          <IconBtn icon="close" tip="关闭历史" onClick={onClose} />
         </header>
-        {body}
-        {st.inProject ? <footer className="vh-foot">
+        {versions ? body : <Changes movie={movie} />}
+        {versions && st.inProject ? <footer className="vh-foot">
           <window.ProjectGitStrip movie={movie} onOpenSettings={openSettings} />
           {state ? <span className="vh-foot__desc">{state.desc}</span> : null}
           <span>版本在视频目录的 .bcut-snapshot/history/ 里，不依赖 git；保留最近 {st.keep} 个未命名的版本，加上全部保存的版本。</span>

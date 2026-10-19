@@ -2,8 +2,10 @@ import { pluralForm } from '@baocut/protocol';
 import type { VideoVersionsMessages } from './video-versions-copy.ts';
 
 export const ru: VideoVersionsMessages = {
-  title: 'История версий',
-  close: 'Закрыть историю версий',
+  title: 'История',
+  close: 'Закрыть историю',
+  tipRevision: (revision: string) => `Ревизия ${revision}`,
+  viewChanges: 'Изменения',
   tipLatest: (version: number) => `Последняя версия: ${version}`,
   tipNone: 'Версий пока нет',
   tipOutside: 'Это видео не в проекте',

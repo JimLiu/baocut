@@ -1,8 +1,10 @@
 import type { VideoVersionsMessages } from './video-versions-copy.ts';
 
 export const es: VideoVersionsMessages = {
-  title: 'Historial de versiones',
-  close: 'Cerrar historial de versiones',
+  title: 'Historial',
+  close: 'Cerrar historial',
+  tipRevision: (revision: string) => `Revisión ${revision}`,
+  viewChanges: 'Cambios',
   tipLatest: (version: number) => `La más reciente es la versión ${version}`,
   tipNone: 'Aún no hay versiones',
   tipOutside: 'Este vídeo no está en un proyecto',

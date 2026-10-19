@@ -1,8 +1,10 @@
 import type { VideoVersionsMessages } from './video-versions-copy.ts';
 
 export const vi: VideoVersionsMessages = {
-  title: 'Lịch sử phiên bản',
-  close: 'Đóng lịch sử phiên bản',
+  title: 'Lịch sử',
+  close: 'Đóng lịch sử',
+  tipRevision: (revision: string) => `Bản sửa đổi ${revision}`,
+  viewChanges: 'Thay đổi',
   tipLatest: (version: number) => `Mới nhất là phiên bản ${version}`,
   tipNone: 'Chưa có phiên bản',
   tipOutside: 'Video này không thuộc dự án nào',

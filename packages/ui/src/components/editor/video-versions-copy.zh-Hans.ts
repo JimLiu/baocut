@@ -1,8 +1,10 @@
 import type { VideoVersionsMessages } from './video-versions-copy.ts';
 
 export const zhHans: VideoVersionsMessages = {
-  title: '版本记录',
-  close: '关闭版本记录',
+  title: '历史',
+  close: '关闭历史',
+  tipRevision: (revision: string) => `修订 ${revision}`,
+  viewChanges: '修改',
   tipLatest: (version: number) => `最新是版本 ${version}`,
   tipNone: '还没有版本',
   tipOutside: '这部视频不在项目里',
