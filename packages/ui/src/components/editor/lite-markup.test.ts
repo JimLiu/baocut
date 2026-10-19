@@ -80,7 +80,7 @@ const stubImage = () =>
     },
   );
 
-async function mount(over: { sequence?: Sequence } = {}) {
+async function mount(over: { sequence?: Sequence; live?: boolean } = {}) {
   await act(() =>
     root.render(
       createElement(
@@ -97,7 +97,7 @@ async function mount(over: { sequence?: Sequence } = {}) {
             segments,
             frame,
             canvasRef: { current: canvas },
-            live: false,
+            live: over.live ?? false,
             pickLive,
           }),
         ),
@@ -348,6 +348,77 @@ describe('LiteMarkupLayer', () => {
     await act(() => useDraftVideoAnnotations.getState().remove('v1', notes[0]!.id));
     expect(Object.keys(shots()).map(Number)).toEqual([20000]);
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:frame');
+  });
+
+  it('实时合成层露着时截窗口：藏起标记层、工具条与评论框再请宿主截预览那一块，截到的字节当这一帧的底图', async () => {
+    HTMLCanvasElement.prototype.toBlob ??= function () {};
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((cb) => cb(new Blob(['png'], { type: 'image/png' })));
+    const ctx = {
+      drawImage: vi.fn(),
+      save: vi.fn(),
+      restore: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      arc: vi.fn(),
+      closePath: vi.fn(),
+      fill: vi.fn(),
+      stroke: vi.fn(),
+      fillText: vi.fn(),
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(ctx as unknown as CanvasRenderingContext2D);
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:frame');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    stubImage();
+    // 同 preview.tsx：画布、标记层与工具条都在 `[data-preview-stage]` 里；评论框在 body 下的 portal 里
+    container.setAttribute('data-preview-stage', '');
+    canvas.getBoundingClientRect = () => ({
+      left: 10,
+      top: 20,
+      right: 650,
+      bottom: 380,
+      width: 640,
+      height: 360,
+      x: 10,
+      y: 20,
+      toJSON: () => ({}),
+    });
+    // jsdom 里 setComment(null) 在截图前就把评论框关了（没有退场动画）：另放一个 body 下的「portal」装着评论框，看它整个被藏起来
+    const portal = document.createElement('div');
+    portal.innerHTML = '<div role="dialog"><div data-comment-form></div></div>';
+    document.body.append(portal);
+    const hiddenAt: string[] = [];
+    const captureFrame = vi.fn(async (_rect: { x: number; y: number; width: number; height: number }) => {
+      for (const el of document.querySelectorAll<HTMLElement>('[data-lite-markup], [data-lite-markup-bar]'))
+        if (el.style.visibility === 'hidden') hiddenAt.push(el.dataset.liteMarkup !== undefined ? 'layer' : 'bar');
+      if (portal.style.visibility === 'hidden') hiddenAt.push('form');
+      return new Uint8Array([137, 80, 78, 71]);
+    });
+    (runtime.host as unknown as Record<string, unknown>).captureFrame = captureFrame;
+    try {
+      await mount({ live: true });
+      container.append(canvas); // 首次 render 会清空容器，画布要在它之后挂进去
+      await setTool('comment');
+      await pointer('pointerdown', 320, 180);
+      const area = document.querySelector<HTMLTextAreaElement>('[data-comment-form] textarea')!;
+      await act(() => {
+        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(area, '慢一点');
+        area.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      await press(button('发送'));
+      await act(() => new Promise<void>((resolve) => setTimeout(resolve, 50)));
+      expect(captureFrame).toHaveBeenCalledWith({ x: 10, y: 20, width: 640, height: 360 });
+      expect(hiddenAt).toEqual(expect.arrayContaining(['layer', 'bar', 'form']));
+      expect(layer().style.visibility).toBe('');
+      expect(portal.style.visibility).toBe('');
+      const shot = useDraftVideoAnnotations.getState().shots.v1?.[3000];
+      expect(shot?.base.type).toBe('image/png');
+      expect(shot?.base.size).toBe(4);
+      expect(shot?.file?.name).toBe('frame-3000.png');
+    } finally {
+      portal.remove();
+      delete (runtime.host as unknown as Record<string, unknown>).captureFrame;
+    }
   });
 
   it('Esc：有没发的标记先问「放弃这些标记？」，没有就直接退出', async () => {

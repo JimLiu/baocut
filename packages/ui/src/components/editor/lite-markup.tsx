@@ -1269,11 +1269,25 @@ async function keepFrame(timeMs: number, source: HTMLCanvasElement | null, live:
 type CaptureFrame = HostBridge['captureFrame'];
 const OVERLAYS = '[data-lite-markup], [data-lite-markup-bar], [data-video-annotations]';
 const nextPaint = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+/**
+ * 截窗口前要藏起来的东西：舞台里的标记层、工具条与草稿标注层，还有评论框——它开在 Popover 里（挂在 body 下的 portal，不在舞台里，
+ * 关掉时还有一段退场动画），从它往上取到不包着舞台的最外层一起藏。
+ */
+function overlaysToHide(stage: HTMLElement | null): HTMLElement[] {
+  const found = stage ? [...stage.querySelectorAll<HTMLElement>(OVERLAYS)] : [];
+  for (const form of document.querySelectorAll<HTMLElement>('[data-comment-form]')) {
+    let top = form;
+    while (top.parentElement && top.parentElement !== document.body && !(stage && top.parentElement.contains(stage)))
+      top = top.parentElement;
+    if (!found.some((el) => el.contains(top))) found.push(top);
+  }
+  return found;
+}
 /** 此刻的那一帧：实时合成层露着时截窗口（Electron），否则拷画布。 */
 async function grabFrame(source: HTMLCanvasElement, live: boolean, capture: CaptureFrame): Promise<Blob | null> {
   if (!live || !capture) return snapshot(source);
   const stage = source.closest<HTMLElement>('[data-preview-stage]') ?? source.parentElement;
-  const overlays = stage ? [...stage.querySelectorAll<HTMLElement>(OVERLAYS)] : [];
+  const overlays = overlaysToHide(stage);
   const shown = overlays.map((el) => el.style.visibility);
   for (const el of overlays) el.style.visibility = 'hidden';
   try {
