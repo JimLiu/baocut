@@ -1528,8 +1528,11 @@ Node 管理模型目录、版本、下载计划、校验与资源准入；Rust W
 | --- | --- | --- | --- |
 | `openai` | `POST {base}/audio/transcriptions`（multipart，Bearer） | `whisper-1`（默认）、`gpt-4o-transcribe`、`gpt-4o-mini-transcribe` | `whisper-1` 取 `verbose_json` 的段与词时间（`provider`）；另两个只返回文本，按 120 秒切块，词时间插值（`estimated`） |
 | `google` | Gemini Interactions API：`POST {base}/interactions`（`x-goog-api-key` 请求头，从不放在 URL 里） | `gemini-3.5-transcribe`（默认，词级时间标注）、`gemini-3.8-flash`（通用模型，按 JSON Schema 返回段） | 前者 `provider`，后者 `estimated` |
-| `qwen` | `POST {base}/chat/completions`（JSON，Bearer）：`messages` 中 `input_audio.data` 是音频 Data URL；术语提示放在 system 消息，断言语言放在 `asr_options.language`，`enable_itn: false` | `qwen-audio-3.0-asr-flash`（默认）、`qwen-audio-3.1-asr-flash`、`qwen3-asr-flash`；单次不超过 300 秒，原始音频不超过 7 MB（为 base64 后的 10 MB 上限留余量）；按 120 秒切块 | 取 `choices[0].message.content`，只接受完整的 `stop` 响应；词时间插值（`estimated`），保留原始 `usage` |
-| `custom:<名字>` | 用户给出的 OpenAI 兼容基址；密钥可选；阿里云官方域名上的千问同步 ASR 模型使用上一行的协议 | 用户声明（`declared`），限制取保守的默认值；千问 ASR 的字节、时长上限按官方协议收紧 | 普通模型声明为 `native` 的请求 `verbose_json`，否则 `estimated`；千问同步 ASR 覆盖旧声明为 `none`，时间插值 |
+| `qwen`（Qwen3） | `POST {base}/chat/completions`（JSON，Bearer）：`messages` 中 `input_audio.data` 是音频 Data URL；术语提示放在 system 消息，断言语言放在 `asr_options.language`，`enable_itn: false` | `qwen3-asr-flash` | 取 `choices[0].message.content`，只接受完整的 `stop` 响应；无词时间，插值并标 `estimated` |
+| `qwen`（Qwen-Audio 3.x） | `POST {dashscopeBase}/services/aigc/multimodal-generation/generation`（JSON，Bearer，`X-DashScope-SSE: disable`）：音频放 `input.messages` 的最后一条 user 消息；参数是 `format`、`sample_rate: "16000"` 与可选的 `language_hints`，不发送 Chat Completions 参数 | `qwen-audio-3.0-asr-flash`（默认）、`qwen-audio-3.1-asr-flash` | 取累计全文 `output.text`；响应若带 `output.sentence`，必须标为已完成。稳定且覆盖全文的 `words` 由毫秒换成秒，拼上 `punctuation`，时间标 `provider`；否则保留全文并估算词时间，不拿最后一句的词列表替换全文 |
+| `custom:<名字>` | 用户给出的 OpenAI 兼容基址；密钥可选；阿里云官方域名上的千问同步 ASR 模型按模型族选择上述协议 | 用户声明（`declared`），限制取保守的默认值；千问 ASR 的字节、时长与词时间能力按对应协议覆盖声明 | 普通模型声明为 `native` 的请求 `verbose_json`，否则 `estimated`；千问模型采用对应适配器的解析规则 |
+
+千问两类同步转写都保留原始 `usage`，单次不超过 300 秒、原始音频不超过 7 MB（为 base64 后的 10 MB 上限留余量），内置适配器按 120 秒切块。Qwen-Audio 3.x 的术语上下文放在音频前的 user `input_text` 消息，最多 400 个 Unicode 码点；不使用 system 消息或 `asr_options`。`dashscopeBase` 将配置基址结尾的 `/compatible-mode/v1` 换成 `/api/v1`，已是 `/api/v1` 的不重复追加，保留原始源与代理路径前缀。协议分别按 [Qwen3-ASR API](https://www.alibabacloud.com/help/en/model-studio/qwen-asr-api-reference) 与 [Qwen-Audio 3.x HTTP API](https://www.alibabacloud.com/help/en/model-studio/fun-asr-flash-recorded-speech-recognition-http-api) 实现。
 
 千问同步 ASR 也识别 `latest` 与日期快照名。自建端点仅在 `dashscope.aliyuncs.com`、`dashscope-intl.aliyuncs.com` 或 `*.maas.aliyuncs.com` 上自动采用千问协议，其他域名保持原 OpenAI 转写协议。`*-filetrans` 需要 DashScope 异步提交、轮询与结果下载，本适配器不支持，在官方端点上报告为不可用，不发送到同步接口。
 

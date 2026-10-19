@@ -1,6 +1,6 @@
 // Qwen synchronous ASR: https://www.alibabacloud.com/help/en/model-studio/qwen-asr-api-reference
 // Verified 2026-10-19: Chat Completions with input_audio Data URLs, optional system context and asr_options.
-// No word timestamps; filetrans requires the separate DashScope asynchronous API and is not supported here.
+// Qwen-Audio 3.x uses DashScope instead; see qwen-audio-transcription.ts. Filetrans remains unsupported.
 import fs from 'node:fs/promises';
 import { modelDetail, ProviderFailure } from '@baocut/models';
 import type { TranscribeModelInfo } from '@baocut/protocol';
@@ -17,6 +17,7 @@ import {
 import { CHUNK_FORMATS, type ChunkFormat } from '../audio/audio-prep.ts';
 import { providerFetch } from '../http/provider-fetch.ts';
 import { authOf, httpOptions, openAiValidate } from '../openai/openai-transcription.ts';
+import { qwenAudioTranscribeChunk } from './qwen-audio-transcription.ts';
 
 /** Base64 expands by 4/3: leave room below the documented 10 MB inline limit. */
 const MAX_INLINE_BYTES = 7_000_000;
@@ -40,22 +41,22 @@ export function qwenAsrModelInfo(model: TranscribeModelInfo): TranscribeModelInf
       ...model,
       available: false,
       unavailableReason: 'unsupported',
-      ...modelDetail(PC.noModel({ label: 'Qwen ASR (Chat Completions)', model: model.modelId })),
+      ...modelDetail(PC.noModel({ label: 'Qwen ASR', model: model.modelId })),
     };
   }
   return {
     ...model,
     maxInputBytes: Math.min(model.maxInputBytes ?? MAX_INLINE_BYTES, MAX_INLINE_BYTES),
     maxDurationSec: Math.min(model.maxDurationSec ?? MAX_DURATION_SEC, MAX_DURATION_SEC),
-    wordTimestamps: 'none',
+    wordTimestamps: model.modelId.startsWith('qwen-audio-') ? 'native' : 'none',
   };
 }
 
 export class QwenAdapter implements TranscribeAdapter {
-  readonly version = 'baocut-providers/qwen-asr@1';
+  readonly version = 'baocut-providers/qwen-asr@2';
 
   models(_config: AdapterConfig): TranscribeModelInfo[] {
-    return ['qwen-audio-3.0-asr-flash', 'qwen-audio-3.1-asr-flash', 'qwen3-asr-flash'].map((modelId, i) => ({
+    return ['qwen-audio-3.0-asr-flash', 'qwen-audio-3.1-asr-flash', 'qwen3-asr-flash'].map((modelId, i) => qwenAsrModelInfo({
       modelId,
       label: modelId,
       ...(i === 0 ? { default: true } : {}),
@@ -90,6 +91,7 @@ export async function qwenTranscribeChunk(request: ChunkRequest, label: string):
   if (model.modelId.includes('-filetrans')) {
     throw new ProviderFailure('unavailable', PC.noModel({ label, model: model.modelId }));
   }
+  if (model.modelId.startsWith('qwen-audio-')) return qwenAudioTranscribeChunk(request, label);
   const response = await providerFetch(httpOptions(label, config, request.http), {
     method: 'POST',
     url: `${config.baseUrl}/chat/completions`,
