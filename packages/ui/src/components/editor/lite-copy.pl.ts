@@ -2,13 +2,13 @@ import type { LiteMessages } from './lite-copy.ts';
 
 export const pl: LiteMessages = {
   viewGroup: 'Widok edytora',
-  viewLite: 'Lekki',
+  viewLite: 'Przegląd',
   viewTimeline: 'Oś czasu',
   defaultOpen: 'Otwieraj filmy w',
   defaultAuto: 'Automatycznie',
-  defaultAutoHint: 'Lekki dla filmów z rozdziałami utworzonych w rozmowie, w pozostałych oś czasu',
-  defaultLite: 'Lekki edytor',
-  defaultTimeline: 'Edytor osi czasu',
+  defaultAutoHint: 'Przegląd dla filmów z rozdziałami utworzonych w rozmowie, w pozostałych oś czasu',
+  defaultLite: 'Widok przeglądu',
+  defaultTimeline: 'Widok osi czasu',
   chips: 'Segmenty',
   chipLabel: (title: string, range: string) => `${title}, ${range}. Kliknij, aby przejść, przeciągnij, aby przewijać`,
   segmentCount: (n: number) => `Segmenty: ${n}`,

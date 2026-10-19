@@ -2,13 +2,13 @@ import type { LiteMessages } from './lite-copy.ts';
 
 export const ru: LiteMessages = {
   viewGroup: 'Вид редактора',
-  viewLite: 'Лёгкий',
+  viewLite: 'Просмотр',
   viewTimeline: 'Таймлайн',
   defaultOpen: 'Открывать видео в',
   defaultAuto: 'Автоматически',
-  defaultAutoHint: 'Лёгкий для видео с главами, созданных в беседе, иначе таймлайн',
-  defaultLite: 'Лёгкий редактор',
-  defaultTimeline: 'Редактор таймлайна',
+  defaultAutoHint: 'Просмотр для видео с главами, созданных в беседе, иначе таймлайн',
+  defaultLite: 'Режим просмотра',
+  defaultTimeline: 'Режим таймлайна',
   chips: 'Сегменты',
   chipLabel: (title: string, range: string) => `${title}, ${range}. Щёлкните, чтобы перейти, тяните, чтобы перематывать`,
   segmentCount: (n: number) => `Сегментов: ${n}`,

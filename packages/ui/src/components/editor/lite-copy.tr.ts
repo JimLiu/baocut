@@ -2,13 +2,13 @@ import type { LiteMessages } from './lite-copy.ts';
 
 export const tr: LiteMessages = {
   viewGroup: 'Düzenleyici görünümü',
-  viewLite: 'Hafif',
+  viewLite: 'İnceleme',
   viewTimeline: 'Zaman çizelgesi',
   defaultOpen: 'Videoları şurada aç',
   defaultAuto: 'Otomatik',
-  defaultAutoHint: 'Sohbette oluşturulan bölümlü videolar için hafif, diğerleri için zaman çizelgesi',
-  defaultLite: 'Hafif düzenleyici',
-  defaultTimeline: 'Zaman çizelgesi düzenleyicisi',
+  defaultAutoHint: 'Sohbette oluşturulan bölümlü videolar için inceleme, diğerleri için zaman çizelgesi',
+  defaultLite: 'İnceleme görünümü',
+  defaultTimeline: 'Zaman çizelgesi görünümü',
   chips: 'Bölümler',
   chipLabel: (title: string, range: string) => `${title}, ${range}. Atlamak için tıklayın, gezmek için sürükleyin`,
   segmentCount: (n: number) => `${n} bölüm`,

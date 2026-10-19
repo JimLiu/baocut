@@ -2,13 +2,13 @@ import type { LiteMessages } from './lite-copy.ts';
 
 export const de: LiteMessages = {
   viewGroup: 'Editor-Ansicht',
-  viewLite: 'Leicht',
+  viewLite: 'Sichten',
   viewTimeline: 'Timeline',
   defaultOpen: 'Videos öffnen in',
   defaultAuto: 'Automatisch',
-  defaultAutoHint: 'Leicht für Videos mit Kapiteln aus einer Unterhaltung, sonst Timeline',
-  defaultLite: 'Leichter Editor',
-  defaultTimeline: 'Timeline-Editor',
+  defaultAutoHint: 'Sichten für Videos mit Kapiteln aus einer Unterhaltung, sonst Timeline',
+  defaultLite: 'Sichtungsansicht',
+  defaultTimeline: 'Timeline-Ansicht',
   chips: 'Abschnitte',
   chipLabel: (title: string, range: string) => `${title}, ${range}. Klicken zum Springen, ziehen zum Scrubben`,
   segmentCount: (n: number) => `${n} Abschnitt${n === 1 ? '' : 'e'}`,

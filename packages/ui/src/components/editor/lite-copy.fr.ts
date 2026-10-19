@@ -2,13 +2,13 @@ import type { LiteMessages } from './lite-copy.ts';
 
 export const fr: LiteMessages = {
   viewGroup: 'Vue de l’éditeur',
-  viewLite: 'Léger',
+  viewLite: 'Revue',
   viewTimeline: 'Timeline',
   defaultOpen: 'Ouvrir les vidéos dans',
   defaultAuto: 'Automatique',
-  defaultAutoHint: 'Léger pour les vidéos chapitrées créées dans une conversation, timeline sinon',
-  defaultLite: 'Éditeur léger',
-  defaultTimeline: 'Éditeur timeline',
+  defaultAutoHint: 'Revue pour les vidéos chapitrées créées dans une conversation, timeline sinon',
+  defaultLite: 'Vue revue',
+  defaultTimeline: 'Vue timeline',
   chips: 'Segments',
   chipLabel: (title: string, range: string) => `${title}, ${range}. Cliquez pour y aller, glissez pour parcourir`,
   segmentCount: (n: number) => `${n} segment${n === 1 ? '' : 's'}`,

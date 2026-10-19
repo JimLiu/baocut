@@ -2,13 +2,13 @@ import type { LiteMessages } from './lite-copy.ts';
 
 export const vi: LiteMessages = {
   viewGroup: 'Chế độ xem trình chỉnh sửa',
-  viewLite: 'Gọn nhẹ',
+  viewLite: 'Duyệt',
   viewTimeline: 'Dòng thời gian',
   defaultOpen: 'Mở video bằng',
   defaultAuto: 'Tự động',
-  defaultAutoHint: 'Gọn nhẹ cho video có chương tạo trong hội thoại, còn lại dùng dòng thời gian',
-  defaultLite: 'Trình chỉnh sửa gọn nhẹ',
-  defaultTimeline: 'Trình chỉnh sửa dòng thời gian',
+  defaultAutoHint: 'Duyệt cho video có chương tạo trong hội thoại, còn lại dùng dòng thời gian',
+  defaultLite: 'Chế độ duyệt',
+  defaultTimeline: 'Chế độ dòng thời gian',
   chips: 'Các đoạn',
   chipLabel: (title: string, range: string) => `${title}, ${range}. Nhấp để nhảy tới, kéo để tua`,
   segmentCount: (n: number) => `${n} đoạn`,

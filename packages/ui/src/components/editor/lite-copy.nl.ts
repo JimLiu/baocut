@@ -2,13 +2,13 @@ import type { LiteMessages } from './lite-copy.ts';
 
 export const nl: LiteMessages = {
   viewGroup: 'Editorweergave',
-  viewLite: 'Licht',
+  viewLite: 'Beoordelen',
   viewTimeline: 'Tijdlijn',
   defaultOpen: 'Video’s openen in',
   defaultAuto: 'Automatisch',
-  defaultAutoHint: 'Licht voor video’s met hoofdstukken uit een gesprek, anders tijdlijn',
-  defaultLite: 'Lichte editor',
-  defaultTimeline: 'Tijdlijneditor',
+  defaultAutoHint: 'Beoordelen voor video’s met hoofdstukken uit een gesprek, anders tijdlijn',
+  defaultLite: 'Beoordelingsweergave',
+  defaultTimeline: 'Tijdlijnweergave',
   chips: 'Segmenten',
   chipLabel: (title: string, range: string) => `${title}, ${range}. Klik om te springen, sleep om te scrubben`,
   segmentCount: (n: number) => `${n} segment${n === 1 ? '' : 'en'}`,

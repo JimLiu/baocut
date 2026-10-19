@@ -2,13 +2,13 @@ import type { LiteMessages } from './lite-copy.ts';
 
 export const ko: LiteMessages = {
   viewGroup: '편집기 보기',
-  viewLite: '라이트',
+  viewLite: '리뷰',
   viewTimeline: '타임라인',
   defaultOpen: '영상을 여는 편집기',
   defaultAuto: '자동',
-  defaultAutoHint: '대화에서 만든 챕터 있는 영상은 라이트, 나머지는 타임라인',
-  defaultLite: '라이트 편집기',
-  defaultTimeline: '타임라인 편집기',
+  defaultAutoHint: '대화에서 만든 챕터 있는 영상은 리뷰, 나머지는 타임라인',
+  defaultLite: '리뷰 보기',
+  defaultTimeline: '타임라인 보기',
   chips: '구간',
   chipLabel: (title: string, range: string) => `${title}, ${range}. 클릭하면 이동, 드래그하면 스크럽`,
   segmentCount: (n: number) => `구간 ${n}개`,

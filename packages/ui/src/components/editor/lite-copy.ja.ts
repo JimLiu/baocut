@@ -2,13 +2,13 @@ import type { LiteMessages } from './lite-copy.ts';
 
 export const ja: LiteMessages = {
   viewGroup: 'エディターの表示',
-  viewLite: 'ライト',
+  viewLite: 'レビュー',
   viewTimeline: 'タイムライン',
   defaultOpen: '動画を開くエディター',
   defaultAuto: '自動',
-  defaultAutoHint: '会話で作ったチャプター付きの動画はライト、それ以外はタイムライン',
-  defaultLite: 'ライトエディター',
-  defaultTimeline: 'タイムラインエディター',
+  defaultAutoHint: '会話で作ったチャプター付きの動画はレビュー、それ以外はタイムライン',
+  defaultLite: 'レビュー表示',
+  defaultTimeline: 'タイムライン表示',
   chips: 'セグメント',
   chipLabel: (title: string, range: string) => `${title}、${range}。クリックで移動、ドラッグでスクラブ`,
   segmentCount: (n: number) => `${n} セグメント`,

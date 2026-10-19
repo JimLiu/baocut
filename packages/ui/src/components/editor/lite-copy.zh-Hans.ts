@@ -2,13 +2,13 @@ import type { LiteMessages } from './lite-copy.ts';
 
 export const zhHans: LiteMessages = {
   viewGroup: '编辑器视图',
-  viewLite: '轻量',
+  viewLite: '审片',
   viewTimeline: '时间线',
   defaultOpen: '视频默认打开',
   defaultAuto: '自动',
-  defaultAutoHint: '会话里生成、带章节的视频用轻量，其余用时间线',
-  defaultLite: '轻量编辑器',
-  defaultTimeline: '时间线编辑器',
+  defaultAutoHint: '会话里生成、带章节的视频用审片，其余用时间线',
+  defaultLite: '审片视图',
+  defaultTimeline: '时间线视图',
   chips: '分段',
   chipLabel: (title: string, range: string) => `${title}，${range}。点击跳到这段，拖动定位`,
   segmentCount: (n: number) => `${n} 段`,

@@ -85,7 +85,7 @@
     </div>;
   }
 
-  /* 轻量 / 时间线（docs/design/lite-editor §3.4、§5）：同一部视频的两种看法，切换不丢状态。旁边的小菜单改「默认打开」：
+  /* 审片 / 时间线（docs/design/lite-editor §3.4、§5；代码里仍叫 lite）：同一部视频的两种看法，切换不丢状态。旁边的小菜单改「默认打开」：
      按视频种类（智能体做的与转录 / 翻译的开轻量，别的开时间线）、总是轻量、总是时间线；按视频的记忆由切换本身写。 */
   function MovieViewSwitch({editor}) {
     const app = useApp();
@@ -93,7 +93,7 @@
     const dflt = app.prefs.editorViewDefault || 'kind';
     return <div className="moviebar__view" role="group" aria-label="编辑器视图">
       <R.SegmentedControl aria-label="编辑器视图" selectedKey={editor.view} onSelectionChange={k => editor.setView(String(k))} UNSAFE_className="moviebar__view-seg">
-        <R.SegmentedControlItem id="lite"><R.Icons.Transcript /><R.Text>轻量</R.Text></R.SegmentedControlItem>
+        <R.SegmentedControlItem id="lite"><R.Icons.Transcript /><R.Text>审片</R.Text></R.SegmentedControlItem>
         <R.SegmentedControlItem id="timeline"><R.Icons.Filmstrip /><R.Text>时间线</R.Text></R.SegmentedControlItem>
       </R.SegmentedControl>
       <R.MenuTrigger>
@@ -104,7 +104,7 @@
         }}>
           <R.MenuSection><R.Header>默认打开</R.Header>
             <R.MenuItem id="kind">按视频种类</R.MenuItem>
-            <R.MenuItem id="lite">总是轻量</R.MenuItem>
+            <R.MenuItem id="lite">总是审片</R.MenuItem>
             <R.MenuItem id="timeline">总是时间线</R.MenuItem>
           </R.MenuSection>
         </R.Menu>

@@ -250,7 +250,7 @@
      src: {name: 'render-v3.mp4', path: '~/BaoCut/产品手册动画/倒着开的跑车/render-v3.mp4', format: 'MP4 · H.264', res: '1920×1080', bytes: 61341696, state: 'ok'},
      duration: DUR, lang: '中文', modified: '10 分钟前', mtime: 10, otime: 0, ctime: 1440, hue: 206,
      desc: '智能体按脚本做的讲解动画：七个场景、每场一段旁白与一个代码包，两处实拍覆盖。',
-     notes: '想改哪一场就在轻量视图里标注给智能体；时间线视图留给调节奏。',
+     notes: '想改哪一场就在审片视图里标注给智能体；时间线视图留给调节奏。',
      toast: '讲解动画 · 7 个场景 · 点一句台词跳到那里，画面上可以直接标注',
      scenes: [
        {id: 's01', title: '钩子', start: 0, end: 22, bundle: 'bundles/s01-hook', bundleVersion: 3, narration: 'audio/s01.wav', status: 'placed',

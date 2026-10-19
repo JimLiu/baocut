@@ -490,7 +490,7 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/app.js?v=e6f7e0ca0ed0",
+    "js": "generated/app.js?v=322bdb2fec14",
     "css": "generated/app.css?v=2af87debc23c",
     "bytes": 4633690
   },
@@ -744,7 +744,7 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/web.js?v=fce34d4d5a55",
+    "js": "generated/web.js?v=212e4e0c9763",
     "css": "generated/web.css?v=308fc39965c9",
     "bytes": 2707078
   },

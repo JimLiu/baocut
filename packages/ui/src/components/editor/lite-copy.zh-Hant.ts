@@ -2,13 +2,13 @@ import type { LiteMessages } from './lite-copy.ts';
 
 export const zhHant: LiteMessages = {
   viewGroup: '編輯器檢視',
-  viewLite: '輕量',
+  viewLite: '審片',
   viewTimeline: '時間軸',
   defaultOpen: '影片預設開啟方式',
   defaultAuto: '自動',
-  defaultAutoHint: '對話裡產生、帶章節的影片用輕量，其餘用時間軸',
-  defaultLite: '輕量編輯器',
-  defaultTimeline: '時間軸編輯器',
+  defaultAutoHint: '對話裡產生、帶章節的影片用審片，其餘用時間軸',
+  defaultLite: '審片檢視',
+  defaultTimeline: '時間軸檢視',
   chips: '分段',
   chipLabel: (title: string, range: string) => `${title}，${range}。點一下跳到這段，拖曳定位`,
   segmentCount: (n: number) => `${n} 段`,

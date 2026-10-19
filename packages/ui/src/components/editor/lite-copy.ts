@@ -19,16 +19,16 @@ import { vi } from './lite-copy.vi.ts';
  * 译文在 `lite-copy.zh-Hans.ts` 等。
  */
 const en = {
-  /** 顶栏：轻量 / 时间线。 */
+  /** 顶栏：审片 / 时间线（视图在代码里仍叫 lite）。 */
   viewGroup: 'Editor view',
-  viewLite: 'Lite',
+  viewLite: 'Review',
   viewTimeline: 'Timeline',
   /** 视频菜单里的「默认打开」。 */
   defaultOpen: 'Open videos in',
   defaultAuto: 'Automatic',
-  defaultAutoHint: 'Lite for chaptered videos made in a conversation, timeline otherwise',
-  defaultLite: 'Lite editor',
-  defaultTimeline: 'Timeline editor',
+  defaultAutoHint: 'Review for chaptered videos made in a conversation, timeline otherwise',
+  defaultLite: 'Review view',
+  defaultTimeline: 'Timeline view',
   /** 片条。 */
   chips: 'Segments',
   chipLabel: (title: string, range: string) => `${title}, ${range}. Click to jump, drag to scrub`,
