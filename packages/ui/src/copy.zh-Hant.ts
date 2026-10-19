@@ -435,7 +435,7 @@ export const zhHant: CopyMessages = {
     historyCleared: (n: number) => `已從列表清除 ${n} 項，任務紀錄與產出不受影響`,
     undo: '還原',
     emptyRecentHistory: '最近沒有已完成的任務',
-    showOlder: (n: number) => `顯示更早的 ${n} 項`,
+    showOlder: (n: number, total: number) => (n < total ? `顯示更早的 ${n} 項（還有 ${total} 項）` : `顯示更早的 ${n} 項`),
     hideOlder: '收合更早的',
     openConversation: '開啟對話',
     details: '詳細資訊',

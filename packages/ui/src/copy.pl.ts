@@ -508,7 +508,7 @@ export const pl: CopyMessages = {
     historyCleared: (n: number) => `Usunięto z listy: ${n} ${pluralForm('pl', n, { one: 'zadanie', few: 'zadania', many: 'zadań', other: 'zadania' })}. Zapisy i wyniki pozostają bez zmian.`,
     undo: 'Cofnij',
     emptyRecentHistory: 'Brak ostatnio zakończonych zadań',
-    showOlder: (n: number) => `Pokaż wcześniejsze: ${n}`,
+    showOlder: (n: number, total: number) => (n < total ? `Pokaż wcześniejsze: ${n} z ${total}` : `Pokaż wcześniejsze: ${n}`),
     hideOlder: 'Ukryj wcześniejsze',
     openConversation: "Otwórz sesję",
     details: "Szczegóły",

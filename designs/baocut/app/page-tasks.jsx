@@ -113,14 +113,16 @@
   function TasksPage() {
     const app = useApp();
     const open = (id) => app.go({r: 'task', id});
-    const [active, history] = window.BC_APP_IA.taskGroups(app.tasks);
+    const IA = window.BC_APP_IA;
+    const [active, history] = IA.taskGroups(app.tasks);
     const live = active.items;
-    const view = window.BC_APP_IA.historyView(history.items, {cleared: app.prefs.tasksCleared, showAll: app.tasksShowAll});
+    const older = (n, total) => n < total ? `显示更早的 ${n} 项（还有 ${total} 项）` : `显示更早的 ${n} 项`;
+    const view = IA.historyView(history.items, {cleared: app.prefs.tasksCleared, more: app.tasksMore});
     const past = view.items;
     const clear = () => {
       const before = app.prefs.tasksCleared || [];
       app.setPref('tasksCleared', [...before, ...view.clearIds]);
-      app.setTasksShowAll(false);
+      app.setTasksMore(0);
       app.toast(`已从列表清空 ${view.clearable.length} 项，任务记录与产物不受影响`, 'positive',
         {label: '撤销', undo: true, run: () => { app.setPref('tasksCleared', before); app.toast('已撤销'); }});
     };
@@ -136,10 +138,13 @@
         <div className="t-section" style={{marginTop: 28}}>已完成</div>
         {past.length
           ? <div className="tasks">{past.map((t) => <TaskCard key={t.id} t={t} onOpen={open} />)}</div>
-          : <Empty title={view.older ? '最近没有完成的任务' : '还没有完成的任务'} />}
-        {view.older
-          ? <div className="tasks-older"><Btn variant="quiet" size="s" onClick={() => app.setTasksShowAll(!app.tasksShowAll)}>
-              {app.tasksShowAll ? '收起更早的' : `显示更早的 ${view.older} 项`}</Btn></div>
+          : <Empty title={view.older || view.expanded ? '最近没有完成的任务' : '还没有完成的任务'} />}
+        {view.older || view.expanded
+          ? <div className="tasks-older">
+              {view.older ? <Btn variant="quiet" size="s" onClick={() => app.setTasksMore(app.tasksMore + IA.HISTORY_PAGE)}>
+                {older(Math.min(IA.HISTORY_PAGE, view.older), view.older)}</Btn> : null}
+              {view.expanded ? <Btn variant="quiet" size="s" onClick={() => app.setTasksMore(0)}>收起更早的</Btn> : null}
+            </div>
           : null}
       </Page>
     );

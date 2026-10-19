@@ -449,7 +449,7 @@ export const ko: CopyMessages = {
     historyCleared: (n: number) => `목록에서 ${n}개를 지웠습니다. 기록과 결과물은 그대로입니다`,
     undo: '실행 취소',
     emptyRecentHistory: '최근에 끝난 작업이 없습니다',
-    showOlder: (n: number) => `이전 작업 ${n}개 보기`,
+    showOlder: (n: number, total: number) => (n < total ? `이전 작업 ${n}개 보기 (남은 ${total}개)` : `이전 작업 ${n}개 보기`),
     hideOlder: '이전 작업 숨기기',
     openConversation: '세션 열기',
     details: '세부 정보',

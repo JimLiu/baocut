@@ -446,7 +446,7 @@ export const zhHans: CopyMessages = {
     historyCleared: (n: number) => `已从列表清空 ${n} 项，任务记录与产物不受影响`,
     undo: '撤销',
     emptyRecentHistory: '最近没有完成的任务',
-    showOlder: (n: number) => `显示更早的 ${n} 项`,
+    showOlder: (n: number, total: number) => (n < total ? `显示更早的 ${n} 项（还有 ${total} 项）` : `显示更早的 ${n} 项`),
     hideOlder: '收起更早的',
     openConversation: '打开会话',
     details: '详情',

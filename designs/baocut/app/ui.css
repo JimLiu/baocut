@@ -879,7 +879,7 @@ body { font-size: 14px; }
 /* 任务 */
 .tasks { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 /* 「显示更早的 N 项」：已完成一节底下，左对齐（product-design §6.1） */
-.tasks-older { margin-top: 8px; }
+.tasks-older { display: flex; gap: 8px; margin-top: 8px; }
 .task { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
 /* 任务种类图标盒（底色 / 前景由种类的 tone 在行内给） */
 .kicon { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; flex: none; }

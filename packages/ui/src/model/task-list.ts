@@ -381,23 +381,26 @@ export function taskGroups(rows: readonly TaskRow[]): [TaskGroup, TaskGroup] {
   ];
 }
 
-/** 「已完成」一节默认列几条、列多久以内结束的（产品设计 §6.1）。 */
+/** 「已完成」一节默认列几条、列多久以内结束的，「显示更早的」每次多列几条（产品设计 §6.1）。 */
 export const HISTORY_LIMIT = 20;
 export const HISTORY_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+export const HISTORY_PAGE = 50;
 
 export interface HistoryOptions {
   now: number;
   /** 上次「清空历史」清到哪个结束时间（毫秒）：不晚于它结束的不列；没清空过是 null。 */
   clearedAt: number | null;
-  /** 展开「显示更早的 N 项」：全部列出。 */
-  showAll: boolean;
+  /** 点「显示更早的」多列出的条数（按 `HISTORY_PAGE` 一批批加）。 */
+  more: number;
 }
 
 export interface HistoryView {
   items: TaskRow[];
-  /** 收起时没列的条数（因 20 条、30 天或清空）；展开时也照样算，好给「收起」。 */
+  /** 还没列出的条数（因 20 条、30 天或清空，且还没展开到）。 */
   older: number;
-  /** 这一刻能清空的：列出的里不要用户决定的那些。 */
+  /** 已经展开多列出的条数：大于 0 时给「收起」。 */
+  expanded: number;
+  /** 这一刻能清空的：默认列出的里不要用户决定的那些。 */
   clearable: TaskRow[];
 }
 
@@ -408,21 +411,30 @@ export function rowEndTime(row: Pick<TaskRow, 'endedAt' | 'startedAt'>): number 
 
 /**
  * 历史这次列哪些（产品设计 §6.1）：按结束时间排，新的在前；清空过的与结束超过 30 天的不列，其余取最近 20 条；
- * 要用户决定的（`attention`）总是列出。只决定显示什么，不动记录。
+ * 要用户决定的（`attention`）总是列出。展开时再按同样的顺序多列 `more` 条没列的，上千条也只画出点开的那几批。
+ * 只决定显示什么，不动记录。
  */
 export function historyView(rows: readonly TaskRow[], options: HistoryOptions): HistoryView {
-  const { now, clearedAt, showAll } = options;
+  const { now, clearedAt, more } = options;
   const sorted = rows
     .map((row, index) => ({ row, index, end: rowEndTime(row) }))
     .sort((a, b) => b.end - a.end || a.index - b.index);
   let kept = 0;
-  const recent = sorted.filter(({ row, end }) => {
-    if (row.attention) return true;
-    if (now - end > HISTORY_MAX_AGE_MS || (clearedAt !== null && end <= clearedAt)) return false;
-    return kept++ < HISTORY_LIMIT;
-  });
-  const items = (showAll ? sorted : recent).map(({ row }) => row);
-  return { items, older: sorted.length - recent.length, clearable: recent.map(({ row }) => row).filter((row) => !row.attention) };
+  const recent = new Set(
+    sorted.filter(({ row, end }) => {
+      if (row.attention) return true;
+      if (now - end > HISTORY_MAX_AGE_MS || (clearedAt !== null && end <= clearedAt)) return false;
+      return kept++ < HISTORY_LIMIT;
+    }),
+  );
+  let extra = Math.max(0, more);
+  const items = sorted.filter((entry) => recent.has(entry) || extra-- > 0).map(({ row }) => row);
+  return {
+    items,
+    older: sorted.length - items.length,
+    expanded: items.length - recent.size,
+    clearable: [...recent].map(({ row }) => row).filter((row) => !row.attention),
+  };
 }
 
 /** 「清空历史」清到哪：这一刻能清空的里最晚的结束时间（按 Runtime 记的时间，不受本机时钟偏差影响）。 */

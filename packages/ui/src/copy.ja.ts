@@ -448,7 +448,7 @@ export const ja: CopyMessages = {
     historyCleared: (n: number) => `${n} 件を一覧から消去しました。記録と生成物はそのままです`,
     undo: '取り消す',
     emptyRecentHistory: '最近完了したタスクはありません',
-    showOlder: (n: number) => `以前の ${n} 件を表示`,
+    showOlder: (n: number, total: number) => (n < total ? `以前の ${n} 件を表示（残り ${total} 件）` : `以前の ${n} 件を表示`),
     hideOlder: '以前の分を隠す',
     openConversation: 'セッションを開く',
     details: '詳細',

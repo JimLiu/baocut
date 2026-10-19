@@ -64,9 +64,10 @@
     ];
   }
 
-  /** 「已完成」一节默认列几条、列多久以内结束的（product-design §6.1）。 */
+  /** 「已完成」一节默认列几条、列多久以内结束的，「显示更早的」每次多列几条（product-design §6.1）。 */
   const HISTORY_LIMIT = 20;
   const HISTORY_MAX_AGE_MS = 30 * 24 * 3600 * 1000;
+  const HISTORY_PAGE = 50;
 
   /** 要用户决定的：跑完但留了要处理的事（`attention`），不受上限、30 天与清空的限制。 */
   function needsDecision(t) {
@@ -75,22 +76,26 @@
 
   /**
    * 历史里这次列哪些（product-design §6.1）：清空过的（`cleared` 是 id 的集合）与结束超过 30 天的不列，
-   * 其余取最近 20 条；要用户决定的总是列出。`older` 是收起时没列的条数，`showAll` 时全部列出；`clearIds` 是清空时要记下的 id。
+   * 其余取最近 20 条；要用户决定的总是列出。展开时按同样的顺序再多列 `more` 条没列的（每次 50 条，上千条也只画点开的）。
+   * `older` 是还没列的条数，`expanded` 是展开多列的条数；`clearIds` 是清空时要记下的 id。
    * 演示记录多数没有 `endedAt`，当作刚结束。
    */
-  function historyView(items, {cleared = [], showAll = false, now = Date.now()} = {}) {
+  function historyView(items, {cleared = [], more = 0, now = Date.now()} = {}) {
     const gone = new Set(cleared);
     let kept = 0;
-    const recent = items.filter((t) => {
+    const recent = new Set(items.filter((t) => {
       if (needsDecision(t)) return true;
       if (gone.has(t.id) || (t.endedAt && now - t.endedAt > HISTORY_MAX_AGE_MS)) return false;
       return kept++ < HISTORY_LIMIT;
-    });
-    /* 清空的是此刻已经结束的全部（不只列出的 20 条，免得更早的顶上来）；`clearable` 是列出的里能清的，给按钮与计数。 */
-    return {items: showAll ? items : recent, older: items.length - recent.length,
-      clearable: recent.filter((t) => !needsDecision(t)).map((t) => t.id),
+    }));
+    let extra = Math.max(0, more);
+    const shown = items.filter((t) => recent.has(t) || extra-- > 0);
+    /* 清空的是此刻已经结束的全部（不只列出的 20 条，免得更早的顶上来）；`clearable` 是默认列出的里能清的，给按钮与计数。 */
+    return {items: shown, older: items.length - shown.length, expanded: shown.length - recent.size,
+      clearable: [...recent].filter((t) => !needsDecision(t)).map((t) => t.id),
       clearIds: items.filter((t) => !needsDecision(t) && !gone.has(t.id)).map((t) => t.id)};
   }
+
 
   /**
    * 点 rail 上某一格去哪：已经在这一格里 → 回这一格的根；否则回到这一格上次停留的地方
@@ -153,5 +158,5 @@
   const routeFromHref = href => window.BC_NAV.routeFromHref(href);
 
   const root = typeof window !== 'undefined' ? window : globalThis;
-  root.BC_APP_IA = {TABS, SECONDARY, END, SECTIONS, taskGroups, historyView, HISTORY_LIMIT, tabOf, sideOf, sidebarRoute, movieChatRoute, landTarget, railTarget, lastOf, closeMovieTarget, hrefFor, routeFromHref};
+  root.BC_APP_IA = {TABS, SECONDARY, END, SECTIONS, taskGroups, historyView, HISTORY_LIMIT, HISTORY_PAGE, tabOf, sideOf, sidebarRoute, movieChatRoute, landTarget, railTarget, lastOf, closeMovieTarget, hrefFor, routeFromHref};
 })();

@@ -103,7 +103,13 @@ test('历史只列最近 20 条、30 天内、没清空的；要用户决定的�
   const view = IA.historyView(done, {now});
   assert.equal(view.items.length, 20);
   assert.equal(view.older, 5);
-  assert.deepEqual(IA.historyView(done, {now, showAll: true}).items.map(t => t.id), done.map(t => t.id));
+  const more = IA.historyView(done, {now, more: IA.HISTORY_PAGE});
+  assert.deepEqual(more.items.map(t => t.id), done.map(t => t.id));
+  assert.deepEqual([more.older, more.expanded], [0, 5]);
+  // 上千条也一批 50 条地往下列
+  const many = Array.from({length: 1200}, (_, i) => ({id: `m${i}`, status: 'done'}));
+  const page = IA.historyView(many, {now, more: IA.HISTORY_PAGE});
+  assert.deepEqual([page.items.length, page.older, page.items.at(-1).id], [70, 1130, 'm69']);
 
   const items = [
     {id: 'new', status: 'done', endedAt: now - day},

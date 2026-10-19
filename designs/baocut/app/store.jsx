@@ -115,8 +115,8 @@
     const [projects, setProjects] = useState(D.projects);
     const activeProjects = useMemo(() => window.BC_LIBRARY.visible(projects, false), [projects]);
     const [tasks, setTasks] = useState(D.tasks);
-    /* 后台任务「历史」的展开只在这次打开期间有效；清空过的 id 记在 prefs（`tasksCleared`，product-design §6.1） */
-    const [tasksShowAll, setTasksShowAll] = useState(false);
+    /* 后台任务「历史」展开多列的条数（每次 50），只在这次打开期间有效；清空过的 id 记在 prefs（`tasksCleared`，product-design §6.1） */
+    const [tasksMore, setTasksMore] = useState(0);
     const projById = useCallback((id) => projects.find((p) => p.id === id) || null, [projects]);
     const deleteProject = useCallback((id) => setProjects((ps) => ps.filter((p) => p.id !== id)), []);
     const archiveProject = useCallback((id, archived) =>
@@ -853,7 +853,7 @@
       voices, setVoices, addVoices, voiceHandoff, setVoiceHandoff,
       sidebar, setSidebarW, toggleSidebar,
       projects, activeProjects, projById, deleteProject, archiveProject, cloneProject,
-      tasks, tasksShowAll, setTasksShowAll, runningTask, patchTask, patchProject, taskFor, projPct,
+      tasks, tasksMore, setTasksMore, runningTask, patchTask, patchProject, taskFor, projPct,
       addTask, cancelTask, retryAgentTask: agentSim.retryTask,
       modelDl, modelEnd, modelInstalled, setModelInstalled, downloadModel,
       providerSettings, providerAccounts, patchProvider, setAccounts, cloudAsrDefault, setCloudAsrDefault,

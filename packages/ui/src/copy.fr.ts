@@ -488,7 +488,7 @@ export const fr: CopyMessages = {
     historyCleared: (n: number) => (n === 1 ? '1 tâche retirée de la liste. Les enregistrements et résultats ne sont pas touchés.' : `${n} tâches retirées de la liste. Les enregistrements et résultats ne sont pas touchés.`),
     undo: 'Annuler',
     emptyRecentHistory: 'Aucune tâche terminée récemment',
-    showOlder: (n: number) => (n === 1 ? 'Afficher 1 tâche plus ancienne' : `Afficher ${n} tâches plus anciennes`),
+    showOlder: (n: number, total: number) => (n < total ? `Afficher ${n} tâches plus anciennes (${total} restantes)` : n === 1 ? 'Afficher 1 tâche plus ancienne' : `Afficher ${n} tâches plus anciennes`),
     hideOlder: 'Masquer les tâches plus anciennes',
     openConversation: "Ouvrir la session",
     details: "Détails",

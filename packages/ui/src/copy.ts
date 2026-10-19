@@ -524,7 +524,7 @@ const en = {
     historyCleared: (n: number) => (n === 1 ? 'Cleared 1 task from the list. Records and outputs aren’t affected.' : `Cleared ${n} tasks from the list. Records and outputs aren’t affected.`),
     undo: 'Undo',
     emptyRecentHistory: 'No recently finished tasks',
-    showOlder: (n: number) => (n === 1 ? 'Show 1 older task' : `Show ${n} older tasks`),
+    showOlder: (n: number, total: number) => (n < total ? `Show ${n} older tasks (${total} left)` : n === 1 ? 'Show 1 older task' : `Show ${n} older tasks`),
     hideOlder: 'Hide older tasks',
     openConversation: 'Open session',
     details: 'Details',
