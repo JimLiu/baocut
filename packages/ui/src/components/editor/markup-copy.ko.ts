@@ -1,6 +1,6 @@
-import type { LiteMarkupMessages } from './lite-markup-copy.ts';
+import type { MarkupMessages } from './markup-copy.ts';
 
-export const ko: LiteMarkupMessages = {
+export const ko: MarkupMessages = {
   markup: '마크업',
   exitMarkup: '마크업 종료',
   toolbar: '마크업 도구',

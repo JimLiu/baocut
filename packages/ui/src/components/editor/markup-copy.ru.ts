@@ -1,6 +1,6 @@
-import type { LiteMarkupMessages } from './lite-markup-copy.ts';
+import type { MarkupMessages } from './markup-copy.ts';
 
-export const ru: LiteMarkupMessages = {
+export const ru: MarkupMessages = {
   markup: 'Пометки',
   exitMarkup: 'Выйти из пометок',
   toolbar: 'Инструменты пометок',

@@ -1,6 +1,6 @@
-import type { LiteMarkupMessages } from './lite-markup-copy.ts';
+import type { MarkupMessages } from './markup-copy.ts';
 
-export const vi: LiteMarkupMessages = {
+export const vi: MarkupMessages = {
   markup: 'Đánh dấu',
   exitMarkup: 'Thoát đánh dấu',
   toolbar: 'Công cụ đánh dấu',

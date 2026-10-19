@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { AttachmentRef, Id } from '@baocut/protocol';
-import type { Mark } from '../model/lite-markup.ts';
+import type { Mark } from '../model/markup.ts';
 import {
   addVideoAnnotation,
   removeVideoAnnotation,
@@ -8,7 +8,7 @@ import {
   type Size,
   type VideoAnnotationError,
 } from '../model/video-annotations.ts';
-import { paintFrame } from '../render/lite-markup-paint.ts';
+import { paintFrame } from '../render/markup-paint.ts';
 
 /**
  * 编辑器预览画面上加进对话的视频标注（产品设计 §3.2.3「视频标注」），按**视频 id** 分：编辑器的快聊会话常常还没建，

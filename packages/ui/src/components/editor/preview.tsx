@@ -3,7 +3,7 @@ import { itemRangeSeconds, sequenceDisplayName, type AssetRecord, type AudioItem
 import { Content, ContextualHelp, Heading, StatusLight } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { formatFps, videoSlots } from '../../model/editor.ts';
-import { htmlPick } from '../../model/lite-markup.ts';
+import { htmlPick } from '../../model/markup.ts';
 import type { LiteSegment } from '../../model/lite-segments.ts';
 import { isPortrait } from '../../model/stage-bar.ts';
 import { layerCaptionMode, layerToggles } from '../../model/stage-layers.ts';
@@ -17,7 +17,7 @@ import { audioKey, imageKey, videoKey, type MediaKey, type PreviewStatus } from 
 import { StageLoadNotice } from './stage-load-notice.tsx';
 import { StageMediaNotice } from './stage-media-notice.tsx';
 import { StageBar, SafeAreaOverlay } from './stage-bar.tsx';
-import { LiteMarkupLayer } from './lite-markup.tsx';
+import { MarkupLayer } from './markup.tsx';
 import { StageNotesLayer } from './stage-notes.tsx';
 import { StageObjects } from './stage-objects.tsx';
 import { TemplateStudioStage } from './template-studio-stage.tsx';
@@ -315,7 +315,7 @@ export function Preview({
         {fw > 0 && fh > 0 && !fullscreen && videoId ? <StageNotesLayer videoId={videoId} frame={frameRect} /> : null}
         {/* 标注模式（舞台条的「标记」）：两种视图都铺标记层、浮标记工具条（lite-editor §4.1）；轻量视图另把播放头所在的段与句记进标注。 */}
         {fw > 0 && fh > 0 && !fullscreen && videoId && annotating ? (
-          <LiteMarkupLayer
+          <MarkupLayer
             videoId={videoId}
             sequence={sequence}
             assets={assets}

@@ -59,7 +59,7 @@ import {
 } from '../../model/stage-bar.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useEditor } from '../../state/editor-store.ts';
-import { useLiteMarkup } from '../../state/lite-markup-store.ts';
+import { useMarkup } from '../../state/markup-store.ts';
 import { PLAYBACK_RATES } from '../../state/player-store.ts';
 import { canEdit, useVideo } from '../../state/video-store.ts';
 import { P } from '../player/player-copy.ts';
@@ -68,7 +68,7 @@ import { useEditorActions } from './editor-context.tsx';
 import { FULLSCREEN_PLAYER_COPY as F } from './fullscreen-player-copy.ts';
 import { enterPreviewFullscreen } from './fullscreen-player.tsx';
 import { LITE_COPY as L } from './lite-copy.ts';
-import { LITE_MARKUP_COPY as LM } from './lite-markup-copy.ts';
+import { MARKUP_COPY as LM } from './markup-copy.ts';
 import { STAGE_BAR_COPY as S } from './stage-bar-copy.ts';
 import { TEMPLATE_COPY as TC } from './template-copy.ts';
 import { ratioLabel } from './use-template-actions.ts';
@@ -385,7 +385,7 @@ function CustomRatioDialog({
 /**
  * 标记（产品设计 §3.2.3「视频标注」、§5.3；lite-editor §4.1）：打开标记层与标记工具条，在画面上画、选元素或写评论，加进输入框的
  * 「视频标注」。两种视图同一枚钮、同一套工具。是交给智能体的入口，Web 没有会话，不出这枚钮。进标注模式先停播——标注绑的是此刻的播放头。
- * 关掉时还有没发出去的标记先问（lite-markup-store `close`）。
+ * 关掉时还有没发出去的标记先问（markup-store `close`）。
  */
 function AnnotateToggle() {
   const web = useRuntime().host.platform === 'web';
@@ -402,7 +402,7 @@ function AnnotateToggle() {
         isSelected={on}
         onChange={(next) => {
           if (!next) {
-            useLiteMarkup.getState().close();
+            useMarkup.getState().close();
             return;
           }
           pause();

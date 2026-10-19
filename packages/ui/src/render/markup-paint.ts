@@ -1,5 +1,5 @@
 import type { VideoAnnotationColor } from '@baocut/protocol';
-import { MARKUP_TEXT_SIZE, stepNumber, type Mark } from '../model/lite-markup.ts';
+import { MARKUP_TEXT_SIZE, stepNumber, type Mark } from '../model/markup.ts';
 import type { Size } from '../model/video-annotations.ts';
 
 /**

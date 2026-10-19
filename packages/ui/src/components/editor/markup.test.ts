@@ -3,19 +3,19 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CompositionItem, DocumentRecord, Sequence } from '@baocut/protocol';
-import type { MarkupPick } from '../../model/lite-markup.ts';
+import type { MarkupPick } from '../../model/markup.ts';
 import type { LiteSegment } from '../../model/lite-segments.ts';
 import type { CaptionHit } from '../../render/render-planner.ts';
 import { RuntimeContext } from '../../runtime/context.tsx';
 import type { RuntimeSession } from '../../runtime/session.ts';
 import { useDraftVideoAnnotations } from '../../state/draft-video-annotations-store.ts';
 import { useEditor } from '../../state/editor-store.ts';
-import { useLiteMarkup } from '../../state/lite-markup-store.ts';
+import { useMarkup } from '../../state/markup-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useVideo, type OpenVideo } from '../../state/video-store.ts';
 import { sequence } from '../../testing/sequence-records.ts';
 import { EditorContext, type EditorActions } from './editor-context.tsx';
-import { LiteMarkupLayer } from './lite-markup.tsx';
+import { MarkupLayer } from './markup.tsx';
 
 /** 轻量视图的标记层（docs/design/lite-editor §4.1–§4.3）：手势画成标记、选中拖动、撤销、整组添加到对话、评论立刻发出并带截图。 */
 
@@ -39,10 +39,10 @@ let container: HTMLDivElement;
 let root: Root;
 let canvas: HTMLCanvasElement;
 
-const layer = () => document.querySelector<HTMLDivElement>('[data-lite-markup]')!;
-const marks = () => useLiteMarkup.getState().markup.marks;
+const layer = () => document.querySelector<HTMLDivElement>('[data-markup]')!;
+const marks = () => useMarkup.getState().markup.marks;
 const setTool = (tool: 'element' | 'comment' | 'pen' | 'shape' | 'text', shape?: 'line' | 'arrow' | 'box' | 'ellipse' | 'pin') =>
-  act(() => useLiteMarkup.setState((s) => ({ markup: { ...s.markup, tool, shape: shape ?? s.markup.shape } })));
+  act(() => useMarkup.setState((s) => ({ markup: { ...s.markup, tool, shape: shape ?? s.markup.shape } })));
 async function pointer(type: string, x: number, y: number, el: EventTarget = layer()) {
   await act(() => el.dispatchEvent(new PointerEvent(type, { bubbles: true, clientX: x, clientY: y, button: 0 })));
 }
@@ -89,7 +89,7 @@ async function mount(over: { sequence?: Sequence; live?: boolean } = {}) {
         createElement(
           EditorContext.Provider,
           { value: actions },
-          createElement(LiteMarkupLayer, {
+          createElement(MarkupLayer, {
             videoId: 'v1',
             sequence: over.sequence ?? seq,
             assets: {},
@@ -111,7 +111,7 @@ beforeEach(() => {
   useVideo.setState({ video: { videoId: 'v1', target, status: 'ready', state: { video: { revision: '3' } } } as unknown as OpenVideo });
   useEditor.setState({ annotating: true, playhead: 3, view: 'lite' });
   useShell.setState({ route: { tab: 'home', conversationId: 'c1', projectId: null } });
-  useLiteMarkup.setState({ videoId: null });
+  useMarkup.setState({ videoId: null });
   engine.captionHits = [];
   engine.plan = null;
   pickLive = vi.fn(async () => null);
@@ -133,7 +133,7 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-describe('LiteMarkupLayer', () => {
+describe('MarkupLayer', () => {
   it('画笔与形状的手势画成标记，带当前颜色与粗细；点一下不算框', async () => {
     await mount();
     await drag([64, 36], [128, 72]);
@@ -166,7 +166,7 @@ describe('LiteMarkupLayer', () => {
     const hit = layer().querySelector('[data-mark="box"] rect[stroke="transparent"]')!;
     await drag([320, 180], [384, 216], hit);
     expect(marks()[0]).toMatchObject({ id, x: 0.6, y: 0.6, w: 0.1, h: 0.1 });
-    expect(useLiteMarkup.getState().markup.sel).toBe(id);
+    expect(useMarkup.getState().markup.sel).toBe(id);
     // 选中的框有八枚把手；拖右下角放大
     expect(layer().querySelectorAll('[data-handle]')).toHaveLength(8);
     await drag([448, 252], [512, 288], layer().querySelector('[data-handle="se"]')!);
@@ -183,7 +183,7 @@ describe('LiteMarkupLayer', () => {
     expect(editorKeys).not.toHaveBeenCalled();
     window.removeEventListener('keydown', editorKeys);
 
-    await act(() => useLiteMarkup.getState().apply((s) => ({ ...s, sel: id })));
+    await act(() => useMarkup.getState().apply((s) => ({ ...s, sel: id })));
     await key('Delete');
     expect(marks()).toHaveLength(0);
   });
@@ -192,7 +192,7 @@ describe('LiteMarkupLayer', () => {
     engine.captionHits = [{ layerId: 'L', itemId: 'cap', documentId: 'd1', cueId: 'q1', cx: 960, cy: 900, w: 600, h: 90, rotation: 0 }];
     await mount();
     await key('s', { metaKey: true, ctrlKey: true, shiftKey: true, code: 'KeyS' });
-    expect(useLiteMarkup.getState().markup.tool).toBe('element');
+    expect(useMarkup.getState().markup.tool).toBe('element');
     await pointer('pointermove', 320, 300);
     expect(document.querySelector('[data-pick-card]')?.textContent).toContain('你好');
     expect(document.querySelector('[data-pick-card]')?.textContent).toContain('600 × 90');
@@ -321,7 +321,7 @@ describe('LiteMarkupLayer', () => {
     await act(() => useEditor.setState({ playhead: 20 }));
     expect(document.querySelectorAll('[data-mark]')).toHaveLength(0);
     // 不在这一帧上的选中项 Delete 不删
-    await act(() => useLiteMarkup.getState().apply((s) => ({ ...s, sel: marks()[0]!.id })));
+    await act(() => useMarkup.getState().apply((s) => ({ ...s, sel: marks()[0]!.id })));
     await key('Delete');
     expect(marks()).toHaveLength(1);
     await drag([320, 180], [384, 216]);
@@ -330,7 +330,7 @@ describe('LiteMarkupLayer', () => {
     expect(document.querySelectorAll('[data-mark]')).toHaveLength(1);
     await act(() => useEditor.setState({ playhead: 3 }));
     expect(document.querySelectorAll('[data-mark]')).toHaveLength(1);
-    expect(Object.keys(useLiteMarkup.getState().frames).map(Number)).toEqual([3000, 20000]);
+    expect(Object.keys(useMarkup.getState().frames).map(Number)).toEqual([3000, 20000]);
     await press(button('添加到对话'));
     await act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
     const notes = useDraftVideoAnnotations.getState().annotations.v1 ?? [];
@@ -339,7 +339,7 @@ describe('LiteMarkupLayer', () => {
       [20000, null, { timeMs: 20000 }],
     ]);
     expect(marks()).toHaveLength(0);
-    expect(useLiteMarkup.getState().frames).toEqual({});
+    expect(useMarkup.getState().frames).toEqual({});
     // 每一帧的截图跟着这一帧的标注走（lite-editor §4.1），不是输入框里另一张图片
     const shots = () => useDraftVideoAnnotations.getState().shots.v1 ?? {};
     expect(Object.keys(shots()).map(Number)).toEqual([3000, 20000]);
@@ -389,8 +389,8 @@ describe('LiteMarkupLayer', () => {
     document.body.append(portal);
     const hiddenAt: string[] = [];
     const captureFrame = vi.fn(async (_rect: { x: number; y: number; width: number; height: number }) => {
-      for (const el of document.querySelectorAll<HTMLElement>('[data-lite-markup], [data-lite-markup-bar]'))
-        if (el.style.visibility === 'hidden') hiddenAt.push(el.dataset.liteMarkup !== undefined ? 'layer' : 'bar');
+      for (const el of document.querySelectorAll<HTMLElement>('[data-markup], [data-markup-bar]'))
+        if (el.style.visibility === 'hidden') hiddenAt.push(el.dataset.markup !== undefined ? 'layer' : 'bar');
       if (portal.style.visibility === 'hidden') hiddenAt.push('form');
       return new Uint8Array([137, 80, 78, 71]);
     });
@@ -425,7 +425,7 @@ describe('LiteMarkupLayer', () => {
     await mount();
     await drag([64, 36], [128, 72]);
     await key('Escape');
-    expect(useLiteMarkup.getState().markup.ask).toBe(true);
+    expect(useMarkup.getState().markup.ask).toBe(true);
     expect(useEditor.getState().annotating).toBe(true);
     expect(document.body.textContent).toContain('放弃这些标记？');
     await press(button('放弃'));

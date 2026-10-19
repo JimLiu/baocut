@@ -1,6 +1,6 @@
-import type { LiteMarkupMessages } from './lite-markup-copy.ts';
+import type { MarkupMessages } from './markup-copy.ts';
 
-export const ja: LiteMarkupMessages = {
+export const ja: MarkupMessages = {
   markup: 'マークアップ',
   exitMarkup: 'マークアップを終了',
   toolbar: 'マークアップツール',

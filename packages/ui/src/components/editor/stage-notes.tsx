@@ -16,7 +16,7 @@ import { useVideo } from '../../state/video-store.ts';
 
 /*
  * 视频标注（产品设计 §3.2.3「视频标注」、§5.3；移植自原型 stage-notes.jsx、stage-notes.css）：编辑器预览画面上的标注层——画已进草稿的标注。
- * 画标注的手势归标记层与标记工具条（lite-markup.tsx，lite-editor §4.1；舞台条的「标记」打开，两种视图同一套），按「添加到对话」或发评论时
+ * 画标注的手势归标记层与标记工具条（markup.tsx，lite-editor §4.1；舞台条的「标记」打开，两种视图同一套），按「添加到对话」或发评论时
  * 这一条进这部视频的草稿（draft-video-annotations-store），画面上出对应的标记。标记只画播放头附近那一帧的；别的时刻的在 composer 列表里，
  * 点一条跳到那个时刻。发送后草稿清空，标记随之消失。标注层盖在画面与舞台点选层之上、标记层之下（preview.tsx），全屏播放器不画。
  */

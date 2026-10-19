@@ -1,22 +1,22 @@
 import { defineMessages } from '@baocut/protocol';
-import { zhHans } from './lite-markup-copy.zh-Hans.ts';
-import { zhHant } from './lite-markup-copy.zh-Hant.ts';
-import { ja } from './lite-markup-copy.ja.ts';
-import { ko } from './lite-markup-copy.ko.ts';
-import { es } from './lite-markup-copy.es.ts';
-import { fr } from './lite-markup-copy.fr.ts';
-import { de } from './lite-markup-copy.de.ts';
-import { nl } from './lite-markup-copy.nl.ts';
-import { ptBR } from './lite-markup-copy.pt-BR.ts';
-import { it } from './lite-markup-copy.it.ts';
-import { ru } from './lite-markup-copy.ru.ts';
-import { pl } from './lite-markup-copy.pl.ts';
-import { tr } from './lite-markup-copy.tr.ts';
-import { vi } from './lite-markup-copy.vi.ts';
+import { zhHans } from './markup-copy.zh-Hans.ts';
+import { zhHant } from './markup-copy.zh-Hant.ts';
+import { ja } from './markup-copy.ja.ts';
+import { ko } from './markup-copy.ko.ts';
+import { es } from './markup-copy.es.ts';
+import { fr } from './markup-copy.fr.ts';
+import { de } from './markup-copy.de.ts';
+import { nl } from './markup-copy.nl.ts';
+import { ptBR } from './markup-copy.pt-BR.ts';
+import { it } from './markup-copy.it.ts';
+import { ru } from './markup-copy.ru.ts';
+import { pl } from './markup-copy.pl.ts';
+import { tr } from './markup-copy.tr.ts';
+import { vi } from './markup-copy.vi.ts';
 
 /**
  * 轻量视图的标记（轻量编辑器设计 §4）：舞台条上的「标记」钮、画面底上浮的工具条、标记层上的文字与评论、关闭时的确认。
- * 标注的种类名、标签与加不进去的原因在 video-annotations-copy。译文在 `lite-markup-copy.zh-Hans.ts` 等。
+ * 标注的种类名、标签与加不进去的原因在 video-annotations-copy。译文在 `markup-copy.zh-Hans.ts` 等。
  */
 const en = {
   /** 舞台条上的开关（轻量视图里叫「标记」，时间线视图仍是「标注」）。 */
@@ -60,8 +60,8 @@ const en = {
   pickInfo: { heading: 'Accessibility', name: 'Name', role: 'Role', focusable: 'Keyboard-focusable' },
 };
 
-export type LiteMarkupMessages = typeof en;
-export const LITE_MARKUP_COPY = defineMessages(en, {
+export type MarkupMessages = typeof en;
+export const MARKUP_COPY = defineMessages(en, {
   'zh-Hans': zhHans,
   'zh-Hant': zhHant,
   ja,

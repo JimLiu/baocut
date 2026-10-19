@@ -150,7 +150,7 @@ export interface EditorStore {
   setSafeArea(on: boolean): void;
   /**
    * 视频标注模式（产品设计 §3.2.3「视频标注」、§5.3；舞台条的「标记」钮；不持久化，换视频时退出）：开着时预览画面上盖标记层与
-   * 标记工具条（lite-markup.tsx，两种视图同一套），画面里的元素这时不能选、不能拖。关掉走 lite-markup-store 的 `close`，还有没发的标记先问。
+   * 标记工具条（markup.tsx，两种视图同一套），画面里的元素这时不能选、不能拖。关掉走 markup-store 的 `close`，还有没发的标记先问。
    */
   annotating: boolean;
   setAnnotating(on: boolean): void;

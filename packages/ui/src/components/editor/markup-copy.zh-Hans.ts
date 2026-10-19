@@ -1,6 +1,6 @@
-import type { LiteMarkupMessages } from './lite-markup-copy.ts';
+import type { MarkupMessages } from './markup-copy.ts';
 
-export const zhHans: LiteMarkupMessages = {
+export const zhHans: MarkupMessages = {
   markup: '标记',
   exitMarkup: '退出标记',
   toolbar: '标记工具',

@@ -71,7 +71,7 @@ import {
   type MarkupPick,
   type MarkupShape,
   type MarkupTool,
-} from '../../model/lite-markup.ts';
+} from '../../model/markup.ts';
 import { stagePose } from '../../model/stage-framing.ts';
 import { isPlaced, type Rect } from '../../model/stage-pose.ts';
 import {
@@ -89,14 +89,14 @@ import type { HostBridge } from '../../host.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useDraftVideoAnnotations } from '../../state/draft-video-annotations-store.ts';
 import { useEditor } from '../../state/editor-store.ts';
-import { useLiteMarkup } from '../../state/lite-markup-store.ts';
+import { useMarkup } from '../../state/markup-store.ts';
 import { useVideo } from '../../state/video-store.ts';
 import { useEditorActions } from './editor-context.tsx';
-import { LITE_MARKUP_COPY } from './lite-markup-copy.ts';
+import { MARKUP_COPY } from './markup-copy.ts';
 
 /*
  * 标记层与标记工具条（docs/design/lite-editor §4.1–§4.3；轻量与时间线两种视图同一套）：标注模式（舞台条的「标记」）下盖在画面上，
- * 画笔、形状、文字、选择元素与评论画在这一层；画面底上浮一条图标工具条。标记是这个窗口里的一组（state/lite-markup-store.ts），
+ * 画笔、形状、文字、选择元素与评论画在这一层；画面底上浮一条图标工具条。标记是这个窗口里的一组（state/markup-store.ts），
  * 每条标记属于画它时的那一帧（播放头）：播放头离开那一帧（±`VIDEO_ANNOTATION_NEAR_MS`）就不画它，回来再画；画下去的那一刻从预览画布
  * 拷一份那一帧留在 store 里。按「添加到对话」整组换成视频标注草稿，每条带自己的时刻、那一刻的段与句，每一帧截一张图（那一帧的画面
  * 加上这一帧的标记）放进输入框；评论勾着「发给智能体」时单独立刻发出，图上画的是印章。已经进草稿的标注照旧由 StageNotesLayer 画
@@ -390,7 +390,7 @@ interface Draft {
  * `pickLive` 问实时合成层（HTML 动画视频的 iframe）里某一点（画布像素）下最内层的节点：同步命中的是实时合成层那件时才问，
  * 问到了用它，问不到退回那个元素命中（lite-editor §11 第 12 条）。
  */
-export function LiteMarkupLayer({
+export function MarkupLayer({
   videoId,
   sequence,
   assets,
@@ -416,10 +416,10 @@ export function LiteMarkupLayer({
   const runtime = useRuntime();
   const cache = runtime.videos.documents;
   const capture = runtime.host.captureFrame?.bind(runtime.host);
-  const bind = useLiteMarkup((s) => s.bind);
-  const bound = useLiteMarkup((s) => s.videoId === videoId);
-  const markup = useLiteMarkup((s) => s.markup);
-  const apply = useLiteMarkup((s) => s.apply);
+  const bind = useMarkup((s) => s.bind);
+  const bound = useMarkup((s) => s.videoId === videoId);
+  const markup = useMarkup((s) => s.markup);
+  const apply = useMarkup((s) => s.apply);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [hover, setHover] = useState<MarkupPick | null>(null);
   const [textDraft, setTextDraft] = useState<TextDraft | null>(null);
@@ -432,7 +432,7 @@ export function LiteMarkupLayer({
   /** 最近一次悬停拾取落在哪（像素，相对画面）、拾到了什么：按下的点与它相同就直接用，不再问一遍 iframe。 */
   const hoverAt = useRef<{ seq: number; at: Point; pick: MarkupPick | null } | null>(null);
   const alive = useRef(true);
-  const C = LITE_MARKUP_COPY;
+  const C = MARKUP_COPY;
   const nowMs = useEditor((s) => Math.round(s.playhead * 1000));
 
   useEffect(() => bind(videoId), [bind, videoId]);
@@ -457,7 +457,7 @@ export function LiteMarkupLayer({
         event.preventDefault();
         event.stopPropagation();
       };
-      const store = useLiteMarkup.getState();
+      const store = useMarkup.getState();
       if (mod && event.shiftKey && !event.altKey && (letter === 's' || letter === 'c')) {
         stop();
         store.apply((s) => setTool(s, letter === 's' ? 'element' : 'comment'));
@@ -571,7 +571,7 @@ export function LiteMarkupLayer({
         return;
       }
       void picked.live.then((pick) => {
-        if (!alive.current || seq !== pickSeq.current || useLiteMarkup.getState().markup.tool !== 'element') return;
+        if (!alive.current || seq !== pickSeq.current || useMarkup.getState().markup.tool !== 'element') return;
         pickSeq.current += 1;
         addPick(pick);
       });
@@ -708,7 +708,7 @@ export function LiteMarkupLayer({
     return added.length;
   };
   const addToChat = () => {
-    const marks = useLiteMarkup.getState().markup.marks;
+    const marks = useMarkup.getState().markup.marks;
     const notes = buildNotes(marks);
     if (!notes?.length) return;
     const n = addNotes(notes);
@@ -725,7 +725,7 @@ export function LiteMarkupLayer({
       capture,
     );
     ToastQueue.neutral(C.added(n), { timeout: 3000 });
-    useLiteMarkup.getState().discard();
+    useMarkup.getState().discard();
   };
   const sendComment = (text: string, toAgent: boolean) => {
     const pending = comment;
@@ -777,7 +777,7 @@ export function LiteMarkupLayer({
         ref={layerRef}
         className={surface({ isPoint: tool === 'text' || (tool === 'shape' && markup.shape === 'pin'), isPick: picking })}
         style={frame}
-        data-lite-markup
+        data-markup
         onPointerDown={down}
         onPointerMove={hoverMove}
         onPointerLeave={hoverLeave}
@@ -855,7 +855,7 @@ export function LiteMarkupLayer({
         {hover && picking ? <PickHint pick={hover} canvas={canvas} brief={tool === 'comment'} /> : null}
         <CommentBox pending={comment} color={markup.color} onSend={sendComment} onCancel={() => setComment(null)} />
       </div>
-      <LiteMarkupBar frame={frame} onAddToChat={addToChat} />
+      <MarkupBar frame={frame} onAddToChat={addToChat} />
       <DialogContainer onDismiss={() => apply((s) => ({ ...s, ask: false }))}>
         {markup.ask ? (
           <AlertDialog
@@ -863,7 +863,7 @@ export function LiteMarkupLayer({
             title={C.discardTitle}
             primaryActionLabel={C.discard}
             cancelLabel={C.keepMarking}
-            onPrimaryAction={() => useLiteMarkup.getState().discard()}
+            onPrimaryAction={() => useMarkup.getState().discard()}
             onCancel={() => apply((s) => ({ ...s, ask: false }))}
           >
             {C.discardBody}
@@ -988,7 +988,7 @@ const CURSORS: Record<MarkupHandle, CSSProperties['cursor']> = {
 function PickHint({ pick, canvas, brief }: { pick: MarkupPick; canvas: { width: number; height: number }; brief?: boolean }) {
   const r = normalizedRect(pick.rect, canvas);
   const below = r.y + r.h < 0.8;
-  const C = LITE_MARKUP_COPY.pickInfo;
+  const C = MARKUP_COPY.pickInfo;
   const el = pick.element;
   const html = el.kind === 'html' ? el : null;
   const size = html ? { w: html.w ?? pick.rect.w, h: html.h ?? pick.rect.h } : pick.rect;
@@ -1050,7 +1050,7 @@ function CommentBox({
   const anchorRef = useRef<HTMLSpanElement>(null);
   const [text, setText] = useState('');
   const [toAgent, setToAgent] = useState(true);
-  const C = LITE_MARKUP_COPY;
+  const C = MARKUP_COPY;
   useEffect(() => {
     if (pending) setText('');
   }, [pending]);
@@ -1108,10 +1108,10 @@ function CommentBox({
  * 标记工具条（lite-editor §4.1；照截图标注器，一行）：选择元素 / 评论 / 画笔 / 形状▾ ｜ 文字 ｜ 颜色▾ ｜ 粗细▾ ｜ 添加到对话 / 关闭。
  * 撤销 / 重做 / 删选中的不占钮，走 ⌘Z / ⇧⌘Z / Delete（标记层的键）。浮在画面底边上方；`frame` 是画面在舞台里的位置。
  */
-export function LiteMarkupBar({ frame, onAddToChat }: { frame: FrameRect; onAddToChat: () => void }) {
-  const markup = useLiteMarkup((s) => s.markup);
-  const apply = useLiteMarkup((s) => s.apply);
-  const C = LITE_MARKUP_COPY;
+export function MarkupBar({ frame, onAddToChat }: { frame: FrameRect; onAddToChat: () => void }) {
+  const markup = useMarkup((s) => s.markup);
+  const apply = useMarkup((s) => s.apply);
+  const C = MARKUP_COPY;
   const keys = (label: string, k?: string) => (k ? C.withKeys(label, keyLabel(k, MAC)) : label);
   const toolButton = (tool: MarkupTool, icon: ReactElement) => (
     <Tip key={tool} label={keys(C.tools[tool], KEYS[tool])}>
@@ -1149,7 +1149,7 @@ export function LiteMarkupBar({ frame, onAddToChat }: { frame: FrameRect; onAddT
       style={{ left: frame.left + frame.width / 2, top: frame.top + frame.height - 12 }}
       role="toolbar"
       aria-label={C.toolbar}
-      data-lite-markup-bar
+      data-markup-bar
       onPointerDown={(event) => event.stopPropagation()}
     >
       {toolButton('element', <Select styles={toolIcon} />)}
@@ -1226,7 +1226,7 @@ export function LiteMarkupBar({ frame, onAddToChat }: { frame: FrameRect; onAddT
         {C.addToChat}
       </Button>
       <Tip label={C.close}>
-        <ActionButton size="S" isQuiet aria-label={C.close} onPress={() => useLiteMarkup.getState().close()}>
+        <ActionButton size="S" isQuiet aria-label={C.close} onPress={() => useMarkup.getState().close()}>
           <Close />
         </ActionButton>
       </Tip>
@@ -1261,13 +1261,13 @@ function onFrame(mark: Mark, nowMs: number): boolean {
  * 等两帧，截完再放回来；否则同步拷预览画布，PNG 编码在后面慢慢做。此刻的定位若还在路上，截到的是画面上实际那一帧。
  */
 async function keepFrame(timeMs: number, source: HTMLCanvasElement | null, live: boolean, capture: CaptureFrame): Promise<void> {
-  const store = useLiteMarkup.getState();
+  const store = useMarkup.getState();
   if (!source || store.frames[timeMs]) return;
   const png = await grabFrame(source, live, capture).catch(() => null);
-  if (png) useLiteMarkup.getState().keepFrame(timeMs, png);
+  if (png) useMarkup.getState().keepFrame(timeMs, png);
 }
 type CaptureFrame = HostBridge['captureFrame'];
-const OVERLAYS = '[data-lite-markup], [data-lite-markup-bar], [data-video-annotations]';
+const OVERLAYS = '[data-markup], [data-markup-bar], [data-video-annotations]';
 const nextPaint = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 /**
  * 截窗口前要藏起来的东西：舞台里的标记层、工具条与草稿标注层，还有评论框——它开在 Popover 里（挂在 body 下的 portal，不在舞台里，
@@ -1337,7 +1337,7 @@ async function attachFrames(
   live: boolean,
   capture: CaptureFrame,
 ): Promise<void> {
-  const frames = useLiteMarkup.getState().frames;
+  const frames = useMarkup.getState().frames;
   const nowMs = frameMs();
   let failed = false;
   for (const timeMs of markFrames(marks)) {
@@ -1352,5 +1352,5 @@ async function attachFrames(
     }
     useDraftVideoAnnotations.getState().addShot(videoId, timeMs, { base, layer, initials }, onThis);
   }
-  if (failed) ToastQueue.neutral(LITE_MARKUP_COPY.shotFailed, { timeout: 4000 });
+  if (failed) ToastQueue.neutral(MARKUP_COPY.shotFailed, { timeout: 4000 });
 }

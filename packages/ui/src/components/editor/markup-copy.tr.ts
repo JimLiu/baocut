@@ -1,6 +1,6 @@
-import type { LiteMarkupMessages } from './lite-markup-copy.ts';
+import type { MarkupMessages } from './markup-copy.ts';
 
-export const tr: LiteMarkupMessages = {
+export const tr: MarkupMessages = {
   markup: 'İşaretle',
   exitMarkup: 'İşaretlemeden çık',
   toolbar: 'İşaretleme araçları',

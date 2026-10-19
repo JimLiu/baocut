@@ -1,6 +1,6 @@
-import type { LiteMarkupMessages } from './lite-markup-copy.ts';
+import type { MarkupMessages } from './markup-copy.ts';
 
-export const fr: LiteMarkupMessages = {
+export const fr: MarkupMessages = {
   markup: 'Annoter',
   exitMarkup: 'Quitter l’annotation',
   toolbar: 'Outils d’annotation',

@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Mark } from '../model/lite-markup.ts';
+import type { Mark } from '../model/markup.ts';
 import type { DraftVideoAnnotation } from '../model/video-annotations.ts';
-import { paintFrame } from '../render/lite-markup-paint.ts';
+import { paintFrame } from '../render/markup-paint.ts';
 import { draftShotUrl, uploadDraftVideoShots, useDraftVideoAnnotations } from './draft-video-annotations-store.ts';
 
 /** 视频标注草稿里每一帧的截图归这一帧的标注所有（lite-editor §4.1）：一起留、一起重画、一起丢、一起发。 */
 
-vi.mock('../render/lite-markup-paint.ts', () => ({
+vi.mock('../render/markup-paint.ts', () => ({
   paintFrame: vi.fn(async (_base: Blob, marks: readonly Mark[], _group: readonly Mark[], timeMs: number) =>
     marks.length ? new File([`png:${marks.map((m) => m.id).join(',')}`], `frame-${timeMs}.png`, { type: 'image/png' }) : null,
   ),

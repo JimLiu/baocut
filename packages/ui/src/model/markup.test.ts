@@ -3,7 +3,7 @@ import type { Sequence, SequenceItem } from '@baocut/protocol';
 import type { VisualLayer } from '../render/frame-plan.ts';
 import type { CaptionHit } from '../render/render-planner.ts';
 import type { LiteSegment } from './lite-segments.ts';
-import * as M from './lite-markup.ts';
+import * as M from './markup.ts';
 
 /** 轻量编辑器的标记（docs/design/lite-editor §4；原型 designs/baocut/app/model-markup.test.js）。 */
 

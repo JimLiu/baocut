@@ -1,6 +1,6 @@
-import type { LiteMarkupMessages } from './lite-markup-copy.ts';
+import type { MarkupMessages } from './markup-copy.ts';
 
-export const es: LiteMarkupMessages = {
+export const es: MarkupMessages = {
   markup: 'Marcar',
   exitMarkup: 'Salir del marcado',
   toolbar: 'Herramientas de marcado',
