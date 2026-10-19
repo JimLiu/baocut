@@ -55,7 +55,7 @@ const en = {
   send: 'Send',
   cancel: 'Cancel',
   kept: 'The comment stays on the picture. “Add to chat” sends it with the other marks.',
-  shotFailed: 'Couldn’t capture this frame. The comment was added without a screenshot.',
+  shotFailed: 'Couldn’t capture a frame. The marks were added without that screenshot.',
   /** 「选择元素」悬停 HTML 动画里的节点时，说明卡上可访问性的标题与三行（照 DevTools 的检查提示）；空的值显示「—」。 */
   pickInfo: { heading: 'Accessibility', name: 'Name', role: 'Role', focusable: 'Keyboard-focusable' },
 };

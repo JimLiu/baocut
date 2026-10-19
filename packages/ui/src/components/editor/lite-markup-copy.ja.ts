@@ -30,6 +30,6 @@ export const ja: LiteMarkupMessages = {
   send: '送信',
   cancel: 'キャンセル',
   kept: 'コメントは画面上に残ります。「チャットに追加」でほかのマークと一緒に送られます',
-  shotFailed: 'このフレームをキャプチャできませんでした。コメントはスクリーンショットなしで追加されました',
+  shotFailed: 'フレームをキャプチャできませんでした。マークはそのスクリーンショットなしで追加されました',
   pickInfo: { heading: 'アクセシビリティ', name: '名前', role: 'ロール', focusable: 'キーボードでフォーカス可能' },
 };

@@ -30,6 +30,6 @@ export const pl: LiteMarkupMessages = {
   send: 'Wyślij',
   cancel: 'Anuluj',
   kept: 'Komentarz zostaje na obrazie. „Dodaj do czatu” wyśle go razem z innymi oznaczeniami.',
-  shotFailed: 'Nie udało się przechwycić tej klatki. Komentarz dodano bez zrzutu ekranu.',
+  shotFailed: 'Nie udało się przechwycić klatki. Oznaczenia dodano bez tego zrzutu ekranu.',
   pickInfo: { heading: 'Ułatwienia dostępu', name: 'Nazwa', role: 'Rola', focusable: 'Fokus z klawiatury' },
 };

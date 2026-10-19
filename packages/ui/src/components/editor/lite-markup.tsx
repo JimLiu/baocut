@@ -1286,17 +1286,20 @@ function snapshot(source: HTMLCanvasElement): Promise<Blob | null> {
 }
 
 /**
- * 截图（lite-editor §4.1）：这组标记涉及的每一帧出一张图，底是画那条标记时留下的那一帧（没留下就用此刻的画布，播放头若还在那一帧上
- * 就是对的），上面画这一帧的标记（线条按画布与画面的比例放大，评论画印章，尖角落在点上），存成 PNG 放进开着的视频旁边那个
+ * 截图（lite-editor §4.1）：这组标记涉及的每一帧出一张图，底是画那条标记时留下的那一帧（没留下、而播放头还在那一帧上就用此刻的画布，
+ * 否则这一帧算截不出），上面画这一帧的标记（线条按画布与画面的比例放大，评论画印章，尖角落在点上），存成 PNG 放进开着的视频旁边那个
  * 输入框的草稿图片。哪一帧出不了图就提示一次，标注照样已经加了。预览里 HTML 动画的实时合成层（iframe）不在画布上，截不进来。
  */
 async function attachFrames(marks: readonly Mark[], source: HTMLCanvasElement | null, layer: Size, initials: string): Promise<void> {
   const frames = useLiteMarkup.getState().frames;
+  const nowMs = frameMs();
   const files: File[] = [];
   let failed = false;
   for (const timeMs of markFrames(marks)) {
     const onThis = marks.filter((m) => m.timeMs === timeMs);
-    const file = await paintFrame(frames[timeMs] ?? source, onThis, marks, timeMs, layer, initials).catch(() => null);
+    // 没留下那一帧的图时只有画布还停在那一帧上才拿画布顶：别把另一帧的画面当成这一帧发出去。
+    const base = frames[timeMs] ?? (Math.abs(timeMs - nowMs) <= VIDEO_ANNOTATION_NEAR_MS ? source : null);
+    const file = await paintFrame(base, onThis, marks, timeMs, layer, initials).catch(() => null);
     if (file) files.push(file);
     else failed = true;
   }

@@ -30,6 +30,6 @@ export const ptBR: LiteMarkupMessages = {
   send: 'Enviar',
   cancel: 'Cancelar',
   kept: 'O comentário fica na imagem. “Adicionar ao chat” o envia junto com as outras marcas.',
-  shotFailed: 'Não foi possível capturar este quadro. O comentário foi adicionado sem captura de tela.',
+  shotFailed: 'Não foi possível capturar um quadro. As marcas foram adicionadas sem essa captura de tela.',
   pickInfo: { heading: 'Acessibilidade', name: 'Nome', role: 'Função', focusable: 'Focável pelo teclado' },
 };

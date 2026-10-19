@@ -286,6 +286,63 @@ describe('LiteMarkupLayer', () => {
     expect(useEditor.getState().annotating).toBe(false);
   });
 
+  it('每条标记属于画它时的那一帧：播放头走开就不画、回来再画，添加到对话时各带自己的时刻，每帧一张截图', async () => {
+    const ctx = {
+      drawImage: vi.fn(),
+      save: vi.fn(),
+      restore: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      stroke: vi.fn(),
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(ctx as unknown as CanvasRenderingContext2D);
+    HTMLCanvasElement.prototype.toBlob ??= function () {};
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((cb) => cb(new Blob(['png'], { type: 'image/png' })));
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:frame');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    // jsdom 的 Image 不解码 blob: 地址：留下的帧 PNG 由它「解码」成一张与画布同大的图
+    vi.stubGlobal(
+      'Image',
+      class {
+        width = 1920;
+        height = 1080;
+        onload: (() => void) | null = null;
+        set src(_v: string) {
+          queueMicrotask(() => this.onload?.());
+        }
+      },
+    );
+    await mount();
+    await drag([64, 36], [128, 72]);
+    expect(marks()[0]).toMatchObject({ kind: 'pen', timeMs: 3000 });
+    expect(document.querySelectorAll('[data-mark]')).toHaveLength(1);
+    await act(() => useEditor.setState({ playhead: 20 }));
+    expect(document.querySelectorAll('[data-mark]')).toHaveLength(0);
+    // 不在这一帧上的选中项 Delete 不删
+    await act(() => useLiteMarkup.getState().apply((s) => ({ ...s, sel: marks()[0]!.id })));
+    await key('Delete');
+    expect(marks()).toHaveLength(1);
+    await drag([320, 180], [384, 216]);
+    expect(marks()).toHaveLength(2);
+    expect(marks()[1]).toMatchObject({ timeMs: 20000 });
+    expect(document.querySelectorAll('[data-mark]')).toHaveLength(1);
+    await act(() => useEditor.setState({ playhead: 3 }));
+    expect(document.querySelectorAll('[data-mark]')).toHaveLength(1);
+    expect(Object.keys(useLiteMarkup.getState().frames).map(Number)).toEqual([3000, 20000]);
+    await press(button('添加到对话'));
+    await act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
+    const notes = useDraftVideoAnnotations.getState().annotations.v1 ?? [];
+    expect(notes.map((n) => [n.timeMs, n.line?.id ?? null, n.shot])).toEqual([
+      [3000, 's1:l2', { timeMs: 3000 }],
+      [20000, null, { timeMs: 20000 }],
+    ]);
+    expect(marks()).toHaveLength(0);
+    expect(useLiteMarkup.getState().frames).toEqual({});
+    const images = useDraftImages.getState().images.c1 ?? [];
+    expect(images.map((i) => i.file.name)).toEqual(['frame-3000.png', 'frame-20000.png']);
+  });
+
   it('Esc：有没发的标记先问「放弃这些标记？」，没有就直接退出', async () => {
     await mount();
     await drag([64, 36], [128, 72]);

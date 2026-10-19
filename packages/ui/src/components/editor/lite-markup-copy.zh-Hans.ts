@@ -30,6 +30,6 @@ export const zhHans: LiteMarkupMessages = {
   send: '发送',
   cancel: '取消',
   kept: '评论留在画面上 · 按「添加到对话」与别的标记一起发',
-  shotFailed: '没能截下这一帧，评论已添加，不带截图',
+  shotFailed: '有一帧没能截下来，标记已添加，不带那张截图',
   pickInfo: { heading: '可访问性', name: '名称', role: '角色', focusable: '键盘可聚焦' },
 };

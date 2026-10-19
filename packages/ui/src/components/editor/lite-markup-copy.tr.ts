@@ -30,6 +30,6 @@ export const tr: LiteMarkupMessages = {
   send: 'Gönder',
   cancel: 'İptal',
   kept: 'Yorum görüntüde kalır. “Sohbete ekle” onu diğer işaretlerle birlikte gönderir.',
-  shotFailed: 'Bu kare yakalanamadı. Yorum ekran görüntüsü olmadan eklendi.',
+  shotFailed: 'Bir kare yakalanamadı. İşaretler o ekran görüntüsü olmadan eklendi.',
   pickInfo: { heading: 'Erişilebilirlik', name: 'Ad', role: 'Rol', focusable: 'Klavyeyle odaklanılabilir' },
 };

@@ -30,6 +30,6 @@ export const nl: LiteMarkupMessages = {
   send: 'Versturen',
   cancel: 'Annuleren',
   kept: 'De opmerking blijft op het beeld. ‘Toevoegen aan chat’ stuurt hem mee met de andere markeringen.',
-  shotFailed: 'Dit frame kon niet worden vastgelegd. De opmerking is zonder screenshot toegevoegd.',
+  shotFailed: 'Een frame kon niet worden vastgelegd. De markeringen zijn zonder die screenshot toegevoegd.',
   pickInfo: { heading: 'Toegankelijkheid', name: 'Naam', role: 'Rol', focusable: 'Focusbaar met toetsenbord' },
 };

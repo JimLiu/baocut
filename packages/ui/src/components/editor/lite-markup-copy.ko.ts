@@ -30,6 +30,6 @@ export const ko: LiteMarkupMessages = {
   send: '보내기',
   cancel: '취소',
   kept: '댓글이 화면에 남아 있습니다. ‘대화에 추가’를 누르면 다른 마크와 함께 보냅니다',
-  shotFailed: '이 프레임을 캡처하지 못했습니다. 댓글은 스크린샷 없이 추가되었습니다',
+  shotFailed: '프레임을 캡처하지 못했습니다. 마크는 그 스크린샷 없이 추가되었습니다',
   pickInfo: { heading: '접근성', name: '이름', role: '역할', focusable: '키보드 포커스 가능' },
 };

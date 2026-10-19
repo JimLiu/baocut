@@ -30,6 +30,6 @@ export const zhHant: LiteMarkupMessages = {
   send: '傳送',
   cancel: '取消',
   kept: '評論留在畫面上 · 按「加入對話」與其他標記一起傳送',
-  shotFailed: '沒能擷取這一幀，評論已加入，不含截圖',
+  shotFailed: '有一幀沒能擷取，標記已加入，不含那張截圖',
   pickInfo: { heading: '無障礙功能', name: '名稱', role: '角色', focusable: '可用鍵盤聚焦' },
 };

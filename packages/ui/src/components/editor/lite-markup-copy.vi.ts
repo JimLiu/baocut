@@ -30,6 +30,6 @@ export const vi: LiteMarkupMessages = {
   send: 'Gửi',
   cancel: 'Hủy',
   kept: 'Bình luận vẫn nằm trên khung hình. “Thêm vào cuộc trò chuyện” sẽ gửi nó cùng các dấu khác.',
-  shotFailed: 'Không chụp được khung hình này. Bình luận đã được thêm mà không có ảnh chụp.',
+  shotFailed: 'Không chụp được một khung hình. Các dấu đã được thêm mà không có ảnh chụp đó.',
   pickInfo: { heading: 'Hỗ trợ tiếp cận', name: 'Tên', role: 'Vai trò', focusable: 'Có thể lấy tiêu điểm bằng bàn phím' },
 };

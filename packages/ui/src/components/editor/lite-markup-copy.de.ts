@@ -30,6 +30,6 @@ export const de: LiteMarkupMessages = {
   send: 'Senden',
   cancel: 'Abbrechen',
   kept: 'Der Kommentar bleibt auf dem Bild. „Zum Chat hinzufügen“ sendet ihn mit den anderen Markierungen.',
-  shotFailed: 'Dieses Bild konnte nicht aufgenommen werden. Der Kommentar wurde ohne Screenshot hinzugefügt.',
+  shotFailed: 'Ein Bild konnte nicht aufgenommen werden. Die Markierungen wurden ohne diesen Screenshot hinzugefügt.',
   pickInfo: { heading: 'Barrierefreiheit', name: 'Name', role: 'Rolle', focusable: 'Per Tastatur fokussierbar' },
 };

@@ -30,6 +30,6 @@ export const it: LiteMarkupMessages = {
   send: 'Invia',
   cancel: 'Annulla',
   kept: 'Il commento resta sull’immagine. «Aggiungi alla chat» lo invia insieme agli altri segni.',
-  shotFailed: 'Impossibile catturare questo fotogramma. Il commento è stato aggiunto senza screenshot.',
+  shotFailed: 'Impossibile catturare un fotogramma. I segni sono stati aggiunti senza quello screenshot.',
   pickInfo: { heading: 'Accessibilità', name: 'Nome', role: 'Ruolo', focusable: 'Attivabile da tastiera' },
 };
