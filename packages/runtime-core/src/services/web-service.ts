@@ -309,9 +309,19 @@ export class WebService implements ManagedService {
     setSecurityHeaders(response);
     const deny = (status: number, text: string) => response.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8' }).end(text);
     if (!this.#hostAllowed(request.headers.host)) return void deny(403, RcWeb.loopbackOnly().text);
+    const { pathname } = new URL(request.url ?? '/', 'http://localhost');
+    // 代码包目录（动效视频设计 §4.1）：编辑器的实时合成层在不开 `allow-same-origin` 的沙箱 iframe 里装入口页面，它的来源是
+    // 不透明的，发出的请求带不上会话 cookie、`Sec-Fetch-Site` 是跨站、模块脚本带 `Origin: null`，所以这个前缀排在来源检查之前、
+    // 只认目录句柄（与设计稿编辑器一样）；响应带包自己的 CSP，嵌入由句柄把关。
+    if (pathname.startsWith('/bundle/')) {
+      response.removeHeader('X-Frame-Options');
+      response.removeHeader('Content-Security-Policy');
+      response.removeHeader('Cross-Origin-Resource-Policy');
+      if (!this.media.handle(request, response)) deny(404, RcWeb.fileNotFound().text);
+      return;
+    }
     const origin = request.headers.origin;
     if (origin !== undefined && !this.#origins().includes(origin)) return void deny(403, RcWeb.originRejected().text);
-    const { pathname } = new URL(request.url ?? '/', 'http://localhost');
 
     if (pathname === '/_auth/session') return void this.#login(request, response).catch(() => deny(500, RcWeb.loginFailed().text));
     if (pathname.startsWith('/attachments/')) {
@@ -362,16 +372,6 @@ export class WebService implements ManagedService {
       return void response.writeHead(405, { Allow: 'GET, HEAD' }).end();
     }
     if (pathname === '/_auth/login.js') return sendLoginScript(request, response);
-    // 代码包目录（动效视频设计 §4.1）：编辑器的实时合成层在不开 `allow-same-origin` 的沙箱 iframe 里装入口页面，它的来源是
-    // 不透明的，发出的请求带不上会话 cookie、`Sec-Fetch-Site` 也是跨站，所以这个前缀只认目录句柄（与设计稿编辑器一样）；
-    // 响应带包自己的 CSP，嵌入由句柄把关。
-    if (pathname.startsWith('/bundle/')) {
-      response.removeHeader('X-Frame-Options');
-      response.removeHeader('Content-Security-Policy');
-      response.removeHeader('Cross-Origin-Resource-Policy');
-      if (!this.media.handle(request, response)) deny(404, RcWeb.fileNotFound().text);
-      return;
-    }
 
     // 需要会话的内容：别的站点（含本机其他端口）发起的请求不给。
     const site = request.headers['sec-fetch-site'];

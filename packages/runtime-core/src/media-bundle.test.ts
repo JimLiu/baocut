@@ -90,6 +90,12 @@ describe('代码包目录地址', () => {
     expect(script.headers['content-type']).toBe('text/javascript; charset=utf-8');
     expect(script.body).toBe('console.log(1)');
     expect(script.headers['content-security-policy']).toBe(csp);
+    expect(script.headers['access-control-allow-origin']).toBeUndefined();
+    // 沙箱里的模块脚本带 `Origin: null`：只对它放行，别的来源不回 CORS 头。
+    const module = await get(handle.url + 'lib/main.js', { Origin: 'null' });
+    expect(module.headers['access-control-allow-origin']).toBe('null');
+    expect(module.headers.vary).toBe('Origin');
+    expect((await get(handle.url + 'lib/main.js', { Origin: 'https://example.com' })).headers['access-control-allow-origin']).toBeUndefined();
 
     const model = await get(handle.url + 'scene.glb', { Range: 'bytes=4-7' });
     expect(model.status).toBe(206);

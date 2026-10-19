@@ -225,6 +225,11 @@ describe('Web 服务', () => {
     expect(page.headers['content-security-policy']).toContain(`script-src 'unsafe-inline' 'wasm-unsafe-eval' ${origin}${handle.url}`);
     expect(page.headers['x-content-type-options']).toBe('nosniff');
     expect(page.headers['referrer-policy']).toBe('no-referrer');
+    // 模块脚本按 CORS 取，沙箱里带 `Origin: null`：不被来源检查拦下，响应放行这个来源。
+    const module = await send(origin + handle.url + handle.entry, { headers: { 'Sec-Fetch-Site': 'cross-site', Origin: 'null' } });
+    expect(module.status).toBe(200);
+    expect(module.headers['access-control-allow-origin']).toBe('null');
+    expect((await send(origin + '/home', { headers: { Origin: 'null' } })).status).toBe(403);
     expect((await send(`${origin}/bundle/${'A'.repeat(32)}/index.html`)).status).toBe(404);
     expect((await send(`${origin}/bundle/`)).status).toBe(404);
   });

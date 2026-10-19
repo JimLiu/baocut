@@ -21,7 +21,8 @@ import { RcRuntime } from '@baocut/protocol/messages/runtime-core';
  * 代码包目录另有一种目录句柄（`/bundle/<句柄>/<包内路径>`，动效视频设计 §4.1）：编辑器的实时合成层把入口页面装进不开
  * `allow-same-origin` 的沙箱 `<iframe>`，包内文件按相对路径从同一个前缀取。目录里的文件按真实路径限定在包目录之内；
  * 响应带自己的 CSP（脚本、样式与资源只能来自这个前缀，不能连网）；入口页面给出时注入取帧脚本与桥（调用方给的 `inject`）。
- * 地址本身就是凭证：沙箱 iframe 的来源是不透明的，Web 上它发出的请求带不上会话 cookie，Web 服务对这个前缀也不查会话。
+ * 地址本身就是凭证：沙箱 iframe 的来源是不透明的，Web 上它发出的请求带不上会话 cookie，Web 服务对这个前缀也不查会话；
+ * 模块脚本按 CORS 取、带 `Origin: null`，响应对这个来源回 `Access-Control-Allow-Origin: null`。
  */
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -421,6 +422,11 @@ export class MediaRegistry {
       // 沙箱 iframe 的来源是不透明的，它取包内脚本与图片时按跨来源算：放行。
       'Cross-Origin-Resource-Policy': 'cross-origin',
     };
+    // 模块脚本（`<script type="module">`）与 `fetch` 按 CORS 取，沙箱里带的是 `Origin: null`：只对它回 `null`，别的来源照旧拿不到。
+    if (request.headers.origin === 'null') {
+      headers['Access-Control-Allow-Origin'] = 'null';
+      headers.Vary = 'Origin';
+    }
     if (rel === grant.entry) {
       // 入口页面：注入取帧脚本与桥，整页给出（长度按注入后的算）。
       const html = request.method === 'HEAD' ? null : injectEntry(await fsp.readFile(file.realPath, 'utf8'), grant.inject);
