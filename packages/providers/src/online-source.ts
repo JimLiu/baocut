@@ -63,6 +63,7 @@ import { VendorTextAdapter } from './openai-compatible/vendor-text.ts';
 import { OPENAI_DEFAULT_BASE_URL, OpenAiAdapter } from './openai/openai-adapter.ts';
 import { OpenAiImageAdapter, OpenAiSpeechAdapter } from './openai/openai-media-adapters.ts';
 import { OpenAiTextAdapter } from './openai/openai-text.ts';
+import { QwenAdapter } from './qwen/qwen-adapter.ts';
 import { accountStatusOf, usageErrorOf, type CallReporter } from './usage-reporter.ts';
 import { COMPAT_VENDOR_IDS, COMPAT_VENDORS, type CompatVendorId } from './vendor-catalog.ts';
 import { VOLCENGINE_SPEECH_DEFAULT_BASE_URL, VolcengineSpeechAdapter } from './volcengine/volcengine-speech.ts';
@@ -73,7 +74,7 @@ import { ProvidersConfig as PC, ProvidersHttp as PH } from '@baocut/protocol/mes
  *
  * - 能力：`openai` 与 `google` 有 transcribe、synthesizeSpeech、generateImage、generateText；`elevenlabs` 与
  *   `volcengine-speech`（豆包语音，密钥与方舟的 `volcengine` 是两套）只有 synthesizeSpeech；`anthropic`（Messages 原生
- *   适配器）与目录里的兼容文本服务商（`vendor-catalog.ts`）只有 generateText（目录标 P1 的能力不报告）。自定义端点按声明的模型的 `capability` 提供
+ *   适配器）与目录里的兼容文本服务商（`vendor-catalog.ts`）提供 generateText，qwen 另有 transcribe（目录标 P1 的能力不报告）。自定义端点按声明的模型的 `capability` 提供
  *   （一个模型也没声明时只列 transcribe）。
  * - 账号（§6.8）：一次调用用第一个启用且有密钥的账号，失败不换账号；调用结束时写一条用量（§6.10）并按结果记下那个
  *   账号的状态。基址：账号的改写优先，其次是服务商的端点，最后是目录的预设（有国际与中国两个基址的按账号的 `region`）。
@@ -164,7 +165,7 @@ function compatEntry(id: CompatVendorId): BuiltinEntry {
     vendor: { ...entry.vendor },
     adapters: () => {
       const text = new VendorTextAdapter(entry);
-      return { transcribe: null, speech: null, image: null, text, validator: text, lister: text };
+      return { transcribe: id === 'qwen' ? new QwenAdapter() : null, speech: null, image: null, text, validator: text, lister: text };
     },
   };
 }
