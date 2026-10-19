@@ -336,4 +336,38 @@ describe('换成视频标注', () => {
     ]);
     expect(M.markFrames(s.marks)).toEqual([3000, 70000]);
   });
+
+  it('进了草稿的标注画回画面：toNotes 的反向，没有 style 的按蓝色 2px；序号钮落在锚点上（画笔是第一个点）', () => {
+    let s = M.add(M.init(), { id: 'a', timeMs: 3000, kind: 'arrow', x: 0.1, y: 0.1, w: 0, h: 0, to: { x: 0.5, y: 0.5 } });
+    s = M.add(s, { id: 'b', timeMs: 3000, kind: 'text', x: 0.6, y: 0.3, w: 0, h: 0, text: '字太小' });
+    const base = { videoId: 'v1', video: { conversationId: 'c1', path: 'talk' } as const, revision: '12' };
+    const [arrow, text] = M.toNotes(s.marks, base);
+    expect(M.markOfAnnotation(arrow!)).toEqual({
+      id: 'a',
+      timeMs: 3000,
+      kind: 'arrow',
+      color: 'red',
+      width: 4,
+      x: 0.1,
+      y: 0.1,
+      w: 0,
+      h: 0,
+      to: { x: 0.5, y: 0.5 },
+    });
+    expect(M.markOfAnnotation(text!)).toMatchObject({ kind: 'text', text: '字太小', color: 'red', width: 4 });
+    const { style: _style, ...bare } = arrow!;
+    expect(M.markOfAnnotation(bare)).toMatchObject({ color: 'blue', width: 2 });
+    expect(M.markAnchor({ kind: 'box', x: 0.2, y: 0.3 })).toEqual({ x: 0.2, y: 0.3 });
+    expect(
+      M.markAnchor({
+        kind: 'pen',
+        x: 0.1,
+        y: 0.1,
+        points: [
+          { x: 0.4, y: 0.5 },
+          { x: 0.6, y: 0.7 },
+        ],
+      }),
+    ).toEqual({ x: 0.4, y: 0.5 });
+  });
 });

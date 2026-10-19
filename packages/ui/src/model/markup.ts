@@ -414,6 +414,34 @@ export function toNotes(marks: readonly Mark[], base: MarkupNoteBase): DraftVide
   });
 }
 
+/**
+ * 已进草稿的标注画回画面上用的标记（stage-notes.tsx）：几何、文字与元素照标注，颜色与粗细照 `style`——没有 `style` 的
+ * （别的客户端送来的、没经标记工具的）按蓝色 2px 画。`toNotes` 的反向，只取画它要用的字段。
+ */
+export function markOfAnnotation(note: DraftVideoAnnotation): Mark {
+  const mark: Mark = {
+    id: note.id,
+    timeMs: note.timeMs,
+    kind: note.kind,
+    color: note.style?.color ?? 'blue',
+    width: note.style?.width ?? 2,
+    x: note.region.x,
+    y: note.region.y,
+    w: note.region.w,
+    h: note.region.h,
+  };
+  if (note.to) mark.to = note.to;
+  if (note.points) mark.points = note.points;
+  if (note.text) mark.text = note.text;
+  if (note.element) mark.element = note.element;
+  return mark;
+}
+
+/** 标记的锚点（归一化）：序号钮落在这里——画笔是第一个点，别的是起点、左上角或那个点。 */
+export function markAnchor(m: Pick<Mark, 'kind' | 'x' | 'y' | 'points'>): Point {
+  return (m.kind === 'pen' && m.points?.[0]) || { x: m.x, y: m.y };
+}
+
 /** 只留协议认的字段，补上给模型看的 `detail`。 */
 function elementForNote(element: VideoAnnotationElement): VideoAnnotationElement {
   const detail = videoAnnotationElementDetail({ ...element, detail: undefined });

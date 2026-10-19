@@ -93,6 +93,7 @@ import { useMarkup } from '../../state/markup-store.ts';
 import { useVideo } from '../../state/video-store.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { MARKUP_COPY } from './markup-copy.ts';
+import { drawing, pct, pinMark, stampMark, SvgMark, SVG_KINDS, textMark } from './markup-marks.tsx';
 
 /*
  * 标记层与标记工具条（docs/design/lite-editor §4.1–§4.3；轻量与时间线两种视图同一套）：标注模式（舞台条的「标记」）下盖在画面上，
@@ -105,8 +106,6 @@ import { MARKUP_COPY } from './markup-copy.ts';
 
 /** 拖动短于这么多像素算「点了一下」。 */
 const MOVE_MIN = 4;
-/** 线条的点选范围：至少这么宽，描边再粗就随描边。 */
-const HIT_MIN = 12;
 const MAC = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
 
 type FrameRect = { left: number; top: number; width: number; height: number };
@@ -115,40 +114,6 @@ type FrameRect = { left: number; top: number; width: number; height: number };
 
 /** 标记层铺满画面，接下所有手势（下面的舞台点选层与标注层在标注模式里都不接）。 */
 const surface = style({ position: 'absolute', zIndex: 11, cursor: { default: 'crosshair', isPoint: 'cell', isPick: 'default' } });
-const drawing = style({ position: 'absolute', inset: 0, width: 'full', height: 'full', overflow: 'visible', pointerEvents: 'none' });
-const ink = style({
-  color: { default: 'red-900', tone: { red: 'red-900', blue: 'blue-900', green: 'green-900', black: 'black', white: 'white' } },
-});
-const hitStroke = style({ cursor: 'move' });
-const pinMark = style({
-  position: 'absolute',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minWidth: 24,
-  height: 24,
-  paddingX: 4,
-  boxSizing: 'border-box',
-  borderRadius: 'full',
-  transform: 'translate(-50%, -50%)',
-  backgroundColor: { default: 'red-900', tone: { red: 'red-900', blue: 'blue-900', green: 'green-900', black: 'black', white: 'white' } },
-  font: 'ui-xs',
-  color: { default: 'white', tone: { red: 'white', blue: 'white', green: 'white', black: 'white', white: 'black' } },
-  boxShadow: '[0 0 0 2px white]',
-  fontWeight: 'bold',
-  cursor: 'move',
-  userSelect: 'none',
-});
-const textMark = style({
-  position: 'absolute',
-  whiteSpace: 'pre',
-  fontWeight: 'bold',
-  lineHeight: '[1.2]',
-  color: { default: 'red-900', tone: { red: 'red-900', blue: 'blue-900', green: 'green-900', black: 'black', white: 'white' } },
-  textShadow: { default: '[0 0 3px rgb(255 255 255 / 0.9)]', tone: { white: '[0 0 3px rgb(0 0 0 / 0.9)]' } },
-  cursor: 'move',
-  userSelect: 'none',
-});
 const textInput = style({
   position: 'absolute',
   minWidth: 120,
@@ -163,27 +128,6 @@ const textInput = style({
   lineHeight: '[1.2]',
   color: { default: 'red-900', tone: { red: 'red-900', blue: 'blue-900', green: 'green-900', black: 'black', white: 'white' } },
   outlineStyle: 'none',
-});
-/** 评论的印章：尖角落在那个点上（同 StageNotesLayer），写着评论人的缩写。 */
-const stampMark = style({
-  position: 'absolute',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minWidth: 28,
-  height: 28,
-  paddingX: 4,
-  boxSizing: 'border-box',
-  borderRadius: 'full',
-  borderBottomStartRadius: 'none',
-  transform: 'translateY(-100%)',
-  backgroundColor: { default: 'red-900', tone: { red: 'red-900', blue: 'blue-900', green: 'green-900', black: 'black', white: 'white' } },
-  font: 'ui-xs',
-  color: { default: 'white', tone: { red: 'white', blue: 'white', green: 'white', black: 'white', white: 'black' } },
-  boxShadow: '[0 0 0 2px white, 0 1px 4px rgb(0 0 0 / 0.4)]',
-  fontWeight: 'bold',
-  cursor: 'move',
-  userSelect: 'none',
 });
 const selection = style({
   position: 'absolute',
@@ -359,8 +303,6 @@ function Tip({ label, children }: { label: string; children: ReactElement }) {
     </TooltipTrigger>
   );
 }
-
-const pct = (v: number) => `${v * 100}%`;
 
 /** 评论的一枚印章，还没写完的：落在哪（归一化）、点中了哪个元素。 */
 interface PendingComment {
@@ -874,61 +816,7 @@ export function MarkupLayer({
   );
 }
 
-const SVG_KINDS = new Set<Mark['kind']>(['pen', 'line', 'arrow', 'box', 'ellipse', 'element']);
 const same = (a: MarkupPick | null, b: MarkupPick | null) => a === b || (!!a && !!b && JSON.stringify(a) === JSON.stringify(b));
-
-/** 一条线、框、圆、画笔或元素框：像素坐标画在画面大小的 SVG 里；`onGrab` 接在一条透明的宽描边上（框与圆只有边能点中）。 */
-function SvgMark({ mark: m, frame, onGrab }: { mark: Mark; frame: { w: number; h: number }; onGrab?: (event: ReactPointerEvent) => void }) {
-  const X = (v: number) => v * frame.w;
-  const Y = (v: number) => v * frame.h;
-  const sw = m.width;
-  const hit = Math.max(HIT_MIN, sw + 8);
-  const grabProps = onGrab ? { className: hitStroke, pointerEvents: 'stroke' as const, onPointerDown: onGrab } : null;
-  let shape: ReactElement | null = null;
-  let hitShape: ReactElement | null = null;
-  if (m.kind === 'pen' && m.points?.length) {
-    const points = m.points.map((p) => `${X(p.x)},${Y(p.y)}`).join(' ');
-    shape = <polyline points={points} fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" />;
-    hitShape = grabProps ? <polyline points={points} fill="none" stroke="transparent" strokeWidth={hit} {...grabProps} /> : null;
-  } else if ((m.kind === 'line' || m.kind === 'arrow') && m.to) {
-    const x1 = X(m.x);
-    const y1 = Y(m.y);
-    const x2 = X(m.to.x);
-    const y2 = Y(m.to.y);
-    const headSize = sw * 3 + 6;
-    const angle = Math.atan2(y2 - y1, x2 - x1);
-    const tip = (a: number) => `${x2 - headSize * Math.cos(angle - a)},${y2 - headSize * Math.sin(angle - a)}`;
-    shape = (
-      <>
-        <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="currentColor" strokeWidth={sw} strokeLinecap="round" />
-        {m.kind === 'arrow' ? (
-          <polygon
-            points={`${x2},${y2} ${tip(0.45)} ${tip(-0.45)}`}
-            fill="currentColor"
-            stroke="currentColor"
-            strokeWidth={1}
-            strokeLinejoin="round"
-          />
-        ) : null}
-      </>
-    );
-    hitShape = grabProps ? <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="transparent" strokeWidth={hit} {...grabProps} /> : null;
-  } else if (m.kind === 'ellipse') {
-    const props = { cx: X(m.x + m.w / 2), cy: Y(m.y + m.h / 2), rx: X(m.w) / 2, ry: Y(m.h) / 2 };
-    shape = <ellipse {...props} fill="none" stroke="currentColor" strokeWidth={sw} />;
-    hitShape = grabProps ? <ellipse {...props} fill="none" stroke="transparent" strokeWidth={hit} {...grabProps} /> : null;
-  } else {
-    const props = { x: X(m.x), y: Y(m.y), width: X(m.w), height: Y(m.h) };
-    shape = <rect {...props} rx={m.kind === 'element' ? 4 : 2} fill="none" stroke="currentColor" strokeWidth={sw} />;
-    hitShape = grabProps ? <rect {...props} fill="none" stroke="transparent" strokeWidth={hit} {...grabProps} /> : null;
-  }
-  return (
-    <g className={ink({ tone: m.color })} data-mark={m.kind}>
-      {shape}
-      {hitShape}
-    </g>
-  );
-}
 
 /** 选中的标记：虚线外接框与把手（矩形、圆、元素八枚，直线 / 箭头两端）。 */
 function Selection({
