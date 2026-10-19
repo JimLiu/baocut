@@ -42,6 +42,7 @@
        线是手势中**现算**的（§5：语义是「此刻确实对齐了」而非「刚刚被吸住了」），
        松手清空。 */
     const frameRef = React.useRef(null);
+    const liteMarkup = !player && ctx.view === 'lite' && ctx.annotating && ctx.markup && !!window.LiteMarkupLayer;
     const [guides, setGuides] = React.useState([]);
     /* 框选（第 115 轮）：起手挂在 `.frame` 上，因为主视频铺满整幅画面——「舞台空白」
        在视觉上就是画面本身。真的拖过阈值时 `swallow()` 会吞掉尾随的那次 click，
@@ -360,7 +361,9 @@
           <window.StageLoadNotice proj={ctx.proj} />
           {/* 视频标注层（product-design §3.2.3「视频标注」；stage-notes.jsx，只在 App 入口）：挂在 `.frame` 最后，盖在元素与字幕之上。
               标注模式下接手势，否则只画播放头附近那一帧的标记；全屏播放器不画。 */}
-          {!player && window.StageNotesLayer ? <window.StageNotesLayer ctx={ctx} frameRef={frameRef} /> : null}
+          {!player && window.StageNotesLayer ? <window.StageNotesLayer ctx={liteMarkup ? {...ctx, annotating: false} : ctx} frameRef={frameRef} /> : null}
+          {/* 轻量视图的标记层（docs/design/lite-editor §4；stage-markup.jsx）：标注模式下替掉上面那层的手势，草稿里的标记仍由上面那层画 */}
+          {liteMarkup ? <window.LiteMarkupLayer ctx={ctx} frameRef={frameRef} /> : null}
         </div>
         {!player && window.StageNotesToolbar ? <window.StageNotesToolbar ctx={ctx} /> : null}
       </div>
@@ -588,5 +591,5 @@
     );
   }
 
-  Object.assign(window, {StageView, StageBar});
+  Object.assign(window, {StageView, StageBar, VolumeSlider, volIcon});   // 音量杆与图标判据也给轻量视图的舞台工具条（editor-lite.jsx）用
 })();

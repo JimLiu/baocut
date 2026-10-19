@@ -13,6 +13,10 @@
   /* 画面上的一个标记：框是描边的矩形，箭头是一条带头的线，文字是一枚写着批注的签，编号是一枚圆点；都带整份草稿里的序号。
      点序号看批注，可以从对话里移除（草稿）；已发送的消息不画标记。 */
   function StageNoteMark({pin, onRemove}) {
+    /* 轻量编辑器的标记工具送来的带 `style`（颜色、粗细）：按它的颜色画（stage-notes.css 的 .stnotes__mark[data-color]），别的仍是蓝 */
+    return <div className="stnotes__mark" data-color={pin.style?.color} style={pin.style ? {'--stnw': pin.style.width} : undefined}><NoteMark pin={pin} onRemove={onRemove} /></div>;
+  }
+  function NoteMark({pin, onRemove}) {
     const R = window.RSP;
     const [open, setOpen] = useState(false);
     const anchor = useRef(null);
@@ -36,8 +40,25 @@
       <div className="stnotes__point" style={{left: px(r.x), top: px(r.y)}}>{badge}</div>
     </>;
     if (pin.kind === 'text') return <div className="stnotes__point stnotes__text" style={{left: px(r.x), top: px(r.y)}}>{badge}<span className="stnotes__label">{pin.text}</span></div>;
+    /* 标记工具送来的：元素是一个虚线框（标签写它是谁），评论是一枚点（印章截图在 composer 列表里） */
+    if (pin.kind === 'element') return <div className="stnotes__box stnotes__element" style={{left: px(r.x), top: px(r.y), width: px(r.w), height: px(r.h)}}>{badge}<span className="stnotes__label">{pin.element?.label}</span></div>;
+    /* 轻量编辑器补的三种（docs/design/lite-editor §4）：直线是没有头的箭头，圆是画成椭圆的框，画笔是一条折线 */
+    if (pin.kind === 'line') return <>
+      <svg className="stnotes__arrow" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <line x1={r.x * 100} y1={r.y * 100} x2={pin.to.x * 100} y2={pin.to.y * 100} vectorEffect="non-scaling-stroke" />
+      </svg>
+      <div className="stnotes__point" style={{left: px(r.x), top: px(r.y)}}>{badge}</div>
+    </>;
+    if (pin.kind === 'ellipse') return <div className="stnotes__box stnotes__ellipse" style={{left: px(r.x), top: px(r.y), width: px(r.w), height: px(r.h)}}>{badge}</div>;
+    if (pin.kind === 'pen') return <>
+      <svg className="stnotes__arrow stnotes__pen" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <polyline points={(pin.points || []).map(p => `${p.x * 100},${p.y * 100}`).join(' ')} vectorEffect="non-scaling-stroke" />
+      </svg>
+      <div className="stnotes__point" style={{left: px(pin.points?.[0]?.x ?? r.x), top: px(pin.points?.[0]?.y ?? r.y)}}>{badge}</div>
+    </>;
     return <div className="stnotes__point" style={{left: px(r.x), top: px(r.y)}}>{badge}</div>;
   }
+  const penPath = pts => pts.map(p => `${p.x},${p.y}`).join(' ');
 
   /** 画面（`.frame`）里的标注层：标记一直画（有草稿时），标注模式下再铺一层接手势。 */
   function StageNotesLayer({ctx, frameRef}) {
@@ -64,20 +85,31 @@
     }, [annotating, target]);
     const down = e => {
       if (e.button !== 0) return;
+      // 批注框是这一层的子节点（弹层只是视觉上浮在顶层）：点进输入框不算在画面上起手，否则刚画的那一条会被当成「没拖出来」扔掉
+      if (e.target.closest('.home-design__form, [popover]')) return;
       e.preventDefault(); e.stopPropagation();
       const p = at(e);
-      const start = {kind, from: {x: p.x, y: p.y}, to: {x: p.x, y: p.y}, frame: {w: p.w, h: p.h}};
+      const start = {kind, from: {x: p.x, y: p.y}, to: {x: p.x, y: p.y}, frame: {w: p.w, h: p.h}, points: [{x: p.x, y: p.y}]};
+      const pts = start.points;
       setDrag(start); setTarget(null);
-      const move = ev => { const q = at(ev); setDrag(d => d ? {...d, to: {x: q.x, y: q.y}} : d); };
+      const move = ev => {
+        const q = at(ev);
+        if (kind === 'pen') pts.push({x: q.x, y: q.y});
+        setDrag(d => d ? {...d, to: {x: q.x, y: q.y}, points: pts.slice()} : d);
+      };
       const up = ev => {
         window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up);
         const q = at(ev);
-        const moved = Math.hypot(q.x - p.x, q.y - p.y) >= 4;
-        const geo = N.normalize(kind, start.from, moved ? {x: q.x, y: q.y} : null, start.frame);
+        const moved = kind === 'pen' ? pts.length >= 2 : Math.hypot(q.x - p.x, q.y - p.y) >= 4;
+        const geo = N.normalize(kind, start.from, moved ? {x: q.x, y: q.y} : null, start.frame, pts);
         setDrag(null);
-        if ((kind === 'box' || kind === 'arrow') && !moved) { app.toast(kind === 'box' ? '拖出一个框' : '从起点拖到要指的地方'); return; }
-        const note = {kind, ...geo, video: videoId, revision: ctx.history?.revision ?? 0, timeMs: Math.round(ctx.playT * 1000)};
-        setTarget({...note, label: N.label(note)});
+        const dragKinds = {box: '拖出一个框', arrow: '从起点拖到要指的地方', line: '从一头拖到另一头', ellipse: '拖出一个圆', pen: '在画面上画一道'};
+        if (dragKinds[kind] && !moved) { app.toast(dragKinds[kind]); return; }
+        /* 轻量编辑器（docs/design/lite-editor §4.3）：标注还记下落在哪一段、哪一句；时间线视图没有这一层，就只有时刻 */
+        const where = ctx.noteContext ? ctx.noteContext(ctx.playT) : {};
+        const note = {kind, ...geo, ...where, video: videoId, revision: ctx.history?.revision ?? 0, timeMs: Math.round(ctx.playT * 1000)};
+        const ctxLabel = window.BC_LITE ? window.BC_LITE.contextLabel(where) : '';
+        setTarget({...note, label: N.label(note) + (ctxLabel ? ` · ${ctxLabel}` : '')});
       };
       window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
     };
@@ -91,18 +123,21 @@
     const remove = id => app.setVideoNotes(videoId, N.remove(notes, id));
     const pins = N.pins(notes, videoId, ctx.playT);
     // 手势进行中的临时图形（像素）；画完的那一条在 target 里按归一化坐标画
-    const ghost = drag ? (drag.kind === 'box'
-      ? <div className="stnotes__box is-ghost" style={{left: Math.min(drag.from.x, drag.to.x), top: Math.min(drag.from.y, drag.to.y), width: Math.abs(drag.to.x - drag.from.x), height: Math.abs(drag.to.y - drag.from.y)}} />
-      : drag.kind === 'arrow' ? <svg className="stnotes__arrow is-ghost" aria-hidden="true"><line x1={drag.from.x} y1={drag.from.y} x2={drag.to.x} y2={drag.to.y} /></svg> : null) : null;
-    const targetMark = target ? (target.kind === 'box'
-      ? <div ref={anchor} className="stnotes__box is-ghost" style={{left: px(target.region.x), top: px(target.region.y), width: px(target.region.w), height: px(target.region.h)}} />
-      : <span ref={anchor} className="stnotes__anchor" style={{left: px(target.kind === 'arrow' ? target.to.x : target.region.x), top: px(target.kind === 'arrow' ? target.to.y : target.region.y)}} />) : null;
+    const ghost = drag ? (drag.kind === 'box' || drag.kind === 'ellipse'
+      ? <div className={cx('stnotes__box is-ghost', drag.kind === 'ellipse' && 'stnotes__ellipse')} style={{left: Math.min(drag.from.x, drag.to.x), top: Math.min(drag.from.y, drag.to.y), width: Math.abs(drag.to.x - drag.from.x), height: Math.abs(drag.to.y - drag.from.y)}} />
+      : drag.kind === 'arrow' || drag.kind === 'line' ? <svg className="stnotes__arrow is-ghost" aria-hidden="true"><line x1={drag.from.x} y1={drag.from.y} x2={drag.to.x} y2={drag.to.y} /></svg>
+      : drag.kind === 'pen' ? <svg className="stnotes__arrow stnotes__pen is-ghost" aria-hidden="true"><polyline points={penPath(drag.points)} /></svg> : null) : null;
+    const targetMark = target ? (target.kind === 'box' || target.kind === 'ellipse'
+      ? <div ref={anchor} className={cx('stnotes__box is-ghost', target.kind === 'ellipse' && 'stnotes__ellipse')} style={{left: px(target.region.x), top: px(target.region.y), width: px(target.region.w), height: px(target.region.h)}} />
+      : <span ref={anchor} className="stnotes__anchor" style={{left: px(target.to ? target.to.x : target.region.x), top: px(target.to ? target.to.y : target.region.y)}} />) : null;
     if (!notes.length && !annotating) return null;
     return <div className={cx('stnotes', annotating && 'is-annotating')} data-kind={kind} onMouseDown={annotating ? down : undefined} onClick={e => e.stopPropagation()}>
       {pins.map(pin => <StageNoteMark key={pin.id} pin={pin} onRemove={remove} />)}
       {ghost}
-      {target?.kind === 'arrow' ? <svg className="stnotes__arrow is-ghost" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      {target?.kind === 'arrow' || target?.kind === 'line' ? <svg className="stnotes__arrow is-ghost" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         <line x1={target.region.x * 100} y1={target.region.y * 100} x2={target.to.x * 100} y2={target.to.y * 100} vectorEffect="non-scaling-stroke" /></svg> : null}
+      {target?.kind === 'pen' ? <svg className="stnotes__arrow stnotes__pen is-ghost" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <polyline points={target.points.map(p => `${p.x * 100},${p.y * 100}`).join(' ')} vectorEffect="non-scaling-stroke" /></svg> : null}
       {targetMark}
       {target ? <Popover open onClose={() => setTarget(null)} anchorRef={anchor} width={320} label="添加标注">
         <window.DesignNoteForm key={`${target.kind}@${target.region.x},${target.region.y}@${target.timeMs}`} target={target} onAdd={add} onCancel={() => setTarget(null)} />
@@ -114,14 +149,15 @@
   function StageNotesToolbar({ctx}) {
     const app = useApp();
     const R = window.RSP;
-    if (!ctx.annotating) return null;
+    /* 轻量视图有自己的标记工具条（editor-lite.jsx 的 LiteMarkupBar，列全七种），这一条只在时间线视图出 */
+    if (!ctx.annotating || ctx.view === 'lite') return null;
     const kind = ctx.noteKind || 'box';
     const notes = app.videoNotes[ctx.proj.id] || [];
     const away = N.elsewhere(notes, ctx.proj.id, ctx.playT);
     const hint = N.KINDS.find(k => k.kind === kind)?.hint;
     return <div className="stnotes-bar" role="toolbar" aria-label="视频标注">
       <div className="stnotes-bar__kinds" role="radiogroup" aria-label="标注种类">
-        {N.KINDS.map(k => <R.ToggleButton key={k.kind} size="S" isQuiet isSelected={k.kind === kind} onChange={() => ctx.setNoteKind(k.kind)} aria-label={k.label}>
+        {N.KINDS.filter(k => !k.lite).map(k => <R.ToggleButton key={k.kind} size="S" isQuiet isSelected={k.kind === kind} onChange={() => ctx.setNoteKind(k.kind)} aria-label={k.label}>
           <R.Text>{k.label}</R.Text></R.ToggleButton>)}
       </div>
       <span className="stnotes-bar__hint" role="status">{hint} · 在 {T.timecode(ctx.playT)} 这一帧{away ? ` · 另有 ${away} 条在别的时刻` : ''} · Esc 退出</span>
@@ -152,7 +188,10 @@
           {notes.map((n, i) => <li key={n.id} className="home-slides-notes__item">
             <BCAction className="home-slides-notes__jump" aria-label={`第 ${i + 1} 条，${n.label}：${n.text}`} onClick={() => jump(n)}>
               <b className="home-slides-notes__n">{i + 1}</b>
-              <span className="home-slides-notes__body"><small>{n.label}</small><span>{n.text}</span></span>
+              <span className="home-slides-notes__body"><small>{n.label}</small>{n.text ? <span>{n.text}</span> : null}
+                {/* 评论的附件：那一帧带位置印章的截图（原型里画一块示意帧与印章，正式版是真截图） */}
+                {n.shot ? <span className="stnotes__shot" role="img" aria-label={`截图 · ${T.timecode(n.shot.timeMs / 1000)} · 印章在画面${N.place({...n.shot.stamp, w: 0, h: 0})}`}>
+                  <span className="stnotes__shot-stamp" style={{left: px(n.shot.stamp.x), top: px(n.shot.stamp.y)}} /></span> : null}</span>
             </BCAction>
             {draft ? <IconBtn icon="close" size="xs" tip={`移除第 ${i + 1} 条标注`} onClick={() => { if (notes.length === 1) setOpen(false); onRemove(n.id); }} /> : null}
           </li>)}

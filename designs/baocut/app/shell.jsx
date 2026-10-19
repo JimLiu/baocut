@@ -85,12 +85,40 @@
     </div>;
   }
 
+  /* 轻量 / 时间线（docs/design/lite-editor §3.4、§5）：同一部视频的两种看法，切换不丢状态。旁边的小菜单改「默认打开」：
+     按视频种类（智能体做的与转录 / 翻译的开轻量，别的开时间线）、总是轻量、总是时间线；按视频的记忆由切换本身写。 */
+  function MovieViewSwitch({editor}) {
+    const app = useApp();
+    const R = window.RSP;
+    const dflt = app.prefs.editorViewDefault || 'kind';
+    return <div className="moviebar__view" role="group" aria-label="编辑器视图">
+      <R.SegmentedControl aria-label="编辑器视图" selectedKey={editor.view} onSelectionChange={k => editor.setView(String(k))} UNSAFE_className="moviebar__view-seg">
+        <R.SegmentedControlItem id="lite"><R.Icons.Transcript /><R.Text>轻量</R.Text></R.SegmentedControlItem>
+        <R.SegmentedControlItem id="timeline"><R.Icons.Filmstrip /><R.Text>时间线</R.Text></R.SegmentedControlItem>
+      </R.SegmentedControl>
+      <R.MenuTrigger>
+        <R.TooltipTrigger><R.ActionButton isQuiet size="S" aria-label="默认打开哪种视图"><R.Icons.ChevronDown /></R.ActionButton><R.Tooltip>默认打开</R.Tooltip></R.TooltipTrigger>
+        <R.Menu selectionMode="single" selectedKeys={new Set([dflt])} onSelectionChange={keys => {
+          const k = [...keys][0];
+          if (k) app.setPref('editorViewDefault', k === 'kind' ? null : k);
+        }}>
+          <R.MenuSection><R.Header>默认打开</R.Header>
+            <R.MenuItem id="kind">按视频种类</R.MenuItem>
+            <R.MenuItem id="lite">总是轻量</R.MenuItem>
+            <R.MenuItem id="timeline">总是时间线</R.MenuItem>
+          </R.MenuSection>
+        </R.Menu>
+      </R.MenuTrigger>
+    </div>;
+  }
+
   function MovieActions({editor}) {
     const app = useApp();
     const projectId = editor.projectId;
     const exporting = app.tasks.find(t => t.project === projectId && t.kind === 'export' && t.status === 'running');
     const tasks = window.BC_TASKPILL.pillList(app.tasks, {projectId, mineOnly: true});
     return <>
+      {editor.liteAvailable && editor.setView ? <MovieViewSwitch editor={editor} /> : null}
       <window.TaskPill list={tasks} projectId={projectId} />
       {/* 版本记录（视频格式规范 §9、版本记录设计 §6）：按钮在导出左边，对话框在 video-versions.jsx */}
       <window.VideoVersionsButton editor={editor} />

@@ -150,3 +150,10 @@ test('已归档会话页经地址往返，带 id 时高亮刚归档的那条', (
   assert.equal(N.hrefFor({r: 'archived', id: 's7'}), '#/archived/s7');
   assert.deepEqual(N.routeFromHref('#/archived/s7'), {r: 'archived', id: 's7'});
 });
+
+test('编辑器的 view（轻量 / 时间线）进 URL，也算路由的一部分', () => {
+  assert.equal(N.hrefFor({r: 'editor', id: 'p1', view: 'lite', t: 20}), '#/movie/p1?view=lite&t=20');
+  assert.deepEqual(N.routeFromHref('#/movie/p1?view=timeline'), {r: 'editor', id: 'p1', view: 'timeline'});
+  assert.ok(!N.isSame({r: 'editor', id: 'p1', view: 'lite'}, {r: 'editor', id: 'p1', view: 'timeline'}));
+  assert.ok(N.isSame({r: 'editor', id: 'p1', view: 'lite'}, {r: 'editor', id: 'p1', view: 'lite'}));
+});

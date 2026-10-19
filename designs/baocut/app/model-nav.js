@@ -30,7 +30,7 @@
     && (a.slides || null) === (b.slides || null) && (a.slide || null) === (b.slide || null)
     && (a.design || null) === (b.design || null) && (a.board || null) === (b.board || null) && (a.system || null) === (b.system || null)
     && (a.docs || null) === (b.docs || null) && (a.dtab || null) === (b.dtab || null)
-    && (a.at || null) === (b.at || null)
+    && (a.at || null) === (b.at || null) && (a.view || null) === (b.view || null)
     && (a.movie || null) === (b.movie || null) && (a.dir || null) === (b.dir || null) && (a.t ?? null) === (b.t ?? null);
 
   const fresh = () => ({stack: [HOME], pos: 0});
@@ -95,7 +95,7 @@
     let url = '#/' + name;
     if (r.id && r.r !== 'projects') url += '/' + encodeURIComponent(r.id);
     if (r.r === 'projects' && r.id) q.set('dir', r.id);
-    for (const key of ['sec', 'tab', 'from', 'via', 'dir', 'movie', 'file', 'web', 'url', 'slides', 'slide', 'design', 'board', 'system', 'docs', 'dtab', 'at']) {
+    for (const key of ['sec', 'tab', 'from', 'via', 'dir', 'movie', 'file', 'web', 'url', 'slides', 'slide', 'design', 'board', 'system', 'docs', 'dtab', 'at', 'view']) {
       if (r[key]) q.set(key === 'sec' && r.r === 'projects' ? 'cat' : key, r[key]);
     }
     if (Number.isFinite(r.t) && r.t >= 0) q.set('t', String(r.t));
@@ -117,7 +117,7 @@
       if (!routes.has(name)) return {...HOME};
       const r = {r:name};
       if (parts[1]) r.id = parts[1];
-      for (const key of ['sec', 'tab', 'from', 'via', 'dir', 'movie', 'file', 'web', 'url', 'slides', 'slide', 'design', 'board', 'system', 'docs', 'dtab', 'at']) if (q.get(key)) r[key] = q.get(key);
+      for (const key of ['sec', 'tab', 'from', 'via', 'dir', 'movie', 'file', 'web', 'url', 'slides', 'slide', 'design', 'board', 'system', 'docs', 'dtab', 'at', 'view']) if (q.get(key)) r[key] = q.get(key);
       if (name === 'projects') {
         if (q.get('cat')) r.sec = q.get('cat');
         if (q.get('dir')) { r.id = q.get('dir'); delete r.dir; }

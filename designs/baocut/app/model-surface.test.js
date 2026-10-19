@@ -86,6 +86,8 @@ const WEB_DENY = [
   /^app\/model-agent-projects/, /^app\/model-llm-tools/,
   /* Skills 页（2026-10-16，rail 上 Space 下面）：包、素材与版本只在 App */
   /^app\/model-skill-package/, /^app\/model-project-brand/, /^app\/page-project-brand/,
+  /* 轻量编辑器的标记工具（2026-10-19）：发给会话的标注，只在 App */
+  /^app\/stage-markup/, /^app\/model-markup/,
   /* 视频工具的目标与运行（2026-10-03）：只在 App 的工具页；/^app\/model-tool-/ 不含 Web 也加载的 model-tools.js */
   /^app\/model-tool-/,
   /* 视频标注（product-design §3.2.3）：交给智能体的入口，只在 App */

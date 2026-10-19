@@ -7,7 +7,8 @@ const N = window.BC_STAGE_NOTES;
 
 const frame = {w: 800, h: 450};
 const note = (over = {}) => ({id: over.id || 'n1', video: over.video || 'p1', revision: 3, timeMs: over.timeMs ?? 42300,
-  kind: over.kind || 'pin', region: over.region || {x: 0.8, y: 0.2, w: 0, h: 0}, to: over.to, text: over.text ?? '这里的字太小'});
+  kind: over.kind || 'pin', region: over.region || {x: 0.8, y: 0.2, w: 0, h: 0}, to: over.to, text: over.text ?? '这里的字太小',
+  style: over.style, element: over.element, shot: over.shot});
 
 test('手势换成归一化区域：夹在 0–1，框取两点的矩形，箭头带终点，点只记一个点', () => {
   assert.deepEqual(N.normalize('box', {x: 600, y: 100}, {x: 200, y: 300}, frame), {region: {x: 0.25, y: 0.222, w: 0.5, h: 0.444}});
@@ -73,4 +74,42 @@ test('交给智能体的块：一部视频一块，带 revision、时刻、kind 
   assert.match(plan.summary, /2 条视频标注/);
   assert.match(plan.summary, /不连成区间/);
   assert.equal(plan.reads.filter(r => r.tool === 'videos_frames').length, 2);
+});
+
+test('轻量编辑器补的三种：直线带终点、圆取矩形、画笔记一串点；没画出来的不收', () => {
+  assert.deepEqual(N.normalize('line', {x: 0, y: 0}, {x: 400, y: 225}, frame), {region: {x: 0, y: 0, w: 0, h: 0}, to: {x: 0.5, y: 0.5}});
+  assert.deepEqual(N.normalize('ellipse', {x: 200, y: 100}, {x: 600, y: 300}, frame), {region: {x: 0.25, y: 0.222, w: 0.5, h: 0.444}});
+  const pen = N.normalize('pen', {x: 0, y: 0}, null, frame, [{x: 0, y: 0}, {x: 400, y: 0}, {x: 800, y: 450}]);
+  assert.deepEqual(pen.points, [{x: 0, y: 0}, {x: 0.5, y: 0}, {x: 1, y: 1}]);
+  assert.deepEqual(pen.region, {x: 0, y: 0, w: 1, h: 1});
+  assert.equal(N.add([], note({kind: 'line'})).error, '直线要拖到它的另一头');
+  assert.equal(N.add([], note({kind: 'ellipse', region: {x: 0.1, y: 0.1, w: 0.2, h: 0}})).error, '圆要拖出一块面积');
+  assert.equal(N.add([], {...note({kind: 'pen'}), points: [{x: 0, y: 0}]}).error, '画笔要画出一道线');
+  assert.equal(N.label({...note({kind: 'ellipse', region: {x: 0.4, y: 0.4, w: 0.2, h: 0.2}})}), '00:42.3 · 圆 · 画面正中');
+  assert.match(N.regionText({...note({kind: 'pen'}), points: [{x: 0, y: 0}, {x: 0.5, y: 0.5}]}), /^path \(0, 0\) → \(0.5, 0.5\)/);
+});
+
+test('标注带着段与句的落点交给智能体', () => {
+  const notes = [{...note({kind: 'box', region: {x: 0.25, y: 0.2, w: 0.5, h: 0.4}, text: '字太小'}), segment: {id: 's03', kind: 'scene', index: 2, title: '为什么不掉'}, line: {id: 's03:l2', index: 2, text: '它贴着天花板'}}];
+  const text = N.promptText(notes, () => 'car/');
+  assert.match(text, /segment: s03 \(scene #3 为什么不掉\) · line 2: 它贴着天花板/);
+});
+
+test('轻量编辑器的标记工具送来的：带 style 的可以不写批注，元素与评论带元素说明，评论带印章截图；文字与评论没字不收', () => {
+  const style = {color: 'red', width: 4};
+  assert.equal(N.add([], note({kind: 'box', region: {x: 0.1, y: 0.1, w: 0.2, h: 0.2}, text: '', style})).error, null);
+  assert.equal(N.add([], note({kind: 'text', text: '', style})).error, '先写下批注，再添加到对话');
+  assert.equal(N.add([], note({kind: 'comment', text: '', style})).error, '先写下批注，再添加到对话');
+  assert.equal(N.add([], note({kind: 'element', text: '', style})).error, '先点中画面上的元素');
+  const el = {kind: 'caption', id: 'c3', label: '字幕 · “你好”', detail: 'caption c3 "你好"'};
+  const notes = [
+    note({id: 'a', kind: 'box', region: {x: 0.1, y: 0.1, w: 0.2, h: 0.2}, text: '', style}),
+    note({id: 'b', kind: 'element', region: {x: 0.2, y: 0.8, w: 0.6, h: 0.1}, text: '', style, element: el}),
+    note({id: 'c', kind: 'comment', region: {x: 0.4, y: 0.3, w: 0, h: 0}, text: '这里慢一点', style, element: el, shot: {timeMs: 42300, stamp: {x: 0.4, y: 0.3}}}),
+  ];
+  const text = N.promptText(notes, () => 'car/');
+  assert.match(text, /1\. 00:42\.3 \(42300 ms\) · box · x=0\.1 y=0\.1 w=0\.2 h=0\.2[^\n]*\n   style: red 4px\n2\./);
+  assert.match(text, /2\. [^\n]* · element · x=0\.2 y=0\.8 w=0\.6 h=0\.1[^\n]*\n   style: red 4px\n   element: caption c3 "你好"\n3\./);
+  assert.match(text, /3\. [^\n]* · comment · at \(0\.4, 0\.3\)\n   style: red 4px\n   element: caption c3 "你好"\n   screenshot: attached, frame at 42300 ms with the stamp at \(0\.4, 0\.3\)\n   批注：这里慢一点/);
+  assert.equal(N.label(notes[1]), '00:42.3 · 元素 · 画面下方');
 });

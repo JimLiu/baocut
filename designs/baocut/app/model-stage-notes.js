@@ -12,13 +12,23 @@
   const root = typeof window !== 'undefined' ? window : globalThis;
   /* 与另外三种标注同一组上限：每条消息至多 20 条，单条批注至多 2000 字。`near` 是画面上显示哪些标记的时间窗（毫秒）。 */
   const LIMITS = {notes: 20, text: 2000, near: 500};
-  /* 四种标注：框、箭头、文字、编号标记（给人看的名字与给模型看的 kind 一致，kind 用英文） */
+  /* 四种标注：框、箭头、文字、编号标记（给人看的名字与给模型看的 kind 一致，kind 用英文）。
+     轻量编辑器（docs/design/lite-editor §4）补三种：画笔（一串点）、直线（起点与终点，不带头）、圆（与框同一块矩形，画成椭圆）；
+     时间线视图的标注条只列前四种，轻量视图的工具条列全部。 */
   const KINDS = [
     {kind: 'box', label: '框', hint: '拖出一个框'},
     {kind: 'arrow', label: '箭头', hint: '从起点拖到要指的地方'},
     {kind: 'text', label: '文字', hint: '点画面上的位置'},
     {kind: 'pin', label: '编号', hint: '点画面上的位置'},
+    {kind: 'pen', label: '画笔', hint: '在画面上画一道', lite: true},
+    {kind: 'line', label: '直线', hint: '从一头拖到另一头', lite: true},
+    {kind: 'ellipse', label: '圆', hint: '拖出一个圆', lite: true},
+    /* 轻量编辑器标记工具（stage-markup.jsx）送来的两种：元素（点中的舞台节点，`element` 带它是谁）、评论（印章 + 一句话，另带印章截图 `shot`） */
+    {kind: 'element', label: '元素', hint: '点画面上的元素', lite: true},
+    {kind: 'comment', label: '评论', hint: '点画面上的位置或元素', lite: true},
   ];
+  /* 没写字就不收的种类；别的标注从轻量编辑器的标记工具来时（带 `style`）可以不写批注，要说的话在对话里 */
+  const NEEDS_TEXT = {text: true, comment: true};
   const kindLabel = kind => (KINDS.find(k => k.kind === kind) || KINDS[0]).label;
 
   const clamp01 = v => Math.min(1, Math.max(0, Number.isFinite(v) ? v : 0));
@@ -26,14 +36,21 @@
 
   /** 把画面上的一次手势（像素）换成归一化的区域：起点与终点都夹在画面内，框取两点围成的矩形，箭头记起点与终点，
       文字与编号只记一个点（w、h 为 0）。 */
-  function normalize(kind, from, to, frame) {
+  function normalize(kind, from, to, frame, points) {
     const w = frame?.w > 0 ? frame.w : 1, h = frame?.h > 0 ? frame.h : 1;
     const a = {x: clamp01(from.x / w), y: clamp01(from.y / h)};
     const b = to ? {x: clamp01(to.x / w), y: clamp01(to.y / h)} : a;
-    if (kind === 'box') {
+    if (kind === 'box' || kind === 'ellipse') {
       return {region: {x: round(Math.min(a.x, b.x)), y: round(Math.min(a.y, b.y)), w: round(Math.abs(a.x - b.x)), h: round(Math.abs(a.y - b.y))}};
     }
-    if (kind === 'arrow') return {region: {x: round(a.x), y: round(a.y), w: 0, h: 0}, to: {x: round(b.x), y: round(b.y)}};
+    if (kind === 'arrow' || kind === 'line') return {region: {x: round(a.x), y: round(a.y), w: 0, h: 0}, to: {x: round(b.x), y: round(b.y)}};
+    if (kind === 'pen') {
+      // 画笔：一串归一化的点；region 是它们的外接矩形，定位与九宫说法沿用
+      const pts = (points || [from]).map(p => ({x: round(clamp01(p.x / w)), y: round(clamp01(p.y / h))}));
+      const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+      const x0 = Math.min(...xs), y0 = Math.min(...ys);
+      return {region: {x: x0, y: y0, w: round(Math.max(...xs) - x0), h: round(Math.max(...ys) - y0)}, points: pts};
+    }
     return {region: {x: round(a.x), y: round(a.y), w: 0, h: 0}};
   }
 
@@ -58,11 +75,15 @@
   function add(notes, note) {
     const list = notes || [];
     const text = String(note?.text || '').trim();
-    if (!text) return {notes: list, error: '先写下批注，再添加到对话'};
+    if (!text && (NEEDS_TEXT[note?.kind] || !note?.style)) return {notes: list, error: '先写下批注，再添加到对话'};
     if (text.length > LIMITS.text) return {notes: list, error: `一条批注最多 ${LIMITS.text} 字`};
     if (list.length >= LIMITS.notes) return {notes: list, error: `一条消息最多带 ${LIMITS.notes} 条视频标注，先把这些发出去`};
     if (note.kind === 'arrow' && !note.to) return {notes: list, error: '箭头要拖到它指的地方'};
     if (note.kind === 'box' && !(note.region.w > 0 && note.region.h > 0)) return {notes: list, error: '框要拖出一块面积'};
+    if (note.kind === 'line' && !note.to) return {notes: list, error: '直线要拖到它的另一头'};
+    if (note.kind === 'ellipse' && !(note.region.w > 0 && note.region.h > 0)) return {notes: list, error: '圆要拖出一块面积'};
+    if (note.kind === 'pen' && !(note.points?.length >= 2)) return {notes: list, error: '画笔要画出一道线'};
+    if (note.kind === 'element' && !note.element) return {notes: list, error: '先点中画面上的元素'};
     return {notes: [...list, {...note, text, label: note.label || label(note)}], error: null};
   }
 
@@ -101,8 +122,9 @@
   /** 给模型看的区域：归一化坐标原样给，另说一句百分比方便读。 */
   function regionText(note) {
     const r = note.region;
-    if (note.kind === 'arrow') return `from (${r.x}, ${r.y}) to (${note.to.x}, ${note.to.y})`;
-    if (note.kind === 'box') return `x=${r.x} y=${r.y} w=${r.w} h=${r.h} (${pct(r.x)}, ${pct(r.y)}, ${pct(r.w)} × ${pct(r.h)})`;
+    if (note.kind === 'arrow' || note.kind === 'line') return `from (${r.x}, ${r.y}) to (${note.to.x}, ${note.to.y})`;
+    if (note.kind === 'pen') return `path ${(note.points || []).map(p => `(${p.x}, ${p.y})`).join(' → ')} within x=${r.x} y=${r.y} w=${r.w} h=${r.h}`;
+    if (note.kind === 'box' || note.kind === 'ellipse' || note.kind === 'element') return `x=${r.x} y=${r.y} w=${r.w} h=${r.h} (${pct(r.x)}, ${pct(r.y)}, ${pct(r.w)} × ${pct(r.h)})`;
     return `at (${r.x}, ${r.y})`;
   }
 
@@ -119,7 +141,14 @@
       const revision = Math.max(...g.notes.map(n => n.revision || 0));
       const lines = g.notes.map((n, i) => {
         const body = String(n.text).split('\n').join('\n        ');
-        return [`${i + 1}. ${timecode(n.timeMs)} (${n.timeMs} ms) · ${n.kind} · ${regionText(n)}`, `   批注：${body}`].join('\n');
+        /* 轻量编辑器（docs/design/lite-editor §4.3）：标注落在哪一段、哪一句随标注给出，智能体改「第 3 场第 2 句这里」而不只是一个时刻 */
+        const where = n.segment ? `   segment: ${n.segment.id} (${n.segment.kind} #${n.segment.index + 1}${n.segment.title ? ' ' + n.segment.title : ''})`
+          + (n.line ? ` · line ${n.line.index}: ${n.line.text}` : '') : null;
+        /* 标记工具送来的：颜色与粗细、点中的元素（给模型看的 detail）、评论的印章截图（正式版作为图片附件随消息一起给） */
+        const style = n.style ? `   style: ${n.style.color} ${n.style.width}px` : null;
+        const element = n.element ? `   element: ${n.element.detail || n.element.label || ''}`.trimEnd() : null;
+        const shot = n.shot ? `   screenshot: attached, frame at ${n.shot.timeMs} ms with the stamp at (${n.shot.stamp.x}, ${n.shot.stamp.y})` : null;
+        return [`${i + 1}. ${timecode(n.timeMs)} (${n.timeMs} ms) · ${n.kind} · ${regionText(n)}`, style, element, where, shot, body ? `   批注：${body}` : null].filter(Boolean).join('\n');
       });
       const bounds = candidateBounds(g.notes);
       const tail = bounds ? `\ncandidateBoundsMs: ${bounds.fromMs}–${bounds.toMs}（候选范围，不是要改的区间）` : '';
