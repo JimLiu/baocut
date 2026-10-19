@@ -1,9 +1,10 @@
 /* Skills 页（App rail 上 Space 下面一格，2026-10-16；原来在设置 › Skills）。
    一个 skill 是一个文件夹：SKILL.md 加上参考文件和素材（logo、印章、片头音乐、字体……）。素材就是 skill 的一部分，
    上传 zip 或文件夹时一起进来，Agent 用这个 skill 时能把它们用进视频。
-   路由：#/skills（列表）、#/skills/<id>（详情，?tab=files&file=<路径> 看文件）、#/skills?dir=<项目 id>（那个项目的 BRAND.md，
-   page-project-brand.jsx）、#/skills?tab=external（页底「在终端或其他应用里用 BaoCut」展开）。
-   列表自上而下：一句导语 → 「我的」（个人与从 GitHub 导入的）→ 「项目品牌」（各项目根目录的 BRAND.md）→ 「BaoCut 内置」→ 页底折叠区。
+   路由：#/skills（列表）、#/skills/<id>（详情，?tab=files&file=<路径> 看文件）、#/skills?dir=<项目 id 或 global>（那份 BRAND.md，
+   page-project-brand.jsx）、#/skills?tab=external（最上面「在终端或其他应用里用 BaoCut」展开）。
+   列表自上而下：一句导语 → 外部 Agent 折叠卡（折叠着也看得到装在哪、是不是最新，page-settings-skills.jsx）→
+   「我的」（个人与从 GitHub 导入的）→ 「品牌」（全局与各项目的 BRAND.md）→ 「BaoCut 内置」。
    每行：类别图标、名字与标记（新 / 类别 / 素材数 / GitHub）、作者与一句话、日期、开关、更多菜单；点行进详情。
    把 zip 或文件夹拖到页面上任何地方都打开上传。详情在 page-skill-detail.jsx，上传与新建在 page-skills-upload.jsx。
    添加、导入、编辑与移除都是演示，不碰磁盘、不访问网络。 */
@@ -14,7 +15,7 @@
   const P = window.BC_SKILL_PKG;
 
   function SkillIcon({skill, size}) {
-    const Icon = skill.source === 'project' ? R.Icons.Folder : R.Icons[P.iconName(skill.category)] || R.Icons.Lightbulb;
+    const Icon = skill.scope === 'global' ? R.Icons.GlobeGrid : skill.source === 'project' ? R.Icons.Folder : R.Icons[P.iconName(skill.category)] || R.Icons.Lightbulb;
     return <span className={cx('skp-icon', size === 'l' && 'skp-icon--l')} aria-hidden="true"><Icon /></span>;
   }
 
@@ -75,7 +76,7 @@
     const st = P.stats(skill);
     return <span className="skp-badges">
       {skill.fresh ? <R.Badge variant="accent" size="S">新</R.Badge> : null}
-      <R.Badge variant="neutral" fillStyle="subtle" size="S">{skill.source === 'project' ? 'BRAND.md' : skill.category}</R.Badge>
+      <R.Badge variant="neutral" fillStyle="subtle" size="S">{skill.source === 'project' ? (skill.scope === 'global' ? '全局' : '项目') : skill.category}</R.Badge>
       {st.assets.length ? <R.Badge variant="informative" fillStyle="subtle" size="S">{`素材 ${st.assets.length}`}</R.Badge> : null}
       {skill.source === 'third-party' ? <R.Badge variant="neutral" fillStyle="outline" size="S">GitHub</R.Badge> : null}
     </span>;
@@ -122,14 +123,8 @@
     const [dragging, setDragging] = useState(false);
     const external = tab === 'external';
     const [extOpen, setExtOpen] = useState(external);
-    const extRef = useRef(null);
     const depth = useRef(0);
-    useEffect(() => {
-      if (!external) return undefined;
-      setExtOpen(true);
-      const id = setTimeout(() => { if (extRef.current) extRef.current.scrollIntoView({block: 'start'}); }, 60);
-      return () => clearTimeout(id);
-    }, [external]);
+    useEffect(() => { if (external) setExtOpen(true); }, [external]);
     const toggle = (s, on) => {
       app.setAgentSkills((l) => K.toggle(l, s.id, on));
       app.toast(on ? `已打开「${s.name}」· Agent 觉得相关时会自己用它` : `已关闭「${s.name}」· 只在你从输入框「+」里选它时才用`);
@@ -154,7 +149,8 @@
         <AddSkillMenu onPick={pick} />
       </>}>
         <p className="skp-lede">Skill 教 Agent 按你的方法做事：一份 SKILL.md，加上参考文件和素材（logo、印章、片头音乐、字体）。开着的，Agent 觉得相关时会自己用；关着的，只在你从输入框「+」里选它时才用。</p>
-        {groups.map((g) => <React.Fragment key={g.k}>{g.k === 'builtin' ? <window.ProjectBrandsSection query={query} /> : null}<section className="skp-section" aria-label={g.label}>
+        {q ? null : <div className="skp-external"><window.ExternalAgentsCard open={extOpen} onOpenChange={setExtOpen} /></div>}
+        {groups.map((g) => <React.Fragment key={g.k}>{g.k === 'builtin' ? <window.BrandsSection query={query} /> : null}<section className="skp-section" aria-label={g.label}>
           <h2 className="skp-section__hd">{g.label}<span>{g.items.length}</span></h2>
           {g.items.length ? <div className="skp-list">
             {g.items.map((s) => <SkillRow key={s.id} skill={s} onToggle={(on) => toggle(s, on)} />)}
@@ -168,14 +164,6 @@
           </div> : <p className="skp-none">{q ? `没有和「${q}」相关的${g.label === '我的' ? '个人' : '内置'} skill` : '没有'}</p>}
         </section></React.Fragment>)}
 
-        <div ref={extRef} className="skp-external">
-          <Card layer className="agset-advanced">
-            <BCDisclosure className="agset-disclosure" open={extOpen} onOpenChange={setExtOpen}
-              title={<> 在终端或其他应用的 Agent 里使用 BaoCut <span>给它们安装 baocut skill</span> </>}>
-              <window.AgentSkillsSection embedded />
-            </BCDisclosure>
-          </Card>
-        </div>
         <p className="agset-prototype-note">原型演示 · 上传、导入、编辑与移除使用示例数据，不会读写磁盘，也不会访问网络。</p>
       </window.Page>
       {dragging ? <div className="skp-dropzone" aria-hidden="true"><span><R.Icons.Upload /><b>松开上传 skill</b><em>zip 或文件夹，根目录要有 SKILL.md</em></span></div> : null}

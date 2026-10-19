@@ -52,10 +52,10 @@
     }, [theme]);
     // MCP 原型运行态跨设置页保留；刷新回到关闭，不持久化一个虚假的监听进程。
     const [mcp, setMcp] = useState({running: false, projects: [], access: 'ask', off: [], requireToken: false});
-    /* 2026-09-18：安装位置从「一串路径」改成一张表 path → {mode: 'link' | 'copy', ver, issue?}
-       （issue：'broken' 链接失效 / 'foreign' 那里已有一个不是 BaoCut 建的 baocut）。判定在 model-skill-install.js。 */
-    const [skillInstalls, setSkillInstalls] = useState(() => window.BC_SKILL_INSTALL.scenarioInstalls('default'));
-    const [skillRoots, setSkillRoots] = useState([]);
+    /* 外部 Agent 的 baocut skill 安装位置：一张表 path → {mode: 'copy' | 'link', ver, issue?}
+       （issue：'broken' 链接失效 / 'foreign' 那里已有一个不是 BaoCut 装的 baocut）。按项目装的根目录从路径推出，不另存。
+       判定在 model-skill-install.js。 */
+    const [skillInstalls, setSkillInstalls] = useState(() => window.BC_SKILL_INSTALL.scenarioInstalls('default', D.app.skillVersion));
     /* 内置 Agent 自己使用的 skills（model-agent-skills.js）：设置里添加、开关、移除，输入框的「+」读它，所以放在这里。
        只把用户动过的差量存进本地（按表面分键），演示数据本身不落盘。 */
     const [agentSkills, setAgentSkillsRaw] = useState(() => {
@@ -851,7 +851,7 @@
       shareOn, setShareOn,
       mcp, setMcp,
       web, webPort, svcStates, flipService,
-      skillInstalls, setSkillInstalls, skillRoots, setSkillRoots,
+      skillInstalls, setSkillInstalls,
       agentSkills, setAgentSkills,
       glossary, setGlossary, glossaryUse, setGlossaryUse,
       voices, setVoices, addVoices, voiceHandoff, setVoiceHandoff,

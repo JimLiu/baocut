@@ -1,106 +1,99 @@
-/* 把 BaoCut 的 skill 装进终端或其他应用里的 Agent（2026-09-17 从「Agent Skill & MCP」拆出；2026-09-18 重设计）。
-   现在不是单独的页签：收在 Skills 页（rail 上 Space 下面）页底的折叠区里（page-skills.jsx）。
-   内置 Agent 自己使用的 skills 是另一件事，见 model-agent-skills.js。
-   新手要先弄懂三件事，页面就按这个顺序排：
-   ① skill 是什么——一份给编码 Agent 看的说明书，装上之后它才知道怎么调用 BaoCut；
-   ② 我需不需要装——在 BaoCut 里用 Agent 不用装，在终端或别的应用里用才要装；
-   ③ 怎么装、装在哪——默认软链接到 App 内置的那一份，也可以复制一份（settings-skill-install.jsx）。
-   页顶状态卡一个按钮装齐 / 修好；异常（副本过期、链接失效、位置被占用、App 不在「应用程序」）各有说明与修法。
-   UI 提案，不碰磁盘。 */
+/* 把 BaoCut 的 skill 装进终端或其他应用里的 Agent（2026-09-17 从「Agent Skill & MCP」拆出；2026-10-18 重排）。
+   在 Skills 页最上面，默认折叠（page-skills.jsx）；#/skills?tab=external 打开时展开。
+   折叠着也要看得出两件事：装在哪（全局给了哪几个 Agent、几个项目），版本是不是最新——有可更新的直接给「全部更新」。
+   展开后：一句说明 → 全局 / 项目两块安装位置（settings-skill-install.jsx）→ 安装方式、能做什么、怎么确认、命令参考 → MCP 的指路。
+   内置 Agent 自己使用的 skills 是另一件事，见 model-agent-skills.js。UI 提案，不碰磁盘。 */
 (function () {
   const {useState} = React;
   const D = window.BC_DATA;
   const M = window.BC_SKILL_INSTALL;
 
-  /* embedded：嵌在 Skills 页的折叠区里，标题由外面画 */
-  function AgentSkillsSection({embedded}) {
+  /** 折叠行上的一句状态与按钮：none 没装 / ok 都最新 / update 可更新或可修 / attention 有 BaoCut 不碰的占用 */
+  function summaryOf(ov, ver) {
+    const where = M.whereLine(ov);
+    if (ov.kind === 'none') return {tone: undefined, chip: '尚未安装', line: '装上之后，Claude Code、Codex 等 Agent 就知道怎么用 BaoCut 转录、翻译、剪辑和导出。'};
+    if (ov.kind === 'update') {
+      const n = ov.fixable.length;
+      return {tone: 'notice', chip: ov.stale.length ? `${n} 处可更新` : `${n} 处要修复`,
+        line: [where, ov.stale.length ? `有 v${ov.oldest} 的旧版本 · 当前 v${ver}` : '有链接失效'].filter(Boolean).join(' · '),
+        cta: ov.stale.length ? `全部更新到 v${ver}` : '全部修复'};
+    }
+    if (ov.kind === 'attention') return {tone: 'notice', chip: `${ov.foreign.length} 处被占用`, line: [where, `v${ver}`].filter(Boolean).join(' · ')};
+    return {tone: 'positive', chip: `v${ver} · 最新`, line: where};
+  }
+
+  function ExternalAgentsCard({open, onOpenChange}) {
     const app = useApp();
-    const [mode, setMode] = useState('link');
+    const [mode, setMode] = useState('copy');
     const [scenario, setScenario] = useState('default');
     const ver = D.app.skillVersion;
     const ov = M.overview(app.skillInstalls, ver);
-    const appPath = M.scenarioAppPath(scenario);
-    const warn = M.sourceWarning(appPath);
+    const sum = summaryOf(ov, ver);
     const copy = async (text, label) => {
       try { await navigator.clipboard.writeText(text); app.toast(label + '已复制', 'positive'); }
       catch (e) { app.toast('复制失败，请选中文字后复制'); }
     };
-    const installAll = () => {
-      app.setSkillInstalls((m) => ov.missing.reduce((acc, p) => M.put(acc, p, mode, ver), m));
-      app.toast(`已用${M.modeLabel(mode)}安装到 ${ov.missing.length} 个位置（演示）`, 'positive');
-    };
-    const fixAll = () => {
+    const updateAll = () => {
       app.setSkillInstalls((m) => M.repairAll(m, ov.fixable, ver));
-      app.toast(`已修复 ${ov.fixable.length} 处（演示）`, 'positive');
+      app.toast(`已把 ${ov.fixable.length} 处更新到 v${ver}（演示）· 新开 Agent 会话后生效`, 'positive');
     };
-    const hero = {
-      all: {title: 'baocut skill 已安装，终端里的 Agent 可以直接使用 BaoCut', sub: `v${ver} · 共 ${ov.count} 处`},
-      partial: {title: `baocut skill 已安装到 ${ov.n} / ${ov.total} 个全局位置`, sub: `v${ver} · 没装的那个 Agent 还不知道怎么使用 BaoCut`, cta: '装齐全局位置', run: installAll},
-      none: {title: 'baocut skill 尚未安装', sub: '终端里的 Agent 还不知道怎么使用 BaoCut。一键安装到 Claude Code、Codex 等 Agent 的全局位置。', cta: '安装到全部 Agent', run: installAll},
-      attention: {title: `${ov.issues.length} 处安装需要处理`, sub: ov.fixable.length ? '副本过期或链接失效，一键就能修好；你的文件不会被删除。' : '有位置被不是 BaoCut 创建的文件夹占用。BaoCut 不会替换它，见下方。',
-        cta: ov.fixable.length ? '全部修复' : null, run: fixAll},
-    }[ov.kind];
-
-    return <div className="agent-settings" data-screen-label="Agent Skills 设置">
-      {embedded ? null : <h1 className="t-heading-sm">Agent Skills</h1>}
-      <p className="agset-lede">Skill 是一份给 AI 编码助手看的「使用说明书」。装上之后，你在终端里对 Claude Code 或 Codex 说一句「用 BaoCut 给这个视频加字幕」，它就知道该怎么转录、翻译、剪辑和导出。</p>
-
-      <div className="ags-when" aria-label="什么时候需要安装">
-        <div className="ags-when__i"><Ic n="ok" className="ic--16" /><div><b>在 BaoCut 里用 Agent</b><p>不用安装。每条会话开始时，BaoCut 自动带上这份 skill 和内置指令。</p></div></div>
-        <div className="ags-when__i is-here"><Ic n="skill" className="ic--16" /><div><b>在终端或其他应用里用 Agent</b><p>在这里安装。装一次，之后一直可用，没有开关也不占后台。</p></div></div>
+    return <Card layer className={cx('skp-ext', open && 'is-open')} data-screen-label="外部 Agent">
+      <div className="skp-ext__bar">
+        <BCAction type="button" className="skp-ext__toggle" aria-expanded={!!open} onClick={() => onOpenChange(!open)}>
+          <Ic n={open ? 'chevdown' : 'chevright'} className="ic--16" />
+          <span className={cx('svc__mark', ov.kind === 'ok' && 'is-on')}><Ic n="skill" className="ic--16" /></span>
+          <span className="skp-ext__text">
+            <b>在终端或其他应用的 Agent 里使用 BaoCut</b>
+            <span>{sum.line}</span>
+          </span>
+        </BCAction>
+        <Chip tone={sum.tone}>{sum.chip}</Chip>
+        {sum.cta ? <Btn size="s" variant="accent" onClick={updateAll}>{sum.cta}</Btn> : null}
+        {ov.kind === 'none' && !open ? <Btn size="s" onClick={() => onOpenChange(true)}>安装…</Btn> : null}
       </div>
+      {open ? <div className="skp-ext__body agent-settings">
+        <p className="agset-lede">这份 skill 是给 Claude Code、Codex 这类 Agent 看的使用说明书。装上之后，在终端里说一句「用 BaoCut 给这个视频加字幕」，它就知道该怎么做。在 BaoCut 里用 Agent 不用装，会话会自动带上。</p>
+        {ov.foreign.length ? <div className="agp-problem is-notice ags-warn" role="note"><Ic n="alert" className="ic--16" />
+          <div className="grow"><b>有位置被占用</b><p>那里已有一个不是 BaoCut 装的 baocut。BaoCut 不会替换它；把它移走或改名后再回来安装。</p></div></div> : null}
+        <window.SkillInstallSection mode={mode} />
 
-      <Card layer className={cx('ags-hero', 'is-' + ov.kind)}>
-        <span className={cx('svc__mark', ov.kind === 'attention' ? 'is-error' : ov.kind !== 'none' && 'is-on')}><Ic n={ov.kind === 'attention' ? 'alert' : 'skill'} className="ic--16" /></span>
-        <span className="grow svc__txt"><b className="t-title-sm">{hero.title}</b><span className="t-detail">{hero.sub}</span></span>
-        {hero.cta ? <Btn variant="accent" onClick={hero.run}>{hero.cta}</Btn> : ov.kind === 'all' ? <Chip tone="positive">已就绪</Chip> : null}
-      </Card>
-      {warn ? <div className="agp-problem is-notice ags-warn" role="alert"><Ic n="alert" className="ic--16" />
-        <div className="grow"><b>{warn.title}</b><p>{warn.body}</p></div>
-        {mode === 'link' ? <Btn size="s" onClick={() => setMode('copy')}>改用复制</Btn> : null}</div> : null}
+        <Card layer className="agset-advanced ags-context">
+          <BCDisclosure className="agset-disclosure" title={<> 安装方式 <span>{M.modeLabel(mode)}</span> </>}>
+            <p>对之后的每一次安装生效；已经装好的位置可以在各自的菜单里单独切换。</p>
+            <BCChoiceGroup className="ags-modes" value={mode} onChange={setMode} aria-label="安装方式">
+              {M.MODES.map((m) => <BCAction key={m.k} type="button" choiceKey={m.k} className={cx('agm-access__option', mode === m.k && 'is-on')}>
+                <span><b>{m.label}{m.tag ? <span className="agp-tier">{m.tag}</span> : null}</b><span>{m.desc}</span></span>
+              </BCAction>)}
+            </BCChoiceGroup>
+          </BCDisclosure>
+          {/* 2026-10-01 baocut skill 能做什么：App 从装着的 skill 的 workflows.json 现读，这里用 data.js 的演示副本 */}
+          {D.skill.catalog && D.skill.catalog.length ? <BCDisclosure className="agset-disclosure" title={<> baocut skill 能做什么 <span>{`${D.skill.catalog.length} 类`}</span> </>}>
+            <ul className="ags-catalog__grid">
+              {D.skill.catalog.map((c) => <li key={c.id}><b>{c.name}</b>{c.desc ? <p>{c.desc}</p> : null}</li>)}
+            </ul>
+          </BCDisclosure> : null}
+          <BCDisclosure className="agset-disclosure" title={<> 怎么确认装好了？ </>}>
+            <p>在终端里新开一个 Agent 会话，问它「你会用 BaoCut 吗」，或输入 <code>/skills</code> 查看已加载的 skill，列表里有 baocut 就是装好了。已经开着的会话要重开才会读到新版本。</p>
+          </BCDisclosure>
+          <BCDisclosure className="agset-disclosure" title={<> 用命令行安装 </>}>
+            {['baocut skill install --agent claude-code', 'baocut skill install --agent codex --dir ~/Projects/video/.codex/skills', 'baocut skill status'].map((cmd) =>
+              <div className="agset-command" key={cmd}><code className="agset-path">{cmd}</code><IconBtn icon="copy" size="s" tip={'复制 ' + cmd} onClick={() => copy(cmd, '命令')} /></div>)}
+          </BCDisclosure>
+        </Card>
 
-      {/* 2026-10-01 baocut skill 能做什么：App 从装着的 skill 的 workflows.json 现读，这里用 data.js 的演示副本 */}
-      {D.skill.catalog && D.skill.catalog.length ? <Card layer className="ags-catalog">
-        <b className="t-title-sm">baocut skill 能做什么</b>
-        <p className="t-detail">从 BaoCut 自带的这份 skill 里读出的 {D.skill.catalog.length} 类。直接说你想做什么，Agent 会自己找到对应的那一类。</p>
-        <ul className="ags-catalog__grid">
-          {D.skill.catalog.map((c) => <li key={c.id}><b>{c.name}</b>{c.desc ? <p>{c.desc}</p> : null}
-            {c.commands.length ? <code>{c.commands.slice(0, 4).map((x) => 'bcut ' + x).join(' · ')}{c.commands.length > 4 ? ' · +' + (c.commands.length - 4) : ''}</code> : null}</li>)}
-        </ul>
-      </Card> : null}
+        <Card layer className="ags-related">
+          <Ic n="link" className="ic--16" />
+          <span className="grow svc__txt"><b className="t-title-sm">想让其他 AI 应用直接连接 BaoCut？</b><span className="t-detail">那是 MCP 服务，在「服务」里，和远端算力、Web 服务一起管理。</span></span>
+          <Btn size="s" onClick={() => app.go({r: 'services', id: 'mcp'})}>打开 MCP 服务</Btn>
+        </Card>
 
-      <window.SkillInstallSection mode={mode} setMode={setMode} />
-
-      <Card layer className="agset-advanced ags-context">
-        <BCDisclosure className="agset-disclosure" title={<> 怎么确认装好了？ </>}>
-          <p>在终端里打开你的 Agent，问它「你会用 BaoCut 吗」，或输入 <code>/skills</code> 查看已加载的 skill，列表里有 baocut 就是装好了。刚装完需要新开一个 Agent 会话才会读到。</p></BCDisclosure>
-        <BCDisclosure className="agset-disclosure" title={<> Skill 来源 <span>BaoCut App 内置目录 · v{ver}</span> </>}>
-          <code className="agset-path">{appPath}</code>
-          <p>软链接的安装位置都指向这里，所以 App 更新后读到的就是新版本；复制的副本是装的那一刻的内容。</p>
-          <div className="row gap8"><Btn size="s" icon="copy" onClick={() => copy(appPath, '源路径')}>复制源路径</Btn><Btn size="s" onClick={() => app.toast('原型演示：在文件夹中显示 ' + appPath)}>在文件夹中显示</Btn></div></BCDisclosure>
-        <BCDisclosure className="agset-disclosure" title={<> 内置指令与工作目录 <span>BaoCut 自动管理</span> </>}>
-          <p>BaoCut 里的会话开始前，会自动准备内置指令与 skill 链接。这个工作目录独立于视频包。</p>
-          <code className="agset-path">{D.skill.agentDir}</code>
-          <div className="row gap8"><Btn size="s" onClick={() => copy(D.skill.contextDoc, '内置指令')}>复制内置指令</Btn><Btn size="s" onClick={() => app.toast('原型演示：在文件夹中显示 ' + D.skill.agentDir)}>在文件夹中显示</Btn></div>
-        </BCDisclosure>
-        <BCDisclosure className="agset-disclosure" title={<> 终端命令参考 </>}>
-          {D.skill.commands.map((c) => <div className="agset-command" key={c.cmd}><div><b>{c.desc}</b><code className="agset-path">{c.cmd}</code></div><IconBtn icon="copy" size="s" tip={'复制 ' + c.cmd} onClick={() => copy(c.cmd, '命令')} /></div>)}
-        </BCDisclosure>
-      </Card>
-
-      <Card layer className="ags-related">
-        <Ic n="link" className="ic--16" />
-        <span className="grow svc__txt"><b className="t-title-sm">想让其他 AI 应用直接连接 BaoCut？</b><span className="t-detail">那是 MCP 服务，在侧栏的「服务」里，和远端算力、Web 服务一起管理。</span></span>
-        <Btn size="s" onClick={() => app.go({r: 'services', id: 'mcp'})}>打开 MCP 服务</Btn>
-      </Card>
-
-      <div className="agset-demo" aria-label="原型演示场景">
-        <b>原型演示 · 切换磁盘上的情况</b>
-        <div className="agset-rulelist">{M.SCENARIOS.map((sc) => <Chip key={sc.k} on={scenario === sc.k}
-          onClick={() => { setScenario(sc.k); app.setSkillInstalls(M.scenarioInstalls(sc.k)); app.setSkillRoots([]); }}>{sc.label}</Chip>)}</div>
-      </div>
-      <p className="agset-prototype-note">原型演示 · 安装操作使用示例状态，不会在磁盘上创建链接或复制文件。</p>
-    </div>;
+        <div className="agset-demo" aria-label="原型演示场景">
+          <b>原型演示 · 切换磁盘上的情况</b>
+          <div className="agset-rulelist">{M.SCENARIOS.map((sc) => <Chip key={sc.k} on={scenario === sc.k}
+            onClick={() => { setScenario(sc.k); app.setSkillInstalls(M.scenarioInstalls(sc.k, ver)); }}>{sc.label}</Chip>)}</div>
+        </div>
+      </div> : null}
+    </Card>;
   }
-  Object.assign(window, {AgentSkillsSection});
+  Object.assign(window, {ExternalAgentsCard});
 })();

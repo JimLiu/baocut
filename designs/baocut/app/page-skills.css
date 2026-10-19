@@ -20,6 +20,11 @@
 .skp-row__title { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .skp-row__title b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: var(--gray-900); }
 .skp-row__sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--gray-700); }
+.skp-row__scope { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: 12px; color: var(--gray-800); }
+.skp-row__scope code { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: 11px; color: var(--gray-600); }
+.skp-row__main--static { cursor: default; }
+.skp-row--empty:hover { background: transparent; }
+.skp-row--empty .skp-row__sub { white-space: normal; }
 .skp-row__date { flex: none; font-size: 12px; color: var(--gray-600); }
 .skp-row__end { display: flex; flex: none; align-items: center; gap: 4px; padding-inline-end: 8px; }
 .skp-row.is-off .skp-row__title b { color: var(--gray-700); }
@@ -35,7 +40,21 @@
 .skp-empty p { margin: 0; max-width: 560px; font-size: 12px; line-height: 1.6; color: var(--gray-700); }
 .skp-empty__acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 .skp-none { margin: 0; padding: 12px 8px; font-size: 12px; color: var(--gray-600); border-top: 1px solid var(--gray-200); }
-.skp-external { margin-top: 8px; scroll-margin-top: 16px; }
+.skp-external { margin-bottom: 32px; }
+
+/* 外部 Agent 折叠卡（page-settings-skills.jsx）：折叠着也看得到装在哪、版本是不是最新 */
+.skp-ext { padding: 0; }
+.skp-ext__bar { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 12px 16px 12px 8px; }
+.skp-ext__toggle { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; padding: 4px 8px; border: none; border-radius: 8px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.skp-ext__toggle:hover { background: var(--gray-50); }
+.skp-ext__toggle:focus-visible { outline: 2px solid var(--blue-900); outline-offset: 2px; }
+.skp-ext__toggle > .ic { flex: none; color: var(--gray-600); }
+.skp-ext__text { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; }
+.skp-ext__text b { font-size: 14px; color: var(--gray-900); }
+.skp-ext__text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--gray-700); }
+.skp-ext__bar > .btn, .skp-ext__bar > .chip { flex: none; }
+.skp-ext__body { padding: 0 20px 20px; border-top: 2px solid var(--gray-100); }
+@media (max-width: 720px) { .skp-ext__bar { flex-wrap: wrap; } }
 
 /* 拖进来时盖在整页上 */
 .skp-dropzone { position: absolute; inset: 8px; z-index: 5; display: flex; align-items: center; justify-content: center; border-radius: 16px; background: var(--gray-25); box-shadow: inset 0 0 0 2px var(--blue-900); pointer-events: none; }
@@ -166,3 +185,14 @@
 .skp-create .skp-lede { margin: 0; }
 .skp-create__pick { width: 320px; max-width: 100%; }
 .skp-create__acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.skp-create__label { margin-bottom: -8px; font-size: 12px; font-weight: 700; color: var(--gray-800); }
+.skp-how { display: flex; flex-direction: column; align-items: stretch; gap: 8px; width: 100%; }
+/* 选项卡片放在 S2 ToggleButtonGroup 里：选中态别沿用它的白字 */
+.skp-how .agm-access__option, .skp-ext .agm-access__option { color: var(--gray-900); }
+
+/* 安装到项目（settings-skill-install.jsx） */
+.ags-pick { display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow: auto; }
+.ags-pick__i { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.ags-pick__i b { font-size: 12px; }
+.ags-pick__i code, .ags-project__name code { font-size: 11px; color: var(--gray-600); }
+.ags-project__name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }

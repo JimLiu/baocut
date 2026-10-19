@@ -309,7 +309,7 @@
       if (off || reading || busy || (!draft.trim() && !attachments.length && !reference && !notesCount)) return;
       const PB = window.BC_PROJECT_BRAND;
       const text = window.BC_AGENT_SKILLS.withSkill(draft.trim(), skill);
-      onSend(brandOff && PB && PB.hasBrand(app.projectBrands, dirId) ? PB.withoutBrand(text) : text, attachments, reference, slideNotes, designNotes, systemNotes, videoNotes, docsNotes);
+      onSend(brandOff && PB && PB.layers(app.projectBrands, dirId).length ? PB.withoutBrand(text) : text, attachments, reference, slideNotes, designNotes, systemNotes, videoNotes, docsNotes);
       setDraft(''); setSkillId(null); setBrandOff(false);
       if (videoNotes.length) app.setVideoNotes(sess.project, []);
       setAttachments([]); onPatch({draftAttachments: [], ...(reference ? {draftReference: null} : {}), ...(slideNotes.length ? {draftSlideAnnotations: []} : {}),

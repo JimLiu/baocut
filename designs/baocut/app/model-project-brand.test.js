@@ -72,3 +72,27 @@ test('只这条消息不用：提示词末尾带一行，空提示词也带', ()
   assert.equal(B.withoutBrand('做一期'), '做一期\n' + B.SKIP_LINE);
   assert.equal(B.withoutBrand(''), B.SKIP_LINE);
 });
+
+test('全局品牌：记作 dir global，不进项目列表；会话带上的是项目的在前、全局的在后', () => {
+  const g = B.globalDir();
+  const brands = B.save(B.save([], 'd1', B.template({id: 'd1', name: '一'})), B.GLOBAL, B.template(g));
+  assert.equal(B.isGlobal(g), true);
+  assert.equal(B.isGlobal('d1'), false);
+  assert.deepEqual(B.list(brands, [{id: 'd1', name: '一', path: '~/BaoCut/一/'}]).map((s) => s.dirId), ['d1']);
+  assert.equal(B.asSkill(g, B.brandOf(brands, B.GLOBAL)).scope, 'global');
+  assert.equal(B.asSkill(g, B.brandOf(brands, B.GLOBAL)).path, '~/.baocut/BRAND.md');
+  assert.deepEqual(B.layers(brands, 'd1'), ['d1', B.GLOBAL]);
+  assert.deepEqual(B.layers(brands, 'd2'), [B.GLOBAL]);
+  assert.deepEqual(B.layers(brands, null), [B.GLOBAL]);
+  assert.deepEqual(B.layers(B.remove(brands, B.GLOBAL), null), []);
+  assert.match(B.template(g)[0].body, /以项目的为准/);
+  assert.equal(B.scopeLine({id: 'd1', name: '一'}), '只在「一」项目里用');
+});
+
+test('和 Agent 一起建：第一条消息写明写到哪里、一次问一个问题、先给草稿', () => {
+  const p = B.interviewPrompt({id: 'd1', name: '科浪访谈', path: '~/BaoCut/科浪/'});
+  assert.match(p, /「科浪访谈」项目/);
+  assert.match(p, /一次只问我一个问题/);
+  assert.match(p, /确认后再写成 BRAND\.md/);
+  assert.match(B.interviewPrompt(B.globalDir()), /~\/\.baocut\/BRAND\.md/);
+});
